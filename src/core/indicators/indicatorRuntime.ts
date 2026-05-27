@@ -25,6 +25,9 @@ import {
     calcHMAData,
     calcKAMAData,
     calcSARData,
+    calcSuperTrendData,
+    calcKeltnerData,
+    calcDonchianData,
     DEFAULT_MA_PERIODS,
     DEFAULT_ATR_PERIOD,
     DEFAULT_WMA_PERIOD,
@@ -36,6 +39,12 @@ import {
     DEFAULT_KAMA_SLOW_PERIOD,
     DEFAULT_SAR_STEP,
     DEFAULT_SAR_MAX_STEP,
+    DEFAULT_SUPERTREND_ATR_PERIOD,
+    DEFAULT_SUPERTREND_MULTIPLIER,
+    DEFAULT_KELTNER_EMA_PERIOD,
+    DEFAULT_KELTNER_ATR_PERIOD,
+    DEFAULT_KELTNER_MULTIPLIER,
+    DEFAULT_DONCHIAN_PERIOD,
     type MAFlags,
     type BOLLPoint,
     type EXPMAPoint,
@@ -44,6 +53,9 @@ import {
     type KSTPoint,
     type MACDPoint,
     type SARPoint,
+    type SuperTrendPoint,
+    type KeltnerPoint,
+    type DonchianPoint,
 } from './calculators'
 import type {
     BOLLSchedulerConfig,
@@ -64,6 +76,9 @@ import type {
     HMASchedulerConfig,
     KAMASchedulerConfig,
     SARSchedulerConfig,
+    SuperTrendSchedulerConfig,
+    KeltnerSchedulerConfig,
+    DonchianSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -109,6 +124,9 @@ export class IndicatorRuntime {
     private cachedHmaSeries: (number | undefined)[] = []
     private cachedKamaSeries: (number | undefined)[] = []
     private cachedSarSeries: (SARPoint | undefined)[] = []
+    private cachedSupertrendSeries: (SuperTrendPoint | undefined)[] = []
+    private cachedKeltnerSeries: (KeltnerPoint | undefined)[] = []
+    private cachedDonchianSeries: (DonchianPoint | undefined)[] = []
 
     // 脏标记
     private dirtyData = true
@@ -131,6 +149,9 @@ export class IndicatorRuntime {
     private dirtyHmaConfig = true
     private dirtyKamaConfig = true
     private dirtySarConfig = true
+    private dirtySupertrendConfig = true
+    private dirtyKeltnerConfig = true
+    private dirtyDonchianConfig = true
 
     private getDefaultConfig(): IndicatorConfigSnapshot {
         return {
@@ -187,6 +208,25 @@ export class IndicatorRuntime {
                 showKAMA: true,
             },
             sar: { step: DEFAULT_SAR_STEP, maxStep: DEFAULT_SAR_MAX_STEP, showSAR: true },
+            supertrend: {
+                atrPeriod: DEFAULT_SUPERTREND_ATR_PERIOD,
+                multiplier: DEFAULT_SUPERTREND_MULTIPLIER,
+                showSuperTrend: true,
+            },
+            keltner: {
+                emaPeriod: DEFAULT_KELTNER_EMA_PERIOD,
+                atrPeriod: DEFAULT_KELTNER_ATR_PERIOD,
+                multiplier: DEFAULT_KELTNER_MULTIPLIER,
+                showUpper: true,
+                showMiddle: true,
+                showLower: true,
+            },
+            donchian: {
+                period: DEFAULT_DONCHIAN_PERIOD,
+                showUpper: true,
+                showMiddle: true,
+                showLower: true,
+            },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -202,6 +242,9 @@ export class IndicatorRuntime {
             hmaPaneId: 'sub_HMA',
             kamaPaneId: 'sub_KAMA',
             sarPaneId: 'sub_SAR',
+            supertrendPaneId: 'sub_SuperTrend',
+            keltnerPaneId: 'sub_Keltner',
+            donchianPaneId: 'sub_Donchian',
         }
     }
 
@@ -309,6 +352,18 @@ export class IndicatorRuntime {
             this.config.sar = { ...this.config.sar, ...config.sar }
             this.dirtySarConfig = true
         }
+        if (config.supertrend !== undefined && !this.shallowEqual(config.supertrend as unknown as Record<string, unknown>, this.config.supertrend as unknown as Record<string, unknown>)) {
+            this.config.supertrend = { ...this.config.supertrend, ...config.supertrend }
+            this.dirtySupertrendConfig = true
+        }
+        if (config.keltner !== undefined && !this.shallowEqual(config.keltner as unknown as Record<string, unknown>, this.config.keltner as unknown as Record<string, unknown>)) {
+            this.config.keltner = { ...this.config.keltner, ...config.keltner }
+            this.dirtyKeltnerConfig = true
+        }
+        if (config.donchian !== undefined && !this.shallowEqual(config.donchian as unknown as Record<string, unknown>, this.config.donchian as unknown as Record<string, unknown>)) {
+            this.config.donchian = { ...this.config.donchian, ...config.donchian }
+            this.dirtyDonchianConfig = true
+        }
         // pane IDs
         if (config.rsiPaneId !== undefined) this.config.rsiPaneId = config.rsiPaneId
         if (config.cciPaneId !== undefined) this.config.cciPaneId = config.cciPaneId
@@ -325,6 +380,9 @@ export class IndicatorRuntime {
         if (config.hmaPaneId !== undefined) this.config.hmaPaneId = config.hmaPaneId
         if (config.kamaPaneId !== undefined) this.config.kamaPaneId = config.kamaPaneId
         if (config.sarPaneId !== undefined) this.config.sarPaneId = config.sarPaneId
+        if (config.supertrendPaneId !== undefined) this.config.supertrendPaneId = config.supertrendPaneId
+        if (config.keltnerPaneId !== undefined) this.config.keltnerPaneId = config.keltnerPaneId
+        if (config.donchianPaneId !== undefined) this.config.donchianPaneId = config.donchianPaneId
 
         this.configVersion = version
     }
@@ -353,6 +411,9 @@ export class IndicatorRuntime {
         this.dirtyHmaConfig = true
         this.dirtyKamaConfig = true
         this.dirtySarConfig = true
+        this.dirtySupertrendConfig = true
+        this.dirtyKeltnerConfig = true
+        this.dirtyDonchianConfig = true
     }
 
     /**
@@ -593,6 +654,45 @@ export class IndicatorRuntime {
             changed.push('sar')
         }
 
+        // SuperTrend
+        if (this.dirtyData || this.dirtySupertrendConfig) {
+            if (this.config.supertrend.showSuperTrend) {
+                this.cachedSupertrendSeries = calcSuperTrendData(
+                    data,
+                    this.config.supertrend.atrPeriod,
+                    this.config.supertrend.multiplier,
+                )
+            } else {
+                this.cachedSupertrendSeries = []
+            }
+            changed.push('supertrend')
+        }
+
+        // Keltner
+        if (this.dirtyData || this.dirtyKeltnerConfig) {
+            if (this.config.keltner.showUpper || this.config.keltner.showMiddle || this.config.keltner.showLower) {
+                this.cachedKeltnerSeries = calcKeltnerData(
+                    data,
+                    this.config.keltner.emaPeriod,
+                    this.config.keltner.atrPeriod,
+                    this.config.keltner.multiplier,
+                )
+            } else {
+                this.cachedKeltnerSeries = []
+            }
+            changed.push('keltner')
+        }
+
+        // Donchian
+        if (this.dirtyData || this.dirtyDonchianConfig) {
+            if (this.config.donchian.showUpper || this.config.donchian.showMiddle || this.config.donchian.showLower) {
+                this.cachedDonchianSeries = calcDonchianData(data, this.config.donchian.period)
+            } else {
+                this.cachedDonchianSeries = []
+            }
+            changed.push('donchian')
+        }
+
         // 重置脏标记
         this.dirtyData = false
         this.dirtyMAConfig = false
@@ -614,6 +714,9 @@ export class IndicatorRuntime {
         this.dirtyHmaConfig = false
         this.dirtyKamaConfig = false
         this.dirtySarConfig = false
+        this.dirtySupertrendConfig = false
+        this.dirtyKeltnerConfig = false
+        this.dirtyDonchianConfig = false
 
         // 组装结果
         return {
@@ -693,6 +796,18 @@ export class IndicatorRuntime {
             sar: {
                 series: this.cachedSarSeries,
                 params: { ...this.config.sar },
+            },
+            supertrend: {
+                series: this.cachedSupertrendSeries,
+                params: { ...this.config.supertrend },
+            },
+            keltner: {
+                series: this.cachedKeltnerSeries,
+                params: { ...this.config.keltner },
+            },
+            donchian: {
+                series: this.cachedDonchianSeries,
+                params: { ...this.config.donchian },
             },
             _changed: changed,
         }
@@ -780,6 +895,18 @@ export class IndicatorRuntime {
             sar: {
                 series: this.cachedSarSeries,
                 params: { ...this.config.sar },
+            },
+            supertrend: {
+                series: this.cachedSupertrendSeries,
+                params: { ...this.config.supertrend },
+            },
+            keltner: {
+                series: this.cachedKeltnerSeries,
+                params: { ...this.config.keltner },
+            },
+            donchian: {
+                series: this.cachedDonchianSeries,
+                params: { ...this.config.donchian },
             },
         }
     }

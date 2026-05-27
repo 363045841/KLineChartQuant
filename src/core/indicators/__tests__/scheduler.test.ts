@@ -208,6 +208,7 @@ describe('IndicatorScheduler', () => {
       scheduler.setActiveSubPaneProvider(() => [
         'sub_RSI', 'sub_CCI', 'sub_STOCH', 'sub_MOM', 'sub_WMSR', 'sub_KST', 'sub_FASTK', 'sub_MACD',
         'sub_ATR', 'sub_WMA', 'sub_DEMA', 'sub_TEMA', 'sub_HMA', 'sub_KAMA', 'sub_SAR',
+        'sub_SuperTrend', 'sub_Keltner', 'sub_Donchian',
       ])
 
       const data = createTestData(100)
@@ -221,9 +222,9 @@ describe('IndicatorScheduler', () => {
       // Update only viewport
       scheduler.updateVisibleRange({ start: 50, end: 60 })
 
-      // updateVisibleStatesOnly writes the 15 sub-indicators (RSI, CCI, STOCH, MOM, WMSR, KST, FASTK, MACD, ATR, WMA, DEMA, TEMA, HMA, KAMA, SAR).
+      // updateVisibleStatesOnly writes the 18 sub-indicators.
       // Main indicators (MA, BOLL, EXPMA, ENE) are not rewritten on viewport-only changes.
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(15)
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(18)
 
       // Inspect a sub-indicator (RSI) since main indicators are not rewritten on viewport-only updates
       const rsiKey = createRSIStateKey('sub_RSI')
@@ -243,8 +244,8 @@ describe('IndicatorScheduler', () => {
       const data2 = createTestData(100, 200)
       scheduler.update(data2, { start: 0, end: 100 })
 
-      // Should be called 38 times (19 indicators × 2 data updates)
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(38)
+      // Should be called 44 times (22 indicators × 2 data updates)
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(44)
     })
   })
 
@@ -257,8 +258,8 @@ describe('IndicatorScheduler', () => {
 
       scheduler.recompute()
 
-      // Should write all 19 indicator states (12 baseline + ATR + WMA + DEMA + TEMA + HMA + KAMA + SAR)
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(19)
+      // Should write all 22 indicator states (12 baseline + ATR + 4 MA family + KAMA + SAR + SuperTrend + Keltner + Donchian)
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(22)
     })
 
     it('should recalculate with same data and range', () => {

@@ -63,6 +63,12 @@ import type { KAMARenderState } from './kamaState'
 import { EMPTY_KAMA_STATE } from './kamaState'
 import type { SARRenderState } from './sarState'
 import { EMPTY_SAR_STATE } from './sarState'
+import type { SuperTrendRenderState } from './supertrendState'
+import { EMPTY_SUPERTREND_STATE } from './supertrendState'
+import type { KeltnerRenderState } from './keltnerState'
+import { EMPTY_KELTNER_STATE } from './keltnerState'
+import type { DonchianRenderState } from './donchianState'
+import { EMPTY_DONCHIAN_STATE } from './donchianState'
 import type { IndicatorSeriesBundle } from './workerProtocol'
 
 /**
@@ -89,6 +95,9 @@ type VisibleSubIndicatorStates = {
     hma: HMARenderState
     kama: KAMARenderState
     sar: SARRenderState
+    supertrend: SuperTrendRenderState
+    keltner: KeltnerRenderState
+    donchian: DonchianRenderState
 }
 
 type VisibleSubIndicatorMask = {
@@ -107,6 +116,9 @@ type VisibleSubIndicatorMask = {
     hma?: boolean
     kama?: boolean
     sar?: boolean
+    supertrend?: boolean
+    keltner?: boolean
+    donchian?: boolean
 }
 
 type ComposedRenderStates = VisibleSubIndicatorStates & {
@@ -156,6 +168,9 @@ export function composeVisibleSubIndicatorStates(
     const hmaActive = activeMask.hma ?? true
     const kamaActive = activeMask.kama ?? true
     const sarActive = activeMask.sar ?? true
+    const supertrendActive = activeMask.supertrend ?? true
+    const keltnerActive = activeMask.keltner ?? true
+    const donchianActive = activeMask.donchian ?? true
 
     const rsiExtremes = rsiActive ? calcRSIExtremes(bundle.rsi.series, visibleRange) : null
     const cciExtremes = cciActive ? calcCCIExtremes(bundle.cci.series, visibleRange) : null
@@ -172,6 +187,9 @@ export function composeVisibleSubIndicatorStates(
     const hmaExtremes = hmaActive ? calcSparseExtremes(bundle.hma.series, visibleRange) : null
     const kamaExtremes = kamaActive ? calcSparseExtremes(bundle.kama.series, visibleRange) : null
     const sarExtremes = sarActive ? calcSARExtremes(bundle.sar.series, visibleRange) : null
+    const supertrendExtremes = supertrendActive ? calcSARExtremes(bundle.supertrend.series, visibleRange) : null
+    const keltnerExtremes = keltnerActive ? calcBandExtremes(bundle.keltner.series, visibleRange) : null
+    const donchianExtremes = donchianActive ? calcBandExtremes(bundle.donchian.series, visibleRange) : null
     const latestPoint = macdActive ? getLatestMACDPoint(bundle, visibleRange) : null
 
     const macdPadding = macdExtremes ? Math.max(Math.abs(macdExtremes.max), Math.abs(macdExtremes.min)) * 0.1 : 0
@@ -209,6 +227,9 @@ export function composeVisibleSubIndicatorStates(
     const hmaBounds = maFamilyBounds(hmaExtremes, EMPTY_HMA_STATE)
     const kamaBounds = maFamilyBounds(kamaExtremes, EMPTY_KAMA_STATE)
     const sarBounds = maFamilyBounds(sarExtremes, EMPTY_SAR_STATE)
+    const supertrendBounds = maFamilyBounds(supertrendExtremes, EMPTY_SUPERTREND_STATE)
+    const keltnerBounds = maFamilyBounds(keltnerExtremes, EMPTY_KELTNER_STATE)
+    const donchianBounds = maFamilyBounds(donchianExtremes, EMPTY_DONCHIAN_STATE)
 
     return {
         rsi: rsiActive ? {
@@ -397,6 +418,42 @@ export function composeVisibleSubIndicatorStates(
         } : mergeEmptyState(EMPTY_SAR_STATE, timestamp, {
             series: bundle.sar.series,
             params: bundle.sar.params,
+        }),
+        supertrend: supertrendActive ? {
+            timestamp,
+            series: bundle.supertrend.series,
+            params: bundle.supertrend.params,
+            valueMin: supertrendBounds.valueMin,
+            valueMax: supertrendBounds.valueMax,
+            visibleMin: supertrendExtremes!.min,
+            visibleMax: supertrendExtremes!.max,
+        } : mergeEmptyState(EMPTY_SUPERTREND_STATE, timestamp, {
+            series: bundle.supertrend.series,
+            params: bundle.supertrend.params,
+        }),
+        keltner: keltnerActive ? {
+            timestamp,
+            series: bundle.keltner.series,
+            params: bundle.keltner.params,
+            valueMin: keltnerBounds.valueMin,
+            valueMax: keltnerBounds.valueMax,
+            visibleMin: keltnerExtremes!.min,
+            visibleMax: keltnerExtremes!.max,
+        } : mergeEmptyState(EMPTY_KELTNER_STATE, timestamp, {
+            series: bundle.keltner.series,
+            params: bundle.keltner.params,
+        }),
+        donchian: donchianActive ? {
+            timestamp,
+            series: bundle.donchian.series,
+            params: bundle.donchian.params,
+            valueMin: donchianBounds.valueMin,
+            valueMax: donchianBounds.valueMax,
+            visibleMin: donchianExtremes!.min,
+            visibleMax: donchianExtremes!.max,
+        } : mergeEmptyState(EMPTY_DONCHIAN_STATE, timestamp, {
+            series: bundle.donchian.series,
+            params: bundle.donchian.params,
         }),
     }
 }
@@ -672,6 +729,24 @@ function calcMACDExtremes(series: MACDPoint[], range: VisibleRange): { min: numb
 
 function calcATRExtremes(series: (number | undefined)[], range: VisibleRange): { min: number; max: number } {
     return calcSparseExtremes(series, range)
+}
+
+interface BandPointShape { upper: number; middle: number; lower: number }
+function calcBandExtremes(series: (BandPointShape | undefined)[], range: VisibleRange): { min: number; max: number } {
+    if (series.length === 0 || range.start >= series.length) {
+        return { min: Infinity, max: -Infinity }
+    }
+    let min = Infinity
+    let max = -Infinity
+    const end = Math.min(range.end, series.length)
+    for (let i = range.start; i < end; i++) {
+        const p = series[i]
+        if (p) {
+            min = Math.min(min, p.lower)
+            max = Math.max(max, p.upper)
+        }
+    }
+    return { min, max }
 }
 
 interface SARPointShape { value: number; trend: 'up' | 'down' }

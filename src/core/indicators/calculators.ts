@@ -1390,3 +1390,163 @@ export function calcSARDataSoA(
     const data = SharedKLineBuffer.toKLineData(layout)
     return calcSARData(data, step, maxStep)
 }
+
+// ============================================================================
+// SuperTrend — ATR-based trend-following stop/band
+// ============================================================================
+
+export interface SuperTrendPoint {
+    value: number
+    trend: 'up' | 'down'
+}
+
+export const DEFAULT_SUPERTREND_ATR_PERIOD = 10
+export const DEFAULT_SUPERTREND_MULTIPLIER = 3
+
+export function calcSuperTrendData(
+    data: KLineData[],
+    atrPeriod: number,
+    multiplier: number,
+): (SuperTrendPoint | undefined)[] {
+    const n = data.length
+    const result: (SuperTrendPoint | undefined)[] = new Array(n).fill(undefined)
+    if (n === 0 || atrPeriod <= 0 || multiplier <= 0) return result
+
+    const atr = calcATRData(data, atrPeriod)
+
+    let trend: 'up' | 'down' = 'up'
+    let prevUpper = Infinity
+    let prevLower = -Infinity
+
+    for (let t = 0; t < n; t++) {
+        const bar = data[t]!
+        const a = atr[t]
+        if (a === undefined) continue
+
+        const hl2 = (bar.high + bar.low) / 2
+        const upperBasic = hl2 + multiplier * a
+        const lowerBasic = hl2 - multiplier * a
+
+        // Smoothing: keep the previous band unless price has broken through it
+        const prevClose = t > 0 ? data[t - 1]!.close : bar.close
+        const upper = (upperBasic < prevUpper || prevClose > prevUpper) ? upperBasic : prevUpper
+        const lower = (lowerBasic > prevLower || prevClose < prevLower) ? lowerBasic : prevLower
+
+        // Trend update
+        if (trend === 'up' && bar.close < lower) {
+            trend = 'down'
+        } else if (trend === 'down' && bar.close > upper) {
+            trend = 'up'
+        }
+
+        result[t] = { value: trend === 'up' ? lower : upper, trend }
+
+        prevUpper = upper
+        prevLower = lower
+    }
+
+    return result
+}
+
+export function calcSuperTrendDataSoA(
+    layout: KLineSoALayout,
+    atrPeriod: number,
+    multiplier: number,
+): (SuperTrendPoint | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcSuperTrendData(data, atrPeriod, multiplier)
+}
+
+// ============================================================================
+// Keltner Channel — EMA ± multiplier × ATR
+// ============================================================================
+
+export interface KeltnerPoint {
+    upper: number
+    middle: number
+    lower: number
+}
+
+export const DEFAULT_KELTNER_EMA_PERIOD = 20
+export const DEFAULT_KELTNER_ATR_PERIOD = 10
+export const DEFAULT_KELTNER_MULTIPLIER = 2
+
+export function calcKeltnerData(
+    data: KLineData[],
+    emaPeriod: number,
+    atrPeriod: number,
+    multiplier: number,
+): (KeltnerPoint | undefined)[] {
+    const n = data.length
+    const result: (KeltnerPoint | undefined)[] = new Array(n).fill(undefined)
+    if (n === 0 || emaPeriod <= 0 || atrPeriod <= 0) return result
+
+    const closes = new Array<number | undefined>(n)
+    for (let i = 0; i < n; i++) closes[i] = data[i]!.close
+
+    const ema = _computeEMASeries(closes, emaPeriod)
+    const atr = calcATRData(data, atrPeriod)
+
+    for (let t = 0; t < n; t++) {
+        const m = ema[t]
+        const a = atr[t]
+        if (m === undefined || a === undefined) continue
+        result[t] = {
+            upper: m + multiplier * a,
+            middle: m,
+            lower: m - multiplier * a,
+        }
+    }
+    return result
+}
+
+export function calcKeltnerDataSoA(
+    layout: KLineSoALayout,
+    emaPeriod: number,
+    atrPeriod: number,
+    multiplier: number,
+): (KeltnerPoint | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcKeltnerData(data, emaPeriod, atrPeriod, multiplier)
+}
+
+// ============================================================================
+// Donchian Channel — rolling max(high) / min(low) over period
+// ============================================================================
+
+export interface DonchianPoint {
+    upper: number
+    middle: number
+    lower: number
+}
+
+export const DEFAULT_DONCHIAN_PERIOD = 20
+
+export function calcDonchianData(
+    data: KLineData[],
+    period: number,
+): (DonchianPoint | undefined)[] {
+    const n = data.length
+    const result: (DonchianPoint | undefined)[] = new Array(n).fill(undefined)
+    if (n === 0 || period <= 0 || n < period) return result
+
+    for (let t = period - 1; t < n; t++) {
+        let hi = -Infinity
+        let lo = Infinity
+        for (let k = 0; k < period; k++) {
+            const bar = data[t - k]!
+            if (bar.high > hi) hi = bar.high
+            if (bar.low < lo) lo = bar.low
+        }
+        result[t] = { upper: hi, middle: (hi + lo) / 2, lower: lo }
+    }
+    return result
+}
+
+export function calcDonchianDataSoA(
+    layout: KLineSoALayout,
+    period: number,
+): (DonchianPoint | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcDonchianData(data, period)
+}

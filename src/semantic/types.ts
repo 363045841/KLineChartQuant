@@ -93,6 +93,9 @@ export interface SubIndicatorParams {
   HMA?: { period?: number }
   KAMA?: { period?: number; fastPeriod?: number; slowPeriod?: number }
   SAR?: { step?: number; maxStep?: number }
+  SUPERTREND?: { atrPeriod?: number; multiplier?: number }
+  KELTNER?: { emaPeriod?: number; atrPeriod?: number; multiplier?: number }
+  DONCHIAN?: { period?: number }
 }
 
 /** 副图指标类型 */

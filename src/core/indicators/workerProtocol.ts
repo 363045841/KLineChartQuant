@@ -13,6 +13,9 @@ import type {
     KSTPoint,
     MACDPoint,
     SARPoint,
+    SuperTrendPoint,
+    KeltnerPoint,
+    DonchianPoint,
 } from './calculators'
 
 // ============================================================================
@@ -131,6 +134,28 @@ export interface SARSchedulerConfig {
     showSAR: boolean
 }
 
+export interface SuperTrendSchedulerConfig {
+    atrPeriod: number
+    multiplier: number
+    showSuperTrend: boolean
+}
+
+export interface KeltnerSchedulerConfig {
+    emaPeriod: number
+    atrPeriod: number
+    multiplier: number
+    showUpper: boolean
+    showMiddle: boolean
+    showLower: boolean
+}
+
+export interface DonchianSchedulerConfig {
+    period: number
+    showUpper: boolean
+    showMiddle: boolean
+    showLower: boolean
+}
+
 // ============================================================================
 // Worker 请求类型
 // ============================================================================
@@ -228,6 +253,9 @@ export interface IndicatorConfigSnapshot {
     hma: HMASchedulerConfig
     kama: KAMASchedulerConfig
     sar: SARSchedulerConfig
+    supertrend: SuperTrendSchedulerConfig
+    keltner: KeltnerSchedulerConfig
+    donchian: DonchianSchedulerConfig
     // pane IDs for sub-indicators
     rsiPaneId: string
     cciPaneId: string
@@ -244,6 +272,9 @@ export interface IndicatorConfigSnapshot {
     hmaPaneId: string
     kamaPaneId: string
     sarPaneId: string
+    supertrendPaneId: string
+    keltnerPaneId: string
+    donchianPaneId: string
 }
 
 // ============================================================================
@@ -327,6 +358,18 @@ export interface IndicatorSeriesBundle {
     sar: {
         series: (SARPoint | undefined)[]
         params: SARSchedulerConfig
+    }
+    supertrend: {
+        series: (SuperTrendPoint | undefined)[]
+        params: SuperTrendSchedulerConfig
+    }
+    keltner: {
+        series: (KeltnerPoint | undefined)[]
+        params: KeltnerSchedulerConfig
+    }
+    donchian: {
+        series: (DonchianPoint | undefined)[]
+        params: DonchianSchedulerConfig
     }
     /** 本次计算中实际变更的指标列表 */
     _changed: string[]
