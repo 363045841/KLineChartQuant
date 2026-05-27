@@ -89,12 +89,16 @@ function createChartStub(args: {
       dpr: args.dpr,
     }),
     getCurrentDpr: () => args.dpr,
+    getCachedScrollLeft: () => 0,
     getMarkerManager: () => markerManager,
     getPaneRenderers: () => paneRenderers,
     getData: () => data,
     translatePrice: () => undefined,
     scheduleDraw: () => undefined,
     zoomAt: () => undefined,
+    resetPriceOffset: () => undefined,
+    resizePaneBoundary: () => false,
+    scalePrice: () => undefined,
   }
 
   return chart

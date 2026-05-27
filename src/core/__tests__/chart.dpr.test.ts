@@ -58,6 +58,26 @@ function createCanvasContextStub() {
   } as unknown as CanvasRenderingContext2D
 }
 
+function createWebGLStub(): WebGL2RenderingContext {
+  const noop = () => {}
+  return new Proxy({} as unknown as WebGL2RenderingContext, {
+    get(_, prop) {
+      if (typeof prop !== 'string') return undefined
+      if (/^[A-Z][A-Z0-9_]*$/.test(prop)) return 0
+      if (prop === 'getShaderInfoLog' || prop === 'getProgramInfoLog') return () => ''
+      if (prop === 'getShaderParameter' || prop === 'getProgramParameter') return () => true
+      if (prop === 'getError') return () => 0
+      if (prop === 'getSupportedExtensions') return () => []
+      if (prop === 'getContextAttributes') return () => ({})
+      if (prop === 'getParameter') return () => 0
+      if (prop === 'getUniformLocation' || prop === 'getAttribLocation') return () => 0
+      if (prop.startsWith('create') || prop === 'getExtension') return () => ({ __webglStub: true })
+      if (prop === 'drawingBufferWidth' || prop === 'drawingBufferHeight') return 300
+      return noop
+    },
+  }) as WebGL2RenderingContext
+}
+
 function createDom(width: number, height: number): ChartDom {
   const container = document.createElement('div')
   const canvasLayer = document.createElement('div')
@@ -95,7 +115,15 @@ describe('Chart DPR pipeline', () => {
       value: 1,
     })
 
-    HTMLCanvasElement.prototype.getContext = vi.fn(() => createCanvasContextStub()) as unknown as typeof HTMLCanvasElement.prototype.getContext
+    HTMLCanvasElement.prototype.getContext = vi.fn(function (
+      this: HTMLCanvasElement,
+      type: string,
+    ) {
+      if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
+        return createWebGLStub() as unknown as RenderingContext
+      }
+      return createCanvasContextStub() as unknown as RenderingContext
+    }) as unknown as typeof HTMLCanvasElement.prototype.getContext
   })
 
   afterEach(async () => {
@@ -250,7 +278,15 @@ describe('Chart pane layout regressions', () => {
       value: 1,
     })
 
-    HTMLCanvasElement.prototype.getContext = vi.fn(() => createCanvasContextStub()) as unknown as typeof HTMLCanvasElement.prototype.getContext
+    HTMLCanvasElement.prototype.getContext = vi.fn(function (
+      this: HTMLCanvasElement,
+      type: string,
+    ) {
+      if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
+        return createWebGLStub() as unknown as RenderingContext
+      }
+      return createCanvasContextStub() as unknown as RenderingContext
+    }) as unknown as typeof HTMLCanvasElement.prototype.getContext
   })
 
   afterEach(async () => {

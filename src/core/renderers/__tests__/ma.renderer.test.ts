@@ -70,8 +70,12 @@ function createMockRenderContext(
   overrides: Partial<RenderContext> = {}
 ): RenderContext {
   const mockPane = {
+    height: 200,
     yAxis: {
       priceToY: (price: number) => price * 10,
+      getDisplayRange: () => ({ minPrice: 0, maxPrice: 200 }),
+      getPriceOffset: () => 0,
+      getScaleType: () => 'linear',
     },
   } as unknown as Pane
 
@@ -114,8 +118,8 @@ describe('createMARendererPlugin', () => {
     const plugin = createMARendererPlugin()
 
     expect(plugin.name).toBe('ma')
-    expect(plugin.version).toBe('2.0.0')
-    expect(plugin.description).toBe('MA均线渲染器（无状态）')
+    expect(plugin.version).toBe('2.1.0')
+    expect(plugin.description).toBe('MA均线渲染器')
     expect(plugin.debugName).toBe('MA均线')
     expect(plugin.paneId).toBe('main')
   })

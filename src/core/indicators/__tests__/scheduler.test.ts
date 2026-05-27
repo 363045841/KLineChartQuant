@@ -204,6 +204,11 @@ describe('IndicatorScheduler', () => {
 
   describe('visible range update (dual dirty flags)', () => {
     it('should recalculate extremes but not series on viewport change only', () => {
+      // Mark sub-indicators active so their states get real extremes (not the EMPTY sentinels)
+      scheduler.setActiveSubPaneProvider(() => [
+        'sub_RSI', 'sub_CCI', 'sub_STOCH', 'sub_MOM', 'sub_WMSR', 'sub_KST', 'sub_FASTK', 'sub_MACD', 'sub_ATR',
+      ])
+
       const data = createTestData(100)
 
       // First update with full range
@@ -215,14 +220,19 @@ describe('IndicatorScheduler', () => {
       // Update only viewport
       scheduler.updateVisibleRange({ start: 50, end: 60 })
 
-      // Should write all 12 indicator states (MA, BOLL, EXPMA, ENE, RSI, CCI, STOCH, MOM, WMSR, KST, FASTK, MACD)
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(12)
+      // updateVisibleStatesOnly writes the 9 sub-indicators (RSI, CCI, STOCH, MOM, WMSR, KST, FASTK, MACD, ATR).
+      // Main indicators (MA, BOLL, EXPMA, ENE) are not rewritten on viewport-only changes.
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(9)
 
-      const state = getStateFromMockCalls<MARenderState>(mockHost, MA_STATE_KEY)
+      // Inspect a sub-indicator (RSI) since main indicators are not rewritten on viewport-only updates
+      const rsiKey = createRSIStateKey('sub_RSI')
+      const state = getStateFromMockCalls<RSIRenderState>(mockHost, rsiKey)
       expect(state).toBeDefined()
 
-      // Extremes should be recalculated for new viewport
-      expect(state!.visibleMin).toBeLessThan(state!.visibleMax)
+      // Extremes should be recalculated for the new viewport (finite, not the Infinity sentinels)
+      expect(Number.isFinite(state!.visibleMin)).toBe(true)
+      expect(Number.isFinite(state!.visibleMax)).toBe(true)
+      expect(state!.visibleMin).toBeLessThanOrEqual(state!.visibleMax)
     })
 
     it('should recalculate series on data change', () => {
@@ -232,8 +242,8 @@ describe('IndicatorScheduler', () => {
       const data2 = createTestData(100, 200)
       scheduler.update(data2, { start: 0, end: 100 })
 
-      // Should be called 24 times (12 indicators × 2 data updates)
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(24)
+      // Should be called 26 times (13 indicators × 2 data updates)
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(26)
     })
   })
 
@@ -246,8 +256,8 @@ describe('IndicatorScheduler', () => {
 
       scheduler.recompute()
 
-      // Should write all 12 indicator states
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(12)
+      // Should write all 13 indicator states (12 existing + ATR)
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(13)
     })
 
     it('should recalculate with same data and range', () => {

@@ -134,7 +134,7 @@ describe('createMainIndicatorLegendRendererPlugin', () => {
     const plugin = createMainIndicatorLegendRendererPlugin({ yPaddingPx: 20 })
 
     expect(plugin.name).toBe('mainIndicatorLegend')
-    expect(plugin.version).toBe('2.0.0')
+    expect(plugin.version).toBe('2.1.0')
     expect(plugin.description).toBe('主图指标图例渲染器（MA 数据来自 StateStore）')
     expect(plugin.debugName).toBe('主图指标图例')
     expect(plugin.paneId).toBe('main')

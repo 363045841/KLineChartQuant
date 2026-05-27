@@ -18,7 +18,7 @@ vi.mock('@/utils/kLineDraw/axis', () => ({
 }))
 
 import { drawScaleTicks } from '@/core/renderers/Indicator/scale/indicator_scale'
-import { drawCrosshairPriceLabel } from '@/utils/kLineDraw/axis'
+import { drawCrosshairPriceLabel, drawAxisPriceLabel } from '@/utils/kLineDraw/axis'
 
 function createPane(overrides: Partial<PaneInfo> = {}): PaneInfo {
   return {
@@ -122,23 +122,28 @@ describe('yAxis renderer', () => {
     )
   })
 
-  it('draws last price label for main pane', () => {
+  it('draws last price label via drawAxisPriceLabel for main pane when yAxisLabels contains lastPrice', () => {
     const plugin = createYAxisRendererPlugin({ axisWidth: 80, yPaddingPx: 0 })
-    const context = createContext({ pane: createPane({ id: 'main' }) })
+    const context = createContext({
+      pane: createPane({ id: 'main' }),
+      yAxisLabels: [
+        { type: 'lastPrice', y: 50, price: 101, style: { borderColor: '#f00', bgColor: '#fff', textColor: '#000' } },
+      ],
+    })
 
     plugin.draw(context)
 
-    expect(drawCrosshairPriceLabel).toHaveBeenCalledWith(
+    expect(drawAxisPriceLabel).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         price: 101,
-        borderColor: expect.any(String),
-        bgColor: expect.any(String),
+        borderColor: '#f00',
+        bgColor: '#fff',
       }),
     )
   })
 
-  it('draws crosshair price label only for active pane', () => {
+  it('draws crosshair price label exactly once for active pane', () => {
     const plugin = createYAxisRendererPlugin({
       axisWidth: 80,
       yPaddingPx: 0,
@@ -148,7 +153,8 @@ describe('yAxis renderer', () => {
 
     plugin.draw(context)
 
-    expect(drawCrosshairPriceLabel).toHaveBeenCalledTimes(2)
+    // Last price now flows through drawAxisPriceLabel; only the crosshair label uses drawCrosshairPriceLabel
+    expect(drawCrosshairPriceLabel).toHaveBeenCalledTimes(1)
   })
 
   it('does not draw crosshair price label when getCrosshair returns null', () => {
@@ -161,6 +167,6 @@ describe('yAxis renderer', () => {
 
     plugin.draw(context)
 
-    expect(drawCrosshairPriceLabel).toHaveBeenCalledTimes(1)
+    expect(drawCrosshairPriceLabel).toHaveBeenCalledTimes(0)
   })
 })

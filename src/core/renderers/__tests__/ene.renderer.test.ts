@@ -117,7 +117,7 @@ describe('createENERendererPlugin', () => {
     const plugin = createENERendererPlugin()
 
     expect(plugin.name).toBe('ene')
-    expect(plugin.version).toBe('2.0.0')
+    expect(plugin.version).toBe('2.1.0')
     expect(plugin.paneId).toBe('main')
   })
 
