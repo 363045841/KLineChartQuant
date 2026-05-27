@@ -1,0 +1,14 @@
+{
+    "$schema": "KAMA (Kaufman Adaptive MA) golden values. period=10, fast=2, slow=30.",
+    "$source": "Hand-derived for constantPrice — ER = 0/0 → 0 → SC = slowSC^2; but seed is close[period-1]=100, then KAMA(t) = 100 + SC*(100-100) = 100 ∀ t≥period-1.",
+    "$note": "pureUptrend/spike golden deferred to pandas-ta gen-golden.py; property tests cover the rest.",
+    "$tolerance": 1e-9,
+    "constantPrice": {
+        "period": 10,
+        "series": [
+            null, null, null, null, null, null, null, null, null,
+            100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
+            100, 100, 100, 100, 100, 100, 100, 100, 100, 100
+        ]
+    }
+}

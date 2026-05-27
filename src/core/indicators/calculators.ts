@@ -1238,3 +1238,155 @@ export function calcHMADataSoA(layout: KLineSoALayout, period: number): (number 
     const data = SharedKLineBuffer.toKLineData(layout)
     return calcHMAData(data, period)
 }
+
+// ============================================================================
+// KAMA — Kaufman's Adaptive Moving Average
+// 自适应：在趋势强时跟得紧（接近 fast EMA），在震荡时跟得慢（接近 slow EMA）。
+// ER (efficiency ratio) = |close[t] - close[t-n]| / sum(|close[i] - close[i-1]|, i=t-n+1..t)
+// SC = (ER * (2/(fast+1) - 2/(slow+1)) + 2/(slow+1))^2
+// KAMA(t) = KAMA(t-1) + SC * (close[t] - KAMA(t-1))
+// 种子 KAMA(n-1) = close[n-1]（或 SMA(n)；这里采用 close 种子以保持与项目内 EMA 系列一致）
+// ============================================================================
+
+export const DEFAULT_KAMA_PERIOD = 10
+export const DEFAULT_KAMA_FAST_PERIOD = 2
+export const DEFAULT_KAMA_SLOW_PERIOD = 30
+
+export function calcKAMAData(
+    data: KLineData[],
+    period: number,
+    fastPeriod: number,
+    slowPeriod: number,
+): (number | undefined)[] {
+    const n = data.length
+    const result: (number | undefined)[] = new Array(n).fill(undefined)
+    if (n === 0 || period <= 0 || fastPeriod <= 0 || slowPeriod <= 0 || n <= period) return result
+
+    const fastSC = 2 / (fastPeriod + 1)
+    const slowSC = 2 / (slowPeriod + 1)
+    const scRange = fastSC - slowSC
+
+    // 维护滚动求和：sum(|close[i] - close[i-1]|, i=t-period+1..t)
+    let volSum = 0
+    for (let i = 1; i <= period; i++) {
+        volSum += Math.abs(data[i]!.close - data[i - 1]!.close)
+    }
+
+    let kama = data[period - 1]!.close
+    result[period - 1] = kama
+
+    for (let t = period; t < n; t++) {
+        const close = data[t]!.close
+        const closeNPeriodsAgo = data[t - period]!.close
+        const direction = Math.abs(close - closeNPeriodsAgo)
+
+        const er = volSum > 0 ? direction / volSum : 0
+        const sc = (er * scRange + slowSC) ** 2
+
+        kama = kama + sc * (close - kama)
+        result[t] = kama
+
+        // 滚动 volSum：减去最旧的 |close[t-period+1] - close[t-period]|，加上最新的 |close[t+1] - close[t]|
+        if (t < n - 1) {
+            volSum -= Math.abs(data[t - period + 1]!.close - data[t - period]!.close)
+            volSum += Math.abs(data[t + 1]!.close - data[t]!.close)
+        }
+    }
+
+    return result
+}
+
+export function calcKAMADataSoA(
+    layout: KLineSoALayout,
+    period: number,
+    fastPeriod: number,
+    slowPeriod: number,
+): (number | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcKAMAData(data, period, fastPeriod, slowPeriod)
+}
+
+// ============================================================================
+// SAR — Parabolic Stop and Reverse
+// 经典 Wilder 公式：SAR(t+1) = SAR(t) + AF * (EP - SAR(t))，AF 在每次创出新极端时 +step（上限 maxStep）
+// 趋势翻转条件：上升趋势中 SAR 越过 low（或反之）
+// 种子：从 bar[1] 起，初始 trend=up，SAR=low[0]，EP=high[0]，AF=step
+// 返回每根 K 线对应的 SAR 点（带方向）
+// ============================================================================
+
+export interface SARPoint {
+    value: number
+    trend: 'up' | 'down'
+}
+
+export const DEFAULT_SAR_STEP = 0.02
+export const DEFAULT_SAR_MAX_STEP = 0.2
+
+export function calcSARData(
+    data: KLineData[],
+    step: number,
+    maxStep: number,
+): (SARPoint | undefined)[] {
+    const n = data.length
+    const result: (SARPoint | undefined)[] = new Array(n).fill(undefined)
+    if (n < 2 || step <= 0 || maxStep <= 0) return result
+
+    let trend: 'up' | 'down' = data[1]!.close >= data[0]!.close ? 'up' : 'down'
+    let sar = trend === 'up' ? data[0]!.low : data[0]!.high
+    let ep = trend === 'up' ? data[0]!.high : data[0]!.low
+    let af = step
+
+    result[0] = { value: sar, trend }
+
+    for (let t = 1; t < n; t++) {
+        const bar = data[t]!
+        // 先按当前趋势推进 SAR
+        sar = sar + af * (ep - sar)
+
+        // 边界约束：SAR 不能穿透前两根 K 线的极端
+        if (trend === 'up') {
+            const cap1 = data[t - 1]!.low
+            const cap2 = t >= 2 ? data[t - 2]!.low : cap1
+            sar = Math.min(sar, cap1, cap2)
+        } else {
+            const cap1 = data[t - 1]!.high
+            const cap2 = t >= 2 ? data[t - 2]!.high : cap1
+            sar = Math.max(sar, cap1, cap2)
+        }
+
+        // 检测翻转
+        if (trend === 'up' && bar.low < sar) {
+            trend = 'down'
+            sar = ep
+            ep = bar.low
+            af = step
+        } else if (trend === 'down' && bar.high > sar) {
+            trend = 'up'
+            sar = ep
+            ep = bar.high
+            af = step
+        } else {
+            // 同趋势：更新 EP / AF
+            if (trend === 'up' && bar.high > ep) {
+                ep = bar.high
+                af = Math.min(af + step, maxStep)
+            } else if (trend === 'down' && bar.low < ep) {
+                ep = bar.low
+                af = Math.min(af + step, maxStep)
+            }
+        }
+
+        result[t] = { value: sar, trend }
+    }
+
+    return result
+}
+
+export function calcSARDataSoA(
+    layout: KLineSoALayout,
+    step: number,
+    maxStep: number,
+): (SARPoint | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcSARData(data, step, maxStep)
+}

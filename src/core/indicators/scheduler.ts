@@ -36,6 +36,8 @@ import type {
     DEMASchedulerConfig,
     TEMASchedulerConfig,
     HMASchedulerConfig,
+    KAMASchedulerConfig,
+    SARSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -75,6 +77,10 @@ import type { TEMARenderState } from './temaState'
 import { createTEMAStateKey, DEFAULT_TEMA_PERIOD } from './temaState'
 import type { HMARenderState } from './hmaState'
 import { createHMAStateKey, DEFAULT_HMA_PERIOD } from './hmaState'
+import type { KAMARenderState } from './kamaState'
+import { createKAMAStateKey, DEFAULT_KAMA_PERIOD, DEFAULT_KAMA_FAST_PERIOD, DEFAULT_KAMA_SLOW_PERIOD } from './kamaState'
+import type { SARRenderState } from './sarState'
+import { createSARStateKey, DEFAULT_SAR_STEP, DEFAULT_SAR_MAX_STEP } from './sarState'
 
 /**
  * 可见范围
@@ -98,6 +104,8 @@ type VisibleSubIndicatorMask = {
     dema: boolean
     tema: boolean
     hma: boolean
+    kama: boolean
+    sar: boolean
 }
 
 // 重新导出配置类型（保持向后兼容）
@@ -118,6 +126,8 @@ export type {
     DEMASchedulerConfig,
     TEMASchedulerConfig,
     HMASchedulerConfig,
+    KAMASchedulerConfig,
+    SARSchedulerConfig,
 }
 
 /**
@@ -254,6 +264,13 @@ export class IndicatorScheduler {
             dema: { period: DEFAULT_DEMA_PERIOD, showDEMA: true },
             tema: { period: DEFAULT_TEMA_PERIOD, showTEMA: true },
             hma: { period: DEFAULT_HMA_PERIOD, showHMA: true },
+            kama: {
+                period: DEFAULT_KAMA_PERIOD,
+                fastPeriod: DEFAULT_KAMA_FAST_PERIOD,
+                slowPeriod: DEFAULT_KAMA_SLOW_PERIOD,
+                showKAMA: true,
+            },
+            sar: { step: DEFAULT_SAR_STEP, maxStep: DEFAULT_SAR_MAX_STEP, showSAR: true },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -267,6 +284,8 @@ export class IndicatorScheduler {
             demaPaneId: 'sub_DEMA',
             temaPaneId: 'sub_TEMA',
             hmaPaneId: 'sub_HMA',
+            kamaPaneId: 'sub_KAMA',
+            sarPaneId: 'sub_SAR',
         }
     }
 
@@ -499,6 +518,18 @@ export class IndicatorScheduler {
             const hmaKey = createHMAStateKey(this.configSnapshot.hmaPaneId)
             this.pluginHost.setSharedState<HMARenderState>(hmaKey, states.hma, 'indicator_scheduler')
         }
+
+        // KAMA
+        if (changed.has('kama')) {
+            const kamaKey = createKAMAStateKey(this.configSnapshot.kamaPaneId)
+            this.pluginHost.setSharedState<KAMARenderState>(kamaKey, states.kama, 'indicator_scheduler')
+        }
+
+        // SAR
+        if (changed.has('sar')) {
+            const sarKey = createSARStateKey(this.configSnapshot.sarPaneId)
+            this.pluginHost.setSharedState<SARRenderState>(sarKey, states.sar, 'indicator_scheduler')
+        }
     }
 
     private updateVisibleStatesOnly(): void {
@@ -559,6 +590,14 @@ export class IndicatorScheduler {
         // HMA
         const hmaKey = createHMAStateKey(this.configSnapshot.hmaPaneId)
         this.pluginHost.setSharedState<HMARenderState>(hmaKey, states.hma, 'indicator_scheduler')
+
+        // KAMA
+        const kamaKey = createKAMAStateKey(this.configSnapshot.kamaPaneId)
+        this.pluginHost.setSharedState<KAMARenderState>(kamaKey, states.kama, 'indicator_scheduler')
+
+        // SAR
+        const sarKey = createSARStateKey(this.configSnapshot.sarPaneId)
+        this.pluginHost.setSharedState<SARRenderState>(sarKey, states.sar, 'indicator_scheduler')
     }
 
     private buildActiveSubIndicatorMask(): VisibleSubIndicatorMask {
@@ -577,6 +616,8 @@ export class IndicatorScheduler {
             dema: activeIds.includes(this.configSnapshot.demaPaneId),
             tema: activeIds.includes(this.configSnapshot.temaPaneId),
             hma: activeIds.includes(this.configSnapshot.hmaPaneId),
+            kama: activeIds.includes(this.configSnapshot.kamaPaneId),
+            sar: activeIds.includes(this.configSnapshot.sarPaneId),
         }
     }
 
@@ -586,7 +627,7 @@ export class IndicatorScheduler {
         if (activeIds.length === 0) return { ...this.configSnapshot }
 
         const cfg: Record<string, unknown> = { ...this.configSnapshot }
-        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr', 'wma', 'dema', 'tema', 'hma'] as const
+        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr', 'wma', 'dema', 'tema', 'hma', 'kama', 'sar'] as const
         for (const key of subKeys) {
             const paneIdKey = `${key}PaneId`
             const paneId = cfg[paneIdKey] as string
@@ -823,6 +864,30 @@ export class IndicatorScheduler {
             this.configSnapshot.hmaPaneId = paneId
         }
         this.configSnapshot.hma = { ...this.configSnapshot.hma, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * KAMA 配置变更
+     */
+    updateKAMAConfig(config: Partial<KAMASchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.configSnapshot.kamaPaneId = paneId
+        }
+        this.configSnapshot.kama = { ...this.configSnapshot.kama, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * SAR 配置变更
+     */
+    updateSARConfig(config: Partial<SARSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.configSnapshot.sarPaneId = paneId
+        }
+        this.configSnapshot.sar = { ...this.configSnapshot.sar, ...config }
         this.configVersion++
         this.triggerRecompute()
     }

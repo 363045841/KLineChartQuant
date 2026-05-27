@@ -91,6 +91,8 @@ export interface SubIndicatorParams {
   DEMA?: { period?: number }
   TEMA?: { period?: number }
   HMA?: { period?: number }
+  KAMA?: { period?: number; fastPeriod?: number; slowPeriod?: number }
+  SAR?: { step?: number; maxStep?: number }
 }
 
 /** 副图指标类型 */

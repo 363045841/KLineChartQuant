@@ -23,12 +23,19 @@ import {
     calcDEMAData,
     calcTEMAData,
     calcHMAData,
+    calcKAMAData,
+    calcSARData,
     DEFAULT_MA_PERIODS,
     DEFAULT_ATR_PERIOD,
     DEFAULT_WMA_PERIOD,
     DEFAULT_DEMA_PERIOD,
     DEFAULT_TEMA_PERIOD,
     DEFAULT_HMA_PERIOD,
+    DEFAULT_KAMA_PERIOD,
+    DEFAULT_KAMA_FAST_PERIOD,
+    DEFAULT_KAMA_SLOW_PERIOD,
+    DEFAULT_SAR_STEP,
+    DEFAULT_SAR_MAX_STEP,
     type MAFlags,
     type BOLLPoint,
     type EXPMAPoint,
@@ -36,6 +43,7 @@ import {
     type STOCHPoint,
     type KSTPoint,
     type MACDPoint,
+    type SARPoint,
 } from './calculators'
 import type {
     BOLLSchedulerConfig,
@@ -54,6 +62,8 @@ import type {
     DEMASchedulerConfig,
     TEMASchedulerConfig,
     HMASchedulerConfig,
+    KAMASchedulerConfig,
+    SARSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -97,6 +107,8 @@ export class IndicatorRuntime {
     private cachedDemaSeries: (number | undefined)[] = []
     private cachedTemaSeries: (number | undefined)[] = []
     private cachedHmaSeries: (number | undefined)[] = []
+    private cachedKamaSeries: (number | undefined)[] = []
+    private cachedSarSeries: (SARPoint | undefined)[] = []
 
     // 脏标记
     private dirtyData = true
@@ -117,6 +129,8 @@ export class IndicatorRuntime {
     private dirtyDemaConfig = true
     private dirtyTemaConfig = true
     private dirtyHmaConfig = true
+    private dirtyKamaConfig = true
+    private dirtySarConfig = true
 
     private getDefaultConfig(): IndicatorConfigSnapshot {
         return {
@@ -166,6 +180,13 @@ export class IndicatorRuntime {
             dema: { period: DEFAULT_DEMA_PERIOD, showDEMA: true },
             tema: { period: DEFAULT_TEMA_PERIOD, showTEMA: true },
             hma: { period: DEFAULT_HMA_PERIOD, showHMA: true },
+            kama: {
+                period: DEFAULT_KAMA_PERIOD,
+                fastPeriod: DEFAULT_KAMA_FAST_PERIOD,
+                slowPeriod: DEFAULT_KAMA_SLOW_PERIOD,
+                showKAMA: true,
+            },
+            sar: { step: DEFAULT_SAR_STEP, maxStep: DEFAULT_SAR_MAX_STEP, showSAR: true },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -179,6 +200,8 @@ export class IndicatorRuntime {
             demaPaneId: 'sub_DEMA',
             temaPaneId: 'sub_TEMA',
             hmaPaneId: 'sub_HMA',
+            kamaPaneId: 'sub_KAMA',
+            sarPaneId: 'sub_SAR',
         }
     }
 
@@ -278,6 +301,14 @@ export class IndicatorRuntime {
             this.config.hma = { ...this.config.hma, ...config.hma }
             this.dirtyHmaConfig = true
         }
+        if (config.kama !== undefined && !this.shallowEqual(config.kama as unknown as Record<string, unknown>, this.config.kama as unknown as Record<string, unknown>)) {
+            this.config.kama = { ...this.config.kama, ...config.kama }
+            this.dirtyKamaConfig = true
+        }
+        if (config.sar !== undefined && !this.shallowEqual(config.sar as unknown as Record<string, unknown>, this.config.sar as unknown as Record<string, unknown>)) {
+            this.config.sar = { ...this.config.sar, ...config.sar }
+            this.dirtySarConfig = true
+        }
         // pane IDs
         if (config.rsiPaneId !== undefined) this.config.rsiPaneId = config.rsiPaneId
         if (config.cciPaneId !== undefined) this.config.cciPaneId = config.cciPaneId
@@ -292,6 +323,8 @@ export class IndicatorRuntime {
         if (config.demaPaneId !== undefined) this.config.demaPaneId = config.demaPaneId
         if (config.temaPaneId !== undefined) this.config.temaPaneId = config.temaPaneId
         if (config.hmaPaneId !== undefined) this.config.hmaPaneId = config.hmaPaneId
+        if (config.kamaPaneId !== undefined) this.config.kamaPaneId = config.kamaPaneId
+        if (config.sarPaneId !== undefined) this.config.sarPaneId = config.sarPaneId
 
         this.configVersion = version
     }
@@ -318,6 +351,8 @@ export class IndicatorRuntime {
         this.dirtyDemaConfig = true
         this.dirtyTemaConfig = true
         this.dirtyHmaConfig = true
+        this.dirtyKamaConfig = true
+        this.dirtySarConfig = true
     }
 
     /**
@@ -529,6 +564,35 @@ export class IndicatorRuntime {
             changed.push('hma')
         }
 
+        // KAMA
+        if (this.dirtyData || this.dirtyKamaConfig) {
+            if (this.config.kama.showKAMA) {
+                this.cachedKamaSeries = calcKAMAData(
+                    data,
+                    this.config.kama.period,
+                    this.config.kama.fastPeriod,
+                    this.config.kama.slowPeriod,
+                )
+            } else {
+                this.cachedKamaSeries = []
+            }
+            changed.push('kama')
+        }
+
+        // SAR
+        if (this.dirtyData || this.dirtySarConfig) {
+            if (this.config.sar.showSAR) {
+                this.cachedSarSeries = calcSARData(
+                    data,
+                    this.config.sar.step,
+                    this.config.sar.maxStep,
+                )
+            } else {
+                this.cachedSarSeries = []
+            }
+            changed.push('sar')
+        }
+
         // 重置脏标记
         this.dirtyData = false
         this.dirtyMAConfig = false
@@ -548,6 +612,8 @@ export class IndicatorRuntime {
         this.dirtyDemaConfig = false
         this.dirtyTemaConfig = false
         this.dirtyHmaConfig = false
+        this.dirtyKamaConfig = false
+        this.dirtySarConfig = false
 
         // 组装结果
         return {
@@ -619,6 +685,14 @@ export class IndicatorRuntime {
             hma: {
                 series: this.cachedHmaSeries,
                 params: { ...this.config.hma },
+            },
+            kama: {
+                series: this.cachedKamaSeries,
+                params: { ...this.config.kama },
+            },
+            sar: {
+                series: this.cachedSarSeries,
+                params: { ...this.config.sar },
             },
             _changed: changed,
         }
@@ -698,6 +772,14 @@ export class IndicatorRuntime {
             hma: {
                 series: this.cachedHmaSeries,
                 params: { ...this.config.hma },
+            },
+            kama: {
+                series: this.cachedKamaSeries,
+                params: { ...this.config.kama },
+            },
+            sar: {
+                series: this.cachedSarSeries,
+                params: { ...this.config.sar },
             },
         }
     }

@@ -12,6 +12,7 @@ import type {
     STOCHPoint,
     KSTPoint,
     MACDPoint,
+    SARPoint,
 } from './calculators'
 
 // ============================================================================
@@ -117,6 +118,19 @@ export interface HMASchedulerConfig {
     showHMA: boolean
 }
 
+export interface KAMASchedulerConfig {
+    period: number
+    fastPeriod: number
+    slowPeriod: number
+    showKAMA: boolean
+}
+
+export interface SARSchedulerConfig {
+    step: number
+    maxStep: number
+    showSAR: boolean
+}
+
 // ============================================================================
 // Worker 请求类型
 // ============================================================================
@@ -212,6 +226,8 @@ export interface IndicatorConfigSnapshot {
     dema: DEMASchedulerConfig
     tema: TEMASchedulerConfig
     hma: HMASchedulerConfig
+    kama: KAMASchedulerConfig
+    sar: SARSchedulerConfig
     // pane IDs for sub-indicators
     rsiPaneId: string
     cciPaneId: string
@@ -226,6 +242,8 @@ export interface IndicatorConfigSnapshot {
     demaPaneId: string
     temaPaneId: string
     hmaPaneId: string
+    kamaPaneId: string
+    sarPaneId: string
 }
 
 // ============================================================================
@@ -301,6 +319,14 @@ export interface IndicatorSeriesBundle {
     hma: {
         series: (number | undefined)[]
         params: HMASchedulerConfig
+    }
+    kama: {
+        series: (number | undefined)[]
+        params: KAMASchedulerConfig
+    }
+    sar: {
+        series: (SARPoint | undefined)[]
+        params: SARSchedulerConfig
     }
     /** 本次计算中实际变更的指标列表 */
     _changed: string[]

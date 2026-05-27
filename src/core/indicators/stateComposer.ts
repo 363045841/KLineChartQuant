@@ -59,6 +59,10 @@ import type { TEMARenderState } from './temaState'
 import { EMPTY_TEMA_STATE } from './temaState'
 import type { HMARenderState } from './hmaState'
 import { EMPTY_HMA_STATE } from './hmaState'
+import type { KAMARenderState } from './kamaState'
+import { EMPTY_KAMA_STATE } from './kamaState'
+import type { SARRenderState } from './sarState'
+import { EMPTY_SAR_STATE } from './sarState'
 import type { IndicatorSeriesBundle } from './workerProtocol'
 
 /**
@@ -83,6 +87,8 @@ type VisibleSubIndicatorStates = {
     dema: DEMARenderState
     tema: TEMARenderState
     hma: HMARenderState
+    kama: KAMARenderState
+    sar: SARRenderState
 }
 
 type VisibleSubIndicatorMask = {
@@ -99,6 +105,8 @@ type VisibleSubIndicatorMask = {
     dema?: boolean
     tema?: boolean
     hma?: boolean
+    kama?: boolean
+    sar?: boolean
 }
 
 type ComposedRenderStates = VisibleSubIndicatorStates & {
@@ -146,6 +154,8 @@ export function composeVisibleSubIndicatorStates(
     const demaActive = activeMask.dema ?? true
     const temaActive = activeMask.tema ?? true
     const hmaActive = activeMask.hma ?? true
+    const kamaActive = activeMask.kama ?? true
+    const sarActive = activeMask.sar ?? true
 
     const rsiExtremes = rsiActive ? calcRSIExtremes(bundle.rsi.series, visibleRange) : null
     const cciExtremes = cciActive ? calcCCIExtremes(bundle.cci.series, visibleRange) : null
@@ -160,6 +170,8 @@ export function composeVisibleSubIndicatorStates(
     const demaExtremes = demaActive ? calcSparseExtremes(bundle.dema.series, visibleRange) : null
     const temaExtremes = temaActive ? calcSparseExtremes(bundle.tema.series, visibleRange) : null
     const hmaExtremes = hmaActive ? calcSparseExtremes(bundle.hma.series, visibleRange) : null
+    const kamaExtremes = kamaActive ? calcSparseExtremes(bundle.kama.series, visibleRange) : null
+    const sarExtremes = sarActive ? calcSARExtremes(bundle.sar.series, visibleRange) : null
     const latestPoint = macdActive ? getLatestMACDPoint(bundle, visibleRange) : null
 
     const macdPadding = macdExtremes ? Math.max(Math.abs(macdExtremes.max), Math.abs(macdExtremes.min)) * 0.1 : 0
@@ -195,6 +207,8 @@ export function composeVisibleSubIndicatorStates(
     const demaBounds = maFamilyBounds(demaExtremes, EMPTY_DEMA_STATE)
     const temaBounds = maFamilyBounds(temaExtremes, EMPTY_TEMA_STATE)
     const hmaBounds = maFamilyBounds(hmaExtremes, EMPTY_HMA_STATE)
+    const kamaBounds = maFamilyBounds(kamaExtremes, EMPTY_KAMA_STATE)
+    const sarBounds = maFamilyBounds(sarExtremes, EMPTY_SAR_STATE)
 
     return {
         rsi: rsiActive ? {
@@ -359,6 +373,30 @@ export function composeVisibleSubIndicatorStates(
         } : mergeEmptyState(EMPTY_HMA_STATE, timestamp, {
             series: bundle.hma.series,
             params: bundle.hma.params,
+        }),
+        kama: kamaActive ? {
+            timestamp,
+            series: bundle.kama.series,
+            params: bundle.kama.params,
+            valueMin: kamaBounds.valueMin,
+            valueMax: kamaBounds.valueMax,
+            visibleMin: kamaExtremes!.min,
+            visibleMax: kamaExtremes!.max,
+        } : mergeEmptyState(EMPTY_KAMA_STATE, timestamp, {
+            series: bundle.kama.series,
+            params: bundle.kama.params,
+        }),
+        sar: sarActive ? {
+            timestamp,
+            series: bundle.sar.series,
+            params: bundle.sar.params,
+            valueMin: sarBounds.valueMin,
+            valueMax: sarBounds.valueMax,
+            visibleMin: sarExtremes!.min,
+            visibleMax: sarExtremes!.max,
+        } : mergeEmptyState(EMPTY_SAR_STATE, timestamp, {
+            series: bundle.sar.series,
+            params: bundle.sar.params,
         }),
     }
 }
@@ -634,6 +672,24 @@ function calcMACDExtremes(series: MACDPoint[], range: VisibleRange): { min: numb
 
 function calcATRExtremes(series: (number | undefined)[], range: VisibleRange): { min: number; max: number } {
     return calcSparseExtremes(series, range)
+}
+
+interface SARPointShape { value: number; trend: 'up' | 'down' }
+function calcSARExtremes(series: (SARPointShape | undefined)[], range: VisibleRange): { min: number; max: number } {
+    if (series.length === 0 || range.start >= series.length) {
+        return { min: Infinity, max: -Infinity }
+    }
+    let min = Infinity
+    let max = -Infinity
+    const end = Math.min(range.end, series.length)
+    for (let i = range.start; i < end; i++) {
+        const p = series[i]
+        if (p) {
+            min = Math.min(min, p.value)
+            max = Math.max(max, p.value)
+        }
+    }
+    return { min, max }
 }
 
 function calcSparseExtremes(series: (number | undefined)[], range: VisibleRange): { min: number; max: number } {
