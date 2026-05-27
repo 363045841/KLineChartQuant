@@ -1948,3 +1948,49 @@ export function calcPVTDataSoA(layout: KLineSoALayout): (number | undefined)[] {
     const data = SharedKLineBuffer.toKLineData(layout)
     return calcPVTData(data)
 }
+
+// ============================================================================
+// VWAP — Volume-Weighted Average Price
+// VWAP(t) = sum_{i in session} TP(i) * V(i) / sum_{i in session} V(i)
+// where TP(i) = (H+L+C)/3 (typical price)
+// Session reset: if sessionResetGapMs > 0, reset cumulative sums when the gap
+// between consecutive bar timestamps exceeds this value (e.g., overnight)
+// ============================================================================
+
+export const DEFAULT_VWAP_SESSION_GAP_MS = 0
+
+export function calcVWAPData(
+    data: KLineData[],
+    sessionResetGapMs: number,
+): (number | undefined)[] {
+    const n = data.length
+    const result: (number | undefined)[] = new Array(n).fill(undefined)
+    if (n === 0) return result
+
+    let cumPV = 0
+    let cumV = 0
+    let prevTs = data[0]!.timestamp
+
+    for (let t = 0; t < n; t++) {
+        const bar = data[t]!
+        if (sessionResetGapMs > 0 && t > 0 && bar.timestamp - prevTs > sessionResetGapMs) {
+            cumPV = 0
+            cumV = 0
+        }
+        const tp = (bar.high + bar.low + bar.close) / 3
+        cumPV += tp * bar.volume
+        cumV += bar.volume
+        result[t] = cumV > 0 ? cumPV / cumV : tp
+        prevTs = bar.timestamp
+    }
+
+    return result
+}
+
+export function calcVWAPDataSoA(
+    layout: KLineSoALayout,
+    sessionResetGapMs: number,
+): (number | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcVWAPData(data, sessionResetGapMs)
+}

@@ -87,6 +87,8 @@ import type { OBVRenderState } from './obvState'
 import { EMPTY_OBV_STATE } from './obvState'
 import type { PVTRenderState } from './pvtState'
 import { EMPTY_PVT_STATE } from './pvtState'
+import type { VWAPRenderState } from './vwapState'
+import { EMPTY_VWAP_STATE } from './vwapState'
 import type { IndicatorSeriesBundle } from './workerProtocol'
 
 /**
@@ -125,6 +127,7 @@ type VisibleSubIndicatorStates = {
     vma: VMARenderState
     obv: OBVRenderState
     pvt: PVTRenderState
+    vwap: VWAPRenderState
 }
 
 type VisibleSubIndicatorMask = {
@@ -155,6 +158,7 @@ type VisibleSubIndicatorMask = {
     vma?: boolean
     obv?: boolean
     pvt?: boolean
+    vwap?: boolean
 }
 
 type ComposedRenderStates = VisibleSubIndicatorStates & {
@@ -216,6 +220,7 @@ export function composeVisibleSubIndicatorStates(
     const vmaActive = activeMask.vma ?? true
     const obvActive = activeMask.obv ?? true
     const pvtActive = activeMask.pvt ?? true
+    const vwapActive = activeMask.vwap ?? true
 
     const rsiExtremes = rsiActive ? calcRSIExtremes(bundle.rsi.series, visibleRange) : null
     const cciExtremes = cciActive ? calcCCIExtremes(bundle.cci.series, visibleRange) : null
@@ -245,6 +250,7 @@ export function composeVisibleSubIndicatorStates(
     const vmaExtremes = vmaActive ? calcSparseExtremes(bundle.vma.series, visibleRange) : null
     const obvExtremes = obvActive ? calcSparseExtremes(bundle.obv.series, visibleRange) : null
     const pvtExtremes = pvtActive ? calcSparseExtremes(bundle.pvt.series, visibleRange) : null
+    const vwapExtremes = vwapActive ? calcSparseExtremes(bundle.vwap.series, visibleRange) : null
     const latestPoint = macdActive ? getLatestMACDPoint(bundle, visibleRange) : null
 
     const macdPadding = macdExtremes ? Math.max(Math.abs(macdExtremes.max), Math.abs(macdExtremes.min)) * 0.1 : 0
@@ -310,6 +316,7 @@ export function composeVisibleSubIndicatorStates(
     const vmaValueMax = vmaExtremes && Number.isFinite(vmaExtremes.max) ? vmaExtremes.max * 1.1 : EMPTY_VMA_STATE.valueMax
     const obvBounds = maFamilyBounds(obvExtremes, EMPTY_OBV_STATE)
     const pvtBounds = maFamilyBounds(pvtExtremes, EMPTY_PVT_STATE)
+    const vwapBounds = maFamilyBounds(vwapExtremes, EMPTY_VWAP_STATE)
 
     return {
         rsi: rsiActive ? {
@@ -644,6 +651,18 @@ export function composeVisibleSubIndicatorStates(
         } : mergeEmptyState(EMPTY_PVT_STATE, timestamp, {
             series: bundle.pvt.series,
             params: bundle.pvt.params,
+        }),
+        vwap: vwapActive ? {
+            timestamp,
+            series: bundle.vwap.series,
+            params: bundle.vwap.params,
+            valueMin: vwapBounds.valueMin,
+            valueMax: vwapBounds.valueMax,
+            visibleMin: vwapExtremes!.min,
+            visibleMax: vwapExtremes!.max,
+        } : mergeEmptyState(EMPTY_VWAP_STATE, timestamp, {
+            series: bundle.vwap.series,
+            params: bundle.vwap.params,
         }),
     }
 }

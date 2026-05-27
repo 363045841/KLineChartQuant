@@ -110,6 +110,7 @@ export interface SubIndicatorParams {
   VMA?: { period?: number }
   OBV?: Record<string, never>
   PVT?: Record<string, never>
+  VWAP?: { sessionResetGapMs?: number }
 }
 
 /** 副图指标类型 */

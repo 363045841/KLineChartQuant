@@ -212,6 +212,7 @@ describe('IndicatorScheduler', () => {
         'sub_ROC', 'sub_TRIX',
         'sub_HV', 'sub_Parkinson', 'sub_ChaikinVol',
         'sub_VMA', 'sub_OBV', 'sub_PVT',
+        'sub_VWAP',
       ])
 
       const data = createTestData(100)
@@ -225,9 +226,9 @@ describe('IndicatorScheduler', () => {
       // Update only viewport
       scheduler.updateVisibleRange({ start: 50, end: 60 })
 
-      // updateVisibleStatesOnly writes the 27 sub-indicators.
+      // updateVisibleStatesOnly writes the 28 sub-indicators.
       // Main indicators (MA, BOLL, EXPMA, ENE) are not rewritten on viewport-only changes.
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(27)
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(28)
 
       // Inspect a sub-indicator (RSI) since main indicators are not rewritten on viewport-only updates
       const rsiKey = createRSIStateKey('sub_RSI')
@@ -247,8 +248,8 @@ describe('IndicatorScheduler', () => {
       const data2 = createTestData(100, 200)
       scheduler.update(data2, { start: 0, end: 100 })
 
-      // Should be called 62 times (31 indicators × 2 data updates)
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(62)
+      // Should be called 64 times (32 indicators × 2 data updates)
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(64)
     })
   })
 
@@ -261,8 +262,8 @@ describe('IndicatorScheduler', () => {
 
       scheduler.recompute()
 
-      // Should write all 31 indicator states (28 from PR 6 + VMA + OBV + PVT)
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(31)
+      // Should write all 32 indicator states (31 from PR 7 + VWAP)
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(32)
     })
 
     it('should recalculate with same data and range', () => {

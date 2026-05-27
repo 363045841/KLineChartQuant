@@ -50,6 +50,7 @@ import type {
     VMASchedulerConfig,
     OBVSchedulerConfig,
     PVTSchedulerConfig,
+    VWAPSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -132,6 +133,8 @@ import type { OBVRenderState } from './obvState'
 import { createOBVStateKey } from './obvState'
 import type { PVTRenderState } from './pvtState'
 import { createPVTStateKey } from './pvtState'
+import type { VWAPRenderState } from './vwapState'
+import { createVWAPStateKey, DEFAULT_VWAP_SESSION_GAP_MS } from './vwapState'
 
 /**
  * 可见范围
@@ -169,6 +172,7 @@ type VisibleSubIndicatorMask = {
     vma: boolean
     obv: boolean
     pvt: boolean
+    vwap: boolean
 }
 
 // 重新导出配置类型（保持向后兼容）
@@ -203,6 +207,7 @@ export type {
     VMASchedulerConfig,
     OBVSchedulerConfig,
     PVTSchedulerConfig,
+    VWAPSchedulerConfig,
 }
 
 /**
@@ -390,6 +395,7 @@ export class IndicatorScheduler {
             vma: { period: DEFAULT_VMA_PERIOD, showVMA: true },
             obv: { showOBV: true },
             pvt: { showPVT: true },
+            vwap: { sessionResetGapMs: DEFAULT_VWAP_SESSION_GAP_MS, showVWAP: true },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -417,6 +423,7 @@ export class IndicatorScheduler {
             vmaPaneId: 'sub_VMA',
             obvPaneId: 'sub_OBV',
             pvtPaneId: 'sub_PVT',
+            vwapPaneId: 'sub_VWAP',
         }
     }
 
@@ -733,6 +740,12 @@ export class IndicatorScheduler {
             const pvtKey = createPVTStateKey(this.configSnapshot.pvtPaneId)
             this.pluginHost.setSharedState<PVTRenderState>(pvtKey, states.pvt, 'indicator_scheduler')
         }
+
+        // VWAP
+        if (changed.has('vwap')) {
+            const vwapKey = createVWAPStateKey(this.configSnapshot.vwapPaneId)
+            this.pluginHost.setSharedState<VWAPRenderState>(vwapKey, states.vwap, 'indicator_scheduler')
+        }
     }
 
     private updateVisibleStatesOnly(): void {
@@ -849,6 +862,10 @@ export class IndicatorScheduler {
         // PVT
         const pvtKey = createPVTStateKey(this.configSnapshot.pvtPaneId)
         this.pluginHost.setSharedState<PVTRenderState>(pvtKey, states.pvt, 'indicator_scheduler')
+
+        // VWAP
+        const vwapKey = createVWAPStateKey(this.configSnapshot.vwapPaneId)
+        this.pluginHost.setSharedState<VWAPRenderState>(vwapKey, states.vwap, 'indicator_scheduler')
     }
 
     private buildActiveSubIndicatorMask(): VisibleSubIndicatorMask {
@@ -881,6 +898,7 @@ export class IndicatorScheduler {
             vma: activeIds.includes(this.configSnapshot.vmaPaneId),
             obv: activeIds.includes(this.configSnapshot.obvPaneId),
             pvt: activeIds.includes(this.configSnapshot.pvtPaneId),
+            vwap: activeIds.includes(this.configSnapshot.vwapPaneId),
         }
     }
 
@@ -890,7 +908,7 @@ export class IndicatorScheduler {
         if (activeIds.length === 0) return { ...this.configSnapshot }
 
         const cfg: Record<string, unknown> = { ...this.configSnapshot }
-        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr', 'wma', 'dema', 'tema', 'hma', 'kama', 'sar', 'supertrend', 'keltner', 'donchian', 'ichimoku', 'roc', 'trix', 'hv', 'parkinson', 'chaikinVol', 'vma', 'obv', 'pvt'] as const
+        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr', 'wma', 'dema', 'tema', 'hma', 'kama', 'sar', 'supertrend', 'keltner', 'donchian', 'ichimoku', 'roc', 'trix', 'hv', 'parkinson', 'chaikinVol', 'vma', 'obv', 'pvt', 'vwap'] as const
         for (const key of subKeys) {
             const paneIdKey = `${key}PaneId`
             const paneId = cfg[paneIdKey] as string
@@ -1271,6 +1289,16 @@ export class IndicatorScheduler {
     updatePVTConfig(config: Partial<PVTSchedulerConfig>, paneId?: string): void {
         if (paneId !== undefined) this.configSnapshot.pvtPaneId = paneId
         this.configSnapshot.pvt = { ...this.configSnapshot.pvt, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * VWAP 配置变更
+     */
+    updateVWAPConfig(config: Partial<VWAPSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.vwapPaneId = paneId
+        this.configSnapshot.vwap = { ...this.configSnapshot.vwap, ...config }
         this.configVersion++
         this.triggerRecompute()
     }

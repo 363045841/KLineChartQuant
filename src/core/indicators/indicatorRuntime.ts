@@ -37,9 +37,11 @@ import {
     calcVMAData,
     calcOBVData,
     calcPVTData,
+    calcVWAPData,
     DEFAULT_MA_PERIODS,
     DEFAULT_ATR_PERIOD,
     DEFAULT_VMA_PERIOD,
+    DEFAULT_VWAP_SESSION_GAP_MS,
     DEFAULT_WMA_PERIOD,
     DEFAULT_DEMA_PERIOD,
     DEFAULT_TEMA_PERIOD,
@@ -112,6 +114,7 @@ import type {
     VMASchedulerConfig,
     OBVSchedulerConfig,
     PVTSchedulerConfig,
+    VWAPSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -170,6 +173,7 @@ export class IndicatorRuntime {
     private cachedVmaSeries: (number | undefined)[] = []
     private cachedObvSeries: (number | undefined)[] = []
     private cachedPvtSeries: (number | undefined)[] = []
+    private cachedVwapSeries: (number | undefined)[] = []
 
     // 脏标记
     private dirtyData = true
@@ -204,6 +208,7 @@ export class IndicatorRuntime {
     private dirtyVmaConfig = true
     private dirtyObvConfig = true
     private dirtyPvtConfig = true
+    private dirtyVwapConfig = true
 
     private getDefaultConfig(): IndicatorConfigSnapshot {
         return {
@@ -316,6 +321,7 @@ export class IndicatorRuntime {
             vma: { period: DEFAULT_VMA_PERIOD, showVMA: true },
             obv: { showOBV: true },
             pvt: { showPVT: true },
+            vwap: { sessionResetGapMs: DEFAULT_VWAP_SESSION_GAP_MS, showVWAP: true },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -343,6 +349,7 @@ export class IndicatorRuntime {
             vmaPaneId: 'sub_VMA',
             obvPaneId: 'sub_OBV',
             pvtPaneId: 'sub_PVT',
+            vwapPaneId: 'sub_VWAP',
         }
     }
 
@@ -498,6 +505,10 @@ export class IndicatorRuntime {
             this.config.pvt = { ...this.config.pvt, ...config.pvt }
             this.dirtyPvtConfig = true
         }
+        if (config.vwap !== undefined && !this.shallowEqual(config.vwap as unknown as Record<string, unknown>, this.config.vwap as unknown as Record<string, unknown>)) {
+            this.config.vwap = { ...this.config.vwap, ...config.vwap }
+            this.dirtyVwapConfig = true
+        }
         // pane IDs
         if (config.rsiPaneId !== undefined) this.config.rsiPaneId = config.rsiPaneId
         if (config.cciPaneId !== undefined) this.config.cciPaneId = config.cciPaneId
@@ -526,6 +537,7 @@ export class IndicatorRuntime {
         if (config.vmaPaneId !== undefined) this.config.vmaPaneId = config.vmaPaneId
         if (config.obvPaneId !== undefined) this.config.obvPaneId = config.obvPaneId
         if (config.pvtPaneId !== undefined) this.config.pvtPaneId = config.pvtPaneId
+        if (config.vwapPaneId !== undefined) this.config.vwapPaneId = config.vwapPaneId
 
         this.configVersion = version
     }
@@ -566,6 +578,7 @@ export class IndicatorRuntime {
         this.dirtyVmaConfig = true
         this.dirtyObvConfig = true
         this.dirtyPvtConfig = true
+        this.dirtyVwapConfig = true
     }
 
     /**
@@ -953,6 +966,16 @@ export class IndicatorRuntime {
             changed.push('pvt')
         }
 
+        // VWAP
+        if (this.dirtyData || this.dirtyVwapConfig) {
+            if (this.config.vwap.showVWAP) {
+                this.cachedVwapSeries = calcVWAPData(data, this.config.vwap.sessionResetGapMs)
+            } else {
+                this.cachedVwapSeries = []
+            }
+            changed.push('vwap')
+        }
+
         // 重置脏标记
         this.dirtyData = false
         this.dirtyMAConfig = false
@@ -986,6 +1009,7 @@ export class IndicatorRuntime {
         this.dirtyVmaConfig = false
         this.dirtyObvConfig = false
         this.dirtyPvtConfig = false
+        this.dirtyVwapConfig = false
 
         // 组装结果
         return {
@@ -1114,6 +1138,10 @@ export class IndicatorRuntime {
             pvt: {
                 series: this.cachedPvtSeries,
                 params: { ...this.config.pvt },
+            },
+            vwap: {
+                series: this.cachedVwapSeries,
+                params: { ...this.config.vwap },
             },
             _changed: changed,
         }
@@ -1250,6 +1278,10 @@ export class IndicatorRuntime {
             pvt: {
                 series: this.cachedPvtSeries,
                 params: { ...this.config.pvt },
+            },
+            vwap: {
+                series: this.cachedVwapSeries,
+                params: { ...this.config.vwap },
             },
         }
     }

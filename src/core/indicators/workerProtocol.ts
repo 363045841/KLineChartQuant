@@ -213,6 +213,11 @@ export interface PVTSchedulerConfig {
     showPVT: boolean
 }
 
+export interface VWAPSchedulerConfig {
+    sessionResetGapMs: number
+    showVWAP: boolean
+}
+
 // ============================================================================
 // Worker 请求类型
 // ============================================================================
@@ -322,6 +327,7 @@ export interface IndicatorConfigSnapshot {
     vma: VMASchedulerConfig
     obv: OBVSchedulerConfig
     pvt: PVTSchedulerConfig
+    vwap: VWAPSchedulerConfig
     // pane IDs for sub-indicators
     rsiPaneId: string
     cciPaneId: string
@@ -350,6 +356,7 @@ export interface IndicatorConfigSnapshot {
     vmaPaneId: string
     obvPaneId: string
     pvtPaneId: string
+    vwapPaneId: string
 }
 
 // ============================================================================
@@ -482,6 +489,10 @@ export interface IndicatorSeriesBundle {
     pvt: {
         series: (number | undefined)[]
         params: PVTSchedulerConfig
+    }
+    vwap: {
+        series: (number | undefined)[]
+        params: VWAPSchedulerConfig
     }
     /** 本次计算中实际变更的指标列表 */
     _changed: string[]
