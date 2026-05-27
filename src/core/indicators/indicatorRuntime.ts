@@ -40,12 +40,15 @@ import {
     calcVWAPData,
     calcCMFData,
     calcMFIData,
+    calcPivotData,
+    calcFibData,
     DEFAULT_MA_PERIODS,
     DEFAULT_ATR_PERIOD,
     DEFAULT_VMA_PERIOD,
     DEFAULT_VWAP_SESSION_GAP_MS,
     DEFAULT_CMF_PERIOD,
     DEFAULT_MFI_PERIOD,
+    DEFAULT_FIB_PERIOD,
     DEFAULT_WMA_PERIOD,
     DEFAULT_DEMA_PERIOD,
     DEFAULT_TEMA_PERIOD,
@@ -86,6 +89,8 @@ import {
     type KeltnerPoint,
     type DonchianPoint,
     type IchimokuPoint,
+    type PivotPoint,
+    type FibPoint,
 } from './calculators'
 import type {
     BOLLSchedulerConfig,
@@ -121,6 +126,8 @@ import type {
     VWAPSchedulerConfig,
     CMFSchedulerConfig,
     MFISchedulerConfig,
+    PivotSchedulerConfig,
+    FibSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -182,6 +189,8 @@ export class IndicatorRuntime {
     private cachedVwapSeries: (number | undefined)[] = []
     private cachedCmfSeries: (number | undefined)[] = []
     private cachedMfiSeries: (number | undefined)[] = []
+    private cachedPivotSeries: (PivotPoint | undefined)[] = []
+    private cachedFibSeries: (FibPoint | undefined)[] = []
 
     // 脏标记
     private dirtyData = true
@@ -219,6 +228,8 @@ export class IndicatorRuntime {
     private dirtyVwapConfig = true
     private dirtyCmfConfig = true
     private dirtyMfiConfig = true
+    private dirtyPivotConfig = true
+    private dirtyFibConfig = true
 
     private getDefaultConfig(): IndicatorConfigSnapshot {
         return {
@@ -334,6 +345,8 @@ export class IndicatorRuntime {
             vwap: { sessionResetGapMs: DEFAULT_VWAP_SESSION_GAP_MS, showVWAP: true },
             cmf: { period: DEFAULT_CMF_PERIOD, showCMF: true },
             mfi: { period: DEFAULT_MFI_PERIOD, showMFI: true },
+            pivot: { showPP: true, showR1: true, showR2: true, showR3: false, showS1: true, showS2: true, showS3: false },
+            fib: { period: DEFAULT_FIB_PERIOD, showLevels: true },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -364,6 +377,8 @@ export class IndicatorRuntime {
             vwapPaneId: 'sub_VWAP',
             cmfPaneId: 'sub_CMF',
             mfiPaneId: 'sub_MFI',
+            pivotPaneId: 'sub_Pivot',
+            fibPaneId: 'sub_Fib',
         }
     }
 
@@ -531,6 +546,14 @@ export class IndicatorRuntime {
             this.config.mfi = { ...this.config.mfi, ...config.mfi }
             this.dirtyMfiConfig = true
         }
+        if (config.pivot !== undefined && !this.shallowEqual(config.pivot as unknown as Record<string, unknown>, this.config.pivot as unknown as Record<string, unknown>)) {
+            this.config.pivot = { ...this.config.pivot, ...config.pivot }
+            this.dirtyPivotConfig = true
+        }
+        if (config.fib !== undefined && !this.shallowEqual(config.fib as unknown as Record<string, unknown>, this.config.fib as unknown as Record<string, unknown>)) {
+            this.config.fib = { ...this.config.fib, ...config.fib }
+            this.dirtyFibConfig = true
+        }
         // pane IDs
         if (config.rsiPaneId !== undefined) this.config.rsiPaneId = config.rsiPaneId
         if (config.cciPaneId !== undefined) this.config.cciPaneId = config.cciPaneId
@@ -562,6 +585,8 @@ export class IndicatorRuntime {
         if (config.vwapPaneId !== undefined) this.config.vwapPaneId = config.vwapPaneId
         if (config.cmfPaneId !== undefined) this.config.cmfPaneId = config.cmfPaneId
         if (config.mfiPaneId !== undefined) this.config.mfiPaneId = config.mfiPaneId
+        if (config.pivotPaneId !== undefined) this.config.pivotPaneId = config.pivotPaneId
+        if (config.fibPaneId !== undefined) this.config.fibPaneId = config.fibPaneId
 
         this.configVersion = version
     }
@@ -605,6 +630,8 @@ export class IndicatorRuntime {
         this.dirtyVwapConfig = true
         this.dirtyCmfConfig = true
         this.dirtyMfiConfig = true
+        this.dirtyPivotConfig = true
+        this.dirtyFibConfig = true
     }
 
     /**
@@ -1022,6 +1049,27 @@ export class IndicatorRuntime {
             changed.push('mfi')
         }
 
+        // Pivot
+        if (this.dirtyData || this.dirtyPivotConfig) {
+            const p = this.config.pivot
+            if (p.showPP || p.showR1 || p.showR2 || p.showR3 || p.showS1 || p.showS2 || p.showS3) {
+                this.cachedPivotSeries = calcPivotData(data)
+            } else {
+                this.cachedPivotSeries = []
+            }
+            changed.push('pivot')
+        }
+
+        // Fibonacci
+        if (this.dirtyData || this.dirtyFibConfig) {
+            if (this.config.fib.showLevels) {
+                this.cachedFibSeries = calcFibData(data, this.config.fib.period)
+            } else {
+                this.cachedFibSeries = []
+            }
+            changed.push('fib')
+        }
+
         // 重置脏标记
         this.dirtyData = false
         this.dirtyMAConfig = false
@@ -1058,6 +1106,8 @@ export class IndicatorRuntime {
         this.dirtyVwapConfig = false
         this.dirtyCmfConfig = false
         this.dirtyMfiConfig = false
+        this.dirtyPivotConfig = false
+        this.dirtyFibConfig = false
 
         // 组装结果
         return {
@@ -1198,6 +1248,14 @@ export class IndicatorRuntime {
             mfi: {
                 series: this.cachedMfiSeries,
                 params: { ...this.config.mfi },
+            },
+            pivot: {
+                series: this.cachedPivotSeries,
+                params: { ...this.config.pivot },
+            },
+            fib: {
+                series: this.cachedFibSeries,
+                params: { ...this.config.fib },
             },
             _changed: changed,
         }
@@ -1346,6 +1404,14 @@ export class IndicatorRuntime {
             mfi: {
                 series: this.cachedMfiSeries,
                 params: { ...this.config.mfi },
+            },
+            pivot: {
+                series: this.cachedPivotSeries,
+                params: { ...this.config.pivot },
+            },
+            fib: {
+                series: this.cachedFibSeries,
+                params: { ...this.config.fib },
             },
         }
     }

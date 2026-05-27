@@ -53,6 +53,8 @@ import type {
     VWAPSchedulerConfig,
     CMFSchedulerConfig,
     MFISchedulerConfig,
+    PivotSchedulerConfig,
+    FibSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -141,6 +143,10 @@ import type { CMFRenderState } from './cmfState'
 import { createCMFStateKey, DEFAULT_CMF_PERIOD } from './cmfState'
 import type { MFIRenderState } from './mfiState'
 import { createMFIStateKey, DEFAULT_MFI_PERIOD } from './mfiState'
+import type { PivotRenderState } from './pivotState'
+import { createPivotStateKey } from './pivotState'
+import type { FibRenderState } from './fibState'
+import { createFibStateKey, DEFAULT_FIB_PERIOD } from './fibState'
 
 /**
  * 可见范围
@@ -181,6 +187,8 @@ type VisibleSubIndicatorMask = {
     vwap: boolean
     cmf: boolean
     mfi: boolean
+    pivot: boolean
+    fib: boolean
 }
 
 // 重新导出配置类型（保持向后兼容）
@@ -218,6 +226,8 @@ export type {
     VWAPSchedulerConfig,
     CMFSchedulerConfig,
     MFISchedulerConfig,
+    PivotSchedulerConfig,
+    FibSchedulerConfig,
 }
 
 /**
@@ -408,6 +418,8 @@ export class IndicatorScheduler {
             vwap: { sessionResetGapMs: DEFAULT_VWAP_SESSION_GAP_MS, showVWAP: true },
             cmf: { period: DEFAULT_CMF_PERIOD, showCMF: true },
             mfi: { period: DEFAULT_MFI_PERIOD, showMFI: true },
+            pivot: { showPP: true, showR1: true, showR2: true, showR3: false, showS1: true, showS2: true, showS3: false },
+            fib: { period: DEFAULT_FIB_PERIOD, showLevels: true },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -438,6 +450,8 @@ export class IndicatorScheduler {
             vwapPaneId: 'sub_VWAP',
             cmfPaneId: 'sub_CMF',
             mfiPaneId: 'sub_MFI',
+            pivotPaneId: 'sub_Pivot',
+            fibPaneId: 'sub_Fib',
         }
     }
 
@@ -772,6 +786,18 @@ export class IndicatorScheduler {
             const mfiKey = createMFIStateKey(this.configSnapshot.mfiPaneId)
             this.pluginHost.setSharedState<MFIRenderState>(mfiKey, states.mfi, 'indicator_scheduler')
         }
+
+        // Pivot
+        if (changed.has('pivot')) {
+            const pivotKey = createPivotStateKey(this.configSnapshot.pivotPaneId)
+            this.pluginHost.setSharedState<PivotRenderState>(pivotKey, states.pivot, 'indicator_scheduler')
+        }
+
+        // Fib
+        if (changed.has('fib')) {
+            const fibKey = createFibStateKey(this.configSnapshot.fibPaneId)
+            this.pluginHost.setSharedState<FibRenderState>(fibKey, states.fib, 'indicator_scheduler')
+        }
     }
 
     private updateVisibleStatesOnly(): void {
@@ -900,6 +926,14 @@ export class IndicatorScheduler {
         // MFI
         const mfiKey = createMFIStateKey(this.configSnapshot.mfiPaneId)
         this.pluginHost.setSharedState<MFIRenderState>(mfiKey, states.mfi, 'indicator_scheduler')
+
+        // Pivot
+        const pivotKey = createPivotStateKey(this.configSnapshot.pivotPaneId)
+        this.pluginHost.setSharedState<PivotRenderState>(pivotKey, states.pivot, 'indicator_scheduler')
+
+        // Fib
+        const fibKey = createFibStateKey(this.configSnapshot.fibPaneId)
+        this.pluginHost.setSharedState<FibRenderState>(fibKey, states.fib, 'indicator_scheduler')
     }
 
     private buildActiveSubIndicatorMask(): VisibleSubIndicatorMask {
@@ -935,6 +969,8 @@ export class IndicatorScheduler {
             vwap: activeIds.includes(this.configSnapshot.vwapPaneId),
             cmf: activeIds.includes(this.configSnapshot.cmfPaneId),
             mfi: activeIds.includes(this.configSnapshot.mfiPaneId),
+            pivot: activeIds.includes(this.configSnapshot.pivotPaneId),
+            fib: activeIds.includes(this.configSnapshot.fibPaneId),
         }
     }
 
@@ -944,7 +980,7 @@ export class IndicatorScheduler {
         if (activeIds.length === 0) return { ...this.configSnapshot }
 
         const cfg: Record<string, unknown> = { ...this.configSnapshot }
-        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr', 'wma', 'dema', 'tema', 'hma', 'kama', 'sar', 'supertrend', 'keltner', 'donchian', 'ichimoku', 'roc', 'trix', 'hv', 'parkinson', 'chaikinVol', 'vma', 'obv', 'pvt', 'vwap', 'cmf', 'mfi'] as const
+        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr', 'wma', 'dema', 'tema', 'hma', 'kama', 'sar', 'supertrend', 'keltner', 'donchian', 'ichimoku', 'roc', 'trix', 'hv', 'parkinson', 'chaikinVol', 'vma', 'obv', 'pvt', 'vwap', 'cmf', 'mfi', 'pivot', 'fib'] as const
         for (const key of subKeys) {
             const paneIdKey = `${key}PaneId`
             const paneId = cfg[paneIdKey] as string
@@ -1351,6 +1387,22 @@ export class IndicatorScheduler {
     updateMFIConfig(config: Partial<MFISchedulerConfig>, paneId?: string): void {
         if (paneId !== undefined) this.configSnapshot.mfiPaneId = paneId
         this.configSnapshot.mfi = { ...this.configSnapshot.mfi, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /** Pivot 配置变更 */
+    updatePivotConfig(config: Partial<PivotSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.pivotPaneId = paneId
+        this.configSnapshot.pivot = { ...this.configSnapshot.pivot, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /** Fib 配置变更 */
+    updateFibConfig(config: Partial<FibSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.fibPaneId = paneId
+        this.configSnapshot.fib = { ...this.configSnapshot.fib, ...config }
         this.configVersion++
         this.triggerRecompute()
     }

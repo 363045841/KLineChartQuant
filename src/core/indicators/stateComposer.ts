@@ -93,6 +93,10 @@ import type { CMFRenderState } from './cmfState'
 import { EMPTY_CMF_STATE } from './cmfState'
 import type { MFIRenderState } from './mfiState'
 import { EMPTY_MFI_STATE } from './mfiState'
+import type { PivotRenderState } from './pivotState'
+import { EMPTY_PIVOT_STATE } from './pivotState'
+import type { FibRenderState } from './fibState'
+import { EMPTY_FIB_STATE } from './fibState'
 import type { IndicatorSeriesBundle } from './workerProtocol'
 
 /**
@@ -134,6 +138,8 @@ type VisibleSubIndicatorStates = {
     vwap: VWAPRenderState
     cmf: CMFRenderState
     mfi: MFIRenderState
+    pivot: PivotRenderState
+    fib: FibRenderState
 }
 
 type VisibleSubIndicatorMask = {
@@ -167,6 +173,8 @@ type VisibleSubIndicatorMask = {
     vwap?: boolean
     cmf?: boolean
     mfi?: boolean
+    pivot?: boolean
+    fib?: boolean
 }
 
 type ComposedRenderStates = VisibleSubIndicatorStates & {
@@ -231,6 +239,8 @@ export function composeVisibleSubIndicatorStates(
     const vwapActive = activeMask.vwap ?? true
     const cmfActive = activeMask.cmf ?? true
     const mfiActive = activeMask.mfi ?? true
+    const pivotActive = activeMask.pivot ?? true
+    const fibActive = activeMask.fib ?? true
 
     const rsiExtremes = rsiActive ? calcRSIExtremes(bundle.rsi.series, visibleRange) : null
     const cciExtremes = cciActive ? calcCCIExtremes(bundle.cci.series, visibleRange) : null
@@ -263,6 +273,8 @@ export function composeVisibleSubIndicatorStates(
     const vwapExtremes = vwapActive ? calcSparseExtremes(bundle.vwap.series, visibleRange) : null
     const cmfExtremes = cmfActive ? calcSparseExtremes(bundle.cmf.series, visibleRange) : null
     const mfiExtremes = mfiActive ? calcSparseExtremes(bundle.mfi.series, visibleRange) : null
+    const pivotExtremes = pivotActive ? calcPivotExtremes(bundle.pivot.series, visibleRange) : null
+    const fibExtremes = fibActive ? calcFibExtremes(bundle.fib.series, visibleRange) : null
     const latestPoint = macdActive ? getLatestMACDPoint(bundle, visibleRange) : null
 
     const macdPadding = macdExtremes ? Math.max(Math.abs(macdExtremes.max), Math.abs(macdExtremes.min)) * 0.1 : 0
@@ -700,6 +712,30 @@ export function composeVisibleSubIndicatorStates(
             series: bundle.mfi.series,
             params: bundle.mfi.params,
         }),
+        pivot: pivotActive ? {
+            timestamp,
+            series: bundle.pivot.series,
+            params: bundle.pivot.params,
+            valueMin: pivotExtremes!.min,
+            valueMax: pivotExtremes!.max,
+            visibleMin: pivotExtremes!.min,
+            visibleMax: pivotExtremes!.max,
+        } : mergeEmptyState(EMPTY_PIVOT_STATE, timestamp, {
+            series: bundle.pivot.series,
+            params: bundle.pivot.params,
+        }),
+        fib: fibActive ? {
+            timestamp,
+            series: bundle.fib.series,
+            params: bundle.fib.params,
+            valueMin: fibExtremes!.min,
+            valueMax: fibExtremes!.max,
+            visibleMin: fibExtremes!.min,
+            visibleMax: fibExtremes!.max,
+        } : mergeEmptyState(EMPTY_FIB_STATE, timestamp, {
+            series: bundle.fib.series,
+            params: bundle.fib.params,
+        }),
     }
 }
 
@@ -974,6 +1010,58 @@ function calcMACDExtremes(series: MACDPoint[], range: VisibleRange): { min: numb
 
 function calcATRExtremes(series: (number | undefined)[], range: VisibleRange): { min: number; max: number } {
     return calcSparseExtremes(series, range)
+}
+
+interface PivotPointShape {
+    pp: number
+    r1: number
+    r2: number
+    r3: number
+    s1: number
+    s2: number
+    s3: number
+}
+function calcPivotExtremes(series: (PivotPointShape | undefined)[], range: VisibleRange): { min: number; max: number } {
+    if (series.length === 0 || range.start >= series.length) {
+        return { min: Infinity, max: -Infinity }
+    }
+    let min = Infinity
+    let max = -Infinity
+    const end = Math.min(range.end, series.length)
+    for (let i = range.start; i < end; i++) {
+        const p = series[i]
+        if (!p) continue
+        for (const v of [p.pp, p.r1, p.r2, p.r3, p.s1, p.s2, p.s3]) {
+            if (v < min) min = v
+            if (v > max) max = v
+        }
+    }
+    return { min, max }
+}
+
+interface FibPointShape {
+    high: number
+    low: number
+    level236: number
+    level382: number
+    level500: number
+    level618: number
+    level786: number
+}
+function calcFibExtremes(series: (FibPointShape | undefined)[], range: VisibleRange): { min: number; max: number } {
+    if (series.length === 0 || range.start >= series.length) {
+        return { min: Infinity, max: -Infinity }
+    }
+    let min = Infinity
+    let max = -Infinity
+    const end = Math.min(range.end, series.length)
+    for (let i = range.start; i < end; i++) {
+        const p = series[i]
+        if (!p) continue
+        if (p.low < min) min = p.low
+        if (p.high > max) max = p.high
+    }
+    return { min, max }
 }
 
 interface IchimokuPointShape {

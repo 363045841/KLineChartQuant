@@ -113,6 +113,8 @@ export interface SubIndicatorParams {
   VWAP?: { sessionResetGapMs?: number }
   CMF?: { period?: number }
   MFI?: { period?: number }
+  PIVOT?: Record<string, never>
+  FIB?: { period?: number }
 }
 
 /** 副图指标类型 */

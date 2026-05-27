@@ -17,6 +17,8 @@ import type {
     KeltnerPoint,
     DonchianPoint,
     IchimokuPoint,
+    PivotPoint,
+    FibPoint,
 } from './calculators'
 
 // ============================================================================
@@ -228,6 +230,21 @@ export interface MFISchedulerConfig {
     showMFI: boolean
 }
 
+export interface PivotSchedulerConfig {
+    showPP: boolean
+    showR1: boolean
+    showR2: boolean
+    showR3: boolean
+    showS1: boolean
+    showS2: boolean
+    showS3: boolean
+}
+
+export interface FibSchedulerConfig {
+    period: number
+    showLevels: boolean
+}
+
 // ============================================================================
 // Worker 请求类型
 // ============================================================================
@@ -340,6 +357,8 @@ export interface IndicatorConfigSnapshot {
     vwap: VWAPSchedulerConfig
     cmf: CMFSchedulerConfig
     mfi: MFISchedulerConfig
+    pivot: PivotSchedulerConfig
+    fib: FibSchedulerConfig
     // pane IDs for sub-indicators
     rsiPaneId: string
     cciPaneId: string
@@ -371,6 +390,8 @@ export interface IndicatorConfigSnapshot {
     vwapPaneId: string
     cmfPaneId: string
     mfiPaneId: string
+    pivotPaneId: string
+    fibPaneId: string
 }
 
 // ============================================================================
@@ -515,6 +536,14 @@ export interface IndicatorSeriesBundle {
     mfi: {
         series: (number | undefined)[]
         params: MFISchedulerConfig
+    }
+    pivot: {
+        series: (PivotPoint | undefined)[]
+        params: PivotSchedulerConfig
+    }
+    fib: {
+        series: (FibPoint | undefined)[]
+        params: FibSchedulerConfig
     }
     /** 本次计算中实际变更的指标列表 */
     _changed: string[]

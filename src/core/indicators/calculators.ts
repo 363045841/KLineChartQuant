@@ -2094,3 +2094,108 @@ export function calcMFIDataSoA(layout: KLineSoALayout, period: number): (number 
     const data = SharedKLineBuffer.toKLineData(layout)
     return calcMFIData(data, period)
 }
+
+// ============================================================================
+// Pivot Points — Classic floor-trader pivots from prior bar's HLC
+// PP = (H + L + C) / 3
+// R1 = 2·PP - L; S1 = 2·PP - H
+// R2 = PP + (H - L); S2 = PP - (H - L)
+// R3 = H + 2·(PP - L); S3 = L - 2·(H - PP)
+// Each bar t (t >= 1) shows pivots derived from bar[t-1]'s HLC.
+// ============================================================================
+
+export interface PivotPoint {
+    pp: number
+    r1: number
+    r2: number
+    r3: number
+    s1: number
+    s2: number
+    s3: number
+}
+
+export function calcPivotData(data: KLineData[]): (PivotPoint | undefined)[] {
+    const n = data.length
+    const result: (PivotPoint | undefined)[] = new Array(n).fill(undefined)
+    if (n < 2) return result
+    for (let t = 1; t < n; t++) {
+        const p = data[t - 1]!
+        const pp = (p.high + p.low + p.close) / 3
+        const range = p.high - p.low
+        result[t] = {
+            pp,
+            r1: 2 * pp - p.low,
+            s1: 2 * pp - p.high,
+            r2: pp + range,
+            s2: pp - range,
+            r3: p.high + 2 * (pp - p.low),
+            s3: p.low - 2 * (p.high - pp),
+        }
+    }
+    return result
+}
+
+export function calcPivotDataSoA(layout: KLineSoALayout): (PivotPoint | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcPivotData(data)
+}
+
+// ============================================================================
+// Fibonacci Retracement — anchored to rolling-window high/low
+// Window = last `period` bars. High = max(high), Low = min(low).
+// Direction = 'up' if the most recent extreme is the high (price moved up);
+// 'down' otherwise. Retracement levels computed accordingly.
+// ============================================================================
+
+export interface FibPoint {
+    high: number
+    low: number
+    direction: 'up' | 'down'
+    level236: number
+    level382: number
+    level500: number
+    level618: number
+    level786: number
+}
+
+export const DEFAULT_FIB_PERIOD = 50
+
+export function calcFibData(data: KLineData[], period: number): (FibPoint | undefined)[] {
+    const n = data.length
+    const result: (FibPoint | undefined)[] = new Array(n).fill(undefined)
+    if (n === 0 || period <= 0 || n < period) return result
+
+    for (let t = period - 1; t < n; t++) {
+        let hi = -Infinity
+        let lo = Infinity
+        let hiIdx = t
+        let loIdx = t
+        for (let k = 0; k < period; k++) {
+            const bar = data[t - k]!
+            if (bar.high > hi) { hi = bar.high; hiIdx = t - k }
+            if (bar.low < lo) { lo = bar.low; loIdx = t - k }
+        }
+        const direction: 'up' | 'down' = hiIdx >= loIdx ? 'up' : 'down'
+        const range = hi - lo
+        // For uptrend retracements: 0% at high, 100% at low; price retraces FROM high TOWARD low
+        // For downtrend: 0% at low, 100% at high
+        const level = (frac: number) =>
+            direction === 'up' ? hi - range * frac : lo + range * frac
+        result[t] = {
+            high: hi,
+            low: lo,
+            direction,
+            level236: level(0.236),
+            level382: level(0.382),
+            level500: level(0.5),
+            level618: level(0.618),
+            level786: level(0.786),
+        }
+    }
+    return result
+}
+
+export function calcFibDataSoA(layout: KLineSoALayout, period: number): (FibPoint | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcFibData(data, period)
+}
