@@ -36,8 +36,6 @@ import type {
     DEMASchedulerConfig,
     TEMASchedulerConfig,
     HMASchedulerConfig,
-    KAMASchedulerConfig,
-    SARSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -77,10 +75,6 @@ import type { TEMARenderState } from './temaState'
 import { createTEMAStateKey, DEFAULT_TEMA_PERIOD } from './temaState'
 import type { HMARenderState } from './hmaState'
 import { createHMAStateKey, DEFAULT_HMA_PERIOD } from './hmaState'
-import type { KAMARenderState } from './kamaState'
-import { createKAMAStateKey, DEFAULT_KAMA_PERIOD, DEFAULT_KAMA_FAST_PERIOD, DEFAULT_KAMA_SLOW_PERIOD } from './kamaState'
-import type { SARRenderState } from './sarState'
-import { createSARStateKey, DEFAULT_SAR_STEP, DEFAULT_SAR_MAX_STEP } from './sarState'
 
 /**
  * 可见范围
@@ -104,8 +98,6 @@ type VisibleSubIndicatorMask = {
     dema: boolean
     tema: boolean
     hma: boolean
-    kama: boolean
-    sar: boolean
 }
 
 // 重新导出配置类型（保持向后兼容）
@@ -126,8 +118,6 @@ export type {
     DEMASchedulerConfig,
     TEMASchedulerConfig,
     HMASchedulerConfig,
-    KAMASchedulerConfig,
-    SARSchedulerConfig,
 }
 
 /**
@@ -264,13 +254,6 @@ export class IndicatorScheduler {
             dema: { period: DEFAULT_DEMA_PERIOD, showDEMA: true },
             tema: { period: DEFAULT_TEMA_PERIOD, showTEMA: true },
             hma: { period: DEFAULT_HMA_PERIOD, showHMA: true },
-            kama: {
-                period: DEFAULT_KAMA_PERIOD,
-                fastPeriod: DEFAULT_KAMA_FAST_PERIOD,
-                slowPeriod: DEFAULT_KAMA_SLOW_PERIOD,
-                showKAMA: true,
-            },
-            sar: { step: DEFAULT_SAR_STEP, maxStep: DEFAULT_SAR_MAX_STEP, showSAR: true },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -284,8 +267,6 @@ export class IndicatorScheduler {
             demaPaneId: 'sub_DEMA',
             temaPaneId: 'sub_TEMA',
             hmaPaneId: 'sub_HMA',
-            kamaPaneId: 'sub_KAMA',
-            sarPaneId: 'sub_SAR',
         }
     }
 
@@ -492,6 +473,7 @@ export class IndicatorScheduler {
         // ATR
         if (changed.has('atr')) {
             const atrKey = createATRStateKey(this.configSnapshot.atrPaneId)
+            console.log(`[ATR-Scheduler] applyResults: set state at key=${atrKey} paneId=${this.configSnapshot.atrPaneId} seriesLen=${states.atr.series.length} vMin=${states.atr.valueMin} vMax=${states.atr.valueMax}`)
             this.pluginHost.setSharedState<ATRRenderState>(atrKey, states.atr, 'indicator_scheduler')
         }
 
@@ -518,18 +500,6 @@ export class IndicatorScheduler {
             const hmaKey = createHMAStateKey(this.configSnapshot.hmaPaneId)
             this.pluginHost.setSharedState<HMARenderState>(hmaKey, states.hma, 'indicator_scheduler')
         }
-
-        // KAMA
-        if (changed.has('kama')) {
-            const kamaKey = createKAMAStateKey(this.configSnapshot.kamaPaneId)
-            this.pluginHost.setSharedState<KAMARenderState>(kamaKey, states.kama, 'indicator_scheduler')
-        }
-
-        // SAR
-        if (changed.has('sar')) {
-            const sarKey = createSARStateKey(this.configSnapshot.sarPaneId)
-            this.pluginHost.setSharedState<SARRenderState>(sarKey, states.sar, 'indicator_scheduler')
-        }
     }
 
     private updateVisibleStatesOnly(): void {
@@ -538,6 +508,7 @@ export class IndicatorScheduler {
         const timestamp = Date.now()
         const activeMask = this.buildActiveSubIndicatorMask()
         const states = composeVisibleSubIndicatorStates(this.latestResult, this.visibleRange, timestamp, activeMask)
+        console.log(`[ATR-Scheduler] updateVisibleStatesOnly: atrActive=${!!activeMask.atr} atrPaneId=${this.configSnapshot.atrPaneId} seriesLen=${states.atr.series.length}`)
 
         // RSI
         const rsiKey = createRSIStateKey(this.configSnapshot.rsiPaneId)

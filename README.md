@@ -134,6 +134,7 @@ const config: SemanticChartConfig = {
 
 ## 🚀 What's New
 
+- **v0.6.10** Unified WebGL rendering context sharing for all panes, plus sub-pane lifecycle refactoring — centralized pane instance management via SubPaneManager with first-class paneId identity
 - **v0.6.6** Comprehensive rendering optimizations: batched price-to-Y calculations, cached tick positions and geometry, optimized month-key operations; achieves stable **190-200fps on 200Hz displays** with frame generation time down to **2ms**
 - **v0.6.3** WebGL rendering for K-lines, volume bars, and MACD bars; significant performance boost across the board
 - **v0.6.1** Dual-layer canvas architecture: Main + Overlay separation with UpdateLevel filtering, achieves stable **180fps with low jitter on 200Hz displays**
