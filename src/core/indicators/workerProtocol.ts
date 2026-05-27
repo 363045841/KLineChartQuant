@@ -182,6 +182,24 @@ export interface TRIXSchedulerConfig {
     showSignal: boolean
 }
 
+export interface HVSchedulerConfig {
+    period: number
+    annualizationFactor: number
+    showHV: boolean
+}
+
+export interface ParkinsonSchedulerConfig {
+    period: number
+    annualizationFactor: number
+    showParkinson: boolean
+}
+
+export interface ChaikinVolSchedulerConfig {
+    emaPeriod: number
+    rocPeriod: number
+    showChaikinVol: boolean
+}
+
 // ============================================================================
 // Worker 请求类型
 // ============================================================================
@@ -285,6 +303,9 @@ export interface IndicatorConfigSnapshot {
     ichimoku: IchimokuSchedulerConfig
     roc: ROCSchedulerConfig
     trix: TRIXSchedulerConfig
+    hv: HVSchedulerConfig
+    parkinson: ParkinsonSchedulerConfig
+    chaikinVol: ChaikinVolSchedulerConfig
     // pane IDs for sub-indicators
     rsiPaneId: string
     cciPaneId: string
@@ -307,6 +328,9 @@ export interface IndicatorConfigSnapshot {
     ichimokuPaneId: string
     rocPaneId: string
     trixPaneId: string
+    hvPaneId: string
+    parkinsonPaneId: string
+    chaikinVolPaneId: string
 }
 
 // ============================================================================
@@ -415,6 +439,18 @@ export interface IndicatorSeriesBundle {
         series: (number | undefined)[]
         signalSeries: (number | undefined)[]
         params: TRIXSchedulerConfig
+    }
+    hv: {
+        series: (number | undefined)[]
+        params: HVSchedulerConfig
+    }
+    parkinson: {
+        series: (number | undefined)[]
+        params: ParkinsonSchedulerConfig
+    }
+    chaikinVol: {
+        series: (number | undefined)[]
+        params: ChaikinVolSchedulerConfig
     }
     /** 本次计算中实际变更的指标列表 */
     _changed: string[]

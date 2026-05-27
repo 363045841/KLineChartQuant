@@ -104,6 +104,9 @@ export interface SubIndicatorParams {
   }
   ROC?: { period?: number }
   TRIX?: { period?: number; signalPeriod?: number }
+  HV?: { period?: number; annualizationFactor?: number }
+  PARKINSON?: { period?: number; annualizationFactor?: number }
+  CHAIKIN_VOL?: { emaPeriod?: number; rocPeriod?: number }
 }
 
 /** 副图指标类型 */

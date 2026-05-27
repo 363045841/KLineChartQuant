@@ -31,6 +31,9 @@ import {
     calcIchimokuData,
     calcROCData,
     calcTRIXData,
+    calcHVData,
+    calcParkinsonData,
+    calcChaikinVolData,
     DEFAULT_MA_PERIODS,
     DEFAULT_ATR_PERIOD,
     DEFAULT_WMA_PERIOD,
@@ -55,6 +58,12 @@ import {
     DEFAULT_ROC_PERIOD,
     DEFAULT_TRIX_PERIOD,
     DEFAULT_TRIX_SIGNAL_PERIOD,
+    DEFAULT_HV_PERIOD,
+    DEFAULT_HV_ANNUALIZATION,
+    DEFAULT_PARKINSON_PERIOD,
+    DEFAULT_PARKINSON_ANNUALIZATION,
+    DEFAULT_CHAIKIN_VOL_EMA_PERIOD,
+    DEFAULT_CHAIKIN_VOL_ROC_PERIOD,
     type MAFlags,
     type BOLLPoint,
     type EXPMAPoint,
@@ -93,6 +102,9 @@ import type {
     IchimokuSchedulerConfig,
     ROCSchedulerConfig,
     TRIXSchedulerConfig,
+    HVSchedulerConfig,
+    ParkinsonSchedulerConfig,
+    ChaikinVolSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -145,6 +157,9 @@ export class IndicatorRuntime {
     private cachedRocSeries: (number | undefined)[] = []
     private cachedTrixSeries: (number | undefined)[] = []
     private cachedTrixSignalSeries: (number | undefined)[] = []
+    private cachedHvSeries: (number | undefined)[] = []
+    private cachedParkinsonSeries: (number | undefined)[] = []
+    private cachedChaikinVolSeries: (number | undefined)[] = []
 
     // 脏标记
     private dirtyData = true
@@ -173,6 +188,9 @@ export class IndicatorRuntime {
     private dirtyIchimokuConfig = true
     private dirtyRocConfig = true
     private dirtyTrixConfig = true
+    private dirtyHvConfig = true
+    private dirtyParkinsonConfig = true
+    private dirtyChaikinVolConfig = true
 
     private getDefaultConfig(): IndicatorConfigSnapshot {
         return {
@@ -267,6 +285,21 @@ export class IndicatorRuntime {
                 showTRIX: true,
                 showSignal: true,
             },
+            hv: {
+                period: DEFAULT_HV_PERIOD,
+                annualizationFactor: DEFAULT_HV_ANNUALIZATION,
+                showHV: true,
+            },
+            parkinson: {
+                period: DEFAULT_PARKINSON_PERIOD,
+                annualizationFactor: DEFAULT_PARKINSON_ANNUALIZATION,
+                showParkinson: true,
+            },
+            chaikinVol: {
+                emaPeriod: DEFAULT_CHAIKIN_VOL_EMA_PERIOD,
+                rocPeriod: DEFAULT_CHAIKIN_VOL_ROC_PERIOD,
+                showChaikinVol: true,
+            },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -288,6 +321,9 @@ export class IndicatorRuntime {
             ichimokuPaneId: 'sub_Ichimoku',
             rocPaneId: 'sub_ROC',
             trixPaneId: 'sub_TRIX',
+            hvPaneId: 'sub_HV',
+            parkinsonPaneId: 'sub_Parkinson',
+            chaikinVolPaneId: 'sub_ChaikinVol',
         }
     }
 
@@ -419,6 +455,18 @@ export class IndicatorRuntime {
             this.config.trix = { ...this.config.trix, ...config.trix }
             this.dirtyTrixConfig = true
         }
+        if (config.hv !== undefined && !this.shallowEqual(config.hv as unknown as Record<string, unknown>, this.config.hv as unknown as Record<string, unknown>)) {
+            this.config.hv = { ...this.config.hv, ...config.hv }
+            this.dirtyHvConfig = true
+        }
+        if (config.parkinson !== undefined && !this.shallowEqual(config.parkinson as unknown as Record<string, unknown>, this.config.parkinson as unknown as Record<string, unknown>)) {
+            this.config.parkinson = { ...this.config.parkinson, ...config.parkinson }
+            this.dirtyParkinsonConfig = true
+        }
+        if (config.chaikinVol !== undefined && !this.shallowEqual(config.chaikinVol as unknown as Record<string, unknown>, this.config.chaikinVol as unknown as Record<string, unknown>)) {
+            this.config.chaikinVol = { ...this.config.chaikinVol, ...config.chaikinVol }
+            this.dirtyChaikinVolConfig = true
+        }
         // pane IDs
         if (config.rsiPaneId !== undefined) this.config.rsiPaneId = config.rsiPaneId
         if (config.cciPaneId !== undefined) this.config.cciPaneId = config.cciPaneId
@@ -441,6 +489,9 @@ export class IndicatorRuntime {
         if (config.ichimokuPaneId !== undefined) this.config.ichimokuPaneId = config.ichimokuPaneId
         if (config.rocPaneId !== undefined) this.config.rocPaneId = config.rocPaneId
         if (config.trixPaneId !== undefined) this.config.trixPaneId = config.trixPaneId
+        if (config.hvPaneId !== undefined) this.config.hvPaneId = config.hvPaneId
+        if (config.parkinsonPaneId !== undefined) this.config.parkinsonPaneId = config.parkinsonPaneId
+        if (config.chaikinVolPaneId !== undefined) this.config.chaikinVolPaneId = config.chaikinVolPaneId
 
         this.configVersion = version
     }
@@ -475,6 +526,9 @@ export class IndicatorRuntime {
         this.dirtyIchimokuConfig = true
         this.dirtyRocConfig = true
         this.dirtyTrixConfig = true
+        this.dirtyHvConfig = true
+        this.dirtyParkinsonConfig = true
+        this.dirtyChaikinVolConfig = true
     }
 
     /**
@@ -794,6 +848,44 @@ export class IndicatorRuntime {
             changed.push('trix')
         }
 
+        // HV
+        if (this.dirtyData || this.dirtyHvConfig) {
+            if (this.config.hv.showHV) {
+                this.cachedHvSeries = calcHVData(data, this.config.hv.period, this.config.hv.annualizationFactor)
+            } else {
+                this.cachedHvSeries = []
+            }
+            changed.push('hv')
+        }
+
+        // Parkinson
+        if (this.dirtyData || this.dirtyParkinsonConfig) {
+            if (this.config.parkinson.showParkinson) {
+                this.cachedParkinsonSeries = calcParkinsonData(
+                    data,
+                    this.config.parkinson.period,
+                    this.config.parkinson.annualizationFactor,
+                )
+            } else {
+                this.cachedParkinsonSeries = []
+            }
+            changed.push('parkinson')
+        }
+
+        // Chaikin Volatility
+        if (this.dirtyData || this.dirtyChaikinVolConfig) {
+            if (this.config.chaikinVol.showChaikinVol) {
+                this.cachedChaikinVolSeries = calcChaikinVolData(
+                    data,
+                    this.config.chaikinVol.emaPeriod,
+                    this.config.chaikinVol.rocPeriod,
+                )
+            } else {
+                this.cachedChaikinVolSeries = []
+            }
+            changed.push('chaikinVol')
+        }
+
         // 重置脏标记
         this.dirtyData = false
         this.dirtyMAConfig = false
@@ -821,6 +913,9 @@ export class IndicatorRuntime {
         this.dirtyIchimokuConfig = false
         this.dirtyRocConfig = false
         this.dirtyTrixConfig = false
+        this.dirtyHvConfig = false
+        this.dirtyParkinsonConfig = false
+        this.dirtyChaikinVolConfig = false
 
         // 组装结果
         return {
@@ -925,6 +1020,18 @@ export class IndicatorRuntime {
                 series: this.cachedTrixSeries,
                 signalSeries: this.cachedTrixSignalSeries,
                 params: { ...this.config.trix },
+            },
+            hv: {
+                series: this.cachedHvSeries,
+                params: { ...this.config.hv },
+            },
+            parkinson: {
+                series: this.cachedParkinsonSeries,
+                params: { ...this.config.parkinson },
+            },
+            chaikinVol: {
+                series: this.cachedChaikinVolSeries,
+                params: { ...this.config.chaikinVol },
             },
             _changed: changed,
         }
@@ -1037,6 +1144,18 @@ export class IndicatorRuntime {
                 series: this.cachedTrixSeries,
                 signalSeries: this.cachedTrixSignalSeries,
                 params: { ...this.config.trix },
+            },
+            hv: {
+                series: this.cachedHvSeries,
+                params: { ...this.config.hv },
+            },
+            parkinson: {
+                series: this.cachedParkinsonSeries,
+                params: { ...this.config.parkinson },
+            },
+            chaikinVol: {
+                series: this.cachedChaikinVolSeries,
+                params: { ...this.config.chaikinVol },
             },
         }
     }

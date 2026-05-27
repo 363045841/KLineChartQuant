@@ -75,6 +75,12 @@ import type { ROCRenderState } from './rocState'
 import { EMPTY_ROC_STATE } from './rocState'
 import type { TRIXRenderState } from './trixState'
 import { EMPTY_TRIX_STATE } from './trixState'
+import type { HVRenderState } from './hvState'
+import { EMPTY_HV_STATE } from './hvState'
+import type { ParkinsonRenderState } from './parkinsonState'
+import { EMPTY_PARKINSON_STATE } from './parkinsonState'
+import type { ChaikinVolRenderState } from './chaikinVolState'
+import { EMPTY_CHAIKIN_VOL_STATE } from './chaikinVolState'
 import type { IndicatorSeriesBundle } from './workerProtocol'
 
 /**
@@ -107,6 +113,9 @@ type VisibleSubIndicatorStates = {
     ichimoku: IchimokuRenderState
     roc: ROCRenderState
     trix: TRIXRenderState
+    hv: HVRenderState
+    parkinson: ParkinsonRenderState
+    chaikinVol: ChaikinVolRenderState
 }
 
 type VisibleSubIndicatorMask = {
@@ -131,6 +140,9 @@ type VisibleSubIndicatorMask = {
     ichimoku?: boolean
     roc?: boolean
     trix?: boolean
+    hv?: boolean
+    parkinson?: boolean
+    chaikinVol?: boolean
 }
 
 type ComposedRenderStates = VisibleSubIndicatorStates & {
@@ -186,6 +198,9 @@ export function composeVisibleSubIndicatorStates(
     const ichimokuActive = activeMask.ichimoku ?? true
     const rocActive = activeMask.roc ?? true
     const trixActive = activeMask.trix ?? true
+    const hvActive = activeMask.hv ?? true
+    const parkinsonActive = activeMask.parkinson ?? true
+    const chaikinVolActive = activeMask.chaikinVol ?? true
 
     const rsiExtremes = rsiActive ? calcRSIExtremes(bundle.rsi.series, visibleRange) : null
     const cciExtremes = cciActive ? calcCCIExtremes(bundle.cci.series, visibleRange) : null
@@ -209,6 +224,9 @@ export function composeVisibleSubIndicatorStates(
     const rocExtremes = rocActive ? calcSparseExtremes(bundle.roc.series, visibleRange) : null
     const trixSeriesExtremes = trixActive ? calcSparseExtremes(bundle.trix.series, visibleRange) : null
     const trixSignalExtremes = trixActive ? calcSparseExtremes(bundle.trix.signalSeries, visibleRange) : null
+    const hvExtremes = hvActive ? calcSparseExtremes(bundle.hv.series, visibleRange) : null
+    const parkinsonExtremes = parkinsonActive ? calcSparseExtremes(bundle.parkinson.series, visibleRange) : null
+    const chaikinVolExtremes = chaikinVolActive ? calcSparseExtremes(bundle.chaikinVol.series, visibleRange) : null
     const latestPoint = macdActive ? getLatestMACDPoint(bundle, visibleRange) : null
 
     const macdPadding = macdExtremes ? Math.max(Math.abs(macdExtremes.max), Math.abs(macdExtremes.min)) * 0.1 : 0
@@ -265,6 +283,12 @@ export function composeVisibleSubIndicatorStates(
             : null,
         EMPTY_TRIX_STATE,
     )
+    // HV and Parkinson are non-negative volatility series; pad upward only
+    const hvValueMax = hvExtremes && Number.isFinite(hvExtremes.max) ? hvExtremes.max * 1.1 : EMPTY_HV_STATE.valueMax
+    const parkinsonValueMax = parkinsonExtremes && Number.isFinite(parkinsonExtremes.max)
+        ? parkinsonExtremes.max * 1.1
+        : EMPTY_PARKINSON_STATE.valueMax
+    const chaikinVolBounds = maFamilyBounds(chaikinVolExtremes, EMPTY_CHAIKIN_VOL_STATE)
 
     return {
         rsi: rsiActive ? {
@@ -527,6 +551,42 @@ export function composeVisibleSubIndicatorStates(
             series: bundle.trix.series,
             signalSeries: bundle.trix.signalSeries,
             params: bundle.trix.params,
+        }),
+        hv: hvActive ? {
+            timestamp,
+            series: bundle.hv.series,
+            params: bundle.hv.params,
+            valueMin: 0,
+            valueMax: hvValueMax,
+            visibleMin: hvExtremes!.min,
+            visibleMax: hvExtremes!.max,
+        } : mergeEmptyState(EMPTY_HV_STATE, timestamp, {
+            series: bundle.hv.series,
+            params: bundle.hv.params,
+        }),
+        parkinson: parkinsonActive ? {
+            timestamp,
+            series: bundle.parkinson.series,
+            params: bundle.parkinson.params,
+            valueMin: 0,
+            valueMax: parkinsonValueMax,
+            visibleMin: parkinsonExtremes!.min,
+            visibleMax: parkinsonExtremes!.max,
+        } : mergeEmptyState(EMPTY_PARKINSON_STATE, timestamp, {
+            series: bundle.parkinson.series,
+            params: bundle.parkinson.params,
+        }),
+        chaikinVol: chaikinVolActive ? {
+            timestamp,
+            series: bundle.chaikinVol.series,
+            params: bundle.chaikinVol.params,
+            valueMin: chaikinVolBounds.valueMin,
+            valueMax: chaikinVolBounds.valueMax,
+            visibleMin: chaikinVolExtremes!.min,
+            visibleMax: chaikinVolExtremes!.max,
+        } : mergeEmptyState(EMPTY_CHAIKIN_VOL_STATE, timestamp, {
+            series: bundle.chaikinVol.series,
+            params: bundle.chaikinVol.params,
         }),
     }
 }

@@ -44,6 +44,9 @@ import type {
     IchimokuSchedulerConfig,
     ROCSchedulerConfig,
     TRIXSchedulerConfig,
+    HVSchedulerConfig,
+    ParkinsonSchedulerConfig,
+    ChaikinVolSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -114,6 +117,12 @@ import type { ROCRenderState } from './rocState'
 import { createROCStateKey, DEFAULT_ROC_PERIOD } from './rocState'
 import type { TRIXRenderState } from './trixState'
 import { createTRIXStateKey, DEFAULT_TRIX_PERIOD, DEFAULT_TRIX_SIGNAL_PERIOD } from './trixState'
+import type { HVRenderState } from './hvState'
+import { createHVStateKey, DEFAULT_HV_PERIOD, DEFAULT_HV_ANNUALIZATION } from './hvState'
+import type { ParkinsonRenderState } from './parkinsonState'
+import { createParkinsonStateKey, DEFAULT_PARKINSON_PERIOD, DEFAULT_PARKINSON_ANNUALIZATION } from './parkinsonState'
+import type { ChaikinVolRenderState } from './chaikinVolState'
+import { createChaikinVolStateKey, DEFAULT_CHAIKIN_VOL_EMA_PERIOD, DEFAULT_CHAIKIN_VOL_ROC_PERIOD } from './chaikinVolState'
 
 /**
  * 可见范围
@@ -145,6 +154,9 @@ type VisibleSubIndicatorMask = {
     ichimoku: boolean
     roc: boolean
     trix: boolean
+    hv: boolean
+    parkinson: boolean
+    chaikinVol: boolean
 }
 
 // 重新导出配置类型（保持向后兼容）
@@ -173,6 +185,9 @@ export type {
     IchimokuSchedulerConfig,
     ROCSchedulerConfig,
     TRIXSchedulerConfig,
+    HVSchedulerConfig,
+    ParkinsonSchedulerConfig,
+    ChaikinVolSchedulerConfig,
 }
 
 /**
@@ -354,6 +369,9 @@ export class IndicatorScheduler {
                 showTRIX: true,
                 showSignal: true,
             },
+            hv: { period: DEFAULT_HV_PERIOD, annualizationFactor: DEFAULT_HV_ANNUALIZATION, showHV: true },
+            parkinson: { period: DEFAULT_PARKINSON_PERIOD, annualizationFactor: DEFAULT_PARKINSON_ANNUALIZATION, showParkinson: true },
+            chaikinVol: { emaPeriod: DEFAULT_CHAIKIN_VOL_EMA_PERIOD, rocPeriod: DEFAULT_CHAIKIN_VOL_ROC_PERIOD, showChaikinVol: true },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -375,6 +393,9 @@ export class IndicatorScheduler {
             ichimokuPaneId: 'sub_Ichimoku',
             rocPaneId: 'sub_ROC',
             trixPaneId: 'sub_TRIX',
+            hvPaneId: 'sub_HV',
+            parkinsonPaneId: 'sub_Parkinson',
+            chaikinVolPaneId: 'sub_ChaikinVol',
         }
     }
 
@@ -655,6 +676,24 @@ export class IndicatorScheduler {
             const tKey = createTRIXStateKey(this.configSnapshot.trixPaneId)
             this.pluginHost.setSharedState<TRIXRenderState>(tKey, states.trix, 'indicator_scheduler')
         }
+
+        // HV
+        if (changed.has('hv')) {
+            const hKey = createHVStateKey(this.configSnapshot.hvPaneId)
+            this.pluginHost.setSharedState<HVRenderState>(hKey, states.hv, 'indicator_scheduler')
+        }
+
+        // Parkinson
+        if (changed.has('parkinson')) {
+            const pKey = createParkinsonStateKey(this.configSnapshot.parkinsonPaneId)
+            this.pluginHost.setSharedState<ParkinsonRenderState>(pKey, states.parkinson, 'indicator_scheduler')
+        }
+
+        // ChaikinVol
+        if (changed.has('chaikinVol')) {
+            const cKey = createChaikinVolStateKey(this.configSnapshot.chaikinVolPaneId)
+            this.pluginHost.setSharedState<ChaikinVolRenderState>(cKey, states.chaikinVol, 'indicator_scheduler')
+        }
     }
 
     private updateVisibleStatesOnly(): void {
@@ -747,6 +786,18 @@ export class IndicatorScheduler {
         // TRIX
         const tKey = createTRIXStateKey(this.configSnapshot.trixPaneId)
         this.pluginHost.setSharedState<TRIXRenderState>(tKey, states.trix, 'indicator_scheduler')
+
+        // HV
+        const hKey = createHVStateKey(this.configSnapshot.hvPaneId)
+        this.pluginHost.setSharedState<HVRenderState>(hKey, states.hv, 'indicator_scheduler')
+
+        // Parkinson
+        const pKey = createParkinsonStateKey(this.configSnapshot.parkinsonPaneId)
+        this.pluginHost.setSharedState<ParkinsonRenderState>(pKey, states.parkinson, 'indicator_scheduler')
+
+        // ChaikinVol
+        const cKey = createChaikinVolStateKey(this.configSnapshot.chaikinVolPaneId)
+        this.pluginHost.setSharedState<ChaikinVolRenderState>(cKey, states.chaikinVol, 'indicator_scheduler')
     }
 
     private buildActiveSubIndicatorMask(): VisibleSubIndicatorMask {
@@ -773,6 +824,9 @@ export class IndicatorScheduler {
             ichimoku: activeIds.includes(this.configSnapshot.ichimokuPaneId),
             roc: activeIds.includes(this.configSnapshot.rocPaneId),
             trix: activeIds.includes(this.configSnapshot.trixPaneId),
+            hv: activeIds.includes(this.configSnapshot.hvPaneId),
+            parkinson: activeIds.includes(this.configSnapshot.parkinsonPaneId),
+            chaikinVol: activeIds.includes(this.configSnapshot.chaikinVolPaneId),
         }
     }
 
@@ -782,7 +836,7 @@ export class IndicatorScheduler {
         if (activeIds.length === 0) return { ...this.configSnapshot }
 
         const cfg: Record<string, unknown> = { ...this.configSnapshot }
-        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr', 'wma', 'dema', 'tema', 'hma', 'kama', 'sar', 'supertrend', 'keltner', 'donchian', 'ichimoku', 'roc', 'trix'] as const
+        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr', 'wma', 'dema', 'tema', 'hma', 'kama', 'sar', 'supertrend', 'keltner', 'donchian', 'ichimoku', 'roc', 'trix', 'hv', 'parkinson', 'chaikinVol'] as const
         for (const key of subKeys) {
             const paneIdKey = `${key}PaneId`
             const paneId = cfg[paneIdKey] as string
@@ -1103,6 +1157,36 @@ export class IndicatorScheduler {
     updateTRIXConfig(config: Partial<TRIXSchedulerConfig>, paneId?: string): void {
         if (paneId !== undefined) this.configSnapshot.trixPaneId = paneId
         this.configSnapshot.trix = { ...this.configSnapshot.trix, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * HV 配置变更
+     */
+    updateHVConfig(config: Partial<HVSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.hvPaneId = paneId
+        this.configSnapshot.hv = { ...this.configSnapshot.hv, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * Parkinson 配置变更
+     */
+    updateParkinsonConfig(config: Partial<ParkinsonSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.parkinsonPaneId = paneId
+        this.configSnapshot.parkinson = { ...this.configSnapshot.parkinson, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * ChaikinVol 配置变更
+     */
+    updateChaikinVolConfig(config: Partial<ChaikinVolSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.chaikinVolPaneId = paneId
+        this.configSnapshot.chaikinVol = { ...this.configSnapshot.chaikinVol, ...config }
         this.configVersion++
         this.triggerRecompute()
     }
