@@ -115,6 +115,11 @@ export interface SubIndicatorParams {
   MFI?: { period?: number }
   PIVOT?: Record<string, never>
   FIB?: { period?: number }
+  STRUCTURE?: {
+    leftWindow?: number
+    rightWindow?: number
+    breakoutSource?: 'close' | 'wick'
+  }
 }
 
 /** 副图指标类型 */

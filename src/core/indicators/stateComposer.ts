@@ -97,6 +97,8 @@ import type { PivotRenderState } from './pivotState'
 import { EMPTY_PIVOT_STATE } from './pivotState'
 import type { FibRenderState } from './fibState'
 import { EMPTY_FIB_STATE } from './fibState'
+import type { StructureRenderState } from './structureState'
+import { EMPTY_STRUCTURE_STATE } from './structureState'
 import type { IndicatorSeriesBundle } from './workerProtocol'
 
 /**
@@ -140,6 +142,7 @@ type VisibleSubIndicatorStates = {
     mfi: MFIRenderState
     pivot: PivotRenderState
     fib: FibRenderState
+    structure: StructureRenderState
 }
 
 type VisibleSubIndicatorMask = {
@@ -175,6 +178,7 @@ type VisibleSubIndicatorMask = {
     mfi?: boolean
     pivot?: boolean
     fib?: boolean
+    structure?: boolean
 }
 
 type ComposedRenderStates = VisibleSubIndicatorStates & {
@@ -241,6 +245,7 @@ export function composeVisibleSubIndicatorStates(
     const mfiActive = activeMask.mfi ?? true
     const pivotActive = activeMask.pivot ?? true
     const fibActive = activeMask.fib ?? true
+    const structureActive = activeMask.structure ?? true
 
     const rsiExtremes = rsiActive ? calcRSIExtremes(bundle.rsi.series, visibleRange) : null
     const cciExtremes = cciActive ? calcCCIExtremes(bundle.cci.series, visibleRange) : null
@@ -735,6 +740,18 @@ export function composeVisibleSubIndicatorStates(
         } : mergeEmptyState(EMPTY_FIB_STATE, timestamp, {
             series: bundle.fib.series,
             params: bundle.fib.params,
+        }),
+        structure: structureActive ? {
+            timestamp,
+            series: bundle.structure.series,
+            params: bundle.structure.params,
+            valueMin: 0,
+            valueMax: 1,
+            visibleMin: 0,
+            visibleMax: 1,
+        } : mergeEmptyState(EMPTY_STRUCTURE_STATE, timestamp, {
+            series: bundle.structure.series,
+            params: bundle.structure.params,
         }),
     }
 }

@@ -55,6 +55,7 @@ import type {
     MFISchedulerConfig,
     PivotSchedulerConfig,
     FibSchedulerConfig,
+    StructureSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -147,6 +148,8 @@ import type { PivotRenderState } from './pivotState'
 import { createPivotStateKey } from './pivotState'
 import type { FibRenderState } from './fibState'
 import { createFibStateKey, DEFAULT_FIB_PERIOD } from './fibState'
+import type { StructureRenderState } from './structureState'
+import { createStructureStateKey, DEFAULT_STRUCTURE_LEFT, DEFAULT_STRUCTURE_RIGHT } from './structureState'
 
 /**
  * 可见范围
@@ -189,6 +192,7 @@ type VisibleSubIndicatorMask = {
     mfi: boolean
     pivot: boolean
     fib: boolean
+    structure: boolean
 }
 
 // 重新导出配置类型（保持向后兼容）
@@ -228,6 +232,7 @@ export type {
     MFISchedulerConfig,
     PivotSchedulerConfig,
     FibSchedulerConfig,
+    StructureSchedulerConfig,
 }
 
 /**
@@ -420,6 +425,15 @@ export class IndicatorScheduler {
             mfi: { period: DEFAULT_MFI_PERIOD, showMFI: true },
             pivot: { showPP: true, showR1: true, showR2: true, showR3: false, showS1: true, showS2: true, showS3: false },
             fib: { period: DEFAULT_FIB_PERIOD, showLevels: true },
+            structure: {
+                leftWindow: DEFAULT_STRUCTURE_LEFT,
+                rightWindow: DEFAULT_STRUCTURE_RIGHT,
+                breakoutSource: 'close',
+                showSwingLabels: true,
+                showBOS: true,
+                showCHOCH: true,
+                showProvisional: false,
+            },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -452,6 +466,7 @@ export class IndicatorScheduler {
             mfiPaneId: 'sub_MFI',
             pivotPaneId: 'sub_Pivot',
             fibPaneId: 'sub_Fib',
+            structurePaneId: 'sub_Structure',
         }
     }
 
@@ -798,6 +813,12 @@ export class IndicatorScheduler {
             const fibKey = createFibStateKey(this.configSnapshot.fibPaneId)
             this.pluginHost.setSharedState<FibRenderState>(fibKey, states.fib, 'indicator_scheduler')
         }
+
+        // Structure
+        if (changed.has('structure')) {
+            const sKey = createStructureStateKey(this.configSnapshot.structurePaneId)
+            this.pluginHost.setSharedState<StructureRenderState>(sKey, states.structure, 'indicator_scheduler')
+        }
     }
 
     private updateVisibleStatesOnly(): void {
@@ -934,6 +955,10 @@ export class IndicatorScheduler {
         // Fib
         const fibKey = createFibStateKey(this.configSnapshot.fibPaneId)
         this.pluginHost.setSharedState<FibRenderState>(fibKey, states.fib, 'indicator_scheduler')
+
+        // Structure
+        const sKey = createStructureStateKey(this.configSnapshot.structurePaneId)
+        this.pluginHost.setSharedState<StructureRenderState>(sKey, states.structure, 'indicator_scheduler')
     }
 
     private buildActiveSubIndicatorMask(): VisibleSubIndicatorMask {
@@ -971,6 +996,7 @@ export class IndicatorScheduler {
             mfi: activeIds.includes(this.configSnapshot.mfiPaneId),
             pivot: activeIds.includes(this.configSnapshot.pivotPaneId),
             fib: activeIds.includes(this.configSnapshot.fibPaneId),
+            structure: activeIds.includes(this.configSnapshot.structurePaneId),
         }
     }
 
@@ -980,7 +1006,7 @@ export class IndicatorScheduler {
         if (activeIds.length === 0) return { ...this.configSnapshot }
 
         const cfg: Record<string, unknown> = { ...this.configSnapshot }
-        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr', 'wma', 'dema', 'tema', 'hma', 'kama', 'sar', 'supertrend', 'keltner', 'donchian', 'ichimoku', 'roc', 'trix', 'hv', 'parkinson', 'chaikinVol', 'vma', 'obv', 'pvt', 'vwap', 'cmf', 'mfi', 'pivot', 'fib'] as const
+        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr', 'wma', 'dema', 'tema', 'hma', 'kama', 'sar', 'supertrend', 'keltner', 'donchian', 'ichimoku', 'roc', 'trix', 'hv', 'parkinson', 'chaikinVol', 'vma', 'obv', 'pvt', 'vwap', 'cmf', 'mfi', 'pivot', 'fib', 'structure'] as const
         for (const key of subKeys) {
             const paneIdKey = `${key}PaneId`
             const paneId = cfg[paneIdKey] as string
@@ -1403,6 +1429,14 @@ export class IndicatorScheduler {
     updateFibConfig(config: Partial<FibSchedulerConfig>, paneId?: string): void {
         if (paneId !== undefined) this.configSnapshot.fibPaneId = paneId
         this.configSnapshot.fib = { ...this.configSnapshot.fib, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /** Structure 配置变更 */
+    updateStructureConfig(config: Partial<StructureSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.structurePaneId = paneId
+        this.configSnapshot.structure = { ...this.configSnapshot.structure, ...config }
         this.configVersion++
         this.triggerRecompute()
     }

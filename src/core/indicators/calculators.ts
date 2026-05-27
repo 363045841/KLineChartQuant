@@ -2199,3 +2199,158 @@ export function calcFibDataSoA(layout: KLineSoALayout, period: number): (FibPoin
     const data = SharedKLineBuffer.toKLineData(layout)
     return calcFibData(data, period)
 }
+
+// ============================================================================
+// SMC Structure — Swing detection + BOS / CHOCH events
+// Window-based swing fractal (default left=right=2 = Bill Williams fractal).
+// Swing confirmed when right-window bars have closed after the extremum.
+// Trend state machine: HH+HL = up, LL+LH = down, mixed = range.
+// BOS = continuation break (close > last HH in up trend, or < last LL in down trend).
+// CHOCH = reversal break (against current trend).
+// ============================================================================
+
+export interface SwingPoint {
+    index: number
+    price: number
+    kind: 'high' | 'low'
+    label: 'HH' | 'HL' | 'LH' | 'LL'
+    confirmed: boolean
+}
+
+export type StructureEventKind = 'BOS' | 'CHOCH'
+
+export interface StructureEvent {
+    kind: StructureEventKind
+    index: number
+    triggerPrice: number
+    brokenLevel: number
+    brokenSwingIndex: number
+    direction: 'up' | 'down'
+}
+
+export interface StructureSnapshot {
+    swings: SwingPoint[]
+    events: StructureEvent[]
+    trend: 'up' | 'down' | 'range'
+}
+
+export const DEFAULT_STRUCTURE_LEFT = 2
+export const DEFAULT_STRUCTURE_RIGHT = 2
+
+export function calcStructureData(
+    data: KLineData[],
+    leftWindow: number,
+    rightWindow: number,
+    breakoutSource: 'close' | 'wick',
+): StructureSnapshot {
+    const n = data.length
+    if (n === 0 || leftWindow < 0 || rightWindow < 0) {
+        return { swings: [], events: [], trend: 'range' }
+    }
+
+    const rawSwings: { index: number; price: number; kind: 'high' | 'low'; confirmed: boolean }[] = []
+    for (let i = 0; i < n; i++) {
+        const bar = data[i]!
+        if (isExtremum(data, i, leftWindow, rightWindow, 'high')) {
+            rawSwings.push({ index: i, price: bar.high, kind: 'high', confirmed: i + rightWindow < n })
+        }
+        if (isExtremum(data, i, leftWindow, rightWindow, 'low')) {
+            rawSwings.push({ index: i, price: bar.low, kind: 'low', confirmed: i + rightWindow < n })
+        }
+    }
+    rawSwings.sort((a, b) => a.index - b.index)
+
+    const swings: SwingPoint[] = []
+    let lastHigh: { index: number; price: number } | null = null
+    let lastLow: { index: number; price: number } | null = null
+    for (const s of rawSwings) {
+        let label: 'HH' | 'HL' | 'LH' | 'LL'
+        if (s.kind === 'high') {
+            label = lastHigh && s.price > lastHigh.price ? 'HH' : 'LH'
+            lastHigh = { index: s.index, price: s.price }
+        } else {
+            label = lastLow && s.price > lastLow.price ? 'HL' : 'LL'
+            lastLow = { index: s.index, price: s.price }
+        }
+        swings.push({ ...s, label })
+    }
+
+    const events: StructureEvent[] = []
+    let trend: 'up' | 'down' | 'range' = 'range'
+    let lastSwingHigh: { index: number; price: number } | null = null
+    let lastSwingLow: { index: number; price: number } | null = null
+    const confirmedSwings = swings.filter((s) => s.confirmed)
+    let swingCursor = 0
+
+    for (let t = 0; t < n; t++) {
+        while (swingCursor < confirmedSwings.length && confirmedSwings[swingCursor]!.index + rightWindow <= t) {
+            const s = confirmedSwings[swingCursor]!
+            if (s.kind === 'high') lastSwingHigh = { index: s.index, price: s.price }
+            else lastSwingLow = { index: s.index, price: s.price }
+            swingCursor++
+        }
+
+        const bar = data[t]!
+        const upBreakPrice = breakoutSource === 'close' ? bar.close : bar.high
+        const downBreakPrice = breakoutSource === 'close' ? bar.close : bar.low
+
+        if (lastSwingHigh && upBreakPrice > lastSwingHigh.price) {
+            const kind: StructureEventKind = trend === 'down' ? 'CHOCH' : 'BOS'
+            events.push({
+                kind,
+                index: t,
+                triggerPrice: upBreakPrice,
+                brokenLevel: lastSwingHigh.price,
+                brokenSwingIndex: lastSwingHigh.index,
+                direction: 'up',
+            })
+            trend = 'up'
+            lastSwingHigh = null
+        } else if (lastSwingLow && downBreakPrice < lastSwingLow.price) {
+            const kind: StructureEventKind = trend === 'up' ? 'CHOCH' : 'BOS'
+            events.push({
+                kind,
+                index: t,
+                triggerPrice: downBreakPrice,
+                brokenLevel: lastSwingLow.price,
+                brokenSwingIndex: lastSwingLow.index,
+                direction: 'down',
+            })
+            trend = 'down'
+            lastSwingLow = null
+        }
+    }
+
+    return { swings, events, trend }
+}
+
+function isExtremum(
+    data: KLineData[],
+    i: number,
+    left: number,
+    right: number,
+    kind: 'high' | 'low',
+): boolean {
+    const n = data.length
+    if (i < left || i + right >= n) return false
+    const center = kind === 'high' ? data[i]!.high : data[i]!.low
+    for (let k = 1; k <= left; k++) {
+        const v = kind === 'high' ? data[i - k]!.high : data[i - k]!.low
+        if (kind === 'high' ? v >= center : v <= center) return false
+    }
+    for (let k = 1; k <= right; k++) {
+        const v = kind === 'high' ? data[i + k]!.high : data[i + k]!.low
+        if (kind === 'high' ? v >= center : v <= center) return false
+    }
+    return true
+}
+
+export function calcStructureDataSoA(
+    layout: KLineSoALayout,
+    leftWindow: number,
+    rightWindow: number,
+    breakoutSource: 'close' | 'wick',
+): StructureSnapshot {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcStructureData(data, leftWindow, rightWindow, breakoutSource)
+}

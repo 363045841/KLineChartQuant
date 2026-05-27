@@ -42,9 +42,12 @@ import {
     calcMFIData,
     calcPivotData,
     calcFibData,
+    calcStructureData,
     DEFAULT_MA_PERIODS,
     DEFAULT_ATR_PERIOD,
     DEFAULT_VMA_PERIOD,
+    DEFAULT_STRUCTURE_LEFT,
+    DEFAULT_STRUCTURE_RIGHT,
     DEFAULT_VWAP_SESSION_GAP_MS,
     DEFAULT_CMF_PERIOD,
     DEFAULT_MFI_PERIOD,
@@ -91,6 +94,7 @@ import {
     type IchimokuPoint,
     type PivotPoint,
     type FibPoint,
+    type StructureSnapshot,
 } from './calculators'
 import type {
     BOLLSchedulerConfig,
@@ -128,6 +132,7 @@ import type {
     MFISchedulerConfig,
     PivotSchedulerConfig,
     FibSchedulerConfig,
+    StructureSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -191,6 +196,7 @@ export class IndicatorRuntime {
     private cachedMfiSeries: (number | undefined)[] = []
     private cachedPivotSeries: (PivotPoint | undefined)[] = []
     private cachedFibSeries: (FibPoint | undefined)[] = []
+    private cachedStructureSeries: StructureSnapshot = { swings: [], events: [], trend: 'range' }
 
     // 脏标记
     private dirtyData = true
@@ -230,6 +236,7 @@ export class IndicatorRuntime {
     private dirtyMfiConfig = true
     private dirtyPivotConfig = true
     private dirtyFibConfig = true
+    private dirtyStructureConfig = true
 
     private getDefaultConfig(): IndicatorConfigSnapshot {
         return {
@@ -347,6 +354,15 @@ export class IndicatorRuntime {
             mfi: { period: DEFAULT_MFI_PERIOD, showMFI: true },
             pivot: { showPP: true, showR1: true, showR2: true, showR3: false, showS1: true, showS2: true, showS3: false },
             fib: { period: DEFAULT_FIB_PERIOD, showLevels: true },
+            structure: {
+                leftWindow: DEFAULT_STRUCTURE_LEFT,
+                rightWindow: DEFAULT_STRUCTURE_RIGHT,
+                breakoutSource: 'close',
+                showSwingLabels: true,
+                showBOS: true,
+                showCHOCH: true,
+                showProvisional: false,
+            },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -379,6 +395,7 @@ export class IndicatorRuntime {
             mfiPaneId: 'sub_MFI',
             pivotPaneId: 'sub_Pivot',
             fibPaneId: 'sub_Fib',
+            structurePaneId: 'sub_Structure',
         }
     }
 
@@ -554,6 +571,10 @@ export class IndicatorRuntime {
             this.config.fib = { ...this.config.fib, ...config.fib }
             this.dirtyFibConfig = true
         }
+        if (config.structure !== undefined && !this.shallowEqual(config.structure as unknown as Record<string, unknown>, this.config.structure as unknown as Record<string, unknown>)) {
+            this.config.structure = { ...this.config.structure, ...config.structure }
+            this.dirtyStructureConfig = true
+        }
         // pane IDs
         if (config.rsiPaneId !== undefined) this.config.rsiPaneId = config.rsiPaneId
         if (config.cciPaneId !== undefined) this.config.cciPaneId = config.cciPaneId
@@ -587,6 +608,7 @@ export class IndicatorRuntime {
         if (config.mfiPaneId !== undefined) this.config.mfiPaneId = config.mfiPaneId
         if (config.pivotPaneId !== undefined) this.config.pivotPaneId = config.pivotPaneId
         if (config.fibPaneId !== undefined) this.config.fibPaneId = config.fibPaneId
+        if (config.structurePaneId !== undefined) this.config.structurePaneId = config.structurePaneId
 
         this.configVersion = version
     }
@@ -632,6 +654,7 @@ export class IndicatorRuntime {
         this.dirtyMfiConfig = true
         this.dirtyPivotConfig = true
         this.dirtyFibConfig = true
+        this.dirtyStructureConfig = true
     }
 
     /**
@@ -1070,6 +1093,17 @@ export class IndicatorRuntime {
             changed.push('fib')
         }
 
+        // SMC Structure
+        if (this.dirtyData || this.dirtyStructureConfig) {
+            const s = this.config.structure
+            if (s.showSwingLabels || s.showBOS || s.showCHOCH) {
+                this.cachedStructureSeries = calcStructureData(data, s.leftWindow, s.rightWindow, s.breakoutSource)
+            } else {
+                this.cachedStructureSeries = { swings: [], events: [], trend: 'range' }
+            }
+            changed.push('structure')
+        }
+
         // 重置脏标记
         this.dirtyData = false
         this.dirtyMAConfig = false
@@ -1108,6 +1142,7 @@ export class IndicatorRuntime {
         this.dirtyMfiConfig = false
         this.dirtyPivotConfig = false
         this.dirtyFibConfig = false
+        this.dirtyStructureConfig = false
 
         // 组装结果
         return {
@@ -1256,6 +1291,10 @@ export class IndicatorRuntime {
             fib: {
                 series: this.cachedFibSeries,
                 params: { ...this.config.fib },
+            },
+            structure: {
+                series: this.cachedStructureSeries,
+                params: { ...this.config.structure },
             },
             _changed: changed,
         }
@@ -1412,6 +1451,10 @@ export class IndicatorRuntime {
             fib: {
                 series: this.cachedFibSeries,
                 params: { ...this.config.fib },
+            },
+            structure: {
+                series: this.cachedStructureSeries,
+                params: { ...this.config.structure },
             },
         }
     }

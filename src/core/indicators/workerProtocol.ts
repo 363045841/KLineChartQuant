@@ -19,6 +19,7 @@ import type {
     IchimokuPoint,
     PivotPoint,
     FibPoint,
+    StructureSnapshot,
 } from './calculators'
 
 // ============================================================================
@@ -245,6 +246,16 @@ export interface FibSchedulerConfig {
     showLevels: boolean
 }
 
+export interface StructureSchedulerConfig {
+    leftWindow: number
+    rightWindow: number
+    breakoutSource: 'close' | 'wick'
+    showSwingLabels: boolean
+    showBOS: boolean
+    showCHOCH: boolean
+    showProvisional: boolean
+}
+
 // ============================================================================
 // Worker 请求类型
 // ============================================================================
@@ -359,6 +370,7 @@ export interface IndicatorConfigSnapshot {
     mfi: MFISchedulerConfig
     pivot: PivotSchedulerConfig
     fib: FibSchedulerConfig
+    structure: StructureSchedulerConfig
     // pane IDs for sub-indicators
     rsiPaneId: string
     cciPaneId: string
@@ -392,6 +404,7 @@ export interface IndicatorConfigSnapshot {
     mfiPaneId: string
     pivotPaneId: string
     fibPaneId: string
+    structurePaneId: string
 }
 
 // ============================================================================
@@ -544,6 +557,10 @@ export interface IndicatorSeriesBundle {
     fib: {
         series: (FibPoint | undefined)[]
         params: FibSchedulerConfig
+    }
+    structure: {
+        series: StructureSnapshot
+        params: StructureSchedulerConfig
     }
     /** 本次计算中实际变更的指标列表 */
     _changed: string[]
