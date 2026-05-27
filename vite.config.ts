@@ -61,5 +61,5 @@ export default defineConfig({
       },
     },
   },
-  publicDir: false,
+  // publicDir 默认为 'public'，不要禁用，mock 数据需要从 public/ 提供
 })
