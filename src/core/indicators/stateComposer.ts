@@ -89,6 +89,10 @@ import type { PVTRenderState } from './pvtState'
 import { EMPTY_PVT_STATE } from './pvtState'
 import type { VWAPRenderState } from './vwapState'
 import { EMPTY_VWAP_STATE } from './vwapState'
+import type { CMFRenderState } from './cmfState'
+import { EMPTY_CMF_STATE } from './cmfState'
+import type { MFIRenderState } from './mfiState'
+import { EMPTY_MFI_STATE } from './mfiState'
 import type { IndicatorSeriesBundle } from './workerProtocol'
 
 /**
@@ -128,6 +132,8 @@ type VisibleSubIndicatorStates = {
     obv: OBVRenderState
     pvt: PVTRenderState
     vwap: VWAPRenderState
+    cmf: CMFRenderState
+    mfi: MFIRenderState
 }
 
 type VisibleSubIndicatorMask = {
@@ -159,6 +165,8 @@ type VisibleSubIndicatorMask = {
     obv?: boolean
     pvt?: boolean
     vwap?: boolean
+    cmf?: boolean
+    mfi?: boolean
 }
 
 type ComposedRenderStates = VisibleSubIndicatorStates & {
@@ -221,6 +229,8 @@ export function composeVisibleSubIndicatorStates(
     const obvActive = activeMask.obv ?? true
     const pvtActive = activeMask.pvt ?? true
     const vwapActive = activeMask.vwap ?? true
+    const cmfActive = activeMask.cmf ?? true
+    const mfiActive = activeMask.mfi ?? true
 
     const rsiExtremes = rsiActive ? calcRSIExtremes(bundle.rsi.series, visibleRange) : null
     const cciExtremes = cciActive ? calcCCIExtremes(bundle.cci.series, visibleRange) : null
@@ -251,6 +261,8 @@ export function composeVisibleSubIndicatorStates(
     const obvExtremes = obvActive ? calcSparseExtremes(bundle.obv.series, visibleRange) : null
     const pvtExtremes = pvtActive ? calcSparseExtremes(bundle.pvt.series, visibleRange) : null
     const vwapExtremes = vwapActive ? calcSparseExtremes(bundle.vwap.series, visibleRange) : null
+    const cmfExtremes = cmfActive ? calcSparseExtremes(bundle.cmf.series, visibleRange) : null
+    const mfiExtremes = mfiActive ? calcSparseExtremes(bundle.mfi.series, visibleRange) : null
     const latestPoint = macdActive ? getLatestMACDPoint(bundle, visibleRange) : null
 
     const macdPadding = macdExtremes ? Math.max(Math.abs(macdExtremes.max), Math.abs(macdExtremes.min)) * 0.1 : 0
@@ -663,6 +675,30 @@ export function composeVisibleSubIndicatorStates(
         } : mergeEmptyState(EMPTY_VWAP_STATE, timestamp, {
             series: bundle.vwap.series,
             params: bundle.vwap.params,
+        }),
+        cmf: cmfActive ? {
+            timestamp,
+            series: bundle.cmf.series,
+            params: bundle.cmf.params,
+            valueMin: -1,
+            valueMax: 1,
+            visibleMin: cmfExtremes!.min,
+            visibleMax: cmfExtremes!.max,
+        } : mergeEmptyState(EMPTY_CMF_STATE, timestamp, {
+            series: bundle.cmf.series,
+            params: bundle.cmf.params,
+        }),
+        mfi: mfiActive ? {
+            timestamp,
+            series: bundle.mfi.series,
+            params: bundle.mfi.params,
+            valueMin: 0,
+            valueMax: 100,
+            visibleMin: mfiExtremes!.min,
+            visibleMax: mfiExtremes!.max,
+        } : mergeEmptyState(EMPTY_MFI_STATE, timestamp, {
+            series: bundle.mfi.series,
+            params: bundle.mfi.params,
         }),
     }
 }

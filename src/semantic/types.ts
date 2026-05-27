@@ -111,6 +111,8 @@ export interface SubIndicatorParams {
   OBV?: Record<string, never>
   PVT?: Record<string, never>
   VWAP?: { sessionResetGapMs?: number }
+  CMF?: { period?: number }
+  MFI?: { period?: number }
 }
 
 /** 副图指标类型 */

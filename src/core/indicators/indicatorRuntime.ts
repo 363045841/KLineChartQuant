@@ -38,10 +38,14 @@ import {
     calcOBVData,
     calcPVTData,
     calcVWAPData,
+    calcCMFData,
+    calcMFIData,
     DEFAULT_MA_PERIODS,
     DEFAULT_ATR_PERIOD,
     DEFAULT_VMA_PERIOD,
     DEFAULT_VWAP_SESSION_GAP_MS,
+    DEFAULT_CMF_PERIOD,
+    DEFAULT_MFI_PERIOD,
     DEFAULT_WMA_PERIOD,
     DEFAULT_DEMA_PERIOD,
     DEFAULT_TEMA_PERIOD,
@@ -115,6 +119,8 @@ import type {
     OBVSchedulerConfig,
     PVTSchedulerConfig,
     VWAPSchedulerConfig,
+    CMFSchedulerConfig,
+    MFISchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -174,6 +180,8 @@ export class IndicatorRuntime {
     private cachedObvSeries: (number | undefined)[] = []
     private cachedPvtSeries: (number | undefined)[] = []
     private cachedVwapSeries: (number | undefined)[] = []
+    private cachedCmfSeries: (number | undefined)[] = []
+    private cachedMfiSeries: (number | undefined)[] = []
 
     // 脏标记
     private dirtyData = true
@@ -209,6 +217,8 @@ export class IndicatorRuntime {
     private dirtyObvConfig = true
     private dirtyPvtConfig = true
     private dirtyVwapConfig = true
+    private dirtyCmfConfig = true
+    private dirtyMfiConfig = true
 
     private getDefaultConfig(): IndicatorConfigSnapshot {
         return {
@@ -322,6 +332,8 @@ export class IndicatorRuntime {
             obv: { showOBV: true },
             pvt: { showPVT: true },
             vwap: { sessionResetGapMs: DEFAULT_VWAP_SESSION_GAP_MS, showVWAP: true },
+            cmf: { period: DEFAULT_CMF_PERIOD, showCMF: true },
+            mfi: { period: DEFAULT_MFI_PERIOD, showMFI: true },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -350,6 +362,8 @@ export class IndicatorRuntime {
             obvPaneId: 'sub_OBV',
             pvtPaneId: 'sub_PVT',
             vwapPaneId: 'sub_VWAP',
+            cmfPaneId: 'sub_CMF',
+            mfiPaneId: 'sub_MFI',
         }
     }
 
@@ -509,6 +523,14 @@ export class IndicatorRuntime {
             this.config.vwap = { ...this.config.vwap, ...config.vwap }
             this.dirtyVwapConfig = true
         }
+        if (config.cmf !== undefined && !this.shallowEqual(config.cmf as unknown as Record<string, unknown>, this.config.cmf as unknown as Record<string, unknown>)) {
+            this.config.cmf = { ...this.config.cmf, ...config.cmf }
+            this.dirtyCmfConfig = true
+        }
+        if (config.mfi !== undefined && !this.shallowEqual(config.mfi as unknown as Record<string, unknown>, this.config.mfi as unknown as Record<string, unknown>)) {
+            this.config.mfi = { ...this.config.mfi, ...config.mfi }
+            this.dirtyMfiConfig = true
+        }
         // pane IDs
         if (config.rsiPaneId !== undefined) this.config.rsiPaneId = config.rsiPaneId
         if (config.cciPaneId !== undefined) this.config.cciPaneId = config.cciPaneId
@@ -538,6 +560,8 @@ export class IndicatorRuntime {
         if (config.obvPaneId !== undefined) this.config.obvPaneId = config.obvPaneId
         if (config.pvtPaneId !== undefined) this.config.pvtPaneId = config.pvtPaneId
         if (config.vwapPaneId !== undefined) this.config.vwapPaneId = config.vwapPaneId
+        if (config.cmfPaneId !== undefined) this.config.cmfPaneId = config.cmfPaneId
+        if (config.mfiPaneId !== undefined) this.config.mfiPaneId = config.mfiPaneId
 
         this.configVersion = version
     }
@@ -579,6 +603,8 @@ export class IndicatorRuntime {
         this.dirtyObvConfig = true
         this.dirtyPvtConfig = true
         this.dirtyVwapConfig = true
+        this.dirtyCmfConfig = true
+        this.dirtyMfiConfig = true
     }
 
     /**
@@ -976,6 +1002,26 @@ export class IndicatorRuntime {
             changed.push('vwap')
         }
 
+        // CMF
+        if (this.dirtyData || this.dirtyCmfConfig) {
+            if (this.config.cmf.showCMF) {
+                this.cachedCmfSeries = calcCMFData(data, this.config.cmf.period)
+            } else {
+                this.cachedCmfSeries = []
+            }
+            changed.push('cmf')
+        }
+
+        // MFI
+        if (this.dirtyData || this.dirtyMfiConfig) {
+            if (this.config.mfi.showMFI) {
+                this.cachedMfiSeries = calcMFIData(data, this.config.mfi.period)
+            } else {
+                this.cachedMfiSeries = []
+            }
+            changed.push('mfi')
+        }
+
         // 重置脏标记
         this.dirtyData = false
         this.dirtyMAConfig = false
@@ -1010,6 +1056,8 @@ export class IndicatorRuntime {
         this.dirtyObvConfig = false
         this.dirtyPvtConfig = false
         this.dirtyVwapConfig = false
+        this.dirtyCmfConfig = false
+        this.dirtyMfiConfig = false
 
         // 组装结果
         return {
@@ -1142,6 +1190,14 @@ export class IndicatorRuntime {
             vwap: {
                 series: this.cachedVwapSeries,
                 params: { ...this.config.vwap },
+            },
+            cmf: {
+                series: this.cachedCmfSeries,
+                params: { ...this.config.cmf },
+            },
+            mfi: {
+                series: this.cachedMfiSeries,
+                params: { ...this.config.mfi },
             },
             _changed: changed,
         }
@@ -1282,6 +1338,14 @@ export class IndicatorRuntime {
             vwap: {
                 series: this.cachedVwapSeries,
                 params: { ...this.config.vwap },
+            },
+            cmf: {
+                series: this.cachedCmfSeries,
+                params: { ...this.config.cmf },
+            },
+            mfi: {
+                series: this.cachedMfiSeries,
+                params: { ...this.config.mfi },
             },
         }
     }

@@ -218,6 +218,16 @@ export interface VWAPSchedulerConfig {
     showVWAP: boolean
 }
 
+export interface CMFSchedulerConfig {
+    period: number
+    showCMF: boolean
+}
+
+export interface MFISchedulerConfig {
+    period: number
+    showMFI: boolean
+}
+
 // ============================================================================
 // Worker 请求类型
 // ============================================================================
@@ -328,6 +338,8 @@ export interface IndicatorConfigSnapshot {
     obv: OBVSchedulerConfig
     pvt: PVTSchedulerConfig
     vwap: VWAPSchedulerConfig
+    cmf: CMFSchedulerConfig
+    mfi: MFISchedulerConfig
     // pane IDs for sub-indicators
     rsiPaneId: string
     cciPaneId: string
@@ -357,6 +369,8 @@ export interface IndicatorConfigSnapshot {
     obvPaneId: string
     pvtPaneId: string
     vwapPaneId: string
+    cmfPaneId: string
+    mfiPaneId: string
 }
 
 // ============================================================================
@@ -493,6 +507,14 @@ export interface IndicatorSeriesBundle {
     vwap: {
         series: (number | undefined)[]
         params: VWAPSchedulerConfig
+    }
+    cmf: {
+        series: (number | undefined)[]
+        params: CMFSchedulerConfig
+    }
+    mfi: {
+        series: (number | undefined)[]
+        params: MFISchedulerConfig
     }
     /** 本次计算中实际变更的指标列表 */
     _changed: string[]

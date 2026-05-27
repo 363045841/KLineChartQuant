@@ -1994,3 +1994,103 @@ export function calcVWAPDataSoA(
     const data = SharedKLineBuffer.toKLineData(layout)
     return calcVWAPData(data, sessionResetGapMs)
 }
+
+// ============================================================================
+// CMF — Chaikin Money Flow
+// MFM = ((C-L) - (H-C)) / (H-L)   ∈ [-1, 1]
+// MFV = MFM * Volume
+// CMF(t) = sum(MFV[t-period+1..t]) / sum(Volume[t-period+1..t])  ∈ [-1, 1]
+// ============================================================================
+
+export const DEFAULT_CMF_PERIOD = 20
+
+export function calcCMFData(data: KLineData[], period: number): (number | undefined)[] {
+    const n = data.length
+    const result: (number | undefined)[] = new Array(n).fill(undefined)
+    if (n === 0 || period <= 0 || n < period) return result
+
+    const mfv: number[] = new Array(n)
+    for (let i = 0; i < n; i++) {
+        const bar = data[i]!
+        const range = bar.high - bar.low
+        const mfm = range > 0 ? ((bar.close - bar.low) - (bar.high - bar.close)) / range : 0
+        mfv[i] = mfm * bar.volume
+    }
+
+    let sumMFV = 0
+    let sumV = 0
+    for (let i = 0; i < period; i++) {
+        sumMFV += mfv[i]!
+        sumV += data[i]!.volume
+    }
+    result[period - 1] = sumV > 0 ? sumMFV / sumV : 0
+
+    for (let t = period; t < n; t++) {
+        sumMFV += mfv[t]! - mfv[t - period]!
+        sumV += data[t]!.volume - data[t - period]!.volume
+        result[t] = sumV > 0 ? sumMFV / sumV : 0
+    }
+    return result
+}
+
+export function calcCMFDataSoA(layout: KLineSoALayout, period: number): (number | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcCMFData(data, period)
+}
+
+// ============================================================================
+// MFI — Money Flow Index
+// TP = (H+L+C)/3, RMF = TP * Volume
+// PMF = sum of RMF where TP > TP[-1]; NMF = sum where TP < TP[-1]
+// MFR = PMF / NMF; MFI = 100 - 100 / (1 + MFR)   ∈ [0, 100]
+// ============================================================================
+
+export const DEFAULT_MFI_PERIOD = 14
+
+export function calcMFIData(data: KLineData[], period: number): (number | undefined)[] {
+    const n = data.length
+    const result: (number | undefined)[] = new Array(n).fill(undefined)
+    if (n < period + 1 || period <= 0) return result
+
+    const tp: number[] = new Array(n)
+    for (let i = 0; i < n; i++) tp[i] = (data[i]!.high + data[i]!.low + data[i]!.close) / 3
+
+    // Pre-classified positive/negative money flow per bar
+    const pmfArr: number[] = new Array(n)
+    const nmfArr: number[] = new Array(n)
+    pmfArr[0] = 0
+    nmfArr[0] = 0
+    for (let i = 1; i < n; i++) {
+        const rmf = tp[i]! * data[i]!.volume
+        if (tp[i]! > tp[i - 1]!) {
+            pmfArr[i] = rmf
+            nmfArr[i] = 0
+        } else if (tp[i]! < tp[i - 1]!) {
+            pmfArr[i] = 0
+            nmfArr[i] = rmf
+        } else {
+            pmfArr[i] = 0
+            nmfArr[i] = 0
+        }
+    }
+
+    let pSum = 0
+    let nSum = 0
+    for (let i = 1; i <= period; i++) {
+        pSum += pmfArr[i]!
+        nSum += nmfArr[i]!
+    }
+    result[period] = nSum > 0 ? 100 - 100 / (1 + pSum / nSum) : 100
+
+    for (let t = period + 1; t < n; t++) {
+        pSum += pmfArr[t]! - pmfArr[t - period]!
+        nSum += nmfArr[t]! - nmfArr[t - period]!
+        result[t] = nSum > 0 ? 100 - 100 / (1 + pSum / nSum) : 100
+    }
+    return result
+}
+
+export function calcMFIDataSoA(layout: KLineSoALayout, period: number): (number | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcMFIData(data, period)
+}
