@@ -101,6 +101,8 @@ import type { StructureRenderState } from './structureState'
 import { EMPTY_STRUCTURE_STATE } from './structureState'
 import type { ZonesRenderState } from './zonesState'
 import { EMPTY_ZONES_STATE } from './zonesState'
+import type { VolumeProfileRenderState } from './volumeProfileState'
+import { EMPTY_VOLUME_PROFILE_STATE } from './volumeProfileState'
 import type { IndicatorSeriesBundle } from './workerProtocol'
 
 /**
@@ -146,6 +148,7 @@ type VisibleSubIndicatorStates = {
     fib: FibRenderState
     structure: StructureRenderState
     zones: ZonesRenderState
+    volumeProfile: VolumeProfileRenderState
 }
 
 type VisibleSubIndicatorMask = {
@@ -183,6 +186,7 @@ type VisibleSubIndicatorMask = {
     fib?: boolean
     structure?: boolean
     zones?: boolean
+    volumeProfile?: boolean
 }
 
 type ComposedRenderStates = VisibleSubIndicatorStates & {
@@ -251,6 +255,7 @@ export function composeVisibleSubIndicatorStates(
     const fibActive = activeMask.fib ?? true
     const structureActive = activeMask.structure ?? true
     const zonesActive = activeMask.zones ?? true
+    const vpActive = activeMask.volumeProfile ?? true
 
     const rsiExtremes = rsiActive ? calcRSIExtremes(bundle.rsi.series, visibleRange) : null
     const cciExtremes = cciActive ? calcCCIExtremes(bundle.cci.series, visibleRange) : null
@@ -769,6 +774,18 @@ export function composeVisibleSubIndicatorStates(
         } : mergeEmptyState(EMPTY_ZONES_STATE, timestamp, {
             series: bundle.zones.series,
             params: bundle.zones.params,
+        }),
+        volumeProfile: vpActive ? {
+            timestamp,
+            series: bundle.volumeProfile.series,
+            params: bundle.volumeProfile.params,
+            valueMin: bundle.volumeProfile.series.bins[0]?.priceLow ?? 0,
+            valueMax: bundle.volumeProfile.series.bins[bundle.volumeProfile.series.bins.length - 1]?.priceHigh ?? 1,
+            visibleMin: bundle.volumeProfile.series.val,
+            visibleMax: bundle.volumeProfile.series.vah,
+        } : mergeEmptyState(EMPTY_VOLUME_PROFILE_STATE, timestamp, {
+            series: bundle.volumeProfile.series,
+            params: bundle.volumeProfile.params,
         }),
     }
 }

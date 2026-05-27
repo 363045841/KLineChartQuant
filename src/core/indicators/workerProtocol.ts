@@ -21,6 +21,7 @@ import type {
     FibPoint,
     StructureSnapshot,
     Zone,
+    VolumeProfileResult,
 } from './calculators'
 
 // ============================================================================
@@ -264,6 +265,14 @@ export interface ZonesSchedulerConfig {
     obLookback: number
 }
 
+export interface VolumeProfileSchedulerConfig {
+    bins: number
+    lookback: number
+    valueAreaPercent: number
+    showPOC: boolean
+    showValueArea: boolean
+}
+
 // ============================================================================
 // Worker 请求类型
 // ============================================================================
@@ -380,6 +389,7 @@ export interface IndicatorConfigSnapshot {
     fib: FibSchedulerConfig
     structure: StructureSchedulerConfig
     zones: ZonesSchedulerConfig
+    volumeProfile: VolumeProfileSchedulerConfig
     // pane IDs for sub-indicators
     rsiPaneId: string
     cciPaneId: string
@@ -415,6 +425,7 @@ export interface IndicatorConfigSnapshot {
     fibPaneId: string
     structurePaneId: string
     zonesPaneId: string
+    volumeProfilePaneId: string
 }
 
 // ============================================================================
@@ -575,6 +586,10 @@ export interface IndicatorSeriesBundle {
     zones: {
         series: Zone[]
         params: ZonesSchedulerConfig
+    }
+    volumeProfile: {
+        series: VolumeProfileResult
+        params: VolumeProfileSchedulerConfig
     }
     /** 本次计算中实际变更的指标列表 */
     _changed: string[]

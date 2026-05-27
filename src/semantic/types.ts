@@ -126,6 +126,11 @@ export interface SubIndicatorParams {
     showFilledZones?: boolean
     obLookback?: number
   }
+  VOLUME_PROFILE?: {
+    bins?: number
+    lookback?: number
+    valueAreaPercent?: number
+  }
 }
 
 /** 副图指标类型 */

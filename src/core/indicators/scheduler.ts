@@ -57,6 +57,7 @@ import type {
     FibSchedulerConfig,
     StructureSchedulerConfig,
     ZonesSchedulerConfig,
+    VolumeProfileSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -153,6 +154,13 @@ import type { StructureRenderState } from './structureState'
 import { createStructureStateKey, DEFAULT_STRUCTURE_LEFT, DEFAULT_STRUCTURE_RIGHT } from './structureState'
 import type { ZonesRenderState } from './zonesState'
 import { createZonesStateKey, DEFAULT_ZONES_OB_LOOKBACK } from './zonesState'
+import type { VolumeProfileRenderState } from './volumeProfileState'
+import {
+    createVolumeProfileStateKey,
+    DEFAULT_VP_BINS,
+    DEFAULT_VP_LOOKBACK,
+    DEFAULT_VP_VALUE_AREA,
+} from './volumeProfileState'
 
 /**
  * 可见范围
@@ -197,6 +205,7 @@ type VisibleSubIndicatorMask = {
     fib: boolean
     structure: boolean
     zones: boolean
+    volumeProfile: boolean
 }
 
 // 重新导出配置类型（保持向后兼容）
@@ -238,6 +247,7 @@ export type {
     FibSchedulerConfig,
     StructureSchedulerConfig,
     ZonesSchedulerConfig,
+    VolumeProfileSchedulerConfig,
 }
 
 /**
@@ -445,6 +455,13 @@ export class IndicatorScheduler {
                 showFilledZones: false,
                 obLookback: DEFAULT_ZONES_OB_LOOKBACK,
             },
+            volumeProfile: {
+                bins: DEFAULT_VP_BINS,
+                lookback: DEFAULT_VP_LOOKBACK,
+                valueAreaPercent: DEFAULT_VP_VALUE_AREA,
+                showPOC: true,
+                showValueArea: true,
+            },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -479,6 +496,7 @@ export class IndicatorScheduler {
             fibPaneId: 'sub_Fib',
             structurePaneId: 'sub_Structure',
             zonesPaneId: 'sub_Zones',
+            volumeProfilePaneId: 'sub_VolumeProfile',
         }
     }
 
@@ -837,6 +855,12 @@ export class IndicatorScheduler {
             const zKey = createZonesStateKey(this.configSnapshot.zonesPaneId)
             this.pluginHost.setSharedState<ZonesRenderState>(zKey, states.zones, 'indicator_scheduler')
         }
+
+        // Volume Profile
+        if (changed.has('volumeProfile')) {
+            const vpKey = createVolumeProfileStateKey(this.configSnapshot.volumeProfilePaneId)
+            this.pluginHost.setSharedState<VolumeProfileRenderState>(vpKey, states.volumeProfile, 'indicator_scheduler')
+        }
     }
 
     private updateVisibleStatesOnly(): void {
@@ -981,6 +1005,10 @@ export class IndicatorScheduler {
         // Zones
         const zKey = createZonesStateKey(this.configSnapshot.zonesPaneId)
         this.pluginHost.setSharedState<ZonesRenderState>(zKey, states.zones, 'indicator_scheduler')
+
+        // Volume Profile
+        const vpKey = createVolumeProfileStateKey(this.configSnapshot.volumeProfilePaneId)
+        this.pluginHost.setSharedState<VolumeProfileRenderState>(vpKey, states.volumeProfile, 'indicator_scheduler')
     }
 
     private buildActiveSubIndicatorMask(): VisibleSubIndicatorMask {
@@ -1020,6 +1048,7 @@ export class IndicatorScheduler {
             fib: activeIds.includes(this.configSnapshot.fibPaneId),
             structure: activeIds.includes(this.configSnapshot.structurePaneId),
             zones: activeIds.includes(this.configSnapshot.zonesPaneId),
+            volumeProfile: activeIds.includes(this.configSnapshot.volumeProfilePaneId),
         }
     }
 
@@ -1029,7 +1058,7 @@ export class IndicatorScheduler {
         if (activeIds.length === 0) return { ...this.configSnapshot }
 
         const cfg: Record<string, unknown> = { ...this.configSnapshot }
-        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr', 'wma', 'dema', 'tema', 'hma', 'kama', 'sar', 'supertrend', 'keltner', 'donchian', 'ichimoku', 'roc', 'trix', 'hv', 'parkinson', 'chaikinVol', 'vma', 'obv', 'pvt', 'vwap', 'cmf', 'mfi', 'pivot', 'fib', 'structure', 'zones'] as const
+        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr', 'wma', 'dema', 'tema', 'hma', 'kama', 'sar', 'supertrend', 'keltner', 'donchian', 'ichimoku', 'roc', 'trix', 'hv', 'parkinson', 'chaikinVol', 'vma', 'obv', 'pvt', 'vwap', 'cmf', 'mfi', 'pivot', 'fib', 'structure', 'zones', 'volumeProfile'] as const
         for (const key of subKeys) {
             const paneIdKey = `${key}PaneId`
             const paneId = cfg[paneIdKey] as string
@@ -1468,6 +1497,14 @@ export class IndicatorScheduler {
     updateZonesConfig(config: Partial<ZonesSchedulerConfig>, paneId?: string): void {
         if (paneId !== undefined) this.configSnapshot.zonesPaneId = paneId
         this.configSnapshot.zones = { ...this.configSnapshot.zones, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /** Volume Profile 配置变更 */
+    updateVolumeProfileConfig(config: Partial<VolumeProfileSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.volumeProfilePaneId = paneId
+        this.configSnapshot.volumeProfile = { ...this.configSnapshot.volumeProfile, ...config }
         this.configVersion++
         this.triggerRecompute()
     }

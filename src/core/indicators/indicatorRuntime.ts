@@ -44,12 +44,16 @@ import {
     calcFibData,
     calcStructureData,
     calcZonesData,
+    calcVolumeProfileData,
     DEFAULT_MA_PERIODS,
     DEFAULT_ATR_PERIOD,
     DEFAULT_VMA_PERIOD,
     DEFAULT_STRUCTURE_LEFT,
     DEFAULT_STRUCTURE_RIGHT,
     DEFAULT_ZONES_OB_LOOKBACK,
+    DEFAULT_VP_BINS,
+    DEFAULT_VP_LOOKBACK,
+    DEFAULT_VP_VALUE_AREA,
     DEFAULT_VWAP_SESSION_GAP_MS,
     DEFAULT_CMF_PERIOD,
     DEFAULT_MFI_PERIOD,
@@ -98,6 +102,7 @@ import {
     type FibPoint,
     type StructureSnapshot,
     type Zone,
+    type VolumeProfileResult,
 } from './calculators'
 import type {
     BOLLSchedulerConfig,
@@ -137,6 +142,7 @@ import type {
     FibSchedulerConfig,
     StructureSchedulerConfig,
     ZonesSchedulerConfig,
+    VolumeProfileSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -202,6 +208,7 @@ export class IndicatorRuntime {
     private cachedFibSeries: (FibPoint | undefined)[] = []
     private cachedStructureSeries: StructureSnapshot = { swings: [], events: [], trend: 'range' }
     private cachedZonesSeries: Zone[] = []
+    private cachedVolumeProfileSeries: VolumeProfileResult = { bins: [], poc: 0, vah: 0, val: 0, totalVolume: 0 }
 
     // 脏标记
     private dirtyData = true
@@ -243,6 +250,7 @@ export class IndicatorRuntime {
     private dirtyFibConfig = true
     private dirtyStructureConfig = true
     private dirtyZonesConfig = true
+    private dirtyVolumeProfileConfig = true
 
     private getDefaultConfig(): IndicatorConfigSnapshot {
         return {
@@ -375,6 +383,13 @@ export class IndicatorRuntime {
                 showFilledZones: false,
                 obLookback: DEFAULT_ZONES_OB_LOOKBACK,
             },
+            volumeProfile: {
+                bins: DEFAULT_VP_BINS,
+                lookback: DEFAULT_VP_LOOKBACK,
+                valueAreaPercent: DEFAULT_VP_VALUE_AREA,
+                showPOC: true,
+                showValueArea: true,
+            },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -409,6 +424,7 @@ export class IndicatorRuntime {
             fibPaneId: 'sub_Fib',
             structurePaneId: 'sub_Structure',
             zonesPaneId: 'sub_Zones',
+            volumeProfilePaneId: 'sub_VolumeProfile',
         }
     }
 
@@ -592,6 +608,10 @@ export class IndicatorRuntime {
             this.config.zones = { ...this.config.zones, ...config.zones }
             this.dirtyZonesConfig = true
         }
+        if (config.volumeProfile !== undefined && !this.shallowEqual(config.volumeProfile as unknown as Record<string, unknown>, this.config.volumeProfile as unknown as Record<string, unknown>)) {
+            this.config.volumeProfile = { ...this.config.volumeProfile, ...config.volumeProfile }
+            this.dirtyVolumeProfileConfig = true
+        }
         // pane IDs
         if (config.rsiPaneId !== undefined) this.config.rsiPaneId = config.rsiPaneId
         if (config.cciPaneId !== undefined) this.config.cciPaneId = config.cciPaneId
@@ -627,6 +647,7 @@ export class IndicatorRuntime {
         if (config.fibPaneId !== undefined) this.config.fibPaneId = config.fibPaneId
         if (config.structurePaneId !== undefined) this.config.structurePaneId = config.structurePaneId
         if (config.zonesPaneId !== undefined) this.config.zonesPaneId = config.zonesPaneId
+        if (config.volumeProfilePaneId !== undefined) this.config.volumeProfilePaneId = config.volumeProfilePaneId
 
         this.configVersion = version
     }
@@ -674,6 +695,7 @@ export class IndicatorRuntime {
         this.dirtyFibConfig = true
         this.dirtyStructureConfig = true
         this.dirtyZonesConfig = true
+        this.dirtyVolumeProfileConfig = true
     }
 
     /**
@@ -1140,6 +1162,17 @@ export class IndicatorRuntime {
             changed.push('zones')
         }
 
+        // Volume Profile
+        if (this.dirtyData || this.dirtyVolumeProfileConfig) {
+            const vp = this.config.volumeProfile
+            if (vp.showPOC || vp.showValueArea) {
+                this.cachedVolumeProfileSeries = calcVolumeProfileData(data, vp.bins, vp.lookback, vp.valueAreaPercent)
+            } else {
+                this.cachedVolumeProfileSeries = { bins: [], poc: 0, vah: 0, val: 0, totalVolume: 0 }
+            }
+            changed.push('volumeProfile')
+        }
+
         // 重置脏标记
         this.dirtyData = false
         this.dirtyMAConfig = false
@@ -1180,6 +1213,7 @@ export class IndicatorRuntime {
         this.dirtyFibConfig = false
         this.dirtyStructureConfig = false
         this.dirtyZonesConfig = false
+        this.dirtyVolumeProfileConfig = false
 
         // 组装结果
         return {
@@ -1336,6 +1370,10 @@ export class IndicatorRuntime {
             zones: {
                 series: this.cachedZonesSeries,
                 params: { ...this.config.zones },
+            },
+            volumeProfile: {
+                series: this.cachedVolumeProfileSeries,
+                params: { ...this.config.volumeProfile },
             },
             _changed: changed,
         }
@@ -1500,6 +1538,10 @@ export class IndicatorRuntime {
             zones: {
                 series: this.cachedZonesSeries,
                 params: { ...this.config.zones },
+            },
+            volumeProfile: {
+                series: this.cachedVolumeProfileSeries,
+                params: { ...this.config.volumeProfile },
             },
         }
     }
