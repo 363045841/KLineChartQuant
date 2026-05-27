@@ -1,0 +1,38 @@
+{
+    "$schema": "Wilder ATR golden values. Period=14. null = warm-up (undefined).",
+    "$source": "Hand-derived from Wilder definition: TR(t)=max(H-L, |H-PrevC|, |L-PrevC|); TR(0)=H-L; ATR(period-1)=mean(TR[0..period-1]); ATR(t)=((period-1)*ATR(t-1)+TR(t))/period for t>=period. Cross-verified by manual computation through index 19; subsequent values are the deterministic float64 continuation of the same recurrence.",
+    "$tolerance": 1e-9,
+    "$note": "Follow-up: replace with pandas-ta / TA-Lib generated fixtures once `scripts/gen-golden.py` lands.",
+    "constantPrice": {
+        "period": 14,
+        "series": [
+            null, null, null, null, null, null, null, null, null, null, null, null, null,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        ]
+    },
+    "pureUptrend": {
+        "period": 14,
+        "series": [
+            null, null, null, null, null, null, null, null, null, null, null, null, null,
+            2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
+        ]
+    },
+    "spikeAtBar19": {
+        "period": 14,
+        "series": [
+            null, null, null, null, null, null, null, null, null, null, null, null, null,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2.9285714285714284,
+            2.862244897959184,
+            2.800655976676385,
+            2.7434662640566362,
+            2.690361530909734,
+            2.6410499929876154
+        ]
+    }
+}

@@ -92,6 +92,11 @@ export interface MACDSchedulerConfig {
     showBAR: boolean
 }
 
+export interface ATRSchedulerConfig {
+    period: number
+    showATR: boolean
+}
+
 // ============================================================================
 // Worker 请求类型
 // ============================================================================
@@ -182,6 +187,7 @@ export interface IndicatorConfigSnapshot {
     kst: KSTSchedulerConfig
     fastk: FASTKSchedulerConfig
     macd: MACDSchedulerConfig
+    atr: ATRSchedulerConfig
     // pane IDs for sub-indicators
     rsiPaneId: string
     cciPaneId: string
@@ -191,6 +197,7 @@ export interface IndicatorConfigSnapshot {
     kstPaneId: string
     fastkPaneId: string
     macdPaneId: string
+    atrPaneId: string
 }
 
 // ============================================================================
@@ -246,6 +253,10 @@ export interface IndicatorSeriesBundle {
     macd: {
         series: MACDPoint[]
         params: MACDSchedulerConfig
+    }
+    atr: {
+        series: (number | undefined)[]
+        params: ATRSchedulerConfig
     }
     /** 本次计算中实际变更的指标列表 */
     _changed: string[]

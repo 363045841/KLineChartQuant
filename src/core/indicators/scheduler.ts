@@ -31,6 +31,7 @@ import type {
     KSTSchedulerConfig,
     FASTKSchedulerConfig,
     MACDSchedulerConfig,
+    ATRSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -60,6 +61,8 @@ import type { FASTKRenderState } from './fastkState'
 import { createFASTKStateKey } from './fastkState'
 import type { MACDRenderState } from './macdState'
 import { createMACDStateKey } from './macdState'
+import type { ATRRenderState } from './atrState'
+import { createATRStateKey, DEFAULT_ATR_PERIOD } from './atrState'
 
 /**
  * 可见范围
@@ -78,6 +81,7 @@ type VisibleSubIndicatorMask = {
     kst: boolean
     fastk: boolean
     macd: boolean
+    atr: boolean
 }
 
 // 重新导出配置类型（保持向后兼容）
@@ -93,6 +97,7 @@ export type {
     KSTSchedulerConfig,
     FASTKSchedulerConfig,
     MACDSchedulerConfig,
+    ATRSchedulerConfig,
 }
 
 /**
@@ -224,6 +229,7 @@ export class IndicatorScheduler {
                 showDEA: true,
                 showBAR: true,
             },
+            atr: { period: DEFAULT_ATR_PERIOD, showATR: true },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -232,6 +238,7 @@ export class IndicatorScheduler {
             kstPaneId: 'sub_KST',
             fastkPaneId: 'sub_FASTK',
             macdPaneId: 'sub_MACD',
+            atrPaneId: 'sub_ATR',
         }
     }
 
@@ -434,6 +441,12 @@ export class IndicatorScheduler {
             const macdKey = createMACDStateKey(this.configSnapshot.macdPaneId)
             this.pluginHost.setSharedState<MACDRenderState>(macdKey, states.macd, 'indicator_scheduler')
         }
+
+        // ATR
+        if (changed.has('atr')) {
+            const atrKey = createATRStateKey(this.configSnapshot.atrPaneId)
+            this.pluginHost.setSharedState<ATRRenderState>(atrKey, states.atr, 'indicator_scheduler')
+        }
     }
 
     private updateVisibleStatesOnly(): void {
@@ -474,6 +487,10 @@ export class IndicatorScheduler {
         // MACD
         const macdKey = createMACDStateKey(this.configSnapshot.macdPaneId)
         this.pluginHost.setSharedState<MACDRenderState>(macdKey, states.macd, 'indicator_scheduler')
+
+        // ATR
+        const atrKey = createATRStateKey(this.configSnapshot.atrPaneId)
+        this.pluginHost.setSharedState<ATRRenderState>(atrKey, states.atr, 'indicator_scheduler')
     }
 
     private buildActiveSubIndicatorMask(): VisibleSubIndicatorMask {
@@ -487,6 +504,7 @@ export class IndicatorScheduler {
             kst: activeIds.includes(this.configSnapshot.kstPaneId),
             fastk: activeIds.includes(this.configSnapshot.fastkPaneId),
             macd: activeIds.includes(this.configSnapshot.macdPaneId),
+            atr: activeIds.includes(this.configSnapshot.atrPaneId),
         }
     }
 
@@ -496,7 +514,7 @@ export class IndicatorScheduler {
         if (activeIds.length === 0) return { ...this.configSnapshot }
 
         const cfg: Record<string, unknown> = { ...this.configSnapshot }
-        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd'] as const
+        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr'] as const
         for (const key of subKeys) {
             const paneIdKey = `${key}PaneId`
             const paneId = cfg[paneIdKey] as string
@@ -673,6 +691,18 @@ export class IndicatorScheduler {
             this.configSnapshot.macdPaneId = paneId
         }
         this.configSnapshot.macd = { ...this.configSnapshot.macd, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * ATR 配置变更
+     */
+    updateATRConfig(config: Partial<ATRSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.configSnapshot.atrPaneId = paneId
+        }
+        this.configSnapshot.atr = { ...this.configSnapshot.atr, ...config }
         this.configVersion++
         this.triggerRecompute()
     }

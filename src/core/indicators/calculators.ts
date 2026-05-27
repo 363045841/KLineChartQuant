@@ -976,3 +976,87 @@ export function calcMACDDataSoA(
     const data = SharedKLineBuffer.toKLineData(layout)
     return calcMACDData(data, fastPeriod, slowPeriod, signalPeriod)
 }
+
+// ============================================================================
+// ATR — Wilder's Average True Range
+// ============================================================================
+
+export const DEFAULT_ATR_PERIOD = 14
+
+/**
+ * 计算 Wilder ATR。
+ * TR(0) = H(0) - L(0)
+ * TR(t) = max(H(t) - L(t), |H(t) - C(t-1)|, |L(t) - C(t-1)|)
+ * ATR(period-1) = mean(TR[0..period-1])
+ * ATR(t) = ((period-1) * ATR(t-1) + TR(t)) / period  for t >= period
+ *
+ * @param data K 线数组
+ * @param period 周期，需 >= 1；若 <= 0 或 data.length < period，返回全 undefined
+ */
+export function calcATRData(data: KLineData[], period: number): (number | undefined)[] {
+    const n = data.length
+    const result: (number | undefined)[] = new Array(n).fill(undefined)
+    if (n === 0 || period <= 0) return result
+
+    if (period === 1) {
+        const first = data[0]!
+        result[0] = first.high - first.low
+        let prevClose = first.close
+        for (let i = 1; i < n; i++) {
+            const cur = data[i]!
+            const tr = Math.max(
+                cur.high - cur.low,
+                Math.abs(cur.high - prevClose),
+                Math.abs(cur.low - prevClose),
+            )
+            result[i] = tr
+            prevClose = cur.close
+        }
+        return result
+    }
+
+    if (n < period) return result
+
+    const first = data[0]!
+    let sumTR = first.high - first.low
+    let prevClose = first.close
+
+    for (let i = 1; i < period; i++) {
+        const cur = data[i]!
+        sumTR += Math.max(
+            cur.high - cur.low,
+            Math.abs(cur.high - prevClose),
+            Math.abs(cur.low - prevClose),
+        )
+        prevClose = cur.close
+    }
+
+    let atr = sumTR / period
+    result[period - 1] = atr
+
+    const periodMinusOne = period - 1
+    for (let i = period; i < n; i++) {
+        const cur = data[i]!
+        const tr = Math.max(
+            cur.high - cur.low,
+            Math.abs(cur.high - prevClose),
+            Math.abs(cur.low - prevClose),
+        )
+        atr = (periodMinusOne * atr + tr) / period
+        result[i] = atr
+        prevClose = cur.close
+    }
+
+    return result
+}
+
+/**
+ * 从 SoA 布局计算 ATR（包装函数，对齐其他指标的 SoA 入口）
+ */
+export function calcATRDataSoA(
+    layout: KLineSoALayout,
+    period: number,
+): (number | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcATRData(data, period)
+}

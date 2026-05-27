@@ -47,6 +47,10 @@ import type {
     MACDRenderState,
 } from './macdState'
 import { EMPTY_MACD_STATE } from './macdState'
+import type {
+    ATRRenderState,
+} from './atrState'
+import { EMPTY_ATR_STATE } from './atrState'
 import type { IndicatorSeriesBundle } from './workerProtocol'
 
 /**
@@ -66,6 +70,7 @@ type VisibleSubIndicatorStates = {
     kst: KSTRenderState
     fastk: FASTKRenderState
     macd: MACDRenderState
+    atr: ATRRenderState
 }
 
 type VisibleSubIndicatorMask = {
@@ -77,6 +82,7 @@ type VisibleSubIndicatorMask = {
     kst?: boolean
     fastk?: boolean
     macd?: boolean
+    atr?: boolean
 }
 
 type ComposedRenderStates = VisibleSubIndicatorStates & {
@@ -119,6 +125,7 @@ export function composeVisibleSubIndicatorStates(
     const kstActive = activeMask.kst ?? true
     const fastkActive = activeMask.fastk ?? true
     const macdActive = activeMask.macd ?? true
+    const atrActive = activeMask.atr ?? true
 
     const rsiExtremes = rsiActive ? calcRSIExtremes(bundle.rsi.series, visibleRange) : null
     const cciExtremes = cciActive ? calcCCIExtremes(bundle.cci.series, visibleRange) : null
@@ -128,6 +135,7 @@ export function composeVisibleSubIndicatorStates(
     const kstExtremes = kstActive ? calcKSTExtremes(bundle.kst.series, visibleRange) : null
     const fastkExtremes = fastkActive ? calcFASTKExtremes(bundle.fastk.series, visibleRange) : null
     const macdExtremes = macdActive ? calcMACDExtremes(bundle.macd.series, visibleRange) : null
+    const atrExtremes = atrActive ? calcATRExtremes(bundle.atr.series, visibleRange) : null
     const latestPoint = macdActive ? getLatestMACDPoint(bundle, visibleRange) : null
 
     const macdPadding = macdExtremes ? Math.max(Math.abs(macdExtremes.max), Math.abs(macdExtremes.min)) * 0.1 : 0
@@ -145,6 +153,10 @@ export function composeVisibleSubIndicatorStates(
     const kstPadding = kstRange * 0.1
     const kstValueMin = kstExtremes ? kstExtremes.min - kstPadding : EMPTY_KST_STATE.valueMin
     const kstValueMax = kstExtremes ? kstExtremes.max + kstPadding : EMPTY_KST_STATE.valueMax
+
+    const atrValueMax = atrExtremes && Number.isFinite(atrExtremes.max)
+        ? atrExtremes.max * 1.1
+        : EMPTY_ATR_STATE.valueMax
 
     return {
         rsi: rsiActive ? {
@@ -249,6 +261,18 @@ export function composeVisibleSubIndicatorStates(
         } : mergeEmptyState(EMPTY_MACD_STATE, timestamp, {
             series: bundle.macd.series,
             params: bundle.macd.params,
+        }),
+        atr: atrActive ? {
+            timestamp,
+            series: bundle.atr.series,
+            params: bundle.atr.params,
+            valueMin: 0,
+            valueMax: atrValueMax,
+            visibleMin: atrExtremes!.min,
+            visibleMax: atrExtremes!.max,
+        } : mergeEmptyState(EMPTY_ATR_STATE, timestamp, {
+            series: bundle.atr.series,
+            params: bundle.atr.params,
         }),
     }
 }
@@ -517,6 +541,23 @@ function calcMACDExtremes(series: MACDPoint[], range: VisibleRange): { min: numb
         if (p) {
             min = Math.min(min, p.dif, p.dea, p.macd)
             max = Math.max(max, p.dif, p.dea, p.macd)
+        }
+    }
+    return { min, max }
+}
+
+function calcATRExtremes(series: (number | undefined)[], range: VisibleRange): { min: number; max: number } {
+    if (series.length === 0 || range.start >= series.length) {
+        return { min: Infinity, max: -Infinity }
+    }
+    let min = Infinity
+    let max = -Infinity
+    const end = Math.min(range.end, series.length)
+    for (let i = range.start; i < end; i++) {
+        const v = series[i]
+        if (v !== undefined) {
+            min = Math.min(min, v)
+            max = Math.max(max, v)
         }
     }
     return { min, max }

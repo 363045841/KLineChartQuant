@@ -18,7 +18,9 @@ import {
     calcKSTData,
     calcFASTKData,
     calcMACDData,
+    calcATRData,
     DEFAULT_MA_PERIODS,
+    DEFAULT_ATR_PERIOD,
     type MAFlags,
     type BOLLPoint,
     type EXPMAPoint,
@@ -39,6 +41,7 @@ import type {
     KSTSchedulerConfig,
     FASTKSchedulerConfig,
     MACDSchedulerConfig,
+    ATRSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -77,6 +80,7 @@ export class IndicatorRuntime {
     private cachedKstSeries: KSTPoint[] = []
     private cachedFastkSeries: (number | undefined)[] = []
     private cachedMacdSeries: MACDPoint[] = []
+    private cachedAtrSeries: (number | undefined)[] = []
 
     // 脏标记
     private dirtyData = true
@@ -92,6 +96,7 @@ export class IndicatorRuntime {
     private dirtyKstConfig = true
     private dirtyFastkConfig = true
     private dirtyMacdConfig = true
+    private dirtyAtrConfig = true
 
     private getDefaultConfig(): IndicatorConfigSnapshot {
         return {
@@ -136,6 +141,7 @@ export class IndicatorRuntime {
                 showDEA: true,
                 showBAR: true,
             },
+            atr: { period: DEFAULT_ATR_PERIOD, showATR: true },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -144,6 +150,7 @@ export class IndicatorRuntime {
             kstPaneId: 'sub_KST',
             fastkPaneId: 'sub_FASTK',
             macdPaneId: 'sub_MACD',
+            atrPaneId: 'sub_ATR',
         }
     }
 
@@ -223,6 +230,10 @@ export class IndicatorRuntime {
             this.config.macd = { ...this.config.macd, ...config.macd }
             this.dirtyMacdConfig = true
         }
+        if (config.atr !== undefined && !this.shallowEqual(config.atr as unknown as Record<string, unknown>, this.config.atr as unknown as Record<string, unknown>)) {
+            this.config.atr = { ...this.config.atr, ...config.atr }
+            this.dirtyAtrConfig = true
+        }
         // pane IDs
         if (config.rsiPaneId !== undefined) this.config.rsiPaneId = config.rsiPaneId
         if (config.cciPaneId !== undefined) this.config.cciPaneId = config.cciPaneId
@@ -232,6 +243,7 @@ export class IndicatorRuntime {
         if (config.kstPaneId !== undefined) this.config.kstPaneId = config.kstPaneId
         if (config.fastkPaneId !== undefined) this.config.fastkPaneId = config.fastkPaneId
         if (config.macdPaneId !== undefined) this.config.macdPaneId = config.macdPaneId
+        if (config.atrPaneId !== undefined) this.config.atrPaneId = config.atrPaneId
 
         this.configVersion = version
     }
@@ -253,6 +265,7 @@ export class IndicatorRuntime {
         this.dirtyKstConfig = true
         this.dirtyFastkConfig = true
         this.dirtyMacdConfig = true
+        this.dirtyAtrConfig = true
     }
 
     /**
@@ -414,6 +427,16 @@ export class IndicatorRuntime {
             changed.push('macd')
         }
 
+        // ATR
+        if (this.dirtyData || this.dirtyAtrConfig) {
+            if (this.config.atr.showATR) {
+                this.cachedAtrSeries = calcATRData(data, this.config.atr.period)
+            } else {
+                this.cachedAtrSeries = []
+            }
+            changed.push('atr')
+        }
+
         // 重置脏标记
         this.dirtyData = false
         this.dirtyMAConfig = false
@@ -428,6 +451,7 @@ export class IndicatorRuntime {
         this.dirtyKstConfig = false
         this.dirtyFastkConfig = false
         this.dirtyMacdConfig = false
+        this.dirtyAtrConfig = false
 
         // 组装结果
         return {
@@ -479,6 +503,10 @@ export class IndicatorRuntime {
             macd: {
                 series: this.cachedMacdSeries,
                 params: { ...this.config.macd },
+            },
+            atr: {
+                series: this.cachedAtrSeries,
+                params: { ...this.config.atr },
             },
             _changed: changed,
         }
@@ -538,6 +566,10 @@ export class IndicatorRuntime {
             macd: {
                 series: this.cachedMacdSeries,
                 params: { ...this.config.macd },
+            },
+            atr: {
+                series: this.cachedAtrSeries,
+                params: { ...this.config.atr },
             },
         }
     }
