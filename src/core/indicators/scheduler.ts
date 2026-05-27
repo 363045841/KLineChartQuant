@@ -42,6 +42,8 @@ import type {
     KeltnerSchedulerConfig,
     DonchianSchedulerConfig,
     IchimokuSchedulerConfig,
+    ROCSchedulerConfig,
+    TRIXSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -108,6 +110,10 @@ import {
     DEFAULT_ICHIMOKU_SPAN_B,
     DEFAULT_ICHIMOKU_DISPLACEMENT,
 } from './ichimokuState'
+import type { ROCRenderState } from './rocState'
+import { createROCStateKey, DEFAULT_ROC_PERIOD } from './rocState'
+import type { TRIXRenderState } from './trixState'
+import { createTRIXStateKey, DEFAULT_TRIX_PERIOD, DEFAULT_TRIX_SIGNAL_PERIOD } from './trixState'
 
 /**
  * 可见范围
@@ -137,6 +143,8 @@ type VisibleSubIndicatorMask = {
     keltner: boolean
     donchian: boolean
     ichimoku: boolean
+    roc: boolean
+    trix: boolean
 }
 
 // 重新导出配置类型（保持向后兼容）
@@ -163,6 +171,8 @@ export type {
     KeltnerSchedulerConfig,
     DonchianSchedulerConfig,
     IchimokuSchedulerConfig,
+    ROCSchedulerConfig,
+    TRIXSchedulerConfig,
 }
 
 /**
@@ -337,6 +347,13 @@ export class IndicatorScheduler {
                 showCloud: true,
                 showChikou: true,
             },
+            roc: { period: DEFAULT_ROC_PERIOD, showROC: true },
+            trix: {
+                period: DEFAULT_TRIX_PERIOD,
+                signalPeriod: DEFAULT_TRIX_SIGNAL_PERIOD,
+                showTRIX: true,
+                showSignal: true,
+            },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -356,6 +373,8 @@ export class IndicatorScheduler {
             keltnerPaneId: 'sub_Keltner',
             donchianPaneId: 'sub_Donchian',
             ichimokuPaneId: 'sub_Ichimoku',
+            rocPaneId: 'sub_ROC',
+            trixPaneId: 'sub_TRIX',
         }
     }
 
@@ -624,6 +643,18 @@ export class IndicatorScheduler {
             const iKey = createIchimokuStateKey(this.configSnapshot.ichimokuPaneId)
             this.pluginHost.setSharedState<IchimokuRenderState>(iKey, states.ichimoku, 'indicator_scheduler')
         }
+
+        // ROC
+        if (changed.has('roc')) {
+            const rKey = createROCStateKey(this.configSnapshot.rocPaneId)
+            this.pluginHost.setSharedState<ROCRenderState>(rKey, states.roc, 'indicator_scheduler')
+        }
+
+        // TRIX
+        if (changed.has('trix')) {
+            const tKey = createTRIXStateKey(this.configSnapshot.trixPaneId)
+            this.pluginHost.setSharedState<TRIXRenderState>(tKey, states.trix, 'indicator_scheduler')
+        }
     }
 
     private updateVisibleStatesOnly(): void {
@@ -708,6 +739,14 @@ export class IndicatorScheduler {
         // Ichimoku
         const iKey = createIchimokuStateKey(this.configSnapshot.ichimokuPaneId)
         this.pluginHost.setSharedState<IchimokuRenderState>(iKey, states.ichimoku, 'indicator_scheduler')
+
+        // ROC
+        const rKey = createROCStateKey(this.configSnapshot.rocPaneId)
+        this.pluginHost.setSharedState<ROCRenderState>(rKey, states.roc, 'indicator_scheduler')
+
+        // TRIX
+        const tKey = createTRIXStateKey(this.configSnapshot.trixPaneId)
+        this.pluginHost.setSharedState<TRIXRenderState>(tKey, states.trix, 'indicator_scheduler')
     }
 
     private buildActiveSubIndicatorMask(): VisibleSubIndicatorMask {
@@ -732,6 +771,8 @@ export class IndicatorScheduler {
             keltner: activeIds.includes(this.configSnapshot.keltnerPaneId),
             donchian: activeIds.includes(this.configSnapshot.donchianPaneId),
             ichimoku: activeIds.includes(this.configSnapshot.ichimokuPaneId),
+            roc: activeIds.includes(this.configSnapshot.rocPaneId),
+            trix: activeIds.includes(this.configSnapshot.trixPaneId),
         }
     }
 
@@ -741,7 +782,7 @@ export class IndicatorScheduler {
         if (activeIds.length === 0) return { ...this.configSnapshot }
 
         const cfg: Record<string, unknown> = { ...this.configSnapshot }
-        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr', 'wma', 'dema', 'tema', 'hma', 'kama', 'sar', 'supertrend', 'keltner', 'donchian', 'ichimoku'] as const
+        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr', 'wma', 'dema', 'tema', 'hma', 'kama', 'sar', 'supertrend', 'keltner', 'donchian', 'ichimoku', 'roc', 'trix'] as const
         for (const key of subKeys) {
             const paneIdKey = `${key}PaneId`
             const paneId = cfg[paneIdKey] as string
@@ -1042,6 +1083,26 @@ export class IndicatorScheduler {
     updateIchimokuConfig(config: Partial<IchimokuSchedulerConfig>, paneId?: string): void {
         if (paneId !== undefined) this.configSnapshot.ichimokuPaneId = paneId
         this.configSnapshot.ichimoku = { ...this.configSnapshot.ichimoku, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * ROC 配置变更
+     */
+    updateROCConfig(config: Partial<ROCSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.rocPaneId = paneId
+        this.configSnapshot.roc = { ...this.configSnapshot.roc, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * TRIX 配置变更
+     */
+    updateTRIXConfig(config: Partial<TRIXSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.trixPaneId = paneId
+        this.configSnapshot.trix = { ...this.configSnapshot.trix, ...config }
         this.configVersion++
         this.triggerRecompute()
     }

@@ -209,6 +209,7 @@ describe('IndicatorScheduler', () => {
         'sub_RSI', 'sub_CCI', 'sub_STOCH', 'sub_MOM', 'sub_WMSR', 'sub_KST', 'sub_FASTK', 'sub_MACD',
         'sub_ATR', 'sub_WMA', 'sub_DEMA', 'sub_TEMA', 'sub_HMA', 'sub_KAMA', 'sub_SAR',
         'sub_SuperTrend', 'sub_Keltner', 'sub_Donchian', 'sub_Ichimoku',
+        'sub_ROC', 'sub_TRIX',
       ])
 
       const data = createTestData(100)
@@ -222,9 +223,9 @@ describe('IndicatorScheduler', () => {
       // Update only viewport
       scheduler.updateVisibleRange({ start: 50, end: 60 })
 
-      // updateVisibleStatesOnly writes the 19 sub-indicators.
+      // updateVisibleStatesOnly writes the 21 sub-indicators.
       // Main indicators (MA, BOLL, EXPMA, ENE) are not rewritten on viewport-only changes.
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(19)
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(21)
 
       // Inspect a sub-indicator (RSI) since main indicators are not rewritten on viewport-only updates
       const rsiKey = createRSIStateKey('sub_RSI')
@@ -244,8 +245,8 @@ describe('IndicatorScheduler', () => {
       const data2 = createTestData(100, 200)
       scheduler.update(data2, { start: 0, end: 100 })
 
-      // Should be called 46 times (23 indicators × 2 data updates)
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(46)
+      // Should be called 50 times (25 indicators × 2 data updates)
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(50)
     })
   })
 
@@ -258,8 +259,8 @@ describe('IndicatorScheduler', () => {
 
       scheduler.recompute()
 
-      // Should write all 23 indicator states (12 baseline + ATR + 4 MA family + KAMA + SAR + SuperTrend + Keltner + Donchian + Ichimoku)
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(23)
+      // Should write all 25 indicator states (12 baseline + ATR + 4 MA family + KAMA + SAR + SuperTrend + Keltner + Donchian + Ichimoku + ROC + TRIX)
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(25)
     })
 
     it('should recalculate with same data and range', () => {

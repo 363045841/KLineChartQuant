@@ -71,6 +71,10 @@ import type { DonchianRenderState } from './donchianState'
 import { EMPTY_DONCHIAN_STATE } from './donchianState'
 import type { IchimokuRenderState } from './ichimokuState'
 import { EMPTY_ICHIMOKU_STATE } from './ichimokuState'
+import type { ROCRenderState } from './rocState'
+import { EMPTY_ROC_STATE } from './rocState'
+import type { TRIXRenderState } from './trixState'
+import { EMPTY_TRIX_STATE } from './trixState'
 import type { IndicatorSeriesBundle } from './workerProtocol'
 
 /**
@@ -101,6 +105,8 @@ type VisibleSubIndicatorStates = {
     keltner: KeltnerRenderState
     donchian: DonchianRenderState
     ichimoku: IchimokuRenderState
+    roc: ROCRenderState
+    trix: TRIXRenderState
 }
 
 type VisibleSubIndicatorMask = {
@@ -123,6 +129,8 @@ type VisibleSubIndicatorMask = {
     keltner?: boolean
     donchian?: boolean
     ichimoku?: boolean
+    roc?: boolean
+    trix?: boolean
 }
 
 type ComposedRenderStates = VisibleSubIndicatorStates & {
@@ -176,6 +184,8 @@ export function composeVisibleSubIndicatorStates(
     const keltnerActive = activeMask.keltner ?? true
     const donchianActive = activeMask.donchian ?? true
     const ichimokuActive = activeMask.ichimoku ?? true
+    const rocActive = activeMask.roc ?? true
+    const trixActive = activeMask.trix ?? true
 
     const rsiExtremes = rsiActive ? calcRSIExtremes(bundle.rsi.series, visibleRange) : null
     const cciExtremes = cciActive ? calcCCIExtremes(bundle.cci.series, visibleRange) : null
@@ -196,6 +206,9 @@ export function composeVisibleSubIndicatorStates(
     const keltnerExtremes = keltnerActive ? calcBandExtremes(bundle.keltner.series, visibleRange) : null
     const donchianExtremes = donchianActive ? calcBandExtremes(bundle.donchian.series, visibleRange) : null
     const ichimokuExtremes = ichimokuActive ? calcIchimokuExtremes(bundle.ichimoku.series, visibleRange) : null
+    const rocExtremes = rocActive ? calcSparseExtremes(bundle.roc.series, visibleRange) : null
+    const trixSeriesExtremes = trixActive ? calcSparseExtremes(bundle.trix.series, visibleRange) : null
+    const trixSignalExtremes = trixActive ? calcSparseExtremes(bundle.trix.signalSeries, visibleRange) : null
     const latestPoint = macdActive ? getLatestMACDPoint(bundle, visibleRange) : null
 
     const macdPadding = macdExtremes ? Math.max(Math.abs(macdExtremes.max), Math.abs(macdExtremes.min)) * 0.1 : 0
@@ -237,6 +250,21 @@ export function composeVisibleSubIndicatorStates(
     const keltnerBounds = maFamilyBounds(keltnerExtremes, EMPTY_KELTNER_STATE)
     const donchianBounds = maFamilyBounds(donchianExtremes, EMPTY_DONCHIAN_STATE)
     const ichimokuBounds = maFamilyBounds(ichimokuExtremes, EMPTY_ICHIMOKU_STATE)
+    const rocBounds = maFamilyBounds(rocExtremes, EMPTY_ROC_STATE)
+    const trixCombinedMin = Math.min(
+        trixSeriesExtremes?.min ?? Infinity,
+        trixSignalExtremes?.min ?? Infinity,
+    )
+    const trixCombinedMax = Math.max(
+        trixSeriesExtremes?.max ?? -Infinity,
+        trixSignalExtremes?.max ?? -Infinity,
+    )
+    const trixBounds = maFamilyBounds(
+        Number.isFinite(trixCombinedMin) && Number.isFinite(trixCombinedMax)
+            ? { min: trixCombinedMin, max: trixCombinedMax }
+            : null,
+        EMPTY_TRIX_STATE,
+    )
 
     return {
         rsi: rsiActive ? {
@@ -473,6 +501,32 @@ export function composeVisibleSubIndicatorStates(
         } : mergeEmptyState(EMPTY_ICHIMOKU_STATE, timestamp, {
             series: bundle.ichimoku.series,
             params: bundle.ichimoku.params,
+        }),
+        roc: rocActive ? {
+            timestamp,
+            series: bundle.roc.series,
+            params: bundle.roc.params,
+            valueMin: rocBounds.valueMin,
+            valueMax: rocBounds.valueMax,
+            visibleMin: rocExtremes!.min,
+            visibleMax: rocExtremes!.max,
+        } : mergeEmptyState(EMPTY_ROC_STATE, timestamp, {
+            series: bundle.roc.series,
+            params: bundle.roc.params,
+        }),
+        trix: trixActive ? {
+            timestamp,
+            series: bundle.trix.series,
+            signalSeries: bundle.trix.signalSeries,
+            params: bundle.trix.params,
+            valueMin: trixBounds.valueMin,
+            valueMax: trixBounds.valueMax,
+            visibleMin: Math.min(trixSeriesExtremes?.min ?? Infinity, trixSignalExtremes?.min ?? Infinity),
+            visibleMax: Math.max(trixSeriesExtremes?.max ?? -Infinity, trixSignalExtremes?.max ?? -Infinity),
+        } : mergeEmptyState(EMPTY_TRIX_STATE, timestamp, {
+            series: bundle.trix.series,
+            signalSeries: bundle.trix.signalSeries,
+            params: bundle.trix.params,
         }),
     }
 }

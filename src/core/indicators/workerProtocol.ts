@@ -170,6 +170,18 @@ export interface IchimokuSchedulerConfig {
     showChikou: boolean
 }
 
+export interface ROCSchedulerConfig {
+    period: number
+    showROC: boolean
+}
+
+export interface TRIXSchedulerConfig {
+    period: number
+    signalPeriod: number
+    showTRIX: boolean
+    showSignal: boolean
+}
+
 // ============================================================================
 // Worker 请求类型
 // ============================================================================
@@ -271,6 +283,8 @@ export interface IndicatorConfigSnapshot {
     keltner: KeltnerSchedulerConfig
     donchian: DonchianSchedulerConfig
     ichimoku: IchimokuSchedulerConfig
+    roc: ROCSchedulerConfig
+    trix: TRIXSchedulerConfig
     // pane IDs for sub-indicators
     rsiPaneId: string
     cciPaneId: string
@@ -291,6 +305,8 @@ export interface IndicatorConfigSnapshot {
     keltnerPaneId: string
     donchianPaneId: string
     ichimokuPaneId: string
+    rocPaneId: string
+    trixPaneId: string
 }
 
 // ============================================================================
@@ -390,6 +406,15 @@ export interface IndicatorSeriesBundle {
     ichimoku: {
         series: (IchimokuPoint | undefined)[]
         params: IchimokuSchedulerConfig
+    }
+    roc: {
+        series: (number | undefined)[]
+        params: ROCSchedulerConfig
+    }
+    trix: {
+        series: (number | undefined)[]
+        signalSeries: (number | undefined)[]
+        params: TRIXSchedulerConfig
     }
     /** 本次计算中实际变更的指标列表 */
     _changed: string[]

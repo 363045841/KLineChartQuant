@@ -102,6 +102,8 @@ export interface SubIndicatorParams {
     spanBPeriod?: number
     displacement?: number
   }
+  ROC?: { period?: number }
+  TRIX?: { period?: number; signalPeriod?: number }
 }
 
 /** 副图指标类型 */

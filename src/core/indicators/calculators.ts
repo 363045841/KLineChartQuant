@@ -1644,3 +1644,83 @@ export function calcIchimokuDataSoA(
     const data = SharedKLineBuffer.toKLineData(layout)
     return calcIchimokuData(data, tenkanPeriod, kijunPeriod, spanBPeriod, displacement)
 }
+
+// ============================================================================
+// ROC — Rate of Change
+// ROC(t) = (close[t] - close[t-period]) / close[t-period] * 100
+// ============================================================================
+
+export const DEFAULT_ROC_PERIOD = 12
+
+export function calcROCData(data: KLineData[], period: number): (number | undefined)[] {
+    const n = data.length
+    const result: (number | undefined)[] = new Array(n).fill(undefined)
+    if (n === 0 || period <= 0) return result
+    for (let t = period; t < n; t++) {
+        const prev = data[t - period]!.close
+        if (prev === 0) continue
+        result[t] = (data[t]!.close - prev) / prev * 100
+    }
+    return result
+}
+
+export function calcROCDataSoA(layout: KLineSoALayout, period: number): (number | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcROCData(data, period)
+}
+
+// ============================================================================
+// TRIX — Triple Exponential Smoothing Oscillator
+// EMA3 = EMA(EMA(EMA(close, p), p), p)
+// TRIX(t) = (EMA3[t] - EMA3[t-1]) / EMA3[t-1] * 100
+// Signal(t) = EMA(TRIX, signalPeriod) —— 配合金叉/死叉
+// ============================================================================
+
+export interface TRIXResult {
+    series: (number | undefined)[]
+    signalSeries: (number | undefined)[]
+}
+
+export const DEFAULT_TRIX_PERIOD = 15
+export const DEFAULT_TRIX_SIGNAL_PERIOD = 9
+
+export function calcTRIXData(
+    data: KLineData[],
+    period: number,
+    signalPeriod: number,
+): TRIXResult {
+    const n = data.length
+    const series: (number | undefined)[] = new Array(n).fill(undefined)
+    const signalSeries: (number | undefined)[] = new Array(n).fill(undefined)
+    if (n === 0 || period <= 0) return { series, signalSeries }
+
+    const closes = new Array<number | undefined>(n)
+    for (let i = 0; i < n; i++) closes[i] = data[i]!.close
+
+    const ema1 = _computeEMASeries(closes, period)
+    const ema2 = _computeEMASeries(ema1, period)
+    const ema3 = _computeEMASeries(ema2, period)
+
+    for (let t = 1; t < n; t++) {
+        const cur = ema3[t]
+        const prev = ema3[t - 1]
+        if (cur === undefined || prev === undefined || prev === 0) continue
+        series[t] = (cur - prev) / prev * 100
+    }
+
+    if (signalPeriod > 0) {
+        const smoothed = _computeEMASeries(series, signalPeriod)
+        for (let i = 0; i < n; i++) signalSeries[i] = smoothed[i]
+    }
+
+    return { series, signalSeries }
+}
+
+export function calcTRIXDataSoA(
+    layout: KLineSoALayout,
+    period: number,
+    signalPeriod: number,
+): TRIXResult {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcTRIXData(data, period, signalPeriod)
+}

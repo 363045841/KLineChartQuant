@@ -29,6 +29,8 @@ import {
     calcKeltnerData,
     calcDonchianData,
     calcIchimokuData,
+    calcROCData,
+    calcTRIXData,
     DEFAULT_MA_PERIODS,
     DEFAULT_ATR_PERIOD,
     DEFAULT_WMA_PERIOD,
@@ -50,6 +52,9 @@ import {
     DEFAULT_ICHIMOKU_KIJUN,
     DEFAULT_ICHIMOKU_SPAN_B,
     DEFAULT_ICHIMOKU_DISPLACEMENT,
+    DEFAULT_ROC_PERIOD,
+    DEFAULT_TRIX_PERIOD,
+    DEFAULT_TRIX_SIGNAL_PERIOD,
     type MAFlags,
     type BOLLPoint,
     type EXPMAPoint,
@@ -86,6 +91,8 @@ import type {
     KeltnerSchedulerConfig,
     DonchianSchedulerConfig,
     IchimokuSchedulerConfig,
+    ROCSchedulerConfig,
+    TRIXSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -135,6 +142,9 @@ export class IndicatorRuntime {
     private cachedKeltnerSeries: (KeltnerPoint | undefined)[] = []
     private cachedDonchianSeries: (DonchianPoint | undefined)[] = []
     private cachedIchimokuSeries: (IchimokuPoint | undefined)[] = []
+    private cachedRocSeries: (number | undefined)[] = []
+    private cachedTrixSeries: (number | undefined)[] = []
+    private cachedTrixSignalSeries: (number | undefined)[] = []
 
     // 脏标记
     private dirtyData = true
@@ -161,6 +171,8 @@ export class IndicatorRuntime {
     private dirtyKeltnerConfig = true
     private dirtyDonchianConfig = true
     private dirtyIchimokuConfig = true
+    private dirtyRocConfig = true
+    private dirtyTrixConfig = true
 
     private getDefaultConfig(): IndicatorConfigSnapshot {
         return {
@@ -248,6 +260,13 @@ export class IndicatorRuntime {
                 showCloud: true,
                 showChikou: true,
             },
+            roc: { period: DEFAULT_ROC_PERIOD, showROC: true },
+            trix: {
+                period: DEFAULT_TRIX_PERIOD,
+                signalPeriod: DEFAULT_TRIX_SIGNAL_PERIOD,
+                showTRIX: true,
+                showSignal: true,
+            },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -267,6 +286,8 @@ export class IndicatorRuntime {
             keltnerPaneId: 'sub_Keltner',
             donchianPaneId: 'sub_Donchian',
             ichimokuPaneId: 'sub_Ichimoku',
+            rocPaneId: 'sub_ROC',
+            trixPaneId: 'sub_TRIX',
         }
     }
 
@@ -390,6 +411,14 @@ export class IndicatorRuntime {
             this.config.ichimoku = { ...this.config.ichimoku, ...config.ichimoku }
             this.dirtyIchimokuConfig = true
         }
+        if (config.roc !== undefined && !this.shallowEqual(config.roc as unknown as Record<string, unknown>, this.config.roc as unknown as Record<string, unknown>)) {
+            this.config.roc = { ...this.config.roc, ...config.roc }
+            this.dirtyRocConfig = true
+        }
+        if (config.trix !== undefined && !this.shallowEqual(config.trix as unknown as Record<string, unknown>, this.config.trix as unknown as Record<string, unknown>)) {
+            this.config.trix = { ...this.config.trix, ...config.trix }
+            this.dirtyTrixConfig = true
+        }
         // pane IDs
         if (config.rsiPaneId !== undefined) this.config.rsiPaneId = config.rsiPaneId
         if (config.cciPaneId !== undefined) this.config.cciPaneId = config.cciPaneId
@@ -410,6 +439,8 @@ export class IndicatorRuntime {
         if (config.keltnerPaneId !== undefined) this.config.keltnerPaneId = config.keltnerPaneId
         if (config.donchianPaneId !== undefined) this.config.donchianPaneId = config.donchianPaneId
         if (config.ichimokuPaneId !== undefined) this.config.ichimokuPaneId = config.ichimokuPaneId
+        if (config.rocPaneId !== undefined) this.config.rocPaneId = config.rocPaneId
+        if (config.trixPaneId !== undefined) this.config.trixPaneId = config.trixPaneId
 
         this.configVersion = version
     }
@@ -442,6 +473,8 @@ export class IndicatorRuntime {
         this.dirtyKeltnerConfig = true
         this.dirtyDonchianConfig = true
         this.dirtyIchimokuConfig = true
+        this.dirtyRocConfig = true
+        this.dirtyTrixConfig = true
     }
 
     /**
@@ -738,6 +771,29 @@ export class IndicatorRuntime {
             changed.push('ichimoku')
         }
 
+        // ROC
+        if (this.dirtyData || this.dirtyRocConfig) {
+            if (this.config.roc.showROC) {
+                this.cachedRocSeries = calcROCData(data, this.config.roc.period)
+            } else {
+                this.cachedRocSeries = []
+            }
+            changed.push('roc')
+        }
+
+        // TRIX
+        if (this.dirtyData || this.dirtyTrixConfig) {
+            if (this.config.trix.showTRIX || this.config.trix.showSignal) {
+                const result = calcTRIXData(data, this.config.trix.period, this.config.trix.signalPeriod)
+                this.cachedTrixSeries = result.series
+                this.cachedTrixSignalSeries = result.signalSeries
+            } else {
+                this.cachedTrixSeries = []
+                this.cachedTrixSignalSeries = []
+            }
+            changed.push('trix')
+        }
+
         // 重置脏标记
         this.dirtyData = false
         this.dirtyMAConfig = false
@@ -763,6 +819,8 @@ export class IndicatorRuntime {
         this.dirtyKeltnerConfig = false
         this.dirtyDonchianConfig = false
         this.dirtyIchimokuConfig = false
+        this.dirtyRocConfig = false
+        this.dirtyTrixConfig = false
 
         // 组装结果
         return {
@@ -858,6 +916,15 @@ export class IndicatorRuntime {
             ichimoku: {
                 series: this.cachedIchimokuSeries,
                 params: { ...this.config.ichimoku },
+            },
+            roc: {
+                series: this.cachedRocSeries,
+                params: { ...this.config.roc },
+            },
+            trix: {
+                series: this.cachedTrixSeries,
+                signalSeries: this.cachedTrixSignalSeries,
+                params: { ...this.config.trix },
             },
             _changed: changed,
         }
@@ -961,6 +1028,15 @@ export class IndicatorRuntime {
             ichimoku: {
                 series: this.cachedIchimokuSeries,
                 params: { ...this.config.ichimoku },
+            },
+            roc: {
+                series: this.cachedRocSeries,
+                params: { ...this.config.roc },
+            },
+            trix: {
+                series: this.cachedTrixSeries,
+                signalSeries: this.cachedTrixSignalSeries,
+                params: { ...this.config.trix },
             },
         }
     }
