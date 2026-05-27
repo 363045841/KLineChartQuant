@@ -1867,3 +1867,84 @@ export function calcChaikinVolDataSoA(
     const data = SharedKLineBuffer.toKLineData(layout)
     return calcChaikinVolData(data, emaPeriod, rocPeriod)
 }
+
+// ============================================================================
+// VMA — Volume Moving Average (SMA of volume)
+// ============================================================================
+
+export const DEFAULT_VMA_PERIOD = 5
+
+export function calcVMAData(data: KLineData[], period: number): (number | undefined)[] {
+    const n = data.length
+    const result: (number | undefined)[] = new Array(n).fill(undefined)
+    if (n === 0 || period <= 0 || n < period) return result
+    let sum = 0
+    for (let i = 0; i < period; i++) sum += data[i]!.volume
+    result[period - 1] = sum / period
+    for (let t = period; t < n; t++) {
+        sum += data[t]!.volume - data[t - period]!.volume
+        result[t] = sum / period
+    }
+    return result
+}
+
+export function calcVMADataSoA(layout: KLineSoALayout, period: number): (number | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcVMAData(data, period)
+}
+
+// ============================================================================
+// OBV — On Balance Volume (cumulative)
+// close[t] > close[t-1] → OBV += volume[t]
+// close[t] < close[t-1] → OBV -= volume[t]
+// else → OBV unchanged
+// ============================================================================
+
+export function calcOBVData(data: KLineData[]): (number | undefined)[] {
+    const n = data.length
+    const result: (number | undefined)[] = new Array(n).fill(undefined)
+    if (n === 0) return result
+    let obv = 0
+    result[0] = 0
+    for (let t = 1; t < n; t++) {
+        const cur = data[t]!
+        const prev = data[t - 1]!
+        if (cur.close > prev.close) obv += cur.volume
+        else if (cur.close < prev.close) obv -= cur.volume
+        result[t] = obv
+    }
+    return result
+}
+
+export function calcOBVDataSoA(layout: KLineSoALayout): (number | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcOBVData(data)
+}
+
+// ============================================================================
+// PVT — Price Volume Trend (cumulative)
+// PVT(t) = PVT(t-1) + ((close[t] - close[t-1]) / close[t-1]) * volume[t]
+// ============================================================================
+
+export function calcPVTData(data: KLineData[]): (number | undefined)[] {
+    const n = data.length
+    const result: (number | undefined)[] = new Array(n).fill(undefined)
+    if (n === 0) return result
+    let pvt = 0
+    result[0] = 0
+    for (let t = 1; t < n; t++) {
+        const prevClose = data[t - 1]!.close
+        if (prevClose === 0) {
+            result[t] = pvt
+            continue
+        }
+        pvt += ((data[t]!.close - prevClose) / prevClose) * data[t]!.volume
+        result[t] = pvt
+    }
+    return result
+}
+
+export function calcPVTDataSoA(layout: KLineSoALayout): (number | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcPVTData(data)
+}

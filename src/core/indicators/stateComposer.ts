@@ -81,6 +81,12 @@ import type { ParkinsonRenderState } from './parkinsonState'
 import { EMPTY_PARKINSON_STATE } from './parkinsonState'
 import type { ChaikinVolRenderState } from './chaikinVolState'
 import { EMPTY_CHAIKIN_VOL_STATE } from './chaikinVolState'
+import type { VMARenderState } from './vmaState'
+import { EMPTY_VMA_STATE } from './vmaState'
+import type { OBVRenderState } from './obvState'
+import { EMPTY_OBV_STATE } from './obvState'
+import type { PVTRenderState } from './pvtState'
+import { EMPTY_PVT_STATE } from './pvtState'
 import type { IndicatorSeriesBundle } from './workerProtocol'
 
 /**
@@ -116,6 +122,9 @@ type VisibleSubIndicatorStates = {
     hv: HVRenderState
     parkinson: ParkinsonRenderState
     chaikinVol: ChaikinVolRenderState
+    vma: VMARenderState
+    obv: OBVRenderState
+    pvt: PVTRenderState
 }
 
 type VisibleSubIndicatorMask = {
@@ -143,6 +152,9 @@ type VisibleSubIndicatorMask = {
     hv?: boolean
     parkinson?: boolean
     chaikinVol?: boolean
+    vma?: boolean
+    obv?: boolean
+    pvt?: boolean
 }
 
 type ComposedRenderStates = VisibleSubIndicatorStates & {
@@ -201,6 +213,9 @@ export function composeVisibleSubIndicatorStates(
     const hvActive = activeMask.hv ?? true
     const parkinsonActive = activeMask.parkinson ?? true
     const chaikinVolActive = activeMask.chaikinVol ?? true
+    const vmaActive = activeMask.vma ?? true
+    const obvActive = activeMask.obv ?? true
+    const pvtActive = activeMask.pvt ?? true
 
     const rsiExtremes = rsiActive ? calcRSIExtremes(bundle.rsi.series, visibleRange) : null
     const cciExtremes = cciActive ? calcCCIExtremes(bundle.cci.series, visibleRange) : null
@@ -227,6 +242,9 @@ export function composeVisibleSubIndicatorStates(
     const hvExtremes = hvActive ? calcSparseExtremes(bundle.hv.series, visibleRange) : null
     const parkinsonExtremes = parkinsonActive ? calcSparseExtremes(bundle.parkinson.series, visibleRange) : null
     const chaikinVolExtremes = chaikinVolActive ? calcSparseExtremes(bundle.chaikinVol.series, visibleRange) : null
+    const vmaExtremes = vmaActive ? calcSparseExtremes(bundle.vma.series, visibleRange) : null
+    const obvExtremes = obvActive ? calcSparseExtremes(bundle.obv.series, visibleRange) : null
+    const pvtExtremes = pvtActive ? calcSparseExtremes(bundle.pvt.series, visibleRange) : null
     const latestPoint = macdActive ? getLatestMACDPoint(bundle, visibleRange) : null
 
     const macdPadding = macdExtremes ? Math.max(Math.abs(macdExtremes.max), Math.abs(macdExtremes.min)) * 0.1 : 0
@@ -289,6 +307,9 @@ export function composeVisibleSubIndicatorStates(
         ? parkinsonExtremes.max * 1.1
         : EMPTY_PARKINSON_STATE.valueMax
     const chaikinVolBounds = maFamilyBounds(chaikinVolExtremes, EMPTY_CHAIKIN_VOL_STATE)
+    const vmaValueMax = vmaExtremes && Number.isFinite(vmaExtremes.max) ? vmaExtremes.max * 1.1 : EMPTY_VMA_STATE.valueMax
+    const obvBounds = maFamilyBounds(obvExtremes, EMPTY_OBV_STATE)
+    const pvtBounds = maFamilyBounds(pvtExtremes, EMPTY_PVT_STATE)
 
     return {
         rsi: rsiActive ? {
@@ -587,6 +608,42 @@ export function composeVisibleSubIndicatorStates(
         } : mergeEmptyState(EMPTY_CHAIKIN_VOL_STATE, timestamp, {
             series: bundle.chaikinVol.series,
             params: bundle.chaikinVol.params,
+        }),
+        vma: vmaActive ? {
+            timestamp,
+            series: bundle.vma.series,
+            params: bundle.vma.params,
+            valueMin: 0,
+            valueMax: vmaValueMax,
+            visibleMin: vmaExtremes!.min,
+            visibleMax: vmaExtremes!.max,
+        } : mergeEmptyState(EMPTY_VMA_STATE, timestamp, {
+            series: bundle.vma.series,
+            params: bundle.vma.params,
+        }),
+        obv: obvActive ? {
+            timestamp,
+            series: bundle.obv.series,
+            params: bundle.obv.params,
+            valueMin: obvBounds.valueMin,
+            valueMax: obvBounds.valueMax,
+            visibleMin: obvExtremes!.min,
+            visibleMax: obvExtremes!.max,
+        } : mergeEmptyState(EMPTY_OBV_STATE, timestamp, {
+            series: bundle.obv.series,
+            params: bundle.obv.params,
+        }),
+        pvt: pvtActive ? {
+            timestamp,
+            series: bundle.pvt.series,
+            params: bundle.pvt.params,
+            valueMin: pvtBounds.valueMin,
+            valueMax: pvtBounds.valueMax,
+            visibleMin: pvtExtremes!.min,
+            visibleMax: pvtExtremes!.max,
+        } : mergeEmptyState(EMPTY_PVT_STATE, timestamp, {
+            series: bundle.pvt.series,
+            params: bundle.pvt.params,
         }),
     }
 }

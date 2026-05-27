@@ -47,6 +47,9 @@ import type {
     HVSchedulerConfig,
     ParkinsonSchedulerConfig,
     ChaikinVolSchedulerConfig,
+    VMASchedulerConfig,
+    OBVSchedulerConfig,
+    PVTSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -123,6 +126,12 @@ import type { ParkinsonRenderState } from './parkinsonState'
 import { createParkinsonStateKey, DEFAULT_PARKINSON_PERIOD, DEFAULT_PARKINSON_ANNUALIZATION } from './parkinsonState'
 import type { ChaikinVolRenderState } from './chaikinVolState'
 import { createChaikinVolStateKey, DEFAULT_CHAIKIN_VOL_EMA_PERIOD, DEFAULT_CHAIKIN_VOL_ROC_PERIOD } from './chaikinVolState'
+import type { VMARenderState } from './vmaState'
+import { createVMAStateKey, DEFAULT_VMA_PERIOD } from './vmaState'
+import type { OBVRenderState } from './obvState'
+import { createOBVStateKey } from './obvState'
+import type { PVTRenderState } from './pvtState'
+import { createPVTStateKey } from './pvtState'
 
 /**
  * 可见范围
@@ -157,6 +166,9 @@ type VisibleSubIndicatorMask = {
     hv: boolean
     parkinson: boolean
     chaikinVol: boolean
+    vma: boolean
+    obv: boolean
+    pvt: boolean
 }
 
 // 重新导出配置类型（保持向后兼容）
@@ -188,6 +200,9 @@ export type {
     HVSchedulerConfig,
     ParkinsonSchedulerConfig,
     ChaikinVolSchedulerConfig,
+    VMASchedulerConfig,
+    OBVSchedulerConfig,
+    PVTSchedulerConfig,
 }
 
 /**
@@ -372,6 +387,9 @@ export class IndicatorScheduler {
             hv: { period: DEFAULT_HV_PERIOD, annualizationFactor: DEFAULT_HV_ANNUALIZATION, showHV: true },
             parkinson: { period: DEFAULT_PARKINSON_PERIOD, annualizationFactor: DEFAULT_PARKINSON_ANNUALIZATION, showParkinson: true },
             chaikinVol: { emaPeriod: DEFAULT_CHAIKIN_VOL_EMA_PERIOD, rocPeriod: DEFAULT_CHAIKIN_VOL_ROC_PERIOD, showChaikinVol: true },
+            vma: { period: DEFAULT_VMA_PERIOD, showVMA: true },
+            obv: { showOBV: true },
+            pvt: { showPVT: true },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -396,6 +414,9 @@ export class IndicatorScheduler {
             hvPaneId: 'sub_HV',
             parkinsonPaneId: 'sub_Parkinson',
             chaikinVolPaneId: 'sub_ChaikinVol',
+            vmaPaneId: 'sub_VMA',
+            obvPaneId: 'sub_OBV',
+            pvtPaneId: 'sub_PVT',
         }
     }
 
@@ -694,6 +715,24 @@ export class IndicatorScheduler {
             const cKey = createChaikinVolStateKey(this.configSnapshot.chaikinVolPaneId)
             this.pluginHost.setSharedState<ChaikinVolRenderState>(cKey, states.chaikinVol, 'indicator_scheduler')
         }
+
+        // VMA
+        if (changed.has('vma')) {
+            const vmaKey = createVMAStateKey(this.configSnapshot.vmaPaneId)
+            this.pluginHost.setSharedState<VMARenderState>(vmaKey, states.vma, 'indicator_scheduler')
+        }
+
+        // OBV
+        if (changed.has('obv')) {
+            const obvKey = createOBVStateKey(this.configSnapshot.obvPaneId)
+            this.pluginHost.setSharedState<OBVRenderState>(obvKey, states.obv, 'indicator_scheduler')
+        }
+
+        // PVT
+        if (changed.has('pvt')) {
+            const pvtKey = createPVTStateKey(this.configSnapshot.pvtPaneId)
+            this.pluginHost.setSharedState<PVTRenderState>(pvtKey, states.pvt, 'indicator_scheduler')
+        }
     }
 
     private updateVisibleStatesOnly(): void {
@@ -798,6 +837,18 @@ export class IndicatorScheduler {
         // ChaikinVol
         const cKey = createChaikinVolStateKey(this.configSnapshot.chaikinVolPaneId)
         this.pluginHost.setSharedState<ChaikinVolRenderState>(cKey, states.chaikinVol, 'indicator_scheduler')
+
+        // VMA
+        const vmaKey = createVMAStateKey(this.configSnapshot.vmaPaneId)
+        this.pluginHost.setSharedState<VMARenderState>(vmaKey, states.vma, 'indicator_scheduler')
+
+        // OBV
+        const obvKey = createOBVStateKey(this.configSnapshot.obvPaneId)
+        this.pluginHost.setSharedState<OBVRenderState>(obvKey, states.obv, 'indicator_scheduler')
+
+        // PVT
+        const pvtKey = createPVTStateKey(this.configSnapshot.pvtPaneId)
+        this.pluginHost.setSharedState<PVTRenderState>(pvtKey, states.pvt, 'indicator_scheduler')
     }
 
     private buildActiveSubIndicatorMask(): VisibleSubIndicatorMask {
@@ -827,6 +878,9 @@ export class IndicatorScheduler {
             hv: activeIds.includes(this.configSnapshot.hvPaneId),
             parkinson: activeIds.includes(this.configSnapshot.parkinsonPaneId),
             chaikinVol: activeIds.includes(this.configSnapshot.chaikinVolPaneId),
+            vma: activeIds.includes(this.configSnapshot.vmaPaneId),
+            obv: activeIds.includes(this.configSnapshot.obvPaneId),
+            pvt: activeIds.includes(this.configSnapshot.pvtPaneId),
         }
     }
 
@@ -836,7 +890,7 @@ export class IndicatorScheduler {
         if (activeIds.length === 0) return { ...this.configSnapshot }
 
         const cfg: Record<string, unknown> = { ...this.configSnapshot }
-        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr', 'wma', 'dema', 'tema', 'hma', 'kama', 'sar', 'supertrend', 'keltner', 'donchian', 'ichimoku', 'roc', 'trix', 'hv', 'parkinson', 'chaikinVol'] as const
+        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr', 'wma', 'dema', 'tema', 'hma', 'kama', 'sar', 'supertrend', 'keltner', 'donchian', 'ichimoku', 'roc', 'trix', 'hv', 'parkinson', 'chaikinVol', 'vma', 'obv', 'pvt'] as const
         for (const key of subKeys) {
             const paneIdKey = `${key}PaneId`
             const paneId = cfg[paneIdKey] as string
@@ -1187,6 +1241,36 @@ export class IndicatorScheduler {
     updateChaikinVolConfig(config: Partial<ChaikinVolSchedulerConfig>, paneId?: string): void {
         if (paneId !== undefined) this.configSnapshot.chaikinVolPaneId = paneId
         this.configSnapshot.chaikinVol = { ...this.configSnapshot.chaikinVol, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * VMA 配置变更
+     */
+    updateVMAConfig(config: Partial<VMASchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.vmaPaneId = paneId
+        this.configSnapshot.vma = { ...this.configSnapshot.vma, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * OBV 配置变更
+     */
+    updateOBVConfig(config: Partial<OBVSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.obvPaneId = paneId
+        this.configSnapshot.obv = { ...this.configSnapshot.obv, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * PVT 配置变更
+     */
+    updatePVTConfig(config: Partial<PVTSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.pvtPaneId = paneId
+        this.configSnapshot.pvt = { ...this.configSnapshot.pvt, ...config }
         this.configVersion++
         this.triggerRecompute()
     }

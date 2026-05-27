@@ -211,6 +211,7 @@ describe('IndicatorScheduler', () => {
         'sub_SuperTrend', 'sub_Keltner', 'sub_Donchian', 'sub_Ichimoku',
         'sub_ROC', 'sub_TRIX',
         'sub_HV', 'sub_Parkinson', 'sub_ChaikinVol',
+        'sub_VMA', 'sub_OBV', 'sub_PVT',
       ])
 
       const data = createTestData(100)
@@ -224,9 +225,9 @@ describe('IndicatorScheduler', () => {
       // Update only viewport
       scheduler.updateVisibleRange({ start: 50, end: 60 })
 
-      // updateVisibleStatesOnly writes the 24 sub-indicators.
+      // updateVisibleStatesOnly writes the 27 sub-indicators.
       // Main indicators (MA, BOLL, EXPMA, ENE) are not rewritten on viewport-only changes.
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(24)
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(27)
 
       // Inspect a sub-indicator (RSI) since main indicators are not rewritten on viewport-only updates
       const rsiKey = createRSIStateKey('sub_RSI')
@@ -246,8 +247,8 @@ describe('IndicatorScheduler', () => {
       const data2 = createTestData(100, 200)
       scheduler.update(data2, { start: 0, end: 100 })
 
-      // Should be called 56 times (28 indicators × 2 data updates)
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(56)
+      // Should be called 62 times (31 indicators × 2 data updates)
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(62)
     })
   })
 
@@ -260,8 +261,8 @@ describe('IndicatorScheduler', () => {
 
       scheduler.recompute()
 
-      // Should write all 28 indicator states (12 baseline + ATR + 4 MA family + KAMA + SAR + 3 channel + Ichimoku + ROC + TRIX + HV + Parkinson + ChaikinVol)
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(28)
+      // Should write all 31 indicator states (28 from PR 6 + VMA + OBV + PVT)
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(31)
     })
 
     it('should recalculate with same data and range', () => {

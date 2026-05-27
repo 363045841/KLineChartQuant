@@ -34,8 +34,12 @@ import {
     calcHVData,
     calcParkinsonData,
     calcChaikinVolData,
+    calcVMAData,
+    calcOBVData,
+    calcPVTData,
     DEFAULT_MA_PERIODS,
     DEFAULT_ATR_PERIOD,
+    DEFAULT_VMA_PERIOD,
     DEFAULT_WMA_PERIOD,
     DEFAULT_DEMA_PERIOD,
     DEFAULT_TEMA_PERIOD,
@@ -105,6 +109,9 @@ import type {
     HVSchedulerConfig,
     ParkinsonSchedulerConfig,
     ChaikinVolSchedulerConfig,
+    VMASchedulerConfig,
+    OBVSchedulerConfig,
+    PVTSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -160,6 +167,9 @@ export class IndicatorRuntime {
     private cachedHvSeries: (number | undefined)[] = []
     private cachedParkinsonSeries: (number | undefined)[] = []
     private cachedChaikinVolSeries: (number | undefined)[] = []
+    private cachedVmaSeries: (number | undefined)[] = []
+    private cachedObvSeries: (number | undefined)[] = []
+    private cachedPvtSeries: (number | undefined)[] = []
 
     // 脏标记
     private dirtyData = true
@@ -191,6 +201,9 @@ export class IndicatorRuntime {
     private dirtyHvConfig = true
     private dirtyParkinsonConfig = true
     private dirtyChaikinVolConfig = true
+    private dirtyVmaConfig = true
+    private dirtyObvConfig = true
+    private dirtyPvtConfig = true
 
     private getDefaultConfig(): IndicatorConfigSnapshot {
         return {
@@ -300,6 +313,9 @@ export class IndicatorRuntime {
                 rocPeriod: DEFAULT_CHAIKIN_VOL_ROC_PERIOD,
                 showChaikinVol: true,
             },
+            vma: { period: DEFAULT_VMA_PERIOD, showVMA: true },
+            obv: { showOBV: true },
+            pvt: { showPVT: true },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -324,6 +340,9 @@ export class IndicatorRuntime {
             hvPaneId: 'sub_HV',
             parkinsonPaneId: 'sub_Parkinson',
             chaikinVolPaneId: 'sub_ChaikinVol',
+            vmaPaneId: 'sub_VMA',
+            obvPaneId: 'sub_OBV',
+            pvtPaneId: 'sub_PVT',
         }
     }
 
@@ -467,6 +486,18 @@ export class IndicatorRuntime {
             this.config.chaikinVol = { ...this.config.chaikinVol, ...config.chaikinVol }
             this.dirtyChaikinVolConfig = true
         }
+        if (config.vma !== undefined && !this.shallowEqual(config.vma as unknown as Record<string, unknown>, this.config.vma as unknown as Record<string, unknown>)) {
+            this.config.vma = { ...this.config.vma, ...config.vma }
+            this.dirtyVmaConfig = true
+        }
+        if (config.obv !== undefined && !this.shallowEqual(config.obv as unknown as Record<string, unknown>, this.config.obv as unknown as Record<string, unknown>)) {
+            this.config.obv = { ...this.config.obv, ...config.obv }
+            this.dirtyObvConfig = true
+        }
+        if (config.pvt !== undefined && !this.shallowEqual(config.pvt as unknown as Record<string, unknown>, this.config.pvt as unknown as Record<string, unknown>)) {
+            this.config.pvt = { ...this.config.pvt, ...config.pvt }
+            this.dirtyPvtConfig = true
+        }
         // pane IDs
         if (config.rsiPaneId !== undefined) this.config.rsiPaneId = config.rsiPaneId
         if (config.cciPaneId !== undefined) this.config.cciPaneId = config.cciPaneId
@@ -492,6 +523,9 @@ export class IndicatorRuntime {
         if (config.hvPaneId !== undefined) this.config.hvPaneId = config.hvPaneId
         if (config.parkinsonPaneId !== undefined) this.config.parkinsonPaneId = config.parkinsonPaneId
         if (config.chaikinVolPaneId !== undefined) this.config.chaikinVolPaneId = config.chaikinVolPaneId
+        if (config.vmaPaneId !== undefined) this.config.vmaPaneId = config.vmaPaneId
+        if (config.obvPaneId !== undefined) this.config.obvPaneId = config.obvPaneId
+        if (config.pvtPaneId !== undefined) this.config.pvtPaneId = config.pvtPaneId
 
         this.configVersion = version
     }
@@ -529,6 +563,9 @@ export class IndicatorRuntime {
         this.dirtyHvConfig = true
         this.dirtyParkinsonConfig = true
         this.dirtyChaikinVolConfig = true
+        this.dirtyVmaConfig = true
+        this.dirtyObvConfig = true
+        this.dirtyPvtConfig = true
     }
 
     /**
@@ -886,6 +923,36 @@ export class IndicatorRuntime {
             changed.push('chaikinVol')
         }
 
+        // VMA
+        if (this.dirtyData || this.dirtyVmaConfig) {
+            if (this.config.vma.showVMA) {
+                this.cachedVmaSeries = calcVMAData(data, this.config.vma.period)
+            } else {
+                this.cachedVmaSeries = []
+            }
+            changed.push('vma')
+        }
+
+        // OBV
+        if (this.dirtyData || this.dirtyObvConfig) {
+            if (this.config.obv.showOBV) {
+                this.cachedObvSeries = calcOBVData(data)
+            } else {
+                this.cachedObvSeries = []
+            }
+            changed.push('obv')
+        }
+
+        // PVT
+        if (this.dirtyData || this.dirtyPvtConfig) {
+            if (this.config.pvt.showPVT) {
+                this.cachedPvtSeries = calcPVTData(data)
+            } else {
+                this.cachedPvtSeries = []
+            }
+            changed.push('pvt')
+        }
+
         // 重置脏标记
         this.dirtyData = false
         this.dirtyMAConfig = false
@@ -916,6 +983,9 @@ export class IndicatorRuntime {
         this.dirtyHvConfig = false
         this.dirtyParkinsonConfig = false
         this.dirtyChaikinVolConfig = false
+        this.dirtyVmaConfig = false
+        this.dirtyObvConfig = false
+        this.dirtyPvtConfig = false
 
         // 组装结果
         return {
@@ -1032,6 +1102,18 @@ export class IndicatorRuntime {
             chaikinVol: {
                 series: this.cachedChaikinVolSeries,
                 params: { ...this.config.chaikinVol },
+            },
+            vma: {
+                series: this.cachedVmaSeries,
+                params: { ...this.config.vma },
+            },
+            obv: {
+                series: this.cachedObvSeries,
+                params: { ...this.config.obv },
+            },
+            pvt: {
+                series: this.cachedPvtSeries,
+                params: { ...this.config.pvt },
             },
             _changed: changed,
         }
@@ -1156,6 +1238,18 @@ export class IndicatorRuntime {
             chaikinVol: {
                 series: this.cachedChaikinVolSeries,
                 params: { ...this.config.chaikinVol },
+            },
+            vma: {
+                series: this.cachedVmaSeries,
+                params: { ...this.config.vma },
+            },
+            obv: {
+                series: this.cachedObvSeries,
+                params: { ...this.config.obv },
+            },
+            pvt: {
+                series: this.cachedPvtSeries,
+                params: { ...this.config.pvt },
             },
         }
     }

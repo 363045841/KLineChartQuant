@@ -200,6 +200,19 @@ export interface ChaikinVolSchedulerConfig {
     showChaikinVol: boolean
 }
 
+export interface VMASchedulerConfig {
+    period: number
+    showVMA: boolean
+}
+
+export interface OBVSchedulerConfig {
+    showOBV: boolean
+}
+
+export interface PVTSchedulerConfig {
+    showPVT: boolean
+}
+
 // ============================================================================
 // Worker 请求类型
 // ============================================================================
@@ -306,6 +319,9 @@ export interface IndicatorConfigSnapshot {
     hv: HVSchedulerConfig
     parkinson: ParkinsonSchedulerConfig
     chaikinVol: ChaikinVolSchedulerConfig
+    vma: VMASchedulerConfig
+    obv: OBVSchedulerConfig
+    pvt: PVTSchedulerConfig
     // pane IDs for sub-indicators
     rsiPaneId: string
     cciPaneId: string
@@ -331,6 +347,9 @@ export interface IndicatorConfigSnapshot {
     hvPaneId: string
     parkinsonPaneId: string
     chaikinVolPaneId: string
+    vmaPaneId: string
+    obvPaneId: string
+    pvtPaneId: string
 }
 
 // ============================================================================
@@ -451,6 +470,18 @@ export interface IndicatorSeriesBundle {
     chaikinVol: {
         series: (number | undefined)[]
         params: ChaikinVolSchedulerConfig
+    }
+    vma: {
+        series: (number | undefined)[]
+        params: VMASchedulerConfig
+    }
+    obv: {
+        series: (number | undefined)[]
+        params: OBVSchedulerConfig
+    }
+    pvt: {
+        series: (number | undefined)[]
+        params: PVTSchedulerConfig
     }
     /** 本次计算中实际变更的指标列表 */
     _changed: string[]

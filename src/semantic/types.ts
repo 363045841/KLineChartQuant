@@ -107,6 +107,9 @@ export interface SubIndicatorParams {
   HV?: { period?: number; annualizationFactor?: number }
   PARKINSON?: { period?: number; annualizationFactor?: number }
   CHAIKIN_VOL?: { emaPeriod?: number; rocPeriod?: number }
+  VMA?: { period?: number }
+  OBV?: Record<string, never>
+  PVT?: Record<string, never>
 }
 
 /** 副图指标类型 */
