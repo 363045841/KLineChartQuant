@@ -79,7 +79,7 @@ import { createDEMAStateKey, DEFAULT_DEMA_PERIOD } from './demaState'
 import type { TEMARenderState } from './temaState'
 import { createTEMAStateKey, DEFAULT_TEMA_PERIOD } from './temaState'
 import type { HMARenderState } from './hmaState'
-import { createHMAStateKey, DEFAULT_HMA_PERIOD } from './hmaState'
+import { createHMAStateKey, DEFAULT_HMA_PERIOD } from './hmaState'  
 import type { KAMARenderState } from './kamaState'
 import { createKAMAStateKey, DEFAULT_KAMA_PERIOD, DEFAULT_KAMA_FAST_PERIOD, DEFAULT_KAMA_SLOW_PERIOD } from './kamaState'
 import type { SARRenderState } from './sarState'
@@ -602,6 +602,7 @@ export class IndicatorScheduler {
         const timestamp = Date.now()
         const activeMask = this.buildActiveSubIndicatorMask()
         const states = composeVisibleSubIndicatorStates(this.latestResult, this.visibleRange, timestamp, activeMask)
+        console.log(`[ATR-Scheduler] updateVisibleStatesOnly: atrActive=${!!activeMask.atr} atrPaneId=${this.configSnapshot.atrPaneId} seriesLen=${states.atr.series.length}`)
 
         // RSI
         const rsiKey = createRSIStateKey(this.configSnapshot.rsiPaneId)
