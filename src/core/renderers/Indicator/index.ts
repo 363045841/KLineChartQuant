@@ -45,10 +45,13 @@ export { createKSTRendererPlugin, type KSTRendererOptions, getKSTTitleInfo } fro
 // FASTK 快速随机指标
 export { createFASTKRendererPlugin, type FASTKRendererOptions, getFASTKTitleInfo } from './fastk'
 
+// ATR 平均真实波幅
+export { createATRRendererPlugin, type ATRRendererOptions, getATRTitleInfo } from './atr'
+
 /**
  * 副图指标类型
  */
-export type SubIndicatorType = 'VOLUME' | 'MACD' | 'RSI' | 'CCI' | 'STOCH' | 'MOM' | 'WMSR' | 'KST' | 'FASTK'
+export type SubIndicatorType = 'VOLUME' | 'MACD' | 'RSI' | 'CCI' | 'STOCH' | 'MOM' | 'WMSR' | 'KST' | 'FASTK' | 'ATR'
 
 /**
  * 渲染器工厂选项
@@ -69,6 +72,7 @@ import { createMOMRendererPlugin } from './mom'
 import { createWMSRRendererPlugin } from './wmsr'
 import { createKSTRendererPlugin } from './kst'
 import { createFASTKRendererPlugin } from './fastk'
+import { createATRRendererPlugin } from './atr'
 
 /**
  * 创建副图指标渲染器（统一工厂函数）
@@ -95,6 +99,8 @@ export function createSubIndicatorRenderer(options: IndicatorRendererOptions): R
             return createKSTRendererPlugin({ paneId })
         case 'FASTK':
             return createFASTKRendererPlugin({ paneId })
+        case 'ATR':
+            return createATRRendererPlugin({ paneId })
         default:
             throw new Error(`Unknown indicator: ${indicatorId}`)
     }
