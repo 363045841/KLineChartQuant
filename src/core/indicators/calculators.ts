@@ -2354,3 +2354,116 @@ export function calcStructureDataSoA(
     const data = SharedKLineBuffer.toKLineData(layout)
     return calcStructureData(data, leftWindow, rightWindow, breakoutSource)
 }
+
+// ============================================================================
+// SMC Zones — FVG (Fair Value Gap) + Order Blocks
+// FVG (3-bar pattern):
+//   Bullish FVG: bar[t-2].high < bar[t].low → gap zone [bar[t-2].high, bar[t].low] anchored at bar[t-1]
+//   Bearish FVG: bar[t-2].low > bar[t].high → gap zone [bar[t].high, bar[t-2].low] anchored at bar[t-1]
+//   Zone is "filled" (endIndex set) when price re-enters it.
+// Order Blocks:
+//   Computed in conjunction with BOS events from calcStructureData.
+//   Bullish OB = last bearish candle (close < open) within obLookback bars before an upward BOS.
+//   Bearish OB = last bullish candle (close > open) within obLookback bars before a downward BOS.
+//   Mitigated (endIndex set) when price returns into the candle's range.
+// ============================================================================
+
+export type ZoneKind = 'FVG_BULL' | 'FVG_BEAR' | 'OB_BULL' | 'OB_BEAR'
+
+export interface Zone {
+    kind: ZoneKind
+    startIndex: number
+    endIndex?: number
+    high: number
+    low: number
+}
+
+export const DEFAULT_ZONES_OB_LOOKBACK = 5
+
+export function calcZonesData(
+    data: KLineData[],
+    obLookback: number,
+    structureLeftWindow: number,
+    structureRightWindow: number,
+    breakoutSource: 'close' | 'wick',
+): Zone[] {
+    const n = data.length
+    if (n < 3) return []
+    const zones: Zone[] = []
+
+    // 1. Detect FVGs
+    for (let t = 2; t < n; t++) {
+        const a = data[t - 2]!
+        const c = data[t]!
+        // Bullish FVG: a.high < c.low → gap
+        if (a.high < c.low) {
+            zones.push({
+                kind: 'FVG_BULL',
+                startIndex: t - 1,
+                high: c.low,
+                low: a.high,
+            })
+        }
+        // Bearish FVG: a.low > c.high → gap
+        if (a.low > c.high) {
+            zones.push({
+                kind: 'FVG_BEAR',
+                startIndex: t - 1,
+                high: a.low,
+                low: c.high,
+            })
+        }
+    }
+
+    // 2. Detect Order Blocks using structure BOS events
+    const struct = calcStructureData(data, structureLeftWindow, structureRightWindow, breakoutSource)
+    for (const ev of struct.events) {
+        if (ev.kind !== 'BOS') continue
+        // Look back obLookback bars for the OB candle
+        const start = Math.max(0, ev.index - obLookback)
+        if (ev.direction === 'up') {
+            // Bullish OB: latest bearish candle (close < open) in [start, ev.index)
+            for (let k = ev.index - 1; k >= start; k--) {
+                const bar = data[k]!
+                if (bar.close < bar.open) {
+                    zones.push({ kind: 'OB_BULL', startIndex: k, high: bar.high, low: bar.low })
+                    break
+                }
+            }
+        } else {
+            // Bearish OB: latest bullish candle (close > open) in [start, ev.index)
+            for (let k = ev.index - 1; k >= start; k--) {
+                const bar = data[k]!
+                if (bar.close > bar.open) {
+                    zones.push({ kind: 'OB_BEAR', startIndex: k, high: bar.high, low: bar.low })
+                    break
+                }
+            }
+        }
+    }
+
+    // 3. Mark zones as filled when price re-enters their range
+    for (const zone of zones) {
+        for (let t = zone.startIndex + 1; t < n; t++) {
+            const bar = data[t]!
+            // Zone is touched if the bar overlaps the zone's [low, high]
+            if (bar.low <= zone.high && bar.high >= zone.low) {
+                zone.endIndex = t
+                break
+            }
+        }
+    }
+
+    return zones
+}
+
+export function calcZonesDataSoA(
+    layout: KLineSoALayout,
+    obLookback: number,
+    structureLeftWindow: number,
+    structureRightWindow: number,
+    breakoutSource: 'close' | 'wick',
+): Zone[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcZonesData(data, obLookback, structureLeftWindow, structureRightWindow, breakoutSource)
+}

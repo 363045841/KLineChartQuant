@@ -20,6 +20,7 @@ import type {
     PivotPoint,
     FibPoint,
     StructureSnapshot,
+    Zone,
 } from './calculators'
 
 // ============================================================================
@@ -256,6 +257,13 @@ export interface StructureSchedulerConfig {
     showProvisional: boolean
 }
 
+export interface ZonesSchedulerConfig {
+    showFVG: boolean
+    showOB: boolean
+    showFilledZones: boolean
+    obLookback: number
+}
+
 // ============================================================================
 // Worker 请求类型
 // ============================================================================
@@ -371,6 +379,7 @@ export interface IndicatorConfigSnapshot {
     pivot: PivotSchedulerConfig
     fib: FibSchedulerConfig
     structure: StructureSchedulerConfig
+    zones: ZonesSchedulerConfig
     // pane IDs for sub-indicators
     rsiPaneId: string
     cciPaneId: string
@@ -405,6 +414,7 @@ export interface IndicatorConfigSnapshot {
     pivotPaneId: string
     fibPaneId: string
     structurePaneId: string
+    zonesPaneId: string
 }
 
 // ============================================================================
@@ -561,6 +571,10 @@ export interface IndicatorSeriesBundle {
     structure: {
         series: StructureSnapshot
         params: StructureSchedulerConfig
+    }
+    zones: {
+        series: Zone[]
+        params: ZonesSchedulerConfig
     }
     /** 本次计算中实际变更的指标列表 */
     _changed: string[]

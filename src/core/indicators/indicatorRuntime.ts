@@ -43,11 +43,13 @@ import {
     calcPivotData,
     calcFibData,
     calcStructureData,
+    calcZonesData,
     DEFAULT_MA_PERIODS,
     DEFAULT_ATR_PERIOD,
     DEFAULT_VMA_PERIOD,
     DEFAULT_STRUCTURE_LEFT,
     DEFAULT_STRUCTURE_RIGHT,
+    DEFAULT_ZONES_OB_LOOKBACK,
     DEFAULT_VWAP_SESSION_GAP_MS,
     DEFAULT_CMF_PERIOD,
     DEFAULT_MFI_PERIOD,
@@ -95,6 +97,7 @@ import {
     type PivotPoint,
     type FibPoint,
     type StructureSnapshot,
+    type Zone,
 } from './calculators'
 import type {
     BOLLSchedulerConfig,
@@ -133,6 +136,7 @@ import type {
     PivotSchedulerConfig,
     FibSchedulerConfig,
     StructureSchedulerConfig,
+    ZonesSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -197,6 +201,7 @@ export class IndicatorRuntime {
     private cachedPivotSeries: (PivotPoint | undefined)[] = []
     private cachedFibSeries: (FibPoint | undefined)[] = []
     private cachedStructureSeries: StructureSnapshot = { swings: [], events: [], trend: 'range' }
+    private cachedZonesSeries: Zone[] = []
 
     // 脏标记
     private dirtyData = true
@@ -237,6 +242,7 @@ export class IndicatorRuntime {
     private dirtyPivotConfig = true
     private dirtyFibConfig = true
     private dirtyStructureConfig = true
+    private dirtyZonesConfig = true
 
     private getDefaultConfig(): IndicatorConfigSnapshot {
         return {
@@ -363,6 +369,12 @@ export class IndicatorRuntime {
                 showCHOCH: true,
                 showProvisional: false,
             },
+            zones: {
+                showFVG: true,
+                showOB: true,
+                showFilledZones: false,
+                obLookback: DEFAULT_ZONES_OB_LOOKBACK,
+            },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -396,6 +408,7 @@ export class IndicatorRuntime {
             pivotPaneId: 'sub_Pivot',
             fibPaneId: 'sub_Fib',
             structurePaneId: 'sub_Structure',
+            zonesPaneId: 'sub_Zones',
         }
     }
 
@@ -575,6 +588,10 @@ export class IndicatorRuntime {
             this.config.structure = { ...this.config.structure, ...config.structure }
             this.dirtyStructureConfig = true
         }
+        if (config.zones !== undefined && !this.shallowEqual(config.zones as unknown as Record<string, unknown>, this.config.zones as unknown as Record<string, unknown>)) {
+            this.config.zones = { ...this.config.zones, ...config.zones }
+            this.dirtyZonesConfig = true
+        }
         // pane IDs
         if (config.rsiPaneId !== undefined) this.config.rsiPaneId = config.rsiPaneId
         if (config.cciPaneId !== undefined) this.config.cciPaneId = config.cciPaneId
@@ -609,6 +626,7 @@ export class IndicatorRuntime {
         if (config.pivotPaneId !== undefined) this.config.pivotPaneId = config.pivotPaneId
         if (config.fibPaneId !== undefined) this.config.fibPaneId = config.fibPaneId
         if (config.structurePaneId !== undefined) this.config.structurePaneId = config.structurePaneId
+        if (config.zonesPaneId !== undefined) this.config.zonesPaneId = config.zonesPaneId
 
         this.configVersion = version
     }
@@ -655,6 +673,7 @@ export class IndicatorRuntime {
         this.dirtyPivotConfig = true
         this.dirtyFibConfig = true
         this.dirtyStructureConfig = true
+        this.dirtyZonesConfig = true
     }
 
     /**
@@ -1104,6 +1123,23 @@ export class IndicatorRuntime {
             changed.push('structure')
         }
 
+        // SMC Zones
+        if (this.dirtyData || this.dirtyZonesConfig) {
+            const z = this.config.zones
+            if (z.showFVG || z.showOB) {
+                this.cachedZonesSeries = calcZonesData(
+                    data,
+                    z.obLookback,
+                    this.config.structure.leftWindow,
+                    this.config.structure.rightWindow,
+                    this.config.structure.breakoutSource,
+                )
+            } else {
+                this.cachedZonesSeries = []
+            }
+            changed.push('zones')
+        }
+
         // 重置脏标记
         this.dirtyData = false
         this.dirtyMAConfig = false
@@ -1143,6 +1179,7 @@ export class IndicatorRuntime {
         this.dirtyPivotConfig = false
         this.dirtyFibConfig = false
         this.dirtyStructureConfig = false
+        this.dirtyZonesConfig = false
 
         // 组装结果
         return {
@@ -1295,6 +1332,10 @@ export class IndicatorRuntime {
             structure: {
                 series: this.cachedStructureSeries,
                 params: { ...this.config.structure },
+            },
+            zones: {
+                series: this.cachedZonesSeries,
+                params: { ...this.config.zones },
             },
             _changed: changed,
         }
@@ -1455,6 +1496,10 @@ export class IndicatorRuntime {
             structure: {
                 series: this.cachedStructureSeries,
                 params: { ...this.config.structure },
+            },
+            zones: {
+                series: this.cachedZonesSeries,
+                params: { ...this.config.zones },
             },
         }
     }

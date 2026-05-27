@@ -120,6 +120,12 @@ export interface SubIndicatorParams {
     rightWindow?: number
     breakoutSource?: 'close' | 'wick'
   }
+  ZONES?: {
+    showFVG?: boolean
+    showOB?: boolean
+    showFilledZones?: boolean
+    obLookback?: number
+  }
 }
 
 /** 副图指标类型 */

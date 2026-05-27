@@ -56,6 +56,7 @@ import type {
     PivotSchedulerConfig,
     FibSchedulerConfig,
     StructureSchedulerConfig,
+    ZonesSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -150,6 +151,8 @@ import type { FibRenderState } from './fibState'
 import { createFibStateKey, DEFAULT_FIB_PERIOD } from './fibState'
 import type { StructureRenderState } from './structureState'
 import { createStructureStateKey, DEFAULT_STRUCTURE_LEFT, DEFAULT_STRUCTURE_RIGHT } from './structureState'
+import type { ZonesRenderState } from './zonesState'
+import { createZonesStateKey, DEFAULT_ZONES_OB_LOOKBACK } from './zonesState'
 
 /**
  * 可见范围
@@ -193,6 +196,7 @@ type VisibleSubIndicatorMask = {
     pivot: boolean
     fib: boolean
     structure: boolean
+    zones: boolean
 }
 
 // 重新导出配置类型（保持向后兼容）
@@ -233,6 +237,7 @@ export type {
     PivotSchedulerConfig,
     FibSchedulerConfig,
     StructureSchedulerConfig,
+    ZonesSchedulerConfig,
 }
 
 /**
@@ -434,6 +439,12 @@ export class IndicatorScheduler {
                 showCHOCH: true,
                 showProvisional: false,
             },
+            zones: {
+                showFVG: true,
+                showOB: true,
+                showFilledZones: false,
+                obLookback: DEFAULT_ZONES_OB_LOOKBACK,
+            },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -467,6 +478,7 @@ export class IndicatorScheduler {
             pivotPaneId: 'sub_Pivot',
             fibPaneId: 'sub_Fib',
             structurePaneId: 'sub_Structure',
+            zonesPaneId: 'sub_Zones',
         }
     }
 
@@ -819,6 +831,12 @@ export class IndicatorScheduler {
             const sKey = createStructureStateKey(this.configSnapshot.structurePaneId)
             this.pluginHost.setSharedState<StructureRenderState>(sKey, states.structure, 'indicator_scheduler')
         }
+
+        // Zones
+        if (changed.has('zones')) {
+            const zKey = createZonesStateKey(this.configSnapshot.zonesPaneId)
+            this.pluginHost.setSharedState<ZonesRenderState>(zKey, states.zones, 'indicator_scheduler')
+        }
     }
 
     private updateVisibleStatesOnly(): void {
@@ -959,6 +977,10 @@ export class IndicatorScheduler {
         // Structure
         const sKey = createStructureStateKey(this.configSnapshot.structurePaneId)
         this.pluginHost.setSharedState<StructureRenderState>(sKey, states.structure, 'indicator_scheduler')
+
+        // Zones
+        const zKey = createZonesStateKey(this.configSnapshot.zonesPaneId)
+        this.pluginHost.setSharedState<ZonesRenderState>(zKey, states.zones, 'indicator_scheduler')
     }
 
     private buildActiveSubIndicatorMask(): VisibleSubIndicatorMask {
@@ -997,6 +1019,7 @@ export class IndicatorScheduler {
             pivot: activeIds.includes(this.configSnapshot.pivotPaneId),
             fib: activeIds.includes(this.configSnapshot.fibPaneId),
             structure: activeIds.includes(this.configSnapshot.structurePaneId),
+            zones: activeIds.includes(this.configSnapshot.zonesPaneId),
         }
     }
 
@@ -1006,7 +1029,7 @@ export class IndicatorScheduler {
         if (activeIds.length === 0) return { ...this.configSnapshot }
 
         const cfg: Record<string, unknown> = { ...this.configSnapshot }
-        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr', 'wma', 'dema', 'tema', 'hma', 'kama', 'sar', 'supertrend', 'keltner', 'donchian', 'ichimoku', 'roc', 'trix', 'hv', 'parkinson', 'chaikinVol', 'vma', 'obv', 'pvt', 'vwap', 'cmf', 'mfi', 'pivot', 'fib', 'structure'] as const
+        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr', 'wma', 'dema', 'tema', 'hma', 'kama', 'sar', 'supertrend', 'keltner', 'donchian', 'ichimoku', 'roc', 'trix', 'hv', 'parkinson', 'chaikinVol', 'vma', 'obv', 'pvt', 'vwap', 'cmf', 'mfi', 'pivot', 'fib', 'structure', 'zones'] as const
         for (const key of subKeys) {
             const paneIdKey = `${key}PaneId`
             const paneId = cfg[paneIdKey] as string
@@ -1437,6 +1460,14 @@ export class IndicatorScheduler {
     updateStructureConfig(config: Partial<StructureSchedulerConfig>, paneId?: string): void {
         if (paneId !== undefined) this.configSnapshot.structurePaneId = paneId
         this.configSnapshot.structure = { ...this.configSnapshot.structure, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /** Zones 配置变更 */
+    updateZonesConfig(config: Partial<ZonesSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.zonesPaneId = paneId
+        this.configSnapshot.zones = { ...this.configSnapshot.zones, ...config }
         this.configVersion++
         this.triggerRecompute()
     }
