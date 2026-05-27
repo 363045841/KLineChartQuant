@@ -51,6 +51,14 @@ import type {
     ATRRenderState,
 } from './atrState'
 import { EMPTY_ATR_STATE } from './atrState'
+import type { WMARenderState } from './wmaState'
+import { EMPTY_WMA_STATE } from './wmaState'
+import type { DEMARenderState } from './demaState'
+import { EMPTY_DEMA_STATE } from './demaState'
+import type { TEMARenderState } from './temaState'
+import { EMPTY_TEMA_STATE } from './temaState'
+import type { HMARenderState } from './hmaState'
+import { EMPTY_HMA_STATE } from './hmaState'
 import type { IndicatorSeriesBundle } from './workerProtocol'
 
 /**
@@ -71,6 +79,10 @@ type VisibleSubIndicatorStates = {
     fastk: FASTKRenderState
     macd: MACDRenderState
     atr: ATRRenderState
+    wma: WMARenderState
+    dema: DEMARenderState
+    tema: TEMARenderState
+    hma: HMARenderState
 }
 
 type VisibleSubIndicatorMask = {
@@ -83,6 +95,10 @@ type VisibleSubIndicatorMask = {
     fastk?: boolean
     macd?: boolean
     atr?: boolean
+    wma?: boolean
+    dema?: boolean
+    tema?: boolean
+    hma?: boolean
 }
 
 type ComposedRenderStates = VisibleSubIndicatorStates & {
@@ -126,6 +142,10 @@ export function composeVisibleSubIndicatorStates(
     const fastkActive = activeMask.fastk ?? true
     const macdActive = activeMask.macd ?? true
     const atrActive = activeMask.atr ?? true
+    const wmaActive = activeMask.wma ?? true
+    const demaActive = activeMask.dema ?? true
+    const temaActive = activeMask.tema ?? true
+    const hmaActive = activeMask.hma ?? true
 
     const rsiExtremes = rsiActive ? calcRSIExtremes(bundle.rsi.series, visibleRange) : null
     const cciExtremes = cciActive ? calcCCIExtremes(bundle.cci.series, visibleRange) : null
@@ -136,6 +156,10 @@ export function composeVisibleSubIndicatorStates(
     const fastkExtremes = fastkActive ? calcFASTKExtremes(bundle.fastk.series, visibleRange) : null
     const macdExtremes = macdActive ? calcMACDExtremes(bundle.macd.series, visibleRange) : null
     const atrExtremes = atrActive ? calcATRExtremes(bundle.atr.series, visibleRange) : null
+    const wmaExtremes = wmaActive ? calcSparseExtremes(bundle.wma.series, visibleRange) : null
+    const demaExtremes = demaActive ? calcSparseExtremes(bundle.dema.series, visibleRange) : null
+    const temaExtremes = temaActive ? calcSparseExtremes(bundle.tema.series, visibleRange) : null
+    const hmaExtremes = hmaActive ? calcSparseExtremes(bundle.hma.series, visibleRange) : null
     const latestPoint = macdActive ? getLatestMACDPoint(bundle, visibleRange) : null
 
     const macdPadding = macdExtremes ? Math.max(Math.abs(macdExtremes.max), Math.abs(macdExtremes.min)) * 0.1 : 0
@@ -157,6 +181,20 @@ export function composeVisibleSubIndicatorStates(
     const atrValueMax = atrExtremes && Number.isFinite(atrExtremes.max)
         ? atrExtremes.max * 1.1
         : EMPTY_ATR_STATE.valueMax
+
+    const maFamilyBounds = (ext: { min: number; max: number } | null, empty: { valueMin: number; valueMax: number }) => {
+        if (!ext || !Number.isFinite(ext.min) || !Number.isFinite(ext.max)) {
+            return { valueMin: empty.valueMin, valueMax: empty.valueMax }
+        }
+        const range = ext.max - ext.min
+        const padding = range > 0 ? range * 0.05 : Math.max(1, Math.abs(ext.max) * 0.05)
+        return { valueMin: ext.min - padding, valueMax: ext.max + padding }
+    }
+
+    const wmaBounds = maFamilyBounds(wmaExtremes, EMPTY_WMA_STATE)
+    const demaBounds = maFamilyBounds(demaExtremes, EMPTY_DEMA_STATE)
+    const temaBounds = maFamilyBounds(temaExtremes, EMPTY_TEMA_STATE)
+    const hmaBounds = maFamilyBounds(hmaExtremes, EMPTY_HMA_STATE)
 
     return {
         rsi: rsiActive ? {
@@ -273,6 +311,54 @@ export function composeVisibleSubIndicatorStates(
         } : mergeEmptyState(EMPTY_ATR_STATE, timestamp, {
             series: bundle.atr.series,
             params: bundle.atr.params,
+        }),
+        wma: wmaActive ? {
+            timestamp,
+            series: bundle.wma.series,
+            params: bundle.wma.params,
+            valueMin: wmaBounds.valueMin,
+            valueMax: wmaBounds.valueMax,
+            visibleMin: wmaExtremes!.min,
+            visibleMax: wmaExtremes!.max,
+        } : mergeEmptyState(EMPTY_WMA_STATE, timestamp, {
+            series: bundle.wma.series,
+            params: bundle.wma.params,
+        }),
+        dema: demaActive ? {
+            timestamp,
+            series: bundle.dema.series,
+            params: bundle.dema.params,
+            valueMin: demaBounds.valueMin,
+            valueMax: demaBounds.valueMax,
+            visibleMin: demaExtremes!.min,
+            visibleMax: demaExtremes!.max,
+        } : mergeEmptyState(EMPTY_DEMA_STATE, timestamp, {
+            series: bundle.dema.series,
+            params: bundle.dema.params,
+        }),
+        tema: temaActive ? {
+            timestamp,
+            series: bundle.tema.series,
+            params: bundle.tema.params,
+            valueMin: temaBounds.valueMin,
+            valueMax: temaBounds.valueMax,
+            visibleMin: temaExtremes!.min,
+            visibleMax: temaExtremes!.max,
+        } : mergeEmptyState(EMPTY_TEMA_STATE, timestamp, {
+            series: bundle.tema.series,
+            params: bundle.tema.params,
+        }),
+        hma: hmaActive ? {
+            timestamp,
+            series: bundle.hma.series,
+            params: bundle.hma.params,
+            valueMin: hmaBounds.valueMin,
+            valueMax: hmaBounds.valueMax,
+            visibleMin: hmaExtremes!.min,
+            visibleMax: hmaExtremes!.max,
+        } : mergeEmptyState(EMPTY_HMA_STATE, timestamp, {
+            series: bundle.hma.series,
+            params: bundle.hma.params,
         }),
     }
 }
@@ -547,6 +633,10 @@ function calcMACDExtremes(series: MACDPoint[], range: VisibleRange): { min: numb
 }
 
 function calcATRExtremes(series: (number | undefined)[], range: VisibleRange): { min: number; max: number } {
+    return calcSparseExtremes(series, range)
+}
+
+function calcSparseExtremes(series: (number | undefined)[], range: VisibleRange): { min: number; max: number } {
     if (series.length === 0 || range.start >= series.length) {
         return { min: Infinity, max: -Infinity }
     }

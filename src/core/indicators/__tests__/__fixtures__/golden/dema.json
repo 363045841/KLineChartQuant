@@ -1,0 +1,14 @@
+{
+    "$schema": "DEMA (Double Exponential MA) golden values. period=20.",
+    "$source": "Hand-derived for constantPrice only — EMA seeded with first close, so EMA = constant immediately; DEMA = 2*c - c = c throughout.",
+    "$note": "pureUptrend/spike golden deferred to pandas-ta gen-golden.py; property/edge tests cover the rest.",
+    "$tolerance": 1e-9,
+    "constantPrice": {
+        "period": 20,
+        "series": [
+            100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
+            100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
+            100, 100, 100, 100, 100, 100, 100, 100, 100, 100
+        ]
+    }
+}

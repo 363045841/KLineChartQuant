@@ -206,7 +206,8 @@ describe('IndicatorScheduler', () => {
     it('should recalculate extremes but not series on viewport change only', () => {
       // Mark sub-indicators active so their states get real extremes (not the EMPTY sentinels)
       scheduler.setActiveSubPaneProvider(() => [
-        'sub_RSI', 'sub_CCI', 'sub_STOCH', 'sub_MOM', 'sub_WMSR', 'sub_KST', 'sub_FASTK', 'sub_MACD', 'sub_ATR',
+        'sub_RSI', 'sub_CCI', 'sub_STOCH', 'sub_MOM', 'sub_WMSR', 'sub_KST', 'sub_FASTK', 'sub_MACD',
+        'sub_ATR', 'sub_WMA', 'sub_DEMA', 'sub_TEMA', 'sub_HMA',
       ])
 
       const data = createTestData(100)
@@ -220,9 +221,9 @@ describe('IndicatorScheduler', () => {
       // Update only viewport
       scheduler.updateVisibleRange({ start: 50, end: 60 })
 
-      // updateVisibleStatesOnly writes the 9 sub-indicators (RSI, CCI, STOCH, MOM, WMSR, KST, FASTK, MACD, ATR).
+      // updateVisibleStatesOnly writes the 13 sub-indicators (RSI, CCI, STOCH, MOM, WMSR, KST, FASTK, MACD, ATR, WMA, DEMA, TEMA, HMA).
       // Main indicators (MA, BOLL, EXPMA, ENE) are not rewritten on viewport-only changes.
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(9)
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(13)
 
       // Inspect a sub-indicator (RSI) since main indicators are not rewritten on viewport-only updates
       const rsiKey = createRSIStateKey('sub_RSI')
@@ -242,8 +243,8 @@ describe('IndicatorScheduler', () => {
       const data2 = createTestData(100, 200)
       scheduler.update(data2, { start: 0, end: 100 })
 
-      // Should be called 26 times (13 indicators × 2 data updates)
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(26)
+      // Should be called 34 times (17 indicators × 2 data updates)
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(34)
     })
   })
 
@@ -256,8 +257,8 @@ describe('IndicatorScheduler', () => {
 
       scheduler.recompute()
 
-      // Should write all 13 indicator states (12 existing + ATR)
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(13)
+      // Should write all 17 indicator states (12 baseline + ATR + WMA + DEMA + TEMA + HMA)
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(17)
     })
 
     it('should recalculate with same data and range', () => {

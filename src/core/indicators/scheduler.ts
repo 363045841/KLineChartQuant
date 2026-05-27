@@ -32,6 +32,10 @@ import type {
     FASTKSchedulerConfig,
     MACDSchedulerConfig,
     ATRSchedulerConfig,
+    WMASchedulerConfig,
+    DEMASchedulerConfig,
+    TEMASchedulerConfig,
+    HMASchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -63,6 +67,14 @@ import type { MACDRenderState } from './macdState'
 import { createMACDStateKey } from './macdState'
 import type { ATRRenderState } from './atrState'
 import { createATRStateKey, DEFAULT_ATR_PERIOD } from './atrState'
+import type { WMARenderState } from './wmaState'
+import { createWMAStateKey, DEFAULT_WMA_PERIOD } from './wmaState'
+import type { DEMARenderState } from './demaState'
+import { createDEMAStateKey, DEFAULT_DEMA_PERIOD } from './demaState'
+import type { TEMARenderState } from './temaState'
+import { createTEMAStateKey, DEFAULT_TEMA_PERIOD } from './temaState'
+import type { HMARenderState } from './hmaState'
+import { createHMAStateKey, DEFAULT_HMA_PERIOD } from './hmaState'
 
 /**
  * 可见范围
@@ -82,6 +94,10 @@ type VisibleSubIndicatorMask = {
     fastk: boolean
     macd: boolean
     atr: boolean
+    wma: boolean
+    dema: boolean
+    tema: boolean
+    hma: boolean
 }
 
 // 重新导出配置类型（保持向后兼容）
@@ -98,6 +114,10 @@ export type {
     FASTKSchedulerConfig,
     MACDSchedulerConfig,
     ATRSchedulerConfig,
+    WMASchedulerConfig,
+    DEMASchedulerConfig,
+    TEMASchedulerConfig,
+    HMASchedulerConfig,
 }
 
 /**
@@ -230,6 +250,10 @@ export class IndicatorScheduler {
                 showBAR: true,
             },
             atr: { period: DEFAULT_ATR_PERIOD, showATR: true },
+            wma: { period: DEFAULT_WMA_PERIOD, showWMA: true },
+            dema: { period: DEFAULT_DEMA_PERIOD, showDEMA: true },
+            tema: { period: DEFAULT_TEMA_PERIOD, showTEMA: true },
+            hma: { period: DEFAULT_HMA_PERIOD, showHMA: true },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -239,6 +263,10 @@ export class IndicatorScheduler {
             fastkPaneId: 'sub_FASTK',
             macdPaneId: 'sub_MACD',
             atrPaneId: 'sub_ATR',
+            wmaPaneId: 'sub_WMA',
+            demaPaneId: 'sub_DEMA',
+            temaPaneId: 'sub_TEMA',
+            hmaPaneId: 'sub_HMA',
         }
     }
 
@@ -447,6 +475,30 @@ export class IndicatorScheduler {
             const atrKey = createATRStateKey(this.configSnapshot.atrPaneId)
             this.pluginHost.setSharedState<ATRRenderState>(atrKey, states.atr, 'indicator_scheduler')
         }
+
+        // WMA
+        if (changed.has('wma')) {
+            const wmaKey = createWMAStateKey(this.configSnapshot.wmaPaneId)
+            this.pluginHost.setSharedState<WMARenderState>(wmaKey, states.wma, 'indicator_scheduler')
+        }
+
+        // DEMA
+        if (changed.has('dema')) {
+            const demaKey = createDEMAStateKey(this.configSnapshot.demaPaneId)
+            this.pluginHost.setSharedState<DEMARenderState>(demaKey, states.dema, 'indicator_scheduler')
+        }
+
+        // TEMA
+        if (changed.has('tema')) {
+            const temaKey = createTEMAStateKey(this.configSnapshot.temaPaneId)
+            this.pluginHost.setSharedState<TEMARenderState>(temaKey, states.tema, 'indicator_scheduler')
+        }
+
+        // HMA
+        if (changed.has('hma')) {
+            const hmaKey = createHMAStateKey(this.configSnapshot.hmaPaneId)
+            this.pluginHost.setSharedState<HMARenderState>(hmaKey, states.hma, 'indicator_scheduler')
+        }
     }
 
     private updateVisibleStatesOnly(): void {
@@ -491,6 +543,22 @@ export class IndicatorScheduler {
         // ATR
         const atrKey = createATRStateKey(this.configSnapshot.atrPaneId)
         this.pluginHost.setSharedState<ATRRenderState>(atrKey, states.atr, 'indicator_scheduler')
+
+        // WMA
+        const wmaKey = createWMAStateKey(this.configSnapshot.wmaPaneId)
+        this.pluginHost.setSharedState<WMARenderState>(wmaKey, states.wma, 'indicator_scheduler')
+
+        // DEMA
+        const demaKey = createDEMAStateKey(this.configSnapshot.demaPaneId)
+        this.pluginHost.setSharedState<DEMARenderState>(demaKey, states.dema, 'indicator_scheduler')
+
+        // TEMA
+        const temaKey = createTEMAStateKey(this.configSnapshot.temaPaneId)
+        this.pluginHost.setSharedState<TEMARenderState>(temaKey, states.tema, 'indicator_scheduler')
+
+        // HMA
+        const hmaKey = createHMAStateKey(this.configSnapshot.hmaPaneId)
+        this.pluginHost.setSharedState<HMARenderState>(hmaKey, states.hma, 'indicator_scheduler')
     }
 
     private buildActiveSubIndicatorMask(): VisibleSubIndicatorMask {
@@ -505,6 +573,10 @@ export class IndicatorScheduler {
             fastk: activeIds.includes(this.configSnapshot.fastkPaneId),
             macd: activeIds.includes(this.configSnapshot.macdPaneId),
             atr: activeIds.includes(this.configSnapshot.atrPaneId),
+            wma: activeIds.includes(this.configSnapshot.wmaPaneId),
+            dema: activeIds.includes(this.configSnapshot.demaPaneId),
+            tema: activeIds.includes(this.configSnapshot.temaPaneId),
+            hma: activeIds.includes(this.configSnapshot.hmaPaneId),
         }
     }
 
@@ -514,7 +586,7 @@ export class IndicatorScheduler {
         if (activeIds.length === 0) return { ...this.configSnapshot }
 
         const cfg: Record<string, unknown> = { ...this.configSnapshot }
-        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr'] as const
+        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr', 'wma', 'dema', 'tema', 'hma'] as const
         for (const key of subKeys) {
             const paneIdKey = `${key}PaneId`
             const paneId = cfg[paneIdKey] as string
@@ -703,6 +775,54 @@ export class IndicatorScheduler {
             this.configSnapshot.atrPaneId = paneId
         }
         this.configSnapshot.atr = { ...this.configSnapshot.atr, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * WMA 配置变更
+     */
+    updateWMAConfig(config: Partial<WMASchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.configSnapshot.wmaPaneId = paneId
+        }
+        this.configSnapshot.wma = { ...this.configSnapshot.wma, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * DEMA 配置变更
+     */
+    updateDEMAConfig(config: Partial<DEMASchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.configSnapshot.demaPaneId = paneId
+        }
+        this.configSnapshot.dema = { ...this.configSnapshot.dema, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * TEMA 配置变更
+     */
+    updateTEMAConfig(config: Partial<TEMASchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.configSnapshot.temaPaneId = paneId
+        }
+        this.configSnapshot.tema = { ...this.configSnapshot.tema, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * HMA 配置变更
+     */
+    updateHMAConfig(config: Partial<HMASchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.configSnapshot.hmaPaneId = paneId
+        }
+        this.configSnapshot.hma = { ...this.configSnapshot.hma, ...config }
         this.configVersion++
         this.triggerRecompute()
     }

@@ -1,0 +1,14 @@
+{
+    "$schema": "HMA (Hull Moving Average) golden values. period=9.",
+    "$source": "Hand-derived for constantPrice — WMA on constant input yields constant at every stage; 2*WMA(c, n/2) - WMA(c, n) = 2c - c = c; final WMA(c, sqrt(n)) = c.",
+    "$note": "pureUptrend/spike golden deferred to pandas-ta gen-golden.py; property/edge tests cover the rest. Warm-up = period-1 + round(sqrt(period))-1 = 8+2 = 10 for period=9.",
+    "$tolerance": 1e-9,
+    "constantPrice": {
+        "period": 9,
+        "series": [
+            null, null, null, null, null, null, null, null, null, null,
+            100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
+            100, 100, 100, 100, 100, 100, 100, 100, 100, 100
+        ]
+    }
+}

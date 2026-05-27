@@ -1,0 +1,14 @@
+{
+    "$schema": "TEMA (Triple Exponential MA) golden values. period=20.",
+    "$source": "Hand-derived for constantPrice — EMA chain on a constant input yields constant output at every stage; TEMA = 3*c - 3*c + c = c.",
+    "$note": "pureUptrend/spike golden deferred to pandas-ta gen-golden.py; property/edge tests cover the rest.",
+    "$tolerance": 1e-9,
+    "constantPrice": {
+        "period": 20,
+        "series": [
+            100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
+            100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
+            100, 100, 100, 100, 100, 100, 100, 100, 100, 100
+        ]
+    }
+}

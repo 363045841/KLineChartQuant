@@ -19,8 +19,16 @@ import {
     calcFASTKData,
     calcMACDData,
     calcATRData,
+    calcWMAData,
+    calcDEMAData,
+    calcTEMAData,
+    calcHMAData,
     DEFAULT_MA_PERIODS,
     DEFAULT_ATR_PERIOD,
+    DEFAULT_WMA_PERIOD,
+    DEFAULT_DEMA_PERIOD,
+    DEFAULT_TEMA_PERIOD,
+    DEFAULT_HMA_PERIOD,
     type MAFlags,
     type BOLLPoint,
     type EXPMAPoint,
@@ -42,6 +50,10 @@ import type {
     FASTKSchedulerConfig,
     MACDSchedulerConfig,
     ATRSchedulerConfig,
+    WMASchedulerConfig,
+    DEMASchedulerConfig,
+    TEMASchedulerConfig,
+    HMASchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -81,6 +93,10 @@ export class IndicatorRuntime {
     private cachedFastkSeries: (number | undefined)[] = []
     private cachedMacdSeries: MACDPoint[] = []
     private cachedAtrSeries: (number | undefined)[] = []
+    private cachedWmaSeries: (number | undefined)[] = []
+    private cachedDemaSeries: (number | undefined)[] = []
+    private cachedTemaSeries: (number | undefined)[] = []
+    private cachedHmaSeries: (number | undefined)[] = []
 
     // 脏标记
     private dirtyData = true
@@ -97,6 +113,10 @@ export class IndicatorRuntime {
     private dirtyFastkConfig = true
     private dirtyMacdConfig = true
     private dirtyAtrConfig = true
+    private dirtyWmaConfig = true
+    private dirtyDemaConfig = true
+    private dirtyTemaConfig = true
+    private dirtyHmaConfig = true
 
     private getDefaultConfig(): IndicatorConfigSnapshot {
         return {
@@ -142,6 +162,10 @@ export class IndicatorRuntime {
                 showBAR: true,
             },
             atr: { period: DEFAULT_ATR_PERIOD, showATR: true },
+            wma: { period: DEFAULT_WMA_PERIOD, showWMA: true },
+            dema: { period: DEFAULT_DEMA_PERIOD, showDEMA: true },
+            tema: { period: DEFAULT_TEMA_PERIOD, showTEMA: true },
+            hma: { period: DEFAULT_HMA_PERIOD, showHMA: true },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -151,6 +175,10 @@ export class IndicatorRuntime {
             fastkPaneId: 'sub_FASTK',
             macdPaneId: 'sub_MACD',
             atrPaneId: 'sub_ATR',
+            wmaPaneId: 'sub_WMA',
+            demaPaneId: 'sub_DEMA',
+            temaPaneId: 'sub_TEMA',
+            hmaPaneId: 'sub_HMA',
         }
     }
 
@@ -234,6 +262,22 @@ export class IndicatorRuntime {
             this.config.atr = { ...this.config.atr, ...config.atr }
             this.dirtyAtrConfig = true
         }
+        if (config.wma !== undefined && !this.shallowEqual(config.wma as unknown as Record<string, unknown>, this.config.wma as unknown as Record<string, unknown>)) {
+            this.config.wma = { ...this.config.wma, ...config.wma }
+            this.dirtyWmaConfig = true
+        }
+        if (config.dema !== undefined && !this.shallowEqual(config.dema as unknown as Record<string, unknown>, this.config.dema as unknown as Record<string, unknown>)) {
+            this.config.dema = { ...this.config.dema, ...config.dema }
+            this.dirtyDemaConfig = true
+        }
+        if (config.tema !== undefined && !this.shallowEqual(config.tema as unknown as Record<string, unknown>, this.config.tema as unknown as Record<string, unknown>)) {
+            this.config.tema = { ...this.config.tema, ...config.tema }
+            this.dirtyTemaConfig = true
+        }
+        if (config.hma !== undefined && !this.shallowEqual(config.hma as unknown as Record<string, unknown>, this.config.hma as unknown as Record<string, unknown>)) {
+            this.config.hma = { ...this.config.hma, ...config.hma }
+            this.dirtyHmaConfig = true
+        }
         // pane IDs
         if (config.rsiPaneId !== undefined) this.config.rsiPaneId = config.rsiPaneId
         if (config.cciPaneId !== undefined) this.config.cciPaneId = config.cciPaneId
@@ -244,6 +288,10 @@ export class IndicatorRuntime {
         if (config.fastkPaneId !== undefined) this.config.fastkPaneId = config.fastkPaneId
         if (config.macdPaneId !== undefined) this.config.macdPaneId = config.macdPaneId
         if (config.atrPaneId !== undefined) this.config.atrPaneId = config.atrPaneId
+        if (config.wmaPaneId !== undefined) this.config.wmaPaneId = config.wmaPaneId
+        if (config.demaPaneId !== undefined) this.config.demaPaneId = config.demaPaneId
+        if (config.temaPaneId !== undefined) this.config.temaPaneId = config.temaPaneId
+        if (config.hmaPaneId !== undefined) this.config.hmaPaneId = config.hmaPaneId
 
         this.configVersion = version
     }
@@ -266,6 +314,10 @@ export class IndicatorRuntime {
         this.dirtyFastkConfig = true
         this.dirtyMacdConfig = true
         this.dirtyAtrConfig = true
+        this.dirtyWmaConfig = true
+        this.dirtyDemaConfig = true
+        this.dirtyTemaConfig = true
+        this.dirtyHmaConfig = true
     }
 
     /**
@@ -437,6 +489,46 @@ export class IndicatorRuntime {
             changed.push('atr')
         }
 
+        // WMA
+        if (this.dirtyData || this.dirtyWmaConfig) {
+            if (this.config.wma.showWMA) {
+                this.cachedWmaSeries = calcWMAData(data, this.config.wma.period)
+            } else {
+                this.cachedWmaSeries = []
+            }
+            changed.push('wma')
+        }
+
+        // DEMA
+        if (this.dirtyData || this.dirtyDemaConfig) {
+            if (this.config.dema.showDEMA) {
+                this.cachedDemaSeries = calcDEMAData(data, this.config.dema.period)
+            } else {
+                this.cachedDemaSeries = []
+            }
+            changed.push('dema')
+        }
+
+        // TEMA
+        if (this.dirtyData || this.dirtyTemaConfig) {
+            if (this.config.tema.showTEMA) {
+                this.cachedTemaSeries = calcTEMAData(data, this.config.tema.period)
+            } else {
+                this.cachedTemaSeries = []
+            }
+            changed.push('tema')
+        }
+
+        // HMA
+        if (this.dirtyData || this.dirtyHmaConfig) {
+            if (this.config.hma.showHMA) {
+                this.cachedHmaSeries = calcHMAData(data, this.config.hma.period)
+            } else {
+                this.cachedHmaSeries = []
+            }
+            changed.push('hma')
+        }
+
         // 重置脏标记
         this.dirtyData = false
         this.dirtyMAConfig = false
@@ -452,6 +544,10 @@ export class IndicatorRuntime {
         this.dirtyFastkConfig = false
         this.dirtyMacdConfig = false
         this.dirtyAtrConfig = false
+        this.dirtyWmaConfig = false
+        this.dirtyDemaConfig = false
+        this.dirtyTemaConfig = false
+        this.dirtyHmaConfig = false
 
         // 组装结果
         return {
@@ -507,6 +603,22 @@ export class IndicatorRuntime {
             atr: {
                 series: this.cachedAtrSeries,
                 params: { ...this.config.atr },
+            },
+            wma: {
+                series: this.cachedWmaSeries,
+                params: { ...this.config.wma },
+            },
+            dema: {
+                series: this.cachedDemaSeries,
+                params: { ...this.config.dema },
+            },
+            tema: {
+                series: this.cachedTemaSeries,
+                params: { ...this.config.tema },
+            },
+            hma: {
+                series: this.cachedHmaSeries,
+                params: { ...this.config.hma },
             },
             _changed: changed,
         }
@@ -570,6 +682,22 @@ export class IndicatorRuntime {
             atr: {
                 series: this.cachedAtrSeries,
                 params: { ...this.config.atr },
+            },
+            wma: {
+                series: this.cachedWmaSeries,
+                params: { ...this.config.wma },
+            },
+            dema: {
+                series: this.cachedDemaSeries,
+                params: { ...this.config.dema },
+            },
+            tema: {
+                series: this.cachedTemaSeries,
+                params: { ...this.config.tema },
+            },
+            hma: {
+                series: this.cachedHmaSeries,
+                params: { ...this.config.hma },
             },
         }
     }

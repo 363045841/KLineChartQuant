@@ -1060,3 +1060,181 @@ export function calcATRDataSoA(
     const data = SharedKLineBuffer.toKLineData(layout)
     return calcATRData(data, period)
 }
+
+// ============================================================================
+// WMA — Weighted Moving Average (linear weights)
+// 权重: w_i = i (i=1..period)，分母 = period*(period+1)/2
+// 滞后 = (period-1)/3 (相比 SMA 更快响应)
+// ============================================================================
+
+export const DEFAULT_WMA_PERIOD = 9
+
+function _computeWMAOnNumbers(values: (number | undefined)[], period: number): (number | undefined)[] {
+    const n = values.length
+    const result: (number | undefined)[] = new Array(n).fill(undefined)
+    if (n === 0 || period <= 0 || n < period) return result
+
+    const denom = (period * (period + 1)) / 2
+
+    for (let t = period - 1; t < n; t++) {
+        let sw = 0
+        let valid = true
+        for (let k = 0; k < period; k++) {
+            const v = values[t - period + 1 + k]
+            if (v === undefined) {
+                valid = false
+                break
+            }
+            sw += (k + 1) * v
+        }
+        if (valid) result[t] = sw / denom
+    }
+    return result
+}
+
+export function calcWMAData(data: KLineData[], period: number): (number | undefined)[] {
+    if (data.length === 0 || period <= 0) {
+        return new Array(data.length).fill(undefined)
+    }
+    const closes = new Array<number | undefined>(data.length)
+    for (let i = 0; i < data.length; i++) closes[i] = data[i]!.close
+    return _computeWMAOnNumbers(closes, period)
+}
+
+export function calcWMADataSoA(layout: KLineSoALayout, period: number): (number | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcWMAData(data, period)
+}
+
+// ============================================================================
+// EMA helper（DEMA / TEMA 复用，沿用 EXPMA 的 first-close seed 习惯）
+// alpha = 2 / (period + 1)
+// ============================================================================
+
+function _computeEMASeries(values: (number | undefined)[], period: number): (number | undefined)[] {
+    const n = values.length
+    const result: (number | undefined)[] = new Array(n).fill(undefined)
+    if (n === 0 || period <= 0) return result
+
+    const alpha = 2 / (period + 1)
+
+    let i = 0
+    while (i < n && values[i] === undefined) i++
+    if (i >= n) return result
+
+    let ema = values[i]!
+    result[i] = ema
+    for (let t = i + 1; t < n; t++) {
+        const v = values[t]
+        if (v === undefined) continue
+        ema = v * alpha + ema * (1 - alpha)
+        result[t] = ema
+    }
+    return result
+}
+
+// ============================================================================
+// DEMA — Double Exponential Moving Average
+// 公式: DEMA(t) = 2*EMA(t) - EMA(EMA)(t)
+// 性质: 对线性输入零滞后（稳态），warmup ~ 2*(period-1)
+// ============================================================================
+
+export const DEFAULT_DEMA_PERIOD = 20
+
+export function calcDEMAData(data: KLineData[], period: number): (number | undefined)[] {
+    const n = data.length
+    const result: (number | undefined)[] = new Array(n).fill(undefined)
+    if (n === 0 || period <= 0) return result
+
+    const closes = new Array<number | undefined>(n)
+    for (let i = 0; i < n; i++) closes[i] = data[i]!.close
+
+    const ema1 = _computeEMASeries(closes, period)
+    const ema2 = _computeEMASeries(ema1, period)
+
+    for (let i = 0; i < n; i++) {
+        const e1 = ema1[i]
+        const e2 = ema2[i]
+        if (e1 === undefined || e2 === undefined) continue
+        result[i] = 2 * e1 - e2
+    }
+    return result
+}
+
+export function calcDEMADataSoA(layout: KLineSoALayout, period: number): (number | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcDEMAData(data, period)
+}
+
+// ============================================================================
+// TEMA — Triple Exponential Moving Average
+// 公式: TEMA(t) = 3*EMA(t) - 3*EMA(EMA)(t) + EMA(EMA(EMA))(t)
+// 性质: 对二次多项式输入零滞后（稳态），warmup ~ 3*(period-1)
+// ============================================================================
+
+export const DEFAULT_TEMA_PERIOD = 20
+
+export function calcTEMAData(data: KLineData[], period: number): (number | undefined)[] {
+    const n = data.length
+    const result: (number | undefined)[] = new Array(n).fill(undefined)
+    if (n === 0 || period <= 0) return result
+
+    const closes = new Array<number | undefined>(n)
+    for (let i = 0; i < n; i++) closes[i] = data[i]!.close
+
+    const ema1 = _computeEMASeries(closes, period)
+    const ema2 = _computeEMASeries(ema1, period)
+    const ema3 = _computeEMASeries(ema2, period)
+
+    for (let i = 0; i < n; i++) {
+        const e1 = ema1[i]
+        const e2 = ema2[i]
+        const e3 = ema3[i]
+        if (e1 === undefined || e2 === undefined || e3 === undefined) continue
+        result[i] = 3 * e1 - 3 * e2 + e3
+    }
+    return result
+}
+
+export function calcTEMADataSoA(layout: KLineSoALayout, period: number): (number | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcTEMAData(data, period)
+}
+
+// ============================================================================
+// HMA — Hull Moving Average
+// 公式: HMA(n) = WMA( 2*WMA(close, n/2) - WMA(close, n), sqrt(n) )
+// 性质: 平滑性高于 WMA，滞后远低于同期 SMA
+// warmup ≈ period - 1 + round(sqrt(period)) - 1
+// ============================================================================
+
+export const DEFAULT_HMA_PERIOD = 9
+
+export function calcHMAData(data: KLineData[], period: number): (number | undefined)[] {
+    const n = data.length
+    const result: (number | undefined)[] = new Array(n).fill(undefined)
+    if (n === 0 || period <= 0) return result
+
+    const closes = new Array<number | undefined>(n)
+    for (let i = 0; i < n; i++) closes[i] = data[i]!.close
+
+    const halfPeriod = Math.max(1, Math.floor(period / 2))
+    const sqrtPeriod = Math.max(1, Math.round(Math.sqrt(period)))
+
+    const wmaHalf = _computeWMAOnNumbers(closes, halfPeriod)
+    const wmaFull = _computeWMAOnNumbers(closes, period)
+
+    const raw: (number | undefined)[] = new Array(n).fill(undefined)
+    for (let i = 0; i < n; i++) {
+        const h = wmaHalf[i]
+        const f = wmaFull[i]
+        if (h === undefined || f === undefined) continue
+        raw[i] = 2 * h - f
+    }
+    return _computeWMAOnNumbers(raw, sqrtPeriod)
+}
+
+export function calcHMADataSoA(layout: KLineSoALayout, period: number): (number | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcHMAData(data, period)
+}

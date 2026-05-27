@@ -87,6 +87,10 @@ export interface SubIndicatorParams {
   KST?: { roc1?: number; roc2?: number; roc3?: number; roc4?: number; signal?: number }
   FASTK?: { period?: number }
   ATR?: { period?: number }
+  WMA?: { period?: number }
+  DEMA?: { period?: number }
+  TEMA?: { period?: number }
+  HMA?: { period?: number }
 }
 
 /** 副图指标类型 */

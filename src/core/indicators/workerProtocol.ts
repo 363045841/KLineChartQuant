@@ -97,6 +97,26 @@ export interface ATRSchedulerConfig {
     showATR: boolean
 }
 
+export interface WMASchedulerConfig {
+    period: number
+    showWMA: boolean
+}
+
+export interface DEMASchedulerConfig {
+    period: number
+    showDEMA: boolean
+}
+
+export interface TEMASchedulerConfig {
+    period: number
+    showTEMA: boolean
+}
+
+export interface HMASchedulerConfig {
+    period: number
+    showHMA: boolean
+}
+
 // ============================================================================
 // Worker 请求类型
 // ============================================================================
@@ -188,6 +208,10 @@ export interface IndicatorConfigSnapshot {
     fastk: FASTKSchedulerConfig
     macd: MACDSchedulerConfig
     atr: ATRSchedulerConfig
+    wma: WMASchedulerConfig
+    dema: DEMASchedulerConfig
+    tema: TEMASchedulerConfig
+    hma: HMASchedulerConfig
     // pane IDs for sub-indicators
     rsiPaneId: string
     cciPaneId: string
@@ -198,6 +222,10 @@ export interface IndicatorConfigSnapshot {
     fastkPaneId: string
     macdPaneId: string
     atrPaneId: string
+    wmaPaneId: string
+    demaPaneId: string
+    temaPaneId: string
+    hmaPaneId: string
 }
 
 // ============================================================================
@@ -257,6 +285,22 @@ export interface IndicatorSeriesBundle {
     atr: {
         series: (number | undefined)[]
         params: ATRSchedulerConfig
+    }
+    wma: {
+        series: (number | undefined)[]
+        params: WMASchedulerConfig
+    }
+    dema: {
+        series: (number | undefined)[]
+        params: DEMASchedulerConfig
+    }
+    tema: {
+        series: (number | undefined)[]
+        params: TEMASchedulerConfig
+    }
+    hma: {
+        series: (number | undefined)[]
+        params: HMASchedulerConfig
     }
     /** 本次计算中实际变更的指标列表 */
     _changed: string[]
