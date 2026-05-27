@@ -1550,3 +1550,97 @@ export function calcDonchianDataSoA(
     const data = SharedKLineBuffer.toKLineData(layout)
     return calcDonchianData(data, period)
 }
+
+// ============================================================================
+// Ichimoku Kinko Hyo — 一目均衡表
+// 5 线 + 云图（spanA/B 前置位移构成）：
+//   tenkan(t) = (max(high[t-tenkanPeriod+1..t]) + min(low[t-tenkanPeriod+1..t])) / 2
+//   kijun(t)  = 同公式但用 kijunPeriod
+//   spanA(t)  = (tenkan(t-displacement) + kijun(t-displacement)) / 2   ← 前置 displacement
+//   spanB(t)  = 用 spanBPeriod 计算后再前置 displacement
+//   chikou(t) = close(t+displacement)                                  ← 后置 displacement
+// 注：不做未来云的延伸（输出长度 = data.length；最后 displacement 根没 spanA/B；前 displacement 根没 chikou）
+// ============================================================================
+
+export interface IchimokuPoint {
+    tenkan?: number
+    kijun?: number
+    spanA?: number
+    spanB?: number
+    chikou?: number
+}
+
+export const DEFAULT_ICHIMOKU_TENKAN = 9
+export const DEFAULT_ICHIMOKU_KIJUN = 26
+export const DEFAULT_ICHIMOKU_SPAN_B = 52
+export const DEFAULT_ICHIMOKU_DISPLACEMENT = 26
+
+function _rollingMidline(data: KLineData[], period: number): (number | undefined)[] {
+    const n = data.length
+    const result: (number | undefined)[] = new Array(n).fill(undefined)
+    if (n < period || period <= 0) return result
+    for (let t = period - 1; t < n; t++) {
+        let hi = -Infinity
+        let lo = Infinity
+        for (let k = 0; k < period; k++) {
+            const bar = data[t - k]!
+            if (bar.high > hi) hi = bar.high
+            if (bar.low < lo) lo = bar.low
+        }
+        result[t] = (hi + lo) / 2
+    }
+    return result
+}
+
+export function calcIchimokuData(
+    data: KLineData[],
+    tenkanPeriod: number,
+    kijunPeriod: number,
+    spanBPeriod: number,
+    displacement: number,
+): (IchimokuPoint | undefined)[] {
+    const n = data.length
+    const result: (IchimokuPoint | undefined)[] = new Array(n).fill(undefined)
+    if (n === 0 || tenkanPeriod <= 0 || kijunPeriod <= 0 || spanBPeriod <= 0) return result
+
+    const tenkan = _rollingMidline(data, tenkanPeriod)
+    const kijun = _rollingMidline(data, kijunPeriod)
+    const spanBSource = _rollingMidline(data, spanBPeriod)
+
+    for (let t = 0; t < n; t++) {
+        const point: IchimokuPoint = {}
+        if (tenkan[t] !== undefined) point.tenkan = tenkan[t]
+        if (kijun[t] !== undefined) point.kijun = kijun[t]
+
+        // spanA / spanB 由 displacement 根之前的值填到当前槽位
+        const src = t - displacement
+        if (src >= 0) {
+            if (tenkan[src] !== undefined && kijun[src] !== undefined) {
+                point.spanA = (tenkan[src]! + kijun[src]!) / 2
+            }
+            if (spanBSource[src] !== undefined) {
+                point.spanB = spanBSource[src]
+            }
+        }
+
+        // chikou：当前 close 后置 displacement 根（即存到 t - displacement 槽位上 close[t]）
+        // 这里改成：存当前槽位的 chikou = close[t + displacement]，需 future 数据；不可用时 undefined
+        const future = t + displacement
+        if (future < n) point.chikou = data[future]!.close
+
+        result[t] = point
+    }
+
+    return result
+}
+
+export function calcIchimokuDataSoA(
+    layout: KLineSoALayout,
+    tenkanPeriod: number,
+    kijunPeriod: number,
+    spanBPeriod: number,
+    displacement: number,
+): (IchimokuPoint | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcIchimokuData(data, tenkanPeriod, kijunPeriod, spanBPeriod, displacement)
+}

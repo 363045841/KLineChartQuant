@@ -16,6 +16,7 @@ import type {
     SuperTrendPoint,
     KeltnerPoint,
     DonchianPoint,
+    IchimokuPoint,
 } from './calculators'
 
 // ============================================================================
@@ -156,6 +157,19 @@ export interface DonchianSchedulerConfig {
     showLower: boolean
 }
 
+export interface IchimokuSchedulerConfig {
+    tenkanPeriod: number
+    kijunPeriod: number
+    spanBPeriod: number
+    displacement: number
+    showTenkan: boolean
+    showKijun: boolean
+    showSpanA: boolean
+    showSpanB: boolean
+    showCloud: boolean
+    showChikou: boolean
+}
+
 // ============================================================================
 // Worker 请求类型
 // ============================================================================
@@ -256,6 +270,7 @@ export interface IndicatorConfigSnapshot {
     supertrend: SuperTrendSchedulerConfig
     keltner: KeltnerSchedulerConfig
     donchian: DonchianSchedulerConfig
+    ichimoku: IchimokuSchedulerConfig
     // pane IDs for sub-indicators
     rsiPaneId: string
     cciPaneId: string
@@ -275,6 +290,7 @@ export interface IndicatorConfigSnapshot {
     supertrendPaneId: string
     keltnerPaneId: string
     donchianPaneId: string
+    ichimokuPaneId: string
 }
 
 // ============================================================================
@@ -370,6 +386,10 @@ export interface IndicatorSeriesBundle {
     donchian: {
         series: (DonchianPoint | undefined)[]
         params: DonchianSchedulerConfig
+    }
+    ichimoku: {
+        series: (IchimokuPoint | undefined)[]
+        params: IchimokuSchedulerConfig
     }
     /** 本次计算中实际变更的指标列表 */
     _changed: string[]

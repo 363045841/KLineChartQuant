@@ -96,6 +96,12 @@ export interface SubIndicatorParams {
   SUPERTREND?: { atrPeriod?: number; multiplier?: number }
   KELTNER?: { emaPeriod?: number; atrPeriod?: number; multiplier?: number }
   DONCHIAN?: { period?: number }
+  ICHIMOKU?: {
+    tenkanPeriod?: number
+    kijunPeriod?: number
+    spanBPeriod?: number
+    displacement?: number
+  }
 }
 
 /** 副图指标类型 */

@@ -69,6 +69,8 @@ import type { KeltnerRenderState } from './keltnerState'
 import { EMPTY_KELTNER_STATE } from './keltnerState'
 import type { DonchianRenderState } from './donchianState'
 import { EMPTY_DONCHIAN_STATE } from './donchianState'
+import type { IchimokuRenderState } from './ichimokuState'
+import { EMPTY_ICHIMOKU_STATE } from './ichimokuState'
 import type { IndicatorSeriesBundle } from './workerProtocol'
 
 /**
@@ -98,6 +100,7 @@ type VisibleSubIndicatorStates = {
     supertrend: SuperTrendRenderState
     keltner: KeltnerRenderState
     donchian: DonchianRenderState
+    ichimoku: IchimokuRenderState
 }
 
 type VisibleSubIndicatorMask = {
@@ -119,6 +122,7 @@ type VisibleSubIndicatorMask = {
     supertrend?: boolean
     keltner?: boolean
     donchian?: boolean
+    ichimoku?: boolean
 }
 
 type ComposedRenderStates = VisibleSubIndicatorStates & {
@@ -171,6 +175,7 @@ export function composeVisibleSubIndicatorStates(
     const supertrendActive = activeMask.supertrend ?? true
     const keltnerActive = activeMask.keltner ?? true
     const donchianActive = activeMask.donchian ?? true
+    const ichimokuActive = activeMask.ichimoku ?? true
 
     const rsiExtremes = rsiActive ? calcRSIExtremes(bundle.rsi.series, visibleRange) : null
     const cciExtremes = cciActive ? calcCCIExtremes(bundle.cci.series, visibleRange) : null
@@ -190,6 +195,7 @@ export function composeVisibleSubIndicatorStates(
     const supertrendExtremes = supertrendActive ? calcSARExtremes(bundle.supertrend.series, visibleRange) : null
     const keltnerExtremes = keltnerActive ? calcBandExtremes(bundle.keltner.series, visibleRange) : null
     const donchianExtremes = donchianActive ? calcBandExtremes(bundle.donchian.series, visibleRange) : null
+    const ichimokuExtremes = ichimokuActive ? calcIchimokuExtremes(bundle.ichimoku.series, visibleRange) : null
     const latestPoint = macdActive ? getLatestMACDPoint(bundle, visibleRange) : null
 
     const macdPadding = macdExtremes ? Math.max(Math.abs(macdExtremes.max), Math.abs(macdExtremes.min)) * 0.1 : 0
@@ -230,6 +236,7 @@ export function composeVisibleSubIndicatorStates(
     const supertrendBounds = maFamilyBounds(supertrendExtremes, EMPTY_SUPERTREND_STATE)
     const keltnerBounds = maFamilyBounds(keltnerExtremes, EMPTY_KELTNER_STATE)
     const donchianBounds = maFamilyBounds(donchianExtremes, EMPTY_DONCHIAN_STATE)
+    const ichimokuBounds = maFamilyBounds(ichimokuExtremes, EMPTY_ICHIMOKU_STATE)
 
     return {
         rsi: rsiActive ? {
@@ -454,6 +461,18 @@ export function composeVisibleSubIndicatorStates(
         } : mergeEmptyState(EMPTY_DONCHIAN_STATE, timestamp, {
             series: bundle.donchian.series,
             params: bundle.donchian.params,
+        }),
+        ichimoku: ichimokuActive ? {
+            timestamp,
+            series: bundle.ichimoku.series,
+            params: bundle.ichimoku.params,
+            valueMin: ichimokuBounds.valueMin,
+            valueMax: ichimokuBounds.valueMax,
+            visibleMin: ichimokuExtremes!.min,
+            visibleMax: ichimokuExtremes!.max,
+        } : mergeEmptyState(EMPTY_ICHIMOKU_STATE, timestamp, {
+            series: bundle.ichimoku.series,
+            params: bundle.ichimoku.params,
         }),
     }
 }
@@ -729,6 +748,33 @@ function calcMACDExtremes(series: MACDPoint[], range: VisibleRange): { min: numb
 
 function calcATRExtremes(series: (number | undefined)[], range: VisibleRange): { min: number; max: number } {
     return calcSparseExtremes(series, range)
+}
+
+interface IchimokuPointShape {
+    tenkan?: number
+    kijun?: number
+    spanA?: number
+    spanB?: number
+    chikou?: number
+}
+function calcIchimokuExtremes(series: (IchimokuPointShape | undefined)[], range: VisibleRange): { min: number; max: number } {
+    if (series.length === 0 || range.start >= series.length) {
+        return { min: Infinity, max: -Infinity }
+    }
+    let min = Infinity
+    let max = -Infinity
+    const end = Math.min(range.end, series.length)
+    for (let i = range.start; i < end; i++) {
+        const p = series[i]
+        if (!p) continue
+        for (const field of [p.tenkan, p.kijun, p.spanA, p.spanB, p.chikou]) {
+            if (field !== undefined) {
+                if (field < min) min = field
+                if (field > max) max = field
+            }
+        }
+    }
+    return { min, max }
 }
 
 interface BandPointShape { upper: number; middle: number; lower: number }

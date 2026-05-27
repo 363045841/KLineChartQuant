@@ -28,6 +28,7 @@ import {
     calcSuperTrendData,
     calcKeltnerData,
     calcDonchianData,
+    calcIchimokuData,
     DEFAULT_MA_PERIODS,
     DEFAULT_ATR_PERIOD,
     DEFAULT_WMA_PERIOD,
@@ -45,6 +46,10 @@ import {
     DEFAULT_KELTNER_ATR_PERIOD,
     DEFAULT_KELTNER_MULTIPLIER,
     DEFAULT_DONCHIAN_PERIOD,
+    DEFAULT_ICHIMOKU_TENKAN,
+    DEFAULT_ICHIMOKU_KIJUN,
+    DEFAULT_ICHIMOKU_SPAN_B,
+    DEFAULT_ICHIMOKU_DISPLACEMENT,
     type MAFlags,
     type BOLLPoint,
     type EXPMAPoint,
@@ -56,6 +61,7 @@ import {
     type SuperTrendPoint,
     type KeltnerPoint,
     type DonchianPoint,
+    type IchimokuPoint,
 } from './calculators'
 import type {
     BOLLSchedulerConfig,
@@ -79,6 +85,7 @@ import type {
     SuperTrendSchedulerConfig,
     KeltnerSchedulerConfig,
     DonchianSchedulerConfig,
+    IchimokuSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -127,6 +134,7 @@ export class IndicatorRuntime {
     private cachedSupertrendSeries: (SuperTrendPoint | undefined)[] = []
     private cachedKeltnerSeries: (KeltnerPoint | undefined)[] = []
     private cachedDonchianSeries: (DonchianPoint | undefined)[] = []
+    private cachedIchimokuSeries: (IchimokuPoint | undefined)[] = []
 
     // 脏标记
     private dirtyData = true
@@ -152,6 +160,7 @@ export class IndicatorRuntime {
     private dirtySupertrendConfig = true
     private dirtyKeltnerConfig = true
     private dirtyDonchianConfig = true
+    private dirtyIchimokuConfig = true
 
     private getDefaultConfig(): IndicatorConfigSnapshot {
         return {
@@ -227,6 +236,18 @@ export class IndicatorRuntime {
                 showMiddle: true,
                 showLower: true,
             },
+            ichimoku: {
+                tenkanPeriod: DEFAULT_ICHIMOKU_TENKAN,
+                kijunPeriod: DEFAULT_ICHIMOKU_KIJUN,
+                spanBPeriod: DEFAULT_ICHIMOKU_SPAN_B,
+                displacement: DEFAULT_ICHIMOKU_DISPLACEMENT,
+                showTenkan: true,
+                showKijun: true,
+                showSpanA: true,
+                showSpanB: true,
+                showCloud: true,
+                showChikou: true,
+            },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -245,6 +266,7 @@ export class IndicatorRuntime {
             supertrendPaneId: 'sub_SuperTrend',
             keltnerPaneId: 'sub_Keltner',
             donchianPaneId: 'sub_Donchian',
+            ichimokuPaneId: 'sub_Ichimoku',
         }
     }
 
@@ -364,6 +386,10 @@ export class IndicatorRuntime {
             this.config.donchian = { ...this.config.donchian, ...config.donchian }
             this.dirtyDonchianConfig = true
         }
+        if (config.ichimoku !== undefined && !this.shallowEqual(config.ichimoku as unknown as Record<string, unknown>, this.config.ichimoku as unknown as Record<string, unknown>)) {
+            this.config.ichimoku = { ...this.config.ichimoku, ...config.ichimoku }
+            this.dirtyIchimokuConfig = true
+        }
         // pane IDs
         if (config.rsiPaneId !== undefined) this.config.rsiPaneId = config.rsiPaneId
         if (config.cciPaneId !== undefined) this.config.cciPaneId = config.cciPaneId
@@ -383,6 +409,7 @@ export class IndicatorRuntime {
         if (config.supertrendPaneId !== undefined) this.config.supertrendPaneId = config.supertrendPaneId
         if (config.keltnerPaneId !== undefined) this.config.keltnerPaneId = config.keltnerPaneId
         if (config.donchianPaneId !== undefined) this.config.donchianPaneId = config.donchianPaneId
+        if (config.ichimokuPaneId !== undefined) this.config.ichimokuPaneId = config.ichimokuPaneId
 
         this.configVersion = version
     }
@@ -414,6 +441,7 @@ export class IndicatorRuntime {
         this.dirtySupertrendConfig = true
         this.dirtyKeltnerConfig = true
         this.dirtyDonchianConfig = true
+        this.dirtyIchimokuConfig = true
     }
 
     /**
@@ -693,6 +721,23 @@ export class IndicatorRuntime {
             changed.push('donchian')
         }
 
+        // Ichimoku
+        if (this.dirtyData || this.dirtyIchimokuConfig) {
+            const ic = this.config.ichimoku
+            if (ic.showTenkan || ic.showKijun || ic.showSpanA || ic.showSpanB || ic.showCloud || ic.showChikou) {
+                this.cachedIchimokuSeries = calcIchimokuData(
+                    data,
+                    ic.tenkanPeriod,
+                    ic.kijunPeriod,
+                    ic.spanBPeriod,
+                    ic.displacement,
+                )
+            } else {
+                this.cachedIchimokuSeries = []
+            }
+            changed.push('ichimoku')
+        }
+
         // 重置脏标记
         this.dirtyData = false
         this.dirtyMAConfig = false
@@ -717,6 +762,7 @@ export class IndicatorRuntime {
         this.dirtySupertrendConfig = false
         this.dirtyKeltnerConfig = false
         this.dirtyDonchianConfig = false
+        this.dirtyIchimokuConfig = false
 
         // 组装结果
         return {
@@ -808,6 +854,10 @@ export class IndicatorRuntime {
             donchian: {
                 series: this.cachedDonchianSeries,
                 params: { ...this.config.donchian },
+            },
+            ichimoku: {
+                series: this.cachedIchimokuSeries,
+                params: { ...this.config.ichimoku },
             },
             _changed: changed,
         }
@@ -907,6 +957,10 @@ export class IndicatorRuntime {
             donchian: {
                 series: this.cachedDonchianSeries,
                 params: { ...this.config.donchian },
+            },
+            ichimoku: {
+                series: this.cachedIchimokuSeries,
+                params: { ...this.config.ichimoku },
             },
         }
     }
