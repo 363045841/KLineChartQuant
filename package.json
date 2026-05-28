@@ -1,6 +1,6 @@
 {
   "name": "@363045841yyt/klinechart",
-  "version": "0.6.9",
+  "version": "0.6.10",
   "description": "A lightweight financial K-line charting library with first-class AI Agent support, crisp ResizeObserver-driven rendering, and plugin-based architecture. Focused on quantitative trading scenarios with TradingView-level interaction experience.",
   "author": "363045841 <slslswbsy@qq.com>",
   "license": "MIT",

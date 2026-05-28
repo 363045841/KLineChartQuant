@@ -357,6 +357,26 @@ const allIndicators: Indicator[] = [
       },
     ],
   },
+  {
+    id: 'ATR',
+    label: 'ATR',
+    name: '平均真实波幅',
+    pane: 'sub',
+    description:
+      'ATR（Average True Range）衡量市场波动性，值越大表示波动越剧烈。Wilder 平滑算法，常用于设置止损位和判断趋势强度。',
+    params: [
+      {
+        key: 'period',
+        label: '周期',
+        type: 'number',
+        min: 1,
+        max: 100,
+        step: 1,
+        default: 14,
+        description: 'ATR 计算周期，周期越长曲线越平滑',
+      },
+    ],
+  },
 ]
 
 export const mainIndicators = allIndicators.filter((i) => i.pane === 'main')
