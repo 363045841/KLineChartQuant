@@ -25,3 +25,9 @@ export type {
 export { lightTheme } from './theme-light'
 export { darkTheme } from './theme-dark'
 export { mergeTheme } from './mergeTheme'
+export {
+    themeToCssVars,
+    toCssDeclarationBlock,
+    camelToKebab,
+    type ThemeToCssVarsOptions,
+} from './themeToCssVars'
