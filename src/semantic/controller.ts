@@ -16,6 +16,7 @@ import type {
   CustomMarker,
   DataConfig,
 } from './types'
+import type { SubIndicatorType as CoreSubIndicatorType } from '@/core/renderers/Indicator'
 
 /** 状态事件类型 */
 export type SemanticEventType = 'config:loading' | 'config:ready' | 'config:error'
@@ -216,7 +217,7 @@ export class SemanticChartController {
     const paneId = `${type}_0`
 
     // 直接调用 Chart 的副图创建 API
-    const success = this.chart.createSubPane(paneId, type, params)
+    const success = this.chart.createSubPane(paneId, type as CoreSubIndicatorType, params)
     if (!success) {
       console.warn(`[Semantic] Failed to create sub pane for ${type}`)
     }

@@ -10,6 +10,7 @@ import { createMomScaleRendererPlugin } from '@/core/renderers/Indicator/scale/m
 import { createWmsrScaleRendererPlugin } from '@/core/renderers/Indicator/scale/wmsr_scale'
 import { createKstScaleRendererPlugin } from '@/core/renderers/Indicator/scale/kst_scale'
 import { createFastkScaleRendererPlugin } from '@/core/renderers/Indicator/scale/fastk_scale'
+import { createAtrScaleRendererPlugin } from '@/core/renderers/Indicator/scale/atr_scale'
 import type {
     RSISchedulerConfig,
     CCISchedulerConfig,
@@ -18,6 +19,7 @@ import type {
     WMSRSchedulerConfig,
     KSTSchedulerConfig,
     FASTKSchedulerConfig,
+    ATRSchedulerConfig,
 } from '@/core/indicators/scheduler'
 import type { MACDSchedulerConfig } from '@/core/indicators/macdState'
 
@@ -174,6 +176,10 @@ export class SubPaneManager {
             case 'FASTK':
                 scheduler.updateFASTKConfig(params as Partial<FASTKSchedulerConfig>, paneId)
                 break
+            case 'ATR':
+                console.log(`[ATR-SubPane] syncSchedulerConfig: paneId=${paneId} params=${JSON.stringify(params)}`)
+                scheduler.updateATRConfig(params as Partial<ATRSchedulerConfig>, paneId)
+                break
             case 'VOLUME':
                 break
         }
@@ -225,6 +231,9 @@ export class SubPaneManager {
                 break
             case 'FASTK':
                 renderer = createFastkScaleRendererPlugin(opts)
+                break
+            case 'ATR':
+                renderer = createAtrScaleRendererPlugin(opts)
                 break
             default:
                 return

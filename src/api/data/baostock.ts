@@ -207,8 +207,12 @@ export async function getKlineDataBaoStock(
   }
 ): Promise<KLineData[]> {
   // GitHub Pages 静态部署环境直接走 mock
-  if (typeof window !== 'undefined' && window.location.hostname.includes('github.io')) {
-    return loadMockKLineData()
+  if (typeof window !== 'undefined' &&
+    (window.location.hostname.includes('github.io')
+      || window.location.hostname.includes('localhost')
+      || window.location.hostname.includes('127.0.0.1'))) {
+    console.log("aaa" + await loadMockKLineData())
+    return await loadMockKLineData()
   }
 
   const { timeout, ...requestParams } = param

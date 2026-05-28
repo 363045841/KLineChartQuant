@@ -1413,6 +1413,7 @@ export class Chart {
             WMSR: { period: 14, showWMSR: true },
             KST: { roc1: 10, roc2: 15, roc3: 20, roc4: 30, signalPeriod: 9, showKST: true, showSignal: true },
             FASTK: { period: 9, showFASTK: true },
+            ATR: { period: 14, showATR: true },
         }
         return { ...defaults[indicatorId] }
     }
