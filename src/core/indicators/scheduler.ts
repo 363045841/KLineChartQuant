@@ -827,6 +827,7 @@ export class IndicatorScheduler {
         const timestamp = Date.now()
         const activeMask = this.buildActiveSubIndicatorMask()
         const states = composeVisibleSubIndicatorStates(this.latestResult, this.visibleRange, timestamp, activeMask)
+        console.log(`[ATR-Scheduler] updateVisibleStatesOnly: atrActive=${!!activeMask.atr} atrPaneId=${this.configSnapshot.atrPaneId} seriesLen=${states.atr.series.length}`)
 
         // RSI
         const rsiKey = createRSIStateKey(this.configSnapshot.rsiPaneId)
