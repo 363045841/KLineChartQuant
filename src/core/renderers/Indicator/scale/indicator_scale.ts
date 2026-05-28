@@ -133,6 +133,7 @@ export function createIndicatorScaleRendererPlugin(options: IndicatorScaleRender
         debugName: `${label}刻度`,
         paneId,
         priority: RENDERER_PRIORITY.INDICATOR_SCALE,
+        layer: 'overlay',
 
         onInstall(host: PluginHost) {
             pluginHost = host
