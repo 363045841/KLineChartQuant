@@ -17,6 +17,7 @@ import {
   getWMSRTitleInfo,
   getKSTTitleInfo,
   getFASTKTitleInfo,
+  getATRTitleInfo,
 } from '@/core/renderers/Indicator'
 
 export interface SubPaneIndicatorConfig {
@@ -138,6 +139,18 @@ export const SUB_PANE_INDICATOR_CONFIGS: Record<SubIndicatorType, SubPaneIndicat
       return getFASTKTitleInfo(
         index,
         (params.period as number) ?? 9,
+        pluginHost,
+        paneId,
+      )
+    },
+  },
+  ATR: {
+    defaultParams: { period: 14, showATR: true },
+    getTitleInfo: (_data, index, params, pluginHost, paneId) => {
+      if (index === null) return null
+      return getATRTitleInfo(
+        index,
+        (params.period as number) ?? 14,
         pluginHost,
         paneId,
       )
