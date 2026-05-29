@@ -66,12 +66,16 @@ export const lightTheme: Theme = {
         footprintImbalance: '#F97316',
 
         alertActive: '#2D7FF9',
-        alertTriggered: '#F97316',
+        // alertTriggered: orange #F97316 was 2.69:1 on white (fails AA
+        // non-text). Darkened to #C2410C → 4.13:1.
+        alertTriggered: '#C2410C',
         alertMuted: '#9CA3AF',
 
         avwapLine: '#7C3AED',
         avwapBand: '#7C3AED33',
-        mtfOverlay: '#0EA5E9',
+        // mtfOverlay: sky #0EA5E9 was 2.66:1 on white. Darkened to
+        // #0369A1 → 4.59:1.
+        mtfOverlay: '#0369A1',
 
         palette: {
             // Okabe-Ito-derived qualitative scale, AA on #FAFAFA

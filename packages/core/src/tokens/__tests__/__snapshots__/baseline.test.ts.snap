@@ -1,0 +1,229 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
+":root {
+  --klc-color-background: #0E1116;
+  --klc-color-foreground: #E8EAED;
+  --klc-color-candle-up-body: #22D69B;
+  --klc-color-candle-up-border: #22D69B;
+  --klc-color-candle-up-wick: #22D69B;
+  --klc-color-candle-down-body: #FF6464;
+  --klc-color-candle-down-border: #FF6464;
+  --klc-color-candle-down-wick: #FF6464;
+  --klc-color-candle-doji-border: #8A8F98;
+  --klc-color-volume-up: #22D69B66;
+  --klc-color-volume-down: #FF646466;
+  --klc-color-axis-text: #9AA0A6;
+  --klc-color-axis-line: #2A2F36;
+  --klc-color-axis-tick: #2A2F36;
+  --klc-color-grid-major: #1B1F26;
+  --klc-color-grid-minor: #161A20;
+  --klc-color-crosshair-line: #5F6368;
+  --klc-color-crosshair-label-bg: #E8EAED;
+  --klc-color-crosshair-label-text: #0E1116;
+  --klc-color-selection-fill: #4A9EFF33;
+  --klc-color-selection-stroke: #4A9EFF;
+  --klc-color-tooltip-bg: #1B1F26EE;
+  --klc-color-tooltip-text: #E8EAED;
+  --klc-color-tooltip-border: #2A2F36;
+  --klc-color-heatmap-coldest: #0E1116;
+  --klc-color-heatmap-hottest: #80B7FF;
+  --klc-color-volume-profile-fill: #6B727A66;
+  --klc-color-volume-profile-poc: #FFA94D;
+  --klc-color-volume-profile-value-area: #4A9EFF33;
+  --klc-color-footprint-ask: #22D69B80;
+  --klc-color-footprint-bid: #FF646480;
+  --klc-color-footprint-imbalance: #FFA94D;
+  --klc-color-alert-active: #4A9EFF;
+  --klc-color-alert-triggered: #FFA94D;
+  --klc-color-alert-muted: #6B727A;
+  --klc-color-avwap-line: #A78BFA;
+  --klc-color-avwap-band: #A78BFA33;
+  --klc-color-mtf-overlay: #38BDF8;
+  --klc-color-palette-i1: #4A9EFF;
+  --klc-color-palette-i2: #FFB95A;
+  --klc-color-palette-i3: #22D69B;
+  --klc-color-palette-i4: #E879BA;
+  --klc-color-palette-i5: #FF8848;
+  --klc-color-palette-i6: #7DD3FC;
+  --klc-color-palette-i7: #FCE96A;
+  --klc-color-palette-i8: #A78BFA;
+  --klc-color-palette-i9: #60A5FA;
+  --klc-color-palette-i10: #9AA0A6;
+  --klc-spacing-none: 0;
+  --klc-spacing-xxs: 2px;
+  --klc-spacing-xs: 4px;
+  --klc-spacing-sm: 8px;
+  --klc-spacing-md: 12px;
+  --klc-spacing-lg: 16px;
+  --klc-spacing-xl: 24px;
+  --klc-spacing-xxl: 32px;
+  --klc-spacing-xxxl: 64px;
+  --klc-typography-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --klc-typography-font-family-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  --klc-typography-font-size-sm: 10px;
+  --klc-typography-font-size-md: 12px;
+  --klc-typography-font-size-lg: 14px;
+  --klc-typography-font-weight-regular: 400;
+  --klc-typography-font-weight-medium: 500;
+  --klc-typography-font-weight-bold: 700;
+  --klc-typography-line-height-tight: 1.2;
+  --klc-typography-line-height-standard: 1.4;
+  --klc-motion-duration-instant: 0ms;
+  --klc-motion-duration-fast: 120ms;
+  --klc-motion-duration-moderate: 200ms;
+  --klc-motion-easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --klc-motion-easing-decelerate: cubic-bezier(0, 0, 0.2, 1);
+}"
+`;
+
+exports[`theme baseline — dark > contrast report (snapshot) 1`] = `
+"# Theme contrast — dark
+
+Each role is measured against its own surface (default: \`colors.background\`).
+
+| Role | Value | Surface | Ratio | Floor | Pass |
+|---|---|---|---|---|---|
+| foreground | #E8EAED | background | 15.69 | 4.5:1 | ✅ |
+| axisText | #9AA0A6 | background | 7.16 | 4.5:1 | ✅ |
+| crosshairLabelText | #0E1116 | crosshairLabelBg | 15.69 | 4.5:1 | ✅ |
+| tooltipText | #E8EAED | tooltipBg | 13.71 | 4.5:1 | ✅ |
+| candleUpBody | #22D69B | background | 10.05 | 3.0:1 | ✅ |
+| candleDownBody | #FF6464 | background | 6.54 | 3.0:1 | ✅ |
+| candleDojiBorder | #8A8F98 | background | 5.82 | 3.0:1 | ✅ |
+| crosshairLine | #5F6368 | background | 3.13 | 3.0:1 | ✅ |
+| selectionStroke | #4A9EFF | background | 6.87 | 3.0:1 | ✅ |
+| alertActive | #4A9EFF | background | 6.87 | 3.0:1 | ✅ |
+| alertTriggered | #FFA94D | background | 9.94 | 3.0:1 | ✅ |
+| avwapLine | #A78BFA | background | 6.95 | 3.0:1 | ✅ |
+| mtfOverlay | #38BDF8 | background | 8.83 | 3.0:1 | ✅ |
+
+## Indicator palette
+
+| Slot | Value | Ratio vs BG |
+|---|---|---|
+| i1 | #4A9EFF | 6.87 |
+| i2 | #FFB95A | 11.11 |
+| i3 | #22D69B | 10.05 |
+| i4 | #E879BA | 7.09 |
+| i5 | #FF8848 | 7.99 |
+| i6 | #7DD3FC | 11.34 |
+| i7 | #FCE96A | 15.31 |
+| i8 | #A78BFA | 6.95 |
+| i9 | #60A5FA | 7.44 |
+| i10 | #9AA0A6 | 7.16 |"
+`;
+
+exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
+":root {
+  --klc-color-background: #FAFAFA;
+  --klc-color-foreground: #1F1F1F;
+  --klc-color-candle-up-body: #0F8B5C;
+  --klc-color-candle-up-border: #0F8B5C;
+  --klc-color-candle-up-wick: #0F8B5C;
+  --klc-color-candle-down-body: #C2363B;
+  --klc-color-candle-down-border: #C2363B;
+  --klc-color-candle-down-wick: #C2363B;
+  --klc-color-candle-doji-border: #6E6E6E;
+  --klc-color-volume-up: #0F8B5C66;
+  --klc-color-volume-down: #C2363B66;
+  --klc-color-axis-text: #5A5A5A;
+  --klc-color-axis-line: #D0D0D0;
+  --klc-color-axis-tick: #D0D0D0;
+  --klc-color-grid-major: #E5E5E5;
+  --klc-color-grid-minor: #F0F0F0;
+  --klc-color-crosshair-line: #8C8C8C;
+  --klc-color-crosshair-label-bg: #1F1F1F;
+  --klc-color-crosshair-label-text: #FAFAFA;
+  --klc-color-selection-fill: #2D7FF933;
+  --klc-color-selection-stroke: #2D7FF9;
+  --klc-color-tooltip-bg: #FFFFFFEE;
+  --klc-color-tooltip-text: #1F1F1F;
+  --klc-color-tooltip-border: #D0D0D0;
+  --klc-color-heatmap-coldest: #F0F4F8;
+  --klc-color-heatmap-hottest: #1F3A5F;
+  --klc-color-volume-profile-fill: #9CA3AF66;
+  --klc-color-volume-profile-poc: #F97316;
+  --klc-color-volume-profile-value-area: #2D7FF933;
+  --klc-color-footprint-ask: #0F8B5C80;
+  --klc-color-footprint-bid: #C2363B80;
+  --klc-color-footprint-imbalance: #F97316;
+  --klc-color-alert-active: #2D7FF9;
+  --klc-color-alert-triggered: #C2410C;
+  --klc-color-alert-muted: #9CA3AF;
+  --klc-color-avwap-line: #7C3AED;
+  --klc-color-avwap-band: #7C3AED33;
+  --klc-color-mtf-overlay: #0369A1;
+  --klc-color-palette-i1: #0072B2;
+  --klc-color-palette-i2: #E69F00;
+  --klc-color-palette-i3: #009E73;
+  --klc-color-palette-i4: #CC79A7;
+  --klc-color-palette-i5: #D55E00;
+  --klc-color-palette-i6: #56B4E9;
+  --klc-color-palette-i7: #F0E442;
+  --klc-color-palette-i8: #7C3AED;
+  --klc-color-palette-i9: #2D7FF9;
+  --klc-color-palette-i10: #6E6E6E;
+  --klc-spacing-none: 0;
+  --klc-spacing-xxs: 2px;
+  --klc-spacing-xs: 4px;
+  --klc-spacing-sm: 8px;
+  --klc-spacing-md: 12px;
+  --klc-spacing-lg: 16px;
+  --klc-spacing-xl: 24px;
+  --klc-spacing-xxl: 32px;
+  --klc-spacing-xxxl: 64px;
+  --klc-typography-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --klc-typography-font-family-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  --klc-typography-font-size-sm: 10px;
+  --klc-typography-font-size-md: 12px;
+  --klc-typography-font-size-lg: 14px;
+  --klc-typography-font-weight-regular: 400;
+  --klc-typography-font-weight-medium: 500;
+  --klc-typography-font-weight-bold: 700;
+  --klc-typography-line-height-tight: 1.2;
+  --klc-typography-line-height-standard: 1.4;
+  --klc-motion-duration-instant: 0ms;
+  --klc-motion-duration-fast: 120ms;
+  --klc-motion-duration-moderate: 200ms;
+  --klc-motion-easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --klc-motion-easing-decelerate: cubic-bezier(0, 0, 0.2, 1);
+}"
+`;
+
+exports[`theme baseline — light > contrast report (snapshot) 1`] = `
+"# Theme contrast — light
+
+Each role is measured against its own surface (default: \`colors.background\`).
+
+| Role | Value | Surface | Ratio | Floor | Pass |
+|---|---|---|---|---|---|
+| foreground | #1F1F1F | background | 15.79 | 4.5:1 | ✅ |
+| axisText | #5A5A5A | background | 6.61 | 4.5:1 | ✅ |
+| crosshairLabelText | #FAFAFA | crosshairLabelBg | 15.79 | 4.5:1 | ✅ |
+| tooltipText | #1F1F1F | tooltipBg | 16.48 | 4.5:1 | ✅ |
+| candleUpBody | #0F8B5C | background | 4.13 | 3.0:1 | ✅ |
+| candleDownBody | #C2363B | background | 5.18 | 3.0:1 | ✅ |
+| candleDojiBorder | #6E6E6E | background | 4.89 | 3.0:1 | ✅ |
+| crosshairLine | #8C8C8C | background | 3.22 | 3.0:1 | ✅ |
+| selectionStroke | #2D7FF9 | background | 3.65 | 3.0:1 | ✅ |
+| alertActive | #2D7FF9 | background | 3.65 | 3.0:1 | ✅ |
+| alertTriggered | #C2410C | background | 4.96 | 3.0:1 | ✅ |
+| avwapLine | #7C3AED | background | 5.46 | 3.0:1 | ✅ |
+| mtfOverlay | #0369A1 | background | 5.68 | 3.0:1 | ✅ |
+
+## Indicator palette
+
+| Slot | Value | Ratio vs BG |
+|---|---|---|
+| i1 | #0072B2 | 4.97 |
+| i2 | #E69F00 | 2.16 |
+| i3 | #009E73 | 3.28 |
+| i4 | #CC79A7 | 2.93 |
+| i5 | #D55E00 | 3.71 |
+| i6 | #56B4E9 | 2.21 |
+| i7 | #F0E442 | 1.27 |
+| i8 | #7C3AED | 5.46 |
+| i9 | #2D7FF9 | 3.65 |
+| i10 | #6E6E6E | 4.89 |"
+`;
