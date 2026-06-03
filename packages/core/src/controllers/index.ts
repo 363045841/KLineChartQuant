@@ -17,3 +17,4 @@ export type {
 } from './types'
 
 export { createChartController } from './createChartController'
+export { createIndicatorSelectorController } from './createIndicatorSelectorController'

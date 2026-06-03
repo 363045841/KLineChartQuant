@@ -74,7 +74,7 @@
 
         <!-- 添加按钮 -->
         <div class="indicator-item">
-          <button ref="addBtnRef" class="add-btn" @click="toggleAddMenu" title="添加指标">
+          <button ref="addBtnRef" class="add-btn" @click.stop="controller.toggleMenu()" title="添加指标">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
               <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
             </svg>
@@ -86,14 +86,14 @@
     <!-- 添加指标弹窗 -->
     <Teleport :to="teleportTarget">
       <Transition name="overlay">
-        <div v-if="showAddMenu" class="selector-overlay" @click="closeAddMenu">
+        <div v-if="menuOpen" class="selector-overlay" @click="controller.closeMenu()">
           <Transition name="modal">
-            <div v-if="showAddMenu" class="selector-modal" @click.stop>
+            <div v-if="menuOpen" class="selector-modal" @click.stop>
               <!-- 弹窗头部 -->
               <div class="modal-header">
                 <div class="header-title">
                   <span class="title-text">添加指标</span>
-                  <span class="title-sub">{{ totalIndicatorsCount }} 个可用指标</span>
+                  <span class="title-sub">{{ catalogLen }} 个可用指标</span>
                 </div>
                 <div class="header-actions">
                   <button
@@ -117,7 +117,7 @@
                       />
                     </svg>
                   </button>
-                  <button class="modal-close" @click="closeAddMenu" title="关闭">
+                  <button class="modal-close" @click="controller.closeMenu()" title="关闭">
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
                       <path
                         d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
@@ -143,21 +143,21 @@
                     />
                   </svg>
                   <input
-                    v-model="searchQuery"
+                    :value="searchQuery" @input="controller.setSearchQuery(($event.target as HTMLInputElement).value)"
                     type="text"
                     class="search-input"
                     placeholder="搜索指标名称..."
                   />
                 </div>
                 <!-- 主图指标区域 -->
-                <div v-if="filteredMainIndicators.length > 0" class="indicator-section">
+                <div v-if="filteredMain.length > 0" class="indicator-section">
                   <div class="section-header">
                     <span class="section-title">主图指标</span>
-                    <span class="section-count">{{ filteredMainIndicators.length }}</span>
+                    <span class="section-count">{{ filteredMain.length }}</span>
                   </div>
                   <div class="indicator-grid" :class="{ compact: isCompactView }">
                     <button
-                      v-for="indicator in filteredMainIndicators"
+                      v-for="indicator in filteredMain"
                       :key="indicator.id"
                       class="indicator-card"
                       :class="{ active: isActive(indicator.id), compact: isCompactView }"
@@ -197,7 +197,7 @@
 
                 <!-- 分隔线 -->
                 <div
-                  v-if="filteredMainIndicators.length > 0 && filteredSubIndicators.length > 0"
+                  v-if="filteredMain.length > 0 && filteredSub.length > 0"
                   class="section-divider"
                 ></div>
 
@@ -213,14 +213,14 @@
                 </div>
 
                 <!-- 副图指标区域 -->
-                <div v-if="filteredSubIndicators.length > 0" class="indicator-section">
+                <div v-if="filteredSub.length > 0" class="indicator-section">
                   <div class="section-header">
                     <span class="section-title">副图指标</span>
-                    <span class="section-count">{{ filteredSubIndicators.length }}</span>
+                    <span class="section-count">{{ filteredSub.length }}</span>
                   </div>
                   <div class="indicator-grid" :class="{ compact: isCompactView }">
                     <button
-                      v-for="indicator in filteredSubIndicators"
+                      v-for="indicator in filteredSub"
                       :key="indicator.id"
                       class="indicator-card"
                       :class="{ active: isActive(indicator.id), compact: isCompactView }"
@@ -264,7 +264,7 @@
                 <div class="footer-info">
                   <span class="info-text">已激活 {{ activeCount }} 个指标</span>
                 </div>
-                <button class="btn btn-confirm" @click="closeAddMenu">确认</button>
+                <button class="btn btn-confirm" @click="controller.closeMenu()">确认</button>
               </div>
             </div>
           </Transition>
@@ -291,13 +291,17 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import IndicatorParams from './IndicatorParams.vue'
 import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
+import { coreSignalToVueRef } from '../index'
 import {
-  mainIndicators,
-  subIndicators,
+  allIndicators,
   findIndicator,
   isSubIndicatorId,
 } from '@363045841yyt/klinechart-core/engine/renderers/Indicator/indicatorData'
 import type { Indicator } from '@363045841yyt/klinechart-core/engine/renderers/Indicator/indicatorData'
+import {
+  createIndicatorSelectorController,
+  type IndicatorDefinition,
+} from '@363045841yyt/klinechart-core/controllers'
 
 const props = defineProps<{
   activeIndicators?: string[]
@@ -310,15 +314,51 @@ const emit = defineEmits<{
   reorderSubIndicators: [orderedIndicatorIds: string[]]
 }>()
 
+// ── 将 Indicator[] 转换为 IndicatorDefinition[] ──
+function toIndicatorDefinitions(source: typeof allIndicators): IndicatorDefinition[] {
+  return source.map((i) => ({
+    id: i.id,
+    label: i.label,
+    name: i.name,
+    description: i.description,
+    role: i.pane,
+    params: (i.params ?? []).map((p) => ({
+      key: p.key,
+      label: p.label,
+      type: p.type,
+      default: p.default ?? (p.type === 'number' ? 0 : ''),
+      min: p.min,
+      max: p.max,
+      step: p.step,
+    })),
+  }))
+}
+
+// ── Controller ──
+const controller = createIndicatorSelectorController({
+  catalog: toIndicatorDefinitions(allIndicators),
+})
+
+// ── 从 Controller Signal 桥接的 Vue 响应式状态 ──
+const menuOpen = coreSignalToVueRef(controller.menuOpen)
+const searchQuery = coreSignalToVueRef(controller.searchQuery)
+const filteredMain = coreSignalToVueRef(controller.filteredMain)
+const filteredSub = coreSignalToVueRef(controller.filteredSub)
+
+const hasSearchResults = computed(
+  () => filteredMain.value.length > 0 || filteredSub.value.length > 0,
+)
+
+const catalogLen = controller.catalog.peek().length
+
+// ── 本地 UI 状态（非 Controller 管理的纯 UI 状态） ──
 const addBtnRef = ref<HTMLButtonElement | null>(null)
 const paramsVisible = ref(false)
 const currentIndicatorId = ref<string | null>(null)
 const hoveredIndicator = ref<string | null>(null)
-const showAddMenu = ref(false)
 const dragOverIndicatorId = ref<string | null>(null)
 const draggingIndicatorId = ref<string | null>(null)
 const isCompactView = ref(false)
-const searchQuery = ref('')
 
 // Teleport target for fullscreen modal visibility
 const teleportTarget = useFullscreenTeleportTarget()
@@ -346,38 +386,7 @@ const currentIndicator = computed(() => {
   return findIndicator(currentIndicatorId.value)
 })
 
-const totalIndicatorsCount = computed(() => mainIndicators.length + subIndicators.length)
-
 const activeCount = computed(() => props.activeIndicators?.length ?? 0)
-
-// 过滤后的主图指标
-const filteredMainIndicators = computed(() => {
-  if (!searchQuery.value.trim()) return mainIndicators
-  const query = searchQuery.value.toLowerCase().trim()
-  return mainIndicators.filter(
-    (i) =>
-      i.label.toLowerCase().includes(query) ||
-      i.name.toLowerCase().includes(query) ||
-      i.id.toLowerCase().includes(query),
-  )
-})
-
-// 过滤后的副图指标
-const filteredSubIndicators = computed(() => {
-  if (!searchQuery.value.trim()) return subIndicators
-  const query = searchQuery.value.toLowerCase().trim()
-  return subIndicators.filter(
-    (i) =>
-      i.label.toLowerCase().includes(query) ||
-      i.name.toLowerCase().includes(query) ||
-      i.id.toLowerCase().includes(query),
-  )
-})
-
-// 是否有搜索结果
-const hasSearchResults = computed(
-  () => filteredMainIndicators.value.length > 0 || filteredSubIndicators.value.length > 0,
-)
 
 function isActive(indicatorId: string): boolean {
   return props.activeIndicators?.includes(indicatorId) ?? false
@@ -390,7 +399,8 @@ function addIndicator(indicatorId: string) {
   if (!indicator) return
 
   if (indicator.pane === 'main') {
-    mainIndicators
+    const allItems = allIndicators
+    allItems
       .filter((i) => i.id !== indicatorId && isActive(i.id))
       .forEach((i) => emit('toggle', i.id, false))
   }
@@ -405,10 +415,6 @@ function removeIndicator(indicatorId: string) {
 function showParams(indicatorId: string) {
   currentIndicatorId.value = indicatorId
   paramsVisible.value = true
-}
-
-function closeAddMenu() {
-  showAddMenu.value = false
 }
 
 function getParamValues(indicatorId: string): Record<string, number> {
@@ -510,13 +516,9 @@ function onDragEnd() {
   draggingIndicatorId.value = null
 }
 
-function toggleAddMenu() {
-  showAddMenu.value = !showAddMenu.value
-}
-
 function handleKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape' && showAddMenu.value) {
-    showAddMenu.value = false
+  if (event.key === 'Escape' && controller.menuOpen.peek()) {
+    controller.closeMenu()
   }
 }
 

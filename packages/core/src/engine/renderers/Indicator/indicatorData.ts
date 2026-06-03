@@ -18,7 +18,7 @@ export interface Indicator {
   params?: ParamConfig[]
 }
 
-const allIndicators: Indicator[] = [
+export const allIndicators: Indicator[] = [
   { id: 'MA', label: 'MA', name: '均线', pane: 'main' },
   {
     id: 'VOLUME',
