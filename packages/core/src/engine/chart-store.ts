@@ -1,3 +1,8 @@
+/**
+ * @deprecated Phase 4 – Vue 组件不再使用 ChartStore。
+ * computeContentWidth / TRAILING_DRAWING_SLOTS 将在后续重构中迁移至核心工具模块。
+ * 此文件仅保留供 computeContentWidth 导出，将于 Phase 5 完全删除。
+ */
 import { reactive, computed, type UnwrapNestedRefs } from 'vue'
 import { getPhysicalKLineConfig } from './utils/klineConfig'
 import type { DrawingObject } from '../plugin'

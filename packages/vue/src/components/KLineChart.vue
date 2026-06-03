@@ -120,11 +120,7 @@ import IndicatorSelector from './IndicatorSelector.vue'
 import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
 import { Chart, type PaneSpec, type IndicatorInstance, type SubPaneInfo } from '@363045841yyt/klinechart-core/engine/chart'
 import type { KLineData } from '@363045841yyt/klinechart-core/types/price'
-import {
-  createChartStore,
-  TRAILING_DRAWING_SLOTS,
-  type ChartStore,
-} from '@363045841yyt/klinechart-core/engine/chart-store'
+import { computeContentWidth } from '@363045841yyt/klinechart-core/engine/chart-store'
 import { zoomLevelToKWidth, kGapFromKWidth } from '@363045841yyt/klinechart-core/engine/utils/zoom'
 import { getPhysicalKLineConfig } from '@363045841yyt/klinechart-core/engine/utils/klineConfig'
 import { type SubIndicatorType } from '@363045841yyt/klinechart-core/engine/renderers/Indicator'
@@ -133,7 +129,7 @@ import {
   SUB_PANE_INDICATORS,
 } from '@363045841yyt/klinechart-core/engine/renderers/Indicator/subPaneConfig'
 import type { InteractionSnapshot } from '@363045841yyt/klinechart-core/engine/controller/interaction'
-import type { DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
+import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
 import LeftToolbar from './LeftToolbar.vue'
 import {
   DrawingInteractionController,
@@ -197,48 +193,30 @@ const chartRef = shallowRef<Chart | null>(null)
 /* ========== 语义化控制器 ========== */
 const semanticController = shallowRef<SemanticChartController | null>(null)
 
-/* ========== ChartStore（响应式状态中心） ========== */
-const store = createChartStore({
-  initialZoomLevel: props.initialZoomLevel ?? 1,
+/* ========== 本地响应式状态（信号驱动，取代 ChartStore） ========== */
+const dataLength = ref(0)
+const dataVersion = ref(0)
+const viewportDpr = ref(1)
+const zoomLevel = ref(props.initialZoomLevel ?? 1)
+const kWidth = ref(0)
+const kGap = ref(1)
+const viewWidth = ref(0)
+const paneRatios = ref<Record<string, number>>({})
+const selectedDrawingId = ref<string | null>(null)
+const drawings = ref<DrawingObject[]>([])
+
+// 初始化 kWidth / kGap（与 Chart 引擎 zoom→物理值 转换一致）
+const initZoom = zoomLevel.value
+kWidth.value = zoomLevelToKWidth(initZoom, {
   minKWidth: props.minKWidth,
   maxKWidth: props.maxKWidth,
-  zoomLevels: props.zoomLevels,
-  rightAxisWidth: props.rightAxisWidth,
-  priceLabelWidth: props.priceLabelWidth,
+  zoomLevelCount: props.zoomLevels,
+  dpr: viewportDpr.value,
 })
+kGap.value = kGapFromKWidth(kWidth.value, viewportDpr.value)
 
 /* ========== 主题状态 ========== */
 const chartTheme = ref<'light' | 'dark'>('light')
-
-// 初始化 kWidth / kGap
-store.actions.setZoomState(
-  store.state.zoomLevel,
-  zoomLevelToKWidth(store.state.zoomLevel, {
-    minKWidth: props.minKWidth,
-    maxKWidth: props.maxKWidth,
-    zoomLevelCount: props.zoomLevels,
-    dpr: store.state.viewportDpr,
-  }),
-  kGapFromKWidth(
-    zoomLevelToKWidth(store.state.zoomLevel, {
-      minKWidth: props.minKWidth,
-      maxKWidth: props.maxKWidth,
-      zoomLevelCount: props.zoomLevels,
-      dpr: store.state.viewportDpr,
-    }),
-    store.state.viewportDpr,
-  ),
-)
-
-// 为逐步迁移保留的局部别名
-const dataLength = computed(() => store.state.dataLength)
-const viewportDpr = computed(() => store.state.viewportDpr)
-const zoomLevel = computed(() => store.state.zoomLevel)
-const kWidth = computed(() => store.state.kWidth)
-const kGap = computed(() => store.state.kGap)
-const paneRatios = computed(() => store.state.paneRatios)
-const selectedDrawingId = computed(() => store.state.selectedDrawingId)
-const dataVersion = computed(() => store.state.dataVersion)
 
 function scheduleRender() {
   chartRef.value?.scheduleDraw()
@@ -253,8 +231,8 @@ function handleSettingsChange(settings: Record<string, boolean | string>) {
     console.time('updateData-10k')
     chartRef.value?.updateData(testData)
     console.timeEnd('updateData-10k')
-    store.actions.setDataLength(testData.length)
-    store.actions.bumpDataVersion()
+    dataLength.value = testData.length
+    dataVersion.value++
   } else {
     // 如果关闭性能测试，恢复原始数据
     // 通过重新应用语义化配置来恢复
@@ -364,7 +342,7 @@ const drawingController = shallowRef<DrawingInteractionController | null>(null)
 const selectedDrawing = computed(() => {
   const id = selectedDrawingId.value
   if (!id) return null
-  return store.state.drawings.find((d) => d.id === id) ?? null
+  return drawings.value.find((d) => d.id === id) ?? null
 })
 const paneSeparatorLines = ref<Array<{ id: string; top: number }>>([])
 const markerTooltipSize = ref({ width: 220, height: 120 })
@@ -452,24 +430,21 @@ function onUpdateDrawingStyle(style: Partial<DrawingStyle>) {
   const d = selectedDrawing.value
   if (!d || !drawingController.value) return
   drawingController.value.updateDrawingStyle(d.id, style)
-  store.actions.bumpDrawingVersion()
 }
 
 function onDeleteDrawing() {
   const d = selectedDrawing.value
   if (!d || !drawingController.value) return
   drawingController.value.removeDrawing(d.id)
-  store.actions.setSelectedDrawingId(null)
-  store.actions.bumpDrawingVersion()
-  store.actions.setDrawings(drawingController.value.getDrawings())
+  selectedDrawingId.value = null
+  drawings.value = drawingController.value.getDrawings()
 }
 
 function onPointerDown(e: PointerEvent) {
   chartRef.value?.handlePointerEvent(e, {
     onPointerDown: (event, container) => {
       if (drawingController.value?.onPointerDown(event, container)) {
-        store.actions.setDrawings(drawingController.value.getDrawings())
-        store.actions.bumpDrawingVersion()
+        drawings.value = drawingController.value.getDrawings()
         return true
       }
       return false
@@ -489,7 +464,7 @@ function onPointerMove(e: PointerEvent) {
   chartRef.value?.handlePointerEvent(e, {
     onPointerMove: (event, container) => {
       if (drawingController.value?.onPointerMove(event, container)) {
-        store.actions.setDrawings(drawingController.value.getDrawings())
+        drawings.value = drawingController.value.getDrawings()
         return true
       }
       return false
@@ -501,7 +476,7 @@ function onPointerUp(e: PointerEvent) {
   chartRef.value?.handlePointerEvent(e, {
     onPointerUp: (event, container) => {
       if (drawingController.value?.onPointerUp(event, container)) {
-        store.actions.setDrawings(drawingController.value.getDrawings())
+        drawings.value = drawingController.value.getDrawings()
         return true
       }
       return false
@@ -825,9 +800,15 @@ function handleReorderSubIndicators(orderedIndicatorIds: string[]) {
 /* 计算总宽度：从 Vue 响应式状态读取，zoom 变化时自动重算 */
 const axisHostWidth = computed(() => props.rightAxisWidth + props.priceLabelWidth)
 
-const TRAILING_DRAWING_SLOTS_VAL = TRAILING_DRAWING_SLOTS
-
-const totalWidth = store.computed.totalWidth
+const totalWidth = computed(() =>
+  computeContentWidth({
+    dataLength: dataLength.value,
+    kWidth: kWidth.value,
+    kGap: kGap.value,
+    viewWidth: viewWidth.value,
+    viewportDpr: viewportDpr.value,
+  }),
+)
 
 // 缩放由 Chart 回调驱动 scrollLeft 与渲染时序。
 
@@ -945,30 +926,32 @@ function setupChartCallbacks(chart: Chart): void {
   // 订阅 paneRatios signal，同步到 Vue store
   const unsubscribePaneRatios = chart.paneRatios.subscribe(() => {
     const ratios = chart.paneRatios.peek()
-    store.actions.setPaneRatios({ ...ratios })
+    paneRatios.value = { ...ratios }
   })
 
   // 订阅 viewport signal，处理缩放、DPR、width 变化和 scrollLeft 更新
   const unsubscribeViewport = chart.viewport.subscribe(() => {
     const vp = chart.viewport.peek()
 
-    // DPR 变化时同步到 store
-    if (store.state.viewportDpr !== vp.dpr) {
-      store.actions.setViewportDpr(vp.dpr)
+    // DPR 变化时同步到本地状态
+    if (viewportDpr.value !== vp.dpr) {
+      viewportDpr.value = vp.dpr
     }
 
-    // ViewWidth 变化时同步到 store
-    if (store.state.viewWidth !== vp.plotWidth) {
-      store.actions.setViewWidth(vp.plotWidth)
+    // ViewWidth 变化时同步到本地状态
+    if (viewWidth.value !== vp.plotWidth) {
+      viewWidth.value = vp.plotWidth
     }
 
-    // 完整同步 zoom state 到 Vue store（Chart 是 SSOT）
+    // 完整同步 zoom state（Chart 是 SSOT）
     if (
-      store.state.zoomLevel !== vp.zoomLevel ||
-      store.state.kWidth !== vp.kWidth ||
-      store.state.kGap !== vp.kGap
+      zoomLevel.value !== vp.zoomLevel ||
+      kWidth.value !== vp.kWidth ||
+      kGap.value !== vp.kGap
     ) {
-      store.actions.setZoomState(vp.zoomLevel, vp.kWidth, vp.kGap)
+      zoomLevel.value = vp.zoomLevel
+      kWidth.value = vp.kWidth
+      kGap.value = vp.kGap
     }
 
     // 在 nextTick 中应用 desiredScrollLeft
@@ -989,8 +972,8 @@ function setupChartCallbacks(chart: Chart): void {
   // 订阅 data signal，替换 onDataChange 回调
   const unsubscribeData = chart.data.subscribe(() => {
     const data = chart.data.peek()
-    store.actions.setDataLength(data.length)
-    store.actions.bumpDataVersion()
+    dataLength.value = data.length
+    dataVersion.value++
   })
 
   // 订阅 theme signal，同步到 CSS data-theme
@@ -1088,12 +1071,12 @@ function setupDrawingController(chart: Chart): void {
   drawingController.value = new DrawingInteractionController(chart)
   drawingController.value.setCallbacks({
     onDrawingCreated: (drawing) => {
-      store.actions.setDrawings([...store.state.drawings, drawing])
-      store.actions.setSelectedDrawingId(drawing.id)
+      drawings.value = [...drawings.value, drawing]
+      selectedDrawingId.value = drawing.id
     },
     onToolChange: () => {},
     onDrawingSelected: (drawing) => {
-      store.actions.setSelectedDrawingId(drawing?.id ?? null)
+      selectedDrawingId.value = drawing?.id ?? null
     },
   })
 }
@@ -1105,7 +1088,7 @@ function setupInteractionCallbacks(chart: Chart): void {
   })
 
   interactionState.value = chart.interaction.getInteractionSnapshot()
-  store.actions.setViewportDpr(chart.getCurrentDpr())
+  viewportDpr.value = chart.getCurrentDpr()
   chart.resize()
 }
 
@@ -1152,7 +1135,7 @@ onMounted(() => {
   setupChartCallbacks(chart)
 
   // 4) 同步 zoom 状态（Vue SSOT → Chart）
-  chart.applyRenderState(store.state.kWidth, store.state.kGap, store.state.zoomLevel)
+  chart.applyRenderState(kWidth.value, kGap.value, zoomLevel.value)
 
   // 5) 工具栏初始设置（含性能测试数据）
   applyInitialSettings(chart)
