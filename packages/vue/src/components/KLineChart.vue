@@ -118,24 +118,24 @@ import KLineTooltip from './KLineTooltip.vue'
 import MarkerTooltip from './MarkerTooltip.vue'
 import IndicatorSelector from './IndicatorSelector.vue'
 import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
-import { createChartController, type ChartController } from '@363045841yyt/klinechart-core/controllers'
-import type { PaneSpec, IndicatorInstance } from '@363045841yyt/klinechart-core/controllers'
-import type { KLineData } from '@363045841yyt/klinechart-core/types/price'
-
-import { zoomLevelToKWidth, kGapFromKWidth } from '@363045841yyt/klinechart-core/engine/utils/zoom'
-import { getPhysicalKLineConfig } from '@363045841yyt/klinechart-core/engine/utils/klineConfig'
-import { type SubIndicatorType } from '@363045841yyt/klinechart-core/engine/renderers/Indicator'
 import {
+  createChartController,
+  type ChartController,
+  type PaneSpec,
+  type IndicatorInstance,
+  type SubIndicatorType,
+  type InteractionSnapshot,
+  type DrawingToolId,
+  type KLineData,
+  zoomLevelToKWidth,
+  kGapFromKWidth,
+  getPhysicalKLineConfig,
   SUB_PANE_INDICATOR_CONFIGS,
   SUB_PANE_INDICATORS,
-} from '@363045841yyt/klinechart-core/engine/renderers/Indicator/subPaneConfig'
-import type { InteractionSnapshot } from '@363045841yyt/klinechart-core/engine/controller/interaction'
+  DrawingInteractionController,
+} from '@363045841yyt/klinechart-core/controllers'
 import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
 import LeftToolbar from './LeftToolbar.vue'
-import {
-  DrawingInteractionController,
-  type DrawingToolId,
-} from '@363045841yyt/klinechart-core/engine/drawing'
 
 const props = withDefaults(
   defineProps<{

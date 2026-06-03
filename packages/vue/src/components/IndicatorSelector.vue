@@ -293,14 +293,12 @@ import IndicatorParams from './IndicatorParams.vue'
 import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
 import { coreSignalToVueRef } from '../index'
 import {
+  createIndicatorSelectorController,
+  type IndicatorDefinition,
   allIndicators,
   findIndicator,
   isSubIndicatorId,
-} from '@363045841yyt/klinechart-core/engine/renderers/Indicator/indicatorData'
-import type { Indicator } from '@363045841yyt/klinechart-core/engine/renderers/Indicator/indicatorData'
-import {
-  createIndicatorSelectorController,
-  type IndicatorDefinition,
+  type Indicator,
 } from '@363045841yyt/klinechart-core/controllers'
 
 const props = defineProps<{
