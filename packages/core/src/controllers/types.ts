@@ -73,6 +73,22 @@ export interface KLineData {
     turnoverRate?: number
 }
 
+export type PaneRole = 'main' | 'sub'
+
+export interface PaneCapabilities {
+    crosshair: boolean
+    indicators: boolean
+}
+
+export interface PaneSpec {
+    id: string
+    ratio: number
+    visible?: boolean
+    minHeightPx?: number
+    role?: PaneRole
+    capabilities?: Partial<PaneCapabilities>
+}
+
 // ---------------------------------------------------------------------------
 // Indicator metadata
 // ---------------------------------------------------------------------------
@@ -159,6 +175,8 @@ export interface ChartController {
     setData(next: ReadonlyArray<KLineData>): void
     appendData(next: ReadonlyArray<KLineData>): void
     updateData(next: ReadonlyArray<KLineData>): void
+    getData(): ReadonlyArray<KLineData>
+    getZoomLevelCount(): number
 
     // ---- Theme ----
     setTheme(theme: 'light' | 'dark'): void
@@ -193,10 +211,19 @@ export interface ChartController {
     resizeSubPane(paneId: string, deltaY: number): boolean
     createSubPane(paneId: string, indicatorId: string, params?: Record<string, unknown>): boolean
     clearSubPanes(): void
+    replaceSubPaneIndicator(paneId: string, indicatorId: string, params?: Record<string, unknown>): boolean
+    updatePaneLayout(panes: PaneSpec[]): void
 
     // ---- Drawing / Markers ----
     updateCustomMarkers(markers: ReadonlyArray<CustomMarkerEntity>): void
     clearCustomMarkers(): void
+
+    // ---- Interaction sub-methods ----
+    setTooltipSize(size: { width: number; height: number }): void
+    setTooltipAnchorPositioning(enabled: boolean): void
+
+    // ---- Narrow queries ----
+    getIndicatorTitle(instanceId: string): string | undefined
 
     // ---- Settings ----
     updateSettingsFacade(settings: Record<string, unknown>): void

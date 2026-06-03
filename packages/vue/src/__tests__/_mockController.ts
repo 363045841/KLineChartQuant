@@ -20,13 +20,14 @@ import type {
     IndicatorDefinition,
     IndicatorSelectorController,
     KLineData,
+    PaneSpec,
     ToolbarController,
     ToolDefinition,
     ToolId,
 } from '@363045841yyt/klinechart-core'
 
 // ---------------------------------------------------------------------------
-// Inline mini-signal â€?Object.is-equality, sync notify. Drop-in compatible
+// Inline mini-signal ï¿½?Object.is-equality, sync notify. Drop-in compatible
 // with `@363045841yyt/klinechart-core/reactivity` for shape-only test purposes.
 // ---------------------------------------------------------------------------
 
@@ -146,6 +147,8 @@ export function createMockChartController(
         setData: (next) => data.set(next),
         appendData: (next) => data.set([...data.peek(), ...next]),
         updateData: (next) => data.set(next),
+        getData: () => data.peek(),
+        getZoomLevelCount: () => 10,
         setTheme: (next) => theme.set(next),
         zoomToLevel: (level) =>
             viewport.set({ ...viewport.peek(), zoomLevel: level }),
@@ -167,12 +170,17 @@ export function createMockChartController(
         removeIndicator: () => false,
         updateIndicatorParams: () => false,
         updateRendererConfig: () => {},
+        setTooltipSize: () => {},
+        setTooltipAnchorPositioning: () => {},
+        getIndicatorTitle: () => undefined,
         setDrawingTool: (tool) => drawing.setActiveTool(tool),
         clearDrawings: () => drawing.clearAll(),
         removeDrawing: () => {},
         resizeSubPane: () => false,
         createSubPane: () => false,
         clearSubPanes: () => {},
+        replaceSubPaneIndicator: () => false,
+        updatePaneLayout: (_panes: PaneSpec[]) => {},
         updateCustomMarkers: () => {},
         clearCustomMarkers: () => {},
         updateSettingsFacade: () => {},

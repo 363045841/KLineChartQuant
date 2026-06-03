@@ -25,6 +25,7 @@ import type {
     DrawingControllerCallbacks,
     IndicatorDefinition,
     KLineData,
+    PaneSpec,
 } from './types'
 import type { CustomMarkerEntity } from '../engine/marker/registry'
 import {
@@ -37,6 +38,7 @@ import {
     type DrawingObject as LegacyDrawingObject,
     type DrawingToolType as LegacyDrawingToolType,
     type InteractionSnapshot as LegacyInteractionSnapshot,
+    type PaneSpec as LegacyPaneSpec,
 } from '../engine/chart'
 import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
 
@@ -481,6 +483,16 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         setData(merged)
     }
 
+    function getData(): ReadonlyArray<KLineData> {
+        if (disposed) return []
+        return chart.getData()
+    }
+
+    function getZoomLevelCount(): number {
+        if (disposed) return 0
+        return chart.getZoomLevelCount()
+    }
+
     function setTheme(nextTheme: 'light' | 'dark'): void {
         if (disposed) return
         chart.setTheme(nextTheme)
@@ -551,6 +563,23 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         chart.updateRendererConfig(name, config)
     }
 
+    function setTooltipSize(size: { width: number; height: number }): void {
+        if (disposed) return
+        chart.interaction.setTooltipSize(size)
+    }
+
+    function setTooltipAnchorPositioning(enabled: boolean): void {
+        if (disposed) return
+        chart.interaction.setTooltipAnchorPositioning(enabled)
+    }
+
+    function getIndicatorTitle(instanceId: string): string | undefined {
+        if (disposed) return undefined
+        const instances = chart.indicators.peek()
+        const match = instances.find(inst => inst.id === instanceId)
+        return match?.label
+    }
+
     function setDrawingTool(tool: DrawingToolType | null): void {
         if (disposed) return
         chart.setDrawingTool(tool)
@@ -574,6 +603,25 @@ export function createChartController(opts: ChartMountOptions): ChartController 
     function clearSubPanes(): void {
         if (disposed) return
         chart.clearSubPanes()
+    }
+
+    function replaceSubPaneIndicator(
+        paneId: string,
+        indicatorId: string,
+        params?: Record<string, unknown>,
+    ): boolean {
+        if (disposed) return false
+        try {
+            chart.replaceSubPaneIndicator(paneId, indicatorId as never, params as Record<string, string | number | boolean>)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    function updatePaneLayout(panes: PaneSpec[]): void {
+        if (disposed) return
+        chart.updatePaneLayout(panes as LegacyPaneSpec[])
     }
 
     function resizeSubPane(paneId: string, deltaY: number): boolean {
@@ -638,6 +686,8 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         setData,
         appendData,
         updateData: setData,
+        getData,
+        getZoomLevelCount,
         setTheme,
         zoomToLevel,
         zoomIn,
@@ -650,11 +700,16 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         removeIndicator,
         updateIndicatorParams,
         updateRendererConfig,
+        setTooltipSize,
+        setTooltipAnchorPositioning,
+        getIndicatorTitle,
         setDrawingTool,
         clearDrawings,
         removeDrawing,
         createSubPane,
         clearSubPanes,
+        replaceSubPaneIndicator,
+        updatePaneLayout,
         resizeSubPane,
         updateCustomMarkers,
         clearCustomMarkers,
