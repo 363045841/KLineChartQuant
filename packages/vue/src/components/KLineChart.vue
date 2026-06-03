@@ -814,15 +814,13 @@ function setupChartCallbacks(ctrl: ChartController): void {
     const borderTop = containerRef.value
       ? parseInt(getComputedStyle(containerRef.value).borderTopWidth) || 0
       : 0
-    const containerHeight = containerRef.value?.clientHeight ?? 0
     const panes = ctrl.paneLayout.peek()
-    const totalRatio = panes.reduce((sum, p) => sum + p.ratio, 0)
-    if (totalRatio <= 0) return
-    let accumulated = 0
+    // 使用 pane 的实际渲染位置计算分隔线位置，确保与鼠标检测一致
     paneSeparatorLines.value = panes.slice(0, -1).map((pane) => {
-      const height = containerHeight * (pane.ratio / totalRatio)
-      accumulated += height
-      return { id: pane.id, top: accumulated + borderTop }
+      const paneInfo = ctrl.getPaneInfo(pane.id)
+      // 分隔线位置 = pane 顶部位置 + pane 实际高度
+      const separatorTop = (paneInfo?.top ?? 0) + (paneInfo?.height ?? 0)
+      return { id: pane.id, top: separatorTop + borderTop }
     })
   })
 
