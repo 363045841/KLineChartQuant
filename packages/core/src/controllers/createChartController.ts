@@ -31,7 +31,6 @@ import type { CustomMarkerEntity } from '../engine/marker/registry'
 import {
     Chart,
     type ChartOptions,
-    type Viewport as LegacyViewport,
     type ViewportState as LegacyViewportState,
     type IndicatorInstance as LegacyIndicatorInstance,
     type SubPaneInfo as LegacySubPaneInfo,
@@ -435,27 +434,18 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         chart.paneRatios.subscribe(() => paneRatios.set(mapPaneRatios(chart.paneRatios.peek()))),
     )
 
+    // paneLayout
+    const paneLayout: Signal<ReadonlyArray<PaneSpec>> = createSignal<ReadonlyArray<PaneSpec>>([])
+    unsubs.push(
+        chart.paneLayout.subscribe(() => paneLayout.set([...chart.paneLayout.peek()])),
+    )
+
     // interactionState
     unsubs.push(
         chart.interactionState.subscribe(() =>
             interactionState.set(mapInteractionSnapshot(chart.interactionState.peek())),
         ),
     )
-
-    // -------------------------------------------------------------------
-    // Legacy callback for resize (chart's viewport signal doesn't fire
-    // on resize — only on zoom/scroll through facade methods)
-    // -------------------------------------------------------------------
-
-    chart.setOnViewportChange((vp: LegacyViewport) => {
-        const current = viewport.peek()
-        viewport.set({
-            ...current,
-            plotWidth: vp.plotWidth,
-            plotHeight: vp.plotHeight,
-            dpr: vp.dpr > 0 ? vp.dpr : current.dpr,
-        })
-    })
 
     // -------------------------------------------------------------------
     // Lifecycle guard
@@ -681,6 +671,7 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         drawingTool,
         drawings,
         paneRatios,
+        paneLayout,
         interactionState,
         catalog: DEFAULT_INDICATOR_CATALOG,
         setData,

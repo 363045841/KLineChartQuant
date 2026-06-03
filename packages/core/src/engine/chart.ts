@@ -214,20 +214,11 @@ export class Chart {
     /** pane ratio 状态（按 paneId 维护，sum=1 仅对可见 pane） */
     private _internalPaneRatios: Map<string, number> = new Map()
 
-    /** 视口变化回调（供外部同步 DPR/尺寸） */
-    private onViewportChange?: (viewport: Viewport) => void
-
     /** 共享 X 轴上下文缓存 */
     private xAxisCtx: CanvasRenderingContext2D | null = null
 
     /** Chart 级共享 WebGL canvas/context */
     private sharedWebGLSurface: SharedWebGLSurface
-
-    /** pane 布局回流回调（Chart -> UI 单向） */
-    private onPaneLayoutChange?: (panes: PaneSpec[]) => void
-
-    /** 数据变化回调（供外部同步 dataLength） */
-    private onDataChange?: (data: KLineData[]) => void
 
     /** 当前缩放级别（1 ~ zoomLevelCount） */
     private currentZoomLevel: number = 1
@@ -1243,21 +1234,6 @@ export class Chart {
         return this.zoomLevelCount
     }
 
-    /** 注册视口变化回调 */
-    setOnViewportChange(cb: (viewport: Viewport) => void) {
-        this.onViewportChange = cb
-    }
-
-    /** 注册 pane 布局回流回调 */
-    setOnPaneLayoutChange(cb: (panes: PaneSpec[]) => void) {
-        this.onPaneLayoutChange = cb
-    }
-
-    /** 注册数据变化回调 */
-    setOnDataChange(cb: (data: KLineData[]) => void) {
-        this.onDataChange = cb
-    }
-
     /** 获取所有 PaneRenderer */
     getPaneRenderers(): PaneRenderer[] {
         return this.paneRenderers
@@ -1436,7 +1412,7 @@ export class Chart {
         })
         this._paneRatiosSignal.set(ratios)
 
-        this.onPaneLayoutChange?.(this.getPaneLayoutSpecs())
+        this._paneLayoutSignal.set(this.getPaneLayoutSpecs())
     }
 
     private applyPaneLayoutSpecs(panes: PaneSpec[]): void {
@@ -1781,7 +1757,6 @@ export class Chart {
     updateData(data: KLineData[]) {
         this._internalData = data ?? []
         this._dataSignal.set([...this._internalData])
-        this.onDataChange?.(this._internalData)
 
         // 重算 DOM scrollLeft 状态, 防止左右滚动超出数据长度范围
         const container = this.dom.container
@@ -1936,8 +1911,6 @@ export class Chart {
         // 清理渲染器插件管理器（会调用所有 onUninstall）
         this.rendererPluginManager.clear()
 
-        this.onViewportChange = undefined
-        this.onPaneLayoutChange = undefined
         this.indicatorScheduler.destroy()
         await this.pluginHost.destroy()
     }
@@ -2255,7 +2228,18 @@ export class Chart {
 
         this._internalViewport = vp
         if (viewportChanged) {
-            this.onViewportChange?.(vp)
+            const current = this._viewportSignal.peek()
+            this._viewportSignal.set({
+                zoomLevel: current.zoomLevel,
+                plotWidth: vp.plotWidth,
+                plotHeight: vp.plotHeight,
+                dpr: vp.dpr > 0 ? vp.dpr : current.dpr,
+                visibleFrom: current.visibleFrom,
+                visibleTo: current.visibleTo,
+                desiredScrollLeft: current.desiredScrollLeft,
+                kWidth: current.kWidth,
+                kGap: current.kGap,
+            })
         }
         return vp
     }
@@ -2280,6 +2264,7 @@ export class Chart {
     private _drawingToolSignal = createSignal<DrawingToolType | null>(null)
     private _drawingsSignal = createSignal<ReadonlyArray<import('../plugin').DrawingObject>>([])
     private _paneRatiosSignal = createSignal<Readonly<Record<string, number>>>({})
+    private _paneLayoutSignal = createSignal<PaneSpec[]>([])
     private _interactionSignal = createSignal<InteractionSnapshot>({
         crosshairPos: null,
         crosshairIndex: null,
@@ -2367,6 +2352,10 @@ export class Chart {
     /** 面板比例信号 */
     get paneRatios(): Signal<Readonly<Record<string, number>>> {
         return this._paneRatiosSignal
+    }
+
+    get paneLayout(): Signal<PaneSpec[]> {
+        return this._paneLayoutSignal
     }
 
     /** 交互状态信号 */

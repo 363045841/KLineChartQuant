@@ -102,10 +102,17 @@ export class InteractionController {
 
     constructor(chart: Chart) {
         this.chart = chart
+        this.setupPinchZoom()
     }
 
-    setOnPinchZoom(callback: (delta: number, centerX: number) => void) {
-        this.pinchTracker.setOnPinchZoom(callback)
+    private setupPinchZoom(): void {
+        this.pinchTracker.setOnPinchZoom((delta, centerClientX) => {
+            const container = this.chart.dom.container
+            if (!container) return
+            const rect = container.getBoundingClientRect()
+            const centerX = centerClientX - rect.left
+            this.chart.handlePinchZoom(delta, centerX)
+        })
     }
 
     /** 更新用户设置 */

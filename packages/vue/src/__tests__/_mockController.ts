@@ -133,6 +133,7 @@ export function createMockChartController(
     })
     const data = createSignal<ReadonlyArray<KLineData>>(opts.data ?? [])
     const theme = createSignal<'light' | 'dark'>(opts.theme ?? 'light')
+    const paneLayout = createSignal<ReadonlyArray<PaneSpec>>([])
     const indicatorSelector = createMockIndicatorSelector()
     const toolbar = createMockToolbar()
     const drawing = createMockDrawing()
@@ -141,6 +142,7 @@ export function createMockChartController(
         viewport,
         data,
         theme,
+        paneLayout,
         indicatorSelector,
         toolbar,
         drawing,

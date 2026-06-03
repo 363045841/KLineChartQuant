@@ -166,6 +166,7 @@ export interface ChartController {
     readonly drawingTool: Signal<DrawingToolType | null>
     readonly drawings: Signal<ReadonlyArray<DrawingObject>>
     readonly paneRatios: Signal<Readonly<Record<string, number>>>
+    readonly paneLayout: Signal<ReadonlyArray<PaneSpec>>
     readonly interactionState: Signal<InteractionSnapshot>
 
     // indicator catalog (static — adapters use for picker UI)
