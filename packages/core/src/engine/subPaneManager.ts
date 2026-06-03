@@ -1,5 +1,6 @@
 import type { Chart } from './chart'
 import type { SubIndicatorType } from './renderers/Indicator'
+import { createSignal, type Signal } from '../reactivity/signal'
 import { createSubIndicatorRenderer } from './renderers/Indicator'
 import { createVolumeScaleRendererPlugin } from './renderers/Indicator/scale/volume_scale'
 import { createMacdScaleRendererPlugin } from './renderers/Indicator/scale/macd_scale'
@@ -60,6 +61,15 @@ export interface SubPaneEntry {
 
 export class SubPaneManager {
     private entries = new Map<string, SubPaneEntry>()
+    private _entriesSignal = createSignal<ReadonlyArray<SubPaneEntry>>([])
+
+    get entriesSignal(): Signal<ReadonlyArray<SubPaneEntry>> {
+        return this._entriesSignal
+    }
+
+    private syncEntriesSignal(): void {
+        this._entriesSignal.set(this.getAll())
+    }
 
     create(chart: Chart, paneId: string, indicatorId: SubIndicatorType, params: Record<string, unknown>): boolean {
         if (this.entries.has(paneId)) {
@@ -90,6 +100,7 @@ export class SubPaneManager {
 
         chart.getIndicatorScheduler().onSubPaneChanged()
 
+        this.syncEntriesSignal()
         return true
     }
 
@@ -107,6 +118,7 @@ export class SubPaneManager {
         }
 
         chart.getIndicatorScheduler().onSubPaneChanged()
+        this.syncEntriesSignal()
     }
 
     replaceIndicator(chart: Chart, paneId: string, newIndicatorId: SubIndicatorType, newParams: Record<string, unknown>): void {
@@ -137,6 +149,7 @@ export class SubPaneManager {
         })
 
         chart.getIndicatorScheduler().onSubPaneChanged()
+        this.syncEntriesSignal()
     }
 
     updateParams(chart: Chart, paneId: string, params: Record<string, unknown>): void {
@@ -148,6 +161,7 @@ export class SubPaneManager {
         chart.updateRendererConfig(entry.rendererName, params)
 
         this.syncSchedulerConfig(chart, paneId, entry.indicatorId, entry.params)
+        this.syncEntriesSignal()
     }
 
     getByPaneId(paneId: string): SubPaneEntry | undefined {
@@ -169,6 +183,7 @@ export class SubPaneManager {
         }
         this.entries.clear()
         chart.getIndicatorScheduler().onSubPaneChanged()
+        this.syncEntriesSignal()
     }
 
     private syncSchedulerConfig(

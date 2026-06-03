@@ -1,6 +1,6 @@
 import type { KLineData } from '../types/price'
 import type { ChartSettings } from '../config/chartSettings'
-import { createSignal, type Signal } from '../reactivity/signal'
+import { createSignal, computed, type Signal, type Computed } from '../reactivity/signal'
 import { getVisibleRange } from './viewport/viewport'
 import { Pane, type VisibleRange, UpdateLevel } from './layout/pane'
 import { InteractionController, type InteractionSnapshot } from './controller/interaction'
@@ -165,6 +165,11 @@ type FrameData = {
     useCachedFrame: boolean
 }
 
+/** 主图指标条目，存在 = 激活 */
+interface MainIndicatorEntry {
+    params: Record<string, number | boolean | string>
+}
+
 export class Chart {
     private dom: ChartDom
     private opt: ResolvedChartOptions
@@ -249,13 +254,13 @@ export class Chart {
     } | null = null
 
     /** 副图管理器 */
-    private subPaneManager: SubPaneManager
+    private subPaneManager = new SubPaneManager()
 
-    /** 当前激活的主图指标列表（如 ['boll', 'ma']） */
-    private activeMainIndicators: Set<string> = new Set()
+    /** 主图指标激活状态与参数（存在即激活，默认参数在 enable 时初始化） */
+    private _mainIndicatorsSignal: Signal<Map<string, MainIndicatorEntry>> = createSignal<Map<string, MainIndicatorEntry>>(new Map())
 
-    /** 主图指标参数配置 */
-    private mainIndicatorParams: Record<string, Record<string, number | boolean | string>> = {
+    /** 主图指标默认参数 */
+    private static DEFAULT_MAIN_PARAMS: Record<string, Record<string, number | boolean | string>> = {
         MA: { ma5: true, ma10: true, ma20: true, ma30: true, ma60: true },
         BOLL: { period: 20, multiplier: 2, showUpper: true, showMiddle: true, showLower: true, showBand: true },
         EXPMA: { fastPeriod: 12, slowPeriod: 50 },
@@ -289,22 +294,26 @@ export class Chart {
             return false
         }
 
-        if (this.activeMainIndicators.has(id)) {
+        const map = this._mainIndicatorsSignal.peek()
+        const existing = map.get(id)
+
+        if (existing) {
             // 已启用，更新参数
             if (params) {
-                this.mainIndicatorParams[id] = { ...this.mainIndicatorParams[id], ...params }
+                const next = new Map(map)
+                next.set(id, { params: { ...existing.params, ...params } })
+                this._mainIndicatorsSignal.set(next)
                 this.updateIndicatorSchedulerConfig(id)
-                this.syncIndicatorsSignal()
             }
             return true
         }
 
-        this.activeMainIndicators.add(id)
-
         // 合并默认参数和传入参数
-        if (params) {
-            this.mainIndicatorParams[id] = { ...this.mainIndicatorParams[id], ...params }
-        }
+        const defaults = Chart.DEFAULT_MAIN_PARAMS[id] ?? {}
+        const merged = params ? { ...defaults, ...params } : defaults
+        const next = new Map(map)
+        next.set(id, { params: merged })
+        this._mainIndicatorsSignal.set(next)
 
         // 启用对应的渲染器
         this.enableMainIndicatorRenderer(id)
@@ -312,7 +321,6 @@ export class Chart {
         // 更新调度器配置
         this.updateIndicatorSchedulerConfig(id)
 
-        this.syncIndicatorsSignal()
         this.scheduleDraw()
         return true
     }
@@ -324,9 +332,12 @@ export class Chart {
      */
     disableMainIndicator(indicatorId: string): boolean {
         const id = indicatorId.toUpperCase()
-        if (!this.activeMainIndicators.has(id)) return false
+        const map = this._mainIndicatorsSignal.peek()
+        if (!map.has(id)) return false
 
-        this.activeMainIndicators.delete(id)
+        const next = new Map(map)
+        next.delete(id)
+        this._mainIndicatorsSignal.set(next)
 
         // 禁用对应的渲染器
         this.disableMainIndicatorRenderer(id)
@@ -334,7 +345,6 @@ export class Chart {
         // 更新调度器配置
         this.updateIndicatorSchedulerConfig(id)
 
-        this.syncIndicatorsSignal()
         this.scheduleDraw()
         return true
     }
@@ -357,7 +367,7 @@ export class Chart {
      * @returns 激活的指标ID数组
      */
     getActiveMainIndicators(): string[] {
-        return Array.from(this.activeMainIndicators)
+        return [...this._mainIndicatorsSignal.peek().keys()]
     }
 
     /**
@@ -365,7 +375,7 @@ export class Chart {
      * @param indicatorId 指标ID
      */
     isMainIndicatorActive(indicatorId: string): boolean {
-        return this.activeMainIndicators.has(indicatorId.toUpperCase())
+        return this._mainIndicatorsSignal.peek().has(indicatorId.toUpperCase())
     }
 
     /**
@@ -375,21 +385,24 @@ export class Chart {
      */
     updateMainIndicatorParams(indicatorId: string, params: Record<string, number | boolean | string>): void {
         const id = indicatorId.toUpperCase()
-        if (!this.mainIndicatorParams[id]) {
-            this.mainIndicatorParams[id] = {}
-        }
-        this.mainIndicatorParams[id] = { ...this.mainIndicatorParams[id], ...params }
+        const map = this._mainIndicatorsSignal.peek()
+        const entry = map.get(id)
+        if (!entry) return
+
+        const merged = { ...entry.params, ...params }
+        const next = new Map(map)
+        next.set(id, { params: merged })
+        this._mainIndicatorsSignal.set(next)
 
         // 同步更新渲染器配置
         const rendererName = id.toLowerCase()
         const renderer = this.getRenderer(rendererName)
         if (renderer && renderer.setConfig) {
-            renderer.setConfig(this.mainIndicatorParams[id])
+            renderer.setConfig(merged)
         }
 
         // 更新调度器
         this.updateIndicatorSchedulerConfig(id)
-        this.syncIndicatorsSignal()
         this.scheduleDraw()
     }
 
@@ -398,18 +411,18 @@ export class Chart {
      * @param indicatorId 指标ID
      */
     getMainIndicatorParams(indicatorId: string): Record<string, number | boolean | string> | null {
-        return this.mainIndicatorParams[indicatorId.toUpperCase()] ?? null
+        return this._mainIndicatorsSignal.peek().get(indicatorId.toUpperCase())?.params ?? null
     }
 
     /**
      * 清除所有主图指标
      */
     clearMainIndicators(): void {
-        for (const id of this.activeMainIndicators) {
+        const map = this._mainIndicatorsSignal.peek()
+        for (const id of map.keys()) {
             this.disableMainIndicatorRenderer(id)
         }
-        this.activeMainIndicators.clear()
-        this.syncIndicatorsSignal()
+        this._mainIndicatorsSignal.set(new Map())
         this.scheduleDraw()
     }
 
@@ -572,8 +585,9 @@ export class Chart {
      * 更新调度器配置（内部方法）
      */
     private updateIndicatorSchedulerConfig(indicatorId: string): void {
-        const isActive = this.activeMainIndicators.has(indicatorId)
-        const params = this.mainIndicatorParams[indicatorId] || {}
+        const entry = this._mainIndicatorsSignal.peek().get(indicatorId)
+        const isActive = entry !== undefined
+        const params = entry?.params ?? {}
 
         switch (indicatorId) {
             case 'MA':
@@ -653,7 +667,7 @@ export class Chart {
     setActiveMainIndicators(indicators: string[]): void {
         // 计算需要启用和禁用的指标
         const newSet = new Set(indicators.map(i => i.toUpperCase()))
-        const currentSet = new Set(this.activeMainIndicators)
+        const currentSet = new Set(this._mainIndicatorsSignal.peek().keys())
 
         // 禁用不再激活的
         for (const id of currentSet) {
@@ -709,14 +723,25 @@ export class Chart {
         }
         this.indicatorScheduler.setInvalidateCallback(() => this.scheduleDraw())
 
-        // 初始化副图管理器
-        this.subPaneManager = new SubPaneManager()
         // 注册副图活跃列表提供者，调度器据此只计算启用的副图
         this.indicatorScheduler.setActiveSubPaneProvider(
             () => this.subPaneManager.getPaneIds(),
         )
 
         this.initPanes()
+
+        // dev: 主副图状态变更日志
+        if ((import.meta as any).env?.MODE !== 'production') {
+            this._indicatorsComputed.subscribe(() => {
+                const instances = this._indicatorsComputed.peek()
+                console.log('[Chart] indicators signal changed:', instances)
+            })
+            this._subPanesComputed.subscribe(() => {
+                const subPanes = this._subPanesComputed.peek()
+                console.log('[Chart] subPanes signal changed:', subPanes)
+            })
+        }
+
         // 注册绘图主插件（负责绘制 shape，layer: 'main'）
         this.useRenderer(createDrawingRendererPlugin({ store: this.drawingStore }))
         // 注册绘图标签插件（负责推送选中绘图的轴标签，layer: 'overlay'）
@@ -929,7 +954,7 @@ export class Chart {
         this.interaction.setKLinePositions(kLinePositions, range, kWidthPx)
 
         // 4. 通知调度器当前活跃主图指标 + 获取价格范围
-        this.indicatorScheduler.setActiveMainIndicators(Array.from(this.activeMainIndicators))
+        this.indicatorScheduler.setActiveMainIndicators([...this._mainIndicatorsSignal.peek().keys()])
         const mainIndicatorRange = useCachedFrame ? null : this.indicatorScheduler.getMainIndicatorPriceRange()
         const hasCrosshair = this.interaction.getCrosshairIndex() !== null
 
@@ -1410,7 +1435,6 @@ export class Chart {
             ratios[id] = ratio
         })
         this._paneRatiosSignal.set(ratios)
-        this.syncSubPanesSignal()
 
         this.onPaneLayoutChange?.(this.getPaneLayoutSpecs())
     }
@@ -1586,8 +1610,6 @@ export class Chart {
         this.upsertPane({ id: paneId, ratio: this._internalPaneRatios.get(paneId) ?? 1, visible: true, role: 'indicator' })
 
         const success = this.subPaneManager.create(this, paneId, indicatorId, params ?? this.getDefaultSubPaneParams(indicatorId))
-        this.syncIndicatorsSignal()
-        this.syncSubPanesSignal()
         return success
     }
 
@@ -1597,9 +1619,6 @@ export class Chart {
      */
     removeSubPane(paneId: string): void {
         this.subPaneManager.remove(this, paneId)
-        this._internalPaneRatios.delete(paneId)
-        this.syncIndicatorsSignal()
-        this.syncSubPanesSignal()
     }
 
     /**
@@ -1610,8 +1629,6 @@ export class Chart {
      */
     replaceSubPaneIndicator(paneId: string, newIndicatorId: SubIndicatorType, params?: Record<string, number | boolean | string>): void {
         this.subPaneManager.replaceIndicator(this, paneId, newIndicatorId, params ?? this.getDefaultSubPaneParams(newIndicatorId))
-        this.syncIndicatorsSignal()
-        this.syncSubPanesSignal()
     }
 
     /**
@@ -1621,7 +1638,6 @@ export class Chart {
      */
     updateSubPaneParams(paneId: string, params: Record<string, unknown>): void {
         this.subPaneManager.updateParams(this, paneId, params)
-        this.syncIndicatorsSignal()
     }
 
     /**
@@ -1643,8 +1659,6 @@ export class Chart {
 
         // 更新布局，移除所有副图 pane
         this.applyPaneLayoutSpecs(this.opt.panes.filter((spec) => !subPaneIds.includes(spec.id)))
-        this.syncIndicatorsSignal()
-        this.syncSubPanesSignal()
     }
 
     /**
@@ -2263,8 +2277,6 @@ export class Chart {
 
     private _dataSignal = createSignal<ReadonlyArray<KLineData>>([])
     private _themeSignal = createSignal<'light' | 'dark'>('light')
-    private _indicatorsSignal = createSignal<ReadonlyArray<IndicatorInstance>>([])
-    private _subPanesSignal = createSignal<ReadonlyArray<SubPaneInfo>>([])
     private _drawingToolSignal = createSignal<DrawingToolType | null>(null)
     private _drawingsSignal = createSignal<ReadonlyArray<import('../plugin').DrawingObject>>([])
     private _paneRatiosSignal = createSignal<Readonly<Record<string, number>>>({})
@@ -2285,6 +2297,38 @@ export class Chart {
         isHoveringRightAxis: false,
     })
 
+    private _indicatorsComputed = computed<ReadonlyArray<IndicatorInstance>>(() => {
+        const mainIndicators: IndicatorInstance[] = [...this._mainIndicatorsSignal().entries()].map(([id, entry]) => ({
+            id,
+            definitionId: id,
+            label: id,
+            name: id,
+            role: 'main' as const,
+            params: { ...entry.params },
+        }))
+
+        const subIndicators: IndicatorInstance[] = this.subPaneManager.entriesSignal().map(entry => ({
+            id: entry.paneId,
+            definitionId: entry.indicatorId,
+            label: entry.indicatorId,
+            name: entry.indicatorId,
+            role: 'sub' as const,
+            paneId: entry.paneId,
+            params: { ...entry.params },
+        }))
+
+        return [...mainIndicators, ...subIndicators]
+    })
+    private _subPanesComputed = computed<ReadonlyArray<SubPaneInfo>>(() => {
+        const ratios = this._paneRatiosSignal()
+        return this.subPaneManager.entriesSignal().map(entry => ({
+            paneId: entry.paneId,
+            indicatorId: entry.indicatorId,
+            params: { ...entry.params },
+            ratio: ratios[entry.paneId] ?? 1,
+        }))
+    })
+
     /** 视口状态信号 */
     get viewport(): Signal<ViewportState> {
         return this._viewportSignal
@@ -2300,14 +2344,14 @@ export class Chart {
         return this._themeSignal
     }
 
-    /** 指标实例列表信号 */
-    get indicators(): Signal<ReadonlyArray<IndicatorInstance>> {
-        return this._indicatorsSignal
+    /** 指标实例列表信号（派生信号，自动随主/副图状态更新） */
+    get indicators(): Computed<ReadonlyArray<IndicatorInstance>> {
+        return this._indicatorsComputed
     }
 
-    /** 子图信息信号 */
-    get subPanes(): Signal<ReadonlyArray<SubPaneInfo>> {
-        return this._subPanesSignal
+    /** 子图信息信号（派生信号，自动随副图条目/比例更新） */
+    get subPanes(): Computed<ReadonlyArray<SubPaneInfo>> {
+        return this._subPanesComputed
     }
 
     /** 当前绘图工具信号 */
@@ -2576,9 +2620,6 @@ export class Chart {
         if (role === 'main') {
             const success = this.enableMainIndicator(definitionId, params as Record<string, number | boolean | string>)
             if (!success) return null
-
-            // 更新 indicators signal
-            this.syncIndicatorsSignal()
             return definitionId.toUpperCase()
         } else {
             // 副图指标
@@ -2589,10 +2630,6 @@ export class Chart {
                 params as Record<string, number | boolean | string>,
             )
             if (!success) return null
-
-            // 更新 signals
-            this.syncIndicatorsSignal()
-            this.syncSubPanesSignal()
             return paneId
         }
     }
@@ -2605,25 +2642,18 @@ export class Chart {
     removeIndicator(instanceId: string): boolean {
         const id = instanceId.toUpperCase()
 
-        // 先尝试作为主图指标移除（直接检查内部状态，不依赖 signal）
-        if (this.activeMainIndicators.has(id)) {
-            const success = this.disableMainIndicator(instanceId)
-            if (success) {
-                this.syncIndicatorsSignal()
-            }
-            return success
+        // 先尝试作为主图指标移除
+        if (this._mainIndicatorsSignal.peek().has(id)) {
+            return this.disableMainIndicator(instanceId)
         }
 
-        // 再尝试作为副图指标移除（检查 sub pane 是否存在）
+        // 再尝试作为副图指标移除
         const subPaneEntry = this.getSubPaneEntry(instanceId)
         if (subPaneEntry) {
             this.removeSubPane(instanceId)
-            this.syncIndicatorsSignal()
-            this.syncSubPanesSignal()
             return true
         }
 
-        // 都没找到，返回 false
         return false
     }
 
@@ -2636,10 +2666,9 @@ export class Chart {
     updateIndicatorParams(instanceId: string, params: Record<string, unknown>): boolean {
         const id = instanceId.toUpperCase()
 
-        // 先尝试作为主图指标更新（直接检查内部状态）
-        if (this.activeMainIndicators.has(id)) {
+        // 先尝试作为主图指标更新
+        if (this._mainIndicatorsSignal.peek().has(id)) {
             this.updateMainIndicatorParams(instanceId, params as Record<string, number | boolean | string>)
-            this.syncIndicatorsSignal()
             return true
         }
 
@@ -2647,11 +2676,9 @@ export class Chart {
         const subPaneEntry = this.getSubPaneEntry(instanceId)
         if (subPaneEntry) {
             this.updateSubPaneParams(instanceId, params)
-            this.syncIndicatorsSignal()
             return true
         }
 
-        // 都没找到
         return false
     }
 
@@ -2667,46 +2694,7 @@ export class Chart {
         return false
     }
 
-    /**
-     * 同步 indicators signal
-     */
-    private syncIndicatorsSignal(): void {
-        const mainIndicators: IndicatorInstance[] = this.getActiveMainIndicators().map(id => ({
-            id,
-            definitionId: id,
-            label: id,
-            name: id,
-            role: 'main',
-            params: this.getMainIndicatorParams(id) ?? {},
-        }))
 
-        const subIndicators: IndicatorInstance[] = this.getSubPaneEntries().map(entry => ({
-            id: entry.paneId,
-            definitionId: entry.indicatorId,
-            label: entry.indicatorId,
-            name: entry.indicatorId,
-            role: 'sub',
-            paneId: entry.paneId,
-            params: entry.params,
-        }))
-
-        this._indicatorsSignal.set([...mainIndicators, ...subIndicators])
-    }
-
-    /**
-     * 同步 sub panes signal
-     */
-    private syncSubPanesSignal(): void {
-        const entries = this.getSubPaneEntries()
-        const subPanes: SubPaneInfo[] = entries.map(entry => ({
-            paneId: entry.paneId,
-            indicatorId: entry.indicatorId,
-            params: entry.params,
-            ratio: this._internalPaneRatios.get(entry.paneId) ?? 1,
-        }))
-
-        this._subPanesSignal.set(subPanes)
-    }
 
     // ---------- Sub Panes ----------
 
