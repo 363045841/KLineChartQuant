@@ -132,10 +132,6 @@ import {
   SUB_PANE_INDICATOR_CONFIGS,
   SUB_PANE_INDICATORS,
 } from '@363045841yyt/klinechart-core/engine/renderers/Indicator/subPaneConfig'
-import {
-  createPaneTitleRendererPlugin,
-  type TitleInfo,
-} from '@363045841yyt/klinechart-core/engine/renderers/paneTitle'
 import type { InteractionSnapshot } from '@363045841yyt/klinechart-core/engine/controller/interaction'
 import type { DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
 import LeftToolbar from './LeftToolbar.vue'
@@ -607,27 +603,6 @@ function generatePaneId(indicatorId: SubIndicatorType): string {
   return `${indicatorId}_${count}`
 }
 
-// paneTitle 渲染器名称映射（paneId -> rendererName）
-const paneTitleRendererNames = new Map<string, string>()
-
-function mountSubPaneTitle(paneId: string, indicatorId: SubIndicatorType): void {
-  const paneTitleRenderer = createPaneTitleRendererPlugin({
-    paneId,
-    title: indicatorId,
-    getTitleInfo: () => getSubPaneTitleInfo(paneId),
-  })
-  chartRef.value?.useRenderer(paneTitleRenderer)
-  paneTitleRendererNames.set(paneId, paneTitleRenderer.name)
-}
-
-function unmountSubPaneTitle(paneId: string): void {
-  const rendererName = paneTitleRendererNames.get(paneId)
-  if (rendererName) {
-    chartRef.value?.removeRenderer(rendererName)
-    paneTitleRendererNames.delete(paneId)
-  }
-}
-
 // 添加副图（使用 Chart API）
 function addSubPane(
   indicatorId: SubIndicatorType = 'VOLUME',
@@ -643,17 +618,11 @@ function addSubPane(
   const paneId = chartRef.value?.addIndicator(indicatorId, 'sub', mergedParams)
   if (!paneId) return false
 
-  // 创建 paneTitle 渲染器（UI 层职责）
-  mountSubPaneTitle(paneId, indicatorId)
-
   return true
 }
 
 // 移除副图（使用高层 Facade API）
 function removeSubPane(paneId: string): void {
-  // 移除 paneTitle 渲染器
-  unmountSubPaneTitle(paneId)
-
   // 使用高层 Facade API 移除指标（Signal 订阅自动同步本地状态）
   chartRef.value?.removeIndicator(paneId)
 }
@@ -663,12 +632,10 @@ function clearAllSubPanes(): void {
   // 使用高层 Facade API 逐个移除
   for (const pane of subPanes.value) {
     chartRef.value?.removeIndicator(pane.id)
-    unmountSubPaneTitle(pane.id)
   }
 
   // 清空本地状态（Signal 订阅自动同步 subPanes，只需要清理 UI 层状态）
   subPaneCounters.clear()
-  paneTitleRendererNames.clear()
 }
 
 // 从语义化配置初始化指标状态（单向数据流：config → chart）
@@ -695,8 +662,6 @@ function initIndicatorsFromConfig(): void {
 function syncSubPanesFromChart(): void {
   const chartSubPaneEntries = chartRef.value?.getSubPaneEntries() ?? []
 
-  paneTitleRendererNames.clear()
-
   for (const entry of chartSubPaneEntries) {
     const { paneId, indicatorId, params } = entry
 
@@ -711,8 +676,6 @@ function syncSubPanesFromChart(): void {
       }
     }
 
-    // 创建 paneTitle 渲染器
-    mountSubPaneTitle(paneId, indicatorId)
   }
 }
 
@@ -720,45 +683,8 @@ function syncSubPanesFromChart(): void {
 function switchSubIndicator(paneId: string, newIndicatorId: SubIndicatorType): void {
   const nextParams = getDefaultParams(newIndicatorId)
 
-  // 移除旧的 paneTitle 渲染器
-  unmountSubPaneTitle(paneId)
-
   // 使用 Chart API 替换副图指标（paneId 不变，只换指标类型，Signal 订阅自动同步本地状态）
   chartRef.value?.replaceSubPaneIndicator(paneId, newIndicatorId, nextParams)
-
-  // 创建新的 paneTitle 渲染器
-  mountSubPaneTitle(paneId, newIndicatorId)
-}
-
-// 获取副图标题信息（带缓存，只在 crosshairIdx 或 data 变化时重算）
-const _titleInfoCache = new Map<
-  string,
-  { idx: number | null; dataLen: number; result: TitleInfo | null }
->()
-
-function getSubPaneTitleInfo(paneId: string): TitleInfo | null {
-  const pane = subPanes.value.find((p) => p.id === paneId)
-  if (!pane) return null
-
-  const data = chartRef.value?.getData()
-  if (!data || data.length === 0) return null
-
-  const idx = crosshairIdx.value
-  const dataLen = data.length
-
-  // 缓存命中：crosshairIdx 和 dataLen 都没变
-  const cached = _titleInfoCache.get(paneId)
-  if (cached && cached.idx === idx && cached.dataLen === dataLen) {
-    return cached.result
-  }
-
-  const config = SUB_PANE_INDICATOR_CONFIGS[pane.indicatorId]
-  const params = pane.params as Record<string, number>
-  const pluginHost = chartRef.value?.plugin
-  const result = pluginHost ? config.getTitleInfo(data, idx, params, pluginHost, paneId) : null
-
-  _titleInfoCache.set(paneId, { idx, dataLen, result })
-  return result
 }
 
 // 指标切换处理（使用高层 Facade API）
@@ -814,7 +740,6 @@ function handleIndicatorToggle(indicatorId: string, active: boolean) {
       // 使用高层 API 添加副图指标（Signal 订阅自动同步本地状态）
       const paneId = chart.addIndicator(indicatorId, 'sub', indicatorParams.value[indicatorId])
       if (paneId) {
-        mountSubPaneTitle(paneId, indicatorId as SubIndicatorType)
       } else if (subPanes.value.length > 0) {
         // 添加失败（可能达到上限），替换最后一个
         const lastPane = subPanes.value[subPanes.value.length - 1]
@@ -825,7 +750,6 @@ function handleIndicatorToggle(indicatorId: string, active: boolean) {
       const panesToRemove = subPanes.value.filter((p) => p.indicatorId === indicatorId)
       panesToRemove.forEach((pane) => {
         chart.removeIndicator(pane.id)
-        unmountSubPaneTitle(pane.id)
       })
     }
   }

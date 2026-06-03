@@ -1,7 +1,9 @@
-import type { RendererPlugin, RenderContext } from '../../plugin'
+import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../plugin'
 import { RENDERER_PRIORITY } from '../../plugin'
 import { getColors } from '../theme/colors'
 import { getFont, setCanvasFont } from '../theme/fonts'
+import { SUB_PANE_INDICATOR_CONFIGS } from './Indicator/subPaneConfig'
+import type { SubIndicatorType } from './Indicator'
 
 const textWidthCache = new Map<string, number>()
 const TEXT_WIDTH_CACHE_LIMIT = 256
@@ -21,49 +23,30 @@ function measureTextWidth(ctx: CanvasRenderingContext2D, text: string): number {
     return width
 }
 
-/**
- * 单个数值项
- */
 export interface TitleValueItem {
-    /** 标签（如 "DIF"、"DEA"） */
     label: string
-    /** 数值 */
     value: number
-    /** 颜色 */
     color: string
 }
 
-/**
- * 标题信息（由指标渲染器提供）
- */
 export interface TitleInfo {
-    /** 指标名称（如 "MACD"） */
     name: string
-    /** 参数列表（如 [12, 26, 9]） */
     params?: number[]
-    /** 数值项列表 */
     values?: TitleValueItem[]
 }
 
 export interface PaneTitleOptions {
-    /** 面板 ID */
     paneId: string
-    /** 标题文本（静态模式） */
     title: string
-    /** 副标题/描述 */
     description?: string
-    /** Y 偏移（逻辑像素） */
     yOffset?: number
-    /** 动态标题信息提供函数 */
-    getTitleInfo?: () => TitleInfo | null
+    indicatorId: SubIndicatorType
+    params: Record<string, unknown>
 }
 
-/**
- * 创建面板标题渲染器插件
- * 在面板左上角显示标题，支持动态指标数值显示
- */
-export function createPaneTitleRendererPlugin(options: PaneTitleOptions): RendererPlugin {
+export function createPaneTitleRendererPlugin(options: PaneTitleOptions): RendererPluginWithHost {
     let currentOptions = { ...options }
+    let pluginHost: PluginHost | null = null
 
     return {
         name: `paneTitle_${options.paneId}`,
@@ -73,6 +56,10 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
         paneId: options.paneId,
         priority: RENDERER_PRIORITY.FOREGROUND,
         layer: 'overlay',
+
+        onInstall(host: PluginHost) {
+            pluginHost = host
+        },
 
         draw(context: RenderContext) {
             const { overlayCtx, pane, paneWidth } = context
@@ -89,7 +76,11 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
             overlayCtx.textAlign = 'left'
             overlayCtx.textBaseline = 'top'
 
-            const titleInfo = currentOptions.getTitleInfo?.()
+            const config = SUB_PANE_INDICATOR_CONFIGS[currentOptions.indicatorId]
+            const crosshairIndex = context.crosshairIndex ?? null
+            const titleInfo = config && pluginHost
+                ? config.getTitleInfo(context.data, crosshairIndex, currentOptions.params as Record<string, number | boolean | string>, pluginHost, currentOptions.paneId)
+                : null
 
             if (titleInfo) {
                 let currentX = x

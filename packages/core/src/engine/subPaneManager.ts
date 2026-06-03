@@ -2,6 +2,7 @@ import type { Chart } from './chart'
 import type { SubIndicatorType } from './renderers/Indicator'
 import { createSignal, type Signal } from '../reactivity/signal'
 import { createSubIndicatorRenderer } from './renderers/Indicator'
+import { createPaneTitleRendererPlugin } from './renderers/paneTitle'
 import { createVolumeScaleRendererPlugin } from './renderers/Indicator/scale/volume_scale'
 import { createMacdScaleRendererPlugin } from './renderers/Indicator/scale/macd_scale'
 import { createRsiScaleRendererPlugin } from './renderers/Indicator/scale/rsi_scale'
@@ -57,6 +58,7 @@ export interface SubPaneEntry {
     params: Record<string, unknown>
     rendererName: string
     scaleRendererName: string
+    paneTitleRendererName: string
 }
 
 export class SubPaneManager {
@@ -78,6 +80,7 @@ export class SubPaneManager {
 
         const rendererName = `${indicatorId.toLowerCase()}_${paneId}`
         const scaleRendererName = `${indicatorId.toLowerCase()}_scale_${paneId}`
+        const paneTitleRendererName = `paneTitle_${paneId}`
 
         const paneExists = chart.hasPane(paneId)
         if (!paneExists) {
@@ -91,10 +94,11 @@ export class SubPaneManager {
         }
 
         this.mountScaleRenderer(chart, paneId, indicatorId, scaleRendererName)
+        this.mountPaneTitleRenderer(chart, paneId, indicatorId, params)
 
         // 必须在 syncSchedulerConfig 之前注册 entry，
         // 否则 scheduler 的 buildActiveConfig 读不到新 paneId，会将新指标的 show* 标志置为 false
-        this.entries.set(paneId, { paneId, indicatorId, params, rendererName, scaleRendererName })
+        this.entries.set(paneId, { paneId, indicatorId, params, rendererName, scaleRendererName, paneTitleRendererName })
 
         this.syncSchedulerConfig(chart, paneId, indicatorId, params)
 
@@ -110,6 +114,7 @@ export class SubPaneManager {
 
         chart.removeRenderer(entry.rendererName)
         chart.removeRenderer(entry.scaleRendererName)
+        chart.removeRenderer(entry.paneTitleRendererName)
 
         this.entries.delete(paneId)
 
@@ -129,14 +134,17 @@ export class SubPaneManager {
 
         chart.removeRenderer(entry.rendererName)
         chart.removeRenderer(entry.scaleRendererName)
+        chart.removeRenderer(entry.paneTitleRendererName)
 
         const newRendererName = `${newIndicatorId.toLowerCase()}_${paneId}`
         const newScaleRendererName = `${newIndicatorId.toLowerCase()}_scale_${paneId}`
+        const newPaneTitleRendererName = `paneTitle_${paneId}`
 
         const renderer = createSubIndicatorRenderer({ indicatorId: newIndicatorId, paneId })
         chart.useRenderer(renderer, newParams as Record<string, number | boolean | string>)
 
         this.mountScaleRenderer(chart, paneId, newIndicatorId, newScaleRendererName)
+        this.mountPaneTitleRenderer(chart, paneId, newIndicatorId, newParams)
 
         this.syncSchedulerConfig(chart, paneId, newIndicatorId, newParams)
 
@@ -146,6 +154,7 @@ export class SubPaneManager {
             params: newParams,
             rendererName: newRendererName,
             scaleRendererName: newScaleRendererName,
+            paneTitleRendererName: newPaneTitleRendererName,
         })
 
         chart.getIndicatorScheduler().onSubPaneChanged()
@@ -180,6 +189,7 @@ export class SubPaneManager {
         for (const entry of this.entries.values()) {
             chart.removeRenderer(entry.rendererName)
             chart.removeRenderer(entry.scaleRendererName)
+            chart.removeRenderer(entry.paneTitleRendererName)
         }
         this.entries.clear()
         chart.getIndicatorScheduler().onSubPaneChanged()
@@ -437,6 +447,23 @@ export class SubPaneManager {
                 return
         }
 
+        chart.useRenderer(renderer)
+    }
+
+    private mountPaneTitleRenderer(chart: Chart, paneId: string, indicatorId: SubIndicatorType, params: Record<string, unknown>): void {
+        const rendererName = `paneTitle_${paneId}`
+        const existing = chart.getRenderer(rendererName)
+        if (existing) {
+            chart.updateRendererConfig(rendererName, { params, indicatorId })
+            return
+        }
+
+        const renderer = createPaneTitleRendererPlugin({
+            paneId,
+            title: indicatorId,
+            indicatorId,
+            params,
+        })
         chart.useRenderer(renderer)
     }
 }
