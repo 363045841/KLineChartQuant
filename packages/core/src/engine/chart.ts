@@ -312,8 +312,8 @@ export class Chart {
         // 更新调度器配置
         this.updateIndicatorSchedulerConfig(id)
 
-        this.scheduleDraw()
         this.syncIndicatorsSignal()
+        this.scheduleDraw()
         return true
     }
 
@@ -334,8 +334,8 @@ export class Chart {
         // 更新调度器配置
         this.updateIndicatorSchedulerConfig(id)
 
-        this.scheduleDraw()
         this.syncIndicatorsSignal()
+        this.scheduleDraw()
         return true
     }
 
@@ -389,8 +389,8 @@ export class Chart {
 
         // 更新调度器
         this.updateIndicatorSchedulerConfig(id)
-        this.scheduleDraw()
         this.syncIndicatorsSignal()
+        this.scheduleDraw()
     }
 
     /**
@@ -409,8 +409,8 @@ export class Chart {
             this.disableMainIndicatorRenderer(id)
         }
         this.activeMainIndicators.clear()
-        this.scheduleDraw()
         this.syncIndicatorsSignal()
+        this.scheduleDraw()
     }
 
     /**

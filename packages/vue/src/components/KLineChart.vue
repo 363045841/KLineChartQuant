@@ -118,7 +118,7 @@ import KLineTooltip from './KLineTooltip.vue'
 import MarkerTooltip from './MarkerTooltip.vue'
 import IndicatorSelector from './IndicatorSelector.vue'
 import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
-import { Chart, type PaneSpec } from '@363045841yyt/klinechart-core/engine/chart'
+import { Chart, type PaneSpec, type IndicatorInstance, type SubPaneInfo } from '@363045841yyt/klinechart-core/engine/chart'
 import type { KLineData } from '@363045841yyt/klinechart-core/types/price'
 import {
   createChartStore,
@@ -639,40 +639,23 @@ function addSubPane(
 
   const mergedParams = params ?? getDefaultParams(indicatorId)
 
-  // 使用高层 Facade API 创建副图指标
+  // 使用高层 Facade API 创建副图指标（Signal 订阅自动同步本地状态和 scheduleDraw）
   const paneId = chartRef.value?.addIndicator(indicatorId, 'sub', mergedParams)
   if (!paneId) return false
 
   // 创建 paneTitle 渲染器（UI 层职责）
   mountSubPaneTitle(paneId, indicatorId)
 
-  // 更新本地状态
-  subPanes.value.push({
-    id: paneId,
-    indicatorId,
-    params: mergedParams,
-  })
-
-  scheduleRender()
   return true
 }
 
 // 移除副图（使用高层 Facade API）
 function removeSubPane(paneId: string): void {
-  const index = subPanes.value.findIndex((p) => p.id === paneId)
-  if (index === -1) return
-
-  const pane = subPanes.value[index]
-  if (!pane) return
-
   // 移除 paneTitle 渲染器
   unmountSubPaneTitle(paneId)
 
-  // 使用高层 Facade API 移除指标
+  // 使用高层 Facade API 移除指标（Signal 订阅自动同步本地状态）
   chartRef.value?.removeIndicator(paneId)
-
-  // 更新本地状态
-  subPanes.value.splice(index, 1)
 }
 
 // 清除所有副图（使用高层 Facade API）
@@ -683,32 +666,22 @@ function clearAllSubPanes(): void {
     unmountSubPaneTitle(pane.id)
   }
 
-  // 清空本地状态
-  subPanes.value = []
+  // 清空本地状态（Signal 订阅自动同步 subPanes，只需要清理 UI 层状态）
   subPaneCounters.clear()
   paneTitleRendererNames.clear()
 }
 
 // 从语义化配置初始化指标状态（单向数据流：config → chart）
+// Signal 订阅会自动同步本地状态，此处只需调用 Chart API
 function initIndicatorsFromConfig(): void {
   const config = props.semanticConfig
   const chart = chartRef.value
   if (!chart) return
 
-  // 初始化主图指标 - 直接调用Chart API
   const mainIndicators = config.indicators?.main
   if (mainIndicators) {
     for (const indicator of mainIndicators) {
       if (indicator.enabled) {
-        // 同步Vue状态（用于UI展示）
-        if (!mainActiveIndicators.value.includes(indicator.type)) {
-          mainActiveIndicators.value.push(indicator.type)
-        }
-        // 保存参数
-        if (indicator.params) {
-          indicatorParams.value[indicator.type] = indicator.params as Record<string, unknown>
-        }
-        // 启用指标（Chart内部管理渲染器）
         chart.enableMainIndicator(
           indicator.type,
           indicator.params as Record<string, number | boolean | string>,
@@ -716,51 +689,12 @@ function initIndicatorsFromConfig(): void {
       }
     }
   }
-
-  // 副图指标参数由 syncSubPanesFromChart 处理
 }
-
-// 监听主图指标参数变化，同步到Chart（状态由Chart管理，Vue只同步参数）
-watch(
-  [activeIndicators, indicatorParams],
-  ([indicators]) => {
-    const chart = chartRef.value
-    if (!chart) return
-
-    // 只更新mainIndicatorLegend的配置（用于图例显示）
-    // 渲染器的启用/禁用由Chart内部管理
-    chart.updateRendererConfig('mainIndicatorLegend', {
-      indicators: {
-        MA: {
-          enabled: indicators.includes('MA'),
-          params: indicatorParams.value['MA'] || {},
-        },
-        BOLL: {
-          enabled: indicators.includes('BOLL'),
-          params: indicatorParams.value['BOLL'] || {},
-        },
-        EXPMA: {
-          enabled: indicators.includes('EXPMA'),
-          params: indicatorParams.value['EXPMA'] || {},
-        },
-        ENE: {
-          enabled: indicators.includes('ENE'),
-          params: indicatorParams.value['ENE'] || {},
-        },
-      },
-    })
-
-    scheduleRender()
-  },
-  { deep: true },
-)
 
 // 从 Chart 同步副图状态到本地（语义化配置后调用）
 function syncSubPanesFromChart(): void {
   const chartSubPaneEntries = chartRef.value?.getSubPaneEntries() ?? []
 
-  // 清空本地状态
-  subPanes.value = []
   paneTitleRendererNames.clear()
 
   for (const entry of chartSubPaneEntries) {
@@ -779,43 +713,21 @@ function syncSubPanesFromChart(): void {
 
     // 创建 paneTitle 渲染器
     mountSubPaneTitle(paneId, indicatorId)
-
-    // 更新本地状态
-    subPanes.value.push({
-      id: paneId,
-      indicatorId,
-      params: { ...params },
-    })
   }
-
-  scheduleRender()
 }
 
 // 切换副图指标（使用 Chart API）
 function switchSubIndicator(paneId: string, newIndicatorId: SubIndicatorType): void {
-  const pane = subPanes.value.find((p) => p.id === paneId)
-  if (!pane) return
-
   const nextParams = getDefaultParams(newIndicatorId)
 
   // 移除旧的 paneTitle 渲染器
   unmountSubPaneTitle(paneId)
 
-  // 使用 Chart API 替换副图指标（paneId 不变，只换指标类型）
+  // 使用 Chart API 替换副图指标（paneId 不变，只换指标类型，Signal 订阅自动同步本地状态）
   chartRef.value?.replaceSubPaneIndicator(paneId, newIndicatorId, nextParams)
 
   // 创建新的 paneTitle 渲染器
   mountSubPaneTitle(paneId, newIndicatorId)
-
-  // 更新本地状态（paneId 保持不变）
-  const index = subPanes.value.findIndex((p) => p.id === paneId)
-  if (index !== -1) {
-    subPanes.value[index] = {
-      id: paneId,
-      indicatorId: newIndicatorId,
-      params: nextParams,
-    }
-  }
 }
 
 // 获取副图标题信息（带缓存，只在 crosshairIdx 或 data 变化时重算）
@@ -879,14 +791,12 @@ function handleIndicatorToggle(indicatorId: string, active: boolean) {
     const existingIndicator = mainActiveIndicators.value.find((id) => id === indicatorId)
 
     if (active && !existingIndicator) {
-      // 添加主图指标
+      // 添加主图指标（Signal 订阅自动同步本地状态）
       chart.addIndicator(indicatorId, 'main', indicatorParams.value[indicatorId])
-      mainActiveIndicators.value.push(indicatorId)
     } else if (!active && existingIndicator) {
-      // 移除主图指标
+      // 移除主图指标（Signal 订阅自动同步本地状态）
       const instanceId = indicatorId.toUpperCase()
       chart.removeIndicator(instanceId)
-      mainActiveIndicators.value = mainActiveIndicators.value.filter((id) => id !== indicatorId)
     }
     return
   }
@@ -901,17 +811,10 @@ function handleIndicatorToggle(indicatorId: string, active: boolean) {
       // 副图数量上限检查
       if (subPanes.value.length >= maxSubPanes) return
 
-      // 使用高层 API 添加副图指标
+      // 使用高层 API 添加副图指标（Signal 订阅自动同步本地状态）
       const paneId = chart.addIndicator(indicatorId, 'sub', indicatorParams.value[indicatorId])
       if (paneId) {
-        // 创建 paneTitle 渲染器
         mountSubPaneTitle(paneId, indicatorId as SubIndicatorType)
-        // 同步本地状态
-        subPanes.value.push({
-          id: paneId,
-          indicatorId: indicatorId as SubIndicatorType,
-          params: { ...indicatorParams.value[indicatorId] },
-        })
       } else if (subPanes.value.length > 0) {
         // 添加失败（可能达到上限），替换最后一个
         const lastPane = subPanes.value[subPanes.value.length - 1]
@@ -924,42 +827,13 @@ function handleIndicatorToggle(indicatorId: string, active: boolean) {
         chart.removeIndicator(pane.id)
         unmountSubPaneTitle(pane.id)
       })
-      subPanes.value = subPanes.value.filter((p) => p.indicatorId !== indicatorId)
     }
-    scheduleRender()
   }
-}
-
-// 更新主图指标图例配置
-function updateMainIndicatorLegendConfig() {
-  chartRef.value?.updateRendererConfig('mainIndicatorLegend', {
-    indicators: {
-      MA: {
-        enabled: activeIndicators.value.includes('MA'),
-        params: indicatorParams.value['MA'] || {},
-      },
-      BOLL: {
-        enabled: activeIndicators.value.includes('BOLL'),
-        params: indicatorParams.value['BOLL'] || {},
-      },
-      EXPMA: {
-        enabled: activeIndicators.value.includes('EXPMA'),
-        params: indicatorParams.value['EXPMA'] || {},
-      },
-      ENE: {
-        enabled: activeIndicators.value.includes('ENE'),
-        params: indicatorParams.value['ENE'] || {},
-      },
-    },
-  })
 }
 
 // 指标参数更新处理
 function handleUpdateParams(indicatorId: string, params: Record<string, unknown>) {
-  // 保存参数配置
-  indicatorParams.value[indicatorId] = params
-
-  // 主图指标参数更新 - 使用Chart API
+  // 主图指标参数更新 - 使用Chart API（Signal 订阅自动同步本地状态和 scheduleDraw）
   if (
     indicatorId === 'MA' ||
     indicatorId === 'BOLL' ||
@@ -970,7 +844,6 @@ function handleUpdateParams(indicatorId: string, params: Record<string, unknown>
       indicatorId,
       params as Record<string, number | boolean | string>,
     )
-    scheduleRender()
     return
   }
 
@@ -979,13 +852,9 @@ function handleUpdateParams(indicatorId: string, params: Record<string, unknown>
       .filter((p) => p.indicatorId === indicatorId)
       .forEach((pane) => {
         chartRef.value?.updateSubPaneParams(pane.id, params)
-        pane.params = { ...params }
       })
-    scheduleRender()
     return
   }
-
-  scheduleRender()
 }
 
 function handleReorderSubIndicators(orderedIndicatorIds: string[]) {
@@ -1206,12 +1075,75 @@ function setupChartCallbacks(chart: Chart): void {
     chartTheme.value = theme
   })
 
+  // 订阅 indicators signal，派生 Vue 本地状态（SSOT: Chart 引擎）
+  const unsubscribeIndicators = chart.indicators.subscribe(() => {
+    const instances = chart.indicators.peek()
+
+    // 同步主图指标列表
+    const mains = instances
+      .filter((i): i is IndicatorInstance & { role: 'main' } => i.role === 'main')
+      .map((i) => i.definitionId)
+    mainActiveIndicators.value = mains
+
+    // 合并主图指标参数（不覆盖副图参数）
+    const nextParams = { ...indicatorParams.value }
+    for (const inst of instances) {
+      if (inst.role === 'main' && inst.params && Object.keys(inst.params).length > 0) {
+        nextParams[inst.definitionId] = { ...inst.params }
+      }
+    }
+
+    // 更新主图指标图例配置
+    chart.updateRendererConfig('mainIndicatorLegend', {
+      indicators: {
+        MA: { enabled: mains.includes('MA'), params: nextParams['MA'] || {} },
+        BOLL: { enabled: mains.includes('BOLL'), params: nextParams['BOLL'] || {} },
+        EXPMA: { enabled: mains.includes('EXPMA'), params: nextParams['EXPMA'] || {} },
+        ENE: { enabled: mains.includes('ENE'), params: nextParams['ENE'] || {} },
+      },
+    })
+
+    indicatorParams.value = nextParams
+  })
+
+  // 订阅 subPanes signal，派生 Vue 本地状态
+  // 注意：保持当前显示顺序（reorder 是 UI 层私有状态），仅同步新增/删除
+  const unsubscribeSubPanes = chart.subPanes.subscribe(() => {
+    const subPaneInfos = chart.subPanes.peek()
+    const signalIds = new Set(subPaneInfos.map((sp) => sp.paneId))
+
+    // 保留 display order，移除已删除的 pane，追加新增的
+    const merged = subPanes.value.filter((p) => signalIds.has(p.id))
+    const existingIds = new Set(merged.map((p) => p.id))
+    for (const sp of subPaneInfos) {
+      if (!existingIds.has(sp.paneId)) {
+        merged.push({
+          id: sp.paneId,
+          indicatorId: sp.indicatorId as SubIndicatorType,
+          params: sp.params,
+        })
+      }
+    }
+    subPanes.value = merged
+
+    // 合并副图指标参数（不覆盖主图参数）
+    const nextParams = { ...indicatorParams.value }
+    for (const sp of subPaneInfos) {
+      if (sp.params && Object.keys(sp.params).length > 0) {
+        nextParams[sp.indicatorId] = { ...sp.params }
+      }
+    }
+    indicatorParams.value = nextParams
+  })
+
   // 保存 unsubscribe 函数以便清理
   onUnmounted(() => {
     unsubscribeViewport()
     unsubscribeData()
     unsubscribePaneRatios()
     unsubscribeTheme()
+    unsubscribeIndicators()
+    unsubscribeSubPanes()
   })
 }
 
