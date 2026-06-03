@@ -29,9 +29,13 @@ import type {
     ChartControllerFactory,
     ChartMountOptions,
     ChartViewport,
+    IndicatorDefinition,
     IndicatorInstance,
     InteractionSnapshot,
     KLineData,
+} from '@363045841yyt/klinechart-core'
+import {
+    createIndicatorSelectorController,
 } from '@363045841yyt/klinechart-core'
 
 export type {
@@ -250,6 +254,74 @@ export function useViewport(
     })
     onScopeDispose(unsub)
     return vp
+}
+
+// ---------------------------------------------------------------------------
+// useIndicatorSelector — composable
+// ---------------------------------------------------------------------------
+
+/**
+ * Bridge the indicator selector signals into Vue refs.
+ *
+ * Creates an internal IndicatorSelectorController for menu/search/filter UI
+ * state (catalog from `controller.catalog`), and delegates add/remove to the
+ * ChartController engine methods.
+ */
+export function useIndicatorSelector(controller: ChartController): {
+    catalog: ReadonlyArray<IndicatorDefinition>
+    filteredMain: Ref<ReadonlyArray<IndicatorDefinition>>
+    filteredSub: Ref<ReadonlyArray<IndicatorDefinition>>
+    menuOpen: Ref<boolean>
+    searchQuery: Ref<string>
+    add: (definitionId: string) => string | null
+    remove: (instanceId: string) => boolean
+    openMenu: () => void
+    closeMenu: () => void
+    toggleMenu: () => void
+    setSearchQuery: (q: string) => void
+    isActive: (definitionId: string) => boolean
+} {
+    const selector = createIndicatorSelectorController({
+        catalog: controller.catalog,
+    })
+
+    onScopeDispose(() => selector.dispose())
+
+    const filteredMain = coreSignalToVueRef(selector.filteredMain)
+    const filteredSub = coreSignalToVueRef(selector.filteredSub)
+    const menuOpen = coreSignalToVueRef(selector.menuOpen)
+    const searchQuery = coreSignalToVueRef(selector.searchQuery)
+
+    function add(definitionId: string): string | null {
+        const def = controller.catalog.find((d) => d.id === definitionId)
+        if (def === undefined) return null
+        return controller.addIndicator(definitionId, def.role)
+    }
+
+    function remove(instanceId: string): boolean {
+        return controller.removeIndicator(instanceId)
+    }
+
+    function isActive(definitionId: string): boolean {
+        return controller.indicators
+            .peek()
+            .some((i) => i.definitionId === definitionId)
+    }
+
+    return {
+        catalog: controller.catalog,
+        filteredMain,
+        filteredSub,
+        menuOpen,
+        searchQuery,
+        add,
+        remove,
+        openMenu: () => selector.openMenu(),
+        closeMenu: () => selector.closeMenu(),
+        toggleMenu: () => selector.toggleMenu(),
+        setSearchQuery: (q: string) => selector.setSearchQuery(q),
+        isActive,
+    }
 }
 
 // ---------------------------------------------------------------------------
