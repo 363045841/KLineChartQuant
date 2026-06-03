@@ -39,7 +39,6 @@ export default defineConfig({
             { find: /^@363045841yyt\/klinechart-core\/reactivity$/, replacement: r('reactivity/index.ts') },
             { find: /^@363045841yyt\/klinechart-core\/controllers$/, replacement: r('controllers/index.ts') },
             { find: /^@363045841yyt\/klinechart-core\/engine\/chart$/, replacement: r('engine/chart.ts') },
-            { find: /^@363045841yyt\/klinechart-core\/engine\/chart-store$/, replacement: r('engine/chart-store.ts') },
             { find: /^@363045841yyt\/klinechart-core\/engine\/utils\/zoom$/, replacement: r('engine/utils/zoom.ts') },
             { find: /^@363045841yyt\/klinechart-core\/engine\/utils\/klineConfig$/, replacement: r('engine/utils/klineConfig.ts') },
             { find: /^@363045841yyt\/klinechart-core\/engine\/renderers\/Indicator(\/.*)?$/, replacement: `${root}/packages/core/src/engine/renderers/Indicator$1` },

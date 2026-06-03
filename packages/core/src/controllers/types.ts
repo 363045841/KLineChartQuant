@@ -283,6 +283,8 @@ export interface ChartController extends DrawingChartAdapter {
 
     // ---- Narrow queries ----
     getIndicatorTitle(instanceId: string): string | undefined
+    /** total scrollable content width (replaces direct computeContentWidth imports) */
+    getContentWidth(): number
 
     // ---- Settings ----
     updateSettingsFacade(settings: Record<string, unknown>): void

@@ -121,7 +121,7 @@ import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
 import { createChartController, type ChartController } from '@363045841yyt/klinechart-core/controllers'
 import type { PaneSpec, IndicatorInstance } from '@363045841yyt/klinechart-core/controllers'
 import type { KLineData } from '@363045841yyt/klinechart-core/types/price'
-import { computeContentWidth } from '@363045841yyt/klinechart-core/engine/chart-store'
+
 import { zoomLevelToKWidth, kGapFromKWidth } from '@363045841yyt/klinechart-core/engine/utils/zoom'
 import { getPhysicalKLineConfig } from '@363045841yyt/klinechart-core/engine/utils/klineConfig'
 import { type SubIndicatorType } from '@363045841yyt/klinechart-core/engine/renderers/Indicator'
@@ -732,15 +732,7 @@ function handleReorderSubIndicators(orderedIndicatorIds: string[]) {
 /* 计算总宽度：从 Vue 响应式状态读取，zoom 变化时自动重算 */
 const axisHostWidth = computed(() => props.rightAxisWidth + props.priceLabelWidth)
 
-const totalWidth = computed(() =>
-  computeContentWidth({
-    dataLength: dataLength.value,
-    kWidth: kWidth.value,
-    kGap: kGap.value,
-    viewWidth: viewWidth.value,
-    viewportDpr: viewportDpr.value,
-  }),
-)
+const totalWidth = computed(() => controller.value?.getContentWidth() ?? 0)
 
 function scrollToRight() {
   const container = containerRef.value

@@ -47,10 +47,6 @@
       "types": "./dist/engine/chart.d.ts",
       "import": "./dist/engine/chart.js"
     },
-    "./engine/chart-store": {
-      "types": "./dist/engine/chart-store.d.ts",
-      "import": "./dist/engine/chart-store.js"
-    },
     "./engine/utils/zoom": {
       "types": "./dist/engine/utils/zoom.d.ts",
       "import": "./dist/engine/utils/zoom.js"

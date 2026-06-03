@@ -574,6 +574,11 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         chart.interaction.setTooltipAnchorPositioning(enabled)
     }
 
+    function getContentWidth(): number {
+        if (disposed) return 0
+        return chart.getContentWidth()
+    }
+
     function getIndicatorTitle(instanceId: string): string | undefined {
         if (disposed) return undefined
         const instances = chart.indicators.peek()
@@ -763,6 +768,7 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         setTooltipSize,
         setTooltipAnchorPositioning,
         getIndicatorTitle,
+        getContentWidth,
         setDrawingTool,
         clearDrawings,
         removeDrawing,

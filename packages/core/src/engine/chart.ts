@@ -9,7 +9,6 @@ import { PaneRenderer } from './paneRenderer'
 import { SharedWebGLSurface } from './renderers/webgl/sharedWebGLSurface'
 import { MarkerManager, type CustomMarkerEntity } from './marker/registry'
 import { getPhysicalKLineConfig, calcKWidthPx } from './utils/klineConfig'
-import { computeContentWidth } from './chart-store'
 import { computeZoom, computeZoomToLevel, type ZoomConfig } from './utils/zoom'
 import { IndicatorScheduler } from './indicators/scheduler'
 import { getRegisteredIndicatorDefinitions } from './indicators/indicatorDefinitionRegistry'
@@ -1823,13 +1822,16 @@ export class Chart {
 
     /** 获取内容总宽度（用于外部 scroll-content 撑开 scrollWidth） */
     getContentWidth(): number {
-        return computeContentWidth({
-            dataLength: this._internalData.length,
-            kWidth: this.opt.kWidth,
-            kGap: this.opt.kGap,
-            viewWidth: this._internalViewport?.plotWidth ?? 0,
-            viewportDpr: this.getEffectiveDpr(),
-        })
+        const dataLength = this._internalData.length
+        if (dataLength === 0) return 0
+        const kWidth = this.opt.kWidth
+        const kGap = this.opt.kGap
+        const viewWidth = this._internalViewport?.plotWidth ?? 0
+        const dpr = this.getEffectiveDpr()
+        const TRAILING_DRAWING_SLOTS = 24
+        const { startXPx, unitPx } = getPhysicalKLineConfig(kWidth, kGap, dpr)
+        const dataPlotWidth = (startXPx + (dataLength + TRAILING_DRAWING_SLOTS) * unitPx) / dpr
+        return Math.max(dataPlotWidth, viewWidth)
     }
 
 
