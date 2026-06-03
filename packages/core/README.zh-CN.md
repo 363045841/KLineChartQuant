@@ -51,9 +51,9 @@ controller.dispose()
 - `effect`、`peek` —— 响应式工具函数
 
 ### 引擎
-- `Chart` —— 底层图表实例（通过 `@363045841yyt/klinechart-core/engine/chart` 导入）
-- `ChartStore` —— 数据管理
-- 渲染器（通过子路径导入）
+- `ChartController` —— 公开图表接口（通过 `@363045841yyt/klinechart-core/controllers` 导入）
+- `createChartController` —— 创建控制器实例的工厂函数
+- 渲染器（内部使用 —— 请通过 controllers 门面访问）
 
 ### 插件系统
 - `PluginHost` —— 插件注册与生命周期管理
@@ -70,12 +70,12 @@ controller.dispose()
 该包提供细粒度的子路径导入，支持 Tree-shaking：
 
 ```typescript
-// 核心引擎
-import { Chart } from '@363045841yyt/klinechart-core/engine/chart'
-import { ChartStore } from '@363045841yyt/klinechart-core/engine/chart-store'
+// 控制器（推荐）
+import { createChartController } from '@363045841yyt/klinechart-core/controllers'
+import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 
-// 工具函数
-import { zoom } from '@363045841yyt/klinechart-core/engine/utils/zoom'
+// 工具函数（也可通过 controllers 重新导出导入）
+import { zoomLevelToKWidth } from '@363045841yyt/klinechart-core/controllers'
 
 // 配置
 import { DEFAULT_SETTINGS } from '@363045841yyt/klinechart-core/config'

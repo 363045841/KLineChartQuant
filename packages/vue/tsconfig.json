@@ -22,7 +22,6 @@
       "@363045841yyt/klinechart-core/plugin": ["../core/src/plugin/index.ts"],
       "@363045841yyt/klinechart-core/config": ["../core/src/config/chartSettings.ts"],
       "@363045841yyt/klinechart-core/types/price": ["../core/src/types/price.ts"],
-      "@363045841yyt/klinechart-core/engine/chart": ["../core/src/engine/chart.ts"],
       "@363045841yyt/klinechart-core/engine/utils/zoom": ["../core/src/engine/utils/zoom.ts"],
       "@363045841yyt/klinechart-core/engine/utils/klineConfig": ["../core/src/engine/utils/klineConfig.ts"],
       "@363045841yyt/klinechart-core/engine/renderers/Indicator": ["../core/src/engine/renderers/Indicator/index.ts"],

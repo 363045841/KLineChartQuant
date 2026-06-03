@@ -51,9 +51,9 @@ controller.dispose()
 - `effect`, `peek` — Reactive utilities
 
 ### Engine
-- `Chart` — Low-level chart instance (via `@363045841yyt/klinechart-core/engine/chart`)
-- `ChartStore` — Data management
-- Renderers (via subpath imports)
+- `ChartController` — Public chart interface (via `@363045841yyt/klinechart-core/controllers`)
+- `createChartController` — Factory for creating controller instances
+- Renderers (internal — use controllers facade)
 
 ### Plugin System
 - `PluginHost` — Plugin registration and lifecycle
@@ -70,12 +70,12 @@ controller.dispose()
 The package provides granular subpath imports for tree-shaking:
 
 ```typescript
-// Core engine
-import { Chart } from '@363045841yyt/klinechart-core/engine/chart'
-import { ChartStore } from '@363045841yyt/klinechart-core/engine/chart-store'
+// Controllers (recommended)
+import { createChartController } from '@363045841yyt/klinechart-core/controllers'
+import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 
-// Utils
-import { zoom } from '@363045841yyt/klinechart-core/engine/utils/zoom'
+// Utils (also available via controllers re-export)
+import { zoomLevelToKWidth } from '@363045841yyt/klinechart-core/controllers'
 
 // Config
 import { DEFAULT_SETTINGS } from '@363045841yyt/klinechart-core/config'

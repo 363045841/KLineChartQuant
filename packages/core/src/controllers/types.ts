@@ -306,7 +306,6 @@ export type ChartControllerFactory = (opts: ChartMountOptions) => ChartControlle
 // Legacy type aliases (deprecated — kept for internal sub-controller tests)
 // ---------------------------------------------------------------------------
 
-/** @deprecated Use `IndicatorInstance` instead. Kept for createIndicatorSelectorController tests. */
 export interface ActiveIndicator {
     id: string
     definitionId: string
@@ -316,7 +315,6 @@ export interface ActiveIndicator {
     params: Readonly<Record<string, number | string | boolean>>
 }
 
-/** @deprecated Flattened into ChartController. Kept for createIndicatorSelectorController tests. */
 export interface IndicatorSelectorController {
     readonly catalog: Signal<ReadonlyArray<IndicatorDefinition>>
     readonly active: Signal<ReadonlyArray<ActiveIndicator>>
@@ -346,7 +344,6 @@ export interface ToolDefinition {
     disabled?: boolean
 }
 
-/** @deprecated Flattened into ChartController. Kept for createToolbarController tests. */
 export interface ToolbarController {
     readonly tools: Signal<ReadonlyArray<ToolDefinition>>
     readonly activeTool: Signal<ToolId | null>
@@ -362,7 +359,6 @@ export interface DrawingState {
     readonly drawingCount: number
 }
 
-/** @deprecated Flattened into ChartController. Kept for createDrawingController tests. */
 export interface DrawingController {
     readonly state: Signal<DrawingState>
     setActiveTool(tool: DrawingToolType | null): void
