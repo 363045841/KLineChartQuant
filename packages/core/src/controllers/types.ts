@@ -135,6 +135,51 @@ export interface InteractionSnapshot {
 }
 
 // ---------------------------------------------------------------------------
+// Pane info (read-only pane metadata for DrawingChartAdapter)
+// ---------------------------------------------------------------------------
+
+export interface PaneInfo {
+    paneId: string
+    top: number
+    height: number
+}
+
+// ---------------------------------------------------------------------------
+// Drawing adapter — narrow interface for DrawingInteractionController
+// ---------------------------------------------------------------------------
+
+export interface DrawingChartViewport {
+    scrollLeft: number
+    plotWidth: number
+    plotHeight: number
+}
+
+export interface DrawingChartAdapter {
+    /** persist full drawing list to the chart engine */
+    setDrawings(drawings: any[]): void
+    /** highlight a drawing by ID */
+    setSelectedDrawingId(id: string | null): void
+    /** current viewport (nullable if chart not ready) */
+    getViewport(): DrawingChartViewport | null
+    /** resolved chart options (kWidth, kGap) */
+    getKWidthKGap(): { kWidth: number; kGap: number }
+    /** device pixel ratio */
+    getCurrentDpr(): number
+    /** raw K-line data */
+    getData(): ReadonlyArray<KLineData>
+    /** screen-x → logical bar index */
+    getLogicalIndexAtX(mouseX: number): number | null
+    /** logical index → unix timestamp (ms) */
+    getTimestampAtLogicalIndex(index: number): number | null
+    /** price → Y within the given pane */
+    priceToY(paneId: string, price: number): number
+    /** Y within the given pane → price */
+    yToPrice(paneId: string, y: number): number
+    /** read-only pane metadata by pane ID */
+    getPaneInfo(paneId: string): PaneInfo | undefined
+}
+
+// ---------------------------------------------------------------------------
 // Drawing controller callback type (passed to handlePointerEvent)
 // ---------------------------------------------------------------------------
 
@@ -169,7 +214,7 @@ export interface ChartMountOptions {
     maxKWidth?: number
 }
 
-export interface ChartController {
+export interface ChartController extends DrawingChartAdapter {
     // ---- Signals ----
     readonly viewport: Signal<ChartViewport>
     readonly data: Signal<ReadonlyArray<KLineData>>
@@ -245,13 +290,6 @@ export interface ChartController {
 
     /** tear down DOM + listeners; idempotent */
     dispose(): void
-
-    /**
-     * @internal Escape hatch for DrawingInteractionController and other legacy
-     * engine consumers that still require the raw Chart instance. Will be removed
-     * once those consumers migrate to ChartController.
-     */
-    readonly _chart: unknown
 }
 
 /**

@@ -959,7 +959,7 @@ function applyInitialSettings(ctrl: ChartController): void {
 }
 
 function setupDrawingController(ctrl: ChartController): void {
-  drawingController.value = new DrawingInteractionController(ctrl._chart as any)
+  drawingController.value = new DrawingInteractionController(ctrl)
   drawingController.value.setCallbacks({
     onDrawingCreated: (drawing) => {
       drawings.value = [...drawings.value, drawing]

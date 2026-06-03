@@ -1,5 +1,5 @@
 import type { DrawingObject, DrawingKind, DrawingAnchor, DrawingStyle } from '../../plugin'
-import type { Chart } from '../chart'
+import type { DrawingChartAdapter } from '../../controllers/types'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
 import { computeLinearRegression } from './index'
 
@@ -55,7 +55,7 @@ const LINE_HIT_RADIUS = 6
  * 封装绘图工具的交互逻辑，与 Vue 组件解耦
  */
 export class DrawingInteractionController {
-  private chart: Chart
+  private adapter: DrawingChartAdapter
   private activeTool: DrawingToolId = 'cursor'
   private pendingAnchors: DrawingAnchorInput[] = []
   private drawings: DrawingObject[] = []
@@ -87,8 +87,8 @@ export class DrawingInteractionController {
     'disjoint-channel',
   ]
 
-  constructor(chart: Chart) {
-    this.chart = chart
+  constructor(adapter: DrawingChartAdapter) {
+    this.adapter = adapter
   }
 
   setCallbacks(callbacks: DrawingInteractionCallbacks) {
@@ -114,7 +114,7 @@ export class DrawingInteractionController {
 
   setDrawings(drawings: DrawingObject[]) {
     this.drawings = drawings
-    this.chart.setDrawings(drawings)
+    this.adapter.setDrawings(drawings)
   }
 
   clear() {
@@ -133,7 +133,7 @@ export class DrawingInteractionController {
     this.drawings = this.drawings.map((d) =>
       d.id === drawingId ? { ...d, style: { ...d.style, ...style } } : d
     )
-    this.chart.setDrawings(this.drawings)
+    this.adapter.setDrawings(this.drawings)
   }
 
   removeDrawing(drawingId: string): void {
@@ -141,7 +141,7 @@ export class DrawingInteractionController {
     if (this.selectedDrawingId === drawingId) {
       this.setSelected(null)
     }
-    this.chart.setDrawings(this.drawings)
+    this.adapter.setDrawings(this.drawings)
   }
 
   /**
@@ -287,7 +287,7 @@ export class DrawingInteractionController {
       }
     }
 
-    this.chart.setDrawings([...this.drawings])
+    this.adapter.setDrawings([...this.drawings])
     return true
   }
 
@@ -400,7 +400,7 @@ export class DrawingInteractionController {
 
     this.drawings = this.drawings.filter((d) => d.id !== this.previewDrawingId)
     this.drawings = [...this.drawings, preview]
-    this.chart.setDrawings(this.drawings)
+    this.adapter.setDrawings(this.drawings)
     return true
   }
 
@@ -446,7 +446,7 @@ export class DrawingInteractionController {
     drawing: DrawingObject,
     regressionGeometryCache?: Map<string, RegressionChannelGeometry | null>,
   ): LineSegment[] {
-    const viewport = this.chart.getViewport()
+    const viewport = this.adapter.getViewport()
     if (!viewport) return []
 
     if (drawing.kind === 'regression-channel') {
@@ -458,12 +458,11 @@ export class DrawingInteractionController {
       const screen = this.anchorToScreen(drawing.anchors[0]!)
       if (!screen) return []
 
-      const paneRenderer = this.chart.getPaneRenderers().find((item) => item.getPane().id === 'main')
-      const pane = paneRenderer?.getPane()
-      if (!pane) return []
+      const paneInfo = this.adapter.getPaneInfo('main')
+      if (!paneInfo) return []
 
       const right = viewport.plotWidth
-      const bottom = pane.height
+      const bottom = paneInfo.height
 
       switch (drawing.kind) {
         case 'horizontal-line':
@@ -582,7 +581,7 @@ export class DrawingInteractionController {
     const cached = regressionGeometryCache?.get(drawing.id)
     if (cached !== undefined) return cached
 
-    const data = this.chart.getData()
+    const data = this.adapter.getData()
     if (data.length === 0 || drawing.anchors.length < 2) {
       regressionGeometryCache?.set(drawing.id, null)
       return null
@@ -645,21 +644,17 @@ export class DrawingInteractionController {
   // ============ 坐标转换 ============
 
   private anchorToScreen(anchor: DrawingAnchor): { x: number; y: number } | null {
-    const viewport = this.chart.getViewport()
+    const viewport = this.adapter.getViewport()
     if (!viewport) return null
 
-    const opt = this.chart.getOption()
-    const dpr = this.chart.getCurrentDpr()
-    const { startXPx, unitPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
+    const { kWidth, kGap } = this.adapter.getKWidthKGap()
+    const dpr = this.adapter.getCurrentDpr()
+    const { startXPx, unitPx } = getPhysicalKLineConfig(kWidth, kGap, dpr)
     if (!Number.isFinite(anchor.index)) return null
 
     const x = (startXPx + anchor.index * unitPx + (unitPx - 1) / 2) / dpr - viewport.scrollLeft
 
-    const paneRenderer = this.chart.getPaneRenderers().find((item) => item.getPane().id === 'main')
-    const pane = paneRenderer?.getPane()
-    if (!pane) return null
-
-    const y = pane.yAxis.priceToY(anchor.price)
+    const y = this.adapter.priceToY('main', anchor.price)
     return { x, y }
   }
 
@@ -667,23 +662,22 @@ export class DrawingInteractionController {
     screenX: number,
     screenY: number
   ): DrawingAnchorInput | null {
-    const data = this.chart.getData()
-    const viewport = this.chart.getViewport()
+    const data = this.adapter.getData()
+    const viewport = this.adapter.getViewport()
     if (!viewport || data.length === 0) return null
 
-    const logicalIndex = this.chart.getLogicalIndexAtX(screenX)
+    const logicalIndex = this.adapter.getLogicalIndexAtX(screenX)
     if (logicalIndex === null) return null
 
-    const paneRenderer = this.chart.getPaneRenderers().find((item) => item.getPane().id === 'main')
-    const pane = paneRenderer?.getPane()
-    if (!pane) return null
+    const paneInfo = this.adapter.getPaneInfo('main')
+    if (!paneInfo) return null
 
-    const timestamp = this.chart.getTimestampAtLogicalIndex(logicalIndex) ?? undefined
+    const timestamp = this.adapter.getTimestampAtLogicalIndex(logicalIndex) ?? undefined
 
     return {
       index: logicalIndex,
       time: timestamp ?? undefined,
-      price: pane.yAxis.yToPrice(screenY - pane.top),
+      price: this.adapter.yToPrice('main', screenY - paneInfo.top),
     }
   }
 
@@ -693,22 +687,22 @@ export class DrawingInteractionController {
     const newId = drawing?.id ?? null
     if (this.selectedDrawingId === newId) return
     this.selectedDrawingId = newId
-    this.chart.setSelectedDrawingId(newId)
+    this.adapter.setSelectedDrawingId(newId)
     this.callbacks.onDrawingSelected?.(drawing)
   }
 
   private removePreview() {
     if (!this.drawings.some((d) => d.id === this.previewDrawingId)) return
     this.drawings = this.drawings.filter((d) => d.id !== this.previewDrawingId)
-    this.chart.setDrawings(this.drawings)
+    this.adapter.setDrawings(this.drawings)
   }
 
   private resolveAnchorFromPointer(
     e: PointerEvent,
     container: HTMLElement
   ): DrawingAnchorInput | null {
-    const data = this.chart.getData()
-    const viewport = this.chart.getViewport()
+    const data = this.adapter.getData()
+    const viewport = this.adapter.getViewport()
     if (!viewport || data.length === 0) return null
 
     const rect = container.getBoundingClientRect()
@@ -718,21 +712,18 @@ export class DrawingInteractionController {
       return null
     }
 
-    const paneRenderer = this.chart.getPaneRenderers().find((item) => {
-      const pane = item.getPane()
-      return pane.id === 'main' && mouseY >= pane.top && mouseY <= pane.top + pane.height
-    })
-    const pane = paneRenderer?.getPane()
-    if (!pane) return null
+    const paneInfo = this.adapter.getPaneInfo('main')
+    if (!paneInfo) return null
+    if (mouseY < paneInfo.top || mouseY > paneInfo.top + paneInfo.height) return null
 
-    const logicalIndex = this.chart.getLogicalIndexAtX(mouseX)
+    const logicalIndex = this.adapter.getLogicalIndexAtX(mouseX)
     if (logicalIndex === null) return null
-    const timestamp = this.chart.getTimestampAtLogicalIndex(logicalIndex) ?? undefined
+    const timestamp = this.adapter.getTimestampAtLogicalIndex(logicalIndex) ?? undefined
 
     return {
       index: logicalIndex,
       time: timestamp ?? undefined,
-      price: pane.yAxis.yToPrice(mouseY - pane.top),
+      price: this.adapter.yToPrice('main', mouseY - paneInfo.top),
     }
   }
 
@@ -754,7 +745,7 @@ export class DrawingInteractionController {
     }
 
     this.drawings = [...this.drawings, drawing]
-    this.chart.setDrawings(this.drawings)
+    this.adapter.setDrawings(this.drawings)
     this.callbacks.onDrawingCreated?.(drawing)
     this.activeTool = 'cursor'
     this.callbacks.onToolChange?.('cursor')
@@ -801,7 +792,7 @@ export class DrawingInteractionController {
     }
 
     this.drawings = [...this.drawings, drawing]
-    this.chart.setDrawings(this.drawings)
+    this.adapter.setDrawings(this.drawings)
     this.callbacks.onDrawingCreated?.(drawing)
     this.activeTool = 'cursor'
     this.callbacks.onToolChange?.('cursor')

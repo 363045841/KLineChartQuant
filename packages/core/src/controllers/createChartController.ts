@@ -25,6 +25,7 @@ import type {
     DrawingControllerCallbacks,
     IndicatorDefinition,
     KLineData,
+    PaneInfo,
     PaneSpec,
 } from './types'
 import type { CustomMarkerEntity } from '../engine/marker/registry'
@@ -595,6 +596,65 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         chart.removeDrawing(drawingId)
     }
 
+    // ---- DrawingChartAdapter methods ----
+
+    function setDrawings(drawings: any[]): void {
+        if (disposed) return
+        chart.setDrawings(drawings)
+    }
+
+    function setSelectedDrawingId(id: string | null): void {
+        if (disposed) return
+        chart.setSelectedDrawingId(id)
+    }
+
+    function getViewport(): { scrollLeft: number; plotWidth: number; plotHeight: number } | null {
+        if (disposed) return null
+        const vp = chart.getViewport()
+        return vp
+    }
+
+    function getKWidthKGap(): { kWidth: number; kGap: number } {
+        if (disposed) return { kWidth: 0, kGap: 0 }
+        const opt = chart.getOption()
+        return { kWidth: opt.kWidth, kGap: opt.kGap }
+    }
+
+    function getCurrentDpr(): number {
+        if (disposed) return 1
+        return chart.getCurrentDpr()
+    }
+
+    function getLogicalIndexAtX(mouseX: number): number | null {
+        if (disposed) return null
+        return chart.getLogicalIndexAtX(mouseX)
+    }
+
+    function getTimestampAtLogicalIndex(index: number): number | null {
+        if (disposed) return null
+        return chart.getTimestampAtLogicalIndex(index)
+    }
+
+    function priceToY(paneId: string, price: number): number {
+        if (disposed) return 0
+        const renderer = chart.getPaneRenderers().find(item => item.getPane().id === paneId)
+        return renderer?.getPane().yAxis.priceToY(price) ?? 0
+    }
+
+    function yToPrice(paneId: string, y: number): number {
+        if (disposed) return 0
+        const renderer = chart.getPaneRenderers().find(item => item.getPane().id === paneId)
+        return renderer?.getPane().yAxis.yToPrice(y) ?? 0
+    }
+
+    function getPaneInfo(paneId: string): PaneInfo | undefined {
+        if (disposed) return undefined
+        const renderer = chart.getPaneRenderers().find(item => item.getPane().id === paneId)
+        const pane = renderer?.getPane()
+        if (!pane) return undefined
+        return { paneId: pane.id, top: pane.top, height: pane.height }
+    }
+
     function createSubPane(paneId: string, indicatorId: string, params?: Record<string, unknown>): boolean {
         if (disposed) return false
         return chart.createSubPane(paneId, indicatorId as never, params as Record<string, string | number | boolean> | undefined)
@@ -706,6 +766,16 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         setDrawingTool,
         clearDrawings,
         removeDrawing,
+        setDrawings,
+        setSelectedDrawingId,
+        getViewport,
+        getKWidthKGap,
+        getCurrentDpr,
+        getLogicalIndexAtX,
+        getTimestampAtLogicalIndex,
+        priceToY,
+        yToPrice,
+        getPaneInfo,
         createSubPane,
         clearSubPanes,
         replaceSubPaneIndicator,
@@ -716,6 +786,5 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         updateSettingsFacade,
         updateOptionsFacade,
         dispose,
-        _chart: chart as unknown,
     }
 }
