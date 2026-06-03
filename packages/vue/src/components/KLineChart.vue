@@ -926,8 +926,8 @@ function initChart(
 function setupChartCallbacks(chart: Chart): void {
   // 注意：setOnViewportChange 已合并到 viewport signal 订阅者中
 
-  chart.setOnPaneLayoutChange(() => {
-    // 分隔线位置计算（需要实际像素位置，保留在回调中）
+  const unsubscribePaneLayout = chart.paneLayout.subscribe(() => {
+    // 分隔线位置计算（需要实际像素位置）
     invalidateContainerRectCache()
     const renderers = chart.getPaneRenderers()
     const borderTop = containerRef.value
@@ -1065,6 +1065,7 @@ function setupChartCallbacks(chart: Chart): void {
     unsubscribeViewport()
     unsubscribeData()
     unsubscribePaneRatios()
+    unsubscribePaneLayout()
     unsubscribeTheme()
     unsubscribeIndicators()
     unsubscribeSubPanes()
@@ -1101,16 +1102,6 @@ function setupInteractionCallbacks(chart: Chart): void {
   chart.interaction.setTooltipAnchorPositioning(useAnchorPositioning.value)
   chart.interaction.setOnInteractionChange((snapshot) => {
     interactionState.value = snapshot
-  })
-
-  chart.interaction.setOnPinchZoom((delta, centerClientX) => {
-    if (!chart) return
-    const container = containerRef.value
-    if (!container) return
-    // centerClientX 是 clientX，需要转换为视口局部坐标
-    const rect = container.getBoundingClientRect()
-    const centerX = centerClientX - rect.left
-    chart.handlePinchZoom(delta, centerX)
   })
 
   interactionState.value = chart.interaction.getInteractionSnapshot()
