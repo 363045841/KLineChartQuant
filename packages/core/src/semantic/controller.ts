@@ -41,7 +41,7 @@ async function getDataFetcher(): Promise<DataFetcher> {
   return _dataFetcher
 }
 
-interface SemanticChartAdapter {
+export interface SemanticChartAdapter {
   updateData(data: ReadonlyArray<KLineData>): void
   updateRendererConfig(name: string, config: Record<string, unknown>): void
   clearSubPanes(): void

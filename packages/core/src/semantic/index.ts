@@ -21,7 +21,7 @@ export type {
 } from './types'
 
 export { SemanticChartController, type SemanticEventType, __setDataFetcher } from './controller'
-export type { DataFetcher } from './controller'
+export type { DataFetcher, SemanticChartAdapter } from './controller'
 
 export { SemanticConfigValidator, sanitizeParams, sanitizeColor, validateColor, validateSymbol } from './validator'
 
