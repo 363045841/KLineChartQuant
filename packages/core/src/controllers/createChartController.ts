@@ -288,17 +288,27 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         throw new Error('[createChartController] opts.container must be a non-null HTMLElement')
     }
 
-    const mounted = buildDom(opts.container)
+    const hasExistingDom = !!(opts.canvasLayer && opts.rightAxisLayer && opts.xAxisCanvas)
+    const mounted = hasExistingDom
+        ? {
+            container: opts.container as HTMLDivElement,
+            canvasLayer: opts.canvasLayer!,
+            rightAxisLayer: opts.rightAxisLayer!,
+            xAxisCanvas: opts.xAxisCanvas!,
+            cleanup: () => { /* DOM owned by caller */ },
+        }
+        : buildDom(opts.container)
+
     const initialZoomLevel = opts.initialZoomLevel ?? DEFAULT_OPTS.initialZoomLevel
     const zoomLevelCount = opts.zoomLevels ?? DEFAULT_OPTS.zoomLevels
 
     const chartOptions: ChartOptions = {
-        yPaddingPx: DEFAULT_OPTS.yPaddingPx,
-        rightAxisWidth: DEFAULT_OPTS.rightAxisWidth,
-        bottomAxisHeight: DEFAULT_OPTS.bottomAxisHeight,
-        minKWidth: DEFAULT_OPTS.minKWidth,
-        maxKWidth: DEFAULT_OPTS.maxKWidth,
-        priceLabelWidth: DEFAULT_OPTS.priceLabelWidth,
+        yPaddingPx: opts.yPaddingPx ?? DEFAULT_OPTS.yPaddingPx,
+        rightAxisWidth: opts.rightAxisWidth ?? DEFAULT_OPTS.rightAxisWidth,
+        bottomAxisHeight: opts.bottomAxisHeight ?? DEFAULT_OPTS.bottomAxisHeight,
+        minKWidth: opts.minKWidth ?? DEFAULT_OPTS.minKWidth,
+        maxKWidth: opts.maxKWidth ?? DEFAULT_OPTS.maxKWidth,
+        priceLabelWidth: opts.priceLabelWidth ?? DEFAULT_OPTS.priceLabelWidth,
         panes: [{ id: 'main', ratio: 1 }],
         paneGap: 0,
         zoomLevels: zoomLevelCount,
@@ -642,7 +652,6 @@ export function createChartController(opts: ChartMountOptions): ChartController 
     function dispose(): void {
         if (disposed) return
         disposed = true
-        // Unsubscribe all signal bridges first
         for (const unsub of unsubs) {
             try {
                 unsub()
@@ -707,5 +716,6 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         updateSettingsFacade,
         updateOptionsFacade,
         dispose,
+        _chart: chart as unknown,
     }
 }

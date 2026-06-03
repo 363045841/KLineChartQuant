@@ -154,6 +154,19 @@ export interface ChartMountOptions {
     initialZoomLevel?: number
     zoomLevels?: number
     theme?: 'light' | 'dark'
+
+    // Pre-existing DOM elements (skip buildDom when provided)
+    canvasLayer?: HTMLElement
+    rightAxisLayer?: HTMLElement
+    xAxisCanvas?: HTMLCanvasElement
+
+    // Chart options overrides
+    yPaddingPx?: number
+    rightAxisWidth?: number
+    bottomAxisHeight?: number
+    priceLabelWidth?: number
+    minKWidth?: number
+    maxKWidth?: number
 }
 
 export interface ChartController {
@@ -232,6 +245,13 @@ export interface ChartController {
 
     /** tear down DOM + listeners; idempotent */
     dispose(): void
+
+    /**
+     * @internal Escape hatch for DrawingInteractionController and other legacy
+     * engine consumers that still require the raw Chart instance. Will be removed
+     * once those consumers migrate to ChartController.
+     */
+    readonly _chart: unknown
 }
 
 /**
