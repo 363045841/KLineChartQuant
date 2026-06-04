@@ -15,7 +15,9 @@
     "outDir": "dist",
     "rootDir": "src",
     "paths": {
-      "@363045841yyt/klinechart-core": ["../core/src"]
+      "@363045841yyt/klinechart-core": ["../core/src"],
+      "@363045841yyt/klinechart-core/*": ["../core/src/*"],
+      "@363045841yyt/klinechart/web-component": ["../vue/src/web-component.ts"]
     }
   },
   "include": ["src/**/*"],

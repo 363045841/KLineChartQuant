@@ -23,6 +23,7 @@
     "access": "public"
   },
   "scripts": {
+    "dev": "vite --config preview/vite.config.ts",
     "build": "tsc -p tsconfig.build.json",
     "prepublishOnly": "npm run build",
     "test": "vitest run",
@@ -37,7 +38,11 @@
       "path": "src/index.ts",
       "limit": "8 KB",
       "gzip": true,
-      "ignore": ["react", "react-dom", "@363045841yyt/klinechart-core"]
+      "ignore": [
+        "react",
+        "react-dom",
+        "@363045841yyt/klinechart-core"
+      ]
     }
   ],
   "peerDependencies": {
@@ -50,6 +55,7 @@
     "@testing-library/react": "^16.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^6.0.2",
     "jsdom": "^29.1.1",
     "publint": "^0.3.0",
     "react": "^19.0.0",
