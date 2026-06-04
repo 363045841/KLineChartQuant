@@ -70,7 +70,7 @@ export interface KLineData {
 const props = defineProps<{
   k: KLineData | null
   index: number | null
-  data: KLineData[]
+  data: ReadonlyArray<KLineData>
   pos: { x: number; y: number }
   useAnchor?: boolean
   anchorPlacement?: 'right-bottom' | 'left-bottom'
@@ -109,7 +109,7 @@ const UP_COLOR = '#ef4444'
 const DOWN_COLOR = '#22c55e'
 const NEUTRAL_COLOR = '#6b7280'
 
-function calcDirection(k: KLineData, data: KLineData[], idx: number | null): number {
+function calcDirection(k: KLineData, data: ReadonlyArray<KLineData>, idx: number | null): number {
   if (k.close >= k.open) return 1
   const prev = typeof idx === 'number' && idx > 0 ? data[idx - 1] : undefined
   if (prev && k.close > prev.close) return 1
