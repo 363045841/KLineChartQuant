@@ -28,6 +28,11 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./web-component": {
+      "import": {
+        "default": "./dist/kline-chart.js"
+      }
+    },
     "./style.css": "./dist/klinechart.css"
   },
   "files": [
@@ -40,6 +45,7 @@
   "scripts": {
     "dev": "vite --config preview/vite.config.ts",
     "build": "vite build && node -e \"require('fs').copyFileSync('dist/index.d.ts','dist/index.d.cts')\"",
+    "build:wc": "cross-env BUILD_TARGET=web-component vite build",
     "postbuild": "node -e \"require('fs').copyFileSync('dist/index.d.ts','dist/index.d.cts')\"",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -72,6 +78,7 @@
     "jsdom": "^29.1.1",
     "publint": "^0.3.0",
     "size-limit": "^12.1.0",
+    "cross-env": "^7.0.3",
     "typescript": "~6.0.3",
     "unplugin-icons": "^23.0.1",
     "vite": "^8.0.14",
