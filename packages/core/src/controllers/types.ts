@@ -10,6 +10,7 @@
 
 import type { Signal } from '../reactivity'
 import type { CustomMarkerEntity } from '../engine/marker/registry'
+import type { PaneSpec } from '../engine/chart'
 
 // Controller-owned public surface. Legacy engine types may mirror these
 // shapes internally, but adapters depend only on core-defined contracts.
@@ -73,7 +74,7 @@ export interface KLineData {
     turnoverRate?: number
 }
 
-export type { PaneSpec } from '../engine/chart'
+export type { PaneSpec }
 
 // ---------------------------------------------------------------------------
 // Indicator metadata
