@@ -13,6 +13,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "lib": ["ES2022", "DOM"],
+    "types": ["vite/client"],
     "baseUrl": "../..",
     "paths": {
       "@/core/*": ["packages/core/src/engine/*"],
