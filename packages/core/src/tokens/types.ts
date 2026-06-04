@@ -67,6 +67,174 @@ export interface IndicatorPalette {
  * call them green / red — Asian markets use the opposite convention
  * and the token must let that flip with a single override.
  */
+/**
+ * Text colors — importance levels for UI labels & annotations.
+ */
+export interface TextColors {
+    readonly primary: ColorValue
+    readonly secondary: ColorValue
+    readonly tertiary: ColorValue
+    readonly weak: ColorValue
+    readonly white: ColorValue
+}
+
+/**
+ * Price accent colors — tick highlights, last-price marker, etc.
+ * The main up/down body colors live on the top-level ColorTokens
+ * (candleUpBody / candleDownBody); this group covers extras.
+ */
+export interface PriceColors {
+    readonly upLight: ColorValue
+    readonly upTick: ColorValue
+    readonly downLight: ColorValue
+    readonly downTick: ColorValue
+    readonly lastPrice: ColorValue
+}
+
+/**
+ * Tag / label background colours — toolbar buttons, active states.
+ */
+export interface TagBgColors {
+    readonly white: ColorValue
+    readonly lightGray: ColorValue
+    readonly pureWhite: ColorValue
+    readonly transparent: ColorValue
+    readonly active: ColorValue
+    readonly activeHover: ColorValue
+    readonly hover: ColorValue
+}
+
+/**
+ * Border / stroke colours for UI chrome.
+ */
+export interface BorderColors {
+    readonly dark: ColorValue
+    readonly medium: ColorValue
+    readonly light: ColorValue
+    readonly separator: ColorValue
+    readonly button: ColorValue
+}
+
+/** Moving-average line colours (MA5 / MA10 / MA20 / MA30 / MA60). */
+export interface MAColors {
+    readonly ma5: ColorValue
+    readonly ma10: ColorValue
+    readonly ma20: ColorValue
+    readonly ma30: ColorValue
+    readonly ma60: ColorValue
+}
+
+/** Bollinger Bands stroke & fill colours. */
+export interface BOLLColors {
+    readonly upper: ColorValue
+    readonly middle: ColorValue
+    readonly lower: ColorValue
+    readonly bandFill: ColorValue
+}
+
+/** MACD indicator colours. */
+export interface MACDColors {
+    readonly dif: ColorValue
+    readonly dea: ColorValue
+    readonly barUp: ColorValue
+    readonly barUpLight: ColorValue
+    readonly barDown: ColorValue
+    readonly barDownLight: ColorValue
+}
+
+/** RSI indicator colours. */
+export interface RSIColors {
+    readonly rsi1: ColorValue
+    readonly rsi2: ColorValue
+    readonly rsi3: ColorValue
+}
+
+/** CCI indicator colours. */
+export interface CCIColors {
+    readonly cci: ColorValue
+    readonly overbought: ColorValue
+    readonly oversold: ColorValue
+}
+
+/** KDJ / Stochastic indicator colours. */
+export interface KDJColors {
+    readonly k: ColorValue
+    readonly d: ColorValue
+    readonly j: ColorValue
+}
+
+/** MOM (Momentum) indicator colours. */
+export interface MOMColors {
+    readonly mom: ColorValue
+    readonly zero: ColorValue
+}
+
+/** WMSR (Williams %R) indicator colours. */
+export interface WMSRColors {
+    readonly wmsr: ColorValue
+    readonly overbought: ColorValue
+    readonly oversold: ColorValue
+}
+
+/** KST (Know Sure Thing) indicator colours. */
+export interface KSTColors {
+    readonly kst: ColorValue
+    readonly signal: ColorValue
+}
+
+/** EXPMA (Exponential MA) indicator colours. */
+export interface EXPMAColors {
+    readonly fast: ColorValue
+    readonly slow: ColorValue
+}
+
+/** ENE (Envelope) indicator colours. */
+export interface ENEColors {
+    readonly upper: ColorValue
+    readonly middle: ColorValue
+    readonly lower: ColorValue
+    readonly bandFill: ColorValue
+}
+
+/** Generic label colours (tooltip-like overlays). */
+export interface LabelColors {
+    readonly bg: ColorValue
+    readonly text: ColorValue
+}
+
+/** Last-price marker label colours. */
+export interface LastPriceLabelColors {
+    readonly bg: ColorValue
+}
+
+/** Volume-price relationship markers. */
+export interface VolumePriceColors {
+    readonly riseWith: ColorValue
+    readonly riseWithout: ColorValue
+    readonly fallWith: ColorValue
+    readonly fallWithout: ColorValue
+}
+
+/** Structure (SMC) indicator — HH/HL/LH/LL/CHoCH/BOS. */
+export interface StructureColors {
+    readonly hh: ColorValue
+    readonly hl: ColorValue
+    readonly lh: ColorValue
+    readonly ll: ColorValue
+    readonly choch: ColorValue
+    readonly bos: ColorValue
+}
+
+/** Zones / FVG / Order-Block indicator colours. */
+export interface ZonesColors {
+    readonly fvgBullFill: ColorValue
+    readonly fvgBearFill: ColorValue
+    readonly fvgBullBorder: ColorValue
+    readonly fvgBearBorder: ColorValue
+    readonly obBullFill: ColorValue
+    readonly obBearFill: ColorValue
+}
+
 export interface ColorTokens {
     // Chart-wide background + foreground
     readonly background: ColorValue
@@ -130,6 +298,29 @@ export interface ColorTokens {
 
     // Indicator palette (composes ColorTokens)
     readonly palette: IndicatorPalette
+
+    // ── Legacy indicator colours (from engine/theme/colors) ──
+    readonly text: TextColors
+    readonly price: PriceColors
+    readonly tagBg: TagBgColors
+    readonly border: BorderColors
+    readonly ma: MAColors
+    readonly boll: BOLLColors
+    readonly macd: MACDColors
+    readonly rsi: RSIColors
+    readonly cci: CCIColors
+    readonly kdj: KDJColors
+    readonly mom: MOMColors
+    readonly wmsr: WMSRColors
+    readonly kst: KSTColors
+    readonly expma: EXPMAColors
+    readonly ene: ENEColors
+    readonly label: LabelColors
+    readonly lastPriceLabel: LastPriceLabelColors
+    readonly volumePrice: VolumePriceColors
+    readonly structure: StructureColors
+    readonly zones: ZonesColors
+    readonly wmsrGrid: ColorValue
 }
 
 /**

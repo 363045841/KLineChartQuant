@@ -36,15 +36,23 @@ describe('camelToKebab', () => {
     })
 })
 
+function countColorLeaves(c: Record<string, unknown>): number {
+    let count = 0
+    for (const v of Object.values(c)) {
+        if (v !== null && typeof v === 'object') {
+            count += countColorLeaves(v as Record<string, unknown>)
+        } else {
+            count++
+        }
+    }
+    return count
+}
+
 describe('themeToCssVars — coverage', () => {
     it('emits the expected number of variables for lightTheme', () => {
         const vars = themeToCssVars(lightTheme)
-        // 31 non-palette colors + 10 palette + 9 spacing + 9 typography + 5 motion = 64
-        // (Adjust if Theme grows. Keep this exact so an accidental drop
-        // shows up as a failure, not silent.)
         const expectedCount =
-            (Object.keys(lightTheme.colors).length - 1) + // -1 = palette is expanded
-            Object.keys(lightTheme.colors.palette).length +
+            countColorLeaves(lightTheme.colors as unknown as Record<string, unknown>) +
             Object.keys(lightTheme.spacing).length +
             Object.keys(lightTheme.typography).length +
             Object.keys(lightTheme.motion).length

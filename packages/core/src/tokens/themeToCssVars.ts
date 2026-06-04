@@ -56,9 +56,10 @@ function flattenColors(
 ): Record<string, string> {
     const out: Record<string, string> = {}
     for (const [k, v] of Object.entries(colors)) {
-        if (k === 'palette') {
-            for (const [pk, pv] of Object.entries(v as Record<string, string>)) {
-                out[`${prefix}color-palette-${camelToKebab(pk)}`] = pv
+        if (typeof v === 'object' && v !== null) {
+            const ns = camelToKebab(k)
+            for (const [nk, nv] of Object.entries(v as Record<string, string>)) {
+                out[`${prefix}color-${ns}-${camelToKebab(nk)}`] = nv
             }
         } else {
             out[`${prefix}color-${camelToKebab(k)}`] = v as string
