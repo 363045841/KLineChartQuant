@@ -46,7 +46,7 @@ type LineWebGLHandles = {
     basic: BasicLineWebGLHandles
 }
 
-type LineMsaaTargets = {
+type MsaaTargets = {
     samples: number
     widthPx: number
     heightPx: number
@@ -325,7 +325,7 @@ export class LineWebGLSurface {
     private fillScratch = new Float32Array(0)
     private lineScratch = new Float32Array(0)
     private region: WebGLRegion | null = null
-    private msaaTargets: LineMsaaTargets | null = null
+    private msaaTargets: MsaaTargets | null = null
 
     // Geometry cache: 以 points 数组引用 + halfWidth 为 key，避免每帧重算法线/miter
     private geoCache = new WeakMap<Array<{ x: number; y: number }>, Map<number, { vertices: Float32Array; vertexCount: number }>>()
@@ -406,17 +406,8 @@ export class LineWebGLSurface {
             floatOffset += vertices.length
         }
 
-        const physical = this.shared.getPhysicalRegion(region)
-        const msaaTargets = physical ? this.ensureLineMsaaTargets(gl, physical) : null
-        const useMsaa = msaaTargets !== null
-
-        if (useMsaa) {
-            gl.bindFramebuffer(gl.FRAMEBUFFER, msaaTargets.msaaFramebuffer)
-            gl.viewport(0, 0, msaaTargets.widthPx, msaaTargets.heightPx)
-            gl.disable(gl.SCISSOR_TEST)
-            gl.clearColor(0, 0, 0, 0)
-            gl.clear(gl.COLOR_BUFFER_BIT)
-        } else if (!this.shared.bindRegion(region)) {
+        const msaaRender = this.beginMsaaRender(gl, region)
+        if (!msaaRender && !this.shared.bindRegion(region)) {
             return false
         }
 
@@ -440,8 +431,8 @@ export class LineWebGLSurface {
 
         gl.bindVertexArray(null)
 
-        if (useMsaa && msaaTargets && physical) {
-            this.resolveLineMsaaToSharedRegion(gl, msaaTargets, physical)
+        if (msaaRender) {
+            this.resolveMsaaToSharedRegion(gl, msaaRender.targets, msaaRender.physical)
         }
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, null)
@@ -491,7 +482,11 @@ export class LineWebGLSurface {
         }
 
         const gl = this.shared.getGL()
-        if (!gl || !this.region || !this.shared.bindRegion(this.region)) return false
+        const region = this.region
+        if (!gl || !region) return false
+
+        const msaaRender = this.beginMsaaRender(gl, region)
+        if (!msaaRender && !this.shared.bindRegion(region)) return false
 
         gl.useProgram(handles.basic.program)
         gl.bindVertexArray(handles.basic.vao)
@@ -508,6 +503,12 @@ export class LineWebGLSurface {
         gl.uniform4f(handles.basic.colorLocation, colorValue[0], colorValue[1], colorValue[2], colorValue[3])
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, vertexCount)
         gl.bindVertexArray(null)
+
+        if (msaaRender) {
+            this.resolveMsaaToSharedRegion(gl, msaaRender.targets, msaaRender.physical)
+        }
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
         return true
     }
 
@@ -515,7 +516,7 @@ export class LineWebGLSurface {
         const handles = this.handles
         const gl = this.shared.getGL()
         if (gl) {
-            this.destroyLineMsaaTargets(gl)
+            this.destroyMsaaTargets(gl)
         }
         if (!handles) {
             this.vertexCapacity = 0
@@ -533,7 +534,20 @@ export class LineWebGLSurface {
         this.vertexCapacity = 0
     }
 
-    private ensureLineMsaaTargets(gl: WebGL2RenderingContext, physical: PhysicalRegion): LineMsaaTargets | null {
+    private beginMsaaRender(gl: WebGL2RenderingContext, region: WebGLRegion): { targets: MsaaTargets; physical: PhysicalRegion } | null {
+        const physical = this.shared.getPhysicalRegion(region)
+        const targets = physical ? this.ensureMsaaTargets(gl, physical) : null
+        if (!physical || !targets) return null
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, targets.msaaFramebuffer)
+        gl.viewport(0, 0, targets.widthPx, targets.heightPx)
+        gl.disable(gl.SCISSOR_TEST)
+        gl.clearColor(0, 0, 0, 0)
+        gl.clear(gl.COLOR_BUFFER_BIT)
+        return { targets, physical }
+    }
+
+    private ensureMsaaTargets(gl: WebGL2RenderingContext, physical: PhysicalRegion): MsaaTargets | null {
         const preferredSamples = 4
         const maxSamples = Number(gl.getParameter(gl.MAX_SAMPLES)) || 0
         const samples = Math.max(1, Math.min(preferredSamples, maxSamples))
@@ -549,7 +563,7 @@ export class LineWebGLSurface {
             return existing
         }
 
-        this.destroyLineMsaaTargets(gl)
+        this.destroyMsaaTargets(gl)
 
         const msaaFramebuffer = gl.createFramebuffer()
         const msaaColorRenderbuffer = gl.createRenderbuffer()
@@ -613,7 +627,7 @@ export class LineWebGLSurface {
         return targets
     }
 
-    private destroyLineMsaaTargets(gl: WebGL2RenderingContext): void {
+    private destroyMsaaTargets(gl: WebGL2RenderingContext): void {
         const targets = this.msaaTargets
         if (!targets) return
         gl.deleteFramebuffer(targets.msaaFramebuffer)
@@ -623,7 +637,7 @@ export class LineWebGLSurface {
         this.msaaTargets = null
     }
 
-    private resolveLineMsaaToSharedRegion(gl: WebGL2RenderingContext, targets: LineMsaaTargets, physical: PhysicalRegion): void {
+    private resolveMsaaToSharedRegion(gl: WebGL2RenderingContext, targets: MsaaTargets, physical: PhysicalRegion): void {
         gl.bindFramebuffer(gl.READ_FRAMEBUFFER, targets.msaaFramebuffer)
         gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, targets.resolveFramebuffer)
         gl.blitFramebuffer(
