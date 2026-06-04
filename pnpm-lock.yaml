@@ -229,6 +229,9 @@ importers:
       '@vue/test-utils':
         specifier: ^2.4.10
         version: 2.4.10(@vue/compiler-dom@3.5.35)(@vue/server-renderer@3.5.34(vue@3.5.34(typescript@6.0.3)))(vue@3.5.34(typescript@6.0.3))
+      cross-env:
+        specifier: ^7.0.3
+        version: 7.0.3
       jsdom:
         specifier: ^29.1.1
         version: 29.1.1
@@ -250,6 +253,9 @@ importers:
       vite-plugin-babel:
         specifier: ^1.3.2
         version: 1.7.3(@babel/core@7.29.7)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(yaml@2.8.4))
+      vite-plugin-css-injected-by-js:
+        specifier: ^5.0.1
+        version: 5.0.1(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(yaml@2.8.4))
       vite-plugin-dts:
         specifier: ^5.0.1
         version: 5.0.1(esbuild@0.28.0)(rolldown@1.0.2)(typescript@6.0.3)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(yaml@2.8.4))
@@ -1450,6 +1456,11 @@ packages:
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
 
+  cross-env@7.0.3:
+    resolution: {integrity: sha512-+/HKd6EgcQCJGh2PSjZuUitQBQynKor4wrFbRg4DtAgS1aWO+gU52xpH7M9ScGgXSYmAVS9bIJ8EzuaGw0oNAw==}
+    engines: {node: '>=10.14', npm: '>=6', yarn: '>=1'}
+    hasBin: true
+
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
     engines: {node: '>= 8'}
@@ -2349,6 +2360,11 @@ packages:
     peerDependencies:
       '@babel/core': ^7.0.0
       vite: ^2.7.0 || ^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0
+
+  vite-plugin-css-injected-by-js@5.0.1:
+    resolution: {integrity: sha512-JSB0jjN4VCKqG7XTUdrwiIl5gA+z2yi/tAl9WHo0X4sdyJ1yrmbLOEjf95TDoDIIuKr4GJIc7lMJG0CT88eEUQ==}
+    peerDependencies:
+      vite: '>8.0.0-0'
 
   vite-plugin-dts@5.0.1:
     resolution: {integrity: sha512-1L+x8bVPDhlI4kLzRIIGqO+b1VnvtY6CoHrU+riaipHJUAxayM0i1HObqeBv33Svil9hW64Z2KNiOn6UrKWCbA==}
@@ -3456,7 +3472,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.5(@types/node@25.9.1)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(vite@8.0.10(@types/node@25.9.1)(esbuild@0.28.0)(yaml@2.8.4))
+      vitest: 4.1.5(@types/node@25.9.1)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(yaml@2.8.4))
 
   '@vitest/expect@4.1.5':
     dependencies:
@@ -3797,6 +3813,10 @@ snapshots:
       proto-list: 1.2.4
 
   convert-source-map@2.0.0: {}
+
+  cross-env@7.0.3:
+    dependencies:
+      cross-spawn: 7.0.6
 
   cross-spawn@7.0.6:
     dependencies:
@@ -4651,6 +4671,10 @@ snapshots:
   vite-plugin-babel@1.7.3(@babel/core@7.29.7)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(yaml@2.8.4)):
     dependencies:
       '@babel/core': 7.29.7
+      vite: 8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(yaml@2.8.4)
+
+  vite-plugin-css-injected-by-js@5.0.1(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(yaml@2.8.4)):
+    dependencies:
       vite: 8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(yaml@2.8.4)
 
   vite-plugin-dts@5.0.1(esbuild@0.28.0)(rolldown@1.0.2)(typescript@6.0.3)(vite@8.0.10(@types/node@25.9.1)(esbuild@0.28.0)(yaml@2.8.4)):
