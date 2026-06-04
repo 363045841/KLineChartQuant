@@ -9,7 +9,7 @@ const isWC = process.env.BUILD_TARGET === 'web-component'
 
 export default defineConfig({
     plugins: [
-        vue(),
+        vue({ customElement: isWC }),
         Icons({ compiler: 'vue3', autoInstall: true }),
         ...(isWC
             ? [cssInjectedByJs()]
