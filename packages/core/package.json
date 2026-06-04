@@ -75,6 +75,10 @@
       "types": "./dist/engine/controller/interaction.d.ts",
       "import": "./dist/engine/controller/interaction.js"
     },
+    "./engine/marker/registry": {
+      "types": "./dist/engine/marker/registry.d.ts",
+      "import": "./dist/engine/marker/registry.js"
+    },
     "./engine/drawing": {
       "types": "./dist/engine/drawing/index.d.ts",
       "import": "./dist/engine/drawing/index.js"

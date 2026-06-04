@@ -44,7 +44,7 @@
   },
   "scripts": {
     "dev": "vite --config preview/vite.config.ts",
-    "build": "vite build && node -e \"require('fs').copyFileSync('dist/index.d.ts','dist/index.d.cts')\"",
+    "build": "vite build",
     "build:wc": "cross-env BUILD_TARGET=web-component vite build",
     "postbuild": "node -e \"require('fs').copyFileSync('dist/index.d.ts','dist/index.d.cts')\"",
     "test": "vitest run",

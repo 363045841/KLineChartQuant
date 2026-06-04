@@ -12,25 +12,9 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "lib": ["ES2022", "DOM"],
+    "types": ["vite/client", "unplugin-icons/types/vue"],
     "outDir": "dist",
-    "paths": {
-      "@363045841yyt/klinechart-core": ["../core/src"],
-      "@363045841yyt/klinechart-core/reactivity": ["../core/src/reactivity/index.ts"],
-      "@363045841yyt/klinechart-core/controllers": ["../core/src/controllers/index.ts"],
-      "@363045841yyt/klinechart-core/semantic": ["../core/src/semantic/index.ts"],
-      "@363045841yyt/klinechart-core/plugin": ["../core/src/plugin/index.ts"],
-      "@363045841yyt/klinechart-core/config": ["../core/src/config/chartSettings.ts"],
-      "@363045841yyt/klinechart-core/types/price": ["../core/src/types/price.ts"],
-      "@363045841yyt/klinechart-core/engine/utils/zoom": ["../core/src/engine/utils/zoom.ts"],
-      "@363045841yyt/klinechart-core/engine/utils/klineConfig": ["../core/src/engine/utils/klineConfig.ts"],
-      "@363045841yyt/klinechart-core/engine/renderers/Indicator": ["../core/src/engine/renderers/Indicator/index.ts"],
-      "@363045841yyt/klinechart-core/engine/renderers/Indicator/subPaneConfig": ["../core/src/engine/renderers/Indicator/subPaneConfig.ts"],
-      "@363045841yyt/klinechart-core/engine/renderers/Indicator/indicatorData": ["../core/src/engine/renderers/Indicator/indicatorData.ts"],
-      "@363045841yyt/klinechart-core/engine/renderers/paneTitle": ["../core/src/engine/renderers/paneTitle.ts"],
-      "@363045841yyt/klinechart-core/engine/controller/interaction": ["../core/src/engine/controller/interaction.ts"],
-      "@363045841yyt/klinechart-core/engine/drawing": ["../core/src/engine/drawing/index.ts"],
-      "@363045841yyt/klinechart-core/version": ["../core/src/version.ts"]
-    }
+    "rootDir": "../.."
   },
   "include": ["src/**/*"],
   "exclude": ["src/**/__tests__/**", "dist", "node_modules"]

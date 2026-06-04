@@ -51,6 +51,7 @@
     "aktools": "cd .. && cd aktoolshttp && uv run python -m aktools",
     "build": "run-p type-check \"build-only {@}\" --",
     "build-only": "vite build",
+    "build:packages": "pnpm --filter @363045841yyt/klinechart-core build && pnpm --filter @363045841yyt/klinechart build",
     "build:demo": "vite build --config vite.demo.config.ts",
     "preview": "vite preview",
     "preview:demo": "vite preview --config vite.demo.config.ts",
