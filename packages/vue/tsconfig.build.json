@@ -12,7 +12,6 @@
     "skipLibCheck": true,
     "lib": ["ES2022", "DOM"],
     "outDir": "dist",
-    "rootDir": "src",
     "paths": {
       "@363045841yyt/klinechart-core": ["../core/src"],
       "@363045841yyt/klinechart-core/reactivity": ["../core/src/reactivity/index.ts"],
