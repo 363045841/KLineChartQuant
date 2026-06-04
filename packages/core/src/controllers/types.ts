@@ -73,21 +73,7 @@ export interface KLineData {
     turnoverRate?: number
 }
 
-export type PaneRole = 'main' | 'sub'
-
-export interface PaneCapabilities {
-    crosshair: boolean
-    indicators: boolean
-}
-
-export interface PaneSpec {
-    id: string
-    ratio: number
-    visible?: boolean
-    minHeightPx?: number
-    role?: PaneRole
-    capabilities?: Partial<PaneCapabilities>
-}
+export type { PaneSpec } from '../engine/chart'
 
 // ---------------------------------------------------------------------------
 // Indicator metadata

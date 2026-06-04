@@ -38,7 +38,6 @@ import {
     type DrawingObject as LegacyDrawingObject,
     type DrawingToolType as LegacyDrawingToolType,
     type InteractionSnapshot as LegacyInteractionSnapshot,
-    type PaneSpec as LegacyPaneSpec,
 } from '../engine/chart'
 import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
 
@@ -686,7 +685,7 @@ export function createChartController(opts: ChartMountOptions): ChartController 
 
     function updatePaneLayout(panes: PaneSpec[]): void {
         if (disposed) return
-        chart.updatePaneLayout(panes as LegacyPaneSpec[])
+        chart.updatePaneLayout(panes)
     }
 
     function resizeSubPane(paneId: string, deltaY: number): boolean {
