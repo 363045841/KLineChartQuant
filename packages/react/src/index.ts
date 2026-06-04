@@ -1,13 +1,10 @@
-/**
- * @363045841yyt/klinechart-react â€?public API surface.
- *
- * React 18/19 bindings that bridge zero-dep core signals to React rendering
- * via `useSyncExternalStore`. SSR-safe: no DOM access at module scope.
- *
- * Pluggable factory: tests inject a mock controller via `__setChartFactory`.
- * Production builds will register the real factory from
- * `@363045841yyt/klinechart-core/controllers/createChartController` (Phase 1 deliverable).
- */
+export {
+    KLineChartWC,
+    type KLineChartWCProps,
+    type KLineChartWCHandle,
+} from './KLineChartWC'
+
+export type { SemanticChartConfig, DataFetcher } from '@363045841yyt/klinechart-core/semantic'
 
 import {
     createElement,
@@ -38,20 +35,8 @@ export type {
     ChartViewport,
 } from '@363045841yyt/klinechart-core'
 
-// ---------------------------------------------------------------------------
-// Factory registry â€?allows tests / consumers to inject the concrete
-// controller without forcing this package to depend on the production
-// implementation (which lives in @363045841yyt/klinechart-core/controllers).
-// ---------------------------------------------------------------------------
-
 let chartFactory: ChartControllerFactory | null = null
 
-/**
- * Register the production ChartControllerFactory. Called by the consumer
- * (or by the core package during its module init in a later phase).
- *
- * Exposed for tests under a `__` prefix to signal "internal but accessible".
- */
 export function __setChartFactory(factory: ChartControllerFactory | null): void {
     chartFactory = factory
 }
@@ -67,17 +52,6 @@ function resolveFactory(): ChartControllerFactory {
     return chartFactory
 }
 
-// ---------------------------------------------------------------------------
-// createChart â€?imperative mount
-// ---------------------------------------------------------------------------
-
-/**
- * Imperative mount API. Returns a controller; caller is responsible for `dispose`.
- *
- * Throws synchronously if `opts.container` is null/undefined â€?the only valid
- * entry path is with a real DOM element. This guards against half-mounts in
- * SSR contexts that accidentally invoke the function.
- */
 export function createChart(opts: ChartMountOptions): ChartController {
     if (opts === null || opts === undefined) {
         throw new Error('[@363045841yyt/klinechart-react] createChart: opts is required')
@@ -91,32 +65,11 @@ export function createChart(opts: ChartMountOptions): ChartController {
     return factory(opts)
 }
 
-// ---------------------------------------------------------------------------
-// useChart â€?React lifecycle wrapper around createChart
-// ---------------------------------------------------------------------------
-
-/**
- * React hook: mounts on first render to the ref'd element, returns the controller.
- *
- * Behaviour:
- * - Returns `null` until `ref.current` is populated (covers SSR + first render
- *   before commit). Mount is deferred to `useEffect` so DOM is touched only
- *   in the browser, never during SSR.
- * - Re-renders the host component when subscribed signals change, via
- *   `useSyncExternalStore`.
- * - Disposes the controller (and unmounts) when the host component unmounts.
- *
- * SSR contract: this function is safe to call from server-rendered components.
- * It returns `null` on the server because `useEffect` does not run there.
- */
 export function useChart(
     ref: RefObject<HTMLElement | null>,
     opts: Omit<ChartMountOptions, 'container'>,
 ): ChartController | null {
     const [controller, setController] = useState<ChartController | null>(null)
-
-    // Snapshot opts so the effect does not retrigger on every render. Tests and
-    // call sites that need to push new data should use `controller.setData(...)`.
     const optsRef = useRef(opts)
     optsRef.current = opts
 
@@ -134,17 +87,11 @@ export function useChart(
             setController(null)
             created.dispose()
         }
-        // ref is an object whose identity is stable across renders; we
-        // intentionally re-mount only when the ref *object* changes.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ref])
 
     return controller
 }
-
-// ---------------------------------------------------------------------------
-// useIndicators â€?subscribe to controller indicators signal
-// ---------------------------------------------------------------------------
 
 type IndicatorsView = {
     indicators: ReadonlyArray<IndicatorInstance>
@@ -153,9 +100,6 @@ type IndicatorsView = {
     updateParams: ChartController['updateIndicatorParams']
 }
 
-/**
- * Subscribes to `controller.indicators` via `useSyncExternalStore`.
- */
 export function useIndicators(controller: ChartController): IndicatorsView {
     const indicators = controller.indicators
 
@@ -188,9 +132,6 @@ export function useIndicators(controller: ChartController): IndicatorsView {
     return snapshot
 }
 
-/**
- * Subscribe to `controller.interactionState` via `useSyncExternalStore`.
- */
 export function useInteractionState(
     controller: ChartController,
 ): InteractionSnapshot {
@@ -206,9 +147,6 @@ export function useInteractionState(
     return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 }
 
-/**
- * Subscribe to `controller.paneRatios` via `useSyncExternalStore`.
- */
 export function usePaneRatios(
     controller: ChartController,
 ): Readonly<Record<string, number>> {
@@ -224,9 +162,6 @@ export function usePaneRatios(
     return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 }
 
-/**
- * Subscribe to `controller.viewport` via `useSyncExternalStore`.
- */
 export function useViewport(
     controller: ChartController,
 ): ChartViewport {
@@ -241,10 +176,6 @@ export function useViewport(
 
     return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 }
-
-// ---------------------------------------------------------------------------
-// <KLineChart /> â€?convenience component
-// ---------------------------------------------------------------------------
 
 export interface KLineChartProps {
     data: ChartMountOptions['data']
@@ -273,13 +204,6 @@ export interface KLineChartHandle {
     setData: (next: ReadonlyArray<KLineData>) => void
 }
 
-/**
- * Convenience component. Renders a host div, mounts a chart into it via
- * `useChart`, and forwards `className` / `style`.
- *
- * Supports `ref` for imperative controller access via `KLineChartHandle`.
- * Reacts to `data` and `theme` prop changes automatically.
- */
 export const KLineChart = forwardRef<KLineChartHandle, KLineChartProps>(
     function KLineChart(
         { data, initialZoomLevel, theme, zoomLevels, className, style },
@@ -303,16 +227,13 @@ export const KLineChart = forwardRef<KLineChartHandle, KLineChartProps>(
                 controllerRef.current = null
                 created.dispose()
             }
-            // Mount once â€?prop changes handled by separate effects
             // eslint-disable-next-line react-hooks/exhaustive-deps
         }, [])
 
-        // React to data prop changes
         useEffect(() => {
             controllerRef.current?.setData(data)
         }, [data])
 
-        // React to theme prop changes
         useEffect(() => {
             if (theme !== undefined) {
                 controllerRef.current?.setTheme(theme)
@@ -345,16 +266,5 @@ export const KLineChart = forwardRef<KLineChartHandle, KLineChartProps>(
     },
 )
 
-// ---------------------------------------------------------------------------
-// Auto-register the production ChartControllerFactory
-//
-// Consumers don't need to call __setChartFactory manually unless they want
-// to inject a custom backing (e.g. for testing). The contract tests in this
-// package override the factory in `beforeEach` and reset to null in
-// `afterEach`, so this default registration is transparent to them.
-//
-// Importing the factory is side-effect-free at module load â€?the engine's
-// DOM access only happens when `createChart(opts)` is actually called.
-// ---------------------------------------------------------------------------
 import { createChartController } from '@363045841yyt/klinechart-core'
 __setChartFactory(createChartController)
