@@ -291,8 +291,8 @@ export function createChartController(opts: ChartMountOptions): ChartController 
     const mounted = hasExistingDom
         ? {
             container: opts.container as HTMLDivElement,
-            canvasLayer: opts.canvasLayer!,
-            rightAxisLayer: opts.rightAxisLayer!,
+            canvasLayer: opts.canvasLayer as HTMLDivElement,
+            rightAxisLayer: opts.rightAxisLayer as HTMLDivElement,
             xAxisCanvas: opts.xAxisCanvas!,
             cleanup: () => { /* DOM owned by caller */ },
         }

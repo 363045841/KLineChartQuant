@@ -107,7 +107,7 @@ export class InteractionController {
 
     private setupPinchZoom(): void {
         this.pinchTracker.setOnPinchZoom((delta, centerClientX) => {
-            const container = this.chart.dom.container
+            const container = this.chart.getDom().container
             if (!container) return
             const rect = container.getBoundingClientRect()
             const centerX = centerClientX - rect.left
