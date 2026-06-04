@@ -186,14 +186,13 @@ function mapPaneRatios(ratios: Readonly<Record<string, number>>): Readonly<Recor
     return { ...ratios }
 }
 
-function mapInteractionRecord(
-    value: Record<string, any> | null | undefined,
-): Record<string, unknown> | null {
+function mapInteractionRecord<T>(
+    value: T | null | undefined,
+): T | null {
     if (!value) {
         return null
     }
-
-    return { ...value }
+    return { ...value } as T
 }
 
 function mapInteractionSnapshot(snapshot: LegacyInteractionSnapshot): InteractionSnapshot {

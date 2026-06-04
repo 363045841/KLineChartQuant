@@ -19,18 +19,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { ComponentPublicInstance } from 'vue'
-
-interface MarkerEntity {
-  markerType: string
-  metadata: Record<string, unknown>
-}
-
-interface CustomMarkerEntity {
-  date: string
-  shape: string
-  label?: { text: string }
-  metadata: Record<string, unknown>
-}
+import type { MarkerEntity, CustomMarkerEntity } from '../../../core/src/engine/marker/registry'
 
 const MARKER_TYPE_LABELS: Record<string, string> = {
   support: '支撑位',
