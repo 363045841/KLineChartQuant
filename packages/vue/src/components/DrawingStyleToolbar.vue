@@ -50,20 +50,7 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
-
-export interface DrawingStyle {
-  stroke?: string
-  strokeWidth?: number
-  strokeStyle?: 'solid' | 'dashed' | 'dotted'
-  fill?: string
-}
-
-export interface DrawingObject {
-  id: string
-  type: string
-  points: { x: number; y: number }[]
-  style: DrawingStyle
-}
+import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
 
 const props = defineProps<{
   drawing: DrawingObject
