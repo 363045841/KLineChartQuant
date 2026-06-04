@@ -117,6 +117,7 @@
 
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
+import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
 
 export interface ParamConfig {
   key: string
@@ -146,7 +147,7 @@ const emit = defineEmits<{
 const localValues = ref<Record<string, number>>({ ...props.values })
 const showDescription = ref(true)
 
-const teleportTarget = computed(() => 'body')
+const teleportTarget = useFullscreenTeleportTarget()
 
 watch(
   () => props.values,

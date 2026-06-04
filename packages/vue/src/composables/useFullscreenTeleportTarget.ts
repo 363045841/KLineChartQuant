@@ -8,11 +8,9 @@ export function provideFullscreenTeleportTarget(targetRef: Ref<HTMLElement | nul
 }
 
 export function useFullscreenTeleportTarget() {
-  // null = no provider in ancestor tree (degraded scenario)
   const targetRef = inject(FULLSCREEN_TARGET_KEY, null)
 
   return computed<HTMLElement | string>(() => {
-    // targetRef null → no provider; targetRef.value null → container not mounted yet
     return targetRef?.value ?? 'body'
   })
 }

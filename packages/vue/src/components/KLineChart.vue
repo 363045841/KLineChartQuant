@@ -1,5 +1,5 @@
 <template>
-  <div class="chart-wrapper" :data-theme="chartTheme">
+  <div ref="chartWrapperRef" class="chart-wrapper" :data-theme="chartTheme">
     <div
       class="chart-stage"
       :class="{
@@ -118,6 +118,7 @@ import KLineTooltip from './KLineTooltip.vue'
 import MarkerTooltip from './MarkerTooltip.vue'
 import IndicatorSelector from './IndicatorSelector.vue'
 import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
+import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
 import {
   createChartController,
   type ChartController,
@@ -182,8 +183,10 @@ const emit = defineEmits<{
 
 const containerRef = ref<HTMLDivElement | null>(null)
 const chartMainRef = ref<HTMLDivElement | null>(null)
+const chartWrapperRef = ref<HTMLDivElement | null>(null)
 const tooltipLayerRef = ref<HTMLDivElement | null>(null)
 const toolbarRef = ref<InstanceType<typeof LeftToolbar> | null>(null)
+provideFullscreenTeleportTarget(chartWrapperRef)
 
 /* ========== 图表控制器 ========== */
 const controller = shallowRef<ChartController | null>(null)
