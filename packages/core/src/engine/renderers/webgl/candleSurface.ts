@@ -390,16 +390,10 @@ export class LineWebGLSurface {
             const colorValue = parseColor(line.color)
             if (!colorValue) return false
 
-            if (line.width === 1) {
-                const { vertexCount, vertices } = this.getThinLineVertices(line.points)
-                drawCmds.push({ colorValue, mode: gl.LINE_STRIP, firstVertex: totalFloats / 2, pointCount: vertexCount })
-                totalFloats += vertices.length
-            } else {
-                const geometry = this.getLineGeometry(line)
-                if (!geometry) return false
-                drawCmds.push({ colorValue, mode: gl.TRIANGLES, firstVertex: totalFloats / 2, pointCount: geometry.vertexCount })
-                totalFloats += geometry.vertices.length
-            }
+            const geometry = this.getLineGeometry(line)
+            if (!geometry) return false
+            drawCmds.push({ colorValue, mode: gl.TRIANGLES, firstVertex: totalFloats / 2, pointCount: geometry.vertexCount })
+            totalFloats += geometry.vertices.length
         }
 
         if (this.lineScratch.length < totalFloats) {
@@ -407,9 +401,7 @@ export class LineWebGLSurface {
         }
         let floatOffset = 0
         for (const line of lines) {
-            const vertices = line.width === 1
-                ? this.getThinLineVertices(line.points).vertices
-                : this.getLineGeometry(line)!.vertices
+            const vertices = this.getLineGeometry(line)!.vertices
             this.lineScratch.set(vertices, floatOffset)
             floatOffset += vertices.length
         }
@@ -454,28 +446,6 @@ export class LineWebGLSurface {
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, null)
         return true
-    }
-
-    private getThinLineVertices(points: Array<{ x: number; y: number }>): { vertices: Float32Array; vertexCount: number } {
-        let widthMap = this.geoCache.get(points)
-        if (widthMap) {
-            const cached = widthMap.get(0)
-            if (cached) return cached
-        } else {
-            widthMap = new Map()
-            this.geoCache.set(points, widthMap)
-        }
-
-        const vertexCount = points.length
-        const vertices = new Float32Array(vertexCount * 2)
-        let writeIndex = 0
-        for (const point of points) {
-            vertices[writeIndex++] = point.x
-            vertices[writeIndex++] = point.y
-        }
-        const result = { vertices, vertexCount }
-        widthMap.set(0, result)
-        return result
     }
 
     private getLineGeometry(line: LineStrip): { vertices: Float32Array; vertexCount: number } | null {
