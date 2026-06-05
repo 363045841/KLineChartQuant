@@ -818,9 +818,9 @@ onUnmounted(() => {
 }
 
 .view-toggle-btn.active {
-  background: var(--klc-color-foreground);
-  border-color: var(--klc-color-foreground);
-  color: var(--klc-color-background);
+  background: var(--klc-color-tag-bg-white);
+  border-color: var(--klc-color-border-button);
+  color: var(--klc-color-foreground);
 }
 
 /* 弹窗主体 */
