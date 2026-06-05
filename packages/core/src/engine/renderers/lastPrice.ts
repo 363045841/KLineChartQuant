@@ -1,7 +1,7 @@
 import type { RendererPlugin, RenderContext } from '../../plugin'
 import { RENDERER_PRIORITY } from '../../plugin'
 import type { KLineData } from '../../types/price'
-import { getColors } from '../theme/colors'
+import { lightTheme, darkTheme } from '../../tokens'
 
 function getLastPriceInfo(context: RenderContext) {
     const { pane, data } = context
@@ -35,7 +35,7 @@ export function createLastPriceLabelRegistrarPlugin(): RendererPlugin {
         priority: RENDERER_PRIORITY.LAST_PRICE_LABEL,
 
         draw(context: RenderContext) {
-            const colors = getColors(context.theme)
+            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
             const info = getLastPriceInfo(context)
             if (!info) return
 
@@ -46,9 +46,9 @@ export function createLastPriceLabelRegistrarPlugin(): RendererPlugin {
                 y: info.y,
                 type: 'lastPrice',
                 style: {
-                    bgColor: colors.LAST_PRICE_LABEL.BG,
-                    borderColor: colors.PRICE.LAST_PRICE,
-                    textColor: colors.PRICE.LAST_PRICE,
+                    bgColor: colors.lastPriceLabel.bg,
+                    borderColor: colors.price.lastPrice,
+                    textColor: colors.price.lastPrice,
                 }
             })
         },
@@ -69,7 +69,7 @@ export function createLastPriceLineRendererPlugin(): RendererPlugin {
 
         draw(context: RenderContext) {
             const { ctx, scrollLeft, dpr, kLinePositions, paneWidth } = context
-            const colors = getColors(context.theme)
+            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
             const info = getLastPriceInfo(context)
             if (!info) return
 
@@ -81,7 +81,7 @@ export function createLastPriceLineRendererPlugin(): RendererPlugin {
             const startX = kLinePositions[0] ?? 0
             const endX = paneWidth + scrollLeft
 
-            ctx.strokeStyle = colors.PRICE.LAST_PRICE
+            ctx.strokeStyle = colors.price.lastPrice
             ctx.lineWidth = 1
             ctx.setLineDash([4, 3])
             ctx.beginPath()

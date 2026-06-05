@@ -1,6 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../plugin'
 import { RENDERER_PRIORITY } from '../../plugin'
-import { getColors } from '../theme/colors'
+import { lightTheme, darkTheme } from '../../tokens'
 import { getFont, setCanvasFont } from '../theme/fonts'
 import { SUB_PANE_INDICATOR_CONFIGS } from './Indicator/subPaneConfig'
 import type { SubIndicatorType } from './Indicator'
@@ -63,7 +63,7 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
 
         draw(context: RenderContext) {
             const { overlayCtx, pane, paneWidth } = context
-            const colors = getColors(context.theme)
+            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
             if (pane.id !== currentOptions.paneId || !overlayCtx) return
 
             const fontSize = 12
@@ -85,13 +85,13 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
             if (titleInfo) {
                 let currentX = x
 
-                overlayCtx.fillStyle = colors.TEXT.PRIMARY
+                overlayCtx.fillStyle = colors.text.primary
                 overlayCtx.fillText(titleInfo.name, currentX, y)
                 currentX += measureTextWidth(overlayCtx, titleInfo.name)
 
                 if (titleInfo.params && titleInfo.params.length > 0) {
                     const paramText = `(${titleInfo.params.join(',')})`
-                    overlayCtx.fillStyle = colors.TEXT.TERTIARY
+                    overlayCtx.fillStyle = colors.text.tertiary
                     overlayCtx.fillText(paramText, currentX, y)
                     currentX += measureTextWidth(overlayCtx, paramText) + gap
                 } else {
@@ -107,12 +107,12 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
                     }
                 }
             } else {
-                overlayCtx.fillStyle = colors.TEXT.PRIMARY
+                overlayCtx.fillStyle = colors.text.primary
                 overlayCtx.fillText(currentOptions.title, x, y)
 
                 if (currentOptions.description) {
                     const titleWidth = measureTextWidth(overlayCtx, currentOptions.title)
-                    overlayCtx.fillStyle = colors.TEXT.WEAK
+                    overlayCtx.fillStyle = colors.text.weak
                     overlayCtx.fillText(` - ${currentOptions.description}`, x + titleWidth, y)
                 }
             }

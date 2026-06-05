@@ -1,4 +1,4 @@
-import { getColors } from '../theme/colors'
+import { lightTheme, darkTheme } from '../../tokens'
 import type { RendererPlugin, RenderContext } from '../../plugin'
 import { RENDERER_PRIORITY } from '../../plugin'
 import type { KLineData } from '../../types/price'
@@ -26,7 +26,7 @@ export function createTimeAxisRendererPlugin(options: {
 
     draw(context: RenderContext) {
       const { ctx, data, range, scrollLeft, kWidth, kGap, dpr, paneWidth } = context
-      const colors = getColors(context.theme)
+      const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
       const klineData = data as KLineData[]
 
       // 时间轴绘制到传入的 ctx
@@ -52,8 +52,8 @@ export function createTimeAxisRendererPlugin(options: {
         startIndex: range.start,
         endIndex: range.end,
         dpr,
-        textColor: colors.TEXT.SECONDARY,
-        lineColor: colors.BORDER.DARK,
+        textColor: colors.text.secondary,
+        lineColor: colors.border.dark,
         drawTopBorder: false,
         drawBottomBorder: false,
       })
@@ -87,8 +87,8 @@ export function createTimeAxisRendererPlugin(options: {
             timestamp: k.timestamp,
             dpr,
             fontSize: 12,
-            bgColor: colors.CROSSHAIR.LABEL_BG,
-            textColor: colors.CROSSHAIR.LABEL_TEXT,
+            bgColor: colors.crosshairLabelBg,
+            textColor: colors.crosshairLabelText,
           })
         }
       }
