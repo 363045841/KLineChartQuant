@@ -2,7 +2,7 @@ import type { RendererPluginWithHost, PluginHost, RenderContext } from '../../..
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { KLineData } from '../../../types/price'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
-import { getColors } from '../../theme/colors'
+import { lightTheme, darkTheme } from '../../../tokens'
 import { BOLL_STATE_KEY, type BOLLRenderState } from '../../indicators/bollState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -54,7 +54,7 @@ function drawBOLLWithWebGL(
         bandLowerPoints: LinePoint[]
     }
 ): boolean {
-    const colors = getColors(context.theme)
+    const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
     if (context.settings?.enableWebGLRendering === false) return false
     const surface = context.lineWebGLSurface
     if (!surface || !surface.isAvailable()) return false
@@ -66,24 +66,24 @@ function drawBOLLWithWebGL(
         surface.clear()
         allOk = surface.drawFilledBand(
             { upperPoints: data.bandUpperPoints, lowerPoints: data.bandLowerPoints },
-            toOpaqueRgba(colors.BOLL.BAND_FILL),
+            toOpaqueRgba(colors.boll.bandFill),
             context.scrollLeft
         )
         if (allOk) {
-            compositeLineSurface(context, surface, getRgbaAlpha(colors.BOLL.BAND_FILL))
+            compositeLineSurface(context, surface, getRgbaAlpha(colors.boll.bandFill))
         }
     }
     surface.clear()
 
     const lineStrips: Array<{ points: LinePoint[]; width: number; color: string }> = []
     if (data.showUpper && data.upperPoints.length >= 2) {
-        lineStrips.push({ points: data.upperPoints, width: BOLL_LINE_WIDTH, color: colors.BOLL.UPPER })
+        lineStrips.push({ points: data.upperPoints, width: BOLL_LINE_WIDTH, color: colors.boll.upper })
     }
     if (data.showMiddle && data.middlePoints.length >= 2) {
-        lineStrips.push({ points: data.middlePoints, width: BOLL_LINE_WIDTH, color: colors.BOLL.MIDDLE })
+        lineStrips.push({ points: data.middlePoints, width: BOLL_LINE_WIDTH, color: colors.boll.middle })
     }
     if (data.showLower && data.lowerPoints.length >= 2) {
-        lineStrips.push({ points: data.lowerPoints, width: BOLL_LINE_WIDTH, color: colors.BOLL.LOWER })
+        lineStrips.push({ points: data.lowerPoints, width: BOLL_LINE_WIDTH, color: colors.boll.lower })
     }
 
     if (lineStrips.length > 0) {
@@ -183,7 +183,7 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
         draw(context: RenderContext) {
             const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters } = context
             const klineData = data as KLineData[]
-            const colors = getColors(context.theme)
+            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
 
             const stateKey = resolveKey()
             if (!stateKey) return
@@ -281,7 +281,7 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
                     bandPath.lineTo(bandLowerPoints[i].x, bandLowerPoints[i].y)
                 }
                 bandPath.closePath()
-                ctx.fillStyle = colors.BOLL.BAND_FILL
+                ctx.fillStyle = colors.boll.bandFill
                 ctx.fill(bandPath)
             }
 
@@ -296,9 +296,9 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
                 ctx.stroke()
             }
 
-            if (showUpper) drawLine(upperPoints, colors.BOLL.UPPER)
-            if (showMiddle) drawLine(middlePoints, colors.BOLL.MIDDLE)
-            if (showLower) drawLine(lowerPoints, colors.BOLL.LOWER)
+            if (showUpper) drawLine(upperPoints, colors.boll.upper)
+            if (showMiddle) drawLine(middlePoints, colors.boll.middle)
+            if (showLower) drawLine(lowerPoints, colors.boll.lower)
 
             ctx.restore()
         },

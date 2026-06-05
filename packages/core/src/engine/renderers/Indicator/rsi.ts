@@ -1,6 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import { getColors, type ThemeColors, type ChartTheme } from '../../theme/colors'
+import { lightTheme, darkTheme } from '../../../tokens'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
 import type { RSIRenderState } from '../../indicators/rsiState'
 import { createRSIStateKey } from '../../indicators/rsiState'
@@ -168,7 +168,7 @@ export function createRSIRendererPlugin(options: RSIRendererOptions = {}): Rende
 
         draw(context: RenderContext) {
 const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
-            const colors = getColors(context.theme)
+            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
 
             // 从 StateStore 读取 RSI 状态
             const stateKey = resolveKey()
@@ -251,13 +251,13 @@ const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = co
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
                 const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
                 if (params.showRSI1 && cachedRSI1Points.length >= 2) {
-                    lines.push({ points: cachedRSI1Points, width: 1, color: colors.RSI.RSI1 })
+                    lines.push({ points: cachedRSI1Points, width: 1, color: colors.rsi.rsi1 })
                 }
                 if (params.showRSI2 && cachedRSI2Points.length >= 2) {
-                    lines.push({ points: cachedRSI2Points, width: 1, color: colors.RSI.RSI2 })
+                    lines.push({ points: cachedRSI2Points, width: 1, color: colors.rsi.rsi2 })
                 }
                 if (params.showRSI3 && cachedRSI3Points.length >= 2) {
-                    lines.push({ points: cachedRSI3Points, width: 1, color: colors.RSI.RSI3 })
+                    lines.push({ points: cachedRSI3Points, width: 1, color: colors.rsi.rsi3 })
                 }
 
                 const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
@@ -269,7 +269,7 @@ const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = co
             }
 
             if (!usedWebGL) {
-                drawRSILinesWithCanvas2D(ctx, scrollLeft, cachedRSI1Points, cachedRSI2Points, cachedRSI3Points, params, colors)
+                drawRSILinesWithCanvas2D(ctx, scrollLeft, cachedRSI1Points, cachedRSI2Points, cachedRSI3Points, params, colors.rsi.rsi1, colors.rsi.rsi2, colors.rsi.rsi3)
             }
         },
 
@@ -297,7 +297,9 @@ export function drawRSILinesWithCanvas2D(
     rsi2Points: LinePoint[],
     rsi3Points: LinePoint[],
     params: { showRSI1: boolean; showRSI2: boolean; showRSI3: boolean },
-    colors: ThemeColors
+    rsi1Color: string,
+    rsi2Color: string,
+    rsi3Color: string
 ): void {
     ctx.save()
     ctx.translate(-scrollLeft, 0)
@@ -306,7 +308,7 @@ export function drawRSILinesWithCanvas2D(
     ctx.lineCap = 'round'
 
     if (params.showRSI1 && rsi1Points.length >= 2) {
-        ctx.strokeStyle = colors.RSI.RSI1
+        ctx.strokeStyle = rsi1Color
         ctx.beginPath()
         ctx.moveTo(rsi1Points[0]!.x, rsi1Points[0]!.y)
         for (let i = 1; i < rsi1Points.length; i++) {
@@ -317,7 +319,7 @@ export function drawRSILinesWithCanvas2D(
     }
 
     if (params.showRSI2 && rsi2Points.length >= 2) {
-        ctx.strokeStyle = colors.RSI.RSI2
+        ctx.strokeStyle = rsi2Color
         ctx.beginPath()
         ctx.moveTo(rsi2Points[0]!.x, rsi2Points[0]!.y)
         for (let i = 1; i < rsi2Points.length; i++) {
@@ -328,7 +330,7 @@ export function drawRSILinesWithCanvas2D(
     }
 
     if (params.showRSI3 && rsi3Points.length >= 2) {
-        ctx.strokeStyle = colors.RSI.RSI3
+        ctx.strokeStyle = rsi3Color
         ctx.beginPath()
         ctx.moveTo(rsi3Points[0]!.x, rsi3Points[0]!.y)
         for (let i = 1; i < rsi3Points.length; i++) {
@@ -348,9 +350,9 @@ export function getRSITitleInfo(
     period3: number,
     pluginHost: PluginHost,
     paneId: string = 'sub_RSI',
-    theme: ChartTheme = 'light'
+    theme: 'light' | 'dark' = 'light'
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-    const colors = getColors(theme)
+    const colors = theme === 'dark' ? darkTheme.colors : lightTheme.colors
     const stateKey = createRSIStateKey(paneId)
     const state = pluginHost.getSharedState<RSIRenderState>(stateKey)
 
@@ -361,9 +363,9 @@ export function getRSITitleInfo(
     const rsi3 = state.series[period3]?.[index]
 
     const values: Array<{ label: string; value: number; color: string }> = []
-    if (rsi1 !== undefined) values.push({ label: `RSI${period1}`, value: rsi1, color: colors.RSI.RSI1 })
-    if (rsi2 !== undefined) values.push({ label: `RSI${period2}`, value: rsi2, color: colors.RSI.RSI2 })
-    if (rsi3 !== undefined) values.push({ label: `RSI${period3}`, value: rsi3, color: colors.RSI.RSI3 })
+    if (rsi1 !== undefined) values.push({ label: `RSI${period1}`, value: rsi1, color: colors.rsi.rsi1 })
+    if (rsi2 !== undefined) values.push({ label: `RSI${period2}`, value: rsi2, color: colors.rsi.rsi2 })
+    if (rsi3 !== undefined) values.push({ label: `RSI${period3}`, value: rsi3, color: colors.rsi.rsi3 })
 
     if (values.length === 0) return null
 

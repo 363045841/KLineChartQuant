@@ -5,7 +5,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
-import { getColors } from '../../theme/colors'
+import { lightTheme, darkTheme } from '../../../tokens'
 
 // Re-export MAFlags from calculators for backward compatibility
 export type { MAFlags } from '../../indicators/calculators'
@@ -97,8 +97,8 @@ export function createMARendererPlugin(): RendererPluginWithHost {
 
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
-            const colors = getColors(context.theme)
-            const maColors: Record<number, string> = { 5: colors.MA.MA5, 10: colors.MA.MA10, 20: colors.MA.MA20, 30: colors.MA.MA30, 60: colors.MA.MA60 }
+            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
+            const maColors: Record<number, string> = { 5: colors.ma.ma5, 10: colors.ma.ma10, 20: colors.ma.ma20, 30: colors.ma.ma30, 60: colors.ma.ma60 }
             const stateKey = resolveKey()
             if (!stateKey) return
             const state = pluginHost?.getSharedState<MARenderState>(stateKey)
@@ -147,7 +147,7 @@ export function createMARendererPlugin(): RendererPluginWithHost {
                 for (const period of state.enabledPeriods) {
                     const points = cachedLines.get(period)
                     if (!points) continue
-                    lines.push({ points, width: 1, color: maColors[period] ?? colors.MA.MA5 })
+                    lines.push({ points, width: 1, color: maColors[period] ?? colors.ma.ma5 })
                 }
                 const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
 
@@ -170,7 +170,7 @@ export function createMARendererPlugin(): RendererPluginWithHost {
             for (const period of state.enabledPeriods) {
                 const points = cachedLines.get(period)
                 if (!points || points.length < 2) continue
-                ctx.strokeStyle = maColors[period] ?? colors.MA.MA5
+                ctx.strokeStyle = maColors[period] ?? colors.ma.ma5
                 ctx.beginPath()
                 ctx.moveTo(points[0]!.x, points[0]!.y)
                 for (let i = 1; i < points.length; i++) {

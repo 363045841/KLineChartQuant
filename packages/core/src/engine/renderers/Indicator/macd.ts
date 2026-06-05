@@ -1,8 +1,7 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { KLineData } from '../../../types/price'
-import { getColors } from '../../theme/colors'
-import type { ChartTheme, ThemeColors } from '../../theme/colors'
+import { lightTheme, darkTheme } from '../../../tokens'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
 import type { MACDRenderState } from '../../indicators/macdState'
 import { createMACDStateKey } from '../../indicators/macdState'
@@ -131,7 +130,7 @@ export function createMACDRendererPlugin(options: MACDRendererOptions = {}): Ren
     draw(context: RenderContext) {
       const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
       const klineData = data as KLineData[]
-      const colors = getColors(context.theme)
+      const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
 
       // 从 StateStore 读取 MACD 状态
       const stateKey = resolveKey()
@@ -214,7 +213,7 @@ export function createMACDRendererPlugin(options: MACDRendererOptions = {}): Ren
 
         const usedWebGL = drawMacdBarsWithWebGL(context, barUpBuf, barUpCount, barUpLightBuf, barUpLightCount, barDownBuf, barDownCount, barDownLightBuf, barDownLightCount)
         if (!usedWebGL) {
-          drawMacdBarsWithCanvas2D(ctx, scrollLeft, colors, barUpBuf, barUpCount, barUpLightBuf, barUpLightCount, barDownBuf, barDownCount, barDownLightBuf, barDownLightCount)
+          drawMacdBarsWithCanvas2D(ctx, scrollLeft, colors.macd.barUp, colors.macd.barUpLight, colors.macd.barDown, colors.macd.barDownLight, barUpBuf, barUpCount, barUpLightBuf, barUpLightCount, barDownBuf, barDownCount, barDownLightBuf, barDownLightCount)
         } else {
           compositeMacdWebGL(ctx, context)
         }
@@ -256,10 +255,10 @@ export function createMACDRendererPlugin(options: MACDRendererOptions = {}): Ren
       if (enableWebGL && lineWebGLSurface?.isAvailable()) {
         const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
         if (config.showDIF && cachedDifPoints.length >= 2) {
-          lines.push({ points: cachedDifPoints, width: 1, color: colors.MACD.DIF })
+          lines.push({ points: cachedDifPoints, width: 1, color: colors.macd.dif })
         }
         if (config.showDEA && cachedDeaPoints.length >= 2) {
-          lines.push({ points: cachedDeaPoints, width: 1, color: colors.MACD.DEA })
+          lines.push({ points: cachedDeaPoints, width: 1, color: colors.macd.dea })
         }
         const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
         if (allOk) {
@@ -269,7 +268,7 @@ export function createMACDRendererPlugin(options: MACDRendererOptions = {}): Ren
       }
 
       if (!usedWebGLForLines) {
-        drawMacdLinesWithCanvas2D(ctx, scrollLeft, colors, cachedDifPoints, cachedDeaPoints, config)
+        drawMacdLinesWithCanvas2D(ctx, scrollLeft, colors.macd.dif, colors.macd.dea, cachedDifPoints, cachedDeaPoints, config)
       }
     },
 
@@ -313,17 +312,17 @@ function drawMacdBarsWithWebGL(
   barDownBuf: Float32Array, barDownCount: number,
   barDownLightBuf: Float32Array, barDownLightCount: number
 ): boolean {
-  const colors = getColors(context.theme)
+  const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
   if (context.settings?.enableWebGLRendering === false) return false
   const surface = context.candleWebGLSurface
   if (!surface || !surface.isAvailable()) return false
 
   surface.clear()
 
-  const ok1 = barUpCount === 0 || surface.drawRectBuffer(barUpBuf.subarray(0, barUpCount * 4), barUpCount, colors.MACD.BAR_UP, context.scrollLeft)
-  const ok2 = barUpLightCount === 0 || surface.drawRectBuffer(barUpLightBuf.subarray(0, barUpLightCount * 4), barUpLightCount, colors.MACD.BAR_UP_LIGHT, context.scrollLeft)
-  const ok3 = barDownCount === 0 || surface.drawRectBuffer(barDownBuf.subarray(0, barDownCount * 4), barDownCount, colors.MACD.BAR_DOWN, context.scrollLeft)
-  const ok4 = barDownLightCount === 0 || surface.drawRectBuffer(barDownLightBuf.subarray(0, barDownLightCount * 4), barDownLightCount, colors.MACD.BAR_DOWN_LIGHT, context.scrollLeft)
+  const ok1 = barUpCount === 0 || surface.drawRectBuffer(barUpBuf.subarray(0, barUpCount * 4), barUpCount, colors.macd.barUp, context.scrollLeft)
+  const ok2 = barUpLightCount === 0 || surface.drawRectBuffer(barUpLightBuf.subarray(0, barUpLightCount * 4), barUpLightCount, colors.macd.barUpLight, context.scrollLeft)
+  const ok3 = barDownCount === 0 || surface.drawRectBuffer(barDownBuf.subarray(0, barDownCount * 4), barDownCount, colors.macd.barDown, context.scrollLeft)
+  const ok4 = barDownLightCount === 0 || surface.drawRectBuffer(barDownLightBuf.subarray(0, barDownLightCount * 4), barDownLightCount, colors.macd.barDownLight, context.scrollLeft)
 
   return ok1 && ok2 && ok3 && ok4
 }
@@ -331,7 +330,8 @@ function drawMacdBarsWithWebGL(
 function drawMacdBarsWithCanvas2D(
   ctx: CanvasRenderingContext2D,
   scrollLeft: number,
-  colors: { MACD: { BAR_UP: string; BAR_UP_LIGHT: string; BAR_DOWN: string; BAR_DOWN_LIGHT: string } },
+  barUpColor: string, barUpLightColor: string,
+  barDownColor: string, barDownLightColor: string,
   barUpBuf: Float32Array, barUpCount: number,
   barUpLightBuf: Float32Array, barUpLightCount: number,
   barDownBuf: Float32Array, barDownCount: number,
@@ -340,25 +340,25 @@ function drawMacdBarsWithCanvas2D(
   ctx.save()
   ctx.translate(-scrollLeft, 0)
 
-  ctx.fillStyle = colors.MACD.BAR_UP
+  ctx.fillStyle = barUpColor
   for (let i = 0; i < barUpCount; i++) {
     const off = i * 4
     ctx.fillRect(barUpBuf[off], barUpBuf[off + 1], barUpBuf[off + 2], barUpBuf[off + 3])
   }
 
-  ctx.fillStyle = colors.MACD.BAR_UP_LIGHT
+  ctx.fillStyle = barUpLightColor
   for (let i = 0; i < barUpLightCount; i++) {
     const off = i * 4
     ctx.fillRect(barUpLightBuf[off], barUpLightBuf[off + 1], barUpLightBuf[off + 2], barUpLightBuf[off + 3])
   }
 
-  ctx.fillStyle = colors.MACD.BAR_DOWN
+  ctx.fillStyle = barDownColor
   for (let i = 0; i < barDownCount; i++) {
     const off = i * 4
     ctx.fillRect(barDownBuf[off], barDownBuf[off + 1], barDownBuf[off + 2], barDownBuf[off + 3])
   }
 
-  ctx.fillStyle = colors.MACD.BAR_DOWN_LIGHT
+  ctx.fillStyle = barDownLightColor
   for (let i = 0; i < barDownLightCount; i++) {
     const off = i * 4
     ctx.fillRect(barDownLightBuf[off], barDownLightBuf[off + 1], barDownLightBuf[off + 2], barDownLightBuf[off + 3])
@@ -370,7 +370,8 @@ function drawMacdBarsWithCanvas2D(
 function drawMacdLinesWithCanvas2D(
   ctx: CanvasRenderingContext2D,
   scrollLeft: number,
-  colors: ThemeColors,
+  difColor: string,
+  deaColor: string,
   difPoints: LinePoint[],
   deaPoints: LinePoint[],
   config: { showDIF: boolean; showDEA: boolean }
@@ -382,7 +383,7 @@ function drawMacdLinesWithCanvas2D(
   ctx.lineCap = 'round'
 
   if (config.showDIF && difPoints.length >= 2) {
-    ctx.strokeStyle = colors.MACD.DIF
+    ctx.strokeStyle = difColor
     ctx.beginPath()
     ctx.moveTo(difPoints[0]!.x, difPoints[0]!.y)
     for (let i = 1; i < difPoints.length; i++) {
@@ -393,7 +394,7 @@ function drawMacdLinesWithCanvas2D(
   }
 
   if (config.showDEA && deaPoints.length >= 2) {
-    ctx.strokeStyle = colors.MACD.DEA
+    ctx.strokeStyle = deaColor
     ctx.beginPath()
     ctx.moveTo(deaPoints[0]!.x, deaPoints[0]!.y)
     for (let i = 1; i < deaPoints.length; i++) {
@@ -441,9 +442,9 @@ export function getMACDTitleInfo(
   signalPeriod: number,
   pluginHost: PluginHost,
   paneId: string = 'sub_MACD',
-  theme: ChartTheme = 'light'
+  theme: 'light' | 'dark' = 'light'
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-  const colors = getColors(theme)
+  const colors = theme === 'dark' ? darkTheme.colors : lightTheme.colors
   const state = pluginHost.getSharedState<MACDRenderState>(createMACDStateKey(paneId))
   if (!state) return null
 
@@ -454,9 +455,9 @@ export function getMACDTitleInfo(
     name: 'MACD',
     params: [fastPeriod, slowPeriod, signalPeriod],
     values: [
-      { label: 'DIF', value: point.dif, color: colors.MACD.DIF },
-      { label: 'DEA', value: point.dea, color: colors.MACD.DEA },
-      { label: 'MACD', value: point.macd, color: point.macd >= 0 ? colors.MACD.BAR_UP : colors.MACD.BAR_DOWN },
+      { label: 'DIF', value: point.dif, color: colors.macd.dif },
+      { label: 'DEA', value: point.dea, color: colors.macd.dea },
+      { label: 'MACD', value: point.macd, color: point.macd >= 0 ? colors.macd.barUp : colors.macd.barDown },
     ],
   }
 }
