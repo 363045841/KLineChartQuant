@@ -1,7 +1,7 @@
 import type { RendererPlugin, RenderContext } from '../../plugin'
 import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../plugin'
 import { createHorizontalLineRect, createVerticalLineRect } from '../draw/pixelAlign'
-import { getColors } from '../theme/colors'
+import { lightTheme, darkTheme } from '../../tokens'
 
 /**
  * 创建十字线渲染器插件
@@ -27,7 +27,7 @@ export function createCrosshairRendererPlugin(options: {
 
     draw(context: RenderContext) {
       const { pane, dpr, paneWidth, overlayCtx } = context
-      const colors = getColors(context.theme)
+      const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
       const state = options.getCrosshairState()
 
       if (state.isDragging || !state.pos) return
@@ -50,7 +50,7 @@ export function createCrosshairRendererPlugin(options: {
       ctx.rect(0, 0, paneWidth, pane.height)
       ctx.clip()
 
-      ctx.fillStyle = colors.CROSSHAIR.LINE
+      ctx.fillStyle = colors.crosshairLine
 
       // 绘制垂直线
       const v = createVerticalLineRect(x, 0, pane.height, dpr)

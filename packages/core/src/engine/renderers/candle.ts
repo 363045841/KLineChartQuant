@@ -3,7 +3,7 @@ import { RENDERER_PRIORITY } from '../../plugin'
 import type { KLineData } from '../../types/price'
 import { getKLineTrend, type kLineTrend } from '../../types/kLine'
 import { createAlignedKLineFromPx, createVerticalLineRect } from '../draw/pixelAlign'
-import { getColors, type PriceColors, type VolumePriceColors } from '../theme/colors'
+import { lightTheme, darkTheme, type VolumePriceColors } from '../../tokens'
 import { getPhysicalKLineConfig } from '../chart'
 import { VolumePriceRelation } from '../../types/volumePrice'
 import { analyzeVolumePriceRelationBatch, DEFAULT_VOLUME_PRICE_CONFIG } from '../../utils/volumePrice'
@@ -52,7 +52,7 @@ export function createCandleRenderer(): RendererPlugin {
 
         draw(context: RenderContext) {
             const { ctx, pane, data, range, scrollLeft, kWidth, kGap, dpr, kLinePositions, markerManager, settings } = context
-            const colors = getColors(context.theme)
+            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
             const klineData = data as KLineData[]
             if (!klineData.length) return
 
@@ -67,9 +67,9 @@ export function createCandleRenderer(): RendererPlugin {
                 settings,
             })
 
-            const usedWebGL = drawCandlesWithWebGL(context, prepared, colors.PRICE)
+            const usedWebGL = drawCandlesWithWebGL(context, prepared, colors.candleUpBody, colors.candleDownBody)
             if (!usedWebGL) {
-                drawCandlesWithCanvas2D(ctx, scrollLeft, prepared, colors.PRICE)
+                drawCandlesWithCanvas2D(ctx, scrollLeft, prepared, colors.candleUpBody, colors.candleDownBody)
             } else {
                 compositeWebGLToMainCanvas(ctx, context)
             }
@@ -238,29 +238,29 @@ function prepareCandles(args: {
     }
 }
 
-function drawCandlesWithCanvas2D(ctx: CanvasRenderingContext2D, scrollLeft: number, prepared: PreparedCandles, priceColors: PriceColors): void {
+function drawCandlesWithCanvas2D(ctx: CanvasRenderingContext2D, scrollLeft: number, prepared: PreparedCandles, upColor: string, downColor: string): void {
     ctx.save()
     ctx.translate(-scrollLeft, 0)
 
-    ctx.fillStyle = priceColors.UP
+    ctx.fillStyle = upColor
     for (let i = 0; i < prepared.upBodyCount; i++) {
         const off = i * 4
         ctx.fillRect(prepared.upBodyBuf[off], prepared.upBodyBuf[off + 1], prepared.upBodyBuf[off + 2], prepared.upBodyBuf[off + 3])
     }
 
-    ctx.fillStyle = priceColors.DOWN
+    ctx.fillStyle = downColor
     for (let i = 0; i < prepared.downBodyCount; i++) {
         const off = i * 4
         ctx.fillRect(prepared.downBodyBuf[off], prepared.downBodyBuf[off + 1], prepared.downBodyBuf[off + 2], prepared.downBodyBuf[off + 3])
     }
 
-    ctx.fillStyle = priceColors.UP
+    ctx.fillStyle = upColor
     for (let i = 0; i < prepared.upWickCount; i++) {
         const off = i * 4
         ctx.fillRect(prepared.upWickBuf[off], prepared.upWickBuf[off + 1], prepared.wickWidth, prepared.upWickBuf[off + 3])
     }
 
-    ctx.fillStyle = priceColors.DOWN
+    ctx.fillStyle = downColor
     for (let i = 0; i < prepared.downWickCount; i++) {
         const off = i * 4
         ctx.fillRect(prepared.downWickBuf[off], prepared.downWickBuf[off + 1], prepared.wickWidth, prepared.downWickBuf[off + 3])
@@ -269,17 +269,17 @@ function drawCandlesWithCanvas2D(ctx: CanvasRenderingContext2D, scrollLeft: numb
     ctx.restore()
 }
 
-function drawCandlesWithWebGL(context: RenderContext, prepared: PreparedCandles, priceColors: PriceColors): boolean {
+function drawCandlesWithWebGL(context: RenderContext, prepared: PreparedCandles, upColor: string, downColor: string): boolean {
     if (context.settings?.enableWebGLRendering === false) return false
     const surface = context.candleWebGLSurface
     if (!surface || !surface.isAvailable()) return false
 
     surface.clear()
 
-    const bodyUpOk = prepared.upBodyCount === 0 || surface.drawRectBuffer(prepared.upBodyBuf.subarray(0, prepared.upBodyCount * 4), prepared.upBodyCount, priceColors.UP, context.scrollLeft)
-    const bodyDownOk = prepared.downBodyCount === 0 || surface.drawRectBuffer(prepared.downBodyBuf.subarray(0, prepared.downBodyCount * 4), prepared.downBodyCount, priceColors.DOWN, context.scrollLeft)
-    const wickUpOk = prepared.upWickCount === 0 || surface.drawRectBuffer(prepared.upWickBuf.subarray(0, prepared.upWickCount * 4), prepared.upWickCount, priceColors.UP, context.scrollLeft)
-    const wickDownOk = prepared.downWickCount === 0 || surface.drawRectBuffer(prepared.downWickBuf.subarray(0, prepared.downWickCount * 4), prepared.downWickCount, priceColors.DOWN, context.scrollLeft)
+    const bodyUpOk = prepared.upBodyCount === 0 || surface.drawRectBuffer(prepared.upBodyBuf.subarray(0, prepared.upBodyCount * 4), prepared.upBodyCount, upColor, context.scrollLeft)
+    const bodyDownOk = prepared.downBodyCount === 0 || surface.drawRectBuffer(prepared.downBodyBuf.subarray(0, prepared.downBodyCount * 4), prepared.downBodyCount, downColor, context.scrollLeft)
+    const wickUpOk = prepared.upWickCount === 0 || surface.drawRectBuffer(prepared.upWickBuf.subarray(0, prepared.upWickCount * 4), prepared.upWickCount, upColor, context.scrollLeft)
+    const wickDownOk = prepared.downWickCount === 0 || surface.drawRectBuffer(prepared.downWickBuf.subarray(0, prepared.downWickCount * 4), prepared.downWickCount, downColor, context.scrollLeft)
 
     return bodyUpOk && bodyDownOk && wickUpOk && wickDownOk
 }
@@ -297,7 +297,7 @@ function drawVolumePriceMarkers(
     markerManager: MarkerManager | undefined
 ): void {
     const { ctx, range, kWidth, dpr } = context
-    const colors = getColors(context.theme)
+    const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
     if (!prepared.showVolumePriceMarkers || !markerManager || (context.zoomLevel ?? 1) < 2) {
         return
     }
@@ -312,7 +312,7 @@ function drawVolumePriceMarkers(
             const markerY = isRising ? k.alignedHighY - 15 : k.alignedLowY + 15
             const posIndex = k.i - range.start
             const markerX = context.kLineCenters[posIndex]!
-            drawVolumePriceMarker(ctx, markerX, markerY, relation, k.i, kWidth, 4, markerManager, dpr, colors.VOLUME_PRICE)
+            drawVolumePriceMarker(ctx, markerX, markerY, relation, k.i, kWidth, 4, markerManager, dpr, colors.volumePrice)
         }
     }
 
@@ -323,7 +323,7 @@ function drawVolumePriceMarkers(
             const markerY = isRising ? k.alignedHighY - 15 : k.alignedLowY + 15
             const posIndex = k.i - range.start
             const markerX = context.kLineCenters[posIndex]!
-            drawVolumePriceMarker(ctx, markerX, markerY, relation, k.i, kWidth, 4, markerManager, dpr, colors.VOLUME_PRICE)
+            drawVolumePriceMarker(ctx, markerX, markerY, relation, k.i, kWidth, 4, markerManager, dpr, colors.volumePrice)
         }
     }
 
@@ -366,19 +366,19 @@ export function drawVolumePriceMarker(
 
     switch (relation) {
         case VolumePriceRelation.RISE_WITH_VOLUME:
-            color = volumePriceColors.RISE_WITH
+            color = volumePriceColors.riseWith
             isUp = true
             break
         case VolumePriceRelation.RISE_WITHOUT_VOLUME:
-            color = volumePriceColors.RISE_WITHOUT
+            color = volumePriceColors.riseWithout
             isUp = true
             break
         case VolumePriceRelation.FALL_WITH_VOLUME:
-            color = volumePriceColors.FALL_WITH
+            color = volumePriceColors.fallWith
             isUp = false
             break
         case VolumePriceRelation.FALL_WITHOUT_VOLUME:
-            color = volumePriceColors.FALL_WITHOUT
+            color = volumePriceColors.fallWithout
             isUp = false
             break
         default:
