@@ -1,6 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import { getColors, type ChartTheme } from '../../theme/colors'
+import { lightTheme, darkTheme } from '../../../tokens'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
 import type { FASTKRenderState } from '../../indicators/fastkState'
 import { createFASTKStateKey } from '../../indicators/fastkState'
@@ -148,7 +148,7 @@ export function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): R
 
         draw(context: RenderContext) {
 const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
-            const colors = getColors(context.theme)
+            const colors = context.theme === 'dark' ? darkTheme : lightTheme
 
             const stateKey = resolveKey()
             if (!stateKey) return
@@ -218,7 +218,7 @@ const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = co
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
                 if (params.showFASTK && cachedFASTKPoints.length >= 2) {
                     const ok = lineWebGLSurface.drawLineStrips(
-                        [{ points: cachedFASTKPoints, width: 1, color: colors.KDJ.K }],
+                        [{ points: cachedFASTKPoints, width: 1, color: colors.kdj.k }],
                         scrollLeft
                     )
                     if (ok) {
@@ -254,13 +254,13 @@ function drawFASTKLineWithCanvas2D(
     scrollLeft: number,
     fastkPoints: LinePoint[],
     params: { showFASTK: boolean },
-    colors: { KDJ: { K: string } }
+    colors: { kdj: { k: string } }
 ): void {
     if (!params.showFASTK || fastkPoints.length < 2) return
 
     ctx.save()
     ctx.translate(-scrollLeft, 0)
-    ctx.strokeStyle = colors.KDJ.K
+    ctx.strokeStyle = colors.kdj.k
     ctx.lineWidth = 1
     ctx.lineJoin = 'round'
     ctx.lineCap = 'round'
@@ -282,9 +282,9 @@ export function getFASTKTitleInfo(
     period: number,
     pluginHost: PluginHost,
     paneId: string = 'sub_FASTK',
-    theme: ChartTheme = 'light'
+    theme: 'light' | 'dark' = 'light'
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-    const colors = getColors(theme)
+    const colors = theme === 'dark' ? darkTheme : lightTheme
     const state = pluginHost.getSharedState<FASTKRenderState>(createFASTKStateKey(paneId))
     if (!state) return null
 
@@ -295,7 +295,7 @@ export function getFASTKTitleInfo(
         name: 'FASTK',
         params: [period],
         values: [
-            { label: 'FASTK', value: fastk, color: colors.KDJ.K },
+            { label: 'FASTK', value: fastk, color: colors.kdj.k },
         ],
     }
 }

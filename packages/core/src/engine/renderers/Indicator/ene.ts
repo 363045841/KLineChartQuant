@@ -2,7 +2,7 @@ import type { RendererPluginWithHost, PluginHost, RenderContext } from '../../..
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { KLineData } from '../../../types/price'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
-import { getColors } from '../../theme/colors'
+import { lightTheme, darkTheme } from '../../../tokens'
 import { ENE_STATE_KEY, type ENERenderState } from '../../indicators/eneState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -40,7 +40,7 @@ function drawENEWithWebGL(
         lowerPoints: LinePoint[]
     }
 ): boolean {
-    const colors = getColors(context.theme)
+    const colors = (context.theme === 'dark' ? darkTheme : lightTheme)
     if (context.settings?.enableWebGLRendering === false) return false
     const surface = context.lineWebGLSurface
     if (!surface || !surface.isAvailable()) return false
@@ -52,24 +52,24 @@ function drawENEWithWebGL(
         surface.clear()
         allOk = surface.drawFilledBand(
             { upperPoints: data.upperPoints, lowerPoints: data.lowerPoints },
-            toOpaqueRgba(colors.ENE.BAND_FILL),
+            toOpaqueRgba(colors.ene.bandFill),
             context.scrollLeft
         )
         if (allOk) {
-            compositeLineSurface(context, surface, getRgbaAlpha(colors.ENE.BAND_FILL))
+            compositeLineSurface(context, surface, getRgbaAlpha(colors.ene.bandFill))
         }
     }
     surface.clear()
 
     const lineStrips: Array<{ points: LinePoint[]; width: number; color: string }> = []
     if (data.upperPoints.length >= 2) {
-        lineStrips.push({ points: data.upperPoints, width: 1, color: colors.ENE.UPPER })
+        lineStrips.push({ points: data.upperPoints, width: 1, color: colors.ene.upper })
     }
     if (data.middlePoints.length >= 2) {
-        lineStrips.push({ points: data.middlePoints, width: 1, color: colors.ENE.MIDDLE })
+        lineStrips.push({ points: data.middlePoints, width: 1, color: colors.ene.middle })
     }
     if (data.lowerPoints.length >= 2) {
-        lineStrips.push({ points: data.lowerPoints, width: 1, color: colors.ENE.LOWER })
+        lineStrips.push({ points: data.lowerPoints, width: 1, color: colors.ene.lower })
     }
     if (lineStrips.length > 0) {
         allOk = surface.drawLineStrips(lineStrips, context.scrollLeft)
@@ -143,7 +143,7 @@ export function createENERendererPlugin(): RendererPluginWithHost {
         draw(context: RenderContext) {
             const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters } = context
             const klineData = data as KLineData[]
-            const colors = getColors(context.theme)
+            const colors = (context.theme === 'dark' ? darkTheme : lightTheme)
 
             const stateKey = resolveKey()
             if (!stateKey) return
@@ -193,7 +193,7 @@ export function createENERendererPlugin(): RendererPluginWithHost {
             ctx.save()
             ctx.translate(-scrollLeft, 0)
 
-            ctx.fillStyle = colors.ENE.BAND_FILL
+            ctx.fillStyle = colors.ene.bandFill
             ctx.beginPath()
             if (upperPoints.length > 0) {
                 ctx.moveTo(upperPoints[0]!.x, upperPoints[0]!.y)
@@ -225,9 +225,9 @@ export function createENERendererPlugin(): RendererPluginWithHost {
                 ctx.stroke()
             }
 
-            drawLine(upperPoints, colors.ENE.UPPER)
-            drawLine(middlePoints, colors.ENE.MIDDLE)
-            drawLine(lowerPoints, colors.ENE.LOWER)
+            drawLine(upperPoints, colors.ene.upper)
+            drawLine(middlePoints, colors.ene.middle)
+            drawLine(lowerPoints, colors.ene.lower)
 
             ctx.restore()
         },

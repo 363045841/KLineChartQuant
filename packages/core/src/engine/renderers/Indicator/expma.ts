@@ -2,7 +2,7 @@ import type { RendererPluginWithHost, PluginHost, RenderContext } from '../../..
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { KLineData } from '../../../types/price'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
-import { getColors } from '../../theme/colors'
+import { lightTheme, darkTheme } from '../../../tokens'
 import { EXPMA_STATE_KEY, type EXPMARenderState } from '../../indicators/expmaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -82,7 +82,7 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
         draw(context: RenderContext) {
             const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
             const klineData = data as KLineData[]
-            const colors = getColors(context.theme)
+            const colors = context.theme === 'dark' ? darkTheme : lightTheme
             const stateKey = resolveKey()
             if (!stateKey) return
             const state = pluginHost?.getSharedState<EXPMARenderState>(stateKey)
@@ -123,10 +123,10 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
                 const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
                 if (cachedFastPoints.length >= 2) {
-                    lines.push({ points: cachedFastPoints, width: 1, color: colors.EXPMA.FAST })
+                    lines.push({ points: cachedFastPoints, width: 1, color: colors.expma.fast })
                 }
                 if (cachedSlowPoints.length >= 2) {
-                    lines.push({ points: cachedSlowPoints, width: 1, color: colors.EXPMA.SLOW })
+                    lines.push({ points: cachedSlowPoints, width: 1, color: colors.expma.slow })
                 }
 
                 const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
@@ -146,7 +146,7 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
             ctx.lineCap = 'round'
 
             if (cachedFastPoints.length >= 2) {
-                ctx.strokeStyle = colors.EXPMA.FAST
+                ctx.strokeStyle = colors.expma.fast
                 ctx.beginPath()
                 ctx.moveTo(cachedFastPoints[0]!.x, cachedFastPoints[0]!.y)
                 for (let i = 1; i < cachedFastPoints.length; i++) {
@@ -157,7 +157,7 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
             }
 
             if (cachedSlowPoints.length >= 2) {
-                ctx.strokeStyle = colors.EXPMA.SLOW
+                ctx.strokeStyle = colors.expma.slow
                 ctx.beginPath()
                 ctx.moveTo(cachedSlowPoints[0]!.x, cachedSlowPoints[0]!.y)
                 for (let i = 1; i < cachedSlowPoints.length; i++) {
