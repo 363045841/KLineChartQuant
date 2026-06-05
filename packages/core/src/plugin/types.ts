@@ -309,7 +309,7 @@ export interface RenderContext {
   /** 需要在X轴上绘制的范围带列表（由绘图渲染器填充，先于标签绘制） */
   xAxisRanges?: XAxisRange[]
   /** 当前主题 */
-  theme: import('../engine/theme/colors').ChartTheme
+  theme: 'light' | 'dark'
 }
 
 export type DrawingAnchor = {
