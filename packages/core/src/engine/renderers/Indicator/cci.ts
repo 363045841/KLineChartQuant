@@ -1,6 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import { getColors, type ChartTheme } from '../../theme/colors'
+import { lightTheme, darkTheme } from '../../../tokens'
 import type { CCIRenderState } from '../../indicators/cciState'
 import { createCCIStateKey } from '../../indicators/cciState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
@@ -92,7 +92,7 @@ export function createCCIRendererPlugin(options: CCIRendererOptions = {}): Rende
 
         draw(context: RenderContext) {
 const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
-            const colors = getColors(context.theme)
+            const colors = context.theme === 'dark' ? darkTheme : lightTheme
 
             const stateKey = resolveKey()
             if (!stateKey) return
@@ -123,7 +123,7 @@ const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = co
             const lineStartX = scrollLeft
             const lineEndX = scrollLeft + context.paneWidth
 
-            ctx.strokeStyle = colors.CCI.OVERBOUGHT
+            ctx.strokeStyle = colors.cci.overbought
             ctx.lineWidth = 1
             ctx.setLineDash([4, 4])
             ctx.beginPath()
@@ -131,7 +131,7 @@ const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = co
             ctx.lineTo(lineEndX, y100)
             ctx.stroke()
 
-            ctx.strokeStyle = colors.CCI.OVERSOLD
+            ctx.strokeStyle = colors.cci.oversold
             ctx.beginPath()
             ctx.moveTo(lineStartX, yNeg100)
             ctx.lineTo(lineEndX, yNeg100)
@@ -177,7 +177,7 @@ const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = co
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
                 if (params.showCCI && cachedCCIPoints.length >= 2) {
                     const ok = lineWebGLSurface.drawLineStrips(
-                        [{ points: cachedCCIPoints, width: 1, color: colors.CCI.CCI }],
+                        [{ points: cachedCCIPoints, width: 1, color: colors.cci.cci }],
                         scrollLeft
                     )
                     if (ok) {
@@ -213,13 +213,13 @@ function drawCCILineWithCanvas2D(
     scrollLeft: number,
     cciPoints: LinePoint[],
     params: { showCCI: boolean },
-    colors: { CCI: { CCI: string; OVERBOUGHT: string; OVERSOLD: string } }
+    colors: { cci: { cci: string; overbought: string; oversold: string } }
 ): void {
     if (!params.showCCI || cciPoints.length < 2) return
 
     ctx.save()
     ctx.translate(-scrollLeft, 0)
-    ctx.strokeStyle = colors.CCI.CCI
+    ctx.strokeStyle = colors.cci.cci
     ctx.lineWidth = 1
     ctx.lineJoin = 'round'
     ctx.lineCap = 'round'
@@ -241,9 +241,9 @@ export function getCCITitleInfo(
     period: number,
     pluginHost: PluginHost,
     paneId: string = 'sub_CCI',
-    theme: ChartTheme = 'light'
+    theme: 'light' | 'dark' = 'light'
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-    const colors = getColors(theme)
+    const colors = theme === 'dark' ? darkTheme : lightTheme
     const state = pluginHost.getSharedState<CCIRenderState>(createCCIStateKey(paneId))
     if (!state) return null
 
@@ -254,7 +254,7 @@ export function getCCITitleInfo(
         name: 'CCI',
         params: [period],
         values: [
-            { label: 'CCI', value: cci, color: colors.CCI.CCI },
+            { label: 'CCI', value: cci, color: colors.cci.cci },
         ],
     }
 }

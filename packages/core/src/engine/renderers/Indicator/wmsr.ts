@@ -1,6 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import { getColors, type ChartTheme } from '../../theme/colors'
+import { lightTheme, darkTheme } from '../../../tokens'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
 import type { WMSRRenderState } from '../../indicators/wmsrState'
 import { createWMSRStateKey } from '../../indicators/wmsrState'
@@ -82,7 +82,7 @@ export function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): Ren
         displayMin: number,
         displayMax: number,
         dpr: number,
-        colors: { WMSR: { OVERBOUGHT: string; OVERSOLD: string }; WMSR_GRID: string }
+        colors: { wmsr: { overbought: string; oversold: string }; wmsrGrid: string }
     ): void {
         const displayValueRange = displayMax - displayMin || 1
         const y20 = alignToPhysicalPixelCenter(paneHeight - (-20 - displayMin) / displayValueRange * paneHeight, dpr)
@@ -95,19 +95,19 @@ export function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): Ren
         ctx.lineWidth = 1
         ctx.setLineDash([4, 4])
 
-        ctx.strokeStyle = colors.WMSR.OVERBOUGHT
+        ctx.strokeStyle = colors.wmsr.overbought
         ctx.beginPath()
         ctx.moveTo(0, y20)
         ctx.lineTo(paneWidth, y20)
         ctx.stroke()
 
-        ctx.strokeStyle = colors.WMSR.OVERSOLD
+        ctx.strokeStyle = colors.wmsr.oversold
         ctx.beginPath()
         ctx.moveTo(0, y80)
         ctx.lineTo(paneWidth, y80)
         ctx.stroke()
 
-        ctx.strokeStyle = colors.WMSR_GRID
+        ctx.strokeStyle = colors.wmsrGrid
         ctx.beginPath()
         ctx.moveTo(0, y50)
         ctx.lineTo(paneWidth, y50)
@@ -160,7 +160,7 @@ export function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): Ren
 
         draw(context: RenderContext) {
 const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
-            const colors = getColors(context.theme)
+            const colors = context.theme === 'dark' ? darkTheme : lightTheme
 
             const stateKey = resolveKey()
             if (!stateKey) return
@@ -230,7 +230,7 @@ const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = co
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
                 if (params.showWMSR && cachedWMSRPoints.length >= 2) {
                     const ok = lineWebGLSurface.drawLineStrips(
-                        [{ points: cachedWMSRPoints, width: 1, color: colors.WMSR.WMSR }],
+                        [{ points: cachedWMSRPoints, width: 1, color: colors.wmsr.wmsr }],
                         scrollLeft
                     )
                     if (ok) {
@@ -266,13 +266,13 @@ function drawWMSRLineWithCanvas2D(
     scrollLeft: number,
     wmsrPoints: LinePoint[],
     params: { showWMSR: boolean },
-    colors: { WMSR: { WMSR: string } }
+    colors: { wmsr: { wmsr: string } }
 ): void {
     if (!params.showWMSR || wmsrPoints.length < 2) return
 
     ctx.save()
     ctx.translate(-scrollLeft, 0)
-    ctx.strokeStyle = colors.WMSR.WMSR
+    ctx.strokeStyle = colors.wmsr.wmsr
     ctx.lineWidth = 1
     ctx.lineJoin = 'round'
     ctx.lineCap = 'round'
@@ -294,9 +294,9 @@ export function getWMSRTitleInfo(
     period: number,
     pluginHost: PluginHost,
     paneId: string = 'sub_WMSR',
-    theme: ChartTheme = 'light'
+    theme: 'light' | 'dark' = 'light'
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-    const colors = getColors(theme)
+    const colors = theme === 'dark' ? darkTheme : lightTheme
     const state = pluginHost.getSharedState<WMSRRenderState>(createWMSRStateKey(paneId))
     if (!state) return null
 
@@ -307,7 +307,7 @@ export function getWMSRTitleInfo(
         name: 'WMSR',
         params: [period],
         values: [
-            { label: 'WMSR', value: wmsr, color: colors.WMSR.WMSR },
+            { label: 'WMSR', value: wmsr, color: colors.wmsr.wmsr },
         ],
     }
 }
