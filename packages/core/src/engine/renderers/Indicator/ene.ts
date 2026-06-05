@@ -40,7 +40,7 @@ function drawENEWithWebGL(
         lowerPoints: LinePoint[]
     }
 ): boolean {
-    const colors = (context.theme === 'dark' ? darkTheme : lightTheme)
+    const colors = (context.theme === 'dark' ? darkTheme.colors : lightTheme.colors)
     if (context.settings?.enableWebGLRendering === false) return false
     const surface = context.lineWebGLSurface
     if (!surface || !surface.isAvailable()) return false
@@ -143,7 +143,7 @@ export function createENERendererPlugin(): RendererPluginWithHost {
         draw(context: RenderContext) {
             const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters } = context
             const klineData = data as KLineData[]
-            const colors = (context.theme === 'dark' ? darkTheme : lightTheme)
+            const colors = (context.theme === 'dark' ? darkTheme.colors : lightTheme.colors)
 
             const stateKey = resolveKey()
             if (!stateKey) return

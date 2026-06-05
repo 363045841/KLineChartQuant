@@ -1,4 +1,4 @@
-import { getColors } from '../../theme/colors'
+import { lightTheme, darkTheme } from '../../../tokens'
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { StructureRenderState } from '../../indicators/structureState'
@@ -41,7 +41,7 @@ export function createStructureRendererPlugin(options: { paneId?: string } = {})
         getDeclaredNamespaces() { const key = resolveKey(); return key ? [key] : [] },
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, kLineCenters } = context
-            const colors = getColors(context.theme)
+            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
             const stateKey = resolveKey()
             if (!stateKey) return
             const state = pluginHost?.getSharedState<StructureRenderState>(stateKey)
@@ -64,7 +64,7 @@ export function createStructureRendererPlugin(options: { paneId?: string } = {})
                     const centerX = kLineCenters[s.index - range.start]
                     if (centerX === undefined) continue
                     const y = toY(s.price)
-                    ctx.fillStyle = s.label === 'HH' ? colors.STRUCTURE.HH : s.label === 'HL' ? colors.STRUCTURE.HL : s.label === 'LH' ? colors.STRUCTURE.LH : colors.STRUCTURE.LL
+                    ctx.fillStyle = s.label === 'HH' ? colors.structure.hh : s.label === 'HL' ? colors.structure.hl : s.label === 'LH' ? colors.structure.lh : colors.structure.ll
                     const labelY = s.kind === 'high' ? y - 8 : y + 16
                     ctx.fillText(s.label, centerX, labelY)
                     // Dot
@@ -86,12 +86,12 @@ export function createStructureRendererPlugin(options: { paneId?: string } = {})
                     const x2 = kLineCenters[ev.index - range.start]
                     if (x1 === undefined || x2 === undefined) continue
                     const y = toY(ev.brokenLevel)
-                    ctx.strokeStyle = ev.kind === 'BOS' ? colors.STRUCTURE.BOS : colors.STRUCTURE.CHOCH
+                    ctx.strokeStyle = ev.kind === 'BOS' ? colors.structure.bos : colors.structure.choch
                     ctx.beginPath()
                     ctx.moveTo(x1, y)
                     ctx.lineTo(x2, y)
                     ctx.stroke()
-                    ctx.fillStyle = ev.kind === 'BOS' ? colors.STRUCTURE.BOS : colors.STRUCTURE.CHOCH
+                    ctx.fillStyle = ev.kind === 'BOS' ? colors.structure.bos : colors.structure.choch
                     ctx.fillText(ev.kind, (x1 + x2) / 2, y - 4)
                 }
                 ctx.setLineDash([])

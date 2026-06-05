@@ -1,7 +1,7 @@
 import type { RendererPluginWithHost, PluginHost, RenderContext, BaseIndicatorState } from '../../../../plugin'
 import { RENDERER_PRIORITY } from '../../../../plugin'
 import { createIndicatorStateKey } from '../../../../plugin/stateKeys'
-import { lightTheme, darkTheme } from '../../../tokens'
+import { lightTheme, darkTheme } from '../../../../tokens'
 import { getFont, setCanvasFont } from '../../../theme/fonts'
 import { calculateValueTickPositions, type ScaleType } from '../../../utils/tickPosition'
 import { drawCrosshairPriceLabel } from '../../../../utils/kLineDraw/axis'

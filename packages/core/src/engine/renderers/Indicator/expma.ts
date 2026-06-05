@@ -82,7 +82,7 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
         draw(context: RenderContext) {
             const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
             const klineData = data as KLineData[]
-            const colors = context.theme === 'dark' ? darkTheme : lightTheme
+            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
             const stateKey = resolveKey()
             if (!stateKey) return
             const state = pluginHost?.getSharedState<EXPMARenderState>(stateKey)

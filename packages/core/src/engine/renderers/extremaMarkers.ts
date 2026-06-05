@@ -2,7 +2,7 @@ import type { RendererPlugin, RenderContext } from '../../plugin'
 import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../plugin'
 import type { KLineData } from '../../types/price'
 import { roundToPhysicalPixel, alignToPhysicalPixelCenter, createHorizontalLineRect } from '../draw/pixelAlign'
-import { getColors, type ThemeColors } from '../theme/colors'
+import { lightTheme, darkTheme } from '../../tokens'
 import { getFont, setCanvasFont } from '../theme/fonts'
 
 const textWidthCache = new Map<string, number>()
@@ -58,14 +58,15 @@ function drawAllMarkers(
     ctx: CanvasRenderingContext2D,
     markers: MarkerData[],
     dpr: number,
-    colors: ThemeColors
+    lineColor: string,
+    textColor: string
 ) {
     if (markers.length === 0) return
 
     ctx.save()
 
     // ========== 阶段1：批量绘制所有线条（同一 fillStyle）==========
-    ctx.fillStyle = colors.TEXT.WEAK
+    ctx.fillStyle = lineColor
     for (const m of markers) {
         const lineRect = createHorizontalLineRect(m.lineStartX, m.lineEndX, m.y, dpr)
         if (lineRect) {
@@ -84,7 +85,7 @@ function drawAllMarkers(
     // ========== 阶段3：批量绘制所有文字（同一 font/baseline/fillStyle）==========
     setCanvasFont(ctx, MARKER_FONT)
     ctx.textBaseline = 'middle'
-    ctx.fillStyle = colors.PRICE.NEUTRAL
+    ctx.fillStyle = textColor
 
     for (const m of markers) {
         ctx.textAlign = m.drawLeft ? 'right' : 'left'
@@ -108,7 +109,7 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
 
         draw(context: RenderContext) {
             const { ctx, pane, data, range, scrollLeft, dpr, paneWidth, kLineCenters } = context
-            const colors = getColors(context.theme)
+            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
             const klineData = data as KLineData[]
             if (!klineData.length) return
             if (pane.role !== 'price') return
@@ -150,9 +151,9 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
                 price: max,
                 y: pane.yAxis.priceToY(max),
                 style: {
-                    bgColor: colors.LAST_PRICE_LABEL.BG,
-                    borderColor: colors.PRICE.LAST_PRICE,
-                    textColor: colors.PRICE.LAST_PRICE,
+                    bgColor: colors.lastPriceLabel.bg,
+                    borderColor: colors.price.lastPrice,
+                    textColor: colors.price.lastPrice,
                 }
             })
 
@@ -161,9 +162,9 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
                 price: min,
                 y: pane.yAxis.priceToY(min),
                 style: {
-                    bgColor: colors.LAST_PRICE_LABEL.BG,
-                    borderColor: colors.PRICE.LAST_PRICE,
-                    textColor: colors.PRICE.LAST_PRICE,
+                    bgColor: colors.lastPriceLabel.bg,
+                    borderColor: colors.price.lastPrice,
+                    textColor: colors.price.lastPrice,
                 }
             })
 
@@ -193,7 +194,7 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
             // 批量绘制所有 markers
             ctx.save()
             ctx.translate(-scrollLeft, 0)
-            drawAllMarkers(ctx, markers, dpr, colors)
+            drawAllMarkers(ctx, markers, dpr, colors.text.weak, colors.text.primary)
             ctx.restore()
         },
     }

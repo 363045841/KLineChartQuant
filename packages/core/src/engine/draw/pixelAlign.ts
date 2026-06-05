@@ -2,8 +2,6 @@
  * 像素对齐工具函数 - 逻辑像素空间（配合 ctx.scale(dpr) 使用）
  */
 
-import { getColors } from '../theme/colors'
-
 /**
  * 将逻辑坐标对齐到物理像素边界（用于矩形填充）
  * @param value - 逻辑坐标值

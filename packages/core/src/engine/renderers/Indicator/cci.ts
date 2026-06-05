@@ -92,7 +92,7 @@ export function createCCIRendererPlugin(options: CCIRendererOptions = {}): Rende
 
         draw(context: RenderContext) {
 const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
-            const colors = context.theme === 'dark' ? darkTheme : lightTheme
+            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
 
             const stateKey = resolveKey()
             if (!stateKey) return
@@ -243,7 +243,7 @@ export function getCCITitleInfo(
     paneId: string = 'sub_CCI',
     theme: 'light' | 'dark' = 'light'
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-    const colors = theme === 'dark' ? darkTheme : lightTheme
+    const colors = theme === 'dark' ? darkTheme.colors : lightTheme.colors
     const state = pluginHost.getSharedState<CCIRenderState>(createCCIStateKey(paneId))
     if (!state) return null
 

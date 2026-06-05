@@ -5,7 +5,7 @@ import { MA_STATE_KEY, type MARenderState } from '../../indicators/maState'
 import { BOLL_STATE_KEY, type BOLLRenderState } from '../../indicators/bollState'
 import { EXPMA_STATE_KEY, type EXPMARenderState } from '../../indicators/expmaState'
 import { ENE_STATE_KEY, type ENERenderState } from '../../indicators/eneState'
-import { getColors } from '../../theme/colors'
+import { lightTheme, darkTheme } from '../../../tokens'
 import { getFont, setCanvasFont } from '../../theme/fonts'
 
 const textWidthCache = new Map<string, number>()
@@ -80,7 +80,7 @@ export function createMainIndicatorLegendRendererPlugin(options: {
     draw(context: RenderContext) {
       const { overlayCtx, data, range, crosshairIndex } = context
       const klineData = data as KLineData[]
-      const colors = getColors(context.theme)
+      const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
       if (!klineData.length || !overlayCtx) return
 
       const fontSize = 12
@@ -104,13 +104,13 @@ export function createMainIndicatorLegendRendererPlugin(options: {
 
             if (state && state.visibleMin <= state.visibleMax) {
               for (const period of state.enabledPeriods) {
-                const colorKey = `MA${period}` as keyof typeof colors.MA
+                const colorKey = `ma${period}` as keyof typeof colors.ma
                 const series = state.series[period]
                 const value = series?.[targetIndex]
 
                 items.push({
                   label: `MA${period}`,
-                  color: colors.MA[colorKey] || colors.MA.MA5,
+                  color: colors.ma[colorKey] || colors.ma.ma5,
                   value: value,
                 })
               }
@@ -120,7 +120,7 @@ export function createMainIndicatorLegendRendererPlugin(options: {
               let x = legendX
               const y = config.yPaddingPx / 2 + fontSize + rowIndex * lineHeight
 
-              overlayCtx.fillStyle = colors.PRICE.NEUTRAL
+              overlayCtx.fillStyle = colors.text.primary
               overlayCtx.fillText('MA', x, y)
               x += measureTextWidth(overlayCtx, 'MA') + gap
 
@@ -149,23 +149,23 @@ export function createMainIndicatorLegendRendererPlugin(options: {
             const y = config.yPaddingPx / 2 + fontSize + rowIndex * lineHeight
             const titleText = `BOLL(${period},${multiplier})`
 
-            overlayCtx.fillStyle = colors.PRICE.NEUTRAL
+            overlayCtx.fillStyle = colors.text.primary
             overlayCtx.fillText(titleText, x, y)
             x += measureTextWidth(overlayCtx, titleText) + gap
 
             if (boll) {
               const upperText = `上轨:${boll.upper.toFixed(2)}`
-              overlayCtx.fillStyle = colors.BOLL.UPPER
+              overlayCtx.fillStyle = colors.boll.upper
               overlayCtx.fillText(upperText, x, y)
               x += measureTextWidth(overlayCtx, upperText) + gap
 
               const middleText = `中轨:${boll.middle.toFixed(2)}`
-              overlayCtx.fillStyle = colors.BOLL.MIDDLE
+              overlayCtx.fillStyle = colors.boll.middle
               overlayCtx.fillText(middleText, x, y)
               x += measureTextWidth(overlayCtx, middleText) + gap
 
               const lowerText = `下轨:${boll.lower.toFixed(2)}`
-              overlayCtx.fillStyle = colors.BOLL.LOWER
+              overlayCtx.fillStyle = colors.boll.lower
               overlayCtx.fillText(lowerText, x, y)
             }
           }
@@ -185,18 +185,18 @@ export function createMainIndicatorLegendRendererPlugin(options: {
             const y = config.yPaddingPx / 2 + fontSize + rowIndex * lineHeight
             const titleText = `EXPMA(${fastPeriod},${slowPeriod})`
 
-            overlayCtx.fillStyle = colors.PRICE.NEUTRAL
+            overlayCtx.fillStyle = colors.text.primary
             overlayCtx.fillText(titleText, x, y)
             x += measureTextWidth(overlayCtx, titleText) + gap
 
             if (expma) {
               const fastText = `快:${expma.fast.toFixed(2)}`
-              overlayCtx.fillStyle = colors.EXPMA.FAST
+              overlayCtx.fillStyle = colors.expma.fast
               overlayCtx.fillText(fastText, x, y)
               x += measureTextWidth(overlayCtx, fastText) + gap
 
               const slowText = `慢:${expma.slow.toFixed(2)}`
-              overlayCtx.fillStyle = colors.EXPMA.SLOW
+              overlayCtx.fillStyle = colors.expma.slow
               overlayCtx.fillText(slowText, x, y)
             }
           }
@@ -216,23 +216,23 @@ export function createMainIndicatorLegendRendererPlugin(options: {
             const y = config.yPaddingPx / 2 + fontSize + rowIndex * lineHeight
             const titleText = `ENE(${period},${deviation})`
 
-            overlayCtx.fillStyle = colors.PRICE.NEUTRAL
+            overlayCtx.fillStyle = colors.text.primary
             overlayCtx.fillText(titleText, x, y)
             x += measureTextWidth(overlayCtx, titleText) + gap
 
             if (ene) {
               const upperText = `上轨:${ene.upper.toFixed(2)}`
-              overlayCtx.fillStyle = colors.ENE.UPPER
+              overlayCtx.fillStyle = colors.ene.upper
               overlayCtx.fillText(upperText, x, y)
               x += measureTextWidth(overlayCtx, upperText) + gap
 
               const middleText = `中轨:${ene.middle.toFixed(2)}`
-              overlayCtx.fillStyle = colors.ENE.MIDDLE
+              overlayCtx.fillStyle = colors.ene.middle
               overlayCtx.fillText(middleText, x, y)
               x += measureTextWidth(overlayCtx, middleText) + gap
 
               const lowerText = `下轨:${ene.lower.toFixed(2)}`
-              overlayCtx.fillStyle = colors.ENE.LOWER
+              overlayCtx.fillStyle = colors.ene.lower
               overlayCtx.fillText(lowerText, x, y)
             }
           }
