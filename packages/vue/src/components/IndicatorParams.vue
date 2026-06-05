@@ -206,8 +206,8 @@ function onConfirm() {
 
 /* ── 弹窗 ── */
 .indicator-params {
-  background: #ffffff;
-  border: 1px solid #e0e0e0;
+  background: var(--klc-color-tag-bg-white);
+  border: 1px solid var(--klc-color-border-button);
   border-radius: 12px;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15);
   min-width: 340px;
@@ -222,8 +222,8 @@ function onConfirm() {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  background: #f8f8f8;
-  border-bottom: 1px solid #e8e8e8;
+  background: var(--klc-color-background);
+  border-bottom: 1px solid var(--klc-color-grid-major);
 }
 
 .header-left {
@@ -241,18 +241,18 @@ function onConfirm() {
 .params-title {
   font-size: 14px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--klc-color-foreground);
   letter-spacing: 0.2px;
 }
 
 .params-subtitle {
   font-size: 11px;
-  color: #999;
+  color: var(--klc-color-axis-text);
 }
 
 .toggle-desc-btn {
-  background: #fff;
-  border: 1px solid #e0e0e0;
+  background: var(--klc-color-tag-bg-white);
+  border: 1px solid var(--klc-color-border-button);
   border-radius: 6px;
   width: 28px;
   height: 28px;
@@ -260,21 +260,21 @@ function onConfirm() {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #888;
+  color: var(--klc-color-axis-text);
   transition: all 0.2s;
   padding: 0;
 }
 
 .toggle-desc-btn:hover {
-  background: #f0f0f0;
-  color: #555;
-  border-color: #ccc;
+  background: var(--klc-color-tag-bg-hover);
+  color: var(--klc-color-foreground);
+  border-color: var(--klc-color-axis-line);
 }
 
 .toggle-desc-btn.active {
-  background: #1a1a1a;
-  border-color: #1a1a1a;
-  color: #fff;
+  background: var(--klc-color-foreground);
+  border-color: var(--klc-color-foreground);
+  color: var(--klc-color-background);
 }
 
 .toggle-desc-btn svg {
@@ -283,8 +283,8 @@ function onConfirm() {
 }
 
 .params-close {
-  background: #fff;
-  border: 1px solid #e0e0e0;
+  background: var(--klc-color-tag-bg-white);
+  border: 1px solid var(--klc-color-border-button);
   border-radius: 6px;
   width: 28px;
   height: 28px;
@@ -292,15 +292,15 @@ function onConfirm() {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #888;
+  color: var(--klc-color-axis-text);
   transition: background 0.15s, color 0.15s, border-color 0.15s;
   padding: 0;
 }
 
 .params-close:hover {
-  background: #f0f0f0;
-  color: #333;
-  border-color: #ccc;
+  background: var(--klc-color-tag-bg-hover);
+  color: var(--klc-color-foreground);
+  border-color: var(--klc-color-axis-line);
 }
 
 .params-close svg {
@@ -311,15 +311,15 @@ function onConfirm() {
 /* ── 指标描述 ── */
 .indicator-description {
   padding: 12px 20px;
-  background: #f0f7ff;
-  border-bottom: 1px solid #d6e8f5;
+  background: color-mix(in srgb, var(--klc-color-alert-active) 10%, var(--klc-color-background));
+  border-bottom: 1px solid color-mix(in srgb, var(--klc-color-alert-active) 20%, transparent);
 }
 
 .indicator-description p {
   margin: 0;
   font-size: 12px;
   line-height: 1.6;
-  color: #2c5282;
+  color: var(--klc-color-alert-active);
 }
 
 /* ── 体部 ── */
@@ -333,13 +333,13 @@ function onConfirm() {
 .param-item {
   padding: 10px 14px;
   border-radius: 8px;
-  background: #f8f8f8;
-  border: 1px solid #e8e8e8;
+  background: var(--klc-color-background);
+  border: 1px solid var(--klc-color-grid-major);
   transition: border-color 0.2s;
 }
 
 .param-item:has(.param-input:focus) {
-  border-color: #bbb;
+  border-color: var(--klc-color-axis-text);
 }
 
 .param-item.has-desc {
@@ -362,22 +362,22 @@ function onConfirm() {
 .param-label-text {
   font-size: 13px;
   font-weight: 500;
-  color: #333;
+  color: var(--klc-color-foreground);
 }
 
 .param-range {
   font-size: 11px;
-  color: #999;
+  color: var(--klc-color-axis-text);
 }
 
 /* ── 参数描述 ── */
 .param-description {
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px dashed #e0e0e0;
+  border-top: 1px dashed var(--klc-color-border-button);
   font-size: 11px;
   line-height: 1.5;
-  color: #666;
+  color: var(--klc-color-axis-text);
 }
 
 /* ── 步进输入框 ── */
@@ -385,25 +385,25 @@ function onConfirm() {
   display: flex;
   align-items: stretch;
   height: 32px;
-  border: 1px solid #d0d0d0;
+  border: 1px solid var(--klc-color-axis-line);
   border-radius: 7px;
   overflow: hidden;
-  background: #fff;
+  background: var(--klc-color-tag-bg-white);
   transition: border-color 0.2s;
 }
 
 .input-wrapper:focus-within {
-  border-color: #999;
+  border-color: var(--klc-color-axis-text);
 }
 
 .stepper-btn {
   width: 28px;
-  background: #f0f0f0;
+  background: var(--klc-color-grid-minor);
   border: none;
   cursor: pointer;
   font-size: 15px;
   font-weight: 400;
-  color: #666;
+  color: var(--klc-color-axis-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -413,24 +413,24 @@ function onConfirm() {
 }
 
 .stepper-btn:hover:not(:disabled) {
-  background: #e0e0e0;
-  color: #333;
+  background: var(--klc-color-border-button);
+  color: var(--klc-color-foreground);
 }
 
 .stepper-btn:disabled {
-  color: #ccc;
+  color: var(--klc-color-axis-line);
   cursor: not-allowed;
 }
 
 .param-input {
   width: 60px;
   border: none;
-  border-left: 1px solid #e8e8e8;
-  border-right: 1px solid #e8e8e8;
+  border-left: 1px solid var(--klc-color-grid-major);
+  border-right: 1px solid var(--klc-color-grid-major);
   font-size: 13px;
   font-weight: 600;
   text-align: center;
-  color: #1a1a1a;
+  color: var(--klc-color-foreground);
   background: transparent;
   -moz-appearance: textfield;
   appearance: textfield;
@@ -451,8 +451,8 @@ function onConfirm() {
   align-items: center;
   justify-content: space-between;
   padding: 12px 20px;
-  background: #f8f8f8;
-  border-top: 1px solid #e8e8e8;
+  background: var(--klc-color-background);
+  border-top: 1px solid var(--klc-color-grid-major);
 }
 
 .footer-right {
@@ -483,8 +483,8 @@ function onConfirm() {
 /* 重置 */
 .params-btn.reset {
   background: transparent;
-  border-color: #d0d0d0;
-  color: #666;
+  border-color: var(--klc-color-axis-line);
+  color: var(--klc-color-axis-text);
 }
 
 .params-btn.reset:hover {
@@ -496,26 +496,26 @@ function onConfirm() {
 /* 取消 */
 .params-btn.cancel {
   background: transparent;
-  border-color: #d0d0d0;
-  color: #666;
+  border-color: var(--klc-color-axis-line);
+  color: var(--klc-color-axis-text);
 }
 
 .params-btn.cancel:hover {
-  background: #f0f0f0;
-  color: #333;
-  border-color: #bbb;
+  background: var(--klc-color-tag-bg-hover);
+  color: var(--klc-color-foreground);
+  border-color: var(--klc-color-axis-text);
 }
 
 /* 确定 */
 .params-btn.confirm {
-  background: #1a1a1a;
-  border-color: #1a1a1a;
-  color: #fff;
+  background: var(--klc-color-foreground);
+  border-color: var(--klc-color-foreground);
+  color: var(--klc-color-background);
 }
 
 .params-btn.confirm:hover {
-  background: #333;
-  border-color: #333;
+  background: var(--klc-color-foreground);
+  border-color: var(--klc-color-foreground);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
   transform: translateY(-1px);
 }

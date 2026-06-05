@@ -95,10 +95,10 @@ function onLineStyleChange(style: 'solid' | 'dashed' | 'dotted') {
   gap: 6px;
   padding: 4px 8px;
   height: 32px;
-  background: rgba(250, 251, 252, 0.88);
+  background: color-mix(in srgb, var(--klc-color-tag-bg-white) 88%, transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--klc-color-border-button);
   border-radius: 6px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   z-index: 100;
@@ -122,7 +122,7 @@ function onLineStyleChange(style: 'solid' | 'dashed' | 'dotted') {
   display: block;
   width: 100%;
   height: 100%;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--klc-color-axis-line);
   border-radius: 4px;
   cursor: pointer;
 }
@@ -139,17 +139,17 @@ function onLineStyleChange(style: 'solid' | 'dashed' | 'dotted') {
 .toolbar-select {
   height: 24px;
   padding: 0 4px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--klc-color-axis-line);
   border-radius: 4px;
-  background: #fff;
-  color: #374151;
+  background: var(--klc-color-tag-bg-white);
+  color: var(--klc-color-foreground);
   font-size: 12px;
   cursor: pointer;
   outline: none;
 }
 
 .toolbar-select:hover {
-  border-color: #9ca3af;
+  border-color: var(--klc-color-axis-text);
 }
 
 .toolbar-btn {
@@ -162,15 +162,15 @@ function onLineStyleChange(style: 'solid' | 'dashed' | 'dotted') {
   border: 1px solid transparent;
   border-radius: 4px;
   background: transparent;
-  color: #6b7280;
+  color: var(--klc-color-axis-text);
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
 .toolbar-btn:hover {
-  border-color: #d1d5db;
-  background: #f3f4f6;
-  color: #374151;
+  border-color: var(--klc-color-axis-line);
+  background: var(--klc-color-grid-minor);
+  color: var(--klc-color-foreground);
 }
 
 .delete-btn:hover {

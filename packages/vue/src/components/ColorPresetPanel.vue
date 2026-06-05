@@ -108,130 +108,159 @@ function resetCurrentThemeColors(): void {
 </script>
 
 <style scoped>
-.settings-section-divider {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 10px 0 2px;
-}
-
-.settings-section-divider:first-child {
-  margin-top: 0;
-}
-
-.settings-section-divider::before,
-.settings-section-divider::after {
-  content: '';
-  flex: 1;
-  border-top: 1px solid #e0e0e0;
-}
-
-.settings-section-label {
-  font-size: 11px;
-  color: #999;
-  white-space: nowrap;
-  line-height: 1;
-}
-
+/* ── 工具栏 ── */
 .color-preset-tools {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 8px;
   align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
 }
 
+/* ── 主题切换 ── */
 .theme-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 4px;
+  gap: 3px;
   padding: 3px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--klc-color-border-button);
   border-radius: 8px;
-  background: #f3f4f6;
+  background: var(--klc-color-grid-minor);
 }
 
 .theme-tab {
   height: 28px;
-  border: 0;
+  border: none;
   border-radius: 6px;
   background: transparent;
-  color: #666;
+  color: var(--klc-color-axis-text);
   font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.theme-tab:not(.active):hover {
+  color: var(--klc-color-foreground);
+  background: color-mix(in srgb, var(--klc-color-tag-bg-white) 60%, transparent);
 }
 
 .theme-tab.active {
-  background: #fff;
-  color: #1a1a1a;
+  background: var(--klc-color-tag-bg-white);
+  color: var(--klc-color-foreground);
+  font-weight: 600;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 
+/* ── 重置按钮 ── */
 .color-reset-btn {
   height: 36px;
-  padding: 0 12px;
-  border: 1px solid #d0d0d0;
+  padding: 0 14px;
+  border: 1px solid var(--klc-color-axis-line);
   border-radius: 8px;
-  background: #fff;
-  color: #555;
+  background: var(--klc-color-tag-bg-white);
+  color: var(--klc-color-axis-text);
   font-size: 12px;
   font-weight: 500;
-  line-height: 1;
   white-space: nowrap;
   cursor: pointer;
   transition:
-    background 0.15s,
-    border-color 0.15s,
-    color 0.15s;
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .color-reset-btn:hover {
-  border-color: #9ca3af;
-  background: #f8f8f8;
-  color: #1a1a1a;
+  border-color: var(--klc-color-axis-text);
+  background: var(--klc-color-background);
+  color: var(--klc-color-foreground);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
+.color-reset-btn:active {
+  background: var(--klc-color-tag-bg-hover);
+  box-shadow: none;
+}
+
+/* ── 分组标签 ── */
 .color-group-label {
-  margin-top: 8px;
-  color: #666;
+  margin: 6px 0 6px;
+  color: var(--klc-color-axis-text);
   font-size: 12px;
   font-weight: 600;
   line-height: 1.3;
 }
 
+/* ── 颜色网格 ── */
 .color-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
 }
 
+/* ── 颜色条目 ── */
 .color-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   min-height: 36px;
-  padding: 7px 9px;
-  border: 1px solid #e8e8e8;
+  padding: 6px 10px;
+  border: 1px solid var(--klc-color-grid-major);
   border-radius: 8px;
-  background: #f8f8f8;
-  color: #333;
+  background: var(--klc-color-background);
+  color: var(--klc-color-foreground);
   font-size: 12px;
   line-height: 1.3;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.color-item:hover {
+  border-color: var(--klc-color-axis-line);
+  background: var(--klc-color-tag-bg-hover);
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--klc-color-foreground) 6%, transparent);
 }
 
 .color-item span {
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
 }
 
+/* ── 颜色输入 ── */
 .color-input {
   flex: 0 0 auto;
   width: 26px;
   height: 26px;
   padding: 0;
-  border: 1px solid #d0d0d0;
+  border: 1px solid var(--klc-color-axis-line);
   border-radius: 6px;
   background: transparent;
   cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.color-input:hover {
+  border-color: var(--klc-color-axis-text);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-foreground) 6%, transparent);
+}
+
+.color-input:focus-visible {
+  outline: none;
+  border-color: var(--klc-color-axis-text);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-foreground) 10%, transparent);
 }
 
 .color-input::-webkit-color-swatch-wrapper {
@@ -239,10 +268,11 @@ function resetCurrentThemeColors(): void {
 }
 
 .color-input::-webkit-color-swatch {
-  border: 0;
+  border: none;
   border-radius: 4px;
 }
 
+/* ── 响应式 ── */
 @media (max-width: 480px) {
   .color-preset-tools {
     grid-template-columns: 1fr;

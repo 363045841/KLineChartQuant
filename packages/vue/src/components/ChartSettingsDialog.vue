@@ -51,7 +51,7 @@
               </div>
               <div class="settings-item nav-item" @click="showColorPresetModal = true">
                 <label class="settings-label">
-                  <span>颜色预设</span>
+                  <span>颜色配置</span>
                   <svg
                     viewBox="0 0 24 24"
                     fill="none"
@@ -249,8 +249,8 @@ function confirmSettings() {
 }
 
 .settings-modal {
-  background: #ffffff;
-  border: 1px solid #e0e0e0;
+  background: var(--klc-color-tag-bg-white);
+  border: 1px solid var(--klc-color-border-button);
   border-radius: 10px;
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.15);
   min-width: 360px;
@@ -267,8 +267,8 @@ function confirmSettings() {
   justify-content: space-between;
   align-items: center;
   padding: 14px 18px 14px 20px;
-  background: #f8f8f8;
-  border-bottom: 1px solid #e8e8e8;
+  background: var(--klc-color-background);
+  border-bottom: 1px solid var(--klc-color-grid-major);
   flex-shrink: 0;
 }
 
@@ -288,19 +288,19 @@ function confirmSettings() {
 .settings-title {
   font-size: 15px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--klc-color-foreground);
   line-height: 1.35;
 }
 
 .settings-subtitle {
   font-size: 11px;
-  color: #999;
+  color: var(--klc-color-axis-text);
   line-height: 1.3;
 }
 
 .settings-close {
-  background: #fff;
-  border: 1px solid #e0e0e0;
+  background: var(--klc-color-tag-bg-white);
+  border: 1px solid var(--klc-color-border-button);
   border-radius: 7px;
   width: 30px;
   height: 30px;
@@ -308,7 +308,7 @@ function confirmSettings() {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #888;
+  color: var(--klc-color-axis-text);
   transition:
     background 0.15s,
     color 0.15s,
@@ -317,9 +317,9 @@ function confirmSettings() {
 }
 
 .settings-close:hover {
-  background: #f0f0f0;
-  color: #333;
-  border-color: #ccc;
+  background: var(--klc-color-tag-bg-hover);
+  color: var(--klc-color-foreground);
+  border-color: var(--klc-color-axis-line);
 }
 
 .settings-close svg {
@@ -341,16 +341,16 @@ function confirmSettings() {
 }
 
 .settings-body::-webkit-scrollbar-thumb {
-  background: #d0d0d0;
-  border: 2px solid #ffffff;
+  background: var(--klc-color-axis-line);
+  border: 2px solid var(--klc-color-tag-bg-white);
   border-radius: 999px;
 }
 
 .settings-item {
   padding: 0;
   border-radius: 8px;
-  background: #f8f8f8;
-  border: 1px solid #e8e8e8;
+  background: var(--klc-color-background);
+  border: 1px solid var(--klc-color-grid-major);
   transition:
     border-color 0.15s,
     background 0.15s,
@@ -358,8 +358,8 @@ function confirmSettings() {
 }
 
 .settings-item:hover {
-  border-color: #d0d0d0;
-  background: #fff;
+  border-color: var(--klc-color-axis-line);
+  background: var(--klc-color-tag-bg-white);
 }
 
 .settings-label {
@@ -370,7 +370,7 @@ function confirmSettings() {
   min-height: 42px;
   padding: 9px 12px;
   font-size: 13px;
-  color: #333;
+  color: var(--klc-color-foreground);
   cursor: pointer;
 }
 
@@ -384,17 +384,17 @@ function confirmSettings() {
   width: 17px;
   height: 17px;
   cursor: pointer;
-  accent-color: #1a1a1a;
+  accent-color: var(--klc-color-foreground);
 }
 
 .settings-select {
   flex: 0 0 auto;
   height: 30px;
   padding: 4px 28px 4px 9px;
-  border: 1px solid #d0d0d0;
+  border: 1px solid var(--klc-color-axis-line);
   border-radius: 6px;
-  background: #fff;
-  color: #333;
+  background: var(--klc-color-tag-bg-white);
+  color: var(--klc-color-foreground);
   font-size: 12px;
   cursor: pointer;
   outline: none;
@@ -403,12 +403,12 @@ function confirmSettings() {
 }
 
 .settings-select:hover {
-  border-color: #9ca3af;
+  border-color: var(--klc-color-axis-text);
 }
 
 .settings-select:focus {
-  border-color: #6b7280;
-  box-shadow: 0 0 0 2px rgba(107, 114, 128, 0.15);
+  border-color: var(--klc-color-axis-text);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-axis-text) 15%, transparent);
 }
 
 .settings-section-divider {
@@ -426,12 +426,12 @@ function confirmSettings() {
 .settings-section-divider::after {
   content: '';
   flex: 1;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid var(--klc-color-border-button);
 }
 
 .settings-section-label {
   font-size: 11px;
-  color: #999;
+  color: var(--klc-color-axis-text);
   white-space: nowrap;
   line-height: 1;
 }
@@ -445,11 +445,11 @@ function confirmSettings() {
 }
 
 .settings-item.nav-item:hover .nav-arrow {
-  color: #333;
+  color: var(--klc-color-foreground);
 }
 
 .nav-arrow {
-  color: #bbb;
+  color: var(--klc-color-axis-text);
   transition: color 0.15s;
   flex-shrink: 0;
 }
@@ -470,8 +470,8 @@ function confirmSettings() {
   justify-content: space-between;
   gap: 12px;
   padding: 12px 20px;
-  background: #f8f8f8;
-  border-top: 1px solid #e8e8e8;
+  background: var(--klc-color-background);
+  border-top: 1px solid var(--klc-color-grid-major);
   flex-shrink: 0;
 }
 
@@ -512,8 +512,8 @@ function confirmSettings() {
 
 .settings-btn.reset {
   background: transparent;
-  border-color: #d0d0d0;
-  color: #666;
+  border-color: var(--klc-color-axis-line);
+  color: var(--klc-color-axis-text);
   min-width: 76px;
 }
 
@@ -525,25 +525,25 @@ function confirmSettings() {
 
 .settings-btn.cancel {
   background: transparent;
-  border-color: #d0d0d0;
-  color: #666;
+  border-color: var(--klc-color-axis-line);
+  color: var(--klc-color-axis-text);
 }
 
 .settings-btn.cancel:hover {
-  background: #f0f0f0;
-  color: #333;
-  border-color: #bbb;
+  background: var(--klc-color-tag-bg-hover);
+  color: var(--klc-color-foreground);
+  border-color: var(--klc-color-axis-text);
 }
 
 .settings-btn.confirm {
-  background: #1a1a1a;
-  border-color: #1a1a1a;
-  color: #fff;
+  background: var(--klc-color-foreground);
+  border-color: var(--klc-color-foreground);
+  color: var(--klc-color-background);
 }
 
 .settings-btn.confirm:hover {
-  background: #333;
-  border-color: #333;
+  background: var(--klc-color-foreground);
+  border-color: var(--klc-color-foreground);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
   transform: translateY(-1px);
 }

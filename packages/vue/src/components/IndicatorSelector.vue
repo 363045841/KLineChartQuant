@@ -560,7 +560,7 @@ onUnmounted(() => {
   width: 1px;
   height: 20px;
   align-self: center;
-  background: #d9d9d9;
+  background: var(--klc-color-axis-line);
 }
 
 .indicator-item {
@@ -581,8 +581,8 @@ onUnmounted(() => {
 }
 
 .indicator-item.drag-over .indicator-btn {
-  border-color: #1a1a1a;
-  box-shadow: 0 0 0 2px rgba(26, 26, 26, 0.12);
+  border-color: var(--klc-color-foreground);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-foreground) 12%, transparent);
 }
 
 .indicator-btn-wrapper {
@@ -593,10 +593,10 @@ onUnmounted(() => {
   position: relative;
   flex-shrink: 0;
   padding: 6px 16px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--klc-color-border-button);
   border-radius: 16px;
-  background: #ffffff;
-  color: #666;
+  background: var(--klc-color-tag-bg-white);
+  color: var(--klc-color-axis-text);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -610,20 +610,20 @@ onUnmounted(() => {
 }
 
 .indicator-btn:hover:not(.hovering) {
-  background: #f8f8f8;
-  border-color: #ccc;
-  color: #333;
+  background: var(--klc-color-tag-bg-hover);
+  border-color: var(--klc-color-border-button);
+  color: var(--klc-color-foreground);
 }
 
 .indicator-btn.active {
-  background: #f8f8f8;
-  border-color: #1a1a1a;
-  color: #1a1a1a;
+  background: var(--klc-color-tag-bg-hover);
+  border-color: var(--klc-color-foreground);
+  color: var(--klc-color-foreground);
 }
 
 .indicator-btn.active:hover:not(.hovering) {
-  background: #f0f0f0;
-  border-color: #333;
+  background: var(--klc-color-tag-bg-hover);
+  border-color: var(--klc-color-foreground);
 }
 
 .btn-content {
@@ -647,7 +647,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  background: rgba(255, 255, 255, 0.85);
+  background: color-mix(in srgb, var(--klc-color-background) 85%, transparent);
   backdrop-filter: blur(4px);
   border-radius: 16px;
   z-index: 2;
@@ -660,7 +660,7 @@ onUnmounted(() => {
   border: none;
   border-radius: 50%;
   background: transparent;
-  color: #666;
+  color: var(--klc-color-axis-text);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -669,12 +669,12 @@ onUnmounted(() => {
 }
 
 .action-btn:hover {
-  background: rgba(0, 0, 0, 0.06);
-  color: #333;
+  background: var(--klc-color-tag-bg-hover);
+  color: var(--klc-color-foreground);
 }
 
 .settings-btn:hover {
-  color: #1a1a1a;
+  color: var(--klc-color-foreground);
 }
 
 .remove-btn:hover {
@@ -684,7 +684,7 @@ onUnmounted(() => {
 .divider {
   width: 1px;
   height: 14px;
-  background: #e0e0e0;
+  background: var(--klc-color-border-button);
 }
 
 /* 添加按钮 */
@@ -693,10 +693,10 @@ onUnmounted(() => {
   width: 32px;
   height: 32px;
   padding: 0;
-  border: 1px dashed #d9d9d9;
+  border: 1px dashed var(--klc-color-border-button);
   border-radius: 50%;
   background: transparent;
-  color: #999;
+  color: var(--klc-color-axis-text);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -705,9 +705,9 @@ onUnmounted(() => {
 }
 
 .add-btn:hover {
-  border-color: #1a1a1a;
-  color: #1a1a1a;
-  background: rgba(26, 26, 26, 0.04);
+  border-color: var(--klc-color-foreground);
+  color: var(--klc-color-foreground);
+  background: var(--klc-color-tag-bg-hover);
 }
 
 /* ─────────────────────────────────────────────────────────────────
@@ -728,8 +728,8 @@ onUnmounted(() => {
 
 /* 弹窗容器 */
 .selector-modal {
-  background: #ffffff;
-  border: 1px solid #e0e0e0;
+  background: var(--klc-color-tag-bg-white);
+  border: 1px solid var(--klc-color-axis-line);
   border-radius: 12px;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15);
   width: 90vw;
@@ -746,8 +746,8 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  background: #f8f8f8;
-  border-bottom: 1px solid #e8e8e8;
+  background: var(--klc-color-background);
+  border-bottom: 1px solid var(--klc-color-grid-major);
   flex-shrink: 0;
 }
 
@@ -760,18 +760,18 @@ onUnmounted(() => {
 .title-text {
   font-size: 14px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--klc-color-foreground);
   letter-spacing: 0.2px;
 }
 
 .title-sub {
   font-size: 11px;
-  color: #999;
+  color: var(--klc-color-axis-text);
 }
 
 .modal-close {
-  background: #fff;
-  border: 1px solid #e0e0e0;
+  background: var(--klc-color-tag-bg-white);
+  border: 1px solid var(--klc-color-border-button);
   border-radius: 6px;
   width: 28px;
   height: 28px;
@@ -779,15 +779,15 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #888;
+  color: var(--klc-color-axis-text);
   transition: all 0.15s;
   padding: 0;
 }
 
 .modal-close:hover {
-  background: #f0f0f0;
-  color: #333;
-  border-color: #ccc;
+  background: var(--klc-color-tag-bg-hover);
+  color: var(--klc-color-foreground);
+  border-color: var(--klc-color-axis-line);
 }
 
 .modal-close svg {
@@ -802,8 +802,8 @@ onUnmounted(() => {
 }
 
 .view-toggle-btn {
-  background: #fff;
-  border: 1px solid #e0e0e0;
+  background: var(--klc-color-tag-bg-white);
+  border: 1px solid var(--klc-color-border-button);
   border-radius: 6px;
   width: 28px;
   height: 28px;
@@ -811,21 +811,21 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #888;
+  color: var(--klc-color-axis-text);
   transition: all 0.15s;
   padding: 0;
 }
 
 .view-toggle-btn:hover {
-  background: #f0f0f0;
-  color: #333;
-  border-color: #ccc;
+  background: var(--klc-color-tag-bg-hover);
+  color: var(--klc-color-foreground);
+  border-color: var(--klc-color-axis-line);
 }
 
 .view-toggle-btn.active {
-  background: #1a1a1a;
-  border-color: #1a1a1a;
-  color: #fff;
+  background: var(--klc-color-foreground);
+  border-color: var(--klc-color-foreground);
+  color: var(--klc-color-background);
 }
 
 /* 弹窗主体 */
@@ -843,8 +843,8 @@ onUnmounted(() => {
 }
 
 .modal-body::-webkit-scrollbar-thumb {
-  background: #d0d0d0;
-  border: 2px solid #ffffff;
+  background: var(--klc-color-axis-line);
+  border: 2px solid var(--klc-color-tag-bg-white);
   border-radius: 999px;
 }
 
@@ -854,20 +854,20 @@ onUnmounted(() => {
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--klc-color-border-button);
   border-radius: 8px;
   transition: all 0.2s ease;
 }
 
 .search-box:focus-within {
-  background: #ffffff;
-  border-color: #1a1a1a;
-  box-shadow: 0 0 0 2px rgba(26, 26, 26, 0.08);
+  background: var(--klc-color-tag-bg-white);
+  border-color: var(--klc-color-foreground);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-foreground) 8%, transparent);
 }
 
 .search-icon {
   flex-shrink: 0;
-  color: #999;
+  color: var(--klc-color-axis-text);
 }
 
 .search-input {
@@ -875,12 +875,12 @@ onUnmounted(() => {
   border: none;
   background: transparent;
   font-size: 13px;
-  color: #333;
+  color: var(--klc-color-foreground);
   outline: none;
 }
 
 .search-input::placeholder {
-  color: #aaa;
+  color: var(--klc-color-axis-text);
 }
 
 /* 无结果提示 */
@@ -890,7 +890,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 48px 20px;
-  color: #ccc;
+  color: var(--klc-color-axis-text);
   gap: 12px;
 }
 
@@ -901,13 +901,13 @@ onUnmounted(() => {
 .no-results p {
   margin: 0;
   font-size: 14px;
-  color: #999;
+  color: var(--klc-color-axis-text);
   font-weight: 500;
 }
 
 .no-results-hint {
   font-size: 12px;
-  color: #bbb;
+  color: var(--klc-color-axis-text);
 }
 
 /* 指标区域 */
@@ -926,13 +926,13 @@ onUnmounted(() => {
 .section-title {
   font-size: 13px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--klc-color-foreground);
 }
 
 .section-count {
   font-size: 11px;
-  color: #999;
-  background: #f0f0f0;
+  color: var(--klc-color-axis-text);
+  background: var(--klc-color-grid-minor);
   padding: 2px 8px;
   border-radius: 10px;
 }
@@ -969,8 +969,8 @@ onUnmounted(() => {
   transform: translateX(-50%);
   padding: 4px 10px;
   border-radius: 6px;
-  background: #333;
-  color: #fff;
+  background: var(--klc-color-foreground);
+  color: var(--klc-color-background);
   font-size: 12px;
   white-space: nowrap;
   pointer-events: none;
@@ -994,24 +994,24 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 4px;
   padding: 12px 14px;
-  border: 1px solid #e8e8e8;
+  border: 1px solid var(--klc-color-grid-major);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--klc-color-tag-bg-white);
   cursor: pointer;
   transition: all 0.15s;
   text-align: left;
 }
 
 .indicator-card:hover:not(.disabled) {
-  border-color: #1a1a1a;
-  background: #fafafa;
+  border-color: var(--klc-color-foreground);
+  background: var(--klc-color-background);
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .indicator-card.active {
-  border-color: #1a1a1a;
-  background: #f8f8f8;
+  border-color: var(--klc-color-foreground);
+  background: var(--klc-color-tag-bg-hover);
 }
 
 .card-header {
@@ -1024,7 +1024,7 @@ onUnmounted(() => {
 .card-label {
   font-size: 13px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--klc-color-foreground);
 }
 
 .card-header-actions {
@@ -1043,32 +1043,32 @@ onUnmounted(() => {
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: #bbb;
+  color: var(--klc-color-axis-text);
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .card-settings-btn:hover {
-  background: #f0f0f0;
-  color: #555;
+  background: var(--klc-color-tag-bg-hover);
+  color: var(--klc-color-foreground);
 }
 
 .card-name {
   font-size: 11px;
-  color: #666;
+  color: var(--klc-color-axis-text);
   line-height: 1.4;
 }
 
 .card-params {
   font-size: 10px;
-  color: #999;
+  color: var(--klc-color-axis-text);
   margin-top: 2px;
 }
 
 /* 区域分隔线 */
 .section-divider {
   height: 1px;
-  background: linear-gradient(90deg, transparent, #e0e0e0, transparent);
+  background: linear-gradient(90deg, transparent, var(--klc-color-border-button), transparent);
   margin: 4px 0;
 }
 
@@ -1078,18 +1078,18 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 12px 20px;
-  background: #f8f8f8;
-  border-top: 1px solid #e8e8e8;
+  background: var(--klc-color-background);
+  border-top: 1px solid var(--klc-color-grid-major);
   flex-shrink: 0;
 }
 
 .footer-info {
   font-size: 12px;
-  color: #666;
+  color: var(--klc-color-axis-text);
 }
 
 .info-text {
-  color: #999;
+  color: var(--klc-color-axis-text);
 }
 
 /* 按钮样式 */
@@ -1108,14 +1108,14 @@ onUnmounted(() => {
 }
 
 .btn-confirm {
-  background: #1a1a1a;
-  border-color: #1a1a1a;
-  color: #fff;
+  background: var(--klc-color-foreground);
+  border-color: var(--klc-color-foreground);
+  color: var(--klc-color-background);
 }
 
 .btn-confirm:hover {
-  background: #333;
-  border-color: #333;
+  background: var(--klc-color-foreground);
+  border-color: var(--klc-color-foreground);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
   transform: translateY(-1px);
 }

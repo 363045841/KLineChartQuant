@@ -54,13 +54,18 @@ export const DEFAULT_SETTINGS = [
   { key: 'disableMainPaneVerticalScroll', label: '主图纵轴刻度自适应调整', type: 'boolean', default: true, group: 'main' },
   { key: 'isAsiaMarket', label: '亚洲市场颜色（红涨绿跌）', type: 'boolean', default: false, group: 'main' },
   { key: 'enableWebGLRendering', label: '启用 WebGL 硬件加速渲染', type: 'boolean', default: ENABLE_WEBGL_DEFAULT, group: 'main' },
+  { key: 'theme', label: '主题', type: 'select', default: 'light', group: 'main', options: [
+    { value: 'light', label: '浅色' },
+    { value: 'dark', label: '深色' },
+    { value: 'auto', label: '跟随系统' },
+  ] },
   { key: 'performanceTest10kKlines', label: '万条K线性能测试', type: 'boolean', default: false, group: 'experimental' },
   { key: 'enableCanvasProfiler', label: 'Canvas 性能分析插桩', type: 'boolean', default: false, group: 'experimental' },
 ] as const
 
 /** 图表设置类型（从 DEFAULT_SETTINGS 自动推导，同时兼容扩展） */
 export type ChartSettings = {
-  [K in (typeof DEFAULT_SETTINGS)[number]['key']]?: boolean
+  [K in (typeof DEFAULT_SETTINGS)[number]['key']]?: boolean | string
 } & Record<string, boolean | string | ColorPresetSettings | undefined> & {
   colorPresetSettings?: ColorPresetSettings
 }

@@ -152,10 +152,10 @@ const changeColor = computed(() => {
   max-width: 260px;
   padding: 10px 12px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: var(--klc-color-tooltip-bg);
+  border: 1px solid var(--klc-color-tooltip-border);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
-  color: rgba(0, 0, 0, 0.78);
+  color: var(--klc-color-tooltip-text);
   font-size: 12px;
   line-height: 1.4;
   pointer-events: none;
@@ -183,7 +183,8 @@ const changeColor = computed(() => {
 }
 
 .kline-tooltip__grid .row span:first-child {
-  color: rgba(0, 0, 0, 0.56);
+  color: var(--klc-color-tooltip-text);
+  opacity: 0.56;
 }
 
 @supports (anchor-name: --kmap-anchor) and (position-anchor: --kmap-anchor) {

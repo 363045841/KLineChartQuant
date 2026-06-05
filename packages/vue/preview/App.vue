@@ -1,5 +1,5 @@
 <template>
-  <div class="app-container">
+  <div class="app-container" :data-theme="currentTheme">
     <div class="debug-controls">
       <div class="debug-left">
         <button @click="showModal = true" title="打开 Modal">
@@ -85,6 +85,7 @@
         :dataFetcher="dataFetcher"
         :is-fullscreen="isFullscreen"
         @toggle-fullscreen="toggleFullscreen"
+        @theme-change="onThemeChange"
       />
     </div>
 
@@ -98,7 +99,7 @@
               <button class="close-btn" @click="showModal = false">×</button>
             </header>
             <div class="modal-body">
-              <KLineChart :semanticConfig="currentConfig" :dataFetcher="dataFetcher" />
+              <KLineChart :semanticConfig="currentConfig" :dataFetcher="dataFetcher" @theme-change="onThemeChange" />
             </div>
           </div>
         </div>
@@ -190,6 +191,11 @@ function toggleEmbedSize() {
 
 const isFullscreen = ref(false)
 const embedContainerRef = ref<HTMLElement | null>(null)
+const currentTheme = ref<'light' | 'dark'>('light')
+
+function onThemeChange(theme: 'light' | 'dark') {
+  currentTheme.value = theme
+}
 
 provideFullscreenTeleportTarget(embedContainerRef)
 
@@ -432,5 +438,76 @@ if (typeof document !== 'undefined') {
 .modal-leave-to .modal-container {
   transform: scale(0.95) translateY(20px);
   opacity: 0;
+}
+
+/* ── 深色模式 ── */
+.app-container[data-theme='dark'] {
+  background: #111827;
+  color: #e5e7eb;
+}
+
+.app-container[data-theme='dark'] .debug-controls {
+  background: #1f2937;
+  border-color: #374151;
+}
+
+.app-container[data-theme='dark'] .debug-link {
+  background: #374151;
+  border-color: #4b5563;
+  color: #d1d5db;
+}
+
+.app-container[data-theme='dark'] .debug-link:hover {
+  border-color: #60a5fa;
+  color: #60a5fa;
+}
+
+.app-container[data-theme='dark'] .debug-controls button {
+  background: #374151;
+  border-color: #4b5563;
+  color: #d1d5db;
+}
+
+.app-container[data-theme='dark'] .debug-controls button:hover {
+  border-color: #60a5fa;
+  color: #60a5fa;
+}
+
+.app-container[data-theme='dark'] .size-info,
+.app-container[data-theme='dark'] .version-badge {
+  color: #9ca3af;
+}
+
+.app-container[data-theme='dark'] .version-badge {
+  background: #374151;
+  border-color: #4b5563;
+}
+
+.app-container[data-theme='dark'] .embed-container {
+  border-color: #374151;
+}
+
+.app-container[data-theme='dark'] .embed-container:fullscreen,
+.app-container[data-theme='dark'] .embed-container.is-fullscreen {
+  background: #111827;
+}
+
+.app-container[data-theme='dark'] .modal-container {
+  background: #1f2937;
+}
+
+.app-container[data-theme='dark'] .modal-header {
+  background: #374151;
+  border-color: #4b5563;
+  color: #e5e7eb;
+}
+
+.app-container[data-theme='dark'] .close-btn {
+  color: #9ca3af;
+}
+
+.app-container[data-theme='dark'] .close-btn:hover {
+  background: #4b5563;
+  color: #f3f4f6;
 }
 </style>

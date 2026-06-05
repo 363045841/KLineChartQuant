@@ -1,5 +1,5 @@
 <template>
-  <div ref="chartWrapperRef" class="chart-wrapper" :data-theme="chartTheme">
+  <div ref="chartWrapperRef" class="chart-wrapper" :data-theme="chartTheme" :style="themeCssVars">
     <div
       class="chart-stage"
       :class="{
@@ -75,6 +75,8 @@
             :set-el="setTooltipEl"
             :use-anchor="useAnchorPositioning"
             :anchor-placement="tooltipAnchorPlacement"
+            :up-color="tooltipColors.upColor"
+            :down-color="tooltipColors.downColor"
           />
           <MarkerTooltip
             v-if="hoveredMarker || hoveredCustomMarker"
@@ -137,6 +139,7 @@ import {
 } from '@363045841yyt/klinechart-core/controllers'
 import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
 import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
+import { resolveThemeColors, themeToCssVars, lightTheme, darkTheme } from '@363045841yyt/klinechart-core'
 import LeftToolbar from './LeftToolbar.vue'
 
 const props = withDefaults(
@@ -180,6 +183,7 @@ const props = withDefaults(
 const emit = defineEmits<{
   (e: 'zoomLevelChange', level: number, kWidth: number): void
   (e: 'toggleFullscreen'): void
+  (e: 'themeChange', theme: 'light' | 'dark'): void
 }>()
 
 const containerRef = ref<HTMLDivElement | null>(null)
@@ -220,11 +224,53 @@ kGap.value = kGapFromKWidth(kWidth.value, viewportDpr.value)
 /* ========== 主题状态 ========== */
 const chartTheme = ref<'light' | 'dark'>('light')
 
+const chartSettings = ref<ChartSettings>({})
+
+const tooltipColors = computed(() => {
+  const isAsiaMarket = chartSettings.value.isAsiaMarket ?? false
+  const colors = resolveThemeColors(chartTheme.value, isAsiaMarket as boolean | undefined)
+  return {
+    upColor: colors.candleUpBody,
+    downColor: colors.candleDownBody,
+  }
+})
+
+const themeCssVars = computed(() =>
+  themeToCssVars(chartTheme.value === 'dark' ? darkTheme : lightTheme),
+)
+
+/* ========== 主题切换（支持 light / dark / auto 跟随系统） ========== */
+let autoThemeMediaQuery: MediaQueryList | null = null
+
+function onSystemThemeChange(e: MediaQueryListEvent) {
+  controller.value?.setTheme(e.matches ? 'dark' : 'light')
+}
+
+function applyThemeFromSettings(ctrl: ChartController | null, themeSetting: string | undefined) {
+  if (!ctrl || !themeSetting) return
+
+  if (themeSetting === 'auto') {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    ctrl.setTheme(mq.matches ? 'dark' : 'light')
+    if (autoThemeMediaQuery !== mq) {
+      autoThemeMediaQuery?.removeEventListener('change', onSystemThemeChange)
+      autoThemeMediaQuery = mq
+      mq.addEventListener('change', onSystemThemeChange)
+    }
+  } else {
+    autoThemeMediaQuery?.removeEventListener('change', onSystemThemeChange)
+    autoThemeMediaQuery = null
+    ctrl.setTheme(themeSetting as 'light' | 'dark')
+  }
+}
+
 function scheduleRender() {
   /* Controller auto-renders on state changes */
 }
 
 function handleSettingsChange(settings: ChartSettings) {
+  chartSettings.value = settings
+  applyThemeFromSettings(controller.value, settings.theme as string)
   controller.value?.updateSettingsFacade(settings)
 
   if (settings.performanceTest10kKlines) {
@@ -873,7 +919,9 @@ function setupChartCallbacks(ctrl: ChartController): void {
   })
 
   const unsubscribeTheme = ctrl.theme.subscribe(() => {
-    chartTheme.value = ctrl.theme.peek()
+    const newTheme = ctrl.theme.peek()
+    chartTheme.value = newTheme
+    emit('themeChange', newTheme)
   })
 
   const unsubscribeIndicators = ctrl.indicators.subscribe(() => {
@@ -937,11 +985,14 @@ function setupChartCallbacks(ctrl: ChartController): void {
     unsubscribeTheme()
     unsubscribeIndicators()
     unsubscribeSubPanes()
+    autoThemeMediaQuery?.removeEventListener('change', onSystemThemeChange)
   })
 }
 
 function applyInitialSettings(ctrl: ChartController): void {
   const initialSettings = toolbarRef.value?.getSettings() ?? { showVolumePriceMarkers: true }
+  chartSettings.value = initialSettings
+  applyThemeFromSettings(ctrl, initialSettings.theme as string)
   ctrl.updateSettingsFacade(initialSettings)
 
   if (initialSettings.performanceTest10kKlines) {
@@ -1071,12 +1122,12 @@ watch(
   --kmap-height: var(--kmap-chart-height, 100%);
   --kmap-width: var(--kmap-chart-width, 100%);
 
-  --chart-bg: #ffffff;
-  --chart-bg-secondary: #f8f9fa;
-  --chart-border: #e5e7eb;
-  --chart-border-active: #3b82f6;
-  --chart-text: #374151;
-  --chart-text-secondary: #6b7280;
+  --chart-bg: var(--klc-color-tag-bg-white);
+  --chart-bg-secondary: var(--klc-color-background);
+  --chart-border: var(--klc-color-grid-major);
+  --chart-border-active: var(--klc-color-foreground);
+  --chart-text: var(--klc-color-foreground);
+  --chart-text-secondary: var(--klc-color-axis-text);
 
   display: flex;
   align-items: center;
@@ -1085,15 +1136,6 @@ watch(
   height: var(--kmap-height);
   min-height: 300px;
   flex-direction: column;
-}
-
-.chart-wrapper[data-theme='dark'] {
-  --chart-bg: #1a1a2e;
-  --chart-bg-secondary: #16162a;
-  --chart-border: #2d2d44;
-  --chart-border-active: #60a5fa;
-  --chart-text: #e5e7eb;
-  --chart-text-secondary: #9ca3af;
 }
 
 .chart-stage {

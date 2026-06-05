@@ -306,9 +306,9 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   padding: 8px 5px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--klc-color-grid-major);
   border-radius: 6px;
-  background: #fafbfc;
+  background: var(--klc-color-background);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   box-sizing: border-box;
   user-select: none;
@@ -323,7 +323,7 @@ onUnmounted(() => {
 .left-toolbar__divider {
   width: 18px;
   height: 1px;
-  background: #e5e7eb;
+  background: var(--klc-color-grid-major);
 }
 
 /* --- 工具按钮 --- */
@@ -335,7 +335,7 @@ onUnmounted(() => {
   border: 1px solid transparent;
   border-radius: 4px;
   background: transparent;
-  color: #6b7280;
+  color: var(--klc-color-axis-text);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -347,20 +347,20 @@ onUnmounted(() => {
 }
 
 .left-toolbar__button:hover {
-  border-color: #d1d5db;
-  background: #f3f4f6;
-  color: #374151;
+  border-color: var(--klc-color-axis-line);
+  background: var(--klc-color-tag-bg-hover);
+  color: var(--klc-color-foreground);
 }
 
 .left-toolbar__button.active {
-  border-color: #9ca3af;
-  background: #e5e7eb;
-  color: #1f2937;
+  border-color: var(--klc-color-axis-text);
+  background: var(--klc-color-grid-major);
+  color: var(--klc-color-foreground);
 }
 
 .left-toolbar__button:focus-visible {
   outline: none;
-  border-color: #6b7280;
+  border-color: var(--klc-color-axis-text);
 }
 
 .tool-icon {
@@ -416,10 +416,10 @@ onUnmounted(() => {
   gap: 4px;
   padding: 0 5px;
   height: 40px;
-  background: rgba(250, 251, 252, 0.82);
+  background: var(--klc-color-tag-bg-white);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--klc-color-grid-major);
   border-radius: 6px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   box-sizing: border-box;
