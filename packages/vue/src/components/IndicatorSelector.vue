@@ -581,7 +581,6 @@ onUnmounted(() => {
 }
 
 .indicator-item.drag-over .indicator-btn {
-  border-color: var(--klc-color-foreground);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-foreground) 12%, transparent);
 }
 
@@ -593,7 +592,7 @@ onUnmounted(() => {
   position: relative;
   flex-shrink: 0;
   padding: 6px 16px;
-  border: 1px solid var(--klc-color-border-button);
+  border: none;
   border-radius: 16px;
   background: var(--klc-color-tag-bg-white);
   color: var(--klc-color-axis-text);
@@ -611,19 +610,16 @@ onUnmounted(() => {
 
 .indicator-btn:hover:not(.hovering) {
   background: var(--klc-color-tag-bg-hover);
-  border-color: var(--klc-color-border-button);
   color: var(--klc-color-foreground);
 }
 
 .indicator-btn.active {
   background: var(--klc-color-tag-bg-hover);
-  border-color: var(--klc-color-foreground);
   color: var(--klc-color-foreground);
 }
 
 .indicator-btn.active:hover:not(.hovering) {
   background: var(--klc-color-tag-bg-hover);
-  border-color: var(--klc-color-foreground);
 }
 
 .btn-content {
@@ -693,7 +689,7 @@ onUnmounted(() => {
   width: 32px;
   height: 32px;
   padding: 0;
-  border: 1px dashed var(--klc-color-border-button);
+  border: none;
   border-radius: 50%;
   background: transparent;
   color: var(--klc-color-axis-text);
@@ -705,7 +701,6 @@ onUnmounted(() => {
 }
 
 .add-btn:hover {
-  border-color: var(--klc-color-foreground);
   color: var(--klc-color-foreground);
   background: var(--klc-color-tag-bg-hover);
 }
