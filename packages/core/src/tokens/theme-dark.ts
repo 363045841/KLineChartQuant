@@ -83,6 +83,7 @@ export const darkTheme: Theme = {
             i8: '#A78BFA', // purple
             i9: '#60A5FA', // blue
             i10: '#9AA0A6', // neutral gray
+            indicatorAtr: '#F59E0B',
         },
 
         // ── Legacy indicator colours (from engine/theme/colors) ──

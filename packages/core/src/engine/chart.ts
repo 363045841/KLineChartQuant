@@ -1116,6 +1116,8 @@ export class Chart {
                 yAxisRanges: sharedYAxisRanges,
                 xAxisRanges: sharedXAxisRanges,
                 theme: this._themeSignal.peek(),
+                isAsiaMarket: this.settings.isAsiaMarket,
+                colorPresetSettings: this.settings.colorPresetSettings,
             }
 
             if (shouldUpdateMain || shouldUpdateOverlay) {
@@ -1193,6 +1195,8 @@ export class Chart {
                 xAxisLabels: sharedXAxisLabels,
                 xAxisRanges: sharedXAxisRanges,
                 theme: this._themeSignal.peek(),
+                isAsiaMarket: this.settings.isAsiaMarket,
+                colorPresetSettings: this.settings.colorPresetSettings,
             }
             const errors = this.rendererPluginManager.renderPlugin('timeAxis', timeAxisContext)
             if (errors.length > 0) {

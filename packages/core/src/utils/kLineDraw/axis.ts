@@ -3,6 +3,7 @@ import { priceToY, yToPrice } from '../priceToY'
 import { alignToPhysicalPixelCenter, roundToPhysicalPixel } from '../../engine/draw/pixelAlign'
 import { formatYMDShanghai, formatMonthOrYear, findMonthBoundaries } from '../../utils/dateFormat'
 import { resolveThemeColors } from '../../tokens'
+import type { ColorPresetSettings } from '../../tokens'
 import { getFont, setCanvasFont } from '../../engine/theme/fonts'
 
 const textWidthCache = new Map<string, number>()
@@ -46,8 +47,8 @@ export interface PriceAxisOptions {
 }
 
 /** 右侧价格轴（固定，不随 translate/scroll 变化） */
-export function drawPriceAxis(ctx: CanvasRenderingContext2D, opts: PriceAxisOptions, theme: 'light' | 'dark' = 'light', isAsiaMarket?: boolean) {
-    const colors = resolveThemeColors(theme, isAsiaMarket)
+export function drawPriceAxis(ctx: CanvasRenderingContext2D, opts: PriceAxisOptions, theme: 'light' | 'dark' = 'light', isAsiaMarket?: boolean, colorPresetSettings?: ColorPresetSettings) {
+    const colors = resolveThemeColors(theme, isAsiaMarket, colorPresetSettings)
     const {
         x,
         y,
@@ -196,8 +197,8 @@ export interface CrosshairTimeLabelOptions {
     paddingY?: number
 }
 
-export function drawCrosshairTimeLabel(ctx: CanvasRenderingContext2D, opts: CrosshairTimeLabelOptions, theme: 'light' | 'dark' = 'light', isAsiaMarket?: boolean) {
-    const colors = resolveThemeColors(theme, isAsiaMarket)
+export function drawCrosshairTimeLabel(ctx: CanvasRenderingContext2D, opts: CrosshairTimeLabelOptions, theme: 'light' | 'dark' = 'light', isAsiaMarket?: boolean, colorPresetSettings?: ColorPresetSettings) {
+    const colors = resolveThemeColors(theme, isAsiaMarket, colorPresetSettings)
     const {
         x,
         y,
@@ -241,8 +242,8 @@ export function drawCrosshairTimeLabel(ctx: CanvasRenderingContext2D, opts: Cros
     ctx.restore()
 }
 
-export function drawCrosshairPriceLabel(ctx: CanvasRenderingContext2D, opts: CrosshairPriceLabelOptions, theme: 'light' | 'dark' = 'light', isAsiaMarket?: boolean) {
-    const colors = resolveThemeColors(theme, isAsiaMarket)
+export function drawCrosshairPriceLabel(ctx: CanvasRenderingContext2D, opts: CrosshairPriceLabelOptions, theme: 'light' | 'dark' = 'light', isAsiaMarket?: boolean, colorPresetSettings?: ColorPresetSettings) {
+    const colors = resolveThemeColors(theme, isAsiaMarket, colorPresetSettings)
     const {
         x,
         y,
@@ -303,8 +304,8 @@ export function drawCrosshairPriceLabel(ctx: CanvasRenderingContext2D, opts: Cro
 }
 
 /** 绘制"最新价水平虚线"（画在 plotCanvas 的 world 坐标系：需在 translate(-scrollLeft,0) 之后调用） */
-export function drawLastPriceDashedLine(ctx: CanvasRenderingContext2D, opts: LastPriceLineOptions, theme: 'light' | 'dark' = 'light', isAsiaMarket?: boolean) {
-    const colors = resolveThemeColors(theme, isAsiaMarket)
+export function drawLastPriceDashedLine(ctx: CanvasRenderingContext2D, opts: LastPriceLineOptions, theme: 'light' | 'dark' = 'light', isAsiaMarket?: boolean, colorPresetSettings?: ColorPresetSettings) {
+    const colors = resolveThemeColors(theme, isAsiaMarket, colorPresetSettings)
     const {
         plotWidth,
         plotHeight,
@@ -344,8 +345,8 @@ export function drawLastPriceDashedLine(ctx: CanvasRenderingContext2D, opts: Las
 }
 
 /** 底部时间轴（X方向随 scrollLeft 变化） */
-export function drawTimeAxis(ctx: CanvasRenderingContext2D, opts: TimeAxisOptions, theme: 'light' | 'dark' = 'light', isAsiaMarket?: boolean) {
-    const colors = resolveThemeColors(theme, isAsiaMarket)
+export function drawTimeAxis(ctx: CanvasRenderingContext2D, opts: TimeAxisOptions, theme: 'light' | 'dark' = 'light', isAsiaMarket?: boolean, colorPresetSettings?: ColorPresetSettings) {
+    const colors = resolveThemeColors(theme, isAsiaMarket, colorPresetSettings)
     const {
         x,
         y,
@@ -448,8 +449,8 @@ export interface AxisPriceLabelOptions {
     fontSize?: number
 }
 
-export function drawAxisPriceLabel(ctx: CanvasRenderingContext2D, opts: AxisPriceLabelOptions, theme: 'light' | 'dark' = 'light', isAsiaMarket?: boolean) {
-    const colors = resolveThemeColors(theme, isAsiaMarket)
+export function drawAxisPriceLabel(ctx: CanvasRenderingContext2D, opts: AxisPriceLabelOptions, theme: 'light' | 'dark' = 'light', isAsiaMarket?: boolean, colorPresetSettings?: ColorPresetSettings) {
+    const colors = resolveThemeColors(theme, isAsiaMarket, colorPresetSettings)
     const {
         x,
         y,
@@ -516,8 +517,8 @@ export interface AxisTimeLabelOptions {
     paddingX?: number
 }
 
-export function drawAxisTimeLabel(ctx: CanvasRenderingContext2D, opts: AxisTimeLabelOptions, theme: 'light' | 'dark' = 'light', isAsiaMarket?: boolean) {
-    const colors = resolveThemeColors(theme, isAsiaMarket)
+export function drawAxisTimeLabel(ctx: CanvasRenderingContext2D, opts: AxisTimeLabelOptions, theme: 'light' | 'dark' = 'light', isAsiaMarket?: boolean, colorPresetSettings?: ColorPresetSettings) {
+    const colors = resolveThemeColors(theme, isAsiaMarket, colorPresetSettings)
     const {
         x,
         y,

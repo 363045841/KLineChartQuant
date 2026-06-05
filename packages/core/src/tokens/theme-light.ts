@@ -89,6 +89,7 @@ export const lightTheme: Theme = {
             i8: '#7C3AED', // purple
             i9: '#2D7FF9', // blue
             i10: '#6E6E6E', // neutral gray
+            indicatorAtr: '#d97706',
         },
 
         // ── Legacy indicator colours (from engine/theme/colors) ──

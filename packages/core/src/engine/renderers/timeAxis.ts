@@ -26,7 +26,7 @@ export function createTimeAxisRendererPlugin(options: {
 
     draw(context: RenderContext) {
       const { ctx, data, range, scrollLeft, kWidth, kGap, dpr, paneWidth } = context
-      const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
+      const colors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
       const klineData = data as KLineData[]
 
       // 时间轴绘制到传入的 ctx
@@ -56,7 +56,7 @@ export function createTimeAxisRendererPlugin(options: {
         lineColor: colors.border.dark,
         drawTopBorder: false,
         drawBottomBorder: false,
-      })
+      }, context.theme, context.isAsiaMarket, context.colorPresetSettings)
 
       // 绘制来自 xAxisRanges 的时间范围带（先于标签绘制）
       if (context.xAxisRanges) {
@@ -89,7 +89,7 @@ export function createTimeAxisRendererPlugin(options: {
             fontSize: 12,
             bgColor: colors.crosshairLabelBg,
             textColor: colors.crosshairLabelText,
-          })
+          }, context.theme, context.isAsiaMarket, context.colorPresetSettings)
         }
       }
 
@@ -112,7 +112,7 @@ export function createTimeAxisRendererPlugin(options: {
               fontSize: 12,
               bgColor: label.style?.bgColor,
               textColor: label.style?.textColor,
-            })
+            }, context.theme, context.isAsiaMarket, context.colorPresetSettings)
           }
         }
       }

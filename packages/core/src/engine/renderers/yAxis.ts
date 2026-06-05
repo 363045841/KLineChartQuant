@@ -26,7 +26,7 @@ export function createYAxisRendererPlugin(options: {
 
     draw(context: RenderContext) {
       const { ctx, pane, dpr, yAxisCtx, data } = context
-      const tokenColors = resolveThemeColors(context.theme, context.isAsiaMarket)
+      const tokenColors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
       const scaleType = pane.yAxis.getScaleType()
 
       const targetCtx = yAxisCtx || ctx
@@ -81,7 +81,7 @@ export function createYAxisRendererPlugin(options: {
             borderColor: label.style?.borderColor,
             textColor: label.style?.textColor ?? '#ffffff',
             fontSize: isLastPrice ? 12 : 11,
-          })
+          }, context.theme, context.isAsiaMarket, context.colorPresetSettings)
         }
       }
 
@@ -99,7 +99,7 @@ export function createYAxisRendererPlugin(options: {
           fontSize: 12,
           priceOffset: 0,
           price: crosshair.price,
-        })
+        }, context.theme, context.isAsiaMarket, context.colorPresetSettings)
       }
     },
   }

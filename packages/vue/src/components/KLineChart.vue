@@ -136,6 +136,7 @@ import {
   DrawingInteractionController,
 } from '@363045841yyt/klinechart-core/controllers'
 import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
+import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
 import LeftToolbar from './LeftToolbar.vue'
 
 const props = withDefaults(
@@ -223,7 +224,7 @@ function scheduleRender() {
   /* Controller auto-renders on state changes */
 }
 
-function handleSettingsChange(settings: Record<string, boolean | string>) {
+function handleSettingsChange(settings: ChartSettings) {
   controller.value?.updateSettingsFacade(settings)
 
   if (settings.performanceTest10kKlines) {

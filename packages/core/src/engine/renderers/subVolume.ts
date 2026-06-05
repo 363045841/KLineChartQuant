@@ -61,7 +61,7 @@ export function createVolumeRendererPlugin(options: VolumeRendererOptions = {}):
 
         draw(context: RenderContext) {
             const { ctx, pane, data, range, dpr } = context
-            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
             const upVolume = colors.volumeUp
             const downVolume = colors.volumeDown
             const neutralVolume = colors.candleDojiBorder

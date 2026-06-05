@@ -1,3 +1,4 @@
+export { default as ColorPresetPanel } from './ColorPresetPanel.vue'
 export { default as DrawingStyleToolbar } from './DrawingStyleToolbar.vue'
 export { default as IndicatorParams } from './IndicatorParams.vue'
 export { default as IndicatorSelector } from './IndicatorSelector.vue'

@@ -148,7 +148,7 @@ export function createIndicatorScaleRendererPlugin(options: IndicatorScaleRender
 
             const effectiveScaleType: ScaleType = pane.yAxis.getScaleType() ?? scaleType
             const effectiveAxisWidth = yAxisCtx.canvas ? (yAxisCtx.canvas.width / dpr) : axisWidth
-            const tokenColors = resolveThemeColors(context.theme, context.isAsiaMarket)
+            const tokenColors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
 
             const displayRange = pane.yAxis.getDisplayRange({
                 minPrice: state.valueMin,
@@ -198,7 +198,7 @@ export function createIndicatorScaleRendererPlugin(options: IndicatorScaleRender
                 priceOffset: 0,
                 price: displayPrice,
                 formatPrice: formatCrosshairLabel,
-            })
+            }, context.theme, context.isAsiaMarket, context.colorPresetSettings)
         },
     }
 }

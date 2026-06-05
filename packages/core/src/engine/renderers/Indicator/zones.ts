@@ -39,7 +39,7 @@ export function createZonesRendererPlugin(options: { paneId?: string } = {}): Re
         getDeclaredNamespaces() { const key = resolveKey(); return key ? [key] : [] },
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, kLineCenters } = context
-            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
             const stateKey = resolveKey()
             if (!stateKey) return
             const state = pluginHost?.getSharedState<ZonesRenderState>(stateKey)
@@ -69,10 +69,10 @@ export function createZonesRendererPlugin(options: { paneId?: string } = {}): Re
 
                 const yHigh = toY(zone.high)
                 const yLow = toY(zone.low)
-                const fill = zone.kind === 'FVG_BULL' ? colors.ZONES.FVG_BULL_FILL
-                    : zone.kind === 'FVG_BEAR' ? colors.ZONES.FVG_BEAR_FILL
-                    : zone.kind === 'OB_BULL' ? colors.ZONES.OB_BULL_FILL
-                    : colors.ZONES.OB_BEAR_FILL
+                const fill = zone.kind === 'FVG_BULL' ? colors.zones.fvgBullFill
+                    : zone.kind === 'FVG_BEAR' ? colors.zones.fvgBearFill
+                    : zone.kind === 'OB_BULL' ? colors.zones.obBullFill
+                    : colors.zones.obBearFill
                 ctx.fillStyle = fill
                 ctx.fillRect(startX, yHigh, endX - startX, yLow - yHigh)
             }

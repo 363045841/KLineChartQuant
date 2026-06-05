@@ -27,7 +27,7 @@ export function createCrosshairRendererPlugin(options: {
 
     draw(context: RenderContext) {
       const { pane, dpr, paneWidth, overlayCtx } = context
-      const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
+      const colors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
       const state = options.getCrosshairState()
 
       if (state.isDragging || !state.pos) return

@@ -148,7 +148,7 @@ export function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): R
 
         draw(context: RenderContext) {
 const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
-            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
 
             const stateKey = resolveKey()
             if (!stateKey) return

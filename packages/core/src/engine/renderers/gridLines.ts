@@ -22,7 +22,7 @@ export function createGridLinesRendererPlugin(): RendererPlugin {
 
         draw(context: RenderContext) {
             const { ctx, pane, data, range, scrollLeft, kWidth, dpr, kLinePositions, settings } = context
-            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
             const klineData = data as KLineData[]
             if (!klineData.length) return
             if (settings?.showGridLines === false) return

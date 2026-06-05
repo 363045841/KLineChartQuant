@@ -312,6 +312,8 @@ export interface RenderContext {
   theme: 'light' | 'dark'
   /** 亚洲市场惯例（红涨绿跌）；为 true 时自动交换所有 bull/bear 颜色 */
   isAsiaMarket?: boolean
+  /** 用户颜色预设覆盖项 */
+  colorPresetSettings?: import('../tokens').ColorPresetSettings
 }
 
 export type DrawingAnchor = {

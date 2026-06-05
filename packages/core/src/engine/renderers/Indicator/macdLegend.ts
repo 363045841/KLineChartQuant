@@ -59,7 +59,7 @@ export function createMACDLegendRendererPlugin(options: MACDLegendOptions = {}):
 
         draw(context: RenderContext) {
             const { ctx, range } = context
-            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
 
             // 从 StateStore 读取 MACD 状态
             const state = pluginHost?.getSharedState<MACDRenderState>(stateKey)

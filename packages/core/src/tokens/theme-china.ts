@@ -22,6 +22,7 @@
 import type { ColorTokens, Theme } from './types'
 import { lightTheme } from './theme-light'
 import { darkTheme } from './theme-dark'
+import { applyColorPresetOverrides, type ColorPresetSettings } from './colorPresetSettings'
 
 /**
  * Swap all bull/bear colour pairs in a Theme so that "up" (bull) uses
@@ -123,8 +124,9 @@ export function withAsiaMarketColors(theme: Theme): Theme {
 export function resolveThemeColors(
     themeName: 'light' | 'dark',
     isAsiaMarket?: boolean,
+    colorPresetSettings?: ColorPresetSettings,
 ): ColorTokens {
     const base = themeName === 'dark' ? darkTheme : lightTheme
     const active = isAsiaMarket ? withAsiaMarketColors(base) : base
-    return active.colors
+    return applyColorPresetOverrides(active.colors, themeName, colorPresetSettings)
 }

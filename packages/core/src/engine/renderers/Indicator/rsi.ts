@@ -168,7 +168,7 @@ export function createRSIRendererPlugin(options: RSIRendererOptions = {}): Rende
 
         draw(context: RenderContext) {
 const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
-            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
 
             // 从 StateStore 读取 RSI 状态
             const stateKey = resolveKey()

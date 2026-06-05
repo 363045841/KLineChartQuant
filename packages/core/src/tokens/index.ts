@@ -47,6 +47,17 @@ export { darkTheme } from './theme-dark'
 export { withAsiaMarketColors, resolveThemeColors } from './theme-china'
 export { mergeTheme } from './mergeTheme'
 export {
+    COLOR_PRESET_ITEMS,
+    COLOR_PRESET_STORAGE_KEY,
+    applyColorPresetOverrides,
+    normalizeColorPresetSettings,
+    type ColorPresetItem,
+    type ColorPresetKey,
+    type ColorPresetOverrides,
+    type ColorPresetSettings,
+    type ColorPresetThemeName,
+} from './colorPresetSettings'
+export {
     themeToCssVars,
     toCssDeclarationBlock,
     camelToKebab,

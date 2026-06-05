@@ -109,7 +109,7 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
 
         draw(context: RenderContext) {
             const { ctx, pane, data, range, scrollLeft, dpr, paneWidth, kLineCenters } = context
-            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
             const klineData = data as KLineData[]
             if (!klineData.length) return
             if (pane.role !== 'price') return

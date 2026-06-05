@@ -63,7 +63,7 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
 
         draw(context: RenderContext) {
             const { overlayCtx, pane, paneWidth } = context
-            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
             if (pane.id !== currentOptions.paneId || !overlayCtx) return
 
             const fontSize = 12

@@ -46,6 +46,26 @@
                 </template>
               </template>
 
+              <div class="settings-section-divider">
+                <span class="settings-section-label">样式 / 颜色</span>
+              </div>
+              <div class="settings-item nav-item" @click="showColorPresetModal = true">
+                <label class="settings-label">
+                  <span>颜色预设</span>
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    width="16"
+                    height="16"
+                    class="nav-arrow"
+                  >
+                    <path d="M9 18l6-6-6-6" />
+                  </svg>
+                </label>
+              </div>
+
               <template v-if="experimentalSettings.length > 0">
                 <div class="settings-section-divider">
                   <span class="settings-section-label">实验性 / 调试设置</span>
@@ -96,6 +116,40 @@
         </Transition>
       </div>
     </Transition>
+
+    <Transition name="overlay">
+      <div
+        v-if="showColorPresetModal"
+        class="settings-overlay nested-overlay"
+        @click="showColorPresetModal = false"
+      >
+        <Transition name="modal">
+          <div class="settings-modal" @click.stop>
+            <div class="settings-header">
+              <div class="header-left">
+                <span class="settings-title">颜色预设</span>
+                <span class="settings-subtitle">自定义图表颜色</span>
+              </div>
+              <div class="header-right">
+                <button class="settings-close" @click="showColorPresetModal = false">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="settings-body">
+              <ColorPresetPanel
+                :color-preset-settings="settings.colorPresetSettings"
+                @update:color-preset-settings="
+                  settings = { ...settings, colorPresetSettings: $event }
+                "
+              />
+            </div>
+          </div>
+        </Transition>
+      </div>
+    </Transition>
   </Teleport>
 </template>
 
@@ -104,8 +158,11 @@ import { ref, computed, watch } from 'vue'
 import {
   DEFAULT_SETTINGS,
   SETTINGS_STORAGE_KEY,
+  type ChartSettings,
   type SettingItem,
 } from '@363045841yyt/klinechart-core/config'
+import { normalizeColorPresetSettings } from '@363045841yyt/klinechart-core'
+import ColorPresetPanel from './ColorPresetPanel.vue'
 import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
 
 const props = defineProps<{
@@ -114,7 +171,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'confirm', settings: Record<string, boolean | string>): void
+  (e: 'confirm', settings: ChartSettings): void
 }>()
 
 const teleportTarget = useFullscreenTeleportTarget()
@@ -126,26 +183,30 @@ const experimentalSettings = computed(
   () => DEFAULT_SETTINGS.filter((s) => s.group === 'experimental') as unknown as SettingItem[],
 )
 
-function loadSettings(): Record<string, boolean | string> {
+const showColorPresetModal = ref(false)
+
+function loadSettings(): ChartSettings {
   try {
     const saved = localStorage.getItem(SETTINGS_STORAGE_KEY)
     if (saved) {
       const parsed = JSON.parse(saved)
-      const result: Record<string, boolean | string> = {}
+      const result: ChartSettings = {}
       DEFAULT_SETTINGS.forEach((item) => {
         result[item.key] = parsed[item.key] ?? item.default
       })
+      result.colorPresetSettings = normalizeColorPresetSettings(parsed.colorPresetSettings)
       return result
     }
   } catch {}
-  const defaults: Record<string, boolean | string> = {}
+  const defaults: ChartSettings = {}
   DEFAULT_SETTINGS.forEach((item) => {
     defaults[item.key] = item.default
   })
+  defaults.colorPresetSettings = {}
   return defaults
 }
 
-const settings = ref<Record<string, boolean | string>>(loadSettings())
+const settings = ref<ChartSettings>(loadSettings())
 
 watch(
   () => props.show,
@@ -161,10 +222,11 @@ function closeSettings() {
 }
 
 function resetSettings() {
-  const defaults: Record<string, boolean | string> = {}
+  const defaults: ChartSettings = {}
   DEFAULT_SETTINGS.forEach((item) => {
     defaults[item.key] = item.default
   })
+  defaults.colorPresetSettings = {}
   settings.value = defaults
 }
 
@@ -372,6 +434,24 @@ function confirmSettings() {
   color: #999;
   white-space: nowrap;
   line-height: 1;
+}
+
+.nested-overlay {
+  z-index: 1100;
+}
+
+.settings-item.nav-item {
+  cursor: pointer;
+}
+
+.settings-item.nav-item:hover .nav-arrow {
+  color: #333;
+}
+
+.nav-arrow {
+  color: #bbb;
+  transition: color 0.15s;
+  flex-shrink: 0;
 }
 
 .settings-item.experimental {

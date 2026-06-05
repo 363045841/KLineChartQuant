@@ -52,7 +52,7 @@ export function createCandleRenderer(): RendererPlugin {
 
         draw(context: RenderContext) {
             const { ctx, pane, data, range, scrollLeft, kWidth, kGap, dpr, kLinePositions, markerManager, settings } = context
-            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
             const klineData = data as KLineData[]
             if (!klineData.length) return
 
@@ -297,7 +297,7 @@ function drawVolumePriceMarkers(
     markerManager: MarkerManager | undefined
 ): void {
     const { ctx, range, kWidth, dpr } = context
-    const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
+    const colors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
     if (!prepared.showVolumePriceMarkers || !markerManager || (context.zoomLevel ?? 1) < 2) {
         return
     }

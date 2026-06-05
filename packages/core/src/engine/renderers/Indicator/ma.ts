@@ -97,7 +97,7 @@ export function createMARendererPlugin(): RendererPluginWithHost {
 
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
-            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
             const maColors: Record<number, string> = { 5: colors.ma.ma5, 10: colors.ma.ma10, 20: colors.ma.ma20, 30: colors.ma.ma30, 60: colors.ma.ma60 }
             const stateKey = resolveKey()
             if (!stateKey) return

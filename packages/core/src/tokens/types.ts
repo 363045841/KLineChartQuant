@@ -58,6 +58,7 @@ export interface IndicatorPalette {
     readonly i8: ColorValue
     readonly i9: ColorValue
     readonly i10: ColorValue
+    readonly indicatorAtr: ColorValue
 }
 
 /**

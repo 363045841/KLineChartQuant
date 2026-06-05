@@ -113,114 +113,15 @@
     </div>
   </nav>
 
-  <!-- 设置弹窗 -->
-  <Teleport :to="teleportTarget">
-    <Transition name="overlay">
-      <div v-if="showSettings" class="settings-overlay" @click="closeSettings">
-        <Transition name="modal">
-          <div class="settings-modal" @click.stop>
-            <!-- 头部 -->
-            <div class="settings-header">
-              <div class="header-left">
-                <span class="settings-title">图表设置</span>
-                <span class="settings-subtitle">个性化配置</span>
-              </div>
-              <div class="header-right">
-                <button class="settings-close" @click="closeSettings">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M18 6L6 18M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <!-- 体部 -->
-            <div class="settings-body">
-              <!-- 主图设置 -->
-              <template v-if="mainSettings.length > 0">
-                <div class="settings-section-divider">
-                  <span class="settings-section-label">主图设置</span>
-                </div>
-                <template v-for="item in mainSettings" :key="item.key">
-                  <div class="settings-item">
-                    <label class="settings-label">
-                      <span>{{ item.label }}</span>
-                      <template v-if="item.type === 'boolean'">
-                        <input
-                          type="checkbox"
-                          class="settings-checkbox"
-                          v-model="settings[item.key]"
-                        />
-                      </template>
-                      <template v-else-if="item.type === 'select' && item.options">
-                        <select class="settings-select" v-model="settings[item.key]">
-                          <option v-for="opt in item.options" :key="opt.value" :value="opt.value">
-                            {{ opt.label }}
-                          </option>
-                        </select>
-                      </template>
-                    </label>
-                  </div>
-                </template>
-              </template>
-
-              <!-- 实验性设置 -->
-              <template v-if="experimentalSettings.length > 0">
-                <div class="settings-section-divider">
-                  <span class="settings-section-label">实验性 / 调试设置</span>
-                </div>
-                <template v-for="item in experimentalSettings" :key="item.key">
-                  <div class="settings-item experimental">
-                    <label class="settings-label">
-                      <span>{{ item.label }}</span>
-                      <template v-if="item.type === 'boolean'">
-                        <input
-                          type="checkbox"
-                          class="settings-checkbox"
-                          v-model="settings[item.key]"
-                        />
-                      </template>
-                      <template v-else-if="item.type === 'select' && item.options">
-                        <select class="settings-select" v-model="settings[item.key]">
-                          <option v-for="opt in item.options" :key="opt.value" :value="opt.value">
-                            {{ opt.label }}
-                          </option>
-                        </select>
-                      </template>
-                    </label>
-                  </div>
-                </template>
-              </template>
-            </div>
-
-            <!-- 底部 -->
-            <div class="settings-footer">
-              <button class="settings-btn reset" @click="resetSettings">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                  <path d="M3 3v5h5" />
-                </svg>
-                重置
-              </button>
-              <div class="footer-right">
-                <button class="settings-btn cancel" @click="closeSettings">取消</button>
-                <button class="settings-btn confirm" @click="confirmSettings">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <path d="M20 6L9 17l-5-5" />
-                  </svg>
-                  确定
-                </button>
-              </div>
-            </div>
-          </div>
-        </Transition>
-      </div>
-    </Transition>
-  </Teleport>
+  <ChartSettingsDialog
+    :show="showSettings"
+    @close="showSettings = false"
+    @confirm="handleConfirmSettings"
+  />
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import IconTablerPointer from '~icons/tabler/pointer'
 import IconTablerChartLine from '~icons/tabler/chart-line'
 import IconTablerArrowUpRight from '~icons/tabler/arrow-up-right'
@@ -241,10 +142,10 @@ import IconTablerBrackets from '~icons/tabler/brackets'
 import {
   DEFAULT_SETTINGS,
   SETTINGS_STORAGE_KEY,
-  type SettingItem,
+  type ChartSettings,
 } from '@363045841yyt/klinechart-core/config'
-import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
 import { setCanvasProfilerEnabled } from '../debug/canvasProfiler'
+import ChartSettingsDialog from './ChartSettingsDialog.vue'
 
 export interface ToolDef {
   id: string
@@ -291,49 +192,39 @@ const emit = defineEmits<{
   (e: 'toggleFullscreen'): void
   (e: 'zoomIn'): void
   (e: 'zoomOut'): void
-  (e: 'settingsChange', settings: Record<string, boolean | string>): void
+  (e: 'settingsChange', settings: ChartSettings): void
 }>()
 
 const selectedToolId = ref('cursor')
 const openGroupId = ref<string | null>(null)
 const showSettings = ref(false)
 
-const teleportTarget = useFullscreenTeleportTarget()
-
-const mainSettings = computed(
-  () => DEFAULT_SETTINGS.filter((s) => s.group === 'main') as unknown as SettingItem[],
-)
-const experimentalSettings = computed(
-  () => DEFAULT_SETTINGS.filter((s) => s.group === 'experimental') as unknown as SettingItem[],
-)
-
-function loadSettings(): Record<string, boolean | string> {
+function loadSettings(): ChartSettings {
   try {
     const saved = localStorage.getItem(SETTINGS_STORAGE_KEY)
     if (saved) {
       const parsed = JSON.parse(saved)
-      const result: Record<string, boolean | string> = {}
+      const result: ChartSettings = { ...parsed }
       DEFAULT_SETTINGS.forEach((item) => {
         result[item.key] = parsed[item.key] ?? item.default
       })
       return result
     }
   } catch {}
-  const defaults: Record<string, boolean | string> = {}
+  const defaults: ChartSettings = {}
   DEFAULT_SETTINGS.forEach((item) => {
     defaults[item.key] = item.default
   })
   return defaults
 }
 
-function saveSettings(settings: Record<string, boolean | string>) {
+function saveSettings(settings: ChartSettings) {
   try {
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
   } catch {}
 }
 
-const appliedSettings = ref<Record<string, boolean | string>>(loadSettings())
-const settings = ref<Record<string, boolean | string>>({ ...appliedSettings.value })
+const appliedSettings = ref<ChartSettings>(loadSettings())
 
 function isActive(tool: ToolDef): boolean {
   if (selectedToolId.value === tool.id) return true
@@ -370,37 +261,24 @@ function toggleExpand(groupId: string) {
 }
 
 function openSettings() {
-  settings.value = { ...appliedSettings.value }
   showSettings.value = true
 }
 
-function closeSettings() {
-  showSettings.value = false
-}
-
-function resetSettings() {
-  const defaults: Record<string, boolean | string> = {}
-  DEFAULT_SETTINGS.forEach((item) => {
-    defaults[item.key] = item.default
-  })
-  settings.value = defaults
-}
-
-function confirmSettings() {
-  appliedSettings.value = { ...settings.value }
-  saveSettings(appliedSettings.value)
-  setCanvasProfilerEnabled(!!appliedSettings.value['enableCanvasProfiler'])
-  emit('settingsChange', { ...appliedSettings.value })
-  closeSettings()
-}
-
-function getCurrentSettings(): Record<string, boolean | string> {
+function getCurrentSettings(): ChartSettings {
   return { ...appliedSettings.value }
 }
 
 defineExpose({
   getSettings: getCurrentSettings,
 })
+
+function handleConfirmSettings(draft: ChartSettings) {
+  appliedSettings.value = { ...draft }
+  saveSettings(appliedSettings.value)
+  setCanvasProfilerEnabled(!!appliedSettings.value['enableCanvasProfiler'])
+  emit('settingsChange', { ...appliedSettings.value })
+  showSettings.value = false
+}
 
 function handleClickOutside(e: MouseEvent) {
   const target = e.target as HTMLElement
@@ -605,240 +483,4 @@ onUnmounted(() => {
   }
 }
 
-/* ═══ 设置弹窗样式（参考 IndicatorParams.vue）═══ */
-.settings-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.settings-modal {
-  background: #ffffff;
-  border: 1px solid #e0e0e0;
-  border-radius: 12px;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15);
-  min-width: 340px;
-  max-width: 420px;
-  width: 90vw;
-  overflow: hidden;
-}
-
-.settings-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  background: #f8f8f8;
-  border-bottom: 1px solid #e8e8e8;
-}
-
-.header-left {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.settings-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1a1a1a;
-  letter-spacing: 0.2px;
-}
-
-.settings-subtitle {
-  font-size: 11px;
-  color: #999;
-}
-
-.settings-close {
-  background: #fff;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: #888;
-  transition:
-    background 0.15s,
-    color 0.15s,
-    border-color 0.15s;
-  padding: 0;
-}
-
-.settings-close:hover {
-  background: #f0f0f0;
-  color: #333;
-  border-color: #ccc;
-}
-
-.settings-close svg {
-  width: 14px;
-  height: 14px;
-}
-
-.settings-body {
-  padding: 16px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.settings-item {
-  padding: 8px 12px;
-  border-radius: 8px;
-  background: #f8f8f8;
-  border: 1px solid #e8e8e8;
-}
-
-.settings-label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 13px;
-  color: #333;
-  cursor: pointer;
-}
-
-.settings-checkbox {
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
-  accent-color: #1a1a1a;
-}
-
-.settings-select {
-  padding: 4px 8px;
-  border: 1px solid #d0d0d0;
-  border-radius: 6px;
-  background: #fff;
-  color: #333;
-  font-size: 12px;
-  cursor: pointer;
-  outline: none;
-  min-width: 140px;
-}
-
-.settings-select:hover {
-  border-color: #9ca3af;
-}
-
-.settings-select:focus {
-  border-color: #6b7280;
-  box-shadow: 0 0 0 2px rgba(107, 114, 128, 0.15);
-}
-
-.settings-section-divider {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.settings-section-divider::before,
-.settings-section-divider::after {
-  content: '';
-  flex: 1;
-  border-top: 1px solid #e0e0e0;
-}
-
-.settings-section-label {
-  font-size: 11px;
-  color: #999;
-  white-space: nowrap;
-}
-
-.settings-item.experimental {
-  border-color: #f0e0d0;
-  background: #fdf8f3;
-}
-
-.settings-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 20px;
-  background: #f8f8f8;
-  border-top: 1px solid #e8e8e8;
-}
-
-.footer-right {
-  display: flex;
-  gap: 8px;
-}
-
-.settings-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 14px;
-  border-radius: 7px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: all 0.15s;
-  line-height: 1.4;
-}
-
-.settings-btn svg {
-  width: 12px;
-  height: 12px;
-  flex-shrink: 0;
-}
-
-.settings-btn.reset {
-  background: transparent;
-  border-color: #d0d0d0;
-  color: #666;
-}
-
-.settings-btn.reset:hover {
-  border-color: #c0392b;
-  color: #e74c3c;
-  background: rgba(231, 76, 60, 0.08);
-}
-
-.settings-btn.cancel {
-  background: transparent;
-  border-color: #d0d0d0;
-  color: #666;
-}
-
-.settings-btn.cancel:hover {
-  background: #f0f0f0;
-  color: #333;
-  border-color: #bbb;
-}
-
-.settings-btn.confirm {
-  background: #1a1a1a;
-  border-color: #1a1a1a;
-  color: #fff;
-}
-
-.settings-btn.confirm:hover {
-  background: #333;
-  border-color: #333;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
-  transform: translateY(-1px);
-}
-
-.settings-btn.confirm:active {
-  transform: translateY(0);
-  box-shadow: none;
-}
 </style>

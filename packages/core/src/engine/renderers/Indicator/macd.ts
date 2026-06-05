@@ -130,7 +130,7 @@ export function createMACDRendererPlugin(options: MACDRendererOptions = {}): Ren
     draw(context: RenderContext) {
       const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
       const klineData = data as KLineData[]
-      const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
+      const colors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
 
       // 从 StateStore 读取 MACD 状态
       const stateKey = resolveKey()
@@ -312,7 +312,7 @@ function drawMacdBarsWithWebGL(
   barDownBuf: Float32Array, barDownCount: number,
   barDownLightBuf: Float32Array, barDownLightCount: number
 ): boolean {
-  const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
+  const colors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
   if (context.settings?.enableWebGLRendering === false) return false
   const surface = context.candleWebGLSurface
   if (!surface || !surface.isAvailable()) return false

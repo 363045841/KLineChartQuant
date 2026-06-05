@@ -54,7 +54,7 @@ function drawBOLLWithWebGL(
         bandLowerPoints: LinePoint[]
     }
 ): boolean {
-    const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
+    const colors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
     if (context.settings?.enableWebGLRendering === false) return false
     const surface = context.lineWebGLSurface
     if (!surface || !surface.isAvailable()) return false
@@ -183,7 +183,7 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
         draw(context: RenderContext) {
             const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters } = context
             const klineData = data as KLineData[]
-            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
 
             const stateKey = resolveKey()
             if (!stateKey) return

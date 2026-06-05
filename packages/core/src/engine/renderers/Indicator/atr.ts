@@ -1,5 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
+import { resolveThemeColors } from '../../../tokens'
 import type { ATRRenderState } from '../../indicators/atrState'
 import { createATRStateKey } from '../../indicators/atrState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
@@ -88,6 +89,8 @@ export function createATRRendererPlugin(options: ATRRendererOptions = {}): Rende
 
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, kLineCenters, lineWebGLSurface } = context
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
+            const atrColor = colors.palette?.indicatorAtr ?? ATR_COLOR
 
             const stateKey = resolveKey()
             if (!stateKey) return
@@ -147,7 +150,7 @@ export function createATRRendererPlugin(options: ATRRendererOptions = {}): Rende
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
                 if (cachedPoints.length >= 2) {
                     const ok = lineWebGLSurface.drawLineStrips(
-                        [{ points: cachedPoints, width: 1, color: ATR_COLOR }],
+                        [{ points: cachedPoints, width: 1, color: atrColor }],
                         scrollLeft,
                     )
                     if (ok) {
@@ -158,7 +161,7 @@ export function createATRRendererPlugin(options: ATRRendererOptions = {}): Rende
             }
 
             if (!usedWebGL) {
-                drawWithCanvas2D(ctx, scrollLeft, cachedPoints)
+                drawWithCanvas2D(ctx, scrollLeft, cachedPoints, atrColor)
             }
         },
 
@@ -179,11 +182,12 @@ function drawWithCanvas2D(
     ctx: CanvasRenderingContext2D,
     scrollLeft: number,
     points: LinePoint[],
+    atrColor: string,
 ): void {
     if (points.length < 2) return
     ctx.save()
     ctx.translate(-scrollLeft, 0)
-    ctx.strokeStyle = ATR_COLOR
+    ctx.strokeStyle = atrColor
     ctx.lineWidth = 1
     ctx.lineJoin = 'round'
     ctx.lineCap = 'round'

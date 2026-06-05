@@ -41,7 +41,7 @@ export function createStructureRendererPlugin(options: { paneId?: string } = {})
         getDeclaredNamespaces() { const key = resolveKey(); return key ? [key] : [] },
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, kLineCenters } = context
-            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
             const stateKey = resolveKey()
             if (!stateKey) return
             const state = pluginHost?.getSharedState<StructureRenderState>(stateKey)

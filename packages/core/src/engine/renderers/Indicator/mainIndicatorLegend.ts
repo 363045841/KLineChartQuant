@@ -80,7 +80,7 @@ export function createMainIndicatorLegendRendererPlugin(options: {
     draw(context: RenderContext) {
       const { overlayCtx, data, range, crosshairIndex } = context
       const klineData = data as KLineData[]
-      const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
+      const colors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
       if (!klineData.length || !overlayCtx) return
 
       const fontSize = 12
