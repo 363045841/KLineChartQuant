@@ -118,6 +118,8 @@ const UNIT_QUAD = new Float32Array([
     1, 1,
 ])
 
+const MITER_DOT_MIN = 0.5
+
 export class CandleWebGLSurface {
     private shared: SharedWebGLSurface
     private handles: RectWebGLHandles | null = null
@@ -375,6 +377,8 @@ export class LineWebGLSurface {
             mode: number
             firstVertex: number
             pointCount: number
+            vertices?: Float32Array
+            points?: Array<{ x: number; y: number }>
         }
 
         const gl = this.shared.getGL()
@@ -383,6 +387,7 @@ export class LineWebGLSurface {
 
         const drawCmds: DrawCmd[] = []
         let totalFloats = 0
+        let hasNativeLines = false
 
         for (const line of lines) {
             if (line.points.length < 2) return false
@@ -390,9 +395,28 @@ export class LineWebGLSurface {
             const colorValue = parseColor(line.color)
             if (!colorValue) return false
 
+            if (line.width <= 1) {
+                hasNativeLines = true
+                drawCmds.push({
+                    colorValue,
+                    mode: gl.LINE_STRIP,
+                    firstVertex: totalFloats / 2,
+                    pointCount: line.points.length,
+                    points: line.points,
+                })
+                totalFloats += line.points.length * 2
+                continue
+            }
+
             const geometry = this.getLineGeometry(line)
             if (!geometry) return false
-            drawCmds.push({ colorValue, mode: gl.TRIANGLES, firstVertex: totalFloats / 2, pointCount: geometry.vertexCount })
+            drawCmds.push({
+                colorValue,
+                mode: gl.TRIANGLES,
+                firstVertex: totalFloats / 2,
+                pointCount: geometry.vertexCount,
+                vertices: geometry.vertices,
+            })
             totalFloats += geometry.vertices.length
         }
 
@@ -400,10 +424,19 @@ export class LineWebGLSurface {
             this.lineScratch = new Float32Array(nextBufferFloatCapacity(totalFloats))
         }
         let floatOffset = 0
-        for (const line of lines) {
-            const vertices = this.getLineGeometry(line)!.vertices
-            this.lineScratch.set(vertices, floatOffset)
-            floatOffset += vertices.length
+        for (const cmd of drawCmds) {
+            if (cmd.vertices) {
+                this.lineScratch.set(cmd.vertices, floatOffset)
+                floatOffset += cmd.vertices.length
+                continue
+            }
+
+            const points = cmd.points
+            if (!points) return false
+            for (const point of points) {
+                this.lineScratch[floatOffset++] = point.x
+                this.lineScratch[floatOffset++] = point.y
+            }
         }
 
         const msaaRender = this.beginMsaaRender(gl, region)
@@ -423,6 +456,9 @@ export class LineWebGLSurface {
 
         gl.uniform2f(handles.basic.resolutionLocation, this.logicalWidth, this.logicalHeight)
         gl.uniform1f(handles.basic.scrollXLocation, scrollLeft)
+        if (hasNativeLines) {
+            gl.lineWidth(1)
+        }
 
         for (const cmd of drawCmds) {
             gl.uniform4f(handles.basic.colorLocation, cmd.colorValue[0], cmd.colorValue[1], cmd.colorValue[2], cmd.colorValue[3])
@@ -793,7 +829,7 @@ function buildJoinedPolylineGeometry(points: Array<{ x: number; y: number }>, ha
                 miterNX *= invMiter
                 miterNY *= invMiter
                 const dot = miterNX * currNormal.nx + miterNY * currNormal.ny
-                const scale = 1 / Math.max(0.2, Math.abs(dot))
+                const scale = 1 / Math.max(MITER_DOT_MIN, Math.abs(dot))
                 miterNX *= scale
                 miterNY *= scale
             } else {
@@ -823,7 +859,7 @@ function buildJoinedPolylineGeometry(points: Array<{ x: number; y: number }>, ha
                 nextMiterNX *= invMiter
                 nextMiterNY *= invMiter
                 const dot = nextMiterNX * nextNormal.nx + nextMiterNY * nextNormal.ny
-                const scale = 1 / Math.max(0.2, Math.abs(dot))
+                const scale = 1 / Math.max(MITER_DOT_MIN, Math.abs(dot))
                 nextMiterNX *= scale
                 nextMiterNY *= scale
             } else {
