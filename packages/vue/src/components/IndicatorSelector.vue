@@ -747,7 +747,7 @@ onUnmounted(() => {
   align-items: center;
   padding: 16px 20px;
   background: var(--klc-color-background);
-  border-bottom: 1px solid var(--klc-color-grid-major);
+  border-bottom: 1px solid var(--klc-color-border-chart);
   flex-shrink: 0;
 }
 
@@ -994,7 +994,7 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 4px;
   padding: 12px 14px;
-  border: 1px solid var(--klc-color-grid-major);
+  border: 1px solid var(--klc-color-border-chart);
   border-radius: 8px;
   background: var(--klc-color-tag-bg-white);
   cursor: pointer;
@@ -1079,7 +1079,7 @@ onUnmounted(() => {
   justify-content: space-between;
   padding: 12px 20px;
   background: var(--klc-color-background);
-  border-top: 1px solid var(--klc-color-grid-major);
+  border-top: 1px solid var(--klc-color-border-chart);
   flex-shrink: 0;
 }
 
