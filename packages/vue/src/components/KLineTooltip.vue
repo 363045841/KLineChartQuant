@@ -67,7 +67,7 @@ export interface KLineData {
   stockCode?: string
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   k: KLineData | null
   index: number | null
   data: ReadonlyArray<KLineData>
@@ -75,7 +75,14 @@ const props = defineProps<{
   useAnchor?: boolean
   anchorPlacement?: 'right-bottom' | 'left-bottom'
   setEl?: (el: HTMLDivElement | null) => void
-}>()
+  /** 涨的颜色（默认红涨） */
+  upColor?: string
+  /** 跌的颜色（默认绿跌） */
+  downColor?: string
+}>(), {
+  upColor: '#ef4444',
+  downColor: '#22c55e',
+})
 
 const useAnchor = computed(() => props.useAnchor === true)
 const anchorPlacementClass = computed(() =>
@@ -105,8 +112,6 @@ function formatSigned(val: number, unit: string): string {
   return `${sign}${val.toFixed(2)}${unit}`
 }
 
-const UP_COLOR = '#ef4444'
-const DOWN_COLOR = '#22c55e'
 const NEUTRAL_COLOR = '#6b7280'
 
 function calcDirection(k: KLineData, data: ReadonlyArray<KLineData>, idx: number | null): number {
@@ -121,21 +126,21 @@ const openColor = computed(() => {
   const k = props.k
   if (!k) return NEUTRAL_COLOR
   const dir = calcDirection(k, props.data, props.index)
-  return dir > 0 ? UP_COLOR : dir < 0 ? DOWN_COLOR : NEUTRAL_COLOR
+  return dir > 0 ? props.upColor : dir < 0 ? props.downColor : NEUTRAL_COLOR
 })
 
 const closeColor = computed(() => {
   const k = props.k
   if (!k) return NEUTRAL_COLOR
   const diff = k.close - k.open
-  return diff > 0 ? UP_COLOR : diff < 0 ? DOWN_COLOR : NEUTRAL_COLOR
+  return diff > 0 ? props.upColor : diff < 0 ? props.downColor : NEUTRAL_COLOR
 })
 
 const changeColor = computed(() => {
   const k = props.k
   if (!k) return NEUTRAL_COLOR
   const pct = k.changePercent ?? (k.close - k.open) / k.open * 100
-  return pct > 0 ? UP_COLOR : pct < 0 ? DOWN_COLOR : NEUTRAL_COLOR
+  return pct > 0 ? props.upColor : pct < 0 ? props.downColor : NEUTRAL_COLOR
 })
 </script>
 
