@@ -116,6 +116,7 @@ export const darkTheme: Theme = {
             light: 'rgba(255, 255, 255, 0.08)',
             separator: 'rgba(255, 255, 255, 0.10)',
             button: '#505060',
+            chart: '#3A4048',
         },
         ma: {
             ma5: 'rgba(255, 200, 50, 1)',

@@ -114,6 +114,7 @@ export interface BorderColors {
     readonly light: ColorValue
     readonly separator: ColorValue
     readonly button: ColorValue
+    readonly chart: ColorValue
 }
 
 /** Moving-average line colours (MA5 / MA10 / MA20 / MA30 / MA60). */

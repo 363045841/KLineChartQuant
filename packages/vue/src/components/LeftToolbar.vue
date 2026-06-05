@@ -306,7 +306,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   padding: 8px 5px;
-  border: 1px solid var(--klc-color-grid-major);
+  border: 1px solid var(--klc-color-border-chart);
   border-radius: 6px;
   background: var(--klc-color-background);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
@@ -323,7 +323,7 @@ onUnmounted(() => {
 .left-toolbar__divider {
   width: 18px;
   height: 1px;
-  background: var(--klc-color-grid-major);
+  background: var(--klc-color-border-chart);
 }
 
 /* --- 工具按钮 --- */
@@ -419,7 +419,7 @@ onUnmounted(() => {
   background: var(--klc-color-tag-bg-white);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid var(--klc-color-grid-major);
+  border: 1px solid var(--klc-color-border-chart);
   border-radius: 6px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   box-sizing: border-box;

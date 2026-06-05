@@ -122,6 +122,7 @@ export const lightTheme: Theme = {
             light: 'rgba(0, 0, 0, 0.08)',
             separator: 'rgba(0, 0, 0, 0.10)',
             button: '#d0d0d0',
+            chart: '#e5e5e5',
         },
         ma: {
             ma5: 'rgba(255, 193, 37, 1)',
