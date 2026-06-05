@@ -1,7 +1,7 @@
 import type { RendererPluginWithHost, PluginHost, RenderContext, BaseIndicatorState } from '../../../../plugin'
 import { RENDERER_PRIORITY } from '../../../../plugin'
 import { createIndicatorStateKey } from '../../../../plugin/stateKeys'
-import { getColors, type ThemeColors } from '../../../theme/colors'
+import { lightTheme, darkTheme } from '../../../tokens'
 import { getFont, setCanvasFont } from '../../../theme/fonts'
 import { calculateValueTickPositions, type ScaleType } from '../../../utils/tickPosition'
 import { drawCrosshairPriceLabel } from '../../../../utils/kLineDraw/axis'
@@ -62,7 +62,7 @@ export interface DrawScaleTicksOptions {
 const BASELINE_MIDDLE = 'middle' as const
 const ALIGN_CENTER = 'center' as const
 
-export function drawScaleTicks(options: DrawScaleTicksOptions & { colors: ThemeColors }): void {
+export function drawScaleTicks(options: DrawScaleTicksOptions & { tickColor: string }): void {
     const {
         ctx,
         dpr,
@@ -85,7 +85,7 @@ export function drawScaleTicks(options: DrawScaleTicksOptions & { colors: ThemeC
     setCanvasFont(ctx, font)
     ctx.textBaseline = BASELINE_MIDDLE
     ctx.textAlign = ALIGN_CENTER
-    ctx.fillStyle = options.colors.TEXT.SECONDARY
+    ctx.fillStyle = options.tickColor
 
     const centerX = axisWidth / 2
     const centerXPx = roundToPhysicalPixel(centerX, dpr)
@@ -148,7 +148,7 @@ export function createIndicatorScaleRendererPlugin(options: IndicatorScaleRender
 
             const effectiveScaleType: ScaleType = pane.yAxis.getScaleType() ?? scaleType
             const effectiveAxisWidth = yAxisCtx.canvas ? (yAxisCtx.canvas.width / dpr) : axisWidth
-            const colors = getColors(context.theme)
+            const tokenColors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
 
             const displayRange = pane.yAxis.getDisplayRange({
                 minPrice: state.valueMin,
@@ -156,7 +156,7 @@ export function createIndicatorScaleRendererPlugin(options: IndicatorScaleRender
             })
 
             drawScaleTicks({
-                colors,
+                tickColor: tokenColors.text.secondary,
                 ctx: yAxisCtx,
                 dpr,
                 axisWidth: effectiveAxisWidth,

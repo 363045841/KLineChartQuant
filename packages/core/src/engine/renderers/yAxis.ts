@@ -3,7 +3,7 @@ import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../plugin'
 import { drawCrosshairPriceLabel, drawAxisPriceLabel } from '../../utils/kLineDraw/axis'
 import { drawScaleTicks } from '../renderers/Indicator/scale/indicator_scale'
 import { lightTheme, darkTheme } from '../../tokens'
-import type { ThemeColors } from '../theme/colors'
+
 import type { KLineData } from '../../types/price'
 import type { ScaleType } from '../utils/tickPosition'
 
@@ -34,9 +34,8 @@ export function createYAxisRendererPlugin(options: {
       const displayRange = pane.yAxis.getDisplayRange(pane.priceRange)
 
       if (pane.capabilities.showPriceAxisTicks) {
-        const colors = { TEXT: { SECONDARY: tokenColors.text.secondary } } as unknown as ThemeColors
         drawScaleTicks({
-          colors,
+          tickColor: tokenColors.text.secondary,
           ctx: targetCtx,
           dpr,
           axisWidth,
