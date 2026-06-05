@@ -26,6 +26,7 @@ export const lightTheme: Theme = {
     colors: {
         background: '#FAFAFA',
         foreground: '#1F1F1F',
+        chartBackground: '#FFFFFF',
 
         candleUpBody: '#0F8B5C',
         candleUpBorder: '#0F8B5C',

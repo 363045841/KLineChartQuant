@@ -241,6 +241,7 @@ export interface ColorTokens {
     // Chart-wide background + foreground
     readonly background: ColorValue
     readonly foreground: ColorValue
+    readonly chartBackground: ColorValue
 
     // Candle / OHLC bar
     readonly candleUpBody: ColorValue

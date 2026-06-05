@@ -6,6 +6,7 @@ export type ColorPresetKey = keyof Pick<
     ColorTokens,
     | 'background'
     | 'foreground'
+    | 'chartBackground'
     | 'candleUpBody'
     | 'candleUpBorder'
     | 'candleUpWick'
@@ -53,6 +54,7 @@ export const COLOR_PRESET_STORAGE_KEY = 'kline-chart-color-presets'
 
 export const COLOR_PRESET_ITEMS: readonly ColorPresetItem[] = [
     { key: 'background', label: '背景', group: 'canvas' },
+    { key: 'chartBackground', label: '图表背景', group: 'canvas' },
     { key: 'foreground', label: '前景', group: 'canvas' },
     { key: 'gridMajor', label: '主网格线', group: 'canvas' },
     { key: 'gridMinor', label: '次网格线', group: 'canvas' },

@@ -1134,8 +1134,8 @@ watch(
   --kmap-height: var(--kmap-chart-height, 100%);
   --kmap-width: var(--kmap-chart-width, 100%);
 
-  --chart-bg: var(--klc-color-background);
-  --chart-bg-secondary: var(--klc-color-background);
+  --chart-bg: var(--klc-color-chart-background);
+  --chart-bg-secondary: var(--klc-color-chart-background);
   --chart-border: var(--klc-color-border-chart);
   --chart-border-active: #1890ff;
   --chart-text: var(--klc-color-foreground);
