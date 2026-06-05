@@ -782,7 +782,14 @@ function handleReorderSubIndicators(orderedIndicatorIds: string[]) {
 /* 计算总宽度：从 Vue 响应式状态读取，zoom 变化时自动重算 */
 const axisHostWidth = computed(() => props.rightAxisWidth + props.priceLabelWidth)
 
-const totalWidth = computed(() => controller.value?.getContentWidth() ?? 0)
+const totalWidth = computed(() => {
+  void dataVersion.value
+  void viewWidth.value
+  void kWidth.value
+  void kGap.value
+  void viewportDpr.value
+  return controller.value?.getContentWidth() ?? 0
+})
 
 function scrollToRight() {
   const container = containerRef.value
