@@ -838,6 +838,16 @@ onUnmounted(() => {
   gap: 20px;
 }
 
+.modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background: #d0d0d0;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+}
+
 /* 搜索框 */
 .search-box {
   display: flex;
