@@ -1,6 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import { lightTheme, darkTheme } from '../../../tokens'
+import { resolveThemeColors } from '../../../tokens'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
 import type { STOCHRenderState } from '../../indicators/stochState'
 import { createSTOCHStateKey } from '../../indicators/stochState'
@@ -152,7 +152,7 @@ export function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): R
 
         draw(context: RenderContext) {
 const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
-            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
 
             const stateKey = resolveKey()
             if (!stateKey) return
@@ -321,9 +321,10 @@ export function getSTOCHTitleInfo(
     m: number,
     pluginHost: PluginHost,
     paneId: string = 'sub_STOCH',
-    theme: 'light' | 'dark' = 'light'
+    theme: 'light' | 'dark' = 'light',
+    isAsiaMarket?: boolean
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-    const colors = theme === 'dark' ? darkTheme.colors : lightTheme.colors
+    const colors = resolveThemeColors(theme, isAsiaMarket)
     const state = pluginHost.getSharedState<STOCHRenderState>(createSTOCHStateKey(paneId))
     if (!state) return null
 

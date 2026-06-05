@@ -310,6 +310,8 @@ export interface RenderContext {
   xAxisRanges?: XAxisRange[]
   /** 当前主题 */
   theme: 'light' | 'dark'
+  /** 亚洲市场惯例（红涨绿跌）；为 true 时自动交换所有 bull/bear 颜色 */
+  isAsiaMarket?: boolean
 }
 
 export type DrawingAnchor = {

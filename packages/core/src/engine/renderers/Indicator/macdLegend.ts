@@ -1,6 +1,6 @@
 import type { RendererPluginWithHost, PluginHost, RenderContext } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import { lightTheme, darkTheme } from '../../../tokens'
+import { resolveThemeColors } from '../../../tokens'
 import { getFont, setCanvasFont } from '../../theme/fonts'
 import type { MACDRenderState } from '../../indicators/macdState'
 import { createMACDStateKey } from '../../indicators/macdState'
@@ -59,7 +59,7 @@ export function createMACDLegendRendererPlugin(options: MACDLegendOptions = {}):
 
         draw(context: RenderContext) {
             const { ctx, range } = context
-            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
 
             // 从 StateStore 读取 MACD 状态
             const state = pluginHost?.getSharedState<MACDRenderState>(stateKey)

@@ -2,7 +2,7 @@ import type { RendererPlugin, RenderContext } from '../../plugin'
 import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../plugin'
 import type { KLineData } from '../../types/price'
 import { roundToPhysicalPixel, alignToPhysicalPixelCenter, createHorizontalLineRect } from '../draw/pixelAlign'
-import { lightTheme, darkTheme } from '../../tokens'
+import { resolveThemeColors } from '../../tokens'
 import { getFont, setCanvasFont } from '../theme/fonts'
 
 const textWidthCache = new Map<string, number>()
@@ -109,7 +109,7 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
 
         draw(context: RenderContext) {
             const { ctx, pane, data, range, scrollLeft, dpr, paneWidth, kLineCenters } = context
-            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
             const klineData = data as KLineData[]
             if (!klineData.length) return
             if (pane.role !== 'price') return

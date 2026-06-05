@@ -44,6 +44,7 @@ export type {
 
 export { lightTheme } from './theme-light'
 export { darkTheme } from './theme-dark'
+export { withAsiaMarketColors, resolveThemeColors } from './theme-china'
 export { mergeTheme } from './mergeTheme'
 export {
     themeToCssVars,

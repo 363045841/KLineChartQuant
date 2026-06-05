@@ -3,7 +3,7 @@ import { RENDERER_PRIORITY } from '../../plugin'
 import type { KLineData } from '../../types/price'
 import { getKLineTrend, type kLineTrend } from '../../types/kLine'
 import { createAlignedKLineFromPx, createVerticalLineRect } from '../draw/pixelAlign'
-import { lightTheme, darkTheme, type VolumePriceColors } from '../../tokens'
+import { resolveThemeColors, type VolumePriceColors } from '../../tokens'
 import { getPhysicalKLineConfig } from '../chart'
 import { VolumePriceRelation } from '../../types/volumePrice'
 import { analyzeVolumePriceRelationBatch, DEFAULT_VOLUME_PRICE_CONFIG } from '../../utils/volumePrice'
@@ -52,7 +52,7 @@ export function createCandleRenderer(): RendererPlugin {
 
         draw(context: RenderContext) {
             const { ctx, pane, data, range, scrollLeft, kWidth, kGap, dpr, kLinePositions, markerManager, settings } = context
-            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
             const klineData = data as KLineData[]
             if (!klineData.length) return
 
@@ -297,7 +297,7 @@ function drawVolumePriceMarkers(
     markerManager: MarkerManager | undefined
 ): void {
     const { ctx, range, kWidth, dpr } = context
-    const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
+    const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
     if (!prepared.showVolumePriceMarkers || !markerManager || (context.zoomLevel ?? 1) < 2) {
         return
     }

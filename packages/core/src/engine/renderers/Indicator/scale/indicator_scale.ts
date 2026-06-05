@@ -1,7 +1,7 @@
 import type { RendererPluginWithHost, PluginHost, RenderContext, BaseIndicatorState } from '../../../../plugin'
 import { RENDERER_PRIORITY } from '../../../../plugin'
 import { createIndicatorStateKey } from '../../../../plugin/stateKeys'
-import { lightTheme, darkTheme } from '../../../../tokens'
+import { resolveThemeColors } from '../../../../tokens'
 import { getFont, setCanvasFont } from '../../../theme/fonts'
 import { calculateValueTickPositions, type ScaleType } from '../../../utils/tickPosition'
 import { drawCrosshairPriceLabel } from '../../../../utils/kLineDraw/axis'
@@ -148,7 +148,7 @@ export function createIndicatorScaleRendererPlugin(options: IndicatorScaleRender
 
             const effectiveScaleType: ScaleType = pane.yAxis.getScaleType() ?? scaleType
             const effectiveAxisWidth = yAxisCtx.canvas ? (yAxisCtx.canvas.width / dpr) : axisWidth
-            const tokenColors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
+            const tokenColors = resolveThemeColors(context.theme, context.isAsiaMarket)
 
             const displayRange = pane.yAxis.getDisplayRange({
                 minPrice: state.valueMin,

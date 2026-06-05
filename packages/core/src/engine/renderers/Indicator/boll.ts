@@ -2,7 +2,7 @@ import type { RendererPluginWithHost, PluginHost, RenderContext } from '../../..
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { KLineData } from '../../../types/price'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
-import { lightTheme, darkTheme } from '../../../tokens'
+import { resolveThemeColors } from '../../../tokens'
 import { BOLL_STATE_KEY, type BOLLRenderState } from '../../indicators/bollState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -54,7 +54,7 @@ function drawBOLLWithWebGL(
         bandLowerPoints: LinePoint[]
     }
 ): boolean {
-    const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
+    const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
     if (context.settings?.enableWebGLRendering === false) return false
     const surface = context.lineWebGLSurface
     if (!surface || !surface.isAvailable()) return false
@@ -183,7 +183,7 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
         draw(context: RenderContext) {
             const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters } = context
             const klineData = data as KLineData[]
-            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
 
             const stateKey = resolveKey()
             if (!stateKey) return

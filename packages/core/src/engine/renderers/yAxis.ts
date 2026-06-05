@@ -2,7 +2,7 @@ import type { RendererPlugin, RenderContext } from '../../plugin'
 import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../plugin'
 import { drawCrosshairPriceLabel, drawAxisPriceLabel } from '../../utils/kLineDraw/axis'
 import { drawScaleTicks } from '../renderers/Indicator/scale/indicator_scale'
-import { lightTheme, darkTheme } from '../../tokens'
+import { resolveThemeColors } from '../../tokens'
 
 import type { KLineData } from '../../types/price'
 import type { ScaleType } from '../utils/tickPosition'
@@ -26,7 +26,7 @@ export function createYAxisRendererPlugin(options: {
 
     draw(context: RenderContext) {
       const { ctx, pane, dpr, yAxisCtx, data } = context
-      const tokenColors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
+      const tokenColors = resolveThemeColors(context.theme, context.isAsiaMarket)
       const scaleType = pane.yAxis.getScaleType()
 
       const targetCtx = yAxisCtx || ctx

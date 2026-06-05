@@ -1,4 +1,4 @@
-import { lightTheme, darkTheme } from '../../../tokens'
+import { resolveThemeColors } from '../../../tokens'
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { StructureRenderState } from '../../indicators/structureState'
@@ -41,7 +41,7 @@ export function createStructureRendererPlugin(options: { paneId?: string } = {})
         getDeclaredNamespaces() { const key = resolveKey(); return key ? [key] : [] },
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, kLineCenters } = context
-            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
             const stateKey = resolveKey()
             if (!stateKey) return
             const state = pluginHost?.getSharedState<StructureRenderState>(stateKey)

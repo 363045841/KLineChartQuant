@@ -1,6 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import { lightTheme, darkTheme } from '../../../tokens'
+import { resolveThemeColors } from '../../../tokens'
 import type { CCIRenderState } from '../../indicators/cciState'
 import { createCCIStateKey } from '../../indicators/cciState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
@@ -92,7 +92,7 @@ export function createCCIRendererPlugin(options: CCIRendererOptions = {}): Rende
 
         draw(context: RenderContext) {
 const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
-            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
 
             const stateKey = resolveKey()
             if (!stateKey) return
@@ -241,9 +241,10 @@ export function getCCITitleInfo(
     period: number,
     pluginHost: PluginHost,
     paneId: string = 'sub_CCI',
-    theme: 'light' | 'dark' = 'light'
+    theme: 'light' | 'dark' = 'light',
+    isAsiaMarket?: boolean
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-    const colors = theme === 'dark' ? darkTheme.colors : lightTheme.colors
+    const colors = resolveThemeColors(theme, isAsiaMarket)
     const state = pluginHost.getSharedState<CCIRenderState>(createCCIStateKey(paneId))
     if (!state) return null
 

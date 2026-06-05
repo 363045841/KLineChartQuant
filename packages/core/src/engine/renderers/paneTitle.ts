@@ -1,6 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../plugin'
 import { RENDERER_PRIORITY } from '../../plugin'
-import { lightTheme, darkTheme } from '../../tokens'
+import { resolveThemeColors } from '../../tokens'
 import { getFont, setCanvasFont } from '../theme/fonts'
 import { SUB_PANE_INDICATOR_CONFIGS } from './Indicator/subPaneConfig'
 import type { SubIndicatorType } from './Indicator'
@@ -63,7 +63,7 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
 
         draw(context: RenderContext) {
             const { overlayCtx, pane, paneWidth } = context
-            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
             if (pane.id !== currentOptions.paneId || !overlayCtx) return
 
             const fontSize = 12

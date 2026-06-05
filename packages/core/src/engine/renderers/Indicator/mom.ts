@@ -1,6 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import { lightTheme, darkTheme } from '../../../tokens'
+import { resolveThemeColors } from '../../../tokens'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
 import type { MOMRenderState } from '../../indicators/momState'
 import { createMOMStateKey } from '../../indicators/momState'
@@ -143,7 +143,7 @@ export function createMOMRendererPlugin(options: MOMRendererOptions = {}): Rende
 
         draw(context: RenderContext) {
 const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
-            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
 
             const stateKey = resolveKey()
             if (!stateKey) return
@@ -277,9 +277,10 @@ export function getMOMTitleInfo(
     period: number,
     pluginHost: PluginHost,
     paneId: string = 'sub_MOM',
-    theme: 'light' | 'dark' = 'light'
+    theme: 'light' | 'dark' = 'light',
+    isAsiaMarket?: boolean
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-    const colors = theme === 'dark' ? darkTheme.colors : lightTheme.colors
+    const colors = resolveThemeColors(theme, isAsiaMarket)
     const state = pluginHost.getSharedState<MOMRenderState>(createMOMStateKey(paneId))
     if (!state) return null
 

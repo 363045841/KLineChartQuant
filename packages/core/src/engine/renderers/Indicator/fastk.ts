@@ -1,6 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import { lightTheme, darkTheme } from '../../../tokens'
+import { resolveThemeColors } from '../../../tokens'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
 import type { FASTKRenderState } from '../../indicators/fastkState'
 import { createFASTKStateKey } from '../../indicators/fastkState'
@@ -148,7 +148,7 @@ export function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): R
 
         draw(context: RenderContext) {
 const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
-            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
 
             const stateKey = resolveKey()
             if (!stateKey) return
@@ -282,9 +282,10 @@ export function getFASTKTitleInfo(
     period: number,
     pluginHost: PluginHost,
     paneId: string = 'sub_FASTK',
-    theme: 'light' | 'dark' = 'light'
+    theme: 'light' | 'dark' = 'light',
+    isAsiaMarket?: boolean
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-    const colors = theme === 'dark' ? darkTheme.colors : lightTheme.colors
+    const colors = resolveThemeColors(theme, isAsiaMarket)
     const state = pluginHost.getSharedState<FASTKRenderState>(createFASTKStateKey(paneId))
     if (!state) return null
 

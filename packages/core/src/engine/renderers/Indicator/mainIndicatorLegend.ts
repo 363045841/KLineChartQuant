@@ -5,7 +5,7 @@ import { MA_STATE_KEY, type MARenderState } from '../../indicators/maState'
 import { BOLL_STATE_KEY, type BOLLRenderState } from '../../indicators/bollState'
 import { EXPMA_STATE_KEY, type EXPMARenderState } from '../../indicators/expmaState'
 import { ENE_STATE_KEY, type ENERenderState } from '../../indicators/eneState'
-import { lightTheme, darkTheme } from '../../../tokens'
+import { resolveThemeColors } from '../../../tokens'
 import { getFont, setCanvasFont } from '../../theme/fonts'
 
 const textWidthCache = new Map<string, number>()
@@ -80,7 +80,7 @@ export function createMainIndicatorLegendRendererPlugin(options: {
     draw(context: RenderContext) {
       const { overlayCtx, data, range, crosshairIndex } = context
       const klineData = data as KLineData[]
-      const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
+      const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
       if (!klineData.length || !overlayCtx) return
 
       const fontSize = 12

@@ -5,7 +5,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
-import { lightTheme, darkTheme } from '../../../tokens'
+import { resolveThemeColors } from '../../../tokens'
 
 // Re-export MAFlags from calculators for backward compatibility
 export type { MAFlags } from '../../indicators/calculators'
@@ -97,7 +97,7 @@ export function createMARendererPlugin(): RendererPluginWithHost {
 
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
-            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
             const maColors: Record<number, string> = { 5: colors.ma.ma5, 10: colors.ma.ma10, 20: colors.ma.ma20, 30: colors.ma.ma30, 60: colors.ma.ma60 }
             const stateKey = resolveKey()
             if (!stateKey) return

@@ -3,7 +3,7 @@ import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../plugin'
 import type { KLineData } from '../../types/price'
 import { createHorizontalLineRect, createVerticalLineRect } from '../draw/pixelAlign'
 import { findMonthBoundaries } from '../../utils/dateFormat'
-import { lightTheme, darkTheme } from '../../tokens'
+import { resolveThemeColors } from '../../tokens'
 import { calculateTickPositions, calculateValueTickPositions, type ScaleType } from '../utils/tickPosition'
 
 /**
@@ -22,7 +22,7 @@ export function createGridLinesRendererPlugin(): RendererPlugin {
 
         draw(context: RenderContext) {
             const { ctx, pane, data, range, scrollLeft, kWidth, dpr, kLinePositions, settings } = context
-            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
             const klineData = data as KLineData[]
             if (!klineData.length) return
             if (settings?.showGridLines === false) return

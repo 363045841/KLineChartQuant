@@ -1,7 +1,7 @@
 import type { RendererPlugin, RenderContext } from '../../plugin'
 import { RENDERER_PRIORITY } from '../../plugin'
 import type { KLineData } from '../../types/price'
-import { lightTheme, darkTheme } from '../../tokens'
+import { resolveThemeColors } from '../../tokens'
 
 function getLastPriceInfo(context: RenderContext) {
     const { pane, data } = context
@@ -35,7 +35,7 @@ export function createLastPriceLabelRegistrarPlugin(): RendererPlugin {
         priority: RENDERER_PRIORITY.LAST_PRICE_LABEL,
 
         draw(context: RenderContext) {
-            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
             const info = getLastPriceInfo(context)
             if (!info) return
 
@@ -69,7 +69,7 @@ export function createLastPriceLineRendererPlugin(): RendererPlugin {
 
         draw(context: RenderContext) {
             const { ctx, scrollLeft, dpr, kLinePositions, paneWidth } = context
-            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
             const info = getLastPriceInfo(context)
             if (!info) return
 

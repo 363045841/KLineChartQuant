@@ -1,4 +1,4 @@
-import { lightTheme, darkTheme } from '../../tokens'
+import { resolveThemeColors } from '../../tokens'
 import type { RendererPlugin, RenderContext } from '../../plugin'
 import { RENDERER_PRIORITY } from '../../plugin'
 import type { KLineData } from '../../types/price'
@@ -26,7 +26,7 @@ export function createTimeAxisRendererPlugin(options: {
 
     draw(context: RenderContext) {
       const { ctx, data, range, scrollLeft, kWidth, kGap, dpr, paneWidth } = context
-      const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
+      const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
       const klineData = data as KLineData[]
 
       // 时间轴绘制到传入的 ctx

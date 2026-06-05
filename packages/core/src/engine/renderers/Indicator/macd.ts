@@ -1,7 +1,7 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { KLineData } from '../../../types/price'
-import { lightTheme, darkTheme } from '../../../tokens'
+import { resolveThemeColors } from '../../../tokens'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
 import type { MACDRenderState } from '../../indicators/macdState'
 import { createMACDStateKey } from '../../indicators/macdState'
@@ -130,7 +130,7 @@ export function createMACDRendererPlugin(options: MACDRendererOptions = {}): Ren
     draw(context: RenderContext) {
       const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
       const klineData = data as KLineData[]
-      const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
+      const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
 
       // 从 StateStore 读取 MACD 状态
       const stateKey = resolveKey()
@@ -312,7 +312,7 @@ function drawMacdBarsWithWebGL(
   barDownBuf: Float32Array, barDownCount: number,
   barDownLightBuf: Float32Array, barDownLightCount: number
 ): boolean {
-  const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
+  const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
   if (context.settings?.enableWebGLRendering === false) return false
   const surface = context.candleWebGLSurface
   if (!surface || !surface.isAvailable()) return false
@@ -442,9 +442,10 @@ export function getMACDTitleInfo(
   signalPeriod: number,
   pluginHost: PluginHost,
   paneId: string = 'sub_MACD',
-  theme: 'light' | 'dark' = 'light'
+  theme: 'light' | 'dark' = 'light',
+  isAsiaMarket?: boolean
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-  const colors = theme === 'dark' ? darkTheme.colors : lightTheme.colors
+  const colors = resolveThemeColors(theme, isAsiaMarket)
   const state = pluginHost.getSharedState<MACDRenderState>(createMACDStateKey(paneId))
   if (!state) return null
 

@@ -2,7 +2,7 @@ import type { RendererPluginWithHost, RenderContext, PluginHost, BaseIndicatorSt
 import { RENDERER_PRIORITY } from '../../plugin'
 import { createIndicatorStateKey } from '../../plugin/stateKeys'
 import type { KLineData } from '../../types/price'
-import { lightTheme, darkTheme } from '../../tokens'
+import { resolveThemeColors } from '../../tokens'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../indicators/scheduler'
@@ -61,7 +61,7 @@ export function createVolumeRendererPlugin(options: VolumeRendererOptions = {}):
 
         draw(context: RenderContext) {
             const { ctx, pane, data, range, dpr } = context
-            const colors = context.theme === 'dark' ? darkTheme.colors : lightTheme.colors
+            const colors = resolveThemeColors(context.theme, context.isAsiaMarket)
             const upVolume = colors.volumeUp
             const downVolume = colors.volumeDown
             const neutralVolume = colors.candleDojiBorder
