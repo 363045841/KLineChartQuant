@@ -139,7 +139,7 @@ import {
 } from '@363045841yyt/klinechart-core/controllers'
 import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
 import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
-import { resolveThemeColors, themeToCssVars, lightTheme, darkTheme } from '@363045841yyt/klinechart-core'
+import { resolveThemeColors, themeToCssVars, lightTheme, darkTheme, type ColorPresetSettings } from '@363045841yyt/klinechart-core'
 import LeftToolbar from './LeftToolbar.vue'
 
 const props = withDefaults(
@@ -235,9 +235,14 @@ const tooltipColors = computed(() => {
   }
 })
 
-const themeCssVars = computed(() =>
-  themeToCssVars(chartTheme.value === 'dark' ? darkTheme : lightTheme),
-)
+const themeCssVars = computed(() => {
+  const theme = chartTheme.value === 'dark' ? darkTheme : lightTheme
+  const overrides = (chartSettings.value.colorPresetSettings as ColorPresetSettings | undefined)?.[chartTheme.value]
+  if (overrides && Object.keys(overrides).length > 0) {
+    return themeToCssVars({ ...theme, colors: { ...theme.colors, ...overrides } })
+  }
+  return themeToCssVars(theme)
+})
 
 /* ========== 主题切换（支持 light / dark / auto 跟随系统） ========== */
 let autoThemeMediaQuery: MediaQueryList | null = null

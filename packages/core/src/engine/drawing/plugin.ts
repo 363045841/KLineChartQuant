@@ -190,7 +190,7 @@ export function createDrawingRendererPlugin(options: {
     description: '绘图渲染器（仅负责绘制形状）',
     debugName: '绘图层',
     paneId: options.paneId ?? 'main',
-    priority: -25,
+    priority: 55,
     draw(context: RenderContext) {
       const { ctx, pane, data, range, dpr, paneWidth, kLinePositions, kLineCenters, kBarRects, kWidth, kGap } = context
       const viewport = context.viewport ?? {

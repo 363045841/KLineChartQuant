@@ -1,6 +1,6 @@
 {
   "name": "@363045841yyt/klinechart-core",
-  "version": "0.7.6",
+  "version": "0.7.7",
   "description": "Headless K-line chart engine + reactive controllers. Zero framework dependencies.",
   "license": "MIT",
   "repository": {
