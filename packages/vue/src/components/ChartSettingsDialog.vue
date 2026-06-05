@@ -454,16 +454,6 @@ function confirmSettings() {
   flex-shrink: 0;
 }
 
-.settings-item.experimental {
-  border-color: #f0e0d0;
-  background: #fdf8f3;
-}
-
-.settings-item.experimental:hover {
-  border-color: #e7c7a9;
-  background: #fff4e8;
-}
-
 .settings-footer {
   display: flex;
   align-items: center;

@@ -99,7 +99,11 @@
               <button class="close-btn" @click="showModal = false">×</button>
             </header>
             <div class="modal-body">
-              <KLineChart :semanticConfig="currentConfig" :dataFetcher="dataFetcher" @theme-change="onThemeChange" />
+              <KLineChart
+                :semanticConfig="currentConfig"
+                :dataFetcher="dataFetcher"
+                @theme-change="onThemeChange"
+              />
             </div>
           </div>
         </div>
@@ -346,7 +350,6 @@ if (typeof document !== 'undefined') {
 .embed-container {
   flex: 1;
   min-height: 0;
-  border: 2px dashed #d9d9d9;
   margin: 16px;
   border-radius: 8px;
   overflow: hidden;
@@ -442,7 +445,7 @@ if (typeof document !== 'undefined') {
 
 /* ── 深色模式 ── */
 .app-container[data-theme='dark'] {
-  background: #111827;
+  background: #000000;
   color: #e5e7eb;
 }
 
@@ -489,7 +492,7 @@ if (typeof document !== 'undefined') {
 
 .app-container[data-theme='dark'] .embed-container:fullscreen,
 .app-container[data-theme='dark'] .embed-container.is-fullscreen {
-  background: #111827;
+  background: #000000;
 }
 
 .app-container[data-theme='dark'] .modal-container {

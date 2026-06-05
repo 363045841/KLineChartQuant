@@ -22,7 +22,7 @@ import type { Theme } from './types'
 export const darkTheme: Theme = {
     name: 'dark',
     colors: {
-        background: '#0E1116',
+        background: '#111827',
         foreground: '#E8EAED',
 
         candleUpBody: '#22D69B',

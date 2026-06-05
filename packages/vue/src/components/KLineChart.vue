@@ -1122,7 +1122,7 @@ watch(
   --kmap-height: var(--kmap-chart-height, 100%);
   --kmap-width: var(--kmap-chart-width, 100%);
 
-  --chart-bg: var(--klc-color-tag-bg-white);
+  --chart-bg: var(--klc-color-background);
   --chart-bg-secondary: var(--klc-color-background);
   --chart-border: var(--klc-color-grid-major);
   --chart-border-active: var(--klc-color-foreground);
