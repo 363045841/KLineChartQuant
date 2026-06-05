@@ -1132,7 +1132,7 @@ watch(
   --chart-bg: var(--klc-color-background);
   --chart-bg-secondary: var(--klc-color-background);
   --chart-border: var(--klc-color-border-chart);
-  --chart-border-active: var(--klc-color-foreground);
+  --chart-border-active: #1890ff;
   --chart-text: var(--klc-color-foreground);
   --chart-text-secondary: var(--klc-color-axis-text);
 
