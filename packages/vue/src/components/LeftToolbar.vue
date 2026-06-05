@@ -353,7 +353,7 @@ onUnmounted(() => {
 }
 
 .left-toolbar__button.active {
-  border-color: var(--klc-color-axis-text);
+  border-color: var(--klc-color-border-chart);
   background: var(--klc-color-grid-major);
   color: var(--klc-color-foreground);
 }
