@@ -3,7 +3,7 @@ import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
 import babel from 'vite-plugin-babel'
 
-// Legacy engine root â€?needed so `@/...` imports inside src/core/chart.ts
+// Legacy engine root â€”needed so `@/...` imports inside src/core/chart.ts
 // resolve while the package transitively loads createChartController.
 // Also needed for @Indicator() decorator transform.
 const repoSrc = fileURLToPath(new URL('../../src', import.meta.url))

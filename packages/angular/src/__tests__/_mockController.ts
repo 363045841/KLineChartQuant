@@ -2,7 +2,7 @@
  * Minimal in-memory ChartController for adapter contract tests.
  *
  * Honours the public `ChartController` shape from @363045841yyt/klinechart-core but
- * skips the rendering pipeline â€?signals are real (so subscribe/notify works
+ * skips the rendering pipeline â€”signals are real (so subscribe/notify works
  * end-to-end through coreSignalToAngular / toSignal) but mutation methods only
  * update those signals; no canvas, no DOM.
  *

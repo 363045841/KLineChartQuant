@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
-// Legacy engine root â€?needed so `@/...` imports inside src/core/chart.ts
+// Legacy engine root â€”needed so `@/...` imports inside src/core/chart.ts
 // resolve while the package transitively loads createChartController.
 const repoSrc = fileURLToPath(new URL('../../src', import.meta.url))
 

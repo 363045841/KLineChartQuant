@@ -1,5 +1,5 @@
 /**
- * @363045841yyt/klinechart-angular â€?public API surface.
+ * @363045841yyt/klinechart-angular â€”public API surface.
  *
  * Standalone Angular 17+/18+/19+ bindings for @363045841yyt/klinechart-core.
  * No NgModule. Bridges the core push-based signal layer into Angular's
@@ -54,7 +54,7 @@ export const KLINE_CHART_THEME = new InjectionToken<'light' | 'dark'>(
  * Factory used by `<kline-chart>` to produce a controller. Defaults to the
  * production `createChartController` from `@363045841yyt/klinechart-core`, so
  * consumers don't need to register it manually. Override per-application
- * via `provideKLineChart({ factory })` â€?useful for tests that inject a
+ * via `provideKLineChart({ factory })` â€”useful for tests that inject a
  * mock factory.
  */
 export const KLINE_CHART_FACTORY = new InjectionToken<ChartControllerFactory | null>(
@@ -93,7 +93,7 @@ export function provideKLineChart(opts: ProvideKLineChartOptions = {}): Provider
 
 /**
  * Wrap a core signal into an Angular readonly signal. Unsubscribes via
- * the supplied `DestroyRef` â€?or, if omitted, `inject(DestroyRef)` from
+ * the supplied `DestroyRef` â€”or, if omitted, `inject(DestroyRef)` from
  * the surrounding injection context.
  */
 export function coreSignalToAngular<T>(
@@ -110,7 +110,7 @@ export function coreSignalToAngular<T>(
 }
 
 // ---------------------------------------------------------------------------
-// createChart â€?imperative escape hatch
+// createChart â€”imperative escape hatch
 // ---------------------------------------------------------------------------
 
 /**
@@ -150,13 +150,13 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
     @ViewChild('container', { static: true })
     container!: ElementRef<HTMLElement>
 
-    // Private writable signals â€?only values change, never reassigned
+    // Private writable signals â€”only values change, never reassigned
     private _viewport = signal<ChartViewport | null>(null)
     private _interactionState = signal<InteractionSnapshot | null>(null)
     private _paneRatios = signal<Readonly<Record<string, number>> | null>(null)
     private _indicators = signal<ReadonlyArray<IndicatorInstance> | null>(null)
 
-    /** Angular signals mirroring controller state â€?readonly wrappers, references never change. */
+    /** Angular signals mirroring controller state â€”readonly wrappers, references never change. */
     readonly viewport = this._viewport.asReadonly()
     readonly interactionState = this._interactionState.asReadonly()
     readonly paneRatios = this._paneRatios.asReadonly()
