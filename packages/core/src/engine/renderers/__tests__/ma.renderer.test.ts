@@ -2,7 +2,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createMARendererPlugin } from '../Indicator/ma'
 import { MA_STATE_KEY, type MARenderState } from '@/core/indicators/maState'
-import { MA_COLORS } from '@/core/theme/colors'
 import type { PluginHost, RenderContext, RendererPluginWithHost } from '@/plugin'
 import type { KLineData } from '@/types/price'
 import type { Pane } from '@/core/layout/pane'

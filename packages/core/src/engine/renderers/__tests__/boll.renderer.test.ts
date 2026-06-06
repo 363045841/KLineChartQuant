@@ -2,7 +2,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createBOLLRendererPlugin } from '../Indicator/boll'
 import { BOLL_STATE_KEY, type BOLLRenderState } from '@/core/indicators/bollState'
-import { BOLL_COLORS } from '@/core/theme/colors'
 import type { PluginHost, RenderContext, RendererPluginWithHost } from '@/plugin'
 import type { KLineData } from '@/types/price'
 import type { Pane } from '@/core/layout/pane'
