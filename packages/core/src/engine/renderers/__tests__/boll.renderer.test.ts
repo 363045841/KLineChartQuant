@@ -6,6 +6,15 @@ import type { PluginHost, RenderContext, RendererPluginWithHost } from '@/plugin
 import type { KLineData } from '@/types/price'
 import type { Pane } from '@/core/layout/pane'
 
+if (typeof globalThis.Path2D === 'undefined') {
+  class Path2DMock {
+    moveTo = vi.fn()
+    lineTo = vi.fn()
+    closePath = vi.fn()
+  }
+  globalThis.Path2D = Path2DMock as unknown as typeof Path2D
+}
+
 // Type helper for tests
 interface TestableBOLLRenderer extends RendererPluginWithHost {
   draw: (context: RenderContext) => void

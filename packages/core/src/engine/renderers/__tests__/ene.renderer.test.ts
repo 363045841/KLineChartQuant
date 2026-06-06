@@ -4,7 +4,7 @@ import { createENERendererPlugin } from '../Indicator/ene'
 import { ENE_STATE_KEY, type ENERenderState } from '@/core/indicators/eneState'
 import type { PluginHost, RenderContext, RendererPluginWithHost } from '@/plugin'
 
-const ENE_COLORS = { BAND_FILL: 'rgba(255, 165, 0, 0.2)' } as const
+const ENE_COLORS = { BAND_FILL: 'rgba(69, 112, 249, 0.08)' } as const
 import type { KLineData } from '@/types/price'
 import type { Pane } from '@/core/layout/pane'
 

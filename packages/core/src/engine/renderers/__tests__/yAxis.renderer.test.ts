@@ -141,6 +141,9 @@ describe('yAxis renderer', () => {
         borderColor: '#f00',
         bgColor: '#fff',
       }),
+      expect.any(String),
+      undefined,
+      undefined,
     )
   })
 

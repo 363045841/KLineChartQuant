@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
 import { Pane } from '@/core/layout/pane'
 import { PaneRenderer } from '@/core/paneRenderer'
