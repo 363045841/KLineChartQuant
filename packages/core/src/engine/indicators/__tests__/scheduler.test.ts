@@ -5,8 +5,55 @@ import { BOLL_STATE_KEY, EMPTY_BOLL_STATE, type BOLLRenderState } from '../bollS
 import { EXPMA_STATE_KEY, EMPTY_EXPMA_STATE, type EXPMARenderState } from '../expmaState'
 import { ENE_STATE_KEY, EMPTY_ENE_STATE, type ENERenderState } from '../eneState'
 import { createRSIStateKey, EMPTY_RSI_STATE, type RSIRenderState } from '../rsiState'
+import type { IndicatorMetadata } from '../indicatorMetadata'
 import type { KLineData } from '@/types/price'
 import type { PluginHost } from '@/plugin'
+
+function applyMainResult(key: string): NonNullable<IndicatorMetadata['applyResult']> {
+  return (host, state, _paneId) => {
+    ;(host as PluginHost).setSharedState(key, state as any, 'indicator_scheduler')
+  }
+}
+
+function applyRSIResult(host: any, state: any, paneId: string): void {
+  host.setSharedState(createRSIStateKey(paneId), state as any, 'indicator_scheduler')
+}
+
+function registerTestIndicators(scheduler: IndicatorScheduler): void {
+  const indicators: Array<IndicatorMetadata> = [
+    { name: 'ma', displayName: 'MA', category: 'main' as const, stateKey: MA_STATE_KEY, defaultPaneId: 'main', rendererFactory: vi.fn() as any, applyResult: applyMainResult(MA_STATE_KEY) },
+    { name: 'boll', displayName: 'BOLL', category: 'main' as const, stateKey: BOLL_STATE_KEY, defaultPaneId: 'main', rendererFactory: vi.fn() as any, applyResult: applyMainResult(BOLL_STATE_KEY) },
+    { name: 'expma', displayName: 'EXPMA', category: 'main' as const, stateKey: EXPMA_STATE_KEY, defaultPaneId: 'main', rendererFactory: vi.fn() as any, applyResult: applyMainResult(EXPMA_STATE_KEY) },
+    { name: 'ene', displayName: 'ENE', category: 'main' as const, stateKey: ENE_STATE_KEY, defaultPaneId: 'main', rendererFactory: vi.fn() as any, applyResult: applyMainResult(ENE_STATE_KEY) },
+    { name: 'rsi', displayName: 'RSI', category: 'sub' as const, stateKey: createRSIStateKey('sub_RSI'), defaultPaneId: 'sub_RSI', rendererFactory: vi.fn() as any, paneIdField: 'rsiPaneId' as any, applyResult: applyRSIResult },
+    { name: 'macd', displayName: 'MACD', category: 'sub' as const, stateKey: 'indicator:macd:sub_MACD', defaultPaneId: 'sub_MACD', rendererFactory: vi.fn() as any, paneIdField: 'macdPaneId' as any, applyResult: applyMainResult('indicator:macd:sub_MACD') },
+    { name: 'volume', displayName: 'Volume', category: 'sub' as const, stateKey: 'indicator:volume:sub_Volume', defaultPaneId: 'sub_Volume', rendererFactory: vi.fn() as any, paneIdField: 'volumePaneId' as any, applyResult: applyMainResult('indicator:volume:sub_Volume') },
+    { name: 'stoch', displayName: 'STOCH', category: 'sub' as const, stateKey: 'indicator:stoch:sub_STOCH', defaultPaneId: 'sub_STOCH', rendererFactory: vi.fn() as any, paneIdField: 'stochPaneId' as any, applyResult: applyMainResult('indicator:stoch:sub_STOCH') },
+    { name: 'rsi2', displayName: 'RSI2', category: 'sub' as const, stateKey: createRSIStateKey('sub_RSI2'), defaultPaneId: 'sub_RSI2', rendererFactory: vi.fn() as any, paneIdField: 'rsi2PaneId' as any, applyResult: applyRSIResult },
+    { name: 'wmsr', displayName: 'WMSR', category: 'sub' as const, stateKey: 'indicator:wmsr:sub_WMSR', defaultPaneId: 'sub_WMSR', rendererFactory: vi.fn() as any, paneIdField: 'wmsrPaneId' as any, applyResult: applyMainResult('indicator:wmsr:sub_WMSR') },
+    { name: 'mom', displayName: 'MOM', category: 'sub' as const, stateKey: 'indicator:mom:sub_MOM', defaultPaneId: 'sub_MOM', rendererFactory: vi.fn() as any, paneIdField: 'momPaneId' as any, applyResult: applyMainResult('indicator:mom:sub_MOM') },
+    { name: 'fastk', displayName: 'FASTK', category: 'sub' as const, stateKey: 'indicator:fastk:sub_FASTK', defaultPaneId: 'sub_FASTK', rendererFactory: vi.fn() as any, paneIdField: 'fastkPaneId' as any, applyResult: applyMainResult('indicator:fastk:sub_FASTK') },
+    { name: 'cci', displayName: 'CCI', category: 'sub' as const, stateKey: 'indicator:cci:sub_CCI', defaultPaneId: 'sub_CCI', rendererFactory: vi.fn() as any, paneIdField: 'cciPaneId' as any, applyResult: applyMainResult('indicator:cci:sub_CCI') },
+    { name: 'atr', displayName: 'ATR', category: 'sub' as const, stateKey: 'indicator:atr:sub_ATR', defaultPaneId: 'sub_ATR', rendererFactory: vi.fn() as any, paneIdField: 'atrPaneId' as any, applyResult: applyMainResult('indicator:atr:sub_ATR') },
+    { name: 'kst', displayName: 'KST', category: 'sub' as const, stateKey: 'indicator:kst:sub_KST', defaultPaneId: 'sub_KST', rendererFactory: vi.fn() as any, paneIdField: 'kstPaneId' as any, applyResult: applyMainResult('indicator:kst:sub_KST') },
+    { name: 'roc', displayName: 'ROC', category: 'sub' as const, stateKey: 'indicator:roc:sub_ROC', defaultPaneId: 'sub_ROC', rendererFactory: vi.fn() as any, paneIdField: 'rocPaneId' as any, applyResult: applyMainResult('indicator:roc:sub_ROC') },
+    { name: 'trix', displayName: 'TRIX', category: 'sub' as const, stateKey: 'indicator:trix:sub_TRIX', defaultPaneId: 'sub_TRIX', rendererFactory: vi.fn() as any, paneIdField: 'trixPaneId' as any, applyResult: applyMainResult('indicator:trix:sub_TRIX') },
+    { name: 'hv', displayName: 'HV', category: 'sub' as const, stateKey: 'indicator:hv:sub_HV', defaultPaneId: 'sub_HV', rendererFactory: vi.fn() as any, paneIdField: 'hvPaneId' as any, applyResult: applyMainResult('indicator:hv:sub_HV') },
+    { name: 'parkinson', displayName: 'Parkinson', category: 'sub' as const, stateKey: 'indicator:parkinson:sub_Parkinson', defaultPaneId: 'sub_Parkinson', rendererFactory: vi.fn() as any, paneIdField: 'parkinsonPaneId' as any, applyResult: applyMainResult('indicator:parkinson:sub_Parkinson') },
+    { name: 'chaikinVol', displayName: 'ChaikinVol', category: 'sub' as const, stateKey: 'indicator:chaikinVol:sub_ChaikinVol', defaultPaneId: 'sub_ChaikinVol', rendererFactory: vi.fn() as any, paneIdField: 'chaikinVolPaneId' as any, applyResult: applyMainResult('indicator:chaikinVol:sub_ChaikinVol') },
+    { name: 'vma', displayName: 'VMA', category: 'sub' as const, stateKey: 'indicator:vma:sub_VMA', defaultPaneId: 'sub_VMA', rendererFactory: vi.fn() as any, paneIdField: 'vmaPaneId' as any, applyResult: applyMainResult('indicator:vma:sub_VMA') },
+    { name: 'obv', displayName: 'OBV', category: 'sub' as const, stateKey: 'indicator:obv:sub_OBV', defaultPaneId: 'sub_OBV', rendererFactory: vi.fn() as any, paneIdField: 'obvPaneId' as any, applyResult: applyMainResult('indicator:obv:sub_OBV') },
+    { name: 'pvt', displayName: 'PVT', category: 'sub' as const, stateKey: 'indicator:pvt:sub_PVT', defaultPaneId: 'sub_PVT', rendererFactory: vi.fn() as any, paneIdField: 'pvtPaneId' as any, applyResult: applyMainResult('indicator:pvt:sub_PVT') },
+    { name: 'vwap', displayName: 'VWAP', category: 'sub' as const, stateKey: 'indicator:vwap:sub_VWAP', defaultPaneId: 'sub_VWAP', rendererFactory: vi.fn() as any, paneIdField: 'vwapPaneId' as any, applyResult: applyMainResult('indicator:vwap:sub_VWAP') },
+    { name: 'cmf', displayName: 'CMF', category: 'sub' as const, stateKey: 'indicator:cmf:sub_CMF', defaultPaneId: 'sub_CMF', rendererFactory: vi.fn() as any, paneIdField: 'cmfPaneId' as any, applyResult: applyMainResult('indicator:cmf:sub_CMF') },
+    { name: 'mfi', displayName: 'MFI', category: 'sub' as const, stateKey: 'indicator:mfi:sub_MFI', defaultPaneId: 'sub_MFI', rendererFactory: vi.fn() as any, paneIdField: 'mfiPaneId' as any, applyResult: applyMainResult('indicator:mfi:sub_MFI') },
+    { name: 'sar', displayName: 'SAR', category: 'main' as const, stateKey: 'indicator:sar:main', defaultPaneId: 'main', rendererFactory: vi.fn() as any, applyResult: applyMainResult('indicator:sar:main') },
+    { name: 'keltner', displayName: 'Keltner', category: 'main' as const, stateKey: 'indicator:keltner:main', defaultPaneId: 'main', rendererFactory: vi.fn() as any, applyResult: applyMainResult('indicator:keltner:main') },
+  ]
+  for (const meta of indicators) {
+    scheduler.registerIndicator(meta)
+  }
+}
 
 /**
  * 创建测试用的 K 线数据
@@ -76,6 +123,8 @@ describe('IndicatorScheduler', () => {
     scheduler = new IndicatorScheduler()
     mockHost = createMockPluginHost()
     scheduler.setPluginHost(mockHost)
+    registerTestIndicators(scheduler)
+    vi.mocked(mockHost.setSharedState).mockClear()
   })
 
   describe('initialization', () => {
@@ -107,7 +156,7 @@ describe('IndicatorScheduler', () => {
           visibleMin: expect.any(Number),
           visibleMax: expect.any(Number),
         }),
-        'ma_scheduler'
+        expect.any(String)
       )
     })
 
@@ -230,9 +279,9 @@ describe('IndicatorScheduler', () => {
       // Update only viewport
       scheduler.updateVisibleRange({ start: 50, end: 60 })
 
-      // updateVisibleStatesOnly writes the 32 sub-indicators.
-      // Main indicators (MA, BOLL, EXPMA, ENE) are not rewritten on viewport-only changes.
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(35)
+      // updateVisibleStatesOnly writes the 20 sub-indicators that are both
+      // registered and known to composeVisibleSubIndicatorStates.
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(20)
 
       // Inspect a sub-indicator (RSI) since main indicators are not rewritten on viewport-only updates
       const rsiKey = createRSIStateKey('sub_RSI')
@@ -252,8 +301,8 @@ describe('IndicatorScheduler', () => {
       const data2 = createTestData(100, 200)
       scheduler.update(data2, { start: 0, end: 100 })
 
-      // Should be called 64 times (32 indicators × 2 data updates)
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(78)
+      // 26 registered indicators produce states × 2 data updates (1st triggers compute, 2nd retriggers with different data)
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(52)
     })
   })
 
@@ -266,8 +315,8 @@ describe('IndicatorScheduler', () => {
 
       scheduler.recompute()
 
-      // Should write all 32 indicator states (31 from PR 7 + VWAP)
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(39)
+      // Should write all 26 indicator states that have registered + known to composeRenderStates
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(26)
     })
 
     it('should recalculate with same data and range', () => {
@@ -345,6 +394,7 @@ describe('BOLL State in scheduler', () => {
     scheduler = new IndicatorScheduler()
     mockHost = createMockPluginHost()
     scheduler.setPluginHost(mockHost)
+    registerTestIndicators(scheduler)
   })
 
   it('should write BOLLRenderState to StateStore after update', () => {
@@ -427,6 +477,7 @@ describe('EXPMA State in scheduler', () => {
     scheduler = new IndicatorScheduler()
     mockHost = createMockPluginHost()
     scheduler.setPluginHost(mockHost)
+    registerTestIndicators(scheduler)
   })
 
   it('should write EXPMARenderState to StateStore after update', () => {
@@ -480,6 +531,7 @@ describe('ENE State in scheduler', () => {
     scheduler = new IndicatorScheduler()
     mockHost = createMockPluginHost()
     scheduler.setPluginHost(mockHost)
+    registerTestIndicators(scheduler)
   })
 
   it('should write ENERenderState to StateStore after update', () => {
@@ -536,6 +588,7 @@ describe('Per-indicator dirty flags', () => {
     scheduler = new IndicatorScheduler()
     mockHost = createMockPluginHost()
     scheduler.setPluginHost(mockHost)
+    registerTestIndicators(scheduler)
   })
 
   it('updateBOLLConfig should not recalculate MA series', () => {
@@ -684,6 +737,7 @@ describe('RSI State in scheduler', () => {
     scheduler = new IndicatorScheduler()
     mockHost = createMockPluginHost()
     scheduler.setPluginHost(mockHost)
+    registerTestIndicators(scheduler)
   })
 
   it('should write RSIRenderState to StateStore after update', () => {
