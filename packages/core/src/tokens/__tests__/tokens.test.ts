@@ -97,6 +97,7 @@ describe('theme parity', () => {
             'i7',
             'i8',
             'i9',
+            'indicatorAtr',
         ])
     })
 })

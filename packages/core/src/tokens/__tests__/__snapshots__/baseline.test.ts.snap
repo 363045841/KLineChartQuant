@@ -4,6 +4,7 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
 ":root {
   --klc-color-background: #111827;
   --klc-color-foreground: #E8EAED;
+  --klc-color-chart-background: #111827;
   --klc-color-candle-up-body: #22D69B;
   --klc-color-candle-up-border: #22D69B;
   --klc-color-candle-up-wick: #22D69B;
@@ -18,7 +19,7 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-color-axis-tick: #2A2F36;
   --klc-color-grid-major: #1B1F26;
   --klc-color-grid-minor: #161A20;
-  --klc-color-crosshair-line: #5F6368;
+  --klc-color-crosshair-line: #686C72;
   --klc-color-crosshair-label-bg: #E8EAED;
   --klc-color-crosshair-label-text: #0E1116;
   --klc-color-selection-fill: #4A9EFF33;
@@ -172,7 +173,7 @@ Each role is measured against its own surface (default: \`colors.background\`).
 | candleUpBody | #22D69B | background | 9.43 | 3.0:1 | ✅ |
 | candleDownBody | #FF6464 | background | 6.13 | 3.0:1 | ✅ |
 | candleDojiBorder | #8A8F98 | background | 5.46 | 3.0:1 | ✅ |
-| crosshairLine | #5F6368 | background | 2.93 | 3.0:1 | ❌ |
+| crosshairLine | #686C72 | background | 3.36 | 3.0:1 | ✅ |
 | selectionStroke | #4A9EFF | background | 6.44 | 3.0:1 | ✅ |
 | alertActive | #4A9EFF | background | 6.44 | 3.0:1 | ✅ |
 | alertTriggered | #FFA94D | background | 9.32 | 3.0:1 | ✅ |
@@ -200,6 +201,7 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
 ":root {
   --klc-color-background: #FAFAFA;
   --klc-color-foreground: #1F1F1F;
+  --klc-color-chart-background: #FFFFFF;
   --klc-color-candle-up-body: #0F8B5C;
   --klc-color-candle-up-border: #0F8B5C;
   --klc-color-candle-up-wick: #0F8B5C;

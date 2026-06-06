@@ -242,7 +242,7 @@ describe('Chart DPR pipeline', () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     const onViewportChange = vi.fn()
 
-    chart.setOnViewportChange(onViewportChange)
+    chart.viewport.subscribe(onViewportChange)
     chart.draw()
     chart.draw()
 

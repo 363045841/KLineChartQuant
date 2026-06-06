@@ -1,9 +1,23 @@
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
+const coreSrc = fileURLToPath(new URL('../core/src', import.meta.url))
 // Legacy engine root —needed so `@/...` imports inside src/core/chart.ts
 // resolve while the package transitively loads createChartController.
 const repoSrc = fileURLToPath(new URL('../../src', import.meta.url))
+
+// Build alias entries from core package.json exports so _every_
+// `@363045841yyt/klinechart-core/X` subpath resolves to its source .ts file.
+const corePkg = JSON.parse(readFileSync(new URL('../core/package.json', import.meta.url), 'utf-8'))
+const coreAliases: Array<{ find: string; replacement: string }> = []
+for (const [key, value] of Object.entries(corePkg.exports)) {
+    if (key === '.') continue
+    const subpath = `@363045841yyt/klinechart-core${key.slice(1)}`
+    const importPath = (value as any).import as string
+    const sourcePath = importPath.replace('./dist/', '').replace(/\.js$/, '.ts')
+    coreAliases.push({ find: subpath, replacement: `${coreSrc}/${sourcePath}` })
+}
 
 export default defineConfig({
     test: {
@@ -11,26 +25,9 @@ export default defineConfig({
         include: ['src/**/*.test.ts'],
         setupFiles: ['./src/__tests__/_setup.ts'],
     },
-    // Vitest 4 uses oxc for transforms by default; oxc honours
-    // `experimentalDecorators` via the project's tsconfig path. Our
-    // packages/angular/tsconfig.json already sets it. No explicit transform
-    // override is necessary here.
     resolve: {
-        // Order matters: more specific aliases first, otherwise the parent
-        // alias matches as a prefix and appends the subpath.
         alias: [
-            {
-                find: '@363045841yyt/klinechart-core/reactivity',
-                replacement: new URL('../core/src/reactivity/index.ts', import.meta.url).pathname,
-            },
-            {
-                find: '@363045841yyt/klinechart-core/controllers',
-                replacement: new URL('../core/src/controllers/index.ts', import.meta.url).pathname,
-            },
-            {
-                find: '@363045841yyt/klinechart-core',
-                replacement: new URL('../core/src/index.ts', import.meta.url).pathname,
-            },
+            ...coreAliases,
             { find: /^@\//, replacement: `${repoSrc}/` },
         ],
     },

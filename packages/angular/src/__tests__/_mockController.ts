@@ -12,100 +12,33 @@
 
 import { createSignal } from '@363045841yyt/klinechart-core/reactivity'
 import type {
-    ActiveIndicator,
     ChartController,
     ChartViewport,
-    DrawingController,
-    DrawingState,
-    IndicatorDefinition,
-    IndicatorSelectorController,
+    DrawingObject,
+    DrawingToolType,
+    IndicatorInstance,
+    InteractionSnapshot,
     KLineData,
-    ToolbarController,
-    ToolDefinition,
+    PaneSpec,
+    SubPaneInfo,
     ToolId,
 } from '@363045841yyt/klinechart-core'
 
-function createMockIndicatorSelector(): IndicatorSelectorController {
-    const catalog = createSignal<ReadonlyArray<IndicatorDefinition>>([])
-    const active = createSignal<ReadonlyArray<ActiveIndicator>>([])
-    const menuOpen = createSignal<boolean>(false)
-    const searchQuery = createSignal<string>('')
-    const filteredMain = createSignal<ReadonlyArray<IndicatorDefinition>>([])
-    const filteredSub = createSignal<ReadonlyArray<IndicatorDefinition>>([])
-
-    let instanceCounter = 0
-
-    return {
-        catalog,
-        active,
-        menuOpen,
-        searchQuery,
-        filteredMain,
-        filteredSub,
-        add(definitionId: string): string | null {
-            const def = catalog().find((d) => d.id === definitionId)
-            if (def === undefined) return null
-            const id = `mock-instance-${++instanceCounter}`
-            const next: ActiveIndicator = {
-                id,
-                definitionId,
-                label: def.label,
-                name: def.name,
-                role: def.role,
-                params: {},
-            }
-            active.set([...active(), next])
-            return id
-        },
-        remove(instanceId: string): boolean {
-            const before = active()
-            const next = before.filter((a) => a.id !== instanceId)
-            if (next.length === before.length) return false
-            active.set(next)
-            return true
-        },
-        updateParams(): boolean {
-            return false
-        },
-        reorder(): boolean {
-            return false
-        },
-        openMenu(): void {
-            menuOpen.set(true)
-        },
-        closeMenu(): void {
-            menuOpen.set(false)
-        },
-        toggleMenu(): void {
-            menuOpen.set(!menuOpen())
-        },
-        setSearchQuery(q: string): void {
-            searchQuery.set(q)
-        },
-        isActive(definitionId: string): boolean {
-            return active().some((a) => a.definitionId === definitionId)
-        },
-        dispose(): void {
-            /* no-op for mock */
-        },
-    }
-}
-
-function createMockToolbar(): ToolbarController {
-    const tools = createSignal<ReadonlyArray<ToolDefinition>>([])
+function createMockToolbar() {
+    const tools = createSignal<ReadonlyArray<{ id: ToolId; label: string; icon?: string; group?: string }>>([])
     const activeTool = createSignal<ToolId | null>(null)
     const disabledTools = createSignal<ReadonlySet<ToolId>>(new Set())
     return {
         tools,
         activeTool,
         disabledTools,
-        selectTool(id) {
+        selectTool(id: ToolId) {
             activeTool.set(id)
         },
         clearSelection() {
             activeTool.set(null)
         },
-        setDisabled(id, disabled) {
+        setDisabled(id: ToolId, disabled: boolean) {
             const next = new Set(disabledTools())
             if (disabled) next.add(id)
             else next.delete(id)
@@ -117,11 +50,11 @@ function createMockToolbar(): ToolbarController {
     }
 }
 
-function createMockDrawing(): DrawingController {
-    const state = createSignal<DrawingState>({ activeTool: null, drawingCount: 0 })
+function createMockDrawing() {
+    const state = createSignal<{ activeTool: DrawingToolType | null; drawingCount: number }>({ activeTool: null, drawingCount: 0 })
     return {
         state,
-        setActiveTool(tool) {
+        setActiveTool(tool: DrawingToolType | null) {
             state.set({ ...state(), activeTool: tool })
         },
         clearAll() {
@@ -151,13 +84,33 @@ export function createMockChartController(
     const viewport = createSignal<ChartViewport>({
         zoomLevel: 1,
         kWidth: 2,
+        kGap: 1,
+        plotWidth: 800,
+        plotHeight: 600,
+        dpr: 1,
         visibleFrom: 0,
         visibleTo: 0,
+        desiredScrollLeft: undefined,
     })
     const data = createSignal<ReadonlyArray<KLineData>>(initialData)
     const theme = createSignal<'light' | 'dark'>('light')
+    const interactionState = createSignal<InteractionSnapshot>({
+        crosshairPos: null,
+        crosshairIndex: null,
+        crosshairPrice: null,
+        hoveredIndex: null,
+        activePaneId: null,
+        tooltipPos: { x: 0, y: 0 },
+        tooltipAnchorPlacement: 'right-bottom',
+        hoveredMarkerData: null,
+        hoveredCustomMarker: null,
+        isDragging: false,
+        isResizingPaneBoundary: false,
+        isHoveringPaneBoundary: false,
+        hoveredPaneBoundaryId: null,
+        isHoveringRightAxis: false,
+    })
 
-    const indicatorSelector = createMockIndicatorSelector()
     const toolbar = createMockToolbar()
     const drawing = createMockDrawing()
 
@@ -167,22 +120,37 @@ export function createMockChartController(
         viewport,
         data,
         theme,
-        indicatorSelector,
+        interactionState,
+        indicators: createSignal<ReadonlyArray<IndicatorInstance>>([]),
+        subPanes: createSignal<ReadonlyArray<SubPaneInfo>>([]),
+        drawingTool: createSignal<DrawingToolType | null>(null),
+        drawings: createSignal<ReadonlyArray<DrawingObject>>([]),
+        paneRatios: createSignal<Readonly<Record<string, number>>>({}),
+        paneLayout: createSignal<ReadonlyArray<PaneSpec>>([]),
+        catalog: [],
+
         toolbar,
         drawing,
-        setData(next) {
+
+        setData(next: ReadonlyArray<KLineData>) {
             data.set(next)
         },
-        appendData(next) {
+        appendData(next: ReadonlyArray<KLineData>) {
             data.set([...data(), ...next])
         },
-        updateData(next) {
+        updateData(next: ReadonlyArray<KLineData>) {
             data.set(next)
         },
-        setTheme(next) {
+        getData() {
+            return data()
+        },
+        getZoomLevelCount() {
+            return 10
+        },
+        setTheme(next: 'light' | 'dark') {
             theme.set(next)
         },
-        zoomToLevel(level) {
+        zoomToLevel(level: number) {
             viewport.set({ ...viewport(), zoomLevel: level })
         },
         zoomIn() {
@@ -215,7 +183,7 @@ export function createMockChartController(
         updateRendererConfig() {
             /* no-op */
         },
-        setDrawingTool(tool) {
+        setDrawingTool(tool: DrawingToolType | null) {
             drawing.setActiveTool(tool)
         },
         clearDrawings() {
@@ -233,11 +201,29 @@ export function createMockChartController(
         clearSubPanes() {
             /* no-op */
         },
+        replaceSubPaneIndicator() {
+            return false
+        },
+        updatePaneLayout() {
+            /* no-op */
+        },
         updateCustomMarkers() {
             /* no-op */
         },
         clearCustomMarkers() {
             /* no-op */
+        },
+        setTooltipSize() {
+            /* no-op */
+        },
+        setTooltipAnchorPositioning() {
+            /* no-op */
+        },
+        getIndicatorTitle() {
+            return undefined
+        },
+        getContentWidth() {
+            return 0
         },
         updateSettingsFacade() {
             /* no-op */
@@ -247,7 +233,6 @@ export function createMockChartController(
         },
         dispose() {
             disposeCount += 1
-            indicatorSelector.dispose()
             toolbar.dispose()
             drawing.dispose()
         },
@@ -255,7 +240,7 @@ export function createMockChartController(
 
     return {
         controller,
-        setViewport: (next) => viewport.set(next),
+        setViewport: (next: ChartViewport) => viewport.set(next),
         getDisposeCount: () => disposeCount,
     }
 }

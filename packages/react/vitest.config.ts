@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
+import react from '@vitejs/plugin-react'
 
 const coreSrc = fileURLToPath(new URL('../core/src', import.meta.url))
 // Legacy engine root — needed so `@/...` imports inside src/core/chart.ts
@@ -7,6 +8,7 @@ const coreSrc = fileURLToPath(new URL('../core/src', import.meta.url))
 const repoSrc = fileURLToPath(new URL('../../src', import.meta.url))
 
 export default defineConfig({
+    plugins: [react()],
     test: {
         environment: 'jsdom',
         include: ['src/**/*.test.{ts,tsx}'],

@@ -44,7 +44,7 @@ export const darkTheme: Theme = {
         gridMajor: '#1B1F26',
         gridMinor: '#161A20',
 
-        crosshairLine: '#5F6368',
+        crosshairLine: '#686C72',
         crosshairLabelBg: '#E8EAED',
         crosshairLabelText: '#0E1116',
 

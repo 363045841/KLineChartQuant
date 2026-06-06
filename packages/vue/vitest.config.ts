@@ -1,12 +1,27 @@
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
 import babel from 'vite-plugin-babel'
+import Icons from 'unplugin-icons/vite'
 
+const coreSrc = fileURLToPath(new URL('../core/src', import.meta.url))
 // Legacy engine root —needed so `@/...` imports inside src/core/chart.ts
 // resolve while the package transitively loads createChartController.
 // Also needed for @Indicator() decorator transform.
 const repoSrc = fileURLToPath(new URL('../../src', import.meta.url))
+
+// Build alias entries from core package.json exports so _every_
+// `@363045841yyt/klinechart-core/X` subpath resolves to its source .ts file.
+const corePkg = JSON.parse(readFileSync(new URL('../core/package.json', import.meta.url), 'utf-8'))
+const coreAliases: Array<{ find: string; replacement: string }> = []
+for (const [key, value] of Object.entries(corePkg.exports)) {
+    if (key === '.') continue
+    const subpath = `@363045841yyt/klinechart-core${key.slice(1)}`
+    const importPath = (value as any).import as string
+    const sourcePath = importPath.replace('./dist/', '').replace(/\.js$/, '.ts')
+    coreAliases.push({ find: subpath, replacement: `${coreSrc}/${sourcePath}` })
+}
 
 export default defineConfig({
     plugins: [
@@ -23,6 +38,7 @@ export default defineConfig({
             },
         }),
         vue(),
+        Icons({ compiler: 'vue3' }),
     ],
     test: {
         environment: 'jsdom',
@@ -30,20 +46,7 @@ export default defineConfig({
     },
     resolve: {
         alias: [
-            // Order matters: subpath aliases MUST be listed before the
-            // bare package alias so vite's longest-prefix match wins.
-            {
-                find: '@363045841yyt/klinechart-core/reactivity',
-                replacement: new URL('../core/src/reactivity/index.ts', import.meta.url).pathname,
-            },
-            {
-                find: '@363045841yyt/klinechart-core/controllers',
-                replacement: new URL('../core/src/controllers/index.ts', import.meta.url).pathname,
-            },
-            {
-                find: '@363045841yyt/klinechart-core',
-                replacement: new URL('../core/src/index.ts', import.meta.url).pathname,
-            },
+            ...coreAliases,
             { find: /^@\//, replacement: `${repoSrc}/` },
         ],
     },
