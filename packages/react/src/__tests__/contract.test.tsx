@@ -30,11 +30,12 @@ import { createMockChartController, type MockControllerHandle } from './_mockCon
 import type { ChartController, ChartMountOptions, ChartViewport, KLineData } from '@363045841yyt/klinechart-core'
 
 describe('@363045841yyt/klinechart-react —public API surface', () => {
-    it('exports createChart, useChart, useIndicatorSelector, KLineChart', () => {
+    it('exports createChart, useChart, useIndicators, KLineChart', () => {
         expect(typeof ReactAdapter.createChart).toBe('function')
         expect(typeof ReactAdapter.useChart).toBe('function')
-        expect(typeof ReactAdapter.useIndicatorSelector).toBe('function')
-        expect(typeof ReactAdapter.KLineChart).toBe('function')
+        expect(typeof ReactAdapter.useIndicators).toBe('function')
+        expect(ReactAdapter.KLineChart).not.toBeNull()
+        expect(typeof ReactAdapter.KLineChart.render).toBe('function')
     })
 })
 
