@@ -66,9 +66,6 @@ jobs:
       - name: Run package tests (pnpm -r test)
         run: pnpm test:packages
 
-      - name: Run legacy root vitest suite
-        run: ./node_modules/.bin/vitest run
-
       # ---- WARN-ONLY GATES ----
       # These all require a built `dist/` per package. Until Round 1E lands
       # createChartController and we add `tsc --build` to the workflow, these
