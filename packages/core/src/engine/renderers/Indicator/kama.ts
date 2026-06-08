@@ -127,7 +127,7 @@ export function createKAMARendererPlugin(options: KAMARendererOptions = {}): Ren
     defaultPaneId: 'main',
     paneIdField: 'kamaPaneId',
     allowMainPane: true,
-    mainPane: { rendererName: 'kama_main' },
+    mainPane: { rendererName: 'kama_main', toActiveConfig: (params, active) => ({ ...params, showKAMA: active }) },
     scale: { indicatorKey: 'kama', label: 'KAMA', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateKAMAConfig(params as Partial<KAMASchedulerConfig>, paneId)

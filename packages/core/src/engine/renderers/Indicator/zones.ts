@@ -96,7 +96,7 @@ export function createZonesRendererPlugin(options: { paneId?: string } = {}): Re
     defaultPaneId: 'main',
     paneIdField: 'zonesPaneId',
     allowMainPane: true,
-    mainPane: { rendererName: 'zones_main' },
+    mainPane: { rendererName: 'zones_main', toActiveConfig: (params, active) => ({ ...params, showFVG: active, showOB: active, showFilledZones: active }) },
     scale: { indicatorKey: 'zones', label: 'Zones', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateZonesConfig(params as Partial<ZonesSchedulerConfig>, paneId)

@@ -129,7 +129,7 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     defaultPaneId: 'main',
     paneIdField: 'keltnerPaneId',
     allowMainPane: true,
-    mainPane: { rendererName: 'keltner_main' },
+    mainPane: { rendererName: 'keltner_main', toActiveConfig: (params, active) => ({ ...params, showUpper: active, showMiddle: active, showLower: active }) },
     scale: { indicatorKey: 'keltner', label: 'Keltner', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateKeltnerConfig(params as Partial<KeltnerSchedulerConfig>, paneId)

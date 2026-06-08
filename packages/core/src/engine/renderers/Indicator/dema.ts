@@ -127,7 +127,7 @@ export function createDEMARendererPlugin(options: DEMARendererOptions = {}): Ren
     defaultPaneId: 'main',
     paneIdField: 'demaPaneId',
     allowMainPane: true,
-    mainPane: { rendererName: 'dema_main' },
+    mainPane: { rendererName: 'dema_main', toActiveConfig: (params, active) => ({ ...params, showDEMA: active }) },
     scale: { indicatorKey: 'dema', label: 'DEMA', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateDEMAConfig(params as Partial<DEMASchedulerConfig>, paneId)

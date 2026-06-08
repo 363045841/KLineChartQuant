@@ -117,7 +117,7 @@ export function createStructureRendererPlugin(options: { paneId?: string } = {})
     defaultPaneId: 'sub_Structure',
     paneIdField: 'structurePaneId',
     allowMainPane: true,
-    mainPane: { rendererName: 'structure_main' },
+    mainPane: { rendererName: 'structure_main', toActiveConfig: (params, active) => ({ ...params, showSwingLabels: active, showBOS: active, showCHOCH: active }) },
     scale: { indicatorKey: 'structure', label: 'Structure', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateStructureConfig(params as Partial<StructureSchedulerConfig>, paneId)

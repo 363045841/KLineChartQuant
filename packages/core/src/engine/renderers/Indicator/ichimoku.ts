@@ -173,7 +173,7 @@ function fillCloud(
     defaultPaneId: 'main',
     paneIdField: 'ichimokuPaneId',
     allowMainPane: true,
-    mainPane: { rendererName: 'ichimoku_main' },
+    mainPane: { rendererName: 'ichimoku_main', toActiveConfig: (params, active) => ({ ...params, showTenkan: active, showKijun: active, showSpanA: active, showSpanB: active, showChikou: active, showCloud: active }) },
     scale: { indicatorKey: 'ichimoku', label: 'Ichimoku', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateIchimokuConfig(params as Partial<IchimokuSchedulerConfig>, paneId)

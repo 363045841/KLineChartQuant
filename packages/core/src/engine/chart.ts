@@ -41,7 +41,7 @@ import { createExtremaMarkersRendererPlugin } from './renderers/extremaMarkers'
 import { createYAxisRendererPlugin } from './renderers/yAxis'
 import { createCrosshairRendererPlugin } from './renderers/crosshair'
 import { createTimeAxisRendererPlugin } from './renderers/timeAxis'
-import type { BOLLSchedulerConfig, EXPMASchedulerConfig, ENESchedulerConfig, WMASchedulerConfig, DEMASchedulerConfig, TEMASchedulerConfig, HMASchedulerConfig, KAMASchedulerConfig, SARSchedulerConfig, SuperTrendSchedulerConfig, KeltnerSchedulerConfig, DonchianSchedulerConfig, IchimokuSchedulerConfig, PivotSchedulerConfig, FibSchedulerConfig, StructureSchedulerConfig, ZonesSchedulerConfig } from './indicators/scheduler'
+
 
 // 重新导出以保持向后兼容
 export { getPhysicalKLineConfig, calcKWidthPx }
@@ -438,83 +438,11 @@ export class Chart {
 
         const definition = this.indicatorScheduler.getIndicatorMetadata(indicatorId)
         const toActiveConfig = definition?.mainPane?.toActiveConfig
-        if (definition?.updateConfig && toActiveConfig) {
-            const config = toActiveConfig(params, isActive)
-            if (config !== null) {
-                definition.updateConfig(this.indicatorScheduler, config, 'main')
-            }
-            return
-        }
+        if (!definition?.updateConfig || !toActiveConfig) return
 
-        switch (indicatorId) {
-            case 'MA':
-                this.indicatorScheduler.updateMAConfig({
-                    ma5: isActive,
-                    ma10: isActive,
-                    ma20: isActive,
-                    ma30: isActive,
-                    ma60: isActive,
-                })
-                break
-            case 'BOLL':
-                if (isActive) {
-                    this.indicatorScheduler.updateBOLLConfig(params as unknown as BOLLSchedulerConfig)
-                } else {
-                    this.indicatorScheduler.updateBOLLConfig({ ...params, showUpper: false, showMiddle: false, showLower: false, showBand: false } as unknown as BOLLSchedulerConfig)
-                }
-                break
-            case 'EXPMA':
-                if (isActive) {
-                    this.indicatorScheduler.updateEXPMAConfig(params as unknown as EXPMASchedulerConfig)
-                }
-                break
-            case 'ENE':
-                if (isActive) {
-                    this.indicatorScheduler.updateENEConfig(params as unknown as ENESchedulerConfig)
-                }
-                break
-            case 'WMA':
-                this.indicatorScheduler.updateWMAConfig({ ...params, showWMA: isActive } as unknown as WMASchedulerConfig, 'main')
-                break
-            case 'DEMA':
-                this.indicatorScheduler.updateDEMAConfig({ ...params, showDEMA: isActive } as unknown as DEMASchedulerConfig, 'main')
-                break
-            case 'TEMA':
-                this.indicatorScheduler.updateTEMAConfig({ ...params, showTEMA: isActive } as unknown as TEMASchedulerConfig, 'main')
-                break
-            case 'HMA':
-                this.indicatorScheduler.updateHMAConfig({ ...params, showHMA: isActive } as unknown as HMASchedulerConfig, 'main')
-                break
-            case 'KAMA':
-                this.indicatorScheduler.updateKAMAConfig({ ...params, showKAMA: isActive } as unknown as KAMASchedulerConfig, 'main')
-                break
-            case 'SAR':
-                this.indicatorScheduler.updateSARConfig({ ...params, showSAR: isActive } as unknown as SARSchedulerConfig, 'main')
-                break
-            case 'SUPERTREND':
-                this.indicatorScheduler.updateSuperTrendConfig({ ...params, showSuperTrend: isActive } as unknown as SuperTrendSchedulerConfig, 'main')
-                break
-            case 'KELTNER':
-                this.indicatorScheduler.updateKeltnerConfig({ ...params, showUpper: isActive, showMiddle: isActive, showLower: isActive } as unknown as KeltnerSchedulerConfig, 'main')
-                break
-            case 'DONCHIAN':
-                this.indicatorScheduler.updateDonchianConfig({ ...params, showUpper: isActive, showMiddle: isActive, showLower: isActive } as unknown as DonchianSchedulerConfig, 'main')
-                break
-            case 'ICHIMOKU':
-                this.indicatorScheduler.updateIchimokuConfig({ ...params, showTenkan: isActive, showKijun: isActive, showSpanA: isActive, showSpanB: isActive, showChikou: isActive, showCloud: isActive } as unknown as IchimokuSchedulerConfig, 'main')
-                break
-            case 'PIVOT':
-                this.indicatorScheduler.updatePivotConfig({ ...params, showPP: isActive, showR1: isActive, showR2: isActive, showR3: isActive, showS1: isActive, showS2: isActive, showS3: isActive } as unknown as PivotSchedulerConfig, 'main')
-                break
-            case 'FIB':
-                this.indicatorScheduler.updateFibConfig({ ...params, showLevels: isActive } as unknown as FibSchedulerConfig, 'main')
-                break
-            case 'STRUCTURE':
-                this.indicatorScheduler.updateStructureConfig({ ...params, showSwingLabels: isActive, showBOS: isActive, showCHOCH: isActive } as unknown as StructureSchedulerConfig, 'main')
-                break
-            case 'ZONES':
-                this.indicatorScheduler.updateZonesConfig({ ...params, showFVG: isActive, showOB: isActive, showFilledZones: isActive } as unknown as ZonesSchedulerConfig, 'main')
-                break
+        const config = toActiveConfig(params, isActive)
+        if (config !== null) {
+            definition.updateConfig(this.indicatorScheduler, config, 'main')
         }
     }
 

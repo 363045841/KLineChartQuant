@@ -205,6 +205,37 @@ describe('builtin indicator registration', () => {
     expect(zones?.name).toBe('zones_main')
   })
 
+  it('registers overlay main config metadata for stage 6B-2 indicators', () => {
+    const ids = [
+      'WMA', 'DEMA', 'TEMA', 'HMA', 'KAMA',
+      'SAR', 'SUPERTREND', 'KELTNER', 'DONCHIAN',
+      'ICHIMOKU', 'PIVOT', 'FIB', 'STRUCTURE', 'ZONES',
+    ]
+
+    for (const id of ids) {
+      expect(getRegisteredIndicatorDefinition(id)?.mainPane?.toActiveConfig).toBeTypeOf('function')
+    }
+  })
+
+  it('builds overlay main active configs through stage 6B-2 metadata', () => {
+    expect(getRegisteredIndicatorDefinition('WMA')?.mainPane?.toActiveConfig?.({ period: 10 }, false)).toEqual({
+      period: 10, showWMA: false,
+    })
+
+    expect(getRegisteredIndicatorDefinition('KELTNER')?.mainPane?.toActiveConfig?.({ emaPeriod: 20 }, false)).toEqual({
+      emaPeriod: 20, showUpper: false, showMiddle: false, showLower: false,
+    })
+
+    expect(getRegisteredIndicatorDefinition('ICHIMOKU')?.mainPane?.toActiveConfig?.({}, false)).toEqual({
+      showTenkan: false, showKijun: false, showSpanA: false,
+      showSpanB: false, showChikou: false, showCloud: false,
+    })
+
+    expect(getRegisteredIndicatorDefinition('ZONES')?.mainPane?.toActiveConfig?.({}, false)).toEqual({
+      showFVG: false, showOB: false, showFilledZones: false,
+    })
+  })
+
   it('registers base main config metadata for stage 6B-1 indicators', () => {
     for (const id of ['MA', 'BOLL', 'EXPMA', 'ENE']) {
       const definition = getRegisteredIndicatorDefinition(id)
