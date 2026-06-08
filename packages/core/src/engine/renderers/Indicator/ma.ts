@@ -4,6 +4,7 @@ import { MA_STATE_KEY, type MARenderState } from '../../indicators/maState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { MAFlags } from '../../indicators/calculators'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
 import { resolveThemeColors } from '../../../tokens'
 
@@ -56,7 +57,19 @@ function getMAStateKey(host: PluginHost | null): string | null {
     category: 'main',
     stateKey: MA_STATE_KEY,
     defaultPaneId: 'main',
-    mainPane: { rendererName: 'ma' },
+    mainPane: {
+        rendererName: 'ma',
+        toActiveConfig: (_params, active) => ({
+            ma5: active,
+            ma10: active,
+            ma20: active,
+            ma30: active,
+            ma60: active,
+        }),
+    },
+    updateConfig: (scheduler, params) => {
+        (scheduler as IndicatorScheduler).updateMAConfig(params as MAFlags)
+    },
     applyResult: (host, state, _paneId) => {
         host.setSharedState(MA_STATE_KEY, state as any, 'ma_scheduler')
     },

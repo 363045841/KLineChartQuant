@@ -6,7 +6,7 @@ import { resolveThemeColors } from '../../../tokens'
 import { BOLL_STATE_KEY, type BOLLRenderState } from '../../indicators/bollState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { BOLLSchedulerConfig, IndicatorScheduler } from '../../indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 
@@ -128,7 +128,15 @@ function getBOLLStateKey(host: PluginHost | null): string | null {
     category: 'main',
     stateKey: BOLL_STATE_KEY,
     defaultPaneId: 'main',
-    mainPane: { rendererName: 'boll' },
+    mainPane: {
+        rendererName: 'boll',
+        toActiveConfig: (params, active) => active
+            ? params
+            : { ...params, showUpper: false, showMiddle: false, showLower: false, showBand: false },
+    },
+    updateConfig: (scheduler, params) => {
+        (scheduler as IndicatorScheduler).updateBOLLConfig(params as Partial<BOLLSchedulerConfig>)
+    },
     applyResult: (host, state, _paneId) => {
         host.setSharedState(BOLL_STATE_KEY, state as any, 'indicator_scheduler')
     },

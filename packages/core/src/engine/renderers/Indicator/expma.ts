@@ -6,7 +6,7 @@ import { resolveThemeColors } from '../../../tokens'
 import { EXPMA_STATE_KEY, type EXPMARenderState } from '../../indicators/expmaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { EXPMASchedulerConfig, IndicatorScheduler } from '../../indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 
@@ -188,7 +188,13 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
     category: 'main',
     stateKey: EXPMA_STATE_KEY,
     defaultPaneId: 'main',
-    mainPane: { rendererName: 'expma' },
+    mainPane: {
+        rendererName: 'expma',
+        toActiveConfig: (params, active) => active ? params : null,
+    },
+    updateConfig: (scheduler, params) => {
+        (scheduler as IndicatorScheduler).updateEXPMAConfig(params as Partial<EXPMASchedulerConfig>)
+    },
     applyResult: (host, state, _paneId) => {
         host.setSharedState(EXPMA_STATE_KEY, state as any, 'indicator_scheduler')
     },

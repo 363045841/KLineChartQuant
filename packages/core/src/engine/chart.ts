@@ -436,6 +436,16 @@ export class Chart {
         const isActive = entry !== undefined
         const params = entry?.params ?? {}
 
+        const definition = this.indicatorScheduler.getIndicatorMetadata(indicatorId)
+        const toActiveConfig = definition?.mainPane?.toActiveConfig
+        if (definition?.updateConfig && toActiveConfig) {
+            const config = toActiveConfig(params, isActive)
+            if (config !== null) {
+                definition.updateConfig(this.indicatorScheduler, config, 'main')
+            }
+            return
+        }
+
         switch (indicatorId) {
             case 'MA':
                 this.indicatorScheduler.updateMAConfig({

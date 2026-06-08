@@ -145,7 +145,7 @@ export interface IndicatorMetadata<T = unknown> {
      */
     mainPane?: {
         rendererName: string
-        toActiveConfig?: (params: Record<string, unknown>, active: boolean) => Record<string, unknown>
+        toActiveConfig?: (params: Record<string, unknown>, active: boolean) => Record<string, unknown> | null
     }
 
     /**

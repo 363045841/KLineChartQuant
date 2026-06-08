@@ -204,4 +204,50 @@ describe('builtin indicator registration', () => {
     expect(wma?.name).toBe('wma_main')
     expect(zones?.name).toBe('zones_main')
   })
+
+  it('registers base main config metadata for stage 6B-1 indicators', () => {
+    for (const id of ['MA', 'BOLL', 'EXPMA', 'ENE']) {
+      const definition = getRegisteredIndicatorDefinition(id)
+      expect(definition?.updateConfig).toBeTypeOf('function')
+      expect(definition?.mainPane?.toActiveConfig).toBeTypeOf('function')
+    }
+  })
+
+  it('builds base main active configs through stage 6B-1 metadata', () => {
+    expect(getRegisteredIndicatorDefinition('MA')?.mainPane?.toActiveConfig?.({}, false)).toEqual({
+      ma5: false,
+      ma10: false,
+      ma20: false,
+      ma30: false,
+      ma60: false,
+    })
+    expect(getRegisteredIndicatorDefinition('BOLL')?.mainPane?.toActiveConfig?.({ period: 20 }, false)).toEqual({
+      period: 20,
+      showUpper: false,
+      showMiddle: false,
+      showLower: false,
+      showBand: false,
+    })
+    expect(getRegisteredIndicatorDefinition('EXPMA')?.mainPane?.toActiveConfig?.({}, false)).toBeNull()
+    expect(getRegisteredIndicatorDefinition('ENE')?.mainPane?.toActiveConfig?.({}, false)).toBeNull()
+  })
+
+  it('routes base main metadata config updates to scheduler methods', () => {
+    const scheduler = {
+      updateMAConfig: vi.fn(),
+      updateBOLLConfig: vi.fn(),
+      updateEXPMAConfig: vi.fn(),
+      updateENEConfig: vi.fn(),
+    }
+
+    getRegisteredIndicatorDefinition('MA')?.updateConfig?.(scheduler, { ma5: true }, 'main')
+    getRegisteredIndicatorDefinition('BOLL')?.updateConfig?.(scheduler, { period: 20 }, 'main')
+    getRegisteredIndicatorDefinition('EXPMA')?.updateConfig?.(scheduler, { fastPeriod: 12 }, 'main')
+    getRegisteredIndicatorDefinition('ENE')?.updateConfig?.(scheduler, { period: 10 }, 'main')
+
+    expect(scheduler.updateMAConfig).toHaveBeenCalledWith({ ma5: true })
+    expect(scheduler.updateBOLLConfig).toHaveBeenCalledWith({ period: 20 })
+    expect(scheduler.updateEXPMAConfig).toHaveBeenCalledWith({ fastPeriod: 12 })
+    expect(scheduler.updateENEConfig).toHaveBeenCalledWith({ period: 10 })
+  })
 })
