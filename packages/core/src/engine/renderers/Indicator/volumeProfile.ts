@@ -4,7 +4,7 @@ import type { VolumeProfileRenderState } from '../../indicators/volumeProfileSta
 import { createVolumeProfileStateKey } from '../../indicators/volumeProfileState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, VolumeProfileSchedulerConfig } from '../../indicators/scheduler'
 
 const BAR_FILL = 'rgba(99, 102, 241, 0.35)'
 const POC_COLOR = '#f59e0b'
@@ -116,6 +116,9 @@ export function createVolumeProfileRendererPlugin(options: { paneId?: string } =
     stateKey: createVolumeProfileStateKey,
     defaultPaneId: 'sub_VolumeProfile',
     paneIdField: 'volumeProfilePaneId',
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateVolumeProfileConfig(params as Partial<VolumeProfileSchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createVolumeProfileStateKey(paneId), state as any, 'indicator_scheduler')
     },

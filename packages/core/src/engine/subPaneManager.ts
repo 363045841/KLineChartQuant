@@ -218,6 +218,12 @@ export class SubPaneManager {
         params: Record<string, unknown>,
     ): void {
         const scheduler = chart.getIndicatorScheduler()
+        const definition = scheduler.getIndicatorMetadata(indicatorId)
+        if (definition?.updateConfig) {
+            definition.updateConfig(scheduler, params, paneId)
+            return
+        }
+
         switch (indicatorId) {
             case 'MACD':
                 scheduler.updateMACDConfig(params as Partial<MACDSchedulerConfig>, paneId)

@@ -9,7 +9,7 @@ import type { MACDPoint } from '../../indicators/calculators'
 import { calcMACDData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, MACDSchedulerConfig } from '../../indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 
@@ -470,6 +470,9 @@ export function getMACDTitleInfo(
   stateKey: createMACDStateKey,
   defaultPaneId: 'sub_MACD',
   paneIdField: 'macdPaneId',
+  updateConfig: (scheduler, params, paneId) => {
+    (scheduler as IndicatorScheduler).updateMACDConfig(params as Partial<MACDSchedulerConfig>, paneId)
+  },
   applyResult: (host, state, paneId) => {
     host.setSharedState(createMACDStateKey(paneId), state as any, 'indicator_scheduler')
   },

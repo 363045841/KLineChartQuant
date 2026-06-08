@@ -6,7 +6,7 @@ import type { RSIRenderState } from '../../indicators/rsiState'
 import { createRSIStateKey } from '../../indicators/rsiState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, RSISchedulerConfig } from '../../indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 
@@ -388,6 +388,9 @@ export function getRSITitleInfo(
     stateKey: createRSIStateKey,
     defaultPaneId: 'sub_RSI',
     paneIdField: 'rsiPaneId',
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateRSIConfig(params as Partial<RSISchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createRSIStateKey(paneId), state as any, 'indicator_scheduler')
     },

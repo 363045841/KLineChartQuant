@@ -233,6 +233,7 @@ function judgeColor(dayData: KLineData, upColor: string, downColor: string, neut
     category: 'volume',
     stateKey: (paneId: string) => createIndicatorStateKey('volume', paneId),
     defaultPaneId: 'sub',
+    updateConfig: () => {},
 })
 class VolumeIndicatorDefinition {
     static rendererFactory = createVolumeRendererPlugin
