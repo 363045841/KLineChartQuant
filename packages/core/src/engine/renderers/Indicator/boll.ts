@@ -6,6 +6,7 @@ import { resolveThemeColors } from '../../../tokens'
 import { BOLL_STATE_KEY, type BOLLRenderState } from '../../indicators/bollState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import type { IndicatorPriceRangeComputer } from '../../indicators/indicatorMetadata'
 import type { BOLLSchedulerConfig, IndicatorScheduler } from '../../indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
@@ -122,6 +123,26 @@ function getBOLLStateKey(host: PluginHost | null): string | null {
     return resolveStateKey(meta.stateKey)
 }
 
+const computeBOLLPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
+    const series = bundle.boll.series
+    if (series.length === 0 || range.start >= series.length) {
+        return null
+    }
+
+    let min = Infinity
+    let max = -Infinity
+    const end = Math.min(range.end, series.length)
+    for (let i = range.start; i < end; i++) {
+        const p = series[i]
+        if (p) {
+            min = Math.min(min, p.upper, p.middle, p.lower)
+            max = Math.max(max, p.upper, p.middle, p.lower)
+        }
+    }
+
+    return Number.isFinite(min) && Number.isFinite(max) ? { min, max } : null
+}
+
 @Indicator({
     name: 'boll',
     displayName: 'BOLL',
@@ -133,9 +154,19 @@ function getBOLLStateKey(host: PluginHost | null): string | null {
         toActiveConfig: (params, active) => active
             ? params
             : { ...params, showUpper: false, showMiddle: false, showLower: false, showBand: false },
+        computePriceRange: computeBOLLPriceRange,
     },
     updateConfig: (scheduler, params) => {
         (scheduler as IndicatorScheduler).updateBOLLConfig(params as Partial<BOLLSchedulerConfig>)
+    },
+    semantic: {
+        apply: (chart, indicator) => {
+            const params = (indicator as { params?: { period?: number; multiplier?: number } }).params
+            chart.updateRendererConfig('boll', {
+                period: params?.period || 20,
+                multiplier: params?.multiplier || 2,
+            })
+        },
     },
     applyResult: (host, state, _paneId) => {
         host.setSharedState(BOLL_STATE_KEY, state as any, 'indicator_scheduler')

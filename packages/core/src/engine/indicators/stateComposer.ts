@@ -104,6 +104,7 @@ import { EMPTY_ZONES_STATE } from './zonesState'
 import type { VolumeProfileRenderState } from './volumeProfileState'
 import { EMPTY_VOLUME_PROFILE_STATE } from './volumeProfileState'
 import type { IndicatorSeriesBundle } from './workerProtocol'
+import type { IndicatorMetadata } from './indicatorMetadata'
 
 /**
  * 可见范围
@@ -1202,56 +1203,17 @@ function calcSparseExtremes(series: (number | undefined)[], range: VisibleRange)
 export function computeMainIndicatorPriceRange(
     bundle: IndicatorSeriesBundle,
     visibleRange: VisibleRange,
-    activeMainIndicators: Set<string>
+    activeMainIndicators: Set<string>,
+    getIndicatorMetadata: (indicatorId: string) => IndicatorMetadata | undefined,
 ): { min: number; max: number } | null {
     let min = Infinity
     let max = -Infinity
-    const { start, end } = visibleRange
 
-    // MA
-    if (activeMainIndicators.has('ma') && Object.keys(bundle.ma.series).length > 0) {
-        for (const values of Object.values(bundle.ma.series)) {
-            for (let i = start; i < end && i < values.length; i++) {
-                const v = values[i]
-                if (v !== undefined) {
-                    min = Math.min(min, v)
-                    max = Math.max(max, v)
-                }
-            }
-        }
-    }
-
-    // BOLL
-    if (activeMainIndicators.has('boll') && bundle.boll.series.length > 0) {
-        for (let i = start; i < end && i < bundle.boll.series.length; i++) {
-            const p = bundle.boll.series[i]
-            if (p) {
-                min = Math.min(min, p.upper, p.middle, p.lower)
-                max = Math.max(max, p.upper, p.middle, p.lower)
-            }
-        }
-    }
-
-    // EXPMA
-    if (activeMainIndicators.has('expma') && bundle.expma.series.length > 0) {
-        for (let i = start; i < end && i < bundle.expma.series.length; i++) {
-            const p = bundle.expma.series[i]
-            if (p) {
-                min = Math.min(min, p.fast, p.slow)
-                max = Math.max(max, p.fast, p.slow)
-            }
-        }
-    }
-
-    // ENE
-    if (activeMainIndicators.has('ene') && bundle.ene.series.length > 0) {
-        for (let i = start; i < end && i < bundle.ene.series.length; i++) {
-            const p = bundle.ene.series[i]
-            if (p) {
-                min = Math.min(min, p.upper, p.middle, p.lower)
-                max = Math.max(max, p.upper, p.middle, p.lower)
-            }
-        }
+    for (const indicatorId of activeMainIndicators) {
+        const range = getIndicatorMetadata(indicatorId)?.mainPane?.computePriceRange?.(bundle, visibleRange)
+        if (!range) continue
+        min = Math.min(min, range.min)
+        max = Math.max(max, range.max)
     }
 
     if (!Number.isFinite(min) || !Number.isFinite(max)) {

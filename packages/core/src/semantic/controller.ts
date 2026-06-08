@@ -1,6 +1,8 @@
 import { EventBus } from '../plugin/EventBus'
 import type { CustomMarkerEntity } from '../engine/marker/registry'
 import { SemanticConfigValidator } from './validator'
+import '../engine/indicators/registerBuiltins'
+import { getRegisteredIndicatorDefinition } from '../engine/indicators/indicatorDefinitionRegistry'
 import type {
   SemanticChartConfig,
   ApplyResult,
@@ -122,20 +124,7 @@ export class SemanticChartController {
     if (main) {
       for (const indicator of main) {
         if (!indicator.enabled) continue
-        switch (indicator.type) {
-          case 'MA':
-            this.applyMAIndicator(indicator)
-            break
-          case 'BOLL':
-            this.applyBOLLIndicator(indicator)
-            break
-          case 'EXPMA':
-            this.applyEXPMAIndicator(indicator)
-            break
-          case 'ENE':
-            this.applyENEIndicator(indicator)
-            break
-        }
+        getRegisteredIndicatorDefinition(indicator.type)?.semantic?.apply?.(this.chart, indicator)
       }
     }
 
@@ -148,57 +137,13 @@ export class SemanticChartController {
     }
   }
 
-  private applyMAIndicator(indicator: { type: 'MA'; enabled: boolean; params?: { periods: number[] } }): void {
-    const periods = indicator.params?.periods || [5, 10, 20, 30, 60]
-    const maFlags: { ma5?: boolean; ma10?: boolean; ma20?: boolean; ma30?: boolean; ma60?: boolean } = {}
-    for (const p of periods) {
-      if (p === 5) maFlags.ma5 = true
-      else if (p === 10) maFlags.ma10 = true
-      else if (p === 20) maFlags.ma20 = true
-      else if (p === 30) maFlags.ma30 = true
-      else if (p === 60) maFlags.ma60 = true
-    }
-    this.chart.updateRendererConfig('ma', maFlags)
-  }
-
-  private applyBOLLIndicator(indicator: {
-    type: 'BOLL'
-    enabled: boolean
-    params?: { period?: number; multiplier?: number }
-  }): void {
-    this.chart.updateRendererConfig('boll', {
-      period: indicator.params?.period || 20,
-      multiplier: indicator.params?.multiplier || 2,
-    })
-  }
-
-  private applyEXPMAIndicator(indicator: {
-    type: 'EXPMA'
-    enabled: boolean
-    params?: { fastPeriod?: number; slowPeriod?: number }
-  }): void {
-    this.chart.updateRendererConfig('expma', {
-      fastPeriod: indicator.params?.fastPeriod || 12,
-      slowPeriod: indicator.params?.slowPeriod || 50,
-    })
-  }
-
-  private applyENEIndicator(indicator: {
-    type: 'ENE'
-    enabled: boolean
-    params?: { period?: number; deviation?: number }
-  }): void {
-    this.chart.updateRendererConfig('ene', {
-      period: indicator.params?.period || 10,
-      deviation: indicator.params?.deviation || 11,
-    })
-  }
-
   private applySubIndicator(indicator: SubIndicatorConfig): void {
     if (!indicator.enabled) return
     const { type, params } = indicator
     const paneId = `${type}_0`
-    const success = this.chart.createSubPane(paneId, type as CoreSubIndicatorType, params)
+    const definition = getRegisteredIndicatorDefinition(type)
+    const indicatorId = definition?.name ?? type
+    const success = this.chart.createSubPane(paneId, indicatorId as CoreSubIndicatorType, params)
     if (!success) {
       console.warn(`[Semantic] Failed to create sub pane for ${type}`)
     }

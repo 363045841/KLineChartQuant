@@ -6,7 +6,7 @@
  */
 
 import type { PluginHost, RendererPluginWithHost } from '../../plugin'
-import type { IndicatorConfigSnapshot } from './workerProtocol'
+import type { IndicatorConfigSnapshot, IndicatorSeriesBundle } from './workerProtocol'
 
 export type IndicatorId = string
 
@@ -48,6 +48,25 @@ export type IndicatorConfigUpdater = (
     params: Record<string, unknown>,
     paneId: string,
 ) => void
+
+export interface IndicatorSemanticChartAdapter {
+    updateRendererConfig(name: string, config: Record<string, unknown>): void
+}
+
+export interface IndicatorVisibleRange {
+    start: number
+    end: number
+}
+
+export interface IndicatorPriceRange {
+    min: number
+    max: number
+}
+
+export type IndicatorPriceRangeComputer = (
+    bundle: IndicatorSeriesBundle,
+    visibleRange: IndicatorVisibleRange,
+) => IndicatorPriceRange | null
 
 /**
  * 指标元数据接口
@@ -146,13 +165,14 @@ export interface IndicatorMetadata<T = unknown> {
     mainPane?: {
         rendererName: string
         toActiveConfig?: (params: Record<string, unknown>, active: boolean) => Record<string, unknown> | null
+        computePriceRange?: IndicatorPriceRangeComputer
     }
 
     /**
      * 语义配置应用入口。
      */
     semantic?: {
-        apply?: (chart: unknown, indicator: T) => void
+        apply?: (chart: IndicatorSemanticChartAdapter, indicator: T) => void
     }
 }
 

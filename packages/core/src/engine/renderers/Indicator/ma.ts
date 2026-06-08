@@ -3,6 +3,7 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import { MA_STATE_KEY, type MARenderState } from '../../indicators/maState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import type { IndicatorPriceRangeComputer } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { MAFlags } from '../../indicators/calculators'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
@@ -12,6 +13,36 @@ import { resolveThemeColors } from '../../../tokens'
 export type { MAFlags } from '../../indicators/calculators'
 
 type LinePoint = { x: number; y: number }
+
+const SEMANTIC_MA_PERIOD_FLAGS = new Map<number, keyof MAFlags>([
+    [5, 'ma5'],
+    [10, 'ma10'],
+    [20, 'ma20'],
+    [30, 'ma30'],
+    [60, 'ma60'],
+])
+
+const computeMAPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
+    const seriesList = Object.values(bundle.ma.series)
+    if (seriesList.length === 0 || range.start >= seriesList[0]!.length) {
+        return null
+    }
+
+    let min = Infinity
+    let max = -Infinity
+    for (const values of seriesList) {
+        const end = Math.min(range.end, values.length)
+        for (let i = range.start; i < end; i++) {
+            const v = values[i]
+            if (v !== undefined) {
+                min = Math.min(min, v)
+                max = Math.max(max, v)
+            }
+        }
+    }
+
+    return Number.isFinite(min) && Number.isFinite(max) ? { min, max } : null
+}
 
 function buildMACacheKey(
     range: { start: number; end: number },
@@ -66,9 +97,21 @@ function getMAStateKey(host: PluginHost | null): string | null {
             ma30: active,
             ma60: active,
         }),
+        computePriceRange: computeMAPriceRange,
     },
     updateConfig: (scheduler, params) => {
         (scheduler as IndicatorScheduler).updateMAConfig(params as MAFlags)
+    },
+    semantic: {
+        apply: (chart, indicator) => {
+            const periods = (indicator as { params?: { periods?: number[] } }).params?.periods ?? [5, 10, 20, 30, 60]
+            const maFlags: Partial<MAFlags> = {}
+            for (const period of periods) {
+                const flag = SEMANTIC_MA_PERIOD_FLAGS.get(period)
+                if (flag) maFlags[flag] = true
+            }
+            chart.updateRendererConfig('ma', maFlags)
+        },
     },
     applyResult: (host, state, _paneId) => {
         host.setSharedState(MA_STATE_KEY, state as any, 'ma_scheduler')

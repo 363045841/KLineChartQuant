@@ -1117,7 +1117,8 @@ export class IndicatorScheduler {
         return computeMainIndicatorPriceRange(
             this.latestResult,
             this.visibleRange,
-            this.activeMainIndicators
+            this.activeMainIndicators,
+            (indicatorId) => this.registry.get(indicatorId),
         )
     }
 

@@ -6,6 +6,7 @@ import { resolveThemeColors } from '../../../tokens'
 import { EXPMA_STATE_KEY, type EXPMARenderState } from '../../indicators/expmaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import type { IndicatorPriceRangeComputer } from '../../indicators/indicatorMetadata'
 import type { EXPMASchedulerConfig, IndicatorScheduler } from '../../indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
@@ -44,6 +45,26 @@ function getEXPMAStateKey(host: PluginHost | null): string | null {
         return null
     }
     return resolveStateKey(meta.stateKey)
+}
+
+const computeEXPMAPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
+    const series = bundle.expma.series
+    if (series.length === 0 || range.start >= series.length) {
+        return null
+    }
+
+    let min = Infinity
+    let max = -Infinity
+    const end = Math.min(range.end, series.length)
+    for (let i = range.start; i < end; i++) {
+        const p = series[i]
+        if (p) {
+            min = Math.min(min, p.fast, p.slow)
+            max = Math.max(max, p.fast, p.slow)
+        }
+    }
+
+    return Number.isFinite(min) && Number.isFinite(max) ? { min, max } : null
 }
 
 export function createEXPMARendererPlugin(): RendererPluginWithHost {
@@ -191,9 +212,19 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
     mainPane: {
         rendererName: 'expma',
         toActiveConfig: (params, active) => active ? params : null,
+        computePriceRange: computeEXPMAPriceRange,
     },
     updateConfig: (scheduler, params) => {
         (scheduler as IndicatorScheduler).updateEXPMAConfig(params as Partial<EXPMASchedulerConfig>)
+    },
+    semantic: {
+        apply: (chart, indicator) => {
+            const params = (indicator as { params?: { fastPeriod?: number; slowPeriod?: number } }).params
+            chart.updateRendererConfig('expma', {
+                fastPeriod: params?.fastPeriod || 12,
+                slowPeriod: params?.slowPeriod || 50,
+            })
+        },
     },
     applyResult: (host, state, _paneId) => {
         host.setSharedState(EXPMA_STATE_KEY, state as any, 'indicator_scheduler')
