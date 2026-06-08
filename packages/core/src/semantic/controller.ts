@@ -157,7 +157,7 @@ export class SemanticChartController {
     if (!indicator.enabled) return
     const { type, params } = indicator
     const paneId = `${type}_0`
-    const indicatorId = getSemanticIndicatorDefinition(type)?.name ?? type
+    const indicatorId = type
     const success = this.chart.createSubPane(paneId, indicatorId as CoreSubIndicatorType, params)
     if (!success) {
       console.warn(`[Semantic] Failed to create sub pane for ${type}`)
