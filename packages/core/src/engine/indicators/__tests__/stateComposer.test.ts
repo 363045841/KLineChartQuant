@@ -222,4 +222,66 @@ describe('stateComposer', () => {
     expect(states.fastk.visibleMin).toBe(15)
     expect(states.fastk.visibleMax).toBe(25)
   })
+
+  it('applies symmetric abs padding for MOM via metadata composer', () => {
+    const bundle = createBundle()
+    bundle.mom.series = [undefined, -2, 4]
+    bundle.mom.params = { period: 10, showMOM: true } as never
+    const timestamp = 1000
+    const visibleRange = { start: 1, end: 3 }
+
+    const states = composeVisibleSubIndicatorStates(bundle, visibleRange, timestamp, { mom: true })
+
+    expect(states.mom.visibleMin).toBe(-2)
+    expect(states.mom.visibleMax).toBe(4)
+    expect(states.mom.valueMin).toBeCloseTo(-2.4)
+    expect(states.mom.valueMax).toBeCloseTo(4.4)
+  })
+
+  it('applies range padding for KST via metadata composer', () => {
+    const bundle = createBundle()
+    bundle.kst.series = [{ kst: -3, signal: 5 }]
+    bundle.kst.params = { roc1: 10, roc2: 15, roc3: 20, roc4: 30, signalPeriod: 9, showKST: true, showSignal: true } as never
+    const timestamp = 1000
+    const visibleRange = { start: 0, end: 1 }
+
+    const states = composeVisibleSubIndicatorStates(bundle, visibleRange, timestamp, { kst: true })
+
+    expect(states.kst.visibleMin).toBe(-3)
+    expect(states.kst.visibleMax).toBe(5)
+    expect(states.kst.valueMin).toBeCloseTo(-3.8)
+    expect(states.kst.valueMax).toBeCloseTo(5.8)
+  })
+
+  it('applies non-negative upper padding for ATR via metadata composer', () => {
+    const bundle = createBundle()
+    bundle.atr.series = [undefined, 1, 5]
+    bundle.atr.params = { period: 14, showATR: true } as never
+    const timestamp = 1000
+    const visibleRange = { start: 1, end: 3 }
+
+    const states = composeVisibleSubIndicatorStates(bundle, visibleRange, timestamp, { atr: true })
+
+    expect(states.atr.visibleMin).toBe(1)
+    expect(states.atr.visibleMax).toBe(5)
+    expect(states.atr.valueMin).toBe(0)
+    expect(states.atr.valueMax).toBeCloseTo(5.5)
+  })
+
+  it('combines series and signalSeries extremes for TRIX via metadata composer', () => {
+    const bundle = createBundle()
+    bundle.trix.series = [undefined, 1, 3]
+    bundle.trix.signalSeries = [100, -2, 2]
+    bundle.trix.params = { period: 15, signalPeriod: 9, showTRIX: true, showSignal: true } as never
+    const timestamp = 1000
+    const visibleRange = { start: 1, end: 3 }
+
+    const states = composeVisibleSubIndicatorStates(bundle, visibleRange, timestamp, { trix: true })
+
+    expect(states.trix.visibleMin).toBe(-2)
+    expect(states.trix.visibleMax).toBe(3)
+    expect(states.trix.valueMin).toBeCloseTo(-2.25)
+    expect(states.trix.valueMax).toBeCloseTo(3.25)
+    expect((states.trix as any).signalSeries).toBe(bundle.trix.signalSeries)
+  })
 })

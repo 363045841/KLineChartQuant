@@ -3,6 +3,8 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import { resolveThemeColors } from '../../../tokens'
 import type { ATRRenderState } from '../../indicators/atrState'
 import { createATRStateKey } from '../../indicators/atrState'
+import { EMPTY_ATR_STATE } from '../../indicators/atrState'
+import { createNonNegativeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, ATRSchedulerConfig } from '../../indicators/scheduler'
@@ -237,6 +239,7 @@ export function getATRTitleInfo(
     updateConfig: (scheduler, params, paneId) => {
     (scheduler as IndicatorScheduler).updateATRConfig(params as Partial<ATRSchedulerConfig>, paneId)
   },
+    visibleState: { compose: createNonNegativeSparseVisibleStateComposer('atr', EMPTY_ATR_STATE) },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createATRStateKey(paneId), state as any, 'indicator_scheduler')
     },

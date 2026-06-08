@@ -3,6 +3,8 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import { resolveThemeColors } from '../../../tokens'
 import type { KSTRenderState } from '../../indicators/kstState'
 import { createKSTStateKey } from '../../indicators/kstState'
+import { EMPTY_KST_STATE } from '../../indicators/kstState'
+import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, KSTSchedulerConfig } from '../../indicators/scheduler'
@@ -299,6 +301,7 @@ export function getKSTTitleInfo(
     updateConfig: (scheduler, params, paneId) => {
     (scheduler as IndicatorScheduler).updateKSTConfig(params as Partial<KSTSchedulerConfig>, paneId)
   },
+    visibleState: { compose: createPaddedPointVisibleStateComposer('kst', EMPTY_KST_STATE, ['kst', 'signal'] as const) },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createKSTStateKey(paneId), state as any, 'indicator_scheduler')
     },

@@ -4,6 +4,8 @@ import { resolveThemeColors } from '../../../tokens'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
 import type { MOMRenderState } from '../../indicators/momState'
 import { createMOMStateKey } from '../../indicators/momState'
+import { EMPTY_MOM_STATE } from '../../indicators/momState'
+import { createPaddedSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, MOMSchedulerConfig } from '../../indicators/scheduler'
@@ -308,6 +310,7 @@ export function getMOMTitleInfo(
     updateConfig: (scheduler, params, paneId) => {
     (scheduler as IndicatorScheduler).updateMOMConfig(params as Partial<MOMSchedulerConfig>, paneId)
   },
+    visibleState: { compose: createPaddedSparseVisibleStateComposer('mom', EMPTY_MOM_STATE) },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createMOMStateKey(paneId), state as any, 'indicator_scheduler')
     },

@@ -219,6 +219,13 @@ const METADATA_VISIBLE_STATE_INDICATOR_IDS = [
     'mfi',
     'wmsr',
     'cmf',
+    'atr',
+    'hv',
+    'kst',
+    'mom',
+    'parkinson',
+    'trix',
+    'vma',
 ] as const satisfies readonly (keyof VisibleSubIndicatorStates)[]
 
 function getLatestMACDPoint(bundle: IndicatorSeriesBundle, visibleRange: VisibleRange) {

@@ -252,3 +252,217 @@ export function createFixedRangePointVisibleStateComposer<T extends Record<strin
         }
     }
 }
+
+type DualSparseIndicatorSeries = {
+    series: (number | undefined)[]
+    signalSeries: (number | undefined)[]
+    params: unknown
+}
+
+function getDualSparseSeriesBundle(
+    bundle: IndicatorSeriesBundle,
+    bundleKey: string,
+): DualSparseIndicatorSeries {
+    return (bundle as unknown as Record<string, DualSparseIndicatorSeries>)[bundleKey]!
+}
+
+function getPointArraySeriesBundle<T extends Record<string, number>>(
+    bundle: IndicatorSeriesBundle,
+    bundleKey: string,
+): { series: T[]; params: unknown } {
+    return (bundle as unknown as Record<string, { series: T[]; params: unknown }>)[bundleKey]!
+}
+
+function calcPointArrayExtremes<T extends Record<string, number>>(
+    series: T[],
+    fields: readonly (keyof T)[],
+    range: { start: number; end: number },
+): { min: number; max: number } {
+    if (series.length === 0 || range.start >= series.length) {
+        return { min: Infinity, max: -Infinity }
+    }
+    let min = Infinity
+    let max = -Infinity
+    const end = Math.min(range.end, series.length)
+    for (let i = range.start; i < end; i++) {
+        const p = series[i]
+        if (p) {
+            for (const field of fields) {
+                const v = p[field]
+                if (v !== undefined && Number.isFinite(v)) {
+                    min = Math.min(min, v as number)
+                    max = Math.max(max, v as number)
+                }
+            }
+        }
+    }
+    return { min, max }
+}
+
+export function createPaddedSparseVisibleStateComposer(
+    bundleKey: string,
+    emptyState: {
+        timestamp: number
+        series: (number | undefined)[]
+        params: unknown
+        valueMin: number
+        valueMax: number
+        visibleMin: number
+        visibleMax: number
+    },
+): IndicatorVisibleStateComposer {
+    return ({ bundle, visibleRange, timestamp, active }) => {
+        const source = getSparseSeriesBundle(bundle, bundleKey)
+        if (!active) {
+            return {
+                ...emptyState,
+                timestamp,
+                series: source.series,
+                params: source.params,
+            }
+        }
+
+        const extremes = calcSparseExtremes(source.series, visibleRange)
+        const padding = Number.isFinite(extremes.max) && Number.isFinite(extremes.min)
+            ? Math.max(Math.abs(extremes.max), Math.abs(extremes.min)) * 0.1
+            : 0
+        return {
+            timestamp,
+            series: source.series,
+            params: source.params,
+            valueMin: Number.isFinite(extremes.min) ? extremes.min - padding : emptyState.valueMin,
+            valueMax: Number.isFinite(extremes.max) ? extremes.max + padding : emptyState.valueMax,
+            visibleMin: extremes.min,
+            visibleMax: extremes.max,
+        }
+    }
+}
+
+export function createPaddedPointVisibleStateComposer<T extends Record<string, number>>(
+    bundleKey: string,
+    emptyState: {
+        timestamp: number
+        series: T[]
+        params: unknown
+        valueMin: number
+        valueMax: number
+        visibleMin: number
+        visibleMax: number
+    },
+    fields: readonly (keyof T)[],
+): IndicatorVisibleStateComposer {
+    return ({ bundle, visibleRange, timestamp, active }) => {
+        const source = getPointArraySeriesBundle<T>(bundle, bundleKey)
+        if (!active) {
+            return {
+                ...emptyState,
+                timestamp,
+                series: source.series,
+                params: source.params,
+            }
+        }
+
+        const extremes = calcPointArrayExtremes(source.series, fields, visibleRange)
+        const range = extremes.max - extremes.min
+        const padding = range > 0 ? range * 0.1 : 0
+        return {
+            timestamp,
+            series: source.series,
+            params: source.params,
+            valueMin: Number.isFinite(extremes.min) ? extremes.min - padding : emptyState.valueMin,
+            valueMax: Number.isFinite(extremes.max) ? extremes.max + padding : emptyState.valueMax,
+            visibleMin: extremes.min,
+            visibleMax: extremes.max,
+        }
+    }
+}
+
+export function createNonNegativeSparseVisibleStateComposer(
+    bundleKey: string,
+    emptyState: {
+        timestamp: number
+        series: (number | undefined)[]
+        params: unknown
+        valueMin: number
+        valueMax: number
+        visibleMin: number
+        visibleMax: number
+    },
+): IndicatorVisibleStateComposer {
+    return ({ bundle, visibleRange, timestamp, active }) => {
+        const source = getSparseSeriesBundle(bundle, bundleKey)
+        if (!active) {
+            return {
+                ...emptyState,
+                timestamp,
+                series: source.series,
+                params: source.params,
+            }
+        }
+
+        const extremes = calcSparseExtremes(source.series, visibleRange)
+        const valueMax = Number.isFinite(extremes.max) ? extremes.max * 1.1 : emptyState.valueMax
+        return {
+            timestamp,
+            series: source.series,
+            params: source.params,
+            valueMin: 0,
+            valueMax,
+            visibleMin: extremes.min,
+            visibleMax: extremes.max,
+        }
+    }
+}
+
+export function createDualSparseVisibleStateComposer(
+    bundleKey: string,
+    emptyState: {
+        timestamp: number
+        series: (number | undefined)[]
+        signalSeries: (number | undefined)[]
+        params: unknown
+        valueMin: number
+        valueMax: number
+        visibleMin: number
+        visibleMax: number
+    },
+): IndicatorVisibleStateComposer {
+    return ({ bundle, visibleRange, timestamp, active }) => {
+        const source = getDualSparseSeriesBundle(bundle, bundleKey)
+        if (!active) {
+            return {
+                ...emptyState,
+                timestamp,
+                series: source.series,
+                signalSeries: source.signalSeries,
+                params: source.params,
+            }
+        }
+
+        const seriesExtremes = calcSparseExtremes(source.series, visibleRange)
+        const signalExtremes = calcSparseExtremes(source.signalSeries, visibleRange)
+
+        const combinedMin = Math.min(seriesExtremes.min, signalExtremes.min)
+        const combinedMax = Math.max(seriesExtremes.max, signalExtremes.max)
+
+        let valueMin = emptyState.valueMin
+        let valueMax = emptyState.valueMax
+        if (Number.isFinite(combinedMin) && Number.isFinite(combinedMax)) {
+            const range = combinedMax - combinedMin
+            const padding = range > 0 ? range * 0.05 : Math.max(1, Math.abs(combinedMax) * 0.05)
+            valueMin = combinedMin - padding
+            valueMax = combinedMax + padding
+        }
+
+        return {
+            timestamp,
+            series: source.series,
+            signalSeries: source.signalSeries,
+            params: source.params,
+            valueMin,
+            valueMax,
+            visibleMin: combinedMin,
+            visibleMax: combinedMax,
+        }
+    }
+}

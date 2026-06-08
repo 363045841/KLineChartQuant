@@ -2,6 +2,8 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../..
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { HVRenderState } from '../../indicators/hvState'
 import { createHVStateKey } from '../../indicators/hvState'
+import { EMPTY_HV_STATE } from '../../indicators/hvState'
+import { createNonNegativeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, HVSchedulerConfig } from '../../indicators/scheduler'
@@ -119,6 +121,7 @@ export function createHVRendererPlugin(options: { paneId?: string } = {}): Rende
     updateConfig: (scheduler, params, paneId) => {
     (scheduler as IndicatorScheduler).updateHVConfig(params as Partial<HVSchedulerConfig>, paneId)
   },
+    visibleState: { compose: createNonNegativeSparseVisibleStateComposer('hv', EMPTY_HV_STATE) },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createHVStateKey(paneId), state as any, 'indicator_scheduler')
     },
