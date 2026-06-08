@@ -356,7 +356,81 @@ describe('stateComposer', () => {
     expect(states.volumeProfile.visibleMax).toBe(103)
   })
 
-  it('uses metadata fast path for all 34 composers when available', () => {
+  it('applies CCI clamp bounds via metadata composer', () => {
+    const bundle = createBundle()
+    bundle.cci.series = [-200, 100]
+    bundle.cci.params = { period: 14, showCCI: true } as never
+    const timestamp = 1000
+    const visibleRange = { start: 0, end: 2 }
+
+    const states = composeVisibleSubIndicatorStates(
+      bundle, visibleRange, timestamp, { cci: true },
+      getComposerMetadata,
+    )
+
+    expect(states.cci.visibleMin).toBe(-200)
+    expect(states.cci.visibleMax).toBe(100)
+    expect(states.cci.valueMin).toBe(-200)
+    expect(states.cci.valueMax).toBe(150)
+  })
+
+  it('applies CCI lower clamp when extremes are within bounds', () => {
+    const bundle = createBundle()
+    bundle.cci.series = [-50, 30]
+    bundle.cci.params = { period: 14, showCCI: true } as never
+    const timestamp = 1000
+    const visibleRange = { start: 0, end: 2 }
+
+    const states = composeVisibleSubIndicatorStates(
+      bundle, visibleRange, timestamp, { cci: true },
+      getComposerMetadata,
+    )
+
+    expect(states.cci.visibleMin).toBe(-50)
+    expect(states.cci.visibleMax).toBe(30)
+    expect(states.cci.valueMin).toBe(-150)
+    expect(states.cci.valueMax).toBe(150)
+  })
+
+  it('preserves empty CCI state when CCI is inactive', () => {
+    const bundle = createBundle()
+    bundle.cci.series = [-200, 100]
+    bundle.cci.params = { period: 14, showCCI: true } as never
+    const timestamp = 1000
+    const visibleRange = { start: 0, end: 2 }
+
+    const states = composeVisibleSubIndicatorStates(
+      bundle, visibleRange, timestamp, { cci: false },
+      getComposerMetadata,
+    )
+
+    expect(states.cci.valueMin).toBe(-150)
+    expect(states.cci.valueMax).toBe(150)
+    expect(states.cci.visibleMin).toBe(Infinity)
+    expect(states.cci.visibleMax).toBe(-Infinity)
+    expect(states.cci.series).toBe(bundle.cci.series)
+    expect(states.cci.params).toBe(bundle.cci.params)
+    expect(states.cci.timestamp).toBe(1000)
+  })
+
+  it('throws when registered indicator lacks visibleState.compose', () => {
+    const missingCompose = (id: string) =>
+      id === 'cci'
+        ? { name: 'cci', displayName: 'CCI', category: 'oscillator' as const, stateKey: '', defaultPaneId: '', rendererFactory: vi.fn() as never }
+        : undefined
+
+    expect(() =>
+      composeVisibleSubIndicatorStates(
+        createBundle(),
+        { start: 0, end: 1 },
+        1000,
+        {},
+        missingCompose,
+      ),
+    ).toThrow('[StateComposer] Missing visibleState.compose for cci')
+  })
+
+  it('uses metadata path for all visible sub indicator states', () => {
     const bundle = createBundle()
     const timestamp = 1000
     const visibleRange = { start: 0, end: 1 }

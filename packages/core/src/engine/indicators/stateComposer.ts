@@ -21,7 +21,6 @@ import type {
 import type {
     CCIRenderState,
 } from './cciState'
-import { EMPTY_CCI_STATE } from './cciState'
 import type {
     STOCHRenderState,
 } from './stochState'
@@ -169,6 +168,7 @@ type ComposedRenderStates = VisibleSubIndicatorStates & MainRenderStates
 
 const MAIN_RENDER_STATE_INDICATOR_IDS: readonly MainRenderStateIndicatorId[] = ['ma', 'boll', 'expma', 'ene']
 const METADATA_VISIBLE_STATE_INDICATOR_IDS = [
+    'cci',
     'wma',
     'dema',
     'tema',
@@ -205,13 +205,17 @@ const METADATA_VISIBLE_STATE_INDICATOR_IDS = [
     'volumeProfile',
 ] as const satisfies readonly (keyof VisibleSubIndicatorStates)[]
 
-function mergeEmptyState<T extends { timestamp: number }>(state: T, timestamp: number, overrides: Partial<T>): T {
-    return {
-        ...state,
-        ...overrides,
-        timestamp,
-    }
-}
+type _MissingVisibleStateId = Exclude<
+    keyof VisibleSubIndicatorStates,
+    typeof METADATA_VISIBLE_STATE_INDICATOR_IDS[number]
+>
+type _ExtraVisibleStateId = Exclude<
+    typeof METADATA_VISIBLE_STATE_INDICATOR_IDS[number],
+    keyof VisibleSubIndicatorStates
+>
+type AssertNever<T extends never> = T
+type _AssertNoMissingId = AssertNever<_MissingVisibleStateId>
+type _AssertNoExtraId = AssertNever<_ExtraVisibleStateId>
 
 /**
  * 仅计算副图指标的 visible-only states
@@ -224,25 +228,10 @@ export function composeVisibleSubIndicatorStates(
     activeMask: VisibleSubIndicatorMask = {},
     getIndicatorMetadata: (indicatorId: string) => IndicatorMetadata | undefined,
 ): VisibleSubIndicatorStates {
-    const cciActive = activeMask.cci ?? true
-    const cciExtremes = cciActive ? calcCCIExtremes(bundle.cci.series, visibleRange) : null
-    const states: Partial<VisibleSubIndicatorStates> = {
-        cci: cciActive ? {
-            timestamp,
-            series: bundle.cci.series,
-            params: bundle.cci.params,
-            valueMin: cciExtremes ? Math.min(cciExtremes.min, -150) : EMPTY_CCI_STATE.valueMin,
-            valueMax: cciExtremes ? Math.max(cciExtremes.max, 150) : EMPTY_CCI_STATE.valueMax,
-            visibleMin: cciExtremes!.min,
-            visibleMax: cciExtremes!.max,
-        } : mergeEmptyState(EMPTY_CCI_STATE, timestamp, {
-            series: bundle.cci.series,
-            params: bundle.cci.params,
-        }),
-    }
+    const states: Partial<VisibleSubIndicatorStates> = {}
 
     for (const indicatorId of METADATA_VISIBLE_STATE_INDICATOR_IDS) {
-        states[indicatorId] = composeMetadataVisibleState(
+        states[indicatorId] = composeRequiredMetadataVisibleState(
             indicatorId, bundle, visibleRange, timestamp, activeMask, getIndicatorMetadata,
         ) as never
     }
@@ -269,16 +258,21 @@ export function composeRenderStates(
     }
 }
 
-function composeMetadataVisibleState(
+function composeRequiredMetadataVisibleState(
     indicatorId: keyof VisibleSubIndicatorStates,
     bundle: IndicatorSeriesBundle,
     visibleRange: VisibleRange,
     timestamp: number,
     activeMask: VisibleSubIndicatorMask,
-    getIndicatorMetadata?: (indicatorId: string) => IndicatorMetadata | undefined,
-): unknown | undefined {
-    const compose = getIndicatorMetadata?.(indicatorId)?.visibleState?.compose
-    if (!compose) return undefined
+    getIndicatorMetadata: (indicatorId: string) => IndicatorMetadata | undefined,
+): unknown {
+    const meta = getIndicatorMetadata(indicatorId)
+    if (!meta) return undefined
+
+    const compose = meta.visibleState?.compose
+    if (!compose) {
+        throw new Error(`[StateComposer] Missing visibleState.compose for ${indicatorId}`)
+    }
 
     return compose({
         bundle,
@@ -310,22 +304,6 @@ function composeMainRenderStates(
     return states as MainRenderStates
 }
 
-function calcCCIExtremes(series: (number | undefined)[], range: VisibleRange): { min: number; max: number } {
-    if (series.length === 0 || range.start >= series.length) {
-        return { min: Infinity, max: -Infinity }
-    }
-    let min = Infinity
-    let max = -Infinity
-    const end = Math.min(range.end, series.length)
-    for (let i = range.start; i < end; i++) {
-        const v = series[i]
-        if (v !== undefined) {
-            min = Math.min(min, v)
-            max = Math.max(max, v)
-        }
-    }
-    return { min, max }
-}
 /**
  * 计算主图指标价格范围
  * 用于 Chart.draw() 中的 pane.updateRange

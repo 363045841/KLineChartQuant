@@ -362,4 +362,19 @@ describe('builtin indicator registration', () => {
       expect(getRegisteredIndicatorDefinition(id)?.visibleState?.compose).toBeTypeOf('function')
     }
   })
+
+  it('registers visible state composer metadata for all composed visible sub indicators', () => {
+    const ids = [
+      'RSI', 'CCI', 'STOCH', 'MOM', 'WMSR', 'FASTK', 'MACD',
+      'ATR', 'WMA', 'DEMA', 'TEMA', 'HMA', 'KAMA',
+      'SAR', 'SUPERTREND', 'KELTNER', 'DONCHIAN', 'ICHIMOKU',
+      'ROC', 'TRIX', 'HV', 'PARKINSON', 'CHAIKIN_VOL',
+      'VMA', 'OBV', 'PVT', 'VWAP', 'CMF', 'MFI',
+      'KST', 'PIVOT', 'FIB', 'STRUCTURE', 'ZONES', 'VOLUME_PROFILE',
+    ]
+
+    for (const id of ids) {
+      expect(getRegisteredIndicatorDefinition(id)?.visibleState?.compose).toBeTypeOf('function')
+    }
+  })
 })

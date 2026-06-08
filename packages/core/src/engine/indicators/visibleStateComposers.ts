@@ -689,6 +689,42 @@ export function createFixedUnitVisibleStateComposer(
     }
 }
 
+export function createCCIVisibleStateComposer(
+  bundleKey: string,
+  emptyState: {
+    timestamp: number
+    series: (number | undefined)[]
+    params: unknown
+    valueMin: number
+    valueMax: number
+    visibleMin: number
+    visibleMax: number
+  },
+): IndicatorVisibleStateComposer {
+  return ({ bundle, visibleRange, timestamp, active }) => {
+    const source = getSparseSeriesBundle(bundle, bundleKey)
+    if (!active) {
+      return {
+        ...emptyState,
+        timestamp,
+        series: source.series,
+        params: source.params,
+      }
+    }
+
+    const extremes = calcSparseExtremes(source.series, visibleRange)
+    return {
+      timestamp,
+      series: source.series,
+      params: source.params,
+      valueMin: Math.min(extremes.min, emptyState.valueMin),
+      valueMax: Math.max(extremes.max, emptyState.valueMax),
+      visibleMin: extremes.min,
+      visibleMax: extremes.max,
+    }
+  }
+}
+
 export function createVolumeProfileVisibleStateComposer(
     bundleKey: string,
     emptyState: {
