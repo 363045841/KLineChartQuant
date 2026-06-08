@@ -8,6 +8,26 @@ import type { IndicatorMetadata } from './indicatorMetadata'
  */
 export class IndicatorRegistry {
     private indicators = new Map<string, IndicatorMetadata>()
+    private aliases = new Map<string, string>()
+
+    private normalize(id: string): string {
+        return id.trim().toLowerCase()
+    }
+
+    private indexAlias(alias: string, name: string): void {
+        const normalized = this.normalize(alias)
+        if (normalized) {
+            this.aliases.set(normalized, name)
+        }
+    }
+
+    private removeAliasesFor(name: string): void {
+        for (const [alias, target] of this.aliases) {
+            if (target === name) {
+                this.aliases.delete(alias)
+            }
+        }
+    }
 
     /**
      * 注册指标
@@ -28,12 +48,23 @@ export class IndicatorRegistry {
             throw new Error(`[IndicatorRegistry] rendererFactory is required for indicator '${meta.name}'`)
         }
 
-        // 检查重复注册
-        if (this.indicators.has(meta.name)) {
-            console.warn(`[IndicatorRegistry] Indicator '${meta.name}' already registered, overwriting`)
+        const normalizedName = this.normalize(meta.name)
+        if (!normalizedName) {
+            throw new Error('[IndicatorRegistry] Indicator name is required')
         }
 
-        this.indicators.set(meta.name, meta as IndicatorMetadata)
+        // 检查重复注册
+        if (this.indicators.has(normalizedName)) {
+            console.warn(`[IndicatorRegistry] Indicator '${meta.name}' already registered, overwriting`)
+            this.removeAliasesFor(normalizedName)
+        }
+
+        this.indicators.set(normalizedName, meta as IndicatorMetadata)
+        this.indexAlias(meta.name, normalizedName)
+        this.indexAlias(meta.displayName, normalizedName)
+        for (const alias of meta.aliases ?? []) {
+            this.indexAlias(alias, normalizedName)
+        }
     }
 
     /**
@@ -42,7 +73,14 @@ export class IndicatorRegistry {
      * @returns 是否成功注销
      */
     unregister(name: string): boolean {
-        return this.indicators.delete(name)
+        const normalizedName = this.normalize(name)
+        const canonicalName = this.aliases.get(normalizedName) ?? normalizedName
+        const meta = this.indicators.get(canonicalName)
+        if (!meta) return false
+
+        this.indicators.delete(canonicalName)
+        this.removeAliasesFor(canonicalName)
+        return true
     }
 
     /**
@@ -51,7 +89,17 @@ export class IndicatorRegistry {
      * @returns 元数据或 undefined
      */
     get(name: string): IndicatorMetadata | undefined {
-        return this.indicators.get(name)
+        const normalizedName = this.normalize(name)
+        const canonicalName = this.aliases.get(normalizedName) ?? normalizedName
+        return this.indicators.get(canonicalName)
+    }
+
+    getRequired(name: string): IndicatorMetadata {
+        const meta = this.get(name)
+        if (!meta) {
+            throw new Error(`[IndicatorRegistry] Unknown indicator '${name}'`)
+        }
+        return meta
     }
 
     /**
@@ -59,7 +107,7 @@ export class IndicatorRegistry {
      * @param name - 指标名称
      */
     has(name: string): boolean {
-        return this.indicators.has(name)
+        return this.get(name) !== undefined
     }
 
     /**
@@ -95,6 +143,7 @@ export class IndicatorRegistry {
      */
     clear(): void {
         this.indicators.clear()
+        this.aliases.clear()
     }
 
     /**

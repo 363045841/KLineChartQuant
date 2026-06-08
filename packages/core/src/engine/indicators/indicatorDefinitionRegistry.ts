@@ -1,15 +1,28 @@
-import type { IndicatorMetadata, IndicatorCategory, StateKey, RendererFactory } from './indicatorMetadata'
+import type {
+    IndicatorMetadata,
+    IndicatorCategory,
+    StateKey,
+    RendererFactory,
+    ScaleRendererFactory,
+    IndicatorConfigUpdater,
+} from './indicatorMetadata'
 import type { PluginHost } from '../../plugin'
 
-export interface IndicatorDefinitionConfig {
+export type IndicatorDefinitionConfig<T = unknown> = {
     name: string
+    aliases?: readonly string[]
     displayName: string
     category: IndicatorCategory
     stateKey: StateKey
     defaultPaneId: string
     paneIdField?: keyof import('./workerProtocol').IndicatorConfigSnapshot
     allowMainPane?: boolean
+    scaleRendererFactory?: ScaleRendererFactory
+    scale?: IndicatorMetadata['scale']
+    updateConfig?: IndicatorConfigUpdater
     applyResult?: (host: PluginHost, state: unknown, paneId: string) => void
+    mainPane?: IndicatorMetadata['mainPane']
+    semantic?: IndicatorMetadata<T>['semantic']
 }
 
 type IndicatorDefinitionClass = {
@@ -18,6 +31,26 @@ type IndicatorDefinitionClass = {
 }
 
 const indicatorDefinitions = new Map<string, IndicatorMetadata>()
+const indicatorDefinitionAliases = new Map<string, string>()
+
+function normalizeIndicatorId(id: string): string {
+    return id.trim().toLowerCase()
+}
+
+function indexAlias(alias: string, name: string): void {
+    const normalized = normalizeIndicatorId(alias)
+    if (normalized) {
+        indicatorDefinitionAliases.set(normalized, name)
+    }
+}
+
+function removeAliasesFor(name: string): void {
+    for (const [alias, target] of indicatorDefinitionAliases) {
+        if (target === name) {
+            indicatorDefinitionAliases.delete(alias)
+        }
+    }
+}
 
 /**
  * 标准类装饰器：在模块加载时收集指标定义
@@ -36,13 +69,21 @@ export function Indicator(config: IndicatorDefinitionConfig) {
                 throw new Error(`[Indicator] '${config.name}' definition must expose static rendererFactory`)
             }
 
-            indicatorDefinitions.set(config.name, {
+            const normalizedName = normalizeIndicatorId(config.name)
+            removeAliasesFor(normalizedName)
+
+            indicatorDefinitions.set(normalizedName, {
                 ...config,
                 rendererFactory,
                 paneIdField: config.paneIdField,
                 allowMainPane: config.allowMainPane,
                 applyResult: config.applyResult,
             })
+            indexAlias(config.name, normalizedName)
+            indexAlias(config.displayName, normalizedName)
+            for (const alias of config.aliases ?? []) {
+                indexAlias(alias, normalizedName)
+            }
         })
 
         return value
@@ -54,9 +95,12 @@ export function getRegisteredIndicatorDefinitions(): readonly IndicatorMetadata[
 }
 
 export function getRegisteredIndicatorDefinition(name: string): IndicatorMetadata | undefined {
-    return indicatorDefinitions.get(name)
+    const normalizedName = normalizeIndicatorId(name)
+    const canonicalName = indicatorDefinitionAliases.get(normalizedName) ?? normalizedName
+    return indicatorDefinitions.get(canonicalName)
 }
 
 export function clearRegisteredIndicatorDefinitionsForTest(): void {
     indicatorDefinitions.clear()
+    indicatorDefinitionAliases.clear()
 }

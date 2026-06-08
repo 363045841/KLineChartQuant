@@ -8,6 +8,22 @@
 import type { PluginHost, RendererPluginWithHost } from '../../plugin'
 import type { IndicatorConfigSnapshot } from './workerProtocol'
 
+export type IndicatorId = string
+
+export interface IndicatorRendererOptions {
+    paneId: string
+    indicatorId: IndicatorId
+    params?: Record<string, unknown>
+}
+
+export interface IndicatorScaleRendererOptions {
+    paneId: string
+    indicatorId: IndicatorId
+    axisWidth: number
+    yPaddingPx: number
+    getCrosshair: () => { y: number; price: number; activePaneId?: string } | null
+}
+
 /**
  * 指标分类：主图/副图
  */
@@ -23,7 +39,15 @@ export type StateKey = string | ((paneId: string) => string)
 /**
  * 渲染器工厂函数
  */
-export type RendererFactory = () => RendererPluginWithHost
+export type RendererFactory = (options?: IndicatorRendererOptions) => RendererPluginWithHost
+
+export type ScaleRendererFactory = (options: IndicatorScaleRendererOptions) => RendererPluginWithHost
+
+export type IndicatorConfigUpdater = (
+    scheduler: unknown,
+    params: Record<string, unknown>,
+    paneId: string,
+) => void
 
 /**
  * 指标元数据接口
@@ -34,6 +58,11 @@ export interface IndicatorMetadata<T = unknown> {
      * 如：'ma', 'boll', 'rsi', 'customIndicator'
      */
     name: string
+
+    /**
+     * 可选别名，用于兼容 UI/API 中的大写 ID 或历史名称。
+     */
+    aliases?: readonly string[]
 
     /**
      * 显示名称（用于日志和调试）
@@ -65,6 +94,20 @@ export interface IndicatorMetadata<T = unknown> {
     rendererFactory: RendererFactory
 
     /**
+     * 专用坐标轴渲染器工厂。未提供时可回退到 scale 通用配置。
+     */
+    scaleRendererFactory?: ScaleRendererFactory
+
+    /**
+     * 通用指标坐标轴配置。
+     */
+    scale?: {
+        indicatorKey?: string
+        label?: string
+        decimals?: number
+    }
+
+    /**
      * 默认 pane ID
      * - 主图指标：'main'
      * - 副图指标：如 'sub_RSI'
@@ -76,6 +119,11 @@ export interface IndicatorMetadata<T = unknown> {
      * 用于副图指标根据配置决定是否参与计算
      */
     isEnabled?: (config: IndicatorConfigSnapshot) => boolean
+
+    /**
+     * 指标配置更新入口。内置和用户自定义指标都应通过 metadata 分发。
+     */
+    updateConfig?: IndicatorConfigUpdater
 
     /**
      * 将指标计算结果写入 StateStore
@@ -91,6 +139,21 @@ export interface IndicatorMetadata<T = unknown> {
      * - false/undefined：仅限副图显示
      */
     allowMainPane?: boolean
+
+    /**
+     * 主图指标启停相关配置。
+     */
+    mainPane?: {
+        rendererName: string
+        toActiveConfig?: (params: Record<string, unknown>, active: boolean) => Record<string, unknown>
+    }
+
+    /**
+     * 语义配置应用入口。
+     */
+    semantic?: {
+        apply?: (chart: unknown, indicator: T) => void
+    }
 }
 
 /**
