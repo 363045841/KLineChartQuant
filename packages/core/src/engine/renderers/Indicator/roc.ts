@@ -4,7 +4,7 @@ import type { ROCRenderState } from '../../indicators/rocState'
 import { createROCStateKey } from '../../indicators/rocState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, ROCSchedulerConfig } from '../../indicators/scheduler'
 
 const ROC_COLOR = '#0ea5e9'
 
@@ -134,6 +134,9 @@ export function createROCRendererPlugin(options: ROCRendererOptions = {}): Rende
     stateKey: createROCStateKey,
     defaultPaneId: 'sub_ROC',
     paneIdField: 'rocPaneId',
+    updateConfig: (scheduler, params, paneId) => {
+    (scheduler as IndicatorScheduler).updateROCConfig(params as Partial<ROCSchedulerConfig>, paneId)
+  },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createROCStateKey(paneId), state as any, 'indicator_scheduler')
     },

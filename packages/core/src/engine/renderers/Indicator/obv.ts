@@ -4,7 +4,7 @@ import type { OBVRenderState } from '../../indicators/obvState'
 import { createOBVStateKey } from '../../indicators/obvState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, OBVSchedulerConfig } from '../../indicators/scheduler'
 
 const OBV_COLOR = '#16a34a'
 
@@ -114,6 +114,9 @@ export function createOBVRendererPlugin(options: { paneId?: string } = {}): Rend
     stateKey: createOBVStateKey,
     defaultPaneId: 'sub_OBV',
     paneIdField: 'obvPaneId',
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateOBVConfig(params as Partial<OBVSchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createOBVStateKey(paneId), state as any, 'indicator_scheduler')
     },

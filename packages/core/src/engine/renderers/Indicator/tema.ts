@@ -4,7 +4,7 @@ import type { TEMARenderState } from '../../indicators/temaState'
 import { createTEMAStateKey } from '../../indicators/temaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, TEMASchedulerConfig } from '../../indicators/scheduler'
 
 const TEMA_COLOR = '#d946ef'
 
@@ -127,6 +127,9 @@ export function createTEMARendererPlugin(options: TEMARendererOptions = {}): Ren
     defaultPaneId: 'main',
     paneIdField: 'temaPaneId',
     allowMainPane: true,
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateTEMAConfig(params as Partial<TEMASchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createTEMAStateKey(paneId), state as any, 'indicator_scheduler')
     },

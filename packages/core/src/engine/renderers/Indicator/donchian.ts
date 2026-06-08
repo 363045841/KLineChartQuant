@@ -4,7 +4,7 @@ import type { DonchianRenderState } from '../../indicators/donchianState'
 import { createDonchianStateKey } from '../../indicators/donchianState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, DonchianSchedulerConfig } from '../../indicators/scheduler'
 
 const DONCHIAN_UPPER_COLOR = '#0891b2'
 const DONCHIAN_MIDDLE_COLOR = '#94a3b8'
@@ -129,6 +129,9 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     defaultPaneId: 'main',
     paneIdField: 'donchianPaneId',
     allowMainPane: true,
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateDonchianConfig(params as Partial<DonchianSchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createDonchianStateKey(paneId), state as any, 'indicator_scheduler')
     },

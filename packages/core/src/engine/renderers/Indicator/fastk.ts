@@ -6,7 +6,7 @@ import type { FASTKRenderState } from '../../indicators/fastkState'
 import { createFASTKStateKey } from '../../indicators/fastkState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, FASTKSchedulerConfig } from '../../indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 
@@ -308,6 +308,9 @@ export function getFASTKTitleInfo(
     stateKey: createFASTKStateKey,
     defaultPaneId: 'sub_FASTK',
     paneIdField: 'fastkPaneId',
+    updateConfig: (scheduler, params, paneId) => {
+    (scheduler as IndicatorScheduler).updateFASTKConfig(params as Partial<FASTKSchedulerConfig>, paneId)
+  },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createFASTKStateKey(paneId), state as any, 'indicator_scheduler')
     },

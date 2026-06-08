@@ -4,7 +4,7 @@ import type { FibRenderState } from '../../indicators/fibState'
 import { createFibStateKey } from '../../indicators/fibState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, FibSchedulerConfig } from '../../indicators/scheduler'
 
 const FIB_COLORS = {
     high: '#94a3b8',
@@ -132,6 +132,9 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     defaultPaneId: 'main',
     paneIdField: 'fibPaneId',
     allowMainPane: true,
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateFibConfig(params as Partial<FibSchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createFibStateKey(paneId), state as any, 'indicator_scheduler')
     },

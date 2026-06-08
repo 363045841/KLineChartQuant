@@ -4,7 +4,7 @@ import type { KAMARenderState } from '../../indicators/kamaState'
 import { createKAMAStateKey } from '../../indicators/kamaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, KAMASchedulerConfig } from '../../indicators/scheduler'
 
 const KAMA_COLOR = '#0ea5e9'
 
@@ -127,6 +127,9 @@ export function createKAMARendererPlugin(options: KAMARendererOptions = {}): Ren
     defaultPaneId: 'main',
     paneIdField: 'kamaPaneId',
     allowMainPane: true,
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateKAMAConfig(params as Partial<KAMASchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createKAMAStateKey(paneId), state as any, 'indicator_scheduler')
     },

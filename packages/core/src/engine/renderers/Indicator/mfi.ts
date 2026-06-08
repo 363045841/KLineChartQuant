@@ -4,7 +4,7 @@ import type { MFIRenderState } from '../../indicators/mfiState'
 import { createMFIStateKey } from '../../indicators/mfiState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, MFISchedulerConfig } from '../../indicators/scheduler'
 
 const MFI_COLOR = '#fb923c'
 
@@ -133,6 +133,9 @@ export function createMFIRendererPlugin(options: { paneId?: string } = {}): Rend
     stateKey: createMFIStateKey,
     defaultPaneId: 'sub_MFI',
     paneIdField: 'mfiPaneId',
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateMFIConfig(params as Partial<MFISchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createMFIStateKey(paneId), state as any, 'indicator_scheduler')
     },

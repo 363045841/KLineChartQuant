@@ -4,7 +4,7 @@ import type { DEMARenderState } from '../../indicators/demaState'
 import { createDEMAStateKey } from '../../indicators/demaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, DEMASchedulerConfig } from '../../indicators/scheduler'
 
 const DEMA_COLOR = '#6366f1'
 
@@ -127,6 +127,9 @@ export function createDEMARendererPlugin(options: DEMARendererOptions = {}): Ren
     defaultPaneId: 'main',
     paneIdField: 'demaPaneId',
     allowMainPane: true,
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateDEMAConfig(params as Partial<DEMASchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createDEMAStateKey(paneId), state as any, 'indicator_scheduler')
     },

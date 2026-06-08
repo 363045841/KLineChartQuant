@@ -4,7 +4,7 @@ import type { VWAPRenderState } from '../../indicators/vwapState'
 import { createVWAPStateKey } from '../../indicators/vwapState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, VWAPSchedulerConfig } from '../../indicators/scheduler'
 
 const VWAP_COLOR = '#ec4899'
 
@@ -114,6 +114,9 @@ export function createVWAPRendererPlugin(options: { paneId?: string } = {}): Ren
     stateKey: createVWAPStateKey,
     defaultPaneId: 'sub_VWAP',
     paneIdField: 'vwapPaneId',
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateVWAPConfig(params as Partial<VWAPSchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createVWAPStateKey(paneId), state as any, 'indicator_scheduler')
     },

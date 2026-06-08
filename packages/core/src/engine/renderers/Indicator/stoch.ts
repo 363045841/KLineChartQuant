@@ -6,7 +6,7 @@ import type { STOCHRenderState } from '../../indicators/stochState'
 import { createSTOCHStateKey } from '../../indicators/stochState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, STOCHSchedulerConfig } from '../../indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 
@@ -351,6 +351,9 @@ export function getSTOCHTitleInfo(
     stateKey: createSTOCHStateKey,
     defaultPaneId: 'sub_STOCH',
     paneIdField: 'stochPaneId',
+    updateConfig: (scheduler, params, paneId) => {
+    (scheduler as IndicatorScheduler).updateSTOCHConfig(params as Partial<STOCHSchedulerConfig>, paneId)
+  },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createSTOCHStateKey(paneId), state as any, 'indicator_scheduler')
     },

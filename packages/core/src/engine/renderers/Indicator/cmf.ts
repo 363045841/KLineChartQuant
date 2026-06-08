@@ -4,7 +4,7 @@ import type { CMFRenderState } from '../../indicators/cmfState'
 import { createCMFStateKey } from '../../indicators/cmfState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, CMFSchedulerConfig } from '../../indicators/scheduler'
 
 const CMF_COLOR = '#06b6d4'
 
@@ -128,6 +128,9 @@ export function createCMFRendererPlugin(options: { paneId?: string } = {}): Rend
     stateKey: createCMFStateKey,
     defaultPaneId: 'sub_CMF',
     paneIdField: 'cmfPaneId',
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateCMFConfig(params as Partial<CMFSchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createCMFStateKey(paneId), state as any, 'indicator_scheduler')
     },

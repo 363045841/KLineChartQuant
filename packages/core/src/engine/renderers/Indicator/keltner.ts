@@ -4,7 +4,7 @@ import type { KeltnerRenderState } from '../../indicators/keltnerState'
 import { createKeltnerStateKey } from '../../indicators/keltnerState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, KeltnerSchedulerConfig } from '../../indicators/scheduler'
 
 const KELTNER_UPPER_COLOR = '#7c3aed'
 const KELTNER_MIDDLE_COLOR = '#f59e0b'
@@ -129,6 +129,9 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     defaultPaneId: 'main',
     paneIdField: 'keltnerPaneId',
     allowMainPane: true,
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateKeltnerConfig(params as Partial<KeltnerSchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createKeltnerStateKey(paneId), state as any, 'indicator_scheduler')
     },

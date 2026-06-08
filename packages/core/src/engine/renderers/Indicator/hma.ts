@@ -4,7 +4,7 @@ import type { HMARenderState } from '../../indicators/hmaState'
 import { createHMAStateKey } from '../../indicators/hmaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, HMASchedulerConfig } from '../../indicators/scheduler'
 
 const HMA_COLOR = '#f43f5e'
 
@@ -127,6 +127,9 @@ export function createHMARendererPlugin(options: HMARendererOptions = {}): Rende
     defaultPaneId: 'main',
     paneIdField: 'hmaPaneId',
     allowMainPane: true,
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateHMAConfig(params as Partial<HMASchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createHMAStateKey(paneId), state as any, 'indicator_scheduler')
     },

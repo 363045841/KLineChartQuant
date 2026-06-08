@@ -4,7 +4,7 @@ import type { VMARenderState } from '../../indicators/vmaState'
 import { createVMAStateKey } from '../../indicators/vmaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, VMASchedulerConfig } from '../../indicators/scheduler'
 
 const VMA_COLOR = '#0ea5e9'
 
@@ -115,6 +115,9 @@ export function createVMARendererPlugin(options: { paneId?: string } = {}): Rend
     stateKey: createVMAStateKey,
     defaultPaneId: 'sub_VMA',
     paneIdField: 'vmaPaneId',
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateVMAConfig(params as Partial<VMASchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createVMAStateKey(paneId), state as any, 'indicator_scheduler')
     },

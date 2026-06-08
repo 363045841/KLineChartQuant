@@ -4,7 +4,7 @@ import type { PivotRenderState } from '../../indicators/pivotState'
 import { createPivotStateKey } from '../../indicators/pivotState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, PivotSchedulerConfig } from '../../indicators/scheduler'
 
 const PP_COLOR = '#94a3b8'
 const R_COLOR = '#dc2626'
@@ -122,6 +122,9 @@ function drawStep(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     defaultPaneId: 'main',
     paneIdField: 'pivotPaneId',
     allowMainPane: true,
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updatePivotConfig(params as Partial<PivotSchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createPivotStateKey(paneId), state as any, 'indicator_scheduler')
     },

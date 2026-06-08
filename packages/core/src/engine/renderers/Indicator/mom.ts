@@ -6,7 +6,7 @@ import type { MOMRenderState } from '../../indicators/momState'
 import { createMOMStateKey } from '../../indicators/momState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, MOMSchedulerConfig } from '../../indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 
@@ -303,6 +303,9 @@ export function getMOMTitleInfo(
     stateKey: createMOMStateKey,
     defaultPaneId: 'sub_MOM',
     paneIdField: 'momPaneId',
+    updateConfig: (scheduler, params, paneId) => {
+    (scheduler as IndicatorScheduler).updateMOMConfig(params as Partial<MOMSchedulerConfig>, paneId)
+  },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createMOMStateKey(paneId), state as any, 'indicator_scheduler')
     },

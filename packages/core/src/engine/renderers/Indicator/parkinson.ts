@@ -4,7 +4,7 @@ import type { ParkinsonRenderState } from '../../indicators/parkinsonState'
 import { createParkinsonStateKey } from '../../indicators/parkinsonState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, ParkinsonSchedulerConfig } from '../../indicators/scheduler'
 
 const PARKINSON_COLOR = '#0891b2'
 
@@ -115,6 +115,9 @@ export function createParkinsonRendererPlugin(options: { paneId?: string } = {})
     stateKey: createParkinsonStateKey,
     defaultPaneId: 'sub_Parkinson',
     paneIdField: 'parkinsonPaneId',
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateParkinsonConfig(params as Partial<ParkinsonSchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createParkinsonStateKey(paneId), state as any, 'indicator_scheduler')
     },

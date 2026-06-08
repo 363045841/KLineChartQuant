@@ -33,6 +33,20 @@ describe('builtin indicator registration', () => {
     expect(getRegisteredIndicatorDefinition('VOLUME_PROFILE')?.updateConfig).toBeTypeOf('function')
   })
 
+  it('registers metadata config updaters for stage 4B indicators', () => {
+    const expectedIndicators = [
+      'CCI', 'STOCH', 'MOM', 'WMSR', 'KST', 'FASTK', 'ATR',
+      'WMA', 'DEMA', 'TEMA', 'HMA', 'KAMA', 'SAR',
+      'SUPERTREND', 'KELTNER', 'DONCHIAN', 'ICHIMOKU',
+      'ROC', 'TRIX', 'HV', 'PARKINSON', 'CHAIKIN_VOL',
+      'VMA', 'OBV', 'PVT', 'VWAP', 'CMF', 'MFI',
+      'PIVOT', 'FIB', 'STRUCTURE', 'ZONES',
+    ]
+    for (const id of expectedIndicators) {
+      expect(getRegisteredIndicatorDefinition(id)?.updateConfig).toBeTypeOf('function')
+    }
+  })
+
   it('routes stage 4A metadata config updates to scheduler methods', () => {
     const scheduler = {
       updateRSIConfig: vi.fn(),
@@ -48,5 +62,24 @@ describe('builtin indicator registration', () => {
     expect(scheduler.updateRSIConfig).toHaveBeenCalledWith({ period1: 7 }, 'RSI_0')
     expect(scheduler.updateMACDConfig).toHaveBeenCalledWith({ fastPeriod: 8 }, 'MACD_0')
     expect(scheduler.updateVolumeProfileConfig).toHaveBeenCalledWith({ bins: 32 }, 'VP_0')
+  })
+
+  it('routes stage 4B metadata config updates to scheduler methods', () => {
+    const scheduler = {
+      updateCCIConfig: vi.fn(),
+      updateATRConfig: vi.fn(),
+      updateChaikinVolConfig: vi.fn(),
+      updateZonesConfig: vi.fn(),
+    }
+
+    getRegisteredIndicatorDefinition('CCI')?.updateConfig?.(scheduler, { period: 14 }, 'CCI_0')
+    getRegisteredIndicatorDefinition('ATR')?.updateConfig?.(scheduler, { period: 10 }, 'ATR_0')
+    getRegisteredIndicatorDefinition('CHAIKIN_VOL')?.updateConfig?.(scheduler, { emaPeriod: 10 }, 'CV_0')
+    getRegisteredIndicatorDefinition('ZONES')?.updateConfig?.(scheduler, { showFVG: true }, 'Z_0')
+
+    expect(scheduler.updateCCIConfig).toHaveBeenCalledWith({ period: 14 }, 'CCI_0')
+    expect(scheduler.updateATRConfig).toHaveBeenCalledWith({ period: 10 }, 'ATR_0')
+    expect(scheduler.updateChaikinVolConfig).toHaveBeenCalledWith({ emaPeriod: 10 }, 'CV_0')
+    expect(scheduler.updateZonesConfig).toHaveBeenCalledWith({ showFVG: true }, 'Z_0')
   })
 })

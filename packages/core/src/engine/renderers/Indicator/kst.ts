@@ -5,7 +5,7 @@ import type { KSTRenderState } from '../../indicators/kstState'
 import { createKSTStateKey } from '../../indicators/kstState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, KSTSchedulerConfig } from '../../indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 
@@ -294,6 +294,9 @@ export function getKSTTitleInfo(
     stateKey: createKSTStateKey,
     defaultPaneId: 'sub_KST',
     paneIdField: 'kstPaneId',
+    updateConfig: (scheduler, params, paneId) => {
+    (scheduler as IndicatorScheduler).updateKSTConfig(params as Partial<KSTSchedulerConfig>, paneId)
+  },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createKSTStateKey(paneId), state as any, 'indicator_scheduler')
     },

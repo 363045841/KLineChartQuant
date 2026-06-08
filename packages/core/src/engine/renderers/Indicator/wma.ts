@@ -4,7 +4,7 @@ import type { WMARenderState } from '../../indicators/wmaState'
 import { createWMAStateKey } from '../../indicators/wmaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, WMASchedulerConfig } from '../../indicators/scheduler'
 
 const WMA_COLOR = '#10b981'
 
@@ -127,6 +127,9 @@ export function createWMARendererPlugin(options: WMARendererOptions = {}): Rende
     defaultPaneId: 'main',
     paneIdField: 'wmaPaneId',
     allowMainPane: true,
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateWMAConfig(params as Partial<WMASchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createWMAStateKey(paneId), state as any, 'indicator_scheduler')
     },

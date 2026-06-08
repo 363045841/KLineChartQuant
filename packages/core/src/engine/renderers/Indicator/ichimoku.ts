@@ -4,7 +4,7 @@ import type { IchimokuRenderState } from '../../indicators/ichimokuState'
 import { createIchimokuStateKey } from '../../indicators/ichimokuState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, IchimokuSchedulerConfig } from '../../indicators/scheduler'
 
 const TENKAN_COLOR = '#dc2626'
 const KIJUN_COLOR = '#2563eb'
@@ -173,6 +173,9 @@ function fillCloud(
     defaultPaneId: 'main',
     paneIdField: 'ichimokuPaneId',
     allowMainPane: true,
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateIchimokuConfig(params as Partial<IchimokuSchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createIchimokuStateKey(paneId), state as any, 'indicator_scheduler')
     },

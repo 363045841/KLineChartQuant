@@ -5,7 +5,7 @@ import type { CCIRenderState } from '../../indicators/cciState'
 import { createCCIStateKey } from '../../indicators/cciState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, CCISchedulerConfig } from '../../indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 
@@ -267,6 +267,9 @@ export function getCCITitleInfo(
     stateKey: createCCIStateKey,
     defaultPaneId: 'sub_CCI',
     paneIdField: 'cciPaneId',
+    updateConfig: (scheduler, params, paneId) => {
+    (scheduler as IndicatorScheduler).updateCCIConfig(params as Partial<CCISchedulerConfig>, paneId)
+  },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createCCIStateKey(paneId), state as any, 'indicator_scheduler')
     },

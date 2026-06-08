@@ -4,7 +4,7 @@ import type { SuperTrendRenderState } from '../../indicators/supertrendState'
 import { createSuperTrendStateKey } from '../../indicators/supertrendState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, SuperTrendSchedulerConfig } from '../../indicators/scheduler'
 
 const ST_UP_COLOR = '#22c55e'
 const ST_DOWN_COLOR = '#ef4444'
@@ -106,6 +106,9 @@ export function createSuperTrendRendererPlugin(options: SuperTrendRendererOption
     defaultPaneId: 'sub_SuperTrend',
     paneIdField: 'supertrendPaneId',
     allowMainPane: true,
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateSuperTrendConfig(params as Partial<SuperTrendSchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createSuperTrendStateKey(paneId), state as any, 'indicator_scheduler')
     },

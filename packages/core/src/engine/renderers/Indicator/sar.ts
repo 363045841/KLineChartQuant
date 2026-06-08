@@ -4,7 +4,7 @@ import type { SARRenderState } from '../../indicators/sarState'
 import { createSARStateKey } from '../../indicators/sarState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, SARSchedulerConfig } from '../../indicators/scheduler'
 
 const SAR_UP_COLOR = '#22c55e'
 const SAR_DOWN_COLOR = '#ef4444'
@@ -104,6 +104,9 @@ export function createSARRendererPlugin(options: SARRendererOptions = {}): Rende
     defaultPaneId: 'main',
     paneIdField: 'sarPaneId',
     allowMainPane: true,
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateSARConfig(params as Partial<SARSchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createSARStateKey(paneId), state as any, 'indicator_scheduler')
     },

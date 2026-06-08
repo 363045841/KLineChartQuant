@@ -5,7 +5,7 @@ import type { StructureRenderState } from '../../indicators/structureState'
 import { createStructureStateKey } from '../../indicators/structureState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, StructureSchedulerConfig } from '../../indicators/scheduler'
 
 const LABEL_FONT = '11px sans-serif'
 
@@ -117,6 +117,9 @@ export function createStructureRendererPlugin(options: { paneId?: string } = {})
     defaultPaneId: 'sub_Structure',
     paneIdField: 'structurePaneId',
     allowMainPane: true,
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateStructureConfig(params as Partial<StructureSchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createStructureStateKey(paneId), state as any, 'indicator_scheduler')
     },

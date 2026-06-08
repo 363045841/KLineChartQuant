@@ -6,7 +6,7 @@ import type { WMSRRenderState } from '../../indicators/wmsrState'
 import { createWMSRStateKey } from '../../indicators/wmsrState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, WMSRSchedulerConfig } from '../../indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 
@@ -320,6 +320,9 @@ export function getWMSRTitleInfo(
     stateKey: createWMSRStateKey,
     defaultPaneId: 'sub_WMSR',
     paneIdField: 'wmsrPaneId',
+    updateConfig: (scheduler, params, paneId) => {
+    (scheduler as IndicatorScheduler).updateWMSRConfig(params as Partial<WMSRSchedulerConfig>, paneId)
+  },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createWMSRStateKey(paneId), state as any, 'indicator_scheduler')
     },

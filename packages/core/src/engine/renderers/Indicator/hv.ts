@@ -4,7 +4,7 @@ import type { HVRenderState } from '../../indicators/hvState'
 import { createHVStateKey } from '../../indicators/hvState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, HVSchedulerConfig } from '../../indicators/scheduler'
 
 const HV_COLOR = '#7c3aed'
 
@@ -115,6 +115,9 @@ export function createHVRendererPlugin(options: { paneId?: string } = {}): Rende
     stateKey: createHVStateKey,
     defaultPaneId: 'sub_HV',
     paneIdField: 'hvPaneId',
+    updateConfig: (scheduler, params, paneId) => {
+    (scheduler as IndicatorScheduler).updateHVConfig(params as Partial<HVSchedulerConfig>, paneId)
+  },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createHVStateKey(paneId), state as any, 'indicator_scheduler')
     },
