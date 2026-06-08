@@ -3,7 +3,7 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import { MA_STATE_KEY, type MARenderState } from '../../indicators/maState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorPriceRangeComputer } from '../../indicators/indicatorMetadata'
+import type { IndicatorPriceRangeComputer, IndicatorRenderStateComposer } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { MAFlags } from '../../indicators/calculators'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
@@ -42,6 +42,17 @@ const computeMAPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
     }
 
     return Number.isFinite(min) && Number.isFinite(max) ? { min, max } : null
+}
+
+const composeMARenderState: IndicatorRenderStateComposer = (bundle, range, timestamp): MARenderState => {
+    const priceRange = computeMAPriceRange(bundle, range) ?? { min: Infinity, max: -Infinity }
+    return {
+        timestamp,
+        series: bundle.ma.series,
+        enabledPeriods: bundle.ma.enabledPeriods,
+        visibleMin: priceRange.min,
+        visibleMax: priceRange.max,
+    }
 }
 
 function buildMACacheKey(
@@ -98,6 +109,7 @@ function getMAStateKey(host: PluginHost | null): string | null {
             ma60: active,
         }),
         computePriceRange: computeMAPriceRange,
+        composeRenderState: composeMARenderState,
     },
     updateConfig: (scheduler, params) => {
         (scheduler as IndicatorScheduler).updateMAConfig(params as MAFlags)

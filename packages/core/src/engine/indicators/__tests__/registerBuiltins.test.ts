@@ -322,4 +322,16 @@ describe('builtin indicator registration', () => {
       expect(getRegisteredIndicatorDefinition(id)?.mainPane?.computePriceRange).toBeTypeOf('function')
     }
   })
+
+  it('registers main pane render state composer metadata for stage 8B indicators', () => {
+    for (const id of ['MA', 'BOLL', 'EXPMA', 'ENE']) {
+      expect(getRegisteredIndicatorDefinition(id)?.mainPane?.composeRenderState).toBeTypeOf('function')
+    }
+  })
+
+  it('registers visible state composer metadata for stage 8C-A indicators', () => {
+    for (const id of ['WMA', 'DEMA', 'TEMA', 'HMA', 'KAMA', 'ROC', 'ChaikinVol', 'OBV', 'PVT', 'VWAP']) {
+      expect(getRegisteredIndicatorDefinition(id)?.visibleState?.compose).toBeTypeOf('function')
+    }
+  })
 })

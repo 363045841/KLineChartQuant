@@ -1,8 +1,9 @@
 import { EventBus } from '../plugin/EventBus'
 import type { CustomMarkerEntity } from '../engine/marker/registry'
 import { SemanticConfigValidator } from './validator'
-import '../engine/indicators/registerBuiltins'
+import { getBuiltinIndicatorDefinitions } from '../engine/indicators/registerBuiltins'
 import { getRegisteredIndicatorDefinition } from '../engine/indicators/indicatorDefinitionRegistry'
+import type { IndicatorMetadata } from '../engine/indicators/indicatorMetadata'
 import type {
   SemanticChartConfig,
   ApplyResult,
@@ -28,6 +29,21 @@ export type DataFetcher = (
 ) => Promise<ReadonlyArray<KLineData>>
 
 let _dataFetcher: DataFetcher | null = null
+
+function normalizeIndicatorId(id: string): string {
+  return id.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+function getSemanticIndicatorDefinition(type: string): IndicatorMetadata | undefined {
+  const registered = getRegisteredIndicatorDefinition(type)
+  if (registered) return registered
+
+  const normalizedType = normalizeIndicatorId(type)
+  return getBuiltinIndicatorDefinitions().find((definition) => {
+    const candidates = [definition.name, definition.displayName, ...(definition.aliases ?? [])]
+    return candidates.some((candidate) => normalizeIndicatorId(candidate) === normalizedType)
+  })
+}
 
 export function __setDataFetcher(fetcher: DataFetcher | null): void {
   _dataFetcher = fetcher
@@ -124,7 +140,7 @@ export class SemanticChartController {
     if (main) {
       for (const indicator of main) {
         if (!indicator.enabled) continue
-        getRegisteredIndicatorDefinition(indicator.type)?.semantic?.apply?.(this.chart, indicator)
+        getSemanticIndicatorDefinition(indicator.type)?.semantic?.apply?.(this.chart, indicator)
       }
     }
 
@@ -141,8 +157,7 @@ export class SemanticChartController {
     if (!indicator.enabled) return
     const { type, params } = indicator
     const paneId = `${type}_0`
-    const definition = getRegisteredIndicatorDefinition(type)
-    const indicatorId = definition?.name ?? type
+    const indicatorId = getSemanticIndicatorDefinition(type)?.name ?? type
     const success = this.chart.createSubPane(paneId, indicatorId as CoreSubIndicatorType, params)
     if (!success) {
       console.warn(`[Semantic] Failed to create sub pane for ${type}`)

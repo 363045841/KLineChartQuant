@@ -1,9 +1,10 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { OBVRenderState } from '../../indicators/obvState'
-import { createOBVStateKey } from '../../indicators/obvState'
+import { createOBVStateKey, EMPTY_OBV_STATE } from '../../indicators/obvState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, OBVSchedulerConfig } from '../../indicators/scheduler'
 
 const OBV_COLOR = '#16a34a'
@@ -114,6 +115,7 @@ export function createOBVRendererPlugin(options: { paneId?: string } = {}): Rend
     stateKey: createOBVStateKey,
     defaultPaneId: 'sub_OBV',
     paneIdField: 'obvPaneId',
+    visibleState: { compose: createSparseVisibleStateComposer('obv', EMPTY_OBV_STATE) },
     scale: { indicatorKey: 'obv', label: 'OBV', decimals: 0 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateOBVConfig(params as Partial<OBVSchedulerConfig>, paneId)

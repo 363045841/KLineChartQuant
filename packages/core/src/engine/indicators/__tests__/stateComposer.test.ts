@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { IndicatorMetadata } from '../indicatorMetadata'
-import { computeMainIndicatorPriceRange } from '../stateComposer'
+import { composeRenderStates, composeVisibleSubIndicatorStates, computeMainIndicatorPriceRange } from '../stateComposer'
 import type { IndicatorSeriesBundle } from '../workerProtocol'
 
 function createBundle(): IndicatorSeriesBundle {
@@ -63,6 +63,35 @@ function createDefinition(range: { min: number; max: number } | null): Indicator
   }
 }
 
+function createComposerDefinition(id: string, state: unknown): IndicatorMetadata {
+  return {
+    name: id,
+    displayName: id.toUpperCase(),
+    category: 'main',
+    stateKey: `indicator:${id}:main`,
+    defaultPaneId: 'main',
+    rendererFactory: vi.fn() as never,
+    mainPane: {
+      rendererName: id,
+      composeRenderState: vi.fn(() => state),
+    },
+  }
+}
+
+function createVisibleStateDefinition(id: string, state: unknown): IndicatorMetadata {
+  return {
+    name: id,
+    displayName: id.toUpperCase(),
+    category: 'oscillator',
+    stateKey: `indicator:${id}:sub_${id}`,
+    defaultPaneId: `sub_${id}`,
+    rendererFactory: vi.fn() as never,
+    visibleState: {
+      compose: vi.fn(() => state),
+    },
+  }
+}
+
 describe('stateComposer', () => {
   it('computes main indicator price range through metadata', () => {
     const definitions = new Map<string, IndicatorMetadata>([
@@ -95,5 +124,76 @@ describe('stateComposer', () => {
         (indicatorId) => definitions.get(indicatorId),
       ),
     ).toBeNull()
+  })
+
+  it('composes main render states through metadata', () => {
+    const bundle = createBundle()
+    const timestamp = 1234
+    const visibleRange = { start: 1, end: 3 }
+    const definitions = new Map<string, IndicatorMetadata>([
+      ['ma', createComposerDefinition('ma', { timestamp, series: { 5: [undefined, 10, 12] }, enabledPeriods: [5], visibleMin: 10, visibleMax: 12 })],
+      ['boll', createComposerDefinition('boll', { timestamp, series: [], params: {}, visibleMin: 20, visibleMax: 30 })],
+      ['expma', createComposerDefinition('expma', { timestamp, series: [], params: {}, visibleMin: 7, visibleMax: 9 })],
+      ['ene', createComposerDefinition('ene', { timestamp, series: [], params: {}, visibleMin: 8, visibleMax: 11 })],
+    ])
+
+    const states = composeRenderStates(bundle, visibleRange, timestamp, (indicatorId) => definitions.get(indicatorId))
+
+    expect(states.ma.visibleMin).toBe(10)
+    expect(states.boll.visibleMax).toBe(30)
+    expect(states.expma.visibleMin).toBe(7)
+    expect(states.ene.visibleMax).toBe(11)
+    expect(definitions.get('ma')?.mainPane?.composeRenderState).toHaveBeenCalledWith(bundle, visibleRange, timestamp)
+  })
+
+  it('throws when main render state composer metadata is missing', () => {
+    const definition = { ...createDefinition(null), mainPane: { rendererName: 'ma' } }
+
+    expect(() => composeRenderStates(createBundle(), { start: 0, end: 1 }, 1, (id) => id === 'ma' ? definition : undefined)).toThrow(
+      '[StateComposer] Missing mainPane.composeRenderState for ma',
+    )
+  })
+
+  it('composes migrated visible sub indicator states through metadata', () => {
+    const bundle = createBundle()
+    const timestamp = 2345
+    const visibleRange = { start: 1, end: 4 }
+    const wmaState = {
+      timestamp,
+      series: [undefined, 10, 12],
+      params: { showWMA: true },
+      valueMin: 9,
+      valueMax: 13,
+      visibleMin: 10,
+      visibleMax: 12,
+    }
+    const definition = createVisibleStateDefinition('wma', wmaState)
+
+    const states = composeVisibleSubIndicatorStates(
+      bundle,
+      visibleRange,
+      timestamp,
+      { wma: false },
+      (indicatorId) => indicatorId === 'wma' ? definition : undefined,
+    )
+
+    expect(states.wma).toBe(wmaState)
+    expect(definition.visibleState?.compose).toHaveBeenCalledWith({
+      bundle,
+      visibleRange,
+      timestamp,
+      active: false,
+    })
+  })
+
+  it('falls back to hardcoded visible sub state when metadata is missing', () => {
+    const bundle = createBundle()
+    bundle.wma.series = [undefined, 10, 12]
+    bundle.wma.params = { period: 9, showWMA: true } as never
+
+    const states = composeVisibleSubIndicatorStates(bundle, { start: 1, end: 3 }, 3456)
+
+    expect(states.wma.visibleMin).toBe(10)
+    expect(states.wma.visibleMax).toBe(12)
   })
 })

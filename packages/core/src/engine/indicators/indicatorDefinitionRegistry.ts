@@ -22,6 +22,7 @@ export type IndicatorDefinitionConfig<T = unknown> = {
     updateConfig?: IndicatorConfigUpdater
     applyResult?: (host: PluginHost, state: unknown, paneId: string) => void
     mainPane?: IndicatorMetadata['mainPane']
+    visibleState?: IndicatorMetadata['visibleState']
     semantic?: IndicatorMetadata<T>['semantic']
 }
 

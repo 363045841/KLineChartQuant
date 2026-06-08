@@ -68,6 +68,23 @@ export type IndicatorPriceRangeComputer = (
     visibleRange: IndicatorVisibleRange,
 ) => IndicatorPriceRange | null
 
+export type IndicatorRenderStateComposer = (
+    bundle: IndicatorSeriesBundle,
+    visibleRange: IndicatorVisibleRange,
+    timestamp: number,
+) => unknown
+
+export interface IndicatorVisibleStateComposeContext {
+    bundle: IndicatorSeriesBundle
+    visibleRange: IndicatorVisibleRange
+    timestamp: number
+    active: boolean
+}
+
+export type IndicatorVisibleStateComposer = (
+    context: IndicatorVisibleStateComposeContext,
+) => unknown
+
 /**
  * 指标元数据接口
  */
@@ -166,6 +183,11 @@ export interface IndicatorMetadata<T = unknown> {
         rendererName: string
         toActiveConfig?: (params: Record<string, unknown>, active: boolean) => Record<string, unknown> | null
         computePriceRange?: IndicatorPriceRangeComputer
+        composeRenderState?: IndicatorRenderStateComposer
+    }
+
+    visibleState?: {
+        compose: IndicatorVisibleStateComposer
     }
 
     /**

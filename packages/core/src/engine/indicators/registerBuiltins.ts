@@ -40,6 +40,8 @@ import '../renderers/Indicator/wmsr'
 import '../renderers/Indicator/zones'
 import { getRegisteredIndicatorDefinitions } from './indicatorDefinitionRegistry'
 
+const builtinIndicatorDefinitions = getRegisteredIndicatorDefinitions()
+
 export function getBuiltinIndicatorDefinitions() {
-    return getRegisteredIndicatorDefinitions()
+    return builtinIndicatorDefinitions
 }

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": [
+    "packages/core/src/index.ts",
+    "packages/vue/src/index.ts",
+    "packages/react/src/index.ts",
+    "packages/angular/src/index.ts"
+  ],
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/node_modules/**",
+    "components.d.ts",
+    "**/*.tsbuildinfo",
+    "**/coverage/**",
+    "packages/web-component/**",
+    "**/preview/dist/**"
+  ],
+  "rules": {
+    "unused-files": "warn",
+    "unused-exports": "warn",
+    "unused-types": "warn",
+    "unused-dependencies": "warn"
+  }
+}

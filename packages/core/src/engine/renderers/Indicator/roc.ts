@@ -1,9 +1,10 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { ROCRenderState } from '../../indicators/rocState'
-import { createROCStateKey } from '../../indicators/rocState'
+import { createROCStateKey, EMPTY_ROC_STATE } from '../../indicators/rocState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, ROCSchedulerConfig } from '../../indicators/scheduler'
 
 const ROC_COLOR = '#0ea5e9'
@@ -134,6 +135,7 @@ export function createROCRendererPlugin(options: ROCRendererOptions = {}): Rende
     stateKey: createROCStateKey,
     defaultPaneId: 'sub_ROC',
     paneIdField: 'rocPaneId',
+    visibleState: { compose: createSparseVisibleStateComposer('roc', EMPTY_ROC_STATE) },
     scale: { indicatorKey: 'roc', label: 'ROC', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
     (scheduler as IndicatorScheduler).updateROCConfig(params as Partial<ROCSchedulerConfig>, paneId)

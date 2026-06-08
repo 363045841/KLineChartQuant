@@ -6,7 +6,7 @@ import { resolveThemeColors } from '../../../tokens'
 import { BOLL_STATE_KEY, type BOLLRenderState } from '../../indicators/bollState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorPriceRangeComputer } from '../../indicators/indicatorMetadata'
+import type { IndicatorPriceRangeComputer, IndicatorRenderStateComposer } from '../../indicators/indicatorMetadata'
 import type { BOLLSchedulerConfig, IndicatorScheduler } from '../../indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
@@ -143,6 +143,17 @@ const computeBOLLPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
     return Number.isFinite(min) && Number.isFinite(max) ? { min, max } : null
 }
 
+const composeBOLLRenderState: IndicatorRenderStateComposer = (bundle, range, timestamp): BOLLRenderState => {
+    const priceRange = computeBOLLPriceRange(bundle, range) ?? { min: Infinity, max: -Infinity }
+    return {
+        timestamp,
+        series: bundle.boll.series,
+        params: bundle.boll.params,
+        visibleMin: priceRange.min,
+        visibleMax: priceRange.max,
+    }
+}
+
 @Indicator({
     name: 'boll',
     displayName: 'BOLL',
@@ -155,6 +166,7 @@ const computeBOLLPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
             ? params
             : { ...params, showUpper: false, showMiddle: false, showLower: false, showBand: false },
         computePriceRange: computeBOLLPriceRange,
+        composeRenderState: composeBOLLRenderState,
     },
     updateConfig: (scheduler, params) => {
         (scheduler as IndicatorScheduler).updateBOLLConfig(params as Partial<BOLLSchedulerConfig>)

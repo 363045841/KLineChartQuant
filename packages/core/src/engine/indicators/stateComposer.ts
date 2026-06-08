@@ -190,12 +190,30 @@ type VisibleSubIndicatorMask = {
     volumeProfile?: boolean
 }
 
-type ComposedRenderStates = VisibleSubIndicatorStates & {
+type MainRenderStates = {
     ma: MARenderState
     boll: BOLLRenderState
     expma: EXPMARenderState
     ene: ENERenderState
 }
+
+type MainRenderStateIndicatorId = keyof MainRenderStates
+
+type ComposedRenderStates = VisibleSubIndicatorStates & MainRenderStates
+
+const MAIN_RENDER_STATE_INDICATOR_IDS: readonly MainRenderStateIndicatorId[] = ['ma', 'boll', 'expma', 'ene']
+const METADATA_VISIBLE_STATE_INDICATOR_IDS = [
+    'wma',
+    'dema',
+    'tema',
+    'hma',
+    'kama',
+    'roc',
+    'chaikinVol',
+    'obv',
+    'pvt',
+    'vwap',
+] as const satisfies readonly (keyof VisibleSubIndicatorStates)[]
 
 function getLatestMACDPoint(bundle: IndicatorSeriesBundle, visibleRange: VisibleRange) {
     const latestIndex = visibleRange.end - 1
@@ -220,7 +238,8 @@ export function composeVisibleSubIndicatorStates(
     bundle: IndicatorSeriesBundle,
     visibleRange: VisibleRange,
     timestamp: number,
-    activeMask: VisibleSubIndicatorMask = {}
+    activeMask: VisibleSubIndicatorMask = {},
+    getIndicatorMetadata?: (indicatorId: string) => IndicatorMetadata | undefined,
 ): VisibleSubIndicatorStates {
     const rsiActive = activeMask.rsi ?? true
     const cciActive = activeMask.cci ?? true
@@ -358,7 +377,7 @@ export function composeVisibleSubIndicatorStates(
     const pvtBounds = maFamilyBounds(pvtExtremes, EMPTY_PVT_STATE)
     const vwapBounds = maFamilyBounds(vwapExtremes, EMPTY_VWAP_STATE)
 
-    return {
+    const states: VisibleSubIndicatorStates = {
         rsi: rsiActive ? {
             timestamp,
             series: bundle.rsi.series,
@@ -789,6 +808,15 @@ export function composeVisibleSubIndicatorStates(
             params: bundle.volumeProfile.params,
         }),
     }
+
+    for (const indicatorId of METADATA_VISIBLE_STATE_INDICATOR_IDS) {
+        const state = composeMetadataVisibleState(indicatorId, bundle, visibleRange, timestamp, activeMask, getIndicatorMetadata)
+        if (state) {
+            states[indicatorId] = state as never
+        }
+    }
+
+    return states
 }
 
 /**
@@ -798,124 +826,62 @@ export function composeVisibleSubIndicatorStates(
 export function composeRenderStates(
     bundle: IndicatorSeriesBundle,
     visibleRange: VisibleRange,
-    timestamp: number
+    timestamp: number,
+    getIndicatorMetadata: (indicatorId: string) => IndicatorMetadata | undefined,
 ): ComposedRenderStates {
-    const maExtremes = calcMAExtremes(bundle.ma.series, visibleRange)
-    const bollExtremes = calcBOLLExtremes(bundle.boll.series, visibleRange)
-    const expmaExtremes = calcEXPMAExtremes(bundle.expma.series, visibleRange)
-    const eneExtremes = calcENEExtremes(bundle.ene.series, visibleRange)
-    const subStates = composeVisibleSubIndicatorStates(bundle, visibleRange, timestamp)
+    const mainStates = composeMainRenderStates(bundle, visibleRange, timestamp, getIndicatorMetadata)
+    const subStates = composeVisibleSubIndicatorStates(bundle, visibleRange, timestamp, {}, getIndicatorMetadata)
 
     return {
-        ma: {
-            timestamp,
-            series: bundle.ma.series,
-            enabledPeriods: bundle.ma.enabledPeriods,
-            visibleMin: maExtremes.min,
-            visibleMax: maExtremes.max,
-        },
-        boll: {
-            timestamp,
-            series: bundle.boll.series,
-            params: bundle.boll.params,
-            visibleMin: bollExtremes.min,
-            visibleMax: bollExtremes.max,
-        },
-        expma: {
-            timestamp,
-            series: bundle.expma.series,
-            params: bundle.expma.params,
-            visibleMin: expmaExtremes.min,
-            visibleMax: expmaExtremes.max,
-        },
-        ene: {
-            timestamp,
-            series: bundle.ene.series,
-            params: bundle.ene.params,
-            visibleMin: eneExtremes.min,
-            visibleMax: eneExtremes.max,
-        },
+        ...mainStates,
         ...subStates,
     }
+}
+
+function composeMetadataVisibleState(
+    indicatorId: keyof VisibleSubIndicatorStates,
+    bundle: IndicatorSeriesBundle,
+    visibleRange: VisibleRange,
+    timestamp: number,
+    activeMask: VisibleSubIndicatorMask,
+    getIndicatorMetadata?: (indicatorId: string) => IndicatorMetadata | undefined,
+): unknown | undefined {
+    const compose = getIndicatorMetadata?.(indicatorId)?.visibleState?.compose
+    if (!compose) return undefined
+
+    return compose({
+        bundle,
+        visibleRange,
+        timestamp,
+        active: activeMask[indicatorId] ?? true,
+    })
+}
+
+function composeMainRenderStates(
+    bundle: IndicatorSeriesBundle,
+    visibleRange: VisibleRange,
+    timestamp: number,
+    getIndicatorMetadata: (indicatorId: string) => IndicatorMetadata | undefined,
+): MainRenderStates {
+    const states: Partial<Record<MainRenderStateIndicatorId, unknown>> = {}
+
+    for (const indicatorId of MAIN_RENDER_STATE_INDICATOR_IDS) {
+        const definition = getIndicatorMetadata(indicatorId)
+        if (!definition) continue
+
+        const composeRenderState = definition.mainPane?.composeRenderState
+        if (!composeRenderState) {
+            throw new Error(`[StateComposer] Missing mainPane.composeRenderState for ${indicatorId}`)
+        }
+        states[indicatorId] = composeRenderState(bundle, visibleRange, timestamp)
+    }
+
+    return states as MainRenderStates
 }
 
 // ============================================================================
 // 极值计算辅助函数
 // ============================================================================
-
-function calcMAExtremes(series: Record<number, (number | undefined)[]>, range: VisibleRange): { min: number; max: number } {
-    const seriesList = Object.values(series)
-    if (seriesList.length === 0 || range.start >= seriesList[0]!.length) {
-        return { min: Infinity, max: -Infinity }
-    }
-    let min = Infinity
-    let max = -Infinity
-    for (const values of seriesList) {
-        const end = Math.min(range.end, values.length)
-        for (let i = range.start; i < end; i++) {
-            const v = values[i]
-            if (v !== undefined) {
-                min = Math.min(min, v)
-                max = Math.max(max, v)
-            }
-        }
-    }
-    return { min, max }
-}
-
-interface BOLLPoint { upper: number; middle: number; lower: number }
-function calcBOLLExtremes(series: BOLLPoint[], range: VisibleRange): { min: number; max: number } {
-    if (series.length === 0 || range.start >= series.length) {
-        return { min: Infinity, max: -Infinity }
-    }
-    let min = Infinity
-    let max = -Infinity
-    const end = Math.min(range.end, series.length)
-    for (let i = range.start; i < end; i++) {
-        const p = series[i]
-        if (p) {
-            min = Math.min(min, p.upper, p.middle, p.lower)
-            max = Math.max(max, p.upper, p.middle, p.lower)
-        }
-    }
-    return { min, max }
-}
-
-interface EXPMAPoint { fast: number; slow: number }
-function calcEXPMAExtremes(series: EXPMAPoint[], range: VisibleRange): { min: number; max: number } {
-    if (series.length === 0 || range.start >= series.length) {
-        return { min: Infinity, max: -Infinity }
-    }
-    let min = Infinity
-    let max = -Infinity
-    const end = Math.min(range.end, series.length)
-    for (let i = range.start; i < end; i++) {
-        const p = series[i]
-        if (p) {
-            min = Math.min(min, p.fast, p.slow)
-            max = Math.max(max, p.fast, p.slow)
-        }
-    }
-    return { min, max }
-}
-
-interface ENEPoint { upper: number; middle: number; lower: number }
-function calcENEExtremes(series: ENEPoint[], range: VisibleRange): { min: number; max: number } {
-    if (series.length === 0 || range.start >= series.length) {
-        return { min: Infinity, max: -Infinity }
-    }
-    let min = Infinity
-    let max = -Infinity
-    const end = Math.min(range.end, series.length)
-    for (let i = range.start; i < end; i++) {
-        const p = series[i]
-        if (p) {
-            min = Math.min(min, p.upper, p.middle, p.lower)
-            max = Math.max(max, p.upper, p.middle, p.lower)
-        }
-    }
-    return { min, max }
-}
 
 function calcRSIExtremes(series: Record<number, (number | undefined)[]>, range: VisibleRange): { min: number; max: number } {
     const seriesList = Object.values(series)

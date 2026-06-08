@@ -1,9 +1,10 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { WMARenderState } from '../../indicators/wmaState'
-import { createWMAStateKey } from '../../indicators/wmaState'
+import { createWMAStateKey, EMPTY_WMA_STATE } from '../../indicators/wmaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, WMASchedulerConfig } from '../../indicators/scheduler'
 
 const WMA_COLOR = '#10b981'
@@ -128,6 +129,7 @@ export function createWMARendererPlugin(options: WMARendererOptions = {}): Rende
     paneIdField: 'wmaPaneId',
     allowMainPane: true,
     mainPane: { rendererName: 'wma_main', toActiveConfig: (params, active) => ({ ...params, showWMA: active }) },
+    visibleState: { compose: createSparseVisibleStateComposer('wma', EMPTY_WMA_STATE) },
     scale: { indicatorKey: 'wma', label: 'WMA', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateWMAConfig(params as Partial<WMASchedulerConfig>, paneId)

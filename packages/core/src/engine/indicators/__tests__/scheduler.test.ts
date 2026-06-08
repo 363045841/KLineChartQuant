@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { IndicatorScheduler } from '../scheduler'
+import { getBuiltinIndicatorDefinitions } from '../registerBuiltins'
 import { MA_STATE_KEY, EMPTY_MA_STATE, type MARenderState } from '../maState'
 import { BOLL_STATE_KEY, EMPTY_BOLL_STATE, type BOLLRenderState } from '../bollState'
 import { EXPMA_STATE_KEY, EMPTY_EXPMA_STATE, type EXPMARenderState } from '../expmaState'
@@ -19,12 +20,22 @@ function applyRSIResult(host: any, state: any, paneId: string): void {
   host.setSharedState(createRSIStateKey(paneId), state as any, 'indicator_scheduler')
 }
 
+const builtinDefinitionsByName = new Map(getBuiltinIndicatorDefinitions().map((definition) => [definition.name, definition]))
+
+function getBuiltinTestIndicator(name: string): IndicatorMetadata {
+  const definition = builtinDefinitionsByName.get(name)
+  if (!definition) {
+    throw new Error(`Missing builtin test indicator: ${name}`)
+  }
+  return definition
+}
+
 function registerTestIndicators(scheduler: IndicatorScheduler): void {
   const indicators: Array<IndicatorMetadata> = [
-    { name: 'ma', displayName: 'MA', category: 'main' as const, stateKey: MA_STATE_KEY, defaultPaneId: 'main', rendererFactory: vi.fn() as any, applyResult: applyMainResult(MA_STATE_KEY) },
-    { name: 'boll', displayName: 'BOLL', category: 'main' as const, stateKey: BOLL_STATE_KEY, defaultPaneId: 'main', rendererFactory: vi.fn() as any, applyResult: applyMainResult(BOLL_STATE_KEY) },
-    { name: 'expma', displayName: 'EXPMA', category: 'main' as const, stateKey: EXPMA_STATE_KEY, defaultPaneId: 'main', rendererFactory: vi.fn() as any, applyResult: applyMainResult(EXPMA_STATE_KEY) },
-    { name: 'ene', displayName: 'ENE', category: 'main' as const, stateKey: ENE_STATE_KEY, defaultPaneId: 'main', rendererFactory: vi.fn() as any, applyResult: applyMainResult(ENE_STATE_KEY) },
+    getBuiltinTestIndicator('ma'),
+    getBuiltinTestIndicator('boll'),
+    getBuiltinTestIndicator('expma'),
+    getBuiltinTestIndicator('ene'),
     { name: 'rsi', displayName: 'RSI', category: 'sub' as const, stateKey: createRSIStateKey('sub_RSI'), defaultPaneId: 'sub_RSI', rendererFactory: vi.fn() as any, paneIdField: 'rsiPaneId' as any, applyResult: applyRSIResult },
     { name: 'macd', displayName: 'MACD', category: 'sub' as const, stateKey: 'indicator:macd:sub_MACD', defaultPaneId: 'sub_MACD', rendererFactory: vi.fn() as any, paneIdField: 'macdPaneId' as any, applyResult: applyMainResult('indicator:macd:sub_MACD') },
     { name: 'volume', displayName: 'Volume', category: 'sub' as const, stateKey: 'indicator:volume:sub_Volume', defaultPaneId: 'sub_Volume', rendererFactory: vi.fn() as any, paneIdField: 'volumePaneId' as any, applyResult: applyMainResult('indicator:volume:sub_Volume') },

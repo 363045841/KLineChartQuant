@@ -6,7 +6,7 @@ import { resolveThemeColors } from '../../../tokens'
 import { EXPMA_STATE_KEY, type EXPMARenderState } from '../../indicators/expmaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorPriceRangeComputer } from '../../indicators/indicatorMetadata'
+import type { IndicatorPriceRangeComputer, IndicatorRenderStateComposer } from '../../indicators/indicatorMetadata'
 import type { EXPMASchedulerConfig, IndicatorScheduler } from '../../indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
@@ -65,6 +65,17 @@ const computeEXPMAPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
     }
 
     return Number.isFinite(min) && Number.isFinite(max) ? { min, max } : null
+}
+
+const composeEXPMARenderState: IndicatorRenderStateComposer = (bundle, range, timestamp): EXPMARenderState => {
+    const priceRange = computeEXPMAPriceRange(bundle, range) ?? { min: Infinity, max: -Infinity }
+    return {
+        timestamp,
+        series: bundle.expma.series,
+        params: bundle.expma.params,
+        visibleMin: priceRange.min,
+        visibleMax: priceRange.max,
+    }
 }
 
 export function createEXPMARendererPlugin(): RendererPluginWithHost {
@@ -213,6 +224,7 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
         rendererName: 'expma',
         toActiveConfig: (params, active) => active ? params : null,
         computePriceRange: computeEXPMAPriceRange,
+        composeRenderState: composeEXPMARenderState,
     },
     updateConfig: (scheduler, params) => {
         (scheduler as IndicatorScheduler).updateEXPMAConfig(params as Partial<EXPMASchedulerConfig>)

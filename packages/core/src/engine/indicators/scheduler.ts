@@ -584,7 +584,12 @@ export class IndicatorScheduler {
 
         const changed = new Set(bundle._changed)
         const timestamp = Date.now()
-        const states = composeRenderStates(bundle, this.visibleRange, timestamp)
+        const states = composeRenderStates(
+            bundle,
+            this.visibleRange,
+            timestamp,
+            (indicatorId) => this.registry.get(indicatorId),
+        )
 
         for (const meta of this.registry.getAll()) {
             if (!changed.has(meta.name)) continue
@@ -612,7 +617,13 @@ export class IndicatorScheduler {
 
         const timestamp = Date.now()
         const activeMask = this.buildActiveSubIndicatorMask()
-        const states = composeVisibleSubIndicatorStates(this.latestResult, this.visibleRange, timestamp, activeMask)
+        const states = composeVisibleSubIndicatorStates(
+            this.latestResult,
+            this.visibleRange,
+            timestamp,
+            activeMask,
+            (indicatorId) => this.registry.get(indicatorId),
+        )
 
         for (const meta of this.registry.getAll()) {
             if (!meta.applyResult) continue

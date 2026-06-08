@@ -6,7 +6,7 @@ import { resolveThemeColors } from '../../../tokens'
 import { ENE_STATE_KEY, type ENERenderState } from '../../indicators/eneState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorPriceRangeComputer } from '../../indicators/indicatorMetadata'
+import type { IndicatorPriceRangeComputer, IndicatorRenderStateComposer } from '../../indicators/indicatorMetadata'
 import type { ENESchedulerConfig, IndicatorScheduler } from '../../indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
@@ -125,6 +125,17 @@ const computeENEPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
     }
 
     return Number.isFinite(min) && Number.isFinite(max) ? { min, max } : null
+}
+
+const composeENERenderState: IndicatorRenderStateComposer = (bundle, range, timestamp): ENERenderState => {
+    const priceRange = computeENEPriceRange(bundle, range) ?? { min: Infinity, max: -Infinity }
+    return {
+        timestamp,
+        series: bundle.ene.series,
+        params: bundle.ene.params,
+        visibleMin: priceRange.min,
+        visibleMax: priceRange.max,
+    }
 }
 
 export function createENERendererPlugin(): RendererPluginWithHost {
@@ -287,6 +298,7 @@ export function createENERendererPlugin(): RendererPluginWithHost {
         rendererName: 'ene',
         toActiveConfig: (params, active) => active ? params : null,
         computePriceRange: computeENEPriceRange,
+        composeRenderState: composeENERenderState,
     },
     updateConfig: (scheduler, params) => {
         (scheduler as IndicatorScheduler).updateENEConfig(params as Partial<ENESchedulerConfig>)

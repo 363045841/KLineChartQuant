@@ -1,9 +1,10 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { ChaikinVolRenderState } from '../../indicators/chaikinVolState'
-import { createChaikinVolStateKey } from '../../indicators/chaikinVolState'
+import { createChaikinVolStateKey, EMPTY_CHAIKIN_VOL_STATE } from '../../indicators/chaikinVolState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, ChaikinVolSchedulerConfig } from '../../indicators/scheduler'
 
 const CHAIKIN_VOL_COLOR = '#f59e0b'
@@ -129,6 +130,7 @@ export function createChaikinVolRendererPlugin(options: { paneId?: string } = {}
     stateKey: createChaikinVolStateKey,
     defaultPaneId: 'sub_ChaikinVol',
     paneIdField: 'chaikinVolPaneId',
+    visibleState: { compose: createSparseVisibleStateComposer('chaikinVol', EMPTY_CHAIKIN_VOL_STATE) },
     scale: { indicatorKey: 'chaikinVol', label: 'ChaikinVol', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateChaikinVolConfig(params as Partial<ChaikinVolSchedulerConfig>, paneId)
