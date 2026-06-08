@@ -132,6 +132,7 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     defaultPaneId: 'main',
     paneIdField: 'fibPaneId',
     allowMainPane: true,
+    mainPane: { rendererName: 'fib_main' },
     scale: { indicatorKey: 'fib', label: 'Fib', decimals: 4 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateFibConfig(params as Partial<FibSchedulerConfig>, paneId)

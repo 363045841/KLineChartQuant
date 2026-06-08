@@ -122,6 +122,7 @@ function drawStep(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     defaultPaneId: 'main',
     paneIdField: 'pivotPaneId',
     allowMainPane: true,
+    mainPane: { rendererName: 'pivot_main' },
     scale: { indicatorKey: 'pivot', label: 'Pivot', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updatePivotConfig(params as Partial<PivotSchedulerConfig>, paneId)

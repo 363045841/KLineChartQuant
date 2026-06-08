@@ -127,6 +127,7 @@ export function createWMARendererPlugin(options: WMARendererOptions = {}): Rende
     defaultPaneId: 'main',
     paneIdField: 'wmaPaneId',
     allowMainPane: true,
+    mainPane: { rendererName: 'wma_main' },
     scale: { indicatorKey: 'wma', label: 'WMA', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateWMAConfig(params as Partial<WMASchedulerConfig>, paneId)

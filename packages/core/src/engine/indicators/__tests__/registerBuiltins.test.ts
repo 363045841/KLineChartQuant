@@ -173,4 +173,35 @@ describe('builtin indicator registration', () => {
     expect(maRenderer?.name).toBe('ma')
     expect(bollRenderer?.name).toBe('boll')
   })
+
+  it('registers main pane renderer metadata for stage 6A-2 indicators', () => {
+    const expected: Record<string, string> = {
+      WMA: 'wma_main',
+      DEMA: 'dema_main',
+      TEMA: 'tema_main',
+      HMA: 'hma_main',
+      KAMA: 'kama_main',
+      SAR: 'sar_main',
+      SUPERTREND: 'supertrend_main',
+      KELTNER: 'keltner_main',
+      DONCHIAN: 'donchian_main',
+      ICHIMOKU: 'ichimoku_main',
+      PIVOT: 'pivot_main',
+      FIB: 'fib_main',
+      STRUCTURE: 'structure_main',
+      ZONES: 'zones_main',
+    }
+
+    for (const [id, rendererName] of Object.entries(expected)) {
+      expect(getRegisteredIndicatorDefinition(id)?.mainPane?.rendererName).toBe(rendererName)
+    }
+  })
+
+  it('creates overlay main pane renderers through stage 6A-2 metadata factories', () => {
+    const wma = getRegisteredIndicatorDefinition('WMA')?.rendererFactory({ paneId: 'main', indicatorId: 'WMA' })
+    const zones = getRegisteredIndicatorDefinition('ZONES')?.rendererFactory({ paneId: 'main', indicatorId: 'ZONES' })
+
+    expect(wma?.name).toBe('wma_main')
+    expect(zones?.name).toBe('zones_main')
+  })
 })

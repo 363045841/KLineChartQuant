@@ -30,24 +30,6 @@ import {
     type XAxisRange,
 } from '../plugin'
 import { createSubIndicatorRenderer, type SubIndicatorType } from './renderers/Indicator'
-import { createMARendererPlugin } from './renderers/Indicator/ma'
-import { createBOLLRendererPlugin } from './renderers/Indicator/boll'
-import { createEXPMARendererPlugin } from './renderers/Indicator/expma'
-import { createENERendererPlugin } from './renderers/Indicator/ene'
-import { createWMARendererPlugin } from './renderers/Indicator/wma'
-import { createDEMARendererPlugin } from './renderers/Indicator/dema'
-import { createTEMARendererPlugin } from './renderers/Indicator/tema'
-import { createHMARendererPlugin } from './renderers/Indicator/hma'
-import { createKAMARendererPlugin } from './renderers/Indicator/kama'
-import { createSARRendererPlugin } from './renderers/Indicator/sar'
-import { createSuperTrendRendererPlugin } from './renderers/Indicator/supertrend'
-import { createKeltnerRendererPlugin } from './renderers/Indicator/keltner'
-import { createDonchianRendererPlugin } from './renderers/Indicator/donchian'
-import { createIchimokuRendererPlugin } from './renderers/Indicator/ichimoku'
-import { createPivotRendererPlugin } from './renderers/Indicator/pivot'
-import { createFibRendererPlugin } from './renderers/Indicator/fib'
-import { createStructureRendererPlugin } from './renderers/Indicator/structure'
-import { createZonesRendererPlugin } from './renderers/Indicator/zones'
 import { createMainIndicatorLegendRendererPlugin } from './renderers/Indicator/mainIndicatorLegend'
 import { DrawingStore } from './drawing'
 import { createDrawingRendererPlugin, createDrawingLabelOverlayPlugin } from './drawing/plugin'
@@ -423,133 +405,14 @@ export class Chart {
     private enableMainIndicatorRenderer(indicatorId: string): void {
         const definition = this.indicatorScheduler.getIndicatorMetadata(indicatorId)
         const mainPane = definition?.mainPane
-        if (definition && mainPane) {
-            if (!this.getRenderer(mainPane.rendererName)) {
-                this.useRenderer(definition.rendererFactory({ paneId: 'main', indicatorId }))
-            }
-            this.setRendererEnabled(mainPane.rendererName, true)
+        if (!definition || !mainPane) return
 
-            if (!this.getRenderer('mainIndicatorLegend')) {
-                this.useRenderer(createMainIndicatorLegendRendererPlugin({ yPaddingPx: this.opt.yPaddingPx }))
-            }
-            return
+        if (!this.getRenderer(mainPane.rendererName)) {
+            this.useRenderer(definition.rendererFactory({ paneId: 'main', indicatorId }))
         }
 
-        const rendererMap: Record<string, () => void> = {
-            'MA': () => {
-                if (!this.getRenderer('ma')) {
-                    this.useRenderer(createMARendererPlugin())
-                }
-                this.setRendererEnabled('ma', true)
-            },
-            'BOLL': () => {
-                if (!this.getRenderer('boll')) {
-                    this.useRenderer(createBOLLRendererPlugin())
-                }
-                this.setRendererEnabled('boll', true)
-            },
-            'EXPMA': () => {
-                if (!this.getRenderer('expma')) {
-                    this.useRenderer(createEXPMARendererPlugin())
-                }
-                this.setRendererEnabled('expma', true)
-            },
-            'ENE': () => {
-                if (!this.getRenderer('ene')) {
-                    this.useRenderer(createENERendererPlugin())
-                }
-                this.setRendererEnabled('ene', true)
-            },
-            'WMA': () => {
-                if (!this.getRenderer('wma_main')) {
-                    this.useRenderer(createWMARendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('wma_main', true)
-            },
-            'DEMA': () => {
-                if (!this.getRenderer('dema_main')) {
-                    this.useRenderer(createDEMARendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('dema_main', true)
-            },
-            'TEMA': () => {
-                if (!this.getRenderer('tema_main')) {
-                    this.useRenderer(createTEMARendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('tema_main', true)
-            },
-            'HMA': () => {
-                if (!this.getRenderer('hma_main')) {
-                    this.useRenderer(createHMARendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('hma_main', true)
-            },
-            'KAMA': () => {
-                if (!this.getRenderer('kama_main')) {
-                    this.useRenderer(createKAMARendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('kama_main', true)
-            },
-            'SAR': () => {
-                if (!this.getRenderer('sar_main')) {
-                    this.useRenderer(createSARRendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('sar_main', true)
-            },
-            'SUPERTREND': () => {
-                if (!this.getRenderer('supertrend_main')) {
-                    this.useRenderer(createSuperTrendRendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('supertrend_main', true)
-            },
-            'KELTNER': () => {
-                if (!this.getRenderer('keltner_main')) {
-                    this.useRenderer(createKeltnerRendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('keltner_main', true)
-            },
-            'DONCHIAN': () => {
-                if (!this.getRenderer('donchian_main')) {
-                    this.useRenderer(createDonchianRendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('donchian_main', true)
-            },
-            'ICHIMOKU': () => {
-                if (!this.getRenderer('ichimoku_main')) {
-                    this.useRenderer(createIchimokuRendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('ichimoku_main', true)
-            },
-            'PIVOT': () => {
-                if (!this.getRenderer('pivot_main')) {
-                    this.useRenderer(createPivotRendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('pivot_main', true)
-            },
-            'FIB': () => {
-                if (!this.getRenderer('fib_main')) {
-                    this.useRenderer(createFibRendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('fib_main', true)
-            },
-            'STRUCTURE': () => {
-                if (!this.getRenderer('structure_main')) {
-                    this.useRenderer(createStructureRendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('structure_main', true)
-            },
-            'ZONES': () => {
-                if (!this.getRenderer('zones_main')) {
-                    this.useRenderer(createZonesRendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('zones_main', true)
-            },
-        }
+        this.setRendererEnabled(mainPane.rendererName, true)
 
-        const fn = rendererMap[indicatorId]
-        if (fn) fn()
-
-        // 确保图例渲染器已注册
         if (!this.getRenderer('mainIndicatorLegend')) {
             this.useRenderer(createMainIndicatorLegendRendererPlugin({ yPaddingPx: this.opt.yPaddingPx }))
         }
@@ -559,34 +422,7 @@ export class Chart {
      * 禁用主图指标渲染器（内部方法）
      */
     private disableMainIndicatorRenderer(indicatorId: string): void {
-        const rendererNameFromMetadata = this.indicatorScheduler.getIndicatorMetadata(indicatorId)?.mainPane?.rendererName
-        if (rendererNameFromMetadata) {
-            this.setRendererEnabled(rendererNameFromMetadata, false)
-            return
-        }
-
-        const rendererMap: Record<string, string> = {
-            'MA': 'ma',
-            'BOLL': 'boll',
-            'EXPMA': 'expma',
-            'ENE': 'ene',
-            'WMA': 'wma_main',
-            'DEMA': 'dema_main',
-            'TEMA': 'tema_main',
-            'HMA': 'hma_main',
-            'KAMA': 'kama_main',
-            'SAR': 'sar_main',
-            'SUPERTREND': 'supertrend_main',
-            'KELTNER': 'keltner_main',
-            'DONCHIAN': 'donchian_main',
-            'ICHIMOKU': 'ichimoku_main',
-            'PIVOT': 'pivot_main',
-            'FIB': 'fib_main',
-            'STRUCTURE': 'structure_main',
-            'ZONES': 'zones_main',
-        }
-
-        const rendererName = rendererMap[indicatorId]
+        const rendererName = this.indicatorScheduler.getIndicatorMetadata(indicatorId)?.mainPane?.rendererName
         if (rendererName) {
             this.setRendererEnabled(rendererName, false)
         }

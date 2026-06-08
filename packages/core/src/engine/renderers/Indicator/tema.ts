@@ -127,6 +127,7 @@ export function createTEMARendererPlugin(options: TEMARendererOptions = {}): Ren
     defaultPaneId: 'main',
     paneIdField: 'temaPaneId',
     allowMainPane: true,
+    mainPane: { rendererName: 'tema_main' },
     scale: { indicatorKey: 'tema', label: 'TEMA', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateTEMAConfig(params as Partial<TEMASchedulerConfig>, paneId)

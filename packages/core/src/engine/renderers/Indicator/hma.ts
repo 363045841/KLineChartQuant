@@ -127,6 +127,7 @@ export function createHMARendererPlugin(options: HMARendererOptions = {}): Rende
     defaultPaneId: 'main',
     paneIdField: 'hmaPaneId',
     allowMainPane: true,
+    mainPane: { rendererName: 'hma_main' },
     scale: { indicatorKey: 'hma', label: 'HMA', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateHMAConfig(params as Partial<HMASchedulerConfig>, paneId)
