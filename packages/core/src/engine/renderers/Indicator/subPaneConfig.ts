@@ -31,7 +31,7 @@ export interface SubPaneIndicatorConfig {
   ) => TitleInfo | null
 }
 
-export const SUB_PANE_INDICATOR_CONFIGS: Record<SubIndicatorType, SubPaneIndicatorConfig> = {
+export const SUB_PANE_INDICATOR_CONFIGS: Record<string, SubPaneIndicatorConfig> = {
   VOLUME: {
     defaultParams: {},
     getTitleInfo: () => ({ name: 'VOL', params: [], values: [] }),

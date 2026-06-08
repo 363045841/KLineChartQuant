@@ -1366,14 +1366,18 @@ export class Chart {
             this.upsertPane({ id: paneId, ratio: 1, visible: true, role: 'indicator' })
         }
 
-        const rendererName = `${indicatorId.toLowerCase()}_${paneId}`
+        const definition = this.indicatorScheduler.getIndicatorMetadata(indicatorId)
+        if (!definition) {
+            throw new Error(`[Chart] Unknown indicator: ${indicatorId}`)
+        }
+        const renderer = createSubIndicatorRenderer({ indicatorId, paneId, definition, params })
+        const rendererName = renderer.name
         const existing = this.getRenderer(rendererName)
         if (existing) {
             if (params) this.updateRendererConfig(rendererName, params)
             return
         }
 
-        const renderer = createSubIndicatorRenderer({ indicatorId, paneId })
         this.useRenderer(renderer, params)
     }
 
@@ -1667,7 +1671,7 @@ export class Chart {
 
     private getDefaultSubPaneParams(indicatorId: SubIndicatorType): Record<string, unknown> {
         // 默认参数定义在 SubPaneManager 中，这里导入使用
-        const defaults: Record<SubIndicatorType, Record<string, unknown>> = {
+        const defaults: Record<string, Record<string, unknown>> = {
             VOLUME: {},
             MACD: { fastPeriod: 12, slowPeriod: 26, signalPeriod: 9 },
             RSI: { period1: 6, period2: 12, period3: 24 },
@@ -1705,7 +1709,7 @@ export class Chart {
             ZONES: { showFVG: true, showOB: true, showFilledZones: true, obLookback: 5 },
             VOLUME_PROFILE: { bins: 24, lookback: 0, valueAreaPercent: 0.7, showVolumeProfile: true },
         }
-        return { ...defaults[indicatorId] }
+        return { ...(defaults[indicatorId] ?? {}) }
     }
 
     /** 副图渲染器名称前缀（保留向后兼容） */

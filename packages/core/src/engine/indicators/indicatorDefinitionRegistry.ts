@@ -34,7 +34,7 @@ const indicatorDefinitions = new Map<string, IndicatorMetadata>()
 const indicatorDefinitionAliases = new Map<string, string>()
 
 function normalizeIndicatorId(id: string): string {
-    return id.trim().toLowerCase()
+    return id.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
 function indexAlias(alias: string, name: string): void {

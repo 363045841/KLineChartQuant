@@ -3,7 +3,7 @@
  */
 
 import type { RendererPlugin } from '../../../plugin'
-import { createVolumeRendererPlugin } from '../subVolume'
+import type { IndicatorMetadata } from '../../indicators/indicatorMetadata'
 
 // MA 均线
 export { createMARendererPlugin, type MAFlags } from './ma'
@@ -104,138 +104,26 @@ export { createVolumeProfileRendererPlugin } from './volumeProfile'
 /**
  * 副图指标类型
  */
-export type SubIndicatorType = 'VOLUME' | 'MACD' | 'RSI' | 'CCI' | 'STOCH' | 'MOM' | 'WMSR' | 'KST' | 'FASTK' | 'ATR'
-    | 'WMA' | 'DEMA' | 'TEMA' | 'HMA' | 'KAMA' | 'SAR' | 'SUPERTREND' | 'KELTNER' | 'DONCHIAN' | 'ICHIMOKU'
-    | 'ROC' | 'TRIX' | 'HV' | 'PARKINSON' | 'CHAIKIN_VOL' | 'VMA' | 'OBV' | 'PVT' | 'VWAP'
-    | 'CMF' | 'MFI' | 'PIVOT' | 'FIB' | 'STRUCTURE' | 'ZONES' | 'VOLUME_PROFILE'
+export type SubIndicatorType = string
 
 /**
  * 渲染器工厂选项
  */
 export interface IndicatorRendererOptions {
     /** 指标类型 */
-    indicatorId: SubIndicatorType
+    indicatorId: string
     /** 目标 pane ID */
     paneId: string
+    /** 指标元数据 */
+    definition: IndicatorMetadata
+    /** 初始配置 */
+    params?: Record<string, unknown>
 }
-
-// 导入各个创建函数用于工厂函数
-import { createMACDRendererPlugin } from './macd'
-import { createRSIRendererPlugin } from './rsi'
-import { createCCIRendererPlugin } from './cci'
-import { createSTOCHRendererPlugin } from './stoch'
-import { createMOMRendererPlugin } from './mom'
-import { createWMSRRendererPlugin } from './wmsr'
-import { createKSTRendererPlugin } from './kst'
-import { createFASTKRendererPlugin } from './fastk'
-import { createATRRendererPlugin } from './atr'
-import { createWMARendererPlugin } from './wma'
-import { createDEMARendererPlugin } from './dema'
-import { createTEMARendererPlugin } from './tema'
-import { createHMARendererPlugin } from './hma'
-import { createKAMARendererPlugin } from './kama'
-import { createSARRendererPlugin } from './sar'
-import { createSuperTrendRendererPlugin } from './supertrend'
-import { createKeltnerRendererPlugin } from './keltner'
-import { createDonchianRendererPlugin } from './donchian'
-import { createIchimokuRendererPlugin } from './ichimoku'
-import { createROCRendererPlugin } from './roc'
-import { createTRIXRendererPlugin } from './trix'
-import { createHVRendererPlugin } from './hv'
-import { createParkinsonRendererPlugin } from './parkinson'
-import { createChaikinVolRendererPlugin } from './chaikinVol'
-import { createVMARendererPlugin } from './vma'
-import { createOBVRendererPlugin } from './obv'
-import { createPVTRendererPlugin } from './pvt'
-import { createVWAPRendererPlugin } from './vwap'
-import { createCMFRendererPlugin } from './cmf'
-import { createMFIRendererPlugin } from './mfi'
-import { createPivotRendererPlugin } from './pivot'
-import { createFibRendererPlugin } from './fib'
-import { createStructureRendererPlugin } from './structure'
-import { createZonesRendererPlugin } from './zones'
-import { createVolumeProfileRendererPlugin } from './volumeProfile'
 
 /**
  * 创建副图指标渲染器（统一工厂函数）
  */
 export function createSubIndicatorRenderer(options: IndicatorRendererOptions): RendererPlugin {
-    const { indicatorId, paneId } = options
-
-    switch (indicatorId) {
-        case 'VOLUME':
-            return createVolumeRendererPlugin({ paneId })
-        case 'MACD':
-            return createMACDRendererPlugin({ paneId })
-        case 'RSI':
-            return createRSIRendererPlugin({ paneId })
-        case 'CCI':
-            return createCCIRendererPlugin({ paneId })
-        case 'STOCH':
-            return createSTOCHRendererPlugin({ paneId })
-        case 'MOM':
-            return createMOMRendererPlugin({ paneId })
-        case 'WMSR':
-            return createWMSRRendererPlugin({ paneId })
-        case 'KST':
-            return createKSTRendererPlugin({ paneId })
-        case 'FASTK':
-            return createFASTKRendererPlugin({ paneId })
-        case 'ATR':
-            return createATRRendererPlugin({ paneId })
-        case 'WMA':
-            return createWMARendererPlugin({ paneId })
-        case 'DEMA':
-            return createDEMARendererPlugin({ paneId })
-        case 'TEMA':
-            return createTEMARendererPlugin({ paneId })
-        case 'HMA':
-            return createHMARendererPlugin({ paneId })
-        case 'KAMA':
-            return createKAMARendererPlugin({ paneId })
-        case 'SAR':
-            return createSARRendererPlugin({ paneId })
-        case 'SUPERTREND':
-            return createSuperTrendRendererPlugin({ paneId })
-        case 'KELTNER':
-            return createKeltnerRendererPlugin({ paneId })
-        case 'DONCHIAN':
-            return createDonchianRendererPlugin({ paneId })
-        case 'ICHIMOKU':
-            return createIchimokuRendererPlugin({ paneId })
-        case 'ROC':
-            return createROCRendererPlugin({ paneId })
-        case 'TRIX':
-            return createTRIXRendererPlugin({ paneId })
-        case 'HV':
-            return createHVRendererPlugin({ paneId })
-        case 'PARKINSON':
-            return createParkinsonRendererPlugin({ paneId })
-        case 'CHAIKIN_VOL':
-            return createChaikinVolRendererPlugin({ paneId })
-        case 'VMA':
-            return createVMARendererPlugin({ paneId })
-        case 'OBV':
-            return createOBVRendererPlugin({ paneId })
-        case 'PVT':
-            return createPVTRendererPlugin({ paneId })
-        case 'VWAP':
-            return createVWAPRendererPlugin({ paneId })
-        case 'CMF':
-            return createCMFRendererPlugin({ paneId })
-        case 'MFI':
-            return createMFIRendererPlugin({ paneId })
-        case 'PIVOT':
-            return createPivotRendererPlugin({ paneId })
-        case 'FIB':
-            return createFibRendererPlugin({ paneId })
-        case 'STRUCTURE':
-            return createStructureRendererPlugin({ paneId })
-        case 'ZONES':
-            return createZonesRendererPlugin({ paneId })
-        case 'VOLUME_PROFILE':
-            return createVolumeProfileRendererPlugin({ paneId })
-        default:
-            throw new Error(`Unknown indicator: ${indicatorId}`)
-    }
+    const { indicatorId, paneId, definition, params } = options
+    return definition.rendererFactory({ paneId, indicatorId, params })
 }

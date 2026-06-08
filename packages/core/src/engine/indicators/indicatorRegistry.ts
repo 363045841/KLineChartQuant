@@ -11,7 +11,7 @@ export class IndicatorRegistry {
     private aliases = new Map<string, string>()
 
     private normalize(id: string): string {
-        return id.trim().toLowerCase()
+        return id.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
     }
 
     private indexAlias(alias: string, name: string): void {

@@ -78,9 +78,11 @@ export class SubPaneManager {
             return true
         }
 
-        const rendererName = `${indicatorId.toLowerCase()}_${paneId}`
         const scaleRendererName = `${indicatorId.toLowerCase()}_scale_${paneId}`
         const paneTitleRendererName = `paneTitle_${paneId}`
+        const renderer = this.createIndicatorRenderer(chart, paneId, indicatorId, params)
+        if (!renderer) return false
+        const rendererName = renderer.name
 
         const paneExists = chart.hasPane(paneId)
         if (!paneExists) {
@@ -89,7 +91,6 @@ export class SubPaneManager {
 
         const existingRenderer = chart.getRenderer(rendererName)
         if (!existingRenderer) {
-            const renderer = createSubIndicatorRenderer({ indicatorId, paneId })
             chart.useRenderer(renderer, params as Record<string, number | boolean | string>)
         }
 
@@ -136,11 +137,12 @@ export class SubPaneManager {
         chart.removeRenderer(entry.scaleRendererName)
         chart.removeRenderer(entry.paneTitleRendererName)
 
-        const newRendererName = `${newIndicatorId.toLowerCase()}_${paneId}`
         const newScaleRendererName = `${newIndicatorId.toLowerCase()}_scale_${paneId}`
         const newPaneTitleRendererName = `paneTitle_${paneId}`
+        const renderer = this.createIndicatorRenderer(chart, paneId, newIndicatorId, newParams)
+        if (!renderer) return
+        const newRendererName = renderer.name
 
-        const renderer = createSubIndicatorRenderer({ indicatorId: newIndicatorId, paneId })
         chart.useRenderer(renderer, newParams as Record<string, number | boolean | string>)
 
         this.mountScaleRenderer(chart, paneId, newIndicatorId, newScaleRendererName)
@@ -175,6 +177,19 @@ export class SubPaneManager {
 
     getByPaneId(paneId: string): SubPaneEntry | undefined {
         return this.entries.get(paneId)
+    }
+
+    private createIndicatorRenderer(
+        chart: Chart,
+        paneId: string,
+        indicatorId: SubIndicatorType,
+        params: Record<string, unknown>,
+    ): import('../plugin').RendererPlugin {
+        const definition = chart.getIndicatorScheduler().getIndicatorMetadata(indicatorId)
+        if (!definition) {
+            throw new Error(`[SubPaneManager] Unknown indicator: ${indicatorId}`)
+        }
+        return createSubIndicatorRenderer({ indicatorId, paneId, definition, params })
     }
 
     getAll(): SubPaneEntry[] {
