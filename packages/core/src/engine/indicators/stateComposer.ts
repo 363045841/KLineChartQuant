@@ -265,6 +265,36 @@ export function composeVisibleSubIndicatorStates(
     activeMask: VisibleSubIndicatorMask = {},
     getIndicatorMetadata?: (indicatorId: string) => IndicatorMetadata | undefined,
 ): VisibleSubIndicatorStates {
+    // Fast path: when all 34 metadata composers are available, skip hardcoded computation
+    if (getIndicatorMetadata) {
+        const allAvailable = METADATA_VISIBLE_STATE_INDICATOR_IDS.every(
+            (id) => getIndicatorMetadata(id)?.visibleState?.compose,
+        )
+        if (allAvailable) {
+            const states: Partial<VisibleSubIndicatorStates> = {}
+            for (const indicatorId of METADATA_VISIBLE_STATE_INDICATOR_IDS) {
+                states[indicatorId] = composeMetadataVisibleState(
+                    indicatorId, bundle, visibleRange, timestamp, activeMask, getIndicatorMetadata,
+                ) as never
+            }
+            const cciActive = activeMask.cci ?? true
+            const cciExtremes = cciActive ? calcCCIExtremes(bundle.cci.series, visibleRange) : null
+            states.cci = cciActive ? {
+                timestamp,
+                series: bundle.cci.series,
+                params: bundle.cci.params,
+                valueMin: cciExtremes ? Math.min(cciExtremes.min, -150) : EMPTY_CCI_STATE.valueMin,
+                valueMax: cciExtremes ? Math.max(cciExtremes.max, 150) : EMPTY_CCI_STATE.valueMax,
+                visibleMin: cciExtremes!.min,
+                visibleMax: cciExtremes!.max,
+            } : mergeEmptyState(EMPTY_CCI_STATE, timestamp, {
+                series: bundle.cci.series,
+                params: bundle.cci.params,
+            })
+            return states as VisibleSubIndicatorStates
+        }
+    }
+
     const rsiActive = activeMask.rsi ?? true
     const cciActive = activeMask.cci ?? true
     const stochActive = activeMask.stoch ?? true

@@ -423,4 +423,33 @@ describe('stateComposer', () => {
     expect(states.volumeProfile.visibleMin).toBe(97)
     expect(states.volumeProfile.visibleMax).toBe(103)
   })
+
+  it('uses metadata fast path for all 34 composers when available', () => {
+    const bundle = createBundle()
+    const timestamp = 1000
+    const visibleRange = { start: 0, end: 1 }
+    const ids = [
+      'wma', 'dema', 'tema', 'hma', 'kama', 'roc', 'chaikinVol', 'obv', 'pvt', 'vwap',
+      'rsi', 'stoch', 'fastk', 'mfi', 'wmsr', 'cmf',
+      'atr', 'hv', 'kst', 'mom', 'parkinson', 'trix', 'vma',
+      'macd',
+      'sar', 'supertrend', 'keltner', 'donchian', 'ichimoku', 'pivot', 'fib',
+      'structure', 'zones', 'volumeProfile',
+    ]
+    const definitions = new Map<string, IndicatorMetadata>()
+    for (const id of ids) {
+      definitions.set(id, createVisibleStateDefinition(id, { fromMetadata: true, id }))
+    }
+
+    const states = composeVisibleSubIndicatorStates(
+      bundle, visibleRange, timestamp, {},
+      (indicatorId) => definitions.get(indicatorId),
+    )
+
+    for (const id of ids) {
+      expect((states as any)[id]).toEqual({ fromMetadata: true, id })
+    }
+    expect(states.cci.valueMin).toBe(-150)
+    expect(states.cci.valueMax).toBe(150)
+  })
 })
