@@ -115,6 +115,7 @@ export function createHVRendererPlugin(options: { paneId?: string } = {}): Rende
     stateKey: createHVStateKey,
     defaultPaneId: 'sub_HV',
     paneIdField: 'hvPaneId',
+    scale: { indicatorKey: 'hv', label: 'HV', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
     (scheduler as IndicatorScheduler).updateHVConfig(params as Partial<HVSchedulerConfig>, paneId)
   },

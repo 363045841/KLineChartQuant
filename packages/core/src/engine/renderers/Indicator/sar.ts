@@ -104,6 +104,7 @@ export function createSARRendererPlugin(options: SARRendererOptions = {}): Rende
     defaultPaneId: 'main',
     paneIdField: 'sarPaneId',
     allowMainPane: true,
+    scale: { indicatorKey: 'sar', label: 'SAR', decimals: 4 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateSARConfig(params as Partial<SARSchedulerConfig>, paneId)
     },

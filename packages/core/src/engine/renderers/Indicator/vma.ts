@@ -115,6 +115,7 @@ export function createVMARendererPlugin(options: { paneId?: string } = {}): Rend
     stateKey: createVMAStateKey,
     defaultPaneId: 'sub_VMA',
     paneIdField: 'vmaPaneId',
+    scale: { indicatorKey: 'vma', label: 'VMA', decimals: 0 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateVMAConfig(params as Partial<VMASchedulerConfig>, paneId)
     },

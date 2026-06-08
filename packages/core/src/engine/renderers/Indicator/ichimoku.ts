@@ -173,6 +173,7 @@ function fillCloud(
     defaultPaneId: 'main',
     paneIdField: 'ichimokuPaneId',
     allowMainPane: true,
+    scale: { indicatorKey: 'ichimoku', label: 'Ichimoku', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateIchimokuConfig(params as Partial<IchimokuSchedulerConfig>, paneId)
     },

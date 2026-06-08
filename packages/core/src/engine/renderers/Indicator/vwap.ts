@@ -114,6 +114,7 @@ export function createVWAPRendererPlugin(options: { paneId?: string } = {}): Ren
     stateKey: createVWAPStateKey,
     defaultPaneId: 'sub_VWAP',
     paneIdField: 'vwapPaneId',
+    scale: { indicatorKey: 'vwap', label: 'VWAP', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateVWAPConfig(params as Partial<VWAPSchedulerConfig>, paneId)
     },

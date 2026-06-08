@@ -128,6 +128,7 @@ export function createCMFRendererPlugin(options: { paneId?: string } = {}): Rend
     stateKey: createCMFStateKey,
     defaultPaneId: 'sub_CMF',
     paneIdField: 'cmfPaneId',
+    scale: { indicatorKey: 'cmf', label: 'CMF', decimals: 4 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateCMFConfig(params as Partial<CMFSchedulerConfig>, paneId)
     },

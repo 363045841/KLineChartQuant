@@ -114,6 +114,7 @@ export function createPVTRendererPlugin(options: { paneId?: string } = {}): Rend
     stateKey: createPVTStateKey,
     defaultPaneId: 'sub_PVT',
     paneIdField: 'pvtPaneId',
+    scale: { indicatorKey: 'pvt', label: 'PVT', decimals: 0 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updatePVTConfig(params as Partial<PVTSchedulerConfig>, paneId)
     },

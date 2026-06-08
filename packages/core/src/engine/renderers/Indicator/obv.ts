@@ -114,6 +114,7 @@ export function createOBVRendererPlugin(options: { paneId?: string } = {}): Rend
     stateKey: createOBVStateKey,
     defaultPaneId: 'sub_OBV',
     paneIdField: 'obvPaneId',
+    scale: { indicatorKey: 'obv', label: 'OBV', decimals: 0 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateOBVConfig(params as Partial<OBVSchedulerConfig>, paneId)
     },

@@ -149,6 +149,7 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     stateKey: createTRIXStateKey,
     defaultPaneId: 'sub_TRIX',
     paneIdField: 'trixPaneId',
+    scale: { indicatorKey: 'trix', label: 'TRIX', decimals: 6 },
     updateConfig: (scheduler, params, paneId) => {
     (scheduler as IndicatorScheduler).updateTRIXConfig(params as Partial<TRIXSchedulerConfig>, paneId)
   },

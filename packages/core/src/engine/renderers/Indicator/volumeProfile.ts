@@ -116,6 +116,7 @@ export function createVolumeProfileRendererPlugin(options: { paneId?: string } =
     stateKey: createVolumeProfileStateKey,
     defaultPaneId: 'sub_VolumeProfile',
     paneIdField: 'volumeProfilePaneId',
+    scale: { indicatorKey: 'volumeProfile', label: 'VP', decimals: 0 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateVolumeProfileConfig(params as Partial<VolumeProfileSchedulerConfig>, paneId)
     },

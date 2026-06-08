@@ -106,6 +106,7 @@ export function createSuperTrendRendererPlugin(options: SuperTrendRendererOption
     defaultPaneId: 'sub_SuperTrend',
     paneIdField: 'supertrendPaneId',
     allowMainPane: true,
+    scale: { indicatorKey: 'supertrend', label: 'SuperTrend', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateSuperTrendConfig(params as Partial<SuperTrendSchedulerConfig>, paneId)
     },

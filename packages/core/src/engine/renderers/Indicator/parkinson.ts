@@ -115,6 +115,7 @@ export function createParkinsonRendererPlugin(options: { paneId?: string } = {})
     stateKey: createParkinsonStateKey,
     defaultPaneId: 'sub_Parkinson',
     paneIdField: 'parkinsonPaneId',
+    scale: { indicatorKey: 'parkinson', label: 'Parkinson', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateParkinsonConfig(params as Partial<ParkinsonSchedulerConfig>, paneId)
     },

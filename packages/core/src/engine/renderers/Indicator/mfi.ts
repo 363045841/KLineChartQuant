@@ -133,6 +133,7 @@ export function createMFIRendererPlugin(options: { paneId?: string } = {}): Rend
     stateKey: createMFIStateKey,
     defaultPaneId: 'sub_MFI',
     paneIdField: 'mfiPaneId',
+    scale: { indicatorKey: 'mfi', label: 'MFI', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateMFIConfig(params as Partial<MFISchedulerConfig>, paneId)
     },

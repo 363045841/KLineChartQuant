@@ -129,6 +129,7 @@ export function createChaikinVolRendererPlugin(options: { paneId?: string } = {}
     stateKey: createChaikinVolStateKey,
     defaultPaneId: 'sub_ChaikinVol',
     paneIdField: 'chaikinVolPaneId',
+    scale: { indicatorKey: 'chaikinVol', label: 'ChaikinVol', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateChaikinVolConfig(params as Partial<ChaikinVolSchedulerConfig>, paneId)
     },

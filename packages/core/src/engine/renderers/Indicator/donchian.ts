@@ -129,6 +129,7 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     defaultPaneId: 'main',
     paneIdField: 'donchianPaneId',
     allowMainPane: true,
+    scale: { indicatorKey: 'donchian', label: 'Donchian', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateDonchianConfig(params as Partial<DonchianSchedulerConfig>, paneId)
     },

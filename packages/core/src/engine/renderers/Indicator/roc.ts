@@ -134,6 +134,7 @@ export function createROCRendererPlugin(options: ROCRendererOptions = {}): Rende
     stateKey: createROCStateKey,
     defaultPaneId: 'sub_ROC',
     paneIdField: 'rocPaneId',
+    scale: { indicatorKey: 'roc', label: 'ROC', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
     (scheduler as IndicatorScheduler).updateROCConfig(params as Partial<ROCSchedulerConfig>, paneId)
   },

@@ -129,6 +129,7 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     defaultPaneId: 'main',
     paneIdField: 'keltnerPaneId',
     allowMainPane: true,
+    scale: { indicatorKey: 'keltner', label: 'Keltner', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateKeltnerConfig(params as Partial<KeltnerSchedulerConfig>, paneId)
     },
