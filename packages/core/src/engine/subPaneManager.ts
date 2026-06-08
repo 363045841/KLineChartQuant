@@ -204,6 +204,12 @@ export class SubPaneManager {
 
         const opts = { axisWidth, paneId, yPaddingPx, getCrosshair }
 
+        const definition = chart.getIndicatorScheduler().getIndicatorMetadata(indicatorId)
+        if (definition?.scaleRendererFactory) {
+            chart.useRenderer(definition.scaleRendererFactory({ ...opts, indicatorId }))
+            return
+        }
+
         let renderer: import('../plugin').RendererPluginWithHost
         switch (indicatorId) {
             case 'VOLUME':

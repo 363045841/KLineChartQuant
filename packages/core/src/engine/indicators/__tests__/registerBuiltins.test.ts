@@ -82,4 +82,34 @@ describe('builtin indicator registration', () => {
     expect(scheduler.updateChaikinVolConfig).toHaveBeenCalledWith({ emaPeriod: 10 }, 'CV_0')
     expect(scheduler.updateZonesConfig).toHaveBeenCalledWith({ showFVG: true }, 'Z_0')
   })
+
+  it('registers dedicated scale renderer factories for stage 5A indicators', () => {
+    const expectedIndicators = [
+      'VOL', 'MACD', 'RSI', 'CCI', 'STOCH', 'MOM', 'WMSR', 'KST', 'FASTK', 'ATR',
+    ]
+
+    for (const id of expectedIndicators) {
+      expect(getRegisteredIndicatorDefinition(id)?.scaleRendererFactory).toBeTypeOf('function')
+    }
+  })
+
+  it('creates scale renderers through stage 5A metadata factories', () => {
+    const rsiScaleRenderer = getRegisteredIndicatorDefinition('RSI')?.scaleRendererFactory?.({
+      indicatorId: 'RSI',
+      paneId: 'RSI_0',
+      axisWidth: 80,
+      yPaddingPx: 4,
+      getCrosshair: () => null,
+    })
+    const volumeScaleRenderer = getRegisteredIndicatorDefinition('VOL')?.scaleRendererFactory?.({
+      indicatorId: 'VOLUME',
+      paneId: 'VOLUME_0',
+      axisWidth: 80,
+      yPaddingPx: 4,
+      getCrosshair: () => null,
+    })
+
+    expect(rsiScaleRenderer?.name).toBe('rsiScale_RSI_0')
+    expect(volumeScaleRenderer?.name).toBe('volumeScale_VOLUME_0')
+  })
 })

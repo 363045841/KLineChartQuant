@@ -7,6 +7,7 @@ import { createWMSRStateKey } from '../../indicators/wmsrState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, WMSRSchedulerConfig } from '../../indicators/scheduler'
+import { createWmsrScaleRendererPlugin } from './scale/wmsr_scale'
 
 type LinePoint = { x: number; y: number }
 
@@ -320,6 +321,7 @@ export function getWMSRTitleInfo(
     stateKey: createWMSRStateKey,
     defaultPaneId: 'sub_WMSR',
     paneIdField: 'wmsrPaneId',
+    scaleRendererFactory: createWmsrScaleRendererPlugin,
     updateConfig: (scheduler, params, paneId) => {
     (scheduler as IndicatorScheduler).updateWMSRConfig(params as Partial<WMSRSchedulerConfig>, paneId)
   },

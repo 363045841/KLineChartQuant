@@ -6,6 +6,7 @@ import { createCCIStateKey } from '../../indicators/cciState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, CCISchedulerConfig } from '../../indicators/scheduler'
+import { createCciScaleRendererPlugin } from './scale/cci_scale'
 
 type LinePoint = { x: number; y: number }
 
@@ -267,6 +268,7 @@ export function getCCITitleInfo(
     stateKey: createCCIStateKey,
     defaultPaneId: 'sub_CCI',
     paneIdField: 'cciPaneId',
+    scaleRendererFactory: createCciScaleRendererPlugin,
     updateConfig: (scheduler, params, paneId) => {
     (scheduler as IndicatorScheduler).updateCCIConfig(params as Partial<CCISchedulerConfig>, paneId)
   },

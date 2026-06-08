@@ -6,6 +6,7 @@ import { createKSTStateKey } from '../../indicators/kstState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, KSTSchedulerConfig } from '../../indicators/scheduler'
+import { createKstScaleRendererPlugin } from './scale/kst_scale'
 
 type LinePoint = { x: number; y: number }
 
@@ -294,6 +295,7 @@ export function getKSTTitleInfo(
     stateKey: createKSTStateKey,
     defaultPaneId: 'sub_KST',
     paneIdField: 'kstPaneId',
+    scaleRendererFactory: createKstScaleRendererPlugin,
     updateConfig: (scheduler, params, paneId) => {
     (scheduler as IndicatorScheduler).updateKSTConfig(params as Partial<KSTSchedulerConfig>, paneId)
   },

@@ -10,6 +10,7 @@ import { calcMACDData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, MACDSchedulerConfig } from '../../indicators/scheduler'
+import { createMacdScaleRendererPlugin } from './scale/macd_scale'
 
 type LinePoint = { x: number; y: number }
 
@@ -470,6 +471,7 @@ export function getMACDTitleInfo(
   stateKey: createMACDStateKey,
   defaultPaneId: 'sub_MACD',
   paneIdField: 'macdPaneId',
+  scaleRendererFactory: createMacdScaleRendererPlugin,
   updateConfig: (scheduler, params, paneId) => {
     (scheduler as IndicatorScheduler).updateMACDConfig(params as Partial<MACDSchedulerConfig>, paneId)
   },

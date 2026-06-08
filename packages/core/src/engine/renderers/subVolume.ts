@@ -6,6 +6,7 @@ import { resolveThemeColors } from '../../tokens'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../indicators/scheduler'
+import { createVolumeScaleRendererPlugin } from './Indicator/scale/volume_scale'
 
 export interface VolumeRendererOptions {
     /** 目标 pane ID（默认 'sub'） */
@@ -233,6 +234,7 @@ function judgeColor(dayData: KLineData, upColor: string, downColor: string, neut
     category: 'volume',
     stateKey: (paneId: string) => createIndicatorStateKey('volume', paneId),
     defaultPaneId: 'sub',
+    scaleRendererFactory: createVolumeScaleRendererPlugin,
     updateConfig: () => {},
 })
 class VolumeIndicatorDefinition {

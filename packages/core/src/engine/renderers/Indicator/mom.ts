@@ -7,6 +7,7 @@ import { createMOMStateKey } from '../../indicators/momState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, MOMSchedulerConfig } from '../../indicators/scheduler'
+import { createMomScaleRendererPlugin } from './scale/mom_scale'
 
 type LinePoint = { x: number; y: number }
 
@@ -303,6 +304,7 @@ export function getMOMTitleInfo(
     stateKey: createMOMStateKey,
     defaultPaneId: 'sub_MOM',
     paneIdField: 'momPaneId',
+    scaleRendererFactory: createMomScaleRendererPlugin,
     updateConfig: (scheduler, params, paneId) => {
     (scheduler as IndicatorScheduler).updateMOMConfig(params as Partial<MOMSchedulerConfig>, paneId)
   },

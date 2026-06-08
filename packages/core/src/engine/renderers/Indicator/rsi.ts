@@ -7,6 +7,7 @@ import { createRSIStateKey } from '../../indicators/rsiState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, RSISchedulerConfig } from '../../indicators/scheduler'
+import { createRsiScaleRendererPlugin } from './scale/rsi_scale'
 
 type LinePoint = { x: number; y: number }
 
@@ -388,6 +389,7 @@ export function getRSITitleInfo(
     stateKey: createRSIStateKey,
     defaultPaneId: 'sub_RSI',
     paneIdField: 'rsiPaneId',
+    scaleRendererFactory: createRsiScaleRendererPlugin,
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateRSIConfig(params as Partial<RSISchedulerConfig>, paneId)
     },

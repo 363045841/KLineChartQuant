@@ -7,6 +7,7 @@ import { createSTOCHStateKey } from '../../indicators/stochState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, STOCHSchedulerConfig } from '../../indicators/scheduler'
+import { createStochScaleRendererPlugin } from './scale/stoch_scale'
 
 type LinePoint = { x: number; y: number }
 
@@ -351,6 +352,7 @@ export function getSTOCHTitleInfo(
     stateKey: createSTOCHStateKey,
     defaultPaneId: 'sub_STOCH',
     paneIdField: 'stochPaneId',
+    scaleRendererFactory: createStochScaleRendererPlugin,
     updateConfig: (scheduler, params, paneId) => {
     (scheduler as IndicatorScheduler).updateSTOCHConfig(params as Partial<STOCHSchedulerConfig>, paneId)
   },

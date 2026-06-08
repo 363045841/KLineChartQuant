@@ -21,7 +21,7 @@ export interface IndicatorScaleRendererOptions {
     indicatorId: IndicatorId
     axisWidth: number
     yPaddingPx: number
-    getCrosshair: () => { y: number; price: number; activePaneId?: string } | null
+    getCrosshair: () => { y: number; price: number; activePaneId: string | null } | null
 }
 
 /**

@@ -7,6 +7,7 @@ import { createFASTKStateKey } from '../../indicators/fastkState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, FASTKSchedulerConfig } from '../../indicators/scheduler'
+import { createFastkScaleRendererPlugin } from './scale/fastk_scale'
 
 type LinePoint = { x: number; y: number }
 
@@ -308,6 +309,7 @@ export function getFASTKTitleInfo(
     stateKey: createFASTKStateKey,
     defaultPaneId: 'sub_FASTK',
     paneIdField: 'fastkPaneId',
+    scaleRendererFactory: createFastkScaleRendererPlugin,
     updateConfig: (scheduler, params, paneId) => {
     (scheduler as IndicatorScheduler).updateFASTKConfig(params as Partial<FASTKSchedulerConfig>, paneId)
   },
