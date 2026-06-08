@@ -1,10 +1,11 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { DonchianRenderState } from '../../indicators/donchianState'
-import { createDonchianStateKey } from '../../indicators/donchianState'
+import { createDonchianStateKey, EMPTY_DONCHIAN_STATE } from '../../indicators/donchianState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, DonchianSchedulerConfig } from '../../indicators/scheduler'
+import { createBandVisibleStateComposer } from '../../indicators/visibleStateComposers'
 
 const DONCHIAN_UPPER_COLOR = '#0891b2'
 const DONCHIAN_MIDDLE_COLOR = '#94a3b8'
@@ -131,6 +132,7 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     allowMainPane: true,
     mainPane: { rendererName: 'donchian_main', toActiveConfig: (params, active) => ({ ...params, showUpper: active, showMiddle: active, showLower: active }) },
     scale: { indicatorKey: 'donchian', label: 'Donchian', decimals: 2 },
+    visibleState: { compose: createBandVisibleStateComposer('donchian', EMPTY_DONCHIAN_STATE, 'lower', 'upper') },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateDonchianConfig(params as Partial<DonchianSchedulerConfig>, paneId)
     },

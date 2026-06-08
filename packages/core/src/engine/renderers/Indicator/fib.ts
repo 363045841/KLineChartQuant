@@ -1,10 +1,11 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { FibRenderState } from '../../indicators/fibState'
-import { createFibStateKey } from '../../indicators/fibState'
+import { createFibStateKey, EMPTY_FIB_STATE } from '../../indicators/fibState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, FibSchedulerConfig } from '../../indicators/scheduler'
+import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 
 const FIB_COLORS = {
     high: '#94a3b8',
@@ -134,6 +135,7 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     allowMainPane: true,
     mainPane: { rendererName: 'fib_main', toActiveConfig: (params, active) => ({ ...params, showLevels: active }) },
     scale: { indicatorKey: 'fib', label: 'Fib', decimals: 4 },
+    visibleState: { compose: createExactRangePointVisibleStateComposer('fib', EMPTY_FIB_STATE, ['low', 'high']) },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateFibConfig(params as Partial<FibSchedulerConfig>, paneId)
     },

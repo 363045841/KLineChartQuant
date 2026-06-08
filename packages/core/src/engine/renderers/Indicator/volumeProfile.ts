@@ -1,8 +1,9 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { VolumeProfileRenderState } from '../../indicators/volumeProfileState'
-import { createVolumeProfileStateKey } from '../../indicators/volumeProfileState'
+import { createVolumeProfileStateKey, EMPTY_VOLUME_PROFILE_STATE } from '../../indicators/volumeProfileState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { createVolumeProfileVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, VolumeProfileSchedulerConfig } from '../../indicators/scheduler'
 
@@ -117,6 +118,7 @@ export function createVolumeProfileRendererPlugin(options: { paneId?: string } =
     defaultPaneId: 'sub_VolumeProfile',
     paneIdField: 'volumeProfilePaneId',
     scale: { indicatorKey: 'volumeProfile', label: 'VP', decimals: 0 },
+    visibleState: { compose: createVolumeProfileVisibleStateComposer('volumeProfile', EMPTY_VOLUME_PROFILE_STATE) },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateVolumeProfileConfig(params as Partial<VolumeProfileSchedulerConfig>, paneId)
     },

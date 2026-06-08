@@ -1,10 +1,11 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { SuperTrendRenderState } from '../../indicators/supertrendState'
-import { createSuperTrendStateKey } from '../../indicators/supertrendState'
+import { createSuperTrendStateKey, EMPTY_SUPERTREND_STATE } from '../../indicators/supertrendState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, SuperTrendSchedulerConfig } from '../../indicators/scheduler'
+import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 
 const ST_UP_COLOR = '#22c55e'
 const ST_DOWN_COLOR = '#ef4444'
@@ -108,6 +109,7 @@ export function createSuperTrendRendererPlugin(options: SuperTrendRendererOption
     allowMainPane: true,
     mainPane: { rendererName: 'supertrend_main', toActiveConfig: (params, active) => ({ ...params, showSuperTrend: active }) },
     scale: { indicatorKey: 'supertrend', label: 'SuperTrend', decimals: 2 },
+    visibleState: { compose: createValuePointVisibleStateComposer('supertrend', EMPTY_SUPERTREND_STATE, ['value']) },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateSuperTrendConfig(params as Partial<SuperTrendSchedulerConfig>, paneId)
     },

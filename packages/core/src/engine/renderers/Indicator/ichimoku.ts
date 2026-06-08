@@ -1,10 +1,11 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { IchimokuRenderState } from '../../indicators/ichimokuState'
-import { createIchimokuStateKey } from '../../indicators/ichimokuState'
+import { createIchimokuStateKey, EMPTY_ICHIMOKU_STATE } from '../../indicators/ichimokuState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, IchimokuSchedulerConfig } from '../../indicators/scheduler'
+import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 
 const TENKAN_COLOR = '#dc2626'
 const KIJUN_COLOR = '#2563eb'
@@ -175,6 +176,7 @@ function fillCloud(
     allowMainPane: true,
     mainPane: { rendererName: 'ichimoku_main', toActiveConfig: (params, active) => ({ ...params, showTenkan: active, showKijun: active, showSpanA: active, showSpanB: active, showChikou: active, showCloud: active }) },
     scale: { indicatorKey: 'ichimoku', label: 'Ichimoku', decimals: 2 },
+    visibleState: { compose: createValuePointVisibleStateComposer('ichimoku', EMPTY_ICHIMOKU_STATE, ['tenkan', 'kijun', 'spanA', 'spanB', 'chikou']) },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateIchimokuConfig(params as Partial<IchimokuSchedulerConfig>, paneId)
     },

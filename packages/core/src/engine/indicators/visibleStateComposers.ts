@@ -299,6 +299,18 @@ function calcPointArrayExtremes<T extends Record<string, number>>(
     return { min, max }
 }
 
+function computeMAFamilyBounds(
+    extremes: { min: number; max: number } | null,
+    emptyBounds: { valueMin: number; valueMax: number },
+): { valueMin: number; valueMax: number } {
+    if (!extremes || !Number.isFinite(extremes.min) || !Number.isFinite(extremes.max)) {
+        return { valueMin: emptyBounds.valueMin, valueMax: emptyBounds.valueMax }
+    }
+    const range = extremes.max - extremes.min
+    const padding = range > 0 ? range * 0.05 : Math.max(1, Math.abs(extremes.max) * 0.05)
+    return { valueMin: extremes.min - padding, valueMax: extremes.max + padding }
+}
+
 export function createPaddedSparseVisibleStateComposer(
     bundleKey: string,
     emptyState: {
@@ -414,6 +426,56 @@ export function createNonNegativeSparseVisibleStateComposer(
     }
 }
 
+export function createMACDVisibleStateComposer(
+    bundleKey: string,
+    emptyState: {
+        timestamp: number
+        series: { dif: number; dea: number; macd: number }[]
+        params: unknown
+        valueMin: number
+        valueMax: number
+        visibleMin: number
+        visibleMax: number
+    },
+): IndicatorVisibleStateComposer {
+    return ({ bundle, visibleRange, timestamp, active }) => {
+        const source = getPointArraySeriesBundle<{ dif: number; dea: number; macd: number }>(bundle, bundleKey)
+        if (!active) {
+            return {
+                ...emptyState,
+                timestamp,
+                series: source.series,
+                params: source.params,
+            }
+        }
+
+        const extremes = calcPointArrayExtremes(source.series, ['dif', 'dea', 'macd'], visibleRange)
+        const padding = Number.isFinite(extremes.max) && Number.isFinite(extremes.min)
+            ? Math.max(Math.abs(extremes.max), Math.abs(extremes.min)) * 0.1
+            : 0
+
+        const latestIndex = visibleRange.end - 1
+        const latestPoint = latestIndex >= 0 && latestIndex < source.series.length
+            ? source.series[latestIndex]
+            : null
+
+        return {
+            timestamp,
+            series: source.series,
+            params: source.params,
+            valueMin: Number.isFinite(extremes.min) ? extremes.min - padding : emptyState.valueMin,
+            valueMax: Number.isFinite(extremes.max) ? extremes.max + padding : emptyState.valueMax,
+            visibleMin: extremes.min,
+            visibleMax: extremes.max,
+            latestValues: latestPoint ? {
+                dif: latestPoint.dif,
+                dea: latestPoint.dea,
+                macd: latestPoint.macd,
+            } : undefined,
+        }
+    }
+}
+
 export function createDualSparseVisibleStateComposer(
     bundleKey: string,
     emptyState: {
@@ -463,6 +525,202 @@ export function createDualSparseVisibleStateComposer(
             valueMax,
             visibleMin: combinedMin,
             visibleMax: combinedMax,
+        }
+    }
+}
+
+export function createValuePointVisibleStateComposer<T extends Record<string, number>>(
+    bundleKey: string,
+    emptyState: {
+        timestamp: number
+        series: T[]
+        params: unknown
+        valueMin: number
+        valueMax: number
+        visibleMin: number
+        visibleMax: number
+    },
+    fields: readonly (keyof T)[],
+): IndicatorVisibleStateComposer {
+    return ({ bundle, visibleRange, timestamp, active }) => {
+        const source = getPointArraySeriesBundle<T>(bundle, bundleKey)
+        if (!active) {
+            return {
+                ...emptyState,
+                timestamp,
+                series: source.series,
+                params: source.params,
+            }
+        }
+
+        const extremes = calcPointArrayExtremes(source.series, fields, visibleRange)
+        const bounds = computeMAFamilyBounds(
+            Number.isFinite(extremes.min) && Number.isFinite(extremes.max) ? extremes : null,
+            emptyState,
+        )
+        return {
+            timestamp,
+            series: source.series,
+            params: source.params,
+            valueMin: bounds.valueMin,
+            valueMax: bounds.valueMax,
+            visibleMin: extremes.min,
+            visibleMax: extremes.max,
+        }
+    }
+}
+
+export function createBandVisibleStateComposer<T extends Record<string, number>>(
+    bundleKey: string,
+    emptyState: {
+        timestamp: number
+        series: T[]
+        params: unknown
+        valueMin: number
+        valueMax: number
+        visibleMin: number
+        visibleMax: number
+    },
+    minField: keyof T,
+    maxField: keyof T,
+): IndicatorVisibleStateComposer {
+    return ({ bundle, visibleRange, timestamp, active }) => {
+        const source = getPointArraySeriesBundle<T>(bundle, bundleKey)
+        if (!active) {
+            return {
+                ...emptyState,
+                timestamp,
+                series: source.series,
+                params: source.params,
+            }
+        }
+
+        const minExtremes = calcPointArrayExtremes(source.series, [minField], visibleRange)
+        const maxExtremes = calcPointArrayExtremes(source.series, [maxField], visibleRange)
+        const extremes = {
+            min: minExtremes.min,
+            max: maxExtremes.max,
+        }
+        const bounds = computeMAFamilyBounds(
+            Number.isFinite(extremes.min) && Number.isFinite(extremes.max) ? extremes : null,
+            emptyState,
+        )
+        return {
+            timestamp,
+            series: source.series,
+            params: source.params,
+            valueMin: bounds.valueMin,
+            valueMax: bounds.valueMax,
+            visibleMin: extremes.min,
+            visibleMax: extremes.max,
+        }
+    }
+}
+
+export function createExactRangePointVisibleStateComposer<T extends Record<string, number>>(
+    bundleKey: string,
+    emptyState: {
+        timestamp: number
+        series: T[]
+        params: unknown
+        valueMin: number
+        valueMax: number
+        visibleMin: number
+        visibleMax: number
+    },
+    fields: readonly (keyof T)[],
+): IndicatorVisibleStateComposer {
+    return ({ bundle, visibleRange, timestamp, active }) => {
+        const source = getPointArraySeriesBundle<T>(bundle, bundleKey)
+        if (!active) {
+            return {
+                ...emptyState,
+                timestamp,
+                series: source.series,
+                params: source.params,
+            }
+        }
+
+        const extremes = calcPointArrayExtremes(source.series, fields, visibleRange)
+        return {
+            timestamp,
+            series: source.series,
+            params: source.params,
+            valueMin: extremes.min,
+            valueMax: extremes.max,
+            visibleMin: extremes.min,
+            visibleMax: extremes.max,
+        }
+    }
+}
+
+export function createFixedUnitVisibleStateComposer(
+    bundleKey: string,
+    emptyState: {
+        timestamp: number
+        series: unknown
+        params: unknown
+        valueMin: number
+        valueMax: number
+        visibleMin: number
+        visibleMax: number
+    },
+): IndicatorVisibleStateComposer {
+    return ({ bundle, timestamp, active }) => {
+        const source = (bundle as unknown as Record<string, { series: unknown; params: unknown }>)[bundleKey]!
+        if (!active) {
+            return {
+                ...emptyState,
+                timestamp,
+                series: source.series,
+                params: source.params,
+            }
+        }
+
+        return {
+            timestamp,
+            series: source.series,
+            params: source.params,
+            valueMin: 0,
+            valueMax: 1,
+            visibleMin: 0,
+            visibleMax: 1,
+        }
+    }
+}
+
+export function createVolumeProfileVisibleStateComposer(
+    bundleKey: string,
+    emptyState: {
+        timestamp: number
+        series: unknown
+        params: unknown
+        valueMin: number
+        valueMax: number
+        visibleMin: number
+        visibleMax: number
+    },
+): IndicatorVisibleStateComposer {
+    return ({ bundle, timestamp, active }) => {
+        const source = (bundle as unknown as Record<string, { series: { bins: { priceLow: number; priceHigh: number }[]; val: number; vah: number; poc: number }; params: unknown }>)[bundleKey]!
+        if (!active) {
+            return {
+                ...emptyState,
+                timestamp,
+                series: source.series,
+                params: source.params,
+            }
+        }
+
+        const bins = source.series.bins
+        return {
+            timestamp,
+            series: source.series,
+            params: source.params,
+            valueMin: bins[0]?.priceLow ?? 0,
+            valueMax: bins[bins.length - 1]?.priceHigh ?? 1,
+            visibleMin: source.series.val,
+            visibleMax: source.series.vah,
         }
     }
 }

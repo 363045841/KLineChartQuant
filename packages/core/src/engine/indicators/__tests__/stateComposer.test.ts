@@ -284,4 +284,143 @@ describe('stateComposer', () => {
     expect(states.trix.valueMax).toBeCloseTo(3.25)
     expect((states.trix as any).signalSeries).toBe(bundle.trix.signalSeries)
   })
+
+  it('applies symmetric abs padding for MACD via metadata composer', () => {
+    const bundle = createBundle()
+    bundle.macd.series = [{ dif: -2, dea: 1, macd: 4 }]
+    bundle.macd.params = { fastPeriod: 12, slowPeriod: 26, signalPeriod: 9, showDIF: true, showDEA: true, showBAR: true } as never
+    const timestamp = 1000
+    const visibleRange = { start: 0, end: 1 }
+
+    const states = composeVisibleSubIndicatorStates(bundle, visibleRange, timestamp, { macd: true })
+
+    expect(states.macd.visibleMin).toBe(-2)
+    expect(states.macd.visibleMax).toBe(4)
+    expect(states.macd.valueMin).toBeCloseTo(-2.4)
+    expect(states.macd.valueMax).toBeCloseTo(4.4)
+  })
+
+  it('sets MACD latestValues via metadata composer', () => {
+    const bundle = createBundle()
+    bundle.macd.series = [{ dif: -2, dea: 1, macd: 4 }, { dif: -1, dea: 2, macd: 5 }]
+    bundle.macd.params = { fastPeriod: 12, slowPeriod: 26, signalPeriod: 9, showDIF: true, showDEA: true, showBAR: true } as never
+    const timestamp = 1000
+    const visibleRange = { start: 0, end: 2 }
+
+    const states = composeVisibleSubIndicatorStates(bundle, visibleRange, timestamp, { macd: true })
+
+    expect(states.macd.latestValues).toEqual({ dif: -1, dea: 2, macd: 5 })
+  })
+
+  it('preserves empty MACD state when MACD is inactive via metadata composer', () => {
+    const bundle = createBundle()
+    bundle.macd.series = [{ dif: -2, dea: 1, macd: 4 }]
+    bundle.macd.params = { fastPeriod: 12, slowPeriod: 26, signalPeriod: 9, showDIF: true, showDEA: true, showBAR: true } as never
+    const timestamp = 1000
+    const visibleRange = { start: 0, end: 1 }
+
+    const states = composeVisibleSubIndicatorStates(bundle, visibleRange, timestamp, { macd: false })
+
+    expect(states.macd.valueMin).toBe(-Infinity)
+    expect(states.macd.valueMax).toBe(Infinity)
+    expect(states.macd.series).toBe(bundle.macd.series)
+    expect(states.macd.params).toBe(bundle.macd.params)
+    expect(states.macd.timestamp).toBe(timestamp)
+    expect(states.macd.latestValues).toBeUndefined()
+  })
+
+  it('falls back to hardcoded MACD state when metadata is missing', () => {
+    const bundle = createBundle()
+    bundle.macd.series = [{ dif: -2, dea: 1, macd: 4 }]
+    bundle.macd.params = { fastPeriod: 12, slowPeriod: 26, signalPeriod: 9, showDIF: true, showDEA: true, showBAR: true } as never
+    const visibleRange = { start: 0, end: 1 }
+
+    const states = composeVisibleSubIndicatorStates(bundle, visibleRange, 2000, { macd: true })
+
+    expect(states.macd.visibleMin).toBe(-2)
+    expect(states.macd.visibleMax).toBe(4)
+    expect(states.macd.valueMin).toBeCloseTo(-2.4)
+    expect(states.macd.valueMax).toBeCloseTo(4.4)
+    expect(states.macd.latestValues).toEqual({ dif: -2, dea: 1, macd: 4 })
+  })
+
+  it('applies maFamilyBounds padding for value-point overlay via metadata composer (sar)', () => {
+    const bundle = createBundle()
+    bundle.sar.series = [{ value: 5, trend: 'up' as const }, { value: 15, trend: 'up' as const }]
+    bundle.sar.params = { period: 20, maxPeriod: 22, minPeriod: 2, af: 0.02, afMax: 0.2, showSAR: true } as never
+    const timestamp = 1000
+    const visibleRange = { start: 0, end: 2 }
+
+    const states = composeVisibleSubIndicatorStates(bundle, visibleRange, timestamp, { sar: true })
+
+    expect(states.sar.visibleMin).toBe(5)
+    expect(states.sar.visibleMax).toBe(15)
+    expect(states.sar.valueMin).toBeCloseTo(4.5)
+    expect(states.sar.valueMax).toBeCloseTo(15.5)
+  })
+
+  it('applies maFamilyBounds padding for band overlay via metadata composer (keltner)', () => {
+    const bundle = createBundle()
+    bundle.keltner.series = [{ upper: 20, middle: 15, lower: 10 }]
+    bundle.keltner.params = { period: 20, multiplier: 2, showKeltner: true, showMiddle: true } as never
+    const timestamp = 1000
+    const visibleRange = { start: 0, end: 1 }
+
+    const states = composeVisibleSubIndicatorStates(bundle, visibleRange, timestamp, { keltner: true })
+
+    expect(states.keltner.visibleMin).toBe(10)
+    expect(states.keltner.visibleMax).toBe(20)
+    expect(states.keltner.valueMin).toBeCloseTo(9.5)
+    expect(states.keltner.valueMax).toBeCloseTo(20.5)
+  })
+
+  it('applies exact extremes for pivot overlay via metadata composer', () => {
+    const bundle = createBundle()
+    bundle.pivot.series = [{ pp: 100, r1: 105, r2: 110, r3: 115, s1: 95, s2: 90, s3: 85 }]
+    bundle.pivot.params = { showPivot: true, showR1: true, showS1: true } as never
+    const timestamp = 1000
+    const visibleRange = { start: 0, end: 1 }
+
+    const states = composeVisibleSubIndicatorStates(bundle, visibleRange, timestamp, { pivot: true })
+
+    expect(states.pivot.visibleMin).toBe(85)
+    expect(states.pivot.visibleMax).toBe(115)
+    expect(states.pivot.valueMin).toBe(85)
+    expect(states.pivot.valueMax).toBe(115)
+  })
+
+  it('uses fixed unit range for structure overlay via metadata composer', () => {
+    const bundle = createBundle()
+    bundle.structure.series = { swings: [], breakouts: [] }
+    bundle.structure.params = { showStructure: true } as never
+    const timestamp = 1000
+    const visibleRange = { start: 0, end: 1 }
+
+    const states = composeVisibleSubIndicatorStates(bundle, visibleRange, timestamp, { structure: true })
+
+    expect(states.structure.valueMin).toBe(0)
+    expect(states.structure.valueMax).toBe(1)
+    expect(states.structure.visibleMin).toBe(0)
+    expect(states.structure.visibleMax).toBe(1)
+  })
+
+  it('derives volumeProfile range from bins and val/vah via metadata composer', () => {
+    const bundle = createBundle()
+    bundle.volumeProfile.series = {
+      bins: [{ priceLow: 95, priceHigh: 105, volume: 10, poc: false }],
+      vah: 103,
+      val: 97,
+      poc: 100,
+    }
+    bundle.volumeProfile.params = { showVolumeProfile: true } as never
+    const timestamp = 1000
+    const visibleRange = { start: 0, end: 1 }
+
+    const states = composeVisibleSubIndicatorStates(bundle, visibleRange, timestamp, { volumeProfile: true })
+
+    expect(states.volumeProfile.valueMin).toBe(95)
+    expect(states.volumeProfile.valueMax).toBe(105)
+    expect(states.volumeProfile.visibleMin).toBe(97)
+    expect(states.volumeProfile.visibleMax).toBe(103)
+  })
 })

@@ -226,6 +226,17 @@ const METADATA_VISIBLE_STATE_INDICATOR_IDS = [
     'parkinson',
     'trix',
     'vma',
+    'macd',
+    'sar',
+    'supertrend',
+    'keltner',
+    'donchian',
+    'ichimoku',
+    'pivot',
+    'fib',
+    'structure',
+    'zones',
+    'volumeProfile',
 ] as const satisfies readonly (keyof VisibleSubIndicatorStates)[]
 
 function getLatestMACDPoint(bundle: IndicatorSeriesBundle, visibleRange: VisibleRange) {

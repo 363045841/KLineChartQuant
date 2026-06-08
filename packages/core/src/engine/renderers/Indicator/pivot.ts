@@ -1,10 +1,11 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { PivotRenderState } from '../../indicators/pivotState'
-import { createPivotStateKey } from '../../indicators/pivotState'
+import { createPivotStateKey, EMPTY_PIVOT_STATE } from '../../indicators/pivotState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, PivotSchedulerConfig } from '../../indicators/scheduler'
+import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 
 const PP_COLOR = '#94a3b8'
 const R_COLOR = '#dc2626'
@@ -124,6 +125,7 @@ function drawStep(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     allowMainPane: true,
     mainPane: { rendererName: 'pivot_main', toActiveConfig: (params, active) => ({ ...params, showPP: active, showR1: active, showR2: active, showR3: active, showS1: active, showS2: active, showS3: active }) },
     scale: { indicatorKey: 'pivot', label: 'Pivot', decimals: 2 },
+    visibleState: { compose: createExactRangePointVisibleStateComposer('pivot', EMPTY_PIVOT_STATE, ['pp', 'r1', 'r2', 'r3', 's1', 's2', 's3']) },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updatePivotConfig(params as Partial<PivotSchedulerConfig>, paneId)
     },

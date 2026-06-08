@@ -346,4 +346,20 @@ describe('builtin indicator registration', () => {
       expect(getRegisteredIndicatorDefinition(id)?.visibleState?.compose).toBeTypeOf('function')
     }
   })
+
+  it('registers visible state composer metadata for stage 8C-D1 MACD indicator', () => {
+    expect(getRegisteredIndicatorDefinition('MACD')?.visibleState?.compose).toBeTypeOf('function')
+  })
+
+  it('registers visible state composer metadata for stage 8C-D2 overlay indicators', () => {
+    for (const id of ['SAR', 'SUPERTREND', 'KELTNER', 'DONCHIAN', 'ICHIMOKU', 'PIVOT', 'FIB']) {
+      expect(getRegisteredIndicatorDefinition(id)?.visibleState?.compose).toBeTypeOf('function')
+    }
+  })
+
+  it('registers visible state composer metadata for stage 8C-D2-B structure indicators', () => {
+    for (const id of ['STRUCTURE', 'ZONES', 'VOLUME_PROFILE']) {
+      expect(getRegisteredIndicatorDefinition(id)?.visibleState?.compose).toBeTypeOf('function')
+    }
+  })
 })
