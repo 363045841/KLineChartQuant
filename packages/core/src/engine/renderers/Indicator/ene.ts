@@ -262,6 +262,7 @@ export function createENERendererPlugin(): RendererPluginWithHost {
     category: 'main',
     stateKey: ENE_STATE_KEY,
     defaultPaneId: 'main',
+    mainPane: { rendererName: 'ene' },
     applyResult: (host, state, _paneId) => {
         host.setSharedState(ENE_STATE_KEY, state as any, 'indicator_scheduler')
     },

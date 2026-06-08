@@ -152,4 +152,25 @@ describe('builtin indicator registration', () => {
     const definition = getRegisteredIndicatorDefinition('WMA')
     expect(definition?.scale).toBeDefined()
   })
+
+  it('registers main pane renderer metadata for stage 6A-1 indicators', () => {
+    const expected: Record<string, string> = {
+      MA: 'ma',
+      BOLL: 'boll',
+      EXPMA: 'expma',
+      ENE: 'ene',
+    }
+
+    for (const [id, rendererName] of Object.entries(expected)) {
+      expect(getRegisteredIndicatorDefinition(id)?.mainPane?.rendererName).toBe(rendererName)
+    }
+  })
+
+  it('creates main pane renderers through stage 6A-1 metadata factories', () => {
+    const maRenderer = getRegisteredIndicatorDefinition('MA')?.rendererFactory({ paneId: 'main', indicatorId: 'MA' })
+    const bollRenderer = getRegisteredIndicatorDefinition('BOLL')?.rendererFactory({ paneId: 'main', indicatorId: 'BOLL' })
+
+    expect(maRenderer?.name).toBe('ma')
+    expect(bollRenderer?.name).toBe('boll')
+  })
 })

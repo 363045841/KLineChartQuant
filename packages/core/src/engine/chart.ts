@@ -421,6 +421,20 @@ export class Chart {
      * 启用主图指标渲染器（内部方法）
      */
     private enableMainIndicatorRenderer(indicatorId: string): void {
+        const definition = this.indicatorScheduler.getIndicatorMetadata(indicatorId)
+        const mainPane = definition?.mainPane
+        if (definition && mainPane) {
+            if (!this.getRenderer(mainPane.rendererName)) {
+                this.useRenderer(definition.rendererFactory({ paneId: 'main', indicatorId }))
+            }
+            this.setRendererEnabled(mainPane.rendererName, true)
+
+            if (!this.getRenderer('mainIndicatorLegend')) {
+                this.useRenderer(createMainIndicatorLegendRendererPlugin({ yPaddingPx: this.opt.yPaddingPx }))
+            }
+            return
+        }
+
         const rendererMap: Record<string, () => void> = {
             'MA': () => {
                 if (!this.getRenderer('ma')) {
@@ -545,6 +559,12 @@ export class Chart {
      * 禁用主图指标渲染器（内部方法）
      */
     private disableMainIndicatorRenderer(indicatorId: string): void {
+        const rendererNameFromMetadata = this.indicatorScheduler.getIndicatorMetadata(indicatorId)?.mainPane?.rendererName
+        if (rendererNameFromMetadata) {
+            this.setRendererEnabled(rendererNameFromMetadata, false)
+            return
+        }
+
         const rendererMap: Record<string, string> = {
             'MA': 'ma',
             'BOLL': 'boll',

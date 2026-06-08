@@ -56,6 +56,7 @@ function getMAStateKey(host: PluginHost | null): string | null {
     category: 'main',
     stateKey: MA_STATE_KEY,
     defaultPaneId: 'main',
+    mainPane: { rendererName: 'ma' },
     applyResult: (host, state, _paneId) => {
         host.setSharedState(MA_STATE_KEY, state as any, 'ma_scheduler')
     },
