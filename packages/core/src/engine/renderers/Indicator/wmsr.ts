@@ -3,8 +3,9 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import { resolveThemeColors } from '../../../tokens'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
 import type { WMSRRenderState } from '../../indicators/wmsrState'
-import { createWMSRStateKey } from '../../indicators/wmsrState'
+import { createWMSRStateKey, EMPTY_WMSR_STATE } from '../../indicators/wmsrState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, WMSRSchedulerConfig } from '../../indicators/scheduler'
 import { createWmsrScaleRendererPlugin } from './scale/wmsr_scale'
@@ -321,6 +322,7 @@ export function getWMSRTitleInfo(
     stateKey: createWMSRStateKey,
     defaultPaneId: 'sub_WMSR',
     paneIdField: 'wmsrPaneId',
+    visibleState: { compose: createFixedRangeSparseVisibleStateComposer('wmsr', EMPTY_WMSR_STATE) },
     scaleRendererFactory: createWmsrScaleRendererPlugin,
     updateConfig: (scheduler, params, paneId) => {
     (scheduler as IndicatorScheduler).updateWMSRConfig(params as Partial<WMSRSchedulerConfig>, paneId)

@@ -213,6 +213,12 @@ const METADATA_VISIBLE_STATE_INDICATOR_IDS = [
     'obv',
     'pvt',
     'vwap',
+    'rsi',
+    'stoch',
+    'fastk',
+    'mfi',
+    'wmsr',
+    'cmf',
 ] as const satisfies readonly (keyof VisibleSubIndicatorStates)[]
 
 function getLatestMACDPoint(bundle: IndicatorSeriesBundle, visibleRange: VisibleRange) {

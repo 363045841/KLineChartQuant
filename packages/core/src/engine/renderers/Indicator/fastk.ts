@@ -3,8 +3,9 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import { resolveThemeColors } from '../../../tokens'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
 import type { FASTKRenderState } from '../../indicators/fastkState'
-import { createFASTKStateKey } from '../../indicators/fastkState'
+import { createFASTKStateKey, EMPTY_FASTK_STATE } from '../../indicators/fastkState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, FASTKSchedulerConfig } from '../../indicators/scheduler'
 import { createFastkScaleRendererPlugin } from './scale/fastk_scale'
@@ -309,6 +310,7 @@ export function getFASTKTitleInfo(
     stateKey: createFASTKStateKey,
     defaultPaneId: 'sub_FASTK',
     paneIdField: 'fastkPaneId',
+    visibleState: { compose: createFixedRangeSparseVisibleStateComposer('fastk', EMPTY_FASTK_STATE) },
     scaleRendererFactory: createFastkScaleRendererPlugin,
     updateConfig: (scheduler, params, paneId) => {
     (scheduler as IndicatorScheduler).updateFASTKConfig(params as Partial<FASTKSchedulerConfig>, paneId)

@@ -196,4 +196,30 @@ describe('stateComposer', () => {
     expect(states.wma.visibleMin).toBe(10)
     expect(states.wma.visibleMax).toBe(12)
   })
+
+  it('routes 8C-B indicators through metadata visible state composer', () => {
+    const bundle = createBundle()
+    const timestamp = 1000
+    const visibleRange = { start: 1, end: 4 }
+    const fastkState = { timestamp, series: [undefined, 10], params: { period: 9, showFASTK: true }, valueMin: 0, valueMax: 100, visibleMin: 10, visibleMax: 10 }
+
+    const definition = createVisibleStateDefinition('fastk', fastkState)
+    const states = composeVisibleSubIndicatorStates(bundle, visibleRange, timestamp, { fastk: true }, (id) => id === 'fastk' ? definition : undefined)
+
+    expect(states.fastk).toBe(fastkState)
+    expect(definition.visibleState?.compose).toHaveBeenCalledWith({ bundle, visibleRange, timestamp, active: true })
+  })
+
+  it('falls back to hardcoded state for 8C-B when metadata is missing', () => {
+    const bundle = createBundle()
+    bundle.fastk.series = [undefined, 15, 25]
+    bundle.fastk.params = { period: 9, showFASTK: true } as never
+
+    const states = composeVisibleSubIndicatorStates(bundle, { start: 1, end: 3 }, 2000)
+
+    expect(states.fastk.valueMin).toBe(0)
+    expect(states.fastk.valueMax).toBe(100)
+    expect(states.fastk.visibleMin).toBe(15)
+    expect(states.fastk.visibleMax).toBe(25)
+  })
 })

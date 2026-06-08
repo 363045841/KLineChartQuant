@@ -1,8 +1,9 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { CMFRenderState } from '../../indicators/cmfState'
-import { createCMFStateKey } from '../../indicators/cmfState'
+import { createCMFStateKey, EMPTY_CMF_STATE } from '../../indicators/cmfState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, CMFSchedulerConfig } from '../../indicators/scheduler'
 
@@ -128,6 +129,7 @@ export function createCMFRendererPlugin(options: { paneId?: string } = {}): Rend
     stateKey: createCMFStateKey,
     defaultPaneId: 'sub_CMF',
     paneIdField: 'cmfPaneId',
+    visibleState: { compose: createFixedRangeSparseVisibleStateComposer('cmf', EMPTY_CMF_STATE) },
     scale: { indicatorKey: 'cmf', label: 'CMF', decimals: 4 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateCMFConfig(params as Partial<CMFSchedulerConfig>, paneId)

@@ -334,4 +334,10 @@ describe('builtin indicator registration', () => {
       expect(getRegisteredIndicatorDefinition(id)?.visibleState?.compose).toBeTypeOf('function')
     }
   })
+
+  it('registers visible state composer metadata for stage 8C-B indicators', () => {
+    for (const id of ['RSI', 'STOCH', 'FASTK', 'MFI', 'WMSR', 'CMF']) {
+      expect(getRegisteredIndicatorDefinition(id)?.visibleState?.compose).toBeTypeOf('function')
+    }
+  })
 })
