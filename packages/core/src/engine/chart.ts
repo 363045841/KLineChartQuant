@@ -11,7 +11,7 @@ import { MarkerManager, type CustomMarkerEntity } from './marker/registry'
 import { getPhysicalKLineConfig, calcKWidthPx } from './utils/klineConfig'
 import { computeZoom, computeZoomToLevel, type ZoomConfig } from './utils/zoom'
 import { IndicatorScheduler } from './indicators/scheduler'
-import { getRegisteredIndicatorDefinitions } from './indicators/indicatorDefinitionRegistry'
+import { getBuiltinIndicatorDefinitions } from './indicators/registerBuiltins'
 import { SubPaneManager, type SubPaneEntry } from './subPaneManager'
 
 import {
@@ -709,7 +709,7 @@ export class Chart {
         // 初始化指标调度器
         this.indicatorScheduler = new IndicatorScheduler()
         this.indicatorScheduler.setPluginHost(this.pluginHost)
-        for (const definition of getRegisteredIndicatorDefinitions()) {
+        for (const definition of getBuiltinIndicatorDefinitions()) {
             this.indicatorScheduler.registerIndicator(definition)
         }
         this.indicatorScheduler.setInvalidateCallback(() => this.scheduleDraw())
