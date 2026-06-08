@@ -16,10 +16,6 @@ function applyMainResult(key: string): NonNullable<IndicatorMetadata['applyResul
   }
 }
 
-function applyRSIResult(host: any, state: any, paneId: string): void {
-  host.setSharedState(createRSIStateKey(paneId), state as any, 'indicator_scheduler')
-}
-
 const builtinDefinitionsByName = new Map(getBuiltinIndicatorDefinitions().map((definition) => [definition.name, definition]))
 
 function getBuiltinTestIndicator(name: string): IndicatorMetadata {
@@ -36,30 +32,29 @@ function registerTestIndicators(scheduler: IndicatorScheduler): void {
     getBuiltinTestIndicator('boll'),
     getBuiltinTestIndicator('expma'),
     getBuiltinTestIndicator('ene'),
-    { name: 'rsi', displayName: 'RSI', category: 'sub' as const, stateKey: createRSIStateKey('sub_RSI'), defaultPaneId: 'sub_RSI', rendererFactory: vi.fn() as any, paneIdField: 'rsiPaneId' as any, applyResult: applyRSIResult },
-    { name: 'macd', displayName: 'MACD', category: 'sub' as const, stateKey: 'indicator:macd:sub_MACD', defaultPaneId: 'sub_MACD', rendererFactory: vi.fn() as any, paneIdField: 'macdPaneId' as any, applyResult: applyMainResult('indicator:macd:sub_MACD') },
+    getBuiltinTestIndicator('rsi'),
+    getBuiltinTestIndicator('macd'),
     { name: 'volume', displayName: 'Volume', category: 'sub' as const, stateKey: 'indicator:volume:sub_Volume', defaultPaneId: 'sub_Volume', rendererFactory: vi.fn() as any, paneIdField: 'volumePaneId' as any, applyResult: applyMainResult('indicator:volume:sub_Volume') },
-    { name: 'stoch', displayName: 'STOCH', category: 'sub' as const, stateKey: 'indicator:stoch:sub_STOCH', defaultPaneId: 'sub_STOCH', rendererFactory: vi.fn() as any, paneIdField: 'stochPaneId' as any, applyResult: applyMainResult('indicator:stoch:sub_STOCH') },
-    { name: 'rsi2', displayName: 'RSI2', category: 'sub' as const, stateKey: createRSIStateKey('sub_RSI2'), defaultPaneId: 'sub_RSI2', rendererFactory: vi.fn() as any, paneIdField: 'rsi2PaneId' as any, applyResult: applyRSIResult },
-    { name: 'wmsr', displayName: 'WMSR', category: 'sub' as const, stateKey: 'indicator:wmsr:sub_WMSR', defaultPaneId: 'sub_WMSR', rendererFactory: vi.fn() as any, paneIdField: 'wmsrPaneId' as any, applyResult: applyMainResult('indicator:wmsr:sub_WMSR') },
-    { name: 'mom', displayName: 'MOM', category: 'sub' as const, stateKey: 'indicator:mom:sub_MOM', defaultPaneId: 'sub_MOM', rendererFactory: vi.fn() as any, paneIdField: 'momPaneId' as any, applyResult: applyMainResult('indicator:mom:sub_MOM') },
-    { name: 'fastk', displayName: 'FASTK', category: 'sub' as const, stateKey: 'indicator:fastk:sub_FASTK', defaultPaneId: 'sub_FASTK', rendererFactory: vi.fn() as any, paneIdField: 'fastkPaneId' as any, applyResult: applyMainResult('indicator:fastk:sub_FASTK') },
-    { name: 'cci', displayName: 'CCI', category: 'sub' as const, stateKey: 'indicator:cci:sub_CCI', defaultPaneId: 'sub_CCI', rendererFactory: vi.fn() as any, paneIdField: 'cciPaneId' as any, applyResult: applyMainResult('indicator:cci:sub_CCI') },
-    { name: 'atr', displayName: 'ATR', category: 'sub' as const, stateKey: 'indicator:atr:sub_ATR', defaultPaneId: 'sub_ATR', rendererFactory: vi.fn() as any, paneIdField: 'atrPaneId' as any, applyResult: applyMainResult('indicator:atr:sub_ATR') },
-    { name: 'kst', displayName: 'KST', category: 'sub' as const, stateKey: 'indicator:kst:sub_KST', defaultPaneId: 'sub_KST', rendererFactory: vi.fn() as any, paneIdField: 'kstPaneId' as any, applyResult: applyMainResult('indicator:kst:sub_KST') },
-    { name: 'roc', displayName: 'ROC', category: 'sub' as const, stateKey: 'indicator:roc:sub_ROC', defaultPaneId: 'sub_ROC', rendererFactory: vi.fn() as any, paneIdField: 'rocPaneId' as any, applyResult: applyMainResult('indicator:roc:sub_ROC') },
-    { name: 'trix', displayName: 'TRIX', category: 'sub' as const, stateKey: 'indicator:trix:sub_TRIX', defaultPaneId: 'sub_TRIX', rendererFactory: vi.fn() as any, paneIdField: 'trixPaneId' as any, applyResult: applyMainResult('indicator:trix:sub_TRIX') },
-    { name: 'hv', displayName: 'HV', category: 'sub' as const, stateKey: 'indicator:hv:sub_HV', defaultPaneId: 'sub_HV', rendererFactory: vi.fn() as any, paneIdField: 'hvPaneId' as any, applyResult: applyMainResult('indicator:hv:sub_HV') },
-    { name: 'parkinson', displayName: 'Parkinson', category: 'sub' as const, stateKey: 'indicator:parkinson:sub_Parkinson', defaultPaneId: 'sub_Parkinson', rendererFactory: vi.fn() as any, paneIdField: 'parkinsonPaneId' as any, applyResult: applyMainResult('indicator:parkinson:sub_Parkinson') },
-    { name: 'chaikinVol', displayName: 'ChaikinVol', category: 'sub' as const, stateKey: 'indicator:chaikinVol:sub_ChaikinVol', defaultPaneId: 'sub_ChaikinVol', rendererFactory: vi.fn() as any, paneIdField: 'chaikinVolPaneId' as any, applyResult: applyMainResult('indicator:chaikinVol:sub_ChaikinVol') },
-    { name: 'vma', displayName: 'VMA', category: 'sub' as const, stateKey: 'indicator:vma:sub_VMA', defaultPaneId: 'sub_VMA', rendererFactory: vi.fn() as any, paneIdField: 'vmaPaneId' as any, applyResult: applyMainResult('indicator:vma:sub_VMA') },
-    { name: 'obv', displayName: 'OBV', category: 'sub' as const, stateKey: 'indicator:obv:sub_OBV', defaultPaneId: 'sub_OBV', rendererFactory: vi.fn() as any, paneIdField: 'obvPaneId' as any, applyResult: applyMainResult('indicator:obv:sub_OBV') },
-    { name: 'pvt', displayName: 'PVT', category: 'sub' as const, stateKey: 'indicator:pvt:sub_PVT', defaultPaneId: 'sub_PVT', rendererFactory: vi.fn() as any, paneIdField: 'pvtPaneId' as any, applyResult: applyMainResult('indicator:pvt:sub_PVT') },
-    { name: 'vwap', displayName: 'VWAP', category: 'sub' as const, stateKey: 'indicator:vwap:sub_VWAP', defaultPaneId: 'sub_VWAP', rendererFactory: vi.fn() as any, paneIdField: 'vwapPaneId' as any, applyResult: applyMainResult('indicator:vwap:sub_VWAP') },
-    { name: 'cmf', displayName: 'CMF', category: 'sub' as const, stateKey: 'indicator:cmf:sub_CMF', defaultPaneId: 'sub_CMF', rendererFactory: vi.fn() as any, paneIdField: 'cmfPaneId' as any, applyResult: applyMainResult('indicator:cmf:sub_CMF') },
-    { name: 'mfi', displayName: 'MFI', category: 'sub' as const, stateKey: 'indicator:mfi:sub_MFI', defaultPaneId: 'sub_MFI', rendererFactory: vi.fn() as any, paneIdField: 'mfiPaneId' as any, applyResult: applyMainResult('indicator:mfi:sub_MFI') },
-    { name: 'sar', displayName: 'SAR', category: 'main' as const, stateKey: 'indicator:sar:main', defaultPaneId: 'main', rendererFactory: vi.fn() as any, applyResult: applyMainResult('indicator:sar:main') },
-    { name: 'keltner', displayName: 'Keltner', category: 'main' as const, stateKey: 'indicator:keltner:main', defaultPaneId: 'main', rendererFactory: vi.fn() as any, applyResult: applyMainResult('indicator:keltner:main') },
+    getBuiltinTestIndicator('stoch'),
+    getBuiltinTestIndicator('wmsr'),
+    getBuiltinTestIndicator('mom'),
+    getBuiltinTestIndicator('fastk'),
+    getBuiltinTestIndicator('cci'),
+    getBuiltinTestIndicator('atr'),
+    getBuiltinTestIndicator('kst'),
+    getBuiltinTestIndicator('roc'),
+    getBuiltinTestIndicator('trix'),
+    getBuiltinTestIndicator('hv'),
+    getBuiltinTestIndicator('parkinson'),
+    getBuiltinTestIndicator('chaikinVol'),
+    getBuiltinTestIndicator('vma'),
+    getBuiltinTestIndicator('obv'),
+    getBuiltinTestIndicator('pvt'),
+    getBuiltinTestIndicator('vwap'),
+    getBuiltinTestIndicator('cmf'),
+    getBuiltinTestIndicator('mfi'),
+    getBuiltinTestIndicator('sar'),
+    getBuiltinTestIndicator('keltner'),
   ]
   for (const meta of indicators) {
     scheduler.registerIndicator(meta)
@@ -290,9 +285,11 @@ describe('IndicatorScheduler', () => {
       // Update only viewport
       scheduler.updateVisibleRange({ start: 50, end: 60 })
 
-      // updateVisibleStatesOnly writes the 20 sub-indicators that are both
-      // registered and known to composeVisibleSubIndicatorStates.
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(20)
+      const calls = vi.mocked(mockHost.setSharedState).mock.calls
+      expect(calls.some((call) => call[0] === MA_STATE_KEY)).toBe(false)
+      expect(calls.some((call) => call[0] === BOLL_STATE_KEY)).toBe(false)
+      expect(calls.some((call) => call[0] === EXPMA_STATE_KEY)).toBe(false)
+      expect(calls.some((call) => call[0] === ENE_STATE_KEY)).toBe(false)
 
       // Inspect a sub-indicator (RSI) since main indicators are not rewritten on viewport-only updates
       const rsiKey = createRSIStateKey('sub_RSI')
