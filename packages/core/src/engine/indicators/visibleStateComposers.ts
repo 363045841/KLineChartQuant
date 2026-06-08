@@ -85,23 +85,11 @@ type RecordIndicatorSeries = {
     params: unknown
 }
 
-type PointIndicatorSeries<T extends Record<string, number>> = {
-    series: T
-    params: unknown
-}
-
 function getRecordSeriesBundle(
     bundle: IndicatorSeriesBundle,
     bundleKey: string,
 ): RecordIndicatorSeries {
     return (bundle as unknown as Record<string, RecordIndicatorSeries>)[bundleKey]!
-}
-
-function getPointSeriesBundle<T extends Record<string, number>>(
-    bundle: IndicatorSeriesBundle,
-    bundleKey: string,
-): PointIndicatorSeries<T> {
-    return (bundle as unknown as Record<string, PointIndicatorSeries<T>>)[bundleKey]!
 }
 
 function calcRecordExtremes(
@@ -120,22 +108,6 @@ function calcRecordExtremes(
                 min = Math.min(min, v)
                 max = Math.max(max, v)
             }
-        }
-    }
-    return { min, max }
-}
-
-function calcPointExtremes<T extends Record<string, number>>(
-    series: T,
-    fields: readonly (keyof T)[],
-): { min: number; max: number } {
-    let min = Infinity
-    let max = -Infinity
-    for (const field of fields) {
-        const v = series[field]
-        if (v !== undefined && Number.isFinite(v)) {
-            min = Math.min(min, v as number)
-            max = Math.max(max, v as number)
         }
     }
     return { min, max }
@@ -216,11 +188,11 @@ export function createFixedRangeRecordVisibleStateComposer(
     }
 }
 
-export function createFixedRangePointVisibleStateComposer<T extends Record<string, number>>(
+export function createFixedRangePointVisibleStateComposer<T extends object>(
     bundleKey: string,
     emptyState: {
         timestamp: number
-        series: T
+        series: (T | undefined)[]
         params: unknown
         valueMin: number
         valueMax: number
@@ -229,8 +201,8 @@ export function createFixedRangePointVisibleStateComposer<T extends Record<strin
     },
     fields: readonly (keyof T)[],
 ): IndicatorVisibleStateComposer {
-    return ({ bundle, visibleRange: _visibleRange, timestamp, active }) => {
-        const source = getPointSeriesBundle<T>(bundle, bundleKey)
+    return ({ bundle, visibleRange, timestamp, active }) => {
+        const source = getPointArraySeriesBundle<T>(bundle, bundleKey)
         if (!active) {
             return {
                 ...emptyState,
@@ -240,7 +212,7 @@ export function createFixedRangePointVisibleStateComposer<T extends Record<strin
             }
         }
 
-        const extremes = calcPointExtremes(source.series, fields)
+        const extremes = calcPointArrayExtremes(source.series, fields, visibleRange)
         return {
             timestamp,
             series: source.series,
@@ -266,15 +238,15 @@ function getDualSparseSeriesBundle(
     return (bundle as unknown as Record<string, DualSparseIndicatorSeries>)[bundleKey]!
 }
 
-function getPointArraySeriesBundle<T extends Record<string, number>>(
+function getPointArraySeriesBundle<T extends object>(
     bundle: IndicatorSeriesBundle,
     bundleKey: string,
-): { series: T[]; params: unknown } {
-    return (bundle as unknown as Record<string, { series: T[]; params: unknown }>)[bundleKey]!
+): { series: (T | undefined)[]; params: unknown } {
+    return (bundle as unknown as Record<string, { series: (T | undefined)[]; params: unknown }>)[bundleKey]!
 }
 
-function calcPointArrayExtremes<T extends Record<string, number>>(
-    series: T[],
+function calcPointArrayExtremes<T extends object>(
+    series: (T | undefined)[],
     fields: readonly (keyof T)[],
     range: { start: number; end: number },
 ): { min: number; max: number } {
@@ -289,9 +261,9 @@ function calcPointArrayExtremes<T extends Record<string, number>>(
         if (p) {
             for (const field of fields) {
                 const v = p[field]
-                if (v !== undefined && Number.isFinite(v)) {
-                    min = Math.min(min, v as number)
-                    max = Math.max(max, v as number)
+                if (typeof v === 'number' && Number.isFinite(v)) {
+                    min = Math.min(min, v)
+                    max = Math.max(max, v)
                 }
             }
         }
@@ -350,11 +322,11 @@ export function createPaddedSparseVisibleStateComposer(
     }
 }
 
-export function createPaddedPointVisibleStateComposer<T extends Record<string, number>>(
+export function createPaddedPointVisibleStateComposer<T extends object>(
     bundleKey: string,
     emptyState: {
         timestamp: number
-        series: T[]
+        series: (T | undefined)[]
         params: unknown
         valueMin: number
         valueMax: number
@@ -529,11 +501,11 @@ export function createDualSparseVisibleStateComposer(
     }
 }
 
-export function createValuePointVisibleStateComposer<T extends Record<string, number>>(
+export function createValuePointVisibleStateComposer<T extends object>(
     bundleKey: string,
     emptyState: {
         timestamp: number
-        series: T[]
+        series: (T | undefined)[]
         params: unknown
         valueMin: number
         valueMax: number
@@ -570,11 +542,11 @@ export function createValuePointVisibleStateComposer<T extends Record<string, nu
     }
 }
 
-export function createBandVisibleStateComposer<T extends Record<string, number>>(
+export function createBandVisibleStateComposer<T extends object>(
     bundleKey: string,
     emptyState: {
         timestamp: number
-        series: T[]
+        series: (T | undefined)[]
         params: unknown
         valueMin: number
         valueMax: number
@@ -617,11 +589,11 @@ export function createBandVisibleStateComposer<T extends Record<string, number>>
     }
 }
 
-export function createExactRangePointVisibleStateComposer<T extends Record<string, number>>(
+export function createExactRangePointVisibleStateComposer<T extends object>(
     bundleKey: string,
     emptyState: {
         timestamp: number
-        series: T[]
+        series: (T | undefined)[]
         params: unknown
         valueMin: number
         valueMax: number
