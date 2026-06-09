@@ -1,6 +1,6 @@
 {
   "name": "@363045841yyt/klinechart",
-  "version": "0.7.12-alpha.1",
+  "version": "0.7.12",
   "description": "Vue 3 bindings for @363045841yyt/klinechart-core. Idiomatic composables, SFC components.",
   "license": "MIT",
   "repository": {

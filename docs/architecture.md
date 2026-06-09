@@ -224,7 +224,7 @@ type IndicatorVisibleStateComposer = (context: {
 
 ### 新增副图指标
 
-新增副图指标必须在 `@Indicator(...)` 中提供 `visibleState: { compose: ... }`，并将 ID 加入 `METADATA_VISIBLE_STATE_INDICATOR_IDS`。
+新增副图指标只需在 `@Indicator(...)` 中提供 `visibleState: { compose: ... }`，`stateComposer.ts` 通过 `getRegisteredIndicatorDefinitions()` 自动发现所有已注册指标，无需手动维护 ID 列表。
 
 ---
 
