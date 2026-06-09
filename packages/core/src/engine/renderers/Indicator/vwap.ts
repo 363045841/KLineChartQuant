@@ -115,7 +115,6 @@ export function createVWAPRendererPlugin(options: { paneId?: string } = {}): Ren
     category: 'volume',
     stateKey: createVWAPStateKey,
     defaultPaneId: 'sub_VWAP',
-    paneIdField: 'vwapPaneId',
     visibleState: { compose: createSparseVisibleStateComposer('vwap', EMPTY_VWAP_STATE) },
     scale: { indicatorKey: 'vwap', label: 'VWAP', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
@@ -126,7 +125,6 @@ export function createVWAPRendererPlugin(options: { paneId?: string } = {}): Ren
     },
     runtime: {
         configKey: 'vwap',
-        paneIdKey: 'vwapPaneId',
         defaultConfig: { sessionResetGapMs: 0, showVWAP: true },
         computeKey: 'calcVWAPData',
         compute: (data, c) => calcVWAPData(data, c.sessionResetGapMs),

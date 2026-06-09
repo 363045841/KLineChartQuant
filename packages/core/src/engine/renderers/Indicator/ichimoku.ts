@@ -173,7 +173,6 @@ function fillCloud(
     category: 'main',
     stateKey: createIchimokuStateKey,
     defaultPaneId: 'main',
-    paneIdField: 'ichimokuPaneId',
     allowMainPane: true,
     mainPane: { rendererName: 'ichimoku_main', toActiveConfig: (params, active) => ({ ...params, showTenkan: active, showKijun: active, showSpanA: active, showSpanB: active, showChikou: active, showCloud: active }) },
     scale: { indicatorKey: 'ichimoku', label: 'Ichimoku', decimals: 2 },
@@ -184,7 +183,7 @@ function fillCloud(
     applyResult: (host, state, paneId) => {
         host.setSharedState(createIchimokuStateKey(paneId), state as any, 'indicator_scheduler')
     },
-    runtime: { configKey:'ichimoku', paneIdKey:'ichimokuPaneId', defaultConfig:{tenkanPeriod:9,kijunPeriod:26,spanBPeriod:52,displacement:26,showTenkan:true,showKijun:true,showSpanA:true,showSpanB:true,showCloud:true,showChikou:true}, computeKey:'calcIchimokuData', compute:(data,c)=>calcIchimokuData(data,c.tenkanPeriod,c.kijunPeriod,c.spanBPeriod,c.displacement) },
+    runtime: { configKey:'ichimoku', defaultConfig:{tenkanPeriod:9,kijunPeriod:26,spanBPeriod:52,displacement:26,showTenkan:true,showKijun:true,showSpanA:true,showSpanB:true,showCloud:true,showChikou:true}, computeKey:'calcIchimokuData', compute:(data,c)=>calcIchimokuData(data,c.tenkanPeriod,c.kijunPeriod,c.spanBPeriod,c.displacement) },
 })
 class IchimokuDefinition {
     static rendererFactory = createIchimokuRendererPlugin

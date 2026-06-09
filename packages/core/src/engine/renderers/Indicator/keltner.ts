@@ -129,7 +129,6 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     category: 'main',
     stateKey: createKeltnerStateKey,
     defaultPaneId: 'main',
-    paneIdField: 'keltnerPaneId',
     allowMainPane: true,
     mainPane: { rendererName: 'keltner_main', toActiveConfig: (params, active) => ({ ...params, showUpper: active, showMiddle: active, showLower: active }) },
     scale: { indicatorKey: 'keltner', label: 'Keltner', decimals: 2 },
@@ -140,7 +139,7 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     applyResult: (host, state, paneId) => {
         host.setSharedState(createKeltnerStateKey(paneId), state as any, 'indicator_scheduler')
     },
-    runtime: { configKey:'keltner', paneIdKey:'keltnerPaneId', defaultConfig:{emaPeriod:20,atrPeriod:10,multiplier:2,showUpper:true,showMiddle:true,showLower:true}, computeKey:'calcKeltnerData', compute:(data,c)=>calcKeltnerData(data,c.emaPeriod,c.atrPeriod,c.multiplier) },
+    runtime: { configKey:'keltner', defaultConfig:{emaPeriod:20,atrPeriod:10,multiplier:2,showUpper:true,showMiddle:true,showLower:true}, computeKey:'calcKeltnerData', compute:(data,c)=>calcKeltnerData(data,c.emaPeriod,c.atrPeriod,c.multiplier) },
 })
 class KeltnerDefinition {
     static rendererFactory = createKeltnerRendererPlugin

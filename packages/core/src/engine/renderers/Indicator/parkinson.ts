@@ -117,7 +117,6 @@ export function createParkinsonRendererPlugin(options: { paneId?: string } = {})
     category: 'oscillator',
     stateKey: createParkinsonStateKey,
     defaultPaneId: 'sub_Parkinson',
-    paneIdField: 'parkinsonPaneId',
     scale: { indicatorKey: 'parkinson', label: 'Parkinson', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateIndicatorConfig('parkinson', params, paneId)
@@ -126,7 +125,7 @@ export function createParkinsonRendererPlugin(options: { paneId?: string } = {})
     applyResult: (host, state, paneId) => {
         host.setSharedState(createParkinsonStateKey(paneId), state as any, 'indicator_scheduler')
     },
-    runtime: { configKey:'parkinson', paneIdKey:'parkinsonPaneId', defaultConfig:{period:20,annualizationFactor:252,showParkinson:true}, computeKey:'calcParkinsonData', compute:(data,c)=>calcParkinsonData(data,c.period,c.annualizationFactor) },
+    runtime: { configKey:'parkinson', defaultConfig:{period:20,annualizationFactor:252,showParkinson:true}, computeKey:'calcParkinsonData', compute:(data,c)=>calcParkinsonData(data,c.period,c.annualizationFactor) },
 })
 class ParkinsonIndicatorDefinition {
     static rendererFactory = createParkinsonRendererPlugin

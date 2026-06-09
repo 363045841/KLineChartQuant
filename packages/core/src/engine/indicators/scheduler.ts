@@ -159,6 +159,7 @@ export class IndicatorScheduler {
     // 当前数据和配置快照
     private currentData: KLineData[] = []
     private configSnapshot: IndicatorConfigSnapshot = this.getDefaultConfig()
+    private paneIdOverrides = new Map<string, string>()
 
     // Worker 相关
     private worker: Worker | null = null
@@ -418,41 +419,6 @@ export class IndicatorScheduler {
                 showPOC: true,
                 showValueArea: true,
             },
-            rsiPaneId: 'sub_RSI',
-            cciPaneId: 'sub_CCI',
-            stochPaneId: 'sub_STOCH',
-            momPaneId: 'sub_MOM',
-            wmsrPaneId: 'sub_WMSR',
-            kstPaneId: 'sub_KST',
-            fastkPaneId: 'sub_FASTK',
-            macdPaneId: 'sub_MACD',
-            atrPaneId: 'sub_ATR',
-            wmaPaneId: 'sub_WMA',
-            demaPaneId: 'sub_DEMA',
-            temaPaneId: 'sub_TEMA',
-            hmaPaneId: 'sub_HMA',
-            kamaPaneId: 'sub_KAMA',
-            sarPaneId: 'sub_SAR',
-            supertrendPaneId: 'sub_SuperTrend',
-            keltnerPaneId: 'sub_Keltner',
-            donchianPaneId: 'sub_Donchian',
-            ichimokuPaneId: 'sub_Ichimoku',
-            rocPaneId: 'sub_ROC',
-            trixPaneId: 'sub_TRIX',
-            hvPaneId: 'sub_HV',
-            parkinsonPaneId: 'sub_Parkinson',
-            chaikinVolPaneId: 'sub_ChaikinVol',
-            vmaPaneId: 'sub_VMA',
-            obvPaneId: 'sub_OBV',
-            pvtPaneId: 'sub_PVT',
-            vwapPaneId: 'sub_VWAP',
-            cmfPaneId: 'sub_CMF',
-            mfiPaneId: 'sub_MFI',
-            pivotPaneId: 'sub_Pivot',
-            fibPaneId: 'sub_Fib',
-            structurePaneId: 'sub_Structure',
-            zonesPaneId: 'sub_Zones',
-            volumeProfilePaneId: 'sub_VolumeProfile',
         }
     }
 
@@ -633,9 +599,7 @@ export class IndicatorScheduler {
                 meta.displayName,
             )
 
-            const paneId = meta.paneIdField
-                ? (this.configSnapshot as unknown as Record<string, string>)[meta.paneIdField as string]
-                : meta.defaultPaneId
+            const paneId = this.paneIdOverrides.get(meta.name) ?? meta.defaultPaneId
 
             meta.applyResult(this.pluginHost, state as BaseIndicatorState, paneId)
         }
@@ -662,9 +626,7 @@ export class IndicatorScheduler {
 
             let state: unknown
             if (meta.category === 'main') {
-                const paneId = meta.paneIdField
-                    ? (this.configSnapshot as unknown as Record<string, string>)[meta.paneIdField as string]
-                    : meta.defaultPaneId
+                const paneId = this.paneIdOverrides.get(meta.name) ?? meta.defaultPaneId
                 const current = this.pluginHost.getSharedState<BaseIndicatorState & { visibleMin?: number; visibleMax?: number }>(
                     resolveStateKey(meta.stateKey, paneId),
                 )
@@ -691,9 +653,7 @@ export class IndicatorScheduler {
                 meta.displayName,
             )
 
-            const paneId = meta.paneIdField
-                ? (this.configSnapshot as unknown as Record<string, string>)[meta.paneIdField as string]
-                : meta.defaultPaneId
+            const paneId = this.paneIdOverrides.get(meta.name) ?? meta.defaultPaneId
 
             meta.applyResult(this.pluginHost, state as BaseIndicatorState, paneId)
             if (meta.category === 'main') {
@@ -709,8 +669,7 @@ export class IndicatorScheduler {
         const activeIds = this.getActiveSubPaneIds?.() ?? []
         const mask: Record<string, boolean> = {}
         for (const meta of this.registry.getAll()) {
-            if (!meta.paneIdField) continue
-            const paneId = (this.configSnapshot as unknown as Record<string, string>)[meta.paneIdField as string] ?? meta.defaultPaneId
+            const paneId = this.paneIdOverrides.get(meta.name) ?? meta.defaultPaneId
             mask[meta.name] = activeIds.includes(paneId) || !!(meta.allowMainPane && paneId === 'main')
         }
         return mask
@@ -723,8 +682,7 @@ export class IndicatorScheduler {
 
         const cfg: Record<string, unknown> = { ...this.configSnapshot }
         for (const meta of this.registry.getAll()) {
-            if (!meta.paneIdField) continue
-            const paneId = cfg[meta.paneIdField] as string
+            const paneId = this.paneIdOverrides.get(meta.name) ?? meta.defaultPaneId
             if (!activeIds.includes(paneId) && paneId !== 'main') {
                 const subCfg = { ...(cfg[meta.name] as Record<string, unknown>) }
                 for (const k of Object.keys(subCfg)) {
@@ -1043,8 +1001,8 @@ export class IndicatorScheduler {
         }
         const rt = meta.runtime
         // Update paneId if provided
-        if (rt.paneIdKey && paneId !== undefined) {
-            ;(this.configSnapshot as any)[rt.paneIdKey] = paneId
+        if (paneId !== undefined) {
+            this.paneIdOverrides.set(indicatorId, paneId)
         }
         // Merge config
         ;(this.configSnapshot as any)[rt.configKey] = {

@@ -353,7 +353,6 @@ export function getSTOCHTitleInfo(
     category: 'oscillator',
     stateKey: createSTOCHStateKey,
     defaultPaneId: 'sub_STOCH',
-    paneIdField: 'stochPaneId',
     visibleState: { compose: createFixedRangePointVisibleStateComposer('stoch', EMPTY_STOCH_STATE, ['k', 'd'] as const) },
     scaleRendererFactory: createStochScaleRendererPlugin,
     updateConfig: (scheduler, params, paneId) => {
@@ -362,7 +361,7 @@ export function getSTOCHTitleInfo(
     applyResult: (host, state, paneId) => {
         host.setSharedState(createSTOCHStateKey(paneId), state as any, 'indicator_scheduler')
     },
-    runtime: { configKey:'stoch', paneIdKey:'stochPaneId', defaultConfig:{n:9,m:3,showK:true,showD:true}, computeKey:'calcSTOCHData', compute:(data,c)=>calcSTOCHData(data,c.n,c.m) },
+    runtime: { configKey:'stoch', defaultConfig:{n:9,m:3,showK:true,showD:true}, computeKey:'calcSTOCHData', compute:(data,c)=>calcSTOCHData(data,c.n,c.m) },
 })
 class STOCHIndicatorDefinition {
     static rendererFactory = createSTOCHRendererPlugin

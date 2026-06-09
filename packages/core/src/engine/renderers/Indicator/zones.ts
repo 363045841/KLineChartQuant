@@ -96,7 +96,6 @@ export function createZonesRendererPlugin(options: { paneId?: string } = {}): Re
     category: 'main',
     stateKey: createZonesStateKey,
     defaultPaneId: 'main',
-    paneIdField: 'zonesPaneId',
     allowMainPane: true,
     mainPane: { rendererName: 'zones_main', toActiveConfig: (params, active) => ({ ...params, showFVG: active, showOB: active, showFilledZones: active }) },
     scale: { indicatorKey: 'zones', label: 'Zones', decimals: 2 },
@@ -107,7 +106,7 @@ export function createZonesRendererPlugin(options: { paneId?: string } = {}): Re
     applyResult: (host, state, paneId) => {
         host.setSharedState(createZonesStateKey(paneId), state as any, 'indicator_scheduler')
     },
-    runtime: { configKey:'zones', paneIdKey:'zonesPaneId', defaultConfig:{showFVG:true,showOB:true,showFilledZones:true,obLookback:20}, computeKey:'calcZonesData', compute:(data,c)=>calcZonesData(data,c.obLookback,5,2,'close') },
+    runtime: { configKey:'zones', defaultConfig:{showFVG:true,showOB:true,showFilledZones:true,obLookback:20}, computeKey:'calcZonesData', compute:(data,c)=>calcZonesData(data,c.obLookback,5,2,'close') },
 })
 class ZonesDefinition {
     static rendererFactory = createZonesRendererPlugin

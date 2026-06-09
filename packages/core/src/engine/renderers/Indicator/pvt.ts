@@ -115,7 +115,6 @@ export function createPVTRendererPlugin(options: { paneId?: string } = {}): Rend
     category: 'volume',
     stateKey: createPVTStateKey,
     defaultPaneId: 'sub_PVT',
-    paneIdField: 'pvtPaneId',
     visibleState: { compose: createSparseVisibleStateComposer('pvt', EMPTY_PVT_STATE) },
     scale: { indicatorKey: 'pvt', label: 'PVT', decimals: 0 },
     updateConfig: (scheduler, params, paneId) => {
@@ -126,7 +125,6 @@ export function createPVTRendererPlugin(options: { paneId?: string } = {}): Rend
     },
     runtime: {
         configKey: 'pvt',
-        paneIdKey: 'pvtPaneId',
         defaultConfig: { showPVT: true },
         computeKey: 'calcPVTData',
         compute: (data, c) => calcPVTData(data),

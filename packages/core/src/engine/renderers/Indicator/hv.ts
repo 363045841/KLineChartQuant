@@ -117,7 +117,6 @@ export function createHVRendererPlugin(options: { paneId?: string } = {}): Rende
     category: 'oscillator',
     stateKey: createHVStateKey,
     defaultPaneId: 'sub_HV',
-    paneIdField: 'hvPaneId',
     scale: { indicatorKey: 'hv', label: 'HV', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
     (scheduler as IndicatorScheduler).updateIndicatorConfig('hv', params, paneId)
@@ -126,7 +125,7 @@ export function createHVRendererPlugin(options: { paneId?: string } = {}): Rende
     applyResult: (host, state, paneId) => {
         host.setSharedState(createHVStateKey(paneId), state as any, 'indicator_scheduler')
     },
-    runtime: { configKey:'hv', paneIdKey:'hvPaneId', defaultConfig:{period:20,annualizationFactor:252,showHV:true}, computeKey:'calcHVData', compute:(data,c)=>calcHVData(data,c.period,c.annualizationFactor) },
+    runtime: { configKey:'hv', defaultConfig:{period:20,annualizationFactor:252,showHV:true}, computeKey:'calcHVData', compute:(data,c)=>calcHVData(data,c.period,c.annualizationFactor) },
 })
 class HVIndicatorDefinition {
     static rendererFactory = createHVRendererPlugin

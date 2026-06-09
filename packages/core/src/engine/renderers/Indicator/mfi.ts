@@ -134,7 +134,6 @@ export function createMFIRendererPlugin(options: { paneId?: string } = {}): Rend
     category: 'volume',
     stateKey: createMFIStateKey,
     defaultPaneId: 'sub_MFI',
-    paneIdField: 'mfiPaneId',
     visibleState: { compose: createFixedRangeSparseVisibleStateComposer('mfi', EMPTY_MFI_STATE) },
     scale: { indicatorKey: 'mfi', label: 'MFI', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
@@ -145,7 +144,6 @@ export function createMFIRendererPlugin(options: { paneId?: string } = {}): Rend
     },
     runtime: {
         configKey: 'mfi',
-        paneIdKey: 'mfiPaneId',
         defaultConfig: { period: 14, showMFI: true },
         computeKey: 'calcMFIData',
         compute: (data, c) => calcMFIData(data, c.period),

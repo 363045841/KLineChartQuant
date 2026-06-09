@@ -129,7 +129,6 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     category: 'main',
     stateKey: createDonchianStateKey,
     defaultPaneId: 'main',
-    paneIdField: 'donchianPaneId',
     allowMainPane: true,
     mainPane: { rendererName: 'donchian_main', toActiveConfig: (params, active) => ({ ...params, showUpper: active, showMiddle: active, showLower: active }) },
     scale: { indicatorKey: 'donchian', label: 'Donchian', decimals: 2 },
@@ -140,7 +139,7 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     applyResult: (host, state, paneId) => {
         host.setSharedState(createDonchianStateKey(paneId), state as any, 'indicator_scheduler')
     },
-    runtime: { configKey:'donchian', paneIdKey:'donchianPaneId', defaultConfig:{period:20,showUpper:true,showMiddle:true,showLower:true}, computeKey:'calcDonchianData', compute:(data,c)=>calcDonchianData(data,c.period) },
+    runtime: { configKey:'donchian', defaultConfig:{period:20,showUpper:true,showMiddle:true,showLower:true}, computeKey:'calcDonchianData', compute:(data,c)=>calcDonchianData(data,c.period) },
 })
 class DonchianDefinition {
     static rendererFactory = createDonchianRendererPlugin

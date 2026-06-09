@@ -115,7 +115,6 @@ export function createOBVRendererPlugin(options: { paneId?: string } = {}): Rend
     category: 'volume',
     stateKey: createOBVStateKey,
     defaultPaneId: 'sub_OBV',
-    paneIdField: 'obvPaneId',
     visibleState: { compose: createSparseVisibleStateComposer('obv', EMPTY_OBV_STATE) },
     scale: { indicatorKey: 'obv', label: 'OBV', decimals: 0 },
     updateConfig: (scheduler, params, paneId) => {
@@ -126,7 +125,6 @@ export function createOBVRendererPlugin(options: { paneId?: string } = {}): Rend
     },
     runtime: {
         configKey: 'obv',
-        paneIdKey: 'obvPaneId',
         defaultConfig: { showOBV: true },
         computeKey: 'calcOBVData',
         compute: (data, c) => calcOBVData(data),

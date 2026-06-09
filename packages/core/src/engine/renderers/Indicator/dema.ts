@@ -127,7 +127,6 @@ export function createDEMARendererPlugin(options: DEMARendererOptions = {}): Ren
     category: 'main',
     stateKey: createDEMAStateKey,
     defaultPaneId: 'main',
-    paneIdField: 'demaPaneId',
     allowMainPane: true,
     mainPane: { rendererName: 'dema_main', toActiveConfig: (params, active) => ({ ...params, showDEMA: active }) },
     visibleState: { compose: createSparseVisibleStateComposer('dema', EMPTY_DEMA_STATE) },
@@ -138,7 +137,7 @@ export function createDEMARendererPlugin(options: DEMARendererOptions = {}): Ren
     applyResult: (host, state, paneId) => {
         host.setSharedState(createDEMAStateKey(paneId), state as any, 'indicator_scheduler')
     },
-    runtime: { configKey:'dema', paneIdKey:'demaPaneId', defaultConfig:{period:14,showDEMA:true}, computeKey:'calcDEMAData', compute:(data,c)=>calcDEMAData(data,c.period) },
+    runtime: { configKey:'dema', defaultConfig:{period:14,showDEMA:true}, computeKey:'calcDEMAData', compute:(data,c)=>calcDEMAData(data,c.period) },
 })
 class DEMADefinition {
     static rendererFactory = createDEMARendererPlugin

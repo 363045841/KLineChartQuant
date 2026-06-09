@@ -117,7 +117,6 @@ export function createVolumeProfileRendererPlugin(options: { paneId?: string } =
     category: 'volume',
     stateKey: createVolumeProfileStateKey,
     defaultPaneId: 'sub_VolumeProfile',
-    paneIdField: 'volumeProfilePaneId',
     scale: { indicatorKey: 'volumeProfile', label: 'VP', decimals: 0 },
     visibleState: { compose: createVolumeProfileVisibleStateComposer('volumeProfile', EMPTY_VOLUME_PROFILE_STATE) },
     updateConfig: (scheduler, params, paneId) => {
@@ -126,7 +125,7 @@ export function createVolumeProfileRendererPlugin(options: { paneId?: string } =
     applyResult: (host, state, paneId) => {
         host.setSharedState(createVolumeProfileStateKey(paneId), state as any, 'indicator_scheduler')
     },
-    runtime: { configKey:'volumeProfile', paneIdKey:'volumeProfilePaneId', defaultConfig:{bins:24,lookback:100,valueAreaPercent:70,showPOC:true,showValueArea:true}, computeKey:'calcVolumeProfileData', compute:(data,c)=>calcVolumeProfileData(data,c.bins,c.lookback,c.valueAreaPercent) },
+    runtime: { configKey:'volumeProfile', defaultConfig:{bins:24,lookback:100,valueAreaPercent:70,showPOC:true,showValueArea:true}, computeKey:'calcVolumeProfileData', compute:(data,c)=>calcVolumeProfileData(data,c.bins,c.lookback,c.valueAreaPercent) },
 })
 class VolumeProfileIndicatorDefinition {
     static rendererFactory = createVolumeProfileRendererPlugin

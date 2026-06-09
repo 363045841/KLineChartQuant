@@ -130,7 +130,6 @@ export function createChaikinVolRendererPlugin(options: { paneId?: string } = {}
     category: 'oscillator',
     stateKey: createChaikinVolStateKey,
     defaultPaneId: 'sub_ChaikinVol',
-    paneIdField: 'chaikinVolPaneId',
     visibleState: { compose: createSparseVisibleStateComposer('chaikinVol', EMPTY_CHAIKIN_VOL_STATE) },
     scale: { indicatorKey: 'chaikinVol', label: 'ChaikinVol', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
@@ -141,7 +140,6 @@ export function createChaikinVolRendererPlugin(options: { paneId?: string } = {}
     },
     runtime: {
         configKey: 'chaikinVol',
-        paneIdKey: 'chaikinVolPaneId',
         defaultConfig: { emaPeriod: 10, rocPeriod: 10, showChaikinVol: true },
         computeKey: 'calcChaikinVolData',
         compute: (data, c) => calcChaikinVolData(data, c.emaPeriod, c.rocPeriod),

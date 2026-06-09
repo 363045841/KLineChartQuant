@@ -129,7 +129,6 @@ export function createCMFRendererPlugin(options: { paneId?: string } = {}): Rend
     category: 'volume',
     stateKey: createCMFStateKey,
     defaultPaneId: 'sub_CMF',
-    paneIdField: 'cmfPaneId',
     visibleState: { compose: createFixedRangeSparseVisibleStateComposer('cmf', EMPTY_CMF_STATE) },
     scale: { indicatorKey: 'cmf', label: 'CMF', decimals: 4 },
     updateConfig: (scheduler, params, paneId) => {
@@ -140,7 +139,6 @@ export function createCMFRendererPlugin(options: { paneId?: string } = {}): Rend
     },
     runtime: {
         configKey: 'cmf',
-        paneIdKey: 'cmfPaneId',
         defaultConfig: { period: 20, showCMF: true },
         computeKey: 'calcCMFData',
         compute: (data, c) => calcCMFData(data, c.period),

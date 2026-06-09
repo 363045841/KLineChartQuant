@@ -117,7 +117,6 @@ export function createVMARendererPlugin(options: { paneId?: string } = {}): Rend
     category: 'volume',
     stateKey: createVMAStateKey,
     defaultPaneId: 'sub_VMA',
-    paneIdField: 'vmaPaneId',
     scale: { indicatorKey: 'vma', label: 'VMA', decimals: 0 },
     updateConfig: (scheduler, params, paneId) => {
         (scheduler as IndicatorScheduler).updateIndicatorConfig('vma', params, paneId)
@@ -128,7 +127,6 @@ export function createVMARendererPlugin(options: { paneId?: string } = {}): Rend
     },
     runtime: {
         configKey: 'vma',
-        paneIdKey: 'vmaPaneId',
         defaultConfig: { period: 5, showVMA: true },
         computeKey: 'calcVMAData',
         compute: (data, c) => calcVMAData(data, c.period),

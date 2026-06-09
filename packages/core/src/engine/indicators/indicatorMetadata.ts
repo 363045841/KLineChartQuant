@@ -96,9 +96,9 @@ export type IndicatorVisibleStateComposer = (
  */
 export interface IndicatorRuntimeDescriptor<C = any> {
     /** configSnapshot 中的 key，通常等于 name（如 'macd'） */
-    configKey: keyof IndicatorConfigSnapshot
+    configKey: string
     /** paneId 在 configSnapshot 中的 key（如 'macdPaneId'），可省略 */
-    paneIdKey?: keyof IndicatorConfigSnapshot
+    paneIdKey?: string
     /** 默认配置值 */
     defaultConfig: C
     /** 计算函数（主线程直接调用，Worker 用 computeKey 桥接） */
@@ -143,7 +143,7 @@ export interface IndicatorMetadata<T = unknown> {
      * 在 configSnapshot 中的 paneId 字段名
      * 用于从配置中获取当前 pane ID
      */
-    paneIdField?: keyof IndicatorConfigSnapshot
+    paneIdField?: string
 
     /**
      * 渲染器工厂函数

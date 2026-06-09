@@ -132,7 +132,6 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     category: 'main',
     stateKey: createFibStateKey,
     defaultPaneId: 'main',
-    paneIdField: 'fibPaneId',
     allowMainPane: true,
     mainPane: { rendererName: 'fib_main', toActiveConfig: (params, active) => ({ ...params, showLevels: active }) },
     scale: { indicatorKey: 'fib', label: 'Fib', decimals: 4 },
@@ -143,7 +142,7 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     applyResult: (host, state, paneId) => {
         host.setSharedState(createFibStateKey(paneId), state as any, 'indicator_scheduler')
     },
-    runtime: { configKey:'fib', paneIdKey:'fibPaneId', defaultConfig:{period:50,showLevels:true}, computeKey:'calcFibData', compute:(data,c)=>calcFibData(data,c.period) },
+    runtime: { configKey:'fib', defaultConfig:{period:50,showLevels:true}, computeKey:'calcFibData', compute:(data,c)=>calcFibData(data,c.period) },
 })
 class FibDefinition {
     static rendererFactory = createFibRendererPlugin

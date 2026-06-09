@@ -471,7 +471,6 @@ export function getMACDTitleInfo(
   category: 'oscillator',
   stateKey: createMACDStateKey,
   defaultPaneId: 'sub_MACD',
-  paneIdField: 'macdPaneId',
   scaleRendererFactory: createMacdScaleRendererPlugin,
   visibleState: { compose: createMACDVisibleStateComposer('macd', EMPTY_MACD_STATE) },
   updateConfig: (scheduler, params, paneId) => {
@@ -480,7 +479,7 @@ export function getMACDTitleInfo(
     applyResult: (host, state, paneId) => {
         host.setSharedState(createMACDStateKey(paneId), state as any, 'indicator_scheduler')
     },
-    runtime: { configKey:'macd', paneIdKey:'macdPaneId', defaultConfig:{fastPeriod:12,slowPeriod:26,signalPeriod:9,showDIF:true,showDEA:true,showBAR:true}, computeKey:'calcMACDData', compute:(data,c)=>calcMACDData(data,c.fastPeriod,c.slowPeriod,c.signalPeriod) },
+    runtime: { configKey:'macd', defaultConfig:{fastPeriod:12,slowPeriod:26,signalPeriod:9,showDIF:true,showDEA:true,showBAR:true}, computeKey:'calcMACDData', compute:(data,c)=>calcMACDData(data,c.fastPeriod,c.slowPeriod,c.signalPeriod) },
 })
 class MACDIndicatorDefinition {
   static rendererFactory = createMACDRendererPlugin

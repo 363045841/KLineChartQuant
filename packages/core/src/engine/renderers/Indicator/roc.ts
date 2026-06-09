@@ -135,7 +135,6 @@ export function createROCRendererPlugin(options: ROCRendererOptions = {}): Rende
     category: 'oscillator',
     stateKey: createROCStateKey,
     defaultPaneId: 'sub_ROC',
-    paneIdField: 'rocPaneId',
     visibleState: { compose: createSparseVisibleStateComposer('roc', EMPTY_ROC_STATE) },
     scale: { indicatorKey: 'roc', label: 'ROC', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
@@ -146,7 +145,6 @@ export function createROCRendererPlugin(options: ROCRendererOptions = {}): Rende
     },
     runtime: {
         configKey: 'roc',
-        paneIdKey: 'rocPaneId',
         defaultConfig: { period: 12, showROC: true },
         computeKey: 'calcROCData',
         compute: (data, c) => calcROCData(data, c.period),

@@ -322,7 +322,6 @@ export function getWMSRTitleInfo(
     category: 'oscillator',
     stateKey: createWMSRStateKey,
     defaultPaneId: 'sub_WMSR',
-    paneIdField: 'wmsrPaneId',
     visibleState: { compose: createFixedRangeSparseVisibleStateComposer('wmsr', EMPTY_WMSR_STATE) },
     scaleRendererFactory: createWmsrScaleRendererPlugin,
     updateConfig: (scheduler, params, paneId) => {
@@ -333,7 +332,6 @@ export function getWMSRTitleInfo(
     },
     runtime: {
         configKey: 'wmsr',
-        paneIdKey: 'wmsrPaneId',
         defaultConfig: { period: 14, showWMSR: true },
         computeKey: 'calcWMSRData',
         compute: (data, c) => calcWMSRData(data, c.period),

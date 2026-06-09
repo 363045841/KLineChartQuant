@@ -16,7 +16,7 @@ export type IndicatorDefinitionConfig<T = unknown> = {
     category: IndicatorCategory
     stateKey: StateKey
     defaultPaneId: string
-    paneIdField?: keyof import('./workerProtocol').IndicatorConfigSnapshot
+    paneIdField?: string
     allowMainPane?: boolean
     scaleRendererFactory?: ScaleRendererFactory
     scale?: IndicatorMetadata['scale']

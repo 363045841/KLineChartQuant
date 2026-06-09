@@ -106,7 +106,6 @@ export function createSuperTrendRendererPlugin(options: SuperTrendRendererOption
     category: 'oscillator',
     stateKey: createSuperTrendStateKey,
     defaultPaneId: 'sub_SuperTrend',
-    paneIdField: 'supertrendPaneId',
     allowMainPane: true,
     mainPane: { rendererName: 'supertrend_main', toActiveConfig: (params, active) => ({ ...params, showSuperTrend: active }) },
     scale: { indicatorKey: 'supertrend', label: 'SuperTrend', decimals: 2 },
@@ -117,7 +116,7 @@ export function createSuperTrendRendererPlugin(options: SuperTrendRendererOption
     applyResult: (host, state, paneId) => {
         host.setSharedState(createSuperTrendStateKey(paneId), state as any, 'indicator_scheduler')
     },
-    runtime: { configKey:'supertrend', paneIdKey:'supertrendPaneId', defaultConfig:{atrPeriod:10,multiplier:3,showSuperTrend:true}, computeKey:'calcSuperTrendData', compute:(data,c)=>calcSuperTrendData(data,c.atrPeriod,c.multiplier) },
+    runtime: { configKey:'supertrend', defaultConfig:{atrPeriod:10,multiplier:3,showSuperTrend:true}, computeKey:'calcSuperTrendData', compute:(data,c)=>calcSuperTrendData(data,c.atrPeriod,c.multiplier) },
 })
 class SuperTrendIndicatorDefinition {
     static rendererFactory = createSuperTrendRendererPlugin

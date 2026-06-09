@@ -127,7 +127,6 @@ export function createKAMARendererPlugin(options: KAMARendererOptions = {}): Ren
     category: 'main',
     stateKey: createKAMAStateKey,
     defaultPaneId: 'main',
-    paneIdField: 'kamaPaneId',
     allowMainPane: true,
     mainPane: { rendererName: 'kama_main', toActiveConfig: (params, active) => ({ ...params, showKAMA: active }) },
     visibleState: { compose: createSparseVisibleStateComposer('kama', EMPTY_KAMA_STATE) },
@@ -138,7 +137,7 @@ export function createKAMARendererPlugin(options: KAMARendererOptions = {}): Ren
     applyResult: (host, state, paneId) => {
         host.setSharedState(createKAMAStateKey(paneId), state as any, 'indicator_scheduler')
     },
-    runtime: { configKey:'kama', paneIdKey:'kamaPaneId', defaultConfig:{period:10,fastPeriod:2,slowPeriod:30,showKAMA:true}, computeKey:'calcKAMAData', compute:(data,c)=>calcKAMAData(data,c.period,c.fastPeriod,c.slowPeriod) },
+    runtime: { configKey:'kama', defaultConfig:{period:10,fastPeriod:2,slowPeriod:30,showKAMA:true}, computeKey:'calcKAMAData', compute:(data,c)=>calcKAMAData(data,c.period,c.fastPeriod,c.slowPeriod) },
 })
 class KAMADefinition {
     static rendererFactory = createKAMARendererPlugin

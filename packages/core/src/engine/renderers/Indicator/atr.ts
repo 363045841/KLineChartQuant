@@ -235,7 +235,6 @@ export function getATRTitleInfo(
     category: 'oscillator',
     stateKey: createATRStateKey,
     defaultPaneId: 'sub_ATR',
-    paneIdField: 'atrPaneId',
     scaleRendererFactory: createAtrScaleRendererPlugin,
     updateConfig: (scheduler, params, paneId) => {
     (scheduler as IndicatorScheduler).updateIndicatorConfig('atr', params, paneId)
@@ -246,7 +245,6 @@ export function getATRTitleInfo(
     },
     runtime: {
         configKey: 'atr',
-        paneIdKey: 'atrPaneId',
         defaultConfig: { period: 14, showATR: true },
         computeKey: 'calcATRData',
         compute: (data, c) => calcATRData(data, c.period),

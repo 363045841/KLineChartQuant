@@ -269,7 +269,6 @@ export function getCCITitleInfo(
     category: 'oscillator',
     stateKey: createCCIStateKey,
     defaultPaneId: 'sub_CCI',
-    paneIdField: 'cciPaneId',
     scaleRendererFactory: createCciScaleRendererPlugin,
     visibleState: { compose: createCCIVisibleStateComposer('cci', EMPTY_CCI_STATE) },
     updateConfig: (scheduler, params, paneId) => {
@@ -280,7 +279,6 @@ export function getCCITitleInfo(
     },
     runtime: {
         configKey: 'cci',
-        paneIdKey: 'cciPaneId',
         defaultConfig: { period: 14, showCCI: true },
         computeKey: 'calcCCIData',
         compute: (data, c) => calcCCIData(data, c.period),

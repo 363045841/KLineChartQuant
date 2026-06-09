@@ -310,7 +310,6 @@ export function getFASTKTitleInfo(
     category: 'oscillator',
     stateKey: createFASTKStateKey,
     defaultPaneId: 'sub_FASTK',
-    paneIdField: 'fastkPaneId',
     visibleState: { compose: createFixedRangeSparseVisibleStateComposer('fastk', EMPTY_FASTK_STATE) },
     scaleRendererFactory: createFastkScaleRendererPlugin,
     updateConfig: (scheduler, params, paneId) => {
@@ -321,7 +320,6 @@ export function getFASTKTitleInfo(
     },
     runtime: {
         configKey: 'fastk',
-        paneIdKey: 'fastkPaneId',
         defaultConfig: { period: 9, showFASTK: true },
         computeKey: 'calcFASTKData',
         compute: (data, c) => calcFASTKData(data, c.period),

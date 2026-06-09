@@ -306,7 +306,6 @@ export function getMOMTitleInfo(
     category: 'oscillator',
     stateKey: createMOMStateKey,
     defaultPaneId: 'sub_MOM',
-    paneIdField: 'momPaneId',
     scaleRendererFactory: createMomScaleRendererPlugin,
     updateConfig: (scheduler, params, paneId) => {
     (scheduler as IndicatorScheduler).updateIndicatorConfig('mom', params, paneId)
@@ -317,7 +316,6 @@ export function getMOMTitleInfo(
     },
     runtime: {
         configKey: 'mom',
-        paneIdKey: 'momPaneId',
         defaultConfig: { period: 10, showMOM: true },
         computeKey: 'calcMOMData',
         compute: (data, c) => calcMOMData(data, c.period),

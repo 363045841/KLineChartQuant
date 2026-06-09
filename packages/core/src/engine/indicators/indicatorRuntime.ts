@@ -113,7 +113,6 @@ export class IndicatorRuntime {
     private configVersion = 0
     private dataDirty = true
     private configMap = new Map<string, any>()
-    private paneIdMap = new Map<string, string>()
     private seriesMap = new Map<string, unknown>()
     private dirtyFlags = new Map<string, boolean>()
     private descriptorMap = new Map<string, IndicatorRuntimeDescriptor>()
@@ -162,14 +161,6 @@ export class IndicatorRuntime {
                     this.dirtyFlags.set(key, true)
                 }
                 continue
-            }
-            if (typeof value === 'string') {
-                for (const d of this.descriptorMap.values()) {
-                    if (d.paneIdKey === key) {
-                        this.paneIdMap.set(key, value)
-                        break
-                    }
-                }
             }
         }
         this.configVersion = version
