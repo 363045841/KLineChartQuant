@@ -152,12 +152,15 @@ describe('stateComposer', () => {
     expect(definitions.get('ma')?.mainPane?.composeRenderState).toHaveBeenCalledWith(bundle, visibleRange, timestamp)
   })
 
-  it('throws when main render state composer metadata is missing', () => {
+  it('falls back to registry composeRenderState when metadata is partial', () => {
+    const bundle = createBundle()
+    const timestamp = 1234
+    const visibleRange = { start: 1, end: 3 }
     const definition = { ...createDefinition(null), mainPane: { rendererName: 'ma' } }
 
-    expect(() => composeRenderStates(createBundle(), { start: 0, end: 1 }, 1, (id) => id === 'ma' ? definition : undefined)).toThrow(
-      '[StateComposer] Missing mainPane.composeRenderState for ma',
-    )
+    const states = composeRenderStates(bundle, visibleRange, timestamp, (id) => id === 'ma' ? definition : undefined)
+
+    expect(states.ma).toBeDefined()
   })
 
 

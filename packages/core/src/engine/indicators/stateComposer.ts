@@ -70,6 +70,7 @@ import type { ZonesRenderState } from './zonesState'
 import type { VolumeProfileRenderState } from './volumeProfileState'
 import type { IndicatorSeriesBundle } from './workerProtocol'
 import type { IndicatorMetadata } from './indicatorMetadata'
+import { getRegisteredIndicatorDefinitions } from './indicatorDefinitionRegistry'
 
 /**
  * 可见范围
@@ -166,56 +167,13 @@ type MainRenderStateIndicatorId = keyof MainRenderStates
 
 type ComposedRenderStates = VisibleSubIndicatorStates & MainRenderStates
 
-const MAIN_RENDER_STATE_INDICATOR_IDS: readonly MainRenderStateIndicatorId[] = ['ma', 'boll', 'expma', 'ene']
-const METADATA_VISIBLE_STATE_INDICATOR_IDS = [
-    'cci',
-    'wma',
-    'dema',
-    'tema',
-    'hma',
-    'kama',
-    'roc',
-    'chaikinVol',
-    'obv',
-    'pvt',
-    'vwap',
-    'rsi',
-    'stoch',
-    'fastk',
-    'mfi',
-    'wmsr',
-    'cmf',
-    'atr',
-    'hv',
-    'kst',
-    'mom',
-    'parkinson',
-    'trix',
-    'vma',
-    'macd',
-    'sar',
-    'supertrend',
-    'keltner',
-    'donchian',
-    'ichimoku',
-    'pivot',
-    'fib',
-    'structure',
-    'zones',
-    'volumeProfile',
-] as const satisfies readonly (keyof VisibleSubIndicatorStates)[]
-
-type _MissingVisibleStateId = Exclude<
-    keyof VisibleSubIndicatorStates,
-    typeof METADATA_VISIBLE_STATE_INDICATOR_IDS[number]
->
-type _ExtraVisibleStateId = Exclude<
-    typeof METADATA_VISIBLE_STATE_INDICATOR_IDS[number],
-    keyof VisibleSubIndicatorStates
->
-type AssertNever<T extends never> = T
-type _AssertNoMissingId = AssertNever<_MissingVisibleStateId>
-type _AssertNoExtraId = AssertNever<_ExtraVisibleStateId>
+function getVisibleStateIndicatorIds(): (keyof VisibleSubIndicatorStates)[] {
+    return getRegisteredIndicatorDefinitions()
+        .filter((d): d is IndicatorMetadata & { visibleState: NonNullable<IndicatorMetadata['visibleState']> } =>
+            !!d.visibleState?.compose
+        )
+        .map(d => d.name as keyof VisibleSubIndicatorStates)
+}
 
 /**
  * 仅计算副图指标的 visible-only states
@@ -230,7 +188,7 @@ export function composeVisibleSubIndicatorStates(
 ): VisibleSubIndicatorStates {
     const states: Partial<VisibleSubIndicatorStates> = {}
 
-    for (const indicatorId of METADATA_VISIBLE_STATE_INDICATOR_IDS) {
+    for (const indicatorId of getVisibleStateIndicatorIds()) {
         states[indicatorId] = composeRequiredMetadataVisibleState(
             indicatorId, bundle, visibleRange, timestamp, activeMask, getIndicatorMetadata,
         ) as never
@@ -290,15 +248,13 @@ function composeMainRenderStates(
 ): MainRenderStates {
     const states: Partial<Record<MainRenderStateIndicatorId, unknown>> = {}
 
-    for (const indicatorId of MAIN_RENDER_STATE_INDICATOR_IDS) {
-        const definition = getIndicatorMetadata(indicatorId)
-        if (!definition) continue
-
-        const composeRenderState = definition.mainPane?.composeRenderState
-        if (!composeRenderState) {
-            throw new Error(`[StateComposer] Missing mainPane.composeRenderState for ${indicatorId}`)
-        }
-        states[indicatorId] = composeRenderState(bundle, visibleRange, timestamp)
+    for (const def of getRegisteredIndicatorDefinitions()) {
+        if (!def.mainPane?.composeRenderState) continue
+        const indicatorId = def.name as MainRenderStateIndicatorId
+        const meta = getIndicatorMetadata(indicatorId)
+        const compose = meta?.mainPane?.composeRenderState ?? def.mainPane.composeRenderState
+        if (!compose) continue
+        states[indicatorId] = compose(bundle, visibleRange, timestamp)
     }
 
     return states as MainRenderStates
