@@ -7,10 +7,12 @@ import type {
     IndicatorWorkerRequest,
     IndicatorWorkerResponse,
     IndicatorConfigSnapshot,
+    SerializedRuntimeDescriptor,
 } from './workerProtocol'
 import { PROTOCOL_VERSION } from './workerProtocol'
 import type { KLineData } from '../../types/price'
-import { IndicatorRuntime } from './indicatorRuntime'
+import { IndicatorRuntime, CALCULATOR_MAP, createWorkerCompute } from './indicatorRuntime'
+import type { IndicatorRuntimeDescriptor } from './indicatorMetadata'
 
 // Worker 全局作用域
 const ctx = self as unknown as Worker
@@ -28,11 +30,37 @@ function postResponse(response: IndicatorWorkerResponse): void {
 /**
  * 处理初始化
  */
-function handleInit(): void {
-    runtime = new IndicatorRuntime()
+function handleInit(msg?: { descriptors?: SerializedRuntimeDescriptor[] }): void {
+    const serializedDescs = msg?.descriptors ?? []
+    const descriptors: IndicatorRuntimeDescriptor[] = serializedDescs.map(d => ({
+        configKey: d.configKey as any,
+        paneIdKey: d.paneIdKey as any,
+        defaultConfig: d.defaultConfig,
+        computeKey: d.computeKey,
+        compute: createWorkerCompute(d),
+    }))
+    runtime = new IndicatorRuntime(descriptors)
     postResponse({
         type: 'ready',
         protocolVersion: PROTOCOL_VERSION,
+    })
+}
+
+function handleAddDescriptor(descriptor: SerializedRuntimeDescriptor): void {
+    if (!runtime) {
+        postResponse({
+            type: 'error',
+            stage: 'init',
+            message: 'Runtime not initialized',
+        })
+        return
+    }
+    runtime.addDescriptor({
+        configKey: descriptor.configKey as any,
+        paneIdKey: descriptor.paneIdKey as any,
+        defaultConfig: descriptor.defaultConfig,
+        computeKey: descriptor.computeKey,
+        compute: createWorkerCompute(descriptor),
     })
 }
 
@@ -135,7 +163,11 @@ ctx.onmessage = (event: MessageEvent<IndicatorWorkerRequest>) => {
 
     switch (msg.type) {
         case 'init':
-            handleInit()
+            handleInit(msg)
+            break
+
+        case 'addDescriptor':
+            handleAddDescriptor(msg.descriptor)
             break
 
         case 'setData':

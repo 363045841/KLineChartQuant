@@ -1,9 +1,3 @@
-/**
- * Indicator 纯计算运行时
- * 不依赖 PluginHost/StateStore，只负责计算和缓存
- * 可被主线程（inline fallback）或 Worker 使用
- */
-
 import type { KLineData } from '../../types/price'
 import {
     calcMAData,
@@ -46,401 +40,107 @@ import {
     calcZonesData,
     calcVolumeProfileData,
     DEFAULT_MA_PERIODS,
-    DEFAULT_ATR_PERIOD,
-    DEFAULT_VMA_PERIOD,
-    DEFAULT_STRUCTURE_LEFT,
-    DEFAULT_STRUCTURE_RIGHT,
-    DEFAULT_ZONES_OB_LOOKBACK,
-    DEFAULT_VP_BINS,
-    DEFAULT_VP_LOOKBACK,
-    DEFAULT_VP_VALUE_AREA,
-    DEFAULT_VWAP_SESSION_GAP_MS,
-    DEFAULT_CMF_PERIOD,
-    DEFAULT_MFI_PERIOD,
-    DEFAULT_FIB_PERIOD,
-    DEFAULT_WMA_PERIOD,
-    DEFAULT_DEMA_PERIOD,
-    DEFAULT_TEMA_PERIOD,
-    DEFAULT_HMA_PERIOD,
-    DEFAULT_KAMA_PERIOD,
-    DEFAULT_KAMA_FAST_PERIOD,
-    DEFAULT_KAMA_SLOW_PERIOD,
-    DEFAULT_SAR_STEP,
-    DEFAULT_SAR_MAX_STEP,
-    DEFAULT_SUPERTREND_ATR_PERIOD,
-    DEFAULT_SUPERTREND_MULTIPLIER,
-    DEFAULT_KELTNER_EMA_PERIOD,
-    DEFAULT_KELTNER_ATR_PERIOD,
-    DEFAULT_KELTNER_MULTIPLIER,
-    DEFAULT_DONCHIAN_PERIOD,
-    DEFAULT_ICHIMOKU_TENKAN,
-    DEFAULT_ICHIMOKU_KIJUN,
-    DEFAULT_ICHIMOKU_SPAN_B,
-    DEFAULT_ICHIMOKU_DISPLACEMENT,
-    DEFAULT_ROC_PERIOD,
-    DEFAULT_TRIX_PERIOD,
-    DEFAULT_TRIX_SIGNAL_PERIOD,
-    DEFAULT_HV_PERIOD,
-    DEFAULT_HV_ANNUALIZATION,
-    DEFAULT_PARKINSON_PERIOD,
-    DEFAULT_PARKINSON_ANNUALIZATION,
-    DEFAULT_CHAIKIN_VOL_EMA_PERIOD,
-    DEFAULT_CHAIKIN_VOL_ROC_PERIOD,
-    type MAFlags,
-    type BOLLPoint,
-    type EXPMAPoint,
-    type ENEPoint,
-    type STOCHPoint,
-    type KSTPoint,
-    type MACDPoint,
-    type SARPoint,
-    type SuperTrendPoint,
-    type KeltnerPoint,
-    type DonchianPoint,
-    type IchimokuPoint,
-    type PivotPoint,
-    type FibPoint,
-    type StructureSnapshot,
-    type Zone,
-    type VolumeProfileResult,
 } from './calculators'
-import type {
-    BOLLSchedulerConfig,
-    EXPMASchedulerConfig,
-    ENESchedulerConfig,
-    RSISchedulerConfig,
-    CCISchedulerConfig,
-    STOCHSchedulerConfig,
-    MOMSchedulerConfig,
-    WMSRSchedulerConfig,
-    KSTSchedulerConfig,
-    FASTKSchedulerConfig,
-    MACDSchedulerConfig,
-    ATRSchedulerConfig,
-    WMASchedulerConfig,
-    DEMASchedulerConfig,
-    TEMASchedulerConfig,
-    HMASchedulerConfig,
-    KAMASchedulerConfig,
-    SARSchedulerConfig,
-    SuperTrendSchedulerConfig,
-    KeltnerSchedulerConfig,
-    DonchianSchedulerConfig,
-    IchimokuSchedulerConfig,
-    ROCSchedulerConfig,
-    TRIXSchedulerConfig,
-    HVSchedulerConfig,
-    ParkinsonSchedulerConfig,
-    ChaikinVolSchedulerConfig,
-    VMASchedulerConfig,
-    OBVSchedulerConfig,
-    PVTSchedulerConfig,
-    VWAPSchedulerConfig,
-    CMFSchedulerConfig,
-    MFISchedulerConfig,
-    PivotSchedulerConfig,
-    FibSchedulerConfig,
-    StructureSchedulerConfig,
-    ZonesSchedulerConfig,
-    VolumeProfileSchedulerConfig,
-    IndicatorConfigSnapshot,
-    IndicatorSeriesBundle,
-} from './workerProtocol'
+import type { IndicatorRuntimeDescriptor } from './indicatorMetadata'
+import type { IndicatorConfigSnapshot, IndicatorSeriesBundle } from './workerProtocol'
 
-/**
- * 可见范围
- */
-interface VisibleRange {
-    start: number
-    end: number
+export const CALCULATOR_MAP: Record<string, (data: KLineData[], config: any) => unknown> = {
+    calcCCIData: (data, c) => calcCCIData(data, c.period),
+    calcMACDData: (data, c) => calcMACDData(data, c.fastPeriod, c.slowPeriod, c.signalPeriod),
+    calcMAData: (data, c) => {
+        const r: Record<number, (number | undefined)[]> = {}
+        for (const p of DEFAULT_MA_PERIODS) {
+            if ((c as any)['ma' + p]) r[p] = calcMAData(data, p)
+        }
+        return { series: r, enabledPeriods: Object.keys(r).map(Number) }
+    },
+    calcRSIData: (data, c) => {
+        const p = [c.period1, c.period2, c.period3]
+        const s = [c.showRSI1, c.showRSI2, c.showRSI3]
+        const r: Record<number, (number | undefined)[]> = {}
+        for (let i = 0; i < 3; i++) {
+            if (s[i]) r[p[i]] = calcRSIData(data, p[i])
+        }
+        return { series: r, enabledPeriods: Object.keys(r).map(Number) }
+    },
+    calcTRIXData: (data, c) => calcTRIXData(data, c.period, c.signalPeriod),
+    calcBOLLData: (data, c) => calcBOLLData(data, c.period, c.multiplier),
+    calcEXPMAData: (data, c) => calcEXPMAData(data, c.fastPeriod, c.slowPeriod),
+    calcENEData: (data, c) => calcENEData(data, c.period, c.deviation),
+    calcSTOCHData: (data, c) => calcSTOCHData(data, c.n, c.m),
+    calcMOMData: (data, c) => calcMOMData(data, c.period),
+    calcWMSRData: (data, c) => calcWMSRData(data, c.period),
+    calcKSTData: (data, c) => calcKSTData(data, c.roc1, c.roc2, c.roc3, c.roc4, c.signalPeriod),
+    calcFASTKData: (data, c) => calcFASTKData(data, c.period),
+    calcATRData: (data, c) => calcATRData(data, c.period),
+    calcWMAData: (data, c) => calcWMAData(data, c.period),
+    calcDEMAData: (data, c) => calcDEMAData(data, c.period),
+    calcTEMAData: (data, c) => calcTEMAData(data, c.period),
+    calcHMAData: (data, c) => calcHMAData(data, c.period),
+    calcKAMAData: (data, c) => calcKAMAData(data, c.period, c.fastPeriod, c.slowPeriod),
+    calcSARData: (data, c) => calcSARData(data, c.step, c.maxStep),
+    calcSuperTrendData: (data, c) => calcSuperTrendData(data, c.atrPeriod, c.multiplier),
+    calcKeltnerData: (data, c) => calcKeltnerData(data, c.emaPeriod, c.atrPeriod, c.multiplier),
+    calcDonchianData: (data, c) => calcDonchianData(data, c.period),
+    calcIchimokuData: (data, c) => calcIchimokuData(data, c.tenkanPeriod, c.kijunPeriod, c.spanBPeriod, c.displacement),
+    calcROCData: (data, c) => calcROCData(data, c.period),
+    calcHVData: (data, c) => calcHVData(data, c.period, c.annualizationFactor),
+    calcParkinsonData: (data, c) => calcParkinsonData(data, c.period, c.annualizationFactor),
+    calcChaikinVolData: (data, c) => calcChaikinVolData(data, c.emaPeriod, c.rocPeriod),
+    calcVMAData: (data, c) => calcVMAData(data, c.period),
+    calcOBVData: (data, c) => calcOBVData(data),
+    calcPVTData: (data, c) => calcPVTData(data),
+    calcVWAPData: (data, c) => calcVWAPData(data, c.sessionResetGapMs),
+    calcCMFData: (data, c) => calcCMFData(data, c.period),
+    calcMFIData: (data, c) => calcMFIData(data, c.period),
+    calcPivotData: (data, c) => calcPivotData(data),
+    calcFibData: (data, c) => calcFibData(data, c.period),
+    calcStructureData: (data, c) => calcStructureData(data, c.leftWindow, c.rightWindow, c.breakoutSource),
+    calcZonesData: (data, c) => calcZonesData(data, c.obLookback, 5, 2, 'close'),
+    calcVolumeProfileData: (data, c) => calcVolumeProfileData(data, c.bins, c.lookback, c.valueAreaPercent),
 }
 
-/**
- * 计算运行时
- * 管理数据、配置、缓存和脏标记
- */
+export function createWorkerCompute(descriptor: { computeKey: string }): (data: KLineData[], config: any) => unknown {
+    return CALCULATOR_MAP[descriptor.computeKey] ?? ((_data: KLineData[], _config: any) => {
+        console.warn(`[IndicatorRuntime] Unknown computeKey: ${descriptor.computeKey}`)
+        return []
+    })
+}
+
 export class IndicatorRuntime {
-    // 数据
     private currentData: KLineData[] = []
     private dataVersion = 0
-
-    // 配置
-    private config: IndicatorConfigSnapshot = this.getDefaultConfig()
     private configVersion = 0
+    private dataDirty = true
+    private configMap = new Map<string, any>()
+    private paneIdMap = new Map<string, string>()
+    private seriesMap = new Map<string, unknown>()
+    private dirtyFlags = new Map<string, boolean>()
+    private descriptorMap = new Map<string, IndicatorRuntimeDescriptor>()
 
-    // 缓存的 series
-    private cachedSeries: Record<number, (number | undefined)[]> = {}
-    private cachedBollSeries: BOLLPoint[] = []
-    private cachedExpmaSeries: EXPMAPoint[] = []
-    private cachedEneSeries: ENEPoint[] = []
-    private cachedRsiSeries: Record<number, (number | undefined)[]> = {}
-    private cachedCciSeries: (number | undefined)[] = []
-    private cachedStochSeries: STOCHPoint[] = []
-    private cachedMomSeries: (number | undefined)[] = []
-    private cachedWmsrSeries: (number | undefined)[] = []
-    private cachedKstSeries: KSTPoint[] = []
-    private cachedFastkSeries: (number | undefined)[] = []
-    private cachedMacdSeries: MACDPoint[] = []
-    private cachedAtrSeries: (number | undefined)[] = []
-    private cachedWmaSeries: (number | undefined)[] = []
-    private cachedDemaSeries: (number | undefined)[] = []
-    private cachedTemaSeries: (number | undefined)[] = []
-    private cachedHmaSeries: (number | undefined)[] = []
-    private cachedKamaSeries: (number | undefined)[] = []
-    private cachedSarSeries: (SARPoint | undefined)[] = []
-    private cachedSupertrendSeries: (SuperTrendPoint | undefined)[] = []
-    private cachedKeltnerSeries: (KeltnerPoint | undefined)[] = []
-    private cachedDonchianSeries: (DonchianPoint | undefined)[] = []
-    private cachedIchimokuSeries: (IchimokuPoint | undefined)[] = []
-    private cachedRocSeries: (number | undefined)[] = []
-    private cachedTrixSeries: (number | undefined)[] = []
-    private cachedTrixSignalSeries: (number | undefined)[] = []
-    private cachedHvSeries: (number | undefined)[] = []
-    private cachedParkinsonSeries: (number | undefined)[] = []
-    private cachedChaikinVolSeries: (number | undefined)[] = []
-    private cachedVmaSeries: (number | undefined)[] = []
-    private cachedObvSeries: (number | undefined)[] = []
-    private cachedPvtSeries: (number | undefined)[] = []
-    private cachedVwapSeries: (number | undefined)[] = []
-    private cachedCmfSeries: (number | undefined)[] = []
-    private cachedMfiSeries: (number | undefined)[] = []
-    private cachedPivotSeries: (PivotPoint | undefined)[] = []
-    private cachedFibSeries: (FibPoint | undefined)[] = []
-    private cachedStructureSeries: StructureSnapshot = { swings: [], events: [], trend: 'range' }
-    private cachedZonesSeries: Zone[] = []
-    private cachedVolumeProfileSeries: VolumeProfileResult = { bins: [], poc: 0, vah: 0, val: 0, totalVolume: 0 }
-
-    // 脏标记
-    private dirtyData = true
-    private dirtyMAConfig = true
-    private dirtyBollConfig = true
-    private dirtyExpmaConfig = true
-    private dirtyEneConfig = true
-    private dirtyRsiConfig = true
-    private dirtyCciConfig = true
-    private dirtyStochConfig = true
-    private dirtyMomConfig = true
-    private dirtyWmsrConfig = true
-    private dirtyKstConfig = true
-    private dirtyFastkConfig = true
-    private dirtyMacdConfig = true
-    private dirtyAtrConfig = true
-    private dirtyWmaConfig = true
-    private dirtyDemaConfig = true
-    private dirtyTemaConfig = true
-    private dirtyHmaConfig = true
-    private dirtyKamaConfig = true
-    private dirtySarConfig = true
-    private dirtySupertrendConfig = true
-    private dirtyKeltnerConfig = true
-    private dirtyDonchianConfig = true
-    private dirtyIchimokuConfig = true
-    private dirtyRocConfig = true
-    private dirtyTrixConfig = true
-    private dirtyHvConfig = true
-    private dirtyParkinsonConfig = true
-    private dirtyChaikinVolConfig = true
-    private dirtyVmaConfig = true
-    private dirtyObvConfig = true
-    private dirtyPvtConfig = true
-    private dirtyVwapConfig = true
-    private dirtyCmfConfig = true
-    private dirtyMfiConfig = true
-    private dirtyPivotConfig = true
-    private dirtyFibConfig = true
-    private dirtyStructureConfig = true
-    private dirtyZonesConfig = true
-    private dirtyVolumeProfileConfig = true
-
-    private getDefaultConfig(): IndicatorConfigSnapshot {
-        return {
-            ma: { ma5: true, ma10: true, ma20: true, ma30: true, ma60: true },
-            boll: {
-                period: 20,
-                multiplier: 2,
-                showUpper: true,
-                showMiddle: true,
-                showLower: true,
-                showBand: true,
-            },
-            expma: { fastPeriod: 12, slowPeriod: 50 },
-            ene: { period: 10, deviation: 11 },
-            rsi: {
-                period1: 6,
-                period2: 12,
-                period3: 24,
-                showRSI1: true,
-                showRSI2: true,
-                showRSI3: true,
-            },
-            cci: { period: 14, showCCI: true },
-            stoch: { n: 9, m: 3, showK: true, showD: true },
-            mom: { period: 10, showMOM: true },
-            wmsr: { period: 14, showWMSR: true },
-            kst: {
-                roc1: 10,
-                roc2: 15,
-                roc3: 20,
-                roc4: 30,
-                signalPeriod: 9,
-                showKST: true,
-                showSignal: true,
-            },
-            fastk: { period: 9, showFASTK: true },
-            macd: {
-                fastPeriod: 12,
-                slowPeriod: 26,
-                signalPeriod: 9,
-                showDIF: true,
-                showDEA: true,
-                showBAR: true,
-            },
-            atr: { period: DEFAULT_ATR_PERIOD, showATR: true },
-            wma: { period: DEFAULT_WMA_PERIOD, showWMA: true },
-            dema: { period: DEFAULT_DEMA_PERIOD, showDEMA: true },
-            tema: { period: DEFAULT_TEMA_PERIOD, showTEMA: true },
-            hma: { period: DEFAULT_HMA_PERIOD, showHMA: true },
-            kama: {
-                period: DEFAULT_KAMA_PERIOD,
-                fastPeriod: DEFAULT_KAMA_FAST_PERIOD,
-                slowPeriod: DEFAULT_KAMA_SLOW_PERIOD,
-                showKAMA: true,
-            },
-            sar: { step: DEFAULT_SAR_STEP, maxStep: DEFAULT_SAR_MAX_STEP, showSAR: true },
-            supertrend: {
-                atrPeriod: DEFAULT_SUPERTREND_ATR_PERIOD,
-                multiplier: DEFAULT_SUPERTREND_MULTIPLIER,
-                showSuperTrend: true,
-            },
-            keltner: {
-                emaPeriod: DEFAULT_KELTNER_EMA_PERIOD,
-                atrPeriod: DEFAULT_KELTNER_ATR_PERIOD,
-                multiplier: DEFAULT_KELTNER_MULTIPLIER,
-                showUpper: true,
-                showMiddle: true,
-                showLower: true,
-            },
-            donchian: {
-                period: DEFAULT_DONCHIAN_PERIOD,
-                showUpper: true,
-                showMiddle: true,
-                showLower: true,
-            },
-            ichimoku: {
-                tenkanPeriod: DEFAULT_ICHIMOKU_TENKAN,
-                kijunPeriod: DEFAULT_ICHIMOKU_KIJUN,
-                spanBPeriod: DEFAULT_ICHIMOKU_SPAN_B,
-                displacement: DEFAULT_ICHIMOKU_DISPLACEMENT,
-                showTenkan: true,
-                showKijun: true,
-                showSpanA: true,
-                showSpanB: true,
-                showCloud: true,
-                showChikou: true,
-            },
-            roc: { period: DEFAULT_ROC_PERIOD, showROC: true },
-            trix: {
-                period: DEFAULT_TRIX_PERIOD,
-                signalPeriod: DEFAULT_TRIX_SIGNAL_PERIOD,
-                showTRIX: true,
-                showSignal: true,
-            },
-            hv: {
-                period: DEFAULT_HV_PERIOD,
-                annualizationFactor: DEFAULT_HV_ANNUALIZATION,
-                showHV: true,
-            },
-            parkinson: {
-                period: DEFAULT_PARKINSON_PERIOD,
-                annualizationFactor: DEFAULT_PARKINSON_ANNUALIZATION,
-                showParkinson: true,
-            },
-            chaikinVol: {
-                emaPeriod: DEFAULT_CHAIKIN_VOL_EMA_PERIOD,
-                rocPeriod: DEFAULT_CHAIKIN_VOL_ROC_PERIOD,
-                showChaikinVol: true,
-            },
-            vma: { period: DEFAULT_VMA_PERIOD, showVMA: true },
-            obv: { showOBV: true },
-            pvt: { showPVT: true },
-            vwap: { sessionResetGapMs: DEFAULT_VWAP_SESSION_GAP_MS, showVWAP: true },
-            cmf: { period: DEFAULT_CMF_PERIOD, showCMF: true },
-            mfi: { period: DEFAULT_MFI_PERIOD, showMFI: true },
-            pivot: { showPP: true, showR1: true, showR2: true, showR3: false, showS1: true, showS2: true, showS3: false },
-            fib: { period: DEFAULT_FIB_PERIOD, showLevels: true },
-            structure: {
-                leftWindow: DEFAULT_STRUCTURE_LEFT,
-                rightWindow: DEFAULT_STRUCTURE_RIGHT,
-                breakoutSource: 'close',
-                showSwingLabels: true,
-                showBOS: true,
-                showCHOCH: true,
-                showProvisional: false,
-            },
-            zones: {
-                showFVG: true,
-                showOB: true,
-                showFilledZones: false,
-                obLookback: DEFAULT_ZONES_OB_LOOKBACK,
-            },
-            volumeProfile: {
-                bins: DEFAULT_VP_BINS,
-                lookback: DEFAULT_VP_LOOKBACK,
-                valueAreaPercent: DEFAULT_VP_VALUE_AREA,
-                showPOC: true,
-                showValueArea: true,
-            },
-            rsiPaneId: 'sub_RSI',
-            cciPaneId: 'sub_CCI',
-            stochPaneId: 'sub_STOCH',
-            momPaneId: 'sub_MOM',
-            wmsrPaneId: 'sub_WMSR',
-            kstPaneId: 'sub_KST',
-            fastkPaneId: 'sub_FASTK',
-            macdPaneId: 'sub_MACD',
-            atrPaneId: 'sub_ATR',
-            wmaPaneId: 'sub_WMA',
-            demaPaneId: 'sub_DEMA',
-            temaPaneId: 'sub_TEMA',
-            hmaPaneId: 'sub_HMA',
-            kamaPaneId: 'sub_KAMA',
-            sarPaneId: 'sub_SAR',
-            supertrendPaneId: 'sub_SuperTrend',
-            keltnerPaneId: 'sub_Keltner',
-            donchianPaneId: 'sub_Donchian',
-            ichimokuPaneId: 'sub_Ichimoku',
-            rocPaneId: 'sub_ROC',
-            trixPaneId: 'sub_TRIX',
-            hvPaneId: 'sub_HV',
-            parkinsonPaneId: 'sub_Parkinson',
-            chaikinVolPaneId: 'sub_ChaikinVol',
-            vmaPaneId: 'sub_VMA',
-            obvPaneId: 'sub_OBV',
-            pvtPaneId: 'sub_PVT',
-            vwapPaneId: 'sub_VWAP',
-            cmfPaneId: 'sub_CMF',
-            mfiPaneId: 'sub_MFI',
-            pivotPaneId: 'sub_Pivot',
-            fibPaneId: 'sub_Fib',
-            structurePaneId: 'sub_Structure',
-            zonesPaneId: 'sub_Zones',
-            volumeProfilePaneId: 'sub_VolumeProfile',
+    constructor(descriptors: IndicatorRuntimeDescriptor[] = []) {
+        for (const d of descriptors) {
+            this.addDescriptor(d)
         }
     }
 
-    /**
-     * 更新数据
-     */
-    setData(data: KLineData[], version: number): void {
-        if (this.dataVersion === version && !this.dirtyData) return
-        this.currentData = data
-        this.dataVersion = version
-        this.dirtyData = true
+    addDescriptor(d: IndicatorRuntimeDescriptor): void {
+        if (this.descriptorMap.has(d.configKey as string)) return
+        this.descriptorMap.set(d.configKey as string, d)
+        const def = typeof d.defaultConfig === 'function'
+            ? (d.defaultConfig as () => any)()
+            : d.defaultConfig
+        this.configMap.set(d.configKey as string, { ...def })
+        this.dirtyFlags.set(d.configKey as string, true)
     }
 
-    /**
-     * 更新配置
-     */
+    setData(data: KLineData[], version: number): void {
+        if (this.dataVersion === version && !this.dataDirty) return
+        this.currentData = data
+        this.dataVersion = version
+        this.dataDirty = true
+    }
+
     private shallowEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
         const keysA = Object.keys(a)
         const keysB = Object.keys(b)
@@ -451,1098 +151,80 @@ export class IndicatorRuntime {
         return true
     }
 
-    /**
-     * 更新配置（仅值变更时才设置脏标记）
-     */
     setConfig(config: Partial<IndicatorConfigSnapshot>, version: number): void {
-        // 合并配置（仅值变更时才标记脏）
-        if (config.ma !== undefined && !this.shallowEqual(config.ma as unknown as Record<string, unknown>, this.config.ma as unknown as Record<string, unknown>)) {
-            this.config.ma = { ...this.config.ma, ...config.ma }
-            this.dirtyMAConfig = true
+        for (const [key, value] of Object.entries(config)) {
+            if (value === undefined) continue
+            const desc = this.descriptorMap.get(key)
+            if (desc) {
+                const current = this.configMap.get(key)
+                if (!current || !this.shallowEqual(value as Record<string, unknown>, current as Record<string, unknown>)) {
+                    this.configMap.set(key, { ...(current ?? {}), ...(value as any) })
+                    this.dirtyFlags.set(key, true)
+                }
+                continue
+            }
+            if (typeof value === 'string') {
+                for (const d of this.descriptorMap.values()) {
+                    if (d.paneIdKey === key) {
+                        this.paneIdMap.set(key, value)
+                        break
+                    }
+                }
+            }
         }
-        if (config.boll !== undefined && !this.shallowEqual(config.boll as unknown as Record<string, unknown>, this.config.boll as unknown as Record<string, unknown>)) {
-            this.config.boll = { ...this.config.boll, ...config.boll }
-            this.dirtyBollConfig = true
-        }
-        if (config.expma !== undefined && !this.shallowEqual(config.expma as unknown as Record<string, unknown>, this.config.expma as unknown as Record<string, unknown>)) {
-            this.config.expma = { ...this.config.expma, ...config.expma }
-            this.dirtyExpmaConfig = true
-        }
-        if (config.ene !== undefined && !this.shallowEqual(config.ene as unknown as Record<string, unknown>, this.config.ene as unknown as Record<string, unknown>)) {
-            this.config.ene = { ...this.config.ene, ...config.ene }
-            this.dirtyEneConfig = true
-        }
-        if (config.rsi !== undefined && !this.shallowEqual(config.rsi as unknown as Record<string, unknown>, this.config.rsi as unknown as Record<string, unknown>)) {
-            this.config.rsi = { ...this.config.rsi, ...config.rsi }
-            this.dirtyRsiConfig = true
-        }
-        if (config.cci !== undefined && !this.shallowEqual(config.cci as unknown as Record<string, unknown>, this.config.cci as unknown as Record<string, unknown>)) {
-            this.config.cci = { ...this.config.cci, ...config.cci }
-            this.dirtyCciConfig = true
-        }
-        if (config.stoch !== undefined && !this.shallowEqual(config.stoch as unknown as Record<string, unknown>, this.config.stoch as unknown as Record<string, unknown>)) {
-            this.config.stoch = { ...this.config.stoch, ...config.stoch }
-            this.dirtyStochConfig = true
-        }
-        if (config.mom !== undefined && !this.shallowEqual(config.mom as unknown as Record<string, unknown>, this.config.mom as unknown as Record<string, unknown>)) {
-            this.config.mom = { ...this.config.mom, ...config.mom }
-            this.dirtyMomConfig = true
-        }
-        if (config.wmsr !== undefined && !this.shallowEqual(config.wmsr as unknown as Record<string, unknown>, this.config.wmsr as unknown as Record<string, unknown>)) {
-            this.config.wmsr = { ...this.config.wmsr, ...config.wmsr }
-            this.dirtyWmsrConfig = true
-        }
-        if (config.kst !== undefined && !this.shallowEqual(config.kst as unknown as Record<string, unknown>, this.config.kst as unknown as Record<string, unknown>)) {
-            this.config.kst = { ...this.config.kst, ...config.kst }
-            this.dirtyKstConfig = true
-        }
-        if (config.fastk !== undefined && !this.shallowEqual(config.fastk as unknown as Record<string, unknown>, this.config.fastk as unknown as Record<string, unknown>)) {
-            this.config.fastk = { ...this.config.fastk, ...config.fastk }
-            this.dirtyFastkConfig = true
-        }
-        if (config.macd !== undefined && !this.shallowEqual(config.macd as unknown as Record<string, unknown>, this.config.macd as unknown as Record<string, unknown>)) {
-            this.config.macd = { ...this.config.macd, ...config.macd }
-            this.dirtyMacdConfig = true
-        }
-        if (config.atr !== undefined && !this.shallowEqual(config.atr as unknown as Record<string, unknown>, this.config.atr as unknown as Record<string, unknown>)) {
-            this.config.atr = { ...this.config.atr, ...config.atr }
-            this.dirtyAtrConfig = true
-        }
-        if (config.wma !== undefined && !this.shallowEqual(config.wma as unknown as Record<string, unknown>, this.config.wma as unknown as Record<string, unknown>)) {
-            this.config.wma = { ...this.config.wma, ...config.wma }
-            this.dirtyWmaConfig = true
-        }
-        if (config.dema !== undefined && !this.shallowEqual(config.dema as unknown as Record<string, unknown>, this.config.dema as unknown as Record<string, unknown>)) {
-            this.config.dema = { ...this.config.dema, ...config.dema }
-            this.dirtyDemaConfig = true
-        }
-        if (config.tema !== undefined && !this.shallowEqual(config.tema as unknown as Record<string, unknown>, this.config.tema as unknown as Record<string, unknown>)) {
-            this.config.tema = { ...this.config.tema, ...config.tema }
-            this.dirtyTemaConfig = true
-        }
-        if (config.hma !== undefined && !this.shallowEqual(config.hma as unknown as Record<string, unknown>, this.config.hma as unknown as Record<string, unknown>)) {
-            this.config.hma = { ...this.config.hma, ...config.hma }
-            this.dirtyHmaConfig = true
-        }
-        if (config.kama !== undefined && !this.shallowEqual(config.kama as unknown as Record<string, unknown>, this.config.kama as unknown as Record<string, unknown>)) {
-            this.config.kama = { ...this.config.kama, ...config.kama }
-            this.dirtyKamaConfig = true
-        }
-        if (config.sar !== undefined && !this.shallowEqual(config.sar as unknown as Record<string, unknown>, this.config.sar as unknown as Record<string, unknown>)) {
-            this.config.sar = { ...this.config.sar, ...config.sar }
-            this.dirtySarConfig = true
-        }
-        if (config.supertrend !== undefined && !this.shallowEqual(config.supertrend as unknown as Record<string, unknown>, this.config.supertrend as unknown as Record<string, unknown>)) {
-            this.config.supertrend = { ...this.config.supertrend, ...config.supertrend }
-            this.dirtySupertrendConfig = true
-        }
-        if (config.keltner !== undefined && !this.shallowEqual(config.keltner as unknown as Record<string, unknown>, this.config.keltner as unknown as Record<string, unknown>)) {
-            this.config.keltner = { ...this.config.keltner, ...config.keltner }
-            this.dirtyKeltnerConfig = true
-        }
-        if (config.donchian !== undefined && !this.shallowEqual(config.donchian as unknown as Record<string, unknown>, this.config.donchian as unknown as Record<string, unknown>)) {
-            this.config.donchian = { ...this.config.donchian, ...config.donchian }
-            this.dirtyDonchianConfig = true
-        }
-        if (config.ichimoku !== undefined && !this.shallowEqual(config.ichimoku as unknown as Record<string, unknown>, this.config.ichimoku as unknown as Record<string, unknown>)) {
-            this.config.ichimoku = { ...this.config.ichimoku, ...config.ichimoku }
-            this.dirtyIchimokuConfig = true
-        }
-        if (config.roc !== undefined && !this.shallowEqual(config.roc as unknown as Record<string, unknown>, this.config.roc as unknown as Record<string, unknown>)) {
-            this.config.roc = { ...this.config.roc, ...config.roc }
-            this.dirtyRocConfig = true
-        }
-        if (config.trix !== undefined && !this.shallowEqual(config.trix as unknown as Record<string, unknown>, this.config.trix as unknown as Record<string, unknown>)) {
-            this.config.trix = { ...this.config.trix, ...config.trix }
-            this.dirtyTrixConfig = true
-        }
-        if (config.hv !== undefined && !this.shallowEqual(config.hv as unknown as Record<string, unknown>, this.config.hv as unknown as Record<string, unknown>)) {
-            this.config.hv = { ...this.config.hv, ...config.hv }
-            this.dirtyHvConfig = true
-        }
-        if (config.parkinson !== undefined && !this.shallowEqual(config.parkinson as unknown as Record<string, unknown>, this.config.parkinson as unknown as Record<string, unknown>)) {
-            this.config.parkinson = { ...this.config.parkinson, ...config.parkinson }
-            this.dirtyParkinsonConfig = true
-        }
-        if (config.chaikinVol !== undefined && !this.shallowEqual(config.chaikinVol as unknown as Record<string, unknown>, this.config.chaikinVol as unknown as Record<string, unknown>)) {
-            this.config.chaikinVol = { ...this.config.chaikinVol, ...config.chaikinVol }
-            this.dirtyChaikinVolConfig = true
-        }
-        if (config.vma !== undefined && !this.shallowEqual(config.vma as unknown as Record<string, unknown>, this.config.vma as unknown as Record<string, unknown>)) {
-            this.config.vma = { ...this.config.vma, ...config.vma }
-            this.dirtyVmaConfig = true
-        }
-        if (config.obv !== undefined && !this.shallowEqual(config.obv as unknown as Record<string, unknown>, this.config.obv as unknown as Record<string, unknown>)) {
-            this.config.obv = { ...this.config.obv, ...config.obv }
-            this.dirtyObvConfig = true
-        }
-        if (config.pvt !== undefined && !this.shallowEqual(config.pvt as unknown as Record<string, unknown>, this.config.pvt as unknown as Record<string, unknown>)) {
-            this.config.pvt = { ...this.config.pvt, ...config.pvt }
-            this.dirtyPvtConfig = true
-        }
-        if (config.vwap !== undefined && !this.shallowEqual(config.vwap as unknown as Record<string, unknown>, this.config.vwap as unknown as Record<string, unknown>)) {
-            this.config.vwap = { ...this.config.vwap, ...config.vwap }
-            this.dirtyVwapConfig = true
-        }
-        if (config.cmf !== undefined && !this.shallowEqual(config.cmf as unknown as Record<string, unknown>, this.config.cmf as unknown as Record<string, unknown>)) {
-            this.config.cmf = { ...this.config.cmf, ...config.cmf }
-            this.dirtyCmfConfig = true
-        }
-        if (config.mfi !== undefined && !this.shallowEqual(config.mfi as unknown as Record<string, unknown>, this.config.mfi as unknown as Record<string, unknown>)) {
-            this.config.mfi = { ...this.config.mfi, ...config.mfi }
-            this.dirtyMfiConfig = true
-        }
-        if (config.pivot !== undefined && !this.shallowEqual(config.pivot as unknown as Record<string, unknown>, this.config.pivot as unknown as Record<string, unknown>)) {
-            this.config.pivot = { ...this.config.pivot, ...config.pivot }
-            this.dirtyPivotConfig = true
-        }
-        if (config.fib !== undefined && !this.shallowEqual(config.fib as unknown as Record<string, unknown>, this.config.fib as unknown as Record<string, unknown>)) {
-            this.config.fib = { ...this.config.fib, ...config.fib }
-            this.dirtyFibConfig = true
-        }
-        if (config.structure !== undefined && !this.shallowEqual(config.structure as unknown as Record<string, unknown>, this.config.structure as unknown as Record<string, unknown>)) {
-            this.config.structure = { ...this.config.structure, ...config.structure }
-            this.dirtyStructureConfig = true
-        }
-        if (config.zones !== undefined && !this.shallowEqual(config.zones as unknown as Record<string, unknown>, this.config.zones as unknown as Record<string, unknown>)) {
-            this.config.zones = { ...this.config.zones, ...config.zones }
-            this.dirtyZonesConfig = true
-        }
-        if (config.volumeProfile !== undefined && !this.shallowEqual(config.volumeProfile as unknown as Record<string, unknown>, this.config.volumeProfile as unknown as Record<string, unknown>)) {
-            this.config.volumeProfile = { ...this.config.volumeProfile, ...config.volumeProfile }
-            this.dirtyVolumeProfileConfig = true
-        }
-        // pane IDs
-        if (config.rsiPaneId !== undefined) this.config.rsiPaneId = config.rsiPaneId
-        if (config.cciPaneId !== undefined) this.config.cciPaneId = config.cciPaneId
-        if (config.stochPaneId !== undefined) this.config.stochPaneId = config.stochPaneId
-        if (config.momPaneId !== undefined) this.config.momPaneId = config.momPaneId
-        if (config.wmsrPaneId !== undefined) this.config.wmsrPaneId = config.wmsrPaneId
-        if (config.kstPaneId !== undefined) this.config.kstPaneId = config.kstPaneId
-        if (config.fastkPaneId !== undefined) this.config.fastkPaneId = config.fastkPaneId
-        if (config.macdPaneId !== undefined) this.config.macdPaneId = config.macdPaneId
-        if (config.atrPaneId !== undefined) this.config.atrPaneId = config.atrPaneId
-        if (config.wmaPaneId !== undefined) this.config.wmaPaneId = config.wmaPaneId
-        if (config.demaPaneId !== undefined) this.config.demaPaneId = config.demaPaneId
-        if (config.temaPaneId !== undefined) this.config.temaPaneId = config.temaPaneId
-        if (config.hmaPaneId !== undefined) this.config.hmaPaneId = config.hmaPaneId
-        if (config.kamaPaneId !== undefined) this.config.kamaPaneId = config.kamaPaneId
-        if (config.sarPaneId !== undefined) this.config.sarPaneId = config.sarPaneId
-        if (config.supertrendPaneId !== undefined) this.config.supertrendPaneId = config.supertrendPaneId
-        if (config.keltnerPaneId !== undefined) this.config.keltnerPaneId = config.keltnerPaneId
-        if (config.donchianPaneId !== undefined) this.config.donchianPaneId = config.donchianPaneId
-        if (config.ichimokuPaneId !== undefined) this.config.ichimokuPaneId = config.ichimokuPaneId
-        if (config.rocPaneId !== undefined) this.config.rocPaneId = config.rocPaneId
-        if (config.trixPaneId !== undefined) this.config.trixPaneId = config.trixPaneId
-        if (config.hvPaneId !== undefined) this.config.hvPaneId = config.hvPaneId
-        if (config.parkinsonPaneId !== undefined) this.config.parkinsonPaneId = config.parkinsonPaneId
-        if (config.chaikinVolPaneId !== undefined) this.config.chaikinVolPaneId = config.chaikinVolPaneId
-        if (config.vmaPaneId !== undefined) this.config.vmaPaneId = config.vmaPaneId
-        if (config.obvPaneId !== undefined) this.config.obvPaneId = config.obvPaneId
-        if (config.pvtPaneId !== undefined) this.config.pvtPaneId = config.pvtPaneId
-        if (config.vwapPaneId !== undefined) this.config.vwapPaneId = config.vwapPaneId
-        if (config.cmfPaneId !== undefined) this.config.cmfPaneId = config.cmfPaneId
-        if (config.mfiPaneId !== undefined) this.config.mfiPaneId = config.mfiPaneId
-        if (config.pivotPaneId !== undefined) this.config.pivotPaneId = config.pivotPaneId
-        if (config.fibPaneId !== undefined) this.config.fibPaneId = config.fibPaneId
-        if (config.structurePaneId !== undefined) this.config.structurePaneId = config.structurePaneId
-        if (config.zonesPaneId !== undefined) this.config.zonesPaneId = config.zonesPaneId
-        if (config.volumeProfilePaneId !== undefined) this.config.volumeProfilePaneId = config.volumeProfilePaneId
-
         this.configVersion = version
     }
 
-    /**
-     * 强制所有指标标记为脏（用于 recompute）
-     */
     forceDirty(): void {
-        this.dirtyData = true
-        this.dirtyMAConfig = true
-        this.dirtyBollConfig = true
-        this.dirtyExpmaConfig = true
-        this.dirtyEneConfig = true
-        this.dirtyRsiConfig = true
-        this.dirtyCciConfig = true
-        this.dirtyStochConfig = true
-        this.dirtyMomConfig = true
-        this.dirtyWmsrConfig = true
-        this.dirtyKstConfig = true
-        this.dirtyFastkConfig = true
-        this.dirtyMacdConfig = true
-        this.dirtyAtrConfig = true
-        this.dirtyWmaConfig = true
-        this.dirtyDemaConfig = true
-        this.dirtyTemaConfig = true
-        this.dirtyHmaConfig = true
-        this.dirtyKamaConfig = true
-        this.dirtySarConfig = true
-        this.dirtySupertrendConfig = true
-        this.dirtyKeltnerConfig = true
-        this.dirtyDonchianConfig = true
-        this.dirtyIchimokuConfig = true
-        this.dirtyRocConfig = true
-        this.dirtyTrixConfig = true
-        this.dirtyHvConfig = true
-        this.dirtyParkinsonConfig = true
-        this.dirtyChaikinVolConfig = true
-        this.dirtyVmaConfig = true
-        this.dirtyObvConfig = true
-        this.dirtyPvtConfig = true
-        this.dirtyVwapConfig = true
-        this.dirtyCmfConfig = true
-        this.dirtyMfiConfig = true
-        this.dirtyPivotConfig = true
-        this.dirtyFibConfig = true
-        this.dirtyStructureConfig = true
-        this.dirtyZonesConfig = true
-        this.dirtyVolumeProfileConfig = true
+        this.dataDirty = true
+        for (const key of this.dirtyFlags.keys()) {
+            this.dirtyFlags.set(key, true)
+        }
     }
 
-    /**
-     * 获取当前数据版本
-     */
     getDataVersion(): number {
         return this.dataVersion
     }
 
-    /**
-     * 获取当前配置版本
-     */
     getConfigVersion(): number {
         return this.configVersion
     }
 
-    /**
-     * 计算所有指标的 series（如果脏了）
-     * 返回结果包，供主线程组装成 render states
-     */
     computeSeries(): IndicatorSeriesBundle {
         const data = this.currentData
         const changed: string[] = []
 
-        // MA
-        if (this.dirtyData || this.dirtyMAConfig) {
-            this.cachedSeries = {}
-            for (const period of DEFAULT_MA_PERIODS) {
-                const flagKey = `ma${period}` as keyof MAFlags
-                if (this.config.ma[flagKey]) {
-                    this.cachedSeries[period] = calcMAData(data, period)
+        for (const [configKey, desc] of this.descriptorMap) {
+            if (this.dataDirty || this.dirtyFlags.get(configKey)) {
+                const config = this.configMap.get(configKey)
+                this.seriesMap.set(configKey, desc.compute(data, config))
+                changed.push(configKey)
+            }
+        }
+
+        this.dataDirty = false
+        for (const key of this.dirtyFlags.keys()) {
+            this.dirtyFlags.set(key, false)
+        }
+
+        const bundle: Record<string, unknown> = { _changed: changed }
+        for (const [configKey] of this.descriptorMap) {
+            const raw = this.seriesMap.get(configKey)
+            const params = { ...(this.configMap.get(configKey) ?? {}) }
+            const entry: Record<string, unknown> = {}
+
+            if (raw && typeof raw === 'object' && 'series' in (raw as Record<string, unknown>)) {
+                Object.assign(entry, raw as Record<string, unknown>)
+            } else {
+                entry.series = raw
+                if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+                    entry.enabledPeriods = Object.keys(raw).map(Number)
                 }
             }
-            changed.push('ma')
+            entry.params = params
+            bundle[configKey] = entry
         }
 
-        // BOLL
-        if (this.dirtyData || this.dirtyBollConfig) {
-            this.cachedBollSeries = calcBOLLData(
-                data,
-                this.config.boll.period,
-                this.config.boll.multiplier
-            )
-            changed.push('boll')
-        }
-
-        // EXPMA
-        if (this.dirtyData || this.dirtyExpmaConfig) {
-            this.cachedExpmaSeries = calcEXPMAData(
-                data,
-                this.config.expma.fastPeriod,
-                this.config.expma.slowPeriod
-            )
-            changed.push('expma')
-        }
-
-        // ENE
-        if (this.dirtyData || this.dirtyEneConfig) {
-            this.cachedEneSeries = calcENEData(
-                data,
-                this.config.ene.period,
-                this.config.ene.deviation
-            )
-            changed.push('ene')
-        }
-
-        // RSI
-        if (this.dirtyData || this.dirtyRsiConfig) {
-            this.cachedRsiSeries = {}
-            const periods = [this.config.rsi.period1, this.config.rsi.period2, this.config.rsi.period3]
-            const shows = [this.config.rsi.showRSI1, this.config.rsi.showRSI2, this.config.rsi.showRSI3]
-            for (let i = 0; i < periods.length; i++) {
-                if (shows[i]) {
-                    this.cachedRsiSeries[periods[i]] = calcRSIData(data, periods[i])
-                }
-            }
-            changed.push('rsi')
-        }
-
-        // CCI
-        if (this.dirtyData || this.dirtyCciConfig) {
-            if (this.config.cci.showCCI) {
-                this.cachedCciSeries = calcCCIData(data, this.config.cci.period)
-            } else {
-                this.cachedCciSeries = []
-            }
-            changed.push('cci')
-        }
-
-        // STOCH
-        if (this.dirtyData || this.dirtyStochConfig) {
-            if (this.config.stoch.showK || this.config.stoch.showD) {
-                this.cachedStochSeries = calcSTOCHData(data, this.config.stoch.n, this.config.stoch.m)
-            } else {
-                this.cachedStochSeries = []
-            }
-            changed.push('stoch')
-        }
-
-        // MOM
-        if (this.dirtyData || this.dirtyMomConfig) {
-            if (this.config.mom.showMOM) {
-                this.cachedMomSeries = calcMOMData(data, this.config.mom.period)
-            } else {
-                this.cachedMomSeries = []
-            }
-            changed.push('mom')
-        }
-
-        // WMSR
-        if (this.dirtyData || this.dirtyWmsrConfig) {
-            if (this.config.wmsr.showWMSR) {
-                this.cachedWmsrSeries = calcWMSRData(data, this.config.wmsr.period)
-            } else {
-                this.cachedWmsrSeries = []
-            }
-            changed.push('wmsr')
-        }
-
-        // KST
-        if (this.dirtyData || this.dirtyKstConfig) {
-            if (this.config.kst.showKST || this.config.kst.showSignal) {
-                this.cachedKstSeries = calcKSTData(
-                    data,
-                    this.config.kst.roc1,
-                    this.config.kst.roc2,
-                    this.config.kst.roc3,
-                    this.config.kst.roc4,
-                    this.config.kst.signalPeriod
-                )
-            } else {
-                this.cachedKstSeries = []
-            }
-            changed.push('kst')
-        }
-
-        // FASTK
-        if (this.dirtyData || this.dirtyFastkConfig) {
-            if (this.config.fastk.showFASTK) {
-                this.cachedFastkSeries = calcFASTKData(data, this.config.fastk.period)
-            } else {
-                this.cachedFastkSeries = []
-            }
-            changed.push('fastk')
-        }
-
-        // MACD
-        if (this.dirtyData || this.dirtyMacdConfig) {
-            if (this.config.macd.showDIF || this.config.macd.showDEA || this.config.macd.showBAR) {
-                this.cachedMacdSeries = calcMACDData(
-                    data,
-                    this.config.macd.fastPeriod,
-                    this.config.macd.slowPeriod,
-                    this.config.macd.signalPeriod
-                )
-            } else {
-                this.cachedMacdSeries = []
-            }
-            changed.push('macd')
-        }
-
-        // ATR
-        if (this.dirtyData || this.dirtyAtrConfig) {
-            if (this.config.atr.showATR) {
-                this.cachedAtrSeries = calcATRData(data, this.config.atr.period)
-            } else {
-                this.cachedAtrSeries = []
-            }
-            changed.push('atr')
-        }
-
-        // WMA
-        if (this.dirtyData || this.dirtyWmaConfig) {
-            if (this.config.wma.showWMA) {
-                this.cachedWmaSeries = calcWMAData(data, this.config.wma.period)
-            } else {
-                this.cachedWmaSeries = []
-            }
-            changed.push('wma')
-        }
-
-        // DEMA
-        if (this.dirtyData || this.dirtyDemaConfig) {
-            if (this.config.dema.showDEMA) {
-                this.cachedDemaSeries = calcDEMAData(data, this.config.dema.period)
-            } else {
-                this.cachedDemaSeries = []
-            }
-            changed.push('dema')
-        }
-
-        // TEMA
-        if (this.dirtyData || this.dirtyTemaConfig) {
-            if (this.config.tema.showTEMA) {
-                this.cachedTemaSeries = calcTEMAData(data, this.config.tema.period)
-            } else {
-                this.cachedTemaSeries = []
-            }
-            changed.push('tema')
-        }
-
-        // HMA
-        if (this.dirtyData || this.dirtyHmaConfig) {
-            if (this.config.hma.showHMA) {
-                this.cachedHmaSeries = calcHMAData(data, this.config.hma.period)
-            } else {
-                this.cachedHmaSeries = []
-            }
-            changed.push('hma')
-        }
-
-        // KAMA
-        if (this.dirtyData || this.dirtyKamaConfig) {
-            if (this.config.kama.showKAMA) {
-                this.cachedKamaSeries = calcKAMAData(
-                    data,
-                    this.config.kama.period,
-                    this.config.kama.fastPeriod,
-                    this.config.kama.slowPeriod,
-                )
-            } else {
-                this.cachedKamaSeries = []
-            }
-            changed.push('kama')
-        }
-
-        // SAR
-        if (this.dirtyData || this.dirtySarConfig) {
-            if (this.config.sar.showSAR) {
-                this.cachedSarSeries = calcSARData(
-                    data,
-                    this.config.sar.step,
-                    this.config.sar.maxStep,
-                )
-            } else {
-                this.cachedSarSeries = []
-            }
-            changed.push('sar')
-        }
-
-        // SuperTrend
-        if (this.dirtyData || this.dirtySupertrendConfig) {
-            if (this.config.supertrend.showSuperTrend) {
-                this.cachedSupertrendSeries = calcSuperTrendData(
-                    data,
-                    this.config.supertrend.atrPeriod,
-                    this.config.supertrend.multiplier,
-                )
-            } else {
-                this.cachedSupertrendSeries = []
-            }
-            changed.push('supertrend')
-        }
-
-        // Keltner
-        if (this.dirtyData || this.dirtyKeltnerConfig) {
-            if (this.config.keltner.showUpper || this.config.keltner.showMiddle || this.config.keltner.showLower) {
-                this.cachedKeltnerSeries = calcKeltnerData(
-                    data,
-                    this.config.keltner.emaPeriod,
-                    this.config.keltner.atrPeriod,
-                    this.config.keltner.multiplier,
-                )
-            } else {
-                this.cachedKeltnerSeries = []
-            }
-            changed.push('keltner')
-        }
-
-        // Donchian
-        if (this.dirtyData || this.dirtyDonchianConfig) {
-            if (this.config.donchian.showUpper || this.config.donchian.showMiddle || this.config.donchian.showLower) {
-                this.cachedDonchianSeries = calcDonchianData(data, this.config.donchian.period)
-            } else {
-                this.cachedDonchianSeries = []
-            }
-            changed.push('donchian')
-        }
-
-        // Ichimoku
-        if (this.dirtyData || this.dirtyIchimokuConfig) {
-            const ic = this.config.ichimoku
-            if (ic.showTenkan || ic.showKijun || ic.showSpanA || ic.showSpanB || ic.showCloud || ic.showChikou) {
-                this.cachedIchimokuSeries = calcIchimokuData(
-                    data,
-                    ic.tenkanPeriod,
-                    ic.kijunPeriod,
-                    ic.spanBPeriod,
-                    ic.displacement,
-                )
-            } else {
-                this.cachedIchimokuSeries = []
-            }
-            changed.push('ichimoku')
-        }
-
-        // ROC
-        if (this.dirtyData || this.dirtyRocConfig) {
-            if (this.config.roc.showROC) {
-                this.cachedRocSeries = calcROCData(data, this.config.roc.period)
-            } else {
-                this.cachedRocSeries = []
-            }
-            changed.push('roc')
-        }
-
-        // TRIX
-        if (this.dirtyData || this.dirtyTrixConfig) {
-            if (this.config.trix.showTRIX || this.config.trix.showSignal) {
-                const result = calcTRIXData(data, this.config.trix.period, this.config.trix.signalPeriod)
-                this.cachedTrixSeries = result.series
-                this.cachedTrixSignalSeries = result.signalSeries
-            } else {
-                this.cachedTrixSeries = []
-                this.cachedTrixSignalSeries = []
-            }
-            changed.push('trix')
-        }
-
-        // HV
-        if (this.dirtyData || this.dirtyHvConfig) {
-            if (this.config.hv.showHV) {
-                this.cachedHvSeries = calcHVData(data, this.config.hv.period, this.config.hv.annualizationFactor)
-            } else {
-                this.cachedHvSeries = []
-            }
-            changed.push('hv')
-        }
-
-        // Parkinson
-        if (this.dirtyData || this.dirtyParkinsonConfig) {
-            if (this.config.parkinson.showParkinson) {
-                this.cachedParkinsonSeries = calcParkinsonData(
-                    data,
-                    this.config.parkinson.period,
-                    this.config.parkinson.annualizationFactor,
-                )
-            } else {
-                this.cachedParkinsonSeries = []
-            }
-            changed.push('parkinson')
-        }
-
-        // Chaikin Volatility
-        if (this.dirtyData || this.dirtyChaikinVolConfig) {
-            if (this.config.chaikinVol.showChaikinVol) {
-                this.cachedChaikinVolSeries = calcChaikinVolData(
-                    data,
-                    this.config.chaikinVol.emaPeriod,
-                    this.config.chaikinVol.rocPeriod,
-                )
-            } else {
-                this.cachedChaikinVolSeries = []
-            }
-            changed.push('chaikinVol')
-        }
-
-        // VMA
-        if (this.dirtyData || this.dirtyVmaConfig) {
-            if (this.config.vma.showVMA) {
-                this.cachedVmaSeries = calcVMAData(data, this.config.vma.period)
-            } else {
-                this.cachedVmaSeries = []
-            }
-            changed.push('vma')
-        }
-
-        // OBV
-        if (this.dirtyData || this.dirtyObvConfig) {
-            if (this.config.obv.showOBV) {
-                this.cachedObvSeries = calcOBVData(data)
-            } else {
-                this.cachedObvSeries = []
-            }
-            changed.push('obv')
-        }
-
-        // PVT
-        if (this.dirtyData || this.dirtyPvtConfig) {
-            if (this.config.pvt.showPVT) {
-                this.cachedPvtSeries = calcPVTData(data)
-            } else {
-                this.cachedPvtSeries = []
-            }
-            changed.push('pvt')
-        }
-
-        // VWAP
-        if (this.dirtyData || this.dirtyVwapConfig) {
-            if (this.config.vwap.showVWAP) {
-                this.cachedVwapSeries = calcVWAPData(data, this.config.vwap.sessionResetGapMs)
-            } else {
-                this.cachedVwapSeries = []
-            }
-            changed.push('vwap')
-        }
-
-        // CMF
-        if (this.dirtyData || this.dirtyCmfConfig) {
-            if (this.config.cmf.showCMF) {
-                this.cachedCmfSeries = calcCMFData(data, this.config.cmf.period)
-            } else {
-                this.cachedCmfSeries = []
-            }
-            changed.push('cmf')
-        }
-
-        // MFI
-        if (this.dirtyData || this.dirtyMfiConfig) {
-            if (this.config.mfi.showMFI) {
-                this.cachedMfiSeries = calcMFIData(data, this.config.mfi.period)
-            } else {
-                this.cachedMfiSeries = []
-            }
-            changed.push('mfi')
-        }
-
-        // Pivot
-        if (this.dirtyData || this.dirtyPivotConfig) {
-            const p = this.config.pivot
-            if (p.showPP || p.showR1 || p.showR2 || p.showR3 || p.showS1 || p.showS2 || p.showS3) {
-                this.cachedPivotSeries = calcPivotData(data)
-            } else {
-                this.cachedPivotSeries = []
-            }
-            changed.push('pivot')
-        }
-
-        // Fibonacci
-        if (this.dirtyData || this.dirtyFibConfig) {
-            if (this.config.fib.showLevels) {
-                this.cachedFibSeries = calcFibData(data, this.config.fib.period)
-            } else {
-                this.cachedFibSeries = []
-            }
-            changed.push('fib')
-        }
-
-        // SMC Structure
-        if (this.dirtyData || this.dirtyStructureConfig) {
-            const s = this.config.structure
-            if (s.showSwingLabels || s.showBOS || s.showCHOCH) {
-                this.cachedStructureSeries = calcStructureData(data, s.leftWindow, s.rightWindow, s.breakoutSource)
-            } else {
-                this.cachedStructureSeries = { swings: [], events: [], trend: 'range' }
-            }
-            changed.push('structure')
-        }
-
-        // SMC Zones
-        if (this.dirtyData || this.dirtyZonesConfig) {
-            const z = this.config.zones
-            if (z.showFVG || z.showOB) {
-                this.cachedZonesSeries = calcZonesData(
-                    data,
-                    z.obLookback,
-                    this.config.structure.leftWindow,
-                    this.config.structure.rightWindow,
-                    this.config.structure.breakoutSource,
-                )
-            } else {
-                this.cachedZonesSeries = []
-            }
-            changed.push('zones')
-        }
-
-        // Volume Profile
-        if (this.dirtyData || this.dirtyVolumeProfileConfig) {
-            const vp = this.config.volumeProfile
-            if (vp.showPOC || vp.showValueArea) {
-                this.cachedVolumeProfileSeries = calcVolumeProfileData(data, vp.bins, vp.lookback, vp.valueAreaPercent)
-            } else {
-                this.cachedVolumeProfileSeries = { bins: [], poc: 0, vah: 0, val: 0, totalVolume: 0 }
-            }
-            changed.push('volumeProfile')
-        }
-
-        // 重置脏标记
-        this.dirtyData = false
-        this.dirtyMAConfig = false
-        this.dirtyBollConfig = false
-        this.dirtyExpmaConfig = false
-        this.dirtyEneConfig = false
-        this.dirtyRsiConfig = false
-        this.dirtyCciConfig = false
-        this.dirtyStochConfig = false
-        this.dirtyMomConfig = false
-        this.dirtyWmsrConfig = false
-        this.dirtyKstConfig = false
-        this.dirtyFastkConfig = false
-        this.dirtyMacdConfig = false
-        this.dirtyAtrConfig = false
-        this.dirtyWmaConfig = false
-        this.dirtyDemaConfig = false
-        this.dirtyTemaConfig = false
-        this.dirtyHmaConfig = false
-        this.dirtyKamaConfig = false
-        this.dirtySarConfig = false
-        this.dirtySupertrendConfig = false
-        this.dirtyKeltnerConfig = false
-        this.dirtyDonchianConfig = false
-        this.dirtyIchimokuConfig = false
-        this.dirtyRocConfig = false
-        this.dirtyTrixConfig = false
-        this.dirtyHvConfig = false
-        this.dirtyParkinsonConfig = false
-        this.dirtyChaikinVolConfig = false
-        this.dirtyVmaConfig = false
-        this.dirtyObvConfig = false
-        this.dirtyPvtConfig = false
-        this.dirtyVwapConfig = false
-        this.dirtyCmfConfig = false
-        this.dirtyMfiConfig = false
-        this.dirtyPivotConfig = false
-        this.dirtyFibConfig = false
-        this.dirtyStructureConfig = false
-        this.dirtyZonesConfig = false
-        this.dirtyVolumeProfileConfig = false
-
-        // 组装结果
-        return {
-            ma: {
-                series: this.cachedSeries,
-                enabledPeriods: Object.keys(this.cachedSeries).map(Number),
-            },
-            boll: {
-                series: this.cachedBollSeries,
-                params: { ...this.config.boll },
-            },
-            expma: {
-                series: this.cachedExpmaSeries,
-                params: { ...this.config.expma },
-            },
-            ene: {
-                series: this.cachedEneSeries,
-                params: { ...this.config.ene },
-            },
-            rsi: {
-                series: this.cachedRsiSeries,
-                enabledPeriods: Object.keys(this.cachedRsiSeries).map(Number),
-                params: { ...this.config.rsi },
-            },
-            cci: {
-                series: this.cachedCciSeries,
-                params: { ...this.config.cci },
-            },
-            stoch: {
-                series: this.cachedStochSeries,
-                params: { ...this.config.stoch },
-            },
-            mom: {
-                series: this.cachedMomSeries,
-                params: { ...this.config.mom },
-            },
-            wmsr: {
-                series: this.cachedWmsrSeries,
-                params: { ...this.config.wmsr },
-            },
-            kst: {
-                series: this.cachedKstSeries,
-                params: { ...this.config.kst },
-            },
-            fastk: {
-                series: this.cachedFastkSeries,
-                params: { ...this.config.fastk },
-            },
-            macd: {
-                series: this.cachedMacdSeries,
-                params: { ...this.config.macd },
-            },
-            atr: {
-                series: this.cachedAtrSeries,
-                params: { ...this.config.atr },
-            },
-            wma: {
-                series: this.cachedWmaSeries,
-                params: { ...this.config.wma },
-            },
-            dema: {
-                series: this.cachedDemaSeries,
-                params: { ...this.config.dema },
-            },
-            tema: {
-                series: this.cachedTemaSeries,
-                params: { ...this.config.tema },
-            },
-            hma: {
-                series: this.cachedHmaSeries,
-                params: { ...this.config.hma },
-            },
-            kama: {
-                series: this.cachedKamaSeries,
-                params: { ...this.config.kama },
-            },
-            sar: {
-                series: this.cachedSarSeries,
-                params: { ...this.config.sar },
-            },
-            supertrend: {
-                series: this.cachedSupertrendSeries,
-                params: { ...this.config.supertrend },
-            },
-            keltner: {
-                series: this.cachedKeltnerSeries,
-                params: { ...this.config.keltner },
-            },
-            donchian: {
-                series: this.cachedDonchianSeries,
-                params: { ...this.config.donchian },
-            },
-            ichimoku: {
-                series: this.cachedIchimokuSeries,
-                params: { ...this.config.ichimoku },
-            },
-            roc: {
-                series: this.cachedRocSeries,
-                params: { ...this.config.roc },
-            },
-            trix: {
-                series: this.cachedTrixSeries,
-                signalSeries: this.cachedTrixSignalSeries,
-                params: { ...this.config.trix },
-            },
-            hv: {
-                series: this.cachedHvSeries,
-                params: { ...this.config.hv },
-            },
-            parkinson: {
-                series: this.cachedParkinsonSeries,
-                params: { ...this.config.parkinson },
-            },
-            chaikinVol: {
-                series: this.cachedChaikinVolSeries,
-                params: { ...this.config.chaikinVol },
-            },
-            vma: {
-                series: this.cachedVmaSeries,
-                params: { ...this.config.vma },
-            },
-            obv: {
-                series: this.cachedObvSeries,
-                params: { ...this.config.obv },
-            },
-            pvt: {
-                series: this.cachedPvtSeries,
-                params: { ...this.config.pvt },
-            },
-            vwap: {
-                series: this.cachedVwapSeries,
-                params: { ...this.config.vwap },
-            },
-            cmf: {
-                series: this.cachedCmfSeries,
-                params: { ...this.config.cmf },
-            },
-            mfi: {
-                series: this.cachedMfiSeries,
-                params: { ...this.config.mfi },
-            },
-            pivot: {
-                series: this.cachedPivotSeries,
-                params: { ...this.config.pivot },
-            },
-            fib: {
-                series: this.cachedFibSeries,
-                params: { ...this.config.fib },
-            },
-            structure: {
-                series: this.cachedStructureSeries,
-                params: { ...this.config.structure },
-            },
-            zones: {
-                series: this.cachedZonesSeries,
-                params: { ...this.config.zones },
-            },
-            volumeProfile: {
-                series: this.cachedVolumeProfileSeries,
-                params: { ...this.config.volumeProfile },
-            },
-            _changed: changed,
-        }
-    }
-
-    /**
-     * 获取缓存的 series（用于 visibleRange 变更时扫描极值）
-     */
-    getCachedSeries(): IndicatorSeriesBundle {
-        return {
-            _changed: [],
-            ma: {
-                series: this.cachedSeries,
-                enabledPeriods: Object.keys(this.cachedSeries).map(Number),
-            },
-            boll: {
-                series: this.cachedBollSeries,
-                params: { ...this.config.boll },
-            },
-            expma: {
-                series: this.cachedExpmaSeries,
-                params: { ...this.config.expma },
-            },
-            ene: {
-                series: this.cachedEneSeries,
-                params: { ...this.config.ene },
-            },
-            rsi: {
-                series: this.cachedRsiSeries,
-                enabledPeriods: Object.keys(this.cachedRsiSeries).map(Number),
-                params: { ...this.config.rsi },
-            },
-            cci: {
-                series: this.cachedCciSeries,
-                params: { ...this.config.cci },
-            },
-            stoch: {
-                series: this.cachedStochSeries,
-                params: { ...this.config.stoch },
-            },
-            mom: {
-                series: this.cachedMomSeries,
-                params: { ...this.config.mom },
-            },
-            wmsr: {
-                series: this.cachedWmsrSeries,
-                params: { ...this.config.wmsr },
-            },
-            kst: {
-                series: this.cachedKstSeries,
-                params: { ...this.config.kst },
-            },
-            fastk: {
-                series: this.cachedFastkSeries,
-                params: { ...this.config.fastk },
-            },
-            macd: {
-                series: this.cachedMacdSeries,
-                params: { ...this.config.macd },
-            },
-            atr: {
-                series: this.cachedAtrSeries,
-                params: { ...this.config.atr },
-            },
-            wma: {
-                series: this.cachedWmaSeries,
-                params: { ...this.config.wma },
-            },
-            dema: {
-                series: this.cachedDemaSeries,
-                params: { ...this.config.dema },
-            },
-            tema: {
-                series: this.cachedTemaSeries,
-                params: { ...this.config.tema },
-            },
-            hma: {
-                series: this.cachedHmaSeries,
-                params: { ...this.config.hma },
-            },
-            kama: {
-                series: this.cachedKamaSeries,
-                params: { ...this.config.kama },
-            },
-            sar: {
-                series: this.cachedSarSeries,
-                params: { ...this.config.sar },
-            },
-            supertrend: {
-                series: this.cachedSupertrendSeries,
-                params: { ...this.config.supertrend },
-            },
-            keltner: {
-                series: this.cachedKeltnerSeries,
-                params: { ...this.config.keltner },
-            },
-            donchian: {
-                series: this.cachedDonchianSeries,
-                params: { ...this.config.donchian },
-            },
-            ichimoku: {
-                series: this.cachedIchimokuSeries,
-                params: { ...this.config.ichimoku },
-            },
-            roc: {
-                series: this.cachedRocSeries,
-                params: { ...this.config.roc },
-            },
-            trix: {
-                series: this.cachedTrixSeries,
-                signalSeries: this.cachedTrixSignalSeries,
-                params: { ...this.config.trix },
-            },
-            hv: {
-                series: this.cachedHvSeries,
-                params: { ...this.config.hv },
-            },
-            parkinson: {
-                series: this.cachedParkinsonSeries,
-                params: { ...this.config.parkinson },
-            },
-            chaikinVol: {
-                series: this.cachedChaikinVolSeries,
-                params: { ...this.config.chaikinVol },
-            },
-            vma: {
-                series: this.cachedVmaSeries,
-                params: { ...this.config.vma },
-            },
-            obv: {
-                series: this.cachedObvSeries,
-                params: { ...this.config.obv },
-            },
-            pvt: {
-                series: this.cachedPvtSeries,
-                params: { ...this.config.pvt },
-            },
-            vwap: {
-                series: this.cachedVwapSeries,
-                params: { ...this.config.vwap },
-            },
-            cmf: {
-                series: this.cachedCmfSeries,
-                params: { ...this.config.cmf },
-            },
-            mfi: {
-                series: this.cachedMfiSeries,
-                params: { ...this.config.mfi },
-            },
-            pivot: {
-                series: this.cachedPivotSeries,
-                params: { ...this.config.pivot },
-            },
-            fib: {
-                series: this.cachedFibSeries,
-                params: { ...this.config.fib },
-            },
-            structure: {
-                series: this.cachedStructureSeries,
-                params: { ...this.config.structure },
-            },
-            zones: {
-                series: this.cachedZonesSeries,
-                params: { ...this.config.zones },
-            },
-            volumeProfile: {
-                series: this.cachedVolumeProfileSeries,
-                params: { ...this.config.volumeProfile },
-            },
-        }
+        return bundle as unknown as IndicatorSeriesBundle
     }
 }

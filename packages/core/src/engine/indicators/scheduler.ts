@@ -60,6 +60,7 @@ import type {
     VolumeProfileSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
+    SerializedRuntimeDescriptor,
 } from './workerProtocol'
 import type { MAFlags } from './calculators'
 import { IndicatorRegistry } from './indicatorRegistry'
@@ -201,6 +202,21 @@ export class IndicatorScheduler {
             console.warn(`[IndicatorScheduler] '${meta.name}' already registered, overwriting`)
         }
         this.registry.register(meta)
+        if (meta.runtime && this.inlineRuntime) {
+            this.inlineRuntime.addDescriptor(meta.runtime)
+        }
+        if (meta.runtime && this.useWorker && this.worker && this.workerReady) {
+            const rt = meta.runtime
+            this.worker.postMessage({
+                type: 'addDescriptor',
+                descriptor: {
+                    configKey: rt.configKey,
+                    paneIdKey: rt.paneIdKey,
+                    defaultConfig: typeof rt.defaultConfig === 'function' ? (rt.defaultConfig as () => any)() : rt.defaultConfig,
+                    computeKey: rt.computeKey,
+                } as SerializedRuntimeDescriptor,
+            })
+        }
         this.configVersion++
         this.triggerRecompute()
         console.log(`[IndicatorScheduler] Registered indicator '${meta.name}' (${meta.displayName})`)
@@ -464,7 +480,6 @@ export class IndicatorScheduler {
                 console.error('[IndicatorScheduler] Worker error:', err)
                 this.fallbackToInline()
             }
-            // 发送 init
             this.worker.postMessage({
                 type: 'init',
                 protocolVersion: PROTOCOL_VERSION,
@@ -478,7 +493,10 @@ export class IndicatorScheduler {
 
     private initInlineRuntime(): void {
         console.log('[IndicatorScheduler] Using INLINE runtime (fallback)')
-        this.inlineRuntime = new IndicatorRuntime()
+        const runtimeDescs = this.registry.getAll()
+            .filter(m => m.runtime)
+            .map(m => m.runtime!)
+        this.inlineRuntime = new IndicatorRuntime(runtimeDescs)
         this.useWorker = false
         this.workerReady = true
     }
@@ -517,7 +535,19 @@ export class IndicatorScheduler {
                 this.workerReady = true
                 this.useWorker = true
                 console.log('[IndicatorScheduler] Worker READY - using Worker backend')
-                // Worker 就绪后补算一次，但仅在有数据时（避免空数据产出 Infinity 极值）
+                for (const meta of this.registry.getAll()) {
+                    if (!meta.runtime) continue
+                    const rt = meta.runtime
+                    this.worker!.postMessage({
+                        type: 'addDescriptor',
+                        descriptor: {
+                            configKey: rt.configKey,
+                            paneIdKey: rt.paneIdKey,
+                            defaultConfig: typeof rt.defaultConfig === 'function' ? (rt.defaultConfig as () => any)() : rt.defaultConfig,
+                            computeKey: rt.computeKey,
+                        } as SerializedRuntimeDescriptor,
+                    })
+                }
                 if (this.currentData.length > 0) {
                     this.triggerRecompute()
                 }
@@ -747,400 +777,280 @@ export class IndicatorScheduler {
      * MA 配置变更
      */
     updateMAConfig(config: MAFlags): void {
-        this.configSnapshot.ma = { ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('ma', config as unknown as Record<string, unknown>)
     }
 
     /**
      * BOLL 配置变更
      */
     updateBOLLConfig(config: Partial<BOLLSchedulerConfig>): void {
-        this.configSnapshot.boll = { ...this.configSnapshot.boll, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('boll', config as unknown as Record<string, unknown>)
     }
 
     /**
      * EXPMA 配置变更
      */
     updateEXPMAConfig(config: Partial<EXPMASchedulerConfig>): void {
-        this.configSnapshot.expma = { ...this.configSnapshot.expma, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('expma', config as unknown as Record<string, unknown>)
     }
 
     /**
      * ENE 配置变更
      */
     updateENEConfig(config: Partial<ENESchedulerConfig>): void {
-        this.configSnapshot.ene = { ...this.configSnapshot.ene, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('ene', config as unknown as Record<string, unknown>)
     }
 
     /**
      * RSI 配置变更
      */
     updateRSIConfig(config: Partial<RSISchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) {
-            this.configSnapshot.rsiPaneId = paneId
-        }
-        this.configSnapshot.rsi = { ...this.configSnapshot.rsi, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('rsi', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * CCI 配置变更
      */
     updateCCIConfig(config: Partial<CCISchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) {
-            this.configSnapshot.cciPaneId = paneId
-        }
-        this.configSnapshot.cci = { ...this.configSnapshot.cci, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('cci', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * STOCH 配置变更
      */
     updateSTOCHConfig(config: Partial<STOCHSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) {
-            this.configSnapshot.stochPaneId = paneId
-        }
-        this.configSnapshot.stoch = { ...this.configSnapshot.stoch, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('stoch', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * MOM 配置变更
      */
     updateMOMConfig(config: Partial<MOMSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) {
-            this.configSnapshot.momPaneId = paneId
-        }
-        this.configSnapshot.mom = { ...this.configSnapshot.mom, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('mom', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * WMSR 配置变更
      */
     updateWMSRConfig(config: Partial<WMSRSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) {
-            this.configSnapshot.wmsrPaneId = paneId
-        }
-        this.configSnapshot.wmsr = { ...this.configSnapshot.wmsr, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('wmsr', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * KST 配置变更
      */
     updateKSTConfig(config: Partial<KSTSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) {
-            this.configSnapshot.kstPaneId = paneId
-        }
-        this.configSnapshot.kst = { ...this.configSnapshot.kst, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('kst', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * FASTK 配置变更
      */
     updateFASTKConfig(config: Partial<FASTKSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) {
-            this.configSnapshot.fastkPaneId = paneId
-        }
-        this.configSnapshot.fastk = { ...this.configSnapshot.fastk, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('fastk', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * MACD 配置变更
      */
     updateMACDConfig(config: Partial<MACDSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) {
-            this.configSnapshot.macdPaneId = paneId
-        }
-        this.configSnapshot.macd = { ...this.configSnapshot.macd, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('macd', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * ATR 配置变更
      */
     updateATRConfig(config: Partial<ATRSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) {
-            this.configSnapshot.atrPaneId = paneId
-        }
-        this.configSnapshot.atr = { ...this.configSnapshot.atr, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('atr', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * WMA 配置变更
      */
     updateWMAConfig(config: Partial<WMASchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) {
-            this.configSnapshot.wmaPaneId = paneId
-        }
-        this.configSnapshot.wma = { ...this.configSnapshot.wma, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('wma', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * DEMA 配置变更
      */
     updateDEMAConfig(config: Partial<DEMASchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) {
-            this.configSnapshot.demaPaneId = paneId
-        }
-        this.configSnapshot.dema = { ...this.configSnapshot.dema, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('dema', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * TEMA 配置变更
      */
     updateTEMAConfig(config: Partial<TEMASchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) {
-            this.configSnapshot.temaPaneId = paneId
-        }
-        this.configSnapshot.tema = { ...this.configSnapshot.tema, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('tema', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * HMA 配置变更
      */
     updateHMAConfig(config: Partial<HMASchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) {
-            this.configSnapshot.hmaPaneId = paneId
-        }
-        this.configSnapshot.hma = { ...this.configSnapshot.hma, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('hma', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * KAMA 配置变更
      */
     updateKAMAConfig(config: Partial<KAMASchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) {
-            this.configSnapshot.kamaPaneId = paneId
-        }
-        this.configSnapshot.kama = { ...this.configSnapshot.kama, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('kama', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * SAR 配置变更
      */
     updateSARConfig(config: Partial<SARSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) {
-            this.configSnapshot.sarPaneId = paneId
-        }
-        this.configSnapshot.sar = { ...this.configSnapshot.sar, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('sar', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * SuperTrend 配置变更
      */
     updateSuperTrendConfig(config: Partial<SuperTrendSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) this.configSnapshot.supertrendPaneId = paneId
-        this.configSnapshot.supertrend = { ...this.configSnapshot.supertrend, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('supertrend', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * Keltner 配置变更
      */
     updateKeltnerConfig(config: Partial<KeltnerSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) this.configSnapshot.keltnerPaneId = paneId
-        this.configSnapshot.keltner = { ...this.configSnapshot.keltner, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('keltner', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * Donchian 配置变更
      */
     updateDonchianConfig(config: Partial<DonchianSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) this.configSnapshot.donchianPaneId = paneId
-        this.configSnapshot.donchian = { ...this.configSnapshot.donchian, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('donchian', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * Ichimoku 配置变更
      */
     updateIchimokuConfig(config: Partial<IchimokuSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) this.configSnapshot.ichimokuPaneId = paneId
-        this.configSnapshot.ichimoku = { ...this.configSnapshot.ichimoku, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('ichimoku', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * ROC 配置变更
      */
     updateROCConfig(config: Partial<ROCSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) this.configSnapshot.rocPaneId = paneId
-        this.configSnapshot.roc = { ...this.configSnapshot.roc, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('roc', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * TRIX 配置变更
      */
     updateTRIXConfig(config: Partial<TRIXSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) this.configSnapshot.trixPaneId = paneId
-        this.configSnapshot.trix = { ...this.configSnapshot.trix, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('trix', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * HV 配置变更
      */
     updateHVConfig(config: Partial<HVSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) this.configSnapshot.hvPaneId = paneId
-        this.configSnapshot.hv = { ...this.configSnapshot.hv, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('hv', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * Parkinson 配置变更
      */
     updateParkinsonConfig(config: Partial<ParkinsonSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) this.configSnapshot.parkinsonPaneId = paneId
-        this.configSnapshot.parkinson = { ...this.configSnapshot.parkinson, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('parkinson', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * ChaikinVol 配置变更
      */
     updateChaikinVolConfig(config: Partial<ChaikinVolSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) this.configSnapshot.chaikinVolPaneId = paneId
-        this.configSnapshot.chaikinVol = { ...this.configSnapshot.chaikinVol, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('chaikinVol', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * VMA 配置变更
      */
     updateVMAConfig(config: Partial<VMASchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) this.configSnapshot.vmaPaneId = paneId
-        this.configSnapshot.vma = { ...this.configSnapshot.vma, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('vma', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * OBV 配置变更
      */
     updateOBVConfig(config: Partial<OBVSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) this.configSnapshot.obvPaneId = paneId
-        this.configSnapshot.obv = { ...this.configSnapshot.obv, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('obv', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * PVT 配置变更
      */
     updatePVTConfig(config: Partial<PVTSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) this.configSnapshot.pvtPaneId = paneId
-        this.configSnapshot.pvt = { ...this.configSnapshot.pvt, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('pvt', config as unknown as Record<string, unknown>, paneId)
     }
 
     /**
      * VWAP 配置变更
      */
     updateVWAPConfig(config: Partial<VWAPSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) this.configSnapshot.vwapPaneId = paneId
-        this.configSnapshot.vwap = { ...this.configSnapshot.vwap, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('vwap', config as unknown as Record<string, unknown>, paneId)
     }
 
     /** CMF 配置变更 */
     updateCMFConfig(config: Partial<CMFSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) this.configSnapshot.cmfPaneId = paneId
-        this.configSnapshot.cmf = { ...this.configSnapshot.cmf, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('cmf', config as unknown as Record<string, unknown>, paneId)
     }
 
     /** MFI 配置变更 */
     updateMFIConfig(config: Partial<MFISchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) this.configSnapshot.mfiPaneId = paneId
-        this.configSnapshot.mfi = { ...this.configSnapshot.mfi, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('mfi', config as unknown as Record<string, unknown>, paneId)
     }
 
     /** Pivot 配置变更 */
     updatePivotConfig(config: Partial<PivotSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) this.configSnapshot.pivotPaneId = paneId
-        this.configSnapshot.pivot = { ...this.configSnapshot.pivot, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('pivot', config as unknown as Record<string, unknown>, paneId)
     }
 
     /** Fib 配置变更 */
     updateFibConfig(config: Partial<FibSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) this.configSnapshot.fibPaneId = paneId
-        this.configSnapshot.fib = { ...this.configSnapshot.fib, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('fib', config as unknown as Record<string, unknown>, paneId)
     }
 
     /** Structure 配置变更 */
     updateStructureConfig(config: Partial<StructureSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) this.configSnapshot.structurePaneId = paneId
-        this.configSnapshot.structure = { ...this.configSnapshot.structure, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('structure', config as unknown as Record<string, unknown>, paneId)
     }
 
     /** Zones 配置变更 */
     updateZonesConfig(config: Partial<ZonesSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) this.configSnapshot.zonesPaneId = paneId
-        this.configSnapshot.zones = { ...this.configSnapshot.zones, ...config }
-        this.configVersion++
-        this.triggerRecompute()
+        this.updateIndicatorConfig('zones', config as unknown as Record<string, unknown>, paneId)
     }
 
     /** Volume Profile 配置变更 */
     updateVolumeProfileConfig(config: Partial<VolumeProfileSchedulerConfig>, paneId?: string): void {
-        if (paneId !== undefined) this.configSnapshot.volumeProfilePaneId = paneId
-        this.configSnapshot.volumeProfile = { ...this.configSnapshot.volumeProfile, ...config }
+        this.updateIndicatorConfig('volumeProfile', config as unknown as Record<string, unknown>, paneId)
+    }
+
+    /**
+     * 通用指标配置变更入口
+     */
+    updateIndicatorConfig(indicatorId: string, config: Record<string, unknown>, paneId?: string): void {
+        const meta = this.registry.get(indicatorId)
+        if (!meta?.runtime) {
+            console.warn(`[IndicatorScheduler] Unknown or unregistered indicator: ${indicatorId}`)
+            return
+        }
+        const rt = meta.runtime
+        // Update paneId if provided
+        if (rt.paneIdKey && paneId !== undefined) {
+            ;(this.configSnapshot as any)[rt.paneIdKey] = paneId
+        }
+        // Merge config
+        ;(this.configSnapshot as any)[rt.configKey] = {
+            ...((this.configSnapshot as any)[rt.configKey] ?? {}),
+            ...config,
+        }
         this.configVersion++
         this.triggerRecompute()
     }
@@ -1229,7 +1139,10 @@ export class IndicatorScheduler {
 
     private computeWithInline(): void {
         if (!this.inlineRuntime) {
-            this.inlineRuntime = new IndicatorRuntime()
+            const runtimeDescs = this.registry.getAll()
+                .filter(m => m.runtime)
+                .map(m => m.runtime!)
+            this.inlineRuntime = new IndicatorRuntime(runtimeDescs)
         }
 
         console.log(`[IndicatorScheduler] >> INLINE compute: dataV=${this.dataVersion} configV=${this.configVersion}`)

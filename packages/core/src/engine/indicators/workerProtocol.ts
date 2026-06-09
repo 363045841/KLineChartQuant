@@ -277,9 +277,22 @@ export interface VolumeProfileSchedulerConfig {
 // Worker 请求类型
 // ============================================================================
 
+export interface SerializedRuntimeDescriptor {
+    configKey: string
+    paneIdKey?: string
+    defaultConfig: unknown
+    computeKey: string
+}
+
 export interface InitRequest {
     type: 'init'
     protocolVersion: number
+    descriptors?: SerializedRuntimeDescriptor[]
+}
+
+export interface AddDescriptorRequest {
+    type: 'addDescriptor'
+    descriptor: SerializedRuntimeDescriptor
 }
 
 export interface SetDataRequest {
@@ -308,6 +321,7 @@ export interface DisposeRequest {
 
 export type IndicatorWorkerRequest =
     | InitRequest
+    | AddDescriptorRequest
     | SetDataRequest
     | SetConfigRequest
     | ComputeSeriesRequest
