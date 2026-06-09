@@ -5,6 +5,7 @@ import { createSARStateKey, EMPTY_SAR_STATE } from '../../indicators/sarState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, SARSchedulerConfig } from '../../indicators/scheduler'
+import { calcSARData } from '../../indicators/calculators'
 import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 
 const SAR_UP_COLOR = '#22c55e'
@@ -114,6 +115,7 @@ export function createSARRendererPlugin(options: SARRendererOptions = {}): Rende
     applyResult: (host, state, paneId) => {
         host.setSharedState(createSARStateKey(paneId), state as any, 'indicator_scheduler')
     },
+    runtime: { configKey:'sar', paneIdKey:'sarPaneId', defaultConfig:{step:0.02,maxStep:0.2,showSAR:true}, computeKey:'calcSARData', compute:(data,c)=>calcSARData(data,c.step,c.maxStep) },
 })
 class SARDefinition {
     static rendererFactory = createSARRendererPlugin

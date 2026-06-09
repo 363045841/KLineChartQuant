@@ -9,6 +9,7 @@ import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/vis
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, WMSRSchedulerConfig } from '../../indicators/scheduler'
 import { createWmsrScaleRendererPlugin } from './scale/wmsr_scale'
+import { calcWMSRData } from '../../indicators/calculators'
 
 type LinePoint = { x: number; y: number }
 
@@ -329,6 +330,13 @@ export function getWMSRTitleInfo(
   },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createWMSRStateKey(paneId), state as any, 'indicator_scheduler')
+    },
+    runtime: {
+        configKey: 'wmsr',
+        paneIdKey: 'wmsrPaneId',
+        defaultConfig: { period: 14, showWMSR: true },
+        computeKey: 'calcWMSRData',
+        compute: (data, c) => calcWMSRData(data, c.period),
     },
 })
 class WMSRIndicatorDefinition {

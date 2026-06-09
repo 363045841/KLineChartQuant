@@ -7,6 +7,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { createFixedUnitVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, ZonesSchedulerConfig } from '../../indicators/scheduler'
+import { calcZonesData } from '../../indicators/calculators'
 
 function getZonesStateKey(host: PluginHost | null, paneId: string): string | null {
     const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
@@ -106,6 +107,7 @@ export function createZonesRendererPlugin(options: { paneId?: string } = {}): Re
     applyResult: (host, state, paneId) => {
         host.setSharedState(createZonesStateKey(paneId), state as any, 'indicator_scheduler')
     },
+    runtime: { configKey:'zones', paneIdKey:'zonesPaneId', defaultConfig:{showFVG:true,showOB:true,showFilledZones:true,obLookback:20}, computeKey:'calcZonesData', compute:(data,c)=>calcZonesData(data,c.obLookback,5,2,'close') },
 })
 class ZonesDefinition {
     static rendererFactory = createZonesRendererPlugin

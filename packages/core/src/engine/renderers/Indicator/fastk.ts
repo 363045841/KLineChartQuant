@@ -9,6 +9,7 @@ import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/vis
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, FASTKSchedulerConfig } from '../../indicators/scheduler'
 import { createFastkScaleRendererPlugin } from './scale/fastk_scale'
+import { calcFASTKData } from '../../indicators/calculators'
 
 type LinePoint = { x: number; y: number }
 
@@ -317,6 +318,13 @@ export function getFASTKTitleInfo(
   },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createFASTKStateKey(paneId), state as any, 'indicator_scheduler')
+    },
+    runtime: {
+        configKey: 'fastk',
+        paneIdKey: 'fastkPaneId',
+        defaultConfig: { period: 9, showFASTK: true },
+        computeKey: 'calcFASTKData',
+        compute: (data, c) => calcFASTKData(data, c.period),
     },
 })
 class FASTKIndicatorDefinition {

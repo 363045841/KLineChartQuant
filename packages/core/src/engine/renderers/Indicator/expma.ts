@@ -8,6 +8,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorPriceRangeComputer, IndicatorRenderStateComposer } from '../../indicators/indicatorMetadata'
 import type { EXPMASchedulerConfig, IndicatorScheduler } from '../../indicators/scheduler'
+import { calcEXPMAData } from '../../indicators/calculators'
 
 type LinePoint = { x: number; y: number }
 
@@ -241,6 +242,7 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
     applyResult: (host, state, _paneId) => {
         host.setSharedState(EXPMA_STATE_KEY, state as any, 'indicator_scheduler')
     },
+    runtime: { configKey:'expma', defaultConfig:{fastPeriod:12,slowPeriod:50}, computeKey:'calcEXPMAData', compute:(data,c)=>calcEXPMAData(data,c.fastPeriod,c.slowPeriod) },
 })
 class EXPMADefinition {
     static rendererFactory = createEXPMARendererPlugin

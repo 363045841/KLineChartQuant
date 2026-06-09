@@ -8,6 +8,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorPriceRangeComputer, IndicatorRenderStateComposer } from '../../indicators/indicatorMetadata'
 import type { ENESchedulerConfig, IndicatorScheduler } from '../../indicators/scheduler'
+import { calcENEData } from '../../indicators/calculators'
 
 type LinePoint = { x: number; y: number }
 
@@ -315,6 +316,7 @@ export function createENERendererPlugin(): RendererPluginWithHost {
     applyResult: (host, state, _paneId) => {
         host.setSharedState(ENE_STATE_KEY, state as any, 'indicator_scheduler')
     },
+    runtime: { configKey:'ene', defaultConfig:{period:10,deviation:11}, computeKey:'calcENEData', compute:(data,c)=>calcENEData(data,c.period,c.deviation) },
 })
 class ENEDefinition {
     static rendererFactory = createENERendererPlugin

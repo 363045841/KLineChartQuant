@@ -6,6 +6,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, PivotSchedulerConfig } from '../../indicators/scheduler'
 import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
+import { calcPivotData } from '../../indicators/calculators'
 
 const PP_COLOR = '#94a3b8'
 const R_COLOR = '#dc2626'
@@ -132,6 +133,7 @@ function drawStep(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     applyResult: (host, state, paneId) => {
         host.setSharedState(createPivotStateKey(paneId), state as any, 'indicator_scheduler')
     },
+    runtime: { configKey:'pivot', paneIdKey:'pivotPaneId', defaultConfig:{showPP:true,showR1:true,showR2:true,showR3:true,showS1:true,showS2:true,showS3:true}, computeKey:'calcPivotData', compute:(data,c)=>calcPivotData(data) },
 })
 class PivotDefinition {
     static rendererFactory = createPivotRendererPlugin

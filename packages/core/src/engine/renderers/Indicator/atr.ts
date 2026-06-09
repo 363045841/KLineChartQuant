@@ -9,6 +9,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, ATRSchedulerConfig } from '../../indicators/scheduler'
 import { createAtrScaleRendererPlugin } from './scale/atr_scale'
+import { calcATRData } from '../../indicators/calculators'
 
 type LinePoint = { x: number; y: number }
 
@@ -242,6 +243,13 @@ export function getATRTitleInfo(
     visibleState: { compose: createNonNegativeSparseVisibleStateComposer('atr', EMPTY_ATR_STATE) },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createATRStateKey(paneId), state as any, 'indicator_scheduler')
+    },
+    runtime: {
+        configKey: 'atr',
+        paneIdKey: 'atrPaneId',
+        defaultConfig: { period: 14, showATR: true },
+        computeKey: 'calcATRData',
+        compute: (data, c) => calcATRData(data, c.period),
     },
 })
 class ATRIndicatorDefinition {

@@ -477,9 +477,10 @@ export function getMACDTitleInfo(
   updateConfig: (scheduler, params, paneId) => {
     (scheduler as IndicatorScheduler).updateMACDConfig(params as Partial<MACDSchedulerConfig>, paneId)
   },
-  applyResult: (host, state, paneId) => {
-    host.setSharedState(createMACDStateKey(paneId), state as any, 'indicator_scheduler')
-  },
+    applyResult: (host, state, paneId) => {
+        host.setSharedState(createMACDStateKey(paneId), state as any, 'indicator_scheduler')
+    },
+    runtime: { configKey:'macd', paneIdKey:'macdPaneId', defaultConfig:{fastPeriod:12,slowPeriod:26,signalPeriod:9,showDIF:true,showDEA:true,showBAR:true}, computeKey:'calcMACDData', compute:(data,c)=>calcMACDData(data,c.fastPeriod,c.slowPeriod,c.signalPeriod) },
 })
 class MACDIndicatorDefinition {
   static rendererFactory = createMACDRendererPlugin

@@ -6,6 +6,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, DEMASchedulerConfig } from '../../indicators/scheduler'
+import { calcDEMAData } from '../../indicators/calculators'
 
 const DEMA_COLOR = '#6366f1'
 
@@ -137,6 +138,7 @@ export function createDEMARendererPlugin(options: DEMARendererOptions = {}): Ren
     applyResult: (host, state, paneId) => {
         host.setSharedState(createDEMAStateKey(paneId), state as any, 'indicator_scheduler')
     },
+    runtime: { configKey:'dema', paneIdKey:'demaPaneId', defaultConfig:{period:14,showDEMA:true}, computeKey:'calcDEMAData', compute:(data,c)=>calcDEMAData(data,c.period) },
 })
 class DEMADefinition {
     static rendererFactory = createDEMARendererPlugin

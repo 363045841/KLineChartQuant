@@ -8,6 +8,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorPriceRangeComputer, IndicatorRenderStateComposer } from '../../indicators/indicatorMetadata'
 import type { BOLLSchedulerConfig, IndicatorScheduler } from '../../indicators/scheduler'
+import { calcBOLLData } from '../../indicators/calculators'
 
 type LinePoint = { x: number; y: number }
 
@@ -183,6 +184,7 @@ const composeBOLLRenderState: IndicatorRenderStateComposer = (bundle, range, tim
     applyResult: (host, state, _paneId) => {
         host.setSharedState(BOLL_STATE_KEY, state as any, 'indicator_scheduler')
     },
+    runtime: { configKey:'boll', defaultConfig:{period:20,multiplier:2,showUpper:true,showMiddle:true,showLower:true,showBand:true}, computeKey:'calcBOLLData', compute:(data,c)=>calcBOLLData(data,c.period,c.multiplier) },
 })
 class BOLLDefinition {
     static rendererFactory = createBOLLRendererPlugin

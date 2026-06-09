@@ -7,6 +7,7 @@ import { createNonNegativeSparseVisibleStateComposer } from '../../indicators/vi
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, HVSchedulerConfig } from '../../indicators/scheduler'
+import { calcHVData } from '../../indicators/calculators'
 
 const HV_COLOR = '#7c3aed'
 
@@ -125,6 +126,7 @@ export function createHVRendererPlugin(options: { paneId?: string } = {}): Rende
     applyResult: (host, state, paneId) => {
         host.setSharedState(createHVStateKey(paneId), state as any, 'indicator_scheduler')
     },
+    runtime: { configKey:'hv', paneIdKey:'hvPaneId', defaultConfig:{period:20,annualizationFactor:252,showHV:true}, computeKey:'calcHVData', compute:(data,c)=>calcHVData(data,c.period,c.annualizationFactor) },
 })
 class HVIndicatorDefinition {
     static rendererFactory = createHVRendererPlugin

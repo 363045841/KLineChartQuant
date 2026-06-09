@@ -6,6 +6,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, HMASchedulerConfig } from '../../indicators/scheduler'
+import { calcHMAData } from '../../indicators/calculators'
 
 const HMA_COLOR = '#f43f5e'
 
@@ -137,6 +138,7 @@ export function createHMARendererPlugin(options: HMARendererOptions = {}): Rende
     applyResult: (host, state, paneId) => {
         host.setSharedState(createHMAStateKey(paneId), state as any, 'indicator_scheduler')
     },
+    runtime: { configKey:'hma', paneIdKey:'hmaPaneId', defaultConfig:{period:14,showHMA:true}, computeKey:'calcHMAData', compute:(data,c)=>calcHMAData(data,c.period) },
 })
 class HMADefinition {
     static rendererFactory = createHMARendererPlugin

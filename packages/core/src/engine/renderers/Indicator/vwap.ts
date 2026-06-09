@@ -6,6 +6,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, VWAPSchedulerConfig } from '../../indicators/scheduler'
+import { calcVWAPData } from '../../indicators/calculators'
 
 const VWAP_COLOR = '#ec4899'
 
@@ -122,6 +123,13 @@ export function createVWAPRendererPlugin(options: { paneId?: string } = {}): Ren
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createVWAPStateKey(paneId), state as any, 'indicator_scheduler')
+    },
+    runtime: {
+        configKey: 'vwap',
+        paneIdKey: 'vwapPaneId',
+        defaultConfig: { sessionResetGapMs: 0, showVWAP: true },
+        computeKey: 'calcVWAPData',
+        compute: (data, c) => calcVWAPData(data, c.sessionResetGapMs),
     },
 })
 class VWAPIndicatorDefinition {

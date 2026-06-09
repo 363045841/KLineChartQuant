@@ -7,6 +7,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { createFixedUnitVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, StructureSchedulerConfig } from '../../indicators/scheduler'
+import { calcStructureData } from '../../indicators/calculators'
 
 const LABEL_FONT = '11px sans-serif'
 
@@ -127,6 +128,7 @@ export function createStructureRendererPlugin(options: { paneId?: string } = {})
     applyResult: (host, state, paneId) => {
         host.setSharedState(createStructureStateKey(paneId), state as any, 'indicator_scheduler')
     },
+    runtime: { configKey:'structure', paneIdKey:'structurePaneId', defaultConfig:{leftWindow:5,rightWindow:2,breakoutSource:'close',showSwingLabels:true,showBOS:true,showCHOCH:true,showProvisional:true}, computeKey:'calcStructureData', compute:(data,c)=>calcStructureData(data,c.leftWindow,c.rightWindow,c.breakoutSource) },
 })
 class StructureIndicatorDefinition {
     static rendererFactory = createStructureRendererPlugin

@@ -9,6 +9,7 @@ import { createFixedRangePointVisibleStateComposer } from '../../indicators/visi
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, STOCHSchedulerConfig } from '../../indicators/scheduler'
 import { createStochScaleRendererPlugin } from './scale/stoch_scale'
+import { calcSTOCHData } from '../../indicators/calculators'
 
 type LinePoint = { x: number; y: number }
 
@@ -361,6 +362,7 @@ export function getSTOCHTitleInfo(
     applyResult: (host, state, paneId) => {
         host.setSharedState(createSTOCHStateKey(paneId), state as any, 'indicator_scheduler')
     },
+    runtime: { configKey:'stoch', paneIdKey:'stochPaneId', defaultConfig:{n:9,m:3,showK:true,showD:true}, computeKey:'calcSTOCHData', compute:(data,c)=>calcSTOCHData(data,c.n,c.m) },
 })
 class STOCHIndicatorDefinition {
     static rendererFactory = createSTOCHRendererPlugin

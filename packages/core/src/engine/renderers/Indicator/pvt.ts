@@ -6,6 +6,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, PVTSchedulerConfig } from '../../indicators/scheduler'
+import { calcPVTData } from '../../indicators/calculators'
 
 const PVT_COLOR = '#a855f7'
 
@@ -122,6 +123,13 @@ export function createPVTRendererPlugin(options: { paneId?: string } = {}): Rend
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createPVTStateKey(paneId), state as any, 'indicator_scheduler')
+    },
+    runtime: {
+        configKey: 'pvt',
+        paneIdKey: 'pvtPaneId',
+        defaultConfig: { showPVT: true },
+        computeKey: 'calcPVTData',
+        compute: (data, c) => calcPVTData(data),
     },
 })
 class PVTIndicatorDefinition {

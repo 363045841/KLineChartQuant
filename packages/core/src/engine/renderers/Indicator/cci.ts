@@ -8,6 +8,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, CCISchedulerConfig } from '../../indicators/scheduler'
 import { createCciScaleRendererPlugin } from './scale/cci_scale'
+import { calcCCIData } from '../../indicators/calculators'
 
 type LinePoint = { x: number; y: number }
 
@@ -276,6 +277,13 @@ export function getCCITitleInfo(
   },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createCCIStateKey(paneId), state as any, 'indicator_scheduler')
+    },
+    runtime: {
+        configKey: 'cci',
+        paneIdKey: 'cciPaneId',
+        defaultConfig: { period: 14, showCCI: true },
+        computeKey: 'calcCCIData',
+        compute: (data, c) => calcCCIData(data, c.period),
     },
 })
 class CCIIndicatorDefinition {

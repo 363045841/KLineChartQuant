@@ -5,7 +5,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorPriceRangeComputer, IndicatorRenderStateComposer } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { MAFlags } from '../../indicators/calculators'
+import { calcMAData, type MAFlags } from '../../indicators/calculators'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
 import { resolveThemeColors } from '../../../tokens'
 
@@ -128,6 +128,7 @@ function getMAStateKey(host: PluginHost | null): string | null {
     applyResult: (host, state, _paneId) => {
         host.setSharedState(MA_STATE_KEY, state as any, 'ma_scheduler')
     },
+    runtime: { configKey:'ma', defaultConfig:{ma5:true,ma10:true,ma20:true,ma30:true,ma60:true}, computeKey:'calcMAData', compute:(data,c)=>{const p=[5,10,20,30,60];const r:Record<number,(number|undefined)[]>={};for(const o of p){if((c as any)['ma'+o])r[o]=calcMAData(data,o)}return r} },
 })
 class MADefinition {
     static rendererFactory = createMARendererPlugin

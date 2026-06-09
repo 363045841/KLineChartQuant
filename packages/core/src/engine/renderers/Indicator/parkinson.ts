@@ -7,6 +7,7 @@ import { createNonNegativeSparseVisibleStateComposer } from '../../indicators/vi
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, ParkinsonSchedulerConfig } from '../../indicators/scheduler'
+import { calcParkinsonData } from '../../indicators/calculators'
 
 const PARKINSON_COLOR = '#0891b2'
 
@@ -125,6 +126,7 @@ export function createParkinsonRendererPlugin(options: { paneId?: string } = {})
     applyResult: (host, state, paneId) => {
         host.setSharedState(createParkinsonStateKey(paneId), state as any, 'indicator_scheduler')
     },
+    runtime: { configKey:'parkinson', paneIdKey:'parkinsonPaneId', defaultConfig:{period:20,annualizationFactor:252,showParkinson:true}, computeKey:'calcParkinsonData', compute:(data,c)=>calcParkinsonData(data,c.period,c.annualizationFactor) },
 })
 class ParkinsonIndicatorDefinition {
     static rendererFactory = createParkinsonRendererPlugin

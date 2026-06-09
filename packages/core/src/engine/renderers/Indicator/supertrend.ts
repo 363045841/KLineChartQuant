@@ -5,6 +5,7 @@ import { createSuperTrendStateKey, EMPTY_SUPERTREND_STATE } from '../../indicato
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, SuperTrendSchedulerConfig } from '../../indicators/scheduler'
+import { calcSuperTrendData } from '../../indicators/calculators'
 import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 
 const ST_UP_COLOR = '#22c55e'
@@ -116,6 +117,7 @@ export function createSuperTrendRendererPlugin(options: SuperTrendRendererOption
     applyResult: (host, state, paneId) => {
         host.setSharedState(createSuperTrendStateKey(paneId), state as any, 'indicator_scheduler')
     },
+    runtime: { configKey:'supertrend', paneIdKey:'supertrendPaneId', defaultConfig:{atrPeriod:10,multiplier:3,showSuperTrend:true}, computeKey:'calcSuperTrendData', compute:(data,c)=>calcSuperTrendData(data,c.atrPeriod,c.multiplier) },
 })
 class SuperTrendIndicatorDefinition {
     static rendererFactory = createSuperTrendRendererPlugin

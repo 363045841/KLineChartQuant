@@ -6,6 +6,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, FibSchedulerConfig } from '../../indicators/scheduler'
 import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
+import { calcFibData } from '../../indicators/calculators'
 
 const FIB_COLORS = {
     high: '#94a3b8',
@@ -142,6 +143,7 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     applyResult: (host, state, paneId) => {
         host.setSharedState(createFibStateKey(paneId), state as any, 'indicator_scheduler')
     },
+    runtime: { configKey:'fib', paneIdKey:'fibPaneId', defaultConfig:{period:50,showLevels:true}, computeKey:'calcFibData', compute:(data,c)=>calcFibData(data,c.period) },
 })
 class FibDefinition {
     static rendererFactory = createFibRendererPlugin

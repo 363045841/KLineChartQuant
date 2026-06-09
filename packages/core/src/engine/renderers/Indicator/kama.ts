@@ -6,6 +6,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, KAMASchedulerConfig } from '../../indicators/scheduler'
+import { calcKAMAData } from '../../indicators/calculators'
 
 const KAMA_COLOR = '#0ea5e9'
 
@@ -137,6 +138,7 @@ export function createKAMARendererPlugin(options: KAMARendererOptions = {}): Ren
     applyResult: (host, state, paneId) => {
         host.setSharedState(createKAMAStateKey(paneId), state as any, 'indicator_scheduler')
     },
+    runtime: { configKey:'kama', paneIdKey:'kamaPaneId', defaultConfig:{period:10,fastPeriod:2,slowPeriod:30,showKAMA:true}, computeKey:'calcKAMAData', compute:(data,c)=>calcKAMAData(data,c.period,c.fastPeriod,c.slowPeriod) },
 })
 class KAMADefinition {
     static rendererFactory = createKAMARendererPlugin

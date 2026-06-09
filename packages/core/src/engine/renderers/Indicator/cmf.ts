@@ -6,6 +6,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, CMFSchedulerConfig } from '../../indicators/scheduler'
+import { calcCMFData } from '../../indicators/calculators'
 
 const CMF_COLOR = '#06b6d4'
 
@@ -136,6 +137,13 @@ export function createCMFRendererPlugin(options: { paneId?: string } = {}): Rend
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createCMFStateKey(paneId), state as any, 'indicator_scheduler')
+    },
+    runtime: {
+        configKey: 'cmf',
+        paneIdKey: 'cmfPaneId',
+        defaultConfig: { period: 20, showCMF: true },
+        computeKey: 'calcCMFData',
+        compute: (data, c) => calcCMFData(data, c.period),
     },
 })
 class CMFIndicatorDefinition {

@@ -6,6 +6,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, ChaikinVolSchedulerConfig } from '../../indicators/scheduler'
+import { calcChaikinVolData } from '../../indicators/calculators'
 
 const CHAIKIN_VOL_COLOR = '#f59e0b'
 
@@ -137,6 +138,13 @@ export function createChaikinVolRendererPlugin(options: { paneId?: string } = {}
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createChaikinVolStateKey(paneId), state as any, 'indicator_scheduler')
+    },
+    runtime: {
+        configKey: 'chaikinVol',
+        paneIdKey: 'chaikinVolPaneId',
+        defaultConfig: { emaPeriod: 10, rocPeriod: 10, showChaikinVol: true },
+        computeKey: 'calcChaikinVolData',
+        compute: (data, c) => calcChaikinVolData(data, c.emaPeriod, c.rocPeriod),
     },
 })
 class ChaikinVolIndicatorDefinition {

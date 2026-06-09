@@ -6,6 +6,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, OBVSchedulerConfig } from '../../indicators/scheduler'
+import { calcOBVData } from '../../indicators/calculators'
 
 const OBV_COLOR = '#16a34a'
 
@@ -122,6 +123,13 @@ export function createOBVRendererPlugin(options: { paneId?: string } = {}): Rend
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createOBVStateKey(paneId), state as any, 'indicator_scheduler')
+    },
+    runtime: {
+        configKey: 'obv',
+        paneIdKey: 'obvPaneId',
+        defaultConfig: { showOBV: true },
+        computeKey: 'calcOBVData',
+        compute: (data, c) => calcOBVData(data),
     },
 })
 class OBVIndicatorDefinition {
