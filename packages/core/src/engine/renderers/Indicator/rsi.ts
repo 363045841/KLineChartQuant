@@ -394,7 +394,7 @@ export function getRSITitleInfo(
     visibleState: { compose: createFixedRangeRecordVisibleStateComposer('rsi', EMPTY_RSI_STATE) },
     scaleRendererFactory: createRsiScaleRendererPlugin,
     updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateRSIConfig(params as Partial<RSISchedulerConfig>, paneId)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('rsi', params, paneId)
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createRSIStateKey(paneId), state as any, 'indicator_scheduler')

@@ -238,7 +238,7 @@ export function getATRTitleInfo(
     paneIdField: 'atrPaneId',
     scaleRendererFactory: createAtrScaleRendererPlugin,
     updateConfig: (scheduler, params, paneId) => {
-    (scheduler as IndicatorScheduler).updateATRConfig(params as Partial<ATRSchedulerConfig>, paneId)
+    (scheduler as IndicatorScheduler).updateIndicatorConfig('atr', params, paneId)
   },
     visibleState: { compose: createNonNegativeSparseVisibleStateComposer('atr', EMPTY_ATR_STATE) },
     applyResult: (host, state, paneId) => {

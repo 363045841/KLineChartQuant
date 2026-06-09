@@ -326,7 +326,7 @@ export function getWMSRTitleInfo(
     visibleState: { compose: createFixedRangeSparseVisibleStateComposer('wmsr', EMPTY_WMSR_STATE) },
     scaleRendererFactory: createWmsrScaleRendererPlugin,
     updateConfig: (scheduler, params, paneId) => {
-    (scheduler as IndicatorScheduler).updateWMSRConfig(params as Partial<WMSRSchedulerConfig>, paneId)
+    (scheduler as IndicatorScheduler).updateIndicatorConfig('wmsr', params, paneId)
   },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createWMSRStateKey(paneId), state as any, 'indicator_scheduler')

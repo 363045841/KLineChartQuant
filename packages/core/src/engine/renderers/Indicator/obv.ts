@@ -119,7 +119,7 @@ export function createOBVRendererPlugin(options: { paneId?: string } = {}): Rend
     visibleState: { compose: createSparseVisibleStateComposer('obv', EMPTY_OBV_STATE) },
     scale: { indicatorKey: 'obv', label: 'OBV', decimals: 0 },
     updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateOBVConfig(params as Partial<OBVSchedulerConfig>, paneId)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('obv', params, paneId)
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createOBVStateKey(paneId), state as any, 'indicator_scheduler')

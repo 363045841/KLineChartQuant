@@ -102,7 +102,7 @@ export function createZonesRendererPlugin(options: { paneId?: string } = {}): Re
     scale: { indicatorKey: 'zones', label: 'Zones', decimals: 2 },
     visibleState: { compose: createFixedUnitVisibleStateComposer('zones', EMPTY_ZONES_STATE) },
     updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateZonesConfig(params as Partial<ZonesSchedulerConfig>, paneId)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('zones', params, paneId)
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createZonesStateKey(paneId), state as any, 'indicator_scheduler')

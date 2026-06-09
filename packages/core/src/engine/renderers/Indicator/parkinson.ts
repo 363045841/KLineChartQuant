@@ -120,7 +120,7 @@ export function createParkinsonRendererPlugin(options: { paneId?: string } = {})
     paneIdField: 'parkinsonPaneId',
     scale: { indicatorKey: 'parkinson', label: 'Parkinson', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateParkinsonConfig(params as Partial<ParkinsonSchedulerConfig>, paneId)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('parkinson', params, paneId)
     },
     visibleState: { compose: createNonNegativeSparseVisibleStateComposer('parkinson', EMPTY_PARKINSON_STATE) },
     applyResult: (host, state, paneId) => {

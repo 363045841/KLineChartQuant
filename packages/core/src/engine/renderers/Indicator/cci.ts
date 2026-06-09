@@ -273,7 +273,7 @@ export function getCCITitleInfo(
     scaleRendererFactory: createCciScaleRendererPlugin,
     visibleState: { compose: createCCIVisibleStateComposer('cci', EMPTY_CCI_STATE) },
     updateConfig: (scheduler, params, paneId) => {
-    (scheduler as IndicatorScheduler).updateCCIConfig(params as Partial<CCISchedulerConfig>, paneId)
+    (scheduler as IndicatorScheduler).updateIndicatorConfig('cci', params, paneId)
   },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createCCIStateKey(paneId), state as any, 'indicator_scheduler')

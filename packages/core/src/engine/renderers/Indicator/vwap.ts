@@ -119,7 +119,7 @@ export function createVWAPRendererPlugin(options: { paneId?: string } = {}): Ren
     visibleState: { compose: createSparseVisibleStateComposer('vwap', EMPTY_VWAP_STATE) },
     scale: { indicatorKey: 'vwap', label: 'VWAP', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateVWAPConfig(params as Partial<VWAPSchedulerConfig>, paneId)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('vwap', params, paneId)
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createVWAPStateKey(paneId), state as any, 'indicator_scheduler')

@@ -134,7 +134,7 @@ export function createChaikinVolRendererPlugin(options: { paneId?: string } = {}
     visibleState: { compose: createSparseVisibleStateComposer('chaikinVol', EMPTY_CHAIKIN_VOL_STATE) },
     scale: { indicatorKey: 'chaikinVol', label: 'ChaikinVol', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateChaikinVolConfig(params as Partial<ChaikinVolSchedulerConfig>, paneId)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('chaikinVol', params, paneId)
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createChaikinVolStateKey(paneId), state as any, 'indicator_scheduler')

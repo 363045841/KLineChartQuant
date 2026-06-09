@@ -49,9 +49,7 @@ describe('builtin indicator registration', () => {
 
   it('routes stage 4A metadata config updates to scheduler methods', () => {
     const scheduler = {
-      updateRSIConfig: vi.fn(),
-      updateMACDConfig: vi.fn(),
-      updateVolumeProfileConfig: vi.fn(),
+      updateIndicatorConfig: vi.fn(),
     }
 
     getRegisteredIndicatorDefinition('RSI')?.updateConfig?.(scheduler, { period1: 7 }, 'RSI_0')
@@ -59,17 +57,14 @@ describe('builtin indicator registration', () => {
     getRegisteredIndicatorDefinition('VOLUME_PROFILE')?.updateConfig?.(scheduler, { bins: 32 }, 'VP_0')
     getRegisteredIndicatorDefinition('VOL')?.updateConfig?.(scheduler, {}, 'VOL_0')
 
-    expect(scheduler.updateRSIConfig).toHaveBeenCalledWith({ period1: 7 }, 'RSI_0')
-    expect(scheduler.updateMACDConfig).toHaveBeenCalledWith({ fastPeriod: 8 }, 'MACD_0')
-    expect(scheduler.updateVolumeProfileConfig).toHaveBeenCalledWith({ bins: 32 }, 'VP_0')
+    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('rsi', { period1: 7 }, 'RSI_0')
+    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('macd', { fastPeriod: 8 }, 'MACD_0')
+    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('volumeProfile', { bins: 32 }, 'VP_0')
   })
 
   it('routes stage 4B metadata config updates to scheduler methods', () => {
     const scheduler = {
-      updateCCIConfig: vi.fn(),
-      updateATRConfig: vi.fn(),
-      updateChaikinVolConfig: vi.fn(),
-      updateZonesConfig: vi.fn(),
+      updateIndicatorConfig: vi.fn(),
     }
 
     getRegisteredIndicatorDefinition('CCI')?.updateConfig?.(scheduler, { period: 14 }, 'CCI_0')
@@ -77,10 +72,10 @@ describe('builtin indicator registration', () => {
     getRegisteredIndicatorDefinition('CHAIKIN_VOL')?.updateConfig?.(scheduler, { emaPeriod: 10 }, 'CV_0')
     getRegisteredIndicatorDefinition('ZONES')?.updateConfig?.(scheduler, { showFVG: true }, 'Z_0')
 
-    expect(scheduler.updateCCIConfig).toHaveBeenCalledWith({ period: 14 }, 'CCI_0')
-    expect(scheduler.updateATRConfig).toHaveBeenCalledWith({ period: 10 }, 'ATR_0')
-    expect(scheduler.updateChaikinVolConfig).toHaveBeenCalledWith({ emaPeriod: 10 }, 'CV_0')
-    expect(scheduler.updateZonesConfig).toHaveBeenCalledWith({ showFVG: true }, 'Z_0')
+    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('cci', { period: 14 }, 'CCI_0')
+    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('atr', { period: 10 }, 'ATR_0')
+    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('chaikinVol', { emaPeriod: 10 }, 'CV_0')
+    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('zones', { showFVG: true }, 'Z_0')
   })
 
   it('registers dedicated scale renderer factories for stage 5A indicators', () => {
@@ -265,10 +260,7 @@ describe('builtin indicator registration', () => {
 
   it('routes base main metadata config updates to scheduler methods', () => {
     const scheduler = {
-      updateMAConfig: vi.fn(),
-      updateBOLLConfig: vi.fn(),
-      updateEXPMAConfig: vi.fn(),
-      updateENEConfig: vi.fn(),
+      updateIndicatorConfig: vi.fn(),
     }
 
     getRegisteredIndicatorDefinition('MA')?.updateConfig?.(scheduler, { ma5: true }, 'main')
@@ -276,10 +268,10 @@ describe('builtin indicator registration', () => {
     getRegisteredIndicatorDefinition('EXPMA')?.updateConfig?.(scheduler, { fastPeriod: 12 }, 'main')
     getRegisteredIndicatorDefinition('ENE')?.updateConfig?.(scheduler, { period: 10 }, 'main')
 
-    expect(scheduler.updateMAConfig).toHaveBeenCalledWith({ ma5: true })
-    expect(scheduler.updateBOLLConfig).toHaveBeenCalledWith({ period: 20 })
-    expect(scheduler.updateEXPMAConfig).toHaveBeenCalledWith({ fastPeriod: 12 })
-    expect(scheduler.updateENEConfig).toHaveBeenCalledWith({ period: 10 })
+    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('ma', { ma5: true })
+    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('boll', { period: 20 })
+    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('expma', { fastPeriod: 12 })
+    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('ene', { period: 10 })
   })
 
   it('registers semantic apply metadata for stage 7A main indicators', () => {

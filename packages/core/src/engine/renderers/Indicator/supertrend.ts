@@ -112,7 +112,7 @@ export function createSuperTrendRendererPlugin(options: SuperTrendRendererOption
     scale: { indicatorKey: 'supertrend', label: 'SuperTrend', decimals: 2 },
     visibleState: { compose: createValuePointVisibleStateComposer('supertrend', EMPTY_SUPERTREND_STATE, ['value']) },
     updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateSuperTrendConfig(params as Partial<SuperTrendSchedulerConfig>, paneId)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('supertrend', params, paneId)
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createSuperTrendStateKey(paneId), state as any, 'indicator_scheduler')

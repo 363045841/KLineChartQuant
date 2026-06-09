@@ -128,7 +128,7 @@ function drawStep(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     scale: { indicatorKey: 'pivot', label: 'Pivot', decimals: 2 },
     visibleState: { compose: createExactRangePointVisibleStateComposer('pivot', EMPTY_PIVOT_STATE, ['pp', 'r1', 'r2', 'r3', 's1', 's2', 's3']) },
     updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updatePivotConfig(params as Partial<PivotSchedulerConfig>, paneId)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('pivot', params, paneId)
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createPivotStateKey(paneId), state as any, 'indicator_scheduler')

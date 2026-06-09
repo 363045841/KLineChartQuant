@@ -110,7 +110,7 @@ export function createSARRendererPlugin(options: SARRendererOptions = {}): Rende
     scale: { indicatorKey: 'sar', label: 'SAR', decimals: 4 },
     visibleState: { compose: createValuePointVisibleStateComposer('sar', EMPTY_SAR_STATE, ['value']) },
     updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateSARConfig(params as Partial<SARSchedulerConfig>, paneId)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('sar', params, paneId)
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createSARStateKey(paneId), state as any, 'indicator_scheduler')

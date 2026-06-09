@@ -135,7 +135,7 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     scale: { indicatorKey: 'donchian', label: 'Donchian', decimals: 2 },
     visibleState: { compose: createBandVisibleStateComposer('donchian', EMPTY_DONCHIAN_STATE, 'lower', 'upper') },
     updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateDonchianConfig(params as Partial<DonchianSchedulerConfig>, paneId)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('donchian', params, paneId)
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createDonchianStateKey(paneId), state as any, 'indicator_scheduler')

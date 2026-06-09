@@ -138,7 +138,7 @@ export function createMFIRendererPlugin(options: { paneId?: string } = {}): Rend
     visibleState: { compose: createFixedRangeSparseVisibleStateComposer('mfi', EMPTY_MFI_STATE) },
     scale: { indicatorKey: 'mfi', label: 'MFI', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateMFIConfig(params as Partial<MFISchedulerConfig>, paneId)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('mfi', params, paneId)
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createMFIStateKey(paneId), state as any, 'indicator_scheduler')

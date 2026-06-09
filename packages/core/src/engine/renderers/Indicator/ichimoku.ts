@@ -179,7 +179,7 @@ function fillCloud(
     scale: { indicatorKey: 'ichimoku', label: 'Ichimoku', decimals: 2 },
     visibleState: { compose: createValuePointVisibleStateComposer('ichimoku', EMPTY_ICHIMOKU_STATE, ['tenkan', 'kijun', 'spanA', 'spanB', 'chikou']) },
     updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIchimokuConfig(params as Partial<IchimokuSchedulerConfig>, paneId)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('ichimoku', params, paneId)
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createIchimokuStateKey(paneId), state as any, 'indicator_scheduler')

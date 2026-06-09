@@ -138,7 +138,7 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     scale: { indicatorKey: 'fib', label: 'Fib', decimals: 4 },
     visibleState: { compose: createExactRangePointVisibleStateComposer('fib', EMPTY_FIB_STATE, ['low', 'high']) },
     updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateFibConfig(params as Partial<FibSchedulerConfig>, paneId)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('fib', params, paneId)
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createFibStateKey(paneId), state as any, 'indicator_scheduler')

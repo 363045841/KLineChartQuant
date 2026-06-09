@@ -300,7 +300,7 @@ export function getKSTTitleInfo(
     paneIdField: 'kstPaneId',
     scaleRendererFactory: createKstScaleRendererPlugin,
     updateConfig: (scheduler, params, paneId) => {
-    (scheduler as IndicatorScheduler).updateKSTConfig(params as Partial<KSTSchedulerConfig>, paneId)
+    (scheduler as IndicatorScheduler).updateIndicatorConfig('kst', params, paneId)
   },
     visibleState: { compose: createPaddedPointVisibleStateComposer('kst', EMPTY_KST_STATE, ['kst', 'signal'] as const) },
     applyResult: (host, state, paneId) => {

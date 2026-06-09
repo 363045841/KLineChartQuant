@@ -133,7 +133,7 @@ export function createWMARendererPlugin(options: WMARendererOptions = {}): Rende
     visibleState: { compose: createSparseVisibleStateComposer('wma', EMPTY_WMA_STATE) },
     scale: { indicatorKey: 'wma', label: 'WMA', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateWMAConfig(params as Partial<WMASchedulerConfig>, paneId)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('wma', params, paneId)
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createWMAStateKey(paneId), state as any, 'indicator_scheduler')

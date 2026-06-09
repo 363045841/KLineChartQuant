@@ -123,7 +123,7 @@ export function createStructureRendererPlugin(options: { paneId?: string } = {})
     scale: { indicatorKey: 'structure', label: 'Structure', decimals: 2 },
     visibleState: { compose: createFixedUnitVisibleStateComposer('structure', EMPTY_STRUCTURE_STATE) },
     updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateStructureConfig(params as Partial<StructureSchedulerConfig>, paneId)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('structure', params, paneId)
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createStructureStateKey(paneId), state as any, 'indicator_scheduler')

@@ -309,7 +309,7 @@ export function getMOMTitleInfo(
     paneIdField: 'momPaneId',
     scaleRendererFactory: createMomScaleRendererPlugin,
     updateConfig: (scheduler, params, paneId) => {
-    (scheduler as IndicatorScheduler).updateMOMConfig(params as Partial<MOMSchedulerConfig>, paneId)
+    (scheduler as IndicatorScheduler).updateIndicatorConfig('mom', params, paneId)
   },
     visibleState: { compose: createPaddedSparseVisibleStateComposer('mom', EMPTY_MOM_STATE) },
     applyResult: (host, state, paneId) => {

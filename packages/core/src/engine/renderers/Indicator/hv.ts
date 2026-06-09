@@ -120,7 +120,7 @@ export function createHVRendererPlugin(options: { paneId?: string } = {}): Rende
     paneIdField: 'hvPaneId',
     scale: { indicatorKey: 'hv', label: 'HV', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
-    (scheduler as IndicatorScheduler).updateHVConfig(params as Partial<HVSchedulerConfig>, paneId)
+    (scheduler as IndicatorScheduler).updateIndicatorConfig('hv', params, paneId)
   },
     visibleState: { compose: createNonNegativeSparseVisibleStateComposer('hv', EMPTY_HV_STATE) },
     applyResult: (host, state, paneId) => {

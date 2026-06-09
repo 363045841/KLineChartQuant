@@ -302,7 +302,7 @@ export function createENERendererPlugin(): RendererPluginWithHost {
         composeRenderState: composeENERenderState,
     },
     updateConfig: (scheduler, params) => {
-        (scheduler as IndicatorScheduler).updateENEConfig(params as Partial<ENESchedulerConfig>)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('ene', params)
     },
     semantic: {
         apply: (chart, indicator) => {

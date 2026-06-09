@@ -135,7 +135,7 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     scale: { indicatorKey: 'keltner', label: 'Keltner', decimals: 2 },
     visibleState: { compose: createBandVisibleStateComposer('keltner', EMPTY_KELTNER_STATE, 'lower', 'upper') },
     updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateKeltnerConfig(params as Partial<KeltnerSchedulerConfig>, paneId)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('keltner', params, paneId)
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createKeltnerStateKey(paneId), state as any, 'indicator_scheduler')

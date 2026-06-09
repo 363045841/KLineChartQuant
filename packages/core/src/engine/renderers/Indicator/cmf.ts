@@ -133,7 +133,7 @@ export function createCMFRendererPlugin(options: { paneId?: string } = {}): Rend
     visibleState: { compose: createFixedRangeSparseVisibleStateComposer('cmf', EMPTY_CMF_STATE) },
     scale: { indicatorKey: 'cmf', label: 'CMF', decimals: 4 },
     updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateCMFConfig(params as Partial<CMFSchedulerConfig>, paneId)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('cmf', params, paneId)
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createCMFStateKey(paneId), state as any, 'indicator_scheduler')

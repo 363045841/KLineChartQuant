@@ -119,7 +119,7 @@ export function createPVTRendererPlugin(options: { paneId?: string } = {}): Rend
     visibleState: { compose: createSparseVisibleStateComposer('pvt', EMPTY_PVT_STATE) },
     scale: { indicatorKey: 'pvt', label: 'PVT', decimals: 0 },
     updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updatePVTConfig(params as Partial<PVTSchedulerConfig>, paneId)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('pvt', params, paneId)
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createPVTStateKey(paneId), state as any, 'indicator_scheduler')

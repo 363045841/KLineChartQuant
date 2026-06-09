@@ -133,7 +133,7 @@ export function createDEMARendererPlugin(options: DEMARendererOptions = {}): Ren
     visibleState: { compose: createSparseVisibleStateComposer('dema', EMPTY_DEMA_STATE) },
     scale: { indicatorKey: 'dema', label: 'DEMA', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateDEMAConfig(params as Partial<DEMASchedulerConfig>, paneId)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('dema', params, paneId)
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createDEMAStateKey(paneId), state as any, 'indicator_scheduler')

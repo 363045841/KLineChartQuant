@@ -170,7 +170,7 @@ const composeBOLLRenderState: IndicatorRenderStateComposer = (bundle, range, tim
         composeRenderState: composeBOLLRenderState,
     },
     updateConfig: (scheduler, params) => {
-        (scheduler as IndicatorScheduler).updateBOLLConfig(params as Partial<BOLLSchedulerConfig>)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('boll', params)
     },
     semantic: {
         apply: (chart, indicator) => {

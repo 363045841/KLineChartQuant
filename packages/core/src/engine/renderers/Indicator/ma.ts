@@ -112,7 +112,7 @@ function getMAStateKey(host: PluginHost | null): string | null {
         composeRenderState: composeMARenderState,
     },
     updateConfig: (scheduler, params) => {
-        (scheduler as IndicatorScheduler).updateMAConfig(params as MAFlags)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('ma', params)
     },
     semantic: {
         apply: (chart, indicator) => {

@@ -357,7 +357,7 @@ export function getSTOCHTitleInfo(
     visibleState: { compose: createFixedRangePointVisibleStateComposer('stoch', EMPTY_STOCH_STATE, ['k', 'd'] as const) },
     scaleRendererFactory: createStochScaleRendererPlugin,
     updateConfig: (scheduler, params, paneId) => {
-    (scheduler as IndicatorScheduler).updateSTOCHConfig(params as Partial<STOCHSchedulerConfig>, paneId)
+    (scheduler as IndicatorScheduler).updateIndicatorConfig('stoch', params, paneId)
   },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createSTOCHStateKey(paneId), state as any, 'indicator_scheduler')

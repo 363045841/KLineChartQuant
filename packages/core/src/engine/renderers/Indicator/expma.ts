@@ -228,7 +228,7 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
         composeRenderState: composeEXPMARenderState,
     },
     updateConfig: (scheduler, params) => {
-        (scheduler as IndicatorScheduler).updateEXPMAConfig(params as Partial<EXPMASchedulerConfig>)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('expma', params)
     },
     semantic: {
         apply: (chart, indicator) => {

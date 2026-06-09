@@ -120,7 +120,7 @@ export function createVMARendererPlugin(options: { paneId?: string } = {}): Rend
     paneIdField: 'vmaPaneId',
     scale: { indicatorKey: 'vma', label: 'VMA', decimals: 0 },
     updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateVMAConfig(params as Partial<VMASchedulerConfig>, paneId)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('vma', params, paneId)
     },
     visibleState: { compose: createNonNegativeSparseVisibleStateComposer('vma', EMPTY_VMA_STATE) },
     applyResult: (host, state, paneId) => {

@@ -314,7 +314,7 @@ export function getFASTKTitleInfo(
     visibleState: { compose: createFixedRangeSparseVisibleStateComposer('fastk', EMPTY_FASTK_STATE) },
     scaleRendererFactory: createFastkScaleRendererPlugin,
     updateConfig: (scheduler, params, paneId) => {
-    (scheduler as IndicatorScheduler).updateFASTKConfig(params as Partial<FASTKSchedulerConfig>, paneId)
+    (scheduler as IndicatorScheduler).updateIndicatorConfig('fastk', params, paneId)
   },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createFASTKStateKey(paneId), state as any, 'indicator_scheduler')

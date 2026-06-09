@@ -133,7 +133,7 @@ export function createHMARendererPlugin(options: HMARendererOptions = {}): Rende
     visibleState: { compose: createSparseVisibleStateComposer('hma', EMPTY_HMA_STATE) },
     scale: { indicatorKey: 'hma', label: 'HMA', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateHMAConfig(params as Partial<HMASchedulerConfig>, paneId)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('hma', params, paneId)
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createHMAStateKey(paneId), state as any, 'indicator_scheduler')

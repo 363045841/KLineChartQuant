@@ -139,7 +139,7 @@ export function createROCRendererPlugin(options: ROCRendererOptions = {}): Rende
     visibleState: { compose: createSparseVisibleStateComposer('roc', EMPTY_ROC_STATE) },
     scale: { indicatorKey: 'roc', label: 'ROC', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
-    (scheduler as IndicatorScheduler).updateROCConfig(params as Partial<ROCSchedulerConfig>, paneId)
+    (scheduler as IndicatorScheduler).updateIndicatorConfig('roc', params, paneId)
   },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createROCStateKey(paneId), state as any, 'indicator_scheduler')

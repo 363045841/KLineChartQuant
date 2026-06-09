@@ -121,7 +121,7 @@ export function createVolumeProfileRendererPlugin(options: { paneId?: string } =
     scale: { indicatorKey: 'volumeProfile', label: 'VP', decimals: 0 },
     visibleState: { compose: createVolumeProfileVisibleStateComposer('volumeProfile', EMPTY_VOLUME_PROFILE_STATE) },
     updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateVolumeProfileConfig(params as Partial<VolumeProfileSchedulerConfig>, paneId)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('volumeProfile', params, paneId)
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createVolumeProfileStateKey(paneId), state as any, 'indicator_scheduler')

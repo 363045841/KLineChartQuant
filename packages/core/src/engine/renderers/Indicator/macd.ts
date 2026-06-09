@@ -475,7 +475,7 @@ export function getMACDTitleInfo(
   scaleRendererFactory: createMacdScaleRendererPlugin,
   visibleState: { compose: createMACDVisibleStateComposer('macd', EMPTY_MACD_STATE) },
   updateConfig: (scheduler, params, paneId) => {
-    (scheduler as IndicatorScheduler).updateMACDConfig(params as Partial<MACDSchedulerConfig>, paneId)
+    (scheduler as IndicatorScheduler).updateIndicatorConfig('macd', params, paneId)
   },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createMACDStateKey(paneId), state as any, 'indicator_scheduler')

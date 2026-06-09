@@ -133,7 +133,7 @@ export function createKAMARendererPlugin(options: KAMARendererOptions = {}): Ren
     visibleState: { compose: createSparseVisibleStateComposer('kama', EMPTY_KAMA_STATE) },
     scale: { indicatorKey: 'kama', label: 'KAMA', decimals: 2 },
     updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateKAMAConfig(params as Partial<KAMASchedulerConfig>, paneId)
+        (scheduler as IndicatorScheduler).updateIndicatorConfig('kama', params, paneId)
     },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createKAMAStateKey(paneId), state as any, 'indicator_scheduler')
