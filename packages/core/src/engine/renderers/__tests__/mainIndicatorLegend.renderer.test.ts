@@ -40,10 +40,17 @@ function createMockCanvasContext(): CanvasRenderingContext2D {
  * Keys are case-insensitive (matching real IndicatorScheduler behavior).
  */
 function createMockScheduler(
-  metadataMap: Record<string, { getTitleInfo: GetTitleInfoFn }>
+  metadataMap: Record<string, { getTitleInfo: GetTitleInfoFn; category?: string }>
 ): IndicatorScheduler {
+  const items = Object.entries(metadataMap).map(([id, meta]) => ({
+    name: id,
+    displayName: id.toUpperCase(),
+    category: meta.category ?? 'main',
+    getTitleInfo: meta.getTitleInfo,
+  }))
   return {
-    getIndicatorMetadata: vi.fn((id: string) => metadataMap[id.toLowerCase()] ?? null),
+    getIndicatorMetadata: vi.fn((id: string) => items.find(i => i.name === id.toLowerCase()) ?? null),
+    getAllIndicators: vi.fn(() => items),
   } as unknown as IndicatorScheduler
 }
 

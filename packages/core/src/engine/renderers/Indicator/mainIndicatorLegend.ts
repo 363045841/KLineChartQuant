@@ -96,18 +96,15 @@ export function createMainIndicatorLegendRendererPlugin(options: {
         ? pluginHost.getService<IndicatorScheduler>('indicatorScheduler')
         : undefined
 
-      for (const [indicatorId, indicatorConfig] of Object.entries(config.indicators)) {
-        if (!indicatorConfig.enabled) continue
-
-        const meta = scheduler?.getIndicatorMetadata(indicatorId)
-        if (!meta?.getTitleInfo) continue
+      for (const meta of scheduler?.getAllIndicators()?.filter(d => d.category === 'main') ?? []) {
+        if (!meta.getTitleInfo) continue
 
         rows.push({
           draw: (rowIndex: number) => {
-            const titleInfo = meta.getTitleInfo!(
+            const titleInfo = meta.getTitleInfo(
               klineData,
               targetIndex,
-              indicatorConfig.params as Record<string, number | boolean | string>,
+              {},
               pluginHost!,
               'main',
             )
