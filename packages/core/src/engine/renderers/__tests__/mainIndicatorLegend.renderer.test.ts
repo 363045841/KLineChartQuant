@@ -289,7 +289,7 @@ describe('MainIndicatorLegend draw', () => {
 
     // Should show value 150 at index 50 (100 + 50)
     const maValueCalls = fillTextCalls.filter(call =>
-      String(call[0]).includes('150.00')
+      String(call[0]).includes('150.000')
     )
     expect(maValueCalls.length).toBeGreaterThan(0)
   })
@@ -324,7 +324,7 @@ describe('MainIndicatorLegend draw', () => {
 
     // Should show last value (109) at index 9
     const maValueCalls = fillTextCalls.filter(call =>
-      String(call[0]).includes('109.00')
+      String(call[0]).includes('109.000')
     )
     expect(maValueCalls.length).toBeGreaterThan(0)
   })
@@ -360,7 +360,7 @@ describe('MainIndicatorLegend draw', () => {
     expect(ma5Calls).toHaveLength(0)
   })
 
-  it('should display values with 2 decimal places', () => {
+  it('should display values with 3 decimal places', () => {
     const state = createTestMARenderState({
       series: {
         5: Array.from({ length: 100 }, () => 123.4567),
@@ -379,7 +379,7 @@ describe('MainIndicatorLegend draw', () => {
 
     // Should show formatted value
     const formattedValueCalls = fillTextCalls.filter(call =>
-      String(call[0]).includes('123.46')
+      String(call[0]).includes('123.457')
     )
     expect(formattedValueCalls.length).toBeGreaterThan(0)
   })

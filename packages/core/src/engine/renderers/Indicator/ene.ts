@@ -308,9 +308,9 @@ export const getENETitleInfo: GetTitleInfoFn = (
     if (!enePoint) return null
 
     const values: TitleValueItem[] = [
-        { label: '上轨', value: enePoint.upper, color: '#FF5064' },
-        { label: '中轨', value: enePoint.middle, color: '#5A8CFF' },
-        { label: '下轨', value: enePoint.lower, color: '#3CC8A0' },
+        { label: 'UP', value: enePoint.upper, color: '#FF5064' },
+        { label: 'MID', value: enePoint.middle, color: '#5A8CFF' },
+        { label: 'DN', value: enePoint.lower, color: '#3CC8A0' },
     ]
 
     return { name: 'ENE', params: [state.params.period, state.params.deviation], values }

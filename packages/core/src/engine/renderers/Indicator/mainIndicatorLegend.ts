@@ -71,10 +71,12 @@ export function createMainIndicatorLegendRendererPlugin(options: {
       const lineHeight = fontSize + 6
       const legendX = 12
       const gap = 10
+      const legendYOffset = 6
 
       overlayCtx.save()
       setCanvasFont(overlayCtx, getFont(fontSize))
       overlayCtx.textAlign = 'left'
+      overlayCtx.textBaseline = 'top'
 
       const targetIndex = crosshairIndex ?? Math.min(range.end - 1, klineData.length - 1)
       const rows: Array<{ draw: (rowIndex: number) => void }> = []
@@ -101,20 +103,27 @@ export function createMainIndicatorLegendRendererPlugin(options: {
             if (!titleInfo) return
 
             let x = legendX
-            const y = config.yPaddingPx / 2 + fontSize + rowIndex * lineHeight
+            let y = config.yPaddingPx / 2 + legendYOffset + rowIndex * lineHeight
+            // 指标名称
             overlayCtx.fillStyle = colors.text.primary
             overlayCtx.fillText(titleInfo.name, x, y)
-            x += measureTextWidth(overlayCtx, titleInfo.name) + gap
+            x += measureTextWidth(overlayCtx, titleInfo.name)
 
+            // 指标参数
             if (titleInfo.params && titleInfo.params.length > 0) {
               const paramText = `(${titleInfo.params.join(',')})`
+              overlayCtx.fillStyle = colors.text.tertiary
               overlayCtx.fillText(paramText, x, y)
               x += measureTextWidth(overlayCtx, paramText) + gap
+            } else {
+              x += gap
             }
 
+            // 指标数值
             if (titleInfo.values) {
+              y += 1
               for (const item of titleInfo.values) {
-                const valText = `${item.label} ${item.value.toFixed(2)}`
+                const valText = `${item.label} ${item.value.toFixed(3)}`
                 overlayCtx.fillStyle = item.color
                 overlayCtx.fillText(valText, x, y)
                 x += measureTextWidth(overlayCtx, valText) + gap

@@ -234,8 +234,8 @@ export const getEXPMATitleInfo: GetTitleInfoFn = (
     if (!expmaPoint) return null
 
     const values: TitleValueItem[] = [
-        { label: '快', value: expmaPoint.fast, color: '#FFAA32' },
-        { label: '慢', value: expmaPoint.slow, color: '#5A8CFF' },
+        { label: 'FAST', value: expmaPoint.fast, color: '#FFAA32' },
+        { label: 'SLOW', value: expmaPoint.slow, color: '#5A8CFF' },
     ]
 
     return { name: 'EXPMA', params: [state.params.fastPeriod, state.params.slowPeriod], values }

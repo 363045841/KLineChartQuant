@@ -750,7 +750,9 @@ export class Chart {
         this.interaction.setKLinePositions(kLinePositions, range, kWidthPx)
 
         // 4. 通知调度器当前活跃主图指标 + 获取价格范围
-        this.indicatorScheduler.setActiveMainIndicators([...this._mainIndicatorsSignal.peek().keys()])
+        this.indicatorScheduler.setActiveMainIndicators(
+            [...this._mainIndicatorsSignal.peek().entries()].map(([id, entry]) => ({ id, params: entry.params })),
+        )
         const mainIndicatorRange = useCachedFrame ? null : this.indicatorScheduler.getMainIndicatorPriceRange()
         const hasCrosshair = this.interaction.getCrosshairIndex() !== null
 
