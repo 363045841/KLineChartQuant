@@ -161,13 +161,14 @@ describe('add', () => {
         expect(c.active()).toEqual([])
     })
 
-    it('replaces previous main indicator (mutual exclusion)', () => {
+    it('allows multiple main indicators in insertion order', () => {
         const c = makeController()
         c.add('MA')
         c.add('BOLL')
         const mains = c.active().filter((a) => a.role === 'main')
-        expect(mains).toHaveLength(1)
-        expect(mains[0]?.definitionId).toBe('BOLL')
+        expect(mains).toHaveLength(2)
+        expect(mains[0]?.definitionId).toBe('MA')
+        expect(mains[1]?.definitionId).toBe('BOLL')
     })
 
     it('keeps mains before subs in display order', () => {

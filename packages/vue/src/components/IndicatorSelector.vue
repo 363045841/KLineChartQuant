@@ -399,13 +399,6 @@ function addIndicator(indicatorId: string) {
   const indicator = findIndicator(indicatorId)
   if (!indicator) return
 
-  if (indicator.pane === 'main') {
-    const allItems = allIndicators
-    allItems
-      .filter((i) => i.id !== indicatorId && isActive(i.id) && i.pane === 'main')
-      .forEach((i) => emit('toggle', i.id, false))
-  }
-
   emit('toggle', indicatorId, true)
 }
 

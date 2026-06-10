@@ -81,7 +81,7 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
 
             const fontSize = 12
             const x = 12
-            const y = currentOptions.yOffset ?? fontSize
+            let y = currentOptions.yOffset ?? fontSize
             const gap = 8
 
             overlayCtx.save()
@@ -123,6 +123,7 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
                 }
 
                 if (titleInfo.values && titleInfo.values.length > 0) {
+                    y += 1
                     for (const item of titleInfo.values) {
                         const valueText = `${item.label} ${item.value.toFixed(3)}`
                         overlayCtx.fillStyle = item.color

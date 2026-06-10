@@ -171,14 +171,12 @@ export function createIndicatorSelectorController(
             params: buildDefaultParams(def),
         }
 
-        // Main indicators are mutually exclusive — replace any existing main.
-        // Sub indicators append to the end (display ordering: mains first,
-        // then subs in insertion order).
+        // Mains first in insertion order, then subs in insertion order.
         const current = active.peek()
         if (def.role === 'main') {
-            const withoutMains = current.filter((a) => a.role !== 'main')
-            // mains come first
-            active.set([newInstance, ...withoutMains])
+            const mains = current.filter((a) => a.role === 'main')
+            const subs = current.filter((a) => a.role !== 'main')
+            active.set([...mains, newInstance, ...subs])
         } else {
             active.set([...current, newInstance])
         }
