@@ -1,6 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import type { KLineData } from '../../../data/StockData'
+import type { KLineData } from '../../../types/price'
 import type { SuperTrendRenderState } from '../../indicators/supertrendState'
 import { createSuperTrendStateKey, EMPTY_SUPERTREND_STATE } from '../../indicators/supertrendState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'

@@ -1,6 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import type { KLineData } from '../../../data/StockData'
+import type { KLineData } from '../../../types/price'
 import type { KeltnerRenderState } from '../../indicators/keltnerState'
 import { createKeltnerStateKey, EMPTY_KELTNER_STATE } from '../../indicators/keltnerState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'

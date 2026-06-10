@@ -1,6 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import type { KLineData } from '../../../data/StockData'
+import type { KLineData } from '../../../types/price'
 import type { SARRenderState } from '../../indicators/sarState'
 import { createSARStateKey, EMPTY_SAR_STATE } from '../../indicators/sarState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'

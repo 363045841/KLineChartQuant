@@ -1,6 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import type { KLineData } from '../../../data/StockData'
+import type { KLineData } from '../../../types/price'
 import type { DonchianRenderState } from '../../indicators/donchianState'
 import { createDonchianStateKey, EMPTY_DONCHIAN_STATE } from '../../indicators/donchianState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'

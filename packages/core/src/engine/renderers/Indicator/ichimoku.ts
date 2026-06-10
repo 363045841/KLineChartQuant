@@ -1,6 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import type { KLineData } from '../../../data/StockData'
+import type { KLineData } from '../../../types/price'
 import type { IchimokuRenderState } from '../../indicators/ichimokuState'
 import { createIchimokuStateKey, EMPTY_ICHIMOKU_STATE } from '../../indicators/ichimokuState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'

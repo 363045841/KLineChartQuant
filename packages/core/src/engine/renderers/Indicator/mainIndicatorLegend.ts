@@ -90,10 +90,11 @@ export function createMainIndicatorLegendRendererPlugin(options: {
         if (!meta.getTitleInfo) continue
         if (!scheduler?.isMainIndicatorActive(meta.name)) continue
         const params = scheduler?.getMainIndicatorParams(meta.name) ?? {}
+        const getTitleInfo = meta.getTitleInfo
 
         rows.push({
           draw: (rowIndex: number) => {
-            const titleInfo = meta.getTitleInfo(
+            const titleInfo = getTitleInfo(
               klineData,
               targetIndex,
               params as Record<string, number | boolean | string>,
