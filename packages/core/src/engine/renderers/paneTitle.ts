@@ -5,6 +5,8 @@ import { getFont, setCanvasFont } from '../theme/fonts'
 import { SUB_PANE_INDICATOR_CONFIGS } from './Indicator/subPaneConfig'
 import type { SubIndicatorType } from './Indicator'
 import type { KLineData } from '../../types/price'
+import type { TitleInfo } from '../indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '../indicators/scheduler'
 
 /**
  * @deprecated 请从 indicatorMetadata 导入 TitleInfo
@@ -70,11 +72,25 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
             overlayCtx.textAlign = 'left'
             overlayCtx.textBaseline = 'top'
 
-            const config = SUB_PANE_INDICATOR_CONFIGS[currentOptions.indicatorId]
             const crosshairIndex = context.crosshairIndex ?? null
-            const titleInfo = config && pluginHost
-                ? config.getTitleInfo(context.data as KLineData[], crosshairIndex, currentOptions.params as Record<string, number | boolean | string>, pluginHost, currentOptions.paneId)
-                : null
+            const castParams = currentOptions.params as Record<string, number | boolean | string>
+            const klineData = context.data as KLineData[]
+
+            // 优先从 indicator metadata registry 获取 getTitleInfo
+            let titleInfo: TitleInfo | null = null
+            const scheduler = pluginHost?.getService<IndicatorScheduler>('indicatorScheduler')
+            const meta = scheduler?.getIndicatorMetadata(currentOptions.indicatorId)
+            if (meta?.getTitleInfo && pluginHost) {
+                titleInfo = meta.getTitleInfo(klineData, crosshairIndex, castParams, pluginHost, currentOptions.paneId)
+            }
+
+            // fallback: subPaneConfig（主要用于 VOLUME — 非注册指标）
+            if (!titleInfo) {
+                const config = SUB_PANE_INDICATOR_CONFIGS[currentOptions.indicatorId]
+                if (config && pluginHost) {
+                    titleInfo = config.getTitleInfo(klineData, crosshairIndex, castParams, pluginHost, currentOptions.paneId)
+                }
+            }
 
             if (titleInfo) {
                 let currentX = x
