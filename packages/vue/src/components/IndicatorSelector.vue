@@ -127,9 +127,8 @@
                 </div>
               </div>
 
-              <!-- 弹窗主体 -->
-              <div class="modal-body">
-                <!-- 搜索框 -->
+              <!-- 搜索区域 -->
+              <div class="modal-search-area">
                 <div class="search-box">
                   <svg
                     class="search-icon"
@@ -149,6 +148,10 @@
                     placeholder="搜索指标名称..."
                   />
                 </div>
+              </div>
+
+              <!-- 弹窗主体 -->
+              <div class="modal-body">
                 <!-- 主图指标区域 -->
                 <div v-if="filteredMain.length > 0" class="indicator-section">
                   <div class="section-header">
@@ -823,6 +826,14 @@ onUnmounted(() => {
   color: var(--klc-color-foreground);
 }
 
+/* 搜索区域 */
+.modal-search-area {
+  padding: 16px 20px;
+  background: var(--klc-color-tag-bg-white);
+  border-bottom: 1px solid var(--klc-color-border-chart);
+  flex-shrink: 0;
+}
+
 /* 弹窗主体 */
 .modal-body {
   padding: 20px;
@@ -845,16 +856,13 @@ onUnmounted(() => {
 
 /* 搜索框 */
 .search-box {
-  position: sticky;
-  top: 0;
-  z-index: 10;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
   border: 1px solid var(--klc-color-border-button);
   border-radius: 8px;
-  background: var(--klc-color-tag-bg-white);
+  background: var(--klc-color-background);
   transition: all 0.2s ease;
 }
 
