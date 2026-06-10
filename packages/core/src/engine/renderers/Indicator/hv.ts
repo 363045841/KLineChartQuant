@@ -9,7 +9,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, HVSchedulerConfig } from '../../indicators/scheduler'
 import { calcHVData } from '../../indicators/calculators'
-import type { TitleInfo } from '../../renderers/paneTitle'
+import type { TitleInfo } from '../../indicators/indicatorMetadata'
 
 const HV_COLOR = '#7c3aed'
 

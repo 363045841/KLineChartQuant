@@ -2,7 +2,7 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../..
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { CMFRenderState } from '../../indicators/cmfState'
 import { createCMFStateKey, EMPTY_CMF_STATE } from '../../indicators/cmfState'
-import type { TitleInfo } from '../../renderers/paneTitle'
+import type { TitleInfo } from '../../indicators/indicatorMetadata'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'

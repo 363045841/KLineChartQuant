@@ -7,7 +7,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, OBVSchedulerConfig } from '../../indicators/scheduler'
 import { calcOBVData } from '../../indicators/calculators'
-import type { TitleInfo } from '../../renderers/paneTitle'
+import type { TitleInfo } from '../../indicators/indicatorMetadata'
 
 const OBV_COLOR = '#16a34a'
 

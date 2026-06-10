@@ -5,7 +5,7 @@
  * 由 KLineChart.vue 消费，集中管理避免散落在组件中。
  */
 
-import type { TitleInfo } from '../../renderers/paneTitle'
+import type { TitleInfo } from '../../indicators/indicatorMetadata'
 import type { PluginHost } from '../../../plugin'
 import type { SubIndicatorType } from '../../renderers/Indicator'
 import {

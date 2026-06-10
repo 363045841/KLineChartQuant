@@ -6,6 +6,7 @@ import type {
     ScaleRendererFactory,
     IndicatorConfigUpdater,
     IndicatorRuntimeDescriptor,
+    GetTitleInfoFn,
 } from './indicatorMetadata'
 import type { PluginHost } from '../../plugin'
 import { createIndicatorStateKey } from '../../plugin/stateKeys'
@@ -28,6 +29,7 @@ export type IndicatorDefinitionConfig<T = unknown> = {
     visibleState?: IndicatorMetadata['visibleState']
     runtime?: IndicatorRuntimeDescriptor
     semantic?: IndicatorMetadata<T>['semantic']
+    getTitleInfo?: GetTitleInfoFn
 }
 
 type IndicatorDefinitionClass = {
@@ -93,7 +95,7 @@ export function Indicator(config: IndicatorDefinitionConfig) {
             // 有 runtime 时自动生成 updateConfig / applyResult
             const updateConfig = runtime
                 ? (config.updateConfig ?? ((scheduler: any, params: any, paneId?: string) => {
-                    scheduler.updateIndicatorConfig(normalizedName, params, paneId)
+                    scheduler.updateIndicatorConfig(config.name, params, paneId)
                 }))
                 : config.updateConfig
 

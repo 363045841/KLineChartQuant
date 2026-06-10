@@ -5,6 +5,11 @@ import { getFont, setCanvasFont } from '../theme/fonts'
 import { SUB_PANE_INDICATOR_CONFIGS } from './Indicator/subPaneConfig'
 import type { SubIndicatorType } from './Indicator'
 
+/**
+ * @deprecated 请从 indicatorMetadata 导入 TitleInfo
+ */
+export type { TitleInfo, TitleValueItem } from '../indicators/indicatorMetadata'
+
 const textWidthCache = new Map<string, number>()
 const TEXT_WIDTH_CACHE_LIMIT = 256
 
@@ -21,18 +26,6 @@ function measureTextWidth(ctx: CanvasRenderingContext2D, text: string): number {
     }
     textWidthCache.set(key, width)
     return width
-}
-
-export interface TitleValueItem {
-    label: string
-    value: number
-    color: string
-}
-
-export interface TitleInfo {
-    name: string
-    params?: number[]
-    values?: TitleValueItem[]
 }
 
 export interface PaneTitleOptions {

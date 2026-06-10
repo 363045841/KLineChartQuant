@@ -87,6 +87,35 @@ export type IndicatorVisibleStateComposer = (
 ) => unknown
 
 /**
+ * 标题值项：颜色 + 数值 + 标签
+ */
+export interface TitleValueItem {
+    label: string
+    value: number
+    color: string
+}
+
+/**
+ * 标题信息：指标名称 + 参数 + 各线实时值
+ */
+export interface TitleInfo {
+    name: string
+    params?: number[]
+    values?: TitleValueItem[]
+}
+
+/**
+ * 获取标题信息的回调类型
+ */
+export type GetTitleInfoFn = (
+    data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
+    host: PluginHost,
+    paneId: string,
+) => TitleInfo | null
+
+/**
  * 指标计算描述符
  * 描述每个指标的计算逻辑，供 IndicatorRuntime 驱动
  *
@@ -224,6 +253,14 @@ export interface IndicatorMetadata<T = unknown> {
     semantic?: {
         apply?: (chart: IndicatorSemanticChartAdapter, indicator: T) => void
     }
+
+    /**
+     * 标题信息获取回调（决定 pane 标题栏显示内容）
+     * - 副图指标：由 paneTitle 渲染器调用
+     * - 主图指标：由 mainIndicatorLegend 渲染器调用
+     * 未提供时 fallback 到 displayName
+     */
+    getTitleInfo?: GetTitleInfoFn
 }
 
 /**

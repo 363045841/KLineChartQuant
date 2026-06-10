@@ -8,7 +8,7 @@ import { createFixedUnitVisibleStateComposer } from '../../indicators/visibleSta
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, StructureSchedulerConfig } from '../../indicators/scheduler'
 import { calcStructureData } from '../../indicators/calculators'
-import type { TitleInfo } from '../../renderers/paneTitle'
+import type { TitleInfo } from '../../indicators/indicatorMetadata'
 
 const LABEL_FONT = '11px sans-serif'
 

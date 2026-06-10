@@ -7,7 +7,7 @@ import { createVolumeProfileVisibleStateComposer } from '../../indicators/visibl
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, VolumeProfileSchedulerConfig } from '../../indicators/scheduler'
 import { calcVolumeProfileData } from '../../indicators/calculators'
-import type { TitleInfo } from '../../renderers/paneTitle'
+import type { TitleInfo } from '../../indicators/indicatorMetadata'
 import { resolveThemeColors } from '../../../tokens'
 
 const BAR_FILL = 'rgba(99, 102, 241, 0.35)'

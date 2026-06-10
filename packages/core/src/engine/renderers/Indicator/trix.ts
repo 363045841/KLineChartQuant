@@ -9,7 +9,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, TRIXSchedulerConfig } from '../../indicators/scheduler'
 import { calcTRIXData } from '../../indicators/calculators'
-import type { TitleInfo } from '../../renderers/paneTitle'
+import type { TitleInfo } from '../../indicators/indicatorMetadata'
 
 const TRIX_COLOR = '#e11d48'
 const SIGNAL_COLOR = '#f59e0b'
