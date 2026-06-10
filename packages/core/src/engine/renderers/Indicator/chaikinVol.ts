@@ -149,18 +149,10 @@ export function getChaikinVolTitleInfo(
     name: 'chaikinVol',
     displayName: 'ChaikinVol',
     category: 'oscillator',
-    stateKey: createChaikinVolStateKey,
     defaultPaneId: 'sub_ChaikinVol',
     visibleState: { compose: createSparseVisibleStateComposer('chaikinVol', EMPTY_CHAIKIN_VOL_STATE) },
     scale: { indicatorKey: 'chaikinVol', label: 'ChaikinVol', decimals: 2 },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('chaikinVol', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createChaikinVolStateKey(paneId), state as any, 'indicator_scheduler')
-    },
     runtime: {
-        configKey: 'chaikinVol',
         defaultConfig: { emaPeriod: 10, rocPeriod: 10, showChaikinVol: true },
         computeKey: 'calcChaikinVolData',
         compute: (data, c) => calcChaikinVolData(data, c.emaPeriod, c.rocPeriod),

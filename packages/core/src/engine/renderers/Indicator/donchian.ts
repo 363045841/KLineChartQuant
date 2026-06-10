@@ -127,19 +127,12 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     name: 'donchian',
     displayName: 'Donchian',
     category: 'main',
-    stateKey: createDonchianStateKey,
     defaultPaneId: 'main',
     allowMainPane: true,
     mainPane: { rendererName: 'donchian_main', toActiveConfig: (params, active) => ({ ...params, showUpper: active, showMiddle: active, showLower: active }) },
     scale: { indicatorKey: 'donchian', label: 'Donchian', decimals: 2 },
     visibleState: { compose: createBandVisibleStateComposer('donchian', EMPTY_DONCHIAN_STATE, 'lower', 'upper') },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('donchian', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createDonchianStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'donchian', defaultConfig:{period:20,showUpper:true,showMiddle:true,showLower:true}, computeKey:'calcDonchianData', compute:(data,c)=>calcDonchianData(data,c.period) },
+    runtime: { defaultConfig:{period:20,showUpper:true,showMiddle:true,showLower:true}, computeKey:'calcDonchianData', compute:(data,c)=>calcDonchianData(data,c.period) },
 })
 class DonchianDefinition {
     static rendererFactory = createDonchianRendererPlugin

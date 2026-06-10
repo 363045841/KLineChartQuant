@@ -137,17 +137,10 @@ export function getParkinsonTitleInfo(
     name: 'parkinson',
     displayName: 'Parkinson',
     category: 'oscillator',
-    stateKey: createParkinsonStateKey,
     defaultPaneId: 'sub_Parkinson',
     scale: { indicatorKey: 'parkinson', label: 'Parkinson', decimals: 2 },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('parkinson', params, paneId)
-    },
     visibleState: { compose: createNonNegativeSparseVisibleStateComposer('parkinson', EMPTY_PARKINSON_STATE) },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createParkinsonStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'parkinson', defaultConfig:{period:20,annualizationFactor:252,showParkinson:true}, computeKey:'calcParkinsonData', compute:(data,c)=>calcParkinsonData(data,c.period,c.annualizationFactor) },
+    runtime: { defaultConfig:{period:20,annualizationFactor:252,showParkinson:true}, computeKey:'calcParkinsonData', compute:(data,c)=>calcParkinsonData(data,c.period,c.annualizationFactor) },
 })
 class ParkinsonIndicatorDefinition {
     static rendererFactory = createParkinsonRendererPlugin

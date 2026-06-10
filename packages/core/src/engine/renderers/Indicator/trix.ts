@@ -183,17 +183,10 @@ export function getTRIXTitleInfo(
     name: 'trix',
     displayName: 'TRIX',
     category: 'oscillator',
-    stateKey: createTRIXStateKey,
     defaultPaneId: 'sub_TRIX',
     scale: { indicatorKey: 'trix', label: 'TRIX', decimals: 6 },
-    updateConfig: (scheduler, params, paneId) => {
-    (scheduler as IndicatorScheduler).updateIndicatorConfig('trix', params, paneId)
-  },
     visibleState: { compose: createDualSparseVisibleStateComposer('trix', EMPTY_TRIX_STATE) },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createTRIXStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'trix', defaultConfig:{period:15,signalPeriod:9,showTRIX:true,showSignal:true}, computeKey:'calcTRIXData', compute:(data,c)=>calcTRIXData(data,c.period,c.signalPeriod) },
+    runtime: { defaultConfig:{period:15,signalPeriod:9,showTRIX:true,showSignal:true}, computeKey:'calcTRIXData', compute:(data,c)=>calcTRIXData(data,c.period,c.signalPeriod) },
 })
 class TRIXIndicatorDefinition {
     static rendererFactory = createTRIXRendererPlugin

@@ -388,17 +388,10 @@ export function getRSITitleInfo(
     name: 'rsi',
     displayName: 'RSI',
     category: 'oscillator',
-    stateKey: createRSIStateKey,
     defaultPaneId: 'sub_RSI',
     visibleState: { compose: createFixedRangeRecordVisibleStateComposer('rsi', EMPTY_RSI_STATE) },
     scaleRendererFactory: createRsiScaleRendererPlugin,
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('rsi', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createRSIStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'rsi', defaultConfig:{period1:6,period2:12,period3:24,showRSI1:true,showRSI2:true,showRSI3:true}, computeKey:'calcRSIData', compute:(data,c)=>{const p=[c.period1,c.period2,c.period3];const s=[c.showRSI1,c.showRSI2,c.showRSI3];const r:Record<number,(number|undefined)[]>={};for(let i=0;i<3;i++){if(s[i])r[p[i]]=calcRSIData(data,p[i])}return r} },
+    runtime: { defaultConfig:{period1:6,period2:12,period3:24,showRSI1:true,showRSI2:true,showRSI3:true}, computeKey:'calcRSIData', compute:(data,c)=>{const p=[c.period1,c.period2,c.period3];const s=[c.showRSI1,c.showRSI2,c.showRSI3];const r:Record<number,(number|undefined)[]>={};for(let i=0;i<3;i++){if(s[i])r[p[i]]=calcRSIData(data,p[i])}return r} },
 })
 class RSIIndicatorDefinition {
     static rendererFactory = createRSIRendererPlugin

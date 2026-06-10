@@ -293,16 +293,12 @@ export function createENERendererPlugin(): RendererPluginWithHost {
     name: 'ene',
     displayName: 'ENE',
     category: 'main',
-    stateKey: ENE_STATE_KEY,
     defaultPaneId: 'main',
     mainPane: {
         rendererName: 'ene',
         toActiveConfig: (params, active) => active ? params : null,
         computePriceRange: computeENEPriceRange,
         composeRenderState: composeENERenderState,
-    },
-    updateConfig: (scheduler, params) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('ene', params)
     },
     semantic: {
         apply: (chart, indicator) => {
@@ -313,10 +309,7 @@ export function createENERendererPlugin(): RendererPluginWithHost {
             })
         },
     },
-    applyResult: (host, state, _paneId) => {
-        host.setSharedState(ENE_STATE_KEY, state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'ene', defaultConfig:{period:10,deviation:11}, computeKey:'calcENEData', compute:(data,c)=>calcENEData(data,c.period,c.deviation) },
+    runtime: { defaultConfig:{period:10,deviation:11}, computeKey:'calcENEData', compute:(data,c)=>calcENEData(data,c.period,c.deviation) },
 })
 class ENEDefinition {
     static rendererFactory = createENERendererPlugin

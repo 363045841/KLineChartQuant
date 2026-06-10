@@ -125,19 +125,12 @@ export function createHMARendererPlugin(options: HMARendererOptions = {}): Rende
     name: 'hma',
     displayName: 'HMA',
     category: 'main',
-    stateKey: createHMAStateKey,
     defaultPaneId: 'main',
     allowMainPane: true,
     mainPane: { rendererName: 'hma_main', toActiveConfig: (params, active) => ({ ...params, showHMA: active }) },
     visibleState: { compose: createSparseVisibleStateComposer('hma', EMPTY_HMA_STATE) },
     scale: { indicatorKey: 'hma', label: 'HMA', decimals: 2 },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('hma', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createHMAStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'hma', defaultConfig:{period:14,showHMA:true}, computeKey:'calcHMAData', compute:(data,c)=>calcHMAData(data,c.period) },
+    runtime: { defaultConfig:{period:14,showHMA:true}, computeKey:'calcHMAData', compute:(data,c)=>calcHMAData(data,c.period) },
 })
 class HMADefinition {
     static rendererFactory = createHMARendererPlugin

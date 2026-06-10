@@ -125,19 +125,12 @@ export function createTEMARendererPlugin(options: TEMARendererOptions = {}): Ren
     name: 'tema',
     displayName: 'TEMA',
     category: 'main',
-    stateKey: createTEMAStateKey,
     defaultPaneId: 'main',
     allowMainPane: true,
     mainPane: { rendererName: 'tema_main', toActiveConfig: (params, active) => ({ ...params, showTEMA: active }) },
     visibleState: { compose: createSparseVisibleStateComposer('tema', EMPTY_TEMA_STATE) },
     scale: { indicatorKey: 'tema', label: 'TEMA', decimals: 2 },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('tema', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createTEMAStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'tema', defaultConfig:{period:14,showTEMA:true}, computeKey:'calcTEMAData', compute:(data,c)=>calcTEMAData(data,c.period) },
+    runtime: { defaultConfig:{period:14,showTEMA:true}, computeKey:'calcTEMAData', compute:(data,c)=>calcTEMAData(data,c.period) },
 })
 class TEMADefinition {
     static rendererFactory = createTEMARendererPlugin

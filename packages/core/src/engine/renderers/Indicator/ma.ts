@@ -97,7 +97,6 @@ function getMAStateKey(host: PluginHost | null): string | null {
     name: 'ma',
     displayName: 'MA',
     category: 'main',
-    stateKey: MA_STATE_KEY,
     defaultPaneId: 'main',
     mainPane: {
         rendererName: 'ma',
@@ -111,9 +110,6 @@ function getMAStateKey(host: PluginHost | null): string | null {
         computePriceRange: computeMAPriceRange,
         composeRenderState: composeMARenderState,
     },
-    updateConfig: (scheduler, params) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('ma', params)
-    },
     semantic: {
         apply: (chart, indicator) => {
             const periods = (indicator as { params?: { periods?: number[] } }).params?.periods ?? [5, 10, 20, 30, 60]
@@ -125,10 +121,7 @@ function getMAStateKey(host: PluginHost | null): string | null {
             chart.updateRendererConfig('ma', maFlags)
         },
     },
-    applyResult: (host, state, _paneId) => {
-        host.setSharedState(MA_STATE_KEY, state as any, 'ma_scheduler')
-    },
-    runtime: { configKey:'ma', defaultConfig:{ma5:true,ma10:true,ma20:true,ma30:true,ma60:true}, computeKey:'calcMAData', compute:(data,c)=>{const p=[5,10,20,30,60];const r:Record<number,(number|undefined)[]>={};for(const o of p){if((c as any)['ma'+o])r[o]=calcMAData(data,o)}return r} },
+    runtime: { defaultConfig:{ma5:true,ma10:true,ma20:true,ma30:true,ma60:true}, computeKey:'calcMAData', compute:(data,c)=>{const p=[5,10,20,30,60];const r:Record<number,(number|undefined)[]>={};for(const o of p){if((c as any)['ma'+o])r[o]=calcMAData(data,o)}return r} },
 })
 class MADefinition {
     static rendererFactory = createMARendererPlugin

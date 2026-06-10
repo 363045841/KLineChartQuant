@@ -135,18 +135,10 @@ export function getVMATitleInfo(
     name: 'vma',
     displayName: 'VMA',
     category: 'volume',
-    stateKey: createVMAStateKey,
     defaultPaneId: 'sub_VMA',
     scale: { indicatorKey: 'vma', label: 'VMA', decimals: 0 },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('vma', params, paneId)
-    },
     visibleState: { compose: createNonNegativeSparseVisibleStateComposer('vma', EMPTY_VMA_STATE) },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createVMAStateKey(paneId), state as any, 'indicator_scheduler')
-    },
     runtime: {
-        configKey: 'vma',
         defaultConfig: { period: 5, showVMA: true },
         computeKey: 'calcVMAData',
         compute: (data, c) => calcVMAData(data, c.period),

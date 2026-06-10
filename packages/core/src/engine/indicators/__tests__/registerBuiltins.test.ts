@@ -29,7 +29,6 @@ describe('builtin indicator registration', () => {
   it('registers metadata config updaters for stage 4A indicators', () => {
     expect(getRegisteredIndicatorDefinition('RSI')?.updateConfig).toBeTypeOf('function')
     expect(getRegisteredIndicatorDefinition('MACD')?.updateConfig).toBeTypeOf('function')
-    expect(getRegisteredIndicatorDefinition('VOL')?.updateConfig).toBeTypeOf('function')
     expect(getRegisteredIndicatorDefinition('VOLUME_PROFILE')?.updateConfig).toBeTypeOf('function')
   })
 
@@ -268,10 +267,10 @@ describe('builtin indicator registration', () => {
     getRegisteredIndicatorDefinition('EXPMA')?.updateConfig?.(scheduler, { fastPeriod: 12 }, 'main')
     getRegisteredIndicatorDefinition('ENE')?.updateConfig?.(scheduler, { period: 10 }, 'main')
 
-    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('ma', { ma5: true })
-    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('boll', { period: 20 })
-    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('expma', { fastPeriod: 12 })
-    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('ene', { period: 10 })
+    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('ma', { ma5: true }, 'main')
+    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('boll', { period: 20 }, 'main')
+    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('expma', { fastPeriod: 12 }, 'main')
+    expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('ene', { period: 10 }, 'main')
   })
 
   it('registers semantic apply metadata for stage 7A main indicators', () => {

@@ -219,16 +219,12 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
     name: 'expma',
     displayName: 'EXPMA',
     category: 'main',
-    stateKey: EXPMA_STATE_KEY,
     defaultPaneId: 'main',
     mainPane: {
         rendererName: 'expma',
         toActiveConfig: (params, active) => active ? params : null,
         computePriceRange: computeEXPMAPriceRange,
         composeRenderState: composeEXPMARenderState,
-    },
-    updateConfig: (scheduler, params) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('expma', params)
     },
     semantic: {
         apply: (chart, indicator) => {
@@ -239,10 +235,7 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
             })
         },
     },
-    applyResult: (host, state, _paneId) => {
-        host.setSharedState(EXPMA_STATE_KEY, state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'expma', defaultConfig:{fastPeriod:12,slowPeriod:50}, computeKey:'calcEXPMAData', compute:(data,c)=>calcEXPMAData(data,c.fastPeriod,c.slowPeriod) },
+    runtime: { defaultConfig:{fastPeriod:12,slowPeriod:50}, computeKey:'calcEXPMAData', compute:(data,c)=>calcEXPMAData(data,c.fastPeriod,c.slowPeriod) },
 })
 class EXPMADefinition {
     static rendererFactory = createEXPMARendererPlugin

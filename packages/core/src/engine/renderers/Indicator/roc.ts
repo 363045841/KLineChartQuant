@@ -154,18 +154,10 @@ export function getROCTitleInfo(
     name: 'roc',
     displayName: 'ROC',
     category: 'oscillator',
-    stateKey: createROCStateKey,
     defaultPaneId: 'sub_ROC',
     visibleState: { compose: createSparseVisibleStateComposer('roc', EMPTY_ROC_STATE) },
     scale: { indicatorKey: 'roc', label: 'ROC', decimals: 2 },
-    updateConfig: (scheduler, params, paneId) => {
-    (scheduler as IndicatorScheduler).updateIndicatorConfig('roc', params, paneId)
-  },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createROCStateKey(paneId), state as any, 'indicator_scheduler')
-    },
     runtime: {
-        configKey: 'roc',
         defaultConfig: { period: 12, showROC: true },
         computeKey: 'calcROCData',
         compute: (data, c) => calcROCData(data, c.period),

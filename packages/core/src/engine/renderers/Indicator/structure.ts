@@ -141,19 +141,12 @@ export function getStructureTitleInfo(
     name: 'structure',
     displayName: 'Structure',
     category: 'sub',
-    stateKey: createStructureStateKey,
     defaultPaneId: 'sub_Structure',
     allowMainPane: true,
     mainPane: { rendererName: 'structure_main', toActiveConfig: (params, active) => ({ ...params, showSwingLabels: active, showBOS: active, showCHOCH: active }) },
     scale: { indicatorKey: 'structure', label: 'Structure', decimals: 2 },
     visibleState: { compose: createFixedUnitVisibleStateComposer('structure', EMPTY_STRUCTURE_STATE) },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('structure', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createStructureStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'structure', defaultConfig:{leftWindow:5,rightWindow:2,breakoutSource:'close',showSwingLabels:true,showBOS:true,showCHOCH:true,showProvisional:true}, computeKey:'calcStructureData', compute:(data,c)=>calcStructureData(data,c.leftWindow,c.rightWindow,c.breakoutSource) },
+    runtime: { defaultConfig:{leftWindow:5,rightWindow:2,breakoutSource:'close',showSwingLabels:true,showBOS:true,showCHOCH:true,showProvisional:true}, computeKey:'calcStructureData', compute:(data,c)=>calcStructureData(data,c.leftWindow,c.rightWindow,c.breakoutSource) },
 })
 class StructureIndicatorDefinition {
     static rendererFactory = createStructureRendererPlugin

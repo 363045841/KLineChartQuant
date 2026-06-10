@@ -320,18 +320,10 @@ export function getWMSRTitleInfo(
     name: 'wmsr',
     displayName: 'WMSR',
     category: 'oscillator',
-    stateKey: createWMSRStateKey,
     defaultPaneId: 'sub_WMSR',
     visibleState: { compose: createFixedRangeSparseVisibleStateComposer('wmsr', EMPTY_WMSR_STATE) },
     scaleRendererFactory: createWmsrScaleRendererPlugin,
-    updateConfig: (scheduler, params, paneId) => {
-    (scheduler as IndicatorScheduler).updateIndicatorConfig('wmsr', params, paneId)
-  },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createWMSRStateKey(paneId), state as any, 'indicator_scheduler')
-    },
     runtime: {
-        configKey: 'wmsr',
         defaultConfig: { period: 14, showWMSR: true },
         computeKey: 'calcWMSRData',
         compute: (data, c) => calcWMSRData(data, c.period),

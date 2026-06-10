@@ -152,17 +152,10 @@ export function getVolumeProfileTitleInfo(
     name: 'volumeProfile',
     displayName: 'VP',
     category: 'volume',
-    stateKey: createVolumeProfileStateKey,
     defaultPaneId: 'sub_VolumeProfile',
     scale: { indicatorKey: 'volumeProfile', label: 'VP', decimals: 0 },
     visibleState: { compose: createVolumeProfileVisibleStateComposer('volumeProfile', EMPTY_VOLUME_PROFILE_STATE) },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('volumeProfile', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createVolumeProfileStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'volumeProfile', defaultConfig:{bins:24,lookback:100,valueAreaPercent:70,showPOC:true,showValueArea:true}, computeKey:'calcVolumeProfileData', compute:(data,c)=>calcVolumeProfileData(data,c.bins,c.lookback,c.valueAreaPercent) },
+    runtime: { defaultConfig:{bins:24,lookback:100,valueAreaPercent:70,showPOC:true,showValueArea:true}, computeKey:'calcVolumeProfileData', compute:(data,c)=>calcVolumeProfileData(data,c.bins,c.lookback,c.valueAreaPercent) },
 })
 class VolumeProfileIndicatorDefinition {
     static rendererFactory = createVolumeProfileRendererPlugin

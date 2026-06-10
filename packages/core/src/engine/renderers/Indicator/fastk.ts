@@ -308,18 +308,10 @@ export function getFASTKTitleInfo(
     name: 'fastk',
     displayName: 'FASTK',
     category: 'oscillator',
-    stateKey: createFASTKStateKey,
     defaultPaneId: 'sub_FASTK',
     visibleState: { compose: createFixedRangeSparseVisibleStateComposer('fastk', EMPTY_FASTK_STATE) },
     scaleRendererFactory: createFastkScaleRendererPlugin,
-    updateConfig: (scheduler, params, paneId) => {
-    (scheduler as IndicatorScheduler).updateIndicatorConfig('fastk', params, paneId)
-  },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createFASTKStateKey(paneId), state as any, 'indicator_scheduler')
-    },
     runtime: {
-        configKey: 'fastk',
         defaultConfig: { period: 9, showFASTK: true },
         computeKey: 'calcFASTKData',
         compute: (data, c) => calcFASTKData(data, c.period),

@@ -304,18 +304,10 @@ export function getMOMTitleInfo(
     name: 'mom',
     displayName: 'MOM',
     category: 'oscillator',
-    stateKey: createMOMStateKey,
     defaultPaneId: 'sub_MOM',
     scaleRendererFactory: createMomScaleRendererPlugin,
-    updateConfig: (scheduler, params, paneId) => {
-    (scheduler as IndicatorScheduler).updateIndicatorConfig('mom', params, paneId)
-  },
     visibleState: { compose: createPaddedSparseVisibleStateComposer('mom', EMPTY_MOM_STATE) },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createMOMStateKey(paneId), state as any, 'indicator_scheduler')
-    },
     runtime: {
-        configKey: 'mom',
         defaultConfig: { period: 10, showMOM: true },
         computeKey: 'calcMOMData',
         compute: (data, c) => calcMOMData(data, c.period),

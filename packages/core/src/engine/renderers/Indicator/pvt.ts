@@ -132,18 +132,10 @@ export function getPVTTitleInfo(
     name: 'pvt',
     displayName: 'PVT',
     category: 'volume',
-    stateKey: createPVTStateKey,
     defaultPaneId: 'sub_PVT',
     visibleState: { compose: createSparseVisibleStateComposer('pvt', EMPTY_PVT_STATE) },
     scale: { indicatorKey: 'pvt', label: 'PVT', decimals: 0 },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('pvt', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createPVTStateKey(paneId), state as any, 'indicator_scheduler')
-    },
     runtime: {
-        configKey: 'pvt',
         defaultConfig: { showPVT: true },
         computeKey: 'calcPVTData',
         compute: (data, c) => calcPVTData(data),

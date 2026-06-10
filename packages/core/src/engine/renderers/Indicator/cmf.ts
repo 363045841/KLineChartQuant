@@ -147,18 +147,10 @@ export function getCMFTitleInfo(
     name: 'cmf',
     displayName: 'CMF',
     category: 'volume',
-    stateKey: createCMFStateKey,
     defaultPaneId: 'sub_CMF',
     visibleState: { compose: createFixedRangeSparseVisibleStateComposer('cmf', EMPTY_CMF_STATE) },
     scale: { indicatorKey: 'cmf', label: 'CMF', decimals: 4 },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('cmf', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createCMFStateKey(paneId), state as any, 'indicator_scheduler')
-    },
     runtime: {
-        configKey: 'cmf',
         defaultConfig: { period: 20, showCMF: true },
         computeKey: 'calcCMFData',
         compute: (data, c) => calcCMFData(data, c.period),

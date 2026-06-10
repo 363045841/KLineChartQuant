@@ -267,18 +267,10 @@ export function getCCITitleInfo(
     name: 'cci',
     displayName: 'CCI',
     category: 'oscillator',
-    stateKey: createCCIStateKey,
     defaultPaneId: 'sub_CCI',
     scaleRendererFactory: createCciScaleRendererPlugin,
     visibleState: { compose: createCCIVisibleStateComposer('cci', EMPTY_CCI_STATE) },
-    updateConfig: (scheduler, params, paneId) => {
-    (scheduler as IndicatorScheduler).updateIndicatorConfig('cci', params, paneId)
-  },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createCCIStateKey(paneId), state as any, 'indicator_scheduler')
-    },
     runtime: {
-        configKey: 'cci',
         defaultConfig: { period: 14, showCCI: true },
         computeKey: 'calcCCIData',
         compute: (data, c) => calcCCIData(data, c.period),

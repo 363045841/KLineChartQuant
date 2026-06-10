@@ -159,7 +159,6 @@ const composeBOLLRenderState: IndicatorRenderStateComposer = (bundle, range, tim
     name: 'boll',
     displayName: 'BOLL',
     category: 'main',
-    stateKey: BOLL_STATE_KEY,
     defaultPaneId: 'main',
     mainPane: {
         rendererName: 'boll',
@@ -168,9 +167,6 @@ const composeBOLLRenderState: IndicatorRenderStateComposer = (bundle, range, tim
             : { ...params, showUpper: false, showMiddle: false, showLower: false, showBand: false },
         computePriceRange: computeBOLLPriceRange,
         composeRenderState: composeBOLLRenderState,
-    },
-    updateConfig: (scheduler, params) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('boll', params)
     },
     semantic: {
         apply: (chart, indicator) => {
@@ -181,10 +177,7 @@ const composeBOLLRenderState: IndicatorRenderStateComposer = (bundle, range, tim
             })
         },
     },
-    applyResult: (host, state, _paneId) => {
-        host.setSharedState(BOLL_STATE_KEY, state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'boll', defaultConfig:{period:20,multiplier:2,showUpper:true,showMiddle:true,showLower:true,showBand:true}, computeKey:'calcBOLLData', compute:(data,c)=>calcBOLLData(data,c.period,c.multiplier) },
+    runtime: { defaultConfig:{period:20,multiplier:2,showUpper:true,showMiddle:true,showLower:true,showBand:true}, computeKey:'calcBOLLData', compute:(data,c)=>calcBOLLData(data,c.period,c.multiplier) },
 })
 class BOLLDefinition {
     static rendererFactory = createBOLLRendererPlugin

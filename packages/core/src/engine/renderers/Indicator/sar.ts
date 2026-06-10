@@ -102,19 +102,12 @@ export function createSARRendererPlugin(options: SARRendererOptions = {}): Rende
     name: 'sar',
     displayName: 'SAR',
     category: 'main',
-    stateKey: createSARStateKey,
     defaultPaneId: 'main',
     allowMainPane: true,
     mainPane: { rendererName: 'sar_main', toActiveConfig: (params, active) => ({ ...params, showSAR: active }) },
     scale: { indicatorKey: 'sar', label: 'SAR', decimals: 4 },
     visibleState: { compose: createValuePointVisibleStateComposer('sar', EMPTY_SAR_STATE, ['value']) },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('sar', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createSARStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'sar', defaultConfig:{step:0.02,maxStep:0.2,showSAR:true}, computeKey:'calcSARData', compute:(data,c)=>calcSARData(data,c.step,c.maxStep) },
+    runtime: { defaultConfig:{step:0.02,maxStep:0.2,showSAR:true}, computeKey:'calcSARData', compute:(data,c)=>calcSARData(data,c.step,c.maxStep) },
 })
 class SARDefinition {
     static rendererFactory = createSARRendererPlugin

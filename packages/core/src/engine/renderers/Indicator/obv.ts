@@ -132,18 +132,10 @@ export function getOBVTitleInfo(
     name: 'obv',
     displayName: 'OBV',
     category: 'volume',
-    stateKey: createOBVStateKey,
     defaultPaneId: 'sub_OBV',
     visibleState: { compose: createSparseVisibleStateComposer('obv', EMPTY_OBV_STATE) },
     scale: { indicatorKey: 'obv', label: 'OBV', decimals: 0 },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('obv', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createOBVStateKey(paneId), state as any, 'indicator_scheduler')
-    },
     runtime: {
-        configKey: 'obv',
         defaultConfig: { showOBV: true },
         computeKey: 'calcOBVData',
         compute: (data, c) => calcOBVData(data),

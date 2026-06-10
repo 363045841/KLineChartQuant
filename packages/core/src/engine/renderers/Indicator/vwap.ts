@@ -132,18 +132,10 @@ export function getVWAPTitleInfo(
     name: 'vwap',
     displayName: 'VWAP',
     category: 'volume',
-    stateKey: createVWAPStateKey,
     defaultPaneId: 'sub_VWAP',
     visibleState: { compose: createSparseVisibleStateComposer('vwap', EMPTY_VWAP_STATE) },
     scale: { indicatorKey: 'vwap', label: 'VWAP', decimals: 2 },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('vwap', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createVWAPStateKey(paneId), state as any, 'indicator_scheduler')
-    },
     runtime: {
-        configKey: 'vwap',
         defaultConfig: { sessionResetGapMs: 0, showVWAP: true },
         computeKey: 'calcVWAPData',
         compute: (data, c) => calcVWAPData(data, c.sessionResetGapMs),

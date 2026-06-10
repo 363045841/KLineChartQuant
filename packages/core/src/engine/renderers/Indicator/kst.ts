@@ -295,17 +295,10 @@ export function getKSTTitleInfo(
     name: 'kst',
     displayName: 'KST',
     category: 'oscillator',
-    stateKey: createKSTStateKey,
     defaultPaneId: 'sub_KST',
     scaleRendererFactory: createKstScaleRendererPlugin,
-    updateConfig: (scheduler, params, paneId) => {
-    (scheduler as IndicatorScheduler).updateIndicatorConfig('kst', params, paneId)
-  },
     visibleState: { compose: createPaddedPointVisibleStateComposer('kst', EMPTY_KST_STATE, ['kst', 'signal'] as const) },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createKSTStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'kst', defaultConfig:{roc1:10,roc2:15,roc3:20,roc4:30,signalPeriod:9,showKST:true,showSignal:true}, computeKey:'calcKSTData', compute:(data,c)=>calcKSTData(data,c.roc1,c.roc2,c.roc3,c.roc4,c.signalPeriod) },
+    runtime: { defaultConfig:{roc1:10,roc2:15,roc3:20,roc4:30,signalPeriod:9,showKST:true,showSignal:true}, computeKey:'calcKSTData', compute:(data,c)=>calcKSTData(data,c.roc1,c.roc2,c.roc3,c.roc4,c.signalPeriod) },
 })
 class KSTIndicatorDefinition {
     static rendererFactory = createKSTRendererPlugin

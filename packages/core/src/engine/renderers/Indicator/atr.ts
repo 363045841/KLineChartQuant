@@ -233,18 +233,10 @@ export function getATRTitleInfo(
     name: 'atr',
     displayName: 'ATR',
     category: 'oscillator',
-    stateKey: createATRStateKey,
     defaultPaneId: 'sub_ATR',
     scaleRendererFactory: createAtrScaleRendererPlugin,
-    updateConfig: (scheduler, params, paneId) => {
-    (scheduler as IndicatorScheduler).updateIndicatorConfig('atr', params, paneId)
-  },
     visibleState: { compose: createNonNegativeSparseVisibleStateComposer('atr', EMPTY_ATR_STATE) },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createATRStateKey(paneId), state as any, 'indicator_scheduler')
-    },
     runtime: {
-        configKey: 'atr',
         defaultConfig: { period: 14, showATR: true },
         computeKey: 'calcATRData',
         compute: (data, c) => calcATRData(data, c.period),

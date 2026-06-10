@@ -152,18 +152,10 @@ export function getMFITitleInfo(
     name: 'mfi',
     displayName: 'MFI',
     category: 'volume',
-    stateKey: createMFIStateKey,
     defaultPaneId: 'sub_MFI',
     visibleState: { compose: createFixedRangeSparseVisibleStateComposer('mfi', EMPTY_MFI_STATE) },
     scale: { indicatorKey: 'mfi', label: 'MFI', decimals: 2 },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('mfi', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createMFIStateKey(paneId), state as any, 'indicator_scheduler')
-    },
     runtime: {
-        configKey: 'mfi',
         defaultConfig: { period: 14, showMFI: true },
         computeKey: 'calcMFIData',
         compute: (data, c) => calcMFIData(data, c.period),
