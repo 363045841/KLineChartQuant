@@ -8,13 +8,15 @@ import type {
     IndicatorRuntimeDescriptor,
 } from './indicatorMetadata'
 import type { PluginHost } from '../../plugin'
+import { createIndicatorStateKey } from '../../plugin/stateKeys'
+import { resolveStateKey } from './indicatorMetadata'
 
 export type IndicatorDefinitionConfig<T = unknown> = {
     name: string
     aliases?: readonly string[]
     displayName: string
     category: IndicatorCategory
-    stateKey: StateKey
+    stateKey?: StateKey
     defaultPaneId: string
     paneIdField?: string
     allowMainPane?: boolean
@@ -75,12 +77,41 @@ export function Indicator(config: IndicatorDefinitionConfig) {
             const normalizedName = normalizeIndicatorId(config.name)
             removeAliasesFor(normalizedName)
 
+            // 自动生成 stateKey
+            const stateKey: StateKey = config.stateKey ?? (
+                config.category === 'main'
+                    ? createIndicatorStateKey(config.name, 'main')
+                    : (paneId: string) => createIndicatorStateKey(config.name, paneId)
+            )
+
+            // runtime.configKey 默认等于 name
+            const runtime = config.runtime && {
+                ...config.runtime,
+                configKey: config.runtime.configKey ?? config.name,
+            }
+
+            // 有 runtime 时自动生成 updateConfig / applyResult
+            const updateConfig = runtime
+                ? (config.updateConfig ?? ((scheduler: any, params: any, paneId?: string) => {
+                    scheduler.updateIndicatorConfig(normalizedName, params, paneId)
+                }))
+                : config.updateConfig
+
+            const applyResult = runtime
+                ? (config.applyResult ?? ((host: any, state: any, paneId: string) => {
+                    host.setSharedState(resolveStateKey(stateKey, paneId), state as any, 'indicator_scheduler')
+                }))
+                : config.applyResult
+
             indicatorDefinitions.set(normalizedName, {
                 ...config,
+                stateKey,
+                runtime,
+                updateConfig,
+                applyResult,
                 rendererFactory,
                 paneIdField: config.paneIdField,
                 allowMainPane: config.allowMainPane,
-                applyResult: config.applyResult,
             })
             indexAlias(config.name, normalizedName)
             indexAlias(config.displayName, normalizedName)

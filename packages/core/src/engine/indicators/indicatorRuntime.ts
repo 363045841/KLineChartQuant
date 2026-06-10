@@ -124,13 +124,14 @@ export class IndicatorRuntime {
     }
 
     addDescriptor(d: IndicatorRuntimeDescriptor): void {
-        if (this.descriptorMap.has(d.configKey as string)) return
-        this.descriptorMap.set(d.configKey as string, d)
+        const configKey = d.configKey ?? 'unknown'
+        if (this.descriptorMap.has(configKey)) return
+        this.descriptorMap.set(configKey, d)
         const def = typeof d.defaultConfig === 'function'
             ? (d.defaultConfig as () => any)()
             : d.defaultConfig
-        this.configMap.set(d.configKey as string, { ...def })
-        this.dirtyFlags.set(d.configKey as string, true)
+        this.configMap.set(configKey, { ...def })
+        this.dirtyFlags.set(configKey, true)
     }
 
     setData(data: KLineData[], version: number): void {

@@ -95,8 +95,8 @@ export type IndicatorVisibleStateComposer = (
  * - 自定义运行时指标：无 computeKey，仅主线程 inline 运行
  */
 export interface IndicatorRuntimeDescriptor<C = any> {
-    /** configSnapshot 中的 key，通常等于 name（如 'macd'） */
-    configKey: string
+    /** configSnapshot 中的 key，默认等于 name（如 'macd'） */
+    configKey?: string
     /** paneId 在 configSnapshot 中的 key（如 'macdPaneId'），可省略 */
     paneIdKey?: string
     /** 默认配置值 */

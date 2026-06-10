@@ -845,12 +845,16 @@ onUnmounted(() => {
 
 /* 搜索框 */
 .search-box {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
   border: 1px solid var(--klc-color-border-button);
   border-radius: 8px;
+  background: var(--klc-color-tag-bg-white);
   transition: all 0.2s ease;
 }
 

@@ -15,6 +15,7 @@ dist-ssr
 coverage
 *.local
 .claude
+.codegraph/
 
 # Editor directories and files
 .vscode/*

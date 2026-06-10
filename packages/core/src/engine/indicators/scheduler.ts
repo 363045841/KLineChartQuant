@@ -172,7 +172,7 @@ export class IndicatorScheduler {
             this.worker.postMessage({
                 type: 'addDescriptor',
                 descriptor: {
-                    configKey: rt.configKey,
+                    configKey: rt.configKey ?? meta.name,
                     paneIdKey: rt.paneIdKey,
                     defaultConfig: typeof rt.defaultConfig === 'function' ? (rt.defaultConfig as () => any)() : rt.defaultConfig,
                     computeKey: rt.computeKey,
@@ -468,7 +468,7 @@ export class IndicatorScheduler {
                     this.worker!.postMessage({
                         type: 'addDescriptor',
                         descriptor: {
-                            configKey: rt.configKey,
+                            configKey: rt.configKey ?? meta.name,
                             paneIdKey: rt.paneIdKey,
                             defaultConfig: typeof rt.defaultConfig === 'function' ? (rt.defaultConfig as () => any)() : rt.defaultConfig,
                             computeKey: rt.computeKey,
@@ -703,13 +703,14 @@ export class IndicatorScheduler {
             return
         }
         const rt = meta.runtime
+        const configKey = rt.configKey ?? indicatorId
         // Update paneId if provided
         if (paneId !== undefined) {
             this.paneIdOverrides.set(indicatorId, paneId)
         }
         // Merge config
-        ;(this.configSnapshot as any)[rt.configKey] = {
-            ...((this.configSnapshot as any)[rt.configKey] ?? {}),
+        ;(this.configSnapshot as any)[configKey] = {
+            ...((this.configSnapshot as any)[configKey] ?? {}),
             ...config,
         }
         this.configVersion++
