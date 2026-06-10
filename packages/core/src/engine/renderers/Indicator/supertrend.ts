@@ -1,5 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
+import type { KLineData } from '../../../data/StockData'
 import type { SuperTrendRenderState } from '../../indicators/supertrendState'
 import { createSuperTrendStateKey, EMPTY_SUPERTREND_STATE } from '../../indicators/supertrendState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
@@ -100,11 +101,24 @@ export function createSuperTrendRendererPlugin(options: SuperTrendRendererOption
     }
 }
 
-export const getSuperTrendTitleInfo: GetTitleInfoFn = (_data, _index, params, _host, _paneId) => {
+export function getSuperTrendTitleInfo(
+    _data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
+    host: PluginHost,
+    paneId: string,
+): TitleInfo | null {
+    if (index === null) return null
+    const state = host.getSharedState<SuperTrendRenderState>(createSuperTrendStateKey(paneId))
+    const p = state?.series[index]
+    if (!p) return null
+
     return {
         name: 'SuperTrend',
         params: [(params.atrPeriod as number) ?? 10, (params.multiplier as number) ?? 3],
-        values: [],
+        values: [
+            { label: p.trend === 'up' ? 'Up' : 'Down', value: p.value, color: p.trend === 'up' ? '#22c55e' : '#ef4444' },
+        ],
     }
 }
 

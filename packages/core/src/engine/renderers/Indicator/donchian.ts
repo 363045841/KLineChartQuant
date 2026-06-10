@@ -1,5 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
+import type { KLineData } from '../../../data/StockData'
 import type { DonchianRenderState } from '../../indicators/donchianState'
 import { createDonchianStateKey, EMPTY_DONCHIAN_STATE } from '../../indicators/donchianState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
@@ -123,11 +124,26 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     ctx.stroke()
 }
 
-export const getDonchianTitleInfo: GetTitleInfoFn = (_data, _index, params, _host, _paneId) => {
+export function getDonchianTitleInfo(
+    _data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
+    host: PluginHost,
+    paneId: string,
+): TitleInfo | null {
+    if (index === null) return null
+    const state = host.getSharedState<DonchianRenderState>(createDonchianStateKey(paneId))
+    const p = state?.series[index]
+    if (!p) return null
+
     return {
         name: 'Donchian',
         params: [(params.period as number) ?? 20],
-        values: [],
+        values: [
+            { label: 'Upper', value: p.upper, color: '#0891b2' },
+            { label: 'Mid', value: p.middle, color: '#94a3b8' },
+            { label: 'Lower', value: p.lower, color: '#0891b2' },
+        ],
     }
 }
 

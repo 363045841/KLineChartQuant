@@ -6,7 +6,7 @@ import { resolveThemeColors } from '../../../tokens'
 import { EXPMA_STATE_KEY, type EXPMARenderState } from '../../indicators/expmaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorPriceRangeComputer, IndicatorRenderStateComposer } from '../../indicators/indicatorMetadata'
+import type { IndicatorPriceRangeComputer, IndicatorRenderStateComposer, GetTitleInfoFn, TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata'
 import type { EXPMASchedulerConfig, IndicatorScheduler } from '../../indicators/scheduler'
 import { calcEXPMAData } from '../../indicators/calculators'
 
@@ -34,7 +34,7 @@ function buildEXPMACacheKey(
     ].join('|')
 }
 
-function getEXPMAStateKey(host: PluginHost | null): string | null {
+export function getEXPMAStateKey(host: PluginHost | null): string | null {
     const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
     if (!scheduler) {
         console.warn('[EXPMARenderer] Scheduler not available via service locator')
@@ -215,6 +215,32 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
     }
 }
 
+export const getEXPMATitleInfo: GetTitleInfoFn = (
+    _data: KLineData[],
+    index: number | null,
+    _params: Record<string, number | boolean | string>,
+    pluginHost: PluginHost,
+    _paneId: string,
+): TitleInfo | null => {
+    if (index === null) return null
+
+    const stateKey = getEXPMAStateKey(pluginHost)
+    if (!stateKey) return null
+
+    const state = pluginHost?.getSharedState<EXPMARenderState>(stateKey)
+    if (!state || state.visibleMin > state.visibleMax) return null
+
+    const expmaPoint = state.series[index]
+    if (!expmaPoint) return null
+
+    const values: TitleValueItem[] = [
+        { label: '快', value: expmaPoint.fast, color: '#FFAA32' },
+        { label: '慢', value: expmaPoint.slow, color: '#5A8CFF' },
+    ]
+
+    return { name: 'EXPMA', params: [state.params.fastPeriod, state.params.slowPeriod], values }
+}
+
 @Indicator({
     name: 'expma',
     displayName: 'EXPMA',
@@ -236,6 +262,7 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
         },
     },
     runtime: { defaultConfig:{fastPeriod:12,slowPeriod:50}, computeKey:'calcEXPMAData', compute:(data,c)=>calcEXPMAData(data,c.fastPeriod,c.slowPeriod) },
+    getTitleInfo: getEXPMATitleInfo,
 })
 class EXPMADefinition {
     static rendererFactory = createEXPMARendererPlugin

@@ -1,9 +1,10 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
+import type { KLineData } from '../../../types/price'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { KAMARenderState } from '../../indicators/kamaState'
 import { createKAMAStateKey, EMPTY_KAMA_STATE } from '../../indicators/kamaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey, type TitleInfo, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type TitleValueItem, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, KAMASchedulerConfig } from '../../indicators/scheduler'
 import { calcKAMAData } from '../../indicators/calculators'
@@ -121,11 +122,26 @@ export function createKAMARendererPlugin(options: KAMARendererOptions = {}): Ren
     }
 }
 
-export const getKAMATitleInfo: GetTitleInfoFn = (_data, _index, params, _host, _paneId) => {
+export const getKAMATitleInfo: GetTitleInfoFn = (
+    _data: KLineData[],
+    index: number | null,
+    _params: Record<string, number | boolean | string>,
+    pluginHost: PluginHost,
+    paneId: string,
+): TitleInfo | null => {
+    if (index === null) return null
+
+    const stateKey = createKAMAStateKey(paneId)
+    const state = pluginHost?.getSharedState<KAMARenderState>(stateKey)
+    if (!state || state.visibleMin > state.visibleMax) return null
+
+    const value = state.series[index]
+    if (value === undefined) return null
+
     return {
         name: 'KAMA',
-        params: [(params.period as number) ?? 10, (params.fastPeriod as number) ?? 2, (params.slowPeriod as number) ?? 30],
-        values: [],
+        params: [state.params.period, state.params.fastPeriod, state.params.slowPeriod],
+        values: [{ label: 'KAMA', value, color: '#0ea5e9' }],
     }
 }
 

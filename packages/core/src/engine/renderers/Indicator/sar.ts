@@ -1,5 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
+import type { KLineData } from '../../../data/StockData'
 import type { SARRenderState } from '../../indicators/sarState'
 import { createSARStateKey, EMPTY_SAR_STATE } from '../../indicators/sarState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
@@ -98,11 +99,24 @@ export function createSARRendererPlugin(options: SARRendererOptions = {}): Rende
     }
 }
 
-export const getSARTitleInfo: GetTitleInfoFn = (_data, _index, params, _host, _paneId) => {
+export function getSARTitleInfo(
+    _data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
+    host: PluginHost,
+    paneId: string,
+): TitleInfo | null {
+    if (index === null) return null
+    const state = host.getSharedState<SARRenderState>(createSARStateKey(paneId))
+    const p = state?.series[index]
+    if (!p) return null
+
     return {
         name: 'SAR',
         params: [(params.step as number) ?? 0.02, (params.maxStep as number) ?? 0.2],
-        values: [],
+        values: [
+            { label: 'SAR', value: p.value, color: p.trend === 'up' ? '#22c55e' : '#ef4444' },
+        ],
     }
 }
 

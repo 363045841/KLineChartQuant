@@ -6,7 +6,7 @@ import { resolveThemeColors } from '../../../tokens'
 import { ENE_STATE_KEY, type ENERenderState } from '../../indicators/eneState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorPriceRangeComputer, IndicatorRenderStateComposer } from '../../indicators/indicatorMetadata'
+import type { IndicatorPriceRangeComputer, IndicatorRenderStateComposer, GetTitleInfoFn, TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata'
 import type { ENESchedulerConfig, IndicatorScheduler } from '../../indicators/scheduler'
 import { calcENEData } from '../../indicators/calculators'
 
@@ -94,7 +94,7 @@ function drawENEWithWebGL(
  * 3. 配置变更通过外部 IndicatorScheduler 处理
  * 4. 纯绘制函数，无副作用
  */
-function getENEStateKey(host: PluginHost | null): string | null {
+export function getENEStateKey(host: PluginHost | null): string | null {
     const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
     if (!scheduler) {
         console.warn('[ENERenderer] Scheduler not available via service locator')
@@ -289,6 +289,33 @@ export function createENERendererPlugin(): RendererPluginWithHost {
     }
 }
 
+export const getENETitleInfo: GetTitleInfoFn = (
+    _data: KLineData[],
+    index: number | null,
+    _params: Record<string, number | boolean | string>,
+    pluginHost: PluginHost,
+    _paneId: string,
+): TitleInfo | null => {
+    if (index === null) return null
+
+    const stateKey = getENEStateKey(pluginHost)
+    if (!stateKey) return null
+
+    const state = pluginHost?.getSharedState<ENERenderState>(stateKey)
+    if (!state || state.visibleMin > state.visibleMax) return null
+
+    const enePoint = state.series[index]
+    if (!enePoint) return null
+
+    const values: TitleValueItem[] = [
+        { label: '上轨', value: enePoint.upper, color: '#FF5064' },
+        { label: '中轨', value: enePoint.middle, color: '#5A8CFF' },
+        { label: '下轨', value: enePoint.lower, color: '#3CC8A0' },
+    ]
+
+    return { name: 'ENE', params: [state.params.period, state.params.deviation], values }
+}
+
 @Indicator({
     name: 'ene',
     displayName: 'ENE',
@@ -310,6 +337,7 @@ export function createENERendererPlugin(): RendererPluginWithHost {
         },
     },
     runtime: { defaultConfig:{period:10,deviation:11}, computeKey:'calcENEData', compute:(data,c)=>calcENEData(data,c.period,c.deviation) },
+    getTitleInfo: getENETitleInfo,
 })
 class ENEDefinition {
     static rendererFactory = createENERendererPlugin

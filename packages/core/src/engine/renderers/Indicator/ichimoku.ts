@@ -1,9 +1,10 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
+import type { KLineData } from '../../../data/StockData'
 import type { IchimokuRenderState } from '../../indicators/ichimokuState'
 import { createIchimokuStateKey, EMPTY_ICHIMOKU_STATE } from '../../indicators/ichimokuState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey, type TitleInfo, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type TitleValueItem, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, IchimokuSchedulerConfig } from '../../indicators/scheduler'
 import { calcIchimokuData } from '../../indicators/calculators'
 import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -167,11 +168,29 @@ function fillCloud(
     }
 }
 
-export const getIchimokuTitleInfo: GetTitleInfoFn = (_data, _index, params, _host, _paneId) => {
+export function getIchimokuTitleInfo(
+    _data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
+    host: PluginHost,
+    paneId: string,
+): TitleInfo | null {
+    if (index === null) return null
+    const state = host.getSharedState<IchimokuRenderState>(createIchimokuStateKey(paneId))
+    const p = state?.series[index]
+    if (!p) return null
+
+    const values: TitleValueItem[] = []
+    if (p.tenkan !== undefined) values.push({ label: 'Tenkan', value: p.tenkan, color: '#dc2626' })
+    if (p.kijun !== undefined) values.push({ label: 'Kijun', value: p.kijun, color: '#2563eb' })
+    if (p.spanA !== undefined) values.push({ label: 'SpanA', value: p.spanA, color: '#16a34a' })
+    if (p.spanB !== undefined) values.push({ label: 'SpanB', value: p.spanB, color: '#dc2626' })
+    if (p.chikou !== undefined) values.push({ label: 'Chikou', value: p.chikou, color: '#7c3aed' })
+
     return {
         name: 'Ichimoku',
         params: [(params.tenkanPeriod as number) ?? 9, (params.kijunPeriod as number) ?? 26, (params.spanBPeriod as number) ?? 52, (params.displacement as number) ?? 26],
-        values: [],
+        values,
     }
 }
 

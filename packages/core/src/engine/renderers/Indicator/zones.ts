@@ -5,7 +5,7 @@ import type { ZonesRenderState } from '../../indicators/zonesState'
 import { createZonesStateKey, EMPTY_ZONES_STATE } from '../../indicators/zonesState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { createFixedUnitVisibleStateComposer } from '../../indicators/visibleStateComposers'
-import { resolveStateKey, type TitleInfo, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type TitleValueItem, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, ZonesSchedulerConfig } from '../../indicators/scheduler'
 import { calcZonesData } from '../../indicators/calculators'
 
@@ -90,11 +90,28 @@ export function createZonesRendererPlugin(options: { paneId?: string } = {}): Re
     }
 }
 
-export const getZonesTitleInfo: GetTitleInfoFn = (_data, _index, params, _host, _paneId) => {
+export const getZonesTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId) => {
+    if (index === null) return null
+
+    const stateKey = createZonesStateKey(paneId)
+    const state = host?.getSharedState<ZonesRenderState>(stateKey)
+    if (!state) return null
+
+    const activeZones = state.series.filter(
+        z => z.startIndex <= index && (z.endIndex === undefined || z.endIndex >= index)
+    )
+    if (activeZones.length === 0) return null
+
+    const values: TitleValueItem[] = activeZones.slice(0, 5).map(z => ({
+        label: z.kind,
+        value: z.high,
+        color: z.kind.includes('Bull') ? '#22c55e' : '#ef4444',
+    }))
+
     return {
         name: 'Zones',
-        params: [(params.obLookback as number) ?? 20],
-        values: [],
+        params: [activeZones.length],
+        values,
     }
 }
 

@@ -1,5 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
+import type { KLineData } from '../../../data/StockData'
 import type { KeltnerRenderState } from '../../indicators/keltnerState'
 import { createKeltnerStateKey, EMPTY_KELTNER_STATE } from '../../indicators/keltnerState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
@@ -123,11 +124,26 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     ctx.stroke()
 }
 
-export const getKeltnerTitleInfo: GetTitleInfoFn = (_data, _index, params, _host, _paneId) => {
+export function getKeltnerTitleInfo(
+    _data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
+    host: PluginHost,
+    paneId: string,
+): TitleInfo | null {
+    if (index === null) return null
+    const state = host.getSharedState<KeltnerRenderState>(createKeltnerStateKey(paneId))
+    const p = state?.series[index]
+    if (!p) return null
+
     return {
         name: 'Keltner',
         params: [(params.emaPeriod as number) ?? 20, (params.atrPeriod as number) ?? 10, (params.multiplier as number) ?? 2],
-        values: [],
+        values: [
+            { label: 'Upper', value: p.upper, color: '#7c3aed' },
+            { label: 'Mid', value: p.middle, color: '#f59e0b' },
+            { label: 'Lower', value: p.lower, color: '#7c3aed' },
+        ],
     }
 }
 

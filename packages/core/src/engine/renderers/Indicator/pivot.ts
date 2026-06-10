@@ -3,7 +3,7 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import type { PivotRenderState } from '../../indicators/pivotState'
 import { createPivotStateKey, EMPTY_PIVOT_STATE } from '../../indicators/pivotState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey, type TitleInfo, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type TitleValueItem, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, PivotSchedulerConfig } from '../../indicators/scheduler'
 import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { calcPivotData } from '../../indicators/calculators'
@@ -116,11 +116,46 @@ function drawStep(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     ctx.stroke()
 }
 
-export const getPivotTitleInfo: GetTitleInfoFn = (_data, _index, params, _host, _paneId) => {
+export const getPivotTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId) => {
+    if (index === null || index < 0) return null
+
+    const stateKey = createPivotStateKey(paneId)
+    const state = host?.getSharedState<PivotRenderState>(stateKey)
+    if (!state) return null
+
+    const p = state.series[index]
+    if (!p) return null
+
+    const values: TitleValueItem[] = []
+
+    if (state.params.showPP) {
+        values.push({ label: 'PP', value: p.pp, color: PP_COLOR })
+    }
+    if (state.params.showR1) {
+        values.push({ label: 'R1', value: p.r1, color: R_COLOR })
+    }
+    if (state.params.showR2) {
+        values.push({ label: 'R2', value: p.r2, color: R_COLOR })
+    }
+    if (state.params.showR3) {
+        values.push({ label: 'R3', value: p.r3, color: R_COLOR })
+    }
+    if (state.params.showS1) {
+        values.push({ label: 'S1', value: p.s1, color: S_COLOR })
+    }
+    if (state.params.showS2) {
+        values.push({ label: 'S2', value: p.s2, color: S_COLOR })
+    }
+    if (state.params.showS3) {
+        values.push({ label: 'S3', value: p.s3, color: S_COLOR })
+    }
+
+    if (values.length === 0) return null
+
     return {
         name: 'Pivot',
         params: [],
-        values: [],
+        values,
     }
 }
 
