@@ -307,7 +307,7 @@ onUnmounted(() => {
   gap: 6px;
   padding: 8px 5px;
   border: 1px solid var(--klc-color-border-chart);
-  border-radius: 6px;
+  border-radius: 3px;
   background: var(--klc-color-background);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   box-sizing: border-box;
@@ -333,7 +333,7 @@ onUnmounted(() => {
   height: 28px;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: 3px;
   background: transparent;
   color: var(--klc-color-axis-text);
   cursor: pointer;
@@ -420,7 +420,7 @@ onUnmounted(() => {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--klc-color-border-chart);
-  border-radius: 6px;
+  border-radius: 3px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   box-sizing: border-box;
   z-index: 100;
@@ -451,7 +451,7 @@ onUnmounted(() => {
     flex-basis: 36px;
     padding: 6px 4px;
     gap: 5px;
-    border-radius: 5px;
+    border-radius: 3px;
   }
 
   .left-toolbar__group {

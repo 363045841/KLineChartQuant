@@ -1,5 +1,6 @@
 <template>
   <div ref="chartWrapperRef" class="chart-wrapper" :data-theme="chartTheme" :style="themeCssVars">
+    <TopToolbar />
     <div
       class="chart-stage"
       :class="{
@@ -143,6 +144,7 @@ import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/
 import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
 import { resolveThemeColors, themeToCssVars, lightTheme, darkTheme, type ColorPresetSettings } from '@363045841yyt/klinechart-core'
 import LeftToolbar from './LeftToolbar.vue'
+import TopToolbar from './TopToolbar.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -1175,20 +1177,22 @@ watch(
 
   display: flex;
   align-items: center;
-  justify-content: center;
   width: var(--kmap-width);
   height: var(--kmap-height);
   min-height: 300px;
   flex-direction: column;
+  padding: 16px 0 0;
+  box-sizing: border-box;
+  gap: 4px;
 }
 
 .chart-stage {
   width: 95%;
-  height: 85%;
+  flex: 1;
   min-height: 255px;
   display: flex;
   align-items: stretch;
-  gap: 8px;
+  gap: 4px;
 }
 
 .chart-main {
@@ -1257,7 +1261,7 @@ watch(
   -ms-overflow-style: none;
   border: 1px solid var(--chart-border);
   border-right: 0;
-  border-radius: 6px 0 0 6px;
+  border-radius: 3px 0 0 3px;
   box-sizing: border-box;
   background: var(--chart-bg);
 
@@ -1280,8 +1284,8 @@ watch(
   background: var(--chart-bg);
   overflow: visible;
   border: 1px solid var(--chart-border);
-  border-top-right-radius: 6px;
-  border-bottom-right-radius: 6px;
+  border-top-right-radius: 3px;
+  border-bottom-right-radius: 3px;
 
   -webkit-touch-callout: none;
   -webkit-user-select: none;
@@ -1325,8 +1329,12 @@ watch(
 }
 
 @media (max-width: 768px), (max-height: 640px) {
+  .chart-wrapper {
+    gap: 4px;
+  }
+
   .chart-stage {
-    gap: 6px;
+    gap: 4px;
   }
 }
 </style>

@@ -527,9 +527,12 @@ onUnmounted(() => {
 
 <style scoped>
 .indicator-selector {
-  margin: 20px;
+  margin: 0 20px 16px;
   width: 80%;
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .indicator-scroll-container {
@@ -538,7 +541,8 @@ onUnmounted(() => {
   overflow-y: hidden;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
-  text-align: center;
+  display: flex;
+  align-items: center;
 }
 
 .indicator-scroll-container::-webkit-scrollbar {

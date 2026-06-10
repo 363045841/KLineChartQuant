@@ -350,7 +350,7 @@ if (typeof document !== 'undefined') {
 .embed-container {
   flex: 1;
   min-height: 0;
-  margin: 16px;
+  margin: 0 16px;
   border-radius: 8px;
   overflow: hidden;
 }
