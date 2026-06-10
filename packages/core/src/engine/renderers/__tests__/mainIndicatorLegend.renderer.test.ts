@@ -14,7 +14,7 @@ import type { IndicatorScheduler } from '@/engine/indicators/indicatorScheduler'
 // Type helper for tests - we know these methods exist on the implementation
 interface TestableLegendRenderer extends RendererPluginWithHost {
   draw: (context: RenderContext) => void
-  getConfig: () => { yPaddingPx: number; indicators: Record<string, { enabled: boolean; params: Record<string, unknown> }> }
+  getConfig: () => { yPaddingPx: number }
   setConfig: (config: Record<string, unknown>) => void
 }
 
@@ -40,17 +40,19 @@ function createMockCanvasContext(): CanvasRenderingContext2D {
  * Keys are case-insensitive (matching real IndicatorScheduler behavior).
  */
 function createMockScheduler(
-  metadataMap: Record<string, { getTitleInfo: GetTitleInfoFn; category?: string }>
+  metadataMap: Record<string, { getTitleInfo: GetTitleInfoFn }>,
+  activeMainIndicators?: string[]
 ): IndicatorScheduler {
-  const items = Object.entries(metadataMap).map(([id, meta]) => ({
-    name: id,
-    displayName: id.toUpperCase(),
-    category: meta.category ?? 'main',
-    getTitleInfo: meta.getTitleInfo,
-  }))
+  const activeSet = new Set((activeMainIndicators ?? ['ma']).map((i: string) => i.toLowerCase()))
   return {
-    getIndicatorMetadata: vi.fn((id: string) => items.find(i => i.name === id.toLowerCase()) ?? null),
-    getAllIndicators: vi.fn(() => items),
+    getIndicatorMetadata: vi.fn((id: string) => metadataMap[id.toLowerCase()] ?? null),
+    getMainIndicators: vi.fn(() => Object.entries(metadataMap).map(([id, meta]) => ({
+      name: id,
+      getTitleInfo: meta.getTitleInfo,
+      category: 'main',
+    }))),
+    isMainIndicatorActive: vi.fn((id: string) => activeSet.has(id.toLowerCase())),
+    getMainIndicatorParams: vi.fn(() => ({})),
   } as unknown as IndicatorScheduler
 }
 
@@ -230,16 +232,12 @@ describe('MainIndicatorLegend draw', () => {
     ctx = createMockCanvasContext()
   })
 
-  it('should not draw MA when MA is disabled', () => {
+  it('should not draw MA when MA is not active', () => {
     const state = createTestMARenderState()
-    const mockHost = createMockPluginHost(state)
+    const scheduler = createMockScheduler({ ma: { getTitleInfo: createMAGetTitleInfo() } }, [])
+    const mockHost = createMockPluginHost(state, scheduler)
     plugin = createMainIndicatorLegendRendererPlugin({ yPaddingPx: 20 }) as TestableLegendRenderer
     plugin.onInstall(mockHost)
-
-    // Disable MA
-    plugin.setConfig({
-      indicators: { MA: { enabled: false, params: {} } },
-    })
 
     const context = createMockRenderContext(ctx)
     plugin.draw(context)
@@ -252,7 +250,7 @@ describe('MainIndicatorLegend draw', () => {
 
   it('should draw MA values from StateStore', () => {
     const state = createTestMARenderState()
-    const scheduler = createMockScheduler({ ma: { getTitleInfo: createMAGetTitleInfo() } })
+    const scheduler = createMockScheduler({ ma: { getTitleInfo: createMAGetTitleInfo() } }, ['ma'])
     const mockHost = createMockPluginHost(state, scheduler)
     plugin = createMainIndicatorLegendRendererPlugin({ yPaddingPx: 20 }) as TestableLegendRenderer
     plugin.onInstall(mockHost)
@@ -278,7 +276,7 @@ describe('MainIndicatorLegend draw', () => {
       },
       enabledPeriods: [5],
     })
-    const scheduler = createMockScheduler({ ma: { getTitleInfo: createMAGetTitleInfo() } })
+    const scheduler = createMockScheduler({ ma: { getTitleInfo: createMAGetTitleInfo() } }, ['ma'])
     const mockHost = createMockPluginHost(state, scheduler)
     plugin = createMainIndicatorLegendRendererPlugin({ yPaddingPx: 20 }) as TestableLegendRenderer
     plugin.onInstall(mockHost)
@@ -303,7 +301,7 @@ describe('MainIndicatorLegend draw', () => {
       },
       enabledPeriods: [5],
     })
-    const scheduler = createMockScheduler({ ma: { getTitleInfo: createMAGetTitleInfo() } })
+    const scheduler = createMockScheduler({ ma: { getTitleInfo: createMAGetTitleInfo() } }, ['ma'])
     const mockHost = createMockPluginHost(state, scheduler)
     plugin = createMainIndicatorLegendRendererPlugin({ yPaddingPx: 20 }) as TestableLegendRenderer
     plugin.onInstall(mockHost)
@@ -348,7 +346,7 @@ describe('MainIndicatorLegend draw', () => {
       visibleMax: -Infinity,
       enabledPeriods: [],
     })
-    const scheduler = createMockScheduler({ ma: { getTitleInfo: createMAGetTitleInfo() } })
+    const scheduler = createMockScheduler({ ma: { getTitleInfo: createMAGetTitleInfo() } }, ['ma'])
     const mockHost = createMockPluginHost(state, scheduler)
     plugin = createMainIndicatorLegendRendererPlugin({ yPaddingPx: 20 }) as TestableLegendRenderer
     plugin.onInstall(mockHost)
@@ -369,7 +367,7 @@ describe('MainIndicatorLegend draw', () => {
       },
       enabledPeriods: [5],
     })
-    const scheduler = createMockScheduler({ ma: { getTitleInfo: createMAGetTitleInfo() } })
+    const scheduler = createMockScheduler({ ma: { getTitleInfo: createMAGetTitleInfo() } }, ['ma'])
     const mockHost = createMockPluginHost(state, scheduler)
     plugin = createMainIndicatorLegendRendererPlugin({ yPaddingPx: 20 }) as TestableLegendRenderer
     plugin.onInstall(mockHost)
@@ -388,7 +386,7 @@ describe('MainIndicatorLegend draw', () => {
 
   it('should use correct colors for each MA period', () => {
     const state = createTestMARenderState()
-    const scheduler = createMockScheduler({ ma: { getTitleInfo: createMAGetTitleInfo() } })
+    const scheduler = createMockScheduler({ ma: { getTitleInfo: createMAGetTitleInfo() } }, ['ma'])
     const mockHost = createMockPluginHost(state, scheduler)
     plugin = createMainIndicatorLegendRendererPlugin({ yPaddingPx: 20 }) as TestableLegendRenderer
     plugin.onInstall(mockHost)
@@ -404,7 +402,7 @@ describe('MainIndicatorLegend draw', () => {
 
   it('should save and restore context', () => {
     const state = createTestMARenderState()
-    const scheduler = createMockScheduler({ ma: { getTitleInfo: createMAGetTitleInfo() } })
+    const scheduler = createMockScheduler({ ma: { getTitleInfo: createMAGetTitleInfo() } }, ['ma'])
     const mockHost = createMockPluginHost(state, scheduler)
     plugin = createMainIndicatorLegendRendererPlugin({ yPaddingPx: 20 }) as TestableLegendRenderer
     plugin.onInstall(mockHost)
@@ -426,7 +424,7 @@ describe('MainIndicatorLegend MA data source', () => {
       enabledPeriods: [5],
     })
     const mockGetSharedState = vi.fn().mockReturnValue(state)
-    const scheduler = createMockScheduler({ ma: { getTitleInfo: createMAGetTitleInfo() } })
+    const scheduler = createMockScheduler({ ma: { getTitleInfo: createMAGetTitleInfo() } }, ['ma'])
     const mockHost = {
       setSharedState: vi.fn(),
       getSharedState: mockGetSharedState,
@@ -461,14 +459,12 @@ describe('MainIndicatorLegend MA data source', () => {
 })
 
 describe('MainIndicatorLegend config management', () => {
-  it('getConfig should return current config', () => {
+  it('getConfig should return current yPaddingPx', () => {
     const plugin = createMainIndicatorLegendRendererPlugin({ yPaddingPx: 20 })
 
     const config = plugin.getConfig()
 
     expect(config.yPaddingPx).toBe(20)
-    expect(config.indicators.MA.enabled).toBe(true)
-    expect(config.indicators.BOLL.enabled).toBe(false)
   })
 
   it('setConfig should update yPaddingPx', () => {
@@ -479,37 +475,17 @@ describe('MainIndicatorLegend config management', () => {
     const config = plugin.getConfig()
     expect(config.yPaddingPx).toBe(30)
   })
-
-  it('setConfig should merge indicator config', () => {
-    const plugin = createMainIndicatorLegendRendererPlugin({ yPaddingPx: 20 })
-
-    plugin.setConfig({
-      indicators: {
-        MA: { enabled: false, params: {} },
-        BOLL: { enabled: true, params: { period: 26 } },
-      },
-    })
-
-    const config = plugin.getConfig()
-    expect(config.indicators.MA.enabled).toBe(false)
-    expect(config.indicators.BOLL.enabled).toBe(true)
-    expect(config.indicators.BOLL.params.period).toBe(26)
-  })
 })
 
 describe('MainIndicatorLegend with other indicators', () => {
-  it('should draw BOLL when enabled', () => {
-    const scheduler = createMockScheduler({ boll: { getTitleInfo: createSimpleGetTitleInfo('BOLL') } })
+  it('should draw BOLL when active', () => {
+    const scheduler = createMockScheduler(
+      { boll: { getTitleInfo: createSimpleGetTitleInfo('BOLL') } },
+      ['boll']
+    )
     const mockHost = createMockPluginHost(undefined, scheduler)
     const plugin = createMainIndicatorLegendRendererPlugin({ yPaddingPx: 20 })
     plugin.onInstall(mockHost)
-
-    plugin.setConfig({
-      indicators: {
-        MA: { enabled: false, params: {} },
-        BOLL: { enabled: true, params: { period: 20, multiplier: 2 } },
-      },
-    })
 
     const ctx = createMockCanvasContext()
     const context = createMockRenderContext(ctx)
@@ -524,18 +500,14 @@ describe('MainIndicatorLegend with other indicators', () => {
     expect(bollLabelCalls.length).toBeGreaterThan(0)
   })
 
-  it('should draw EXPMA when enabled', () => {
-    const scheduler = createMockScheduler({ expma: { getTitleInfo: createSimpleGetTitleInfo('EXPMA') } })
+  it('should draw EXPMA when active', () => {
+    const scheduler = createMockScheduler(
+      { expma: { getTitleInfo: createSimpleGetTitleInfo('EXPMA') } },
+      ['expma']
+    )
     const mockHost = createMockPluginHost(undefined, scheduler)
     const plugin = createMainIndicatorLegendRendererPlugin({ yPaddingPx: 20 })
     plugin.onInstall(mockHost)
-
-    plugin.setConfig({
-      indicators: {
-        MA: { enabled: false, params: {} },
-        EXPMA: { enabled: true, params: { fastPeriod: 12, slowPeriod: 50 } },
-      },
-    })
 
     const ctx = createMockCanvasContext()
     const context = createMockRenderContext(ctx)
@@ -550,18 +522,14 @@ describe('MainIndicatorLegend with other indicators', () => {
     expect(expmaLabelCalls.length).toBeGreaterThan(0)
   })
 
-  it('should draw ENE when enabled', () => {
-    const scheduler = createMockScheduler({ ene: { getTitleInfo: createSimpleGetTitleInfo('ENE') } })
+  it('should draw ENE when active', () => {
+    const scheduler = createMockScheduler(
+      { ene: { getTitleInfo: createSimpleGetTitleInfo('ENE') } },
+      ['ene']
+    )
     const mockHost = createMockPluginHost(undefined, scheduler)
     const plugin = createMainIndicatorLegendRendererPlugin({ yPaddingPx: 20 })
     plugin.onInstall(mockHost)
-
-    plugin.setConfig({
-      indicators: {
-        MA: { enabled: false, params: {} },
-        ENE: { enabled: true, params: { period: 10, deviation: 11 } },
-      },
-    })
 
     const ctx = createMockCanvasContext()
     const context = createMockRenderContext(ctx)
@@ -574,5 +542,23 @@ describe('MainIndicatorLegend with other indicators', () => {
       String(call[0]).includes('ENE')
     )
     expect(eneLabelCalls.length).toBeGreaterThan(0)
+  })
+
+  it('should draw any registered main indicator when active (WMA example)', () => {
+    const scheduler = createMockScheduler(
+      { wma: { getTitleInfo: createSimpleGetTitleInfo('WMA') } },
+      ['wma']
+    )
+    const mockHost = createMockPluginHost(undefined, scheduler)
+    const plugin = createMainIndicatorLegendRendererPlugin({ yPaddingPx: 20 })
+    plugin.onInstall(mockHost)
+
+    const ctx = createMockCanvasContext()
+    const context = createMockRenderContext(ctx)
+    plugin.draw(context)
+
+    const fillTextCalls = vi.mocked(ctx.fillText).mock.calls
+    const wmaLabelCalls = fillTextCalls.filter(call => String(call[0]).includes('WMA'))
+    expect(wmaLabelCalls.length).toBeGreaterThan(0)
   })
 })
