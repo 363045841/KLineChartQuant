@@ -2,7 +2,6 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../pl
 import { RENDERER_PRIORITY } from '../../plugin'
 import { resolveThemeColors } from '../../tokens'
 import { getFont, setCanvasFont } from '../theme/fonts'
-import { SUB_PANE_INDICATOR_CONFIGS } from './Indicator/subPaneConfig'
 import type { SubIndicatorType } from './Indicator'
 import type { KLineData } from '../../types/price'
 import type { TitleInfo } from '../indicators/indicatorMetadata'
@@ -12,6 +11,24 @@ import type { IndicatorScheduler } from '../indicators/scheduler'
  * @deprecated 请从 indicatorMetadata 导入 TitleInfo
  */
 export type { TitleInfo, TitleValueItem } from '../indicators/indicatorMetadata'
+
+function getVolumeTitleInfo(
+    data: KLineData[],
+    index: number | null,
+    _params: Record<string, number | boolean | string>,
+    _host: PluginHost,
+    _paneId: string,
+): TitleInfo | null {
+    if (index === null) return null
+    const kline = data[index]
+    if (!kline || kline.volume === undefined) return null
+    const color = kline.open < kline.close ? '#ef4444' : '#22c55e'
+    return {
+        name: 'VOL',
+        params: [],
+        values: [{ label: 'VOL', value: kline.volume, color }],
+    }
+}
 
 const textWidthCache = new Map<string, number>()
 const TEXT_WIDTH_CACHE_LIMIT = 256
@@ -84,12 +101,9 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
                 titleInfo = meta.getTitleInfo(klineData, crosshairIndex, castParams, pluginHost, currentOptions.paneId)
             }
 
-            // fallback: subPaneConfig（主要用于 VOLUME — 非注册指标）
-            if (!titleInfo) {
-                const config = SUB_PANE_INDICATOR_CONFIGS[currentOptions.indicatorId]
-                if (config && pluginHost) {
-                    titleInfo = config.getTitleInfo(klineData, crosshairIndex, castParams, pluginHost, currentOptions.paneId)
-                }
+            // fallback: VOLUME 不是注册指标，内联处理
+            if (!titleInfo && pluginHost) {
+                titleInfo = getVolumeTitleInfo(klineData, crosshairIndex, castParams, pluginHost, currentOptions.paneId)
             }
 
             if (titleInfo) {

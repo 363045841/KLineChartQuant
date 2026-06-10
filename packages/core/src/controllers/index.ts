@@ -42,10 +42,6 @@ export { getPhysicalKLineConfig } from '../engine/utils/klineConfig'
 
 // Indicator types & config
 export type { SubIndicatorType } from '../engine/renderers/Indicator'
-export {
-    SUB_PANE_INDICATOR_CONFIGS,
-    SUB_PANE_INDICATORS,
-} from '../engine/renderers/Indicator/subPaneConfig'
 
 // Indicator data helpers
 export {

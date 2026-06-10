@@ -12,6 +12,7 @@ import { getPhysicalKLineConfig, calcKWidthPx } from './utils/klineConfig'
 import { computeZoom, computeZoomToLevel, type ZoomConfig } from './utils/zoom'
 import { IndicatorScheduler } from './indicators/scheduler'
 import { getBuiltinIndicatorDefinitions } from './indicators/registerBuiltins'
+import { getRegisteredIndicatorDefinitions } from './indicators/indicatorDefinitionRegistry'
 import { SubPaneManager, type SubPaneEntry } from './subPaneManager'
 
 import {
@@ -232,26 +233,31 @@ export class Chart {
     /** 主图指标激活状态与参数（存在即激活，默认参数在 enable 时初始化） */
     private _mainIndicatorsSignal: Signal<Map<string, MainIndicatorEntry>> = createSignal<Map<string, MainIndicatorEntry>>(new Map())
 
-    /** 主图指标默认参数 */
-    private static DEFAULT_MAIN_PARAMS: Record<string, Record<string, number | boolean | string>> = {
-        MA: { ma5: true, ma10: true, ma20: true, ma30: true, ma60: true },
-        BOLL: { period: 20, multiplier: 2, showUpper: true, showMiddle: true, showLower: true, showBand: true },
-        EXPMA: { fastPeriod: 12, slowPeriod: 50 },
-        ENE: { period: 10, deviation: 11 },
-        WMA: { period: 10, showWMA: true },
-        DEMA: { period: 14, showDEMA: true },
-        TEMA: { period: 14, showTEMA: true },
-        HMA: { period: 14, showHMA: true },
-        KAMA: { period: 10, fastPeriod: 2, slowPeriod: 30, showKAMA: true },
-        SAR: { step: 0.02, maxStep: 0.2, showSAR: true },
-        SUPERTREND: { atrPeriod: 10, multiplier: 3, showSuperTrend: true },
-        KELTNER: { emaPeriod: 20, atrPeriod: 10, multiplier: 2, showUpper: true, showMiddle: true, showLower: true },
-        DONCHIAN: { period: 20, showUpper: true, showMiddle: true, showLower: true },
-        ICHIMOKU: { tenkanPeriod: 9, kijunPeriod: 26, spanBPeriod: 52, displacement: 26, showTenkan: true, showKijun: true, showSpanA: true, showSpanB: true, showChikou: true, showCloud: true },
-        PIVOT: { showPP: true, showR1: true, showR2: true, showR3: false, showS1: true, showS2: true, showS3: false },
-        FIB: { period: 50, showLevels: true },
-        STRUCTURE: { leftWindow: 2, rightWindow: 2, breakoutSource: 'close', showSwingLabels: true, showBOS: true, showCHOCH: true, showProvisional: false },
-        ZONES: { showFVG: true, showOB: true, showFilledZones: false, obLookback: 5 },
+    /** 主图指标默认参数（从注册表中懒加载） */
+    private static _defaultMainParamsCache: Record<string, Record<string, number | boolean | string>> | null = null
+
+    private static get DEFAULT_MAIN_PARAMS(): Record<string, Record<string, number | boolean | string>> {
+        if (Chart._defaultMainParamsCache === null) {
+            Chart._defaultMainParamsCache = {}
+            for (const def of getRegisteredIndicatorDefinitions()) {
+                if (def.category === 'main') {
+                    Chart._defaultMainParamsCache[def.displayName.toUpperCase()] = (def.runtime?.defaultConfig ?? {}) as Record<string, number | boolean | string>
+                }
+            }
+        }
+        return Chart._defaultMainParamsCache
+    }
+
+    /** 可启用的主图指标白名单（从注册表中懒加载） */
+    private static _enableMainIndicatorsCache: string[] | null = null
+
+    private static get ENABLE_MAIN_INDICATORS(): string[] {
+        if (Chart._enableMainIndicatorsCache === null) {
+            Chart._enableMainIndicatorsCache = getRegisteredIndicatorDefinitions()
+                .filter(d => d.category === 'main')
+                .map(d => d.displayName.toUpperCase())
+        }
+        return Chart._enableMainIndicatorsCache
     }
 
     /**
@@ -262,7 +268,7 @@ export class Chart {
      */
     enableMainIndicator(indicatorId: string, params?: Record<string, number | boolean | string>): boolean {
         const id = indicatorId.toUpperCase()
-        if (!['MA', 'BOLL', 'EXPMA', 'ENE', 'WMA', 'DEMA', 'TEMA', 'HMA', 'KAMA', 'SAR', 'SUPERTREND', 'KELTNER', 'DONCHIAN', 'ICHIMOKU', 'PIVOT', 'FIB', 'STRUCTURE', 'ZONES'].includes(id)) {
+        if (!Chart.ENABLE_MAIN_INDICATORS.includes(id)) {
             console.warn(`[Chart] 未知的主图指标: ${indicatorId}`)
             return false
         }

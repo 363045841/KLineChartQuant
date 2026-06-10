@@ -63,9 +63,9 @@
       "types": "./dist/engine/renderers/Indicator/index.d.ts",
       "import": "./dist/engine/renderers/Indicator/index.js"
     },
-    "./engine/renderers/Indicator/subPaneConfig": {
-      "types": "./dist/engine/renderers/Indicator/subPaneConfig.d.ts",
-      "import": "./dist/engine/renderers/Indicator/subPaneConfig.js"
+    "./indicators": {
+      "types": "./dist/engine/indicators/indicatorDefinitionRegistry.d.ts",
+      "import": "./dist/engine/indicators/indicatorDefinitionRegistry.js"
     },
     "./engine/renderers/Indicator/indicatorData": {
       "types": "./dist/engine/renderers/Indicator/indicatorData.d.ts",

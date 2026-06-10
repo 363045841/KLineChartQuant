@@ -133,10 +133,12 @@ import {
   zoomLevelToKWidth,
   kGapFromKWidth,
   getPhysicalKLineConfig,
-  SUB_PANE_INDICATOR_CONFIGS,
-  SUB_PANE_INDICATORS,
   DrawingInteractionController,
 } from '@363045841yyt/klinechart-core/controllers'
+import {
+  getRegisteredIndicatorDefinition,
+  getRegisteredIndicatorDefinitions,
+} from '@363045841yyt/klinechart-core/indicators'
 import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
 import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
 import { resolveThemeColors, themeToCssVars, lightTheme, darkTheme, type ColorPresetSettings } from '@363045841yyt/klinechart-core'
@@ -614,7 +616,19 @@ function buildPaneLayoutIntent(): PaneSpec[] {
 function getDefaultParams(
   indicatorId: SubIndicatorType,
 ): Record<string, number | boolean | string> {
-  return { ...SUB_PANE_INDICATOR_CONFIGS[indicatorId].defaultParams }
+  if (indicatorId === 'VOLUME') return {}
+  const meta = getRegisteredIndicatorDefinition(indicatorId)
+  if (meta?.runtime?.defaultConfig) {
+    return { ...meta.runtime.defaultConfig } as Record<string, number | boolean | string>
+  }
+  return {}
+}
+
+// 副图指标判定（基于 registry category + VOLUME 特例）
+function isSubPaneIndicator(id: string): boolean {
+  if (id === 'VOLUME') return true
+  const def = getRegisteredIndicatorDefinition(id)
+  return !!def && def.category !== 'main'
 }
 
 // 副图实例计数器：用于生成 'RSI_0', 'MACD_0' 这样的 paneId
@@ -712,7 +726,7 @@ function handleIndicatorToggle(indicatorId: string, active: boolean) {
     return
   }
 
-  if (SUB_PANE_INDICATORS.includes(indicatorId as SubIndicatorType)) {
+  if (isSubPaneIndicator(indicatorId)) {
     if (active) {
       const existingPane = subPanes.value.find((p) => p.indicatorId === indicatorId)
       if (existingPane) return
@@ -740,7 +754,7 @@ function handleUpdateParams(indicatorId: string, params: Record<string, unknown>
     controller.value?.updateIndicatorParams(indicatorId, params)
     return
   }
-  if (SUB_PANE_INDICATORS.includes(indicatorId as SubIndicatorType)) {
+  if (isSubPaneIndicator(indicatorId)) {
     subPanes.value
       .filter((p) => p.indicatorId === indicatorId)
       .forEach((pane) => {
@@ -753,7 +767,7 @@ function handleReorderSubIndicators(orderedIndicatorIds: string[]) {
   if (!orderedIndicatorIds.length || subPanes.value.length <= 1) return
 
   const validOrder = orderedIndicatorIds.filter((id): id is SubIndicatorType =>
-    SUB_PANE_INDICATORS.includes(id as SubIndicatorType),
+    isSubPaneIndicator(id),
   )
   if (!validOrder.length) return
 
