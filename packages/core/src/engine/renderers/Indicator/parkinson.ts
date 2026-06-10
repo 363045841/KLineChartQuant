@@ -1,5 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
+import { resolveThemeColors } from '../../../tokens'
 import type { ParkinsonRenderState } from '../../indicators/parkinsonState'
 import { createParkinsonStateKey } from '../../indicators/parkinsonState'
 import { EMPTY_PARKINSON_STATE } from '../../indicators/parkinsonState'
@@ -8,6 +9,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, ParkinsonSchedulerConfig } from '../../indicators/scheduler'
 import { calcParkinsonData } from '../../indicators/calculators'
+import type { TitleInfo } from '../../renderers/paneTitle'
 
 const PARKINSON_COLOR = '#0891b2'
 
@@ -109,6 +111,26 @@ export function createParkinsonRendererPlugin(options: { paneId?: string } = {})
         },
         setConfig() {},
     }
+}
+
+export function getParkinsonTitleInfo(
+  index: number,
+  period: number,
+  annualizationFactor: number,
+  pluginHost: PluginHost,
+  paneId: string = 'sub_Parkinson',
+  theme: 'light' | 'dark' = 'light',
+  isAsiaMarket?: boolean
+): TitleInfo | null {
+  const state = pluginHost.getSharedState<ParkinsonRenderState>(createParkinsonStateKey(paneId))
+  const value = state?.series[index]
+  if (value === undefined) return null
+
+  return {
+    name: 'Parkinson',
+    params: [period, annualizationFactor],
+    values: [{ label: 'Parkinson', value, color: PARKINSON_COLOR }],
+  }
 }
 
 @Indicator({

@@ -1,5 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
+import { resolveThemeColors } from '../../../tokens'
 import type { ROCRenderState } from '../../indicators/rocState'
 import { createROCStateKey, EMPTY_ROC_STATE } from '../../indicators/rocState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
@@ -7,6 +8,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, ROCSchedulerConfig } from '../../indicators/scheduler'
 import { calcROCData } from '../../indicators/calculators'
+import type { TitleInfo } from '../../renderers/paneTitle'
 
 const ROC_COLOR = '#0ea5e9'
 
@@ -127,6 +129,25 @@ export function createROCRendererPlugin(options: ROCRendererOptions = {}): Rende
         },
         setConfig() {},
     }
+}
+
+export function getROCTitleInfo(
+  index: number,
+  period: number,
+  pluginHost: PluginHost,
+  paneId: string = 'sub_ROC',
+  theme: 'light' | 'dark' = 'light',
+  isAsiaMarket?: boolean
+): TitleInfo | null {
+  const state = pluginHost.getSharedState<ROCRenderState>(createROCStateKey(paneId))
+  const value = state?.series[index]
+  if (value === undefined) return null
+
+  return {
+    name: 'ROC',
+    params: [period],
+    values: [{ label: 'ROC', value, color: ROC_COLOR }],
+  }
 }
 
 @Indicator({

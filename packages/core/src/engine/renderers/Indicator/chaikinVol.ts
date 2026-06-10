@@ -2,6 +2,7 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../..
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { ChaikinVolRenderState } from '../../indicators/chaikinVolState'
 import { createChaikinVolStateKey, EMPTY_CHAIKIN_VOL_STATE } from '../../indicators/chaikinVolState'
+import type { TitleInfo } from '../../renderers/paneTitle'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -121,6 +122,26 @@ export function createChaikinVolRendererPlugin(options: { paneId?: string } = {}
             return state?.params ?? {}
         },
         setConfig() {},
+    }
+}
+
+export function getChaikinVolTitleInfo(
+    index: number,
+    emaPeriod: number,
+    rocPeriod: number,
+    pluginHost: PluginHost,
+    paneId: string = 'sub_ChaikinVol',
+    theme: 'light' | 'dark' = 'light',
+    isAsiaMarket?: boolean
+): TitleInfo | null {
+    const state = pluginHost.getSharedState<ChaikinVolRenderState>(createChaikinVolStateKey(paneId))
+    const value = state?.series[index]
+    if (value === undefined) return null
+
+    return {
+        name: 'ChaikinVol',
+        params: [emaPeriod, rocPeriod],
+        values: [{ label: 'ChaikinVol', value, color: CHAIKIN_VOL_COLOR }],
     }
 }
 

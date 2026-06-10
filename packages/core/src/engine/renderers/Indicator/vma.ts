@@ -3,6 +3,7 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import type { VMARenderState } from '../../indicators/vmaState'
 import { createVMAStateKey } from '../../indicators/vmaState'
 import { EMPTY_VMA_STATE } from '../../indicators/vmaState'
+import type { TitleInfo } from '../../renderers/paneTitle'
 import { createNonNegativeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -108,6 +109,25 @@ export function createVMARendererPlugin(options: { paneId?: string } = {}): Rend
             return state?.params ?? {}
         },
         setConfig() { },
+    }
+}
+
+export function getVMATitleInfo(
+    index: number,
+    period: number,
+    pluginHost: PluginHost,
+    paneId: string = 'sub_VMA',
+    theme: 'light' | 'dark' = 'light',
+    isAsiaMarket?: boolean
+): TitleInfo | null {
+    const state = pluginHost.getSharedState<VMARenderState>(createVMAStateKey(paneId))
+    const value = state?.series[index]
+    if (value === undefined) return null
+
+    return {
+        name: 'VMA',
+        params: [period],
+        values: [{ label: 'VMA', value, color: VMA_COLOR }],
     }
 }
 

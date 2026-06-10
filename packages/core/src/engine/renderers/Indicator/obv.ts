@@ -7,6 +7,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, OBVSchedulerConfig } from '../../indicators/scheduler'
 import { calcOBVData } from '../../indicators/calculators'
+import type { TitleInfo } from '../../renderers/paneTitle'
 
 const OBV_COLOR = '#16a34a'
 
@@ -107,6 +108,24 @@ export function createOBVRendererPlugin(options: { paneId?: string } = {}): Rend
         },
         setConfig() {},
     }
+}
+
+export function getOBVTitleInfo(
+  index: number,
+  pluginHost: PluginHost,
+  paneId: string = 'sub_OBV',
+  theme: 'light' | 'dark' = 'light',
+  isAsiaMarket?: boolean
+): TitleInfo | null {
+  const state = pluginHost.getSharedState<OBVRenderState>(createOBVStateKey(paneId))
+  const value = state?.series[index]
+  if (value === undefined) return null
+
+  return {
+    name: 'OBV',
+    params: [],
+    values: [{ label: 'OBV', value, color: OBV_COLOR }],
+  }
 }
 
 @Indicator({

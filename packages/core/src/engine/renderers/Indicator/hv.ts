@@ -1,5 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
+import { resolveThemeColors } from '../../../tokens'
 import type { HVRenderState } from '../../indicators/hvState'
 import { createHVStateKey } from '../../indicators/hvState'
 import { EMPTY_HV_STATE } from '../../indicators/hvState'
@@ -8,6 +9,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, HVSchedulerConfig } from '../../indicators/scheduler'
 import { calcHVData } from '../../indicators/calculators'
+import type { TitleInfo } from '../../renderers/paneTitle'
 
 const HV_COLOR = '#7c3aed'
 
@@ -109,6 +111,26 @@ export function createHVRendererPlugin(options: { paneId?: string } = {}): Rende
         },
         setConfig() {},
     }
+}
+
+export function getHVTitleInfo(
+  index: number,
+  period: number,
+  annualizationFactor: number,
+  pluginHost: PluginHost,
+  paneId: string = 'sub_HV',
+  theme: 'light' | 'dark' = 'light',
+  isAsiaMarket?: boolean
+): TitleInfo | null {
+  const state = pluginHost.getSharedState<HVRenderState>(createHVStateKey(paneId))
+  const value = state?.series[index]
+  if (value === undefined) return null
+
+  return {
+    name: 'HV',
+    params: [period, annualizationFactor],
+    values: [{ label: 'HV', value, color: HV_COLOR }],
+  }
 }
 
 @Indicator({

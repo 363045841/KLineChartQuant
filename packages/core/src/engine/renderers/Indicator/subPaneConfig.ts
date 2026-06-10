@@ -18,7 +18,21 @@ import {
     getKSTTitleInfo,
     getFASTKTitleInfo,
     getATRTitleInfo,
+    getROCTitleInfo,
+    getTRIXTitleInfo,
+    getHVTitleInfo,
+    getParkinsonTitleInfo,
+    getChaikinVolTitleInfo,
+    getVMATitleInfo,
+    getOBVTitleInfo,
+    getPVTTitleInfo,
+    getVWAPTitleInfo,
+    getCMFTitleInfo,
+    getMFITitleInfo,
+    getVolumeProfileTitleInfo,
+    getStructureTitleInfo,
 } from '../../renderers/Indicator'
+import type { KLineData } from '../../../types/price'
 
 export interface SubPaneIndicatorConfig {
   defaultParams: Record<string, number | boolean | string>
@@ -34,7 +48,17 @@ export interface SubPaneIndicatorConfig {
 export const SUB_PANE_INDICATOR_CONFIGS: Record<string, SubPaneIndicatorConfig> = {
   VOLUME: {
     defaultParams: {},
-    getTitleInfo: () => ({ name: 'VOL', params: [], values: [] }),
+    getTitleInfo: (data, index) => {
+      if (index === null) return null
+      const kline = (data as KLineData[])[index]
+      if (!kline || kline.volume === undefined) return null
+      const color = kline.open < kline.close ? '#ef4444' : '#22c55e'
+      return {
+        name: 'VOL',
+        params: [],
+        values: [{ label: 'VOL', value: kline.volume, color }],
+      }
+    },
   },
   MACD: {
     defaultParams: { fastPeriod: 12, slowPeriod: 26, signalPeriod: 9 },
@@ -198,47 +222,124 @@ export const SUB_PANE_INDICATOR_CONFIGS: Record<string, SubPaneIndicatorConfig> 
     },
     ROC: {
         defaultParams: { period: 12, showROC: true },
-        getTitleInfo: () => ({ name: 'ROC', params: [], values: [] }),
+        getTitleInfo: (_data, index, params, pluginHost, paneId) => {
+            if (index === null) return null
+            return getROCTitleInfo(
+                index,
+                (params.period as number) ?? 12,
+                pluginHost,
+                paneId,
+            )
+        },
     },
     TRIX: {
         defaultParams: { period: 15, signalPeriod: 9, showTRIX: true, showSignal: true },
-        getTitleInfo: () => ({ name: 'TRIX', params: [], values: [] }),
+        getTitleInfo: (_data, index, params, pluginHost, paneId) => {
+            if (index === null) return null
+            return getTRIXTitleInfo(
+                index,
+                (params.period as number) ?? 15,
+                (params.signalPeriod as number) ?? 9,
+                pluginHost,
+                paneId,
+            )
+        },
     },
     HV: {
         defaultParams: { period: 20, annualizationFactor: 252, showHV: true },
-        getTitleInfo: () => ({ name: 'HV', params: [], values: [] }),
+        getTitleInfo: (_data, index, params, pluginHost, paneId) => {
+            if (index === null) return null
+            return getHVTitleInfo(
+                index,
+                (params.period as number) ?? 20,
+                (params.annualizationFactor as number) ?? 252,
+                pluginHost,
+                paneId,
+            )
+        },
     },
     PARKINSON: {
         defaultParams: { period: 20, annualizationFactor: 252, showParkinson: true },
-        getTitleInfo: () => ({ name: 'Parkinson', params: [], values: [] }),
+        getTitleInfo: (_data, index, params, pluginHost, paneId) => {
+            if (index === null) return null
+            return getParkinsonTitleInfo(
+                index,
+                (params.period as number) ?? 20,
+                (params.annualizationFactor as number) ?? 252,
+                pluginHost,
+                paneId,
+            )
+        },
     },
     CHAIKIN_VOL: {
         defaultParams: { emaPeriod: 10, rocPeriod: 10, showChaikinVol: true },
-        getTitleInfo: () => ({ name: 'ChaikinVol', params: [], values: [] }),
+        getTitleInfo: (_data, index, params, pluginHost, paneId) => {
+            if (index === null) return null
+            return getChaikinVolTitleInfo(
+                index,
+                (params.emaPeriod as number) ?? 10,
+                (params.rocPeriod as number) ?? 10,
+                pluginHost,
+                paneId,
+            )
+        },
     },
     VMA: {
         defaultParams: { period: 5, showVMA: true },
-        getTitleInfo: () => ({ name: 'VMA', params: [], values: [] }),
+        getTitleInfo: (_data, index, params, pluginHost, paneId) => {
+            if (index === null) return null
+            return getVMATitleInfo(
+                index,
+                (params.period as number) ?? 5,
+                pluginHost,
+                paneId,
+            )
+        },
     },
     OBV: {
         defaultParams: { showOBV: true },
-        getTitleInfo: () => ({ name: 'OBV', params: [], values: [] }),
+        getTitleInfo: (_data, index, _params, pluginHost, paneId) => {
+            if (index === null) return null
+            return getOBVTitleInfo(index, pluginHost, paneId)
+        },
     },
     PVT: {
         defaultParams: { showPVT: true },
-        getTitleInfo: () => ({ name: 'PVT', params: [], values: [] }),
+        getTitleInfo: (_data, index, _params, pluginHost, paneId) => {
+            if (index === null) return null
+            return getPVTTitleInfo(index, pluginHost, paneId)
+        },
     },
     VWAP: {
         defaultParams: { sessionResetGapMs: 0, showVWAP: true },
-        getTitleInfo: () => ({ name: 'VWAP', params: [], values: [] }),
+        getTitleInfo: (_data, index, _params, pluginHost, paneId) => {
+            if (index === null) return null
+            return getVWAPTitleInfo(index, pluginHost, paneId)
+        },
     },
     CMF: {
         defaultParams: { period: 20, showCMF: true },
-        getTitleInfo: () => ({ name: 'CMF', params: [], values: [] }),
+        getTitleInfo: (_data, index, params, pluginHost, paneId) => {
+            if (index === null) return null
+            return getCMFTitleInfo(
+                index,
+                (params.period as number) ?? 20,
+                pluginHost,
+                paneId,
+            )
+        },
     },
     MFI: {
         defaultParams: { period: 14, showMFI: true },
-        getTitleInfo: () => ({ name: 'MFI', params: [], values: [] }),
+        getTitleInfo: (_data, index, params, pluginHost, paneId) => {
+            if (index === null) return null
+            return getMFITitleInfo(
+                index,
+                (params.period as number) ?? 14,
+                pluginHost,
+                paneId,
+            )
+        },
     },
     PIVOT: {
         defaultParams: { showPP: true, showR1: true, showR2: true, showR3: false, showS1: true, showS2: true, showS3: false },
@@ -250,7 +351,15 @@ export const SUB_PANE_INDICATOR_CONFIGS: Record<string, SubPaneIndicatorConfig> 
     },
     STRUCTURE: {
         defaultParams: { leftWindow: 2, rightWindow: 2, breakoutSource: 'close', showSwingLabels: true, showBOS: true, showCHOCH: true, showProvisional: false },
-        getTitleInfo: () => ({ name: 'Structure', params: [], values: [] }),
+        getTitleInfo: (_data, _index, params, pluginHost, paneId) => {
+            return getStructureTitleInfo(
+                0,
+                (params.leftWindow as number) ?? 2,
+                (params.rightWindow as number) ?? 2,
+                pluginHost,
+                paneId,
+            )
+        },
     },
     ZONES: {
         defaultParams: { showFVG: true, showOB: true, showFilledZones: false, obLookback: 5 },
@@ -258,7 +367,16 @@ export const SUB_PANE_INDICATOR_CONFIGS: Record<string, SubPaneIndicatorConfig> 
     },
     VOLUME_PROFILE: {
         defaultParams: { bins: 24, lookback: 0, valueAreaPercent: 0.7, showVolumeProfile: true },
-        getTitleInfo: () => ({ name: 'VP', params: [], values: [] }),
+        getTitleInfo: (_data, _index, params, pluginHost, paneId) => {
+            return getVolumeProfileTitleInfo(
+                0,
+                (params.bins as number) ?? 24,
+                (params.lookback as number) ?? 0,
+                (params.valueAreaPercent as number) ?? 0.7,
+                pluginHost,
+                paneId,
+            )
+        },
     },
 }
 

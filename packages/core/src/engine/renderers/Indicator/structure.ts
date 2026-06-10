@@ -8,6 +8,7 @@ import { createFixedUnitVisibleStateComposer } from '../../indicators/visibleSta
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, StructureSchedulerConfig } from '../../indicators/scheduler'
 import { calcStructureData } from '../../indicators/calculators'
+import type { TitleInfo } from '../../renderers/paneTitle'
 
 const LABEL_FONT = '11px sans-serif'
 
@@ -109,6 +110,31 @@ export function createStructureRendererPlugin(options: { paneId?: string } = {})
         },
         setConfig() {},
     }
+}
+
+export function getStructureTitleInfo(
+  index: number,
+  leftWindow: number,
+  rightWindow: number,
+  pluginHost: PluginHost,
+  paneId: string = 'sub_Structure',
+  theme: 'light' | 'dark' = 'light',
+  isAsiaMarket?: boolean
+): TitleInfo | null {
+  const colors = resolveThemeColors(theme, isAsiaMarket)
+  const state = pluginHost.getSharedState<StructureRenderState>(createStructureStateKey(paneId))
+
+  const values: Array<{ label: string; value: number; color: string }> = []
+  if (state && state.series.swings.length > 0) {
+    values.push({ label: 'Swings', value: state.series.swings.length, color: colors.structure.hh })
+    values.push({ label: 'Events', value: state.series.events.length, color: colors.structure.choch })
+  }
+
+  return {
+    name: 'Structure',
+    params: [leftWindow, rightWindow],
+    values,
+  }
 }
 
 @Indicator({

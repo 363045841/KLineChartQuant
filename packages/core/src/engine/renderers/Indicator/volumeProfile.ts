@@ -7,6 +7,8 @@ import { createVolumeProfileVisibleStateComposer } from '../../indicators/visibl
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, VolumeProfileSchedulerConfig } from '../../indicators/scheduler'
 import { calcVolumeProfileData } from '../../indicators/calculators'
+import type { TitleInfo } from '../../renderers/paneTitle'
+import { resolveThemeColors } from '../../../tokens'
 
 const BAR_FILL = 'rgba(99, 102, 241, 0.35)'
 const POC_COLOR = '#f59e0b'
@@ -109,6 +111,41 @@ export function createVolumeProfileRendererPlugin(options: { paneId?: string } =
         },
         setConfig() {},
     }
+}
+
+const VP_POC_COLOR = '#8b5cf6'
+const VP_VAH_COLOR = '#6366f1'
+const VP_VAL_COLOR = '#818cf8'
+
+export function getVolumeProfileTitleInfo(
+  index: number,
+  bins: number,
+  lookback: number,
+  valueAreaPercent: number,
+  pluginHost: PluginHost,
+  paneId: string = 'sub_VolumeProfile',
+  theme: 'light' | 'dark' = 'light',
+  isAsiaMarket?: boolean
+): TitleInfo | null {
+  const state = pluginHost.getSharedState<VolumeProfileRenderState>(createVolumeProfileStateKey(paneId))
+  const vp = state?.series
+
+  const values: Array<{ label: string; value: number; color: string }> = []
+  if (vp && vp.bins.length > 0) {
+    if (state.params.showPOC) {
+      values.push({ label: 'POC', value: vp.poc, color: VP_POC_COLOR })
+    }
+    if (state.params.showValueArea) {
+      values.push({ label: 'VAH', value: vp.vah, color: VP_VAH_COLOR })
+      values.push({ label: 'VAL', value: vp.val, color: VP_VAL_COLOR })
+    }
+  }
+
+  return {
+    name: 'VP',
+    params: [bins],
+    values,
+  }
 }
 
 @Indicator({

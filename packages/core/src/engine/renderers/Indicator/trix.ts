@@ -1,5 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
+import { resolveThemeColors } from '../../../tokens'
 import type { TRIXRenderState } from '../../indicators/trixState'
 import { createTRIXStateKey } from '../../indicators/trixState'
 import { EMPTY_TRIX_STATE } from '../../indicators/trixState'
@@ -8,6 +9,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, TRIXSchedulerConfig } from '../../indicators/scheduler'
 import { calcTRIXData } from '../../indicators/calculators'
+import type { TitleInfo } from '../../renderers/paneTitle'
 
 const TRIX_COLOR = '#e11d48'
 const SIGNAL_COLOR = '#f59e0b'
@@ -143,6 +145,38 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     ctx.moveTo(pts[0]!.x, pts[0]!.y)
     for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i]!.x, pts[i]!.y)
     ctx.stroke()
+}
+
+export function getTRIXTitleInfo(
+  index: number,
+  period: number,
+  signalPeriod: number,
+  pluginHost: PluginHost,
+  paneId: string = 'sub_TRIX',
+  theme: 'light' | 'dark' = 'light',
+  isAsiaMarket?: boolean
+): TitleInfo | null {
+  const state = pluginHost.getSharedState<TRIXRenderState>(createTRIXStateKey(paneId))
+  if (!state) return null
+
+  const values: Array<{ label: string; value: number; color: string }> = []
+
+  if (state.params.showTRIX) {
+    const v = state.series[index]
+    if (v !== undefined) values.push({ label: 'TRIX', value: v, color: TRIX_COLOR })
+  }
+  if (state.params.showSignal) {
+    const v = state.signalSeries[index]
+    if (v !== undefined) values.push({ label: 'Signal', value: v, color: SIGNAL_COLOR })
+  }
+
+  if (values.length === 0) return null
+
+  return {
+    name: 'TRIX',
+    params: [period, signalPeriod],
+    values,
+  }
 }
 
 @Indicator({

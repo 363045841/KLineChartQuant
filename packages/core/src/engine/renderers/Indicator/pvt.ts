@@ -7,6 +7,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, PVTSchedulerConfig } from '../../indicators/scheduler'
 import { calcPVTData } from '../../indicators/calculators'
+import type { TitleInfo } from '../../renderers/paneTitle'
 
 const PVT_COLOR = '#a855f7'
 
@@ -107,6 +108,24 @@ export function createPVTRendererPlugin(options: { paneId?: string } = {}): Rend
         },
         setConfig() {},
     }
+}
+
+export function getPVTTitleInfo(
+  index: number,
+  pluginHost: PluginHost,
+  paneId: string = 'sub_PVT',
+  theme: 'light' | 'dark' = 'light',
+  isAsiaMarket?: boolean
+): TitleInfo | null {
+  const state = pluginHost.getSharedState<PVTRenderState>(createPVTStateKey(paneId))
+  const value = state?.series[index]
+  if (value === undefined) return null
+
+  return {
+    name: 'PVT',
+    params: [],
+    values: [{ label: 'PVT', value, color: PVT_COLOR }],
+  }
 }
 
 @Indicator({

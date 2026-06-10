@@ -7,6 +7,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, VWAPSchedulerConfig } from '../../indicators/scheduler'
 import { calcVWAPData } from '../../indicators/calculators'
+import type { TitleInfo } from '../../renderers/paneTitle'
 
 const VWAP_COLOR = '#ec4899'
 
@@ -107,6 +108,24 @@ export function createVWAPRendererPlugin(options: { paneId?: string } = {}): Ren
         },
         setConfig() {},
     }
+}
+
+export function getVWAPTitleInfo(
+  index: number,
+  pluginHost: PluginHost,
+  paneId: string = 'sub_VWAP',
+  theme: 'light' | 'dark' = 'light',
+  isAsiaMarket?: boolean
+): TitleInfo | null {
+  const state = pluginHost.getSharedState<VWAPRenderState>(createVWAPStateKey(paneId))
+  const value = state?.series[index]
+  if (value === undefined) return null
+
+  return {
+    name: 'VWAP',
+    params: [],
+    values: [{ label: 'VWAP', value, color: VWAP_COLOR }],
+  }
 }
 
 @Indicator({

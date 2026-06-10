@@ -2,6 +2,7 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../..
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { MFIRenderState } from '../../indicators/mfiState'
 import { createMFIStateKey, EMPTY_MFI_STATE } from '../../indicators/mfiState'
+import type { TitleInfo } from '../../renderers/paneTitle'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -125,6 +126,25 @@ export function createMFIRendererPlugin(options: { paneId?: string } = {}): Rend
             return state?.params ?? {}
         },
         setConfig() {},
+    }
+}
+
+export function getMFITitleInfo(
+    index: number,
+    period: number,
+    pluginHost: PluginHost,
+    paneId: string = 'sub_MFI',
+    theme: 'light' | 'dark' = 'light',
+    isAsiaMarket?: boolean
+): TitleInfo | null {
+    const state = pluginHost.getSharedState<MFIRenderState>(createMFIStateKey(paneId))
+    const value = state?.series[index]
+    if (value === undefined) return null
+
+    return {
+        name: 'MFI',
+        params: [period],
+        values: [{ label: 'MFI', value, color: MFI_COLOR }],
     }
 }
 

@@ -2,6 +2,7 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../..
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { CMFRenderState } from '../../indicators/cmfState'
 import { createCMFStateKey, EMPTY_CMF_STATE } from '../../indicators/cmfState'
+import type { TitleInfo } from '../../renderers/paneTitle'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -120,6 +121,25 @@ export function createCMFRendererPlugin(options: { paneId?: string } = {}): Rend
             return state?.params ?? {}
         },
         setConfig() {},
+    }
+}
+
+export function getCMFTitleInfo(
+    index: number,
+    period: number,
+    pluginHost: PluginHost,
+    paneId: string = 'sub_CMF',
+    theme: 'light' | 'dark' = 'light',
+    isAsiaMarket?: boolean
+): TitleInfo | null {
+    const state = pluginHost.getSharedState<CMFRenderState>(createCMFStateKey(paneId))
+    const value = state?.series[index]
+    if (value === undefined) return null
+
+    return {
+        name: 'CMF',
+        params: [period],
+        values: [{ label: 'CMF', value, color: CMF_COLOR }],
     }
 }
 
