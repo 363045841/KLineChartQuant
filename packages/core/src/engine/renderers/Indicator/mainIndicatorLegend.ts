@@ -23,16 +23,9 @@ function measureTextWidth(ctx: CanvasRenderingContext2D, text: string): number {
   return width
 }
 
-/** 指标行数据 */
-interface IndicatorRow {
-  enabled: boolean
-  params: Record<string, unknown>
-}
-
 /** 渲染器配置 */
 interface MainIndicatorLegendConfig {
   yPaddingPx: number
-  indicators: Record<string, IndicatorRow>
 }
 
 /**
@@ -46,12 +39,6 @@ export function createMainIndicatorLegendRendererPlugin(options: {
 }): RendererPluginWithHost {
   const config: MainIndicatorLegendConfig = {
     yPaddingPx: options.yPaddingPx,
-    indicators: {
-      MA: { enabled: true, params: {} },
-      BOLL: { enabled: false, params: { period: 20, multiplier: 2 } },
-      EXPMA: { enabled: false, params: { fastPeriod: 12, slowPeriod: 50 } },
-      ENE: { enabled: false, params: { period: 10, deviation: 11 } },
-    },
   }
 
   let pluginHost: PluginHost | null = null
@@ -96,15 +83,18 @@ export function createMainIndicatorLegendRendererPlugin(options: {
         ? pluginHost.getService<IndicatorScheduler>('indicatorScheduler')
         : undefined
 
-      for (const meta of scheduler?.getAllIndicators()?.filter(d => d.category === 'main') ?? []) {
+      const mainIndicators = scheduler?.getMainIndicators() ?? []
+      for (const meta of mainIndicators) {
         if (!meta.getTitleInfo) continue
+        if (!scheduler?.isMainIndicatorActive(meta.name)) continue
+        const params = scheduler?.getMainIndicatorParams(meta.name) ?? {}
 
         rows.push({
           draw: (rowIndex: number) => {
             const titleInfo = meta.getTitleInfo(
               klineData,
               targetIndex,
-              {},
+              params as Record<string, number | boolean | string>,
               pluginHost!,
               'main',
             )
@@ -141,26 +131,12 @@ export function createMainIndicatorLegendRendererPlugin(options: {
     getConfig() {
       return {
         yPaddingPx: config.yPaddingPx,
-        indicators: { ...config.indicators },
       }
     },
 
     setConfig(newConfig: Record<string, unknown>) {
       if (typeof newConfig.yPaddingPx === 'number') {
         config.yPaddingPx = newConfig.yPaddingPx
-      }
-      if (newConfig.indicators && typeof newConfig.indicators === 'object') {
-        for (const [id, row] of Object.entries(newConfig.indicators) as [string, IndicatorRow][]) {
-          if (!config.indicators[id]) {
-            config.indicators[id] = { enabled: false, params: {} }
-          }
-          if (row.enabled !== undefined) {
-            config.indicators[id].enabled = row.enabled
-          }
-          if (row.params) {
-            config.indicators[id].params = row.params
-          }
-        }
       }
     },
   }
