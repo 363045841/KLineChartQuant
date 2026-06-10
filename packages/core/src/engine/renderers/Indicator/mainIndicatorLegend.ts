@@ -1,12 +1,9 @@
 import type { RendererPluginWithHost, PluginHost, RenderContext } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { KLineData } from '../../../types/price'
-import { MA_STATE_KEY, type MARenderState } from '../../indicators/maState'
-import { BOLL_STATE_KEY, type BOLLRenderState } from '../../indicators/bollState'
-import { EXPMA_STATE_KEY, type EXPMARenderState } from '../../indicators/expmaState'
-import { ENE_STATE_KEY, type ENERenderState } from '../../indicators/eneState'
 import { resolveThemeColors } from '../../../tokens'
 import { getFont, setCanvasFont } from '../../theme/fonts'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 
 const textWidthCache = new Map<string, number>()
 const TEXT_WIDTH_CACHE_LIMIT = 512
@@ -74,7 +71,7 @@ export function createMainIndicatorLegendRendererPlugin(options: {
     },
 
     getDeclaredNamespaces(): string[] {
-      return [MA_STATE_KEY, BOLL_STATE_KEY, EXPMA_STATE_KEY, ENE_STATE_KEY]
+      return []
     },
 
     draw(context: RenderContext) {
@@ -95,145 +92,46 @@ export function createMainIndicatorLegendRendererPlugin(options: {
       const targetIndex = crosshairIndex ?? Math.min(range.end - 1, klineData.length - 1)
       const rows: Array<{ draw: (rowIndex: number) => void }> = []
 
-      const maIndicator = config.indicators.MA
-      if (maIndicator?.enabled) {
+      const scheduler = pluginHost && typeof pluginHost.getService === 'function'
+        ? pluginHost.getService<IndicatorScheduler>('indicatorScheduler')
+        : undefined
+
+      for (const [indicatorId, indicatorConfig] of Object.entries(config.indicators)) {
+        if (!indicatorConfig.enabled) continue
+
+        const meta = scheduler?.getIndicatorMetadata(indicatorId)
+        if (!meta?.getTitleInfo) continue
+
         rows.push({
           draw: (rowIndex: number) => {
-            const items: Array<{ label: string; color: string; value?: number }> = []
-            const state = pluginHost?.getSharedState<MARenderState>(MA_STATE_KEY)
+            const titleInfo = meta.getTitleInfo!(
+              klineData,
+              targetIndex,
+              indicatorConfig.params as Record<string, number | boolean | string>,
+              pluginHost!,
+              'main',
+            )
+            if (!titleInfo) return
 
-            if (state && state.visibleMin <= state.visibleMax) {
-              for (const period of state.enabledPeriods) {
-                const colorKey = `ma${period}` as keyof typeof colors.ma
-                const series = state.series[period]
-                const value = series?.[targetIndex]
+            let x = legendX
+            const y = config.yPaddingPx / 2 + fontSize + rowIndex * lineHeight
+            overlayCtx.fillStyle = colors.text.primary
+            overlayCtx.fillText(titleInfo.name, x, y)
+            x += measureTextWidth(overlayCtx, titleInfo.name) + gap
 
-                items.push({
-                  label: `MA${period}`,
-                  color: colors.ma[colorKey] || colors.ma.ma5,
-                  value: value,
-                })
+            if (titleInfo.params && titleInfo.params.length > 0) {
+              const paramText = `(${titleInfo.params.join(',')})`
+              overlayCtx.fillText(paramText, x, y)
+              x += measureTextWidth(overlayCtx, paramText) + gap
+            }
+
+            if (titleInfo.values) {
+              for (const item of titleInfo.values) {
+                const valText = `${item.label} ${item.value.toFixed(2)}`
+                overlayCtx.fillStyle = item.color
+                overlayCtx.fillText(valText, x, y)
+                x += measureTextWidth(overlayCtx, valText) + gap
               }
-            }
-
-            if (items.length > 0) {
-              let x = legendX
-              const y = config.yPaddingPx / 2 + fontSize + rowIndex * lineHeight
-
-              overlayCtx.fillStyle = colors.text.primary
-              overlayCtx.fillText('MA', x, y)
-              x += measureTextWidth(overlayCtx, 'MA') + gap
-
-              for (const it of items) {
-                const valText = typeof it.value === 'number' ? ` ${it.value.toFixed(2)}` : ''
-                const text = `${it.label}${valText}`
-                overlayCtx.fillStyle = it.color
-                overlayCtx.fillText(text, x, y)
-                x += measureTextWidth(overlayCtx, text) + gap
-              }
-            }
-          }
-        })
-      }
-
-      const bollIndicator = config.indicators.BOLL
-      if (bollIndicator?.enabled) {
-        rows.push({
-          draw: (rowIndex: number) => {
-            const bollState = pluginHost?.getSharedState<BOLLRenderState>(BOLL_STATE_KEY)
-            const boll = bollState?.series[targetIndex]
-            const period = bollState?.params.period ?? 20
-            const multiplier = bollState?.params.multiplier ?? 2
-
-            let x = legendX
-            const y = config.yPaddingPx / 2 + fontSize + rowIndex * lineHeight
-            const titleText = `BOLL(${period},${multiplier})`
-
-            overlayCtx.fillStyle = colors.text.primary
-            overlayCtx.fillText(titleText, x, y)
-            x += measureTextWidth(overlayCtx, titleText) + gap
-
-            if (boll) {
-              const upperText = `上轨:${boll.upper.toFixed(2)}`
-              overlayCtx.fillStyle = colors.boll.upper
-              overlayCtx.fillText(upperText, x, y)
-              x += measureTextWidth(overlayCtx, upperText) + gap
-
-              const middleText = `中轨:${boll.middle.toFixed(2)}`
-              overlayCtx.fillStyle = colors.boll.middle
-              overlayCtx.fillText(middleText, x, y)
-              x += measureTextWidth(overlayCtx, middleText) + gap
-
-              const lowerText = `下轨:${boll.lower.toFixed(2)}`
-              overlayCtx.fillStyle = colors.boll.lower
-              overlayCtx.fillText(lowerText, x, y)
-            }
-          }
-        })
-      }
-
-      const expmaIndicator = config.indicators.EXPMA
-      if (expmaIndicator?.enabled) {
-        rows.push({
-          draw: (rowIndex: number) => {
-            const expmaState = pluginHost?.getSharedState<EXPMARenderState>(EXPMA_STATE_KEY)
-            const expma = expmaState?.series[targetIndex]
-            const fastPeriod = expmaState?.params.fastPeriod ?? 12
-            const slowPeriod = expmaState?.params.slowPeriod ?? 50
-
-            let x = legendX
-            const y = config.yPaddingPx / 2 + fontSize + rowIndex * lineHeight
-            const titleText = `EXPMA(${fastPeriod},${slowPeriod})`
-
-            overlayCtx.fillStyle = colors.text.primary
-            overlayCtx.fillText(titleText, x, y)
-            x += measureTextWidth(overlayCtx, titleText) + gap
-
-            if (expma) {
-              const fastText = `快:${expma.fast.toFixed(2)}`
-              overlayCtx.fillStyle = colors.expma.fast
-              overlayCtx.fillText(fastText, x, y)
-              x += measureTextWidth(overlayCtx, fastText) + gap
-
-              const slowText = `慢:${expma.slow.toFixed(2)}`
-              overlayCtx.fillStyle = colors.expma.slow
-              overlayCtx.fillText(slowText, x, y)
-            }
-          }
-        })
-      }
-
-      const eneIndicator = config.indicators.ENE
-      if (eneIndicator?.enabled) {
-        rows.push({
-          draw: (rowIndex: number) => {
-            const eneState = pluginHost?.getSharedState<ENERenderState>(ENE_STATE_KEY)
-            const ene = eneState?.series[targetIndex]
-            const period = eneState?.params.period ?? 10
-            const deviation = eneState?.params.deviation ?? 11
-
-            let x = legendX
-            const y = config.yPaddingPx / 2 + fontSize + rowIndex * lineHeight
-            const titleText = `ENE(${period},${deviation})`
-
-            overlayCtx.fillStyle = colors.text.primary
-            overlayCtx.fillText(titleText, x, y)
-            x += measureTextWidth(overlayCtx, titleText) + gap
-
-            if (ene) {
-              const upperText = `上轨:${ene.upper.toFixed(2)}`
-              overlayCtx.fillStyle = colors.ene.upper
-              overlayCtx.fillText(upperText, x, y)
-              x += measureTextWidth(overlayCtx, upperText) + gap
-
-              const middleText = `中轨:${ene.middle.toFixed(2)}`
-              overlayCtx.fillStyle = colors.ene.middle
-              overlayCtx.fillText(middleText, x, y)
-              x += measureTextWidth(overlayCtx, middleText) + gap
-
-              const lowerText = `下轨:${ene.lower.toFixed(2)}`
-              overlayCtx.fillStyle = colors.ene.lower
-              overlayCtx.fillText(lowerText, x, y)
             }
           }
         })

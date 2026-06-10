@@ -3,7 +3,8 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import { MA_STATE_KEY, type MARenderState } from '../../indicators/maState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorPriceRangeComputer, IndicatorRenderStateComposer } from '../../indicators/indicatorMetadata'
+import type { IndicatorPriceRangeComputer, IndicatorRenderStateComposer, GetTitleInfoFn, TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata'
+import type { KLineData } from '../../../types/price'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
 import { calcMAData, type MAFlags } from '../../indicators/calculators'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
@@ -93,6 +94,45 @@ function getMAStateKey(host: PluginHost | null): string | null {
     return resolveStateKey(meta.stateKey)
 }
 
+export function getMATitleInfo(
+    _data: KLineData[],
+    index: number | null,
+    _params: Record<string, number | boolean | string>,
+    pluginHost: PluginHost,
+    _paneId: string,
+): TitleInfo | null {
+    if (index === null) return null
+
+    const stateKey = getMAStateKey(pluginHost)
+    if (!stateKey) return null
+
+    const state = pluginHost?.getSharedState<MARenderState>(stateKey)
+    if (!state || state.visibleMin > state.visibleMax) return null
+
+    const maColors: Record<number, string> = {
+        5: '#f5a623',
+        10: '#4ecdc4',
+        20: '#45b7d1',
+        30: '#96ceb4',
+        60: '#dda0dd',
+    }
+
+    const values: TitleValueItem[] = []
+    for (const period of state.enabledPeriods) {
+        const series = state.series[period]
+        const value = series?.[index]
+        if (value === undefined) continue
+
+        values.push({
+            label: `MA${period}`,
+            value,
+            color: maColors[period] ?? '#f5a623',
+        })
+    }
+
+    return { name: 'MA', params: [], values }
+}
+
 @Indicator({
     name: 'ma',
     displayName: 'MA',
@@ -122,6 +162,7 @@ function getMAStateKey(host: PluginHost | null): string | null {
         },
     },
     runtime: { defaultConfig:{ma5:true,ma10:true,ma20:true,ma30:true,ma60:true}, computeKey:'calcMAData', compute:(data,c)=>{const p=[5,10,20,30,60];const r:Record<number,(number|undefined)[]>={};for(const o of p){if((c as any)['ma'+o])r[o]=calcMAData(data,o)}return r} },
+    getTitleInfo: getMATitleInfo,
 })
 class MADefinition {
     static rendererFactory = createMARendererPlugin

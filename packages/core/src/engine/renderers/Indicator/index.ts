@@ -6,7 +6,7 @@ import type { RendererPlugin } from '../../../plugin'
 import type { IndicatorMetadata } from '../../indicators/indicatorMetadata'
 
 // MA 均线
-export { createMARendererPlugin, type MAFlags } from './ma'
+export { createMARendererPlugin, type MAFlags, getMATitleInfo } from './ma'
 
 // BOLL 布林带
 export { createBOLLRendererPlugin } from './boll'
