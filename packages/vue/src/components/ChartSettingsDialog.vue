@@ -35,11 +35,13 @@
                         />
                       </template>
                       <template v-else-if="item.type === 'select' && item.options">
-                        <select class="settings-select" v-model="settings[item.key]">
-                          <option v-for="opt in item.options" :key="opt.value" :value="opt.value">
-                            {{ opt.label }}
-                          </option>
-                        </select>
+                        <Dropdown
+                          :model-value="String(settings[item.key])"
+                          :options="item.options"
+                          size="sm"
+                          min-width="100px"
+                          @update:model-value="settings[item.key] = $event"
+                        />
                       </template>
                     </label>
                   </div>
@@ -82,11 +84,13 @@
                         />
                       </template>
                       <template v-else-if="item.type === 'select' && item.options">
-                        <select class="settings-select" v-model="settings[item.key]">
-                          <option v-for="opt in item.options" :key="opt.value" :value="opt.value">
-                            {{ opt.label }}
-                          </option>
-                        </select>
+                        <Dropdown
+                          :model-value="String(settings[item.key])"
+                          :options="item.options"
+                          size="sm"
+                          min-width="100px"
+                          @update:model-value="settings[item.key] = $event"
+                        />
                       </template>
                     </label>
                   </div>
@@ -164,6 +168,7 @@ import {
 import { normalizeColorPresetSettings } from '@363045841yyt/klinechart-core'
 import ColorPresetPanel from './ColorPresetPanel.vue'
 import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
+import Dropdown from './Dropdown.vue'
 
 const props = defineProps<{
   show: boolean
@@ -387,30 +392,6 @@ function confirmSettings() {
   accent-color: var(--klc-color-foreground);
 }
 
-.settings-select {
-  flex: 0 0 auto;
-  height: 30px;
-  padding: 4px 28px 4px 9px;
-  border: 1px solid var(--klc-color-axis-line);
-  border-radius: 6px;
-  background: var(--klc-color-tag-bg-white);
-  color: var(--klc-color-foreground);
-  font-size: 12px;
-  cursor: pointer;
-  outline: none;
-  min-width: 150px;
-  max-width: 190px;
-}
-
-.settings-select:hover {
-  border-color: var(--klc-color-axis-text);
-}
-
-.settings-select:focus {
-  border-color: var(--klc-color-axis-text);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-axis-text) 15%, transparent);
-}
-
 .settings-section-divider {
   display: flex;
   align-items: center;
@@ -600,11 +581,6 @@ function confirmSettings() {
   .settings-checkbox {
     align-self: flex-end;
     margin-top: -26px;
-  }
-
-  .settings-select {
-    width: 100%;
-    max-width: none;
   }
 
   .settings-footer {

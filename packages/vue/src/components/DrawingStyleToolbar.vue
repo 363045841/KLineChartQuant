@@ -15,28 +15,21 @@
       />
     </div>
 
-    <select
-      class="toolbar-select"
-      :value="drawing.style.strokeWidth ?? 1"
-      @change="onWidthChange(Number(($event.target as HTMLSelectElement).value))"
+    <Dropdown
+      :model-value="String(drawing.style.strokeWidth ?? 1)"
+      :options="widthOptions"
+      size="sm"
       title="线宽"
-    >
-      <option :value="1">1px</option>
-      <option :value="2">2px</option>
-      <option :value="3">3px</option>
-      <option :value="4">4px</option>
-    </select>
+      @update:model-value="onWidthChange(Number($event))"
+    />
 
-    <select
-      class="toolbar-select"
-      :value="drawing.style.strokeStyle ?? 'solid'"
-      @change="onLineStyleChange(($event.target as HTMLSelectElement).value as 'solid' | 'dashed' | 'dotted')"
+    <Dropdown
+      :model-value="drawing.style.strokeStyle ?? 'solid'"
+      :options="styleOptions"
+      size="sm"
       title="线型"
-    >
-      <option value="solid">实线</option>
-      <option value="dashed">虚线</option>
-      <option value="dotted">点线</option>
-    </select>
+      @update:model-value="onLineStyleChange($event as 'solid' | 'dashed' | 'dotted')"
+    />
 
     <button type="button" class="toolbar-btn delete-btn" title="删除" @click="$emit('delete')">
       <svg class="delete-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -51,6 +44,20 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
 import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
+import Dropdown from './Dropdown.vue'
+
+const widthOptions = [
+  { label: '1px', value: '1' },
+  { label: '2px', value: '2' },
+  { label: '3px', value: '3' },
+  { label: '4px', value: '4' },
+]
+
+const styleOptions = [
+  { label: '实线', value: 'solid' },
+  { label: '虚线', value: 'dashed' },
+  { label: '点线', value: 'dotted' },
+]
 
 const props = defineProps<{
   drawing: DrawingObject
@@ -134,22 +141,6 @@ function onLineStyleChange(style: 'solid' | 'dashed' | 'dotted') {
   cursor: pointer;
   width: 100%;
   height: 100%;
-}
-
-.toolbar-select {
-  height: 24px;
-  padding: 0 4px;
-  border: 1px solid var(--klc-color-axis-line);
-  border-radius: 4px;
-  background: var(--klc-color-tag-bg-white);
-  color: var(--klc-color-foreground);
-  font-size: 12px;
-  cursor: pointer;
-  outline: none;
-}
-
-.toolbar-select:hover {
-  border-color: var(--klc-color-axis-text);
 }
 
 .toolbar-btn {

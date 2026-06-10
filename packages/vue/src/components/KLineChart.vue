@@ -1,6 +1,12 @@
 <template>
   <div ref="chartWrapperRef" class="chart-wrapper" :data-theme="chartTheme" :style="themeCssVars">
-    <TopToolbar />
+<TopToolbar
+      :symbol="semanticConfig.data.symbol"
+      :k-line-level="kLineLevel"
+      @add-overlay-symbol="$emit('addOverlaySymbol')"
+      @k-line-level-change="onKLineLevelChange"
+      @toggle-indicator="onToggleIndicator"
+    />
     <div
       class="chart-stage"
       :class="{
@@ -100,6 +106,7 @@
       </div>
     </div>
     <IndicatorSelector
+      ref="indicatorSelectorRef"
       :active-indicators="activeIndicators"
       :indicator-params="indicatorParams"
       @toggle="handleIndicatorToggle"
@@ -188,13 +195,23 @@ const emit = defineEmits<{
   (e: 'zoomLevelChange', level: number, kWidth: number): void
   (e: 'toggleFullscreen'): void
   (e: 'themeChange', theme: 'light' | 'dark'): void
+(e: 'addOverlaySymbol'): void
+  (e: 'kLineLevelChange', level: string): void
 }>()
+
+const kLineLevel = ref(props.semanticConfig.data.period)
+
+function onKLineLevelChange(level: string) {
+  kLineLevel.value = level as typeof kLineLevel.value
+  emit('kLineLevelChange', level)
+}
 
 const containerRef = ref<HTMLDivElement | null>(null)
 const chartMainRef = ref<HTMLDivElement | null>(null)
 const chartWrapperRef = ref<HTMLDivElement | null>(null)
 const tooltipLayerRef = ref<HTMLDivElement | null>(null)
 const toolbarRef = ref<InstanceType<typeof LeftToolbar> | null>(null)
+const indicatorSelectorRef = ref<InstanceType<typeof IndicatorSelector> | null>(null)
 provideFullscreenTeleportTarget(chartWrapperRef)
 
 /* ========== 图表控制器 ========== */
@@ -479,10 +496,15 @@ function handleSelectTool(toolId: string) {
   drawingController.value?.setTool(toolId as DrawingToolId)
 }
 
+function onToggleIndicator() {
+  indicatorSelectorRef.value?.toggleMenu()
+}
+
 function onUpdateDrawingStyle(style: Partial<DrawingStyle>) {
   const d = selectedDrawing.value
   if (!d || !drawingController.value) return
   drawingController.value.updateDrawingStyle(d.id, style)
+  drawings.value = drawingController.value.getDrawings()
 }
 
 function onDeleteDrawing() {
@@ -1178,10 +1200,11 @@ watch(
   display: flex;
   align-items: center;
   width: var(--kmap-width);
-  height: var(--kmap-height);
+  height: calc(var(--kmap-height) - 32px);
   min-height: 300px;
   flex-direction: column;
-  padding: 16px 0 0;
+  margin: 16px 0;
+  padding: 0;
   box-sizing: border-box;
   gap: 4px;
 }

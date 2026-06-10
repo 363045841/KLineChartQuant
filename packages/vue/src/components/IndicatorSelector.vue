@@ -1,87 +1,5 @@
 <template>
   <div class="indicator-selector">
-    <div class="indicator-scroll-container">
-      <div class="indicator-list">
-        <!-- 已激活的指标 -->
-        <template v-for="indicator in activeIndicatorsList" :key="indicator.id">
-          <div
-            v-if="indicator.id === firstActiveSubIndicatorId"
-            class="indicator-divider"
-            aria-hidden="true"
-          ></div>
-
-          <div
-            class="indicator-item"
-            :class="{
-              draggable: isSubIndicatorId(indicator.id),
-              'drag-over': dragOverIndicatorId === indicator.id,
-              'is-dragging': draggingIndicatorId === indicator.id,
-            }"
-            :draggable="isSubIndicatorId(indicator.id)"
-            @dragstart="onDragStart($event, indicator.id)"
-            @dragover.prevent="onDragOver($event, indicator.id)"
-            @drop.prevent="onDrop($event, indicator.id)"
-            @dragend="onDragEnd"
-          >
-            <div
-              class="indicator-btn-wrapper"
-              @mouseenter="hoveredIndicator = indicator.id"
-              @mouseleave="hoveredIndicator = null"
-            >
-              <button
-                class="indicator-btn"
-                :class="{ active: true, hovering: hoveredIndicator === indicator.id }"
-              >
-                <span class="btn-content">
-                  {{ indicator.label }}
-                  <span v-if="indicator.params?.length" class="param-hint">
-                    ({{ getParamDisplay(indicator) }})
-                  </span>
-                </span>
-                <!-- 悬浮操作层 -->
-                <Transition name="fade">
-                  <div v-if="hoveredIndicator === indicator.id" class="hover-overlay">
-                    <button
-                      v-if="indicator.params?.length"
-                      class="action-btn settings-btn"
-                      @click.stop="showParams(indicator.id)"
-                      title="编辑参数"
-                    >
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                        <path
-                          d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
-                        />
-                      </svg>
-                    </button>
-                    <span v-if="indicator.params?.length" class="divider"></span>
-                    <button
-                      class="action-btn remove-btn"
-                      @click.stop="removeIndicator(indicator.id)"
-                      title="移除指标"
-                    >
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                        <path
-                          d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                </Transition>
-              </button>
-            </div>
-          </div>
-        </template>
-
-        <!-- 添加按钮 -->
-        <div class="indicator-item">
-          <button ref="addBtnRef" class="add-btn" @click.stop="controller.toggleMenu()" title="添加指标">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-            </svg>
-          </button>
-        </div>
-      </div>
-    </div>
 
     <!-- 添加指标弹窗 -->
     <Teleport :to="teleportTarget">
@@ -300,7 +218,6 @@ import {
   type IndicatorDefinition,
   allIndicators,
   findIndicator,
-  isSubIndicatorId,
   type Indicator,
 } from '@363045841yyt/klinechart-core/controllers'
 
@@ -353,34 +270,12 @@ const hasSearchResults = computed(
 const catalogLen = controller.catalog.peek().length
 
 // ── 本地 UI 状态（非 Controller 管理的纯 UI 状态） ──
-const addBtnRef = ref<HTMLButtonElement | null>(null)
 const paramsVisible = ref(false)
 const currentIndicatorId = ref<string | null>(null)
-const hoveredIndicator = ref<string | null>(null)
-const dragOverIndicatorId = ref<string | null>(null)
-const draggingIndicatorId = ref<string | null>(null)
 const isCompactView = ref(false)
 
 // Teleport target for fullscreen modal visibility
 const teleportTarget = useFullscreenTeleportTarget()
-
-const activeIndicatorsList = computed(() => {
-  if (!props.activeIndicators?.length) return []
-  return props.activeIndicators
-    .map((id) => findIndicator(id))
-    .filter((i): i is Indicator => i !== undefined)
-    .sort((a, b) => {
-      if (a.pane === b.pane) return 0
-      return a.pane === 'main' ? -1 : 1
-    })
-})
-
-const firstActiveSubIndicatorId = computed(() => {
-  const hasMain = activeIndicatorsList.value.some((indicator) => indicator.pane === 'main')
-  if (!hasMain) return null
-  const firstSub = activeIndicatorsList.value.find((indicator) => indicator.pane === 'sub')
-  return firstSub?.id ?? null
-})
 
 const currentIndicator = computed(() => {
   if (!currentIndicatorId.value) return null
@@ -432,82 +327,11 @@ function getParamValues(indicatorId: string): Record<string, number> {
   return result
 }
 
-function getParamDisplay(indicator: Indicator): string {
-  const values = getParamValues(indicator.id)
-  if (!indicator.params) return ''
-  return indicator.params.map((p) => values[p.key] ?? '').join(',')
-}
-
 function onParamsConfirm(values: Record<string, number>) {
   if (currentIndicatorId.value) {
     emit('updateParams', currentIndicatorId.value, values)
   }
   paramsVisible.value = false
-}
-
-function onDragStart(event: DragEvent, indicatorId: string) {
-  if (!isSubIndicatorId(indicatorId)) {
-    event.preventDefault()
-    return
-  }
-  draggingIndicatorId.value = indicatorId
-  dragOverIndicatorId.value = null
-  event.dataTransfer?.setData('text/plain', indicatorId)
-  if (event.dataTransfer) {
-    event.dataTransfer.effectAllowed = 'move'
-  }
-}
-
-function onDragOver(event: DragEvent, indicatorId: string) {
-  if (
-    !draggingIndicatorId.value ||
-    !isSubIndicatorId(indicatorId) ||
-    draggingIndicatorId.value === indicatorId
-  )
-    return
-  dragOverIndicatorId.value = indicatorId
-  if (event.dataTransfer) {
-    event.dataTransfer.dropEffect = 'move'
-  }
-}
-
-function onDrop(event: DragEvent, targetIndicatorId: string) {
-  const sourceIndicatorId =
-    draggingIndicatorId.value || event.dataTransfer?.getData('text/plain') || ''
-  if (!sourceIndicatorId || sourceIndicatorId === targetIndicatorId) {
-    onDragEnd()
-    return
-  }
-  if (!isSubIndicatorId(sourceIndicatorId) || !isSubIndicatorId(targetIndicatorId)) {
-    onDragEnd()
-    return
-  }
-
-  const sourceIndex = activeIndicatorsList.value.findIndex((i) => i.id === sourceIndicatorId)
-  const targetIndex = activeIndicatorsList.value.findIndex((i) => i.id === targetIndicatorId)
-  if (sourceIndex < 0 || targetIndex < 0) {
-    onDragEnd()
-    return
-  }
-
-  const next = [...activeIndicatorsList.value.map((i) => i.id)]
-  const [moved] = next.splice(sourceIndex, 1)
-  if (!moved) {
-    onDragEnd()
-    return
-  }
-  next.splice(targetIndex, 0, moved)
-
-  emit(
-    'reorderSubIndicators',
-    next.filter((id) => isSubIndicatorId(id)),
-  )
-  onDragEnd()
-}
-
-function onDragEnd() {
-  dragOverIndicatorId.value = null
-  draggingIndicatorId.value = null
 }
 
 function handleKeydown(event: KeyboardEvent) {
@@ -523,186 +347,17 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
 })
+
+defineExpose({
+  openMenu: () => controller.openMenu(),
+  closeMenu: () => controller.closeMenu(),
+  toggleMenu: () => controller.toggleMenu(),
+})
 </script>
 
 <style scoped>
 .indicator-selector {
-  margin: 0 20px 16px;
-  width: 80%;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.indicator-scroll-container {
-  width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-  display: flex;
-  align-items: center;
-}
-
-.indicator-scroll-container::-webkit-scrollbar {
   display: none;
-}
-
-.indicator-list {
-  display: inline-flex;
-  gap: 8px;
-  padding: 2px;
-  margin: 0 auto;
-}
-
-.indicator-divider {
-  width: 1px;
-  height: 20px;
-  align-self: center;
-  background: var(--klc-color-axis-line);
-}
-
-.indicator-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.indicator-item.draggable,
-.indicator-item.draggable .indicator-btn,
-.indicator-item.draggable:hover,
-.indicator-item.draggable:hover .indicator-btn {
-  cursor: move;
-}
-
-.indicator-item.is-dragging {
-  opacity: 0.6;
-}
-
-.indicator-item.drag-over .indicator-btn {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-foreground) 12%, transparent);
-}
-
-.indicator-btn-wrapper {
-  position: relative;
-}
-
-.indicator-btn {
-  position: relative;
-  flex-shrink: 0;
-  padding: 6px 16px;
-  border: none;
-  border-radius: 16px;
-  background: var(--klc-color-tag-bg-white);
-  color: var(--klc-color-axis-text);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  overflow: hidden;
-}
-
-.indicator-btn:hover:not(.hovering) {
-  background: var(--klc-color-tag-bg-hover);
-  color: var(--klc-color-foreground);
-}
-
-.indicator-btn.active {
-  background: var(--klc-color-tag-bg-hover);
-  color: var(--klc-color-foreground);
-}
-
-.indicator-btn.active:hover:not(.hovering) {
-  background: var(--klc-color-tag-bg-hover);
-}
-
-.btn-content {
-  position: relative;
-  z-index: 1;
-}
-
-.param-hint {
-  font-size: 11px;
-  opacity: 0.85;
-}
-
-/* 悬浮操作层 */
-.hover-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  background: color-mix(in srgb, var(--klc-color-background) 85%, transparent);
-  backdrop-filter: blur(4px);
-  border-radius: 16px;
-  z-index: 2;
-}
-
-.action-btn {
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--klc-color-axis-text);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.action-btn:hover {
-  background: var(--klc-color-tag-bg-hover);
-  color: var(--klc-color-foreground);
-}
-
-.settings-btn:hover {
-  color: var(--klc-color-foreground);
-}
-
-.remove-btn:hover {
-  color: #ff4d4f;
-}
-
-.divider {
-  width: 1px;
-  height: 14px;
-  background: var(--klc-color-border-button);
-}
-
-/* 添加按钮 */
-.add-btn {
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--klc-color-axis-text);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-}
-
-.add-btn:hover {
-  color: var(--klc-color-foreground);
-  background: var(--klc-color-tag-bg-hover);
 }
 
 /* ─────────────────────────────────────────────────────────────────
