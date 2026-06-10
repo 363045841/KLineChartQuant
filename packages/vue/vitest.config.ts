@@ -45,6 +45,7 @@ export default defineConfig({
         include: ['src/**/*.test.ts'],
     },
     resolve: {
+        extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json', '.vue'],
         alias: [
             ...coreAliases,
             { find: /^@\//, replacement: `${repoSrc}/` },
