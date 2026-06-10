@@ -3,7 +3,7 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import type { SuperTrendRenderState } from '../../indicators/supertrendState'
 import { createSuperTrendStateKey, EMPTY_SUPERTREND_STATE } from '../../indicators/supertrendState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, SuperTrendSchedulerConfig } from '../../indicators/scheduler'
 import { calcSuperTrendData } from '../../indicators/calculators'
 import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -100,9 +100,18 @@ export function createSuperTrendRendererPlugin(options: SuperTrendRendererOption
     }
 }
 
+export const getSuperTrendTitleInfo: GetTitleInfoFn = (_data, _index, params, _host, _paneId) => {
+    return {
+        name: 'SuperTrend',
+        params: [(params.atrPeriod as number) ?? 10, (params.multiplier as number) ?? 3],
+        values: [],
+    }
+}
+
 @Indicator({
     name: 'supertrend',
     displayName: 'SuperTrend',
+    getTitleInfo: getSuperTrendTitleInfo,
     category: 'oscillator',
     defaultPaneId: 'sub_SuperTrend',
     allowMainPane: true,

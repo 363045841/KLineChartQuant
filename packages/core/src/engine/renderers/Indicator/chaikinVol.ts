@@ -3,6 +3,7 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import type { ChaikinVolRenderState } from '../../indicators/chaikinVolState'
 import { createChaikinVolStateKey, EMPTY_CHAIKIN_VOL_STATE } from '../../indicators/chaikinVolState'
 import type { TitleInfo } from '../../indicators/indicatorMetadata'
+import type { KLineData } from '../../../types/price'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -126,15 +127,16 @@ export function createChaikinVolRendererPlugin(options: { paneId?: string } = {}
 }
 
 export function getChaikinVolTitleInfo(
-    index: number,
-    emaPeriod: number,
-    rocPeriod: number,
-    pluginHost: PluginHost,
-    paneId: string = 'sub_ChaikinVol',
-    theme: 'light' | 'dark' = 'light',
-    isAsiaMarket?: boolean
+    _data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
+    host: PluginHost,
+    paneId: string,
 ): TitleInfo | null {
-    const state = pluginHost.getSharedState<ChaikinVolRenderState>(createChaikinVolStateKey(paneId))
+    if (index === null) return null
+    const emaPeriod = (params.emaPeriod as number) ?? 10
+    const rocPeriod = (params.rocPeriod as number) ?? 10
+    const state = host.getSharedState<ChaikinVolRenderState>(createChaikinVolStateKey(paneId))
     const value = state?.series[index]
     if (value === undefined) return null
 
@@ -152,6 +154,7 @@ export function getChaikinVolTitleInfo(
     defaultPaneId: 'sub_ChaikinVol',
     visibleState: { compose: createSparseVisibleStateComposer('chaikinVol', EMPTY_CHAIKIN_VOL_STATE) },
     scale: { indicatorKey: 'chaikinVol', label: 'ChaikinVol', decimals: 2 },
+    getTitleInfo: getChaikinVolTitleInfo,
     runtime: {
         defaultConfig: { emaPeriod: 10, rocPeriod: 10, showChaikinVol: true },
         computeKey: 'calcChaikinVolData',

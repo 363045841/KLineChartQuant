@@ -10,6 +10,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, RSISchedulerConfig } from '../../indicators/scheduler'
 import { createRsiScaleRendererPlugin } from './scale/rsi_scale'
 import { calcRSIData } from '../../indicators/calculators'
+import type { KLineData } from '../../../types/price'
 
 type LinePoint = { x: number; y: number }
 
@@ -351,16 +352,17 @@ export function drawRSILinesWithCanvas2D(
 }
 
 export function getRSITitleInfo(
-    index: number,
-    period1: number,
-    period2: number,
-    period3: number,
+    _data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
     pluginHost: PluginHost,
-    paneId: string = 'sub_RSI',
-    theme: 'light' | 'dark' = 'light',
-    isAsiaMarket?: boolean
+    paneId: string,
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-    const colors = resolveThemeColors(theme, isAsiaMarket)
+    if (index === null) return null
+    const period1 = (params.period1 as number) ?? 6
+    const period2 = (params.period2 as number) ?? 12
+    const period3 = (params.period3 as number) ?? 24
+    const colors = resolveThemeColors('light')
     const stateKey = createRSIStateKey(paneId)
     const state = pluginHost.getSharedState<RSIRenderState>(stateKey)
 
@@ -391,6 +393,7 @@ export function getRSITitleInfo(
     defaultPaneId: 'sub_RSI',
     visibleState: { compose: createFixedRangeRecordVisibleStateComposer('rsi', EMPTY_RSI_STATE) },
     scaleRendererFactory: createRsiScaleRendererPlugin,
+    getTitleInfo: getRSITitleInfo,
     runtime: { defaultConfig:{period1:6,period2:12,period3:24,showRSI1:true,showRSI2:true,showRSI3:true}, computeKey:'calcRSIData', compute:(data,c)=>{const p=[c.period1,c.period2,c.period3];const s=[c.showRSI1,c.showRSI2,c.showRSI3];const r:Record<number,(number|undefined)[]>={};for(let i=0;i<3;i++){if(s[i])r[p[i]]=calcRSIData(data,p[i])}return r} },
 })
 class RSIIndicatorDefinition {

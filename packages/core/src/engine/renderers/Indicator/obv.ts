@@ -8,6 +8,7 @@ import { createSparseVisibleStateComposer } from '../../indicators/visibleStateC
 import type { IndicatorScheduler, OBVSchedulerConfig } from '../../indicators/scheduler'
 import { calcOBVData } from '../../indicators/calculators'
 import type { TitleInfo } from '../../indicators/indicatorMetadata'
+import type { KLineData } from '../../../types/price'
 
 const OBV_COLOR = '#16a34a'
 
@@ -111,13 +112,14 @@ export function createOBVRendererPlugin(options: { paneId?: string } = {}): Rend
 }
 
 export function getOBVTitleInfo(
-  index: number,
-  pluginHost: PluginHost,
-  paneId: string = 'sub_OBV',
-  theme: 'light' | 'dark' = 'light',
-  isAsiaMarket?: boolean
+  _data: KLineData[],
+  index: number | null,
+  _params: Record<string, number | boolean | string>,
+  host: PluginHost,
+  paneId: string,
 ): TitleInfo | null {
-  const state = pluginHost.getSharedState<OBVRenderState>(createOBVStateKey(paneId))
+  if (index === null) return null
+  const state = host.getSharedState<OBVRenderState>(createOBVStateKey(paneId))
   const value = state?.series[index]
   if (value === undefined) return null
 
@@ -135,6 +137,7 @@ export function getOBVTitleInfo(
     defaultPaneId: 'sub_OBV',
     visibleState: { compose: createSparseVisibleStateComposer('obv', EMPTY_OBV_STATE) },
     scale: { indicatorKey: 'obv', label: 'OBV', decimals: 0 },
+    getTitleInfo: getOBVTitleInfo,
     runtime: {
         defaultConfig: { showOBV: true },
         computeKey: 'calcOBVData',

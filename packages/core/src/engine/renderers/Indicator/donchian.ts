@@ -3,7 +3,7 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import type { DonchianRenderState } from '../../indicators/donchianState'
 import { createDonchianStateKey, EMPTY_DONCHIAN_STATE } from '../../indicators/donchianState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, DonchianSchedulerConfig } from '../../indicators/scheduler'
 import { calcDonchianData } from '../../indicators/calculators'
 import { createBandVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -123,9 +123,18 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     ctx.stroke()
 }
 
+export const getDonchianTitleInfo: GetTitleInfoFn = (_data, _index, params, _host, _paneId) => {
+    return {
+        name: 'Donchian',
+        params: [(params.period as number) ?? 20],
+        values: [],
+    }
+}
+
 @Indicator({
     name: 'donchian',
     displayName: 'Donchian',
+    getTitleInfo: getDonchianTitleInfo,
     category: 'main',
     defaultPaneId: 'main',
     allowMainPane: true,

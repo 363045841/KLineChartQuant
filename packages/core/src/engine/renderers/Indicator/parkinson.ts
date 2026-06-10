@@ -10,6 +10,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, ParkinsonSchedulerConfig } from '../../indicators/scheduler'
 import { calcParkinsonData } from '../../indicators/calculators'
 import type { TitleInfo } from '../../indicators/indicatorMetadata'
+import type { KLineData } from '../../../types/price'
 
 const PARKINSON_COLOR = '#0891b2'
 
@@ -114,15 +115,16 @@ export function createParkinsonRendererPlugin(options: { paneId?: string } = {})
 }
 
 export function getParkinsonTitleInfo(
-  index: number,
-  period: number,
-  annualizationFactor: number,
-  pluginHost: PluginHost,
-  paneId: string = 'sub_Parkinson',
-  theme: 'light' | 'dark' = 'light',
-  isAsiaMarket?: boolean
+  _data: KLineData[],
+  index: number | null,
+  params: Record<string, number | boolean | string>,
+  host: PluginHost,
+  paneId: string,
 ): TitleInfo | null {
-  const state = pluginHost.getSharedState<ParkinsonRenderState>(createParkinsonStateKey(paneId))
+  if (index === null) return null
+  const period = (params.period as number) ?? 20
+  const annualizationFactor = (params.annualizationFactor as number) ?? 252
+  const state = host.getSharedState<ParkinsonRenderState>(createParkinsonStateKey(paneId))
   const value = state?.series[index]
   if (value === undefined) return null
 
@@ -139,6 +141,7 @@ export function getParkinsonTitleInfo(
     category: 'oscillator',
     defaultPaneId: 'sub_Parkinson',
     scale: { indicatorKey: 'parkinson', label: 'Parkinson', decimals: 2 },
+    getTitleInfo: getParkinsonTitleInfo,
     visibleState: { compose: createNonNegativeSparseVisibleStateComposer('parkinson', EMPTY_PARKINSON_STATE) },
     runtime: { defaultConfig:{period:20,annualizationFactor:252,showParkinson:true}, computeKey:'calcParkinsonData', compute:(data,c)=>calcParkinsonData(data,c.period,c.annualizationFactor) },
 })

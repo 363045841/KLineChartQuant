@@ -3,7 +3,7 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import type { KeltnerRenderState } from '../../indicators/keltnerState'
 import { createKeltnerStateKey, EMPTY_KELTNER_STATE } from '../../indicators/keltnerState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, KeltnerSchedulerConfig } from '../../indicators/scheduler'
 import { calcKeltnerData } from '../../indicators/calculators'
 import { createBandVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -123,9 +123,18 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     ctx.stroke()
 }
 
+export const getKeltnerTitleInfo: GetTitleInfoFn = (_data, _index, params, _host, _paneId) => {
+    return {
+        name: 'Keltner',
+        params: [(params.emaPeriod as number) ?? 20, (params.atrPeriod as number) ?? 10, (params.multiplier as number) ?? 2],
+        values: [],
+    }
+}
+
 @Indicator({
     name: 'keltner',
     displayName: 'Keltner',
+    getTitleInfo: getKeltnerTitleInfo,
     category: 'main',
     defaultPaneId: 'main',
     allowMainPane: true,

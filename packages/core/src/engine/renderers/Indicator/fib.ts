@@ -3,7 +3,7 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import type { FibRenderState } from '../../indicators/fibState'
 import { createFibStateKey, EMPTY_FIB_STATE } from '../../indicators/fibState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, FibSchedulerConfig } from '../../indicators/scheduler'
 import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { calcFibData } from '../../indicators/calculators'
@@ -126,9 +126,18 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     ctx.stroke()
 }
 
+export const getFibTitleInfo: GetTitleInfoFn = (_data, _index, params, _host, _paneId) => {
+    return {
+        name: 'Fib',
+        params: [(params.period as number) ?? 50],
+        values: [],
+    }
+}
+
 @Indicator({
     name: 'fib',
     displayName: 'Fib',
+    getTitleInfo: getFibTitleInfo,
     category: 'main',
     defaultPaneId: 'main',
     allowMainPane: true,

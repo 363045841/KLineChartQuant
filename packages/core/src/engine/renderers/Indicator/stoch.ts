@@ -10,6 +10,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, STOCHSchedulerConfig } from '../../indicators/scheduler'
 import { createStochScaleRendererPlugin } from './scale/stoch_scale'
 import { calcSTOCHData } from '../../indicators/calculators'
+import type { KLineData } from '../../../types/price'
 
 type LinePoint = { x: number; y: number }
 
@@ -319,15 +320,16 @@ function drawSTOCHLinesWithCanvas2D(
  * 获取 STOCH 标题信息（供 paneTitle 使用）
  */
 export function getSTOCHTitleInfo(
-    index: number,
-    n: number,
-    m: number,
+    _data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
     pluginHost: PluginHost,
-    paneId: string = 'sub_STOCH',
-    theme: 'light' | 'dark' = 'light',
-    isAsiaMarket?: boolean
+    paneId: string,
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-    const colors = resolveThemeColors(theme, isAsiaMarket)
+    if (index === null) return null
+    const n = (params.n as number) ?? 9
+    const m = (params.m as number) ?? 3
+    const colors = resolveThemeColors('light')
     const state = pluginHost.getSharedState<STOCHRenderState>(createSTOCHStateKey(paneId))
     if (!state) return null
 
@@ -354,6 +356,7 @@ export function getSTOCHTitleInfo(
     defaultPaneId: 'sub_STOCH',
     visibleState: { compose: createFixedRangePointVisibleStateComposer('stoch', EMPTY_STOCH_STATE, ['k', 'd'] as const) },
     scaleRendererFactory: createStochScaleRendererPlugin,
+    getTitleInfo: getSTOCHTitleInfo,
     runtime: { defaultConfig:{n:9,m:3,showK:true,showD:true}, computeKey:'calcSTOCHData', compute:(data,c)=>calcSTOCHData(data,c.n,c.m) },
 })
 class STOCHIndicatorDefinition {

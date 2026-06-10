@@ -4,6 +4,7 @@ import type { VMARenderState } from '../../indicators/vmaState'
 import { createVMAStateKey } from '../../indicators/vmaState'
 import { EMPTY_VMA_STATE } from '../../indicators/vmaState'
 import type { TitleInfo } from '../../indicators/indicatorMetadata'
+import type { KLineData } from '../../../types/price'
 import { createNonNegativeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -113,14 +114,15 @@ export function createVMARendererPlugin(options: { paneId?: string } = {}): Rend
 }
 
 export function getVMATitleInfo(
-    index: number,
-    period: number,
-    pluginHost: PluginHost,
-    paneId: string = 'sub_VMA',
-    theme: 'light' | 'dark' = 'light',
-    isAsiaMarket?: boolean
+    _data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
+    host: PluginHost,
+    paneId: string,
 ): TitleInfo | null {
-    const state = pluginHost.getSharedState<VMARenderState>(createVMAStateKey(paneId))
+    if (index === null) return null
+    const period = (params.period as number) ?? 5
+    const state = host.getSharedState<VMARenderState>(createVMAStateKey(paneId))
     const value = state?.series[index]
     if (value === undefined) return null
 
@@ -137,6 +139,7 @@ export function getVMATitleInfo(
     category: 'volume',
     defaultPaneId: 'sub_VMA',
     scale: { indicatorKey: 'vma', label: 'VMA', decimals: 0 },
+    getTitleInfo: getVMATitleInfo,
     visibleState: { compose: createNonNegativeSparseVisibleStateComposer('vma', EMPTY_VMA_STATE) },
     runtime: {
         defaultConfig: { period: 5, showVMA: true },

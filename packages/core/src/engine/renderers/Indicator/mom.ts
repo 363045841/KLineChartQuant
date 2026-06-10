@@ -11,6 +11,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, MOMSchedulerConfig } from '../../indicators/scheduler'
 import { createMomScaleRendererPlugin } from './scale/mom_scale'
 import { calcMOMData } from '../../indicators/calculators'
+import type { KLineData } from '../../../types/price'
 
 type LinePoint = { x: number; y: number }
 
@@ -277,14 +278,15 @@ function drawMOMLineWithCanvas2D(
  * 获取 MOM 标题信息（供 paneTitle 使用）
  */
 export function getMOMTitleInfo(
-    index: number,
-    period: number,
+    _data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
     pluginHost: PluginHost,
-    paneId: string = 'sub_MOM',
-    theme: 'light' | 'dark' = 'light',
-    isAsiaMarket?: boolean
+    paneId: string,
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-    const colors = resolveThemeColors(theme, isAsiaMarket)
+    if (index === null) return null
+    const period = (params.period as number) ?? 10
+    const colors = resolveThemeColors('light')
     const state = pluginHost.getSharedState<MOMRenderState>(createMOMStateKey(paneId))
     if (!state) return null
 
@@ -307,6 +309,7 @@ export function getMOMTitleInfo(
     defaultPaneId: 'sub_MOM',
     scaleRendererFactory: createMomScaleRendererPlugin,
     visibleState: { compose: createPaddedSparseVisibleStateComposer('mom', EMPTY_MOM_STATE) },
+    getTitleInfo: getMOMTitleInfo,
     runtime: {
         defaultConfig: { period: 10, showMOM: true },
         computeKey: 'calcMOMData',

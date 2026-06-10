@@ -3,7 +3,7 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import type { KAMARenderState } from '../../indicators/kamaState'
 import { createKAMAStateKey, EMPTY_KAMA_STATE } from '../../indicators/kamaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, KAMASchedulerConfig } from '../../indicators/scheduler'
 import { calcKAMAData } from '../../indicators/calculators'
@@ -121,9 +121,18 @@ export function createKAMARendererPlugin(options: KAMARendererOptions = {}): Ren
     }
 }
 
+export const getKAMATitleInfo: GetTitleInfoFn = (_data, _index, params, _host, _paneId) => {
+    return {
+        name: 'KAMA',
+        params: [(params.period as number) ?? 10, (params.fastPeriod as number) ?? 2, (params.slowPeriod as number) ?? 30],
+        values: [],
+    }
+}
+
 @Indicator({
     name: 'kama',
     displayName: 'KAMA',
+    getTitleInfo: getKAMATitleInfo,
     category: 'main',
     defaultPaneId: 'main',
     allowMainPane: true,

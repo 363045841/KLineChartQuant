@@ -3,7 +3,7 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import type { WMARenderState } from '../../indicators/wmaState'
 import { createWMAStateKey, EMPTY_WMA_STATE } from '../../indicators/wmaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, WMASchedulerConfig } from '../../indicators/scheduler'
 import { calcWMAData } from '../../indicators/calculators'
@@ -121,9 +121,18 @@ export function createWMARendererPlugin(options: WMARendererOptions = {}): Rende
     }
 }
 
+export const getWMATitleInfo: GetTitleInfoFn = (_data, _index, params, _host, _paneId) => {
+    return {
+        name: 'WMA',
+        params: [(params.period as number) ?? 10],
+        values: [],
+    }
+}
+
 @Indicator({
     name: 'wma',
     displayName: 'WMA',
+    getTitleInfo: getWMATitleInfo,
     category: 'main',
     defaultPaneId: 'main',
     allowMainPane: true,

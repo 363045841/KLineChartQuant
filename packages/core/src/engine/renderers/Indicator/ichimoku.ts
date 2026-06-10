@@ -3,7 +3,7 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import type { IchimokuRenderState } from '../../indicators/ichimokuState'
 import { createIchimokuStateKey, EMPTY_ICHIMOKU_STATE } from '../../indicators/ichimokuState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, IchimokuSchedulerConfig } from '../../indicators/scheduler'
 import { calcIchimokuData } from '../../indicators/calculators'
 import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -167,9 +167,18 @@ function fillCloud(
     }
 }
 
+export const getIchimokuTitleInfo: GetTitleInfoFn = (_data, _index, params, _host, _paneId) => {
+    return {
+        name: 'Ichimoku',
+        params: [(params.tenkanPeriod as number) ?? 9, (params.kijunPeriod as number) ?? 26, (params.spanBPeriod as number) ?? 52, (params.displacement as number) ?? 26],
+        values: [],
+    }
+}
+
 @Indicator({
     name: 'ichimoku',
     displayName: 'Ichimoku',
+    getTitleInfo: getIchimokuTitleInfo,
     category: 'main',
     defaultPaneId: 'main',
     allowMainPane: true,

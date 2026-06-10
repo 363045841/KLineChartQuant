@@ -3,7 +3,7 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import type { DEMARenderState } from '../../indicators/demaState'
 import { createDEMAStateKey, EMPTY_DEMA_STATE } from '../../indicators/demaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, DEMASchedulerConfig } from '../../indicators/scheduler'
 import { calcDEMAData } from '../../indicators/calculators'
@@ -121,9 +121,18 @@ export function createDEMARendererPlugin(options: DEMARendererOptions = {}): Ren
     }
 }
 
+export const getDEMATitleInfo: GetTitleInfoFn = (_data, _index, params, _host, _paneId) => {
+    return {
+        name: 'DEMA',
+        params: [(params.period as number) ?? 14],
+        values: [],
+    }
+}
+
 @Indicator({
     name: 'dema',
     displayName: 'DEMA',
+    getTitleInfo: getDEMATitleInfo,
     category: 'main',
     defaultPaneId: 'main',
     allowMainPane: true,

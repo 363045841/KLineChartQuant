@@ -8,6 +8,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, VolumeProfileSchedulerConfig } from '../../indicators/scheduler'
 import { calcVolumeProfileData } from '../../indicators/calculators'
 import type { TitleInfo } from '../../indicators/indicatorMetadata'
+import type { KLineData } from '../../../types/price'
 import { resolveThemeColors } from '../../../tokens'
 
 const BAR_FILL = 'rgba(99, 102, 241, 0.35)'
@@ -118,16 +119,15 @@ const VP_VAH_COLOR = '#6366f1'
 const VP_VAL_COLOR = '#818cf8'
 
 export function getVolumeProfileTitleInfo(
-  index: number,
-  bins: number,
-  lookback: number,
-  valueAreaPercent: number,
-  pluginHost: PluginHost,
-  paneId: string = 'sub_VolumeProfile',
-  theme: 'light' | 'dark' = 'light',
-  isAsiaMarket?: boolean
+  _data: KLineData[],
+  index: number | null,
+  params: Record<string, number | boolean | string>,
+  host: PluginHost,
+  paneId: string,
 ): TitleInfo | null {
-  const state = pluginHost.getSharedState<VolumeProfileRenderState>(createVolumeProfileStateKey(paneId))
+  if (index === null) return null
+  const bins = (params.bins as number) ?? 24
+  const state = host.getSharedState<VolumeProfileRenderState>(createVolumeProfileStateKey(paneId))
   const vp = state?.series
 
   const values: Array<{ label: string; value: number; color: string }> = []
@@ -154,6 +154,7 @@ export function getVolumeProfileTitleInfo(
     category: 'volume',
     defaultPaneId: 'sub_VolumeProfile',
     scale: { indicatorKey: 'volumeProfile', label: 'VP', decimals: 0 },
+    getTitleInfo: getVolumeProfileTitleInfo,
     visibleState: { compose: createVolumeProfileVisibleStateComposer('volumeProfile', EMPTY_VOLUME_PROFILE_STATE) },
     runtime: { defaultConfig:{bins:24,lookback:100,valueAreaPercent:70,showPOC:true,showValueArea:true}, computeKey:'calcVolumeProfileData', compute:(data,c)=>calcVolumeProfileData(data,c.bins,c.lookback,c.valueAreaPercent) },
 })

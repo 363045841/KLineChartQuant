@@ -8,6 +8,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, ROCSchedulerConfig } from '../../indicators/scheduler'
 import { calcROCData } from '../../indicators/calculators'
+import type { KLineData } from '../../../types/price'
 import type { TitleInfo } from '../../indicators/indicatorMetadata'
 
 const ROC_COLOR = '#0ea5e9'
@@ -132,13 +133,14 @@ export function createROCRendererPlugin(options: ROCRendererOptions = {}): Rende
 }
 
 export function getROCTitleInfo(
-  index: number,
-  period: number,
+  _data: KLineData[],
+  index: number | null,
+  params: Record<string, number | boolean | string>,
   pluginHost: PluginHost,
-  paneId: string = 'sub_ROC',
-  theme: 'light' | 'dark' = 'light',
-  isAsiaMarket?: boolean
+  paneId: string,
 ): TitleInfo | null {
+  if (index === null) return null
+  const period = (params.period as number) ?? 12
   const state = pluginHost.getSharedState<ROCRenderState>(createROCStateKey(paneId))
   const value = state?.series[index]
   if (value === undefined) return null
@@ -157,6 +159,7 @@ export function getROCTitleInfo(
     defaultPaneId: 'sub_ROC',
     visibleState: { compose: createSparseVisibleStateComposer('roc', EMPTY_ROC_STATE) },
     scale: { indicatorKey: 'roc', label: 'ROC', decimals: 2 },
+    getTitleInfo: getROCTitleInfo,
     runtime: {
         defaultConfig: { period: 12, showROC: true },
         computeKey: 'calcROCData',

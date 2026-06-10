@@ -9,6 +9,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, CCISchedulerConfig } from '../../indicators/scheduler'
 import { createCciScaleRendererPlugin } from './scale/cci_scale'
 import { calcCCIData } from '../../indicators/calculators'
+import type { KLineData } from '../../../types/price'
 
 type LinePoint = { x: number; y: number }
 
@@ -240,14 +241,15 @@ function drawCCILineWithCanvas2D(
  * 获取 CCI 标题信息（供 paneTitle 使用）
  */
 export function getCCITitleInfo(
-    index: number,
-    period: number,
+    _data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
     pluginHost: PluginHost,
-    paneId: string = 'sub_CCI',
-    theme: 'light' | 'dark' = 'light',
-    isAsiaMarket?: boolean
+    paneId: string,
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-    const colors = resolveThemeColors(theme, isAsiaMarket)
+    if (index === null) return null
+    const period = (params.period as number) ?? 14
+    const colors = resolveThemeColors('light')
     const state = pluginHost.getSharedState<CCIRenderState>(createCCIStateKey(paneId))
     if (!state) return null
 
@@ -270,6 +272,7 @@ export function getCCITitleInfo(
     defaultPaneId: 'sub_CCI',
     scaleRendererFactory: createCciScaleRendererPlugin,
     visibleState: { compose: createCCIVisibleStateComposer('cci', EMPTY_CCI_STATE) },
+    getTitleInfo: getCCITitleInfo,
     runtime: {
         defaultConfig: { period: 14, showCCI: true },
         computeKey: 'calcCCIData',

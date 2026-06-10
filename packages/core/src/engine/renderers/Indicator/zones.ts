@@ -5,7 +5,7 @@ import type { ZonesRenderState } from '../../indicators/zonesState'
 import { createZonesStateKey, EMPTY_ZONES_STATE } from '../../indicators/zonesState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { createFixedUnitVisibleStateComposer } from '../../indicators/visibleStateComposers'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, ZonesSchedulerConfig } from '../../indicators/scheduler'
 import { calcZonesData } from '../../indicators/calculators'
 
@@ -90,9 +90,18 @@ export function createZonesRendererPlugin(options: { paneId?: string } = {}): Re
     }
 }
 
+export const getZonesTitleInfo: GetTitleInfoFn = (_data, _index, params, _host, _paneId) => {
+    return {
+        name: 'Zones',
+        params: [(params.obLookback as number) ?? 20],
+        values: [],
+    }
+}
+
 @Indicator({
     name: 'zones',
     displayName: 'Zones',
+    getTitleInfo: getZonesTitleInfo,
     category: 'main',
     defaultPaneId: 'main',
     allowMainPane: true,

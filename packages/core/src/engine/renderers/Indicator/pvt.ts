@@ -8,6 +8,7 @@ import { createSparseVisibleStateComposer } from '../../indicators/visibleStateC
 import type { IndicatorScheduler, PVTSchedulerConfig } from '../../indicators/scheduler'
 import { calcPVTData } from '../../indicators/calculators'
 import type { TitleInfo } from '../../indicators/indicatorMetadata'
+import type { KLineData } from '../../../types/price'
 
 const PVT_COLOR = '#a855f7'
 
@@ -111,13 +112,14 @@ export function createPVTRendererPlugin(options: { paneId?: string } = {}): Rend
 }
 
 export function getPVTTitleInfo(
-  index: number,
-  pluginHost: PluginHost,
-  paneId: string = 'sub_PVT',
-  theme: 'light' | 'dark' = 'light',
-  isAsiaMarket?: boolean
+  _data: KLineData[],
+  index: number | null,
+  _params: Record<string, number | boolean | string>,
+  host: PluginHost,
+  paneId: string,
 ): TitleInfo | null {
-  const state = pluginHost.getSharedState<PVTRenderState>(createPVTStateKey(paneId))
+  if (index === null) return null
+  const state = host.getSharedState<PVTRenderState>(createPVTStateKey(paneId))
   const value = state?.series[index]
   if (value === undefined) return null
 
@@ -135,6 +137,7 @@ export function getPVTTitleInfo(
     defaultPaneId: 'sub_PVT',
     visibleState: { compose: createSparseVisibleStateComposer('pvt', EMPTY_PVT_STATE) },
     scale: { indicatorKey: 'pvt', label: 'PVT', decimals: 0 },
+    getTitleInfo: getPVTTitleInfo,
     runtime: {
         defaultConfig: { showPVT: true },
         computeKey: 'calcPVTData',

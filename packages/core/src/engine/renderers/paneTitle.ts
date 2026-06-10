@@ -4,6 +4,7 @@ import { resolveThemeColors } from '../../tokens'
 import { getFont, setCanvasFont } from '../theme/fonts'
 import { SUB_PANE_INDICATOR_CONFIGS } from './Indicator/subPaneConfig'
 import type { SubIndicatorType } from './Indicator'
+import type { KLineData } from '../../types/price'
 
 /**
  * @deprecated 请从 indicatorMetadata 导入 TitleInfo
@@ -72,7 +73,7 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
             const config = SUB_PANE_INDICATOR_CONFIGS[currentOptions.indicatorId]
             const crosshairIndex = context.crosshairIndex ?? null
             const titleInfo = config && pluginHost
-                ? config.getTitleInfo(context.data, crosshairIndex, currentOptions.params as Record<string, number | boolean | string>, pluginHost, currentOptions.paneId)
+                ? config.getTitleInfo(context.data as KLineData[], crosshairIndex, currentOptions.params as Record<string, number | boolean | string>, pluginHost, currentOptions.paneId)
                 : null
 
             if (titleInfo) {

@@ -48,25 +48,25 @@ export { createFASTKRendererPlugin, type FASTKRendererOptions, getFASTKTitleInfo
 export { createATRRendererPlugin, type ATRRendererOptions, getATRTitleInfo } from './atr'
 
 // WMA 加权移动平均
-export { createWMARendererPlugin } from './wma'
+export { createWMARendererPlugin, getWMATitleInfo } from './wma'
 // DEMA 双指数移动平均
-export { createDEMARendererPlugin } from './dema'
+export { createDEMARendererPlugin, getDEMATitleInfo } from './dema'
 // TEMA 三指数移动平均
-export { createTEMARendererPlugin } from './tema'
+export { createTEMARendererPlugin, getTEMATitleInfo } from './tema'
 // HMA 赫尔移动平均
-export { createHMARendererPlugin } from './hma'
+export { createHMARendererPlugin, getHMATitleInfo } from './hma'
 // KAMA 考夫曼自适应移动平均
-export { createKAMARendererPlugin } from './kama'
+export { createKAMARendererPlugin, getKAMATitleInfo } from './kama'
 // SAR 抛物线转向
-export { createSARRendererPlugin } from './sar'
+export { createSARRendererPlugin, getSARTitleInfo } from './sar'
 // SuperTrend 超级趋势
-export { createSuperTrendRendererPlugin } from './supertrend'
+export { createSuperTrendRendererPlugin, getSuperTrendTitleInfo } from './supertrend'
 // Keltner 肯特纳通道
-export { createKeltnerRendererPlugin } from './keltner'
+export { createKeltnerRendererPlugin, getKeltnerTitleInfo } from './keltner'
 // Donchian 唐奇安通道
-export { createDonchianRendererPlugin } from './donchian'
+export { createDonchianRendererPlugin, getDonchianTitleInfo } from './donchian'
 // Ichimoku 一目均衡表
-export { createIchimokuRendererPlugin } from './ichimoku'
+export { createIchimokuRendererPlugin, getIchimokuTitleInfo } from './ichimoku'
 // ROC 变化率
 export { createROCRendererPlugin, getROCTitleInfo } from './roc'
 // TRIX 三重指数平滑平均
@@ -90,13 +90,13 @@ export { createCMFRendererPlugin, getCMFTitleInfo } from './cmf'
 // MFI 资金流量指数
 export { createMFIRendererPlugin, getMFITitleInfo } from './mfi'
 // Pivot Points 枢轴点
-export { createPivotRendererPlugin } from './pivot'
+export { createPivotRendererPlugin, getPivotTitleInfo } from './pivot'
 // Fibonacci 斐波那契
-export { createFibRendererPlugin } from './fib'
+export { createFibRendererPlugin, getFibTitleInfo } from './fib'
 // SMC Structure 结构
 export { createStructureRendererPlugin, getStructureTitleInfo } from './structure'
 // SMC Zones 区域
-export { createZonesRendererPlugin } from './zones'
+export { createZonesRendererPlugin, getZonesTitleInfo } from './zones'
 // Volume Profile 成交量分布
 export { createVolumeProfileRendererPlugin, getVolumeProfileTitleInfo } from './volumeProfile'
 

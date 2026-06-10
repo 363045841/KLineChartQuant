@@ -10,6 +10,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, HVSchedulerConfig } from '../../indicators/scheduler'
 import { calcHVData } from '../../indicators/calculators'
 import type { TitleInfo } from '../../indicators/indicatorMetadata'
+import type { KLineData } from '../../../types/price'
 
 const HV_COLOR = '#7c3aed'
 
@@ -114,15 +115,16 @@ export function createHVRendererPlugin(options: { paneId?: string } = {}): Rende
 }
 
 export function getHVTitleInfo(
-  index: number,
-  period: number,
-  annualizationFactor: number,
-  pluginHost: PluginHost,
-  paneId: string = 'sub_HV',
-  theme: 'light' | 'dark' = 'light',
-  isAsiaMarket?: boolean
+  _data: KLineData[],
+  index: number | null,
+  params: Record<string, number | boolean | string>,
+  host: PluginHost,
+  paneId: string,
 ): TitleInfo | null {
-  const state = pluginHost.getSharedState<HVRenderState>(createHVStateKey(paneId))
+  if (index === null) return null
+  const period = (params.period as number) ?? 20
+  const annualizationFactor = (params.annualizationFactor as number) ?? 252
+  const state = host.getSharedState<HVRenderState>(createHVStateKey(paneId))
   const value = state?.series[index]
   if (value === undefined) return null
 
@@ -139,6 +141,7 @@ export function getHVTitleInfo(
     category: 'oscillator',
     defaultPaneId: 'sub_HV',
     scale: { indicatorKey: 'hv', label: 'HV', decimals: 2 },
+    getTitleInfo: getHVTitleInfo,
     visibleState: { compose: createNonNegativeSparseVisibleStateComposer('hv', EMPTY_HV_STATE) },
     runtime: { defaultConfig:{period:20,annualizationFactor:252,showHV:true}, computeKey:'calcHVData', compute:(data,c)=>calcHVData(data,c.period,c.annualizationFactor) },
 })

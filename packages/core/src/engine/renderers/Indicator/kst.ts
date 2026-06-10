@@ -10,6 +10,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, KSTSchedulerConfig } from '../../indicators/scheduler'
 import { createKstScaleRendererPlugin } from './scale/kst_scale'
 import { calcKSTData } from '../../indicators/calculators'
+import type { KLineData } from '../../../types/price'
 
 type LinePoint = { x: number; y: number }
 
@@ -260,18 +261,19 @@ function drawKSTLinesWithCanvas2D(
  * 获取 KST 标题信息（供 paneTitle 使用）
  */
 export function getKSTTitleInfo(
-    index: number,
-    roc1: number,
-    roc2: number,
-    roc3: number,
-    roc4: number,
-    signalPeriod: number,
+    _data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
     pluginHost: PluginHost,
-    paneId: string = 'sub_KST',
-    theme: 'light' | 'dark' = 'light',
-    isAsiaMarket?: boolean
+    paneId: string,
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-    const colors = resolveThemeColors(theme, isAsiaMarket)
+    if (index === null) return null
+    const roc1 = (params.roc1 as number) ?? 10
+    const roc2 = (params.roc2 as number) ?? 15
+    const roc3 = (params.roc3 as number) ?? 20
+    const roc4 = (params.roc4 as number) ?? 30
+    const signalPeriod = (params.signalPeriod as number) ?? 9
+    const colors = resolveThemeColors('light')
     const state = pluginHost.getSharedState<KSTRenderState>(createKSTStateKey(paneId))
     if (!state) return null
 
@@ -298,6 +300,7 @@ export function getKSTTitleInfo(
     defaultPaneId: 'sub_KST',
     scaleRendererFactory: createKstScaleRendererPlugin,
     visibleState: { compose: createPaddedPointVisibleStateComposer('kst', EMPTY_KST_STATE, ['kst', 'signal'] as const) },
+    getTitleInfo: getKSTTitleInfo,
     runtime: { defaultConfig:{roc1:10,roc2:15,roc3:20,roc4:30,signalPeriod:9,showKST:true,showSignal:true}, computeKey:'calcKSTData', compute:(data,c)=>calcKSTData(data,c.roc1,c.roc2,c.roc3,c.roc4,c.signalPeriod) },
 })
 class KSTIndicatorDefinition {

@@ -10,6 +10,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, WMSRSchedulerConfig } from '../../indicators/scheduler'
 import { createWmsrScaleRendererPlugin } from './scale/wmsr_scale'
 import { calcWMSRData } from '../../indicators/calculators'
+import type { KLineData } from '../../../types/price'
 
 type LinePoint = { x: number; y: number }
 
@@ -293,14 +294,15 @@ function drawWMSRLineWithCanvas2D(
  * 获取 WMSR 标题信息（供 paneTitle 使用）
  */
 export function getWMSRTitleInfo(
-    index: number,
-    period: number,
+    _data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
     pluginHost: PluginHost,
-    paneId: string = 'sub_WMSR',
-    theme: 'light' | 'dark' = 'light',
-    isAsiaMarket?: boolean
+    paneId: string,
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-    const colors = resolveThemeColors(theme, isAsiaMarket)
+    if (index === null) return null
+    const period = (params.period as number) ?? 14
+    const colors = resolveThemeColors('light')
     const state = pluginHost.getSharedState<WMSRRenderState>(createWMSRStateKey(paneId))
     if (!state) return null
 
@@ -323,6 +325,7 @@ export function getWMSRTitleInfo(
     defaultPaneId: 'sub_WMSR',
     visibleState: { compose: createFixedRangeSparseVisibleStateComposer('wmsr', EMPTY_WMSR_STATE) },
     scaleRendererFactory: createWmsrScaleRendererPlugin,
+    getTitleInfo: getWMSRTitleInfo,
     runtime: {
         defaultConfig: { period: 14, showWMSR: true },
         computeKey: 'calcWMSRData',

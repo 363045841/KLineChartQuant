@@ -3,7 +3,7 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import type { PivotRenderState } from '../../indicators/pivotState'
 import { createPivotStateKey, EMPTY_PIVOT_STATE } from '../../indicators/pivotState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, PivotSchedulerConfig } from '../../indicators/scheduler'
 import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { calcPivotData } from '../../indicators/calculators'
@@ -116,9 +116,18 @@ function drawStep(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     ctx.stroke()
 }
 
+export const getPivotTitleInfo: GetTitleInfoFn = (_data, _index, params, _host, _paneId) => {
+    return {
+        name: 'Pivot',
+        params: [],
+        values: [],
+    }
+}
+
 @Indicator({
     name: 'pivot',
     displayName: 'Pivot',
+    getTitleInfo: getPivotTitleInfo,
     category: 'main',
     defaultPaneId: 'main',
     allowMainPane: true,

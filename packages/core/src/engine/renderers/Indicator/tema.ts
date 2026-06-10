@@ -3,7 +3,7 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import type { TEMARenderState } from '../../indicators/temaState'
 import { createTEMAStateKey, EMPTY_TEMA_STATE } from '../../indicators/temaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, TEMASchedulerConfig } from '../../indicators/scheduler'
 import { calcTEMAData } from '../../indicators/calculators'
@@ -121,9 +121,18 @@ export function createTEMARendererPlugin(options: TEMARendererOptions = {}): Ren
     }
 }
 
+export const getTEMATitleInfo: GetTitleInfoFn = (_data, _index, params, _host, _paneId) => {
+    return {
+        name: 'TEMA',
+        params: [(params.period as number) ?? 14],
+        values: [],
+    }
+}
+
 @Indicator({
     name: 'tema',
     displayName: 'TEMA',
+    getTitleInfo: getTEMATitleInfo,
     category: 'main',
     defaultPaneId: 'main',
     allowMainPane: true,

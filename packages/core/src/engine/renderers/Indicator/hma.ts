@@ -3,7 +3,7 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import type { HMARenderState } from '../../indicators/hmaState'
 import { createHMAStateKey, EMPTY_HMA_STATE } from '../../indicators/hmaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, HMASchedulerConfig } from '../../indicators/scheduler'
 import { calcHMAData } from '../../indicators/calculators'
@@ -121,9 +121,18 @@ export function createHMARendererPlugin(options: HMARendererOptions = {}): Rende
     }
 }
 
+export const getHMATitleInfo: GetTitleInfoFn = (_data, _index, params, _host, _paneId) => {
+    return {
+        name: 'HMA',
+        params: [(params.period as number) ?? 14],
+        values: [],
+    }
+}
+
 @Indicator({
     name: 'hma',
     displayName: 'HMA',
+    getTitleInfo: getHMATitleInfo,
     category: 'main',
     defaultPaneId: 'main',
     allowMainPane: true,

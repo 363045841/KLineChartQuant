@@ -3,6 +3,7 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import type { MFIRenderState } from '../../indicators/mfiState'
 import { createMFIStateKey, EMPTY_MFI_STATE } from '../../indicators/mfiState'
 import type { TitleInfo } from '../../indicators/indicatorMetadata'
+import type { KLineData } from '../../../types/price'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -130,14 +131,15 @@ export function createMFIRendererPlugin(options: { paneId?: string } = {}): Rend
 }
 
 export function getMFITitleInfo(
-    index: number,
-    period: number,
-    pluginHost: PluginHost,
-    paneId: string = 'sub_MFI',
-    theme: 'light' | 'dark' = 'light',
-    isAsiaMarket?: boolean
+    _data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
+    host: PluginHost,
+    paneId: string,
 ): TitleInfo | null {
-    const state = pluginHost.getSharedState<MFIRenderState>(createMFIStateKey(paneId))
+    if (index === null) return null
+    const period = (params.period as number) ?? 14
+    const state = host.getSharedState<MFIRenderState>(createMFIStateKey(paneId))
     const value = state?.series[index]
     if (value === undefined) return null
 
@@ -155,6 +157,7 @@ export function getMFITitleInfo(
     defaultPaneId: 'sub_MFI',
     visibleState: { compose: createFixedRangeSparseVisibleStateComposer('mfi', EMPTY_MFI_STATE) },
     scale: { indicatorKey: 'mfi', label: 'MFI', decimals: 2 },
+    getTitleInfo: getMFITitleInfo,
     runtime: {
         defaultConfig: { period: 14, showMFI: true },
         computeKey: 'calcMFIData',

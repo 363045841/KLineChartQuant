@@ -3,7 +3,7 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import type { SARRenderState } from '../../indicators/sarState'
 import { createSARStateKey, EMPTY_SAR_STATE } from '../../indicators/sarState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, SARSchedulerConfig } from '../../indicators/scheduler'
 import { calcSARData } from '../../indicators/calculators'
 import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -98,9 +98,18 @@ export function createSARRendererPlugin(options: SARRendererOptions = {}): Rende
     }
 }
 
+export const getSARTitleInfo: GetTitleInfoFn = (_data, _index, params, _host, _paneId) => {
+    return {
+        name: 'SAR',
+        params: [(params.step as number) ?? 0.02, (params.maxStep as number) ?? 0.2],
+        values: [],
+    }
+}
+
 @Indicator({
     name: 'sar',
     displayName: 'SAR',
+    getTitleInfo: getSARTitleInfo,
     category: 'main',
     defaultPaneId: 'main',
     allowMainPane: true,

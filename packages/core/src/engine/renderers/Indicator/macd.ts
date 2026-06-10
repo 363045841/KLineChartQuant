@@ -438,31 +438,32 @@ export function calcMACDAtIndex(
  * 从 pluginHost 获取已计算好的数据，避免重复计算
  */
 export function getMACDTitleInfo(
-  index: number,
-  fastPeriod: number,
-  slowPeriod: number,
-  signalPeriod: number,
-  pluginHost: PluginHost,
-  paneId: string = 'sub_MACD',
-  theme: 'light' | 'dark' = 'light',
-  isAsiaMarket?: boolean
+    _data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
+    pluginHost: PluginHost,
+    paneId: string,
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-  const colors = resolveThemeColors(theme, isAsiaMarket)
-  const state = pluginHost.getSharedState<MACDRenderState>(createMACDStateKey(paneId))
-  if (!state) return null
+    if (index === null) return null
+    const fastPeriod = (params.fastPeriod as number) ?? 12
+    const slowPeriod = (params.slowPeriod as number) ?? 26
+    const signalPeriod = (params.signalPeriod as number) ?? 9
+    const colors = resolveThemeColors('light')
+    const state = pluginHost.getSharedState<MACDRenderState>(createMACDStateKey(paneId))
+    if (!state) return null
 
-  const point = state.series[index]
-  if (!point) return null
+    const point = state.series[index]
+    if (!point) return null
 
-  return {
-    name: 'MACD',
-    params: [fastPeriod, slowPeriod, signalPeriod],
-    values: [
-      { label: 'DIF', value: point.dif, color: colors.macd.dif },
-      { label: 'DEA', value: point.dea, color: colors.macd.dea },
-      { label: 'MACD', value: point.macd, color: point.macd >= 0 ? colors.macd.barUp : colors.macd.barDown },
-    ],
-  }
+    return {
+        name: 'MACD',
+        params: [fastPeriod, slowPeriod, signalPeriod],
+        values: [
+            { label: 'DIF', value: point.dif, color: colors.macd.dif },
+            { label: 'DEA', value: point.dea, color: colors.macd.dea },
+            { label: 'MACD', value: point.macd, color: point.macd >= 0 ? colors.macd.barUp : colors.macd.barDown },
+        ],
+    }
 }
 
 @Indicator({
@@ -472,6 +473,7 @@ export function getMACDTitleInfo(
   defaultPaneId: 'sub_MACD',
   scaleRendererFactory: createMacdScaleRendererPlugin,
   visibleState: { compose: createMACDVisibleStateComposer('macd', EMPTY_MACD_STATE) },
+    getTitleInfo: getMACDTitleInfo,
     runtime: { defaultConfig:{fastPeriod:12,slowPeriod:26,signalPeriod:9,showDIF:true,showDEA:true,showBAR:true}, computeKey:'calcMACDData', compute:(data,c)=>calcMACDData(data,c.fastPeriod,c.slowPeriod,c.signalPeriod) },
 })
 class MACDIndicatorDefinition {

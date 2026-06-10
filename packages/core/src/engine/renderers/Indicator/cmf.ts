@@ -3,6 +3,7 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import type { CMFRenderState } from '../../indicators/cmfState'
 import { createCMFStateKey, EMPTY_CMF_STATE } from '../../indicators/cmfState'
 import type { TitleInfo } from '../../indicators/indicatorMetadata'
+import type { KLineData } from '../../../types/price'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -125,14 +126,15 @@ export function createCMFRendererPlugin(options: { paneId?: string } = {}): Rend
 }
 
 export function getCMFTitleInfo(
-    index: number,
-    period: number,
-    pluginHost: PluginHost,
-    paneId: string = 'sub_CMF',
-    theme: 'light' | 'dark' = 'light',
-    isAsiaMarket?: boolean
+    _data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
+    host: PluginHost,
+    paneId: string,
 ): TitleInfo | null {
-    const state = pluginHost.getSharedState<CMFRenderState>(createCMFStateKey(paneId))
+    if (index === null) return null
+    const period = (params.period as number) ?? 20
+    const state = host.getSharedState<CMFRenderState>(createCMFStateKey(paneId))
     const value = state?.series[index]
     if (value === undefined) return null
 
@@ -150,6 +152,7 @@ export function getCMFTitleInfo(
     defaultPaneId: 'sub_CMF',
     visibleState: { compose: createFixedRangeSparseVisibleStateComposer('cmf', EMPTY_CMF_STATE) },
     scale: { indicatorKey: 'cmf', label: 'CMF', decimals: 4 },
+    getTitleInfo: getCMFTitleInfo,
     runtime: {
         defaultConfig: { period: 20, showCMF: true },
         computeKey: 'calcCMFData',
