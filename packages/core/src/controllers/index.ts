@@ -53,6 +53,9 @@ export {
 } from '../engine/renderers/Indicator/indicatorData'
 export type { Indicator } from '../engine/renderers/Indicator/indicatorData'
 
+// Data fetcher adapters
+export { mockDataFetcher, syntheticDataFetcher, baostockDataFetcher } from './data-fetchers'
+
 // Drawing
 export { DrawingInteractionController } from '../engine/drawing'
 export type { DrawingToolId } from '../engine/drawing'
