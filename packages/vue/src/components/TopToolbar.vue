@@ -11,12 +11,12 @@
     <button
       type="button"
       class="overlay-symbol-button"
-      title="添加叠加商品"
-      aria-label="添加叠加商品"
+      title="添加比较商品"
+      aria-label="添加比较商品"
       @click="emit('addOverlaySymbol')"
     >
       <span class="overlay-symbol-button__icon" aria-hidden="true">+</span>
-      <span class="overlay-symbol-button__text">添加叠加商品</span>
+      <span class="overlay-symbol-button__text">添加比较商品</span>
     </button>
     <KLineLevelDropdown
       :model-value="kLineLevel"

@@ -744,7 +744,10 @@ export class Chart {
 
         // 2. 准备帧数据（视口 / 可见范围 / K 线坐标，优先走缓存）
         const frame = this.prepareFrameData(level)
-        if (!frame) return
+        if (!frame) {
+            if (this._internalData.length === 0) this.clearAllCanvases()
+            return
+        }
 
         const { vp, range, kLinePositions, kLineCenters, kBarRects, kWidthPx, useCachedFrame } = frame
 
@@ -776,6 +779,8 @@ export class Chart {
 
         const vp = useCachedFrame ? this.cachedDrawFrame!.viewport : this.computeViewport()
         if (!vp) return null
+
+        if (this._internalData.length === 0) return null
 
         const range = useCachedFrame
             ? this.cachedDrawFrame!.range
@@ -838,6 +843,24 @@ export class Chart {
         }
 
         return { vp, range, kLinePositions, kLineCenters, kBarRects, kWidthPx, useCachedFrame }
+    }
+
+    private clearAllCanvases() {
+        const vp = this.computeViewport()
+        if (!vp) return
+        for (const r of this.paneRenderers) {
+            const { mainCtx, overlayCtx, yAxisCtx } = r.getContexts()
+            const pane = r.getPane()
+            mainCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
+            overlayCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
+            yAxisCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
+        }
+        const xCtx = this.xAxisCtx
+        if (xCtx) {
+            const xW = xCtx.canvas.width
+            const xH = xCtx.canvas.height
+            xCtx.clearRect(0, 0, xW, xH)
+        }
     }
 
     private renderPanes(
