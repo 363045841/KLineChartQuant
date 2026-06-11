@@ -1,6 +1,7 @@
 import type { DataFetcher, KLineData } from '../controllers/types'
 
 export const hundredMockDataFetcher: DataFetcher = async (_source, config) => {
+  console.log(`[hundred-mock] generating ${config.symbol} ${config.period}`)
   const start = new Date(config.startDate).getTime()
   const end = new Date(config.endDate).getTime()
   const dayMs = 86400000

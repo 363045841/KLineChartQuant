@@ -777,8 +777,6 @@ export class Chart {
         const vp = useCachedFrame ? this.cachedDrawFrame!.viewport : this.computeViewport()
         if (!vp) return null
 
-        if (this._internalData.length === 0) return null
-
         const range = useCachedFrame
             ? this.cachedDrawFrame!.range
             : (() => {
@@ -2240,6 +2238,7 @@ export class Chart {
         this._symbolsSignal.set(specs)
         if (!this._dataFetcher || specs.length === 0) return
         const spec = specs[0]!
+        console.log(this._dataFetcher)
         this._dataFetcher(
             spec.source ?? 'baostock',
             {

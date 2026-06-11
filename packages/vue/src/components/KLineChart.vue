@@ -1,11 +1,14 @@
 <template>
   <div ref="chartWrapperRef" class="chart-wrapper" :data-theme="chartTheme" :style="themeCssVars">
-<TopToolbar
-      :symbol="semanticConfig.data.symbol"
+    <TopToolbar
+      :symbol="currentSymbol"
       :k-line-level="kLineLevel"
+      :symbol-loading="symbolLoading"
+      :symbol-error="symbolError"
       @add-overlay-symbol="$emit('addOverlaySymbol')"
       @k-line-level-change="onKLineLevelChange"
       @toggle-indicator="onToggleIndicator"
+      @symbol-change="onSymbolChange"
     />
     <div
       class="chart-stage"
@@ -130,7 +133,6 @@ import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
 import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
 import {
   createChartController,
-  thousandMockDataFetcher,
   type ChartController,
   type PaneSpec,
   type IndicatorInstance,
@@ -149,9 +151,15 @@ import {
 } from '@363045841yyt/klinechart-core/indicators'
 import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
 import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
-import { resolveThemeColors, themeToCssVars, lightTheme, darkTheme, type ColorPresetSettings } from '@363045841yyt/klinechart-core'
+import {
+  resolveThemeColors,
+  themeToCssVars,
+  lightTheme,
+  darkTheme,
+  type ColorPresetSettings,
+} from '@363045841yyt/klinechart-core'
 import LeftToolbar from './LeftToolbar.vue'
-import TopToolbar from './TopToolbar.vue'
+import TopToolbar, { type SymbolItem } from './TopToolbar.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -195,15 +203,35 @@ const emit = defineEmits<{
   (e: 'zoomLevelChange', level: number, kWidth: number): void
   (e: 'toggleFullscreen'): void
   (e: 'themeChange', theme: 'light' | 'dark'): void
-(e: 'addOverlaySymbol'): void
+  (e: 'addOverlaySymbol'): void
   (e: 'kLineLevelChange', level: string): void
 }>()
 
 const kLineLevel = ref(props.semanticConfig.data.period)
+const currentSymbol = ref('选择商品')
+const symbolLoading = ref(false)
+const symbolError = ref(false)
 
 function onKLineLevelChange(level: string) {
   kLineLevel.value = level as typeof kLineLevel.value
   emit('kLineLevelChange', level)
+}
+
+function onSymbolChange(item: SymbolItem) {
+  symbolLoading.value = true
+  symbolError.value = false
+  currentSymbol.value = item.code
+  controller.value?.setSymbols([
+    {
+      symbol: item.code,
+      exchange: item.exchange,
+      period: kLineLevel.value,
+      source: item.source,
+      startDate: props.semanticConfig.data.startDate,
+      endDate: props.semanticConfig.data.endDate,
+      adjust: props.semanticConfig.data.adjust,
+    },
+  ])
 }
 
 const containerRef = ref<HTMLDivElement | null>(null)
@@ -258,7 +286,9 @@ const tooltipColors = computed(() => {
 
 const themeCssVars = computed(() => {
   const theme = chartTheme.value === 'dark' ? darkTheme : lightTheme
-  const overrides = (chartSettings.value.colorPresetSettings as ColorPresetSettings | undefined)?.[chartTheme.value]
+  const overrides = (chartSettings.value.colorPresetSettings as ColorPresetSettings | undefined)?.[
+    chartTheme.value
+  ]
   if (overrides && Object.keys(overrides).length > 0) {
     return themeToCssVars({ ...theme, colors: { ...theme.colors, ...overrides } })
   }
@@ -299,11 +329,7 @@ function handleSettingsChange(settings: ChartSettings) {
   applyThemeFromSettings(controller.value, settings.theme as string)
   controller.value?.updateSettingsFacade(settings)
 
-  if (settings.performanceTest10kKlines) {
-    controller.value?.setDataFetcher(thousandMockDataFetcher)
-  } else {
-    controller.value?.setDataFetcher(props.dataFetcher)
-  }
+  controller.value?.setDataFetcher(props.dataFetcher)
   if (semanticController.value && props.semanticConfig) {
     semanticController.value.applyConfig(props.semanticConfig)
   }
@@ -695,9 +721,24 @@ function handleIndicatorToggle(indicatorId: string, active: boolean) {
   if (!c) return
 
   const mainIndicatorIds = [
-    'MA', 'BOLL', 'EXPMA', 'ENE', 'WMA', 'DEMA', 'TEMA', 'HMA',
-    'KAMA', 'SAR', 'SUPERTREND', 'KELTNER', 'DONCHIAN', 'ICHIMOKU',
-    'PIVOT', 'FIB', 'STRUCTURE', 'ZONES',
+    'MA',
+    'BOLL',
+    'EXPMA',
+    'ENE',
+    'WMA',
+    'DEMA',
+    'TEMA',
+    'HMA',
+    'KAMA',
+    'SAR',
+    'SUPERTREND',
+    'KELTNER',
+    'DONCHIAN',
+    'ICHIMOKU',
+    'PIVOT',
+    'FIB',
+    'STRUCTURE',
+    'ZONES',
   ]
   if (mainIndicatorIds.includes(indicatorId)) {
     const existingIndicator = mainActiveIndicators.value.find((id) => id === indicatorId)
@@ -731,8 +772,10 @@ function handleIndicatorToggle(indicatorId: string, active: boolean) {
 
 function handleUpdateParams(indicatorId: string, params: Record<string, unknown>) {
   if (
-    indicatorId === 'MA' || indicatorId === 'BOLL' ||
-    indicatorId === 'EXPMA' || indicatorId === 'ENE'
+    indicatorId === 'MA' ||
+    indicatorId === 'BOLL' ||
+    indicatorId === 'EXPMA' ||
+    indicatorId === 'ENE'
   ) {
     controller.value?.updateIndicatorParams(indicatorId, params)
     return
@@ -901,11 +944,7 @@ function setupChartCallbacks(ctrl: ChartController): void {
     if (viewWidth.value !== vp.plotWidth) {
       viewWidth.value = vp.plotWidth
     }
-    if (
-      zoomLevel.value !== vp.zoomLevel ||
-      kWidth.value !== vp.kWidth ||
-      kGap.value !== vp.kGap
-    ) {
+    if (zoomLevel.value !== vp.zoomLevel || kWidth.value !== vp.kWidth || kGap.value !== vp.kGap) {
       zoomLevel.value = vp.zoomLevel
       kWidth.value = vp.kWidth
       kGap.value = vp.kGap
@@ -929,6 +968,8 @@ function setupChartCallbacks(ctrl: ChartController): void {
     const data = ctrl.data.peek()
     dataLength.value = data.length
     dataVersion.value++
+    symbolLoading.value = false
+    symbolError.value = data.length === 0
   })
 
   const unsubscribeTheme = ctrl.theme.subscribe(() => {
@@ -1007,10 +1048,6 @@ function applyInitialSettings(ctrl: ChartController): void {
   chartSettings.value = initialSettings
   applyThemeFromSettings(ctrl, initialSettings.theme as string)
   ctrl.updateSettingsFacade(initialSettings)
-
-  if (initialSettings.performanceTest10kKlines) {
-    ctrl.setDataFetcher(thousandMockDataFetcher)
-  }
 }
 
 function setupDrawingController(ctrl: ChartController): void {
@@ -1038,11 +1075,7 @@ function setupInteractionCallbacks(ctrl: ChartController): void {
 }
 
 function setupSemanticController(ctrl: ChartController): void {
-  ctrl.setDataFetcher(
-    chartSettings.value.performanceTest10kKlines
-      ? thousandMockDataFetcher
-      : props.dataFetcher
-  )
+  ctrl.setDataFetcher(props.dataFetcher)
   semanticController.value = new SemanticChartController(ctrl)
 
   semanticController.value.on('config:error', (error) => {
@@ -1055,12 +1088,12 @@ function setupSemanticController(ctrl: ChartController): void {
     syncSubPanesFromChart()
     nextTick(() => scrollToRight())
   })
-  // 应用副图、主图配置
-  semanticController.value.applyConfig(props.semanticConfig).then((result) => {
-    if (result && !result.success) {
-      console.error('Semantic config apply failed:', result.errors)
-    }
-  })
+  // 暂时断开语义化配置加载，由搜索结果驱动
+  // semanticController.value.applyConfig(props.semanticConfig).then((result) => {
+  //   if (result && !result.success) {
+  //     console.error('Semantic config apply failed:', result.errors)
+  //   }
+  // })
 }
 
 onMounted(() => {

@@ -116,7 +116,7 @@
 import { ref, computed, provide, inject, type Ref, type InjectionKey } from 'vue'
 import KLineChart from '../src/components/KLineChart.vue'
 import { VERSION, CORE_VERSION } from '../src/version'
-import { hundredMockDataFetcher } from '@363045841yyt/klinechart-core/controllers'
+import { routerDataFetcher } from '@363045841yyt/klinechart-core/controllers'
 import debugConfig from './debug-config.json'
 
 const FULLSCREEN_TARGET_KEY: InjectionKey<Ref<HTMLElement | null>> = Symbol(
@@ -137,7 +137,7 @@ function useFullscreenTeleportTarget() {
 const defaultConfig = debugConfig as Record<string, any>
 const currentConfig = computed(() => defaultConfig)
 
-const dataFetcher = hundredMockDataFetcher
+const dataFetcher = routerDataFetcher
 
 const displayVersion = `Vue@${VERSION}-Core@${CORE_VERSION}`
 

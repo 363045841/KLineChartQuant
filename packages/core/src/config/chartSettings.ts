@@ -59,7 +59,6 @@ export const DEFAULT_SETTINGS = [
     { value: 'dark', label: '深色' },
     { value: 'auto', label: '跟随系统' },
   ] },
-  { key: 'performanceTest10kKlines', label: '万条K线性能测试', type: 'boolean', default: false, group: 'experimental' },
   { key: 'enableCanvasProfiler', label: 'Canvas 性能分析插桩', type: 'boolean', default: false, group: 'experimental' },
 ] as const
 
