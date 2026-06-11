@@ -1,6 +1,7 @@
-import type { DataFetcher, KLineData } from '../types'
+import type { DataFetcher, KLineData } from '../controllers/types'
 
-export const mockDataFetcher: DataFetcher = async (_source, _config) => {
+export const thousandMockDataFetcher: DataFetcher = async (_source, _config) => {
+  console.log("mock")
   const data: KLineData[] = []
   const startTime = new Date('2020-01-01').getTime()
   const dayMs = 24 * 60 * 60 * 1000

@@ -130,7 +130,7 @@ import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
 import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
 import {
   createChartController,
-  mockDataFetcher,
+  thousandMockDataFetcher,
   type ChartController,
   type PaneSpec,
   type IndicatorInstance,
@@ -300,7 +300,7 @@ function handleSettingsChange(settings: ChartSettings) {
   controller.value?.updateSettingsFacade(settings)
 
   if (settings.performanceTest10kKlines) {
-    controller.value?.setDataFetcher(mockDataFetcher)
+    controller.value?.setDataFetcher(thousandMockDataFetcher)
   } else {
     controller.value?.setDataFetcher(props.dataFetcher)
   }
@@ -1009,7 +1009,7 @@ function applyInitialSettings(ctrl: ChartController): void {
   ctrl.updateSettingsFacade(initialSettings)
 
   if (initialSettings.performanceTest10kKlines) {
-    ctrl.setDataFetcher(mockDataFetcher)
+    ctrl.setDataFetcher(thousandMockDataFetcher)
   }
 }
 
@@ -1038,7 +1038,11 @@ function setupInteractionCallbacks(ctrl: ChartController): void {
 }
 
 function setupSemanticController(ctrl: ChartController): void {
-  ctrl.setDataFetcher(props.dataFetcher)
+  ctrl.setDataFetcher(
+    chartSettings.value.performanceTest10kKlines
+      ? thousandMockDataFetcher
+      : props.dataFetcher
+  )
   semanticController.value = new SemanticChartController(ctrl)
 
   semanticController.value.on('config:error', (error) => {

@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { KLineChartWC, type KLineChartWCProps } from '../src/KLineChartWC'
 import type { SemanticChartConfig } from '@363045841yyt/klinechart-core/semantic'
-import { syntheticDataFetcher } from '@363045841yyt/klinechart-core/controllers'
+import { hundredMockDataFetcher } from '@363045841yyt/klinechart-core/controllers'
 import '@363045841yyt/klinechart/web-component'
 
 const defaultConfig: SemanticChartConfig = {
@@ -22,7 +22,7 @@ const defaultConfig: SemanticChartConfig = {
   },
 }
 
-const dataFetcher = syntheticDataFetcher
+const dataFetcher = hundredMockDataFetcher
 
 const SIZES = [
   { w: '95%', h: '95%' },

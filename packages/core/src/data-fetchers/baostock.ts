@@ -1,4 +1,4 @@
-import type { DataFetcher, KLineData } from '../types'
+import type { DataFetcher, KLineData } from '../controllers/types'
 
 export const baostockDataFetcher: DataFetcher = async (source, config) => {
   const baseUrl = source === 'baostock' ? 'http://localhost:8000' : ''
