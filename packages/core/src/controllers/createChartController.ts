@@ -27,6 +27,8 @@ import type {
     KLineData,
     PaneInfo,
     PaneSpec,
+    SymbolSpec,
+    DataFetcher,
 } from './types'
 import type { CustomMarkerEntity } from '../engine/marker/registry'
 import {
@@ -353,6 +355,8 @@ export function createChartController(opts: ChartMountOptions): ChartController 
 
     const data: Signal<ReadonlyArray<KLineData>> = createSignal(opts.data)
 
+    const symbols: Signal<ReadonlyArray<SymbolSpec>> = chart.symbols
+
     const themeSignal: Signal<'light' | 'dark'> = createSignal(opts.theme ?? 'light')
 
     const indicators: Signal<ReadonlyArray<IndicatorInstance>> = createSignal<
@@ -380,6 +384,16 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         chart.setData([...opts.data])
     } catch {
         /* tolerate first-paint racing */
+    }
+
+    // Apply initial DataFetcher
+    if (opts.dataFetcher) {
+        chart.setDataFetcher(opts.dataFetcher)
+    }
+
+    // Apply initial symbols
+    if (opts.symbols && opts.symbols.length > 0) {
+        chart.setSymbols(opts.symbols)
     }
 
     // Apply initial theme if non-default
@@ -473,6 +487,16 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         } catch {
             data.set([...next])
         }
+    }
+
+    function setSymbols(next: ReadonlyArray<SymbolSpec>): void {
+        if (disposed) return
+        chart.setSymbols(next)
+    }
+
+    function setDataFetcher(fetcher: DataFetcher | null): void {
+        if (disposed) return
+        chart.setDataFetcher(fetcher)
     }
 
     function appendData(next: ReadonlyArray<KLineData>): void {
@@ -737,6 +761,7 @@ export function createChartController(opts: ChartMountOptions): ChartController 
     return {
         viewport,
         data,
+        symbols,
         theme: themeSignal,
         indicators,
         subPanes,
@@ -746,6 +771,8 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         paneLayout,
         interactionState,
         catalog: DEFAULT_INDICATOR_CATALOG,
+        setSymbols,
+        setDataFetcher,
         setData,
         appendData,
         updateData: setData,

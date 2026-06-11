@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { SemanticChartController, __setDataFetcher, type SemanticChartAdapter } from '../controller'
+import { SemanticChartController, type SemanticChartAdapter } from '../controller'
 import type { SemanticChartConfig } from '../types'
 
 function createConfig(indicators: SemanticChartConfig['indicators']): SemanticChartConfig {
@@ -20,6 +20,7 @@ function createConfig(indicators: SemanticChartConfig['indicators']): SemanticCh
 
 function createChartAdapter(): SemanticChartAdapter {
   return {
+    setSymbols: vi.fn(),
     updateData: vi.fn(),
     updateRendererConfig: vi.fn(),
     addIndicator: vi.fn((definitionId: string) => definitionId),
@@ -34,12 +35,7 @@ function createChartAdapter(): SemanticChartAdapter {
 }
 
 describe('SemanticChartController', () => {
-  afterEach(() => {
-    __setDataFetcher(null)
-  })
-
   it('routes semantic sub indicators through registered definitions', async () => {
-    __setDataFetcher(vi.fn(async () => []))
     const chart = createChartAdapter()
     const controller = new SemanticChartController(chart)
 
@@ -61,7 +57,6 @@ describe('SemanticChartController', () => {
   })
 
   it('routes semantic main indicators through chart main indicator API', async () => {
-    __setDataFetcher(vi.fn(async () => []))
     const chart = createChartAdapter()
     const controller = new SemanticChartController(chart)
 
@@ -80,5 +75,22 @@ describe('SemanticChartController', () => {
     expect(chart.enableMainIndicator).not.toHaveBeenCalled()
     expect(chart.disableMainIndicator).not.toHaveBeenCalled()
     expect(chart.updateRendererConfig).not.toHaveBeenCalledWith('boll', expect.anything())
+  })
+
+  it('calls setSymbols on the adapter when applying config', async () => {
+    const chart = createChartAdapter()
+    const controller = new SemanticChartController(chart)
+
+    await controller.applyConfig(createConfig({}))
+
+    expect(chart.setSymbols).toHaveBeenCalledWith([{
+      symbol: '600000',
+      exchange: 'SH',
+      period: 'daily',
+      adjust: 'qfq',
+      source: 'baostock',
+      startDate: '2025-01-01',
+      endDate: '2025-01-02',
+    }])
   })
 })

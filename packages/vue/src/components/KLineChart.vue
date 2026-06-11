@@ -120,7 +120,6 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick, shallowRef } from 'vue'
 import {
   SemanticChartController,
-  __setDataFetcher,
   type SemanticChartConfig,
   type DataFetcher,
 } from '@363045841yyt/klinechart-core/semantic'
@@ -300,53 +299,33 @@ function handleSettingsChange(settings: ChartSettings) {
   controller.value?.updateSettingsFacade(settings)
 
   if (settings.performanceTest10kKlines) {
-    const testData = generate10kKLineData()
-    console.time('updateData-10k')
-    controller.value?.updateData(testData)
-    console.timeEnd('updateData-10k')
-    dataLength.value = testData.length
-    dataVersion.value++
+    controller.value?.setDataFetcher(mockDataFetcher)
   } else {
-    if (semanticController.value && controller.value?.getData()?.length === 10000) {
-      semanticController.value.applyConfig(props.semanticConfig)
-    }
+    controller.value?.setDataFetcher(props.dataFetcher)
+  }
+  if (semanticController.value && props.semanticConfig) {
+    semanticController.value.applyConfig(props.semanticConfig)
   }
 }
 
-// 生成1万条K线测试数据
-function generate10kKLineData() {
+const mockDataFetcher: DataFetcher = async (_source, _config) => {
   const data: KLineData[] = []
   const startTime = new Date('2020-01-01').getTime()
   const dayMs = 24 * 60 * 60 * 1000
-
-  let lastClose = 3000 // 起始价格
-
+  let lastClose = 3000
   for (let i = 0; i < 10000; i++) {
     const timestamp = startTime + i * dayMs
-
-    // 生成随机波动
-    const volatility = 0.02 // 2%日波动率
-    const trend = 0.0001 // 轻微上涨趋势
+    const volatility = 0.02
+    const trend = 0.0001
     const change = (Math.random() - 0.5) * 2 * volatility + trend
-
     const open = lastClose
     const close = open * (1 + change)
     const high = Math.max(open, close) * (1 + Math.random() * 0.01)
     const low = Math.min(open, close) * (1 - Math.random() * 0.01)
     const volume = Math.floor(1000000 + Math.random() * 5000000)
-
-    data.push({
-      timestamp,
-      open: parseFloat(open.toFixed(2)),
-      high: parseFloat(high.toFixed(2)),
-      low: parseFloat(low.toFixed(2)),
-      close: parseFloat(close.toFixed(2)),
-      volume,
-    })
-
+    data.push({ timestamp, open: parseFloat(open.toFixed(2)), high: parseFloat(high.toFixed(2)), low: parseFloat(low.toFixed(2)), close: parseFloat(close.toFixed(2)), volume })
     lastClose = close
   }
-
   return data
 }
 
@@ -1050,10 +1029,7 @@ function applyInitialSettings(ctrl: ChartController): void {
   ctrl.updateSettingsFacade(initialSettings)
 
   if (initialSettings.performanceTest10kKlines) {
-    const testData = generate10kKLineData()
-    console.time('updateData-10k')
-    ctrl.updateData(testData)
-    console.timeEnd('updateData-10k')
+    ctrl.setDataFetcher(mockDataFetcher)
   }
 }
 
@@ -1082,7 +1058,7 @@ function setupInteractionCallbacks(ctrl: ChartController): void {
 }
 
 function setupSemanticController(ctrl: ChartController): void {
-  __setDataFetcher(props.dataFetcher)
+  ctrl.setDataFetcher(props.dataFetcher)
   semanticController.value = new SemanticChartController(ctrl)
 
   semanticController.value.on('config:error', (error) => {
@@ -1096,20 +1072,11 @@ function setupSemanticController(ctrl: ChartController): void {
     nextTick(() => scrollToRight())
   })
   // 应用副图、主图配置
-  if (chartSettings.value.performanceTest10kKlines) {
-    // 10k 性能测试模式：数据由外部（applyInitialSettings）提供，
-    // 语义控制器只注册指标和标记，不 fetch/updateData，避免数据跳变
-    const result = semanticController.value.applyIndicatorsOnly(props.semanticConfig)
+  semanticController.value.applyConfig(props.semanticConfig).then((result) => {
     if (result && !result.success) {
       console.error('Semantic config apply failed:', result.errors)
     }
-  } else {
-    semanticController.value.applyConfig(props.semanticConfig).then((result) => {
-      if (result && !result.success) {
-        console.error('Semantic config apply failed:', result.errors)
-      }
-    })
-  }
+  })
 }
 
 onMounted(() => {

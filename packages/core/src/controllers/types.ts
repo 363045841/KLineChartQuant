@@ -77,6 +77,31 @@ export interface KLineData {
 export type { PaneSpec }
 
 // ---------------------------------------------------------------------------
+// Symbol specification & DataFetcher adapter
+// ---------------------------------------------------------------------------
+
+export interface SymbolSpec {
+    symbol: string
+    exchange?: string
+    period?: string
+    adjust?: string
+    source?: string
+    startDate?: string
+    endDate?: string
+}
+
+export type DataFetcher = (
+    source: string,
+    config: {
+        symbol: string
+        startDate: string
+        endDate: string
+        period: string
+        adjust: string
+    },
+) => Promise<ReadonlyArray<KLineData>>
+
+// ---------------------------------------------------------------------------
 // Indicator metadata
 // ---------------------------------------------------------------------------
 
@@ -183,6 +208,8 @@ export interface DrawingControllerCallbacks {
 export interface ChartMountOptions {
     container: HTMLElement
     data: ReadonlyArray<KLineData>
+    symbols?: ReadonlyArray<SymbolSpec>
+    dataFetcher?: DataFetcher
     initialZoomLevel?: number
     zoomLevels?: number
     theme?: 'light' | 'dark'
@@ -205,6 +232,7 @@ export interface ChartController extends DrawingChartAdapter {
     // ---- Signals ----
     readonly viewport: Signal<ChartViewport>
     readonly data: Signal<ReadonlyArray<KLineData>>
+    readonly symbols: Signal<ReadonlyArray<SymbolSpec>>
     readonly theme: Signal<'light' | 'dark'>
     readonly indicators: Signal<ReadonlyArray<IndicatorInstance>>
     readonly subPanes: Signal<ReadonlyArray<SubPaneInfo>>
@@ -218,6 +246,8 @@ export interface ChartController extends DrawingChartAdapter {
     readonly catalog: ReadonlyArray<IndicatorDefinition>
 
     // ---- Data ----
+    setSymbols(next: ReadonlyArray<SymbolSpec>): void
+    setDataFetcher(fetcher: DataFetcher | null): void
     setData(next: ReadonlyArray<KLineData>): void
     appendData(next: ReadonlyArray<KLineData>): void
     updateData(next: ReadonlyArray<KLineData>): void

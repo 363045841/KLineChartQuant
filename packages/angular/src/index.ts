@@ -30,15 +30,17 @@ import type {
     ChartControllerFactory,
     ChartMountOptions,
     ChartViewport,
+    DataFetcher,
     DrawingControllerCallbacks,
     IndicatorInstance,
     InteractionSnapshot,
     KLineData,
     Signal as CoreSignal,
+    SymbolSpec,
 } from '@363045841yyt/klinechart-core'
 import { createChartController } from '@363045841yyt/klinechart-core'
 
-export type { ChartController, ChartMountOptions, ChartControllerFactory } from '@363045841yyt/klinechart-core'
+export type { ChartController, ChartMountOptions, ChartControllerFactory, DataFetcher, SymbolSpec } from '@363045841yyt/klinechart-core'
 
 // ---------------------------------------------------------------------------
 // DI tokens
@@ -143,6 +145,8 @@ export function createChart(
 })
 export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     @Input() data: ReadonlyArray<KLineData> = []
+    @Input() symbols: ReadonlyArray<SymbolSpec> | undefined = undefined
+    @Input() dataFetcher: DataFetcher | undefined = undefined
     @Input() theme: 'light' | 'dark' | undefined = undefined
     @Input() initialZoomLevel: number | undefined = undefined
     @Input() zoomLevels: number | undefined = undefined
@@ -184,6 +188,8 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
         const controller = createChart({
             container: containerEl,
             data: this.data,
+            symbols: this.symbols,
+            dataFetcher: this.dataFetcher,
             initialZoomLevel: this.initialZoomLevel,
             zoomLevels: this.zoomLevels,
             theme: this.theme ?? this.defaultTheme,
@@ -283,6 +289,14 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
 
     setData(next: ReadonlyArray<KLineData>): void {
         this.controller?.setData(next)
+    }
+
+    setSymbols(next: ReadonlyArray<SymbolSpec>): void {
+        this.controller?.setSymbols(next)
+    }
+
+    setDataFetcher(fetcher: DataFetcher | null): void {
+        this.controller?.setDataFetcher(fetcher)
     }
 
 }

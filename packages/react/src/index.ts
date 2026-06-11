@@ -4,7 +4,7 @@ export {
     type KLineChartWCHandle,
 } from './KLineChartWC'
 
-export type { SemanticChartConfig, DataFetcher } from '@363045841yyt/klinechart-core/semantic'
+export type { SemanticChartConfig } from '@363045841yyt/klinechart-core/semantic'
 
 import {
     createElement,
@@ -26,6 +26,8 @@ import type {
     IndicatorInstance,
     InteractionSnapshot,
     KLineData,
+    SymbolSpec,
+    DataFetcher,
     DrawingControllerCallbacks,
 } from '@363045841yyt/klinechart-core'
 
@@ -33,6 +35,8 @@ export type {
     ChartController,
     ChartMountOptions,
     ChartViewport,
+    SymbolSpec,
+    DataFetcher,
 } from '@363045841yyt/klinechart-core'
 
 let chartFactory: ChartControllerFactory | null = null
@@ -179,6 +183,8 @@ export function useViewport(
 
 export interface KLineChartProps {
     data: ChartMountOptions['data']
+    symbols?: ChartMountOptions['symbols']
+    dataFetcher?: ChartMountOptions['dataFetcher']
     initialZoomLevel?: number
     theme?: 'light' | 'dark'
     zoomLevels?: number
@@ -202,11 +208,13 @@ export interface KLineChartHandle {
     removeIndicator: (instanceId: string) => boolean
     setTheme: (theme: 'light' | 'dark') => void
     setData: (next: ReadonlyArray<KLineData>) => void
+    setSymbols: (next: ReadonlyArray<SymbolSpec>) => void
+    setDataFetcher: (fetcher: DataFetcher | null) => void
 }
 
 export const KLineChart = forwardRef<KLineChartHandle, KLineChartProps>(
     function KLineChart(
-        { data, initialZoomLevel, theme, zoomLevels, className, style },
+        { data, symbols, dataFetcher, initialZoomLevel, theme, zoomLevels, className, style },
         ref: ForwardedRef<KLineChartHandle>,
     ) {
         const divRef = useRef<HTMLDivElement | null>(null)
@@ -218,6 +226,8 @@ export const KLineChart = forwardRef<KLineChartHandle, KLineChartProps>(
             const created = createChart({
                 container,
                 data,
+                symbols,
+                dataFetcher,
                 initialZoomLevel,
                 zoomLevels,
                 theme,
@@ -258,6 +268,8 @@ export const KLineChart = forwardRef<KLineChartHandle, KLineChartProps>(
                     controllerRef.current?.removeIndicator(id) ?? false,
                 setTheme: (t) => controllerRef.current?.setTheme(t),
                 setData: (next) => controllerRef.current?.setData(next),
+                setSymbols: (next) => controllerRef.current?.setSymbols(next),
+                setDataFetcher: (fetcher) => controllerRef.current?.setDataFetcher(fetcher),
             }),
             [],
         )

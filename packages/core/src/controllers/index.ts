@@ -26,6 +26,8 @@ export type {
     DrawingChartAdapter,
     DrawingChartViewport,
     PaneInfo,
+    SymbolSpec,
+    DataFetcher,
 } from './types'
 
 export { createChartController } from './createChartController'

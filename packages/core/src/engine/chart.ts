@@ -1,6 +1,7 @@
 import type { KLineData } from '../types/price'
 import type { ChartSettings } from '../config/chartSettings'
 import { createSignal, computed, type Signal, type Computed } from '../reactivity/signal'
+import type { SymbolSpec, DataFetcher } from '../controllers/types'
 import { getVisibleRange } from './viewport/viewport'
 import { Pane, type VisibleRange, UpdateLevel } from './layout/pane'
 import { InteractionController, type InteractionSnapshot } from './controller/interaction'
@@ -157,6 +158,7 @@ export class Chart {
     private dom: ChartDom
     private opt: ResolvedChartOptions
     private _internalData: KLineData[] = []
+    private _dataFetcher: DataFetcher | null = null
 
     private raf: number | null = null
     private pendingUpdateLevel: UpdateLevel = UpdateLevel.All
@@ -2096,6 +2098,7 @@ export class Chart {
     })
 
     private _dataSignal = createSignal<ReadonlyArray<KLineData>>([])
+    private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
     private _themeSignal = createSignal<'light' | 'dark'>('light')
     private _drawingToolSignal = createSignal<DrawingToolType | null>(null)
     private _drawingsSignal = createSignal<ReadonlyArray<import('../plugin').DrawingObject>>([])
@@ -2160,6 +2163,11 @@ export class Chart {
         return this._dataSignal
     }
 
+    /** 符号信号 */
+    get symbols(): Signal<ReadonlyArray<SymbolSpec>> {
+        return this._symbolsSignal
+    }
+
     /** 主题信号 */
     get theme(): Signal<'light' | 'dark'> {
         return this._themeSignal
@@ -2216,6 +2224,36 @@ export class Chart {
     appendData(newData: KLineData[]): void {
         const merged = [...this._internalData, ...newData]
         this.setData(merged)
+    }
+
+    /**
+     * 设置数据获取器适配器
+     */
+    setDataFetcher(fetcher: DataFetcher | null): void {
+        this._dataFetcher = fetcher
+    }
+
+    /**
+     * 设置当前符号并触发数据加载
+     */
+    setSymbols(specs: ReadonlyArray<SymbolSpec>): void {
+        this._symbolsSignal.set(specs)
+        if (!this._dataFetcher || specs.length === 0) return
+        const spec = specs[0]!
+        this._dataFetcher(
+            spec.source ?? 'baostock',
+            {
+                symbol: spec.symbol,
+                startDate: spec.startDate ?? '',
+                endDate: spec.endDate ?? '',
+                period: spec.period ?? 'daily',
+                adjust: spec.adjust ?? 'none',
+            },
+        ).then((data) => {
+            this.updateData([...data])
+        }).catch((err) => {
+            console.error('[Chart] setSymbols fetch failed:', err)
+        })
     }
 
     // ---------- Theme ----------

@@ -20,8 +20,9 @@ export type {
   SecurityResult,
 } from './types'
 
-export { SemanticChartController, type SemanticEventType, __setDataFetcher } from './controller'
-export type { DataFetcher, SemanticChartAdapter } from './controller'
+export { SemanticChartController, type SemanticEventType } from './controller'
+export type { SemanticChartAdapter } from './controller'
+export type { DataFetcher, SymbolSpec } from '../controllers/types'
 
 export { SemanticConfigValidator, sanitizeParams, sanitizeColor, validateColor, validateSymbol } from './validator'
 

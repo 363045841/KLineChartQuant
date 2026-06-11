@@ -13,22 +13,10 @@ import type {
   DataConfig,
 } from './types'
 import type { SubIndicatorType as CoreSubIndicatorType } from '../engine/renderers/Indicator'
-import type { KLineData } from '../controllers/types'
+import type { KLineData, DataFetcher, SymbolSpec } from '../controllers/types'
 
 export type SemanticEventType = 'config:loading' | 'config:ready' | 'config:error'
-
-export type DataFetcher = (
-  source: string,
-  config: {
-    symbol: string
-    startDate: string
-    endDate: string
-    period: string
-    adjust: string
-  },
-) => Promise<ReadonlyArray<KLineData>>
-
-let _dataFetcher: DataFetcher | null = null
+export type { DataFetcher, SymbolSpec } from '../controllers/types'
 
 function normalizeIndicatorId(id: string): string {
   return id.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -45,21 +33,8 @@ function getSemanticIndicatorDefinition(type: string): IndicatorMetadata | undef
   })
 }
 
-export function __setDataFetcher(fetcher: DataFetcher | null): void {
-  _dataFetcher = fetcher
-}
-
-async function getDataFetcher(): Promise<DataFetcher> {
-  if (_dataFetcher === null) {
-    throw new Error(
-      '[SemanticChartController] No data fetcher registered. ' +
-        'Call __setDataFetcher(...) before applying a config that requires data fetching.',
-    )
-  }
-  return _dataFetcher
-}
-
 export interface SemanticChartAdapter {
+  setSymbols(specs: ReadonlyArray<SymbolSpec>): void
   updateData(data: ReadonlyArray<KLineData>): void
   updateRendererConfig(name: string, config: Record<string, unknown>): void
   addIndicator?(definitionId: string, role: 'main' | 'sub', params?: Record<string, unknown>): string | null
@@ -116,44 +91,21 @@ export class SemanticChartController {
     this.events.off(event, handler)
   }
 
-  /**
-   * 仅注册指标配置，不获取/更新数据。
-   * 用于 performanceTest10kKlines 等场景：数据由外部提供，语义控制器只管指标。
-   */
-  applyIndicatorsOnly(config: SemanticChartConfig): ApplyResult {
-    try {
-      if (config.indicators) {
-        this.applyIndicators(config.indicators.main, config.indicators.sub)
-      }
-      if (config.markers) {
-        this.applyMarkers(config.markers.customMarkers, config.data.period)
-      }
-      this.events.emit('config:ready', undefined)
-      return { success: true }
-    } catch (error) {
-      this.events.emit('config:error', error)
-      return {
-        success: false,
-        errors: [error instanceof Error ? error.message : String(error)],
-      }
-    }
-  }
-
   private async doApplyConfig(config: SemanticChartConfig): Promise<void> {
     // 先注册指标（同步），确保 scheduler 首次 applyResults 时指标已在 registry
     if (config.indicators) {
       this.applyIndicators(config.indicators.main, config.indicators.sub)
     }
 
-    const fetcher = await getDataFetcher()
-    const data = await fetcher(config.data.source, {
+    this.chart.setSymbols([{
       symbol: config.data.symbol,
-      startDate: config.data.startDate,
-      endDate: config.data.endDate,
+      exchange: config.data.exchange,
       period: config.data.period,
       adjust: config.data.adjust,
-    })
-    this.chart.updateData(data)
+      source: config.data.source,
+      startDate: config.data.startDate,
+      endDate: config.data.endDate,
+    }])
 
     if (config.markers) {
       this.applyMarkers(config.markers.customMarkers, config.data.period)
