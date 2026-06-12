@@ -145,7 +145,7 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{
-  (e: 'add', code: string): void
+  (e: 'add', item: SymbolItem): void
   (e: 'remove', code: string): void
 }>()
 
@@ -180,7 +180,7 @@ function toggleSymbol(item: SymbolItem) {
   if (isSelected(item.code)) {
     emit('remove', item.code)
   } else {
-    emit('add', item.code)
+    emit('add', item)
   }
 }
 

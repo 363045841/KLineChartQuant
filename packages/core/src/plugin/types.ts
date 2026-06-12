@@ -273,6 +273,8 @@ export interface RenderContext {
   ctx: CanvasRenderingContext2D
   pane: PaneInfo
   data: unknown[]
+  comparisonData?: ReadonlyMap<string, ReadonlyArray<KLineData>>
+  comparisonSymbols?: ReadonlyArray<import('../controllers/types').SymbolSpec>
   range: { start: number; end: number }
   scrollLeft: number
   kWidth: number

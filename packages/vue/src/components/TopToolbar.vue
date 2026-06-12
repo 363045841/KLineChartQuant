@@ -50,7 +50,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'addOverlaySymbol', code: string): void
+  (e: 'addOverlaySymbol', item: SymbolItem): void
   (e: 'removeOverlaySymbol', code: string): void
   (e: 'kLineLevelChange', level: KLineLevel): void
   (e: 'toggleIndicator'): void

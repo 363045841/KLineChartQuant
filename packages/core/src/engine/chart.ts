@@ -39,6 +39,7 @@ import { DrawingStore } from './drawing'
 import { createDrawingRendererPlugin, createDrawingLabelOverlayPlugin } from './drawing/plugin'
 import { createGridLinesRendererPlugin } from './renderers/gridLines'
 import { createCandleRenderer } from './renderers/candle'
+import { createComparisonLineRenderer } from './renderers/comparisonLine'
 import { createLastPriceLineRendererPlugin, createLastPriceLabelRegistrarPlugin } from './renderers/lastPrice'
 import { createCustomMarkersRenderer } from './renderers/customMarkers'
 import { createExtremaMarkersRendererPlugin } from './renderers/extremaMarkers'
@@ -163,6 +164,10 @@ export class Chart {
     private _dataFetcher: DataFetcher | null = null
     private _dataBuffer: DataBuffer = new DataBuffer()
     private _dataBufferUnsub: (() => void) | null = null
+    private _comparisonSpecs: SymbolSpec[] = []
+    private _comparisonData: Map<string, KLineData[]> = new Map()
+    private _comparisonBuffers: Map<string, DataBuffer> = new Map()
+    private _comparisonBufferUnsubs: Map<string, () => void> = new Map()
 
     private raf: number | null = null
     private pendingUpdateLevel: UpdateLevel = UpdateLevel.All
@@ -564,6 +569,7 @@ export class Chart {
 
         this.useRenderer(createGridLinesRendererPlugin())
         this.useRenderer(createCandleRenderer())
+        this.useRenderer(createComparisonLineRenderer())
         this.useRenderer(createLastPriceLineRendererPlugin())
         this.useRenderer(createLastPriceLabelRegistrarPlugin())
         this.useRenderer(createCustomMarkersRenderer())
@@ -900,7 +906,9 @@ export class Chart {
 
             if (!useCachedFrame) {
                 const indicatorRange = pane.role === 'price' ? mainIndicatorRange : null
-                pane.updateRange(this._internalData, range, indicatorRange)
+                const comparisonRange = pane.id === 'main' ? this.getComparisonEquivalentPriceRange(range) : null
+                const mergedRange = this.mergeNumericRanges(indicatorRange, comparisonRange)
+                pane.updateRange(this._internalData, range, mergedRange)
                 if (pane.id === 'main' && this.settings.disableMainPaneVerticalScroll) {
                     pane.yAxis.resetTransform()
                 }
@@ -936,6 +944,8 @@ export class Chart {
                 overlayCtx: overlayCtx ?? undefined,
                 pane: wrapPaneInfo(pane),
                 data: this._internalData,
+                comparisonData: this._comparisonData,
+                comparisonSymbols: this._comparisonSpecs,
                 range,
                 scrollLeft: vp.scrollLeft,
                 kWidth: this.opt.kWidth,
@@ -1786,6 +1796,7 @@ export class Chart {
             this._dataBufferUnsub = null
         }
         this._dataBuffer.dispose()
+        this.clearComparisonBuffers()
 
         // 清理尺寸观察器
         this.resizeObserver?.disconnect()
@@ -2292,6 +2303,9 @@ export class Chart {
     setDataFetcher(fetcher: DataFetcher | null): void {
         this._dataFetcher = fetcher
         this._dataBuffer.setFetcher(fetcher)
+        for (const buffer of this._comparisonBuffers.values()) {
+            buffer.setFetcher(fetcher)
+        }
     }
 
     get dataBuffer(): DataBuffer {
@@ -2319,13 +2333,117 @@ export class Chart {
         }
     }
 
+    private getComparisonEquivalentPriceRange(range: VisibleRange): { min: number; max: number } | null {
+        if (this._comparisonSpecs.length === 0 || this._comparisonData.size === 0) return null
+        const baseIndex = Math.max(0, range.start)
+        const mainBase = this._internalData[baseIndex]?.close
+        const baseTimestamp = this._internalData[baseIndex]?.timestamp
+        if (!Number.isFinite(mainBase) || mainBase <= 0 || baseTimestamp === undefined) return null
+
+        let min = Number.POSITIVE_INFINITY
+        let max = Number.NEGATIVE_INFINITY
+
+        for (const spec of this._comparisonSpecs) {
+            const data = this._comparisonData.get(spec.symbol)
+            if (!data?.length) continue
+
+            const baseline = this.findComparisonBaseline(data, baseTimestamp)
+            if (!baseline || !Number.isFinite(baseline.close) || baseline.close <= 0) continue
+
+            const byTimestamp = new Map<number, KLineData>()
+            for (const item of data) byTimestamp.set(item.timestamp, item)
+
+            for (let i = range.start; i < range.end && i < this._internalData.length; i++) {
+                const mainItem = this._internalData[i]
+                if (!mainItem) continue
+                const item = byTimestamp.get(mainItem.timestamp)
+                if (!item || !Number.isFinite(item.close)) continue
+
+                const pct = (item.close - baseline.close) / baseline.close
+                const equivalentPrice = mainBase * (1 + pct)
+                if (!Number.isFinite(equivalentPrice)) continue
+                min = Math.min(min, equivalentPrice)
+                max = Math.max(max, equivalentPrice)
+            }
+        }
+
+        if (!Number.isFinite(min) || !Number.isFinite(max)) return null
+        return { min, max }
+    }
+
+    private findComparisonBaseline(data: ReadonlyArray<KLineData>, timestamp: number): KLineData | null {
+        for (const item of data) {
+            if (item.timestamp >= timestamp) return item
+        }
+        return null
+    }
+
+    private mergeNumericRanges(
+        left: { min: number; max: number } | null | undefined,
+        right: { min: number; max: number } | null | undefined,
+    ): { min: number; max: number } | null {
+        if (!left) return right ?? null
+        if (!right) return left
+        return {
+            min: Math.min(left.min, right.min),
+            max: Math.max(left.max, right.max),
+        }
+    }
+
+    private syncComparisonBuffers(specs: ReadonlyArray<SymbolSpec>): void {
+        this._comparisonSpecs = [...specs]
+        const nextKeys = new Set(specs.map((spec) => spec.symbol))
+
+        for (const [key, buffer] of this._comparisonBuffers) {
+            if (nextKeys.has(key)) continue
+            this._comparisonBufferUnsubs.get(key)?.()
+            this._comparisonBufferUnsubs.delete(key)
+            buffer.dispose()
+            this._comparisonBuffers.delete(key)
+            this._comparisonData.delete(key)
+        }
+
+        if (!this._dataFetcher) return
+
+        for (const spec of specs) {
+            const key = spec.symbol
+            let buffer = this._comparisonBuffers.get(key)
+            if (!buffer) {
+                buffer = new DataBuffer()
+                buffer.setFetcher(this._dataFetcher)
+                this._comparisonBuffers.set(key, buffer)
+                const unsubscribe = buffer.data.subscribe(() => {
+                    this._comparisonData.set(key, [...buffer.data.peek()])
+                    this.scheduleDraw()
+                })
+                this._comparisonBufferUnsubs.set(key, unsubscribe)
+            } else {
+                buffer.setFetcher(this._dataFetcher)
+            }
+            buffer.setSymbol(spec)
+        }
+    }
+
+    private clearComparisonBuffers(): void {
+        for (const unsubscribe of this._comparisonBufferUnsubs.values()) unsubscribe()
+        this._comparisonBufferUnsubs.clear()
+        for (const buffer of this._comparisonBuffers.values()) buffer.dispose()
+        this._comparisonBuffers.clear()
+        this._comparisonData.clear()
+        this._comparisonSpecs = []
+    }
+
     /**
      * 设置当前符号并触发数据加载
      */
     setSymbols(specs: ReadonlyArray<SymbolSpec>): void {
         this._symbolsSignal.set(specs)
-        if (specs.length === 0) return
+        if (specs.length === 0) {
+            this.clearComparisonBuffers()
+            return
+        }
         const spec = specs[0]!
+        this.syncComparisonBuffers(specs.slice(1))
         if (!this._dataFetcher) return
 
         this._dataBuffer.setFetcher(this._dataFetcher)

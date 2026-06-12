@@ -142,6 +142,7 @@ import {
   type InteractionSnapshot,
   type DrawingToolId,
   type KLineData,
+  type SymbolSpec,
   zoomLevelToKWidth,
   kGapFromKWidth,
   getPhysicalKLineConfig,
@@ -210,38 +211,65 @@ const emit = defineEmits<{
 
 const kLineLevel = ref(props.semanticConfig.data.period)
 const currentSymbol = ref('选择商品')
+const currentSymbolItem = ref<SymbolItem | null>(null)
 const symbolLoading = ref(false)
 const symbolError = ref(false)
 const overlaySymbols = ref<string[]>([])
+const overlaySymbolItems = ref<SymbolItem[]>([])
 
 function onKLineLevelChange(level: string) {
   kLineLevel.value = level as typeof kLineLevel.value
   emit('kLineLevelChange', level)
+  syncSymbolsToController()
 }
 
 function onSymbolChange(item: SymbolItem) {
   symbolError.value = false
   currentSymbol.value = item.code
-  controller.value?.setSymbols([
-    {
-      symbol: item.code,
-      exchange: item.exchange,
-      period: kLineLevel.value,
-      source: item.source,
-      startDate: props.semanticConfig.data.startDate,
-      endDate: props.semanticConfig.data.endDate,
-      adjust: props.semanticConfig.data.adjust,
-    },
-  ])
+  currentSymbolItem.value = item
+  syncSymbolsToController()
 }
 
-function onAddOverlaySymbol(code: string) {
-  if (overlaySymbols.value.includes(code)) return
-  overlaySymbols.value = [...overlaySymbols.value, code]
+function onAddOverlaySymbol(item: SymbolItem) {
+  if (currentSymbolItem.value?.code === item.code) return
+  if (overlaySymbols.value.includes(item.code)) return
+  overlaySymbolItems.value = [...overlaySymbolItems.value, item]
+  overlaySymbols.value = overlaySymbolItems.value.map((symbol) => symbol.code)
+  forcePercentAxis()
+  syncSymbolsToController()
 }
 
 function onRemoveOverlaySymbol(code: string) {
-  overlaySymbols.value = overlaySymbols.value.filter((c) => c !== code)
+  overlaySymbolItems.value = overlaySymbolItems.value.filter((item) => item.code !== code)
+  overlaySymbols.value = overlaySymbolItems.value.map((symbol) => symbol.code)
+  syncSymbolsToController()
+}
+
+function toSymbolSpec(item: SymbolItem): SymbolSpec {
+  return {
+    symbol: item.code,
+    exchange: item.exchange,
+    period: kLineLevel.value,
+    source: item.source,
+    startDate: props.semanticConfig.data.startDate,
+    endDate: props.semanticConfig.data.endDate,
+    adjust: props.semanticConfig.data.adjust,
+  }
+}
+
+function syncSymbolsToController() {
+  if (!currentSymbolItem.value) return
+  controller.value?.setSymbols([
+    toSymbolSpec(currentSymbolItem.value),
+    ...overlaySymbolItems.value.map(toSymbolSpec),
+  ])
+}
+
+function forcePercentAxis() {
+  if (chartSettings.value.axisType === 'percent') return
+  const nextSettings = { ...chartSettings.value, axisType: 'percent' as const }
+  chartSettings.value = nextSettings
+  controller.value?.updateSettingsFacade(nextSettings)
 }
 
 const containerRef = ref<HTMLDivElement | null>(null)
