@@ -728,10 +728,12 @@ export class Chart {
         this.settings = { ...settings }
         this.interaction.updateSettings(settings)
 
-        // 同步对数刻度设置到所有 pane
-        const scaleType = settings.logarithmicScale ? 'log' : 'linear'
+        // 同步刻度类型设置到所有 pane（百分比仅用于主图）
+        const axisType = (settings.axisType as import('../utils/tickPosition').ScaleType) ?? 'linear'
         for (const renderer of this.paneRenderers) {
-            renderer.getPane().yAxis.setScaleType(scaleType)
+            const pane = renderer.getPane()
+            const scaleType = axisType === 'percent' && pane.role !== 'price' ? 'linear' : axisType
+            pane.yAxis.setScaleType(scaleType)
         }
 
         this.scheduleDraw()
@@ -1007,6 +1009,10 @@ export class Chart {
                         getPriceOffset: () => 0,
                         getDisplayRange: (baseRange) => baseRange ?? { maxPrice: 0, minPrice: 0 },
                         getScaleType: () => 'linear' as const,
+                        getBasePrice: () => null,
+                        toPercent: () => 0,
+                        fromPercent: () => 0,
+                        getDisplayPercentRange: () => ({ minPct: 0, maxPct: 0 }),
                     },
                     priceRange: { maxPrice: 0, minPrice: 0 },
                 },

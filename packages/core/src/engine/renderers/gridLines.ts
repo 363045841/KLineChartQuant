@@ -41,17 +41,18 @@ export function createGridLinesRendererPlugin(): RendererPlugin {
             const scaleType = pane.yAxis.getScaleType()
             let yPositions: number[]
 
-            if (scaleType === 'log' && pane.role === 'price') {
-                // 对数模式：生成 nice 刻度值，用 priceToY 计算 Y 位置
+            if ((scaleType === 'log' || scaleType === 'percent') && pane.role === 'price') {
                 const displayRange = pane.yAxis.getDisplayRange(pane.priceRange)
+                const valueMin = scaleType === 'percent' ? pane.yAxis.getDisplayPercentRange().minPct : displayRange.minPrice
+                const valueMax = scaleType === 'percent' ? pane.yAxis.getDisplayPercentRange().maxPct : displayRange.maxPrice
                 const tickValues = calculateValueTickPositions({
                     height: pane.height,
                     paddingTop: pt,
                     paddingBottom: pb,
                     isMain: true,
-                    valueMin: displayRange.minPrice,
-                    valueMax: displayRange.maxPrice,
-                    scaleType: 'log',
+                    valueMin,
+                    valueMax,
+                    scaleType,
                 })
                 yPositions = tickValues.map(t => t.y)
             } else {

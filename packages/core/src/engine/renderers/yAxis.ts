@@ -33,7 +33,18 @@ export function createYAxisRendererPlugin(options: {
       const axisWidth = yAxisCtx?.canvas ? (yAxisCtx.canvas.width / dpr) : options.axisWidth
       const displayRange = pane.yAxis.getDisplayRange(pane.priceRange)
 
+      const isPercent = scaleType === 'percent' && pane.role === 'price'
+
       if (pane.capabilities.showPriceAxisTicks) {
+        const tickValueMin = isPercent ? pane.yAxis.getDisplayPercentRange().minPct : displayRange.minPrice
+        const tickValueMax = isPercent ? pane.yAxis.getDisplayPercentRange().maxPct : displayRange.maxPrice
+        const formatLabel = isPercent
+          ? (v: number) => {
+              const sign = v >= 0 ? '+' : ''
+              return sign + v.toFixed(2) + '%'
+            }
+          : undefined
+
         drawScaleTicks({
           tickColor: tokenColors.text.secondary,
           ctx: targetCtx,
@@ -42,12 +53,13 @@ export function createYAxisRendererPlugin(options: {
           height: pane.height,
           paddingTop: pane.yAxis.getPaddingTop(),
           paddingBottom: pane.yAxis.getPaddingBottom(),
-          valueMin: displayRange.minPrice,
-          valueMax: displayRange.maxPrice,
+          valueMin: tickValueMin,
+          valueMax: tickValueMax,
           isMain: true,
           decimals: 2,
           hideEdgeTicks: false,
-          scaleType,
+          scaleType: isPercent ? 'percent' : scaleType,
+          formatLabel,
         })
       }
 
@@ -87,18 +99,28 @@ export function createYAxisRendererPlugin(options: {
 
       const crosshair = options.getCrosshair?.()
       if (crosshair && crosshair.activePaneId === pane.id && crosshair.price !== null) {
+        const crosshairPrice = isPercent ? pane.yAxis.toPercent(crosshair.price) : crosshair.price
+        const crosshairPriceRange = isPercent ? pane.yAxis.getDisplayPercentRange() : displayRange
+        const formatPrice = isPercent
+          ? (v: number) => {
+              const sign = v >= 0 ? '+' : ''
+              return sign + v.toFixed(2) + '%'
+            }
+          : undefined
+
         drawCrosshairPriceLabel(targetCtx, {
           x: 0,
           y: pane.top,
           width: axisWidth,
           height: pane.height,
           crosshairY: crosshair.y,
-          priceRange: displayRange,
+          priceRange: crosshairPriceRange,
           yPaddingPx: options.yPaddingPx,
           dpr,
           fontSize: 12,
           priceOffset: 0,
-          price: crosshair.price,
+          price: crosshairPrice,
+          formatPrice,
         }, context.theme, context.isAsiaMarket, context.colorPresetSettings)
       }
     },

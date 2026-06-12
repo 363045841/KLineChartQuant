@@ -31,6 +31,40 @@ export class PriceScale {
     /** 对数变换公式（动态计算，适配极小价格） */
     private logFormula: LogFormula = logFormulaForPriceRange(null)
 
+    /** 百分比轴基准价（visibleRange 第一根 K 线的 close） */
+    private basePrice: number | null = null
+
+    /** 获取百分比轴基准价 */
+    getBasePrice(): number | null {
+        return this.basePrice
+    }
+
+    /** 设置百分比轴基准价 */
+    setBasePrice(price: number | null): void {
+        this.basePrice = price
+    }
+
+    /** 价格 → 百分比空间 */
+    toPercent(price: number): number {
+        if (this.basePrice === null || this.basePrice === 0) return 0
+        return ((price - this.basePrice) / this.basePrice) * 100
+    }
+
+    /** 百分比空间 → 价格 */
+    fromPercent(pct: number): number {
+        if (this.basePrice === null || this.basePrice === 0) return 0
+        return this.basePrice * (1 + pct / 100)
+    }
+
+    /** 获取当前 displayRange 的百分比范围（用于 yAxis 刻度显示） */
+    getDisplayPercentRange(): { minPct: number; maxPct: number } {
+        const { maxPrice, minPrice } = this.getDisplayRange()
+        return {
+            minPct: this.toPercent(minPrice),
+            maxPct: this.toPercent(maxPrice),
+        }
+    }
+
     setRange(r: PriceRange) {
         this.range = r
         if (this.scaleType === 'log' && r.minPrice > 0) {
@@ -110,6 +144,15 @@ export class PriceScale {
             return Math.max(-maxOffset, Math.min(maxOffset, offset))
         }
 
+        if (this.scaleType === 'percent' && this.basePrice !== null && this.basePrice > 0) {
+            const pctMin = this.toPercent(this.range.minPrice)
+            const pctMax = this.toPercent(this.range.maxPrice)
+            const pctRange = pctMax - pctMin
+            if (pctRange <= 0) return 0
+            const maxOffset = pctRange * (1 + 1 / this.verticalScale) / 2
+            return Math.max(-maxOffset, Math.min(maxOffset, offset))
+        }
+
         const rangeSize = this.range.maxPrice - this.range.minPrice
         if (rangeSize <= 0) return 0
         const maxOffset = rangeSize * (1 + 1 / this.verticalScale) / 2
@@ -138,21 +181,56 @@ export class PriceScale {
     setScaleType(type: ScaleType): void {
         if (type === this.scaleType) return
 
+        const baseCenter = (this.range.maxPrice + this.range.minPrice) / 2
+
         if (type === 'log' && this.range.minPrice > 0) {
-            // 线性 → 对数：把线性偏移转为 log 空间偏移
+            // 当前 linear/percent → 对数：转换 priceOffset 到 log 空间
             this.logFormula = logFormulaForPriceRange(this.range)
-            const baseCenter = (this.range.maxPrice + this.range.minPrice) / 2
-            const realCenter = baseCenter + this.priceOffset
+
+            // 先把当前偏移转为真实价格中心
+            let realCenter: number
+            if (this.scaleType === 'percent' && this.basePrice !== null && this.basePrice > 0) {
+                const pctBaseCenter = this.toPercent(baseCenter)
+                const pctCenter = pctBaseCenter + this.priceOffset
+                realCenter = this.fromPercent(pctCenter)
+            } else {
+                realCenter = baseCenter + this.priceOffset
+            }
+
             this.priceOffset = toLog(realCenter, this.logFormula) - toLog(baseCenter, this.logFormula)
             this.priceOffset = this.clampOffset(this.priceOffset)
-        } else if (type === 'linear' && this.scaleType === 'log') {
-            // 对数 → 线性：把 log 空间偏移转为线性偏移
-            const logMin = toLog(this.range.minPrice, this.logFormula)
-            const logMax = toLog(this.range.maxPrice, this.logFormula)
-            const logCenter = (logMax + logMin) / 2 + this.priceOffset
-            const realCenter = fromLog(logCenter, this.logFormula)
-            const baseCenter = (this.range.maxPrice + this.range.minPrice) / 2
-            this.priceOffset = realCenter - baseCenter
+        } else if (type === 'linear') {
+            if (this.scaleType === 'log') {
+                // 对数 → 线性
+                const logMin = toLog(this.range.minPrice, this.logFormula)
+                const logMax = toLog(this.range.maxPrice, this.logFormula)
+                const logCenter = (logMax + logMin) / 2 + this.priceOffset
+                const realCenter = fromLog(logCenter, this.logFormula)
+                this.priceOffset = realCenter - baseCenter
+            } else if (this.scaleType === 'percent' && this.basePrice !== null && this.basePrice > 0) {
+                // 百分比 → 线性
+                const pctBaseCenter = this.toPercent(baseCenter)
+                const pctCenter = pctBaseCenter + this.priceOffset
+                const realCenter = this.fromPercent(pctCenter)
+                this.priceOffset = realCenter - baseCenter
+            }
+            this.priceOffset = this.clampOffset(this.priceOffset)
+        } else if (type === 'percent' && this.basePrice !== null && this.basePrice > 0) {
+            // linear/log → 百分比
+            // 先把当前偏移转为真实价格中心
+            let realCenter: number
+            if (this.scaleType === 'log') {
+                const logMin = toLog(this.range.minPrice, this.logFormula)
+                const logMax = toLog(this.range.maxPrice, this.logFormula)
+                const logCenter = (logMax + logMin) / 2 + this.priceOffset
+                realCenter = fromLog(logCenter, this.logFormula)
+            } else {
+                realCenter = baseCenter + this.priceOffset
+            }
+
+            const pctBaseCenter = this.toPercent(baseCenter)
+            const pctCenter = this.toPercent(realCenter)
+            this.priceOffset = pctCenter - pctBaseCenter
             this.priceOffset = this.clampOffset(this.priceOffset)
         }
 
@@ -190,6 +268,19 @@ export class PriceScale {
             }
         }
 
+        // 百分比模式：在百分比空间计算，返回真实价格
+        if (this.scaleType === 'percent' && this.basePrice !== null && this.basePrice > 0) {
+            const pctMin = this.toPercent(minPrice)
+            const pctMax = this.toPercent(maxPrice)
+            const pctRange = pctMax - pctMin || 1
+            const pctCenter = (pctMax + pctMin) / 2 + this.priceOffset
+            const pctHalfRange = pctRange / (2 * this.verticalScale)
+            return {
+                maxPrice: this.fromPercent(pctCenter + pctHalfRange),
+                minPrice: this.fromPercent(pctCenter - pctHalfRange),
+            }
+        }
+
         // 线性模式：原逻辑不变
         const baseRangeSize = maxPrice - minPrice || 1
         const centerPrice = (maxPrice + minPrice) / 2 + this.priceOffset
@@ -214,6 +305,11 @@ export class PriceScale {
             const logMax = toLog(maxPrice, this.logFormula)
             const logPrice = toLog(price, this.logFormula)
             ratio = (logPrice - logMin) / (logMax - logMin || 1)
+        } else if (this.scaleType === 'percent' && this.basePrice !== null && this.basePrice > 0) {
+            const pctMin = this.toPercent(minPrice)
+            const pctMax = this.toPercent(maxPrice)
+            const pctPrice = this.toPercent(price)
+            ratio = (pctPrice - pctMin) / (pctMax - pctMin || 1)
         } else {
             ratio = (price - minPrice) / (maxPrice - minPrice || 1)
         }
@@ -239,6 +335,13 @@ export class PriceScale {
             return fromLog(logPrice, this.logFormula)
         }
 
+        if (this.scaleType === 'percent' && this.basePrice !== null && this.basePrice > 0) {
+            const pctMin = this.toPercent(minPrice)
+            const pctMax = this.toPercent(maxPrice)
+            const pctPrice = pctMin + ratio * (pctMax - pctMin)
+            return this.fromPercent(pctPrice)
+        }
+
         return minPrice + ratio * (maxPrice - minPrice)
     }
 
@@ -256,6 +359,13 @@ export class PriceScale {
             const logMin = toLog(this.range.minPrice, this.logFormula)
             const logMax = toLog(this.range.maxPrice, this.logFormula)
             return deltaY * ((logMax - logMin) / viewHeight)
+        }
+
+        if (this.scaleType === 'percent' && this.basePrice !== null && this.basePrice > 0) {
+            const { maxPrice, minPrice } = this.getDisplayRange()
+            const pctMin = this.toPercent(minPrice)
+            const pctMax = this.toPercent(maxPrice)
+            return deltaY * ((pctMax - pctMin) / viewHeight)
         }
 
         const range = this.range.maxPrice - this.range.minPrice || 1

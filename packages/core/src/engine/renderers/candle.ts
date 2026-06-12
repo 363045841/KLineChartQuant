@@ -113,7 +113,7 @@ function prepareCandles(args: {
     const paddingTop = pane.yAxis.getPaddingTop()
     const paddingBottom = pane.yAxis.getPaddingBottom()
     const viewHeight = Math.max(1, pane.height - paddingTop - paddingBottom)
-    const isLinear = pane.yAxis.getScaleType() !== 'log'
+    const isLinear = pane.yAxis.getScaleType() === 'linear'
     let fastPriceToY: (price: number) => number
     if (isLinear) {
         const priceRange = maxPrice - minPrice || 1

@@ -157,5 +157,13 @@ export class Pane {
     }
 
     this.yAxis.setRange(this.priceRange)
+
+    // 百分比模式：设置基准价为 visibleRange 第一根 K 线的收盘价
+    if (this.yAxis.getScaleType() === 'percent' && this.role === 'price' && data.length > 0 && range.start < data.length) {
+      const baseIdx = Math.max(0, range.start)
+      this.yAxis.setBasePrice(data[baseIdx]?.close ?? null)
+    } else {
+      this.yAxis.setBasePrice(null)
+    }
   }
 }

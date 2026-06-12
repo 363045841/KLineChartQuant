@@ -153,7 +153,11 @@ export interface PaneInfo {
     getPaddingBottom(): number
     getPriceOffset(): number
     getDisplayRange(baseRange?: { maxPrice: number; minPrice: number }): { maxPrice: number; minPrice: number }
-    getScaleType(): 'linear' | 'log'
+    getScaleType(): 'linear' | 'log' | 'percent'
+    getBasePrice(): number | null
+    toPercent(price: number): number
+    fromPercent(pct: number): number
+    getDisplayPercentRange(): { minPct: number; maxPct: number }
   }
   priceRange: {
     maxPrice: number
@@ -192,6 +196,10 @@ export function wrapPaneInfo(pane: {
       getPriceOffset: () => pane.yAxis.getPriceOffset(),
       getDisplayRange: (baseRange) => pane.yAxis.getDisplayRange(baseRange),
       getScaleType: () => pane.yAxis.getScaleType(),
+      getBasePrice: () => pane.yAxis.getBasePrice(),
+      toPercent: (price) => pane.yAxis.toPercent(price),
+      fromPercent: (pct) => pane.yAxis.fromPercent(pct),
+      getDisplayPercentRange: () => pane.yAxis.getDisplayPercentRange(),
     },
     priceRange: pane.priceRange,
   }

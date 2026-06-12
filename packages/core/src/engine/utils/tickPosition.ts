@@ -7,7 +7,7 @@ export interface TickPosition {
     y: number
 }
 
-export type ScaleType = 'linear' | 'log'
+export type ScaleType = 'linear' | 'log' | 'percent'
 
 export interface CalculateTickPositionsOptions {
     height: number
@@ -54,6 +54,23 @@ export interface CalculateValueTickPositionsOptions extends CalculateTickPositio
 
 const LOG_EPSILON = 1e-10
 const LOG_ROUND_CANDIDATES = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 7.5, 8, 10]
+const PERCENT_STEP_CANDIDATES = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 7.5, 8, 10]
+
+function choosePercentTickStep(roughStep: number): number {
+    if (!Number.isFinite(roughStep) || roughStep <= 0) return 1
+
+    const exp = Math.floor(Math.log10(roughStep))
+    const magnitude = Math.pow(10, exp)
+    const normalized = roughStep / magnitude
+
+    for (const candidate of PERCENT_STEP_CANDIDATES) {
+        if (candidate >= normalized) {
+            return candidate * magnitude
+        }
+    }
+
+    return 10 * magnitude
+}
 
 function roundLogTickValue(value: number): number {
     if (!Number.isFinite(value) || value <= 0) {
@@ -152,6 +169,43 @@ function generatePixelUniformLogTicks(options: {
     return positions
 }
 
+function generatePixelUniformPercentTicks(options: {
+    height: number
+    paddingTop: number
+    paddingBottom: number
+    valueMin: number
+    valueMax: number
+    targetCount: number
+}): TickPositionWithValue[] {
+    const { height, paddingTop, paddingBottom, valueMin, valueMax, targetCount } = options
+
+    const yStart = paddingTop
+    const yEnd = Math.max(paddingTop, height - paddingBottom)
+    const viewH = Math.max(0, yEnd - yStart)
+
+    if (viewH <= 0) return []
+
+    const pctRange = valueMax - valueMin
+    if (!Number.isFinite(pctRange) || pctRange <= 0) return []
+
+    const total = Math.max(2, targetCount)
+    const step = choosePercentTickStep(pctRange / Math.max(1, total - 1))
+    const firstIndex = Math.floor(valueMin / step) - 1
+    const lastIndex = Math.ceil(valueMax / step) + 1
+    const positions: TickPositionWithValue[] = []
+
+    for (let i = lastIndex; i >= firstIndex; i--) {
+        const value = i * step
+        const normalizedValue = Math.abs(value) < step * 1e-10 ? 0 : value
+        const t = (valueMax - normalizedValue) / pctRange
+        const y = yStart + t * viewH
+
+        positions.push({ index: positions.length, t, y, value: normalizedValue })
+    }
+
+    return positions
+}
+
 // calculateValueTickPositions 缓存
 let _cvtpCacheKey = ''
 let _cvtpCacheResult: TickPositionWithValue[] = []
@@ -186,6 +240,29 @@ export function calculateValueTickPositions(
             paddingBottom,
             valueMin: effectiveMin,
             valueMax: effectiveMax,
+            targetCount,
+        })
+
+        if (hideEdgeTicks && positions.length > 2) {
+            positions = positions.slice(1, -1)
+        }
+
+        const result = positions.map((position, index) => ({ ...position, index }))
+        _cvtpCacheKey = key
+        _cvtpCacheResult = result
+        return result
+    }
+
+    if (scaleType === 'percent') {
+        const { height, paddingTop, paddingBottom, isMain, hideEdgeTicks } = options
+        const targetCount = Math.max(2, calculateTickCount(height, isMain))
+
+        let positions = generatePixelUniformPercentTicks({
+            height,
+            paddingTop,
+            paddingBottom,
+            valueMin,
+            valueMax,
             targetCount,
         })
 
