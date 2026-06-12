@@ -2409,14 +2409,15 @@ export class Chart {
             const key = spec.symbol
             let buffer = this._comparisonBuffers.get(key)
             if (!buffer) {
-                buffer = new DataBuffer()
-                buffer.setFetcher(this._dataFetcher)
-                this._comparisonBuffers.set(key, buffer)
-                const unsubscribe = buffer.data.subscribe(() => {
-                    this._comparisonData.set(key, [...buffer.data.peek()])
+                const newBuffer = new DataBuffer()
+                newBuffer.setFetcher(this._dataFetcher)
+                this._comparisonBuffers.set(key, newBuffer)
+                const unsubscribe = newBuffer.data.subscribe(() => {
+                    this._comparisonData.set(key, [...newBuffer.data.peek()])
                     this.scheduleDraw()
                 })
                 this._comparisonBufferUnsubs.set(key, unsubscribe)
+                buffer = newBuffer
             } else {
                 buffer.setFetcher(this._dataFetcher)
             }
