@@ -98,6 +98,7 @@ function createChartStub(args: {
     scheduleDraw: () => undefined,
     zoomAt: () => undefined,
     resetPriceOffset: () => undefined,
+    resetPriceTransform: () => undefined,
     resizePaneBoundary: () => false,
     scalePrice: () => undefined,
   }

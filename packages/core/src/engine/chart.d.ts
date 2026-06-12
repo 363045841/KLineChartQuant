@@ -381,6 +381,7 @@ export declare class Chart {
      * @param paneId 目标 pane ID
      */
     resetPriceOffset(paneId: string): void;
+    resetPriceTransform(paneId: string): void;
     /**
      * 缩放价格轴（用于右侧刻度栏上下拖动）
      * @param paneId 目标 pane ID

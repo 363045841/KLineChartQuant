@@ -894,6 +894,9 @@ export class Chart {
             if (!useCachedFrame) {
                 const indicatorRange = pane.role === 'price' ? mainIndicatorRange : null
                 pane.updateRange(this._internalData, range, indicatorRange)
+                if (pane.id === 'main' && this.settings.disableMainPaneVerticalScroll) {
+                    pane.yAxis.resetTransform()
+                }
             }
 
             const shouldUpdateMain = level === UpdateLevel.Main || level === UpdateLevel.All
@@ -1580,6 +1583,13 @@ export class Chart {
         const renderer = this.paneRenderers.find(r => r.getPane().id === paneId)
         if (!renderer) return
         renderer.getPane().yAxis.resetPriceOffset()
+        this.scheduleDraw()
+    }
+
+    resetPriceTransform(paneId: string): void {
+        const renderer = this.paneRenderers.find(r => r.getPane().id === paneId)
+        if (!renderer) return
+        renderer.getPane().yAxis.resetTransform()
         this.scheduleDraw()
     }
 

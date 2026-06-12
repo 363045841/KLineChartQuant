@@ -121,7 +121,7 @@ export class InteractionController {
         this.settings = { ...settings }
         // 开启自适应时，重置主图垂直偏移
         if (!prev && this.settings.disableMainPaneVerticalScroll) {
-            this.chart.resetPriceOffset('main')
+            this.chart.resetPriceTransform('main')
         }
     }
 
