@@ -218,7 +218,6 @@ function onKLineLevelChange(level: string) {
 }
 
 function onSymbolChange(item: SymbolItem) {
-  symbolLoading.value = true
   symbolError.value = false
   currentSymbol.value = item.code
   controller.value?.setSymbols([
@@ -968,8 +967,11 @@ function setupChartCallbacks(ctrl: ChartController): void {
     const data = ctrl.data.peek()
     dataLength.value = data.length
     dataVersion.value++
-    symbolLoading.value = false
     symbolError.value = data.length === 0
+  })
+
+  const unsubscribeDataLoading = ctrl.dataLoading.subscribe(() => {
+    symbolLoading.value = ctrl.dataLoading.peek()
   })
 
   const unsubscribeTheme = ctrl.theme.subscribe(() => {
@@ -1034,6 +1036,7 @@ function setupChartCallbacks(ctrl: ChartController): void {
   onUnmounted(() => {
     unsubscribeViewport()
     unsubscribeData()
+    unsubscribeDataLoading()
     unsubscribePaneRatios()
     unsubscribePaneLayout()
     unsubscribeTheme()

@@ -54,7 +54,8 @@ export {
 export type { Indicator } from '../engine/renderers/Indicator/indicatorCatalog'
 
 // Data fetcher adapters
-export { thousandMockDataFetcher, hundredMockDataFetcher, baostockDataFetcher, routerDataFetcher } from '../data-fetchers'
+export { thousandMockDataFetcher, hundredMockDataFetcher, baostockDataFetcher, routerDataFetcher, DataBuffer } from '../data-fetchers'
+export type { DataWindow } from '../data-fetchers'
 
 // Drawing
 export { DrawingInteractionController } from '../engine/drawing'

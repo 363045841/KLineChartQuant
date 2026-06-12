@@ -2,6 +2,7 @@ import type { KLineData } from '../types/price'
 import type { ChartSettings } from '../config/chartSettings'
 import { createSignal, computed, type Signal, type Computed } from '../reactivity/signal'
 import type { SymbolSpec, DataFetcher } from '../controllers/types'
+import { DataBuffer } from '../data-fetchers/dataBuffer'
 import { getVisibleRange } from './viewport/viewport'
 import { Pane, type VisibleRange, UpdateLevel } from './layout/pane'
 import { InteractionController, type InteractionSnapshot } from './controller/interaction'
@@ -159,6 +160,8 @@ export class Chart {
     private opt: ResolvedChartOptions
     private _internalData: KLineData[] = []
     private _dataFetcher: DataFetcher | null = null
+    private _dataBuffer: DataBuffer = new DataBuffer()
+    private _dataBufferUnsub: (() => void) | null = null
 
     private raf: number | null = null
     private pendingUpdateLevel: UpdateLevel = UpdateLevel.All
@@ -799,6 +802,7 @@ export class Chart {
         if (!useCachedFrame && (range.start !== this.lastVisibleRange.start || range.end !== this.lastVisibleRange.end)) {
             this.indicatorScheduler.updateVisibleRange(range)
             this.lastVisibleRange = range
+            this.checkVisibleRangeGap()
         }
 
         const kLinePositions = useCachedFrame
@@ -1677,6 +1681,9 @@ export class Chart {
     }
 
 
+    private static readonly LEADING_SLOTS = 60
+    private static readonly TRAILING_DRAWING_SLOTS = 24
+
     /** 获取内容总宽度（用于外部 scroll-content 撑开 scrollWidth） */
     getContentWidth(): number {
         const dataLength = this._internalData.length
@@ -1685,9 +1692,8 @@ export class Chart {
         const kGap = this.opt.kGap
         const viewWidth = this._internalViewport?.plotWidth ?? 0
         const dpr = this.getEffectiveDpr()
-        const TRAILING_DRAWING_SLOTS = 24
         const { startXPx, unitPx } = getPhysicalKLineConfig(kWidth, kGap, dpr)
-        const dataPlotWidth = (startXPx + (dataLength + TRAILING_DRAWING_SLOTS) * unitPx) / dpr
+        const dataPlotWidth = (startXPx + (Chart.LEADING_SLOTS + dataLength + Chart.TRAILING_DRAWING_SLOTS) * unitPx) / dpr
         return Math.max(dataPlotWidth, viewWidth)
     }
 
@@ -1747,6 +1753,12 @@ export class Chart {
             cancelAnimationFrame(this.raf)
             this.raf = null
         }
+
+        if (this._dataBufferUnsub) {
+            this._dataBufferUnsub()
+            this._dataBufferUnsub = null
+        }
+        this._dataBuffer.dispose()
 
         // 清理尺寸观察器
         this.resizeObserver?.disconnect()
@@ -2252,6 +2264,32 @@ export class Chart {
      */
     setDataFetcher(fetcher: DataFetcher | null): void {
         this._dataFetcher = fetcher
+        this._dataBuffer.setFetcher(fetcher)
+    }
+
+    get dataBuffer(): DataBuffer {
+        return this._dataBuffer
+    }
+
+    checkVisibleRangeGap(): void {
+        if (this._internalData.length === 0) return
+        const window = this._dataBuffer.loadedWindow
+        if (!window) return
+        const range = this.lastVisibleRange
+
+        if (range.start <= 5 && this._dataFetcher) {
+            const MS_PER_DAY = 86_400_000
+            const earlierThanEarliest = window.earliestTs - 90 * MS_PER_DAY
+            this._dataBuffer.ensureRange(earlierThanEarliest, window.earliestTs)
+            return
+        }
+
+        if (range.start >= this._internalData.length) return
+        const firstVisibleTs = this._internalData[Math.max(0, range.start)]?.timestamp
+        if (firstVisibleTs === undefined) return
+        if (firstVisibleTs < window.earliestTs) {
+            this._dataBuffer.ensureRange(firstVisibleTs, window.earliestTs)
+        }
     }
 
     /**
@@ -2259,23 +2297,50 @@ export class Chart {
      */
     setSymbols(specs: ReadonlyArray<SymbolSpec>): void {
         this._symbolsSignal.set(specs)
-        if (!this._dataFetcher || specs.length === 0) return
+        if (specs.length === 0) return
         const spec = specs[0]!
-        console.log(this._dataFetcher)
-        this._dataFetcher(
-            spec.source ?? 'baostock',
-            {
-                symbol: spec.symbol,
-                startDate: spec.startDate ?? '',
-                endDate: spec.endDate ?? '',
-                period: spec.period ?? 'daily',
-                adjust: spec.adjust ?? 'none',
-            },
-        ).then((data) => {
-            this.updateData([...data])
-        }).catch((err) => {
-            console.error('[Chart] setSymbols fetch failed:', err)
-        })
+        if (!this._dataFetcher) return
+
+        this._dataBuffer.setFetcher(this._dataFetcher)
+
+        this._dataBuffer.onPrepend = (count: number) => {
+            const dpr = this.getEffectiveDpr()
+            const { unitPx } = getPhysicalKLineConfig(this.opt.kWidth, this.opt.kGap, dpr)
+            const compensation = (count * unitPx) / dpr
+            const container = this.dom.container
+            if (container) {
+                container.scrollLeft += compensation
+                this.cachedScrollLeft = container.scrollLeft
+            }
+        }
+
+        if (!this._dataBufferUnsub) {
+            this._dataBufferUnsub = this._dataBuffer.data.subscribe(() => {
+                const bufferData = this._dataBuffer.data.peek()
+                this._internalData = [...bufferData]
+                this._dataSignal.set([...this._internalData])
+                this.interaction.reset()
+                if (this.lastVisibleRange.start === 0 && this.lastVisibleRange.end === 0 && this._internalData.length > 0) {
+                    const plotWidth = this.observedSize.width > 0
+                        ? this.observedSize.width
+                        : Math.max(1, Math.round(this.dom.container?.clientWidth ?? 800))
+                    const dpr = this.getEffectiveDpr()
+                    const { start, end } = getVisibleRange(
+                        this.cachedScrollLeft,
+                        plotWidth,
+                        this.opt.kWidth,
+                        this.opt.kGap,
+                        this._internalData.length,
+                        dpr,
+                    )
+                    this.lastVisibleRange = { start, end }
+                }
+                this.indicatorScheduler.update(this._internalData, this.lastVisibleRange)
+                this.scheduleDraw()
+            })
+        }
+
+        this._dataBuffer.setSymbol(spec)
     }
 
     // ---------- Theme ----------

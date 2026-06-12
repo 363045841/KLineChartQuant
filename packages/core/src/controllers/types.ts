@@ -232,6 +232,7 @@ export interface ChartController extends DrawingChartAdapter {
     // ---- Signals ----
     readonly viewport: Signal<ChartViewport>
     readonly data: Signal<ReadonlyArray<KLineData>>
+    readonly dataLoading: Signal<boolean>
     readonly symbols: Signal<ReadonlyArray<SymbolSpec>>
     readonly theme: Signal<'light' | 'dark'>
     readonly indicators: Signal<ReadonlyArray<IndicatorInstance>>

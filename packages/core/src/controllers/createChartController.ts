@@ -354,6 +354,7 @@ export function createChartController(opts: ChartMountOptions): ChartController 
     })
 
     const data: Signal<ReadonlyArray<KLineData>> = createSignal(opts.data)
+    const dataLoading: Signal<boolean> = createSignal(false)
 
     const symbols: Signal<ReadonlyArray<SymbolSpec>> = chart.symbols
 
@@ -417,6 +418,11 @@ export function createChartController(opts: ChartMountOptions): ChartController 
     // data
     unsubs.push(
         chart.data.subscribe(() => data.set(chart.data.peek())),
+    )
+
+    // dataLoading
+    unsubs.push(
+        chart.dataBuffer.loading.subscribe(() => dataLoading.set(chart.dataBuffer.loading.peek())),
     )
 
     // theme
@@ -761,6 +767,7 @@ export function createChartController(opts: ChartMountOptions): ChartController 
     return {
         viewport,
         data,
+        dataLoading,
         symbols,
         theme: themeSignal,
         indicators,
