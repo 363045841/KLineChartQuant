@@ -5,7 +5,9 @@
       :k-line-level="kLineLevel"
       :symbol-loading="symbolLoading"
       :symbol-error="symbolError"
-      @add-overlay-symbol="$emit('addOverlaySymbol')"
+      :overlay-symbols="overlaySymbols"
+      @add-overlay-symbol="onAddOverlaySymbol"
+      @remove-overlay-symbol="onRemoveOverlaySymbol"
       @k-line-level-change="onKLineLevelChange"
       @toggle-indicator="onToggleIndicator"
       @symbol-change="onSymbolChange"
@@ -203,7 +205,6 @@ const emit = defineEmits<{
   (e: 'zoomLevelChange', level: number, kWidth: number): void
   (e: 'toggleFullscreen'): void
   (e: 'themeChange', theme: 'light' | 'dark'): void
-  (e: 'addOverlaySymbol'): void
   (e: 'kLineLevelChange', level: string): void
 }>()
 
@@ -211,6 +212,7 @@ const kLineLevel = ref(props.semanticConfig.data.period)
 const currentSymbol = ref('选择商品')
 const symbolLoading = ref(false)
 const symbolError = ref(false)
+const overlaySymbols = ref<string[]>([])
 
 function onKLineLevelChange(level: string) {
   kLineLevel.value = level as typeof kLineLevel.value
@@ -231,6 +233,15 @@ function onSymbolChange(item: SymbolItem) {
       adjust: props.semanticConfig.data.adjust,
     },
   ])
+}
+
+function onAddOverlaySymbol(code: string) {
+  if (overlaySymbols.value.includes(code)) return
+  overlaySymbols.value = [...overlaySymbols.value, code]
+}
+
+function onRemoveOverlaySymbol(code: string) {
+  overlaySymbols.value = overlaySymbols.value.filter((c) => c !== code)
 }
 
 const containerRef = ref<HTMLDivElement | null>(null)

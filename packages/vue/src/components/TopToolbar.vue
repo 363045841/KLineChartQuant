@@ -8,16 +8,12 @@
       :error="symbolError"
       @change="onSymbolSelectorChange"
     />
-    <button
-      type="button"
-      class="overlay-symbol-button"
-      title="添加比较商品"
-      aria-label="添加比较商品"
-      @click="emit('addOverlaySymbol')"
-    >
-      <span class="overlay-symbol-button__icon" aria-hidden="true">+</span>
-      <span class="overlay-symbol-button__text">添加比较商品</span>
-    </button>
+    <CompareSymbolSelector
+      :symbols="symbolPool"
+      :selected="overlaySymbols"
+      @add="emit('addOverlaySymbol', $event)"
+      @remove="emit('removeOverlaySymbol', $event)"
+    />
     <KLineLevelDropdown
       :model-value="kLineLevel"
       @update:model-value="emit('kLineLevelChange', $event)"
@@ -39,6 +35,7 @@
 import { computed } from 'vue'
 import KLineLevelDropdown, { type KLineLevel } from './KLineLevelDropdown.vue'
 import SymbolSelector from './SymbolSelector.vue'
+import CompareSymbolSelector from './CompareSymbolSelector.vue'
 import type { SymbolItem } from './SymbolSelector.vue'
 
 export type { SymbolItem }
@@ -49,10 +46,12 @@ const props = defineProps<{
   symbols?: SymbolItem[]
   symbolLoading?: boolean
   symbolError?: boolean
+  overlaySymbols?: string[]
 }>()
 
 const emit = defineEmits<{
-  (e: 'addOverlaySymbol'): void
+  (e: 'addOverlaySymbol', code: string): void
+  (e: 'removeOverlaySymbol', code: string): void
   (e: 'kLineLevelChange', level: KLineLevel): void
   (e: 'toggleIndicator'): void
   (e: 'symbolChange', symbol: SymbolItem): void
@@ -108,52 +107,6 @@ function onSymbolSelectorChange(item: SymbolItem) {
   user-select: none;
 }
 
-.overlay-symbol-button {
-  height: 28px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  gap: 6px;
-  padding: 0 10px;
-  border: 1px solid var(--klc-color-border-button);
-  border-radius: 4px;
-  background: var(--klc-color-background);
-  color: var(--klc-color-foreground);
-  font: inherit;
-  cursor: pointer;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease;
-}
-
-.overlay-symbol-button:hover {
-  border-color: var(--klc-color-axis-text);
-  background: var(--klc-color-grid-minor);
-}
-
-.overlay-symbol-button__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--klc-color-foreground);
-  color: var(--klc-color-background);
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.overlay-symbol-button__text {
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1;
-  white-space: nowrap;
-}
-
 .indicator-button {
   height: 28px;
   display: inline-flex;
@@ -202,7 +155,6 @@ function onSymbolSelectorChange(item: SymbolItem) {
 }
 
 @media (max-width: 768px), (max-height: 640px) {
-  .overlay-symbol-button__text,
   .indicator-button__text {
     display: none;
   }
