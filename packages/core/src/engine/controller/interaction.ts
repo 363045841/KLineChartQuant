@@ -272,11 +272,13 @@ export class InteractionController {
     }
 
     /** 处理滚动事件 */
-    onScroll() {
+    onScroll(options: { scheduleDraw?: boolean } = {}) {
         this.kLinePositions = null
         this.visibleRange = null
         this.clearHover()
-        this.chart.scheduleDraw()
+        if (options.scheduleDraw !== false) {
+            this.chart.scheduleDraw()
+        }
         this.notifyInteractionChange()
     }
 

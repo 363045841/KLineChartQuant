@@ -665,15 +665,17 @@ export class IndicatorScheduler {
     /**
      * 数据变更时调用
      */
-    update(data: KLineData[], visibleRange: VisibleRange): void {
+    update(data: KLineData[], visibleRange: VisibleRange): boolean {
         this.currentData = data
         this.visibleRange = visibleRange
         this.dataVersion++
 
         if (this.useWorker && this.worker && this.workerReady) {
             this.computeWithWorker()
+            return false
         } else {
             this.computeWithInline()
+            return true
         }
     }
 

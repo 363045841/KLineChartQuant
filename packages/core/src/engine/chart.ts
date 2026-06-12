@@ -219,6 +219,9 @@ export class Chart {
      */
     private indicatorScheduler: IndicatorScheduler
 
+    /** 数据已更新但 Worker 指标尚未回写，期间避免用旧指标 state 绘制中间帧 */
+    private pendingIndicatorDataUpdate = false
+
     /** 上次可见范围（用于检测视口变化） */
     private lastVisibleRange: VisibleRange = { start: 0, end: 0 }
 
@@ -521,7 +524,10 @@ export class Chart {
         for (const definition of getBuiltinIndicatorDefinitions()) {
             this.indicatorScheduler.registerIndicator(definition)
         }
-        this.indicatorScheduler.setInvalidateCallback(() => this.scheduleDraw())
+        this.indicatorScheduler.setInvalidateCallback(() => {
+            this.pendingIndicatorDataUpdate = false
+            this.scheduleDraw()
+        })
 
         // 注册副图活跃列表提供者，调度器据此只计算启用的副图
         this.indicatorScheduler.setActiveSubPaneProvider(
@@ -1649,9 +1655,13 @@ export class Chart {
         }
 
         // 触发指标计算（在 scheduleDraw 之前，确保渲染器读到最新状态）
-        this.indicatorScheduler.update(this._internalData, this.lastVisibleRange)
-
-        this.scheduleDraw()
+        const indicatorsReady = this.indicatorScheduler.update(this._internalData, this.lastVisibleRange)
+        if (indicatorsReady) {
+            this.pendingIndicatorDataUpdate = false
+            this.scheduleDraw()
+        } else {
+            this.pendingIndicatorDataUpdate = true
+        }
     }
 
     /** 获取当前数据源（供 renderers 和 interaction 使用） */
@@ -2351,8 +2361,13 @@ export class Chart {
                     )
                     this.lastVisibleRange = { start, end }
                 }
-                this.indicatorScheduler.update(this._internalData, this.lastVisibleRange)
-                this.scheduleDraw()
+                const indicatorsReady = this.indicatorScheduler.update(this._internalData, this.lastVisibleRange)
+                if (indicatorsReady) {
+                    this.pendingIndicatorDataUpdate = false
+                    this.scheduleDraw()
+                } else {
+                    this.pendingIndicatorDataUpdate = true
+                }
             })
         }
 
@@ -2530,7 +2545,7 @@ export class Chart {
      * 更新缓存的 scrollLeft 并触发交互 controller
      */
     handleScrollEvent(): void {
-        this.interaction.onScroll()
+        this.interaction.onScroll({ scheduleDraw: !this.pendingIndicatorDataUpdate })
         // 更新 viewport signal 中的 visible range
         this.updateViewportSignal()
     }
