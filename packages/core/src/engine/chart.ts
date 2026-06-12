@@ -5,6 +5,7 @@ import type { SymbolSpec, DataFetcher } from '../controllers/types'
 import { DataBuffer } from '../data-fetchers/dataBuffer'
 import { getVisibleRange } from './viewport/viewport'
 import { Pane, type VisibleRange, UpdateLevel } from './layout/pane'
+import type { ScaleType } from './utils/tickPosition'
 import { InteractionController, type InteractionSnapshot } from './controller/interaction'
 export type { InteractionSnapshot }
 import { PaneRenderer } from './paneRenderer'
@@ -735,7 +736,7 @@ export class Chart {
         this.interaction.updateSettings(settings)
 
         // 同步刻度类型设置到所有 pane（百分比仅用于主图）
-        const axisType = (settings.axisType as import('../utils/tickPosition').ScaleType) ?? 'linear'
+        const axisType = (settings.axisType as ScaleType) ?? 'linear'
         for (const renderer of this.paneRenderers) {
             const pane = renderer.getPane()
             const scaleType = axisType === 'percent' && pane.role !== 'price' ? 'linear' : axisType

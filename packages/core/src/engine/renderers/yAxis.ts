@@ -100,7 +100,12 @@ export function createYAxisRendererPlugin(options: {
       const crosshair = options.getCrosshair?.()
       if (crosshair && crosshair.activePaneId === pane.id && crosshair.price !== null) {
         const crosshairPrice = isPercent ? pane.yAxis.toPercent(crosshair.price) : crosshair.price
-        const crosshairPriceRange = isPercent ? pane.yAxis.getDisplayPercentRange() : displayRange
+        const crosshairPriceRange: { minPrice: number; maxPrice: number } = isPercent
+          ? (() => {
+              const p = pane.yAxis.getDisplayPercentRange()
+              return { minPrice: p.minPct, maxPrice: p.maxPct }
+            })()
+          : displayRange
         const formatPrice = isPercent
           ? (v: number) => {
               const sign = v >= 0 ? '+' : ''
