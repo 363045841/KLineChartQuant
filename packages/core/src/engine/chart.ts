@@ -64,6 +64,7 @@ export { getPhysicalKLineConfig, calcKWidthPx }
  */
 export type ChartDom = {
     container: HTMLDivElement
+    scrollContent?: HTMLDivElement
     canvasLayer: HTMLDivElement
     rightAxisLayer: HTMLDivElement
     xAxisCanvas: HTMLCanvasElement
@@ -205,6 +206,10 @@ export class Chart {
     /** 待写入 DOM 的 scrollLeft（在 RAF 回调中应用，确保 Vue 已完成 DOM 更新） */
     private _pendingScrollLeft: number | null = null
 
+    private incrementalLoadHintEl: HTMLDivElement | null = null
+    private incrementalLoadHintTimer: number | null = null
+    private pendingPrependedCount = 0
+
     /** overlay 上一帧是否有十字线（用于判断何时需要清除） */
     private overlayHadCrosshair = false
 
@@ -219,6 +224,80 @@ export class Chart {
 
     /** Chart 级共享 WebGL canvas/context */
     private sharedWebGLSurface: SharedWebGLSurface
+
+    private getScrollContentHost(): HTMLDivElement | null {
+        return this.dom.scrollContent ?? this.dom.container ?? null
+    }
+
+    private ensureIncrementalLoadHint(): HTMLDivElement | null {
+        const host = this.getScrollContentHost()
+        if (!host) return null
+
+        if (this.incrementalLoadHintEl && this.incrementalLoadHintEl.isConnected) {
+            return this.incrementalLoadHintEl
+        }
+
+        const ownerDoc = host.ownerDocument
+        if (!ownerDoc) return null
+
+        const hint = ownerDoc.createElement('div')
+        hint.className = 'klc-incremental-load-hint'
+        hint.style.position = 'absolute'
+        hint.style.left = '0'
+        hint.style.top = '0'
+        hint.style.height = '0px'
+        hint.style.width = '0px'
+        hint.style.pointerEvents = 'none'
+        hint.style.opacity = '0'
+        hint.style.filter = 'blur(10px)'
+        hint.style.transition = 'opacity 420ms ease, filter 420ms ease'
+        hint.style.background = 'rgba(71, 91, 132, 0.5)'
+        hint.style.zIndex = '3'
+        hint.style.willChange = 'opacity, filter, width'
+        host.appendChild(hint)
+        this.incrementalLoadHintEl = hint
+        return hint
+    }
+
+    private clearIncrementalLoadHintTimer(): void {
+        if (this.incrementalLoadHintTimer !== null) {
+            window.clearTimeout(this.incrementalLoadHintTimer)
+            this.incrementalLoadHintTimer = null
+        }
+    }
+
+    private hideIncrementalLoadHint(): void {
+        const hint = this.incrementalLoadHintEl
+        if (!hint) return
+        hint.style.opacity = '0'
+        hint.style.filter = 'blur(10px)'
+    }
+
+    private showIncrementalLoadHint(count: number): void {
+        if (count <= 0) return
+        const hint = this.ensureIncrementalLoadHint()
+        if (!hint) return
+
+        this.clearIncrementalLoadHintTimer()
+
+        const dpr = this.getEffectiveDpr()
+        const { unitPx, startXPx } = getPhysicalKLineConfig(this.opt.kWidth, this.opt.kGap, dpr)
+        const width = this.getLeftLoadBufferWidth() + (startXPx + count * unitPx) / dpr
+        hint.style.width = `${Math.max(0, width)}px`
+        hint.style.height = `${Math.max(
+            0,
+            this._internalViewport?.viewHeight ?? this.dom.container?.clientHeight ?? 0,
+        )}px`
+
+        hint.getBoundingClientRect()
+        hint.style.opacity = '1'
+        hint.style.filter = 'blur(0px)'
+
+        this.incrementalLoadHintTimer = window.setTimeout(() => {
+            this.hideIncrementalLoadHint()
+            this.incrementalLoadHintTimer = null
+        }, 900)
+    }
 
     /** 当前缩放级别（1 ~ zoomLevelCount） */
     private currentZoomLevel: number = 1
@@ -1868,6 +1947,10 @@ export class Chart {
             this._dataBufferUnsub()
             this._dataBufferUnsub = null
         }
+        this.clearIncrementalLoadHintTimer()
+        this.incrementalLoadHintEl?.remove()
+        this.incrementalLoadHintEl = null
+        this.pendingPrependedCount = 0
         this._dataBuffer.dispose()
         this.clearComparisonBuffers()
 
@@ -2526,6 +2609,7 @@ export class Chart {
         this._dataBuffer.setFetcher(this._dataFetcher)
 
         this._dataBuffer.onPrepend = (count: number) => {
+            this.pendingPrependedCount = count
             const dpr = this.getEffectiveDpr()
             const { unitPx } = getPhysicalKLineConfig(this.opt.kWidth, this.opt.kGap, dpr)
             const compensation = (count * unitPx) / dpr
@@ -2541,6 +2625,8 @@ export class Chart {
                 const bufferData = this._dataBuffer.data.peek()
                 this._internalData = [...bufferData]
                 this._dataSignal.set([...this._internalData])
+                const prependedCount = this.pendingPrependedCount
+                this.pendingPrependedCount = 0
                 if (this.cachedScrollLeft < this.getLeftLoadBufferWidth()) {
                     const desiredScrollLeft = this.getLeftLoadBufferWidth()
                     this.cachedScrollLeft = desiredScrollLeft
@@ -2570,6 +2656,7 @@ export class Chart {
                 } else {
                     this.pendingIndicatorDataUpdate = true
                 }
+                this.showIncrementalLoadHint(prependedCount)
             })
         }
 

@@ -115,6 +115,7 @@ const DEFAULT_INDICATOR_CATALOG: ReadonlyArray<IndicatorDefinition> = [
 
 interface MountedDom {
     container: HTMLDivElement
+    scrollContent?: HTMLDivElement
     canvasLayer: HTMLDivElement
     rightAxisLayer: HTMLDivElement
     xAxisCanvas: HTMLCanvasElement
@@ -246,6 +247,7 @@ function buildDom(container: HTMLElement): MountedDom {
     canvasLayer.style.position = 'sticky'
     canvasLayer.style.top = '0'
     canvasLayer.style.left = '0'
+    canvasLayer.style.zIndex = '1'
 
     const xAxisCanvas = ownerDoc.createElement('canvas')
     xAxisCanvas.className = 'klc-x-axis-canvas'
@@ -273,7 +275,7 @@ function buildDom(container: HTMLElement): MountedDom {
         }
     }
 
-    return { container: chartContainer, canvasLayer, rightAxisLayer, xAxisCanvas, cleanup }
+    return { container: chartContainer, scrollContent, canvasLayer, rightAxisLayer, xAxisCanvas, cleanup }
 }
 
 // ---------------------------------------------------------------------------
@@ -318,6 +320,7 @@ export function createChartController(opts: ChartMountOptions): ChartController 
     const chart = new Chart(
         {
             container: mounted.container,
+            scrollContent: mounted.scrollContent,
             canvasLayer: mounted.canvasLayer,
             rightAxisLayer: mounted.rightAxisLayer,
             xAxisCanvas: mounted.xAxisCanvas,

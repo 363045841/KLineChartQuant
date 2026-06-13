@@ -20,11 +20,13 @@ export { getPhysicalKLineConfig, calcKWidthPx };
 /**
  * 图表 DOM 元素引用
  * @property container 图表容器 div
+ * @property scrollContent 滚动内容容器 div
  * @property canvasLayer Canvas 层容器 div（包含所有绘制 canvas）
  * @property xAxisCanvas X 轴时间轴 canvas
  */
 export type ChartDom = {
     container: HTMLDivElement;
+    scrollContent?: HTMLDivElement;
     canvasLayer: HTMLDivElement;
     rightAxisLayer: HTMLDivElement;
     xAxisCanvas: HTMLCanvasElement;
