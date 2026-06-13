@@ -2706,13 +2706,13 @@ export class Chart {
         if (targetLevel === this.currentZoomLevel) return
 
         const delta = targetLevel - this.currentZoomLevel
-        const scrollLeft = this.getCachedScrollLeft()
+        const logicalScrollLeft = this.getLogicalScrollLeft()
         const dpr = this.getCurrentDpr()
 
         const result = computeZoom(
             delta,
             anchorViewportX ?? 0,
-            scrollLeft,
+            logicalScrollLeft,
             this.currentZoomLevel,
             this.opt.kWidth,
             this.opt.kGap,
@@ -2726,10 +2726,10 @@ export class Chart {
 
         if (!result) return
 
-        // 应用 render state
+        const domScrollLeft = result.newScrollLeft + this.getLeftLoadBufferWidth()
         this.currentZoomLevel = result.targetLevel
-        this.cachedScrollLeft = result.newScrollLeft
-        this._pendingScrollLeft = result.newScrollLeft
+        this.cachedScrollLeft = domScrollLeft
+        this._pendingScrollLeft = domScrollLeft
         this.applyRenderState(result.newKWidth, result.newKGap, result.targetLevel)
     }
 
