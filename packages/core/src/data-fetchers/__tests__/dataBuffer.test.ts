@@ -284,4 +284,81 @@ describe('DataBuffer', () => {
 
         expect(prependCalls).toHaveLength(0)
     })
+
+    it('ensureRange skips when same boundary was already attempted (empty fetch)', async () => {
+        const now = Date.now()
+        const oneYearAgo = now - 365 * MS_PER_DAY
+        const initialData = [makeKLine(oneYearAgo), makeKLine(now)]
+
+        let fetchCount = 0
+        const fetcher: DataFetcher = async () => {
+            fetchCount++
+            if (fetchCount === 1) return initialData
+            return []
+        }
+
+        buffer.setFetcher(fetcher)
+        buffer.setSymbol(defaultSpec)
+
+        await vi.waitFor(() => {
+            expect(buffer.loading()).toBe(false)
+        })
+
+        expect(fetchCount).toBe(1)
+
+        buffer.ensureRange(oneYearAgo - 30 * MS_PER_DAY, oneYearAgo)
+
+        await vi.waitFor(() => {
+            expect(buffer.loading()).toBe(false)
+        })
+
+        expect(fetchCount).toBe(2)
+
+        buffer.ensureRange(oneYearAgo - 60 * MS_PER_DAY, oneYearAgo)
+
+        await new Promise((r) => setTimeout(r, 50))
+
+        expect(fetchCount).toBe(2)
+    })
+
+    it('ensureRange allows retry when earliestTs moves after successful load', async () => {
+        const now = Date.now()
+        const oneYearAgo = now - 365 * MS_PER_DAY
+        const initialData = [makeKLine(oneYearAgo), makeKLine(now)]
+
+        let fetchCount = 0
+        const fetcher: DataFetcher = async () => {
+            fetchCount++
+            if (fetchCount === 1) return initialData
+            if (fetchCount === 2) return [makeKLine(oneYearAgo - 90 * MS_PER_DAY)]
+            return []
+        }
+
+        buffer.setFetcher(fetcher)
+        buffer.setSymbol(defaultSpec)
+
+        await vi.waitFor(() => {
+            expect(buffer.loading()).toBe(false)
+        })
+
+        expect(fetchCount).toBe(1)
+
+        buffer.ensureRange(oneYearAgo - 30 * MS_PER_DAY, oneYearAgo)
+
+        await vi.waitFor(() => {
+            expect(buffer.loading()).toBe(false)
+        })
+
+        expect(fetchCount).toBe(2)
+        expect(buffer.loadedWindow!.earliestTs).toBe(oneYearAgo - 90 * MS_PER_DAY)
+
+        const newEarliest = oneYearAgo - 90 * MS_PER_DAY
+        buffer.ensureRange(newEarliest - 30 * MS_PER_DAY, newEarliest)
+
+        await vi.waitFor(() => {
+            expect(buffer.loading()).toBe(false)
+        })
+
+        expect(fetchCount).toBe(3)
+    })
 })

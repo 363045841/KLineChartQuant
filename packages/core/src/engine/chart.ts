@@ -240,9 +240,6 @@ export class Chart {
     /** 原始可见范围可为负数，仅用于判断左侧空白区加载 */
     private lastRawVisibleRange: VisibleRange = { start: 0, end: 0 }
 
-    /** 防止 idle 连续帧对同一个左边界重复排队加载 */
-    private pendingLeftGapLoadEndTs: number | null = null
-
     /** Overlay 帧复用的最近主渲染结果 */
     private cachedDrawFrame: {
         viewport: Viewport
@@ -1655,7 +1652,6 @@ export class Chart {
      */
     updateData(data: KLineData[]) {
         this._internalData = data ?? []
-        this.pendingLeftGapLoadEndTs = null
         this._dataSignal.set([...this._internalData])
 
         // 重算 DOM scrollLeft 状态, 防止左右滚动超出数据长度范围
@@ -2394,10 +2390,8 @@ export class Chart {
         const range = this.computeRawVisibleRange() ?? this.lastRawVisibleRange
 
         if (range.start < 0 && this._dataFetcher) {
-            if (this.pendingLeftGapLoadEndTs === window.earliestTs) return
             const MS_PER_DAY = 86_400_000
             const earlierThanEarliest = window.earliestTs - 90 * MS_PER_DAY
-            this.pendingLeftGapLoadEndTs = window.earliestTs
             this._dataBuffer.ensureRange(earlierThanEarliest, window.earliestTs)
             return
         }
@@ -2546,7 +2540,6 @@ export class Chart {
             this._dataBufferUnsub = this._dataBuffer.data.subscribe(() => {
                 const bufferData = this._dataBuffer.data.peek()
                 this._internalData = [...bufferData]
-                this.pendingLeftGapLoadEndTs = null
                 this._dataSignal.set([...this._internalData])
                 if (this.cachedScrollLeft < this.getLeftLoadBufferWidth()) {
                     const desiredScrollLeft = this.getLeftLoadBufferWidth()

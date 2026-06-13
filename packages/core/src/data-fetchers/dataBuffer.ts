@@ -43,6 +43,7 @@ export class DataBuffer {
     private _loadedWindow: DataWindow | null = null
     private _pendingFetch: Promise<void> | null = null
     private _disposed = false
+    private _attemptedBoundaries: Set<number> = new Set()
 
     onPrepend: ((count: number) => void) | null = null
 
@@ -71,6 +72,7 @@ export class DataBuffer {
         this._currentSpec = spec
         this._data = []
         this._loadedWindow = null
+        this._attemptedBoundaries.clear()
         this._dataSignal.set([])
         this.loadInitial()
     }
@@ -86,6 +88,9 @@ export class DataBuffer {
 
         if (incrementalEnd <= incrementalStart) return
 
+        if (this._attemptedBoundaries.has(incrementalEnd)) return
+
+        this._attemptedBoundaries.add(incrementalEnd)
         this.fetchRange(incrementalStart, incrementalEnd)
     }
 
@@ -173,5 +178,6 @@ export class DataBuffer {
         this._pendingFetch = null
         this._data = []
         this._loadedWindow = null
+        this._attemptedBoundaries.clear()
     }
 }
