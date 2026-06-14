@@ -2,24 +2,23 @@ import type { KLineData } from '../types/price'
 import type { ChartSettings } from '../config/chartSettings'
 import { createSignal, type Signal, type Computed } from '../reactivity/signal'
 import type { SymbolSpec } from '../controllers/types'
-import { getVisibleRange } from './viewport/viewport'
-import { ChartDataManager, type DataDependencies } from './data/chartDataManager'
+import { ChartDataManager } from './data/chartDataManager'
 import { ChartPaneLayout } from './layout/chartPaneLayout'
 import { UpdateLevel } from './layout/pane'
-import type { VisibleRange } from './layout/pane'
 import type { ScaleType } from './utils/tickPosition'
 import { InteractionController, type InteractionSnapshot } from './controller/interaction'
 export type { InteractionSnapshot }
-import type { ChartDom, PaneSpec, ChartOptions, KLinePositions, Viewport, ViewportState, IndicatorInstance, SubPaneInfo, DrawingToolType } from './chartTypes'
+import type { ChartDom, PaneSpec, ChartOptions, Viewport, ViewportState, IndicatorInstance, SubPaneInfo, DrawingToolType } from './chartTypes'
 import { PaneRenderer } from './paneRenderer'
 import { SharedWebGLSurface } from './renderers/webgl/sharedWebGLSurface'
-import { MarkerManager, type CustomMarkerEntity } from './marker/registry'
-import { getPhysicalKLineConfig, calcKWidthPx } from './utils/klineConfig'
+import type { MarkerManager, CustomMarkerEntity } from './marker/registry'
+import { getPhysicalKLineConfig } from './utils/klineConfig'
 import { ChartZoomController } from './utils/chartZoomController'
-import { ChartViewportManager, type ViewportDependencies } from './viewport/chartViewportManager'
-import { ChartIndicatorManager, type IndicatorDependencies } from './indicators/chartIndicatorManager'
+import { ChartViewportManager } from './viewport/chartViewportManager'
+import { ChartIndicatorManager } from './indicators/chartIndicatorManager'
 import type { IndicatorScheduler } from './indicators/scheduler'
 import type { SubPaneEntry } from './subPaneManager'
+import { ChartRenderer } from './render/chartRenderer'
 
 import {
     createPluginHost,
@@ -27,30 +26,13 @@ import {
     RendererPluginManager,
     type RendererPlugin,
     type RendererPluginWithHost,
-    type RenderContext,
     wrapPaneInfo,
-    type YAxisLabel,
-    type XAxisLabel,
-    type YAxisRange,
-    type XAxisRange,
 } from '../plugin'
 import type { SubIndicatorType } from './renderers/Indicator'
-import { createMainIndicatorLegendRendererPlugin } from './renderers/Indicator/mainIndicatorLegend'
-import { DrawingStore } from './drawing'
-import { createDrawingRendererPlugin, createDrawingLabelOverlayPlugin } from './drawing/plugin'
-import { createGridLinesRendererPlugin } from './renderers/gridLines'
-import { createCandleRenderer } from './renderers/candle'
-import { createComparisonLineRenderer } from './renderers/comparisonLine'
-import { createLastPriceLineRendererPlugin, createLastPriceLabelRegistrarPlugin } from './renderers/lastPrice'
-import { createCustomMarkersRenderer } from './renderers/customMarkers'
-import { createExtremaMarkersRendererPlugin } from './renderers/extremaMarkers'
-import { createYAxisRendererPlugin } from './renderers/yAxis'
-import { createCrosshairRendererPlugin } from './renderers/crosshair'
-import { createTimeAxisRendererPlugin } from './renderers/timeAxis'
 
 
 // 重新导出以保持向后兼容
-export { getPhysicalKLineConfig, calcKWidthPx }
+export { getPhysicalKLineConfig }
 export type { ChartDom, PaneSpec, PaneRendererDom, ChartOptions, KLinePositions, Viewport, ViewportState, IndicatorRole, IndicatorInstance, SubPaneInfo, DrawingToolType, DrawingObject } from './chartTypes'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
@@ -58,31 +40,16 @@ type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
     kGap: number
 }
 
-type FrameData = {
-    vp: Viewport
-    range: VisibleRange
-    kLinePositions: KLinePositions
-    kLineCenters: number[]
-    kBarRects: Array<{ x: number; width: number }>
-    kWidthPx: number
-    useCachedFrame: boolean
-}
-
 export class Chart {
     private dom: ChartDom
     private opt: ResolvedChartOptions
     private dataManager: ChartDataManager
-
-    private raf: number | null = null
-    private pendingUpdateLevel: UpdateLevel = UpdateLevel.All
 
     private viewportManager: ChartViewportManager
     private layoutManager: ChartPaneLayout
     private get paneRenderers(): PaneRenderer[] {
         return this.layoutManager.getPaneRenderers()
     }
-    private markerManager: MarkerManager
-    private drawingStore = new DrawingStore()
     readonly interaction: InteractionController
 
     /** 插件宿主 */
@@ -90,15 +57,6 @@ export class Chart {
 
     /** 渲染器插件管理器 */
     private rendererPluginManager: RendererPluginManager
-
-    /** overlay 上一帧是否有十字线（用于判断何时需要清除） */
-    private overlayHadCrosshair = false
-
-    /** 用户设置配置（传递给渲染器） */
-    private settings: ChartSettings = {}
-
-    /** 共享 X 轴上下文缓存 */
-    private xAxisCtx: CanvasRenderingContext2D | null = null
 
     /** Chart 级共享 WebGL canvas/context */
     private sharedWebGLSurface: SharedWebGLSurface
@@ -109,15 +67,8 @@ export class Chart {
     /** 指标管理器 */
     private indicatorManager: ChartIndicatorManager
 
-    /** Overlay 帧复用的最近主渲染结果 */
-    private cachedDrawFrame: {
-        viewport: Viewport
-        range: VisibleRange
-        kLinePositions: KLinePositions
-        kLineCenters: number[]
-        kBarRects: Array<{ x: number; width: number }>
-        kWidthPx: number
-    } | null = null
+    /** 渲染器 */
+    private renderer: ChartRenderer
 
     /**
      * 启用主图指标
@@ -178,7 +129,6 @@ export class Chart {
         this.interaction.setOnInteractionChange((snapshot) => {
             this._interactionSignal.set(snapshot)
         })
-        this.markerManager = new MarkerManager()
         this.pluginHost = createPluginHost()
         this.rendererPluginManager = new RendererPluginManager()
         this.sharedWebGLSurface = new SharedWebGLSurface()
@@ -283,61 +233,25 @@ export class Chart {
             setPendingIndicatorDataUpdate: (v) => { this.dataManager.pendingIndicatorDataUpdate = v },
         })
 
-        // 注册绘图主插件（负责绘制 shape，layer: 'main'）
-        this.useRenderer(createDrawingRendererPlugin({ store: this.drawingStore }))
-        // 注册绘图标签插件（负责推送选中绘图的轴标签，layer: 'overlay'）
-        // 注意：此插件依赖 overlay 更新级别，若将来添加 Main 级别需调整
-        this.useRenderer(createDrawingLabelOverlayPlugin({ store: this.drawingStore }))
-        this.initCoreRenderers()
+        // 初始化渲染器
+        this.renderer = new ChartRenderer({
+            getDom: () => this.dom,
+            getOption: () => this.opt,
+            getPaneRenderers: () => this.paneRenderers,
+            getInteraction: () => this.interaction,
+            getSharedWebGLSurface: () => this.sharedWebGLSurface,
+            getPluginHost: () => this.pluginHost,
+            getRendererPluginManager: () => this.rendererPluginManager,
+            getTheme: () => this._themeSignal.peek(),
+            getCurrentZoomLevel: () => this.zoomController.currentZoomLevel,
+            getZoomLevelCount: () => this.zoomController.zoomLevelCount,
+            getViewportManager: () => this.viewportManager,
+            getDataManager: () => this.dataManager,
+            getIndicatorManager: () => this.indicatorManager,
+        })
+        this.renderer.registerDrawingPlugins()
+        this.renderer.initCoreRenderers()
         this.viewportManager.init()
-    }
-
-
-    private initCoreRenderers(): void {
-        const axisWidth = this.opt.rightAxisWidth + (this.opt.priceLabelWidth ?? 0)
-
-        this.useRenderer(createGridLinesRendererPlugin())
-        this.useRenderer(createCandleRenderer())
-        this.useRenderer(createComparisonLineRenderer())
-        this.useRenderer(createLastPriceLineRendererPlugin())
-        this.useRenderer(createLastPriceLabelRegistrarPlugin())
-        this.useRenderer(createCustomMarkersRenderer())
-        this.useRenderer(createExtremaMarkersRendererPlugin())
-        this.useRenderer(createMainIndicatorLegendRendererPlugin({
-            yPaddingPx: this.opt.yPaddingPx,
-        }))
-        this.useRenderer(createYAxisRendererPlugin({
-            axisWidth,
-            yPaddingPx: this.opt.yPaddingPx,
-            getCrosshair: () => {
-                const pos = this.interaction.crosshairPos
-                const price = this.interaction.crosshairPrice
-                const activePaneId = this.interaction.activePaneId
-                if (pos && price !== null) {
-                    return { y: pos.y, price, activePaneId }
-                }
-                return null
-            },
-        }))
-        this.useRenderer(createCrosshairRendererPlugin({
-            getCrosshairState: () => ({
-                pos: this.interaction.crosshairPos,
-                activePaneId: this.interaction.activePaneId,
-                isDragging: this.interaction.isDraggingState(),
-                price: this.interaction.crosshairPrice,
-            }),
-        }))
-        this.useRenderer(createTimeAxisRendererPlugin({
-            height: this.opt.bottomAxisHeight,
-            getCrosshair: () => {
-                const pos = this.interaction.crosshairPos
-                const idx = this.interaction.crosshairIndex
-                if (pos && idx !== null) {
-                    return { x: pos.x, index: idx }
-                }
-                return null
-            },
-        }))
     }
 
 
@@ -401,7 +315,7 @@ export class Chart {
 
     /** 更新用户设置（触发重绘） */
     updateSettings(settings: ChartSettings): void {
-        this.settings = { ...settings }
+        this.renderer.updateSettings(settings)
         this.interaction.updateSettings(settings)
 
         // 同步刻度类型设置到所有 pane（百分比仅用于主图）
@@ -420,323 +334,10 @@ export class Chart {
      * @param level 更新级别，决定渲染哪些层
      */
     draw(level: UpdateLevel = UpdateLevel.All) {
-        // 1. 重置 Marker 标记
-        this.markerManager.clear()
-
-        // 2. 准备帧数据（视口 / 可见范围 / K 线坐标，优先走缓存）
-        const frame = this.prepareFrameData(level)
-        if (!frame) {
-            if (this.dataManager.getInternalData().length === 0) this.clearAllCanvases()
-            return
-        }
-
-        const { vp, range, kLinePositions, kLineCenters, kBarRects, kWidthPx, useCachedFrame } = frame
-
-        // 3. 更新交互控制器坐标映射
-        this.interaction.setKLinePositions(kLinePositions, range, kWidthPx)
-
-        // 4. 通知调度器当前活跃主图指标 + 获取价格范围
-        const indicatorScheduler = this.indicatorManager.indicatorSchedulerAccessor
-        indicatorScheduler.setActiveMainIndicators(
-            [...this.indicatorManager.mainIndicatorsSignalPeek.entries()].map(([id, entry]) => ({ id, params: entry.params })),
-        )
-        const mainIndicatorRange = useCachedFrame ? null : indicatorScheduler.getMainIndicatorPriceRange()
-        const hasCrosshair = this.interaction.getCrosshairIndex() !== null
-
-        // 5. 遍历所有 Pane 渲染主层 / overlay / Y 轴
-        const { sharedXAxisLabels, sharedXAxisRanges } = this.renderPanes(
-            vp, range, kLinePositions, kLineCenters, kBarRects, kWidthPx,
-            mainIndicatorRange, hasCrosshair, useCachedFrame, level,
-        )
-
-        // 6. 持久化十字线状态供下帧判断清除
-        this.overlayHadCrosshair = hasCrosshair
-
-        // 7. 渲染 X 轴时间轴
-        this.renderXAxis(vp, range, kLinePositions, kLineCenters, kBarRects, kWidthPx, sharedXAxisLabels, sharedXAxisRanges)
+        this.renderer.draw(level)
     }
 
-    private prepareFrameData(level: UpdateLevel): FrameData | null {
-        const useCachedFrame = level === UpdateLevel.Overlay && this.cachedDrawFrame !== null
 
-        const vp = useCachedFrame ? this.cachedDrawFrame!.viewport : this.computeViewport()
-        if (!vp) return null
-
-        const internalData = this.dataManager.getInternalData()
-        if (internalData.length === 0) return null
-
-        const rawRange = useCachedFrame
-            ? this.cachedDrawFrame!.range
-            : (() => {
-                const { start, end } = getVisibleRange(
-                    vp.scrollLeft,
-                    vp.plotWidth,
-                    this.opt.kWidth,
-                    this.opt.kGap,
-                    internalData.length,
-                    vp.dpr
-                )
-                return { start, end }
-            })()
-        const range = { start: Math.max(0, rawRange.start), end: rawRange.end }
-
-        if (!useCachedFrame && (
-            range.start !== this.dataManager.lastVisibleRange.start
-            || range.end !== this.dataManager.lastVisibleRange.end
-            || rawRange.start !== this.dataManager.lastRawVisibleRange.start
-            || rawRange.end !== this.dataManager.lastRawVisibleRange.end
-        )) {
-            this.indicatorManager.indicatorSchedulerAccessor.updateVisibleRange(range)
-            this.dataManager.lastVisibleRange = range
-            this.dataManager.lastRawVisibleRange = rawRange
-            this.checkVisibleRangeGapWhenIdle()
-        }
-
-        const kLinePositions = useCachedFrame
-            ? this.cachedDrawFrame!.kLinePositions
-            : this.calcKLinePositions(range)
-
-        let kLineCenters: number[]
-        let kBarRects: Array<{ x: number; width: number }>
-        let kWidthPx: number
-
-        if (useCachedFrame) {
-            kLineCenters = this.cachedDrawFrame!.kLineCenters
-            kBarRects = this.cachedDrawFrame!.kBarRects
-            kWidthPx = this.cachedDrawFrame!.kWidthPx
-        } else {
-            const physConfig = getPhysicalKLineConfig(this.opt.kWidth, this.opt.kGap, vp.dpr)
-            let barWidthPx = Math.max(1, physConfig.unitPx - 1)
-            if (barWidthPx % 2 === 0) barWidthPx -= 1
-
-            kLineCenters = new Array(kLinePositions.length)
-            kBarRects = new Array(kLinePositions.length)
-
-            for (let i = 0; i < kLinePositions.length; i++) {
-                const x = kLinePositions[i]!
-                const leftPx = Math.round(x * vp.dpr)
-                const wickXPx = leftPx + (physConfig.kWidthPx - 1) / 2
-                kLineCenters[i] = wickXPx / vp.dpr
-
-                const barLeftPx = wickXPx - (barWidthPx - 1) / 2
-                kBarRects[i] = { x: barLeftPx / vp.dpr, width: barWidthPx / vp.dpr }
-            }
-
-            kWidthPx = getPhysicalKLineConfig(this.opt.kWidth, this.opt.kGap, vp.dpr).kWidthPx
-            this.cachedDrawFrame = {
-                viewport: { ...vp },
-                range: { ...range },
-                kLinePositions,
-                kLineCenters,
-                kBarRects,
-                kWidthPx,
-            }
-        }
-
-        return { vp, range, kLinePositions, kLineCenters, kBarRects, kWidthPx, useCachedFrame }
-    }
-
-    private clearAllCanvases() {
-        const vp = this.computeViewport()
-        if (!vp) return
-        for (const r of this.paneRenderers) {
-            const { mainCtx, overlayCtx, yAxisCtx } = r.getContexts()
-            const pane = r.getPane()
-            mainCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
-            overlayCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
-            yAxisCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
-        }
-        const xCtx = this.xAxisCtx
-        if (xCtx) {
-            const xW = xCtx.canvas.width
-            const xH = xCtx.canvas.height
-            xCtx.clearRect(0, 0, xW, xH)
-        }
-    }
-
-    private renderPanes(
-        vp: Viewport,
-        range: VisibleRange,
-        kLinePositions: KLinePositions,
-        kLineCenters: number[],
-        kBarRects: Array<{ x: number; width: number }>,
-        kWidthPx: number,
-        mainIndicatorRange: { min: number; max: number } | null,
-        hasCrosshair: boolean,
-        useCachedFrame: boolean,
-        level: UpdateLevel,
-    ): { sharedXAxisLabels: XAxisLabel[]; sharedXAxisRanges: XAxisRange[] } {
-        const sharedYAxisLabels: YAxisLabel[] = []
-        const sharedXAxisLabels: XAxisLabel[] = []
-        const sharedYAxisRanges: YAxisRange[] = []
-        const sharedXAxisRanges: XAxisRange[] = []
-
-        for (const renderer of this.paneRenderers) {
-            const pane = renderer.getPane()
-            const { mainCtx, overlayCtx, yAxisCtx } = renderer.getContexts()
-            const { candleSurface, lineSurface } = renderer.getWebGL()
-
-            if (!useCachedFrame) {
-                const indicatorRange = pane.role === 'price' ? mainIndicatorRange : null
-                const comparisonRange = pane.id === 'main' ? this.dataManager.getComparisonEquivalentPriceRange(range) : null
-                const mergedRange = this.mergeNumericRanges(indicatorRange, comparisonRange)
-                pane.updateRange(this.dataManager.getInternalData(), range, mergedRange)
-                if (pane.id === 'main' && this.settings.disableMainPaneVerticalScroll) {
-                    pane.yAxis.resetTransform()
-                }
-            }
-
-            const shouldUpdateMain = level === UpdateLevel.Main || level === UpdateLevel.All
-            const shouldUpdateOverlay = level === UpdateLevel.All || (level === UpdateLevel.Overlay && (hasCrosshair || this.overlayHadCrosshair))
-
-            if (shouldUpdateMain && mainCtx) {
-                mainCtx.setTransform(1, 0, 0, 1, 0, 0)
-                mainCtx.scale(vp.dpr, vp.dpr)
-                mainCtx.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
-                candleSurface?.clear()
-                lineSurface?.clear()
-            }
-
-            if (shouldUpdateOverlay && overlayCtx) {
-                const overlayWidth = overlayCtx.canvas.width / vp.dpr
-                overlayCtx.setTransform(1, 0, 0, 1, 0, 0)
-                overlayCtx.scale(vp.dpr, vp.dpr)
-                overlayCtx.clearRect(0, 0, overlayWidth + 1, pane.height + 2 / vp.dpr)
-            }
-
-            if (yAxisCtx && !useCachedFrame) {
-                const yAxisWidth = yAxisCtx.canvas.width / vp.dpr
-                yAxisCtx.setTransform(1, 0, 0, 1, 0, 0)
-                yAxisCtx.scale(vp.dpr, vp.dpr)
-                yAxisCtx.clearRect(0, 0, yAxisWidth, pane.height + 2 / vp.dpr)
-            }
-
-            const context: RenderContext = {
-                ctx: mainCtx!,
-                overlayCtx: overlayCtx ?? undefined,
-                pane: wrapPaneInfo(pane),
-                data: this.dataManager.getInternalData(),
-                comparisonData: this.dataManager.getComparisonData(),
-                comparisonSymbols: this.dataManager.getComparisonSpecs(),
-                range,
-                scrollLeft: vp.scrollLeft,
-                kWidth: this.opt.kWidth,
-                kGap: this.opt.kGap,
-                dpr: vp.dpr,
-                paneWidth: vp.plotWidth,
-                kLinePositions,
-                kLineCenters,
-                kBarRects,
-                markerManager: this.markerManager,
-                crosshairIndex: this.interaction.getCrosshairIndex(),
-                yAxisCtx: yAxisCtx ?? undefined,
-                candleWebGLSurface: candleSurface ?? undefined,
-                lineWebGLSurface: lineSurface ?? undefined,
-                zoomLevel: this.zoomController.currentZoomLevel,
-                zoomLevelCount: this.zoomController.zoomLevelCount,
-                viewport: {
-                    scrollLeft: vp.scrollLeft,
-                    plotWidth: vp.plotWidth,
-                    plotHeight: vp.plotHeight,
-                },
-                settings: this.settings,
-                yAxisLabels: sharedYAxisLabels,
-                xAxisLabels: sharedXAxisLabels,
-                yAxisRanges: sharedYAxisRanges,
-                xAxisRanges: sharedXAxisRanges,
-                theme: this._themeSignal.peek(),
-                isAsiaMarket: this.settings.isAsiaMarket as boolean,
-                colorPresetSettings: this.settings.colorPresetSettings,
-            }
-
-            if (shouldUpdateMain || shouldUpdateOverlay) {
-                const errors = this.rendererPluginManager.render(pane.id, context, level)
-                if (errors.length > 0) {
-                    this.pluginHost.events.emit('renderer:error', { paneId: pane.id, errors })
-                }
-
-                const yAxisErrors = this.rendererPluginManager.renderPlugin('yAxis', context)
-                if (yAxisErrors.length > 0) {
-                    this.pluginHost.events.emit('renderer:error', { paneId: pane.id, errors: yAxisErrors })
-                }
-            }
-        }
-
-        return { sharedXAxisLabels, sharedXAxisRanges }
-    }
-
-    private renderXAxis(
-        vp: Viewport,
-        range: VisibleRange,
-        kLinePositions: KLinePositions,
-        kLineCenters: number[],
-        kBarRects: Array<{ x: number; width: number }>,
-        kWidthPx: number,
-        sharedXAxisLabels: XAxisLabel[],
-        sharedXAxisRanges: XAxisRange[],
-    ): void {
-        const xAxisCtx = this.xAxisCtx ?? this.dom.xAxisCanvas.getContext('2d')
-        if (!this.xAxisCtx) {
-            this.xAxisCtx = xAxisCtx
-        }
-        if (xAxisCtx) {
-            const timeAxisContext: RenderContext = {
-                ctx: xAxisCtx,
-                pane: {
-                    id: 'xAxis',
-                    role: 'auxiliary',
-                    capabilities: {
-                        showPriceAxisTicks: false,
-                        showCrosshairPriceLabel: false,
-                        candleHitTest: false,
-                        supportsPriceTranslate: false,
-                    },
-                    top: 0,
-                    height: this.opt.bottomAxisHeight,
-                    yAxis: {
-                        priceToY: () => 0,
-                        yToPrice: () => 0,
-                        getPaddingTop: () => 0,
-                        getPaddingBottom: () => 0,
-                        getPriceOffset: () => 0,
-                        getDisplayRange: (baseRange) => baseRange ?? { maxPrice: 0, minPrice: 0 },
-                        getScaleType: () => 'linear' as const,
-                        getBasePrice: () => null,
-                        toPercent: () => 0,
-                        fromPercent: () => 0,
-                        getDisplayPercentRange: () => ({ minPct: 0, maxPct: 0 }),
-                    },
-                    priceRange: { maxPrice: 0, minPrice: 0 },
-                },
-                data: this.dataManager.getInternalData(),
-                range,
-                scrollLeft: vp.scrollLeft,
-                kWidth: this.opt.kWidth,
-                kGap: this.opt.kGap,
-                dpr: vp.dpr,
-                paneWidth: vp.plotWidth,
-                kLinePositions,
-                kLineCenters,
-                kBarRects,
-                xAxisCtx,
-                viewport: {
-                    scrollLeft: vp.scrollLeft,
-                    plotWidth: vp.plotWidth,
-                    plotHeight: vp.plotHeight,
-                },
-                yAxisLabels: [],
-                xAxisLabels: sharedXAxisLabels,
-                xAxisRanges: sharedXAxisRanges,
-                theme: this._themeSignal.peek(),
-                isAsiaMarket: this.settings.isAsiaMarket as boolean,
-                colorPresetSettings: this.settings.colorPresetSettings,
-            }
-            const errors = this.rendererPluginManager.renderPlugin('timeAxis', timeAxisContext)
-            if (errors.length > 0) {
-                this.pluginHost.events.emit('renderer:error', { paneId: 'timeAxis', errors })
-            }
-        }
-    }
 
     // ========== Render State API (Vue SSOT) ==========
 
@@ -777,18 +378,18 @@ export class Chart {
 
     /** 获取 MarkerManager（供 InteractionController 使用） */
     getMarkerManager(): MarkerManager {
-        return this.markerManager
+        return this.renderer.getMarkerManager()
     }
 
     /** 更新自定义标记 */
     updateCustomMarkers(markers: CustomMarkerEntity[]): void {
-        this.markerManager.setCustomMarkers(markers)
+        this.renderer.getMarkerManager().setCustomMarkers(markers)
         this.scheduleDraw()
     }
 
     /** 清除自定义标记 */
     clearCustomMarkers(): void {
-        this.markerManager.clearCustomMarkers()
+        this.renderer.getMarkerManager().clearCustomMarkers()
         this.scheduleDraw()
     }
 
@@ -800,36 +401,6 @@ export class Chart {
     /** 获取当前 ChartOptions（返回内部当前快照） */
     getOption() {
         return this.opt
-    }
-
-    /**
-     * 计算 K 线起始 x 坐标数组，与 candle.ts 的像素对齐方式保持一致
-     * @param range 可见 K 线索引范围
-     * @returns x 坐标数组（逻辑像素，经过物理像素对齐）
-     */
-    calcKLinePositions(range: VisibleRange): KLinePositions {
-        const { start, end } = range
-        const count = end - start
-
-        // 边界检查：防止负数或零长度数组
-        if (count <= 0) {
-            return []
-        }
-
-        const dpr = this.viewportManager.getEffectiveDpr()
-
-        // 统一使用 getPhysicalKLineConfig，确保与渲染完全一致
-        const { unitPx, startXPx } = getPhysicalKLineConfig(this.opt.kWidth, this.opt.kGap, dpr)
-
-        const positions: number[] = new Array(count)
-
-        for (let i = 0; i < count; i++) {
-            const dataIndex = start + i
-            const leftPx = startXPx + dataIndex * unitPx
-            positions[i] = leftPx / dpr
-        }
-
-        return positions
     }
 
     /**
@@ -879,15 +450,16 @@ export class Chart {
 
     /** 更新绘图对象 */
     setDrawings(drawings: import('../plugin').DrawingObject[]): void {
-        this.drawingStore.setAll(drawings)
+        this.renderer.getDrawingStore().setAll(drawings)
         this._drawingsSignal.set(drawings)
         this.scheduleDraw()
     }
 
     /** 更新选中的绘图 ID */
     setSelectedDrawingId(id: string | null): void {
-        if (this.drawingStore.getSelectedId() === id) return
-        this.drawingStore.setSelectedId(id)
+        const store = this.renderer.getDrawingStore()
+        if (store.getSelectedId() === id) return
+        store.setSelectedId(id)
         this.scheduleDraw()
     }
 
@@ -1095,7 +667,7 @@ export class Chart {
         if (!vp || vp.viewWidth < 10 || vp.viewHeight < 10) {
             return
         }
-        this.cachedDrawFrame = null
+        this.renderer.clearCachedFrame()
         this.layoutManager.layoutPanes()
         this.viewportManager.updateViewportSignal()
         this.scheduleDraw()
@@ -1106,57 +678,16 @@ export class Chart {
      * @param level 更新级别，默认为 All
      */
     scheduleDraw(level: UpdateLevel = UpdateLevel.All): void {
-        // 合并更新级别：如果已有更高级别的调度，保持高级别
-        if (this.raf !== null) {
-            // 已有 All 级别调度，任何新请求都忽略
-            if (this.pendingUpdateLevel === UpdateLevel.All) return
-            // 新请求是 All，覆盖之前的 Main/Overlay
-            if (level === UpdateLevel.All) {
-                this.pendingUpdateLevel = UpdateLevel.All
-                return
-            }
-            // Main + Overlay = All
-            if (
-                (this.pendingUpdateLevel === UpdateLevel.Main && level === UpdateLevel.Overlay) ||
-                (this.pendingUpdateLevel === UpdateLevel.Overlay && level === UpdateLevel.Main)
-            ) {
-                this.pendingUpdateLevel = UpdateLevel.All
-                return
-            }
-            // 同级别或更低级别，忽略
-            return
-        }
-
-        this.pendingUpdateLevel = level
-        this.raf = requestAnimationFrame(() => {
-            this.raf = null
-            const levelToDraw = this.pendingUpdateLevel
-            this.pendingUpdateLevel = UpdateLevel.All  // 重置为默认值
-            this.draw(levelToDraw)
-            const c = this.dom.container
-            if (c) {
-                this.viewportManager.applyPendingScrollLeft(c)
-            }
-        })
+        this.renderer.scheduleDraw(level)
     }
 
     /** 销毁图表实例 */
     async destroy() {
-        if (this.raf !== null) {
-            cancelAnimationFrame(this.raf)
-            this.raf = null
-        }
-
+        this.renderer.destroy()
         this.dataManager.destroy()
         this.viewportManager.destroy()
-        this.cachedDrawFrame = null
-        this.xAxisCtx = null
         this.layoutManager.destroy()
         this.sharedWebGLSurface.destroy()
-
-        // 清理渲染器插件管理器（会调用所有 onUninstall）
-        this.rendererPluginManager.clear()
-
         this.indicatorManager.destroy()
         await this.pluginHost.destroy()
     }
@@ -1264,23 +795,6 @@ export class Chart {
 
     checkVisibleRangeGap(): void {
         this.dataManager.checkVisibleRangeGap()
-    }
-
-    private checkVisibleRangeGapWhenIdle(): void {
-        if (this.interaction.isPointerDown()) return
-        this.dataManager.checkVisibleRangeGap()
-    }
-
-    private mergeNumericRanges(
-        left: { min: number; max: number } | null | undefined,
-        right: { min: number; max: number } | null | undefined,
-    ): { min: number; max: number } | null {
-        if (!left) return right ?? null
-        if (!right) return left
-        return {
-            min: Math.min(left.min, right.min),
-            max: Math.max(left.max, right.max),
-        }
     }
 
     setSymbols(specs: ReadonlyArray<SymbolSpec>): void {
