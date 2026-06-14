@@ -1,10 +1,12 @@
-import type { Chart } from './chart'
 import type { SubIndicatorType } from './renderers/Indicator'
 import { createSignal, type Signal } from '../reactivity/signal'
 import { createSubIndicatorRenderer } from './renderers/Indicator'
 import { createPaneTitleRendererPlugin } from './renderers/paneTitle'
 import { createIndicatorScaleRendererPlugin } from './renderers/Indicator/scale/indicator_scale'
 import { findIndicator } from './renderers/Indicator/indicatorCatalog'
+import type { IndicatorScheduler } from './indicators/scheduler'
+import type { RendererPlugin, RendererPluginWithHost } from '../plugin'
+import type { PaneSpec } from './chartTypes'
 
 export interface SubPaneEntry {
     paneId: string
@@ -13,6 +15,23 @@ export interface SubPaneEntry {
     rendererName: string
     scaleRendererName: string
     paneTitleRendererName: string
+}
+
+export interface SubPaneContext {
+    getIndicatorScheduler: () => IndicatorScheduler
+    hasPane: (paneId: string) => boolean
+    upsertPane: (def: PaneSpec) => void
+    getRenderer: <T extends RendererPlugin = RendererPlugin>(name: string) => T | undefined
+    useRenderer: (plugin: RendererPlugin | RendererPluginWithHost, config?: Record<string, unknown>) => void
+    removeRenderer: (name: string) => void
+    removePaneDefinition: (paneId: string) => void
+    updateRendererConfig: (name: string, config: Record<string, unknown>) => void
+    getRightAxisWidth: () => number
+    getPriceLabelWidth: () => number
+    getYPaddingPx: () => number
+    getCrosshairPos: () => { x: number; y: number } | null
+    getCrosshairPrice: () => number | null
+    getActivePaneId: () => string | null
 }
 
 export class SubPaneManager {
@@ -27,82 +46,78 @@ export class SubPaneManager {
         this._entriesSignal.set(this.getAll())
     }
 
-    create(chart: Chart, paneId: string, indicatorId: SubIndicatorType, params: Record<string, unknown>): boolean {
+    create(ctx: SubPaneContext, paneId: string, indicatorId: SubIndicatorType, params: Record<string, unknown>): boolean {
         if (this.entries.has(paneId)) {
             return true
         }
 
         const scaleRendererName = `${indicatorId.toLowerCase()}_scale_${paneId}`
         const paneTitleRendererName = `paneTitle_${paneId}`
-        const renderer = this.createIndicatorRenderer(chart, paneId, indicatorId, params)
+        const renderer = this.createIndicatorRenderer(ctx, paneId, indicatorId, params)
         if (!renderer) return false
         const rendererName = renderer.name
 
-        const paneExists = chart.hasPane(paneId)
+        const paneExists = ctx.hasPane(paneId)
         if (!paneExists) {
-            chart.upsertPane({ id: paneId, ratio: 1, visible: true, role: 'indicator' })
+            ctx.upsertPane({ id: paneId, ratio: 1, visible: true, role: 'indicator' })
         }
 
-        const existingRenderer = chart.getRenderer(rendererName)
+        const existingRenderer = ctx.getRenderer(rendererName)
         if (!existingRenderer) {
-            chart.useRenderer(renderer, params as Record<string, number | boolean | string>)
+            ctx.useRenderer(renderer, params as Record<string, number | boolean | string>)
         }
 
-        this.mountScaleRenderer(chart, paneId, indicatorId, scaleRendererName)
-        this.mountPaneTitleRenderer(chart, paneId, indicatorId, params)
+        this.mountScaleRenderer(ctx, paneId, indicatorId, scaleRendererName)
+        this.mountPaneTitleRenderer(ctx, paneId, indicatorId, params)
 
-        // 必须在 syncSchedulerConfig 之前注册 entry，
-        // 否则 scheduler 的 buildActiveConfig 读不到新 paneId，会将新指标的 show* 标志置为 false
         this.entries.set(paneId, { paneId, indicatorId, params, rendererName, scaleRendererName, paneTitleRendererName })
 
-        this.syncSchedulerConfig(chart, paneId, indicatorId, params)
+        this.syncSchedulerConfig(ctx, paneId, indicatorId, params)
 
-        chart.getIndicatorScheduler().onSubPaneChanged()
+        ctx.getIndicatorScheduler().onSubPaneChanged()
 
         this.syncEntriesSignal()
         return true
     }
 
-    remove(chart: Chart, paneId: string): void {
+    remove(ctx: SubPaneContext, paneId: string): void {
         const entry = this.entries.get(paneId)
         if (!entry) return
 
-        chart.removeRenderer(entry.rendererName)
-        chart.removeRenderer(entry.scaleRendererName)
-        chart.removeRenderer(entry.paneTitleRendererName)
+        ctx.removeRenderer(entry.rendererName)
+        ctx.removeRenderer(entry.scaleRendererName)
+        ctx.removeRenderer(entry.paneTitleRendererName)
 
         this.entries.delete(paneId)
 
-        if (chart.hasPane(paneId)) {
-            chart.removePaneDefinition(paneId)
+        if (ctx.hasPane(paneId)) {
+            ctx.removePaneDefinition(paneId)
         }
 
-        chart.getIndicatorScheduler().onSubPaneChanged()
+        ctx.getIndicatorScheduler().onSubPaneChanged()
         this.syncEntriesSignal()
     }
 
-    replaceIndicator(chart: Chart, paneId: string, newIndicatorId: SubIndicatorType, newParams: Record<string, unknown>): void {
+    replaceIndicator(ctx: SubPaneContext, paneId: string, newIndicatorId: SubIndicatorType, newParams: Record<string, unknown>): void {
         const entry = this.entries.get(paneId)
         if (!entry) return
 
-        const oldIndicatorId = entry.indicatorId
-
-        chart.removeRenderer(entry.rendererName)
-        chart.removeRenderer(entry.scaleRendererName)
-        chart.removeRenderer(entry.paneTitleRendererName)
+        ctx.removeRenderer(entry.rendererName)
+        ctx.removeRenderer(entry.scaleRendererName)
+        ctx.removeRenderer(entry.paneTitleRendererName)
 
         const newScaleRendererName = `${newIndicatorId.toLowerCase()}_scale_${paneId}`
         const newPaneTitleRendererName = `paneTitle_${paneId}`
-        const renderer = this.createIndicatorRenderer(chart, paneId, newIndicatorId, newParams)
+        const renderer = this.createIndicatorRenderer(ctx, paneId, newIndicatorId, newParams)
         if (!renderer) return
         const newRendererName = renderer.name
 
-        chart.useRenderer(renderer, newParams as Record<string, number | boolean | string>)
+        ctx.useRenderer(renderer, newParams as Record<string, number | boolean | string>)
 
-        this.mountScaleRenderer(chart, paneId, newIndicatorId, newScaleRendererName)
-        this.mountPaneTitleRenderer(chart, paneId, newIndicatorId, newParams)
+        this.mountScaleRenderer(ctx, paneId, newIndicatorId, newScaleRendererName)
+        this.mountPaneTitleRenderer(ctx, paneId, newIndicatorId, newParams)
 
-        this.syncSchedulerConfig(chart, paneId, newIndicatorId, newParams)
+        this.syncSchedulerConfig(ctx, paneId, newIndicatorId, newParams)
 
         this.entries.set(paneId, {
             paneId,
@@ -113,19 +128,20 @@ export class SubPaneManager {
             paneTitleRendererName: newPaneTitleRendererName,
         })
 
-        chart.getIndicatorScheduler().onSubPaneChanged()
+        ctx.getIndicatorScheduler().onSubPaneChanged()
         this.syncEntriesSignal()
     }
 
-    updateParams(chart: Chart, paneId: string, params: Record<string, unknown>): void {
+    updateParams(ctx: SubPaneContext, paneId: string, params: Record<string, unknown>): void {
         const entry = this.entries.get(paneId)
         if (!entry) return
 
         entry.params = { ...params }
 
-        chart.updateRendererConfig(entry.rendererName, params)
+        ctx.updateRendererConfig(entry.rendererName, params)
+        ctx.updateRendererConfig(entry.paneTitleRendererName, { params: entry.params, indicatorId: entry.indicatorId })
 
-        this.syncSchedulerConfig(chart, paneId, entry.indicatorId, entry.params)
+        this.syncSchedulerConfig(ctx, paneId, entry.indicatorId, entry.params)
         this.syncEntriesSignal()
     }
 
@@ -134,12 +150,12 @@ export class SubPaneManager {
     }
 
     private createIndicatorRenderer(
-        chart: Chart,
+        ctx: SubPaneContext,
         paneId: string,
         indicatorId: SubIndicatorType,
         params: Record<string, unknown>,
-    ): import('../plugin').RendererPlugin {
-        const definition = chart.getIndicatorScheduler().getIndicatorMetadata(indicatorId)
+    ): RendererPlugin {
+        const definition = ctx.getIndicatorScheduler().getIndicatorMetadata(indicatorId)
         if (!definition) {
             throw new Error(`[SubPaneManager] Unknown indicator: ${indicatorId}`)
         }
@@ -154,38 +170,38 @@ export class SubPaneManager {
         return Array.from(this.entries.keys())
     }
 
-    clear(chart: Chart): void {
+    clear(ctx: SubPaneContext): void {
         for (const entry of this.entries.values()) {
-            chart.removeRenderer(entry.rendererName)
-            chart.removeRenderer(entry.scaleRendererName)
-            chart.removeRenderer(entry.paneTitleRendererName)
+            ctx.removeRenderer(entry.rendererName)
+            ctx.removeRenderer(entry.scaleRendererName)
+            ctx.removeRenderer(entry.paneTitleRendererName)
         }
         this.entries.clear()
-        chart.getIndicatorScheduler().onSubPaneChanged()
+        ctx.getIndicatorScheduler().onSubPaneChanged()
         this.syncEntriesSignal()
     }
 
     private syncSchedulerConfig(
-        chart: Chart,
+        ctx: SubPaneContext,
         paneId: string,
         indicatorId: SubIndicatorType,
         params: Record<string, unknown>,
     ): void {
-        const scheduler = chart.getIndicatorScheduler()
+        const scheduler = ctx.getIndicatorScheduler()
         const definition = scheduler.getIndicatorMetadata(indicatorId)
         definition?.updateConfig?.(scheduler, params, paneId)
     }
 
-    private mountScaleRenderer(chart: Chart, paneId: string, indicatorId: SubIndicatorType, scaleRendererName: string): void {
-        const existing = chart.getRenderer(scaleRendererName)
+    private mountScaleRenderer(ctx: SubPaneContext, paneId: string, indicatorId: SubIndicatorType, scaleRendererName: string): void {
+        const existing = ctx.getRenderer(scaleRendererName)
         if (existing) return
 
-        const axisWidth = chart.getOption().rightAxisWidth + (chart.getOption().priceLabelWidth ?? 60)
-        const yPaddingPx = chart.getOption().yPaddingPx
+        const axisWidth = ctx.getRightAxisWidth() + (ctx.getPriceLabelWidth() ?? 60)
+        const yPaddingPx = ctx.getYPaddingPx()
         const getCrosshair = () => {
-            const pos = chart.interaction.crosshairPos
-            const price = chart.interaction.crosshairPrice
-            const activePaneId = chart.interaction.activePaneId
+            const pos = ctx.getCrosshairPos()
+            const price = ctx.getCrosshairPrice()
+            const activePaneId = ctx.getActivePaneId()
             if (pos && price !== null) {
                 return { y: pos.y, price, activePaneId }
             }
@@ -194,14 +210,14 @@ export class SubPaneManager {
 
         const opts = { axisWidth, paneId, yPaddingPx, getCrosshair }
 
-        const definition = chart.getIndicatorScheduler().getIndicatorMetadata(indicatorId)
+        const definition = ctx.getIndicatorScheduler().getIndicatorMetadata(indicatorId)
         if (definition?.scaleRendererFactory) {
-            chart.useRenderer(definition.scaleRendererFactory({ ...opts, indicatorId }))
+            ctx.useRenderer(definition.scaleRendererFactory({ ...opts, indicatorId }))
             return
         }
 
         if (definition?.scale) {
-            chart.useRenderer(createIndicatorScaleRendererPlugin({
+            ctx.useRenderer(createIndicatorScaleRendererPlugin({
                 ...opts,
                 indicatorKey: definition.scale.indicatorKey ?? definition.name,
                 label: definition.scale.label ?? definition.displayName,
@@ -211,11 +227,11 @@ export class SubPaneManager {
         }
     }
 
-    private mountPaneTitleRenderer(chart: Chart, paneId: string, indicatorId: SubIndicatorType, params: Record<string, unknown>): void {
+    private mountPaneTitleRenderer(ctx: SubPaneContext, paneId: string, indicatorId: SubIndicatorType, params: Record<string, unknown>): void {
         const rendererName = `paneTitle_${paneId}`
-        const existing = chart.getRenderer(rendererName)
+        const existing = ctx.getRenderer(rendererName)
         if (existing) {
-            chart.updateRendererConfig(rendererName, { params, indicatorId })
+            ctx.updateRendererConfig(rendererName, { params, indicatorId })
             return
         }
 
@@ -225,6 +241,6 @@ export class SubPaneManager {
             indicatorId,
             params,
         })
-        chart.useRenderer(renderer)
+        ctx.useRenderer(renderer)
     }
 }
