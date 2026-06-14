@@ -1,9 +1,9 @@
 import type { KLineData } from '../types/price'
 import type { ChartSettings } from '../config/chartSettings'
 import { createSignal, computed, type Signal, type Computed } from '../reactivity/signal'
-import type { SymbolSpec, DataFetcher } from '../controllers/types'
-import { DataBuffer } from '../data-fetchers/dataBuffer'
+import type { SymbolSpec } from '../controllers/types'
 import { getVisibleRange } from './viewport/viewport'
+import { ChartDataManager, type DataDependencies } from './data/chartDataManager'
 import { Pane, type VisibleRange, UpdateLevel } from './layout/pane'
 import type { ScaleType } from './utils/tickPosition'
 import { InteractionController, type InteractionSnapshot } from './controller/interaction'
@@ -75,14 +75,7 @@ interface MainIndicatorEntry {
 export class Chart {
     private dom: ChartDom
     private opt: ResolvedChartOptions
-    private _internalData: KLineData[] = []
-    private _dataFetcher: DataFetcher | null = null
-    private _dataBuffer: DataBuffer = new DataBuffer()
-    private _dataBufferUnsub: (() => void) | null = null
-    private _comparisonSpecs: SymbolSpec[] = []
-    private _comparisonData: Map<string, KLineData[]> = new Map()
-    private _comparisonBuffers: Map<string, DataBuffer> = new Map()
-    private _comparisonBufferUnsubs: Map<string, () => void> = new Map()
+    private dataManager: ChartDataManager
 
     private raf: number | null = null
     private pendingUpdateLevel: UpdateLevel = UpdateLevel.All
@@ -120,10 +113,6 @@ export class Chart {
     /** 待写入 DOM 的 scrollLeft（在 RAF 回调中应用，确保 Vue 已完成 DOM 更新） */
     private _pendingScrollLeft: number | null = null
 
-    private incrementalLoadHintEl: HTMLDivElement | null = null
-    private incrementalLoadHintTimer: number | null = null
-    private pendingPrependedCount = 0
-
     /** overlay 上一帧是否有十字线（用于判断何时需要清除） */
     private overlayHadCrosshair = false
 
@@ -139,80 +128,6 @@ export class Chart {
     /** Chart 级共享 WebGL canvas/context */
     private sharedWebGLSurface: SharedWebGLSurface
 
-    private getScrollContentHost(): HTMLDivElement | null {
-        return this.dom.scrollContent ?? this.dom.container ?? null
-    }
-
-    private ensureIncrementalLoadHint(): HTMLDivElement | null {
-        const host = this.getScrollContentHost()
-        if (!host) return null
-
-        if (this.incrementalLoadHintEl && this.incrementalLoadHintEl.isConnected) {
-            return this.incrementalLoadHintEl
-        }
-
-        const ownerDoc = host.ownerDocument
-        if (!ownerDoc) return null
-
-        const hint = ownerDoc.createElement('div')
-        hint.className = 'klc-incremental-load-hint'
-        hint.style.position = 'absolute'
-        hint.style.left = '0'
-        hint.style.top = '0'
-        hint.style.height = '0px'
-        hint.style.width = '0px'
-        hint.style.pointerEvents = 'none'
-        hint.style.opacity = '0'
-        hint.style.filter = 'blur(10px)'
-        hint.style.transition = 'opacity 420ms ease, filter 420ms ease'
-        hint.style.background = 'rgba(71, 91, 132, 0.5)'
-        hint.style.zIndex = '3'
-        hint.style.willChange = 'opacity, filter, width'
-        host.appendChild(hint)
-        this.incrementalLoadHintEl = hint
-        return hint
-    }
-
-    private clearIncrementalLoadHintTimer(): void {
-        if (this.incrementalLoadHintTimer !== null) {
-            window.clearTimeout(this.incrementalLoadHintTimer)
-            this.incrementalLoadHintTimer = null
-        }
-    }
-
-    private hideIncrementalLoadHint(): void {
-        const hint = this.incrementalLoadHintEl
-        if (!hint) return
-        hint.style.opacity = '0'
-        hint.style.filter = 'blur(10px)'
-    }
-
-    private showIncrementalLoadHint(count: number): void {
-        if (count <= 0) return
-        const hint = this.ensureIncrementalLoadHint()
-        if (!hint) return
-
-        this.clearIncrementalLoadHintTimer()
-
-        const dpr = this.getEffectiveDpr()
-        const { unitPx, startXPx } = getPhysicalKLineConfig(this.opt.kWidth, this.opt.kGap, dpr)
-        const width = this.getLeftLoadBufferWidth() + (startXPx + count * unitPx) / dpr
-        hint.style.width = `${Math.max(0, width)}px`
-        hint.style.height = `${Math.max(
-            0,
-            this._internalViewport?.viewHeight ?? this.dom.container?.clientHeight ?? 0,
-        )}px`
-
-        hint.getBoundingClientRect()
-        hint.style.opacity = '1'
-        hint.style.filter = 'blur(0px)'
-
-        this.incrementalLoadHintTimer = window.setTimeout(() => {
-            this.hideIncrementalLoadHint()
-            this.incrementalLoadHintTimer = null
-        }, 900)
-    }
-
     /** 缩放控制器 */
     private zoomController: ChartZoomController
 
@@ -220,15 +135,6 @@ export class Chart {
      * TODO: 阶段5迁移为插件注册，Scheduler 通过事件监听 data/viewport 变更，Chart 不直接持有
      */
     private indicatorScheduler: IndicatorScheduler
-
-    /** 数据已更新但 Worker 指标尚未回写，期间避免用旧指标 state 绘制中间帧 */
-    private pendingIndicatorDataUpdate = false
-
-    /** 上次可见范围（用于检测视口变化） */
-    private lastVisibleRange: VisibleRange = { start: 0, end: 0 }
-
-    /** 原始可见范围可为负数，仅用于判断左侧空白区加载 */
-    private lastRawVisibleRange: VisibleRange = { start: 0, end: 0 }
 
     /** Overlay 帧复用的最近主渲染结果 */
     private cachedDrawFrame: {
@@ -315,7 +221,7 @@ export class Chart {
 
         // 同步重算主图状态：latestResult 已有该指标的 series，只是没注册到 registry
         // 补调 updateVisibleRange 使其走 updateVisibleStatesOnly，立即从 latestResult 合成极值
-        this.indicatorScheduler.updateVisibleRange(this.lastVisibleRange)
+        this.indicatorScheduler.updateVisibleRange(this.dataManager.lastVisibleRange)
 
         this.scheduleDraw()
         return true
@@ -517,10 +423,27 @@ export class Chart {
 
         this.syncPaneRatiosFromSpecs(this.opt.panes)
 
+        this.dataManager = new ChartDataManager({
+            getOption: () => this.opt,
+            getEffectiveDpr: () => this.getEffectiveDpr(),
+            getLogicalScrollLeft: () => this.getLogicalScrollLeft(),
+            getCachedScrollLeft: () => this.getCachedScrollLeft(),
+            setCachedScrollLeft: (v) => { this.cachedScrollLeft = v },
+            setPendingScrollLeft: (v) => { this._pendingScrollLeft = v },
+            getDom: () => this.dom,
+            getObservedSize: () => this.observedSize,
+            getViewport: () => this._internalViewport,
+            scheduleDraw: (level) => this.scheduleDraw(level),
+            resetInteraction: () => this.interaction.reset(),
+            getIndicatorScheduler: () => this.indicatorScheduler,
+            setPendingIndicatorDataUpdate: (v) => { this.dataManager.pendingIndicatorDataUpdate = v },
+            isPointerDown: () => this.interaction.isPointerDown(),
+        })
+
         this.zoomController = new ChartZoomController({
             getLogicalScrollLeft: () => this.getLogicalScrollLeft(),
             getCurrentDpr: () => this.getEffectiveDpr(),
-            getLeftLoadBufferWidth: () => this.getLeftLoadBufferWidth(),
+            getLeftLoadBufferWidth: () => this.dataManager.getLeftLoadBufferWidth(),
             setScrollLeft: (v) => { this.cachedScrollLeft = v; this._pendingScrollLeft = v },
             onZoomCommitted: (result) => {
                 this.opt = { ...this.opt, kWidth: result.kWidth, kGap: result.kGap }
@@ -543,7 +466,7 @@ export class Chart {
             this.indicatorScheduler.registerIndicator(definition)
         }
         this.indicatorScheduler.setInvalidateCallback(() => {
-            this.pendingIndicatorDataUpdate = false
+            this.dataManager.pendingIndicatorDataUpdate = false
             this.scheduleDraw()
         })
 
@@ -710,7 +633,7 @@ export class Chart {
 
     /** 获取逻辑 scrollLeft（减去左侧加载缓冲宽度，可为负值） */
     getLogicalScrollLeft(): number {
-        return this.cachedScrollLeft - this.getLeftLoadBufferWidth()
+        return this.cachedScrollLeft - this.dataManager.getLeftLoadBufferWidth()
     }
 
     /** 获取插件宿主 */
@@ -780,7 +703,7 @@ export class Chart {
         // 2. 准备帧数据（视口 / 可见范围 / K 线坐标，优先走缓存）
         const frame = this.prepareFrameData(level)
         if (!frame) {
-            if (this._internalData.length === 0) this.clearAllCanvases()
+            if (this.dataManager.getInternalData().length === 0) this.clearAllCanvases()
             return
         }
 
@@ -815,7 +738,8 @@ export class Chart {
         const vp = useCachedFrame ? this.cachedDrawFrame!.viewport : this.computeViewport()
         if (!vp) return null
 
-        if (this._internalData.length === 0) return null
+        const internalData = this.dataManager.getInternalData()
+        if (internalData.length === 0) return null
 
         const rawRange = useCachedFrame
             ? this.cachedDrawFrame!.range
@@ -825,7 +749,7 @@ export class Chart {
                     vp.plotWidth,
                     this.opt.kWidth,
                     this.opt.kGap,
-                    this._internalData.length,
+                    internalData.length,
                     vp.dpr
                 )
                 return { start, end }
@@ -833,14 +757,14 @@ export class Chart {
         const range = { start: Math.max(0, rawRange.start), end: rawRange.end }
 
         if (!useCachedFrame && (
-            range.start !== this.lastVisibleRange.start
-            || range.end !== this.lastVisibleRange.end
-            || rawRange.start !== this.lastRawVisibleRange.start
-            || rawRange.end !== this.lastRawVisibleRange.end
+            range.start !== this.dataManager.lastVisibleRange.start
+            || range.end !== this.dataManager.lastVisibleRange.end
+            || rawRange.start !== this.dataManager.lastRawVisibleRange.start
+            || rawRange.end !== this.dataManager.lastRawVisibleRange.end
         )) {
             this.indicatorScheduler.updateVisibleRange(range)
-            this.lastVisibleRange = range
-            this.lastRawVisibleRange = rawRange
+            this.dataManager.lastVisibleRange = range
+            this.dataManager.lastRawVisibleRange = rawRange
             this.checkVisibleRangeGapWhenIdle()
         }
 
@@ -930,9 +854,9 @@ export class Chart {
 
             if (!useCachedFrame) {
                 const indicatorRange = pane.role === 'price' ? mainIndicatorRange : null
-                const comparisonRange = pane.id === 'main' ? this.getComparisonEquivalentPriceRange(range) : null
+                const comparisonRange = pane.id === 'main' ? this.dataManager.getComparisonEquivalentPriceRange(range) : null
                 const mergedRange = this.mergeNumericRanges(indicatorRange, comparisonRange)
-                pane.updateRange(this._internalData, range, mergedRange)
+                pane.updateRange(this.dataManager.getInternalData(), range, mergedRange)
                 if (pane.id === 'main' && this.settings.disableMainPaneVerticalScroll) {
                     pane.yAxis.resetTransform()
                 }
@@ -967,9 +891,9 @@ export class Chart {
                 ctx: mainCtx!,
                 overlayCtx: overlayCtx ?? undefined,
                 pane: wrapPaneInfo(pane),
-                data: this._internalData,
-                comparisonData: this._comparisonData,
-                comparisonSymbols: this._comparisonSpecs,
+                data: this.dataManager.getInternalData(),
+                comparisonData: this.dataManager.getComparisonData(),
+                comparisonSymbols: this.dataManager.getComparisonSpecs(),
                 range,
                 scrollLeft: vp.scrollLeft,
                 kWidth: this.opt.kWidth,
@@ -1060,7 +984,7 @@ export class Chart {
                     },
                     priceRange: { maxPrice: 0, minPrice: 0 },
                 },
-                data: this._internalData,
+                data: this.dataManager.getInternalData(),
                 range,
                 scrollLeft: vp.scrollLeft,
                 kWidth: this.opt.kWidth,
@@ -1654,60 +1578,12 @@ export class Chart {
      * @param data K 线数据数组
      */
     updateData(data: KLineData[]) {
-        this._internalData = data ?? []
-        this._dataSignal.set([...this._internalData])
-
-        // 重算 DOM scrollLeft 状态, 防止左右滚动超出数据长度范围
-        const container = this.dom.container
-        if (container) {
-            const minScrollLeft = this.getLeftLoadBufferWidth()
-            if (this.cachedScrollLeft < minScrollLeft) {
-                this.cachedScrollLeft = minScrollLeft
-                this._pendingScrollLeft = minScrollLeft
-            }
-            const contentWidth = this.getContentWidth()
-            const maxScrollLeft = Math.max(0, contentWidth - container.clientWidth)
-            if (this.cachedScrollLeft > maxScrollLeft) {
-                this.cachedScrollLeft = maxScrollLeft
-                this._pendingScrollLeft = maxScrollLeft
-            }
-        }
-
-        // 重置交互状态
-        this.interaction.reset()
-
-        // 如果 visibleRange 还是 {0,0}，先从 viewport 算一个初步范围
-        // 避免 scheduler 第一次计算时用 {0,0} 产出 Infinity 极值
-        if (this.lastVisibleRange.start === 0 && this.lastVisibleRange.end === 0 && this._internalData.length > 0) {
-            const plotWidth = this.observedSize.width > 0
-                ? this.observedSize.width
-                : Math.max(1, Math.round(this.dom.container?.clientWidth ?? 800))
-            const dpr = this.getEffectiveDpr()
-            const { start, end } = getVisibleRange(
-                this.getLogicalScrollLeft(),
-                plotWidth,
-                this.opt.kWidth,
-                this.opt.kGap,
-                this._internalData.length,
-                dpr,
-            )
-            this.lastRawVisibleRange = { start, end }
-            this.lastVisibleRange = { start: Math.max(0, start), end }
-        }
-
-        // 触发指标计算（在 scheduleDraw 之前，确保渲染器读到最新状态）
-        const indicatorsReady = this.indicatorScheduler.update(this._internalData, this.lastVisibleRange)
-        if (indicatorsReady) {
-            this.pendingIndicatorDataUpdate = false
-            this.scheduleDraw()
-        } else {
-            this.pendingIndicatorDataUpdate = true
-        }
+        this.dataManager.updateData(data)
     }
 
     /** 获取当前数据源（供 renderers 和 interaction 使用） */
     getData(): KLineData[] {
-        return this._internalData
+        return this.dataManager.getData()
     }
 
     /** 获取指标调度器（供外部控制器更新指标配置） */
@@ -1715,92 +1591,33 @@ export class Chart {
         return this.indicatorScheduler
     }
 
-    private getTrailingSlotCount(): number {
-        return 24
-    }
-
     getLogicalSlotCount(): number {
-        return this._internalData.length + this.getTrailingSlotCount()
+        return this.dataManager.getLogicalSlotCount()
     }
 
     getTimestampAtLogicalIndex(index: number): number | null {
-        if (!Number.isInteger(index) || index < 0 || index >= this._internalData.length) return null
-        return this._internalData[index]?.timestamp ?? null
+        return this.dataManager.getTimestampAtLogicalIndex(index)
     }
 
     /** 根据视口内 X 坐标反查逻辑索引（允许超出最后一根 K 线） */
     getLogicalIndexAtX(mouseX: number): number | null {
-        const vp = this._internalViewport
-        if (!vp || this._internalData.length === 0) return null
-        const dpr = this.getEffectiveDpr()
-        const { startXPx, unitPx } = getPhysicalKLineConfig(this.opt.kWidth, this.opt.kGap, dpr)
-        const worldX = Math.round((vp.scrollLeft + mouseX) * dpr)
-        const index = Math.floor((worldX - startXPx) / unitPx)
-        if (index < 0) return null
-        return index
+        return this.dataManager.getLogicalIndexAtX(mouseX)
     }
 
     /** 根据视口内 X 坐标反查数据索引（用于绘图落点） */
     getDataIndexAtX(mouseX: number): number | null {
-        const index = this.getLogicalIndexAtX(mouseX)
-        if (index === null || index >= this._internalData.length) return null
-        return index
+        return this.dataManager.getDataIndexAtX(mouseX)
     }
 
 
-    private static readonly LEADING_SLOTS = 60
-    private static readonly TRAILING_DRAWING_SLOTS = 24
-
     /** 获取内容总宽度（用于外部 scroll-content 撑开 scrollWidth） */
     getContentWidth(): number {
-        const dataLength = this._internalData.length
-        if (dataLength === 0) return 0
-        const kWidth = this.opt.kWidth
-        const kGap = this.opt.kGap
-        const viewWidth = this._internalViewport?.plotWidth ?? 0
-        const dpr = this.getEffectiveDpr()
-        const { startXPx, unitPx } = getPhysicalKLineConfig(kWidth, kGap, dpr)
-        const dataPlotWidth = (startXPx + (Chart.LEADING_SLOTS + dataLength + Chart.TRAILING_DRAWING_SLOTS) * unitPx) / dpr
-        return this.getLeftLoadBufferWidth() + Math.max(dataPlotWidth, viewWidth)
+        return this.dataManager.getContentWidth()
     }
 
     /** 滚动到最右侧（最新数据位置） */
     scrollToRight(): void {
-        const container = this.dom.container
-        if (!container || this._internalData.length === 0) return
-        const dpr = this.getEffectiveDpr()
-        const { unitPx, startXPx } = getPhysicalKLineConfig(this.opt.kWidth, this.opt.kGap, dpr)
-        const lastKLineEndPx = (startXPx + this._internalData.length * unitPx) / dpr
-        const target = this.getLeftLoadBufferWidth() + Math.max(0, lastKLineEndPx - container.clientWidth)
-        const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth)
-        container.scrollLeft = Math.round(Math.min(target, maxScroll) * dpr) / dpr
-        this.cachedScrollLeft = container.scrollLeft
-    }
-
-    private getLeftLoadBufferWidth(): number {
-        if (this._internalData.length === 0) {
-            this.leftLoadBufferWidth = 0
-            return 0
-        }
-        const plotWidth = this._internalViewport?.plotWidth
-            ?? (this.observedSize.width > 0 ? this.observedSize.width : undefined)
-            ?? Math.round(this.dom.container?.clientWidth ?? 0)
-        this.leftLoadBufferWidth = Math.max(0, plotWidth)
-        return this.leftLoadBufferWidth
-    }
-
-    private computeRawVisibleRange(): VisibleRange | null {
-        if (this._internalData.length === 0) return null
-        const vp = this._internalViewport ?? this.computeViewport()
-        if (!vp) return null
-        return getVisibleRange(
-            vp.scrollLeft,
-            vp.plotWidth,
-            this.opt.kWidth,
-            this.opt.kGap,
-            this._internalData.length,
-            vp.dpr,
-        )
+        this.dataManager.scrollToRight()
     }
 
     /** 容器尺寸变化时调用 */
@@ -1867,16 +1684,7 @@ export class Chart {
             this.raf = null
         }
 
-        if (this._dataBufferUnsub) {
-            this._dataBufferUnsub()
-            this._dataBufferUnsub = null
-        }
-        this.clearIncrementalLoadHintTimer()
-        this.incrementalLoadHintEl?.remove()
-        this.incrementalLoadHintEl = null
-        this.pendingPrependedCount = 0
-        this._dataBuffer.dispose()
-        this.clearComparisonBuffers()
+        this.dataManager.destroy()
 
         // 清理尺寸观察器
         this.resizeObserver?.disconnect()
@@ -2246,8 +2054,6 @@ export class Chart {
         kGap: 1,
     })
 
-    private _dataSignal = createSignal<ReadonlyArray<KLineData>>([])
-    private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
     private _themeSignal = createSignal<'light' | 'dark'>('light')
     private _drawingToolSignal = createSignal<DrawingToolType | null>(null)
     private _drawingsSignal = createSignal<ReadonlyArray<import('../plugin').DrawingObject>>([])
@@ -2309,12 +2115,12 @@ export class Chart {
 
     /** 数据信号 */
     get data(): Signal<ReadonlyArray<KLineData>> {
-        return this._dataSignal
+        return this.dataManager.data
     }
 
     /** 符号信号 */
     get symbols(): Signal<ReadonlyArray<SymbolSpec>> {
-        return this._symbolsSignal
+        return this.dataManager.symbols
     }
 
     /** 主题信号 */
@@ -2358,107 +2164,29 @@ export class Chart {
 
     // ---------- Data ----------
 
-    /**
-     * 设置数据（高层 API）
-     * 内部调用 updateData，并更新 data signal
-     */
     setData(data: KLineData[]): void {
-        this.updateData(data)
+        this.dataManager.setData(data)
     }
 
-    /**
-     * 追加数据（高层 API）
-     * 合并现有数据并更新
-     */
     appendData(newData: KLineData[]): void {
-        const merged = [...this._internalData, ...newData]
-        this.setData(merged)
+        this.dataManager.appendData(newData)
     }
 
-    /**
-     * 设置数据获取器适配器
-     */
-    setDataFetcher(fetcher: DataFetcher | null): void {
-        this._dataFetcher = fetcher
-        this._dataBuffer.setFetcher(fetcher)
-        for (const buffer of this._comparisonBuffers.values()) {
-            buffer.setFetcher(fetcher)
-        }
+    setDataFetcher(fetcher: import('../controllers/types').DataFetcher | null): void {
+        this.dataManager.setDataFetcher(fetcher)
     }
 
-    get dataBuffer(): DataBuffer {
-        return this._dataBuffer
+    get dataBuffer(): import('../data-fetchers/dataBuffer').DataBuffer {
+        return this.dataManager.dataBuffer
     }
 
     checkVisibleRangeGap(): void {
-        if (this._internalData.length === 0) return
-        const window = this._dataBuffer.loadedWindow
-        if (!window) return
-        const range = this.computeRawVisibleRange() ?? this.lastRawVisibleRange
-
-        if (range.start < 0 && this._dataFetcher) {
-            const MS_PER_DAY = 86_400_000
-            const earlierThanEarliest = window.earliestTs - 90 * MS_PER_DAY
-            this._dataBuffer.ensureRange(earlierThanEarliest, window.earliestTs)
-            return
-        }
-
-        if (range.start >= this._internalData.length) return
-        const firstVisibleTs = this._internalData[Math.max(0, range.start)]?.timestamp
-        if (firstVisibleTs === undefined) return
-        if (firstVisibleTs < window.earliestTs) {
-            this._dataBuffer.ensureRange(firstVisibleTs, window.earliestTs)
-        }
+        this.dataManager.checkVisibleRangeGap()
     }
 
     private checkVisibleRangeGapWhenIdle(): void {
         if (this.interaction.isPointerDown()) return
-        this.checkVisibleRangeGap()
-    }
-
-    private getComparisonEquivalentPriceRange(range: VisibleRange): { min: number; max: number } | null {
-        if (this._comparisonSpecs.length === 0 || this._comparisonData.size === 0) return null
-        const baseIndex = Math.max(0, range.start)
-        const mainBase = this._internalData[baseIndex]?.close
-        const baseTimestamp = this._internalData[baseIndex]?.timestamp
-        if (!Number.isFinite(mainBase) || mainBase <= 0 || baseTimestamp === undefined) return null
-
-        let min = Number.POSITIVE_INFINITY
-        let max = Number.NEGATIVE_INFINITY
-
-        for (const spec of this._comparisonSpecs) {
-            const data = this._comparisonData.get(spec.symbol)
-            if (!data?.length) continue
-
-            const baseline = this.findComparisonBaseline(data, baseTimestamp)
-            if (!baseline || !Number.isFinite(baseline.close) || baseline.close <= 0) continue
-
-            const byTimestamp = new Map<number, KLineData>()
-            for (const item of data) byTimestamp.set(item.timestamp, item)
-
-            for (let i = Math.max(0, range.start); i < range.end && i < this._internalData.length; i++) {
-                const mainItem = this._internalData[i]
-                if (!mainItem) continue
-                const item = byTimestamp.get(mainItem.timestamp)
-                if (!item || !Number.isFinite(item.close)) continue
-
-                const pct = (item.close - baseline.close) / baseline.close
-                const equivalentPrice = mainBase * (1 + pct)
-                if (!Number.isFinite(equivalentPrice)) continue
-                min = Math.min(min, equivalentPrice)
-                max = Math.max(max, equivalentPrice)
-            }
-        }
-
-        if (!Number.isFinite(min) || !Number.isFinite(max)) return null
-        return { min, max }
-    }
-
-    private findComparisonBaseline(data: ReadonlyArray<KLineData>, timestamp: number): KLineData | null {
-        for (const item of data) {
-            if (item.timestamp >= timestamp) return item
-        }
-        return null
+        this.dataManager.checkVisibleRangeGap()
     }
 
     private mergeNumericRanges(
@@ -2473,132 +2201,8 @@ export class Chart {
         }
     }
 
-    private syncComparisonBuffers(specs: ReadonlyArray<SymbolSpec>): void {
-        this._comparisonSpecs = [...specs]
-        const nextKeys = new Set(specs.map((spec) => spec.symbol))
-
-        for (const [key, buffer] of this._comparisonBuffers) {
-            if (nextKeys.has(key)) continue
-            this._comparisonBufferUnsubs.get(key)?.()
-            this._comparisonBufferUnsubs.delete(key)
-            buffer.dispose()
-            this._comparisonBuffers.delete(key)
-            this._comparisonData.delete(key)
-        }
-
-        if (!this._dataFetcher) return
-
-        for (const spec of specs) {
-            const key = spec.symbol
-            let buffer = this._comparisonBuffers.get(key)
-            if (!buffer) {
-                const newBuffer = new DataBuffer()
-                newBuffer.setFetcher(this._dataFetcher)
-                this._comparisonBuffers.set(key, newBuffer)
-                const unsubscribe = newBuffer.data.subscribe(() => {
-                    this._comparisonData.set(key, [...newBuffer.data.peek()])
-                    this.scheduleDraw()
-                })
-                this._comparisonBufferUnsubs.set(key, unsubscribe)
-                buffer = newBuffer
-            } else {
-                buffer.setFetcher(this._dataFetcher)
-            }
-            buffer.setSymbol(spec)
-        }
-    }
-
-    private clearComparisonBuffers(): void {
-        for (const unsubscribe of this._comparisonBufferUnsubs.values()) unsubscribe()
-        this._comparisonBufferUnsubs.clear()
-        for (const buffer of this._comparisonBuffers.values()) buffer.dispose()
-        this._comparisonBuffers.clear()
-        this._comparisonData.clear()
-        this._comparisonSpecs = []
-    }
-
-    /**
-     * 设置当前符号并触发数据加载
-     */
     setSymbols(specs: ReadonlyArray<SymbolSpec>): void {
-        this._symbolsSignal.set(specs)
-        if (specs.length === 0) {
-            this.clearComparisonBuffers()
-            return
-        }
-        const spec = specs[0]!
-        this.syncComparisonBuffers(specs.slice(1))
-        if (!this._dataFetcher) return
-
-        this._dataBuffer.setFetcher(this._dataFetcher)
-
-        this._dataBuffer.onPrepend = (count: number) => {
-            this.pendingPrependedCount = count
-            const dpr = this.getEffectiveDpr()
-            const { unitPx } = getPhysicalKLineConfig(this.opt.kWidth, this.opt.kGap, dpr)
-            const compensation = (count * unitPx) / dpr
-            const container = this.dom.container
-            if (container) {
-                container.scrollLeft += compensation
-                this.cachedScrollLeft = container.scrollLeft
-            }
-        }
-
-        if (!this._dataBufferUnsub) {
-            this._dataBufferUnsub = this._dataBuffer.data.subscribe(() => {
-                const prevLength = this._internalData.length
-                const bufferData = this._dataBuffer.data.peek()
-                this._internalData = [...bufferData]
-                this._dataSignal.set([...this._internalData])
-                const prependedCount = this.pendingPrependedCount
-                this.pendingPrependedCount = 0
-                if (this.cachedScrollLeft < this.getLeftLoadBufferWidth()) {
-                    const desiredScrollLeft = this.getLeftLoadBufferWidth()
-                    this.cachedScrollLeft = desiredScrollLeft
-                    this._pendingScrollLeft = desiredScrollLeft
-                }
-                if (prevLength === 0 && this._internalData.length > 0) {
-                    const dpr = this.getEffectiveDpr()
-                    const { unitPx, startXPx } = getPhysicalKLineConfig(this.opt.kWidth, this.opt.kGap, dpr)
-                    const lastKLineEndPx = (startXPx + this._internalData.length * unitPx) / dpr
-                    const container = this.dom.container
-                    if (container) {
-                        const target = this.getLeftLoadBufferWidth() + Math.max(0, lastKLineEndPx - container.clientWidth)
-                        const contentWidth = this.getContentWidth()
-                        const maxScroll = Math.max(0, contentWidth - container.clientWidth)
-                        this.cachedScrollLeft = Math.round(Math.min(target, maxScroll) * dpr) / dpr
-                        this._pendingScrollLeft = this.cachedScrollLeft
-                    }
-                }
-                this.interaction.reset()
-                if (this.lastVisibleRange.start === 0 && this.lastVisibleRange.end === 0 && this._internalData.length > 0) {
-                    const plotWidth = this.observedSize.width > 0
-                        ? this.observedSize.width
-                        : Math.max(1, Math.round(this.dom.container?.clientWidth ?? 800))
-                    const dpr = this.getEffectiveDpr()
-                    const { start, end } = getVisibleRange(
-                        this.getLogicalScrollLeft(),
-                        plotWidth,
-                        this.opt.kWidth,
-                        this.opt.kGap,
-                        this._internalData.length,
-                        dpr,
-                    )
-                    this.lastRawVisibleRange = { start, end }
-                    this.lastVisibleRange = { start: Math.max(0, start), end }
-                }
-                const indicatorsReady = this.indicatorScheduler.update(this._internalData, this.lastVisibleRange)
-                if (indicatorsReady) {
-                    this.pendingIndicatorDataUpdate = false
-                    this.scheduleDraw()
-                } else {
-                    this.pendingIndicatorDataUpdate = true
-                }
-                this.showIncrementalLoadHint(prependedCount)
-            })
-        }
-
-        this._dataBuffer.setSymbol(spec)
+        this.dataManager.setSymbols(specs)
     }
 
     // ---------- Theme ----------
@@ -2717,7 +2321,7 @@ export class Chart {
      * 更新缓存的 scrollLeft 并触发交互 controller
      */
     handleScrollEvent(): void {
-        this.interaction.onScroll({ scheduleDraw: !this.pendingIndicatorDataUpdate })
+        this.interaction.onScroll({ scheduleDraw: !this.dataManager.pendingIndicatorDataUpdate })
         // 更新 viewport signal 中的 visible range
         this.updateViewportSignal()
     }
@@ -2743,8 +2347,8 @@ export class Chart {
             plotWidth: vp.plotWidth,
             plotHeight: vp.plotHeight,
             dpr: vp.dpr,
-            visibleFrom: this.lastVisibleRange.start,
-            visibleTo: this.lastVisibleRange.end,
+            visibleFrom: this.dataManager.lastVisibleRange.start,
+            visibleTo: this.dataManager.lastVisibleRange.end,
             kWidth: this.opt.kWidth,
             kGap: this.opt.kGap,
         })
