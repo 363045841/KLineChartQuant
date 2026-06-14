@@ -40,6 +40,7 @@ export class DataBuffer {
     private _dataSignal: Signal<ReadonlyArray<KLineData>>
     private _loadingSignal: Signal<boolean>
     private _fetcher: DataFetcher | null = null
+    private _requestFetch: ((spec: SymbolSpec, startTs: number, endTs: number) => Promise<ReadonlyArray<KLineData>>) | null = null
     private _currentSpec: SymbolSpec | null = null
     private _loadedWindow: DataWindow | null = null
     private _pendingFetch: Promise<void> | null = null
@@ -73,6 +74,10 @@ export class DataBuffer {
         this._fetcher = fetcher
     }
 
+    setRequestFetch(fn: ((spec: SymbolSpec, startTs: number, endTs: number) => Promise<ReadonlyArray<KLineData>>) | null): void {
+        this._requestFetch = fn
+    }
+
     setSymbol(spec: SymbolSpec, initialStartTs?: number): void {
         this._currentSpec = spec
         this._data = []
@@ -87,7 +92,7 @@ export class DataBuffer {
     }
 
     ensureRange(requestStartTs: number, _requestEndTs: number): void {
-        if (this._disposed || !this._fetcher || !this._currentSpec) return
+        if (this._disposed || (!this._requestFetch && !this._fetcher) || !this._currentSpec) return
         if (!this._loadedWindow) return
 
         if (requestStartTs >= this._loadedWindow.earliestTs) return
@@ -104,7 +109,7 @@ export class DataBuffer {
     }
 
     private loadInitial(): void {
-        if (!this._fetcher || !this._currentSpec || this._disposed) return
+        if ((!this._requestFetch && !this._fetcher) || !this._currentSpec || this._disposed) return
 
         const now = Date.now()
         const startDate = now - INITIAL_LOAD_DAYS * MS_PER_DAY
@@ -114,12 +119,12 @@ export class DataBuffer {
     }
 
     private loadInitialRange(startTs: number, endTs: number): void {
-        if (!this._fetcher || !this._currentSpec || this._disposed) return
+        if ((!this._requestFetch && !this._fetcher) || !this._currentSpec || this._disposed) return
         this.fetchRange(startTs, endTs)
     }
 
     private fetchRange(startTs: number, endTs: number, retryCount = 0): void {
-        if (!this._fetcher || !this._currentSpec || this._disposed) return
+        if ((!this._requestFetch && !this._fetcher) || !this._currentSpec || this._disposed) return
 
         if (this._pendingFetch) {
             this._pendingFetch = this._pendingFetch.then(() => {
@@ -134,15 +139,18 @@ export class DataBuffer {
 
         this._loadingSignal.set(true)
 
-        const doFetch = (): Promise<void> =>
-            fetcher(spec.source ?? 'baostock', {
-                symbol: spec.symbol,
-                startDate: formatDate(startTs),
-                endDate: formatDate(endTs),
-                period: spec.period ?? 'daily',
-                adjust: spec.adjust ?? 'none',
-                exchange: spec.exchange,
-            }).then((incoming) => {
+        const doFetch = (): Promise<void> => {
+            const fetchPromise = this._requestFetch
+                ? this._requestFetch(spec, startTs, endTs)
+                : (fetcher as NonNullable<DataFetcher>)(spec.source ?? 'baostock', {
+                    symbol: spec.symbol,
+                    startDate: formatDate(startTs),
+                    endDate: formatDate(endTs),
+                    period: spec.period ?? 'daily',
+                    adjust: spec.adjust ?? 'none',
+                    exchange: spec.exchange,
+                })
+            return fetchPromise.then((incoming) => {
                 if (this._disposed) return
 
                 const oldLength = this._data.length
@@ -175,6 +183,7 @@ export class DataBuffer {
                     }
                 }
             })
+        }
 
         const attempt = (count: number): Promise<void> => {
             return doFetch().catch((err) => {

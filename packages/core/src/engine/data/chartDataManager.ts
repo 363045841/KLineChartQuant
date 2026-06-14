@@ -46,6 +46,17 @@ export class ChartDataManager {
   private _dataSignal = createSignal<ReadonlyArray<KLineData>>([])
   private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
 
+  private _pendingFetches: Array<{
+    source: string
+    spec: SymbolSpec
+    startTs: number
+    endTs: number
+    resolve: (data: ReadonlyArray<KLineData>) => void
+    reject: (err: Error) => void
+  }> = []
+
+  private _batchFlushScheduled = false
+
   private incrementalLoadHintEl: HTMLDivElement | null = null
   private incrementalLoadHintTimer: number | null = null
   private pendingPrependedCount = 0
@@ -263,9 +274,63 @@ export class ChartDataManager {
 
   setDataFetcher(fetcher: DataFetcher | null): void {
     this._dataFetcher = fetcher
-    this._dataBuffer.setFetcher(fetcher)
+    if (!fetcher) {
+      this._dataBuffer.setRequestFetch(null)
+      for (const buffer of this._comparisonBuffers.values()) {
+        buffer.setRequestFetch(null)
+      }
+      return
+    }
+    const handler = this._createBatchHandler(fetcher)
+    this._dataBuffer.setRequestFetch(handler)
     for (const buffer of this._comparisonBuffers.values()) {
-      buffer.setFetcher(fetcher)
+      buffer.setRequestFetch(handler)
+    }
+  }
+
+  private _createBatchHandler(
+    fetcher: DataFetcher,
+  ): (spec: SymbolSpec, startTs: number, endTs: number) => Promise<ReadonlyArray<KLineData>> {
+    return (spec, startTs, endTs) =>
+      new Promise<ReadonlyArray<KLineData>>((resolve, reject) => {
+        this._pendingFetches.push({
+          source: spec.source ?? 'baostock',
+          spec,
+          startTs,
+          endTs,
+          resolve,
+          reject,
+        })
+        this._scheduleBatchFlush()
+      })
+  }
+
+  private _scheduleBatchFlush(): void {
+    if (this._batchFlushScheduled) return
+    this._batchFlushScheduled = true
+    Promise.resolve().then(() => this._flushBatch())
+  }
+
+  private async _flushBatch(): Promise<void> {
+    this._batchFlushScheduled = false
+    const batch = this._pendingFetches.splice(0)
+    if (batch.length === 0 || !this._dataFetcher) return
+    const fetcher = this._dataFetcher
+    const CONCURRENCY = 4
+    for (let i = 0; i < batch.length; i += CONCURRENCY) {
+      const chunk = batch.slice(i, i + CONCURRENCY)
+      await Promise.allSettled(
+        chunk.map(({ source, spec, startTs, endTs, resolve, reject }) =>
+          fetcher(source, {
+            symbol: spec.symbol,
+            startDate: batchFormatDate(startTs),
+            endDate: batchFormatDate(endTs),
+            period: spec.period ?? 'daily',
+            adjust: spec.adjust ?? 'none',
+            exchange: spec.exchange,
+          }).then(resolve, reject),
+        ),
+      )
     }
   }
 
@@ -317,6 +382,9 @@ export class ChartDataManager {
       if (!buffer) {
         const newBuffer = new DataBuffer()
         newBuffer.setFetcher(this._dataFetcher)
+        if (this._dataFetcher) {
+          newBuffer.setRequestFetch(this._createBatchHandler(this._dataFetcher))
+        }
         this._comparisonBuffers.set(key, newBuffer)
         const unsubscribe = newBuffer.data.subscribe(() => {
           this._comparisonData.set(key, [...newBuffer.data.peek()])
@@ -328,6 +396,9 @@ export class ChartDataManager {
         buffer = newBuffer
       } else {
         buffer.setFetcher(this._dataFetcher)
+        if (this._dataFetcher) {
+          buffer.setRequestFetch(this._createBatchHandler(this._dataFetcher))
+        }
       }
       const mainEarliest = this._dataBuffer.loadedWindow?.earliestTs
       buffer.setSymbol(spec, mainEarliest)
@@ -361,6 +432,9 @@ export class ChartDataManager {
 
     const newBuffer = new DataBuffer()
     newBuffer.setFetcher(this._dataFetcher)
+    if (this._dataFetcher) {
+      newBuffer.setRequestFetch(this._createBatchHandler(this._dataFetcher))
+    }
     this._comparisonBuffers.set(key, newBuffer)
     const unsubscribe = newBuffer.data.subscribe(() => {
       this._comparisonData.set(key, [...newBuffer.data.peek()])
@@ -606,4 +680,12 @@ function findComparisonBaselineByTimestamp(data: ReadonlyArray<KLineData>, times
     if (item.timestamp >= timestamp) return item
   }
   return null
+}
+
+function batchFormatDate(ts: number): string {
+  const d = new Date(ts)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
