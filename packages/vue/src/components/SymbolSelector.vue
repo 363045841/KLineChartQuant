@@ -4,12 +4,12 @@
       type="button"
       class="symbol-chip"
       :class="{ 'is-open': showPopup }"
-      :title="symbol"
+      :title="displayText"
       :aria-expanded="showPopup"
       aria-haspopup="dialog"
       @click="togglePopup"
     >
-      <span class="symbol-chip__code">{{ symbol }}</span>
+      <span class="symbol-chip__code">{{ displayText }}</span>
       <span v-if="loading" class="symbol-chip__spinner" aria-hidden="true" />
       <IconTablerAlertTriangle v-else-if="error" class="symbol-chip__warn" aria-hidden="true" />
     </button>
@@ -127,6 +127,16 @@ const searchQuery = ref('')
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const chipWrapRef = ref<HTMLElement | null>(null)
 
+const currentSymbol = computed<SymbolItem | undefined>(() =>
+  props.symbols.find((s) => s.code === props.symbol),
+)
+
+const displayText = computed(() => {
+  const cur = currentSymbol.value
+  if (cur) return `${cur.code} - ${cur.description}`
+  return props.symbol
+})
+
 const filteredSymbols = computed<SymbolItem[]>(() => {
   const q = searchQuery.value.trim().toLowerCase()
   if (!q) return props.symbols
@@ -186,7 +196,6 @@ watch(() => props.symbol, () => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  max-width: 160px;
   padding: 0 10px;
   gap: 5px;
   border: 1px solid transparent;

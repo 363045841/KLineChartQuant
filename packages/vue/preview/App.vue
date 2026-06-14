@@ -36,9 +36,6 @@
           </svg>
         </button>
       </div>
-      <div class="debug-center">
-        <span class="size-info">嵌入尺寸：{{ embedWidth }} × {{ embedHeight }}</span>
-      </div>
       <div class="debug-right">
         <span class="version-badge">{{ displayVersion }}</span>
         <a
@@ -222,12 +219,6 @@ if (typeof document !== 'undefined') {
   gap: 8px;
 }
 
-.debug-center {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
 .debug-link {
   width: 32px;
   height: 32px;
@@ -281,10 +272,7 @@ if (typeof document !== 'undefined') {
 
 @media (max-width: 640px) {
   .debug-controls {
-    flex-wrap: wrap;
-    gap: 8px;
     padding: 8px 12px;
-    justify-content: flex-start;
   }
 
   .debug-left {
@@ -292,24 +280,24 @@ if (typeof document !== 'undefined') {
   }
 
   .debug-center {
-    position: static;
-    transform: none;
-    width: 100%;
-    text-align: center;
-    order: 1;
+    display: none;
   }
 
   .debug-right {
     gap: 4px;
     margin-left: auto;
     order: 0;
+    flex-shrink: 1;
+    min-width: 0;
   }
-}
 
-.size-info {
-  font-size: 13px;
-  color: #666;
-  font-family: monospace;
+  .version-badge {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-shrink: 1;
+  }
 }
 
 .embed-container {
@@ -441,7 +429,6 @@ if (typeof document !== 'undefined') {
   color: #60a5fa;
 }
 
-.app-container[data-theme='dark'] .size-info,
 .app-container[data-theme='dark'] .version-badge {
   color: #9ca3af;
 }
