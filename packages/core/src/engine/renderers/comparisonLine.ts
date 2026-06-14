@@ -2,7 +2,7 @@ import type { RendererPlugin, RenderContext } from '../../plugin'
 import { RENDERER_PRIORITY } from '../../plugin'
 import type { KLineData } from '../../types/price'
 
-const COMPARISON_COLORS = ['#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316']
+const DEFAULT_COMPARISON_COLOR = '#f59e0b'
 
 export function createComparisonLineRenderer(): RendererPlugin {
     return {
@@ -45,8 +45,10 @@ export function createComparisonLineRenderer(): RendererPlugin {
                   else byDate.set(String(item.timestamp), item)
                 }
 
+                const colors = context.comparisonColors
+
                 ctx.beginPath()
-                ctx.strokeStyle = COMPARISON_COLORS[symbolIndex % COMPARISON_COLORS.length]!
+                ctx.strokeStyle = colors?.get(spec.symbol) ?? DEFAULT_COMPARISON_COLOR
                 let hasPath = false
                 let previousHadPoint = false
 

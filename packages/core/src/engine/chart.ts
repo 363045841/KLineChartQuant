@@ -736,6 +736,11 @@ export class Chart {
         return this.dataManager.symbols
     }
 
+    /** 比较商品颜色信号 */
+    get comparisonColors(): Signal<ReadonlyMap<string, string>> {
+        return this.dataManager.comparisonColors
+    }
+
     /** 主题信号 */
     get theme(): Signal<'light' | 'dark'> {
         return this._themeSignal

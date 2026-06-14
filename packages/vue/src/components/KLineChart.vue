@@ -296,6 +296,7 @@ const viewWidth = ref(0)
 const paneRatios = ref<Record<string, number>>({})
 const selectedDrawingId = ref<string | null>(null)
 const drawings = ref<DrawingObject[]>([])
+const comparisonColorsMap = ref<Map<string, string>>(new Map())
 
 // 初始化 kWidth / kGap（与 Chart 引擎 zoom→物理值 转换一致）
 const initZoom = zoomLevel.value
@@ -983,6 +984,10 @@ function setupChartCallbacks(ctrl: ChartController): void {
     indicatorParams.value = nextParams
   })
 
+  const unsubscribeComparisonColors = ctrl.comparisonColors.subscribe(() => {
+    comparisonColorsMap.value = new Map(ctrl.comparisonColors.peek())
+  })
+
   onUnmounted(() => {
     unsubscribeViewport()
     unsubscribeData()
@@ -992,6 +997,7 @@ function setupChartCallbacks(ctrl: ChartController): void {
     unsubscribeTheme()
     unsubscribeIndicators()
     unsubscribeSubPanes()
+    unsubscribeComparisonColors()
     autoThemeMediaQuery?.removeEventListener('change', onSystemThemeChange)
   })
 }

@@ -370,6 +370,7 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         Readonly<Record<string, number>>
     >({})
     const interactionState: Signal<InteractionSnapshot> = createSignal(INITIAL_INTERACTION)
+    const comparisonColors: Signal<ReadonlyMap<string, string>> = createSignal<ReadonlyMap<string, string>>(new Map())
 
     // -------------------------------------------------------------------
     // Apply initial render state + seed data
@@ -473,6 +474,13 @@ export function createChartController(opts: ChartMountOptions): ChartController 
     unsubs.push(
         chart.interactionState.subscribe(() =>
             interactionState.set(mapInteractionSnapshot(chart.interactionState.peek())),
+        ),
+    )
+
+    // comparisonColors
+    unsubs.push(
+        chart.comparisonColors.subscribe(() =>
+            comparisonColors.set(new Map(chart.comparisonColors.peek())),
         ),
     )
 
@@ -792,6 +800,7 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         paneRatios,
         paneLayout,
         interactionState,
+        comparisonColors,
         catalog: DEFAULT_INDICATOR_CATALOG,
         setSymbols,
         addComparisonSymbol,

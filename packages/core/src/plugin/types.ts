@@ -275,6 +275,7 @@ export interface RenderContext {
   data: unknown[]
   comparisonData?: ReadonlyMap<string, ReadonlyArray<KLineData>>
   comparisonSymbols?: ReadonlyArray<import('../controllers/types').SymbolSpec>
+  comparisonColors?: ReadonlyMap<string, string>
   range: { start: number; end: number }
   scrollLeft: number
   kWidth: number

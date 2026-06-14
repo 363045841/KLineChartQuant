@@ -403,6 +403,7 @@ export class ChartRenderer {
         data: dataManager.getInternalData(),
         comparisonData: dataManager.getComparisonData(),
         comparisonSymbols: dataManager.getComparisonSpecs(),
+        comparisonColors: dataManager.getComparisonColors(),
         range,
         scrollLeft: vp.scrollLeft,
         kWidth: opt.kWidth,

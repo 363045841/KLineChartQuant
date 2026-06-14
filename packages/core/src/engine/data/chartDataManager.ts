@@ -7,6 +7,9 @@ import type { VisibleRange, UpdateLevel } from '../layout/pane'
 import { getVisibleRange } from '../viewport/viewport'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
 
+const COMPARISON_PALETTE = ['#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316']
+const DEFAULT_COMPARISON_COLOR = '#f59e0b'
+
 export interface DataDependencies {
   getOption: () => { kWidth: number; kGap: number }
   getEffectiveDpr: () => number
@@ -35,6 +38,8 @@ export class ChartDataManager {
   private _comparisonData: Map<string, KLineData[]> = new Map()
   private _comparisonBuffers: Map<string, DataBuffer> = new Map()
   private _comparisonBufferUnsubs: Map<string, () => void> = new Map()
+  private _comparisonColors: Map<string, string> = new Map()
+  private _comparisonColorsSignal = createSignal<ReadonlyMap<string, string>>(new Map())
 
   private _dataSignal = createSignal<ReadonlyArray<KLineData>>([])
   private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
@@ -175,6 +180,14 @@ export class ChartDataManager {
     return this._dataBuffer
   }
 
+  get comparisonColors(): Signal<ReadonlyMap<string, string>> {
+    return this._comparisonColorsSignal
+  }
+
+  getComparisonColors(): Map<string, string> {
+    return this._comparisonColors
+  }
+
   updateData(data: KLineData[]): void {
     this._internalData = data ?? []
     this._dataSignal.set([...this._internalData])
@@ -313,6 +326,8 @@ export class ChartDataManager {
     for (const buffer of this._comparisonBuffers.values()) buffer.dispose()
     this._comparisonBuffers.clear()
     this._comparisonData.clear()
+    this._comparisonColors.clear()
+    this._comparisonColorsSignal.set(new Map())
     this._comparisonSpecs = []
   }
 
@@ -320,6 +335,11 @@ export class ChartDataManager {
     const key = spec.symbol
     if (this._comparisonBuffers.has(key)) return
     this._comparisonSpecs.push(spec)
+
+    const color = COMPARISON_PALETTE[this._comparisonColors.size % COMPARISON_PALETTE.length] ?? DEFAULT_COMPARISON_COLOR
+    this._comparisonColors.set(key, color)
+    this._comparisonColorsSignal.set(new Map(this._comparisonColors))
+
     if (!this._dataFetcher) return
 
     const newBuffer = new DataBuffer()
@@ -343,6 +363,8 @@ export class ChartDataManager {
     this._comparisonBuffers.get(key)?.dispose()
     this._comparisonBuffers.delete(key)
     this._comparisonData.delete(key)
+    this._comparisonColors.delete(key)
+    this._comparisonColorsSignal.set(new Map(this._comparisonColors))
     this._comparisonSpecs = this._comparisonSpecs.filter((s) => s.symbol !== symbol)
     this._symbolsSignal.set([this._symbolsSignal.peek()[0]!, ...this._comparisonSpecs])
   }
