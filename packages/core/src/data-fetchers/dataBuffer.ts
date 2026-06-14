@@ -9,6 +9,7 @@ export interface DataWindow {
 const MS_PER_DAY = 86_400_000
 const INITIAL_LOAD_DAYS = 365
 const INCREMENTAL_LOAD_DAYS = 90
+const FETCH_MAX_RETRIES = 2
 
 function formatDate(ts: number): string {
     const d = new Date(ts)
@@ -117,13 +118,13 @@ export class DataBuffer {
         this.fetchRange(startTs, endTs)
     }
 
-    private fetchRange(startTs: number, endTs: number): void {
+    private fetchRange(startTs: number, endTs: number, retryCount = 0): void {
         if (!this._fetcher || !this._currentSpec || this._disposed) return
 
         if (this._pendingFetch) {
             this._pendingFetch = this._pendingFetch.then(() => {
                 if (this._disposed) return
-                this.fetchRange(startTs, endTs)
+                return this.fetchRange(startTs, endTs, retryCount)
             })
             return
         }
@@ -133,15 +134,15 @@ export class DataBuffer {
 
         this._loadingSignal.set(true)
 
-        this._pendingFetch = fetcher(spec.source ?? 'baostock', {
-            symbol: spec.symbol,
-            startDate: formatDate(startTs),
-            endDate: formatDate(endTs),
-            period: spec.period ?? 'daily',
-            adjust: spec.adjust ?? 'none',
-            exchange: spec.exchange,
-        })
-            .then((incoming) => {
+        const doFetch = (): Promise<void> =>
+            fetcher(spec.source ?? 'baostock', {
+                symbol: spec.symbol,
+                startDate: formatDate(startTs),
+                endDate: formatDate(endTs),
+                period: spec.period ?? 'daily',
+                adjust: spec.adjust ?? 'none',
+                exchange: spec.exchange,
+            }).then((incoming) => {
                 if (this._disposed) return
 
                 const oldLength = this._data.length
@@ -174,16 +175,34 @@ export class DataBuffer {
                     }
                 }
             })
-            .catch((err) => {
+
+        const attempt = (count: number): Promise<void> => {
+            return doFetch().catch((err) => {
                 if (this._disposed) return
-                console.error('[DataBuffer] fetch failed:', err)
-            })
-            .finally(() => {
-                this._pendingFetch = null
-                if (!this._disposed) {
-                    this._loadingSignal.set(false)
+
+                if (count < FETCH_MAX_RETRIES) {
+                    const delay = Math.pow(2, count) * 1000
+                    console.warn(
+                        `[DataBuffer] fetch failed, retry ${count + 1}/${FETCH_MAX_RETRIES} in ${delay}ms:`,
+                        err,
+                    )
+                    return new Promise<void>((resolve) => setTimeout(resolve, delay)).then(() => {
+                        if (this._disposed) return
+                        return attempt(count + 1)
+                    })
                 }
+
+                console.error(`[DataBuffer] fetch failed after ${FETCH_MAX_RETRIES + 1} attempts:`, err)
+                this._attemptedBoundaries.delete(endTs)
             })
+        }
+
+        this._pendingFetch = attempt(retryCount).finally(() => {
+            this._pendingFetch = null
+            if (!this._disposed) {
+                this._loadingSignal.set(false)
+            }
+        })
     }
 
     dispose(): void {

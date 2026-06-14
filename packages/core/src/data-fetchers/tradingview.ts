@@ -21,13 +21,11 @@ export const tradingviewDataFetcher: DataFetcher = async (source, config) => {
   try {
     const res = await fetch(url)
     if (!res.ok) {
-      console.warn(`[tradingview] fetch failed: ${res.status} ${res.statusText}`)
-      return []
+      throw new Error(`[tradingview] fetch failed: ${res.status} ${res.statusText}`)
     }
     const json = await res.json()
     if (!json.success) {
-      console.warn(`[tradingview] API error: ${json.error_msg}`)
-      return []
+      throw new Error(`[tradingview] API error: ${json.error_msg}`)
     }
     if (json.warning) {
       console.warn(`[tradingview] ${json.warning}`)
@@ -45,6 +43,6 @@ export const tradingviewDataFetcher: DataFetcher = async (source, config) => {
     })) as KLineData[]
   } catch (err) {
     console.warn('[tradingview] network error:', err)
-    return []
+    throw err
   }
 }
