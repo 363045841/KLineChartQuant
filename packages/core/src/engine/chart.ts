@@ -2622,6 +2622,7 @@ export class Chart {
 
         if (!this._dataBufferUnsub) {
             this._dataBufferUnsub = this._dataBuffer.data.subscribe(() => {
+                const prevLength = this._internalData.length
                 const bufferData = this._dataBuffer.data.peek()
                 this._internalData = [...bufferData]
                 this._dataSignal.set([...this._internalData])
@@ -2631,6 +2632,19 @@ export class Chart {
                     const desiredScrollLeft = this.getLeftLoadBufferWidth()
                     this.cachedScrollLeft = desiredScrollLeft
                     this._pendingScrollLeft = desiredScrollLeft
+                }
+                if (prevLength === 0 && this._internalData.length > 0) {
+                    const dpr = this.getEffectiveDpr()
+                    const { unitPx, startXPx } = getPhysicalKLineConfig(this.opt.kWidth, this.opt.kGap, dpr)
+                    const lastKLineEndPx = (startXPx + this._internalData.length * unitPx) / dpr
+                    const container = this.dom.container
+                    if (container) {
+                        const target = this.getLeftLoadBufferWidth() + Math.max(0, lastKLineEndPx - container.clientWidth)
+                        const contentWidth = this.getContentWidth()
+                        const maxScroll = Math.max(0, contentWidth - container.clientWidth)
+                        this.cachedScrollLeft = Math.round(Math.min(target, maxScroll) * dpr) / dpr
+                        this._pendingScrollLeft = this.cachedScrollLeft
+                    }
                 }
                 this.interaction.reset()
                 if (this.lastVisibleRange.start === 0 && this.lastVisibleRange.end === 0 && this._internalData.length > 0) {
