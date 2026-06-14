@@ -13,7 +13,7 @@ import { PaneRenderer } from './paneRenderer'
 import { SharedWebGLSurface } from './renderers/webgl/sharedWebGLSurface'
 import { MarkerManager, type CustomMarkerEntity } from './marker/registry'
 import { getPhysicalKLineConfig, calcKWidthPx } from './utils/klineConfig'
-import { computeZoom, computeZoomToLevel, type ZoomConfig } from './utils/zoom'
+import { ChartZoomController } from './utils/chartZoomController'
 import { IndicatorScheduler } from './indicators/scheduler'
 import { getBuiltinIndicatorDefinitions } from './indicators/registerBuiltins'
 import { getRegisteredIndicatorDefinitions } from './indicators/indicatorDefinitionRegistry'
@@ -213,11 +213,8 @@ export class Chart {
         }, 900)
     }
 
-    /** 当前缩放级别（1 ~ zoomLevelCount） */
-    private currentZoomLevel: number = 1
-
-    /** 缩放级别总数 */
-    private readonly zoomLevelCount: number
+    /** 缩放控制器 */
+    private zoomController: ChartZoomController
 
     /** 指标调度器（负责计算 MA 等指标并写入 StateStore）
      * TODO: 阶段5迁移为插件注册，Scheduler 通过事件监听 data/viewport 变更，Chart 不直接持有
@@ -520,10 +517,23 @@ export class Chart {
 
         this.syncPaneRatiosFromSpecs(this.opt.panes)
 
-        // 缩放级别由外部 SSOT 管理，Chart 只接收不计算
-        this.zoomLevelCount = Math.max(2, Math.round(this.opt.zoomLevels ?? 20))
-        this.currentZoomLevel = this.opt.initialZoomLevel ?? 1
-        this.currentZoomLevel = Math.max(1, Math.min(this.zoomLevelCount, this.currentZoomLevel))
+        this.zoomController = new ChartZoomController({
+            getLogicalScrollLeft: () => this.getLogicalScrollLeft(),
+            getCurrentDpr: () => this.getEffectiveDpr(),
+            getLeftLoadBufferWidth: () => this.getLeftLoadBufferWidth(),
+            setScrollLeft: (v) => { this.cachedScrollLeft = v; this._pendingScrollLeft = v },
+            onZoomCommitted: (result) => {
+                this.opt = { ...this.opt, kWidth: result.kWidth, kGap: result.kGap }
+                this.updateViewportSignal()
+                this.scheduleDraw()
+            },
+            getKWidth: () => this.opt.kWidth,
+            getKGap: () => this.opt.kGap,
+            getMinKWidth: () => this.opt.minKWidth,
+            getMaxKWidth: () => this.opt.maxKWidth,
+            zoomLevelCount: Math.max(2, Math.round(this.opt.zoomLevels ?? 20)),
+            initialZoomLevel: this.opt.initialZoomLevel ?? 1,
+        })
         // 注意：初始 kWidth/kGap 应由外部通过 applyRenderState() 传入
 
         // 初始化指标调度器
@@ -974,8 +984,8 @@ export class Chart {
                 yAxisCtx: yAxisCtx ?? undefined,
                 candleWebGLSurface: candleSurface ?? undefined,
                 lineWebGLSurface: lineSurface ?? undefined,
-                zoomLevel: this.currentZoomLevel,
-                zoomLevelCount: this.zoomLevelCount,
+                zoomLevel: this.zoomController.currentZoomLevel,
+                zoomLevelCount: this.zoomController.zoomLevelCount,
                 viewport: {
                     scrollLeft: vp.scrollLeft,
                     plotWidth: vp.plotWidth,
@@ -1089,11 +1099,11 @@ export class Chart {
      */
     applyRenderState(kWidth: number, kGap: number, zoomLevel?: number): void {
         const nextZoomLevel = zoomLevel !== undefined
-            ? Math.max(1, Math.min(this.zoomLevelCount, zoomLevel))
-            : this.currentZoomLevel
+            ? Math.max(1, Math.min(this.zoomController.zoomLevelCount, zoomLevel))
+            : this.zoomController.currentZoomLevel
         const renderStateChanged = this.opt.kWidth !== kWidth
             || this.opt.kGap !== kGap
-            || this.currentZoomLevel !== nextZoomLevel
+            || this.zoomController.currentZoomLevel !== nextZoomLevel
 
         if (!renderStateChanged) {
             return
@@ -1101,7 +1111,7 @@ export class Chart {
 
         this.opt = { ...this.opt, kWidth, kGap }
         if (zoomLevel !== undefined) {
-            this.currentZoomLevel = nextZoomLevel
+            this.zoomController.setZoomLevel(nextZoomLevel)
         }
         this.updateViewportSignal()
         this.scheduleDraw()
@@ -1109,7 +1119,7 @@ export class Chart {
 
     /** 获取总缩放级别数 */
     getZoomLevelCount(): number {
-        return this.zoomLevelCount
+        return this.zoomController.zoomLevelCount
     }
 
     /** 获取所有 PaneRenderer */
@@ -2608,57 +2618,21 @@ export class Chart {
      * 计算并应用新的 render state，更新 viewport signal
      */
     zoomToLevel(level: number, anchorX?: number): void {
-        const clamped = Math.max(1, Math.min(this.zoomLevelCount, Math.round(level)))
-        this.applyZoom(clamped, anchorX)
+        this.zoomController.zoomToLevel(level, anchorX)
     }
 
     /**
      * 放大（高层 API）
      */
     zoomIn(anchorX?: number): void {
-        this.zoomToLevel(this.currentZoomLevel + 1, anchorX)
+        this.zoomController.zoomIn(anchorX)
     }
 
     /**
      * 缩小（高层 API）
      */
     zoomOut(anchorX?: number): void {
-        this.zoomToLevel(this.currentZoomLevel - 1, anchorX)
-    }
-
-    /**
-     * 内部缩放实现
-     * 使用 computeZoom 纯函数计算精确的 scrollLeft
-     */
-    private applyZoom(targetLevel: number, anchorViewportX?: number): void {
-        if (targetLevel === this.currentZoomLevel) return
-
-        const delta = targetLevel - this.currentZoomLevel
-        const logicalScrollLeft = this.getLogicalScrollLeft()
-        const dpr = this.getCurrentDpr()
-
-        const result = computeZoom(
-            delta,
-            anchorViewportX ?? 0,
-            logicalScrollLeft,
-            this.currentZoomLevel,
-            this.opt.kWidth,
-            this.opt.kGap,
-            {
-                minKWidth: this.opt.minKWidth,
-                maxKWidth: this.opt.maxKWidth,
-                zoomLevelCount: this.zoomLevelCount,
-                dpr,
-            },
-        )
-
-        if (!result) return
-
-        const domScrollLeft = result.newScrollLeft + this.getLeftLoadBufferWidth()
-        this.currentZoomLevel = result.targetLevel
-        this.cachedScrollLeft = domScrollLeft
-        this._pendingScrollLeft = domScrollLeft
-        this.applyRenderState(result.newKWidth, result.newKGap, result.targetLevel)
+        this.zoomController.zoomOut(anchorX)
     }
 
     // ---------- Interaction (Zero-config unified entry) ----------
@@ -2734,16 +2708,8 @@ export class Chart {
      * 使用 computeZoom 计算精确的 scrollLeft，更新 viewport signal
      */
     handleWheelEvent(e: WheelEvent): void {
-        const delta = e.deltaY > 0 ? -1 : 1
-        const targetLevel = Math.max(1, Math.min(this.zoomLevelCount, this.currentZoomLevel + delta))
-
-        if (targetLevel === this.currentZoomLevel) return
-
-        // 获取鼠标在视口中的位置作为缩放锚点（视口局部坐标）
         const rect = this.dom.container.getBoundingClientRect()
-        const mouseX = e.clientX - rect.left
-
-        this.applyZoom(targetLevel, mouseX)
+        this.zoomController.handleWheel(e.deltaY, e.clientX - rect.left)
     }
 
     /**
@@ -2762,11 +2728,7 @@ export class Chart {
      * @param centerClientX 捏合中心在视口中的 X 坐标
      */
     handlePinchZoom(delta: number, centerClientX: number): void {
-        const targetLevel = Math.max(1, Math.min(this.zoomLevelCount, this.currentZoomLevel + delta))
-        if (targetLevel === this.currentZoomLevel) return
-
-        // centerClientX 已经是视口局部坐标，直接使用
-        this.applyZoom(targetLevel, centerClientX)
+        this.zoomController.handlePinch(delta, centerClientX)
     }
 
     /**
@@ -2777,7 +2739,7 @@ export class Chart {
         if (!vp) return
 
         this._viewportSignal.set({
-            zoomLevel: this.currentZoomLevel,
+            zoomLevel: this.zoomController.currentZoomLevel,
             plotWidth: vp.plotWidth,
             plotHeight: vp.plotHeight,
             dpr: vp.dpr,
