@@ -235,13 +235,13 @@ function onAddOverlaySymbol(item: SymbolItem) {
   overlaySymbolItems.value = [...overlaySymbolItems.value, item]
   overlaySymbols.value = overlaySymbolItems.value.map((symbol) => symbol.code)
   forcePercentAxis()
-  syncSymbolsToController()
+  controller.value?.addComparisonSymbol(toSymbolSpec(item))
 }
 
 function onRemoveOverlaySymbol(code: string) {
   overlaySymbolItems.value = overlaySymbolItems.value.filter((item) => item.code !== code)
   overlaySymbols.value = overlaySymbolItems.value.map((symbol) => symbol.code)
-  syncSymbolsToController()
+  controller.value?.removeComparisonSymbol(code)
 }
 
 function toSymbolSpec(item: SymbolItem): SymbolSpec {

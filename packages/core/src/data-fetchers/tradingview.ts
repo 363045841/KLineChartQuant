@@ -35,6 +35,7 @@ export const tradingviewDataFetcher: DataFetcher = async (source, config) => {
 
     return (json.data ?? []).map((item: Record<string, unknown>) => ({
       timestamp: item.ts_open as number,
+      date: item.date as string,
       open: item.open as number,
       high: item.high as number,
       low: item.low as number,

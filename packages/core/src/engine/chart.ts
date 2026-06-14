@@ -801,6 +801,14 @@ export class Chart {
         this.dataManager.setSymbols(specs)
     }
 
+    addComparisonSymbol(spec: SymbolSpec): void {
+        this.dataManager.addComparisonSymbol(spec)
+    }
+
+    removeComparisonSymbol(symbol: string): void {
+        this.dataManager.removeComparisonSymbol(symbol)
+    }
+
     // ---------- Theme ----------
 
     /**

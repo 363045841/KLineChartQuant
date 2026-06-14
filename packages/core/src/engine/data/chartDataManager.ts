@@ -310,6 +310,37 @@ export class ChartDataManager {
     this._comparisonSpecs = []
   }
 
+  addComparisonSymbol(spec: SymbolSpec): void {
+    const key = spec.symbol
+    if (this._comparisonBuffers.has(key)) return
+    this._comparisonSpecs.push(spec)
+    if (!this._dataFetcher) return
+
+    const newBuffer = new DataBuffer()
+    newBuffer.setFetcher(this._dataFetcher)
+    this._comparisonBuffers.set(key, newBuffer)
+    const unsubscribe = newBuffer.data.subscribe(() => {
+      this._comparisonData.set(key, [...newBuffer.data.peek()])
+      this.deps.scheduleDraw()
+    })
+    this._comparisonBufferUnsubs.set(key, unsubscribe)
+    newBuffer.setSymbol(spec)
+    this._symbolsSignal.set([this._symbolsSignal.peek()[0]!, ...this._comparisonSpecs])
+  }
+
+  removeComparisonSymbol(symbol: string): void {
+    const key = symbol
+    if (!this._comparisonBuffers.has(key)) return
+
+    this._comparisonBufferUnsubs.get(key)?.()
+    this._comparisonBufferUnsubs.delete(key)
+    this._comparisonBuffers.get(key)?.dispose()
+    this._comparisonBuffers.delete(key)
+    this._comparisonData.delete(key)
+    this._comparisonSpecs = this._comparisonSpecs.filter((s) => s.symbol !== symbol)
+    this._symbolsSignal.set([this._symbolsSignal.peek()[0]!, ...this._comparisonSpecs])
+  }
+
   setSymbols(specs: ReadonlyArray<SymbolSpec>): void {
     this._symbolsSignal.set(specs)
     if (specs.length === 0) {

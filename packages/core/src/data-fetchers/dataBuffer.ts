@@ -60,6 +60,10 @@ export class DataBuffer {
         return this._loadingSignal
     }
 
+    get currentSpec(): SymbolSpec | null {
+        return this._currentSpec
+    }
+
     get loadedWindow(): DataWindow | null {
         return this._loadedWindow
     }

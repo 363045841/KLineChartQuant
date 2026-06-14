@@ -500,6 +500,16 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         chart.setSymbols(next)
     }
 
+    function addComparisonSymbol(spec: SymbolSpec): void {
+        if (disposed) return
+        chart.addComparisonSymbol(spec)
+    }
+
+    function removeComparisonSymbol(symbol: string): void {
+        if (disposed) return
+        chart.removeComparisonSymbol(symbol)
+    }
+
     function setDataFetcher(fetcher: DataFetcher | null): void {
         if (disposed) return
         chart.setDataFetcher(fetcher)
@@ -784,6 +794,8 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         interactionState,
         catalog: DEFAULT_INDICATOR_CATALOG,
         setSymbols,
+        addComparisonSymbol,
+        removeComparisonSymbol,
         setDataFetcher,
         setData,
         appendData,

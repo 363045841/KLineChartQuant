@@ -21,9 +21,10 @@ export function createComparisonLineRenderer(): RendererPlugin {
             if (context.pane.id !== 'main') return
 
             const baseIndex = Math.max(0, context.range.start)
-            const mainBase = mainData[baseIndex]?.close
-            const baseTimestamp = mainData[baseIndex]?.timestamp
-            if (!Number.isFinite(mainBase) || mainBase <= 0 || baseTimestamp === undefined) return
+            const baseItem = mainData[baseIndex]
+            if (!baseItem || !Number.isFinite(baseItem.close) || baseItem.close <= 0) return
+            const mainBase = baseItem.close
+            const baseDate = baseItem.date ?? ''
 
             const ctx = context.ctx
             ctx.save()
@@ -31,15 +32,18 @@ export function createComparisonLineRenderer(): RendererPlugin {
             ctx.lineWidth = Math.max(1, 1.5 / context.dpr)
 
             for (let symbolIndex = 0; symbolIndex < comparisonSymbols.length; symbolIndex++) {
-                const spec = comparisonSymbols[symbolIndex]
+                const spec = comparisonSymbols[symbolIndex]!
                 const data = comparisonData.get(spec.symbol)
                 if (!data?.length) continue
 
-                const baseline = findBaseline(data, baseTimestamp)
+                const baseline = baseDate ? findBaselineByDate(data, baseDate) : findBaselineByTimestamp(data, baseItem.timestamp)
                 if (!baseline || baseline.close <= 0) continue
 
-                const byTimestamp = new Map<number, KLineData>()
-                for (const item of data) byTimestamp.set(item.timestamp, item)
+                const byDate = new Map<string, KLineData>()
+                for (const item of data) {
+                  if (item.date) byDate.set(item.date, item)
+                  else byDate.set(String(item.timestamp), item)
+                }
 
                 ctx.beginPath()
                 ctx.strokeStyle = COMPARISON_COLORS[symbolIndex % COMPARISON_COLORS.length]!
@@ -52,7 +56,8 @@ export function createComparisonLineRenderer(): RendererPlugin {
                         previousHadPoint = false
                         continue
                     }
-                    const item = byTimestamp.get(mainItem.timestamp)
+                    const key = mainItem.date ?? String(mainItem.timestamp)
+                    const item = byDate.get(key)
                     const x = context.kLineCenters[i - context.range.start]
                     if (!item || x === undefined || !Number.isFinite(item.close)) {
                         previousHadPoint = false
@@ -81,7 +86,14 @@ export function createComparisonLineRenderer(): RendererPlugin {
     }
 }
 
-function findBaseline(data: ReadonlyArray<KLineData>, timestamp: number): KLineData | null {
+function findBaselineByDate(data: ReadonlyArray<KLineData>, date: string): KLineData | null {
+    for (const item of data) {
+        if (item.date && item.date >= date) return item
+    }
+    return null
+}
+
+function findBaselineByTimestamp(data: ReadonlyArray<KLineData>, timestamp: number): KLineData | null {
     for (const item of data) {
         if (item.timestamp >= timestamp) return item
     }

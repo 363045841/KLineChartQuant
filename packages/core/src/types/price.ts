@@ -1,6 +1,8 @@
 export interface KLineData {
   /* 时间戳（毫秒） */
   timestamp: number
+  /** 日期字符串（如 "2025-06-16"），用于跨品种精确匹配 */
+  date?: string
   /* 开盘价 */
   open: number
   /* 最高价 */

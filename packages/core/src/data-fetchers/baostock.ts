@@ -18,6 +18,7 @@ const periodMap: Record<string, string> = { daily: 'd', weekly: 'w', monthly: 'm
     console.log(json)
     return (json.data ?? json).map((item: Record<string, unknown>) => ({
       timestamp: new Date(item.date as string).getTime(),
+      date: item.date as string,
       open: Number(item.open),
       high: Number(item.high),
       low: Number(item.low),

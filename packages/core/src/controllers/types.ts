@@ -71,6 +71,7 @@ export interface KLineData {
     changePercent?: number
     changeAmount?: number
     turnoverRate?: number
+    date?: string
 }
 
 export type { PaneSpec }
@@ -248,6 +249,8 @@ export interface ChartController extends DrawingChartAdapter {
 
     // ---- Data ----
     setSymbols(next: ReadonlyArray<SymbolSpec>): void
+    addComparisonSymbol(spec: SymbolSpec): void
+    removeComparisonSymbol(symbol: string): void
     setDataFetcher(fetcher: DataFetcher | null): void
     setData(next: ReadonlyArray<KLineData>): void
     appendData(next: ReadonlyArray<KLineData>): void
