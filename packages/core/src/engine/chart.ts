@@ -4,7 +4,9 @@ import { createSignal, computed, type Signal, type Computed } from '../reactivit
 import type { SymbolSpec } from '../controllers/types'
 import { getVisibleRange } from './viewport/viewport'
 import { ChartDataManager, type DataDependencies } from './data/chartDataManager'
-import { Pane, type VisibleRange, UpdateLevel } from './layout/pane'
+import { ChartPaneLayout } from './layout/chartPaneLayout'
+import { UpdateLevel } from './layout/pane'
+import type { VisibleRange } from './layout/pane'
 import type { ScaleType } from './utils/tickPosition'
 import { InteractionController, type InteractionSnapshot } from './controller/interaction'
 export type { InteractionSnapshot }
@@ -81,7 +83,10 @@ export class Chart {
     private pendingUpdateLevel: UpdateLevel = UpdateLevel.All
     private _internalViewport: Viewport | null = null
 
-    private paneRenderers: PaneRenderer[] = []
+    private layoutManager: ChartPaneLayout
+    private get paneRenderers(): PaneRenderer[] {
+        return this.layoutManager.getPaneRenderers()
+    }
     private markerManager: MarkerManager
     private drawingStore = new DrawingStore()
     readonly interaction: InteractionController
@@ -118,9 +123,6 @@ export class Chart {
 
     /** 用户设置配置（传递给渲染器） */
     private settings: ChartSettings = {}
-
-    /** pane ratio 状态（按 paneId 维护，sum=1 仅对可见 pane） */
-    private _internalPaneRatios: Map<string, number> = new Map()
 
     /** 共享 X 轴上下文缓存 */
     private xAxisCtx: CanvasRenderingContext2D | null = null
@@ -421,7 +423,26 @@ export class Chart {
         this.rendererPluginManager.setPluginHost(this.pluginHost)
         this.rendererPluginManager.setInvalidateCallback(() => this.scheduleDraw())
 
-        this.syncPaneRatiosFromSpecs(this.opt.panes)
+        this.layoutManager = new ChartPaneLayout(this.opt.panes, {
+            getDom: () => this.dom,
+            getOption: () => ({
+                rightAxisWidth: this.opt.rightAxisWidth,
+                yPaddingPx: this.opt.yPaddingPx,
+                priceLabelWidth: this.opt.priceLabelWidth,
+                paneGap: this.opt.paneGap,
+                defaultPaneMinHeightPx: this.opt.defaultPaneMinHeightPx,
+            }),
+            getViewport: () => this._internalViewport,
+            getSharedWebGLSurface: () => this.sharedWebGLSurface,
+            setKnownPaneIds: (ids) => this.rendererPluginManager.setKnownPaneIds(ids),
+            notifyPaneResize: (paneId, pane) => this.rendererPluginManager.notifyResize(paneId, wrapPaneInfo(pane)),
+            scheduleDraw: (level) => this.scheduleDraw(level),
+            onLayoutChange: (ratios, specs) => {
+                this._paneRatiosSignal.set(ratios)
+                this._paneLayoutSignal.set(specs)
+                this.opt = { ...this.opt, panes: specs }
+            },
+        })
 
         this.dataManager = new ChartDataManager({
             getOption: () => this.opt,
@@ -474,8 +495,6 @@ export class Chart {
         this.indicatorScheduler.setActiveSubPaneProvider(
             () => this.subPaneManager.getPaneIds(),
         )
-
-        this.initPanes()
 
         // dev: 主副图状态变更日志
         if ((import.meta as any).env?.MODE !== 'production') {
@@ -1125,7 +1144,7 @@ export class Chart {
         if (partial.panes) {
             const nextPanes = partial.panes.map((pane) => ({ ...pane }))
             this.opt = { ...this.opt, ...partial, panes: nextPanes }
-            this.applyPaneLayoutSpecs(nextPanes)
+            this.layoutManager.applyPaneLayoutSpecs(nextPanes)
             return
         }
 
@@ -1133,44 +1152,25 @@ export class Chart {
         this.resize()
     }
 
-    /** 更新 pane 布局配置
-     * @param panes 新的 pane 配置数组
-     *
-     * 显式整盘替换：清空之前 user-resize 留下的 paneRatios 缓存，让 spec 中的 ratio
-     * 真正生效。`addPane`/`upsertPane`/`removePaneDefinition` 走 `applyPaneLayoutSpecs`
-     * 时仍保留 prev 值以记住用户拖拽过的高度——只有显式的 layout replacement 才重置。
-     */
     updatePaneLayout(panes: PaneSpec[]): void {
-        this._internalPaneRatios.clear()
-        this.applyPaneLayoutSpecs(panes)
+        this.layoutManager.updatePaneLayout(panes)
     }
 
     setPaneDefinitions(defs: PaneSpec[]): void {
-        this.applyPaneLayoutSpecs(defs)
+        this.layoutManager.setPaneDefinitions(defs)
     }
 
     upsertPane(def: PaneSpec): void {
-        const idx = this.opt.panes.findIndex((pane) => pane.id === def.id)
-        if (idx === -1) {
-            this.applyPaneLayoutSpecs([...this.opt.panes, { ...def }])
-            return
-        }
-
-        const next = [...this.opt.panes]
-        next[idx] = { ...next[idx], ...def }
-        this.applyPaneLayoutSpecs(next)
+        this.layoutManager.upsertPane(def)
     }
 
     removePaneDefinition(paneId: string): void {
-        if (!this.opt.panes.some((pane) => pane.id === paneId)) return
-        this._internalPaneRatios.delete(paneId)
-        this.applyPaneLayoutSpecs(this.opt.panes.filter((pane) => pane.id !== paneId))
+        this.layoutManager.removePaneDefinition(paneId)
     }
 
     bindIndicatorToPane(paneId: string, indicatorId: SubIndicatorType, params?: Record<string, number | boolean | string>): void {
-        const paneExists = this.opt.panes.some((pane) => pane.id === paneId)
-        if (!paneExists) {
-            this.upsertPane({ id: paneId, ratio: 1, visible: true, role: 'indicator' })
+        if (!this.layoutManager.hasPane(paneId)) {
+            this.layoutManager.upsertPane({ id: paneId, ratio: 1, visible: true, role: 'indicator' })
         }
 
         const definition = this.indicatorScheduler.getIndicatorMetadata(indicatorId)
@@ -1202,173 +1202,24 @@ export class Chart {
         this.scheduleDraw()
     }
 
-    /** 获取当前 pane 布局快照（含 ratio） */
     getPaneLayoutSpecs(): PaneSpec[] {
-        const visible = this.opt.panes.filter(p => p.visible !== false)
-        const sum = visible.reduce((s, p) => s + (this._internalPaneRatios.get(p.id) ?? p.ratio ?? 0), 0)
-        const safeSum = sum > 0 ? sum : 1
-        return this.opt.panes.map((spec) => {
-            const base = this._internalPaneRatios.get(spec.id) ?? spec.ratio ?? 0
-            const ratio = spec.visible === false ? base : base / safeSum
-            const pane = this.paneRenderers.find((r) => r.getPane().id === spec.id)?.getPane()
-            return {
-                ...spec,
-                ratio,
-                role: pane?.role ?? spec.role,
-                capabilities: pane ? { ...pane.capabilities } : spec.capabilities,
-            }
-        })
+        return this.layoutManager.getPaneLayoutSpecs()
     }
 
-    private emitPaneLayoutChange(): void {
-        // 同步 pane ratios 到 signal
-        const ratios: Record<string, number> = {}
-        this._internalPaneRatios.forEach((ratio, id) => {
-            ratios[id] = ratio
-        })
-        this._paneRatiosSignal.set(ratios)
-
-        this._paneLayoutSignal.set(this.getPaneLayoutSpecs())
-    }
-
-    private applyPaneLayoutSpecs(panes: PaneSpec[]): void {
-        this.opt.panes = panes.map((spec) => ({ ...spec }))
-        this.syncPaneRatiosFromSpecs(this.opt.panes)
-        this.initPanes()
-        this.layoutPanes()
-        this.emitPaneLayoutChange()
-        this.scheduleDraw()
-    }
-
-    /**
-     * 调整相邻 pane 边界（支持连锁挤压）
-     * @param upperPaneId 上方 pane ID（边界位于此 pane 与其下方邻居之间）
-     * @param deltaY Y 方向位移（逻辑像素，正数表示边界向下，upper 增大；负数表示向上，upper 减小）
-     */
     resizePaneBoundary(upperPaneId: string, deltaY: number): boolean {
-        // === 1. 参数校验 ===
-        if (!Number.isFinite(deltaY) || deltaY === 0) return false
-        const vp = this._internalViewport
-        if (!vp) return false
-
-        // === 2. 定位相邻 pane 对（边界两侧） ===
-        const visibleSpecs = this.opt.panes.filter(p => p.visible !== false)
-        const boundaryIndex = visibleSpecs.findIndex(p => p.id === upperPaneId)
-        if (boundaryIndex < 0 || boundaryIndex >= visibleSpecs.length - 1) return false
-
-        const upperSpec = visibleSpecs[boundaryIndex]
-        const lowerSpec = visibleSpecs[boundaryIndex + 1]
-        if (!upperSpec || !lowerSpec) return false
-
-        // === 3. 收集所有 pane 当前高度 ===
-        const heights = new Map<string, number>()
-        for (const spec of visibleSpecs) {
-            const renderer = this.paneRenderers.find(r => r.getPane().id === spec.id)
-            if (renderer) {
-                heights.set(spec.id, renderer.getPane().height)
-            }
-        }
-
-        // === 4. 连锁挤压/扩展 ===
-        // deltaY > 0: 边界下移，upper expand，lower shrink
-        // deltaY < 0: 边界上移，upper shrink，lower expand
-        const expandIdx = deltaY > 0 ? boundaryIndex : boundaryIndex + 1
-        const shrinkIdx = deltaY > 0 ? boundaryIndex + 1 : boundaryIndex
-        const expandDir = deltaY > 0 ? -1 : 1  // expand 方向（向边界方向找）
-        const shrinkDir = deltaY > 0 ? 1 : -1  // shrink 方向（远离边界方向找）
-
-        let remaining = Math.abs(deltaY)
-
-        // 先尝试 shrink（从 shrinkIdx 开始，沿 shrinkDir 方向连锁）
-        let shrinkCursor = shrinkIdx
-        while (remaining > 0 && shrinkCursor >= 0 && shrinkCursor < visibleSpecs.length) {
-            const spec = visibleSpecs[shrinkCursor]
-            if (!spec) break
-
-            const currentH = heights.get(spec.id) ?? 0
-            const minH = this.getPaneMinHeight(spec, vp.plotHeight)
-            const canShrink = Math.max(0, currentH - minH)
-
-            if (canShrink > 0) {
-                const shrink = Math.min(canShrink, remaining)
-                heights.set(spec.id, currentH - shrink)
-                remaining -= shrink
-            }
-
-            // 继续向 shrinkDir 方向找下一个可 shrink 的 pane
-            if (remaining > 0) {
-                shrinkCursor += shrinkDir
-            }
-        }
-
-        // 如果还有剩余（无法完全 shrink），说明拖拽无效
-        if (remaining > 0) return false
-
-        // 将节省的高度全部加到 expand 方
-        const expandSpec = visibleSpecs[expandIdx]
-        if (!expandSpec) return false
-        const expandCurrentH = heights.get(expandSpec.id) ?? 0
-        heights.set(expandSpec.id, expandCurrentH + Math.abs(deltaY))
-
-        // === 5. 将像素高度转换为 ratio ===
-        const gap = Math.max(0, this.opt.paneGap ?? 0)
-        const totalGaps = gap * Math.max(0, visibleSpecs.length - 1)
-        const availableH = Math.max(1, vp.plotHeight - totalGaps)
-
-        for (const spec of visibleSpecs) {
-            const h = heights.get(spec.id) ?? 0
-            this._internalPaneRatios.set(spec.id, h / availableH)
-        }
-
-        // === 6. 归一化并同步 ===
-        this.normalizeVisiblePaneRatios(visibleSpecs)
-        this.syncPaneRatiosToSpecs()
-
-        // === 7. 应用布局 ===
-        this.layoutPanes()
-        this.emitPaneLayoutChange()
-        this.scheduleDraw()
-        return true
+        return this.layoutManager.resizePaneBoundary(upperPaneId, deltaY)
     }
-
-    private resolvePaneRole(spec: PaneSpec, index: number): PaneRole {
-        if (spec.role) return spec.role
-        return index === 0 ? 'price' : 'indicator'
-    }
-
 
     addPane(paneId: string): void {
-        if (this.opt.panes.some((spec) => spec.id === paneId)) {
-            console.warn(`Pane "${paneId}" already exists`)
-            return
-        }
-
-        const hasPricePane = this.opt.panes.some((spec, index) => this.resolvePaneRole(spec, index) === 'price')
-        const role: PaneRole = hasPricePane ? 'indicator' : 'price'
-        this.applyPaneLayoutSpecs([
-            ...this.opt.panes,
-            { id: paneId, ratio: 1, visible: true, role },
-        ])
+        this.layoutManager.addPane(paneId)
     }
 
-    /**
-     * 动态移除 pane
-     * @param paneId pane 标识符
-     */
     removePane(paneId: string): void {
-        if (!this.opt.panes.some((spec) => spec.id === paneId)) return
-
-        const next = this.opt.panes.filter((spec) => spec.id !== paneId)
-        this._internalPaneRatios.delete(paneId)
-        this.applyPaneLayoutSpecs(next)
+        this.layoutManager.removePane(paneId)
     }
 
-    /**
-     * 检查 pane 是否存在
-     * @param paneId pane 标识符
-     */
     hasPane(paneId: string): boolean {
-        return this.opt.panes.some((spec) => spec.id === paneId)
+        return this.layoutManager.hasPane(paneId)
     }
 
     // ========== 副图管理 API ==========
@@ -1381,25 +1232,25 @@ export class Chart {
      * @returns 是否创建成功
      */
     createSubPane(paneId: string, indicatorId: SubIndicatorType, params?: Record<string, number | boolean | string>): boolean {
-        // 调整 pane ratios：主图占 3，副图各占 1
-        const visibleSpecs = this.opt.panes.filter((pane) => pane.visible !== false)
-        const pricePanes = visibleSpecs.filter((pane, index) => this.resolvePaneRole(pane, index) === 'price')
-        const indicatorPanes = visibleSpecs.filter((pane, index) => this.resolvePaneRole(pane, index) === 'indicator')
+        const paneSpecs = this.layoutManager.getPaneSpecs()
+        const visibleSpecs = paneSpecs.filter((pane) => pane.visible !== false)
+        const pricePanes = visibleSpecs.filter((pane) => pane.role === 'price')
+        const indicatorPanes = visibleSpecs.filter((pane) => pane.role === 'indicator')
 
         if (pricePanes.length === 1) {
             const pricePane = pricePanes[0]
             if (pricePane) {
-                this._internalPaneRatios.set(pricePane.id, 3)
+                this.layoutManager.setInternalPaneRatio(pricePane.id, 3)
             }
             for (const pane of indicatorPanes) {
-                this._internalPaneRatios.set(pane.id, 1)
+                this.layoutManager.setInternalPaneRatio(pane.id, 1)
             }
-            this._internalPaneRatios.set(paneId, 1)
+            this.layoutManager.setInternalPaneRatio(paneId, 1)
         } else {
-            this._internalPaneRatios.set(paneId, 1)
+            this.layoutManager.setInternalPaneRatio(paneId, 1)
         }
 
-        this.upsertPane({ id: paneId, ratio: this._internalPaneRatios.get(paneId) ?? 1, visible: true, role: 'indicator' })
+        this.upsertPane({ id: paneId, ratio: this.layoutManager.getInternalPaneRatios().get(paneId) ?? 1, visible: true, role: 'indicator' })
 
         const success = this.subPaneManager.create(this, paneId, indicatorId, params ?? this.getDefaultSubPaneParams(indicatorId))
         return success
@@ -1446,11 +1297,11 @@ export class Chart {
 
         // 清理 pane ratios
         for (const paneId of subPaneIds) {
-            this._internalPaneRatios.delete(paneId)
+            this.layoutManager.deleteInternalPaneRatio(paneId)
         }
 
         // 更新布局，移除所有副图 pane
-        this.applyPaneLayoutSpecs(this.opt.panes.filter((spec) => !subPaneIds.includes(spec.id)))
+        this.layoutManager.applyPaneLayoutSpecs(this.layoutManager.getPaneSpecs().filter((spec) => !subPaneIds.includes(spec.id)))
     }
 
     /**
@@ -1628,8 +1479,7 @@ export class Chart {
             return
         }
         this.cachedDrawFrame = null
-        this.layoutPanes()
-        this.emitPaneLayoutChange()
+        this.layoutManager.layoutPanes()
         this.updateViewportSignal()
         this.scheduleDraw()
     }
@@ -1701,8 +1551,7 @@ export class Chart {
         this._internalViewport = null
         this.cachedDrawFrame = null
         this.xAxisCtx = null
-        this.paneRenderers.forEach((r) => r.destroy())
-        this.paneRenderers = []
+        this.layoutManager.destroy()
         this.sharedWebGLSurface.destroy()
 
         // 清理渲染器插件管理器（会调用所有 onUninstall）
@@ -1712,241 +1561,7 @@ export class Chart {
         await this.pluginHost.destroy()
     }
 
-    /** 初始化所有 pane */
-    private initPanes() {
-        this.paneRenderers = this.opt.panes.map((spec, index) => {
-            const pane = new Pane(spec.id, {
-                role: this.resolvePaneRole(spec, index),
-                capabilities: spec.capabilities,
-            })
 
-            const mainCanvas = document.createElement('canvas')
-            const overlayCanvas = document.createElement('canvas')
-            const yAxisCanvas = document.createElement('canvas')
-
-            const isMain = pane.role === 'price'
-
-            // Main Canvas - K线、指标、网格
-            mainCanvas.id = `${spec.id}-main`
-            mainCanvas.className = isMain ? 'main-canvas main' : 'main-canvas sub'
-            mainCanvas.style.position = 'absolute'
-            mainCanvas.style.left = '0'
-            mainCanvas.style.top = '0'
-
-            // Overlay Canvas - 十字线、Tooltip（透明，事件穿透）
-            overlayCanvas.id = `${spec.id}-overlay`
-            overlayCanvas.className = 'overlay-canvas'
-            overlayCanvas.style.position = 'absolute'
-            overlayCanvas.style.left = '0'
-            overlayCanvas.style.top = '0'
-            overlayCanvas.style.pointerEvents = 'none'  // 事件穿透到 mainCanvas
-            overlayCanvas.style.backgroundColor = 'transparent'
-
-            yAxisCanvas.id = `${spec.id}-yAxis`
-            yAxisCanvas.className = 'right-axis'
-            yAxisCanvas.style.position = 'absolute'
-            yAxisCanvas.style.left = '0'
-
-            const renderer = new PaneRenderer(
-                { mainCanvas, overlayCanvas, yAxisCanvas },
-                pane,
-                {
-                    rightAxisWidth: this.opt.rightAxisWidth,
-                    yPaddingPx: this.opt.yPaddingPx,
-                    priceLabelWidth: this.opt.priceLabelWidth,
-                },
-                this.sharedWebGLSurface,
-            )
-
-            return renderer
-        })
-
-        const canvasLayer = this.dom.canvasLayer
-        const rightAxisLayer = this.dom.rightAxisLayer
-        if (canvasLayer) {
-            const existingCanvases = canvasLayer.querySelectorAll('canvas:not(.x-axis-canvas)')
-            existingCanvases.forEach((canvas) => canvas.remove())
-        }
-        if (rightAxisLayer) {
-            const existingAxisCanvases = rightAxisLayer.querySelectorAll('canvas.right-axis')
-            existingAxisCanvases.forEach((canvas) => canvas.remove())
-        }
-
-        this.paneRenderers.forEach((renderer) => {
-            const dom = renderer.getDom()
-            // 先添加 mainCanvas，再添加 overlayCanvas（overlay 在上层）
-            canvasLayer.appendChild(dom.mainCanvas)
-            canvasLayer.appendChild(dom.overlayCanvas)
-            rightAxisLayer.appendChild(dom.yAxisCanvas)
-        })
-
-        this.rendererPluginManager.setKnownPaneIds(this.paneRenderers.map((renderer) => renderer.getPane().id))
-    }
-
-
-    private syncPaneRatiosFromSpecs(specs: PaneSpec[]): void {
-        const next = new Map<string, number>()
-        for (const spec of specs) {
-            const prev = this._internalPaneRatios.get(spec.id)
-            const incoming = Number.isFinite(spec.ratio) ? spec.ratio : 0
-            const ratio = prev !== undefined ? prev : (incoming > 0 ? incoming : 1)
-            next.set(spec.id, ratio)
-        }
-        this._internalPaneRatios = next
-        this.normalizeVisiblePaneRatios(specs)
-        this.syncPaneRatiosToSpecs()
-    }
-
-    private syncPaneRatiosToSpecs(): void {
-        const visible = this.opt.panes.filter(p => p.visible !== false)
-        const visibleSum = visible.reduce((s, p) => s + (this._internalPaneRatios.get(p.id) ?? p.ratio ?? 0), 0)
-        const safeVisibleSum = visibleSum > 0 ? visibleSum : 1
-
-        this.opt.panes = this.opt.panes.map((spec) => {
-            const ratio = this._internalPaneRatios.get(spec.id) ?? spec.ratio ?? 0
-            if (spec.visible === false) {
-                return { ...spec, ratio }
-            }
-            return { ...spec, ratio: ratio / safeVisibleSum }
-        })
-    }
-
-    private normalizeVisiblePaneRatios(specs: PaneSpec[]): void {
-        const visible = specs.filter(p => p.visible !== false)
-        if (visible.length === 0) return
-
-        let sum = 0
-        for (const spec of visible) {
-            const raw = this._internalPaneRatios.get(spec.id) ?? spec.ratio ?? 0
-            const safe = Number.isFinite(raw) && raw > 0 ? raw : 0
-            this._internalPaneRatios.set(spec.id, safe)
-            sum += safe
-        }
-
-        if (sum <= 0) {
-            const equal = 1 / visible.length
-            for (const spec of visible) {
-                this._internalPaneRatios.set(spec.id, equal)
-            }
-            return
-        }
-
-        for (const spec of visible) {
-            const v = this._internalPaneRatios.get(spec.id) ?? 0
-            this._internalPaneRatios.set(spec.id, v / sum)
-        }
-    }
-
-    private getPaneMinHeight(spec: PaneSpec, plotHeight: number): number {
-        const fallback = this.opt.defaultPaneMinHeightPx ?? 120 // 最小高度
-        const raw = spec.minHeightPx ?? fallback
-        return Math.max(1, Math.min(Math.round(raw), Math.max(1, plotHeight)))
-    }
-
-    private computePaneHeightsByRatio(visibleSpecs: PaneSpec[], availableH: number): number[] {
-        if (visibleSpecs.length === 0) return []
-
-        const ratios = visibleSpecs.map(spec => this._internalPaneRatios.get(spec.id) ?? spec.ratio ?? 0)
-        const ratioSum = ratios.reduce((s, r) => s + (r > 0 ? r : 0), 0)
-        const safeRatios = ratioSum > 0
-            ? ratios.map(r => (r > 0 ? r : 0) / ratioSum)
-            : visibleSpecs.map(() => 1 / visibleSpecs.length)
-
-        const heights = safeRatios.map(r => Math.max(1, Math.round(availableH * r)))
-        const mins = visibleSpecs.map(spec => this.getPaneMinHeight(spec, availableH))
-
-        for (let i = 0; i < heights.length; i++) {
-            heights[i] = Math.max(heights[i]!, Math.min(mins[i]!, availableH))
-        }
-
-        let total = heights.reduce((s, h) => s + h, 0)
-
-        if (total > availableH) {
-            let overflow = total - availableH
-            while (overflow > 0) {
-                let shrunk = false
-                for (let i = heights.length - 1; i >= 0 && overflow > 0; i--) {
-                    const minH = Math.max(1, Math.min(mins[i]!, availableH))
-                    const h = heights[i]!
-                    if (h > minH) {
-                        heights[i] = h - 1
-                        overflow--
-                        shrunk = true
-                    }
-                }
-                if (!shrunk) break
-            }
-        } else if (total < availableH) {
-            heights[heights.length - 1] = (heights[heights.length - 1] ?? 1) + (availableH - total)
-        }
-
-        total = heights.reduce((s, h) => s + h, 0)
-        if (total !== availableH && heights.length > 0) {
-            heights[heights.length - 1] = Math.max(1, (heights[heights.length - 1] ?? 1) + (availableH - total))
-        }
-
-        return heights
-    }
-
-    /** 计算每个 pane 的布局（top 和 height） */
-    private layoutPanes() {
-        const vp = this._internalViewport
-        if (!vp) return
-
-        const visibleSpecs = this.opt.panes.filter(p => p.visible !== false)
-        if (visibleSpecs.length === 0) return
-
-        const gap = Math.max(0, this.opt.paneGap ?? 0)
-        let y = 0
-
-        const totalGaps = gap * Math.max(0, visibleSpecs.length - 1)
-        const availableH = Math.max(1, vp.plotHeight - totalGaps)
-
-        this.normalizeVisiblePaneRatios(visibleSpecs)
-        const paneHeights = this.computePaneHeightsByRatio(visibleSpecs, availableH)
-
-        for (let i = 0; i < visibleSpecs.length; i++) {
-            const spec = visibleSpecs[i]
-            if (!spec) continue
-
-            const renderer = this.paneRenderers.find(r => r.getPane().id === spec.id)
-            if (!renderer) continue
-
-            const pane = renderer.getPane()
-            const h = paneHeights[i] ?? 1
-
-            pane.setLayout(y, h)
-            pane.setPadding(this.opt.yPaddingPx, this.opt.yPaddingPx)
-
-            renderer.resize(vp.plotWidth, h, vp.dpr)
-            renderer.setWebGLRegion({
-                x: 0,
-                y,
-                width: vp.plotWidth,
-                height: h,
-                dpr: vp.dpr,
-            })
-            this.rendererPluginManager.notifyResize(pane.id, wrapPaneInfo(pane))
-            const dom = renderer.getDom()
-            dom.mainCanvas.style.top = `${y}px`
-            dom.overlayCanvas.style.top = `${y}px`
-            dom.yAxisCanvas.style.top = `${y}px`
-            dom.yAxisCanvas.style.left = '0px'
-
-            y += h + gap
-        }
-
-        // 按实际像素高度回写 ratio，确保后续 resize 视觉比例稳定
-        const finalAvailable = Math.max(1, availableH)
-        for (const spec of visibleSpecs) {
-            const renderer = this.paneRenderers.find(r => r.getPane().id === spec.id)
-            if (!renderer) continue
-            const h = renderer.getPane().height
-            this._internalPaneRatios.set(spec.id, h / finalAvailable)
-        }
-        this.normalizeVisiblePaneRatios(visibleSpecs)
-        this.syncPaneRatiosToSpecs()
-    }
     private computeViewport(): Viewport | null {
         const container = this.dom.container
         if (!container) return null
