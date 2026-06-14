@@ -56,10 +56,6 @@ export function withAsiaMarketColors(theme: Theme): Theme {
             // ── Nested: price accents ──
             price: {
                 ...theme.colors.price,
-                upLight: theme.colors.price.downLight,
-                downLight: theme.colors.price.upLight,
-                upTick: theme.colors.price.downTick,
-                downTick: theme.colors.price.upTick,
             },
 
             // ── Nested: MACD histogram bars ──

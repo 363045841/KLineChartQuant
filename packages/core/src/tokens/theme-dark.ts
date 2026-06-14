@@ -96,10 +96,6 @@ export const darkTheme: Theme = {
             white: 'rgba(255, 255, 255, 0.95)',
         },
         price: {
-            upLight: 'rgba(255, 80, 100, 0.85)',
-            upTick: 'hsl(0, 70%, 60%)',
-            downLight: 'rgba(60, 200, 160, 0.85)',
-            downTick: 'hsl(150, 50%, 65%)',
             lastPrice: 'rgba(230, 100, 115, 0.95)',
         },
         tagBg: {

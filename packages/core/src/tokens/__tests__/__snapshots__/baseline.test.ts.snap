@@ -57,10 +57,6 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-color-text-tertiary: hsl(210, 6%, 60%);
   --klc-color-text-weak: hsl(210, 5%, 45%);
   --klc-color-text-white: rgba(255, 255, 255, 0.95);
-  --klc-color-price-up-light: rgba(255, 80, 100, 0.85);
-  --klc-color-price-up-tick: hsl(0, 70%, 60%);
-  --klc-color-price-down-light: rgba(60, 200, 160, 0.85);
-  --klc-color-price-down-tick: hsl(150, 50%, 65%);
   --klc-color-price-last-price: rgba(230, 100, 115, 0.95);
   --klc-color-tag-bg-white: rgb(40, 40, 55);
   --klc-color-tag-bg-light-gray: rgba(50, 50, 65, 0.92);
@@ -254,11 +250,7 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-color-text-tertiary: hsl(210, 8%, 50%);
   --klc-color-text-weak: hsl(210, 7%, 65%);
   --klc-color-text-white: rgba(255, 255, 255, 0.92);
-  --klc-color-price-up-light: rgba(214, 10, 34, 0.92);
-  --klc-color-price-up-tick: hsl(0, 60%, 50%);
-  --klc-color-price-down-light: rgba(3, 123, 102, 0.92);
-  --klc-color-price-down-tick: hsl(150, 30%, 60%);
-  --klc-color-price-last-price: rgba(196, 74, 86, 0.95);
+  --klc-color-price-last-price: rgba(230, 100, 115, 0.95);
   --klc-color-tag-bg-white: rgb(255, 255, 255);
   --klc-color-tag-bg-light-gray: rgba(255, 255, 255, 0.92);
   --klc-color-tag-bg-pure-white: #ffffff;

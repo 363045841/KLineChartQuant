@@ -101,12 +101,8 @@ export const lightTheme: Theme = {
             weak: 'hsl(210, 7%, 65%)',
             white: 'rgba(255, 255, 255, 0.92)',
         },
-        price: {
-            upLight: 'rgba(214, 10, 34, 0.92)',
-            upTick: 'hsl(0, 60%, 50%)',
-            downLight: 'rgba(3, 123, 102, 0.92)',
-            downTick: 'hsl(150, 30%, 60%)',
-            lastPrice: 'rgba(196, 74, 86, 0.95)',
+price: {
+            lastPrice: 'rgba(230, 100, 115, 0.95)',
         },
         tagBg: {
             white: 'rgb(255, 255, 255)',

@@ -85,10 +85,6 @@ export interface TextColors {
  * (candleUpBody / candleDownBody); this group covers extras.
  */
 export interface PriceColors {
-    readonly upLight: ColorValue
-    readonly upTick: ColorValue
-    readonly downLight: ColorValue
-    readonly downTick: ColorValue
     readonly lastPrice: ColorValue
 }
 

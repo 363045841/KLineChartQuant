@@ -218,7 +218,7 @@ function pushComparisonLegendRows(
 
         const sign = pct > 0 ? '+' : ''
         const pctText = `${sign}${pct.toFixed(2)}%`
-        overlayCtx.fillStyle = pct > 0 ? colors.price.upTick : pct < 0 ? colors.price.downTick : colors.text.primary
+        overlayCtx.fillStyle = pct > 0 ? colors.candleUpBody : pct < 0 ? colors.candleDownBody : colors.text.primary
         overlayCtx.fillText(pctText, x, y + 1)
       },
     })
