@@ -319,11 +319,13 @@ export class Chart {
         this.interaction.updateSettings(settings)
 
         // 同步刻度类型设置到所有 pane（百分比仅用于主图）
-        const axisType = (settings.axisType as ScaleType) ?? 'linear'
-        for (const renderer of this.paneRenderers) {
-            const pane = renderer.getPane()
-            const scaleType = axisType === 'percent' && pane.role !== 'price' ? 'linear' : axisType
-            pane.yAxis.setScaleType(scaleType)
+        if ('axisType' in settings) {
+            const axisType = (settings.axisType as ScaleType) ?? 'linear'
+            for (const renderer of this.paneRenderers) {
+                const pane = renderer.getPane()
+                const scaleType = axisType === 'percent' && pane.role !== 'price' ? 'linear' : axisType
+                pane.yAxis.setScaleType(scaleType)
+            }
         }
 
         this.scheduleDraw()
