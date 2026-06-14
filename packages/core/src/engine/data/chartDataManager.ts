@@ -466,9 +466,10 @@ export class ChartDataManager {
   getComparisonEquivalentPriceRange(range: VisibleRange): { min: number; max: number } | null {
     if (this._comparisonSpecs.length === 0 || this._comparisonData.size === 0) return null
     const baseIndex = Math.max(0, range.start)
-    const mainBase = this._internalData[baseIndex]?.close
-    const baseTimestamp = this._internalData[baseIndex]?.timestamp
-    if (!Number.isFinite(mainBase) || mainBase <= 0 || baseTimestamp === undefined) return null
+    const baseItem = this._internalData[baseIndex]
+    if (!baseItem || !Number.isFinite(baseItem.close) || baseItem.close <= 0) return null
+    const mainBase = baseItem.close
+    const baseDate = baseItem.date ?? ''
 
     let min = Number.POSITIVE_INFINITY
     let max = Number.NEGATIVE_INFINITY
@@ -477,16 +478,22 @@ export class ChartDataManager {
       const data = this._comparisonData.get(spec.symbol)
       if (!data?.length) continue
 
-      const baseline = this.findComparisonBaseline(data, baseTimestamp)
+      const baseline = baseDate
+        ? findComparisonBaselineByDate(data, baseDate)
+        : findComparisonBaselineByTimestamp(data, baseItem.timestamp)
       if (!baseline || !Number.isFinite(baseline.close) || baseline.close <= 0) continue
 
-      const byTimestamp = new Map<number, KLineData>()
-      for (const item of data) byTimestamp.set(item.timestamp, item)
+      const byDate = new Map<string, KLineData>()
+      for (const item of data) {
+        if (item.date) byDate.set(item.date, item)
+        else byDate.set(String(item.timestamp), item)
+      }
 
       for (let i = Math.max(0, range.start); i < range.end && i < this._internalData.length; i++) {
         const mainItem = this._internalData[i]
         if (!mainItem) continue
-        const item = byTimestamp.get(mainItem.timestamp)
+        const key = mainItem.date ?? String(mainItem.timestamp)
+        const item = byDate.get(key)
         if (!item || !Number.isFinite(item.close)) continue
 
         const pct = (item.close - baseline.close) / baseline.close
@@ -499,13 +506,6 @@ export class ChartDataManager {
 
     if (!Number.isFinite(min) || !Number.isFinite(max)) return null
     return { min, max }
-  }
-
-  private findComparisonBaseline(data: ReadonlyArray<KLineData>, timestamp: number): KLineData | null {
-    for (const item of data) {
-      if (item.timestamp >= timestamp) return item
-    }
-    return null
   }
 
   getLogicalSlotCount(): number {
@@ -547,4 +547,18 @@ export class ChartDataManager {
     this._dataBuffer.dispose()
     this.clearComparisonBuffers()
   }
+}
+
+function findComparisonBaselineByDate(data: ReadonlyArray<KLineData>, date: string): KLineData | null {
+  for (const item of data) {
+    if (item.date && item.date >= date) return item
+  }
+  return null
+}
+
+function findComparisonBaselineByTimestamp(data: ReadonlyArray<KLineData>, timestamp: number): KLineData | null {
+  for (const item of data) {
+    if (item.timestamp >= timestamp) return item
+  }
+  return null
 }
