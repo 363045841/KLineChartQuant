@@ -105,12 +105,10 @@ export function createMainIndicatorLegendRendererPlugin(options: {
 
             let x = legendX
             let y = config.yPaddingPx / 2 + legendYOffset + rowIndex * lineHeight
-            // 指标名称
             overlayCtx.fillStyle = colors.text.primary
             overlayCtx.fillText(titleInfo.name, x, y)
             x += measureTextWidth(overlayCtx, titleInfo.name)
 
-            // 指标参数
             if (titleInfo.params && titleInfo.params.length > 0) {
               const paramText = `(${titleInfo.params.join(',')})`
               overlayCtx.fillStyle = colors.text.tertiary
@@ -120,7 +118,6 @@ export function createMainIndicatorLegendRendererPlugin(options: {
               x += gap
             }
 
-            // 指标数值
             if (titleInfo.values) {
               y += 1
               for (const item of titleInfo.values) {
@@ -133,6 +130,8 @@ export function createMainIndicatorLegendRendererPlugin(options: {
           }
         })
       }
+
+      pushComparisonLegendRows(context, klineData, targetIndex, range, rows, config.yPaddingPx, overlayCtx, legendX, legendYOffset, lineHeight, gap, colors)
 
       rows.forEach((row, index) => row.draw(index))
       overlayCtx.restore()
@@ -150,4 +149,92 @@ export function createMainIndicatorLegendRendererPlugin(options: {
       }
     },
   }
+}
+
+function pushComparisonLegendRows(
+  context: RenderContext,
+  klineData: KLineData[],
+  targetIndex: number,
+  range: { start: number; end: number },
+  rows: Array<{ draw: (rowIndex: number) => void }>,
+  yPaddingPx: number,
+  overlayCtx: CanvasRenderingContext2D,
+  legendX: number,
+  legendYOffset: number,
+  lineHeight: number,
+  gap: number,
+  colors: ReturnType<typeof resolveThemeColors>,
+): void {
+  const comparisonSymbols = context.comparisonSymbols
+  const comparisonData = context.comparisonData
+  const comparisonColors = context.comparisonColors
+  if (!comparisonSymbols?.length || !comparisonData?.size) return
+
+  const baseIndex = Math.max(0, range.start)
+  const baseItem = klineData[baseIndex]
+  if (!baseItem || !Number.isFinite(baseItem.close) || baseItem.close <= 0) return
+
+  const baseDate = baseItem.date ?? ''
+
+  for (const spec of comparisonSymbols) {
+    const data = comparisonData.get(spec.symbol)
+    if (!data?.length) continue
+
+    const baseline = baseDate
+      ? findBaselineByDate(data, baseDate)
+      : findBaselineByTimestamp(data, baseItem.timestamp)
+    if (!baseline || baseline.close <= 0) continue
+
+    const byDate = new Map<string, KLineData>()
+    for (const item of data) {
+      byDate.set(item.date ?? String(item.timestamp), item)
+    }
+
+    const mainItem = klineData[targetIndex]
+    if (!mainItem) continue
+    const key = mainItem.date ?? String(mainItem.timestamp)
+    const currentItem = byDate.get(key)
+    if (!currentItem || !Number.isFinite(currentItem.close)) continue
+
+    const pct = ((currentItem.close - baseline.close) / baseline.close) * 100
+    const color = comparisonColors?.get(spec.symbol) ?? '#f59e0b'
+
+    rows.push({
+      draw: (rowIndex: number) => {
+        let x = legendX
+        const y = yPaddingPx / 2 + legendYOffset + rowIndex * lineHeight
+
+        const dotRadius = 4
+        overlayCtx.fillStyle = color
+        overlayCtx.beginPath()
+        const fontSize = lineHeight - 6
+        overlayCtx.arc(x + dotRadius, y + fontSize / 2 - 1, dotRadius, 0, Math.PI * 2)
+        overlayCtx.fill()
+        x += dotRadius * 2 + 4
+
+        overlayCtx.fillStyle = colors.text.primary
+        overlayCtx.fillText(spec.symbol, x, y)
+        x += measureTextWidth(overlayCtx, spec.symbol) + gap
+
+        const sign = pct > 0 ? '+' : ''
+        const pctText = `${sign}${pct.toFixed(2)}%`
+        overlayCtx.fillStyle = pct > 0 ? colors.price.upTick : pct < 0 ? colors.price.downTick : colors.text.primary
+        overlayCtx.fillText(pctText, x, y + 1)
+      },
+    })
+  }
+}
+
+function findBaselineByDate(data: ReadonlyArray<KLineData>, date: string): KLineData | null {
+  for (const item of data) {
+    if (item.date && item.date >= date) return item
+  }
+  return null
+}
+
+function findBaselineByTimestamp(data: ReadonlyArray<KLineData>, timestamp: number): KLineData | null {
+  for (const item of data) {
+    if (item.timestamp >= timestamp) return item
+  }
+  return null
 }
