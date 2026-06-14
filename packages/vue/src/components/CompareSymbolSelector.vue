@@ -11,10 +11,8 @@
     >
       <span class="compare-chip__icon" aria-hidden="true">+</span>
       <span class="compare-chip__text">比较商品</span>
-      <span v-if="selected.length > 0" class="compare-chip__badge">
-        <span v-if="comparisonLoading" class="compare-chip__spinner" />
-        <span v-else>{{ selected.length }}</span>
-      </span>
+      <span v-if="comparisonLoading" class="compare-chip__spinner" />
+      <span v-if="selected.length > 0" class="compare-chip__badge">{{ selected.length }}</span>
     </button>
     <Transition name="symbol-popover">
       <div v-if="showPopup" class="compare-popover" role="dialog" aria-label="比较商品">
@@ -291,9 +289,9 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentClick)
 
 .compare-chip__spinner {
   display: inline-block;
-  width: 10px;
-  height: 10px;
-  border: 2px solid var(--klc-color-background);
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--klc-color-axis-text);
   border-top-color: transparent;
   border-radius: 50%;
   animation: compare-spin 0.6s linear infinite;
