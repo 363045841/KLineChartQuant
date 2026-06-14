@@ -65,6 +65,10 @@
               :key="item.code"
               class="compare-selected__item"
             >
+              <span
+                class="compare-selected__color"
+                :style="{ background: comparisonColors?.get(item.code) ?? '#888' }"
+              />
               <span class="compare-selected__code">{{ item.code }}</span>
               <span class="compare-selected__desc">{{ item.description }}</span>
               <button
@@ -140,6 +144,7 @@ import type { SymbolItem } from './SymbolSelector.vue'
 const props = withDefaults(defineProps<{
   symbols: SymbolItem[]
   selected?: string[]
+  comparisonColors?: Map<string, string>
 }>(), {
   selected: () => [],
 })
@@ -404,6 +409,14 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentClick)
   background: var(--klc-color-grid-minor);
   font-size: 12px;
   line-height: 1.3;
+}
+
+.compare-selected__color {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .compare-selected__code {

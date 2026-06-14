@@ -11,6 +11,7 @@
     <CompareSymbolSelector
       :symbols="symbolPool"
       :selected="overlaySymbols"
+      :comparison-colors="comparisonColors"
       @add="emit('addOverlaySymbol', $event)"
       @remove="emit('removeOverlaySymbol', $event)"
     />
@@ -47,6 +48,7 @@ const props = defineProps<{
   symbolLoading?: boolean
   symbolError?: boolean
   overlaySymbols?: string[]
+  comparisonColors?: Map<string, string>
 }>()
 
 const emit = defineEmits<{

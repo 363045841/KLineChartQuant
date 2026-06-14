@@ -6,6 +6,7 @@
       :symbol-loading="symbolLoading"
       :symbol-error="symbolError"
       :overlay-symbols="overlaySymbols"
+      :comparison-colors="comparisonColorsMap"
       @add-overlay-symbol="onAddOverlaySymbol"
       @remove-overlay-symbol="onRemoveOverlaySymbol"
       @k-line-level-change="onKLineLevelChange"
