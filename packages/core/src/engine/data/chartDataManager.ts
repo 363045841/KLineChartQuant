@@ -251,18 +251,24 @@ export class ChartDataManager {
     if (!window) return
     const range = this.computeRawVisibleRange() ?? this.lastRawVisibleRange
 
+    const MS_PER_DAY = 86_400_000
+    let firstVisibleTs: number | undefined
+
     if (range.start < 0 && this._dataFetcher) {
-      const MS_PER_DAY = 86_400_000
       const earlierThanEarliest = window.earliestTs - 90 * MS_PER_DAY
       this._dataBuffer.ensureRange(earlierThanEarliest, window.earliestTs)
-      return
+      firstVisibleTs = this._internalData[0]?.timestamp
+    } else if (range.start < this._internalData.length) {
+      firstVisibleTs = this._internalData[Math.max(0, range.start)]?.timestamp
+      if (firstVisibleTs !== undefined && firstVisibleTs < window.earliestTs) {
+        this._dataBuffer.ensureRange(firstVisibleTs, window.earliestTs)
+      }
     }
 
-    if (range.start >= this._internalData.length) return
-    const firstVisibleTs = this._internalData[Math.max(0, range.start)]?.timestamp
     if (firstVisibleTs === undefined) return
-    if (firstVisibleTs < window.earliestTs) {
-      this._dataBuffer.ensureRange(firstVisibleTs, window.earliestTs)
+
+    for (const buffer of this._comparisonBuffers.values()) {
+      buffer.ensureRange(firstVisibleTs, window.earliestTs)
     }
   }
 
