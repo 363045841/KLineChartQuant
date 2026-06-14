@@ -10,7 +10,7 @@
 
 import type { Signal } from '../reactivity'
 import type { CustomMarkerEntity, MarkerEntity } from '../engine/marker/registry'
-import type { PaneSpec } from '../engine/chart'
+import type { PaneSpec } from '../engine/chartTypes'
 
 // Controller-owned public surface. Legacy engine types may mirror these
 // shapes internally, but adapters depend only on core-defined contracts.

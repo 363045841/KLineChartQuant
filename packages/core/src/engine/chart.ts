@@ -8,6 +8,7 @@ import { Pane, type VisibleRange, UpdateLevel } from './layout/pane'
 import type { ScaleType } from './utils/tickPosition'
 import { InteractionController, type InteractionSnapshot } from './controller/interaction'
 export type { InteractionSnapshot }
+import type { ChartDom, PaneSpec, ChartOptions, KLinePositions, Viewport, ViewportState, IndicatorInstance, SubPaneInfo, DrawingToolType } from './chartTypes'
 import { PaneRenderer } from './paneRenderer'
 import { SharedWebGLSurface } from './renderers/webgl/sharedWebGLSurface'
 import { MarkerManager, type CustomMarkerEntity } from './marker/registry'
@@ -27,7 +28,6 @@ import {
     type RenderContext,
     wrapPaneInfo,
     type PaneRole,
-    type PaneCapabilities,
     type YAxisLabel,
     type XAxisLabel,
     type YAxisRange,
@@ -50,93 +50,7 @@ import { createTimeAxisRendererPlugin } from './renderers/timeAxis'
 
 // 重新导出以保持向后兼容
 export { getPhysicalKLineConfig, calcKWidthPx }
-
-/**
- * 图表 DOM 元素引用
- * @property container 图表容器 div
- * @property canvasLayer Canvas 层容器 div（包含所有绘制 canvas）
- */
-/**
- * 图表 DOM 元素引用
- * @property container 图表容器 div
- * @property canvasLayer Canvas 层容器 div（包含所有绘制 canvas）
- * @property xAxisCanvas X 轴时间轴 canvas
- */
-export type ChartDom = {
-    container: HTMLDivElement
-    scrollContent?: HTMLDivElement
-    canvasLayer: HTMLDivElement
-    rightAxisLayer: HTMLDivElement
-    xAxisCanvas: HTMLCanvasElement
-}
-
-/**
- * Pane 面板配置
- * @property id Pane 标识符
- * @property ratio Pane 高度占比
- * @property visible 是否可见（默认 true）
- */
-export type PaneSpec = {
-    id: string
-    ratio: number
-    visible?: boolean
-    minHeightPx?: number
-    role?: PaneRole
-    capabilities?: Partial<PaneCapabilities>
-}
-
-export type PaneRendererDom = {
-    mainCanvas: HTMLCanvasElement
-    overlayCanvas: HTMLCanvasElement
-    yAxisCanvas: HTMLCanvasElement
-}
-
-export type ChartOptions = {
-    /** K 线宽度（可选，由 zoomLevel 派生） */
-    kWidth?: number
-    /** K 线间隙（可选，由 DPR 计算） */
-    kGap?: number
-    yPaddingPx: number
-    rightAxisWidth: number
-    bottomAxisHeight: number
-    minKWidth: number
-    maxKWidth: number
-    panes: PaneSpec[]
-
-    /** pane 之间的真实分隔空隙（逻辑像素） */
-    paneGap?: number
-
-    /** 价格标签额外宽度（用于显示涨跌幅，默认 60px） */
-    priceLabelWidth?: number
-
-    /** pane 最小高度（逻辑像素，默认 60） */
-    defaultPaneMinHeightPx?: number
-
-    /**
-     * 缩放级别数量（默认 10）
-     * - 将 minKWidth ~ maxKWidth 划分为多少个离散级别
-     * - 例如 10 表示有 10 个缩放级别（1-10）
-     */
-    zoomLevels?: number
-
-    /**
-     * 初始缩放级别（1 ~ zoomLevels，默认 1）
-     * 未指定时默认为最小级别
-     */
-    initialZoomLevel?: number
-}
-
-/** K 线起始 x 坐标数组，positions[i] 表示第 i 根 K 线的起始 x 坐标（逻辑像素） */
-export type KLinePositions = number[]
-
-export type Viewport = {
-    viewWidth: number
-    viewHeight: number
-    plotWidth: number
-    plotHeight: number
-    scrollLeft: number
-    dpr: number
-}
+export type { ChartDom, PaneSpec, PaneRendererDom, ChartOptions, KLinePositions, Viewport, ViewportState, IndicatorRole, IndicatorInstance, SubPaneInfo, DrawingToolType, DrawingObject } from './chartTypes'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
     kWidth: number
@@ -3031,43 +2945,6 @@ export class Chart {
      */
 }
 
-// ==================== Type definitions for Facade ====================
 
-export type ViewportState = {
-    zoomLevel: number
-    plotWidth: number
-    plotHeight: number
-    dpr: number
-    visibleFrom: number
-    visibleTo: number
-    kWidth: number
-    kGap: number
-}
-
-export type IndicatorRole = 'main' | 'sub'
-
-export interface IndicatorInstance {
-    id: string
-    definitionId: string
-    label: string
-    name: string
-    role: IndicatorRole
-    paneId?: string
-    params: Record<string, unknown>
-}
-
-export interface SubPaneInfo {
-    paneId: string
-    indicatorId: string
-    params: Record<string, unknown>
-    ratio: number
-}
-
-export type DrawingToolType = 'trendline' | 'horizontal' | 'fib' | 'rectangle' | 'arrow'
-
-export interface DrawingObject {
-    id: string
-    type: DrawingToolType
-}
 
 

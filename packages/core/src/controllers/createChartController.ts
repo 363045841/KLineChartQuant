@@ -31,16 +31,15 @@ import type {
     DataFetcher,
 } from './types'
 import type { CustomMarkerEntity } from '../engine/marker/registry'
-import {
-    Chart,
-    type ChartOptions,
-    type ViewportState as LegacyViewportState,
-    type IndicatorInstance as LegacyIndicatorInstance,
-    type SubPaneInfo as LegacySubPaneInfo,
-    type DrawingObject as LegacyDrawingObject,
-    type DrawingToolType as LegacyDrawingToolType,
-    type InteractionSnapshot as LegacyInteractionSnapshot,
-} from '../engine/chart'
+import { Chart, type InteractionSnapshot as LegacyInteractionSnapshot } from '../engine/chart'
+import type {
+    ChartOptions,
+    ViewportState as LegacyViewportState,
+    IndicatorInstance as LegacyIndicatorInstance,
+    SubPaneInfo as LegacySubPaneInfo,
+    DrawingObject as LegacyDrawingObject,
+    DrawingToolType as LegacyDrawingToolType,
+} from '../engine/chartTypes'
 import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
 
 // Plugin-backed drawings expose `kind` instead of legacy `type`.
