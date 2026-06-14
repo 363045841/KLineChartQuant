@@ -26,6 +26,9 @@ function r(rest: string): string {
 
 export default defineConfig({
     root: fileURLToPath(new URL('.', import.meta.url)),
+    optimizeDeps: {
+        exclude: ['@363045841yyt/klinechart-core'],
+    },
     server: {
         host: '0.0.0.0',
     },
