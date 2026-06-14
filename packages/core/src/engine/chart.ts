@@ -16,6 +16,7 @@ import { SharedWebGLSurface } from './renderers/webgl/sharedWebGLSurface'
 import { MarkerManager, type CustomMarkerEntity } from './marker/registry'
 import { getPhysicalKLineConfig, calcKWidthPx } from './utils/klineConfig'
 import { ChartZoomController } from './utils/chartZoomController'
+import { ChartViewportManager, type ViewportDependencies } from './viewport/chartViewportManager'
 import { IndicatorScheduler } from './indicators/scheduler'
 import { getBuiltinIndicatorDefinitions } from './indicators/registerBuiltins'
 import { getRegisteredIndicatorDefinitions } from './indicators/indicatorDefinitionRegistry'
@@ -81,8 +82,8 @@ export class Chart {
 
     private raf: number | null = null
     private pendingUpdateLevel: UpdateLevel = UpdateLevel.All
-    private _internalViewport: Viewport | null = null
 
+    private viewportManager: ChartViewportManager
     private layoutManager: ChartPaneLayout
     private get paneRenderers(): PaneRenderer[] {
         return this.layoutManager.getPaneRenderers()
@@ -96,27 +97,6 @@ export class Chart {
 
     /** 渲染器插件管理器 */
     private rendererPluginManager: RendererPluginManager
-
-    /** 精确 DPR（来自 ResizeObserver 的 devicePixelContentBoxSize） */
-    private preciseDpr = 0
-
-    /** 统一监听容器尺寸与 DPR 变化 */
-    private resizeObserver?: ResizeObserver
-
-    /** scroll 事件处理器引用（用于 cleanup） */
-    private onScroll?: () => void
-
-    /** 最近一次观测到的容器尺寸 */
-    private observedSize = { width: 0, height: 0 }
-
-    /** 缓存的 scrollLeft（通过 scroll 事件同步，避免每帧读取 DOM 触发强制回流） */
-    private cachedScrollLeft = 0
-
-    /** 左侧加载缓冲宽度；DOM scrollLeft 不能为负，用它映射出逻辑负滚动 */
-    private leftLoadBufferWidth = 0
-
-    /** 待写入 DOM 的 scrollLeft（在 RAF 回调中应用，确保 Vue 已完成 DOM 更新） */
-    private _pendingScrollLeft: number | null = null
 
     /** overlay 上一帧是否有十字线（用于判断何时需要清除） */
     private overlayHadCrosshair = false
@@ -423,6 +403,19 @@ export class Chart {
         this.rendererPluginManager.setPluginHost(this.pluginHost)
         this.rendererPluginManager.setInvalidateCallback(() => this.scheduleDraw())
 
+        this.viewportManager = new ChartViewportManager({
+            getDom: () => this.dom,
+            getBottomAxisHeight: () => this.opt.bottomAxisHeight,
+            getLeftLoadBufferWidth: () => this.dataManager.getLeftLoadBufferWidth(),
+            getZoomLevel: () => this.zoomController.currentZoomLevel,
+            getLastVisibleRange: () => this.dataManager.lastVisibleRange,
+            getKWidth: () => this.opt.kWidth,
+            getKGap: () => this.opt.kGap,
+            scheduleDraw: (level) => this.scheduleDraw(level),
+            onResizeCompleted: () => { this.resize() },
+            resizeSharedWebGLSurface: (plotWidth, plotHeight, dpr) => this.sharedWebGLSurface.resize(plotWidth, plotHeight, dpr),
+        })
+
         this.layoutManager = new ChartPaneLayout(this.opt.panes, {
             getDom: () => this.dom,
             getOption: () => ({
@@ -432,7 +425,7 @@ export class Chart {
                 paneGap: this.opt.paneGap,
                 defaultPaneMinHeightPx: this.opt.defaultPaneMinHeightPx,
             }),
-            getViewport: () => this._internalViewport,
+            getViewport: () => this.viewportManager.getViewport(),
             getSharedWebGLSurface: () => this.sharedWebGLSurface,
             setKnownPaneIds: (ids) => this.rendererPluginManager.setKnownPaneIds(ids),
             notifyPaneResize: (paneId, pane) => this.rendererPluginManager.notifyResize(paneId, wrapPaneInfo(pane)),
@@ -446,14 +439,14 @@ export class Chart {
 
         this.dataManager = new ChartDataManager({
             getOption: () => this.opt,
-            getEffectiveDpr: () => this.getEffectiveDpr(),
-            getLogicalScrollLeft: () => this.getLogicalScrollLeft(),
-            getCachedScrollLeft: () => this.getCachedScrollLeft(),
-            setCachedScrollLeft: (v) => { this.cachedScrollLeft = v },
-            setPendingScrollLeft: (v) => { this._pendingScrollLeft = v },
+            getEffectiveDpr: () => this.viewportManager.getEffectiveDpr(),
+            getLogicalScrollLeft: () => this.viewportManager.getLogicalScrollLeft(),
+            getCachedScrollLeft: () => this.viewportManager.getCachedScrollLeft(),
+            setCachedScrollLeft: (v) => { this.viewportManager.setCachedScrollLeft(v) },
+            setPendingScrollLeft: (v) => { this.viewportManager.setPendingScrollLeft(v) },
             getDom: () => this.dom,
-            getObservedSize: () => this.observedSize,
-            getViewport: () => this._internalViewport,
+            getObservedSize: () => this.viewportManager.getObservedSize(),
+            getViewport: () => this.viewportManager.getViewport(),
             scheduleDraw: (level) => this.scheduleDraw(level),
             resetInteraction: () => this.interaction.reset(),
             getIndicatorScheduler: () => this.indicatorScheduler,
@@ -462,10 +455,10 @@ export class Chart {
         })
 
         this.zoomController = new ChartZoomController({
-            getLogicalScrollLeft: () => this.getLogicalScrollLeft(),
-            getCurrentDpr: () => this.getEffectiveDpr(),
+            getLogicalScrollLeft: () => this.viewportManager.getLogicalScrollLeft(),
+            getCurrentDpr: () => this.viewportManager.getEffectiveDpr(),
             getLeftLoadBufferWidth: () => this.dataManager.getLeftLoadBufferWidth(),
-            setScrollLeft: (v) => { this.cachedScrollLeft = v; this._pendingScrollLeft = v },
+            setScrollLeft: (v) => { this.viewportManager.setScrollLeft(v) },
             onZoomCommitted: (result) => {
                 this.opt = { ...this.opt, kWidth: result.kWidth, kGap: result.kGap }
                 this.updateViewportSignal()
@@ -514,7 +507,7 @@ export class Chart {
         // 注意：此插件依赖 overlay 更新级别，若将来添加 Main 级别需调整
         this.useRenderer(createDrawingLabelOverlayPlugin({ store: this.drawingStore }))
         this.initCoreRenderers()
-        this.initResizeObserver()
+        this.viewportManager.init()
     }
 
 
@@ -566,93 +559,22 @@ export class Chart {
     }
 
 
-    private initResizeObserver() {
-        if (typeof ResizeObserver === 'undefined') return
-
-        const target = this.dom.container
-        if (!target) return
-
-        // 初始化 scrollLeft 缓存
-        this.cachedScrollLeft = target.scrollLeft
-        this.onScroll = () => { this.cachedScrollLeft = target.scrollLeft }
-        target.addEventListener('scroll', this.onScroll, { passive: true })
-
-        this.resizeObserver = new ResizeObserver((entries) => {
-            const entry = entries[0]
-            if (!entry) return
-
-            const prevWidth = this.observedSize.width
-            const prevHeight = this.observedSize.height
-            const prevDpr = this.preciseDpr
-
-            this.updateObservedMetrics(entry)
-
-            const widthChanged = this.observedSize.width !== prevWidth
-            const heightChanged = this.observedSize.height !== prevHeight
-            const dprChanged = this.preciseDpr !== prevDpr
-            if ((import.meta as any).env?.MODE !== 'production') {
-                console.log(
-                    `[Chart] resize observer: ` +
-                    `size ${prevWidth}x${prevHeight} -> ${this.observedSize.width}x${this.observedSize.height} ` +
-                    `dpr ${prevDpr} -> ${this.preciseDpr} ` +
-                    `changed: ${widthChanged || heightChanged ? 'size' : ''}${widthChanged || heightChanged && dprChanged ? '+' : ''}${dprChanged ? 'dpr' : ''}`
-                )
-            }
-            if (widthChanged || heightChanged || dprChanged) {
-                this.resize()
-            }
-        })
-
-        try {
-            this.resizeObserver.observe(target, { box: 'device-pixel-content-box' as ResizeObserverBoxOptions })
-        } catch {
-            this.resizeObserver.observe(target)
-        }
-    }
-
-
-
-    private updateObservedMetrics(entry: ResizeObserverEntry) {
-        const cssWidth = Math.max(1, Math.round(entry.contentRect.width))
-        const cssHeight = Math.max(1, Math.round(entry.contentRect.height))
-        this.observedSize.width = cssWidth
-        this.observedSize.height = cssHeight
-
-        const pixelSize = entry.devicePixelContentBoxSize?.[0]
-        const cssSize = entry.contentBoxSize?.[0]
-        if (!pixelSize || !cssSize || cssSize.inlineSize <= 0) {
-            this.preciseDpr = 0
-            return
-        }
-
-        const raw = pixelSize.inlineSize / cssSize.inlineSize
-        this.preciseDpr = Math.round(raw * 64) / 64
-    }
-
-    private getEffectiveDpr(): number {
-        let dpr = this.preciseDpr > 0
-            ? this.preciseDpr
-            : Math.round((window.devicePixelRatio || 1) * 64) / 64
-        if (dpr < 1) dpr = 1
-        return dpr
-    }
-
     getViewport(): Viewport | null {
-        return this._internalViewport
+        return this.viewportManager.getViewport()
     }
 
     getCurrentDpr(): number {
-        return this.getEffectiveDpr()
+        return this.viewportManager.getEffectiveDpr()
     }
 
     /** 获取缓存的 scrollLeft（避免读取 DOM 触发强制回流） */
     getCachedScrollLeft(): number {
-        return this.cachedScrollLeft
+        return this.viewportManager.getCachedScrollLeft()
     }
 
     /** 获取逻辑 scrollLeft（减去左侧加载缓冲宽度，可为负值） */
     getLogicalScrollLeft(): number {
-        return this.cachedScrollLeft - this.dataManager.getLeftLoadBufferWidth()
+        return this.viewportManager.getLogicalScrollLeft()
     }
 
     /** 获取插件宿主 */
@@ -1111,7 +1033,7 @@ export class Chart {
             return []
         }
 
-        const dpr = this.getEffectiveDpr()
+        const dpr = this.viewportManager.getEffectiveDpr()
 
         // 统一使用 getPhysicalKLineConfig，确保与渲染完全一致
         const { unitPx, startXPx } = getPhysicalKLineConfig(this.opt.kWidth, this.opt.kGap, dpr)
@@ -1473,14 +1395,14 @@ export class Chart {
 
     /** 容器尺寸变化时调用 */
     resize() {
-        const vp = this.computeViewport()
+        const vp = this.viewportManager.computeViewport()
         // 防御性检查：容器尺寸无效时跳过布局
         if (!vp || vp.viewWidth < 10 || vp.viewHeight < 10) {
             return
         }
         this.cachedDrawFrame = null
         this.layoutManager.layoutPanes()
-        this.updateViewportSignal()
+        this.viewportManager.updateViewportSignal()
         this.scheduleDraw()
     }
 
@@ -1516,13 +1438,9 @@ export class Chart {
             const levelToDraw = this.pendingUpdateLevel
             this.pendingUpdateLevel = UpdateLevel.All  // 重置为默认值
             this.draw(levelToDraw)
-            if (this._pendingScrollLeft !== null) {
-                const c = this.dom.container
-                if (c) {
-                    c.scrollLeft = this._pendingScrollLeft
-                    this.cachedScrollLeft = c.scrollLeft
-                    this._pendingScrollLeft = null
-                }
+            const c = this.dom.container
+            if (c) {
+                this.viewportManager.applyPendingScrollLeft(c)
             }
         })
     }
@@ -1535,20 +1453,7 @@ export class Chart {
         }
 
         this.dataManager.destroy()
-
-        // 清理尺寸观察器
-        this.resizeObserver?.disconnect()
-        this.resizeObserver = undefined
-        this.preciseDpr = 0
-        this.observedSize = { width: 0, height: 0 }
-
-        // 清理 scroll 监听
-        if (this.onScroll) {
-            this.dom.container?.removeEventListener('scroll', this.onScroll)
-            this.onScroll = undefined
-        }
-
-        this._internalViewport = null
+        this.viewportManager.destroy()
         this.cachedDrawFrame = null
         this.xAxisCtx = null
         this.layoutManager.destroy()
@@ -1563,111 +1468,10 @@ export class Chart {
 
 
     private computeViewport(): Viewport | null {
-        const container = this.dom.container
-        if (!container) return null
-
-        const observedWidth = this.observedSize.width
-        const observedHeight = this.observedSize.height
-        const viewWidth = observedWidth > 0
-            ? observedWidth
-            : Math.max(1, Math.round(container.clientWidth))
-        const viewHeight = observedHeight > 0
-            ? observedHeight
-            : Math.max(1, Math.round(container.clientHeight))
-
-        const plotWidth = Math.round(viewWidth)
-        const plotHeight = Math.round(viewHeight - this.opt.bottomAxisHeight)
-
-        let dpr = this.getEffectiveDpr()
-
-        const MAX_CANVAS_PIXELS = 16 * 1024 * 1024
-        const requestedPixels = viewWidth * dpr * (viewHeight * dpr)
-        if (requestedPixels > MAX_CANVAS_PIXELS) {
-            dpr = Math.sqrt(MAX_CANVAS_PIXELS / (viewWidth * viewHeight))
-        }
-
-        // 对齐 scrollLeft，消除 translate 亚像素偏移
-        const scrollLeft = Math.round(this.getLogicalScrollLeft() * dpr) / dpr
-
-        const canvasLayerWidth = `${viewWidth}px`
-        if (this.dom.canvasLayer.style.width !== canvasLayerWidth) {
-            this.dom.canvasLayer.style.width = canvasLayerWidth
-        }
-
-        const canvasLayerHeight = `${viewHeight}px`
-        if (this.dom.canvasLayer.style.height !== canvasLayerHeight) {
-            this.dom.canvasLayer.style.height = canvasLayerHeight
-        }
-
-        const xAxisWidth = Math.round(plotWidth * dpr)
-        if (this.dom.xAxisCanvas.width !== xAxisWidth) {
-            this.dom.xAxisCanvas.width = xAxisWidth
-        }
-
-        const xAxisHeight = Math.round(this.opt.bottomAxisHeight * dpr)
-        if (this.dom.xAxisCanvas.height !== xAxisHeight) {
-            this.dom.xAxisCanvas.height = xAxisHeight
-        }
-
-        const xAxisCssWidth = `${xAxisWidth / dpr}px`
-        if (this.dom.xAxisCanvas.style.width !== xAxisCssWidth) {
-            this.dom.xAxisCanvas.style.width = xAxisCssWidth
-        }
-
-        const xAxisCssHeight = `${xAxisHeight / dpr}px`
-        if (this.dom.xAxisCanvas.style.height !== xAxisCssHeight) {
-            this.dom.xAxisCanvas.style.height = xAxisCssHeight
-        }
-
-        this.sharedWebGLSurface.resize(plotWidth, plotHeight, dpr)
-
-        const vp: Viewport = {
-            viewWidth,
-            viewHeight,
-            plotWidth,
-            plotHeight,
-            scrollLeft,
-            dpr,
-        }
-        const prevViewport = this._internalViewport
-        const viewportChanged = !prevViewport
-            || prevViewport.viewWidth !== vp.viewWidth
-            || prevViewport.viewHeight !== vp.viewHeight
-            || prevViewport.plotWidth !== vp.plotWidth
-            || prevViewport.plotHeight !== vp.plotHeight
-            || prevViewport.scrollLeft !== vp.scrollLeft
-            || prevViewport.dpr !== vp.dpr
-
-        this._internalViewport = vp
-        if (viewportChanged) {
-            const current = this._viewportSignal.peek()
-            this._viewportSignal.set({
-                zoomLevel: current.zoomLevel,
-                plotWidth: vp.plotWidth,
-                plotHeight: vp.plotHeight,
-                dpr: vp.dpr > 0 ? vp.dpr : current.dpr,
-                visibleFrom: current.visibleFrom,
-                visibleTo: current.visibleTo,
-                kWidth: current.kWidth,
-                kGap: current.kGap,
-            })
-        }
-        return vp
+        return this.viewportManager.computeViewport()
     }
 
     // ==================== Facade API (High-level interface for adapters) ====================
-
-    // ---------- Signals ----------
-    private _viewportSignal = createSignal<ViewportState>({
-        zoomLevel: 1,
-        plotWidth: 0,
-        plotHeight: 0,
-        dpr: 1,
-        visibleFrom: 0,
-        visibleTo: 0,
-        kWidth: 0,
-        kGap: 1,
-    })
 
     private _themeSignal = createSignal<'light' | 'dark'>('light')
     private _drawingToolSignal = createSignal<DrawingToolType | null>(null)
@@ -1725,7 +1529,7 @@ export class Chart {
 
     /** 视口状态信号 */
     get viewport(): Signal<ViewportState> {
-        return this._viewportSignal
+        return this.viewportManager.viewportSignal
     }
 
     /** 数据信号 */
@@ -1954,19 +1758,7 @@ export class Chart {
      * 更新 viewport signal（用于滚动事件）
      */
     private updateViewportSignal(): void {
-        const vp = this._internalViewport
-        if (!vp) return
-
-        this._viewportSignal.set({
-            zoomLevel: this.zoomController.currentZoomLevel,
-            plotWidth: vp.plotWidth,
-            plotHeight: vp.plotHeight,
-            dpr: vp.dpr,
-            visibleFrom: this.dataManager.lastVisibleRange.start,
-            visibleTo: this.dataManager.lastVisibleRange.end,
-            kWidth: this.opt.kWidth,
-            kGap: this.opt.kGap,
-        })
+        this.viewportManager.updateViewportSignal()
     }
 
     // ---------- Indicators (Explicit role) ----------
