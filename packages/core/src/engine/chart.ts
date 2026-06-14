@@ -741,6 +741,11 @@ export class Chart {
         return this.dataManager.comparisonColors
     }
 
+    /** 比较商品加载信号 */
+    get comparisonLoading(): Signal<boolean> {
+        return this.dataManager.comparisonLoading
+    }
+
     /** 主题信号 */
     get theme(): Signal<'light' | 'dark'> {
         return this._themeSignal

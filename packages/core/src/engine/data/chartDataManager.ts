@@ -40,6 +40,8 @@ export class ChartDataManager {
   private _comparisonBufferUnsubs: Map<string, () => void> = new Map()
   private _comparisonColors: Map<string, string> = new Map()
   private _comparisonColorsSignal = createSignal<ReadonlyMap<string, string>>(new Map())
+  private _comparisonLoadingUnsubs: Map<string, () => void> = new Map()
+  private _comparisonLoadingSignal = createSignal<boolean>(false)
 
   private _dataSignal = createSignal<ReadonlyArray<KLineData>>([])
   private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
@@ -184,8 +186,17 @@ export class ChartDataManager {
     return this._comparisonColorsSignal
   }
 
+  get comparisonLoading(): Signal<boolean> {
+    return this._comparisonLoadingSignal
+  }
+
   getComparisonColors(): Map<string, string> {
     return this._comparisonColors
+  }
+
+  private recomputeComparisonLoading(): void {
+    const anyLoading = Array.from(this._comparisonBuffers.values()).some((b) => b.loading.peek())
+    this._comparisonLoadingSignal.set(anyLoading)
   }
 
   updateData(data: KLineData[]): void {
@@ -312,6 +323,8 @@ export class ChartDataManager {
           this.deps.scheduleDraw()
         })
         this._comparisonBufferUnsubs.set(key, unsubscribe)
+        const unsubLoading = newBuffer.loading.subscribe(() => this.recomputeComparisonLoading())
+        this._comparisonLoadingUnsubs.set(key, unsubLoading)
         buffer = newBuffer
       } else {
         buffer.setFetcher(this._dataFetcher)
@@ -323,11 +336,14 @@ export class ChartDataManager {
   private clearComparisonBuffers(): void {
     for (const unsubscribe of this._comparisonBufferUnsubs.values()) unsubscribe()
     this._comparisonBufferUnsubs.clear()
+    for (const unsub of this._comparisonLoadingUnsubs.values()) unsub()
+    this._comparisonLoadingUnsubs.clear()
     for (const buffer of this._comparisonBuffers.values()) buffer.dispose()
     this._comparisonBuffers.clear()
     this._comparisonData.clear()
     this._comparisonColors.clear()
     this._comparisonColorsSignal.set(new Map())
+    this._comparisonLoadingSignal.set(false)
     this._comparisonSpecs = []
   }
 
@@ -350,6 +366,8 @@ export class ChartDataManager {
       this.deps.scheduleDraw()
     })
     this._comparisonBufferUnsubs.set(key, unsubscribe)
+    const unsubLoading = newBuffer.loading.subscribe(() => this.recomputeComparisonLoading())
+    this._comparisonLoadingUnsubs.set(key, unsubLoading)
     newBuffer.setSymbol(spec)
     this._symbolsSignal.set([this._symbolsSignal.peek()[0]!, ...this._comparisonSpecs])
   }
@@ -360,6 +378,8 @@ export class ChartDataManager {
 
     this._comparisonBufferUnsubs.get(key)?.()
     this._comparisonBufferUnsubs.delete(key)
+    this._comparisonLoadingUnsubs.get(key)?.()
+    this._comparisonLoadingUnsubs.delete(key)
     this._comparisonBuffers.get(key)?.dispose()
     this._comparisonBuffers.delete(key)
     this._comparisonData.delete(key)
@@ -367,6 +387,7 @@ export class ChartDataManager {
     this._comparisonColorsSignal.set(new Map(this._comparisonColors))
     this._comparisonSpecs = this._comparisonSpecs.filter((s) => s.symbol !== symbol)
     this._symbolsSignal.set([this._symbolsSignal.peek()[0]!, ...this._comparisonSpecs])
+    this.recomputeComparisonLoading()
   }
 
   setSymbols(specs: ReadonlyArray<SymbolSpec>): void {

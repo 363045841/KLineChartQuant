@@ -244,6 +244,7 @@ export interface ChartController extends DrawingChartAdapter {
     readonly paneLayout: Signal<ReadonlyArray<PaneSpec>>
     readonly interactionState: Signal<InteractionSnapshot>
     readonly comparisonColors: Signal<ReadonlyMap<string, string>>
+    readonly comparisonLoading: Signal<boolean>
 
     // indicator catalog (static — adapters use for picker UI)
     readonly catalog: ReadonlyArray<IndicatorDefinition>

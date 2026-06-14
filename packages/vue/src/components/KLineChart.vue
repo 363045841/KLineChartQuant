@@ -7,6 +7,7 @@
       :symbol-error="symbolError"
       :overlay-symbols="overlaySymbols"
       :comparison-colors="comparisonColorsMap"
+      :comparison-loading="comparisonLoading"
       @add-overlay-symbol="onAddOverlaySymbol"
       @remove-overlay-symbol="onRemoveOverlaySymbol"
       @k-line-level-change="onKLineLevelChange"
@@ -298,6 +299,7 @@ const paneRatios = ref<Record<string, number>>({})
 const selectedDrawingId = ref<string | null>(null)
 const drawings = ref<DrawingObject[]>([])
 const comparisonColorsMap = ref<Map<string, string>>(new Map())
+const comparisonLoading = ref(false)
 
 // 初始化 kWidth / kGap（与 Chart 引擎 zoom→物理值 转换一致）
 const initZoom = zoomLevel.value
@@ -989,6 +991,10 @@ function setupChartCallbacks(ctrl: ChartController): void {
     comparisonColorsMap.value = new Map(ctrl.comparisonColors.peek())
   })
 
+  const unsubscribeComparisonLoading = ctrl.comparisonLoading.subscribe(() => {
+    comparisonLoading.value = ctrl.comparisonLoading.peek()
+  })
+
   onUnmounted(() => {
     unsubscribeViewport()
     unsubscribeData()
@@ -999,6 +1005,7 @@ function setupChartCallbacks(ctrl: ChartController): void {
     unsubscribeIndicators()
     unsubscribeSubPanes()
     unsubscribeComparisonColors()
+    unsubscribeComparisonLoading()
     autoThemeMediaQuery?.removeEventListener('change', onSystemThemeChange)
   })
 }
