@@ -72,13 +72,17 @@ export class DataBuffer {
         this._fetcher = fetcher
     }
 
-    setSymbol(spec: SymbolSpec): void {
+    setSymbol(spec: SymbolSpec, initialStartTs?: number): void {
         this._currentSpec = spec
         this._data = []
         this._loadedWindow = null
         this._attemptedBoundaries.clear()
         this._dataSignal.set([])
-        this.loadInitial()
+        if (initialStartTs !== undefined) {
+            this.loadInitialRange(initialStartTs, Date.now())
+        } else {
+            this.loadInitial()
+        }
     }
 
     ensureRange(requestStartTs: number, _requestEndTs: number): void {
@@ -106,6 +110,11 @@ export class DataBuffer {
         const endDate = now
 
         this.fetchRange(startDate, endDate)
+    }
+
+    private loadInitialRange(startTs: number, endTs: number): void {
+        if (!this._fetcher || !this._currentSpec || this._disposed) return
+        this.fetchRange(startTs, endTs)
     }
 
     private fetchRange(startTs: number, endTs: number): void {

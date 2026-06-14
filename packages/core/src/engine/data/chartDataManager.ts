@@ -329,7 +329,8 @@ export class ChartDataManager {
       } else {
         buffer.setFetcher(this._dataFetcher)
       }
-      buffer.setSymbol(spec)
+      const mainEarliest = this._dataBuffer.loadedWindow?.earliestTs
+      buffer.setSymbol(spec, mainEarliest)
     }
   }
 
@@ -368,7 +369,8 @@ export class ChartDataManager {
     this._comparisonBufferUnsubs.set(key, unsubscribe)
     const unsubLoading = newBuffer.loading.subscribe(() => this.recomputeComparisonLoading())
     this._comparisonLoadingUnsubs.set(key, unsubLoading)
-    newBuffer.setSymbol(spec)
+    const mainEarliest = this._dataBuffer.loadedWindow?.earliestTs
+    newBuffer.setSymbol(spec, mainEarliest)
     this._symbolsSignal.set([this._symbolsSignal.peek()[0]!, ...this._comparisonSpecs])
   }
 
