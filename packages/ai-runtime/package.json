@@ -29,7 +29,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "prepublishOnly": "npm run build",
-    "test": "vitest run"
+    "start": "tsx scripts/dev.ts",
+    "test": "vitest run",
+    "inspect": "npx @modelcontextprotocol/inspector \"pnpm tsx scripts/dev.ts\""
   },
   "peerDependencies": {
     "@363045841yyt/klinechart-core": "workspace:*"
@@ -40,6 +42,7 @@
   },
   "devDependencies": {
     "@types/ws": "^8",
+    "tsx": "^4.22.4",
     "typescript": "~6.0.3",
     "vitest": "^4.1.5"
   },
