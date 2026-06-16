@@ -13,8 +13,9 @@ export const CHART_NAVIGATION_TOOLS: McpToolSchema[] = [
         level: {
           type: 'integer',
           minimum: 1,
-          maximum: 20,
-          description: 'Discrete zoom level. Higher = more zoomed in.',
+          description:
+            'Discrete zoom level (1 = most zoomed out). ' +
+            'Upper bound depends on chart zoomLevels config (default 20).',
         },
         anchorX: {
           type: 'number',

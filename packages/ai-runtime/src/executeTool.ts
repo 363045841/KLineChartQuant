@@ -12,6 +12,17 @@ export function executeTool(
     return { success: false, error: `Unknown tool: ${call.name}` }
   }
 
+  const inputSchema = schema.inputSchema
+  if ('type' in inputSchema && inputSchema.type === 'object' && inputSchema.required) {
+    const missing = inputSchema.required.filter((k) => !(k in call.input))
+    if (missing.length > 0) {
+      return {
+        success: false,
+        error: `Missing required parameters for '${call.name}': ${missing.join(', ')}`,
+      }
+    }
+  }
+
   switch (call.name) {
     case 'chart.zoomToLevel': {
       const { level, anchorX } = call.input as {
@@ -55,7 +66,6 @@ export function executeTool(
         : { success: false, error: `Indicator ${instanceId} not found` }
     }
 
-    // Alerts controller does not exist on main yet — placeholder
     case 'alerts.addPriceCross':
     case 'alerts.addIndicatorCross':
     case 'alerts.remove': {
@@ -65,7 +75,6 @@ export function executeTool(
       }
     }
 
-    // Replay controller does not exist on main yet — placeholder
     case 'replay.seekTo':
     case 'replay.play':
     case 'replay.pause':

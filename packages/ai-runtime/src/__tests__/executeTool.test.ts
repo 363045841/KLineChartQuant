@@ -158,12 +158,30 @@ describe('executeTool', () => {
   })
 
   describe('alerts.* — not implemented', () => {
-    const tools = ['alerts.addPriceCross', 'alerts.addIndicatorCross', 'alerts.remove']
+    type Case = { name: string; input: Record<string, unknown> }
+    const cases: Case[] = [
+      {
+        name: 'alerts.addPriceCross',
+        input: { id: 'a1', name: 'test', price: 100, direction: 'up', oneShot: true },
+      },
+      {
+        name: 'alerts.addIndicatorCross',
+        input: {
+          id: 'a2',
+          name: 'test',
+          indicatorId: 'RSI',
+          threshold: 70,
+          direction: 'up',
+          oneShot: false,
+        },
+      },
+      { name: 'alerts.remove', input: { id: 'a1' } },
+    ]
 
-    for (const name of tools) {
+    for (const { name, input } of cases) {
       it(`returns not-implemented for ${name}`, () => {
         const chart = createMockChart()
-        const result = executeTool(chart, { name, input: {} })
+        const result = executeTool(chart, { name, input })
         expect(result.success).toBe(false)
         expect(result.error).toMatch(/not implemented/)
         expect(result.error).toMatch(/alerts controller/)
@@ -172,12 +190,18 @@ describe('executeTool', () => {
   })
 
   describe('replay.* — not implemented', () => {
-    const tools = ['replay.seekTo', 'replay.play', 'replay.pause', 'replay.setSpeed']
+    type Case = { name: string; input: Record<string, unknown> }
+    const cases: Case[] = [
+      { name: 'replay.seekTo', input: { position: 100 } },
+      { name: 'replay.play', input: {} },
+      { name: 'replay.pause', input: {} },
+      { name: 'replay.setSpeed', input: { speed: 2 } },
+    ]
 
-    for (const name of tools) {
+    for (const { name, input } of cases) {
       it(`returns not-implemented for ${name}`, () => {
         const chart = createMockChart()
-        const result = executeTool(chart, { name, input: {} })
+        const result = executeTool(chart, { name, input })
         expect(result.success).toBe(false)
         expect(result.error).toMatch(/not implemented/)
         expect(result.error).toMatch(/replay controller/)

@@ -46,6 +46,27 @@ export function serialize(
   return out
 }
 
+function validateControllers(
+  c: unknown,
+): c is SerializedChartState['controllers'] {
+  if (typeof c !== 'object' || c === null) return false
+  const ctrl = c as Record<string, unknown>
+
+  if (ctrl.viewport !== undefined) {
+    if (typeof ctrl.viewport !== 'object' || ctrl.viewport === null) return false
+    const vp = ctrl.viewport as Record<string, unknown>
+    if (typeof vp.zoomLevel !== 'number') return false
+    if (typeof vp.visibleFrom !== 'number') return false
+    if (typeof vp.visibleTo !== 'number') return false
+  }
+
+  if (ctrl.theme !== undefined && ctrl.theme !== 'light' && ctrl.theme !== 'dark') return false
+  if (ctrl.indicators !== undefined && !Array.isArray(ctrl.indicators)) return false
+  if (ctrl.alerts !== undefined && !Array.isArray(ctrl.alerts)) return false
+
+  return true
+}
+
 export function deserialize(json: string): SerializedChartState {
   let parsed: unknown
   try {
@@ -82,6 +103,12 @@ export function deserialize(json: string): SerializedChartState {
     throw new ChartSerializationError(
       'MISSING_CONTROLLERS',
       'controllers object is required.',
+    )
+  }
+  if (!validateControllers(root.controllers)) {
+    throw new ChartSerializationError(
+      'INVALID_CONTROLLERS',
+      'controllers fields failed validation — types or structure mismatch.',
     )
   }
   return root as SerializedChartState

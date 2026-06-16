@@ -37,7 +37,7 @@ export class SessionRegistry {
   ): void {
     const existing = this.states.get(sessionId)
     if (existing) {
-      Object.assign(existing, descriptions)
+      this.states.set(sessionId, { ...existing, ...descriptions })
     }
   }
 

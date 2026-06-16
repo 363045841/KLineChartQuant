@@ -122,7 +122,6 @@ describe('inputSchema correctness — spot checks', () => {
       expect(level?.type).toBe('integer')
       if (level?.type === 'integer') {
         expect(level.minimum).toBe(1)
-        expect(level.maximum).toBe(20)
       }
     }
   })
