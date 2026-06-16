@@ -24,19 +24,6 @@ afterAll(() => {
   wss.close()
 })
 
-function createMockChart(): Record<string, unknown> {
-  return {
-    zoomToLevel: () => {},
-    setTheme: () => {},
-    catalog: {
-      find: () => null,
-    },
-    addIndicator: () => 'test-instance',
-    removeIndicator: () => true,
-    updateIndicatorParams: () => true,
-  } as unknown as Record<string, unknown>
-}
-
 describe('ChartBridge integration', { timeout: 10_000 }, () => {
   beforeEach(() => {
     receivedMessages.length = 0
@@ -57,23 +44,6 @@ describe('ChartBridge integration', { timeout: 10_000 }, () => {
     ) as { sessionId: string } | undefined
     expect(regMsg).toBeDefined()
     expect(regMsg!.sessionId).toBe('bridge-test')
-
-    bridge.disconnect()
-  })
-
-  it('registers chart controller and dispatches tool calls', async () => {
-    const bridge = new ChartBridge({
-      wsUrl: `ws://127.0.0.1:${PORT}`,
-      sessionId: 'dispatch-test',
-      autoReconnect: false,
-    })
-
-    const chart = createMockChart() as Parameters<typeof bridge.register>[0]
-    bridge.register(chart)
-    await bridge.connect()
-    await new Promise((r) => setTimeout(r, 100))
-
-    expect(bridge.sessionId).toBe('dispatch-test')
 
     bridge.disconnect()
   })

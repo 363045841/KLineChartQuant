@@ -33,6 +33,17 @@ process.on('SIGTERM', async () => {
   process.exit(0)
 })
 
+process.stdin.on('end', () => {
+  console.error('[ai-runtime] stdin closed, shutting down...')
+  stop().then(() => process.exit(0))
+})
+
+process.on('exit', () => {
+  for (const ws of wss.clients) {
+    ws.terminate()
+  }
+})
+
 start().catch((err) => {
   console.error('[ai-runtime] Failed to start:', err)
   process.exit(1)

@@ -143,6 +143,7 @@ export function createMcpServer(options: McpServerOptions = {}): McpServerInstan
 
       const sessions = registry.getActiveSessionIds()
       if (sessions.length === 0) {
+        console.warn(`[MCP] CallTool "${name}" but no sessions registered`)
         return {
           content: [
             {
@@ -192,8 +193,17 @@ export function createMcpServer(options: McpServerOptions = {}): McpServerInstan
   )
 
   const wss = new WebSocketServer({ port: wsPort, host: wsHost })
+  wss.on('error', (err: NodeJS.ErrnoException) => {
+    console.error(`[MCP] WebSocket server error: ${err.message}`)
+    if (err.code === 'EADDRINUSE') {
+      console.error(
+        `[MCP] Port ${wsPort} is already in use. Use a different port via WS_PORT env or ws.port option.`,
+      )
+    }
+  })
 
   wss.on('connection', (ws: WebSocket) => {
+    console.error(`[MCP] WS client connected`)
     let handle: WsSessionHandle | null = null
 
     ws.on('message', (raw: Buffer) => {
@@ -208,6 +218,9 @@ export function createMcpServer(options: McpServerOptions = {}): McpServerInstan
         const sessionId = (msg.sessionId as string) ?? crypto.randomUUID()
         handle = new WsSessionHandle(sessionId, ws)
         registry.register(sessionId, handle)
+        console.error(
+          `[MCP] Session registered: ${sessionId} (total=${registry.getActiveSessionIds().length})`,
+        )
         ws.send(JSON.stringify({ type: 'registered', sessionId }))
         return
       }
@@ -226,6 +239,7 @@ export function createMcpServer(options: McpServerOptions = {}): McpServerInstan
 
     ws.on('close', () => {
       if (handle) {
+        console.error(`[MCP] Session disconnected: ${handle.sessionId}`)
         registry.unregister(handle.sessionId)
       }
     })
@@ -244,6 +258,9 @@ export function createMcpServer(options: McpServerOptions = {}): McpServerInstan
 
   async function stop(): Promise<void> {
     await server.close()
+    for (const ws of wss.clients) {
+      ws.terminate()
+    }
     wss.close()
   }
 

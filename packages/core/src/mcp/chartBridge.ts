@@ -57,6 +57,9 @@ export class ChartBridge {
 
         ws.onopen = () => {
           this.ws = ws
+          console.info(
+            `[ChartBridge] WS opened → sending register (sessionId=${this.sessionId})`,
+          )
           ws.send(JSON.stringify({ type: 'register', sessionId: this.sessionId }))
           this.startHeartbeat()
           this.onConnected?.()
@@ -75,6 +78,9 @@ export class ChartBridge {
         }
 
         ws.onclose = () => {
+          console.warn(
+            `[ChartBridge] WS closed, autoReconnect=${this.autoReconnect}`,
+          )
           this.ws = null
           this.stopHeartbeat()
           this.onDisconnected?.()
@@ -85,6 +91,7 @@ export class ChartBridge {
         }
 
         ws.onerror = () => {
+          console.error(`[ChartBridge] WS error — connection failed`)
           const err = new Error('WebSocket connection failed')
           this.onError?.(err)
           this.emit('error', err)

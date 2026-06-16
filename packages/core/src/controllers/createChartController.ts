@@ -804,8 +804,10 @@ export function createChartController(opts: ChartMountOptions): ChartController 
     let bridge: ChartBridge | null = null
     if (opts.mcp) {
         const mcp = opts.mcp
+        const wsUrl = mcp.wsUrl ?? 'ws://localhost:8080'
+        console.info(`[MCP] Creating bridge, wsUrl=${wsUrl}`)
         bridge = new ChartBridge({
-            wsUrl: mcp.wsUrl ?? 'ws://localhost:8080',
+            wsUrl,
             onToolCall: mcp.onToolCall ?? (() => ({
                 success: false,
                 error:
@@ -813,7 +815,18 @@ export function createChartController(opts: ChartMountOptions): ChartController 
             })),
             autoReconnect: mcp.autoReconnect,
         })
-        bridge.connect()
+        bridge.on('connected', () => {
+            console.info(`[MCP] Bridge connected, sessionId=${bridge!.sessionId}`)
+        })
+        bridge.on('error', (err) => {
+            console.error(`[MCP] Bridge error: ${(err as Error).message}`)
+        })
+        bridge.on('disconnected', () => {
+            console.warn(`[MCP] Bridge disconnected`)
+        })
+        bridge.connect().catch((err) => {
+            console.error(`[MCP] Bridge connect failed: ${(err as Error).message}`)
+        })
     }
 
     return {
