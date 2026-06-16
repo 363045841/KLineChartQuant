@@ -1,4 +1,6 @@
-import type { DataFetcher, KLineData } from '../controllers/types'
+import type { KLineData } from '../controllers/types'
+import { DataFetcher } from './fetcherDefinitionRegistry'
+import type { FetchConfig } from './types'
 
 const PERIOD_TO_CATEGORY: Record<string, number> = {
   '1min': 8,
@@ -26,6 +28,8 @@ const EXCHANGE_EX_CATEGORY: Record<string, number> = {
   SG: 78,
   DE: 73,
 }
+
+const BASE_URL = 'http://127.0.0.1:8080'
 
 interface SecurityBar {
   Last: number
@@ -91,9 +95,10 @@ function mapExItem(item: ExKLineItem, code: string): KLineData {
   }
 }
 
-export const gotdxDataFetcher: DataFetcher = async (source, config) => {
-  const baseUrl = source === 'gotdx' ? 'http://127.0.0.1:8080' : ''
-
+async function fetchGotdx(
+  _source: string,
+  config: FetchConfig,
+): Promise<ReadonlyArray<KLineData>> {
   if (config.exchange && config.exchange in EXCHANGE_EX_CATEGORY) {
     const category = EXCHANGE_EX_CATEGORY[config.exchange]
     const period = PERIOD_TO_CATEGORY[config.period] ?? 4
@@ -105,7 +110,7 @@ export const gotdxDataFetcher: DataFetcher = async (source, config) => {
       end_date: config.endDate,
       times: 1,
     }
-    const res = await fetch(`${baseUrl}/api/ex/kline-by-date`, {
+    const res = await fetch(`${BASE_URL}/api/ex/kline-by-date`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -127,7 +132,7 @@ export const gotdxDataFetcher: DataFetcher = async (source, config) => {
     times: 1,
     adjust,
   }
-  const res = await fetch(`${baseUrl}/api/stock/kline-by-date`, {
+  const res = await fetch(`${BASE_URL}/api/stock/kline-by-date`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -136,3 +141,21 @@ export const gotdxDataFetcher: DataFetcher = async (source, config) => {
   const list: SecurityBar[] = await res.json()
   return list.map((item) => mapBar(item, config.symbol))
 }
+
+@DataFetcher({
+  name: 'gotdx',
+  displayName: 'GOTDX',
+  description: 'TDX data source via local proxy',
+  version: '1.0.0',
+  priority: 30,
+  capabilities: [
+    '1min', '5min', '15min', '30min', '60min',
+    'daily', 'weekly', 'monthly', 'quarterly', 'yearly',
+  ],
+})
+export class GotdxFetcher {
+  static fetcher = fetchGotdx
+}
+
+/** @deprecated Use `GotdxFetcher.fetcher` directly or rely on routerDataFetcher. */
+export const gotdxDataFetcher = fetchGotdx

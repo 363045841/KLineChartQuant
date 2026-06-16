@@ -1,23 +1,23 @@
 import type { DataFetcher } from '../controllers/types'
-import { baostockDataFetcher } from './baostock'
-import { gotdxDataFetcher } from './gotdx'
-import { hundredMockDataFetcher } from './hundred-mock'
-import { thousandMockDataFetcher } from './thousand-mock'
-import { tradingviewDataFetcher } from './tradingview'
+import { getRegisteredFetcher } from './fetcherDefinitionRegistry'
+
+const FALLBACK_SOURCE = 'baostock'
 
 export const routerDataFetcher: DataFetcher = (source, config) => {
-  switch (source) {
-    case 'baostock':
-      return baostockDataFetcher(source, config)
-    case 'gotdx':
-      return gotdxDataFetcher(source, config)
-    case 'tradingview':
-      return tradingviewDataFetcher(source, config)
-    case 'mock-100':
-      return hundredMockDataFetcher(source, config)
-    case 'mock-10000':
-      return thousandMockDataFetcher(source, config)
-    default:
-      return hundredMockDataFetcher(source, config)
+  const def = getRegisteredFetcher(source)
+  if (!def) {
+    console.warn(
+      `[DataFetcher] unknown source "${source}", falling back to "${FALLBACK_SOURCE}"`,
+    )
+    const fallback = getRegisteredFetcher(FALLBACK_SOURCE)
+    if (!fallback) {
+      return Promise.reject(
+        new Error(
+          `[DataFetcher] no fetcher registered for "${source}" and no fallback available`,
+        ),
+      )
+    }
+    return fallback.fetcher(source, config)
   }
+  return def.fetcher(source, config)
 }

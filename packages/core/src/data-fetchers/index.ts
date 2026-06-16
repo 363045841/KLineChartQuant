@@ -1,8 +1,20 @@
-export { thousandMockDataFetcher } from './thousand-mock'
-export { hundredMockDataFetcher } from './hundred-mock'
-export { baostockDataFetcher } from './baostock'
-export { tradingviewDataFetcher } from './tradingview'
-export { gotdxDataFetcher } from './gotdx'
+export { HundredMockFetcher, hundredMockDataFetcher } from './hundred-mock'
+export { ThousandMockFetcher, thousandMockDataFetcher } from './thousand-mock'
+export { BaoStockFetcher, baostockDataFetcher } from './baostock'
+export { TradingviewFetcher, tradingviewDataFetcher } from './tradingview'
+export { GotdxFetcher, gotdxDataFetcher } from './gotdx'
 export { routerDataFetcher } from './router'
 export { DataBuffer } from './dataBuffer'
 export type { DataWindow } from './dataBuffer'
+export {
+  DataFetcher,
+  getRegisteredFetcher,
+  getRegisteredFetchers,
+  clearRegisteredFetchersForTest,
+} from './fetcherDefinitionRegistry'
+export type {
+  FetchConfig,
+  DataFetcherDefinitionConfig,
+  DataFetcherDefinition,
+  DataFetcherFn,
+} from './types'

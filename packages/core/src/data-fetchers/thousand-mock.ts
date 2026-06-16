@@ -1,6 +1,11 @@
-import type { DataFetcher, KLineData } from '../controllers/types'
+import type { KLineData } from '../controllers/types'
+import { DataFetcher } from './fetcherDefinitionRegistry'
+import type { FetchConfig } from './types'
 
-export const thousandMockDataFetcher: DataFetcher = async (_source, _config) => {
+async function fetchThousandMock(
+  _source: string,
+  _config: FetchConfig,
+): Promise<ReadonlyArray<KLineData>> {
   console.log('[thousand-mock] generating 10k K-lines')
   const data: KLineData[] = []
   const startTime = new Date('2020-01-01').getTime()
@@ -11,7 +16,6 @@ export const thousandMockDataFetcher: DataFetcher = async (_source, _config) => 
   const meanReversionStrength = 0.0005
   const volatility = 0.02
 
-  // raw random walk with mean reversion (close prices before bridge)
   const rawWalk: number[] = [basePrice]
   for (let i = 1; i < totalDays; i++) {
     const prev = rawWalk[i - 1]!
@@ -20,7 +24,6 @@ export const thousandMockDataFetcher: DataFetcher = async (_source, _config) => 
     rawWalk.push(prev + change)
   }
 
-  // Brownian bridge: subtract linear drift so last close = basePrice
   const finalOffset = rawWalk[totalDays - 1]! - basePrice
   for (let i = 0; i < totalDays; i++) {
     const bridge = finalOffset * (i / (totalDays - 1))
@@ -44,3 +47,18 @@ export const thousandMockDataFetcher: DataFetcher = async (_source, _config) => 
 
   return data
 }
+
+@DataFetcher({
+  name: 'mock-10000',
+  displayName: 'Mock 10000',
+  description: 'Generates ~10,000 random K-line bars with Brownian bridge',
+  version: '1.0.0',
+  priority: 1,
+  capabilities: ['mock'],
+})
+export class ThousandMockFetcher {
+  static fetcher = fetchThousandMock
+}
+
+/** @deprecated Use `ThousandMockFetcher.fetcher` directly or rely on routerDataFetcher. */
+export const thousandMockDataFetcher = fetchThousandMock
