@@ -1,6 +1,6 @@
 {
   "name": "@363045841yyt/klinechart-ai-runtime",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "AI Native runtime for @363045841yyt/klinechart — MCP tool schemas, controller describe() output, chart state serialization.",
   "license": "MIT",
   "type": "module",
@@ -28,7 +28,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "pnpm build",
     "start": "tsx scripts/dev.ts",
     "test": "vitest run",
     "inspect": "npx @modelcontextprotocol/inspector npx tsx scripts/dev.ts"
