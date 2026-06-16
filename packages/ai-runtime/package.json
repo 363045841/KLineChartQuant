@@ -2,6 +2,18 @@
   "name": "@363045841yyt/klinechart-ai-runtime",
   "version": "0.1.0",
   "description": "AI Native runtime for @363045841yyt/klinechart — MCP tool schemas, controller describe() output, chart state serialization.",
+  "keywords": [
+    "kline",
+    "candlestick",
+    "chart",
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "agent",
+    "websocket",
+    "trading",
+    "quantitative"
+  ],
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
