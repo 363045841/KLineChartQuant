@@ -3,6 +3,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { WebSocketServer, type WebSocket } from 'ws'
 import type { ToolCall, ToolResult } from './executeTool'
 import { ALL_TOOLS } from './toolSchemas'
+import type { ControllerDescription } from './types'
 import { SessionRegistry, type SessionHandle } from './sessionRegistry'
 
 class WsSessionHandle implements SessionHandle {
@@ -170,7 +171,7 @@ export function createMcpServer(options: McpServerOptions = {}): McpServerInstan
       if (msg.type === 'state:update' && handle) {
         registry.updateState(
           handle.sessionId,
-          msg.descriptions as Record<string, unknown>,
+          msg.descriptions as Record<string, ControllerDescription>,
         )
       }
     })
