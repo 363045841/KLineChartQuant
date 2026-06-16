@@ -227,9 +227,6 @@ export const TOOL_GROUPS = {
   replay: REPLAY_TOOLS,
 } as const
 
-export function findTool(name: string): McpToolSchema | null {
-  for (const tool of ALL_TOOLS) {
-    if (tool.name === name) return tool
-  }
-  return null
+export function findTool(name: string): McpToolSchema | undefined {
+  return ALL_TOOLS.find((t) => t.name === name)
 }

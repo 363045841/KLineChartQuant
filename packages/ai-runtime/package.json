@@ -28,10 +28,6 @@
     "./mcp-server": {
       "types": "./dist/mcpServer.d.ts",
       "import": "./dist/mcpServer.js"
-    },
-    "./create-with-mcp": {
-      "types": "./dist/createWithMcp.d.ts",
-      "import": "./dist/createWithMcp.js"
     }
   },
   "files": [

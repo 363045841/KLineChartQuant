@@ -107,8 +107,8 @@ describe('findTool', () => {
   })
 
   it('returns null for unknown name', () => {
-    expect(findTool('chart.nonexistent')).toBeNull()
-    expect(findTool('')).toBeNull()
+    expect(findTool('chart.nonexistent')).toBeUndefined()
+    expect(findTool('')).toBeUndefined()
   })
 })
 

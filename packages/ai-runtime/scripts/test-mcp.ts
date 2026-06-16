@@ -9,7 +9,7 @@ const devScriptPath = resolve(__dirname, 'dev.ts')
 async function main() {
   console.log('Starting MCP server...')
 
-  const child = spawn('node', ['--experimental-strip-types', devScriptPath], {
+  const child = spawn('npx', ['tsx', devScriptPath], {
     stdio: ['pipe', 'pipe', 'inherit'],
     cwd: resolve(__dirname, '..'),
     shell: true,
