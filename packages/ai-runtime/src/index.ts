@@ -32,4 +32,10 @@ export { executeTool, type ToolCall, type ToolResult } from './executeTool'
 
 export { SessionRegistry, type SessionHandle } from './sessionRegistry'
 
+export {
+  createMcpServer,
+  type McpServerOptions,
+  type McpServerInstance,
+} from './mcpServer'
+
 

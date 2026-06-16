@@ -1,79 +1,8 @@
-import { Server } from '@modelcontextprotocol/sdk/server/index.js'
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import {
-  ListToolsRequestSchema,
-  CallToolRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js'
-import { WebSocketServer, type WebSocket } from 'ws'
-import type { ToolCall, ToolResult, ControllerDescription } from '@363045841yyt/klinechart-core'
+import type { ControllerDescription } from '@363045841yyt/klinechart-core'
 import { ALL_TOOLS } from './toolSchemas'
-import { SessionRegistry, type SessionHandle } from './sessionRegistry'
-
-class WsSessionHandle implements SessionHandle {
-  readonly sessionId: string
-  private ws: WebSocket
-  private pending = new Map<
-    string,
-    { resolve: (r: ToolResult) => void; reject: (e: Error) => void }
-  >()
-  private msgSeq = 0
-
-  constructor(
-    sessionId: string,
-    ws: WebSocket,
-  ) {
-    this.sessionId = sessionId
-    this.ws = ws
-  }
-
-  async executeTool(call: ToolCall): Promise<ToolResult> {
-    const requestId = `${this.sessionId}:${++this.msgSeq}`
-
-    return new Promise((resolve, reject) => {
-      this.pending.set(requestId, { resolve, reject })
-
-      if (this.ws.readyState !== this.ws.OPEN) {
-        this.pending.delete(requestId)
-        reject(new Error('WebSocket is not open'))
-        return
-      }
-
-      this.ws.send(
-        JSON.stringify({ type: 'tool:call', requestId, call }),
-      )
-
-      setTimeout(() => {
-        const p = this.pending.get(requestId)
-        if (p) {
-          this.pending.delete(requestId)
-          reject(new Error(`Tool call timed out: ${call.name}`))
-        }
-      }, 30_000)
-    })
-  }
-
-  handleMessage(msg: Record<string, unknown>): void {
-    if (msg.type === 'tool:result') {
-      const requestId = msg.requestId as string
-      const pending = this.pending.get(requestId)
-      if (pending) {
-        this.pending.delete(requestId)
-        pending.resolve(msg.result as ToolResult)
-      }
-    }
-  }
-
-  isAlive(): boolean {
-    return this.ws.readyState === this.ws.OPEN
-  }
-}
-
-export type { WsSessionHandle }
-
-interface ToolResponseContent {
-  type: 'text'
-  text: string
-}
+import { SessionRegistry } from './sessionRegistry'
+import { createWsTransport, WsSessionHandle } from './wsTransport'
+import { createMcpProtocol } from './mcpProtocol'
 
 export interface McpServerOptions {
   serverInfo?: { name?: string; version?: string }
@@ -82,9 +11,9 @@ export interface McpServerOptions {
 }
 
 export interface McpServerInstance {
-  server: Server
+  server: ReturnType<typeof createMcpProtocol>['server']
   registry: SessionRegistry
-  wss: WebSocketServer
+  wss: ReturnType<typeof createWsTransport>['wss']
   start(): Promise<void>
   stop(): Promise<void>
 }
@@ -94,37 +23,62 @@ export function createMcpServer(options: McpServerOptions = {}): McpServerInstan
   const wsPort = options.ws?.port ?? 8080
   const wsHost = options.ws?.host ?? '0.0.0.0'
 
-  const serverInfoName = options.serverInfo?.name ?? 'klinechart-ai-mcp'
-  const serverInfoVersion = options.serverInfo?.version ?? '0.0.0'
+  const transport = createWsTransport({ port: wsPort, host: wsHost })
 
-  const server = new Server(
-    {
-      name: serverInfoName,
-      version: serverInfoVersion,
-    },
-    {
-      capabilities: {
-        tools: {},
-      },
-    },
-  )
+  transport.wss.on('connection', (ws) => {
+    console.error(`[MCP] WS client connected`)
+    let handle: WsSessionHandle | null = null
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: ALL_TOOLS.map((t) => ({
-      name: t.name,
-      description: t.description,
-      inputSchema: t.inputSchema,
-    })),
-  }))
+    ws.on('message', (raw: Buffer) => {
+      let msg: Record<string, unknown>
+      try {
+        msg = JSON.parse(raw.toString())
+      } catch {
+        return
+      }
 
-  server.setRequestHandler(
-    CallToolRequestSchema,
-    async (request: {
-      params: { name: string; arguments?: Record<string, unknown> }
-    }) => {
-      const { name, arguments: args } = request.params
+      if (msg.type === 'register') {
+        const sessionId = (msg.sessionId as string) ?? crypto.randomUUID()
+        handle = new WsSessionHandle(sessionId, ws)
+        registry.register(sessionId, handle)
+        console.error(
+          `[MCP] Session registered: ${sessionId} (total=${registry.getActiveSessionIds().length})`,
+        )
+        ws.send(JSON.stringify({ type: 'registered', sessionId }))
+        return
+      }
+
+      if (handle) {
+        handle.handleMessage(msg)
+      }
+
+      if (msg.type === 'state:update' && handle) {
+        registry.updateState(
+          handle.sessionId,
+          msg.descriptions as Record<string, ControllerDescription>,
+        )
+      }
+    })
+
+    ws.on('close', () => {
+      if (handle) {
+        console.error(`[MCP] Session disconnected: ${handle.sessionId}`)
+        registry.unregister(handle.sessionId)
+      }
+    })
+
+    ws.on('error', () => {
+      if (handle) {
+        registry.unregister(handle.sessionId)
+      }
+    })
+  })
+
+  const protocol = createMcpProtocol({
+    serverInfo: options.serverInfo,
+    toolCatalog: ALL_TOOLS,
+    async handleCallTool(name, args) {
       const schema = ALL_TOOLS.find((t) => t.name === name)
-
       if (!schema) {
         return {
           content: [
@@ -174,94 +128,26 @@ export function createMcpServer(options: McpServerOptions = {}): McpServerInstan
         }
       }
 
-      const result = await handle.executeTool({
-        name,
-        input: args ?? {},
-      })
-
+      const result = await handle.executeTool({ name, input: args })
       const summary = registry.getSummary(sessionId)
       const texts: string[] = [JSON.stringify(result)]
       if (summary) texts.push(`Chart state: ${summary}`)
 
       return {
-        content: texts.map(
-          (text): ToolResponseContent => ({ type: 'text' as const, text }),
-        ),
+        content: texts.map((text) => ({ type: 'text' as const, text })),
+        isError: !result.success,
       }
     },
-  )
-
-  const wss = new WebSocketServer({ port: wsPort, host: wsHost })
-  wss.on('error', (err: NodeJS.ErrnoException) => {
-    console.error(`[MCP] WebSocket server error: ${err.message}`)
-    if (err.code === 'EADDRINUSE') {
-      console.error(
-        `[MCP] Port ${wsPort} is already in use. Use a different port via WS_PORT env or ws.port option.`,
-      )
-    }
   })
 
-  wss.on('connection', (ws: WebSocket) => {
-    console.error(`[MCP] WS client connected`)
-    let handle: WsSessionHandle | null = null
-
-    ws.on('message', (raw: Buffer) => {
-      let msg: Record<string, unknown>
-      try {
-        msg = JSON.parse(raw.toString())
-      } catch {
-        return
-      }
-
-      if (msg.type === 'register') {
-        const sessionId = (msg.sessionId as string) ?? crypto.randomUUID()
-        handle = new WsSessionHandle(sessionId, ws)
-        registry.register(sessionId, handle)
-        console.error(
-          `[MCP] Session registered: ${sessionId} (total=${registry.getActiveSessionIds().length})`,
-        )
-        ws.send(JSON.stringify({ type: 'registered', sessionId }))
-        return
-      }
-
-      if (handle) {
-        handle.handleMessage(msg)
-      }
-
-      if (msg.type === 'state:update' && handle) {
-        registry.updateState(
-          handle.sessionId,
-          msg.descriptions as Record<string, ControllerDescription>,
-        )
-      }
-    })
-
-    ws.on('close', () => {
-      if (handle) {
-        console.error(`[MCP] Session disconnected: ${handle.sessionId}`)
-        registry.unregister(handle.sessionId)
-      }
-    })
-
-    ws.on('error', () => {
-      if (handle) {
-        registry.unregister(handle.sessionId)
-      }
-    })
-  })
-
-  async function start(): Promise<void> {
-    const transport = new StdioServerTransport()
-    await server.connect(transport)
+  return {
+    server: protocol.server,
+    registry,
+    wss: transport.wss,
+    start: protocol.start,
+    async stop() {
+      await protocol.stop()
+      await transport.close()
+    },
   }
-
-  async function stop(): Promise<void> {
-    await server.close()
-    for (const ws of wss.clients) {
-      ws.terminate()
-    }
-    wss.close()
-  }
-
-  return { server, registry, wss, start, stop }
 }
