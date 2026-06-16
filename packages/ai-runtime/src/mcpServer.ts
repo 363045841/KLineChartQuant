@@ -5,10 +5,10 @@ import {
   CallToolRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js'
 import { WebSocketServer, type WebSocket } from 'ws'
-import type { ToolCall, ToolResult } from './executeTool.ts'
-import { ALL_TOOLS } from './toolSchemas.ts'
-import type { ControllerDescription } from './types.ts'
-import { SessionRegistry, type SessionHandle } from './sessionRegistry.ts'
+import type { ToolCall, ToolResult } from './executeTool'
+import { ALL_TOOLS } from './toolSchemas'
+import type { ControllerDescription } from './types'
+import { SessionRegistry, type SessionHandle } from './sessionRegistry'
 
 class WsSessionHandle implements SessionHandle {
   readonly sessionId: string

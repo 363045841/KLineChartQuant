@@ -15,15 +15,15 @@ const { start, stop, wss } = createMcpServer({
 })
 
 wss.on('listening', () => {
-  console.log(`[ai-runtime] WebSocket server listening on ws://0.0.0.0:${WS_PORT}`)
-  console.log(`[ai-runtime] MCP transport: ${MCP_TRANSPORT}`)
+  console.error(`[ai-runtime] WebSocket server listening on ws://0.0.0.0:${WS_PORT}`)
+  console.error(`[ai-runtime] MCP transport: ${MCP_TRANSPORT}`)
   if (MCP_TRANSPORT === 'stdio') {
-    console.log(`[ai-runtime] Ready for stdio MCP connection`)
+    console.error(`[ai-runtime] Ready for stdio MCP connection`)
   }
 })
 
 process.on('SIGINT', async () => {
-  console.log('\n[ai-runtime] Shutting down...')
+  console.error('\n[ai-runtime] Shutting down...')
   await stop()
   process.exit(0)
 })

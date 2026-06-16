@@ -1,6 +1,6 @@
 import { describe, it, expect, afterAll, beforeEach } from 'vitest'
 import { WebSocketServer, type WebSocket } from 'ws'
-import { ChartBridge } from '../chartBridge'
+import { ChartBridge } from '@363045841yyt/klinechart-core'
 
 const PORT = 9877
 const wss = new WebSocketServer({ port: PORT, host: '127.0.0.1' })

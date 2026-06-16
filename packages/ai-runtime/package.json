@@ -17,9 +17,9 @@
       "types": "./dist/mcpServer.d.ts",
       "import": "./dist/mcpServer.js"
     },
-    "./bridge": {
-      "types": "./dist/chartBridge.d.ts",
-      "import": "./dist/chartBridge.js"
+    "./create-with-mcp": {
+      "types": "./dist/createWithMcp.d.ts",
+      "import": "./dist/createWithMcp.js"
     }
   },
   "files": [
@@ -29,9 +29,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "prepublishOnly": "npm run build",
-    "start": "tsx scripts/dev.ts",
+    "start": "node --experimental-transform-types scripts/dev.ts",
     "test": "vitest run",
-    "inspect": "npx @modelcontextprotocol/inspector \"pnpm tsx scripts/dev.ts\""
+    "inspect": "npx @modelcontextprotocol/inspector node --experimental-transform-types scripts/dev.ts"
   },
   "peerDependencies": {
     "@363045841yyt/klinechart-core": "workspace:*"

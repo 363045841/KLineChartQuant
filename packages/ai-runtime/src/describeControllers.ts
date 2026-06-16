@@ -1,4 +1,4 @@
-import type { ControllerDescription } from './types.ts'
+import type { ControllerDescription } from './types'
 
 export interface VolumeProfileSnapshot {
   poc: number
