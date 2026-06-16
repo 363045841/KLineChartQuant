@@ -57,6 +57,9 @@ importers:
       prettier:
         specifier: 3.8.3
         version: 3.8.3
+      tsx:
+        specifier: ^4.22.4
+        version: 4.22.4
       typedoc:
         specifier: ^0.28.19
         version: 0.28.19(typescript@6.0.3)
@@ -103,15 +106,12 @@ importers:
       '@types/ws':
         specifier: ^8
         version: 8.18.1
-      tsx:
-        specifier: ^4.22.4
-        version: 4.22.4
       typescript:
         specifier: ~6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.8(@types/node@25.9.1)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(tsx@4.22.4)(yaml@2.8.4))
+        version: 4.1.8(@types/node@25.9.1)(@vitest/coverage-v8@4.1.5(vitest@4.1.5))(jsdom@29.1.1)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(tsx@4.22.4)(yaml@2.8.4))
 
   packages/angular:
     dependencies:
@@ -260,6 +260,9 @@ importers:
         specifier: workspace:^
         version: link:../core
     devDependencies:
+      '@363045841yyt/klinechart-ai-runtime':
+        specifier: workspace:*
+        version: link:../ai-runtime
       '@arethetypeswrong/cli':
         specifier: ^0.18.3
         version: 0.18.3
@@ -304,7 +307,7 @@ importers:
         version: 5.0.2(esbuild@0.28.0)(rolldown@1.0.3)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(tsx@4.22.4)(yaml@2.8.4))
       vitest:
         specifier: ^4.1.8
-        version: 4.1.8(@types/node@25.9.1)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(tsx@4.22.4)(yaml@2.8.4))
+        version: 4.1.8(@types/node@25.9.1)(@vitest/coverage-v8@4.1.5(vitest@4.1.5))(jsdom@29.1.1)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(tsx@4.22.4)(yaml@2.8.4))
       vue:
         specifier: ^3.5.35
         version: 3.5.35(typescript@6.0.3)
@@ -5943,7 +5946,7 @@ snapshots:
     transitivePeerDependencies:
       - msw
 
-  vitest@4.1.8(@types/node@25.9.1)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(tsx@4.22.4)(yaml@2.8.4)):
+  vitest@4.1.8(@types/node@25.9.1)(@vitest/coverage-v8@4.1.5(vitest@4.1.5))(jsdom@29.1.1)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(tsx@4.22.4)(yaml@2.8.4)):
     dependencies:
       '@vitest/expect': 4.1.8
       '@vitest/mocker': 4.1.8(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(tsx@4.22.4)(yaml@2.8.4))

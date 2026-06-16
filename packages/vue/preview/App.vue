@@ -78,6 +78,8 @@
       :style="{ width: embedWidth, height: embedHeight }"
     >
       <KLineChart
+        ref="chartRef"
+        :mcp="mcpConfig"
         :dataFetcher="dataFetcher"
         :is-fullscreen="isFullscreen"
         @toggle-fullscreen="toggleFullscreen"
@@ -112,6 +114,7 @@ import { ref, computed, provide, inject, type Ref, type InjectionKey } from 'vue
 import KLineChart from '../src/components/KLineChart.vue'
 import { VERSION, CORE_VERSION } from '../src/version'
 import { routerDataFetcher } from '@363045841yyt/klinechart-core/controllers'
+import { executeTool } from '@363045841yyt/klinechart-ai-runtime'
 
 const FULLSCREEN_TARGET_KEY: InjectionKey<Ref<HTMLElement | null>> = Symbol(
   'fullscreen-teleport-target',
@@ -129,6 +132,17 @@ function useFullscreenTeleportTarget() {
 }
 
 const dataFetcher = routerDataFetcher
+
+const chartRef = ref<InstanceType<typeof KLineChart> | null>(null)
+const mcpConfig = {
+  wsUrl: 'ws://localhost:8080',
+  autoReconnect: true,
+  onToolCall: (call: { name: string; input: Record<string, unknown> }) => {
+    const ctrl = chartRef.value?.getController?.()
+    if (!ctrl) return { success: false, error: 'Controller not ready yet' }
+    return executeTool(ctrl, call)
+  },
+}
 
 const displayVersion = `Vue@${VERSION}-Core@${CORE_VERSION}`
 

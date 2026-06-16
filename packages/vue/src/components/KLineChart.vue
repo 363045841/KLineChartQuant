@@ -196,6 +196,16 @@ const props = withDefaults(
     isFullscreen?: boolean
     /** 时区，默认 Asia/Shanghai */
     timezone?: string
+
+    /** MCP / AI runtime bridge 配置。传入后自动连接 MCP WebSocket server */
+    mcp?: {
+      wsUrl?: string
+      onToolCall?: (call: {
+        name: string
+        input: Record<string, unknown>
+      }) => { success: boolean; error?: string; data?: unknown }
+      autoReconnect?: boolean
+    }
   }>(),
   {
     yPaddingPx: 20,
@@ -864,6 +874,7 @@ defineExpose({
   zoomOut: (anchorX?: number) => applyZoomToLevel(zoomLevel.value - 1, anchorX),
   getZoomLevel: () => zoomLevel.value,
   getZoomLevelCount: () => controller.value?.getZoomLevelCount() ?? 10,
+  getController: () => controller.value,
 })
 
 // ==================== onMounted 拆分函数 ====================
@@ -896,6 +907,7 @@ function initChart(
     priceLabelWidth: props.priceLabelWidth,
     minKWidth: props.minKWidth,
     maxKWidth: props.maxKWidth,
+    mcp: props.mcp,
   })
   return ctrl
 }

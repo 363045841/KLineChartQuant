@@ -71,6 +71,7 @@
     "vue": "^3.4.0"
   },
   "devDependencies": {
+    "@363045841yyt/klinechart-ai-runtime": "workspace:*",
     "@arethetypeswrong/cli": "^0.18.3",
     "@size-limit/preset-small-lib": "^12.1.0",
     "@vitejs/plugin-vue": "^6.0.7",
