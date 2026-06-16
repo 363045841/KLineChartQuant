@@ -1,5 +1,6 @@
 export * from './reactivity'
 export * from './controllers'
+export * from './mcp'
 export { VERSION } from './version'
 export * from './tokens'
 export { formatTimestamp } from './utils/dateFormat'

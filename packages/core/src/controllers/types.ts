@@ -227,6 +227,17 @@ export interface ChartMountOptions {
     priceLabelWidth?: number
     minKWidth?: number
     maxKWidth?: number
+
+    // MCP / AI runtime bridge
+    mcp?: {
+        wsUrl?: string
+        onToolCall?: (call: { name: string; input: Record<string, unknown> }) => {
+            success: boolean
+            error?: string
+            data?: unknown
+        }
+        autoReconnect?: boolean
+    }
 }
 
 export interface ChartController extends DrawingChartAdapter {

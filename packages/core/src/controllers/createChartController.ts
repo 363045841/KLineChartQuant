@@ -41,6 +41,7 @@ import type {
     DrawingToolType as LegacyDrawingToolType,
 } from '../engine/chartTypes'
 import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
+import { ChartBridge } from '../mcp/chartBridge'
 
 // Plugin-backed drawings expose `kind` instead of legacy `type`.
 type PluginBackedDrawingObject = {
@@ -776,6 +777,7 @@ export function createChartController(opts: ChartMountOptions): ChartController 
     function dispose(): void {
         if (disposed) return
         disposed = true
+        bridge?.destroy()
         for (const unsub of unsubs) {
             try {
                 unsub()
@@ -793,6 +795,25 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         } catch {
             /* best-effort */
         }
+    }
+
+    // ---------------------------------------------------------------------------
+    // MCP bridge (optional)
+    // ---------------------------------------------------------------------------
+
+    let bridge: ChartBridge | null = null
+    if (opts.mcp) {
+        const mcp = opts.mcp
+        bridge = new ChartBridge({
+            wsUrl: mcp.wsUrl ?? 'ws://localhost:8080',
+            onToolCall: mcp.onToolCall ?? (() => ({
+                success: false,
+                error:
+                    'No onToolCall handler provided. Import executeTool from @363045841yyt/klinechart-ai-runtime and pass it via mcp.onToolCall.',
+            })),
+            autoReconnect: mcp.autoReconnect,
+        })
+        bridge.connect()
     }
 
     return {
