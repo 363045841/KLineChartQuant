@@ -1,4 +1,4 @@
-import { createMcpServer } from '../src/mcpServer.ts'
+import { createMcpServer } from '../src/mcpServer'
 
 const WS_PORT = Number(process.env.WS_PORT) || 8080
 const MCP_TRANSPORT = process.env.MCP_TRANSPORT || 'stdio'
