@@ -64,7 +64,6 @@ async function fetchTradingview(
   displayName: 'TradingView',
   description: 'TradingView-style data source via local proxy',
   version: '1.0.0',
-  priority: 40,
   capabilities: ['daily', 'weekly', 'monthly', '5min', '15min', '30min', '60min'],
 })
 export class TradingviewFetcher {

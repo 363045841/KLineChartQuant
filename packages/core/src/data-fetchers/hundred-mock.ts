@@ -68,8 +68,7 @@ async function fetchHundredMock(
   displayName: 'Mock 100',
   description: 'Generates ~100 random K-line bars with Brownian bridge',
   version: '1.0.0',
-  priority: 1,
-  capabilities: ['mock'],
+  capabilities: ['*'],
 })
 export class HundredMockFetcher {
   static fetcher = fetchHundredMock

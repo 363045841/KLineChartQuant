@@ -147,7 +147,6 @@ async function fetchGotdx(
   displayName: 'GOTDX',
   description: 'TDX data source via local proxy',
   version: '1.0.0',
-  priority: 30,
   capabilities: [
     '1min', '5min', '15min', '30min', '60min',
     'daily', 'weekly', 'monthly', 'quarterly', 'yearly',

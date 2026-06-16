@@ -19,7 +19,6 @@ export interface DataFetcherDefinitionConfig {
   displayName: string
   description?: string
   version?: string
-  priority?: number
   capabilities?: string[]
 }
 

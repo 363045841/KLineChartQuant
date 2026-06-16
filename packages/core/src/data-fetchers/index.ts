@@ -10,6 +10,8 @@ export {
   DataFetcher,
   getRegisteredFetcher,
   getRegisteredFetchers,
+  fetcherHasCapability,
+  fetcherSupportsPeriod,
   clearRegisteredFetchersForTest,
 } from './fetcherDefinitionRegistry'
 export type {

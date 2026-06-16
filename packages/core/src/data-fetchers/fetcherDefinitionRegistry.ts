@@ -17,7 +17,6 @@ export function DataFetcher(config: DataFetcherDefinitionConfig) {
       }
       definitions.set(config.name, {
         ...config,
-        priority: config.priority ?? 10,
         fetcher: this.fetcher,
       })
     })
@@ -33,6 +32,17 @@ export function getRegisteredFetcher(
 
 export function getRegisteredFetchers(): DataFetcherDefinition[] {
   return Array.from(definitions.values())
+}
+
+export function fetcherHasCapability(name: string, capability: string): boolean {
+  return definitions.get(name)?.capabilities?.includes(capability) ?? false
+}
+
+export function fetcherSupportsPeriod(name: string, period: string): boolean {
+  const def = definitions.get(name)
+  if (!def) return false
+  if (!def.capabilities || def.capabilities.length === 0) return false
+  return def.capabilities.includes('*') || def.capabilities.includes(period)
 }
 
 export function clearRegisteredFetchersForTest(): void {
