@@ -1,5 +1,9 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
+import {
+  ListToolsRequestSchema,
+  CallToolRequestSchema,
+} from '@modelcontextprotocol/sdk/types.js'
 import { WebSocketServer, type WebSocket } from 'ws'
 import type { ToolCall, ToolResult } from './executeTool'
 import { ALL_TOOLS } from './toolSchemas'
@@ -65,6 +69,11 @@ class WsSessionHandle implements SessionHandle {
 
 export type { WsSessionHandle }
 
+interface ToolResponseContent {
+  type: 'text'
+  text: string
+}
+
 export interface McpServerOptions {
   serverInfo?: { name?: string; version?: string }
   ws?: { port?: number; host?: string }
@@ -72,7 +81,7 @@ export interface McpServerOptions {
 }
 
 export interface McpServerInstance {
-  mcpServer: McpServer
+  server: Server
   registry: SessionRegistry
   wss: WebSocketServer
   start(): Promise<void>
@@ -87,61 +96,98 @@ export function createMcpServer(options: McpServerOptions = {}): McpServerInstan
   const serverInfoName = options.serverInfo?.name ?? 'klinechart-ai-mcp'
   const serverInfoVersion = options.serverInfo?.version ?? '0.0.0'
 
-  const mcp = new McpServer({
-    name: serverInfoName,
-    version: serverInfoVersion,
-  })
-
-  for (const schema of ALL_TOOLS) {
-    mcp.tool(
-      schema.name,
-      schema.description,
-      schema.inputSchema as Record<string, unknown>,
-      async (args: Record<string, unknown>) => {
-        const sessions = registry.getActiveSessionIds()
-        if (sessions.length === 0) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify({
-                  success: false,
-                  error: 'No browser chart session connected',
-                }),
-              },
-            ],
-          }
-        }
-
-        const sessionId = sessions[0]!
-        const handle = registry.get(sessionId)
-        if (!handle) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify({
-                  success: false,
-                  error: `Session ${sessionId} not found`,
-                }),
-              },
-            ],
-          }
-        }
-
-        const result = await handle.executeTool({
-          name: schema.name,
-          input: args,
-        })
-
-        const summary = registry.getSummary(sessionId)
-        const texts: string[] = [JSON.stringify(result)]
-        if (summary) texts.push(`Chart state: ${summary}`)
-
-        return { content: texts.map((text) => ({ type: 'text' as const, text })) }
+  const server = new Server(
+    {
+      name: serverInfoName,
+      version: serverInfoVersion,
+    },
+    {
+      capabilities: {
+        tools: {},
       },
-    )
-  }
+    },
+  )
+
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: ALL_TOOLS.map((t) => ({
+      name: t.name,
+      description: t.description,
+      inputSchema: t.inputSchema,
+    })),
+  }))
+
+  server.setRequestHandler(
+    CallToolRequestSchema,
+    async (request: {
+      params: { name: string; arguments?: Record<string, unknown> }
+    }) => {
+      const { name, arguments: args } = request.params
+      const schema = ALL_TOOLS.find((t) => t.name === name)
+
+      if (!schema) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                success: false,
+                error: `Unknown tool: ${name}`,
+              }),
+            },
+          ],
+          isError: true,
+        }
+      }
+
+      const sessions = registry.getActiveSessionIds()
+      if (sessions.length === 0) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                success: false,
+                error: 'No browser chart session connected.',
+              }),
+            },
+          ],
+          isError: true,
+        }
+      }
+
+      const sessionId = sessions[0]!
+      const handle = registry.get(sessionId)
+      if (!handle) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                success: false,
+                error: `Session ${sessionId} not found.`,
+              }),
+            },
+          ],
+          isError: true,
+        }
+      }
+
+      const result = await handle.executeTool({
+        name,
+        input: args ?? {},
+      })
+
+      const summary = registry.getSummary(sessionId)
+      const texts: string[] = [JSON.stringify(result)]
+      if (summary) texts.push(`Chart state: ${summary}`)
+
+      return {
+        content: texts.map(
+          (text): ToolResponseContent => ({ type: 'text' as const, text }),
+        ),
+      }
+    },
+  )
 
   const wss = new WebSocketServer({ port: wsPort, host: wsHost })
 
@@ -191,13 +237,13 @@ export function createMcpServer(options: McpServerOptions = {}): McpServerInstan
 
   async function start(): Promise<void> {
     const transport = new StdioServerTransport()
-    await mcp.connect(transport)
+    await server.connect(transport)
   }
 
   async function stop(): Promise<void> {
-    await mcp.close()
+    await server.close()
     wss.close()
   }
 
-  return { mcpServer: mcp, registry, wss, start, stop }
+  return { server, registry, wss, start, stop }
 }
