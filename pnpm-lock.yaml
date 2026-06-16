@@ -88,6 +88,19 @@ importers:
         specifier: ^3.3.2
         version: 3.3.2(typescript@6.0.3)
 
+  packages/ai-runtime:
+    dependencies:
+      '@363045841yyt/klinechart-core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.5
+        version: 4.1.8(@types/node@25.9.1)(@vitest/coverage-v8@4.1.5(vitest@4.1.5))(jsdom@29.1.1)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(yaml@2.8.4))
+
   packages/angular:
     dependencies:
       '@363045841yyt/klinechart-core':
@@ -279,7 +292,7 @@ importers:
         version: 5.0.2(esbuild@0.28.0)(rolldown@1.0.3)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(yaml@2.8.4))
       vitest:
         specifier: ^4.1.8
-        version: 4.1.8(@types/node@25.9.1)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(yaml@2.8.4))
+        version: 4.1.8(@types/node@25.9.1)(@vitest/coverage-v8@4.1.5(vitest@4.1.5))(jsdom@29.1.1)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(yaml@2.8.4))
       vue:
         specifier: ^3.5.35
         version: 3.5.35(typescript@6.0.3)
@@ -5230,7 +5243,7 @@ snapshots:
     transitivePeerDependencies:
       - msw
 
-  vitest@4.1.8(@types/node@25.9.1)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(yaml@2.8.4)):
+  vitest@4.1.8(@types/node@25.9.1)(@vitest/coverage-v8@4.1.5(vitest@4.1.5))(jsdom@29.1.1)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(yaml@2.8.4)):
     dependencies:
       '@vitest/expect': 4.1.8
       '@vitest/mocker': 4.1.8(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(yaml@2.8.4))
