@@ -5,13 +5,14 @@ import {
   CallToolRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js'
 import { WebSocketServer, type WebSocket } from 'ws'
-import type { ToolCall, ToolResult } from './executeTool'
-import { ALL_TOOLS } from './toolSchemas'
-import type { ControllerDescription } from './types'
-import { SessionRegistry, type SessionHandle } from './sessionRegistry'
+import type { ToolCall, ToolResult } from './executeTool.ts'
+import { ALL_TOOLS } from './toolSchemas.ts'
+import type { ControllerDescription } from './types.ts'
+import { SessionRegistry, type SessionHandle } from './sessionRegistry.ts'
 
 class WsSessionHandle implements SessionHandle {
   readonly sessionId: string
+  private ws: WebSocket
   private pending = new Map<
     string,
     { resolve: (r: ToolResult) => void; reject: (e: Error) => void }
@@ -20,9 +21,10 @@ class WsSessionHandle implements SessionHandle {
 
   constructor(
     sessionId: string,
-    private ws: WebSocket,
+    ws: WebSocket,
   ) {
     this.sessionId = sessionId
+    this.ws = ws
   }
 
   async executeTool(call: ToolCall): Promise<ToolResult> {

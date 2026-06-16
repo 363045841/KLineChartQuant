@@ -1,4 +1,4 @@
-export type * from './types'
+export type * from './types.ts'
 
 export {
   ALL_TOOLS,
@@ -8,7 +8,7 @@ export {
   ALERT_TOOLS,
   REPLAY_TOOLS,
   findTool,
-} from './toolSchemas'
+} from './toolSchemas.ts'
 
 export {
   describeVolumeProfileState,
@@ -19,15 +19,15 @@ export {
   type AnchoredVwapSeriesSnapshot,
   type FootprintLatestBarSnapshot,
   type AlertSnapshot,
-} from './describeControllers'
+} from './describeControllers.ts'
 
 export {
   serialize,
   deserialize,
   ChartSerializationError,
   type ChartSnapshotInput,
-} from './serialization'
+} from './serialization.ts'
 
-export { executeTool, type ToolCall, type ToolResult } from './executeTool'
+export { executeTool, type ToolCall, type ToolResult } from './executeTool.ts'
 
-export { SessionRegistry, type SessionHandle } from './sessionRegistry'
+export { SessionRegistry, type SessionHandle } from './sessionRegistry.ts'

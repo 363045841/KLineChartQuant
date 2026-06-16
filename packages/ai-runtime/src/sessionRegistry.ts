@@ -1,5 +1,5 @@
-import type { ToolCall, ToolResult } from './executeTool'
-import type { ControllerDescription } from './types'
+import type { ToolCall, ToolResult } from './executeTool.ts'
+import type { ControllerDescription } from './types.ts'
 
 export interface SessionHandle {
   readonly sessionId: string

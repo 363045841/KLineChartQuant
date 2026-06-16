@@ -1,6 +1,6 @@
 import type { ChartController } from '@363045841yyt/klinechart-core'
-import { executeTool, type ToolCall, type ToolResult } from './executeTool'
-import type { ControllerDescription } from './types'
+import { executeTool, type ToolCall, type ToolResult } from './executeTool.ts'
+import type { ControllerDescription } from './types.ts'
 
 export interface ChartBridgeOptions {
   wsUrl: string

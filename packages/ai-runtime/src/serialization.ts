@@ -1,4 +1,4 @@
-import type { SerializedChartState } from './types'
+import type { SerializedChartState } from './types.ts'
 
 const SCHEMA_VERSION = 1 as const
 

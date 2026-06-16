@@ -1,5 +1,5 @@
 import type { ChartController } from '@363045841yyt/klinechart-core'
-import { findTool } from './toolSchemas'
+import { findTool } from './toolSchemas.ts'
 
 export interface ToolCall {
   name: string

@@ -1,4 +1,4 @@
-import type { McpToolSchema } from './types'
+import type { McpToolSchema } from './types.ts'
 
 export const CHART_NAVIGATION_TOOLS: McpToolSchema[] = [
   {
