@@ -1,5 +1,5 @@
 import { describe, it, expect, afterAll, beforeEach } from 'vitest'
-import { WebSocketServer, type WebSocket } from 'ws'
+import { WebSocketServer, WebSocket as WsWebSocket, type WebSocket } from 'ws'
 import { ChartBridge } from '@363045841yyt/klinechart-core'
 
 const PORT = 9877
@@ -34,6 +34,7 @@ describe('ChartBridge integration', { timeout: 10_000 }, () => {
       wsUrl: `ws://127.0.0.1:${PORT}`,
       sessionId: 'bridge-test',
       autoReconnect: false,
+      wsImpl: WsWebSocket as unknown as new (url: string) => WebSocket,
     })
 
     await bridge.connect()
@@ -53,6 +54,7 @@ describe('ChartBridge integration', { timeout: 10_000 }, () => {
       wsUrl: `ws://127.0.0.1:${PORT}`,
       sessionId: 'state-push-test',
       autoReconnect: false,
+      wsImpl: WsWebSocket as unknown as new (url: string) => WebSocket,
     })
 
     await bridge.connect()

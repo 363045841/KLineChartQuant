@@ -7,6 +7,7 @@ export interface ChartBridgeOptions {
   autoReconnect?: boolean
   reconnectDelay?: number
   heartbeatInterval?: number
+  wsImpl?: new (url: string) => WebSocket
 }
 
 export type ChartBridgeEvent =
@@ -24,6 +25,7 @@ export class ChartBridge {
   private readonly heartbeatInterval: number
   private readonly onToolCall: ToolCallHandler
 
+  private readonly wsImpl: new (url: string) => WebSocket
   private ws: WebSocket | null = null
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
@@ -42,6 +44,7 @@ export class ChartBridge {
     this.reconnectDelay = options.reconnectDelay ?? 3000
     this.heartbeatInterval = options.heartbeatInterval ?? 30_000
     this.onToolCall = options.onToolCall
+    this.wsImpl = options.wsImpl ?? WebSocket
     this.wsUrl = options.wsUrl
   }
 
@@ -53,7 +56,7 @@ export class ChartBridge {
 
     return new Promise((resolve, reject) => {
       try {
-        const ws = new WebSocket(this.wsUrl)
+        const ws = new this.wsImpl(this.wsUrl)
 
         ws.onopen = () => {
           this.ws = ws
@@ -170,7 +173,7 @@ export class ChartBridge {
   private startHeartbeat(): void {
     this.stopHeartbeat()
     this.heartbeatTimer = setInterval(() => {
-      if (this.ws?.readyState === WebSocket.OPEN) {
+      if (this.ws?.readyState === 1) {
         this.ws.send(JSON.stringify({ type: 'ping' }))
       }
     }, this.heartbeatInterval)
