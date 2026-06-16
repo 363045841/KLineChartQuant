@@ -12,6 +12,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./mcp-server": {
+      "types": "./dist/mcpServer.d.ts",
+      "import": "./dist/mcpServer.js"
+    },
+    "./bridge": {
+      "types": "./dist/chartBridge.d.ts",
+      "import": "./dist/chartBridge.js"
     }
   },
   "files": [
@@ -26,7 +34,12 @@
   "peerDependencies": {
     "@363045841yyt/klinechart-core": "workspace:*"
   },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1",
+    "ws": "^8"
+  },
   "devDependencies": {
+    "@types/ws": "^8",
     "typescript": "~6.0.3",
     "vitest": "^4.1.5"
   },
