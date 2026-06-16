@@ -1,4 +1,4 @@
-import type { SerializedChartState } from './types'
+import type { ChartAlertsEntry, SerializedChartState } from './types'
 
 const SCHEMA_VERSION = 1 as const
 
@@ -19,13 +19,7 @@ export interface ChartSnapshotInput {
     definitionId: string
     params: Readonly<Record<string, number | string | boolean>>
   }>
-  alerts?: ReadonlyArray<{
-    id: string
-    name: string
-    predicate: unknown
-    oneShot: boolean
-    cooldownMs?: number
-  }>
+  alerts?: ReadonlyArray<ChartAlertsEntry>
 }
 
 export function serialize(
@@ -46,20 +40,21 @@ export function serialize(
   return out
 }
 
+function validateViewport(vp: unknown): boolean {
+  if (vp === undefined) return true
+  if (typeof vp !== 'object' || vp === null) return false
+  const o = vp as Record<string, unknown>
+  return typeof o.zoomLevel === 'number' && typeof o.visibleFrom === 'number' && typeof o.visibleTo === 'number'
+}
+
+// fallow-ignore-next-line complexity
 function validateControllers(
   c: unknown,
 ): c is SerializedChartState['controllers'] {
   if (typeof c !== 'object' || c === null) return false
   const ctrl = c as Record<string, unknown>
 
-  if (ctrl.viewport !== undefined) {
-    if (typeof ctrl.viewport !== 'object' || ctrl.viewport === null) return false
-    const vp = ctrl.viewport as Record<string, unknown>
-    if (typeof vp.zoomLevel !== 'number') return false
-    if (typeof vp.visibleFrom !== 'number') return false
-    if (typeof vp.visibleTo !== 'number') return false
-  }
-
+  if (!validateViewport(ctrl.viewport)) return false
   if (ctrl.theme !== undefined && ctrl.theme !== 'light' && ctrl.theme !== 'dark') return false
   if (ctrl.indicators !== undefined && !Array.isArray(ctrl.indicators)) return false
   if (ctrl.alerts !== undefined && !Array.isArray(ctrl.alerts)) return false

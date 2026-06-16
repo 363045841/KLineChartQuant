@@ -3,6 +3,7 @@ import { findTool } from './toolSchemas'
 
 export type { ToolCall, ToolResult }
 
+// fallow-ignore-next-line complexity
 export function executeTool(
   chart: ChartController,
   call: ToolCall,

@@ -25,6 +25,14 @@ export type JsonSchema =
 
 export type { ControllerDescription } from '@363045841yyt/klinechart-core'
 
+export interface ChartAlertsEntry {
+  id: string
+  name: string
+  predicate: unknown
+  oneShot: boolean
+  cooldownMs?: number
+}
+
 export interface SerializedChartState {
   schemaVersion: 1
   snapshotTakenAt: string
@@ -36,12 +44,6 @@ export interface SerializedChartState {
       definitionId: string
       params: Readonly<Record<string, number | string | boolean>>
     }>
-    alerts?: ReadonlyArray<{
-      id: string
-      name: string
-      predicate: unknown
-      oneShot: boolean
-      cooldownMs?: number
-    }>
+    alerts?: ReadonlyArray<ChartAlertsEntry>
   }
 }

@@ -37,6 +37,7 @@ async function main() {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('Response timeout')), timeout)
 
+      // fallow-ignore-next-line complexity
       function onData(chunk: Buffer) {
         buffer += chunk.toString()
         const lines = buffer.split('\n')

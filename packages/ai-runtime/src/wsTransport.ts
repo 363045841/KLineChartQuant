@@ -56,6 +56,7 @@ export class WsSessionHandle implements SessionHandle {
     }
   }
 
+  // fallow-ignore-next-line unused-class-member
   isAlive(): boolean {
     return this.ws.readyState === this.ws.OPEN
   }

@@ -4,7 +4,8 @@
     "packages/core/src/index.ts",
     "packages/vue/src/index.ts",
     "packages/react/src/index.ts",
-    "packages/angular/src/index.ts"
+    "packages/angular/src/index.ts",
+    "packages/ai-runtime/scripts/test-mcp.ts"
   ],
   "ignorePatterns": [
     "**/dist/**",
@@ -20,5 +21,8 @@
     "unused-exports": "warn",
     "unused-types": "warn",
     "unused-dependencies": "warn"
+  },
+  "duplicates": {
+    "ignorePatterns": ["**/__tests__/**"]
   }
 }
