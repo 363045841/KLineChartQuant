@@ -85,6 +85,7 @@ describe('ChartBridge integration', { timeout: 10_000 }, () => {
     const bridge = new ChartBridge({
       wsUrl: `ws://127.0.0.1:${PORT}`,
       autoReconnect: false,
+      wsImpl: WsWebSocket as unknown as new (url: string) => WebSocket,
     })
     expect(bridge.sessionId).toBeDefined()
     expect(bridge.sessionId.length).toBeGreaterThan(0)
@@ -95,6 +96,7 @@ describe('ChartBridge integration', { timeout: 10_000 }, () => {
     const bridge = new ChartBridge({
       wsUrl: `ws://127.0.0.1:${PORT}`,
       autoReconnect: false,
+      wsImpl: WsWebSocket as unknown as new (url: string) => WebSocket,
     })
     bridge.destroy()
     bridge.destroy()
