@@ -9,6 +9,8 @@ export interface ToolResult {
   data?: unknown
 }
 
+export type ToolCallHandler = (call: ToolCall) => ToolResult | Promise<ToolResult>
+
 export interface ControllerDescription {
   controllerId: string
   summary: string

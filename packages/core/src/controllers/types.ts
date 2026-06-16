@@ -231,11 +231,9 @@ export interface ChartMountOptions {
     // MCP / AI runtime bridge
     mcp?: {
         wsUrl?: string
-        onToolCall?: (call: { name: string; input: Record<string, unknown> }) => {
-            success: boolean
-            error?: string
-            data?: unknown
-        }
+        onToolCall?: (call: { name: string; input: Record<string, unknown> }) =>
+            | { success: boolean; error?: string; data?: unknown }
+            | Promise<{ success: boolean; error?: string; data?: unknown }>
         autoReconnect?: boolean
     }
 }

@@ -1,7 +1,13 @@
 # @363045841yyt/klinechart-ai-runtime
 
 MCP (Model Context Protocol) server and AI tool schemas for
-[@363045841yyt/klinechart](https://github.com/363045841/KLineChartQuant).
+[@363045841yyt/klinechart-core](https://github.com/363045841/KLineChartQuant/tree/main/packages/core)
+([npm](https://www.npmjs.com/package/@363045841yyt/klinechart-core))
+/
+[@363045841yyt/klinechart](https://github.com/363045841/KLineChartQuant/tree/main/packages/vue)
+([npm](https://www.npmjs.com/package/@363045841yyt/klinechart)).
+
+Optional addon — install only if you need AI agent / MCP control of your charts.
 
 Provides a WebSocket-bridged MCP server that enables AI agents (via MCP Inspector
 or any MCP client) to control K-line chart operations — zoom, pan, add/remove

@@ -1,8 +1,8 @@
-import type { ToolCall, ToolResult, ControllerDescription } from './types'
+import type { ToolCall, ToolResult, ControllerDescription, ToolCallHandler } from './types'
 
 export interface ChartBridgeOptions {
   wsUrl: string
-  onToolCall: (call: ToolCall) => ToolResult
+  onToolCall: ToolCallHandler
   sessionId?: string
   autoReconnect?: boolean
   reconnectDelay?: number
@@ -22,7 +22,7 @@ export class ChartBridge {
   private readonly autoReconnect: boolean
   private readonly reconnectDelay: number
   private readonly heartbeatInterval: number
-  private readonly onToolCall: (call: ToolCall) => ToolResult
+  private readonly onToolCall: ToolCallHandler
 
   private ws: WebSocket | null = null
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
@@ -135,8 +135,8 @@ export class ChartBridge {
     }
   }
 
-  private dispatchToolCall(requestId: string, call: ToolCall): void {
-    const result = this.onToolCall(call)
+  private async dispatchToolCall(requestId: string, call: ToolCall): Promise<void> {
+    const result = await this.onToolCall(call)
     this.sendResult(requestId, result)
 
     if (this.onStateChange) {

@@ -1,5 +1,4 @@
-import type { ToolCall, ToolResult } from './executeTool'
-import type { ControllerDescription } from './types'
+import type { ToolCall, ToolResult, ControllerDescription } from '@363045841yyt/klinechart-core'
 
 export interface SessionHandle {
   readonly sessionId: string

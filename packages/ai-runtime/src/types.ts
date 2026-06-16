@@ -23,12 +23,7 @@ export type JsonSchema =
   | { oneOf: JsonSchema[]; description?: string }
   | { anyOf: JsonSchema[]; description?: string }
 
-export interface ControllerDescription {
-  controllerId: string
-  summary: string
-  facts: Readonly<Record<string, string | number | boolean | null>>
-  warnings?: ReadonlyArray<string>
-}
+export type { ControllerDescription } from '@363045841yyt/klinechart-core'
 
 export interface SerializedChartState {
   schemaVersion: 1

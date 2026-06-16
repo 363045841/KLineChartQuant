@@ -1,16 +1,7 @@
-import type { ChartController } from '@363045841yyt/klinechart-core'
+import type { ChartController, ToolCall, ToolResult } from '@363045841yyt/klinechart-core'
 import { findTool } from './toolSchemas'
 
-export interface ToolCall {
-  name: string
-  input: Record<string, unknown>
-}
-
-export interface ToolResult {
-  success: boolean
-  error?: string
-  data?: unknown
-}
+export type { ToolCall, ToolResult }
 
 export function executeTool(
   chart: ChartController,
