@@ -28,7 +28,7 @@
 
 ## ✨ 核心特性
 
-- **Agent 优先** - 支持 AI Agent 直接控制图表，缩放、平移、绘制均可程序化调用
+- **Agent 优先 / MCP 原生** - 支持 AI Agent 直接控制图表，通过 [Model Context Protocol](https://modelcontextprotocol.io) 协议接入。内置 WebSocket 桥接 MCP 服务器，任何 MCP 客户端（Inspector、Claude Desktop、Cursor 等）均可实时缩放、平移、增删指标、切换主题
 - **渲染清晰** - 全链路 ResizeObserver 驱动，物理像素对齐，各 DPR 屏幕下 K 线、影线、线条均锐利清晰
 - **插件架构** - 渲染器插件化设计，支持动态注册、配置和生命周期管理
 - **自定义标记** - 支持语义化配置自定义标记和自定义信息
@@ -101,6 +101,44 @@ const config: SemanticChartConfig = {
 </template>
 ```
 
+### 4.（可选）启用 MCP / AI Agent 控制
+
+```bash
+npm install @363045841yyt/klinechart-ai-runtime
+```
+
+```vue
+<script setup lang="ts">
+import KLineChart from '@363045841yyt/klinechart'
+import { executeTool } from '@363045841yyt/klinechart-ai-runtime'
+
+const chartRef = ref<InstanceType<typeof KLineChart> | null>(null)
+
+const mcpConfig = {
+  wsUrl: 'ws://localhost:8080',
+  autoReconnect: true,
+  onToolCall: (call) => {
+    const ctrl = chartRef.value?.getController?.()
+    if (!ctrl) return { success: false, error: 'Controller not ready' }
+    return executeTool(ctrl, call)
+  },
+}
+</script>
+
+<template>
+  <KLineChart ref="chartRef" :mcp="mcpConfig" />
+</template>
+```
+
+然后启动 MCP 服务端：
+
+```bash
+cd packages/ai-runtime
+pnpm inspect
+```
+
+通过 MCP Inspector 连接后即可调用 `chart.zoomToLevel`、`indicators.add` 等工具。
+
 ## 📖 更多文档
 
 - [渲染引擎架构](./docs/rendering-engine-architecture.md) - 核心渲染管线与物理像素对齐机制
@@ -120,6 +158,7 @@ const config: SemanticChartConfig = {
 | priceLabelWidth | `number` | 60 | 价格标签额外宽度（用于显示涨跌幅） |
 | zoomLevels | `number` | 20 | 缩放级别总数 |
 | initialZoomLevel | `number` | 3 | 初始缩放级别（1 ~ zoomLevels） |
+| mcp | `McpConfig` | — | MCP 桥接配置：`{ wsUrl?, autoReconnect?, onToolCall? }`。详见 [@363045841yyt/klinechart-ai-runtime](packages/ai-runtime/README.md) |
 
 ## 🗺️ Roadmap
 
@@ -134,6 +173,16 @@ const config: SemanticChartConfig = {
 - [ ] 更多高级绘图工具
 - [ ] 支持分钟、多日、月、年 K 线显示
 - [ ] 支持将绘制的图形转换为量化代码
+
+## 📦 包列表
+
+| 包名 | 说明 | npm |
+|------|------|-----|
+| `@363045841yyt/klinechart-core` | 无头图表引擎 + 控制器 | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-core) |
+| `@363045841yyt/klinechart` | Vue 3 绑定 | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart) |
+| `@363045841yyt/klinechart-react` | React 绑定 | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-react) |
+| `@363045841yyt/klinechart-angular` | Angular 绑定 | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-angular) |
+| `@363045841yyt/klinechart-ai-runtime` | MCP 服务端 + AI 工具定义（可选） | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-ai-runtime) |
 
 ## 🚀 What's New
 

@@ -27,7 +27,7 @@ A lightweight financial K-line charting library focused on quantitative trading 
 
 ## ✨ Core Features
 
-- **Agent First** - Supports AI Agent direct control of charts, zoom, pan, and draw operations can all be called programmatically
+- **Agent First / MCP Native** - Supports AI Agent direct control of charts via the [Model Context Protocol](https://modelcontextprotocol.io). Built-in WebSocket-bridged MCP server enables any MCP client (Inspector, Claude Desktop, Cursor, etc.) to zoom, pan, add/remove indicators, and change theme in real time
 - **Crisp Rendering** - Full-chain ResizeObserver driven, physical pixel alignment, K-lines, wicks, and lines are sharp and clear on all DPR screens
 - **Plugin Architecture** - Renderer plugin-based design, supporting dynamic registration, configuration, and lifecycle management
 - **Custom Markers** - Supports semantic configuration of custom markers and custom information
@@ -100,6 +100,44 @@ const config: SemanticChartConfig = {
 </template>
 ```
 
+### 4. (Optional) Enable MCP / AI Agent Control
+
+```bash
+npm install @363045841yyt/klinechart-ai-runtime
+```
+
+```vue
+<script setup lang="ts">
+import KLineChart from '@363045841yyt/klinechart'
+import { executeTool } from '@363045841yyt/klinechart-ai-runtime'
+
+const chartRef = ref<InstanceType<typeof KLineChart> | null>(null)
+
+const mcpConfig = {
+  wsUrl: 'ws://localhost:8080',
+  autoReconnect: true,
+  onToolCall: (call) => {
+    const ctrl = chartRef.value?.getController?.()
+    if (!ctrl) return { success: false, error: 'Controller not ready' }
+    return executeTool(ctrl, call)
+  },
+}
+</script>
+
+<template>
+  <KLineChart ref="chartRef" :mcp="mcpConfig" />
+</template>
+```
+
+Then start the MCP server:
+
+```bash
+cd packages/ai-runtime
+pnpm inspect
+```
+
+Connect via MCP Inspector and call `chart.zoomToLevel`, `indicators.add`, etc.
+
 ## 📖 More Documentation
 
 - [Rendering Engine Architecture](./docs/rendering-engine-architecture.md) - Core rendering pipeline and physical pixel alignment mechanism
@@ -119,6 +157,7 @@ const config: SemanticChartConfig = {
 | priceLabelWidth | `number` | 60 | Price label extra width for showing change percentage |
 | zoomLevels | `number` | 20 | Total number of zoom levels |
 | initialZoomLevel | `number` | 3 | Initial zoom level (1 ~ zoomLevels) |
+| mcp | `McpConfig` | — | MCP bridge config: `{ wsUrl?, autoReconnect?, onToolCall? }`. See [@363045841yyt/klinechart-ai-runtime](packages/ai-runtime/README.md) |
 
 ## 🗺️ Roadmap
 
@@ -133,6 +172,16 @@ const config: SemanticChartConfig = {
 - [ ] More advanced drawing tools
 - [ ] Support for minute, multi-day, monthly, and yearly K-line display
 - [ ] Support convert the drawing to quant code
+
+## 📦 Packages
+
+| Package | Description | npm |
+|---------|-------------|-----|
+| `@363045841yyt/klinechart-core` | Headless chart engine + controllers | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-core) |
+| `@363045841yyt/klinechart` | Vue 3 bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart) |
+| `@363045841yyt/klinechart-react` | React bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-react) |
+| `@363045841yyt/klinechart-angular` | Angular bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-angular) |
+| `@363045841yyt/klinechart-ai-runtime` | MCP server + AI tool schemas (optional) | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-ai-runtime) |
 
 ## 🚀 What's New
 
