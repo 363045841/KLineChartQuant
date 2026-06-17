@@ -1,6 +1,8 @@
-import { ref, computed, type Ref, type ComputedRef } from 'vue'
+import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
 import { formatTimestamp } from '@363045841yyt/klinechart-core'
 import type { KLineData, ChartController } from '@363045841yyt/klinechart-core/controllers'
+import { calcRangeOverlayPixel } from '../../tools/calcRangeOverlayPixel'
+import type { Bounds } from '../../tools/calcRangeOverlayPixel'
 
 interface RangeSelectionState {
   startIndex: number | null
@@ -8,15 +10,25 @@ interface RangeSelectionState {
   isDragging: boolean
 }
 
-interface Bounds {
-  start: number
-  end: number
+function fmtDate(item: KLineData | undefined): string {
+  if (!item) return '?'
+  if (item.date) return item.date
+  return new Date(item.timestamp).toISOString().slice(0, 10)
 }
 
 function formatRangeFileDate(item: KLineData | undefined): string {
   if (!item) return 'unknown'
   if (item.date) return item.date.replace(/[\\/:*?"<>|\s]+/g, '-')
   return new Date(item.timestamp).toISOString().slice(0, 10)
+}
+
+function normalizeDateInput(input: string): string | null {
+  const parts = input.trim().split(/[-/]/)
+  if (parts.length !== 3) return null
+  const y = parts[0]!.padStart(4, '0')
+  const m = parts[1]!.padStart(2, '0')
+  const d = parts[2]!.padStart(2, '0')
+  return `${y}-${m}-${d}`
 }
 
 function toCsvCell(value: unknown): string {
@@ -33,6 +45,10 @@ export function useRangeSelection(options: {
   const { controller, activeToolId, containerRef } = options
 
   const containerScrollLeft = ref(0)
+  const customStartDate = ref('')
+  const customEndDate = ref('')
+  const resizeSide = ref<'left' | 'right' | null>(null)
+
   const rangeSelection = ref<RangeSelectionState>({
     startIndex: null,
     endIndex: null,
@@ -57,20 +73,18 @@ export function useRangeSelection(options: {
     return { start, end }
   })
 
-  const rangeSelectionDateLabel: ComputedRef<string> = computed(() => {
+  const rangeSelectionStartLabel: ComputedRef<string> = computed(() => {
     const bounds = rangeSelectionBounds.value
     const data = controller.value?.getData() ?? []
     if (!bounds || data.length === 0) return ''
+    return fmtDate(data[bounds.start])
+  })
 
-    const first = data[bounds.start]
-    const last = data[bounds.end]
-    const fmt = (item: KLineData | undefined) => {
-      if (!item) return '?'
-      if (item.date) return item.date
-      return new Date(item.timestamp).toISOString().slice(0, 10)
-    }
-    if (bounds.start === bounds.end) return fmt(first)
-    return `${fmt(first)} ~ ${fmt(last)}`
+  const rangeSelectionEndLabel: ComputedRef<string> = computed(() => {
+    const bounds = rangeSelectionBounds.value
+    const data = controller.value?.getData() ?? []
+    if (!bounds || data.length === 0) return ''
+    return fmtDate(data[bounds.end])
   })
 
   const rangeSelectionOverlayStyle = computed(() => {
@@ -82,28 +96,53 @@ export function useRangeSelection(options: {
     const container = containerRef.value
     if (!ctrl || !viewport || !container) return null
 
-    const { kWidth: currentKWidth, kGap: currentKGap } = ctrl.getKWidthKGap()
-    const dpr = ctrl.getCurrentDpr()
-    const kWidthPx = Math.max(
-      1,
-      Math.round(currentKWidth * dpr) + (Math.round(currentKWidth * dpr) % 2 === 0 ? 1 : 0),
-    )
-    const kGapPx = Math.round(currentKGap * dpr)
-    const unitPx = kWidthPx + kGapPx
-    const startXPx = kGapPx
-
-    const leftBuffer = container.scrollLeft - viewport.scrollLeft
-    const left = leftBuffer + (startXPx + bounds.start * unitPx) / dpr
-    const right = leftBuffer + (startXPx + bounds.end * unitPx + kWidthPx) / dpr
+    const px = calcRangeOverlayPixel(bounds, ctrl, container, viewport)
     return {
-      left: `${left}px`,
-      width: `${right - left}px`,
-      height: `${viewport.plotHeight}px`,
+      left: `${px.left}px`,
+      width: `${px.width}px`,
+      height: `${px.height}px`,
     }
   })
 
   function clearRangeSelection() {
     rangeSelection.value = { startIndex: null, endIndex: null, isDragging: false }
+    customStartDate.value = ''
+    customEndDate.value = ''
+  }
+
+  function getIndexByDate(dateStr: string): number | null {
+    const data = controller.value?.getData() ?? []
+    if (!data.length || !dateStr.trim()) return null
+    const trimmed = dateStr.trim()
+    const normalized = normalizeDateInput(trimmed)
+
+    for (let i = 0; i < data.length; i++) {
+      const item = data[i]
+      if (item.date === trimmed || (normalized !== null && item.date === normalized)) return i
+      if (!item.date) {
+        if (new Date(item.timestamp).toISOString().slice(0, 10) === trimmed) return i
+        if (normalized !== null && new Date(item.timestamp).toISOString().slice(0, 10) === normalized) return i
+      }
+    }
+    return null
+  }
+
+  watch(customStartDate, (val) => {
+    const idx = getIndexByDate(val)
+    if (idx !== null) {
+      rangeSelection.value = { ...rangeSelection.value, startIndex: idx, isDragging: false }
+    }
+  })
+
+  watch(customEndDate, (val) => {
+    const idx = getIndexByDate(val)
+    if (idx !== null) {
+      rangeSelection.value = { ...rangeSelection.value, endIndex: idx, isDragging: false }
+    }
+  })
+
+  function sanitizeLabel(label: string): string {
+    return label.replace(/[\\/:*?"<>|\s]+/g, '-')
   }
 
   function getRangeSelectionIndex(e: PointerEvent, container: HTMLElement): number | null {
@@ -122,6 +161,8 @@ export function useRangeSelection(options: {
     if (index === null) return true
 
     rangeSelection.value = { startIndex: index, endIndex: index, isDragging: true }
+    customStartDate.value = ''
+    customEndDate.value = ''
     container.setPointerCapture?.(e.pointerId)
     e.preventDefault()
     return true
@@ -148,6 +189,40 @@ export function useRangeSelection(options: {
     container.releasePointerCapture?.(e.pointerId)
     e.preventDefault()
     return true
+  }
+
+  function onEdgePointerDown(side: 'left' | 'right', e: PointerEvent) {
+    if (!isRangeSelectActive.value) return
+    resizeSide.value = side
+    const el = e.currentTarget as HTMLElement
+    el.setPointerCapture?.(e.pointerId)
+    e.preventDefault()
+  }
+
+  function onEdgePointerMove(e: PointerEvent) {
+    if (!resizeSide.value || rangeSelection.value.startIndex === null || rangeSelection.value.endIndex === null) return
+    const rect = containerRef.value?.getBoundingClientRect()
+    if (!rect) return
+    const data = controller.value?.getData() ?? []
+    if (!data.length) return
+    const rawIndex = controller.value?.getLogicalIndexAtX(e.clientX - rect.left)
+    if (rawIndex === null || rawIndex === undefined) return
+    const index = Math.max(0, Math.min(rawIndex, data.length - 1))
+
+    if (resizeSide.value === 'left') {
+      const end = rangeSelection.value.endIndex
+      rangeSelection.value = { ...rangeSelection.value, startIndex: Math.min(index, end) }
+    } else {
+      const start = rangeSelection.value.startIndex
+      rangeSelection.value = { ...rangeSelection.value, endIndex: Math.max(index, start) }
+    }
+  }
+
+  function onEdgePointerUp(e: PointerEvent) {
+    if (!resizeSide.value) return
+    const el = e.currentTarget as HTMLElement
+    el.releasePointerCapture?.(e.pointerId)
+    resizeSide.value = null
   }
 
   function exportRangeToCsv() {
@@ -182,7 +257,9 @@ export function useRangeSelection(options: {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `kline-range-${formatRangeFileDate(data[bounds.start])}-${formatRangeFileDate(data[bounds.end])}.csv`
+    const startLabel = customStartDate.value || formatRangeFileDate(data[bounds.start])
+    const endLabel = customEndDate.value || formatRangeFileDate(data[bounds.end])
+    a.download = `kline-range-${sanitizeLabel(startLabel)}-${sanitizeLabel(endLabel)}.csv`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -196,17 +273,23 @@ export function useRangeSelection(options: {
 
   return {
     rangeSelection,
+    customStartDate,
+    customEndDate,
     containerScrollLeft,
     isRangeSelectActive,
     rangeSelectionReady,
     rangeSelectionBounds,
-    rangeSelectionDateLabel,
+    rangeSelectionStartLabel,
+    rangeSelectionEndLabel,
     rangeSelectionOverlayStyle,
     clearRangeSelection,
     handleRangePointerDown,
     handleRangePointerMove,
     handleRangePointerUp,
     exportRangeToCsv,
+    onEdgePointerDown,
+    onEdgePointerMove,
+    onEdgePointerUp,
     onScroll,
   }
 }

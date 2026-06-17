@@ -76,12 +76,29 @@
             >
               <div
                 v-if="rangeSelectionReady"
+                class="range-selection-handle range-selection-handle--left"
+                @pointerdown.stop="onEdgePointerDown('left', $event)"
+                @pointermove.stop="onEdgePointerMove($event)"
+                @pointerup.stop="onEdgePointerUp($event)"
+              />
+              <div
+                v-if="rangeSelectionReady"
                 class="range-selection-export"
                 @pointerdown.stop
                 @pointermove.stop
                 @pointerup.stop
               >
-                <span class="range-selection-export__label">{{ rangeSelectionDateLabel }}</span>
+                <input
+                  class="range-selection-export__label"
+                  v-model="customStartDate"
+                  :placeholder="rangeSelectionStartLabel"
+                />
+                <span class="range-selection-export__sep">~</span>
+                <input
+                  class="range-selection-export__label"
+                  v-model="customEndDate"
+                  :placeholder="rangeSelectionEndLabel"
+                />
                 <button
                   type="button"
                   class="toolbar-btn"
@@ -91,6 +108,13 @@
                   导出
                 </button>
               </div>
+              <div
+                v-if="rangeSelectionReady"
+                class="range-selection-handle range-selection-handle--right"
+                @pointerdown.stop="onEdgePointerDown('right', $event)"
+                @pointermove.stop="onEdgePointerMove($event)"
+                @pointerup.stop="onEdgePointerUp($event)"
+              />
             </div>
           </div>
         </div>
@@ -388,16 +412,22 @@ const {
 
 const {
   rangeSelection,
+  customStartDate,
+  customEndDate,
   containerScrollLeft,
   isRangeSelectActive,
   rangeSelectionReady,
   rangeSelectionBounds,
-  rangeSelectionDateLabel,
+  rangeSelectionStartLabel,
+  rangeSelectionEndLabel,
   rangeSelectionOverlayStyle,
   clearRangeSelection,
   handleRangePointerDown,
   handleRangePointerMove,
   handleRangePointerUp,
+  onEdgePointerDown,
+  onEdgePointerMove,
+  onEdgePointerUp,
   exportRangeToCsv,
   onScroll: onRangeScroll,
 } = useRangeSelection({
@@ -1058,6 +1088,20 @@ watch(
   background: rgba(24, 144, 255, 0.2);
 }
 
+.range-selection-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: ew-resize;
+  pointer-events: auto;
+  z-index: 101;
+}
+
+.range-selection-handle--left { left: -4px; }
+
+.range-selection-handle--right { right: -4px; }
+
 .range-selection-export {
   position: absolute;
   left: 50%;
@@ -1108,6 +1152,20 @@ watch(
   color: var(--klc-color-axis-text);
   font-size: 11px;
   white-space: nowrap;
+  border: 1px solid var(--klc-color-border-button);
+  background: none;
+  outline: none;
+  padding: 1px 4px;
+  width: 80px;
+  font-family: inherit;
+  border-radius: 3px;
+  text-align: center;
+}
+
+.range-selection-export__sep {
+  color: var(--klc-color-axis-text);
+  font-size: 11px;
+  user-select: none;
 }
 
 .canvas-layer {
