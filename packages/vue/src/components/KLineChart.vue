@@ -158,15 +158,8 @@ import {
   getRegisteredIndicatorDefinitions,
 } from '@363045841yyt/klinechart-core/indicators'
 import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
+import { useChartTheme } from '../composables/chart/useChartTheme'
 import { SETTINGS_STORAGE_KEY } from '@363045841yyt/klinechart-core/config'
-import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
-import {
-  resolveThemeColors,
-  themeToCssVars,
-  lightTheme,
-  darkTheme,
-  type ColorPresetSettings,
-} from '@363045841yyt/klinechart-core'
 import LeftToolbar from './LeftToolbar.vue'
 import TopToolbar, { type SymbolItem } from './TopToolbar.vue'
 
@@ -316,6 +309,8 @@ provideFullscreenTeleportTarget(chartWrapperRef)
 /* ========== 图表控制器 ========== */
 const controller = shallowRef<ChartController | null>(null)
 
+const { chartTheme, chartSettings, tooltipColors, themeCssVars, handleSettingsChange, applyThemeFromSettings } = useChartTheme(controller)
+
 /* ========== 语义化控制器 ========== */
 const semanticController = shallowRef<SemanticChartController | null>(null)
 
@@ -343,64 +338,8 @@ kWidth.value = zoomLevelToKWidth(initZoom, {
 })
 kGap.value = kGapFromKWidth(kWidth.value, viewportDpr.value)
 
-/* ========== 主题状态 ========== */
-const chartTheme = ref<'light' | 'dark'>('light')
-
-const chartSettings = ref<ChartSettings>({})
-
-const tooltipColors = computed(() => {
-  const isAsiaMarket = chartSettings.value.isAsiaMarket ?? false
-  const colors = resolveThemeColors(chartTheme.value, isAsiaMarket as boolean | undefined)
-  return {
-    upColor: colors.candleUpBody,
-    downColor: colors.candleDownBody,
-  }
-})
-
-const themeCssVars = computed(() => {
-  const theme = chartTheme.value === 'dark' ? darkTheme : lightTheme
-  const overrides = (chartSettings.value.colorPresetSettings as ColorPresetSettings | undefined)?.[
-    chartTheme.value
-  ]
-  if (overrides && Object.keys(overrides).length > 0) {
-    return themeToCssVars({ ...theme, colors: { ...theme.colors, ...overrides } })
-  }
-  return themeToCssVars(theme)
-})
-
-/* ========== 主题切换（支持 light / dark / auto 跟随系统） ========== */
-let autoThemeMediaQuery: MediaQueryList | null = null
-
-function onSystemThemeChange(e: MediaQueryListEvent) {
-  controller.value?.setTheme(e.matches ? 'dark' : 'light')
-}
-
-function applyThemeFromSettings(ctrl: ChartController | null, themeSetting: string | undefined) {
-  if (!ctrl || !themeSetting) return
-
-  if (themeSetting === 'auto') {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    ctrl.setTheme(mq.matches ? 'dark' : 'light')
-    if (autoThemeMediaQuery !== mq) {
-      autoThemeMediaQuery?.removeEventListener('change', onSystemThemeChange)
-      autoThemeMediaQuery = mq
-      mq.addEventListener('change', onSystemThemeChange)
-    }
-  } else {
-    autoThemeMediaQuery?.removeEventListener('change', onSystemThemeChange)
-    autoThemeMediaQuery = null
-    ctrl.setTheme(themeSetting as 'light' | 'dark')
-  }
-}
-
 function scheduleRender() {
   /* Controller auto-renders on state changes */
-}
-
-function handleSettingsChange(settings: ChartSettings) {
-  chartSettings.value = settings
-  applyThemeFromSettings(controller.value, settings.theme as string)
-  controller.value?.updateSettingsFacade(settings)
 }
 
 function measureTooltipSize(el: HTMLDivElement, minWidth: number, minHeight: number) {
@@ -1040,14 +979,13 @@ function setupChartCallbacks(ctrl: ChartController): void {
     unsubscribeSubPanes()
     unsubscribeComparisonColors()
     unsubscribeComparisonLoading()
-    autoThemeMediaQuery?.removeEventListener('change', onSystemThemeChange)
   })
 }
 
 function applyInitialSettings(ctrl: ChartController): void {
   const initialSettings = toolbarRef.value?.getSettings() ?? { showVolumePriceMarkers: true }
   chartSettings.value = initialSettings
-  applyThemeFromSettings(ctrl, initialSettings.theme as string)
+  applyThemeFromSettings(initialSettings.theme as string)
   ctrl.updateSettingsFacade(initialSettings)
 }
 
