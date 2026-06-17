@@ -143,16 +143,14 @@ import {
   createChartController,
   type ChartController,
   type InteractionSnapshot,
-  type DrawingToolId,
   type KLineData,
   type SymbolSpec,
   zoomLevelToKWidth,
   kGapFromKWidth,
-  DrawingInteractionController,
 } from '@363045841yyt/klinechart-core/controllers'
-import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
 import { useChartTheme } from '../composables/chart/useChartTheme'
 import { useIndicatorManager } from '../composables/chart/useIndicatorManager'
+import { useDrawingManager } from '../composables/chart/useDrawingManager'
 import { SETTINGS_STORAGE_KEY } from '@363045841yyt/klinechart-core/config'
 import LeftToolbar from './LeftToolbar.vue'
 import TopToolbar, { type SymbolItem } from './TopToolbar.vue'
@@ -317,8 +315,6 @@ const kWidth = ref(0)
 const kGap = ref(1)
 const viewWidth = ref(0)
 const paneRatios = ref<Record<string, number>>({})
-const selectedDrawingId = ref<string | null>(null)
-const drawings = ref<DrawingObject[]>([])
 const comparisonColorsMap = ref<Map<string, string>>(new Map())
 const comparisonLoading = ref(false)
 
@@ -331,6 +327,12 @@ const {
   handleIndicatorToggle, handleUpdateParams, handleReorderSubIndicators,
   setupIndicatorSubscriptions,
 } = useIndicatorManager(controller, paneRatios)
+
+const {
+  drawingController, selectedDrawingId, selectedDrawing, drawings,
+  handleSelectTool, onUpdateDrawingStyle, onDeleteDrawing,
+  setupDrawing,
+} = useDrawingManager(controller)
 
 // 初始化 kWidth / kGap（与 Chart 引擎 zoom→物理值 转换一致）
 const initZoom = zoomLevel.value
@@ -405,12 +407,6 @@ const interactionState = shallowRef<InteractionSnapshot>({
   isHoveringRightAxis: false,
 })
 
-const drawingController = shallowRef<DrawingInteractionController | null>(null)
-const selectedDrawing = computed(() => {
-  const id = selectedDrawingId.value
-  if (!id) return null
-  return drawings.value.find((d) => d.id === id) ?? null
-})
 const paneSeparatorLines = ref<Array<{ id: string; top: number }>>([])
 const markerTooltipSize = ref({ width: 220, height: 120 })
 const tooltipLayerOffset = computed(() => {
@@ -488,26 +484,8 @@ const chartData = computed(() => {
 })
 
 // 通知数据变化（在数据更新后调用）
-function handleSelectTool(toolId: string) {
-  drawingController.value?.setTool(toolId as DrawingToolId)
-}
-
 function onToggleIndicator() {
   indicatorSelectorRef.value?.toggleMenu()
-}
-
-function onUpdateDrawingStyle(style: Partial<DrawingStyle>) {
-  const d = selectedDrawing.value
-  if (!d || !drawingController.value) return
-  drawingController.value.updateDrawingStyle(d.id, style)
-  drawings.value = drawingController.value.getDrawings()
-}
-
-function onDeleteDrawing() {
-  const d = selectedDrawing.value
-  if (!d || !drawingController.value) return
-  drawingController.value.removeDrawing(d.id)
-  drawings.value = drawingController.value.getDrawings()
 }
 
 function onPointerDown(e: PointerEvent) {
@@ -727,20 +705,6 @@ function applyInitialSettings(ctrl: ChartController): void {
   ctrl.updateSettingsFacade(initialSettings)
 }
 
-function setupDrawingController(ctrl: ChartController): void {
-  drawingController.value = new DrawingInteractionController(ctrl)
-  drawingController.value.setCallbacks({
-    onDrawingCreated: (drawing) => {
-      drawings.value = [...drawings.value, drawing]
-      selectedDrawingId.value = drawing.id
-    },
-    onToolChange: () => {},
-    onDrawingSelected: (drawing) => {
-      selectedDrawingId.value = drawing?.id ?? null
-    },
-  })
-}
-
 function setupInteractionCallbacks(ctrl: ChartController): void {
   ctrl.setTooltipAnchorPositioning(useAnchorPositioning.value)
   ctrl.interactionState.subscribe(() => {
@@ -803,7 +767,7 @@ onMounted(async () => {
   applyInitialSettings(ctrl)
 
   // 5) 绘图交互控制器
-  setupDrawingController(ctrl)
+  setupDrawing(ctrl)
 
   // 6) 交互信号桥接
   setupInteractionCallbacks(ctrl)
