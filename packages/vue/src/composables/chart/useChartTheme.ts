@@ -1,3 +1,8 @@
+/**
+ * Manages chart theme state (light/dark), computed CSS vars for theming,
+ * tooltip up/down colors, and auto theme detection via prefers-color-scheme.
+ * Handles settings persistence through ChartController.updateSettingsFacade.
+ */
 import { ref, computed, onUnmounted } from 'vue'
 import type { Ref } from 'vue'
 import {

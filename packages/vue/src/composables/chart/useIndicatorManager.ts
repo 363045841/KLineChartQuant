@@ -1,3 +1,9 @@
+/**
+ * Manages indicator state for both main-pane and sub-pane indicators.
+ * Provides pane layout construction, default param resolution,
+ * indicator toggle/update/reorder logic, and bridges signal subscriptions
+ * (ctrl.indicators, ctrl.subPanes) to Vue reactive refs.
+ */
 import { ref, computed, type Ref } from 'vue'
 import type {
   ChartController,

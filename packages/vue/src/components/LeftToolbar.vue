@@ -139,6 +139,7 @@ import IconTablerShape from '~icons/tabler/shape'
 import IconTablerChartDots3 from '~icons/tabler/chart-dots-3'
 import IconTablerCaretUpDown from '~icons/tabler/caret-up-down'
 import IconTablerBrackets from '~icons/tabler/brackets'
+import IconTablerArrowsHorizontal from '~icons/tabler/arrows-horizontal'
 import {
   DEFAULT_SETTINGS,
   SETTINGS_STORAGE_KEY,
@@ -181,6 +182,7 @@ const primaryTools: ToolDef[] = [
       { id: 'disjoint-channel', title: '不相交通道', icon: IconTablerBrackets },
     ],
   },
+  { id: 'range-select', title: '区间选择', icon: IconTablerArrowsHorizontal },
 ]
 
 defineProps<{

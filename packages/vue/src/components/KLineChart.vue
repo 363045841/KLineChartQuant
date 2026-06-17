@@ -289,7 +289,9 @@ function forcePercentAxis() {
   controller.value?.updateSettingsFacade(nextSettings)
   try {
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(nextSettings))
-  } catch { /* quota exceeded */ }
+  } catch {
+    /* quota exceeded */
+  }
 }
 
 // ── DOM Template Refs ──
@@ -304,11 +306,18 @@ provideFullscreenTeleportTarget(chartWrapperRef)
 // ── Controller & Composable Wiring ──
 const controller = shallowRef<ChartController | null>(null)
 
-const { chartTheme, chartSettings, tooltipColors, themeCssVars, handleSettingsChange, applyThemeFromSettings } = useChartTheme(controller)
+const {
+  chartTheme,
+  chartSettings,
+  tooltipColors,
+  themeCssVars,
+  handleSettingsChange,
+  applyThemeFromSettings,
+} = useChartTheme(controller)
 
 const semanticController = shallowRef<SemanticChartController | null>(null)
 
-/* ========== 本地响应式状态（信号驱动，取代 ChartStore） ========== */
+/* ========== 本地响应式状态 ========== */
 const dataLength = ref(0)
 const dataVersion = ref(0)
 const viewportDpr = ref(1)
@@ -321,18 +330,33 @@ const comparisonColorsMap = ref<Map<string, string>>(new Map())
 const comparisonLoading = ref(false)
 
 const {
-  mainActiveIndicators, subActiveIndicators, activeIndicators,
-  indicatorParams, subPanes,
-  buildPaneLayoutIntent, getDefaultParams, isSubPaneIndicator,
-  addSubPane, removeSubPane, clearAllSubPanes,
-  initIndicatorsFromConfig, switchSubIndicator,
-  handleIndicatorToggle, handleUpdateParams, handleReorderSubIndicators,
+  mainActiveIndicators,
+  subActiveIndicators,
+  activeIndicators,
+  indicatorParams,
+  subPanes,
+  buildPaneLayoutIntent,
+  getDefaultParams,
+  isSubPaneIndicator,
+  addSubPane,
+  removeSubPane,
+  clearAllSubPanes,
+  initIndicatorsFromConfig,
+  switchSubIndicator,
+  handleIndicatorToggle,
+  handleUpdateParams,
+  handleReorderSubIndicators,
   setupIndicatorSubscriptions,
 } = useIndicatorManager(controller, paneRatios)
 
 const {
-  drawingController, selectedDrawingId, selectedDrawing, drawings,
-  handleSelectTool, onUpdateDrawingStyle, onDeleteDrawing,
+  drawingController,
+  selectedDrawingId,
+  selectedDrawing,
+  drawings,
+  handleSelectTool,
+  onUpdateDrawingStyle,
+  onDeleteDrawing,
   setupDrawing,
 } = useDrawingManager(controller)
 
@@ -557,8 +581,6 @@ function onRightAxisPointerLeave(e: PointerEvent) {
 function onScroll() {
   controller.value?.handleScrollEvent()
 }
-
-
 
 // ── Width / Zoom / Expose ──
 const axisHostWidth = computed(() => props.rightAxisWidth + props.priceLabelWidth)

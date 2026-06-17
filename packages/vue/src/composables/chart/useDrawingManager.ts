@@ -1,3 +1,9 @@
+/**
+ * Manages drawing interaction state (selected drawing, drawings list),
+ * tool activation, style updates, and deletion.
+ * Provides setupDrawing() to initialize DrawingInteractionController
+ * with lifecycle callbacks that sync back to Vue refs.
+ */
 import { ref, computed, shallowRef, type Ref } from 'vue'
 import {
   DrawingInteractionController,
