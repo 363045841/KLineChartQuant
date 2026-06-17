@@ -155,6 +155,7 @@ import { SETTINGS_STORAGE_KEY } from '@363045841yyt/klinechart-core/config'
 import LeftToolbar from './LeftToolbar.vue'
 import TopToolbar, { type SymbolItem } from './TopToolbar.vue'
 
+// ── Props & Emits ──
 const props = withDefaults(
   defineProps<{
     /** 语义化配置（可选，唯一控制源） */
@@ -216,6 +217,7 @@ const emit = defineEmits<{
   (e: 'kLineAdjustChange', adjust: 'qfq' | 'hfq' | 'splits' | 'none'): void
 }>()
 
+// ── Symbol / Comparison State ──
 const kLineLevel = ref(props.semanticConfig?.data?.period ?? 'daily')
 const kLineAdjust = ref(props.semanticConfig?.data?.adjust ?? 'none')
 const isIntraday = computed(() => kLineLevel.value.includes('min'))
@@ -290,6 +292,7 @@ function forcePercentAxis() {
   } catch { /* quota exceeded */ }
 }
 
+// ── DOM Template Refs ──
 const containerRef = ref<HTMLDivElement | null>(null)
 const chartMainRef = ref<HTMLDivElement | null>(null)
 const chartWrapperRef = ref<HTMLDivElement | null>(null)
@@ -298,12 +301,11 @@ const toolbarRef = ref<InstanceType<typeof LeftToolbar> | null>(null)
 const indicatorSelectorRef = ref<InstanceType<typeof IndicatorSelector> | null>(null)
 provideFullscreenTeleportTarget(chartWrapperRef)
 
-/* ========== 图表控制器 ========== */
+// ── Controller & Composable Wiring ──
 const controller = shallowRef<ChartController | null>(null)
 
 const { chartTheme, chartSettings, tooltipColors, themeCssVars, handleSettingsChange, applyThemeFromSettings } = useChartTheme(controller)
 
-/* ========== 语义化控制器 ========== */
 const semanticController = shallowRef<SemanticChartController | null>(null)
 
 /* ========== 本地响应式状态（信号驱动，取代 ChartStore） ========== */
@@ -334,6 +336,7 @@ const {
   setupDrawing,
 } = useDrawingManager(controller)
 
+// ── Viewport Initial Values ──
 // 初始化 kWidth / kGap（与 Chart 引擎 zoom→物理值 转换一致）
 const initZoom = zoomLevel.value
 kWidth.value = zoomLevelToKWidth(initZoom, {
@@ -344,10 +347,12 @@ kWidth.value = zoomLevelToKWidth(initZoom, {
 })
 kGap.value = kGapFromKWidth(kWidth.value, viewportDpr.value)
 
+// ── No-op Render Trigger (exposed) ──
 function scheduleRender() {
   /* Controller auto-renders on state changes */
 }
 
+// ── Tooltip Measurement ──
 function measureTooltipSize(el: HTMLDivElement, minWidth: number, minHeight: number) {
   const r = el.getBoundingClientRect()
   return {
@@ -373,11 +378,10 @@ function setMarkerTooltipEl(el: HTMLDivElement | null) {
   })
 }
 
-// ===== Marker tooltip 状态 =====
+// ── Marker Tooltip & Container Rect Cache ──
 const mousePos = ref({ x: 0, y: 0 })
 const useAnchorPositioning = ref(false)
 
-// 容器 rect 缓存，避免 pointermove 中反复 getBoundingClientRect 强制同步布局
 let _cachedContainerRect: DOMRect | null = null
 function invalidateContainerRectCache(): void {
   _cachedContainerRect = null
@@ -389,7 +393,7 @@ function getContainerRect(container: HTMLDivElement): DOMRect {
   return _cachedContainerRect
 }
 
-// ===== 交互状态（单一来源：InteractionController snapshot） =====
+// ── Interaction State Bridge ──
 const interactionState = shallowRef<InteractionSnapshot>({
   crosshairPos: null,
   crosshairIndex: null,
@@ -429,7 +433,7 @@ const isHoveringRightAxis = computed(() => interactionState.value.isHoveringRigh
 const hoveredIdx = computed(() => interactionState.value.hoveredIndex)
 const crosshairIdx = computed(() => interactionState.value.crosshairIndex)
 
-// 统一光标样式：用内联 style 替代 CSS 类后代选择器，切断级联失效链
+// ── Derived Computed (Cursor, Hovered, Tooltip) ──
 const containerCursor = computed(() => {
   if (isDragging.value) return 'grabbing'
   if (isResizingPane.value || isHoveringPaneSeparator.value) return 'ns-resize'
@@ -483,7 +487,7 @@ const chartData = computed(() => {
   return controller.value?.getData() ?? []
 })
 
-// 通知数据变化（在数据更新后调用）
+// ── Pointer Event Handlers ──
 function onToggleIndicator() {
   indicatorSelectorRef.value?.toggleMenu()
 }
@@ -556,7 +560,7 @@ function onScroll() {
 
 
 
-/* 计算总宽度：从 Vue 响应式状态读取，zoom 变化时自动重算 */
+// ── Width / Zoom / Expose ──
 const axisHostWidth = computed(() => props.rightAxisWidth + props.priceLabelWidth)
 
 const totalWidth = computed(() => {
@@ -586,7 +590,7 @@ defineExpose({
   getController: () => controller.value,
 })
 
-// ==================== onMounted 拆分函数 ====================
+// ── Lifecycle Setup ──
 
 function setupWheelHandler(): (e: WheelEvent) => void {
   const onWheelHandler = (e: WheelEvent) => {
@@ -736,6 +740,7 @@ function setupSemanticController(ctrl: ChartController): void {
   // })
 }
 
+// ── onMounted ──
 onMounted(async () => {
   useAnchorPositioning.value = false
 
@@ -776,6 +781,7 @@ onMounted(async () => {
   setupSemanticController(ctrl)
 })
 
+// ── onUnmounted & Watchers ──
 onUnmounted(() => {
   const ctrl = controller.value
   if (ctrl) {
