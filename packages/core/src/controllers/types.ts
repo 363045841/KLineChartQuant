@@ -268,6 +268,8 @@ export interface ChartController extends DrawingChartAdapter {
     updateData(next: ReadonlyArray<KLineData>): void
     getData(): ReadonlyArray<KLineData>
     getZoomLevelCount(): number
+    /** Request data for dates earlier than the currently loaded window */
+    ensureDataRange(startTs: number): void
 
     // ---- Theme ----
     setTheme(theme: 'light' | 'dark'): void

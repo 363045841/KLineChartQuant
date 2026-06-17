@@ -190,7 +190,7 @@ describe('DataBuffer', () => {
         })
 
         buffer.ensureRange(oneYearAgo - 30 * MS_PER_DAY, oneYearAgo)
-        buffer.ensureRange(oneYearAgo - 60 * MS_PER_DAY, oneYearAgo)
+        buffer.ensureRange(oneYearAgo - 120 * MS_PER_DAY, oneYearAgo)
 
         await vi.waitFor(() => {
             expect(buffer.loading()).toBe(false)

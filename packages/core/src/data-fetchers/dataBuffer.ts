@@ -97,15 +97,12 @@ export class DataBuffer {
 
         if (requestStartTs >= this._loadedWindow.earliestTs) return
 
-        const incrementalStart = requestStartTs - INCREMENTAL_LOAD_DAYS * MS_PER_DAY
         const incrementalEnd = this._loadedWindow.earliestTs
-
-        if (incrementalEnd <= incrementalStart) return
 
         if (this._attemptedBoundaries.has(incrementalEnd)) return
 
         this._attemptedBoundaries.add(incrementalEnd)
-        this.fetchRange(incrementalStart, incrementalEnd)
+        this.fetchRange(requestStartTs, incrementalEnd)
     }
 
     private loadInitial(): void {

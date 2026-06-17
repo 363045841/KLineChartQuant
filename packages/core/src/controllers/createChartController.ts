@@ -535,6 +535,14 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
         chart.setDataFetcher(fetcher)
     }
 
+    function ensureDataRange(startTs: number): void {
+        if (disposed) return
+        const buf = chart.dataBuffer
+        const win = buf.loadedWindow
+        if (!win || startTs >= win.earliestTs) return
+        buf.ensureRange(startTs, win.earliestTs)
+    }
+
     function appendData(next: ReadonlyArray<KLineData>): void {
         if (disposed) return
         const current = data.peek()
@@ -852,6 +860,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
         addComparisonSymbol,
         removeComparisonSymbol,
         setDataFetcher,
+        ensureDataRange,
         setData,
         appendData,
         updateData: setData,

@@ -38,6 +38,13 @@ function toCsvCell(value: unknown): string {
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
 }
 
+function parseDateToTimestamp(input: string): number | null {
+  const normalized = normalizeDateInput(input)
+  if (!normalized) return null
+  const d = new Date(normalized)
+  return isNaN(d.getTime()) ? null : d.getTime()
+}
+
 export function useRangeSelection(options: {
   controller: Ref<ChartController | null>
   activeToolId: Ref<string>
@@ -139,24 +146,40 @@ export function useRangeSelection(options: {
   }
 
   watch(customStartDate, (val) => {
+    const data = controller.value?.getData() ?? []
     const idx = getIndexByDate(val)
-    if (idx !== null) {
-      const data = controller.value?.getData() ?? []
-      const ts = data[idx]?.timestamp
-      if (ts !== undefined) {
-        rangeSelection.value = { ...rangeSelection.value, startTimestamp: ts, isDragging: false }
+    if (idx !== null && data[idx]) {
+      rangeSelection.value = {
+        ...rangeSelection.value,
+        startTimestamp: data[idx]!.timestamp,
+        isDragging: false,
       }
+      return
+    }
+    const targetTs = parseDateToTimestamp(val)
+    if (targetTs === null || data.length === 0) return
+    if (targetTs < data[0]!.timestamp) {
+      rangeSelection.value = { ...rangeSelection.value, startTimestamp: targetTs, isDragging: false }
+      controller.value?.ensureDataRange(targetTs)
     }
   })
 
   watch(customEndDate, (val) => {
+    const data = controller.value?.getData() ?? []
     const idx = getIndexByDate(val)
-    if (idx !== null) {
-      const data = controller.value?.getData() ?? []
-      const ts = data[idx]?.timestamp
-      if (ts !== undefined) {
-        rangeSelection.value = { ...rangeSelection.value, endTimestamp: ts, isDragging: false }
+    if (idx !== null && data[idx]) {
+      rangeSelection.value = {
+        ...rangeSelection.value,
+        endTimestamp: data[idx]!.timestamp,
+        isDragging: false,
       }
+      return
+    }
+    const targetTs = parseDateToTimestamp(val)
+    if (targetTs === null || data.length === 0) return
+    if (targetTs < data[0]!.timestamp) {
+      rangeSelection.value = { ...rangeSelection.value, endTimestamp: targetTs, isDragging: false }
+      controller.value?.ensureDataRange(targetTs)
     }
   })
 
