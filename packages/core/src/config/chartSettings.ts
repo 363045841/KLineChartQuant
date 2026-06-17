@@ -50,19 +50,23 @@ const ENABLE_WEBGL_DEFAULT = getDeviceType() === 'desktop'
 export const DEFAULT_SETTINGS = [
   { key: 'showGridLines', label: '显示网格', type: 'boolean', default: true, group: 'main' },
   { key: 'showVolumePriceMarkers', label: '显示量价关系标记', type: 'boolean', default: false, group: 'main' },
-  { key: 'axisType', label: '轴类型', type: 'select', default: 'linear', group: 'main', options: [
-    { value: 'linear', label: '常规轴' },
-    { value: 'log', label: '对数轴' },
-    { value: 'percent', label: '百分比轴' },
-  ] },
+  {
+    key: 'axisType', label: '轴类型', type: 'select', default: 'linear', group: 'main', options: [
+      { value: 'linear', label: '常规轴' },
+      { value: 'log', label: '对数轴' },
+      { value: 'percent', label: '百分比轴' },
+    ]
+  },
   { key: 'disableMainPaneVerticalScroll', label: '主图纵轴刻度自适应调整', type: 'boolean', default: true, group: 'main' },
   { key: 'isAsiaMarket', label: '亚洲市场颜色（红涨绿跌）', type: 'boolean', default: false, group: 'style' },
   { key: 'enableWebGLRendering', label: '启用 WebGL 硬件加速渲染', type: 'boolean', default: ENABLE_WEBGL_DEFAULT, group: 'main' },
-  { key: 'theme', label: '主题', type: 'select', default: 'light', group: 'main', options: [
-    { value: 'light', label: '浅色' },
-    { value: 'dark', label: '深色' },
-    { value: 'auto', label: '跟随系统' },
-  ] },
+  {
+    key: 'theme', label: '主题', type: 'select', default: 'dark', group: 'main', options: [
+      { value: 'light', label: '浅色' },
+      { value: 'dark', label: '深色' },
+      { value: 'auto', label: '跟随系统' },
+    ]
+  },
   { key: 'enableCanvasProfiler', label: 'Canvas 性能分析插桩', type: 'boolean', default: false, group: 'experimental' },
 ] as const
 

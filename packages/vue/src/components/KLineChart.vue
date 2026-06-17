@@ -66,21 +66,6 @@
                 @update-style="onUpdateDrawingStyle"
                 @delete="onDeleteDrawing"
               />
-            </div>
-            <div
-              v-if="rangeSelectionOverlayStyle"
-              class="range-selection-overlay"
-              :class="{ 'is-dragging': rangeSelection.isDragging }"
-              :style="rangeSelectionOverlayStyle"
-              aria-label="已选择的 K 线区间"
-            >
-              <div
-                v-if="rangeSelectionReady"
-                class="range-selection-handle range-selection-handle--left"
-                @pointerdown.stop="onEdgePointerDown('left', $event)"
-                @pointermove.stop="onEdgePointerMove($event)"
-                @pointerup.stop="onEdgePointerUp($event)"
-              />
               <div
                 v-if="rangeSelectionReady"
                 class="range-selection-export"
@@ -108,6 +93,21 @@
                   导出
                 </button>
               </div>
+            </div>
+            <div
+              v-if="rangeSelectionOverlayStyle"
+              class="range-selection-overlay"
+              :class="{ 'is-dragging': rangeSelection.isDragging }"
+              :style="rangeSelectionOverlayStyle"
+              aria-label="已选择的 K 线区间"
+            >
+              <div
+                v-if="rangeSelectionReady"
+                class="range-selection-handle range-selection-handle--left"
+                @pointerdown.stop="onEdgePointerDown('left', $event)"
+                @pointermove.stop="onEdgePointerMove($event)"
+                @pointerup.stop="onEdgePointerUp($event)"
+              />
               <div
                 v-if="rangeSelectionReady"
                 class="range-selection-handle range-selection-handle--right"
@@ -434,6 +434,7 @@ const {
   controller,
   activeToolId,
   containerRef,
+  dataVersion,
 })
 
 // ── Viewport Initial Values ──
@@ -786,7 +787,6 @@ function setupChartCallbacks(ctrl: ChartController): void {
     const data = ctrl.data.peek()
     dataLength.value = data.length
     dataVersion.value++
-    clearRangeSelection()
     symbolError.value = data.length === 0
   })
 
