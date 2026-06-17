@@ -245,7 +245,7 @@ onBeforeUnmount(close)
 }
 
 .dropdown__menu {
-  z-index: 30;
+  z-index: 1010;
   padding: 4px;
   border: 1px solid var(--klc-color-border-button);
   border-radius: 4px;
