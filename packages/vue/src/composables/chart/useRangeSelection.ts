@@ -3,7 +3,10 @@ import { formatTimestamp } from '@363045841yyt/klinechart-core'
 import type { KLineData, ChartController } from '@363045841yyt/klinechart-core/controllers'
 import { calcRangeOverlayPixel } from '../../tools/calcRangeOverlayPixel'
 import type { Bounds } from '../../tools/calcRangeOverlayPixel'
-import { getKLineIndexByTimestamp } from '../../tools/getKLineIndexByTimestamp'
+import {
+  getKLineIndexByTimestamp,
+  findNearestKLineIndex,
+} from '../../tools/getKLineIndexByTimestamp'
 
 interface RangeSelectionState {
   startTimestamp: number | null
@@ -50,8 +53,9 @@ export function useRangeSelection(options: {
   activeToolId: Ref<string>
   containerRef: Ref<HTMLElement | null>
   dataVersion: Ref<number>
+  viewportVersion: Ref<number>
 }) {
-  const { controller, activeToolId, containerRef, dataVersion } = options
+  const { controller, activeToolId, containerRef, dataVersion, viewportVersion } = options
 
   const containerScrollLeft = ref(0)
   const customStartDate = ref('')
@@ -78,11 +82,11 @@ export function useRangeSelection(options: {
     const { startTimestamp, endTimestamp } = rangeSelection.value
     if (startTimestamp === null || endTimestamp === null || data.length === 0) return null
 
-    const start = getKLineIndexByTimestamp(data, startTimestamp)
-    const end = getKLineIndexByTimestamp(data, endTimestamp)
-    if (start === null || end === null) return null
+    const rawStart = findNearestKLineIndex(data, startTimestamp, 'left')
+    const rawEnd = findNearestKLineIndex(data, endTimestamp, 'right')
+    if (rawStart === null || rawEnd === null) return null
 
-    return { start: Math.min(start, end), end: Math.max(start, end) }
+    return { start: Math.min(rawStart, rawEnd), end: Math.max(rawStart, rawEnd) }
   })
 
   const rangeSelectionStartLabel: ComputedRef<string> = computed(() => {
@@ -104,6 +108,7 @@ export function useRangeSelection(options: {
     if (!bounds) return null
 
     void containerScrollLeft.value
+    void viewportVersion.value
 
     const ctrl = controller.value
     const viewport = ctrl?.getViewport()
@@ -124,61 +129,22 @@ export function useRangeSelection(options: {
     customEndDate.value = ''
   }
 
-  function getIndexByDate(dateStr: string): number | null {
-    const data = controller.value?.getData() ?? []
-    if (!data.length || !dateStr.trim()) return null
-    const trimmed = dateStr.trim()
-    const normalized = normalizeDateInput(trimmed)
-
-    for (let i = 0; i < data.length; i++) {
-      const item = data[i]
-      if (item.date === trimmed || (normalized !== null && item.date === normalized)) return i
-      if (!item.date) {
-        if (new Date(item.timestamp).toISOString().slice(0, 10) === trimmed) return i
-        if (
-          normalized !== null &&
-          new Date(item.timestamp).toISOString().slice(0, 10) === normalized
-        )
-          return i
-      }
-    }
-    return null
-  }
-
   watch(customStartDate, (val) => {
     const data = controller.value?.getData() ?? []
-    const idx = getIndexByDate(val)
-    if (idx !== null && data[idx]) {
-      rangeSelection.value = {
-        ...rangeSelection.value,
-        startTimestamp: data[idx]!.timestamp,
-        isDragging: false,
-      }
-      return
-    }
     const targetTs = parseDateToTimestamp(val)
     if (targetTs === null || data.length === 0) return
+    rangeSelection.value = { ...rangeSelection.value, startTimestamp: targetTs, isDragging: false }
     if (targetTs < data[0]!.timestamp) {
-      rangeSelection.value = { ...rangeSelection.value, startTimestamp: targetTs, isDragging: false }
       controller.value?.ensureDataRange(targetTs)
     }
   })
 
   watch(customEndDate, (val) => {
     const data = controller.value?.getData() ?? []
-    const idx = getIndexByDate(val)
-    if (idx !== null && data[idx]) {
-      rangeSelection.value = {
-        ...rangeSelection.value,
-        endTimestamp: data[idx]!.timestamp,
-        isDragging: false,
-      }
-      return
-    }
     const targetTs = parseDateToTimestamp(val)
     if (targetTs === null || data.length === 0) return
+    rangeSelection.value = { ...rangeSelection.value, endTimestamp: targetTs, isDragging: false }
     if (targetTs < data[0]!.timestamp) {
-      rangeSelection.value = { ...rangeSelection.value, endTimestamp: targetTs, isDragging: false }
       controller.value?.ensureDataRange(targetTs)
     }
   })
@@ -361,6 +327,11 @@ export function useRangeSelection(options: {
     if (cont) containerScrollLeft.value = cont.scrollLeft
   }
 
+  function syncScrollLeft() {
+    const cont = containerRef.value
+    if (cont) containerScrollLeft.value = cont.scrollLeft
+  }
+
   return {
     rangeSelection,
     customStartDate,
@@ -381,5 +352,6 @@ export function useRangeSelection(options: {
     onEdgePointerMove,
     onEdgePointerUp,
     onScroll,
+    syncScrollLeft,
   }
 }

@@ -348,7 +348,7 @@ export class ChartDataManager {
     let firstVisibleTs: number | undefined
 
     if (range.start < 0 && this._dataFetcher) {
-      const earlierThanEarliest = window.earliestTs - 90 * MS_PER_DAY
+      const earlierThanEarliest = window.earliestTs - 365 * MS_PER_DAY
       this._dataBuffer.ensureRange(earlierThanEarliest, window.earliestTs)
       firstVisibleTs = this._internalData[0]?.timestamp
     } else if (range.start < this._internalData.length) {

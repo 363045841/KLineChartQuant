@@ -369,6 +369,7 @@ const semanticController = shallowRef<SemanticChartController | null>(null)
 /* ========== 本地响应式状态 ========== */
 const dataLength = ref(0)
 const dataVersion = ref(0)
+const viewportVersion = ref(0)
 const viewportDpr = ref(1)
 const zoomLevel = ref(props.initialZoomLevel ?? 1)
 const kWidth = ref(0)
@@ -425,16 +426,18 @@ const {
   handleRangePointerDown,
   handleRangePointerMove,
   handleRangePointerUp,
+  exportRangeToCsv,
   onEdgePointerDown,
   onEdgePointerMove,
   onEdgePointerUp,
-  exportRangeToCsv,
   onScroll: onRangeScroll,
+  syncScrollLeft: syncRangeScrollLeft,
 } = useRangeSelection({
   controller,
   activeToolId,
   containerRef,
   dataVersion,
+  viewportVersion,
 })
 
 // ── Viewport Initial Values ──
@@ -770,6 +773,8 @@ function setupChartCallbacks(ctrl: ChartController): void {
   const unsubscribeViewport = ctrl.viewport.subscribe(() => {
     const vp = ctrl.viewport.peek()
 
+    viewportVersion.value++
+
     if (viewportDpr.value !== vp.dpr) {
       viewportDpr.value = vp.dpr
     }
@@ -781,6 +786,12 @@ function setupChartCallbacks(ctrl: ChartController): void {
       kWidth.value = vp.kWidth
       kGap.value = vp.kGap
     }
+
+    nextTick(() => {
+      requestAnimationFrame(() => {
+        syncRangeScrollLeft()
+      })
+    })
   })
 
   const unsubscribeData = ctrl.data.subscribe(() => {
