@@ -87,10 +87,30 @@
                 <button
                   type="button"
                   class="toolbar-btn"
+                  title="批量设置"
+                  @click.stop="showBatchStockDialog = true"
+                >
+                  批量设置
+                </button>
+                <button
+                  type="button"
+                  class="toolbar-btn"
                   title="导出"
                   @click.stop="exportRangeToCsv"
                 >
                   导出
+                </button>
+                <button
+                  type="button"
+                  class="toolbar-btn delete-btn"
+                  title="删除选区"
+                  @click.stop="clearRangeSelection"
+                >
+                  <svg class="delete-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 6h18" />
+                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                  </svg>
                 </button>
               </div>
             </div>
@@ -165,6 +185,12 @@
         ></div>
       </div>
     </div>
+    <ExportProgressDialog :progress="exportingProgress" @close="exportingProgress = null" />
+    <BatchStockDialog
+      :show="showBatchStockDialog"
+      @close="showBatchStockDialog = false"
+      @apply="onBatchApply"
+    />
     <IndicatorSelector
       ref="indicatorSelectorRef"
       :active-indicators="activeIndicators"
@@ -203,6 +229,8 @@ import { SETTINGS_STORAGE_KEY } from '@363045841yyt/klinechart-core/config'
 import { useRangeSelection } from '../composables/chart/useRangeSelection'
 import LeftToolbar from './LeftToolbar.vue'
 import TopToolbar, { type SymbolItem } from './TopToolbar.vue'
+import BatchStockDialog from './BatchStockDialog.vue'
+import ExportProgressDialog from './ExportProgressDialog.vue'
 
 // ── Props & Emits ──
 const props = withDefaults(
@@ -369,6 +397,8 @@ const semanticController = shallowRef<SemanticChartController | null>(null)
 /* ========== 本地响应式状态 ========== */
 const dataLength = ref(0)
 const dataVersion = ref(0)
+const showBatchStockDialog = ref(false)
+const batchStockCodes = ref<string[]>([])
 const viewportVersion = ref(0)
 const viewportDpr = ref(1)
 const zoomLevel = ref(props.initialZoomLevel ?? 1)
@@ -427,6 +457,7 @@ const {
   handleRangePointerMove,
   handleRangePointerUp,
   exportRangeToCsv,
+  exportingProgress,
   onEdgePointerDown,
   onEdgePointerMove,
   onEdgePointerUp,
@@ -438,6 +469,8 @@ const {
   containerRef,
   dataVersion,
   viewportVersion,
+  dataFetcher: computed(() => props.dataFetcher),
+  batchStockCodes,
 })
 
 // ── Viewport Initial Values ──
@@ -594,6 +627,10 @@ const chartData = computed(() => {
 // ── Pointer Event Handlers ──
 function onToggleIndicator() {
   indicatorSelectorRef.value?.toggleMenu()
+}
+
+function onBatchApply(codes: string[]) {
+  batchStockCodes.value = codes
 }
 
 function handleSelectTool(toolId: string) {
@@ -1157,6 +1194,23 @@ watch(
   border-color: var(--klc-color-axis-line);
   background: var(--klc-color-grid-minor);
   color: var(--klc-color-foreground);
+}
+
+.range-selection-export .toolbar-btn.delete-btn {
+  padding: 0;
+  width: 24px;
+  border-color: transparent;
+}
+
+.range-selection-export .toolbar-btn.delete-btn:hover {
+  color: #dc2626;
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.range-selection-export .delete-icon {
+  width: 14px;
+  height: 14px;
 }
 
 .range-selection-export__label {

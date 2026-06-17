@@ -42,6 +42,7 @@ interface SecurityBar {
   Turnover: number
   RisePrice: number
   RiseRate: number
+  Amplitude: number
   Year: number
   Month: number
   Day: number
@@ -76,6 +77,7 @@ function mapBar(item: SecurityBar, code: string): KLineData {
     turnoverRate: item.Turnover,
     changeAmount: item.RisePrice,
     changePercent: item.RiseRate,
+    amplitude: item.Amplitude,
     stockCode: code,
   }
 }

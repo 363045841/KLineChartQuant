@@ -1,6 +1,6 @@
 import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
 import { formatTimestamp } from '@363045841yyt/klinechart-core'
-import type { KLineData, ChartController } from '@363045841yyt/klinechart-core/controllers'
+import type { KLineData, ChartController, DataFetcher } from '@363045841yyt/klinechart-core/controllers'
 import { calcRangeOverlayPixel } from '../../tools/calcRangeOverlayPixel'
 import type { Bounds } from '../../tools/calcRangeOverlayPixel'
 import {
@@ -20,10 +20,12 @@ function fmtDate(item: KLineData | undefined): string {
   return new Date(item.timestamp).toISOString().slice(0, 10)
 }
 
-function formatRangeFileDate(item: KLineData | undefined): string {
-  if (!item) return 'unknown'
-  if (item.date) return item.date.replace(/[\\/:*?"<>|\s]+/g, '-')
-  return new Date(item.timestamp).toISOString().slice(0, 10)
+function toYYYYMMDD(ts: number): string {
+  const d = new Date(ts)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}${m}${day}`
 }
 
 function normalizeDateInput(input: string): string | null {
@@ -54,13 +56,16 @@ export function useRangeSelection(options: {
   containerRef: Ref<HTMLElement | null>
   dataVersion: Ref<number>
   viewportVersion: Ref<number>
+  dataFetcher: Ref<DataFetcher | null>
+  batchStockCodes: Ref<string[]>
 }) {
-  const { controller, activeToolId, containerRef, dataVersion, viewportVersion } = options
+  const { controller, activeToolId, containerRef, dataVersion, viewportVersion, dataFetcher, batchStockCodes } = options
 
   const containerScrollLeft = ref(0)
   const customStartDate = ref('')
   const customEndDate = ref('')
   const resizeSide = ref<'left' | 'right' | null>(null)
+  const exportingProgress = ref<{ current: number; total: number; label: string } | null>(null)
 
   const rangeSelection = ref<RangeSelectionState>({
     startTimestamp: null,
@@ -148,10 +153,6 @@ export function useRangeSelection(options: {
       controller.value?.ensureDataRange(targetTs)
     }
   })
-
-  function sanitizeLabel(label: string): string {
-    return label.replace(/[\\/:*?"<>|\s]+/g, '-')
-  }
 
   function getRangeSelectionIndex(e: PointerEvent, container: HTMLElement): number | null {
     const data = controller.value?.getData() ?? []
@@ -281,48 +282,106 @@ export function useRangeSelection(options: {
     resizeSide.value = null
   }
 
-  function exportRangeToCsv() {
-    const bounds = rangeSelectionBounds.value
-    const data = controller.value?.getData() ?? []
-    if (!bounds || data.length === 0) return
+  const CSV_FIELDS: Array<keyof KLineData> = [
+    'timestamp',
+    'open',
+    'high',
+    'low',
+    'close',
+    'volume',
+    'turnover',
+    'turnoverRate',
+    'amplitude',
+    'changePercent',
+    'changeAmount',
+  ]
 
-    const fields: Array<keyof KLineData> = [
-      'timestamp',
-      'open',
-      'high',
-      'low',
-      'close',
-      'volume',
-      'turnover',
-      'turnoverRate',
-      'stockCode',
-      'amplitude',
-      'changePercent',
-      'changeAmount',
-    ]
-    const selected = data.slice(bounds.start, bounds.end + 1)
-    const header = `time,${fields.join(',')}`
+  function downloadCsv(
+    items: ReadonlyArray<KLineData>,
+    prefix: string,
+    startTs: number,
+    endTs: number,
+  ) {
+    const header = `stockCode,time,${CSV_FIELDS.join(',')}`
     const rows = [
       header,
-      ...selected.map((item) => {
+      ...items.map((item) => {
         const timeStr = toCsvCell(formatTimestamp(item.timestamp, { showTime: true }))
-        return `${timeStr},${fields.map((field) => toCsvCell(item[field])).join(',')}`
+        const code = toCsvCell(item.stockCode ?? prefix)
+        return `${code},${timeStr},${CSV_FIELDS.map((field) => toCsvCell(item[field])).join(',')}`
       }),
     ]
     const blob = new Blob([`\uFEFF${rows.join('\n')}`], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    const startLabel = customStartDate.value || formatRangeFileDate(data[bounds.start])
-    const endLabel = customEndDate.value || formatRangeFileDate(data[bounds.end])
-    a.download = `kline-range-${sanitizeLabel(startLabel)}-${sanitizeLabel(endLabel)}.csv`
+    a.download = `${prefix}-${toYYYYMMDD(startTs)}-${toYYYYMMDD(endTs)}.csv`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
   }
 
-  function onScroll() {
+  async function exportRangeToCsv() {
+    const bounds = rangeSelectionBounds.value
+    const data = controller.value?.getData() ?? []
+    if (!bounds || data.length === 0) return
+
+    const startTs = data[bounds.start]!.timestamp
+    const endTs = data[bounds.end]!.timestamp
+    const mainStockCode = controller.value?.symbols.peek()?.[0]?.symbol ?? 'unknown'
+    const batchCodes = batchStockCodes.value
+    const total = 1 + batchCodes.length
+    const prefix = batchCodes.length > 0 ? `batch${total}` : mainStockCode
+
+    const allItems: KLineData[] = []
+
+    exportingProgress.value = { current: 0, total, label: '正在准备主品种数据...' }
+
+    // Main stock
+    for (const item of data.slice(bounds.start, bounds.end + 1)) {
+      allItems.push(item)
+    }
+    exportingProgress.value = { current: 1, total, label: '主品种数据已就绪' }
+
+    // Batch stocks (sequential)
+    const fetchFn = dataFetcher.value
+    if (fetchFn && batchCodes.length > 0) {
+      const spec = controller.value?.symbols.peek()?.[0]
+      const startDate = formatTimestamp(startTs)
+      const endDate = formatTimestamp(endTs)
+      const period = spec?.period ?? 'daily'
+      const adjust = spec?.adjust ?? 'none'
+      const exchange = spec?.exchange
+      const source = spec?.source ?? 'gotdx'
+
+      for (let i = 0; i < batchCodes.length; i++) {
+        const code = batchCodes[i]!
+        exportingProgress.value = { current: 1 + i, total, label: `正在获取 ${code}...` }
+        try {
+          const items = await fetchFn(source, {
+            symbol: code,
+            startDate,
+            endDate,
+            period,
+            adjust,
+            exchange,
+          })
+          for (const item of items) {
+            allItems.push(item)
+          }
+        } catch {
+          continue
+        }
+      }
+    }
+
+    exportingProgress.value = { current: total, total, label: '正在生成文件...' }
+    downloadCsv(allItems, prefix, startTs, endTs)
+    exportingProgress.value = { current: total, total, label: '导出完成' }
+  }
+
+    function onScroll() {
     const cont = containerRef.value
     if (cont) containerScrollLeft.value = cont.scrollLeft
   }
@@ -348,6 +407,7 @@ export function useRangeSelection(options: {
     handleRangePointerMove,
     handleRangePointerUp,
     exportRangeToCsv,
+    exportingProgress,
     onEdgePointerDown,
     onEdgePointerMove,
     onEdgePointerUp,
