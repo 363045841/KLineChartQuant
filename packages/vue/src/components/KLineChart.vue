@@ -67,6 +67,31 @@
                 @delete="onDeleteDrawing"
               />
             </div>
+            <div
+              v-if="rangeSelectionOverlayStyle"
+              class="range-selection-overlay"
+              :class="{ 'is-dragging': rangeSelection.isDragging }"
+              :style="rangeSelectionOverlayStyle"
+              aria-label="已选择的 K 线区间"
+            >
+              <div
+                v-if="rangeSelectionReady"
+                class="range-selection-export"
+                @pointerdown.stop
+                @pointermove.stop
+                @pointerup.stop
+              >
+                <span class="range-selection-export__label">{{ rangeSelectionDateLabel }}</span>
+                <button
+                  type="button"
+                  class="toolbar-btn"
+                  title="导出"
+                  @click.stop="exportRangeToCsv"
+                >
+                  导出
+                </button>
+              </div>
+            </div>
           </div>
         </div>
         <Teleport v-if="tooltipLayerRef" :to="tooltipLayerRef">
@@ -143,7 +168,6 @@ import {
   createChartController,
   type ChartController,
   type InteractionSnapshot,
-  type KLineData,
   type SymbolSpec,
   zoomLevelToKWidth,
   kGapFromKWidth,
@@ -152,6 +176,7 @@ import { useChartTheme } from '../composables/chart/useChartTheme'
 import { useIndicatorManager } from '../composables/chart/useIndicatorManager'
 import { useDrawingManager } from '../composables/chart/useDrawingManager'
 import { SETTINGS_STORAGE_KEY } from '@363045841yyt/klinechart-core/config'
+import { useRangeSelection } from '../composables/chart/useRangeSelection'
 import LeftToolbar from './LeftToolbar.vue'
 import TopToolbar, { type SymbolItem } from './TopToolbar.vue'
 
@@ -328,6 +353,7 @@ const viewWidth = ref(0)
 const paneRatios = ref<Record<string, number>>({})
 const comparisonColorsMap = ref<Map<string, string>>(new Map())
 const comparisonLoading = ref(false)
+const activeToolId = ref('cursor')
 
 const {
   mainActiveIndicators,
@@ -354,11 +380,31 @@ const {
   selectedDrawingId,
   selectedDrawing,
   drawings,
-  handleSelectTool,
+  handleSelectTool: handleDrawingToolSelect,
   onUpdateDrawingStyle,
   onDeleteDrawing,
   setupDrawing,
 } = useDrawingManager(controller)
+
+const {
+  rangeSelection,
+  containerScrollLeft,
+  isRangeSelectActive,
+  rangeSelectionReady,
+  rangeSelectionBounds,
+  rangeSelectionDateLabel,
+  rangeSelectionOverlayStyle,
+  clearRangeSelection,
+  handleRangePointerDown,
+  handleRangePointerMove,
+  handleRangePointerUp,
+  exportRangeToCsv,
+  onScroll: onRangeScroll,
+} = useRangeSelection({
+  controller,
+  activeToolId,
+  containerRef,
+})
 
 // ── Viewport Initial Values ──
 // 初始化 kWidth / kGap（与 Chart 引擎 zoom→物理值 转换一致）
@@ -516,9 +562,24 @@ function onToggleIndicator() {
   indicatorSelectorRef.value?.toggleMenu()
 }
 
+function handleSelectTool(toolId: string) {
+  activeToolId.value = toolId
+  if (toolId === 'range-select') {
+    drawingController.value?.setTool('cursor')
+    selectedDrawingId.value = null
+    return
+  }
+
+  clearRangeSelection()
+  handleDrawingToolSelect(toolId)
+}
+
 function onPointerDown(e: PointerEvent) {
   controller.value?.handlePointerEvent(e, {
     onPointerDown: (event, container) => {
+      if (handleRangePointerDown(event, container)) {
+        return true
+      }
       if (drawingController.value?.onPointerDown(event, container)) {
         return true
       }
@@ -538,6 +599,9 @@ function onPointerMove(e: PointerEvent) {
   }
   controller.value?.handlePointerEvent(e, {
     onPointerMove: (event, container) => {
+      if (handleRangePointerMove(event, container)) {
+        return true
+      }
       if (drawingController.value?.onPointerMove(event, container)) {
         drawings.value = drawingController.value.getDrawings()
         return true
@@ -550,6 +614,9 @@ function onPointerMove(e: PointerEvent) {
 function onPointerUp(e: PointerEvent) {
   controller.value?.handlePointerEvent(e, {
     onPointerUp: (event, container) => {
+      if (handleRangePointerUp(event, container)) {
+        return true
+      }
       if (drawingController.value?.onPointerUp(event, container)) {
         return true
       }
@@ -579,6 +646,7 @@ function onRightAxisPointerLeave(e: PointerEvent) {
 }
 
 function onScroll() {
+  onRangeScroll()
   controller.value?.handleScrollEvent()
 }
 
@@ -688,6 +756,7 @@ function setupChartCallbacks(ctrl: ChartController): void {
     const data = ctrl.data.peek()
     dataLength.value = data.length
     dataVersion.value++
+    clearRangeSelection()
     symbolError.value = data.length === 0
   })
 
@@ -973,6 +1042,72 @@ watch(
   height: 100%;
   min-height: inherit;
   position: relative;
+}
+
+.range-selection-overlay {
+  position: absolute;
+  top: 0;
+  z-index: 25;
+  box-sizing: border-box;
+  border: 1px solid rgba(24, 144, 255, 0.75);
+  background: rgba(24, 144, 255, 0.14);
+  pointer-events: none;
+}
+
+.range-selection-overlay.is-dragging {
+  background: rgba(24, 144, 255, 0.2);
+}
+
+.range-selection-export {
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  height: 32px;
+  background: color-mix(in srgb, var(--klc-color-tag-bg-white) 88%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--klc-color-border-button);
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  z-index: 100;
+  user-select: none;
+  pointer-events: auto;
+}
+
+.range-selection-export .toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--klc-color-border-button);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--klc-color-axis-text);
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+  white-space: nowrap;
+}
+
+.range-selection-export .toolbar-btn:hover {
+  border-color: var(--klc-color-axis-line);
+  background: var(--klc-color-grid-minor);
+  color: var(--klc-color-foreground);
+}
+
+.range-selection-export__label {
+  color: var(--klc-color-axis-text);
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .canvas-layer {

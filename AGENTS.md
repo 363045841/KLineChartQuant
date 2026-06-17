@@ -66,6 +66,7 @@ pnpm stockbao
 - **Controller factory injection**: Vue package uses `__setControllerFactory(createChartController)` at import time. Tests override via `__setControllerFactory(null/mock)` in setup.
 - **Generated files**: `components.d.ts` (by `unplugin-vue-components` + `unplugin-icons`) — regenerated on dev server start.
 - **`vue-tsc` for type-checking**: not `tsc`. Runs against `tsconfig.app.json`.
+- **Vue SFC composable extraction**: always extract logic into composables (`useXxx`); avoid coupling logic inside `<script setup>` blocks.
 
 ## Architecture
 
