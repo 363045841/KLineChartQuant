@@ -332,7 +332,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentClick)
 }
 
 .compare-popover {
-  z-index: 20;
+  z-index: 110;
   width: min(360px, calc(100vw - 24px));
   padding: 14px;
   border: 1px solid var(--klc-color-border-button);

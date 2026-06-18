@@ -268,7 +268,7 @@ watch(() => props.symbol, () => {
 }
 
 .symbol-popover {
-  z-index: 20;
+  z-index: 110;
   width: min(320px, calc(100vw - 24px));
   padding: 14px;
   border: 1px solid var(--klc-color-border-button);
