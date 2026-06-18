@@ -108,6 +108,12 @@ export function useRangeSelection(options: {
     return fmtDate(data[bounds.end])
   })
 
+  const rangeSelectionCount = computed(() => {
+    const bounds = rangeSelectionBounds.value
+    if (!bounds) return 0
+    return bounds.end - bounds.start + 1
+  })
+
   const rangeSelectionOverlayStyle = computed(() => {
     const bounds = rangeSelectionBounds.value
     if (!bounds) return null
@@ -399,6 +405,7 @@ export function useRangeSelection(options: {
     isRangeSelectActive,
     rangeSelectionReady,
     rangeSelectionBounds,
+    rangeSelectionCount,
     rangeSelectionStartLabel,
     rangeSelectionEndLabel,
     rangeSelectionOverlayStyle,

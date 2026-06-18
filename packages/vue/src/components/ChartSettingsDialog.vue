@@ -1,183 +1,151 @@
 <template>
-  <Teleport :to="teleportTarget">
-    <Transition name="overlay">
-      <div v-if="show" class="settings-overlay" @click="closeSettings">
-        <Transition name="modal">
-          <div class="settings-modal" @click.stop>
-            <div class="settings-header">
-              <div class="header-left">
-                <span class="settings-title">图表设置</span>
-                <span class="settings-subtitle">个性化配置</span>
-              </div>
-              <div class="header-right">
-                <button class="settings-close" @click="closeSettings">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M18 6L6 18M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <div class="settings-body">
-              <template v-if="mainSettings.length > 0">
-                <div class="settings-section-divider">
-                  <span class="settings-section-label">主图设置</span>
-                </div>
-                <template v-for="item in mainSettings" :key="item.key">
-                  <div class="settings-item">
-                    <label class="settings-label">
-                      <span>{{ item.label }}</span>
-                      <template v-if="item.type === 'boolean'">
-                        <input
-                          type="checkbox"
-                          class="settings-checkbox"
-                          v-model="settings[item.key]"
-                        />
-                      </template>
-                      <template v-else-if="item.type === 'select' && item.options">
-                        <Dropdown
-                          :model-value="String(settings[item.key])"
-                          :options="item.options"
-                          size="sm"
-                          min-width="100px"
-                          @update:model-value="settings[item.key] = $event"
-                        />
-                      </template>
-                    </label>
-                  </div>
-                </template>
-              </template>
-
-              <div class="settings-section-divider">
-                <span class="settings-section-label">样式 / 颜色</span>
-              </div>
-              <template v-for="item in styleSettings" :key="item.key">
-                <div class="settings-item">
-                  <label class="settings-label">
-                    <span>{{ item.label }}</span>
-                    <template v-if="item.type === 'boolean'">
-                      <input
-                        type="checkbox"
-                        class="settings-checkbox"
-                        v-model="settings[item.key]"
-                      />
-                    </template>
-                    <template v-else-if="item.type === 'select' && item.options">
-                      <Dropdown
-                        :model-value="String(settings[item.key])"
-                        :options="item.options"
-                        size="sm"
-                        min-width="100px"
-                        @update:model-value="settings[item.key] = $event"
-                      />
-                    </template>
-                  </label>
-                </div>
-              </template>
-              <div class="settings-item nav-item" @click="showColorPresetModal = true">
-                <label class="settings-label">
-                  <span>颜色配置</span>
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    width="16"
-                    height="16"
-                    class="nav-arrow"
-                  >
-                    <path d="M9 18l6-6-6-6" />
-                  </svg>
-                </label>
-              </div>
-
-              <template v-if="experimentalSettings.length > 0">
-                <div class="settings-section-divider">
-                  <span class="settings-section-label">实验性 / 调试设置</span>
-                </div>
-                <template v-for="item in experimentalSettings" :key="item.key">
-                  <div class="settings-item experimental">
-                    <label class="settings-label">
-                      <span>{{ item.label }}</span>
-                      <template v-if="item.type === 'boolean'">
-                        <input
-                          type="checkbox"
-                          class="settings-checkbox"
-                          v-model="settings[item.key]"
-                        />
-                      </template>
-                      <template v-else-if="item.type === 'select' && item.options">
-                        <Dropdown
-                          :model-value="String(settings[item.key])"
-                          :options="item.options"
-                          size="sm"
-                          min-width="100px"
-                          @update:model-value="settings[item.key] = $event"
-                        />
-                      </template>
-                    </label>
-                  </div>
-                </template>
-              </template>
-            </div>
-
-            <div class="settings-footer">
-              <button class="settings-btn reset" @click="resetSettings">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                  <path d="M3 3v5h5" />
-                </svg>
-                重置
-              </button>
-              <div class="footer-right">
-                <button class="settings-btn cancel" @click="closeSettings">取消</button>
-                <button class="settings-btn confirm" @click="confirmSettings">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <path d="M20 6L9 17l-5-5" />
-                  </svg>
-                  确定
-                </button>
-              </div>
-            </div>
-          </div>
-        </Transition>
+  <!-- 主弹窗 -->
+  <BaseModal
+    :show="show"
+    width="min(92vw, 460px)"
+    max-height="min(720px, calc(100vh - 48px))"
+    footer-align="space-between"
+    @close="closeSettings"
+  >
+    <template #header>
+      <div class="header-left">
+        <span class="settings-title">图表设置</span>
+        <span class="settings-subtitle">个性化配置</span>
       </div>
-    </Transition>
+    </template>
 
-    <Transition name="overlay">
-      <div
-        v-if="showColorPresetModal"
-        class="settings-overlay nested-overlay"
-        @click="showColorPresetModal = false"
-      >
-        <Transition name="modal">
-          <div class="settings-modal" @click.stop>
-            <div class="settings-header">
-              <div class="header-left">
-                <span class="settings-title">颜色预设</span>
-                <span class="settings-subtitle">自定义图表颜色</span>
-              </div>
-              <div class="header-right">
-                <button class="settings-close" @click="showColorPresetModal = false">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M18 6L6 18M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <div class="settings-body">
-              <ColorPresetPanel
-                :color-preset-settings="settings.colorPresetSettings"
-                @update:color-preset-settings="
-                  settings = { ...settings, colorPresetSettings: $event }
-                "
+    <div class="settings-body">
+      <template v-if="mainSettings.length > 0">
+        <div class="settings-section-divider">
+          <span class="settings-section-label">主图设置</span>
+        </div>
+        <template v-for="item in mainSettings" :key="item.key">
+          <div class="settings-item">
+            <label class="settings-label">
+              <span>{{ item.label }}</span>
+              <template v-if="item.type === 'boolean'">
+                <input
+                  type="checkbox"
+                  class="settings-checkbox"
+                  v-model="settings[item.key]"
+                />
+              </template>
+              <template v-else-if="item.type === 'select' && item.options">
+                <Dropdown
+                  :model-value="String(settings[item.key])"
+                  :options="item.options"
+                  size="sm"
+                  min-width="100px"
+                  @update:model-value="settings[item.key] = $event"
+                />
+              </template>
+            </label>
+          </div>
+        </template>
+      </template>
+
+      <div class="settings-section-divider">
+        <span class="settings-section-label">样式 / 颜色</span>
+      </div>
+      <template v-for="item in styleSettings" :key="item.key">
+        <div class="settings-item">
+          <label class="settings-label">
+            <span>{{ item.label }}</span>
+            <template v-if="item.type === 'boolean'">
+              <input
+                type="checkbox"
+                class="settings-checkbox"
+                v-model="settings[item.key]"
               />
-            </div>
-          </div>
-        </Transition>
+            </template>
+            <template v-else-if="item.type === 'select' && item.options">
+              <Dropdown
+                :model-value="String(settings[item.key])"
+                :options="item.options"
+                size="sm"
+                min-width="100px"
+                @update:model-value="settings[item.key] = $event"
+              />
+            </template>
+          </label>
+        </div>
+      </template>
+      <div class="settings-item nav-item" @click="showColorPresetModal = true">
+        <label class="settings-label">
+          <span>颜色配置</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" class="nav-arrow">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </label>
       </div>
-    </Transition>
-  </Teleport>
+
+      <template v-if="experimentalSettings.length > 0">
+        <div class="settings-section-divider">
+          <span class="settings-section-label">实验性 / 调试设置</span>
+        </div>
+        <template v-for="item in experimentalSettings" :key="item.key">
+          <div class="settings-item experimental">
+            <label class="settings-label">
+              <span>{{ item.label }}</span>
+              <template v-if="item.type === 'boolean'">
+                <input
+                  type="checkbox"
+                  class="settings-checkbox"
+                  v-model="settings[item.key]"
+                />
+              </template>
+              <template v-else-if="item.type === 'select' && item.options">
+                <Dropdown
+                  :model-value="String(settings[item.key])"
+                  :options="item.options"
+                  size="sm"
+                  min-width="100px"
+                  @update:model-value="settings[item.key] = $event"
+                />
+              </template>
+            </label>
+          </div>
+        </template>
+      </template>
+    </div>
+
+    <template #footer>
+      <button class="settings-btn reset" @click="resetSettings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+          <path d="M3 3v5h5" />
+        </svg>
+        重置
+      </button>
+      <div class="footer-right">
+        <button class="settings-btn cancel" @click="closeSettings">取消</button>
+        <button class="settings-btn confirm" @click="confirmSettings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M20 6L9 17l-5-5" />
+          </svg>
+          确定
+        </button>
+      </div>
+    </template>
+  </BaseModal>
+
+  <!-- 嵌套颜色预设弹窗 -->
+  <BaseModal
+    :show="showColorPresetModal"
+    title="颜色预设"
+    subtitle="自定义图表颜色"
+    width="min(92vw, 460px)"
+    max-height="min(720px, calc(100vh - 48px))"
+    :z-index="1100"
+    @close="showColorPresetModal = false"
+  >
+    <ColorPresetPanel
+      :color-preset-settings="settings.colorPresetSettings"
+      @update:color-preset-settings="
+        settings = { ...settings, colorPresetSettings: $event }
+      "
+    />
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
@@ -189,8 +157,8 @@ import {
   type SettingItem,
 } from '@363045841yyt/klinechart-core/config'
 import { normalizeColorPresetSettings } from '@363045841yyt/klinechart-core'
+import BaseModal from './BaseModal.vue'
 import ColorPresetPanel from './ColorPresetPanel.vue'
-import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
 import Dropdown from './Dropdown.vue'
 
 const props = defineProps<{
@@ -201,8 +169,6 @@ const emit = defineEmits<{
   (e: 'close'): void
   (e: 'confirm', settings: ChartSettings): void
 }>()
-
-const teleportTarget = useFullscreenTeleportTarget()
 
 const mainSettings = computed(
   () => DEFAULT_SETTINGS.filter((s) => s.group === 'main') as unknown as SettingItem[],
@@ -267,53 +233,11 @@ function confirmSettings() {
 </script>
 
 <style scoped>
-.settings-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(4px);
-  padding: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.settings-modal {
-  background: var(--klc-color-tag-bg-white);
-  border: 1px solid var(--klc-color-border-button);
-  border-radius: 10px;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.15);
-  min-width: 360px;
-  max-width: 460px;
-  width: min(92vw, 460px);
-  max-height: min(720px, calc(100vh - 48px));
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.settings-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 18px 14px 20px;
-  background: var(--klc-color-background);
-  border-bottom: 1px solid var(--klc-color-grid-major);
-  flex-shrink: 0;
-}
-
 .header-left {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .settings-title {
@@ -329,52 +253,10 @@ function confirmSettings() {
   line-height: 1.3;
 }
 
-.settings-close {
-  background: var(--klc-color-tag-bg-white);
-  border: 1px solid var(--klc-color-border-button);
-  border-radius: 7px;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--klc-color-axis-text);
-  transition:
-    background 0.15s,
-    color 0.15s,
-    border-color 0.15s;
-  padding: 0;
-}
-
-.settings-close:hover {
-  background: var(--klc-color-tag-bg-hover);
-  color: var(--klc-color-foreground);
-  border-color: var(--klc-color-axis-line);
-}
-
-.settings-close svg {
-  width: 14px;
-  height: 14px;
-}
-
 .settings-body {
-  padding: 16px 20px 18px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.settings-body::-webkit-scrollbar {
-  width: 8px;
-}
-
-.settings-body::-webkit-scrollbar-thumb {
-  background: var(--klc-color-axis-line);
-  border: 2px solid var(--klc-color-tag-bg-white);
-  border-radius: 999px;
 }
 
 .settings-item {
@@ -390,7 +272,7 @@ function confirmSettings() {
 
 .settings-item:hover {
   border-color: var(--klc-color-axis-line);
-  background: var(--klc-color-tag-bg-white);
+  background: var(--klc-color-background);
 }
 
 .settings-label {
@@ -443,10 +325,6 @@ function confirmSettings() {
   line-height: 1;
 }
 
-.nested-overlay {
-  z-index: 1100;
-}
-
 .settings-item.nav-item {
   cursor: pointer;
 }
@@ -458,17 +336,6 @@ function confirmSettings() {
 .nav-arrow {
   color: var(--klc-color-axis-text);
   transition: color 0.15s;
-  flex-shrink: 0;
-}
-
-.settings-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 20px;
-  background: var(--klc-color-background);
-  border-top: 1px solid var(--klc-color-grid-major);
   flex-shrink: 0;
 }
 
@@ -550,54 +417,7 @@ function confirmSettings() {
   box-shadow: none;
 }
 
-.overlay-enter-active,
-.overlay-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.overlay-enter-from,
-.overlay-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-active {
-  transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.modal-leave-active {
-  transition: all 0.16s ease-in;
-}
-
-.modal-enter-from {
-  opacity: 0;
-  transform: scale(0.96) translateY(-10px);
-}
-
-.modal-leave-to {
-  opacity: 0;
-  transform: scale(0.98) translateY(8px);
-}
-
 @media (max-width: 480px) {
-  .settings-overlay {
-    padding: 12px;
-    align-items: flex-end;
-  }
-
-  .settings-modal {
-    min-width: 0;
-    width: 100%;
-    max-height: calc(100vh - 24px);
-    border-radius: 10px;
-  }
-
-  .settings-header,
-  .settings-body,
-  .settings-footer {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-
   .settings-label {
     align-items: flex-start;
     flex-direction: column;
@@ -607,11 +427,6 @@ function confirmSettings() {
   .settings-checkbox {
     align-self: flex-end;
     margin-top: -26px;
-  }
-
-  .settings-footer {
-    align-items: stretch;
-    flex-direction: column-reverse;
   }
 
   .footer-right {

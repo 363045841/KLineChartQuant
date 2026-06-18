@@ -418,7 +418,7 @@ onUnmounted(() => {
   gap: 4px;
   padding: 0 5px;
   height: 40px;
-  background: var(--klc-color-tag-bg-white);
+  background: var(--klc-color-background);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--klc-color-border-chart);

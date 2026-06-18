@@ -145,11 +145,11 @@ function resetCurrentThemeColors(): void {
 
 .theme-tab:not(.active):hover {
   color: var(--klc-color-foreground);
-  background: color-mix(in srgb, var(--klc-color-tag-bg-white) 60%, transparent);
+  background: color-mix(in srgb, var(--klc-color-background) 60%, transparent);
 }
 
 .theme-tab.active {
-  background: var(--klc-color-tag-bg-white);
+  background: var(--klc-color-background);
   color: var(--klc-color-foreground);
   font-weight: 600;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
@@ -161,7 +161,7 @@ function resetCurrentThemeColors(): void {
   padding: 0 14px;
   border: 1px solid var(--klc-color-axis-line);
   border-radius: 8px;
-  background: var(--klc-color-tag-bg-white);
+  background: var(--klc-color-background);
   color: var(--klc-color-axis-text);
   font-size: 12px;
   font-weight: 500;

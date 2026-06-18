@@ -84,6 +84,7 @@
                   v-model="customEndDate"
                   :placeholder="rangeSelectionEndLabel"
                 />
+                <span class="range-selection-export__count">共 {{ rangeSelectionCount }} 条</span>
                 <button
                   type="button"
                   class="toolbar-btn"
@@ -103,10 +104,19 @@
                 <button
                   type="button"
                   class="toolbar-btn delete-btn"
-                  title="删除选区"
+                  title="取消选区"
                   @click.stop="clearRangeSelection"
                 >
-                  <svg class="delete-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <svg
+                    class="delete-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
                     <path d="M3 6h18" />
                     <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
                     <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
@@ -449,6 +459,7 @@ const {
   isRangeSelectActive,
   rangeSelectionReady,
   rangeSelectionBounds,
+  rangeSelectionCount,
   rangeSelectionStartLabel,
   rangeSelectionEndLabel,
   rangeSelectionOverlayStyle,
@@ -1146,9 +1157,13 @@ watch(
   z-index: 101;
 }
 
-.range-selection-handle--left { left: -4px; }
+.range-selection-handle--left {
+  left: -4px;
+}
 
-.range-selection-handle--right { right: -4px; }
+.range-selection-handle--right {
+  right: -4px;
+}
 
 .range-selection-export {
   position: absolute;
@@ -1160,7 +1175,7 @@ watch(
   gap: 6px;
   padding: 4px 8px;
   height: 32px;
-  background: color-mix(in srgb, var(--klc-color-tag-bg-white) 88%, transparent);
+  background: color-mix(in srgb, var(--klc-color-background) 88%, transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--klc-color-border-button);
@@ -1232,6 +1247,13 @@ watch(
 .range-selection-export__sep {
   color: var(--klc-color-axis-text);
   font-size: 11px;
+  user-select: none;
+}
+
+.range-selection-export__count {
+  color: var(--klc-color-axis-text);
+  font-size: 12px;
+  white-space: nowrap;
   user-select: none;
 }
 

@@ -1,123 +1,110 @@
 <template>
-  <Teleport :to="teleportTarget">
-    <Transition name="overlay">
-      <div v-if="visible" class="params-overlay" @click="$emit('close')">
-        <Transition name="modal">
-          <div class="indicator-params" @click.stop>
-            <!-- 头部 -->
-            <div class="params-header">
-              <div class="header-left">
-                <span class="params-title">{{ indicatorName }}</span>
-                <span class="params-subtitle">参数设置</span>
-              </div>
-              <div class="header-right">
-                <button
-                  class="toggle-desc-btn"
-                  :class="{ active: showDescription }"
-                  @click="showDescription = !showDescription"
-                  title="显示/隐藏说明"
-                >
-                  <svg viewBox="0 0 1024 1024">
-                    <path d="M512 97.52381c228.912762 0 414.47619 185.563429 414.47619 414.47619s-185.563429 414.47619-414.47619 414.47619S97.52381 740.912762 97.52381 512 283.087238 97.52381 512 97.52381z m0 73.142857C323.486476 170.666667 170.666667 323.486476 170.666667 512s152.81981 341.333333 341.333333 341.333333 341.333333-152.81981 341.333333-341.333333S700.513524 170.666667 512 170.666667z m36.571429 268.190476v292.571428h-73.142858V438.857143h73.142858z m0-121.904762v73.142857h-73.142858v-73.142857h73.142858z" fill="currentColor" />
-                  </svg>
-                </button>
-                <button class="params-close" @click="$emit('close')">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M18 6L6 18M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
+  <BaseModal
+    :show="visible"
+    :title="indicatorName"
+    subtitle="参数设置"
+    width="90vw"
+    max-width="420px"
+    transition-variant="compact"
+    overlay-padding="0"
+    footer-align="space-between"
+    @close="$emit('close')"
+  >
+    <template #header-extra>
+      <button
+        class="toggle-desc-btn"
+        :class="{ active: showDescription }"
+        @click="showDescription = !showDescription"
+        title="显示/隐藏说明"
+      >
+        <svg viewBox="0 0 1024 1024">
+          <path d="M512 97.52381c228.912762 0 414.47619 185.563429 414.47619 414.47619s-185.563429 414.47619-414.47619 414.47619S97.52381 740.912762 97.52381 512 283.087238 97.52381 512 97.52381z m0 73.142857C323.486476 170.666667 170.666667 323.486476 170.666667 512s152.81981 341.333333 341.333333 341.333333 341.333333-152.81981 341.333333-341.333333S700.513524 170.666667 512 170.666667z m36.571429 268.190476v292.571428h-73.142858V438.857143h73.142858z m0-121.904762v73.142857h-73.142858v-73.142857h73.142858z" fill="currentColor" />
+        </svg>
+      </button>
+    </template>
 
-            <!-- 指标描述 -->
-            <Transition name="slide">
-              <div v-if="showDescription && indicatorDescription" class="indicator-description">
-                <p>{{ indicatorDescription }}</p>
-              </div>
-            </Transition>
+    <Transition name="slide">
+      <div v-if="showDescription && indicatorDescription" class="indicator-description">
+        <p>{{ indicatorDescription }}</p>
+      </div>
+    </Transition>
 
-            <!-- 体部 -->
-            <div class="params-body">
-              <div
-                v-for="param in params"
-                :key="param.key"
-                class="param-item"
-                :class="{ 'has-desc': showDescription && param.description }"
-              >
-                <div class="param-header">
-                  <label class="param-label">
-                    <span class="param-label-text">{{ param.label }}</span>
-                    <span
-                      v-if="param.min !== undefined || param.max !== undefined"
-                      class="param-range"
-                    >
-                      {{ param.min ?? '-∞' }} ~ {{ param.max ?? '+∞' }}
-                    </span>
-                  </label>
-                  <div class="input-wrapper">
-                    <button
-                      class="stepper-btn"
-                      :disabled="param.min !== undefined && (localValues[param.key] ?? 0) <= param.min"
-                      @click="step(param, -1)"
-                    >
-                      −
-                    </button>
-                    <input
-                      v-if="param.type === 'number'"
-                      type="number"
-                      class="param-input"
-                      :value="localValues[param.key]"
-                      :min="param.min"
-                      :max="param.max"
-                      :step="param.step || 1"
-                      @input="onInput(param.key, $event)"
-                    />
-                    <button
-                      class="stepper-btn"
-                      :disabled="param.max !== undefined && (localValues[param.key] ?? 0) >= param.max"
-                      @click="step(param, 1)"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-                <Transition name="slide">
-                  <div v-if="showDescription && param.description" class="param-description">
-                    {{ param.description }}
-                  </div>
-                </Transition>
-              </div>
-            </div>
-
-            <!-- 底部 -->
-            <div class="params-footer">
-              <button class="params-btn reset" @click="onReset">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                  <path d="M3 3v5h5" />
-                </svg>
-                重置
-              </button>
-              <div class="footer-right">
-                <button class="params-btn cancel" @click="$emit('close')">取消</button>
-                <button class="params-btn confirm" @click="onConfirm">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <path d="M20 6L9 17l-5-5" />
-                  </svg>
-                  确定
-                </button>
-              </div>
-            </div>
+    <div class="params-body">
+      <div
+        v-for="param in params"
+        :key="param.key"
+        class="param-item"
+        :class="{ 'has-desc': showDescription && param.description }"
+      >
+        <div class="param-header">
+          <label class="param-label">
+            <span class="param-label-text">{{ param.label }}</span>
+            <span
+              v-if="param.min !== undefined || param.max !== undefined"
+              class="param-range"
+            >
+              {{ param.min ?? '-∞' }} ~ {{ param.max ?? '+∞' }}
+            </span>
+          </label>
+          <div class="input-wrapper">
+            <button
+              class="stepper-btn"
+              :disabled="param.min !== undefined && (localValues[param.key] ?? 0) <= param.min"
+              @click="step(param, -1)"
+            >
+              −
+            </button>
+            <input
+              v-if="param.type === 'number'"
+              type="number"
+              class="param-input"
+              :value="localValues[param.key]"
+              :min="param.min"
+              :max="param.max"
+              :step="param.step || 1"
+              @input="onInput(param.key, $event)"
+            />
+            <button
+              class="stepper-btn"
+              :disabled="param.max !== undefined && (localValues[param.key] ?? 0) >= param.max"
+              @click="step(param, 1)"
+            >
+              +
+            </button>
+          </div>
+        </div>
+        <Transition name="slide">
+          <div v-if="showDescription && param.description" class="param-description">
+            {{ param.description }}
           </div>
         </Transition>
       </div>
-    </Transition>
-  </Teleport>
+    </div>
+
+    <template #footer>
+      <button class="params-btn reset" @click="onReset">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+          <path d="M3 3v5h5" />
+        </svg>
+        重置
+      </button>
+      <div class="footer-right">
+        <button class="params-btn cancel" @click="$emit('close')">取消</button>
+        <button class="params-btn confirm" @click="onConfirm">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M20 6L9 17l-5-5" />
+          </svg>
+          确定
+        </button>
+      </div>
+    </template>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
-import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
+import { ref, watch } from 'vue'
+import BaseModal from './BaseModal.vue'
 
 export interface ParamConfig {
   key: string
@@ -147,21 +134,19 @@ const emit = defineEmits<{
 const localValues = ref<Record<string, number>>({ ...props.values })
 const showDescription = ref(true)
 
-const teleportTarget = useFullscreenTeleportTarget()
-
 watch(
   () => props.values,
   (newValues) => {
     localValues.value = { ...newValues }
   },
-  { deep: true, immediate: true }
+  { deep: true, immediate: true },
 )
 
 watch(
   () => props.visible,
   (visible) => {
     if (visible) localValues.value = { ...props.values }
-  }
+  },
 )
 
 function onInput(key: string, event: Event) {
@@ -192,122 +177,6 @@ function onConfirm() {
 </script>
 
 <style scoped>
-/* ── 遮罩 ── */
-.params-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-/* ── 弹窗 ── */
-.indicator-params {
-  background: var(--klc-color-tag-bg-white);
-  border: 1px solid var(--klc-color-border-button);
-  border-radius: 12px;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15);
-  min-width: 340px;
-  max-width: 420px;
-  width: 90vw;
-  overflow: hidden;
-}
-
-/* ── 头部 ── */
-.params-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  background: var(--klc-color-background);
-  border-bottom: 1px solid var(--klc-color-grid-major);
-}
-
-.header-left {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.params-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--klc-color-foreground);
-  letter-spacing: 0.2px;
-}
-
-.params-subtitle {
-  font-size: 11px;
-  color: var(--klc-color-axis-text);
-}
-
-.toggle-desc-btn {
-  background: var(--klc-color-tag-bg-white);
-  border: 1px solid var(--klc-color-border-button);
-  border-radius: 6px;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--klc-color-axis-text);
-  transition: all 0.2s;
-  padding: 0;
-}
-
-.toggle-desc-btn:hover {
-  background: var(--klc-color-tag-bg-hover);
-  color: var(--klc-color-foreground);
-  border-color: var(--klc-color-axis-line);
-}
-
-.toggle-desc-btn.active {
-  background: var(--klc-color-foreground);
-  border-color: var(--klc-color-foreground);
-  color: var(--klc-color-background);
-}
-
-.toggle-desc-btn svg {
-  width: 14px;
-  height: 14px;
-}
-
-.params-close {
-  background: var(--klc-color-tag-bg-white);
-  border: 1px solid var(--klc-color-border-button);
-  border-radius: 6px;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--klc-color-axis-text);
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
-  padding: 0;
-}
-
-.params-close:hover {
-  background: var(--klc-color-tag-bg-hover);
-  color: var(--klc-color-foreground);
-  border-color: var(--klc-color-axis-line);
-}
-
-.params-close svg {
-  width: 14px;
-  height: 14px;
-}
-
 /* ── 指标描述 ── */
 .indicator-description {
   padding: 12px 20px;
@@ -324,7 +193,6 @@ function onConfirm() {
 
 /* ── 体部 ── */
 .params-body {
-  padding: 16px 20px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -388,7 +256,7 @@ function onConfirm() {
   border: 1px solid var(--klc-color-axis-line);
   border-radius: 7px;
   overflow: hidden;
-  background: var(--klc-color-tag-bg-white);
+  background: var(--klc-color-background);
   transition: border-color 0.2s;
 }
 
@@ -446,15 +314,6 @@ function onConfirm() {
 }
 
 /* ── 底部 ── */
-.params-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 20px;
-  background: var(--klc-color-background);
-  border-top: 1px solid var(--klc-color-grid-major);
-}
-
 .footer-right {
   display: flex;
   gap: 8px;
@@ -526,34 +385,6 @@ function onConfirm() {
 }
 
 /* ── 动画 ── */
-.overlay-enter-active,
-.overlay-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.overlay-enter-from,
-.overlay-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-active {
-  transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.modal-leave-active {
-  transition: all 0.16s ease-in;
-}
-
-.modal-enter-from {
-  opacity: 0;
-  transform: scale(0.88) translateY(-16px);
-}
-
-.modal-leave-to {
-  opacity: 0;
-  transform: scale(0.94) translateY(8px);
-}
-
 .slide-enter-active,
 .slide-leave-active {
   transition: all 0.2s ease;

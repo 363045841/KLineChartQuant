@@ -337,7 +337,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentClick)
   padding: 14px;
   border: 1px solid var(--klc-color-border-button);
   border-radius: 3px;
-  background: var(--klc-color-tag-bg-white);
+  background: var(--klc-color-background);
   color: var(--klc-color-foreground);
 
   box-sizing: border-box;

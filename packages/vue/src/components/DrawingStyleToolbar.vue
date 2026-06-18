@@ -102,7 +102,7 @@ function onLineStyleChange(style: 'solid' | 'dashed' | 'dotted') {
   gap: 6px;
   padding: 4px 8px;
   height: 32px;
-  background: color-mix(in srgb, var(--klc-color-tag-bg-white) 88%, transparent);
+  background: color-mix(in srgb, var(--klc-color-background) 88%, transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--klc-color-border-button);
