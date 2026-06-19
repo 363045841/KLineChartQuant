@@ -107,6 +107,9 @@ export class InteractionController {
     /** K 线宽度（物理像素），用于计算 K 线中心偏移 */
     private kWidthPx: number | null = null
 
+    /** 触屏长按判定时间 (ms) */
+    private static readonly LONG_PRESS_MS = 400
+
     constructor(chart: Chart) {
         this.chart = chart
         this.setupPinchZoom()
@@ -227,19 +230,14 @@ export class InteractionController {
         this.touchStartTime = Date.now()
         this.touchStartX = e.clientX
         this.touchStartY = e.clientY
-        this.dragMode = this.isTouchSession && this.exploreMode ? 'explore' : 'pan'
-        if (this.dragMode === 'explore') {
-            this.updatePlotHoverFromPoint(e.clientX, e.clientY)
-        }
+        // 触屏始终以 pan 模式开始，长按后才切换为 explore
+        this.dragMode = 'pan'
         this.dragStartX = e.clientX
         this.dragStartY = e.clientY
         this.scrollStartX = this.chart.getCachedScrollLeft()
         this.activePaneIdOnDrag = pane?.id || null
 
         this.chart.scheduleDraw()
-        if (this.dragMode === 'explore') {
-            this.notifyInteractionChange()
-        }
     }
 
 
@@ -267,28 +265,32 @@ export class InteractionController {
         const wasPanning = this.dragMode === 'pan'
         const wasExploring = this.dragMode === 'explore'
 
-        if (wasExploring && this.isTouchSession) {
-            const elapsed = Date.now() - this.touchStartTime
-            const dx = e.clientX - this.touchStartX
-            const dy = e.clientY - this.touchStartY
-            if (elapsed < 200 && Math.abs(dx) < 5 && Math.abs(dy) < 5) {
-                // Quick tap → dismiss crosshair, switch to scroll mode
-                this.exploreMode = false
-                this.clearHover()
-                this.chart.scheduleDraw()
-                this.notifyInteractionChange()
-            } else {
-                // Long press or drag → keep crosshair
+        if (this.isTouchSession) {
+            if (wasExploring) {
+                // 长按触发了 explore → 保持十字线
                 this.exploreMode = true
                 this.updatePlotHoverFromPoint(e.clientX, e.clientY)
                 this.chart.scheduleDraw()
                 this.notifyInteractionChange()
+            } else if (wasPanning) {
+                // 有实际滑动 → 下次支持长按
+                this.exploreMode = true
+                this.chart.checkVisibleRangeGap()
+            } else {
+                // 既未触发 explore 也未滑动
+                const elapsed = Date.now() - this.touchStartTime
+                const dx = e.clientX - this.touchStartX
+                const dy = e.clientY - this.touchStartY
+                if (elapsed < InteractionController.LONG_PRESS_MS && Math.abs(dx) < 10 && Math.abs(dy) < 10) {
+                    // 快速点击 → 锁定滚动模式，下次触摸不触发长按
+                    this.exploreMode = false
+                    this.clearHover()
+                    this.chart.scheduleDraw()
+                    this.notifyInteractionChange()
+                } else {
+                    this.exploreMode = true
+                }
             }
-        }
-
-        if (wasPanning) {
-            this.exploreMode = true
-            this.chart.checkVisibleRangeGap()
         }
 
         this.isDragging = false
@@ -364,6 +366,20 @@ export class InteractionController {
                     this.dragStartY = e.clientY
                 }
                 return
+            }
+
+            // 触屏：长按达到阈值后从 pan 切换到 explore
+            if (this.isTouchSession && this.dragMode === 'pan' && this.exploreMode) {
+                const elapsed = Date.now() - this.touchStartTime
+                const dx = Math.abs(e.clientX - this.touchStartX)
+                const dy = Math.abs(e.clientY - this.touchStartY)
+                if (elapsed >= InteractionController.LONG_PRESS_MS && dx < 10 && dy < 10) {
+                    this.dragMode = 'explore'
+                    this.updatePlotHoverFromPoint(e.clientX, e.clientY)
+                    this.chart.scheduleDraw()
+                    this.notifyInteractionChange()
+                    return
+                }
             }
 
             if (this.dragMode === 'explore') {
