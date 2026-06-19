@@ -828,6 +828,30 @@ function setupChartCallbacks(ctrl: ChartController): void {
     comparisonLoading.value = ctrl.comparisonLoading.peek()
   })
 
+  const unsubscribeSymbols = ctrl.symbols.subscribe(() => {
+    const specs = ctrl.symbols.peek()
+    if (specs.length === 0) return
+    const primary = specs[0]
+    currentSymbol.value = primary.symbol
+    currentSymbolItem.value = {
+      code: primary.symbol,
+      description: primary.symbol,
+      exchange: primary.exchange ?? '',
+      source: primary.source ?? '',
+    }
+    if (primary.period) kLineLevel.value = primary.period
+    if (primary.adjust) kLineAdjust.value = primary.adjust as 'qfq' | 'hfq' | 'splits' | 'none'
+
+    const comparisonSpecs = specs.slice(1)
+    overlaySymbols.value = comparisonSpecs.map((s) => s.symbol)
+    overlaySymbolItems.value = comparisonSpecs.map((s) => ({
+      code: s.symbol,
+      description: s.symbol,
+      exchange: s.exchange ?? '',
+      source: s.source ?? '',
+    }))
+  })
+
   onUnmounted(() => {
     unsubscribeViewport()
     unsubscribeData()
@@ -838,6 +862,7 @@ function setupChartCallbacks(ctrl: ChartController): void {
     unsubscribeIndicators()
     unsubscribeComparisonColors()
     unsubscribeComparisonLoading()
+    unsubscribeSymbols()
   })
 }
 

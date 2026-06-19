@@ -3,7 +3,7 @@ import { findTool } from './toolSchemas'
 
 export type { ToolCall, ToolResult }
 
-// fallow-ignore-next-line complexity
+// follow-ignore-next-line complexity
 export function executeTool(
   chart: ChartController,
   call: ToolCall,
@@ -40,6 +40,23 @@ export function executeTool(
       return { success: true }
     }
 
+    case 'chart.scrollToRight': {
+      chart.scrollToRight()
+      return { success: true }
+    }
+
+    case 'chart.zoomIn': {
+      const { anchorX } = call.input as { anchorX?: number }
+      chart.zoomIn(anchorX)
+      return { success: true }
+    }
+
+    case 'chart.zoomOut': {
+      const { anchorX } = call.input as { anchorX?: number }
+      chart.zoomOut(anchorX)
+      return { success: true }
+    }
+
     case 'indicators.add': {
       const { definitionId } = call.input as { definitionId: string }
       const def = chart.catalog.find((d) => d.id === definitionId)
@@ -65,6 +82,106 @@ export function executeTool(
       return ok
         ? { success: true }
         : { success: false, error: `Indicator ${instanceId} not found` }
+    }
+
+    case 'data.setSymbols': {
+      const input = call.input as {
+        symbol: string
+        exchange?: string
+        period?: string
+        adjust?: string
+        source?: string
+        startDate?: string
+        endDate?: string
+      }
+      chart.setSymbols([{
+        symbol: input.symbol,
+        exchange: input.exchange,
+        period: input.period,
+        adjust: input.adjust,
+        source: input.source,
+        startDate: input.startDate,
+        endDate: input.endDate,
+      }])
+      return { success: true }
+    }
+
+    case 'data.appendData': {
+      const { bars } = call.input as {
+        bars: Array<{ timestamp?: number; open: number; high: number; low: number; close: number; volume?: number }>
+      }
+      chart.appendData(bars)
+      return { success: true }
+    }
+
+    case 'data.updateData': {
+      const { bars } = call.input as {
+        bars: Array<{ timestamp?: number; open: number; high: number; low: number; close: number; volume?: number }>
+      }
+      chart.updateData(bars)
+      return { success: true }
+    }
+
+    case 'data.addComparisonSymbol': {
+      const input = call.input as { symbol: string; exchange?: string; source?: string }
+      chart.addComparisonSymbol({
+        symbol: input.symbol,
+        exchange: input.exchange,
+        source: input.source,
+      })
+      return { success: true }
+    }
+
+    case 'data.removeComparisonSymbol': {
+      const { symbol } = call.input as { symbol: string }
+      chart.removeComparisonSymbol(symbol)
+      return { success: true }
+    }
+
+    case 'layout.clearSubPanes': {
+      chart.clearSubPanes()
+      return { success: true }
+    }
+
+    case 'layout.updatePaneLayout': {
+      const { panes } = call.input as { panes: Array<{ id: string; ratio: number }> }
+      chart.updatePaneLayout(panes)
+      return { success: true }
+    }
+
+    case 'drawing.setTool': {
+      const { tool } = call.input as { tool: string | null }
+      chart.setDrawingTool(tool)
+      return { success: true }
+    }
+
+    case 'drawing.clear': {
+      chart.clearDrawings()
+      return { success: true }
+    }
+
+    case 'drawing.remove': {
+      const { drawingId } = call.input as { drawingId: string }
+      chart.removeDrawing(drawingId)
+      return { success: true }
+    }
+
+    case 'markers.update': {
+      const { markers } = call.input as { markers: Array<{ id: string; date: string; shape: string; groupKey?: string; style?: Record<string, unknown>; label?: { text: string; position?: string } }> }
+      chart.updateCustomMarkers(markers)
+      return { success: true }
+    }
+
+    case 'markers.clear': {
+      chart.clearCustomMarkers()
+      return { success: true }
+    }
+
+    case 'settings.update': {
+      const { settings, options } = call.input as { settings?: Record<string, unknown>; options?: Record<string, unknown> }
+      if (settings) chart.updateSettingsFacade(settings)
+      if (options) chart.updateOptionsFacade(options)
+      return { success: true }
     }
 
     case 'alerts.addPriceCross':

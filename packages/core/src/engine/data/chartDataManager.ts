@@ -468,6 +468,7 @@ export class ChartDataManager {
     this._comparisonSpecs = this._comparisonSpecs.filter((s) => s.symbol !== symbol)
     this._symbolsSignal.set([this._symbolsSignal.peek()[0]!, ...this._comparisonSpecs])
     this.recomputeComparisonLoading()
+    this.deps.scheduleDraw()
   }
 
   setSymbols(specs: ReadonlyArray<SymbolSpec>): void {

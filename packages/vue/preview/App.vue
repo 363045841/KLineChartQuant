@@ -97,10 +97,7 @@
               <button class="close-btn" @click="showModal = false">×</button>
             </header>
             <div class="modal-body">
-              <KLineChart
-                :dataFetcher="dataFetcher"
-                @theme-change="onThemeChange"
-              />
+              <KLineChart :dataFetcher="dataFetcher" @theme-change="onThemeChange" />
             </div>
           </div>
         </div>
@@ -135,7 +132,7 @@ const dataFetcher = routerDataFetcher
 
 const chartRef = ref<InstanceType<typeof KLineChart> | null>(null)
 const mcpConfig = {
-  wsUrl: 'ws://localhost:8080',
+  wsUrl: 'ws://localhost:8081',
   autoReconnect: true,
   onToolCall: (call: { name: string; input: Record<string, unknown> }) => {
     const ctrl = chartRef.value?.getController?.()

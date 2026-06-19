@@ -4,6 +4,11 @@ import {
   TOOL_GROUPS,
   CHART_NAVIGATION_TOOLS,
   INDICATOR_TOOLS,
+  DATA_TOOLS,
+  LAYOUT_TOOLS,
+  DRAWING_TOOLS,
+  MARKER_TOOLS,
+  SETTINGS_TOOLS,
   ALERT_TOOLS,
   REPLAY_TOOLS,
   findTool,
@@ -49,6 +54,11 @@ describe('TOOL_GROUPS coverage', () => {
     const union = [
       ...TOOL_GROUPS.navigation,
       ...TOOL_GROUPS.indicators,
+      ...TOOL_GROUPS.data,
+      ...TOOL_GROUPS.layout,
+      ...TOOL_GROUPS.drawing,
+      ...TOOL_GROUPS.markers,
+      ...TOOL_GROUPS.settings,
       ...TOOL_GROUPS.alerts,
       ...TOOL_GROUPS.replay,
     ]
@@ -62,10 +72,17 @@ describe('TOOL_GROUPS coverage', () => {
     }
   })
 
-  it('CHART_NAVIGATION_TOOLS includes zoomToLevel + setTheme', () => {
+  it('CHART_NAVIGATION_TOOLS includes zoomToLevel + setTheme + scrollToRight + zoomIn + zoomOut', () => {
     const names = CHART_NAVIGATION_TOOLS.map((t) => t.name)
-    expect(names).toContain('chart.zoomToLevel')
-    expect(names).toContain('chart.setTheme')
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'chart.zoomToLevel',
+        'chart.setTheme',
+        'chart.scrollToRight',
+        'chart.zoomIn',
+        'chart.zoomOut',
+      ]),
+    )
   })
 
   it('INDICATOR_TOOLS includes add/remove/updateParams', () => {
@@ -75,6 +92,59 @@ describe('TOOL_GROUPS coverage', () => {
         'indicators.add',
         'indicators.remove',
         'indicators.updateParams',
+      ]),
+    )
+  })
+
+  it('DATA_TOOLS includes setSymbols/appendData/updateData/comparison', () => {
+    const names = DATA_TOOLS.map((t) => t.name)
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'data.setSymbols',
+        'data.appendData',
+        'data.updateData',
+        'data.addComparisonSymbol',
+        'data.removeComparisonSymbol',
+      ]),
+    )
+  })
+
+  it('LAYOUT_TOOLS includes clearSubPanes/updatePaneLayout', () => {
+    const names = LAYOUT_TOOLS.map((t) => t.name)
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'layout.clearSubPanes',
+        'layout.updatePaneLayout',
+      ]),
+    )
+  })
+
+  it('DRAWING_TOOLS includes setTool/clear/remove', () => {
+    const names = DRAWING_TOOLS.map((t) => t.name)
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'drawing.setTool',
+        'drawing.clear',
+        'drawing.remove',
+      ]),
+    )
+  })
+
+  it('MARKER_TOOLS includes update/clear', () => {
+    const names = MARKER_TOOLS.map((t) => t.name)
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'markers.update',
+        'markers.clear',
+      ]),
+    )
+  })
+
+  it('SETTINGS_TOOLS includes update', () => {
+    const names = SETTINGS_TOOLS.map((t) => t.name)
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'settings.update',
       ]),
     )
   })
@@ -134,6 +204,34 @@ describe('inputSchema correctness — spot checks', () => {
       if (theme?.type === 'string') {
         expect(theme.enum).toEqual(['light', 'dark'])
       }
+    }
+  })
+
+  it('data.setSymbols requires symbol', () => {
+    const t = findTool('data.setSymbols')!
+    expect(t.inputSchema.type).toBe('object')
+    if (t.inputSchema.type === 'object') {
+      expect(t.inputSchema.required).toContain('symbol')
+    }
+  })
+
+  it('drawing.setTool uses an enum for tool types', () => {
+    const t = findTool('drawing.setTool')!
+    if (t.inputSchema.type === 'object') {
+      const tool = t.inputSchema.properties.tool
+      expect(tool?.type).toBe('string')
+      if (tool?.type === 'string') {
+        expect(tool.enum).toContain('trendline')
+        expect(tool.enum).toContain('fib')
+        expect(tool.enum).toContain(null)
+      }
+    }
+  })
+
+  it('settings.update requires nothing (settings and options both optional)', () => {
+    const t = findTool('settings.update')!
+    if (t.inputSchema.type === 'object') {
+      expect(t.inputSchema.required).toBeUndefined()
     }
   })
 
