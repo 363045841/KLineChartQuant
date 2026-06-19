@@ -188,6 +188,7 @@ import {
   type ChartController,
   type InteractionSnapshot,
   type SymbolSpec,
+  type CustomDataSource,
   zoomLevelToKWidth,
   kGapFromKWidth,
 } from '@363045841yyt/klinechart-core/controllers'
@@ -228,6 +229,9 @@ const props = withDefaults(
     isFullscreen?: boolean
     /** 时区，默认 Asia/Shanghai */
     timezone?: string
+
+    /** 用户自定义数据源（传入后 bypass fetcher，使用此数据） */
+    customData?: CustomDataSource
 
     /** MCP / AI runtime bridge 配置。传入后自动连接 MCP WebSocket server */
     mcp?: {
@@ -885,6 +889,12 @@ function setupInteractionCallbacks(ctrl: ChartController): void {
 }
 
 function setupSemanticController(ctrl: ChartController): void {
+  // 如果传入了 customData，跳过 fetcher 配置，使用自定义数据
+  if (props.customData) {
+    ctrl.applyCustomData(props.customData)
+    return
+  }
+
   ctrl.setDataFetcher(props.dataFetcher)
   semanticController.value = new SemanticChartController(ctrl)
 
@@ -976,6 +986,14 @@ watch(
         console.error('Semantic config apply failed:', result.errors)
       }
     }
+  },
+  { deep: true },
+)
+
+watch(
+  () => props.customData,
+  (newVal) => {
+    if (newVal) controller.value?.applyCustomData(newVal)
   },
   { deep: true },
 )

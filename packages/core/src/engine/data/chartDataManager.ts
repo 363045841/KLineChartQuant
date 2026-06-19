@@ -1,5 +1,5 @@
 import type { KLineData } from '../../types/price'
-import type { SymbolSpec, DataFetcher } from '../../controllers/types'
+import type { SymbolSpec, DataFetcher, CustomDataSource } from '../../controllers/types'
 import { createSignal, type Signal } from '../../reactivity/signal'
 import { DataBuffer } from '../../data-fetchers/dataBuffer'
 import type { ChartDom, Viewport } from '../chartTypes'
@@ -478,9 +478,10 @@ export class ChartDataManager {
       this._comparisonSpecs.push(spec)
       const mainSpec = this._symbolsSignal.peek()[0]
       this._symbolsSignal.set(mainSpec ? [mainSpec, ...this._comparisonSpecs] : [...this._comparisonSpecs])
-    }
 
-    existing ??= this._comparisonBuffers.get(key)!
+      buffer.setInlineData(data)
+      return
+    }
     existing.setInlineData(data)
   }
 
@@ -509,6 +510,20 @@ export class ChartDataManager {
     if (specs.length > 0) {
       const updated = [{ ...specs[0], period }, ...specs.slice(1)] as SymbolSpec[]
       this._symbolsSignal.set(updated)
+    }
+  }
+
+  applyCustomData(source: CustomDataSource): void {
+    if (source.symbol) this.setCurrentSymbol(source.symbol)
+    if (source.period) this.setCurrentPeriod(source.period)
+    this.setData([...source.data])
+    if (source.comparisons) {
+      for (const key of this._comparisonBuffers.keys()) {
+        if (!source.comparisons[key]) this.removeComparisonSymbol(key)
+      }
+      for (const [symbol, data] of Object.entries(source.comparisons)) {
+        this.setComparisonData(symbol, [...data])
+      }
     }
   }
 

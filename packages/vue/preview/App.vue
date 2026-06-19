@@ -35,19 +35,13 @@
             <path d="M3 16v3a2 2 0 0 0 2 2h3" />
           </svg>
         </button>
-        <button @click="onDemoInjectComparison" title="注入比较商品（演示 setComparisonData）">
+        <button
+          :class="{ 'is-active': useCustomData }"
+          @click="onToggleCustomData"
+          :title="useCustomData ? '切换到 Fetcher 数据源' : '切换到自定义数据源'"
+        >
           <svg class="debug-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-          </svg>
-        </button>
-        <button @click="onDemoChangeSymbol" title="切换商品代码（演示 setCurrentSymbol）">
-          <svg class="debug-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="2" /><path d="M12 2v4m0 12v4m10-10h-4M6 12H2" />
-          </svg>
-        </button>
-        <button @click="onDemoTogglePeriod" title="切换周期（演示 setCurrentPeriod）">
-          <svg class="debug-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+            <ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" /><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
           </svg>
         </button>
       </div>
@@ -96,6 +90,7 @@
         ref="chartRef"
         :mcp="mcpConfig"
         :dataFetcher="dataFetcher"
+        :custom-data="customData"
         :is-fullscreen="isFullscreen"
         @toggle-fullscreen="toggleFullscreen"
         @theme-change="onThemeChange"
@@ -125,18 +120,19 @@
 import { ref, computed, provide, inject, type Ref, type InjectionKey } from 'vue'
 import KLineChart from '../src/components/KLineChart.vue'
 import { VERSION, CORE_VERSION } from '../src/version'
-import { routerDataFetcher, type KLineData, type ChartController } from '@363045841yyt/klinechart-core/controllers'
+import { routerDataFetcher, type KLineData, type ChartController, type CustomDataSource } from '@363045841yyt/klinechart-core/controllers'
 import { executeTool } from '@363045841yyt/klinechart-ai-runtime'
 
 function generateMockKLineData(
   basePrice: number,
   days: number,
-  startTs: number,
+  startDate: string,
   seed: number,
 ): KLineData[] {
   const data: KLineData[] = []
   let price = basePrice
   let r = seed
+  const start = new Date(startDate).getTime()
   for (let i = 0; i < days; i++) {
     r = (r * 16807 + 0) % 2147483647
     const change = ((r % 200) - 100) / 1000
@@ -144,14 +140,16 @@ function generateMockKLineData(
     const close = +(price * (1 + change)).toFixed(2)
     const high = +(Math.max(open, close) * (1 + Math.abs(change) * 0.5)).toFixed(2)
     const low = +(Math.min(open, close) * (1 - Math.abs(change) * 0.5)).toFixed(2)
-    const volume = Math.round(1000000 + (r % 5000000))
+    const d = new Date(start + i * 86400000)
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     data.push({
-      timestamp: startTs + i * 86400000,
+      timestamp: start + i * 86400000,
+      date: dateStr,
       open,
       high,
       low,
       close,
-      volume,
+      volume: Math.round(1000000 + (r % 5000000)),
     })
     price = close
   }
@@ -240,39 +238,25 @@ if (typeof document !== 'undefined') {
   document.addEventListener('fullscreenchange', handleFullscreenChange)
 }
 
-// ── Demo: Controller Data Injection API ──
-const demoInjectedSymbols = ref<string[]>([])
+// ── 自定义数据源 Demo ──
+const useCustomData = ref(false)
+const customData = ref<CustomDataSource | null>(null)
 
-function getCtrl(): ChartController | null {
-  return chartRef.value?.getController?.() ?? null
-}
-
-function onDemoInjectComparison() {
-  const ctrl = getCtrl()
-  if (!ctrl) return
-  const now = Date.now()
-  const startTs = now - 365 * 86400000
-  const mockSymbol = `MOCK.${String.fromCharCode(65 + demoInjectedSymbols.value.length)}`
-  const mockData = generateMockKLineData(50 + demoInjectedSymbols.value.length * 10, 365, startTs, demoInjectedSymbols.value.length + 42)
-  ctrl.setComparisonData(mockSymbol, mockData)
-  demoInjectedSymbols.value = [...demoInjectedSymbols.value, mockSymbol]
-}
-
-function onDemoChangeSymbol() {
-  const ctrl = getCtrl()
-  if (!ctrl) return
-  const symbols = ['000001.SZ', '600519.SH', '300750.SZ']
-  const current = ctrl.symbols.peek()[0]?.symbol ?? ''
-  const next = symbols.find((s) => s !== current) ?? symbols[0]!
-  ctrl.setCurrentSymbol(next)
-}
-
-function onDemoTogglePeriod() {
-  const ctrl = getCtrl()
-  if (!ctrl) return
-  const current = ctrl.symbols.peek()[0]?.period ?? 'daily'
-  const next = current === 'daily' ? 'weekly' : 'daily'
-  ctrl.setCurrentPeriod(next)
+function onToggleCustomData() {
+  useCustomData.value = !useCustomData.value
+  if (useCustomData.value) {
+    customData.value = {
+      symbol: 'CUSTOM.DEMO',
+      period: 'daily',
+      data: generateMockKLineData(30, 500, '2025-06-01', 42),
+      comparisons: {
+        'COMP.A': generateMockKLineData(28, 500, '2025-06-01', 100),
+        'COMP.B': generateMockKLineData(35, 500, '2025-06-01', 200),
+      },
+    }
+  } else {
+    customData.value = null
+  }
 }
 </script>
 

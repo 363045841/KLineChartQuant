@@ -29,6 +29,7 @@ import type {
     PaneSpec,
     SymbolSpec,
     DataFetcher,
+    CustomDataSource,
 } from './types'
 import type { CustomMarkerEntity } from '../engine/marker/registry'
 import { Chart, type InteractionSnapshot as LegacyInteractionSnapshot } from '../engine/chart'
@@ -545,6 +546,11 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
         chart.setCurrentPeriod(period)
     }
 
+    function applyCustomData(source: CustomDataSource): void {
+        if (disposed) return
+        chart.applyCustomData(source)
+    }
+
     function setDataFetcher(fetcher: DataFetcher | null): void {
         if (disposed) return
         chart.setDataFetcher(fetcher)
@@ -882,6 +888,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
         setComparisonData,
         setCurrentSymbol,
         setCurrentPeriod,
+        applyCustomData,
         setDataFetcher,
         ensureDataRange,
         setData,

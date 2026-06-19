@@ -1,7 +1,7 @@
 import type { KLineData } from '../types/price'
 import type { ChartSettings } from '../config/chartSettings'
 import { createSignal, type Signal, type Computed } from '../reactivity/signal'
-import type { SymbolSpec } from '../controllers/types'
+import type { SymbolSpec, CustomDataSource } from '../controllers/types'
 import { ChartDataManager } from './data/chartDataManager'
 import { ChartPaneLayout } from './layout/chartPaneLayout'
 import { UpdateLevel } from './layout/pane'
@@ -839,6 +839,10 @@ export class Chart {
 
     setCurrentPeriod(period: string): void {
         this.dataManager.setCurrentPeriod(period)
+    }
+
+    applyCustomData(source: CustomDataSource): void {
+        this.dataManager.applyCustomData(source)
     }
 
     // ---------- Theme ----------
