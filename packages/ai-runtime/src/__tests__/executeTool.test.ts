@@ -446,7 +446,11 @@ describe('executeTool', () => {
         name: 'markers.update',
         input: { markers },
       })
-      expect(chart.updateCustomMarkers).toHaveBeenCalledWith(markers)
+      const expectedMarkers = markers.map((m) => ({
+        ...m,
+        timestamp: new Date(m.date).getTime(),
+      }))
+      expect(chart.updateCustomMarkers).toHaveBeenCalledWith(expectedMarkers)
       expect(result.success).toBe(true)
     })
   })

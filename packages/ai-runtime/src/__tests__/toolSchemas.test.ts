@@ -204,16 +204,18 @@ describe('inputSchema correctness — spot checks', () => {
     }
   })
 
-  it('drawing.setTool uses an enum for tool types', () => {
+  it('drawing.setTool uses oneOf for tool types (string + null)', () => {
     const t = findTool('drawing.setTool')!
     if (t.inputSchema.type === 'object') {
       const tool = t.inputSchema.properties.tool
-      expect(tool?.type).toBe('string')
-      if (tool?.type === 'string') {
-        expect(tool.enum).toContain('trendline')
-        expect(tool.enum).toContain('fib')
-        expect(tool.enum).toContain(null)
-      }
+      expect(tool?.oneOf).toBeDefined()
+      const stringOption = tool.oneOf.find((o: Record<string, unknown>) => o.type === 'string')
+      expect(stringOption).toBeDefined()
+      expect(stringOption!.enum).toContain('trendline')
+      expect(stringOption!.enum).toContain('fib')
+
+      const nullOption = tool.oneOf.find((o: Record<string, unknown>) => o.type === 'null')
+      expect(nullOption).toBeDefined()
     }
   })
 
