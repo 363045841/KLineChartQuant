@@ -516,9 +516,18 @@ export class ChartDataManager {
   applyCustomData(source: CustomDataSource): void {
     if (source.symbol) this.setCurrentSymbol(source.symbol)
     if (source.period) this.setCurrentPeriod(source.period)
-    // 浅克隆每个 KLineData 对象，剥离外部框架响应性代理（Vue reactive Proxy 等）
-    // 避免 structuredClone（Web Worker postMessage 底层使用）因 Proxy 陷阱中
-    // 的函数引用而抛出 DataCloneError
+
+    // 确保主品种在 _symbolsSignal 中有条目，避免后续 setComparisonData
+    // 因取不到 mainSpec 而把第一个对比商品误当做主品种
+    const specs = this._symbolsSignal.peek()
+    if (specs.length === 0 && source.symbol) {
+      const mainSpec: SymbolSpec = {
+        symbol: source.symbol,
+        period: source.period ?? 'daily',
+      }
+      this._symbolsSignal.set([mainSpec])
+    }
+
     const plainData = source.data.map((d) => ({ ...d }))
     this.setData(plainData)
     if (source.comparisons) {
