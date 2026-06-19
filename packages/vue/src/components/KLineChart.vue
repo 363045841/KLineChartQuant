@@ -268,7 +268,7 @@ const emit = defineEmits<{
 }>()
 
 // ── Symbol / Comparison State ──
-const kLineLevel = ref(props.semanticConfig?.data?.period ?? 'daily')
+const kLineLevel = ref<string>(props.semanticConfig?.data?.period ?? 'daily')
 const kLineAdjust = ref(props.semanticConfig?.data?.adjust ?? 'none')
 const isIntraday = computed(() => kLineLevel.value.includes('min'))
 const currentSymbol = ref('选择商品')
@@ -281,6 +281,7 @@ const overlaySymbolItems = ref<SymbolItem[]>([])
 function onKLineLevelChange(level: string) {
   kLineLevel.value = level as typeof kLineLevel.value
   emit('kLineLevelChange', level)
+  controller.value?.setCurrentPeriod(level)
   syncSymbolsToController()
 }
 

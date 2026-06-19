@@ -75,6 +75,14 @@ export interface KLineData {
     date?: string
 }
 
+export interface TimeShareData {
+    timestamp: number
+    price: number
+    average: number
+    volume: number
+    amount: number
+}
+
 export type { PaneSpec }
 
 // ---------------------------------------------------------------------------

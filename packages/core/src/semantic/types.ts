@@ -31,7 +31,7 @@ export interface DataConfig {
   startDate: string
   /** 结束日期 YYYY-MM-DD */
   endDate: string
-  period: 'daily' | 'weekly' | 'monthly' | '5min' | '15min' | '30min' | '60min'
+  period: 'daily' | 'weekly' | 'monthly' | '5min' | '15min' | '30min' | '60min' | 'timeshare'
   adjust: AdjustType
 }
 

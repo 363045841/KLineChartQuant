@@ -35,6 +35,7 @@ export function createLastPriceLabelRegistrarPlugin(): RendererPlugin {
         priority: RENDERER_PRIORITY.LAST_PRICE_LABEL,
 
         draw(context: RenderContext) {
+            if (context.period === 'timeshare') return
             const colors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
             const info = getLastPriceInfo(context)
             if (!info) return
@@ -68,6 +69,7 @@ export function createLastPriceLineRendererPlugin(): RendererPlugin {
         priority: RENDERER_PRIORITY.LAST_PRICE_LABEL,
 
         draw(context: RenderContext) {
+            if (context.period === 'timeshare') return
             const { ctx, scrollLeft, dpr, paneWidth } = context
             const colors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
             const info = getLastPriceInfo(context)

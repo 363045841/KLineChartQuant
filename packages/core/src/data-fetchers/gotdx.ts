@@ -1,6 +1,6 @@
-import type { KLineData } from '../controllers/types'
+import type { KLineData, TimeShareData } from '../controllers/types'
 import { DataFetcher } from './fetcherDefinitionRegistry'
-import type { FetchConfig } from './types'
+import type { FetchConfig, TimeShareFetchConfig } from './types'
 
 const PERIOD_TO_CATEGORY: Record<string, number> = {
   '1min': 8,
@@ -30,6 +30,67 @@ const EXCHANGE_EX_CATEGORY: Record<string, number> = {
 }
 
 const BASE_URL = 'http://127.0.0.1:8080'
+
+const MORNING_SESSION_MINUTES = 120
+
+interface TickItem {
+  Price: number
+  Avg: number
+  Vol: number
+}
+
+function computeTickTimestamp(index: number, today: Date): number {
+  const d = new Date(today)
+  if (index < MORNING_SESSION_MINUTES) {
+    d.setHours(9, 30 + index, 0, 0)
+  } else {
+    d.setHours(13, 0 + (index - MORNING_SESSION_MINUTES), 0, 0)
+  }
+  return d.getTime()
+}
+
+function getShanghaiToday(): Date {
+  const formatter = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  })
+  const parts = formatter.formatToParts(new Date())
+  let y = '', m = '', d = ''
+  for (const p of parts) {
+    if (p.type === 'year') y = p.value
+    else if (p.type === 'month') m = p.value
+    else if (p.type === 'day') d = p.value
+  }
+  return new Date(+y, +m - 1, +d)
+}
+
+function getMarket(code: string): number {
+  if (code.startsWith('6') || code.startsWith('9')) return 1
+  return 0
+}
+
+async function fetchGotdxTimeShare(
+  _source: string,
+  config: TimeShareFetchConfig,
+): Promise<ReadonlyArray<TimeShareData>> {
+  const market = getMarket(config.symbol)
+  const body = { market, code: config.symbol, start: config.start ?? 0, count: config.count ?? 240 }
+  const res = await fetch(`${BASE_URL}/api/stock/tick`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`[gotdx] tick failed: ${res.status} ${res.statusText}`)
+  const list: TickItem[] = await res.json()
+  const today = getShanghaiToday()
+  return list.map((item, i) => ({
+    timestamp: computeTickTimestamp(i, today),
+    price: item.Price,
+    average: item.Avg,
+    volume: item.Vol,
+    amount: item.Price * item.Vol,
+  }))
+}
 
 interface SecurityBar {
   Last: number
@@ -156,6 +217,7 @@ async function fetchGotdx(
 })
 class GotdxFetcher {
   static fetcher = fetchGotdx
+  static timeShareFetcher = fetchGotdxTimeShare
 }
 
 /** @deprecated Use `GotdxFetcher.fetcher` directly or rely on routerDataFetcher. */

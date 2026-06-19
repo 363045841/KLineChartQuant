@@ -108,6 +108,7 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
         priority: RENDERER_PRIORITY.OVERLAY,
 
         draw(context: RenderContext) {
+            if (context.period === 'timeshare') return
             const { ctx, pane, data, range, scrollLeft, dpr, paneWidth, kLineCenters } = context
             const colors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
             const klineData = data as KLineData[]

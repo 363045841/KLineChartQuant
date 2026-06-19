@@ -23,8 +23,10 @@ export type KLineLevel =
   | 'monthly'
   | 'quarterly'
   | 'yearly'
+  | 'timeshare'
 
 const kLineLevelOptions: Array<{ label: string; value: KLineLevel }> = [
+  { label: '分时', value: 'timeshare' },
   { label: '1day', value: 'daily' },
   { label: '1min', value: '1min' },
   { label: '5min', value: '5min' },

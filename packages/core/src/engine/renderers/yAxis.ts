@@ -80,6 +80,7 @@ export function createYAxisRendererPlugin(options: {
       // 绘制来自 yAxisLabels 的标签（最新价格、极值点、绘图锚点等）
       if (context.yAxisLabels && pane.role === 'price') {
         for (const label of context.yAxisLabels) {
+          if (label.price == null || !Number.isFinite(label.price)) continue
           const isLastPrice = label.type === 'lastPrice'
           drawAxisPriceLabel(targetCtx, {
             x: 0,

@@ -45,6 +45,10 @@ export function withAsiaMarketColors(theme: Theme): Theme {
             candleUpWick: theme.colors.candleDownWick,
             candleDownWick: theme.colors.candleUpWick,
 
+            // ── Time-share area fill ──
+            timeShareAreaUp: theme.colors.timeShareAreaDown,
+            timeShareAreaDown: theme.colors.timeShareAreaUp,
+
             // ── Volume bars ──
             volumeUp: theme.colors.volumeDown,
             volumeDown: theme.colors.volumeUp,

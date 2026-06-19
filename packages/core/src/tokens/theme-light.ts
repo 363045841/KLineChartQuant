@@ -82,6 +82,13 @@ export const lightTheme: Theme = {
         // #0369A1 → 4.59:1.
         mtfOverlay: '#0369A1',
 
+        timeSharePriceLine: '#4A90D9',
+        timeShareAvgLine: '#F5A623',
+        timeShareAreaUp: 'rgba(194, 54, 59, 0.15)',
+        timeShareAreaDown: 'rgba(15, 139, 92, 0.15)',
+        timeSharePreClose: '#888888',
+        timeShareVolume: '#4A90D9',
+
         palette: {
             // Okabe-Ito-derived qualitative scale, AA on #FAFAFA
             i1: '#0072B2', // strong blue

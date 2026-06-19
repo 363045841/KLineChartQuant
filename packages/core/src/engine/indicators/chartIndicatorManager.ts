@@ -67,7 +67,8 @@ export class ChartIndicatorManager {
             ChartIndicatorManager._defaultMainParamsCache = {}
             for (const def of getRegisteredIndicatorDefinitions()) {
                 if (def.category === 'main') {
-                    ChartIndicatorManager._defaultMainParamsCache[def.displayName.toUpperCase()] = (def.runtime?.defaultConfig ?? {}) as Record<string, number | boolean | string>
+                    const key = def.name.toUpperCase()
+                    ChartIndicatorManager._defaultMainParamsCache[key] = (def.runtime?.defaultConfig ?? {}) as Record<string, number | boolean | string>
                 }
             }
         }
@@ -81,7 +82,7 @@ export class ChartIndicatorManager {
         if (ChartIndicatorManager._enableMainIndicatorsCache === null) {
             ChartIndicatorManager._enableMainIndicatorsCache = getRegisteredIndicatorDefinitions()
                 .filter(d => d.category === 'main')
-                .map(d => d.displayName.toUpperCase())
+                .map(d => d.name.toUpperCase())
         }
         return ChartIndicatorManager._enableMainIndicatorsCache
     }

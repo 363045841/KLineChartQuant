@@ -290,6 +290,14 @@ export interface ColorTokens {
     readonly alertTriggered: ColorValue
     readonly alertMuted: ColorValue
 
+    // Time-share (分时图) specific colors
+    readonly timeSharePriceLine: ColorValue
+    readonly timeShareAvgLine: ColorValue
+    readonly timeShareAreaUp: ColorValue
+    readonly timeShareAreaDown: ColorValue
+    readonly timeSharePreClose: ColorValue
+    readonly timeShareVolume: ColorValue
+
     // Anchored VWAP / MTF overlay accents
     readonly avwapLine: ColorValue
     readonly avwapBand: ColorValue

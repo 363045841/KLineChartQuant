@@ -1,5 +1,6 @@
 import type { DataFetcher } from '../controllers/types'
-import { getRegisteredFetcher, fetcherSupportsPeriod } from './fetcherDefinitionRegistry'
+import type { TimeShareFetcherFn } from './types'
+import { getRegisteredFetcher, fetcherSupportsPeriod, getTimeShareFetcher } from './fetcherDefinitionRegistry'
 
 const FALLBACK_SOURCE = 'baostock'
 
@@ -29,4 +30,14 @@ export const routerDataFetcher: DataFetcher = (source, config) => {
   }
 
   return def.fetcher(source, config)
+}
+
+export const routerTimeShareFetcher: TimeShareFetcherFn = (source, config) => {
+  const fetcher = getTimeShareFetcher(source)
+  if (!fetcher) {
+    return Promise.reject(
+      new Error(`[DataFetcher] "${source}" does not support timeshare data fetching`),
+    )
+  }
+  return fetcher(source, config)
 }

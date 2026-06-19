@@ -83,7 +83,7 @@ export function createMainIndicatorLegendRendererPlugin(options: {
 
       if (typeof crosshairIndex === 'number') {
         const k = klineData[targetIndex]
-        if (k) {
+        if (k && typeof k.close === 'number') {
           const isUp = k.close >= k.open
           const volText = typeof k.volume === 'number' ? formatVolumeShort(k.volume) : null
           const upColor = isUp ? colors.candleUpBody : colors.candleDownBody

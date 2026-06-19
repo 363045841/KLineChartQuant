@@ -817,7 +817,21 @@ export class Chart {
         this.dataManager.checkVisibleRangeGap()
     }
 
+    private syncBaseRendererForPeriod(period: string): void {
+        if (period === 'timeshare') {
+            this.enableMainIndicator('timeShare')
+            this.setRendererEnabled('candle', false)
+        } else {
+            this.disableMainIndicator('timeShare')
+            this.setRendererEnabled('candle', true)
+        }
+    }
+
     setSymbols(specs: ReadonlyArray<SymbolSpec>): void {
+        const primaryPeriod = specs[0]?.period
+        if (primaryPeriod) {
+            this.syncBaseRendererForPeriod(primaryPeriod)
+        }
         this.dataManager.setSymbols(specs)
     }
 
@@ -837,7 +851,8 @@ export class Chart {
         this.dataManager.setCurrentSymbol(symbol)
     }
 
-    setCurrentPeriod(period: string): void {
+setCurrentPeriod(period: string): void {
+        this.syncBaseRendererForPeriod(period)
         this.dataManager.setCurrentPeriod(period)
     }
 

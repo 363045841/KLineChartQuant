@@ -1,4 +1,4 @@
-import type { KLineData } from '../controllers/types'
+import type { KLineData, TimeShareData } from '../controllers/types'
 
 export type FetchConfig = {
   symbol: string
@@ -9,10 +9,22 @@ export type FetchConfig = {
   exchange?: string
 }
 
+export type TimeShareFetchConfig = {
+  symbol: string
+  exchange?: string
+  start?: number
+  count?: number
+}
+
 export type DataFetcherFn = (
   source: string,
   config: FetchConfig,
 ) => Promise<ReadonlyArray<KLineData>>
+
+export type TimeShareFetcherFn = (
+  source: string,
+  config: TimeShareFetchConfig,
+) => Promise<ReadonlyArray<TimeShareData>>
 
 export interface DataFetcherDefinitionConfig {
   name: string
@@ -24,4 +36,5 @@ export interface DataFetcherDefinitionConfig {
 
 export interface DataFetcherDefinition extends DataFetcherDefinitionConfig {
   fetcher: DataFetcherFn
+  timeShareFetcher?: TimeShareFetcherFn
 }

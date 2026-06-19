@@ -1,7 +1,9 @@
-import type { KLineData } from '../../types/price'
+import type { KLineData, TimeShareData } from '../../types/price'
 import type { SymbolSpec, DataFetcher, CustomDataSource } from '../../controllers/types'
 import { createSignal, type Signal } from '../../reactivity/signal'
 import { DataBuffer } from '../../data-fetchers/dataBuffer'
+import { routerTimeShareFetcher } from '../../data-fetchers/router'
+import type { TimeShareFetcherFn } from '../../data-fetchers/types'
 import type { ChartDom, Viewport } from '../chartTypes'
 import type { VisibleRange, UpdateLevel } from '../layout/pane'
 import { getVisibleRange } from '../viewport/viewport'
@@ -45,6 +47,14 @@ export class ChartDataManager {
 
   private _dataSignal = createSignal<ReadonlyArray<KLineData>>([])
   private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
+
+  private _currentSpec: SymbolSpec | null = null
+
+  private _timeShareData: TimeShareData[] = []
+  private _timeShareSignal = createSignal<ReadonlyArray<TimeShareData>>([])
+  private _timeShareLoadingSignal = createSignal<boolean>(false)
+  private _timeShareRequestSeq = 0
+  private _timeShareFetcher: TimeShareFetcherFn | null = null
 
   private _pendingFetches: Array<{
     source: string
@@ -177,11 +187,31 @@ export class ChartDataManager {
   }
 
   get currentPeriod(): string {
-    return this._dataBuffer.currentSpec?.period ?? 'daily'
+    return this._currentSpec?.period ?? 'daily'
   }
 
   getInternalData(): KLineData[] {
     return this._internalData
+  }
+
+  getRenderData(): unknown[] {
+    return this.currentPeriod === 'timeshare' ? this._timeShareData : this._internalData
+  }
+
+  getTimeShareData(): TimeShareData[] {
+    return this._timeShareData
+  }
+
+  getTimeShareSignal(): Signal<ReadonlyArray<TimeShareData>> {
+    return this._timeShareSignal
+  }
+
+  getTimeShareLoadingSignal(): Signal<boolean> {
+    return this._timeShareLoadingSignal
+  }
+
+  setTimeShareFetcher(fetcher: TimeShareFetcherFn | null): void {
+    this._timeShareFetcher = fetcher
   }
 
   getComparisonData(): Map<string, KLineData[]> {
@@ -500,17 +530,13 @@ export class ChartDataManager {
   }
 
   setCurrentPeriod(period: string): void {
-    const currentSpec = this._dataBuffer.currentSpec
-    if (currentSpec) {
-      this._dataBuffer.setCurrentSpec({ ...currentSpec, period })
-    } else {
-      this._dataBuffer.setCurrentSpec({ symbol: '', period })
+    const current = this._currentSpec
+    if (!current) {
+      this._currentSpec = { symbol: '', period }
+      return
     }
-    const specs = this._symbolsSignal.peek()
-    if (specs.length > 0) {
-      const updated = [{ ...specs[0], period }, ...specs.slice(1)] as SymbolSpec[]
-      this._symbolsSignal.set(updated)
-    }
+    const next = { ...current, period }
+    this.setSymbols([next, ...this._comparisonSpecs])
   }
 
   applyCustomData(source: CustomDataSource): void {
@@ -561,10 +587,30 @@ export class ChartDataManager {
 
   setSymbols(specs: ReadonlyArray<SymbolSpec>): void {
     this._symbolsSignal.set(specs)
+
     if (specs.length === 0) {
+      this._currentSpec = null
+      this.clearKLineData()
+      this.clearTimeShareData()
       this.clearComparisonBuffers()
       return
     }
+
+    const primary = specs[0]!
+    this._currentSpec = primary
+
+    if (primary.period === 'timeshare') {
+      this.clearComparisonBuffers()
+      this.clearKLineData()
+      this.loadTimeShare(primary)
+      return
+    }
+
+    this.clearTimeShareData()
+    this.loadKLineSymbols(specs)
+  }
+
+  private loadKLineSymbols(specs: ReadonlyArray<SymbolSpec>): void {
     const spec = specs[0]!
     this.syncComparisonBuffers(specs.slice(1))
     if (!this._dataFetcher) return
@@ -649,6 +695,51 @@ export class ChartDataManager {
     }
 
     this._dataBuffer.setSymbol(spec)
+  }
+
+  private clearKLineData(): void {
+    this._internalData = []
+    this._dataSignal.set([])
+    this.lastVisibleRange = { start: 0, end: 0 }
+    this.lastRawVisibleRange = { start: 0, end: 0 }
+  }
+
+  private async loadTimeShare(spec: SymbolSpec): Promise<void> {
+    const fetcher = this._timeShareFetcher ?? routerTimeShareFetcher
+    const requestSeq = ++this._timeShareRequestSeq
+    this._timeShareLoadingSignal.set(true)
+
+    try {
+      const data = await fetcher(spec.source ?? 'gotdx', {
+        symbol: spec.symbol,
+        exchange: spec.exchange,
+        start: 0,
+        count: 240,
+      })
+
+      if (requestSeq !== this._timeShareRequestSeq) return
+      if (this._currentSpec?.period !== 'timeshare') return
+      if (this._currentSpec?.symbol !== spec.symbol) return
+
+      this._timeShareData = [...data]
+      this._timeShareSignal.set([...data])
+      this.lastVisibleRange = { start: 0, end: data.length }
+      this.lastRawVisibleRange = { start: 0, end: data.length }
+
+      this.deps.resetInteraction()
+      this.deps.scheduleDraw()
+    } finally {
+      if (requestSeq === this._timeShareRequestSeq) {
+        this._timeShareLoadingSignal.set(false)
+      }
+    }
+  }
+
+  private clearTimeShareData(): void {
+    this._timeShareRequestSeq++
+    this._timeShareData = []
+    this._timeShareSignal.set([])
+    this._timeShareLoadingSignal.set(false)
   }
 
   getContentWidth(): number {
@@ -758,6 +849,7 @@ export class ChartDataManager {
     this.pendingPrependedCount = 0
     this._dataBuffer.dispose()
     this.clearComparisonBuffers()
+    this.clearTimeShareData()
   }
 }
 

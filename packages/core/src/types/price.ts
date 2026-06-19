@@ -38,6 +38,19 @@ export interface KLineDailyDongCaiResponse extends KLineData {
 }
 
 
+export interface TimeShareData {
+  timestamp: number
+  price: number
+  average: number
+  volume: number
+  amount: number
+}
+
+export function isTimeShareData(data: unknown[]): data is TimeShareData[] {
+  const first = data[0]
+  return data.length > 0 && first !== null && typeof first === 'object' && 'price' in (first as object) && 'average' in (first as object)
+}
+
 export function toKLineData(arr: KLineDailyDongCaiResponse[]): KLineData[] {
   return arr
     .map((e) => ({

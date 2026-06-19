@@ -1,8 +1,9 @@
-import type { DataFetcherDefinitionConfig, DataFetcherDefinition, DataFetcherFn } from './types'
+import type { DataFetcherDefinitionConfig, DataFetcherDefinition, DataFetcherFn, TimeShareFetcherFn } from './types'
 
 type DataFetcherClass = {
   new(...args: never[]): unknown
   fetcher: DataFetcherFn
+  timeShareFetcher?: TimeShareFetcherFn
 }
 
 const definitions = new Map<string, DataFetcherDefinition>()
@@ -18,6 +19,7 @@ export function DataFetcher(config: DataFetcherDefinitionConfig) {
       definitions.set(config.name, {
         ...config,
         fetcher: this.fetcher,
+        timeShareFetcher: this.timeShareFetcher,
       })
     })
     return value
@@ -43,6 +45,14 @@ export function fetcherSupportsPeriod(name: string, period: string): boolean {
   if (!def) return false
   if (!def.capabilities || def.capabilities.length === 0) return false
   return def.capabilities.includes('*') || def.capabilities.includes(period)
+}
+
+export function getTimeShareFetcher(name: string): TimeShareFetcherFn | undefined {
+  return definitions.get(name)?.timeShareFetcher
+}
+
+export function fetcherSupportsTimeShare(name: string): boolean {
+  return typeof definitions.get(name)?.timeShareFetcher === 'function'
 }
 
 export function clearRegisteredFetchersForTest(): void {

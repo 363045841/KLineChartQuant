@@ -203,7 +203,8 @@ export class ChartRenderer {
 
     const frame = this.prepareFrameData(level)
     if (!frame) {
-      if (this.deps.getDataManager().getInternalData().length === 0) this.clearAllCanvases()
+      const dataManager = this.deps.getDataManager()
+      if (dataManager.getInternalData().length === 0 && dataManager.getTimeShareData().length === 0) this.clearAllCanvases()
       return
     }
 
@@ -211,11 +212,14 @@ export class ChartRenderer {
 
     this.deps.getInteraction().setKLinePositions(kLinePositions, range, kWidthPx)
 
-    const indicatorManager = this.deps.getIndicatorManager()
-    indicatorManager.indicatorSchedulerAccessor.setActiveMainIndicators(
-      [...indicatorManager.mainIndicatorsSignalPeek.entries()].map(([id, entry]) => ({ id, params: entry.params })),
-    )
-    const mainIndicatorRange = useCachedFrame ? null : indicatorManager.indicatorSchedulerAccessor.getMainIndicatorPriceRange()
+    const dataManager = this.deps.getDataManager()
+    if (dataManager.currentPeriod !== 'timeshare') {
+      const indicatorManager = this.deps.getIndicatorManager()
+      indicatorManager.indicatorSchedulerAccessor.setActiveMainIndicators(
+        [...indicatorManager.mainIndicatorsSignalPeek.entries()].map(([id, entry]) => ({ id, params: entry.params })),
+      )
+    }
+    const mainIndicatorRange = useCachedFrame ? null : this.deps.getIndicatorManager().indicatorSchedulerAccessor.getMainIndicatorPriceRange()
     const hasCrosshair = this.deps.getInteraction().getCrosshairIndex() !== null
 
     const { sharedXAxisLabels, sharedXAxisRanges } = this.renderPanes(
@@ -233,7 +237,7 @@ export class ChartRenderer {
     const vp = useCachedFrame ? this.cachedDrawFrame!.viewport : this.deps.getViewportManager().computeViewport()
     if (!vp) return null
 
-    const internalData = this.deps.getDataManager().getInternalData()
+    const internalData = this.deps.getDataManager().getRenderData() as KLineData[]
     if (internalData.length === 0) return null
 
     const opt = this.deps.getOption()
@@ -253,13 +257,16 @@ export class ChartRenderer {
     const range = { start: Math.max(0, rawRange.start), end: rawRange.end }
 
     const dataManager = this.deps.getDataManager()
+    const isTimeShare = dataManager.currentPeriod === 'timeshare'
     if (!useCachedFrame && (
       range.start !== dataManager.lastVisibleRange.start
       || range.end !== dataManager.lastVisibleRange.end
       || rawRange.start !== dataManager.lastRawVisibleRange.start
       || rawRange.end !== dataManager.lastRawVisibleRange.end
     )) {
-      this.deps.getIndicatorManager().indicatorSchedulerAccessor.updateVisibleRange(range)
+      if (!isTimeShare) {
+        this.deps.getIndicatorManager().indicatorSchedulerAccessor.updateVisibleRange(range)
+      }
       dataManager.lastVisibleRange = range
       dataManager.lastRawVisibleRange = rawRange
       this.checkVisibleRangeGapWhenIdle()
@@ -354,6 +361,7 @@ export class ChartRenderer {
     const dataManager = this.deps.getDataManager()
     const rendererPluginManager = this.deps.getRendererPluginManager()
     const pluginHost = this.deps.getPluginHost()
+    const isTimeShare = dataManager.currentPeriod === 'timeshare'
 
     for (const renderer of this.deps.getPaneRenderers()) {
       const pane = renderer.getPane()
@@ -361,10 +369,14 @@ export class ChartRenderer {
       const { candleSurface, lineSurface } = renderer.getWebGL()
 
       if (!useCachedFrame) {
-        const indicatorRange = pane.role === 'price' ? mainIndicatorRange : null
+        const indicatorRange = pane.role === 'price' && !isTimeShare ? mainIndicatorRange : null
         const comparisonRange = pane.id === 'main' ? dataManager.getComparisonEquivalentPriceRange(range) : null
         const mergedRange = this.mergeNumericRanges(indicatorRange, comparisonRange)
-        pane.updateRange(dataManager.getInternalData(), range, mergedRange)
+        if (isTimeShare) {
+          this.updateTimeSharePaneRange(pane, range, dataManager)
+        } else {
+          pane.updateRange(dataManager.getInternalData(), range, mergedRange)
+        }
         if (pane.id === 'main' && this.settings.disableMainPaneVerticalScroll) {
           pane.yAxis.resetTransform()
         }
@@ -400,7 +412,7 @@ export class ChartRenderer {
         ctx: mainCtx!,
         overlayCtx: overlayCtx ?? undefined,
         pane: wrapPaneInfo(pane),
-        data: dataManager.getInternalData(),
+        data: dataManager.getRenderData(),
         period: dataManager.currentPeriod,
         comparisonData: dataManager.getComparisonData(),
         comparisonSymbols: dataManager.getComparisonSpecs(),
@@ -498,7 +510,7 @@ export class ChartRenderer {
           priceRange: { maxPrice: 0, minPrice: 0 },
         },
         period: this.deps.getDataManager().currentPeriod,
-        data: this.deps.getDataManager().getInternalData(),
+        data: this.deps.getDataManager().getRenderData(),
         range,
         scrollLeft: vp.scrollLeft,
         kWidth: opt.kWidth,
@@ -564,6 +576,23 @@ export class ChartRenderer {
       min: Math.min(left.min, right.min),
       max: Math.max(left.max, right.max),
     }
+  }
+
+  private updateTimeSharePaneRange(pane: { yAxis: { setRange: (r: { maxPrice: number; minPrice: number }) => void } }, range: { start: number; end: number }, dataManager: { getTimeShareData: () => Array<{ price: number }> }): void {
+    const tsData = dataManager.getTimeShareData()
+    const end = Math.min(range.end, tsData.length)
+    let maxPrice = -Infinity
+    let minPrice = Infinity
+    for (let i = Math.max(0, range.start); i < end; i++) {
+      const p = tsData[i]?.price
+      if (p !== undefined && Number.isFinite(p)) {
+        if (p > maxPrice) maxPrice = p
+        if (p < minPrice) minPrice = p
+      }
+    }
+    if (!Number.isFinite(maxPrice) || !Number.isFinite(minPrice)) return
+    const padding = (maxPrice - minPrice) * 0.1 || 1
+    pane.yAxis.setRange({ maxPrice: maxPrice + padding, minPrice: Math.max(0, minPrice - padding) })
   }
 
   clearCachedFrame(): void {

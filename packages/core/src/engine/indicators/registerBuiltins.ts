@@ -6,6 +6,7 @@ export async function loadBuiltinIndicators(): Promise<void> {
   if (loaded) return
   await Promise.all([
     import('../renderers/subVolume'),
+    import('../renderers/timeShare'),
     import('../renderers/Indicator/atr'),
     import('../renderers/Indicator/boll'),
     import('../renderers/Indicator/cci'),
