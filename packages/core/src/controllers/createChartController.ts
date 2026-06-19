@@ -679,6 +679,11 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
         chart.setDrawings(drawings)
     }
 
+    function getFullDrawings(): any[] {
+        if (disposed) return []
+        return chart.drawings() as any[]
+    }
+
     function setSelectedDrawingId(id: string | null): void {
         if (disposed) return
         chart.setSelectedDrawingId(id)
@@ -887,6 +892,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
         clearDrawings,
         removeDrawing,
         setDrawings,
+        getFullDrawings,
         setSelectedDrawingId,
         getViewport,
         getKWidthKGap,

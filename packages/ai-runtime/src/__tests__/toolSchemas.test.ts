@@ -5,7 +5,6 @@ import {
   CHART_NAVIGATION_TOOLS,
   INDICATOR_TOOLS,
   DATA_TOOLS,
-  LAYOUT_TOOLS,
   DRAWING_TOOLS,
   MARKER_TOOLS,
   SETTINGS_TOOLS,
@@ -55,7 +54,6 @@ describe('TOOL_GROUPS coverage', () => {
       ...TOOL_GROUPS.navigation,
       ...TOOL_GROUPS.indicators,
       ...TOOL_GROUPS.data,
-      ...TOOL_GROUPS.layout,
       ...TOOL_GROUPS.drawing,
       ...TOOL_GROUPS.markers,
       ...TOOL_GROUPS.settings,
@@ -109,21 +107,12 @@ describe('TOOL_GROUPS coverage', () => {
     )
   })
 
-  it('LAYOUT_TOOLS includes clearSubPanes/updatePaneLayout', () => {
-    const names = LAYOUT_TOOLS.map((t) => t.name)
-    expect(names).toEqual(
-      expect.arrayContaining([
-        'layout.clearSubPanes',
-        'layout.updatePaneLayout',
-      ]),
-    )
-  })
-
-  it('DRAWING_TOOLS includes setTool/clear/remove', () => {
+  it('DRAWING_TOOLS includes setTool/add/clear/remove', () => {
     const names = DRAWING_TOOLS.map((t) => t.name)
     expect(names).toEqual(
       expect.arrayContaining([
         'drawing.setTool',
+        'drawing.add',
         'drawing.clear',
         'drawing.remove',
       ]),

@@ -23,12 +23,9 @@ function createMockChart(
     updateData: vi.fn(),
     addComparisonSymbol: vi.fn(),
     removeComparisonSymbol: vi.fn(),
-    createSubPane: vi.fn(() => true),
-    clearSubPanes: vi.fn(),
-    resizeSubPane: vi.fn(() => true),
-    replaceSubPaneIndicator: vi.fn(() => true),
-    updatePaneLayout: vi.fn(),
     setDrawingTool: vi.fn(),
+    getFullDrawings: vi.fn(() => []),
+    setDrawings: vi.fn(),
     clearDrawings: vi.fn(),
     removeDrawing: vi.fn(),
     updateCustomMarkers: vi.fn(),
@@ -330,34 +327,6 @@ describe('executeTool', () => {
     })
   })
 
-  describe('layout.clearSubPanes', () => {
-    it('calls chart.clearSubPanes', () => {
-      const chart = createMockChart()
-      const result = executeTool(chart, {
-        name: 'layout.clearSubPanes',
-        input: {},
-      })
-      expect(chart.clearSubPanes).toHaveBeenCalledOnce()
-      expect(result.success).toBe(true)
-    })
-  })
-
-  describe('layout.updatePaneLayout', () => {
-    it('calls chart.updatePaneLayout with pane specs', () => {
-      const chart = createMockChart()
-      const panes = [
-        { id: 'main', ratio: 3 },
-        { id: 'rsi_0', ratio: 1 },
-      ]
-      const result = executeTool(chart, {
-        name: 'layout.updatePaneLayout',
-        input: { panes },
-      })
-      expect(chart.updatePaneLayout).toHaveBeenCalledWith(panes)
-      expect(result.success).toBe(true)
-    })
-  })
-
   describe('drawing.setTool', () => {
     it('calls chart.setDrawingTool with tool type', () => {
       const chart = createMockChart()
@@ -377,6 +346,69 @@ describe('executeTool', () => {
       })
       expect(chart.setDrawingTool).toHaveBeenCalledWith(null)
       expect(result.success).toBe(true)
+    })
+  })
+
+  describe('drawing.add', () => {
+    it('calls getFullDrawings + setDrawings with a new drawing appended', () => {
+      const chart = createMockChart()
+      const result = executeTool(chart, {
+        name: 'drawing.add',
+        input: { kind: 'horizontal-line', anchors: [{ barIndex: 0, price: 150 }] },
+      })
+      expect(chart.getFullDrawings).toHaveBeenCalledOnce()
+      expect(chart.setDrawings).toHaveBeenCalledOnce()
+      const passed = chart.setDrawings.mock.calls[0][0] as any[]
+      expect(passed.length).toBe(1)
+      expect(passed[0].kind).toBe('horizontal-line')
+      expect(passed[0].anchors).toHaveLength(1)
+      expect(passed[0].anchors[0].index).toBe(0)
+      expect(passed[0].anchors[0].price).toBe(150)
+      expect(result.success).toBe(true)
+      expect(result.data?.drawingId).toBeTypeOf('string')
+    })
+
+    it('appends to existing drawings', () => {
+      const existing = [{ id: 'existing-1', kind: 'trend-line' }]
+      const chart = createMockChart({ getFullDrawings: vi.fn(() => existing) })
+      const result = executeTool(chart, {
+        name: 'drawing.add',
+        input: { kind: 'vertical-line', anchors: [{ barIndex: 20, price: 100 }] },
+      })
+      const passed = chart.setDrawings.mock.calls[0][0] as any[]
+      expect(passed.length).toBe(2)
+      expect(passed[0].id).toBe('existing-1')
+      expect(passed[1].kind).toBe('vertical-line')
+      expect(result.success).toBe(true)
+    })
+
+    it('passes style overrides when provided', () => {
+      const chart = createMockChart()
+      executeTool(chart, {
+        name: 'drawing.add',
+        input: {
+          kind: 'trend-line',
+          anchors: [
+            { barIndex: 0, price: 100 },
+            { barIndex: 10, price: 110 },
+          ],
+          style: { stroke: '#FF5722', strokeWidth: 3 },
+        },
+      })
+      const passed = chart.setDrawings.mock.calls[0][0] as any[]
+      expect(passed[0].style.stroke).toBe('#FF5722')
+      expect(passed[0].style.strokeWidth).toBe(3)
+    })
+
+    it('provides default style when style omitted', () => {
+      const chart = createMockChart()
+      executeTool(chart, {
+        name: 'drawing.add',
+        input: { kind: 'ray', anchors: [{ barIndex: 5, price: 200 }] },
+      })
+      const passed = chart.setDrawings.mock.calls[0][0] as any[]
+      expect(passed[0].style.stroke).toBe('#2962ff')
+      expect(passed[0].style.strokeWidth).toBe(1)
     })
   })
 

@@ -4,7 +4,7 @@
  * Provides setupDrawing() to initialize DrawingInteractionController
  * with lifecycle callbacks that sync back to Vue refs.
  */
-import { ref, computed, shallowRef, type Ref } from 'vue'
+import { ref, computed, shallowRef, onUnmounted, type Ref } from 'vue'
 import {
   DrawingInteractionController,
   type ChartController,
@@ -21,6 +21,8 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
     if (!id) return null
     return drawings.value.find((d) => d.id === id) ?? null
   })
+
+  let unsubDrawings: (() => void) | null = null
 
   function handleSelectTool(toolId: string) {
     drawingController.value?.setTool(toolId as DrawingToolId)
@@ -52,7 +54,21 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
         selectedDrawingId.value = drawing?.id ?? null
       },
     })
+
+    let syncing = false
+    unsubDrawings = chartCtrl.drawings.subscribe(() => {
+      if (syncing) return
+      syncing = true
+      const full = chartCtrl.getFullDrawings()
+      drawingController.value?.setDrawings(full)
+      syncing = false
+    })
   }
+
+  onUnmounted(() => {
+    unsubDrawings?.()
+    unsubDrawings = null
+  })
 
   return {
     drawingController,

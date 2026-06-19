@@ -271,43 +271,6 @@ export const DATA_TOOLS: McpToolSchema[] = [
   },
 ]
 
-export const LAYOUT_TOOLS: McpToolSchema[] = [
-  {
-    name: 'layout.clearSubPanes',
-    description:
-      'Remove all sub-panes (lower chart windows). Use when the user ' +
-      'says "remove all indicators", "clean up the chart", "reset panes".',
-    inputSchema: { type: 'object', properties: {} },
-    safety: 'mutates-state',
-  },
-  {
-    name: 'layout.updatePaneLayout',
-    description:
-      'Reorganize pane layout by setting the ratio (relative height) ' +
-      'for each pane. Higher ratio = taller pane. Use to redistribute ' +
-      'vertical space among panes.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        panes: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              id: { type: 'string' },
-              ratio: { type: 'number', minimum: 0.1, description: 'Relative height ratio.' },
-            },
-            required: ['id', 'ratio'],
-          },
-          description: 'Pane layout specs in display order.',
-        },
-      },
-      required: ['panes'],
-    },
-    safety: 'mutates-state',
-  },
-]
-
 export const DRAWING_TOOLS: McpToolSchema[] = [
   {
     name: 'drawing.setTool',
@@ -328,6 +291,81 @@ export const DRAWING_TOOLS: McpToolSchema[] = [
         },
       },
       required: ['tool'],
+    },
+    safety: 'mutates-state',
+  },
+  {
+    name: 'drawing.add',
+    description:
+      'Add a drawing/annotation at specific anchor points. Use when the ' +
+      'user says "draw a trend line from bar 10 to bar 50", "mark a ' +
+      'horizontal line at price 150", "add Fibonacci retracement", ' +
+      '"draw a vertical line here". Anchors are positioned by bar index ' +
+      '(0 = first visible bar) and price.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        kind: {
+          type: 'string',
+          enum: [
+            'trend-line',
+            'ray',
+            'extended-line',
+            'horizontal-line',
+            'horizontal-ray',
+            'vertical-line',
+            'cross-line',
+            'info-line',
+            'parallel-channel',
+            'regression-channel',
+            'flat-line',
+            'disjoint-channel',
+          ],
+          description:
+            'Type of drawing. trend-line = segment between 2 points; ' +
+            'ray = line extending right; extended-line = line extending both ' +
+            'directions; horizontal-line = full-width horizontal; ' +
+            'vertical-line = full-height vertical; cross-line = both; ' +
+            'info-line = labeled segment; parallel-channel / flat-line / ' +
+            'disjoint-channel = 3-anchor channels; ' +
+            'regression-channel = linear regression with std-dev bands.',
+        },
+        anchors: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              barIndex: {
+                type: 'number',
+                description:
+                  'Bar index (0-based, relative to visible data range). ' +
+                  'e.g. 0 = first bar, use -1 for the last bar.',
+              },
+              price: { type: 'number', description: 'Price value for the anchor point.' },
+            },
+            required: ['barIndex', 'price'],
+          },
+          description:
+            'Anchor points defining the drawing. Single-anchor kinds ' +
+            '(horizontal-line, vertical-line, etc.) need 1 anchor; ' +
+            'dual-anchor kinds (trend-line, ray, etc.) need 2; ' +
+            'triple-anchor kinds (parallel-channel, flat-line, etc.) need 3.',
+        },
+        style: {
+          type: 'object',
+          properties: {
+            stroke: { type: 'string', description: 'Line color (hex, e.g. #FF5722).' },
+            strokeWidth: { type: 'number', description: 'Line width in pixels (default 1).' },
+            strokeStyle: {
+              type: 'string',
+              enum: ['solid', 'dashed', 'dotted'],
+              description: 'Line style (default solid).',
+            },
+          },
+          description: 'Optional visual style overrides.',
+        },
+      },
+      required: ['kind', 'anchors'],
     },
     safety: 'mutates-state',
   },
@@ -547,7 +585,6 @@ export const ALL_TOOLS: ReadonlyArray<McpToolSchema> = [
   ...CHART_NAVIGATION_TOOLS,
   ...INDICATOR_TOOLS,
   ...DATA_TOOLS,
-  ...LAYOUT_TOOLS,
   ...DRAWING_TOOLS,
   ...MARKER_TOOLS,
   ...SETTINGS_TOOLS,
@@ -559,7 +596,6 @@ export const TOOL_GROUPS = {
   navigation: CHART_NAVIGATION_TOOLS,
   indicators: INDICATOR_TOOLS,
   data: DATA_TOOLS,
-  layout: LAYOUT_TOOLS,
   drawing: DRAWING_TOOLS,
   markers: MARKER_TOOLS,
   settings: SETTINGS_TOOLS,

@@ -138,21 +138,34 @@ export function executeTool(
       return { success: true }
     }
 
-    case 'layout.clearSubPanes': {
-      chart.clearSubPanes()
-      return { success: true }
-    }
-
-    case 'layout.updatePaneLayout': {
-      const { panes } = call.input as { panes: Array<{ id: string; ratio: number }> }
-      chart.updatePaneLayout(panes)
-      return { success: true }
-    }
-
     case 'drawing.setTool': {
       const { tool } = call.input as { tool: string | null }
       chart.setDrawingTool(tool)
       return { success: true }
+    }
+
+    case 'drawing.add': {
+      const input = call.input as {
+        kind: string
+        anchors: Array<{ barIndex: number; price: number }>
+        style?: Record<string, unknown>
+      }
+      const existing = chart.getFullDrawings()
+      const newDrawing: Record<string, unknown> = {
+        id: crypto.randomUUID(),
+        kind: input.kind,
+        paneId: 'main',
+        visible: true,
+        anchors: input.anchors.map((a, i) => ({
+          id: `a-${Date.now()}-${i}`,
+          index: a.barIndex,
+          price: a.price,
+        })),
+        params: {},
+        style: { stroke: '#2962ff', strokeWidth: 1, fillOpacity: 0.1, ...(input.style ?? {}) },
+      }
+      chart.setDrawings([...existing, newDrawing])
+      return { success: true, data: { drawingId: newDrawing.id } }
     }
 
     case 'drawing.clear': {

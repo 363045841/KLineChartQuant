@@ -170,6 +170,8 @@ export interface DrawingChartViewport {
 export interface DrawingChartAdapter {
     /** persist full drawing list to the chart engine */
     setDrawings(drawings: any[]): void
+    /** read the full drawing list (plugin-level DrawingObject) */
+    getFullDrawings(): any[]
     /** highlight a drawing by ID */
     setSelectedDrawingId(id: string | null): void
     /** current viewport (nullable if chart not ready) */
