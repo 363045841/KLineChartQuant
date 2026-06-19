@@ -107,6 +107,34 @@ const config: SemanticChartConfig = {
 </template>
 ```
 
+### 直接注入自定义数据（无需后端）
+
+```vue
+<script setup lang="ts">
+import KLineChart from '@363045841yyt/klinechart'
+import type { CustomDataSource, KLineData } from '@363045841yyt/klinechart'
+
+const myData: KLineData[] = [
+  { timestamp: 1748736000000, date: '2025-06-01', open: 30, high: 32, low: 30, close: 31.5, volume: 1500000 },
+  { timestamp: 1748822400000, date: '2025-06-02', open: 31.5, high: 33.2, low: 31.2, close: 33, volume: 2100000 },
+]
+
+const customDataSource: CustomDataSource = {
+  symbol: 'MY.STOCK',
+  period: 'daily',
+  data: myData,
+  comparisons: {
+    'COMP.A': [ /* 对比商品 KLineData[] */ ],
+    'COMP.B': [ /* 对比商品 KLineData[] */ ],
+  },
+}
+</script>
+
+<template>
+  <KLineChart :customData="customDataSource" />
+</template>
+```
+
 ## 📖 更多文档
 
 - [渲染引擎架构](./docs/rendering-engine-architecture.md) —— 核心渲染管线与物理像素对齐机制
@@ -126,6 +154,7 @@ const config: SemanticChartConfig = {
 | priceLabelWidth | `number` | 60 | 价格标签的额外宽度，用于显示涨跌幅 |
 | zoomLevels | `number` | 20 | 缩放等级总数 |
 | initialZoomLevel | `number` | 3 | 初始缩放等级（1 ~ zoomLevels） |
+| customData | `CustomDataSource` | — | 内联数据包：`{ symbol?, period?, data, comparisons? }`。完全绕过数据请求器，直接使用传入的数据渲染 |
 
 ## 🗺️ 路线图
 

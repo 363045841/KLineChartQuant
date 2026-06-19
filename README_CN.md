@@ -110,7 +110,38 @@ const config: SemanticChartConfig = {
 </template>
 ```
 
-### 4.（可选）启用 MCP / AI Agent 控制
+### 4. 直接注入自定义数据（无需后端）
+
+通过 `customData` prop 传入自己的 K 线数据和对比商品，完全绕过数据请求器：
+
+```vue
+<script setup lang="ts">
+import KLineChart from '@363045841yyt/klinechart'
+import type { CustomDataSource, KLineData } from '@363045841yyt/klinechart'
+
+const myData: KLineData[] = [
+  { timestamp: 1748736000000, date: '2025-06-01', open: 30, high: 32, low: 30, close: 31.5, volume: 1500000 },
+  { timestamp: 1748822400000, date: '2025-06-02', open: 31.5, high: 33.2, low: 31.2, close: 33, volume: 2100000 },
+  // ... 更多 K 线
+]
+
+const customDataSource: CustomDataSource = {
+  symbol: 'MY.STOCK',
+  period: 'daily',
+  data: myData,
+  comparisons: {
+    'COMP.A': [ /* 对比商品 KLineData[] */ ],
+    'COMP.B': [ /* 对比商品 KLineData[] */ ],
+  },
+}
+</script>
+
+<template>
+  <KLineChart :customData="customDataSource" />
+</template>
+```
+
+### 5.（可选）启用 MCP / AI Agent 控制
 
 ```bash
 npm install @363045841yyt/klinechart-ai-runtime
@@ -168,6 +199,7 @@ pnpm inspect
 | zoomLevels | `number` | 20 | 缩放级别总数 |
 | initialZoomLevel | `number` | 3 | 初始缩放级别（1 ~ zoomLevels） |
 | mcp | `McpConfig` | — | MCP 桥接配置：`{ wsUrl?, autoReconnect?, onToolCall? }`。详见 [@363045841yyt/klinechart-ai-runtime](packages/ai-runtime/README.md) |
+| customData | `CustomDataSource` | — | 内联数据包：`{ symbol?, period?, data, comparisons? }`。完全绕过数据请求器，直接使用传入的数据渲染 |
 
 ## 🗺️ Roadmap
 

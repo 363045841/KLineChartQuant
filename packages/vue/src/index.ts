@@ -42,6 +42,8 @@ export type {
     ChartController,
     ChartMountOptions,
     ChartViewport,
+    CustomDataSource,
+    KLineData,
 } from '@363045841yyt/klinechart-core'
 
 // ---------------------------------------------------------------------------

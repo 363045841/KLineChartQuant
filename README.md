@@ -109,7 +109,38 @@ const config: SemanticChartConfig = {
 </template>
 ```
 
-### 4. (Optional) Enable MCP / AI Agent Control
+### 4. Inject Custom Data Directly (Without Fetcher)
+
+Bypass the data fetcher entirely by passing your own K-line data and comparison products through the `customData` prop:
+
+```vue
+<script setup lang="ts">
+import KLineChart from '@363045841yyt/klinechart'
+import type { CustomDataSource, KLineData } from '@363045841yyt/klinechart'
+
+const myData: KLineData[] = [
+  { timestamp: 1748736000000, date: '2025-06-01', open: 30, high: 32, low: 30, close: 31.5, volume: 1500000 },
+  { timestamp: 1748822400000, date: '2025-06-02', open: 31.5, high: 33.2, low: 31.2, close: 33, volume: 2100000 },
+  // ... more candles
+]
+
+const customDataSource: CustomDataSource = {
+  symbol: 'MY.STOCK',
+  period: 'daily',
+  data: myData,
+  comparisons: {
+    'COMP.A': [ /* comparison KLineData[] */ ],
+    'COMP.B': [ /* comparison KLineData[] */ ],
+  },
+}
+</script>
+
+<template>
+  <KLineChart :customData="customDataSource" />
+</template>
+```
+
+### 5. (Optional) Enable MCP / AI Agent Control
 
 ```bash
 npm install @363045841yyt/klinechart-ai-runtime
@@ -167,6 +198,7 @@ Connect via MCP Inspector and call `chart.zoomToLevel`, `indicators.add`, etc.
 | zoomLevels | `number` | 20 | Total number of zoom levels |
 | initialZoomLevel | `number` | 3 | Initial zoom level (1 ~ zoomLevels) |
 | mcp | `McpConfig` | — | MCP bridge config: `{ wsUrl?, autoReconnect?, onToolCall? }`. See [@363045841yyt/klinechart-ai-runtime](packages/ai-runtime/README.md) |
+| customData | `CustomDataSource` | — | Inline data bundle: `{ symbol?, period?, data, comparisons? }`. Bypasses the fetcher pipeline entirely. See example above |
 
 ## 🗺️ Roadmap
 

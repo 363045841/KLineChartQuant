@@ -108,6 +108,34 @@ const config: SemanticChartConfig = {
 </template>
 ```
 
+### Inject Custom Data Directly (Without Fetcher)
+
+```vue
+<script setup lang="ts">
+import KLineChart from '@363045841yyt/klinechart'
+import type { CustomDataSource, KLineData } from '@363045841yyt/klinechart'
+
+const myData: KLineData[] = [
+  { timestamp: 1748736000000, date: '2025-06-01', open: 30, high: 32, low: 30, close: 31.5, volume: 1500000 },
+  { timestamp: 1748822400000, date: '2025-06-02', open: 31.5, high: 33.2, low: 31.2, close: 33, volume: 2100000 },
+]
+
+const customDataSource: CustomDataSource = {
+  symbol: 'MY.STOCK',
+  period: 'daily',
+  data: myData,
+  comparisons: {
+    'COMP.A': [ /* comparison KLineData[] */ ],
+    'COMP.B': [ /* comparison KLineData[] */ ],
+  },
+}
+</script>
+
+<template>
+  <KLineChart :customData="customDataSource" />
+</template>
+```
+
 ## 📖 More Documentation
 
 - [Rendering Engine Architecture](./docs/rendering-engine-architecture.md) - Core rendering pipeline and physical pixel alignment mechanism
@@ -127,6 +155,7 @@ const config: SemanticChartConfig = {
 | priceLabelWidth | `number` | 60 | Price label extra width for showing change percentage |
 | zoomLevels | `number` | 20 | Total number of zoom levels |
 | initialZoomLevel | `number` | 3 | Initial zoom level (1 ~ zoomLevels) |
+| customData | `CustomDataSource` | — | Inline data bundle: `{ symbol?, period?, data, comparisons? }`. Bypasses the fetcher pipeline entirely |
 
 ## 🗺️ Roadmap
 
