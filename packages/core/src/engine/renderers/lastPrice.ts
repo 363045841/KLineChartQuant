@@ -68,7 +68,7 @@ export function createLastPriceLineRendererPlugin(): RendererPlugin {
         priority: RENDERER_PRIORITY.LAST_PRICE_LABEL,
 
         draw(context: RenderContext) {
-            const { ctx, scrollLeft, dpr, kLinePositions, paneWidth } = context
+            const { ctx, scrollLeft, dpr, paneWidth } = context
             const colors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
             const info = getLastPriceInfo(context)
             if (!info) return
@@ -78,7 +78,8 @@ export function createLastPriceLineRendererPlugin(): RendererPlugin {
             ctx.save()
             ctx.translate(-scrollLeft, 0)
 
-            const startX = kLinePositions[0] ?? 0
+            // 最新价水平线横贯整个视口（从左边缘到右边缘）
+            const startX = scrollLeft
             const endX = paneWidth + scrollLeft
 
             ctx.strokeStyle = colors.price.lastPrice
