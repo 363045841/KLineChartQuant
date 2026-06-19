@@ -516,13 +516,17 @@ export class ChartDataManager {
   applyCustomData(source: CustomDataSource): void {
     if (source.symbol) this.setCurrentSymbol(source.symbol)
     if (source.period) this.setCurrentPeriod(source.period)
-    this.setData([...source.data])
+    // 浅克隆每个 KLineData 对象，剥离外部框架响应性代理（Vue reactive Proxy 等）
+    // 避免 structuredClone（Web Worker postMessage 底层使用）因 Proxy 陷阱中
+    // 的函数引用而抛出 DataCloneError
+    const plainData = source.data.map((d) => ({ ...d }))
+    this.setData(plainData)
     if (source.comparisons) {
       for (const key of this._comparisonBuffers.keys()) {
         if (!source.comparisons[key]) this.removeComparisonSymbol(key)
       }
       for (const [symbol, data] of Object.entries(source.comparisons)) {
-        this.setComparisonData(symbol, [...data])
+        this.setComparisonData(symbol, data.map((d) => ({ ...d })))
       }
     }
   }
