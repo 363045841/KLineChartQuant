@@ -282,8 +282,10 @@ export const DRAWING_TOOLS: McpToolSchema[] = [
       type: 'object',
       properties: {
         tool: {
-          type: 'string',
-          enum: ['trendline', 'horizontal', 'fib', 'rectangle', 'arrow', null],
+          oneOf: [
+            { type: 'string', enum: ['trendline', 'horizontal', 'fib', 'rectangle', 'arrow'], description: 'Drawing tool type.' },
+            { type: 'null', description: 'Deactivate drawing tool.' },
+          ],
           description:
             'Drawing tool type, or null to deactivate. ' +
             'trendline=trend line, horizontal=horizontal line, fib=Fibo retracement, ' +
@@ -416,6 +418,7 @@ export const MARKER_TOOLS: McpToolSchema[] = [
               groupKey: { type: 'string', description: 'Optional grouping key.' },
               style: {
                 type: 'object',
+                properties: {},
                 additionalProperties: true,
                 description: 'Optional style overrides (fillColor, strokeColor, size, etc.).',
               },
@@ -460,11 +463,13 @@ export const SETTINGS_TOOLS: McpToolSchema[] = [
       properties: {
         settings: {
           type: 'object',
+          properties: {},
           additionalProperties: true,
           description: 'Chart settings key-value pairs (behaviour).',
         },
         options: {
           type: 'object',
+          properties: {},
           additionalProperties: true,
           description: 'Chart options key-value pairs (appearance).',
         },

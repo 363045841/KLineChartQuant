@@ -1,4 +1,4 @@
-import type { ChartController, ToolCall, ToolResult } from '@363045841yyt/klinechart-core'
+import type { ChartController, DrawingToolType, KLineData, ToolCall, ToolResult } from '@363045841yyt/klinechart-core'
 import { findTool } from './toolSchemas'
 
 export type { ToolCall, ToolResult }
@@ -110,7 +110,7 @@ export function executeTool(
       const { bars } = call.input as {
         bars: Array<{ timestamp?: number; open: number; high: number; low: number; close: number; volume?: number }>
       }
-      chart.appendData(bars)
+      chart.appendData(bars as KLineData[])
       return { success: true }
     }
 
@@ -118,7 +118,7 @@ export function executeTool(
       const { bars } = call.input as {
         bars: Array<{ timestamp?: number; open: number; high: number; low: number; close: number; volume?: number }>
       }
-      chart.updateData(bars)
+      chart.updateData(bars as KLineData[])
       return { success: true }
     }
 
@@ -140,7 +140,7 @@ export function executeTool(
 
     case 'drawing.setTool': {
       const { tool } = call.input as { tool: string | null }
-      chart.setDrawingTool(tool)
+      chart.setDrawingTool(tool as DrawingToolType | null)
       return { success: true }
     }
 
@@ -180,8 +180,22 @@ export function executeTool(
     }
 
     case 'markers.update': {
-      const { markers } = call.input as { markers: Array<{ id: string; date: string; shape: string; groupKey?: string; style?: Record<string, unknown>; label?: { text: string; position?: string } }> }
-      chart.updateCustomMarkers(markers)
+      const { markers } = call.input as {
+        markers: Array<{
+          id: string
+          date: string
+          shape: string
+          groupKey?: string
+          style?: Record<string, unknown>
+          label?: { text: string; position?: string }
+        }>
+      }
+      chart.updateCustomMarkers(
+        markers.map((m) => ({
+          ...m,
+          timestamp: new Date(m.date).getTime(),
+        })) as Parameters<typeof chart.updateCustomMarkers>[0],
+      )
       return { success: true }
     }
 
