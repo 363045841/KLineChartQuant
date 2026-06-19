@@ -7,6 +7,7 @@
       :symbol-loading="symbolLoading"
       :symbol-error="symbolError"
       :overlay-symbols="overlaySymbols"
+      :overlay-symbol-items="overlaySymbolItems"
       :comparison-colors="comparisonColorsMap"
       :comparison-loading="comparisonLoading"
       @add-overlay-symbol="onAddOverlaySymbol"

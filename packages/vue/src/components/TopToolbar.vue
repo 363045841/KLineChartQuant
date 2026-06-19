@@ -18,6 +18,7 @@
     <CompareSymbolSelector
       :symbols="symbolPool"
       :selected="overlaySymbols"
+      :selected-items="overlaySymbolItems"
       :comparison-colors="comparisonColors"
       :comparison-loading="comparisonLoading"
       @add="emit('addOverlaySymbol', $event)"
@@ -97,6 +98,7 @@ const props = defineProps<{
   symbolLoading?: boolean
   symbolError?: boolean
   overlaySymbols?: string[]
+  overlaySymbolItems?: SymbolItem[]
   comparisonColors?: Map<string, string>
   comparisonLoading?: boolean
 }>()

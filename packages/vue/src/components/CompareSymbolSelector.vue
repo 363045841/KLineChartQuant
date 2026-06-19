@@ -70,7 +70,7 @@
           </div>
           <div class="compare-selected__list">
             <div
-              v-for="item in selectedItems"
+              v-for="item in displayItems"
               :key="item.code"
               class="compare-selected__item"
             >
@@ -156,10 +156,12 @@ import { useFullscreenTeleportTarget } from '../composables/useFullscreenTelepor
 const props = withDefaults(defineProps<{
   symbols: SymbolItem[]
   selected?: string[]
+  selectedItems?: SymbolItem[]
   comparisonColors?: Map<string, string>
   comparisonLoading?: boolean
 }>(), {
   selected: () => [],
+  selectedItems: () => [],
 })
 
 const emit = defineEmits<{
@@ -183,7 +185,8 @@ const { popupStyle, startPositionSync, stopPositionSync } = useTeleportedPopup(
 
 const selectedSet = computed(() => new Set(props.selected ?? []))
 
-const selectedItems = computed<SymbolItem[]>(() => {
+const displayItems = computed<SymbolItem[]>(() => {
+  if (props.selectedItems.length > 0) return props.selectedItems
   const set = selectedSet.value
   return props.symbols.filter((s) => set.has(s.code))
 })
