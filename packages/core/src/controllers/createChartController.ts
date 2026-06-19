@@ -530,6 +530,21 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
         chart.removeComparisonSymbol(symbol)
     }
 
+    function setComparisonData(symbol: string, data: ReadonlyArray<KLineData>): void {
+        if (disposed) return
+        chart.setComparisonData(symbol, [...data])
+    }
+
+    function setCurrentSymbol(symbol: string): void {
+        if (disposed) return
+        chart.setCurrentSymbol(symbol)
+    }
+
+    function setCurrentPeriod(period: string): void {
+        if (disposed) return
+        chart.setCurrentPeriod(period)
+    }
+
     function setDataFetcher(fetcher: DataFetcher | null): void {
         if (disposed) return
         chart.setDataFetcher(fetcher)
@@ -864,6 +879,9 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
         setSymbols,
         addComparisonSymbol,
         removeComparisonSymbol,
+        setComparisonData,
+        setCurrentSymbol,
+        setCurrentPeriod,
         setDataFetcher,
         ensureDataRange,
         setData,

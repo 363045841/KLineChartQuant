@@ -829,6 +829,18 @@ export class Chart {
         this.dataManager.removeComparisonSymbol(symbol)
     }
 
+    setComparisonData(symbol: string, data: KLineData[]): void {
+        this.dataManager.setComparisonData(symbol, data)
+    }
+
+    setCurrentSymbol(symbol: string): void {
+        this.dataManager.setCurrentSymbol(symbol)
+    }
+
+    setCurrentPeriod(period: string): void {
+        this.dataManager.setCurrentPeriod(period)
+    }
+
     // ---------- Theme ----------
 
     /**

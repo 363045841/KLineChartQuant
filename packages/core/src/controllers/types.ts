@@ -264,6 +264,12 @@ export interface ChartController extends DrawingChartAdapter {
     setSymbols(next: ReadonlyArray<SymbolSpec>): void
     addComparisonSymbol(spec: SymbolSpec): void
     removeComparisonSymbol(symbol: string): void
+    /** Inject comparison product data directly (bypasses fetcher) */
+    setComparisonData(symbol: string, data: ReadonlyArray<KLineData>): void
+    /** Update the main symbol code without triggering a fetch */
+    setCurrentSymbol(symbol: string): void
+    /** Update the K-line period without triggering a fetch */
+    setCurrentPeriod(period: string): void
     setDataFetcher(fetcher: DataFetcher | null): void
     setData(next: ReadonlyArray<KLineData>): void
     appendData(next: ReadonlyArray<KLineData>): void

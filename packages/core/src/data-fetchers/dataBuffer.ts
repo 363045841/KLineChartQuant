@@ -222,6 +222,32 @@ export class DataBuffer {
         })
     }
 
+    /**
+     * Put the buffer in inline mode — use the provided data directly
+     * instead of fetching. Sets data signal and tracks loadedWindow.
+     */
+    setInlineData(data: KLineData[]): void {
+        if (this._disposed) return
+        this._data = [...data]
+        this._dataSignal.set([...data])
+        if (data.length > 0) {
+            this._loadedWindow = {
+                earliestTs: data[0]!.timestamp,
+                latestTs: data[data.length - 1]!.timestamp,
+            }
+        } else {
+            this._loadedWindow = null
+        }
+        this._attemptedBoundaries.clear()
+    }
+
+    /**
+     * Update just the spec metadata without triggering any fetch.
+     */
+    setCurrentSpec(spec: SymbolSpec): void {
+        this._currentSpec = spec
+    }
+
     dispose(): void {
         this._disposed = true
         this._pendingFetch = null
