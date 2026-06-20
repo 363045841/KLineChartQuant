@@ -79,18 +79,19 @@ export function createTimeAxisRendererPlugin(options: {
       if (crosshair && typeof crosshair.index === 'number') {
         const k = klineData[crosshair.index]
         if (k) {
-          drawCrosshairTimeLabel(targetCtx, {
-            x: 0,
-            y: 0,
-            width: w,
-            height: h,
-            crosshairX: crosshair.x,
-            timestamp: k.timestamp,
-            dpr,
-            fontSize: 12,
-            bgColor: colors.crosshairLabelBg,
-            textColor: colors.crosshairLabelText,
-          }, context.theme, context.isAsiaMarket, context.colorPresetSettings)
+            drawCrosshairTimeLabel(targetCtx, {
+                x: 0,
+                y: 0,
+                width: w,
+                height: h,
+                crosshairX: crosshair.x,
+                timestamp: k.timestamp,
+                dpr,
+                fontSize: 12,
+                bgColor: colors.crosshairLabelBg,
+                textColor: colors.crosshairLabelText,
+                period: context.period,
+            }, context.theme, context.isAsiaMarket, context.colorPresetSettings)
         }
       }
 

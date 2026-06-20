@@ -546,6 +546,11 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
         chart.setCurrentPeriod(period)
     }
 
+    function switchToTimeShareForDate(dateYYYYMMDD: number): void {
+        if (disposed) return
+        chart.switchToTimeShareForDate(dateYYYYMMDD)
+    }
+
     function applyCustomData(source: CustomDataSource): void {
         if (disposed) return
         chart.applyCustomData(source)
@@ -888,6 +893,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
         setComparisonData,
         setCurrentSymbol,
         setCurrentPeriod,
+        switchToTimeShareForDate,
         applyCustomData,
         setDataFetcher,
         ensureDataRange,

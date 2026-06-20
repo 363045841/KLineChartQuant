@@ -55,6 +55,7 @@ export class ChartDataManager {
   private _timeShareLoadingSignal = createSignal<boolean>(false)
   private _timeShareRequestSeq = 0
   private _timeShareFetcher: TimeShareFetcherFn | null = null
+  private _timeShareQueryDate = 0
 
   private _pendingFetches: Array<{
     source: string
@@ -529,6 +530,10 @@ export class ChartDataManager {
     }
   }
 
+  setTimeShareQueryDate(date: number): void {
+    this._timeShareQueryDate = date
+  }
+
   setCurrentPeriod(period: string): void {
     const current = this._currentSpec
     if (!current) {
@@ -713,9 +718,9 @@ export class ChartDataManager {
       const data = await fetcher(spec.source ?? 'gotdx', {
         symbol: spec.symbol,
         exchange: spec.exchange,
-        start: 0,
-        count: 240,
+        date: this._timeShareQueryDate || undefined,
       })
+      this._timeShareQueryDate = 0
 
       if (requestSeq !== this._timeShareRequestSeq) return
       if (this._currentSpec?.period !== 'timeshare') return

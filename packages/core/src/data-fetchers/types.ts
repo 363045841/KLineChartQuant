@@ -12,8 +12,8 @@ export type FetchConfig = {
 export type TimeShareFetchConfig = {
   symbol: string
   exchange?: string
-  start?: number
-  count?: number
+  /** YYYYMMDD format query date, e.g. 20260618 */
+  date?: number
 }
 
 export type DataFetcherFn = (

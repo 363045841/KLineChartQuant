@@ -283,6 +283,29 @@ export function formatDay(timestamp: number): { text: string; isYear: boolean } 
     return { text: `${month}-${day}`, isYear }
 }
 
+// ========== 时分标签缓存 ==========
+const TIME_LABEL_CACHE_SIZE = 256
+const timeLabelCache = new Map<number, string>()
+
+/**
+ * 将时间戳格式化为 "HH:mm" 格式（上海时区）
+ * 用于分时图底部时间轴标签显示
+ */
+export function formatTimeLabel(timestamp: number): string {
+  const cached = timeLabelCache.get(timestamp)
+  if (cached !== undefined) return cached
+
+  const d = new Date(timestamp)
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  const result = `${hh}:${mm}`
+
+  if (timeLabelCache.size >= TIME_LABEL_CACHE_SIZE) timeLabelCache.clear()
+  timeLabelCache.set(timestamp, result)
+
+  return result
+}
+
 // 兼容 getDayOfYear — fallback when not on Date prototype
 function getDayOfYear(date: Date): number {
     const start = new Date(date.getFullYear(), 0, 0)

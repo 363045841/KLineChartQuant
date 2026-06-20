@@ -1,7 +1,7 @@
 import type { KLineData } from '../../types/price'
 import { priceToY, yToPrice } from '../priceToY'
 import { alignToPhysicalPixelCenter, roundToPhysicalPixel } from '../../engine/draw/pixelAlign'
-import { formatYMDShanghai, formatMonthOrYear, formatDay, findMonthBoundaries, findDayBoundaries } from '../../utils/dateFormat'
+import { formatYMDShanghai, formatTimeLabel, formatMonthOrYear, formatDay, findMonthBoundaries, findDayBoundaries } from '../../utils/dateFormat'
 import { resolveThemeColors } from '../../tokens'
 import type { ColorPresetSettings } from '../../tokens'
 import { getFont, setCanvasFont } from '../../engine/theme/fonts'
@@ -197,6 +197,8 @@ export interface CrosshairTimeLabelOptions {
     fontSize?: number
     paddingX?: number
     paddingY?: number
+    /** 周期类型，分时图显示 HH:mm 格式 */
+    period?: string
 }
 
 export function drawCrosshairTimeLabel(ctx: CanvasRenderingContext2D, opts: CrosshairTimeLabelOptions, theme: 'light' | 'dark' = 'light', isAsiaMarket?: boolean, colorPresetSettings?: ColorPresetSettings) {
@@ -211,9 +213,10 @@ export function drawCrosshairTimeLabel(ctx: CanvasRenderingContext2D, opts: Cros
         dpr,
         fontSize = 16,
         paddingX = 8,
+        period,
     } = opts
 
-    const text = formatYMDShanghai(timestamp)
+    const text = period === 'timeshare' ? formatTimeLabel(timestamp) : formatYMDShanghai(timestamp)
 
     ctx.save()
     setCanvasFont(ctx, getFont(fontSize))
@@ -408,13 +411,34 @@ export function drawTimeAxis(ctx: CanvasRenderingContext2D, opts: TimeAxisOption
     const regularFont = getFont(fontSize)
     const boldFont = getFont(fontSize, { bold: true })
 
-    const isMinuteData = opts.period.includes('min')
-    const showOnlyYear = !isMinuteData && opts.period !== 'daily'
-    const boundaries = isMinuteData ? findDayBoundaries(data) : findMonthBoundaries(data)
+    const isTimeShare = opts.period === 'timeshare'
+    const isMinuteData = !isTimeShare && opts.period.includes('min')
+    const showOnlyYear = !isMinuteData && !isTimeShare && opts.period !== 'daily'
+
+    let boundaries: number[]
+    let labelFn: (ts: number) => { text: string; isYear: boolean }
+
+    if (isTimeShare) {
+      const visibleCount = endIndex - startIndex
+      const maxLabels = Math.max(2, Math.min(8, Math.floor(visibleCount / 2) || 1))
+      const step = Math.max(1, Math.floor(visibleCount / maxLabels))
+      boundaries = []
+      for (let i = 0; i <= maxLabels; i++) {
+        const idx = startIndex + Math.min(i * step, Math.max(0, visibleCount - 1))
+        boundaries.push(idx)
+      }
+      labelFn = (ts) => ({ text: formatTimeLabel(ts), isYear: false })
+    } else if (isMinuteData) {
+      boundaries = findDayBoundaries(data)
+      labelFn = formatDay
+    } else {
+      boundaries = findMonthBoundaries(data)
+      labelFn = formatMonthOrYear
+    }
+
     const visibleBoundaries = boundaries.filter((idx: number) => idx >= startIndex && idx < endIndex)
 
     let lastBold: boolean | null = null
-    const labelFn = isMinuteData ? formatDay : formatMonthOrYear
 
     for (const idx of visibleBoundaries) {
         const k = data[idx]

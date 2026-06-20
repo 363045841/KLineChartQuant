@@ -275,6 +275,8 @@ export interface ChartController extends DrawingChartAdapter {
     setCurrentSymbol(symbol: string): void
     /** Update the K-line period without triggering a fetch */
     setCurrentPeriod(period: string): void
+    /** Switch to time-share view for a specific date (YYYYMMDD), e.g. after double-clicking a daily bar */
+    switchToTimeShareForDate(dateYYYYMMDD: number): void
     /** Inject a complete custom data bundle (bypasses fetcher pipeline) */
     applyCustomData(source: CustomDataSource): void
     setDataFetcher(fetcher: DataFetcher | null): void

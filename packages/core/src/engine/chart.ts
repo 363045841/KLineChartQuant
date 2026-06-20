@@ -851,12 +851,18 @@ export class Chart {
         this.dataManager.setCurrentSymbol(symbol)
     }
 
-setCurrentPeriod(period: string): void {
-        this.syncBaseRendererForPeriod(period)
-        this.dataManager.setCurrentPeriod(period)
-    }
+	setCurrentPeriod(period: string): void {
+	        this.syncBaseRendererForPeriod(period)
+	        this.dataManager.setCurrentPeriod(period)
+	    }
 
-    applyCustomData(source: CustomDataSource): void {
+	    switchToTimeShareForDate(dateYYYYMMDD: number): void {
+	      this.dataManager.setTimeShareQueryDate(dateYYYYMMDD)
+	      this.syncBaseRendererForPeriod('timeshare')
+	      this.dataManager.setCurrentPeriod('timeshare')
+	    }
+
+	    applyCustomData(source: CustomDataSource): void {
         this.dataManager.applyCustomData(source)
     }
 

@@ -56,6 +56,7 @@
           @pointermove="onPointerMove"
           @pointerup="onPointerUp"
           @pointerleave="onPointerLeave"
+          @dblclick="onDoubleClick"
         >
           <div class="scroll-content" :style="{ width: totalWidth + 'px' }">
             <div class="canvas-layer" ref="canvasLayerRef">
@@ -674,6 +675,29 @@ function onPointerUp(e: PointerEvent) {
 
 function onPointerLeave(e: PointerEvent) {
   controller.value?.handlePointerEvent(e)
+}
+
+function onDoubleClick(e: MouseEvent) {
+  if (kLineLevel.value !== 'daily' || !controller.value) return
+
+  const container = containerRef.value
+  if (!container) return
+  const rect = container.getBoundingClientRect()
+  const mouseX = e.clientX - rect.left
+
+  const index = controller.value.getLogicalIndexAtX(mouseX)
+  if (index == null) return
+
+  const timestamp = controller.value.getTimestampAtLogicalIndex(index)
+  if (timestamp == null) return
+
+  const d = new Date(timestamp)
+  const shD = new Date(d.toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }))
+  const yyyymmdd = shD.getFullYear() * 10000 + (shD.getMonth() + 1) * 100 + shD.getDate()
+
+  kLineLevel.value = 'timeshare'
+  controller.value.switchToTimeShareForDate(yyyymmdd)
+  emit('kLineLevelChange', 'timeshare')
 }
 
 function onRightAxisPointerDown(e: PointerEvent) {
