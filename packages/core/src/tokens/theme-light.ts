@@ -85,8 +85,8 @@ export const lightTheme: Theme = {
 
         timeSharePriceLine: '#4A90D9',
         timeShareAvgLine: '#F5A623',
-        timeShareAreaUp: 'rgba(213, 19, 26, 0.15)',
-        timeShareAreaDown: 'rgba(15, 139, 92, 0.15)',
+        timeShareAreaUp: 'rgba(15, 139, 92, 0.15)',
+        timeShareAreaDown: 'rgba(213, 19, 26, 0.15)',
         timeSharePreClose: '#888888',
         timeShareVolume: '#4A90D9',
 

@@ -79,8 +79,8 @@ export const darkTheme: Theme = {
 
         timeSharePriceLine: '#60A5FA',
         timeShareAvgLine: '#FBBF24',
-        timeShareAreaUp: 'rgba(255, 100, 100, 0.20)',
-        timeShareAreaDown: 'rgba(34, 214, 155, 0.20)',
+        timeShareAreaUp: 'rgba(34, 214, 155, 0.20)',
+        timeShareAreaDown: 'rgba(255, 100, 100, 0.20)',
         timeSharePreClose: '#9CA3AF',
         timeShareVolume: '#60A5FA',
 
