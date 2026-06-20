@@ -19,6 +19,9 @@ import { ChartIndicatorManager } from './indicators/chartIndicatorManager'
 import type { IndicatorScheduler } from './indicators/scheduler'
 import type { SubPaneEntry } from './subPaneManager'
 import { ChartRenderer } from './render/chartRenderer'
+import { KLineMode } from './modes/kLineMode'
+import { TimeShareMode } from './modes/timeShareMode'
+import type { ChartModeHandler } from './modes/types'
 
 import {
     createPluginHost,
@@ -69,6 +72,16 @@ export class Chart {
 
     /** 渲染器 */
     private renderer: ChartRenderer
+
+    /** 当前活跃的模式处理器 */
+    private _activeMode: ChartModeHandler
+    private _kLineMode = new KLineMode()
+    private _timeShareMode = new TimeShareMode()
+
+    /** 模式切换时保存的渲染状态（退出分时时恢复） */
+    private _modeSavedKWidth = 0
+    private _modeSavedKGap = 0
+    private _modeSavedZoomLevel = 0
 
     /**
      * 启用主图指标
@@ -125,6 +138,7 @@ export class Chart {
         const { kWidth: _kWidth, kGap: _kGap, ...restOpt } = opt
         // Chart 不持有业务 SSOT，kWidth/kGap/zoomLevel 由外部通过 applyRenderState() 传入
         this.opt = { ...restOpt, kWidth: _kWidth ?? 0, kGap: _kGap ?? 0 }
+        this._activeMode = this._kLineMode
         this.interaction = new InteractionController(this)
         this.interaction.setOnInteractionChange((snapshot) => {
             this._interactionSignal.set(snapshot)
@@ -186,7 +200,20 @@ export class Chart {
             getIndicatorScheduler: () => this.indicatorManager.indicatorSchedulerAccessor,
             setPendingIndicatorDataUpdate: (v) => { this.dataManager.pendingIndicatorDataUpdate = v },
             isPointerDown: () => this.interaction.isPointerDown(),
-            onTimeShareDataReady: (dataLength) => this.applyTimeShareKWidth(dataLength),
+            onTimeShareDataReady: (dataLength) => {
+                const vp = this.viewportManager.computeViewport()
+                if (!vp || vp.plotWidth <= 0) return
+                const result = this._activeMode.computeKWidth(dataLength, vp.plotWidth, vp.dpr)
+                if (result) {
+                    this.applyRenderState(result.kWidth, result.kGap)
+                    const container = this.dom.container
+                    if (container) {
+                        const leftBuffer = this.dataManager.getLeftLoadBufferWidth()
+                        this.viewportManager.setScrollLeft(leftBuffer)
+                        this.viewportManager.applyPendingScrollLeft(container)
+                    }
+                }
+            },
         })
 
         this.zoomController = new ChartZoomController({
@@ -249,6 +276,7 @@ export class Chart {
             getViewportManager: () => this.viewportManager,
             getDataManager: () => this.dataManager,
             getIndicatorManager: () => this.indicatorManager,
+            getActiveMode: () => this._activeMode,
         })
         this.renderer.registerDrawingPlugins()
         this.renderer.initCoreRenderers()
@@ -258,6 +286,36 @@ export class Chart {
 
     getViewport(): Viewport | null {
         return this.viewportManager.getViewport()
+    }
+
+    /** 获取当前活跃的模式处理器 */
+    get activeMode(): ChartModeHandler {
+        return this._activeMode
+    }
+
+    /** 切换模式处理器 */
+    setActiveMode(mode: ChartModeHandler): void {
+        if (this._activeMode === mode) return
+        const prev = this._activeMode
+
+        if (mode === this._timeShareMode) {
+            this._modeSavedKWidth = this.opt.kWidth
+            this._modeSavedKGap = this.opt.kGap
+            this._modeSavedZoomLevel = this.zoomController.currentZoomLevel
+        } else if (this._modeSavedKWidth > 0) {
+            this.applyRenderState(this._modeSavedKWidth, this._modeSavedKGap, this._modeSavedZoomLevel)
+            this._modeSavedKWidth = 0
+        }
+
+        prev.onDeactivate(
+            { enableMainIndicator: (id, p) => this.enableMainIndicator(id, p), disableMainIndicator: (id) => this.disableMainIndicator(id), setRendererEnabled: (n, e) => this.setRendererEnabled(n, e), dataManager: this.dataManager },
+            mode,
+        )
+        this._activeMode = mode
+        this._activeMode.onActivate(
+            { enableMainIndicator: (id, p) => this.enableMainIndicator(id, p), disableMainIndicator: (id) => this.disableMainIndicator(id), setRendererEnabled: (n, e) => this.setRendererEnabled(n, e), dataManager: this.dataManager, currentPeriod: this.dataManager.currentPeriod },
+            prev,
+        )
     }
 
     getCurrentDpr(): number {
@@ -678,10 +736,21 @@ export class Chart {
 
     /** 容器尺寸变化时调用 */
     resize() {
-        if (this.dataManager.currentPeriod === 'timeshare') {
+        if (this._activeMode.debugName === 'TimeShare') {
             const tsData = this.dataManager.getTimeShareData()
             if (tsData.length > 0) {
-                this.applyTimeShareKWidth(tsData.length)
+                const vp = this.viewportManager.computeViewport()
+                if (!vp || vp.plotWidth <= 0) return
+                const result = this._activeMode.computeKWidth(tsData.length, vp.plotWidth, vp.dpr)
+                if (result) {
+                    this.applyRenderState(result.kWidth, result.kGap)
+                    const container = this.dom.container
+                    if (container) {
+                        const leftBuffer = this.dataManager.getLeftLoadBufferWidth()
+                        this.viewportManager.setScrollLeft(leftBuffer)
+                        this.viewportManager.applyPendingScrollLeft(container)
+                    }
+                }
             }
             return
         }
@@ -721,9 +790,6 @@ export class Chart {
     }
 
     // ==================== Facade API (High-level interface for adapters) ====================
-
-    /** 进入分时模式前保存的渲染状态，退出时恢复 */
-    private _savedRenderState: { kWidth: number; kGap: number; zoomLevel: number } | null = null
 
     private _themeSignal = createSignal<'light' | 'dark'>('light')
     private _drawingToolSignal = createSignal<DrawingToolType | null>(null)
@@ -833,64 +899,10 @@ export class Chart {
         this.dataManager.checkVisibleRangeGap()
     }
 
-    private syncBaseRendererForPeriod(period: string): void {
-        if (period === 'timeshare') {
-            // 保存当前渲染状态，退出分时模式时恢复
-            this._savedRenderState = {
-                kWidth: this.opt.kWidth,
-                kGap: this.opt.kGap,
-                zoomLevel: this.zoomController.currentZoomLevel,
-            }
-            this.enableMainIndicator('timeShare')
-            this.setRendererEnabled('candle', false)
-        } else {
-            this.disableMainIndicator('timeShare')
-            this.setRendererEnabled('candle', true)
-            // 退出分时模式时恢复之前保存的渲染状态
-            if (this._savedRenderState) {
-                this.applyRenderState(
-                    this._savedRenderState.kWidth,
-                    this._savedRenderState.kGap,
-                    this._savedRenderState.zoomLevel,
-                )
-                this._savedRenderState = null
-            }
-        }
-    }
-
-    /** 计算并应用分时模式下的 kWidth/kGap，使所有数据点填满视口宽度 */
-    private applyTimeShareKWidth(dataLength: number): void {
-        if (dataLength <= 0) return
-        const vp = this.viewportManager.computeViewport()
-        if (!vp || vp.plotWidth <= 0) return
-        const dpr = vp.dpr
-        const viewWidth = vp.plotWidth
-
-        // 计算充分填满视口的 kWidth/kGap
-        const kGapPx = 1
-        const totalGapPx = (dataLength + 1) * kGapPx
-        const availablePx = Math.max(1, viewWidth * dpr - totalGapPx)
-        let kWidthPx = Math.max(1, Math.floor(availablePx / dataLength))
-        if (kWidthPx % 2 === 0) kWidthPx = Math.max(1, kWidthPx - 1)
-
-        const kWidth = kWidthPx / dpr
-        const kGap = kGapPx / dpr
-
-        this.applyRenderState(kWidth, kGap)
-
-        // 将 scrollLeft 锁定在左侧缓冲宽度（无水平偏移）
-        const container = this.dom.container
-        if (container) {
-            const leftBuffer = this.dataManager.getLeftLoadBufferWidth()
-            this.viewportManager.setScrollLeft(leftBuffer)
-            this.viewportManager.applyPendingScrollLeft(container)
-        }
-    }
-
     setSymbols(specs: ReadonlyArray<SymbolSpec>): void {
         const primaryPeriod = specs[0]?.period
         if (primaryPeriod) {
-            this.syncBaseRendererForPeriod(primaryPeriod)
+            this.setActiveMode(primaryPeriod === 'timeshare' ? this._timeShareMode : this._kLineMode)
         }
         this.dataManager.setSymbols(specs)
     }
@@ -912,13 +924,13 @@ export class Chart {
     }
 
 	setCurrentPeriod(period: string): void {
-	        this.syncBaseRendererForPeriod(period)
+	        this.setActiveMode(period === 'timeshare' ? this._timeShareMode : this._kLineMode)
 	        this.dataManager.setCurrentPeriod(period)
 	    }
 
 	    switchToTimeShareForDate(dateYYYYMMDD: number): void {
 	      this.dataManager.setTimeShareQueryDate(dateYYYYMMDD)
-	      this.syncBaseRendererForPeriod('timeshare')
+	      this.setActiveMode(this._timeShareMode)
 	      this.dataManager.setCurrentPeriod('timeshare')
 	    }
 
@@ -943,7 +955,7 @@ export class Chart {
      * 计算并应用新的 render state，更新 viewport signal
      */
     zoomToLevel(level: number, anchorX?: number): void {
-        if (this.dataManager.currentPeriod === 'timeshare') return
+        if (!this._activeMode.allowZoom) return
         this.zoomController.zoomToLevel(level, anchorX)
     }
 
@@ -951,7 +963,7 @@ export class Chart {
      * 放大（高层 API）
      */
     zoomIn(anchorX?: number): void {
-        if (this.dataManager.currentPeriod === 'timeshare') return
+        if (!this._activeMode.allowZoom) return
         this.zoomController.zoomIn(anchorX)
     }
 
@@ -959,7 +971,7 @@ export class Chart {
      * 缩小（高层 API）
      */
     zoomOut(anchorX?: number): void {
-        if (this.dataManager.currentPeriod === 'timeshare') return
+        if (!this._activeMode.allowZoom) return
         this.zoomController.zoomOut(anchorX)
     }
 
@@ -1036,7 +1048,7 @@ export class Chart {
      * 使用 computeZoom 计算精确的 scrollLeft，更新 viewport signal
      */
     handleWheelEvent(e: WheelEvent): void {
-        if (this.dataManager.currentPeriod === 'timeshare') return
+        if (!this._activeMode.allowZoom) return
         const rect = this.dom.container.getBoundingClientRect()
         this.zoomController.handleWheel(e.deltaY, e.clientX - rect.left)
     }
@@ -1057,7 +1069,7 @@ export class Chart {
      * @param centerClientX 捏合中心在视口中的 X 坐标
      */
     handlePinchZoom(delta: number, centerClientX: number): void {
-        if (this.dataManager.currentPeriod === 'timeshare') return
+        if (!this._activeMode.allowZoom) return
         this.zoomController.handlePinch(delta, centerClientX)
     }
 

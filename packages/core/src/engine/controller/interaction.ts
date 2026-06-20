@@ -227,7 +227,7 @@ export class InteractionController {
         }
 
         // 分时模式下禁止拖拽平移
-        if (this.chart.currentPeriod === 'timeshare') {
+        if (!this.chart.activeMode.allowPan) {
             this.clearHover()
             this.chart.scheduleDraw()
             return
