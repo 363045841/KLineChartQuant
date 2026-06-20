@@ -1,6 +1,6 @@
 import type { RendererPluginWithHost, PluginHost, RenderContext } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import type { KLineData } from '../../../types/price'
+import type { KLineData, TimeShareData } from '../../../types/price'
 import { resolveThemeColors } from '../../../tokens'
 import { getFont, setCanvasFont } from '../../theme/fonts'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
@@ -80,6 +80,125 @@ export function createMainIndicatorLegendRendererPlugin(options: {
 
       const targetIndex = crosshairIndex ?? Math.min(range.end - 1, klineData.length - 1)
       const rows: Array<{ draw: (rowIndex: number) => void }> = []
+
+      // ── Timeshare legend ──
+      if (context.period === 'timeshare') {
+        const tsData = data as TimeShareData[]
+        const preClose = (context.settings?.preClose as number) ?? tsData[0]?.price ?? 0
+        const item = tsData[targetIndex]
+        if (item) {
+          const changeAmount = item.price - preClose
+          const changePercent = preClose !== 0 ? (changeAmount / preClose) * 100 : 0
+          const changeColor = changeAmount >= 0 ? colors.candleUpBody : colors.candleDownBody
+
+          if (context.paneWidth >= 400) {
+            rows.push({
+              draw: (rowIndex: number) => {
+                let x = legendX
+                const y = config.yPaddingPx / 2 + legendYOffset + rowIndex * lineHeight
+
+                overlayCtx.fillStyle = colors.text.primary
+                overlayCtx.fillText('现价 ', x, y)
+                x += measureTextWidth(overlayCtx, '现价 ')
+                overlayCtx.fillStyle = changeColor
+                overlayCtx.fillText(item.price.toFixed(2), x, y)
+                x += measureTextWidth(overlayCtx, item.price.toFixed(2)) + gap
+
+                overlayCtx.fillStyle = colors.text.primary
+                overlayCtx.fillText('均价 ', x, y)
+                x += measureTextWidth(overlayCtx, '均价 ')
+                overlayCtx.fillText(item.average.toFixed(2), x, y)
+                x += measureTextWidth(overlayCtx, item.average.toFixed(2)) + gap
+
+                overlayCtx.fillStyle = colors.text.primary
+                overlayCtx.fillText('涨跌 ', x, y)
+                x += measureTextWidth(overlayCtx, '涨跌 ')
+                overlayCtx.fillStyle = changeColor
+                const sign = changeAmount > 0 ? '+' : ''
+                overlayCtx.fillText(`${sign}${changeAmount.toFixed(2)}`, x, y)
+                x += measureTextWidth(overlayCtx, `${sign}${changeAmount.toFixed(2)}`) + gap
+
+                overlayCtx.fillStyle = colors.text.primary
+                overlayCtx.fillText('涨幅 ', x, y)
+                x += measureTextWidth(overlayCtx, '涨幅 ')
+                overlayCtx.fillStyle = changeColor
+                const pctSign = changePercent > 0 ? '+' : ''
+                overlayCtx.fillText(`${pctSign}${changePercent.toFixed(2)}%`, x, y)
+                x += measureTextWidth(overlayCtx, `${pctSign}${changePercent.toFixed(2)}%`) + gap
+
+                const volText = formatVolumeShort(item.volume)
+                overlayCtx.fillStyle = colors.text.tertiary
+                overlayCtx.fillText('成交量 ', x, y)
+                x += measureTextWidth(overlayCtx, '成交量 ')
+                overlayCtx.fillStyle = colors.text.primary
+                overlayCtx.fillText(volText, x, y)
+                x += measureTextWidth(overlayCtx, volText) + gap
+
+                const amtText = formatAmountShort(item.amount)
+                overlayCtx.fillStyle = colors.text.tertiary
+                overlayCtx.fillText('成交额 ', x, y)
+                x += measureTextWidth(overlayCtx, '成交额 ')
+                overlayCtx.fillStyle = colors.text.primary
+                overlayCtx.fillText(amtText, x, y)
+              },
+            })
+          } else {
+            rows.push({
+              draw: (rowIndex: number) => {
+                let x = legendX
+                const y = config.yPaddingPx / 2 + legendYOffset + rowIndex * lineHeight
+
+                overlayCtx.fillStyle = colors.text.primary
+                overlayCtx.fillText('现价 ', x, y)
+                x += measureTextWidth(overlayCtx, '现价 ')
+                overlayCtx.fillStyle = changeColor
+                overlayCtx.fillText(item.price.toFixed(2), x, y)
+                x += measureTextWidth(overlayCtx, item.price.toFixed(2)) + gap
+
+                overlayCtx.fillStyle = colors.text.primary
+                overlayCtx.fillText('均价 ', x, y)
+                x += measureTextWidth(overlayCtx, '均价 ')
+                overlayCtx.fillText(item.average.toFixed(2), x, y)
+                x += measureTextWidth(overlayCtx, item.average.toFixed(2)) + gap
+
+                overlayCtx.fillStyle = colors.text.tertiary
+                overlayCtx.fillText('成交量 ', x, y)
+                x += measureTextWidth(overlayCtx, '成交量 ')
+                overlayCtx.fillStyle = colors.text.primary
+                overlayCtx.fillText(formatVolumeShort(item.volume), x, y)
+              },
+            })
+            rows.push({
+              draw: (rowIndex: number) => {
+                let x = legendX
+                const y = config.yPaddingPx / 2 + legendYOffset + rowIndex * lineHeight
+
+                overlayCtx.fillStyle = colors.text.primary
+                overlayCtx.fillText('涨跌 ', x, y)
+                x += measureTextWidth(overlayCtx, '涨跌 ')
+                overlayCtx.fillStyle = changeColor
+                const sign = changeAmount > 0 ? '+' : ''
+                overlayCtx.fillText(`${sign}${changeAmount.toFixed(2)}`, x, y)
+                x += measureTextWidth(overlayCtx, `${sign}${changeAmount.toFixed(2)}`) + gap
+
+                overlayCtx.fillStyle = colors.text.primary
+                overlayCtx.fillText('涨幅 ', x, y)
+                x += measureTextWidth(overlayCtx, '涨幅 ')
+                overlayCtx.fillStyle = changeColor
+                const pctSign = changePercent > 0 ? '+' : ''
+                overlayCtx.fillText(`${pctSign}${changePercent.toFixed(2)}%`, x, y)
+                x += measureTextWidth(overlayCtx, `${pctSign}${changePercent.toFixed(2)}%`) + gap
+
+                overlayCtx.fillStyle = colors.text.tertiary
+                overlayCtx.fillText('成交额 ', x, y)
+                x += measureTextWidth(overlayCtx, '成交额 ')
+                overlayCtx.fillStyle = colors.text.primary
+                overlayCtx.fillText(formatAmountShort(item.amount), x, y)
+              },
+            })
+          }
+        }
+      }
 
       if (typeof crosshairIndex === 'number') {
         const k = klineData[targetIndex]
@@ -335,6 +454,12 @@ function findBaselineByTimestamp(data: ReadonlyArray<KLineData>, timestamp: numb
 }
 
 function formatVolumeShort(v: number): string {
+  if (v >= 1e8) return (v / 1e8).toFixed(2) + '亿'
+  if (v >= 1e4) return (v / 1e4).toFixed(2) + '万'
+  return v.toFixed(2)
+}
+
+function formatAmountShort(v: number): string {
   if (v >= 1e8) return (v / 1e8).toFixed(2) + '亿'
   if (v >= 1e4) return (v / 1e4).toFixed(2) + '万'
   return v.toFixed(2)
