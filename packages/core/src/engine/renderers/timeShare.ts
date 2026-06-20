@@ -225,15 +225,16 @@ function drawVolumeBars(
 ): void {
   if (!xPositions.length || maxVolume <= 0) return
 
-  const volumeTop = paneHeight - volumeAreaHeight
   const barWidth = Math.max(1, (xPositions[Math.min(1, xPositions.length - 1)] - xPositions[0]) * 0.6)
+  const snappedBottom = Math.round(paneHeight * dpr) / dpr
 
   for (let i = 0; i < xPositions.length; i++) {
     const volume = volumes[i]
     if (volume <= 0) continue
 
     const barHeight = (volume / maxVolume) * volumeAreaHeight
-    const y = volumeTop + volumeAreaHeight - barHeight
+    const snappedH = Math.round(barHeight * dpr) / dpr
+    const snappedY = snappedBottom - snappedH
     const x = xPositions[i] - barWidth / 2
     const idx = startIdx + i
 
@@ -251,9 +252,7 @@ function drawVolumeBars(
     }
 
     const snappedX = Math.round(x * dpr) / dpr
-    const snappedY = Math.round(y * dpr) / dpr
     const snappedW = Math.round(barWidth * dpr) / dpr
-    const snappedH = Math.round(barHeight * dpr) / dpr
 
     const minSize = 1 / dpr
     const finalW = snappedW > 0 ? Math.max(snappedW, minSize) : 0
