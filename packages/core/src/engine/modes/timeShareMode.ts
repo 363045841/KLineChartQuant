@@ -47,18 +47,26 @@ export class TimeShareMode implements ChartModeHandler {
   ): void {
     const tsData = dm.getTimeShareData()
     const end = Math.min(range.end, tsData.length)
-    let maxPrice = -Infinity
-    let minPrice = Infinity
+    if (tsData.length === 0) return
+
+    const baseline = tsData[0]?.price ?? 0
+    if (baseline === 0) return
+
+    let maxAbsPct = 0
     for (let i = Math.max(0, range.start); i < end; i++) {
       const p = tsData[i]?.price
       if (p !== undefined && Number.isFinite(p)) {
-        if (p > maxPrice) maxPrice = p
-        if (p < minPrice) minPrice = p
+        const pct = Math.abs((p - baseline) / baseline) * 100
+        if (pct > maxAbsPct) maxAbsPct = pct
       }
     }
-    if (!Number.isFinite(maxPrice) || !Number.isFinite(minPrice)) return
-    const padding = (maxPrice - minPrice) * 0.1 || 1
-    pane.yAxis.setRange({ maxPrice: maxPrice + padding, minPrice: Math.max(0, minPrice - padding) })
+    if (maxAbsPct <= 0) return
+
+    const padding = Math.max(maxAbsPct * 0.1, 0.5)
+    const displayPct = maxAbsPct + padding
+    const minPrice = baseline * (1 - displayPct / 100)
+    const maxPrice = baseline * (1 + displayPct / 100)
+    pane.yAxis.setRange({ maxPrice, minPrice })
   }
 
   onActivate(chart: {
