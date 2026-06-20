@@ -57,6 +57,9 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
 
       if (xPositions.length < 2) return
 
+      const step = xPositions[1] - xPositions[0]
+      const barWidth = Math.max(1, step * 0.6)
+
       ctx.save()
       ctx.translate(-scrollLeft, 0)
 
@@ -71,7 +74,7 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
 
       drawSegmentLine(ctx, xPositions, yAvgs, dpr, colors.timeShareAvgLine, 1.5)
 
-      drawVolumeBars(ctx, kBarRects, volumes, maxVolume, volumeAreaHeight, paneHeight, preClose, dpr, colors.volumeUp, colors.volumeDown, colors.volumeNeutral, tsData, start)
+      drawVolumeBars(ctx, xPositions, barWidth, volumes, maxVolume, volumeAreaHeight, paneHeight, preClose, dpr, colors.volumeUp, colors.volumeDown, colors.volumeNeutral, tsData, start)
 
       ctx.restore()
     },
@@ -210,7 +213,8 @@ function drawSegmentLine(
 
 function drawVolumeBars(
   ctx: CanvasRenderingContext2D,
-  barRects: Array<{ x: number; width: number }>,
+  xPositions: number[],
+  barWidth: number,
   volumes: number[],
   maxVolume: number,
   volumeAreaHeight: number,
@@ -223,18 +227,19 @@ function drawVolumeBars(
   data: TimeShareData[],
   startIdx: number,
 ): void {
-  if (!barRects.length || maxVolume <= 0) return
+  if (!xPositions.length || maxVolume <= 0) return
 
   const snappedBottom = Math.round(paneHeight * dpr) / dpr
+  const halfBarW = barWidth / 2
 
-  for (let i = 0; i < barRects.length; i++) {
+  for (let i = 0; i < xPositions.length; i++) {
     const volume = volumes[i]
     if (volume <= 0) continue
 
     const barHeight = (volume / maxVolume) * volumeAreaHeight
     const snappedH = Math.round(barHeight * dpr) / dpr
     const snappedY = snappedBottom - snappedH
-    const { x, width } = barRects[i]!
+    const x = xPositions[i] - halfBarW
     const idx = startIdx + i
 
     let barColor: string
@@ -251,7 +256,7 @@ function drawVolumeBars(
     }
 
     const minSize = 1 / dpr
-    const finalW = width > 0 ? Math.max(width, minSize) : 0
+    const finalW = barWidth > 0 ? Math.max(barWidth, minSize) : 0
     const finalH = snappedH > 0 ? Math.max(snappedH, minSize) : 0
 
     ctx.fillStyle = barColor
