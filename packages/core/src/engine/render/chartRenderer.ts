@@ -332,6 +332,17 @@ export class ChartRenderer {
             kLinePositions[i] = Math.round(i * step * dpr) / dpr
           }
           kWidthPx = Math.round(totalWidth * dpr / count)
+
+          const logicalBarWidth = Math.max(1, step * 0.6)
+          const barWidthPx = Math.round(logicalBarWidth * dpr)
+          const halfBarPx = Math.floor(barWidthPx / 2)
+          for (let i = 0; i < count; i++) {
+            const centerPx = Math.round(kLineCenters[i] * dpr)
+            kBarRects[i] = {
+              x: (centerPx - halfBarPx) / dpr,
+              width: barWidthPx / dpr,
+            }
+          }
         } else {
           kWidthPx = getPhysicalKLineConfig(opt.kWidth, opt.kGap, vp.dpr).kWidthPx
         }
