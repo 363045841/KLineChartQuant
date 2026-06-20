@@ -130,21 +130,19 @@ export class ChartRenderer {
         price: interaction.crosshairPrice,
       }),
     }))
-    if (opt.leftAxisWidth > 0) {
-      this.useDrawingPlugin(createLeftYAxisRendererPlugin({
-        axisWidth: opt.leftAxisWidth,
-        yPaddingPx: opt.yPaddingPx,
-        getCrosshair: () => {
-          const pos = interaction.crosshairPos
-          const price = interaction.crosshairPrice
-          const activePaneId = interaction.activePaneId
-          if (pos && price !== null) {
-            return { y: pos.y, price, activePaneId }
-          }
-          return null
-        },
-      }))
-    }
+    this.useDrawingPlugin(createLeftYAxisRendererPlugin({
+      axisWidth: opt.leftAxisWidth,
+      yPaddingPx: opt.yPaddingPx,
+      getCrosshair: () => {
+        const pos = interaction.crosshairPos
+        const price = interaction.crosshairPrice
+        const activePaneId = interaction.activePaneId
+        if (pos && price !== null) {
+          return { y: pos.y, price, activePaneId }
+        }
+        return null
+      },
+    }))
     this.useDrawingPlugin(createTimeAxisRendererPlugin({
       height: opt.bottomAxisHeight,
       getCrosshair: () => {

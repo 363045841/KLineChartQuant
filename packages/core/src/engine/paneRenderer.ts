@@ -140,11 +140,11 @@ export class PaneRenderer {
 
         // Left YAxis Canvas
         const leftCanvas = this.dom.leftYAxisCanvas
-        if (leftCanvas && this.opt.leftAxisWidth > 0) {
+        if (leftCanvas) {
             const fallbackLeftAxisWidth = this.opt.leftAxisWidth
             const leftParentWidth = leftCanvas.parentElement?.clientWidth ?? 0
             const canvasLeftAxisWidth = leftParentWidth > 0 ? leftParentWidth : fallbackLeftAxisWidth
-            PaneRenderer.resizeCanvas(leftCanvas, Math.round(canvasLeftAxisWidth * dpr), Math.round(height * dpr), dpr)
+            PaneRenderer.resizeCanvas(leftCanvas, Math.round(Math.max(canvasLeftAxisWidth, 0) * dpr), Math.round(height * dpr), dpr)
         }
 
         this.webgl.candleSurface?.resize(width, height, dpr)

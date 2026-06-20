@@ -51,7 +51,7 @@
           v-if="computedLeftAxisWidth > 0"
           class="left-axis-host"
           ref="leftAxisLayerRef"
-          :style="{ width: computedLeftAxisWidth + 'px' }"
+          :style="leftAxisHostStyle"
         ></div>
         <div
           class="chart-container"
@@ -734,6 +734,15 @@ function onScroll() {
 const axisHostWidth = computed(() => props.rightAxisWidth + props.priceLabelWidth)
 
 const computedLeftAxisWidth = computed(() => props.leftAxisWidth ?? 0)
+
+const leftAxisHostStyle = computed(() => {
+  const width = computedLeftAxisWidth.value
+  if (width <= 0) return { display: 'none' }
+  if (kLineLevel.value === 'timeshare') return { width: `${width}px` }
+  const leftType = chartSettings.value?.leftAxisType
+  if (!leftType || leftType === 'none') return { width: `${width}px`, display: 'none' }
+  return { width: `${width}px` }
+})
 
 const totalWidth = computed(() => {
   void dataVersion.value

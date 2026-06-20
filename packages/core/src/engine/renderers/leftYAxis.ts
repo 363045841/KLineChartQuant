@@ -22,6 +22,9 @@ export function createLeftYAxisRendererPlugin(options: {
       const { leftAxisCtx, pane, dpr, period } = context
       if (!leftAxisCtx) return
 
+      const axisWidth = leftAxisCtx.canvas ? (leftAxisCtx.canvas.width / dpr) : 0
+      if (axisWidth <= 0) return
+
       // 分时模式始终显示左轴（线性），不受设置约束
       if (period !== 'timeshare') {
         const leftType = context.settings?.leftAxisType as string | undefined
@@ -34,7 +37,6 @@ export function createLeftYAxisRendererPlugin(options: {
 
       if (!pane.capabilities.showPriceAxisTicks) return
 
-      const axisWidth = leftAxisCtx.canvas ? (leftAxisCtx.canvas.width / dpr) : options.axisWidth
       const scaleType: ScaleType = period === 'timeshare' ? 'linear' : ((context.settings?.leftAxisType as ScaleType) ?? 'linear')
 
       drawScaleTicks({
