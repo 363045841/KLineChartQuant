@@ -135,6 +135,10 @@ export interface TimeAxisOptions {
     drawBottomBorder?: boolean
     /** K线级别，如 'daily'、'5min'、'15min' */
     period: string
+    /** K 线中心点 x 坐标（逻辑像素），由 calcKLinePositions 预计算 */
+    kLineCenters: number[]
+    /** 数据索引可见范围 { start, end } */
+    visibleRange: { start: number; end: number }
 }
 
 export interface LastPriceLineOptions {
@@ -359,11 +363,11 @@ export function drawTimeAxis(ctx: CanvasRenderingContext2D, opts: TimeAxisOption
         height,
         data,
         scrollLeft,
-        kWidth,
-        kGap,
         startIndex,
         endIndex,
         dpr,
+        kLineCenters,
+        visibleRange,
         bgColor = colors.tagBg.transparent,
         textColor = colors.text.secondary,
         lineColor = colors.border.dark,
@@ -372,16 +376,6 @@ export function drawTimeAxis(ctx: CanvasRenderingContext2D, opts: TimeAxisOption
         drawTopBorder = true,
         drawBottomBorder = true,
     } = opts
-
-    const physKWidth = Math.round(kWidth * dpr)
-    const alignedPhysKWidth = physKWidth % 2 === 0 ? physKWidth + 1 : physKWidth
-    const physKGap = Math.round(kGap * dpr)
-    const unitPx = alignedPhysKWidth + physKGap
-    const startXPx = physKGap
-
-    const unit = unitPx / dpr
-    const startX = startXPx / dpr
-    const alignedKWidth = alignedPhysKWidth / dpr
 
     ctx.fillStyle = bgColor
     ctx.fillRect(x, y, width, height)
@@ -447,8 +441,9 @@ export function drawTimeAxis(ctx: CanvasRenderingContext2D, opts: TimeAxisOption
         const { text, isYear } = labelFn(k.timestamp)
         if (showOnlyYear && !isYear) continue
 
-        const worldX = startX + idx * unit + alignedKWidth / 2
-        const screenX = worldX - scrollLeft
+        const centerX = kLineCenters[idx - visibleRange.start]
+        if (centerX === undefined) continue
+        const screenX = centerX - scrollLeft
 
         const minX = paddingX
         const maxX = Math.max(paddingX, width - paddingX)

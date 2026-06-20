@@ -1,4 +1,3 @@
-import { getPhysicalKLineConfig } from '../utils/klineConfig'
 import type { ChartModeHandler } from './types'
 import type { Pane, VisibleRange } from '../layout/pane'
 import type { ChartDataManager } from '../data/chartDataManager'
@@ -33,7 +32,6 @@ export class TimeShareMode implements ChartModeHandler {
     const totalGapPx = (dataLength + 1) * kGapPx
     const availablePx = Math.max(1, viewWidth * dpr - totalGapPx)
     let kWidthPx = Math.max(1, Math.floor(availablePx / dataLength))
-    if (kWidthPx % 2 === 0) kWidthPx = Math.max(1, kWidthPx - 1)
 
     return {
       kWidth: kWidthPx / dpr,

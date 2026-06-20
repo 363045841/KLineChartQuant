@@ -72,11 +72,11 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
 
       drawAreaFill(ctx, xPositions, yPrices, preCloseY, dpr, areaColor, tsData, start)
 
-      drawSmoothLine(ctx, xPositions, yPrices, dpr, colors.timeSharePriceLine, 2, tsData, start)
+      drawSegmentLine(ctx, xPositions, yPrices, dpr, colors.timeSharePriceLine, 2, tsData, start)
 
-      drawSmoothLine(ctx, xPositions, yAvgs, dpr, colors.timeShareAvgLine, 1.5, tsData, start)
+      drawSegmentLine(ctx, xPositions, yAvgs, dpr, colors.timeShareAvgLine, 1.5, tsData, start)
 
-      drawVolumeBars(ctx, xPositions, volumes, maxVolume, volumeAreaHeight, paneHeight, preClose, dpr, colors.timeShareVolume, tsData, start)
+      drawVolumeBars(ctx, xPositions, volumes, maxVolume, volumeAreaHeight, paneHeight, preClose, dpr, colors.volumeUp, colors.volumeDown, tsData, start)
 
       ctx.restore()
     },
@@ -154,11 +154,11 @@ function drawAreaFill(
   ctx.restore()
 }
 
-function drawSmoothLine(
+function drawSegmentLine(
   ctx: CanvasRenderingContext2D,
   xPositions: number[],
   yPositions: number[],
-  dpr: number,
+  _dpr: number,
   color: string,
   lineWidth: number,
   data: TimeShareData[],
@@ -179,12 +179,7 @@ function drawSmoothLine(
     if (timeGapExceeds(data, startIdx, i)) {
       ctx.moveTo(xPositions[i], yPositions[i])
     } else {
-      const prevX = xPositions[i - 1]
-      const prevY = yPositions[i - 1]
-      const currX = xPositions[i]
-      const currY = yPositions[i]
-      const cpX = (prevX + currX) / 2
-      ctx.quadraticCurveTo(prevX, prevY, cpX, currY)
+      ctx.lineTo(xPositions[i], yPositions[i])
     }
   }
 
@@ -201,7 +196,8 @@ function drawVolumeBars(
   paneHeight: number,
   preClose: number,
   dpr: number,
-  baseColor: string,
+  upColor: string,
+  downColor: string,
   data: TimeShareData[],
   startIdx: number,
 ): void {
@@ -210,8 +206,6 @@ function drawVolumeBars(
   const volumeTop = paneHeight - volumeAreaHeight
   const barWidth = Math.max(1, (xPositions[Math.min(1, xPositions.length - 1)] - xPositions[0]) * 0.6)
 
-  ctx.save()
-
   for (let i = 0; i < xPositions.length; i++) {
     const volume = volumes[i]
     if (volume <= 0) continue
@@ -219,15 +213,13 @@ function drawVolumeBars(
     const barHeight = (volume / maxVolume) * volumeAreaHeight
     const y = volumeTop + volumeAreaHeight - barHeight
     const idx = startIdx + i
-    const item = idx >= 0 && idx < data.length ? data[idx] : null
-    const isUp = item ? item.price >= preClose : true
+    const isUp = i > 0
+      ? data[idx].price >= data[idx - 1].price
+      : data[idx].price >= preClose
 
-    ctx.globalAlpha = isUp ? 0.6 : 0.35
-    ctx.fillStyle = baseColor
+    ctx.fillStyle = isUp ? upColor : downColor
     ctx.fillRect(xPositions[i] - barWidth / 2, y, barWidth, barHeight)
   }
-
-  ctx.restore()
 }
 
 @Indicator({

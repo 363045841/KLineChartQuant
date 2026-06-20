@@ -10,11 +10,7 @@
  * @returns 奇数化后的物理像素宽度
  */
 export function calcKWidthPx(kWidth: number, dpr: number): number {
-    let kWidthPx = Math.round(kWidth * dpr)
-    if (kWidthPx % 2 === 0) {
-        kWidthPx += 1
-    }
-    return Math.max(1, kWidthPx)
+    return Math.max(1, Math.round(kWidth * dpr))
 }
 
 /**

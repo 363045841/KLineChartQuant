@@ -52,6 +52,8 @@ export function createTimeAxisRendererPlugin(options: {
         startIndex: range.start,
         endIndex: range.end,
         dpr,
+        kLineCenters: context.kLineCenters,
+        visibleRange: range,
         textColor: colors.text.secondary,
         lineColor: colors.border.dark,
         drawTopBorder: false,
