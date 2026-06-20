@@ -189,13 +189,23 @@ function drawVolumeBars(
 
     const barHeight = (volume / maxVolume) * volumeAreaHeight
     const y = volumeTop + volumeAreaHeight - barHeight
+    const x = xPositions[i] - barWidth / 2
     const idx = startIdx + i
     const isUp = i > 0
       ? data[idx].price >= data[idx - 1].price
       : data[idx].price >= preClose
 
+    const snappedX = Math.round(x * dpr) / dpr
+    const snappedY = Math.round(y * dpr) / dpr
+    const snappedW = Math.round(barWidth * dpr) / dpr
+    const snappedH = Math.round(barHeight * dpr) / dpr
+
+    const minSize = 1 / dpr
+    const finalW = snappedW > 0 ? Math.max(snappedW, minSize) : 0
+    const finalH = snappedH > 0 ? Math.max(snappedH, minSize) : 0
+
     ctx.fillStyle = isUp ? upColor : downColor
-    ctx.fillRect(xPositions[i] - barWidth / 2, y, barWidth, barHeight)
+    ctx.fillRect(snappedX, snappedY, finalW, finalH)
   }
 }
 
