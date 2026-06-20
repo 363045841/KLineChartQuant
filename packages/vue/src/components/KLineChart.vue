@@ -4,8 +4,8 @@
       :symbol="currentSymbol"
       :k-line-level="kLineLevel"
       :k-line-adjust="kLineAdjust"
-      :symbol-loading="symbolLoading"
-      :symbol-error="symbolError"
+      :symbol-loading="symbolStatus === 'loading'"
+      :symbol-error="symbolStatus === 'error'"
       :overlay-symbols="overlaySymbols"
       :overlay-symbol-items="overlaySymbolItems"
       :comparison-colors="comparisonColorsMap"
@@ -55,7 +55,7 @@
         ></div>
         <div
           class="chart-container"
-          :style="{ cursor: containerCursor }"
+          :style="chartContainerStyle"
           ref="containerRef"
           @scroll.passive="onScroll"
           @pointerdown="onPointerDown"
@@ -282,8 +282,7 @@ const kLineAdjust = ref(props.semanticConfig?.data?.adjust ?? 'none')
 const isIntraday = computed(() => kLineLevel.value.includes('min'))
 const currentSymbol = ref('选择商品')
 const currentSymbolItem = ref<SymbolItem | null>(null)
-const symbolLoading = ref(false)
-const symbolError = ref(false)
+const symbolStatus = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
 const overlaySymbols = ref<string[]>([])
 const overlaySymbolItems = ref<SymbolItem[]>([])
 
@@ -301,7 +300,7 @@ function onKLineAdjustChange(adjust: 'qfq' | 'hfq' | 'splits' | 'none') {
 }
 
 function onSymbolChange(item: SymbolItem) {
-  symbolError.value = false
+  symbolStatus.value = 'loading'
   currentSymbol.value = item.code
   currentSymbolItem.value = item
   syncSymbolsToController()
@@ -744,6 +743,15 @@ const leftAxisHostStyle = computed(() => {
   return { width: `${width}px` }
 })
 
+const chartContainerStyle = computed(() => {
+  const base: Record<string, string> = { cursor: containerCursor.value }
+  if (leftAxisHostStyle.value.display === 'none') {
+    base.borderRadius = '3px 0 0 3px'
+    base.borderLeft = '1px solid var(--chart-border)'
+  }
+  return base
+})
+
 const totalWidth = computed(() => {
   void dataVersion.value
   void viewWidth.value
@@ -860,11 +868,22 @@ function setupChartCallbacks(ctrl: ChartController): () => void {
     const data = ctrl.data.peek()
     dataLength.value = data.length
     dataVersion.value++
-    symbolError.value = data.length === 0
+    if (data.length > 0 && (symbolStatus.value === 'loading' || symbolStatus.value === 'error')) {
+      symbolStatus.value = 'ready'
+    }
   })
 
   const unsubscribeDataLoading = ctrl.dataLoading.subscribe(() => {
-    symbolLoading.value = ctrl.dataLoading.peek()
+    const loading = ctrl.dataLoading.peek()
+    if (loading) {
+      symbolStatus.value = 'loading'
+      return
+    }
+    if (symbolStatus.value === 'loading') {
+      symbolStatus.value = ctrl.data.peek().length > 0
+        ? 'ready'
+        : (currentSymbolItem.value ? 'error' : 'idle')
+    }
   })
 
   const unsubscribeTheme = ctrl.theme.subscribe(() => {
