@@ -20,7 +20,7 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
     },
 
     draw(context: RenderContext) {
-      const { ctx, pane, data, range, dpr, kLineCenters, scrollLeft, settings } = context
+      const { ctx, pane, data, range, dpr, kLineCenters, scrollLeft, settings, kBarRects } = context
       if (context.period !== 'timeshare') return
       const tsData = data as TimeShareData[]
       if (!tsData.length) return
@@ -71,7 +71,7 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
 
       drawSegmentLine(ctx, xPositions, yAvgs, dpr, colors.timeShareAvgLine, 1.5)
 
-      drawVolumeBars(ctx, xPositions, volumes, maxVolume, volumeAreaHeight, paneHeight, preClose, dpr, colors.volumeUp, colors.volumeDown, colors.volumeNeutral, tsData, start)
+      drawVolumeBars(ctx, kBarRects, volumes, maxVolume, volumeAreaHeight, paneHeight, preClose, dpr, colors.volumeUp, colors.volumeDown, colors.volumeNeutral, tsData, start)
 
       ctx.restore()
     },
@@ -210,7 +210,7 @@ function drawSegmentLine(
 
 function drawVolumeBars(
   ctx: CanvasRenderingContext2D,
-  xPositions: number[],
+  barRects: Array<{ x: number; width: number }>,
   volumes: number[],
   maxVolume: number,
   volumeAreaHeight: number,
@@ -223,19 +223,18 @@ function drawVolumeBars(
   data: TimeShareData[],
   startIdx: number,
 ): void {
-  if (!xPositions.length || maxVolume <= 0) return
+  if (!barRects.length || maxVolume <= 0) return
 
-  const barWidth = Math.max(1, (xPositions[Math.min(1, xPositions.length - 1)] - xPositions[0]) * 0.6)
   const snappedBottom = Math.round(paneHeight * dpr) / dpr
 
-  for (let i = 0; i < xPositions.length; i++) {
+  for (let i = 0; i < barRects.length; i++) {
     const volume = volumes[i]
     if (volume <= 0) continue
 
     const barHeight = (volume / maxVolume) * volumeAreaHeight
     const snappedH = Math.round(barHeight * dpr) / dpr
     const snappedY = snappedBottom - snappedH
-    const x = xPositions[i] - barWidth / 2
+    const { x, width } = barRects[i]!
     const idx = startIdx + i
 
     let barColor: string
@@ -251,15 +250,12 @@ function drawVolumeBars(
       else barColor = neutralColor
     }
 
-    const snappedX = Math.round(x * dpr) / dpr
-    const snappedW = Math.round(barWidth * dpr) / dpr
-
     const minSize = 1 / dpr
-    const finalW = snappedW > 0 ? Math.max(snappedW, minSize) : 0
+    const finalW = width > 0 ? Math.max(width, minSize) : 0
     const finalH = snappedH > 0 ? Math.max(snappedH, minSize) : 0
 
     ctx.fillStyle = barColor
-    ctx.fillRect(snappedX, snappedY, finalW, finalH)
+    ctx.fillRect(x, snappedY, finalW, finalH)
   }
 }
 
