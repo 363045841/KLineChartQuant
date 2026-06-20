@@ -3,6 +3,7 @@ import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../plugin'
 import { drawScaleTicks } from '../renderers/Indicator/scale/indicator_scale'
 import { drawCrosshairPriceLabel } from '../../utils/kLineDraw/axis'
 import { resolveThemeColors } from '../../tokens'
+import type { ScaleType } from '../utils/tickPosition'
 
 export function createLeftYAxisRendererPlugin(options: {
   axisWidth: number
@@ -18,8 +19,14 @@ export function createLeftYAxisRendererPlugin(options: {
     priority: RENDERER_PRIORITY.SYSTEM_YAXIS,
 
     draw(context: RenderContext) {
-      const { leftAxisCtx, pane, dpr } = context
+      const { leftAxisCtx, pane, dpr, period } = context
       if (!leftAxisCtx) return
+
+      // 分时模式始终显示左轴（线性），不受设置约束
+      if (period !== 'timeshare') {
+        const leftType = context.settings?.leftAxisType as string | undefined
+        if (!leftType || leftType === 'none') return
+      }
 
       const tokenColors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
       const displayRange = pane.yAxis.getDisplayRange()
@@ -28,6 +35,7 @@ export function createLeftYAxisRendererPlugin(options: {
       if (!pane.capabilities.showPriceAxisTicks) return
 
       const axisWidth = leftAxisCtx.canvas ? (leftAxisCtx.canvas.width / dpr) : options.axisWidth
+      const scaleType: ScaleType = period === 'timeshare' ? 'linear' : ((context.settings?.leftAxisType as ScaleType) ?? 'linear')
 
       drawScaleTicks({
         tickColor: tokenColors.text.secondary,
@@ -42,7 +50,7 @@ export function createLeftYAxisRendererPlugin(options: {
         isMain: true,
         decimals: 2,
         hideEdgeTicks: false,
-        scaleType: 'linear',
+        scaleType,
         textAlign: 'center',
       })
 

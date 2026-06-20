@@ -25,7 +25,14 @@ export function createYAxisRendererPlugin(options: {
     priority: RENDERER_PRIORITY.SYSTEM_YAXIS,
 
     draw(context: RenderContext) {
-      const { ctx, pane, dpr, yAxisCtx, data } = context
+      const { ctx, pane, dpr, yAxisCtx, data, period } = context
+
+      // 分时模式始终显示右轴，不受设置约束
+      if (period !== 'timeshare') {
+        const rightType = context.settings?.rightAxisType as string | undefined
+        if (rightType === 'none') return
+      }
+
       const tokenColors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
       const scaleType = pane.yAxis.getScaleType()
 

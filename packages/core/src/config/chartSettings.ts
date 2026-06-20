@@ -51,10 +51,18 @@ export const DEFAULT_SETTINGS = [
   { key: 'showGridLines', label: '显示网格', type: 'boolean', default: true, group: 'main' },
   { key: 'showVolumePriceMarkers', label: '显示量价关系标记', type: 'boolean', default: false, group: 'main' },
   {
-    key: 'axisType', label: '轴类型', type: 'select', default: 'linear', group: 'main', options: [
+    key: 'rightAxisType', label: '右轴类型', type: 'select', default: 'linear', group: 'main', options: [
+      { value: 'none', label: '不显示' },
       { value: 'linear', label: '常规轴' },
       { value: 'log', label: '对数轴' },
       { value: 'percent', label: '百分比轴' },
+    ]
+  },
+  {
+    key: 'leftAxisType', label: '左轴类型', type: 'select', default: 'none', group: 'main', options: [
+      { value: 'none', label: '不显示' },
+      { value: 'linear', label: '常规轴' },
+      { value: 'log', label: '对数轴' },
     ]
   },
   { key: 'disableMainPaneVerticalScroll', label: '主图纵轴刻度自适应调整', type: 'boolean', default: true, group: 'main' },

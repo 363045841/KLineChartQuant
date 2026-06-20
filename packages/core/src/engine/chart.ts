@@ -405,14 +405,13 @@ export class Chart {
         this.renderer.updateSettings(settings)
         this.interaction.updateSettings(settings)
 
-        // 同步刻度类型设置到所有 pane（百分比仅用于主图）
-        if ('axisType' in settings) {
-            const axisType = (settings.axisType as ScaleType) ?? 'linear'
-            const currentType = this.paneRenderers[0]?.getPane().yAxis.getScaleType()
-            if (axisType !== currentType) {
+        // 同步右轴刻度类型设置到所有 pane（百分比仅用于主图）
+        if ('rightAxisType' in settings) {
+            const axisType = settings.rightAxisType as string
+            if (axisType !== 'none') {
                 for (const renderer of this.paneRenderers) {
                     const pane = renderer.getPane()
-                    const scaleType = axisType === 'percent' && pane.role !== 'price' ? 'linear' : axisType
+                    const scaleType = axisType === 'percent' && pane.role !== 'price' ? 'linear' : (axisType as ScaleType)
                     pane.yAxis.setScaleType(scaleType)
                 }
             }
