@@ -64,11 +64,8 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
 
       drawPreCloseLine(ctx, xPositions, preCloseY, dpr, colors.timeSharePreClose)
 
-      const lastPrice = tsData[Math.min(end - 1, tsData.length - 1)]?.price ?? preClose
-      const isUp = lastPrice >= preClose
-      const areaColor = isUp ? colors.timeShareAreaUp : colors.timeShareAreaDown
-
-      drawAreaFill(ctx, xPositions, yPrices, preCloseY, dpr, areaColor)
+      drawAreaFill(ctx, xPositions, yPrices, preCloseY, dpr,
+        colors.timeShareAreaUp, colors.timeShareAreaDown)
 
       drawSegmentLine(ctx, xPositions, yPrices, dpr, colors.timeSharePriceLine, 2)
 
@@ -110,31 +107,78 @@ function drawAreaFill(
   yPrices: number[],
   baselineY: number,
   dpr: number,
-  color: string,
+  upColor: string,
+  downColor: string,
 ): void {
   if (xPositions.length < 2) return
 
-  ctx.save()
+  const n = xPositions.length
 
-  const topY = Math.min(...yPrices)
-  const botY = Math.max(...yPrices, baselineY)
-  const grad = ctx.createLinearGradient(0, topY, 0, botY)
-  grad.addColorStop(0, color)
-  grad.addColorStop(1, 'rgba(0,0,0,0)')
+  function buildPolygon(isAbove: boolean): Array<{ x: number; y: number }> {
+    const pts: Array<{ x: number; y: number }> = [{ x: xPositions[0]!, y: baselineY }]
+    const firstOnOurSide = isAbove
+      ? yPrices[0]! <= baselineY
+      : yPrices[0]! >= baselineY
+    if (firstOnOurSide) {
+      pts.push({ x: xPositions[0]!, y: yPrices[0]! })
+    }
 
-  ctx.beginPath()
-  ctx.moveTo(xPositions[0], baselineY)
+    for (let i = 0; i < n - 1; i++) {
+      const x1 = xPositions[i]!, y1 = yPrices[i]!
+      const x2 = xPositions[i + 1]!, y2 = yPrices[i + 1]!
 
-  for (let i = 0; i < xPositions.length; i++) {
-    ctx.lineTo(xPositions[i], yPrices[i])
+      const y1OnOurSide = isAbove ? y1 <= baselineY : y1 >= baselineY
+      const y2OnOurSide = isAbove ? y2 <= baselineY : y2 >= baselineY
+
+      if (y1OnOurSide !== y2OnOurSide) {
+        const t = (baselineY - y1) / (y2 - y1)
+        const cx = x1 + t * (x2 - x1)
+        pts.push({ x: cx, y: baselineY })
+      }
+      if (y2OnOurSide) {
+        pts.push({ x: x2, y: y2 })
+      }
+    }
+
+    pts.push({ x: xPositions[n - 1]!, y: baselineY })
+    return pts
   }
 
-  ctx.lineTo(xPositions[xPositions.length - 1], baselineY)
-  ctx.closePath()
+  const abovePts = buildPolygon(true)
+  if (abovePts.length >= 3) {
+    const topY = Math.min(...abovePts.map((p) => p.y))
+    ctx.save()
+    const grad = ctx.createLinearGradient(0, topY, 0, baselineY)
+    grad.addColorStop(0, upColor)
+    grad.addColorStop(1, 'rgba(0,0,0,0)')
+    ctx.beginPath()
+    ctx.moveTo(abovePts[0]!.x, abovePts[0]!.y)
+    for (let i = 1; i < abovePts.length; i++) {
+      ctx.lineTo(abovePts[i]!.x, abovePts[i]!.y)
+    }
+    ctx.closePath()
+    ctx.fillStyle = grad
+    ctx.fill()
+    ctx.restore()
+  }
 
-  ctx.fillStyle = grad
-  ctx.fill()
-  ctx.restore()
+  const belowPts = buildPolygon(false)
+  if (belowPts.length >= 3) {
+    const botY = Math.max(...belowPts.map((p) => p.y))
+    ctx.save()
+    const grad = ctx.createLinearGradient(0, baselineY, 0, botY)
+    grad.addColorStop(0, 'rgba(0,0,0,0)')
+    grad.addColorStop(1, downColor)
+    ctx.beginPath()
+    ctx.moveTo(belowPts[0]!.x, belowPts[0]!.y)
+    for (let i = 1; i < belowPts.length; i++) {
+      ctx.lineTo(belowPts[i]!.x, belowPts[i]!.y)
+    }
+    ctx.closePath()
+    ctx.fillStyle = grad
+    ctx.fill()
+    ctx.restore()
+  }
 }
 
 function drawSegmentLine(
