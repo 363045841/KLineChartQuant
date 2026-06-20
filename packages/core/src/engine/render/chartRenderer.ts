@@ -321,7 +321,23 @@ export class ChartRenderer {
         kBarRects[i] = { x: barLeftPx / vp.dpr, width: barWidthPx / vp.dpr }
       }
 
-      kWidthPx = getPhysicalKLineConfig(opt.kWidth, opt.kGap, vp.dpr).kWidthPx
+      if (mode.debugName === 'TimeShare') {
+        const totalWidth = vp.plotWidth
+        const count = kLineCenters.length
+        if (count > 0) {
+          const step = totalWidth / count
+          for (let i = 0; i < count; i++) {
+            const center = (i + 0.5) * step
+            kLineCenters[i] = center
+            kLinePositions[i] = i * step
+          }
+          kWidthPx = Math.round(totalWidth * vp.dpr / count)
+        } else {
+          kWidthPx = getPhysicalKLineConfig(opt.kWidth, opt.kGap, vp.dpr).kWidthPx
+        }
+      } else {
+        kWidthPx = getPhysicalKLineConfig(opt.kWidth, opt.kGap, vp.dpr).kWidthPx
+      }
       this.cachedDrawFrame = {
         viewport: { ...vp },
         range: { ...range },
