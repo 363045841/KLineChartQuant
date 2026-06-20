@@ -729,6 +729,8 @@ defineExpose({
 
 // ── Lifecycle Setup ──
 
+let cleanupChartCallbacks: (() => void) | null = null
+
 function setupWheelHandler(): (e: WheelEvent) => void {
   const onWheelHandler = (e: WheelEvent) => {
     e.preventDefault()
@@ -762,7 +764,7 @@ function initChart(
   return ctrl
 }
 
-function setupChartCallbacks(ctrl: ChartController): void {
+function setupChartCallbacks(ctrl: ChartController): () => void {
   const unsubscribePaneLayout = ctrl.paneLayout.subscribe(() => {
     invalidateContainerRectCache()
     const borderTop = containerRef.value
@@ -858,19 +860,19 @@ function setupChartCallbacks(ctrl: ChartController): void {
     }))
   })
 
-  onUnmounted(() => {
-    unsubscribeViewport()
-    unsubscribeData()
-    unsubscribeDataLoading()
-    unsubscribePaneRatios()
-    unsubscribePaneLayout()
-    unsubscribeTheme()
-    unsubscribeIndicators()
-    unsubscribeComparisonColors()
-    unsubscribeComparisonLoading()
-    unsubscribeSymbols()
-  })
-}
+  return () => {
+      unsubscribeViewport()
+      unsubscribeData()
+      unsubscribeDataLoading()
+      unsubscribePaneRatios()
+      unsubscribePaneLayout()
+      unsubscribeTheme()
+      unsubscribeIndicators()
+      unsubscribeComparisonColors()
+      unsubscribeComparisonLoading()
+      unsubscribeSymbols()
+    }
+  }
 
 function applyInitialSettings(ctrl: ChartController): void {
   const initialSettings = toolbarRef.value?.getSettings() ?? { showVolumePriceMarkers: true }
@@ -937,7 +939,7 @@ onMounted(async () => {
   controller.value = ctrl
 
   // 3) 信号回调
-  setupChartCallbacks(ctrl)
+  cleanupChartCallbacks = setupChartCallbacks(ctrl)
 
   // 3.5) 在任何 draw 之前注册主图指标（BOLL/MA 等）
   //      initIndicatorsFromConfig 是同步的，读 props.semanticConfig 即可注册，
@@ -959,6 +961,8 @@ onMounted(async () => {
 
 // ── onUnmounted & Watchers ──
 onUnmounted(() => {
+  cleanupChartCallbacks?.()
+  cleanupChartCallbacks = null
   const ctrl = controller.value
   if (ctrl) {
     controller.value = null

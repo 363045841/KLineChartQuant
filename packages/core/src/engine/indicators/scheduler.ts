@@ -526,13 +526,7 @@ export class IndicatorScheduler {
     /**
      * 检查 state 中的 visibleMin/visibleMax 是否为 Infinity，如果是则输出 warning
      */
-    private checkVisibleExtremes(state: { visibleMin: number; visibleMax: number }, indicatorName: string): void {
-        if (!Number.isFinite(state.visibleMin) || !Number.isFinite(state.visibleMax)) {
-            console.warn(`[IndicatorScheduler] ${indicatorName} state has non-finite visibleMin/visibleMax:`, {
-                visibleMin: state.visibleMin,
-                visibleMax: state.visibleMax,
-            })
-        }
+    private checkVisibleExtremes(_state: { visibleMin: number; visibleMax: number }, _indicatorName: string): void {
     }
 
     /** 遍历注册表中的所有指标，通过 applyResult 回调写入 StateStore */

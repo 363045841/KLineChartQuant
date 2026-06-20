@@ -377,6 +377,7 @@ export const KLineChart = defineComponent({
 
         const chart = shallowRef<ChartController | null>(null)
         let mounted = true
+        let unsubViewport: (() => void) | null = null
 
         const applyController = (ctrl: ChartController): void => {
             if (!mounted) {
@@ -391,8 +392,7 @@ export const KLineChart = defineComponent({
                 emit('zoomLevelChange', vp.zoomLevel, vp.kWidth)
             }
             emitViewport()
-            const unsub = ctrl.viewport.subscribe(emitViewport)
-            onScopeDispose(unsub)
+            unsubViewport = ctrl.viewport.subscribe(emitViewport)
         }
 
         onMounted(() => {
@@ -430,6 +430,8 @@ export const KLineChart = defineComponent({
 
         onUnmounted(() => {
             mounted = false
+            unsubViewport?.()
+            unsubViewport = null
             chart.value?.dispose()
             chart.value = null
             scope.stop()
