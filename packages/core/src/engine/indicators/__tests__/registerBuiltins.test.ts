@@ -10,7 +10,7 @@ describe('builtin indicator registration', () => {
   it('loads all builtin indicator definitions through decorators', () => {
     const definitions = getBuiltinIndicatorDefinitions()
 
-    expect(definitions).toHaveLength(40)
+    expect(definitions).toHaveLength(41)
     expect(definitions.map((definition) => definition.name)).toEqual(
       expect.arrayContaining([
         'ma',

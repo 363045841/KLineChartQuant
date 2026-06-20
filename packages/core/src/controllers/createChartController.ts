@@ -442,7 +442,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
     // dataLoading
     unsubs.push(
-        chart.dataBuffer.loading.subscribe(() => dataLoading.set(chart.dataBuffer.loading.peek())),
+        chart.loading.subscribe(() => dataLoading.set(chart.loading.peek())),
     )
 
     // theme

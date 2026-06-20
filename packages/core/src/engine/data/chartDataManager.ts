@@ -3,6 +3,7 @@ import type { SymbolSpec, DataFetcher, CustomDataSource } from '../../controller
 import { createSignal, type Signal } from '../../reactivity/signal'
 import { DataBuffer } from '../../data-fetchers/dataBuffer'
 import { TimeShareBuffer } from '../../data-fetchers/timeShareBuffer'
+import type { DataBufferLike } from '../../data-fetchers/dataBufferTypes'
 import type { TimeShareFetcherFn } from '../../data-fetchers/types'
 import type { ChartDom, Viewport } from '../chartTypes'
 import type { VisibleRange, UpdateLevel } from '../layout/pane'
@@ -49,8 +50,9 @@ export class ChartDataManager {
   private _activeBufferKey: string | null = null
   private _activeBufferUnsub: (() => void) | null = null
 
-  private _dataSignal = createSignal<ReadonlyArray<unknown>>([])
-  private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
+private _dataSignal = createSignal<ReadonlyArray<unknown>>([])
+private _loadingSignal = createSignal<boolean>(false)
+private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
 
   private _currentSpec: SymbolSpec | null = null
 
@@ -94,15 +96,24 @@ export class ChartDataManager {
     if (this._activeBufferKey === key) return
     this._activeBufferUnsub?.()
     this._activeBufferKey = key
-    const buf = this._buffers.get(key)
+    const buf = this._buffers.get(key) as DataBufferLike | undefined
     if (buf) {
       this._dataSignal.set([...buf.data.peek() as unknown[]])
-      this._activeBufferUnsub = buf.data.subscribe(() => {
+      this._loadingSignal.set(buf.loading.peek())
+      const unsubData = buf.data.subscribe(() => {
         this._dataSignal.set([...buf.data.peek() as unknown[]])
         this.onBufferDataChanged(key)
       })
+      const unsubLoading = buf.loading.subscribe(() => {
+        this._loadingSignal.set(buf.loading.peek())
+      })
+      this._activeBufferUnsub = () => {
+        unsubData()
+        unsubLoading()
+      }
     } else {
       this._dataSignal.set([])
+      this._loadingSignal.set(false)
       this._activeBufferUnsub = null
     }
   }
@@ -345,6 +356,11 @@ export class ChartDataManager {
   /** Unified data signal — always reflects the active buffer's data */
   get data(): Signal<ReadonlyArray<KLineData>> {
     return this._dataSignal as Signal<ReadonlyArray<KLineData>>
+  }
+
+  /** Loading signal — mirrors the active buffer's loading state */
+  get loading(): Signal<boolean> {
+    return this._loadingSignal
   }
 
   get symbols(): Signal<ReadonlyArray<SymbolSpec>> {

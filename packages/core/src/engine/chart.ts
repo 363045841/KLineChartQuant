@@ -849,6 +849,11 @@ export class Chart {
         return this.dataManager.data
     }
 
+    /** 加载信号 */
+    get loading(): Signal<boolean> {
+        return this.dataManager.loading
+    }
+
     /** 符号信号 */
     get symbols(): Signal<ReadonlyArray<SymbolSpec>> {
         return this.dataManager.symbols

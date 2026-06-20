@@ -14,6 +14,7 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-color-candle-doji-border: #8A8F98;
   --klc-color-volume-up: #22D69B66;
   --klc-color-volume-down: #FF646466;
+  --klc-color-volume-neutral: #FFFFFF66;
   --klc-color-axis-text: #9AA0A6;
   --klc-color-axis-line: #2A2F36;
   --klc-color-axis-tick: #2A2F36;
@@ -41,6 +42,12 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-color-avwap-line: #A78BFA;
   --klc-color-avwap-band: #A78BFA33;
   --klc-color-mtf-overlay: #38BDF8;
+  --klc-color-time-share-price-line: #60A5FA;
+  --klc-color-time-share-avg-line: #FBBF24;
+  --klc-color-time-share-area-up: rgba(34, 214, 155, 0.20);
+  --klc-color-time-share-area-down: rgba(255, 100, 100, 0.20);
+  --klc-color-time-share-pre-close: #9CA3AF;
+  --klc-color-time-share-volume: #60A5FA;
   --klc-color-palette-i1: #4A9EFF;
   --klc-color-palette-i2: #FFB95A;
   --klc-color-palette-i3: #22D69B;
@@ -207,6 +214,7 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-color-candle-doji-border: #6E6E6E;
   --klc-color-volume-up: #0F8B5C66;
   --klc-color-volume-down: #C2363B66;
+  --klc-color-volume-neutral: #00000066;
   --klc-color-axis-text: #5A5A5A;
   --klc-color-axis-line: #D0D0D0;
   --klc-color-axis-tick: #D0D0D0;
@@ -234,6 +242,12 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-color-avwap-line: #7C3AED;
   --klc-color-avwap-band: #7C3AED33;
   --klc-color-mtf-overlay: #0369A1;
+  --klc-color-time-share-price-line: #4A90D9;
+  --klc-color-time-share-avg-line: #F5A623;
+  --klc-color-time-share-area-up: rgba(15, 139, 92, 0.15);
+  --klc-color-time-share-area-down: rgba(213, 19, 26, 0.15);
+  --klc-color-time-share-pre-close: #888888;
+  --klc-color-time-share-volume: #4A90D9;
   --klc-color-palette-i1: #0072B2;
   --klc-color-palette-i2: #E69F00;
   --klc-color-palette-i3: #009E73;
