@@ -22,7 +22,8 @@ export function createLeftYAxisRendererPlugin(options: {
       if (!leftAxisCtx) return
 
       const tokenColors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
-      const { minPrice, maxPrice } = pane.priceRange
+      const displayRange = pane.yAxis.getDisplayRange()
+      const { minPrice, maxPrice } = displayRange
 
       if (!pane.capabilities.showPriceAxisTicks) return
 
@@ -54,7 +55,7 @@ export function createLeftYAxisRendererPlugin(options: {
         width: axisWidth,
         height: pane.height,
         crosshairY: crosshair.y,
-        priceRange: pane.priceRange,
+        priceRange: displayRange,
         yPaddingPx: options.yPaddingPx,
         dpr,
         fontSize: 12,
