@@ -57,6 +57,8 @@ export interface DrawScaleTicksOptions {
     hideEdgeTicks?: boolean
     scaleType?: ScaleType
     formatLabel?: (value: number) => string
+    /** 文字对齐方式，默认 'center'。左侧轴应使用 'right' */
+    textAlign?: CanvasTextAlign
 }
 
 const BASELINE_MIDDLE = 'middle' as const
@@ -77,6 +79,7 @@ export function drawScaleTicks(options: DrawScaleTicksOptions & { tickColor: str
         hideEdgeTicks = true,
         scaleType = 'linear',
         formatLabel,
+        textAlign = 'center',
     } = options
 
     ctx.clearRect(0, 0, axisWidth, height)
@@ -84,11 +87,15 @@ export function drawScaleTicks(options: DrawScaleTicksOptions & { tickColor: str
     const font = getFont(12)
     setCanvasFont(ctx, font)
     ctx.textBaseline = BASELINE_MIDDLE
-    ctx.textAlign = ALIGN_CENTER
+    ctx.textAlign = textAlign as CanvasTextAlign
     ctx.fillStyle = options.tickColor
 
-    const centerX = axisWidth / 2
-    const centerXPx = roundToPhysicalPixel(centerX, dpr)
+    const alignTo = textAlign === 'center'
+      ? roundToPhysicalPixel(axisWidth / 2, dpr)
+      : textAlign === 'right'
+        ? roundToPhysicalPixel(axisWidth - 4, dpr)
+        : roundToPhysicalPixel(4, dpr)
+    const textX = alignTo
 
     const positions = calculateValueTickPositions({
         height,
@@ -106,7 +113,7 @@ export function drawScaleTicks(options: DrawScaleTicksOptions & { tickColor: str
 
     for (let i = 0; i < positions.length; i++) {
         const { y, value } = positions[i]!
-        ctx.fillText(format(value), centerXPx, alignToPhysicalPixelCenter(y, dpr))
+        ctx.fillText(format(value), textX, y)
     }
 }
 

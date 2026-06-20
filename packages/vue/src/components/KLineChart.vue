@@ -48,6 +48,12 @@
         </div>
         <div ref="tooltipLayerRef" class="tooltip-layer"></div>
         <div
+          v-if="computedLeftAxisWidth > 0"
+          class="left-axis-host"
+          ref="leftAxisLayerRef"
+          :style="{ width: computedLeftAxisWidth + 'px' }"
+        ></div>
+        <div
           class="chart-container"
           :style="{ cursor: containerCursor }"
           ref="containerRef"
@@ -217,6 +223,8 @@ const props = withDefaults(
     maxKWidth?: number
     /** 右侧价格轴宽度 */
     rightAxisWidth?: number
+    /** 左侧价格轴宽度（默认 0，不显示） */
+    leftAxisWidth?: number
     /** 底部时间轴高度 */
     bottomAxisHeight?: number
     /** 价格标签额外宽度（用于显示涨跌幅，默认 60px） */
@@ -353,6 +361,7 @@ const chartWrapperRef = ref<HTMLDivElement | null>(null)
 const tooltipLayerRef = ref<HTMLDivElement | null>(null)
 const toolbarRef = ref<InstanceType<typeof LeftToolbar> | null>(null)
 const indicatorSelectorRef = ref<InstanceType<typeof IndicatorSelector> | null>(null)
+const leftAxisLayerRef = ref<HTMLDivElement | null>(null)
 provideFullscreenTeleportTarget(chartWrapperRef)
 
 // ── Controller & Composable Wiring ──
@@ -724,6 +733,8 @@ function onScroll() {
 // ── Width / Zoom / Expose ──
 const axisHostWidth = computed(() => props.rightAxisWidth + props.priceLabelWidth)
 
+const computedLeftAxisWidth = computed(() => props.leftAxisWidth ?? 0)
+
 const totalWidth = computed(() => {
   void dataVersion.value
   void viewWidth.value
@@ -768,17 +779,20 @@ function initChart(
   canvasLayer: HTMLDivElement,
   rightAxisLayer: HTMLDivElement,
   xAxisCanvas: HTMLCanvasElement,
+  leftAxisLayer?: HTMLDivElement,
 ): Promise<ChartController> {
   const ctrl = createChartController({
     container,
     data: [],
     canvasLayer,
     rightAxisLayer,
+    leftAxisLayer,
     xAxisCanvas,
     initialZoomLevel: props.initialZoomLevel,
     zoomLevels: props.zoomLevels,
     yPaddingPx: props.yPaddingPx,
     rightAxisWidth: props.rightAxisWidth,
+    leftAxisWidth: props.leftAxisWidth,
     bottomAxisHeight: props.bottomAxisHeight,
     priceLabelWidth: props.priceLabelWidth,
     minKWidth: props.minKWidth,
@@ -958,7 +972,8 @@ onMounted(async () => {
   const canvasLayer = container.querySelector<HTMLDivElement>('.canvas-layer')
   const xAxisCanvas = container.querySelector<HTMLCanvasElement>('.x-axis-canvas')
   const rightAxisLayer = chartMain.querySelector<HTMLDivElement>('.right-axis-host')
-  const ctrl = await initChart(container, canvasLayer!, rightAxisLayer!, xAxisCanvas!)
+  const leftAxisLayer = chartMain.querySelector<HTMLDivElement>('.left-axis-host') ?? undefined
+  const ctrl = await initChart(container, canvasLayer!, rightAxisLayer!, xAxisCanvas!, leftAxisLayer)
   if (!containerRef.value || !chartMainRef.value) return // 组件已卸载
   controller.value = ctrl
 
@@ -1127,7 +1142,8 @@ watch(
   -ms-overflow-style: none;
   border: 1px solid var(--chart-border);
   border-right: 0;
-  border-radius: 3px 0 0 3px;
+  border-left: 0;
+  border-radius: 0;
   box-sizing: border-box;
   background: var(--chart-bg);
 
@@ -1152,6 +1168,24 @@ watch(
   border: 1px solid var(--chart-border);
   border-top-right-radius: 3px;
   border-bottom-right-radius: 3px;
+
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
+}
+
+.left-axis-host {
+  position: relative;
+  flex: 0 0 auto;
+  height: 100%;
+  min-height: inherit;
+  box-sizing: border-box;
+  background: var(--chart-bg);
+  overflow: visible;
+  border: 1px solid var(--chart-border);
+  border-top-left-radius: 3px;
+  border-bottom-left-radius: 3px;
 
   -webkit-touch-callout: none;
   -webkit-user-select: none;

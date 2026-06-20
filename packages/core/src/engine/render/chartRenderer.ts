@@ -26,6 +26,7 @@ import { createLastPriceLineRendererPlugin, createLastPriceLabelRegistrarPlugin 
 import { createCustomMarkersRenderer } from '../renderers/customMarkers'
 import { createExtremaMarkersRendererPlugin } from '../renderers/extremaMarkers'
 import { createYAxisRendererPlugin } from '../renderers/yAxis'
+import { createLeftYAxisRendererPlugin } from '../renderers/leftYAxis'
 import { createCrosshairRendererPlugin } from '../renderers/crosshair'
 import { createTimeAxisRendererPlugin } from '../renderers/timeAxis'
 
@@ -129,6 +130,12 @@ export class ChartRenderer {
         price: interaction.crosshairPrice,
       }),
     }))
+    if (opt.leftAxisWidth > 0) {
+      this.useDrawingPlugin(createLeftYAxisRendererPlugin({
+        axisWidth: opt.leftAxisWidth,
+        yPaddingPx: opt.yPaddingPx,
+      }))
+    }
     this.useDrawingPlugin(createTimeAxisRendererPlugin({
       height: opt.bottomAxisHeight,
       getCrosshair: () => {
@@ -326,15 +333,28 @@ export class ChartRenderer {
     }
   }
 
+  private clearAxisCtx(ctx: CanvasRenderingContext2D, dpr: number, width: number, height: number): void {
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.scale(dpr, dpr)
+    ctx.clearRect(0, 0, width, height + 2 / dpr)
+  }
+
   clearAllCanvases(): void {
     const vp = this.deps.getViewportManager().computeViewport()
     if (!vp) return
     for (const r of this.deps.getPaneRenderers()) {
-      const { mainCtx, overlayCtx, yAxisCtx } = r.getContexts()
+      const { mainCtx, overlayCtx, yAxisCtx, leftAxisCtx } = r.getContexts()
       const pane = r.getPane()
       mainCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
       overlayCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
       yAxisCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
+      if (leftAxisCtx) {
+        const leftCanvas = leftAxisCtx.canvas
+        if (leftCanvas) {
+          const laW = leftCanvas.width / vp.dpr
+          leftAxisCtx.clearRect(0, 0, laW, pane.height + 2 / vp.dpr)
+        }
+      }
     }
     const xCtx = this.xAxisCtx
     if (xCtx) {
@@ -368,7 +388,7 @@ export class ChartRenderer {
 
     for (const renderer of this.deps.getPaneRenderers()) {
       const pane = renderer.getPane()
-      const { mainCtx, overlayCtx, yAxisCtx } = renderer.getContexts()
+      const { mainCtx, overlayCtx, yAxisCtx, leftAxisCtx } = renderer.getContexts()
       const { candleSurface, lineSurface } = renderer.getWebGL()
 
       if (!useCachedFrame) {
@@ -401,9 +421,11 @@ export class ChartRenderer {
 
       if (yAxisCtx && !useCachedFrame) {
         const yAxisWidth = yAxisCtx.canvas.width / vp.dpr
-        yAxisCtx.setTransform(1, 0, 0, 1, 0, 0)
-        yAxisCtx.scale(vp.dpr, vp.dpr)
-        yAxisCtx.clearRect(0, 0, yAxisWidth, pane.height + 2 / vp.dpr)
+        this.clearAxisCtx(yAxisCtx, vp.dpr, yAxisWidth, pane.height)
+      }
+      if (leftAxisCtx && !useCachedFrame) {
+        const leftAxisWidth = leftAxisCtx.canvas.width / vp.dpr
+        this.clearAxisCtx(leftAxisCtx, vp.dpr, leftAxisWidth, pane.height)
       }
 
       const opt = this.deps.getOption()
@@ -428,6 +450,7 @@ export class ChartRenderer {
         markerManager: this.markerManager,
         crosshairIndex: this.deps.getInteraction().getCrosshairIndex(),
         yAxisCtx: yAxisCtx ?? undefined,
+        leftAxisCtx: leftAxisCtx ?? undefined,
         candleWebGLSurface: candleSurface ?? undefined,
         lineWebGLSurface: lineSurface ?? undefined,
         zoomLevel: this.deps.getCurrentZoomLevel(),

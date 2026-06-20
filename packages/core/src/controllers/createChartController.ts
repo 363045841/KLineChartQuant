@@ -61,6 +61,7 @@ const DEFAULT_OPTS = {
     minKWidth: 1,
     maxKWidth: 50,
     rightAxisWidth: 0,
+    leftAxisWidth: 0,
     bottomAxisHeight: 24,
     priceLabelWidth: 60,
     zoomLevels: 20,
@@ -120,6 +121,7 @@ interface MountedDom {
     scrollContent?: HTMLDivElement
     canvasLayer: HTMLDivElement
     rightAxisLayer: HTMLDivElement
+    leftAxisLayer?: HTMLDivElement
     xAxisCanvas: HTMLCanvasElement
     cleanup: () => void
 }
@@ -265,10 +267,18 @@ function buildDom(container: HTMLElement): MountedDom {
     rightAxisLayer.style.right = '0'
     chartContainer.appendChild(rightAxisLayer)
 
+    const leftAxisLayer = ownerDoc.createElement('div')
+    leftAxisLayer.className = 'klc-left-axis-host'
+    leftAxisLayer.style.position = 'absolute'
+    leftAxisLayer.style.top = '0'
+    leftAxisLayer.style.left = '0'
+    chartContainer.appendChild(leftAxisLayer)
+
     const cleanup = (): void => {
         try {
             scrollContent.remove()
             rightAxisLayer.remove()
+            leftAxisLayer.remove()
             if (containerCreatedByUs) {
                 chartContainer.remove()
             }
@@ -277,7 +287,7 @@ function buildDom(container: HTMLElement): MountedDom {
         }
     }
 
-    return { container: chartContainer, scrollContent, canvasLayer, rightAxisLayer, xAxisCanvas, cleanup }
+    return { container: chartContainer, scrollContent, canvasLayer, rightAxisLayer, leftAxisLayer, xAxisCanvas, cleanup }
 }
 
 // ---------------------------------------------------------------------------
@@ -300,6 +310,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
             container: opts.container as HTMLDivElement,
             canvasLayer: opts.canvasLayer as HTMLDivElement,
             rightAxisLayer: opts.rightAxisLayer as HTMLDivElement,
+            leftAxisLayer: opts.leftAxisLayer as HTMLDivElement | undefined,
             xAxisCanvas: opts.xAxisCanvas!,
             cleanup: () => { /* DOM owned by caller */ },
         }
@@ -311,6 +322,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     const chartOptions: ChartOptions = {
         yPaddingPx: opts.yPaddingPx ?? DEFAULT_OPTS.yPaddingPx,
         rightAxisWidth: opts.rightAxisWidth ?? DEFAULT_OPTS.rightAxisWidth,
+        leftAxisWidth: opts.leftAxisWidth ?? DEFAULT_OPTS.leftAxisWidth,
         bottomAxisHeight: opts.bottomAxisHeight ?? DEFAULT_OPTS.bottomAxisHeight,
         minKWidth: opts.minKWidth ?? DEFAULT_OPTS.minKWidth,
         maxKWidth: opts.maxKWidth ?? DEFAULT_OPTS.maxKWidth,
@@ -327,6 +339,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
             scrollContent: mounted.scrollContent,
             canvasLayer: mounted.canvasLayer,
             rightAxisLayer: mounted.rightAxisLayer,
+            leftAxisLayer: mounted.leftAxisLayer,
             xAxisCanvas: mounted.xAxisCanvas,
         },
         chartOptions,

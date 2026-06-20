@@ -225,11 +225,13 @@ export interface ChartMountOptions {
     // Pre-existing DOM elements (skip buildDom when provided)
     canvasLayer?: HTMLElement
     rightAxisLayer?: HTMLElement
+    leftAxisLayer?: HTMLElement
     xAxisCanvas?: HTMLCanvasElement
 
     // Chart options overrides
     yPaddingPx?: number
     rightAxisWidth?: number
+    leftAxisWidth?: number
     bottomAxisHeight?: number
     priceLabelWidth?: number
     minKWidth?: number

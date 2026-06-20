@@ -5,16 +5,19 @@ export type PaneRendererDom = {
     mainCanvas: HTMLCanvasElement      // 主画布：K线、指标、网格
     overlayCanvas: HTMLCanvasElement   // 覆盖层：十字线、Tooltip（透明）
     yAxisCanvas: HTMLCanvasElement     // Y轴刻度
+    leftYAxisCanvas?: HTMLCanvasElement // 左侧Y轴刻度
 }
 
 export type PaneRendererContexts = {
     mainCtx: CanvasRenderingContext2D | null
     overlayCtx: CanvasRenderingContext2D | null
     yAxisCtx: CanvasRenderingContext2D | null
+    leftAxisCtx: CanvasRenderingContext2D | null
 }
 
 export type PaneRendererOptions = {
     rightAxisWidth: number
+    leftAxisWidth: number
     yPaddingPx: number
     priceLabelWidth?: number
 }
@@ -70,9 +73,32 @@ export class PaneRenderer {
                 mainCtx: this.dom.mainCanvas.getContext('2d'),
                 overlayCtx: this.dom.overlayCanvas.getContext('2d'),
                 yAxisCtx: this.dom.yAxisCanvas.getContext('2d'),
+                leftAxisCtx: this.dom.leftYAxisCanvas?.getContext('2d') ?? null,
             }
         }
         return this.contexts
+    }
+
+    private static resizeCanvas(
+        canvas: HTMLCanvasElement,
+        widthPx: number,
+        heightPx: number,
+        dpr: number,
+    ): void {
+        if (canvas.width !== widthPx) {
+            canvas.width = widthPx
+        }
+        if (canvas.height !== heightPx) {
+            canvas.height = heightPx
+        }
+        const cssW = `${widthPx / dpr}px`
+        if (canvas.style.width !== cssW) {
+            canvas.style.width = cssW
+        }
+        const cssH = `${heightPx / dpr}px`
+        if (canvas.style.height !== cssH) {
+            canvas.style.height = cssH
+        }
     }
 
     getWebGL(): PaneRendererWebGLHandles {
@@ -102,58 +128,23 @@ export class PaneRenderer {
 
         // Main Canvas
         const mainWidth = Math.round(width * dpr)
-        if (mainCanvas.width !== mainWidth) {
-            mainCanvas.width = mainWidth
-        }
-
         const mainHeight = Math.round(height * dpr)
-        if (mainCanvas.height !== mainHeight) {
-            mainCanvas.height = mainHeight
-        }
-
-        const mainCssWidth = `${mainWidth / dpr}px`
-        if (mainCanvas.style.width !== mainCssWidth) {
-            mainCanvas.style.width = mainCssWidth
-        }
-
-        const mainCssHeight = `${mainHeight / dpr}px`
-        if (mainCanvas.style.height !== mainCssHeight) {
-            mainCanvas.style.height = mainCssHeight
-        }
+        PaneRenderer.resizeCanvas(mainCanvas, mainWidth, mainHeight, dpr)
 
         // Overlay Canvas - 与 Main Canvas 相同尺寸
-        if (overlayCanvas.width !== mainWidth) {
-            overlayCanvas.width = mainWidth
-        }
-        if (overlayCanvas.height !== mainHeight) {
-            overlayCanvas.height = mainHeight
-        }
-        if (overlayCanvas.style.width !== mainCssWidth) {
-            overlayCanvas.style.width = mainCssWidth
-        }
-        if (overlayCanvas.style.height !== mainCssHeight) {
-            overlayCanvas.style.height = mainCssHeight
-        }
+        PaneRenderer.resizeCanvas(overlayCanvas, mainWidth, mainHeight, dpr)
 
         // YAxis Canvas
         const yAxisWidth = Math.round(canvasYAxisWidth * dpr)
-        if (yAxisCanvas.width !== yAxisWidth) {
-            yAxisCanvas.width = yAxisWidth
-        }
+        PaneRenderer.resizeCanvas(yAxisCanvas, yAxisWidth, Math.round(height * dpr), dpr)
 
-        const yAxisHeight = Math.round(height * dpr)
-        if (yAxisCanvas.height !== yAxisHeight) {
-            yAxisCanvas.height = yAxisHeight
-        }
-
-        const yAxisCssWidth = `${yAxisWidth / dpr}px`
-        if (yAxisCanvas.style.width !== yAxisCssWidth) {
-            yAxisCanvas.style.width = yAxisCssWidth
-        }
-
-        const yAxisCssHeight = `${yAxisHeight / dpr}px`
-        if (yAxisCanvas.style.height !== yAxisCssHeight) {
-            yAxisCanvas.style.height = yAxisCssHeight
+        // Left YAxis Canvas
+        const leftCanvas = this.dom.leftYAxisCanvas
+        if (leftCanvas && this.opt.leftAxisWidth > 0) {
+            const fallbackLeftAxisWidth = this.opt.leftAxisWidth
+            const leftParentWidth = leftCanvas.parentElement?.clientWidth ?? 0
+            const canvasLeftAxisWidth = leftParentWidth > 0 ? leftParentWidth : fallbackLeftAxisWidth
+            PaneRenderer.resizeCanvas(leftCanvas, Math.round(canvasLeftAxisWidth * dpr), Math.round(height * dpr), dpr)
         }
 
         this.webgl.candleSurface?.resize(width, height, dpr)

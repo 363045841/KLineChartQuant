@@ -294,6 +294,7 @@ export interface RenderContext {
   crosshairIndex?: number | null
   // 可选的其他 Canvas 上下文
   yAxisCtx?: CanvasRenderingContext2D
+  leftAxisCtx?: CanvasRenderingContext2D
   xAxisCtx?: CanvasRenderingContext2D
   borderCtx?: CanvasRenderingContext2D
   /** 覆盖层 Canvas 上下文（用于十字线、Tooltip 等动态内容） */

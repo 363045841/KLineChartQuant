@@ -8,6 +8,7 @@ export interface PaneLayoutDependencies {
   getDom: () => ChartDom
   getOption: () => {
     rightAxisWidth: number
+    leftAxisWidth: number
     yPaddingPx: number
     priceLabelWidth?: number
     paneGap?: number
@@ -59,6 +60,15 @@ export class ChartPaneLayout {
     return index === 0 ? 'price' : 'indicator'
   }
 
+  private createAxisCanvas(spec: PaneSpec, pane: Pane, side: 'left' | 'right'): HTMLCanvasElement {
+    const canvas = document.createElement('canvas')
+    canvas.id = `${spec.id}-${side}Axis`
+    canvas.className = side === 'right' ? 'right-axis' : 'left-axis'
+    canvas.style.position = 'absolute'
+    canvas.style.left = '0'
+    return canvas
+  }
+
   private initPanes() {
     const prevScaleTypes = new Map<string, 'linear' | 'log' | 'percent'>()
     for (const r of this.paneRenderers) {
@@ -76,7 +86,7 @@ export class ChartPaneLayout {
 
       const mainCanvas = document.createElement('canvas')
       const overlayCanvas = document.createElement('canvas')
-      const yAxisCanvas = document.createElement('canvas')
+      const yAxisCanvas = this.createAxisCanvas(spec, pane, 'right')
 
       const isMain = pane.role === 'price'
 
@@ -94,16 +104,14 @@ export class ChartPaneLayout {
       overlayCanvas.style.pointerEvents = 'none'
       overlayCanvas.style.backgroundColor = 'transparent'
 
-      yAxisCanvas.id = `${spec.id}-yAxis`
-      yAxisCanvas.className = 'right-axis'
-      yAxisCanvas.style.position = 'absolute'
-      yAxisCanvas.style.left = '0'
+      const leftYAxisCanvas = this.createAxisCanvas(spec, pane, 'left')
 
       const renderer = new PaneRenderer(
-        { mainCanvas, overlayCanvas, yAxisCanvas },
+        { mainCanvas, overlayCanvas, yAxisCanvas, leftYAxisCanvas },
         pane,
         {
           rightAxisWidth: this.deps.getOption().rightAxisWidth,
+          leftAxisWidth: this.deps.getOption().leftAxisWidth ?? 0,
           yPaddingPx: this.deps.getOption().yPaddingPx,
           priceLabelWidth: this.deps.getOption().priceLabelWidth,
         },
@@ -116,6 +124,7 @@ export class ChartPaneLayout {
     const dom = this.deps.getDom()
     const canvasLayer = dom.canvasLayer
     const rightAxisLayer = dom.rightAxisLayer
+    const leftAxisLayer = dom.leftAxisLayer
     if (canvasLayer) {
       const existingCanvases = canvasLayer.querySelectorAll('canvas:not(.x-axis-canvas)')
       existingCanvases.forEach((canvas) => canvas.remove())
@@ -124,12 +133,19 @@ export class ChartPaneLayout {
       const existingAxisCanvases = rightAxisLayer.querySelectorAll('canvas.right-axis')
       existingAxisCanvases.forEach((canvas) => canvas.remove())
     }
+    if (leftAxisLayer) {
+      const existingLeftAxisCanvases = leftAxisLayer.querySelectorAll('canvas.left-axis')
+      existingLeftAxisCanvases.forEach((canvas) => canvas.remove())
+    }
 
     this.paneRenderers.forEach((renderer) => {
       const domEls = renderer.getDom()
       canvasLayer.appendChild(domEls.mainCanvas)
       canvasLayer.appendChild(domEls.overlayCanvas)
       rightAxisLayer.appendChild(domEls.yAxisCanvas)
+      if (leftAxisLayer && domEls.leftYAxisCanvas) {
+        leftAxisLayer.appendChild(domEls.leftYAxisCanvas)
+      }
     })
 
     this.deps.setKnownPaneIds(
@@ -290,6 +306,10 @@ export class ChartPaneLayout {
       domEls.overlayCanvas.style.top = `${y}px`
       domEls.yAxisCanvas.style.top = `${y}px`
       domEls.yAxisCanvas.style.left = '0px'
+      if (domEls.leftYAxisCanvas) {
+        domEls.leftYAxisCanvas.style.top = `${y}px`
+        domEls.leftYAxisCanvas.style.left = '0px'
+      }
 
       y += h + gap
     }

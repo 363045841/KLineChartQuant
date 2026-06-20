@@ -5,6 +5,7 @@ export type ChartDom = {
   scrollContent?: HTMLDivElement
   canvasLayer: HTMLDivElement
   rightAxisLayer: HTMLDivElement
+  leftAxisLayer?: HTMLDivElement
   xAxisCanvas: HTMLCanvasElement
 }
 
@@ -21,6 +22,7 @@ export type PaneRendererDom = {
   mainCanvas: HTMLCanvasElement
   overlayCanvas: HTMLCanvasElement
   yAxisCanvas: HTMLCanvasElement
+  leftYAxisCanvas?: HTMLCanvasElement
 }
 
 export type ChartOptions = {
@@ -28,6 +30,7 @@ export type ChartOptions = {
   kGap?: number
   yPaddingPx: number
   rightAxisWidth: number
+  leftAxisWidth: number
   bottomAxisHeight: number
   minKWidth: number
   maxKWidth: number

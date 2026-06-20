@@ -168,6 +168,7 @@ export class Chart {
             getDom: () => this.dom,
             getOption: () => ({
                 rightAxisWidth: this.opt.rightAxisWidth,
+                leftAxisWidth: this.opt.leftAxisWidth,
                 yPaddingPx: this.opt.yPaddingPx,
                 priceLabelWidth: this.opt.priceLabelWidth,
                 paneGap: this.opt.paneGap,

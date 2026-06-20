@@ -35,6 +35,7 @@ const defaultOptions: ChartOptions = {
   kGap: 2,
   yPaddingPx: 0,
   rightAxisWidth: 0,
+  leftAxisWidth: 0,
   bottomAxisHeight: 24,
   minKWidth: 2,
   maxKWidth: 50,

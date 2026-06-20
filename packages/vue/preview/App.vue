@@ -90,6 +90,7 @@
         ref="chartRef"
         :mcp="mcpConfig"
         :dataFetcher="dataFetcher"
+        :left-axis-width="60"
         :custom-data="customData"
         :is-fullscreen="isFullscreen"
         @toggle-fullscreen="toggleFullscreen"
