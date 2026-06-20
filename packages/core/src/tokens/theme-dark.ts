@@ -40,7 +40,7 @@ export const darkTheme: Theme = {
 
         volumeUp: '#22D69B66',
         volumeDown: '#FF646466',
-        volumeNeutral: '#6B727A66',
+        volumeNeutral: '#FFFFFF',
 
         axisText: '#9AA0A6',
         axisLine: '#2A2F36',
