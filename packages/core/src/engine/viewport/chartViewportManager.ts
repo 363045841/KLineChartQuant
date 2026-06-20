@@ -206,7 +206,8 @@ export class ChartViewportManager {
 
     const dom = this.deps.getDom()
 
-    const canvasLayerWidth = `${viewWidth}px`
+    const dprRoundedViewWidth = Math.round(viewWidth * dpr) / dpr
+    const canvasLayerWidth = `${dprRoundedViewWidth}px`
     if (dom.canvasLayer.style.width !== canvasLayerWidth) {
       dom.canvasLayer.style.width = canvasLayerWidth
     }
@@ -216,9 +217,9 @@ export class ChartViewportManager {
       dom.canvasLayer.style.height = canvasLayerHeight
     }
 
-    const xAxisWidth = Math.round(plotWidth * dpr)
-    if (dom.xAxisCanvas.width !== xAxisWidth) {
-      dom.xAxisCanvas.width = xAxisWidth
+    const xAxisWidthPx = Math.round(dprRoundedViewWidth * dpr)
+    if (dom.xAxisCanvas.width !== xAxisWidthPx) {
+      dom.xAxisCanvas.width = xAxisWidthPx
     }
 
     const xAxisHeight = Math.round(this.deps.getBottomAxisHeight() * dpr)
@@ -226,7 +227,7 @@ export class ChartViewportManager {
       dom.xAxisCanvas.height = xAxisHeight
     }
 
-    const xAxisCssWidth = `${xAxisWidth / dpr}px`
+    const xAxisCssWidth = `${dprRoundedViewWidth}px`
     if (dom.xAxisCanvas.style.width !== xAxisCssWidth) {
       dom.xAxisCanvas.style.width = xAxisCssWidth
     }

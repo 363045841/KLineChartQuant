@@ -761,9 +761,9 @@ export class Chart {
     resize() {
         if (this._activeMode.debugName === 'TimeShare') {
             const tsData = this.dataManager.getTimeShareData()
+            const vp = this.viewportManager.computeViewport()
+            if (!vp || vp.plotWidth <= 0) return
             if (tsData.length > 0) {
-                const vp = this.viewportManager.computeViewport()
-                if (!vp || vp.plotWidth <= 0) return
                 const result = this._activeMode.computeKWidth(tsData.length, vp.plotWidth, vp.dpr)
                 if (result) {
                     this.applyRenderState(result.kWidth, result.kGap)
@@ -775,6 +775,10 @@ export class Chart {
                     }
                 }
             }
+            this.renderer.clearCachedFrame()
+            this.layoutManager.layoutPanes()
+            this.viewportManager.updateViewportSignal()
+            this.scheduleDraw()
             return
         }
         const vp = this.viewportManager.computeViewport()
