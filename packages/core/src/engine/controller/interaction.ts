@@ -1,6 +1,7 @@
 // 交互控制中心
 
 import type { Chart } from '../chart'
+import type { KLineData } from '../../types/price'
 import type { MarkerEntity, CustomMarkerEntity } from '../marker/registry'
 import { MarkerInteractionState } from './markerInteraction'
 import { PinchTracker } from './pinchTracker'
@@ -697,7 +698,7 @@ export class InteractionController {
         }
 
         const idx = localIdx + this.visibleRange.start
-        const data = this.chart.getData()
+        const data = this.chart.getRenderData()
 
         const pane = this.getPaneByY(mouseY)
         this.activePaneId = pane?.id || null
@@ -706,7 +707,6 @@ export class InteractionController {
             this.crosshairIndex = idx
 
             const kLineStartX = this.kLinePositions[localIdx]!
-            // 与影线位置算法一致: leftPx + (widthPx - 1) / 2
             const leftPx = Math.round(kLineStartX * dpr)
             const wickXPx = leftPx + (this.kWidthPx - 1) / 2
             const snappedX = wickXPx / dpr - scrollLeft
@@ -722,13 +722,32 @@ export class InteractionController {
             } else {
                 this.crosshairPrice = null
             }
+
+            if (this.chart.currentPeriod === 'timeshare') {
+                this.hoveredIndex = idx
+                const tooltipResult = computeTooltipPosition({
+                    mouseX,
+                    mouseY,
+                    viewWidth,
+                    viewHeight,
+                    plotWidth,
+                    plotHeight,
+                    tooltipSize: this.tooltipSize,
+                    useAnchorPositioning: this.useTooltipAnchorPositioning,
+                })
+                if (tooltipResult.anchorPlacement) {
+                    this.tooltipAnchorPlacement = tooltipResult.anchorPlacement
+                }
+                this.tooltipPos = tooltipResult.pos
+                return
+            }
         } else {
             this.crosshairIndex = null
             this.crosshairPos = null
             this.crosshairPrice = null
         }
 
-        const k = typeof this.crosshairIndex === 'number' ? data[this.crosshairIndex] : undefined
+        const k = typeof this.crosshairIndex === 'number' ? data[this.crosshairIndex] as KLineData : undefined
         if (!k || !pane || !pane.capabilities.candleHitTest) {
             this.hoveredIndex = null
             return

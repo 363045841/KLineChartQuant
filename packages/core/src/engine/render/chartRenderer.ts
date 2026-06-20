@@ -134,6 +134,15 @@ export class ChartRenderer {
       this.useDrawingPlugin(createLeftYAxisRendererPlugin({
         axisWidth: opt.leftAxisWidth,
         yPaddingPx: opt.yPaddingPx,
+        getCrosshair: () => {
+          const pos = interaction.crosshairPos
+          const price = interaction.crosshairPrice
+          const activePaneId = interaction.activePaneId
+          if (pos && price !== null) {
+            return { y: pos.y, price, activePaneId }
+          }
+          return null
+        },
       }))
     }
     this.useDrawingPlugin(createTimeAxisRendererPlugin({
@@ -479,6 +488,11 @@ export class ChartRenderer {
         const yAxisErrors = rendererPluginManager.renderPlugin('yAxis', context)
         if (yAxisErrors.length > 0) {
           pluginHost.events.emit('renderer:error', { paneId: pane.id, errors: yAxisErrors })
+        }
+
+        const leftAxisErrors = rendererPluginManager.renderPlugin('leftYAxis', context)
+        if (leftAxisErrors.length > 0) {
+          pluginHost.events.emit('renderer:error', { paneId: pane.id, errors: leftAxisErrors })
         }
       }
     }

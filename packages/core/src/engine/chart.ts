@@ -701,6 +701,11 @@ export class Chart {
         return this.dataManager.getData()
     }
 
+    /** 获取渲染数据源（分时图下为 TimeShareData，K线图为 KLineData） */
+    getRenderData(): unknown[] {
+        return this.dataManager.getRenderData()
+    }
+
     /** 获取指标调度器（供外部控制器更新指标配置） */
     getIndicatorScheduler(): IndicatorScheduler {
         return this.indicatorManager.indicatorSchedulerAccessor

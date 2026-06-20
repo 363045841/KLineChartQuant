@@ -95,6 +95,8 @@ function createChartStub(args: {
     getMarkerManager: () => markerManager,
     getPaneRenderers: () => paneRenderers,
     getData: () => data,
+    getRenderData: () => data,
+    currentPeriod: 'daily',
     translatePrice: () => undefined,
     scheduleDraw: () => undefined,
     zoomAt: () => undefined,

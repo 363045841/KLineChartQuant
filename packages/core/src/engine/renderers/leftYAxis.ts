@@ -1,11 +1,13 @@
 import type { RendererPlugin, RenderContext } from '../../plugin'
 import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../plugin'
 import { drawScaleTicks } from '../renderers/Indicator/scale/indicator_scale'
+import { drawCrosshairPriceLabel } from '../../utils/kLineDraw/axis'
 import { resolveThemeColors } from '../../tokens'
 
 export function createLeftYAxisRendererPlugin(options: {
   axisWidth: number
   yPaddingPx: number
+  getCrosshair?: () => { y: number; price: number; activePaneId: string | null } | null
 }): RendererPlugin {
   return {
     name: 'leftYAxis',
@@ -42,6 +44,23 @@ export function createLeftYAxisRendererPlugin(options: {
         scaleType: 'linear',
         textAlign: 'center',
       })
+
+      const crosshair = options.getCrosshair?.()
+      if (!crosshair || crosshair.activePaneId !== pane.id || crosshair.price === null) return
+
+      drawCrosshairPriceLabel(leftAxisCtx, {
+        x: 0,
+        y: pane.top,
+        width: axisWidth,
+        height: pane.height,
+        crosshairY: crosshair.y,
+        priceRange: pane.priceRange,
+        yPaddingPx: options.yPaddingPx,
+        dpr,
+        fontSize: 12,
+        priceOffset: 0,
+        price: crosshair.price,
+      }, context.theme, context.isAsiaMarket, context.colorPresetSettings)
     },
   }
 }
