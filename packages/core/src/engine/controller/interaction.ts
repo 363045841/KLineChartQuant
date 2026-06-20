@@ -226,6 +226,13 @@ export class InteractionController {
             return
         }
 
+        // 分时模式下禁止拖拽平移
+        if (this.chart.currentPeriod === 'timeshare') {
+            this.clearHover()
+            this.chart.scheduleDraw()
+            return
+        }
+
         const pane = this.getPaneByY(mouseY)
         this.isDragging = true
         this.touchStartTime = Date.now()

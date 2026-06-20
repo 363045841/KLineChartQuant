@@ -1,5 +1,6 @@
 import { createSignal, type Signal } from '../reactivity/signal'
 import type { DataFetcher, KLineData, SymbolSpec } from '../controllers/types'
+import type { DataBufferLike } from './dataBufferTypes'
 
 export interface DataWindow {
     earliestTs: number
@@ -35,7 +36,7 @@ function mergeSortedData(
     return merged
 }
 
-export class DataBuffer {
+export class DataBuffer implements DataBufferLike {
     private _data: KLineData[] = []
     private _dataSignal: Signal<ReadonlyArray<KLineData>>
     private _loadingSignal: Signal<boolean>
@@ -54,8 +55,8 @@ export class DataBuffer {
         this._loadingSignal = createSignal<boolean>(false)
     }
 
-    get data(): Signal<ReadonlyArray<KLineData>> {
-        return this._dataSignal
+    get data(): Signal<ReadonlyArray<unknown>> {
+        return this._dataSignal as Signal<ReadonlyArray<unknown>>
     }
 
     get loading(): Signal<boolean> {
@@ -68,6 +69,10 @@ export class DataBuffer {
 
     get loadedWindow(): DataWindow | null {
         return this._loadedWindow
+    }
+
+    getRawData(): KLineData[] {
+        return this._data
     }
 
     setFetcher(fetcher: DataFetcher | null): void {
@@ -226,14 +231,15 @@ export class DataBuffer {
      * Put the buffer in inline mode — use the provided data directly
      * instead of fetching. Sets data signal and tracks loadedWindow.
      */
-    setInlineData(data: KLineData[]): void {
+    setInlineData(data: unknown[]): void {
         if (this._disposed) return
-        this._data = [...data]
-        this._dataSignal.set([...data])
+        const kData = data as KLineData[]
+        this._data = [...kData]
+        this._dataSignal.set([...kData])
         if (data.length > 0) {
             this._loadedWindow = {
-                earliestTs: data[0]!.timestamp,
-                latestTs: data[data.length - 1]!.timestamp,
+                earliestTs: kData[0]!.timestamp,
+                latestTs: kData[kData.length - 1]!.timestamp,
             }
         } else {
             this._loadedWindow = null
