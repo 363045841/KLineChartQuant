@@ -42,7 +42,7 @@ export const lightTheme: Theme = {
 
         volumeUp: '#0F8B5C66', // 40% alpha — paired with candleUp
         volumeDown: '#C2363B66',
-        volumeNeutral: '#FFFFFF',
+        volumeNeutral: '#00000066',
 
         axisText: '#5A5A5A',
         axisLine: '#D0D0D0',
@@ -85,7 +85,7 @@ export const lightTheme: Theme = {
 
         timeSharePriceLine: '#4A90D9',
         timeShareAvgLine: '#F5A623',
-        timeShareAreaUp: 'rgba(194, 54, 59, 0.15)',
+        timeShareAreaUp: 'rgba(213, 19, 26, 0.15)',
         timeShareAreaDown: 'rgba(15, 139, 92, 0.15)',
         timeSharePreClose: '#888888',
         timeShareVolume: '#4A90D9',
@@ -113,7 +113,7 @@ export const lightTheme: Theme = {
             weak: 'hsl(210, 7%, 65%)',
             white: 'rgba(255, 255, 255, 0.92)',
         },
-price: {
+        price: {
             lastPrice: 'rgba(230, 100, 115, 0.95)',
         },
         tagBg: {
