@@ -4,8 +4,6 @@ import type { TimeShareData } from '../../types/price'
 import { resolveThemeColors } from '../../tokens'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry'
 
-/** 90 分钟（毫秒），用于检测 A 股午休间隙 */
-const LUNCH_GAP_MS = 90 * 60 * 1000
 /** 成交量区域占 pane 高度的比例（底部） */
 const VOLUME_RATIO = 0.25
 
@@ -70,25 +68,17 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
       const isUp = lastPrice >= preClose
       const areaColor = isUp ? colors.timeShareAreaUp : colors.timeShareAreaDown
 
-      drawAreaFill(ctx, xPositions, yPrices, preCloseY, dpr, areaColor, tsData, start)
+      drawAreaFill(ctx, xPositions, yPrices, preCloseY, dpr, areaColor)
 
-      drawSegmentLine(ctx, xPositions, yPrices, dpr, colors.timeSharePriceLine, 2, tsData, start)
+      drawSegmentLine(ctx, xPositions, yPrices, dpr, colors.timeSharePriceLine, 2)
 
-      drawSegmentLine(ctx, xPositions, yAvgs, dpr, colors.timeShareAvgLine, 1.5, tsData, start)
+      drawSegmentLine(ctx, xPositions, yAvgs, dpr, colors.timeShareAvgLine, 1.5)
 
       drawVolumeBars(ctx, xPositions, volumes, maxVolume, volumeAreaHeight, paneHeight, preClose, dpr, colors.volumeUp, colors.volumeDown, tsData, start)
 
       ctx.restore()
     },
   }
-}
-
-function timeGapExceeds(data: TimeShareData[], startIdx: number, i: number): boolean {
-  if (i <= 0) return false
-  const idxA = startIdx + i - 1
-  const idxB = startIdx + i
-  if (idxA < 0 || idxB < 0 || idxA >= data.length || idxB >= data.length) return false
-  return (data[idxB].timestamp - data[idxA].timestamp) > LUNCH_GAP_MS
 }
 
 function drawPreCloseLine(
@@ -121,8 +111,6 @@ function drawAreaFill(
   baselineY: number,
   dpr: number,
   color: string,
-  data: TimeShareData[],
-  startIdx: number,
 ): void {
   if (xPositions.length < 2) return
 
@@ -138,12 +126,7 @@ function drawAreaFill(
   ctx.moveTo(xPositions[0], baselineY)
 
   for (let i = 0; i < xPositions.length; i++) {
-    if (timeGapExceeds(data, startIdx, i)) {
-      ctx.lineTo(xPositions[i - 1], baselineY)
-      ctx.moveTo(xPositions[i], yPrices[i])
-    } else {
-      ctx.lineTo(xPositions[i], yPrices[i])
-    }
+    ctx.lineTo(xPositions[i], yPrices[i])
   }
 
   ctx.lineTo(xPositions[xPositions.length - 1], baselineY)
@@ -161,8 +144,6 @@ function drawSegmentLine(
   _dpr: number,
   color: string,
   lineWidth: number,
-  data: TimeShareData[],
-  startIdx: number,
 ): void {
   if (xPositions.length < 2) return
 
@@ -176,11 +157,7 @@ function drawSegmentLine(
   ctx.moveTo(xPositions[0], yPositions[0])
 
   for (let i = 1; i < xPositions.length; i++) {
-    if (timeGapExceeds(data, startIdx, i)) {
-      ctx.moveTo(xPositions[i], yPositions[i])
-    } else {
-      ctx.lineTo(xPositions[i], yPositions[i])
-    }
+    ctx.lineTo(xPositions[i], yPositions[i])
   }
 
   ctx.stroke()
