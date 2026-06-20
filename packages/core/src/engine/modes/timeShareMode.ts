@@ -52,6 +52,9 @@ export class TimeShareMode implements ChartModeHandler {
     const baseline = tsData[0]?.price ?? 0
     if (baseline === 0) return
 
+    pane.yAxis.setScaleType('percent')
+    pane.yAxis.setBasePrice(baseline)
+
     let maxAbsPct = 0
     for (let i = Math.max(0, range.start); i < end; i++) {
       const p = tsData[i]?.price

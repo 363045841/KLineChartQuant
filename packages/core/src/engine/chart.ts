@@ -83,6 +83,9 @@ export class Chart {
     private _modeSavedKGap = 0
     private _modeSavedZoomLevel = 0
 
+    /** 分时模式激活前的 pane Y 轴刻度类型（退出分时时恢复） */
+    private _savedScaleTypes: Map<string, ScaleType> | undefined
+
     /**
      * 启用主图指标
      * @param indicatorId 指标ID
@@ -303,7 +306,21 @@ export class Chart {
             this._modeSavedKWidth = this.opt.kWidth
             this._modeSavedKGap = this.opt.kGap
             this._modeSavedZoomLevel = this.zoomController.currentZoomLevel
-        } else if (this._modeSavedKWidth > 0) {
+            this._savedScaleTypes = new Map<string, ScaleType>()
+            for (const r of this.paneRenderers) {
+                this._savedScaleTypes.set(r.getPane().id, r.getPane().yAxis.getScaleType())
+            }
+        } else if (prev === this._timeShareMode) {
+            for (const renderer of this.paneRenderers) {
+                const p = renderer.getPane()
+                const saved = this._savedScaleTypes?.get(p.id) ?? 'linear'
+                p.yAxis.setScaleType(saved)
+                p.yAxis.setBasePrice(null)
+            }
+            this._savedScaleTypes = undefined
+        }
+
+        if (this._modeSavedKWidth > 0 && mode !== this._timeShareMode) {
             this.applyRenderState(this._modeSavedKWidth, this._modeSavedKGap, this._modeSavedZoomLevel)
             this._modeSavedKWidth = 0
         }
