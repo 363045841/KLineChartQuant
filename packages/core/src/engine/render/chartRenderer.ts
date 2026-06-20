@@ -228,7 +228,7 @@ export class ChartRenderer {
 
     const { vp, range, kLinePositions, kLineCenters, kBarRects, kWidthPx, useCachedFrame } = frame
 
-    this.deps.getInteraction().setKLinePositions(kLinePositions, range, kWidthPx)
+    this.deps.getInteraction().setKLinePositions(kLinePositions, range, kWidthPx, kLineCenters)
 
     const dataManager = this.deps.getDataManager()
     const mode = this.deps.getActiveMode()

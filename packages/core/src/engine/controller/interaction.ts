@@ -100,6 +100,8 @@ export class InteractionController {
 
     /** 当前帧的 K 线起始 x 坐标数组 */
     private kLinePositions: number[] | null = null
+    /** 当前帧的 K 线中心 x 坐标数组（物理像素对齐） */
+    private kLineCenters: number[] | null = null
     /** 当前帧的可见 K 线索引范围 */
     private visibleRange: { start: number; end: number } | null = null
 
@@ -337,6 +339,7 @@ export class InteractionController {
     /** 处理滚动事件 */
     onScroll(options: { scheduleDraw?: boolean } = {}) {
         this.kLinePositions = null
+        this.kLineCenters = null
         this.visibleRange = null
         this.clearHover()
         if (options.scheduleDraw !== false) {
@@ -436,13 +439,16 @@ export class InteractionController {
      * @param positions K 线起始 x 坐标数组
      * @param visibleRange 可见 K 线索引范围
      * @param kWidthPx K 线宽度（物理像素）
+     * @param centers K 线中心 x 坐标数组（物理像素对齐后）
      */
     setKLinePositions(
         positions: number[] | null,
         visibleRange: { start: number; end: number } | null,
-        kWidthPx?: number
+        kWidthPx?: number,
+        centers?: number[] | null
     ) {
         this.kLinePositions = positions
+        this.kLineCenters = centers ?? null
         this.visibleRange = visibleRange
         if (kWidthPx !== undefined) {
             this.kWidthPx = kWidthPx
@@ -706,10 +712,8 @@ export class InteractionController {
         if (idx >= 0 && idx < (data?.length ?? 0)) {
             this.crosshairIndex = idx
 
-            const kLineStartX = this.kLinePositions[localIdx]!
-            const leftPx = Math.round(kLineStartX * dpr)
-            const wickXPx = leftPx + (this.kWidthPx - 1) / 2
-            const snappedX = wickXPx / dpr - scrollLeft
+            const centerX = this.kLineCenters?.[localIdx] ?? this.kLinePositions[localIdx]! + (this.kWidthPx! / dpr) / 2
+            const snappedX = centerX - scrollLeft
 
             this.crosshairPos = {
                 x: Math.min(Math.max(snappedX, 0), plotWidth),
@@ -821,6 +825,7 @@ export class InteractionController {
         this.activePaneId = null
         this.markerState.reset()
         this.kLinePositions = null
+        this.kLineCenters = null
         this.visibleRange = null
         this.lastHoverRenderKey = ''
         this.kWidthPx = null
