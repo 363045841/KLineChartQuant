@@ -71,7 +71,7 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
 
       drawSegmentLine(ctx, xPositions, yAvgs, dpr, colors.timeShareAvgLine, 1.5)
 
-      drawVolumeBars(ctx, xPositions, volumes, maxVolume, volumeAreaHeight, paneHeight, preClose, dpr, colors.volumeUp, colors.volumeDown, tsData, start)
+      drawVolumeBars(ctx, xPositions, volumes, maxVolume, volumeAreaHeight, paneHeight, preClose, dpr, colors.volumeUp, colors.volumeDown, colors.volumeNeutral, tsData, start)
 
       ctx.restore()
     },
@@ -219,6 +219,7 @@ function drawVolumeBars(
   dpr: number,
   upColor: string,
   downColor: string,
+  neutralColor: string,
   data: TimeShareData[],
   startIdx: number,
 ): void {
@@ -235,9 +236,19 @@ function drawVolumeBars(
     const y = volumeTop + volumeAreaHeight - barHeight
     const x = xPositions[i] - barWidth / 2
     const idx = startIdx + i
-    const isUp = i > 0
-      ? data[idx].price >= data[idx - 1].price
-      : data[idx].price >= preClose
+
+    let barColor: string
+    if (i > 0) {
+      const price = data[idx].price
+      const prevPrice = data[idx - 1].price
+      if (price > prevPrice) barColor = upColor
+      else if (price < prevPrice) barColor = downColor
+      else barColor = neutralColor
+    } else {
+      if (data[idx].price > preClose) barColor = upColor
+      else if (data[idx].price < preClose) barColor = downColor
+      else barColor = neutralColor
+    }
 
     const snappedX = Math.round(x * dpr) / dpr
     const snappedY = Math.round(y * dpr) / dpr
@@ -248,7 +259,7 @@ function drawVolumeBars(
     const finalW = snappedW > 0 ? Math.max(snappedW, minSize) : 0
     const finalH = snappedH > 0 ? Math.max(snappedH, minSize) : 0
 
-    ctx.fillStyle = isUp ? upColor : downColor
+    ctx.fillStyle = barColor
     ctx.fillRect(snappedX, snappedY, finalW, finalH)
   }
 }

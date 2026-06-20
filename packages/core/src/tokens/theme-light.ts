@@ -42,6 +42,7 @@ export const lightTheme: Theme = {
 
         volumeUp: '#0F8B5C66', // 40% alpha — paired with candleUp
         volumeDown: '#C2363B66',
+        volumeNeutral: '#9CA3AF66',
 
         axisText: '#5A5A5A',
         axisLine: '#D0D0D0',

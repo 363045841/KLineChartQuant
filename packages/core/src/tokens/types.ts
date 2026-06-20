@@ -251,6 +251,7 @@ export interface ColorTokens {
     // Volume bars (paired with candle bull/bear)
     readonly volumeUp: ColorValue
     readonly volumeDown: ColorValue
+    readonly volumeNeutral: ColorValue
 
     // Price + time axes
     readonly axisText: ColorValue
