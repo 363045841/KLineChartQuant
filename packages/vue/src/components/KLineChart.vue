@@ -64,7 +64,7 @@
           @pointerleave="onPointerLeave"
           @dblclick="onDoubleClick"
         >
-          <div class="scroll-content" :style="{ width: totalWidth + 'px' }">
+          <div class="scroll-content">
             <div class="canvas-layer" ref="canvasLayerRef">
               <canvas class="x-axis-canvas" ref="xAxisCanvasRef"></canvas>
 
@@ -752,15 +752,6 @@ const chartContainerStyle = computed(() => {
     base.borderLeft = '1px solid var(--chart-border)'
   }
   return base
-})
-
-const totalWidth = computed(() => {
-  void dataVersion.value
-  void viewWidth.value
-  void kWidth.value
-  void kGap.value
-  void viewportDpr.value
-  return controller.value?.getContentWidth() ?? 0
 })
 
 function applyZoomToLevel(targetLevel: number, anchorX?: number) {

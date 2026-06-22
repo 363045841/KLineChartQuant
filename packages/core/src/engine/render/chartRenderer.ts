@@ -208,8 +208,14 @@ export class ChartRenderer {
       const levelToDraw = this.pendingUpdateLevel
       this.pendingUpdateLevel = UpdateLevel.All
       this.draw(levelToDraw)
-      const c = this.deps.getDom().container
+      const dom = this.deps.getDom()
+      const c = dom.container
       if (c) {
+        const scrollContent = dom.scrollContent
+        if (scrollContent) {
+          const w = this.deps.getDataManager().getContentWidth() + 'px'
+          if (scrollContent.style.width !== w) scrollContent.style.width = w
+        }
         this.deps.getViewportManager().applyPendingScrollLeft(c)
       }
     })

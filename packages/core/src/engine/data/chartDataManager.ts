@@ -101,8 +101,9 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
       this._dataSignal.set([...buf.data.peek() as unknown[]])
       this._loadingSignal.set(buf.loading.peek())
       const unsubData = buf.data.subscribe(() => {
+        const prevDataLength = this._dataSignal.peek().length
         this._dataSignal.set([...buf.data.peek() as unknown[]])
-        this.onBufferDataChanged(key)
+        this.onBufferDataChanged(key, prevDataLength)
       })
       const unsubLoading = buf.loading.subscribe(() => {
         this._loadingSignal.set(buf.loading.peek())
@@ -162,21 +163,20 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
 
   // ── Buffer data change handler ──
 
-  private onBufferDataChanged(key: string): void {
+  private onBufferDataChanged(key: string, prevDataLength?: number): void {
     const buf = this._buffers.get(key)
     if (!buf) return
 
     if (buf instanceof DataBuffer) {
-      this.onKLineBufferChanged(key, buf)
+      this.onKLineBufferChanged(key, buf, prevDataLength)
     } else if (buf instanceof TimeShareBuffer) {
       this.onTimeShareBufferChanged(key, buf)
     }
   }
 
-  private onKLineBufferChanged(key: string, buf: DataBuffer): void {
+  private onKLineBufferChanged(key: string, buf: DataBuffer, prevDataLength?: number): void {
     if (!key.startsWith('main:')) return
 
-    const prevLength = this.getActiveKLineLength()
     const bufferData = buf.getRawData() as KLineData[]
     const prependedCount = this.pendingPrependedCount
     this.pendingPrependedCount = 0
@@ -187,7 +187,7 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
       this.deps.setPendingScrollLeft(desiredScrollLeft)
     }
 
-    if (prevLength === 0 && bufferData.length > 0) {
+    if ((prevDataLength ?? this._dataSignal.peek().length) === 0 && bufferData.length > 0) {
       const dpr = this.deps.getEffectiveDpr()
       const opt = this.deps.getOption()
       const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
