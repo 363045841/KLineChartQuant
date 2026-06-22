@@ -297,7 +297,7 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
     const hint = ownerDoc.createElement('div')
     hint.className = 'klc-incremental-load-hint'
     hint.style.position = 'absolute'
-    hint.style.left = '0'
+    hint.style.left = `${this.getLeftLoadBufferWidth()}px`
     hint.style.top = '0'
     hint.style.height = '0px'
     hint.style.width = '0px'
@@ -321,7 +321,7 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
     const dpr = this.deps.getEffectiveDpr()
     const opt = this.deps.getOption()
     const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
-    const width = this.getLeftLoadBufferWidth() + (startXPx + count * unitPx) / dpr
+    const width = (startXPx + count * unitPx) / dpr
     hint.style.width = `${Math.max(0, width)}px`
     hint.style.height = `${Math.max(
       0,
