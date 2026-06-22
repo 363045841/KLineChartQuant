@@ -185,19 +185,7 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
     }
 
     if ((prevDataLength ?? this._dataSignal.peek().length) === 0 && bufferData.length > 0) {
-      const dpr = this.deps.getEffectiveDpr()
-      const opt = this.deps.getOption()
-      const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
-      const lastKLineEndPx = (startXPx + bufferData.length * unitPx) / dpr
-      const viewport = this.deps.getViewport()
-      const clientWidth = viewport?.viewWidth ?? 0
-      if (clientWidth > 0) {
-        const target = this.getLeftLoadBufferWidth() + Math.max(0, lastKLineEndPx - clientWidth)
-        const contentWidth = this.getContentWidth()
-        const maxScroll = Math.max(0, contentWidth - clientWidth)
-        const scrollLeft = Math.round(Math.min(target, maxScroll) * dpr) / dpr
-        this.deps.setScrollLeft(scrollLeft)
-      }
+      this.scrollToRight()
     }
 
     this.deps.resetInteraction()
