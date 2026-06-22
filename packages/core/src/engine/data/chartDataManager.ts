@@ -270,7 +270,7 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
     return 24
   }
 
-  private static readonly TRAILING_DRAWING_SLOTS = 24
+
 
   private clearIncrementalLoadHintTimer(): void {
     if (this.incrementalLoadHintTimer !== null) {
@@ -878,7 +878,7 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
     const viewWidth = this.deps.getViewport()?.plotWidth ?? 0
     const dpr = this.deps.getEffectiveDpr()
     const { startXPx, unitPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
-    const dataPlotWidth = (startXPx + (dataLength + ChartDataManager.TRAILING_DRAWING_SLOTS) * unitPx) / dpr
+    const dataPlotWidth = (startXPx + dataLength * unitPx) / dpr
     return this.getLeftLoadBufferWidth() + Math.max(dataPlotWidth, viewWidth)
   }
 
@@ -891,7 +891,9 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
     const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
     const lastKLineEndPx = (startXPx + dataLength * unitPx) / dpr
     const viewport = this.deps.getViewport()
-    const clientWidth = viewport?.viewWidth ?? 0
+    const clientWidth = viewport?.viewWidth
+      ?? (this.deps.getObservedSize().width > 0 ? this.deps.getObservedSize().width : undefined)
+      ?? Math.round(this.deps.getDom().container?.clientWidth ?? 0)
     if (clientWidth <= 0) return
     const target = this.getLeftLoadBufferWidth() + Math.max(0, lastKLineEndPx - clientWidth)
     const contentWidth = this.getContentWidth()
