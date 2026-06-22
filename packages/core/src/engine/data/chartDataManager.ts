@@ -18,8 +18,7 @@ export interface DataDependencies {
   getEffectiveDpr: () => number
   getLogicalScrollLeft: () => number
   getCachedScrollLeft: () => number
-  setCachedScrollLeft: (v: number) => void
-  setPendingScrollLeft: (v: number) => void
+  setScrollLeft: (v: number) => void
   getDom: () => ChartDom
   getObservedSize: () => { width: number; height: number }
   getViewport: () => Viewport | null
@@ -182,9 +181,7 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
     this.pendingPrependedCount = 0
 
     if (this.deps.getCachedScrollLeft() < this.getLeftLoadBufferWidth()) {
-      const desiredScrollLeft = this.getLeftLoadBufferWidth()
-      this.deps.setCachedScrollLeft(desiredScrollLeft)
-      this.deps.setPendingScrollLeft(desiredScrollLeft)
+      this.deps.setScrollLeft(this.getLeftLoadBufferWidth())
     }
 
     if ((prevDataLength ?? this._dataSignal.peek().length) === 0 && bufferData.length > 0) {
@@ -192,14 +189,14 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
       const opt = this.deps.getOption()
       const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
       const lastKLineEndPx = (startXPx + bufferData.length * unitPx) / dpr
-      const container = this.deps.getDom().container
-      if (container) {
-        const target = this.getLeftLoadBufferWidth() + Math.max(0, lastKLineEndPx - container.clientWidth)
+      const viewport = this.deps.getViewport()
+      const clientWidth = viewport?.viewWidth ?? 0
+      if (clientWidth > 0) {
+        const target = this.getLeftLoadBufferWidth() + Math.max(0, lastKLineEndPx - clientWidth)
         const contentWidth = this.getContentWidth()
-        const maxScroll = Math.max(0, contentWidth - container.clientWidth)
+        const maxScroll = Math.max(0, contentWidth - clientWidth)
         const scrollLeft = Math.round(Math.min(target, maxScroll) * dpr) / dpr
-        this.deps.setCachedScrollLeft(scrollLeft)
-        this.deps.setPendingScrollLeft(scrollLeft)
+        this.deps.setScrollLeft(scrollLeft)
       }
     }
 
@@ -870,7 +867,7 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
       const container = this.deps.getDom().container
       if (container) {
         container.scrollLeft += compensation
-        this.deps.setCachedScrollLeft(container.scrollLeft)
+        this.deps.setScrollLeft(container.scrollLeft)
       }
     }
 
@@ -900,16 +897,20 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
   scrollToRight(): void {
     const buf = this.getActiveDataBuffer()
     const dataLength = buf ? buf.getRawData().length : 0
-    const container = this.deps.getDom().container
-    if (!container || dataLength === 0) return
+    if (dataLength === 0) return
     const dpr = this.deps.getEffectiveDpr()
     const opt = this.deps.getOption()
     const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
     const lastKLineEndPx = (startXPx + dataLength * unitPx) / dpr
-    const target = this.getLeftLoadBufferWidth() + Math.max(0, lastKLineEndPx - container.clientWidth)
-    const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth)
-    container.scrollLeft = Math.round(Math.min(target, maxScroll) * dpr) / dpr
-    this.deps.setCachedScrollLeft(container.scrollLeft)
+    const viewport = this.deps.getViewport()
+    const clientWidth = viewport?.viewWidth ?? 0
+    if (clientWidth <= 0) return
+    const target = this.getLeftLoadBufferWidth() + Math.max(0, lastKLineEndPx - clientWidth)
+    const contentWidth = this.getContentWidth()
+    const maxScroll = Math.max(0, contentWidth - clientWidth)
+    const scrollLeft = Math.round(Math.min(target, maxScroll) * dpr) / dpr
+    this.deps.setScrollLeft(scrollLeft)
+    this.deps.scheduleDraw()
   }
 
   // ── Comparison price range ──

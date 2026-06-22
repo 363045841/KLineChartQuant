@@ -47,7 +47,7 @@ export class InteractionController {
         const dpr = this.chart.getCurrentDpr()
         const rounded = Math.round(clampedScrollLeft * dpr) / dpr
         container.scrollLeft = rounded
-        this.chart.syncScrollLeft(container.scrollLeft)
+        this.chart.setScrollLeft(container.scrollLeft)
     }
 
     /** 垂直拖动相关 */

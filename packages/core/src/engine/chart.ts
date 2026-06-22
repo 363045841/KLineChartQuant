@@ -194,8 +194,7 @@ export class Chart {
             getEffectiveDpr: () => this.viewportManager.getEffectiveDpr(),
             getLogicalScrollLeft: () => this.viewportManager.getLogicalScrollLeft(),
             getCachedScrollLeft: () => this.viewportManager.getCachedScrollLeft(),
-            setCachedScrollLeft: (v) => { this.viewportManager.setCachedScrollLeft(v) },
-            setPendingScrollLeft: (v) => { this.viewportManager.setPendingScrollLeft(v) },
+            setScrollLeft: (v) => { this.viewportManager.setScrollLeft(v) },
             getDom: () => this.dom,
             getObservedSize: () => this.viewportManager.getObservedSize(),
             getViewport: () => this.viewportManager.getViewport(),
@@ -352,7 +351,11 @@ export class Chart {
 
     /** 同步程序性 scrollLeft 写入后的缓存，避免等待异步 scroll 事件 */
     syncScrollLeft(scrollLeft: number): void {
-        this.viewportManager.setCachedScrollLeft(scrollLeft)
+        this.viewportManager.setScrollLeft(scrollLeft)
+    }
+
+    setScrollLeft(v: number): void {
+        this.viewportManager.setScrollLeft(v)
     }
 
     /** 获取逻辑 scrollLeft（减去左侧加载缓冲宽度，可为负值） */
