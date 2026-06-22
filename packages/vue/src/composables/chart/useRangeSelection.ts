@@ -61,7 +61,6 @@ export function useRangeSelection(options: {
 }) {
   const { controller, activeToolId, containerRef, dataVersion, viewportVersion, dataFetcher, batchStockCodes } = options
 
-  const containerScrollLeft = ref(0)
   const customStartDate = ref('')
   const customEndDate = ref('')
   const resizeSide = ref<'left' | 'right' | null>(null)
@@ -118,15 +117,13 @@ export function useRangeSelection(options: {
     const bounds = rangeSelectionBounds.value
     if (!bounds) return null
 
-    void containerScrollLeft.value
     void viewportVersion.value
 
     const ctrl = controller.value
     const viewport = ctrl?.getViewport()
-    const container = containerRef.value
-    if (!ctrl || !viewport || !container) return null
+    if (!ctrl || !viewport) return null
 
-    const px = calcRangeOverlayPixel(bounds, ctrl, container, viewport)
+    const px = calcRangeOverlayPixel(bounds, ctrl, viewport)
     return {
       left: `${px.left}px`,
       width: `${px.width}px`,
@@ -387,21 +384,10 @@ export function useRangeSelection(options: {
     exportingProgress.value = { current: total, total, label: '导出完成' }
   }
 
-    function onScroll() {
-    const cont = containerRef.value
-    if (cont) containerScrollLeft.value = cont.scrollLeft
-  }
-
-  function syncScrollLeft() {
-    const cont = containerRef.value
-    if (cont) containerScrollLeft.value = cont.scrollLeft
-  }
-
   return {
     rangeSelection,
     customStartDate,
     customEndDate,
-    containerScrollLeft,
     isRangeSelectActive,
     rangeSelectionReady,
     rangeSelectionBounds,
@@ -418,7 +404,5 @@ export function useRangeSelection(options: {
     onEdgePointerDown,
     onEdgePointerMove,
     onEdgePointerUp,
-    onScroll,
-    syncScrollLeft,
   }
 }

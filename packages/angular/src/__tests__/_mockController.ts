@@ -224,6 +224,9 @@ export function createMockChartController(
         getContentWidth() {
             return 0
         },
+        getLeftLoadBufferWidth() {
+            return 0
+        },
         scrollToRight() {
             /* no-op */
         },

@@ -338,6 +338,8 @@ export interface ChartController extends DrawingChartAdapter {
     getIndicatorTitle(instanceId: string): string | undefined
     /** total scrollable content width (replaces direct computeContentWidth imports) */
     getContentWidth(): number
+    /** left buffer width (viewport width) for pixel offset calculations */
+    getLeftLoadBufferWidth(): number
     /** scroll to the rightmost position (latest data) */
     scrollToRight(): void
 

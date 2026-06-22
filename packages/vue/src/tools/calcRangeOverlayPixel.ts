@@ -8,7 +8,6 @@ export interface Bounds {
 export function calcRangeOverlayPixel(
   bounds: Bounds,
   controller: ChartController,
-  container: HTMLElement,
   viewport: { scrollLeft: number; plotWidth: number; plotHeight: number },
 ): { left: number; width: number; height: number } {
   const { kWidth: currentKWidth, kGap: currentKGap } = controller.getKWidthKGap()
@@ -21,7 +20,7 @@ export function calcRangeOverlayPixel(
   const unitPx = kWidthPx + kGapPx
   const startXPx = kGapPx
 
-  const leftBuffer = container.scrollLeft - viewport.scrollLeft
+  const leftBuffer = controller.getLeftLoadBufferWidth()
   const left = leftBuffer + (startXPx + bounds.start * unitPx) / dpr
   const right = leftBuffer + (startXPx + bounds.end * unitPx + kWidthPx) / dpr
   return { left, width: right - left, height: viewport.plotHeight }

@@ -685,6 +685,11 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
         return chart.getContentWidth()
     }
 
+    function getLeftLoadBufferWidth(): number {
+        if (disposed) return 0
+        return chart.getLeftLoadBufferWidth()
+    }
+
     function scrollToRight(): void {
         if (disposed) return
         chart.scrollToRight()
@@ -932,6 +937,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
         setTooltipAnchorPositioning,
         getIndicatorTitle,
         getContentWidth,
+        getLeftLoadBufferWidth,
         scrollToRight,
         setDrawingTool,
         clearDrawings,

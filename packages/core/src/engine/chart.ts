@@ -754,6 +754,11 @@ export class Chart {
         return this.dataManager.getContentWidth()
     }
 
+    /** 获取左侧加载缓冲宽度（视口宽度，用于计算 overlay 像素偏移） */
+    getLeftLoadBufferWidth(): number {
+        return this.dataManager.getLeftLoadBufferWidth()
+    }
+
     /** 滚动到最右侧（最新数据位置） */
     scrollToRight(): void {
         this.dataManager.scrollToRight()

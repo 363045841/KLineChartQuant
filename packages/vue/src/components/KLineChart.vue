@@ -430,7 +430,6 @@ const {
   rangeSelection,
   customStartDate,
   customEndDate,
-  containerScrollLeft,
   isRangeSelectActive,
   rangeSelectionReady,
   rangeSelectionBounds,
@@ -447,8 +446,6 @@ const {
   onEdgePointerDown,
   onEdgePointerMove,
   onEdgePointerUp,
-  onScroll: onRangeScroll,
-  syncScrollLeft: syncRangeScrollLeft,
 } = useRangeSelection({
   controller,
   activeToolId,
@@ -727,7 +724,6 @@ function onRightAxisPointerLeave(e: PointerEvent) {
 }
 
 function onScroll() {
-  onRangeScroll()
   controller.value?.handleScrollEvent()
 }
 
@@ -849,12 +845,6 @@ function setupChartCallbacks(ctrl: ChartController): () => void {
       kWidth.value = vp.kWidth
       kGap.value = vp.kGap
     }
-
-    nextTick(() => {
-      requestAnimationFrame(() => {
-        syncRangeScrollLeft()
-      })
-    })
   })
 
   const unsubscribeData = ctrl.data.subscribe(() => {
