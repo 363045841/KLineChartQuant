@@ -288,6 +288,11 @@ export class ChartViewportManager {
     this.observedSize.width = cssWidth
     this.observedSize.height = cssHeight
 
+    if (this.cachedScrollLeft === 0 && cssWidth > 0) {
+      this.cachedScrollLeft = cssWidth
+      this._pendingScrollLeft = cssWidth
+    }
+
     const pixelSize = entry.devicePixelContentBoxSize?.[0]
     const cssSize = entry.contentBoxSize?.[0]
     if (!pixelSize || !cssSize || cssSize.inlineSize <= 0) {

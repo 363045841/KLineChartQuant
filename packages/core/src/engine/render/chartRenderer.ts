@@ -213,7 +213,8 @@ export class ChartRenderer {
       if (c) {
         const scrollContent = dom.scrollContent
         if (scrollContent) {
-          const w = this.deps.getDataManager().getContentWidth() + 'px'
+          const dataManager = this.deps.getDataManager()
+          const w = Math.max(dataManager.getContentWidth(), dataManager.getLeftLoadBufferWidth()) + 'px'
           if (scrollContent.style.width !== w) scrollContent.style.width = w
         }
         this.deps.getViewportManager().applyPendingScrollLeft(c)
