@@ -180,7 +180,7 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
     const prependedCount = this.pendingPrependedCount
     this.pendingPrependedCount = 0
 
-    if (this.deps.getCachedScrollLeft() < this.getLeftLoadBufferWidth()) {
+    if (prependedCount === 0 && this.deps.getCachedScrollLeft() < this.getLeftLoadBufferWidth()) {
       this.deps.setScrollLeft(this.getLeftLoadBufferWidth())
     }
 
@@ -297,7 +297,6 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
     const hint = ownerDoc.createElement('div')
     hint.className = 'klc-incremental-load-hint'
     hint.style.position = 'absolute'
-    hint.style.left = `${this.getLeftLoadBufferWidth()}px`
     hint.style.top = '0'
     hint.style.height = '0px'
     hint.style.width = '0px'
@@ -321,6 +320,7 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
     const dpr = this.deps.getEffectiveDpr()
     const opt = this.deps.getOption()
     const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
+    hint.style.left = `${this.getLeftLoadBufferWidth()}px`
     const width = (startXPx + count * unitPx) / dpr
     hint.style.width = `${Math.max(0, width)}px`
     hint.style.height = `${Math.max(
@@ -852,11 +852,8 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
       const opt = this.deps.getOption()
       const { unitPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
       const compensation = (count * unitPx) / dpr
-      const container = this.deps.getDom().container
-      if (container) {
-        container.scrollLeft += compensation
-        this.deps.setScrollLeft(container.scrollLeft)
-      }
+      const nextScrollLeft = this.deps.getCachedScrollLeft() + compensation
+      this.deps.setScrollLeft(nextScrollLeft)
     }
 
     buf.setSymbol(spec)
