@@ -156,23 +156,23 @@ function prepareCandles(args: {
         )
 
         const isUp = e.close >= e.open
-        const renderData: CandleRenderData = {
-            i,
-            aligned,
-            trend: isUp ? 'up' : 'down',
-            openY,
-            closeY,
-            highY,
-            lowY,
-            alignedHighY,
-            alignedLowY,
-            e,
-        }
-
         const bodyRect = aligned.bodyRect
-        const targetKLines = isUp ? upKLines : downKLines
 
-        targetKLines.push(renderData)
+        if (showVolumePriceMarkers) {
+            const targetKLines = isUp ? upKLines : downKLines
+            targetKLines.push({
+                i,
+                aligned,
+                trend: isUp ? 'up' : 'down',
+                openY,
+                closeY,
+                highY,
+                lowY,
+                alignedHighY,
+                alignedLowY,
+                e,
+            })
+        }
 
         if (isUp) {
             const off = upBodyCount++ * 4
