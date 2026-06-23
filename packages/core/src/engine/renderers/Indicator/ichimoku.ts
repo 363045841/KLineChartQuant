@@ -18,6 +18,109 @@ const SPAN_B_COLOR = '#dc2626'
 const CHIKOU_COLOR = '#7c3aed'
 
 type Point = { x: number; y: number }
+type CloudSeg = { x: number; ya: number; yb: number; bull: boolean }
+
+function collectIchimokuPoints(
+  context: RenderContext,
+  series: IchimokuRenderState['series'],
+  params: IchimokuRenderState['params'],
+  pane: RenderContext['pane'],
+  kLineCenters: number[],
+  range: RenderContext['range'],
+) {
+  const toY = (price: number) => pane.yAxis.priceToY(price)
+  const rangeStart = range.start
+
+  const tenkanPts: Point[] = []
+  const kijunPts: Point[] = []
+  const spanAPts: Point[] = []
+  const spanBPts: Point[] = []
+  const chikouPts: Point[] = []
+  const cloudSegs: CloudSeg[] = []
+
+  const drawEnd = Math.min(range.end, series.length)
+  for (let i = range.start; i < drawEnd; i++) {
+    const p = series[i]
+    if (!p) continue
+    const centerX = kLineCenters[i - rangeStart]
+    if (centerX === undefined) continue
+    if (params.showTenkan && p.tenkan !== undefined) tenkanPts.push({ x: centerX, y: toY(p.tenkan) })
+    if (params.showKijun && p.kijun !== undefined) kijunPts.push({ x: centerX, y: toY(p.kijun) })
+    if (params.showSpanA && p.spanA !== undefined) spanAPts.push({ x: centerX, y: toY(p.spanA) })
+    if (params.showSpanB && p.spanB !== undefined) spanBPts.push({ x: centerX, y: toY(p.spanB) })
+    if (params.showChikou && p.chikou !== undefined) chikouPts.push({ x: centerX, y: toY(p.chikou) })
+    if (params.showCloud && p.spanA !== undefined && p.spanB !== undefined) {
+      cloudSegs.push({ x: centerX, ya: toY(p.spanA), yb: toY(p.spanB), bull: p.spanA > p.spanB })
+    }
+  }
+
+  const dataLen = (context.data as unknown[]).length
+  if (dataLen < series.length) {
+    const physConfig = getPhysicalKLineConfig(context.kWidth, context.kGap, context.dpr)
+    const futureEnd = Math.min(dataLen + params.displacement, series.length)
+    for (let i = dataLen; i < futureEnd; i++) {
+      const p = series[i]
+      if (!p) continue
+      const leftPx = physConfig.startXPx + i * physConfig.unitPx
+      const wickXPx = leftPx + (physConfig.kWidthPx - 1) / 2
+      const centerX = wickXPx / context.dpr
+      if (params.showSpanA && p.spanA !== undefined) spanAPts.push({ x: centerX, y: toY(p.spanA) })
+      if (params.showSpanB && p.spanB !== undefined) spanBPts.push({ x: centerX, y: toY(p.spanB) })
+      if (params.showCloud && p.spanA !== undefined && p.spanB !== undefined) {
+        cloudSegs.push({ x: centerX, ya: toY(p.spanA), yb: toY(p.spanB), bull: p.spanA > p.spanB })
+      }
+    }
+  }
+
+  return { tenkanPts, kijunPts, spanAPts, spanBPts, chikouPts, cloudSegs }
+}
+
+function renderCloudFill(
+  ctx: CanvasRenderingContext2D,
+  cloudSegs: CloudSeg[],
+  colors: ReturnType<typeof resolveThemeColors>,
+  scrollLeft: number,
+): void {
+  ctx.save()
+  ctx.translate(-scrollLeft, 0)
+  fillCloud(ctx, cloudSegs, colors.candleUpBody, colors.candleDownBody)
+  ctx.restore()
+}
+
+function renderIchimokuLines(
+  ctx: CanvasRenderingContext2D,
+  lineWebGLSurface: RenderContext['lineWebGLSurface'],
+  scrollLeft: number,
+  enableWebGL: boolean,
+  tenkanPts: Point[], kijunPts: Point[], spanAPts: Point[], spanBPts: Point[], chikouPts: Point[],
+): void {
+  const lines: Array<{ points: Point[]; width: number; color: string }> = []
+  if (tenkanPts.length >= 2) lines.push({ points: tenkanPts, width: 1, color: TENKAN_COLOR })
+  if (kijunPts.length >= 2) lines.push({ points: kijunPts, width: 1, color: KIJUN_COLOR })
+  if (spanAPts.length >= 2) lines.push({ points: spanAPts, width: 1, color: SPAN_A_COLOR })
+  if (spanBPts.length >= 2) lines.push({ points: spanBPts, width: 1, color: SPAN_B_COLOR })
+  if (chikouPts.length >= 2) lines.push({ points: chikouPts, width: 1, color: CHIKOU_COLOR })
+
+  if (enableWebGL && lineWebGLSurface?.isAvailable()) {
+    const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
+    if (allOk) {
+      lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
+      return
+    }
+  }
+
+  ctx.save()
+  ctx.translate(-scrollLeft, 0)
+  ctx.lineWidth = 1
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
+  drawLine(ctx, tenkanPts, TENKAN_COLOR)
+  drawLine(ctx, kijunPts, KIJUN_COLOR)
+  drawLine(ctx, spanAPts, SPAN_A_COLOR)
+  drawLine(ctx, spanBPts, SPAN_B_COLOR)
+  drawLine(ctx, chikouPts, CHIKOU_COLOR)
+  ctx.restore()
+}
 
 interface IchimokuRendererOptions {
     paneId?: string
@@ -63,92 +166,15 @@ function createIchimokuRendererPlugin(options: IchimokuRendererOptions = {}): Re
             if (!stateKey) return
             const state = pluginHost?.getSharedState<IchimokuRenderState>(stateKey)
             if (!state || state.visibleMin > state.visibleMax) return
+
             const { params, series } = state
+            const points = collectIchimokuPoints(context, series, params, pane, kLineCenters, range)
 
-            const toY = (price: number) => pane.yAxis.priceToY(price)
-            const rangeStart = range.start
-
-            const tenkanPts: Point[] = []
-            const kijunPts: Point[] = []
-            const spanAPts: Point[] = []
-            const spanBPts: Point[] = []
-            const chikouPts: Point[] = []
-            const cloudSegs: { x: number; ya: number; yb: number; bull: boolean }[] = []
-
-            const drawEnd = Math.min(range.end, series.length)
-            for (let i = range.start; i < drawEnd; i++) {
-                const p = series[i]
-                if (!p) continue
-                const centerX = kLineCenters[i - rangeStart]
-                if (centerX === undefined) continue
-                if (params.showTenkan && p.tenkan !== undefined) tenkanPts.push({ x: centerX, y: toY(p.tenkan) })
-                if (params.showKijun && p.kijun !== undefined) kijunPts.push({ x: centerX, y: toY(p.kijun) })
-                if (params.showSpanA && p.spanA !== undefined) spanAPts.push({ x: centerX, y: toY(p.spanA) })
-                if (params.showSpanB && p.spanB !== undefined) spanBPts.push({ x: centerX, y: toY(p.spanB) })
-                if (params.showChikou && p.chikou !== undefined) chikouPts.push({ x: centerX, y: toY(p.chikou) })
-                if (params.showCloud && p.spanA !== undefined && p.spanB !== undefined) {
-                    cloudSegs.push({ x: centerX, ya: toY(p.spanA), yb: toY(p.spanB), bull: p.spanA > p.spanB })
-                }
+            if (params.showCloud && points.cloudSegs.length >= 2) {
+                renderCloudFill(ctx, points.cloudSegs, colors, scrollLeft)
             }
-
-            // 未来云：在数据末尾延伸 displacement 根 spanA/spanB 线及云段
-            const dataLen = (context.data as unknown[]).length
-            if (dataLen < series.length) {
-                const physConfig = getPhysicalKLineConfig(context.kWidth, context.kGap, context.dpr)
-                const futureEnd = Math.min(dataLen + params.displacement, series.length)
-                for (let i = dataLen; i < futureEnd; i++) {
-                    const p = series[i]
-                    if (!p) continue
-                    const leftPx = physConfig.startXPx + i * physConfig.unitPx
-                    const wickXPx = leftPx + (physConfig.kWidthPx - 1) / 2
-                    const centerX = wickXPx / context.dpr
-                    if (params.showSpanA && p.spanA !== undefined) spanAPts.push({ x: centerX, y: toY(p.spanA) })
-                    if (params.showSpanB && p.spanB !== undefined) spanBPts.push({ x: centerX, y: toY(p.spanB) })
-                    if (params.showCloud && p.spanA !== undefined && p.spanB !== undefined) {
-                        cloudSegs.push({ x: centerX, ya: toY(p.spanA), yb: toY(p.spanB), bull: p.spanA > p.spanB })
-                    }
-                }
-            }
-
-            // Cloud fill (Canvas2D only)
-            if (params.showCloud && cloudSegs.length >= 2) {
-                ctx.save()
-                ctx.translate(-scrollLeft, 0)
-                fillCloud(ctx, cloudSegs, colors.candleUpBody, colors.candleDownBody)
-                ctx.restore()
-            }
-
-            // Lines (WebGL + Canvas2D fallback)
-            const lines: Array<{ points: Point[]; width: number; color: string }> = []
-            if (tenkanPts.length >= 2) lines.push({ points: tenkanPts, width: 1, color: TENKAN_COLOR })
-            if (kijunPts.length >= 2) lines.push({ points: kijunPts, width: 1, color: KIJUN_COLOR })
-            if (spanAPts.length >= 2) lines.push({ points: spanAPts, width: 1, color: SPAN_A_COLOR })
-            if (spanBPts.length >= 2) lines.push({ points: spanBPts, width: 1, color: SPAN_B_COLOR })
-            if (chikouPts.length >= 2) lines.push({ points: chikouPts, width: 1, color: CHIKOU_COLOR })
-
-            const enableWebGL = context.settings?.enableWebGLRendering !== false
-            let usedWebGL = false
-            if (enableWebGL && lineWebGLSurface?.isAvailable()) {
-                const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
-                if (allOk) {
-                    usedWebGL = true
-                    lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
-                }
-            }
-
-            if (usedWebGL) return
-
-            ctx.save()
-            ctx.translate(-scrollLeft, 0)
-            ctx.lineWidth = 1
-            ctx.lineJoin = 'round'
-            ctx.lineCap = 'round'
-            drawLine(ctx, tenkanPts, TENKAN_COLOR)
-            drawLine(ctx, kijunPts, KIJUN_COLOR)
-            drawLine(ctx, spanAPts, SPAN_A_COLOR)
-            drawLine(ctx, spanBPts, SPAN_B_COLOR)
-            drawLine(ctx, chikouPts, CHIKOU_COLOR)
-            ctx.restore()
+            renderIchimokuLines(ctx, lineWebGLSurface, scrollLeft, context.settings?.enableWebGLRendering !== false,
+                points.tenkanPts, points.kijunPts, points.spanAPts, points.spanBPts, points.chikouPts)
         },
 
         getConfig() {

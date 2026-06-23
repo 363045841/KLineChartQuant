@@ -42,6 +42,8 @@ function bufKey(type: string, symbol: string, period?: string): string {
 }
 
 export class ChartDataManager {
+  static readonly TRAILING_SLOTS = 30
+
   private _dataFetcher: DataFetcher | null = null
   private _timeShareFetcher: TimeShareFetcherFn | null = null
 
@@ -877,7 +879,7 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
     const viewWidth = this.deps.getViewport()?.plotWidth ?? 0
     const dpr = this.deps.getEffectiveDpr()
     const { startXPx, unitPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
-    const dataPlotWidth = (startXPx + dataLength * unitPx) / dpr
+    const dataPlotWidth = (startXPx + (dataLength + ChartDataManager.TRAILING_SLOTS) * unitPx) / dpr
     return this.getLeftLoadBufferWidth() + Math.max(dataPlotWidth, viewWidth)
   }
 
@@ -888,7 +890,7 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
     const dpr = this.deps.getEffectiveDpr()
     const opt = this.deps.getOption()
     const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
-    const lastKLineEndPx = (startXPx + dataLength * unitPx) / dpr
+    const lastKLineEndPx = (startXPx + (dataLength + ChartDataManager.TRAILING_SLOTS) * unitPx) / dpr
     const viewport = this.deps.getViewport()
     const clientWidth = viewport?.viewWidth
       ?? (this.deps.getObservedSize().width > 0 ? this.deps.getObservedSize().width : undefined)
