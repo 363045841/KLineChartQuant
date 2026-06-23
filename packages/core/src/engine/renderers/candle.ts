@@ -9,6 +9,18 @@ import { VolumePriceRelation } from '../../types/volumePrice'
 import { analyzeVolumePriceRelationBatch, DEFAULT_VOLUME_PRICE_CONFIG } from '../../utils/volumePrice'
 import type { MarkerManager } from '../marker/registry'
 
+// --- Float32Array buffer pool (reduces per-frame GC pressure) ---
+let poolUpBody: Float32Array | null = null
+let poolDownBody: Float32Array | null = null
+let poolUpWick: Float32Array | null = null
+let poolDownWick: Float32Array | null = null
+
+function ensureBufferCapacity(pool: Float32Array | null, requiredFloats: number): Float32Array {
+  if (pool && pool.length >= requiredFloats) return pool
+  const newLen = Math.max(requiredFloats, Math.ceil((pool?.length ?? 0) * 1.5))
+  return new Float32Array(newLen)
+}
+
 type CandleRenderData = {
     i: number
     aligned: ReturnType<typeof createAlignedKLineFromPx>
@@ -99,10 +111,14 @@ function prepareCandles(args: {
     const upKLines: CandleRenderData[] = []
     const downKLines: CandleRenderData[] = []
     const maxRects = Math.max(1, range.end - range.start)
-    const upBodyBuf = new Float32Array(maxRects * 4)
-    const downBodyBuf = new Float32Array(maxRects * 4)
-    const upWickBuf = new Float32Array(maxRects * 2 * 4)
-    const downWickBuf = new Float32Array(maxRects * 2 * 4)
+    const upBodyBuf = ensureBufferCapacity(poolUpBody, maxRects * 4)
+    poolUpBody = upBodyBuf
+    const downBodyBuf = ensureBufferCapacity(poolDownBody, maxRects * 4)
+    poolDownBody = downBodyBuf
+    const upWickBuf = ensureBufferCapacity(poolUpWick, maxRects * 2 * 4)
+    poolUpWick = upWickBuf
+    const downWickBuf = ensureBufferCapacity(poolDownWick, maxRects * 2 * 4)
+    poolDownWick = downWickBuf
     let upBodyCount = 0
     let downBodyCount = 0
     let upWickCount = 0
