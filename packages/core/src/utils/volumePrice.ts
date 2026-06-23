@@ -60,6 +60,19 @@ class VolumePrefixSum {
   }
 
   /**
+   * 增量追加数据，避免全量重建
+   * @param data - K线数据数组，仅追加超出 dataLength 的部分
+   */
+  append(data: KLineData[]): void {
+    const newLen = data.length
+    if (newLen <= this.dataLength) return
+    for (let i = this.dataLength; i < newLen; i++) {
+      this.prefixSum.push(this.prefixSum[this.prefixSum.length - 1]! + (data[i]?.volume ?? 0))
+    }
+    this.dataLength = newLen
+  }
+
+  /**
    * 获取数据长度
    */
   get length(): number {
@@ -76,13 +89,13 @@ let cachedData: KLineData[] | null = null
  * 检测数据引用是否变化，自动重建前缀和
  */
 function getPrefixSum(data: KLineData[]): VolumePrefixSum {
-  if (
-    !globalPrefixSum
-    || cachedData !== data
-    || cachedData.length !== data.length
-  ) {
+  if (!globalPrefixSum || cachedData !== data || cachedData.length > data.length) {
     globalPrefixSum = new VolumePrefixSum()
     globalPrefixSum.build(data)
+    cachedData = data
+  } else if (cachedData.length < data.length) {
+    // 数据追加：增量更新，避免 O(n) 重建
+    globalPrefixSum.append(data)
     cachedData = data
   }
 
