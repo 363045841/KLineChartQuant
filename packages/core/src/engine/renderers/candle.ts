@@ -1,7 +1,7 @@
 import type { RendererPlugin, RenderContext } from '../../plugin'
 import { RENDERER_PRIORITY } from '../../plugin'
 import type { KLineData } from '../../types/price'
-import { getKLineTrend, type kLineTrend } from '../../types/kLine'
+import type { kLineTrend } from '../../types/kLine'
 import { createAlignedKLineFromPx, createVerticalLineRect } from '../draw/pixelAlign'
 import { resolveThemeColors, type VolumePriceColors } from '../../tokens'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
@@ -121,9 +121,11 @@ function prepareCandles(args: {
         const scaleB = paddingTop + viewHeight
         fastPriceToY = (price: number) => scaleB - (price - minPrice) * scaleK
     } else {
-        // 对数模式回退到标准方法
         fastPriceToY = (price: number) => pane.yAxis.priceToY(price)
     }
+
+    const invDpr = 1 / dpr
+    const alignY = (logical: number) => Math.round(logical * dpr) * invDpr
 
     for (let i = range.start; i < range.end && i < data.length; i++) {
         const e = data[i]
@@ -137,7 +139,6 @@ function prepareCandles(args: {
         const leftLogical = kLinePositions[i - range.start]
         if (leftLogical === undefined) continue
 
-        const alignY = (logical: number) => Math.round(logical * dpr) / dpr
         const alignedOpenY = alignY(openY)
         const alignedCloseY = alignY(closeY)
         const alignedHighY = alignY(highY)
@@ -154,11 +155,11 @@ function prepareCandles(args: {
             dpr
         )
 
-        const trend: kLineTrend = getKLineTrend(e)
+        const isUp = e.close >= e.open
         const renderData: CandleRenderData = {
             i,
             aligned,
-            trend,
+            trend: isUp ? 'up' : 'down',
             openY,
             closeY,
             highY,
@@ -169,8 +170,7 @@ function prepareCandles(args: {
         }
 
         const bodyRect = aligned.bodyRect
-        const targetKLines = trend === 'up' ? upKLines : downKLines
-        const isUp = trend === 'up'
+        const targetKLines = isUp ? upKLines : downKLines
 
         targetKLines.push(renderData)
 
@@ -190,8 +190,8 @@ function prepareCandles(args: {
 
         const bodyTop = bodyRect.y
         const bodyBottom = bodyRect.y + bodyRect.height
-        const bodyHigh = Math.max(e.open, e.close)
-        const bodyLow = Math.min(e.open, e.close)
+        const bodyHigh = isUp ? e.close : e.open
+        const bodyLow = isUp ? e.open : e.close
 
         if (e.high > bodyHigh) {
             const wick = createVerticalLineRect(aligned.wickRect.x, alignedHighY, bodyTop, dpr)
@@ -219,7 +219,7 @@ function prepareCandles(args: {
         }
     }
 
-    const wickWidth = upKLines[0]?.aligned.wickRect.width ?? downKLines[0]?.aligned.wickRect.width ?? 1
+    const wickWidth = 1 / dpr
 
     return {
         upKLines,
