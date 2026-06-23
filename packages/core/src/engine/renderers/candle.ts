@@ -2,7 +2,6 @@ import type { RendererPlugin, RenderContext } from '../../plugin'
 import { RENDERER_PRIORITY } from '../../plugin'
 import type { KLineData } from '../../types/price'
 import type { kLineTrend } from '../../types/kLine'
-import { createAlignedKLineFromPx, createVerticalLineRect } from '../draw/pixelAlign'
 import { resolveThemeColors, type VolumePriceColors } from '../../tokens'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
 import { VolumePriceRelation } from '../../types/volumePrice'
@@ -21,9 +20,20 @@ function ensureBufferCapacity(pool: Float32Array | null, requiredFloats: number)
   return new Float32Array(newLen)
 }
 
+type AlignedKLineResult = {
+    bodyRect: { x: number; y: number; width: number; height: number }
+    physBodyLeft: number
+    physBodyRight: number
+    physBodyWidth: number
+    physBodyCenter: number
+    physWickX: number
+    wickRect: { x: number; width: number }
+    isPerfectlyAligned: boolean
+}
+
 type CandleRenderData = {
     i: number
-    aligned: ReturnType<typeof createAlignedKLineFromPx>
+    aligned: AlignedKLineResult
     trend: kLineTrend
     openY: number
     closeY: number
@@ -141,6 +151,7 @@ function prepareCandles(args: {
     }
 
     const invDpr = 1 / dpr
+    const wickWidth = 1 / dpr
     const alignY = (logical: number) => Math.round(logical * dpr) * invDpr
 
     for (let i = range.start; i < range.end && i < data.length; i++) {
@@ -163,22 +174,34 @@ function prepareCandles(args: {
         const alignedRawRectH = Math.max(Math.abs(alignedOpenY - alignedCloseY), 1)
 
         const roundedLeftPx = Math.round(leftLogical * dpr)
-        const aligned = createAlignedKLineFromPx(
-            roundedLeftPx,
-            alignedRawRectY,
-            kWidthPx,
-            alignedRawRectH,
-            dpr
-        )
+
+        // Inlined createAlignedKLineFromPx — no object allocation
+        const topPx = Math.round(alignedRawRectY * dpr)
+        const bottomPx = Math.round((alignedRawRectY + alignedRawRectH) * dpr)
+        const bodyHPx = Math.max(1, bottomPx - topPx)
+
+        const bodyX = roundedLeftPx * invDpr
+        const bodyY = topPx * invDpr
+        const bodyW = kWidthPx * invDpr
+        const bodyH = bodyHPx * invDpr
+        const wickCenterX = (roundedLeftPx + (kWidthPx - 1) / 2) * invDpr
 
         const isUp = e.close >= e.open
-        const bodyRect = aligned.bodyRect
 
         if (showVolumePriceMarkers) {
             const targetKLines = isUp ? upKLines : downKLines
             targetKLines.push({
                 i,
-                aligned,
+                aligned: {
+                    bodyRect: { x: bodyX, y: bodyY, width: bodyW, height: bodyH },
+                    physBodyLeft: roundedLeftPx,
+                    physBodyRight: roundedLeftPx + kWidthPx,
+                    physBodyWidth: kWidthPx,
+                    physBodyCenter: wickCenterX,
+                    physWickX: wickCenterX,
+                    wickRect: { x: wickCenterX, width: 1 / dpr },
+                    isPerfectlyAligned: kWidthPx % 2 === 1,
+                },
                 trend: isUp ? 'up' : 'down',
                 openY,
                 closeY,
@@ -192,50 +215,53 @@ function prepareCandles(args: {
 
         if (isUp) {
             const off = upBodyCount++ * 4
-            upBodyBuf[off] = bodyRect.x
-            upBodyBuf[off + 1] = bodyRect.y
-            upBodyBuf[off + 2] = bodyRect.width
-            upBodyBuf[off + 3] = bodyRect.height
+            upBodyBuf[off] = bodyX
+            upBodyBuf[off + 1] = bodyY
+            upBodyBuf[off + 2] = bodyW
+            upBodyBuf[off + 3] = bodyH
         } else {
             const off = downBodyCount++ * 4
-            downBodyBuf[off] = bodyRect.x
-            downBodyBuf[off + 1] = bodyRect.y
-            downBodyBuf[off + 2] = bodyRect.width
-            downBodyBuf[off + 3] = bodyRect.height
+            downBodyBuf[off] = bodyX
+            downBodyBuf[off + 1] = bodyY
+            downBodyBuf[off + 2] = bodyW
+            downBodyBuf[off + 3] = bodyH
         }
 
-        const bodyTop = bodyRect.y
-        const bodyBottom = bodyRect.y + bodyRect.height
         const bodyHigh = isUp ? e.close : e.open
         const bodyLow = isUp ? e.open : e.close
 
+        // Inlined createVerticalLineRect for upper wick
         if (e.high > bodyHigh) {
-            const wick = createVerticalLineRect(aligned.wickRect.x, alignedHighY, bodyTop, dpr)
-            if (wick) {
-                const buf = isUp ? upWickBuf : downWickBuf
-                const idx = isUp ? upWickCount++ : downWickCount++
-                const off = idx * 4
-                buf[off] = wick.x
-                buf[off + 1] = wick.y
-                buf[off + 2] = wick.width
-                buf[off + 3] = wick.height
-            }
+            const top = Math.min(alignedHighY, bodyY)
+            const bottom = Math.max(alignedHighY, bodyY)
+            const physTop = Math.round(top * dpr)
+            const physBottom = Math.round(bottom * dpr)
+            const wickH = Math.max(1, physBottom - physTop) * invDpr
+            const buf = isUp ? upWickBuf : downWickBuf
+            const idx = isUp ? upWickCount++ : downWickCount++
+            const off = idx * 4
+            buf[off] = wickCenterX
+            buf[off + 1] = physTop * invDpr
+            buf[off + 2] = wickWidth
+            buf[off + 3] = wickH
         }
+        // Inlined createVerticalLineRect for lower wick
         if (e.low < bodyLow) {
-            const wick = createVerticalLineRect(aligned.wickRect.x, bodyBottom, alignedLowY, dpr)
-            if (wick) {
-                const buf = isUp ? upWickBuf : downWickBuf
-                const idx = isUp ? upWickCount++ : downWickCount++
-                const off = idx * 4
-                buf[off] = wick.x
-                buf[off + 1] = wick.y
-                buf[off + 2] = wick.width
-                buf[off + 3] = wick.height
-            }
+            const bodyBottom = bodyY + bodyH
+            const top = Math.min(bodyBottom, alignedLowY)
+            const bottom = Math.max(bodyBottom, alignedLowY)
+            const physTop = Math.round(top * dpr)
+            const physBottom = Math.round(bottom * dpr)
+            const wickH = Math.max(1, physBottom - physTop) * invDpr
+            const buf = isUp ? upWickBuf : downWickBuf
+            const idx = isUp ? upWickCount++ : downWickCount++
+            const off = idx * 4
+            buf[off] = wickCenterX
+            buf[off + 1] = physTop * invDpr
+            buf[off + 2] = wickWidth
+            buf[off + 3] = wickH
         }
     }
-
-    const wickWidth = 1 / dpr
 
     return {
         upKLines,
