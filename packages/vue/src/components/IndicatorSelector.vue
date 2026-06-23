@@ -178,7 +178,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import BaseModal from './BaseModal.vue'
 import IndicatorParams from './IndicatorParams.vue'
-import { coreSignalToVueRef } from '../index'
+import { coreSignalToVueRef } from '../utils/signalBridge'
 import {
   createIndicatorSelectorController,
   type IndicatorDefinition,

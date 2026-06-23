@@ -25,7 +25,7 @@ export type {
     PaneSpec,
     DrawingChartAdapter,
     DrawingChartViewport,
-    PaneInfo,
+    PaneLayoutInfo,
     SymbolSpec,
     DataFetcher,
 } from './types'

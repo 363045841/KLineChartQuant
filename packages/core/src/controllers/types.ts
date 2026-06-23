@@ -156,7 +156,7 @@ export type { InteractionSnapshot }
 // Pane info (read-only pane metadata for DrawingChartAdapter)
 // ---------------------------------------------------------------------------
 
-export interface PaneInfo {
+export interface PaneLayoutInfo {
     paneId: string
     top: number
     height: number
@@ -196,7 +196,7 @@ export interface DrawingChartAdapter {
     /** Y within the given pane → price */
     yToPrice(paneId: string, y: number): number
     /** read-only pane metadata by pane ID */
-    getPaneInfo(paneId: string): PaneInfo | undefined
+    getPaneInfo(paneId: string): PaneLayoutInfo | undefined
 }
 
 // ---------------------------------------------------------------------------

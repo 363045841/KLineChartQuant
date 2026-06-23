@@ -25,7 +25,7 @@ import type {
     DrawingControllerCallbacks,
     IndicatorDefinition,
     KLineData,
-    PaneInfo,
+    PaneLayoutInfo,
     PaneSpec,
     SymbolSpec,
     DataFetcher,
@@ -773,7 +773,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
         return renderer?.getPane().yAxis.yToPrice(y) ?? 0
     }
 
-    function getPaneInfo(paneId: string): PaneInfo | undefined {
+    function getPaneInfo(paneId: string): PaneLayoutInfo | undefined {
         if (disposed) return undefined
         const renderer = chart.getPaneRenderers().find(item => item.getPane().id === paneId)
         const pane = renderer?.getPane()

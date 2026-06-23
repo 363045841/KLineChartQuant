@@ -1,23 +1,6 @@
 import type { BaseIndicatorState } from '../../../plugin'
 import type { MACDPoint } from '../calculators'
-
-/**
- * MACD 调度器配置
- */
-export interface MACDSchedulerConfig {
-  /** 快线周期（默认 12） */
-  fastPeriod: number
-  /** 慢线周期（默认 26） */
-  slowPeriod: number
-  /** DEA 周期（默认 9） */
-  signalPeriod: number
-  /** 是否显示 DIF 线 */
-  showDIF: boolean
-  /** 是否显示 DEA 线 */
-  showDEA: boolean
-  /** 是否显示 MACD 柱 */
-  showBAR: boolean
-}
+import type { MACDSchedulerConfig } from '../workerProtocol'
 
 /**
  * MACD 渲染器状态

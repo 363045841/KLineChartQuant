@@ -1,7 +1,7 @@
 import type { DrawingObject, DrawingKind, DrawingAnchor, DrawingStyle } from '../../plugin'
 import type { DrawingChartAdapter } from '../../controllers/types'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
-import { computeLinearRegression } from './index'
+import { computeLinearRegression } from './linearRegression'
 
 export type DrawingToolId =
   | 'cursor'

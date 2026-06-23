@@ -1,12 +1,7 @@
 import { CandleWebGLSurface, LineWebGLSurface } from './renderers/webgl/candleSurface'
 import type { SharedWebGLSurface, WebGLRegion } from './renderers/webgl/sharedWebGLSurface'
 
-export type PaneRendererDom = {
-    mainCanvas: HTMLCanvasElement      // 主画布：K线、指标、网格
-    overlayCanvas: HTMLCanvasElement   // 覆盖层：十字线、Tooltip（透明）
-    yAxisCanvas: HTMLCanvasElement     // Y轴刻度
-    leftYAxisCanvas?: HTMLCanvasElement // 左侧Y轴刻度
-}
+export type { PaneRendererDom } from './chartTypes'
 
 export type PaneRendererContexts = {
     mainCtx: CanvasRenderingContext2D | null
