@@ -423,9 +423,31 @@ export function createMACDVisibleStateComposer(
             }
         }
 
-        const extremes = calcPointArrayExtremes(source.series, ['dif', 'dea', 'macd'], visibleRange)
-        const padding = Number.isFinite(extremes.max) && Number.isFinite(extremes.min)
-            ? Math.max(Math.abs(extremes.max), Math.abs(extremes.min)) * 0.1
+        let min = Infinity
+        let max = -Infinity
+        const macdEnd = Math.min(visibleRange.end, source.series.length)
+        for (let i = visibleRange.start; i < macdEnd; i++) {
+            const p = source.series[i]
+            if (p) {
+                const v0 = p.dif
+                if (v0 !== undefined) {
+                    if (v0 < min) min = v0
+                    if (v0 > max) max = v0
+                }
+                const v1 = p.dea
+                if (v1 !== undefined) {
+                    if (v1 < min) min = v1
+                    if (v1 > max) max = v1
+                }
+                const v2 = p.macd
+                if (v2 !== undefined) {
+                    if (v2 < min) min = v2
+                    if (v2 > max) max = v2
+                }
+            }
+        }
+        const padding = max !== -Infinity && min !== Infinity
+            ? Math.max(Math.abs(max), Math.abs(min)) * 0.1
             : 0
 
         const latestIndex = visibleRange.end - 1
@@ -437,10 +459,10 @@ export function createMACDVisibleStateComposer(
             timestamp,
             series: source.series,
             params: source.params,
-            valueMin: Number.isFinite(extremes.min) ? extremes.min - padding : emptyState.valueMin,
-            valueMax: Number.isFinite(extremes.max) ? extremes.max + padding : emptyState.valueMax,
-            visibleMin: extremes.min,
-            visibleMax: extremes.max,
+            valueMin: min !== Infinity ? min - padding : emptyState.valueMin,
+            valueMax: max !== -Infinity ? max + padding : emptyState.valueMax,
+            visibleMin: min,
+            visibleMax: max,
             latestValues: latestPoint ? {
                 dif: latestPoint.dif,
                 dea: latestPoint.dea,
