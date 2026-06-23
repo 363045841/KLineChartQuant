@@ -398,4 +398,139 @@ describe('DataBuffer', () => {
 
         expect(fetchCount).toBe(3)
     })
+
+    // ── Int32Array precomputation tests ──
+
+    function expectedMonthKey(ts: number): number {
+        const d = new Date(ts)
+        return d.getFullYear() * 12 + d.getMonth()
+    }
+
+    function expectedDayKey(ts: number): number {
+        const d = new Date(ts)
+        const yearStart = new Date(d.getFullYear(), 0, 0)
+        return d.getFullYear() * 366 + Math.floor((d.getTime() - yearStart.getTime()) / 86400000)
+    }
+
+    it('setInlineData precomputes monthKeys and dayKeys', () => {
+        const data = [
+            makeKLine(1735689600000), // 2025-01-01
+            makeKLine(1738368000000), // 2025-02-01
+            makeKLine(1740787200000), // 2025-03-01
+        ]
+        buffer.setInlineData(data)
+
+        const monthKeys = buffer.getMonthKeys()
+        const dayKeys = buffer.getDayKeys()
+        expect(monthKeys).not.toBeNull()
+        expect(dayKeys).not.toBeNull()
+        expect(monthKeys!.length).toBe(3)
+        expect(dayKeys!.length).toBe(3)
+
+        for (let i = 0; i < data.length; i++) {
+            expect(monthKeys![i]).toBe(expectedMonthKey(data[i]!.timestamp))
+            expect(dayKeys![i]).toBe(expectedDayKey(data[i]!.timestamp))
+        }
+    })
+
+    it('setInlineData with empty data sets keys to null', () => {
+        buffer.setInlineData([])
+        expect(buffer.getMonthKeys()).toBeNull()
+        expect(buffer.getDayKeys()).toBeNull()
+    })
+
+    it('setInlineData replaces previous keys', () => {
+        const data1 = [makeKLine(1735689600000)]
+        buffer.setInlineData(data1)
+        expect(buffer.getMonthKeys()!.length).toBe(1)
+
+        const data2 = [
+            makeKLine(1735689600000),
+            makeKLine(1738368000000),
+        ]
+        buffer.setInlineData(data2)
+        expect(buffer.getMonthKeys()!.length).toBe(2)
+        expect(buffer.getDayKeys()!.length).toBe(2)
+    })
+
+    it('dispose clears keys to null', () => {
+        buffer.setInlineData([makeKLine(1735689600000)])
+        expect(buffer.getMonthKeys()).not.toBeNull()
+
+        buffer.dispose()
+        expect(buffer.getMonthKeys()).toBeNull()
+        expect(buffer.getDayKeys()).toBeNull()
+    })
+
+    it('setSymbol resets keys to null before load', () => {
+        buffer.setInlineData([makeKLine(1735689600000)])
+        expect(buffer.getMonthKeys()).not.toBeNull()
+
+        buffer.setSymbol({ ...defaultSpec, symbol: 'sz.000002' })
+        expect(buffer.getMonthKeys()).toBeNull()
+        expect(buffer.getDayKeys()).toBeNull()
+    })
+
+    it('keys are available after async fetch completes', async () => {
+        const now = Date.now()
+        const oneYearAgo = now - 365 * MS_PER_DAY
+        const initialData = [makeKLine(oneYearAgo), makeKLine(now)]
+
+        const fetcher: DataFetcher = async () => initialData
+        buffer.setFetcher(fetcher)
+        buffer.setSymbol(defaultSpec)
+
+        await vi.waitFor(() => {
+            expect(buffer.loading()).toBe(false)
+        })
+
+        const monthKeys = buffer.getMonthKeys()
+        const dayKeys = buffer.getDayKeys()
+        expect(monthKeys).not.toBeNull()
+        expect(dayKeys).not.toBeNull()
+        expect(monthKeys!.length).toBe(2)
+        expect(dayKeys!.length).toBe(2)
+
+        for (let i = 0; i < initialData.length; i++) {
+            expect(monthKeys![i]).toBe(expectedMonthKey(initialData[i]!.timestamp))
+            expect(dayKeys![i]).toBe(expectedDayKey(initialData[i]!.timestamp))
+        }
+    })
+
+    it('keys are recomputed after incremental fetch prepends data', async () => {
+        const now = Date.now()
+        const oneYearAgo = now - 365 * MS_PER_DAY
+        const initialData = [makeKLine(oneYearAgo), makeKLine(now)]
+        const prependData = [makeKLine(oneYearAgo - 90 * MS_PER_DAY)]
+        const allData = [...prependData, ...initialData]
+
+        let fetchCount = 0
+        const fetcher: DataFetcher = async () => {
+            fetchCount++
+            if (fetchCount === 1) return initialData
+            return prependData
+        }
+
+        buffer.setFetcher(fetcher)
+        buffer.setSymbol(defaultSpec)
+
+        await vi.waitFor(() => {
+            expect(buffer.loading()).toBe(false)
+        })
+
+        expect(fetchCount).toBe(1)
+        expect(buffer.getMonthKeys()!.length).toBe(2)
+
+        buffer.ensureRange(oneYearAgo - 30 * MS_PER_DAY, oneYearAgo)
+
+        await vi.waitFor(() => {
+            expect(buffer.loading()).toBe(false)
+        })
+
+        expect(buffer.getMonthKeys()!.length).toBe(3)
+        for (let i = 0; i < allData.length; i++) {
+            expect(buffer.getMonthKeys()![i]).toBe(expectedMonthKey(allData[i]!.timestamp))
+            expect(buffer.getDayKeys()![i]).toBe(expectedDayKey(allData[i]!.timestamp))
+        }
+    })
 })
