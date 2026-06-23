@@ -229,7 +229,8 @@ function formatSigned(value: number, digits = 2): string {
   return value > 0 ? `+${fixed}` : fixed
 }
 
-export { computeLinearRegression } from './linearRegression'
+import { computeLinearRegression } from './linearRegression'
+export { computeLinearRegression }
 
 export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
   return {

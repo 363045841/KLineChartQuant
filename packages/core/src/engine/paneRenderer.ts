@@ -1,7 +1,8 @@
 import { CandleWebGLSurface, LineWebGLSurface } from './renderers/webgl/candleSurface'
 import type { SharedWebGLSurface, WebGLRegion } from './renderers/webgl/sharedWebGLSurface'
 
-export type { PaneRendererDom } from './chartTypes'
+import type { PaneRendererDom } from './chartTypes'
+export type { PaneRendererDom }
 
 export type PaneRendererContexts = {
     mainCtx: CanvasRenderingContext2D | null

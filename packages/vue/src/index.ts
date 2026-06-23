@@ -105,7 +105,8 @@ export function createChart(opts: ChartMountOptions): ChartController | Promise<
     return controllerFactory(opts)
 }
 
-export { coreSignalToVueRef } from './utils/signalBridge'
+import { coreSignalToVueRef } from './utils/signalBridge'
+export { coreSignalToVueRef }
 
 // ---------------------------------------------------------------------------
 // useChart �?composable

@@ -14,6 +14,27 @@ interface PointerLocation {
     mouseY: number
 }
 
+/** 悬停上下文 — 由 resolveHoverContext 创建，传递给后续所有子步骤 */
+interface HoverContext {
+    mouseX: number
+    mouseY: number
+    plotWidth: number
+    plotHeight: number
+    viewWidth: number
+    viewHeight: number
+    scrollLeft: number
+    dpr: number
+    worldX: number
+}
+
+/** 最近邻 K 线 bar — 由 findNearestBar 返回 */
+interface NearestBar {
+    localIdx: number
+    globalIdx: number
+    kLineStartX: number
+    widthLogical: number
+}
+
 export interface InteractionSnapshot {
     crosshairPos: { x: number; y: number } | null
     crosshairIndex: number | null
@@ -633,9 +654,51 @@ export class InteractionController {
         this.activePaneId = pane?.id || null
     }
 
+    /**
+     * 指针悬停检测（coordinator）
+     *
+     * 每次指针移动时触发，按优先级依次检测：
+     * 边界 → pane 分隔器 → marker → K 线 bar → 十字线定位 → candle 命中 → tooltip。
+     * 每个步骤都可能提前 return，无需执行后续检测。
+     */
     private updatePlotHoverFromPoint(clientX: number, clientY: number) {
+        const ctx = this.resolveHoverContext(clientX, clientY)
+        if (!ctx) return
+
+        if (this.handleSeparatorHit(ctx)) return
+        if (this.handleMarkerHit(ctx)) return
+
+        const bar = this.findNearestBar(ctx)
+        if (!bar) {
+            this.clearHover()
+            return
+        }
+
+        this.positionCrosshair(ctx, bar)
+
+        if (this.chart.currentPeriod === 'timeshare') {
+            this.handleTimeshareHover(ctx, bar)
+            return
+        }
+
+        if (!this.hitTestCandle(ctx, bar)) {
+            this.hoveredIndex = null
+            return
+        }
+
+        this.hoveredIndex = bar.globalIdx
+        this.updateTooltip(ctx)
+    }
+
+    /**
+     * 解析悬停上下文
+     *
+     * 将 client 坐标转换为 plot 坐标，并做边界检查。
+     * 返回 null 表示指针不在 plot 区域内。
+     */
+    private resolveHoverContext(clientX: number, clientY: number): HoverContext | null {
         const location = this.getPlotPointerLocation(clientX, clientY)
-        if (!location) return
+        if (!location) return null
 
         const { mouseX, mouseY } = location
         const container = this.chart.getDom().container
@@ -644,17 +707,26 @@ export class InteractionController {
         const viewHeight = viewport?.viewHeight ?? Math.max(1, Math.round(container.clientHeight))
         const plotWidth = viewport?.plotWidth ?? viewWidth
         const plotHeight = viewport?.plotHeight ?? viewHeight
+
         if (mouseX < 0 || mouseY < 0 || mouseX > plotWidth || mouseY > plotHeight) {
             this.clearHover()
-            return
+            return null
         }
-
-        this.hoveredRightAxisPaneId = null
 
         const scrollLeft = this.chart.getLogicalScrollLeft()
         const dpr = this.chart.getCurrentDpr()
 
-        const separatorUpperPaneId = this.hitTestPaneSeparator(mouseY)
+        return { mouseX, mouseY, plotWidth, plotHeight, viewWidth, viewHeight, scrollLeft, dpr, worldX: scrollLeft + mouseX }
+    }
+
+    /**
+     * 检测 pane 分隔器悬停
+     *
+     * 若指针悬浮在 pane 分隔条上，清除十字线状态并返回 true。
+     */
+    private handleSeparatorHit(ctx: HoverContext): boolean {
+        this.hoveredRightAxisPaneId = null
+        const separatorUpperPaneId = this.hitTestPaneSeparator(ctx.mouseY)
         this.hoveredSeparatorUpperPaneId = separatorUpperPaneId
         if (separatorUpperPaneId) {
             this.crosshairPos = null
@@ -662,30 +734,45 @@ export class InteractionController {
             this.crosshairPrice = null
             this.hoveredIndex = null
             this.activePaneId = null
-            return
+            return true
         }
+        return false
+    }
 
+    /**
+     * 检测 marker 悬停
+     *
+     * 若指针悬浮在 marker 上，清除十字线状态并返回 true。
+     */
+    private handleMarkerHit(ctx: HoverContext): boolean {
         const markerManager = this.chart.getMarkerManager()
-        const worldX = scrollLeft + mouseX
-        if (this.markerState.updateHoverFromPoint(worldX, mouseX, mouseY, markerManager)) {
+        if (this.markerState.updateHoverFromPoint(ctx.worldX, ctx.mouseX, ctx.mouseY, markerManager)) {
             this.crosshairPos = null
             this.crosshairIndex = null
             this.crosshairPrice = null
             this.hoveredIndex = null
-            return
+            return true
         }
+        return false
+    }
 
-        if (!this.kLinePositions || !this.visibleRange || !this.kWidthPx) {
-            this.clearHover()
-            return
-        }
+    /**
+     * 查找最近邻 K 线 bar
+     *
+     * 使用二分搜索在 kLinePositions 中定位指针最近的 K 线 bar。
+     * 若无 kLinePositions、visibleRange 或 kWidthPx，返回 null。
+     */
+    private findNearestBar(ctx: HoverContext): NearestBar | null {
+        if (!this.kLinePositions || !this.visibleRange || !this.kWidthPx) return null
 
+        const { worldX, mouseY, dpr } = ctx
         const kWidthLogical = this.kWidthPx / dpr
+        const positions = this.kLinePositions
 
-        let lo = 0, hi = this.kLinePositions.length
+        let lo = 0, hi = positions.length
         while (lo < hi) {
             const mid = (lo + hi) >> 1
-            if (this.kLinePositions[mid]! < worldX) {
+            if (positions[mid]! < worldX) {
                 lo = mid + 1
             } else {
                 hi = mid
@@ -693,69 +780,86 @@ export class InteractionController {
         }
 
         let localIdx = lo
-        if (lo > 0 && lo < this.kLinePositions.length) {
-            const prevCenter = this.kLinePositions[lo - 1]! + kWidthLogical / 2
-            const currCenter = this.kLinePositions[lo]! + kWidthLogical / 2
+        if (lo > 0 && lo < positions.length) {
+            const prevCenter = positions[lo - 1]! + kWidthLogical / 2
+            const currCenter = positions[lo]! + kWidthLogical / 2
             if (Math.abs(worldX - prevCenter) < Math.abs(worldX - currCenter)) {
                 localIdx = lo - 1
             }
-        } else if (lo === this.kLinePositions.length && this.kLinePositions.length > 0) {
-            localIdx = this.kLinePositions.length - 1
+        } else if (lo === positions.length && positions.length > 0) {
+            localIdx = positions.length - 1
         }
 
-        const idx = localIdx + this.visibleRange.start
-        const data = this.chart.getRenderData()
+        return {
+            localIdx,
+            globalIdx: localIdx + this.visibleRange.start,
+            kLineStartX: positions[localIdx]!,
+            widthLogical: kWidthLogical,
+        }
+    }
 
+    /**
+     * 定位十字线
+     *
+     * 根据最近邻 bar 设置 crosshairIndex、crosshairPos（snap 到 K 线中心）
+     * 以及 crosshairPrice（鼠标 Y → 价格）。
+     * 索引无效时清除十字线状态。
+     */
+    private positionCrosshair(ctx: HoverContext, bar: NearestBar): void {
+        const { mouseX, mouseY, scrollLeft, plotWidth, plotHeight, dpr } = ctx
         const pane = this.getPaneByY(mouseY)
         this.activePaneId = pane?.id || null
 
-        if (idx >= 0 && idx < (data?.length ?? 0)) {
-            this.crosshairIndex = idx
-
-            const centerX = this.kLineCenters?.[localIdx] ?? this.kLinePositions[localIdx]! + (this.kWidthPx! / dpr) / 2
-            const snappedX = centerX - scrollLeft
-
-            this.crosshairPos = {
-                x: Math.min(Math.max(snappedX, 0), plotWidth),
-                y: Math.min(Math.max(mouseY, 0), plotHeight),
-            }
-
-            if (pane) {
-                const localY = mouseY - pane.top
-                this.crosshairPrice = pane.yAxis.yToPrice(localY)
-            } else {
-                this.crosshairPrice = null
-            }
-
-            if (this.chart.currentPeriod === 'timeshare') {
-                this.hoveredIndex = idx
-                const tooltipResult = computeTooltipPosition({
-                    mouseX,
-                    mouseY,
-                    viewWidth,
-                    viewHeight,
-                    plotWidth,
-                    plotHeight,
-                    tooltipSize: this.tooltipSize,
-                    useAnchorPositioning: this.useTooltipAnchorPositioning,
-                })
-                if (tooltipResult.anchorPlacement) {
-                    this.tooltipAnchorPlacement = tooltipResult.anchorPlacement
-                }
-                this.tooltipPos = tooltipResult.pos
-                return
-            }
-        } else {
+        if (bar.globalIdx < 0 || bar.globalIdx >= (this.chart.getRenderData()?.length ?? 0)) {
             this.crosshairIndex = null
             this.crosshairPos = null
             this.crosshairPrice = null
-        }
-
-        const k = typeof this.crosshairIndex === 'number' ? data[this.crosshairIndex] as KLineData : undefined
-        if (!k || !pane || !pane.capabilities.candleHitTest) {
-            this.hoveredIndex = null
             return
         }
+
+        this.crosshairIndex = bar.globalIdx
+
+        const centerX = this.kLineCenters?.[bar.localIdx] ?? bar.kLineStartX + bar.widthLogical / 2
+        const snappedX = centerX - scrollLeft
+
+        this.crosshairPos = {
+            x: Math.min(Math.max(snappedX, 0), plotWidth),
+            y: Math.min(Math.max(mouseY, 0), plotHeight),
+        }
+
+        if (pane) {
+            const localY = mouseY - pane.top
+            this.crosshairPrice = pane.yAxis.yToPrice(localY)
+        } else {
+            this.crosshairPrice = null
+        }
+    }
+
+    /**
+     * 分时模式悬停处理
+     *
+     * 分时模式下直接设置 hoveredIndex 并计算 tooltip 位置后返回，
+     * 不执行 candle body/wick 命中检测。
+     */
+    private handleTimeshareHover(ctx: HoverContext, bar: NearestBar): void {
+        this.hoveredIndex = bar.globalIdx
+        this.updateTooltip(ctx)
+    }
+
+    /**
+     * Candle 实体/影线命中检测
+     *
+     * 检测指针是否落在 K 线实体内或影线上。
+     * 小实体（< 8px）会扩展命中区域以保证可用性。
+     * 未命中时返回 false。
+     */
+    private hitTestCandle(ctx: HoverContext, bar: NearestBar): boolean {
+        const { mouseY, worldX, dpr } = ctx
+        const data = this.chart.getRenderData()
+        const k = typeof this.crosshairIndex === 'number' ? data?.[this.crosshairIndex] as KLineData | undefined : undefined
+        const pane = this.getPaneByY(mouseY)
+
+        if (!k || !pane || !pane.capabilities.candleHitTest) return false
 
         const localY = mouseY - pane.top
         const openY = pane.yAxis.priceToY(k.open)
@@ -765,29 +869,35 @@ export class InteractionController {
         const bodyTop = Math.min(openY, closeY)
         const bodyBottom = Math.max(openY, closeY)
 
-        const kLineStartX = this.kLinePositions[localIdx]!
-        const inUnitX = worldX - kLineStartX
-        const cxLogical = kWidthLogical / 2
+        const inUnitX = worldX - bar.kLineStartX
+        const cxLogical = bar.widthLogical / 2
 
         const MIN_BODY_HIT_HEIGHT = 8
         const bodyHeight = Math.abs(bodyBottom - bodyTop)
-        const effectiveBodyTop = bodyHeight < MIN_BODY_HIT_HEIGHT ? (bodyTop + bodyBottom) / 2 - MIN_BODY_HIT_HEIGHT / 2 : bodyTop
-        const effectiveBodyBottom = bodyHeight < MIN_BODY_HIT_HEIGHT ? (bodyTop + bodyBottom) / 2 + MIN_BODY_HIT_HEIGHT / 2 : bodyBottom
+        const effectiveBodyTop = bodyHeight < MIN_BODY_HIT_HEIGHT
+            ? (bodyTop + bodyBottom) / 2 - MIN_BODY_HIT_HEIGHT / 2
+            : bodyTop
+        const effectiveBodyBottom = bodyHeight < MIN_BODY_HIT_HEIGHT
+            ? (bodyTop + bodyBottom) / 2 + MIN_BODY_HIT_HEIGHT / 2
+            : bodyBottom
 
         const HIT_WICK_HALF_EXTENDED = 3
 
-        const hitBody = localY >= effectiveBodyTop && localY <= effectiveBodyBottom &&
-            inUnitX >= 0 && inUnitX <= kWidthLogical
-        const hitWick = Math.abs(inUnitX - cxLogical) <= HIT_WICK_HALF_EXTENDED &&
-            localY >= Math.min(highY, lowY) && localY <= Math.max(highY, lowY)
+        const hitBody = localY >= effectiveBodyTop && localY <= effectiveBodyBottom
+            && inUnitX >= 0 && inUnitX <= bar.widthLogical
+        const hitWick = Math.abs(inUnitX - cxLogical) <= HIT_WICK_HALF_EXTENDED
+            && localY >= Math.min(highY, lowY) && localY <= Math.max(highY, lowY)
 
-        if (!hitBody && !hitWick) {
-            this.hoveredIndex = null
-            return
-        }
+        return hitBody || hitWick
+    }
 
-        this.hoveredIndex = this.crosshairIndex
-
+    /**
+     * 更新 tooltip 位置
+     *
+     * 使用 computeTooltipPosition 计算 tooltip 的显示位置和锚点方向。
+     */
+    private updateTooltip(ctx: HoverContext): void {
+        const { mouseX, mouseY, viewWidth, viewHeight, plotWidth, plotHeight } = ctx
         const tooltipResult = computeTooltipPosition({
             mouseX,
             mouseY,
