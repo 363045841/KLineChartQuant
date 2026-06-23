@@ -165,38 +165,76 @@ export class ChartViewportManager {
   }
 
   /**
-   * 计算视口
+   * 计算视口（coordinator）
+   *
+   * 协调 4 个步骤：尺寸解析 → DPR 计算 → DOM 同步 → 状态推送。
+   * 每一子步骤均可独立测试。
    */
   computeViewport(): Viewport | null {
+    const dims = this.resolveViewportDimensions()
+    if (!dims) return null
+    const { viewWidth, viewHeight, plotWidth, plotHeight } = dims
+
+    const dpr = this.clampDpr(viewWidth, viewHeight)
+    const scrollLeft = Math.round(this.getLogicalScrollLeft() * dpr) / dpr
+
+    this.syncCanvasDom(dpr, viewWidth, viewHeight)
+    this.deps.resizeSharedWebGLSurface(plotWidth, plotHeight, dpr)
+
+    const vp: Viewport = { viewWidth, viewHeight, plotWidth, plotHeight, scrollLeft, dpr }
+    this.applyViewportState(vp)
+    return vp
+  }
+
+  /**
+   * 解析容器尺寸
+   *
+   * 优先使用 ResizeObserver 上报的 observedSize，
+   * fallback 到 DOM clientWidth/clientHeight。
+   * plotHeight 为 viewHeight 扣除底部轴高度。
+   */
+  private resolveViewportDimensions(): { viewWidth: number; viewHeight: number; plotWidth: number; plotHeight: number } | null {
     const container = this.deps.getDom().container
     if (!container) return null
 
-    const observedWidth = this.observedSize.width
-    const observedHeight = this.observedSize.height
-    const viewWidth = observedWidth > 0
-      ? observedWidth
+    const viewWidth = this.observedSize.width > 0
+      ? this.observedSize.width
       : Math.max(1, Math.round(container.clientWidth))
-    const viewHeight = observedHeight > 0
-      ? observedHeight
+    const viewHeight = this.observedSize.height > 0
+      ? this.observedSize.height
       : Math.max(1, Math.round(container.clientHeight))
-
     const plotWidth = Math.round(viewWidth)
     const plotHeight = Math.round(viewHeight - this.deps.getBottomAxisHeight())
 
-    let dpr = this.getEffectiveDpr()
+    return { viewWidth, viewHeight, plotWidth, plotHeight }
+  }
 
+  /**
+   * DPR 计算与封顶
+   *
+   * 取 effectiveDpr，若总像素超 MAX_CANVAS_PIXELS（16M）则降级 dpr
+   * 以避免浏览器 canvas 创建失败。
+   */
+  private clampDpr(viewWidth: number, viewHeight: number): number {
     const MAX_CANVAS_PIXELS = 16 * 1024 * 1024
-    const requestedPixels = viewWidth * dpr * (viewHeight * dpr)
-    if (requestedPixels > MAX_CANVAS_PIXELS) {
+    let dpr = this.getEffectiveDpr()
+    if (viewWidth * dpr * (viewHeight * dpr) > MAX_CANVAS_PIXELS) {
       dpr = Math.sqrt(MAX_CANVAS_PIXELS / (viewWidth * viewHeight))
     }
+    return dpr
+  }
 
-    // 对齐 scrollLeft，消除 translate 亚像素偏移
-    const scrollLeft = Math.round(this.getLogicalScrollLeft() * dpr) / dpr
-
+  /**
+   * 同步 DOM canvas 尺寸
+   *
+   * 更新 canvasLayer 和 xAxisCanvas 的 width/height 属性与 CSS 尺寸，
+   * 确保物理像素与逻辑像素一致，消除亚像素偏移。
+   * 仅在实际值变化时写入，避免无意义回流。
+   */
+  private syncCanvasDom(dpr: number, viewWidth: number, viewHeight: number): void {
     const dom = this.deps.getDom()
-
     const dprRoundedViewWidth = Math.round(viewWidth * dpr) / dpr
+
     const canvasLayerWidth = `${dprRoundedViewWidth}px`
     if (dom.canvasLayer.style.width !== canvasLayerWidth) {
       dom.canvasLayer.style.width = canvasLayerWidth
@@ -226,17 +264,15 @@ export class ChartViewportManager {
     if (dom.xAxisCanvas.style.height !== xAxisCssHeight) {
       dom.xAxisCanvas.style.height = xAxisCssHeight
     }
+  }
 
-    this.deps.resizeSharedWebGLSurface(plotWidth, plotHeight, dpr)
-
-    const vp: Viewport = {
-      viewWidth,
-      viewHeight,
-      plotWidth,
-      plotHeight,
-      scrollLeft,
-      dpr,
-    }
+  /**
+   * 应用视口状态
+   *
+   * 缓存 Viewport 对象并检测字段是否变化，
+   * 有变化时才写入 _viewportSignal 避免触发无关重绘。
+   */
+  private applyViewportState(vp: Viewport): void {
     const prevViewport = this._internalViewport
     const viewportChanged = !prevViewport
       || prevViewport.viewWidth !== vp.viewWidth
@@ -260,7 +296,6 @@ export class ChartViewportManager {
         kGap: current.kGap,
       })
     }
-    return vp
   }
 
   /**
