@@ -30,8 +30,8 @@ function calcSparseExtremes(series: (number | undefined)[], range: { start: numb
     for (let i = range.start; i < end; i++) {
         const v = series[i]
         if (v !== undefined) {
-            min = Math.min(min, v)
-            max = Math.max(max, v)
+            if (v < min) min = v
+            if (v > max) max = v
         }
     }
     return { min, max }
@@ -98,15 +98,16 @@ function calcRecordExtremes(
 ): { min: number; max: number } {
     let min = Infinity
     let max = -Infinity
-    for (const key of Object.keys(series)) {
-        const arr = series[Number(key)]
+    const keys = Object.keys(series)
+    for (let k = 0; k < keys.length; k++) {
+        const arr = series[Number(keys[k]!)]
         if (!arr) continue
         const end = Math.min(range.end, arr.length)
         for (let i = range.start; i < end; i++) {
             const v = arr[i]
             if (v !== undefined) {
-                min = Math.min(min, v)
-                max = Math.max(max, v)
+                if (v < min) min = v
+                if (v > max) max = v
             }
         }
     }
@@ -256,14 +257,15 @@ function calcPointArrayExtremes<T extends object>(
     let min = Infinity
     let max = -Infinity
     const end = Math.min(range.end, series.length)
+    const fieldLen = fields.length
     for (let i = range.start; i < end; i++) {
         const p = series[i]
         if (p) {
-            for (const field of fields) {
-                const v = p[field]
-                if (typeof v === 'number' && Number.isFinite(v)) {
-                    min = Math.min(min, v)
-                    max = Math.max(max, v)
+            for (let j = 0; j < fieldLen; j++) {
+                const v = p[fields[j]!]
+                if (v !== undefined) {
+                    if (v < min) min = v
+                    if (v > max) max = v
                 }
             }
         }
