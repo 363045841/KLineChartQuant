@@ -208,7 +208,7 @@ export class ChartBridge {
 
     this.reconnectTimer = setTimeout(() => {
       if (!this.destroyed) {
-        this.connect()
+        this.connect().catch(() => {})
       }
     }, delay)
   }
