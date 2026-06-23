@@ -76,7 +76,11 @@ let cachedData: KLineData[] | null = null
  * 检测数据引用是否变化，自动重建前缀和
  */
 function getPrefixSum(data: KLineData[]): VolumePrefixSum {
-  if (!globalPrefixSum || cachedData !== data) {
+  if (
+    !globalPrefixSum
+    || cachedData !== data
+    || cachedData.length !== data.length
+  ) {
     globalPrefixSum = new VolumePrefixSum()
     globalPrefixSum.build(data)
     cachedData = data
@@ -159,8 +163,7 @@ export function analyzeVolumePriceRelationBatch(
   endIndex: number,
   config: VolumePriceConfig = DEFAULT_VOLUME_PRICE_CONFIG
 ): VolumePriceRelation[] {
-  const prefixSum = new VolumePrefixSum()
-  prefixSum.build(data)
+  const prefixSum = getPrefixSum(data)
 
   const results: VolumePriceRelation[] = []
   const { volumeAmplifyThreshold, volumeShrinkThreshold, avgPeriod } = config
