@@ -620,12 +620,19 @@ export function createBandVisibleStateComposer<T extends object>(
             }
         }
 
-        const minExtremes = calcPointArrayExtremes(source.series, [minField], visibleRange)
-        const maxExtremes = calcPointArrayExtremes(source.series, [maxField], visibleRange)
-        const extremes = {
-            min: minExtremes.min,
-            max: maxExtremes.max,
+        let min = Infinity
+        let max = -Infinity
+        const bandEnd = Math.min(visibleRange.end, source.series.length)
+        for (let i = visibleRange.start; i < bandEnd; i++) {
+            const p = source.series[i]
+            if (p) {
+                const vMin = p[minField]
+                if (vMin !== undefined && vMin < min) min = vMin
+                const vMax = p[maxField]
+                if (vMax !== undefined && vMax > max) max = vMax
+            }
         }
+        const extremes = { min, max }
         const bounds = computeMAFamilyBounds(
             Number.isFinite(extremes.min) && Number.isFinite(extremes.max) ? extremes : null,
             emptyState,
