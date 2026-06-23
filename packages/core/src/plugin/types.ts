@@ -338,6 +338,10 @@ export interface RenderContext {
   colorPresetSettings?: import('../tokens').ColorPresetSettings
   /** 预计算的 Y 轴刻度列表（统一像素均匀分布 → yToPrice 反算），所有 Y 轴渲染器共用 */
   yAxisTicks?: YAxisTick[]
+  /** 预计算的月份键值数组（year*12+month），与 data 长度一致，由 DataBuffer 在数据加载时计算 */
+  monthKeys?: Int32Array
+  /** 预计算的日期键值数组（year*366+dayOfYear），与 data 长度一致，由 DataBuffer 在数据加载时计算 */
+  dayKeys?: Int32Array
 }
 
 export type DrawingAnchor = {

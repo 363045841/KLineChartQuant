@@ -53,6 +53,10 @@ export interface TimeAxisOptions {
     kLineCenters: number[]
     /** 数据索引可见范围 { start, end } */
     visibleRange: { start: number; end: number }
+    /** 预计算的月份键值数组（year*12+month），与 data 长度一致 */
+    monthKeys?: Int32Array
+    /** 预计算的日期键值数组（year*366+dayOfYear），与 data 长度一致 */
+    dayKeys?: Int32Array
 }
 
 export interface LastPriceLineOptions {
@@ -337,10 +341,10 @@ export function drawTimeAxis(ctx: CanvasRenderingContext2D, opts: TimeAxisOption
       }
       labelFn = (ts) => ({ text: formatTimeLabel(ts), isYear: false })
     } else if (isMinuteData) {
-      boundaries = findDayBoundaries(data)
+      boundaries = findDayBoundaries(data, opts.dayKeys)
       labelFn = formatDay
     } else {
-      boundaries = findMonthBoundaries(data)
+      boundaries = findMonthBoundaries(data, opts.monthKeys)
       labelFn = formatMonthOrYear
     }
 

@@ -42,7 +42,7 @@ export function createGridLinesRendererPlugin(): RendererPlugin {
                 }
             }
 
-            const boundaries = findMonthBoundaries(klineData)
+            const boundaries = findMonthBoundaries(klineData, context.monthKeys)
 
             for (const idx of boundaries) {
                 if (idx < range.start || idx >= range.end || idx >= klineData.length) continue

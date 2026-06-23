@@ -510,6 +510,8 @@ export class ChartRenderer {
         theme: this.deps.getTheme(),
         isAsiaMarket: this.settings.isAsiaMarket as boolean,
         colorPresetSettings: this.settings.colorPresetSettings,
+        monthKeys: dataManager.getMonthKeys() ?? undefined,
+        dayKeys: dataManager.getDayKeys() ?? undefined,
       }
 
       {
@@ -567,6 +569,7 @@ export class ChartRenderer {
     }
     if (xAxisCtx) {
       const opt = this.deps.getOption()
+      const dataManager = this.deps.getDataManager()
       const timeAxisContext: RenderContext = {
         ctx: xAxisCtx,
         pane: {
@@ -595,8 +598,8 @@ export class ChartRenderer {
           },
           priceRange: { maxPrice: 0, minPrice: 0 },
         },
-        period: this.deps.getDataManager().currentPeriod,
-        data: this.deps.getDataManager().getRenderData(),
+        period: dataManager.currentPeriod,
+        data: dataManager.getRenderData(),
         range,
         scrollLeft: vp.scrollLeft,
         kWidth: opt.kWidth,
@@ -618,6 +621,8 @@ export class ChartRenderer {
         theme: this.deps.getTheme(),
         isAsiaMarket: this.settings.isAsiaMarket as boolean,
         colorPresetSettings: this.settings.colorPresetSettings,
+        monthKeys: dataManager.getMonthKeys() ?? undefined,
+        dayKeys: dataManager.getDayKeys() ?? undefined,
       }
       const errors = this.deps.getRendererPluginManager().renderPlugin('timeAxis', timeAxisContext)
       if (errors.length > 0) {

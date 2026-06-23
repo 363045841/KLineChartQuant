@@ -207,7 +207,10 @@ let _cacheResult: number[] = []
  * 查找每个月份第一个K线的索引
  * 结果按数据引用缓存，同一份数据多次调用直接返回缓存
  */
-export function findMonthBoundaries(data: Array<{ timestamp: number } | undefined>): number[] {
+export function findMonthBoundaries(
+    data: Array<{ timestamp: number } | undefined>,
+    monthKeys?: Int32Array,
+): number[] {
     if (data.length === 0) return []
 
     // 缓存命中：同一引用 + 同长度 + 首尾时间戳不变
@@ -220,12 +223,12 @@ export function findMonthBoundaries(data: Array<{ timestamp: number } | undefine
     }
 
     const boundaries: number[] = [0]
-    let lastKey = monthKey(data[0]!.timestamp)
+    let lastKey = monthKeys ? monthKeys[0] : monthKey(data[0]!.timestamp)
 
     for (let i = 1; i < data.length; i++) {
         const cur = data[i]
         if (!cur) continue
-        const curKey = monthKey(cur.timestamp)
+        const curKey = monthKeys ? monthKeys[i] : monthKey(cur.timestamp)
         if (curKey !== lastKey) {
             boundaries.push(i)
             lastKey = curKey
@@ -245,16 +248,19 @@ export function findMonthBoundaries(data: Array<{ timestamp: number } | undefine
 /**
  * 查找每天第一个K线的索引
  */
-export function findDayBoundaries(data: Array<{ timestamp: number } | undefined>): number[] {
+export function findDayBoundaries(
+    data: Array<{ timestamp: number } | undefined>,
+    dayKeys?: Int32Array,
+): number[] {
     if (data.length === 0) return []
 
     const boundaries: number[] = [0]
-    let lastKey = dayKey(data[0]!.timestamp)
+    let lastKey = dayKeys ? dayKeys[0] : dayKey(data[0]!.timestamp)
 
     for (let i = 1; i < data.length; i++) {
         const cur = data[i]
         if (!cur) continue
-        const curKey = dayKey(cur.timestamp)
+        const curKey = dayKeys ? dayKeys[i] : dayKey(cur.timestamp)
         if (curKey !== lastKey) {
             boundaries.push(i)
             lastKey = curKey

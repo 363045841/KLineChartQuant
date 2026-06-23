@@ -63,6 +63,8 @@ export class DataBuffer implements DataBufferLike {
     private _pendingFetch: Promise<void> | null = null
     private _disposed = false
     private _attemptedBoundaries: Set<number> = new Set()
+    private _monthKeys: Int32Array | null = null
+    private _dayKeys: Int32Array | null = null
 
     onPrepend: ((count: number) => void) | null = null
 
@@ -91,6 +93,33 @@ export class DataBuffer implements DataBufferLike {
         return this._data
     }
 
+    getMonthKeys(): Int32Array | null {
+        return this._monthKeys
+    }
+
+    getDayKeys(): Int32Array | null {
+        return this._dayKeys
+    }
+
+    private _precomputeKeys(): void {
+        const n = this._data.length
+        if (n === 0) {
+            this._monthKeys = null
+            this._dayKeys = null
+            return
+        }
+        const monthKeys = new Int32Array(n)
+        const dayKeys = new Int32Array(n)
+        for (let i = 0; i < n; i++) {
+            const d = new Date(this._data[i]!.timestamp)
+            monthKeys[i] = d.getFullYear() * 12 + d.getMonth()
+            const yearStart = new Date(d.getFullYear(), 0, 0)
+            dayKeys[i] = d.getFullYear() * 366 + Math.floor((d.getTime() - yearStart.getTime()) / 86400000)
+        }
+        this._monthKeys = monthKeys
+        this._dayKeys = dayKeys
+    }
+
     setFetcher(fetcher: DataFetcher | null): void {
         this._fetcher = fetcher
     }
@@ -104,6 +133,8 @@ export class DataBuffer implements DataBufferLike {
         this._data = []
         this._loadedWindow = null
         this._attemptedBoundaries.clear()
+        this._monthKeys = null
+        this._dayKeys = null
         this._dataSignal.set([])
         if (initialStartTs !== undefined) {
             this.loadInitialRange(initialStartTs, Date.now())
@@ -199,6 +230,7 @@ export class DataBuffer implements DataBufferLike {
 
                 this._data = merged
                 this._dataSignal.set([...merged])
+                this._precomputeKeys()
 
                 if (merged.length > 0) {
                     const newEarliest = merged[0]!.timestamp
@@ -262,6 +294,7 @@ export class DataBuffer implements DataBufferLike {
             this._loadedWindow = null
         }
         this._attemptedBoundaries.clear()
+        this._precomputeKeys()
     }
 
     /**
@@ -277,5 +310,7 @@ export class DataBuffer implements DataBufferLike {
         this._data = []
         this._loadedWindow = null
         this._attemptedBoundaries.clear()
+        this._monthKeys = null
+        this._dayKeys = null
     }
 }

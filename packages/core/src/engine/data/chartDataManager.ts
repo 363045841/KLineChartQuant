@@ -368,6 +368,14 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
     return [...this._dataSignal.peek()]
   }
 
+  getMonthKeys(): Int32Array | null {
+    return this.getActiveDataBuffer()?.getMonthKeys() ?? null
+  }
+
+  getDayKeys(): Int32Array | null {
+    return this.getActiveDataBuffer()?.getDayKeys() ?? null
+  }
+
   getTimeShareData(): TimeShareData[] {
     const buf = this.getActiveTimeShareBuffer()
     return buf ? buf.getRawData() : []
