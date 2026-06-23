@@ -10,29 +10,76 @@ import type { PrimitiveRendererSet } from './index'
 import type { KLineData } from '../../types/price'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
 
+type SafeViewport = { scrollLeft: number; plotWidth: number; plotHeight: number }
+type ToScreenFn = (anchor: { index: number; price: number }) => { x: number; y: number }
+
+function resolveViewport(context: RenderContext, paneHeight: number): SafeViewport {
+  return context.viewport ?? {
+    scrollLeft: context.scrollLeft,
+    plotWidth: context.paneWidth,
+    plotHeight: paneHeight,
+  }
+}
+
+function createToScreen(
+  kWidth: number, kGap: number, dpr: number,
+  pane: RenderContext['pane'], viewport: SafeViewport
+): ToScreenFn {
+  const { startXPx, unitPx } = getPhysicalKLineConfig(kWidth, kGap, dpr)
+  return (anchor) => {
+    if (!Number.isFinite(anchor.index) || anchor.index < 0) {
+      return { x: -kWidth, y: pane.yAxis.priceToY(anchor.price) }
+    }
+    const x = (startXPx + anchor.index * unitPx + (unitPx - 1) / 2) / dpr - viewport.scrollLeft
+    return { x, y: pane.yAxis.priceToY(anchor.price) }
+  }
+}
+
+function renderPrimitives(
+  ctx: CanvasRenderingContext2D,
+  primitives: DrawingPrimitive[],
+  renderers: PrimitiveRendererSet,
+  viewportClip: { left: number; top: number; right: number; bottom: number },
+  dpr: number
+): void {
+  for (const primitive of primitives) {
+    if (primitive.kind === 'point') {
+      renderers.point(ctx, primitive, dpr)
+      continue
+    }
+    if (primitive.kind === 'line') {
+      renderers.line(ctx, primitive, viewportClip, dpr)
+      continue
+    }
+    if (primitive.kind === 'area') {
+      renderers.area(ctx, primitive, dpr)
+      continue
+    }
+    renderers.text(ctx, primitive, dpr)
+  }
+}
+
 /**
- * 为选中的绘图推送锚点轴标签
- * 提取为独立函数供主插件和 overlay 插件共用
+ * 查找当前选中且在指定 pane 内的绘图
  */
-function pushSelectedDrawingLabels(
+function findSelectedAnchorDrawing(
   store: DrawingStore,
   definitions: DrawingDefinitionRegistry,
-  context: RenderContext,
   pane: RenderContext['pane'],
   seriesData: KLineData[],
   range: RenderContext['range'],
+  context: RenderContext,
   kWidth: number,
   kGap: number,
   dpr: number,
-  viewport: NonNullable<RenderContext['viewport']>,
-  startXPx: number,
-  unitPx: number
-): void {
+  viewport: SafeViewport,
+  toScreen: ToScreenFn
+) {
   const selectedId = store.getSelectedId()
-  if (!selectedId) return
+  if (!selectedId) return null
 
   const selectedDrawing = store.getAll().find(d => d.id === selectedId)
-  if (!selectedDrawing || !selectedDrawing.visible || selectedDrawing.paneId !== pane.id) return
+  if (!selectedDrawing || !selectedDrawing.visible || selectedDrawing.paneId !== pane.id) return null
 
   const geometry = definitions.compute(selectedDrawing, {
     pane,
@@ -47,65 +94,88 @@ function pushSelectedDrawingLabels(
     dpr,
     paneWidth: context.paneWidth,
     viewport,
-    toScreen(anchor) {
-      if (!Number.isFinite(anchor.index) || anchor.index < 0) {
-        return { x: -kWidth, y: pane.yAxis.priceToY(anchor.price) }
-      }
-      const x = (startXPx + anchor.index * unitPx + (unitPx - 1) / 2) / dpr - viewport.scrollLeft
-      return { x, y: pane.yAxis.priceToY(anchor.price) }
-    },
+    toScreen,
   })
+  if (!geometry) return null
 
-  if (!geometry) return
-
-  // 只在价格 pane 时添加标签
-  if (pane.role !== 'price') return
-
-  // 合并用户锚点和计算锚点
   const allAnchors = [...selectedDrawing.anchors, ...(geometry.computedAnchors ?? [])]
-  if (allAnchors.length === 0) return
+  if (allAnchors.length === 0) return null
 
-  // 计算锚点价格范围，用于Y轴价格范围带
-  if (allAnchors.length >= 2) {
-    let minP = Infinity, maxP = -Infinity
-    for (const a of allAnchors) {
-      if (!Number.isFinite(a.price)) continue
+  return { drawing: selectedDrawing, allAnchors }
+}
+
+/**
+ * 单次遍历锚点，同时计算价格范围和索引范围，推送到 context
+ */
+function pushAnchorBands(
+  allAnchors: ReadonlyArray<{ price: number; index: number }>,
+  context: RenderContext,
+  pane: RenderContext['pane'],
+  style: DrawingStyle | undefined,
+  startXPx: number,
+  unitPx: number,
+  dpr: number
+): void {
+  if (allAnchors.length < 2) return
+
+  let minP = Infinity, maxP = -Infinity
+  let minIdx = Infinity, maxIdx = -Infinity
+
+  for (const a of allAnchors) {
+    if (Number.isFinite(a.price)) {
       if (a.price < minP) minP = a.price
       if (a.price > maxP) maxP = a.price
     }
-    if (Number.isFinite(minP) && Number.isFinite(maxP) && minP !== maxP) {
-      if (!context.yAxisRanges) context.yAxisRanges = []
-      context.yAxisRanges.push({
-        topY: pane.yAxis.priceToY(maxP),
-        bottomY: pane.yAxis.priceToY(minP),
-        color: selectedDrawing.style?.stroke ?? '#2962ff',
-        opacity: 0.15,
-      })
-    }
-  }
-
-  // 计算锚点X坐标范围，用于X轴时间范围带
-  if (allAnchors.length >= 2) {
-    let minIdx = Infinity, maxIdx = -Infinity
-    for (const a of allAnchors) {
-      if (!Number.isFinite(a.index) || a.index < 0) continue
+    if (Number.isFinite(a.index) && a.index >= 0) {
       if (a.index < minIdx) minIdx = a.index
       if (a.index > maxIdx) maxIdx = a.index
     }
-    if (Number.isFinite(minIdx) && Number.isFinite(maxIdx) && minIdx !== maxIdx) {
-      if (!context.xAxisRanges) context.xAxisRanges = []
-      const leftX = (startXPx + minIdx * unitPx + (unitPx - 1) / 2) / dpr
-      const rightX = (startXPx + maxIdx * unitPx + (unitPx - 1) / 2) / dpr
-      context.xAxisRanges.push({
-        leftX,
-        rightX,
-        color: selectedDrawing.style?.stroke ?? '#2962ff',
-        opacity: 0.15,
-      })
-    }
   }
 
-  // 辅助函数：根据index获取时间戳
+  const strokeColor = style?.stroke ?? '#2962ff'
+
+  if (Number.isFinite(minP) && Number.isFinite(maxP) && minP !== maxP) {
+    if (!context.yAxisRanges) context.yAxisRanges = []
+    context.yAxisRanges.push({
+      topY: pane.yAxis.priceToY(maxP),
+      bottomY: pane.yAxis.priceToY(minP),
+      color: strokeColor,
+      opacity: 0.15,
+    })
+  }
+
+  if (Number.isFinite(minIdx) && Number.isFinite(maxIdx) && minIdx !== maxIdx) {
+    if (!context.xAxisRanges) context.xAxisRanges = []
+    const leftX = (startXPx + minIdx * unitPx + (unitPx - 1) / 2) / dpr
+    const rightX = (startXPx + maxIdx * unitPx + (unitPx - 1) / 2) / dpr
+    context.xAxisRanges.push({
+      leftX,
+      rightX,
+      color: strokeColor,
+      opacity: 0.15,
+    })
+  }
+}
+
+/**
+ * 遍历锚点，推送 Y 轴和 X 轴标签
+ */
+function pushAnchorLabels(
+  allAnchors: ReadonlyArray<{ index: number; price: number; time?: number | string }>,
+  context: RenderContext,
+  pane: RenderContext['pane'],
+  viewport: SafeViewport,
+  kWidth: number,
+  style: DrawingStyle | undefined,
+  seriesData: KLineData[],
+  startXPx: number,
+  unitPx: number,
+  dpr: number
+): void {
+  if (pane.role !== 'price') return
+
+  const strokeColor = style?.stroke ?? '#2962ff'
+
   const getTimestampForIndex = (idx: number): number | null => {
     if (idx >= 0 && idx < seriesData.length) {
       return seriesData[idx]?.timestamp ?? null
@@ -121,7 +191,6 @@ function pushSelectedDrawingLabels(
     return null
   }
 
-  // 推送每个锚点的标签
   for (const anchor of allAnchors) {
     if (!Number.isFinite(anchor.index) || !Number.isFinite(anchor.price)) continue
 
@@ -133,7 +202,6 @@ function pushSelectedDrawingLabels(
       return { x, y: pane.yAxis.priceToY(anchor.price) }
     })()
 
-    // Y轴标签
     if (screenPoint.y >= 0 && screenPoint.y <= pane.height) {
       if (!context.yAxisLabels) context.yAxisLabels = []
       context.yAxisLabels.push({
@@ -141,14 +209,13 @@ function pushSelectedDrawingLabels(
         price: anchor.price,
         y: screenPoint.y,
         style: {
-          bgColor: selectedDrawing.style?.stroke ?? '#2962ff',
-          borderColor: selectedDrawing.style?.stroke ?? '#2962ff',
+          bgColor: strokeColor,
+          borderColor: strokeColor,
           textColor: '#ffffff',
         }
       })
     }
 
-    // X轴标签
     if (screenPoint.x >= -kWidth && screenPoint.x <= viewport.plotWidth + kWidth) {
       const timestamp = anchor.time
         ? (typeof anchor.time === 'string' ? new Date(anchor.time).getTime() : anchor.time)
@@ -161,12 +228,38 @@ function pushSelectedDrawingLabels(
         timestamp,
         x: screenPoint.x + viewport.scrollLeft,
         style: {
-          bgColor: selectedDrawing.style?.stroke ?? '#2962ff',
+          bgColor: strokeColor,
           textColor: '#ffffff',
         }
       })
     }
   }
+}
+
+/**
+ * 为选中的绘图推送锚点轴标签
+ * 提取为独立函数供主插件和 overlay 插件共用
+ */
+function pushSelectedDrawingLabels(
+  store: DrawingStore,
+  definitions: DrawingDefinitionRegistry,
+  context: RenderContext,
+  pane: RenderContext['pane'],
+  seriesData: KLineData[],
+  range: RenderContext['range'],
+  kWidth: number,
+  kGap: number,
+  dpr: number,
+  viewport: SafeViewport,
+  startXPx: number,
+  unitPx: number
+): void {
+  const toScreen = createToScreen(kWidth, kGap, dpr, pane, viewport)
+  const found = findSelectedAnchorDrawing(store, definitions, pane, seriesData, range, context, kWidth, kGap, dpr, viewport, toScreen)
+  if (!found) return
+
+  pushAnchorBands(found.allAnchors, context, pane, found.drawing.style, startXPx, unitPx, dpr)
+  pushAnchorLabels(found.allAnchors, context, pane, viewport, kWidth, found.drawing.style, seriesData, startXPx, unitPx, dpr)
 }
 
 /**
@@ -193,11 +286,7 @@ export function createDrawingRendererPlugin(options: {
     priority: 55,
     draw(context: RenderContext) {
       const { ctx, pane, data, range, dpr, paneWidth, kLinePositions, kLineCenters, kBarRects, kWidth, kGap } = context
-      const viewport = context.viewport ?? {
-        scrollLeft: context.scrollLeft,
-        plotWidth: paneWidth,
-        plotHeight: pane.height,
-      }
+      const viewport = resolveViewport(context, pane.height)
       const seriesData = data as KLineData[]
       const visibleData = seriesData.slice(range.start, range.end)
       const drawings = store.getVisibleByPane(pane.id)
@@ -209,6 +298,7 @@ export function createDrawingRendererPlugin(options: {
         right: viewport.plotWidth,
         bottom: pane.height,
       }
+      const toScreen = createToScreen(kWidth, kGap, dpr, pane, viewport)
 
       ctx.save()
       ctx.beginPath()
@@ -229,14 +319,7 @@ export function createDrawingRendererPlugin(options: {
           dpr,
           paneWidth,
           viewport,
-          toScreen(anchor) {
-            const { startXPx, unitPx } = getPhysicalKLineConfig(kWidth, kGap, dpr)
-            if (!Number.isFinite(anchor.index) || anchor.index < 0) {
-              return { x: -kWidth, y: pane.yAxis.priceToY(anchor.price) }
-            }
-            const x = (startXPx + anchor.index * unitPx + (unitPx - 1) / 2) / dpr - viewport.scrollLeft
-            return { x, y: pane.yAxis.priceToY(anchor.price) }
-          },
+          toScreen,
         })
         if (!geometry) continue
 
@@ -245,22 +328,7 @@ export function createDrawingRendererPlugin(options: {
           ? geometry.primitives.map((p) => applySelectedStyle(p, drawing.style))
           : geometry.primitives
 
-        // 绘制形状（不再推送轴标签，标签由 overlay 插件负责）
-        for (const primitive of primitives) {
-          if (primitive.kind === 'point') {
-            renderers.point(ctx, primitive, dpr)
-            continue
-          }
-          if (primitive.kind === 'line') {
-            renderers.line(ctx, primitive, viewportClip, dpr)
-            continue
-          }
-          if (primitive.kind === 'area') {
-            renderers.area(ctx, primitive, dpr)
-            continue
-          }
-          renderers.text(ctx, primitive, dpr)
-        }
+        renderPrimitives(ctx, primitives, renderers, viewportClip, dpr)
       }
 
       ctx.restore()
@@ -297,15 +365,10 @@ export function createDrawingLabelOverlayPlugin(options: {
     priority: -24, // 比主绘图层稍晚，确保在其他 overlay 插件之后
     draw(context: RenderContext) {
       const { pane, data, range, dpr, paneWidth, kWidth, kGap } = context
-      const viewport = context.viewport ?? {
-        scrollLeft: context.scrollLeft,
-        plotWidth: paneWidth,
-        plotHeight: pane.height,
-      }
+      const viewport = resolveViewport(context, pane.height)
       const seriesData = data as KLineData[]
       const { startXPx, unitPx } = getPhysicalKLineConfig(kWidth, kGap, dpr)
 
-      // 推送选中绘图的锚点标签
       pushSelectedDrawingLabels(
         store,
         definitions,
