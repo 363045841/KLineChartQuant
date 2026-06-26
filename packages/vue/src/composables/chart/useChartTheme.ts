@@ -3,7 +3,7 @@
  * tooltip up/down colors, and auto theme detection via prefers-color-scheme.
  * Handles settings persistence through ChartController.updateSettingsFacade.
  */
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import type { Ref } from 'vue'
 import {
   resolveThemeColors,
@@ -39,6 +39,14 @@ export function useChartTheme(ctrl: Ref<ChartController | null>) {
     return themeToCssVars(theme)
   })
 
+  watch(
+    themeCssVars,
+    (vars) => {
+      document.body.style.backgroundColor = vars['--klc-color-background'] ?? ''
+    },
+    { immediate: true },
+  )
+
   let autoThemeMediaQuery: MediaQueryList | null = null
 
   function onSystemThemeChange(e: MediaQueryListEvent) {
@@ -73,6 +81,7 @@ export function useChartTheme(ctrl: Ref<ChartController | null>) {
   onUnmounted(() => {
     autoThemeMediaQuery?.removeEventListener('change', onSystemThemeChange)
     autoThemeMediaQuery = null
+    document.body.style.backgroundColor = ''
   })
 
   return {

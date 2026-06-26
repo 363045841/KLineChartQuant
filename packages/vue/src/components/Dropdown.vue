@@ -286,7 +286,7 @@ onBeforeUnmount(close)
 }
 
 .dropdown__option.is-selected {
-  color: var(--klc-color-up);
+  color: var(--klc-color-candle-up-body);
   font-weight: 700;
 }
 

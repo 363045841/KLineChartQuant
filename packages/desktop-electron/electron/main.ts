@@ -12,7 +12,7 @@ function createWindow(): void {
     minHeight: 600,
     show: false,
     webPreferences: {
-      preload: join(__dirname, 'preload.mjs'),
+      preload: join(__dirname, '../preload/preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
