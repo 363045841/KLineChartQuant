@@ -77,9 +77,16 @@ export class ChartViewportManager {
 
   /** 获取有效 DPR */
   getEffectiveDpr(): number {
-    let dpr = this.preciseDpr > 0
-      ? this.preciseDpr
-      : Math.round((window.devicePixelRatio || 1) * 64) / 64
+    let dpr: number
+    if (typeof navigator !== 'undefined' && navigator.userAgent.includes('Electron')) {
+      // Electron 桌面客户端：操作系统 DPR 是精确值，避免 contentBoxSize 亚像素导致的分式误差
+      dpr = window.devicePixelRatio || 1
+    } else {
+      // 浏览器：优先使用 ResizeObserver devicePixelContentBoxSize 提供的精确 DPR
+      dpr = this.preciseDpr > 0
+        ? this.preciseDpr
+        : Math.round((window.devicePixelRatio || 1) * 64) / 64
+    }
     if (dpr < 1) dpr = 1
     return dpr
   }
