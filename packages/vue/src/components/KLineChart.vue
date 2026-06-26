@@ -315,10 +315,7 @@ function onSymbolChange(item: SymbolItem) {
   symbolStatus.value = 'loading'
   const current = controller.value?.symbols.peek() ?? []
   const comparisonSpecs = current.slice(1)
-  controller.value?.setSymbols([
-    toSymbolSpec(item),
-    ...comparisonSpecs,
-  ])
+  controller.value?.setSymbols([toSymbolSpec(item), ...comparisonSpecs])
 }
 
 function onAddOverlaySymbol(item: SymbolItem) {
@@ -916,18 +913,18 @@ function setupChartCallbacks(ctrl: ChartController): () => void {
   })
 
   return () => {
-      unsubscribeViewport()
-      unsubscribeData()
-      unsubscribeDataLoading()
-      unsubscribePaneRatios()
-      unsubscribePaneLayout()
-      unsubscribeTheme()
-      unsubscribeIndicators()
-      unsubscribeComparisonColors()
-      unsubscribeComparisonLoading()
-      unsubscribeSymbols()
-    }
+    unsubscribeViewport()
+    unsubscribeData()
+    unsubscribeDataLoading()
+    unsubscribePaneRatios()
+    unsubscribePaneLayout()
+    unsubscribeTheme()
+    unsubscribeIndicators()
+    unsubscribeComparisonColors()
+    unsubscribeComparisonLoading()
+    unsubscribeSymbols()
   }
+}
 
 function applyInitialSettings(ctrl: ChartController): void {
   const initialSettings = toolbarRef.value?.getSettings() ?? { showVolumePriceMarkers: true }
@@ -990,7 +987,13 @@ onMounted(async () => {
   const xAxisCanvas = container.querySelector<HTMLCanvasElement>('.x-axis-canvas')
   const rightAxisLayer = chartMain.querySelector<HTMLDivElement>('.right-axis-host')
   const leftAxisLayer = chartMain.querySelector<HTMLDivElement>('.left-axis-host') ?? undefined
-  const ctrl = await initChart(container, canvasLayer!, rightAxisLayer!, xAxisCanvas!, leftAxisLayer)
+  const ctrl = await initChart(
+    container,
+    canvasLayer!,
+    rightAxisLayer!,
+    xAxisCanvas!,
+    leftAxisLayer,
+  )
   if (!containerRef.value || !chartMainRef.value) return // 组件已卸载
   controller.value = ctrl
 
@@ -1287,7 +1290,6 @@ watch(
     gap: 4px;
   }
 }
-
 </style>
 
 <style>

@@ -193,9 +193,13 @@ body {
 .embed-container {
   flex: 1;
   min-height: 0;
-  margin: 0 16px;
   border-radius: 8px;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  --kmap-chart-height: 100%;
+  --kmap-chart-width: 100%;
 }
 
 .embed-container:fullscreen,

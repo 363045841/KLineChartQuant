@@ -18,7 +18,7 @@ export default defineConfig({
     build: {
       rollupOptions: {
         input: entry('electron/main.ts'),
-        external: ['electron-store'],
+        external: ['electron', 'electron-store'],
       },
     },
   },

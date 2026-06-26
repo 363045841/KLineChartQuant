@@ -215,7 +215,7 @@ const showModal = ref(false)
 
 const sizeIndex = ref(0)
 const sizes = [
-  { w: '95%', h: '95%' },
+  { w: '100%', h: '100%' },
   { w: '800px', h: '500px' },
   { w: '600px', h: '400px' },
   { w: '100%', h: '300px' },
@@ -397,9 +397,13 @@ function onToggleCustomData() {
 .embed-container {
   flex: 1;
   min-height: 0;
-  margin: 0 16px;
   border-radius: 8px;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  --kmap-chart-height: 100%;
+  --kmap-chart-width: 100%;
 }
 
 .embed-container:fullscreen,
