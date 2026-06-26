@@ -128,3 +128,6 @@ Never guess at Effect patterns - check the guide first.
 - **Semantic renderer names** (e.g. `ma`, `boll`) are stringly-typed conventions — renaming requires sync in `semantic/controller.ts`.
 - **Web component build**: `pnpm build:wc` in packages/vue (cross-env BUILD_TARGET=web-component).
 
+## ATTENTION
+- You can only commit when I explicitly ask you to do it.
+
