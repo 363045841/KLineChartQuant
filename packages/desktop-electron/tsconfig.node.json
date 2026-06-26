@@ -1,0 +1,14 @@
+{
+  "extends": "@tsconfig/node24/tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "./out",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["electron-vite/node"]
+  },
+  "include": [
+    "electron/**/*.ts",
+    "vite.config.ts"
+  ]
+}

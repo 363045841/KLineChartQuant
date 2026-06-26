@@ -1,0 +1,39 @@
+appId: com.klinechart.desktop
+productName: KLineChart Quant
+copyright: Copyright (c) 2026 363045841
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - out/**/*
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  artifactName: ${productName}-${version}.${ext}
+
+publish: null

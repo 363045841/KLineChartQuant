@@ -1,0 +1,130 @@
+import { fileURLToPath } from 'node:url'
+import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
+import vue from '@vitejs/plugin-vue'
+import Icons from 'unplugin-icons/vite'
+import babel from 'vite-plugin-babel'
+
+const root = fileURLToPath(new URL('../..', import.meta.url))
+
+function r(rest: string): string {
+  return `${root}/packages/core/src/${rest}`
+}
+
+const entry = (path: string) => fileURLToPath(new URL(path, import.meta.url))
+
+export default defineConfig({
+  main: {
+    plugins: [externalizeDepsPlugin()],
+    build: {
+      rollupOptions: {
+        input: entry('electron/main.ts'),
+        external: ['electron-store'],
+      },
+    },
+  },
+  preload: {
+    plugins: [externalizeDepsPlugin()],
+    build: {
+      rollupOptions: {
+        input: entry('electron/preload.ts'),
+      },
+    },
+  },
+  renderer: {
+    root: '.',
+    plugins: [
+      babel({
+        include: [/\/packages\/core\/src\/.*\.tsx?$/],
+        exclude: [/node_modules/],
+        babelConfig: {
+          babelrc: false,
+          configFile: false,
+          sourceMaps: true,
+          plugins: [
+            ['@babel/plugin-proposal-decorators', { version: '2023-11' }],
+            ['@babel/plugin-transform-typescript', { allowDeclareFields: true }],
+          ],
+        },
+      }),
+      vue(),
+      Icons({ compiler: 'vue3', autoInstall: true }),
+    ],
+    build: {
+      rollupOptions: {
+        input: entry('index.html'),
+      },
+    },
+    resolve: {
+      alias: [
+        {
+          find: /^@363045841yyt\/klinechart-core\/config$/,
+          replacement: r('config/chartSettings.ts'),
+        },
+        {
+          find: /^@363045841yyt\/klinechart-core\/types\/price$/,
+          replacement: r('types/price.ts'),
+        },
+        {
+          find: /^@363045841yyt\/klinechart-core\/semantic$/,
+          replacement: r('semantic/index.ts'),
+        },
+        {
+          find: /^@363045841yyt\/klinechart-core\/plugin$/,
+          replacement: r('plugin/index.ts'),
+        },
+        {
+          find: /^@363045841yyt\/klinechart-core\/reactivity$/,
+          replacement: r('reactivity/index.ts'),
+        },
+        {
+          find: /^@363045841yyt\/klinechart-core\/controllers$/,
+          replacement: r('controllers/index.ts'),
+        },
+        {
+          find: /^@363045841yyt\/klinechart-core\/engine\/chart$/,
+          replacement: r('engine/chart.ts'),
+        },
+        {
+          find: /^@363045841yyt\/klinechart-core\/indicators$/,
+          replacement: r('engine/indicators/indicatorDefinitionRegistry.ts'),
+        },
+        {
+          find: /^@363045841yyt\/klinechart-core\/engine\/utils\/zoom$/,
+          replacement: r('engine/utils/zoom.ts'),
+        },
+        {
+          find: /^@363045841yyt\/klinechart-core\/engine\/utils\/klineConfig$/,
+          replacement: r('engine/utils/klineConfig.ts'),
+        },
+        {
+          find: /^@363045841yyt\/klinechart-core\/engine\/renderers\/Indicator(\/.*)?$/,
+          replacement: `${root}/packages/core/src/engine/renderers/Indicator$1`,
+        },
+        {
+          find: /^@363045841yyt\/klinechart-core\/engine\/renderers\/paneTitle$/,
+          replacement: r('engine/renderers/paneTitle.ts'),
+        },
+        {
+          find: /^@363045841yyt\/klinechart-core\/engine\/controller\/interaction$/,
+          replacement: r('engine/controller/interaction.ts'),
+        },
+        {
+          find: /^@363045841yyt\/klinechart-core\/engine\/drawing$/,
+          replacement: r('engine/drawing/index.ts'),
+        },
+        {
+          find: /^@363045841yyt\/klinechart-core\/version$/,
+          replacement: r('version.ts'),
+        },
+        {
+          find: /^@363045841yyt\/klinechart-core$/,
+          replacement: r('index.ts'),
+        },
+        {
+          find: /^@363045841yyt\/klinechart-ai-runtime$/,
+          replacement: `${root}/packages/ai-runtime/src/browser.ts`,
+        },
+      ],
+    },
+  },
+})
