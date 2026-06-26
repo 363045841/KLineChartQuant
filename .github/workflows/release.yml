@@ -239,3 +239,56 @@ jobs:
           else
             gh release create "$GITHUB_REF_NAME" --notes-file release-notes.md --title "$GITHUB_REF_NAME" $PRERELEASE_FLAG
           fi
+
+  electron-release:
+    needs: release
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.8
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+          cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Cache Electron
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+          key: ${{ runner.os }}-electron-${{ hashFiles('packages/desktop-electron/package.json') }}
+
+      - name: Install system deps (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libfuse2
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build core + vue
+        run: pnpm --filter @363045841yyt/klinechart-core --filter @363045841yyt/klinechart build
+
+      - name: Build & package desktop
+        run: pnpm --filter @363045841yyt/klinechart-desktop build
+
+      - name: Upload artifacts to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          cd packages/desktop-electron/dist
+          case "${{ runner.os }}" in
+            Linux)   pattern="*.AppImage" ;;
+            macOS)   pattern="*.dmg" ;;
+            Windows) pattern="*-Setup-*.exe" ;;
+          esac
+          gh release upload "${{ github.ref_name }}" $pattern --clobber
