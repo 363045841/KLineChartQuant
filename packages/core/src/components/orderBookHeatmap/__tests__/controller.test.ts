@@ -118,7 +118,7 @@ describe('createHeatmapController', () => {
     for (const snap of replayed) {
       const oracle = createOrderBookState({ tickSize: 0.01 })
       for (const d of deltas) {
-        if (d.timestamp <= snap.timestamp) oracle.applyDelta(d)
+        if (d.timestamp < snap.timestamp) oracle.applyDelta(d)
       }
       const expected = oracle.snapshot()
       expect(snap.bids).toEqual(expected.bids)
@@ -149,7 +149,7 @@ describe('createHeatmapController', () => {
 
     // Live midpoint reference: replay BOOK alone, no controller, up to t=80.
     const reference = createOrderBookState({ tickSize: 0.01 })
-    for (const d of deltas) if (d.timestamp <= 80) reference.applyDelta(d)
+    for (const d of deltas) if (d.timestamp < 80) reference.applyDelta(d)
     const refSnap = reference.snapshot()
 
     // Controller-produced replay snapshot at exactly t=80.

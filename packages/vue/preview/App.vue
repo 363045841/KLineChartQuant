@@ -55,8 +55,31 @@
             <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
           </svg>
         </button>
+        <button
+          :class="{ 'is-active': useDepthDemo }"
+          @click="onToggleDepthDemo"
+          title="Toggle Depth Pipeline (Binance SSE → HeatmapController)"
+        >
+          <svg
+            class="debug-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="2" y="10" width="4" height="10" rx="1" />
+            <rect x="10" y="4" width="4" height="16" rx="1" />
+            <rect x="18" y="7" width="4" height="13" rx="1" />
+          </svg>
+        </button>
       </div>
       <div class="debug-right">
+        <span v-if="useDepthDemo" class="depth-status-badge" :class="depthStatusClass">{{
+          depthStatusText
+        }}</span>
         <span class="version-badge">{{ displayVersion }}</span>
         <a
           class="debug-link"
@@ -131,7 +154,13 @@
   import { ref, computed, provide, inject, type Ref, type InjectionKey } from 'vue'
   import KLineChart from '../src/components/KLineChart.vue'
   import { VERSION, CORE_VERSION } from '../src/version'
-  import { type KLineData, type CustomDataSource } from '@363045841yyt/klinechart-core/controllers'
+  import {
+    type KLineData,
+    type CustomDataSource,
+    BinanceSSESource,
+    DepthConnector,
+    createHeatmapController,
+  } from '@363045841yyt/klinechart-core/controllers'
   import { executeTool } from '@363045841yyt/klinechart-ai-runtime'
 
   /** 硬编码演示数据：主品种 CUSTOM.DEMO（15 根日 K） */
@@ -628,6 +657,41 @@
       customData.value = undefined
     }
   }
+
+  // ── 深度行情 Pipeline Demo ──
+  const useDepthDemo = ref(false)
+  const depthStatusText = ref('')
+  const depthStatusClass = ref('')
+  let depthConnector: DepthConnector | null = null
+  let depthController: ReturnType<typeof createHeatmapController> | null = null
+  let depthUnsubState: (() => void) | null = null
+
+  function onToggleDepthDemo() {
+    useDepthDemo.value = !useDepthDemo.value
+    if (useDepthDemo.value) {
+      const source = new BinanceSSESource('btcusdt')
+      depthController = createHeatmapController({ tickSize: 0.01 })
+      depthConnector = new DepthConnector(source)
+      depthConnector.addController(depthController)
+      depthUnsubState = depthController.state.on((s) => {
+        if (s.latestSnapshot) {
+          depthStatusText.value = `depth: ${s.snapshotCount} snapshots · ${s.deltaCount} deltas`
+          depthStatusClass.value = 'depth-connected'
+        } else {
+          depthStatusText.value = 'depth: awaiting data...'
+          depthStatusClass.value = 'depth-awaiting'
+        }
+      })
+      depthConnector.start()
+    } else {
+      depthUnsubState?.()
+      depthUnsubState = null
+      depthConnector?.destroy()
+      depthConnector = null
+      depthController = null
+      depthStatusText.value = ''
+    }
+  }
 </script>
 
 <style>
@@ -686,6 +750,27 @@
     font-family: monospace;
   }
 
+  .depth-status-badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-family: monospace;
+    white-space: nowrap;
+    border: 1px solid;
+  }
+
+  .depth-status-badge.depth-awaiting {
+    background: #fffbe6;
+    border-color: #ffe58f;
+    color: #ad8b00;
+  }
+
+  .depth-status-badge.depth-connected {
+    background: #f6ffed;
+    border-color: #b7eb8f;
+    color: #389e0d;
+  }
+
   .debug-controls button {
     width: 32px;
     height: 32px;
@@ -700,6 +785,12 @@
   }
 
   .debug-controls button:hover {
+    border-color: #1890ff;
+    color: #1890ff;
+  }
+
+  .debug-controls button.is-active {
+    background: #e6f7ff;
     border-color: #1890ff;
     color: #1890ff;
   }
@@ -872,6 +963,12 @@
     color: #60a5fa;
   }
 
+  .app-container[data-theme='dark'] .debug-controls button.is-active {
+    background: #1e3a5f;
+    border-color: #60a5fa;
+    color: #60a5fa;
+  }
+
   .app-container[data-theme='dark'] .version-badge {
     color: #9ca3af;
   }
@@ -879,6 +976,18 @@
   .app-container[data-theme='dark'] .version-badge {
     background: #374151;
     border-color: #4b5563;
+  }
+
+  .app-container[data-theme='dark'] .depth-status-badge.depth-awaiting {
+    background: #2b1d0b;
+    border-color: #5c3a0e;
+    color: #e8b839;
+  }
+
+  .app-container[data-theme='dark'] .depth-status-badge.depth-connected {
+    background: #0b2b1a;
+    border-color: #0e5c2e;
+    color: #52c41a;
   }
 
   .app-container[data-theme='dark'] .embed-container {

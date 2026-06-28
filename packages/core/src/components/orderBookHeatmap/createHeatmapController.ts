@@ -169,7 +169,7 @@ export function createHeatmapController(
     let cursor = 0
     while (nextSnapTs <= toTimestamp) {
       // Apply every delta with ts ≤ nextSnapTs.
-      while (cursor < sorted.length && sorted[cursor].timestamp <= nextSnapTs) {
+      while (cursor < sorted.length && sorted[cursor].timestamp < nextSnapTs) {
         replayBook.applyDelta(sorted[cursor])
         cursor++
       }
