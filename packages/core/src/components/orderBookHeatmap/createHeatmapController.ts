@@ -224,6 +224,23 @@ export function createHeatmapController(
     publish(state.peek().latestSnapshot)
   }
 
+  function resetBook(snapshot: BookSnapshot): void {
+    if (disposed) return
+    book = createOrderBookState({ tickSize: config.tickSize })
+    for (const [price, size] of snapshot.bids) {
+      book.applyDelta({ side: 'bid', price, size, timestamp: snapshot.timestamp })
+    }
+    for (const [price, size] of snapshot.asks) {
+      book.applyDelta({ side: 'ask', price, size, timestamp: snapshot.timestamp })
+    }
+    snapshotClock = null
+    snapshotCount = 0
+    deltaCount = 0
+    ring.clear()
+    archive.clear()
+    publish(book.snapshot())
+  }
+
   function dispose(): void {
     if (disposed) return
     disposed = true
@@ -239,6 +256,7 @@ export function createHeatmapController(
     ingest: ingestDelta,
     ingestDelta,
     forceSnapshot,
+    resetBook,
     replay,
     setConfig,
     dispose,

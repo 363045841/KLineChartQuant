@@ -19,5 +19,8 @@ export {
   KLineFetchService,
   TimeShareFetchService,
 } from './dataBuffer.effects'
+export { BinanceSSESource, DEFAULT_BINANCE_SSE_URL } from './binance'
+export { DepthConnector } from './depthConnector'
+export type { DepthSource, DepthDelta, DepthSnapshot, DepthSourceStatus } from './depthTypes'
 import './gotdx'
 import './tradingview'

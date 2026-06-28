@@ -232,4 +232,133 @@ describe('createHeatmapController', () => {
     off()
     ctrl.dispose()
   })
+
+  describe('resetBook', () => {
+    it('replaces book state with snapshot, resets ring/archive/clock', () => {
+      const ctrl = createHeatmapController({
+        tickSize: 0.01,
+        snapshotIntervalMs: 100,
+        snapshotRingCapacity: 10,
+        deltaArchiveMaxSize: 1000,
+        logColorRange: { sizeMin: 1, sizeMax: 1000 },
+      })
+      // Establish some live state.
+      ctrl.ingestDelta(bid(0, 100, 1))
+      ctrl.ingestDelta(bid(150, 100, 2)) // crosses 100ms → 1 snapshot
+      expect(ctrl.state.peek().snapshotCount).toBe(1)
+      expect(ctrl.state.peek().deltaCount).toBe(2)
+
+      const snap: BookSnapshot = {
+        bids: [[99, 10], [98, 5]],
+        asks: [[101, 8]],
+        timestamp: 500,
+      }
+      ctrl.resetBook(snap)
+
+      const st = ctrl.state.peek()
+      expect(st.snapshotCount).toBe(0)
+      expect(st.deltaCount).toBe(0)
+      expect(st.latestSnapshot?.bids).toEqual([[99, 10], [98, 5]])
+      expect(st.latestSnapshot?.asks).toEqual([[101, 8]])
+      expect(st.latestSnapshot?.timestamp).toBe(500)
+      ctrl.dispose()
+    })
+
+    it('clears snapshot ring and delta archive', () => {
+      const ctrl = createHeatmapController({
+        tickSize: 0.01,
+        snapshotIntervalMs: 100,
+        snapshotRingCapacity: 10,
+        deltaArchiveMaxSize: 1000,
+        logColorRange: { sizeMin: 1, sizeMax: 1000 },
+      })
+      // Ingest enough to create snapshots in the ring.
+      ctrl.ingestDelta(bid(0, 100, 1))
+      ctrl.ingestDelta(bid(150, 100, 2))
+      ctrl.ingestDelta(bid(250, 100, 3))
+      // Snapshots at 100 and 200.
+      expect(ctrl.state.peek().snapshotCount).toBe(2)
+
+      // Replay must return something before reset.
+      const beforeReplay = ctrl.replay(0, 250, 50)
+      expect(beforeReplay.length).toBeGreaterThan(0)
+
+      ctrl.resetBook({
+        bids: [[100, 5]],
+        asks: [[101, 3]],
+        timestamp: 300,
+      })
+
+      // Ring is cleared.
+      expect(ctrl.state.peek().snapshotCount).toBe(0)
+      // Archive is cleared — replay produces skeleton snapshots (empty book).
+      const after = ctrl.replay(0, 500, 50)
+      expect(after.length).toBeGreaterThan(0)
+      for (const snap of after) {
+        expect(snap.bids).toEqual([])
+        expect(snap.asks).toEqual([])
+      }
+      ctrl.dispose()
+    })
+
+    it('resets snapshot clock so next ingest anchors fresh', () => {
+      const ctrl = createHeatmapController({
+        tickSize: 0.01,
+        snapshotIntervalMs: 100,
+        snapshotRingCapacity: 10,
+        deltaArchiveMaxSize: 1000,
+        logColorRange: { sizeMin: 1, sizeMax: 1000 },
+      })
+      ctrl.ingestDelta(bid(0, 100, 1))
+      // Clock at 0. Next delta at 50 should NOT trigger snapshot (not past
+      // interval). But after resetBook, the clock resets so the next delta
+      // anchors anew.
+      ctrl.resetBook({
+        bids: [[100, 5]],
+        asks: [[101, 3]],
+        timestamp: 200,
+      })
+      // Delta at 250 — clock was reset to null, so this anchors at 250
+      // and should NOT produce a snapshot (first delta never does).
+      ctrl.ingestDelta(bid(250, 100, 2))
+      expect(ctrl.state.peek().snapshotCount).toBe(0)
+
+      // Now a delta at 400 crosses 100ms from anchor → 1 snapshot.
+      ctrl.ingestDelta(bid(400, 100, 3))
+      expect(ctrl.state.peek().snapshotCount).toBe(1)
+      ctrl.dispose()
+    })
+
+    it('resetBook ingests the snapshot as deltas into the book', () => {
+      const ctrl = createHeatmapController({
+        tickSize: 0.5,
+        snapshotIntervalMs: 1000,
+        snapshotRingCapacity: 10,
+        deltaArchiveMaxSize: 1000,
+        logColorRange: { sizeMin: 1, sizeMax: 1000 },
+      })
+      // Tick size 0.5 means 100.25 → 100.0.
+      ctrl.resetBook({
+        bids: [[100.25, 7]],
+        asks: [[101.0, 4]],
+        timestamp: 10,
+      })
+      const st = ctrl.state.peek()
+      // tickSize 0.5: 100.25 → index 201 → dequantized 100.5
+      expect(st.latestSnapshot?.bids).toEqual([[100.5, 7]])
+      expect(st.latestSnapshot?.asks).toEqual([[101.0, 4]])
+      ctrl.dispose()
+    })
+
+    it('disposed controller silently ignores resetBook', () => {
+      const ctrl = createHeatmapController()
+      ctrl.dispose()
+      ctrl.resetBook({
+        bids: [[100, 5]],
+        asks: [[101, 3]],
+        timestamp: 1,
+      })
+      expect(ctrl.state.peek().latestSnapshot).toBeNull()
+    })
+  })
 })

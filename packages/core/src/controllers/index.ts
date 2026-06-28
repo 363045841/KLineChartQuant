@@ -62,8 +62,11 @@ export {
   baostockDataFetcher,
   routerDataFetcher,
   DataBuffer,
+  BinanceSSESource,
+  DEFAULT_BINANCE_SSE_URL,
+  DepthConnector,
 } from '../data-fetchers'
-export type { DataWindow } from '../data-fetchers'
+export type { DataWindow, DepthSource, DepthDelta, DepthSnapshot, DepthSourceStatus } from '../data-fetchers'
 
 // Drawing
 export { DrawingInteractionController } from '../engine/drawing'

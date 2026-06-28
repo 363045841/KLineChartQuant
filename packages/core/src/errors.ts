@@ -64,6 +64,8 @@ export type KLineChartErrorCode =
   | 'CONTROLLER_CONFIG_INVALID'
   // data-fetcher (gotdx / baostock / tradingview)
   | 'FETCH_FAILED'
+  // depth/SSE source
+  | 'DEPTH_SOURCE_ERROR'
   // serialization
   | 'SCHEMA_VERSION_MISMATCH'
   | 'INVALID_JSON'

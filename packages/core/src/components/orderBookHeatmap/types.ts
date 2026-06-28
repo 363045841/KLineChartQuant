@@ -163,6 +163,16 @@ export interface HeatmapController {
     snapshotIntervalMs: number,
   ): ReadonlyArray<BookSnapshot>
 
+  /**
+   * Replace the internal book with a full snapshot. Resets the snapshot clock,
+   * ring, and archive so the controller is in a clean state — subsequent
+   * `ingest(delta)` calls continue normally.
+   *
+   * Designed for SSE reconnect: Go backend pushes a `type:"snapshot"` event
+   * on connect, the connector calls `resetBook()`, then live deltas resume.
+   * This avoids racing between REST snapshot and SSE stream.
+   */
+  resetBook(snapshot: BookSnapshot): void
   setConfig(next: Partial<HeatmapControllerConfig>): void
   dispose(): void
 }
