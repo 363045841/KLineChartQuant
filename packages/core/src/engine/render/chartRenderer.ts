@@ -14,7 +14,7 @@ import type {
   YAxisTick,
 } from '../../plugin'
 import { calculateTickCount } from '../utils/tickCount'
-import { RendererPluginManager, wrapPaneInfo, GLOBAL_PANE_ID } from '../../plugin'
+import { RendererPluginManager, wrapPaneInfo } from '../../plugin'
 import type {
   ChartDom,
   PaneSpec,
@@ -53,7 +53,6 @@ import { createTimeAxisRendererPlugin } from '../renderers/timeAxis'
 import type { Scene, PaintContext, PaneRole } from '../../scene/types'
 import type { Renderer } from '../../render/Renderer'
 import { createScene } from '../../scene/createScene'
-import { createLayerFromPlugin } from '../../scene/createLayerFromPlugin'
 import { createWebGLRenderer, createWebGLSurfaceBackend } from '../../render'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
@@ -137,44 +136,36 @@ export class ChartRenderer {
     {
       const plugin = createGridLinesRendererPlugin()
       this.useDrawingPlugin(plugin)
-      this.addPluginLayer(plugin)
     }
     {
       const plugin = createCandleRenderer()
       this.useDrawingPlugin(plugin)
-      this.addPluginLayer(plugin)
     }
     {
       const plugin = createComparisonLineRenderer()
       this.useDrawingPlugin(plugin)
-      this.addPluginLayer(plugin)
     }
     {
       const plugin = createLastPriceLineRendererPlugin()
       this.useDrawingPlugin(plugin)
-      this.addPluginLayer(plugin)
     }
     {
       const plugin = createLastPriceLabelRegistrarPlugin()
       this.useDrawingPlugin(plugin)
-      this.addPluginLayer(plugin)
     }
     {
       const plugin = createCustomMarkersRenderer()
       this.useDrawingPlugin(plugin)
-      this.addPluginLayer(plugin)
     }
     {
       const plugin = createExtremaMarkersRendererPlugin()
       this.useDrawingPlugin(plugin)
-      this.addPluginLayer(plugin)
     }
     {
       const plugin = createMainIndicatorLegendRendererPlugin({
         yPaddingPx: opt.yPaddingPx,
       })
       this.useDrawingPlugin(plugin)
-      this.addPluginLayer(plugin)
     }
     {
       const plugin = createYAxisRendererPlugin({
@@ -191,7 +182,6 @@ export class ChartRenderer {
         },
       })
       this.useDrawingPlugin(plugin)
-      this.addPluginLayer(plugin)
     }
     {
       const plugin = createCrosshairRendererPlugin({
@@ -203,7 +193,6 @@ export class ChartRenderer {
         }),
       })
       this.useDrawingPlugin(plugin)
-      this.addPluginLayer(plugin)
     }
     {
       const plugin = createLeftYAxisRendererPlugin({
@@ -220,7 +209,6 @@ export class ChartRenderer {
         },
       })
       this.useDrawingPlugin(plugin)
-      this.addPluginLayer(plugin)
     }
     {
       const plugin = createTimeAxisRendererPlugin({
@@ -235,7 +223,6 @@ export class ChartRenderer {
         },
       })
       this.useDrawingPlugin(plugin)
-      this.addPluginLayer(plugin)
     }
   }
 
@@ -243,12 +230,10 @@ export class ChartRenderer {
     {
       const plugin = createDrawingRendererPlugin({ store: this.drawingStore })
       this.useDrawingPlugin(plugin)
-      this.addPluginLayer(plugin)
     }
     {
       const plugin = createDrawingLabelOverlayPlugin({ store: this.drawingStore })
       this.useDrawingPlugin(plugin)
-      this.addPluginLayer(plugin)
     }
   }
 
@@ -259,17 +244,6 @@ export class ChartRenderer {
     this.deps.getRendererPluginManager().register(plugin)
     if (config && plugin.setConfig) {
       plugin.setConfig(config)
-    }
-  }
-
-  private addPluginLayer(plugin: RendererPlugin): void {
-    if (plugin.isSystem) return
-    const paneIds: readonly string[] =
-      plugin.paneId === GLOBAL_PANE_ID ? ['main', 'sub'] : [plugin.paneId as string]
-    for (const pid of paneIds) {
-      this.scene.addLayer(
-        createLayerFromPlugin(plugin, () => this.paneCtxMap.get(pid) ?? null, pid),
-      )
     }
   }
 
