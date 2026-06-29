@@ -14,3 +14,5 @@ export { createScene } from './createScene'
 export { createLayerRegistry, BUILTIN_LAYER_TYPES } from './layerRegistry'
 
 export type { LayerFactory, LayerRegistry, BuiltinLayerType } from './layerRegistry'
+
+export { createLayerFromPlugin } from './createLayerFromPlugin'
