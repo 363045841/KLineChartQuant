@@ -21,8 +21,10 @@ export function createLayerFromPlugin(
     set visible(v: boolean) {
       visible = v
     },
-    paint(_ctx: PaintContext) {
+    paint(ctx: PaintContext) {
       if (!visible) return
+      // For sub-pane layers, skip if we're painting a different sub-pane
+      if (paneRole === 'sub' && ctx.paneId !== targetPaneId) return
       const context = getContext()
       if (!context) return
       plugin.draw(context)
@@ -44,5 +46,5 @@ function pluginPriorityToRole(priority: number, plugin: RendererPlugin): LayerRo
   if (priority <= RENDERER_PRIORITY.INDICATOR && plugin.name !== 'candle') return 'indicator'
   if (plugin.name === 'candle' || plugin.name === 'comparisonLine') return 'primary'
   if (plugin.name.startsWith('drawing')) return 'drawing'
-  return 'overlay'
+  return 'indicator'
 }

@@ -46,6 +46,7 @@ const stubPaintCtx = {
   renderer: {} as unknown as PaintContext['renderer'],
   region: { x: 0, y: 0, width: 800, height: 600, dpr: 2 },
   paneRole: 'main' as const,
+  paneId: 'main',
   frameNumber: 0,
   deltaMs: 16,
 }
@@ -161,6 +162,35 @@ describe('createLayerFromPlugin', () => {
     it('paneRole is sub when targetPaneId is not main', () => {
       const layer = createLayerFromPlugin(makeMockPlugin(), () => null, 'sub')
       expect(layer.paneRole).toBe('sub')
+    })
+
+    it('skips paint when paneRole is sub and ctx.paneId does not match targetPaneId', () => {
+      const plugin = makeMockPlugin()
+      const context = makeMockContext()
+      const getContext = vi.fn(() => context)
+      const layer = createLayerFromPlugin(plugin, getContext, 'RSI_0')
+
+      // Paint with matching paneId → draws
+      layer.paint({ ...stubPaintCtx, paneRole: 'sub', paneId: 'RSI_0' })
+      expect(plugin.draw).toHaveBeenCalledTimes(1)
+
+      // Paint with non-matching paneId → skips
+      layer.paint({ ...stubPaintCtx, paneRole: 'sub', paneId: 'MACD_0' })
+      expect(plugin.draw).toHaveBeenCalledTimes(1)
+    })
+
+    it('main pane layers always paint regardless of paneId', () => {
+      const plugin = makeMockPlugin()
+      const context = makeMockContext()
+      const getContext = vi.fn(() => context)
+      const layer = createLayerFromPlugin(plugin, getContext, 'main')
+
+      layer.paint({ ...stubPaintCtx, paneRole: 'main', paneId: 'main' })
+      expect(plugin.draw).toHaveBeenCalledTimes(1)
+
+      // Main layer paints even with non-matching paneId (it has paneRole 'main')
+      layer.paint({ ...stubPaintCtx, paneRole: 'main', paneId: 'other' })
+      expect(plugin.draw).toHaveBeenCalledTimes(2)
     })
   })
 

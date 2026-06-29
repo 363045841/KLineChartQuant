@@ -9,7 +9,9 @@ import { getRegisteredIndicatorDefinitions } from './indicatorDefinitionRegistry
 import { SubPaneManager, type SubPaneEntry, type SubPaneContext } from '../subPaneManager'
 import { createSubIndicatorRenderer, type SubIndicatorType } from '../renderers/Indicator'
 import { createMainIndicatorLegendRendererPlugin } from '../renderers/Indicator/mainIndicatorLegend'
-import type { PluginHostImpl, RendererPlugin, RendererPluginWithHost } from '../../plugin'
+import type { PluginHostImpl, RendererPlugin, RendererPluginWithHost, RenderContext } from '../../plugin'
+import type { Layer } from '../../scene/types'
+import { createLayerFromPlugin } from '../../scene/createLayerFromPlugin'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kWidth: number
@@ -47,6 +49,11 @@ export interface IndicatorDependencies {
   getActivePaneId: () => string | null
   scheduleDraw: (level?: UpdateLevel) => void
   setPendingIndicatorDataUpdate: (v: boolean) => void
+  getRenderContext: (paneId: string) => RenderContext | null
+  addLayer: (layer: Layer) => void
+  removeLayer: (id: string) => boolean
+  getLayer: (id: string) => Layer | null
+  setLayerVisibility: (id: string, visible: boolean) => void
 }
 
 export class ChartIndicatorManager {
@@ -200,6 +207,7 @@ export class ChartIndicatorManager {
         deps.getRenderer<T>(name),
       useRenderer: (plugin, config) => deps.useRenderer(plugin, config),
       removeRenderer: (name) => deps.removeRenderer(name),
+      setRendererEnabled: (name, enabled) => deps.setRendererEnabled(name, enabled),
       removePaneDefinition: (paneId) => deps.removePaneDefinition(paneId),
       updateRendererConfig: (name, config) => deps.updateRendererConfig(name, config),
       getRightAxisWidth: () => deps.getOption().rightAxisWidth,
@@ -208,6 +216,11 @@ export class ChartIndicatorManager {
       getCrosshairPos: () => deps.getCrosshairPos(),
       getCrosshairPrice: () => deps.getCrosshairPrice(),
       getActivePaneId: () => deps.getActivePaneId(),
+      addLayer: (layer) => deps.addLayer(layer),
+      removeLayer: (id) => deps.removeLayer(id),
+      getLayer: (id) => deps.getLayer(id),
+      setLayerVisibility: (id, visible) => deps.setLayerVisibility(id, visible),
+      getRenderContext: (paneId) => deps.getRenderContext(paneId),
     }
   }
 
@@ -327,16 +340,39 @@ export class ChartIndicatorManager {
     const mainPane = definition?.mainPane
     if (!definition || !mainPane) return
 
-    if (!this.deps.getRenderer(mainPane.rendererName)) {
-      this.deps.useRenderer(definition.rendererFactory({ paneId: 'main', indicatorId }))
+    const rendererName = mainPane.rendererName
+    const layerId = `plugin:${rendererName}`
+    const existingLayer = this.deps.getLayer(layerId)
+
+    if (!existingLayer) {
+      const plugin = definition.rendererFactory({ paneId: 'main', indicatorId })
+      // register with old system for getRenderer compatibility
+      this.deps.useRenderer(plugin)
+      // disable old rendering to avoid double rendering (scene handles it)
+      this.deps.setRendererEnabled(rendererName, false)
+      // create bridge layer and add to scene
+      const layer = createLayerFromPlugin(
+        plugin,
+        () => this.deps.getRenderContext('main'),
+        'main',
+      )
+      this.deps.addLayer(layer)
     }
 
-    this.deps.setRendererEnabled(mainPane.rendererName, true)
+    this.deps.setLayerVisibility(layerId, true)
 
     if (!this.deps.getRenderer('mainIndicatorLegend')) {
-      this.deps.useRenderer(
-        createMainIndicatorLegendRendererPlugin({ yPaddingPx: this.deps.getOption().yPaddingPx }),
+      const legend = createMainIndicatorLegendRendererPlugin({
+        yPaddingPx: this.deps.getOption().yPaddingPx,
+      })
+      this.deps.useRenderer(legend)
+      this.deps.setRendererEnabled('mainIndicatorLegend', false)
+      const legendLayer = createLayerFromPlugin(
+        legend,
+        () => this.deps.getRenderContext('main'),
+        'main',
       )
+      this.deps.addLayer(legendLayer)
     }
   }
 
@@ -345,6 +381,7 @@ export class ChartIndicatorManager {
       this.indicatorScheduler.getIndicatorMetadata(indicatorId)?.mainPane?.rendererName
     if (rendererName) {
       this.deps.setRendererEnabled(rendererName, false)
+      this.deps.setLayerVisibility(`plugin:${rendererName}`, false)
     }
   }
 
@@ -407,6 +444,13 @@ export class ChartIndicatorManager {
     }
 
     this.deps.useRenderer(renderer, params)
+    this.deps.setRendererEnabled(rendererName, false)
+    const layer = createLayerFromPlugin(
+      renderer,
+      () => this.deps.getRenderContext(paneId),
+      paneId,
+    )
+    this.deps.addLayer(layer)
   }
 
   createSubPane(

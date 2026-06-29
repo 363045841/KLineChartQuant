@@ -67,11 +67,12 @@ function makeMockLayer(opts: MockLayerOpts): MockLayer {
 // A minimal Renderer stub. The scene never touches its fields; we cast.
 const stubRenderer = {} as Renderer
 
-function makeCtx(paneRole: PaneRole, frameNumber = 0): PaintContext {
+function makeCtx(paneRole: PaneRole, frameNumber = 0, paneId = 'main'): PaintContext {
   return {
     renderer: stubRenderer,
     region: { x: 0, y: 0, width: 800, height: 600, dpr: 1 },
     paneRole,
+    paneId,
     frameNumber,
     deltaMs: 0,
   }

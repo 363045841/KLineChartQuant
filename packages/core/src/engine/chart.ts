@@ -50,6 +50,7 @@ import {
 } from '../alerts/rollingVolume'
 import { resolveStateKey } from './indicators/indicatorMetadata'
 import type { IndicatorMetadata } from './indicators/indicatorMetadata'
+import type { Layer } from '../scene/types'
 
 // 重新导出以保持向后兼容
 export { getPhysicalKLineConfig }
@@ -326,6 +327,13 @@ export class Chart {
       setPendingIndicatorDataUpdate: (v) => {
         this.dataManager.pendingIndicatorDataUpdate = v
       },
+      getRenderContext: (paneId) =>
+        this.renderer?.getPaneCtxMap()?.get(paneId) ?? null,
+      addLayer: (layer) => this.renderer?.getScene()?.addLayer(layer),
+      removeLayer: (id) => this.renderer?.getScene()?.removeLayer(id) ?? false,
+      getLayer: (id) => this.renderer?.getScene()?.getLayer(id) ?? null,
+      setLayerVisibility: (id, visible) =>
+        this.renderer?.getScene()?.setLayerVisibility(id, visible),
     })
 
     // Worker 异步结果就绪后串联 Alert 管线

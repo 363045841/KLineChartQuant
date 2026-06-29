@@ -55,6 +55,11 @@ function createMockDeps() {
     getActivePaneId: vi.fn(() => null),
     scheduleDraw: vi.fn(),
     setPendingIndicatorDataUpdate: vi.fn(),
+    getRenderContext: vi.fn(() => null),
+    addLayer: vi.fn(),
+    removeLayer: vi.fn(() => false),
+    getLayer: vi.fn(() => null),
+    setLayerVisibility: vi.fn(),
   } as IndicatorDependencies & { rendererMap: Map<string, any> }
 }
 

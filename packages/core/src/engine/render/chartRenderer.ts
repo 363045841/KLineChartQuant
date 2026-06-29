@@ -261,6 +261,14 @@ export class ChartRenderer {
     }
   }
 
+  getScene(): Scene {
+    return this.scene
+  }
+
+  getPaneCtxMap(): Map<string, RenderContext> {
+    return this.paneCtxMap
+  }
+
   getMarkerManager(): MarkerManager {
     return this.markerManager
   }
@@ -683,6 +691,7 @@ export class ChartRenderer {
           renderer: this.sceneRenderer,
           region,
           paneRole: (pane.id === 'main' ? 'main' : 'sub') as PaneRole,
+          paneId: pane.id,
           frameNumber: this.frameCount++,
           deltaMs: 0,
         })
@@ -696,6 +705,7 @@ export class ChartRenderer {
             renderer: this.sceneRenderer,
             region,
             paneRole: (pane.id === 'main' ? 'main' : 'sub') as PaneRole,
+            paneId: pane.id,
             frameNumber: this.frameCount++,
             deltaMs: 0,
           },

@@ -77,6 +77,8 @@ export interface PaintContext {
   renderer: Renderer
   region: SurfaceRegion
   paneRole: PaneRole
+  /** The pane id being painted (e.g. 'main', 'RSI_0') — used by sub-pane layers */
+  paneId: string
   /** monotonically increasing frame counter for animation/timing */
   frameNumber: number
   /** time elapsed since last frame in ms (for animations) */
