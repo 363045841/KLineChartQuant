@@ -54,6 +54,7 @@ import type { Scene, PaintContext, PaneRole } from '../../scene/types'
 import type { Renderer } from '../../render/Renderer'
 import { createScene } from '../../scene/createScene'
 import { createLayerFromPlugin } from '../../scene/createLayerFromPlugin'
+import { createWebGLRenderer, createWebGLSurfaceBackend } from '../../render'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kWidth: number
@@ -123,6 +124,9 @@ export class ChartRenderer {
     this.markerManager = new MarkerManager()
     this.drawingStore = new DrawingStore()
     this.scene = createScene()
+    const sharedSurface = deps.getSharedWebGLSurface()
+    const surfaceBackend = createWebGLSurfaceBackend(sharedSurface)
+    this.sceneRenderer = createWebGLRenderer(surfaceBackend, sharedSurface)
   }
 
   initCoreRenderers(): void {
@@ -691,13 +695,16 @@ export class ChartRenderer {
           pluginHost.events.emit('renderer:error', { paneId: pane.id, errors: leftAxisErrors })
         }
 
+        const region = { x: 0, y: pane.top, width: vp.plotWidth, height: pane.height, dpr: vp.dpr }
+        this.sceneRenderer.beginFrame(region)
         this.scene.paintPane({
           renderer: this.sceneRenderer,
-          region: { x: 0, y: pane.top, width: vp.plotWidth, height: pane.height, dpr: vp.dpr },
+          region,
           paneRole: (pane.id === 'main' ? 'main' : 'sub') as PaneRole,
           frameNumber: this.frameCount++,
           deltaMs: 0,
         })
+        this.sceneRenderer.endFrame()
       }
     }
 
@@ -832,6 +839,7 @@ export class ChartRenderer {
     }
     this.cachedDrawFrame = null
     this.xAxisCtx = null
+    this.sceneRenderer.dispose()
     this.scene.dispose()
     this.paneCtxMap.clear()
   }
