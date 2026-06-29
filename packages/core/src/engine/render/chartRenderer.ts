@@ -3,8 +3,6 @@ import type { ChartSettings } from '../../config/chartSettings'
 import type { SymbolSpec } from '../../controllers/types'
 import { getVisibleRange } from '../viewport/viewport'
 import type {
-  RendererPlugin,
-  RendererPluginWithHost,
   PluginHostImpl,
   RenderContext,
   YAxisLabel,
@@ -48,9 +46,10 @@ import { createYAxisLayer } from './layers/yAxisLayer'
 import { createLeftYAxisLayer } from './layers/leftYAxisLayer'
 import { createCrosshairLayer } from './layers/crosshairLayer'
 import { createTimeAxisRendererPlugin } from '../renderers/timeAxis'
-import type { Scene, PaintContext, PaneRole } from '../../scene/types'
+import type { Scene, PaintContext, PaneRole, Layer } from '../../scene/types'
 import type { Renderer } from '../../render/Renderer'
 import { createScene } from '../../scene/createScene'
+import { createLayerFromPlugin } from '../../scene/createLayerFromPlugin'
 import { createWebGLRenderer, createWebGLSurfaceBackend } from '../../render'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
@@ -116,6 +115,8 @@ export class ChartRenderer {
   private paneCtxMap = new Map<string, RenderContext>()
   private currentPaneId = 'main'
   private sceneRenderer: Renderer = {} as Renderer
+  private timeAxisCtx: RenderContext | null = null
+  private timeAxisLayer: Layer | null = null
 
   constructor(deps: RendererDependencies) {
     this.deps = deps
@@ -144,7 +145,11 @@ export class ChartRenderer {
           return null
         },
       })
-      this.useDrawingPlugin(plugin)
+      this.timeAxisLayer = createLayerFromPlugin(
+        plugin,
+        () => this.timeAxisCtx,
+        'global',
+      )
     }
 
     const getCtx = (paneId: string) => () => this.paneCtxMap.get(paneId) ?? null
@@ -241,23 +246,21 @@ export class ChartRenderer {
   }
 
   registerDrawingPlugins(): void {
+    const getCtxForCurrentPane = () => this.paneCtxMap.get(this.currentPaneId) ?? null
+
     {
       const plugin = createDrawingRendererPlugin({ store: this.drawingStore })
-      this.useDrawingPlugin(plugin)
+      this.deps.getRendererPluginManager().register(plugin)
+      this.deps.getRendererPluginManager().setEnabled(plugin.name, false)
+      const layer = createLayerFromPlugin(plugin, getCtxForCurrentPane, 'global')
+      this.scene.addLayer(layer)
     }
     {
       const plugin = createDrawingLabelOverlayPlugin({ store: this.drawingStore })
-      this.useDrawingPlugin(plugin)
-    }
-  }
-
-  private useDrawingPlugin(
-    plugin: RendererPlugin | RendererPluginWithHost,
-    config?: Record<string, unknown>,
-  ): void {
-    this.deps.getRendererPluginManager().register(plugin)
-    if (config && plugin.setConfig) {
-      plugin.setConfig(config)
+      this.deps.getRendererPluginManager().register(plugin)
+      this.deps.getRendererPluginManager().setEnabled(plugin.name, false)
+      const layer = createLayerFromPlugin(plugin, getCtxForCurrentPane, 'global')
+      this.scene.addLayer(layer)
     }
   }
 
@@ -733,10 +736,10 @@ export class ChartRenderer {
     if (!this.xAxisCtx) {
       this.xAxisCtx = xAxisCtx
     }
-    if (xAxisCtx) {
+    if (xAxisCtx && this.timeAxisLayer) {
       const opt = this.deps.getOption()
       const dataManager = this.deps.getDataManager()
-      const timeAxisContext: RenderContext = {
+      this.timeAxisCtx = {
         ctx: xAxisCtx,
         pane: {
           id: 'xAxis',
@@ -790,10 +793,15 @@ export class ChartRenderer {
         monthKeys: dataManager.getMonthKeys() ?? undefined,
         dayKeys: dataManager.getDayKeys() ?? undefined,
       }
-      const errors = this.deps.getRendererPluginManager().renderPlugin('timeAxis', timeAxisContext)
-      if (errors.length > 0) {
-        this.deps.getPluginHost().events.emit('renderer:error', { paneId: 'timeAxis', errors })
+      const paintCtx: PaintContext = {
+        renderer: this.sceneRenderer,
+        region: { x: 0, y: 0, width: vp.plotWidth, height: opt.bottomAxisHeight, dpr: vp.dpr },
+        paneRole: 'global',
+        paneId: 'xAxis',
+        frameNumber: this.frameCount++,
+        deltaMs: 0,
       }
+      this.timeAxisLayer.paint(paintCtx)
     }
   }
 
