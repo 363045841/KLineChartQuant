@@ -19,7 +19,7 @@
  */
 
 import { createSignal, type Signal } from '../reactivity/signal'
-import type { Layer, PaintContext, Scene } from './types'
+import type { Layer, LayerRole, PaintContext, Scene } from './types'
 
 export function createScene(): Scene {
   // ---- internal state ----------------------------------------------------
@@ -72,12 +72,17 @@ export function createScene(): Scene {
     return true
   }
 
-  const paintPane = (ctx: PaintContext): void => {
+  const paintPane = (ctx: PaintContext, roles?: ReadonlyArray<LayerRole>): void => {
     if (disposed) return
-    // Filter then stable-sort. Native Array.prototype.sort is required
+    let candidates = layerList.filter(
+      (layer) => (layer.paneRole === ctx.paneRole || layer.paneRole === 'global') && layer.visible,
+    )
+    if (roles) {
+      candidates = candidates.filter((layer) => roles.includes(layer.role))
+    }
+    // Stable-sort by z. Native Array.prototype.sort is required
     // by ECMAScript 2019+ to be stable, so equal z values preserve the
     // surviving registration order from the filter pass.
-    const candidates = layerList.filter((layer) => layer.paneRole === ctx.paneRole && layer.visible)
     candidates.sort((a, b) => a.z - b.z)
     for (const layer of candidates) {
       layer.paint(ctx)

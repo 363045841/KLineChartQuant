@@ -1,4 +1,4 @@
-import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../plugin'
+import { RENDERER_PRIORITY } from '../plugin'
 import type { RendererPlugin, RenderContext } from '../plugin'
 import type { Layer, LayerRole, PaintContext, PaneRole } from './types'
 
@@ -7,7 +7,7 @@ export function createLayerFromPlugin(
   getContext: () => RenderContext | null,
   targetPaneId: string,
 ): Layer {
-  const paneRole: PaneRole = targetPaneId === 'main' ? 'main' : 'sub'
+  const paneRole: PaneRole = targetPaneId === 'main' ? 'main' : targetPaneId === 'global' ? 'global' : 'sub'
   let visible = plugin.enabled !== false
 
   return {

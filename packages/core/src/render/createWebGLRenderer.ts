@@ -51,6 +51,8 @@ export function createWebGLRenderer(
   let disposed = false
   let candleSurface: CandleWebGLSurface | null = null
   let lineSurface: LineWebGLSurface | null = null
+  let fallbackCtx: CanvasRenderingContext2D | null = null
+  let fallbackDpr = 1
 
   const candle = new CandleWebGLSurface(gl)
   if (candle.isAvailable()) candleSurface = candle
@@ -71,13 +73,18 @@ export function createWebGLRenderer(
     }
   }
 
-  const renderer: Renderer = {
+  const renderer = {
     get surface(): SurfaceBackend {
       return surface
     },
 
     get caps(): RendererCapabilities {
       return handleCaps
+    },
+
+    setFallbackContext(ctx: CanvasRenderingContext2D | null, dpr: number): void {
+      fallbackCtx = ctx
+      fallbackDpr = dpr
     },
 
     createBuffer(usage: BufferUsage, sizeBytes: number): BufferHandle {
@@ -152,7 +159,7 @@ export function createWebGLRenderer(
     },
 
     drawInstances(params: DrawInstancesParams): void {
-      if (disposed || !candleSurface) return
+      if (disposed) return
       const pipelineMeta_rec = pipelineMeta.get(params.pipeline as object)
       if (!pipelineMeta_rec || pipelineMeta_rec.type !== 'candle') return
 
@@ -166,11 +173,26 @@ export function createWebGLRenderer(
       const color = (params.uniforms?.color as string) ?? '#000000'
       const scrollLeft = (params.uniforms?.scrollLeft as number) ?? 0
 
-      candleSurface.drawRectBuffer(floats, rectCount, color, scrollLeft)
+      if (candleSurface) {
+        candleSurface.drawRectBuffer(floats, rectCount, color, scrollLeft)
+        return
+      }
+
+      if (fallbackCtx) {
+        const ctx = fallbackCtx
+        ctx.fillStyle = color
+        for (let i = 0; i < rectCount; i++) {
+          const x = floats[i * 4] - scrollLeft
+          const y = floats[i * 4 + 1]
+          const w = Math.max(0, floats[i * 4 + 2])
+          const h = floats[i * 4 + 3]
+          ctx.fillRect(x, y, w, h)
+        }
+      }
     },
 
     drawLines(params: DrawLinesParams): void {
-      if (disposed || !lineSurface) return
+      if (disposed) return
       const pipelineMeta_rec = pipelineMeta.get(params.pipeline as object)
       if (!pipelineMeta_rec) return
 
@@ -191,18 +213,61 @@ export function createWebGLRenderer(
           upperPoints.push({ x: floats[offset], y: floats[offset + 1] })
           lowerPoints.push({ x: floats[offset + 2], y: floats[offset + 3] })
         }
-        lineSurface.drawFilledBand({ upperPoints, lowerPoints }, color, scrollLeft)
+
+        if (lineSurface) {
+          lineSurface.drawFilledBand({ upperPoints, lowerPoints }, color, scrollLeft)
+          return
+        }
+
+        if (fallbackCtx) {
+          const ctx = fallbackCtx
+          ctx.beginPath()
+          ctx.moveTo(upperPoints[0].x - scrollLeft, upperPoints[0].y)
+          for (let i = 1; i < upperPoints.length; i++) {
+            ctx.lineTo(upperPoints[i].x - scrollLeft, upperPoints[i].y)
+          }
+          for (let i = lowerPoints.length - 1; i >= 0; i--) {
+            ctx.lineTo(lowerPoints[i].x - scrollLeft, lowerPoints[i].y)
+          }
+          ctx.closePath()
+          ctx.fillStyle = color
+          ctx.fill()
+        }
         return
       }
 
       const floats = new Float32Array(vertexMeta.data, 0, params.vertexCount * 2)
-      const points: Array<{ x: number; y: number }> = []
-      for (let i = 0; i < params.vertexCount; i++) {
-        points.push({ x: floats[i * 2], y: floats[i * 2 + 1] })
+
+      if (lineSurface) {
+        const points: Array<{ x: number; y: number }> = []
+        for (let i = 0; i < params.vertexCount; i++) {
+          points.push({ x: floats[i * 2], y: floats[i * 2 + 1] })
+        }
+        const lineWidth = (params.uniforms?.lineWidth as number) ?? 1
+        const lines = [{ points, color, width: lineWidth }]
+        lineSurface.drawLineStrips(lines, scrollLeft)
+        return
       }
-      const lineWidth = (params.uniforms?.lineWidth as number) ?? 1
-      const lines = [{ points, color, width: lineWidth }]
-      lineSurface.drawLineStrips(lines, scrollLeft)
+
+      if (fallbackCtx) {
+        const ctx = fallbackCtx
+        const lineWidth = (params.uniforms?.lineWidth as number) ?? 1
+        const dashPattern = params.uniforms?.dashPattern as number[] | undefined
+        ctx.beginPath()
+        ctx.moveTo(floats[0] - scrollLeft, floats[1])
+        for (let i = 1; i < params.vertexCount; i++) {
+          ctx.lineTo(floats[i * 2] - scrollLeft, floats[i * 2 + 1])
+        }
+        ctx.strokeStyle = color
+        ctx.lineWidth = lineWidth
+        if (dashPattern && dashPattern.length > 0) {
+          ctx.setLineDash(dashPattern)
+        }
+        ctx.stroke()
+        if (dashPattern && dashPattern.length > 0) {
+          ctx.setLineDash([])
+        }
+      }
     },
 
     dispatchCompute(_params: DispatchComputeParams): void {
@@ -225,5 +290,5 @@ export function createWebGLRenderer(
     },
   }
 
-  return renderer
+  return renderer as Renderer
 }

@@ -35,20 +35,18 @@ import { UpdateLevel } from '../layout/pane'
 import type { VisibleRange } from '../layout/pane'
 import { DrawingStore } from '../drawing'
 import type { ChartModeHandler } from '../modes/types'
-import { createMainIndicatorLegendRendererPlugin } from '../renderers/Indicator/mainIndicatorLegend'
 import { createDrawingRendererPlugin, createDrawingLabelOverlayPlugin } from '../drawing/plugin'
-import { createGridLinesRendererPlugin } from '../renderers/gridLines'
-import { createCandleRenderer } from '../renderers/candle'
-import { createComparisonLineRenderer } from '../renderers/comparisonLine'
-import {
-  createLastPriceLineRendererPlugin,
-  createLastPriceLabelRegistrarPlugin,
-} from '../renderers/lastPrice'
-import { createCustomMarkersRenderer } from '../renderers/customMarkers'
-import { createExtremaMarkersRendererPlugin } from '../renderers/extremaMarkers'
-import { createYAxisRendererPlugin } from '../renderers/yAxis'
-import { createLeftYAxisRendererPlugin } from '../renderers/leftYAxis'
-import { createCrosshairRendererPlugin } from '../renderers/crosshair'
+import { createCandleLayer } from './layers/candleLayer'
+import { createComparisonLineLayer } from './layers/comparisonLineLayer'
+import { createLastPriceLineLayer } from './layers/lastPriceLineLayer'
+import { createMainIndicatorLegendLayer } from './layers/mainIndicatorLegendLayer'
+import { createGridLinesLayer } from './layers/gridLinesLayer'
+import { createLastPriceLabelLayer } from './layers/lastPriceLabelLayer'
+import { createCustomMarkersLayer } from './layers/customMarkersLayer'
+import { createExtremaMarkersLayer } from './layers/extremaMarkersLayer'
+import { createYAxisLayer } from './layers/yAxisLayer'
+import { createLeftYAxisLayer } from './layers/leftYAxisLayer'
+import { createCrosshairLayer } from './layers/crosshairLayer'
 import { createTimeAxisRendererPlugin } from '../renderers/timeAxis'
 import type { Scene, PaintContext, PaneRole } from '../../scene/types'
 import type { Renderer } from '../../render/Renderer'
@@ -116,6 +114,7 @@ export class ChartRenderer {
   private scene: Scene
   private frameCount = 0
   private paneCtxMap = new Map<string, RenderContext>()
+  private currentPaneId = 'main'
   private sceneRenderer: Renderer = {} as Renderer
 
   constructor(deps: RendererDependencies) {
@@ -134,83 +133,6 @@ export class ChartRenderer {
     const interaction = this.deps.getInteraction()
 
     {
-      const plugin = createGridLinesRendererPlugin()
-      this.useDrawingPlugin(plugin)
-    }
-    {
-      const plugin = createCandleRenderer()
-      this.useDrawingPlugin(plugin)
-    }
-    {
-      const plugin = createComparisonLineRenderer()
-      this.useDrawingPlugin(plugin)
-    }
-    {
-      const plugin = createLastPriceLineRendererPlugin()
-      this.useDrawingPlugin(plugin)
-    }
-    {
-      const plugin = createLastPriceLabelRegistrarPlugin()
-      this.useDrawingPlugin(plugin)
-    }
-    {
-      const plugin = createCustomMarkersRenderer()
-      this.useDrawingPlugin(plugin)
-    }
-    {
-      const plugin = createExtremaMarkersRendererPlugin()
-      this.useDrawingPlugin(plugin)
-    }
-    {
-      const plugin = createMainIndicatorLegendRendererPlugin({
-        yPaddingPx: opt.yPaddingPx,
-      })
-      this.useDrawingPlugin(plugin)
-    }
-    {
-      const plugin = createYAxisRendererPlugin({
-        axisWidth,
-        yPaddingPx: opt.yPaddingPx,
-        getCrosshair: () => {
-          const pos = interaction.crosshairPos
-          const price = interaction.crosshairPrice
-          const activePaneId = interaction.activePaneId
-          if (pos && price !== null) {
-            return { y: pos.y, price, activePaneId }
-          }
-          return null
-        },
-      })
-      this.useDrawingPlugin(plugin)
-    }
-    {
-      const plugin = createCrosshairRendererPlugin({
-        getCrosshairState: () => ({
-          pos: interaction.crosshairPos,
-          activePaneId: interaction.activePaneId,
-          isDragging: interaction.isDraggingState(),
-          price: interaction.crosshairPrice,
-        }),
-      })
-      this.useDrawingPlugin(plugin)
-    }
-    {
-      const plugin = createLeftYAxisRendererPlugin({
-        axisWidth: opt.leftAxisWidth,
-        yPaddingPx: opt.yPaddingPx,
-        getCrosshair: () => {
-          const pos = interaction.crosshairPos
-          const price = interaction.crosshairPrice
-          const activePaneId = interaction.activePaneId
-          if (pos && price !== null) {
-            return { y: pos.y, price, activePaneId }
-          }
-          return null
-        },
-      })
-      this.useDrawingPlugin(plugin)
-    }
-    {
       const plugin = createTimeAxisRendererPlugin({
         height: opt.bottomAxisHeight,
         getCrosshair: () => {
@@ -223,6 +145,98 @@ export class ChartRenderer {
         },
       })
       this.useDrawingPlugin(plugin)
+    }
+
+    const getCtx = (paneId: string) => () => this.paneCtxMap.get(paneId) ?? null
+    const getCtxForCurrentPane = () => this.paneCtxMap.get(this.currentPaneId) ?? null
+
+    {
+      const layer = createGridLinesLayer(getCtxForCurrentPane)
+      this.scene.addLayer(layer)
+    }
+    {
+      const layer = createCandleLayer(getCtx('main'))
+      this.scene.addLayer(layer)
+    }
+    {
+      const layer = createLastPriceLabelLayer(getCtx('main'))
+      this.scene.addLayer(layer)
+    }
+    {
+      const layer = createComparisonLineLayer(getCtx('main'))
+      this.scene.addLayer(layer)
+    }
+    {
+      const layer = createLastPriceLineLayer(getCtx('main'))
+      this.scene.addLayer(layer)
+    }
+    {
+      const layer = createCustomMarkersLayer(getCtxForCurrentPane)
+      this.scene.addLayer(layer)
+    }
+    {
+      const layer = createExtremaMarkersLayer(getCtxForCurrentPane)
+      this.scene.addLayer(layer)
+    }
+    {
+      const layer = createMainIndicatorLegendLayer(
+        { yPaddingPx: opt.yPaddingPx },
+        getCtx('main'),
+        this.deps.getPluginHost(),
+      )
+      this.scene.addLayer(layer)
+    }
+    {
+      const layer = createCrosshairLayer(
+        {
+          getCrosshairState: () => ({
+            pos: interaction.crosshairPos,
+            activePaneId: interaction.activePaneId,
+            isDragging: interaction.isDraggingState(),
+            price: interaction.crosshairPrice,
+          }),
+        },
+        getCtxForCurrentPane,
+      )
+      this.scene.addLayer(layer)
+    }
+    {
+      const layer = createYAxisLayer(
+        {
+          axisWidth,
+          yPaddingPx: opt.yPaddingPx,
+          getCrosshair: () => {
+            const pos = interaction.crosshairPos
+            const price = interaction.crosshairPrice
+            const activePaneId = interaction.activePaneId
+            if (pos && price !== null) {
+              return { y: pos.y, price, activePaneId }
+            }
+            return null
+          },
+        },
+        getCtxForCurrentPane,
+      )
+      this.scene.addLayer(layer)
+    }
+    {
+      const layer = createLeftYAxisLayer(
+        {
+          axisWidth: opt.leftAxisWidth,
+          yPaddingPx: opt.yPaddingPx,
+          getCrosshair: () => {
+            const pos = interaction.crosshairPos
+            const price = interaction.crosshairPrice
+            const activePaneId = interaction.activePaneId
+            if (pos && price !== null) {
+              return { y: pos.y, price, activePaneId }
+            }
+            return null
+          },
+        },
+        getCtxForCurrentPane,
+      )
+      this.scene.addLayer(layer)
     }
   }
 
@@ -652,25 +666,19 @@ export class ChartRenderer {
       }
 
       this.paneCtxMap.set(pane.id, context)
+      this.currentPaneId = pane.id
 
       if (shouldUpdateMain || shouldUpdateOverlay) {
         const errors = rendererPluginManager.render(pane.id, context, level)
         if (errors.length > 0) {
           pluginHost.events.emit('renderer:error', { paneId: pane.id, errors })
         }
+      }
 
-        const yAxisErrors = rendererPluginManager.renderPlugin('yAxis', context)
-        if (yAxisErrors.length > 0) {
-          pluginHost.events.emit('renderer:error', { paneId: pane.id, errors: yAxisErrors })
-        }
-
-        const leftAxisErrors = rendererPluginManager.renderPlugin('leftYAxis', context)
-        if (leftAxisErrors.length > 0) {
-          pluginHost.events.emit('renderer:error', { paneId: pane.id, errors: leftAxisErrors })
-        }
-
-        const region = { x: 0, y: pane.top, width: vp.plotWidth, height: pane.height, dpr: vp.dpr }
+      const region = { x: 0, y: pane.top, width: vp.plotWidth, height: pane.height, dpr: vp.dpr }
+      if (shouldUpdateMain) {
         this.sceneRenderer.beginFrame(region)
+        ;(this.sceneRenderer as any).setFallbackContext(overlayCtx ?? null, vp.dpr)
         this.scene.paintPane({
           renderer: this.sceneRenderer,
           region,
@@ -678,6 +686,21 @@ export class ChartRenderer {
           frameNumber: this.frameCount++,
           deltaMs: 0,
         })
+        this.sceneRenderer.endFrame()
+      }
+      if (shouldUpdateOverlay && !shouldUpdateMain) {
+        this.sceneRenderer.beginFrame(region)
+        ;(this.sceneRenderer as any).setFallbackContext(overlayCtx ?? null, vp.dpr)
+        this.scene.paintPane(
+          {
+            renderer: this.sceneRenderer,
+            region,
+            paneRole: (pane.id === 'main' ? 'main' : 'sub') as PaneRole,
+            frameNumber: this.frameCount++,
+            deltaMs: 0,
+          },
+          ['overlay'],
+        )
         this.sceneRenderer.endFrame()
       }
     }

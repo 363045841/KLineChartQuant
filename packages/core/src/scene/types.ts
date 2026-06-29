@@ -51,7 +51,7 @@ export type LayerRole =
  * — the Layer / Scene contract here does not pre-commit a multi-sub-pane
  * scheme on purpose.
  */
-export type PaneRole = 'main' | 'sub'
+export type PaneRole = 'main' | 'sub' | 'global'
 
 /**
  * Stateless paint context handed to each layer per frame.
@@ -136,8 +136,11 @@ export interface Scene {
   getLayer(id: string): Layer | null
   setLayerVisibility(id: string, visible: boolean): boolean
 
-  /** paint layers for one pane in z-order, then by registration order */
-  paintPane(ctx: PaintContext): void
+  /**
+   * paint layers for one pane in z-order, then by registration order
+   * @param roles - if provided, only paint layers whose role is in this list
+   */
+  paintPane(ctx: PaintContext, roles?: ReadonlyArray<LayerRole>): void
 
   dispose(): void
 }
