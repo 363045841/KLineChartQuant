@@ -8,6 +8,7 @@
 export type { SurfaceBackend, SurfaceRegion, CompositeOptions } from './SurfaceBackend'
 
 export { createWebGLSurfaceBackend } from './createWebGLSurfaceBackend'
+export { createWebGLRenderer } from './createWebGLRenderer'
 
 export type {
   Renderer,

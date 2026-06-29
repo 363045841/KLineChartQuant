@@ -1,3 +1,23 @@
+/**
+ * SharedWebGLSurface — 单 WebGL canvas 共享后端
+ *
+ * 设计动机：浏览器对 WebGL context 数量有限制（通常 16 个），
+ * 每个 pane 独立创建 canvas → getContext('webgl2') 会快速耗尽限制。
+ * 此模块在整个 chart 实例内共享单个 WebGL canvas，所有 pane
+ * 通过 bindRegion(scissor+viewport) 在其中划分子区域绘制。
+ *
+ * 工作方式：
+ *   1. 一个隐藏 canvas 持有唯一的 WebGL2 上下文
+ *   2. 每个 pane 在共享 canvas 上绑定自己的逻辑区域
+ *   3. 绘制完成后通过 compositeRegionTo() 将共享 canvas 的
+ *      对应区域合成到 2D overlay canvas（DOM 可见层）
+ *
+ * 典型流程：
+ *   resize(paneWidth, paneHeight, dpr)    ← 不分配新 context
+ *   bindRegion({ x, y, width, height })   ← scissor + viewport
+ *   clearRegion(...) + 外部绘制调用         ← pane 内的 GL 命令
+ *   compositeRegionTo(ctx, region)        ← drawImage 到 2D canvas
+ */
 export type WebGLRegion = {
   x: number
   y: number
