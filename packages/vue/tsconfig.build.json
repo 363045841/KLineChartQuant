@@ -6,6 +6,7 @@
     "strict": true,
     "noImplicitOverride": true,
     "declaration": true,
+    "emitDeclarationOnly": true,
     "declarationMap": true,
     "sourceMap": true,
     "esModuleInterop": true,

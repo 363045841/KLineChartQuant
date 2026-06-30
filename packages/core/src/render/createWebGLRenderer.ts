@@ -4,6 +4,7 @@ import type {
   RendererCapabilities,
   BufferHandle,
   PipelineHandle,
+  ComputePipelineHandle,
   BufferUsage,
   DrawInstancesParams,
   DrawLinesParams,

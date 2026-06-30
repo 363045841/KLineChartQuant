@@ -1171,7 +1171,6 @@
   .chart-main {
     flex: 1 1 auto;
     min-width: 0;
-    height: 100%;
     display: flex;
     align-items: stretch;
     gap: 0;
@@ -1228,7 +1227,6 @@
     flex: 1 1 auto;
     overflow-x: auto;
     overflow-y: hidden;
-    height: 100%;
     min-height: inherit;
     scrollbar-width: none;
     -ms-overflow-style: none;
@@ -1252,7 +1250,6 @@
   .right-axis-host {
     position: relative;
     flex: 0 0 auto;
-    height: 100%;
     min-height: inherit;
     box-sizing: border-box;
     background: var(--chart-bg);
@@ -1270,7 +1267,6 @@
   .left-axis-host {
     position: relative;
     flex: 0 0 auto;
-    height: 100%;
     min-height: inherit;
     box-sizing: border-box;
     background: var(--chart-bg);
@@ -1286,7 +1282,6 @@
   }
 
   .scroll-content {
-    height: 100%;
     min-height: inherit;
     position: relative;
   }

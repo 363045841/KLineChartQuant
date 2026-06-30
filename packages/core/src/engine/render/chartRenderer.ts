@@ -859,7 +859,4 @@ export class ChartRenderer {
     this.paneCtxMap.clear()
   }
 
-  getScene(): Scene {
-    return this.scene
-  }
 }
