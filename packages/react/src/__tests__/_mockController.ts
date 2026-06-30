@@ -20,6 +20,7 @@ import type {
   PaneSpec,
   SubPaneInfo,
   SymbolSpec,
+  SymbolInfo,
 } from '@363045841yyt/klinechart-core'
 
 export interface MockControllerHandle {
@@ -78,6 +79,7 @@ export function createMockChartController(
     }),
     comparisonColors: createSignal<ReadonlyMap<string, string>>(new Map()),
     comparisonLoading: createSignal(false),
+    symbolCatalog: createSignal([] as ReadonlyArray<SymbolInfo>),
     catalog: [],
 
     setData(next: ReadonlyArray<KLineData>) {
@@ -96,6 +98,9 @@ export function createMockChartController(
       return 10
     },
     setSymbols() {
+      /* no-op */
+    },
+    registerSymbols() {
       /* no-op */
     },
     addComparisonSymbol() {

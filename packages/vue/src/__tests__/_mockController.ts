@@ -24,6 +24,7 @@ import type {
   PaneSpec,
   SubPaneInfo,
   SymbolSpec,
+  SymbolInfo,
 } from '@363045841yyt/klinechart-core'
 
 // ---------------------------------------------------------------------------
@@ -115,6 +116,7 @@ export function createMockChartController(
     }),
     comparisonColors: createSignal<ReadonlyMap<string, string>>(new Map()),
     comparisonLoading: createSignal(false),
+    symbolCatalog: createSignal([] as ReadonlyArray<SymbolInfo>),
     catalog: [],
 
     setData: (next) => data.set(next),
@@ -123,6 +125,7 @@ export function createMockChartController(
     getData: () => data.peek(),
     getZoomLevelCount: () => 10,
     setSymbols: () => {},
+    registerSymbols: () => {},
     addComparisonSymbol: () => {},
     removeComparisonSymbol: () => {},
     setComparisonData: () => {},

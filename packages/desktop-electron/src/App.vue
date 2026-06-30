@@ -1,5 +1,5 @@
 <template>
-  <KLineChart :data-fetcher="dataFetcher" />
+  <KlineChart :data-fetcher="dataFetcher" />
 </template>
 
 <script setup lang="ts">

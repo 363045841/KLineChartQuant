@@ -27,7 +27,7 @@ vi.mock('@363045841yyt/klinechart-core/controllers', async () => {
   }
 })
 
-import KLineChart from '../components/KLineChart.vue'
+import { KlineChart } from '../components/index'
 import { loadBuiltinIndicators, routerDataFetcher } from '@363045841yyt/klinechart-core/controllers'
 
 // ── Pre-load builtin indicators so IndicatorSelector mounted hook doesn't
@@ -114,7 +114,7 @@ async function flushMount() {
 
 describe('KLineChart internalization — dataFetcher default', () => {
   it('applies the built-in routerDataFetcher when no prop is bound', async () => {
-    const wrapper = mount(KLineChart, { attachTo: document.body })
+    const wrapper = mount(KlineChart, { attachTo: document.body })
     await flushMount()
 
     const calls = mockController.setDataFetcherCalls()
@@ -126,7 +126,7 @@ describe('KLineChart internalization — dataFetcher default', () => {
 
   it('uses the caller-provided dataFetcher when the prop is bound', async () => {
     const customFetcher = vi.fn(async () => [])
-    const wrapper = mount(KLineChart, {
+    const wrapper = mount(KlineChart, {
       attachTo: document.body,
       props: { dataFetcher: customFetcher },
     })
@@ -143,7 +143,7 @@ describe('KLineChart internalization — dataFetcher default', () => {
 
 describe('KLineChart internalization — theme prop', () => {
   it('applies a controlled theme on mount instead of settings', async () => {
-    const wrapper = mount(KLineChart, {
+    const wrapper = mount(KlineChart, {
       attachTo: document.body,
       props: { theme: 'dark' },
     })
@@ -155,7 +155,7 @@ describe('KLineChart internalization — theme prop', () => {
   })
 
   it('applies theme changes via watcher', async () => {
-    const wrapper = mount(KLineChart, {
+    const wrapper = mount(KlineChart, {
       attachTo: document.body,
       props: { theme: 'light' },
     })
@@ -170,7 +170,7 @@ describe('KLineChart internalization — theme prop', () => {
   })
 
   it('still emits themeChange when the controller theme changes', async () => {
-    const wrapper = mount(KLineChart, { attachTo: document.body })
+    const wrapper = mount(KlineChart, { attachTo: document.body })
     await flushMount()
 
     mockController._emitTheme('dark')
@@ -186,7 +186,7 @@ describe('KLineChart internalization — theme prop', () => {
 
 describe('KLineChart internalization — fullscreen (uncontrolled)', () => {
   it('requests fullscreen on the wrapper when toggled with no isFullscreen prop', async () => {
-    const wrapper = mount(KLineChart, { attachTo: document.body })
+    const wrapper = mount(KlineChart, { attachTo: document.body })
     await flushMount()
 
     wrapper.findComponent({ name: 'LeftToolbar' }).vm.$emit('toggleFullscreen')
@@ -203,7 +203,7 @@ describe('KLineChart internalization — fullscreen (uncontrolled)', () => {
   })
 
   it('fullscreenchange updates internal state, emits update:isFullscreen, flips icon', async () => {
-    const wrapper = mount(KLineChart, { attachTo: document.body })
+    const wrapper = mount(KlineChart, { attachTo: document.body })
     await flushMount()
 
     // simulate entering fullscreen
@@ -224,7 +224,7 @@ describe('KLineChart internalization — fullscreen (uncontrolled)', () => {
 
   it('removes the fullscreenchange listener on unmount', async () => {
     const removeSpy = vi.spyOn(document, 'removeEventListener')
-    const wrapper = mount(KLineChart, { attachTo: document.body })
+    const wrapper = mount(KlineChart, { attachTo: document.body })
     await flushMount()
 
     wrapper.unmount()
@@ -237,7 +237,7 @@ describe('KLineChart internalization — fullscreen (uncontrolled)', () => {
 
 describe('KLineChart internalization — fullscreen (controlled)', () => {
   it('does NOT touch the Fullscreen DOM API when isFullscreen prop is set', async () => {
-    const wrapper = mount(KLineChart, {
+    const wrapper = mount(KlineChart, {
       attachTo: document.body,
       props: { isFullscreen: false },
     })

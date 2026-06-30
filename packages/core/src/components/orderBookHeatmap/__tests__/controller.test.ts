@@ -249,7 +249,10 @@ describe('createHeatmapController', () => {
       expect(ctrl.state.peek().deltaCount).toBe(2)
 
       const snap: BookSnapshot = {
-        bids: [[99, 10], [98, 5]],
+        bids: [
+          [99, 10],
+          [98, 5],
+        ],
         asks: [[101, 8]],
         timestamp: 500,
       }
@@ -258,7 +261,10 @@ describe('createHeatmapController', () => {
       const st = ctrl.state.peek()
       expect(st.snapshotCount).toBe(0)
       expect(st.deltaCount).toBe(0)
-      expect(st.latestSnapshot?.bids).toEqual([[99, 10], [98, 5]])
+      expect(st.latestSnapshot?.bids).toEqual([
+        [99, 10],
+        [98, 5],
+      ])
       expect(st.latestSnapshot?.asks).toEqual([[101, 8]])
       expect(st.latestSnapshot?.timestamp).toBe(500)
       ctrl.dispose()

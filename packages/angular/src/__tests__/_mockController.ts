@@ -22,6 +22,7 @@ import type {
   PaneSpec,
   SubPaneInfo,
   SymbolSpec,
+  SymbolInfo,
 } from '@363045841yyt/klinechart-core'
 
 export interface MockControllerHandle {
@@ -184,7 +185,11 @@ export function createMockChartController(
     getLeftLoadBufferWidth() {
       return 0
     },
+    symbolCatalog: createSignal([] as ReadonlyArray<SymbolInfo>),
     setSymbols() {
+      /* no-op */
+    },
+    registerSymbols() {
       /* no-op */
     },
     addComparisonSymbol() {

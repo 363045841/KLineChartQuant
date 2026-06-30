@@ -73,7 +73,7 @@ export class BinanceSSESource implements DepthSource {
     this.es.onmessage = (event: MessageEvent) => {
       if (this.destroyed) return
       const raw = event.data as string
-      if (raw === '' || raw.startsWith(':')) return  // keepalive
+      if (raw === '' || raw.startsWith(':')) return // keepalive
 
       try {
         const msg = JSON.parse(raw) as {
@@ -98,7 +98,10 @@ export class BinanceSSESource implements DepthSource {
         const err =
           e instanceof KLineChartError
             ? e
-            : new KLineChartError('DEPTH_SOURCE_ERROR', `BinanceSSE parse error: ${(e as Error).message}`)
+            : new KLineChartError(
+                'DEPTH_SOURCE_ERROR',
+                `BinanceSSE parse error: ${(e as Error).message}`,
+              )
         for (const cb of this.errorCbs) cb(err)
       }
     }

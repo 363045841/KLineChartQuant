@@ -30,7 +30,7 @@ describe('@363045841yyt/klinechart —public API surface', () => {
       },
     } as unknown as Parameters<typeof VueAdapter.KMapPlugin.install>[0]
     VueAdapter.KMapPlugin.install(mockApp)
-    expect(registered.KLineChart).toBe(VueAdapter.KLineChart)
+    expect(registered.KLineChart).toBe(VueAdapter.KlineChart)
   })
 })
 

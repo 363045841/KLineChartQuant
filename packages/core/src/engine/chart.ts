@@ -1,7 +1,7 @@
 import type { KLineData } from '../types/price'
 import type { ChartSettings } from '../config/chartSettings'
 import { createSignal, type Signal, type Computed } from '../reactivity/signal'
-import type { SymbolSpec, CustomDataSource } from '../controllers/types'
+import type { SymbolSpec, SymbolInfo, CustomDataSource } from '../controllers/types'
 import { ChartDataManager } from './data/chartDataManager'
 import { ChartPaneLayout } from './layout/chartPaneLayout'
 import { UpdateLevel, type VisibleRange } from './layout/pane'
@@ -327,8 +327,7 @@ export class Chart {
       setPendingIndicatorDataUpdate: (v) => {
         this.dataManager.pendingIndicatorDataUpdate = v
       },
-      getRenderContext: (paneId) =>
-        this.renderer?.getPaneCtxMap()?.get(paneId) ?? null,
+      getRenderContext: (paneId) => this.renderer?.getPaneCtxMap()?.get(paneId) ?? null,
       addLayer: (layer) => this.renderer?.getScene()?.addLayer(layer),
       removeLayer: (id) => this.renderer?.getScene()?.removeLayer(id) ?? false,
       getLayer: (id) => this.renderer?.getScene()?.getLayer(id) ?? null,
@@ -1014,6 +1013,16 @@ export class Chart {
   /** 符号信号 */
   get symbols(): Signal<ReadonlyArray<SymbolSpec>> {
     return this.dataManager.symbols
+  }
+
+  /** 可用品种目录信号 — 供 UI 品种选择器消费 */
+  get symbolCatalog(): Signal<ReadonlyArray<SymbolInfo>> {
+    return this.dataManager.symbolCatalog
+  }
+
+  /** 注册品种到可用目录 */
+  registerSymbols(infos: ReadonlyArray<SymbolInfo>): void {
+    this.dataManager.registerSymbols(infos)
   }
 
   /** 比较商品颜色信号 */

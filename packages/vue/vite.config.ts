@@ -33,7 +33,7 @@ export default defineConfig({
         }
       : {
           entry: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
-          name: 'KLineChartVue',
+          name: 'KlineChart',
           formats: ['es', 'cjs'],
           fileName: (format) => (format === 'es' ? 'index.js' : 'index.cjs'),
         },

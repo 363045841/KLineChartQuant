@@ -87,11 +87,7 @@ export class SubPaneManager {
     if (!existingRenderer) {
       ctx.useRenderer(renderer, params as Record<string, number | boolean | string>)
       ctx.setRendererEnabled(rendererName, false)
-      const layer = createLayerFromPlugin(
-        renderer,
-        () => ctx.getRenderContext(paneId),
-        paneId,
-      )
+      const layer = createLayerFromPlugin(renderer, () => ctx.getRenderContext(paneId), paneId)
       ctx.addLayer(layer)
     }
 
@@ -169,11 +165,7 @@ export class SubPaneManager {
 
     ctx.useRenderer(renderer, newParams as Record<string, number | boolean | string>)
     ctx.setRendererEnabled(newRendererName, false)
-    const layer = createLayerFromPlugin(
-      renderer,
-      () => ctx.getRenderContext(paneId),
-      paneId,
-    )
+    const layer = createLayerFromPlugin(renderer, () => ctx.getRenderContext(paneId), paneId)
     ctx.addLayer(layer)
 
     this.mountScaleRenderer(ctx, paneId, newIndicatorId, newScaleRendererName)
@@ -298,11 +290,7 @@ export class SubPaneManager {
       const plugin = definition.scaleRendererFactory({ ...opts, indicatorId })
       ctx.useRenderer(plugin)
       ctx.setRendererEnabled(scaleRendererName, false)
-      const layer = createLayerFromPlugin(
-        plugin,
-        () => ctx.getRenderContext(paneId),
-        paneId,
-      )
+      const layer = createLayerFromPlugin(plugin, () => ctx.getRenderContext(paneId), paneId)
       ctx.addLayer(layer)
       return
     }
@@ -316,11 +304,7 @@ export class SubPaneManager {
       })
       ctx.useRenderer(plugin)
       ctx.setRendererEnabled(scaleRendererName, false)
-      const layer = createLayerFromPlugin(
-        plugin,
-        () => ctx.getRenderContext(paneId),
-        paneId,
-      )
+      const layer = createLayerFromPlugin(plugin, () => ctx.getRenderContext(paneId), paneId)
       ctx.addLayer(layer)
       return
     }
@@ -348,11 +332,7 @@ export class SubPaneManager {
     })
     ctx.useRenderer(renderer)
     ctx.setRendererEnabled(rendererName, false)
-    const layer = createLayerFromPlugin(
-      renderer,
-      () => ctx.getRenderContext(paneId),
-      paneId,
-    )
+    const layer = createLayerFromPlugin(renderer, () => ctx.getRenderContext(paneId), paneId)
     ctx.addLayer(layer)
   }
 }

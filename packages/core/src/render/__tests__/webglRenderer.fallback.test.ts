@@ -43,7 +43,7 @@ function createMockSharedWebGLSurface() {
   return {
     isAvailable: vi.fn(() => false),
     getGL: vi.fn(() => null),
-    getCanvas: vi.fn(() => ({ width: 0, height: 0 } as HTMLCanvasElement)),
+    getCanvas: vi.fn(() => ({ width: 0, height: 0 }) as HTMLCanvasElement),
     resize: vi.fn(),
     bindRegion: vi.fn(() => false),
     clearRegion: vi.fn(),
@@ -149,9 +149,7 @@ describe('Canvas2D fallback', () => {
 
       const pipeline = renderer.createPipeline({ type: 'fill' })
       const vertexBuf = renderer.createBuffer('vertex', 256)
-      const verts = new Float32Array([
-        0, 100, 0, 50, 100, 100, 100, 50, 200, 100, 200, 50,
-      ])
+      const verts = new Float32Array([0, 100, 0, 50, 100, 100, 100, 50, 200, 100, 200, 50])
       renderer.writeBuffer(vertexBuf, verts)
 
       renderer.drawLines({
