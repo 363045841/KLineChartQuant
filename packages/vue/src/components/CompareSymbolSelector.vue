@@ -335,9 +335,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 16px;
+    width: 16px;
     height: 16px;
-    padding: 0 4px;
     border-radius: 8px;
     background: var(--klc-color-axis-text);
     color: var(--klc-color-background);

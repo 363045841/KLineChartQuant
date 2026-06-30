@@ -81,8 +81,10 @@ npm run stockbao
 ### 3. 安装并使用
 
 ```bash
-npm install @363045841yyt/klinechart
+npm install @363045841yyt/klinechart @363045841yyt/klinechart-core
 ```
+
+- **使用组件：** 
 
 ```vue
 <template>
@@ -93,7 +95,7 @@ npm install @363045841yyt/klinechart
 
 <script setup lang="ts">
   import { ref } from 'vue'
-  import { CustomDataSource, KlineChart } from '@363045841yyt/klinechart'
+  import { type CustomDataSource, KlineChart } from '@363045841yyt/klinechart'
   import demoData from './demo-data.json'
 
   const currentTheme = ref<'light' | 'dark'>('dark')
@@ -113,6 +115,16 @@ npm install @363045841yyt/klinechart
     color: #e5e7eb;
   }
 </style>
+
+```
+- **Import CSS in main.ts:**
+```typescript
+import '@363045841yyt/klinechart/style.css' // <- HERE
+import { createApp } from 'vue'
+import App from './App.vue'
+
+
+createApp(App).mount('#app')
 ```
 
 ### 4.（可选）启用 MCP / AI Agent 控制

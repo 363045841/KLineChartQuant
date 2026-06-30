@@ -80,8 +80,10 @@ After startup, the API is available at `http://localhost:8000`
 ### 3. Install and Use
 
 ```bash
-npm install @363045841yyt/klinechart
+npm install @363045841yyt/klinechart @363045841yyt/klinechart-core
 ```
+
+- **Use the component:** 
 
 ```vue
 <template>
@@ -92,7 +94,7 @@ npm install @363045841yyt/klinechart
 
 <script setup lang="ts">
   import { ref } from 'vue'
-  import { CustomDataSource, KlineChart } from '@363045841yyt/klinechart'
+  import { type CustomDataSource, KlineChart } from '@363045841yyt/klinechart'
   import demoData from './demo-data.json'
 
   const currentTheme = ref<'light' | 'dark'>('dark')
@@ -112,7 +114,19 @@ npm install @363045841yyt/klinechart
     color: #e5e7eb;
   }
 </style>
+
 ```
+- **Import CSS in main.ts:**
+```typescript
+import '@363045841yyt/klinechart/style.css' // <- HERE
+import { createApp } from 'vue'
+import App from './App.vue'
+
+
+createApp(App).mount('#app')
+```
+
+
 
 ### 4. (Optional) Enable MCP / AI Agent Control
 
