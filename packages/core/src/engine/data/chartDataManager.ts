@@ -818,6 +818,7 @@ export class ChartDataManager {
     const spec: SymbolSpec = {
       symbol: source.symbol ?? this._currentSpec?.symbol ?? '',
       period: source.period ?? this._currentSpec?.period ?? 'daily',
+      incremental: false,
     }
     this.setSymbols([spec, ...this._comparisonSpecs])
 
@@ -911,12 +912,20 @@ export class ChartDataManager {
 
     const buf = this.getPrimaryDataBuffer(spec.symbol, spec.period!)
     this.activateBuffer(bufKey(BUF_PRIMARY, spec.symbol, spec.period!))
-    if (!this._dataFetcher) return
+    if (!this._dataFetcher) {
+      buf.setCurrentSpec(spec)
+      return
+    }
 
     // Buffer already has data (e.g. from a previous applyCustomData setInlineData call)
     // → just update the spec metadata, skip fetch to avoid clearing inline data.
+    // Preserve the buffer's existing incremental flag so inline data sources
+    // (which use incremental:false) remain non-fetching even after a symbol switch.
     if (buf.getRawData().length > 0) {
-      buf.setCurrentSpec(spec)
+      buf.setCurrentSpec({
+        ...spec,
+        incremental: spec.incremental ?? buf.currentSpec?.incremental ?? true,
+      })
       this.deps.resetInteraction()
       this.scrollToRight()
       return

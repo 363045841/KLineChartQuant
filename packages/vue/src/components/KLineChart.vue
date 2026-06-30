@@ -284,6 +284,7 @@
     (e: 'toggleFullscreen'): void
     (e: 'update:isFullscreen', value: boolean): void
     (e: 'themeChange', theme: 'light' | 'dark'): void
+    (e: 'update:theme', theme: 'light' | 'dark'): void
     (e: 'kLineLevelChange', level: string): void
     (e: 'kLineAdjustChange', adjust: 'qfq' | 'hfq' | 'splits' | 'none'): void
   }>()
@@ -357,9 +358,12 @@
 
   function onSymbolChange(item: SymbolItem) {
     symbolStatus.value = 'loading'
-    const current = controller.value?.symbols.peek() ?? []
+    const ctrl = controller.value
+    if (!ctrl) return
+    ctrl.setDataFetcher(effectiveDataFetcher.value)
+    const current = ctrl.symbols.peek() ?? []
     const comparisonSpecs = current.slice(1)
-    controller.value?.setSymbols([toSymbolSpec(item), ...comparisonSpecs])
+    ctrl.setSymbols([toSymbolSpec(item), ...comparisonSpecs])
   }
 
   function onAddOverlaySymbol(item: SymbolItem) {
@@ -959,6 +963,7 @@
       const newTheme = ctrl.theme.peek()
       chartTheme.value = newTheme
       emit('themeChange', newTheme)
+      emit('update:theme', newTheme)
     })
 
     const unsubscribeIndicators = setupIndicatorSubscriptions(ctrl)
@@ -1051,10 +1056,8 @@
   }
 
   function setupSemanticController(ctrl: ChartController): void {
-    // 如果传入了 customData，跳过 fetcher 配置，使用自定义数据
     if (props.customData) {
       ctrl.applyCustomData(props.customData)
-      return
     }
 
     ctrl.setDataFetcher(effectiveDataFetcher.value)

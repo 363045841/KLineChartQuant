@@ -130,6 +130,7 @@ export class DataBuffer implements DataBufferLike {
 
   ensureRange(requestStartTs: number, _requestEndTs: number): void {
     if (this._disposed || (!this._requestFetch && !this._fetcher) || !this._currentSpec) return
+    if (this._currentSpec.incremental === false) return
     if (!this._loadedWindow) return
 
     if (requestStartTs >= this._loadedWindow.earliestTs) return
@@ -160,6 +161,7 @@ export class DataBuffer implements DataBufferLike {
 
   private fetchRange(startTs: number, endTs: number): void {
     if ((!this._requestFetch && !this._fetcher) || !this._currentSpec || this._disposed) return
+    if (this._currentSpec.incremental === false) return
 
     if (this._pendingFetch) {
       this._pendingFetch = this._pendingFetch.then(() => {

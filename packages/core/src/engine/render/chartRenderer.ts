@@ -145,11 +145,7 @@ export class ChartRenderer {
           return null
         },
       })
-      this.timeAxisLayer = createLayerFromPlugin(
-        plugin,
-        () => this.timeAxisCtx,
-        'global',
-      )
+      this.timeAxisLayer = createLayerFromPlugin(plugin, () => this.timeAxisCtx, 'global')
     }
 
     const getCtx = (paneId: string) => () => this.paneCtxMap.get(paneId) ?? null
@@ -858,5 +854,4 @@ export class ChartRenderer {
     this.scene.dispose()
     this.paneCtxMap.clear()
   }
-
 }

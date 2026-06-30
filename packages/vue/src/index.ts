@@ -35,6 +35,7 @@ import type {
   KLineData,
 } from '@363045841yyt/klinechart-core'
 import { createIndicatorSelectorController } from '@363045841yyt/klinechart-core'
+import { KlineChart } from './components/index'
 
 export type {
   ChartController,
@@ -52,11 +53,14 @@ export {
   DrawingStyleToolbar,
   IndicatorParams,
   IndicatorSelector,
-  KLineChartVue,
+  KlineChart,
   KLineTooltip,
   LeftToolbar,
   MarkerTooltip,
 } from './components/index'
+
+/** @deprecated Use `KlineChart` instead. */
+export { default as KLineChartVue } from './components/KLineChart.vue'
 
 // ---------------------------------------------------------------------------
 // Controller factory injection
@@ -302,14 +306,16 @@ export function useIndicatorSelector(controller: ChartController): {
 }
 
 // ---------------------------------------------------------------------------
-// <KLineChart /> SFC-equivalent component
+// @deprecated <KLineChart /> SFC-equivalent component
 //
 // Implemented with defineComponent + render function rather than a `.vue`
 // SFC to keep the package buildable with plain `tsc` (no SFC compiler in
 // the publishable pipeline). Mirrors the legacy KLineChart.vue prop names
 // that downstream consumers depend on.
+// Deprecated — use the KlineChart (SFC) component instead.
 // ---------------------------------------------------------------------------
 
+/** @deprecated Use `KlineChart` (SFC) instead. */
 export const KLineChart = defineComponent({
   name: 'KLineChart',
   props: {
@@ -443,7 +449,7 @@ export const KLineChart = defineComponent({
 
 export const KMapPlugin = {
   install(app: App): void {
-    app.component('KLineChart', KLineChart)
+    app.component('KLineChart', KlineChart)
   },
 }
 

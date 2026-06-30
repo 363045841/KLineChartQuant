@@ -120,7 +120,7 @@
       :class="{ 'is-fullscreen': isFullscreen }"
       :style="{ width: embedWidth, height: embedHeight }"
     >
-      <KLineChart
+      <KlineChart
         ref="chartRef"
         :mcp="mcpConfig"
         :left-axis-width="60"
@@ -141,7 +141,7 @@
               <button class="close-btn" @click="showModal = false">×</button>
             </header>
             <div class="modal-body">
-              <KLineChart @theme-change="onThemeChange" />
+              <KlineChart @theme-change="onThemeChange" />
             </div>
           </div>
         </div>
@@ -152,7 +152,7 @@
 
 <script setup lang="ts">
   import { ref, computed, provide, inject, type Ref, type InjectionKey } from 'vue'
-  import KLineChart from '../src/components/KLineChart.vue'
+  import { KlineChart } from '../src/index'
   import { VERSION, CORE_VERSION } from '../src/version'
   import {
     type KLineData,
@@ -595,7 +595,7 @@
     })
   }
 
-  const chartRef = ref<InstanceType<typeof KLineChart> | null>(null)
+  const chartRef = ref<InstanceType<typeof KlineChart> | null>(null)
   const mcpConfig = {
     wsUrl: 'ws://localhost:8081',
     autoReconnect: true,

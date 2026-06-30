@@ -1,12 +1,12 @@
 <template>
   <div class="app-container" :data-theme="currentTheme">
-    <KLineChart v-model:theme="currentTheme" :custom-data="customData" />
+    <KlineChart v-model:theme="currentTheme" :custom-data="customData" />
   </div>
 </template>
 
 <script setup lang="ts">
   import { ref } from 'vue'
-  import { CustomDataSource, KLineChartVue as KLineChart } from '@363045841yyt/klinechart'
+  import { CustomDataSource, KlineChart } from '@363045841yyt/klinechart'
   import demoData from './demo-data.json'
 
   const currentTheme = ref<'light' | 'dark'>('dark')

@@ -327,8 +327,7 @@ export class Chart {
       setPendingIndicatorDataUpdate: (v) => {
         this.dataManager.pendingIndicatorDataUpdate = v
       },
-      getRenderContext: (paneId) =>
-        this.renderer?.getPaneCtxMap()?.get(paneId) ?? null,
+      getRenderContext: (paneId) => this.renderer?.getPaneCtxMap()?.get(paneId) ?? null,
       addLayer: (layer) => this.renderer?.getScene()?.addLayer(layer),
       removeLayer: (id) => this.renderer?.getScene()?.removeLayer(id) ?? false,
       getLayer: (id) => this.renderer?.getScene()?.getLayer(id) ?? null,

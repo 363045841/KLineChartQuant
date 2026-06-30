@@ -106,6 +106,13 @@ export interface SymbolSpec {
   source?: string
   startDate?: string
   endDate?: string
+  /**
+   * Whether incremental loading is supported for this symbol.
+   * When false, the data buffer will not fetch additional data
+   * beyond what was initially provided (e.g. via setInlineData).
+   * Defaults to true when not set.
+   */
+  incremental?: boolean
 }
 
 export type DataFetcher = (

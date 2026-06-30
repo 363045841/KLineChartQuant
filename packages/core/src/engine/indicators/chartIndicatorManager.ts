@@ -9,7 +9,12 @@ import { getRegisteredIndicatorDefinitions } from './indicatorDefinitionRegistry
 import { SubPaneManager, type SubPaneEntry, type SubPaneContext } from '../subPaneManager'
 import { createSubIndicatorRenderer, type SubIndicatorType } from '../renderers/Indicator'
 import { createMainIndicatorLegendRendererPlugin } from '../renderers/Indicator/mainIndicatorLegend'
-import type { PluginHostImpl, RendererPlugin, RendererPluginWithHost, RenderContext } from '../../plugin'
+import type {
+  PluginHostImpl,
+  RendererPlugin,
+  RendererPluginWithHost,
+  RenderContext,
+} from '../../plugin'
 import type { Layer } from '../../scene/types'
 import { createLayerFromPlugin } from '../../scene/createLayerFromPlugin'
 
@@ -351,11 +356,7 @@ export class ChartIndicatorManager {
       // disable old rendering to avoid double rendering (scene handles it)
       this.deps.setRendererEnabled(rendererName, false)
       // create bridge layer and add to scene
-      const layer = createLayerFromPlugin(
-        plugin,
-        () => this.deps.getRenderContext('main'),
-        'main',
-      )
+      const layer = createLayerFromPlugin(plugin, () => this.deps.getRenderContext('main'), 'main')
       this.deps.addLayer(layer)
     }
 
@@ -445,11 +446,7 @@ export class ChartIndicatorManager {
 
     this.deps.useRenderer(renderer, params)
     this.deps.setRendererEnabled(rendererName, false)
-    const layer = createLayerFromPlugin(
-      renderer,
-      () => this.deps.getRenderContext(paneId),
-      paneId,
-    )
+    const layer = createLayerFromPlugin(renderer, () => this.deps.getRenderContext(paneId), paneId)
     this.deps.addLayer(layer)
   }
 
