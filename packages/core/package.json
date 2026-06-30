@@ -1,6 +1,6 @@
 {
   "name": "@363045841yyt/klinechart-core",
-  "version": "0.8.13-alpha.1",
+  "version": "0.8.13-alpha.2",
   "description": "Headless K-line chart engine + reactive controllers. Zero framework dependencies.",
   "license": "MIT",
   "repository": {
@@ -11,10 +11,10 @@
   "homepage": "https://363045841.github.io/KLineChartQuant/",
   "type": "module",
   "sideEffects": [
-    "./src/engine/indicators/registerBuiltins.ts",
-    "./src/engine/renderers/Indicator/*.ts",
-    "./src/engine/renderers/subVolume.ts",
-    "./src/data-fetchers/*.ts"
+    "./dist/engine/indicators/registerBuiltins.js",
+    "./dist/engine/renderers/Indicator/*.js",
+    "./dist/engine/renderers/subVolume.js",
+    "./dist/data-fetchers/*.js"
   ],
   "main": "./dist/index.js",
   "module": "./dist/index.js",

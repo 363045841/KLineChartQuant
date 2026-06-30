@@ -182,18 +182,21 @@ export class DataBuffer implements DataBufferLike {
       ) => EffectType<ReadonlyArray<KLineData>, unknown>
     } = {
       fetch: (s, start, end) =>
-        Effect.tryPromise(() => {
-          if (this._requestFetch) {
-            return this._requestFetch(s, start, end)
-          }
-          return (this._fetcher as NonNullable<DataFetcher>)(s.source ?? '', {
-            symbol: s.symbol,
-            startDate: formatDate(start),
-            endDate: formatDate(end),
-            period: s.period ?? 'daily',
-            adjust: s.adjust ?? 'none',
-            exchange: s.exchange,
-          })
+        Effect.tryPromise({
+          try: () => {
+            if (this._requestFetch) {
+              return this._requestFetch(s, start, end)
+            }
+            return (this._fetcher as NonNullable<DataFetcher>)(s.source ?? '', {
+              symbol: s.symbol,
+              startDate: formatDate(start),
+              endDate: formatDate(end),
+              period: s.period ?? 'daily',
+              adjust: s.adjust ?? 'none',
+              exchange: s.exchange,
+            })
+          },
+          catch: (e) => e,
         }),
     }
 
