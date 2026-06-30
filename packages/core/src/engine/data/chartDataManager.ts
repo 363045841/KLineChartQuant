@@ -913,6 +913,15 @@ export class ChartDataManager {
     this.activateBuffer(bufKey(BUF_PRIMARY, spec.symbol, spec.period!))
     if (!this._dataFetcher) return
 
+    // Buffer already has data (e.g. from a previous applyCustomData setInlineData call)
+    // → just update the spec metadata, skip fetch to avoid clearing inline data.
+    if (buf.getRawData().length > 0) {
+      buf.setCurrentSpec(spec)
+      this.deps.resetInteraction()
+      this.scrollToRight()
+      return
+    }
+
     buf.onPrepend = (count: number) => {
       this.pendingPrependedCount = count
       const dpr = this.deps.getEffectiveDpr()
