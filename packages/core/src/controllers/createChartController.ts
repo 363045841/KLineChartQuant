@@ -599,6 +599,16 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     chart.applyCustomData(source)
   }
 
+  function resetToFetcher(spec: SymbolSpec): void {
+    if (disposed) return
+    chart.resetToFetcher(spec)
+  }
+
+  function getPreCustomSpec(): SymbolSpec | null {
+    if (disposed) return null
+    return chart.getPreCustomSpec()
+  }
+
   function setDataFetcher(fetcher: DataFetcher | null): void {
     if (disposed) return
     chart.setDataFetcher(fetcher)
@@ -957,6 +967,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     setCurrentPeriod,
     switchToTimeShareForDate,
     applyCustomData,
+    resetToFetcher,
+    getPreCustomSpec,
     setDataFetcher,
     ensureDataRange,
     setData,

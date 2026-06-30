@@ -74,6 +74,7 @@ export class ChartDataManager {
   private pendingPrependedCount = 0
   private _prependUnsub: (() => void) | null = null
   private _savedScrollLeft: number | null = null
+  private _preCustomSpec: SymbolSpec | null = null
 
   lastVisibleRange: VisibleRange = { start: 0, end: 0 }
   lastRawVisibleRange: VisibleRange = { start: 0, end: 0 }
@@ -565,29 +566,31 @@ checkVisibleRangeGap(): void {
   applyCustomData(source: CustomDataSource): void {
     const plainData = source.data.map((d) => ({ ...d }))
 
-    // 首次调用：用 customData 的 period 初始化 spec，创建 buffer
-    if (!this._currentSpec) {
-      const spec: SymbolSpec = {
-        symbol: source.symbol ?? '',
-        period: ChartDataManager.normalizePeriod(source.period),
-        incremental: false,
-        source: source.source ?? 'custom',
-      }
-      this.setSymbols([spec, ...this._comparisonManager.specs])
+    // 首次调用时保存原始 spec，用于切回 Fetcher 时恢复
+    if (!this._preCustomSpec) {
+      this._preCustomSpec = { ...(this._currentSpec ?? this._symbolsSignal.peek()[0] ?? { symbol: '' }) }
+    }
 
-      // Auto-register the custom symbol into the available catalog so it appears in UI pickers.
-      const symbolCode = spec.symbol
-      if (symbolCode) {
-        this.registerSymbols([
-          {
-            code: symbolCode,
-            description: source.description ?? symbolCode,
-            exchange: source.exchange ?? '',
-            source: source.source ?? 'custom',
-          },
-        ])
-      }
-    } // 后续调用只更新 data，不碰 _currentSpec / period
+    // 每次都切到 custom 品种，注册到目录，填入数据
+    const spec: SymbolSpec = {
+      symbol: source.symbol ?? '',
+      period: ChartDataManager.normalizePeriod(source.period),
+      incremental: false,
+      source: source.source ?? 'custom',
+    }
+    this.setSymbols([spec, ...this._comparisonManager.specs])
+
+    const symbolCode = spec.symbol
+    if (symbolCode) {
+      this.registerSymbols([
+        {
+          code: symbolCode,
+          description: source.description ?? symbolCode,
+          exchange: source.exchange ?? '',
+          source: source.source ?? 'custom',
+        },
+      ])
+    }
 
     this.setData(plainData)
     if (source.comparisons) {
@@ -601,6 +604,24 @@ checkVisibleRangeGap(): void {
         )
       }
     }
+  }
+
+  resetToFetcher(spec: SymbolSpec): void {
+    if (this._activeBufferKey && !this._activeBufferKey.startsWith(BUF_TIMESHARE)) {
+      this.disposeBuffer(this._activeBufferKey)
+    }
+    this._dataSignal.set([])
+    this.lastVisibleRange = { start: 0, end: 0 }
+    this.lastRawVisibleRange = { start: 0, end: 0 }
+    this._savedScrollLeft = null
+    this._prependUnsub?.()
+    this._prependUnsub = null
+    this.pendingPrependedCount = 0
+    this.setSymbols([spec, ...this._comparisonManager.specs])
+  }
+
+  getPreCustomSpec(): SymbolSpec | null {
+    return this._preCustomSpec
   }
 
   // ── Main symbol switching ──

@@ -1137,6 +1137,14 @@ export class Chart {
     this.dataManager.applyCustomData(source)
   }
 
+  resetToFetcher(spec: SymbolSpec): void {
+    this.dataManager.resetToFetcher(spec)
+  }
+
+  getPreCustomSpec(): SymbolSpec | null {
+    return this.dataManager.getPreCustomSpec()
+  }
+
   // ---------- Theme ----------
 
   /**
