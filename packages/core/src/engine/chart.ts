@@ -1089,7 +1089,7 @@ export class Chart {
   }
 
   get dataBuffer(): import('../data-fetchers/dataBuffer').DataBuffer {
-    return this.dataManager.dataBuffer
+    return this.dataManager.dataBuffer as import('../data-fetchers/dataBuffer').DataBuffer
   }
 
   checkVisibleRangeGap(): void {

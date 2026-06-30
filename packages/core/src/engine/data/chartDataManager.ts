@@ -4,12 +4,16 @@ import { createSignal, type Signal } from '../../reactivity/signal'
 import { DataBuffer } from '../../data-fetchers/dataBuffer'
 import { getPeriodDays } from '../../data-fetchers/dataBuffer.effects'
 import { TimeShareBuffer } from '../../data-fetchers/timeShareBuffer'
-import type { DataBufferLike } from '../../data-fetchers/dataBufferTypes'
+import type { KLineBuffer } from '../../data-fetchers/dataBufferTypes'
 import type { TimeShareFetcherFn } from '../../data-fetchers/types'
 import type { ChartDom, Viewport } from '../chartTypes'
 import type { VisibleRange, UpdateLevel } from '../layout/pane'
 import { getVisibleRange } from '../viewport/viewport'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
+import { FetchBatchScheduler } from './fetchBatchScheduler'
+import { ScrollCompensator } from './scrollCompensator'
+import { ComparisonManager } from './comparisonManager'
+import { IncrementalLoadHint } from './incrementalLoadHint'
 
 const COMPARISON_PALETTE = ['#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316']
 const DEFAULT_COMPARISON_COLOR = '#f59e0b'
@@ -49,7 +53,8 @@ export class ChartDataManager {
   private _dataFetcher: DataFetcher | null = null
   private _timeShareFetcher: TimeShareFetcherFn | null = null
 
-  private _buffers = new Map<string, any>()
+  private _klineBuffers = new Map<string, KLineBuffer>()
+  private _tsBuffers = new Map<string, TimeShareBuffer>()
   private _activeBufferKey: string | null = null
   private _activeBufferUnsub: (() => void) | null = null
 
@@ -61,29 +66,13 @@ export class ChartDataManager {
 
   private _currentSpec: SymbolSpec | null = null
 
-  // Comparison-specific state (still needed for rendering pass-through)
-  private _comparisonSpecs: SymbolSpec[] = []
-  private _comparisonData: Map<string, KLineData[]> = new Map()
-  private _comparisonColors: Map<string, string> = new Map()
-  private _comparisonColorsSignal = createSignal<ReadonlyMap<string, string>>(new Map())
-  private _comparisonLoadingSignal = createSignal<boolean>(false)
-  // Track loading per-comparison buffer (keyed by buffer key)
-  private _cmpLoadingUnsubs = new Map<string, () => void>()
+  private _batchScheduler = new FetchBatchScheduler()
+  private _scrollCompensator: ScrollCompensator
+  private _comparisonManager: ComparisonManager
+  private _loadHint: IncrementalLoadHint
 
-  private _pendingFetches: Array<{
-    source: string
-    spec: SymbolSpec
-    startTs: number
-    endTs: number
-    resolve: (data: ReadonlyArray<KLineData>) => void
-    reject: (err: Error) => void
-  }> = []
-
-  private _batchFlushScheduled = false
-
-  private incrementalLoadHintEl: HTMLDivElement | null = null
-  private incrementalLoadHintTimer: number | null = null
   private pendingPrependedCount = 0
+  private _prependUnsub: (() => void) | null = null
 
   lastVisibleRange: VisibleRange = { start: 0, end: 0 }
   lastRawVisibleRange: VisibleRange = { start: 0, end: 0 }
@@ -93,15 +82,34 @@ export class ChartDataManager {
 
   constructor(deps: DataDependencies) {
     this.deps = deps
+    this._scrollCompensator = new ScrollCompensator(deps)
+    this._loadHint = new IncrementalLoadHint(deps)
+    this._comparisonManager = new ComparisonManager({
+      createComparisonBuffer: (spec) => this._createCmpBuffer(spec),
+      disposeBuffer: (key) => this.disposeBuffer(key),
+      getKLineBuffer: (key) => this._klineBuffers.get(key),
+      hasKLineBuffer: (key) => this._klineBuffers.has(key),
+      getKLineBufferKeys: () => [...this._klineBuffers.keys()],
+      scheduleDraw: () => this.deps.scheduleDraw(),
+    })
   }
 
   // ── Buffer helpers ──
+
+  private _lookupBuffer(key: string): KLineBuffer | TimeShareBuffer | undefined {
+    if (key.startsWith(BUF_TIMESHARE)) return this._tsBuffers.get(key)
+    return this._klineBuffers.get(key)
+  }
+
+  private _lookupKLineBuffer(key: string): KLineBuffer | undefined {
+    return this._klineBuffers.get(key)
+  }
 
   private activateBuffer(key: string): void {
     if (this._activeBufferKey === key) return
     this._activeBufferUnsub?.()
     this._activeBufferKey = key
-    const buf = this._buffers.get(key) as DataBufferLike | undefined
+    const buf = this._lookupBuffer(key)
     if (buf) {
       this._dataSignal.set([...(buf.data.peek() as unknown[])])
       this._loadingSignal.set(buf.loading.peek())
@@ -125,81 +133,80 @@ export class ChartDataManager {
   }
 
   private disposeBuffer(key: string): void {
-    const buf = this._buffers.get(key)
+    const buf = this._lookupBuffer(key)
     if (!buf) return
-    const unsub = this._cmpLoadingUnsubs.get(key)
-    unsub?.()
-    const loadingUnsub = this._cmpLoadingUnsubs.get(`loading:${key}`)
-    loadingUnsub?.()
-    this._cmpLoadingUnsubs.delete(key)
-    this._cmpLoadingUnsubs.delete(`loading:${key}`)
     buf.dispose()
-    this._buffers.delete(key)
+    if (key.startsWith(BUF_TIMESHARE)) this._tsBuffers.delete(key)
+    else this._klineBuffers.delete(key)
   }
 
-  private getActiveDataBuffer(): DataBuffer | null {
-    const buf = this._activeBufferKey ? this._buffers.get(this._activeBufferKey) : null
-    return buf instanceof DataBuffer ? buf : null
+  private getActiveDataBuffer(): KLineBuffer | null {
+    return this._activeBufferKey && !this._activeBufferKey.startsWith(BUF_TIMESHARE)
+      ? (this._klineBuffers.get(this._activeBufferKey) ?? null)
+      : null
   }
 
   private getActiveTimeShareBuffer(): TimeShareBuffer | null {
-    const buf = this._activeBufferKey ? this._buffers.get(this._activeBufferKey) : null
-    return buf instanceof TimeShareBuffer ? buf : null
+    return this._activeBufferKey?.startsWith(BUF_TIMESHARE) === true
+      ? (this._tsBuffers.get(this._activeBufferKey) ?? null)
+      : null
   }
 
-  private getPrimaryDataBuffer(symbol: string, period: string): DataBuffer {
+  private getPrimaryDataBuffer(symbol: string, period: string): KLineBuffer {
     const key = bufKey(BUF_PRIMARY, symbol, period)
-    let buf = this._buffers.get(key) as DataBuffer | undefined
+    let buf = this._klineBuffers.get(key)
     if (!buf) {
-      buf = new DataBuffer()
+      buf = this._createKLineBuffer()
       buf.setFetcher(this._dataFetcher)
       if (this._dataFetcher) {
-        buf.setRequestFetch(this._createBatchHandler(this._dataFetcher))
+        buf.setRequestFetch(this._batchScheduler.createHandler())
       }
-      this._buffers.set(key, buf)
+      this._klineBuffers.set(key, buf)
     } else {
       buf.setFetcher(this._dataFetcher)
       if (this._dataFetcher) {
-        buf.setRequestFetch(this._createBatchHandler(this._dataFetcher))
+        buf.setRequestFetch(this._batchScheduler.createHandler())
       }
     }
     return buf
   }
 
+  private _createKLineBuffer(): KLineBuffer {
+    return new DataBuffer()
+  }
+
+  private _createCmpBuffer(spec: SymbolSpec): { key: string; buffer: KLineBuffer } {
+    const key = bufKey(BUF_COMPARISON, spec.symbol, spec.period)
+    const buffer = this._createKLineBuffer()
+    buffer.setFetcher(this._dataFetcher)
+    if (this._dataFetcher) {
+      buffer.setRequestFetch(this._batchScheduler.createHandler())
+    }
+    this._klineBuffers.set(key, buffer)
+    return { key, buffer }
+  }
+
   // ── Buffer data change handler ──
 
   private onBufferDataChanged(key: string, prevDataLength?: number): void {
-    const buf = this._buffers.get(key)
-    if (!buf) return
-
-    if (buf instanceof DataBuffer) {
-      this.onKLineBufferChanged(key, buf, prevDataLength)
-    } else if (buf instanceof TimeShareBuffer) {
-      this.onTimeShareBufferChanged(key, buf)
+    if (key.startsWith(BUF_TIMESHARE)) {
+      this.onTimeShareBufferChanged()
+      return
     }
+    const buf = this._klineBuffers.get(key)
+    if (!buf) return
+    this.onKLineBufferChanged(key, buf, prevDataLength)
   }
 
-  private onKLineBufferChanged(key: string, buf: DataBuffer, prevDataLength?: number): void {
+  private onKLineBufferChanged(key: string, buf: KLineBuffer, prevDataLength?: number): void {
     if (!key.startsWith('main:')) return
 
     const bufferData = buf.getRawData() as KLineData[]
     const prependedCount = this.pendingPrependedCount
     this.pendingPrependedCount = 0
 
-    if (prependedCount === 0 && this.deps.getCachedScrollLeft() < this.getLeftLoadBufferWidth()) {
-      const scrollLeft = this.deps.getCachedScrollLeft()
-      if (scrollLeft <= 0) {
-        this.deps.setScrollLeft(this.getLeftLoadBufferWidth())
-      } else {
-        const dpr = this.deps.getEffectiveDpr()
-        const opt = this.deps.getOption()
-        const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
-        const totalDataWidth = (startXPx + bufferData.length * unitPx) / dpr
-        const leftBuffer = this.getLeftLoadBufferWidth()
-        if (scrollLeft >= leftBuffer + totalDataWidth) {
-          this.deps.setScrollLeft(leftBuffer)
-        }
-      }
+    if (prependedCount === 0) {
+      this._scrollCompensator.adjustScrollAfterDataChange(bufferData.length)
     }
 
     if ((prevDataLength ?? this._dataSignal.peek().length) === 0 && bufferData.length > 0) {
@@ -236,16 +243,15 @@ export class ChartDataManager {
     if (indicatorsReady) {
       this.pendingIndicatorDataUpdate = false
       this.deps.scheduleDraw()
-      // Alert 管线入口：Chart 构造时绑定 → evaluateAlerts()
       this.deps.onDataProcessed?.(bufferData, this.lastVisibleRange)
     } else {
       this.pendingIndicatorDataUpdate = true
     }
 
-    this.showIncrementalLoadHint(prependedCount)
+    this._loadHint.show(prependedCount, this.getLeftLoadBufferWidth())
   }
 
-  private onTimeShareBufferChanged(_key: string, _buf: TimeShareBuffer): void {
+  private onTimeShareBufferChanged(): void {
     const data = this._dataSignal.peek() as TimeShareData[]
     this.lastVisibleRange = { start: 0, end: data.length }
     this.lastRawVisibleRange = { start: 0, end: data.length }
@@ -255,19 +261,10 @@ export class ChartDataManager {
 
   // ── Internal helpers ──
 
-  private getScrollContentHost(): HTMLDivElement | null {
-    return this.deps.getDom().scrollContent ?? this.deps.getDom().container ?? null
-  }
-
   getLeftLoadBufferWidth(): number {
     const buf = this.getActiveDataBuffer()
     const dataLength = buf ? buf.getRawData().length : 0
-    if (dataLength === 0) return 0
-    const plotWidth =
-      this.deps.getViewport()?.plotWidth ??
-      (this.deps.getObservedSize().width > 0 ? this.deps.getObservedSize().width : undefined) ??
-      Math.round(this.deps.getDom().container?.clientWidth ?? 0)
-    return Math.max(0, plotWidth)
+    return this._scrollCompensator.getLeftLoadBufferWidth(dataLength)
   }
 
   private getActiveKLineLength(): number {
@@ -284,76 +281,6 @@ export class ChartDataManager {
     const opt = this.deps.getOption()
     return getVisibleRange(vp.scrollLeft, vp.plotWidth, opt.kWidth, opt.kGap, dataLength, vp.dpr)
   }
-
-  private getTrailingSlotCount(): number {
-    return 24
-  }
-
-  private clearIncrementalLoadHintTimer(): void {
-    if (this.incrementalLoadHintTimer !== null) {
-      window.clearTimeout(this.incrementalLoadHintTimer)
-      this.incrementalLoadHintTimer = null
-    }
-  }
-
-  private hideIncrementalLoadHint(): void {
-    const hint = this.incrementalLoadHintEl
-    if (!hint) return
-    hint.style.opacity = '0'
-    hint.style.filter = 'blur(10px)'
-  }
-
-  private ensureIncrementalLoadHint(): HTMLDivElement | null {
-    const host = this.getScrollContentHost()
-    if (!host) return null
-    if (this.incrementalLoadHintEl && this.incrementalLoadHintEl.isConnected) {
-      return this.incrementalLoadHintEl
-    }
-    const ownerDoc = host.ownerDocument
-    if (!ownerDoc) return null
-    const hint = ownerDoc.createElement('div')
-    hint.className = 'klc-incremental-load-hint'
-    hint.style.position = 'absolute'
-    hint.style.top = '0'
-    hint.style.height = '0px'
-    hint.style.width = '0px'
-    hint.style.pointerEvents = 'none'
-    hint.style.opacity = '0'
-    hint.style.filter = 'blur(10px)'
-    hint.style.transition = 'opacity 420ms ease, filter 420ms ease'
-    hint.style.background = 'rgba(71, 91, 132, 0.5)'
-    hint.style.zIndex = '3'
-    hint.style.willChange = 'opacity, filter, width'
-    host.appendChild(hint)
-    this.incrementalLoadHintEl = hint
-    return hint
-  }
-
-  private showIncrementalLoadHint(count: number): void {
-    if (count <= 0) return
-    const hint = this.ensureIncrementalLoadHint()
-    if (!hint) return
-    this.clearIncrementalLoadHintTimer()
-    const dpr = this.deps.getEffectiveDpr()
-    const opt = this.deps.getOption()
-    const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
-    hint.style.left = `${this.getLeftLoadBufferWidth()}px`
-    const width = (startXPx + count * unitPx) / dpr
-    hint.style.width = `${Math.max(0, width)}px`
-    hint.style.height = `${Math.max(
-      0,
-      this.deps.getViewport()?.viewHeight ?? this.deps.getDom().container?.clientHeight ?? 0,
-    )}px`
-    hint.getBoundingClientRect()
-    hint.style.opacity = '1'
-    hint.style.filter = 'blur(0px)'
-    this.incrementalLoadHintTimer = window.setTimeout(() => {
-      this.hideIncrementalLoadHint()
-      this.incrementalLoadHintTimer = null
-    }, 900)
-  }
-
-  // ── Public accessors ──
 
   /** Unified data signal — always reflects the active buffer's data */
   get data(): Signal<ReadonlyArray<KLineData>> {
@@ -437,43 +364,35 @@ export class ChartDataManager {
   }
 
   getComparisonData(): Map<string, KLineData[]> {
-    return this._comparisonData
+    return this._comparisonManager.data
   }
 
   getComparisonSpecs(): SymbolSpec[] {
-    return this._comparisonSpecs
+    return this._comparisonManager.specs
   }
 
-  get dataBuffer(): DataBuffer {
+  get dataBuffer(): KLineBuffer {
     const buf = this.getActiveDataBuffer()
     if (buf) return buf
-    // Fallback: create a primary buffer if none exists yet
     const key = bufKey(BUF_PRIMARY, '', 'daily')
-    let fallback = this._buffers.get(key) as DataBuffer | undefined
+    let fallback = this._klineBuffers.get(key)
     if (!fallback) {
-      fallback = new DataBuffer()
-      this._buffers.set(key, fallback)
+      fallback = this._createKLineBuffer()
+      this._klineBuffers.set(key, fallback)
     }
     return fallback
   }
 
   get comparisonColors(): Signal<ReadonlyMap<string, string>> {
-    return this._comparisonColorsSignal
+    return this._comparisonManager.colorsSignal
   }
 
   get comparisonLoading(): Signal<boolean> {
-    return this._comparisonLoadingSignal
+    return this._comparisonManager.loadingSignal
   }
 
   getComparisonColors(): Map<string, string> {
-    return this._comparisonColors
-  }
-
-  private recomputeComparisonLoading(): void {
-    const anyLoading = Array.from(this._buffers.entries()).some(
-      ([k, b]) => k.startsWith(BUF_COMPARISON) && b instanceof DataBuffer && b.loading.peek(),
-    )
-    this._comparisonLoadingSignal.set(anyLoading)
+    return this._comparisonManager.getColors()
   }
 
   // ── Data updates (KLine) ──
@@ -514,79 +433,20 @@ export class ChartDataManager {
 
   setDataFetcher(fetcher: DataFetcher | null): void {
     this._dataFetcher = fetcher
+    this._batchScheduler.setFetcher(fetcher)
     if (!fetcher) {
-      for (const [key, buf] of this._buffers) {
-        if (buf instanceof DataBuffer) {
-          const dataBuf = buf as DataBuffer
-          dataBuf.setRequestFetch(null)
-        }
+      for (const [, buf] of this._klineBuffers) {
+        buf.setRequestFetch(null)
       }
       return
     }
-    const handler = this._createBatchHandler(fetcher)
-    for (const [key, buf] of this._buffers) {
-      if (buf instanceof DataBuffer) {
-        const dataBuf = buf as DataBuffer
-        dataBuf.setRequestFetch(handler)
-      }
+    const handler = this._batchScheduler.createHandler()
+    for (const [, buf] of this._klineBuffers) {
+      buf.setRequestFetch(handler)
     }
   }
 
-  private _createBatchHandler(
-    fetcher: DataFetcher,
-  ): (spec: SymbolSpec, startTs: number, endTs: number) => Promise<ReadonlyArray<KLineData>> {
-    return (spec, startTs, endTs) =>
-      new Promise<ReadonlyArray<KLineData>>((resolve, reject) => {
-        if (!spec.source) {
-          reject(
-            new Error(
-              `[DataFetcher] source is required but was not provided for symbol "${spec.symbol}"`,
-            ),
-          )
-          return
-        }
-        this._pendingFetches.push({
-          source: spec.source,
-          spec,
-          startTs,
-          endTs,
-          resolve,
-          reject,
-        })
-        this._scheduleBatchFlush()
-      })
-  }
-
-  private _scheduleBatchFlush(): void {
-    if (this._batchFlushScheduled) return
-    this._batchFlushScheduled = true
-    Promise.resolve().then(() => this._flushBatch())
-  }
-
-  private async _flushBatch(): Promise<void> {
-    this._batchFlushScheduled = false
-    const batch = this._pendingFetches.splice(0)
-    if (batch.length === 0 || !this._dataFetcher) return
-    const fetcher = this._dataFetcher
-    const CONCURRENCY = 4
-    for (let i = 0; i < batch.length; i += CONCURRENCY) {
-      const chunk = batch.slice(i, i + CONCURRENCY)
-      await Promise.allSettled(
-        chunk.map(({ source, spec, startTs, endTs, resolve, reject }) =>
-          fetcher(source, {
-            symbol: spec.symbol,
-            startDate: batchFormatDate(startTs),
-            endDate: batchFormatDate(endTs),
-            period: spec.period ?? 'daily',
-            adjust: spec.adjust ?? 'none',
-            exchange: spec.exchange,
-          }).then(resolve, reject),
-        ),
-      )
-    }
-  }
-
-  checkVisibleRangeGap(): void {
+checkVisibleRangeGap(): void {
     const buf = this.getActiveDataBuffer()
     if (!buf) return
     const data = buf.getRawData()
@@ -613,171 +473,39 @@ export class ChartDataManager {
 
     if (firstVisibleTs === undefined) return
 
-    for (const [key, b] of this._buffers) {
-      if (key.startsWith(BUF_COMPARISON) && b instanceof DataBuffer) {
-        b.ensureRange(firstVisibleTs, window.earliestTs)
-      }
-    }
+    this._comparisonManager.ensureRange(firstVisibleTs, window.earliestTs)
   }
 
   // ── Comparison management ──
 
   private syncComparisonBuffers(specs: ReadonlyArray<SymbolSpec>): void {
-    this._comparisonSpecs = [...specs]
-    const nextKeys = new Set(specs.map((spec) => spec.symbol))
-
-    // Remove buffers for removed comparisons
-    for (const [key, buf] of this._buffers) {
-      if (!key.startsWith(BUF_COMPARISON)) continue
-      const symbol = key.split(':')[1]!
-      if (nextKeys.has(symbol)) continue
-      this.disposeBuffer(key)
-      this._comparisonData.delete(symbol)
-    }
-
-    if (!this._dataFetcher) return
-
     const primaryBuf = this.getActiveDataBuffer()
-
-    for (const spec of specs) {
-      const key = bufKey(BUF_COMPARISON, spec.symbol, spec.period)
-      const symbol = spec.symbol
-      let buf = this._buffers.get(key) as DataBuffer | undefined
-      if (!buf) {
-        const newBuffer = new DataBuffer()
-        newBuffer.setFetcher(this._dataFetcher)
-        if (this._dataFetcher) {
-          newBuffer.setRequestFetch(this._createBatchHandler(this._dataFetcher))
-        }
-        this._buffers.set(key, newBuffer)
-
-        const unsubscribe = newBuffer.data.subscribe(() => {
-          this._comparisonData.set(symbol, [...newBuffer.getRawData()])
-          this.deps.scheduleDraw()
-        })
-        this._cmpLoadingUnsubs.set(key, unsubscribe)
-
-        const unsubLoading = newBuffer.loading.subscribe(() => this.recomputeComparisonLoading())
-        // Store loading unsubscribe with a special key
-        this._cmpLoadingUnsubs.set(`loading:${key}`, unsubLoading)
-
-        buf = newBuffer
-      } else {
-        buf.setFetcher(this._dataFetcher)
-        if (this._dataFetcher) {
-          buf.setRequestFetch(this._createBatchHandler(this._dataFetcher))
-        }
-      }
-      const mainEarliest = primaryBuf?.loadedWindow?.earliestTs
-      buf.setSymbol(spec, mainEarliest)
-    }
+    this._comparisonManager.syncBuffers(specs, primaryBuf?.loadedWindow?.earliestTs)
   }
 
   private clearComparisonBuffers(): void {
-    for (const [key, buf] of this._buffers) {
-      if (key.startsWith(BUF_COMPARISON)) {
-        this.disposeBuffer(key)
-      }
-    }
-    this._comparisonData.clear()
-    this._comparisonColors.clear()
-    this._comparisonColorsSignal.set(new Map())
-    this._comparisonLoadingSignal.set(false)
-    this._comparisonSpecs = []
+    this._comparisonManager.clearAll()
   }
 
   addComparisonSymbol(spec: SymbolSpec): void {
-    const symbol = spec.symbol
-    const key = bufKey(BUF_COMPARISON, symbol, spec.period)
-
-    // Check if already exists
-    for (const k of this._buffers.keys()) {
-      if (k.startsWith(BUF_COMPARISON) && k.split(':')[1] === symbol) return
-    }
-
-    this._comparisonSpecs.push(spec)
-
-    const color =
-      COMPARISON_PALETTE[this._comparisonColors.size % COMPARISON_PALETTE.length] ??
-      DEFAULT_COMPARISON_COLOR
-    this._comparisonColors.set(symbol, color)
-    this._comparisonColorsSignal.set(new Map(this._comparisonColors))
-
-    if (!this._dataFetcher) return
-
-    const newBuffer = new DataBuffer()
-    newBuffer.setFetcher(this._dataFetcher)
-    if (this._dataFetcher) {
-      newBuffer.setRequestFetch(this._createBatchHandler(this._dataFetcher))
-    }
-    this._buffers.set(key, newBuffer)
-    const unsubscribe = newBuffer.data.subscribe(() => {
-      this._comparisonData.set(symbol, [...newBuffer.getRawData()])
-      this.deps.scheduleDraw()
+    this._comparisonManager.addSymbol(spec, () => {
+      const allSpecs = this._symbolsSignal.peek()
+      this._symbolsSignal.set([allSpecs[0]!, ...this._comparisonManager.specs])
     })
-    this._cmpLoadingUnsubs.set(key, unsubscribe)
-    const unsubLoading = newBuffer.loading.subscribe(() => this.recomputeComparisonLoading())
-    this._cmpLoadingUnsubs.set(`loading:${key}`, unsubLoading)
-    const primaryBuf = this.getActiveDataBuffer()
-    const mainEarliest = primaryBuf?.loadedWindow?.earliestTs
-    newBuffer.setSymbol(spec, mainEarliest)
-    this._symbolsSignal.set([this._symbolsSignal.peek()[0]!, ...this._comparisonSpecs])
   }
 
   setComparisonData(symbol: string, data: KLineData[]): void {
-    const period = this.currentPeriod
-    const key = bufKey(BUF_COMPARISON, symbol, period)
-
-    const existing = this._buffers.get(key) as DataBuffer | undefined
-    if (!existing) {
-      const buffer = new DataBuffer()
-      this._buffers.set(key, buffer)
-
-      const unsub = buffer.data.subscribe(() => {
-        this._comparisonData.set(symbol, [...buffer.getRawData()])
-        this.deps.scheduleDraw()
-      })
-      this._cmpLoadingUnsubs.set(key, unsub)
-
-      const unsubLoading = buffer.loading.subscribe(() => this.recomputeComparisonLoading())
-      this._cmpLoadingUnsubs.set(`loading:${key}`, unsubLoading)
-
-      const color =
-        COMPARISON_PALETTE[this._comparisonColors.size % COMPARISON_PALETTE.length] ??
-        DEFAULT_COMPARISON_COLOR
-      this._comparisonColors.set(symbol, color)
-      this._comparisonColorsSignal.set(new Map(this._comparisonColors))
-
-      const spec: SymbolSpec = { symbol, period }
-      this._comparisonSpecs.push(spec)
-      const mainSpec = this._symbolsSignal.peek()[0]
-      this._symbolsSignal.set(
-        mainSpec ? [mainSpec, ...this._comparisonSpecs] : [...this._comparisonSpecs],
-      )
-
-      buffer.setInlineData(data)
-      return
-    }
-    existing.setInlineData(data)
+    this._comparisonManager.setData(symbol, data, (key) => {
+      this._symbolsSignal.set([
+        this._symbolsSignal.peek()[0]!,
+        ...this._comparisonManager.specs,
+      ])
+    })
   }
 
   removeComparisonSymbol(symbol: string): void {
-    let found = false
-    for (const [key, buf] of this._buffers) {
-      if (key.startsWith(BUF_COMPARISON) && key.split(':')[1] === symbol) {
-        this.disposeBuffer(key)
-        found = true
-        break
-      }
-    }
-    if (!found) return
-
-    this._comparisonData.delete(symbol)
-    this._comparisonColors.delete(symbol)
-    this._comparisonColorsSignal.set(new Map(this._comparisonColors))
-    this._comparisonSpecs = this._comparisonSpecs.filter((s) => s.symbol !== symbol)
-    this._symbolsSignal.set([this._symbolsSignal.peek()[0]!, ...this._comparisonSpecs])
-    this.recomputeComparisonLoading()
+    if (!this._comparisonManager.removeSymbol(symbol)) return
+    this._symbolsSignal.set([this._symbolsSignal.peek()[0]!, ...this._comparisonManager.specs])
     this.deps.scheduleDraw()
   }
 
@@ -805,7 +533,7 @@ export class ChartDataManager {
       const spec = this._currentSpec
       if (spec) {
         const key = bufKey(BUF_TIMESHARE, spec.symbol)
-        this._buffers.set(key, tsBuf)
+        this._tsBuffers.set(key, tsBuf)
         this.activateBuffer(key)
         tsBuf.load(spec)
       }
@@ -819,35 +547,50 @@ export class ChartDataManager {
       return
     }
     const next = { ...current, period }
-    this.setSymbols([next, ...this._comparisonSpecs])
+    this.setSymbols([next, ...this._comparisonManager.specs])
+  }
+
+  /**
+   * 归一化 K 线周期别名，防止无效 period 进入引擎
+   *  "day" → "daily"，其余保持原值
+   */
+  private static normalizePeriod(period?: string): string {
+    if (!period) return 'daily'
+    const alias = period.toLowerCase().trim()
+    if (alias === 'day') return 'daily'
+    return period
   }
 
   applyCustomData(source: CustomDataSource): void {
-    const spec: SymbolSpec = {
-      symbol: source.symbol ?? this._currentSpec?.symbol ?? '',
-      period: source.period ?? this._currentSpec?.period ?? 'daily',
-      incremental: false,
-      source: source.source ?? 'custom',
-    }
-    this.setSymbols([spec, ...this._comparisonSpecs])
-
-    // Auto-register the custom symbol into the available catalog so it appears in UI pickers.
-    const symbolCode = spec.symbol
-    if (symbolCode) {
-      this.registerSymbols([
-        {
-          code: symbolCode,
-          description: source.description ?? symbolCode,
-          exchange: source.exchange ?? '',
-          source: source.source ?? 'custom',
-        },
-      ])
-    }
-
     const plainData = source.data.map((d) => ({ ...d }))
+
+    // 首次调用：用 customData 的 period 初始化 spec，创建 buffer
+    if (!this._currentSpec) {
+      const spec: SymbolSpec = {
+        symbol: source.symbol ?? '',
+        period: ChartDataManager.normalizePeriod(source.period),
+        incremental: false,
+        source: source.source ?? 'custom',
+      }
+      this.setSymbols([spec, ...this._comparisonManager.specs])
+
+      // Auto-register the custom symbol into the available catalog so it appears in UI pickers.
+      const symbolCode = spec.symbol
+      if (symbolCode) {
+        this.registerSymbols([
+          {
+            code: symbolCode,
+            description: source.description ?? symbolCode,
+            exchange: source.exchange ?? '',
+            source: source.source ?? 'custom',
+          },
+        ])
+      }
+    } // 后续调用只更新 data，不碰 _currentSpec / period
+
     this.setData(plainData)
     if (source.comparisons) {
-      for (const key of this._comparisonData.keys()) {
+      for (const key of this._comparisonManager.data.keys()) {
         if (!source.comparisons[key]) this.removeComparisonSymbol(key)
       }
       for (const [symbol, data] of Object.entries(source.comparisons)) {
@@ -880,7 +623,7 @@ export class ChartDataManager {
       // Switch to timeshare mode
       this.clearComparisonBuffers()
       // Dispose primary KLine buffer
-      for (const [key, buf] of this._buffers) {
+      for (const [key] of this._klineBuffers) {
         if (key.startsWith(BUF_PRIMARY)) {
           this.disposeBuffer(key)
         }
@@ -891,11 +634,11 @@ export class ChartDataManager {
 
       // Get or create timeshare buffer
       const tsKey = bufKey(BUF_TIMESHARE, primary.symbol)
-      let tsBuf = this._buffers.get(tsKey) as TimeShareBuffer | undefined
+      let tsBuf = this._tsBuffers.get(tsKey)
       if (!tsBuf) {
         tsBuf = new TimeShareBuffer()
         tsBuf.setFetcher(this._timeShareFetcher)
-        this._buffers.set(tsKey, tsBuf)
+        this._tsBuffers.set(tsKey, tsBuf)
       }
       this.activateBuffer(tsKey)
       tsBuf.load(primary)
@@ -904,10 +647,8 @@ export class ChartDataManager {
 
     // KLine mode
     // Dispose timeshare buffer
-    for (const [key, buf] of this._buffers) {
-      if (key.startsWith(BUF_TIMESHARE)) {
-        this.disposeBuffer(key)
-      }
+    for (const [key] of this._tsBuffers) {
+      this.disposeBuffer(key)
     }
 
     this.loadKLineSymbols(specs)
@@ -947,15 +688,12 @@ export class ChartDataManager {
       )
     }
 
-    buf.onPrepend = (count: number) => {
+    this._prependUnsub?.()
+    this._prependUnsub = buf.prepend.subscribe(() => {
+      const count = buf.prepend.peek()
       this.pendingPrependedCount = count
-      const dpr = this.deps.getEffectiveDpr()
-      const opt = this.deps.getOption()
-      const { unitPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
-      const compensation = (count * unitPx) / dpr
-      const nextScrollLeft = this.deps.getCachedScrollLeft() + compensation
-      this.deps.setScrollLeft(nextScrollLeft)
-    }
+      this._scrollCompensator.compensatePrepend(count)
+    })
 
     buf.setSymbol(spec)
   }
@@ -972,47 +710,20 @@ export class ChartDataManager {
     const buf = this.getActiveDataBuffer()
     const dataLength = buf ? buf.getRawData().length : 0
     if (dataLength === 0) return 0
-    const opt = this.deps.getOption()
-    const viewWidth = this.deps.getViewport()?.plotWidth ?? 0
-    const dpr = this.deps.getEffectiveDpr()
-    const { startXPx, unitPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
-    const dataPlotWidth = (startXPx + (dataLength + ChartDataManager.TRAILING_SLOTS) * unitPx) / dpr
-    return this.getLeftLoadBufferWidth() + Math.max(dataPlotWidth, viewWidth)
+    return this._scrollCompensator.getContentWidth(dataLength)
   }
 
   scrollToRight(): void {
     const buf = this.getActiveDataBuffer()
     const dataLength = buf ? buf.getRawData().length : 0
-    if (dataLength === 0) return
-    const dpr = this.deps.getEffectiveDpr()
-    const opt = this.deps.getOption()
-    const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
-    const lastKLineEndPx = (startXPx + dataLength * unitPx) / dpr
-    const viewport = this.deps.getViewport()
-    const clientWidth =
-      viewport?.viewWidth ??
-      (this.deps.getObservedSize().width > 0 ? this.deps.getObservedSize().width : undefined) ??
-      Math.round(this.deps.getDom().container?.clientWidth ?? 0)
-    if (clientWidth <= 0) return
-    const leftBuffer = this.getLeftLoadBufferWidth()
-    let target: number
-    if (lastKLineEndPx <= clientWidth) {
-      // 数据不足以填满一屏 → 右对齐：最后一根 K 线固定在右侧
-      target = leftBuffer - (clientWidth - lastKLineEndPx)
-    } else {
-      target = leftBuffer + (lastKLineEndPx - clientWidth)
-    }
-    const contentWidth = this.getContentWidth()
-    const maxScroll = Math.max(0, contentWidth - clientWidth)
-    const scrollLeft = Math.round(Math.max(0, Math.min(target, maxScroll)) * dpr) / dpr
-    this.deps.setScrollLeft(scrollLeft)
+    this._scrollCompensator.scrollToRight(dataLength)
     this.deps.scheduleDraw()
   }
 
   // ── Comparison price range ──
 
   getComparisonEquivalentPriceRange(range: VisibleRange): { min: number; max: number } | null {
-    if (this._comparisonSpecs.length === 0 || this._comparisonData.size === 0) return null
+    if (this._comparisonManager.specs.length === 0 || this._comparisonManager.data.size === 0) return null
     const buf = this.getActiveDataBuffer()
     const internalData = buf ? buf.getRawData() : []
     const baseIndex = Math.max(0, range.start)
@@ -1024,8 +735,8 @@ export class ChartDataManager {
     let min = Number.POSITIVE_INFINITY
     let max = Number.NEGATIVE_INFINITY
 
-    for (const spec of this._comparisonSpecs) {
-      const data = this._comparisonData.get(spec.symbol)
+    for (const spec of this._comparisonManager.specs) {
+      const data = this._comparisonManager.data.get(spec.symbol)
       if (!data?.length) continue
 
       const baseline = baseDate
@@ -1063,7 +774,7 @@ export class ChartDataManager {
   getLogicalSlotCount(): number {
     const buf = this.getActiveDataBuffer()
     const dataLength = buf ? buf.getRawData().length : 0
-    return dataLength + this.getTrailingSlotCount()
+    return dataLength + 24
   }
 
   getTimestampAtLogicalIndex(index: number): number | null {
@@ -1097,17 +808,19 @@ export class ChartDataManager {
   }
 
   private disposeAllBuffers(): void {
-    for (const key of this._buffers.keys()) {
+    for (const key of this._klineBuffers.keys()) {
+      this.disposeBuffer(key)
+    }
+    for (const key of this._tsBuffers.keys()) {
       this.disposeBuffer(key)
     }
   }
 
   destroy(): void {
     this._activeBufferUnsub?.()
+    this._prependUnsub?.()
     this.disposeAllBuffers()
-    this.clearIncrementalLoadHintTimer()
-    this.incrementalLoadHintEl?.remove()
-    this.incrementalLoadHintEl = null
+    this._loadHint.destroy()
     this.pendingPrependedCount = 0
   }
 }
@@ -1130,12 +843,4 @@ function findComparisonBaselineByTimestamp(
     if (item.timestamp >= timestamp) return item
   }
   return null
-}
-
-function batchFormatDate(ts: number): string {
-  const d = new Date(ts)
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
 }

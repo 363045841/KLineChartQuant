@@ -3,7 +3,7 @@ export { thousandMockDataFetcher } from './thousand-mock'
 export { baostockDataFetcher } from './baostock'
 export { routerDataFetcher, routerTimeShareFetcher } from './router'
 export { DataBuffer } from './dataBuffer'
-export type { DataWindow } from './dataBuffer'
+export type { DataWindow } from './dataBufferTypes'
 export { TimeShareBuffer } from './timeShareBuffer'
 export type { DataBufferLike } from './dataBufferTypes'
 export {
