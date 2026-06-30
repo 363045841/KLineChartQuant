@@ -124,6 +124,7 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
       const klineData = data as KLineData[]
       if (!klineData.length) return
       if (pane.role !== 'price') return
+      if (!ctx) return
 
       const start = Math.max(0, range.start)
       const end = Math.min(klineData.length, range.end)

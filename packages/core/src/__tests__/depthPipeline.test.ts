@@ -31,17 +31,16 @@ function snapshotMsg(
   return { data: JSON.stringify({ type: 'snapshot', bids, asks, timestamp }) }
 }
 
-function deltaMsg(entries: { side: 'bid' | 'ask'; price: number; size: number; timestamp: number }[]) {
+function deltaMsg(
+  entries: { side: 'bid' | 'ask'; price: number; size: number; timestamp: number }[],
+) {
   return { data: JSON.stringify({ type: 'delta', entries }) }
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-function makeController(
-  snapshotIntervalMs = 100,
-  tickSize = 0.01,
-): HeatmapController {
+function makeController(snapshotIntervalMs = 100, tickSize = 0.01): HeatmapController {
   return createHeatmapController({
     tickSize,
     snapshotIntervalMs,
@@ -88,12 +87,30 @@ describe('depth pipeline: BinanceSSESource → DepthConnector → HeatmapControl
     const { connector, ctrl, es } = wired()
 
     // --- Step 1: snapshot resets the book ---
-    es.onmessage!(snapshotMsg([[100, 10], [99, 5]], [[101, 8], [102, 3]], 1000))
+    es.onmessage!(
+      snapshotMsg(
+        [
+          [100, 10],
+          [99, 5],
+        ],
+        [
+          [101, 8],
+          [102, 3],
+        ],
+        1000,
+      ),
+    )
     let st = ctrl.state.peek()
     expect(st.latestSnapshot).not.toBeNull()
     // Book is populated from snapshot
-    expect(st.latestSnapshot!.bids).toEqual([[100, 10], [99, 5]])
-    expect(st.latestSnapshot!.asks).toEqual([[101, 8], [102, 3]])
+    expect(st.latestSnapshot!.bids).toEqual([
+      [100, 10],
+      [99, 5],
+    ])
+    expect(st.latestSnapshot!.asks).toEqual([
+      [101, 8],
+      [102, 3],
+    ])
     // Ring and archive are cleared
     expect(st.snapshotCount).toBe(0)
     expect(st.deltaCount).toBe(0)
@@ -102,12 +119,18 @@ describe('depth pipeline: BinanceSSESource → DepthConnector → HeatmapControl
     es.onmessage!(deltaMsg([{ side: 'bid', price: 100, size: 15, timestamp: 1000 }]))
     st = ctrl.state.peek()
     // latestSnapshot hasn't changed (first delta doesn't emit one)
-    expect(st.latestSnapshot!.bids).toEqual([[100, 10], [99, 5]])
+    expect(st.latestSnapshot!.bids).toEqual([
+      [100, 10],
+      [99, 5],
+    ])
     expect(st.snapshotCount).toBe(0)
     expect(st.deltaCount).toBe(1)
     // But the book was updated — verify via forceSnapshot
     ctrl.forceSnapshot()
-    expect(ctrl.state.peek().latestSnapshot!.bids).toEqual([[100, 15], [99, 5]])
+    expect(ctrl.state.peek().latestSnapshot!.bids).toEqual([
+      [100, 15],
+      [99, 5],
+    ])
 
     // --- Step 3: second delta crosses snapshotIntervalMs (100ms) → one snapshot ---
     es.onmessage!(deltaMsg([{ side: 'ask', price: 101, size: 0, timestamp: 1100 }]))
@@ -116,7 +139,10 @@ describe('depth pipeline: BinanceSSESource → DepthConnector → HeatmapControl
     expect(st.snapshotCount).toBe(2) // previous forceSnapshot + 1
     expect(st.deltaCount).toBe(2)
     // Snapshot captured book BEFORE the delta was applied (101 is still present)
-    expect(st.latestSnapshot!.asks).toEqual([[101, 8], [102, 3]])
+    expect(st.latestSnapshot!.asks).toEqual([
+      [101, 8],
+      [102, 3],
+    ])
 
     // --- Step 4: more deltas produce more snapshots ---
     es.onmessage!(deltaMsg([{ side: 'bid', price: 99, size: 0, timestamp: 1250 }]))

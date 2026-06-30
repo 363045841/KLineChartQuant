@@ -27,6 +27,7 @@ export type {
   DrawingChartViewport,
   PaneLayoutInfo,
   SymbolSpec,
+  SymbolInfo,
   DataFetcher,
   CustomDataSource,
 } from './types'
@@ -66,7 +67,13 @@ export {
   DEFAULT_BINANCE_SSE_URL,
   DepthConnector,
 } from '../data-fetchers'
-export type { DataWindow, DepthSource, DepthDelta, DepthSnapshot, DepthSourceStatus } from '../data-fetchers'
+export type {
+  DataWindow,
+  DepthSource,
+  DepthDelta,
+  DepthSnapshot,
+  DepthSourceStatus,
+} from '../data-fetchers'
 
 // Heatmap controller (depth pipeline rendering half)
 export { createHeatmapController } from '../components/orderBookHeatmap'

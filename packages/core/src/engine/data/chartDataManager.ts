@@ -1,5 +1,5 @@
 import type { KLineData, TimeShareData } from '../../types/price'
-import type { SymbolSpec, DataFetcher, CustomDataSource } from '../../controllers/types'
+import type { SymbolSpec, SymbolInfo, DataFetcher, CustomDataSource } from '../../controllers/types'
 import { createSignal, type Signal } from '../../reactivity/signal'
 import { DataBuffer } from '../../data-fetchers/dataBuffer'
 import { getPeriodDays } from '../../data-fetchers/dataBuffer.effects'
@@ -56,6 +56,8 @@ export class ChartDataManager {
   private _dataSignal = createSignal<ReadonlyArray<unknown>>([])
   private _loadingSignal = createSignal<boolean>(false)
   private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
+  /** Available symbol catalog — consumed by UI pickers (e.g. TopToolbar) */
+  private _symbolCatalog = createSignal<ReadonlyArray<SymbolInfo>>([])
 
   private _currentSpec: SymbolSpec | null = null
 
@@ -367,6 +369,28 @@ export class ChartDataManager {
     return this._symbolsSignal
   }
 
+  get symbolCatalog(): Signal<ReadonlyArray<SymbolInfo>> {
+    return this._symbolCatalog
+  }
+
+  /**
+   * Register symbols into the available catalog.
+   * Deduplicates by symbol code: newer entries replace older ones.
+   */
+  registerSymbols(infos: ReadonlyArray<SymbolInfo>): void {
+    const current = new Map(this._symbolCatalog.peek().map((s) => [s.code, s]))
+    for (const info of infos) current.set(info.code, info)
+    this._symbolCatalog.set(Array.from(current.values()))
+  }
+
+  /** Remove a symbol from the catalog by code. */
+  unregisterSymbol(code: string): void {
+    const next = this._symbolCatalog.peek().filter((s) => s.code !== code)
+    if (next.length < this._symbolCatalog.peek().length) {
+      this._symbolCatalog.set(next)
+    }
+  }
+
   get currentPeriod(): string {
     return this._currentSpec?.period ?? 'daily'
   }
@@ -374,7 +398,9 @@ export class ChartDataManager {
   /** Internal KLine data for indicator scheduler (empty in timeshare mode) */
   getInternalData(): KLineData[] {
     const buf = this.getActiveDataBuffer()
-    return buf ? buf.getRawData() : []
+    if (buf) return buf.getRawData()
+    const peek = this._dataSignal.peek()
+    return peek.length > 0 ? (peek as KLineData[]) : []
   }
 
   getRenderData(): unknown[] {
@@ -789,16 +815,24 @@ export class ChartDataManager {
   }
 
   applyCustomData(source: CustomDataSource): void {
-    if (source.symbol) this.setCurrentSymbol(source.symbol)
-    if (source.period) this.setCurrentPeriod(source.period)
+    const spec: SymbolSpec = {
+      symbol: source.symbol ?? this._currentSpec?.symbol ?? '',
+      period: source.period ?? this._currentSpec?.period ?? 'daily',
+      incremental: false,
+    }
+    this.setSymbols([spec, ...this._comparisonSpecs])
 
-    const specs = this._symbolsSignal.peek()
-    if (specs.length === 0 && source.symbol) {
-      const mainSpec: SymbolSpec = {
-        symbol: source.symbol,
-        period: source.period ?? 'daily',
-      }
-      this._symbolsSignal.set([mainSpec])
+    // Auto-register the custom symbol into the available catalog so it appears in UI pickers.
+    const symbolCode = spec.symbol
+    if (symbolCode) {
+      this.registerSymbols([
+        {
+          code: symbolCode,
+          description: source.description ?? symbolCode,
+          exchange: source.exchange ?? '',
+          source: source.source ?? 'custom',
+        },
+      ])
     }
 
     const plainData = source.data.map((d) => ({ ...d }))
@@ -875,10 +909,27 @@ export class ChartDataManager {
   private loadKLineSymbols(specs: ReadonlyArray<SymbolSpec>): void {
     const spec = specs[0]!
     this.syncComparisonBuffers(specs.slice(1))
-    if (!this._dataFetcher) return
 
     const buf = this.getPrimaryDataBuffer(spec.symbol, spec.period!)
     this.activateBuffer(bufKey(BUF_PRIMARY, spec.symbol, spec.period!))
+    if (!this._dataFetcher) {
+      buf.setCurrentSpec(spec)
+      return
+    }
+
+    // Buffer already has data (e.g. from a previous applyCustomData setInlineData call)
+    // → just update the spec metadata, skip fetch to avoid clearing inline data.
+    // Preserve the buffer's existing incremental flag so inline data sources
+    // (which use incremental:false) remain non-fetching even after a symbol switch.
+    if (buf.getRawData().length > 0) {
+      buf.setCurrentSpec({
+        ...spec,
+        incremental: spec.incremental ?? buf.currentSpec?.incremental ?? true,
+      })
+      this.deps.resetInteraction()
+      this.scrollToRight()
+      return
+    }
 
     buf.onPrepend = (count: number) => {
       this.pendingPrependedCount = count

@@ -1,11 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { DepthConnector } from '../depthConnector'
-import type {
-  DepthDelta,
-  DepthSnapshot,
-  DepthSource,
-  DepthSourceStatus,
-} from '../depthTypes'
+import type { DepthDelta, DepthSnapshot, DepthSource, DepthSourceStatus } from '../depthTypes'
 import type { HeatmapController, HeatmapControllerConfig } from '../../components/orderBookHeatmap'
 
 // ---------------------------------------------------------------------------
@@ -74,7 +69,9 @@ function createFakeSource(): DepthSource & {
 // ---------------------------------------------------------------------------
 // Fake HeatmapController
 // ---------------------------------------------------------------------------
-function createFakeController(): HeatmapController & { calls: { ingest: DepthDelta[]; resetBook: DepthSnapshot[] } } {
+function createFakeController(): HeatmapController & {
+  calls: { ingest: DepthDelta[]; resetBook: DepthSnapshot[] }
+} {
   const calls: { ingest: DepthDelta[]; resetBook: DepthSnapshot[] } = {
     ingest: [],
     resetBook: [],

@@ -57,7 +57,7 @@ function createMockSharedWebGLSurface() {
   return {
     isAvailable: vi.fn(() => true),
     getGL: vi.fn(() => null),
-    getCanvas: vi.fn(() => ({ width: 0, height: 0 } as HTMLCanvasElement)),
+    getCanvas: vi.fn(() => ({ width: 0, height: 0 }) as HTMLCanvasElement),
     resize: vi.fn(),
     bindRegion: vi.fn(() => true),
     clearRegion: vi.fn(),
@@ -281,9 +281,7 @@ describe('createWebGLRenderer', () => {
       const pipeline = renderer.createPipeline({ type: 'fill' })
       const vertexBuf = renderer.createBuffer('vertex', 256)
       // [upper0_x, upper0_y, lower0_x, lower0_y, upper1_x, upper1_y, ...]
-      const verts = new Float32Array([
-        0, 100, 0, 50, 100, 100, 100, 50, 200, 100, 200, 50,
-      ])
+      const verts = new Float32Array([0, 100, 0, 50, 100, 100, 100, 50, 200, 100, 200, 50])
       renderer.writeBuffer(vertexBuf, verts)
 
       renderer.drawLines({
@@ -339,7 +337,9 @@ describe('createWebGLRenderer', () => {
 
       renderer.dispose()
 
-      expect(() => renderer.beginFrame({ x: 0, y: 0, width: 100, height: 100, dpr: 1 })).not.toThrow()
+      expect(() =>
+        renderer.beginFrame({ x: 0, y: 0, width: 100, height: 100, dpr: 1 }),
+      ).not.toThrow()
       expect(() =>
         renderer.drawInstances({
           pipeline,
@@ -349,11 +349,13 @@ describe('createWebGLRenderer', () => {
           vertexCount: 6,
         }),
       ).not.toThrow()
-      expect(() => renderer.drawLines({
-        pipeline,
-        vertices: buf,
-        vertexCount: 2,
-      })).not.toThrow()
+      expect(() =>
+        renderer.drawLines({
+          pipeline,
+          vertices: buf,
+          vertexCount: 2,
+        }),
+      ).not.toThrow()
       expect(() => renderer.endFrame()).not.toThrow()
       expect(mocks.mockDrawRectBuffer).not.toHaveBeenCalled()
     })

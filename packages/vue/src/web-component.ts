@@ -1,8 +1,8 @@
 import { defineCustomElement } from 'vue'
-import KLineChartVue from './components/KLineChart.vue'
+import KlineChart from './components/KLineChart.vue'
 import type { SemanticChartConfig, DataFetcher } from '@363045841yyt/klinechart-core/semantic'
 
-const KLineChartElement = defineCustomElement(KLineChartVue, {
+const KLineChartElement = defineCustomElement(KlineChart, {
   shadowRoot: true,
 })
 

@@ -7,7 +7,8 @@ export function createLayerFromPlugin(
   getContext: () => RenderContext | null,
   targetPaneId: string,
 ): Layer {
-  const paneRole: PaneRole = targetPaneId === 'main' ? 'main' : targetPaneId === 'global' ? 'global' : 'sub'
+  const paneRole: PaneRole =
+    targetPaneId === 'main' ? 'main' : targetPaneId === 'global' ? 'global' : 'sub'
   let visible = plugin.enabled !== false
 
   return {
@@ -37,11 +38,7 @@ export function createLayerFromPlugin(
 
 function pluginPriorityToRole(priority: number, plugin: RendererPlugin): LayerRole {
   if (plugin.layer === 'overlay') return 'overlay'
-  if (
-    priority <= RENDERER_PRIORITY.GRID ||
-    plugin.name === 'gridLines' ||
-    plugin.name === 'grid'
-  )
+  if (priority <= RENDERER_PRIORITY.GRID || plugin.name === 'gridLines' || plugin.name === 'grid')
     return 'background'
   if (priority <= RENDERER_PRIORITY.INDICATOR && plugin.name !== 'candle') return 'indicator'
   if (plugin.name === 'candle' || plugin.name === 'comparisonLine') return 'primary'

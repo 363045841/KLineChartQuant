@@ -87,6 +87,14 @@ export interface TimeShareData {
 export type { PaneSpec }
 
 // ---------------------------------------------------------------------------
+/** Registered symbol metadata — for the symbol catalog/dropdown UI */
+export interface SymbolInfo {
+  code: string
+  description?: string
+  exchange?: string
+  source?: string
+}
+
 // Symbol specification & DataFetcher adapter
 // ---------------------------------------------------------------------------
 
@@ -98,6 +106,13 @@ export interface SymbolSpec {
   source?: string
   startDate?: string
   endDate?: string
+  /**
+   * Whether incremental loading is supported for this symbol.
+   * When false, the data buffer will not fetch additional data
+   * beyond what was initially provided (e.g. via setInlineData).
+   * Defaults to true when not set.
+   */
+  incremental?: boolean
 }
 
 export type DataFetcher = (
@@ -117,6 +132,12 @@ export interface CustomDataSource {
   symbol?: string
   period?: string
   adjust?: string
+  /** Display description for the symbol catalog (defaults to symbol code) */
+  description?: string
+  /** Exchange code for the symbol catalog */
+  exchange?: string
+  /** Data source label for the symbol catalog */
+  source?: string
   /** Main chart K-line data (required) */
   data: ReadonlyArray<KLineData>
   /** Comparison products keyed by symbol */
@@ -268,6 +289,9 @@ export interface ChartController extends DrawingChartAdapter {
   readonly comparisonColors: Signal<ReadonlyMap<string, string>>
   readonly comparisonLoading: Signal<boolean>
 
+  /** Registered symbol catalog — adapters use for picker UI */
+  readonly symbolCatalog: Signal<ReadonlyArray<SymbolInfo>>
+
   // indicator catalog (static — adapters use for picker UI)
   readonly catalog: ReadonlyArray<IndicatorDefinition>
 
@@ -276,6 +300,8 @@ export interface ChartController extends DrawingChartAdapter {
 
   // ---- Data ----
   setSymbols(next: ReadonlyArray<SymbolSpec>): void
+  /** Register symbols into the available symbol catalog for UI pickers */
+  registerSymbols(symbols: ReadonlyArray<SymbolInfo>): void
   addComparisonSymbol(spec: SymbolSpec): void
   removeComparisonSymbol(symbol: string): void
   /** Inject comparison product data directly (bypasses fetcher) */

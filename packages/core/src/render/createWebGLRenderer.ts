@@ -4,6 +4,7 @@ import type {
   RendererCapabilities,
   BufferHandle,
   PipelineHandle,
+  ComputePipelineHandle,
   BufferUsage,
   DrawInstancesParams,
   DrawLinesParams,
@@ -44,10 +45,7 @@ function toWebGLRegion(r: SurfaceRegion) {
   return r as { x: number; y: number; width: number; height: number; dpr: number }
 }
 
-export function createWebGLRenderer(
-  surface: SurfaceBackend,
-  gl: SharedWebGLSurface,
-): Renderer {
+export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurface): Renderer {
   let disposed = false
   let candleSurface: CandleWebGLSurface | null = null
   let lineSurface: LineWebGLSurface | null = null
@@ -136,9 +134,7 @@ export function createWebGLRenderer(
     },
 
     createComputePipeline(_descriptor: unknown): ComputePipelineHandle {
-      throw new Error(
-        'compute not supported on WebGL backend (caps.compute === false)',
-      )
+      throw new Error('compute not supported on WebGL backend (caps.compute === false)')
     },
 
     destroyComputePipeline(_handle: ComputePipelineHandle): void {
@@ -272,9 +268,7 @@ export function createWebGLRenderer(
 
     dispatchCompute(_params: DispatchComputeParams): void {
       if (!disposed) {
-        throw new Error(
-          'dispatchCompute requires a backend with caps.compute === true',
-        )
+        throw new Error('dispatchCompute requires a backend with caps.compute === true')
       }
     },
 
