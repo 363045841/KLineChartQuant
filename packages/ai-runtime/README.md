@@ -38,11 +38,18 @@ await start()
 ### Integrate with KLineChart (Vue example)
 
 ```vue
+<template>
+  <div class="app-container">
+    <KlineChart ref="chartRef" :mcp="mcpConfig" />
+  </div>
+</template>
+
 <script setup lang="ts">
-  import KLineChart from '@363045841yyt/klinechart'
+  import { ref } from 'vue'
+  import { KlineChart } from '@363045841yyt/klinechart'
   import { executeTool } from '@363045841yyt/klinechart-ai-runtime'
 
-  const chartRef = ref<InstanceType<typeof KLineChart> | null>(null)
+  const chartRef = ref<InstanceType<typeof KlineChart> | null>(null)
 
   const mcpConfig = {
     wsUrl: 'ws://localhost:8080',
@@ -55,9 +62,11 @@ await start()
   }
 </script>
 
-<template>
-  <KLineChart ref="chartRef" :mcp="mcpConfig" />
-</template>
+<style>
+  .app-container {
+    height: 80vh;
+  }
+</style>
 ```
 
 ### Connect from MCP Inspector

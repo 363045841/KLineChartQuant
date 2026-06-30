@@ -84,37 +84,35 @@ npm install @363045841yyt/klinechart
 ```
 
 ```vue
+<template>
+  <div class="app-container" :data-theme="currentTheme">
+    <KlineChart v-model:theme="currentTheme" :custom-data="customData" />
+  </div>
+</template>
+
 <script setup lang="ts">
-  import '@363045841yyt/klinechart/style.css'
   import { ref } from 'vue'
-  import { KLineChart, type CustomDataSource } from '@363045841yyt/klinechart'
+  import { CustomDataSource, KlineChart } from '@363045841yyt/klinechart'
+  import demoData from './demo-data.json'
 
   const currentTheme = ref<'light' | 'dark'>('dark')
 
-  const customData: CustomDataSource = {
-    symbol: 'MY.STOCK',
-    period: 'daily',
-    data: [
-      { timestamp: 1748736000000, open: 30, high: 32, low: 30, close: 31.5, volume: 1500000 },
-      { timestamp: 1748822400000, open: 31.5, high: 33.2, low: 31.2, close: 33, volume: 2100000 },
-    ],
-    comparisons: {
-      'COMP.A': [
-        /* comparison KLineData[] */
-      ],
-      'COMP.B': [
-        /* comparison KLineData[] */
-      ],
-    },
-  }
+  const customData = ref<CustomDataSource>(demoData as CustomDataSource)
 </script>
 
-<template>
-  <KLineChart v-model:theme="currentTheme" :custom-data="customData" />
-</template>
-```
+<style>
+  .app-container {
+    display: flex;
+    flex-direction: column;
+    height: 80vh;
+  }
 
-Omit `customData` to use the built-in data fetcher which connects to your stock data backend automatically.
+  .app-container[data-theme='dark'] {
+    background: #000;
+    color: #e5e7eb;
+  }
+</style>
+```
 
 ## 📖 More Documentation
 
