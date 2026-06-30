@@ -73,6 +73,7 @@ export class ChartDataManager {
 
   private pendingPrependedCount = 0
   private _prependUnsub: (() => void) | null = null
+  private _savedScrollLeft: number | null = null
 
   lastVisibleRange: VisibleRange = { start: 0, end: 0 }
   lastRawVisibleRange: VisibleRange = { start: 0, end: 0 }
@@ -622,12 +623,10 @@ checkVisibleRangeGap(): void {
     if (primary.period === 'timeshare') {
       // Switch to timeshare mode
       this.clearComparisonBuffers()
-      // Dispose primary KLine buffer
-      for (const [key] of this._klineBuffers) {
-        if (key.startsWith(BUF_PRIMARY)) {
-          this.disposeBuffer(key)
-        }
-      }
+      // Save scroll position so we can restore it when returning to K-line mode
+      this._savedScrollLeft = this.deps.getCachedScrollLeft()
+      // Keep primary KLine buffer in memory — don't dispose it,
+      // so data and scroll position are preserved when user returns
       this._dataSignal.set([])
       this.lastVisibleRange = { start: 0, end: 0 }
       this.lastRawVisibleRange = { start: 0, end: 0 }
@@ -677,7 +676,12 @@ checkVisibleRangeGap(): void {
         incremental: spec.incremental ?? buf.currentSpec?.incremental ?? true,
       })
       this.deps.resetInteraction()
-      this.scrollToRight()
+      if (this._savedScrollLeft !== null) {
+        this.deps.setScrollLeft(this._savedScrollLeft)
+        this._savedScrollLeft = null
+      } else {
+        this.scrollToRight()
+      }
       return
     }
 
