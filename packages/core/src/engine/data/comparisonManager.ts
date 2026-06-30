@@ -76,8 +76,9 @@ export class ComparisonManager {
         const created = this._hooks.createComparisonBuffer(spec)
         buf = created.buffer
 
-        const unsub = buf.data.subscribe(() => {
-          this._data.set(symbol, [...buf.getRawData()])
+        const b = buf
+        const unsub = b.data.subscribe(() => {
+          this._data.set(symbol, [...b.getRawData()])
           this._hooks.scheduleDraw()
         })
         this._cmpLoadingUnsubs.set(key, unsub)
