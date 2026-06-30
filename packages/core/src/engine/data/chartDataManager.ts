@@ -374,7 +374,9 @@ export class ChartDataManager {
   /** Internal KLine data for indicator scheduler (empty in timeshare mode) */
   getInternalData(): KLineData[] {
     const buf = this.getActiveDataBuffer()
-    return buf ? buf.getRawData() : []
+    if (buf) return buf.getRawData()
+    const peek = this._dataSignal.peek()
+    return peek.length > 0 ? (peek as KLineData[]) : []
   }
 
   getRenderData(): unknown[] {
@@ -875,10 +877,10 @@ export class ChartDataManager {
   private loadKLineSymbols(specs: ReadonlyArray<SymbolSpec>): void {
     const spec = specs[0]!
     this.syncComparisonBuffers(specs.slice(1))
-    if (!this._dataFetcher) return
 
     const buf = this.getPrimaryDataBuffer(spec.symbol, spec.period!)
     this.activateBuffer(bufKey(BUF_PRIMARY, spec.symbol, spec.period!))
+    if (!this._dataFetcher) return
 
     buf.onPrepend = (count: number) => {
       this.pendingPrependedCount = count
