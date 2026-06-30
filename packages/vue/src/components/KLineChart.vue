@@ -1057,7 +1057,11 @@
 
   function setupSemanticController(ctrl: ChartController): void {
     if (props.customData) {
-      ctrl.applyCustomData(props.customData)
+      try {
+        ctrl.applyCustomData(props.customData)
+      } catch (err) {
+        console.error('[KLineChart] applyCustomData failed:', err)
+      }
     }
 
     ctrl.setDataFetcher(effectiveDataFetcher.value)
@@ -1106,13 +1110,19 @@
     const xAxisCanvas = container.querySelector<HTMLCanvasElement>('.x-axis-canvas')
     const rightAxisLayer = chartMain.querySelector<HTMLDivElement>('.right-axis-host')
     const leftAxisLayer = chartMain.querySelector<HTMLDivElement>('.left-axis-host') ?? undefined
-    const ctrl = await initChart(
-      container,
-      canvasLayer!,
-      rightAxisLayer!,
-      xAxisCanvas!,
-      leftAxisLayer,
-    )
+    let ctrl: ChartController
+    try {
+      ctrl = await initChart(
+        container,
+        canvasLayer!,
+        rightAxisLayer!,
+        xAxisCanvas!,
+        leftAxisLayer,
+      )
+    } catch (err) {
+      console.error('[KLineChart] initChart failed:', err)
+      return
+    }
     if (!containerRef.value || !chartMainRef.value) return // 组件已卸载
     controller.value = ctrl
 
@@ -1137,7 +1147,11 @@
     setupInteractionCallbacks(ctrl)
 
     // 7) 语义化配置
-    setupSemanticController(ctrl)
+    try {
+      setupSemanticController(ctrl)
+    } catch (err) {
+      console.error('[KLineChart] setupSemanticController failed:', err)
+    }
   })
 
   // ── onUnmounted & Watchers ──

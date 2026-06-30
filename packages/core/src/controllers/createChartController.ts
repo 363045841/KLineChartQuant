@@ -436,7 +436,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     /* tolerate jsdom */
   }
 
-  if (opts.data) {
+  if (opts.data && opts.data.length > 0) {
     try {
       chart.setData([...opts.data])
     } catch {
@@ -456,7 +456,11 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   // Apply initial theme if non-default
   if (opts.theme && opts.theme !== 'light') {
-    chart.setTheme(opts.theme)
+    try {
+      chart.setTheme(opts.theme)
+    } catch {
+      /* tolerate first-paint racing */
+    }
   }
 
   // -------------------------------------------------------------------

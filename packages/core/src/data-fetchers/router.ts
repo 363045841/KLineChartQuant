@@ -5,24 +5,19 @@ import {
   getRegisteredFetcher,
   fetcherSupportsPeriod,
   getTimeShareFetcher,
+  getRegisteredFetcherNames,
 } from './fetcherDefinitionRegistry'
-
-const FALLBACK_SOURCE = 'baostock'
 
 export const routerDataFetcher: DataFetcher = (source, config) => {
   const def = getRegisteredFetcher(source)
   if (!def) {
-    console.warn(`[DataFetcher] unknown source "${source}", falling back to "${FALLBACK_SOURCE}"`)
-    const fallback = getRegisteredFetcher(FALLBACK_SOURCE)
-    if (!fallback) {
-      return Promise.reject(
-        new KLineChartError(
-          'FETCH_FAILED',
-          `[DataFetcher] no fetcher registered for "${source}" and no fallback available`,
-        ),
-      )
-    }
-    return fallback.fetcher(source, config)
+    const registered = getRegisteredFetcherNames().sort()
+    return Promise.reject(
+      new KLineChartError(
+        'FETCH_FAILED',
+        `[DataFetcher] unknown source "${source}". Registered sources: ${registered.join(', ') || 'none'}`,
+      ),
+    )
   }
 
   if (!fetcherSupportsPeriod(source, config.period)) {

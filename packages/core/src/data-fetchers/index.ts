@@ -8,6 +8,7 @@ export { TimeShareBuffer } from './timeShareBuffer'
 export type { DataBufferLike } from './dataBufferTypes'
 export {
   getRegisteredFetcher,
+  getRegisteredFetcherNames,
   getTimeShareFetcher,
   fetcherSupportsTimeShare,
 } from './fetcherDefinitionRegistry'
@@ -22,5 +23,8 @@ export {
 export { BinanceSSESource, DEFAULT_BINANCE_SSE_URL } from './binance'
 export { DepthConnector } from './depthConnector'
 export type { DepthSource, DepthDelta, DepthSnapshot, DepthSourceStatus } from './depthTypes'
+import './baostock'
+import './hundred-mock'
+import './thousand-mock'
 import './gotdx'
 import './tradingview'

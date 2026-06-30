@@ -186,8 +186,7 @@ export class DataBuffer implements DataBufferLike {
           if (this._requestFetch) {
             return this._requestFetch(s, start, end)
           }
-          // 未定义 Fetcher 走 gotdx fallback 获取
-          return (this._fetcher as NonNullable<DataFetcher>)(s.source ?? 'gotdx', {
+          return (this._fetcher as NonNullable<DataFetcher>)(s.source ?? '', {
             symbol: s.symbol,
             startDate: formatDate(start),
             endDate: formatDate(end),

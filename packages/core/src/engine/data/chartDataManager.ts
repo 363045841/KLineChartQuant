@@ -538,7 +538,7 @@ export class ChartDataManager {
     return (spec, startTs, endTs) =>
       new Promise<ReadonlyArray<KLineData>>((resolve, reject) => {
         this._pendingFetches.push({
-          source: spec.source ?? 'baostock',
+          source: spec.source ?? '',
           spec,
           startTs,
           endTs,
@@ -819,6 +819,7 @@ export class ChartDataManager {
       symbol: source.symbol ?? this._currentSpec?.symbol ?? '',
       period: source.period ?? this._currentSpec?.period ?? 'daily',
       incremental: false,
+      source: source.source ?? 'custom',
     }
     this.setSymbols([spec, ...this._comparisonSpecs])
 

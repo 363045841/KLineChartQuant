@@ -37,6 +37,10 @@ export function getRegisteredFetcher(name: string): DataFetcherDefinition | unde
   return definitions.get(name)
 }
 
+export function getRegisteredFetcherNames(): string[] {
+  return Array.from(definitions.keys())
+}
+
 function getRegisteredFetchers(): DataFetcherDefinition[] {
   return Array.from(definitions.values())
 }

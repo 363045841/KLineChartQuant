@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import {
   DataFetcher,
   getRegisteredFetcher,
+  getRegisteredFetcherNames,
   fetcherSupportsPeriod,
   clearRegisteredFetchersForTest,
 } from '../fetcherDefinitionRegistry'
@@ -116,6 +117,22 @@ describe('DataFetcher registry', () => {
     clearRegisteredFetchersForTest()
     expect(getRegisteredFetcher('test')).toBeUndefined()
   })
+
+  it('getRegisteredFetcherNames returns registered sources', () => {
+    @DataFetcher({ name: 'test-a', displayName: 'Test A', capabilities: ['daily'] })
+    class TestFetcherA {
+      static fetcher = fetchFn
+    }
+    void TestFetcherA
+
+    @DataFetcher({ name: 'test-b', displayName: 'Test B', capabilities: ['daily'] })
+    class TestFetcherB {
+      static fetcher = fetchFn
+    }
+    void TestFetcherB
+
+    expect(getRegisteredFetcherNames().sort()).toEqual(['test-a', 'test-b'])
+  })
 })
 
 describe('routerDataFetcher capability check', () => {
@@ -205,23 +222,16 @@ describe('routerDataFetcher capability check', () => {
     )
   })
 
-  it('falls back to registered baostock for unknown source', async () => {
-    const data: KLineData[] = [
-      { timestamp: 2000, open: 200, high: 210, low: 190, close: 205, volume: 2000 },
-    ]
-    const baostockFn = vi.fn<DataFetcherFn>().mockResolvedValue(data)
-
+  it('rejects unknown source with registered source list', async () => {
     @DataFetcher({ name: 'baostock', displayName: 'BaoStock', capabilities: ['*'] })
     class BaoStockStub {
-      static fetcher = baostockFn
+      static fetcher = vi.fn<DataFetcherFn>()
     }
     void BaoStockStub
 
-    const result = await routerDataFetcher('nonexistent', defaultConfig)
-    expect(result).toBe(data)
-    expect(baostockFn).toHaveBeenCalledWith(
-      'nonexistent',
-      expect.objectContaining({ period: 'daily' }),
+    await expect(routerDataFetcher('nonexistent', defaultConfig)).rejects.toThrow(
+      /unknown source "nonexistent"/,
     )
+    await expect(routerDataFetcher('nonexistent', defaultConfig)).rejects.toThrow(/baostock/)
   })
 })
