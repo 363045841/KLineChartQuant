@@ -29,6 +29,7 @@ import type {
   PaneLayoutInfo,
   PaneSpec,
   SymbolSpec,
+  SymbolInfo,
   DataFetcher,
   CustomDataSource,
 } from './types'
@@ -422,6 +423,9 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   >(new Map())
   const comparisonLoading: Signal<boolean> = createSignal(false)
 
+  // symbolCatalog — bridge from Chart's data manager
+  const symbolCatalog: Signal<ReadonlyArray<SymbolInfo>> = chart.symbolCatalog
+
   // -------------------------------------------------------------------
   // Apply initial render state + seed data
   // -------------------------------------------------------------------
@@ -579,6 +583,11 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   function switchToTimeShareForDate(dateYYYYMMDD: number): void {
     if (disposed) return
     chart.switchToTimeShareForDate(dateYYYYMMDD)
+  }
+
+  function registerSymbols(infos: ReadonlyArray<SymbolInfo>): void {
+    if (disposed) return
+    chart.registerSymbols(infos)
   }
 
   function applyCustomData(source: CustomDataSource): void {
@@ -932,9 +941,11 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     interactionState,
     comparisonColors,
     comparisonLoading,
+    symbolCatalog,
     catalog: DEFAULT_INDICATOR_CATALOG,
     alertController: chart.alertController,
     setSymbols,
+    registerSymbols,
     addComparisonSymbol,
     removeComparisonSymbol,
     setComparisonData,

@@ -1,5 +1,5 @@
 import type { KLineData, TimeShareData } from '../../types/price'
-import type { SymbolSpec, DataFetcher, CustomDataSource } from '../../controllers/types'
+import type { SymbolSpec, SymbolInfo, DataFetcher, CustomDataSource } from '../../controllers/types'
 import { createSignal, type Signal } from '../../reactivity/signal'
 import { DataBuffer } from '../../data-fetchers/dataBuffer'
 import { getPeriodDays } from '../../data-fetchers/dataBuffer.effects'
@@ -56,6 +56,8 @@ export class ChartDataManager {
   private _dataSignal = createSignal<ReadonlyArray<unknown>>([])
   private _loadingSignal = createSignal<boolean>(false)
   private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
+  /** Available symbol catalog — consumed by UI pickers (e.g. TopToolbar) */
+  private _symbolCatalog = createSignal<ReadonlyArray<SymbolInfo>>([])
 
   private _currentSpec: SymbolSpec | null = null
 
@@ -365,6 +367,28 @@ export class ChartDataManager {
 
   get symbols(): Signal<ReadonlyArray<SymbolSpec>> {
     return this._symbolsSignal
+  }
+
+  get symbolCatalog(): Signal<ReadonlyArray<SymbolInfo>> {
+    return this._symbolCatalog
+  }
+
+  /**
+   * Register symbols into the available catalog.
+   * Deduplicates by symbol code: newer entries replace older ones.
+   */
+  registerSymbols(infos: ReadonlyArray<SymbolInfo>): void {
+    const current = new Map(this._symbolCatalog.peek().map((s) => [s.code, s]))
+    for (const info of infos) current.set(info.code, info)
+    this._symbolCatalog.set(Array.from(current.values()))
+  }
+
+  /** Remove a symbol from the catalog by code. */
+  unregisterSymbol(code: string): void {
+    const next = this._symbolCatalog.peek().filter((s) => s.code !== code)
+    if (next.length < this._symbolCatalog.peek().length) {
+      this._symbolCatalog.set(next)
+    }
   }
 
   get currentPeriod(): string {
@@ -791,16 +815,23 @@ export class ChartDataManager {
   }
 
   applyCustomData(source: CustomDataSource): void {
-    if (source.symbol) this.setCurrentSymbol(source.symbol)
-    if (source.period) this.setCurrentPeriod(source.period)
+    const spec: SymbolSpec = {
+      symbol: source.symbol ?? this._currentSpec?.symbol ?? '',
+      period: source.period ?? this._currentSpec?.period ?? 'daily',
+    }
+    this.setSymbols([spec, ...this._comparisonSpecs])
 
-    const specs = this._symbolsSignal.peek()
-    if (specs.length === 0 && source.symbol) {
-      const mainSpec: SymbolSpec = {
-        symbol: source.symbol,
-        period: source.period ?? 'daily',
-      }
-      this._symbolsSignal.set([mainSpec])
+    // Auto-register the custom symbol into the available catalog so it appears in UI pickers.
+    const symbolCode = spec.symbol
+    if (symbolCode) {
+      this.registerSymbols([
+        {
+          code: symbolCode,
+          description: source.description ?? symbolCode,
+          exchange: source.exchange ?? '',
+          source: source.source ?? 'custom',
+        },
+      ])
     }
 
     const plainData = source.data.map((d) => ({ ...d }))

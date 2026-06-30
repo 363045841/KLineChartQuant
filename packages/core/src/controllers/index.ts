@@ -27,6 +27,7 @@ export type {
   DrawingChartViewport,
   PaneLayoutInfo,
   SymbolSpec,
+  SymbolInfo,
   DataFetcher,
   CustomDataSource,
 } from './types'

@@ -2,6 +2,7 @@
   <div ref="chartWrapperRef" class="chart-wrapper" :data-theme="chartTheme" :style="themeCssVars">
     <TopToolbar
       :symbol="currentSymbol"
+      :symbols="symbolPool"
       :k-line-level="kLineLevel"
       :k-line-adjust="kLineAdjust"
       :symbol-loading="symbolStatus === 'loading'"
@@ -201,6 +202,7 @@
     type ChartController,
     type InteractionSnapshot,
     type SymbolSpec,
+    type SymbolInfo,
     type CustomDataSource,
   } from '@363045841yyt/klinechart-core/controllers'
   import { useChartState } from '../composables/chart/useChartState'
@@ -287,6 +289,40 @@
   }>()
 
   // ── Symbol / Comparison State ──
+
+  // Default symbol catalog — registered into the controller on mount so the
+  // dropdown picker shows a meaningful list out of the box. Consumers can
+  // replace/extend via ctrl.registerSymbols() after mount.
+  const DEFAULT_SYMBOLS: SymbolInfo[] = [
+    // TradingView global
+    { code: 'XAUUSD', description: '现货黄金', exchange: 'OANDA', source: 'tradingview' },
+    {
+      code: 'BTCUSDT',
+      description: 'Bitcoin / Tether',
+      exchange: 'BINANCE',
+      source: 'tradingview',
+    },
+    {
+      code: 'ETHUSDT',
+      description: 'Ethereum / Tether',
+      exchange: 'BINANCE',
+      source: 'tradingview',
+    },
+    { code: 'EURUSD', description: '欧元/美元', exchange: 'OANDA', source: 'tradingview' },
+    { code: 'SPX', description: '标普 500 指数', exchange: 'SP', source: 'tradingview' },
+    { code: 'AAPL', description: 'Apple Inc.', exchange: 'NASDAQ', source: 'tradingview' },
+    { code: 'TSLA', description: 'Tesla, Inc.', exchange: 'NASDAQ', source: 'tradingview' },
+    { code: '1810', description: '小米集团', exchange: 'HKEX', source: 'tradingview' },
+    // gotdx A shares
+    { code: '600519', description: '贵州茅台', exchange: 'SSE', source: 'gotdx' },
+    { code: '601360', description: '三六零', exchange: 'SSE', source: 'gotdx' },
+    { code: '000858', description: '五 粮 液', exchange: 'SZSE', source: 'gotdx' },
+    { code: '000001', description: '平安银行', exchange: 'SZSE', source: 'gotdx' },
+    // Mock
+    { code: 'MOCK-100', description: 'Mock 100 条', exchange: 'MOCK', source: 'mock-100' },
+    { code: 'MOCK-10000', description: 'Mock 10000 条', exchange: 'MOCK', source: 'mock-10000' },
+  ]
+
   const kLineLevel = ref<string>(props.semanticConfig?.data?.period ?? 'daily')
   const previousKLineLevel = ref<string>('daily')
   const kLineAdjust = ref(props.semanticConfig?.data?.adjust ?? 'none')
@@ -295,6 +331,7 @@
   const currentSymbolItem = ref<SymbolItem | null>(null)
   const overlaySymbols = ref<string[]>([])
   const overlaySymbolItems = ref<SymbolItem[]>([])
+  const symbolPool = ref<SymbolItem[]>([])
 
   function onKLineLevelChange(level: string) {
     if (level === 'timeshare') {
@@ -934,6 +971,24 @@
       comparisonLoading.value = ctrl.comparisonLoading.peek()
     })
 
+    // Sync symbol catalog from controller to dropdown pool.
+    const unsubscribeSymbolCatalog = ctrl.symbolCatalog.subscribe(() => {
+      symbolPool.value = ctrl.symbolCatalog.peek().map((info) => ({
+        code: info.code,
+        description: info.description ?? info.code,
+        exchange: info.exchange ?? '',
+        source: info.source ?? '',
+      }))
+    })
+    // 立即同步当前值，确保 dropdown 在 subscribe 创建后立即拿到数据，
+    // 不依赖 registerSymbols 在 subscribe 之前还是之后调用。
+    symbolPool.value = ctrl.symbolCatalog.peek().map((info) => ({
+      code: info.code,
+      description: info.description ?? info.code,
+      exchange: info.exchange ?? '',
+      source: info.source ?? '',
+    }))
+
     const unsubscribeSymbols = ctrl.symbols.subscribe(() => {
       const specs = ctrl.symbols.peek()
       if (specs.length === 0) return
@@ -968,6 +1023,7 @@
       unsubscribeIndicators()
       unsubscribeComparisonColors()
       unsubscribeComparisonLoading()
+      unsubscribeSymbolCatalog()
       unsubscribeSymbols()
     }
   }
@@ -1057,8 +1113,11 @@
     if (!containerRef.value || !chartMainRef.value) return // 组件已卸载
     controller.value = ctrl
 
-    // 3) 信号回调
+    // 3) 信号回调（必须在 registerSymbols 之前建立，否则订阅收不到初始通知）
     cleanupChartCallbacks = setupChartCallbacks(ctrl)
+
+    // Seed the default symbol catalog — subscribe 已建立, set 会触发回调刷新 dropdown
+    ctrl.registerSymbols(DEFAULT_SYMBOLS)
 
     // 3.5) 在任何 draw 之前注册主图指标（BOLL/MA 等）
     //      initIndicatorsFromConfig 是同步的，读 props.semanticConfig 即可注册，
