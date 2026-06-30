@@ -537,8 +537,16 @@ export class ChartDataManager {
   ): (spec: SymbolSpec, startTs: number, endTs: number) => Promise<ReadonlyArray<KLineData>> {
     return (spec, startTs, endTs) =>
       new Promise<ReadonlyArray<KLineData>>((resolve, reject) => {
+        if (!spec.source) {
+          reject(
+            new Error(
+              `[DataFetcher] source is required but was not provided for symbol "${spec.symbol}"`,
+            ),
+          )
+          return
+        }
         this._pendingFetches.push({
-          source: spec.source ?? '',
+          source: spec.source,
           spec,
           startTs,
           endTs,
@@ -930,6 +938,13 @@ export class ChartDataManager {
       this.deps.resetInteraction()
       this.scrollToRight()
       return
+    }
+
+    if (!spec.source) {
+      throw new Error(
+        `[ChartDataManager] source is required for symbol "${spec.symbol}". ` +
+          `Provide a source in SymbolSpec or use setData/applyCustomData for inline data.`,
+      )
     }
 
     buf.onPrepend = (count: number) => {

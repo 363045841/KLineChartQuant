@@ -131,6 +131,7 @@ export class DataBuffer implements DataBufferLike {
   ensureRange(requestStartTs: number, _requestEndTs: number): void {
     if (this._disposed || (!this._requestFetch && !this._fetcher) || !this._currentSpec) return
     if (this._currentSpec.incremental === false) return
+    if (!this._currentSpec.source) return
     if (!this._loadedWindow) return
 
     if (requestStartTs >= this._loadedWindow.earliestTs) return
@@ -145,6 +146,7 @@ export class DataBuffer implements DataBufferLike {
 
   private loadInitial(): void {
     if ((!this._requestFetch && !this._fetcher) || !this._currentSpec || this._disposed) return
+    if (!this._currentSpec.source) return
 
     const now = Date.now()
     const days = getPeriodDays(this._currentSpec.period)
@@ -156,6 +158,7 @@ export class DataBuffer implements DataBufferLike {
 
   private loadInitialRange(startTs: number, endTs: number): void {
     if ((!this._requestFetch && !this._fetcher) || !this._currentSpec || this._disposed) return
+    if (!this._currentSpec.source) return
     this.fetchRange(startTs, endTs)
   }
 
@@ -184,10 +187,15 @@ export class DataBuffer implements DataBufferLike {
       fetch: (s, start, end) =>
         Effect.tryPromise({
           try: () => {
+            if (!s.source) {
+              return Promise.reject(
+                new Error(`[DataBuffer] source is required for symbol "${s.symbol}"`),
+              )
+            }
             if (this._requestFetch) {
               return this._requestFetch(s, start, end)
             }
-            return (this._fetcher as NonNullable<DataFetcher>)(s.source ?? '', {
+            return (this._fetcher as NonNullable<DataFetcher>)(s.source, {
               symbol: s.symbol,
               startDate: formatDate(start),
               endDate: formatDate(end),
