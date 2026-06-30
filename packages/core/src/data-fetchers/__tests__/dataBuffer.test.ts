@@ -265,7 +265,7 @@ describe('DataBuffer', () => {
     expect(buffer.data()).toHaveLength(1)
   })
 
-  it('onPrepend is called when data is prepended (earlier timestamps)', async () => {
+  it('prepend signal emits when data is prepended (earlier timestamps)', async () => {
     const now = Date.now()
     const oneYearAgo = now - 365 * MS_PER_DAY
     const initialData = [makeKLine(oneYearAgo), makeKLine(now)]
@@ -285,7 +285,9 @@ describe('DataBuffer', () => {
     })
 
     const prependCalls: number[] = []
-    buffer.onPrepend = (count) => prependCalls.push(count)
+    const unsub = buffer.prepend.subscribe(() => {
+      prependCalls.push(buffer.prepend.peek())
+    })
 
     buffer.ensureRange(oneYearAgo - 30 * MS_PER_DAY, oneYearAgo)
 
@@ -293,17 +295,19 @@ describe('DataBuffer', () => {
       expect(buffer.loading()).toBe(false)
     })
 
-    expect(prependCalls).toHaveLength(1)
-    expect(prependCalls[0]).toBe(2)
+    unsub()
+    expect(prependCalls).toContain(2)
   })
 
-  it('onPrepend is not called for initial load', async () => {
+  it('prepend signal is 0 for initial load', async () => {
     const now = Date.now()
     const oneYearAgo = now - 365 * MS_PER_DAY
     const fetcher: DataFetcher = async () => [makeKLine(oneYearAgo), makeKLine(now)]
 
     const prependCalls: number[] = []
-    buffer.onPrepend = (count) => prependCalls.push(count)
+    const unsub = buffer.prepend.subscribe(() => {
+      prependCalls.push(buffer.prepend.peek())
+    })
 
     buffer.setFetcher(fetcher)
     buffer.setSymbol(defaultSpec)
@@ -312,7 +316,8 @@ describe('DataBuffer', () => {
       expect(buffer.loading()).toBe(false)
     })
 
-    expect(prependCalls).toHaveLength(0)
+    unsub()
+    expect(prependCalls.filter((c) => c > 0)).toHaveLength(0)
   })
 
   it('ensureRange allows retry when previous fetch did not advance earliestTs', async () => {

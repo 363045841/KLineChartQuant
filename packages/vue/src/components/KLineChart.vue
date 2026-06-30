@@ -1194,10 +1194,25 @@
     { deep: true },
   )
 
+  // customData 变化时同步数据；
+  // 引擎层 applyCustomData 已改为首次初始化 period/spec，
+  // 后续调用只更新 data，不覆盖 UI dropdown 选择的 period
   watch(
     () => props.customData,
-    (newVal) => {
-      if (newVal) controller.value?.applyCustomData(newVal)
+    (newVal, oldVal) => {
+      if (newVal && controller.value) {
+        controller.value.applyCustomData(newVal)
+      } else if (oldVal && controller.value) {
+        const saved = controller.value.getPreCustomSpec()
+        if (saved) {
+          controller.value.setDataFetcher(effectiveDataFetcher.value)
+          controller.value.resetToFetcher({
+            ...saved,
+            period: currentPeriod.value,
+            adjust: kLineAdjust.value,
+          })
+        }
+      }
     },
     { deep: true },
   )

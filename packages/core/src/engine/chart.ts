@@ -1089,7 +1089,7 @@ export class Chart {
   }
 
   get dataBuffer(): import('../data-fetchers/dataBuffer').DataBuffer {
-    return this.dataManager.dataBuffer
+    return this.dataManager.dataBuffer as import('../data-fetchers/dataBuffer').DataBuffer
   }
 
   checkVisibleRangeGap(): void {
@@ -1135,6 +1135,14 @@ export class Chart {
 
   applyCustomData(source: CustomDataSource): void {
     this.dataManager.applyCustomData(source)
+  }
+
+  resetToFetcher(spec: SymbolSpec): void {
+    this.dataManager.resetToFetcher(spec)
+  }
+
+  getPreCustomSpec(): SymbolSpec | null {
+    return this.dataManager.getPreCustomSpec()
   }
 
   // ---------- Theme ----------

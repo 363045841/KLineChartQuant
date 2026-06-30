@@ -327,9 +327,11 @@ export class IndicatorScheduler {
       return false
     }
     try {
-      const workerUrl = new URL('./indicator.worker.js', import.meta.url)
-      console.log('[IndicatorScheduler] Creating worker from:', workerUrl.href)
-      this.worker = new Worker(workerUrl, { type: 'module' })
+      console.log('[IndicatorScheduler] Creating worker...')
+      this.worker = new Worker(
+        new URL('./indicator.worker.ts', import.meta.url),
+        { type: 'module' },
+      )
       console.log('[IndicatorScheduler] Worker created, waiting for ready...')
       this.worker.onmessage = (e) => this.handleWorkerMessage(e.data)
       this.worker.onerror = (err) => {
@@ -342,8 +344,24 @@ export class IndicatorScheduler {
       })
       return true
     } catch (err) {
-      console.warn('[IndicatorScheduler] Failed to init worker:', err)
-      return false
+      console.warn('[IndicatorScheduler] Failed to init .ts worker:', err)
+      // Fallback: .js URL for tsc builds (core package dist has compiled .js)
+      try {
+        this.worker = new Worker(
+          new URL('./indicator.worker.js', import.meta.url),
+          { type: 'module' },
+        )
+        this.worker.onmessage = (e) => this.handleWorkerMessage(e.data)
+        this.worker.onerror = () => this.fallbackToInline()
+        this.worker.postMessage({
+          type: 'init',
+          protocolVersion: PROTOCOL_VERSION,
+        })
+        return true
+      } catch (err2) {
+        console.warn('[IndicatorScheduler] Failed to init worker:', err, err2)
+        return false
+      }
     }
   }
 

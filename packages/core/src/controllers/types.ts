@@ -314,6 +314,8 @@ export interface ChartController extends DrawingChartAdapter {
   switchToTimeShareForDate(dateYYYYMMDD: number): void
   /** Inject a complete custom data bundle (bypasses fetcher pipeline) */
   applyCustomData(source: CustomDataSource): void
+  resetToFetcher(spec: SymbolSpec): void
+  getPreCustomSpec(): SymbolSpec | null
   setDataFetcher(fetcher: DataFetcher | null): void
   setData(next: ReadonlyArray<KLineData>): void
   appendData(next: ReadonlyArray<KLineData>): void
