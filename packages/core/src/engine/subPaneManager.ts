@@ -6,8 +6,10 @@ import { createPaneTitleRendererPlugin } from './renderers/paneTitle'
 import { createIndicatorScaleRendererPlugin } from './renderers/Indicator/scale/indicator_scale'
 import { findIndicator } from './renderers/Indicator/indicatorCatalog'
 import type { IndicatorScheduler } from './indicators/scheduler'
-import type { RendererPlugin, RendererPluginWithHost } from '../plugin'
+import type { RendererPlugin, RendererPluginWithHost, RenderContext } from '../plugin'
 import type { PaneSpec } from './chartTypes'
+import type { Layer } from '../scene/types'
+import { createLayerFromPlugin } from '../scene/createLayerFromPlugin'
 
 export interface SubPaneEntry {
   paneId: string
@@ -16,6 +18,9 @@ export interface SubPaneEntry {
   rendererName: string
   scaleRendererName: string
   paneTitleRendererName: string
+  layerId: string
+  scaleLayerId: string
+  paneTitleLayerId: string
 }
 
 export interface SubPaneContext {
@@ -28,6 +33,7 @@ export interface SubPaneContext {
     config?: Record<string, unknown>,
   ) => void
   removeRenderer: (name: string) => void
+  setRendererEnabled: (name: string, enabled: boolean) => void
   removePaneDefinition: (paneId: string) => void
   updateRendererConfig: (name: string, config: Record<string, unknown>) => void
   getRightAxisWidth: () => number
@@ -36,6 +42,11 @@ export interface SubPaneContext {
   getCrosshairPos: () => { x: number; y: number } | null
   getCrosshairPrice: () => number | null
   getActivePaneId: () => string | null
+  addLayer: (layer: Layer) => void
+  removeLayer: (id: string) => boolean
+  getLayer: (id: string) => Layer | null
+  setLayerVisibility: (id: string, visible: boolean) => void
+  getRenderContext: (paneId: string) => RenderContext | null
 }
 
 export class SubPaneManager {
@@ -65,6 +76,7 @@ export class SubPaneManager {
     const renderer = this.createIndicatorRenderer(ctx, paneId, indicatorId, params)
     if (!renderer) return false
     const rendererName = renderer.name
+    const layerId = `plugin:${rendererName}`
 
     const paneExists = ctx.hasPane(paneId)
     if (!paneExists) {
@@ -74,10 +86,20 @@ export class SubPaneManager {
     const existingRenderer = ctx.getRenderer(rendererName)
     if (!existingRenderer) {
       ctx.useRenderer(renderer, params as Record<string, number | boolean | string>)
+      ctx.setRendererEnabled(rendererName, false)
+      const layer = createLayerFromPlugin(
+        renderer,
+        () => ctx.getRenderContext(paneId),
+        paneId,
+      )
+      ctx.addLayer(layer)
     }
 
     this.mountScaleRenderer(ctx, paneId, indicatorId, scaleRendererName)
     this.mountPaneTitleRenderer(ctx, paneId, indicatorId, params)
+
+    const scaleLayerId = `plugin:${scaleRendererName}`
+    const paneTitleLayerId = `plugin:${paneTitleRendererName}`
 
     this.entries.set(paneId, {
       paneId,
@@ -86,6 +108,9 @@ export class SubPaneManager {
       rendererName,
       scaleRendererName,
       paneTitleRendererName,
+      layerId,
+      scaleLayerId,
+      paneTitleLayerId,
     })
 
     this.syncSchedulerConfig(ctx, paneId, indicatorId, params)
@@ -103,6 +128,9 @@ export class SubPaneManager {
     ctx.removeRenderer(entry.rendererName)
     ctx.removeRenderer(entry.scaleRendererName)
     ctx.removeRenderer(entry.paneTitleRendererName)
+    ctx.removeLayer(entry.layerId)
+    ctx.removeLayer(entry.scaleLayerId)
+    ctx.removeLayer(entry.paneTitleLayerId)
 
     this.entries.delete(paneId)
 
@@ -126,14 +154,27 @@ export class SubPaneManager {
     ctx.removeRenderer(entry.rendererName)
     ctx.removeRenderer(entry.scaleRendererName)
     ctx.removeRenderer(entry.paneTitleRendererName)
+    ctx.removeLayer(entry.layerId)
+    ctx.removeLayer(entry.scaleLayerId)
+    ctx.removeLayer(entry.paneTitleLayerId)
 
     const newScaleRendererName = `${newIndicatorId.toLowerCase()}_scale_${paneId}`
     const newPaneTitleRendererName = `paneTitle_${paneId}`
     const renderer = this.createIndicatorRenderer(ctx, paneId, newIndicatorId, newParams)
     if (!renderer) return
     const newRendererName = renderer.name
+    const newLayerId = `plugin:${newRendererName}`
+    const newScaleLayerId = `plugin:${newScaleRendererName}`
+    const newPaneTitleLayerId = `plugin:${newPaneTitleRendererName}`
 
     ctx.useRenderer(renderer, newParams as Record<string, number | boolean | string>)
+    ctx.setRendererEnabled(newRendererName, false)
+    const layer = createLayerFromPlugin(
+      renderer,
+      () => ctx.getRenderContext(paneId),
+      paneId,
+    )
+    ctx.addLayer(layer)
 
     this.mountScaleRenderer(ctx, paneId, newIndicatorId, newScaleRendererName)
     this.mountPaneTitleRenderer(ctx, paneId, newIndicatorId, newParams)
@@ -147,6 +188,9 @@ export class SubPaneManager {
       rendererName: newRendererName,
       scaleRendererName: newScaleRendererName,
       paneTitleRendererName: newPaneTitleRendererName,
+      layerId: newLayerId,
+      scaleLayerId: newScaleLayerId,
+      paneTitleLayerId: newPaneTitleLayerId,
     })
 
     ctx.getIndicatorScheduler().onSubPaneChanged()
@@ -202,6 +246,9 @@ export class SubPaneManager {
       ctx.removeRenderer(entry.rendererName)
       ctx.removeRenderer(entry.scaleRendererName)
       ctx.removeRenderer(entry.paneTitleRendererName)
+      ctx.removeLayer(entry.layerId)
+      ctx.removeLayer(entry.scaleLayerId)
+      ctx.removeLayer(entry.paneTitleLayerId)
     }
     this.entries.clear()
     ctx.getIndicatorScheduler().onSubPaneChanged()
@@ -226,7 +273,11 @@ export class SubPaneManager {
     scaleRendererName: string,
   ): void {
     const existing = ctx.getRenderer(scaleRendererName)
-    if (existing) return
+    if (existing) {
+      // ensure existing layer is visible
+      ctx.setLayerVisibility(`plugin:${scaleRendererName}`, true)
+      return
+    }
 
     const axisWidth = ctx.getRightAxisWidth() + (ctx.getPriceLabelWidth() ?? 60)
     const yPaddingPx = ctx.getYPaddingPx()
@@ -244,19 +295,33 @@ export class SubPaneManager {
 
     const definition = ctx.getIndicatorScheduler().getIndicatorMetadata(indicatorId)
     if (definition?.scaleRendererFactory) {
-      ctx.useRenderer(definition.scaleRendererFactory({ ...opts, indicatorId }))
+      const plugin = definition.scaleRendererFactory({ ...opts, indicatorId })
+      ctx.useRenderer(plugin)
+      ctx.setRendererEnabled(scaleRendererName, false)
+      const layer = createLayerFromPlugin(
+        plugin,
+        () => ctx.getRenderContext(paneId),
+        paneId,
+      )
+      ctx.addLayer(layer)
       return
     }
 
     if (definition?.scale) {
-      ctx.useRenderer(
-        createIndicatorScaleRendererPlugin({
-          ...opts,
-          indicatorKey: definition.scale.indicatorKey ?? definition.name,
-          label: definition.scale.label ?? definition.displayName,
-          decimals: definition.scale.decimals,
-        }),
+      const plugin = createIndicatorScaleRendererPlugin({
+        ...opts,
+        indicatorKey: definition.scale.indicatorKey ?? definition.name,
+        label: definition.scale.label ?? definition.displayName,
+        decimals: definition.scale.decimals,
+      })
+      ctx.useRenderer(plugin)
+      ctx.setRendererEnabled(scaleRendererName, false)
+      const layer = createLayerFromPlugin(
+        plugin,
+        () => ctx.getRenderContext(paneId),
+        paneId,
       )
+      ctx.addLayer(layer)
       return
     }
   }
@@ -271,6 +336,7 @@ export class SubPaneManager {
     const existing = ctx.getRenderer(rendererName)
     if (existing) {
       ctx.updateRendererConfig(rendererName, { params, indicatorId })
+      ctx.setLayerVisibility(`plugin:${rendererName}`, true)
       return
     }
 
@@ -281,5 +347,12 @@ export class SubPaneManager {
       params,
     })
     ctx.useRenderer(renderer)
+    ctx.setRendererEnabled(rendererName, false)
+    const layer = createLayerFromPlugin(
+      renderer,
+      () => ctx.getRenderContext(paneId),
+      paneId,
+    )
+    ctx.addLayer(layer)
   }
 }

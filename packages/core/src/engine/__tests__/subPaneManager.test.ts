@@ -33,6 +33,7 @@ function createMockContext(): SubPaneContext {
     getRenderer: vi.fn(),
     useRenderer: vi.fn(),
     removeRenderer: vi.fn(),
+    setRendererEnabled: vi.fn(),
     removePaneDefinition: vi.fn(),
     updateRendererConfig: vi.fn(),
     getRightAxisWidth: vi.fn(() => 60),
@@ -41,6 +42,11 @@ function createMockContext(): SubPaneContext {
     getCrosshairPos: vi.fn(() => null),
     getCrosshairPrice: vi.fn(() => null),
     getActivePaneId: vi.fn(() => null),
+    addLayer: vi.fn(),
+    removeLayer: vi.fn(() => true),
+    getLayer: vi.fn(() => null),
+    setLayerVisibility: vi.fn(),
+    getRenderContext: vi.fn(() => null),
   }
 }
 

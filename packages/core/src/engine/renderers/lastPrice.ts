@@ -70,11 +70,14 @@ export function createLastPriceLineRendererPlugin(): RendererPlugin {
     description: '最新价虚线渲染器',
     debugName: '最新价线',
     paneId: 'main',
+    layer: 'overlay',
     priority: RENDERER_PRIORITY.LAST_PRICE_LABEL,
 
     draw(context: RenderContext) {
       if (context.period === 'timeshare') return
-      const { ctx, scrollLeft, dpr, paneWidth } = context
+      const { overlayCtx, scrollLeft, dpr, paneWidth } = context
+      const ctx = overlayCtx
+      if (!ctx) return
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,

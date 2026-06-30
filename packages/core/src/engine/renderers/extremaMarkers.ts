@@ -109,11 +109,13 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
     description: '可视区最高/最低价标注渲染器',
     debugName: '极值标记',
     paneId: GLOBAL_PANE_ID,
+    layer: 'overlay',
     priority: RENDERER_PRIORITY.OVERLAY,
 
     draw(context: RenderContext) {
       if (context.period === 'timeshare') return
-      const { ctx, pane, data, range, scrollLeft, dpr, paneWidth, kLineCenters } = context
+      const { overlayCtx, pane, data, range, scrollLeft, dpr, paneWidth, kLineCenters } = context
+      const ctx = overlayCtx
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
