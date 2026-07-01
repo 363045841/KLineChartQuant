@@ -16,7 +16,7 @@ export interface SettingItem {
  * 优先使用 Client Hints API (navigator.userAgentData)，不支持时回退到 UA + 屏幕/触控检测
  */
 export function getDeviceType(): 'mobile' | 'tablet' | 'desktop' {
-  if (typeof navigator === 'undefined') return 'desktop'
+  if (typeof navigator === 'undefined' || typeof window === 'undefined') return 'desktop'
 
   const uaData = (navigator as any).userAgentData
   if (uaData?.formFactor) {
