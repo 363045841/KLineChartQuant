@@ -2,7 +2,7 @@ import { createSignal, type Signal } from '../reactivity/signal'
 import type { SymbolSpec } from '../controllers/types'
 import type { TimeShareData } from '../types/price'
 import type { TimeShareFetcherFn } from './types'
-import type { DataBufferLike, DataWindow } from './dataBufferTypes'
+import type { DataBufferLike, DataWindow, DataChange } from './dataBufferTypes'
 import { routerTimeShareFetcher } from './router'
 import { Effect, Fiber, pipe } from 'effect'
 import type { Effect as EffectType } from 'effect/Effect'
@@ -12,7 +12,7 @@ export class TimeShareBuffer implements DataBufferLike {
   // 当前持有的分时数据数组（内部可变副本）
   private _data: TimeShareData[] = []
   // 向外部广播只读数据快照的信号
-  private _dataSignal = createSignal<ReadonlyArray<TimeShareData>>([])
+  private _dataSignal = createSignal<DataChange>({ data: [], prependedCount: 0 })
   // 是否正在加载中，外部 UI 绑定用
   private _loadingSignal = createSignal<boolean>(false)
   // 可选的自定义 fetcher，优先级大于默认 fectcher
@@ -26,8 +26,8 @@ export class TimeShareBuffer implements DataBufferLike {
   // 实例是否已销毁，阻止后续任何操作
   private _disposed = false
 
-  get data(): Signal<ReadonlyArray<unknown>> {
-    return this._dataSignal as Signal<ReadonlyArray<unknown>>
+  get data(): Signal<DataChange> {
+    return this._dataSignal
   }
 
   get loading(): Signal<boolean> {
@@ -98,7 +98,7 @@ export class TimeShareBuffer implements DataBufferLike {
           if (this._disposed) return
           this._queryDate = 0
           this._data = [...data]
-          this._dataSignal.set([...data])
+          this._dataSignal.set({ data: [...data], prependedCount: 0 })
         }),
       ),
       Effect.ensuring(
@@ -116,7 +116,7 @@ export class TimeShareBuffer implements DataBufferLike {
   setInlineData(data: unknown[]): void {
     if (this._disposed) return
     this._data = data as TimeShareData[]
-    this._dataSignal.set([...(data as TimeShareData[])])
+    this._dataSignal.set({ data: [...(data as TimeShareData[])], prependedCount: 0 })
   }
 
   // 销毁实例

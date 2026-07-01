@@ -37,7 +37,7 @@ describe('DataBuffer', () => {
   })
 
   it('initial state: empty data, not loading', () => {
-    expect(buffer.data()).toEqual([])
+    expect(buffer.data().data).toEqual([])
     expect(buffer.loading()).toBe(false)
     expect(buffer.loadedWindow).toBeNull()
   })
@@ -62,7 +62,7 @@ describe('DataBuffer', () => {
       expect(buffer.loading()).toBe(false)
     })
 
-    expect(buffer.data()).toHaveLength(2)
+    expect(buffer.data().data).toHaveLength(2)
     expect(buffer.loadedWindow).not.toBeNull()
     expect(buffer.loadedWindow!.earliestTs).toBe(fetchedData[0]!.timestamp)
     expect(buffer.loadedWindow!.latestTs).toBe(fetchedData[1]!.timestamp)
@@ -106,7 +106,7 @@ describe('DataBuffer', () => {
     })
 
     expect(fetchCount).toBe(2)
-    expect(buffer.data()).toHaveLength(4)
+    expect(buffer.data().data).toHaveLength(4)
     expect(buffer.loadedWindow!.earliestTs).toBe(oneYearAgo - 90 * MS_PER_DAY)
   })
 
@@ -237,7 +237,7 @@ describe('DataBuffer', () => {
     buffer.setFetcher(fetcher)
     buffer.dispose()
 
-    expect(buffer.data()).toEqual([])
+    expect(buffer.data().data).toEqual([])
   })
 
   it('setSymbol resets data before loading', async () => {
@@ -251,21 +251,21 @@ describe('DataBuffer', () => {
       expect(buffer.loading()).toBe(false)
     })
 
-    expect(buffer.data()).toHaveLength(1)
+    expect(buffer.data().data).toHaveLength(1)
 
     buffer.setSymbol({ ...defaultSpec, symbol: 'sz.000001' })
 
-    expect(buffer.data()).toEqual([])
+    expect(buffer.data().data).toEqual([])
     expect(buffer.loadedWindow).toBeNull()
 
     await vi.waitFor(() => {
       expect(buffer.loading()).toBe(false)
     })
 
-    expect(buffer.data()).toHaveLength(1)
+    expect(buffer.data().data).toHaveLength(1)
   })
 
-  it('prepend signal emits when data is prepended (earlier timestamps)', async () => {
+  it('data change includes prependedCount when data is prepended (earlier timestamps)', async () => {
     const now = Date.now()
     const oneYearAgo = now - 365 * MS_PER_DAY
     const initialData = [makeKLine(oneYearAgo), makeKLine(now)]
@@ -285,8 +285,8 @@ describe('DataBuffer', () => {
     })
 
     const prependCalls: number[] = []
-    const unsub = buffer.prepend.subscribe(() => {
-      prependCalls.push(buffer.prepend.peek())
+    const unsub = buffer.data.subscribe(() => {
+      prependCalls.push(buffer.data.peek().prependedCount)
     })
 
     buffer.ensureRange(oneYearAgo - 30 * MS_PER_DAY, oneYearAgo)
@@ -299,14 +299,14 @@ describe('DataBuffer', () => {
     expect(prependCalls).toContain(2)
   })
 
-  it('prepend signal is 0 for initial load', async () => {
+  it('prependedCount is 0 for initial load', async () => {
     const now = Date.now()
     const oneYearAgo = now - 365 * MS_PER_DAY
     const fetcher: DataFetcher = async () => [makeKLine(oneYearAgo), makeKLine(now)]
 
     const prependCalls: number[] = []
-    const unsub = buffer.prepend.subscribe(() => {
-      prependCalls.push(buffer.prepend.peek())
+    const unsub = buffer.data.subscribe(() => {
+      prependCalls.push(buffer.data.peek().prependedCount)
     })
 
     buffer.setFetcher(fetcher)

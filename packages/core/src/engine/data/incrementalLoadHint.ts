@@ -34,6 +34,17 @@ export class IncrementalLoadHint {
         0,
     )}px`
     hint.getBoundingClientRect()
+
+    console.group('[LoadHint] show')
+    console.log('count:', count, 'leftBufferWidth:', leftBufferWidth)
+    console.log('dpr:', dpr, 'kWidth:', opt.kWidth, 'kGap:', opt.kGap)
+    console.log('unitPx:', unitPx, 'startXPx:', startXPx)
+    console.log('target left:', hint.style.left, 'target width:', hint.style.width)
+    const rect = hint.getBoundingClientRect()
+    console.log('hint rect:', rect)
+    const host = this.deps.getDom().scrollContent
+    if (host) console.log('host scrollLeft:', host.scrollLeft, 'scrollWidth:', host.scrollWidth)
+    console.groupEnd()
     hint.style.opacity = '1'
     hint.style.filter = 'blur(0px)'
 

@@ -1,6 +1,6 @@
 import { createSignal, type Signal } from '../reactivity/signal'
 import type { KLineData } from '../controllers/types'
-import type { DataWindow } from './dataBufferTypes'
+import type { DataWindow, DataChange } from './dataBufferTypes'
 
 export interface MergeResult {
   readonly prependedCount: number
@@ -22,14 +22,14 @@ function mergeSortedData(existing: KLineData[], incoming: KLineData[]): KLineDat
 
 export class KLineDataStore {
   private _data: KLineData[] = []
-  private _dataSignal: Signal<ReadonlyArray<KLineData>>
+  private _dataSignal: Signal<DataChange>
   private _loadedWindow: DataWindow | null = null
 
   constructor() {
-    this._dataSignal = createSignal<ReadonlyArray<KLineData>>([])
+    this._dataSignal = createSignal<DataChange>({ data: [], prependedCount: 0 })
   }
 
-  get data(): Signal<ReadonlyArray<KLineData>> {
+  get data(): Signal<DataChange> {
     return this._dataSignal
   }
 
@@ -57,15 +57,15 @@ export class KLineDataStore {
     }
 
     this._data = merged
-    this._dataSignal.set([...merged])
     this._updateWindow()
+    this._dataSignal.set({ data: [...merged], prependedCount })
 
     return { prependedCount, advancedEarliest }
   }
 
   setInlineData(data: KLineData[]): void {
     this._data = [...data]
-    this._dataSignal.set([...data])
+    this._dataSignal.set({ data: [...data], prependedCount: 0 })
     this._loadedWindow =
       data.length > 0
         ? { earliestTs: data[0]!.timestamp, latestTs: data[data.length - 1]!.timestamp }
@@ -75,7 +75,7 @@ export class KLineDataStore {
   reset(): void {
     this._data = []
     this._loadedWindow = null
-    this._dataSignal.set([])
+    this._dataSignal.set({ data: [], prependedCount: 0 })
   }
 
   private _updateWindow(): void {

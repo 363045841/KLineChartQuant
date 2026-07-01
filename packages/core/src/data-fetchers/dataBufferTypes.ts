@@ -8,8 +8,15 @@ export interface DataWindow {
   latestTs: number
 }
 
+/** 数据变更描述：在一次数据更新中携带数据本身和变更元数据 */
+export interface DataChange {
+  readonly data: ReadonlyArray<unknown>
+  /** 本次新增了多少根 K 线到头部（向左滚动加载的历史数据） */
+  readonly prependedCount: number
+}
+
 export interface DataBufferLike {
-  readonly data: Signal<ReadonlyArray<unknown>>
+  readonly data: Signal<DataChange>
   readonly loading: Signal<boolean>
   readonly loadedWindow: DataWindow | null
   getRawData(): unknown[]
@@ -31,7 +38,6 @@ export interface KLineBuffer extends DataBufferLike {
   setSymbol(spec: SymbolSpec, initialStartTs?: number): void
   setCurrentSpec(spec: SymbolSpec): void
   ensureRange(requestStartTs: number, requestEndTs: number): void
-  readonly prepend: Signal<number>
 }
 
 export interface TimeShareBuffer extends DataBufferLike {

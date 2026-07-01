@@ -1,6 +1,6 @@
 import { createSignal, type Signal } from '../reactivity/signal'
 import type { DataFetcher, KLineData, SymbolSpec } from '../controllers/types'
-import type { DataBufferLike, DataWindow, KLineBuffer } from './dataBufferTypes'
+import type { DataBufferLike, DataWindow, DataChange, KLineBuffer } from './dataBufferTypes'
 import { Effect, pipe } from 'effect'
 import type { Effect as EffectType } from 'effect/Effect'
 import {
@@ -25,20 +25,15 @@ export class DataBuffer implements KLineBuffer {
   private _currentSpec: SymbolSpec | null = null
   private _attemptedBoundaries: Set<number> = new Set()
   private _disposed = false
-  private _prependSignal = createSignal(0)
 
   constructor() {}
 
-  get data(): Signal<ReadonlyArray<unknown>> {
-    return this._store.data as Signal<ReadonlyArray<unknown>>
+  get data(): Signal<DataChange> {
+    return this._store.data
   }
 
   get loading(): Signal<boolean> {
     return this._scheduler.loading
-  }
-
-  get prepend(): Signal<number> {
-    return this._prependSignal
   }
 
   get currentSpec(): SymbolSpec | null {
@@ -197,7 +192,6 @@ export class DataBuffer implements KLineBuffer {
         const result = this._store.merge(incoming)
         this._keyIndex.recompute(this._store.getRawData())
 
-        this._prependSignal.set(result.prependedCount)
         if (!result.advancedEarliest) {
           this._attemptedBoundaries.delete(endTs)
         }

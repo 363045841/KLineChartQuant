@@ -4,7 +4,7 @@ import { createSignal, type Signal } from '../../reactivity/signal'
 import { DataBuffer } from '../../data-fetchers/dataBuffer'
 import { getPeriodDays } from '../../data-fetchers/dataBuffer.effects'
 import { TimeShareBuffer } from '../../data-fetchers/timeShareBuffer'
-import type { KLineBuffer } from '../../data-fetchers/dataBufferTypes'
+import type { KLineBuffer, DataChange } from '../../data-fetchers/dataBufferTypes'
 import type { TimeShareFetcherFn } from '../../data-fetchers/types'
 import type { ChartDom, Viewport } from '../chartTypes'
 import type { VisibleRange, UpdateLevel } from '../layout/pane'
@@ -71,8 +71,6 @@ export class ChartDataManager {
   private _comparisonManager: ComparisonManager
   private _loadHint: IncrementalLoadHint
 
-  private pendingPrependedCount = 0
-  private _prependUnsub: (() => void) | null = null
   private _savedScrollLeft: number | null = null
   private _preCustomSpec: SymbolSpec | null = null
 
@@ -113,12 +111,13 @@ export class ChartDataManager {
     this._activeBufferKey = key
     const buf = this._lookupBuffer(key)
     if (buf) {
-      this._dataSignal.set([...(buf.data.peek() as unknown[])])
+      this._dataSignal.set([...(buf.data.peek() as DataChange).data as unknown[]])
       this._loadingSignal.set(buf.loading.peek())
       const unsubData = buf.data.subscribe(() => {
+        const change = buf.data.peek() as DataChange
         const prevDataLength = this._dataSignal.peek().length
-        this._dataSignal.set([...(buf.data.peek() as unknown[])])
-        this.onBufferDataChanged(key, prevDataLength)
+        this._dataSignal.set([...(change.data as unknown[])])
+        this.onBufferDataChanged(key, prevDataLength, change.prependedCount)
       })
       const unsubLoading = buf.loading.subscribe(() => {
         this._loadingSignal.set(buf.loading.peek())
@@ -190,24 +189,29 @@ export class ChartDataManager {
 
   // ── Buffer data change handler ──
 
-  private onBufferDataChanged(key: string, prevDataLength?: number): void {
+  private onBufferDataChanged(key: string, prevDataLength?: number, prependedCount?: number): void {
     if (key.startsWith(BUF_TIMESHARE)) {
       this.onTimeShareBufferChanged()
       return
     }
     const buf = this._klineBuffers.get(key)
     if (!buf) return
-    this.onKLineBufferChanged(key, buf, prevDataLength)
+    this.onKLineBufferChanged(key, buf, prevDataLength, prependedCount ?? 0)
   }
 
-  private onKLineBufferChanged(key: string, buf: KLineBuffer, prevDataLength?: number): void {
+  private onKLineBufferChanged(
+    key: string,
+    buf: KLineBuffer,
+    prevDataLength?: number,
+    prependedCount: number = 0,
+  ): void {
     if (!key.startsWith('main:')) return
 
     const bufferData = buf.getRawData() as KLineData[]
-    const prependedCount = this.pendingPrependedCount
-    this.pendingPrependedCount = 0
 
-    if (prependedCount === 0) {
+    if (prependedCount > 0) {
+      this._scrollCompensator.compensatePrepend(prependedCount)
+    } else {
       this._scrollCompensator.adjustScrollAfterDataChange(bufferData.length)
     }
 
@@ -614,9 +618,6 @@ checkVisibleRangeGap(): void {
     this.lastVisibleRange = { start: 0, end: 0 }
     this.lastRawVisibleRange = { start: 0, end: 0 }
     this._savedScrollLeft = null
-    this._prependUnsub?.()
-    this._prependUnsub = null
-    this.pendingPrependedCount = 0
     this.setSymbols([spec, ...this._comparisonManager.specs])
   }
 
@@ -712,13 +713,6 @@ checkVisibleRangeGap(): void {
           `Provide a source in SymbolSpec or use setData/applyCustomData for inline data.`,
       )
     }
-
-    this._prependUnsub?.()
-    this._prependUnsub = buf.prepend.subscribe(() => {
-      const count = buf.prepend.peek()
-      this.pendingPrependedCount = count
-      this._scrollCompensator.compensatePrepend(count)
-    })
 
     buf.setSymbol(spec)
   }
@@ -843,10 +837,8 @@ checkVisibleRangeGap(): void {
 
   destroy(): void {
     this._activeBufferUnsub?.()
-    this._prependUnsub?.()
     this.disposeAllBuffers()
     this._loadHint.destroy()
-    this.pendingPrependedCount = 0
   }
 }
 
