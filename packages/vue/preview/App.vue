@@ -536,12 +536,21 @@
 
   const teleportTarget = computed<HTMLElement | string>(() => embedContainerRef.value ?? 'body')
 
-  // ── settings prop 演示：启用亚洲市场红涨绿跌 + 隐藏左轴 ──
+  // ── settings prop 演示
   const chartSettings: ChartSettings = {
     showGridLines: true,
     isAsiaMarket: true,
     showVolumePriceMarkers: false,
     leftAxisType: 'none',
+    theme: 'dark',
+    colorPresetSettings: {
+      dark: {
+        candleUpBody: '#e85d04', // 橙色阳线
+        candleDownBody: '#1b4332', // 墨绿阴线
+        crosshairLine: '#faa307', // 金色十字线
+        gridMajor: '#3e2723', // 主网格线
+      },
+    },
   }
 
   // ── 自定义数据源 Demo ──

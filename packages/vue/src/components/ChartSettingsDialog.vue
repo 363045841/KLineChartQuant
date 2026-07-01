@@ -200,7 +200,7 @@
         const parsed = JSON.parse(saved)
         const result: ChartSettings = {}
         DEFAULT_SETTINGS.forEach((item) => {
-          result[item.key] = parsed[item.key] ?? item.default
+          ;(result as Record<string, unknown>)[item.key] = parsed[item.key] ?? item.default
         })
         result.colorPresetSettings = normalizeColorPresetSettings(parsed.colorPresetSettings)
         return result
@@ -208,7 +208,7 @@
     } catch {}
     const defaults: ChartSettings = {}
     DEFAULT_SETTINGS.forEach((item) => {
-      defaults[item.key] = item.default
+      ;(defaults as Record<string, unknown>)[item.key] = item.default
     })
     defaults.colorPresetSettings = {}
     return defaults
@@ -234,7 +234,7 @@
   function resetSettings() {
     const defaults: ChartSettings = {}
     DEFAULT_SETTINGS.forEach((item) => {
-      defaults[item.key] = item.default
+      ;(defaults as Record<string, unknown>)[item.key] = item.default
     })
     defaults.colorPresetSettings = {}
     settings.value = defaults

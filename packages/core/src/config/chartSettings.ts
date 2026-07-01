@@ -123,23 +123,43 @@ export const DEFAULT_SETTINGS = [
   },
 ] as const
 
+type _SettingTuple = typeof DEFAULT_SETTINGS
+
+type _SettingByKey = {
+  [Item in _SettingTuple[number] as Item['key']]:
+    Item['type'] extends 'boolean' ? boolean :
+    Item extends { type: 'select'; options: ReadonlyArray<{ value: infer V }> } ? V :
+    string
+}
+
 /** 图表设置类型（从 DEFAULT_SETTINGS 自动推导，同时兼容扩展） */
 export type ChartSettings = {
-  [K in (typeof DEFAULT_SETTINGS)[number]['key']]?: boolean | string
-} & Record<string, boolean | string | ColorPresetSettings | undefined> & {
-    colorPresetSettings?: ColorPresetSettings
-  }
+  [K in keyof _SettingByKey]?: _SettingByKey[K]
+} & Record<string, unknown> & {
+  colorPresetSettings?: ColorPresetSettings
+}
 
-/** 将偏好的设置与 DEFAULT_SETTINGS 默认值合并，返回全量 ChartSettings */
+/** 将 Partial 可选偏好设置与 DEFAULT_SETTINGS 默认值合并，返回全量 ChartSettings
+ *
+ * @param partial - 偏好的部分设置（通常是组件 prop 传入）
+ * @returns 合并后的 ChartSettings 对象
+ */
 export function resolveSettings(partial?: Partial<ChartSettings>): ChartSettings {
-  const result: ChartSettings = {}
+  // 用 Partial<_SettingByKey> 而非 ChartSettings 避免交叉类型索引赋值报错
+  const result: Partial<_SettingByKey> = {}
   DEFAULT_SETTINGS.forEach((item) => {
-    result[item.key] = partial?.[item.key] ?? item.default
+    // 未在 partial 中指定的 key 回退到 DEFAULT_SETTINGS 的默认值
+    // 用 ?? 而非 ||，确保显式传入 false / '' 不会被默认值覆盖
+    ;(result as Record<string, unknown>)[item.key] = partial?.[item.key] ?? item.default
   })
-  result.colorPresetSettings = normalizeColorPresetSettings(partial?.colorPresetSettings)
-  return result
+  // colorPresetSettings 不在 DEFAULT_SETTINGS 中，需单独归一化
+  ;(result as ChartSettings).colorPresetSettings = normalizeColorPresetSettings(partial?.colorPresetSettings)
+  return result as ChartSettings
 }
 
 /** localStorage 存储键名 */
 export const SETTINGS_STORAGE_KEY = 'kline-chart-settings'
-import { type ColorPresetSettings, normalizeColorPresetSettings } from '../tokens/colorPresetSettings'
+import {
+  type ColorPresetSettings,
+  normalizeColorPresetSettings,
+} from '../tokens/colorPresetSettings'

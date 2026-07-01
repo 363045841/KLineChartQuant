@@ -265,14 +265,14 @@
         const parsed = JSON.parse(saved)
         const result: ChartSettings = { ...parsed }
         DEFAULT_SETTINGS.forEach((item) => {
-          result[item.key] = parsed[item.key] ?? item.default
+          ;(result as Record<string, unknown>)[item.key] = parsed[item.key] ?? item.default
         })
         return result
       }
     } catch {}
     const defaults: ChartSettings = {}
     DEFAULT_SETTINGS.forEach((item) => {
-      defaults[item.key] = item.default
+      ;(defaults as Record<string, unknown>)[item.key] = item.default
     })
     return defaults
   }

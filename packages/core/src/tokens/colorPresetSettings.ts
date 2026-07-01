@@ -48,7 +48,10 @@ export interface ColorPresetItem {
 
 export type ColorPresetOverrides = Partial<Record<ColorPresetKey, ColorValue>>
 
-export type ColorPresetSettings = Partial<Record<ColorPresetThemeName, ColorPresetOverrides>>
+export interface ColorPresetSettings {
+  light?: ColorPresetOverrides
+  dark?: ColorPresetOverrides
+}
 
 export const COLOR_PRESET_STORAGE_KEY = 'kline-chart-color-presets'
 
@@ -93,20 +96,35 @@ export const COLOR_PRESET_ITEMS: readonly ColorPresetItem[] = [
   { key: 'mtfOverlay', label: '多周期叠加', group: 'interaction' },
 ]
 
+// 白名单 key 集合
 const COLOR_PRESET_KEYS = new Set<ColorPresetKey>(COLOR_PRESET_ITEMS.map((item) => item.key))
 
-export function normalizeColorPresetSettings(value: unknown): ColorPresetSettings {
+/**
+ * 将传入的颜色预设值归一化为干净的 ColorPresetSettings。
+ * 过滤掉非法 key、非字符串颜色、空字符串，只保留 light/dark 两个主题下的有效色值。
+ *
+ * 从 JSON.parse（localStorage）路径传入时类型会被擦除，运行时仍会执行过滤；
+ * 有 TypeScript 保障的调用路径（组件 prop）则同时获得编译期类型检查。
+ *
+ * @param value - 待归一化的颜色预设
+ * @returns 干净的 ColorPresetSettings 对象
+ */
+export function normalizeColorPresetSettings(value?: ColorPresetSettings): ColorPresetSettings {
+  // 非法 / 非对象输入直接返回空对象，避免下游取 .light / .dark 报错
   if (!value || typeof value !== 'object') return {}
 
   const source = value as Record<string, unknown>
   const result: ColorPresetSettings = {}
 
+  // 只扫描 light / dark 两个主题，忽略其他无关顶层 key
   for (const themeName of ['light', 'dark'] as const) {
     const themeOverrides = source[themeName]
     if (!themeOverrides || typeof themeOverrides !== 'object') continue
 
     const clean: ColorPresetOverrides = {}
     for (const [key, color] of Object.entries(themeOverrides as Record<string, unknown>)) {
+      // 只放行 COLOR_PRESET_ITEMS 中登记过的 key + 非空颜色字符串
+      // 三重过滤：白名单 + 类型检查 + 非空校验
       if (
         COLOR_PRESET_KEYS.has(key as ColorPresetKey) &&
         typeof color === 'string' &&
@@ -115,6 +133,7 @@ export function normalizeColorPresetSettings(value: unknown): ColorPresetSetting
         clean[key as ColorPresetKey] = color
       }
     }
+    // 没有有效改动的 theme 不写入结果，保持对象精简
     if (Object.keys(clean).length > 0) result[themeName] = clean
   }
 
