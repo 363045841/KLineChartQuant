@@ -54,8 +54,31 @@
           <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
         </svg>
       </button>
+      <button
+        :class="{ 'is-active': depthDemoActive }"
+        @click="$emit('toggle-depth-demo')"
+        title="Toggle Depth Pipeline (Binance SSE → HeatmapController)"
+      >
+        <svg
+          class="debug-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <rect x="2" y="10" width="4" height="10" rx="1" />
+          <rect x="10" y="4" width="4" height="16" rx="1" />
+          <rect x="18" y="7" width="4" height="13" rx="1" />
+        </svg>
+      </button>
     </div>
     <div class="debug-right">
+      <span v-if="depthDemoActive" class="depth-status-badge" :class="depthStatusClass">{{
+        depthStatusText
+      }}</span>
       <span class="version-badge">{{ version }}</span>
       <a
         class="debug-link"
@@ -95,6 +118,9 @@
 
   defineProps<{
     customDataActive: boolean
+    depthDemoActive: boolean
+    depthStatusText: string
+    depthStatusClass: string
     theme: 'light' | 'dark'
   }>()
 
@@ -104,6 +130,7 @@
     'open-modal': []
     'toggle-embed-size': []
     'toggle-custom-data': []
+    'toggle-depth-demo': []
   }>()
 </script>
 
@@ -178,6 +205,33 @@
     height: 20px;
   }
 
+  .debug-controls button.is-active {
+    background: #e6f7ff;
+    border-color: #1890ff;
+    color: #1890ff;
+  }
+
+  .depth-status-badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-family: monospace;
+    white-space: nowrap;
+    border: 1px solid;
+  }
+
+  .depth-status-badge.depth-awaiting {
+    background: #fffbe6;
+    border-color: #ffe58f;
+    color: #ad8b00;
+  }
+
+  .depth-status-badge.depth-connected {
+    background: #f6ffed;
+    border-color: #b7eb8f;
+    color: #389e0d;
+  }
+
   @media (max-width: 640px) {
     .debug-controls {
       padding: 8px 12px;
@@ -229,6 +283,24 @@
   .debug-controls[data-theme='dark'] button:hover {
     border-color: #60a5fa;
     color: #60a5fa;
+  }
+
+  .debug-controls[data-theme='dark'] button.is-active {
+    background: #1e3a5f;
+    border-color: #60a5fa;
+    color: #60a5fa;
+  }
+
+  .debug-controls[data-theme='dark'] .depth-status-badge.depth-awaiting {
+    background: #2b1d0b;
+    border-color: #5c3a0e;
+    color: #e8b839;
+  }
+
+  .debug-controls[data-theme='dark'] .depth-status-badge.depth-connected {
+    background: #0b2b1a;
+    border-color: #0e5c2e;
+    color: #52c41a;
   }
 
   .debug-controls[data-theme='dark'] .version-badge {
