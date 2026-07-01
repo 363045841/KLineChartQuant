@@ -13,6 +13,7 @@ import type { CustomMarkerEntity } from '../engine/marker/registry'
 import type { PaneSpec } from '../engine/chartTypes'
 import type { InteractionSnapshot } from '../engine/chart'
 import type { AlertController } from '../alerts/types'
+import type { ChartSettings } from '../config/chartSettings'
 
 // Controller-owned public surface. Legacy engine types may mirror these
 // shapes internally, but adapters depend only on core-defined contracts.
@@ -258,6 +259,9 @@ export interface ChartMountOptions {
   priceLabelWidth?: number
   minKWidth?: number
   maxKWidth?: number
+
+  // Initial chart settings (partial, merged with DEFAULT_SETTINGS)
+  settings?: Partial<ChartSettings>
 
   // MCP / AI runtime bridge
   mcp?: {

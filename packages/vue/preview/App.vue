@@ -25,6 +25,7 @@
         :left-axis-width="60"
         :custom-data="customData"
         :theme="currentTheme"
+        :settings="chartSettings"
         @update:is-fullscreen="isFullscreen = $event"
         @theme-change="onThemeChange"
       />
@@ -53,7 +54,7 @@
   import { ref, computed, provide, inject, type Ref, type InjectionKey } from 'vue'
   import DebugControls from './DebugControls.vue'
   import { KlineChart } from '../src/index'
-  import { formatTimestamp } from '@363045841yyt/klinechart-core'
+  import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
   import {
     type KLineData,
     type CustomDataSource,
@@ -534,6 +535,14 @@
   provideFullscreenTeleportTarget(embedContainerRef)
 
   const teleportTarget = computed<HTMLElement | string>(() => embedContainerRef.value ?? 'body')
+
+  // ── settings prop 演示：启用亚洲市场红涨绿跌 + 隐藏左轴 ──
+  const chartSettings: ChartSettings = {
+    showGridLines: true,
+    isAsiaMarket: true,
+    showVolumePriceMarkers: false,
+    leftAxisType: 'none',
+  }
 
   // ── 自定义数据源 Demo ──
   const useCustomData = ref(false)

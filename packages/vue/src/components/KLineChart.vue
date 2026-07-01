@@ -33,6 +33,7 @@
         ref="toolbarRef"
         :is-fullscreen="effectiveIsFullscreen"
         :alert-controller="controller"
+        :effective-settings="chartSettings"
         @select-tool="handleSelectTool"
         @toggle-indicator="onToggleIndicator"
         @toggle-fullscreen="handleToggleFullscreen"
@@ -225,7 +226,7 @@
   import { useChartTheme } from '../composables/chart/useChartTheme'
   import { useIndicatorManager } from '../composables/chart/useIndicatorManager'
   import { useDrawingManager } from '../composables/chart/useDrawingManager'
-  import { SETTINGS_STORAGE_KEY } from '@363045841yyt/klinechart-core/config'
+  import { SETTINGS_STORAGE_KEY, resolveSettings, type ChartSettings } from '@363045841yyt/klinechart-core/config'
   import { useRangeSelection } from '../composables/chart/useRangeSelection'
   import LeftToolbar from './LeftToolbar.vue'
   import TopToolbar, { type SymbolItem } from './TopToolbar.vue'
@@ -263,6 +264,9 @@
       theme?: 'light' | 'dark'
       /** 时区，默认 Asia/Shanghai */
       timezone?: string
+
+      /** 初始化图表设置（传入后覆盖工具栏/localStorage 中的同名设置） */
+      settings?: Partial<ChartSettings>
 
       /** 用户自定义数据源（传入后 bypass fetcher，使用此数据） */
       customData?: CustomDataSource
@@ -1094,7 +1098,9 @@
   }
 
   function applyInitialSettings(ctrl: ChartController): void {
-    const initialSettings = toolbarRef.value?.getSettings() ?? { showVolumePriceMarkers: true }
+    const toolbarSettings = toolbarRef.value?.getSettings() ?? {}
+    const propSettings = props.settings ?? {}
+    const initialSettings = { ...toolbarSettings, ...propSettings }
     chartSettings.value = initialSettings
     // 受控主题优先，否则交由设置项决定
     if (props.theme) {
@@ -1283,6 +1289,18 @@
     (t) => {
       if (t) controller.value?.setTheme(t)
     },
+  )
+
+  // 受控设置：外部 settings 变化时 merge 到当前设置并同步到控制器
+  watch(
+    () => props.settings,
+    (next) => {
+      if (!next || !controller.value) return
+      const merged = { ...chartSettings.value, ...next }
+      chartSettings.value = merged
+      controller.value.updateSettingsFacade(merged as Record<string, unknown>)
+    },
+    { deep: true },
   )
 </script>
 

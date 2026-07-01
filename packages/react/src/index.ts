@@ -26,6 +26,7 @@ import type {
   DataFetcher,
   DrawingControllerCallbacks,
 } from '@363045841yyt/klinechart-core'
+import { resolveSettings, type ChartSettings } from '@363045841yyt/klinechart-core/config'
 
 export type {
   ChartController,
@@ -180,6 +181,7 @@ export interface KLineChartProps {
   data: ChartMountOptions['data']
   symbols?: ChartMountOptions['symbols']
   dataFetcher?: ChartMountOptions['dataFetcher']
+  settings?: Partial<ChartSettings>
   initialZoomLevel?: number
   theme?: 'light' | 'dark'
   zoomLevels?: number
@@ -208,7 +210,7 @@ export interface KLineChartHandle {
 }
 
 export const KLineChart = forwardRef<KLineChartHandle, KLineChartProps>(function KLineChart(
-  { data, symbols, dataFetcher, initialZoomLevel, theme, zoomLevels, className, style },
+  { data, symbols, dataFetcher, settings, initialZoomLevel, theme, zoomLevels, className, style },
   ref: ForwardedRef<KLineChartHandle>,
 ) {
   const divRef = useRef<HTMLDivElement | null>(null)
@@ -223,6 +225,7 @@ export const KLineChart = forwardRef<KLineChartHandle, KLineChartProps>(function
       data,
       symbols,
       dataFetcher,
+      settings,
       initialZoomLevel,
       zoomLevels,
       theme,
@@ -258,6 +261,24 @@ export const KLineChart = forwardRef<KLineChartHandle, KLineChartProps>(function
       controllerRef.current?.setTheme(theme)
     }
   }, [theme])
+
+  useEffect(() => {
+    const ctrl = controllerRef.current
+    if (!ctrl || settings === undefined) return
+
+    const resolved = resolveSettings(settings)
+    ctrl.updateSettingsFacade(resolved)
+    // settings.theme → setTheme bridge (仅当 theme prop 未提供时生效)
+    if (!theme && resolved.theme) {
+      const themeValue = resolved.theme as string
+      if (themeValue === 'auto') {
+        const mq = window.matchMedia('(prefers-color-scheme: dark)')
+        ctrl.setTheme(mq.matches ? 'dark' : 'light')
+      } else if (themeValue !== 'light') {
+        ctrl.setTheme(themeValue as 'light' | 'dark')
+      }
+    }
+  }, [settings, theme])
 
   useImperativeHandle(
     ref,

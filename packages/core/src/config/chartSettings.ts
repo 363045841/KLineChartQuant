@@ -130,6 +130,16 @@ export type ChartSettings = {
     colorPresetSettings?: ColorPresetSettings
   }
 
+/** 将偏好的设置与 DEFAULT_SETTINGS 默认值合并，返回全量 ChartSettings */
+export function resolveSettings(partial?: Partial<ChartSettings>): ChartSettings {
+  const result: ChartSettings = {}
+  DEFAULT_SETTINGS.forEach((item) => {
+    result[item.key] = partial?.[item.key] ?? item.default
+  })
+  result.colorPresetSettings = normalizeColorPresetSettings(partial?.colorPresetSettings)
+  return result
+}
+
 /** localStorage 存储键名 */
 export const SETTINGS_STORAGE_KEY = 'kline-chart-settings'
-import type { ColorPresetSettings } from '../tokens/colorPresetSettings'
+import { type ColorPresetSettings, normalizeColorPresetSettings } from '../tokens/colorPresetSettings'

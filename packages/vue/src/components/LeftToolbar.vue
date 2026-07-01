@@ -155,6 +155,7 @@
 
   <ChartSettingsDialog
     :show="showSettings"
+    :initial-settings="appliedSettings"
     @close="showSettings = false"
     @confirm="handleConfirmSettings"
   />
@@ -167,7 +168,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, onUnmounted } from 'vue'
+  import { ref, watch, onMounted, onUnmounted } from 'vue'
   import IconTablerPointer from '~icons/tabler/pointer'
   import IconTablerChartLine from '~icons/tabler/chart-line'
   import IconTablerArrowUpRight from '~icons/tabler/arrow-up-right'
@@ -247,6 +248,7 @@
   const props = defineProps<{
     isFullscreen?: boolean
     alertController?: ChartController | null
+    effectiveSettings?: ChartSettings
   }>()
 
   const { unreadCount } = useAlerts(() => props.alertController ?? null)
@@ -281,7 +283,15 @@
     } catch {}
   }
 
-  const appliedSettings = ref<ChartSettings>(loadSettings())
+  const appliedSettings = ref<ChartSettings>(props.effectiveSettings ?? loadSettings())
+
+watch(
+    () => props.effectiveSettings,
+    (val) => {
+      if (val) appliedSettings.value = { ...val }
+    },
+    { deep: true },
+  )
 
   function isActive(tool: ToolDef): boolean {
     if (selectedToolId.value === tool.id) return true

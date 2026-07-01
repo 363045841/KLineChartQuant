@@ -39,6 +39,7 @@ import type {
   SymbolSpec,
 } from '@363045841yyt/klinechart-core'
 import { createChartController } from '@363045841yyt/klinechart-core'
+import { resolveSettings, type ChartSettings } from '@363045841yyt/klinechart-core/config'
 
 export type {
   ChartController,
@@ -154,6 +155,7 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
   @Input() symbols: ReadonlyArray<SymbolSpec> | undefined = undefined
   @Input() dataFetcher: DataFetcher | undefined = undefined
   @Input() theme: 'light' | 'dark' | undefined = undefined
+  @Input() settings: Partial<ChartSettings> | undefined = undefined
   @Input() initialZoomLevel: number | undefined = undefined
   @Input() zoomLevels: number | undefined = undefined
 
@@ -196,12 +198,24 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
       data: this.data,
       symbols: this.symbols,
       dataFetcher: this.dataFetcher,
+      settings: this.settings,
       initialZoomLevel: this.initialZoomLevel,
       zoomLevels: this.zoomLevels,
       theme: this.theme ?? this.defaultTheme,
       factory: this.factory,
     })
     this.controller = controller
+
+    // settings.theme → setTheme bridge (仅当 theme @Input 未提供时生效)
+    if (this.theme === undefined && this.settings?.theme) {
+      const settingsTheme = this.settings.theme as string
+      if (settingsTheme === 'auto') {
+        const mq = window.matchMedia('(prefers-color-scheme: dark)')
+        controller.setTheme(mq.matches ? 'dark' : 'light')
+      } else if (settingsTheme !== 'light') {
+        controller.setTheme(settingsTheme as 'light' | 'dark')
+      }
+    }
 
     // Bridge viewport
     this._viewport.set(controller.viewport.peek())
@@ -237,6 +251,22 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
     if (changes['theme'] && !changes['theme'].isFirstChange()) {
       if (this.theme !== undefined) {
         this.controller?.setTheme(this.theme)
+      }
+    }
+    if (changes['settings'] && !changes['settings'].isFirstChange()) {
+      if (this.settings !== undefined) {
+        const resolved = resolveSettings(this.settings)
+        this.controller?.updateSettingsFacade(resolved)
+        // settings.theme → setTheme bridge (仅当 theme @Input 未提供时生效)
+        if (this.theme === undefined && resolved.theme) {
+          const themeValue = resolved.theme as string
+          if (themeValue === 'auto') {
+            const mq = window.matchMedia('(prefers-color-scheme: dark)')
+            this.controller?.setTheme(mq.matches ? 'dark' : 'light')
+          } else if (themeValue !== 'light') {
+            this.controller?.setTheme(themeValue as 'light' | 'dark')
+          }
+        }
       }
     }
   }

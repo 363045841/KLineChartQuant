@@ -46,6 +46,7 @@ import type {
 import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
 import { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins'
 import { ChartBridge } from '../mcp/chartBridge'
+import { resolveSettings } from '../config/chartSettings'
 
 // Plugin-backed drawings expose `kind` instead of legacy `type`.
 type PluginBackedDrawingObject = {
@@ -458,6 +459,15 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   if (opts.theme && opts.theme !== 'light') {
     try {
       chart.setTheme(opts.theme)
+    } catch {
+      /* tolerate first-paint racing */
+    }
+  }
+
+  // Apply initial settings (partial, merged with defaults)
+  if (opts.settings) {
+    try {
+      chart.updateSettingsFacade(resolveSettings(opts.settings))
     } catch {
       /* tolerate first-paint racing */
     }

@@ -172,6 +172,7 @@
 
   const props = defineProps<{
     show: boolean
+    initialSettings?: ChartSettings
   }>()
 
   const emit = defineEmits<{
@@ -219,7 +220,9 @@
     () => props.show,
     (val) => {
       if (val) {
-        settings.value = loadSettings()
+        settings.value = props.initialSettings
+          ? { ...props.initialSettings }
+          : loadSettings()
       }
     },
   )
