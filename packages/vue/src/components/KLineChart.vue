@@ -16,7 +16,6 @@
       @remove-overlay-symbol="onRemoveOverlaySymbol"
       @k-line-level-change="onKLineLevelChange"
       @k-line-adjust-change="onKLineAdjustChange"
-      @toggle-indicator="onToggleIndicator"
       @symbol-change="onSymbolChange"
       @back="onBackFromTimeShare"
     />
@@ -35,6 +34,7 @@
         :is-fullscreen="effectiveIsFullscreen"
         :alert-controller="controller"
         @select-tool="handleSelectTool"
+        @toggle-indicator="onToggleIndicator"
         @toggle-fullscreen="handleToggleFullscreen"
         @zoom-in="applyZoomToLevel(zoomLevel + 1)"
         @zoom-out="applyZoomToLevel(zoomLevel - 1)"

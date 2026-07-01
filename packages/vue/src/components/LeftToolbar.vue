@@ -1,6 +1,23 @@
 <template>
   <nav class="left-toolbar" aria-label="图表工具栏">
     <div class="left-toolbar__group">
+      <button
+        type="button"
+        class="left-toolbar__button"
+        title="指标"
+        aria-label="指标"
+        @click="$emit('toggleIndicator')"
+        @pointerdown.stop
+        @pointermove.stop
+        @pointerup.stop
+      >
+        <IconTablerMathFunction class="tool-icon" aria-hidden="true" />
+      </button>
+    </div>
+
+    <span class="left-toolbar__divider"></span>
+
+    <div class="left-toolbar__group">
       <div v-for="tool in primaryTools" :key="tool.id" class="tool-item">
         <button
           type="button"
@@ -47,6 +64,29 @@
         </Transition>
       </div>
     </div>
+
+    <template v-if="alertController">
+      <span class="left-toolbar__divider"></span>
+
+      <div class="left-toolbar__group">
+        <button
+          type="button"
+          class="left-toolbar__button"
+          :class="{ active: showAlerts }"
+          title="预警"
+          aria-label="预警"
+          @click="showAlerts = true"
+          @pointerdown.stop
+          @pointermove.stop
+          @pointerup.stop
+        >
+          <IconTablerBell class="tool-icon" aria-hidden="true" />
+          <span v-if="unreadCount > 0" class="alert-badge">{{
+            unreadCount > 99 ? '99+' : unreadCount
+          }}</span>
+        </button>
+      </div>
+    </template>
 
     <span class="left-toolbar__divider"></span>
 
@@ -111,29 +151,6 @@
         <IconTablerSettings class="tool-icon" aria-hidden="true" />
       </button>
     </div>
-
-    <template v-if="alertController">
-      <span class="left-toolbar__divider"></span>
-
-      <div class="left-toolbar__group">
-        <button
-          type="button"
-          class="left-toolbar__button"
-          :class="{ active: showAlerts }"
-          title="预警"
-          aria-label="预警"
-          @click="showAlerts = true"
-          @pointerdown.stop
-          @pointermove.stop
-          @pointerup.stop
-        >
-          <IconTablerBell class="tool-icon" aria-hidden="true" />
-          <span v-if="unreadCount > 0" class="alert-badge">{{
-            unreadCount > 99 ? '99+' : unreadCount
-          }}</span>
-        </button>
-      </div>
-    </template>
   </nav>
 
   <ChartSettingsDialog
@@ -169,6 +186,7 @@
   import IconTablerChartDots3 from '~icons/tabler/chart-dots-3'
   import IconTablerCaretUpDown from '~icons/tabler/caret-up-down'
   import IconTablerBrackets from '~icons/tabler/brackets'
+  import IconTablerMathFunction from '~icons/tabler/math-function'
   import IconTablerArrowsHorizontal from '~icons/tabler/arrows-horizontal'
   import {
     DEFAULT_SETTINGS,
@@ -220,6 +238,7 @@
   const emit = defineEmits<{
     (e: 'selectTool', toolId: string): void
     (e: 'toggleFullscreen'): void
+    (e: 'toggleIndicator'): void
     (e: 'zoomIn'): void
     (e: 'zoomOut'): void
     (e: 'settingsChange', settings: ChartSettings): void

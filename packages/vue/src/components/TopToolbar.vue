@@ -33,16 +33,6 @@
       @update:model-value="emit('kLineAdjustChange', $event)"
     />
     <button
-      type="button"
-      class="indicator-button"
-      title="指标"
-      aria-label="指标"
-      @click="emit('toggleIndicator')"
-    >
-      <span class="indicator-button__icon" aria-hidden="true">fx</span>
-      <span class="indicator-button__text">指标</span>
-    </button>
-    <button
       v-if="showBackButton"
       type="button"
       class="back-button"
@@ -119,7 +109,6 @@
     (e: 'removeOverlaySymbol', code: string): void
     (e: 'kLineLevelChange', level: KLineLevel): void
     (e: 'kLineAdjustChange', adjust: KLineAdjustment): void
-    (e: 'toggleIndicator'): void
     (e: 'symbolChange', symbol: SymbolItem): void
     (e: 'back'): void
   }>()
@@ -160,53 +149,6 @@
     display: none;
   }
 
-  .indicator-button {
-    height: 28px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
-    gap: 6px;
-    padding: 0 10px;
-    border: 1px solid var(--klc-color-border-button);
-    border-radius: 4px;
-    background: var(--klc-color-background);
-    color: var(--klc-color-foreground);
-    font: inherit;
-    cursor: pointer;
-    transition:
-      background 0.15s ease,
-      border-color 0.15s ease,
-      color 0.15s ease;
-  }
-
-  .indicator-button:hover {
-    border-color: var(--klc-color-axis-text);
-    background: var(--klc-color-grid-minor);
-  }
-
-  .indicator-button__icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 16px;
-    height: 16px;
-    border-radius: 3px;
-    background: var(--klc-color-foreground);
-    color: var(--klc-color-background);
-    font-size: 10px;
-    font-weight: 800;
-    line-height: 1;
-    letter-spacing: -0.5px;
-  }
-
-  .indicator-button__text {
-    font-size: 13px;
-    font-weight: 500;
-    line-height: 1;
-    white-space: nowrap;
-  }
-
   .back-button {
     height: 28px;
     display: inline-flex;
@@ -235,12 +177,6 @@
   }
 
   @media (max-width: 768px), (max-height: 640px) {
-    .indicator-button__text {
-      display: none;
-    }
-    .indicator-button {
-      height: 26px;
-    }
     .back-button {
       height: 26px;
       font-size: 12px;

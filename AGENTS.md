@@ -96,6 +96,7 @@ Three coordinate systems must stay in sync:
 - **Programmatic `scrollLeft` writes must sync cache immediately** — `applyPanScroll()` calls `syncScrollLeft()` because native scroll events are async and `prepareFrameData` may read stale `cachedScrollLeft`.
 - **`DataBuffer._attemptedBoundaries` clears on no-prepend fetch** — prevents permanent boundary lockout after transient fetch failures.
 - **`checkVisibleRangeGapWhenIdle()` bails when `isPointerDown()` is true** — gap check only fires after drag ends; `onPointerUp()` is the last guaranteed trigger point.
+- **Bundle logically related info into a single signal payload instead of splitting across multiple signals that rely on timing order, and never use shared mutable variables to coordinate between independent signal subscribers.**
 
 ## CI
 
