@@ -1239,7 +1239,7 @@
     --chart-text-secondary: var(--klc-color-axis-text);
 
     display: flex;
-    align-items: center;
+    align-items: stretch;
     width: var(--kmap-width);
     height: calc(var(--kmap-height) - 32px);
     min-height: 300px;
@@ -1251,7 +1251,6 @@
   }
 
   .chart-stage {
-    width: 95%;
     flex: 1;
     min-height: 255px;
     display: flex;

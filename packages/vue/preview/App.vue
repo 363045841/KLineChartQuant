@@ -17,7 +17,7 @@
       ref="embedContainerRef"
       class="embed-container"
       :class="{ 'is-fullscreen': isFullscreen }"
-      :style="{ width: embedWidth, height: embedHeight }"
+      :style="{ width: '95%', height: embedHeight }"
     >
       <KlineChart
         ref="chartRef"
@@ -603,6 +603,7 @@
   }
 
   .embed-container {
+    width: 95%;
     flex: 1;
     min-height: 0;
     border-radius: 8px;

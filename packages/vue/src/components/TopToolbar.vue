@@ -138,7 +138,6 @@
 <style scoped>
   .top-toolbar {
     position: relative;
-    width: 95%;
     height: 40px;
     display: flex;
     flex-direction: row;
