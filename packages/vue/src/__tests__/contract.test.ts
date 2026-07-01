@@ -11,14 +11,15 @@ import { mount } from '@vue/test-utils'
 import * as VueAdapter from '../index'
 import { coreSignalToVueRef } from '../index'
 import type { ChartController, ChartMountOptions } from '@363045841yyt/klinechart-core'
+import type { KlineTooltipSlotProps, MarkerTooltipSlotProps } from '../index'
+import KLineTooltip from '../components/KLineTooltip.vue'
 import { createMockChartController, createTestSignal } from './_mockController'
 
 describe('@363045841yyt/klinechart —public API surface', () => {
-  it('exports createChart, useChart, useIndicatorSelector, KLineChart, KMapPlugin', () => {
+  it('exports createChart, useChart, useIndicatorSelector, KMapPlugin', () => {
     expect(typeof VueAdapter.createChart).toBe('function')
     expect(typeof VueAdapter.useChart).toBe('function')
     expect(typeof VueAdapter.useIndicatorSelector).toBe('function')
-    expect(VueAdapter.KLineChart).toBeDefined()
     expect(typeof VueAdapter.KMapPlugin.install).toBe('function')
   })
 
@@ -129,5 +130,96 @@ describe('@363045841yyt/klinechart —useChart lifecycle', () => {
     expect(wrapper.text()).toBe('42')
 
     wrapper.unmount()
+  })
+})
+
+describe('@363045841yyt/klinechart —tooltip slot contracts', () => {
+  it('exports KLineTooltip component', () => {
+    expect(VueAdapter.KLineTooltip).toBe(KLineTooltip)
+  })
+
+  it('KLineTooltip renders with hoverData', () => {
+    const kline = {
+      timestamp: 1748736000000,
+      open: 30,
+      high: 32,
+      low: 29,
+      close: 31.5,
+      volume: 1500000,
+      stockCode: 'TEST',
+    }
+    const wrapper = mount(KLineTooltip, {
+      props: {
+        hoverData: kline,
+        index: 0,
+        data: [kline],
+        pos: { x: 100, y: 200 },
+      },
+    })
+    expect(wrapper.find('.kline-tooltip').exists()).toBe(true)
+    expect(wrapper.text()).toContain('TEST')
+    expect(wrapper.text()).toContain('30.00')
+    expect(wrapper.text()).toContain('32.00')
+    expect(wrapper.text()).toContain('29.00')
+    expect(wrapper.text()).toContain('31.50')
+    wrapper.unmount()
+  })
+
+  it('KLineTooltip renders nothing when hoverData is null', () => {
+    const wrapper = mount(KLineTooltip, {
+      props: {
+        hoverData: null,
+        index: null,
+        data: [],
+        pos: { x: 0, y: 0 },
+      },
+    })
+    expect(wrapper.find('.kline-tooltip').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('KLineTooltip renders up/down colors', () => {
+    const upKline = {
+      timestamp: 1748736000000,
+      open: 30,
+      high: 32,
+      low: 29,
+      close: 31.5,
+    }
+    const downKline = {
+      timestamp: 1748736000000,
+      open: 32,
+      high: 33,
+      low: 28,
+      close: 29,
+    }
+    const upWrapper = mount(KLineTooltip, {
+      props: {
+        hoverData: upKline,
+        index: 0,
+        data: [upKline],
+        pos: { x: 0, y: 0 },
+        upColor: '#ef4444',
+        downColor: '#22c55e',
+      },
+    })
+    const downWrapper = mount(KLineTooltip, {
+      props: {
+        hoverData: downKline,
+        index: 0,
+        data: [downKline],
+        pos: { x: 0, y: 0 },
+        upColor: '#ef4444',
+        downColor: '#22c55e',
+      },
+    })
+    // close > open: closeColor → upColor (red)
+    const upCloseSpan = upWrapper.find('.row:nth-child(4) span:last-child')
+    expect(upCloseSpan.attributes('style')).toContain('rgb(239, 68, 68)')
+    // close < open: closeColor → downColor (green)
+    const downCloseSpan = downWrapper.find('.row:nth-child(4) span:last-child')
+    expect(downCloseSpan.attributes('style')).toContain('rgb(34, 197, 94)')
+    upWrapper.unmount()
+    downWrapper.unmount()
   })
 })

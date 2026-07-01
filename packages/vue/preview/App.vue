@@ -53,6 +53,7 @@
   import { ref, computed, provide, inject, type Ref, type InjectionKey } from 'vue'
   import DebugControls from './DebugControls.vue'
   import { KlineChart } from '../src/index'
+  import { formatTimestamp } from '@363045841yyt/klinechart-core'
   import {
     type KLineData,
     type CustomDataSource,
@@ -735,5 +736,35 @@
   .app-container[data-theme='dark'] .close-btn:hover {
     background: #4b5563;
     color: #f3f4f6;
+  }
+
+  .custom-tooltip {
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: rgba(30, 30, 30, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #fff;
+    font-size: 12px;
+    line-height: 1.5;
+    backdrop-filter: blur(6px);
+    pointer-events: none;
+  }
+
+  .custom-tooltip__title {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .custom-tooltip__price {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .custom-tooltip__detail {
+    opacity: 0.7;
   }
 </style>

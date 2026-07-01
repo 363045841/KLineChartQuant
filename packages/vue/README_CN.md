@@ -124,6 +124,73 @@ import App from './App.vue'
 createApp(App).mount('#app')
 ```
 
+## 🎨 自定义 Tooltip
+
+`KlineChart` 暴露 `#kline-tooltip` 和 `#marker-tooltip` 插槽，用于自定义 tooltip 渲染。传入插槽后，默认 tooltip 被完全替换，展示内容和样式完全由你控制。
+
+### `#kline-tooltip`
+
+| 插槽属性              | 类型                                          | 说明                              |
+| --------------------- | --------------------------------------------- | --------------------------------- |
+| `hoverData`           | `KLineData`                                   | 当前悬停的 K 线数据（非 null）    |
+| `hoveredIndex`        | `number \| null`                              | 数据索引                          |
+| `data`                | `ReadonlyArray<KLineData>`                    | 全量数据数组                      |
+| `tooltipStyle`        | `CSSProperties`                               | 预计算的绝对定位样式              |
+| `upColor` / `downColor`| `string`                                     | 当前主题的涨跌颜色                |
+
+```vue
+<KlineChart v-model:theme="currentTheme">
+  <template #kline-tooltip="{ hoverData, tooltipStyle, upColor, downColor }">
+    <div :style="tooltipStyle" class="custom-tooltip">
+      <div class="custom-tooltip__title">
+        <span>{{ hoverData.stockCode }}</span>
+        <span>{{ formatTimestamp(hoverData.timestamp, { timeZone: 'Asia/Shanghai' }) }}</span>
+      </div>
+      <div class="custom-tooltip__price"
+           :style="{ color: hoverData.close >= hoverData.open ? upColor : downColor }">
+        {{ hoverData.close.toFixed(2) }}
+      </div>
+      <div class="custom-tooltip__detail">
+        O: {{ hoverData.open.toFixed(2) }} H: {{ hoverData.high.toFixed(2) }}<br>
+        L: {{ hoverData.low.toFixed(2) }} C: {{ hoverData.close.toFixed(2) }}
+      </div>
+    </div>
+  </template>
+</KlineChart>
+
+<script setup lang="ts">
+  import { formatTimestamp } from '@363045841yyt/klinechart-core'
+</script>
+
+<style scoped>
+  .custom-tooltip {
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: rgba(30, 30, 30, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #fff;
+    font-size: 12px;
+    pointer-events: none;
+    backdrop-filter: blur(6px);
+  }
+  .custom-tooltip__title {
+    display: flex; justify-content: space-between; gap: 12px;
+    font-weight: 600; margin-bottom: 4px;
+  }
+  .custom-tooltip__price {
+    font-size: 18px; font-weight: 700; margin-bottom: 4px;
+  }
+  .custom-tooltip__detail { opacity: 0.7; }
+</style>
+```
+
+### `#marker-tooltip`
+
+| 插槽属性              | 类型                                                            | 说明           |
+| --------------------- | --------------------------------------------------------------- | -------------- |
+| `marker`              | `MarkerEntity \| CustomMarkerEntity \| null`                    | 悬停的标记数据 |
+| `tooltipStyle`        | `CSSProperties`                                                  | 预计算样式     |
+
 ## 📖 更多文档
 
 - [渲染引擎架构](./docs/rendering-engine-architecture.md) —— 核心渲染管线与物理像素对齐机制

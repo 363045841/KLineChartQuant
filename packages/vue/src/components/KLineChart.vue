@@ -27,7 +27,7 @@
         'is-resizing-pane': isResizingPane,
         'is-hovering-pane-separator': isHoveringPaneSeparator,
         'is-hovering-right-axis': isHoveringRightAxis,
-        'is-hovering-kline': hoveredIdx !== null,
+        'is-hovering-kline': hoveredIndex !== null,
       }"
     >
       <LeftToolbar
@@ -118,40 +118,56 @@
           </div>
         </div>
         <Teleport v-if="tooltipLayerRef" :to="tooltipLayerRef">
-          <div
-            v-if="hovered && !isMobile"
-            class="tooltip-anchor kline-tooltip-anchor"
-            :class="{ 'use-anchor': useAnchorPositioning }"
-            :style="klineTooltipAnchorStyle"
-          ></div>
-          <div
-            v-if="hoveredMarker || hoveredCustomMarker"
-            class="tooltip-anchor marker-tooltip-anchor"
-            :class="{ 'use-anchor': useAnchorPositioning }"
-            :style="markerTooltipAnchorStyle"
-          ></div>
-          <KLineTooltip
-            v-if="hovered && !isMobile"
-            :k="hovered"
-            :index="hoveredIndex"
-            :data="chartData"
-            :pos="teleportedTooltipPos"
-            :set-el="setTooltipEl"
-            :use-anchor="useAnchorPositioning"
-            :anchor-placement="tooltipAnchorPlacement"
-            :up-color="tooltipColors.upColor"
-            :down-color="tooltipColors.downColor"
-            :timezone="props.timezone"
-            :show-time="isIntraday"
-          />
-          <MarkerTooltip
-            v-if="hoveredMarker || hoveredCustomMarker"
-            :marker="hoveredMarker || hoveredCustomMarker"
-            :pos="teleportedMarkerTooltipPos"
-            :use-anchor="useAnchorPositioning"
-            :anchor-placement="markerTooltipAnchorPlacement"
-            :set-el="setMarkerTooltipEl"
-          />
+          <template v-if="hoveredKLine && !isMobile">
+            <slot
+              name="kline-tooltip"
+              :hover-data="hoveredKLine!"
+              :hovered-index="hoveredIndex"
+              :data="chartData"
+              :tooltip-style="klineTooltipStyle"
+              :up-color="tooltipColors.upColor"
+              :down-color="tooltipColors.downColor"
+            >
+              <div
+                class="tooltip-anchor kline-tooltip-anchor"
+                :class="{ 'use-anchor': useAnchorPositioning }"
+                :style="klineTooltipAnchorStyle"
+              ></div>
+              <KLineTooltip
+                :hover-data="hoveredKLine"
+                :index="hoveredIndex"
+                :data="chartData"
+                :pos="teleportedTooltipPos"
+                :set-el="setTooltipEl"
+                :use-anchor="useAnchorPositioning"
+                :anchor-placement="tooltipAnchorPlacement"
+                :up-color="tooltipColors.upColor"
+                :down-color="tooltipColors.downColor"
+                :timezone="props.timezone"
+                :show-time="isIntraday"
+              />
+            </slot>
+          </template>
+          <template v-if="hoveredMarker || hoveredCustomMarker">
+            <slot
+              name="marker-tooltip"
+              :marker="hoveredMarker || hoveredCustomMarker"
+              :tooltip-style="markerTooltipStyle"
+            >
+              <div
+                class="tooltip-anchor marker-tooltip-anchor"
+                :class="{ 'use-anchor': useAnchorPositioning }"
+                :style="markerTooltipAnchorStyle"
+              ></div>
+              <MarkerTooltip
+                :marker="hoveredMarker || hoveredCustomMarker"
+                :pos="teleportedMarkerTooltipPos"
+                :use-anchor="useAnchorPositioning"
+                :anchor-placement="markerTooltipAnchorPlacement"
+                :set-el="setMarkerTooltipEl"
+              />
+            </slot>
+          </template>
         </Teleport>
         <div
           class="right-axis-host"
@@ -288,6 +304,36 @@
     (e: 'kLineLevelChange', level: string): void
     (e: 'kLineAdjustChange', adjust: 'qfq' | 'hfq' | 'splits' | 'none'): void
   }>()
+
+  // ── Slot Props Types ──
+
+  /** kline-tooltip 插槽作用域。hoveredKLine && !isMobile 时渲染，hoverData 一定不为 null。 */
+  export interface KlineTooltipSlotProps {
+    hoverData: import('@363045841yyt/klinechart-core/types/price').KLineData
+    hoveredIndex: number | null
+    data: ReadonlyArray<import('@363045841yyt/klinechart-core/types/price').KLineData>
+    tooltipStyle: {
+      left: string
+      top: string
+      position: 'absolute'
+      pointerEvents: 'none'
+      zIndex: number
+    }
+    upColor: string
+    downColor: string
+  }
+
+  /** marker-tooltip 插槽作用域。hoveredMarker || hoveredCustomMarker 时渲染。 */
+  export interface MarkerTooltipSlotProps {
+    marker: import('@363045841yyt/klinechart-core/engine/marker/registry').MarkerEntity | import('@363045841yyt/klinechart-core/engine/marker/registry').CustomMarkerEntity | null
+    tooltipStyle: {
+      left: string
+      top: string
+      position: 'absolute'
+      pointerEvents: 'none'
+      zIndex: number
+    }
+  }
 
   // ── Symbol / Comparison State ──
 
@@ -640,18 +686,17 @@
   const hoveredPaneBoundaryId = computed(() => interactionState.value.hoveredPaneBoundaryId)
   const isHoveringRightAxis = computed(() => interactionState.value.isHoveringRightAxis)
   const isMobile = window.matchMedia('(pointer: coarse)').matches
-  const hoveredIdx = computed(() => interactionState.value.hoveredIndex)
   const crosshairIdx = computed(() => interactionState.value.crosshairIndex)
 
   // ── Derived Computed (Cursor, Hovered, Tooltip) ──
   const containerCursor = computed(() => {
     if (isDragging.value) return 'grabbing'
     if (isResizingPane.value || isHoveringPaneSeparator.value) return 'ns-resize'
-    if (hoveredIdx.value !== null) return 'pointer'
+    if (hoveredIndex.value !== null) return 'pointer'
     return 'crosshair'
   })
 
-  const hovered = computed(() => {
+  const hoveredKLine = computed(() => {
     const idx = interactionState.value.hoveredIndex
     if (typeof idx !== 'number') return null
     void dataVersion.value
@@ -691,6 +736,21 @@
     const wouldOverflowRight = rightCandidateX + markerTooltipSize.value.width + padding > plotWidth
     return wouldOverflowRight ? 'left-bottom' : 'right-bottom'
   })
+
+  const klineTooltipStyle = computed(() => ({
+    left: `${teleportedTooltipPos.value.x}px`,
+    top: `${teleportedTooltipPos.value.y}px`,
+    position: 'absolute' as const,
+    pointerEvents: 'none' as const,
+    zIndex: 10,
+  }))
+  const markerTooltipStyle = computed(() => ({
+    left: `${teleportedMarkerTooltipPos.value.x}px`,
+    top: `${teleportedMarkerTooltipPos.value.y}px`,
+    position: 'absolute' as const,
+    pointerEvents: 'none' as const,
+    zIndex: 10,
+  }))
 
   const chartData = computed(() => {
     void dataVersion.value

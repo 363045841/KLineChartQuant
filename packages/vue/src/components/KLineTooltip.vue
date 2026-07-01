@@ -1,48 +1,48 @@
 <template>
   <div
-    v-if="k"
+    v-if="hoverData"
     :ref="onRef"
     class="kline-tooltip"
     :class="[{ 'use-anchor': useAnchor }, anchorPlacementClass]"
     :style="useAnchor ? undefined : { left: `${pos.x}px`, top: `${pos.y}px` }"
   >
     <div class="kline-tooltip__title">
-      <span v-if="k.stockCode">{{ k.stockCode }}</span>
+      <span v-if="hoverData.stockCode">{{ hoverData.stockCode }}</span>
       <span>{{ formattedDate }}</span>
     </div>
     <div class="kline-tooltip__grid">
       <div class="row">
-        <span>开</span><span :style="{ color: openColor }">{{ k.open.toFixed(2) }}</span>
+        <span>开</span><span :style="{ color: openColor }">{{ hoverData.open.toFixed(2) }}</span>
       </div>
       <div class="row">
-        <span>高</span><span>{{ k.high.toFixed(2) }}</span>
+        <span>高</span><span>{{ hoverData.high.toFixed(2) }}</span>
       </div>
       <div class="row">
-        <span>低</span><span>{{ k.low.toFixed(2) }}</span>
+        <span>低</span><span>{{ hoverData.low.toFixed(2) }}</span>
       </div>
       <div class="row">
-        <span>收</span><span :style="{ color: closeColor }">{{ k.close.toFixed(2) }}</span>
+        <span>收</span><span :style="{ color: closeColor }">{{ hoverData.close.toFixed(2) }}</span>
       </div>
 
-      <div v-if="typeof k.volume === 'number'" class="row">
-        <span>成交量</span><span>{{ formatVolume(k.volume) }}</span>
+      <div v-if="typeof hoverData.volume === 'number'" class="row">
+        <span>成交量</span><span>{{ formatVolume(hoverData.volume) }}</span>
       </div>
-      <div v-if="typeof k.turnover === 'number'" class="row">
-        <span>成交额</span><span>{{ formatVolume(k.turnover) }}</span>
+      <div v-if="typeof hoverData.turnover === 'number'" class="row">
+        <span>成交额</span><span>{{ formatVolume(hoverData.turnover) }}</span>
       </div>
-      <div v-if="typeof k.amplitude === 'number'" class="row">
-        <span>振幅</span><span>{{ k.amplitude }}%</span>
+      <div v-if="typeof hoverData.amplitude === 'number'" class="row">
+        <span>振幅</span><span>{{ hoverData.amplitude }}%</span>
       </div>
-      <div v-if="typeof k.changePercent === 'number'" class="row">
+      <div v-if="typeof hoverData.changePercent === 'number'" class="row">
         <span>涨跌幅</span>
-        <span :style="{ color: changeColor }">{{ formatSigned(k.changePercent, '%') }}</span>
+        <span :style="{ color: changeColor }">{{ formatSigned(hoverData.changePercent, '%') }}</span>
       </div>
-      <div v-if="typeof k.changeAmount === 'number'" class="row">
+      <div v-if="typeof hoverData.changeAmount === 'number'" class="row">
         <span>涨跌额</span>
-        <span :style="{ color: changeColor }">{{ formatSigned(k.changeAmount, '') }}</span>
+        <span :style="{ color: changeColor }">{{ formatSigned(hoverData.changeAmount, '') }}</span>
       </div>
-      <div v-if="typeof k.turnoverRate === 'number'" class="row">
-        <span>换手率</span><span>{{ k.turnoverRate.toFixed(2) }}%</span>
+      <div v-if="typeof hoverData.turnoverRate === 'number'" class="row">
+        <span>换手率</span><span>{{ hoverData.turnoverRate.toFixed(2) }}%</span>
       </div>
     </div>
   </div>
@@ -70,7 +70,7 @@
 
   const props = withDefaults(
     defineProps<{
-      k: KLineData | null
+      hoverData: KLineData | null
       index: number | null
       data: ReadonlyArray<KLineData>
       pos: { x: number; y: number }
@@ -95,8 +95,8 @@
   )
 
   const formattedDate = computed(() => {
-    if (!props.k) return ''
-    return formatTimestamp(props.k.timestamp, {
+    if (!props.hoverData) return ''
+    return formatTimestamp(props.hoverData.timestamp, {
       timeZone: props.timezone,
       showTime: props.showTime,
     })
@@ -124,32 +124,29 @@
 
   const NEUTRAL_COLOR = '#6b7280'
 
-  function calcDirection(k: KLineData, data: ReadonlyArray<KLineData>, idx: number | null): number {
-    if (k.close >= k.open) return 1
-    const prev = typeof idx === 'number' && idx > 0 ? data[idx - 1] : undefined
-    if (prev && k.close > prev.close) return 1
-    if (prev && k.close < prev.close) return -1
+  function calcDirection(data: KLineData, allData: ReadonlyArray<KLineData>, idx: number | null): number {
+    if (data.close >= data.open) return 1
+    const prev = typeof idx === 'number' && idx > 0 ? allData[idx - 1] : undefined
+    if (prev && data.close > prev.close) return 1
+    if (prev && data.close < prev.close) return -1
     return 0
   }
 
   const openColor = computed(() => {
-    const k = props.k
-    if (!k) return NEUTRAL_COLOR
-    const dir = calcDirection(k, props.data, props.index)
+    if (!props.hoverData) return NEUTRAL_COLOR
+    const dir = calcDirection(props.hoverData, props.data, props.index)
     return dir > 0 ? props.upColor : dir < 0 ? props.downColor : NEUTRAL_COLOR
   })
 
   const closeColor = computed(() => {
-    const k = props.k
-    if (!k) return NEUTRAL_COLOR
-    const diff = k.close - k.open
+    if (!props.hoverData) return NEUTRAL_COLOR
+    const diff = props.hoverData.close - props.hoverData.open
     return diff > 0 ? props.upColor : diff < 0 ? props.downColor : NEUTRAL_COLOR
   })
 
   const changeColor = computed(() => {
-    const k = props.k
-    if (!k) return NEUTRAL_COLOR
-    const pct = k.changePercent ?? ((k.close - k.open) / k.open) * 100
+    if (!props.hoverData) return NEUTRAL_COLOR
+    const pct = props.hoverData.changePercent ?? ((props.hoverData.close - props.hoverData.open) / props.hoverData.open) * 100
     return pct > 0 ? props.upColor : pct < 0 ? props.downColor : NEUTRAL_COLOR
   })
 </script>
