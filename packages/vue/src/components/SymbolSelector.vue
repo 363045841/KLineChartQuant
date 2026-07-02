@@ -120,9 +120,11 @@
 
 <script setup lang="ts">
   import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
-  import IconTablerAlertTriangle from '~icons/tabler/alert-triangle'
-  import { useTeleportedPopup } from '../composables/useTeleportedPopup'
+
   import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
+  import { useTeleportedPopup } from '../composables/useTeleportedPopup'
+
+  import IconTablerAlertTriangle from '~icons/tabler/alert-triangle'
 
   export interface SymbolItem {
     code: string

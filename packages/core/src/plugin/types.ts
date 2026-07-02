@@ -2,8 +2,8 @@
  * 插件系统核心类型定义
  */
 
-import type { KLineData } from '../types/price'
 import type { CandleWebGLSurface, LineWebGLSurface } from '../engine/renderers/webgl/candleSurface'
+import type { KLineData } from '../types/price'
 
 /** 插件生命周期状态 */
 export enum PluginState {

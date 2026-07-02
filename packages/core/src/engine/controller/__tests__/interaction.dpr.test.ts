@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
+
 import { InteractionController } from '@/core/controller/interaction'
 import type { KLineData } from '@/types/price'
 

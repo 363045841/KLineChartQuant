@@ -41,7 +41,7 @@
         @zoom-out="applyZoomToLevel(zoomLevel - 1)"
         @settings-change="handleSettingsChange"
       />
-      <div class="chart-main" ref="chartMainRef">
+      <div ref="chartMainRef" class="chart-main">
         <div class="pane-separator-layer" aria-hidden="true">
           <div
             v-for="line in paneSeparatorLines"
@@ -54,14 +54,14 @@
         <div ref="tooltipLayerRef" class="tooltip-layer"></div>
         <div
           v-if="computedLeftAxisWidth > 0"
-          class="left-axis-host"
           ref="leftAxisLayerRef"
+          class="left-axis-host"
           :style="leftAxisHostStyle"
         ></div>
         <div
+          ref="containerRef"
           class="chart-container"
           :style="chartContainerStyle"
-          ref="containerRef"
           @scroll.passive="onScroll"
           @pointerdown="onPointerDown"
           @pointermove="onPointerMove"
@@ -71,8 +71,8 @@
           @contextmenu.prevent
         >
           <div class="scroll-content">
-            <div class="canvas-layer" ref="canvasLayerRef">
-              <canvas class="x-axis-canvas" ref="xAxisCanvasRef"></canvas>
+            <div ref="canvasLayerRef" class="canvas-layer">
+              <canvas ref="xAxisCanvasRef" class="x-axis-canvas"></canvas>
 
               <CanvasToolbarStack>
                 <RangeSelectionExport
@@ -171,8 +171,8 @@
           </template>
         </Teleport>
         <div
-          class="right-axis-host"
           ref="rightAxisLayerRef"
+          class="right-axis-host"
           :style="{ width: axisHostWidth + 'px' }"
           @pointerdown="onRightAxisPointerDown"
           @pointermove="onRightAxisPointerMove"
@@ -200,19 +200,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onMounted, onUnmounted, watch, nextTick, shallowRef } from 'vue'
-  import {
-    SemanticChartController,
-    type SemanticChartConfig,
-    type DataFetcher,
-  } from '@363045841yyt/klinechart-core/semantic'
-  import KLineTooltip from './KLineTooltip.vue'
-  import MarkerTooltip from './MarkerTooltip.vue'
-  import IndicatorSelector from './IndicatorSelector.vue'
-  import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
-  import RangeSelectionExport from './RangeSelectionExport.vue'
-  import CanvasToolbarStack from './common/CanvasToolbarStack.vue'
-  import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
+  import { SETTINGS_STORAGE_KEY, resolveSettings, type ChartSettings } from '@363045841yyt/klinechart-core/config'
   import {
     createChartController,
     routerDataFetcher,
@@ -222,16 +210,30 @@
     type SymbolInfo,
     type CustomDataSource,
   } from '@363045841yyt/klinechart-core/controllers'
+  import {
+    SemanticChartController,
+    type SemanticChartConfig,
+    type DataFetcher,
+  } from '@363045841yyt/klinechart-core/semantic'
+  import { ref, computed, onMounted, onUnmounted, watch, nextTick, shallowRef } from 'vue'
+
   import { useChartState } from '../composables/chart/useChartState'
   import { useChartTheme } from '../composables/chart/useChartTheme'
-  import { useIndicatorManager } from '../composables/chart/useIndicatorManager'
   import { useDrawingManager } from '../composables/chart/useDrawingManager'
-  import { SETTINGS_STORAGE_KEY, resolveSettings, type ChartSettings } from '@363045841yyt/klinechart-core/config'
+  import { useIndicatorManager } from '../composables/chart/useIndicatorManager'
   import { useRangeSelection } from '../composables/chart/useRangeSelection'
-  import LeftToolbar from './LeftToolbar.vue'
-  import TopToolbar, { type SymbolItem } from './TopToolbar.vue'
+  import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
+
   import BatchStockDialog from './BatchStockDialog.vue'
+  import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
   import ExportProgressDialog from './ExportProgressDialog.vue'
+  import IndicatorSelector from './IndicatorSelector.vue'
+  import KLineTooltip from './KLineTooltip.vue'
+  import LeftToolbar from './LeftToolbar.vue'
+  import MarkerTooltip from './MarkerTooltip.vue'
+  import RangeSelectionExport from './RangeSelectionExport.vue'
+  import TopToolbar, { type SymbolItem } from './TopToolbar.vue'
+  import CanvasToolbarStack from './common/CanvasToolbarStack.vue'
 
   // ── Props & Emits ──
   const props = withDefaults(
@@ -278,8 +280,7 @@
           name: string
           input: Record<string, unknown>
         }) =>
-          | { success: boolean; error?: string; data?: unknown }
-          | Promise<{ success: boolean; error?: string; data?: unknown }>
+          Promise<{ success: boolean; error?: string; data?: unknown }> | { success: boolean; error?: string; data?: unknown }
         autoReconnect?: boolean
       }
     }>(),

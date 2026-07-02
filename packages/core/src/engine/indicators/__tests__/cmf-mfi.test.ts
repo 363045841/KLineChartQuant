@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
+
 import { calcCMFData, calcMFIData } from '../calculators'
+
 import {
   empty,
   constantPrice,

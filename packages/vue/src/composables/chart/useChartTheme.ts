@@ -3,8 +3,6 @@
  * tooltip up/down colors, and auto theme detection via prefers-color-scheme.
  * Handles settings persistence through ChartController.updateSettingsFacade.
  */
-import { ref, computed, watch, onUnmounted } from 'vue'
-import type { Ref } from 'vue'
 import {
   resolveThemeColors,
   themeToCssVars,
@@ -14,6 +12,8 @@ import {
 } from '@363045841yyt/klinechart-core'
 import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
+import type { Ref } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 
 export function useChartTheme(ctrl: Ref<ChartController | null>) {
   const chartTheme = ref<'light' | 'dark'>('light')

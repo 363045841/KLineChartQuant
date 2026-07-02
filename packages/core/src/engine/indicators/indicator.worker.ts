@@ -3,6 +3,10 @@
  * 运行在独立线程，负责指标计算
  */
 
+import type { KLineData } from '../../types/price'
+
+import type { IndicatorRuntimeDescriptor } from './indicatorMetadata'
+import { IndicatorRuntime, CALCULATOR_MAP, createWorkerCompute } from './indicatorRuntime'
 import type {
   IndicatorWorkerRequest,
   IndicatorWorkerResponse,
@@ -10,9 +14,6 @@ import type {
   SerializedRuntimeDescriptor,
 } from './workerProtocol'
 import { PROTOCOL_VERSION } from './workerProtocol'
-import type { KLineData } from '../../types/price'
-import { IndicatorRuntime, CALCULATOR_MAP, createWorkerCompute } from './indicatorRuntime'
-import type { IndicatorRuntimeDescriptor } from './indicatorMetadata'
 
 // Worker 全局作用域
 const ctx = self as unknown as Worker

@@ -1,22 +1,24 @@
 import { KLineChartError } from '../../errors'
-import type { KLineData } from '../../types/price'
-import { createSignal, computed, type Signal, type Computed } from '../../reactivity/signal'
-import type { IndicatorInstance, SubPaneInfo, PaneSpec, ChartOptions } from '../chartTypes'
-import type { VisibleRange } from '../layout/pane'
-import { UpdateLevel } from '../layout/pane'
-import { IndicatorScheduler } from './scheduler'
-import { getRegisteredIndicatorDefinitions } from './indicatorDefinitionRegistry'
-import { SubPaneManager, type SubPaneEntry, type SubPaneContext } from '../subPaneManager'
-import { createSubIndicatorRenderer, type SubIndicatorType } from '../renderers/Indicator'
-import { createMainIndicatorLegendRendererPlugin } from '../renderers/Indicator/mainIndicatorLegend'
 import type {
   PluginHostImpl,
   RendererPlugin,
   RendererPluginWithHost,
   RenderContext,
 } from '../../plugin'
-import type { Layer } from '../../scene/types'
+import { createSignal, computed, type Signal, type Computed } from '../../reactivity/signal'
 import { createLayerFromPlugin } from '../../scene/createLayerFromPlugin'
+import type { Layer } from '../../scene/types'
+import type { KLineData } from '../../types/price'
+import type { IndicatorInstance, SubPaneInfo, PaneSpec, ChartOptions } from '../chartTypes'
+import type { VisibleRange } from '../layout/pane'
+import { UpdateLevel } from '../layout/pane'
+import { createSubIndicatorRenderer, type SubIndicatorType } from '../renderers/Indicator'
+import { createMainIndicatorLegendRendererPlugin } from '../renderers/Indicator/mainIndicatorLegend'
+import { SubPaneManager, type SubPaneEntry, type SubPaneContext } from '../subPaneManager'
+
+import { getRegisteredIndicatorDefinitions } from './indicatorDefinitionRegistry'
+import { IndicatorScheduler } from './scheduler'
+
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kWidth: number

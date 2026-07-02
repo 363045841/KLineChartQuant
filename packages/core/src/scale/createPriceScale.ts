@@ -30,9 +30,10 @@
  * we don't want one bad row to crash the chart.
  */
 
-import { createSignal } from '../reactivity/signal'
 import { KLineChartError } from '../errors'
+import { createSignal } from '../reactivity/signal'
 import type { Signal } from '../reactivity/signal'
+
 import { createOriginShiftPolicy, type OriginShiftPolicy } from './originShift'
 import type { PriceScale, ScaleMode } from './types'
 

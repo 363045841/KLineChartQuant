@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
+
 import { calcKAMAData } from '../calculators'
+
+import { KAMA_GOLDEN, assertSeriesClose } from './__fixtures__/golden'
 import {
   empty,
   singleBar,
@@ -9,7 +12,6 @@ import {
   sideways,
   spikeAtBar19,
 } from './__fixtures__/synthetic'
-import { KAMA_GOLDEN, assertSeriesClose } from './__fixtures__/golden'
 import { assertFiniteOrUndefined } from './_propertyAssertions'
 
 describe('calcKAMAData — Kaufman Adaptive Moving Average', () => {

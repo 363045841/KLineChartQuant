@@ -19,6 +19,7 @@
  */
 
 import { createSignal, type Signal } from '../reactivity/signal'
+
 import type { Layer, LayerRole, PaintContext, Scene } from './types'
 
 export function createScene(): Scene {
@@ -30,7 +31,7 @@ export function createScene(): Scene {
   const layersSignal: Signal<ReadonlyArray<Layer>> = createSignal<ReadonlyArray<Layer>>([])
 
   const publish = (): void => {
-    layersSignal.set(layerList.slice() as ReadonlyArray<Layer>)
+    layersSignal.set([...layerList] as ReadonlyArray<Layer>)
   }
 
   // ---- public API --------------------------------------------------------

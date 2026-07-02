@@ -25,15 +25,16 @@
  */
 
 import { createSignal, type Signal } from '../../reactivity'
+
 import { binBarToBuckets } from './binning'
 import { findPOCIndex } from './poc'
-import { computeValueArea } from './valueArea'
 import type {
   VolumeProfileBar,
   VolumeProfileConfig,
   VolumeProfileController,
   VolumeProfileState,
 } from './types'
+import { computeValueArea } from './valueArea'
 
 const DEFAULT_CONFIG: VolumeProfileConfig = {
   binCount: 100,

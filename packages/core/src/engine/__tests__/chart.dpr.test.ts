@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { Chart, type ChartDom, type ChartOptions } from '@/core/chart'
+
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
+
+import { Chart, type ChartDom, type ChartOptions } from '@/core/chart'
 
 class ResizeObserverMock {
   static instances: ResizeObserverMock[] = []

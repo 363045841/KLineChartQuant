@@ -46,8 +46,9 @@
  *     entry for the bar — `barIndex` and `cumulativeVolume` are filled in.
  */
 
-import type { AVWAPBar, AVWAPPoint } from './types'
 import { KLineChartError } from '../../errors'
+
+import type { AVWAPBar, AVWAPPoint } from './types'
 
 /**
  * Compute the Anchored VWAP series for `bars`, anchored at

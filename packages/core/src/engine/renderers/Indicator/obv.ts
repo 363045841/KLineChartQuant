@@ -1,12 +1,13 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import type { OBVRenderState } from '../../indicators/state/obvState'
-import { createOBVStateKey, EMPTY_OBV_STATE } from '../../indicators/state/obvState'
+import { calcOBVData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, OBVSchedulerConfig } from '../../indicators/scheduler'
-import { calcOBVData } from '../../indicators/calculators'
+import type { OBVRenderState } from '../../indicators/state/obvState'
+import { createOBVStateKey, EMPTY_OBV_STATE } from '../../indicators/state/obvState'
+import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+
 import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 const OBV_COLOR = '#16a34a'

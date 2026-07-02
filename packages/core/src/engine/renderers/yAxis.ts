@@ -1,11 +1,10 @@
 import type { RendererPlugin, RenderContext } from '../../plugin'
 import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../plugin'
-import { drawCrosshairPriceLabel, drawAxisPriceLabel } from '../../utils/kLineDraw/axis'
 import { resolveThemeColors } from '../../tokens'
-import { getFont, setCanvasFont } from '../theme/fonts'
-import { roundToPhysicalPixel } from '../draw/pixelAlign'
-
 import type { KLineData } from '../../types/price'
+import { drawCrosshairPriceLabel, drawAxisPriceLabel } from '../../utils/kLineDraw/axis'
+import { roundToPhysicalPixel } from '../draw/pixelAlign'
+import { getFont, setCanvasFont } from '../theme/fonts'
 
 /**
  * 创建 Y 轴渲染器插件

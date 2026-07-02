@@ -1,13 +1,14 @@
 import { describe, expect, it, vi, beforeAll } from 'vitest'
+
+import { getRegisteredIndicatorDefinition } from '../indicatorDefinitionRegistry'
 import type { IndicatorMetadata } from '../indicatorMetadata'
+import { loadBuiltinIndicators } from '../registerBuiltins'
 import {
   composeRenderStates,
   composeVisibleSubIndicatorStates,
   computeMainIndicatorPriceRange,
 } from '../stateComposer'
 import type { IndicatorSeriesBundle } from '../workerProtocol'
-import { getRegisteredIndicatorDefinition } from '../indicatorDefinitionRegistry'
-import { loadBuiltinIndicators } from '../registerBuiltins'
 
 beforeAll(async () => {
   await loadBuiltinIndicators()

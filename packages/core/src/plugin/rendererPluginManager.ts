@@ -2,6 +2,8 @@
  * 渲染器插件管理器
  */
 
+import { UpdateLevel } from '../engine/layout/pane'
+
 import type {
   RendererPlugin,
   RenderContext,
@@ -9,7 +11,6 @@ import type {
   RendererPluginWithHost,
   PluginHost,
 } from './types'
-import { UpdateLevel } from '../engine/layout/pane'
 
 /** 渲染器错误事件（裁剪后，不含大数据） */
 export interface RendererErrorEvent {
@@ -322,7 +323,7 @@ export class RendererPluginManager {
 
   /** 获取所有渲染器插件 */
   getAllPlugins(): RendererPlugin[] {
-    return Array.from(this.plugins.values())
+    return [...this.plugins.values()]
   }
 
   /** 获取指定渲染器 */

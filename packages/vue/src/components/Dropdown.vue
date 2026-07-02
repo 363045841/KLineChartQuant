@@ -53,8 +53,9 @@
 
 <script setup lang="ts">
   import { computed, onBeforeUnmount, ref } from 'vue'
-  import { useTeleportedPopup } from '../composables/useTeleportedPopup'
+
   import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
+  import { useTeleportedPopup } from '../composables/useTeleportedPopup'
 
   export interface DropdownOption<T extends string = string> {
     label: string

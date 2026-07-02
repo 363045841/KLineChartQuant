@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest'
+
 import { createMtfController } from '../createMtfController'
 import type { BaseBar, ResampledBar } from '../types'
 

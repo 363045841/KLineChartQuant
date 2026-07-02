@@ -1,5 +1,6 @@
 import type { KLineData, TimeShareData } from '../controllers/types'
 import { KLineChartError } from '../errors'
+
 import { DataFetcher } from './fetcherDefinitionRegistry'
 import type { FetchConfig, TimeShareFetchConfig } from './types'
 

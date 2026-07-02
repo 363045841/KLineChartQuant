@@ -13,8 +13,8 @@
 
 import { describe, it, expect } from 'vitest'
 
-import { createAnchoredVwapController } from '../createAnchoredVwapController'
 import { computeAnchoredVwap } from '../computeAnchoredVwap'
+import { createAnchoredVwapController } from '../createAnchoredVwapController'
 import type { AnchorDefinition, AVWAPBar } from '../types'
 
 // ---------------------------------------------------------------------------

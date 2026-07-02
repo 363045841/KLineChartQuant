@@ -1,15 +1,15 @@
 import type { RendererPlugin, RenderContext } from '../../plugin'
 import { RENDERER_PRIORITY } from '../../plugin'
-import type { KLineData } from '../../types/price'
-import type { kLineTrend } from '../../types/kLine'
 import { resolveThemeColors, type VolumePriceColors } from '../../tokens'
-import { getPhysicalKLineConfig } from '../utils/klineConfig'
+import type { kLineTrend } from '../../types/kLine'
+import type { KLineData } from '../../types/price'
 import { VolumePriceRelation } from '../../types/volumePrice'
 import {
   analyzeVolumePriceRelationBatch,
   DEFAULT_VOLUME_PRICE_CONFIG,
 } from '../../utils/volumePrice'
 import type { MarkerManager } from '../marker/registry'
+import { getPhysicalKLineConfig } from '../utils/klineConfig'
 
 // --- Float32Array buffer pool (reduces per-frame GC pressure) ---
 let poolUpBody: Float32Array | null = null

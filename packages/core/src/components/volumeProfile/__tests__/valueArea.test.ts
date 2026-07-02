@@ -13,8 +13,8 @@
 
 import { describe, it, expect } from 'vitest'
 
-import { computeValueArea } from '../valueArea'
 import { findPOCIndex } from '../poc'
+import { computeValueArea } from '../valueArea'
 
 function f(arr: number[]): Float64Array {
   return Float64Array.from(arr)

@@ -2,8 +2,7 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../..
 import { RENDERER_PRIORITY } from '../../../plugin'
 import { resolveThemeColors } from '../../../tokens'
 import type { KLineData } from '../../../types/price'
-import type { SARRenderState } from '../../indicators/state/sarState'
-import { createSARStateKey, EMPTY_SAR_STATE } from '../../indicators/state/sarState'
+import { calcSARData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import {
   resolveStateKey,
@@ -11,7 +10,8 @@ import {
   type GetTitleInfoFn,
 } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, SARSchedulerConfig } from '../../indicators/scheduler'
-import { calcSARData } from '../../indicators/calculators'
+import type { SARRenderState } from '../../indicators/state/sarState'
+import { createSARStateKey, EMPTY_SAR_STATE } from '../../indicators/state/sarState'
 import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 
 const DOT_RADIUS = 1.5

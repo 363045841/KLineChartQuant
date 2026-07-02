@@ -1,13 +1,14 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import type { CMFRenderState } from '../../indicators/state/cmfState'
-import { createCMFStateKey, EMPTY_CMF_STATE } from '../../indicators/state/cmfState'
-import { createSingleLineTitleInfo } from './shared/titleInfo'
+import { calcCMFData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, CMFSchedulerConfig } from '../../indicators/scheduler'
-import { calcCMFData } from '../../indicators/calculators'
+import type { CMFRenderState } from '../../indicators/state/cmfState'
+import { createCMFStateKey, EMPTY_CMF_STATE } from '../../indicators/state/cmfState'
+import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 const CMF_COLOR = '#06b6d4'
 

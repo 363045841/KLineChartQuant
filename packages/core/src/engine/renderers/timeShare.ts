@@ -5,8 +5,8 @@ import type {
   PluginHost,
 } from '../../plugin'
 import { RENDERER_PRIORITY } from '../../plugin'
-import type { TimeShareData } from '../../types/price'
 import { resolveThemeColors } from '../../tokens'
+import type { TimeShareData } from '../../types/price'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry'
 
 /** 成交量区域占 pane 高度的比例（底部） */

@@ -1,6 +1,7 @@
-import type { Signal } from '../reactivity/signal'
 import type { KLineData, SymbolSpec, DataFetcher } from '../controllers/types'
+import type { Signal } from '../reactivity/signal'
 import type { TimeShareData } from '../types/price'
+
 import type { TimeShareFetcherFn } from './types'
 
 export interface DataWindow {

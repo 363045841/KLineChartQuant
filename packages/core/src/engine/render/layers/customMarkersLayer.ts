@@ -1,6 +1,6 @@
+import type { RenderContext } from '../../../plugin'
 import { createLayerFromPlugin } from '../../../scene/createLayerFromPlugin'
 import type { Layer } from '../../../scene/types'
-import type { RenderContext } from '../../../plugin'
 import { createCustomMarkersRenderer } from '../../renderers/customMarkers'
 
 export function createCustomMarkersLayer(getContext: () => RenderContext | null): Layer {

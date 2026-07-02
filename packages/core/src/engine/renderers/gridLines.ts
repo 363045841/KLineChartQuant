@@ -1,9 +1,9 @@
 import type { RendererPlugin, RenderContext } from '../../plugin'
 import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../plugin'
-import type { KLineData } from '../../types/price'
-import { createHorizontalLineRect, createVerticalLineRect } from '../draw/pixelAlign'
-import { findMonthBoundaries } from '../../utils/dateFormat'
 import { resolveThemeColors } from '../../tokens'
+import type { KLineData } from '../../types/price'
+import { findMonthBoundaries } from '../../utils/dateFormat'
+import { createHorizontalLineRect, createVerticalLineRect } from '../draw/pixelAlign'
 
 /**
  * 创建网格线渲染器插件

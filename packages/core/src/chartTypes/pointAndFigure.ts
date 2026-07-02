@@ -266,7 +266,7 @@ export function createPointAndFigure(): ChartTypeTransform<PointAndFigureConfig>
       }
       // Batch mode includes the currently-open column as the last entry —
       // see file header. Incremental mode does not.
-      const out = state.closedColumns.slice()
+      const out = [...state.closedColumns]
       if (state.column !== null) {
         out.push(columnToBar(state.column))
       }

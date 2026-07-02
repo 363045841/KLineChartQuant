@@ -1,9 +1,9 @@
 import type { RendererPluginWithHost, PluginHost, RenderContext } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
+import { resolveThemeColors } from '../../../tokens'
 import type { KLineData } from '../../../types/price'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
-import { resolveThemeColors } from '../../../tokens'
-import { EXPMA_STATE_KEY, type EXPMARenderState } from '../../indicators/state/expmaState'
+import { calcEXPMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type {
@@ -14,7 +14,7 @@ import type {
   TitleValueItem,
 } from '../../indicators/indicatorMetadata'
 import type { EXPMASchedulerConfig, IndicatorScheduler } from '../../indicators/scheduler'
-import { calcEXPMAData } from '../../indicators/calculators'
+import { EXPMA_STATE_KEY, type EXPMARenderState } from '../../indicators/state/expmaState'
 
 type LinePoint = { x: number; y: number }
 

@@ -1,6 +1,7 @@
 import { KLineChartError } from '../../errors'
-import type { IndicatorMetadata } from './indicatorMetadata'
+
 import { getRegisteredIndicatorDefinitions } from './indicatorDefinitionRegistry'
+import type { IndicatorMetadata } from './indicatorMetadata'
 
 /**
  * IndicatorRegistry - 指标注册表
@@ -139,7 +140,7 @@ export class IndicatorRegistry {
    * 获取所有已注册指标
    */
   getAll(): readonly IndicatorMetadata[] {
-    return Array.from(this.indicators.values())
+    return [...this.indicators.values()]
   }
 
   /**
@@ -160,7 +161,7 @@ export class IndicatorRegistry {
    * 获取指标名称列表
    */
   getNames(): string[] {
-    return Array.from(this.indicators.keys())
+    return [...this.indicators.keys()]
   }
 
   /**

@@ -12,8 +12,23 @@
  *   - Tear down DOM + listeners on dispose().
  */
 
+import { resolveSettings } from '../config/chartSettings'
+import { Chart, type InteractionSnapshot as LegacyInteractionSnapshot } from '../engine/chart'
+import type {
+  ChartOptions,
+  ViewportState as LegacyViewportState,
+  IndicatorInstance as LegacyIndicatorInstance,
+  SubPaneInfo as LegacySubPaneInfo,
+  DrawingObject as LegacyDrawingObject,
+  DrawingToolType as LegacyDrawingToolType,
+} from '../engine/chartTypes'
+import { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins'
+import type { CustomMarkerEntity } from '../engine/marker/registry'
+import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
 import { KLineChartError } from '../errors'
+import { ChartBridge } from '../mcp/chartBridge'
 import { createSignal, type Signal } from '../reactivity'
+
 import type {
   ChartController,
   ChartMountOptions,
@@ -33,20 +48,6 @@ import type {
   DataFetcher,
   CustomDataSource,
 } from './types'
-import type { CustomMarkerEntity } from '../engine/marker/registry'
-import { Chart, type InteractionSnapshot as LegacyInteractionSnapshot } from '../engine/chart'
-import type {
-  ChartOptions,
-  ViewportState as LegacyViewportState,
-  IndicatorInstance as LegacyIndicatorInstance,
-  SubPaneInfo as LegacySubPaneInfo,
-  DrawingObject as LegacyDrawingObject,
-  DrawingToolType as LegacyDrawingToolType,
-} from '../engine/chartTypes'
-import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
-import { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins'
-import { ChartBridge } from '../mcp/chartBridge'
-import { resolveSettings } from '../config/chartSettings'
 
 // Plugin-backed drawings expose `kind` instead of legacy `type`.
 type PluginBackedDrawingObject = {

@@ -9,6 +9,9 @@ import type {
   XAxisRange,
 } from '../../plugin'
 import { RENDERER_PRIORITY } from '../../plugin'
+import type { KLineData } from '../../types/price'
+import { getPhysicalKLineConfig } from '../utils/klineConfig'
+
 import {
   DrawingStore,
   DrawingDefinitionRegistry,
@@ -16,8 +19,6 @@ import {
   registerDefaultDrawingDefinitions,
 } from './index'
 import type { PrimitiveRendererSet } from './index'
-import type { KLineData } from '../../types/price'
-import { getPhysicalKLineConfig } from '../utils/klineConfig'
 
 type SafeViewport = { scrollLeft: number; plotWidth: number; plotHeight: number }
 type ToScreenFn = (anchor: { index: number; price: number }) => { x: number; y: number }

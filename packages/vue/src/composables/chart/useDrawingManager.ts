@@ -4,13 +4,13 @@
  * Provides setupDrawing() to initialize DrawingInteractionController
  * with lifecycle callbacks that sync back to Vue refs.
  */
-import { ref, computed, shallowRef, onUnmounted, type Ref } from 'vue'
 import {
   DrawingInteractionController,
   type ChartController,
   type DrawingToolId,
 } from '@363045841yyt/klinechart-core/controllers'
 import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
+import { ref, computed, shallowRef, onUnmounted, type Ref } from 'vue'
 
 export function useDrawingManager(ctrl: Ref<ChartController | null>) {
   const drawingController = shallowRef<DrawingInteractionController | null>(null)

@@ -1,7 +1,7 @@
 import type { RendererPlugin, RenderContext } from '../../plugin'
 import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../plugin'
-import { createHorizontalLineRect, createVerticalLineRect } from '../draw/pixelAlign'
 import { resolveThemeColors } from '../../tokens'
+import { createHorizontalLineRect, createVerticalLineRect } from '../draw/pixelAlign'
 
 /**
  * 创建十字线渲染器插件

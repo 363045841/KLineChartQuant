@@ -1,4 +1,5 @@
 import { KLineChartError } from '../../errors'
+
 import { getRegisteredIndicatorDefinitions } from './indicatorDefinitionRegistry'
 
 let loaded = false

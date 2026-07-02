@@ -1,7 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import type { FibRenderState } from '../../indicators/state/fibState'
-import { createFibStateKey, EMPTY_FIB_STATE } from '../../indicators/state/fibState'
+import { calcFibData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import {
   resolveStateKey,
@@ -10,8 +9,9 @@ import {
   type GetTitleInfoFn,
 } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, FibSchedulerConfig } from '../../indicators/scheduler'
+import type { FibRenderState } from '../../indicators/state/fibState'
+import { createFibStateKey, EMPTY_FIB_STATE } from '../../indicators/state/fibState'
 import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
-import { calcFibData } from '../../indicators/calculators'
 
 const FIB_COLORS = {
   high: '#94a3b8',

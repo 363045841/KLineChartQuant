@@ -10,12 +10,13 @@
  */
 
 import { describe, it, expect } from 'vitest'
+
 import { computeALMA } from '../alma'
-import { computeT3 } from '../t3'
-import { computeZLEMA } from '../zlema'
-import { computeLSMA } from '../lsma'
-import { computeVIDYA } from '../vidya'
 import { computeFRAMA } from '../frama'
+import { computeLSMA } from '../lsma'
+import { computeT3 } from '../t3'
+import { computeVIDYA } from '../vidya'
+import { computeZLEMA } from '../zlema'
 
 function constant(n: number, v: number): number[] {
   return Array.from({ length: n }, () => v)

@@ -61,5 +61,8 @@ docs/TradingView级别像素对齐技术.md
 examples/next-app/.next/
 examples/next-app/pnpm-lock.yaml
 
+# oxlint
+.oxlint_cache
+
 # Fallow
 .fallow/

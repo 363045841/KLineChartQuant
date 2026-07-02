@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+
 import { AlertRuleSchemaError, deserializeRule, serializeRule } from '../ruleSchema'
 import type { AlertRule } from '../types'
 

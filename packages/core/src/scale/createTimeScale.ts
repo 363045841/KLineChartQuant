@@ -15,8 +15,9 @@
  * extrapolate, or display a "—" label.
  */
 
-import { createSignal } from '../reactivity/signal'
 import { KLineChartError } from '../errors'
+import { createSignal } from '../reactivity/signal'
+
 import type { TimeScale } from './types'
 
 export interface TimeScaleConfig {

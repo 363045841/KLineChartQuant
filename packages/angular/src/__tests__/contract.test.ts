@@ -8,7 +8,8 @@
  * signal bridge.
  */
 
-import { describe, it, expect, vi } from 'vitest'
+import type { ChartControllerFactory, ChartViewport } from '@363045841yyt/klinechart-core'
+import { createSignal } from '@363045841yyt/klinechart-core/reactivity'
 import {
   DestroyRef,
   Injector,
@@ -16,6 +17,8 @@ import {
   runInInjectionContext,
   type ElementRef,
 } from '@angular/core'
+import { describe, it, expect, vi } from 'vitest'
+
 import * as AngularAdapter from '../index'
 import {
   KLINE_CHART_FACTORY,
@@ -25,9 +28,9 @@ import {
   createChart,
   provideKLineChart,
 } from '../index'
+
 import { createMockChartController } from './_mockController'
-import { createSignal } from '@363045841yyt/klinechart-core/reactivity'
-import type { ChartControllerFactory, ChartViewport } from '@363045841yyt/klinechart-core'
+
 
 // ---------------------------------------------------------------------------
 // API surface

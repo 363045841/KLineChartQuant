@@ -1,11 +1,12 @@
 import { describe, expect, it, vi, beforeAll } from 'vitest'
+
 import type { RendererPluginWithHost } from '../../../../plugin'
+import type { IndicatorMetadata } from '../../../indicators/indicatorMetadata'
 import { IndicatorRegistry } from '../../../indicators/indicatorRegistry'
 import {
   getBuiltinIndicatorDefinitions,
   loadBuiltinIndicators,
 } from '../../../indicators/registerBuiltins'
-import type { IndicatorMetadata } from '../../../indicators/indicatorMetadata'
 import { createSubIndicatorRenderer } from '../index'
 
 beforeAll(async () => {

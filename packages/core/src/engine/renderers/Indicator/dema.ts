@@ -1,13 +1,14 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
-import { createSingleLineTitleInfo } from './shared/titleInfo'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import type { DEMARenderState } from '../../indicators/state/demaState'
-import { createDEMAStateKey, EMPTY_DEMA_STATE } from '../../indicators/state/demaState'
+import { calcDEMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, DEMASchedulerConfig } from '../../indicators/scheduler'
-import { calcDEMAData } from '../../indicators/calculators'
+import type { DEMARenderState } from '../../indicators/state/demaState'
+import { createDEMAStateKey, EMPTY_DEMA_STATE } from '../../indicators/state/demaState'
+import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 const DEMA_COLOR = '#6366f1'
 

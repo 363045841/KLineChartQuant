@@ -1,5 +1,5 @@
-import type { PriceRange } from './price'
 import type { ScaleType } from '../utils/tickPosition'
+
 import {
   type LogFormula,
   toLog,
@@ -7,6 +7,7 @@ import {
   logFormulaForPriceRange,
   logFormulasAreSame,
 } from './logFormula'
+import type { PriceRange } from './price'
 
 /**
  * Pane 级别的价格坐标系（价格 -> pane 内 Y）

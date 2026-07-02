@@ -1,12 +1,13 @@
 import type { DataFetcher } from '../controllers/types'
-import type { TimeShareFetcherFn } from './types'
 import { KLineChartError } from '../errors'
+
 import {
   getRegisteredFetcher,
   fetcherSupportsPeriod,
   getTimeShareFetcher,
   getRegisteredFetcherNames,
 } from './fetcherDefinitionRegistry'
+import type { TimeShareFetcherFn } from './types'
 
 export const routerDataFetcher: DataFetcher = (source, config) => {
   const def = getRegisteredFetcher(source)

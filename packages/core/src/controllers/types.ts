@@ -8,12 +8,12 @@
  * Mutation methods are imperative — adapters call them in event handlers.
  */
 
-import type { Signal } from '../reactivity'
-import type { CustomMarkerEntity } from '../engine/marker/registry'
-import type { PaneSpec } from '../engine/chartTypes'
-import type { InteractionSnapshot } from '../engine/chart'
 import type { AlertController } from '../alerts/types'
 import type { ChartSettings } from '../config/chartSettings'
+import type { InteractionSnapshot } from '../engine/chart'
+import type { PaneSpec } from '../engine/chartTypes'
+import type { CustomMarkerEntity } from '../engine/marker/registry'
+import type { Signal } from '../reactivity'
 
 // Controller-owned public surface. Legacy engine types may mirror these
 // shapes internally, but adapters depend only on core-defined contracts.
@@ -270,8 +270,7 @@ export interface ChartMountOptions {
       name: string
       input: Record<string, unknown>
     }) =>
-      | { success: boolean; error?: string; data?: unknown }
-      | Promise<{ success: boolean; error?: string; data?: unknown }>
+      Promise<{ success: boolean; error?: string; data?: unknown }> | { success: boolean; error?: string; data?: unknown }
     autoReconnect?: boolean
   }
 }

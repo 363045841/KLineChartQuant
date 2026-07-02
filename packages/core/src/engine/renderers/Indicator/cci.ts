@@ -1,14 +1,15 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import { resolveThemeColors } from '../../../tokens'
-import type { CCIRenderState } from '../../indicators/state/cciState'
-import { createCCIStateKey, EMPTY_CCI_STATE } from '../../indicators/state/cciState'
-import { createCCIVisibleStateComposer } from '../../indicators/visibleStateComposers'
+import { calcCCIData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, CCISchedulerConfig } from '../../indicators/scheduler'
+import type { CCIRenderState } from '../../indicators/state/cciState'
+import { createCCIStateKey, EMPTY_CCI_STATE } from '../../indicators/state/cciState'
+import { createCCIVisibleStateComposer } from '../../indicators/visibleStateComposers'
+
 import { createCciScaleRendererPlugin } from './scale/cci_scale'
-import { calcCCIData } from '../../indicators/calculators'
 import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 type LinePoint = { x: number; y: number }

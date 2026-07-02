@@ -5,14 +5,16 @@
  * preserving the legacy KMapPlugin.install signature.
  */
 
+import type { ChartController, ChartMountOptions } from '@363045841yyt/klinechart-core'
+import { mount } from '@vue/test-utils'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { defineComponent, h, nextTick, ref, shallowRef } from 'vue'
-import { mount } from '@vue/test-utils'
+
+import KLineTooltip from '../components/KLineTooltip.vue'
 import * as VueAdapter from '../index'
 import { coreSignalToVueRef } from '../index'
-import type { ChartController, ChartMountOptions } from '@363045841yyt/klinechart-core'
 import type { KlineTooltipSlotProps, MarkerTooltipSlotProps } from '../index'
-import KLineTooltip from '../components/KLineTooltip.vue'
+
 import { createMockChartController, createTestSignal } from './_mockController'
 
 describe('@363045841yyt/klinechart —public API surface', () => {

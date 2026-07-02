@@ -14,8 +14,9 @@ import { KLineChartError } from '../../errors'
 
 import { createSignal } from '../../reactivity'
 import type { Signal } from '../../reactivity'
-import { resampleBars } from './resampleBars'
+
 import { alignToBaseIndex } from './alignToBaseIndex'
+import { resampleBars } from './resampleBars'
 import type {
   ActiveMtfSeries,
   BaseBar,

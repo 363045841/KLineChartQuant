@@ -28,7 +28,7 @@ export class SessionRegistry {
   }
 
   getActiveSessionIds(): string[] {
-    return Array.from(this.sessions.keys())
+    return [...this.sessions.keys()]
   }
 
   updateState(sessionId: string, descriptions: Record<string, ControllerDescription>): void {

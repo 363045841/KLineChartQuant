@@ -11,6 +11,7 @@
  */
 
 import { describe, bench } from 'vitest'
+
 import { binBarToBuckets } from '../components/volumeProfile/binning'
 
 // Realistic OHLCV stream: random walk around 100, ATR ≈ 2.

@@ -7,6 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
+
 import { alignToBaseIndex } from '../alignToBaseIndex'
 
 const HOUR = 60 * 60_000

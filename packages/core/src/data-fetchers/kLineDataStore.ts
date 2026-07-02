@@ -1,5 +1,6 @@
-import { createSignal, type Signal } from '../reactivity/signal'
 import type { KLineData } from '../controllers/types'
+import { createSignal, type Signal } from '../reactivity/signal'
+
 import type { DataWindow, DataChange } from './dataBufferTypes'
 
 export interface MergeResult {

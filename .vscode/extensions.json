@@ -2,6 +2,8 @@
   "recommendations": [
     "Vue.volar",
     "vitest.explorer",
-    "prettier.prettier-vscode"
+    "prettier.prettier-vscode",
+    "oxc.oxlint-vscode",
+    "dbaeumer.vscode-eslint"
   ]
 }

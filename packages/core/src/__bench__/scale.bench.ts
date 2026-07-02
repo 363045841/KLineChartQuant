@@ -11,6 +11,7 @@
  */
 
 import { describe, bench } from 'vitest'
+
 import { computeAnchoredZoom } from '../scale/anchoredZoom'
 import { createOriginShiftPolicy } from '../scale/originShift'
 

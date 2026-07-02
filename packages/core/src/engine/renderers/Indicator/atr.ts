@@ -1,15 +1,16 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import { resolveThemeColors } from '../../../tokens'
+import { calcATRData } from '../../indicators/calculators'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import type { IndicatorScheduler, ATRSchedulerConfig } from '../../indicators/scheduler'
 import type { ATRRenderState } from '../../indicators/state/atrState'
 import { createATRStateKey } from '../../indicators/state/atrState'
 import { EMPTY_ATR_STATE } from '../../indicators/state/atrState'
 import { createNonNegativeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, ATRSchedulerConfig } from '../../indicators/scheduler'
+
 import { createAtrScaleRendererPlugin } from './scale/atr_scale'
-import { calcATRData } from '../../indicators/calculators'
 import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 type LinePoint = { x: number; y: number }

@@ -1,6 +1,6 @@
+import type { DrawingAnchorInput } from './coordinateUtils'
 import type { DrawingToolId } from './toolConfig'
 import { getAnchorCountForTool } from './toolConfig'
-import type { DrawingAnchorInput } from './coordinateUtils'
 
 /**
  * Accumulates pointer anchors until the required count is reached for a given tool.

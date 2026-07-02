@@ -1,4 +1,5 @@
 import { KLineChartError } from '../errors'
+
 import type { DepthDelta, DepthSnapshot, DepthSource, DepthSourceStatus } from './depthTypes'
 
 export const DEFAULT_BINANCE_SSE_URL = 'http://localhost:8081/api/biance/depth-events'

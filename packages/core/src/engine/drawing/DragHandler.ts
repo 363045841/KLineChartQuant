@@ -1,5 +1,6 @@
-import type { DrawingObject, DrawingAnchor } from '../../plugin'
 import type { DrawingChartAdapter } from '../../controllers/types'
+import type { DrawingObject, DrawingAnchor } from '../../plugin'
+
 import { resolveAnchorFromPointer, anchorToScreen, screenToAnchor } from './coordinateUtils'
 
 // ---- Types ----

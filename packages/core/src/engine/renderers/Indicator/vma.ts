@@ -1,14 +1,15 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import type { VMARenderState } from '../../indicators/state/vmaState'
-import { createVMAStateKey } from '../../indicators/state/vmaState'
-import { EMPTY_VMA_STATE } from '../../indicators/state/vmaState'
-import { createSingleLineTitleInfo } from './shared/titleInfo'
-import { createNonNegativeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+import { calcVMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, VMASchedulerConfig } from '../../indicators/scheduler'
-import { calcVMAData } from '../../indicators/calculators'
+import type { VMARenderState } from '../../indicators/state/vmaState'
+import { createVMAStateKey } from '../../indicators/state/vmaState'
+import { EMPTY_VMA_STATE } from '../../indicators/state/vmaState'
+import { createNonNegativeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 const VMA_COLOR = '#0ea5e9'
 

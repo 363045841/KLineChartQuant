@@ -1,11 +1,12 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../plugin'
 import { RENDERER_PRIORITY } from '../../plugin'
 import { resolveThemeColors } from '../../tokens'
-import { getFont, setCanvasFont } from '../theme/fonts'
-import type { SubIndicatorType } from './Indicator'
 import type { KLineData } from '../../types/price'
 import type { TitleInfo } from '../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../indicators/scheduler'
+import { getFont, setCanvasFont } from '../theme/fonts'
+
+import type { SubIndicatorType } from './Indicator'
 
 /**
  * @deprecated 请从 indicatorMetadata 导入 TitleInfo
@@ -85,7 +86,7 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
 
       const fontSize = 12
       const x = 12
-      let y = currentOptions.yOffset ?? fontSize
+      const y = currentOptions.yOffset ?? fontSize
       const gap = 8
 
       overlayCtx.save()

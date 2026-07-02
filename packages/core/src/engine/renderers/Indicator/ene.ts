@@ -1,9 +1,9 @@
 import type { RendererPluginWithHost, PluginHost, RenderContext } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
+import { resolveThemeColors } from '../../../tokens'
 import type { KLineData } from '../../../types/price'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
-import { resolveThemeColors } from '../../../tokens'
-import { ENE_STATE_KEY, type ENERenderState } from '../../indicators/state/eneState'
+import { calcENEData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type {
@@ -14,7 +14,8 @@ import type {
   TitleValueItem,
 } from '../../indicators/indicatorMetadata'
 import type { ENESchedulerConfig, IndicatorScheduler } from '../../indicators/scheduler'
-import { calcENEData } from '../../indicators/calculators'
+import { ENE_STATE_KEY, type ENERenderState } from '../../indicators/state/eneState'
+
 import { getRgbaAlpha, toOpaqueRgba, compositeLineSurface } from './shared/webglBand'
 
 type LinePoint = { x: number; y: number }

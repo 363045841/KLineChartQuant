@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+
 import { evaluatePredicate } from '../predicates'
 import type { AlertPredicate, MarketSnapshot } from '../types'
 

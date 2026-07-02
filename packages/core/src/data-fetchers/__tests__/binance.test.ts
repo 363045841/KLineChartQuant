@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+
 import { BinanceSSESource, DEFAULT_BINANCE_SSE_URL } from '../binance'
 import type { DepthDelta, DepthSnapshot, DepthSourceStatus } from '../depthTypes'
 

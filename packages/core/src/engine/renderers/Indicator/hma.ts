@@ -1,13 +1,14 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
-import { createSingleLineTitleInfo } from './shared/titleInfo'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import type { HMARenderState } from '../../indicators/state/hmaState'
-import { createHMAStateKey, EMPTY_HMA_STATE } from '../../indicators/state/hmaState'
+import { calcHMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, HMASchedulerConfig } from '../../indicators/scheduler'
-import { calcHMAData } from '../../indicators/calculators'
+import type { HMARenderState } from '../../indicators/state/hmaState'
+import { createHMAStateKey, EMPTY_HMA_STATE } from '../../indicators/state/hmaState'
+import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 const HMA_COLOR = '#f43f5e'
 

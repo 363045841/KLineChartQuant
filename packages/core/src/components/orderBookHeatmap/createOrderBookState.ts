@@ -14,8 +14,9 @@
  * is purely a snapshot-time concern.
  */
 
-import type { BookSnapshot, OrderBookDelta, OrderBookState, OrderBookStateOptions } from './types'
 import { KLineChartError } from '../../errors'
+
+import type { BookSnapshot, OrderBookDelta, OrderBookState, OrderBookStateOptions } from './types'
 
 const EMPTY: ReadonlyArray<readonly [number, number]> = []
 
@@ -74,8 +75,7 @@ export function createOrderBookState(opts: OrderBookStateOptions): OrderBookStat
   ): ReadonlyArray<readonly [number, number]> {
     if (map.size === 0) return EMPTY
     // Pull entries → sort by tick index → dequantize.
-    const ticks: number[] = []
-    for (const k of map.keys()) ticks.push(k)
+    const ticks: number[] = [...map.keys()];
     if (direction === 'desc') ticks.sort((a, b) => b - a)
     else ticks.sort((a, b) => a - b)
     const limit = Number.isFinite(maxLevels) ? Math.min(ticks.length, maxLevels) : ticks.length

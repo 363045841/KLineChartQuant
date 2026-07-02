@@ -1,13 +1,14 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import type { MFIRenderState } from '../../indicators/state/mfiState'
-import { createMFIStateKey, EMPTY_MFI_STATE } from '../../indicators/state/mfiState'
-import { createSingleLineTitleInfo } from './shared/titleInfo'
+import { calcMFIData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, MFISchedulerConfig } from '../../indicators/scheduler'
-import { calcMFIData } from '../../indicators/calculators'
+import type { MFIRenderState } from '../../indicators/state/mfiState'
+import { createMFIStateKey, EMPTY_MFI_STATE } from '../../indicators/state/mfiState'
+import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 const MFI_COLOR = '#fb923c'
 

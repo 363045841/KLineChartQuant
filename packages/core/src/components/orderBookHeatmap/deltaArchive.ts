@@ -28,7 +28,7 @@ const CHUNK_SIZE = 10_000
 export function createDeltaArchive(opts?: DeltaArchiveOptions): DeltaArchive {
   const chunks: OrderBookDelta[][] = [[]]
   let total = 0
-  let maxSize = opts?.maxSize !== undefined ? Math.max(0, opts.maxSize) : Infinity
+  const maxSize = opts?.maxSize !== undefined ? Math.max(0, opts.maxSize) : Infinity
 
   function append(delta: OrderBookDelta): void {
     let last = chunks[chunks.length - 1]

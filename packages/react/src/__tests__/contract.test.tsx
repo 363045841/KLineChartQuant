@@ -10,7 +10,12 @@
  * 4. SSR-safe: module import does not touch `window`
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import type {
+  ChartController,
+  ChartMountOptions,
+  ChartViewport,
+  KLineData,
+} from '@363045841yyt/klinechart-core'
 import { act, render } from '@testing-library/react'
 import {
   createElement,
@@ -23,16 +28,13 @@ import {
   useSyncExternalStore,
 } from 'react'
 import type { ReactElement, RefObject } from 'react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 import * as ReactAdapter from '../index'
 import { __setChartFactory, useChart } from '../index'
+
 import { createMockChartController, type MockControllerHandle } from './_mockController'
-import type {
-  ChartController,
-  ChartMountOptions,
-  ChartViewport,
-  KLineData,
-} from '@363045841yyt/klinechart-core'
+
 
 describe('@363045841yyt/klinechart-react —public API surface', () => {
   it('exports createChart, useChart, useIndicators, KLineChart', () => {

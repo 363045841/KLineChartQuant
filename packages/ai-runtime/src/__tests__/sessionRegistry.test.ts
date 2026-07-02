@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { SessionRegistry, type SessionHandle } from '../sessionRegistry'
+
 import type { ToolCall, ToolResult } from '../executeTool'
+import { SessionRegistry, type SessionHandle } from '../sessionRegistry'
 
 function createMockHandle(sessionId: string): SessionHandle {
   return {

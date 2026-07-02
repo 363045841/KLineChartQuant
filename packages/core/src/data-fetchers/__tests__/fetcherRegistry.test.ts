@@ -1,4 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
+
+import type { KLineData } from '../../controllers/types'
 import {
   DataFetcher,
   getRegisteredFetcher,
@@ -8,7 +10,6 @@ import {
 } from '../fetcherDefinitionRegistry'
 import { routerDataFetcher } from '../router'
 import type { DataFetcherFn } from '../types'
-import type { KLineData } from '../../controllers/types'
 
 const mockFetch = vi.fn<() => Promise<ReadonlyArray<KLineData>>>()
 

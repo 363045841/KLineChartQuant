@@ -1,12 +1,13 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import type { VWAPRenderState } from '../../indicators/state/vwapState'
-import { createVWAPStateKey, EMPTY_VWAP_STATE } from '../../indicators/state/vwapState'
+import { calcVWAPData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, VWAPSchedulerConfig } from '../../indicators/scheduler'
-import { calcVWAPData } from '../../indicators/calculators'
+import type { VWAPRenderState } from '../../indicators/state/vwapState'
+import { createVWAPStateKey, EMPTY_VWAP_STATE } from '../../indicators/state/vwapState'
+import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+
 import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 const VWAP_COLOR = '#ec4899'

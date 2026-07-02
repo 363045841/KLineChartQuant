@@ -1,5 +1,5 @@
-import { shallowRef, onScopeDispose, type Ref } from 'vue'
 import type { Signal } from '@363045841yyt/klinechart-core/reactivity'
+import { shallowRef, onScopeDispose, type Ref } from 'vue'
 
 /**
  * Bridge a core Signal<T> into a Vue Ref<T> backed by `shallowRef`.

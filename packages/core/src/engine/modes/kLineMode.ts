@@ -1,6 +1,7 @@
-import type { ChartModeHandler } from './types'
-import type { Pane, VisibleRange } from '../layout/pane'
 import type { ChartDataManager } from '../data/chartDataManager'
+import type { Pane, VisibleRange } from '../layout/pane'
+
+import type { ChartModeHandler } from './types'
 
 export class KLineMode implements ChartModeHandler {
   readonly debugName = 'KLine'

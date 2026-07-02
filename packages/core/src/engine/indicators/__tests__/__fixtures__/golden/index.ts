@@ -1,9 +1,9 @@
 import atrGolden from './atr.json'
-import wmaGolden from './wma.json'
 import demaGolden from './dema.json'
-import temaGolden from './tema.json'
 import hmaGolden from './hma.json'
 import kamaGolden from './kama.json'
+import temaGolden from './tema.json'
+import wmaGolden from './wma.json'
 
 export interface GoldenSeries {
   period: number

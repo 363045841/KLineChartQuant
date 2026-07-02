@@ -22,8 +22,8 @@
         <button
           class="view-toggle-btn"
           :class="{ active: isCompactView }"
-          @click="isCompactView = !isCompactView"
           title="简洁模式"
+          @click="isCompactView = !isCompactView"
         >
           <svg v-if="!isCompactView" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z" />
@@ -45,10 +45,10 @@
           </svg>
           <input
             :value="searchQuery"
-            @input="controller.setSearchQuery(($event.target as HTMLInputElement).value)"
             type="text"
             class="search-input"
             placeholder="搜索指标名称..."
+            @input="controller.setSearchQuery(($event.target as HTMLInputElement).value)"
           />
         </div>
       </template>
@@ -80,8 +80,8 @@
                   <button
                     v-if="indicator.params?.length"
                     class="card-settings-btn"
-                    @click.stop="showParams(indicator.id)"
                     title="编辑参数"
+                    @click.stop="showParams(indicator.id)"
                   >
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
                       <path
@@ -135,8 +135,8 @@
                   <button
                     v-if="indicator.params?.length"
                     class="card-settings-btn"
-                    @click.stop="showParams(indicator.id)"
                     title="编辑参数"
+                    @click.stop="showParams(indicator.id)"
                   >
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
                       <path
@@ -175,10 +175,6 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onMounted, onUnmounted } from 'vue'
-  import BaseModal from './BaseModal.vue'
-  import IndicatorParams from './IndicatorParams.vue'
-  import { coreSignalToVueRef } from '../utils/signalBridge'
   import {
     createIndicatorSelectorController,
     type IndicatorDefinition,
@@ -188,6 +184,12 @@
     loadBuiltinIndicators,
     isBuiltinIndicatorsLoaded,
   } from '@363045841yyt/klinechart-core/controllers'
+  import { ref, computed, onMounted, onUnmounted } from 'vue'
+
+  import { coreSignalToVueRef } from '../utils/signalBridge'
+
+  import BaseModal from './BaseModal.vue'
+  import IndicatorParams from './IndicatorParams.vue'
 
   const props = defineProps<{
     activeIndicators?: string[]

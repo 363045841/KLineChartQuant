@@ -19,8 +19,8 @@
 
 import { describe, it, expect } from 'vitest'
 
-import { computeAnchoredVwap } from '../computeAnchoredVwap'
 import { isKLineChartError } from '../../../errors'
+import { computeAnchoredVwap } from '../computeAnchoredVwap'
 import type { AVWAPBar } from '../types'
 
 // ---------------------------------------------------------------------------

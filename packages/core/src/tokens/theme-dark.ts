@@ -17,8 +17,8 @@
  * `__tests__/themes.test.ts` enforces this.
  */
 
-import type { Theme } from './types'
 import { spacing, typography, motion } from './theme-base'
+import type { Theme } from './types'
 
 export const darkTheme: Theme = {
   name: 'dark',

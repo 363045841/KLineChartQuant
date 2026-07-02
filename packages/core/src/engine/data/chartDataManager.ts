@@ -1,19 +1,20 @@
-import type { KLineData, TimeShareData } from '../../types/price'
 import type { SymbolSpec, SymbolInfo, DataFetcher, CustomDataSource } from '../../controllers/types'
-import { createSignal, type Signal } from '../../reactivity/signal'
 import { DataBuffer } from '../../data-fetchers/dataBuffer'
 import { getPeriodDays } from '../../data-fetchers/dataBuffer.effects'
-import { TimeShareBuffer } from '../../data-fetchers/timeShareBuffer'
 import type { KLineBuffer, DataChange } from '../../data-fetchers/dataBufferTypes'
+import { TimeShareBuffer } from '../../data-fetchers/timeShareBuffer'
 import type { TimeShareFetcherFn } from '../../data-fetchers/types'
+import { createSignal, type Signal } from '../../reactivity/signal'
+import type { KLineData, TimeShareData } from '../../types/price'
 import type { ChartDom, Viewport } from '../chartTypes'
 import type { VisibleRange, UpdateLevel } from '../layout/pane'
-import { getVisibleRange } from '../viewport/viewport'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
-import { FetchBatchScheduler } from './fetchBatchScheduler'
-import { ScrollCompensator } from './scrollCompensator'
+import { getVisibleRange } from '../viewport/viewport'
+
 import { ComparisonManager } from './comparisonManager'
+import { FetchBatchScheduler } from './fetchBatchScheduler'
 import { IncrementalLoadHint } from './incrementalLoadHint'
+import { ScrollCompensator } from './scrollCompensator'
 
 const COMPARISON_PALETTE = ['#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316']
 const DEFAULT_COMPARISON_COLOR = '#f59e0b'
@@ -313,7 +314,7 @@ export class ChartDataManager {
   registerSymbols(infos: ReadonlyArray<SymbolInfo>): void {
     const current = new Map(this._symbolCatalog.peek().map((s) => [s.code, s]))
     for (const info of infos) current.set(info.code, info)
-    this._symbolCatalog.set(Array.from(current.values()))
+    this._symbolCatalog.set([...current.values()])
   }
 
   /** Remove a symbol from the catalog by code. */

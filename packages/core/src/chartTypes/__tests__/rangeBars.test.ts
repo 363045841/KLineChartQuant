@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+
 import { createRangeBars } from '../rangeBars'
 import type { OHLCV } from '../types'
 

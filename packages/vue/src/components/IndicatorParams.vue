@@ -14,8 +14,8 @@
       <button
         class="toggle-desc-btn"
         :class="{ active: showDescription }"
-        @click="showDescription = !showDescription"
         title="显示/隐藏说明"
+        @click="showDescription = !showDescription"
       >
         <svg viewBox="0 0 1024 1024">
           <path
@@ -104,6 +104,7 @@
 
 <script setup lang="ts">
   import { ref, watch } from 'vue'
+
   import BaseModal from './BaseModal.vue'
 
   interface ParamConfig {

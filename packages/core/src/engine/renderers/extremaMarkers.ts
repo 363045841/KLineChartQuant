@@ -1,12 +1,12 @@
 import type { RendererPlugin, RenderContext } from '../../plugin'
 import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../plugin'
+import { resolveThemeColors } from '../../tokens'
 import type { KLineData } from '../../types/price'
 import {
   roundToPhysicalPixel,
   alignToPhysicalPixelCenter,
   createHorizontalLineRect,
 } from '../draw/pixelAlign'
-import { resolveThemeColors } from '../../tokens'
 import { getFont, setCanvasFont } from '../theme/fonts'
 
 const textWidthCache = new Map<string, number>()

@@ -1,4 +1,5 @@
 import type { KLineData } from '../../../types/price'
+
 import { _computeEMASeries } from './_shared'
 
 export function calcRSIData(data: KLineData[], period: number): (number | undefined)[] {

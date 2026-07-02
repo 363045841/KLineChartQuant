@@ -1,13 +1,8 @@
-import type { KLineData } from '../types/price'
 import type { ChartSettings } from '../config/chartSettings'
-import { createSignal, type Signal, type Computed } from '../reactivity/signal'
 import type { SymbolSpec, SymbolInfo, CustomDataSource } from '../controllers/types'
-import { ChartDataManager } from './data/chartDataManager'
-import { ChartPaneLayout } from './layout/chartPaneLayout'
-import { UpdateLevel, type VisibleRange } from './layout/pane'
-import type { ScaleType } from './utils/tickPosition'
-import { InteractionController, type InteractionSnapshot } from './controller/interaction'
-export type { InteractionSnapshot }
+import { createSignal, type Signal, type Computed } from '../reactivity/signal'
+import type { KLineData } from '../types/price'
+
 import type {
   ChartDom,
   PaneSpec,
@@ -18,14 +13,22 @@ import type {
   SubPaneInfo,
   DrawingToolType,
 } from './chartTypes'
+import { InteractionController, type InteractionSnapshot } from './controller/interaction'
+import { ChartDataManager } from './data/chartDataManager'
+import { ChartIndicatorManager } from './indicators/chartIndicatorManager'
+import { resolveStateKey } from './indicators/indicatorMetadata'
+import type { IndicatorMetadata } from './indicators/indicatorMetadata'
+import type { IndicatorScheduler } from './indicators/scheduler'
+import { ChartPaneLayout } from './layout/chartPaneLayout'
+import { UpdateLevel, type VisibleRange } from './layout/pane'
+import type { ScaleType } from './utils/tickPosition'
+export type { InteractionSnapshot }
 import { PaneRenderer } from './paneRenderer'
 import { SharedWebGLSurface } from './renderers/webgl/sharedWebGLSurface'
 import type { MarkerManager, CustomMarkerEntity } from './marker/registry'
 import { getPhysicalKLineConfig } from './utils/klineConfig'
 import { ChartZoomController } from './utils/chartZoomController'
 import { ChartViewportManager } from './viewport/chartViewportManager'
-import { ChartIndicatorManager } from './indicators/chartIndicatorManager'
-import type { IndicatorScheduler } from './indicators/scheduler'
 import type { SubPaneEntry } from './subPaneManager'
 import { ChartRenderer } from './render/chartRenderer'
 import { KLineMode } from './modes/kLineMode'
@@ -40,7 +43,9 @@ import {
   type RendererPluginWithHost,
   wrapPaneInfo,
 } from '../plugin'
+
 import type { SubIndicatorType } from './renderers/Indicator'
+
 import type { AlertController, MarketSnapshot } from '../alerts/types'
 import { createAlertController } from '../alerts'
 import {
@@ -48,8 +53,6 @@ import {
   pushToVolumeLookbacks,
   type VolumeLookbacks,
 } from '../alerts/rollingVolume'
-import { resolveStateKey } from './indicators/indicatorMetadata'
-import type { IndicatorMetadata } from './indicators/indicatorMetadata'
 import type { Layer } from '../scene/types'
 
 // 重新导出以保持向后兼容

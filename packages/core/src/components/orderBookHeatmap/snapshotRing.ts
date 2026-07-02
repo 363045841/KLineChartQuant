@@ -12,8 +12,9 @@
  * GPU buffer.
  */
 
-import type { BookSnapshot, SnapshotRing } from './types'
 import { KLineChartError } from '../../errors'
+
+import type { BookSnapshot, SnapshotRing } from './types'
 
 export function createSnapshotRing(capacity: number): SnapshotRing {
   if (!Number.isInteger(capacity) || capacity <= 0) {

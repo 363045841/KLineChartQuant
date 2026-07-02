@@ -8,6 +8,7 @@
  */
 
 import { describe, bench } from 'vitest'
+
 import { createSignal } from '../reactivity/signal'
 
 describe('signal.set + notify — subscriber scaling', () => {

@@ -1,13 +1,14 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import { resolveThemeColors } from '../../../tokens'
-import type { ROCRenderState } from '../../indicators/state/rocState'
-import { createROCStateKey, EMPTY_ROC_STATE } from '../../indicators/state/rocState'
+import { calcROCData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, ROCSchedulerConfig } from '../../indicators/scheduler'
-import { calcROCData } from '../../indicators/calculators'
+import type { ROCRenderState } from '../../indicators/state/rocState'
+import { createROCStateKey, EMPTY_ROC_STATE } from '../../indicators/state/rocState'
+import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+
 import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 const ROC_COLOR = '#0ea5e9'

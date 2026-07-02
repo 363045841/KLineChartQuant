@@ -12,8 +12,9 @@
  * ```
  */
 
-import type { DepthSource, DepthDelta, DepthSnapshot } from './depthTypes'
 import type { HeatmapController, HeatmapControllerConfig } from '../components/orderBookHeatmap'
+
+import type { DepthSource, DepthDelta, DepthSnapshot } from './depthTypes'
 
 export interface DepthConnectorOptions {
   /** Initial config passed to each controller created by addController */

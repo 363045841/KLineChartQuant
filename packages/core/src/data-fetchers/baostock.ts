@@ -1,5 +1,6 @@
-import { KLineChartError } from '../errors'
 import type { KLineData } from '../controllers/types'
+import { KLineChartError } from '../errors'
+
 import { DataFetcher } from './fetcherDefinitionRegistry'
 import type { FetchConfig } from './types'
 

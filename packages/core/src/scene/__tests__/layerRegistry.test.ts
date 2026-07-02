@@ -12,6 +12,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
+
 import { createLayerRegistry, BUILTIN_LAYER_TYPES, type LayerFactory } from '../layerRegistry'
 import type { Layer, PaintContext } from '../types'
 

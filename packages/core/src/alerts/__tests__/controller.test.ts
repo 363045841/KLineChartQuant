@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
+
 import { createAlertController } from '../createAlertController'
 import type { AlertRule, MarketSnapshot } from '../types'
 

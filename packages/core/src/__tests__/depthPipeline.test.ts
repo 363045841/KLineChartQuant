@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { BinanceSSESource } from '../data-fetchers/binance'
-import { DepthConnector } from '../data-fetchers/depthConnector'
+
 import { createHeatmapController } from '../components/orderBookHeatmap/createHeatmapController'
 import type { HeatmapController } from '../components/orderBookHeatmap/types'
+import { BinanceSSESource } from '../data-fetchers/binance'
+import { DepthConnector } from '../data-fetchers/depthConnector'
 
 // ---------------------------------------------------------------------------
 // Fake EventSource — same shape as binance.test.ts

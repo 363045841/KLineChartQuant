@@ -1,9 +1,11 @@
-import { EventBus } from '../plugin/EventBus'
-import type { CustomMarkerEntity } from '../engine/marker/registry'
-import { SemanticConfigValidator } from './validator'
-import { getBuiltinIndicatorDefinitions } from '../engine/indicators/registerBuiltins'
+import type { KLineData, DataFetcher, SymbolSpec } from '../controllers/types'
 import { getRegisteredIndicatorDefinition } from '../engine/indicators/indicatorDefinitionRegistry'
 import type { IndicatorMetadata } from '../engine/indicators/indicatorMetadata'
+import { getBuiltinIndicatorDefinitions } from '../engine/indicators/registerBuiltins'
+import type { CustomMarkerEntity } from '../engine/marker/registry'
+import type { SubIndicatorType as CoreSubIndicatorType } from '../engine/renderers/Indicator'
+import { EventBus } from '../plugin/EventBus'
+
 import type {
   SemanticChartConfig,
   ApplyResult,
@@ -12,8 +14,10 @@ import type {
   CustomMarker,
   DataConfig,
 } from './types'
-import type { SubIndicatorType as CoreSubIndicatorType } from '../engine/renderers/Indicator'
-import type { KLineData, DataFetcher, SymbolSpec } from '../controllers/types'
+import { SemanticConfigValidator } from './validator'
+
+
+
 
 export type SemanticEventType = 'config:loading' | 'config:ready' | 'config:error'
 export type { DataFetcher, SymbolSpec } from '../controllers/types'

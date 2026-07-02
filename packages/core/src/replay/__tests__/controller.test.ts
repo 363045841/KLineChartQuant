@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
+
 import { createReplayController } from '../createReplayController'
 import type { ReplayState } from '../types'
 

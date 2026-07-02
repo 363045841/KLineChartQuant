@@ -23,6 +23,7 @@ import { KLineChartError } from '../errors'
  */
 
 import { createSignal, type Signal } from '../reactivity/signal'
+
 import type {
   ReplayController,
   ReplayControllerInit,
@@ -98,7 +99,7 @@ export function createReplayController(init?: ReplayControllerInit): ReplayContr
   const speed = init?.speed ?? 1
   assertValidSpeed(speed)
 
-  let barIntervalMs = init?.barIntervalMs ?? DEFAULT_BAR_INTERVAL_MS
+  const barIntervalMs = init?.barIntervalMs ?? DEFAULT_BAR_INTERVAL_MS
   if (!Number.isFinite(barIntervalMs) || barIntervalMs <= 0) {
     throw new KLineChartError(
       'REPLAY_CONFIG_INVALID',

@@ -213,7 +213,7 @@ export class MarkerManager {
    * @returns 标记数组
    */
   getAllMarkers(): MarkerEntity[] {
-    return Array.from(this.markers.values())
+    return [...this.markers.values()]
   }
 
   // ============ 自定义标记管理方法 ============
@@ -247,7 +247,7 @@ export class MarkerManager {
    * 获取所有自定义标记
    */
   getCustomMarkers(): CustomMarkerEntity[] {
-    return Array.from(this.customMarkers.values())
+    return [...this.customMarkers.values()]
   }
 
   /**

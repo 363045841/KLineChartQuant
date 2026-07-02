@@ -2,15 +2,16 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../..
 import { RENDERER_PRIORITY } from '../../../plugin'
 import { resolveThemeColors } from '../../../tokens'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
+import { calcMOMData } from '../../indicators/calculators'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import type { IndicatorScheduler, MOMSchedulerConfig } from '../../indicators/scheduler'
 import type { MOMRenderState } from '../../indicators/state/momState'
 import { createMOMStateKey } from '../../indicators/state/momState'
 import { EMPTY_MOM_STATE } from '../../indicators/state/momState'
 import { createPaddedSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, MOMSchedulerConfig } from '../../indicators/scheduler'
+
 import { createMomScaleRendererPlugin } from './scale/mom_scale'
-import { calcMOMData } from '../../indicators/calculators'
 import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 type LinePoint = { x: number; y: number }

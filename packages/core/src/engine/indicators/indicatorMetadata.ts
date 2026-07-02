@@ -7,8 +7,9 @@
 
 import { KLineChartError } from '../../errors'
 import type { PluginHost, RendererPluginWithHost } from '../../plugin'
-import type { IndicatorConfigSnapshot, IndicatorSeriesBundle } from './workerProtocol'
 import type { KLineData } from '../../types/price'
+
+import type { IndicatorConfigSnapshot, IndicatorSeriesBundle } from './workerProtocol'
 
 export type IndicatorId = string
 

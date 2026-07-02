@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { IndicatorRegistry } from '../indicatorRegistry'
+
 import { clearRegisteredIndicatorDefinitionsForTest } from '../indicatorDefinitionRegistry'
 import type { IndicatorMetadata } from '../indicatorMetadata'
+import { IndicatorRegistry } from '../indicatorRegistry'
 
 beforeEach(() => {
   clearRegisteredIndicatorDefinitionsForTest()

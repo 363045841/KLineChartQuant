@@ -13,6 +13,7 @@
  */
 
 import { describe, bench } from 'vitest'
+
 import { createOrderBookState } from '../components/orderBookHeatmap/createOrderBookState'
 import type { OrderBookDelta } from '../components/orderBookHeatmap/types'
 

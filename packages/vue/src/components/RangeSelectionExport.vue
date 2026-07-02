@@ -3,15 +3,15 @@
     <input
       class="range-input"
       :value="startDate"
-      @input="$emit('update:startDate', ($event.target as HTMLInputElement).value)"
       :placeholder="startLabel"
+      @input="$emit('update:startDate', ($event.target as HTMLInputElement).value)"
     />
     <span class="range-sep">~</span>
     <input
       class="range-input"
       :value="endDate"
-      @input="$emit('update:endDate', ($event.target as HTMLInputElement).value)"
       :placeholder="endLabel"
+      @input="$emit('update:endDate', ($event.target as HTMLInputElement).value)"
     />
     <span class="range-count">共 {{ count }} 条</span>
     <button type="button" class="toolbar-btn" title="批量设置" @click="$emit('batchSetting')">

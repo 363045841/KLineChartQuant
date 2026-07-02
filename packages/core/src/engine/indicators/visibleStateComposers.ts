@@ -406,8 +406,8 @@ function calcPointArrayExtremes<T extends object>(
   if (series.length === 0 || range.start >= series.length) {
     return { min: Infinity, max: -Infinity }
   }
-  let min = Infinity
-  let max = -Infinity
+  const min = Infinity
+  const max = -Infinity
   const end = Math.min(range.end, series.length)
   switch (fields.length) {
     case 1:

@@ -2,11 +2,7 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../..
 import { RENDERER_PRIORITY } from '../../../plugin'
 import { resolveThemeColors } from '../../../tokens'
 import type { KLineData } from '../../../types/price'
-import type { SuperTrendRenderState } from '../../indicators/state/supertrendState'
-import {
-  createSuperTrendStateKey,
-  EMPTY_SUPERTREND_STATE,
-} from '../../indicators/state/supertrendState'
+import { calcSuperTrendData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import {
   resolveStateKey,
@@ -14,7 +10,11 @@ import {
   type GetTitleInfoFn,
 } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, SuperTrendSchedulerConfig } from '../../indicators/scheduler'
-import { calcSuperTrendData } from '../../indicators/calculators'
+import type { SuperTrendRenderState } from '../../indicators/state/supertrendState'
+import {
+  createSuperTrendStateKey,
+  EMPTY_SUPERTREND_STATE,
+} from '../../indicators/state/supertrendState'
 import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 
 interface SuperTrendRendererOptions {

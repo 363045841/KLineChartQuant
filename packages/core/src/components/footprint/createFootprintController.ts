@@ -25,8 +25,9 @@
  * Dispose-guard pattern mirrors `createIndicatorSelectorController.ts`.
  */
 
-import { createSignal, type Signal } from '../../reactivity'
 import { KLineChartError } from '../../errors'
+import { createSignal, type Signal } from '../../reactivity'
+
 import {
   classifyExplicit,
   classifyLeeReady,

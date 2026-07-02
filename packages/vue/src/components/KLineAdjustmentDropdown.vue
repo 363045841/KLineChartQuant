@@ -10,8 +10,9 @@
 </template>
 
 <script setup lang="ts">
-  import Dropdown from './Dropdown.vue'
   import type { AdjustType } from '@363045841yyt/klinechart-core/semantic'
+
+  import Dropdown from './Dropdown.vue'
 
   export type KLineAdjustment = AdjustType
 

@@ -17,11 +17,12 @@
  * snapshot / delta counts so adapters can use it as a render trigger.
  */
 
-import { createSignal, type Signal } from '../../reactivity'
 import { KLineChartError } from '../../errors'
+import { createSignal, type Signal } from '../../reactivity'
+
+import { createOrderBookState } from './createOrderBookState'
 import { createDeltaArchive } from './deltaArchive'
 import { createLogColorScale } from './logColorScale'
-import { createOrderBookState } from './createOrderBookState'
 import { createSnapshotRing } from './snapshotRing'
 import type {
   BookSnapshot,
@@ -54,7 +55,7 @@ export function createHeatmapController(
 
   let book: OrderBookState = createOrderBookState({ tickSize: config.tickSize })
   let ring: SnapshotRing = createSnapshotRing(config.snapshotRingCapacity)
-  let archive: DeltaArchive = createDeltaArchive({
+  const archive: DeltaArchive = createDeltaArchive({
     maxSize: config.deltaArchiveMaxSize,
   })
   const colorScale: LogColorScale = createLogColorScale(

@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest'
+
 import { createFootprintController } from '../createFootprintController'
 import type { FootprintController, FootprintConfig } from '../types'
 

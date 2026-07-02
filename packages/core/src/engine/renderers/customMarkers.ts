@@ -1,9 +1,9 @@
 import type { RendererPlugin, RenderContext, MarkerManagerLike } from '../../plugin'
 import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../plugin'
-import type { KLineData } from '../../types/price'
-import type { CustomMarkerEntity, CustomMarkerShape } from '../marker/registry'
 import { drawShape, drawLabel, hitTestShape } from '../../semantic/drawShape'
+import type { KLineData } from '../../types/price'
 import { roundToPhysicalPixel } from '../draw/pixelAlign'
+import type { CustomMarkerEntity, CustomMarkerShape } from '../marker/registry'
 
 /** 默认标记尺寸（相对于 K 线宽度的缩放因子） */
 const DEFAULT_SIZE_SCALE = 1.2

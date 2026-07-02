@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+
 import { createYAxisRendererPlugin } from '@/core/renderers/yAxis'
 import type { RenderContext, PaneInfo, YAxisTick } from '@/plugin'
 

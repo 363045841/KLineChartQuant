@@ -269,7 +269,7 @@ export function createRangeBars(): ChartTypeTransform<RangeBarsConfig> {
       activeConfig = config
       resetState()
       for (const bar of input) consumeBar(bar)
-      const out = state.closed.slice()
+      const out = [...state.closed]
       if (state.open !== null) {
         // The trailing in-progress bar's "close" is its frontier — the
         // direction of last accumulation. We pick high for "up" if

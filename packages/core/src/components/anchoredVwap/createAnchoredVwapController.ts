@@ -22,6 +22,7 @@
  */
 
 import { createSignal, type Signal } from '../../reactivity'
+
 import { computeAnchoredVwap } from './computeAnchoredVwap'
 import type {
   ActiveAnchor,
@@ -65,7 +66,7 @@ export function createAnchoredVwapController(
   // Defensive copy: the caller may reuse the array they pass us. We
   // capture a snapshot so `appendBar` can extend it without surprising
   // the caller.
-  let bars: AVWAPBar[] = opts?.initialBars ? opts.initialBars.slice() : []
+  let bars: AVWAPBar[] = opts?.initialBars ? [...opts.initialBars] : []
   const anchorStates = new Map<string, AnchorState>()
 
   // -------------------------------------------------------------------
@@ -86,7 +87,7 @@ export function createAnchoredVwapController(
         // Snapshot the series so consumers see an immutable
         // view; future `appendBar` mutations on `a.series` will
         // only be observed by the next `publish`.
-        series: a.series.slice(),
+        series: [...a.series],
       })
     }
     anchors.set(next)
@@ -149,7 +150,7 @@ export function createAnchoredVwapController(
     state.sumVwp = sumVwp
     state.sumVol = sumVol
     state.sumSqDev = sumSqDev
-    state.series = series.slice()
+    state.series = [...series]
   }
 
   /**
@@ -224,7 +225,7 @@ export function createAnchoredVwapController(
   // -------------------------------------------------------------------
 
   function setBars(nextBars: ReadonlyArray<AVWAPBar>): void {
-    bars = nextBars.slice()
+    bars = [...nextBars]
     for (const state of anchorStates.values()) {
       recomputeAnchor(state)
     }

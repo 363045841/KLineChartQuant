@@ -1,7 +1,7 @@
 import type { RendererPlugin, RenderContext } from '../../plugin'
 import { RENDERER_PRIORITY } from '../../plugin'
-import type { KLineData } from '../../types/price'
 import { resolveThemeColors } from '../../tokens'
+import type { KLineData } from '../../types/price'
 
 function getLastPriceInfo(context: RenderContext) {
   const { pane, data } = context

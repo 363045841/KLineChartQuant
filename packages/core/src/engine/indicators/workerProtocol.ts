@@ -4,6 +4,7 @@
  */
 
 import type { KLineData } from '../../types/price'
+
 import type {
   MAFlags,
   BOLLPoint,

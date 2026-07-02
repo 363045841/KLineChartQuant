@@ -1,5 +1,7 @@
-import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'node:path'
+
+import { app, BrowserWindow, shell } from 'electron'
+
 import { registerIpcHandlers } from './ipc-handlers'
 
 let mainWindow: BrowserWindow | null = null

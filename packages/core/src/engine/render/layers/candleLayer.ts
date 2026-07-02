@@ -1,6 +1,6 @@
+import type { RenderContext } from '../../../plugin'
 import { createLayerFromPlugin } from '../../../scene/createLayerFromPlugin'
 import type { Layer } from '../../../scene/types'
-import type { RenderContext } from '../../../plugin'
 import { createCandleRenderer } from '../../renderers/candle'
 
 export function createCandleLayer(getContext: () => RenderContext | null): Layer {

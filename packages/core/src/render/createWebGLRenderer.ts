@@ -1,4 +1,6 @@
-import type { SurfaceBackend, SurfaceRegion } from './SurfaceBackend'
+import { CandleWebGLSurface, LineWebGLSurface } from '../engine/renderers/webgl/candleSurface'
+import { SharedWebGLSurface } from '../engine/renderers/webgl/sharedWebGLSurface'
+
 import type {
   Renderer,
   RendererCapabilities,
@@ -10,8 +12,7 @@ import type {
   DrawLinesParams,
   DispatchComputeParams,
 } from './Renderer'
-import { SharedWebGLSurface } from '../engine/renderers/webgl/sharedWebGLSurface'
-import { CandleWebGLSurface, LineWebGLSurface } from '../engine/renderers/webgl/candleSurface'
+import type { SurfaceBackend, SurfaceRegion } from './SurfaceBackend'
 
 type WebGLPipelineDescriptor = {
   type: 'candle' | 'line' | 'fill'

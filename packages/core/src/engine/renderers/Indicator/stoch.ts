@@ -1,16 +1,18 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import { resolveThemeColors } from '../../../tokens'
-import { createDashedLineRenderer } from './shared/dashedLines'
-import type { STOCHRenderState } from '../../indicators/state/stochState'
-import { createSTOCHStateKey, EMPTY_STOCH_STATE } from '../../indicators/state/stochState'
+import type { KLineData } from '../../../types/price'
+import { calcSTOCHData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { createFixedRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, STOCHSchedulerConfig } from '../../indicators/scheduler'
+import type { STOCHRenderState } from '../../indicators/state/stochState'
+import { createSTOCHStateKey, EMPTY_STOCH_STATE } from '../../indicators/state/stochState'
+import { createFixedRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
+
 import { createStochScaleRendererPlugin } from './scale/stoch_scale'
-import { calcSTOCHData } from '../../indicators/calculators'
-import type { KLineData } from '../../../types/price'
+import { createDashedLineRenderer } from './shared/dashedLines'
+
 
 type LinePoint = { x: number; y: number }
 

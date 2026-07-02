@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+
 import { findMonthBoundaries, findDayBoundaries } from '../dateFormat'
 
 function clamp(n: number, min: number, max: number): number {

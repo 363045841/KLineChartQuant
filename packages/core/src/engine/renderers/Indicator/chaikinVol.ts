@@ -1,16 +1,17 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
+import { calcChaikinVolData } from '../../indicators/calculators'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import type { IndicatorScheduler, ChaikinVolSchedulerConfig } from '../../indicators/scheduler'
 import type { ChaikinVolRenderState } from '../../indicators/state/chaikinVolState'
 import {
   createChaikinVolStateKey,
   EMPTY_CHAIKIN_VOL_STATE,
 } from '../../indicators/state/chaikinVolState'
-import { createSingleLineTitleInfo } from './shared/titleInfo'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
-import type { IndicatorScheduler, ChaikinVolSchedulerConfig } from '../../indicators/scheduler'
-import { calcChaikinVolData } from '../../indicators/calculators'
+
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 const CHAIKIN_VOL_COLOR = '#f59e0b'
 

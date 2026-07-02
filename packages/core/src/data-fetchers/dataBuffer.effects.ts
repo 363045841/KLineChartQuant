@@ -1,7 +1,8 @@
 import { Context, Effect, pipe, Schedule } from 'effect'
 import type { Effect as EffectType } from 'effect/Effect'
-import { KLineChartError } from '../errors'
+
 import type { KLineData, SymbolSpec } from '../controllers/types'
+import { KLineChartError } from '../errors'
 import type { TimeShareData } from '../types/price'
 
 // ── KLine fetch service tag ──

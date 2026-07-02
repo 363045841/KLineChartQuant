@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest'
+
 import { calcZonesData } from '../calculators'
-import type { KLineData } from '@/types/price'
+
 import { empty, pureUptrend, constantPrice, sideways } from './__fixtures__/synthetic'
+
+import type { KLineData } from '@/types/price'
 
 function buildGapFixture(): KLineData[] {
   const result: KLineData[] = []

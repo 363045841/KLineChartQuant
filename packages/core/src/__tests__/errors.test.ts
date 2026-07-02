@@ -12,11 +12,11 @@
 
 import { describe, it, expect } from 'vitest'
 
+import { computeAnchoredVwap } from '../components/anchoredVwap/computeAnchoredVwap'
+import { createFootprintController } from '../components/footprint/createFootprintController'
 import { KLineChartError, isKLineChartError, type KLineChartErrorCode } from '../errors'
 import { createPriceScale } from '../scale/createPriceScale'
 import { createTimeScale } from '../scale/createTimeScale'
-import { createFootprintController } from '../components/footprint/createFootprintController'
-import { computeAnchoredVwap } from '../components/anchoredVwap/computeAnchoredVwap'
 
 describe('KLineChartError — base class', () => {
   it('extends Error and pins the name', () => {

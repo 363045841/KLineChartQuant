@@ -1,5 +1,5 @@
-import type { Pane } from '../layout/pane'
 import type { ChartDataManager } from '../data/chartDataManager'
+import type { Pane } from '../layout/pane'
 import type { VisibleRange } from '../layout/pane'
 
 export interface ChartModeHandler {

@@ -1,15 +1,19 @@
 import { KLineChartError } from '../errors'
-import type { SubIndicatorType } from './renderers/Indicator'
-import { createSignal, type Signal } from '../reactivity/signal'
-import { createSubIndicatorRenderer } from './renderers/Indicator'
-import { createPaneTitleRendererPlugin } from './renderers/paneTitle'
-import { createIndicatorScaleRendererPlugin } from './renderers/Indicator/scale/indicator_scale'
-import { findIndicator } from './renderers/Indicator/indicatorCatalog'
-import type { IndicatorScheduler } from './indicators/scheduler'
 import type { RendererPlugin, RendererPluginWithHost, RenderContext } from '../plugin'
-import type { PaneSpec } from './chartTypes'
-import type { Layer } from '../scene/types'
+import { createSignal, type Signal } from '../reactivity/signal'
 import { createLayerFromPlugin } from '../scene/createLayerFromPlugin'
+import type { Layer } from '../scene/types'
+
+import type { PaneSpec } from './chartTypes'
+import type { IndicatorScheduler } from './indicators/scheduler'
+import type { SubIndicatorType } from './renderers/Indicator'
+import { createSubIndicatorRenderer } from './renderers/Indicator'
+import { findIndicator } from './renderers/Indicator/indicatorCatalog'
+import { createIndicatorScaleRendererPlugin } from './renderers/Indicator/scale/indicator_scale'
+import { createPaneTitleRendererPlugin } from './renderers/paneTitle'
+
+
+
 
 export interface SubPaneEntry {
   paneId: string
@@ -226,11 +230,11 @@ export class SubPaneManager {
   }
 
   getAll(): SubPaneEntry[] {
-    return Array.from(this.entries.values())
+    return [...this.entries.values()]
   }
 
   getPaneIds(): string[] {
-    return Array.from(this.entries.keys())
+    return [...this.entries.keys()]
   }
 
   clear(ctx: SubPaneContext): void {

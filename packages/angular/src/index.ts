@@ -6,6 +6,22 @@
  * own `signal()` so OnPush components refresh when controllers mutate state.
  */
 
+import type {
+  ChartController,
+  ChartControllerFactory,
+  ChartMountOptions,
+  ChartViewport,
+  DataFetcher,
+  DrawingControllerCallbacks,
+  IndicatorInstance,
+  InteractionSnapshot,
+  KLineData,
+  Signal as CoreSignal,
+  SymbolSpec,
+} from '@363045841yyt/klinechart-core'
+import { createChartController } from '@363045841yyt/klinechart-core'
+import { resolveSettings, type ChartSettings } from '@363045841yyt/klinechart-core/config'
+import { isPlatformBrowser } from '@angular/common'
 import {
   type AfterViewInit,
   ChangeDetectionStrategy,
@@ -24,22 +40,6 @@ import {
   inject,
   signal,
 } from '@angular/core'
-import { isPlatformBrowser } from '@angular/common'
-import type {
-  ChartController,
-  ChartControllerFactory,
-  ChartMountOptions,
-  ChartViewport,
-  DataFetcher,
-  DrawingControllerCallbacks,
-  IndicatorInstance,
-  InteractionSnapshot,
-  KLineData,
-  Signal as CoreSignal,
-  SymbolSpec,
-} from '@363045841yyt/klinechart-core'
-import { createChartController } from '@363045841yyt/klinechart-core'
-import { resolveSettings, type ChartSettings } from '@363045841yyt/klinechart-core/config'
 
 export type {
   ChartController,

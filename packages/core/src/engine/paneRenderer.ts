@@ -1,7 +1,7 @@
+import type { PaneRendererDom } from './chartTypes'
 import { CandleWebGLSurface, LineWebGLSurface } from './renderers/webgl/candleSurface'
 import type { SharedWebGLSurface, WebGLRegion } from './renderers/webgl/sharedWebGLSurface'
 
-import type { PaneRendererDom } from './chartTypes'
 export type { PaneRendererDom }
 
 export type PaneRendererContexts = {

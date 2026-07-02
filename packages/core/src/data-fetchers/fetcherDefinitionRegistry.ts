@@ -1,4 +1,5 @@
 import { KLineChartError } from '../errors'
+
 import type {
   DataFetcherDefinitionConfig,
   DataFetcherDefinition,
@@ -48,11 +49,11 @@ export function getRegisteredFetcher(name: string): DataFetcherDefinition | unde
 }
 
 export function getRegisteredFetcherNames(): string[] {
-  return Array.from(definitions.keys())
+  return [...definitions.keys()]
 }
 
 function getRegisteredFetchers(): DataFetcherDefinition[] {
-  return Array.from(definitions.values())
+  return [...definitions.values()]
 }
 
 function fetcherHasCapability(name: string, capability: string): boolean {

@@ -1,3 +1,4 @@
+import type { SemanticChartConfig, DataFetcher } from '@363045841yyt/klinechart-core/semantic'
 import {
   createElement,
   forwardRef,
@@ -7,7 +8,6 @@ import {
   type CSSProperties,
   type ForwardedRef,
 } from 'react'
-import type { SemanticChartConfig, DataFetcher } from '@363045841yyt/klinechart-core/semantic'
 
 declare global {
   interface HTMLElement {

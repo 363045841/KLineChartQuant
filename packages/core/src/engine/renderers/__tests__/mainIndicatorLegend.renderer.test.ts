@@ -1,12 +1,12 @@
 // @ts-nocheck - Test file with intentional type relaxations for mocking
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+
 import { createMainIndicatorLegendRendererPlugin } from '../Indicator/mainIndicatorLegend'
-import { MA_STATE_KEY, type MARenderState } from '@/core/indicators/state/maState'
+
 import { BOLL_STATE_KEY } from '@/core/indicators/state/bollState'
-import { EXPMA_STATE_KEY } from '@/core/indicators/state/expmaState'
 import { ENE_STATE_KEY } from '@/core/indicators/state/eneState'
-import type { PluginHost, RenderContext, RendererPluginWithHost } from '@/plugin'
-import type { KLineData } from '@/types/price'
+import { EXPMA_STATE_KEY } from '@/core/indicators/state/expmaState'
+import { MA_STATE_KEY, type MARenderState } from '@/core/indicators/state/maState'
 import type { Pane } from '@/core/layout/pane'
 import type {
   GetTitleInfoFn,
@@ -14,6 +14,8 @@ import type {
   TitleValueItem,
 } from '@/engine/indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '@/engine/indicators/indicatorScheduler'
+import type { PluginHost, RenderContext, RendererPluginWithHost } from '@/plugin'
+import type { KLineData } from '@/types/price'
 
 // Type helper for tests - we know these methods exist on the implementation
 interface TestableLegendRenderer extends RendererPluginWithHost {

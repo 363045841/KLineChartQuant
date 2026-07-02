@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
-import { createLayerFromPlugin } from '../createLayerFromPlugin'
+
 import { RENDERER_PRIORITY } from '../../plugin'
 import type { RendererPlugin, RenderContext } from '../../plugin'
+import { createLayerFromPlugin } from '../createLayerFromPlugin'
 import type { PaintContext } from '../types'
 
 // ---------------------------------------------------------------------------

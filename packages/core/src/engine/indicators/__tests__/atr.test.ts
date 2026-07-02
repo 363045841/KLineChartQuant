@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
+
 import { calcATRData } from '../calculators'
+
+import { ATR_GOLDEN, assertSeriesClose } from './__fixtures__/golden'
 import {
   empty,
   singleBar,
@@ -11,7 +14,6 @@ import {
   spikeAtBar19,
   gapUp,
 } from './__fixtures__/synthetic'
-import { ATR_GOLDEN, assertSeriesClose } from './__fixtures__/golden'
 import { assertNonNegative, assertFiniteOrUndefined } from './_propertyAssertions'
 
 describe('calcATRData — Wilder ATR(period)', () => {

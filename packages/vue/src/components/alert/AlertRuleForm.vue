@@ -233,13 +233,13 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, reactive } from 'vue'
   import type {
     AlertPredicate,
     AlertRule,
     CrossDirection,
     IndicatorCrossPairDirection,
   } from '@363045841yyt/klinechart-core'
+  import { ref, computed, reactive } from 'vue'
 
   const props = defineProps<{ rule?: AlertRule }>()
 

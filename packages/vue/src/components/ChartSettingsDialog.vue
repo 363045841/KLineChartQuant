@@ -24,7 +24,7 @@
             <span>{{ item.label }}</span>
             <template v-if="item.type === 'boolean'">
               <label class="md-switch">
-                <input type="checkbox" v-model="settings[item.key]" />
+                <input v-model="settings[item.key]" type="checkbox" />
                 <span class="md-switch-slider"></span>
               </label>
             </template>
@@ -49,7 +49,7 @@
           <span>{{ item.label }}</span>
           <template v-if="item.type === 'boolean'">
             <label class="md-switch">
-              <input type="checkbox" v-model="settings[item.key]" />
+              <input v-model="settings[item.key]" type="checkbox" />
               <span class="md-switch-slider"></span>
             </label>
           </template>
@@ -88,7 +88,7 @@
             <span>{{ item.label }}</span>
             <template v-if="item.type === 'boolean'">
               <label class="md-switch">
-                <input type="checkbox" v-model="settings[item.key]" />
+                <input v-model="settings[item.key]" type="checkbox" />
                 <span class="md-switch-slider"></span>
               </label>
             </template>
@@ -158,14 +158,15 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, watch } from 'vue'
+  import { normalizeColorPresetSettings } from '@363045841yyt/klinechart-core'
   import {
     DEFAULT_SETTINGS,
     SETTINGS_STORAGE_KEY,
     type ChartSettings,
     type SettingItem,
   } from '@363045841yyt/klinechart-core/config'
-  import { normalizeColorPresetSettings } from '@363045841yyt/klinechart-core'
+  import { ref, computed, watch } from 'vue'
+
   import BaseModal from './BaseModal.vue'
   import ColorPresetPanel from './ColorPresetPanel.vue'
   import Dropdown from './Dropdown.vue'

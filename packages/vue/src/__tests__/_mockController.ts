@@ -9,7 +9,6 @@
  * that is shape-compatible with `packages/core/src/reactivity/signal.ts`.
  */
 
-import type { Signal } from '@363045841yyt/klinechart-core/reactivity'
 import type {
   ChartController,
   ChartMountOptions,
@@ -26,6 +25,7 @@ import type {
   SymbolSpec,
   SymbolInfo,
 } from '@363045841yyt/klinechart-core'
+import type { Signal } from '@363045841yyt/klinechart-core/reactivity'
 
 // ---------------------------------------------------------------------------
 // Inline mini-signal �?Object.is-equality, sync notify. Drop-in compatible

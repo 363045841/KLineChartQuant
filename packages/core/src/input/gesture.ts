@@ -31,8 +31,8 @@
  * history, pinch to zoom, swipe to flick-scroll, tap to inspect).
  */
 
-import { createSignal, type Signal } from '../reactivity'
 import { KLineChartError } from '../errors'
+import { createSignal, type Signal } from '../reactivity'
 
 // ---------------------------------------------------------------------------
 // Event surface

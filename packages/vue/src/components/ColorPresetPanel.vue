@@ -32,7 +32,6 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed } from 'vue'
   import {
     COLOR_PRESET_ITEMS,
     darkTheme,
@@ -42,6 +41,7 @@
     type ColorPresetThemeName,
     type ColorPresetSettings,
   } from '@363045841yyt/klinechart-core'
+  import { ref, computed } from 'vue'
 
   const props = defineProps<{
     colorPresetSettings: ColorPresetSettings | undefined

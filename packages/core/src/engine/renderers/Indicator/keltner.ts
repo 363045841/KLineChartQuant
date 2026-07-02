@@ -1,8 +1,7 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { KLineData } from '../../../types/price'
-import type { KeltnerRenderState } from '../../indicators/state/keltnerState'
-import { createKeltnerStateKey, EMPTY_KELTNER_STATE } from '../../indicators/state/keltnerState'
+import { calcKeltnerData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import {
   resolveStateKey,
@@ -10,7 +9,8 @@ import {
   type GetTitleInfoFn,
 } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, KeltnerSchedulerConfig } from '../../indicators/scheduler'
-import { calcKeltnerData } from '../../indicators/calculators'
+import type { KeltnerRenderState } from '../../indicators/state/keltnerState'
+import { createKeltnerStateKey, EMPTY_KELTNER_STATE } from '../../indicators/state/keltnerState'
 import { createBandVisibleStateComposer } from '../../indicators/visibleStateComposers'
 
 const KELTNER_UPPER_COLOR = '#7c3aed'

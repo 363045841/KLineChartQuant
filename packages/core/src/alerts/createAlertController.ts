@@ -27,6 +27,7 @@
  */
 
 import { createSignal, type Signal } from '../reactivity/signal'
+
 import { evaluatePredicate } from './predicates'
 import type {
   AlertController,
@@ -80,7 +81,7 @@ export function createAlertController(opts?: AlertControllerOptions): AlertContr
     i: number,
     next: AlertRule,
   ): ReadonlyArray<AlertRule> {
-    const copy = arr.slice()
+    const copy = [...arr]
     copy[i] = next
     return copy
   }
@@ -105,7 +106,7 @@ export function createAlertController(opts?: AlertControllerOptions): AlertContr
   function removeRule(id: string): boolean {
     const idx = findIndex(id)
     if (idx < 0) return false
-    const copy = rules.peek().slice()
+    const copy = [...rules.peek()]
     copy.splice(idx, 1)
     rules.set(copy)
     runtime.delete(id)
@@ -233,7 +234,7 @@ export function createAlertController(opts?: AlertControllerOptions): AlertContr
     }
 
     if (toDisable.length > 0) {
-      const copy = rules.peek().slice()
+      const copy = [...rules.peek()]
       for (const i of toDisable) {
         const r = copy[i]
         if (r !== undefined) copy[i] = { ...r, enabled: false }

@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
+
 import { calcHVData, calcParkinsonData, calcChaikinVolData } from '../calculators'
+
 import { empty, constantPrice, pureUptrend, sideways, spikeAtBar19 } from './__fixtures__/synthetic'
 
 describe('calcHVData — Historical Volatility', () => {

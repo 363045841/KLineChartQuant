@@ -1,12 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import type { KLineData } from '@/types/price'
-import {
-  SharedKLineBuffer,
-  getClosesView,
-  getHighsLowsViews,
-  getOHLCViews,
-  type KLineSoALayout,
-} from '../soa'
+
 import {
   calcBOLLData,
   calcEXPMAData,
@@ -29,6 +22,15 @@ import type {
   KSTPoint,
   MACDPoint,
 } from '../calculators'
+import {
+  SharedKLineBuffer,
+  getClosesView,
+  getHighsLowsViews,
+  getOHLCViews,
+  type KLineSoALayout,
+} from '../soa'
+
+import type { KLineData } from '@/types/price'
 
 // SoA wrapper functions (test-only — convert SoA → AoS before computing)
 function calcBOLLDataSoA(layout: KLineSoALayout, period: number, multiplier: number): BOLLPoint[] {

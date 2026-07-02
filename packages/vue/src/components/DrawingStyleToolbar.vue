@@ -51,8 +51,9 @@
 </template>
 
 <script setup lang="ts">
-  import { onMounted, onUnmounted } from 'vue'
   import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
+  import { onMounted, onUnmounted } from 'vue'
+
   import Dropdown from './Dropdown.vue'
   import CanvasToolbar from './common/CanvasToolbar.vue'
 

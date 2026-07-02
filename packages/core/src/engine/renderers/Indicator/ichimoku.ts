@@ -2,8 +2,7 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../..
 import { RENDERER_PRIORITY } from '../../../plugin'
 import { resolveThemeColors } from '../../../tokens'
 import type { KLineData } from '../../../types/price'
-import type { IchimokuRenderState } from '../../indicators/state/ichimokuState'
-import { createIchimokuStateKey, EMPTY_ICHIMOKU_STATE } from '../../indicators/state/ichimokuState'
+import { calcIchimokuData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import {
   resolveStateKey,
@@ -12,7 +11,8 @@ import {
   type GetTitleInfoFn,
 } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, IchimokuSchedulerConfig } from '../../indicators/scheduler'
-import { calcIchimokuData } from '../../indicators/calculators'
+import type { IchimokuRenderState } from '../../indicators/state/ichimokuState'
+import { createIchimokuStateKey, EMPTY_ICHIMOKU_STATE } from '../../indicators/state/ichimokuState'
 import { createIchimokuVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { getPhysicalKLineConfig } from '../../utils/klineConfig'
 

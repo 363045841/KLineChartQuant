@@ -1,12 +1,13 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import type { PVTRenderState } from '../../indicators/state/pvtState'
-import { createPVTStateKey, EMPTY_PVT_STATE } from '../../indicators/state/pvtState'
+import { calcPVTData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, PVTSchedulerConfig } from '../../indicators/scheduler'
-import { calcPVTData } from '../../indicators/calculators'
+import type { PVTRenderState } from '../../indicators/state/pvtState'
+import { createPVTStateKey, EMPTY_PVT_STATE } from '../../indicators/state/pvtState'
+import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+
 import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 const PVT_COLOR = '#a855f7'

@@ -1,8 +1,9 @@
-import { Pane, UpdateLevel } from './pane'
 import type { PaneRole } from '../../plugin'
+import type { ChartDom, PaneSpec, Viewport } from '../chartTypes'
 import { PaneRenderer } from '../paneRenderer'
 import type { SharedWebGLSurface } from '../renderers/webgl/sharedWebGLSurface'
-import type { ChartDom, PaneSpec, Viewport } from '../chartTypes'
+
+import { Pane, UpdateLevel } from './pane'
 
 export interface PaneLayoutDependencies {
   getDom: () => ChartDom

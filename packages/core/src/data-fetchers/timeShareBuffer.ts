@@ -1,12 +1,16 @@
-import { createSignal, type Signal } from '../reactivity/signal'
-import type { SymbolSpec } from '../controllers/types'
-import type { TimeShareData } from '../types/price'
-import type { TimeShareFetcherFn } from './types'
-import type { DataBufferLike, DataWindow, DataChange } from './dataBufferTypes'
-import { routerTimeShareFetcher } from './router'
 import { Effect, Fiber, pipe } from 'effect'
 import type { Effect as EffectType } from 'effect/Effect'
+
+import type { SymbolSpec } from '../controllers/types'
+import { createSignal, type Signal } from '../reactivity/signal'
+import type { TimeShareData } from '../types/price'
+
 import { fetchTimeShare, TimeShareFetchService } from './dataBuffer.effects'
+import type { DataBufferLike, DataWindow, DataChange } from './dataBufferTypes'
+import { routerTimeShareFetcher } from './router'
+import type { TimeShareFetcherFn } from './types'
+
+
 
 export class TimeShareBuffer implements DataBufferLike {
   // 当前持有的分时数据数组（内部可变副本）

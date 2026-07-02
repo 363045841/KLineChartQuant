@@ -1,13 +1,14 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
-import { createSingleLineTitleInfo } from './shared/titleInfo'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import type { TEMARenderState } from '../../indicators/state/temaState'
-import { createTEMAStateKey, EMPTY_TEMA_STATE } from '../../indicators/state/temaState'
+import { calcTEMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, TEMASchedulerConfig } from '../../indicators/scheduler'
-import { calcTEMAData } from '../../indicators/calculators'
+import type { TEMARenderState } from '../../indicators/state/temaState'
+import { createTEMAStateKey, EMPTY_TEMA_STATE } from '../../indicators/state/temaState'
+import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 const TEMA_COLOR = '#d946ef'
 

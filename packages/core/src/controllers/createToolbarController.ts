@@ -21,6 +21,7 @@
  */
 
 import { createSignal, type Signal } from '../reactivity'
+
 import type { ToolbarController, ToolDefinition, ToolId } from './types'
 
 // ---------------------------------------------------------------------------

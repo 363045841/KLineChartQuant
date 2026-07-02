@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+
 import { createHeikinAshi } from '../heikinAshi'
 import type { OHLCV } from '../types'
 
@@ -77,7 +78,7 @@ describe('heikinAshi', () => {
     const batched = haBatch.transform(series, {})
 
     const haInc = createHeikinAshi()
-    const incremental = series.flatMap((b) => Array.from(haInc.appendBar!(b)))
+    const incremental = series.flatMap((b) => [...haInc.appendBar!(b)])
     expect(incremental.length).toBe(batched.length)
     for (let i = 0; i < batched.length; i++) {
       const a = batched[i]!

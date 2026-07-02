@@ -26,13 +26,14 @@
  */
 
 import { KLineChartError } from '../errors'
+
+import { detectRendererTier, isTierAtLeast } from './detectRendererTier'
 import {
   RENDERER_TIER_RANK,
   type DetectRendererTierOptions,
   type RendererTier,
   type RendererTierResult,
 } from './types'
-import { detectRendererTier, isTierAtLeast } from './detectRendererTier'
 
 // ---------------------------------------------------------------------------
 // Public shape

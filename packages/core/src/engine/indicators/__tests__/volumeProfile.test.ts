@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
+
 import { calcVolumeProfileData } from '../calculators'
+
 import { empty, constantPrice, pureUptrend, sideways, spikeAtBar19 } from './__fixtures__/synthetic'
 
 describe('calcVolumeProfileData', () => {

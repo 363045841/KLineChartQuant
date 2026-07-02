@@ -7,10 +7,10 @@ import type {
 import { RENDERER_PRIORITY } from '../../../../plugin'
 import { createIndicatorStateKey } from '../../../../plugin/stateKeys'
 import { resolveThemeColors } from '../../../../tokens'
-import { getFont, setCanvasFont } from '../../../theme/fonts'
-import { calculateValueTickPositions, type ScaleType } from '../../../utils/tickPosition'
 import { drawCrosshairPriceLabel } from '../../../../utils/kLineDraw/axis'
 import { roundToPhysicalPixel, alignToPhysicalPixelCenter } from '../../../draw/pixelAlign'
+import { getFont, setCanvasFont } from '../../../theme/fonts'
+import { calculateValueTickPositions, type ScaleType } from '../../../utils/tickPosition'
 
 interface IndicatorScaleRenderState extends BaseIndicatorState {
   valueMin: number

@@ -47,10 +47,11 @@
 
 <script setup lang="ts">
   import { computed, ref } from 'vue'
-  import KLineLevelDropdown, { type KLineLevel } from './KLineLevelDropdown.vue'
-  import KLineAdjustmentDropdown, { type KLineAdjustment } from './KLineAdjustmentDropdown.vue'
-  import SymbolSelector from './SymbolSelector.vue'
+
   import CompareSymbolSelector from './CompareSymbolSelector.vue'
+  import KLineAdjustmentDropdown, { type KLineAdjustment } from './KLineAdjustmentDropdown.vue'
+  import KLineLevelDropdown, { type KLineLevel } from './KLineLevelDropdown.vue'
+  import SymbolSelector from './SymbolSelector.vue'
   import type { SymbolItem } from './SymbolSelector.vue'
 
   export type { SymbolItem }

@@ -1,10 +1,11 @@
-import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
 import { formatTimestamp } from '@363045841yyt/klinechart-core'
 import type {
   KLineData,
   ChartController,
   DataFetcher,
 } from '@363045841yyt/klinechart-core/controllers'
+import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
+
 import { calcRangeOverlayPixel } from '../../tools/calcRangeOverlayPixel'
 import type { Bounds } from '../../tools/calcRangeOverlayPixel'
 import {

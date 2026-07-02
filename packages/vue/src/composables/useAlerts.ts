@@ -1,10 +1,10 @@
-import { ref, toRef, watch, onScopeDispose, type Ref, type MaybeRefOrGetter } from 'vue'
 import type {
   AlertController,
   AlertEvent,
   AlertRule,
   ChartController,
 } from '@363045841yyt/klinechart-core'
+import { ref, toRef, watch, onScopeDispose, type Ref, type MaybeRefOrGetter } from 'vue'
 
 export function useAlerts(controllerSource: MaybeRefOrGetter<ChartController | null>) {
   const controller = toRef(controllerSource)

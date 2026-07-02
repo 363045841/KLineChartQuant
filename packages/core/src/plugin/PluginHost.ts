@@ -2,6 +2,12 @@
  * 插件宿主 - 核心管理类
  */
 import { KLineChartError } from '../errors'
+
+import { ConfigManager } from './ConfigManager'
+import { EventBus } from './EventBus'
+import { HookSystem } from './HookSystem'
+import { PluginRegistry } from './PluginRegistry'
+import { StateStore } from './StateStore'
 import type {
   Plugin,
   PluginConfig,
@@ -11,11 +17,6 @@ import type {
   PluginLogger,
   HookCallOptions,
 } from './types'
-import { PluginRegistry } from './PluginRegistry'
-import { EventBus } from './EventBus'
-import { HookSystem } from './HookSystem'
-import { ConfigManager } from './ConfigManager'
-import { StateStore } from './StateStore'
 
 export class PluginHostImpl implements PluginHost {
   private registry: PluginRegistry

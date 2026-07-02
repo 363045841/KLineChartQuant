@@ -3,8 +3,9 @@
 </template>
 
 <script setup lang="ts">
-  import KLineChart from '../../vue/src/components/KLineChart.vue'
   import { routerDataFetcher } from '@363045841yyt/klinechart-core/controllers'
+
+  import KLineChart from '../../vue/src/components/KLineChart.vue'
 
   const dataFetcher = routerDataFetcher
 </script>

@@ -4,7 +4,6 @@
  * indicator toggle/update/reorder logic, and bridges signal subscriptions
  * (ctrl.indicators, ctrl.subPanes) to Vue reactive refs.
  */
-import { ref, computed, type Ref } from 'vue'
 import type {
   ChartController,
   PaneSpec,
@@ -13,6 +12,7 @@ import type {
 } from '@363045841yyt/klinechart-core/controllers'
 import { getRegisteredIndicatorDefinition } from '@363045841yyt/klinechart-core/indicators'
 import type { SemanticChartConfig } from '@363045841yyt/klinechart-core/semantic'
+import { ref, computed, type Ref } from 'vue'
 
 interface SubPaneSlot {
   id: string

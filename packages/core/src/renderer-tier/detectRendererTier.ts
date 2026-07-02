@@ -28,6 +28,7 @@
  */
 
 import { KLineChartError } from '../errors'
+
 import {
   RENDERER_TIER_RANK,
   type DetectRendererTierOptions,

@@ -1,8 +1,7 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { KLineData } from '../../../types/price'
-import type { DonchianRenderState } from '../../indicators/state/donchianState'
-import { createDonchianStateKey, EMPTY_DONCHIAN_STATE } from '../../indicators/state/donchianState'
+import { calcDonchianData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import {
   resolveStateKey,
@@ -10,7 +9,8 @@ import {
   type GetTitleInfoFn,
 } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, DonchianSchedulerConfig } from '../../indicators/scheduler'
-import { calcDonchianData } from '../../indicators/calculators'
+import type { DonchianRenderState } from '../../indicators/state/donchianState'
+import { createDonchianStateKey, EMPTY_DONCHIAN_STATE } from '../../indicators/state/donchianState'
 import { createBandVisibleStateComposer } from '../../indicators/visibleStateComposers'
 
 const DONCHIAN_UPPER_COLOR = '#0891b2'

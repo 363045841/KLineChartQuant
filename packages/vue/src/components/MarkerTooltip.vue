@@ -17,12 +17,12 @@
 </template>
 
 <script setup lang="ts">
-  import { computed } from 'vue'
-  import type { ComponentPublicInstance } from 'vue'
   import type {
     MarkerEntity,
     CustomMarkerEntity,
   } from '@363045841yyt/klinechart-core/engine/marker/registry'
+  import { computed } from 'vue'
+  import type { ComponentPublicInstance } from 'vue'
 
   const MARKER_TYPE_LABELS: Record<string, string> = {
     support: '支撑位',

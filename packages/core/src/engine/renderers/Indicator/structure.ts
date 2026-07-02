@@ -1,18 +1,18 @@
-import { resolveThemeColors } from '../../../tokens'
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
+import { resolveThemeColors } from '../../../tokens'
+import type { KLineData } from '../../../types/price'
+import { calcStructureData } from '../../indicators/calculators'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import type { TitleInfo } from '../../indicators/indicatorMetadata'
+import type { IndicatorScheduler, StructureSchedulerConfig } from '../../indicators/scheduler'
 import type { StructureRenderState } from '../../indicators/state/structureState'
 import {
   createStructureStateKey,
   EMPTY_STRUCTURE_STATE,
 } from '../../indicators/state/structureState'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { createFixedUnitVisibleStateComposer } from '../../indicators/visibleStateComposers'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, StructureSchedulerConfig } from '../../indicators/scheduler'
-import { calcStructureData } from '../../indicators/calculators'
-import type { TitleInfo } from '../../indicators/indicatorMetadata'
-import type { KLineData } from '../../../types/price'
 
 const LABEL_FONT = '11px sans-serif'
 

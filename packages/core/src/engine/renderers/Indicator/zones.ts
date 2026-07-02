@@ -1,10 +1,8 @@
-import { resolveThemeColors } from '../../../tokens'
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import type { ZonesRenderState } from '../../indicators/state/zonesState'
-import { createZonesStateKey, EMPTY_ZONES_STATE } from '../../indicators/state/zonesState'
+import { resolveThemeColors } from '../../../tokens'
+import { calcZonesData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { createFixedUnitVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import {
   resolveStateKey,
   type TitleInfo,
@@ -12,7 +10,9 @@ import {
   type GetTitleInfoFn,
 } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, ZonesSchedulerConfig } from '../../indicators/scheduler'
-import { calcZonesData } from '../../indicators/calculators'
+import type { ZonesRenderState } from '../../indicators/state/zonesState'
+import { createZonesStateKey, EMPTY_ZONES_STATE } from '../../indicators/state/zonesState'
+import { createFixedUnitVisibleStateComposer } from '../../indicators/visibleStateComposers'
 
 function getZonesStateKey(host: PluginHost | null, paneId: string): string | null {
   const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')

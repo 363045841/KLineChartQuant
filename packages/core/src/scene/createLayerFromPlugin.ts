@@ -1,5 +1,6 @@
 import { RENDERER_PRIORITY } from '../plugin'
 import type { RendererPlugin, RenderContext } from '../plugin'
+
 import type { Layer, LayerRole, PaintContext, PaneRole } from './types'
 
 export function createLayerFromPlugin(

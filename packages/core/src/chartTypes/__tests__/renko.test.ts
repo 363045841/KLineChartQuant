@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+
 import { createRenko } from '../renko'
 import type { OHLCV } from '../types'
 

@@ -1,15 +1,16 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import { resolveThemeColors } from '../../../tokens'
-import { createDashedLineRenderer } from './shared/dashedLines'
-import type { FASTKRenderState } from '../../indicators/state/fastkState'
-import { createFASTKStateKey, EMPTY_FASTK_STATE } from '../../indicators/state/fastkState'
+import { calcFASTKData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, FASTKSchedulerConfig } from '../../indicators/scheduler'
+import type { FASTKRenderState } from '../../indicators/state/fastkState'
+import { createFASTKStateKey, EMPTY_FASTK_STATE } from '../../indicators/state/fastkState'
+import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+
 import { createFastkScaleRendererPlugin } from './scale/fastk_scale'
-import { calcFASTKData } from '../../indicators/calculators'
+import { createDashedLineRenderer } from './shared/dashedLines'
 import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 type LinePoint = { x: number; y: number }

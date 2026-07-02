@@ -1,9 +1,9 @@
 import type { RendererPlugin, RenderContext } from '../../plugin'
 import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../plugin'
-import { drawCrosshairPriceLabel } from '../../utils/kLineDraw/axis'
 import { resolveThemeColors } from '../../tokens'
-import { getFont, setCanvasFont } from '../theme/fonts'
+import { drawCrosshairPriceLabel } from '../../utils/kLineDraw/axis'
 import { roundToPhysicalPixel } from '../draw/pixelAlign'
+import { getFont, setCanvasFont } from '../theme/fonts'
 import { priceAtYForScaleType, type ScaleType } from '../utils/tickPosition'
 
 export function createLeftYAxisRendererPlugin(options: {

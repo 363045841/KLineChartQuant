@@ -1,5 +1,6 @@
 import { describe, it, expect, afterAll } from 'vitest'
 import { WebSocket } from 'ws'
+
 import { createMcpServer } from '../mcpServer'
 
 const PORT = 9876

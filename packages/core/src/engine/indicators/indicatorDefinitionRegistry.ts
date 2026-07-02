@@ -1,4 +1,7 @@
 import { KLineChartError } from '../../errors'
+import type { PluginHost } from '../../plugin'
+import { createIndicatorStateKey } from '../../plugin/stateKeys'
+
 import type {
   IndicatorMetadata,
   IndicatorCategory,
@@ -9,8 +12,6 @@ import type {
   IndicatorRuntimeDescriptor,
   GetTitleInfoFn,
 } from './indicatorMetadata'
-import type { PluginHost } from '../../plugin'
-import { createIndicatorStateKey } from '../../plugin/stateKeys'
 import { resolveStateKey } from './indicatorMetadata'
 
 export type IndicatorDefinitionConfig<T = unknown> = {
@@ -143,7 +144,7 @@ export function Indicator(config: IndicatorDefinitionConfig) {
 }
 
 export function getRegisteredIndicatorDefinitions(): readonly IndicatorMetadata[] {
-  return Array.from(indicatorDefinitions.values())
+  return [...indicatorDefinitions.values()]
 }
 
 export function getRegisteredIndicatorDefinition(name: string): IndicatorMetadata | undefined {

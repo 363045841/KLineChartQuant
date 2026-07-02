@@ -1,6 +1,8 @@
 // @ts-nocheck - Test file with intentional type relaxations for mocking
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+
 import { createENERendererPlugin } from '../Indicator/ene'
+
 import { ENE_STATE_KEY, type ENERenderState } from '@/core/indicators/state/eneState'
 import type { PluginHost, RenderContext, RendererPluginWithHost } from '@/plugin'
 

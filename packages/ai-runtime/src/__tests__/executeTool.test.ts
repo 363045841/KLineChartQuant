@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
 import type { ChartController, Signal } from '@363045841yyt/klinechart-core'
+import { describe, it, expect, vi } from 'vitest'
+
 import { executeTool } from '../executeTool'
 
 function stubSignal<T>(val: T): Signal<T> {

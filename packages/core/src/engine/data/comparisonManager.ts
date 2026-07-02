@@ -1,5 +1,5 @@
-import { createSignal, type Signal } from '../../reactivity/signal'
 import type { KLineData, SymbolSpec, DataFetcher } from '../../controllers/types'
+import { createSignal, type Signal } from '../../reactivity/signal'
 
 const COMPARISON_PALETTE = [
   '#f59e0b',
@@ -203,7 +203,7 @@ export class ComparisonManager {
   }
 
   private _recomputeLoading(): void {
-    const anyLoading = Array.from(this._hooks.getKLineBufferKeys()).some(
+    const anyLoading = [...this._hooks.getKLineBufferKeys()].some(
       (k) => k.startsWith(BUF_COMPARISON) && this._hooks.getKLineBuffer(k)?.loading.peek(),
     )
     this._loadingSignal.set(anyLoading)

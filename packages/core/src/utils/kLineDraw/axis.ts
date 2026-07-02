@@ -1,6 +1,8 @@
-import type { KLineData } from '../../types/price'
-import { priceToY, yToPrice } from '../priceToY'
 import { alignToPhysicalPixelCenter, roundToPhysicalPixel } from '../../engine/draw/pixelAlign'
+import { getFont, setCanvasFont } from '../../engine/theme/fonts'
+import { resolveThemeColors } from '../../tokens'
+import type { ColorPresetSettings } from '../../tokens'
+import type { KLineData } from '../../types/price'
 import {
   formatYMDShanghai,
   formatTimeLabel,
@@ -9,9 +11,7 @@ import {
   findMonthBoundaries,
   findDayBoundaries,
 } from '../../utils/dateFormat'
-import { resolveThemeColors } from '../../tokens'
-import type { ColorPresetSettings } from '../../tokens'
-import { getFont, setCanvasFont } from '../../engine/theme/fonts'
+import { priceToY, yToPrice } from '../priceToY'
 
 const textWidthCache = new Map<string, number>()
 const TEXT_WIDTH_CACHE_LIMIT = 512

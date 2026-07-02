@@ -1,13 +1,14 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
-import { createSingleLineTitleInfo } from './shared/titleInfo'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import type { KAMARenderState } from '../../indicators/state/kamaState'
-import { createKAMAStateKey, EMPTY_KAMA_STATE } from '../../indicators/state/kamaState'
+import { calcKAMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, KAMASchedulerConfig } from '../../indicators/scheduler'
-import { calcKAMAData } from '../../indicators/calculators'
+import type { KAMARenderState } from '../../indicators/state/kamaState'
+import { createKAMAStateKey, EMPTY_KAMA_STATE } from '../../indicators/state/kamaState'
+import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 const KAMA_COLOR = '#0ea5e9'
 

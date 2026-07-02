@@ -1,5 +1,7 @@
 import type { DrawingObject } from '../../plugin'
+
 import { PREVIEW_ID } from './DrawingState'
+import type { DrawingAnchorInput } from './coordinateUtils'
 import type { DrawingToolId } from './toolConfig'
 import {
   SINGLE_ANCHOR_TOOLS,
@@ -8,7 +10,6 @@ import {
   getDrawingKind,
   CHANNEL_KINDS,
 } from './toolConfig'
-import type { DrawingAnchorInput } from './coordinateUtils'
 
 /**
  * Constructs preview DrawingObject instances for various tool types.

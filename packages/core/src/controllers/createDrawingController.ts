@@ -18,6 +18,7 @@
  */
 
 import { createSignal, type Signal } from '../reactivity'
+
 import type { DrawingController, DrawingState, DrawingToolType } from './types'
 
 // ---------------------------------------------------------------------------

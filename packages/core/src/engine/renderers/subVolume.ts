@@ -6,11 +6,12 @@ import type {
 } from '../../plugin'
 import { RENDERER_PRIORITY } from '../../plugin'
 import { createIndicatorStateKey } from '../../plugin/stateKeys'
-import type { KLineData } from '../../types/price'
 import { resolveThemeColors } from '../../tokens'
+import type { KLineData } from '../../types/price'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../indicators/scheduler'
+
 import { createVolumeScaleRendererPlugin } from './Indicator/scale/volume_scale'
 
 interface VolumeRendererOptions {

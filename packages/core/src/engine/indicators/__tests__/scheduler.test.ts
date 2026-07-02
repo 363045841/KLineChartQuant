@@ -1,14 +1,16 @@
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
-import { IndicatorScheduler } from '../scheduler'
-import { getBuiltinIndicatorDefinitions, loadBuiltinIndicators } from '../registerBuiltins'
-import { MA_STATE_KEY, EMPTY_MA_STATE, type MARenderState } from '../state/maState'
-import { BOLL_STATE_KEY, EMPTY_BOLL_STATE, type BOLLRenderState } from '../state/bollState'
-import { EXPMA_STATE_KEY, EMPTY_EXPMA_STATE, type EXPMARenderState } from '../state/expmaState'
-import { ENE_STATE_KEY, EMPTY_ENE_STATE, type ENERenderState } from '../state/eneState'
-import { createRSIStateKey, EMPTY_RSI_STATE, type RSIRenderState } from '../state/rsiState'
+
 import type { IndicatorMetadata } from '../indicatorMetadata'
-import type { KLineData } from '@/types/price'
+import { getBuiltinIndicatorDefinitions, loadBuiltinIndicators } from '../registerBuiltins'
+import { IndicatorScheduler } from '../scheduler'
+import { BOLL_STATE_KEY, EMPTY_BOLL_STATE, type BOLLRenderState } from '../state/bollState'
+import { ENE_STATE_KEY, EMPTY_ENE_STATE, type ENERenderState } from '../state/eneState'
+import { EXPMA_STATE_KEY, EMPTY_EXPMA_STATE, type EXPMARenderState } from '../state/expmaState'
+import { MA_STATE_KEY, EMPTY_MA_STATE, type MARenderState } from '../state/maState'
+import { createRSIStateKey, EMPTY_RSI_STATE, type RSIRenderState } from '../state/rsiState'
+
 import type { PluginHost } from '@/plugin'
+import type { KLineData } from '@/types/price'
 
 function applyMainResult(key: string): NonNullable<IndicatorMetadata['applyResult']> {
   return (host, state, _paneId) => {

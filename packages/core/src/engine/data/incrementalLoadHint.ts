@@ -1,5 +1,5 @@
-import { getPhysicalKLineConfig } from '../utils/klineConfig'
 import type { ChartDom } from '../chartTypes'
+import { getPhysicalKLineConfig } from '../utils/klineConfig'
 
 export interface HintDeps {
   getOption: () => { kWidth: number; kGap: number }

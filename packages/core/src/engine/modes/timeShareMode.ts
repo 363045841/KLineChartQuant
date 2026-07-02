@@ -1,6 +1,7 @@
-import type { ChartModeHandler } from './types'
-import type { Pane, VisibleRange } from '../layout/pane'
 import type { ChartDataManager } from '../data/chartDataManager'
+import type { Pane, VisibleRange } from '../layout/pane'
+
+import type { ChartModeHandler } from './types'
 
 export class TimeShareMode implements ChartModeHandler {
   readonly debugName = 'TimeShare'
@@ -31,7 +32,7 @@ export class TimeShareMode implements ChartModeHandler {
     const kGapPx = 1
     const totalGapPx = (dataLength + 1) * kGapPx
     const availablePx = Math.max(1, viewWidth * dpr - totalGapPx)
-    let kWidthPx = Math.max(1, Math.floor(availablePx / dataLength))
+    const kWidthPx = Math.max(1, Math.floor(availablePx / dataLength))
 
     return {
       kWidth: kWidthPx / dpr,

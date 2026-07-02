@@ -1,7 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import type { PivotRenderState } from '../../indicators/state/pivotState'
-import { createPivotStateKey, EMPTY_PIVOT_STATE } from '../../indicators/state/pivotState'
+import { calcPivotData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import {
   resolveStateKey,
@@ -10,8 +9,9 @@ import {
   type GetTitleInfoFn,
 } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, PivotSchedulerConfig } from '../../indicators/scheduler'
+import type { PivotRenderState } from '../../indicators/state/pivotState'
+import { createPivotStateKey, EMPTY_PIVOT_STATE } from '../../indicators/state/pivotState'
 import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
-import { calcPivotData } from '../../indicators/calculators'
 
 const PP_COLOR = '#94a3b8'
 const R_COLOR = '#dc2626'

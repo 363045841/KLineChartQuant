@@ -18,9 +18,9 @@
  * controllers can compile against them without pulling in the implementation.
  */
 
+import type { Signal } from '../reactivity/signal'
 import type { Renderer } from '../render/Renderer'
 import type { SurfaceRegion } from '../render/SurfaceBackend'
-import type { Signal } from '../reactivity/signal'
 
 /**
  * Roles let the scene group layers and let other systems target them

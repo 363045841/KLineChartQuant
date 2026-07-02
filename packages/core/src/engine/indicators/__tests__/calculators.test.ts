@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+
 import {
   calcMAData,
   calcBOLLData,
@@ -8,9 +9,10 @@ import {
   DEFAULT_MA_PERIODS,
 } from '../calculators'
 import { DEFAULT_BOLL_PERIOD, DEFAULT_BOLL_MULTIPLIER } from '../state/bollState'
-import { DEFAULT_EXPMA_FAST_PERIOD, DEFAULT_EXPMA_SLOW_PERIOD } from '../state/expmaState'
 import { DEFAULT_ENE_PERIOD, DEFAULT_ENE_DEVIATION } from '../state/eneState'
+import { DEFAULT_EXPMA_FAST_PERIOD, DEFAULT_EXPMA_SLOW_PERIOD } from '../state/expmaState'
 import { DEFAULT_RSI_PERIOD1, DEFAULT_RSI_PERIOD2, DEFAULT_RSI_PERIOD3 } from '../state/rsiState'
+
 import type { KLineData } from '@/types/price'
 
 /**

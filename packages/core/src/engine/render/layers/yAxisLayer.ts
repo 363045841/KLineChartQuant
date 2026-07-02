@@ -1,6 +1,6 @@
+import type { RenderContext } from '../../../plugin'
 import { createLayerFromPlugin } from '../../../scene/createLayerFromPlugin'
 import type { Layer } from '../../../scene/types'
-import type { RenderContext } from '../../../plugin'
 import { createYAxisRendererPlugin } from '../../renderers/yAxis'
 
 export function createYAxisLayer(

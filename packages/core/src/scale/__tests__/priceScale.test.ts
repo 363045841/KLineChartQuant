@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
+
 import { createPriceScale } from '../createPriceScale'
 
 describe('createPriceScale — linear mode', () => {

@@ -2,18 +2,6 @@ export { KLineChartWC, type KLineChartWCProps, type KLineChartWCHandle } from '.
 
 export type { SemanticChartConfig } from '@363045841yyt/klinechart-core/semantic'
 
-import {
-  createElement,
-  forwardRef,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from 'react'
-import type { CSSProperties, ForwardedRef, FC, RefObject } from 'react'
 import type {
   ChartController,
   ChartControllerFactory,
@@ -26,7 +14,20 @@ import type {
   DataFetcher,
   DrawingControllerCallbacks,
 } from '@363045841yyt/klinechart-core'
+import { createChartController } from '@363045841yyt/klinechart-core'
 import { resolveSettings, type ChartSettings } from '@363045841yyt/klinechart-core/config'
+import {
+  createElement,
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
+import type { CSSProperties, ForwardedRef, FC, RefObject } from 'react'
 
 export type {
   ChartController,
@@ -105,7 +106,7 @@ export function useChart(
       controllerRef.current = null
       setController(null)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [ref])
 
   return controller
@@ -304,5 +305,4 @@ export const KLineChart = forwardRef<KLineChartHandle, KLineChartProps>(function
   return createElement('div', { ref: divRef, className, style })
 })
 
-import { createChartController } from '@363045841yyt/klinechart-core'
 __setChartFactory(createChartController)

@@ -1,16 +1,18 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import { resolveThemeColors } from '../../../tokens'
+import type { KLineData } from '../../../types/price'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
-import type { RSIRenderState } from '../../indicators/state/rsiState'
-import { createRSIStateKey, EMPTY_RSI_STATE } from '../../indicators/state/rsiState'
+import { calcRSIData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { createFixedRangeRecordVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, RSISchedulerConfig } from '../../indicators/scheduler'
+import type { RSIRenderState } from '../../indicators/state/rsiState'
+import { createRSIStateKey, EMPTY_RSI_STATE } from '../../indicators/state/rsiState'
+import { createFixedRangeRecordVisibleStateComposer } from '../../indicators/visibleStateComposers'
+
 import { createRsiScaleRendererPlugin } from './scale/rsi_scale'
-import { calcRSIData } from '../../indicators/calculators'
-import type { KLineData } from '../../../types/price'
+
 
 type LinePoint = { x: number; y: number }
 

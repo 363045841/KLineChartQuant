@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
+
 import { resampleBars } from '../resampleBars'
 import type { BaseBar } from '../types'
 

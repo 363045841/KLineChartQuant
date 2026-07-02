@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
+
 import { calcPivotData, calcFibData } from '../calculators'
+
 import {
   empty,
   singleBar,

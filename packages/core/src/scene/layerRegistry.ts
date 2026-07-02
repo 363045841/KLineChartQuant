@@ -81,7 +81,7 @@ export function createLayerRegistry(): LayerRegistry {
   const get = (typeId: string): LayerFactory | null => factories.get(typeId) ?? null
 
   const list = (): ReadonlyArray<LayerFactory> =>
-    Array.from(factories.values()) as ReadonlyArray<LayerFactory>
+    [...factories.values()] as ReadonlyArray<LayerFactory>
 
   return { register, unregister, get, list }
 }

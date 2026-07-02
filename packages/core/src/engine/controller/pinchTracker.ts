@@ -24,7 +24,7 @@ export class PinchTracker {
 
     if (this.activePointers.size === 2 && isTouchSession) {
       this.isPinching = true
-      const pointers = Array.from(this.activePointers.values())
+      const pointers = [...this.activePointers.values()]
       const p1 = pointers[0]!
       const p2 = pointers[1]!
       this.lastPinchDistance = Math.hypot(p2.x - p1.x, p2.y - p1.y)
@@ -57,7 +57,7 @@ export class PinchTracker {
     }
 
     if (this.isPinching && this.activePointers.size === 2) {
-      const pointers = Array.from(this.activePointers.values())
+      const pointers = [...this.activePointers.values()]
       const p1 = pointers[0]!
       const p2 = pointers[1]!
       const distance = Math.hypot(p2.x - p1.x, p2.y - p1.y)

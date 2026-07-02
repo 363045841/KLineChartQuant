@@ -9,9 +9,10 @@
  * mock, while `routerDataFetcher` and all other named exports stay real.
  */
 
+import { mount } from '@vue/test-utils'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { nextTick } from 'vue'
-import { mount } from '@vue/test-utils'
+
 import { createMockChartController, type MockChartController } from './_mockController'
 
 // ── Shared mock controller (one per mount, reset in beforeEach) ──
@@ -28,6 +29,7 @@ vi.mock('@363045841yyt/klinechart-core/controllers', async () => {
 })
 
 import { KlineChart } from '../components/index'
+
 import { loadBuiltinIndicators, routerDataFetcher } from '@363045841yyt/klinechart-core/controllers'
 
 // ── Pre-load builtin indicators so IndicatorSelector mounted hook doesn't

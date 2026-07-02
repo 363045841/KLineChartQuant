@@ -39,8 +39,8 @@
  *       })
  */
 
-import { createSignal, type Signal } from '../reactivity'
 import { KLineChartError } from '../errors'
+import { createSignal, type Signal } from '../reactivity'
 
 // ---------------------------------------------------------------------------
 // Public shape

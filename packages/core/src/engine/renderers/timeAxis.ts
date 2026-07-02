@@ -1,6 +1,6 @@
-import { resolveThemeColors } from '../../tokens'
 import type { RendererPlugin, RenderContext } from '../../plugin'
 import { RENDERER_PRIORITY } from '../../plugin'
+import { resolveThemeColors } from '../../tokens'
 import type { KLineData } from '../../types/price'
 import { drawTimeAxis, drawCrosshairTimeLabel, drawAxisTimeLabel } from '../../utils/kLineDraw/axis'
 

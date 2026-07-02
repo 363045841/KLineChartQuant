@@ -10,7 +10,6 @@
  * symmetric across adapters.
  */
 
-import { createSignal } from '@363045841yyt/klinechart-core/reactivity'
 import type {
   ChartController,
   ChartViewport,
@@ -24,6 +23,7 @@ import type {
   SymbolSpec,
   SymbolInfo,
 } from '@363045841yyt/klinechart-core'
+import { createSignal } from '@363045841yyt/klinechart-core/reactivity'
 
 export interface MockControllerHandle {
   controller: ChartController

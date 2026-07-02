@@ -2,14 +2,15 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../..
 import { RENDERER_PRIORITY } from '../../../plugin'
 import { resolveThemeColors } from '../../../tokens'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
-import type { WMSRRenderState } from '../../indicators/state/wmsrState'
-import { createWMSRStateKey, EMPTY_WMSR_STATE } from '../../indicators/state/wmsrState'
+import { calcWMSRData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, WMSRSchedulerConfig } from '../../indicators/scheduler'
+import type { WMSRRenderState } from '../../indicators/state/wmsrState'
+import { createWMSRStateKey, EMPTY_WMSR_STATE } from '../../indicators/state/wmsrState'
+import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+
 import { createWmsrScaleRendererPlugin } from './scale/wmsr_scale'
-import { calcWMSRData } from '../../indicators/calculators'
 import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 type LinePoint = { x: number; y: number }

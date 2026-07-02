@@ -1,6 +1,9 @@
 import type { RendererPluginWithHost, PluginHost, RenderContext } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import { MA_STATE_KEY, type MARenderState } from '../../indicators/state/maState'
+import { resolveThemeColors } from '../../../tokens'
+import type { KLineData } from '../../../types/price'
+import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
+import { calcMAData, type MAFlags } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type {
@@ -10,11 +13,8 @@ import type {
   TitleInfo,
   TitleValueItem,
 } from '../../indicators/indicatorMetadata'
-import type { KLineData } from '../../../types/price'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
-import { calcMAData, type MAFlags } from '../../indicators/calculators'
-import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
-import { resolveThemeColors } from '../../../tokens'
+import { MA_STATE_KEY, type MARenderState } from '../../indicators/state/maState'
 
 // Re-export MAFlags from calculators for backward compatibility
 export type { MAFlags } from '../../indicators/calculators'

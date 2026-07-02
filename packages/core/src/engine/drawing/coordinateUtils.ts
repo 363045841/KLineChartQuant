@@ -1,5 +1,5 @@
-import type { DrawingAnchor } from '../../plugin'
 import type { DrawingChartAdapter } from '../../controllers/types'
+import type { DrawingAnchor } from '../../plugin'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
 
 // ---- Types ----

@@ -8,12 +8,13 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { computeStochRSI } from '../stochRSI'
+
 import { computeAwesomeOscillator } from '../awesomeOscillator'
-import { computeUltimateOscillator } from '../ultimateOscillator'
 import { computeDPO } from '../dpo'
 import { computeFisherTransform } from '../fisherTransform'
 import { computeSchaffTrendCycle } from '../schaffTrendCycle'
+import { computeStochRSI } from '../stochRSI'
+import { computeUltimateOscillator } from '../ultimateOscillator'
 
 function ramp(n: number, start = 1, step = 1): number[] {
   return Array.from({ length: n }, (_, i) => start + step * i)

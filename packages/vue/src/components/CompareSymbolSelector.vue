@@ -172,9 +172,11 @@
 
 <script setup lang="ts">
   import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
-  import type { SymbolItem } from './SymbolSelector.vue'
-  import { useTeleportedPopup } from '../composables/useTeleportedPopup'
+
   import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
+  import { useTeleportedPopup } from '../composables/useTeleportedPopup'
+
+  import type { SymbolItem } from './SymbolSelector.vue'
 
   const props = withDefaults(
     defineProps<{

@@ -12,6 +12,7 @@
  */
 
 import { createSignal, computed, type Signal } from '../reactivity'
+
 import type { ActiveIndicator, IndicatorDefinition, IndicatorSelectorController } from './types'
 
 // ---------------------------------------------------------------------------
@@ -209,7 +210,7 @@ export function createIndicatorSelectorController(
     // Main indicators are pinned to the front and cannot be reordered.
     if (fromItem.role !== 'sub' || toItem.role !== 'sub') return false
 
-    const next = current.slice()
+    const next = [...current]
     next.splice(fromIdx, 1)
     next.splice(toIdx, 0, fromItem)
     active.set(next)

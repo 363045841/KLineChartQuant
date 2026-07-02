@@ -9,15 +9,6 @@
  * because legacy users of `@363045841yyt/klinechart` consume it.
  */
 
-import {
-  onBeforeUnmount,
-  onScopeDispose,
-  shallowRef,
-  watch,
-  type App,
-  type Ref,
-} from 'vue'
-import type { Signal } from '@363045841yyt/klinechart-core/reactivity'
 import type {
   ChartController,
   ChartControllerFactory,
@@ -29,6 +20,16 @@ import type {
   KLineData,
 } from '@363045841yyt/klinechart-core'
 import { createIndicatorSelectorController } from '@363045841yyt/klinechart-core'
+import type { Signal } from '@363045841yyt/klinechart-core/reactivity'
+import {
+  onBeforeUnmount,
+  onScopeDispose,
+  shallowRef,
+  watch,
+  type App,
+  type Ref,
+} from 'vue'
+
 import { KlineChart } from './components/index'
 
 export type {

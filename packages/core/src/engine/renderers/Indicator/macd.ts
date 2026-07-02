@@ -1,16 +1,17 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import type { KLineData } from '../../../types/price'
 import { resolveThemeColors } from '../../../tokens'
+import type { KLineData } from '../../../types/price'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
-import type { MACDRenderState } from '../../indicators/state/macdState'
-import { createMACDStateKey, EMPTY_MACD_STATE } from '../../indicators/state/macdState'
 import type { MACDPoint } from '../../indicators/calculators'
 import { calcMACDData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { createMACDVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, MACDSchedulerConfig } from '../../indicators/scheduler'
+import { createMACDStateKey, EMPTY_MACD_STATE } from '../../indicators/state/macdState'
+import type { MACDRenderState } from '../../indicators/state/macdState'
+import { createMACDVisibleStateComposer } from '../../indicators/visibleStateComposers'
+
 import { createMacdScaleRendererPlugin } from './scale/macd_scale'
 
 type LinePoint = { x: number; y: number }

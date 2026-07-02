@@ -1,6 +1,6 @@
+import { createSignal, type Signal } from '../../reactivity/signal'
 import type { ChartDom, Viewport, ViewportState } from '../chartTypes'
 import type { VisibleRange, UpdateLevel } from '../layout/pane'
-import { createSignal, type Signal } from '../../reactivity/signal'
 
 export interface ViewportDependencies {
   getDom: () => ChartDom

@@ -1,8 +1,9 @@
-import type { DrawingObject } from '../../plugin'
 import type { DrawingChartAdapter } from '../../controllers/types'
+import type { DrawingObject } from '../../plugin'
+
 import { anchorToScreen, pointToSegmentDist } from './coordinateUtils'
-import { getExtendMode } from './toolConfig'
 import { computeLinearRegression } from './linearRegression'
+import { getExtendMode } from './toolConfig'
 
 // ---- Types ----
 

@@ -1,7 +1,5 @@
-import type { KLineData } from '../../types/price'
 import type { ChartSettings } from '../../config/chartSettings'
 import type { SymbolSpec } from '../../controllers/types'
-import { getVisibleRange } from '../viewport/viewport'
 import type {
   PluginHostImpl,
   RenderContext,
@@ -11,8 +9,13 @@ import type {
   XAxisRange,
   YAxisTick,
 } from '../../plugin'
-import { calculateTickCount } from '../utils/tickCount'
 import { RendererPluginManager, wrapPaneInfo } from '../../plugin'
+import { createWebGLRenderer, createWebGLSurfaceBackend } from '../../render'
+import type { Renderer } from '../../render/Renderer'
+import { createLayerFromPlugin } from '../../scene/createLayerFromPlugin'
+import { createScene } from '../../scene/createScene'
+import type { Scene, PaintContext, PaneRole, Layer } from '../../scene/types'
+import type { KLineData } from '../../types/price'
 import type {
   ChartDom,
   PaneSpec,
@@ -21,36 +24,35 @@ import type {
   Viewport,
   ViewportState,
 } from '../chartTypes'
-import { PaneRenderer } from '../paneRenderer'
-import { SharedWebGLSurface } from '../renderers/webgl/sharedWebGLSurface'
-import { MarkerManager, type CustomMarkerEntity } from '../marker/registry'
-import { getPhysicalKLineConfig } from '../utils/klineConfig'
-import { ChartViewportManager } from '../viewport/chartViewportManager'
-import { ChartDataManager } from '../data/chartDataManager'
-import { ChartIndicatorManager } from '../indicators/chartIndicatorManager'
 import { InteractionController } from '../controller/interaction'
+import { ChartDataManager } from '../data/chartDataManager'
+import { DrawingStore } from '../drawing'
+import { createDrawingRendererPlugin, createDrawingLabelOverlayPlugin } from '../drawing/plugin'
+import { ChartIndicatorManager } from '../indicators/chartIndicatorManager'
 import { UpdateLevel } from '../layout/pane'
 import type { VisibleRange } from '../layout/pane'
-import { DrawingStore } from '../drawing'
+import { MarkerManager, type CustomMarkerEntity } from '../marker/registry'
 import type { ChartModeHandler } from '../modes/types'
-import { createDrawingRendererPlugin, createDrawingLabelOverlayPlugin } from '../drawing/plugin'
+import { PaneRenderer } from '../paneRenderer'
+import { createTimeAxisRendererPlugin } from '../renderers/timeAxis'
+import { SharedWebGLSurface } from '../renderers/webgl/sharedWebGLSurface'
+import { getPhysicalKLineConfig } from '../utils/klineConfig'
+import { calculateTickCount } from '../utils/tickCount'
+import { ChartViewportManager } from '../viewport/chartViewportManager'
+import { getVisibleRange } from '../viewport/viewport'
+
 import { createCandleLayer } from './layers/candleLayer'
 import { createComparisonLineLayer } from './layers/comparisonLineLayer'
-import { createLastPriceLineLayer } from './layers/lastPriceLineLayer'
-import { createMainIndicatorLegendLayer } from './layers/mainIndicatorLegendLayer'
-import { createGridLinesLayer } from './layers/gridLinesLayer'
-import { createLastPriceLabelLayer } from './layers/lastPriceLabelLayer'
+import { createCrosshairLayer } from './layers/crosshairLayer'
 import { createCustomMarkersLayer } from './layers/customMarkersLayer'
 import { createExtremaMarkersLayer } from './layers/extremaMarkersLayer'
-import { createYAxisLayer } from './layers/yAxisLayer'
+import { createGridLinesLayer } from './layers/gridLinesLayer'
+import { createLastPriceLabelLayer } from './layers/lastPriceLabelLayer'
+import { createLastPriceLineLayer } from './layers/lastPriceLineLayer'
 import { createLeftYAxisLayer } from './layers/leftYAxisLayer'
-import { createCrosshairLayer } from './layers/crosshairLayer'
-import { createTimeAxisRendererPlugin } from '../renderers/timeAxis'
-import type { Scene, PaintContext, PaneRole, Layer } from '../../scene/types'
-import type { Renderer } from '../../render/Renderer'
-import { createScene } from '../../scene/createScene'
-import { createLayerFromPlugin } from '../../scene/createLayerFromPlugin'
-import { createWebGLRenderer, createWebGLSurfaceBackend } from '../../render'
+import { createMainIndicatorLegendLayer } from './layers/mainIndicatorLegendLayer'
+import { createYAxisLayer } from './layers/yAxisLayer'
+
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kWidth: number

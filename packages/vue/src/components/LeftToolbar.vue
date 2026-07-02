@@ -35,8 +35,8 @@
             v-if="tool.children && tool.children.length"
             class="corner-indicator"
             :class="{ open: openGroupId === tool.id }"
-            @click.stop="toggleExpand(tool.id)"
             aria-label="展开子菜单"
+            @click.stop="toggleExpand(tool.id)"
           ></span>
         </button>
 
@@ -168,37 +168,44 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, watch, onMounted, onUnmounted } from 'vue'
-  import IconTablerPointer from '~icons/tabler/pointer'
-  import IconTablerChartLine from '~icons/tabler/chart-line'
-  import IconTablerArrowUpRight from '~icons/tabler/arrow-up-right'
-  import IconTablerArrowRight from '~icons/tabler/arrow-right'
-  import IconTablerMinus from '~icons/tabler/minus'
-  import IconTablerSeparator from '~icons/tabler/separator'
-  import IconTablerCrosshair from '~icons/tabler/crosshair'
-  import IconTablerInfoCircle from '~icons/tabler/info-circle'
-  import IconTablerZoomIn from '~icons/tabler/zoom-in'
-  import IconTablerZoomOut from '~icons/tabler/zoom-out'
-  import IconTablerMaximize from '~icons/tabler/maximize'
-  import IconTablerMinimize from '~icons/tabler/minimize'
-  import IconTablerSettings from '~icons/tabler/settings'
-  import IconTablerBell from '~icons/tabler/bell'
-  import IconTablerShape from '~icons/tabler/shape'
-  import IconTablerChartDots3 from '~icons/tabler/chart-dots-3'
-  import IconTablerCaretUpDown from '~icons/tabler/caret-up-down'
-  import IconTablerBrackets from '~icons/tabler/brackets'
-  import IconTablerMathFunction from '~icons/tabler/math-function'
-  import IconTablerArrowsHorizontal from '~icons/tabler/arrows-horizontal'
+  import type { ChartController } from '@363045841yyt/klinechart-core'
   import {
     DEFAULT_SETTINGS,
     SETTINGS_STORAGE_KEY,
     type ChartSettings,
   } from '@363045841yyt/klinechart-core/config'
+  import { ref, watch, onMounted, onUnmounted } from 'vue'
+
+  import { useAlerts } from '../composables/useAlerts'
   import { setCanvasProfilerEnabled } from '../debug/canvasProfiler'
+
   import ChartSettingsDialog from './ChartSettingsDialog.vue'
   import AlertDialog from './alert/AlertDialog.vue'
-  import { useAlerts } from '../composables/useAlerts'
-  import type { ChartController } from '@363045841yyt/klinechart-core'
+
+  import IconTablerArrowRight from '~icons/tabler/arrow-right'
+  import IconTablerArrowUpRight from '~icons/tabler/arrow-up-right'
+  import IconTablerArrowsHorizontal from '~icons/tabler/arrows-horizontal'
+  import IconTablerBell from '~icons/tabler/bell'
+  import IconTablerBrackets from '~icons/tabler/brackets'
+  import IconTablerCaretUpDown from '~icons/tabler/caret-up-down'
+  import IconTablerChartDots3 from '~icons/tabler/chart-dots-3'
+  import IconTablerChartLine from '~icons/tabler/chart-line'
+  import IconTablerCrosshair from '~icons/tabler/crosshair'
+  import IconTablerInfoCircle from '~icons/tabler/info-circle'
+  import IconTablerMathFunction from '~icons/tabler/math-function'
+  import IconTablerMaximize from '~icons/tabler/maximize'
+  import IconTablerMinimize from '~icons/tabler/minimize'
+  import IconTablerMinus from '~icons/tabler/minus'
+  import IconTablerPointer from '~icons/tabler/pointer'
+  import IconTablerSeparator from '~icons/tabler/separator'
+  import IconTablerSettings from '~icons/tabler/settings'
+  import IconTablerShape from '~icons/tabler/shape'
+  import IconTablerZoomIn from '~icons/tabler/zoom-in'
+  import IconTablerZoomOut from '~icons/tabler/zoom-out'
+
+
+
+
 
   export interface ToolDef {
     id: string

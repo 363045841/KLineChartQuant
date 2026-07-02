@@ -1,5 +1,6 @@
-import type { SurfaceBackend, SurfaceRegion, CompositeOptions } from './SurfaceBackend'
 import { SharedWebGLSurface } from '../engine/renderers/webgl/sharedWebGLSurface'
+
+import type { SurfaceBackend, SurfaceRegion, CompositeOptions } from './SurfaceBackend'
 
 export function createWebGLSurfaceBackend(surface: SharedWebGLSurface): SurfaceBackend {
   let disposed = false

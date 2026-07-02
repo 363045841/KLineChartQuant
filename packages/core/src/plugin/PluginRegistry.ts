@@ -2,6 +2,7 @@
  * 插件注册表
  */
 import { KLineChartError } from '../errors'
+
 import type { Plugin, PluginDescriptor, PluginState } from './types'
 
 export class PluginRegistry {
@@ -54,7 +55,7 @@ export class PluginRegistry {
    * 获取所有插件
    */
   getAll(): PluginDescriptor[] {
-    return Array.from(this.plugins.values())
+    return [...this.plugins.values()]
   }
 
   /**

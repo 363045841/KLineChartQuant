@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+
 import { SemanticChartController, type SemanticChartAdapter } from '../controller'
 import type { SemanticChartConfig } from '../types'
 

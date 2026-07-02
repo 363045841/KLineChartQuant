@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+
 import { createWebGLRenderer } from '../createWebGLRenderer'
 import type { SurfaceBackend, SurfaceRegion } from '../index'
 

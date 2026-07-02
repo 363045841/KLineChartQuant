@@ -1,13 +1,15 @@
 // 交互控制中心
 
-import type { Chart } from '../chart'
+import type { ChartSettings } from '../../config/chartSettings'
 import type { KLineData } from '../../types/price'
+import type { Chart } from '../chart'
+import { UpdateLevel } from '../layout/pane'
 import type { MarkerEntity, CustomMarkerEntity } from '../marker/registry'
+
 import { MarkerInteractionState } from './markerInteraction'
 import { PinchTracker } from './pinchTracker'
 import { computeTooltipPosition } from './tooltipPosition'
-import { UpdateLevel } from '../layout/pane'
-import type { ChartSettings } from '../../config/chartSettings'
+
 
 interface PointerLocation {
   mouseX: number

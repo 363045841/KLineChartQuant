@@ -1,13 +1,14 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
-import { createSingleLineTitleInfo } from './shared/titleInfo'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import type { WMARenderState } from '../../indicators/state/wmaState'
-import { createWMAStateKey, EMPTY_WMA_STATE } from '../../indicators/state/wmaState'
+import { calcWMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, WMASchedulerConfig } from '../../indicators/scheduler'
-import { calcWMAData } from '../../indicators/calculators'
+import type { WMARenderState } from '../../indicators/state/wmaState'
+import { createWMAStateKey, EMPTY_WMA_STATE } from '../../indicators/state/wmaState'
+import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 const WMA_COLOR = '#10b981'
 

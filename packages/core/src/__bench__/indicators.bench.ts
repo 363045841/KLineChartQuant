@@ -24,19 +24,19 @@ import { bench, describe } from 'vitest'
 
 // MA family (b-9)
 import { computeALMA } from '../indicators/alma'
-import { computeT3 } from '../indicators/t3'
-import { computeZLEMA } from '../indicators/zlema'
-import { computeLSMA } from '../indicators/lsma'
-import { computeVIDYA } from '../indicators/vidya'
-import { computeFRAMA } from '../indicators/frama'
 
 // Oscillator family (b-10)
-import { computeStochRSI } from '../indicators/stochRSI'
 import { computeAwesomeOscillator } from '../indicators/awesomeOscillator'
-import { computeUltimateOscillator } from '../indicators/ultimateOscillator'
 import { computeDPO } from '../indicators/dpo'
 import { computeFisherTransform } from '../indicators/fisherTransform'
+import { computeFRAMA } from '../indicators/frama'
+import { computeLSMA } from '../indicators/lsma'
 import { computeSchaffTrendCycle } from '../indicators/schaffTrendCycle'
+import { computeStochRSI } from '../indicators/stochRSI'
+import { computeT3 } from '../indicators/t3'
+import { computeUltimateOscillator } from '../indicators/ultimateOscillator'
+import { computeVIDYA } from '../indicators/vidya'
+import { computeZLEMA } from '../indicators/zlema'
 
 // ---------------------------------------------------------------------------
 // Fixtures

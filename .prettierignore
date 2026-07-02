@@ -1,0 +1,8 @@
+dist/
+node_modules/
+coverage/
+*.config.*
+examples/
+preview/
+packages/desktop-electron/out/
+packages/*/dist/

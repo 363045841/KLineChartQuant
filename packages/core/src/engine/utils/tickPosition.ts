@@ -1,5 +1,6 @@
-import { calculateTickCount } from './tickCount'
 import { fromLog, logFormulaForPriceRange, toLog } from '../scale/logFormula'
+
+import { calculateTickCount } from './tickCount'
 
 export interface TickPosition {
   index: number

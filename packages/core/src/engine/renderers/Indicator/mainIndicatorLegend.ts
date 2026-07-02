@@ -1,9 +1,9 @@
 import type { RendererPluginWithHost, PluginHost, RenderContext } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
-import type { KLineData, TimeShareData } from '../../../types/price'
 import { resolveThemeColors } from '../../../tokens'
-import { getFont, setCanvasFont } from '../../theme/fonts'
+import type { KLineData, TimeShareData } from '../../../types/price'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
+import { getFont, setCanvasFont } from '../../theme/fonts'
 
 const textWidthCache = new Map<string, number>()
 const TEXT_WIDTH_CACHE_LIMIT = 512

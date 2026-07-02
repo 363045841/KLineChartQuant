@@ -1,4 +1,5 @@
 import type { KLineData } from '../controllers/types'
+
 import { DataFetcher } from './fetcherDefinitionRegistry'
 import type { FetchConfig } from './types'
 

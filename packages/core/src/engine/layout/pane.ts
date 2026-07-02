@@ -1,9 +1,9 @@
+import type { PaneCapabilities, PaneRole } from '../../plugin'
 import type { KLineData } from '../../types/price'
-import { getVisiblePriceRange } from '../viewport/viewport'
+import type { MarkerManager } from '../marker/registry'
 import type { PriceRange } from '../scale/price'
 import { PriceScale } from '../scale/priceScale'
-import type { MarkerManager } from '../marker/registry'
-import type { PaneCapabilities, PaneRole } from '../../plugin'
+import { getVisiblePriceRange } from '../viewport/viewport'
 
 /**
  * 更新级别枚举 - 用于双层 Canvas 架构

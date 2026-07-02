@@ -27,7 +27,7 @@
     <!-- Rules Tab -->
     <template v-if="activeTab === 'rules'">
       <div class="alert-section">
-        <button class="alert-add-btn" @click="startAddRule" v-if="!editingRule">
+        <button v-if="!editingRule" class="alert-add-btn" @click="startAddRule">
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -102,7 +102,7 @@
                 </button>
               </div>
             </div>
-            <div class="rule-item-meta" v-if="rule.oneShot || rule.cooldownMs">
+            <div v-if="rule.oneShot || rule.cooldownMs" class="rule-item-meta">
               <span v-if="rule.oneShot" class="rule-meta-tag rule-meta-tag--oneshot">
                 <svg
                   viewBox="0 0 24 24"
@@ -138,7 +138,7 @@
     <template v-if="activeTab === 'history'">
       <div class="alert-section">
         <div class="alert-section-toolbar">
-          <span class="alert-section-count" v-if="events.length > 0">
+          <span v-if="events.length > 0" class="alert-section-count">
             共 <strong>{{ events.length }}</strong> 条记录
           </span>
           <button v-if="events.length > 0" class="alert-clear-btn" @click="clearHistory">
@@ -199,7 +199,7 @@
                 <span class="event-bar-label">C</span>
                 <span>{{ formatPrice(event.snapshotBar.close) }}</span>
               </span>
-              <span class="event-bar-item" v-if="event.snapshotBar.volume">
+              <span v-if="event.snapshotBar.volume" class="event-bar-item">
                 <span class="event-bar-label">V</span>
                 <span>{{ formatVolume(event.snapshotBar.volume) }}</span>
               </span>
@@ -212,15 +212,17 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, watch } from 'vue'
   import type {
     AlertEvent,
     AlertRule,
     AlertPredicate,
     ChartController,
   } from '@363045841yyt/klinechart-core'
+  import { ref, watch } from 'vue'
+
   import { useAlerts } from '../../composables/useAlerts'
   import BaseModal from '../BaseModal.vue'
+
   import AlertRuleForm from './AlertRuleForm.vue'
 
   const props = defineProps<{

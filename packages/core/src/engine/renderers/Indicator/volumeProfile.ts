@@ -1,18 +1,18 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
+import { resolveThemeColors } from '../../../tokens'
+import type { KLineData } from '../../../types/price'
+import { calcVolumeProfileData } from '../../indicators/calculators'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import type { TitleInfo } from '../../indicators/indicatorMetadata'
+import type { IndicatorScheduler, VolumeProfileSchedulerConfig } from '../../indicators/scheduler'
 import type { VolumeProfileRenderState } from '../../indicators/state/volumeProfileState'
 import {
   createVolumeProfileStateKey,
   EMPTY_VOLUME_PROFILE_STATE,
 } from '../../indicators/state/volumeProfileState'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { createVolumeProfileVisibleStateComposer } from '../../indicators/visibleStateComposers'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, VolumeProfileSchedulerConfig } from '../../indicators/scheduler'
-import { calcVolumeProfileData } from '../../indicators/calculators'
-import type { TitleInfo } from '../../indicators/indicatorMetadata'
-import type { KLineData } from '../../../types/price'
-import { resolveThemeColors } from '../../../tokens'
 
 const BAR_FILL = 'rgba(99, 102, 241, 0.35)'
 const POC_COLOR = '#f59e0b'

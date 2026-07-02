@@ -14,9 +14,10 @@
  */
 
 import { describe, it, expect } from 'vitest'
+
+import type { Renderer } from '../../render/Renderer'
 import { createScene } from '../createScene'
 import type { Layer, LayerRole, PaintContext, PaneRole } from '../types'
-import type { Renderer } from '../../render/Renderer'
 
 // ---------------------------------------------------------------------------
 // Test helpers
