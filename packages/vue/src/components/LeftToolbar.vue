@@ -290,7 +290,11 @@
     } catch {}
   }
 
-  const appliedSettings = ref<ChartSettings>(props.effectiveSettings ?? loadSettings())
+  const appliedSettings = ref<ChartSettings>(
+    props.effectiveSettings && Object.keys(props.effectiveSettings).length > 0
+      ? props.effectiveSettings
+      : loadSettings(),
+  )
 
 watch(
     () => props.effectiveSettings,

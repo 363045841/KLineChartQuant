@@ -459,7 +459,7 @@
     if (chartSettings.value.axisType === 'percent') return
     const nextSettings = { ...chartSettings.value, axisType: 'percent' as const }
     chartSettings.value = nextSettings
-    controller.value?.updateSettingsFacade(nextSettings)
+    controller.value?.updateSettingsFacade(resolveSettings(nextSettings))
     try {
       localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(nextSettings))
     } catch {
@@ -1105,15 +1105,16 @@
   function applyInitialSettings(ctrl: ChartController): void {
     const toolbarSettings = toolbarRef.value?.getSettings() ?? {}
     const propSettings = props.settings ?? {}
-    const initialSettings = { ...toolbarSettings, ...propSettings }
-    chartSettings.value = initialSettings
+    const merged = { ...toolbarSettings, ...propSettings }
+    chartSettings.value = merged
+    const resolved = resolveSettings(merged)
+    ctrl.updateSettingsFacade(resolved)
     // 受控主题优先，否则交由设置项决定
     if (props.theme) {
       ctrl.setTheme(props.theme)
     } else {
-      applyThemeFromSettings(initialSettings.theme as string)
+      applyThemeFromSettings(resolved.theme as string)
     }
-    ctrl.updateSettingsFacade(initialSettings)
   }
 
   function setupInteractionCallbacks(ctrl: ChartController): void {
@@ -1303,7 +1304,7 @@
       if (!next || !controller.value) return
       const merged = { ...chartSettings.value, ...next }
       chartSettings.value = merged
-      controller.value.updateSettingsFacade(merged as Record<string, unknown>)
+      controller.value.updateSettingsFacade(resolveSettings(merged))
     },
     { deep: true },
   )

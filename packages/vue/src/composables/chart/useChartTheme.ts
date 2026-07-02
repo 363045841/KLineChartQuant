@@ -10,7 +10,7 @@ import {
   darkTheme,
   type ColorPresetSettings,
 } from '@363045841yyt/klinechart-core'
-import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
+import { resolveSettings, type ChartSettings } from '@363045841yyt/klinechart-core/config'
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import type { Ref } from 'vue'
 import { ref, computed, watch, onUnmounted } from 'vue'
@@ -75,7 +75,7 @@ export function useChartTheme(ctrl: Ref<ChartController | null>) {
   function handleSettingsChange(settings: ChartSettings) {
     chartSettings.value = settings
     applyThemeFromSettings(settings.theme as string)
-    ctrl.value?.updateSettingsFacade(settings)
+    ctrl.value?.updateSettingsFacade(resolveSettings(settings))
   }
 
   onUnmounted(() => {

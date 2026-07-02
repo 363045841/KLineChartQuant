@@ -1,6 +1,6 @@
 <template>
   <div class="app-container" :data-theme="currentTheme">
-    <KlineChart v-model:theme="currentTheme" :custom-data="customData" :settings="chartSettings">
+    <KlineChart v-model:theme="currentTheme" :custom-data="customData">
       <template #kline-tooltip="{ hoverData, upColor, downColor }">
     <div class="custom-tooltip">
       <div class="custom-tooltip__title">
