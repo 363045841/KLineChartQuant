@@ -92,7 +92,7 @@ npm install @363045841yyt/klinechart @363045841yyt/klinechart-core
 
 <script setup lang="ts">
   import { ref } from 'vue'
-  import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
+  import type { ChartSettings } from '@363045841yyt/klinechart-core'
   import { type CustomDataSource, KlineChart } from '@363045841yyt/klinechart'
   import demoData from './demo-data.json'
 

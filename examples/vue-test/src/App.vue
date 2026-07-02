@@ -1,6 +1,6 @@
 <template>
   <div class="app-container" :data-theme="currentTheme">
-    <KlineChart v-model:theme="currentTheme" :custom-data="customData" >
+    <KlineChart v-model:theme="currentTheme" :custom-data="customData" :settings="chartSettings">
       <template #kline-tooltip="{ hoverData, upColor, downColor }">
     <div class="custom-tooltip">
       <div class="custom-tooltip__title">
@@ -26,10 +26,27 @@
   import { type CustomDataSource, KlineChart } from '@363045841yyt/klinechart'
   import demoData from './demo-data.json'
   import { formatTimestamp } from '@363045841yyt/klinechart-core'
+import type { ChartSettings } from '@363045841yyt/klinechart-core'
 
   const currentTheme = ref<'light' | 'dark'>('dark')
 
   const customData = ref<CustomDataSource>(demoData as CustomDataSource)
+
+  const chartSettings: ChartSettings = {
+    showGridLines: true,
+    isAsiaMarket: true,
+    showVolumePriceMarkers: false,
+    leftAxisType: 'none',
+    theme: 'dark',
+    colorPresetSettings: {
+      dark: {
+        candleUpBody: '#e85d04', // 橙色阳线
+        candleDownBody: '#1b4332', // 墨绿阴线
+        crosshairLine: '#faa307', // 金色十字线
+        gridMajor: '#3e2723', // 主网格线
+      },
+    },
+  }
 </script>
 
 <style>

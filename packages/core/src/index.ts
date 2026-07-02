@@ -5,6 +5,7 @@ export { VERSION } from './version'
 export * from './tokens'
 export { formatTimestamp } from './utils/dateFormat'
 export { generateUUID } from './utils/uuid'
+export type { ChartSettings } from './config/chartSettings'
 
 // ── Batch 1: Error taxonomy ───────────────────────────────────────────────
 export {
