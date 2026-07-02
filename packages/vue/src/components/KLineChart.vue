@@ -120,7 +120,7 @@
         </div>
         <Teleport v-if="tooltipLayerRef" :to="tooltipLayerRef">
           <template v-if="hoveredKLine && !isMobile">
-            <div :style="klineTooltipStyle">
+            <div v-if="slots['kline-tooltip']" :style="klineTooltipStyle">
               <slot
                 name="kline-tooltip"
                 :hover-data="hoveredKLine!"
@@ -128,7 +128,16 @@
                 :data="chartData"
                 :up-color="tooltipColors.upColor"
                 :down-color="tooltipColors.downColor"
-              >
+              />
+            </div>
+            <slot v-else
+              name="kline-tooltip"
+              :hover-data="hoveredKLine!"
+              :hovered-index="hoveredIndex"
+              :data="chartData"
+              :up-color="tooltipColors.upColor"
+              :down-color="tooltipColors.downColor"
+            >
               <div
                 class="tooltip-anchor kline-tooltip-anchor"
                 :class="{ 'use-anchor': useAnchorPositioning }"
@@ -148,7 +157,6 @@
                 :show-time="isIntraday"
               />
             </slot>
-            </div>
           </template>
           <template v-if="hoveredMarker || hoveredCustomMarker">
             <slot
@@ -216,7 +224,9 @@
     type SemanticChartConfig,
     type DataFetcher,
   } from '@363045841yyt/klinechart-core/semantic'
-  import { ref, computed, onMounted, onUnmounted, watch, nextTick, shallowRef } from 'vue'
+  import { ref, computed, onMounted, onUnmounted, watch, nextTick, shallowRef, useSlots } from 'vue'
+
+  const slots = useSlots()
 
   import { useChartState } from '../composables/chart/useChartState'
   import { useChartTheme } from '../composables/chart/useChartTheme'

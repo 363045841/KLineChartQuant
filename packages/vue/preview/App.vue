@@ -29,7 +29,7 @@
         @update:is-fullscreen="isFullscreen = $event"
         @theme-change="onThemeChange"
       >
-        <template #kline-tooltip="{ hoverData, upColor, downColor }">
+        <!-- <template #kline-tooltip="{ hoverData, upColor, downColor }">
           <div class="custom-tooltip">
             <div class="custom-tooltip__title">
               <span>{{ hoverData.stockCode }}</span>
@@ -44,7 +44,7 @@
               L: {{ hoverData.low.toFixed(2) }}<br> C: {{ hoverData.close.toFixed(2) }}
             </div>
           </div>
-        </template>
+        </template> -->
       </KlineChart>
     </div>
 
