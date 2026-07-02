@@ -88,18 +88,35 @@ npm install @363045841yyt/klinechart @363045841yyt/klinechart-core
 ```vue
 <template>
   <div class="app-container" :data-theme="currentTheme">
-    <KlineChart v-model:theme="currentTheme" :custom-data="customData" />
+    <KlineChart v-model:theme="currentTheme" :custom-data="customData" :settings="chartSettings" />
   </div>
 </template>
 
 <script setup lang="ts">
   import { ref } from 'vue'
+  import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
   import { type CustomDataSource, KlineChart } from '@363045841yyt/klinechart'
   import demoData from './demo-data.json'
 
   const currentTheme = ref<'light' | 'dark'>('dark')
 
   const customData = ref<CustomDataSource>(demoData as CustomDataSource)
+
+  const chartSettings: ChartSettings = {
+    showGridLines: true,
+    isAsiaMarket: true,
+    showVolumePriceMarkers: false,
+    leftAxisType: 'none',
+    theme: 'dark',
+    colorPresetSettings: {
+      dark: {
+        candleUpBody: '#e85d04', // 橙色阳线
+        candleDownBody: '#1b4332', // 墨绿阴线
+        crosshairLine: '#faa307', // 金色十字线
+        gridMajor: '#3e2723', // 主网格线
+      },
+    },
+  }
 </script>
 
 <style>
@@ -137,13 +154,12 @@ createApp(App).mount('#app')
 | `hoverData`            | `KLineData`                                   | Hovered K-line data (guaranteed non-null)        |
 | `hoveredIndex`         | `number \| null`                              | Data index                                       |
 | `data`                 | `ReadonlyArray<KLineData>`                    | Full data array                                  |
-| `tooltipStyle`         | `CSSProperties`                               | Pre-computed absolute positioning style          |
 | `upColor` / `downColor`| `string`                                      | Current theme's up/down colors                   |
 
 ```vue
 <KlineChart v-model:theme="currentTheme">
-  <template #kline-tooltip="{ hoverData, tooltipStyle, upColor, downColor }">
-    <div :style="tooltipStyle" class="custom-tooltip">
+  <template #kline-tooltip="{ hoverData, upColor, downColor }">
+    <div class="custom-tooltip">
       <div class="custom-tooltip__title">
         <span>{{ hoverData.stockCode }}</span>
         <span>{{ formatTimestamp(hoverData.timestamp, { timeZone: 'Asia/Shanghai' }) }}</span>
@@ -191,7 +207,7 @@ createApp(App).mount('#app')
 | Slot Prop              | Type                                                            | Description                     |
 | ---------------------- | --------------------------------------------------------------- | ------------------------------- |
 | `marker`               | `MarkerEntity \| CustomMarkerEntity \| null`                    | Hovered marker data             |
-| `tooltipStyle`         | `CSSProperties`                                                 | Pre-computed positioning style  |
+
 
 ## 📖 More Documentation
 

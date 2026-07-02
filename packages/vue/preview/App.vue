@@ -28,7 +28,24 @@
         :settings="chartSettings"
         @update:is-fullscreen="isFullscreen = $event"
         @theme-change="onThemeChange"
-      />
+      >
+        <template #kline-tooltip="{ hoverData, upColor, downColor }">
+          <div class="custom-tooltip">
+            <div class="custom-tooltip__title">
+              <span>{{ hoverData.stockCode }}</span>
+              <span>{{ formatTimestamp(hoverData.timestamp, { timeZone: 'Asia/Shanghai' }) }}</span>
+            </div>
+            <div class="custom-tooltip__price"
+                :style="{ color: hoverData.close >= hoverData.open ? upColor : downColor }">
+              {{ hoverData.close.toFixed(2) }}
+            </div>
+            <div class="custom-tooltip__detail">
+              O: {{ hoverData.open.toFixed(2) }}<br> H: {{ hoverData.high.toFixed(2) }}<br>
+              L: {{ hoverData.low.toFixed(2) }}<br> C: {{ hoverData.close.toFixed(2) }}
+            </div>
+          </div>
+        </template>
+      </KlineChart>
     </div>
 
     <!-- Modal 场景 -->
@@ -63,6 +80,7 @@
     createHeatmapController,
   } from '@363045841yyt/klinechart-core/controllers'
   import { executeTool } from '@363045841yyt/klinechart-ai-runtime'
+import { formatTimestamp } from '@363045841yyt/klinechart-core'
 
   /** 硬编码演示数据：主品种 CUSTOM.DEMO（15 根日 K） */
   const DEMO_MAIN_DATA: KLineData[] = [

@@ -90,18 +90,35 @@ npm install @363045841yyt/klinechart @363045841yyt/klinechart-core
 ```vue
 <template>
   <div class="app-container" :data-theme="currentTheme">
-    <KlineChart v-model:theme="currentTheme" :custom-data="customData" />
+    <KlineChart v-model:theme="currentTheme" :custom-data="customData" :settings="chartSettings" />
   </div>
 </template>
 
 <script setup lang="ts">
   import { ref } from 'vue'
+  import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
   import { type CustomDataSource, KlineChart } from '@363045841yyt/klinechart'
   import demoData from './demo-data.json'
 
   const currentTheme = ref<'light' | 'dark'>('dark')
 
   const customData = ref<CustomDataSource>(demoData as CustomDataSource)
+
+  const chartSettings: ChartSettings = {
+    showGridLines: true,
+    isAsiaMarket: true,
+    showVolumePriceMarkers: false,
+    leftAxisType: 'none',
+    theme: 'dark',
+    colorPresetSettings: {
+      dark: {
+        candleUpBody: '#e85d04', // 橙色阳线
+        candleDownBody: '#1b4332', // 墨绿阴线
+        crosshairLine: '#faa307', // 金色十字线
+        gridMajor: '#3e2723', // 主网格线
+      },
+    },
+  }
 </script>
 
 <style>
@@ -126,6 +143,30 @@ import App from './App.vue'
 
 
 createApp(App).mount('#app')
+```
+
+- **插槽用法**
+1. Tooltip
+
+```html
+<KlineChart>
+  <template #kline-tooltip="{ hoverData, upColor, downColor }">
+    <div class="custom-tooltip">
+      <div class="custom-tooltip__title">
+        <span>{{ hoverData.stockCode }}</span>
+        <span>{{ formatTimestamp(hoverData.timestamp, { timeZone: 'Asia/Shanghai' }) }}</span>
+      </div>
+      <div class="custom-tooltip__price"
+           :style="{ color: hoverData.close >= hoverData.open ? upColor : downColor }">
+        {{ hoverData.close.toFixed(2) }}
+      </div>
+      <div class="custom-tooltip__detail">
+        O: {{ hoverData.open.toFixed(2) }}<br> H: {{ hoverData.high.toFixed(2) }}<br>
+        L: {{ hoverData.low.toFixed(2) }}<br> C: {{ hoverData.close.toFixed(2) }}
+      </div>
+    </div>
+  </template>
+</KlineChart>
 ```
 
 ### 4.（可选）启用 MCP / AI Agent 控制

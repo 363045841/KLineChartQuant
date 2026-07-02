@@ -120,15 +120,15 @@
         </div>
         <Teleport v-if="tooltipLayerRef" :to="tooltipLayerRef">
           <template v-if="hoveredKLine && !isMobile">
-            <slot
-              name="kline-tooltip"
-              :hover-data="hoveredKLine!"
-              :hovered-index="hoveredIndex"
-              :data="chartData"
-              :tooltip-style="klineTooltipStyle"
-              :up-color="tooltipColors.upColor"
-              :down-color="tooltipColors.downColor"
-            >
+            <div :style="klineTooltipStyle">
+              <slot
+                name="kline-tooltip"
+                :hover-data="hoveredKLine!"
+                :hovered-index="hoveredIndex"
+                :data="chartData"
+                :up-color="tooltipColors.upColor"
+                :down-color="tooltipColors.downColor"
+              >
               <div
                 class="tooltip-anchor kline-tooltip-anchor"
                 :class="{ 'use-anchor': useAnchorPositioning }"
@@ -148,6 +148,7 @@
                 :show-time="isIntraday"
               />
             </slot>
+            </div>
           </template>
           <template v-if="hoveredMarker || hoveredCustomMarker">
             <slot
@@ -317,13 +318,6 @@
     hoverData: import('@363045841yyt/klinechart-core/types/price').KLineData
     hoveredIndex: number | null
     data: ReadonlyArray<import('@363045841yyt/klinechart-core/types/price').KLineData>
-    tooltipStyle: {
-      left: string
-      top: string
-      position: 'absolute'
-      pointerEvents: 'none'
-      zIndex: number
-    }
     upColor: string
     downColor: string
   }

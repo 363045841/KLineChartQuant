@@ -86,18 +86,35 @@ npm install @363045841yyt/klinechart @363045841yyt/klinechart-core
 ```vue
 <template>
   <div class="app-container" :data-theme="currentTheme">
-    <KlineChart v-model:theme="currentTheme" :custom-data="customData" />
+    <KlineChart v-model:theme="currentTheme" :custom-data="customData" :settings="chartSettings" />
   </div>
 </template>
 
 <script setup lang="ts">
   import { ref } from 'vue'
+  import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
   import { type CustomDataSource, KlineChart } from '@363045841yyt/klinechart'
   import demoData from './demo-data.json'
 
   const currentTheme = ref<'light' | 'dark'>('dark')
 
   const customData = ref<CustomDataSource>(demoData as CustomDataSource)
+
+  const chartSettings: ChartSettings = {
+    showGridLines: true,
+    isAsiaMarket: true,
+    showVolumePriceMarkers: false,
+    leftAxisType: 'none',
+    theme: 'dark',
+    colorPresetSettings: {
+      dark: {
+        candleUpBody: '#e85d04', // 橙色阳线
+        candleDownBody: '#1b4332', // 墨绿阴线
+        crosshairLine: '#faa307', // 金色十字线
+        gridMajor: '#3e2723', // 主网格线
+      },
+    },
+  }
 </script>
 
 <style>
@@ -135,13 +152,12 @@ createApp(App).mount('#app')
 | `hoverData`           | `KLineData`                                   | 当前悬停的 K 线数据（非 null）    |
 | `hoveredIndex`        | `number \| null`                              | 数据索引                          |
 | `data`                | `ReadonlyArray<KLineData>`                    | 全量数据数组                      |
-| `tooltipStyle`        | `CSSProperties`                               | 预计算的绝对定位样式              |
 | `upColor` / `downColor`| `string`                                     | 当前主题的涨跌颜色                |
 
 ```vue
 <KlineChart v-model:theme="currentTheme">
-  <template #kline-tooltip="{ hoverData, tooltipStyle, upColor, downColor }">
-    <div :style="tooltipStyle" class="custom-tooltip">
+  <template #kline-tooltip="{ hoverData, upColor, downColor }">
+    <div class="custom-tooltip">
       <div class="custom-tooltip__title">
         <span>{{ hoverData.stockCode }}</span>
         <span>{{ formatTimestamp(hoverData.timestamp, { timeZone: 'Asia/Shanghai' }) }}</span>
@@ -189,7 +205,7 @@ createApp(App).mount('#app')
 | 插槽属性              | 类型                                                            | 说明           |
 | --------------------- | --------------------------------------------------------------- | -------------- |
 | `marker`              | `MarkerEntity \| CustomMarkerEntity \| null`                    | 悬停的标记数据 |
-| `tooltipStyle`        | `CSSProperties`                                                  | 预计算样式     |
+
 
 ## 📖 更多文档
 
