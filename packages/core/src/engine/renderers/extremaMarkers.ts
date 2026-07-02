@@ -114,7 +114,7 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
 
     draw(context: RenderContext) {
       if (context.period === 'timeshare') return
-      const { overlayCtx, pane, data, range, scrollLeft, dpr, paneWidth, kLineCenters } = context
+      const { overlayCtx, pane, data, range, scrollLeft, dpr, paneWidth, kLineCenters, kWidth, kGap } = context
       const ctx = overlayCtx
       const colors = resolveThemeColors(
         context.theme,
@@ -130,6 +130,11 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
       const end = Math.min(klineData.length, range.end)
       if (end - start <= 0) return
 
+      const strictStart = Math.max(0, range.start + 1)
+      const strictEnd = Math.min(klineData.length, range.end - 1)
+      const hasStrict = strictEnd - strictStart > 0
+
+      // 扩展范围极值（±1 扩展缓冲内的全局极值）
       let max = -Infinity
       let min = Infinity
       let maxIndex = start
@@ -138,48 +143,91 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
       for (let i = start; i < end; i++) {
         const e = klineData[i]
         if (!e) continue
-        if (e.high >= max) {
-          max = e.high
-          maxIndex = i
-        }
-        if (e.low <= min) {
-          min = e.low
-          minIndex = i
-        }
+        if (e.high >= max) { max = e.high; maxIndex = i }
+        if (e.low <= min) { min = e.low; minIndex = i }
       }
 
       if (!Number.isFinite(max) || !Number.isFinite(min)) return
 
+      // 严格可见范围极值（剥离 ±1，作为 fallback）
+      let strictMax = -Infinity
+      let strictMin = Infinity
+      let strictMaxIdx = strictStart
+      let strictMinIdx = strictStart
+
+      if (hasStrict) {
+        for (let i = strictStart; i < strictEnd; i++) {
+          const e = klineData[i]
+          if (!e) continue
+          if (e.high >= strictMax) { strictMax = e.high; strictMaxIdx = i }
+          if (e.low <= strictMin) { strictMin = e.low; strictMinIdx = i }
+        }
+      }
+
       const getCenterX = (i: number) => {
         const localIdx = i - range.start
-        if (localIdx < 0 || localIdx >= kLineCenters.length) return 0
+        if (localIdx < 0 || localIdx >= kLineCenters.length) return NaN
         return kLineCenters[localIdx]!
       }
 
-      // 收集所有 marker 数据
+      const inViewport = (cx: number) =>
+        Number.isFinite(cx) && cx >= scrollLeft && cx <= scrollLeft + paneWidth
+
+      // 首选全局极值（center 在视口内），否则 fallback 到严格范围极值，防止标记被吞
+      const pickExtreme = (
+        globalIdx: number, globalVal: number,
+        strictIdx: number, strictVal: number,
+      ): { idx: number; val: number; cx: number } | null => {
+        const globalCx = getCenterX(globalIdx)
+        if (inViewport(globalCx)) return { idx: globalIdx, val: globalVal, cx: globalCx }
+        if (hasStrict) {
+          const strictCx = getCenterX(strictIdx)
+          if (inViewport(strictCx)) return { idx: strictIdx, val: strictVal, cx: strictCx }
+        }
+        return null
+      }
+
+      const maxResult = pickExtreme(maxIndex, max, strictMaxIdx, strictMax)
+      const minResult = pickExtreme(minIndex, min, strictMinIdx, strictMin)
+
       const markers: MarkerData[] = []
+      const kStep = kWidth + kGap
 
-      const maxMarker = createMarkerData(
-        getCenterX(maxIndex),
-        pane.yAxis.priceToY(max),
-        max,
-        dpr,
-        paneWidth,
-        scrollLeft,
-        ctx,
-      )
-      if (maxMarker) markers.push(maxMarker)
+      if (maxResult) {
+        const distToEdge = Math.min(
+          maxResult.cx - scrollLeft,
+          scrollLeft + paneWidth - maxResult.cx,
+        )
+        const maxMarker = createMarkerData(
+          maxResult.cx,
+          pane.yAxis.priceToY(maxResult.val),
+          maxResult.val,
+          dpr,
+          paneWidth,
+          scrollLeft,
+          ctx,
+          distToEdge < kStep,
+        )
+        if (maxMarker) markers.push(maxMarker)
+      }
 
-      const minMarker = createMarkerData(
-        getCenterX(minIndex),
-        pane.yAxis.priceToY(min),
-        min,
-        dpr,
-        paneWidth,
-        scrollLeft,
-        ctx,
-      )
-      if (minMarker) markers.push(minMarker)
+      if (minResult) {
+        const distToEdge = Math.min(
+          minResult.cx - scrollLeft,
+          scrollLeft + paneWidth - minResult.cx,
+        )
+        const minMarker = createMarkerData(
+          minResult.cx,
+          pane.yAxis.priceToY(minResult.val),
+          minResult.val,
+          dpr,
+          paneWidth,
+          scrollLeft,
+          ctx,
+          distToEdge < kStep,
+        )
+        if (minMarker) markers.push(minMarker)
+      }
 
       // 批量绘制所有 markers
       ctx.save()
@@ -201,15 +249,17 @@ function createMarkerData(
   paneWidth: number,
   scrollLeft: number,
   ctx: CanvasRenderingContext2D,
+  isBoundary: boolean = false,
 ): MarkerData | null {
   const text = price.toFixed(2)
   const textWidth = measureTextWidth(ctx, text)
 
+  const lineLength = isBoundary ? LINE_LENGTH * 2 : LINE_LENGTH
   const screenX = x - scrollLeft
   const drawLeft = screenX >= paneWidth / 2
 
   let lineStartX = x
-  let lineEndX = drawLeft ? x - LINE_LENGTH : x + LINE_LENGTH
+  let lineEndX = drawLeft ? x - lineLength : x + lineLength
   if (lineStartX > lineEndX) {
     ;[lineStartX, lineEndX] = [lineEndX, lineStartX]
   }
@@ -217,7 +267,7 @@ function createMarkerData(
   const endX = roundToPhysicalPixel(lineEndX, dpr)
   const alignedY = alignToPhysicalPixelCenter(y, dpr)
   const textX = roundToPhysicalPixel(
-    drawLeft ? x - LINE_LENGTH - PADDING : x + LINE_LENGTH + PADDING,
+    drawLeft ? x - lineLength - PADDING : x + lineLength + PADDING,
     dpr,
   )
 
