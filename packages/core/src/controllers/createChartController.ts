@@ -382,7 +382,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     minKWidth: DEFAULT_OPTS.minKWidth,
     maxKWidth: DEFAULT_OPTS.maxKWidth,
     zoomLevelCount,
-    dpr: currentDpr,
   })
   const currentKGap = kGapFromKWidth(currentKWidth, currentDpr)
 

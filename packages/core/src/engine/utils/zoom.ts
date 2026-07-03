@@ -5,10 +5,13 @@ import { getPhysicalKLineConfig } from './klineConfig'
  * 无副作用、无 DOM 访问，供 Vue 层直接调用
  */
 
-export interface ZoomConfig {
+export interface ZoomConfigBase {
   minKWidth: number
   maxKWidth: number
   zoomLevelCount: number
+}
+
+export interface ZoomConfig extends ZoomConfigBase {
   dpr: number
   /** K 线数据条数（用于计算缩放后内容宽度） */
   dataLength: number
@@ -33,7 +36,7 @@ const PHYS_K_GAP_MAX = 3
 const TRAILING_SLOTS = 30
 
 /** 将缩放级别转换为 K 线宽度（逻辑像素） */
-export function zoomLevelToKWidth(level: number, config: ZoomConfig): number {
+export function zoomLevelToKWidth(level: number, config: ZoomConfigBase): number {
   const t = (level - 1) / (config.zoomLevelCount - 1)
   return config.minKWidth + t * (config.maxKWidth - config.minKWidth)
 }
