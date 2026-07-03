@@ -25,7 +25,6 @@
         :left-axis-width="60"
         :custom-data="customData"
         :theme="currentTheme"
-        :settings="chartSettings"
         @update:is-fullscreen="isFullscreen = $event"
         @theme-change="onThemeChange"
       >
