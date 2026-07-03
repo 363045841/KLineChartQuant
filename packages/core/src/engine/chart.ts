@@ -291,7 +291,7 @@ export class Chart {
       },
       onZoomCommitted: (result) => {
         this.opt = { ...this.opt, kWidth: result.kWidth, kGap: result.kGap }
-        this.updateViewportSignal()
+        // viewportSignal 延后到 draw() 内、setKLinePositions 重算 crosshair 之后再发射
         this.scheduleDraw()
       },
       getKWidth: () => this.opt.kWidth,
@@ -550,7 +550,7 @@ export class Chart {
     if (zoomLevel !== undefined) {
       this.zoomController.setZoomLevel(nextZoomLevel)
     }
-    this.updateViewportSignal()
+    // viewportSignal 延后到 draw() 内、setKLinePositions 重算 crosshair 之后再发射
     this.scheduleDraw()
   }
 

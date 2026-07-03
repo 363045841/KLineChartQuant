@@ -52,7 +52,7 @@ import { createLastPriceLineLayer } from './layers/lastPriceLineLayer'
 import { createLeftYAxisLayer } from './layers/leftYAxisLayer'
 import { createMainIndicatorLegendLayer } from './layers/mainIndicatorLegendLayer'
 import { createYAxisLayer } from './layers/yAxisLayer'
-
+import { batch } from '../../reactivity/signal'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kWidth: number
@@ -319,7 +319,6 @@ export class ChartRenderer {
             Math.max(dataManager.getContentWidth(), dataManager.getLeftLoadBufferWidth()) + 'px'
           if (scrollContent.style.width !== w) scrollContent.style.width = w
         }
-        this.deps.getViewportManager().applyPendingScrollLeft(c)
       }
     })
   }
@@ -337,7 +336,10 @@ export class ChartRenderer {
 
     const { vp, range, kLinePositions, kLineCenters, kBarRects, kWidthPx, useCachedFrame } = frame
 
-    this.deps.getInteraction().setKLinePositions(kLinePositions, range, kWidthPx, kLineCenters)
+    batch(() => {
+      this.deps.getInteraction().setKLinePositions(kLinePositions, range, kWidthPx, kLineCenters)
+      this.deps.getViewportManager().updateViewportSignal()
+    })
 
     const dataManager = this.deps.getDataManager()
     const mode = this.deps.getActiveMode()
@@ -354,6 +356,8 @@ export class ChartRenderer {
       ? null
       : this.deps.getIndicatorManager().indicatorSchedulerAccessor.getMainIndicatorPriceRange()
     const hasCrosshair = this.deps.getInteraction().getCrosshairIndex() !== null
+
+    this.deps.getViewportManager().applyPendingScrollLeft(this.deps.getDom().container)
 
     const { sharedXAxisLabels, sharedXAxisRanges } = this.renderPanes(
       vp,

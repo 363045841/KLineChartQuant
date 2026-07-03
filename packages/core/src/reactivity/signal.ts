@@ -2,7 +2,8 @@
  * Tiny push-based reactivity primitive. Zero dependencies.
  *
  * Design constraints:
- * - Synchronous notify on `set` (no microtask scheduling — adapters batch)
+ * - Synchronous notify on `set` when not batched (no microtask scheduling)
+ * - `batch()` defers all notifications until the outermost batch exits
  * - No proxy / no deep tracking — only top-level read/write
  * - Equality short-circuits on `Object.is`
  * - `subscribe` returns an unsubscribe; safe to call from React useSyncExternalStore,
@@ -34,6 +35,9 @@ type Tracker = {
 
 let activeTracker: Tracker | null = null
 
+let batchDepth = 0
+const pendingBatch = new Set<() => void>()
+
 export function createSignal<T>(initial: T): Signal<T> {
   let value = initial
   const subscribers = new Set<() => void>()
@@ -51,8 +55,12 @@ export function createSignal<T>(initial: T): Signal<T> {
   const set = (next: T): void => {
     if (Object.is(value, next)) return
     value = next
-    // copy to allow listener self-unsubscribe during notify
-    for (const listener of [...subscribers]) listener()
+    if (batchDepth > 0) {
+      for (const listener of subscribers) pendingBatch.add(listener)
+    } else {
+      // copy to allow listener self-unsubscribe during notify
+      for (const listener of [...subscribers]) listener()
+    }
   }
 
   const subscribe = (listener: () => void): (() => void) => {
@@ -106,14 +114,34 @@ export function computed<T>(fn: () => T): Computed<T> {
 }
 
 /**
- * Batch multiple signal writes; subscribers fire once per signal after `fn` returns.
- * Useful when controllers mutate several signals in a single transaction.
+ * Batch multiple signal writes into a single notification cycle.
  *
- * Implementation note: current `set` is synchronous-notify; batch wraps writes
- * by deferring notifications via a microtask queue per signal. For now we keep
- * batch a no-op marker since signal writes are already coalesced via Object.is —
- * adapters can wrap their own batching (React's automatic batching, Vue's nextTick).
+ * Inside `batch(fn)`, all `Signal.set()` calls queue their subscribers
+ * instead of notifying immediately. When the outermost batch exits,
+ * every accumulated subscriber fires exactly once (deduplicated).
+ *
+ * Supports nesting — only the outermost batch triggers the flush.
+ *
+ * @example
+ * ```ts
+ * batch(() => {
+ *   signalA.set(1)
+ *   signalB.set('x')
+ *   // subscribers haven't fired yet
+ * })
+ * // all subscribers fire once, deduped
+ * ```
  */
 export function batch<T>(fn: () => T): T {
-  return fn()
+  batchDepth++
+  try {
+    return fn()
+  } finally {
+    batchDepth--
+    if (batchDepth === 0 && pendingBatch.size > 0) {
+      const toNotify = [...pendingBatch]
+      pendingBatch.clear()
+      for (const listener of toNotify) listener()
+    }
+  }
 }

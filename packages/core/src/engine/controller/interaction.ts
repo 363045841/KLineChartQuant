@@ -69,8 +69,8 @@ export class InteractionController {
     const clampedScrollLeft = Math.min(Math.max(0, nextScrollLeft), maxScrollLeft)
     const dpr = this.chart.getCurrentDpr()
     const rounded = Math.round(clampedScrollLeft * dpr) / dpr
+    this.chart.setScrollLeft(rounded)
     container.scrollLeft = rounded
-    this.chart.setScrollLeft(container.scrollLeft)
   }
 
   /** 垂直拖动相关 */
@@ -279,6 +279,7 @@ export class InteractionController {
     this.activePaneIdOnDrag = pane?.id || null
 
     this.chart.scheduleDraw()
+    this.notifyInteractionChange()
   }
 
   /**
