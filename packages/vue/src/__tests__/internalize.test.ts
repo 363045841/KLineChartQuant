@@ -144,33 +144,6 @@ describe('KLineChart internalization — dataFetcher default', () => {
 })
 
 describe('KLineChart internalization — theme prop', () => {
-  it('applies a controlled theme on mount instead of settings', async () => {
-    const wrapper = mount(KlineChart, {
-      attachTo: document.body,
-      props: { theme: 'dark' },
-    })
-    await flushMount()
-
-    expect(mockController.setThemeCalls()).toContain('dark')
-
-    wrapper.unmount()
-  })
-
-  it('applies theme changes via watcher', async () => {
-    const wrapper = mount(KlineChart, {
-      attachTo: document.body,
-      props: { theme: 'light' },
-    })
-    await flushMount()
-
-    await wrapper.setProps({ theme: 'dark' })
-    await nextTick()
-
-    expect(mockController.setThemeCalls()).toContain('dark')
-
-    wrapper.unmount()
-  })
-
   it('still emits themeChange when the controller theme changes', async () => {
     const wrapper = mount(KlineChart, { attachTo: document.body })
     await flushMount()

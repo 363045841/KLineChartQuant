@@ -24,7 +24,7 @@
         :mcp="mcpConfig"
         :left-axis-width="60"
         :custom-data="customData"
-        :theme="currentTheme"
+        :settings="chartSettings"
         @update:is-fullscreen="isFullscreen = $event"
         @theme-change="onThemeChange"
       >
@@ -79,7 +79,7 @@
     createHeatmapController,
   } from '@363045841yyt/klinechart-core/controllers'
   import { executeTool } from '@363045841yyt/klinechart-ai-runtime'
-import { formatTimestamp } from '@363045841yyt/klinechart-core'
+  import { formatTimestamp } from '@363045841yyt/klinechart-core'
 
   /** 硬编码演示数据：主品种 CUSTOM.DEMO（15 根日 K） */
   const DEMO_MAIN_DATA: KLineData[] = [
@@ -543,15 +543,6 @@ import { formatTimestamp } from '@363045841yyt/klinechart-core'
 
   const isFullscreen = ref(false)
   const embedContainerRef = ref<HTMLElement | null>(null)
-  const currentTheme = ref<'light' | 'dark'>('light')
-
-  function onThemeChange(theme: 'light' | 'dark') {
-    currentTheme.value = theme
-  }
-
-  provideFullscreenTeleportTarget(embedContainerRef)
-
-  const teleportTarget = computed<HTMLElement | string>(() => embedContainerRef.value ?? 'body')
 
   // ── settings prop 演示
   const chartSettings: ChartSettings = {
@@ -560,15 +551,25 @@ import { formatTimestamp } from '@363045841yyt/klinechart-core'
     showVolumePriceMarkers: false,
     leftAxisType: 'none',
     theme: 'dark',
-    colorPresetSettings: {
+    /* colorPresetSettings: {
       dark: {
         candleUpBody: '#e85d04', // 橙色阳线
         candleDownBody: '#1b4332', // 墨绿阴线
         crosshairLine: '#faa307', // 金色十字线
         gridMajor: '#3e2723', // 主网格线
       },
-    },
+    }, */
   }
+
+  const currentTheme = ref<'light' | 'dark'>(chartSettings.theme as 'light' | 'dark')
+
+  function onThemeChange(theme: 'light' | 'dark') {
+    currentTheme.value = theme
+  }
+
+  provideFullscreenTeleportTarget(embedContainerRef)
+
+  const teleportTarget = computed<HTMLElement | string>(() => embedContainerRef.value ?? 'body')
 
   // ── 自定义数据源 Demo ──
   const useCustomData = ref(false)
