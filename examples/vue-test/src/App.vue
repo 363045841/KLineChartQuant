@@ -1,6 +1,6 @@
 <template>
   <div class="app-container" :data-theme="currentTheme">
-    <KlineChart v-model:theme="currentTheme" :custom-data="customData">
+    <KlineChart :settings="chartSettings" :custom-data="customData" @theme-change="(t: 'light' | 'dark') => currentTheme = t">
       <template #kline-tooltip="{ hoverData, upColor, downColor }">
     <div class="custom-tooltip">
       <div class="custom-tooltip__title">
@@ -38,14 +38,14 @@ import type { ChartSettings } from '@363045841yyt/klinechart-core'
     showVolumePriceMarkers: false,
     leftAxisType: 'none',
     theme: 'dark',
-    colorPresetSettings: {
+    /* colorPresetSettings: {
       dark: {
         candleUpBody: '#e85d04', // 橙色阳线
         candleDownBody: '#1b4332', // 墨绿阴线
         crosshairLine: '#faa307', // 金色十字线
         gridMajor: '#3e2723', // 主网格线
       },
-    },
+    }, */
   }
 </script>
 

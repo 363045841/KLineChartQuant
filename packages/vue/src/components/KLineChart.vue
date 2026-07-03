@@ -273,8 +273,6 @@
       initialZoomLevel?: number
       /** 是否全屏（受控）。不绑定时为非受控模式，组件内部接管全屏 DOM 操作 */
       isFullscreen?: boolean
-      /** 主题（受控）。不传时由设置项决定 */
-      theme?: 'light' | 'dark'
       /** 时区，默认 Asia/Shanghai */
       timezone?: string
 
@@ -316,7 +314,6 @@
     (e: 'toggleFullscreen'): void
     (e: 'update:isFullscreen', value: boolean): void
     (e: 'themeChange', theme: 'light' | 'dark'): void
-    (e: 'update:theme', theme: 'light' | 'dark'): void
     (e: 'kLineLevelChange', level: string): void
     (e: 'kLineAdjustChange', adjust: 'qfq' | 'hfq' | 'splits' | 'none'): void
   }>()
@@ -515,6 +512,16 @@
   // ── Controller & Composable Wiring ──
   const controller = shallowRef<ChartController | null>(null)
 
+  // Resolve initial theme synchronously before first render
+  const _initialResolved = resolveSettings(props.settings)
+  const _initialTheme: 'light' | 'dark' = (() => {
+    const theme = _initialResolved.theme as string
+    if (theme === 'auto') {
+      return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    }
+    return theme as 'light' | 'dark'
+  })()
+
   const {
     chartTheme,
     chartSettings,
@@ -522,7 +529,7 @@
     themeCssVars,
     handleSettingsChange,
     applyThemeFromSettings,
-  } = useChartTheme(controller)
+  } = useChartTheme(controller, _initialTheme)
 
   const semanticController = shallowRef<SemanticChartController | null>(null)
 
@@ -953,6 +960,7 @@
       rightAxisLayer,
       leftAxisLayer,
       xAxisCanvas,
+      theme: _initialTheme,
       initialZoomLevel: props.initialZoomLevel,
       zoomLevels: props.zoomLevels,
       yPaddingPx: props.yPaddingPx,
@@ -1032,7 +1040,6 @@
       const newTheme = ctrl.theme.peek()
       chartTheme.value = newTheme
       emit('themeChange', newTheme)
-      emit('update:theme', newTheme)
     })
 
     const unsubscribeIndicators = setupIndicatorSubscriptions(ctrl)
@@ -1109,12 +1116,7 @@
     chartSettings.value = merged
     const resolved = resolveSettings(merged)
     ctrl.updateSettingsFacade(resolved)
-    // 受控主题优先，否则交由设置项决定
-    if (props.theme) {
-      ctrl.setTheme(props.theme)
-    } else {
-      applyThemeFromSettings(resolved.theme as string)
-    }
+    applyThemeFromSettings(resolved.theme as string)
   }
 
   function setupInteractionCallbacks(ctrl: ChartController): void {
@@ -1280,21 +1282,13 @@
           controller.value.setDataFetcher(effectiveDataFetcher.value)
           controller.value.resetToFetcher({
             ...saved,
-            period: currentPeriod.value,
+            period: kLineLevel.value,
             adjust: kLineAdjust.value,
           })
         }
       }
     },
     { deep: true },
-  )
-
-  // 受控主题：外部 theme 变化时同步到控制器
-  watch(
-    () => props.theme,
-    (t) => {
-      if (t) controller.value?.setTheme(t)
-    },
   )
 
   // 受控设置：外部 settings 变化时 merge 到当前设置并同步到控制器

@@ -15,8 +15,11 @@ import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import type { Ref } from 'vue'
 import { ref, computed, watch, onUnmounted } from 'vue'
 
-export function useChartTheme(ctrl: Ref<ChartController | null>) {
-  const chartTheme = ref<'light' | 'dark'>('light')
+export function useChartTheme(
+  ctrl: Ref<ChartController | null>,
+  initialTheme?: 'light' | 'dark',
+) {
+  const chartTheme = ref<'light' | 'dark'>(initialTheme ?? 'light')
   const chartSettings = ref<ChartSettings>({})
 
   const tooltipColors = computed(() => {
