@@ -11,6 +11,8 @@ export interface ScrollDeps {
   getViewport: () => Viewport | null
 }
 
+export const SCROLL_TRAILING_SLOTS = 30
+
 export class ScrollCompensator {
   constructor(private deps: ScrollDeps) {}
 
@@ -86,8 +88,7 @@ export class ScrollCompensator {
     const viewWidth = this.deps.getViewport()?.plotWidth ?? 0
     const dpr = this.deps.getEffectiveDpr()
     const { startXPx, unitPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
-    const TRAILING_SLOTS = 30
-    const dataPlotWidth = (startXPx + (dataLength + TRAILING_SLOTS) * unitPx) / dpr
+    const dataPlotWidth = (startXPx + (dataLength + SCROLL_TRAILING_SLOTS) * unitPx) / dpr
     return this.getLeftLoadBufferWidth(dataLength) + Math.max(dataPlotWidth, viewWidth)
   }
 }
