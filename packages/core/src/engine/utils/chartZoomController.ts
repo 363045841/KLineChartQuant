@@ -9,9 +9,9 @@ export interface ZoomCommittedResult {
 export interface ZoomDependencies {
   getLogicalScrollLeft: () => number
   getCurrentDpr: () => number
-  getLeftLoadBufferWidth: () => number
-  getContentWidth: () => number
   getClientWidth: () => number
+  getDataLength: () => number
+  getPlotWidth: () => number
   setScrollLeft: (v: number) => void
   onZoomCommitted: (result: ZoomCommittedResult) => void
   getKWidth: () => number
@@ -95,19 +95,16 @@ export class ChartZoomController {
         maxKWidth: this.deps.getMaxKWidth(),
         zoomLevelCount: this.deps.zoomLevelCount,
         dpr,
+        dataLength: this.deps.getDataLength(),
+        plotWidth: this.deps.getPlotWidth(),
+        clientWidth: this.deps.getClientWidth(),
       },
     )
 
     if (!result) return
 
-    const domScrollLeft = result.newScrollLeft + this.deps.getLeftLoadBufferWidth()
-    const contentWidth = this.deps.getContentWidth()
-    const clientWidth = this.deps.getClientWidth()
-    const maxScroll = Math.max(0, contentWidth - clientWidth)
-    const clampedScrollLeft =
-      Math.round(Math.max(0, Math.min(domScrollLeft, maxScroll)) * dpr) / dpr
     this._currentZoomLevel = result.targetLevel
-    this.deps.setScrollLeft(clampedScrollLeft)
+    this.deps.setScrollLeft(result.newDomScrollLeft)
     this.deps.onZoomCommitted({
       kWidth: result.newKWidth,
       kGap: result.newKGap,

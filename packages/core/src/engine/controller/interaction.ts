@@ -69,8 +69,8 @@ export class InteractionController {
     const clampedScrollLeft = Math.min(Math.max(0, nextScrollLeft), maxScrollLeft)
     const dpr = this.chart.getCurrentDpr()
     const rounded = Math.round(clampedScrollLeft * dpr) / dpr
+    this.chart.setScrollLeft(rounded)
     container.scrollLeft = rounded
-    this.chart.setScrollLeft(container.scrollLeft)
   }
 
   /** 垂直拖动相关 */
@@ -118,6 +118,9 @@ export class InteractionController {
   private onInteractionChangeCallback?: (snapshot: InteractionSnapshot) => void
   /** 用户设置 */
   private settings: ChartSettings = {}
+
+  /** 最后一次鼠标位置（用于 setKLinePositions 时自动重算十字线） */
+  private lastClientPos: { x: number; y: number } | null = null
 
   private markerState = new MarkerInteractionState()
 
@@ -276,6 +279,7 @@ export class InteractionController {
     this.activePaneIdOnDrag = pane?.id || null
 
     this.chart.scheduleDraw()
+    this.notifyInteractionChange()
   }
 
   /**
@@ -382,6 +386,8 @@ export class InteractionController {
    * @param e PointerEvent
    */
   onPointerMove(e: PointerEvent) {
+    this.lastClientPos = { x: e.clientX, y: e.clientY }
+
     if (this.pinchTracker.handlePointerMove(e)) return
 
     if (!e.isPrimary) return
@@ -480,6 +486,12 @@ export class InteractionController {
     this.visibleRange = visibleRange
     if (kWidthPx !== undefined) {
       this.kWidthPx = kWidthPx
+    }
+
+    // 十字线自动同步：positions 刷新后用最新鼠标位置重算，防止缩放/滚动后索引滞后
+    if (this.lastClientPos && !this.isDragging) {
+      this.updatePlotHoverFromPoint(this.lastClientPos.x, this.lastClientPos.y)
+      this.notifyInteractionChange()
     }
   }
 
@@ -668,7 +680,8 @@ export class InteractionController {
    * 边界 → pane 分隔器 → marker → K 线 bar → 十字线定位 → candle 命中 → tooltip。
    * 每个步骤都可能提前 return，无需执行后续检测。
    */
-  private updatePlotHoverFromPoint(clientX: number, clientY: number) {
+  /** @internal 公开给外部在合适的时机触发十字线重算（如 setKLinePositions 之后） */
+  updatePlotHoverFromPoint(clientX: number, clientY: number) {
     const ctx = this.resolveHoverContext(clientX, clientY)
     if (!ctx) return
 

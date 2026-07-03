@@ -5,11 +5,20 @@ import { getPhysicalKLineConfig } from './klineConfig'
  * 无副作用、无 DOM 访问，供 Vue 层直接调用
  */
 
-export interface ZoomConfig {
+export interface ZoomConfigBase {
   minKWidth: number
   maxKWidth: number
   zoomLevelCount: number
+}
+
+export interface ZoomConfig extends ZoomConfigBase {
   dpr: number
+  /** K 线数据条数（用于计算缩放后内容宽度） */
+  dataLength: number
+  /** 视口绘图区宽度（= leftLoadBufferWidth = viewWidth，用于内容宽度计算） */
+  plotWidth: number
+  /** 容器总宽度（用于 maxScroll 裁剪） */
+  clientWidth: number
 }
 
 export interface ZoomResult {
@@ -17,12 +26,17 @@ export interface ZoomResult {
   newKWidth: number
   newKGap: number
   newScrollLeft: number
+  /** 裁剪后的 DOM scrollLeft（已用新 kWidth/kGap 计算内容宽度） */
+  newDomScrollLeft: number
 }
 
 const PHYS_K_GAP_MAX = 3
 
+/** 尾部预留 K 线槽位数（与 ScrollCompensator 保持一致） */
+const TRAILING_SLOTS = 30
+
 /** 将缩放级别转换为 K 线宽度（逻辑像素） */
-export function zoomLevelToKWidth(level: number, config: ZoomConfig): number {
+export function zoomLevelToKWidth(level: number, config: ZoomConfigBase): number {
   const t = (level - 1) / (config.zoomLevelCount - 1)
   return config.minKWidth + t * (config.maxKWidth - config.minKWidth)
 }
@@ -60,7 +74,16 @@ export function computeZoom(
   const newAnchorWorldPx = newConfig.startXPx + anchorSlotFloat * newConfig.unitPx
   const newScrollLeft = newAnchorWorldPx / config.dpr - mouseX
 
-  return { targetLevel, newKWidth, newKGap, newScrollLeft }
+  // 用新 kWidth/kGap 计算内容宽度，确保裁剪使用正确的（缩放后）尺寸
+  const dataPlotWidth = (newConfig.startXPx + (config.dataLength + TRAILING_SLOTS) * newConfig.unitPx) / config.dpr
+  const newContentWidth = config.plotWidth + Math.max(dataPlotWidth, config.plotWidth)
+  const maxScroll = Math.max(0, newContentWidth - config.clientWidth)
+
+  const domScrollLeft = newScrollLeft + config.plotWidth
+  const newDomScrollLeft =
+    Math.round(Math.max(0, Math.min(domScrollLeft, maxScroll)) * config.dpr) / config.dpr
+
+  return { targetLevel, newKWidth, newKGap, newScrollLeft, newDomScrollLeft }
 }
 
 /**

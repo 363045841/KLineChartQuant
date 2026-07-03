@@ -98,6 +98,16 @@ Three coordinate systems must stay in sync:
 - **`checkVisibleRangeGapWhenIdle()` bails when `isPointerDown()` is true** — gap check only fires after drag ends; `onPointerUp()` is the last guaranteed trigger point.
 - **Bundle logically related info into a single signal payload instead of splitting across multiple signals that rely on timing order, and never use shared mutable variables to coordinate between independent signal subscribers.**
 
+### Signal Atomicity
+
+- **No band-aid timing fixes.** Never patch a timing hazard by adding delays, moving event listeners, or introducing scheduling hacks. Always trace the root cause — which signal fires before its dependent state is ready — and move the emission to where state is consistent. A fix that "works in practice but the order is still wrong" is unacceptable.
+
+- **Related signals must fire in the same synchronous block.** If two signals (`viewportSignal` and `interactionState`, for example) are semantically dependent, they must be written in the same synchronous call stack, wrapped in `batch()`. If they are split across a RAF boundary, consumers will observe an inconsistent intermediate state.
+
+- **Cache before DOM.** Any write that updates both cache state and DOM must write the cache first. DOM writes may trigger synchronous events (e.g. `scroll`) that read the cache. Stale cache leads to inconsistent event handler state.
+
+- **Use `batch()` for transactional signal writes.** The `batch()` mechanism (depth-counted deferred notification in `signal.ts`) replaces the old no-op. Wrap multiple `Signal.set()` calls in `batch()` to guarantee subscribers see the final state of all signals atomically. Do not rely on Vue's `queueFlush()` or React's automatic batching — they only merge updates within the same call stack, not across signal domains.
+
 ## CI
 
 - `library-ci.yml` runs on every push/PR to main. Two jobs: `test` (REQUIRED) and `build` (WARN-ONLY).

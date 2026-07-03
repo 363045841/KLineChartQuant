@@ -27,7 +27,6 @@ export function useChartState(initialZoom: number, opts?: ChartStateOptions) {
     minKWidth: opts?.minKWidth ?? 1,
     maxKWidth: opts?.maxKWidth ?? 50,
     zoomLevelCount: opts?.zoomLevelCount ?? 20,
-    dpr: opts?.dpr ?? 1,
   })
   kGap.value = kGapFromKWidth(kWidth.value, opts?.dpr ?? 1)
 
