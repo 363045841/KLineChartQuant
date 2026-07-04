@@ -810,7 +810,7 @@ export class InteractionController {
   private findNearestBar(ctx: HoverContext): NearestBar | null {
     if (!this.kLinePositions || !this.visibleRange || !this.kWidthPx) return null
 
-    const { worldX, mouseY, dpr } = ctx
+    const { worldX, mouseY, dpr, scrollLeft, plotWidth } = ctx
     const kWidthLogical = this.kWidthPx / dpr
     const positions = this.kLinePositions
 
@@ -834,6 +834,22 @@ export class InteractionController {
       }
     } else if (lo === positions.length && positions.length > 0) {
       localIdx = positions.length - 1
+    }
+
+    // 跳过中心不在可视视口内的 K 线（边缘裁剪），取相邻可见 K 线
+    const barCenter = positions[localIdx]! + kWidthLogical / 2
+    if (barCenter < scrollLeft) {
+      if (localIdx + 1 < positions.length) {
+        localIdx += 1
+      } else {
+        return null
+      }
+    } else if (barCenter > scrollLeft + plotWidth) {
+      if (localIdx > 0) {
+        localIdx -= 1
+      } else {
+        return null
+      }
     }
 
     return {
