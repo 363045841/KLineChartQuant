@@ -155,7 +155,7 @@
                 :down-color="tooltipColors.downColor"
                 :timezone="props.timezone"
                 :show-time="isIntraday"
-                :draggable="chartSettings.value?.tooltipPosition === 'adaptive'"
+                :draggable="(chartSettings.value?.tooltipPosition ?? 'adaptive') === 'adaptive'"
                 @pointerdown="onTooltipPointerDown"
                 @dblclick="onTooltipDblClick"
               />
@@ -852,6 +852,10 @@
   }
 
   function onPointerLeave(e: PointerEvent) {
+    const related = e.relatedTarget as Node | null
+    if (tooltipLayerRef.value && related && tooltipLayerRef.value.contains(related)) {
+      return
+    }
     controller.value?.handlePointerEvent(e)
   }
 
@@ -903,8 +907,8 @@
   function onTooltipPointerDown(e: PointerEvent) {
     if (chartSettings.value?.tooltipPosition !== 'adaptive') return
     _tooltipDragOffset = {
-      x: e.clientX - effectiveTooltipPos.value.x,
-      y: e.clientY - effectiveTooltipPos.value.y,
+      x: e.clientX - teleportedTooltipPos.value.x,
+      y: e.clientY - teleportedTooltipPos.value.y,
     }
     document.addEventListener('pointermove', onTooltipPointerMove)
     document.addEventListener('pointerup', onTooltipPointerUp)
@@ -912,8 +916,8 @@
 
   function onTooltipPointerMove(e: PointerEvent) {
     tooltipDragPos.value = {
-      x: e.clientX - _tooltipDragOffset.x,
-      y: e.clientY - _tooltipDragOffset.y,
+      x: e.clientX - _tooltipDragOffset.x - tooltipLayerOffset.value.x,
+      y: e.clientY - _tooltipDragOffset.y - tooltipLayerOffset.value.y,
     }
   }
 
