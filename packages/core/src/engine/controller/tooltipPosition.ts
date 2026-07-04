@@ -12,6 +12,7 @@ export interface TooltipPositionInput {
   tooltipSize: { width: number; height: number }
   useAnchorPositioning: boolean
   mode: TooltipPositionMode
+  adaptiveCorner?: 'top-left' | 'top-right'
 }
 
 export interface TooltipPositionOutput {
@@ -24,7 +25,9 @@ const PADDING = 12
 export function computeTooltipPosition(input: TooltipPositionInput): TooltipPositionOutput {
   if (input.mode === 'adaptive') {
     const tooltipW = input.tooltipSize.width
-    const onRight = isOnRightHalf(input.mouseX, input.viewWidth)
+    const onRight = input.adaptiveCorner
+      ? input.adaptiveCorner === 'top-left'
+      : isOnRightHalf(input.mouseX, input.viewWidth)
     return {
       pos: {
         x: onRight ? PADDING : Math.max(PADDING, input.viewWidth - tooltipW - PADDING),

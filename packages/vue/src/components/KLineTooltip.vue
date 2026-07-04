@@ -3,7 +3,7 @@
     v-if="hoverData"
     :ref="onRef"
     class="kline-tooltip"
-    :class="[{ 'use-anchor': useAnchor }, anchorPlacementClass]"
+    :class="[{ 'use-anchor': useAnchor, 'is-draggable': draggable }, anchorPlacementClass]"
     :style="useAnchor ? undefined : { left: `${pos.x}px`, top: `${pos.y}px` }"
   >
     <div class="kline-tooltip__title">
@@ -85,6 +85,8 @@
       timezone?: string
       /** 是否显示时分，默认 false */
       showTime?: boolean
+      /** 是否可拖拽 */
+      draggable?: boolean
     }>(),
     {
       upColor: '#ef4444',
@@ -167,6 +169,16 @@
     line-height: 1.4;
     pointer-events: none;
     backdrop-filter: blur(6px);
+    user-select: none;
+  }
+
+  .kline-tooltip.is-draggable {
+    pointer-events: auto;
+    cursor: grab;
+  }
+
+  .kline-tooltip.is-draggable:active {
+    cursor: grabbing;
   }
 
   .kline-tooltip__title {

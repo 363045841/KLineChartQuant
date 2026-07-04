@@ -9,6 +9,7 @@ import type { MarkerEntity, CustomMarkerEntity } from '../marker/registry'
 import { MarkerInteractionState } from './markerInteraction'
 import { PinchTracker } from './pinchTracker'
 import { computeTooltipPosition, type TooltipPositionMode } from './tooltipPosition'
+import { isOnRightHalf } from '../../utils/viewportSide'
 
 
 interface PointerLocation {
@@ -116,6 +117,8 @@ export class InteractionController {
   private useTooltipAnchorPositioning = false
   /** tooltip 定位模式 */
   private tooltipPositionMode: TooltipPositionMode = 'crosshair'
+  /** adaptive 模式锁定的角落（首次 hover 决定后不变） */
+  private tooltipAdaptiveLock: 'top-left' | 'top-right' | null = null
   /** 统一交互状态变更回调 */
   private onInteractionChangeCallback?: (snapshot: InteractionSnapshot) => void
   /** 用户设置 */
@@ -161,7 +164,9 @@ export class InteractionController {
   updateSettings(settings: ChartSettings): void {
     const prev = this.settings.disableMainPaneVerticalScroll
     this.settings = { ...settings }
-    this.tooltipPositionMode = (settings.tooltipPosition as TooltipPositionMode) ?? 'crosshair'
+    const nextMode = (settings.tooltipPosition as TooltipPositionMode) ?? 'crosshair'
+    if (nextMode !== 'adaptive') this.tooltipAdaptiveLock = null
+    this.tooltipPositionMode = nextMode
     // 开启自适应时，重置主图垂直偏移
     if (!prev && this.settings.disableMainPaneVerticalScroll) {
       this.chart.resetPriceTransform('main')
@@ -360,6 +365,7 @@ export class InteractionController {
 
     if (e.isPrimary === false) return
 
+    this.tooltipAdaptiveLock = null
     this.isDragging = false
     this.dragMode = 'none'
     this.activePaneIdOnDrag = null
@@ -959,6 +965,11 @@ export class InteractionController {
    */
   private updateTooltip(ctx: HoverContext): void {
     const { mouseX, mouseY, viewWidth, viewHeight, plotWidth, plotHeight } = ctx
+
+    if (this.tooltipPositionMode === 'adaptive' && this.tooltipAdaptiveLock === null) {
+      this.tooltipAdaptiveLock = isOnRightHalf(mouseX, viewWidth) ? 'top-left' : 'top-right'
+    }
+
     const tooltipResult = computeTooltipPosition({
       mouseX,
       mouseY,
@@ -969,6 +980,7 @@ export class InteractionController {
       tooltipSize: this.tooltipSize,
       useAnchorPositioning: this.useTooltipAnchorPositioning,
       mode: this.tooltipPositionMode,
+      adaptiveCorner: this.tooltipAdaptiveLock ?? undefined,
     })
     if (tooltipResult.anchorPlacement) {
       this.tooltipAnchorPlacement = tooltipResult.anchorPlacement

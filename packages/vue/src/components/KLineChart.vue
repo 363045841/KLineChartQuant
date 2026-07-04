@@ -155,6 +155,9 @@
                 :down-color="tooltipColors.downColor"
                 :timezone="props.timezone"
                 :show-time="isIntraday"
+                :draggable="chartSettings.value?.tooltipPosition === 'adaptive'"
+                @pointerdown="onTooltipPointerDown"
+                @dblclick="onTooltipDblClick"
               />
             </slot>
           </template>
@@ -652,6 +655,8 @@
   // ── Marker Tooltip & Container Rect Cache ──
   const mousePos = ref({ x: 0, y: 0 })
   const useAnchorPositioning = ref(false)
+  const tooltipDragPos = ref<{ x: number; y: number } | null>(null)
+  let _tooltipDragOffset = { x: 0, y: 0 }
 
   let _cachedContainerRect: DOMRect | null = null
   function invalidateContainerRectCache(): void {
@@ -724,9 +729,10 @@
   })
   const hoveredIndex = computed(() => interactionState.value.hoveredIndex)
   const tooltipPos = computed(() => interactionState.value.tooltipPos)
+  const effectiveTooltipPos = computed(() => tooltipDragPos.value ?? tooltipPos.value)
   const teleportedTooltipPos = computed(() => ({
-    x: tooltipPos.value.x + tooltipLayerOffset.value.x,
-    y: tooltipPos.value.y + tooltipLayerOffset.value.y,
+    x: effectiveTooltipPos.value.x + tooltipLayerOffset.value.x,
+    y: effectiveTooltipPos.value.y + tooltipLayerOffset.value.y,
   }))
   const klineTooltipAnchorStyle = computed(() => ({
     left: `${teleportedTooltipPos.value.x}px`,
@@ -891,6 +897,33 @@
 
   function onScroll() {
     controller.value?.handleScrollEvent()
+  }
+
+  // ── Tooltip Drag ──
+  function onTooltipPointerDown(e: PointerEvent) {
+    if (chartSettings.value?.tooltipPosition !== 'adaptive') return
+    _tooltipDragOffset = {
+      x: e.clientX - effectiveTooltipPos.value.x,
+      y: e.clientY - effectiveTooltipPos.value.y,
+    }
+    document.addEventListener('pointermove', onTooltipPointerMove)
+    document.addEventListener('pointerup', onTooltipPointerUp)
+  }
+
+  function onTooltipPointerMove(e: PointerEvent) {
+    tooltipDragPos.value = {
+      x: e.clientX - _tooltipDragOffset.x,
+      y: e.clientY - _tooltipDragOffset.y,
+    }
+  }
+
+  function onTooltipPointerUp() {
+    document.removeEventListener('pointermove', onTooltipPointerMove)
+    document.removeEventListener('pointerup', onTooltipPointerUp)
+  }
+
+  function onTooltipDblClick() {
+    tooltipDragPos.value = null
   }
 
   // ── Width / Zoom / Expose ──
@@ -1233,6 +1266,8 @@
     if (typeof document !== 'undefined' && onFullscreenChange) {
       document.removeEventListener('fullscreenchange', onFullscreenChange)
     }
+    document.removeEventListener('pointermove', onTooltipPointerMove)
+    document.removeEventListener('pointerup', onTooltipPointerUp)
     onFullscreenChange = null
     cleanupChartCallbacks?.()
     cleanupChartCallbacks = null
@@ -1289,6 +1324,14 @@
       }
     },
     { deep: true },
+  )
+
+  // tooltipPosition 切换为非 adaptive 时复位拖拽位置
+  watch(
+    () => chartSettings.value?.tooltipPosition,
+    (val) => {
+      if (val !== 'adaptive') tooltipDragPos.value = null
+    },
   )
 
   // 受控设置：外部 settings 变化时 merge 到当前设置并同步到控制器
