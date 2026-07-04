@@ -5,8 +5,8 @@ import type {
   BaseIndicatorState,
 } from '../../plugin'
 import { RENDERER_PRIORITY } from '../../plugin'
-import { createIndicatorStateKey } from '../../plugin/stateKeys'
 import { resolveThemeColors } from '../../tokens'
+import { getKLineTrend } from '../../types/kLine'
 import type { KLineData } from '../../types/price'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../indicators/indicatorMetadata'
@@ -142,7 +142,8 @@ function createVolumeRendererPlugin(options: VolumeRendererOptions = {}): Render
         const finalH = rawH <= 0 ? minBarHPx : Math.max(rawH, minBarHPx)
         const finalY = rawH <= 0 ? alignedBaseY - minBarHPx : alignedBaseY - finalH
 
-        const color = judgeColor(item, upVolume, downVolume, neutralVolume)
+        const preClose = i > 0 ? klineData[i - 1]?.close : undefined
+        const color = judgeColor(item, upVolume, downVolume, neutralVolume, preClose)
 
         let buf: Float32Array
         let idx: number
@@ -289,14 +290,12 @@ function judgeColor(
   upColor: string,
   downColor: string,
   neutralColor: string,
+  preClose?: number,
 ): string {
-  if (dayData.close > dayData.open) {
-    return upColor
-  } else if (dayData.close < dayData.open) {
-    return downColor
-  } else {
-    return neutralColor
-  }
+  const trend = getKLineTrend(dayData, preClose)
+  if (trend === 'up') return upColor
+  if (trend === 'down') return downColor
+  return neutralColor
 }
 
 @Indicator({

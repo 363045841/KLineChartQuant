@@ -1,7 +1,7 @@
 import type { RendererPlugin, RenderContext } from '../../plugin'
 import { RENDERER_PRIORITY } from '../../plugin'
 import { resolveThemeColors, type VolumePriceColors } from '../../tokens'
-import type { kLineTrend } from '../../types/kLine'
+import { getKLineTrend, type kLineTrend } from '../../types/kLine'
 import type { KLineData } from '../../types/price'
 import { VolumePriceRelation } from '../../types/volumePrice'
 import {
@@ -216,7 +216,9 @@ function prepareCandles(args: {
     const bodyH = bodyHPx * invDpr
     const wickCenterX = (roundedLeftPx + (kWidthPx - 1) / 2) * invDpr
 
-    const isUp = e.close >= e.open
+    const preClose = i > 0 ? data[i - 1]?.close : undefined
+    const trend = getKLineTrend(e, preClose)
+    const isUp = trend === 'up'
 
     if (showVolumePriceMarkers) {
       const targetKLines = isUp ? upKLines : downKLines
@@ -232,7 +234,7 @@ function prepareCandles(args: {
           wickRect: { x: wickCenterX, width: 1 / dpr },
           isPerfectlyAligned: kWidthPx % 2 === 1,
         },
-        trend: isUp ? 'up' : 'down',
+        trend,
         openY,
         closeY,
         highY,
