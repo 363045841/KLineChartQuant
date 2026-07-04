@@ -22,6 +22,7 @@ export function createYAxisRendererPlugin(options: {
     debugName: 'Y轴',
     paneId: GLOBAL_PANE_ID,
     priority: RENDERER_PRIORITY.SYSTEM_YAXIS,
+    layer: 'overlay',
 
     draw(context: RenderContext) {
       const { ctx, pane, dpr, yAxisCtx, data, period } = context

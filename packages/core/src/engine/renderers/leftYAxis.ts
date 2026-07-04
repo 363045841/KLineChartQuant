@@ -18,6 +18,7 @@ export function createLeftYAxisRendererPlugin(options: {
     debugName: '左侧Y轴',
     paneId: GLOBAL_PANE_ID,
     priority: RENDERER_PRIORITY.SYSTEM_YAXIS,
+    layer: 'overlay',
 
     draw(context: RenderContext) {
       const { leftAxisCtx, pane, dpr, period } = context
