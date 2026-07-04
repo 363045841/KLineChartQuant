@@ -25,6 +25,8 @@ export interface KLineData {
   changeAmount?: number
   /** 换手率 */
   turnoverRate?: number
+  /** 添加自定义字段 */
+  [key: string]: any
 }
 
 export interface KLineDailyDongCaiResponse extends KLineData {
