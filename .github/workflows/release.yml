@@ -35,6 +35,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Regenerate READMEs (safety net)
+        run: node scripts/generate-readmes.mjs
+
       - name: Build packages
         run: pnpm --filter @363045841yyt/klinechart-core --filter @363045841yyt/klinechart build
 

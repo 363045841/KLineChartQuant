@@ -1,22 +1,22 @@
 # @363045841yyt/klinechart-core
 
-无头、响应式 K 线图表引擎，无框架依赖。
+Headless, reactive K-line (candlestick) chart engine with zero framework dependencies.
 
-## 概述
+## Overview
 
-`@363045841yyt/klinechart-core` 是 `@363045841yyt/klinechart` 单仓的基础图表引擎。它负责数据管理、渲染协调、视口计算和插件编排，不依赖任何 UI 框架。
+`@363045841yyt/klinechart-core` provides the foundational charting engine powering the `@363045841yyt/klinechart` monorepo. It handles data management, rendering coordination, viewport calculations, and plugin orchestration — all without touching any UI framework.
 
-## 安装
+## Installation
 
 ```bash
 npm install @363045841yyt/klinechart-core
-# 或
+# or
 pnpm add @363045841yyt/klinechart-core
-# 或
+# or
 yarn add @363045841yyt/klinechart-core
 ```
 
-## 快速开始
+## Quick Start
 
 ```typescript
 import { createChartController } from '@363045841yyt/klinechart-core/controllers'
@@ -29,88 +29,88 @@ const controller = createChartController({
   theme: 'light',
 })
 
-// 加载数据
+// Load data
 const data: KLineData[] = [
   { timestamp: 1704067200000, open: 100, high: 105, low: 98, close: 103, volume: 10000 },
   // ...
 ]
 controller.setData(data)
 
-// 清理
+// Cleanup when done
 controller.dispose()
 ```
 
-## 导出
+## Exports
 
-### 控制器
+### Controllers
 
-- `createChartController` — 创建图表实例的工厂函数
-- `ChartController` — 主控制器接口
+- `createChartController` — Factory for creating chart instances
+- `ChartController` — Main controller interface
 
-### 响应式
+### Reactivity
 
-- `Signal<T>` — 响应式状态管理原语
-- `effect`, `peek` — 响应式工具函数
+- `Signal<T>` — Reactive primitive for state management
+- `effect`, `peek` — Reactive utilities
 
-### 引擎
+### Engine
 
-- `ChartController` — 公开图表的接口（通过 `@363045841yyt/klinechart-core/controllers`）
-- `createChartController` — 创建控制器实例的工厂函数
-- 渲染器（内部使用 — 通过 controllers 门面调用）
+- `ChartController` — Public chart interface (via `@363045841yyt/klinechart-core/controllers`)
+- `createChartController` — Factory for creating controller instances
+- Renderers (internal — use controllers facade)
 
-### 插件系统
+### Plugin System
 
-- `PluginHost` — 插件注册与生命周期
-- `EventBus` — 跨组件通信
-- `StateStore` — 全局状态管理
+- `PluginHost` — Plugin registration and lifecycle
+- `EventBus` — Cross-component communication
+- `StateStore` — Global state management
 
-### 类型
+### Types
 
-- `KLineData` — K 线数据点
-- `ChartViewport` — 视口状态
-- `InteractionSnapshot` — 交互状态
+- `KLineData` — Candlestick data point
+- `ChartViewport` — Viewport state
+- `InteractionSnapshot` — Interaction state
 
-### 子路径导出
+### Subpath Exports
 
-包提供细粒度的子路径导入以支持 tree-shaking：
+The package provides granular subpath imports for tree-shaking:
 
 ```typescript
-// 控制器（推荐）
+// Controllers (recommended)
 import { createChartController } from '@363045841yyt/klinechart-core/controllers'
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 
-// 工具函数（也可通过 controllers 重新导出）
+// Utils (also available via controllers re-export)
 import { zoomLevelToKWidth } from '@363045841yyt/klinechart-core/controllers'
 
-// 配置
+// Config
 import { DEFAULT_SETTINGS } from '@363045841yyt/klinechart-core/config'
 
-// 插件
+// Plugin
 import { EventBus } from '@363045841yyt/klinechart-core/plugin'
 
-// 版本
+// Version
 import { VERSION } from '@363045841yyt/klinechart-core/version'
 ```
 
-## 架构
+## Architecture
 
 ```
 ┌─────────────────────────────────────┐
-│          Controllers                │  ← 高层 API
+│          Controllers                │  ← High-level API
 ├─────────────────────────────────────┤
 │        Plugin System                │  ← EventBus, StateStore
 ├─────────────────────────────────────┤
 │          Engine                     │  ← Chart, ChartStore
 ├─────────────────────────────────────┤
-│        Renderers                    │  ← Canvas/WebGL 渲染器
+│        Renderers                    │  ← Canvas/WebGL renderers
 ├─────────────────────────────────────┤
-│        Reactivity                   │  ← Signal 响应式状态
+│        Reactivity                   │  ← Signal-based state
 └─────────────────────────────────────┘
 ```
 
 ## ChartController API
 
-### 创建控制器
+### Creating a Controller
 
 ```typescript
 import { createChartController } from '@363045841yyt/klinechart-core/controllers'
@@ -127,48 +127,48 @@ const controller = createChartController({
 })
 ```
 
-### 方法
+### Methods
 
-- `setData(data: KLineData[]): void` — 更新图表数据
-- `setTheme(theme: 'light' | 'dark'): void` — 切换主题
-- `zoomToLevel(level: number, anchorX?: number): void` — 缩放到指定级别
-- `zoomIn(anchorX?: number): void` — 放大
-- `zoomOut(anchorX?: number): void` — 缩小
-- `addIndicator(definitionId: string, role: 'main' | 'sub', params?): string` — 添加指标
-- `removeIndicator(instanceId: string): boolean` — 移除指标
-- `dispose(): void` — 清理并销毁
+- `setData(data: KLineData[]): void` — Update chart data
+- `setTheme(theme: 'light' | 'dark'): void` — Change theme
+- `zoomToLevel(level: number, anchorX?: number): void` — Zoom to specific level
+- `zoomIn(anchorX?: number): void` — Zoom in
+- `zoomOut(anchorX?: number): void` — Zoom out
+- `addIndicator(definitionId: string, role: 'main' | 'sub', params?): string` — Add indicator
+- `removeIndicator(instanceId: string): boolean` — Remove indicator
+- `dispose(): void` — Cleanup and destroy
 
-### 响应式状态
+### Reactive State
 
-通过 signal 访问响应式状态：
+Access reactive state via signals:
 
 ```typescript
-// 当前视口
+// Current viewport
 controller.viewport.subscribe((vp) => {
-  console.log('缩放级别:', vp.zoomLevel)
+  console.log('Zoom level:', vp.zoomLevel)
 })
 
-// 活跃指标
+// Active indicators
 controller.indicators.subscribe((inds) => {
-  console.log('活跃指标:', inds)
+  console.log('Active indicators:', inds)
 })
 
-// 交互状态
+// Interaction state
 controller.interactionState.subscribe((state) => {
-  console.log('悬停:', state.hover)
+  console.log('Hover:', state.hover)
 })
 ```
 
-## 语义化配置
+## Semantic Configuration
 
-用于 AI/LLM 驱动的图表配置：
+For AI/LLM-driven chart configuration, use the semantic controller:
 
 ```typescript
 import { SemanticChartController } from '@363045841yyt/klinechart-core/semantic'
 
 const semantic = new SemanticChartController(chartInstance)
 
-// 应用自然语言配置
+// Apply natural language config
 semantic.applyConfig({
   stockSymbol: 'AAPL',
   dateRange: { start: '2024-01-01', end: '2024-06-01' },
@@ -184,25 +184,22 @@ semantic.applyConfig({
 })
 ```
 
-## 浏览器支持
+## Browser Support
 
 - Chrome/Edge 90+
 - Firefox 88+
 - Safari 14+
 
-需要支持：
+Requires support for:
 
 - ResizeObserver
 - Canvas 2D Context
-- ES2022（或编译转换）
+- ES2022 (or transpile)
 
-## 相关包
+## Related Packages
 
-- `@363045841yyt/klinechart` — Vue 3 绑定
-- `@363045841yyt/klinechart-react` — React 绑定（即将推出）
-- `@363045841yyt/klinechart-angular` — Angular 绑定（即将推出）
+- `@363045841yyt/klinechart` — Vue 3 bindings
+- `@363045841yyt/klinechart-react` — React bindings (coming soon)
+- `@363045841yyt/klinechart-angular` — Angular bindings (coming soon)
 
-## 📄 License
-
-[MIT](LICENSE)
-
+{{include:_license.md}}

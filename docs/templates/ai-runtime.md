@@ -1,10 +1,10 @@
 # @363045841yyt/klinechart-ai-runtime
 
 MCP (Model Context Protocol) server and AI tool schemas for
-[@363045841yyt/klinechart-core](../../packages/core)
+[@363045841yyt/klinechart-core]({{root}}packages/core)
 ([npm](https://www.npmjs.com/package/@363045841yyt/klinechart-core))
 /
-[@363045841yyt/klinechart](../../packages/vue)
+[@363045841yyt/klinechart]({{root}}packages/vue)
 ([npm](https://www.npmjs.com/package/@363045841yyt/klinechart)).
 
 Optional addon — install only if you need AI agent / MCP control of your charts.
@@ -134,7 +134,4 @@ Legacy helper — prefer `executeTool` + `mcp` prop pattern above.
 | `indicators.remove`       | Remove an indicator by instance ID |
 | `indicators.updateParams` | Update indicator parameters        |
 
-## 📄 License
-
-[MIT](LICENSE)
-
+{{include:_license.md}}

@@ -202,7 +202,4 @@ semantic.applyConfig({
 - `@363045841yyt/klinechart-react` — React 绑定（即将推出）
 - `@363045841yyt/klinechart-angular` — Angular 绑定（即将推出）
 
-## 📄 License
-
-[MIT](LICENSE)
-
+{{include:_license.zh-CN.md}}

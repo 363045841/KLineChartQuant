@@ -26,6 +26,10 @@ pnpm workspace at `packages/*`. Published packages:
 
 Node: `^20.19.0 \|\| >=22.12.0`. pnpm 9.x.
 
+## README Generation
+
+All READMEs are generated from `docs/fragments/` (reusable Markdown snippets) + `docs/templates/` (per-package templates) via `scripts/generate-readmes.mjs`. Edit fragments only, then run `pnpm docs:generate` to sync all package READMEs.
+
 ## Commands
 
 | Command | What |
@@ -41,6 +45,8 @@ Node: `^20.19.0 \|\| >=22.12.0`. pnpm 9.x.
 | `pnpm size:packages` | `pnpm -r --workspace-concurrency=4 size` (warn-only in CI) |
 | `pnpm lint:publish` | `pnpm -r --workspace-concurrency=4 lint:publish` (warn-only) |
 | `pnpm lint:types` | `pnpm -r --workspace-concurrency=4 lint:types` (warn-only) |
+| `pnpm docs:generate` | Generate all READMEs from fragments + templates |
+| `pnpm docs:check`    | Verify READMEs are up-to-date (exit 1 if stale) |
 | `pnpm format` | `prettier --write --experimental-cli src/` |
 
 ### Data backend (dev prerequisite)

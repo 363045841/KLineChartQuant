@@ -196,12 +196,13 @@ Requires support for:
 - Canvas 2D Context
 - ES2022 (or transpile)
 
-## License
-
-MIT © 363045841
-
 ## Related Packages
 
 - `@363045841yyt/klinechart` — Vue 3 bindings
 - `@363045841yyt/klinechart-react` — React bindings (coming soon)
 - `@363045841yyt/klinechart-angular` — Angular bindings (coming soon)
+
+## 📄 License
+
+[MIT](LICENSE)
+

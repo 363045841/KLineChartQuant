@@ -1,5 +1,6 @@
 高性能金融图表库，单帧生成时间仅需2ms，200hz环境下稳定滚动190-200fps，原生支持 AI Agent 控制，全链路 ResizeObserver 驱动清晰渲染，插件化架构。
 
+
 <div align="center">
 
 [English](README.md) | 简体中文
@@ -15,6 +16,7 @@
 </div>
 
 ---
+
 
 轻量级金融 K 线图表库，专注量化交易场景。**Agent 是一等公民** — 支持 AI Agent 直接控制图表操作，提供 TradingView 级别的交互体验。
 
@@ -36,6 +38,7 @@
   <img src="https://files.seeusercontent.com/2026/06/20/0flS/1YHDQQB321JZ5QW.png" width="400" style="border-radius: 12px; margin: 8px;" />
 </div>
 
+
 ## ✨ 核心特性
 
 - **Agent 优先 / MCP 原生** - 支持 AI Agent 直接控制图表，通过 [Model Context Protocol](https://modelcontextprotocol.io) 协议接入。内置 WebSocket 桥接 MCP 服务器，任何 MCP 客户端（Inspector、Claude Desktop、Cursor 等）均可实时缩放、平移、增删指标、切换主题
@@ -50,6 +53,7 @@
 - **多数据源** - 支持多数据源聚合并可自由扩展
 - **批量数据导出** - 选择时间范围后，批量输入多个股票代码，一键导出合并 CSV 文件，支持进度提示
 - **自定义 Tooltip** - 通过命名插槽（`#kline-tooltip`、`#marker-tooltip`）完全自定义 tooltip，引擎提供悬停数据、位置和样式
+
 
 ## 🚀 快速开始
 
@@ -79,13 +83,14 @@ npm run stockbao
 
 后端启动后，API 地址为 `http://localhost:8000`
 
+
 ### 3. 安装并使用
 
 ```bash
 npm install @363045841yyt/klinechart @363045841yyt/klinechart-core
 ```
 
-- **使用组件：** 
+**使用组件：**
 
 ```vue
 <template>
@@ -112,10 +117,10 @@ npm install @363045841yyt/klinechart @363045841yyt/klinechart-core
     theme: 'dark',
     colorPresetSettings: {
       dark: {
-        candleUpBody: '#e85d04', // 橙色阳线
-        candleDownBody: '#1b4332', // 墨绿阴线
-        crosshairLine: '#faa307', // 金色十字线
-        gridMajor: '#3e2723', // 主网格线
+        candleUpBody: '#e85d04',
+        candleDownBody: '#1b4332',
+        crosshairLine: '#faa307',
+        gridMajor: '#3e2723',
       },
     },
   }
@@ -133,20 +138,19 @@ npm install @363045841yyt/klinechart @363045841yyt/klinechart-core
     color: #e5e7eb;
   }
 </style>
-
 ```
-- **Import CSS in main.ts:**
+
+**Import CSS in main.ts：**
+
 ```typescript
-import '@363045841yyt/klinechart/style.css' // <- HERE
+import '@363045841yyt/klinechart/style.css'
 import { createApp } from 'vue'
 import App from './App.vue'
-
 
 createApp(App).mount('#app')
 ```
 
-- **插槽用法**
-1. Tooltip
+**插槽用法 — 自定义 Tooltip：**
 
 ```html
 <KlineChart>
@@ -168,6 +172,7 @@ createApp(App).mount('#app')
   </template>
 </KlineChart>
 ```
+
 
 ### 4.（可选）启用 MCP / AI Agent 控制
 
@@ -216,11 +221,13 @@ pnpm inspect
 
 通过 MCP Inspector 连接后即可调用 `chart.zoomToLevel`、`indicators.add` 等工具。
 
+
 ## 📖 更多文档
 
-- [渲染引擎架构](./docs/rendering-engine-architecture.md) - 核心渲染管线与物理像素对齐机制
-- [插件系统](./docs/PLUGIN_SYSTEM.md) - 扩展机制与自定义开发
-- [渲染器开发指南](./docs/renderer-development-guide.md) - 自定义渲染器开发
+- [渲染引擎架构](docs/rendering-engine-architecture.md) - 核心渲染管线与物理像素对齐机制
+- [插件系统](docs/PLUGIN_SYSTEM.md) - 扩展机制与自定义开发
+- [渲染器开发指南](docs/renderer-development-guide.md) - 自定义渲染器开发
+
 
 ## 📋 组件 Props
 
@@ -244,6 +251,7 @@ pnpm inspect
 | teleportContainer | `string \| HTMLElement` | — | 下拉/弹窗的 Teleport 目标容器（CSS 选择器或元素）。默认渲染到内部 `.chart-wrapper` |
 | mcp | `McpConfig` | — | MCP/AI runtime 桥接配置：`{ wsUrl?, autoReconnect?, onToolCall? }`。详见 [@363045841yyt/klinechart-ai-runtime](packages/ai-runtime/README.md) |
 
+
 ## 🗺️ Roadmap
 
 - [x] K 线缩放锚点稳定，缩放手感提升
@@ -258,6 +266,7 @@ pnpm inspect
 - [ ] 支持分钟、多日、月、年 K 线显示
 - [ ] 支持将绘制的图形转换为量化代码
 
+
 ## 📦 包列表
 
 | 包名 | 说明 | npm |
@@ -267,6 +276,7 @@ pnpm inspect
 | `@363045841yyt/klinechart-react` | React 绑定 | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-react) |
 | `@363045841yyt/klinechart-angular` | Angular 绑定 | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-angular) |
 | `@363045841yyt/klinechart-ai-runtime` | MCP 服务端 + AI 工具定义（可选） | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-ai-runtime) |
+
 
 ## 🚀 What's New
 
@@ -282,6 +292,8 @@ pnpm inspect
 - **v0.5.0** 完整绘图工具系统，支持直线、矩形、文字绘制与样式编辑
 - **v0.4** 现代化 UI，左侧工具栏、右轴优化、TradingView 式缩放手感
 
+
 ## 📄 License
 
 [MIT](LICENSE)
+
