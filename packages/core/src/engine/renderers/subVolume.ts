@@ -257,19 +257,19 @@ function drawVolumeWithCanvas2D(
   ctx.fillStyle = upColor
   for (let i = 0; i < upCount; i++) {
     const off = i * 4
-    ctx.fillRect(upBuf[off], upBuf[off + 1], upBuf[off + 2], upBuf[off + 3])
+    ctx.fillRect(upBuf[off]!, upBuf[off + 1]!, upBuf[off + 2]!, upBuf[off + 3]!)
   }
 
   ctx.fillStyle = downColor
   for (let i = 0; i < downCount; i++) {
     const off = i * 4
-    ctx.fillRect(downBuf[off], downBuf[off + 1], downBuf[off + 2], downBuf[off + 3])
+    ctx.fillRect(downBuf[off]!, downBuf[off + 1]!, downBuf[off + 2]!, downBuf[off + 3]!)
   }
 
   ctx.fillStyle = neutralColor
   for (let i = 0; i < neutralCount; i++) {
     const off = i * 4
-    ctx.fillRect(neutralBuf[off], neutralBuf[off + 1], neutralBuf[off + 2], neutralBuf[off + 3])
+    ctx.fillRect(neutralBuf[off]!, neutralBuf[off + 1]!, neutralBuf[off + 2]!, neutralBuf[off + 3]!)
   }
 
   ctx.restore()
