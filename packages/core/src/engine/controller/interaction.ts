@@ -8,7 +8,7 @@ import type { MarkerEntity, CustomMarkerEntity } from '../marker/registry'
 
 import { MarkerInteractionState } from './markerInteraction'
 import { PinchTracker } from './pinchTracker'
-import { computeTooltipPosition } from './tooltipPosition'
+import { computeTooltipPosition, type TooltipPositionMode } from './tooltipPosition'
 
 
 interface PointerLocation {
@@ -114,6 +114,8 @@ export class InteractionController {
   tooltipAnchorPlacement: 'right-bottom' | 'left-bottom' = 'right-bottom'
   /** 是否使用 CSS 锚定位 */
   private useTooltipAnchorPositioning = false
+  /** tooltip 定位模式 */
+  private tooltipPositionMode: TooltipPositionMode = 'crosshair'
   /** 统一交互状态变更回调 */
   private onInteractionChangeCallback?: (snapshot: InteractionSnapshot) => void
   /** 用户设置 */
@@ -159,6 +161,7 @@ export class InteractionController {
   updateSettings(settings: ChartSettings): void {
     const prev = this.settings.disableMainPaneVerticalScroll
     this.settings = { ...settings }
+    this.tooltipPositionMode = (settings.tooltipPosition as TooltipPositionMode) ?? 'crosshair'
     // 开启自适应时，重置主图垂直偏移
     if (!prev && this.settings.disableMainPaneVerticalScroll) {
       this.chart.resetPriceTransform('main')
@@ -701,6 +704,12 @@ export class InteractionController {
       return
     }
 
+    if (this.tooltipPositionMode === 'adaptive') {
+      this.hoveredIndex = bar.globalIdx
+      this.updateTooltip(ctx)
+      return
+    }
+
     if (!this.hitTestCandle(ctx, bar)) {
       this.hoveredIndex = null
       return
@@ -881,7 +890,7 @@ export class InteractionController {
    * Candle 实体/影线命中检测
    *
    * 检测指针是否落在 K 线实体内或影线上。
-   * 小实体（< 8px）会扩展命中区域以保证可用性。
+   * 小实体（< 20px）和短影线（< 8px）会扩展命中区域以保证涨停/跌停等极端行情的可用性。
    * 未命中时返回 false。
    */
   private hitTestCandle(ctx: HoverContext, bar: NearestBar): boolean {
@@ -906,7 +915,7 @@ export class InteractionController {
     const inUnitX = worldX - bar.kLineStartX
     const cxLogical = bar.widthLogical / 2
 
-    const MIN_BODY_HIT_HEIGHT = 8
+    const MIN_BODY_HIT_HEIGHT = 100
     const bodyHeight = Math.abs(bodyBottom - bodyTop)
     const effectiveBodyTop =
       bodyHeight < MIN_BODY_HIT_HEIGHT
@@ -917,6 +926,17 @@ export class InteractionController {
         ? (bodyTop + bodyBottom) / 2 + MIN_BODY_HIT_HEIGHT / 2
         : bodyBottom
 
+    const MIN_WICK_HIT_HEIGHT = 8
+    const wickHeight = Math.abs(highY - lowY)
+    const effectiveWickTop =
+      wickHeight < MIN_WICK_HIT_HEIGHT
+        ? (highY + lowY) / 2 - MIN_WICK_HIT_HEIGHT / 2
+        : Math.min(highY, lowY)
+    const effectiveWickBottom =
+      wickHeight < MIN_WICK_HIT_HEIGHT
+        ? (highY + lowY) / 2 + MIN_WICK_HIT_HEIGHT / 2
+        : Math.max(highY, lowY)
+
     const HIT_WICK_HALF_EXTENDED = 3
 
     const hitBody =
@@ -926,8 +946,8 @@ export class InteractionController {
       inUnitX <= bar.widthLogical
     const hitWick =
       Math.abs(inUnitX - cxLogical) <= HIT_WICK_HALF_EXTENDED &&
-      localY >= Math.min(highY, lowY) &&
-      localY <= Math.max(highY, lowY)
+      localY >= effectiveWickTop &&
+      localY <= effectiveWickBottom
 
     return hitBody || hitWick
   }
@@ -948,6 +968,7 @@ export class InteractionController {
       plotHeight,
       tooltipSize: this.tooltipSize,
       useAnchorPositioning: this.useTooltipAnchorPositioning,
+      mode: this.tooltipPositionMode,
     })
     if (tooltipResult.anchorPlacement) {
       this.tooltipAnchorPlacement = tooltipResult.anchorPlacement

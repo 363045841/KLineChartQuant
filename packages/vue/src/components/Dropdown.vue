@@ -85,7 +85,6 @@
   const triggerRef = ref<HTMLElement | null>(null)
   const menuRef = ref<HTMLElement | null>(null)
   const isOpen = ref(false)
-  const menuWidth = ref(0)
   const dropdownId = ++dropdownIdSeed
 
   const teleportTarget = useFullscreenTeleportTarget()
@@ -103,9 +102,8 @@
 
   const menuStyle = computed(() => {
     if (!isOpen.value) return undefined
-    const w = menuWidth.value || (props.minWidth ? parseInt(props.minWidth) : 0)
     return {
-      width: w ? `${w}px` : undefined,
+      minWidth: props.minWidth,
       zIndex: 1010,
       ...popupStyle.value,
     }
@@ -130,7 +128,6 @@
 
     activeDropdownId = dropdownId
     activeDropdownClose = close
-    menuWidth.value = triggerRef.value?.offsetWidth ?? 0
     isOpen.value = true
     startPositionSync()
     document.addEventListener('pointerdown', handleDocumentPointerDown)

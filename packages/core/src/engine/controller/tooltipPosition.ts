@@ -1,3 +1,7 @@
+import { isOnRightHalf } from '../../utils/viewportSide'
+
+export type TooltipPositionMode = 'crosshair' | 'adaptive'
+
 export interface TooltipPositionInput {
   mouseX: number
   mouseY: number
@@ -7,6 +11,7 @@ export interface TooltipPositionInput {
   plotHeight: number
   tooltipSize: { width: number; height: number }
   useAnchorPositioning: boolean
+  mode: TooltipPositionMode
 }
 
 export interface TooltipPositionOutput {
@@ -14,8 +19,21 @@ export interface TooltipPositionOutput {
   anchorPlacement?: 'right-bottom' | 'left-bottom'
 }
 
+const PADDING = 12
+
 export function computeTooltipPosition(input: TooltipPositionInput): TooltipPositionOutput {
-  const padding = 12
+  if (input.mode === 'adaptive') {
+    const tooltipW = input.tooltipSize.width
+    const onRight = isOnRightHalf(input.mouseX, input.viewWidth)
+    return {
+      pos: {
+        x: onRight ? PADDING : Math.max(PADDING, input.viewWidth - tooltipW - PADDING),
+        y: PADDING,
+      },
+    }
+  }
+
+  const padding = PADDING
   const preferGap = 14
 
   if (input.useAnchorPositioning) {

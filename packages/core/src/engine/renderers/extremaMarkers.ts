@@ -7,6 +7,7 @@ import {
   alignToPhysicalPixelCenter,
   createHorizontalLineRect,
 } from '../draw/pixelAlign'
+import { isOnRightHalf } from '../../utils/viewportSide'
 import { getFont, setCanvasFont } from '../theme/fonts'
 
 const textWidthCache = new Map<string, number>()
@@ -256,7 +257,7 @@ function createMarkerData(
 
   const lineLength = isBoundary ? LINE_LENGTH * 2 : LINE_LENGTH
   const screenX = x - scrollLeft
-  const drawLeft = screenX >= paneWidth / 2
+  const drawLeft = isOnRightHalf(screenX, paneWidth)
 
   let lineStartX = x
   let lineEndX = drawLeft ? x - lineLength : x + lineLength

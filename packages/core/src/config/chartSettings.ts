@@ -121,15 +121,26 @@ export const DEFAULT_SETTINGS = [
     default: false,
     group: 'experimental',
   },
+  {
+    key: 'tooltipPosition',
+    label: '数据悬浮框位置',
+    type: 'select',
+    default: 'adaptive',
+    group: 'main',
+    options: [
+      { value: 'adaptive', label: '自适应右上、左上角' },
+      { value: 'crosshair', label: '跟随十字线' },
+    ],
+  },
 ] as const
 
 type _SettingTuple = typeof DEFAULT_SETTINGS
 
 type _SettingByKey = {
-  [Item in _SettingTuple[number] as Item['key']]:
-    Item['type'] extends 'boolean' ? boolean :
-    Item extends { type: 'select'; options: ReadonlyArray<{ value: infer V }> } ? V :
-    string
+  [Item in _SettingTuple[number]as Item['key']]:
+  Item['type'] extends 'boolean' ? boolean :
+  Item extends { type: 'select'; options: ReadonlyArray<{ value: infer V }> } ? V :
+  string
 }
 
 /** 图表设置类型（从 DEFAULT_SETTINGS 自动推导，同时兼容扩展） */
@@ -150,10 +161,10 @@ export function resolveSettings(partial?: Partial<ChartSettings>): ChartSettings
   DEFAULT_SETTINGS.forEach((item) => {
     // 未在 partial 中指定的 key 回退到 DEFAULT_SETTINGS 的默认值
     // 用 ?? 而非 ||，确保显式传入 false / '' 不会被默认值覆盖
-    ;(result as Record<string, unknown>)[item.key] = partial?.[item.key] ?? item.default
+    ; (result as Record<string, unknown>)[item.key] = partial?.[item.key] ?? item.default
   })
-  // colorPresetSettings 不在 DEFAULT_SETTINGS 中，需单独归一化
-  ;(result as ChartSettings).colorPresetSettings = normalizeColorPresetSettings(partial?.colorPresetSettings)
+    // colorPresetSettings 不在 DEFAULT_SETTINGS 中，需单独归一化
+    ; (result as ChartSettings).colorPresetSettings = normalizeColorPresetSettings(partial?.colorPresetSettings)
   return result as ChartSettings
 }
 
