@@ -283,6 +283,8 @@ export class InteractionController {
     this.dragStartX = e.clientX
     this.dragStartY = e.clientY
     this.scrollStartX = this.chart.getCachedScrollLeft()
+    const captureContainer = this.chart.getDom().container
+    captureContainer?.setPointerCapture(e.pointerId)
     this.activePaneIdOnDrag = pane?.id || null
 
     this.chart.scheduleDraw()

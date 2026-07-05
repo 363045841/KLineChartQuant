@@ -4,7 +4,7 @@ import { getPeriodDays } from '../../data-fetchers/dataBuffer.effects'
 import type { KLineBuffer, DataChange } from '../../data-fetchers/dataBufferTypes'
 import { TimeShareBuffer } from '../../data-fetchers/timeShareBuffer'
 import type { TimeShareFetcherFn } from '../../data-fetchers/types'
-import { createSignal, type Signal } from '../../reactivity/signal'
+import { batch, createSignal, type Signal } from '../../reactivity/signal'
 import type { KLineData, TimeShareData } from '../../types/price'
 import type { ChartDom, Viewport } from '../chartTypes'
 import type { VisibleRange, UpdateLevel } from '../layout/pane'
@@ -76,9 +76,8 @@ export class ChartDataManager {
   private _savedScrollTimestamp: number | null = null
   private _preCustomSpec: SymbolSpec | null = null
 
-  lastVisibleRange: VisibleRange = { start: 0, end: 0 }
-  lastRawVisibleRange: VisibleRange = { start: 0, end: 0 }
   pendingIndicatorDataUpdate = false
+  private _rangeInitialized = false
 
   private deps: DataDependencies
 
@@ -118,8 +117,10 @@ export class ChartDataManager {
       const unsubData = buf.data.subscribe(() => {
         const change = buf.data.peek() as DataChange
         const prevDataLength = this._dataSignal.peek().length
-        this._dataSignal.set([...(change.data as unknown[])])
-        this.onBufferDataChanged(key, prevDataLength, change.prependedCount)
+        batch(() => {
+          this._dataSignal.set([...(change.data as unknown[])])
+          this.onBufferDataChanged(key, prevDataLength, change.prependedCount)
+        })
       })
       const unsubLoading = buf.loading.subscribe(() => {
         this._loadingSignal.set(buf.loading.peek())
@@ -223,46 +224,36 @@ export class ChartDataManager {
 
     this.deps.resetInteraction()
 
-    if (
-      this.lastVisibleRange.start === 0 &&
-      this.lastVisibleRange.end === 0 &&
-      bufferData.length > 0
-    ) {
-      const plotWidth =
-        this.deps.getObservedSize().width > 0
-          ? this.deps.getObservedSize().width
-          : Math.max(1, Math.round(this.deps.getDom().container?.clientWidth ?? 800))
-      const dpr = this.deps.getEffectiveDpr()
-      const opt = this.deps.getOption()
-      const { start, end } = getVisibleRange(
-        this.deps.getLogicalScrollLeft(),
-        plotWidth,
-        opt.kWidth,
-        opt.kGap,
-        bufferData.length,
-        dpr,
-      )
-      this.lastRawVisibleRange = { start, end }
-      this.lastVisibleRange = { start: Math.max(0, start), end }
+    if (!this._rangeInitialized && bufferData.length > 0) {
+      this._rangeInitialized = true
     }
 
-    const scheduler = this.deps.getIndicatorScheduler()
-    const indicatorsReady = scheduler.update(bufferData, this.lastVisibleRange)
-    if (indicatorsReady) {
-      this.pendingIndicatorDataUpdate = false
-      this.deps.scheduleDraw()
-      this.deps.onDataProcessed?.(bufferData, this.lastVisibleRange)
-    } else {
-      this.pendingIndicatorDataUpdate = true
+    let currentRange = this.computeRawVisibleRange()
+    if (!currentRange && this._rangeInitialized && bufferData.length > 0) {
+      currentRange = { start: 0, end: bufferData.length }
+    }
+    if (currentRange) {
+      const scheduler = this.deps.getIndicatorScheduler()
+      const indicatorsReady = scheduler.update(bufferData, currentRange)
+      if (indicatorsReady) {
+        this.pendingIndicatorDataUpdate = false
+        this.deps.scheduleDraw()
+        this.deps.onDataProcessed?.(bufferData, currentRange)
+      } else {
+        this.pendingIndicatorDataUpdate = true
+      }
     }
 
     this._loadHint.show(prependedCount, this.getLeftLoadBufferWidth())
+
+    if (prependedCount > 0) {
+      this.checkVisibleRangeGap()
+    }
   }
 
   private onTimeShareBufferChanged(): void {
     const data = this._dataSignal.peek() as TimeShareData[]
-    this.lastVisibleRange = { start: 0, end: data.length }
-    this.lastRawVisibleRange = { start: 0, end: data.length }
+    this._rangeInitialized = true
     this.deps.resetInteraction()
     this.deps.onTimeShareDataReady(data.length)
   }
@@ -288,6 +279,11 @@ export class ChartDataManager {
     if (!vp) return null
     const opt = this.deps.getOption()
     return getVisibleRange(vp.scrollLeft, vp.plotWidth, opt.kWidth, opt.kGap, dataLength, vp.dpr)
+  }
+
+  /** 当前可见范围（on-demand 实时计算，消除 stale 缓存） */
+  getCurrentVisibleRange(): VisibleRange | null {
+    return this.computeRawVisibleRange()
   }
 
   /** Unified data signal — always reflects the active buffer's data */
@@ -454,14 +450,15 @@ export class ChartDataManager {
     }
   }
 
-checkVisibleRangeGap(): void {
+  checkVisibleRangeGap(): void {
     const buf = this.getActiveDataBuffer()
     if (!buf) return
     const data = buf.getRawData()
     if (data.length === 0) return
     const window = buf.loadedWindow
     if (!window) return
-    const range = this.computeRawVisibleRange() ?? this.lastRawVisibleRange
+    const range = this.computeRawVisibleRange()
+    if (!range) return
 
     const MS_PER_DAY = 86_400_000
     const spec = buf.currentSpec
@@ -617,8 +614,7 @@ checkVisibleRangeGap(): void {
       this.disposeBuffer(this._activeBufferKey)
     }
     this._dataSignal.set([])
-    this.lastVisibleRange = { start: 0, end: 0 }
-    this.lastRawVisibleRange = { start: 0, end: 0 }
+    this._rangeInitialized = false
     this._savedScrollTimestamp = null
     this.setSymbols([spec, ...this._comparisonManager.specs])
   }
@@ -636,8 +632,7 @@ checkVisibleRangeGap(): void {
       this._currentSpec = null
       this.disposeAllBuffers()
       this._dataSignal.set([])
-      this.lastVisibleRange = { start: 0, end: 0 }
-      this.lastRawVisibleRange = { start: 0, end: 0 }
+      this._rangeInitialized = false
       return
     }
 
@@ -651,15 +646,16 @@ checkVisibleRangeGap(): void {
       // scroll position when returning to K-line mode, immune to data prepends.
       const kBuf = this.getActiveDataBuffer()
       const kRaw = kBuf?.getRawData() as KLineData[] | undefined
+      const vRange = this.computeRawVisibleRange()
+      const visibleStart = vRange ? Math.max(0, vRange.start) : 0
       this._savedScrollTimestamp =
-        kRaw && this.lastVisibleRange.start >= 0 && this.lastVisibleRange.start < kRaw.length
-          ? kRaw[Math.max(0, this.lastVisibleRange.start)]!.timestamp
+        kRaw && visibleStart >= 0 && visibleStart < kRaw.length
+          ? kRaw[visibleStart]!.timestamp
           : null
       // Keep primary KLine buffer in memory — don't dispose it,
       // so data and scroll position are preserved when user returns
       this._dataSignal.set([])
-      this.lastVisibleRange = { start: 0, end: 0 }
-      this.lastRawVisibleRange = { start: 0, end: 0 }
+      this._rangeInitialized = false
 
       // Get or create timeshare buffer
       const tsKey = bufKey(BUF_TIMESHARE, primary.symbol)

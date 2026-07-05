@@ -25,7 +25,10 @@ export class DataBuffer implements KLineBuffer {
     | ((spec: SymbolSpec, startTs: number, endTs: number) => Promise<ReadonlyArray<KLineData>>)
     | null = null
   private _currentSpec: SymbolSpec | null = null
-  private _attemptedBoundaries: Set<number> = new Set()
+  /** 当前 inflight 请求的 boundary（earliestTs），最多一个 */
+  private _inflightBoundary: number | null = null
+  /** inflight 期间记录的最宽 requestStartTs */
+  private _pendingRequestStartTs: number | null = null
   private _disposed = false
 
   constructor() {}
@@ -75,7 +78,8 @@ export class DataBuffer implements KLineBuffer {
     this._store.reset()
     this._scheduler.reset()
     this._keyIndex.reset()
-    this._attemptedBoundaries.clear()
+    this._inflightBoundary = null
+    this._pendingRequestStartTs = null
     if (initialStartTs !== undefined) {
       this._loadInitialRange(initialStartTs, Date.now())
     } else {
@@ -93,9 +97,15 @@ export class DataBuffer implements KLineBuffer {
     if (requestStartTs >= window.earliestTs) return
 
     const incrementalEnd = window.earliestTs
-    if (this._attemptedBoundaries.has(incrementalEnd)) return
+    if (this._inflightBoundary === incrementalEnd) {
+      if (this._pendingRequestStartTs === null || requestStartTs < this._pendingRequestStartTs) {
+        this._pendingRequestStartTs = requestStartTs
+      }
+      return
+    }
 
-    this._attemptedBoundaries.add(incrementalEnd)
+    this._inflightBoundary = incrementalEnd
+    this._pendingRequestStartTs = requestStartTs
     this._fetchAndMerge(requestStartTs, incrementalEnd)
   }
 
@@ -103,7 +113,8 @@ export class DataBuffer implements KLineBuffer {
     if (this._disposed) return
     this._store.setInlineData(data as KLineData[])
     this._scheduler.reset()
-    this._attemptedBoundaries.clear()
+    this._inflightBoundary = null
+    this._pendingRequestStartTs = null
     this._keyIndex.recompute(this._store.getRawData())
   }
 
@@ -116,7 +127,8 @@ export class DataBuffer implements KLineBuffer {
     this._scheduler.dispose()
     this._store.reset()
     this._keyIndex.reset()
-    this._attemptedBoundaries.clear()
+    this._inflightBoundary = null
+    this._pendingRequestStartTs = null
   }
 
   // ── Private ──
@@ -194,12 +206,16 @@ export class DataBuffer implements KLineBuffer {
         const result = this._store.merge(incoming)
         this._keyIndex.recompute(this._store.getRawData())
 
-        if (!result.advancedEarliest) {
-          this._attemptedBoundaries.delete(endTs)
+        this._inflightBoundary = null
+        const pending = this._pendingRequestStartTs
+        this._pendingRequestStartTs = null
+        if (result.advancedEarliest && pending !== null) {
+          this.ensureRange(pending, this._store.loadedWindow!.earliestTs)
         }
       })
       .catch(() => {
-        this._attemptedBoundaries.delete(endTs)
+        this._inflightBoundary = null
+        this._pendingRequestStartTs = null
       })
   }
 }

@@ -113,7 +113,7 @@ export class ChartViewportManager {
     return this.observedSize
   }
 
-  /** 设置滚动位置（先同步 DOM 宽度，再直接写入 DOM + 更新缓存） */
+  /** 设置滚动位置（先写缓存意图值，再写 DOM） */
   setScrollLeft(v: number): void {
     if (this._contentWidthProvider) {
       const scrollContent = this.deps.getDom().scrollContent
@@ -122,9 +122,9 @@ export class ChartViewportManager {
         if (scrollContent.style.width !== w) scrollContent.style.width = w
       }
     }
+    this.cachedScrollLeft = v
     const container = this.deps.getDom().container
     if (container) container.scrollLeft = v
-    this.cachedScrollLeft = container?.scrollLeft ?? v
   }
 
   /** 初始化 ResizeObserver 和 scroll 监听 */

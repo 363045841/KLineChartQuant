@@ -8,21 +8,39 @@ export interface HintDeps {
   getViewport: () => { viewHeight: number } | null
 }
 
+interface ActiveHint {
+  el: HTMLDivElement
+  timer: number
+}
+
 export class IncrementalLoadHint {
-  private _el: HTMLDivElement | null = null
-  private _timer: number | null = null
+  private _activeHints = new Set<ActiveHint>()
 
   constructor(private deps: HintDeps) {}
 
   show(count: number, leftBufferWidth: number): void {
     if (count <= 0) return
-    const hint = this._ensure()
-    if (!hint) return
-    this._clearTimer()
+
+    const host = this.deps.getDom().scrollContent ?? this.deps.getDom().container ?? null
+    if (!host) return
+    const ownerDoc = host.ownerDocument
+    if (!ownerDoc) return
 
     const dpr = this.deps.getEffectiveDpr()
     const opt = this.deps.getOption()
     const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
+
+    const hint = ownerDoc.createElement('div')
+    hint.className = 'klc-incremental-load-hint'
+    hint.style.position = 'absolute'
+    hint.style.top = '0'
+    hint.style.pointerEvents = 'none'
+    hint.style.opacity = '0'
+    hint.style.filter = 'blur(10px)'
+    hint.style.transition = 'opacity 420ms ease, filter 420ms ease'
+    hint.style.background = 'rgba(71, 91, 132, 0.5)'
+    hint.style.zIndex = '3'
+    hint.style.willChange = 'opacity, filter, width'
 
     hint.style.left = `${leftBufferWidth}px`
     const width = (startXPx + count * unitPx) / dpr
@@ -33,73 +51,58 @@ export class IncrementalLoadHint {
         this.deps.getDom().container?.clientHeight ??
         0,
     )}px`
+
+    host.appendChild(hint)
     hint.getBoundingClientRect()
 
-    console.group('[LoadHint] show')
-    console.log('count:', count, 'leftBufferWidth:', leftBufferWidth)
-    console.log('dpr:', dpr, 'kWidth:', opt.kWidth, 'kGap:', opt.kGap)
-    console.log('unitPx:', unitPx, 'startXPx:', startXPx)
-    console.log('target left:', hint.style.left, 'target width:', hint.style.width)
-    const rect = hint.getBoundingClientRect()
-    console.log('hint rect:', rect)
-    const host = this.deps.getDom().scrollContent
-    if (host) console.log('host scrollLeft:', host.scrollLeft, 'scrollWidth:', host.scrollWidth)
-    console.groupEnd()
     hint.style.opacity = '1'
     hint.style.filter = 'blur(0px)'
 
-    this._timer = window.setTimeout(() => {
-      this._hide()
-      this._timer = null
+    const entry: ActiveHint = { el: hint, timer: 0 }
+    this._activeHints.add(entry)
+
+    entry.timer = window.setTimeout(() => {
+      this._fadeOutAndRemove(entry)
     }, 900)
   }
 
   hide(): void {
-    this._hide()
+    for (const entry of this._activeHints) {
+      clearTimeout(entry.timer)
+      this._removeElement(entry)
+    }
+    this._activeHints.clear()
   }
 
   destroy(): void {
-    this._clearTimer()
-    this._el?.remove()
-    this._el = null
-  }
-
-  private _clearTimer(): void {
-    if (this._timer !== null) {
-      window.clearTimeout(this._timer)
-      this._timer = null
+    for (const entry of this._activeHints) {
+      clearTimeout(entry.timer)
+      entry.el.remove()
     }
+    this._activeHints.clear()
   }
 
-  private _hide(): void {
-    if (!this._el) return
-    this._el.style.opacity = '0'
-    this._el.style.filter = 'blur(10px)'
+  private _fadeOutAndRemove(entry: ActiveHint): void {
+    const { el } = entry
+    el.style.opacity = '0'
+    el.style.filter = 'blur(10px)'
+
+    const onEnd = () => {
+      el.removeEventListener('transitionend', onEnd)
+      this._removeElement(entry)
+      this._activeHints.delete(entry)
+    }
+    el.addEventListener('transitionend', onEnd)
+
+    window.setTimeout(() => {
+      this._removeElement(entry)
+      this._activeHints.delete(entry)
+    }, 500)
   }
 
-  private _ensure(): HTMLDivElement | null {
-    const host = this.deps.getDom().scrollContent ?? this.deps.getDom().container ?? null
-    if (!host) return null
-    if (this._el && this._el.isConnected) return this._el
-
-    const ownerDoc = host.ownerDocument
-    if (!ownerDoc) return null
-
-    const hint = ownerDoc.createElement('div')
-    hint.className = 'klc-incremental-load-hint'
-    hint.style.position = 'absolute'
-    hint.style.top = '0'
-    hint.style.height = '0px'
-    hint.style.width = '0px'
-    hint.style.pointerEvents = 'none'
-    hint.style.opacity = '0'
-    hint.style.filter = 'blur(10px)'
-    hint.style.transition = 'opacity 420ms ease, filter 420ms ease'
-    hint.style.background = 'rgba(71, 91, 132, 0.5)'
-    hint.style.zIndex = '3'
-    hint.style.willChange = 'opacity, filter, width'
-    host.appendChild(hint)
-    this._el = hint
-    return hint
+  private _removeElement(entry: ActiveHint): void {
+    if (entry.el.isConnected) {
+      entry.el.remove()
+    }
   }
 }

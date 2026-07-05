@@ -208,7 +208,7 @@ export class Chart {
       getBottomAxisHeight: () => this.opt.bottomAxisHeight,
       getLeftLoadBufferWidth: () => this.dataManager.getLeftLoadBufferWidth(),
       getZoomLevel: () => this.zoomController.currentZoomLevel,
-      getLastVisibleRange: () => this.dataManager.lastVisibleRange,
+      getLastVisibleRange: () => this.dataManager.getCurrentVisibleRange() ?? { start: 0, end: 0 },
       getKWidth: () => this.opt.kWidth,
       getKGap: () => this.opt.kGap,
       scheduleDraw: (level) => this.scheduleDraw(level),
@@ -325,7 +325,7 @@ export class Chart {
         this.layoutManager.setInternalPaneRatio(paneId, ratio),
       deleteInternalPaneRatio: (paneId) => this.layoutManager.deleteInternalPaneRatio(paneId),
       applyPaneLayoutSpecs: (specs) => this.layoutManager.applyPaneLayoutSpecs(specs),
-      getLastVisibleRange: () => this.dataManager.lastVisibleRange,
+      getLastVisibleRange: () => this.dataManager.getCurrentVisibleRange() ?? { start: 0, end: 0 },
       getCrosshairPos: () => this.interaction.crosshairPos,
       getCrosshairPrice: () => this.interaction.crosshairPrice,
       getActivePaneId: () => this.interaction.activePaneId,
@@ -344,7 +344,7 @@ export class Chart {
     // Worker 异步结果就绪后串联 Alert 管线
     this.indicatorManager.indicatorSchedulerAccessor.setOnResultsApplied(() => {
       const data = this.dataManager.getInternalData()
-      this.evaluateAlerts(data, this.dataManager.lastVisibleRange)
+      this.evaluateAlerts(data, this.dataManager.getCurrentVisibleRange() ?? { start: 0, end: 0 })
     })
 
     // 初始化渲染器
