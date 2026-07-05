@@ -82,15 +82,18 @@ export class ChartViewportManager {
     return this.cachedScrollLeft - this.deps.getLeftLoadBufferWidth()
   }
 
-  /** 获取当前视口（scrollLeft 始终读 cachedScrollLeft，而非上一次 draw() 的缓存值） */
+  /** 获取当前视口（全部字段从 SSOT 实时推导，仅初始化前回退 _internalViewport） */
   getViewport(): Viewport | null {
     if (!this._internalViewport) return null
-    const dpr = this.getEffectiveDpr()
-    const scrollLeft = Math.round((this.cachedScrollLeft - this._internalViewport.plotWidth) * dpr) / dpr
-    if (this._internalViewport.scrollLeft !== scrollLeft) {
-      this._internalViewport = { ...this._internalViewport, scrollLeft }
-    }
-    return this._internalViewport
+    const viewWidth =
+      this.observedSize.width > 0 ? this.observedSize.width : this._internalViewport.viewWidth
+    const viewHeight =
+      this.observedSize.height > 0 ? this.observedSize.height : this._internalViewport.viewHeight
+    const dpr = this.clampDpr(viewWidth, viewHeight)
+    const plotWidth = Math.round(viewWidth)
+    const plotHeight = Math.round(viewHeight - this.deps.getBottomAxisHeight())
+    const scrollLeft = Math.round((this.cachedScrollLeft - plotWidth) * dpr) / dpr
+    return { viewWidth, viewHeight, plotWidth, plotHeight, scrollLeft, dpr }
   }
 
   /** 获取有效 DPR */
@@ -325,8 +328,8 @@ export class ChartViewportManager {
         plotWidth: vp.plotWidth,
         plotHeight: vp.plotHeight,
         dpr: vp.dpr > 0 ? vp.dpr : current.dpr,
-        visibleFrom: current.visibleFrom,
-        visibleTo: current.visibleTo,
+        visibleFrom: 0,
+        visibleTo: 0,
         kWidth: current.kWidth,
         kGap: current.kGap,
       })

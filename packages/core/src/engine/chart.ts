@@ -27,6 +27,7 @@ import { PaneRenderer } from './paneRenderer'
 import { SharedWebGLSurface } from './renderers/webgl/sharedWebGLSurface'
 import type { MarkerManager, CustomMarkerEntity } from './marker/registry'
 import { getPhysicalKLineConfig } from './utils/klineConfig'
+import { zoomLevelToKWidth, kGapFromKWidth } from './utils/zoom'
 import { ChartZoomController } from './utils/chartZoomController'
 import { ChartViewportManager } from './viewport/chartViewportManager'
 import type { SubPaneEntry } from './subPaneManager'
@@ -112,9 +113,7 @@ export class Chart {
   private _kLineMode = new KLineMode()
   private _timeShareMode = new TimeShareMode()
 
-  /** 模式切换时保存的渲染状态（退出分时时恢复） */
-  private _modeSavedKWidth = 0
-  private _modeSavedKGap = 0
+  /** 模式切换时保存的 zoom level（退出分时时恢复并反推 kWidth/kGap） */
   private _modeSavedZoomLevel = 0
 
   /** 分时模式激活前的 pane Y 轴刻度类型（退出分时时恢复） */
@@ -384,8 +383,6 @@ export class Chart {
     const prev = this._activeMode
 
     if (mode === this._timeShareMode) {
-      this._modeSavedKWidth = this.opt.kWidth
-      this._modeSavedKGap = this.opt.kGap
       this._modeSavedZoomLevel = this.zoomController.currentZoomLevel
       this._savedScaleTypes = new Map<string, ScaleType>()
       for (const r of this.paneRenderers) {
@@ -401,9 +398,15 @@ export class Chart {
       this._savedScaleTypes = undefined
     }
 
-    if (this._modeSavedKWidth > 0 && mode !== this._timeShareMode) {
-      this.applyRenderState(this._modeSavedKWidth, this._modeSavedKGap, this._modeSavedZoomLevel)
-      this._modeSavedKWidth = 0
+    if (this._modeSavedZoomLevel > 0 && mode !== this._timeShareMode) {
+      const kWidth = zoomLevelToKWidth(this._modeSavedZoomLevel, {
+        minKWidth: this.opt.minKWidth,
+        maxKWidth: this.opt.maxKWidth,
+        zoomLevelCount: this.zoomController.zoomLevelCount,
+      })
+      const kGap = kGapFromKWidth(kWidth, this.getCurrentDpr())
+      this.applyRenderState(kWidth, kGap, this._modeSavedZoomLevel)
+      this._modeSavedZoomLevel = 0
     }
 
     prev.onDeactivate(

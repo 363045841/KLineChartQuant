@@ -98,8 +98,32 @@ export class InteractionController {
 
   /** 十字线位置 */
   crosshairPos: { x: number; y: number } | null = null
-  /** 十字线当前指向的 K 线索引 */
-  crosshairIndex: number | null = null
+  /** 十字线当前指向的 K 线索引（从 crosshairPos + kLinePositions 推导） */
+  get crosshairIndex(): number | null {
+    if (!this.crosshairPos || !this.kLinePositions || !this.visibleRange || !this.kWidthPx) return null
+    const dpr = this.chart.getCurrentDpr()
+    const kWidthLogical = this.kWidthPx / dpr
+    const scrollLeft = this.chart.getLogicalScrollLeft()
+    const worldX = scrollLeft + this.crosshairPos.x
+    const positions = this.kLinePositions
+    let lo = 0, hi = positions.length
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1
+      if (positions[mid]! < worldX) lo = mid + 1
+      else hi = mid
+    }
+    let localIdx = lo
+    if (lo > 0 && lo < positions.length) {
+      const prevCenter = positions[lo - 1]! + kWidthLogical / 2
+      const currCenter = positions[lo]! + kWidthLogical / 2
+      if (Math.abs(worldX - prevCenter) < Math.abs(worldX - currCenter)) {
+        localIdx = lo - 1
+      }
+    } else if (lo === positions.length && positions.length > 0) {
+      localIdx = positions.length - 1
+    }
+    return localIdx + this.visibleRange.start
+  }
   /** 十字线指向的价格（用于价格轴平移时跟随） */
   crosshairPrice: number | null = null
   /** 鼠标悬停的 K 线索引（命中 candle 时有效） */
@@ -629,7 +653,6 @@ export class InteractionController {
     this.hoveredRightAxisPaneId = pane.id
     this.hoveredSeparatorUpperPaneId = null
     this.crosshairPos = null
-    this.crosshairIndex = null
     this.crosshairPrice = null
     this.hoveredIndex = null
     this.activePaneId = pane.id
@@ -640,7 +663,6 @@ export class InteractionController {
     this.lastHoverRenderKey = ''
     this.hoveredRightAxisPaneId = null
     this.crosshairPos = null
-    this.crosshairIndex = null
     this.crosshairPrice = null
     this.hoveredIndex = null
     this.activePaneId = null
@@ -677,7 +699,6 @@ export class InteractionController {
     this.hoveredRightAxisPaneId = pane?.id || null
     this.hoveredSeparatorUpperPaneId = null
     this.crosshairPos = null
-    this.crosshairIndex = null
     this.crosshairPrice = null
     this.hoveredIndex = null
     this.activePaneId = pane?.id || null
@@ -776,7 +797,6 @@ export class InteractionController {
     this.hoveredSeparatorUpperPaneId = separatorUpperPaneId
     if (separatorUpperPaneId) {
       this.crosshairPos = null
-      this.crosshairIndex = null
       this.crosshairPrice = null
       this.hoveredIndex = null
       this.activePaneId = null
@@ -794,7 +814,6 @@ export class InteractionController {
     const markerManager = this.chart.getMarkerManager()
     if (this.markerState.updateHoverFromPoint(ctx.worldX, ctx.mouseX, ctx.mouseY, markerManager)) {
       this.crosshairPos = null
-      this.crosshairIndex = null
       this.crosshairPrice = null
       this.hoveredIndex = null
       return true
@@ -874,13 +893,10 @@ export class InteractionController {
     this.activePaneId = pane?.id || null
 
     if (bar.globalIdx < 0 || bar.globalIdx >= (this.chart.getRenderData()?.length ?? 0)) {
-      this.crosshairIndex = null
       this.crosshairPos = null
       this.crosshairPrice = null
       return
     }
-
-    this.crosshairIndex = bar.globalIdx
 
     const centerX = this.kLineCenters?.[bar.localIdx] ?? bar.kLineStartX + bar.widthLogical / 2
     const snappedX = centerX - scrollLeft
@@ -1019,7 +1035,6 @@ export class InteractionController {
     this.isTouchSession = false
     this.pinchTracker.reset()
     this.crosshairPos = null
-    this.crosshairIndex = null
     this.crosshairPrice = null
     this.hoveredIndex = null
     this.activePaneId = null

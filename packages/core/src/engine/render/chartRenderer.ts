@@ -119,8 +119,7 @@ export class ChartRenderer {
   private sceneRenderer: Renderer = {} as Renderer
   private timeAxisCtx: RenderContext | null = null
   private timeAxisLayer: Layer | null = null
-  private _lastVisibleRange: VisibleRange = { start: 0, end: 0 }
-  private _lastRawVisibleRange: VisibleRange = { start: 0, end: 0 }
+  private _prevFrameRange: { visible: VisibleRange; raw: VisibleRange } | null = null
 
   constructor(deps: RendererDependencies) {
     this.deps = deps
@@ -418,16 +417,16 @@ export class ChartRenderer {
     const mode = this.deps.getActiveMode()
     if (
       !useCachedFrame &&
-      (range.start !== this._lastVisibleRange.start ||
-        range.end !== this._lastVisibleRange.end ||
-        rawRange.start !== this._lastRawVisibleRange.start ||
-        rawRange.end !== this._lastRawVisibleRange.end)
+      (!this._prevFrameRange ||
+        range.start !== this._prevFrameRange.visible.start ||
+        range.end !== this._prevFrameRange.visible.end ||
+        rawRange.start !== this._prevFrameRange.raw.start ||
+        rawRange.end !== this._prevFrameRange.raw.end)
     ) {
       if (mode.useIndicatorScheduler) {
         this.deps.getIndicatorManager().indicatorSchedulerAccessor.updateVisibleRange(range)
       }
-      this._lastVisibleRange = range
-      this._lastRawVisibleRange = rawRange
+      this._prevFrameRange = { visible: range, raw: rawRange }
       this.checkVisibleRangeGapWhenIdle()
     }
 

@@ -25,7 +25,6 @@ export interface ComparisonHooks {
 
 export class ComparisonManager {
   private _specs: SymbolSpec[] = []
-  private _data = new Map<string, KLineData[]>()
   private _colors: Map<string, string> = new Map()
   private _colorsSignal = createSignal<ReadonlyMap<string, string>>(new Map())
   private _loadingSignal = createSignal<boolean>(false)
@@ -41,7 +40,13 @@ export class ComparisonManager {
   }
 
   get data(): Map<string, KLineData[]> {
-    return this._data
+    const result = new Map<string, KLineData[]>()
+    for (const spec of this._specs) {
+      const key = `cmp:${spec.symbol}:${spec.period ?? 'daily'}`
+      const buf = this._hooks.getKLineBuffer(key)
+      if (buf) result.set(spec.symbol, [...buf.getRawData()])
+    }
+    return result
   }
 
   get colorsSignal(): Signal<ReadonlyMap<string, string>> {
@@ -65,7 +70,6 @@ export class ComparisonManager {
       const symbol = key.split(':')[1]!
       if (nextKeys.has(symbol)) continue
       this._hooks.disposeBuffer(key)
-      this._data.delete(symbol)
     }
 
     for (const spec of specs) {
@@ -78,7 +82,6 @@ export class ComparisonManager {
 
         const b = buf
         const unsub = b.data.subscribe(() => {
-          this._data.set(symbol, [...b.getRawData()])
           this._hooks.scheduleDraw()
         })
         this._cmpLoadingUnsubs.set(key, unsub)
@@ -96,7 +99,6 @@ export class ComparisonManager {
         this._hooks.disposeBuffer(key)
       }
     }
-    this._data.clear()
     this._colors.clear()
     this._colorsSignal.set(new Map())
     this._loadingSignal.set(false)
@@ -125,7 +127,6 @@ export class ComparisonManager {
       const buf = created.buffer
 
       const unsub = buf.data.subscribe(() => {
-        this._data.set(symbol, [...buf.getRawData()])
         this._hooks.scheduleDraw()
       })
       this._cmpLoadingUnsubs.set(key, unsub)
@@ -151,7 +152,6 @@ export class ComparisonManager {
       }).buffer
 
       const unsub = buffer.data.subscribe(() => {
-        this._data.set(symbol, [...buffer.getRawData()])
         this._hooks.scheduleDraw()
       })
       this._cmpLoadingUnsubs.set(key, unsub)
@@ -186,7 +186,6 @@ export class ComparisonManager {
     }
     if (!found) return false
 
-    this._data.delete(symbol)
     this._colors.delete(symbol)
     this._colorsSignal.set(new Map(this._colors))
     this._specs = this._specs.filter((s) => s.symbol !== symbol)
