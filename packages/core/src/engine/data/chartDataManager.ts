@@ -76,7 +76,17 @@ export class ChartDataManager {
   private _savedScrollTimestamp: number | null = null
   private _preCustomSpec: SymbolSpec | null = null
 
-  pendingIndicatorDataUpdate = false
+  private _pendingIndicatorSignal = createSignal<boolean>(false)
+
+  /** 写入 pending indicator 状态（唯一受控入口） */
+  setPendingIndicatorUpdate(v: boolean): void {
+    this._pendingIndicatorSignal.set(v)
+  }
+
+  /** 外部只读访问 pending 信号 */
+  get pendingIndicatorSignal(): Signal<boolean> {
+    return this._pendingIndicatorSignal
+  }
   private _rangeInitialized = false
 
   private deps: DataDependencies
@@ -236,11 +246,11 @@ export class ChartDataManager {
       const scheduler = this.deps.getIndicatorScheduler()
       const indicatorsReady = scheduler.update(bufferData, currentRange)
       if (indicatorsReady) {
-        this.pendingIndicatorDataUpdate = false
+        this._pendingIndicatorSignal.set(false)
         this.deps.scheduleDraw()
         this.deps.onDataProcessed?.(bufferData, currentRange)
       } else {
-        this.pendingIndicatorDataUpdate = true
+        this._pendingIndicatorSignal.set(true)
       }
     }
 

@@ -265,7 +265,7 @@ export class Chart {
       resetInteraction: () => this.interaction.reset(),
       getIndicatorScheduler: () => this.indicatorManager.indicatorSchedulerAccessor,
       setPendingIndicatorDataUpdate: (v) => {
-        this.dataManager.pendingIndicatorDataUpdate = v
+        this.dataManager.setPendingIndicatorUpdate(v)
       },
       isPointerDown: () => this.interaction.isPointerDown(),
       onTimeShareDataReady: (dataLength) => {
@@ -330,7 +330,7 @@ export class Chart {
       getActivePaneId: () => this.interaction.activePaneId,
       scheduleDraw: (level) => this.scheduleDraw(level),
       setPendingIndicatorDataUpdate: (v) => {
-        this.dataManager.pendingIndicatorDataUpdate = v
+        this.dataManager.setPendingIndicatorUpdate(v)
       },
       getRenderContext: (paneId) => this.renderer?.getPaneCtxMap()?.get(paneId) ?? null,
       addLayer: (layer) => this.renderer?.getScene()?.addLayer(layer),
@@ -1273,7 +1273,7 @@ export class Chart {
    * 更新缓存的 scrollLeft 并触发交互 controller
    */
   handleScrollEvent(): void {
-    this.interaction.onScroll({ scheduleDraw: !this.dataManager.pendingIndicatorDataUpdate })
+    this.interaction.onScroll({ scheduleDraw: !this.dataManager.pendingIndicatorSignal.peek() })
     // 更新 viewport signal 中的 visible range
     this.updateViewportSignal()
   }
