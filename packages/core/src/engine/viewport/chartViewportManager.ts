@@ -33,8 +33,11 @@ export class ChartViewportManager {
   /** 缓存的 scrollLeft（通过 scroll 事件同步，避免每帧读取 DOM 触发强制回流） */
   private cachedScrollLeft = 0
 
-  /** 待写入 DOM 的 scrollLeft（在 RAF 回调中应用，确保 Vue 已完成 DOM 更新） */
-  private _pendingScrollLeft: number | null = null
+  /**
+   * 内容宽度提供器，由外部注入（ChartDataManager.getContentWidth 等）。
+   * 每次 setScrollLeft 时先同步 DOM scrollContent 宽度，确保 scrollLeft 写入时 scrollWidth 正确。
+   */
+  private _contentWidthProvider: (() => number) | null = null
 
   /** 内部视口状态 */
   private _internalViewport: Viewport | null = null
@@ -55,6 +58,15 @@ export class ChartViewportManager {
     this.deps = deps
   }
 
+  /**
+   * 注入内容宽度提供器。
+   * setScrollLeft 写入前自动同步 DOM scrollContent.style.width，
+   * 确保 scrollLeft 写入时 scrollWidth 不被浏览器钳制。
+   */
+  setContentWidthProvider(fn: (() => number) | null): void {
+    this._contentWidthProvider = fn
+  }
+
   /** 视口状态信号 */
   get viewportSignal(): Signal<ViewportState> {
     return this._viewportSignal
@@ -70,8 +82,14 @@ export class ChartViewportManager {
     return this.cachedScrollLeft - this.deps.getLeftLoadBufferWidth()
   }
 
-  /** 获取当前视口 */
+  /** 获取当前视口（scrollLeft 始终读 cachedScrollLeft，而非上一次 draw() 的缓存值） */
   getViewport(): Viewport | null {
+    if (!this._internalViewport) return null
+    const dpr = this.getEffectiveDpr()
+    const scrollLeft = Math.round((this.cachedScrollLeft - this._internalViewport.plotWidth) * dpr) / dpr
+    if (this._internalViewport.scrollLeft !== scrollLeft) {
+      this._internalViewport = { ...this._internalViewport, scrollLeft }
+    }
     return this._internalViewport
   }
 
@@ -95,19 +113,18 @@ export class ChartViewportManager {
     return this.observedSize
   }
 
-  /** 设置滚动位置（缓存 + 待写入） */
+  /** 设置滚动位置（先同步 DOM 宽度，再直接写入 DOM + 更新缓存） */
   setScrollLeft(v: number): void {
-    this.cachedScrollLeft = v
-    this._pendingScrollLeft = v
-  }
-
-  /** 在 RAF 回调中应用待写入的 scrollLeft */
-  applyPendingScrollLeft(container: HTMLElement): void {
-    if (this._pendingScrollLeft !== null) {
-      container.scrollLeft = this._pendingScrollLeft
-      this.cachedScrollLeft = container.scrollLeft
-      this._pendingScrollLeft = null
+    if (this._contentWidthProvider) {
+      const scrollContent = this.deps.getDom().scrollContent
+      if (scrollContent) {
+        const w = this._contentWidthProvider() + 'px'
+        if (scrollContent.style.width !== w) scrollContent.style.width = w
+      }
     }
+    const container = this.deps.getDom().container
+    if (container) container.scrollLeft = v
+    this.cachedScrollLeft = container?.scrollLeft ?? v
   }
 
   /** 初始化 ResizeObserver 和 scroll 监听 */
@@ -343,7 +360,6 @@ export class ChartViewportManager {
 
     if (this.cachedScrollLeft === 0 && cssWidth > 0) {
       this.cachedScrollLeft = cssWidth
-      this._pendingScrollLeft = cssWidth
     }
 
     const pixelSize = entry.devicePixelContentBoxSize?.[0]

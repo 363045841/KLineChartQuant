@@ -308,7 +308,7 @@ export class ChartRenderer {
       this.raf = null
       const levelToDraw = this.pendingUpdateLevel
       this.pendingUpdateLevel = UpdateLevel.All
-      this.draw(levelToDraw)
+
       const dom = this.deps.getDom()
       const c = dom.container
       if (c) {
@@ -320,6 +320,8 @@ export class ChartRenderer {
           if (scrollContent.style.width !== w) scrollContent.style.width = w
         }
       }
+
+      this.draw(levelToDraw)
     })
   }
 
@@ -356,8 +358,6 @@ export class ChartRenderer {
       ? null
       : this.deps.getIndicatorManager().indicatorSchedulerAccessor.getMainIndicatorPriceRange()
     const hasCrosshair = this.deps.getInteraction().getCrosshairIndex() !== null
-
-    this.deps.getViewportManager().applyPendingScrollLeft(this.deps.getDom().container)
 
     const { sharedXAxisLabels, sharedXAxisRanges } = this.renderPanes(
       vp,

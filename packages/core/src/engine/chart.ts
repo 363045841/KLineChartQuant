@@ -218,6 +218,13 @@ export class Chart {
       resizeSharedWebGLSurface: (plotWidth, plotHeight, dpr) =>
         this.sharedWebGLSurface.resize(plotWidth, plotHeight, dpr),
     })
+    this.viewportManager.setContentWidthProvider(
+      () =>
+        Math.max(
+          this.dataManager.getContentWidth(),
+          this.dataManager.getLeftLoadBufferWidth(),
+        ),
+    )
 
     this.layoutManager = new ChartPaneLayout(this.opt.panes, {
       getDom: () => this.dom,
@@ -268,12 +275,8 @@ export class Chart {
         const result = this._activeMode.computeKWidth(dataLength, vp.plotWidth, vp.dpr)
         if (result) {
           this.applyRenderState(result.kWidth, result.kGap)
-          const container = this.dom.container
-          if (container) {
-            const leftBuffer = this.dataManager.getLeftLoadBufferWidth()
-            this.viewportManager.setScrollLeft(leftBuffer)
-            this.viewportManager.applyPendingScrollLeft(container)
-          }
+          const leftBuffer = this.dataManager.getLeftLoadBufferWidth()
+          this.viewportManager.setScrollLeft(leftBuffer)
         }
       },
       onDataProcessed: (data, range) => this.evaluateAlerts(data, range), // Alert 管线绑定
@@ -925,12 +928,8 @@ export class Chart {
         const result = this._activeMode.computeKWidth(tsData.length, vp.plotWidth, vp.dpr)
         if (result) {
           this.applyRenderState(result.kWidth, result.kGap)
-          const container = this.dom.container
-          if (container) {
-            const leftBuffer = this.dataManager.getLeftLoadBufferWidth()
-            this.viewportManager.setScrollLeft(leftBuffer)
-            this.viewportManager.applyPendingScrollLeft(container)
-          }
+          const leftBuffer = this.dataManager.getLeftLoadBufferWidth()
+          this.viewportManager.setScrollLeft(leftBuffer)
         }
       }
       this.renderer.clearCachedFrame()

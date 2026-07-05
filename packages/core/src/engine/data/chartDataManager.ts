@@ -72,7 +72,8 @@ export class ChartDataManager {
   private _comparisonManager: ComparisonManager
   private _loadHint: IncrementalLoadHint
 
-  private _savedScrollLeft: number | null = null
+  /** 进入分时图时第一根可见 K 线的时间戳，退出分时图后根据此时间戳恢复滚动位置 */
+  private _savedScrollTimestamp: number | null = null
   private _preCustomSpec: SymbolSpec | null = null
 
   lastVisibleRange: VisibleRange = { start: 0, end: 0 }
@@ -618,7 +619,7 @@ checkVisibleRangeGap(): void {
     this._dataSignal.set([])
     this.lastVisibleRange = { start: 0, end: 0 }
     this.lastRawVisibleRange = { start: 0, end: 0 }
-    this._savedScrollLeft = null
+    this._savedScrollTimestamp = null
     this.setSymbols([spec, ...this._comparisonManager.specs])
   }
 
@@ -646,8 +647,14 @@ checkVisibleRangeGap(): void {
     if (primary.period === 'timeshare') {
       // Switch to timeshare mode
       this.clearComparisonBuffers()
-      // Save scroll position so we can restore it when returning to K-line mode
-      this._savedScrollLeft = this.deps.getCachedScrollLeft()
+      // Save the timestamp of the first visible K-line so we can restore
+      // scroll position when returning to K-line mode, immune to data prepends.
+      const kBuf = this.getActiveDataBuffer()
+      const kRaw = kBuf?.getRawData() as KLineData[] | undefined
+      this._savedScrollTimestamp =
+        kRaw && this.lastVisibleRange.start >= 0 && this.lastVisibleRange.start < kRaw.length
+          ? kRaw[Math.max(0, this.lastVisibleRange.start)]!.timestamp
+          : null
       // Keep primary KLine buffer in memory — don't dispose it,
       // so data and scroll position are preserved when user returns
       this._dataSignal.set([])
@@ -698,10 +705,21 @@ checkVisibleRangeGap(): void {
         ...spec,
         incremental: spec.incremental ?? buf.currentSpec?.incremental ?? true,
       })
-      this.deps.resetInteraction()
-      if (this._savedScrollLeft !== null) {
-        this.deps.setScrollLeft(this._savedScrollLeft)
-        this._savedScrollLeft = null
+this.deps.resetInteraction()
+      if (this._savedScrollTimestamp !== null) {
+        const raw = buf.getRawData() as KLineData[]
+        const idx = raw.findIndex((d) => d.timestamp >= this._savedScrollTimestamp!)
+        this._savedScrollTimestamp = null
+        if (idx >= 0) {
+          const dpr = this.deps.getEffectiveDpr()
+          const opt = this.deps.getOption()
+          const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
+          const leftBuffer = this.getLeftLoadBufferWidth()
+          const scrollLeft = ((idx + 1) * unitPx + startXPx) / dpr + leftBuffer
+          this.deps.setScrollLeft(scrollLeft)
+        } else {
+          this.scrollToRight()
+        }
       } else {
         this.scrollToRight()
       }
