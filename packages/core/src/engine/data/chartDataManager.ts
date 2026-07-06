@@ -71,6 +71,9 @@ export class ChartDataManager {
   private _scrollCompensator: ScrollCompensator
   private _comparisonManager: ComparisonManager
   private _loadHint: IncrementalLoadHint
+  private _pendingIncrementalLoadCount = 0
+  private _pendingIncrementalLoadLeftBufferWidth = 0
+  private _pendingIncrementalLoadFlushTimer = 0
 
   /** 进入分时图时第一根可见 K 线的时间戳，退出分时图后根据此时间戳恢复滚动位置 */
   private _savedScrollTimestamp: number | null = null
@@ -108,6 +111,7 @@ export class ChartDataManager {
   private activateBuffer(key: string): void {
     if (this._activeBufferKey === key) return
     this._activeBufferUnsub?.()
+    this.resetIncrementalLoadHintBatch()
     this._activeBufferKey = key
     const buf = this._lookupBuffer(key)
     if (buf) {
@@ -122,7 +126,11 @@ export class ChartDataManager {
         })
       })
       const unsubLoading = buf.loading.subscribe(() => {
-        this._loadingSignal.set(buf.loading.peek())
+        const loading = buf.loading.peek()
+        this._loadingSignal.set(loading)
+        if (!loading) {
+          this.scheduleIncrementalLoadHintFlush(key)
+        }
       })
       this._activeBufferUnsub = () => {
         unsubData()
@@ -138,6 +146,9 @@ export class ChartDataManager {
   private disposeBuffer(key: string): void {
     const buf = this._lookupBuffer(key)
     if (!buf) return
+    if (this._activeBufferKey === key) {
+      this.resetIncrementalLoadHintBatch()
+    }
     buf.dispose()
     if (key.startsWith(BUF_TIMESHARE)) this._tsBuffers.delete(key)
     else this._klineBuffers.delete(key)
@@ -240,11 +251,52 @@ export class ChartDataManager {
       }
     }
 
-    this._loadHint.show(prependedCount, this.getLeftLoadBufferWidth())
-
     if (prependedCount > 0) {
+      this.recordIncrementalLoad(prependedCount)
       this.checkVisibleRangeGap()
+      if (!buf.loading.peek()) {
+        this.scheduleIncrementalLoadHintFlush(key)
+      }
     }
+  }
+
+  private recordIncrementalLoad(prependedCount: number): void {
+    this._pendingIncrementalLoadCount += prependedCount
+    this._pendingIncrementalLoadLeftBufferWidth = this.getLeftLoadBufferWidth()
+  }
+
+  private scheduleIncrementalLoadHintFlush(key: string): void {
+    if (this._pendingIncrementalLoadCount <= 0 || this._pendingIncrementalLoadFlushTimer !== 0) {
+      return
+    }
+
+    this._pendingIncrementalLoadFlushTimer = window.setTimeout(() => {
+      this._pendingIncrementalLoadFlushTimer = 0
+      if (this._activeBufferKey !== key) return
+      const buf = this._lookupBuffer(key)
+      if (!buf || buf.loading.peek()) return
+      this.flushIncrementalLoadHint()
+    }, 0)
+  }
+
+  private flushIncrementalLoadHint(): void {
+    if (this._pendingIncrementalLoadCount <= 0) return
+    this._loadHint.show(
+      this._pendingIncrementalLoadCount,
+      this._pendingIncrementalLoadLeftBufferWidth,
+    )
+    this._pendingIncrementalLoadCount = 0
+    this._pendingIncrementalLoadLeftBufferWidth = 0
+  }
+
+  private resetIncrementalLoadHintBatch(): void {
+    if (this._pendingIncrementalLoadFlushTimer !== 0) {
+      clearTimeout(this._pendingIncrementalLoadFlushTimer)
+      this._pendingIncrementalLoadFlushTimer = 0
+    }
+    this._pendingIncrementalLoadCount = 0
+    this._pendingIncrementalLoadLeftBufferWidth = 0
+    this._loadHint.hide()
   }
 
   private onTimeShareBufferChanged(): void {
@@ -522,12 +574,43 @@ export class ChartDataManager {
     }
   }
 
+  /** 进入分时模式前保存当前 K 线第一根可见数据的时间戳，用于退出后恢复滚动位置 */
+  private _saveKLineScrollTimestamp(): void {
+    const kBuf = this.getActiveDataBuffer()
+    const rawFromBuf = kBuf?.getRawData() as KLineData[] | undefined
+    const kRaw = rawFromBuf ?? (this._dataSignal.peek() as KLineData[])
+    const dataLen = kRaw?.length ?? 0
+    let visibleStart = 0
+    if (dataLen > 0) {
+      const vp = this.deps.getViewport()
+      if (vp) {
+        const opt = this.deps.getOption()
+        const vRange = getVisibleRange(vp.scrollLeft, vp.plotWidth, opt.kWidth, opt.kGap, dataLen, vp.dpr)
+        visibleStart = vRange ? Math.max(0, vRange.start) : 0
+      }
+    }
+    // 双路径守卫：
+    //   - switchToTimeShareForDate 路径：setTimeShareQueryDate 已在
+    //     activateBuffer 之前调用此方法，已保存 → 跳过。
+    //   - 直接 setSymbols({period:'timeshare'}) 路径：未经过
+    //     setTimeShareQueryDate，_savedScrollTimestamp 为 null → 正常写入。
+    if (this._savedScrollTimestamp === null) {
+      this._savedScrollTimestamp =
+        kRaw && visibleStart >= 0 && visibleStart < kRaw.length
+          ? kRaw[visibleStart]!.timestamp
+          : null
+    }
+  }
+
   setTimeShareQueryDate(date: number): void {
     const buf = this.getActiveTimeShareBuffer()
     if (buf) {
       buf.setQueryDate(date)
     } else {
-      // Store for later when buffer is created
+      // Save scroll timestamp before activateBuffer clears _dataSignal,
+      // so setSymbols can't overwrite the saved value with empty TS data.
+      this._saveKLineScrollTimestamp()
+
       const tsBuf = new TimeShareBuffer()
       tsBuf.setFetcher(this._timeShareFetcher)
       tsBuf.setQueryDate(date)
@@ -638,28 +721,10 @@ export class ChartDataManager {
     if (primary.period === 'timeshare') {
       // Switch to timeshare mode
       this.clearComparisonBuffers()
-      // Save the timestamp of the first visible K-line so we can restore
-      // scroll position when returning to K-line mode, immune to data prepends.
-      const kBuf = this.getActiveDataBuffer()
-      const rawFromBuf = kBuf?.getRawData() as KLineData[] | undefined
-      // If no KLine buffer is active (e.g. semantic config applied data without
-      // activating a dedicated buffer), fall back to the data signal which
-      // always reflects the currently displayed KLine data.
-      const kRaw = rawFromBuf ?? (this._dataSignal.peek() as KLineData[])
-      const dataLen = kRaw?.length ?? 0
-      let visibleStart = 0
-      if (dataLen > 0) {
-        const vp = this.deps.getViewport()
-        if (vp) {
-          const opt = this.deps.getOption()
-          const vRange = getVisibleRange(vp.scrollLeft, vp.plotWidth, opt.kWidth, opt.kGap, dataLen, vp.dpr)
-          visibleStart = vRange ? Math.max(0, vRange.start) : 0
-        }
-      }
-      this._savedScrollTimestamp =
-        kRaw && visibleStart >= 0 && visibleStart < kRaw.length
-          ? kRaw[visibleStart]!.timestamp
-          : null
+      // Save scroll position before activating TS buffer (which clears _dataSignal).
+      // Guarded by _savedScrollTimestamp === null so setTimeShareQueryDate (which
+      // calls this method first) won't be overwritten.
+      this._saveKLineScrollTimestamp()
       // Keep primary KLine buffer in memory — don't dispose it,
       // so data and scroll position are preserved when user returns
       this._dataSignal.set([])
@@ -709,22 +774,11 @@ export class ChartDataManager {
         ...spec,
         incremental: spec.incremental ?? buf.currentSpec?.incremental ?? true,
       })
-this.deps.resetInteraction()
-      if (this._savedScrollTimestamp !== null) {
-        const raw = buf.getRawData() as KLineData[]
-        const idx = raw.findIndex((d) => d.timestamp >= this._savedScrollTimestamp!)
-        this._savedScrollTimestamp = null
-        if (idx >= 0) {
-          const dpr = this.deps.getEffectiveDpr()
-          const opt = this.deps.getOption()
-          const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
-          const leftBuffer = this.getLeftLoadBufferWidth()
-          const scrollLeft = ((idx + 1) * unitPx + startXPx) / dpr + leftBuffer
-          this.deps.setScrollLeft(scrollLeft)
-        } else {
-          this.scrollToRight()
-        }
-      } else {
+      this.deps.resetInteraction()
+      // Scroll restoration from _savedScrollTimestamp is deferred to
+      // chart → tryRestoreScrollFromSnapshot() so kWidth/kGap have been
+      // restored by setActiveMode before scrollLeft calculation.
+      if (this._savedScrollTimestamp === null) {
         this.scrollToRight()
       }
       return
@@ -738,6 +792,26 @@ this.deps.resetInteraction()
     }
 
     buf.setSymbol(spec)
+  }
+
+  /** 退出分时图时根据保存的时间戳恢复 K 线滚动位置。返回是否成功恢复。 */
+  tryRestoreScrollFromSnapshot(): boolean {
+    if (this._savedScrollTimestamp === null) return false
+    const buf = this.getActiveDataBuffer()
+    const raw = buf ? (buf.getRawData() as KLineData[]) : null
+    if (!raw || raw.length === 0) return false
+    const idx = raw.findIndex((d) => d.timestamp >= this._savedScrollTimestamp!)
+    this._savedScrollTimestamp = null
+    if (idx >= 0) {
+      const dpr = this.deps.getEffectiveDpr()
+      const opt = this.deps.getOption()
+      const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
+      const leftBuffer = this.getLeftLoadBufferWidth()
+      const scrollLeft = ((idx + 1) * unitPx + startXPx) / dpr + leftBuffer
+      this.deps.setScrollLeft(scrollLeft)
+      return true
+    }
+    return false
   }
 
   // ── Content width ──
