@@ -32,8 +32,8 @@ export interface DataDependencies {
   resetInteraction: () => void
   getIndicatorScheduler: () => {
     update: (data: KLineData[], range: VisibleRange) => boolean
+    busySignal: Signal<boolean>
   }
-  setPendingIndicatorDataUpdate: (v: boolean) => void
   isPointerDown: () => boolean
   onTimeShareDataReady: (dataLength: number) => void
   onDataProcessed?: (data: KLineData[], range: VisibleRange) => void
@@ -76,17 +76,6 @@ export class ChartDataManager {
   private _savedScrollTimestamp: number | null = null
   private _preCustomSpec: SymbolSpec | null = null
 
-  private _pendingIndicatorSignal = createSignal<boolean>(false)
-
-  /** 写入 pending indicator 状态（唯一受控入口） */
-  setPendingIndicatorUpdate(v: boolean): void {
-    this._pendingIndicatorSignal.set(v)
-  }
-
-  /** 外部只读访问 pending 信号 */
-  get pendingIndicatorSignal(): Signal<boolean> {
-    return this._pendingIndicatorSignal
-  }
   private _rangeInitialized = false
 
   private deps: DataDependencies
@@ -246,11 +235,8 @@ export class ChartDataManager {
       const scheduler = this.deps.getIndicatorScheduler()
       const indicatorsReady = scheduler.update(bufferData, currentRange)
       if (indicatorsReady) {
-        this._pendingIndicatorSignal.set(false)
         this.deps.scheduleDraw()
         this.deps.onDataProcessed?.(bufferData, currentRange)
-      } else {
-        this._pendingIndicatorSignal.set(true)
       }
     }
 
@@ -655,9 +641,21 @@ export class ChartDataManager {
       // Save the timestamp of the first visible K-line so we can restore
       // scroll position when returning to K-line mode, immune to data prepends.
       const kBuf = this.getActiveDataBuffer()
-      const kRaw = kBuf?.getRawData() as KLineData[] | undefined
-      const vRange = this.computeRawVisibleRange()
-      const visibleStart = vRange ? Math.max(0, vRange.start) : 0
+      const rawFromBuf = kBuf?.getRawData() as KLineData[] | undefined
+      // If no KLine buffer is active (e.g. semantic config applied data without
+      // activating a dedicated buffer), fall back to the data signal which
+      // always reflects the currently displayed KLine data.
+      const kRaw = rawFromBuf ?? (this._dataSignal.peek() as KLineData[])
+      const dataLen = kRaw?.length ?? 0
+      let visibleStart = 0
+      if (dataLen > 0) {
+        const vp = this.deps.getViewport()
+        if (vp) {
+          const opt = this.deps.getOption()
+          const vRange = getVisibleRange(vp.scrollLeft, vp.plotWidth, opt.kWidth, opt.kGap, dataLen, vp.dpr)
+          visibleStart = vRange ? Math.max(0, vRange.start) : 0
+        }
+      }
       this._savedScrollTimestamp =
         kRaw && visibleStart >= 0 && visibleStart < kRaw.length
           ? kRaw[visibleStart]!.timestamp

@@ -80,6 +80,7 @@ import type {
   SerializedRuntimeDescriptor,
 } from './workerProtocol'
 import type { IndicatorWorkerResponse } from './workerProtocol'
+import { createSignal, type Signal } from '../../reactivity/signal'
 
 /**
  * 可见范围
@@ -171,6 +172,9 @@ export class IndicatorScheduler {
 
   // Worker 异步结果应用完毕回调（用于串联其他管线，如 Alert）
   private onResultsAppliedCallback: (() => void) | null = null
+
+  /** 调度器繁忙信号（Worker 计算中时为 true，结果应用后恢复 false） */
+  private _busySignal = createSignal(false)
 
   /** 从 Chart 获取活跃副图 paneId 列表的回调 */
   private getActiveSubPaneIds: (() => string[]) | null = null
@@ -268,6 +272,11 @@ export class IndicatorScheduler {
    */
   setOnResultsApplied(callback: () => void): void {
     this.onResultsAppliedCallback = callback
+  }
+
+  /** 调度器繁忙信号 — Worker 计算中为 true，结果应用后恢复 false */
+  get busySignal(): Signal<boolean> {
+    return this._busySignal
   }
 
   /**
@@ -456,14 +465,8 @@ export class IndicatorScheduler {
     this.pendingRequest = null
     this.latestResult = msg.results
 
-    // 组装并写入 states
+    // 组装并写入 states（内部触发 busy=false + 回调）
     this.applyResults(msg.results)
-
-    // 触发重绘
-    this.invalidateCallback?.()
-
-    // 通知外部（Alert 等管线）指标结果已就绪
-    this.onResultsAppliedCallback?.()
   }
 
   // ============================================================================
@@ -504,6 +507,10 @@ export class IndicatorScheduler {
 
       meta.applyResult(this.pluginHost, state as BaseIndicatorState, paneId)
     }
+
+    this._busySignal.set(false)
+    this.invalidateCallback?.()
+    this.onResultsAppliedCallback?.()
   }
 
   /** 重算可见范围极值并回调 applyResult（视口变更时同步更新，不走 Worker） */
@@ -735,6 +742,8 @@ export class IndicatorScheduler {
   private computeWithWorker(): void {
     if (!this.worker || !this.workerReady) return
 
+    this._busySignal.set(true)
+
     console.log(
       `[IndicatorScheduler] >> Worker compute: requestId=${this.requestId + 1} dataV=${this.dataVersion} configV=${this.configVersion}`,
     )
@@ -778,6 +787,8 @@ export class IndicatorScheduler {
       this.inlineRuntime = new IndicatorRuntime(runtimeDescs)
     }
 
+    this._busySignal.set(true)
+
     console.log(
       `[IndicatorScheduler] >> INLINE compute: dataV=${this.dataVersion} configV=${this.configVersion}`,
     )
@@ -790,10 +801,7 @@ export class IndicatorScheduler {
     const results = this.inlineRuntime.computeSeries()
     this.latestResult = results
 
-    // 组装并写入 states
+    // 组装并写入 states（内部触发 busy=false + 回调）
     this.applyResults(results)
-
-    // 触发重绘
-    this.invalidateCallback?.()
   }
 }

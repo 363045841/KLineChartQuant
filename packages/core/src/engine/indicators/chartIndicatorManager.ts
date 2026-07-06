@@ -55,7 +55,6 @@ export interface IndicatorDependencies {
   getCrosshairPrice: () => number | null
   getActivePaneId: () => string | null
   scheduleDraw: (level?: UpdateLevel) => void
-  setPendingIndicatorDataUpdate: (v: boolean) => void
   getRenderContext: (paneId: string) => RenderContext | null
   addLayer: (layer: Layer) => void
   removeLayer: (id: string) => boolean
@@ -117,7 +116,6 @@ export class ChartIndicatorManager {
     this.indicatorScheduler = new IndicatorScheduler()
     this.indicatorScheduler.setPluginHost(deps.getPluginHost())
     this.indicatorScheduler.setInvalidateCallback(() => {
-      deps.setPendingIndicatorDataUpdate(false)
       deps.scheduleDraw()
     })
 

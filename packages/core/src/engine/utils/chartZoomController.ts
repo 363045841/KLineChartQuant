@@ -1,10 +1,4 @@
-import { computeZoom } from './zoom'
-
-export interface ZoomCommittedResult {
-  kWidth: number
-  kGap: number
-  zoomLevel: number
-}
+import { computeZoom, zoomLevelToKWidth, kGapFromKWidth } from './zoom'
 
 export interface ZoomDependencies {
   getLogicalScrollLeft: () => number
@@ -13,9 +7,7 @@ export interface ZoomDependencies {
   getDataLength: () => number
   getPlotWidth: () => number
   setScrollLeft: (v: number) => void
-  onZoomCommitted: (result: ZoomCommittedResult) => void
-  getKWidth: () => number
-  getKGap: () => number
+  onChange?: () => void
   getMinKWidth: () => number
   getMaxKWidth: () => number
   zoomLevelCount: number
@@ -24,16 +16,32 @@ export interface ZoomDependencies {
 
 export class ChartZoomController {
   private _currentZoomLevel: number
+  private _currentKWidth: number
+  private _currentKGap: number
   private readonly deps: ZoomDependencies
 
   constructor(deps: ZoomDependencies) {
     this.deps = deps
     const clamped = Math.max(1, Math.min(deps.zoomLevelCount, deps.initialZoomLevel ?? 1))
     this._currentZoomLevel = clamped
+    this._currentKWidth = zoomLevelToKWidth(clamped, {
+      minKWidth: deps.getMinKWidth(),
+      maxKWidth: deps.getMaxKWidth(),
+      zoomLevelCount: deps.zoomLevelCount,
+    })
+    this._currentKGap = kGapFromKWidth(this._currentKWidth, deps.getCurrentDpr())
   }
 
   get currentZoomLevel(): number {
     return this._currentZoomLevel
+  }
+
+  get currentKWidth(): number {
+    return this._currentKWidth
+  }
+
+  get currentKGap(): number {
+    return this._currentKGap
   }
 
   get zoomLevelCount(): number {
@@ -42,6 +50,17 @@ export class ChartZoomController {
 
   setZoomLevel(level: number): void {
     this._currentZoomLevel = Math.max(1, Math.min(this.deps.zoomLevelCount, level))
+    this._currentKWidth = zoomLevelToKWidth(this._currentZoomLevel, {
+      minKWidth: this.deps.getMinKWidth(),
+      maxKWidth: this.deps.getMaxKWidth(),
+      zoomLevelCount: this.deps.zoomLevelCount,
+    })
+    this._currentKGap = kGapFromKWidth(this._currentKWidth, this.deps.getCurrentDpr())
+  }
+
+  setKWidthKGap(kWidth: number, kGap: number): void {
+    this._currentKWidth = kWidth
+    this._currentKGap = kGap
   }
 
   zoomToLevel(level: number, anchorX?: number): void {
@@ -88,8 +107,8 @@ export class ChartZoomController {
       anchorViewportX ?? 0,
       logicalScrollLeft,
       this._currentZoomLevel,
-      this.deps.getKWidth(),
-      this.deps.getKGap(),
+      this._currentKWidth,
+      this._currentKGap,
       {
         minKWidth: this.deps.getMinKWidth(),
         maxKWidth: this.deps.getMaxKWidth(),
@@ -104,11 +123,9 @@ export class ChartZoomController {
     if (!result) return
 
     this._currentZoomLevel = result.targetLevel
+    this._currentKWidth = result.newKWidth
+    this._currentKGap = result.newKGap
     this.deps.setScrollLeft(result.newDomScrollLeft)
-    this.deps.onZoomCommitted({
-      kWidth: result.newKWidth,
-      kGap: result.newKGap,
-      zoomLevel: result.targetLevel,
-    })
+    this.deps.onChange?.()
   }
 }

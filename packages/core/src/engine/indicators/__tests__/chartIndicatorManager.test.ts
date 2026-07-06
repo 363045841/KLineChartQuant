@@ -55,7 +55,6 @@ function createMockDeps() {
     getCrosshairPrice: vi.fn(() => null),
     getActivePaneId: vi.fn(() => null),
     scheduleDraw: vi.fn(),
-    setPendingIndicatorDataUpdate: vi.fn(),
     getRenderContext: vi.fn(() => null),
     addLayer: vi.fn(),
     removeLayer: vi.fn(() => false),

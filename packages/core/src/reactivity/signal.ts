@@ -145,3 +145,36 @@ export function batch<T>(fn: () => T): T {
     }
   }
 }
+
+/**
+ * Create a group of related signals from an initial state object.
+ * Returns typed { signals, set, snapshot } — eliminates `private _xxxSignal`
+ * + `get xxx()` boilerplate in classes with many signals.
+ *
+ * Usage in a class field initializer:
+ * ```ts
+ * private state = createStateStore({ count: 0, name: '' })
+ * // read:  state.signals.count()
+ * // write: state.signals.count.set(5)
+ * // bulk:  state.set.count(5); state.set.name('foo')
+ * // snapshot: state.snapshot() // { count: 5, name: 'foo' }
+ * ```
+ */
+export function createStateStore<T extends Record<string, unknown>>(initial: T) {
+  const signals = {} as { [K in keyof T]: Signal<T[K]> }
+  const set = {} as { [K in keyof T]: (v: T[K]) => void }
+  for (const key of Object.keys(initial) as (keyof T)[]) {
+    const sig = createSignal<T[typeof key]>(initial[key])
+    signals[key] = sig
+    set[key] = (v: T[typeof key]) => sig.set(v)
+  }
+  return {
+    signals,
+    set,
+    snapshot: () => {
+      const s: Record<string, unknown> = {}
+      for (const k of Object.keys(initial) as (keyof T)[]) s[k as string] = signals[k].peek()
+      return s as T
+    },
+  }
+}
