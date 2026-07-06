@@ -31,6 +31,16 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
+    proxy: {
+      '/api/stock': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
+      '/api/public': {
+        target: 'http://127.0.0.1:8080',
+        changeOrigin: true,
+      },
+    },
   },
   plugins: [decoratorTransform, vue(), Icons({ compiler: 'vue3', autoInstall: true })],
   resolve: {
