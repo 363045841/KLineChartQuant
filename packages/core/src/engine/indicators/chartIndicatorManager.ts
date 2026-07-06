@@ -60,6 +60,10 @@ export interface IndicatorDependencies {
   removeLayer: (id: string) => boolean
   getLayer: (id: string) => Layer | null
   setLayerVisibility: (id: string, visible: boolean) => void
+  getIndicatorScheduler: () => IndicatorScheduler
+  getRightAxisWidth: () => number
+  getPriceLabelWidth: () => number
+  getYPaddingPx: () => number
 }
 
 export class ChartIndicatorManager {
@@ -121,7 +125,7 @@ export class ChartIndicatorManager {
 
     // 初始化副图管理器
     this.subPaneManager = new SubPaneManager()
-    this.subPaneCtx = this.createSubPaneContext()
+    this.subPaneCtx = this.deps
 
     // 注册副图活跃列表提供者
     this.indicatorScheduler.setActiveSubPaneProvider(() => this.subPaneManager.getPaneIds())
@@ -197,36 +201,6 @@ export class ChartIndicatorManager {
 
   get subPanesComputed(): Computed<ReadonlyArray<SubPaneInfo>> {
     return this._subPanesComputed
-  }
-
-  // ========== SubPaneContext factory ==========
-
-  private createSubPaneContext(): SubPaneContext {
-    const deps = this.deps
-    const self = this
-    return {
-      getIndicatorScheduler: () => self.indicatorScheduler,
-      hasPane: (paneId) => deps.hasPane(paneId),
-      upsertPane: (def) => deps.upsertPane(def),
-      getRenderer: <T extends RendererPlugin = RendererPlugin>(name: string) =>
-        deps.getRenderer<T>(name),
-      useRenderer: (plugin, config) => deps.useRenderer(plugin, config),
-      removeRenderer: (name) => deps.removeRenderer(name),
-      setRendererEnabled: (name, enabled) => deps.setRendererEnabled(name, enabled),
-      removePaneDefinition: (paneId) => deps.removePaneDefinition(paneId),
-      updateRendererConfig: (name, config) => deps.updateRendererConfig(name, config),
-      getRightAxisWidth: () => deps.getOption().rightAxisWidth,
-      getPriceLabelWidth: () => deps.getOption().priceLabelWidth ?? 60,
-      getYPaddingPx: () => deps.getOption().yPaddingPx,
-      getCrosshairPos: () => deps.getCrosshairPos(),
-      getCrosshairPrice: () => deps.getCrosshairPrice(),
-      getActivePaneId: () => deps.getActivePaneId(),
-      addLayer: (layer) => deps.addLayer(layer),
-      removeLayer: (id) => deps.removeLayer(id),
-      getLayer: (id) => deps.getLayer(id),
-      setLayerVisibility: (id, visible) => deps.setLayerVisibility(id, visible),
-      getRenderContext: (paneId) => deps.getRenderContext(paneId),
-    }
   }
 
   // ========== 主图指标 API ==========

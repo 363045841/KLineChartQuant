@@ -343,6 +343,10 @@ export class Chart {
       getLayer: (id) => this.renderer?.getScene()?.getLayer(id) ?? null,
       setLayerVisibility: (id, visible) =>
         this.renderer?.getScene()?.setLayerVisibility(id, visible),
+      getIndicatorScheduler: () => this.indicatorManager.indicatorSchedulerAccessor,
+      getRightAxisWidth: () => this._optionsSignal.peek().rightAxisWidth,
+      getPriceLabelWidth: () => this._optionsSignal.peek().priceLabelWidth ?? 60,
+      getYPaddingPx: () => this._optionsSignal.peek().yPaddingPx,
     })
 
     // Worker 异步结果就绪后串联 Alert 管线
