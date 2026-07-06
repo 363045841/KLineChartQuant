@@ -24,10 +24,10 @@ const COLOR_PATTERN =
  * 注意：北交所规则持续扩充，以交易所官方公告为准
  * 规则版本日期：2025-01
  */
-const SYMBOL_PATTERNS = {
-  SH: /^(600|601|603|605|688)\d{3}$/, // 上交所
-  SZ: /^(000|001|002|003|300|301)\d{3}$/, // 深交所
-  BJ: /^(83|87|43|82)\d{4}$/, // 北交所
+const SYMBOL_PATTERNS: Record<string, RegExp> = {
+  SH: /^(600|601|603|605|688)\d{3}$/,
+  SZ: /^(000|001|002|003|300|301)\d{3}$/,
+  BJ: /^(83|87|43|82)\d{4}$/,
 }
 
 /** 安全限制 */
@@ -240,7 +240,7 @@ export class SemanticConfigValidator {
 
     if (exchange) {
       const pattern = SYMBOL_PATTERNS[exchange]
-      if (!pattern.test(symbol)) {
+      if (!pattern || !pattern.test(symbol)) {
         return { valid: false, errors: [`Invalid symbol "${symbol}" for exchange "${exchange}"`] }
       }
     } else {
@@ -355,9 +355,9 @@ export function validateColor(color: string): boolean {
 /**
  * 校验股票代码
  */
-export function validateSymbol(symbol: string, exchange?: 'SH' | 'SZ' | 'BJ'): boolean {
+export function validateSymbol(symbol: string, exchange?: string): boolean {
   if (exchange) {
-    return SYMBOL_PATTERNS[exchange].test(symbol)
+    return SYMBOL_PATTERNS[exchange]?.test(symbol) ?? false
   }
   return Object.values(SYMBOL_PATTERNS).some((p) => p.test(symbol))
 }

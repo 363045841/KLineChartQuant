@@ -47,7 +47,7 @@ async function fetchBaoStock(
           volume: Number(item.volume),
           turnover: Number(item.amount ?? 0),
           turnoverRate: item.turn === '' ? 0 : Number(item.turn),
-          stockCode: String(item.code ?? config.symbol),
+          symbol: String(item.code ?? config.symbol),
         }) as KLineData,
     )
   } catch (err) {

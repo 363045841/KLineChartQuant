@@ -148,7 +148,7 @@ describe('@363045841yyt/klinechart —tooltip slot contracts', () => {
       low: 29,
       close: 31.5,
       volume: 1500000,
-      stockCode: 'TEST',
+      symbol: 'TEST',
     }
     const wrapper = mount(KLineTooltip, {
       props: {

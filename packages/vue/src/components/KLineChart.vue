@@ -351,32 +351,32 @@
   // replace/extend via ctrl.registerSymbols() after mount.
   const DEFAULT_SYMBOLS: SymbolInfo[] = [
     // TradingView global
-    { code: 'XAUUSD', description: '现货黄金', exchange: 'OANDA', source: 'tradingview' },
+    { symbol: 'XAUUSD', description: '现货黄金', exchange: 'OANDA', source: 'tradingview' },
     {
-      code: 'BTCUSDT',
+      symbol: 'BTCUSDT',
       description: 'Bitcoin / Tether',
       exchange: 'BINANCE',
       source: 'tradingview',
     },
     {
-      code: 'ETHUSDT',
+      symbol: 'ETHUSDT',
       description: 'Ethereum / Tether',
       exchange: 'BINANCE',
       source: 'tradingview',
     },
-    { code: 'EURUSD', description: '欧元/美元', exchange: 'OANDA', source: 'tradingview' },
-    { code: 'SPX', description: '标普 500 指数', exchange: 'SP', source: 'tradingview' },
-    { code: 'AAPL', description: 'Apple Inc.', exchange: 'NASDAQ', source: 'tradingview' },
-    { code: 'TSLA', description: 'Tesla, Inc.', exchange: 'NASDAQ', source: 'tradingview' },
-    { code: '1810', description: '小米集团', exchange: 'HKEX', source: 'tradingview' },
+    { symbol: 'EURUSD', description: '欧元/美元', exchange: 'OANDA', source: 'tradingview' },
+    { symbol: 'SPX', description: '标普 500 指数', exchange: 'SP', source: 'tradingview' },
+    { symbol: 'AAPL', description: 'Apple Inc.', exchange: 'NASDAQ', source: 'tradingview' },
+    { symbol: 'TSLA', description: 'Tesla, Inc.', exchange: 'NASDAQ', source: 'tradingview' },
+    { symbol: '1810', description: '小米集团', exchange: 'HKEX', source: 'tradingview' },
     // gotdx A shares
-    { code: '600519', description: '贵州茅台', exchange: 'SSE', source: 'gotdx' },
-    { code: '601360', description: '三六零', exchange: 'SSE', source: 'gotdx' },
-    { code: '000858', description: '五 粮 液', exchange: 'SZSE', source: 'gotdx' },
-    { code: '000001', description: '平安银行', exchange: 'SZSE', source: 'gotdx' },
+    { symbol: '600519', description: '贵州茅台', exchange: 'SSE', source: 'gotdx' },
+    { symbol: '601360', description: '三六零', exchange: 'SSE', source: 'gotdx' },
+    { symbol: '000858', description: '五 粮 液', exchange: 'SZSE', source: 'gotdx' },
+    { symbol: '000001', description: '平安银行', exchange: 'SZSE', source: 'gotdx' },
     // Mock
-    { code: 'MOCK-100', description: 'Mock 100 条', exchange: 'MOCK', source: 'mock-100' },
-    { code: 'MOCK-10000', description: 'Mock 10000 条', exchange: 'MOCK', source: 'mock-10000' },
+    { symbol: 'MOCK-100', description: 'Mock 100 条', exchange: 'MOCK', source: 'mock-100' },
+    { symbol: 'MOCK-10000', description: 'Mock 10000 条', exchange: 'MOCK', source: 'mock-10000' },
   ]
 
   const kLineLevel = ref<string>(props.semanticConfig?.data?.period ?? 'daily')
@@ -426,7 +426,7 @@
     if (!ctrl) return
     const current = ctrl.symbols.peek()
     const currentCodes = current.map((s) => s.symbol)
-    if (currentCodes.includes(item.code)) return
+    if (currentCodes.includes(item.symbol)) return
     forcePercentAxis()
     ctrl.addComparisonSymbol(toSymbolSpec(item))
   }
@@ -437,7 +437,7 @@
 
   function toSymbolSpec(item: SymbolItem): SymbolSpec {
     return {
-      symbol: item.code,
+      symbol: item.symbol,
       exchange: item.exchange,
       period: kLineLevel.value,
       source: item.source,
@@ -537,7 +537,7 @@
   const semanticController = shallowRef<SemanticChartController | null>(null)
 
   const showBatchStockDialog = ref(false)
-  const batchStockCodes = ref<string[]>([])
+  const batchSymbols = ref<string[]>([])
 
   const chartState = useChartState(props.initialZoomLevel ?? 1, {
     minKWidth: props.minKWidth,
@@ -618,7 +618,7 @@
     dataVersion,
     viewportVersion,
     dataFetcher: effectiveDataFetcher,
-    batchStockCodes,
+    batchSymbols,
   })
 
   // ── No-op Render Trigger (exposed) ──
@@ -785,7 +785,7 @@
   }
 
   function onBatchApply(codes: string[]) {
-    batchStockCodes.value = codes
+    batchSymbols.value = codes
   }
 
   function handleSelectTool(toolId: string) {
@@ -1092,8 +1092,8 @@
     // Sync symbol catalog from controller to dropdown pool.
     const unsubscribeSymbolCatalog = ctrl.symbolCatalog.subscribe(() => {
       symbolPool.value = ctrl.symbolCatalog.peek().map((info) => ({
-        code: info.code,
-        description: info.description ?? info.code,
+        symbol: info.symbol,
+        description: info.description ?? info.symbol,
         exchange: info.exchange ?? '',
         source: info.source ?? '',
       }))
@@ -1101,8 +1101,8 @@
     // 立即同步当前值，确保 dropdown 在 subscribe 创建后立即拿到数据，
     // 不依赖 registerSymbols 在 subscribe 之前还是之后调用。
     symbolPool.value = ctrl.symbolCatalog.peek().map((info) => ({
-      code: info.code,
-      description: info.description ?? info.code,
+      symbol: info.symbol,
+      description: info.description ?? info.symbol,
       exchange: info.exchange ?? '',
       source: info.source ?? '',
     }))
@@ -1113,7 +1113,7 @@
       const primary = specs[0]
       currentSymbol.value = primary.symbol
       currentSymbolItem.value = {
-        code: primary.symbol,
+        symbol: primary.symbol,
         description: primary.symbol,
         exchange: primary.exchange ?? '',
         source: primary.source ?? '',
@@ -1124,7 +1124,7 @@
       const comparisonSpecs = specs.slice(1)
       overlaySymbols.value = comparisonSpecs.map((s) => s.symbol)
       overlaySymbolItems.value = comparisonSpecs.map((s) => ({
-        code: s.symbol,
+        symbol: s.symbol,
         description: s.symbol,
         exchange: s.exchange ?? '',
         source: s.source ?? '',

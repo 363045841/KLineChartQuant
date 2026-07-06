@@ -97,16 +97,16 @@
             </div>
             <button
               v-for="item in filteredSymbols"
-              :key="item.code"
-              type="button"
-              class="symbol-list__item"
-              :class="{ 'is-active': item.code === symbol }"
-              role="option"
-              :aria-selected="item.code === symbol"
+:key="item.symbol"
+               type="button"
+               class="symbol-list__item"
+               :class="{ 'is-active': item.symbol === symbol }"
+               role="option"
+               :aria-selected="item.symbol === symbol"
               @click="selectSymbol(item)"
             >
               <span class="symbol-list__left">
-                <span class="symbol-list__code">{{ item.code }}</span>
+                <span class="symbol-list__code">{{ item.symbol }}</span>
                 <span class="symbol-list__desc">{{ item.description }}</span>
               </span>
               <span class="symbol-list__exchange">{{ item.exchange }}</span>
@@ -127,7 +127,7 @@
   import IconTablerAlertTriangle from '~icons/tabler/alert-triangle'
 
   export interface SymbolItem {
-    code: string
+    symbol: string
     description: string
     exchange: string
     source: string
@@ -159,12 +159,12 @@
   )
 
   const currentSymbol = computed<SymbolItem | undefined>(() =>
-    props.symbols.find((s) => s.code === props.symbol),
+    props.symbols.find((s) => s.symbol === props.symbol),
   )
 
   const displayText = computed(() => {
     const cur = currentSymbol.value
-    if (cur) return `${cur.code} - ${cur.description}`
+    if (cur) return `${cur.symbol} - ${cur.description}`
     return props.symbol
   })
 
@@ -173,7 +173,7 @@
     if (!q) return props.symbols
     return props.symbols.filter(
       (s) =>
-        s.code.toLowerCase().includes(q) ||
+        s.symbol.toLowerCase().includes(q) ||
         s.description.toLowerCase().includes(q) ||
         s.exchange.toLowerCase().includes(q),
     )

@@ -4,7 +4,7 @@
       <template #kline-tooltip="{ hoverData, upColor, downColor }">
     <div class="custom-tooltip">
       <div class="custom-tooltip__title">
-        <span>{{ hoverData.stockCode }}</span>
+        <span>{{ hoverData.symbol }}</span>
         <span>{{ formatTimestamp(hoverData.timestamp, { timeZone: 'Asia/Shanghai' }) }}</span>
       </div>
       <div class="custom-tooltip__price"

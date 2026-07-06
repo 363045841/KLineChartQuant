@@ -11,8 +11,7 @@ export interface KLineData {
   low: number
   /* 收盘价 */
   close: number
-  /** 股票代码（东财等数据源会提供） */
-  stockCode?: string
+  symbol?: string
   /** 成交量 */
   volume?: number
   /** 成交额 */
@@ -30,7 +29,7 @@ export interface KLineData {
 }
 
 export interface KLineDailyDongCaiResponse extends KLineData {
-  stockCode: string
+  symbol: string
   volume: number
   turnover: number
   amplitude: number
@@ -66,7 +65,7 @@ export function toKLineData(arr: KLineDailyDongCaiResponse[]): KLineData[] {
       high: e.high,
       low: e.low,
       close: e.close,
-      stockCode: e.stockCode,
+      symbol: e.symbol,
       volume: e.volume,
       turnover: e.turnover,
       amplitude: e.amplitude,

@@ -56,7 +56,7 @@ async function fetchTradingview(
       low: item.low as number,
       close: item.close as number,
       volume: (item.volume as number) ?? 0,
-      stockCode: config.symbol,
+      symbol: config.symbol,
     })) as KLineData[]
   } catch (err) {
     console.warn('[tradingview] network error:', err)

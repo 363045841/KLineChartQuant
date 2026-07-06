@@ -62,7 +62,7 @@ export function useRangeSelection(options: {
   dataVersion: Ref<number>
   viewportVersion: Ref<number>
   dataFetcher: Ref<DataFetcher | null>
-  batchStockCodes: Ref<string[]>
+  batchSymbols: Ref<string[]>
 }) {
   const {
     controller,
@@ -71,7 +71,7 @@ export function useRangeSelection(options: {
     dataVersion,
     viewportVersion,
     dataFetcher,
-    batchStockCodes,
+    batchSymbols,
   } = options
 
   const customStartDate = ref('')
@@ -317,12 +317,12 @@ export function useRangeSelection(options: {
     startTs: number,
     endTs: number,
   ) {
-    const header = `stockCode,time,${CSV_FIELDS.join(',')}`
+    const header = `symbol,time,${CSV_FIELDS.join(',')}`
     const rows = [
       header,
       ...items.map((item) => {
         const timeStr = toCsvCell(formatTimestamp(item.timestamp, { showTime: true }))
-        const code = toCsvCell(item.stockCode ?? prefix)
+        const code = toCsvCell(item.symbol ?? prefix)
         return `${code},${timeStr},${CSV_FIELDS.map((field) => toCsvCell(item[field])).join(',')}`
       }),
     ]
@@ -337,18 +337,18 @@ export function useRangeSelection(options: {
     URL.revokeObjectURL(url)
   }
 
-  async function exportRangeToCsv() {
+  async   function exportRangeToCsv() {
     const bounds = rangeSelectionBounds.value
     const data = controller.value?.getData() ?? []
     if (!bounds || data.length === 0) return
 
     const startTs = data[bounds.start]!.timestamp
     const endTs = data[bounds.end]!.timestamp
-    const mainStockCode = controller.value?.symbols.peek()?.[0]?.symbol ?? 'unknown'
-    const batchCodes = batchStockCodes.value.filter((c) => c !== mainStockCode)
+    const mainSymbol = controller.value?.symbols.peek()?.[0]?.symbol ?? 'unknown'
+    const batchCodes = batchSymbols.value.filter((c) => c !== mainSymbol)
     const total = 1 + batchCodes.length
     const prefix =
-      batchStockCodes.value.length > 0 ? `batch${batchStockCodes.value.length + 1}` : mainStockCode
+      batchSymbols.value.length > 0 ? `batch${batchSymbols.value.length + 1}` : mainSymbol
 
     const allItems: KLineData[] = []
 

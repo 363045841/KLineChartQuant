@@ -69,7 +69,7 @@ export interface KLineData {
   close: number
   volume?: number
   turnover?: number
-  stockCode?: string
+  symbol?: string
   amplitude?: number
   changePercent?: number
   changeAmount?: number
@@ -90,7 +90,7 @@ export type { PaneSpec }
 // ---------------------------------------------------------------------------
 /** Registered symbol metadata — for the symbol catalog/dropdown UI */
 export interface SymbolInfo {
-  code: string
+  symbol: string
   description?: string
   exchange?: string
   source?: string

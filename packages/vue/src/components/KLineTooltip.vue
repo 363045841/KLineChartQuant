@@ -7,7 +7,7 @@
     :style="useAnchor ? undefined : { left: `${pos.x}px`, top: `${pos.y}px` }"
   >
     <div class="kline-tooltip__title">
-      <span v-if="hoverData.stockCode">{{ hoverData.stockCode }}</span>
+      <span v-if="hoverData.symbol">{{ hoverData.symbol }}</span>
       <span>{{ formattedDate }}</span>
     </div>
     <div class="kline-tooltip__grid">
@@ -65,7 +65,7 @@
     changePercent?: number
     changeAmount?: number
     turnoverRate?: number
-    stockCode?: string
+    symbol?: string
   }
 
   const props = withDefaults(

@@ -26,7 +26,7 @@ export interface DataConfig {
   /** 股票代码（6位数字，不含前缀） */
   symbol: string
   /** 交易所（可选，默认根据代码自动识别） */
-  exchange?: 'SH' | 'SZ' | 'BJ'
+  exchange?: string
   /** 开始日期 YYYY-MM-DD */
   startDate: string
   /** 结束日期 YYYY-MM-DD */

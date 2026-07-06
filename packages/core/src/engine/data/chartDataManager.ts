@@ -357,14 +357,14 @@ export class ChartDataManager {
    * Deduplicates by symbol code: newer entries replace older ones.
    */
   registerSymbols(infos: ReadonlyArray<SymbolInfo>): void {
-    const current = new Map(this._symbolCatalog.peek().map((s) => [s.code, s]))
-    for (const info of infos) current.set(info.code, info)
+    const current = new Map(this._symbolCatalog.peek().map((s) => [s.symbol, s]))
+    for (const info of infos) current.set(info.symbol, info)
     this._symbolCatalog.set([...current.values()])
   }
 
   /** Remove a symbol from the catalog by code. */
-  unregisterSymbol(code: string): void {
-    const next = this._symbolCatalog.peek().filter((s) => s.code !== code)
+  unregisterSymbol(symbol: string): void {
+    const next = this._symbolCatalog.peek().filter((s) => s.symbol !== symbol)
     if (next.length < this._symbolCatalog.peek().length) {
       this._symbolCatalog.set(next)
     }
@@ -666,7 +666,7 @@ export class ChartDataManager {
     if (symbolCode) {
       this.registerSymbols([
         {
-          code: symbolCode,
+          symbol: symbolCode,
           description: source.description ?? symbolCode,
           exchange: source.exchange ?? '',
           source: source.source ?? 'custom',

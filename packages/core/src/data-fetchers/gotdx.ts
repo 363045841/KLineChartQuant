@@ -129,7 +129,7 @@ function mapBar(item: SecurityBar, code: string): KLineData {
     changeAmount: item.RisePrice,
     changePercent: item.RiseRate,
     amplitude: item.Amplitude,
-    stockCode: code,
+    symbol: code,
   }
 }
 
@@ -144,7 +144,7 @@ function mapExItem(item: ExKLineItem, code: string): KLineData {
     close: item.Close,
     volume: item.Vol,
     turnover: item.Amount,
-    stockCode: code,
+    symbol: code,
   }
 }
 

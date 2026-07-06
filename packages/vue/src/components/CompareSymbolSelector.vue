@@ -78,18 +78,18 @@
               <span class="compare-selected__title">已添加商品</span>
             </div>
             <div class="compare-selected__list">
-              <div v-for="item in displayItems" :key="item.code" class="compare-selected__item">
+              <div v-for="item in displayItems" :key="item.symbol" class="compare-selected__item">
                 <span
                   class="compare-selected__color"
-                  :style="{ background: comparisonColors?.get(item.code) ?? '#888' }"
+                  :style="{ background: comparisonColors?.get(item.symbol) ?? '#888' }"
                 />
-                <span class="compare-selected__code">{{ item.code }}</span>
+                <span class="compare-selected__code">{{ item.symbol }}</span>
                 <span class="compare-selected__desc">{{ item.description }}</span>
                 <button
                   type="button"
                   class="compare-selected__remove"
-                  :aria-label="'移除 ' + item.code"
-                  @click="removeSymbol(item.code)"
+                  :aria-label="'移除 ' + item.symbol"
+                  @click="removeSymbol(item.symbol)"
                 >
                   <svg
                     viewBox="0 0 24 24"
@@ -133,21 +133,21 @@
             </div>
             <button
               v-for="item in filteredSymbols"
-              :key="item.code"
+              :key="item.symbol"
               type="button"
               class="compare-list__item"
-              :class="{ 'is-selected': isSelected(item.code) }"
-              role="option"
-              :aria-selected="isSelected(item.code)"
+              :class="{ 'is-selected': isSelected(item.symbol) }"
+               role="option"
+               :aria-selected="isSelected(item.symbol)"
               @click="toggleSymbol(item)"
             >
               <span class="compare-list__left">
-                <span class="compare-list__code">{{ item.code }}</span>
+                <span class="compare-list__code">{{ item.symbol }}</span>
                 <span class="compare-list__desc">{{ item.description }}</span>
               </span>
               <span class="compare-list__right">
                 <span class="compare-list__exchange">{{ item.exchange }}</span>
-                <span v-if="isSelected(item.code)" class="compare-list__check" aria-hidden="true">
+                <span v-if="isSelected(item.symbol)" class="compare-list__check" aria-hidden="true">
                   <svg
                     viewBox="0 0 24 24"
                     width="16"
@@ -216,7 +216,7 @@
   const displayItems = computed<SymbolItem[]>(() => {
     if (props.selectedItems.length > 0) return props.selectedItems
     const set = selectedSet.value
-    return props.symbols.filter((s) => set.has(s.code))
+    return props.symbols.filter((s) => set.has(s.symbol))
   })
 
   const filteredSymbols = computed<SymbolItem[]>(() => {
@@ -224,7 +224,7 @@
     if (!q) return props.symbols
     return props.symbols.filter(
       (s) =>
-        s.code.toLowerCase().includes(q) ||
+        s.symbol.toLowerCase().includes(q) ||
         s.description.toLowerCase().includes(q) ||
         s.exchange.toLowerCase().includes(q),
     )
@@ -235,8 +235,8 @@
   }
 
   function toggleSymbol(item: SymbolItem) {
-    if (isSelected(item.code)) {
-      emit('remove', item.code)
+    if (isSelected(item.symbol)) {
+      emit('remove', item.symbol)
     } else {
       emit('add', item)
     }
