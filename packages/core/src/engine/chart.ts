@@ -112,23 +112,13 @@ export class Chart {
   private _kLineMode = new KLineMode()
   private _timeShareMode = new TimeShareMode()
 
-  /** 模式切换时保存的 zoom level（退出分时时恢复并反推 kWidth/kGap） */
-  private _modeSavedZoomLevel = 0
-
-  /** 分时模式激活前的 pane Y 轴刻度类型（退出分时时恢复） */
-  private _savedScaleTypes: Map<string, ScaleType> | undefined
-
-  /** 分时模式激活前已启用的主图指标（退出分时时恢复） */
-  private _savedMainIndicators: Array<{
-    id: string
-    params: Record<string, number | boolean | string>
-  }> | null = null
-
-  /** 分时模式激活前已添加的副图指标（退出分时时恢复） */
-  private _savedSubPanes: Array<{
-    id: string
-    params: Record<string, unknown>
-  }> | null = null
+  /** 进入分时模式时保存的快照，退出时恢复（包含 zoom/scale/indicators） */
+  private _savedTimeShareState: {
+    zoomLevel: number
+    scaleTypes: Map<string, ScaleType>
+    mainIndicators: Array<{ id: string; params: Record<string, number | boolean | string> }>
+    subPanes: Array<{ id: string; params: Record<string, unknown> }>
+  } | null = null
 
   /** 上次预警评估的最新 K 线时间戳（用于去重） */
   private _lastAlertTimestamp: number | null = null
@@ -393,35 +383,34 @@ export class Chart {
     const prev = this._activeMode
 
     if (mode === this._timeShareMode) {
-      this._modeSavedZoomLevel = this.zoomController.currentZoomLevel
-      this._savedScaleTypes = new Map<string, ScaleType>()
+      this._savedTimeShareState = {
+        zoomLevel: this.zoomController.currentZoomLevel,
+        scaleTypes: new Map<string, ScaleType>(),
+        mainIndicators: [],
+        subPanes: [],
+      }
       for (const r of this.paneRenderers) {
-        this._savedScaleTypes.set(r.getPane().id, r.getPane().yAxis.getScaleType())
+        this._savedTimeShareState.scaleTypes.set(r.getPane().id, r.getPane().yAxis.getScaleType())
       }
-
-      // 保存当前指标状态
-      this._savedMainIndicators = []
       for (const [id, entry] of this.indicatorManager.mainIndicatorsSignalPeek) {
-        this._savedMainIndicators.push({ id, params: { ...entry.params } })
+        this._savedTimeShareState.mainIndicators.push({ id, params: { ...entry.params } })
       }
-      this._savedSubPanes = this.indicatorManager.getSubPaneEntries().map((e) => ({
+      this._savedTimeShareState.subPanes = this.indicatorManager.getSubPaneEntries().map((e) => ({
         id: e.indicatorId,
         params: { ...e.params },
       }))
     } else if (prev === this._timeShareMode) {
       for (const renderer of this.paneRenderers) {
         const p = renderer.getPane()
-        const saved = this._savedScaleTypes?.get(p.id) ?? 'linear'
+        const saved = this._savedTimeShareState?.scaleTypes.get(p.id) ?? 'linear'
         p.yAxis.setScaleType(saved)
         p.yAxis.setBasePrice(null)
       }
-      this._savedScaleTypes = undefined
     }
 
-    if (this._modeSavedZoomLevel > 0 && mode !== this._timeShareMode) {
-      this.zoomController.setZoomLevel(this._modeSavedZoomLevel)
+    if (this._savedTimeShareState && mode !== this._timeShareMode) {
+      this.zoomController.setZoomLevel(this._savedTimeShareState.zoomLevel)
       this.syncKWidthKGap()
-      this._modeSavedZoomLevel = 0
     }
 
     prev.onDeactivate(
@@ -446,29 +435,25 @@ export class Chart {
     )
 
     if (mode === this._timeShareMode) {
-      // 进入分时：关闭除 timeShare 外的所有主图指标，清空副图
-      for (const { id } of this._savedMainIndicators!) {
+      for (const { id } of this._savedTimeShareState!.mainIndicators) {
         if (id !== 'TIMESHARE') {
           this.indicatorManager.disableMainIndicator(id)
         }
       }
       this.indicatorManager.clearSubPanes()
     } else if (prev === this._timeShareMode) {
-      // 离开分时：恢复之前保存的主图和副图指标
-      if (this._savedMainIndicators) {
-        for (const { id, params } of this._savedMainIndicators) {
+      const saved = this._savedTimeShareState
+      if (saved) {
+        for (const { id, params } of saved.mainIndicators) {
           if (id !== 'TIMESHARE') {
             this.indicatorManager.enableMainIndicator(id, params)
           }
         }
-      }
-      if (this._savedSubPanes) {
-        for (const { id, params } of this._savedSubPanes) {
+        for (const { id, params } of saved.subPanes) {
           this.indicatorManager.addIndicator(id, 'sub', params)
         }
       }
-      this._savedMainIndicators = null
-      this._savedSubPanes = null
+      this._savedTimeShareState = null
     }
   }
 
@@ -966,7 +951,7 @@ export class Chart {
 
   /** 容器尺寸变化时调用 */
   resize() {
-    if (this._activeMode.debugName === 'TimeShare') {
+    if (this._activeMode === this._timeShareMode) {
       const tsData = this.dataManager.getTimeShareData()
       const vp = this.viewportManager.computeViewport()
       if (!vp || vp.plotWidth <= 0) return
@@ -1151,9 +1136,17 @@ export class Chart {
     this._lastAlertTimestamp = null
     const primaryPeriod = specs[0]?.period
     if (primaryPeriod) {
+      // ⚠️ setActiveMode 必须在 dataManager.setSymbols 之前调用，
+      //    以确保 kWidth/kGap（从 zoom level 恢复）先写入 _optionsSignal，
+      //    后续 scrollLeft 恢复才能正确反推物理像素偏移。
       this.setActiveMode(primaryPeriod === 'timeshare' ? this._timeShareMode : this._kLineMode)
     }
     this.dataManager.setSymbols(specs)
+    // Scroll position 恢复必须放在 setActiveMode + setSymbols 之后，
+    // 此时 kWidth/kGap 已由 zoom level 恢复写回，计算不出错。
+    if (primaryPeriod && primaryPeriod !== 'timeshare') {
+      this.dataManager.tryRestoreScrollFromSnapshot()
+    }
   }
 
   addComparisonSymbol(spec: SymbolSpec): void {
