@@ -1,6 +1,6 @@
 import type { ChartSettings } from '../config/chartSettings'
 import type { SymbolSpec, SymbolInfo, CustomDataSource } from '../controllers/types'
-import { createStateStore, createSignal, type Signal, type Computed } from '../reactivity/signal'
+import { createStateStore, createSignal, computed, writableRef, type Signal, type Computed } from '../reactivity/signal'
 import type { KLineData } from '../types/price'
 
 import type {
@@ -81,6 +81,10 @@ export class Chart {
   private dom: ChartDom
   private _optionsSignal: Signal<ResolvedChartOptions>
   private dataManager: ChartDataManager
+
+  /** Kernel signals (composition-layer wiring between sub-states). */
+  private _zoomLevel$: ReturnType<typeof writableRef<number>>
+  private _dataLength$: ReturnType<typeof writableRef<number>>
 
   private viewportManager: ChartViewportManager
   private layoutManager: ChartPaneLayout
@@ -205,21 +209,37 @@ export class Chart {
 
     const initialOpt = this._optionsSignal.peek()
 
-    this.viewportManager = new ChartViewportManager({
-      getDom: () => this.dom,
-      getBottomAxisHeight: () => this._optionsSignal.peek().bottomAxisHeight,
-      getLeftLoadBufferWidth: () => this.dataManager.getLeftLoadBufferWidth(),
-      getZoomLevel: () => this.zoomController.currentZoomLevel,
-      getLastVisibleRange: () => this.dataManager.getCurrentVisibleRange() ?? { start: 0, end: 0 },
-      getKWidth: () => this._optionsSignal.peek().kWidth,
-      getKGap: () => this._optionsSignal.peek().kGap,
-      scheduleDraw: (level) => this.scheduleDraw(level),
-      onResizeCompleted: () => {
-        this.resize()
-      },
-      resizeSharedWebGLSurface: (plotWidth, plotHeight, dpr) =>
-        this.sharedWebGLSurface.resize(plotWidth, plotHeight, dpr),
+    // ── Viewport kernel signal inputs (composition-layer wiring) ──
+    // These are created before viewportManager so the kernel can
+    // subscribe to them. They will be kept in sync by the Chart
+    // lifecycle below (dataManager subscription, zoomController
+    // onChange, etc.).
+    this._zoomLevel$ = writableRef(opt.initialZoomLevel ?? 1)
+    this._dataLength$ = writableRef(0)
+    const _optionsView = computed(() => {
+      const o = this._optionsSignal()
+      return { bottomAxisHeight: o.bottomAxisHeight, kWidth: o.kWidth, kGap: o.kGap }
     })
+
+    this.viewportManager = new ChartViewportManager(
+      {
+        getDom: () => this.dom,
+        onResizeCompleted: () => {
+          this.resize()
+        },
+      },
+      {
+        getDom: () => this.dom,
+        options$: _optionsView,
+        dataLength$: this._dataLength$,
+        zoomLevel$: this._zoomLevel$,
+        resizeSharedWebGLSurface: (plotWidth, plotHeight, dpr) =>
+          this.sharedWebGLSurface.resize(plotWidth, plotHeight, dpr),
+        onResizeCompleted: () => {
+          this.resize()
+        },
+      },
+    )
     this.viewportManager.setContentWidthProvider(
       () =>
         Math.max(
@@ -284,6 +304,12 @@ export class Chart {
       onDataProcessed: (data, range) => this.evaluateAlerts(data, range), // Alert 管线绑定
     })
 
+    // Wire dataLength$ signal — follows the active buffer's raw data length.
+    this._dataLength$.set(this.dataManager.getData().length)
+    this.dataManager.data.subscribe(() => {
+      this._dataLength$.set(this.dataManager.data.peek().length)
+    })
+
     this.zoomController = new ChartZoomController({
       getLogicalScrollLeft: () => this.viewportManager.getLogicalScrollLeft(),
       getCurrentDpr: () => this.viewportManager.getEffectiveDpr(),
@@ -296,6 +322,7 @@ export class Chart {
       },
       onChange: () => {
         this.syncKWidthKGap()
+        this._zoomLevel$.set(this.zoomController.currentZoomLevel)
       },
       getMinKWidth: () => this._optionsSignal.peek().minKWidth,
       getMaxKWidth: () => this._optionsSignal.peek().maxKWidth,
@@ -578,6 +605,7 @@ export class Chart {
   applyRenderState(kWidth: number, kGap: number, zoomLevel?: number): void {
     if (zoomLevel !== undefined) {
       const clamped = Math.max(1, Math.min(this.zoomController.zoomLevelCount, zoomLevel))
+      this._zoomLevel$.set(clamped)
       if (this.zoomController.currentZoomLevel === clamped) return
       this.zoomController.setZoomLevel(clamped)
     } else {
@@ -965,7 +993,6 @@ export class Chart {
       }
       this.renderer.clearCachedFrame()
       this.layoutManager.layoutPanes()
-      this.viewportManager.updateViewportSignal()
       this.scheduleDraw()
       return
     }
@@ -976,7 +1003,6 @@ export class Chart {
     }
     this.renderer.clearCachedFrame()
     this.layoutManager.layoutPanes()
-    this.viewportManager.updateViewportSignal()
     this.scheduleDraw()
   }
 
@@ -1312,8 +1338,8 @@ export class Chart {
    */
   handleScrollEvent(): void {
     this.interaction.onScroll({ scheduleDraw: !this.indicatorManager.indicatorSchedulerAccessor.busySignal.peek() })
-    // 更新 viewport signal 中的 visible range
-    this.updateViewportSignal()
+    // viewportState is now computed() — auto-updates when scrollLeft or
+    // visibleRange change. No manual signal push needed anymore.
   }
 
   /**
@@ -1324,13 +1350,6 @@ export class Chart {
   handlePinchZoom(delta: number, centerClientX: number): void {
     if (!this._activeMode.allowZoom) return
     this.zoomController.handlePinch(delta, centerClientX)
-  }
-
-  /**
-   * 更新 viewport signal（用于滚动事件）
-   */
-  private updateViewportSignal(): void {
-    this.viewportManager.updateViewportSignal()
   }
 
   // ---------- Indicators (Explicit role) ----------

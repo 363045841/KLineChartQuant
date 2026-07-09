@@ -11,22 +11,67 @@
  * - `effect` re-runs whenever any signal read inside re-emits
  */
 
-export type Signal<T> = {
+/**
+ * Read-only signal — the public face of all derived state.
+ *
+ * Consumers (renderers, UI bindings, framework adapters) receive
+ * `ReadonlySignal<T>` and can read / subscribe but **cannot write**.
+ * The TypeScript compiler blocks `.set()` calls on this type, enforcing
+ * the StateKernel invariant that state changes flow through Actions only.
+ *
+ * `WritableSignal<T>` extends this shape with `set()`, so any function
+ * accepting a `ReadonlySignal` also accepts a writable one — but the
+ * reverse is structurally forbidden.
+ */
+export type ReadonlySignal<T> = {
   /** read current value; tracked when called inside `effect` */
   (): T
   /** read without tracking */
   peek: () => T
-  /** write new value; notifies subscribers if `Object.is` differs */
-  set: (next: T) => void
   /** subscribe; returns unsubscribe */
   subscribe: (listener: () => void) => () => void
 }
 
-export type Computed<T> = {
-  (): T
-  peek: () => T
-  subscribe: (listener: () => void) => () => void
+/**
+ * Writable signal — internal to StateKernel sub-states only.
+ *
+ * The `.set()` method is the single mutation entry point. Declaring a
+ * field `private` and exposing it as `ReadonlySignal<T>` to the outside
+ * creates a compile-time boundary between producers (Actions) and
+ * consumers (renderers / UI).
+ */
+export type WritableSignal<T> = ReadonlySignal<T> & {
+  /** write new value; notifies subscribers if `Object.is` differs */
+  set: (next: T) => void
 }
+
+/**
+ * Alias kept for backward compatibility.
+ * `Signal<T>` is equivalent to `WritableSignal<T>` — the full read/write
+ * shape that `createSignal` returns. Existing imports continue to work.
+ */
+export type Signal<T> = WritableSignal<T>
+
+/**
+ * Alias kept for backward compatibility.
+ * `Computed<T>` is equivalent to `ReadonlySignal<T>` — the read-only
+ * shape that `computed()` returns.
+ */
+export type Computed<T> = ReadonlySignal<T>
+
+/**
+ * A writable ref: the kernel-internal handle for a piece of state.
+ * Identical to `WritableSignal<T>` — the name mirrors Vue's
+ * `shallowRef` / `writableRef` convention so the migration reads
+ * naturally in sub-state definitions.
+ */
+export type WritableRef<T> = WritableSignal<T>
+
+/**
+ * Alias for the read-only side of a writable ref — what gets exposed
+ * to external consumers. Same shape as `ReadonlySignal<T>`.
+ */
+export type ReadonlyRef<T> = ReadonlySignal<T>
 
 type Tracker = {
   deps: Set<Set<() => void>>
@@ -38,7 +83,14 @@ let activeTracker: Tracker | null = null
 let batchDepth = 0
 const pendingBatch = new Set<() => void>()
 
-export function createSignal<T>(initial: T): Signal<T> {
+/**
+ * Create a writable signal (alias: `writableRef`).
+ *
+ * Returns a `WritableSignal<T>` — internally mutable, externally
+ * downgrade-able to `ReadonlySignal<T>` by a simple assignment or
+ * return-type annotation.
+ */
+export function createSignal<T>(initial: T): WritableSignal<T> {
   let value = initial
   const subscribers = new Set<() => void>()
 
@@ -70,8 +122,14 @@ export function createSignal<T>(initial: T): Signal<T> {
     }
   }
 
-  return Object.assign(read, { peek, set, subscribe }) as Signal<T>
+  return Object.assign(read, { peek, set, subscribe }) as WritableSignal<T>
 }
+
+/**
+ * Alias for `createSignal` — mirrors Vue's `writableRef` convention.
+ * Use in kernel sub-state definitions: `private scrollLeft = writableRef(0)`.
+ */
+export const writableRef = createSignal
 
 export function effect(fn: () => void): () => void {
   const tracker: Tracker = {
@@ -96,7 +154,15 @@ export function effect(fn: () => void): () => void {
   }
 }
 
-export function computed<T>(fn: () => T): Computed<T> {
+/**
+ * Create a derived (read-only) signal.
+ *
+ * `computed<T>(fn)` runs `fn` once immediately, then re-runs whenever any
+ * signal read inside `fn` changes. The returned `ReadonlySignal<T>` has no
+ * `.set()` method — callers cannot write back into it, enforcing the
+ * one-way data flow: source signals ⇢ computed ⇢ consumers.
+ */
+export function computed<T>(fn: () => T): ReadonlySignal<T> {
   const inner = createSignal<T>(undefined as unknown as T)
   let initialized = false
   effect(() => {
@@ -110,7 +176,7 @@ export function computed<T>(fn: () => T): Computed<T> {
     inner.set(next)
   })
   const read = (): T => inner()
-  return Object.assign(read, { peek: inner.peek, subscribe: inner.subscribe }) as Computed<T>
+  return Object.assign(read, { peek: inner.peek, subscribe: inner.subscribe }) as ReadonlySignal<T>
 }
 
 /**
@@ -161,7 +227,7 @@ export function batch<T>(fn: () => T): T {
  * ```
  */
 export function createStateStore<T extends Record<string, unknown>>(initial: T) {
-  const signals = {} as { [K in keyof T]: Signal<T[K]> }
+  const signals = {} as { [K in keyof T]: WritableSignal<T[K]> }
   const set = {} as { [K in keyof T]: (v: T[K]) => void }
   for (const key of Object.keys(initial) as (keyof T)[]) {
     const sig = createSignal<T[typeof key]>(initial[key])
@@ -171,6 +237,76 @@ export function createStateStore<T extends Record<string, unknown>>(initial: T) 
   return {
     signals,
     set,
+    snapshot: () => {
+      const s: Record<string, unknown> = {}
+      for (const k of Object.keys(initial) as (keyof T)[]) s[k as string] = signals[k].peek()
+      return s as T
+    },
+  }
+}
+
+/**
+ * StateKernel sub-state factory.
+ *
+ * Creates a group of writable signals from `initial`, then exposes:
+ *  - `signals`   — private writable handles (`.set()` available)
+ *  - `readonly`  — the SAME signals, typed as `ReadonlySignal<T>` (no `.set()`)
+ *  - `computed`  — derived signals registered via the `computed` option
+ *
+ * Sub-state modules call this factory, store `signals` privately, and
+ * return `readonly` + actions to the kernel. The TypeScript boundary
+ * between `WritableSignal` and `ReadonlySignal` prevents external
+ * consumers from writing while keeping internal mutation ergonomic.
+ *
+ * @example
+ * ```ts
+ * function createViewportState() {
+ *   const { signals, readonly, computed } = createSubState(
+ *     { scrollLeft: 0, viewWidth: 0 },
+ *     {
+ *       scrollLeftLogical: (s) => s.scrollLeft() - s.viewWidth(),
+ *     },
+ *   )
+ *   return {
+ *     readonly,
+ *     actions: {
+ *       scrollTo: (v: number) => signals.scrollLeft.set(Math.max(0, v)),
+ *     },
+ *   }
+ * }
+ * ```
+ */
+export function createSubState<T extends Record<string, unknown>, C extends Record<string, unknown>>(
+  initial: T,
+  computedFns?: {
+    [K in keyof C]: (state: { [K2 in keyof T]: ReadonlySignal<T[K2]> }) => C[K]
+  },
+) {
+  const signals = {} as { [K in keyof T]: WritableSignal<T[K]> }
+  const readonly = {} as { [K in keyof T]: ReadonlySignal<T[K]> }
+  for (const key of Object.keys(initial) as (keyof T)[]) {
+    const sig = createSignal<T[typeof key]>(initial[key])
+    signals[key] = sig
+    // structurally the same object, typed upcast to read-only
+    readonly[key] = sig as ReadonlySignal<T[typeof key]>
+  }
+
+  const computedReadonly = {} as Record<string, ReadonlySignal<unknown>>
+  if (computedFns) {
+    for (const key of Object.keys(computedFns) as string[]) {
+      const fn = (computedFns as Record<string, (state: typeof readonly) => unknown>)[key]!
+      computedReadonly[key] = computed(() => fn(readonly))
+    }
+  }
+
+  return {
+    /** private writable handles — pass these to actions only */
+    signals,
+    /** read-only view — safe to expose to external consumers */
+    readonly: { ...readonly, ...computedReadonly } as {
+      [K in keyof T]: ReadonlySignal<T[K]>
+    } & { [K in keyof C]: ReadonlySignal<C[K]> },
+    /** writable-to-readonly snapshot (peeks all source signals) */
     snapshot: () => {
       const s: Record<string, unknown> = {}
       for (const k of Object.keys(initial) as (keyof T)[]) s[k as string] = signals[k].peek()

@@ -341,7 +341,6 @@ export class ChartRenderer {
 
     batch(() => {
       this.deps.getInteraction().setKLinePositions(kLinePositions, range, kWidthPx, kLineCenters)
-      this.deps.getViewportManager().updateViewportSignal()
     })
 
     const dataManager = this.deps.getDataManager()
