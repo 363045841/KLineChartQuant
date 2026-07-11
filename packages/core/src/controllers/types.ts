@@ -2,7 +2,7 @@
  * Framework-agnostic controller interfaces.
  *
  * Every adapter (React, Vue, Angular) consumes these. Controllers expose state as
- * `Signal<T>` so adapters bridge with their own reactivity (useSyncExternalStore,
+ * `ReadonlySignal<T>` so adapters bridge with their own reactivity (useSyncExternalStore,
  * shallowRef, toSignal).
  *
  * Mutation methods are imperative — adapters call them in event handlers.
@@ -13,7 +13,7 @@ import type { ChartSettings } from '../foundation/config/chartSettings'
 import type { InteractionSnapshot } from '../engine/chart'
 import type { PaneSpec } from '../engine/chartTypes'
 import type { CustomMarkerEntity } from '../engine/marker/registry'
-import type { Signal } from '../foundation/reactivity/index'
+import type { ReadonlySignal, Signal } from '../foundation/reactivity/index'
 
 // Controller-owned public surface. Legacy engine types may mirror these
 // shapes internally, but adapters depend only on core-defined contracts.
@@ -278,23 +278,23 @@ export interface ChartMountOptions {
 
 export interface ChartController extends DrawingChartAdapter {
   // ---- Signals ----
-  readonly viewport: Signal<ChartViewport>
-  readonly data: Signal<ReadonlyArray<KLineData>>
-  readonly dataLoading: Signal<boolean>
-  readonly symbols: Signal<ReadonlyArray<SymbolSpec>>
-  readonly theme: Signal<'light' | 'dark'>
-  readonly indicators: Signal<ReadonlyArray<IndicatorInstance>>
-  readonly subPanes: Signal<ReadonlyArray<SubPaneInfo>>
-  readonly drawingTool: Signal<DrawingToolType | null>
-  readonly drawings: Signal<ReadonlyArray<DrawingObject>>
-  readonly paneRatios: Signal<Readonly<Record<string, number>>>
-  readonly paneLayout: Signal<ReadonlyArray<PaneSpec>>
-  readonly interactionState: Signal<InteractionSnapshot>
-  readonly comparisonColors: Signal<ReadonlyMap<string, string>>
-  readonly comparisonLoading: Signal<boolean>
+  readonly viewport: ReadonlySignal<ChartViewport>
+  readonly data: ReadonlySignal<ReadonlyArray<KLineData>>
+  readonly dataLoading: ReadonlySignal<boolean>
+  readonly symbols: ReadonlySignal<ReadonlyArray<SymbolSpec>>
+  readonly theme: ReadonlySignal<'light' | 'dark'>
+  readonly indicators: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
+  readonly subPanes: ReadonlySignal<ReadonlyArray<SubPaneInfo>>
+  readonly drawingTool: ReadonlySignal<DrawingToolType | null>
+  readonly drawings: ReadonlySignal<ReadonlyArray<DrawingObject>>
+  readonly paneRatios: ReadonlySignal<Readonly<Record<string, number>>>
+  readonly paneLayout: ReadonlySignal<ReadonlyArray<PaneSpec>>
+  readonly interactionState: ReadonlySignal<InteractionSnapshot>
+  readonly comparisonColors: ReadonlySignal<ReadonlyMap<string, string>>
+  readonly comparisonLoading: ReadonlySignal<boolean>
 
   /** Registered symbol catalog — adapters use for picker UI */
-  readonly symbolCatalog: Signal<ReadonlyArray<SymbolInfo>>
+  readonly symbolCatalog: ReadonlySignal<ReadonlyArray<SymbolInfo>>
 
   // indicator catalog (static — adapters use for picker UI)
   readonly catalog: ReadonlyArray<IndicatorDefinition>

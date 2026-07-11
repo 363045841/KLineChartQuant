@@ -27,7 +27,7 @@ import type { CustomMarkerEntity } from '../engine/marker/registry'
 import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
 import { KLineChartError } from '../errors'
 import { ChartBridge } from '../features/mcp/chartBridge'
-import { createSignal, type Signal } from '../foundation/reactivity/index'
+import { createSignal, computed, type Signal } from '../foundation/reactivity/index'
 
 import type {
   ChartController,
@@ -386,46 +386,33 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const currentKGap = kGapFromKWidth(currentKWidth, currentDpr)
 
   // -------------------------------------------------------------------
-  // Controller signals (bridge mode: subscribe to Chart's signals)
+  // Controller signals (ReadonlySignal wrappers over Chart kernel signals)
   // -------------------------------------------------------------------
 
-  const viewport: Signal<ChartViewport> = createSignal<ChartViewport>({
-    zoomLevel: initialZoomLevel,
-    plotWidth: 0,
-    plotHeight: 0,
-    dpr: currentDpr,
-    visibleFrom: 0,
-    visibleTo: 0,
-    kWidth: currentKWidth,
-    kGap: currentKGap,
-  })
+  const viewport = computed(() => mapViewportState(chart.viewport.peek()))
 
+  // data/dataLoading need fallback writes for jsdom tolerance
   const data: Signal<ReadonlyArray<KLineData>> = createSignal(opts.data ?? [])
-  const dataLoading: Signal<boolean> = createSignal(false)
+  const dataLoading = chart.loading
 
-  const symbols: Signal<ReadonlyArray<SymbolSpec>> = chart.symbols
+  const symbols = chart.symbols
 
+  // theme needs fallback write for jsdom tolerance
   const themeSignal: Signal<'light' | 'dark'> = createSignal(opts.theme ?? 'light')
 
-  const indicators: Signal<ReadonlyArray<IndicatorInstance>> = createSignal<
-    ReadonlyArray<IndicatorInstance>
-  >([])
-  const subPanes: Signal<ReadonlyArray<SubPaneInfo>> = createSignal<ReadonlyArray<SubPaneInfo>>([])
-  const drawingTool: Signal<DrawingToolType | null> = createSignal<DrawingToolType | null>(null)
-  const drawings: Signal<ReadonlyArray<DrawingObject>> = createSignal<ReadonlyArray<DrawingObject>>(
-    [],
-  )
-  const paneRatios: Signal<Readonly<Record<string, number>>> = createSignal<
-    Readonly<Record<string, number>>
-  >({})
-  const interactionState: Signal<InteractionSnapshot> = createSignal(INITIAL_INTERACTION)
-  const comparisonColors: Signal<ReadonlyMap<string, string>> = createSignal<
-    ReadonlyMap<string, string>
-  >(new Map())
-  const comparisonLoading: Signal<boolean> = createSignal(false)
+  const indicators = computed(() => chart.indicators.peek().map(mapIndicatorInstance))
+  const subPanes = computed(() => chart.subPanes.peek().map(mapSubPaneInfo))
+  const drawingTool = computed(() => mapDrawingTool(chart.drawingTool.peek()))
+  const drawings = computed(() => chart.drawings.peek().map(mapDrawingObject))
+  const paneRatios = computed(() => mapPaneRatios(chart.paneRatios.peek()))
+  const paneLayout = computed(() => [...chart.paneLayout.peek()])
+  const interactionState = computed(() => mapInteractionSnapshot(chart.interactionState.peek()))
 
-  // symbolCatalog — bridge from Chart's data manager
-  const symbolCatalog: Signal<ReadonlyArray<SymbolInfo>> = chart.symbolCatalog
+  // comparisonColors/comparisonLoading — not yet migrated to kernel state
+  const comparisonColors = chart.comparisonColors
+  const comparisonLoading = chart.comparisonLoading
+
+  const symbolCatalog = chart.symbolCatalog
 
   // -------------------------------------------------------------------
   // Apply initial render state + seed data
@@ -474,79 +461,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   }
 
   // -------------------------------------------------------------------
-  // Signal bridges — subscribe to Chart's facade signals and forward
-  // -------------------------------------------------------------------
-
-  const unsubs: Array<() => void> = []
-
-  // viewport: after zoom/scroll through facade methods
-  unsubs.push(
-    chart.viewport.subscribe(() => {
-      viewport.set(mapViewportState(chart.viewport.peek()))
-    }),
-  )
-
-  // data
-  unsubs.push(chart.data.subscribe(() => data.set(chart.data.peek())))
-
-  // dataLoading
-  unsubs.push(chart.loading.subscribe(() => dataLoading.set(chart.loading.peek())))
-
-  // theme
-  unsubs.push(chart.theme.subscribe(() => themeSignal.set(chart.theme.peek())))
-
-  // indicators
-  unsubs.push(
-    chart.indicators.subscribe(() =>
-      indicators.set(chart.indicators.peek().map(mapIndicatorInstance)),
-    ),
-  )
-
-  // subPanes
-  unsubs.push(
-    chart.subPanes.subscribe(() => subPanes.set(chart.subPanes.peek().map(mapSubPaneInfo))),
-  )
-
-  // drawingTool
-  unsubs.push(
-    chart.drawingTool.subscribe(() => drawingTool.set(mapDrawingTool(chart.drawingTool.peek()))),
-  )
-
-  // drawings
-  unsubs.push(
-    chart.drawings.subscribe(() => drawings.set(chart.drawings.peek().map(mapDrawingObject))),
-  )
-
-  // paneRatios
-  unsubs.push(
-    chart.paneRatios.subscribe(() => paneRatios.set(mapPaneRatios(chart.paneRatios.peek()))),
-  )
-
-  // paneLayout
-  const paneLayout: Signal<ReadonlyArray<PaneSpec>> = createSignal<ReadonlyArray<PaneSpec>>([])
-  unsubs.push(chart.paneLayout.subscribe(() => paneLayout.set([...chart.paneLayout.peek()])))
-
-  // interactionState
-  unsubs.push(
-    chart.interactionState.subscribe(() =>
-      interactionState.set(mapInteractionSnapshot(chart.interactionState.peek())),
-    ),
-  )
-
-  // comparisonColors
-  unsubs.push(
-    chart.comparisonColors.subscribe(() =>
-      comparisonColors.set(new Map(chart.comparisonColors.peek())),
-    ),
-  )
-
-  // comparisonLoading
-  unsubs.push(
-    chart.comparisonLoading.subscribe(() => comparisonLoading.set(chart.comparisonLoading.peek())),
-  )
-
-  // -------------------------------------------------------------------
-  // Lifecycle guard
+  // Apply initial render state + seed data
   // -------------------------------------------------------------------
 
   let disposed = false
@@ -897,13 +812,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     if (disposed) return
     disposed = true
     bridge?.destroy()
-    for (const unsub of unsubs) {
-      try {
-        unsub()
-      } catch {
-        /* best-effort */
-      }
-    }
     try {
       void chart.destroy()
     } catch {
