@@ -1,5 +1,10 @@
 export { StateKernel, type SubStateModule } from './stateKernel'
 export {
+  ChartStateKernel,
+  type ChartStateKernelModule,
+  type ChartStateKernelDeps,
+} from './chartStateKernel'
+export {
   createViewportState,
   type ViewportStateModule,
   type ViewportDeps,

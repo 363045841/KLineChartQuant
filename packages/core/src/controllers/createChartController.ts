@@ -13,7 +13,7 @@
  */
 
 import { resolveSettings } from '../foundation/config/chartSettings'
-import { Chart, type InteractionSnapshot as LegacyInteractionSnapshot } from '../engine/chart'
+import { Chart } from '../engine/chart'
 import type {
   ChartOptions,
   ViewportState as LegacyViewportState,
@@ -27,7 +27,7 @@ import type { CustomMarkerEntity } from '../engine/marker/registry'
 import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
 import { KLineChartError } from '../errors'
 import { ChartBridge } from '../features/mcp/chartBridge'
-import { createSignal, computed, type Signal } from '../foundation/reactivity/index'
+import { createSignal, computed, type Signal, type ReadonlySignal } from '../foundation/reactivity/index'
 
 import type {
   ChartController,
@@ -189,36 +189,6 @@ function mapDrawingObject(drawing: LegacyDrawingObject | PluginBackedDrawingObje
       'type' in drawing
         ? (mapDrawingTool(drawing.type) ?? drawing.type)
         : mapPluginDrawingKind(drawing.kind),
-  }
-}
-
-function mapPaneRatios(ratios: Readonly<Record<string, number>>): Readonly<Record<string, number>> {
-  return { ...ratios }
-}
-
-function mapInteractionRecord<T>(value: T | null | undefined): T | null {
-  if (!value) {
-    return null
-  }
-  return { ...value } as T
-}
-
-function mapInteractionSnapshot(snapshot: LegacyInteractionSnapshot): InteractionSnapshot {
-  return {
-    crosshairPos: snapshot.crosshairPos ? { ...snapshot.crosshairPos } : null,
-    crosshairIndex: snapshot.crosshairIndex,
-    crosshairPrice: snapshot.crosshairPrice,
-    hoveredIndex: snapshot.hoveredIndex,
-    activePaneId: snapshot.activePaneId,
-    tooltipPos: { ...snapshot.tooltipPos },
-    tooltipAnchorPlacement: snapshot.tooltipAnchorPlacement,
-    hoveredMarkerData: mapInteractionRecord(snapshot.hoveredMarkerData),
-    hoveredCustomMarker: mapInteractionRecord(snapshot.hoveredCustomMarker),
-    isDragging: snapshot.isDragging,
-    isResizingPaneBoundary: snapshot.isResizingPaneBoundary,
-    isHoveringPaneBoundary: snapshot.isHoveringPaneBoundary,
-    hoveredPaneBoundaryId: snapshot.hoveredPaneBoundaryId,
-    isHoveringRightAxis: snapshot.isHoveringRightAxis,
   }
 }
 
@@ -386,33 +356,32 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const currentKGap = kGapFromKWidth(currentKWidth, currentDpr)
 
   // -------------------------------------------------------------------
-  // Controller signals (ReadonlySignal wrappers over Chart kernel signals)
+  // Controller signals — most come directly from ChartStateKernel
   // -------------------------------------------------------------------
 
   const viewport = computed(() => mapViewportState(chart.viewport()))
 
-  // data/dataLoading need fallback writes for jsdom tolerance
+  // data needs fallback for jsdom tolerance
   const data: Signal<ReadonlyArray<KLineData>> = createSignal(opts.data ?? [])
   const dataLoading = chart.loading
-
   const symbols = chart.symbols
-
-  // theme needs fallback write for jsdom tolerance
-  const themeSignal: Signal<'light' | 'dark'> = createSignal(opts.theme ?? 'light')
 
   const indicators = computed(() => chart.indicators().map(mapIndicatorInstance))
   const subPanes = computed(() => chart.subPanes().map(mapSubPaneInfo))
-  const drawingTool = computed(() => mapDrawingTool(chart.drawingTool()))
-  const drawings = computed(() => chart.drawings().map(mapDrawingObject))
-  const paneRatios = computed(() => mapPaneRatios(chart.paneRatios()))
-  const paneLayout = computed(() => [...chart.paneLayout()])
-  const interactionState = computed(() => mapInteractionSnapshot(chart.interactionState()))
 
   // comparisonColors/comparisonLoading — not yet migrated to kernel state
   const comparisonColors = chart.comparisonColors
   const comparisonLoading = chart.comparisonLoading
 
-  const symbolCatalog = chart.symbolCatalog
+  // Signals from ChartStateKernel — no wrapper needed
+  const themeSignal: ReadonlySignal<'light' | 'dark'> = chart.kernel.theme.readonly.theme
+  const drawingTool: ReadonlySignal<DrawingToolType | null> = chart.kernel.drawing.readonly.drawingTool
+  // drawings need type mapping (plugin DrawingObject → controller DrawingObject)
+  const drawings = computed(() => chart.kernel.drawing.readonly.drawings().map(mapDrawingObject))
+  const paneRatios: ReadonlySignal<Readonly<Record<string, number>>> = chart.kernel.pane.readonly.paneRatios
+  const paneLayout: ReadonlySignal<ReadonlyArray<PaneSpec>> = chart.kernel.pane.readonly.paneSpecs
+  const interactionState: ReadonlySignal<InteractionSnapshot> = chart.kernel.interaction.readonly.interactionSnapshot
+  const symbolCatalog: ReadonlySignal<ReadonlyArray<SymbolInfo>> = chart.kernel.data.readonly.symbolCatalog
 
   // -------------------------------------------------------------------
   // Apply initial render state + seed data
@@ -703,8 +672,10 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   function getKWidthKGap(): { kWidth: number; kGap: number } {
     if (disposed) return { kWidth: 0, kGap: 0 }
-    const opt = chart.getOption()
-    return { kWidth: opt.kWidth, kGap: opt.kGap }
+    return {
+      kWidth: chart.kernel.zoom.readonly.kWidth.peek(),
+      kGap: chart.kernel.zoom.readonly.kGap.peek(),
+    }
   }
 
   function getCurrentDpr(): number {

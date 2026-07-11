@@ -355,6 +355,26 @@ private scheduleFlush() {
 
 ---
 
+### 阶段 5：StateKernel 组合根 ✅
+
+**目标**：创建 `ChartStateKernel extends StateKernel` 具体类，将所有子状态创建+交叉连接从 `Chart` 构造函数移到 kernel，简化 `createChartController.ts` 中的重复信号包装器。
+
+**变更**:
+1. 创建 `engine/state/chartStateKernel.ts` — 组合 zoom、data、pane、theme、drawing、interaction 六个子状态，暴露 `zoomLevel$`/`dataLength$`/`optionsForViewport$` 桥接信号供 ChartViewportManager 使用。
+2. ChartStateKernel 还暴露 `signals`（扁平 ReadonlySignal bag）和 `actions`（扁平 action bag）供 framework adapter 直接消费。
+3. `Chart` 构造函数 — 删除 ~80 行的手动子状态创建+交叉连接 effect，替换为 `new ChartStateKernel(deps)`。kernel 内部处理 dpr placeholder → viewport dpr 桥接、dataLength 自动同步。
+4. `createChartController.ts` — 7 个重复 `computed()` 包装器（`themeSignal`、`drawingTool`、`drawings`、`paneRatios`、`paneLayout`、`interactionState`、`symbolCatalog`）替换为直接引用 `chart.kernel.xxx.readonly.yyy`。
+5. 清理 — 删除废弃的 `mapPaneRatios`、`mapInteractionRecord`、`mapInteractionSnapshot` 函数。
+6. 修复遗留的 `getKWidthKGap` 预存 TS 错误（从 `chart.getOption()` → `chart.kernel.zoom.readonly.kWidth/kGap.peek()`）。
+
+**验收**:
+- `pnpm build`（core）通过，零 TS 错误
+- `pnpm test`（core）通过 — 1679 pass, 6 pre-existing WebGL failures
+- `ChartStateKernel extends StateKernel` — 具体 kernel 类存在且被 Chart 使用
+- `git grep 'extends StateKernel'` → `packages/core/src/engine/state/chartStateKernel.ts`
+
+---
+
 ## 过渡策略
 
 - 无 feature flag：每阶段完整重构一个模块，旧代码直接删除而非分支。
