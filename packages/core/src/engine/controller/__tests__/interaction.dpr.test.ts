@@ -19,6 +19,7 @@ function createMockInteractionState() {
     tooltipAnchorPlacement: writableRef<'right-bottom' | 'left-bottom'>('right-bottom'),
     hoveredMarkerData: writableRef<any>(null),
     hoveredCustomMarker: writableRef<any>(null),
+    hoveredMarkerId: writableRef<string | null>(null),
     kLinePositions: writableRef<number[] | null>(null),
     kLineCenters: writableRef<number[] | null>(null),
     kWidthPx: writableRef<number | null>(null),
@@ -61,6 +62,7 @@ function createMockInteractionState() {
       tooltipAnchorPlacement: signals.tooltipAnchorPlacement,
       hoveredMarkerData: signals.hoveredMarkerData,
       hoveredCustomMarker: signals.hoveredCustomMarker,
+      hoveredMarkerId: signals.hoveredMarkerId,
       kLinePositions: signals.kLinePositions,
       kLineCenters: signals.kLineCenters,
       kWidthPx: signals.kWidthPx,
@@ -120,7 +122,8 @@ function createMockInteractionState() {
         signals.tooltipPos.set(pos)
         signals.tooltipAnchorPlacement.set(placement)
       },
-      updateMarkerHover(md: any, cmd: any) {
+      updateMarkerHover(id: any, md: any, cmd: any) {
+        signals.hoveredMarkerId.set(id)
         signals.hoveredMarkerData.set(md)
         signals.hoveredCustomMarker.set(cmd)
       },
@@ -137,6 +140,7 @@ function createMockInteractionState() {
         signals.tooltipAnchorPlacement.set('right-bottom')
         signals.hoveredMarkerData.set(null)
         signals.hoveredCustomMarker.set(null)
+        signals.hoveredMarkerId.set(null)
         signals.kLinePositions.set(null)
         signals.kLineCenters.set(null)
         signals.kWidthPx.set(null)

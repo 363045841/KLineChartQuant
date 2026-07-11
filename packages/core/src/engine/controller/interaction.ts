@@ -169,8 +169,8 @@ export class InteractionController {
       this.activePaneId ?? 'n',
       this._state.readonly.hoveredRightAxisPaneId.peek() ?? 'n',
       this._state.readonly.hoveredSeparatorUpperPaneId.peek() ?? 'n',
-      this.markerState.hoveredMarkerId ?? 'n',
-      this.markerState.hoveredCustomMarker?.id ?? 'n',
+      this._state.readonly.hoveredMarkerId.peek() ?? 'n',
+      this._state.readonly.hoveredCustomMarker.peek()?.id ?? 'n',
       crosshairX,
       crosshairY,
     ].join('|')
@@ -572,7 +572,7 @@ export class InteractionController {
     this._state.actions.setRightAxisHover(null)
     this._state.actions.updateCrosshair(null, null)
     this._state.actions.updateHover(null, null)
-    this._state.actions.updateMarkerHover(null, null)
+    this._state.actions.updateMarkerHover(null, null, null)
     this.markerState.clearAll(this.chart.getMarkerManager())
   }
 
@@ -714,9 +714,9 @@ if (this.tooltipPositionMode === 'adaptive') {
    */
   private handleMarkerHit(ctx: HoverContext): boolean {
     const markerManager = this.chart.getMarkerManager()
-    const hit = this.markerState.updateHoverFromPoint(ctx.worldX, ctx.mouseX, ctx.mouseY, markerManager)
-    this._state.actions.updateMarkerHover(this.markerState.hoveredMarkerData, this.markerState.hoveredCustomMarker)
-    if (hit) {
+    const result = this.markerState.updateHoverFromPoint(ctx.worldX, ctx.mouseX, ctx.mouseY, markerManager)
+    this._state.actions.updateMarkerHover(result.hitMarkerId, result.hitMarkerData, result.hitCustomMarker)
+    if (result.hit) {
       this._state.actions.updateCrosshair(null, null)
       this._state.signals.hoveredIndex.set(null)
       return true

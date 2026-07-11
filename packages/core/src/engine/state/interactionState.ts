@@ -75,6 +75,7 @@ export function createInteractionState(deps: InteractionDeps) {
       tooltipAnchorPlacement: 'right-bottom' as 'right-bottom' | 'left-bottom',
       hoveredMarkerData: null as MarkerEntity | null,
       hoveredCustomMarker: null as CustomMarkerEntity | null,
+      hoveredMarkerId: null as string | null,
       kLinePositions: null as number[] | null,
       kLineCenters: null as number[] | null,
       kWidthPx: null as number | null,
@@ -183,10 +184,12 @@ export function createInteractionState(deps: InteractionDeps) {
       },
 
       updateMarkerHover(
+        markerId: string | null,
         markerData: MarkerEntity | null,
         customMarkerData: CustomMarkerEntity | null,
       ) {
         batch(() => {
+          signals.hoveredMarkerId.set(markerId)
           signals.hoveredMarkerData.set(markerData)
           signals.hoveredCustomMarker.set(customMarkerData)
         })
@@ -206,6 +209,7 @@ export function createInteractionState(deps: InteractionDeps) {
           signals.tooltipAnchorPlacement.set('right-bottom')
           signals.hoveredMarkerData.set(null)
           signals.hoveredCustomMarker.set(null)
+          signals.hoveredMarkerId.set(null)
         })
       },
     },
@@ -223,6 +227,7 @@ export function createInteractionState(deps: InteractionDeps) {
       signals.tooltipAnchorPlacement.set('right-bottom')
       signals.hoveredMarkerData.set(null)
       signals.hoveredCustomMarker.set(null)
+      signals.hoveredMarkerId.set(null)
       signals.kLinePositions.set(null)
       signals.kLineCenters.set(null)
       signals.kWidthPx.set(null)
