@@ -389,7 +389,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   // Controller signals (ReadonlySignal wrappers over Chart kernel signals)
   // -------------------------------------------------------------------
 
-  const viewport = computed(() => mapViewportState(chart.viewport.peek()))
+  const viewport = computed(() => mapViewportState(chart.viewport()))
 
   // data/dataLoading need fallback writes for jsdom tolerance
   const data: Signal<ReadonlyArray<KLineData>> = createSignal(opts.data ?? [])
@@ -400,13 +400,13 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   // theme needs fallback write for jsdom tolerance
   const themeSignal: Signal<'light' | 'dark'> = createSignal(opts.theme ?? 'light')
 
-  const indicators = computed(() => chart.indicators.peek().map(mapIndicatorInstance))
-  const subPanes = computed(() => chart.subPanes.peek().map(mapSubPaneInfo))
-  const drawingTool = computed(() => mapDrawingTool(chart.drawingTool.peek()))
-  const drawings = computed(() => chart.drawings.peek().map(mapDrawingObject))
-  const paneRatios = computed(() => mapPaneRatios(chart.paneRatios.peek()))
-  const paneLayout = computed(() => [...chart.paneLayout.peek()])
-  const interactionState = computed(() => mapInteractionSnapshot(chart.interactionState.peek()))
+  const indicators = computed(() => chart.indicators().map(mapIndicatorInstance))
+  const subPanes = computed(() => chart.subPanes().map(mapSubPaneInfo))
+  const drawingTool = computed(() => mapDrawingTool(chart.drawingTool()))
+  const drawings = computed(() => chart.drawings().map(mapDrawingObject))
+  const paneRatios = computed(() => mapPaneRatios(chart.paneRatios()))
+  const paneLayout = computed(() => [...chart.paneLayout()])
+  const interactionState = computed(() => mapInteractionSnapshot(chart.interactionState()))
 
   // comparisonColors/comparisonLoading — not yet migrated to kernel state
   const comparisonColors = chart.comparisonColors

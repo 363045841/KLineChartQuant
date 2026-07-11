@@ -21,7 +21,6 @@ export function createDataState(_deps: DataDeps = {}) {
 
   return {
     readonly,
-    signals,
 
     actions: {
       setData(data: ReadonlyArray<unknown>) {

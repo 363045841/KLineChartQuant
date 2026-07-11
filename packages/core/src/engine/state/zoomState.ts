@@ -34,7 +34,6 @@ export function createZoomState(deps: ZoomDeps) {
 
   return {
     readonly,
-    signals,
 
     actions: {
       setZoomLevel(level: number) {

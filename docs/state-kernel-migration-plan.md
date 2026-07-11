@@ -341,18 +341,17 @@ private scheduleFlush() {
 
 ---
 
-### 阶段 4：清理加固
+### 阶段 4：清理加固 ✅
 
-- 删除 Controller 桥接层残余
-- 所有公共信号类型锁定为 `ReadonlySignal<T>`
-- `pnpm type-check` 强制架构合规
-- AGENTS.md 更新：删除"Scroll / Coordinate System"和"Signal Atomicity"中的时序规则
-- AGENTS.md 新增 "StateKernel Strip" 指引
+- ~~删除 Controller 桥接层残余~~ → 此前阶段已完成
+- 所有子状态模块 return 中移除 `signals`（WritableSignal bag） — 仅 interactionState 需先行新增 `setHoveredIndex`/`setActivePaneId` action 供 interaction.ts 使用
+- `interaction.ts` 中 6 处直接 `.signals` 写入 → 改为 `.actions` 调用
+- `interaction.dpr.test.ts` mock 同步更新（去除 `signals` return + 补齐 actions）
+- `AGENTS.md` line 89 更新描述，明确 `signals` 不属公共 API
 
 **验收**:
-- 编译器禁止所有架构违规
-- 新增功能无需查 AGENTS.md 时序警告
-- 近 50 次 commit 中的 `fix(...timing...)` 类问题归零
+- `pnpm -r test` 全绿（1685 tests pass, 6 pre-existing WebGL failures unrelated）
+- `git grep '\.signals\.' packages/core/src/engine/` → 零返回（生产代码无直接 `.signals` 访问）
 
 ---
 

@@ -118,7 +118,6 @@ export function createInteractionState(deps: InteractionDeps) {
 
   return {
     readonly,
-    signals,
 
     actions: {
       updateCrosshair(pos: { x: number; y: number } | null, price: number | null) {
@@ -133,6 +132,14 @@ export function createInteractionState(deps: InteractionDeps) {
           signals.hoveredIndex.set(index)
           signals.activePaneId.set(paneId)
         })
+      },
+
+      setHoveredIndex(index: number | null) {
+        signals.hoveredIndex.set(index)
+      },
+
+      setActivePaneId(paneId: string | null) {
+        signals.activePaneId.set(paneId)
       },
 
       updateFramePositions(

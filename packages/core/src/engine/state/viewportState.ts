@@ -240,6 +240,7 @@ export function createViewportState(deps: ViewportDeps) {
 
   let canvasDomEffect: (() => void) | null = null
   let webglEffect: (() => void) | null = null
+  let scrollDomEffect: (() => void) | null = null
 
   /**
    * 挂载 canvas DOM 尺寸与 WebGL surface 的同步 effect。
@@ -262,6 +263,19 @@ export function createViewportState(deps: ViewportDeps) {
       if (plotWidth <= 0 || plotHeight <= 0) return
       const dpr = readonly.dpr()
       deps.resizeSharedWebGLSurface(plotWidth, plotHeight, dpr)
+    })
+    scrollDomEffect = effect(() => {
+      if (!readonly.initialized()) return
+      const scrollLeft = readonly.scrollLeft()
+      const dom = deps.getDom()
+      const container = dom.container
+      if (container && container.scrollLeft !== scrollLeft) {
+        container.scrollLeft = scrollLeft
+      }
+      if (_contentWidthProvider && dom.scrollContent) {
+        const w = _contentWidthProvider() + 'px'
+        if (dom.scrollContent.style.width !== w) dom.scrollContent.style.width = w
+      }
     })
   }
 
@@ -317,27 +331,17 @@ export function createViewportState(deps: ViewportDeps) {
 
   return {
     readonly,
-    signals,
 
     actions: {
       /**
        * 滚动到指定 scrollLeft 位置。
        *
-       * @remarks 同步更新 scrollContent 的样式宽度和容器的 scrollLeft。
+       * @remarks 仅更新内部信号，DOM 同步由 effect 负责。
        *
        * @param v - 目标 scrollLeft（CSS px）
        */
       scrollTo(v: number) {
-        if (_contentWidthProvider) {
-          const dom = deps.getDom()
-          if (dom.scrollContent) {
-            const w = _contentWidthProvider() + 'px'
-            if (dom.scrollContent.style.width !== w) dom.scrollContent.style.width = w
-          }
-        }
-        signals.scrollLeft.set(v) // 内部状态变更
-        const container = deps.getDom().container
-        if (container) container.scrollLeft = v
+        signals.scrollLeft.set(v)
       },
 
       /**
@@ -405,8 +409,10 @@ export function createViewportState(deps: ViewportDeps) {
     dispose() {
       canvasDomEffect?.()
       webglEffect?.()
+      scrollDomEffect?.()
       canvasDomEffect = null
       webglEffect = null
+      scrollDomEffect = null
       signals.initialized.set(false)
       signals.preciseDpr.set(0)
       signals.viewWidth.set(0)

@@ -637,17 +637,17 @@ export class InteractionController {
     }
 
 if (this.tooltipPositionMode === 'adaptive') {
-      this._state.signals.hoveredIndex.set(bar.globalIdx)
+      this._state.actions.setHoveredIndex(bar.globalIdx)
       this.updateTooltip(ctx)
       return
     }
 
     if (!this.hitTestCandle(ctx, bar)) {
-      this._state.signals.hoveredIndex.set(null)
+      this._state.actions.setHoveredIndex(null)
       return
     }
 
-    this._state.signals.hoveredIndex.set(bar.globalIdx)
+    this._state.actions.setHoveredIndex(bar.globalIdx)
     this.updateTooltip(ctx)
   }
 
@@ -718,7 +718,7 @@ if (this.tooltipPositionMode === 'adaptive') {
     this._state.actions.updateMarkerHover(result.hitMarkerId, result.hitMarkerData, result.hitCustomMarker)
     if (result.hit) {
       this._state.actions.updateCrosshair(null, null)
-      this._state.signals.hoveredIndex.set(null)
+      this._state.actions.setHoveredIndex(null)
       return true
     }
     return false
@@ -797,7 +797,7 @@ if (this.tooltipPositionMode === 'adaptive') {
   private positionCrosshair(ctx: HoverContext, bar: NearestBar): void {
     const { mouseX, mouseY, scrollLeft, plotWidth, plotHeight, dpr } = ctx
     const pane = this.getPaneByY(mouseY)
-    this._state.signals.activePaneId.set(pane?.id || null)
+    this._state.actions.setActivePaneId(pane?.id || null)
 
     if (bar.globalIdx < 0 || bar.globalIdx >= (this.chart.getRenderData()?.length ?? 0)) {
       this._state.actions.updateCrosshair(null, null)
@@ -825,7 +825,7 @@ if (this.tooltipPositionMode === 'adaptive') {
    * 不执行 candle body/wick 命中检测。
    */
   private handleTimeshareHover(ctx: HoverContext, bar: NearestBar): void {
-    this._state.signals.hoveredIndex.set(bar.globalIdx)
+    this._state.actions.setHoveredIndex(bar.globalIdx)
     this.updateTooltip(ctx)
   }
 

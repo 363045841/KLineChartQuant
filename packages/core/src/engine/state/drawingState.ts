@@ -10,7 +10,6 @@ export function createDrawingState() {
 
   return {
     readonly,
-    signals,
 
     actions: {
       setDrawingTool(tool: DrawingToolType | null) {

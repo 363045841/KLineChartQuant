@@ -86,11 +86,16 @@ function createMockInteractionState() {
         }),
       } as any,
     },
-    signals,
     actions: {
       updateCrosshair(pos: any, price: any) {
         signals.crosshairPos.set(pos)
         signals.crosshairPrice.set(price)
+      },
+      setHoveredIndex(index: any) {
+        signals.hoveredIndex.set(index)
+      },
+      setActivePaneId(paneId: any) {
+        signals.activePaneId.set(paneId)
       },
       updateHover(index: any, paneId: any) {
         signals.hoveredIndex.set(index)

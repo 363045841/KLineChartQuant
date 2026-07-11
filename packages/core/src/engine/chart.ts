@@ -249,8 +249,8 @@ export class Chart {
     const _dprPlaceholder = writableRef(1)
     this._zoomState = createZoomState({
       dpr$: _dprPlaceholder,
-      minKWidth$: computed(() => this._optionsSignal.peek().minKWidth),
-      maxKWidth$: computed(() => this._optionsSignal.peek().maxKWidth),
+      minKWidth$: computed(() => this._optionsSignal().minKWidth),
+      maxKWidth$: computed(() => this._optionsSignal().maxKWidth),
       zoomLevelCount: Math.max(2, Math.round(this._optionsSignal.peek().zoomLevels ?? 20)),
     })
     // Bridge: _zoomLevel$ is still needed for viewportManager deps (backward compat)

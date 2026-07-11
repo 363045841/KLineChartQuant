@@ -11,7 +11,6 @@ export function createPaneState() {
 
   return {
     readonly,
-    signals,
 
     actions: {
       setPaneRatios(ratios: Record<string, number>) {

@@ -7,7 +7,6 @@ export function createThemeState() {
 
   return {
     readonly,
-    signals,
 
     actions: {
       setTheme(theme: 'light' | 'dark') {
