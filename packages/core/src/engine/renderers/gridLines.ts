@@ -19,7 +19,7 @@ export function createGridLinesRendererPlugin(): RendererPlugin {
     paneId: GLOBAL_PANE_ID,
     priority: RENDERER_PRIORITY.GRID,
 
-    draw(context: RenderContext) {
+draw(context: RenderContext) {
       const { ctx, pane, data, range, scrollLeft, kWidth, dpr, kLinePositions, settings } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -37,7 +37,14 @@ export function createGridLinesRendererPlugin(): RendererPlugin {
       const plotWidth = ctx.canvas.width / dpr
       const startX = scrollLeft
       const endX = scrollLeft + plotWidth
-      // 水平网格线：从预计算的 yAxisTicks 取 Y 位置，确保与轴刻度对齐
+
+      // Pane 分隔线：非首 pane 在顶部画一条横线
+      if (pane.top > 0) {
+        const h = createHorizontalLineRect(startX, endX, 0, dpr)
+        if (h) ctx.fillRect(h.x, h.y, h.width, h.height)
+      }
+
+// 水平网格线：从预计算的 yAxisTicks 取 Y 位置，确保与轴刻度对齐
       if (context.yAxisTicks) {
         for (const tick of context.yAxisTicks) {
           const h = createHorizontalLineRect(startX, endX, tick.y, dpr)
