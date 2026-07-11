@@ -237,7 +237,7 @@ export class ChartDataManager {
       this._rangeInitialized = true
     }
 
-    let currentRange = this._dataState.readonly.visibleRange.peek()
+    let currentRange = this._computeVisibleRange()
     if (!currentRange && this._rangeInitialized && bufferData.length > 0) {
       currentRange = { start: 0, end: bufferData.length }
     }
@@ -318,9 +318,20 @@ export class ChartDataManager {
     return buf ? buf.getRawData().length : 0
   }
 
-  /** 当前可见范围（from dataState computed） */
+  /** 当前可见范围（on-demand 实时计算，消除 stale 缓存） */
   getCurrentVisibleRange(): VisibleRange | null {
-    return this._dataState.readonly.visibleRange.peek()
+    return this._computeVisibleRange()
+  }
+
+  /** 本地 visibleRange 计算 — 数据迁移过程中暂存于此，后续将迁入 dataState computed */
+  private _computeVisibleRange(): VisibleRange | null {
+    const buf = this.getActiveDataBuffer()
+    const dataLength = buf ? buf.getRawData().length : 0
+    if (dataLength === 0) return null
+    const vp = this.deps.getViewport()
+    if (!vp) return null
+    const opt = this.deps.getOption()
+    return getVisibleRange(vp.scrollLeft, vp.plotWidth, opt.kWidth, opt.kGap, dataLength, vp.dpr)
   }
 
   /** Unified data signal — always reflects the active buffer's data */
@@ -494,7 +505,7 @@ export class ChartDataManager {
     if (data.length === 0) return
     const window = buf.loadedWindow
     if (!window) return
-    const range = this._dataState.readonly.visibleRange.peek()
+    const range = this._computeVisibleRange()
     if (!range) return
 
     const MS_PER_DAY = 86_400_000
