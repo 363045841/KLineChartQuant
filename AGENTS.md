@@ -86,23 +86,7 @@ pnpm stockbao
 - **DPR/ResizeObserver** is the single source of truth for canvas sizing (`devicePixelContentBoxSize` with `window.devicePixelRatio` fallback).
 - **Rendering pipeline**: computeViewport → getVisibleRange → calcKLinePositions → iterate panes → build RenderContext → rendererPluginManager.render(paneId) → renderPlugin('timeAxis').
 - **Three renderer categories**: business (pane-local, e.g. candle/ma/boll), global (paneId=GLOBAL, e.g. gridLines/crosshair), system (isSystem=true, e.g. timeAxis).
-
-## Scroll / Coordinate System
-
-Three coordinate systems must stay in sync:
-
-1. **DOM scroll** (`scrollLeft`, `scrollWidth`) — CSS px on `.scroll-content`
-2. **K-line world** (`calcKLinePositions`, `getVisibleRange`, `getLogicalIndexAtX`) — data-index-based, origin at `startXPx`
-3. **Content width** (`getContentWidth()`) — drives `scrollWidth` via Vue `totalWidth` computed
-
-### Key rules
-
-- **`getContentWidth()` must NOT include virtual leading slots** unless every world-coordinate function also accounts for the offset. Currently none do, so `LEADING_SLOTS` was removed.
-- **`onPointerUp()` must call `checkVisibleRangeGap()` for BOTH touch and mouse panning**. The touch-only guard caused mouse drags to exit without triggering gap detection.
-- **Programmatic `scrollLeft` writes must sync cache immediately** — `applyPanScroll()` calls `syncScrollLeft()` because native scroll events are async and `prepareFrameData` may read stale `cachedScrollLeft`.
-- **`DataBuffer._attemptedBoundaries` clears on no-prepend fetch** — prevents permanent boundary lockout after transient fetch failures.
-- **`checkVisibleRangeGapWhenIdle()` bails when `isPointerDown()` is true** — gap check only fires after drag ends; `onPointerUp()` is the last guaranteed trigger point.
-- **Bundle logically related info into a single signal payload instead of splitting across multiple signals that rely on timing order, and never use shared mutable variables to coordinate between independent signal subscribers.**
+- **StateKernel** is the single source of truth for all chart state. Sub-state modules (`viewportState`, `interactionState`, `dataState`, `zoomState`, `paneState`) each own a set of writable signals exposed as `ReadonlySignal` + semantic `actions`. All state mutations flow through actions; derived state is computed; effects handle DOM side-effects. See `docs/state-kernel-migration-plan.md`.**
 
 ### StateKernel Reactive Kernel Design Principles
 

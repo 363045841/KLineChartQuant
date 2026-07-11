@@ -26,3 +26,11 @@ export {
   createPaneState,
   type PaneStateModule,
 } from './paneState'
+export {
+  createThemeState,
+  type ThemeStateModule,
+} from './themeState'
+export {
+  createDrawingState,
+  type DrawingStateModule,
+} from './drawingState'

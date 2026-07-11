@@ -1,7 +1,6 @@
 import type { ChartSettings } from '../foundation/config/chartSettings'
 import type { SymbolSpec, SymbolInfo, CustomDataSource } from '../controllers/types'
 import {
-  createStateStore,
   createSignal,
   computed,
   effect,
@@ -39,6 +38,14 @@ import {
   createPaneState,
   type PaneStateModule,
 } from './state/paneState'
+import {
+  createThemeState,
+  type ThemeStateModule,
+} from './state/themeState'
+import {
+  createDrawingState,
+  type DrawingStateModule,
+} from './state/drawingState'
 import { ChartDataManager } from './data/chartDataManager'
 import { ChartIndicatorManager } from './indicators/chartIndicatorManager'
 import { resolveStateKey } from './indicators/indicatorMetadata'
@@ -98,10 +105,7 @@ export type {
   DrawingObject,
 } from './chartTypes'
 
-type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
-  kWidth: number
-  kGap: number
-}
+type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'>
 
 export class Chart {
   private dom: ChartDom
@@ -116,6 +120,8 @@ export class Chart {
   private _zoomState!: ZoomStateModule
   private _dataState!: DataStateModule
   private _paneState!: PaneStateModule
+  private _themeState!: ThemeStateModule
+  private _drawingState!: DrawingStateModule
 
   private viewportManager: ChartViewportManager
   private layoutManager: ChartPaneLayout
@@ -224,11 +230,9 @@ export class Chart {
   constructor(dom: ChartDom, opt: ChartOptions) {
     this.dom = dom
     const { kWidth: _kWidth, kGap: _kGap, ...restOpt } = opt
-    // Chart 不持有业务 SSOT，kWidth/kGap/zoomLevel 由外部通过 applyRenderState() 传入
+    // kWidth/kGap 由 zoomState computed 自动推导，不存储在 _optionsSignal 中
     this._optionsSignal = createSignal<ResolvedChartOptions>({
       ...restOpt,
-      kWidth: _kWidth ?? 0,
-      kGap: _kGap ?? 0,
     })
     this._activeMode = this._kLineMode
     this.pluginHost = createPluginHost()
@@ -255,12 +259,10 @@ export class Chart {
     this._zoomLevel$ = writableRef(initialZoomLevel)
     this._dataLength$ = writableRef(0)
 
-    // kWidth/kGap flow through _optionsSignal for viewportManager/viewportState deps.
-    // The optionsSignal kWidth/kGap are synced from zoomState via syncKWidthKGap.
-    // (syncKWidthKGap method body updated to read from zoomState)
+    // kWidth/kGap for viewportManager deps come directly from zoomState computed
     const _optionsView = computed(() => {
       const o = this._optionsSignal()
-      return { bottomAxisHeight: o.bottomAxisHeight, kWidth: o.kWidth, kGap: o.kGap }
+      return { bottomAxisHeight: o.bottomAxisHeight, kWidth: this._zoomState.readonly.kWidth(), kGap: this._zoomState.readonly.kGap() }
     })
 
     this.viewportManager = new ChartViewportManager(
@@ -296,6 +298,12 @@ export class Chart {
     // ── Pane kernel state (SSOT for pane ratios / specs) ──
     this._paneState = createPaneState()
 
+    // ── Theme kernel state ──
+    this._themeState = createThemeState()
+
+    // ── Drawing kernel state ──
+    this._drawingState = createDrawingState()
+
     this._interactionState = createInteractionState({
       visibleRange$: this.viewportManager.visibleRangeSignal,
       scrollLeftLogical$: this.viewportManager.scrollLeftLogicalSignal,
@@ -303,9 +311,6 @@ export class Chart {
       scheduleDraw: (level) => this.scheduleDraw(level as UpdateLevel | undefined),
     })
     this.interaction = new InteractionController(this, this._interactionState)
-    effect(() => {
-      this.state.set.interaction(this._interactionState.readonly.interactionSnapshot())
-    })
 
     this.layoutManager = new ChartPaneLayout(initialOpt.panes, {
       getDom: () => this.dom,
@@ -329,8 +334,6 @@ export class Chart {
       onLayoutChange: (ratios, specs) => {
         this._paneState.actions.setPaneRatios(ratios)
         this._paneState.actions.setPaneSpecs(specs)
-        this.state.set.paneRatios(ratios)
-        this.state.set.paneLayout(specs)
         this._optionsSignal.set({ ...this._optionsSignal.peek(), panes: specs })
       },
     })
@@ -338,7 +341,10 @@ export class Chart {
     this.alertController = createAlertController()
 
     this.dataManager = new ChartDataManager({
-      getOption: () => this._optionsSignal.peek(),
+      getOption: () => {
+        const o = this._optionsSignal.peek()
+        return { ...o, kWidth: this._zoomState.readonly.kWidth(), kGap: this._zoomState.readonly.kGap() }
+      },
       getEffectiveDpr: () => this.viewportManager.getEffectiveDpr(),
       getLogicalScrollLeft: () => this.viewportManager.getLogicalScrollLeft(),
       getCachedScrollLeft: () => this.viewportManager.getCachedScrollLeft(),
@@ -351,10 +357,9 @@ export class Chart {
       getVisibleRange: () => {
         const vp = this.viewportManager.computeViewport()
         if (!vp) return null
-        const opt = this._optionsSignal.peek()
         const dataLen = this.dataManager?.getData().length ?? 0
         if (dataLen === 0) return null
-        return getVisibleRange(vp.scrollLeft, vp.plotWidth, opt.kWidth, opt.kGap, dataLen, vp.dpr)
+        return getVisibleRange(vp.scrollLeft, vp.plotWidth, this._zoomState.readonly.kWidth(), this._zoomState.readonly.kGap(), dataLen, vp.dpr)
       },
       scheduleDraw: (level) => this.scheduleDraw(level),
       resetInteraction: () => this.interaction.reset(),
@@ -389,7 +394,6 @@ export class Chart {
         this.viewportManager.setScrollLeft(v)
       },
       onChange: () => {
-        this.syncKWidthKGap()
         this._zoomLevel$.set(this.zoomController.currentZoomLevel)
       },
       getMinKWidth: () => this._optionsSignal.peek().minKWidth,
@@ -400,7 +404,10 @@ export class Chart {
 
     // 初始化指标管理器
     this.indicatorManager = new ChartIndicatorManager({
-      getOption: () => this._optionsSignal.peek(),
+      getOption: () => {
+        const o = this._optionsSignal.peek()
+        return { ...o, kWidth: this._zoomState.readonly.kWidth(), kGap: this._zoomState.readonly.kGap() }
+      },
       getPluginHost: () => this.pluginHost,
       getRenderer: (name) => this.getRenderer(name),
       useRenderer: (plugin, config) => this.useRenderer(plugin, config),
@@ -411,7 +418,7 @@ export class Chart {
       upsertPane: (def) => this.layoutManager.upsertPane(def),
       removePaneDefinition: (paneId) => this.layoutManager.removePaneDefinition(paneId),
       getPaneSpecs: () => this.layoutManager.getPaneSpecs(),
-      getPaneRatiosSignal: () => this.state.signals.paneRatios,
+      getPaneRatiosSignal: () => this._paneState.readonly.paneRatios as Signal<Readonly<Record<string, number>>>,
       getInternalPaneRatios: () => this.layoutManager.getInternalPaneRatios(),
       setInternalPaneRatio: (paneId, ratio) =>
         this.layoutManager.setInternalPaneRatio(paneId, ratio),
@@ -448,13 +455,16 @@ export class Chart {
     // 初始化渲染器
     this.renderer = new ChartRenderer({
       getDom: () => this.dom,
-      getOption: () => this._optionsSignal.peek(),
+      getOption: () => {
+        const o = this._optionsSignal.peek()
+        return { ...o, kWidth: this._zoomState.readonly.kWidth(), kGap: this._zoomState.readonly.kGap() }
+      },
       getPaneRenderers: () => this.paneRenderers,
       getInteraction: () => this.interaction,
       getSharedWebGLSurface: () => this.sharedWebGLSurface,
       getPluginHost: () => this.pluginHost,
       getRendererPluginManager: () => this.rendererPluginManager,
-      getTheme: () => this.state.signals.theme.peek(),
+      getTheme: () => this._themeState.readonly.theme.peek(),
       getCurrentZoomLevel: () => this.zoomController.currentZoomLevel,
       getZoomLevelCount: () => this.zoomController.zoomLevelCount,
       getViewportManager: () => this.viewportManager,
@@ -464,7 +474,6 @@ export class Chart {
     })
     this.renderer.registerDrawingPlugins()
     this.renderer.initCoreRenderers()
-    this.syncKWidthKGap()
     this.viewportManager.init()
   }
 
@@ -510,7 +519,6 @@ export class Chart {
 
     if (this._savedTimeShareState && mode !== this._timeShareMode) {
       this.zoomController.setZoomLevel(this._savedTimeShareState.zoomLevel)
-      this.syncKWidthKGap()
     }
 
     prev.onDeactivate(
@@ -659,16 +667,6 @@ export class Chart {
 
   // ========== Render State API (Vue SSOT) ==========
 
-  private syncKWidthKGap(): void {
-    const kw = this._zoomState.readonly.kWidth()
-    const kg = this._zoomState.readonly.kGap()
-    const current = this._optionsSignal.peek()
-    if (current.kWidth !== kw || current.kGap !== kg) {
-      this._optionsSignal.set({ ...current, kWidth: kw, kGap: kg })
-    }
-    this.scheduleDraw()
-  }
-
   /**
    * 应用渲染状态
    * kWidth/kGap/zoomLevel 由 zoomController 统一管理（SSOT）。
@@ -687,7 +685,7 @@ export class Chart {
       this.zoomController.setKWidthKGap(kWidth, kGap)
     }
 
-    this.syncKWidthKGap()
+    this.scheduleDraw()
   }
 
   /** 获取总缩放级别数 */
@@ -779,7 +777,7 @@ export class Chart {
   /** 更新绘图对象 */
   setDrawings(drawings: import('../foundation/plugin').DrawingObject[]): void {
     this.renderer.getDrawingStore().setAll(drawings)
-    this.state.signals.drawings.set(drawings)
+    this._drawingState.actions.setDrawings(drawings as any)
     this.scheduleDraw()
   }
 
@@ -1106,29 +1104,14 @@ export class Chart {
 
   // ==================== Facade API (High-level interface for adapters) ====================
 
-  private state = createStateStore({
-    theme: 'light' as 'light' | 'dark',
-    drawingTool: null as DrawingToolType | null,
-    drawings: [] as ReadonlyArray<import('../foundation/plugin').DrawingObject>,
-    paneRatios: {} as Readonly<Record<string, number>>,
-    paneLayout: [] as PaneSpec[],
-    interaction: {
-      crosshairPos: null,
-      crosshairIndex: null,
-      crosshairPrice: null,
-      hoveredIndex: null,
-      activePaneId: null,
-      tooltipPos: { x: 0, y: 0 },
-      tooltipAnchorPlacement: 'right-bottom' as 'right-bottom' | 'left-bottom',
-      hoveredMarkerData: null as MarkerEntity | null,
-      hoveredCustomMarker: null as CustomMarkerEntity | null,
-      isDragging: false,
-      isResizingPaneBoundary: false,
-      isHoveringPaneBoundary: false,
-      hoveredPaneBoundaryId: null,
-      isHoveringRightAxis: false,
-    } as InteractionSnapshot,
-  })
+  /** interactionSnapshot lazy computed for the createChartController facade */
+  private get _interactionSnapshot(): Computed<InteractionSnapshot> {
+    if (!this.__interactionSnapshot) {
+      this.__interactionSnapshot = computed(() => this._interactionState.readonly.interactionSnapshot())
+    }
+    return this.__interactionSnapshot
+  }
+  private __interactionSnapshot: Computed<InteractionSnapshot> | null = null
 
   /** 视口状态信号 */
   get viewport(): Signal<ViewportState> {
@@ -1171,8 +1154,8 @@ export class Chart {
   }
 
   /** 主题信号 */
-  get theme(): Signal<'light' | 'dark'> {
-    return this.state.signals.theme
+  get theme(): ReadonlySignal<'light' | 'dark'> {
+    return this._themeState.readonly.theme
   }
 
   /** 指标实例列表信号（派生信号，自动随主/副图状态更新） */
@@ -1186,27 +1169,27 @@ export class Chart {
   }
 
   /** 当前绘图工具信号 */
-  get drawingTool(): Signal<DrawingToolType | null> {
-    return this.state.signals.drawingTool
+  get drawingTool(): ReadonlySignal<DrawingToolType | null> {
+    return this._drawingState.readonly.drawingTool
   }
 
   /** 绘图对象列表信号 */
-  get drawings(): Signal<ReadonlyArray<import('../foundation/plugin').DrawingObject>> {
-    return this.state.signals.drawings
+  get drawings(): ReadonlySignal<ReadonlyArray<import('../foundation/plugin').DrawingObject>> {
+    return this._drawingState.readonly.drawings
   }
 
   /** 面板比例信号 */
-  get paneRatios(): Signal<Readonly<Record<string, number>>> {
-    return this.state.signals.paneRatios
+  get paneRatios(): ReadonlySignal<Readonly<Record<string, number>>> {
+    return this._paneState.readonly.paneRatios
   }
 
-  get paneLayout(): Signal<PaneSpec[]> {
-    return this.state.signals.paneLayout
+  get paneLayout(): ReadonlySignal<PaneSpec[]> {
+    return this._paneState.readonly.paneSpecs
   }
 
   /** 交互状态信号 */
-  get interactionState(): Signal<InteractionSnapshot> {
-    return this.state.signals.interaction
+  get interactionState(): ReadonlySignal<InteractionSnapshot> {
+    return this._interactionSnapshot
   }
 
   // ---------- Data ----------
@@ -1294,7 +1277,7 @@ export class Chart {
    * 设置主题（高层 API）
    */
   setTheme(theme: 'light' | 'dark'): void {
-    this.state.set.theme(theme)
+    this._themeState.actions.setTheme(theme)
     this.scheduleDraw()
   }
 
@@ -1476,7 +1459,7 @@ export class Chart {
    * @param tool 工具类型或 null 取消选择
    */
   setDrawingTool(tool: DrawingToolType | null): void {
-    this.state.set.drawingTool(tool)
+    this._drawingState.actions.setDrawingTool(tool)
     // TODO: 当 Chart 支持绘图工具切换时，在这里调用相应方法
   }
 
