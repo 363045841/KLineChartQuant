@@ -1,75 +1,87 @@
 /**
- * Tiny push-based reactivity primitive. Zero dependencies.
+ * 轻量 push-based 响应式原语，零外部依赖。
  *
- * Design constraints:
- * - Synchronous notify on `set` when not batched (no microtask scheduling)
- * - `batch()` defers all notifications until the outermost batch exits
- * - No proxy / no deep tracking — only top-level read/write
- * - Equality short-circuits on `Object.is`
- * - `subscribe` returns an unsubscribe; safe to call from React useSyncExternalStore,
- *   Vue effect, Angular toSignal
- * - `effect` re-runs whenever any signal read inside re-emits
+ * @remarks
+ * 设计约束:
+ *
+ * 1. 非 batch 模式下 set 同步通知（无微任务调度）
+ * 2. batch() 将所有通知推迟到最外层 batch 退出时
+ * 3. 无 Proxy / 无深度追踪 —— 仅顶层读/写
+ * 4. 相等性通过 Object.is 短路
+ * 5. subscribe 返回取消订阅函数；可安全用于 React useSyncExternalStore、
+ *    Vue effect、Angular toSignal
+ * 6. effect 在其内部读取的任何 signal 重新发出值时自动重跑
  */
 
 /**
- * Read-only signal — the public face of all derived state.
+ * 只读 signal —— 所有派生状态的公开面。
  *
- * Consumers (renderers, UI bindings, framework adapters) receive
- * `ReadonlySignal<T>` and can read / subscribe but **cannot write**.
- * The TypeScript compiler blocks `.set()` calls on this type, enforcing
- * the StateKernel invariant that state changes flow through Actions only.
+ * @remarks
+ * 消费者（renderers、UI bindings、framework adapters）收到的是
+ * ReadonlySignal，可以读取/订阅但不能写入。
+ * TypeScript 编译器阻止在该类型上调用 .set()，以此强制 StateKernel
+ * 的不变性：状态变更只能通过 Actions 流转。
  *
- * `WritableSignal<T>` extends this shape with `set()`, so any function
- * accepting a `ReadonlySignal` also accepts a writable one — but the
- * reverse is structurally forbidden.
+ * WritableSignal 通过 set() 扩展此形状，因此接受 ReadonlySignal
+ * 的函数也可以传入 writable signal，但反过来被结构类型系统禁止。
  */
 export type ReadonlySignal<T> = {
-  /** read current value; tracked when called inside `effect` */
+  /**
+   * 读取当前值；在 effect 内部调用时会被追踪
+   */
   (): T
-  /** read without tracking */
+  /**
+   * 读取当前值，不触发追踪
+   */
   peek: () => T
-  /** subscribe; returns unsubscribe */
+  /**
+   * 订阅变更通知；返回取消订阅函数
+   */
   subscribe: (listener: () => void) => () => void
 }
 
 /**
- * Writable signal — internal to StateKernel sub-states only.
+ * 可写 signal —— 仅限 StateKernel 子状态内部使用。
  *
- * The `.set()` method is the single mutation entry point. Declaring a
- * field `private` and exposing it as `ReadonlySignal<T>` to the outside
- * creates a compile-time boundary between producers (Actions) and
- * consumers (renderers / UI).
+ * @remarks
+ * .set() 方法是唯一的变更入口。将字段声明为 private 并对外暴露
+ * ReadonlySignal，即可在生产方（Actions）与消费方（renderers/UI）
+ * 之间建立编译时边界。
  */
 export type WritableSignal<T> = ReadonlySignal<T> & {
-  /** write new value; notifies subscribers if `Object.is` differs */
+  /**
+   * 写入新值；当与当前值 Object.is 不等时通知订阅者
+   */
   set: (next: T) => void
 }
 
 /**
- * Alias kept for backward compatibility.
- * `Signal<T>` is equivalent to `WritableSignal<T>` — the full read/write
- * shape that `createSignal` returns. Existing imports continue to work.
+ * 为向后兼容保留的别名。
+ *
+ * @remarks Signal 等价于 WritableSignal，即 createSignal 返回的完整读/写形状。
+ * 已有的 import 继续可用。
  */
 export type Signal<T> = WritableSignal<T>
 
 /**
- * Alias kept for backward compatibility.
- * `Computed<T>` is equivalent to `ReadonlySignal<T>` — the read-only
- * shape that `computed()` returns.
+ * 为向后兼容保留的别名。
+ *
+ * @remarks Computed 等价于 ReadonlySignal，即 computed() 返回的只读形状。
  */
 export type Computed<T> = ReadonlySignal<T>
 
 /**
- * A writable ref: the kernel-internal handle for a piece of state.
- * Identical to `WritableSignal<T>` — the name mirrors Vue's
- * `shallowRef` / `writableRef` convention so the migration reads
- * naturally in sub-state definitions.
+ * 可写 ref：kernel 内部对一段状态的句柄。
+ *
+ * @remarks 与 WritableSignal 完全等同；命名上镜像 Vue 的 shallowRef / writableRef
+ * 惯例，使子状态定义中的迁移读起来更自然。
  */
 export type WritableRef<T> = WritableSignal<T>
 
 /**
- * Alias for the read-only side of a writable ref — what gets exposed
- * to external consumers. Same shape as `ReadonlySignal<T>`.
+ * writable ref 的只读面 —— 对外暴露给消费者的类型。
+ *
+ * @remarks 形状与 ReadonlySignal 相同。
  */
 export type ReadonlyRef<T> = ReadonlySignal<T>
 
@@ -84,11 +96,10 @@ let batchDepth = 0
 const pendingBatch = new Set<() => void>()
 
 /**
- * Create a writable signal (alias: `writableRef`).
+ * 创建一个 writable signal（别名：writableRef）。
  *
- * Returns a `WritableSignal<T>` — internally mutable, externally
- * downgrade-able to `ReadonlySignal<T>` by a simple assignment or
- * return-type annotation.
+ * @param initial - 初始值
+ * @returns WritableSignal，内部可变更，外部可通过赋值或返回类型注解降级为 ReadonlySignal
  */
 export function createSignal<T>(initial: T): WritableSignal<T> {
   let value = initial
@@ -126,11 +137,18 @@ export function createSignal<T>(initial: T): WritableSignal<T> {
 }
 
 /**
- * Alias for `createSignal` — mirrors Vue's `writableRef` convention.
- * Use in kernel sub-state definitions: `private scrollLeft = writableRef(0)`.
+ * createSignal 的别名，镜像 Vue 的 writableRef 惯例。
+ *
+ * @remarks 在 kernel 子状态定义中使用，如 signals.scrollLeft = writableRef(0)。
  */
 export const writableRef = createSignal
 
+/**
+ * 创建一个自动追踪依赖的 effect。
+ *
+ * @param fn - 副作用函数，其中读取的 signal 被自动追踪
+ * @returns 清理函数，调用后取消 effect 及其所有订阅
+ */
 export function effect(fn: () => void): () => void {
   const tracker: Tracker = {
     deps: new Set(),
@@ -155,12 +173,15 @@ export function effect(fn: () => void): () => void {
 }
 
 /**
- * Create a derived (read-only) signal.
+ * 创建一个派生（只读）signal。
  *
- * `computed<T>(fn)` runs `fn` once immediately, then re-runs whenever any
- * signal read inside `fn` changes. The returned `ReadonlySignal<T>` has no
- * `.set()` method — callers cannot write back into it, enforcing the
- * one-way data flow: source signals ⇢ computed ⇢ consumers.
+ * @remarks
+ * computed(fn) 立即执行 fn 一次，之后每当 fn 中读取的 signal 变更时自动重跑。
+ * 返回的 ReadonlySignal 没有 .set() 方法，调用方无法写回，以此强制单向数据流：
+ * source signals 到 computed 到 consumers。
+ *
+ * @param fn - 派生函数
+ * @returns 只读的派生 signal
  */
 export function computed<T>(fn: () => T): ReadonlySignal<T> {
   const inner = createSignal<T>(undefined as unknown as T)
@@ -180,23 +201,23 @@ export function computed<T>(fn: () => T): ReadonlySignal<T> {
 }
 
 /**
- * Batch multiple signal writes into a single notification cycle.
+ * 将多个 signal 写入合并为一次通知周期。
  *
- * Inside `batch(fn)`, all `Signal.set()` calls queue their subscribers
- * instead of notifying immediately. When the outermost batch exits,
- * every accumulated subscriber fires exactly once (deduplicated).
- *
- * Supports nesting — only the outermost batch triggers the flush.
+ * @remarks
+ * 在 batch(fn) 内部，所有 signal.set() 调用将订阅者入队而非立即通知。
+ * 最外层 batch 退出时，每个累积的订阅者恰好触发一次（已去重）。
+ * 支持嵌套 —— 仅最外层 batch 触发 flush。
  *
  * @example
- * ```ts
  * batch(() => {
  *   signalA.set(1)
  *   signalB.set('x')
  *   // subscribers haven't fired yet
  * })
  * // all subscribers fire once, deduped
- * ```
+ *
+ * @param fn - 批量写入函数
+ * @returns fn 的返回值
  */
 export function batch<T>(fn: () => T): T {
   batchDepth++
@@ -213,18 +234,21 @@ export function batch<T>(fn: () => T): T {
 }
 
 /**
- * Create a group of related signals from an initial state object.
- * Returns typed { signals, set, snapshot } — eliminates `private _xxxSignal`
- * + `get xxx()` boilerplate in classes with many signals.
+ * 从初始状态对象创建一组相关 signal。
  *
- * Usage in a class field initializer:
- * ```ts
- * private state = createStateStore({ count: 0, name: '' })
- * // read:  state.signals.count()
- * // write: state.signals.count.set(5)
- * // bulk:  state.set.count(5); state.set.name('foo')
- * // snapshot: state.snapshot() // { count: 5, name: 'foo' }
- * ```
+ * @typeParam T - 状态对象的形状
+ * @param initial - 初始状态
+ * @returns 包含 signals、set、snapshot 的结构，消除大量 signal 类中
+ * 重复的 private xxxSignal + get xxx() 样板代码。
+ *
+ * @remarks
+ * 使用示例：
+ *
+ * const state = createStateStore({ count: 0, name: '' })
+ * // 读: state.signals.count()
+ * // 写: state.signals.count.set(5)
+ * // 批量: state.set.count(5); state.set.name('foo')
+ * // 快照: state.snapshot() // { count: 5, name: 'foo' }
  */
 export function createStateStore<T extends Record<string, unknown>>(initial: T) {
   const signals = {} as { [K in keyof T]: WritableSignal<T[K]> }
@@ -246,22 +270,27 @@ export function createStateStore<T extends Record<string, unknown>>(initial: T) 
 }
 
 /**
- * StateKernel sub-state factory.
+ * StateKernel 子状态工厂。
  *
- * Creates a group of writable signals from `initial`, then exposes:
- *  - `signals`   — private writable handles (`.set()` available)
- *  - `readonly`  — the SAME signals, typed as `ReadonlySignal<T>` (no `.set()`)
- *  - `computed`  — derived signals registered via the `computed` option
+ * @typeParam T - 可写状态字段的类型
+ * @typeParam C - 派生计算字段的类型
+ * @param initial - 初始状态值
+ * @param computedFns - 可选的派生计算函数表，每个函数接收源信号的只读视图
+ * @returns 包含 signals（可写句柄）、readonly（只读视图）、snapshot（快照）的结构
  *
- * Sub-state modules call this factory, store `signals` privately, and
- * return `readonly` + actions to the kernel. The TypeScript boundary
- * between `WritableSignal` and `ReadonlySignal` prevents external
- * consumers from writing while keeping internal mutation ergonomic.
+ * @remarks
+ * 从 initial 创建一组 writable signals，然后暴露:
+ *  - signals   — 私有可写句柄（有 .set()）
+ *  - readonly  — 同一组 signal，类型提升为 ReadonlySignal（无 .set()）
+ *  - computed  — 通过 computedFns 选项注册的派生 signal
+ *
+ * 子状态模块调用此工厂，私有保存 signals，向 kernel 返回 readonly + actions。
+ * WritableSignal 与 ReadonlySignal 之间的 TypeScript 边界阻止外部消费者写入，
+ * 同时保持内部变更的便利性。
  *
  * @example
- * ```ts
  * function createViewportState() {
- *   const { signals, readonly, computed } = createSubState(
+ *   const { signals, readonly } = createSubState(
  *     { scrollLeft: 0, viewWidth: 0 },
  *     {
  *       scrollLeftLogical: (s) => s.scrollLeft() - s.viewWidth(),
@@ -274,7 +303,6 @@ export function createStateStore<T extends Record<string, unknown>>(initial: T) 
  *     },
  *   }
  * }
- * ```
  */
 export function createSubState<
   T extends Record<string, unknown>,
@@ -290,7 +318,7 @@ export function createSubState<
   for (const key of Object.keys(initial) as (keyof T)[]) {
     const sig = createSignal<T[typeof key]>(initial[key])
     signals[key] = sig
-    // structurally the same object, typed upcast to read-only
+    // 同一对象引用，仅将类型提升为只读
     readonly[key] = sig as ReadonlySignal<T[typeof key]>
   }
 
@@ -303,13 +331,13 @@ export function createSubState<
   }
 
   return {
-    /** private writable handles — pass these to actions only */
+    /** 私有可写句柄 —— 仅传递给 actions */
     signals,
-    /** read-only view — safe to expose to external consumers */
+    /** 只读视图 —— 可安全暴露给外部消费者 */
     readonly: { ...readonly, ...computedReadonly } as {
       [K in keyof T]: ReadonlySignal<T[K]>
     } & { [K in keyof C]: ReadonlySignal<C[K]> },
-    /** writable-to-readonly snapshot (peeks all source signals) */
+    /** 只读快照（peek 所有 source signals） */
     snapshot: () => {
       const s: Record<string, unknown> = {}
       for (const k of Object.keys(initial) as (keyof T)[]) s[k as string] = signals[k].peek()

@@ -104,13 +104,17 @@ Three coordinate systems must stay in sync:
 - **`checkVisibleRangeGapWhenIdle()` bails when `isPointerDown()` is true** — gap check only fires after drag ends; `onPointerUp()` is the last guaranteed trigger point.
 - **Bundle logically related info into a single signal payload instead of splitting across multiple signals that rely on timing order, and never use shared mutable variables to coordinate between independent signal subscribers.**
 
-### Signal Atomicity
+### StateKernel Reactive Kernel Design Principles
 
-**SSOT + derived values（首选）。** Every piece of state must have exactly one single source of truth (SSOT). Any value that can be derived from that SSOT must be a getter/computed — never store it as a separate field, never cache the result. If a value has multiple writers, eliminate all but one and route the rest through the sole writer.
+**Single Source of Truth** — All state mutations go through Actions writing to WritableSignal only. No scattered writes, no shadow caches, no manual sync paths.
 
-**`batch()` sync（SSOT 走不通时的兜底）。** When two semantically dependent signals cannot be reduced to a single SSOT + getter (e.g. cross-subsystem state), they must be written in the same synchronous call stack, wrapped in `batch()`. Do not split them across a RAF boundary or rely on Vue's `queueFlush()` / React's automatic batching — they only merge updates within the same call stack, not across signal domains.
+**Automatic Derivation** — Derived state lives in computed() pure functions. The reactive system tracks dependencies and re-evaluates automatically. No manual syncXxx() / updateYyy() methods.
 
-**Prefer reading from DOM over maintaining a shadow cache.** If you cache DOM values (e.g. `scrollLeft`) for performance, the cache must be written in the same synchronous step as the DOM write — but consider whether the cache is worth the complexity at all. For values read in hot paths like rendering, a cache is justified; for everything else, read the DOM directly.
+**Read/Write Separation** — External consumers receive ReadonlySignal<T> (no .set()). Internal mutation uses WritableSignal<T> accessible only within Actions. TypeScript enforces the boundary at compile time.
+
+**Effect Isolation** — DOM/WebGL side effects run in effect() only, decoupled from state computation. Pure derivation functions stay testable without a DOM.
+
+**Batched Atomic Updates** — Multi-field writes are batched via batch() into a single notification cycle. No intermediate state leaks — consumers always observe a consistent snapshot.
 
 ## CI
 
@@ -142,6 +146,13 @@ Never guess at Effect patterns - check the guide first.
 - **Viewport too large** may trigger `MAX_CANVAS_PIXELS`, causing DPR to be actively downgraded.
 - **Semantic renderer names** (e.g. `ma`, `boll`) are stringly-typed conventions — renaming requires sync in `semantic/controller.ts`.
 - **Web component build**: `pnpm build:wc` in packages/vue (cross-env BUILD_TARGET=web-component).
+
+## Comment Style
+
+- Language: body in Chinese; technical terms keep English (Signal, batch, computed, Action, etc.)
+- No Markdown symbols: no backticks, bold, or arrows. Use natural language for code references.
+- Prefer JSDoc tags: `@remarks` (detailed explanation), `@param`, `@returns`, `@typeParam`, `@example`.
+- Inline comments: `/** brief */` or `// brief`, no tags needed.
 
 ## ATTENTION
 - You can only commit when I explicitly ask you to do it.
