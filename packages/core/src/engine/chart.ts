@@ -35,6 +35,10 @@ import {
   createZoomState,
   type ZoomStateModule,
 } from './state/zoomState'
+import {
+  createPaneState,
+  type PaneStateModule,
+} from './state/paneState'
 import { ChartDataManager } from './data/chartDataManager'
 import { ChartIndicatorManager } from './indicators/chartIndicatorManager'
 import { resolveStateKey } from './indicators/indicatorMetadata'
@@ -110,6 +114,7 @@ export class Chart {
   /** Kernel sub-state modules */
   private _zoomState!: ZoomStateModule
   private _dataState!: DataStateModule
+  private _paneState!: PaneStateModule
 
   private viewportManager: ChartViewportManager
   private layoutManager: ChartPaneLayout
@@ -287,6 +292,9 @@ export class Chart {
     // ── Data kernel state (SSOT for data / loading / symbols) ──
     this._dataState = createDataState()
 
+    // ── Pane kernel state (SSOT for pane ratios / specs) ──
+    this._paneState = createPaneState()
+
     this._interactionState = createInteractionState({
       visibleRange$: this.viewportManager.visibleRangeSignal,
       scrollLeftLogical$: this.viewportManager.scrollLeftLogicalSignal,
@@ -318,6 +326,8 @@ export class Chart {
         this.rendererPluginManager.notifyResize(paneId, wrapPaneInfo(pane)),
       scheduleDraw: (level) => this.scheduleDraw(level),
       onLayoutChange: (ratios, specs) => {
+        this._paneState.actions.setPaneRatios(ratios)
+        this._paneState.actions.setPaneSpecs(specs)
         this.state.set.paneRatios(ratios)
         this.state.set.paneLayout(specs)
         this._optionsSignal.set({ ...this._optionsSignal.peek(), panes: specs })

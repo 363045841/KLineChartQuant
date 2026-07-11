@@ -22,3 +22,7 @@ export {
   type ZoomStateModule,
   type ZoomDeps,
 } from './zoomState'
+export {
+  createPaneState,
+  type PaneStateModule,
+} from './paneState'
