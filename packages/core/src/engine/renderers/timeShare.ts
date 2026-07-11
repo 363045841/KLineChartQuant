@@ -3,10 +3,10 @@ import type {
   RenderContext,
   RendererPluginWithHost,
   PluginHost,
-} from '../../plugin'
-import { RENDERER_PRIORITY } from '../../plugin'
-import { resolveThemeColors } from '../../tokens'
-import type { TimeShareData } from '../../types/price'
+} from '../../foundation/plugin/index'
+import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
+import { resolveThemeColors } from '../../foundation/tokens/index'
+import type { TimeShareData } from '../../foundation/types/price'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry'
 
 /** 成交量区域占 pane 高度的比例（底部） */

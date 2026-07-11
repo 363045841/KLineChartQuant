@@ -16,7 +16,7 @@
  */
 
 import { KLineChartError } from '../errors'
-import { createSignal } from '../reactivity/signal'
+import { createSignal } from '../foundation/reactivity/signal'
 
 import type { TimeScale } from './types'
 

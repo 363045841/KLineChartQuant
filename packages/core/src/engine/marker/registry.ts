@@ -1,4 +1,4 @@
-import { hitTestShape } from '../../semantic/drawShape'
+import { hitTestShape } from '../../features/semantic/drawShape'
 
 /**
  * 标记类型

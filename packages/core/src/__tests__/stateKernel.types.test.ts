@@ -3,8 +3,13 @@
  * Doesn't run at runtime — `pnpm type-check` enforces these constraints.
  */
 import { describe, it } from 'vitest'
-import { createSubState, computed, writableRef, type ReadonlySignal } from '../reactivity/signal'
-import { createViewportState } from '../state/viewportState'
+import {
+  createSubState,
+  computed,
+  writableRef,
+  type ReadonlySignal,
+} from '../foundation/reactivity/signal'
+import { createViewportState } from '../engine/state/viewportState'
 
 describe('StateKernel type constraints (compile-time)', () => {
   it('ReadonlySignal<T> has no .set property', () => {
@@ -15,10 +20,7 @@ describe('StateKernel type constraints (compile-time)', () => {
   })
 
   it('createSubState computed results are read-only', () => {
-    const { readonly } = createSubState(
-      { x: 1 },
-      { y: (s) => s.x() * 2 },
-    )
+    const { readonly } = createSubState({ x: 1 }, { y: (s) => s.x() * 2 })
     // @ts-expect-error `.set` should not exist on computed readonly result
     void readonly.y.set
   })

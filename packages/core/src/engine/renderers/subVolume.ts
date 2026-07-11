@@ -3,11 +3,11 @@ import type {
   RenderContext,
   PluginHost,
   BaseIndicatorState,
-} from '../../plugin'
-import { RENDERER_PRIORITY } from '../../plugin'
-import { resolveThemeColors } from '../../tokens'
-import { getKLineTrend } from '../../types/kLine'
-import type { KLineData } from '../../types/price'
+} from '../../foundation/plugin/index'
+import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
+import { resolveThemeColors } from '../../foundation/tokens/index'
+import { getKLineTrend } from '../../foundation/types/kLine'
+import type { KLineData } from '../../foundation/types/price'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../indicators/scheduler'

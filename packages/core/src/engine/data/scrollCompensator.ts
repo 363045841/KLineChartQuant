@@ -53,9 +53,7 @@ export class ScrollCompensator {
     const viewport = this.deps.getViewport()
     const clientWidth =
       viewport?.viewWidth ??
-      (this.deps.getObservedSize().width > 0
-        ? this.deps.getObservedSize().width
-        : undefined) ??
+      (this.deps.getObservedSize().width > 0 ? this.deps.getObservedSize().width : undefined) ??
       Math.round(this.deps.getDom().container?.clientWidth ?? 0)
     if (clientWidth <= 0) return
 

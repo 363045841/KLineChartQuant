@@ -9,7 +9,7 @@
 
 import { describe, bench } from 'vitest'
 
-import { createSignal } from '../reactivity/signal'
+import { createSignal } from '../foundation/reactivity/signal'
 
 describe('signal.set + notify — subscriber scaling', () => {
   const s0 = createSignal(0)

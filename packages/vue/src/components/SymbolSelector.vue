@@ -97,12 +97,12 @@
             </div>
             <button
               v-for="item in filteredSymbols"
-:key="item.symbol"
-               type="button"
-               class="symbol-list__item"
-               :class="{ 'is-active': item.symbol === symbol }"
-               role="option"
-               :aria-selected="item.symbol === symbol"
+              :key="item.symbol"
+              type="button"
+              class="symbol-list__item"
+              :class="{ 'is-active': item.symbol === symbol }"
+              role="option"
+              :aria-selected="item.symbol === symbol"
               @click="selectSymbol(item)"
             >
               <span class="symbol-list__left">

@@ -36,14 +36,23 @@ export default defineConfig({
     alias: [
       {
         find: /^@363045841yyt\/klinechart-core\/config$/,
-        replacement: r('config/chartSettings.ts'),
+        replacement: r('foundation/config/chartSettings.ts'),
       },
-      { find: /^@363045841yyt\/klinechart-core\/types\/price$/, replacement: r('types/price.ts') },
-      { find: /^@363045841yyt\/klinechart-core\/semantic$/, replacement: r('semantic/index.ts') },
-      { find: /^@363045841yyt\/klinechart-core\/plugin$/, replacement: r('plugin/index.ts') },
+      {
+        find: /^@363045841yyt\/klinechart-core\/types\/price$/,
+        replacement: r('foundation/types/price.ts'),
+      },
+      {
+        find: /^@363045841yyt\/klinechart-core\/semantic$/,
+        replacement: r('features/semantic/index.ts'),
+      },
+      {
+        find: /^@363045841yyt\/klinechart-core\/plugin$/,
+        replacement: r('foundation/plugin/index.ts'),
+      },
       {
         find: /^@363045841yyt\/klinechart-core\/reactivity$/,
-        replacement: r('reactivity/index.ts'),
+        replacement: r('foundation/reactivity/index.ts'),
       },
       {
         find: /^@363045841yyt\/klinechart-core\/controllers$/,

@@ -35,7 +35,9 @@
       </div>
       <div v-if="typeof hoverData.changePercent === 'number'" class="row">
         <span>涨跌幅</span>
-        <span :style="{ color: changeColor }">{{ formatSigned(hoverData.changePercent, '%') }}</span>
+        <span :style="{ color: changeColor }">{{
+          formatSigned(hoverData.changePercent, '%')
+        }}</span>
       </div>
       <div v-if="typeof hoverData.changeAmount === 'number'" class="row">
         <span>涨跌额</span>
@@ -126,7 +128,11 @@
 
   const NEUTRAL_COLOR = '#6b7280'
 
-  function calcDirection(data: KLineData, allData: ReadonlyArray<KLineData>, idx: number | null): number {
+  function calcDirection(
+    data: KLineData,
+    allData: ReadonlyArray<KLineData>,
+    idx: number | null,
+  ): number {
     if (data.close >= data.open) return 1
     const prev = typeof idx === 'number' && idx > 0 ? allData[idx - 1] : undefined
     if (prev && data.close > prev.close) return 1
@@ -148,7 +154,9 @@
 
   const changeColor = computed(() => {
     if (!props.hoverData) return NEUTRAL_COLOR
-    const pct = props.hoverData.changePercent ?? ((props.hoverData.close - props.hoverData.open) / props.hoverData.open) * 100
+    const pct =
+      props.hoverData.changePercent ??
+      ((props.hoverData.close - props.hoverData.open) / props.hoverData.open) * 100
     return pct > 0 ? props.upColor : pct < 0 ? props.downColor : NEUTRAL_COLOR
   })
 </script>

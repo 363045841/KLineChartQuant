@@ -75,7 +75,8 @@ export function computeZoom(
   const newScrollLeft = newAnchorWorldPx / config.dpr - mouseX
 
   // 用新 kWidth/kGap 计算内容宽度，确保裁剪使用正确的（缩放后）尺寸
-  const dataPlotWidth = (newConfig.startXPx + (config.dataLength + TRAILING_SLOTS) * newConfig.unitPx) / config.dpr
+  const dataPlotWidth =
+    (newConfig.startXPx + (config.dataLength + TRAILING_SLOTS) * newConfig.unitPx) / config.dpr
   const newContentWidth = config.plotWidth + Math.max(dataPlotWidth, config.plotWidth)
   const maxScroll = Math.max(0, newContentWidth - config.clientWidth)
 

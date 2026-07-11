@@ -1,5 +1,5 @@
-import type { BaseIndicatorState } from '../../../plugin'
-import { createIndicatorStateKey } from '../../../plugin/stateKeys'
+import type { BaseIndicatorState } from '../../../foundation/plugin/index'
+import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys'
 
 export type ZoneKind = 'FVG_BULL' | 'FVG_BEAR' | 'OB_BULL' | 'OB_BEAR'
 

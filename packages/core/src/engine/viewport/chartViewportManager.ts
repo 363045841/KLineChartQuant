@@ -1,10 +1,10 @@
-import { type Signal } from '../../reactivity/signal'
+import { type Signal } from '../../foundation/reactivity/signal'
 import type { ChartDom, Viewport, ViewportState } from '../chartTypes'
 import {
   createViewportState,
   type ViewportStateModule,
   type ViewportDeps,
-} from '../../state/viewportState'
+} from '../state/viewportState'
 
 /** Minimal manager-level deps (DOM + lifecycle callbacks). */
 export interface ViewportDependencies {
@@ -22,10 +22,7 @@ export class ChartViewportManager {
     return this.state.readonly.viewportState as unknown as Signal<ViewportState>
   }
 
-  constructor(
-    deps: ViewportDependencies,
-    kernelDeps: ViewportDeps,
-  ) {
+  constructor(deps: ViewportDependencies, kernelDeps: ViewportDeps) {
     this.deps = deps
     this.state = createViewportState(kernelDeps)
   }

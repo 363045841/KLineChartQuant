@@ -1,4 +1,4 @@
-import type { BaseIndicatorState } from '../../../plugin'
+import type { BaseIndicatorState } from '../../../foundation/plugin/index'
 import type { MACDPoint } from '../calculators'
 import type { MACDSchedulerConfig } from '../workerProtocol'
 

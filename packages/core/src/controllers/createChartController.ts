@@ -12,7 +12,7 @@
  *   - Tear down DOM + listeners on dispose().
  */
 
-import { resolveSettings } from '../config/chartSettings'
+import { resolveSettings } from '../foundation/config/chartSettings'
 import { Chart, type InteractionSnapshot as LegacyInteractionSnapshot } from '../engine/chart'
 import type {
   ChartOptions,
@@ -26,8 +26,8 @@ import { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins'
 import type { CustomMarkerEntity } from '../engine/marker/registry'
 import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
 import { KLineChartError } from '../errors'
-import { ChartBridge } from '../mcp/chartBridge'
-import { createSignal, type Signal } from '../reactivity'
+import { ChartBridge } from '../features/mcp/chartBridge'
+import { createSignal, type Signal } from '../foundation/reactivity/index'
 
 import type {
   ChartController,

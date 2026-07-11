@@ -203,10 +203,6 @@
   import IconTablerZoomIn from '~icons/tabler/zoom-in'
   import IconTablerZoomOut from '~icons/tabler/zoom-out'
 
-
-
-
-
   export interface ToolDef {
     id: string
     title: string
@@ -296,7 +292,7 @@
       : loadSettings(),
   )
 
-watch(
+  watch(
     () => props.effectiveSettings,
     (val) => {
       if (val) appliedSettings.value = { ...val }

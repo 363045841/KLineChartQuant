@@ -1,6 +1,6 @@
-import type { RendererPlugin, RenderContext } from '../../plugin'
-import { RENDERER_PRIORITY } from '../../plugin'
-import type { KLineData } from '../../types/price'
+import type { RendererPlugin, RenderContext } from '../../foundation/plugin/index'
+import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
+import type { KLineData } from '../../foundation/types/price'
 
 const DEFAULT_COMPARISON_COLOR = '#f59e0b'
 

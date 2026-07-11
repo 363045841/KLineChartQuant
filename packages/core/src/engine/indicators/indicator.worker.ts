@@ -3,7 +3,7 @@
  * 运行在独立线程，负责指标计算
  */
 
-import type { KLineData } from '../../types/price'
+import type { KLineData } from '../../foundation/types/price'
 
 import type { IndicatorRuntimeDescriptor } from './indicatorMetadata'
 import { IndicatorRuntime, CALCULATOR_MAP, createWorkerCompute } from './indicatorRuntime'

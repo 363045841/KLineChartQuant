@@ -1,7 +1,7 @@
 // 交互控制中心
 
-import type { ChartSettings } from '../../config/chartSettings'
-import type { KLineData } from '../../types/price'
+import type { ChartSettings } from '../../foundation/config/chartSettings'
+import type { KLineData } from '../../foundation/types/price'
 import type { Chart } from '../chart'
 import { UpdateLevel } from '../layout/pane'
 import type { MarkerEntity, CustomMarkerEntity } from '../marker/registry'
@@ -9,8 +9,7 @@ import type { MarkerEntity, CustomMarkerEntity } from '../marker/registry'
 import { MarkerInteractionState } from './markerInteraction'
 import { PinchTracker } from './pinchTracker'
 import { computeTooltipPosition, type TooltipPositionMode } from './tooltipPosition'
-import { isOnRightHalf } from '../../utils/viewportSide'
-
+import { isOnRightHalf } from '../../foundation/utils/viewportSide'
 
 interface PointerLocation {
   mouseX: number
@@ -100,13 +99,15 @@ export class InteractionController {
   crosshairPos: { x: number; y: number } | null = null
   /** 十字线当前指向的 K 线索引（从 crosshairPos + kLinePositions 推导） */
   get crosshairIndex(): number | null {
-    if (!this.crosshairPos || !this.kLinePositions || !this.visibleRange || !this.kWidthPx) return null
+    if (!this.crosshairPos || !this.kLinePositions || !this.visibleRange || !this.kWidthPx)
+      return null
     const dpr = this.chart.getCurrentDpr()
     const kWidthLogical = this.kWidthPx / dpr
     const scrollLeft = this.chart.getLogicalScrollLeft()
     const worldX = scrollLeft + this.crosshairPos.x
     const positions = this.kLinePositions
-    let lo = 0, hi = positions.length
+    let lo = 0,
+      hi = positions.length
     while (lo < hi) {
       const mid = (lo + hi) >> 1
       if (positions[mid]! < worldX) lo = mid + 1

@@ -1,8 +1,12 @@
-import type { RendererPlugin, RenderContext, MarkerManagerLike } from '../../plugin'
-import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../plugin'
-import { drawShape, drawLabel, hitTestShape } from '../../semantic/drawShape'
-import type { KLineData } from '../../types/price'
-import { roundToPhysicalPixel } from '../draw/pixelAlign'
+import type {
+  RendererPlugin,
+  RenderContext,
+  MarkerManagerLike,
+} from '../../foundation/plugin/index'
+import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../foundation/plugin/index'
+import { drawShape, drawLabel, hitTestShape } from '../../features/semantic/drawShape'
+import type { KLineData } from '../../foundation/types/price'
+import { roundToPhysicalPixel } from '../../foundation/utils/pixelAlign'
 import type { CustomMarkerEntity, CustomMarkerShape } from '../marker/registry'
 
 /** 默认标记尺寸（相对于 K 线宽度的缩放因子） */

@@ -1,10 +1,10 @@
-import type { RendererPlugin, RenderContext } from '../../plugin'
-import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../plugin'
-import { resolveThemeColors } from '../../tokens'
-import type { KLineData } from '../../types/price'
-import { drawCrosshairPriceLabel, drawAxisPriceLabel } from '../../utils/kLineDraw/axis'
-import { roundToPhysicalPixel } from '../draw/pixelAlign'
-import { getFont, setCanvasFont } from '../theme/fonts'
+import type { RendererPlugin, RenderContext } from '../../foundation/plugin/index'
+import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../foundation/plugin/index'
+import { resolveThemeColors } from '../../foundation/tokens/index'
+import type { KLineData } from '../../foundation/types/price'
+import { drawCrosshairPriceLabel, drawAxisPriceLabel } from '../../foundation/utils/kLineDraw/axis'
+import { roundToPhysicalPixel } from '../../foundation/utils/pixelAlign'
+import { getFont, setCanvasFont } from '../../foundation/tokens/fonts'
 
 /**
  * 创建 Y 轴渲染器插件

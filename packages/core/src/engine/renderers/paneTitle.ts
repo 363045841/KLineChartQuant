@@ -1,10 +1,14 @@
-import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../plugin'
-import { RENDERER_PRIORITY } from '../../plugin'
-import { resolveThemeColors } from '../../tokens'
-import type { KLineData } from '../../types/price'
+import type {
+  RendererPluginWithHost,
+  RenderContext,
+  PluginHost,
+} from '../../foundation/plugin/index'
+import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
+import { resolveThemeColors } from '../../foundation/tokens/index'
+import type { KLineData } from '../../foundation/types/price'
 import type { TitleInfo } from '../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../indicators/scheduler'
-import { getFont, setCanvasFont } from '../theme/fonts'
+import { getFont, setCanvasFont } from '../../foundation/tokens/fonts'
 
 import type { SubIndicatorType } from './Indicator'
 

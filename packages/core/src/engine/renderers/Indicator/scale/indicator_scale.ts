@@ -3,13 +3,16 @@ import type {
   PluginHost,
   RenderContext,
   BaseIndicatorState,
-} from '../../../../plugin'
-import { RENDERER_PRIORITY } from '../../../../plugin'
-import { createIndicatorStateKey } from '../../../../plugin/stateKeys'
-import { resolveThemeColors } from '../../../../tokens'
-import { drawCrosshairPriceLabel } from '../../../../utils/kLineDraw/axis'
-import { roundToPhysicalPixel, alignToPhysicalPixelCenter } from '../../../draw/pixelAlign'
-import { getFont, setCanvasFont } from '../../../theme/fonts'
+} from '../../../../foundation/plugin/index'
+import { RENDERER_PRIORITY } from '../../../../foundation/plugin/index'
+import { createIndicatorStateKey } from '../../../../foundation/plugin/stateKeys'
+import { resolveThemeColors } from '../../../../foundation/tokens/index'
+import { drawCrosshairPriceLabel } from '../../../../foundation/utils/kLineDraw/axis'
+import {
+  roundToPhysicalPixel,
+  alignToPhysicalPixelCenter,
+} from '../../../../foundation/utils/pixelAlign'
+import { getFont, setCanvasFont } from '../../../../foundation/tokens/fonts'
 import { calculateValueTickPositions, type ScaleType } from '../../../utils/tickPosition'
 
 interface IndicatorScaleRenderState extends BaseIndicatorState {

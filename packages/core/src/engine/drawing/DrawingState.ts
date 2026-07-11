@@ -1,5 +1,5 @@
 import type { DrawingChartAdapter } from '../../controllers/types'
-import type { DrawingObject, DrawingStyle } from '../../plugin'
+import type { DrawingObject, DrawingStyle } from '../../foundation/plugin/index'
 
 const PREVIEW_ID = '__preview__'
 

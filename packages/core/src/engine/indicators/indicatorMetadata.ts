@@ -6,8 +6,8 @@
  */
 
 import { KLineChartError } from '../../errors'
-import type { PluginHost, RendererPluginWithHost } from '../../plugin'
-import type { KLineData } from '../../types/price'
+import type { PluginHost, RendererPluginWithHost } from '../../foundation/plugin/index'
+import type { KLineData } from '../../foundation/types/price'
 
 import type { IndicatorConfigSnapshot, IndicatorSeriesBundle } from './workerProtocol'
 

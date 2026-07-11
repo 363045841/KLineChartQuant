@@ -1,11 +1,11 @@
 import type { SymbolSpec, SymbolInfo, DataFetcher, CustomDataSource } from '../../controllers/types'
-import { DataBuffer } from '../../data-fetchers/dataBuffer'
-import { getPeriodDays } from '../../data-fetchers/dataBuffer.effects'
-import type { KLineBuffer, DataChange } from '../../data-fetchers/dataBufferTypes'
-import { TimeShareBuffer } from '../../data-fetchers/timeShareBuffer'
-import type { TimeShareFetcherFn } from '../../data-fetchers/types'
-import { batch, createSignal, type Signal } from '../../reactivity/signal'
-import type { KLineData, TimeShareData } from '../../types/price'
+import { DataBuffer } from '../../data/dataBuffer'
+import { getPeriodDays } from '../../data/dataBuffer.effects'
+import type { KLineBuffer, DataChange } from '../../data/dataBufferTypes'
+import { TimeShareBuffer } from '../../data/timeShareBuffer'
+import type { TimeShareFetcherFn } from '../../data/types'
+import { batch, createSignal, type Signal } from '../../foundation/reactivity/signal'
+import type { KLineData, TimeShareData } from '../../foundation/types/price'
 import type { ChartDom, Viewport } from '../chartTypes'
 import type { VisibleRange, UpdateLevel } from '../layout/pane'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
@@ -115,7 +115,7 @@ export class ChartDataManager {
     this._activeBufferKey = key
     const buf = this._lookupBuffer(key)
     if (buf) {
-      this._dataSignal.set([...(buf.data.peek() as DataChange).data as unknown[]])
+      this._dataSignal.set([...((buf.data.peek() as DataChange).data as unknown[])])
       this._loadingSignal.set(buf.loading.peek())
       const unsubData = buf.data.subscribe(() => {
         const change = buf.data.peek() as DataChange
@@ -549,10 +549,7 @@ export class ChartDataManager {
 
   setComparisonData(symbol: string, data: KLineData[]): void {
     this._comparisonManager.setData(symbol, data, (key) => {
-      this._symbolsSignal.set([
-        this._symbolsSignal.peek()[0]!,
-        ...this._comparisonManager.specs,
-      ])
+      this._symbolsSignal.set([this._symbolsSignal.peek()[0]!, ...this._comparisonManager.specs])
     })
   }
 
@@ -585,7 +582,14 @@ export class ChartDataManager {
       const vp = this.deps.getViewport()
       if (vp) {
         const opt = this.deps.getOption()
-        const vRange = getVisibleRange(vp.scrollLeft, vp.plotWidth, opt.kWidth, opt.kGap, dataLen, vp.dpr)
+        const vRange = getVisibleRange(
+          vp.scrollLeft,
+          vp.plotWidth,
+          opt.kWidth,
+          opt.kGap,
+          dataLen,
+          vp.dpr,
+        )
         visibleStart = vRange ? Math.max(0, vRange.start) : 0
       }
     }
@@ -650,7 +654,9 @@ export class ChartDataManager {
 
     // 首次调用时保存原始 spec，用于切回 Fetcher 时恢复
     if (!this._preCustomSpec) {
-      this._preCustomSpec = { ...(this._currentSpec ?? this._symbolsSignal.peek()[0] ?? { symbol: '' }) }
+      this._preCustomSpec = {
+        ...(this._currentSpec ?? this._symbolsSignal.peek()[0] ?? { symbol: '' }),
+      }
     }
 
     // 每次都切到 custom 品种，注册到目录，填入数据
@@ -839,7 +845,8 @@ export class ChartDataManager {
   // ── Comparison price range ──
 
   getComparisonEquivalentPriceRange(range: VisibleRange): { min: number; max: number } | null {
-    if (this._comparisonManager.specs.length === 0 || this._comparisonManager.data.size === 0) return null
+    if (this._comparisonManager.specs.length === 0 || this._comparisonManager.data.size === 0)
+      return null
     const buf = this.getActiveDataBuffer()
     const internalData = buf ? buf.getRawData() : []
     const baseIndex = Math.max(0, range.start)

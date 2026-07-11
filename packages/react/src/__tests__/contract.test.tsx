@@ -35,7 +35,6 @@ import { __setChartFactory, useChart } from '../index'
 
 import { createMockChartController, type MockControllerHandle } from './_mockController'
 
-
 describe('@363045841yyt/klinechart-react —public API surface', () => {
   it('exports createChart, useChart, useIndicators, KLineChart', () => {
     expect(typeof ReactAdapter.createChart).toBe('function')

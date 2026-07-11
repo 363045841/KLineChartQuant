@@ -1,4 +1,4 @@
-import type { PaneRole } from '../../plugin'
+import type { PaneRole } from '../../foundation/plugin/index'
 import type { ChartDom, PaneSpec, Viewport } from '../chartTypes'
 import { PaneRenderer } from '../paneRenderer'
 import type { SharedWebGLSurface } from '../renderers/webgl/sharedWebGLSurface'

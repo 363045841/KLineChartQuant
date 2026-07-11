@@ -1,4 +1,4 @@
-import type { ChartSettings } from '../../config/chartSettings'
+import type { ChartSettings } from '../../foundation/config/chartSettings'
 import type { SymbolSpec } from '../../controllers/types'
 import type {
   PluginHostImpl,
@@ -8,14 +8,14 @@ import type {
   YAxisRange,
   XAxisRange,
   YAxisTick,
-} from '../../plugin'
-import { RendererPluginManager, wrapPaneInfo } from '../../plugin'
-import { createWebGLRenderer, createWebGLSurfaceBackend } from '../../render'
-import type { Renderer } from '../../render/Renderer'
-import { createLayerFromPlugin } from '../../scene/createLayerFromPlugin'
-import { createScene } from '../../scene/createScene'
-import type { Scene, PaintContext, PaneRole, Layer } from '../../scene/types'
-import type { KLineData } from '../../types/price'
+} from '../../foundation/plugin/index'
+import { RendererPluginManager, wrapPaneInfo } from '../../foundation/plugin/index'
+import { createWebGLRenderer, createWebGLSurfaceBackend } from '../../rendering/render/index'
+import type { Renderer } from '../../rendering/render/Renderer'
+import { createLayerFromPlugin } from '../../rendering/scene/createLayerFromPlugin'
+import { createScene } from '../../rendering/scene/createScene'
+import type { Scene, PaintContext, PaneRole, Layer } from '../../rendering/scene/types'
+import type { KLineData } from '../../foundation/types/price'
 import type {
   ChartDom,
   PaneSpec,
@@ -52,7 +52,7 @@ import { createLastPriceLineLayer } from './layers/lastPriceLineLayer'
 import { createLeftYAxisLayer } from './layers/leftYAxisLayer'
 import { createMainIndicatorLegendLayer } from './layers/mainIndicatorLegendLayer'
 import { createYAxisLayer } from './layers/yAxisLayer'
-import { batch } from '../../reactivity/signal'
+import { batch } from '../../foundation/reactivity/signal'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kWidth: number

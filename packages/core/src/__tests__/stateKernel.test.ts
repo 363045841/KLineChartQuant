@@ -9,7 +9,7 @@ import {
   createSubState,
   type ReadonlySignal,
   type WritableSignal,
-} from '../reactivity/signal'
+} from '../foundation/reactivity/signal'
 
 describe('ReadonlySignal type boundary', () => {
   it('createSignal returns WritableSignal with .set()', () => {
@@ -93,10 +93,7 @@ describe('createSubState', () => {
   it('computed signals are themselves read-only (verified at compile time)', () => {
     // Compile-time boundary: `.set` does not exist on the type.
     // See stateKernel.types.test.ts for the @ts-expect-error check.
-    const { readonly } = createSubState(
-      { a: 1 },
-      { doubled: (s) => s.a() * 2 },
-    )
+    const { readonly } = createSubState({ a: 1 }, { doubled: (s) => s.a() * 2 })
     expect(readonly.doubled()).toBe(2)
   })
 
@@ -108,10 +105,7 @@ describe('createSubState', () => {
   })
 
   it('notifies subscribers when source signal changes', () => {
-    const { signals, readonly } = createSubState(
-      { a: 1 },
-      { doubled: (s) => s.a() * 2 },
-    )
+    const { signals, readonly } = createSubState({ a: 1 }, { doubled: (s) => s.a() * 2 })
     const listener = vi.fn()
     readonly.doubled.subscribe(listener)
     signals.a.set(3)
@@ -120,10 +114,7 @@ describe('createSubState', () => {
   })
 
   it('batch defers notifications from multiple signal writes', () => {
-    const { signals, readonly } = createSubState(
-      { a: 1, b: 2 },
-      { sum: (s) => s.a() + s.b() },
-    )
+    const { signals, readonly } = createSubState({ a: 1, b: 2 }, { sum: (s) => s.a() + s.b() })
     const listener = vi.fn()
     readonly.sum.subscribe(listener)
     batch(() => {
@@ -138,7 +129,7 @@ describe('createSubState', () => {
 
 describe('viewportState template', () => {
   it('creates a sub-state with computed dpr + viewportState', async () => {
-    const { createViewportState } = await import('../state/viewportState')
+    const { createViewportState } = await import('../engine/state/viewportState')
     const noop = () => {}
     const module = createViewportState({
       getDom: () => ({ container: null, canvasLayer: null, xAxisCanvas: null }),
@@ -163,7 +154,7 @@ describe('viewportState template', () => {
   })
 
   it('scrollTo writes signal and DOM', async () => {
-    const { createViewportState } = await import('../state/viewportState')
+    const { createViewportState } = await import('../engine/state/viewportState')
     const noop = () => {}
     const module = createViewportState({
       getDom: () => ({ container: null, canvasLayer: null, xAxisCanvas: null }),
@@ -178,7 +169,7 @@ describe('viewportState template', () => {
   })
 
   it('resize batches dimension writes into one notification', async () => {
-    const { createViewportState } = await import('../state/viewportState')
+    const { createViewportState } = await import('../engine/state/viewportState')
     const noop = () => {}
     const module = createViewportState({
       getDom: () => ({ container: null, canvasLayer: null, xAxisCanvas: null }),

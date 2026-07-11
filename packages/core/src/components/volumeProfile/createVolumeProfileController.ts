@@ -24,7 +24,7 @@
  *     adequate for visual profiles; tick-snapped binning is a future option.
  */
 
-import { createSignal, type Signal } from '../../reactivity'
+import { createSignal, type Signal } from '../../foundation/reactivity/index'
 
 import { binBarToBuckets } from './binning'
 import { findPOCIndex } from './poc'

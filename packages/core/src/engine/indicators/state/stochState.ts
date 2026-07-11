@@ -1,5 +1,5 @@
-import type { BaseIndicatorState } from '../../../plugin'
-import { createIndicatorStateKey } from '../../../plugin/stateKeys'
+import type { BaseIndicatorState } from '../../../foundation/plugin/index'
+import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys'
 import type { STOCHPoint } from '../calculators'
 
 export interface STOCHRenderState extends BaseIndicatorState {

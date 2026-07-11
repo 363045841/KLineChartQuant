@@ -4,11 +4,16 @@ import type {
   RendererPlugin,
   RendererPluginWithHost,
   RenderContext,
-} from '../../plugin'
-import { createSignal, computed, type Signal, type Computed } from '../../reactivity/signal'
-import { createLayerFromPlugin } from '../../scene/createLayerFromPlugin'
-import type { Layer } from '../../scene/types'
-import type { KLineData } from '../../types/price'
+} from '../../foundation/plugin/index'
+import {
+  createSignal,
+  computed,
+  type Signal,
+  type Computed,
+} from '../../foundation/reactivity/signal'
+import { createLayerFromPlugin } from '../../rendering/scene/createLayerFromPlugin'
+import type { Layer } from '../../rendering/scene/types'
+import type { KLineData } from '../../foundation/types/price'
 import type { IndicatorInstance, SubPaneInfo, PaneSpec, ChartOptions } from '../chartTypes'
 import type { VisibleRange } from '../layout/pane'
 import { UpdateLevel } from '../layout/pane'
@@ -18,7 +23,6 @@ import { SubPaneManager, type SubPaneEntry, type SubPaneContext } from '../subPa
 
 import { getRegisteredIndicatorDefinitions } from './indicatorDefinitionRegistry'
 import { IndicatorScheduler } from './scheduler'
-
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kWidth: number

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 
-import { createSignal, effect, computed } from '../reactivity/signal'
+import { createSignal, effect, computed } from '../foundation/reactivity/signal'
 
 describe('createSignal', () => {
   it('reads initial value', () => {

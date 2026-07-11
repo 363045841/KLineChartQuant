@@ -9,8 +9,8 @@ import type {
   LinePrimitive,
   AreaPrimitive,
   TextPrimitive,
-} from '../../plugin'
-import type { KLineData } from '../../types/price'
+} from '../../foundation/plugin/index'
+import type { KLineData } from '../../foundation/types/price'
 
 export type {
   DrawingObject,

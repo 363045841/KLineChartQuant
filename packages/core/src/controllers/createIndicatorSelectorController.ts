@@ -11,7 +11,7 @@
  * stays in the Vue adapter — the controller only deals with pure data.
  */
 
-import { createSignal, computed, type Signal } from '../reactivity'
+import { createSignal, computed, type Signal } from '../foundation/reactivity/index'
 
 import type { ActiveIndicator, IndicatorDefinition, IndicatorSelectorController } from './types'
 

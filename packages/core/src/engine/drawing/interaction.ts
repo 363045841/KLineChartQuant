@@ -1,5 +1,5 @@
 import type { DrawingChartAdapter } from '../../controllers/types'
-import type { DrawingObject, DrawingKind, DrawingStyle } from '../../plugin'
+import type { DrawingObject, DrawingKind, DrawingStyle } from '../../foundation/plugin/index'
 
 import { AnchorCollector } from './AnchorCollector'
 import { DragHandler } from './DragHandler'

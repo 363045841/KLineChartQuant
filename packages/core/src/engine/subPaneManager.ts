@@ -1,8 +1,12 @@
 import { KLineChartError } from '../errors'
-import type { RendererPlugin, RendererPluginWithHost, RenderContext } from '../plugin'
-import { createSignal, type Signal } from '../reactivity/signal'
-import { createLayerFromPlugin } from '../scene/createLayerFromPlugin'
-import type { Layer } from '../scene/types'
+import type {
+  RendererPlugin,
+  RendererPluginWithHost,
+  RenderContext,
+} from '../foundation/plugin/index'
+import { createSignal, type Signal } from '../foundation/reactivity/signal'
+import { createLayerFromPlugin } from '../rendering/scene/createLayerFromPlugin'
+import type { Layer } from '../rendering/scene/types'
 
 import type { PaneSpec } from './chartTypes'
 import type { IndicatorScheduler } from './indicators/scheduler'
@@ -11,9 +15,6 @@ import { createSubIndicatorRenderer } from './renderers/Indicator'
 import { findIndicator } from './renderers/Indicator/indicatorCatalog'
 import { createIndicatorScaleRendererPlugin } from './renderers/Indicator/scale/indicator_scale'
 import { createPaneTitleRendererPlugin } from './renderers/paneTitle'
-
-
-
 
 export interface SubPaneEntry {
   paneId: string

@@ -3,7 +3,7 @@
  * 定义主线程与 Indicator Worker 之间的所有通信类型
  */
 
-import type { KLineData } from '../../types/price'
+import type { KLineData } from '../../foundation/types/price'
 
 import type {
   MAFlags,

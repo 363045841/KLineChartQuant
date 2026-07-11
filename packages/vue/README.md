@@ -1,6 +1,5 @@
 High-performance financial chart library with a single-frame generation time of just 2ms, stable scrolling at 190–200fps in a 200Hz environment, native support for AI Agent control, full-link ResizeObserver-driven crisp rendering, and a pluggable architecture.
 
-
 <div align="center">
 
 English | [简体中文](README_CN.md)
@@ -16,7 +15,6 @@ English | [简体中文](README_CN.md)
 </div>
 
 ---
-
 
 A lightweight financial K-line charting library focused on quantitative trading scenarios. **Agent is a first-class citizen** — supports AI Agent direct control of chart operations, providing TradingView-level interaction experience.
 
@@ -38,7 +36,6 @@ A lightweight financial K-line charting library focused on quantitative trading 
   <img src="https://files.seeusercontent.com/2026/06/20/0flS/1YHDQQB321JZ5QW.png" width="400" style="border-radius: 12px; margin: 8px;" />
 </div>
 
-
 ## ✨ Core Features
 
 - **Agent First / MCP Native** - Supports AI Agent direct control of charts via the [Model Context Protocol](https://modelcontextprotocol.io). Built-in WebSocket-bridged MCP server enables any MCP client (Inspector, Claude Desktop, Cursor, etc.) to zoom, pan, add/remove indicators, and change theme in real time
@@ -53,7 +50,6 @@ A lightweight financial K-line charting library focused on quantitative trading 
 - **Multi-Source Aggregation** - Supports aggregation and unification of multiple data sources
 - **Batch Data Export** - Select a date range and export multiple stocks' K-line data into a single CSV file, with progress indication
 - **Custom Tooltip** - Fully customizable tooltip via named slots (`#kline-tooltip`, `#marker-tooltip`), with engine-provided hover data, position, and styling
-
 
 ## 🚀 Quick Start
 
@@ -82,7 +78,6 @@ npm run stockbao
 ```
 
 After startup, the API is available at `http://localhost:8000`
-
 
 ### 3. Install and Use
 
@@ -160,19 +155,22 @@ createApp(App).mount('#app')
         <span>{{ hoverData.stockCode }}</span>
         <span>{{ formatTimestamp(hoverData.timestamp, { timeZone: 'Asia/Shanghai' }) }}</span>
       </div>
-      <div class="custom-tooltip__price"
-           :style="{ color: hoverData.close >= hoverData.open ? upColor : downColor }">
+      <div
+        class="custom-tooltip__price"
+        :style="{ color: hoverData.close >= hoverData.open ? upColor : downColor }"
+      >
         {{ hoverData.close.toFixed(2) }}
       </div>
       <div class="custom-tooltip__detail">
-        O: {{ hoverData.open.toFixed(2) }}<br> H: {{ hoverData.high.toFixed(2) }}<br>
-        L: {{ hoverData.low.toFixed(2) }}<br> C: {{ hoverData.close.toFixed(2) }}
+        O: {{ hoverData.open.toFixed(2) }}<br />
+        H: {{ hoverData.high.toFixed(2) }}<br />
+        L: {{ hoverData.low.toFixed(2) }}<br />
+        C: {{ hoverData.close.toFixed(2) }}
       </div>
     </div>
   </template>
 </KlineChart>
 ```
-
 
 ## 🎨 Custom Tooltip
 
@@ -180,12 +178,12 @@ createApp(App).mount('#app')
 
 ### `#kline-tooltip`
 
-| Slot Prop              | Type                                          | Description                                      |
-| ---------------------- | --------------------------------------------- | ------------------------------------------------ |
-| `hoverData`            | `KLineData`                                   | Hovered K-line data (guaranteed non-null)        |
-| `hoveredIndex`         | `number \| null`                              | Data index                                       |
-| `data`                 | `ReadonlyArray<KLineData>`                    | Full data array                                  |
-| `upColor` / `downColor`| `string`                                      | Current theme's up/down colors                   |
+| Slot Prop               | Type                       | Description                               |
+| ----------------------- | -------------------------- | ----------------------------------------- |
+| `hoverData`             | `KLineData`                | Hovered K-line data (guaranteed non-null) |
+| `hoveredIndex`          | `number \| null`           | Data index                                |
+| `data`                  | `ReadonlyArray<KLineData>` | Full data array                           |
+| `upColor` / `downColor` | `string`                   | Current theme's up/down colors            |
 
 ```vue
 <KlineChart v-model:theme="currentTheme">
@@ -223,21 +221,28 @@ createApp(App).mount('#app')
     backdrop-filter: blur(6px);
   }
   .custom-tooltip__title {
-    display: flex; justify-content: space-between; gap: 12px;
-    font-weight: 600; margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-weight: 600;
+    margin-bottom: 4px;
   }
   .custom-tooltip__price {
-    font-size: 18px; font-weight: 700; margin-bottom: 4px;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 4px;
   }
-  .custom-tooltip__detail { opacity: 0.7; }
+  .custom-tooltip__detail {
+    opacity: 0.7;
+  }
 </style>
 ```
 
 ### `#marker-tooltip`
 
-| Slot Prop              | Type                                                            | Description                     |
-| ---------------------- | --------------------------------------------------------------- | ------------------------------- |
-| `marker`               | `MarkerEntity \| CustomMarkerEntity \| null`                    | Hovered marker data             |
+| Slot Prop | Type                                         | Description         |
+| --------- | -------------------------------------------- | ------------------- |
+| `marker`  | `MarkerEntity \| CustomMarkerEntity \| null` | Hovered marker data |
 
 ## 📖 More Documentation
 
@@ -245,29 +250,27 @@ createApp(App).mount('#app')
 - [Plugin System](../../docs/PLUGIN_SYSTEM.md) - Extension mechanism and custom development
 - [Renderer Development Guide](../../docs/renderer-development-guide.md) - Custom renderer development
 
-
 ## 📋 Component Props
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| semanticConfig | `SemanticChartConfig` | — | Semantic configuration (optional). When provided, drives chart data, indicators, markers and chart options |
-| dataFetcher | `DataFetcher` | built-in | Data fetching function. Defaults to an internal fetcher that proxies `/api/stock` |
-| theme | `'light' \| 'dark'` | — | Chart theme. Use `v-model:theme` for two-way binding |
-| isFullscreen | `boolean` | — | Controlled fullscreen state. Leave unbound for internal (non-controlled) mode |
-| timezone | `string` | `'Asia/Shanghai'` | Time zone for date/time display |
-| yPaddingPx | `number` | 20 | Y-axis padding in pixels |
-| minKWidth | `number` | 1 | Minimum K-line width (logical pixels) |
-| maxKWidth | `number` | 50 | Maximum K-line width (logical pixels) |
-| rightAxisWidth | `number` | 0 | Right price axis width |
-| leftAxisWidth | `number` | 0 | Left price axis width (0 = hidden) |
-| bottomAxisHeight | `number` | 24 | Bottom time axis height |
-| priceLabelWidth | `number` | 60 | Price label extra width for showing change percentage |
-| zoomLevels | `number` | 20 | Total number of zoom levels |
-| initialZoomLevel | `number` | 3 | Initial zoom level (1 ~ zoomLevels) |
-| customData | `CustomDataSource` | — | Inline data bundle: `{ symbol?, period?, data, comparisons? }`. Bypasses the fetcher pipeline entirely. See example above |
-| teleportContainer | `string \| HTMLElement` | — | Teleport target for dropdowns/modals (CSS selector or element). Defaults to internal `.chart-wrapper` |
-| mcp | `McpConfig` | — | MCP/AI runtime bridge config: `{ wsUrl?, autoReconnect?, onToolCall? }`. See [@363045841yyt/klinechart-ai-runtime](../../packages/ai-runtime/README.md) |
-
+| Prop              | Type                    | Default           | Description                                                                                                                                             |
+| ----------------- | ----------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| semanticConfig    | `SemanticChartConfig`   | —                 | Semantic configuration (optional). When provided, drives chart data, indicators, markers and chart options                                              |
+| dataFetcher       | `DataFetcher`           | built-in          | Data fetching function. Defaults to an internal fetcher that proxies `/api/stock`                                                                       |
+| theme             | `'light' \| 'dark'`     | —                 | Chart theme. Use `v-model:theme` for two-way binding                                                                                                    |
+| isFullscreen      | `boolean`               | —                 | Controlled fullscreen state. Leave unbound for internal (non-controlled) mode                                                                           |
+| timezone          | `string`                | `'Asia/Shanghai'` | Time zone for date/time display                                                                                                                         |
+| yPaddingPx        | `number`                | 20                | Y-axis padding in pixels                                                                                                                                |
+| minKWidth         | `number`                | 1                 | Minimum K-line width (logical pixels)                                                                                                                   |
+| maxKWidth         | `number`                | 50                | Maximum K-line width (logical pixels)                                                                                                                   |
+| rightAxisWidth    | `number`                | 0                 | Right price axis width                                                                                                                                  |
+| leftAxisWidth     | `number`                | 0                 | Left price axis width (0 = hidden)                                                                                                                      |
+| bottomAxisHeight  | `number`                | 24                | Bottom time axis height                                                                                                                                 |
+| priceLabelWidth   | `number`                | 60                | Price label extra width for showing change percentage                                                                                                   |
+| zoomLevels        | `number`                | 20                | Total number of zoom levels                                                                                                                             |
+| initialZoomLevel  | `number`                | 3                 | Initial zoom level (1 ~ zoomLevels)                                                                                                                     |
+| customData        | `CustomDataSource`      | —                 | Inline data bundle: `{ symbol?, period?, data, comparisons? }`. Bypasses the fetcher pipeline entirely. See example above                               |
+| teleportContainer | `string \| HTMLElement` | —                 | Teleport target for dropdowns/modals (CSS selector or element). Defaults to internal `.chart-wrapper`                                                   |
+| mcp               | `McpConfig`             | —                 | MCP/AI runtime bridge config: `{ wsUrl?, autoReconnect?, onToolCall? }`. See [@363045841yyt/klinechart-ai-runtime](../../packages/ai-runtime/README.md) |
 
 ## 🗺️ Roadmap
 
@@ -283,7 +286,6 @@ createApp(App).mount('#app')
 - [ ] Support for minute, multi-day, monthly, and yearly K-line display
 - [ ] Support convert the drawing to quant code
 
-
 ## 🚀 What's New
 
 - **v0.8** Symbol comparison, multi-source data aggregation
@@ -298,8 +300,6 @@ createApp(App).mount('#app')
 - **v0.5.0** Complete drawing tool system, supporting line, rectangle, text drawing and style editing
 - **v0.4** Modern UI, left toolbar, right axis optimization, TradingView-style zoom feel
 
-
 ## 📄 License
 
 [MIT](LICENSE)
-

@@ -1,4 +1,4 @@
-import { alignToPhysicalPixelCenter } from '../../../draw/pixelAlign'
+import { alignToPhysicalPixelCenter } from '../../../../foundation/utils/pixelAlign'
 
 export function createDashedLineRenderer() {
   let offscreenCanvas: HTMLCanvasElement | null = null

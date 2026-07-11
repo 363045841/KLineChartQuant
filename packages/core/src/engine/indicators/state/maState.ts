@@ -1,5 +1,5 @@
-import type { BaseIndicatorState } from '../../../plugin'
-import { createIndicatorStateKey } from '../../../plugin/stateKeys'
+import type { BaseIndicatorState } from '../../../foundation/plugin/index'
+import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys'
 
 /**
  * MA 渲染器状态（共享给渲染器和图例）

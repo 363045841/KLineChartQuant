@@ -1,5 +1,5 @@
-import type { PaneCapabilities, PaneRole } from '../../plugin'
-import type { KLineData } from '../../types/price'
+import type { PaneCapabilities, PaneRole } from '../../foundation/plugin/index'
+import type { KLineData } from '../../foundation/types/price'
 import type { MarkerManager } from '../marker/registry'
 import type { PriceRange } from '../scale/price'
 import { PriceScale } from '../scale/priceScale'

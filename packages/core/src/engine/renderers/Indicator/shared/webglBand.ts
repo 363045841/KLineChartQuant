@@ -1,4 +1,4 @@
-import type { RenderContext } from '../../../../plugin'
+import type { RenderContext } from '../../../../foundation/plugin/index'
 
 export function getRgbaAlpha(color: string): number {
   const match = color.match(/^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)$/i)

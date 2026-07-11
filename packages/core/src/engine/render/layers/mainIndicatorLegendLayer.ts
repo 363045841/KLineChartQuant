@@ -1,6 +1,6 @@
-import type { RenderContext, PluginHost } from '../../../plugin'
-import { createLayerFromPlugin } from '../../../scene/createLayerFromPlugin'
-import type { Layer } from '../../../scene/types'
+import type { RenderContext, PluginHost } from '../../../foundation/plugin/index'
+import { createLayerFromPlugin } from '../../../rendering/scene/createLayerFromPlugin'
+import type { Layer } from '../../../rendering/scene/types'
 import { createMainIndicatorLegendRendererPlugin } from '../../renderers/Indicator/mainIndicatorLegend'
 
 export function createMainIndicatorLegendLayer(

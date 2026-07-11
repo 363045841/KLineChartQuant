@@ -1,7 +1,11 @@
-import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
-import { RENDERER_PRIORITY } from '../../../plugin'
-import { resolveThemeColors } from '../../../tokens'
-import type { KLineData } from '../../../types/price'
+import type {
+  RendererPluginWithHost,
+  RenderContext,
+  PluginHost,
+} from '../../../foundation/plugin/index'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
+import type { KLineData } from '../../../foundation/types/price'
 import { calcStructureData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'

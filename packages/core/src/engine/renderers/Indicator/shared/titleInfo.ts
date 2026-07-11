@@ -1,6 +1,6 @@
-import type { PluginHost } from '../../../../plugin'
-import { resolveThemeColors } from '../../../../tokens'
-import type { KLineData } from '../../../../types/price'
+import type { PluginHost } from '../../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../../foundation/tokens/index'
+import type { KLineData } from '../../../../foundation/types/price'
 import type { GetTitleInfoFn, TitleInfo } from '../../../indicators/indicatorMetadata'
 
 interface SingleSeriesState {

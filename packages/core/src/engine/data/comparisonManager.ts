@@ -1,23 +1,17 @@
 import type { KLineData, SymbolSpec, DataFetcher } from '../../controllers/types'
-import { createSignal, type Signal } from '../../reactivity/signal'
+import { createSignal, type Signal } from '../../foundation/reactivity/signal'
 
-const COMPARISON_PALETTE = [
-  '#f59e0b',
-  '#8b5cf6',
-  '#06b6d4',
-  '#ec4899',
-  '#84cc16',
-  '#f97316',
-]
+const COMPARISON_PALETTE = ['#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316']
 const DEFAULT_COMPARISON_COLOR = '#f59e0b'
 const BUF_COMPARISON = 'cmp'
 
 export interface ComparisonHooks {
-  createComparisonBuffer(
-    spec: SymbolSpec,
-  ): { key: string; buffer: import('../../data-fetchers/dataBufferTypes').KLineBuffer }
+  createComparisonBuffer(spec: SymbolSpec): {
+    key: string
+    buffer: import('../../data/dataBufferTypes').KLineBuffer
+  }
   disposeBuffer(key: string): void
-  getKLineBuffer(key: string): import('../../data-fetchers/dataBufferTypes').KLineBuffer | undefined
+  getKLineBuffer(key: string): import('../../data/dataBufferTypes').KLineBuffer | undefined
   hasKLineBuffer(key: string): boolean
   getKLineBufferKeys(): string[]
   scheduleDraw(): void
@@ -115,8 +109,7 @@ export class ComparisonManager {
     this._specs.push(spec)
 
     const color =
-      COMPARISON_PALETTE[this._colors.size % COMPARISON_PALETTE.length] ??
-      DEFAULT_COMPARISON_COLOR
+      COMPARISON_PALETTE[this._colors.size % COMPARISON_PALETTE.length] ?? DEFAULT_COMPARISON_COLOR
     this._colors.set(symbol, color)
     this._colorsSignal.set(new Map(this._colors))
 

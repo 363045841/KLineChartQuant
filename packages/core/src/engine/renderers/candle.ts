@@ -1,13 +1,13 @@
-import type { RendererPlugin, RenderContext } from '../../plugin'
-import { RENDERER_PRIORITY } from '../../plugin'
-import { resolveThemeColors, type VolumePriceColors } from '../../tokens'
-import { getKLineTrend, type kLineTrend } from '../../types/kLine'
-import type { KLineData } from '../../types/price'
-import { VolumePriceRelation } from '../../types/volumePrice'
+import type { RendererPlugin, RenderContext } from '../../foundation/plugin/index'
+import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
+import { resolveThemeColors, type VolumePriceColors } from '../../foundation/tokens/index'
+import { getKLineTrend, type kLineTrend } from '../../foundation/types/kLine'
+import type { KLineData } from '../../foundation/types/price'
+import { VolumePriceRelation } from '../../foundation/types/volumePrice'
 import {
   analyzeVolumePriceRelationBatch,
   DEFAULT_VOLUME_PRICE_CONFIG,
-} from '../../utils/volumePrice'
+} from '../../foundation/utils/volumePrice'
 import type { MarkerManager } from '../marker/registry'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
 

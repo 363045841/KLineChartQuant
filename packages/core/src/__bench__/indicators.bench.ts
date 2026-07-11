@@ -23,20 +23,20 @@
 import { bench, describe } from 'vitest'
 
 // MA family (b-9)
-import { computeALMA } from '../indicators/alma'
+import { computeALMA } from '../features/indicators/alma'
 
 // Oscillator family (b-10)
-import { computeAwesomeOscillator } from '../indicators/awesomeOscillator'
-import { computeDPO } from '../indicators/dpo'
-import { computeFisherTransform } from '../indicators/fisherTransform'
-import { computeFRAMA } from '../indicators/frama'
-import { computeLSMA } from '../indicators/lsma'
-import { computeSchaffTrendCycle } from '../indicators/schaffTrendCycle'
-import { computeStochRSI } from '../indicators/stochRSI'
-import { computeT3 } from '../indicators/t3'
-import { computeUltimateOscillator } from '../indicators/ultimateOscillator'
-import { computeVIDYA } from '../indicators/vidya'
-import { computeZLEMA } from '../indicators/zlema'
+import { computeAwesomeOscillator } from '../features/indicators/awesomeOscillator'
+import { computeDPO } from '../features/indicators/dpo'
+import { computeFisherTransform } from '../features/indicators/fisherTransform'
+import { computeFRAMA } from '../features/indicators/frama'
+import { computeLSMA } from '../features/indicators/lsma'
+import { computeSchaffTrendCycle } from '../features/indicators/schaffTrendCycle'
+import { computeStochRSI } from '../features/indicators/stochRSI'
+import { computeT3 } from '../features/indicators/t3'
+import { computeUltimateOscillator } from '../features/indicators/ultimateOscillator'
+import { computeVIDYA } from '../features/indicators/vidya'
+import { computeZLEMA } from '../features/indicators/zlema'
 
 // ---------------------------------------------------------------------------
 // Fixtures

@@ -8,6 +8,9 @@ import babel from 'vite-plugin-babel'
 // @/* → packages/core/src/. We replicate that for Vitest.
 const engineSrc = fileURLToPath(new URL('./src/engine/', import.meta.url))
 const pkgSrc = fileURLToPath(new URL('./src/', import.meta.url))
+const foundationTypesSrc = fileURLToPath(new URL('./src/foundation/types/', import.meta.url))
+const foundationPluginSrc = fileURLToPath(new URL('./src/foundation/plugin/', import.meta.url))
+const foundationUtilsSrc = fileURLToPath(new URL('./src/foundation/utils/', import.meta.url))
 
 export default defineConfig({
   plugins: [
@@ -30,8 +33,14 @@ export default defineConfig({
   },
   resolve: {
     alias: [
-      // @/core/* → packages/core/src/engine/ (more specific, must come first)
+      // @/core/* → packages/core/src/engine/ (most specific, must come first)
       { find: /^@\/core\//, replacement: `${engineSrc}` },
+      // @/types/* → packages/core/src/foundation/types/
+      { find: /^@\/types\//, replacement: `${foundationTypesSrc}` },
+      // @/plugin → packages/core/src/foundation/plugin/
+      { find: /^@\/plugin$/, replacement: `${foundationPluginSrc}` },
+      // @/utils/* → packages/core/src/foundation/utils/
+      { find: /^@\/utils\//, replacement: `${foundationUtilsSrc}` },
       // @/* → packages/core/src/* (general fallback)
       { find: /^@\//, replacement: `${pkgSrc}` },
     ],

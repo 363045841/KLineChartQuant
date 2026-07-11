@@ -13,9 +13,9 @@
  * - Inline fallback backend（indicatorRuntime.ts）
  */
 
-import type { PluginHost } from '../../plugin'
-import type { BaseIndicatorState } from '../../plugin'
-import type { KLineData } from '../../types/price'
+import type { PluginHost } from '../../foundation/plugin/index'
+import type { BaseIndicatorState } from '../../foundation/plugin/index'
+import type { KLineData } from '../../foundation/types/price'
 
 import { resolveStateKey, type IndicatorMetadata } from './indicatorMetadata'
 import { IndicatorRegistry } from './indicatorRegistry'
@@ -80,7 +80,7 @@ import type {
   SerializedRuntimeDescriptor,
 } from './workerProtocol'
 import type { IndicatorWorkerResponse } from './workerProtocol'
-import { createSignal, type Signal } from '../../reactivity/signal'
+import { createSignal, type Signal } from '../../foundation/reactivity/signal'
 
 /**
  * 可见范围
@@ -338,10 +338,9 @@ export class IndicatorScheduler {
     }
     try {
       console.log('[IndicatorScheduler] Creating worker...')
-      this.worker = new Worker(
-        new URL('./indicator.worker.js', import.meta.url),
-        { type: 'module' },
-      )
+      this.worker = new Worker(new URL('./indicator.worker.js', import.meta.url), {
+        type: 'module',
+      })
       console.log('[IndicatorScheduler] Worker created, waiting for ready...')
       this.worker.onmessage = (e) => this.handleWorkerMessage(e.data)
       this.worker.onerror = (err) => {

@@ -7,9 +7,9 @@ import type {
   XAxisLabel,
   YAxisRange,
   XAxisRange,
-} from '../../plugin'
-import { RENDERER_PRIORITY } from '../../plugin'
-import type { KLineData } from '../../types/price'
+} from '../../foundation/plugin/index'
+import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
+import type { KLineData } from '../../foundation/types/price'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
 
 import {
@@ -17,8 +17,8 @@ import {
   DrawingDefinitionRegistry,
   createDefaultPrimitiveRendererSet,
   registerDefaultDrawingDefinitions,
-} from './index'
-import type { PrimitiveRendererSet } from './index'
+} from '.'
+import type { PrimitiveRendererSet } from '.'
 
 type SafeViewport = { scrollLeft: number; plotWidth: number; plotHeight: number }
 type ToScreenFn = (anchor: { index: number; price: number }) => { x: number; y: number }

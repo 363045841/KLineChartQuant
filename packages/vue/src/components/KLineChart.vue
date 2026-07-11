@@ -130,7 +130,8 @@
                 :down-color="tooltipColors.downColor"
               />
             </div>
-            <slot v-else
+            <slot
+              v-else
               name="kline-tooltip"
               :hover-data="hoveredKLine!"
               :hovered-index="hoveredIndex"
@@ -212,7 +213,11 @@
 </template>
 
 <script setup lang="ts">
-  import { SETTINGS_STORAGE_KEY, resolveSettings, type ChartSettings } from '@363045841yyt/klinechart-core/config'
+  import {
+    SETTINGS_STORAGE_KEY,
+    resolveSettings,
+    type ChartSettings,
+  } from '@363045841yyt/klinechart-core/config'
   import {
     createChartController,
     routerDataFetcher,
@@ -292,7 +297,8 @@
           name: string
           input: Record<string, unknown>
         }) =>
-          Promise<{ success: boolean; error?: string; data?: unknown }> | { success: boolean; error?: string; data?: unknown }
+          | Promise<{ success: boolean; error?: string; data?: unknown }>
+          | { success: boolean; error?: string; data?: unknown }
         autoReconnect?: boolean
       }
     }>(),
@@ -334,7 +340,10 @@
 
   /** marker-tooltip 插槽作用域。hoveredMarker || hoveredCustomMarker 时渲染。 */
   export interface MarkerTooltipSlotProps {
-    marker: import('@363045841yyt/klinechart-core/engine/marker/registry').MarkerEntity | import('@363045841yyt/klinechart-core/engine/marker/registry').CustomMarkerEntity | null
+    marker:
+      | import('@363045841yyt/klinechart-core/engine/marker/registry').MarkerEntity
+      | import('@363045841yyt/klinechart-core/engine/marker/registry').CustomMarkerEntity
+      | null
     tooltipStyle: {
       left: string
       top: string
@@ -520,7 +529,10 @@
   const _initialTheme: 'light' | 'dark' = (() => {
     const theme = _initialResolved.theme as string
     if (theme === 'auto') {
-      return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+      return typeof window !== 'undefined' &&
+        window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light'
     }
     return theme as 'light' | 'dark'
   })()
@@ -1223,13 +1235,7 @@
     const leftAxisLayer = chartMain.querySelector<HTMLDivElement>('.left-axis-host') ?? undefined
     let ctrl: ChartController
     try {
-      ctrl = await initChart(
-        container,
-        canvasLayer!,
-        rightAxisLayer!,
-        xAxisCanvas!,
-        leftAxisLayer,
-      )
+      ctrl = await initChart(container, canvasLayer!, rightAxisLayer!, xAxisCanvas!, leftAxisLayer)
     } catch (err) {
       console.error('[KLineChart] initChart failed:', err)
       return

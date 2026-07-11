@@ -1,7 +1,14 @@
-import type { ChartSettings } from '../config/chartSettings'
+import type { ChartSettings } from '../foundation/config/chartSettings'
 import type { SymbolSpec, SymbolInfo, CustomDataSource } from '../controllers/types'
-import { createStateStore, createSignal, computed, writableRef, type Signal, type Computed } from '../reactivity/signal'
-import type { KLineData } from '../types/price'
+import {
+  createStateStore,
+  createSignal,
+  computed,
+  writableRef,
+  type Signal,
+  type Computed,
+} from '../foundation/reactivity/signal'
+import type { KLineData } from '../foundation/types/price'
 
 import type {
   ChartDom,
@@ -42,18 +49,18 @@ import {
   type RendererPlugin,
   type RendererPluginWithHost,
   wrapPaneInfo,
-} from '../plugin'
+} from '../foundation/plugin/index'
 
 import type { SubIndicatorType } from './renderers/Indicator'
 
-import type { AlertController, MarketSnapshot } from '../alerts/types'
-import { createAlertController } from '../alerts'
+import type { AlertController, MarketSnapshot } from '../features/alerts/types'
+import { createAlertController } from '../features/alerts/index'
 import {
   createVolumeLookbacks,
   pushToVolumeLookbacks,
   type VolumeLookbacks,
-} from '../alerts/rollingVolume'
-import type { Layer } from '../scene/types'
+} from '../features/alerts/rollingVolume'
+import type { Layer } from '../rendering/scene/types'
 
 // 重新导出以保持向后兼容
 export { getPhysicalKLineConfig }
@@ -193,7 +200,11 @@ export class Chart {
     this.dom = dom
     const { kWidth: _kWidth, kGap: _kGap, ...restOpt } = opt
     // Chart 不持有业务 SSOT，kWidth/kGap/zoomLevel 由外部通过 applyRenderState() 传入
-    this._optionsSignal = createSignal<ResolvedChartOptions>({ ...restOpt, kWidth: _kWidth ?? 0, kGap: _kGap ?? 0 })
+    this._optionsSignal = createSignal<ResolvedChartOptions>({
+      ...restOpt,
+      kWidth: _kWidth ?? 0,
+      kGap: _kGap ?? 0,
+    })
     this._activeMode = this._kLineMode
     this.interaction = new InteractionController(this)
     this.interaction.setOnInteractionChange((snapshot) => {
@@ -240,12 +251,8 @@ export class Chart {
         },
       },
     )
-    this.viewportManager.setContentWidthProvider(
-      () =>
-        Math.max(
-          this.dataManager.getContentWidth(),
-          this.dataManager.getLeftLoadBufferWidth(),
-        ),
+    this.viewportManager.setContentWidthProvider(() =>
+      Math.max(this.dataManager.getContentWidth(), this.dataManager.getLeftLoadBufferWidth()),
     )
 
     this.layoutManager = new ChartPaneLayout(initialOpt.panes, {
@@ -609,7 +616,8 @@ export class Chart {
       if (this.zoomController.currentZoomLevel === clamped) return
       this.zoomController.setZoomLevel(clamped)
     } else {
-      if (this.zoomController.currentKWidth === kWidth && this.zoomController.currentKGap === kGap) return
+      if (this.zoomController.currentKWidth === kWidth && this.zoomController.currentKGap === kGap)
+        return
       this.zoomController.setKWidthKGap(kWidth, kGap)
     }
 
@@ -703,7 +711,7 @@ export class Chart {
   }
 
   /** 更新绘图对象 */
-  setDrawings(drawings: import('../plugin').DrawingObject[]): void {
+  setDrawings(drawings: import('../foundation/plugin').DrawingObject[]): void {
     this.renderer.getDrawingStore().setAll(drawings)
     this.state.signals.drawings.set(drawings)
     this.scheduleDraw()
@@ -1035,7 +1043,7 @@ export class Chart {
   private state = createStateStore({
     theme: 'light' as 'light' | 'dark',
     drawingTool: null as DrawingToolType | null,
-    drawings: [] as ReadonlyArray<import('../plugin').DrawingObject>,
+    drawings: [] as ReadonlyArray<import('../foundation/plugin').DrawingObject>,
     paneRatios: {} as Readonly<Record<string, number>>,
     paneLayout: [] as PaneSpec[],
     interaction: {
@@ -1117,7 +1125,7 @@ export class Chart {
   }
 
   /** 绘图对象列表信号 */
-  get drawings(): Signal<ReadonlyArray<import('../plugin').DrawingObject>> {
+  get drawings(): Signal<ReadonlyArray<import('../foundation/plugin').DrawingObject>> {
     return this.state.signals.drawings
   }
 
@@ -1149,8 +1157,8 @@ export class Chart {
     this.dataManager.setDataFetcher(fetcher)
   }
 
-  get dataBuffer(): import('../data-fetchers/dataBuffer').DataBuffer {
-    return this.dataManager.dataBuffer as import('../data-fetchers/dataBuffer').DataBuffer
+  get dataBuffer(): import('../data/dataBuffer').DataBuffer {
+    return this.dataManager.dataBuffer as import('../data/dataBuffer').DataBuffer
   }
 
   checkVisibleRangeGap(): void {
@@ -1337,7 +1345,9 @@ export class Chart {
    * 更新缓存的 scrollLeft 并触发交互 controller
    */
   handleScrollEvent(): void {
-    this.interaction.onScroll({ scheduleDraw: !this.indicatorManager.indicatorSchedulerAccessor.busySignal.peek() })
+    this.interaction.onScroll({
+      scheduleDraw: !this.indicatorManager.indicatorSchedulerAccessor.busySignal.peek(),
+    })
     // viewportState is now computed() — auto-updates when scrollLeft or
     // visibleRange change. No manual signal push needed anymore.
   }
