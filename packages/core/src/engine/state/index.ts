@@ -6,3 +6,10 @@ export {
   clampDpr,
   getEffectiveDprLogic,
 } from './viewportState'
+export {
+  createInteractionState,
+  type InteractionStateModule,
+  type InteractionDeps,
+  type InteractionSnapshot,
+  type DragMode,
+} from './interactionState'

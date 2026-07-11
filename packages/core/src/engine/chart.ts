@@ -4,6 +4,7 @@ import {
   createStateStore,
   createSignal,
   computed,
+  effect,
   writableRef,
   type Signal,
   type Computed,
@@ -21,6 +22,10 @@ import type {
   DrawingToolType,
 } from './chartTypes'
 import { InteractionController, type InteractionSnapshot } from './controller/interaction'
+import {
+  createInteractionState,
+  type InteractionStateModule,
+} from './state/interactionState'
 import { ChartDataManager } from './data/chartDataManager'
 import { ChartIndicatorManager } from './indicators/chartIndicatorManager'
 import { resolveStateKey } from './indicators/indicatorMetadata'
@@ -98,7 +103,8 @@ export class Chart {
   private get paneRenderers(): PaneRenderer[] {
     return this.layoutManager.getPaneRenderers()
   }
-  readonly interaction: InteractionController
+  readonly interaction!: InteractionController
+  private _interactionState!: InteractionStateModule
 
   /** 插件宿主 */
   private pluginHost: PluginHostImpl
@@ -206,10 +212,6 @@ export class Chart {
       kGap: _kGap ?? 0,
     })
     this._activeMode = this._kLineMode
-    this.interaction = new InteractionController(this)
-    this.interaction.setOnInteractionChange((snapshot) => {
-      this.state.set.interaction(snapshot)
-    })
     this.pluginHost = createPluginHost()
     this.rendererPluginManager = new RendererPluginManager()
     this.sharedWebGLSurface = new SharedWebGLSurface()
@@ -254,6 +256,17 @@ export class Chart {
     this.viewportManager.setContentWidthProvider(() =>
       Math.max(this.dataManager.getContentWidth(), this.dataManager.getLeftLoadBufferWidth()),
     )
+
+    this._interactionState = createInteractionState({
+      visibleRange$: this.viewportManager.visibleRangeSignal,
+      scrollLeftLogical$: this.viewportManager.scrollLeftLogicalSignal,
+      dpr$: this.viewportManager.dprSignal,
+      scheduleDraw: (level) => this.scheduleDraw(level as UpdateLevel | undefined),
+    })
+    this.interaction = new InteractionController(this, this._interactionState)
+    effect(() => {
+      this.state.set.interaction(this._interactionState.readonly.interactionSnapshot())
+    })
 
     this.layoutManager = new ChartPaneLayout(initialOpt.panes, {
       getDom: () => this.dom,

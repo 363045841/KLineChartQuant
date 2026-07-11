@@ -133,35 +133,91 @@ Renderer / UI 更新（只读消费）
 
 ### Interaction State
 
-**内部可写信号**:
+**分类原则**：
+
+| 分类 | 说明 | 迁移策略 |
+|------|------|----------|
+| 外部可观测状态 | 渲染器/UI 需读取的字段 | → writableRef（source signal）|
+| 内部瞬态 | 仅事件处理内部使用，不参与渲染 | → 保持 plain field |
+| 帧数据 | 由 renderer draw() 计算后推入 | → writableRef，action 写入，注释标注 renderer 为唯一写入者 |
+
+**Source signals（action 写入）**:
 
 ```typescript
-// 约 20 个字段从普通变量迁移为可写引用
-isDragging: writableRef(false)
-dragMode: writableRef<'none'|'pan'|'resize-separator'|'scale-price'|'explore'>('none')
+// 外部可观测状态
 crosshairPos: writableRef<{x,y}|null>(null)
-crosshairIndex: writableRef<number|null>(null)
 crosshairPrice: writableRef<number|null>(null)
 hoveredIndex: writableRef<number|null>(null)
 activePaneId: writableRef<string|null>(null)
+isDragging: writableRef(false)
+dragMode: writableRef<'none'|'pan'|'resize-separator'|'scale-price'|'explore'>('none')
+hoveredSeparatorUpperPaneId: writableRef<string|null>(null)
+hoveredRightAxisPaneId: writableRef<string|null>(null)
 tooltipPos: writableRef<{x,y}>({x:0,y:0})
-kLinePositions: writableRef<number[]>([])
-// ...
+tooltipAnchorPlacement: writableRef<'right-bottom'|'left-bottom'>('right-bottom')
+// 帧数据（renderer 为唯一写入者，通过 updateFramePositions action）
+kLinePositions: writableRef<number[]|null>(null)
+kLineCenters: writableRef<number[]|null>(null)
+kWidthPx: writableRef<number|null>(null)
+```
+
+**不迁移为 signal 的字段（保持 plain field）**:
+
+```typescript
+// 仅事件处理内部使用，不参与渲染/快照
+dragStartX / dragStartY / scrollStartX
+touchStartTime / touchStartX / touchStartY
+isTouchSession / exploreMode
+activePaneIdOnDrag / activeSeparatorUpperPaneId
+lastClientPos / lastHoverRenderKey
+```
+
+**注意**：`visibleRange` **不在** interactionState 中 — 通过 `InteractionDeps.visibleRange$` 从 viewportState 读取，避免双重 SSOT。
+
+**InteractionDeps**（与 ViewportDeps 模式一致）:
+
+```typescript
+interface InteractionDeps {
+  /** viewportState 的 visibleRange computed — 只读消费，不写入 */
+  visibleRange$: ReadonlySignal<{ start: number; end: number } | null>
+  /** scrollLeft logical — 用于 crosshairIndex 的 worldX 计算 */
+  scrollLeftLogical$: ReadonlySignal<number>
+  /** scheduleDraw — 仅在 action 中调用，不进入 computed */
+  scheduleDraw: (level?: UpdateLevel) => void
+}
+```
+
+**Computed**:
+
+```typescript
+crosshairIndex: (s) => {
+  // 读 s.crosshairPos + s.kLinePositions + s.kWidthPx + deps.visibleRange$()
+  // inline 展开，不引用其他 computed（createSubState 不支持 computed 链式依赖）
+  const pos = s.crosshairPos()
+  if (!pos || !s.kLinePositions() || !s.kWidthPx()) return null
+  const vr = deps.visibleRange$()
+  if (!vr) return null
+  // ... 二分查找逻辑
+}
+interactionSnapshot: (s) => ({
+  crosshairPos: s.crosshairPos(),
+  crosshairIndex: s.crosshairIndex(),
+  // ... 全部字段
+})
 ```
 
 **RAF 批处理写入**:
 
-指针事件处理器**不直接写入 signals**，而是写入普通变量（plain field / transfer slot），仅用于暂存最新值，不参与响应式系统：
+RAF 是 **action 层**的模式（控制何时写入），不影响 state 层定义。指针事件处理器不直接写入 signals，而是写入 transfer slot（plain object），仅暂存最新值：
 
 ```typescript
 // transfer slot：事件到 RAF 的传递槽，生命周期仅限于当前帧
-// 不缓存、不持久化、不可被任何渲染逻辑读取
 private pendingInteraction: InteractionSnapshot = { ...initial }
 private flushScheduled = false
 
 onPointerMove(e) {
-  this.pendingInteraction.hoveredIndex = ...
   this.pendingInteraction.crosshairPos = ...
+  this.pendingInteraction.hoveredIndex = ...
   this.scheduleFlush()
 }
 
@@ -181,7 +237,8 @@ private scheduleFlush() {
 ```
 
 **外部只读信号**:
-- `interactionSnapshot` — `computed(() => ({ /* 全部字段 */ }))`，替换 `getInteractionSnapshot()` + `notifyInteractionChange()`
+- `crosshairIndex` — computed，自动从 crosshairPos + kLinePositions + visibleRange$ 推导，替代 getter
+- `interactionSnapshot` — computed，替换 `getInteractionSnapshot()` + `notifyInteractionChange()`
 
 ### Data State
 
@@ -191,7 +248,7 @@ private scheduleFlush() {
 | `_loadingSignal` | `loading` | — |
 | `_symbolsSignal` | `symbols` | — |
 | `activeBufferKey` | — | — |
-| — | `visibleRange` | `computed(() => getVisibleRange(scrollLeft, plotWidth, kWidth, kGap, dataLength))` |
+| — | `visibleRange` | `computed(() => getVisibleRange(...))` — 输入来自 viewportState deps（scrollLeft$, plotWidth$, kWidth$ 等），不独立持有 scrollLeft / kWidth |
 
 关键变更：`visibleRange` 不再是手动计算的普通变量，而是从 viewport + dataLength + kWidth/kGap 自动派生的 `computed()`。
 
@@ -242,7 +299,8 @@ private scheduleFlush() {
 
 #### InteractionController 迁移
 
-- 约 20 个 plain field → `createInteractionState()` 内部的可写引用
+- 约 20 个 plain field 按分类迁移：外部可观测状态 → writableRef；内部瞬态 → 保持 plain field；帧数据 → writableRef（renderer 通过 `updateFramePositions` action 写入）
+- `visibleRange` **不在** interactionState 中 — 通过 `InteractionDeps.visibleRange$` 从 viewportState 读取
 - `notifyInteractionChange()` 回调 → `computed(() => getInteractionSnapshot())`
 - RAF 批处理（参见上方"RAF 批处理写入"章节）
 
@@ -254,6 +312,11 @@ private scheduleFlush() {
 #### 渲染器清理
 
 `chartRenderer.ts:draw()` 变为纯消费者：不写入任何信号。`RendererDependencies` 中的 setters 方法用 actions 替换。
+
+**架构合规检查**:
+- `visibleRange` 在 interactionState 中无 writable signal — 仅通过 deps 从 viewportState 读取
+- `kLinePositions`/`kLineCenters`/`kWidthPx` 为 source (writable) signals，注释标注 renderer 为唯一写入者
+- `crosshairIndex` 为 computed，不引用其他 computed（inline 展开推导逻辑）
 
 **验收**: TypeScript 阻止在 `draw()` 中调用 `.set()`。十字准线/缩放锚点功能验证通过。
 

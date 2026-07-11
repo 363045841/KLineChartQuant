@@ -10,6 +10,7 @@ import { MarkerInteractionState } from './markerInteraction'
 import { PinchTracker } from './pinchTracker'
 import { computeTooltipPosition, type TooltipPositionMode } from './tooltipPosition'
 import { isOnRightHalf } from '../../foundation/utils/viewportSide'
+import type { InteractionStateModule } from '../state/interactionState'
 
 interface PointerLocation {
   mouseX: number
@@ -59,118 +60,60 @@ export interface InteractionSnapshot {
  */
 export class InteractionController {
   private chart: Chart
-  private isDragging = false
-  private dragMode: 'none' | 'pan' | 'resize-separator' | 'scale-price' | 'explore' = 'none'
+  private _state: InteractionStateModule
+
+  // ── Plain fields (kept — internal event processing only, not exposed) ──
   private dragStartX = 0
   private scrollStartX = 0
-
-  private applyPanScroll(container: HTMLDivElement, nextScrollLeft: number) {
-    const maxScrollLeft = Math.max(0, container.scrollWidth - container.clientWidth)
-    const clampedScrollLeft = Math.min(Math.max(0, nextScrollLeft), maxScrollLeft)
-    const dpr = this.chart.getCurrentDpr()
-    const rounded = Math.round(clampedScrollLeft * dpr) / dpr
-    this.chart.setScrollLeft(rounded)
-  }
-
-  /** 垂直拖动相关 */
   private dragStartY = 0
+  /** maxScrollLeft at drag start, cached to prevent jumps when scrollWidth grows mid-drag */
+  private _cachedMaxScrollLeft = -1
   private activePaneIdOnDrag: string | null = null
-
-  /** 分隔线拖拽相关 */
   private activeSeparatorUpperPaneId: string | null = null
-  private hoveredSeparatorUpperPaneId: string | null = null
-
-  /** 右轴悬浮相关 */
-  private hoveredRightAxisPaneId: string | null = null
-
-  /** [触屏]:触摸会话标记，避免触摸触发的模拟 mouse 事件干扰 */
   private isTouchSession = false
-
-  /** 触屏探索模式：true=长按出十字线不滚动，false=直接滚动 */
   private exploreMode = true
-  /** 触屏按下时的时间戳/位置（用于 tap 检测） */
   private touchStartTime = 0
   private touchStartX = 0
   private touchStartY = 0
-
   private pinchTracker = new PinchTracker()
-
-  /** 十字线位置 */
-  crosshairPos: { x: number; y: number } | null = null
-  /** 十字线当前指向的 K 线索引（从 crosshairPos + kLinePositions 推导） */
-  get crosshairIndex(): number | null {
-    if (!this.crosshairPos || !this.kLinePositions || !this.visibleRange || !this.kWidthPx)
-      return null
-    const dpr = this.chart.getCurrentDpr()
-    const kWidthLogical = this.kWidthPx / dpr
-    const scrollLeft = this.chart.getLogicalScrollLeft()
-    const worldX = scrollLeft + this.crosshairPos.x
-    const positions = this.kLinePositions
-    let lo = 0,
-      hi = positions.length
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1
-      if (positions[mid]! < worldX) lo = mid + 1
-      else hi = mid
-    }
-    let localIdx = lo
-    if (lo > 0 && lo < positions.length) {
-      const prevCenter = positions[lo - 1]! + kWidthLogical / 2
-      const currCenter = positions[lo]! + kWidthLogical / 2
-      if (Math.abs(worldX - prevCenter) < Math.abs(worldX - currCenter)) {
-        localIdx = lo - 1
-      }
-    } else if (lo === positions.length && positions.length > 0) {
-      localIdx = positions.length - 1
-    }
-    return localIdx + this.visibleRange.start
-  }
-  /** 十字线指向的价格（用于价格轴平移时跟随） */
-  crosshairPrice: number | null = null
-  /** 鼠标悬停的 K 线索引（命中 candle 时有效） */
-  hoveredIndex: number | null = null
-  /** 当前活跃的 pane ID */
-  activePaneId: string | null = null
-  /** tooltip 位置 */
-  tooltipPos: { x: number; y: number } = { x: 0, y: 0 }
-  /** tooltip 尺寸 */
-  tooltipSize: { width: number; height: number } = { width: 220, height: 180 }
-  /** tooltip 锚定位放置方向 */
-  tooltipAnchorPlacement: 'right-bottom' | 'left-bottom' = 'right-bottom'
-  /** 是否使用 CSS 锚定位 */
-  private useTooltipAnchorPositioning = false
-  /** tooltip 定位模式 */
-  private tooltipPositionMode: TooltipPositionMode = 'crosshair'
-  /** adaptive 模式锁定的角落（首次 hover 决定后不变） */
-  private tooltipAdaptiveLock: 'top-left' | 'top-right' | null = null
-  /** 统一交互状态变更回调 */
-  private onInteractionChangeCallback?: (snapshot: InteractionSnapshot) => void
-  /** 用户设置 */
-  private settings: ChartSettings = {}
-
-  /** 最后一次鼠标位置（用于 setKLinePositions 时自动重算十字线） */
   private lastClientPos: { x: number; y: number } | null = null
-
   private markerState = new MarkerInteractionState()
-
-  /** 当前帧的 K 线起始 x 坐标数组 */
-  private kLinePositions: number[] | null = null
-  /** 当前帧的 K 线中心 x 坐标数组（物理像素对齐） */
-  private kLineCenters: number[] | null = null
-  /** 当前帧的可见 K 线索引范围 */
-  private visibleRange: { start: number; end: number } | null = null
-
-  /** hover 去重快照 */
   private lastHoverRenderKey = ''
-
-  /** K 线宽度（物理像素），用于计算 K 线中心偏移 */
-  private kWidthPx: number | null = null
+  private settings: ChartSettings = {}
+  private useTooltipAnchorPositioning = false
+  private tooltipPositionMode: TooltipPositionMode = 'crosshair'
+  private tooltipAdaptiveLock: 'top-left' | 'top-right' | null = null
+  tooltipSize: { width: number; height: number } = { width: 220, height: 180 }
 
   /** 触屏长按判定时间 (ms) */
   private static readonly LONG_PRESS_MS = 400
 
-  constructor(chart: Chart) {
+  // ── Getters delegate to kernel module ──
+  get crosshairPos(): { x: number; y: number } | null {
+    return this._state.readonly.crosshairPos.peek()
+  }
+  get crosshairPrice(): number | null {
+    return this._state.readonly.crosshairPrice.peek()
+  }
+  get hoveredIndex(): number | null {
+    return this._state.readonly.hoveredIndex.peek()
+  }
+  get activePaneId(): string | null {
+    return this._state.readonly.activePaneId.peek()
+  }
+  get tooltipPos(): { x: number; y: number } {
+    return this._state.readonly.tooltipPos.peek()
+  }
+  get tooltipAnchorPlacement(): 'right-bottom' | 'left-bottom' {
+    return this._state.readonly.tooltipAnchorPlacement.peek()
+  }
+  get crosshairIndex(): number | null {
+    return this._state.readonly.crosshairIndex.peek()
+  }
+
+  constructor(chart: Chart, state: InteractionStateModule) {
     this.chart = chart
+    this._state = state
     this.setupPinchZoom()
   }
 
@@ -191,41 +134,26 @@ export class InteractionController {
     const nextMode = (settings.tooltipPosition as TooltipPositionMode) ?? 'crosshair'
     if (nextMode !== 'adaptive') this.tooltipAdaptiveLock = null
     this.tooltipPositionMode = nextMode
-    // 开启自适应时，重置主图垂直偏移
     if (!prev && this.settings.disableMainPaneVerticalScroll) {
       this.chart.resetPriceTransform('main')
     }
   }
 
+  /** @deprecated Use kernel's interactionSnapshot computed directly. */
   getInteractionSnapshot(): InteractionSnapshot {
-    return {
-      crosshairPos: this.crosshairPos ? { ...this.crosshairPos } : null,
-      crosshairIndex: this.crosshairIndex,
-      crosshairPrice: this.crosshairPrice,
-      hoveredIndex: this.hoveredIndex,
-      activePaneId: this.activePaneId,
-      tooltipPos: { ...this.tooltipPos },
-      tooltipAnchorPlacement: this.tooltipAnchorPlacement,
-      hoveredMarkerData: this.markerState.hoveredMarkerData,
-      hoveredCustomMarker: this.markerState.hoveredCustomMarker,
-      isDragging: this.isDragging,
-      isResizingPaneBoundary: this.dragMode === 'resize-separator',
-      isHoveringPaneBoundary: this.hoveredSeparatorUpperPaneId !== null,
-      hoveredPaneBoundaryId: this.hoveredSeparatorUpperPaneId,
-      isHoveringRightAxis: this.hoveredRightAxisPaneId !== null,
-    }
+    return this._state.readonly.interactionSnapshot.peek()
   }
 
   isPointerDown(): boolean {
-    return this.isDragging || this.pinchTracker.getPointerCount() > 0
+    return this._state.readonly.isDragging.peek() || this.pinchTracker.getPointerCount() > 0
   }
 
-  setOnInteractionChange(callback: (snapshot: InteractionSnapshot) => void) {
-    this.onInteractionChangeCallback = callback
-  }
-
-  private notifyInteractionChange() {
-    this.onInteractionChangeCallback?.(this.getInteractionSnapshot())
+  /**
+   * @deprecated Interaction state is now auto-derived from the kernel module.
+   *             External consumers should subscribe to the interactionSnapshot signal.
+   */
+  setOnInteractionChange(_callback: (snapshot: InteractionSnapshot) => void): void {
+    // no-op
   }
 
   private getHoverRenderKey(): string {
@@ -239,8 +167,8 @@ export class InteractionController {
       this.crosshairIndex ?? 'n',
       this.hoveredIndex ?? 'n',
       this.activePaneId ?? 'n',
-      this.hoveredRightAxisPaneId ?? 'n',
-      this.hoveredSeparatorUpperPaneId ?? 'n',
+      this._state.readonly.hoveredRightAxisPaneId.peek() ?? 'n',
+      this._state.readonly.hoveredSeparatorUpperPaneId.peek() ?? 'n',
       this.markerState.hoveredMarkerId ?? 'n',
       this.markerState.hoveredCustomMarker?.id ?? 'n',
       crosshairX,
@@ -255,8 +183,7 @@ export class InteractionController {
   onPointerDown(e: PointerEvent) {
     this.isTouchSession = e.pointerType === 'touch'
     if (this.pinchTracker.handlePointerDown(e, this.isTouchSession)) {
-      this.isDragging = false
-      this.dragMode = 'none'
+      this._state.actions.endDrag()
       return
     }
 
@@ -281,11 +208,10 @@ export class InteractionController {
 
     const separatorUpperPaneId = this.hitTestPaneSeparator(mouseY)
     if (separatorUpperPaneId) {
-      this.isDragging = true
-      this.dragMode = 'resize-separator'
+      this._state.actions.startDrag('resize-separator')
       this.dragStartY = e.clientY
       this.activeSeparatorUpperPaneId = separatorUpperPaneId
-      this.hoveredSeparatorUpperPaneId = separatorUpperPaneId
+      this._state.actions.setSeparatorHover(separatorUpperPaneId)
       this.clearHover()
       this.chart.scheduleDraw()
       return
@@ -299,21 +225,20 @@ export class InteractionController {
     }
 
     const pane = this.getPaneByY(mouseY)
-    this.isDragging = true
+    this._state.actions.startDrag('pan')
     this.touchStartTime = Date.now()
     this.touchStartX = e.clientX
     this.touchStartY = e.clientY
     // 触屏始终以 pan 模式开始，长按后才切换为 explore
-    this.dragMode = 'pan'
     this.dragStartX = e.clientX
     this.dragStartY = e.clientY
     this.scrollStartX = this.chart.getCachedScrollLeft()
+    this._cachedMaxScrollLeft = -1
     const captureContainer = this.chart.getDom().container
     captureContainer?.setPointerCapture(e.pointerId)
     this.activePaneIdOnDrag = pane?.id || null
 
     this.chart.scheduleDraw()
-    this.notifyInteractionChange()
   }
 
   /**
@@ -336,8 +261,8 @@ export class InteractionController {
     this.pinchTracker.handlePointerUp(e)
 
     if (e.isPrimary === false) return
-    const wasPanning = this.dragMode === 'pan'
-    const wasExploring = this.dragMode === 'explore'
+    const wasPanning = this._state.readonly.dragMode.peek() === 'pan'
+    const wasExploring = this._state.readonly.dragMode.peek() === 'explore'
 
     if (this.isTouchSession) {
       if (wasExploring) {
@@ -345,7 +270,6 @@ export class InteractionController {
         this.exploreMode = true
         this.updatePlotHoverFromPoint(e.clientX, e.clientY)
         this.chart.scheduleDraw()
-        this.notifyInteractionChange()
       } else if (wasPanning) {
         // 有实际滑动 → 下次支持长按
         this.exploreMode = true
@@ -363,7 +287,6 @@ export class InteractionController {
           this.exploreMode = false
           this.clearHover()
           this.chart.scheduleDraw()
-          this.notifyInteractionChange()
         } else {
           this.exploreMode = true
         }
@@ -375,11 +298,10 @@ export class InteractionController {
       this.chart.checkVisibleRangeGap()
     }
 
-    this.isDragging = false
-    this.dragMode = 'none'
+    this._state.actions.endDrag()
     this.activePaneIdOnDrag = null
     this.activeSeparatorUpperPaneId = null
-    this.notifyInteractionChange()
+    this._cachedMaxScrollLeft = -1
   }
 
   /**
@@ -392,28 +314,23 @@ export class InteractionController {
     if (e.isPrimary === false) return
 
     this.tooltipAdaptiveLock = null
-    this.isDragging = false
-    this.dragMode = 'none'
+    this._state.actions.endDrag()
     this.activePaneIdOnDrag = null
     this.clearSeparatorState()
     if (!this.isTouchSession) {
       this.clearHover()
       this.chart.scheduleDraw()
-      this.notifyInteractionChange()
     }
     this.isTouchSession = false
   }
 
   /** 处理滚动事件 */
   onScroll(options: { scheduleDraw?: boolean } = {}) {
-    this.kLinePositions = null
-    this.kLineCenters = null
-    this.visibleRange = null
+    this._state.actions.updateFramePositions(null, null, null)
     this.clearHover()
     if (options.scheduleDraw !== false) {
       this.chart.scheduleDraw()
     }
-    this.notifyInteractionChange()
   }
 
   /**
@@ -433,8 +350,8 @@ export class InteractionController {
 
     const container = this.chart.getDom().container
 
-    if (this.isDragging) {
-      if (this.dragMode === 'resize-separator') {
+    if (this._state.readonly.isDragging.peek()) {
+      if (this._state.readonly.dragMode.peek() === 'resize-separator') {
         const deltaY = e.clientY - this.dragStartY
         if (deltaY !== 0 && this.activeSeparatorUpperPaneId) {
           const resized = this.chart.resizePaneBoundary(this.activeSeparatorUpperPaneId, deltaY)
@@ -445,7 +362,7 @@ export class InteractionController {
         return
       }
 
-      if (this.dragMode === 'scale-price') {
+      if (this._state.readonly.dragMode.peek() === 'scale-price') {
         const deltaY = e.clientY - this.dragStartY
         if (deltaY !== 0 && this.activePaneIdOnDrag) {
           this.chart.scalePrice(this.activePaneIdOnDrag, deltaY)
@@ -455,29 +372,33 @@ export class InteractionController {
       }
 
       // 触屏：长按达到阈值后从 pan 切换到 explore
-      if (this.isTouchSession && this.dragMode === 'pan' && this.exploreMode) {
+      if (this.isTouchSession && this._state.readonly.dragMode.peek() === 'pan' && this.exploreMode) {
         const elapsed = Date.now() - this.touchStartTime
         const dx = Math.abs(e.clientX - this.touchStartX)
         const dy = Math.abs(e.clientY - this.touchStartY)
         if (elapsed >= InteractionController.LONG_PRESS_MS && dx < 10 && dy < 10) {
-          this.dragMode = 'explore'
+          this._state.actions.setDragMode('explore')
           this.updatePlotHoverFromPoint(e.clientX, e.clientY)
           this.chart.scheduleDraw()
-          this.notifyInteractionChange()
           return
         }
       }
 
-      if (this.dragMode === 'explore') {
+      if (this._state.readonly.dragMode.peek() === 'explore') {
         this.updatePlotHoverFromPoint(e.clientX, e.clientY)
         this.chart.scheduleDraw()
-        this.notifyInteractionChange()
         return
       }
 
-      if (this.dragMode === 'pan') {
+      if (this._state.readonly.dragMode.peek() === 'pan') {
+        const container = this.chart.getDom().container
         const deltaX = this.dragStartX - e.clientX
-        this.applyPanScroll(container, this.scrollStartX + deltaX)
+        if (this._cachedMaxScrollLeft < 0) {
+          this._cachedMaxScrollLeft = Math.max(0, (container?.scrollWidth ?? 0) - (container?.clientWidth ?? 0))
+        }
+        const clamped = Math.min(Math.max(0, this.scrollStartX + deltaX), this._cachedMaxScrollLeft)
+        const dpr = this.chart.getCurrentDpr()
+        this.chart.syncScrollLeft(Math.round(clamped * dpr) / dpr)
 
         const deltaY = e.clientY - this.dragStartY
         this.dragStartY = e.clientY
@@ -492,7 +413,7 @@ export class InteractionController {
 
     const location = this.getPlotPointerLocation(e.clientX, e.clientY)
     if (!location) return
-    this.hoveredSeparatorUpperPaneId = this.hitTestPaneSeparator(location.mouseY)
+    this._state.actions.setSeparatorHover(this.hitTestPaneSeparator(location.mouseY))
 
     this.updatePlotHoverFromPoint(e.clientX, e.clientY)
     const hoverRenderKey = this.getHoverRenderKey()
@@ -500,7 +421,6 @@ export class InteractionController {
       this.lastHoverRenderKey = hoverRenderKey
       this.chart.scheduleDraw(UpdateLevel.Overlay)
     }
-    this.notifyInteractionChange()
   }
 
   /**
@@ -516,17 +436,11 @@ export class InteractionController {
     kWidthPx?: number,
     centers?: number[] | null,
   ) {
-    this.kLinePositions = positions
-    this.kLineCenters = centers ?? null
-    this.visibleRange = visibleRange
-    if (kWidthPx !== undefined) {
-      this.kWidthPx = kWidthPx
-    }
+    this._state.actions.updateFramePositions(positions, centers ?? null, kWidthPx ?? null)
 
     // 十字线自动同步：positions 刷新后用最新鼠标位置重算，防止缩放/滚动后索引滞后
-    if (this.lastClientPos && !this.isDragging) {
+    if (this.lastClientPos && !this._state.readonly.isDragging.peek()) {
       this.updatePlotHoverFromPoint(this.lastClientPos.x, this.lastClientPos.y)
-      this.notifyInteractionChange()
     }
   }
 
@@ -537,7 +451,6 @@ export class InteractionController {
     if (!location) return
     if (this.beginScalePriceDrag(e.clientY, location.mouseY)) {
       this.chart.scheduleDraw()
-      this.notifyInteractionChange()
     }
   }
 
@@ -547,7 +460,7 @@ export class InteractionController {
       this.isTouchSession = true
     }
 
-    if (this.isDragging && this.dragMode === 'scale-price') {
+    if (this._state.readonly.isDragging.peek() && this._state.readonly.dragMode.peek() === 'scale-price') {
       const deltaY = e.clientY - this.dragStartY
       if (deltaY !== 0 && this.activePaneIdOnDrag) {
         this.chart.scalePrice(this.activePaneIdOnDrag, deltaY)
@@ -562,7 +475,6 @@ export class InteractionController {
       this.lastHoverRenderKey = hoverRenderKey
       this.chart.scheduleDraw(UpdateLevel.Overlay)
     }
-    this.notifyInteractionChange()
   }
 
   onRightAxisPointerUp(e: PointerEvent) {
@@ -571,14 +483,13 @@ export class InteractionController {
 
   onRightAxisPointerLeave(e: PointerEvent) {
     if (e.isPrimary === false) return
-    if (this.isDragging && this.dragMode === 'scale-price') return
-    this.hoveredRightAxisPaneId = null
-    this.notifyInteractionChange()
+    if (this._state.readonly.isDragging.peek() && this._state.readonly.dragMode.peek() === 'scale-price') return
+    this._state.actions.setRightAxisHover(null)
   }
 
   /** 检查是否正在拖拽 */
   isDraggingState(): boolean {
-    return this.isDragging
+    return this._state.readonly.isDragging.peek()
   }
 
   setOnMarkerHover(callback: (marker: MarkerEntity | null) => void) {
@@ -643,38 +554,32 @@ export class InteractionController {
   private beginScalePriceDrag(clientY: number, mouseY: number) {
     const pane = this.getPaneByY(mouseY)
     if (!pane) return false
-    // 主图禁用垂直滚动时，禁止价格轴缩放
     if (pane.id === 'main' && this.settings.disableMainPaneVerticalScroll) {
       return false
     }
-    this.isDragging = true
-    this.dragMode = 'scale-price'
+    this._state.actions.startDrag('scale-price')
     this.dragStartY = clientY
     this.activePaneIdOnDrag = pane.id
-    this.hoveredRightAxisPaneId = pane.id
-    this.hoveredSeparatorUpperPaneId = null
-    this.crosshairPos = null
-    this.crosshairPrice = null
-    this.hoveredIndex = null
-    this.activePaneId = pane.id
+    this._state.actions.setRightAxisHover(pane.id)
+    this._state.actions.setSeparatorHover(null)
+    this._state.actions.updateCrosshair(null, null)
+    this._state.actions.updateHover(null, pane.id)
     return true
   }
 
   clearHover() {
     this.lastHoverRenderKey = ''
-    this.hoveredRightAxisPaneId = null
-    this.crosshairPos = null
-    this.crosshairPrice = null
-    this.hoveredIndex = null
-    this.activePaneId = null
-
+    this._state.actions.setRightAxisHover(null)
+    this._state.actions.updateCrosshair(null, null)
+    this._state.actions.updateHover(null, null)
+    this._state.actions.updateMarkerHover(null, null)
     this.markerState.clearAll(this.chart.getMarkerManager())
   }
 
   private clearSeparatorState() {
     this.activeSeparatorUpperPaneId = null
-    this.hoveredSeparatorUpperPaneId = null
-    this.hoveredRightAxisPaneId = null
+    this._state.actions.setSeparatorHover(null)
+    this._state.actions.setRightAxisHover(null)
   }
 
   /**
@@ -692,17 +597,15 @@ export class InteractionController {
     const plotHeight =
       viewport?.plotHeight ?? Math.max(1, Math.round(this.chart.getDom().container.clientHeight))
     if (mouseY < 0 || mouseY > plotHeight) {
-      this.hoveredRightAxisPaneId = null
+      this._state.actions.setRightAxisHover(null)
       return
     }
 
     const pane = this.getPaneByY(mouseY)
-    this.hoveredRightAxisPaneId = pane?.id || null
-    this.hoveredSeparatorUpperPaneId = null
-    this.crosshairPos = null
-    this.crosshairPrice = null
-    this.hoveredIndex = null
-    this.activePaneId = pane?.id || null
+    this._state.actions.setRightAxisHover(pane?.id || null)
+    this._state.actions.setSeparatorHover(null)
+    this._state.actions.updateCrosshair(null, null)
+    this._state.actions.updateHover(null, pane?.id || null)
   }
 
   /**
@@ -734,17 +637,17 @@ export class InteractionController {
     }
 
     if (this.tooltipPositionMode === 'adaptive') {
-      this.hoveredIndex = bar.globalIdx
+      this._state.signals.hoveredIndex.set(bar.globalIdx)
       this.updateTooltip(ctx)
       return
     }
 
     if (!this.hitTestCandle(ctx, bar)) {
-      this.hoveredIndex = null
+      this._state.signals.hoveredIndex.set(null)
       return
     }
 
-    this.hoveredIndex = bar.globalIdx
+    this._state.signals.hoveredIndex.set(bar.globalIdx)
     this.updateTooltip(ctx)
   }
 
@@ -793,14 +696,12 @@ export class InteractionController {
    * 若指针悬浮在 pane 分隔条上，清除十字线状态并返回 true。
    */
   private handleSeparatorHit(ctx: HoverContext): boolean {
-    this.hoveredRightAxisPaneId = null
+    this._state.actions.setRightAxisHover(null)
     const separatorUpperPaneId = this.hitTestPaneSeparator(ctx.mouseY)
-    this.hoveredSeparatorUpperPaneId = separatorUpperPaneId
+    this._state.actions.setSeparatorHover(separatorUpperPaneId)
     if (separatorUpperPaneId) {
-      this.crosshairPos = null
-      this.crosshairPrice = null
-      this.hoveredIndex = null
-      this.activePaneId = null
+      this._state.actions.updateCrosshair(null, null)
+      this._state.actions.updateHover(null, null)
       return true
     }
     return false
@@ -813,10 +714,11 @@ export class InteractionController {
    */
   private handleMarkerHit(ctx: HoverContext): boolean {
     const markerManager = this.chart.getMarkerManager()
-    if (this.markerState.updateHoverFromPoint(ctx.worldX, ctx.mouseX, ctx.mouseY, markerManager)) {
-      this.crosshairPos = null
-      this.crosshairPrice = null
-      this.hoveredIndex = null
+    const hit = this.markerState.updateHoverFromPoint(ctx.worldX, ctx.mouseX, ctx.mouseY, markerManager)
+    this._state.actions.updateMarkerHover(this.markerState.hoveredMarkerData, this.markerState.hoveredCustomMarker)
+    if (hit) {
+      this._state.actions.updateCrosshair(null, null)
+      this._state.signals.hoveredIndex.set(null)
       return true
     }
     return false
@@ -829,11 +731,15 @@ export class InteractionController {
    * 若无 kLinePositions、visibleRange 或 kWidthPx，返回 null。
    */
   private findNearestBar(ctx: HoverContext): NearestBar | null {
-    if (!this.kLinePositions || !this.visibleRange || !this.kWidthPx) return null
+    const kLinePositions = this._state.readonly.kLinePositions.peek()
+    const kWidthPx = this._state.readonly.kWidthPx.peek()
+    const vp = this.chart.viewport.peek()
+    const visibleRange = vp ? { start: vp.visibleFrom, end: vp.visibleTo } : null
+    if (!kLinePositions || !visibleRange || !kWidthPx) return null
 
     const { worldX, mouseY, dpr, scrollLeft, plotWidth } = ctx
-    const kWidthLogical = this.kWidthPx / dpr
-    const positions = this.kLinePositions
+    const kWidthLogical = kWidthPx / dpr
+    const positions = kLinePositions
 
     let lo = 0,
       hi = positions.length
@@ -875,7 +781,7 @@ export class InteractionController {
 
     return {
       localIdx,
-      globalIdx: localIdx + this.visibleRange.start,
+      globalIdx: localIdx + visibleRange.start,
       kLineStartX: positions[localIdx]!,
       widthLogical: kWidthLogical,
     }
@@ -891,28 +797,25 @@ export class InteractionController {
   private positionCrosshair(ctx: HoverContext, bar: NearestBar): void {
     const { mouseX, mouseY, scrollLeft, plotWidth, plotHeight, dpr } = ctx
     const pane = this.getPaneByY(mouseY)
-    this.activePaneId = pane?.id || null
+    this._state.signals.activePaneId.set(pane?.id || null)
 
     if (bar.globalIdx < 0 || bar.globalIdx >= (this.chart.getRenderData()?.length ?? 0)) {
-      this.crosshairPos = null
-      this.crosshairPrice = null
+      this._state.actions.updateCrosshair(null, null)
       return
     }
 
-    const centerX = this.kLineCenters?.[bar.localIdx] ?? bar.kLineStartX + bar.widthLogical / 2
+    const kLineCenters = this._state.readonly.kLineCenters.peek()
+    const centerX = kLineCenters?.[bar.localIdx] ?? bar.kLineStartX + bar.widthLogical / 2
     const snappedX = centerX - scrollLeft
 
-    this.crosshairPos = {
-      x: Math.min(Math.max(snappedX, 0), plotWidth),
-      y: Math.min(Math.max(mouseY, 0), plotHeight),
-    }
-
-    if (pane) {
-      const localY = mouseY - pane.top
-      this.crosshairPrice = pane.yAxis.yToPrice(localY)
-    } else {
-      this.crosshairPrice = null
-    }
+    const price = pane ? pane.yAxis.yToPrice(mouseY - pane.top) : null
+    this._state.actions.updateCrosshair(
+      {
+        x: Math.min(Math.max(snappedX, 0), plotWidth),
+        y: Math.min(Math.max(mouseY, 0), plotHeight),
+      },
+      price,
+    )
   }
 
   /**
@@ -922,7 +825,7 @@ export class InteractionController {
    * 不执行 candle body/wick 命中检测。
    */
   private handleTimeshareHover(ctx: HoverContext, bar: NearestBar): void {
-    this.hoveredIndex = bar.globalIdx
+    this._state.signals.hoveredIndex.set(bar.globalIdx)
     this.updateTooltip(ctx)
   }
 
@@ -1016,18 +919,14 @@ export class InteractionController {
       mode: this.tooltipPositionMode,
       adaptiveCorner: this.tooltipAdaptiveLock ?? undefined,
     })
-    if (tooltipResult.anchorPlacement) {
-      this.tooltipAnchorPlacement = tooltipResult.anchorPlacement
-    }
-    this.tooltipPos = tooltipResult.pos
+    this._state.actions.updateTooltip(tooltipResult.pos, tooltipResult.anchorPlacement ?? 'right-bottom')
   }
 
   /**
    * 重置所有交互状态（数据更新时调用）
    */
   reset(): void {
-    this.isDragging = false
-    this.dragMode = 'none'
+    this._state.actions.endDrag()
     this.dragStartX = 0
     this.dragStartY = 0
     this.scrollStartX = 0
@@ -1035,16 +934,11 @@ export class InteractionController {
     this.clearSeparatorState()
     this.isTouchSession = false
     this.pinchTracker.reset()
-    this.crosshairPos = null
-    this.crosshairPrice = null
-    this.hoveredIndex = null
-    this.activePaneId = null
+    this._state.actions.updateCrosshair(null, null)
+    this._state.actions.updateHover(null, null)
     this.markerState.reset()
-    this.kLinePositions = null
-    this.kLineCenters = null
-    this.visibleRange = null
+    this._state.actions.updateFramePositions(null, null, null)
     this.lastHoverRenderKey = ''
-    this.kWidthPx = null
   }
 
   /** 获取十字线指向的 K 线索引 */

@@ -1,5 +1,6 @@
-import { type Signal } from '../../foundation/reactivity/signal'
+import { type Signal, type ReadonlySignal } from '../../foundation/reactivity/signal'
 import type { ChartDom, Viewport, ViewportState } from '../chartTypes'
+import type { VisibleRange } from '../layout/pane'
 import {
   createViewportState,
   type ViewportStateModule,
@@ -150,5 +151,20 @@ export class ChartViewportManager {
   /** @deprecated No-op — viewportState is now computed(). */
   updateViewportSignal(): void {
     // no-op
+  }
+
+  /** Expose visibleRange signal for interactionState deps. */
+  get visibleRangeSignal(): ReadonlySignal<VisibleRange | null> {
+    return this.state.readonly.visibleRange as unknown as ReadonlySignal<VisibleRange | null>
+  }
+
+  /** Expose scrollLeftLogical signal for interactionState deps. */
+  get scrollLeftLogicalSignal(): ReadonlySignal<number> {
+    return this.state.readonly.scrollLeftLogical as ReadonlySignal<number>
+  }
+
+  /** Expose dpr signal for interactionState deps. */
+  get dprSignal(): ReadonlySignal<number> {
+    return this.state.readonly.dpr as ReadonlySignal<number>
   }
 }

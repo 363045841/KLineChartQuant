@@ -3,6 +3,149 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { InteractionController } from '@/core/controller/interaction'
 import type { KLineData } from '@/types/price'
+import { writableRef } from '../../../foundation/reactivity/signal'
+
+function createMockInteractionState() {
+  const signals = {
+    crosshairPos: writableRef<{ x: number; y: number } | null>(null),
+    crosshairPrice: writableRef<number | null>(null),
+    hoveredIndex: writableRef<number | null>(null),
+    activePaneId: writableRef<string | null>(null),
+    isDragging: writableRef(false),
+    dragMode: writableRef<'none' | 'pan' | 'resize-separator' | 'scale-price' | 'explore'>('none'),
+    hoveredSeparatorUpperPaneId: writableRef<string | null>(null),
+    hoveredRightAxisPaneId: writableRef<string | null>(null),
+    tooltipPos: writableRef<{ x: number; y: number }>({ x: 0, y: 0 }),
+    tooltipAnchorPlacement: writableRef<'right-bottom' | 'left-bottom'>('right-bottom'),
+    hoveredMarkerData: writableRef<any>(null),
+    hoveredCustomMarker: writableRef<any>(null),
+    kLinePositions: writableRef<number[] | null>(null),
+    kLineCenters: writableRef<number[] | null>(null),
+    kWidthPx: writableRef<number | null>(null),
+  }
+
+  function computeCrosshairIndex(): number | null {
+    const pos = signals.crosshairPos.peek()
+    const positions = signals.kLinePositions.peek()
+    const kwp = signals.kWidthPx.peek()
+    if (!pos || !positions || !kwp) return null
+    const worldX = pos.x
+    let minDist = Infinity
+    let minIdx = -1
+    for (let i = 0; i < positions.length; i++) {
+      const dist = Math.abs(positions[i]! - worldX)
+      if (dist < minDist) {
+        minDist = dist
+        minIdx = i
+      }
+    }
+    return minIdx >= 0 ? minIdx : null
+  }
+
+  const crosshairIndexSignal = {
+    peek: () => computeCrosshairIndex(),
+    subscribe: () => () => {},
+  } as any
+
+  return {
+    readonly: {
+      crosshairPos: signals.crosshairPos,
+      crosshairPrice: signals.crosshairPrice,
+      hoveredIndex: signals.hoveredIndex,
+      activePaneId: signals.activePaneId,
+      isDragging: signals.isDragging,
+      dragMode: signals.dragMode,
+      hoveredSeparatorUpperPaneId: signals.hoveredSeparatorUpperPaneId,
+      hoveredRightAxisPaneId: signals.hoveredRightAxisPaneId,
+      tooltipPos: signals.tooltipPos,
+      tooltipAnchorPlacement: signals.tooltipAnchorPlacement,
+      hoveredMarkerData: signals.hoveredMarkerData,
+      hoveredCustomMarker: signals.hoveredCustomMarker,
+      kLinePositions: signals.kLinePositions,
+      kLineCenters: signals.kLineCenters,
+      kWidthPx: signals.kWidthPx,
+      crosshairIndex: crosshairIndexSignal,
+      interactionSnapshot: {
+        peek: () => ({
+          crosshairPos: signals.crosshairPos.peek(),
+          crosshairIndex: crosshairIndexSignal.peek(),
+          crosshairPrice: signals.crosshairPrice.peek(),
+          hoveredIndex: signals.hoveredIndex.peek(),
+          activePaneId: signals.activePaneId.peek(),
+          tooltipPos: signals.tooltipPos.peek(),
+          tooltipAnchorPlacement: signals.tooltipAnchorPlacement.peek(),
+          hoveredMarkerData: signals.hoveredMarkerData.peek(),
+          hoveredCustomMarker: signals.hoveredCustomMarker.peek(),
+          isDragging: signals.isDragging.peek(),
+          isResizingPaneBoundary: signals.dragMode.peek() === 'resize-separator',
+          isHoveringPaneBoundary: signals.hoveredSeparatorUpperPaneId.peek() !== null,
+          hoveredPaneBoundaryId: signals.hoveredSeparatorUpperPaneId.peek(),
+          isHoveringRightAxis: signals.hoveredRightAxisPaneId.peek() !== null,
+        }),
+      } as any,
+    },
+    signals,
+    actions: {
+      updateCrosshair(pos: any, price: any) {
+        signals.crosshairPos.set(pos)
+        signals.crosshairPrice.set(price)
+      },
+      updateHover(index: any, paneId: any) {
+        signals.hoveredIndex.set(index)
+        signals.activePaneId.set(paneId)
+      },
+      updateFramePositions(positions: any, centers: any, kWidthPxVal: any) {
+        signals.kLinePositions.set(positions)
+        signals.kLineCenters.set(centers)
+        signals.kWidthPx.set(kWidthPxVal)
+      },
+      startDrag(mode: any) {
+        signals.isDragging.set(true)
+        signals.dragMode.set(mode)
+      },
+      endDrag() {
+        signals.isDragging.set(false)
+        signals.dragMode.set('none')
+      },
+      setDragMode(mode: any) {
+        signals.dragMode.set(mode)
+      },
+      setSeparatorHover(id: any) {
+        signals.hoveredSeparatorUpperPaneId.set(id)
+      },
+      setRightAxisHover(id: any) {
+        signals.hoveredRightAxisPaneId.set(id)
+      },
+      updateTooltip(pos: any, placement: any) {
+        signals.tooltipPos.set(pos)
+        signals.tooltipAnchorPlacement.set(placement)
+      },
+      updateMarkerHover(md: any, cmd: any) {
+        signals.hoveredMarkerData.set(md)
+        signals.hoveredCustomMarker.set(cmd)
+      },
+      reset() {
+        signals.crosshairPos.set(null)
+        signals.crosshairPrice.set(null)
+        signals.hoveredIndex.set(null)
+        signals.activePaneId.set(null)
+        signals.isDragging.set(false)
+        signals.dragMode.set('none')
+        signals.hoveredSeparatorUpperPaneId.set(null)
+        signals.hoveredRightAxisPaneId.set(null)
+        signals.tooltipPos.set({ x: 0, y: 0 })
+        signals.tooltipAnchorPlacement.set('right-bottom')
+        signals.hoveredMarkerData.set(null)
+        signals.hoveredCustomMarker.set(null)
+        signals.kLinePositions.set(null)
+        signals.kLineCenters.set(null)
+        signals.kWidthPx.set(null)
+        crosshairIndexSignal.set(null)
+      },
+    },
+    dispose() {},
+  }
+}
 
 function createChartStub(args: {
   dpr: number
@@ -82,6 +225,18 @@ function createChartStub(args: {
 
   const chart = {
     getDom: () => ({ container, rightAxisLayer }),
+    viewport: {
+      peek: () => ({
+        zoomLevel: 1,
+        plotWidth: args.plotWidth,
+        plotHeight: args.plotHeight,
+        dpr: args.dpr,
+        visibleFrom: 0,
+        visibleTo: 2,
+        kWidth: 6,
+        kGap: 2,
+      }),
+    } as any,
     getViewport: () => ({
       viewWidth: 320,
       viewHeight: 200,
@@ -113,7 +268,7 @@ function createChartStub(args: {
 describe('InteractionController DPR consumption', () => {
   it('uses viewport plot bounds for hit boundary checks', () => {
     const chart = createChartStub({ dpr: 2, plotWidth: 100, plotHeight: 80 })
-    const interaction = new InteractionController(chart as never)
+    const interaction = new InteractionController(chart as never, createMockInteractionState())
 
     interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
 
@@ -127,14 +282,14 @@ describe('InteractionController DPR consumption', () => {
 
   it('uses current DPR in kWidthLogical = kWidthPx / dpr path', () => {
     const chartDpr1 = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 160 })
-    const interactionDpr1 = new InteractionController(chartDpr1 as never)
+    const interactionDpr1 = new InteractionController(chartDpr1 as never, createMockInteractionState())
     interactionDpr1.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
 
     interactionDpr1.onPointerMove({ clientX: 8, clientY: 40, isPrimary: true } as PointerEvent)
     expect(interactionDpr1.crosshairIndex).toBe(0)
 
     const chartDpr2 = createChartStub({ dpr: 2, plotWidth: 300, plotHeight: 160 })
-    const interactionDpr2 = new InteractionController(chartDpr2 as never)
+    const interactionDpr2 = new InteractionController(chartDpr2 as never, createMockInteractionState())
     interactionDpr2.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
 
     interactionDpr2.onPointerMove({ clientX: 8, clientY: 40, isPrimary: true } as PointerEvent)
@@ -153,7 +308,7 @@ describe('InteractionController pane capability gating', () => {
         { id: 'sub_MACD', top: 100, height: 100, candleHitTest: false },
       ],
     })
-    const interaction = new InteractionController(chart as never)
+    const interaction = new InteractionController(chart as never, createMockInteractionState())
 
     interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
     interaction.onPointerMove({ clientX: 5, clientY: 140, isPrimary: true } as PointerEvent)
@@ -172,7 +327,7 @@ describe('InteractionController pane capability gating', () => {
         { id: 'sub_MACD', top: 100, height: 100, candleHitTest: false },
       ],
     })
-    const interaction = new InteractionController(chart as never)
+    const interaction = new InteractionController(chart as never, createMockInteractionState())
 
     interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
     interaction.onPointerMove({ clientX: 5, clientY: 10, isPrimary: true } as PointerEvent)
@@ -192,7 +347,7 @@ describe('InteractionController pane capability gating', () => {
         { id: 'sub_MACD', top: 100, height: 100, candleHitTest: false },
       ],
     })
-    const interaction = new InteractionController(chart as never)
+    const interaction = new InteractionController(chart as never, createMockInteractionState())
 
     interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
     interaction.onPointerMove({ clientX: 5, clientY: 10, isPrimary: true } as PointerEvent)
@@ -218,7 +373,7 @@ describe('InteractionController hover snapshot', () => {
         hitTestCustomMarker: () => null,
       },
     })
-    const interaction = new InteractionController(chart as never)
+    const interaction = new InteractionController(chart as never, createMockInteractionState())
 
     interaction.onPointerMove({ clientX: 20, clientY: 20, isPrimary: true } as PointerEvent)
     expect(interaction.getInteractionSnapshot().hoveredMarkerData).toBe(marker)
@@ -246,11 +401,7 @@ describe('InteractionController hover snapshot', () => {
         hitTestCustomMarker: () => (hoveringCustom ? customMarker : null),
       },
     })
-    const interaction = new InteractionController(chart as never)
-    const changes: ReturnType<typeof interaction.getInteractionSnapshot>[] = []
-    interaction.setOnInteractionChange((snapshot) => {
-      changes.push(snapshot)
-    })
+    const interaction = new InteractionController(chart as never, createMockInteractionState())
 
     interaction.onPointerMove({ clientX: 20, clientY: 20, isPrimary: true } as PointerEvent)
     expect(interaction.getInteractionSnapshot().hoveredCustomMarker).toBe(customMarker)
@@ -260,6 +411,5 @@ describe('InteractionController hover snapshot', () => {
     interaction.onPointerMove({ clientX: 20, clientY: 20, isPrimary: true } as PointerEvent)
 
     expect(interaction.getInteractionSnapshot().hoveredCustomMarker).toBeNull()
-    expect(changes[changes.length - 1]?.hoveredCustomMarker).toBeNull()
   })
 })
