@@ -1,4 +1,5 @@
 import { computeZoom, zoomLevelToKWidth, kGapFromKWidth } from './zoom'
+import type { ZoomStateModule } from '../state/zoomState'
 
 export interface ZoomDependencies {
   getLogicalScrollLeft: () => number
@@ -15,33 +16,26 @@ export interface ZoomDependencies {
 }
 
 export class ChartZoomController {
-  private _currentZoomLevel: number
-  private _currentKWidth: number
-  private _currentKGap: number
   private readonly deps: ZoomDependencies
+  private _zoomState: ZoomStateModule
 
-  constructor(deps: ZoomDependencies) {
+  constructor(deps: ZoomDependencies, zoomState: ZoomStateModule) {
     this.deps = deps
+    this._zoomState = zoomState
     const clamped = Math.max(1, Math.min(deps.zoomLevelCount, deps.initialZoomLevel ?? 1))
-    this._currentZoomLevel = clamped
-    this._currentKWidth = zoomLevelToKWidth(clamped, {
-      minKWidth: deps.getMinKWidth(),
-      maxKWidth: deps.getMaxKWidth(),
-      zoomLevelCount: deps.zoomLevelCount,
-    })
-    this._currentKGap = kGapFromKWidth(this._currentKWidth, deps.getCurrentDpr())
+    this._zoomState.actions.setZoomLevel(clamped)
   }
 
   get currentZoomLevel(): number {
-    return this._currentZoomLevel
+    return this._zoomState.readonly.zoomLevel.peek()
   }
 
   get currentKWidth(): number {
-    return this._currentKWidth
+    return this._zoomState.readonly.kWidth.peek()
   }
 
   get currentKGap(): number {
-    return this._currentKGap
+    return this._zoomState.readonly.kGap.peek()
   }
 
   get zoomLevelCount(): number {
@@ -49,18 +43,27 @@ export class ChartZoomController {
   }
 
   setZoomLevel(level: number): void {
-    this._currentZoomLevel = Math.max(1, Math.min(this.deps.zoomLevelCount, level))
-    this._currentKWidth = zoomLevelToKWidth(this._currentZoomLevel, {
+    const clamped = Math.max(1, Math.min(this.deps.zoomLevelCount, level))
+    this._zoomState.actions.setZoomLevel(clamped)
+  }
+
+  setKWidthKGap(kWidth: number, kGap: number): void {
+    // kWidth/kGap are now derived from zoomLevel via zoomState computed.
+    // For direct kWidth/kGap mode (timeshare), the chart sets zoomLevel to
+    // a value that produces the desired kWidth/kGap.
+    // This method is preserved for backwards compatibility: find the closest
+    // zoomLevel that approximates the given kWidth.
+    const kw = zoomLevelToKWidth(1, {
       minKWidth: this.deps.getMinKWidth(),
       maxKWidth: this.deps.getMaxKWidth(),
       zoomLevelCount: this.deps.zoomLevelCount,
     })
-    this._currentKGap = kGapFromKWidth(this._currentKWidth, this.deps.getCurrentDpr())
-  }
-
-  setKWidthKGap(kWidth: number, kGap: number): void {
-    this._currentKWidth = kWidth
-    this._currentKGap = kGap
+    // Use kWidth/kGap ratio to estimate a zoom level: linear interpolation
+    const w = this.deps.getMinKWidth()
+    const w2 = this.deps.getMaxKWidth()
+    const ratio = (kWidth - w) / (w2 - w || 1)
+    const level = Math.max(1, Math.min(this.deps.zoomLevelCount, Math.round(1 + ratio * (this.deps.zoomLevelCount - 1))))
+    this._zoomState.actions.setZoomLevel(level)
   }
 
   zoomToLevel(level: number, anchorX?: number): void {
@@ -69,36 +72,36 @@ export class ChartZoomController {
   }
 
   zoomIn(anchorX?: number): void {
-    this.zoomToLevel(this._currentZoomLevel + 1, anchorX)
+    this.zoomToLevel(this.currentZoomLevel + 1, anchorX)
   }
 
   zoomOut(anchorX?: number): void {
-    this.zoomToLevel(this._currentZoomLevel - 1, anchorX)
+    this.zoomToLevel(this.currentZoomLevel - 1, anchorX)
   }
 
   handleWheel(deltaY: number, viewportX: number): void {
     const delta = deltaY > 0 ? -1 : 1
     const targetLevel = Math.max(
       1,
-      Math.min(this.deps.zoomLevelCount, this._currentZoomLevel + delta),
+      Math.min(this.deps.zoomLevelCount, this.currentZoomLevel + delta),
     )
-    if (targetLevel === this._currentZoomLevel) return
+    if (targetLevel === this.currentZoomLevel) return
     this.applyZoom(targetLevel, viewportX)
   }
 
   handlePinch(delta: number, centerClientX: number): void {
     const targetLevel = Math.max(
       1,
-      Math.min(this.deps.zoomLevelCount, this._currentZoomLevel + delta),
+      Math.min(this.deps.zoomLevelCount, this.currentZoomLevel + delta),
     )
-    if (targetLevel === this._currentZoomLevel) return
+    if (targetLevel === this.currentZoomLevel) return
     this.applyZoom(targetLevel, centerClientX)
   }
 
   private applyZoom(targetLevel: number, anchorViewportX?: number): void {
-    if (targetLevel === this._currentZoomLevel) return
+    if (targetLevel === this.currentZoomLevel) return
 
-    const delta = targetLevel - this._currentZoomLevel
+    const delta = targetLevel - this.currentZoomLevel
     const logicalScrollLeft = this.deps.getLogicalScrollLeft()
     const dpr = this.deps.getCurrentDpr()
 
@@ -106,9 +109,9 @@ export class ChartZoomController {
       delta,
       anchorViewportX ?? 0,
       logicalScrollLeft,
-      this._currentZoomLevel,
-      this._currentKWidth,
-      this._currentKGap,
+      this.currentZoomLevel,
+      this.currentKWidth,
+      this.currentKGap,
       {
         minKWidth: this.deps.getMinKWidth(),
         maxKWidth: this.deps.getMaxKWidth(),
@@ -122,9 +125,7 @@ export class ChartZoomController {
 
     if (!result) return
 
-    this._currentZoomLevel = result.targetLevel
-    this._currentKWidth = result.newKWidth
-    this._currentKGap = result.newKGap
+    this._zoomState.actions.setZoomLevel(result.targetLevel)
     this.deps.setScrollLeft(result.newDomScrollLeft)
     this.deps.onChange?.()
   }

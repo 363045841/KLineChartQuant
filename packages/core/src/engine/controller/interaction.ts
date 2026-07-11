@@ -636,7 +636,7 @@ export class InteractionController {
       return
     }
 
-    if (this.tooltipPositionMode === 'adaptive') {
+if (this.tooltipPositionMode === 'adaptive') {
       this._state.signals.hoveredIndex.set(bar.globalIdx)
       this.updateTooltip(ctx)
       return

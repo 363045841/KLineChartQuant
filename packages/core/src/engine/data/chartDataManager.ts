@@ -4,12 +4,13 @@ import { getPeriodDays } from '../../data/dataBuffer.effects'
 import type { KLineBuffer, DataChange } from '../../data/dataBufferTypes'
 import { TimeShareBuffer } from '../../data/timeShareBuffer'
 import type { TimeShareFetcherFn } from '../../data/types'
-import { batch, createSignal, type Signal } from '../../foundation/reactivity/signal'
+import { batch, createSignal, type ReadonlySignal, type Signal } from '../../foundation/reactivity/signal'
 import type { KLineData, TimeShareData } from '../../foundation/types/price'
 import type { ChartDom, Viewport } from '../chartTypes'
 import type { VisibleRange, UpdateLevel } from '../layout/pane'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
 import { getVisibleRange } from '../viewport/viewport'
+import type { DataStateModule } from '../state/dataState'
 
 import { ComparisonManager } from './comparisonManager'
 import { FetchBatchScheduler } from './fetchBatchScheduler'
@@ -59,11 +60,7 @@ export class ChartDataManager {
   private _activeBufferKey: string | null = null
   private _activeBufferUnsub: (() => void) | null = null
 
-  private _dataSignal = createSignal<ReadonlyArray<unknown>>([])
-  private _loadingSignal = createSignal<boolean>(false)
-  private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
-  /** Available symbol catalog — consumed by UI pickers (e.g. TopToolbar) */
-  private _symbolCatalog = createSignal<ReadonlyArray<SymbolInfo>>([])
+  private _dataState: DataStateModule
 
   private _currentSpec: SymbolSpec | null = null
 
@@ -83,8 +80,9 @@ export class ChartDataManager {
 
   private deps: DataDependencies
 
-  constructor(deps: DataDependencies) {
+  constructor(deps: DataDependencies, dataState: DataStateModule) {
     this.deps = deps
+    this._dataState = dataState
     this._scrollCompensator = new ScrollCompensator(deps)
     this._loadHint = new IncrementalLoadHint(deps)
     this._comparisonManager = new ComparisonManager({
@@ -113,21 +111,22 @@ export class ChartDataManager {
     this._activeBufferUnsub?.()
     this.resetIncrementalLoadHintBatch()
     this._activeBufferKey = key
+    this._dataState.actions.setActiveBufferKey(key)
     const buf = this._lookupBuffer(key)
     if (buf) {
-      this._dataSignal.set([...((buf.data.peek() as DataChange).data as unknown[])])
-      this._loadingSignal.set(buf.loading.peek())
+      this._dataState.actions.setData([...((buf.data.peek() as DataChange).data as unknown[])])
+      this._dataState.actions.setLoading(buf.loading.peek())
       const unsubData = buf.data.subscribe(() => {
         const change = buf.data.peek() as DataChange
-        const prevDataLength = this._dataSignal.peek().length
+        const prevDataLength = this._dataState.readonly.dataLength.peek()
         batch(() => {
-          this._dataSignal.set([...(change.data as unknown[])])
+          this._dataState.actions.setData([...(change.data as unknown[])])
           this.onBufferDataChanged(key, prevDataLength, change.prependedCount)
         })
       })
       const unsubLoading = buf.loading.subscribe(() => {
         const loading = buf.loading.peek()
-        this._loadingSignal.set(loading)
+        this._dataState.actions.setLoading(loading)
         if (!loading) {
           this.scheduleIncrementalLoadHintFlush(key)
         }
@@ -137,8 +136,8 @@ export class ChartDataManager {
         unsubLoading()
       }
     } else {
-      this._dataSignal.set([])
-      this._loadingSignal.set(false)
+      this._dataState.actions.setData([])
+      this._dataState.actions.setLoading(false)
       this._activeBufferUnsub = null
     }
   }
@@ -228,7 +227,7 @@ export class ChartDataManager {
       this._scrollCompensator.adjustScrollAfterDataChange(bufferData.length)
     }
 
-    if ((prevDataLength ?? this._dataSignal.peek().length) === 0 && bufferData.length > 0) {
+    if ((prevDataLength ?? this._dataState.readonly.dataLength.peek()) === 0 && bufferData.length > 0) {
       this.scrollToRight()
     }
 
@@ -238,7 +237,7 @@ export class ChartDataManager {
       this._rangeInitialized = true
     }
 
-    let currentRange = this.computeRawVisibleRange()
+    let currentRange = this._dataState.readonly.visibleRange.peek()
     if (!currentRange && this._rangeInitialized && bufferData.length > 0) {
       currentRange = { start: 0, end: bufferData.length }
     }
@@ -300,7 +299,7 @@ export class ChartDataManager {
   }
 
   private onTimeShareBufferChanged(): void {
-    const data = this._dataSignal.peek() as TimeShareData[]
+    const data = this._dataState.readonly.data.peek() as TimeShareData[]
     this._rangeInitialized = true
     this.deps.resetInteraction()
     this.deps.onTimeShareDataReady(data.length)
@@ -319,37 +318,27 @@ export class ChartDataManager {
     return buf ? buf.getRawData().length : 0
   }
 
-  private computeRawVisibleRange(): VisibleRange | null {
-    const buf = this.getActiveDataBuffer()
-    const dataLength = buf ? buf.getRawData().length : 0
-    if (dataLength === 0) return null
-    const vp = this.deps.getViewport()
-    if (!vp) return null
-    const opt = this.deps.getOption()
-    return getVisibleRange(vp.scrollLeft, vp.plotWidth, opt.kWidth, opt.kGap, dataLength, vp.dpr)
-  }
-
-  /** 当前可见范围（on-demand 实时计算，消除 stale 缓存） */
+  /** 当前可见范围（from dataState computed） */
   getCurrentVisibleRange(): VisibleRange | null {
-    return this.computeRawVisibleRange()
+    return this._dataState.readonly.visibleRange.peek()
   }
 
   /** Unified data signal — always reflects the active buffer's data */
-  get data(): Signal<ReadonlyArray<KLineData>> {
-    return this._dataSignal as Signal<ReadonlyArray<KLineData>>
+  get data(): ReadonlySignal<ReadonlyArray<KLineData>> {
+    return this._dataState.readonly.data as ReadonlySignal<ReadonlyArray<KLineData>>
   }
 
   /** Loading signal — mirrors the active buffer's loading state */
-  get loading(): Signal<boolean> {
-    return this._loadingSignal
+  get loading(): ReadonlySignal<boolean> {
+    return this._dataState.readonly.loading
   }
 
-  get symbols(): Signal<ReadonlyArray<SymbolSpec>> {
-    return this._symbolsSignal
+  get symbols(): ReadonlySignal<ReadonlyArray<SymbolSpec>> {
+    return this._dataState.readonly.symbols
   }
 
-  get symbolCatalog(): Signal<ReadonlyArray<SymbolInfo>> {
-    return this._symbolCatalog
+  get symbolCatalog(): ReadonlySignal<ReadonlyArray<SymbolInfo>> {
+    return this._dataState.readonly.symbolCatalog
   }
 
   /**
@@ -357,16 +346,16 @@ export class ChartDataManager {
    * Deduplicates by symbol code: newer entries replace older ones.
    */
   registerSymbols(infos: ReadonlyArray<SymbolInfo>): void {
-    const current = new Map(this._symbolCatalog.peek().map((s) => [s.symbol, s]))
+    const current = new Map(this._dataState.readonly.symbolCatalog.peek().map((s) => [s.symbol, s]))
     for (const info of infos) current.set(info.symbol, info)
-    this._symbolCatalog.set([...current.values()])
+    this._dataState.actions.setSymbolCatalog([...current.values()])
   }
 
   /** Remove a symbol from the catalog by code. */
   unregisterSymbol(symbol: string): void {
-    const next = this._symbolCatalog.peek().filter((s) => s.symbol !== symbol)
-    if (next.length < this._symbolCatalog.peek().length) {
-      this._symbolCatalog.set(next)
+    const next = this._dataState.readonly.symbolCatalog.peek().filter((s) => s.symbol !== symbol)
+    if (next.length < this._dataState.readonly.symbolCatalog.peek().length) {
+      this._dataState.actions.setSymbolCatalog(next)
     }
   }
 
@@ -378,12 +367,12 @@ export class ChartDataManager {
   getInternalData(): KLineData[] {
     const buf = this.getActiveDataBuffer()
     if (buf) return buf.getRawData()
-    const peek = this._dataSignal.peek()
+    const peek = this._dataState.readonly.data()
     return peek.length > 0 ? (peek as KLineData[]) : []
   }
 
   getRenderData(): unknown[] {
-    return [...this._dataSignal.peek()]
+    return [...this._dataState.readonly.data()]
   }
 
   getMonthKeys(): Int32Array | null {
@@ -399,16 +388,16 @@ export class ChartDataManager {
     return buf ? buf.getRawData() : []
   }
 
-  getTimeShareSignal(): Signal<ReadonlyArray<TimeShareData>> {
+  getTimeShareSignal(): ReadonlySignal<ReadonlyArray<TimeShareData>> {
     const buf = this.getActiveTimeShareBuffer()
-    return (buf?.data ?? createSignal<ReadonlyArray<TimeShareData>>([])) as Signal<
+    return (buf?.data ?? createSignal<ReadonlyArray<TimeShareData>>([])) as ReadonlySignal<
       ReadonlyArray<TimeShareData>
     >
   }
 
-  getTimeShareLoadingSignal(): Signal<boolean> {
+  getTimeShareLoadingSignal(): ReadonlySignal<boolean> {
     const buf = this.getActiveTimeShareBuffer()
-    return (buf?.loading ?? createSignal<boolean>(false)) as Signal<boolean>
+    return (buf?.loading ?? createSignal<boolean>(false)) as ReadonlySignal<boolean>
   }
 
   setTimeShareFetcher(fetcher: TimeShareFetcherFn | null): void {
@@ -462,7 +451,7 @@ export class ChartDataManager {
     if (buf) {
       buf.setInlineData(data)
     } else {
-      this._dataSignal.set([...data])
+      this._dataState.actions.setData([...data])
     }
   }
 
@@ -472,7 +461,7 @@ export class ChartDataManager {
       const merged = [...buf.getRawData(), ...newData]
       buf.setInlineData(merged)
     } else {
-      this._dataSignal.set([...this._dataSignal.peek(), ...newData])
+      this._dataState.actions.setData([...this._dataState.readonly.data(), ...newData])
     }
   }
 
@@ -505,7 +494,7 @@ export class ChartDataManager {
     if (data.length === 0) return
     const window = buf.loadedWindow
     if (!window) return
-    const range = this.computeRawVisibleRange()
+    const range = this._dataState.readonly.visibleRange.peek()
     if (!range) return
 
     const MS_PER_DAY = 86_400_000
@@ -542,20 +531,20 @@ export class ChartDataManager {
 
   addComparisonSymbol(spec: SymbolSpec): void {
     this._comparisonManager.addSymbol(spec, () => {
-      const allSpecs = this._symbolsSignal.peek()
-      this._symbolsSignal.set([allSpecs[0]!, ...this._comparisonManager.specs])
+      const allSpecs = this._dataState.readonly.symbols.peek()
+      this._dataState.actions.setSymbols([allSpecs[0]!, ...this._comparisonManager.specs])
     })
   }
 
   setComparisonData(symbol: string, data: KLineData[]): void {
     this._comparisonManager.setData(symbol, data, (key) => {
-      this._symbolsSignal.set([this._symbolsSignal.peek()[0]!, ...this._comparisonManager.specs])
+      this._dataState.actions.setSymbols([this._dataState.readonly.symbols.peek()[0]!, ...this._comparisonManager.specs])
     })
   }
 
   removeComparisonSymbol(symbol: string): void {
     if (!this._comparisonManager.removeSymbol(symbol)) return
-    this._symbolsSignal.set([this._symbolsSignal.peek()[0]!, ...this._comparisonManager.specs])
+    this._dataState.actions.setSymbols([this._dataState.readonly.symbols.peek()[0]!, ...this._comparisonManager.specs])
     this.deps.scheduleDraw()
   }
 
@@ -564,10 +553,10 @@ export class ChartDataManager {
   setCurrentSymbol(symbol: string): void {
     const current = this._currentSpec ?? { symbol }
     this._currentSpec = { ...current, symbol }
-    const specs = this._symbolsSignal.peek()
+    const specs = this._dataState.readonly.symbols.peek()
     if (specs.length > 0) {
       const updated = [{ ...specs[0], symbol }, ...specs.slice(1)] as SymbolSpec[]
-      this._symbolsSignal.set(updated)
+      this._dataState.actions.setSymbols(updated)
     }
   }
 
@@ -575,7 +564,7 @@ export class ChartDataManager {
   private _saveKLineScrollTimestamp(): void {
     const kBuf = this.getActiveDataBuffer()
     const rawFromBuf = kBuf?.getRawData() as KLineData[] | undefined
-    const kRaw = rawFromBuf ?? (this._dataSignal.peek() as KLineData[])
+    const kRaw = rawFromBuf ?? (this._dataState.readonly.data() as KLineData[])
     const dataLen = kRaw?.length ?? 0
     let visibleStart = 0
     if (dataLen > 0) {
@@ -655,7 +644,7 @@ export class ChartDataManager {
     // 首次调用时保存原始 spec，用于切回 Fetcher 时恢复
     if (!this._preCustomSpec) {
       this._preCustomSpec = {
-        ...(this._currentSpec ?? this._symbolsSignal.peek()[0] ?? { symbol: '' }),
+        ...(this._currentSpec ?? this._dataState.readonly.symbols.peek()[0] ?? { symbol: '' }),
       }
     }
 
@@ -698,7 +687,7 @@ export class ChartDataManager {
     if (this._activeBufferKey && !this._activeBufferKey.startsWith(BUF_TIMESHARE)) {
       this.disposeBuffer(this._activeBufferKey)
     }
-    this._dataSignal.set([])
+    this._dataState.actions.setData([])
     this._rangeInitialized = false
     this._savedScrollTimestamp = null
     this.setSymbols([spec, ...this._comparisonManager.specs])
@@ -711,12 +700,12 @@ export class ChartDataManager {
   // ── Main symbol switching ──
 
   setSymbols(specs: ReadonlyArray<SymbolSpec>): void {
-    this._symbolsSignal.set(specs)
+    this._dataState.actions.setSymbols(specs)
 
     if (specs.length === 0) {
       this._currentSpec = null
       this.disposeAllBuffers()
-      this._dataSignal.set([])
+      this._dataState.actions.setData([])
       this._rangeInitialized = false
       return
     }
@@ -733,7 +722,7 @@ export class ChartDataManager {
       this._saveKLineScrollTimestamp()
       // Keep primary KLine buffer in memory — don't dispose it,
       // so data and scroll position are preserved when user returns
-      this._dataSignal.set([])
+      this._dataState.actions.setData([])
       this._rangeInitialized = false
 
       // Get or create timeshare buffer

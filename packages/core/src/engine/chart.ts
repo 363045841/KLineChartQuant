@@ -6,6 +6,7 @@ import {
   computed,
   effect,
   writableRef,
+  type ReadonlySignal,
   type Signal,
   type Computed,
 } from '../foundation/reactivity/signal'
@@ -26,6 +27,14 @@ import {
   createInteractionState,
   type InteractionStateModule,
 } from './state/interactionState'
+import {
+  createDataState,
+  type DataStateModule,
+} from './state/dataState'
+import {
+  createZoomState,
+  type ZoomStateModule,
+} from './state/zoomState'
 import { ChartDataManager } from './data/chartDataManager'
 import { ChartIndicatorManager } from './indicators/chartIndicatorManager'
 import { resolveStateKey } from './indicators/indicatorMetadata'
@@ -97,6 +106,10 @@ export class Chart {
   /** Kernel signals (composition-layer wiring between sub-states). */
   private _zoomLevel$: ReturnType<typeof writableRef<number>>
   private _dataLength$: ReturnType<typeof writableRef<number>>
+
+  /** Kernel sub-state modules */
+  private _zoomState!: ZoomStateModule
+  private _dataState!: DataStateModule
 
   private viewportManager: ChartViewportManager
   private layoutManager: ChartPaneLayout
@@ -222,13 +235,23 @@ export class Chart {
 
     const initialOpt = this._optionsSignal.peek()
 
-    // ── Viewport kernel signal inputs (composition-layer wiring) ──
-    // These are created before viewportManager so the kernel can
-    // subscribe to them. They will be kept in sync by the Chart
-    // lifecycle below (dataManager subscription, zoomController
-    // onChange, etc.).
-    this._zoomLevel$ = writableRef(opt.initialZoomLevel ?? 1)
+    // ── Zoom kernel state (SSOT for zoomLevel / kWidth / kGap) ──
+    const _dprPlaceholder = writableRef(1)
+    this._zoomState = createZoomState({
+      dpr$: _dprPlaceholder,
+      minKWidth$: computed(() => this._optionsSignal.peek().minKWidth),
+      maxKWidth$: computed(() => this._optionsSignal.peek().maxKWidth),
+      zoomLevelCount: Math.max(2, Math.round(this._optionsSignal.peek().zoomLevels ?? 20)),
+    })
+    // Bridge: _zoomLevel$ is still needed for viewportManager deps (backward compat)
+    const initialZoomLevel = opt.initialZoomLevel ?? 1
+    this._zoomState.actions.setZoomLevel(initialZoomLevel)
+    this._zoomLevel$ = writableRef(initialZoomLevel)
     this._dataLength$ = writableRef(0)
+
+    // kWidth/kGap flow through _optionsSignal for viewportManager/viewportState deps.
+    // The optionsSignal kWidth/kGap are synced from zoomState via syncKWidthKGap.
+    // (syncKWidthKGap method body updated to read from zoomState)
     const _optionsView = computed(() => {
       const o = this._optionsSignal()
       return { bottomAxisHeight: o.bottomAxisHeight, kWidth: o.kWidth, kGap: o.kGap }
@@ -253,9 +276,16 @@ export class Chart {
         },
       },
     )
+    // Wire dpr placeholder signal from viewportManager after creation
+    effect(() => {
+      _dprPlaceholder.set(this.viewportManager.dprSignal())
+    })
     this.viewportManager.setContentWidthProvider(() =>
-      Math.max(this.dataManager.getContentWidth(), this.dataManager.getLeftLoadBufferWidth()),
+      Math.max(this.dataManager?.getContentWidth() ?? 0, this.dataManager?.getLeftLoadBufferWidth() ?? 0),
     )
+
+    // ── Data kernel state (SSOT for data / loading / symbols) ──
+    this._dataState = createDataState()
 
     this._interactionState = createInteractionState({
       visibleRange$: this.viewportManager.visibleRangeSignal,
@@ -322,12 +352,11 @@ export class Chart {
         }
       },
       onDataProcessed: (data, range) => this.evaluateAlerts(data, range), // Alert 管线绑定
-    })
+    }, this._dataState)
 
-    // Wire dataLength$ signal — follows the active buffer's raw data length.
-    this._dataLength$.set(this.dataManager.getData().length)
-    this.dataManager.data.subscribe(() => {
-      this._dataLength$.set(this.dataManager.data.peek().length)
+    // Wire dataLength$ signal — follows dataState.dataLength computed.
+    effect(() => {
+      this._dataLength$.set(this._dataState.readonly.dataLength())
     })
 
     this.zoomController = new ChartZoomController({
@@ -348,7 +377,7 @@ export class Chart {
       getMaxKWidth: () => this._optionsSignal.peek().maxKWidth,
       zoomLevelCount: Math.max(2, Math.round(this._optionsSignal.peek().zoomLevels ?? 20)),
       initialZoomLevel: this._optionsSignal.peek().initialZoomLevel ?? 1,
-    })
+    }, this._zoomState)
 
     // 初始化指标管理器
     this.indicatorManager = new ChartIndicatorManager({
@@ -607,8 +636,8 @@ export class Chart {
   // ========== Render State API (Vue SSOT) ==========
 
   private syncKWidthKGap(): void {
-    const kw = this.zoomController.currentKWidth
-    const kg = this.zoomController.currentKGap
+    const kw = this._zoomState.readonly.kWidth()
+    const kg = this._zoomState.readonly.kGap()
     const current = this._optionsSignal.peek()
     if (current.kWidth !== kw || current.kGap !== kg) {
       this._optionsSignal.set({ ...current, kWidth: kw, kGap: kg })
@@ -1083,22 +1112,22 @@ export class Chart {
   }
 
   /** 数据信号 */
-  get data(): Signal<ReadonlyArray<KLineData>> {
+  get data(): ReadonlySignal<ReadonlyArray<KLineData>> {
     return this.dataManager.data
   }
 
   /** 加载信号 */
-  get loading(): Signal<boolean> {
+  get loading(): ReadonlySignal<boolean> {
     return this.dataManager.loading
   }
 
   /** 符号信号 */
-  get symbols(): Signal<ReadonlyArray<SymbolSpec>> {
+  get symbols(): ReadonlySignal<ReadonlyArray<SymbolSpec>> {
     return this.dataManager.symbols
   }
 
   /** 可用品种目录信号 — 供 UI 品种选择器消费 */
-  get symbolCatalog(): Signal<ReadonlyArray<SymbolInfo>> {
+  get symbolCatalog(): ReadonlySignal<ReadonlyArray<SymbolInfo>> {
     return this.dataManager.symbolCatalog
   }
 

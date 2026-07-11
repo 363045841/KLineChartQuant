@@ -13,3 +13,12 @@ export {
   type InteractionSnapshot,
   type DragMode,
 } from './interactionState'
+export {
+  createDataState,
+  type DataStateModule,
+} from './dataState'
+export {
+  createZoomState,
+  type ZoomStateModule,
+  type ZoomDeps,
+} from './zoomState'
