@@ -428,9 +428,6 @@ export class ChartRenderer {
         rawRange.start !== this._prevFrameRange.raw.start ||
         rawRange.end !== this._prevFrameRange.raw.end)
     ) {
-      if (mode.useIndicatorScheduler) {
-        this.deps.getIndicatorManager().indicatorSchedulerAccessor.updateVisibleRange(range)
-      }
       this._prevFrameRange = { visible: range, raw: rawRange }
       this.checkVisibleRangeGapWhenIdle()
     }

@@ -242,8 +242,6 @@ export class ChartIndicatorManager {
 
     this.updateIndicatorSchedulerConfig(id)
 
-    this.indicatorScheduler.updateVisibleRange(this.deps.getLastVisibleRange())
-
     this.deps.scheduleDraw()
     return true
   }

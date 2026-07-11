@@ -440,6 +440,11 @@ export class Chart {
       this.evaluateAlerts(data, this.dataManager.getCurrentVisibleRange() ?? { start: 0, end: 0 })
     })
 
+    // 绑定 visibleRange 信号 — 替代 prepareFrameData 中的手动 updateVisibleRange
+    this.indicatorManager.indicatorSchedulerAccessor.setVisibleRangeSignal(
+      this.viewportManager.visibleRangeSignal,
+    )
+
     // 初始化渲染器
     this.renderer = new ChartRenderer({
       getDom: () => this.dom,

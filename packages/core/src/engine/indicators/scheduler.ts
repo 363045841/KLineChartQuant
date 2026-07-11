@@ -80,7 +80,7 @@ import type {
   SerializedRuntimeDescriptor,
 } from './workerProtocol'
 import type { IndicatorWorkerResponse } from './workerProtocol'
-import { createSignal, type Signal } from '../../foundation/reactivity/signal'
+import { createSignal, effect, type ReadonlySignal, type Signal } from '../../foundation/reactivity/signal'
 
 /**
  * 可见范围
@@ -291,6 +291,25 @@ export class IndicatorScheduler {
    */
   setActiveSubPaneProvider(provider: () => string[]): void {
     this.getActiveSubPaneIds = provider
+  }
+
+  /**
+   * 绑定 visibleRange 信号 — 替代手动 updateVisibleRange 调用。
+   * signal 变化时自动更新内部 visibleRange 并重算 visible state。
+   */
+  setVisibleRangeSignal(signal: ReadonlySignal<{ start: number; end: number } | null>): void {
+    effect(() => {
+      const range = signal()
+      if (range) {
+        this.visibleRange = range
+        if (this.latestResult) {
+          const mainStateUpdated = this.updateVisibleStatesOnly()
+          if (mainStateUpdated) {
+            this.invalidateCallback?.()
+          }
+        }
+      }
+    })
   }
 
   /**
