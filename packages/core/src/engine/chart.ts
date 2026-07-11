@@ -52,6 +52,7 @@ import { PaneRenderer } from './paneRenderer'
 import { SharedWebGLSurface } from './renderers/webgl/sharedWebGLSurface'
 import type { MarkerManager, MarkerEntity, CustomMarkerEntity } from './marker/registry'
 import { getPhysicalKLineConfig } from './utils/klineConfig'
+import { getVisibleRange } from './viewport/viewport'
 import { ChartZoomController } from './utils/chartZoomController'
 import { ChartViewportManager } from './viewport/chartViewportManager'
 import type { SubPaneEntry } from './subPaneManager'
@@ -347,6 +348,14 @@ export class Chart {
       getDom: () => this.dom,
       getObservedSize: () => this.viewportManager.getObservedSize(),
       getViewport: () => this.viewportManager.getViewport(),
+      getVisibleRange: () => {
+        const vp = this.viewportManager.computeViewport()
+        if (!vp) return null
+        const opt = this._optionsSignal.peek()
+        const dataLen = this.dataManager?.getData().length ?? 0
+        if (dataLen === 0) return null
+        return getVisibleRange(vp.scrollLeft, vp.plotWidth, opt.kWidth, opt.kGap, dataLen, vp.dpr)
+      },
       scheduleDraw: (level) => this.scheduleDraw(level),
       resetInteraction: () => this.interaction.reset(),
       getIndicatorScheduler: () => this.indicatorManager.indicatorSchedulerAccessor,
