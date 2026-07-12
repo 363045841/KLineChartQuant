@@ -1,16 +1,53 @@
-import type { ChartSettings } from '../foundation/config/chartSettings'
-import type { SymbolSpec, SymbolInfo, CustomDataSource } from '../controllers/types'
+import { createAlertController } from '../features/alerts/index'
+import {
+  createVolumeLookbacks,
+  pushToVolumeLookbacks,
+  type VolumeLookbacks,
+} from '../features/alerts/rollingVolume'
+import {
+  createPluginHost,
+  RendererPluginManager,
+  wrapPaneInfo,
+  type PluginHostImpl,
+  type RendererPlugin,
+  type RendererPluginWithHost,
+} from '../foundation/plugin/index'
 import {
   createSignal,
   computed,
-  effect,
-  writableRef,
+  type Computed,
   type ReadonlySignal,
   type Signal,
-  type Computed,
 } from '../foundation/reactivity/signal'
+
+import { InteractionController, type InteractionSnapshot } from './controller/interaction'
+
+import type { ChartSettings } from '../foundation/config/chartSettings'
 import type { KLineData } from '../foundation/types/price'
 
+import type { IndicatorScheduler } from './indicators/scheduler'
+import type { CustomMarkerEntity, MarkerManager } from './marker/registry'
+import type { ChartModeHandler } from './modes/types'
+import type { SubIndicatorType } from './renderers/Indicator'
+import type { SubPaneEntry } from './subPaneManager'
+import type { ScaleType } from './utils/tickPosition'
+
+// ===== 普通 imports，按路径字母排序 =====
+import { ChartDataManager } from './data/chartDataManager'
+import { ChartIndicatorManager } from './indicators/chartIndicatorManager'
+import { resolveStateKey } from './indicators/indicatorMetadata'
+import { ChartPaneLayout } from './layout/chartPaneLayout'
+import { UpdateLevel, type VisibleRange } from './layout/pane'
+import { KLineMode } from './modes/kLineMode'
+import { TimeShareMode } from './modes/timeShareMode'
+import { PaneRenderer } from './paneRenderer'
+import { ChartRenderer } from './render/chartRenderer'
+import { SharedWebGLSurface } from './renderers/webgl/sharedWebGLSurface'
+import { ChartStateKernel } from './state/chartStateKernel'
+import { ChartViewportManager } from './viewport/chartViewportManager'
+import { getVisibleRange } from './viewport/viewport'
+import { ChartZoomController } from './utils/chartZoomController'
+import { getPhysicalKLineConfig } from './utils/klineConfig'
 import type {
   ChartDom,
   PaneSpec,
@@ -21,69 +58,27 @@ import type {
   SubPaneInfo,
   DrawingToolType,
 } from './chartTypes'
-import { InteractionController, type InteractionSnapshot } from './controller/interaction'
-import {
-  ChartStateKernel,
-  type ChartStateKernelModule,
-  type ChartStateKernelDeps,
-} from './state/chartStateKernel'
-import { ChartDataManager } from './data/chartDataManager'
-import { ChartIndicatorManager } from './indicators/chartIndicatorManager'
-import { resolveStateKey } from './indicators/indicatorMetadata'
-import type { IndicatorMetadata } from './indicators/indicatorMetadata'
-import type { IndicatorScheduler } from './indicators/scheduler'
-import { ChartPaneLayout } from './layout/chartPaneLayout'
-import { UpdateLevel, type VisibleRange } from './layout/pane'
-import type { ScaleType } from './utils/tickPosition'
-export type { InteractionSnapshot }
-import { PaneRenderer } from './paneRenderer'
-import { SharedWebGLSurface } from './renderers/webgl/sharedWebGLSurface'
-import type { MarkerManager, MarkerEntity, CustomMarkerEntity } from './marker/registry'
-import { getPhysicalKLineConfig } from './utils/klineConfig'
-import { getVisibleRange } from './viewport/viewport'
-import { ChartZoomController } from './utils/chartZoomController'
-import { ChartViewportManager } from './viewport/chartViewportManager'
-import type { SubPaneEntry } from './subPaneManager'
-import { ChartRenderer } from './render/chartRenderer'
-import { KLineMode } from './modes/kLineMode'
-import { TimeShareMode } from './modes/timeShareMode'
-import type { ChartModeHandler } from './modes/types'
-
-import {
-  createPluginHost,
-  type PluginHostImpl,
-  RendererPluginManager,
-  type RendererPlugin,
-  type RendererPluginWithHost,
-  wrapPaneInfo,
-} from '../foundation/plugin/index'
-
-import type { SubIndicatorType } from './renderers/Indicator'
-
+import type { SymbolSpec, SymbolInfo, CustomDataSource } from '../controllers/types'
 import type { AlertController, MarketSnapshot } from '../features/alerts/types'
-import { createAlertController } from '../features/alerts/index'
-import {
-  createVolumeLookbacks,
-  pushToVolumeLookbacks,
-  type VolumeLookbacks,
-} from '../features/alerts/rollingVolume'
-import type { Layer } from '../rendering/scene/types'
 
-// 重新导出以保持向后兼容
+
+export type { InteractionSnapshot }
+
+// ===== 重新导出 =====
 export { getPhysicalKLineConfig }
 export type {
   ChartDom,
-  PaneSpec,
-  PaneRendererDom,
   ChartOptions,
+  DrawingObject,
+  DrawingToolType,
+  IndicatorInstance,
+  IndicatorRole,
   KLinePositions,
+  PaneRendererDom,
+  PaneSpec,
+  SubPaneInfo,
   Viewport,
   ViewportState,
-  IndicatorRole,
-  IndicatorInstance,
-  SubPaneInfo,
-  DrawingToolType,
-  DrawingObject,
 } from './chartTypes'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'>
@@ -219,14 +214,7 @@ export class Chart {
     const initialZoomLevel = opt.initialZoomLevel ?? 1
     const zoomLevelCount = Math.max(2, Math.round(this._optionsSignal.peek().zoomLevels ?? 20))
 
-    // ── Create placeholders for circular dependency ──
-    // viewportManager creates viewportState (source of dpr/visibleRange),
-    // but viewportState needs zoomState's kWidth/kGap, and zoomState needs dpr$.
-    const _dprPlaceholder = writableRef(1)
-    const _visibleRangePlaceholder = writableRef<{ start: number; end: number } | null>(null)
-    const _scrollLeftLogicalPlaceholder = writableRef(0)
-
-    // ── StateKernel: single composition root ──
+    // ── StateKernel: single composition root (owns zoom, data, viewport, pane, theme, drawing, interaction) ──
     this.kernel = new ChartStateKernel({
       options$: computed(() => ({
         minKWidth: this._optionsSignal().minKWidth,
@@ -235,13 +223,17 @@ export class Chart {
         bottomAxisHeight: this._optionsSignal().bottomAxisHeight,
       })),
       initialZoomLevel,
-      dpr$: _dprPlaceholder,
-      visibleRange$: _visibleRangePlaceholder,
-      scrollLeftLogical$: _scrollLeftLogicalPlaceholder,
       scheduleDraw: (level) => this.scheduleDraw(level as UpdateLevel | undefined),
     })
 
-    // ── ViewportManager ──
+    // Inject DOM deps into kernel's viewportState (needed before init)
+    this.kernel.setViewportDomDeps({
+      getDom: () => this.dom,
+      resizeSharedWebGLSurface: (plotWidth, plotHeight, dpr) =>
+        this.sharedWebGLSurface.resize(plotWidth, plotHeight, dpr),
+    })
+
+    // ── ViewportManager (DOM lifecycle: ResizeObserver + scroll events) ──
     this.viewportManager = new ChartViewportManager(
       {
         getDom: () => this.dom,
@@ -249,23 +241,8 @@ export class Chart {
           this.resize()
         },
       },
-      {
-        getDom: () => this.dom,
-        options$: this.kernel.optionsForViewport$,
-        dataLength$: this.kernel.dataLength$,
-        zoomLevel$: this.kernel.zoomLevel$,
-        resizeSharedWebGLSurface: (plotWidth, plotHeight, dpr) =>
-          this.sharedWebGLSurface.resize(plotWidth, plotHeight, dpr),
-        onResizeCompleted: () => {
-          this.resize()
-        },
-      },
+      this.kernel,
     )
-
-    // Wire real viewport signals back to kernel (replaces placeholders)
-    effect(() => _dprPlaceholder.set(this.viewportManager.dprSignal()))
-    effect(() => _visibleRangePlaceholder.set(this.viewportManager.visibleRangeSignal()))
-    effect(() => _scrollLeftLogicalPlaceholder.set(this.viewportManager.scrollLeftLogicalSignal()))
 
     this.viewportManager.setContentWidthProvider(() =>
       Math.max(this.dataManager?.getContentWidth() ?? 0, this.dataManager?.getLeftLoadBufferWidth() ?? 0),
@@ -406,7 +383,7 @@ export class Chart {
 
     // 绑定 visibleRange 信号 — 替代 prepareFrameData 中的手动 updateVisibleRange
     this.indicatorManager.indicatorSchedulerAccessor.setVisibleRangeSignal(
-      this.viewportManager.visibleRangeSignal,
+      this.kernel.signals.visibleRange as ReadonlySignal<{ start: number; end: number } | null>,
     )
 
     // 初始化渲染器
@@ -887,7 +864,7 @@ export class Chart {
   }
 
   /** 数据就绪时触发预警评估 */
-  private evaluateAlerts(data: KLineData[], range: VisibleRange): void {
+  private evaluateAlerts(data: KLineData[], _range: VisibleRange): void {
     const latest = data[data.length - 1]
     if (!latest) return
     // 去重：同一根 K 线只评估一次（增量加载/Worker 重复回调时跳过）
@@ -1423,7 +1400,7 @@ export class Chart {
    * 移除绘图（高层 API）
    * @param drawingId 绘图 ID
    */
-  removeDrawing(drawingId: string): void {
+  removeDrawing(_drawingId: string): void {
     // TODO: 实现绘图移除
     console.warn('[Chart] removeDrawing not fully implemented yet')
   }

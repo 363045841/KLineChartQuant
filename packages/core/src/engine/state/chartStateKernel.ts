@@ -9,6 +9,11 @@ import {
   type DataStateModule,
 } from './dataState'
 import {
+  createViewportState,
+  type ViewportStateModule,
+  type ViewportDomDeps,
+} from './viewportState'
+import {
   createPaneState,
   type PaneStateModule,
 } from './paneState'
@@ -26,7 +31,9 @@ import {
   type InteractionDeps,
 } from './interactionState'
 import {
+  writableRef,
   computed,
+  effect,
   type ReadonlySignal,
 } from '../../foundation/reactivity/signal'
 import type { DrawingObject } from '../../foundation/plugin/index'
@@ -43,46 +50,39 @@ export interface ChartStateKernelDeps {
     bottomAxisHeight: number
   }>
   initialZoomLevel: number
-  dpr$: ReadonlySignal<number>
-  visibleRange$: ReadonlySignal<{ start: number; end: number } | null>
-  scrollLeftLogical$: ReadonlySignal<number>
   scheduleDraw: (level?: unknown) => void
 }
 
 export class ChartStateKernel extends StateKernel {
-  /** 子状态模块 — 供 Chart 内部遗留管理器直接访问 */
   readonly zoom: ZoomStateModule
   readonly data: DataStateModule
+  readonly viewport: ViewportStateModule
   readonly pane: PaneStateModule
   readonly theme: ThemeStateModule
   readonly drawing: DrawingStateModule
   readonly interaction: InteractionStateModule
 
-  /** Bridge computed signals for ChartViewportManager */
   readonly zoomLevel$: ReadonlySignal<number>
   readonly dataLength$: ReadonlySignal<number>
-
-  /**
-   * Options view for viewport: combines optionsSignal's bottomAxisHeight
-   * with zoomState's kWidth/kGap computed signals.
-   */
   readonly optionsForViewport$: ReadonlySignal<{
     bottomAxisHeight: number
     kWidth: number
     kGap: number
   }>
 
-  /** Flat signals bag — consumed by createChartController facade */
   readonly signals: Record<string, ReadonlySignal<unknown>>
-  /** Flat actions bag — consumed by createChartController facade */
   readonly actions: Record<string, (...args: any[]) => void>
 
   constructor(deps: ChartStateKernelDeps) {
     super()
 
-    // ── Zoom state ──────────────────────────────────────────
+    // dpr placeholder resolves circular dependency:
+    // zoomState.kGap needs dpr$, viewportState dpr needs kWidth/kGap from zoomState
+    const _dprPlaceholder = writableRef(1)
+
+    // ── Zoom state ──
     this.zoom = createZoomState({
-      dpr$: deps.dpr$,
+      dpr$: _dprPlaceholder,
       minKWidth$: computed(() => deps.options$().minKWidth),
       maxKWidth$: computed(() => deps.options$().maxKWidth),
       zoomLevelCount: Math.max(2, Math.round(deps.options$().zoomLevelCount)),
@@ -99,29 +99,40 @@ export class ChartStateKernel extends StateKernel {
       }
     })
 
-    // ── Data state ──────────────────────────────────────────
+    // ── Data state ──
     this.data = createDataState()
-
     this.dataLength$ = computed(() => this.data.readonly.dataLength())
 
-    // ── Pane state ──────────────────────────────────────────
+    // ── Viewport state (now owned by kernel) ──
+    this.viewport = createViewportState({
+      options$: this.optionsForViewport$,
+      dataLength$: this.dataLength$,
+      zoomLevel$: this.zoomLevel$,
+    })
+
+    // Wire real viewport dpr to the placeholder used by zoomState
+    effect(() => _dprPlaceholder.set(this.viewport.readonly.dpr()))
+
+    // ── Pane state ──
     this.pane = createPaneState()
 
-    // ── Theme state ─────────────────────────────────────────
+    // ── Theme state ──
     this.theme = createThemeState()
 
-    // ── Drawing state ───────────────────────────────────────
+    // ── Drawing state ──
     this.drawing = createDrawingState()
 
-    // ── Interaction state ───────────────────────────────────
+    // ── Interaction state (reads viewport signals directly) ──
     this.interaction = createInteractionState({
-      visibleRange$: deps.visibleRange$,
-      scrollLeftLogical$: deps.scrollLeftLogical$,
-      dpr$: deps.dpr$,
+      visibleRange$:
+        this.viewport.readonly.visibleRange as unknown as ReadonlySignal<{ start: number; end: number } | null>,
+      scrollLeftLogical$:
+        this.viewport.readonly.scrollLeftLogical as unknown as ReadonlySignal<number>,
+      dpr$: this.viewport.readonly.dpr as unknown as ReadonlySignal<number>,
       scheduleDraw: deps.scheduleDraw,
     })
 
-    // ── Flat signals bag for framework adapters ─────────────
+    // ── Flat signals bag for framework adapters ──
     this.signals = {
       // Zoom
       zoomLevel: this.zoom.readonly.zoomLevel,
@@ -133,6 +144,12 @@ export class ChartStateKernel extends StateKernel {
       loading: this.data.readonly.loading,
       symbols: this.data.readonly.symbols,
       symbolCatalog: this.data.readonly.symbolCatalog,
+      // Viewport
+      dpr: this.viewport.readonly.dpr,
+      viewport: this.viewport.readonly.viewport,
+      viewportState: this.viewport.readonly.viewportState,
+      visibleRange: this.viewport.readonly.visibleRange,
+      scrollLeftLogical: this.viewport.readonly.scrollLeftLogical,
       // Pane
       paneRatios: this.pane.readonly.paneRatios,
       paneSpecs: this.pane.readonly.paneSpecs,
@@ -146,11 +163,9 @@ export class ChartStateKernel extends StateKernel {
       crosshairIndex: this.interaction.readonly.crosshairIndex,
     }
 
-    // ── Flat actions bag for framework adapters ─────────────
+    // ── Flat actions bag for framework adapters ──
     this.actions = {
-      // Zoom
       setZoomLevel: (level: number) => this.zoom.actions.setZoomLevel(level),
-      // Data
       setData: (data: ReadonlyArray<unknown>) => this.data.actions.setData(data),
       setLoading: (loading: boolean) => this.data.actions.setLoading(loading),
       setSymbols: (symbols: ReadonlyArray<SymbolSpec>) =>
@@ -160,19 +175,15 @@ export class ChartStateKernel extends StateKernel {
       setActiveBufferKey: (key: string | null) =>
         this.data.actions.setActiveBufferKey(key),
       resetData: () => this.data.actions.reset(),
-      // Pane
       setPaneRatios: (ratios: Record<string, number>) =>
         this.pane.actions.setPaneRatios(ratios),
       setPaneSpecs: (specs: PaneSpec[]) => this.pane.actions.setPaneSpecs(specs),
-      // Theme
       setTheme: (theme: 'light' | 'dark') => this.theme.actions.setTheme(theme),
-      // Drawing
       setDrawingTool: (tool: DrawingToolType | null) =>
         this.drawing.actions.setDrawingTool(tool),
       setDrawings: (drawings: ReadonlyArray<DrawingObject>) =>
         this.drawing.actions.setDrawings(drawings),
       clearDrawings: () => this.drawing.actions.clearDrawings(),
-      // Interaction
       updateCrosshair: (
         pos: { x: number; y: number } | null,
         price: number | null,
@@ -213,9 +224,18 @@ export class ChartStateKernel extends StateKernel {
     }
   }
 
+  setViewportDomDeps(deps: ViewportDomDeps): void {
+    this.viewport.setDomDeps(deps)
+  }
+
+  initViewport(): void {
+    this.viewport.actions.init()
+  }
+
   dispose(): void {
     this.zoom.dispose()
     this.data.dispose()
+    this.viewport.dispose()
     this.pane.dispose()
     this.theme.dispose()
     this.drawing.dispose()

@@ -27,12 +27,9 @@ describe('StateKernel type constraints (compile-time)', () => {
 
   it('createViewportState readonly viewportState signal has no .set', () => {
     const m = createViewportState({
-      getDom: () => ({ container: null, canvasLayer: null, xAxisCanvas: null }),
       options$: (() => ({ bottomAxisHeight: 30, kWidth: 6, kGap: 1 })) as any,
       dataLength$: (() => 100) as any,
       zoomLevel$: (() => 1) as any,
-      resizeSharedWebGLSurface: () => {},
-      onResizeCompleted: () => {},
     })
     // @ts-expect-error `.set` should not exist on the readonly view
     void m.readonly.viewportState.set

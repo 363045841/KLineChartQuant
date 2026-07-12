@@ -7,7 +7,8 @@ export {
 export {
   createViewportState,
   type ViewportStateModule,
-  type ViewportDeps,
+  type ViewportSignalDeps,
+  type ViewportDomDeps,
   clampDpr,
   getEffectiveDprLogic,
 } from './viewportState'

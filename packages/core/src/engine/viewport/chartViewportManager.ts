@@ -1,11 +1,6 @@
-import { type Signal, type ReadonlySignal } from '../../foundation/reactivity/signal'
+import { type Signal } from '../../foundation/reactivity/signal'
 import type { ChartDom, Viewport, ViewportState } from '../chartTypes'
-import type { VisibleRange } from '../layout/pane'
-import {
-  createViewportState,
-  type ViewportStateModule,
-  type ViewportDeps,
-} from '../state/viewportState'
+import type { ChartStateKernel } from '../state/chartStateKernel'
 
 /** Minimal manager-level deps (DOM + lifecycle callbacks). */
 export interface ViewportDependencies {
@@ -15,49 +10,49 @@ export interface ViewportDependencies {
 
 export class ChartViewportManager {
   private deps: ViewportDependencies
-  private state: ViewportStateModule
+  private kernel: ChartStateKernel
   private resizeObserver?: ResizeObserver
   private onScroll?: () => void
 
   get viewportSignal(): Signal<ViewportState> {
-    return this.state.readonly.viewportState as unknown as Signal<ViewportState>
+    return this.kernel.signals.viewportState as unknown as Signal<ViewportState>
   }
 
-  constructor(deps: ViewportDependencies, kernelDeps: ViewportDeps) {
+  constructor(deps: ViewportDependencies, kernel: ChartStateKernel) {
     this.deps = deps
-    this.state = createViewportState(kernelDeps)
+    this.kernel = kernel
   }
 
   setContentWidthProvider(fn: (() => number) | null): void {
-    this.state.actions.setContentWidthProvider(fn)
+    this.kernel.viewport.actions.setContentWidthProvider(fn)
   }
 
   getCachedScrollLeft(): number {
-    return this.state.readonly.scrollLeft.peek()
+    return this.kernel.viewport.readonly.scrollLeft.peek()
   }
 
   getLogicalScrollLeft(): number {
-    return this.state.readonly.scrollLeftLogical.peek()
+    return this.kernel.viewport.readonly.scrollLeftLogical.peek()
   }
 
   getViewport(): Viewport | null {
-    if (this.state.readonly.viewWidth.peek() === 0) return null
-    return this.state.readonly.viewport.peek()
+    if (this.kernel.viewport.readonly.viewWidth.peek() === 0) return null
+    return this.kernel.viewport.readonly.viewport.peek()
   }
 
   getEffectiveDpr(): number {
-    return this.state.readonly.dpr.peek()
+    return this.kernel.viewport.readonly.dpr.peek()
   }
 
   getObservedSize(): { width: number; height: number } {
     return {
-      width: this.state.readonly.viewWidth.peek(),
-      height: this.state.readonly.viewHeight.peek(),
+      width: this.kernel.viewport.readonly.viewWidth.peek(),
+      height: this.kernel.viewport.readonly.viewHeight.peek(),
     }
   }
 
   setScrollLeft(v: number): void {
-    this.state.actions.scrollTo(v)
+    this.kernel.viewport.actions.scrollTo(v)
   }
 
   init(): void {
@@ -66,10 +61,10 @@ export class ChartViewportManager {
     const target = this.deps.getDom().container
     if (!target) return
 
-    this.state.actions.init()
+    this.kernel.initViewport()
 
     this.onScroll = () => {
-      this.state.actions.syncFromDomScroll()
+      this.kernel.viewport.actions.syncFromDomScroll()
     }
     target.addEventListener('scroll', this.onScroll, { passive: true })
 
@@ -77,9 +72,9 @@ export class ChartViewportManager {
       const entry = entries[0]
       if (!entry) return
 
-      const prevWidth = this.state.readonly.viewWidth.peek()
-      const prevHeight = this.state.readonly.viewHeight.peek()
-      const prevDpr = this.state.readonly.preciseDpr.peek()
+      const prevWidth = this.kernel.viewport.readonly.viewWidth.peek()
+      const prevHeight = this.kernel.viewport.readonly.viewHeight.peek()
+      const prevDpr = this.kernel.viewport.readonly.preciseDpr.peek()
 
       const cssWidth = Math.max(1, Math.round(entry.contentRect.width))
       const cssHeight = Math.max(1, Math.round(entry.contentRect.height))
@@ -92,7 +87,7 @@ export class ChartViewportManager {
         preciseDpr = Math.round(raw * 64) / 64
       }
 
-      this.state.actions.resize(cssWidth, cssHeight, preciseDpr)
+      this.kernel.viewport.actions.resize(cssWidth, cssHeight, preciseDpr)
 
       const widthChanged = cssWidth !== prevWidth
       const heightChanged = cssHeight !== prevHeight
@@ -127,44 +122,27 @@ export class ChartViewportManager {
       this.deps.getDom().container?.removeEventListener('scroll', this.onScroll)
       this.onScroll = undefined
     }
-
-    this.state.dispose()
   }
 
   computeViewport(): Viewport | null {
     const container = this.deps.getDom().container
     if (!container) return null
 
-    const viewWidth = this.state.readonly.viewWidth.peek()
-    const viewHeight = this.state.readonly.viewHeight.peek()
+    const viewWidth = this.kernel.viewport.readonly.viewWidth.peek()
+    const viewHeight = this.kernel.viewport.readonly.viewHeight.peek()
     if (viewWidth === 0 || viewHeight === 0) {
       const fallbackW = Math.max(1, Math.round(container.clientWidth))
       const fallbackH = Math.max(1, Math.round(container.clientHeight))
       if (fallbackW > 0 && fallbackH > 0) {
-        this.state.actions.resize(fallbackW, fallbackH, this.state.readonly.preciseDpr.peek())
+        this.kernel.viewport.actions.resize(fallbackW, fallbackH, this.kernel.viewport.readonly.preciseDpr.peek())
       }
     }
 
-    return this.state.readonly.viewport.peek()
+    return this.kernel.viewport.readonly.viewport.peek()
   }
 
   /** @deprecated No-op — viewportState is now computed(). */
   updateViewportSignal(): void {
     // no-op
-  }
-
-  /** Expose visibleRange signal for interactionState deps. */
-  get visibleRangeSignal(): ReadonlySignal<VisibleRange | null> {
-    return this.state.readonly.visibleRange as unknown as ReadonlySignal<VisibleRange | null>
-  }
-
-  /** Expose scrollLeftLogical signal for interactionState deps. */
-  get scrollLeftLogicalSignal(): ReadonlySignal<number> {
-    return this.state.readonly.scrollLeftLogical as ReadonlySignal<number>
-  }
-
-  /** Expose dpr signal for interactionState deps. */
-  get dprSignal(): ReadonlySignal<number> {
-    return this.state.readonly.dpr as ReadonlySignal<number>
   }
 }

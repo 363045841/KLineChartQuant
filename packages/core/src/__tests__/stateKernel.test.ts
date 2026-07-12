@@ -130,14 +130,10 @@ describe('createSubState', () => {
 describe('viewportState template', () => {
   it('creates a sub-state with computed dpr + viewportState', async () => {
     const { createViewportState } = await import('../engine/state/viewportState')
-    const noop = () => {}
     const module = createViewportState({
-      getDom: () => ({ container: null, canvasLayer: null, xAxisCanvas: null }),
       options$: (() => ({ bottomAxisHeight: 30, kWidth: 8, kGap: 2 })) as any,
       dataLength$: (() => 100) as any,
       zoomLevel$: (() => 5) as any,
-      resizeSharedWebGLSurface: noop,
-      onResizeCompleted: noop,
     })
     module.actions.resize(800, 600, 2)
     expect(module.readonly.viewWidth()).toBe(800)
@@ -155,14 +151,10 @@ describe('viewportState template', () => {
 
   it('scrollTo writes signal and DOM', async () => {
     const { createViewportState } = await import('../engine/state/viewportState')
-    const noop = () => {}
     const module = createViewportState({
-      getDom: () => ({ container: null, canvasLayer: null, xAxisCanvas: null }),
       options$: (() => ({ bottomAxisHeight: 30, kWidth: 6, kGap: 1 })) as any,
       dataLength$: (() => 100) as any,
       zoomLevel$: (() => 1) as any,
-      resizeSharedWebGLSurface: noop,
-      onResizeCompleted: noop,
     })
     module.actions.scrollTo(100)
     expect(module.readonly.scrollLeft()).toBe(100)
@@ -170,14 +162,10 @@ describe('viewportState template', () => {
 
   it('resize batches dimension writes into one notification', async () => {
     const { createViewportState } = await import('../engine/state/viewportState')
-    const noop = () => {}
     const module = createViewportState({
-      getDom: () => ({ container: null, canvasLayer: null, xAxisCanvas: null }),
       options$: (() => ({ bottomAxisHeight: 30, kWidth: 6, kGap: 1 })) as any,
       dataLength$: (() => 100) as any,
       zoomLevel$: (() => 1) as any,
-      resizeSharedWebGLSurface: noop,
-      onResizeCompleted: noop,
     })
     const listener = vi.fn()
     module.readonly.viewWidth.subscribe(listener)

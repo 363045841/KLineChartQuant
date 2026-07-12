@@ -15,7 +15,9 @@
     "suspicious": "warn",
     "perf": "warn"
   },
-  "rules": {},
+  "rules": {
+    "no-underscore-dangle": ["warn", { "allowAfterThis": true }]
+  },
   "ignorePatterns": [
     "**/dist/**",
     "**/node_modules/**",

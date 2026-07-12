@@ -46,24 +46,11 @@ export function getEffectiveDprLogic(preciseDpr: number): number {
   return Math.max(1, dpr || 1)
 }
 
-export interface ViewportDeps {
-  /**
-   * DOM 访问器。
-   *
-   * @remarks 仅在 effect（副作用）中使用，不进入 computed 推导链。
-   */
-  getDom: () => {
-    container: HTMLElement | null
-    scrollContent?: HTMLElement | null
-    canvasLayer: HTMLElement | null
-    xAxisCanvas: HTMLCanvasElement | null
-  }
-
-  /**
-   * ReadonlySignal 输入 —— 所有字段均被响应式系统追踪。
-   *
-   * @remarks 此对象中的每个 signal 变更都会触发依赖的 computed 重求值。
-   */
+/**
+ * ReadonlySignal 输入 —— 所有字段均被响应式系统追踪。
+ * 可在 kernel constructor 中直接使用（无 DOM 依赖）。
+ */
+export interface ViewportSignalDeps {
   options$: ReadonlySignal<{
     bottomAxisHeight: number
     kWidth: number
@@ -71,18 +58,35 @@ export interface ViewportDeps {
   }>
   dataLength$: ReadonlySignal<number>
   zoomLevel$: ReadonlySignal<number>
-
-  /**
-   * Side-effect 回调。
-   *
-   * @remarks 仅在 effect 中调用，不进入 computed 推导链。
-   */
-  resizeSharedWebGLSurface: (plotWidth: number, plotHeight: number, dpr: number) => void
-  onResizeCompleted: () => void
 }
 
-export function createViewportState(deps: ViewportDeps) {
-  // ── 纯推导辅助函数 ──
+/**
+ * DOM 与 side-effect 回调。
+ * kernel 外部注入，init() 前调用 setDomDeps() 设置。
+ */
+export interface ViewportDomDeps {
+  getDom: () => {
+    container: HTMLElement | null
+    scrollContent?: HTMLElement | null
+    canvasLayer: HTMLElement | null
+    xAxisCanvas: HTMLCanvasElement | null
+  }
+  resizeSharedWebGLSurface: (plotWidth: number, plotHeight: number, dpr: number) => void
+}
+
+const NULL_DOM_RETURN: ReturnType<ViewportDomDeps['getDom']> = {
+  container: null,
+  canvasLayer: null,
+  xAxisCanvas: null,
+}
+
+export function createViewportState(signalDeps: ViewportSignalDeps) {
+  let _domDeps: ViewportDomDeps | undefined
+
+  const _getDom = () => (_domDeps ? _domDeps.getDom() : NULL_DOM_RETURN)
+  const _resizeSharedWebGLSurface = (w: number, h: number, dpr: number) => {
+    if (_domDeps) _domDeps.resizeSharedWebGLSurface(w, h, dpr)
+  }
 
   const computeDpr = (viewWidth: number, viewHeight: number, preciseDpr: number): number => {
     const eff = getEffectiveDprLogic(preciseDpr)
@@ -91,10 +95,10 @@ export function createViewportState(deps: ViewportDeps) {
 
   const computePlotWidth = (viewWidth: number): number => Math.round(viewWidth)
   const computePlotHeight = (viewHeight: number): number =>
-    Math.round(viewHeight - deps.options$().bottomAxisHeight)
+    Math.round(viewHeight - signalDeps.options$().bottomAxisHeight)
 
   const computeLeftLoadBufferWidth = (viewWidth: number): number => {
-    const dl = deps.dataLength$()
+    const dl = signalDeps.dataLength$()
     return dl === 0 ? 0 : Math.round(viewWidth)
   }
 
@@ -113,13 +117,7 @@ export function createViewportState(deps: ViewportDeps) {
     return { viewWidth, viewHeight, plotWidth, plotHeight, scrollLeft, dpr }
   }
 
-  // ── 子状态：writable signals + computed 推导 ──
-  //
-  // 重要：每个 computed 函数接收 (s)，s 中只包含 source signals（可写状态键）。
-  // computed 之间的依赖链不被支持；中间推导应 inline 展开而非链式引用。
-
   const { signals, readonly } = createSubState(
-    // 原始状态初始值
     {
       scrollLeft: 0,
       viewWidth: 0,
@@ -127,43 +125,12 @@ export function createViewportState(deps: ViewportDeps) {
       preciseDpr: 0,
       initialized: false,
     },
-    // Computed 计算属性
     {
-      /**
-       * Effective DPR（钳制后）。
-       *
-       * @remarks 由 viewWidth、viewHeight、preciseDpr 联合推导。
-       */
       dpr: (s) => computeDpr(s.viewWidth(), s.viewHeight(), s.preciseDpr()),
-      /**
-       * 物理画布绘图宽度。
-       *
-       * @remarks 即 viewWidth 的取整值。
-       */
       plotWidth: (s) => computePlotWidth(s.viewWidth()),
-      /**
-       * 物理画布绘图高度。
-       *
-       * @remarks 即 viewHeight 减去 bottomAxisHeight。
-       */
       plotHeight: (s) => computePlotHeight(s.viewHeight()),
-      /**
-       * 左侧加载缓冲宽度。
-       *
-       * @remarks 由 dataLength 与 viewWidth 联合推导；无数据时返回 0。
-       */
       leftLoadBufferWidth: (s) => computeLeftLoadBufferWidth(s.viewWidth()),
-      /**
-       * 逻辑 scrollLeft（CSS px，原点为数据起始位置）。
-       *
-       * @remarks 已减去 leftLoadBufferWidth 偏移。
-       */
       scrollLeftLogical: (s) => s.scrollLeft() - computeLeftLoadBufferWidth(s.viewWidth()),
-      /**
-       * 当前可见范围。
-       *
-       * @remarks 由 viewport、options、dataLength 联合推导，供渲染引擎判断数据切片。
-       */
       visibleRange: (s) => {
         const vp = computeViewport(
           s.viewWidth(),
@@ -172,22 +139,16 @@ export function createViewportState(deps: ViewportDeps) {
           computeLeftLoadBufferWidth(s.viewWidth()),
           s.preciseDpr(),
         )
-        const opts = deps.options$()
+        const opts = signalDeps.options$()
         return getVisibleRange(
           vp.scrollLeft,
           vp.plotWidth,
           opts.kWidth,
           opts.kGap,
-          deps.dataLength$(),
+          signalDeps.dataLength$(),
           vp.dpr,
         )
       },
-      /**
-       * 完整的 Viewport 对象。
-       *
-       * @remarks 返回包含 viewWidth、viewHeight、plotWidth、plotHeight、
-       * scrollLeft（DPR 取整）及 dpr 的结构体。
-       */
       viewport: (s) =>
         computeViewport(
           s.viewWidth(),
@@ -196,12 +157,6 @@ export function createViewportState(deps: ViewportDeps) {
           computeLeftLoadBufferWidth(s.viewWidth()),
           s.preciseDpr(),
         ),
-      /**
-       * ViewportState 快照，供渲染器与 UI 消费。
-       *
-       * @remarks 包含 zoomLevel、plotWidth/Height、dpr、visibleFrom/To、
-       * kWidth、kGap 等渲染管线所需参数的扁平结构。
-       */
       viewportState: (s) => {
         const llbw = computeLeftLoadBufferWidth(s.viewWidth())
         const vp = computeViewport(
@@ -211,17 +166,17 @@ export function createViewportState(deps: ViewportDeps) {
           llbw,
           s.preciseDpr(),
         )
-        const opts = deps.options$()
+        const opts = signalDeps.options$()
         const vr = getVisibleRange(
           vp.scrollLeft,
           vp.plotWidth,
           opts.kWidth,
           opts.kGap,
-          deps.dataLength$(),
+          signalDeps.dataLength$(),
           vp.dpr,
         )
         return {
-          zoomLevel: deps.zoomLevel$(),
+          zoomLevel: signalDeps.zoomLevel$(),
           plotWidth: vp.plotWidth,
           plotHeight: vp.plotHeight,
           dpr: vp.dpr,
@@ -262,12 +217,12 @@ export function createViewportState(deps: ViewportDeps) {
       const plotHeight = readonly.plotHeight()
       if (plotWidth <= 0 || plotHeight <= 0) return
       const dpr = readonly.dpr()
-      deps.resizeSharedWebGLSurface(plotWidth, plotHeight, dpr)
+      _resizeSharedWebGLSurface(plotWidth, plotHeight, dpr)
     })
     scrollDomEffect = effect(() => {
       if (!readonly.initialized()) return
       const scrollLeft = readonly.scrollLeft()
-      const dom = deps.getDom()
+      const dom = _getDom()
       const container = dom.container
       if (container && container.scrollLeft !== scrollLeft) {
         container.scrollLeft = scrollLeft
@@ -279,15 +234,8 @@ export function createViewportState(deps: ViewportDeps) {
     })
   }
 
-  /**
-   * 将 DPR 及视口尺寸同步到 DOM canvas 元素的尺寸与样式。
-   *
-   * @param dpr - 当前 effective DPR
-   * @param viewWidth - 视口 CSS 宽度
-   * @param viewHeight - 视口 CSS 高度
-   */
   const syncCanvasDom = (dpr: number, viewWidth: number, viewHeight: number): void => {
-    const dom = deps.getDom()
+    const dom = _getDom()
     const canvasLayer = dom.canvasLayer
     const xAxisCanvas = dom.xAxisCanvas
     if (!canvasLayer || !xAxisCanvas) return
@@ -309,7 +257,7 @@ export function createViewportState(deps: ViewportDeps) {
       xAxisCanvas.width = xAxisWidthPx
     }
 
-    const xAxisHeight = Math.round(deps.options$().bottomAxisHeight * dpr)
+    const xAxisHeight = Math.round(signalDeps.options$().bottomAxisHeight * dpr)
     if (xAxisCanvas.height !== xAxisHeight) {
       xAxisCanvas.height = xAxisHeight
     }
@@ -332,6 +280,10 @@ export function createViewportState(deps: ViewportDeps) {
   return {
     readonly,
 
+    setDomDeps(deps: ViewportDomDeps) {
+      _domDeps = deps
+    },
+
     actions: {
       /**
        * 滚动到指定 scrollLeft 位置。
@@ -350,7 +302,7 @@ export function createViewportState(deps: ViewportDeps) {
        * @remarks 在外部滚动事件中调用，使 signal 与 DOM 保持一致。
        */
       syncFromDomScroll() {
-        const container = deps.getDom().container
+        const container = _getDom().container
         if (container) signals.scrollLeft.set(container.scrollLeft)
       },
 
@@ -392,7 +344,8 @@ export function createViewportState(deps: ViewportDeps) {
        */
       init() {
         if (signals.initialized.peek()) return
-        const container = deps.getDom().container
+        if (!_domDeps) return
+        const container = _getDom().container
         if (!container) return
         signals.initialized.set(true)
         signals.scrollLeft.set(container.scrollLeft)

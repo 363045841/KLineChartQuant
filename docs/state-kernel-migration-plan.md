@@ -375,7 +375,51 @@ private scheduleFlush() {
 
 ---
 
-## 过渡策略
+### 阶段 6：Viewport 纳入 Kernel + 循环依赖清理 ✅
+
+**目标**：将 viewportState 创建从 ChartViewportManager 移至 ChartStateKernel，消除 chart.ts 中 3 个 writableRef placeholders 和 3 个 bridge effects 的样板代码。
+
+**变更**:
+
+1. **`viewportState.ts`** — 拆分 `ViewportDeps` 接口：
+   - `ViewportSignalDeps`：仅信号依赖（`options$`, `dataLength$`, `zoomLevel$`），可在 kernel 构造时无 DOM 创建
+   - `ViewportDomDeps`：DOM 与 side-effect 回调（`getDom`, `resizeSharedWebGLSurface`），通过 `setDomDeps()` 延迟注入
+   - 移除未使用的 `onResizeCompleted` 字段
+   - 移除 `state/index.ts` 中 `ViewportDeps` 导出，替换为 `ViewportSignalDeps` + `ViewportDomDeps`
+
+2. **`ChartStateKernel`** — 现在拥有 **7 个子状态**（+viewport）：
+   - 移除 `ChartStateKernelDeps` 中 `dpr$`, `visibleRange$`, `scrollLeftLogical$`（不再需要外部注入占位符）
+   - 保留内部 `_dprPlaceholder`（`writableRef(1)`）处理 zoomState 与 viewportState 之间的循环依赖
+   - 构造顺序：zoom（用 dpr placeholder）→ data → viewport（用 zoom 的 kWidth/kGap）→ 通过 effect 将 viewport.dpr 写入 placeholder → pane → theme → drawing → interaction（直接使用 viewport 的 visibleRange/scrollLeftLogical/dpr）
+   - 新增 `setViewportDomDeps(deps)` 方法
+   - 新增 `initViewport()` 方法
+   - `signals` bag 新增：`dpr`, `viewport`, `viewportState`, `visibleRange`, `scrollLeftLogical`
+
+3. **`ChartViewportManager`** — 变为薄外观层：
+   - 不再调用 `createViewportState()` — 从 kernel 接收 viewport 模块
+   - 构造函数接收 `ChartStateKernel` 引用，替代旧的 `ViewportDeps`
+   - 移除 `dprSignal`, `visibleRangeSignal`, `scrollLeftLogicalSignal` getters
+   - 移除 `destroy()` 中的 `this.state.dispose()`（kernel 负责清理）
+   - 保留：ResizeObserver 生命周期、scroll 事件绑定、`init()`/`destroy()`/`computeViewport()`
+
+4. **`chart.ts`** — 构造函数简化：
+   - 删除 3 个 `writableRef` 占位符（`_dprPlaceholder`, `_visibleRangePlaceholder`, `_scrollLeftLogicalPlaceholder`）
+   - 删除 3 个 `effect()` 桥接（第 266-268 行）
+   - `ChartViewportManager` 构造函数从"2 个参数（deps, ViewportDeps）"简化为"2 个参数（deps, kernel）"
+   - 新增 `kernel.setViewportDomDeps()` 调用（注入 `getDom` + `resizeSharedWebGLSurface`）
+   - `indicatorSchedulerAccessor.setVisibleRangeSignal` 改为读取 `this.kernel.signals.visibleRange`
+   - 删除未使用的 import：`writableRef`, `effect`, `ChartStateKernelDeps`
+
+5. **测试**：`stateKernel.test.ts` 和 `stateKernel.types.test.ts` 中的 `createViewportState()` 调用更新为仅传 `ViewportSignalDeps`（移除 `getDom`, `resizeSharedWebGLSurface`, `onResizeCompleted`）
+
+**验收**:
+- `pnpm build`（core）通过，零 TS 错误
+- `pnpm test`（core）通过 — 1679 pass, 6 pre-existing WebGL failures（与阶段 5 一致）
+- `git grep "writableRef" packages/core/src/engine/chart.ts` → 零返回
+- `ChartStateKernel.signals` 包含 `dpr`, `viewport`, `viewportState`, `visibleRange`, `scrollLeftLogical`
+- `ChartViewportManager` 不再调用 `createViewportState()`
+
+---
 
 - 无 feature flag：每阶段完整重构一个模块，旧代码直接删除而非分支。
 - 回滚手段：`git revert`。
