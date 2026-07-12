@@ -176,6 +176,10 @@ export class IndicatorScheduler {
   /** 调度器繁忙信号（Worker 计算中时为 true，结果应用后恢复 false） */
   private _busySignal = createSignal(false)
 
+  /** rAF 节流的 visible state 更新，避免 onPointerMove 等频繁信号变化触发多次重算 */
+  private _pendingVisibleUpdate = false
+  private _visibleUpdateRaf: number | null = null
+
   /** 从 Chart 获取活跃副图 paneId 列表的回调 */
   private getActiveSubPaneIds: (() => string[]) | null = null
 
@@ -307,11 +311,21 @@ export class IndicatorScheduler {
         prevEnd = range.end
         this.visibleRange = range
         if (this.latestResult) {
-          const mainStateUpdated = this.updateVisibleStatesOnly()
-          if (mainStateUpdated) {
-            this.invalidateCallback?.()
-          }
+          this._scheduleVisibleStateUpdate()
         }
+      }
+    })
+  }
+
+  private _scheduleVisibleStateUpdate(): void {
+    if (this._pendingVisibleUpdate) return
+    this._pendingVisibleUpdate = true
+    this._visibleUpdateRaf = requestAnimationFrame(() => {
+      this._visibleUpdateRaf = null
+      this._pendingVisibleUpdate = false
+      const mainStateUpdated = this.updateVisibleStatesOnly()
+      if (mainStateUpdated) {
+        this.invalidateCallback?.()
       }
     })
   }
@@ -320,6 +334,11 @@ export class IndicatorScheduler {
    * 销毁调度器
    */
   destroy(): void {
+    if (this._visibleUpdateRaf !== null) {
+      cancelAnimationFrame(this._visibleUpdateRaf)
+      this._visibleUpdateRaf = null
+    }
+    this._pendingVisibleUpdate = false
     this.terminateWorker()
     this.inlineRuntime = null
     this.latestResult = null
