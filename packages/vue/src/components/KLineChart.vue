@@ -642,6 +642,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
   const NEUTRAL_COLOR = '#6b7280'
   interface _KLineData { timestamp: number; open: number; high: number; low: number; close: number; volume?: number; turnover?: number; amplitude?: number; changePercent?: number; changeAmount?: number; turnoverRate?: number; symbol?: string }
   interface _TooltipSlots {
+    container: HTMLDivElement
     symbol: HTMLSpanElement | null
     date: HTMLSpanElement
     open: HTMLSpanElement
@@ -712,6 +713,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
     el.appendChild(grid)
 
     return {
+      container: el,
       symbol: symbolSpan,
       date: dateSpan,
       open: openV,
@@ -784,7 +786,8 @@ import MarkerTooltip from './MarkerTooltip.vue'
       el.style.display = ''
       if (idx !== _prevTooltipIdx) {
         _prevTooltipIdx = idx
-        if (!_tooltipSlots) {
+        if (!_tooltipSlots || _tooltipSlots.container !== el) {
+          _tooltipSlots = null
           el.textContent = ''
           _tooltipSlots = _buildTooltipDOM(el, kline)
         }
