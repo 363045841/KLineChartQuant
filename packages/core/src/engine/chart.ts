@@ -274,7 +274,6 @@ export class Chart {
       onLayoutChange: (ratios, specs) => {
         this.kernel.pane.actions.setPaneRatios(ratios)
         this.kernel.pane.actions.setPaneSpecs(specs)
-        this._optionsSignal.set({ ...this._optionsSignal.peek(), panes: specs })
       },
     })
 
@@ -352,7 +351,7 @@ export class Chart {
       upsertPane: (def) => this.layoutManager.upsertPane(def),
       removePaneDefinition: (paneId) => this.layoutManager.removePaneDefinition(paneId),
       getPaneSpecs: () => this.layoutManager.getPaneSpecs(),
-      getPaneRatiosSignal: () => this.kernel.pane.readonly.paneRatios as Signal<Readonly<Record<string, number>>>,
+      getPaneRatiosSignal: () => this.kernel.pane.readonly.paneRatios as ReadonlySignal<Readonly<Record<string, number>>>,
       getInternalPaneRatios: () => this.layoutManager.getInternalPaneRatios(),
       setInternalPaneRatio: (paneId, ratio) =>
         this.layoutManager.setInternalPaneRatio(paneId, ratio),
@@ -383,7 +382,7 @@ export class Chart {
 
     // 绑定 visibleRange 信号 — 替代 prepareFrameData 中的手动 updateVisibleRange
     this.indicatorManager.indicatorSchedulerAccessor.setVisibleRangeSignal(
-      this.kernel.signals.visibleRange as ReadonlySignal<{ start: number; end: number } | null>,
+      this.kernel.viewport.readonly.visibleRange as unknown as ReadonlySignal<{ start: number; end: number } | null>,
     )
 
     // 初始化渲染器
@@ -655,7 +654,7 @@ export class Chart {
 
   /** 获取当前 ChartOptions（返回内部当前快照） */
   getOption() {
-    return this._optionsSignal.peek()
+    return { ...this._optionsSignal.peek(), panes: this.kernel.pane.readonly.paneSpecs.peek() }
   }
 
   /**

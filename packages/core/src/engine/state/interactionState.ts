@@ -1,4 +1,4 @@
-import { createSubState, batch, type ReadonlySignal } from '../../foundation/reactivity/signal'
+import { createSubState, computed, batch, type ReadonlySignal } from '../../foundation/reactivity/signal'
 import type { MarkerEntity, CustomMarkerEntity } from '../marker/registry'
 
 export interface InteractionSnapshot {
@@ -81,43 +81,91 @@ export function createInteractionState(deps: InteractionDeps) {
       kWidthPx: null as number | null,
     },
     {
-      crosshairIndex: (s) =>
-        computeCrosshairIndex(
+      crosshairIndex: (s) => {
+        if (!s.crosshairPos()) return null
+        return computeCrosshairIndex(
           s.crosshairPos(),
           s.kLinePositions(),
           s.kWidthPx(),
           deps.visibleRange$(),
           deps.scrollLeftLogical$(),
           deps.dpr$(),
-        ),
-      interactionSnapshot: (s) => ({
-        crosshairPos: s.crosshairPos(),
-        crosshairIndex: computeCrosshairIndex(
-          s.crosshairPos(),
-          s.kLinePositions(),
-          s.kWidthPx(),
-          deps.visibleRange$(),
-          deps.scrollLeftLogical$(),
-          deps.dpr$(),
-        ),
-        crosshairPrice: s.crosshairPrice(),
-        hoveredIndex: s.hoveredIndex(),
-        activePaneId: s.activePaneId(),
-        tooltipPos: s.tooltipPos(),
-        tooltipAnchorPlacement: s.tooltipAnchorPlacement(),
-        hoveredMarkerData: s.hoveredMarkerData(),
-        hoveredCustomMarker: s.hoveredCustomMarker(),
-        isDragging: s.isDragging(),
-        isResizingPaneBoundary: s.dragMode() === 'resize-separator',
-        isHoveringPaneBoundary: s.hoveredSeparatorUpperPaneId() !== null,
-        hoveredPaneBoundaryId: s.hoveredSeparatorUpperPaneId(),
-        isHoveringRightAxis: s.hoveredRightAxisPaneId() !== null,
-      }),
+        )
+      },
     },
   )
 
+  // ── 带引用缓存 + deps 收紧的 interactionSnapshot ──
+  // crosshairPos 为 null 时跳过 visibleRange$/scrollLeftLogical$ 读取，
+  // 避免滚动事件触发无十字线状态下的虚假重算
+  let _cachedSnapshot: InteractionSnapshot | null = null
+  const cachedInteractionSnapshot = computed<InteractionSnapshot>(() => {
+    const crosshairPos = readonly.crosshairPos()
+    const hoveredIndex = readonly.hoveredIndex()
+    const dragMode = readonly.dragMode()
+    const hoveredSep = readonly.hoveredSeparatorUpperPaneId()
+    const hoveredRight = readonly.hoveredRightAxisPaneId()
+
+    const crosshairIndex = crosshairPos
+      ? computeCrosshairIndex(
+          crosshairPos,
+          readonly.kLinePositions(),
+          readonly.kWidthPx(),
+          deps.visibleRange$(),
+          deps.scrollLeftLogical$(),
+          deps.dpr$(),
+        )
+      : null
+
+    const next: InteractionSnapshot = {
+      crosshairPos,
+      crosshairIndex,
+      crosshairPrice: readonly.crosshairPrice(),
+      hoveredIndex,
+      activePaneId: readonly.activePaneId(),
+      tooltipPos: readonly.tooltipPos(),
+      tooltipAnchorPlacement: readonly.tooltipAnchorPlacement(),
+      hoveredMarkerData: readonly.hoveredMarkerData(),
+      hoveredCustomMarker: readonly.hoveredCustomMarker(),
+      isDragging: readonly.isDragging(),
+      isResizingPaneBoundary: dragMode === 'resize-separator',
+      isHoveringPaneBoundary: hoveredSep !== null,
+      hoveredPaneBoundaryId: hoveredSep,
+      isHoveringRightAxis: hoveredRight !== null,
+    }
+
+    if (_cachedSnapshot) {
+      const c = _cachedSnapshot
+      if (
+        c.crosshairPos === next.crosshairPos &&
+        c.crosshairIndex === next.crosshairIndex &&
+        c.crosshairPrice === next.crosshairPrice &&
+        c.hoveredIndex === next.hoveredIndex &&
+        c.activePaneId === next.activePaneId &&
+        c.tooltipPos === next.tooltipPos &&
+        c.tooltipAnchorPlacement === next.tooltipAnchorPlacement &&
+        c.hoveredMarkerData === next.hoveredMarkerData &&
+        c.hoveredCustomMarker === next.hoveredCustomMarker &&
+        c.isDragging === next.isDragging &&
+        c.isResizingPaneBoundary === next.isResizingPaneBoundary &&
+        c.isHoveringPaneBoundary === next.isHoveringPaneBoundary &&
+        c.hoveredPaneBoundaryId === next.hoveredPaneBoundaryId &&
+        c.isHoveringRightAxis === next.isHoveringRightAxis
+      ) {
+        return _cachedSnapshot
+      }
+    }
+    _cachedSnapshot = next
+    return next
+  })
+
+  const mergedReadonly = {
+    ...readonly,
+    interactionSnapshot: cachedInteractionSnapshot,
+  }
+
   return {
-    readonly,
+    readonly: mergedReadonly,
 
     actions: {
       updateCrosshair(pos: { x: number; y: number } | null, price: number | null) {

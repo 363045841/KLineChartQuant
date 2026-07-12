@@ -306,7 +306,6 @@ export class ChartRenderer {
 
     this.pendingUpdateLevel = level
     this.raf = requestAnimationFrame(() => {
-      this.raf = null
       const levelToDraw = this.pendingUpdateLevel
       this.pendingUpdateLevel = UpdateLevel.All
 
@@ -322,15 +321,26 @@ export class ChartRenderer {
         }
       }
 
-      this.writeFramePositions(levelToDraw)
-      this.draw(levelToDraw)
+      const frame = this.prepareFrameData(levelToDraw)
+      if (frame) {
+        this.writeFramePositionsFromFrame(frame)
+      }
+      this.drawWithFrame(levelToDraw, frame)
+
+      this.raf = null
+      if (this.pendingUpdateLevel !== UpdateLevel.All) {
+        this.scheduleDraw(this.pendingUpdateLevel)
+      }
     })
   }
 
   draw(level: UpdateLevel = UpdateLevel.All): void {
+    this.drawWithFrame(level, this.prepareFrameData(level))
+  }
+
+  private drawWithFrame(level: UpdateLevel, frame: FrameContext | null): void {
     this.markerManager.clear()
 
-    const frame = this.prepareFrameData(level)
     if (!frame) {
       const dataManager = this.deps.getDataManager()
       if (dataManager.getInternalData().length === 0 && dataManager.getTimeShareData().length === 0)
@@ -386,6 +396,10 @@ export class ChartRenderer {
   private writeFramePositions(level: UpdateLevel): void {
     const frame = this.prepareFrameData(level)
     if (!frame) return
+    this.writeFramePositionsFromFrame(frame)
+  }
+
+  private writeFramePositionsFromFrame(frame: FrameContext): void {
     batch(() => {
       this.deps.getInteraction().setKLinePositions(frame.kLinePositions, frame.range, frame.kWidthPx, frame.kLineCenters)
     })

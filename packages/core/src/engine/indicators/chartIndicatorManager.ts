@@ -9,6 +9,7 @@ import {
   createSignal,
   computed,
   type Signal,
+  type ReadonlySignal,
   type Computed,
 } from '../../foundation/reactivity/signal'
 import { createLayerFromPlugin } from '../../rendering/scene/createLayerFromPlugin'
@@ -49,7 +50,7 @@ export interface IndicatorDependencies {
   upsertPane: (def: PaneSpec) => void
   removePaneDefinition: (paneId: string) => void
   getPaneSpecs: () => PaneSpec[]
-  getPaneRatiosSignal: () => Signal<Readonly<Record<string, number>>>
+  getPaneRatiosSignal: () => ReadonlySignal<Readonly<Record<string, number>>>
   getInternalPaneRatios: () => Map<string, number>
   setInternalPaneRatio: (paneId: string, ratio: number) => void
   deleteInternalPaneRatio: (paneId: string) => void

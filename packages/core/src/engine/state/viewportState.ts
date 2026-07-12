@@ -1,5 +1,6 @@
 import {
   createSubState,
+  computed,
   batch,
   effect,
   type ReadonlySignal,
@@ -131,63 +132,86 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
       plotHeight: (s) => computePlotHeight(s.viewHeight()),
       leftLoadBufferWidth: (s) => computeLeftLoadBufferWidth(s.viewWidth()),
       scrollLeftLogical: (s) => s.scrollLeft() - computeLeftLoadBufferWidth(s.viewWidth()),
-      visibleRange: (s) => {
-        const vp = computeViewport(
-          s.viewWidth(),
-          s.viewHeight(),
-          s.scrollLeft(),
-          computeLeftLoadBufferWidth(s.viewWidth()),
-          s.preciseDpr(),
-        )
-        const opts = signalDeps.options$()
-        return getVisibleRange(
-          vp.scrollLeft,
-          vp.plotWidth,
-          opts.kWidth,
-          opts.kGap,
-          signalDeps.dataLength$(),
-          vp.dpr,
-        )
-      },
-      viewport: (s) =>
-        computeViewport(
-          s.viewWidth(),
-          s.viewHeight(),
-          s.scrollLeft(),
-          computeLeftLoadBufferWidth(s.viewWidth()),
-          s.preciseDpr(),
-        ),
-      viewportState: (s) => {
-        const llbw = computeLeftLoadBufferWidth(s.viewWidth())
-        const vp = computeViewport(
-          s.viewWidth(),
-          s.viewHeight(),
-          s.scrollLeft(),
-          llbw,
-          s.preciseDpr(),
-        )
-        const opts = signalDeps.options$()
-        const vr = getVisibleRange(
-          vp.scrollLeft,
-          vp.plotWidth,
-          opts.kWidth,
-          opts.kGap,
-          signalDeps.dataLength$(),
-          vp.dpr,
-        )
-        return {
-          zoomLevel: signalDeps.zoomLevel$(),
-          plotWidth: vp.plotWidth,
-          plotHeight: vp.plotHeight,
-          dpr: vp.dpr,
-          visibleFrom: vr.start,
-          visibleTo: vr.end,
-          kWidth: opts.kWidth,
-          kGap: opts.kGap,
-        }
-      },
     },
   )
+
+  // ── 带引用缓存的 computed —— 仅在字段值实际变化时返回新对象 ──
+  // 避免 Object.is 短路失效导致下游 effect / Vue 订阅在子像素滚动时虚假重跑
+
+  let _cachedViewport: Viewport | null = null
+  const cachedViewport = computed<Viewport>(() => {
+    const vp = computeViewport(
+      readonly.viewWidth(),
+      readonly.viewHeight(),
+      readonly.scrollLeft(),
+      readonly.leftLoadBufferWidth(),
+      readonly.preciseDpr(),
+    )
+    if (
+      _cachedViewport &&
+      _cachedViewport.viewWidth === vp.viewWidth &&
+      _cachedViewport.viewHeight === vp.viewHeight &&
+      _cachedViewport.plotWidth === vp.plotWidth &&
+      _cachedViewport.plotHeight === vp.plotHeight &&
+      _cachedViewport.scrollLeft === vp.scrollLeft &&
+      _cachedViewport.dpr === vp.dpr
+    ) {
+      return _cachedViewport
+    }
+    _cachedViewport = vp
+    return vp
+  })
+
+  let _cachedVisibleRange: VisibleRange | null = null
+  const cachedVisibleRange = computed<VisibleRange>(() => {
+    const vp = cachedViewport()
+    const opts = signalDeps.options$()
+    const vr = getVisibleRange(
+      vp.scrollLeft,
+      vp.plotWidth,
+      opts.kWidth,
+      opts.kGap,
+      signalDeps.dataLength$(),
+      vp.dpr,
+    )
+    if (_cachedVisibleRange && _cachedVisibleRange.start === vr.start && _cachedVisibleRange.end === vr.end) {
+      return _cachedVisibleRange
+    }
+    _cachedVisibleRange = vr
+    return vr
+  })
+
+  let _cachedViewportState: ViewportState | null = null
+  const cachedViewportState = computed<ViewportState>(() => {
+    const vp = cachedViewport()
+    const vr = cachedVisibleRange()
+    const opts = signalDeps.options$()
+    const next: ViewportState = {
+      zoomLevel: signalDeps.zoomLevel$(),
+      plotWidth: vp.plotWidth,
+      plotHeight: vp.plotHeight,
+      dpr: vp.dpr,
+      visibleFrom: vr.start,
+      visibleTo: vr.end,
+      kWidth: opts.kWidth,
+      kGap: opts.kGap,
+    }
+    if (
+      _cachedViewportState &&
+      _cachedViewportState.zoomLevel === next.zoomLevel &&
+      _cachedViewportState.plotWidth === next.plotWidth &&
+      _cachedViewportState.plotHeight === next.plotHeight &&
+      _cachedViewportState.dpr === next.dpr &&
+      _cachedViewportState.visibleFrom === next.visibleFrom &&
+      _cachedViewportState.visibleTo === next.visibleTo &&
+      _cachedViewportState.kWidth === next.kWidth &&
+      _cachedViewportState.kGap === next.kGap
+    ) {
+      return _cachedViewportState
+    }
+    _cachedViewportState = next
+    return next
+  })
 
   // ── DOM 副作用（effect） ──
   // compute 负责内部状态计算属性，effect 负责将状态同步到外界
@@ -275,10 +299,18 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
 
   // ── Actions（外部消费者变更内部状态入口） ──
 
+  // ── 合并 readonly：原始 subState + 缓存 computed ──
+  const mergedReadonly = {
+    ...readonly,
+    viewport: cachedViewport,
+    visibleRange: cachedVisibleRange,
+    viewportState: cachedViewportState,
+  }
+
   let _contentWidthProvider: (() => number) | null = null
 
   return {
-    readonly,
+    readonly: mergedReadonly,
 
     setDomDeps(deps: ViewportDomDeps) {
       _domDeps = deps
@@ -303,7 +335,10 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
        */
       syncFromDomScroll() {
         const container = _getDom().container
-        if (container) signals.scrollLeft.set(container.scrollLeft)
+        if (container) {
+          const v = container.scrollLeft
+          batch(() => { signals.scrollLeft.set(v) })
+        }
       },
 
       /**

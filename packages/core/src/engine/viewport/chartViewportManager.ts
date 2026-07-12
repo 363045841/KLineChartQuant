@@ -15,7 +15,7 @@ export class ChartViewportManager {
   private onScroll?: () => void
 
   get viewportSignal(): Signal<ViewportState> {
-    return this.kernel.signals.viewportState as unknown as Signal<ViewportState>
+    return this.kernel.viewport.readonly.viewportState as unknown as Signal<ViewportState>
   }
 
   constructor(deps: ViewportDependencies, kernel: ChartStateKernel) {

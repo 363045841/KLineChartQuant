@@ -298,9 +298,13 @@ export class IndicatorScheduler {
    * signal 变化时自动更新内部 visibleRange 并重算 visible state。
    */
   setVisibleRangeSignal(signal: ReadonlySignal<{ start: number; end: number } | null>): void {
+    let prevStart = -1
+    let prevEnd = -1
     effect(() => {
       const range = signal()
-      if (range) {
+      if (range && (range.start !== prevStart || range.end !== prevEnd)) {
+        prevStart = range.start
+        prevEnd = range.end
         this.visibleRange = range
         if (this.latestResult) {
           const mainStateUpdated = this.updateVisibleStatesOnly()
