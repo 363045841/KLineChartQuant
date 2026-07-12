@@ -315,7 +315,7 @@ export class Chart {
         }
       },
       onDataProcessed: (data, range) => this.evaluateAlerts(data, range),
-    }, this.kernel.data)
+    }, this.kernel.data, this.kernel.dataManager)
 
     this.zoomController = new ChartZoomController({
       getLogicalScrollLeft: () => this.viewportManager.getLogicalScrollLeft(),

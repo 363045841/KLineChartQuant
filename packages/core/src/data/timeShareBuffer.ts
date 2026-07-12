@@ -2,7 +2,7 @@ import { Effect, Fiber, pipe } from 'effect'
 import type { Effect as EffectType } from 'effect/Effect'
 
 import type { SymbolSpec } from '../controllers/types'
-import { createSignal, type Signal } from '../foundation/reactivity/signal'
+import { createSignal, type ReadonlySignal, type WritableSignal } from '../foundation/reactivity/signal'
 import type { TimeShareData } from '../foundation/types/price'
 
 import { fetchTimeShare, TimeShareFetchService } from './dataBuffer.effects'
@@ -14,9 +14,9 @@ export class TimeShareBuffer implements DataBufferLike {
   // 当前持有的分时数据数组（内部可变副本）
   private _data: TimeShareData[] = []
   // 向外部广播只读数据快照的信号
-  private _dataSignal = createSignal<DataChange>({ data: [], prependedCount: 0 })
+  private _dataSignal: WritableSignal<DataChange> = createSignal<DataChange>({ data: [], prependedCount: 0 })
   // 是否正在加载中，外部 UI 绑定用
-  private _loadingSignal = createSignal<boolean>(false)
+  private _loadingSignal: WritableSignal<boolean> = createSignal<boolean>(false)
   // 可选的自定义 fetcher，优先级大于默认 fectcher
   private _fetcher: TimeShareFetcherFn | null = null
   // 指定查询的历史日期（0 = 当天）
@@ -28,11 +28,11 @@ export class TimeShareBuffer implements DataBufferLike {
   // 实例是否已销毁，阻止后续任何操作
   private _disposed = false
 
-  get data(): Signal<DataChange> {
+  get data(): ReadonlySignal<DataChange> {
     return this._dataSignal
   }
 
-  get loading(): Signal<boolean> {
+  get loading(): ReadonlySignal<boolean> {
     return this._loadingSignal
   }
 

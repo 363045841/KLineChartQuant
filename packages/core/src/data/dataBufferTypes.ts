@@ -1,5 +1,5 @@
 import type { KLineData, SymbolSpec, DataFetcher } from '../controllers/types'
-import type { Signal } from '../foundation/reactivity/signal'
+import type { ReadonlySignal } from '../foundation/reactivity/signal'
 import type { TimeShareData } from '../foundation/types/price'
 
 import type { TimeShareFetcherFn } from './types'
@@ -17,8 +17,8 @@ export interface DataChange {
 }
 
 export interface DataBufferLike {
-  readonly data: Signal<DataChange>
-  readonly loading: Signal<boolean>
+  readonly data: ReadonlySignal<DataChange>
+  readonly loading: ReadonlySignal<boolean>
   readonly loadedWindow: DataWindow | null
   getRawData(): unknown[]
   setInlineData(data: unknown[]): void

@@ -2,7 +2,7 @@ import { Effect, pipe } from 'effect'
 import type { Effect as EffectType } from 'effect/Effect'
 
 import type { DataFetcher, KLineData, SymbolSpec } from '../controllers/types'
-import { createSignal, type Signal } from '../foundation/reactivity/signal'
+import type { ReadonlySignal } from '../foundation/reactivity/signal'
 
 import {
   fetchKLine,
@@ -33,11 +33,11 @@ export class DataBuffer implements KLineBuffer {
 
   constructor() {}
 
-  get data(): Signal<DataChange> {
+  get data(): ReadonlySignal<DataChange> {
     return this._store.data
   }
 
-  get loading(): Signal<boolean> {
+  get loading(): ReadonlySignal<boolean> {
     return this._scheduler.loading
   }
 

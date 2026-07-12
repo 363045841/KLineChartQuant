@@ -31,6 +31,10 @@ import {
   type InteractionDeps,
 } from './interactionState'
 import {
+  createDataManagerState,
+  type DataManagerStateModule,
+} from './dataManagerState'
+import {
   writableRef,
   computed,
   effect,
@@ -61,6 +65,7 @@ export class ChartStateKernel extends StateKernel {
   readonly theme: ThemeStateModule
   readonly drawing: DrawingStateModule
   readonly interaction: InteractionStateModule
+  readonly dataManager: DataManagerStateModule
 
   readonly zoomLevel$: ReadonlySignal<number>
   readonly dataLength$: ReadonlySignal<number>
@@ -131,6 +136,9 @@ export class ChartStateKernel extends StateKernel {
       dpr$: this.viewport.readonly.dpr as unknown as ReadonlySignal<number>,
       scheduleDraw: deps.scheduleDraw,
     })
+
+    // ── Data manager state (coordination layer) ──
+    this.dataManager = createDataManagerState()
 
     // ── Flat signals bag for framework adapters ──
     this.signals = {
@@ -240,6 +248,7 @@ export class ChartStateKernel extends StateKernel {
     this.theme.dispose()
     this.drawing.dispose()
     this.interaction.dispose()
+    this.dataManager.dispose()
   }
 }
 

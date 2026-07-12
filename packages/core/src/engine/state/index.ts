@@ -40,3 +40,7 @@ export {
   createDrawingState,
   type DrawingStateModule,
 } from './drawingState'
+export {
+  createDataManagerState,
+  type DataManagerStateModule,
+} from './dataManagerState'

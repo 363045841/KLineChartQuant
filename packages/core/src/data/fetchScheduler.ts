@@ -1,15 +1,15 @@
-import { createSignal, type Signal } from '../foundation/reactivity/signal'
+import { createSignal, type ReadonlySignal, type WritableSignal } from '../foundation/reactivity/signal'
 
 export class FetchScheduler {
   private _chain: Promise<void> | null = null
-  private _loadingSignal: Signal<boolean>
+  private _loadingSignal: WritableSignal<boolean>
   private _disposed = false
 
   constructor() {
     this._loadingSignal = createSignal<boolean>(false)
   }
 
-  get loading(): Signal<boolean> {
+  get loading(): ReadonlySignal<boolean> {
     return this._loadingSignal
   }
 

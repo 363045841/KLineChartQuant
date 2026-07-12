@@ -100,6 +100,8 @@ pnpm stockbao
 
 **Batched Atomic Updates** — Multi-field writes are batched via batch() into a single notification cycle. No intermediate state leaks — consumers always observe a consistent snapshot.
 
+Best practice: @packages/core/src/engine/state/viewportState.ts @packages/core/src/engine/state/stateKernel.ts 
+
 ## CI
 
 - `library-ci.yml` runs on every push/PR to main. Two jobs: `test` (REQUIRED) and `build` (WARN-ONLY).
@@ -140,4 +142,3 @@ Never guess at Effect patterns - check the guide first.
 
 ## ATTENTION
 - You can only commit when I explicitly ask you to do it.
-

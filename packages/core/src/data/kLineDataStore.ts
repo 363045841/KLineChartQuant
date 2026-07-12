@@ -1,5 +1,5 @@
 import type { KLineData } from '../controllers/types'
-import { createSignal, type Signal } from '../foundation/reactivity/signal'
+import { createSignal, type ReadonlySignal, type WritableSignal } from '../foundation/reactivity/signal'
 
 import type { DataWindow, DataChange } from './dataBufferTypes'
 
@@ -23,14 +23,14 @@ function mergeSortedData(existing: KLineData[], incoming: KLineData[]): KLineDat
 
 export class KLineDataStore {
   private _data: KLineData[] = []
-  private _dataSignal: Signal<DataChange>
+  private _dataSignal: WritableSignal<DataChange>
   private _loadedWindow: DataWindow | null = null
 
   constructor() {
     this._dataSignal = createSignal<DataChange>({ data: [], prependedCount: 0 })
   }
 
-  get data(): Signal<DataChange> {
+  get data(): ReadonlySignal<DataChange> {
     return this._dataSignal
   }
 

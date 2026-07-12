@@ -27,7 +27,7 @@ import type { CustomMarkerEntity } from '../engine/marker/registry'
 import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
 import { KLineChartError } from '../errors'
 import { ChartBridge } from '../features/mcp/chartBridge'
-import { createSignal, computed, type Signal, type ReadonlySignal } from '../foundation/reactivity/index'
+import { computed, type ReadonlySignal } from '../foundation/reactivity/index'
 
 import type {
   ChartController,
@@ -361,8 +361,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   const viewport = computed(() => mapViewportState(chart.viewport()))
 
-  // data needs fallback for jsdom tolerance
-  const data: Signal<ReadonlyArray<KLineData>> = createSignal(opts.data ?? [])
+  const data = chart.data
   const dataLoading = chart.loading
   const symbols = chart.symbols
 
@@ -441,11 +440,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   function setData(next: ReadonlyArray<KLineData>): void {
     if (disposed) return
-    try {
-      chart.setData([...next])
-    } catch {
-      data.set([...next])
-    }
+    chart.setData([...next])
   }
 
   function setSymbols(next: ReadonlyArray<SymbolSpec>): void {
