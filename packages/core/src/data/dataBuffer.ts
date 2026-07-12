@@ -199,8 +199,8 @@ export class DataBuffer implements KLineBuffer {
     }
 
     this._scheduler
-      .run(fetchEffect)
-      .then((incoming) => {
+      .run(async () => {
+        const incoming = await fetchEffect()
         if (disposed()) return
 
         const result = this._store.merge(incoming)

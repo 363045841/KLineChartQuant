@@ -66,7 +66,6 @@ export class ChartDataManager {
   private _dataState: DataStateModule
   private _dmState: DataManagerStateModule
   private _dataSyncEffect: (() => void) | null = null
-  private _loadingSyncEffect: (() => void) | null = null
   private _lastDataChange: DataChange | null = null
 
   private _batchScheduler = new FetchBatchScheduler()
@@ -103,20 +102,14 @@ export class ChartDataManager {
       this._lastDataChange = dataChange
 
       const prevDataLength = dataState.readonly.dataLength.peek()
+      const loading = buf.loading()
+
       batch(() => {
         dataState.actions.setData([...(dataChange.data as unknown[])])
+        dataState.actions.setLoading(loading)
         this.onBufferDataChanged(key, prevDataLength, dataChange.prependedCount)
       })
-    })
 
-    this._loadingSyncEffect = effect(() => {
-      const key = dataState.readonly.activeBufferKey()
-      if (!key) return
-      const buf = this._lookupBuffer(key)
-      if (!buf) return
-
-      const loading = buf.loading()
-      dataState.actions.setLoading(loading)
       if (!loading) {
         this.scheduleIncrementalLoadHintFlush(key)
       }
@@ -923,7 +916,6 @@ export class ChartDataManager {
 
   destroy(): void {
     this._dataSyncEffect?.()
-    this._loadingSyncEffect?.()
     this.disposeAllBuffers()
     this._loadHint.destroy()
   }

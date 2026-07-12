@@ -12,7 +12,7 @@ export class ChartViewportManager {
   private deps: ViewportDependencies
   private kernel: ChartStateKernel
   private resizeObserver?: ResizeObserver
-  private onScroll?: () => void
+  private onScroll?: (e: Event) => void
 
   get viewportSignal(): Signal<ViewportState> {
     return this.kernel.viewport.readonly.viewportState as unknown as Signal<ViewportState>
@@ -63,7 +63,8 @@ export class ChartViewportManager {
 
     this.kernel.initViewport()
 
-    this.onScroll = () => {
+    this.onScroll = (e: Event) => {
+      if (!e.isTrusted) return
       this.kernel.viewport.actions.syncFromDomScroll()
     }
     target.addEventListener('scroll', this.onScroll, { passive: true })
