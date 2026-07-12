@@ -261,6 +261,7 @@ function createChartStub(args: {
     getPaneRenderers: () => paneRenderers,
     getData: () => data,
     getRenderData: () => data,
+    getInternalData: () => data,
     currentPeriod: 'daily',
     translatePrice: () => undefined,
     scheduleDraw: () => undefined,

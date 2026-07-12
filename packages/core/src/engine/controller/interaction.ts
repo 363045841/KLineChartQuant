@@ -799,7 +799,7 @@ if (this.tooltipPositionMode === 'adaptive') {
     const pane = this.getPaneByY(mouseY)
     this._state.actions.setActivePaneId(pane?.id || null)
 
-    if (bar.globalIdx < 0 || bar.globalIdx >= (this.chart.getRenderData()?.length ?? 0)) {
+    if (bar.globalIdx < 0 || bar.globalIdx >= this.chart.getInternalData().length) {
       this._state.actions.updateCrosshair(null, null)
       return
     }
@@ -838,7 +838,7 @@ if (this.tooltipPositionMode === 'adaptive') {
    */
   private hitTestCandle(ctx: HoverContext, bar: NearestBar): boolean {
     const { mouseY, worldX, dpr } = ctx
-    const data = this.chart.getRenderData()
+    const data = this.chart.getInternalData()
     const k =
       typeof this.crosshairIndex === 'number'
         ? (data?.[this.crosshairIndex] as KLineData | undefined)

@@ -852,6 +852,11 @@ export class Chart {
     return this.dataManager.getRenderData()
   }
 
+  /** K线原始数据（分时模式下为空） */
+  getInternalData(): KLineData[] {
+    return this.dataManager.getInternalData()
+  }
+
   /** 获取指标调度器（供外部控制器更新指标配置） */
   getIndicatorScheduler(): IndicatorScheduler {
     return this.indicatorManager.indicatorSchedulerAccessor

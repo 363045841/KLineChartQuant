@@ -144,22 +144,14 @@
                 :class="{ 'use-anchor': useAnchorPositioning }"
                 :style="klineTooltipAnchorStyle"
               ></div>
-              <KLineTooltip
-                :hover-data="hoveredKLine"
-                :index="hoveredIndex"
-                :data="chartData"
-                :pos="teleportedTooltipPos"
-                :set-el="setTooltipEl"
-                :use-anchor="useAnchorPositioning"
-                :anchor-placement="tooltipAnchorPlacement"
-                :up-color="tooltipColors.upColor"
-                :down-color="tooltipColors.downColor"
-                :timezone="props.timezone"
-                :show-time="isIntraday"
-                :draggable="(chartSettings.value?.tooltipPosition ?? 'adaptive') === 'adaptive'"
+              <div
+                ref="tooltipContentRef"
+                class="kline-tooltip"
+                :class="{ 'use-anchor': useAnchorPositioning }"
+                :style="useAnchorPositioning ? undefined : { left: teleportedTooltipPos.x + 'px', top: teleportedTooltipPos.y + 'px' }"
                 @pointerdown="onTooltipPointerDown"
                 @dblclick="onTooltipDblClick"
-              />
+              ></div>
             </slot>
           </template>
           <template v-if="hoveredMarker || hoveredCustomMarker">
@@ -233,6 +225,7 @@
     type DataFetcher,
   } from '@363045841yyt/klinechart-core/semantic'
   import { ref, computed, onMounted, onUnmounted, watch, nextTick, shallowRef, useSlots } from 'vue'
+  import { formatTimestamp } from '@363045841yyt/klinechart-core'
 
   const slots = useSlots()
 
@@ -247,9 +240,8 @@
   import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
   import ExportProgressDialog from './ExportProgressDialog.vue'
   import IndicatorSelector from './IndicatorSelector.vue'
-  import KLineTooltip from './KLineTooltip.vue'
-  import LeftToolbar from './LeftToolbar.vue'
-  import MarkerTooltip from './MarkerTooltip.vue'
+import LeftToolbar from './LeftToolbar.vue'
+import MarkerTooltip from './MarkerTooltip.vue'
   import RangeSelectionExport from './RangeSelectionExport.vue'
   import TopToolbar, { type SymbolItem } from './TopToolbar.vue'
   import CanvasToolbarStack from './common/CanvasToolbarStack.vue'
@@ -481,6 +473,7 @@
   const chartMainRef = ref<HTMLDivElement | null>(null)
   const chartWrapperRef = ref<HTMLDivElement | null>(null)
   const tooltipLayerRef = ref<HTMLDivElement | null>(null)
+  const tooltipContentRef = ref<HTMLDivElement | null>(null)
   const toolbarRef = ref<InstanceType<typeof LeftToolbar> | null>(null)
   const indicatorSelectorRef = ref<InstanceType<typeof IndicatorSelector> | null>(null)
   const leftAxisLayerRef = ref<HTMLDivElement | null>(null)
@@ -638,30 +631,206 @@
     /* Controller auto-renders on state changes */
   }
 
-  // ── Tooltip Measurement ──
-  function measureTooltipSize(el: HTMLDivElement, minWidth: number, minHeight: number) {
-    const r = el.getBoundingClientRect()
+  // ── Tooltip — 直接订阅 kernel，绕过 Vue 的 VNode ──
+  const _measuredTooltips = new WeakSet<HTMLElement>()
+  let _tooltipRO: ResizeObserver | null = null
+  let _markerTooltipRO: ResizeObserver | null = null
+  let _prevTooltipIdx: number | null = null
+  let _unsubTooltip: (() => void) | null = null
+  let _tooltipSlots: _TooltipSlots | null = null
+
+  const NEUTRAL_COLOR = '#6b7280'
+  interface _KLineData { timestamp: number; open: number; high: number; low: number; close: number; volume?: number; turnover?: number; amplitude?: number; changePercent?: number; changeAmount?: number; turnoverRate?: number; symbol?: string }
+  interface _TooltipSlots {
+    symbol: HTMLSpanElement | null
+    date: HTMLSpanElement
+    open: HTMLSpanElement
+    high: HTMLSpanElement
+    low: HTMLSpanElement
+    close: HTMLSpanElement
+    volume: HTMLSpanElement | null
+    turnover: HTMLSpanElement | null
+    amplitude: HTMLSpanElement | null
+    changePercent: HTMLSpanElement | null
+    changeAmount: HTMLSpanElement | null
+    turnoverRate: HTMLSpanElement | null
+  }
+  function _formatVolume(v: number): string {
+    if (v >= 1e8) return (v / 1e8).toFixed(2) + '亿'
+    if (v >= 1e4) return (v / 1e4).toFixed(2) + '万'
+    return v.toFixed(2)
+  }
+  function _formatSigned(val: number, unit: string): string {
+    return (val >= 0 ? '+' : '') + val.toFixed(2) + unit
+  }
+  function _calcDirection(data: _KLineData, allData: ReadonlyArray<_KLineData>, idx: number | null): number {
+    if (data.close >= data.open) return 1
+    const prev = typeof idx === 'number' && idx > 0 ? allData[idx - 1] : undefined
+    if (prev && data.close > prev.close) return 1
+    if (prev && data.close < prev.close) return -1
+    return 0
+  }
+
+  function _buildTooltipDOM(el: HTMLDivElement, kline: _KLineData): _TooltipSlots {
+    const title = document.createElement('div')
+    title.className = 'kline-tooltip__title'
+    let symbolSpan: HTMLSpanElement | null = null
+    if (kline.symbol) {
+      symbolSpan = document.createElement('span')
+      title.appendChild(symbolSpan)
+    }
+    const dateSpan = document.createElement('span')
+    title.appendChild(dateSpan)
+    el.appendChild(title)
+
+    const grid = document.createElement('div')
+    grid.className = 'kline-tooltip__grid'
+
+    function addRow(label: string): HTMLSpanElement {
+      const row = document.createElement('div')
+      row.className = 'row'
+      const lbl = document.createElement('span')
+      lbl.textContent = label
+      row.appendChild(lbl)
+      const val = document.createElement('span')
+      row.appendChild(val)
+      grid.appendChild(row)
+      return val
+    }
+
+    const openV = addRow('开')
+    const highV = addRow('高')
+    const lowV = addRow('低')
+    const closeV = addRow('收')
+    const volumeV = typeof kline.volume === 'number' ? addRow('成交量') : null
+    const turnoverV = typeof kline.turnover === 'number' ? addRow('成交额') : null
+    const amplitudeV = typeof kline.amplitude === 'number' ? addRow('振幅') : null
+    const changePercentV = typeof kline.changePercent === 'number' ? addRow('涨跌幅') : null
+    const changeAmountV = typeof kline.changeAmount === 'number' ? addRow('涨跌额') : null
+    const turnoverRateV = typeof kline.turnoverRate === 'number' ? addRow('换手率') : null
+
+    el.appendChild(grid)
+
     return {
-      width: Math.max(minWidth, Math.round(r.width)),
-      height: Math.max(minHeight, Math.round(r.height)),
+      symbol: symbolSpan,
+      date: dateSpan,
+      open: openV,
+      high: highV,
+      low: lowV,
+      close: closeV,
+      volume: volumeV,
+      turnover: turnoverV,
+      amplitude: amplitudeV,
+      changePercent: changePercentV,
+      changeAmount: changeAmountV,
+      turnoverRate: turnoverRateV,
     }
   }
 
-  function setTooltipEl(el: HTMLDivElement | null) {
-    if (!el) return
-    requestAnimationFrame(() => {
-      if (!el.isConnected) return
-      const size = measureTooltipSize(el, 180, 80)
-      controller.value?.setTooltipSize(size)
+  function _updateTooltipDOM(
+    slots: _TooltipSlots,
+    kline: _KLineData,
+    idx: number,
+    allData: ReadonlyArray<_KLineData>,
+    upColor: string,
+    downColor: string,
+    timezone: string,
+    showTime: boolean,
+  ): void {
+    const openDir = _calcDirection(kline, allData, idx)
+    const closeDiff = kline.close - kline.open
+    const changePct = kline.changePercent ?? ((kline.close - kline.open) / kline.open) * 100
+    const openC = openDir > 0 ? upColor : openDir < 0 ? downColor : NEUTRAL_COLOR
+    const closeC = closeDiff > 0 ? upColor : closeDiff < 0 ? downColor : NEUTRAL_COLOR
+    const changeC = changePct > 0 ? upColor : changePct < 0 ? downColor : NEUTRAL_COLOR
+
+    slots.date.textContent = formatTimestamp(kline.timestamp, { timeZone: timezone, showTime })
+    if (slots.symbol) slots.symbol.textContent = kline.symbol ?? ''
+
+    slots.open.textContent = kline.open.toFixed(2)
+    slots.open.style.color = openC
+    slots.high.textContent = kline.high.toFixed(2)
+    slots.low.textContent = kline.low.toFixed(2)
+    slots.close.textContent = kline.close.toFixed(2)
+    slots.close.style.color = closeC
+    if (slots.volume && typeof kline.volume === 'number') slots.volume.textContent = _formatVolume(kline.volume)
+    if (slots.turnover && typeof kline.turnover === 'number') slots.turnover.textContent = _formatVolume(kline.turnover)
+    if (slots.amplitude && typeof kline.amplitude === 'number') slots.amplitude.textContent = kline.amplitude + '%'
+    if (slots.changePercent && typeof kline.changePercent === 'number') {
+      slots.changePercent.textContent = _formatSigned(kline.changePercent, '%')
+      slots.changePercent.style.color = changeC
+    }
+    if (slots.changeAmount && typeof kline.changeAmount === 'number') {
+      slots.changeAmount.textContent = _formatSigned(kline.changeAmount, '')
+      slots.changeAmount.style.color = changeC
+    }
+    if (slots.turnoverRate && typeof kline.turnoverRate === 'number') slots.turnoverRate.textContent = kline.turnoverRate.toFixed(2) + '%'
+  }
+
+  function _setupTooltipSub(): void {
+    const ctrl = controller.value
+    if (!ctrl) return
+    _unsubTooltip = ctrl.interactionState.subscribe(() => {
+      const el = tooltipContentRef.value
+      if (!el) return
+      const snapshot = ctrl.interactionState.peek()
+      const idx = snapshot.hoveredIndex
+      const data = ctrl.getData()
+      const kline = typeof idx === 'number' && data && idx >= 0 && idx < data.length ? data[idx] : undefined
+      if (!kline || !data) {
+        el.style.display = 'none'
+        return
+      }
+      el.style.display = ''
+      if (idx !== _prevTooltipIdx) {
+        _prevTooltipIdx = idx
+        if (!_tooltipSlots) {
+          el.textContent = ''
+          _tooltipSlots = _buildTooltipDOM(el, kline)
+        }
+        const colors = tooltipColors.value
+        _updateTooltipDOM(
+          _tooltipSlots, kline, idx!, data,
+          colors.upColor, colors.downColor,
+          props.timezone, isIntraday.value,
+        )
+        if (!_tooltipRO) {
+          _tooltipRO = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+              const el2 = entry.target as HTMLDivElement
+              if (!el2.isConnected) continue
+              const w = entry.borderBoxSize[0]?.inlineSize ?? entry.contentRect.width
+              const h = entry.borderBoxSize[0]?.blockSize ?? entry.contentRect.height
+              ctrl.setTooltipSize({
+                width: Math.max(180, Math.round(w)),
+                height: Math.max(80, Math.round(h)),
+              })
+            }
+          })
+        }
+        _tooltipRO.observe(el)
+      }
     })
   }
 
   function setMarkerTooltipEl(el: HTMLDivElement | null) {
-    if (!el) return
-    requestAnimationFrame(() => {
-      if (!el.isConnected) return
-      markerTooltipSize.value = measureTooltipSize(el, 120, 60)
-    })
+    if (!el || _measuredTooltips.has(el)) return
+    _measuredTooltips.add(el)
+    if (!_markerTooltipRO) {
+      _markerTooltipRO = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const target = entry.target as HTMLDivElement
+          if (!target.isConnected) continue
+          const w = entry.borderBoxSize[0]?.inlineSize ?? entry.contentRect.width
+          const h = entry.borderBoxSize[0]?.blockSize ?? entry.contentRect.height
+          markerTooltipSize.value = {
+            width: Math.max(120, Math.round(w)),
+            height: Math.max(60, Math.round(h)),
+          }
+        }
+      })
+    }
+    _markerTooltipRO.observe(el)
   }
 
   // ── Marker Tooltip & Container Rect Cache ──
@@ -742,18 +911,30 @@
   const hoveredIndex = computed(() => interactionState.value.hoveredIndex)
   const tooltipPos = computed(() => interactionState.value.tooltipPos)
   const effectiveTooltipPos = computed(() => tooltipDragPos.value ?? tooltipPos.value)
-  const teleportedTooltipPos = computed(() => ({
-    x: effectiveTooltipPos.value.x + tooltipLayerOffset.value.x,
-    y: effectiveTooltipPos.value.y + tooltipLayerOffset.value.y,
-  }))
+  let _cachedTooltipPos = { x: 0, y: 0 }
+  const teleportedTooltipPos = computed(() => {
+    const nextX = effectiveTooltipPos.value.x + tooltipLayerOffset.value.x
+    const nextY = effectiveTooltipPos.value.y + tooltipLayerOffset.value.y
+    if (nextX === _cachedTooltipPos.x && nextY === _cachedTooltipPos.y) {
+      return _cachedTooltipPos
+    }
+    _cachedTooltipPos = { x: nextX, y: nextY }
+    return _cachedTooltipPos
+  })
   const klineTooltipAnchorStyle = computed(() => ({
     left: `${teleportedTooltipPos.value.x}px`,
     top: `${teleportedTooltipPos.value.y}px`,
   }))
-  const teleportedMarkerTooltipPos = computed(() => ({
-    x: mousePos.value.x + tooltipLayerOffset.value.x,
-    y: mousePos.value.y + tooltipLayerOffset.value.y,
-  }))
+  let _cachedMarkerTooltipPos = { x: 0, y: 0 }
+  const teleportedMarkerTooltipPos = computed(() => {
+    const nextX = mousePos.value.x + tooltipLayerOffset.value.x
+    const nextY = mousePos.value.y + tooltipLayerOffset.value.y
+    if (nextX === _cachedMarkerTooltipPos.x && nextY === _cachedMarkerTooltipPos.y) {
+      return _cachedMarkerTooltipPos
+    }
+    _cachedMarkerTooltipPos = { x: nextX, y: nextY }
+    return _cachedMarkerTooltipPos
+  })
   const markerTooltipAnchorStyle = computed(() => ({
     left: `${teleportedMarkerTooltipPos.value.x}px`,
     top: `${teleportedMarkerTooltipPos.value.y}px`,
@@ -1246,6 +1427,9 @@
     // 3) 信号回调（必须在 registerSymbols 之前建立，否则订阅收不到初始通知）
     cleanupChartCallbacks = setupChartCallbacks(ctrl)
 
+    // 4) 直接订阅 kernel 的 tooltip 信号，绕过 VNode
+    _setupTooltipSub()
+
     // Seed the default symbol catalog — subscribe 已建立, set 会触发回调刷新 dropdown
     ctrl.registerSymbols(DEFAULT_SYMBOLS)
 
@@ -1281,6 +1465,8 @@
     onFullscreenChange = null
     cleanupChartCallbacks?.()
     cleanupChartCallbacks = null
+    _unsubTooltip?.()
+    _unsubTooltip = null
     const ctrl = controller.value
     if (ctrl) {
       controller.value = null
@@ -1610,5 +1796,51 @@
 <style>
   * {
     -webkit-tap-highlight-color: transparent;
+  }
+
+  .kline-tooltip {
+    position: absolute;
+    z-index: 10;
+    min-width: 200px;
+    max-width: 260px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--klc-color-tooltip-bg);
+    border: 1px solid var(--klc-color-tooltip-border);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+    color: var(--klc-color-tooltip-text);
+    font-size: 12px;
+    line-height: 1.4;
+    pointer-events: none;
+    backdrop-filter: blur(6px);
+    user-select: none;
+  }
+  .kline-tooltip.is-draggable {
+    pointer-events: auto;
+    cursor: grab;
+  }
+  .kline-tooltip.is-draggable:active {
+    cursor: grabbing;
+  }
+  .kline-tooltip__title {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .kline-tooltip__grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+  .kline-tooltip__grid .row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .kline-tooltip__grid .row span:first-child {
+    color: var(--klc-color-tooltip-text);
+    opacity: 0.56;
   }
 </style>

@@ -12,39 +12,39 @@
     </div>
     <div class="kline-tooltip__grid">
       <div class="row">
-        <span>开</span><span :style="{ color: openColor }">{{ hoverData.open.toFixed(2) }}</span>
+        <span v-once>开</span><span :style="{ color: openColor }">{{ hoverData.open.toFixed(2) }}</span>
       </div>
       <div class="row">
-        <span>高</span><span>{{ hoverData.high.toFixed(2) }}</span>
+        <span v-once>高</span><span>{{ hoverData.high.toFixed(2) }}</span>
       </div>
       <div class="row">
-        <span>低</span><span>{{ hoverData.low.toFixed(2) }}</span>
+        <span v-once>低</span><span>{{ hoverData.low.toFixed(2) }}</span>
       </div>
       <div class="row">
-        <span>收</span><span :style="{ color: closeColor }">{{ hoverData.close.toFixed(2) }}</span>
+        <span v-once>收</span><span :style="{ color: closeColor }">{{ hoverData.close.toFixed(2) }}</span>
       </div>
 
       <div v-if="typeof hoverData.volume === 'number'" class="row">
-        <span>成交量</span><span>{{ formatVolume(hoverData.volume) }}</span>
+        <span v-once>成交量</span><span>{{ formatVolume(hoverData.volume) }}</span>
       </div>
       <div v-if="typeof hoverData.turnover === 'number'" class="row">
-        <span>成交额</span><span>{{ formatVolume(hoverData.turnover) }}</span>
+        <span v-once>成交额</span><span>{{ formatVolume(hoverData.turnover) }}</span>
       </div>
       <div v-if="typeof hoverData.amplitude === 'number'" class="row">
-        <span>振幅</span><span>{{ hoverData.amplitude }}%</span>
+        <span v-once>振幅</span><span>{{ hoverData.amplitude }}%</span>
       </div>
       <div v-if="typeof hoverData.changePercent === 'number'" class="row">
-        <span>涨跌幅</span>
+        <span v-once>涨跌幅</span>
         <span :style="{ color: changeColor }">{{
           formatSigned(hoverData.changePercent, '%')
         }}</span>
       </div>
       <div v-if="typeof hoverData.changeAmount === 'number'" class="row">
-        <span>涨跌额</span>
+        <span v-once>涨跌额</span>
         <span :style="{ color: changeColor }">{{ formatSigned(hoverData.changeAmount, '') }}</span>
       </div>
       <div v-if="typeof hoverData.turnoverRate === 'number'" class="row">
-        <span>换手率</span><span>{{ hoverData.turnoverRate.toFixed(2) }}%</span>
+        <span v-once>换手率</span><span>{{ hoverData.turnoverRate.toFixed(2) }}%</span>
       </div>
     </div>
   </div>

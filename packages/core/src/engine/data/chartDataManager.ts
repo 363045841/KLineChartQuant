@@ -373,7 +373,7 @@ export class ChartDataManager {
   }
 
   getRenderData(): unknown[] {
-    return [...this._dataState.readonly.data()]
+    return this._dataState.readonly.data.peek() as unknown[]
   }
 
   getMonthKeys(): Int32Array | null {

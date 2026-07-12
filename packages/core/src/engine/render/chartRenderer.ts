@@ -366,6 +366,8 @@ export class ChartRenderer {
       : this.deps.getIndicatorManager().indicatorSchedulerAccessor.getMainIndicatorPriceRange()
     const hasCrosshair = this.deps.getInteraction().getCrosshairIndex() !== null
 
+    const renderData = frame.data
+
     const { sharedXAxisLabels, sharedXAxisRanges } = this.renderPanes(
       vp,
       range,
@@ -377,6 +379,7 @@ export class ChartRenderer {
       hasCrosshair,
       useCachedFrame,
       level,
+      renderData,
     )
 
     this.overlayHadCrosshair = hasCrosshair
@@ -389,6 +392,7 @@ export class ChartRenderer {
       kWidthPx,
       sharedXAxisLabels,
       sharedXAxisRanges,
+      renderData,
     )
   }
 
@@ -577,6 +581,7 @@ export class ChartRenderer {
     hasCrosshair: boolean,
     useCachedFrame: boolean,
     level: UpdateLevel,
+    renderData: unknown[],
   ): { sharedXAxisLabels: XAxisLabel[]; sharedXAxisRanges: XAxisRange[] } {
     const sharedYAxisLabels: YAxisLabel[] = []
     const sharedXAxisLabels: XAxisLabel[] = []
@@ -639,7 +644,7 @@ export class ChartRenderer {
         ctx: mainCtx!,
         overlayCtx: overlayCtx ?? undefined,
         pane: wrapPaneInfo(pane),
-        data: dataManager.getRenderData(),
+        data: renderData,
         period: dataManager.currentPeriod,
         comparisonData: dataManager.getComparisonData(),
         comparisonSymbols: dataManager.getComparisonSpecs(),
@@ -749,6 +754,7 @@ export class ChartRenderer {
     kWidthPx: number,
     sharedXAxisLabels: XAxisLabel[],
     sharedXAxisRanges: XAxisRange[],
+    renderData: unknown[],
   ): void {
     const dom = this.deps.getDom()
     const xAxisCtx = this.xAxisCtx ?? dom.xAxisCanvas.getContext('2d')
@@ -787,7 +793,7 @@ export class ChartRenderer {
           priceRange: { maxPrice: 0, minPrice: 0 },
         },
         period: dataManager.currentPeriod,
-        data: dataManager.getRenderData(),
+        data: renderData,
         range,
         scrollLeft: vp.scrollLeft,
         kWidth: opt.kWidth,
