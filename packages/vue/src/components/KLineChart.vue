@@ -649,7 +649,7 @@
 
   function setTooltipEl(el: HTMLDivElement | null) {
     if (!el) return
-    nextTick(() => {
+    requestAnimationFrame(() => {
       if (!el.isConnected) return
       const size = measureTooltipSize(el, 180, 80)
       controller.value?.setTooltipSize(size)
@@ -658,7 +658,7 @@
 
   function setMarkerTooltipEl(el: HTMLDivElement | null) {
     if (!el) return
-    nextTick(() => {
+    requestAnimationFrame(() => {
       if (!el.isConnected) return
       markerTooltipSize.value = measureTooltipSize(el, 120, 60)
     })
