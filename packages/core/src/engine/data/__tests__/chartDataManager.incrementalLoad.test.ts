@@ -45,6 +45,10 @@ function createDependencies(dom: ChartDom): DataDependencies {
     }),
     isPointerDown: () => false,
     onTimeShareDataReady: () => {},
+    setComparisonColors: () => {},
+    setComparisonLoading: () => {},
+    comparisonColors$: createSignal(new Map() as ReadonlyMap<string, string>),
+    comparisonLoading$: createSignal(false),
   }
 }
 

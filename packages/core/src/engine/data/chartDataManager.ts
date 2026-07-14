@@ -97,6 +97,7 @@ export class ChartDataManager {
       hasKLineBuffer: (key) => this._klineBuffers.has(key),
       getKLineBufferKeys: () => [...this._klineBuffers.keys()],
       scheduleDraw: () => this.deps.scheduleDraw(),
+      getColors: () => this.deps.comparisonColors$.peek(),
       setColors: (colors) => this.deps.setComparisonColors(colors),
       setLoading: (loading) => this.deps.setComparisonLoading(loading),
     })

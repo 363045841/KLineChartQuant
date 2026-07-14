@@ -294,10 +294,12 @@ export class ChartIndicatorManager {
   }
 
   clearMainIndicators(): void {
-    for (const id of this.deps.mainIndicators$.peek().keys()) {
-      this.disableMainIndicatorRenderer(id)
-    }
+    const ids = [...this.deps.mainIndicators$.peek().keys()]
     this.deps.clearMainIndicators()
+    for (const id of ids) {
+      this.disableMainIndicatorRenderer(id)
+      this.updateIndicatorSchedulerConfig(id)
+    }
     this.deps.scheduleDraw()
   }
 
@@ -364,22 +366,42 @@ export class ChartIndicatorManager {
 
   /**
    * @deprecated 使用 enableMainIndicator/disableMainIndicator 替代
+   * 状态一次 replaceAll，再做 renderer side effects，避免逐条中间态。
    */
   setActiveMainIndicators(indicators: string[]): void {
-    const newSet = new Set(indicators.map((i) => i.toUpperCase()))
-    const currentSet = new Set(this.deps.mainIndicators$.peek().keys())
+    const newIds = indicators
+      .map((i) => i.toUpperCase())
+      .filter((id) => ChartIndicatorManager.ENABLE_MAIN_INDICATORS.includes(id))
+    const newSet = new Set(newIds)
+    const prev = this.deps.mainIndicators$.peek()
+    const currentSet = new Set(prev.keys())
+
+    const next = new Map<string, MainIndicatorEntry>()
+    for (const id of newIds) {
+      const existing = prev.get(id)
+      if (existing) {
+        next.set(id, { params: { ...existing.params } })
+      } else {
+        next.set(id, {
+          params: { ...(ChartIndicatorManager.DEFAULT_MAIN_PARAMS[id] ?? {}) },
+        })
+      }
+    }
+    this.deps.replaceMainIndicators(next)
 
     for (const id of currentSet) {
       if (!newSet.has(id)) {
-        this.disableMainIndicator(id)
+        this.disableMainIndicatorRenderer(id)
+        this.updateIndicatorSchedulerConfig(id)
       }
     }
-
     for (const id of newSet) {
       if (!currentSet.has(id)) {
-        this.enableMainIndicator(id)
+        this.enableMainIndicatorRenderer(id)
+        this.updateIndicatorSchedulerConfig(id)
       }
     }
+    this.deps.scheduleDraw()
   }
 
   // ========== 副图管理 API ==========

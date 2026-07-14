@@ -55,11 +55,13 @@ export interface SubPaneContext {
 }
 
 export class SubPaneManager {
-  private entries = new Map<string, SubPaneEntry>()
-  private _entriesSignal = createSignal<ReadonlyArray<SubPaneEntry>>([])
+  /** 唯一状态源：副图 entry 列表（每次写入均为新数组 + 深拷贝 params） */
+  private readonly _entriesSignal = createSignal<ReadonlyArray<SubPaneEntry>>([])
 
   get entriesSignal(): ReadonlySignal<ReadonlyArray<SubPaneEntry>> {
-    return this._entriesSignal
+    const sig = this._entriesSignal
+    const read = (() => sig()) as ReadonlySignal<ReadonlyArray<SubPaneEntry>>
+    return Object.assign(read, { peek: sig.peek, subscribe: sig.subscribe })
   }
 
   private cloneEntry(entry: SubPaneEntry): SubPaneEntry {
@@ -69,8 +71,12 @@ export class SubPaneManager {
     }
   }
 
-  private syncEntriesSignal(): void {
-    this._entriesSignal.set(this.getAll())
+  private findEntry(paneId: string): SubPaneEntry | undefined {
+    return this._entriesSignal.peek().find((e) => e.paneId === paneId)
+  }
+
+  private writeEntries(entries: ReadonlyArray<SubPaneEntry>): void {
+    this._entriesSignal.set(entries.map((e) => this.cloneEntry(e)))
   }
 
   create(
@@ -79,7 +85,7 @@ export class SubPaneManager {
     indicatorId: SubIndicatorType,
     params: Record<string, unknown>,
   ): boolean {
-    if (this.entries.has(paneId)) {
+    if (this.findEntry(paneId)) {
       return true
     }
 
@@ -109,28 +115,29 @@ export class SubPaneManager {
     const scaleLayerId = `plugin:${scaleRendererName}`
     const paneTitleLayerId = `plugin:${paneTitleRendererName}`
 
-    this.entries.set(paneId, {
-      paneId,
-      indicatorId,
-      params: { ...params },
-      rendererName,
-      scaleRendererName,
-      paneTitleRendererName,
-      layerId,
-      scaleLayerId,
-      paneTitleLayerId,
-    })
+    this.writeEntries([
+      ...this._entriesSignal.peek(),
+      {
+        paneId,
+        indicatorId,
+        params: { ...params },
+        rendererName,
+        scaleRendererName,
+        paneTitleRendererName,
+        layerId,
+        scaleLayerId,
+        paneTitleLayerId,
+      },
+    ])
 
     this.syncSchedulerConfig(ctx, paneId, indicatorId, params)
 
     ctx.getIndicatorScheduler().onSubPaneChanged()
-
-    this.syncEntriesSignal()
     return true
   }
 
   remove(ctx: SubPaneContext, paneId: string): void {
-    const entry = this.entries.get(paneId)
+    const entry = this.findEntry(paneId)
     if (!entry) return
 
     ctx.removeRenderer(entry.rendererName)
@@ -140,14 +147,13 @@ export class SubPaneManager {
     ctx.removeLayer(entry.scaleLayerId)
     ctx.removeLayer(entry.paneTitleLayerId)
 
-    this.entries.delete(paneId)
+    this.writeEntries(this._entriesSignal.peek().filter((e) => e.paneId !== paneId))
 
     if (ctx.hasPane(paneId)) {
       ctx.removePaneDefinition(paneId)
     }
 
     ctx.getIndicatorScheduler().onSubPaneChanged()
-    this.syncEntriesSignal()
   }
 
   replaceIndicator(
@@ -156,7 +162,7 @@ export class SubPaneManager {
     newIndicatorId: SubIndicatorType,
     newParams: Record<string, unknown>,
   ): void {
-    const entry = this.entries.get(paneId)
+    const entry = this.findEntry(paneId)
     if (!entry) return
 
     ctx.removeRenderer(entry.rendererName)
@@ -185,31 +191,37 @@ export class SubPaneManager {
 
     this.syncSchedulerConfig(ctx, paneId, newIndicatorId, newParams)
 
-    this.entries.set(paneId, {
-      paneId,
-      indicatorId: newIndicatorId,
-      params: { ...newParams },
-      rendererName: newRendererName,
-      scaleRendererName: newScaleRendererName,
-      paneTitleRendererName: newPaneTitleRendererName,
-      layerId: newLayerId,
-      scaleLayerId: newScaleLayerId,
-      paneTitleLayerId: newPaneTitleLayerId,
-    })
+    this.writeEntries(
+      this._entriesSignal.peek().map((e) =>
+        e.paneId === paneId
+          ? {
+              paneId,
+              indicatorId: newIndicatorId,
+              params: { ...newParams },
+              rendererName: newRendererName,
+              scaleRendererName: newScaleRendererName,
+              paneTitleRendererName: newPaneTitleRendererName,
+              layerId: newLayerId,
+              scaleLayerId: newScaleLayerId,
+              paneTitleLayerId: newPaneTitleLayerId,
+            }
+          : e,
+      ),
+    )
 
     ctx.getIndicatorScheduler().onSubPaneChanged()
-    this.syncEntriesSignal()
   }
 
   updateParams(ctx: SubPaneContext, paneId: string, params: Record<string, unknown>): void {
-    const entry = this.entries.get(paneId)
+    const entry = this.findEntry(paneId)
     if (!entry) return
 
     const nextParams = { ...params }
-    this.entries.set(paneId, {
-      ...entry,
-      params: nextParams,
-    })
+    this.writeEntries(
+      this._entriesSignal.peek().map((e) =>
+        e.paneId === paneId ? { ...e, params: nextParams } : e,
+      ),
+    )
 
     ctx.updateRendererConfig(entry.rendererName, nextParams)
     ctx.updateRendererConfig(entry.paneTitleRendererName, {
@@ -218,11 +230,10 @@ export class SubPaneManager {
     })
 
     this.syncSchedulerConfig(ctx, paneId, entry.indicatorId, nextParams)
-    this.syncEntriesSignal()
   }
 
   getByPaneId(paneId: string): SubPaneEntry | undefined {
-    const entry = this.entries.get(paneId)
+    const entry = this.findEntry(paneId)
     return entry ? this.cloneEntry(entry) : undefined
   }
 
@@ -243,15 +254,15 @@ export class SubPaneManager {
   }
 
   getAll(): SubPaneEntry[] {
-    return [...this.entries.values()].map((entry) => this.cloneEntry(entry))
+    return this._entriesSignal.peek().map((entry) => this.cloneEntry(entry))
   }
 
   getPaneIds(): string[] {
-    return [...this.entries.keys()]
+    return this._entriesSignal.peek().map((e) => e.paneId)
   }
 
   clear(ctx: SubPaneContext): void {
-    for (const entry of this.entries.values()) {
+    for (const entry of this._entriesSignal.peek()) {
       ctx.removeRenderer(entry.rendererName)
       ctx.removeRenderer(entry.scaleRendererName)
       ctx.removeRenderer(entry.paneTitleRendererName)
@@ -259,9 +270,8 @@ export class SubPaneManager {
       ctx.removeLayer(entry.scaleLayerId)
       ctx.removeLayer(entry.paneTitleLayerId)
     }
-    this.entries.clear()
+    this.writeEntries([])
     ctx.getIndicatorScheduler().onSubPaneChanged()
-    this.syncEntriesSignal()
   }
 
   private syncSchedulerConfig(

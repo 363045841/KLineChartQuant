@@ -1,4 +1,4 @@
-import type { KLineData, SymbolSpec, DataFetcher } from '../../controllers/types'
+import type { KLineData, SymbolSpec } from '../../controllers/types'
 
 const COMPARISON_PALETTE = ['#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316']
 const DEFAULT_COMPARISON_COLOR = '#f59e0b'
@@ -14,13 +14,14 @@ export interface ComparisonHooks {
   hasKLineBuffer(key: string): boolean
   getKLineBufferKeys(): string[]
   scheduleDraw(): void
+  /** kernel comparison.readonly.colors */
+  getColors(): ReadonlyMap<string, string>
   setColors(colors: ReadonlyMap<string, string>): void
   setLoading(loading: boolean): void
 }
 
 export class ComparisonManager {
   private _specs: SymbolSpec[] = []
-  private _colors: Map<string, string> = new Map()
   private _cmpLoadingUnsubs = new Map<string, () => void>()
   private _hooks: ComparisonHooks
 
@@ -29,7 +30,7 @@ export class ComparisonManager {
   }
 
   get specs(): SymbolSpec[] {
-    return this._specs
+    return this._specs.map((s) => ({ ...s }))
   }
 
   get data(): Map<string, KLineData[]> {
@@ -43,11 +44,11 @@ export class ComparisonManager {
   }
 
   getColors(): Map<string, string> {
-    return new Map(this._colors)
+    return new Map(this._hooks.getColors())
   }
 
   syncBuffers(specs: ReadonlyArray<SymbolSpec>, mainEarliest?: number): void {
-    this._specs = [...specs]
+    this._specs = specs.map((s) => ({ ...s }))
     const nextKeys = new Set(specs.map((s) => s.symbol))
 
     for (const key of this._hooks.getKLineBufferKeys()) {
@@ -57,16 +58,31 @@ export class ComparisonManager {
       this._hooks.disposeBuffer(key)
     }
 
+    // 同步颜色：保留仍在用的，为新增分配 palette
+    const prevColors = this._hooks.getColors()
+    const nextColors = new Map<string, string>()
+    for (const spec of specs) {
+      const existing = prevColors.get(spec.symbol)
+      if (existing) {
+        nextColors.set(spec.symbol, existing)
+      } else {
+        nextColors.set(
+          spec.symbol,
+          COMPARISON_PALETTE[nextColors.size % COMPARISON_PALETTE.length] ??
+            DEFAULT_COMPARISON_COLOR,
+        )
+      }
+    }
+    this._hooks.setColors(nextColors)
+
     for (const spec of specs) {
       const key = `cmp:${spec.symbol}:${spec.period ?? 'daily'}`
-      const symbol = spec.symbol
       let buf = this._hooks.getKLineBuffer(key)
       if (!buf) {
         const created = this._hooks.createComparisonBuffer(spec)
         buf = created.buffer
 
-        const b = buf
-        const unsub = b.data.subscribe(() => {
+        const unsub = buf.data.subscribe(() => {
           this._hooks.scheduleDraw()
         })
         this._cmpLoadingUnsubs.set(key, unsub)
@@ -84,8 +100,9 @@ export class ComparisonManager {
         this._hooks.disposeBuffer(key)
       }
     }
-    this._colors.clear()
-    this._hooks.setColors(new Map(this._colors))
+    for (const unsub of this._cmpLoadingUnsubs.values()) unsub()
+    this._cmpLoadingUnsubs.clear()
+    this._hooks.setColors(new Map())
     this._hooks.setLoading(false)
     this._specs = []
   }
@@ -97,12 +114,17 @@ export class ComparisonManager {
       if (k.startsWith(BUF_COMPARISON) && k.split(':')[1] === symbol) return
     }
 
-    this._specs.push(spec)
+    this._specs.push({ ...spec })
 
-    const color =
-      COMPARISON_PALETTE[this._colors.size % COMPARISON_PALETTE.length] ?? DEFAULT_COMPARISON_COLOR
-    this._colors.set(symbol, color)
-    this._hooks.setColors(new Map(this._colors))
+    const prev = this._hooks.getColors()
+    if (!prev.has(symbol)) {
+      const next = new Map(prev)
+      next.set(
+        symbol,
+        COMPARISON_PALETTE[next.size % COMPARISON_PALETTE.length] ?? DEFAULT_COMPARISON_COLOR,
+      )
+      this._hooks.setColors(next)
+    }
 
     const key = `cmp:${symbol}:${spec.period ?? 'daily'}`
 
@@ -143,11 +165,15 @@ export class ComparisonManager {
       const unsubLoading = buffer.loading.subscribe(() => this._recomputeLoading())
       this._cmpLoadingUnsubs.set(`loading:${key}`, unsubLoading)
 
-      const color =
-        COMPARISON_PALETTE[this._colors.size % COMPARISON_PALETTE.length] ??
-        DEFAULT_COMPARISON_COLOR
-      this._colors.set(symbol, color)
-      this._hooks.setColors(new Map(this._colors))
+      const prev = this._hooks.getColors()
+      if (!prev.has(symbol)) {
+        const next = new Map(prev)
+        next.set(
+          symbol,
+          COMPARISON_PALETTE[next.size % COMPARISON_PALETTE.length] ?? DEFAULT_COMPARISON_COLOR,
+        )
+        this._hooks.setColors(next)
+      }
 
       const spec: SymbolSpec = { symbol, period }
       this._specs.push(spec)
@@ -164,14 +190,19 @@ export class ComparisonManager {
     for (const key of this._hooks.getKLineBufferKeys()) {
       if (key.startsWith(BUF_COMPARISON) && key.split(':')[1] === symbol) {
         this._hooks.disposeBuffer(key)
+        this._cmpLoadingUnsubs.get(key)?.()
+        this._cmpLoadingUnsubs.get(`loading:${key}`)?.()
+        this._cmpLoadingUnsubs.delete(key)
+        this._cmpLoadingUnsubs.delete(`loading:${key}`)
         found = true
         break
       }
     }
     if (!found) return false
 
-    this._colors.delete(symbol)
-    this._hooks.setColors(new Map(this._colors))
+    const next = new Map(this._hooks.getColors())
+    next.delete(symbol)
+    this._hooks.setColors(next)
     this._specs = this._specs.filter((s) => s.symbol !== symbol)
     this._recomputeLoading()
     return true
