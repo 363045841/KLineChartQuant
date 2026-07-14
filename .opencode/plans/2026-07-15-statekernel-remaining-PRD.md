@@ -109,3 +109,47 @@ drawInstances()   → new Float32Array(meta.data) → gl.bufferSubData
 - `ChartZoomController` 不再有 `.setZoomLevel()` 等写入方法
 - `MarkerManager` 不再持有 `customMarkers` `Map`
 - `pnpm -r test` 全绿
+
+---
+
+## 附：npm Scope 以数字开头导致构建失败
+
+### 现象
+
+用户项目构建时（`vite-plugin-pwa:build` 插件路径）报：
+
+```
+[PARSE_ERROR] Invalid characters after number
+src/views/quant/stock/symbol.vue?vue&type=script&setup=true&lang.ts:277:89
+Vue.createVNode(Vue.unref($36304584)["yyt_KlineChart"], _KlineChart)
+```
+
+### 根因
+
+npm scope `@363045841yyt/` 以数字 `3630` 开头。Vue SFC 编译器 / Rollup 在生成 import 引用变量时，部分插件路径（如 `vite-plugin-pwa` 内的独立 rollup 实例）生成的变量名**丢失了 `$` 前缀**，变成纯数字开头的标识符：
+
+```
+// 正常（有 $ 前缀 → 合法标识符）
+Vue.unref($36304584)
+
+// 异常（无 $ 前缀 → 数字字面量 "36304584" + 非法字符 "[" ）
+Vue.unref(36304584["yyt_KlineChart"])
+```
+
+JS 解析器把裸 `36304584` 解析为 NumberLiteral，接着遇到 `["yyt_KlineChart"]` 报错。
+
+### 修复方案（二选一）
+
+| 方案 | 操作 | 影响范围 |
+|------|------|---------|
+| **A. 改 scope** | 将所有包 scope 改为不以数字开头的名称（如 `@kmap/klinechart`） | 全量 breaking change，需同步修改所有 import、package.json、CI 发布配置 |
+| **B. 用户侧 workaround** | 在消费项目的 Vite 配置中加入 `optimizeDeps.include` 或 `rollupOptions.inline` 强制预打包 | 仅单项目受益，问题可能在其他消费项目复现 |
+
+### 建议
+
+**优先方案 A**。scope 以数字开头是一个长期隐患，任何构建工具升级或新插件引入都可能再次触发同类问题。改 scope 虽然涉及面广，但属于一次性投入，收益持续。
+
+### 待办
+
+- [ ] 决策：改 scope 还是 workaround
+- [ ] 如改 scope：列出所有受影响文件和发布流程变更点
