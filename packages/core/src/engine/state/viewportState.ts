@@ -7,9 +7,13 @@ import {
 } from '../../foundation/reactivity/signal'
 import type { Viewport, ViewportState } from '../chartTypes'
 import type { VisibleRange } from '../layout/pane'
-import { SCROLL_TRAILING_SLOTS } from '../data/scrollCompensator'
-import { getPhysicalKLineConfig } from '../utils/klineConfig'
 import { getVisibleRange } from '../viewport/viewport'
+import {
+  computeLeftLoadBufferWidth as pureLeftBuffer,
+  computeContentWidth as pureContentWidth,
+  computeMaxScrollLeft as pureMaxScrollLeft,
+} from './contentGeometry'
+import { kGapFromKWidth } from '../utils/zoom'
 
 /**
  * 钳制 effective DPR，避免超出 MAX_CANVAS_PIXELS 上限。
@@ -57,7 +61,6 @@ export interface ViewportSignalDeps {
   options$: ReadonlySignal<{
     bottomAxisHeight: number
     kWidth: number
-    kGap: number
   }>
   dataLength$: ReadonlySignal<number>
   period$: ReadonlySignal<string>
@@ -101,27 +104,6 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
   const computePlotHeight = (viewHeight: number): number =>
     Math.round(viewHeight - signalDeps.options$().bottomAxisHeight)
 
-  const computeLeftLoadBufferWidth = (viewWidth: number): number => {
-    const dl = signalDeps.dataLength$()
-    return dl === 0 || signalDeps.period$() === 'timeshare' ? 0 : Math.round(viewWidth)
-  }
-
-  const computeContentWidth = (
-    viewWidth: number,
-    leftLoadBufferWidth: number,
-    dpr: number,
-  ): number => {
-    const dataLength = signalDeps.dataLength$()
-    if (dataLength === 0) return 0
-    if (signalDeps.period$() === 'timeshare') {
-      return leftLoadBufferWidth + Math.max(viewWidth, 1)
-    }
-    const options = signalDeps.options$()
-    const { startXPx, unitPx } = getPhysicalKLineConfig(options.kWidth, options.kGap, dpr)
-    const dataPlotWidth = (startXPx + (dataLength + SCROLL_TRAILING_SLOTS) * unitPx) / dpr
-    return leftLoadBufferWidth + Math.max(dataPlotWidth, viewWidth)
-  }
-
   const computeViewport = (
     viewWidth: number,
     viewHeight: number,
@@ -149,18 +131,36 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
       dpr: (s) => computeDpr(s.viewWidth(), s.viewHeight(), s.preciseDpr()),
       plotWidth: (s) => computePlotWidth(s.viewWidth()),
       plotHeight: (s) => computePlotHeight(s.viewHeight()),
-      leftLoadBufferWidth: (s) => computeLeftLoadBufferWidth(s.viewWidth()),
+      leftLoadBufferWidth: (s) =>
+        pureLeftBuffer({
+          viewWidth: s.viewWidth(),
+          plotWidth: Math.round(s.viewWidth()),
+          dataLength: signalDeps.dataLength$(),
+          period: signalDeps.period$(),
+          dpr: 1,
+          kWidth: 0,
+          kGap: 0,
+        }),
     },
   )
 
-  const contentWidth = computed(() =>
-    computeContentWidth(
-      readonly.plotWidth(),
-      readonly.leftLoadBufferWidth(),
-      readonly.dpr(),
-    ),
-  )
-  const maxScrollLeft = computed(() => Math.max(0, contentWidth() - readonly.viewWidth()))
+  const kGap = computed<number>(() => {
+    return kGapFromKWidth(signalDeps.options$().kWidth, readonly.dpr())
+  })
+
+  const contentWidth = computed(() => {
+    const options = signalDeps.options$()
+    return pureContentWidth({
+      viewWidth: readonly.plotWidth(),
+      plotWidth: readonly.plotWidth(),
+      dataLength: signalDeps.dataLength$(),
+      period: signalDeps.period$(),
+      dpr: readonly.dpr(),
+      kWidth: options.kWidth,
+      kGap: kGap(),
+    })
+  })
+  const maxScrollLeft = computed(() => pureMaxScrollLeft(contentWidth(), readonly.viewWidth()))
   const scrollLeft = computed(() =>
     Math.max(0, Math.min(readonly.requestedScrollLeft(), maxScrollLeft())),
   )
@@ -201,7 +201,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
       vp.scrollLeft,
       vp.plotWidth,
       opts.kWidth,
-      opts.kGap,
+      kGap(),
       signalDeps.dataLength$(),
       vp.dpr,
     )
@@ -225,7 +225,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
       visibleFrom: vr.start,
       visibleTo: vr.end,
       kWidth: opts.kWidth,
-      kGap: opts.kGap,
+      kGap: kGap(),
     }
     if (
       _cachedViewportState &&
@@ -346,6 +346,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
     maxScrollLeft,
     scrollLeft,
     scrollLeftLogical,
+    kGap,
     viewport: cachedViewport,
     visibleRange: cachedVisibleRange,
     viewportState: cachedViewportState,
@@ -390,13 +391,16 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
        * @param dpr    - 新精确 DPR
        */
       resize(width: number, height: number, dpr: number) {
+        const w = Number.isFinite(width) ? Math.max(0, width) : 0
+        const h = Number.isFinite(height) ? Math.max(0, height) : 0
+        const d = Number.isFinite(dpr) ? dpr : 1
         batch(() => {
-          if (signals.requestedScrollLeft.peek() === 0 && width > 0) {
-            signals.requestedScrollLeft.set(width)
+          if (signals.requestedScrollLeft.peek() === 0 && w > 0) {
+            signals.requestedScrollLeft.set(w)
           }
-          signals.viewWidth.set(width)
-          signals.viewHeight.set(height)
-          signals.preciseDpr.set(dpr)
+          signals.viewWidth.set(w)
+          signals.viewHeight.set(h)
+          signals.preciseDpr.set(d)
         })
       },
 
@@ -430,10 +434,13 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
       canvasDomEffect = null
       webglEffect = null
       scrollDomEffect = null
-      signals.initialized.set(false)
-      signals.preciseDpr.set(0)
-      signals.viewWidth.set(0)
-      signals.viewHeight.set(0)
+      batch(() => {
+        signals.initialized.set(false)
+        signals.preciseDpr.set(0)
+        signals.viewWidth.set(0)
+        signals.viewHeight.set(0)
+        signals.requestedScrollLeft.set(0)
+      })
     },
   }
 }

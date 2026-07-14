@@ -147,7 +147,8 @@ describe('viewportState template', () => {
     expect(vs.plotHeight).toBe(570)
     expect(vs.visibleFrom).toBeLessThan(vs.visibleTo)
     expect(vs.kWidth).toBe(8)
-    expect(vs.kGap).toBe(2)
+    // kGap 由 kGapFromKWidth(8,2)=1.5 推导，不再从 options$ 透传
+    expect(vs.kGap).toBe(1.5)
   })
 
   it('scrollTo writes signal and DOM', async () => {
@@ -175,21 +176,21 @@ describe('viewportState template', () => {
     } as any)
     module.actions.resize(200, 150, 2)
 
-    // DPR=2: width=11px, gap=2px, 40 slots including the trailing buffer.
-    expect((module.readonly as any).contentWidth()).toBe(461)
-    expect((module.readonly as any).maxScrollLeft()).toBe(261)
+    // kGap 由 kGapFromKWidth(6,2)=1.5 自动推导。宽度取奇 11px，间隙 3px（物理）。
+    expect((module.readonly as any).contentWidth()).toBe(481.5)
+    expect((module.readonly as any).maxScrollLeft()).toBe(281.5)
 
     dataLength$.set(20)
-    expect((module.readonly as any).contentWidth()).toBe(526)
-    expect((module.readonly as any).maxScrollLeft()).toBe(326)
+    expect((module.readonly as any).contentWidth()).toBe(551.5)
+    expect((module.readonly as any).maxScrollLeft()).toBe(351.5)
 
     module.actions.resize(300, 150, 2)
-    expect((module.readonly as any).contentWidth()).toBe(626)
-    expect((module.readonly as any).maxScrollLeft()).toBe(326)
+    expect((module.readonly as any).contentWidth()).toBe(651.5)
+    expect((module.readonly as any).maxScrollLeft()).toBe(351.5)
 
     options$.set({ bottomAxisHeight: 30, kWidth: 10, kGap: 2 })
-    expect((module.readonly as any).contentWidth()).toBe(877)
-    expect((module.readonly as any).maxScrollLeft()).toBe(577)
+    expect((module.readonly as any).contentWidth()).toBe(851.5)
+    expect((module.readonly as any).maxScrollLeft()).toBe(551.5)
 
     period$.set('timeshare')
     expect((module.readonly as any).contentWidth()).toBe(300)

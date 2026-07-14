@@ -2,7 +2,7 @@
  * Type-only test for the StateKernel readonly boundary.
  * Doesn't run at runtime — `pnpm type-check` enforces these constraints.
  */
-import { describe, it } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import {
   createSubState,
   computed,
@@ -34,5 +34,12 @@ describe('StateKernel type constraints (compile-time)', () => {
     })
     // @ts-expect-error `.set` should not exist on the readonly view
     void m.readonly.viewportState.set
+  })
+})
+
+describe('StateKernel runtime constraints', () => {
+  it('createSubState readonly bag has no callable set at runtime', () => {
+    const m = createSubState({ x: 1 })
+    expect((m.readonly.x as any).set).toBeUndefined()
   })
 })

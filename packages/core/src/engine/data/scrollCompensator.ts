@@ -9,6 +9,9 @@ export interface ScrollDeps {
   getDom: () => ChartDom
   getObservedSize: () => { width: number; height: number }
   getViewport: () => Viewport | null
+  /** 几何 SSOT：由 kernel viewport.readonly 注入 */
+  getLeftLoadBufferWidth: () => number
+  getContentWidth: () => number
 }
 
 export const SCROLL_TRAILING_SLOTS = 30
@@ -30,7 +33,7 @@ export class ScrollCompensator {
     if (scrollLeft < 0) return
 
     if (scrollLeft <= 0) {
-      this.deps.setScrollLeft(this.getLeftLoadBufferWidth(dataLength))
+      this.deps.setScrollLeft(this.deps.getLeftLoadBufferWidth())
       return
     }
 
@@ -38,7 +41,7 @@ export class ScrollCompensator {
     const opt = this.deps.getOption()
     const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
     const totalDataWidth = (startXPx + dataLength * unitPx) / dpr
-    const leftBuffer = this.getLeftLoadBufferWidth(dataLength)
+    const leftBuffer = this.deps.getLeftLoadBufferWidth()
     if (scrollLeft >= leftBuffer + totalDataWidth) {
       this.deps.setScrollLeft(leftBuffer)
     }
@@ -51,42 +54,19 @@ export class ScrollCompensator {
     const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
     const lastKLineEndPx = (startXPx + dataLength * unitPx) / dpr
     const viewport = this.deps.getViewport()
-    const clientWidth =
-      viewport?.viewWidth ??
-      (this.deps.getObservedSize().width > 0 ? this.deps.getObservedSize().width : undefined) ??
-      Math.round(this.deps.getDom().container?.clientWidth ?? 0)
+    const clientWidth = viewport?.viewWidth ?? 0
     if (clientWidth <= 0) return
 
-    const leftBuffer = this.getLeftLoadBufferWidth(dataLength)
+    const leftBuffer = this.deps.getLeftLoadBufferWidth()
     let target: number
     if (lastKLineEndPx <= clientWidth) {
       target = leftBuffer - (clientWidth - lastKLineEndPx)
     } else {
       target = leftBuffer + (lastKLineEndPx - clientWidth)
     }
-    const contentWidth = this.getContentWidth(dataLength)
+    const contentWidth = this.deps.getContentWidth()
     const maxScroll = Math.max(0, contentWidth - clientWidth)
     const scrollLeft = Math.round(Math.max(0, Math.min(target, maxScroll)) * dpr) / dpr
     this.deps.setScrollLeft(scrollLeft)
-  }
-
-  getLeftLoadBufferWidth(dataLength: number): number {
-    if (dataLength === 0) return 0
-    const vp = this.deps.getViewport()
-    return (
-      vp?.plotWidth ??
-      (this.deps.getObservedSize().width > 0 ? this.deps.getObservedSize().width : undefined) ??
-      Math.round(this.deps.getDom().container?.clientWidth ?? 0)
-    )
-  }
-
-  getContentWidth(dataLength: number): number {
-    if (dataLength === 0) return 0
-    const opt = this.deps.getOption()
-    const viewWidth = this.deps.getViewport()?.plotWidth ?? 0
-    const dpr = this.deps.getEffectiveDpr()
-    const { startXPx, unitPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
-    const dataPlotWidth = (startXPx + (dataLength + SCROLL_TRAILING_SLOTS) * unitPx) / dpr
-    return this.getLeftLoadBufferWidth(dataLength) + Math.max(dataPlotWidth, viewWidth)
   }
 }
