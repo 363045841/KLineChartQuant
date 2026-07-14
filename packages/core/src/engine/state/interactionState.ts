@@ -270,22 +270,24 @@ export function createInteractionState(deps: InteractionDeps) {
     },
 
     dispose() {
-      signals.crosshairPos.set(null)
-      signals.crosshairPrice.set(null)
-      signals.hoveredIndex.set(null)
-      signals.activePaneId.set(null)
-      signals.isDragging.set(false)
-      signals.dragMode.set('none')
-      signals.hoveredSeparatorUpperPaneId.set(null)
-      signals.hoveredRightAxisPaneId.set(null)
-      signals.tooltipPos.set({ x: 0, y: 0 })
-      signals.tooltipAnchorPlacement.set('right-bottom')
-      signals.hoveredMarkerData.set(null)
-      signals.hoveredCustomMarker.set(null)
-      signals.hoveredMarkerId.set(null)
-      signals.kLinePositions.set(null)
-      signals.kLineCenters.set(null)
-      signals.kWidthPx.set(null)
+      batch(() => {
+        signals.crosshairPos.set(null)
+        signals.crosshairPrice.set(null)
+        signals.hoveredIndex.set(null)
+        signals.activePaneId.set(null)
+        signals.isDragging.set(false)
+        signals.dragMode.set('none')
+        signals.hoveredSeparatorUpperPaneId.set(null)
+        signals.hoveredRightAxisPaneId.set(null)
+        signals.tooltipPos.set({ x: 0, y: 0 })
+        signals.tooltipAnchorPlacement.set('right-bottom')
+        signals.hoveredMarkerData.set(null)
+        signals.hoveredCustomMarker.set(null)
+        signals.hoveredMarkerId.set(null)
+        signals.kLinePositions.set(null)
+        signals.kLineCenters.set(null)
+        signals.kWidthPx.set(null)
+      })
     },
   }
 }

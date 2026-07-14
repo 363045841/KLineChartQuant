@@ -1,4 +1,4 @@
-import { createSubState, type ReadonlySignal } from '../../foundation/reactivity/signal'
+import { batch, createSubState, type ReadonlySignal } from '../../foundation/reactivity/signal'
 import type { SymbolSpec, SymbolInfo } from '../../controllers/types'
 
 export interface DataDeps {
@@ -44,18 +44,18 @@ export function createDataState(_deps: DataDeps = {}) {
       },
 
       reset() {
-        signals.data.set([])
-        signals.loading.set(false)
-        signals.activeBufferKey.set(null)
+        batch(() => {
+          signals.data.set([])
+          signals.loading.set(false)
+          signals.activeBufferKey.set(null)
+          signals.symbols.set([])
+          signals.symbolCatalog.set([])
+        })
       },
     },
 
     dispose() {
-      signals.data.set([])
-      signals.loading.set(false)
-      signals.symbols.set([])
-      signals.symbolCatalog.set([])
-      signals.activeBufferKey.set(null)
+      this.actions.reset()
     },
   }
 }

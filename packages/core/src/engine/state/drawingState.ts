@@ -1,4 +1,4 @@
-import { createSubState } from '../../foundation/reactivity/signal'
+import { batch, createSubState } from '../../foundation/reactivity/signal'
 import type { DrawingToolType } from '../chartTypes'
 import type { DrawingObject } from '../../foundation/plugin/index'
 
@@ -26,8 +26,10 @@ export function createDrawingState() {
     },
 
     dispose() {
-      signals.drawingTool.set(null)
-      signals.drawings.set([])
+      batch(() => {
+        signals.drawingTool.set(null)
+        signals.drawings.set([])
+      })
     },
   }
 }

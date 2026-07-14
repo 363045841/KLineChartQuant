@@ -20,7 +20,8 @@ export interface PaneLayoutDependencies {
   setKnownPaneIds: (ids: string[]) => void
   notifyPaneResize: (paneId: string, pane: Pane) => void
   scheduleDraw: (level?: UpdateLevel) => void
-  onLayoutChange: (ratios: Record<string, number>, specs: PaneSpec[]) => void
+  getPaneRatios: () => Record<string, number>
+  commitLayout: (ratios: Record<string, number>, specs: PaneSpec[]) => void
 }
 
 export class ChartPaneLayout {
@@ -32,7 +33,13 @@ export class ChartPaneLayout {
   constructor(initialPaneSpecs: PaneSpec[], deps: PaneLayoutDependencies) {
     this.deps = deps
     this._paneSpecs = initialPaneSpecs.map((s) => ({ ...s }))
-    this.syncPaneRatiosFromSpecs(this._paneSpecs)
+    this.syncRatiosFromKernel()
+    for (const spec of this._paneSpecs) {
+      if (!this._internalPaneRatios.has(spec.id)) {
+        this._internalPaneRatios.set(spec.id, spec.ratio ?? 1)
+      }
+    }
+    this.normalizeVisiblePaneRatios(this._paneSpecs)
     this.initPanes()
   }
 
@@ -48,12 +55,21 @@ export class ChartPaneLayout {
     return this._internalPaneRatios
   }
 
+  private syncRatiosFromKernel(): void {
+    const kernelRatios = this.deps.getPaneRatios()
+    this._internalPaneRatios = new Map(Object.entries(kernelRatios))
+  }
+
   setInternalPaneRatio(paneId: string, ratio: number): void {
+    this.syncRatiosFromKernel()
     this._internalPaneRatios.set(paneId, ratio)
+    this.commitLayout()
   }
 
   deleteInternalPaneRatio(paneId: string): void {
+    this.syncRatiosFromKernel()
     this._internalPaneRatios.delete(paneId)
+    this.commitLayout()
   }
 
   private resolvePaneRole(spec: PaneSpec, index: number): PaneRole {
@@ -271,6 +287,8 @@ export class ChartPaneLayout {
   }
 
   layoutPanes() {
+    this.syncRatiosFromKernel()
+
     const vp = this.deps.getViewport()
     if (!vp) return
 
@@ -331,7 +349,7 @@ export class ChartPaneLayout {
     }
     this.normalizeVisiblePaneRatios(visibleSpecs)
     this.syncPaneRatiosToSpecs()
-    this.emitLayoutChange()
+    this.commitLayout()
   }
 
   getPaneLayoutSpecs(): PaneSpec[] {
@@ -354,15 +372,16 @@ export class ChartPaneLayout {
     })
   }
 
-  private emitLayoutChange(): void {
+  private commitLayout(): void {
     const ratios: Record<string, number> = {}
     this._internalPaneRatios.forEach((ratio, id) => {
       ratios[id] = ratio
     })
-    this.deps.onLayoutChange(ratios, this.getPaneLayoutSpecs())
+    this.deps.commitLayout(ratios, this.getPaneLayoutSpecs())
   }
 
   applyPaneLayoutSpecs(panes: PaneSpec[]): void {
+    this.syncRatiosFromKernel()
     this._paneSpecs = panes.map((spec) => ({ ...spec }))
     this.syncPaneRatiosFromSpecs(this._paneSpecs)
     this.initPanes()
@@ -371,15 +390,18 @@ export class ChartPaneLayout {
   }
 
   updatePaneLayout(panes: PaneSpec[]): void {
+    this.syncRatiosFromKernel()
     this._internalPaneRatios.clear()
     this.applyPaneLayoutSpecs(panes)
   }
 
   setPaneDefinitions(defs: PaneSpec[]): void {
+    this.syncRatiosFromKernel()
     this.applyPaneLayoutSpecs(defs)
   }
 
   upsertPane(def: PaneSpec): void {
+    this.syncRatiosFromKernel()
     const idx = this._paneSpecs.findIndex((pane) => pane.id === def.id)
     if (idx === -1) {
       this.applyPaneLayoutSpecs([...this._paneSpecs, { ...def }])
@@ -393,11 +415,13 @@ export class ChartPaneLayout {
 
   removePaneDefinition(paneId: string): void {
     if (!this._paneSpecs.some((pane) => pane.id === paneId)) return
+    this.syncRatiosFromKernel()
     this._internalPaneRatios.delete(paneId)
     this.applyPaneLayoutSpecs(this._paneSpecs.filter((pane) => pane.id !== paneId))
   }
 
   addPane(paneId: string): void {
+    this.syncRatiosFromKernel()
     if (this._paneSpecs.some((spec) => spec.id === paneId)) {
       console.warn(`Pane "${paneId}" already exists`)
       return
@@ -412,6 +436,7 @@ export class ChartPaneLayout {
 
   removePane(paneId: string): void {
     if (!this._paneSpecs.some((spec) => spec.id === paneId)) return
+    this.syncRatiosFromKernel()
 
     const next = this._paneSpecs.filter((spec) => spec.id !== paneId)
     this._internalPaneRatios.delete(paneId)
@@ -426,6 +451,8 @@ export class ChartPaneLayout {
     if (!Number.isFinite(deltaY) || deltaY === 0) return false
     const vp = this.deps.getViewport()
     if (!vp) return false
+
+    this.syncRatiosFromKernel()
 
     const visibleSpecs = this._paneSpecs.filter((p) => p.visible !== false)
     const boundaryIndex = visibleSpecs.findIndex((p) => p.id === upperPaneId)
@@ -487,8 +514,7 @@ export class ChartPaneLayout {
       this._internalPaneRatios.set(spec.id, h / availableH)
     }
 
-    this.normalizeVisiblePaneRatios(visibleSpecs)
-    this.syncPaneRatiosToSpecs()
+    this.commitLayout()
 
     this.layoutPanes()
     this.deps.scheduleDraw()

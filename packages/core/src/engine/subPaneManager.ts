@@ -4,7 +4,7 @@ import type {
   RendererPluginWithHost,
   RenderContext,
 } from '../foundation/plugin/index'
-import { createSignal, type Signal } from '../foundation/reactivity/signal'
+import { createSignal, type ReadonlySignal } from '../foundation/reactivity/signal'
 import { createLayerFromPlugin } from '../rendering/scene/createLayerFromPlugin'
 import type { Layer } from '../rendering/scene/types'
 
@@ -58,7 +58,7 @@ export class SubPaneManager {
   private entries = new Map<string, SubPaneEntry>()
   private _entriesSignal = createSignal<ReadonlyArray<SubPaneEntry>>([])
 
-  get entriesSignal(): Signal<ReadonlyArray<SubPaneEntry>> {
+  get entriesSignal(): ReadonlySignal<ReadonlyArray<SubPaneEntry>> {
     return this._entriesSignal
   }
 

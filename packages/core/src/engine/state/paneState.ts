@@ -1,4 +1,4 @@
-import { createSubState } from '../../foundation/reactivity/signal'
+import { batch, createSubState } from '../../foundation/reactivity/signal'
 import type { PaneSpec } from '../chartTypes'
 
 export function createPaneState() {
@@ -23,8 +23,10 @@ export function createPaneState() {
     },
 
     dispose() {
-      signals.paneRatios.set({})
-      signals.paneSpecs.set([])
+      batch(() => {
+        signals.paneRatios.set({})
+        signals.paneSpecs.set([])
+      })
     },
   }
 }

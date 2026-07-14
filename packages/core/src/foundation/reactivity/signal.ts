@@ -270,6 +270,21 @@ export function createStateStore<T extends Record<string, unknown>>(initial: T) 
 }
 
 /**
+ * ReadonlySignal 包装器 —— 抹除 .set 方法。
+ *
+ * @remarks 对 createSignal 返回值调用 Object.assign 始终保留了 .set 引用
+ * （即使类型系统已将其遮蔽），运行时通过 `in` 操作符或 `.set` 访问仍然可见。
+ * 此函数显式构造一个不包含 .set 的新对象，保证运行时与类型签名保持一致。
+ */
+function asReadonlySignal<T>(sig: WritableSignal<T>): ReadonlySignal<T> {
+  const read = (() => sig()) as ReadonlySignal<T>
+  return Object.assign(read, {
+    peek: sig.peek,
+    subscribe: sig.subscribe,
+  })
+}
+
+/**
  * StateKernel 子状态工厂。
  *
  * @typeParam T - 可写状态字段的类型
@@ -318,8 +333,7 @@ export function createSubState<
   for (const key of Object.keys(initial) as (keyof T)[]) {
     const sig = createSignal<T[typeof key]>(initial[key])
     signals[key] = sig
-    // 同一对象引用，仅将类型提升为只读
-    readonly[key] = sig as ReadonlySignal<T[typeof key]>
+    readonly[key] = asReadonlySignal(sig)
   }
 
   const computedReadonly = {} as Record<string, ReadonlySignal<unknown>>

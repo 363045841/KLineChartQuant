@@ -4,7 +4,7 @@ import { getPeriodDays } from '../../data/dataBuffer.effects'
 import type { KLineBuffer, DataChange } from '../../data/dataBufferTypes'
 import { TimeShareBuffer } from '../../data/timeShareBuffer'
 import type { TimeShareFetcherFn } from '../../data/types'
-import { batch, effect, createSignal, type ReadonlySignal, type Signal } from '../../foundation/reactivity/signal'
+import { createSignal, type ReadonlySignal, type Signal } from '../../foundation/reactivity/signal'
 import type { KLineData, TimeShareData } from '../../foundation/types/price'
 import type { ChartDom, Viewport } from '../chartTypes'
 import type { VisibleRange, UpdateLevel } from '../layout/pane'
@@ -31,6 +31,9 @@ export interface DataDependencies {
   getObservedSize: () => { width: number; height: number }
   getViewport: () => Viewport | null
   getVisibleRange: () => VisibleRange | null
+  /** 几何 SSOT：由 kernel viewport.readonly 注入 */
+  getLeftLoadBufferWidth: () => number
+  getContentWidth: () => number
   scheduleDraw: (level?: UpdateLevel) => void
   resetInteraction: () => void
   getIndicatorScheduler: () => {
@@ -40,6 +43,10 @@ export interface DataDependencies {
   isPointerDown: () => boolean
   onTimeShareDataReady: (dataLength: number) => void
   onDataProcessed?: (data: KLineData[], range: VisibleRange) => void
+  setComparisonColors: (colors: ReadonlyMap<string, string>) => void
+  setComparisonLoading: (loading: boolean) => void
+  comparisonColors$: ReadonlySignal<ReadonlyMap<string, string>>
+  comparisonLoading$: ReadonlySignal<boolean>
 }
 
 const BUF_PRIMARY = 'main'
@@ -65,8 +72,8 @@ export class ChartDataManager {
 
   private _dataState: DataStateModule
   private _dmState: DataManagerStateModule
-  private _dataSyncEffect: (() => void) | null = null
-  private _loadingSyncEffect: (() => void) | null = null
+  private _dataUnsub: (() => void) | null = null
+  private _loadingUnsub: (() => void) | null = null
   private _lastDataChange: DataChange | null = null
 
   private _batchScheduler = new FetchBatchScheduler()
@@ -90,36 +97,8 @@ export class ChartDataManager {
       hasKLineBuffer: (key) => this._klineBuffers.has(key),
       getKLineBufferKeys: () => [...this._klineBuffers.keys()],
       scheduleDraw: () => this.deps.scheduleDraw(),
-    })
-
-    this._dataSyncEffect = effect(() => {
-      const key = dataState.readonly.activeBufferKey()
-      if (!key) return
-      const buf = this._lookupBuffer(key)
-      if (!buf) return
-
-      const dataChange = buf.data()
-      if (dataChange === this._lastDataChange) return
-      this._lastDataChange = dataChange
-
-      const prevDataLength = dataState.readonly.dataLength.peek()
-      batch(() => {
-        dataState.actions.setData([...(dataChange.data as unknown[])])
-        this.onBufferDataChanged(key, prevDataLength, dataChange.prependedCount)
-      })
-    })
-
-    this._loadingSyncEffect = effect(() => {
-      const key = dataState.readonly.activeBufferKey()
-      if (!key) return
-      const buf = this._lookupBuffer(key)
-      if (!buf) return
-
-      const loading = buf.loading()
-      dataState.actions.setLoading(loading)
-      if (!loading) {
-        this.scheduleIncrementalLoadHintFlush(key)
-      }
+      setColors: (colors) => this.deps.setComparisonColors(colors),
+      setLoading: (loading) => this.deps.setComparisonLoading(loading),
     })
   }
 
@@ -138,12 +117,62 @@ export class ChartDataManager {
     if (this._activeKey === key) return
     this.resetIncrementalLoadHintBatch()
     this._dataState.actions.setActiveBufferKey(key)
+    this.bindActiveBuffer(key)
+  }
+
+  /** 订阅当前 active buffer 的 data/loading，路径为 subscription → Action */
+  private bindActiveBuffer(key: string): void {
+    this.unbindActiveBuffer()
+    const buf = this._lookupBuffer(key)
+    if (!buf) return
+
+    this._dataUnsub = buf.data.subscribe(() => {
+      this.handleBufferDataEvent(key)
+    })
+    this._loadingUnsub = buf.loading.subscribe(() => {
+      this.handleBufferLoadingEvent(key)
+    })
+
+    // 初始同步：subscribe 不回放当前值，需显式 Action
+    this.handleBufferDataEvent(key)
+    this.handleBufferLoadingEvent(key)
+  }
+
+  private unbindActiveBuffer(): void {
+    this._dataUnsub?.()
+    this._loadingUnsub?.()
+    this._dataUnsub = null
+    this._loadingUnsub = null
+    this._lastDataChange = null
+  }
+
+  private handleBufferDataEvent(key: string): void {
+    if (this._dataState.readonly.activeBufferKey.peek() !== key) return
+    const buf = this._lookupBuffer(key)
+    if (!buf) return
+    const dataChange = buf.data.peek()
+    if (dataChange === this._lastDataChange) return
+    this._lastDataChange = dataChange
+
+    const prevDataLength = this._dataState.readonly.dataLength.peek()
+    this._dataState.actions.setData([...(dataChange.data as unknown[])])
+    this.onBufferDataChanged(key, prevDataLength, dataChange.prependedCount)
+  }
+
+  private handleBufferLoadingEvent(key: string): void {
+    if (this._dataState.readonly.activeBufferKey.peek() !== key) return
+    const buf = this._lookupBuffer(key)
+    if (!buf) return
+    const loading = buf.loading.peek()
+    this._dataState.actions.setLoading(loading)
+    if (!loading) this.scheduleIncrementalLoadHintFlush(key)
   }
 
   private disposeBuffer(key: string): void {
     const buf = this._lookupBuffer(key)
     if (!buf) return
     if (this._activeKey === key) {
+      this.unbindActiveBuffer()
       this.resetIncrementalLoadHintBatch()
     }
     buf.dispose()
@@ -255,7 +284,7 @@ export class ChartDataManager {
   }
 
   private recordIncrementalLoad(prependedCount: number): void {
-    this._dmState.actions.recordIncrementalLoad(prependedCount, this.getLeftLoadBufferWidth())
+    this._dmState.actions.recordIncrementalLoad(prependedCount, this.deps.getLeftLoadBufferWidth())
   }
 
   private scheduleIncrementalLoadHintFlush(key: string): void {
@@ -300,9 +329,7 @@ export class ChartDataManager {
   // ── Internal helpers ──
 
   getLeftLoadBufferWidth(): number {
-    const buf = this.getActiveDataBuffer()
-    const dataLength = buf ? buf.getRawData().length : 0
-    return this._scrollCompensator.getLeftLoadBufferWidth(dataLength)
+    return this.deps.getLeftLoadBufferWidth()
   }
 
   private getActiveKLineLength(): number {
@@ -416,12 +443,12 @@ export class ChartDataManager {
     return fallback
   }
 
-  get comparisonColors(): Signal<ReadonlyMap<string, string>> {
-    return this._comparisonManager.colorsSignal
+  get comparisonColors(): ReadonlySignal<ReadonlyMap<string, string>> {
+    return this.deps.comparisonColors$
   }
 
-  get comparisonLoading(): Signal<boolean> {
-    return this._comparisonManager.loadingSignal
+  get comparisonLoading(): ReadonlySignal<boolean> {
+    return this.deps.comparisonLoading$
   }
 
   getComparisonColors(): Map<string, string> {
@@ -805,16 +832,7 @@ export class ChartDataManager {
   // ── Content width ──
 
   getContentWidth(): number {
-    if (this.currentPeriod === 'timeshare') {
-      const tsData = this.getTimeShareData()
-      if (tsData.length === 0) return 0
-      const viewWidth = this.deps.getViewport()?.plotWidth ?? 0
-      return this.getLeftLoadBufferWidth() + Math.max(viewWidth, 1)
-    }
-    const buf = this.getActiveDataBuffer()
-    const dataLength = buf ? buf.getRawData().length : 0
-    if (dataLength === 0) return 0
-    return this._scrollCompensator.getContentWidth(dataLength)
+    return this.deps.getContentWidth()
   }
 
   scrollToRight(): void {
@@ -922,8 +940,7 @@ export class ChartDataManager {
   }
 
   destroy(): void {
-    this._dataSyncEffect?.()
-    this._loadingSyncEffect?.()
+    this.unbindActiveBuffer()
     this.disposeAllBuffers()
     this._loadHint.destroy()
   }

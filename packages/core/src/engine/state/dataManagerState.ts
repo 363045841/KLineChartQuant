@@ -1,4 +1,4 @@
-import { createSubState } from '../../foundation/reactivity/signal'
+import { batch, createSubState } from '../../foundation/reactivity/signal'
 import type { SymbolSpec } from '../../controllers/types'
 
 export interface IncrementalLoadBatch {
@@ -63,20 +63,24 @@ export function createDataManagerState() {
       },
 
       reset() {
+        batch(() => {
+          signals.currentSpec.set(null)
+          signals.savedScrollTimestamp.set(null)
+          signals.preCustomSpec.set(null)
+          signals.rangeInitialized.set(false)
+          signals.pendingIncrementalLoad.set(emptyIncrementalLoadBatch())
+        })
+      },
+    },
+
+    dispose() {
+      batch(() => {
         signals.currentSpec.set(null)
         signals.savedScrollTimestamp.set(null)
         signals.preCustomSpec.set(null)
         signals.rangeInitialized.set(false)
         signals.pendingIncrementalLoad.set(emptyIncrementalLoadBatch())
-      },
-    },
-
-    dispose() {
-      signals.currentSpec.set(null)
-      signals.savedScrollTimestamp.set(null)
-      signals.preCustomSpec.set(null)
-      signals.rangeInitialized.set(false)
-      signals.pendingIncrementalLoad.set(emptyIncrementalLoadBatch())
+      })
     },
   }
 }

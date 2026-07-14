@@ -35,7 +35,7 @@ export class ChartZoomController {
   }
 
   get currentKGap(): number {
-    return this._zoomState.readonly.kGap.peek()
+    return kGapFromKWidth(this.currentKWidth, this.deps.getCurrentDpr())
   }
 
   get zoomLevelCount(): number {

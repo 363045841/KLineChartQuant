@@ -35,9 +35,15 @@ import {
   type DataManagerStateModule,
 } from './dataManagerState'
 import {
-  writableRef,
+  createOptionsState,
+  type OptionsStateModule,
+} from './optionsState'
+import {
+  createComparisonState,
+  type ComparisonStateModule,
+} from './comparisonState'
+import {
   computed,
-  effect,
   type ReadonlySignal,
 } from '../../foundation/reactivity/signal'
 import type { DrawingObject } from '../../foundation/plugin/index'
@@ -47,17 +53,28 @@ import type { MarkerEntity, CustomMarkerEntity } from '../marker/registry'
 import type { DragMode } from './interactionState'
 
 export interface ChartStateKernelDeps {
-  options$: ReadonlySignal<{
+  initialOptions: {
     minKWidth: number
     maxKWidth: number
     zoomLevelCount: number
     bottomAxisHeight: number
-  }>
+    rightAxisWidth: number
+    leftAxisWidth: number
+    yPaddingPx: number
+    priceLabelWidth?: number
+    paneGap?: number
+    defaultPaneMinHeightPx?: number
+    panes: PaneSpec[]
+    zoomLevels?: number
+    initialZoomLevel?: number
+    [key: string]: unknown
+  }
   initialZoomLevel: number
   scheduleDraw: (level?: unknown) => void
 }
 
 export class ChartStateKernel extends StateKernel {
+  readonly options: OptionsStateModule
   readonly zoom: ZoomStateModule
   readonly data: DataStateModule
   readonly viewport: ViewportStateModule
@@ -66,13 +83,13 @@ export class ChartStateKernel extends StateKernel {
   readonly drawing: DrawingStateModule
   readonly interaction: InteractionStateModule
   readonly dataManager: DataManagerStateModule
+  readonly comparison: ComparisonStateModule
 
   readonly zoomLevel$: ReadonlySignal<number>
   readonly dataLength$: ReadonlySignal<number>
   readonly optionsForViewport$: ReadonlySignal<{
     bottomAxisHeight: number
     kWidth: number
-    kGap: number
   }>
 
   readonly signals: Record<string, ReadonlySignal<unknown>>
@@ -81,28 +98,22 @@ export class ChartStateKernel extends StateKernel {
   constructor(deps: ChartStateKernelDeps) {
     super()
 
-    // dpr placeholder resolves circular dependency:
-    // zoomState.kGap needs dpr$, viewportState dpr needs kWidth/kGap from zoomState
-    const _dprPlaceholder = writableRef(1)
+    // ── Options state (before zoom, since zoom reads from options) ──
+    this.options = createOptionsState(deps.initialOptions)
 
     // ── Zoom state ──
     this.zoom = createZoomState({
-      dpr$: _dprPlaceholder,
-      minKWidth$: computed(() => deps.options$().minKWidth),
-      maxKWidth$: computed(() => deps.options$().maxKWidth),
-      zoomLevelCount: Math.max(2, Math.round(deps.options$().zoomLevelCount)),
+      minKWidth$: computed(() => this.options.readonly.options().minKWidth),
+      maxKWidth$: computed(() => this.options.readonly.options().maxKWidth),
+      zoomLevelCount: Math.max(2, Math.round(this.options.readonly.options.peek().zoomLevelCount)),
     })
     this.zoom.actions.setZoomLevel(deps.initialZoomLevel)
 
     this.zoomLevel$ = computed(() => this.zoom.readonly.zoomLevel())
-    this.optionsForViewport$ = computed(() => {
-      const o = deps.options$()
-      return {
-        bottomAxisHeight: o.bottomAxisHeight,
-        kWidth: this.zoom.readonly.kWidth(),
-        kGap: this.zoom.readonly.kGap(),
-      }
-    })
+    this.optionsForViewport$ = computed(() => ({
+      bottomAxisHeight: this.options.readonly.options().bottomAxisHeight,
+      kWidth: this.zoom.readonly.kWidth(),
+    }))
 
     // ── Data state ──
     this.data = createDataState()
@@ -111,6 +122,9 @@ export class ChartStateKernel extends StateKernel {
     // ── Data manager state (coordination layer) ──
     this.dataManager = createDataManagerState()
 
+    // ── Comparison state ──
+    this.comparison = createComparisonState()
+
     // ── Viewport state (now owned by kernel) ──
     this.viewport = createViewportState({
       options$: this.optionsForViewport$,
@@ -118,9 +132,6 @@ export class ChartStateKernel extends StateKernel {
       period$: this.dataManager.readonly.currentPeriod,
       zoomLevel$: this.zoomLevel$,
     })
-
-    // Wire real viewport dpr to the placeholder used by zoomState
-    effect(() => _dprPlaceholder.set(this.viewport.readonly.dpr()))
 
     // ── Pane state ──
     this.pane = createPaneState()
@@ -146,7 +157,7 @@ export class ChartStateKernel extends StateKernel {
       // Zoom
       zoomLevel: this.zoom.readonly.zoomLevel,
       kWidth: this.zoom.readonly.kWidth,
-      kGap: this.zoom.readonly.kGap,
+      kGap: this.viewport.readonly.kGap,
       // Data
       data: this.data.readonly.data,
       dataLength: this.data.readonly.dataLength,
@@ -170,6 +181,9 @@ export class ChartStateKernel extends StateKernel {
       // Interaction
       interactionSnapshot: this.interaction.readonly.interactionSnapshot,
       crosshairIndex: this.interaction.readonly.crosshairIndex,
+      // Comparison
+      comparisonColors: this.comparison.readonly.colors,
+      comparisonLoading: this.comparison.readonly.loading,
     }
 
     // ── Flat actions bag for framework adapters ──
@@ -230,6 +244,10 @@ export class ChartStateKernel extends StateKernel {
           customMarkerData,
         ),
       resetInteraction: () => this.interaction.actions.reset(),
+      setComparisonColors: (colors: ReadonlyMap<string, string>) =>
+        this.comparison.actions.setColors(colors),
+      setComparisonLoading: (loading: boolean) =>
+        this.comparison.actions.setLoading(loading),
     }
   }
 
@@ -242,6 +260,7 @@ export class ChartStateKernel extends StateKernel {
   }
 
   dispose(): void {
+    this.options.dispose()
     this.zoom.dispose()
     this.data.dispose()
     this.viewport.dispose()
@@ -250,6 +269,7 @@ export class ChartStateKernel extends StateKernel {
     this.drawing.dispose()
     this.interaction.dispose()
     this.dataManager.dispose()
+    this.comparison.dispose()
   }
 }
 

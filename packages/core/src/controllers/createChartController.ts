@@ -669,7 +669,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     if (disposed) return { kWidth: 0, kGap: 0 }
     return {
       kWidth: chart.kernel.zoom.readonly.kWidth.peek(),
-      kGap: chart.kernel.zoom.readonly.kGap.peek(),
+      kGap: chart.kernel.viewport.readonly.kGap.peek(),
     }
   }
 

@@ -35,6 +35,8 @@ function createDependencies(dom: ChartDom): DataDependencies {
     getObservedSize: () => ({ width: 800, height: 600 }),
     getViewport: () => null,
     getVisibleRange: () => null,
+    getLeftLoadBufferWidth: () => 800,
+    getContentWidth: () => 1600,
     scheduleDraw: () => {},
     resetInteraction: () => {},
     getIndicatorScheduler: () => ({

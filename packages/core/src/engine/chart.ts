@@ -13,7 +13,6 @@ import {
   type RendererPluginWithHost,
 } from '../foundation/plugin/index'
 import {
-  createSignal,
   computed,
   type Computed,
   type ReadonlySignal,
@@ -85,7 +84,6 @@ type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'>
 
 export class Chart {
   private dom: ChartDom
-  private _optionsSignal: Signal<ResolvedChartOptions>
   private dataManager: ChartDataManager
 
   /** StateKernel — single source of truth for all chart state */
@@ -197,10 +195,6 @@ export class Chart {
   constructor(dom: ChartDom, opt: ChartOptions) {
     this.dom = dom
     const { kWidth: _kWidth, kGap: _kGap, ...restOpt } = opt
-    // kWidth/kGap 由 zoomState computed 自动推导，不存储在 _optionsSignal 中
-    this._optionsSignal = createSignal<ResolvedChartOptions>({
-      ...restOpt,
-    })
     this._activeMode = this._kLineMode
     this.pluginHost = createPluginHost()
     this.rendererPluginManager = new RendererPluginManager()
@@ -210,18 +204,15 @@ export class Chart {
     this.rendererPluginManager.setPluginHost(this.pluginHost)
     this.rendererPluginManager.setInvalidateCallback(() => this.scheduleDraw())
 
-    const initialOpt = this._optionsSignal.peek()
     const initialZoomLevel = opt.initialZoomLevel ?? 1
-    const zoomLevelCount = Math.max(2, Math.round(this._optionsSignal.peek().zoomLevels ?? 20))
+    const zoomLevelCount = Math.max(2, Math.round(opt.zoomLevels ?? 20))
 
-    // ── StateKernel: single composition root (owns zoom, data, viewport, pane, theme, drawing, interaction) ──
+    // ── StateKernel: single composition root (owns options, zoom, data, viewport, pane, theme, drawing, interaction) ──
     this.kernel = new ChartStateKernel({
-      options$: computed(() => ({
-        minKWidth: this._optionsSignal().minKWidth,
-        maxKWidth: this._optionsSignal().maxKWidth,
+      initialOptions: {
+        ...restOpt,
         zoomLevelCount,
-        bottomAxisHeight: this._optionsSignal().bottomAxisHeight,
-      })),
+      },
       initialZoomLevel,
       scheduleDraw: (level) => this.scheduleDraw(level as UpdateLevel | undefined),
     })
@@ -248,10 +239,10 @@ export class Chart {
     this.interaction = new InteractionController(this, this.kernel.interaction)
 
     // ── Legacy managers ──
-    this.layoutManager = new ChartPaneLayout(initialOpt.panes, {
+    this.layoutManager = new ChartPaneLayout(restOpt.panes, {
       getDom: () => this.dom,
       getOption: () => {
-        const o = this._optionsSignal.peek()
+        const o = this.kernel.options.readonly.options.peek()
         return {
           rightAxisWidth: o.rightAxisWidth,
           leftAxisWidth: o.leftAxisWidth,
@@ -267,7 +258,8 @@ export class Chart {
       notifyPaneResize: (paneId, pane) =>
         this.rendererPluginManager.notifyResize(paneId, wrapPaneInfo(pane)),
       scheduleDraw: (level) => this.scheduleDraw(level),
-      onLayoutChange: (ratios, specs) => {
+      getPaneRatios: () => this.kernel.pane.readonly.paneRatios.peek(),
+      commitLayout: (ratios, specs) => {
         this.kernel.pane.actions.setPaneRatios(ratios)
         this.kernel.pane.actions.setPaneSpecs(specs)
       },
@@ -277,8 +269,8 @@ export class Chart {
 
     this.dataManager = new ChartDataManager({
       getOption: () => {
-        const o = this._optionsSignal.peek()
-        return { ...o, kWidth: this.kernel.zoom.readonly.kWidth(), kGap: this.kernel.zoom.readonly.kGap() }
+        const o = this.kernel.options.readonly.options.peek()
+        return { ...o, kWidth: this.kernel.zoom.readonly.kWidth(), kGap: this.kernel.viewport.readonly.kGap() }
       },
       getEffectiveDpr: () => this.viewportManager.getEffectiveDpr(),
       getLogicalScrollLeft: () => this.viewportManager.getLogicalScrollLeft(),
@@ -294,8 +286,10 @@ export class Chart {
         if (!vp) return null
         const dataLen = this.dataManager?.getData().length ?? 0
         if (dataLen === 0) return null
-        return getVisibleRange(vp.scrollLeft, vp.plotWidth, this.kernel.zoom.readonly.kWidth(), this.kernel.zoom.readonly.kGap(), dataLen, vp.dpr)
+        return getVisibleRange(vp.scrollLeft, vp.plotWidth, this.kernel.zoom.readonly.kWidth(), this.kernel.viewport.readonly.kGap(), dataLen, vp.dpr)
       },
+      getLeftLoadBufferWidth: () => this.kernel.viewport.readonly.leftLoadBufferWidth.peek(),
+      getContentWidth: () => this.kernel.viewport.readonly.contentWidth.peek(),
       scheduleDraw: (level) => this.scheduleDraw(level),
       resetInteraction: () => this.interaction.reset(),
       getIndicatorScheduler: () => this.indicatorManager.indicatorSchedulerAccessor,
@@ -306,11 +300,15 @@ export class Chart {
         const result = this._activeMode.computeKWidth(dataLength, vp.plotWidth, vp.dpr)
         if (result) {
           this.applyRenderState(result.kWidth, result.kGap)
-          const leftBuffer = this.dataManager.getLeftLoadBufferWidth()
+          const leftBuffer = this.getLeftLoadBufferWidth()
           this.viewportManager.setScrollLeft(leftBuffer)
         }
       },
       onDataProcessed: (data, range) => this.evaluateAlerts(data, range),
+      setComparisonColors: (colors) => this.kernel.comparison.actions.setColors(colors),
+      setComparisonLoading: (loading) => this.kernel.comparison.actions.setLoading(loading),
+      comparisonColors$: this.kernel.comparison.readonly.colors,
+      comparisonLoading$: this.kernel.comparison.readonly.loading,
     }, this.kernel.data, this.kernel.dataManager)
 
     this.zoomController = new ChartZoomController({
@@ -319,23 +317,23 @@ export class Chart {
       getClientWidth: () =>
         this.viewportManager.getViewport()?.viewWidth ?? this.dom.container?.clientWidth ?? 0,
       getDataLength: () => this.dataManager.getData().length,
-      getPlotWidth: () => this.dataManager.getLeftLoadBufferWidth(),
+      getPlotWidth: () => this.getLeftLoadBufferWidth(),
       setScrollLeft: (v) => {
         this.viewportManager.setScrollLeft(v)
       },
       onChange: () => {
         /* zoomController writes directly to zoomState — no bridge needed */
       },
-      getMinKWidth: () => this._optionsSignal.peek().minKWidth,
-      getMaxKWidth: () => this._optionsSignal.peek().maxKWidth,
+      getMinKWidth: () => this.kernel.options.readonly.options.peek().minKWidth,
+      getMaxKWidth: () => this.kernel.options.readonly.options.peek().maxKWidth,
       zoomLevelCount,
       initialZoomLevel,
     }, this.kernel.zoom)
 
     this.indicatorManager = new ChartIndicatorManager({
       getOption: () => {
-        const o = this._optionsSignal.peek()
-        return { ...o, kWidth: this.kernel.zoom.readonly.kWidth(), kGap: this.kernel.zoom.readonly.kGap() }
+        const o = this.kernel.options.readonly.options.peek()
+        return { ...o, kWidth: this.kernel.zoom.readonly.kWidth(), kGap: this.kernel.viewport.readonly.kGap() }
       },
       getPluginHost: () => this.pluginHost,
       getRenderer: (name) => this.getRenderer(name),
@@ -365,9 +363,9 @@ export class Chart {
       setLayerVisibility: (id, visible) =>
         this.renderer?.getScene()?.setLayerVisibility(id, visible),
       getIndicatorScheduler: () => this.indicatorManager.indicatorSchedulerAccessor,
-      getRightAxisWidth: () => this._optionsSignal.peek().rightAxisWidth,
-      getPriceLabelWidth: () => this._optionsSignal.peek().priceLabelWidth ?? 60,
-      getYPaddingPx: () => this._optionsSignal.peek().yPaddingPx,
+      getRightAxisWidth: () => this.kernel.options.readonly.options.peek().rightAxisWidth,
+      getPriceLabelWidth: () => this.kernel.options.readonly.options.peek().priceLabelWidth ?? 60,
+      getYPaddingPx: () => this.kernel.options.readonly.options.peek().yPaddingPx,
     })
 
     // Worker 异步结果就绪后串联 Alert 管线
@@ -385,8 +383,8 @@ export class Chart {
     this.renderer = new ChartRenderer({
       getDom: () => this.dom,
       getOption: () => {
-        const o = this._optionsSignal.peek()
-        return { ...o, kWidth: this.kernel.zoom.readonly.kWidth(), kGap: this.kernel.zoom.readonly.kGap() }
+        const o = this.kernel.options.readonly.options.peek()
+        return { ...o, kWidth: this.kernel.zoom.readonly.kWidth(), kGap: this.kernel.viewport.readonly.kGap() }
       },
       getPaneRenderers: () => this.paneRenderers,
       getInteraction: () => this.interaction,
@@ -650,7 +648,7 @@ export class Chart {
 
   /** 获取当前 ChartOptions（返回内部当前快照） */
   getOption() {
-    return { ...this._optionsSignal.peek(), panes: this.kernel.pane.readonly.paneSpecs.peek() }
+    return { ...this.kernel.options.readonly.options.peek(), panes: this.kernel.pane.readonly.paneSpecs.peek() }
   }
 
   /**
@@ -669,12 +667,12 @@ export class Chart {
 
     if (partial.panes) {
       const nextPanes = partial.panes.map((pane) => ({ ...pane }))
-      this._optionsSignal.set({ ...this._optionsSignal.peek(), ...partial, panes: nextPanes })
+      this.kernel.options.actions.patch({ ...partial, panes: nextPanes })
       this.layoutManager.applyPaneLayoutSpecs(nextPanes)
       return
     }
 
-    this._optionsSignal.set({ ...this._optionsSignal.peek(), ...partial })
+    this.kernel.options.actions.patch(partial)
     this.resize()
   }
 
@@ -969,12 +967,12 @@ export class Chart {
 
   /** 获取内容总宽度（用于外部 scroll-content 撑开 scrollWidth） */
   getContentWidth(): number {
-    return this.dataManager.getContentWidth()
+    return this.kernel.viewport.readonly.contentWidth.peek()
   }
 
   /** 获取左侧加载缓冲宽度（视口宽度，用于计算 overlay 像素偏移） */
   getLeftLoadBufferWidth(): number {
-    return this.dataManager.getLeftLoadBufferWidth()
+    return this.kernel.viewport.readonly.leftLoadBufferWidth.peek()
   }
 
   /** 滚动到最右侧（最新数据位置） */
@@ -992,7 +990,7 @@ export class Chart {
         const result = this._activeMode.computeKWidth(tsData.length, vp.plotWidth, vp.dpr)
         if (result) {
           this.applyRenderState(result.kWidth, result.kGap)
-          const leftBuffer = this.dataManager.getLeftLoadBufferWidth()
+          const leftBuffer = this.getLeftLoadBufferWidth()
           this.viewportManager.setScrollLeft(leftBuffer)
         }
       }
@@ -1077,12 +1075,12 @@ export class Chart {
   }
 
   /** 比较商品颜色信号 */
-  get comparisonColors(): Signal<ReadonlyMap<string, string>> {
+  get comparisonColors(): ReadonlySignal<ReadonlyMap<string, string>> {
     return this.dataManager.comparisonColors
   }
 
   /** 比较商品加载信号 */
-  get comparisonLoading(): Signal<boolean> {
+  get comparisonLoading(): ReadonlySignal<boolean> {
     return this.dataManager.comparisonLoading
   }
 
