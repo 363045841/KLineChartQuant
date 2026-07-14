@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import { createSignal } from '../../../foundation/reactivity/signal'
+import { ChartStateKernel } from '../chartStateKernel'
 import { createComparisonState } from '../comparisonState'
 
 describe('comparisonState', () => {
@@ -36,5 +38,67 @@ describe('comparisonState', () => {
     for (const s of snaps) {
       expect(s).toEqual({ size: 0, loading: false })
     }
+  })
+
+  it('derives immutable comparison specs from the symbols signal', () => {
+    const symbols = createSignal([
+      { symbol: 'MAIN', period: 'daily' },
+      { symbol: 'CMP', period: 'weekly' },
+    ])
+    const m = createComparisonState({ symbols$: symbols })
+
+    const specs = m.readonly.specs.peek()
+    expect(specs).toEqual([{ symbol: 'CMP', period: 'weekly' }])
+    expect(Object.isFrozen(specs)).toBe(true)
+    expect(Object.isFrozen(specs[0])).toBe(true)
+
+    symbols.set([{ symbol: 'NEXT', period: 'daily' }])
+    expect(m.readonly.specs.peek()).toEqual([])
+  })
+
+  it('has no action that can write comparison specs directly', () => {
+    const m = createComparisonState()
+    expect('setSpecs' in m.actions).toBe(false)
+    expect('replaceSpecs' in m.actions).toBe(false)
+  })
+})
+
+describe('ChartStateKernel comparison selection transaction', () => {
+  it('publishes symbols, derived specs, and colors without an intermediate snapshot', () => {
+    const kernel = new ChartStateKernel({
+      initialOptions: {
+        minKWidth: 3,
+        maxKWidth: 20,
+        zoomLevelCount: 10,
+        bottomAxisHeight: 24,
+        rightAxisWidth: 60,
+        leftAxisWidth: 0,
+        yPaddingPx: 4,
+        panes: [{ id: 'main', ratio: 1, visible: true, role: 'price' }],
+      },
+      initialZoomLevel: 0,
+      scheduleDraw: () => {},
+    })
+    const snapshots: Array<{ symbols: string[]; specs: string[]; colors: string[] }> = []
+    const capture = () => {
+      snapshots.push({
+        symbols: kernel.data.readonly.symbols.peek().map((spec) => spec.symbol),
+        specs: kernel.comparison.readonly.specs.peek().map((spec) => spec.symbol),
+        colors: [...kernel.comparison.readonly.colors.peek().keys()],
+      })
+    }
+    kernel.data.readonly.symbols.subscribe(capture)
+    kernel.comparison.readonly.specs.subscribe(capture)
+    kernel.comparison.readonly.colors.subscribe(capture)
+
+    kernel.actions.setSymbols([
+      { symbol: 'MAIN', period: 'daily' },
+      { symbol: 'CMP', period: 'daily' },
+    ])
+
+    expect(snapshots.length).toBeGreaterThan(0)
+    expect(snapshots).toEqual(
+      snapshots.map(() => ({ symbols: ['MAIN', 'CMP'], specs: ['CMP'], colors: ['CMP'] })),
+    )
   })
 })

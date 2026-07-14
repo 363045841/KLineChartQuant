@@ -29,6 +29,7 @@ export class DataBuffer implements KLineBuffer {
   private _inflightBoundary: number | null = null
   /** inflight 期间记录的最宽 requestStartTs */
   private _pendingRequestStartTs: number | null = null
+  private _requestVersion = 0
   private _disposed = false
 
   constructor() {}
@@ -74,6 +75,7 @@ export class DataBuffer implements KLineBuffer {
   }
 
   setSymbol(spec: SymbolSpec, initialStartTs?: number): void {
+    this._requestVersion++
     this._currentSpec = spec
     this._store.reset()
     this._scheduler.reset()
@@ -111,6 +113,7 @@ export class DataBuffer implements KLineBuffer {
 
   setInlineData(data: unknown[]): void {
     if (this._disposed) return
+    this._requestVersion++
     this._store.setInlineData(data as KLineData[])
     this._scheduler.reset()
     this._inflightBoundary = null
@@ -119,11 +122,13 @@ export class DataBuffer implements KLineBuffer {
   }
 
   setCurrentSpec(spec: SymbolSpec): void {
+    this._requestVersion++
     this._currentSpec = spec
   }
 
   dispose(): void {
     this._disposed = true
+    this._requestVersion++
     this._scheduler.dispose()
     this._store.reset()
     this._keyIndex.reset()
@@ -155,6 +160,7 @@ export class DataBuffer implements KLineBuffer {
     if (this._currentSpec.incremental === false) return
 
     const spec = this._currentSpec
+    const requestVersion = this._requestVersion
     const requestFetch = this._requestFetch
     const fetcher = this._fetcher
     const disposed = (): boolean => this._disposed
@@ -201,7 +207,7 @@ export class DataBuffer implements KLineBuffer {
     this._scheduler
       .run(async () => {
         const incoming = await fetchEffect()
-        if (disposed()) return
+        if (disposed() || requestVersion !== this._requestVersion) return
 
         const result = this._store.merge(incoming)
         this._keyIndex.recompute(this._store.getRawData())
@@ -214,6 +220,7 @@ export class DataBuffer implements KLineBuffer {
         }
       })
       .catch(() => {
+        if (requestVersion !== this._requestVersion) return
         this._inflightBoundary = null
         this._pendingRequestStartTs = null
       })

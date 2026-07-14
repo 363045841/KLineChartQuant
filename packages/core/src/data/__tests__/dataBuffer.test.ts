@@ -266,6 +266,45 @@ describe('DataBuffer', () => {
     expect(buffer.data().data).toHaveLength(1)
   })
 
+  it('ignores an inflight fetch result after inline data replaces the buffer', async () => {
+    let resolveFetch!: (data: KLineData[]) => void
+    const fetcher: DataFetcher = () =>
+      new Promise<KLineData[]>((resolve) => {
+        resolveFetch = resolve
+      })
+    const inline = [makeKLine(100)]
+
+    buffer.setFetcher(fetcher)
+    buffer.setSymbol(defaultSpec)
+    await vi.waitFor(() => expect(resolveFetch).toBeTypeOf('function'))
+    buffer.setInlineData(inline)
+    resolveFetch([makeKLine(200)])
+
+    await vi.waitFor(() => expect(buffer.loading()).toBe(false))
+    expect(buffer.getRawData()).toEqual(inline)
+  })
+
+  it('keeps loading true when an old symbol request settles before the new request', async () => {
+    const resolvers: Array<(data: KLineData[]) => void> = []
+    const fetcher: DataFetcher = () =>
+      new Promise<KLineData[]>((resolve) => {
+        resolvers.push(resolve)
+      })
+
+    buffer.setFetcher(fetcher)
+    buffer.setSymbol(defaultSpec)
+    await vi.waitFor(() => expect(resolvers).toHaveLength(1))
+    buffer.setSymbol({ ...defaultSpec, symbol: 'sz.000001' })
+    await vi.waitFor(() => expect(resolvers).toHaveLength(2))
+
+    resolvers[0]!([makeKLine(100)])
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(buffer.loading()).toBe(true)
+
+    resolvers[1]!([makeKLine(200)])
+    await vi.waitFor(() => expect(buffer.loading()).toBe(false))
+  })
+
   it('data change includes prependedCount when data is prepended (earlier timestamps)', async () => {
     const now = Date.now()
     const oneYearAgo = now - 365 * MS_PER_DAY

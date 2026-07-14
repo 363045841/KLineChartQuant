@@ -5,6 +5,10 @@ export interface DataDeps {
   /** placeholder — for future visibleRange computed */
 }
 
+function snapshotSymbols(symbols: ReadonlyArray<SymbolSpec>): ReadonlyArray<SymbolSpec> {
+  return Object.freeze(symbols.map((symbol) => Object.freeze({ ...symbol })))
+}
+
 export function createDataState(_deps: DataDeps = {}) {
   const { signals, readonly } = createSubState(
     {
@@ -32,7 +36,7 @@ export function createDataState(_deps: DataDeps = {}) {
       },
 
       setSymbols(symbols: ReadonlyArray<SymbolSpec>) {
-        signals.symbols.set(symbols)
+        signals.symbols.set(snapshotSymbols(symbols))
       },
 
       setSymbolCatalog(catalog: ReadonlyArray<SymbolInfo>) {

@@ -1,55 +1,25 @@
 import { StateKernel, type SubStateModule } from './stateKernel'
-import {
-  createZoomState,
-  type ZoomStateModule,
-  type ZoomDeps,
-} from './zoomState'
-import {
-  createDataState,
-  type DataStateModule,
-} from './dataState'
+import { createZoomState, type ZoomStateModule, type ZoomDeps } from './zoomState'
+import { createDataState, type DataStateModule } from './dataState'
 import {
   createViewportState,
   type ViewportStateModule,
   type ViewportDomDeps,
 } from './viewportState'
-import {
-  createPaneState,
-  type PaneStateModule,
-} from './paneState'
-import {
-  createThemeState,
-  type ThemeStateModule,
-} from './themeState'
-import {
-  createDrawingState,
-  type DrawingStateModule,
-} from './drawingState'
+import { createPaneState, type PaneStateModule } from './paneState'
+import { createThemeState, type ThemeStateModule } from './themeState'
+import { createDrawingState, type DrawingStateModule } from './drawingState'
 import {
   createInteractionState,
   type InteractionStateModule,
   type InteractionDeps,
 } from './interactionState'
-import {
-  createDataManagerState,
-  type DataManagerStateModule,
-} from './dataManagerState'
-import {
-  createOptionsState,
-  type OptionsStateModule,
-} from './optionsState'
-import {
-  createComparisonState,
-  type ComparisonStateModule,
-} from './comparisonState'
-import {
-  createIndicatorState,
-  type IndicatorStateModule,
-} from './indicatorState'
-import {
-  computed,
-  type ReadonlySignal,
-} from '../../foundation/reactivity/signal'
+import { createDataManagerState, type DataManagerStateModule } from './dataManagerState'
+import { createOptionsState, type OptionsStateModule } from './optionsState'
+import { createComparisonState, type ComparisonStateModule } from './comparisonState'
+import { createIndicatorState, type IndicatorStateModule } from './indicatorState'
+import { createSubPaneState, type SubPaneStateModule } from './subPaneState'
+import { batch, computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
 import type { DrawingObject } from '../../foundation/plugin/index'
 import type { PaneSpec, DrawingToolType } from '../chartTypes'
 import type { SymbolSpec, SymbolInfo } from '../../controllers/types'
@@ -89,6 +59,7 @@ export class ChartStateKernel extends StateKernel {
   readonly dataManager: DataManagerStateModule
   readonly comparison: ComparisonStateModule
   readonly indicator: IndicatorStateModule
+  readonly subPane: SubPaneStateModule
 
   readonly zoomLevel$: ReadonlySignal<number>
   readonly dataLength$: ReadonlySignal<number>
@@ -128,10 +99,13 @@ export class ChartStateKernel extends StateKernel {
     this.dataManager = createDataManagerState()
 
     // ── Comparison state ──
-    this.comparison = createComparisonState()
+    this.comparison = createComparisonState({ symbols$: this.data.readonly.symbols })
 
     // ── Indicator state ──
     this.indicator = createIndicatorState()
+
+    // ── Sub-pane business state ──
+    this.subPane = createSubPaneState()
 
     // ── Viewport state (now owned by kernel) ──
     this.viewport = createViewportState({
@@ -160,10 +134,12 @@ export class ChartStateKernel extends StateKernel {
 
     // ── Interaction state (reads viewport signals directly) ──
     this.interaction = createInteractionState({
-      visibleRange$:
-        this.viewport.readonly.visibleRange as unknown as ReadonlySignal<{ start: number; end: number } | null>,
-      scrollLeftLogical$:
-        this.viewport.readonly.scrollLeftLogical as unknown as ReadonlySignal<number>,
+      visibleRange$: this.viewport.readonly.visibleRange as unknown as ReadonlySignal<{
+        start: number
+        end: number
+      } | null>,
+      scrollLeftLogical$: this.viewport.readonly
+        .scrollLeftLogical as unknown as ReadonlySignal<number>,
       dpr$: this.viewport.readonly.dpr as unknown as ReadonlySignal<number>,
       scheduleDraw: deps.scheduleDraw,
     })
@@ -202,6 +178,7 @@ export class ChartStateKernel extends StateKernel {
       comparisonLoading: this.comparison.readonly.loading,
       // Indicator
       mainIndicators: this.indicator.readonly.mainIndicators,
+      subPanes: this.subPane.readonly.entries,
     }
 
     // ── Flat actions bag for framework adapters ──
@@ -209,34 +186,32 @@ export class ChartStateKernel extends StateKernel {
       setZoomLevel: (level: number) => this.zoom.actions.setZoomLevel(level),
       setData: (data: ReadonlyArray<unknown>) => this.data.actions.setData(data),
       setLoading: (loading: boolean) => this.data.actions.setLoading(loading),
-      setSymbols: (symbols: ReadonlyArray<SymbolSpec>) =>
-        this.data.actions.setSymbols(symbols),
+      setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => {
+        const snapshot = symbols.map((symbol) => ({ ...symbol }))
+        batch(() => {
+          this.data.actions.setSymbols(snapshot)
+          this.comparison.actions.syncColors(snapshot.slice(1))
+        })
+      },
       setSymbolCatalog: (catalog: ReadonlyArray<SymbolInfo>) =>
         this.data.actions.setSymbolCatalog(catalog),
-      setActiveBufferKey: (key: string | null) =>
-        this.data.actions.setActiveBufferKey(key),
+      setActiveBufferKey: (key: string | null) => this.data.actions.setActiveBufferKey(key),
       resetData: () => this.data.actions.reset(),
-      setPaneRatios: (ratios: Record<string, number>) =>
-        this.pane.actions.setPaneRatios(ratios),
+      setPaneRatios: (ratios: Record<string, number>) => this.pane.actions.setPaneRatios(ratios),
       setPaneSpecs: (specs: PaneSpec[]) => this.pane.actions.setPaneSpecs(specs),
       commitPaneLayout: (ratios: Record<string, number>, specs: PaneSpec[]) =>
         this.pane.actions.commitLayout(ratios, specs),
       setTheme: (theme: 'light' | 'dark') => this.theme.actions.setTheme(theme),
-      setDrawingTool: (tool: DrawingToolType | null) =>
-        this.drawing.actions.setDrawingTool(tool),
+      setDrawingTool: (tool: DrawingToolType | null) => this.drawing.actions.setDrawingTool(tool),
       setDrawings: (drawings: ReadonlyArray<DrawingObject>) =>
         this.drawing.actions.setDrawings(drawings),
       clearDrawings: () => this.drawing.actions.clearDrawings(),
-      updateCrosshair: (
-        pos: { x: number; y: number } | null,
-        price: number | null,
-      ) => this.interaction.actions.updateCrosshair(pos, price),
+      updateCrosshair: (pos: { x: number; y: number } | null, price: number | null) =>
+        this.interaction.actions.updateCrosshair(pos, price),
       updateHover: (index: number | null, paneId: string | null) =>
         this.interaction.actions.updateHover(index, paneId),
-      setHoveredIndex: (index: number | null) =>
-        this.interaction.actions.setHoveredIndex(index),
-      setActivePaneId: (paneId: string | null) =>
-        this.interaction.actions.setActivePaneId(paneId),
+      setHoveredIndex: (index: number | null) => this.interaction.actions.setHoveredIndex(index),
+      setActivePaneId: (paneId: string | null) => this.interaction.actions.setActivePaneId(paneId),
       updateFramePositions: (
         positions: number[] | null,
         centers: number[] | null,
@@ -249,30 +224,113 @@ export class ChartStateKernel extends StateKernel {
         this.interaction.actions.setSeparatorHover(paneId),
       setRightAxisHover: (paneId: string | null) =>
         this.interaction.actions.setRightAxisHover(paneId),
-      updateTooltip: (
-        pos: { x: number; y: number },
-        placement: 'right-bottom' | 'left-bottom',
-      ) => this.interaction.actions.updateTooltip(pos, placement),
+      updateTooltip: (pos: { x: number; y: number }, placement: 'right-bottom' | 'left-bottom') =>
+        this.interaction.actions.updateTooltip(pos, placement),
       updateMarkerHover: (
         markerId: string | null,
         markerData: MarkerEntity | null,
         customMarkerData: CustomMarkerEntity | null,
-      ) =>
-        this.interaction.actions.updateMarkerHover(
-          markerId,
-          markerData,
-          customMarkerData,
-        ),
+      ) => this.interaction.actions.updateMarkerHover(markerId, markerData, customMarkerData),
       resetInteraction: () => this.interaction.actions.reset(),
       setComparisonColors: (colors: ReadonlyMap<string, string>) =>
         this.comparison.actions.setColors(colors),
-      setComparisonLoading: (loading: boolean) =>
-        this.comparison.actions.setLoading(loading),
+      setComparisonLoading: (loading: boolean) => this.comparison.actions.setLoading(loading),
       upsertMainIndicator: (id, params) => this.indicator.actions.upsert(id, params),
       removeMainIndicator: (id) => this.indicator.actions.remove(id),
       setMainIndicatorParams: (id, params) => this.indicator.actions.setParams(id, params),
       replaceMainIndicators: (entries) => this.indicator.actions.replaceAll(entries),
       clearMainIndicators: () => this.indicator.actions.clear(),
+      createSubPane: (
+        paneId: string,
+        indicatorId: string,
+        params: Readonly<Record<string, unknown>>,
+      ) => {
+        if (this.subPane.readonly.entries.peek().some((entry) => entry.paneId === paneId)) return
+        const currentSpecs = this.pane.readonly.paneSpecs.peek()
+        const nextSpecs = currentSpecs.some((pane) => pane.id === paneId)
+          ? currentSpecs.map((pane) => ({ ...pane }))
+          : [...currentSpecs, { id: paneId, ratio: 1, visible: true, role: 'indicator' as const }]
+        const visible = nextSpecs.filter((pane) => pane.visible !== false)
+        const pricePanes = visible.filter((pane) => pane.role === 'price')
+        const rawRatios: Record<string, number> = {
+          ...this.pane.readonly.paneRatios.peek(),
+        }
+        if (pricePanes.length === 1) {
+          rawRatios[pricePanes[0]!.id] = 3
+          for (const pane of visible) {
+            if (pane.role === 'indicator') rawRatios[pane.id] = 1
+          }
+        } else {
+          rawRatios[paneId] = 1
+        }
+        const visibleTotal = visible.reduce((sum, pane) => sum + (rawRatios[pane.id] ?? 1), 0) || 1
+        const ratios: Record<string, number> = {}
+        for (const pane of nextSpecs) {
+          ratios[pane.id] =
+            pane.visible === false
+              ? (rawRatios[pane.id] ?? pane.ratio ?? 1)
+              : (rawRatios[pane.id] ?? 1) / visibleTotal
+        }
+        const specs = nextSpecs.map((pane) => ({ ...pane, ratio: ratios[pane.id] }))
+        batch(() => {
+          this.subPane.actions.upsert({ paneId, indicatorId, params })
+          this.pane.actions.commitLayout(ratios, specs)
+        })
+      },
+      removeSubPane: (paneId: string) => {
+        if (!this.subPane.readonly.entries.peek().some((entry) => entry.paneId === paneId)) return
+        const specs = this.pane.readonly.paneSpecs.peek().filter((pane) => pane.id !== paneId)
+        const rawRatios = { ...this.pane.readonly.paneRatios.peek() }
+        delete rawRatios[paneId]
+        const visible = specs.filter((pane) => pane.visible !== false)
+        const total = visible.reduce((sum, pane) => sum + (rawRatios[pane.id] ?? 1), 0) || 1
+        const ratios: Record<string, number> = {}
+        for (const pane of specs) {
+          ratios[pane.id] =
+            pane.visible === false
+              ? (rawRatios[pane.id] ?? pane.ratio ?? 1)
+              : (rawRatios[pane.id] ?? 1) / total
+        }
+        const nextSpecs = specs.map((pane) => ({ ...pane, ratio: ratios[pane.id] }))
+        batch(() => {
+          this.subPane.actions.remove(paneId)
+          this.pane.actions.commitLayout(ratios, nextSpecs)
+        })
+      },
+      replaceSubPane: (
+        paneId: string,
+        indicatorId: string,
+        params: Readonly<Record<string, unknown>>,
+      ) => {
+        if (!this.subPane.readonly.entries.peek().some((entry) => entry.paneId === paneId)) return
+        this.subPane.actions.replace({ paneId, indicatorId, params })
+      },
+      updateSubPaneParams: (paneId: string, params: Readonly<Record<string, unknown>>) =>
+        this.subPane.actions.setParams(paneId, params),
+      clearSubPanes: () => {
+        const subPaneIds = new Set(
+          this.subPane.readonly.entries.peek().map((entry) => entry.paneId),
+        )
+        const specs = this.pane.readonly.paneSpecs.peek().filter((pane) => !subPaneIds.has(pane.id))
+        const ratios: Record<string, number> = {}
+        const visible = specs.filter((pane) => pane.visible !== false)
+        const total =
+          visible.reduce(
+            (sum, pane) => sum + (this.pane.readonly.paneRatios.peek()[pane.id] ?? 1),
+            0,
+          ) || 1
+        for (const pane of specs) {
+          const raw = this.pane.readonly.paneRatios.peek()[pane.id] ?? 1
+          ratios[pane.id] = pane.visible === false ? raw : raw / total
+        }
+        batch(() => {
+          this.subPane.actions.clear()
+          this.pane.actions.commitLayout(
+            ratios,
+            specs.map((pane) => ({ ...pane, ratio: ratios[pane.id] })),
+          )
+        })
+      },
     }
   }
 
@@ -296,6 +354,7 @@ export class ChartStateKernel extends StateKernel {
     this.dataManager.dispose()
     this.comparison.dispose()
     this.indicator.dispose()
+    this.subPane.dispose()
   }
 }
 

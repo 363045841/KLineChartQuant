@@ -289,7 +289,7 @@ export class ChartPaneLayout {
     return heights
   }
 
-  layoutPanes() {
+  layoutPanes(options?: { commit?: boolean }) {
     this.syncRatiosFromKernel()
 
     const vp = this.deps.getViewport()
@@ -352,7 +352,32 @@ export class ChartPaneLayout {
     }
     this.normalizeVisiblePaneRatios(visibleSpecs)
     this.syncPaneRatiosToSpecs()
-    this.commitLayout()
+    if (options?.commit !== false) this.commitLayout()
+  }
+
+  /** 将 kernel pane snapshot 单向投影到 DOM/renderer，不反向写 state。 */
+  projectState(panes: ReadonlyArray<PaneSpec>, ratios: Readonly<Record<string, number>>): void {
+    const definitionsChanged =
+      panes.length !== this._paneSpecs.length ||
+      panes.some((pane, index) => {
+        const current = this._paneSpecs[index]
+        return (
+          !current ||
+          pane.id !== current.id ||
+          pane.visible !== current.visible ||
+          pane.role !== current.role ||
+          pane.minHeightPx !== current.minHeightPx ||
+          JSON.stringify(pane.capabilities ?? null) !== JSON.stringify(current.capabilities ?? null)
+        )
+      })
+
+    this._paneSpecs = panes.map((pane) => ({
+      ...pane,
+      ...(pane.capabilities ? { capabilities: { ...pane.capabilities } } : {}),
+    }))
+    this._internalPaneRatios = new Map(Object.entries(ratios))
+    if (definitionsChanged) this.initPanes()
+    this.layoutPanes({ commit: false })
   }
 
   getPaneLayoutSpecs(): PaneSpec[] {

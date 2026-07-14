@@ -1,63 +1,110 @@
-import { describe, it, expect, vi } from 'vitest'
-import { createSignal } from '../../../foundation/reactivity/signal'
+import { describe, expect, it, vi } from 'vitest'
+
+import type { SymbolSpec } from '../../../controllers/types'
 import { ComparisonManager } from '../comparisonManager'
 
 function createHarness() {
-  const colors = createSignal(new Map<string, string>() as ReadonlyMap<string, string>)
-  const buffers = new Map<string, { loading: { peek: () => boolean; subscribe: () => () => void }; data: { subscribe: () => () => void }; setSymbol: () => void; setInlineData: () => void; getRawData: () => [] }>()
+  let specs: ReadonlyArray<SymbolSpec> = []
+  const buffers = new Map<
+    string,
+    {
+      loading: { peek: () => boolean; subscribe: (listener: () => void) => () => void }
+      data: { subscribe: (listener: () => void) => () => void }
+      setSymbol: ReturnType<typeof vi.fn>
+      setInlineData: ReturnType<typeof vi.fn>
+      getRawData: () => []
+    }
+  >()
+  const createComparisonBuffer = vi.fn((spec: SymbolSpec) => {
+    const key = `cmp:${spec.symbol}:${spec.period ?? 'daily'}`
+    const buffer = {
+      loading: { peek: () => false, subscribe: () => () => {} },
+      data: { subscribe: () => () => {} },
+      setSymbol: vi.fn(),
+      setInlineData: vi.fn(),
+      getRawData: () => [] as [],
+    }
+    buffers.set(key, buffer)
+    return { key, buffer: buffer as any }
+  })
+  const setLoading = vi.fn()
   const manager = new ComparisonManager({
-    createComparisonBuffer: (spec) => {
-      const key = `cmp:${spec.symbol}:${spec.period ?? 'daily'}`
-      const buf = {
-        loading: { peek: () => false, subscribe: () => () => {} },
-        data: { subscribe: () => () => {} },
-        setSymbol: vi.fn(),
-        setInlineData: vi.fn(),
-        getRawData: () => [],
-      }
-      buffers.set(key, buf)
-      return { key, buffer: buf as any }
-    },
+    createComparisonBuffer,
     disposeBuffer: (key) => {
       buffers.delete(key)
     },
     getKLineBuffer: (key) => buffers.get(key) as any,
-    hasKLineBuffer: (key) => buffers.has(key),
     getKLineBufferKeys: () => [...buffers.keys()],
     scheduleDraw: vi.fn(),
-    getColors: () => colors.peek(),
-    setColors: (next) => colors.set(new Map(next)),
-    setLoading: vi.fn(),
+    getSpecs: () => specs,
+    setLoading,
   })
-  return { manager, colors }
+  return {
+    manager,
+    buffers,
+    createComparisonBuffer,
+    setLoading,
+    setSpecs(next: ReadonlyArray<SymbolSpec>) {
+      specs = next
+    },
+  }
 }
 
-describe('ComparisonManager colors SSOT', () => {
-  it('reads colors only from injected getColors, not local cache', () => {
-    const { manager, colors } = createHarness()
-    manager.addSymbol({ symbol: 'A', period: 'daily' }, () => {})
-    expect(colors.peek().has('A')).toBe(true)
-    expect(manager.getColors().get('A')).toBe(colors.peek().get('A'))
+describe('ComparisonManager runtime projection', () => {
+  it('reads specs from the injected kernel reader without a local shadow', () => {
+    const harness = createHarness()
+    harness.setSpecs([{ symbol: 'A', period: 'daily' }])
+    expect(harness.manager.specs).toEqual([{ symbol: 'A', period: 'daily' }])
 
-    // kernel is SSOT: external update should be visible via getColors
-    colors.set(new Map([['A', '#custom'], ['B', '#bbb']]))
-    expect(manager.getColors().get('A')).toBe('#custom')
-    expect(manager.getColors().get('B')).toBe('#bbb')
+    harness.setSpecs([{ symbol: 'B', period: 'weekly' }])
+    expect(harness.manager.specs).toEqual([{ symbol: 'B', period: 'weekly' }])
   })
 
-  it('removeSymbol updates kernel colors without local shadow map', () => {
-    const { manager, colors } = createHarness()
-    manager.addSymbol({ symbol: 'A', period: 'daily' }, () => {})
-    manager.addSymbol({ symbol: 'B', period: 'daily' }, () => {})
-    expect(manager.removeSymbol('A')).toBe(true)
-    expect(colors.peek().has('A')).toBe(false)
-    expect(colors.peek().has('B')).toBe(true)
+  it('reconciles buffers idempotently from desired specs', () => {
+    const harness = createHarness()
+    harness.setSpecs([{ symbol: 'A', period: 'daily' }])
+
+    harness.manager.reconcile()
+    harness.manager.reconcile()
+
+    expect(harness.createComparisonBuffer).toHaveBeenCalledTimes(1)
+    expect([...harness.buffers.keys()]).toEqual(['cmp:A:daily'])
   })
 
-  it('clearAll clears kernel colors', () => {
-    const { manager, colors } = createHarness()
-    manager.addSymbol({ symbol: 'A', period: 'daily' }, () => {})
-    manager.clearAll()
-    expect(colors.peek().size).toBe(0)
+  it('removes runtime buffers that are absent from desired specs', () => {
+    const harness = createHarness()
+    harness.setSpecs([
+      { symbol: 'A', period: 'daily' },
+      { symbol: 'B', period: 'daily' },
+    ])
+    harness.manager.reconcile()
+
+    harness.setSpecs([{ symbol: 'B', period: 'daily' }])
+    harness.manager.reconcile()
+
+    expect([...harness.buffers.keys()]).toEqual(['cmp:B:daily'])
+    expect(harness.manager.specs).toEqual([{ symbol: 'B', period: 'daily' }])
+  })
+
+  it('sets inline data only for a desired comparison', () => {
+    const harness = createHarness()
+    expect(harness.manager.setData('A', [])).toBe(false)
+
+    harness.setSpecs([{ symbol: 'A', period: 'daily' }])
+    harness.manager.reconcile()
+    expect(harness.manager.setData('A', [])).toBe(true)
+    expect(harness.buffers.get('cmp:A:daily')?.setInlineData).toHaveBeenCalledWith([])
+  })
+
+  it('clearAll only clears runtime resources and loading', () => {
+    const harness = createHarness()
+    harness.setSpecs([{ symbol: 'A', period: 'daily' }])
+    harness.manager.reconcile()
+
+    harness.manager.clearAll()
+
+    expect(harness.buffers.size).toBe(0)
+    expect(harness.manager.specs).toEqual([{ symbol: 'A', period: 'daily' }])
+    expect(harness.setLoading).toHaveBeenLastCalledWith(false)
   })
 })

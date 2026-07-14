@@ -19,36 +19,12 @@ export {
   type InteractionSnapshot,
   type DragMode,
 } from './interactionState'
-export {
-  createDataState,
-  type DataStateModule,
-} from './dataState'
-export {
-  createZoomState,
-  type ZoomStateModule,
-  type ZoomDeps,
-} from './zoomState'
-export {
-  createOptionsState,
-  type OptionsStateModule,
-} from './optionsState'
-export {
-  createPaneState,
-  type PaneStateModule,
-} from './paneState'
-export {
-  createThemeState,
-  type ThemeStateModule,
-} from './themeState'
-export {
-  createDrawingState,
-  type DrawingStateModule,
-} from './drawingState'
-export {
-  createDataManagerState,
-  type DataManagerStateModule,
-} from './dataManagerState'
-export {
-  createIndicatorState,
-  type IndicatorStateModule,
-} from './indicatorState'
+export { createDataState, type DataStateModule } from './dataState'
+export { createZoomState, type ZoomStateModule, type ZoomDeps } from './zoomState'
+export { createOptionsState, type OptionsStateModule } from './optionsState'
+export { createPaneState, type PaneStateModule } from './paneState'
+export { createThemeState, type ThemeStateModule } from './themeState'
+export { createDrawingState, type DrawingStateModule } from './drawingState'
+export { createDataManagerState, type DataManagerStateModule } from './dataManagerState'
+export { createIndicatorState, type IndicatorStateModule } from './indicatorState'
+export { createSubPaneState, type SubPaneStateModule, type SubPaneSpec } from './subPaneState'

@@ -60,7 +60,6 @@ import type {
 import type { SymbolSpec, SymbolInfo, CustomDataSource } from '../controllers/types'
 import type { AlertController, MarketSnapshot } from '../features/alerts/types'
 
-
 export type { InteractionSnapshot }
 
 // ===== 重新导出 =====
@@ -113,6 +112,8 @@ export class Chart {
 
   /** 渲染器 */
   private renderer: ChartRenderer
+  private runtimeProjectionDepth = 0
+  private runtimeProjectionDrawPending = false
 
   /** 当前活跃的模式处理器 */
   private _activeMode: ChartModeHandler
@@ -266,73 +267,96 @@ export class Chart {
 
     this.alertController = createAlertController()
 
-    this.dataManager = new ChartDataManager({
-      getOption: () => {
-        const o = this.kernel.options.readonly.options.peek()
-        return { ...o, kWidth: this.kernel.zoom.readonly.kWidth(), kGap: this.kernel.viewport.readonly.kGap() }
+    this.dataManager = new ChartDataManager(
+      {
+        getOption: () => {
+          const o = this.kernel.options.readonly.options.peek()
+          return {
+            ...o,
+            kWidth: this.kernel.zoom.readonly.kWidth(),
+            kGap: this.kernel.viewport.readonly.kGap(),
+          }
+        },
+        getEffectiveDpr: () => this.viewportManager.getEffectiveDpr(),
+        getLogicalScrollLeft: () => this.viewportManager.getLogicalScrollLeft(),
+        getCachedScrollLeft: () => this.viewportManager.getCachedScrollLeft(),
+        setScrollLeft: (v) => {
+          this.viewportManager.setScrollLeft(v)
+        },
+        getDom: () => this.dom,
+        getObservedSize: () => this.viewportManager.getObservedSize(),
+        getViewport: () => this.viewportManager.getViewport(),
+        getVisibleRange: () => {
+          const vp = this.viewportManager.computeViewport()
+          if (!vp) return null
+          const dataLen = this.dataManager?.getData().length ?? 0
+          if (dataLen === 0) return null
+          return getVisibleRange(
+            vp.scrollLeft,
+            vp.plotWidth,
+            this.kernel.zoom.readonly.kWidth(),
+            this.kernel.viewport.readonly.kGap(),
+            dataLen,
+            vp.dpr,
+          )
+        },
+        getLeftLoadBufferWidth: () => this.kernel.viewport.readonly.leftLoadBufferWidth.peek(),
+        getContentWidth: () => this.kernel.viewport.readonly.contentWidth.peek(),
+        scheduleDraw: (level) => this.scheduleDraw(level),
+        resetInteraction: () => this.interaction.reset(),
+        getIndicatorScheduler: () => this.indicatorManager.indicatorSchedulerAccessor,
+        isPointerDown: () => this.interaction.isPointerDown(),
+        onTimeShareDataReady: (dataLength) => {
+          const vp = this.viewportManager.computeViewport()
+          if (!vp || vp.plotWidth <= 0) return
+          const result = this._activeMode.computeKWidth(dataLength, vp.plotWidth, vp.dpr)
+          if (result) {
+            this.applyRenderState(result.kWidth, result.kGap)
+            const leftBuffer = this.getLeftLoadBufferWidth()
+            this.viewportManager.setScrollLeft(leftBuffer)
+          }
+        },
+        onDataProcessed: (data, range) => this.evaluateAlerts(data, range),
+        setSymbols: (symbols) => this.kernel.actions.setSymbols(symbols),
+        setComparisonLoading: (loading) => this.kernel.comparison.actions.setLoading(loading),
+        comparisonSpecs$: this.kernel.comparison.readonly.specs,
+        comparisonColors$: this.kernel.comparison.readonly.colors,
+        comparisonLoading$: this.kernel.comparison.readonly.loading,
       },
-      getEffectiveDpr: () => this.viewportManager.getEffectiveDpr(),
-      getLogicalScrollLeft: () => this.viewportManager.getLogicalScrollLeft(),
-      getCachedScrollLeft: () => this.viewportManager.getCachedScrollLeft(),
-      setScrollLeft: (v) => {
-        this.viewportManager.setScrollLeft(v)
-      },
-      getDom: () => this.dom,
-      getObservedSize: () => this.viewportManager.getObservedSize(),
-      getViewport: () => this.viewportManager.getViewport(),
-      getVisibleRange: () => {
-        const vp = this.viewportManager.computeViewport()
-        if (!vp) return null
-        const dataLen = this.dataManager?.getData().length ?? 0
-        if (dataLen === 0) return null
-        return getVisibleRange(vp.scrollLeft, vp.plotWidth, this.kernel.zoom.readonly.kWidth(), this.kernel.viewport.readonly.kGap(), dataLen, vp.dpr)
-      },
-      getLeftLoadBufferWidth: () => this.kernel.viewport.readonly.leftLoadBufferWidth.peek(),
-      getContentWidth: () => this.kernel.viewport.readonly.contentWidth.peek(),
-      scheduleDraw: (level) => this.scheduleDraw(level),
-      resetInteraction: () => this.interaction.reset(),
-      getIndicatorScheduler: () => this.indicatorManager.indicatorSchedulerAccessor,
-      isPointerDown: () => this.interaction.isPointerDown(),
-      onTimeShareDataReady: (dataLength) => {
-        const vp = this.viewportManager.computeViewport()
-        if (!vp || vp.plotWidth <= 0) return
-        const result = this._activeMode.computeKWidth(dataLength, vp.plotWidth, vp.dpr)
-        if (result) {
-          this.applyRenderState(result.kWidth, result.kGap)
-          const leftBuffer = this.getLeftLoadBufferWidth()
-          this.viewportManager.setScrollLeft(leftBuffer)
-        }
-      },
-      onDataProcessed: (data, range) => this.evaluateAlerts(data, range),
-      setComparisonColors: (colors) => this.kernel.comparison.actions.setColors(colors),
-      setComparisonLoading: (loading) => this.kernel.comparison.actions.setLoading(loading),
-      comparisonColors$: this.kernel.comparison.readonly.colors,
-      comparisonLoading$: this.kernel.comparison.readonly.loading,
-    }, this.kernel.data, this.kernel.dataManager)
+      this.kernel.data,
+      this.kernel.dataManager,
+    )
 
-    this.zoomController = new ChartZoomController({
-      getLogicalScrollLeft: () => this.viewportManager.getLogicalScrollLeft(),
-      getCurrentDpr: () => this.viewportManager.getEffectiveDpr(),
-      getClientWidth: () =>
-        this.viewportManager.getViewport()?.viewWidth ?? this.dom.container?.clientWidth ?? 0,
-      getDataLength: () => this.dataManager.getData().length,
-      getPlotWidth: () => this.getLeftLoadBufferWidth(),
-      setScrollLeft: (v) => {
-        this.viewportManager.setScrollLeft(v)
+    this.zoomController = new ChartZoomController(
+      {
+        getLogicalScrollLeft: () => this.viewportManager.getLogicalScrollLeft(),
+        getCurrentDpr: () => this.viewportManager.getEffectiveDpr(),
+        getClientWidth: () =>
+          this.viewportManager.getViewport()?.viewWidth ?? this.dom.container?.clientWidth ?? 0,
+        getDataLength: () => this.dataManager.getData().length,
+        getPlotWidth: () => this.getLeftLoadBufferWidth(),
+        setScrollLeft: (v) => {
+          this.viewportManager.setScrollLeft(v)
+        },
+        onChange: () => {
+          /* zoomController writes directly to zoomState — no bridge needed */
+        },
+        getMinKWidth: () => this.kernel.options.readonly.options.peek().minKWidth,
+        getMaxKWidth: () => this.kernel.options.readonly.options.peek().maxKWidth,
+        zoomLevelCount,
+        initialZoomLevel,
       },
-      onChange: () => {
-        /* zoomController writes directly to zoomState — no bridge needed */
-      },
-      getMinKWidth: () => this.kernel.options.readonly.options.peek().minKWidth,
-      getMaxKWidth: () => this.kernel.options.readonly.options.peek().maxKWidth,
-      zoomLevelCount,
-      initialZoomLevel,
-    }, this.kernel.zoom)
+      this.kernel.zoom,
+    )
 
     this.indicatorManager = new ChartIndicatorManager({
       getOption: () => {
         const o = this.kernel.options.readonly.options.peek()
-        return { ...o, kWidth: this.kernel.zoom.readonly.kWidth(), kGap: this.kernel.viewport.readonly.kGap() }
+        return {
+          ...o,
+          kWidth: this.kernel.zoom.readonly.kWidth(),
+          kGap: this.kernel.viewport.readonly.kGap(),
+        }
       },
       getPluginHost: () => this.pluginHost,
       getRenderer: (name) => this.getRenderer(name),
@@ -340,16 +364,10 @@ export class Chart {
       removeRenderer: (name) => this.removeRenderer(name),
       updateRendererConfig: (name, config) => this.updateRendererConfig(name, config),
       setRendererEnabled: (name, enabled) => this.setRendererEnabled(name, enabled),
-      hasPane: (paneId) => this.layoutManager.hasPane(paneId),
-      upsertPane: (def) => this.layoutManager.upsertPane(def),
-      removePaneDefinition: (paneId) => this.layoutManager.removePaneDefinition(paneId),
-      getPaneSpecs: () => this.layoutManager.getPaneSpecs(),
-      getPaneRatiosSignal: () => this.kernel.pane.readonly.paneRatios as ReadonlySignal<Readonly<Record<string, number>>>,
-      getInternalPaneRatios: () => this.layoutManager.getInternalPaneRatios(),
-      setInternalPaneRatio: (paneId, ratio) =>
-        this.layoutManager.setInternalPaneRatio(paneId, ratio),
-      deleteInternalPaneRatio: (paneId) => this.layoutManager.deleteInternalPaneRatio(paneId),
-      applyPaneLayoutSpecs: (specs) => this.layoutManager.applyPaneLayoutSpecs(specs),
+      getPaneRatiosSignal: () =>
+        this.kernel.pane.readonly.paneRatios as ReadonlySignal<Readonly<Record<string, number>>>,
+      paneSpecs$: this.kernel.pane.readonly.paneSpecs,
+      projectPaneLayout: (specs, ratios) => this.layoutManager.projectState(specs, ratios),
       getLastVisibleRange: () => this.dataManager.getCurrentVisibleRange() ?? { start: 0, end: 0 },
       getCrosshairPos: () => this.interaction.crosshairPos,
       getCrosshairPrice: () => this.interaction.crosshairPrice,
@@ -361,7 +379,6 @@ export class Chart {
       getLayer: (id) => this.renderer?.getScene()?.getLayer(id) ?? null,
       setLayerVisibility: (id, visible) =>
         this.renderer?.getScene()?.setLayerVisibility(id, visible),
-      getIndicatorScheduler: () => this.indicatorManager.indicatorSchedulerAccessor,
       getRightAxisWidth: () => this.kernel.options.readonly.options.peek().rightAxisWidth,
       getPriceLabelWidth: () => this.kernel.options.readonly.options.peek().priceLabelWidth ?? 60,
       getYPaddingPx: () => this.kernel.options.readonly.options.peek().yPaddingPx,
@@ -371,6 +388,16 @@ export class Chart {
       setMainIndicatorParams: (id, params) => this.kernel.indicator.actions.setParams(id, params),
       replaceMainIndicators: (entries) => this.kernel.indicator.actions.replaceAll(entries),
       clearMainIndicators: () => this.kernel.indicator.actions.clear(),
+      subPanes$: this.kernel.subPane.readonly.entries,
+      createSubPaneState: (paneId, indicatorId, params) =>
+        this.kernel.actions.createSubPane(paneId, indicatorId, params),
+      removeSubPaneState: (paneId) => this.kernel.actions.removeSubPane(paneId),
+      replaceSubPaneState: (paneId, indicatorId, params) =>
+        this.kernel.actions.replaceSubPane(paneId, indicatorId, params),
+      updateSubPaneStateParams: (paneId, params) =>
+        this.kernel.actions.updateSubPaneParams(paneId, params),
+      clearSubPaneState: () => this.kernel.actions.clearSubPanes(),
+      runRendererTransaction: (run) => this.runRuntimeProjection(run),
     })
 
     // Worker 异步结果就绪后串联 Alert 管线
@@ -381,7 +408,10 @@ export class Chart {
 
     // 绑定 visibleRange 信号 — 替代 prepareFrameData 中的手动 updateVisibleRange
     this.indicatorManager.indicatorSchedulerAccessor.setVisibleRangeSignal(
-      this.kernel.viewport.readonly.visibleRange as unknown as ReadonlySignal<{ start: number; end: number } | null>,
+      this.kernel.viewport.readonly.visibleRange as unknown as ReadonlySignal<{
+        start: number
+        end: number
+      } | null>,
     )
 
     // 初始化渲染器
@@ -389,7 +419,11 @@ export class Chart {
       getDom: () => this.dom,
       getOption: () => {
         const o = this.kernel.options.readonly.options.peek()
-        return { ...o, kWidth: this.kernel.zoom.readonly.kWidth(), kGap: this.kernel.viewport.readonly.kGap() }
+        return {
+          ...o,
+          kWidth: this.kernel.zoom.readonly.kWidth(),
+          kGap: this.kernel.viewport.readonly.kGap(),
+        }
       },
       getPaneRenderers: () => this.paneRenderers,
       getInteraction: () => this.interaction,
@@ -653,7 +687,10 @@ export class Chart {
 
   /** 获取当前 ChartOptions（返回内部当前快照） */
   getOption() {
-    return { ...this.kernel.options.readonly.options.peek(), panes: this.kernel.pane.readonly.paneSpecs.peek() }
+    return {
+      ...this.kernel.options.readonly.options.peek(),
+      panes: this.kernel.pane.readonly.paneSpecs.peek(),
+    }
   }
 
   /**
@@ -1019,17 +1056,35 @@ export class Chart {
    * @param level 更新级别，默认为 All
    */
   scheduleDraw(level: UpdateLevel = UpdateLevel.All): void {
+    if (this.runtimeProjectionDepth > 0) {
+      this.runtimeProjectionDrawPending = true
+      return
+    }
     this.renderer.scheduleDraw(level)
+  }
+
+  private runRuntimeProjection(run: () => void): void {
+    this.runtimeProjectionDepth++
+    try {
+      this.rendererPluginManager.transaction(run)
+    } finally {
+      this.runtimeProjectionDepth--
+      if (this.runtimeProjectionDepth === 0 && this.runtimeProjectionDrawPending) {
+        this.runtimeProjectionDrawPending = false
+        this.renderer?.scheduleDraw(UpdateLevel.All)
+      }
+    }
   }
 
   /** 销毁图表实例 */
   async destroy() {
+    this.indicatorManager.destroy()
     this.renderer.destroy()
     this.dataManager.destroy()
     this.viewportManager.destroy()
     this.layoutManager.destroy()
     this.sharedWebGLSurface.destroy()
-    this.indicatorManager.destroy()
+    this.kernel.dispose()
     this.alertController.dispose()
     await this.pluginHost.destroy()
   }
@@ -1043,7 +1098,9 @@ export class Chart {
   /** interactionSnapshot lazy computed for the createChartController facade */
   private get _interactionSnapshot(): Computed<InteractionSnapshot> {
     if (!this.__interactionSnapshot) {
-      this.__interactionSnapshot = computed(() => this.kernel.interaction.readonly.interactionSnapshot())
+      this.__interactionSnapshot = computed(() =>
+        this.kernel.interaction.readonly.interactionSnapshot(),
+      )
     }
     return this.__interactionSnapshot
   }

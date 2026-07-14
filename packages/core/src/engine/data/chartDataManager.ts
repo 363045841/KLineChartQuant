@@ -18,9 +18,6 @@ import { FetchBatchScheduler } from './fetchBatchScheduler'
 import { IncrementalLoadHint } from './incrementalLoadHint'
 import { ScrollCompensator } from './scrollCompensator'
 
-const COMPARISON_PALETTE = ['#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316']
-const DEFAULT_COMPARISON_COLOR = '#f59e0b'
-
 export interface DataDependencies {
   getOption: () => { kWidth: number; kGap: number }
   getEffectiveDpr: () => number
@@ -43,8 +40,9 @@ export interface DataDependencies {
   isPointerDown: () => boolean
   onTimeShareDataReady: (dataLength: number) => void
   onDataProcessed?: (data: KLineData[], range: VisibleRange) => void
-  setComparisonColors: (colors: ReadonlyMap<string, string>) => void
+  setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => void
   setComparisonLoading: (loading: boolean) => void
+  comparisonSpecs$: ReadonlySignal<ReadonlyArray<SymbolSpec>>
   comparisonColors$: ReadonlySignal<ReadonlyMap<string, string>>
   comparisonLoading$: ReadonlySignal<boolean>
 }
@@ -79,6 +77,7 @@ export class ChartDataManager {
   private _batchScheduler = new FetchBatchScheduler()
   private _scrollCompensator: ScrollCompensator
   private _comparisonManager: ComparisonManager
+  private _comparisonSpecsUnsub: (() => void) | null = null
   private _loadHint: IncrementalLoadHint
   private _pendingIncrementalLoadFlushTimer = 0
 
@@ -94,13 +93,15 @@ export class ChartDataManager {
       createComparisonBuffer: (spec) => this._createCmpBuffer(spec),
       disposeBuffer: (key) => this.disposeBuffer(key),
       getKLineBuffer: (key) => this._klineBuffers.get(key),
-      hasKLineBuffer: (key) => this._klineBuffers.has(key),
       getKLineBufferKeys: () => [...this._klineBuffers.keys()],
       scheduleDraw: () => this.deps.scheduleDraw(),
-      getColors: () => this.deps.comparisonColors$.peek(),
-      setColors: (colors) => this.deps.setComparisonColors(colors),
+      getSpecs: () => this.deps.comparisonSpecs$.peek(),
       setLoading: (loading) => this.deps.setComparisonLoading(loading),
     })
+    this._comparisonSpecsUnsub = this.deps.comparisonSpecs$.subscribe(() => {
+      this.reconcileComparisonBuffers()
+    })
+    this.reconcileComparisonBuffers()
   }
 
   // ── Buffer helpers ──
@@ -291,7 +292,10 @@ export class ChartDataManager {
       this._scrollCompensator.adjustScrollAfterDataChange(bufferData.length)
     }
 
-    if ((prevDataLength ?? this._dataState.readonly.dataLength.peek()) === 0 && bufferData.length > 0) {
+    if (
+      (prevDataLength ?? this._dataState.readonly.dataLength.peek()) === 0 &&
+      bufferData.length > 0
+    ) {
       this.scrollToRight()
     }
 
@@ -465,7 +469,7 @@ export class ChartDataManager {
   }
 
   getComparisonSpecs(): SymbolSpec[] {
-    return this._comparisonManager.specs
+    return this.deps.comparisonSpecs$.peek().map((spec) => ({ ...spec }))
   }
 
   get dataBuffer(): KLineBuffer {
@@ -489,7 +493,7 @@ export class ChartDataManager {
   }
 
   getComparisonColors(): Map<string, string> {
-    return this._comparisonManager.getColors()
+    return new Map(this.deps.comparisonColors$.peek())
   }
 
   // ── Data updates (KLine) ──
@@ -576,31 +580,39 @@ export class ChartDataManager {
 
   // ── Comparison management ──
 
-  private syncComparisonBuffers(specs: ReadonlyArray<SymbolSpec>): void {
+  private reconcileComparisonBuffers(): void {
     const primaryBuf = this.getActiveDataBuffer()
-    this._comparisonManager.syncBuffers(specs, primaryBuf?.loadedWindow?.earliestTs)
-  }
-
-  private clearComparisonBuffers(): void {
-    this._comparisonManager.clearAll()
+    this._comparisonManager.reconcile(primaryBuf?.loadedWindow?.earliestTs)
   }
 
   addComparisonSymbol(spec: SymbolSpec): void {
-    this._comparisonManager.addSymbol(spec, () => {
-      const allSpecs = this._dataState.readonly.symbols.peek()
-      this._dataState.actions.setSymbols([allSpecs[0]!, ...this._comparisonManager.specs])
-    })
+    const primary = this._dataState.readonly.symbols.peek()[0]
+    if (!primary || this.deps.comparisonSpecs$.peek().some((item) => item.symbol === spec.symbol))
+      return
+    this.deps.setSymbols([primary, ...this.deps.comparisonSpecs$.peek(), spec])
   }
 
   setComparisonData(symbol: string, data: KLineData[]): void {
-    this._comparisonManager.setData(symbol, data, (key) => {
-      this._dataState.actions.setSymbols([this._dataState.readonly.symbols.peek()[0]!, ...this._comparisonManager.specs])
-    })
+    const primary = this._dataState.readonly.symbols.peek()[0]
+    if (!primary) return
+    if (!this.deps.comparisonSpecs$.peek().some((spec) => spec.symbol === symbol)) {
+      this.deps.setSymbols([
+        primary,
+        ...this.deps.comparisonSpecs$.peek(),
+        { symbol, period: 'daily' },
+      ])
+    }
+    this._comparisonManager.setData(symbol, data)
   }
 
   removeComparisonSymbol(symbol: string): void {
-    if (!this._comparisonManager.removeSymbol(symbol)) return
-    this._dataState.actions.setSymbols([this._dataState.readonly.symbols.peek()[0]!, ...this._comparisonManager.specs])
+    const primary = this._dataState.readonly.symbols.peek()[0]
+    if (!primary || !this.deps.comparisonSpecs$.peek().some((spec) => spec.symbol === symbol))
+      return
+    this.deps.setSymbols([
+      primary,
+      ...this.deps.comparisonSpecs$.peek().filter((spec) => spec.symbol !== symbol),
+    ])
     this.deps.scheduleDraw()
   }
 
@@ -612,7 +624,7 @@ export class ChartDataManager {
     const specs = this._dataState.readonly.symbols.peek()
     if (specs.length > 0) {
       const updated = [{ ...specs[0], symbol }, ...specs.slice(1)] as SymbolSpec[]
-      this._dataState.actions.setSymbols(updated)
+      this.deps.setSymbols(updated)
     }
   }
 
@@ -681,7 +693,7 @@ export class ChartDataManager {
       return
     }
     const next = { ...current, period }
-    this.setSymbols([next, ...this._comparisonManager.specs])
+    this.setSymbols([next, ...this.deps.comparisonSpecs$.peek()])
   }
 
   /**
@@ -701,7 +713,8 @@ export class ChartDataManager {
     // 首次调用时保存原始 spec，用于切回 Fetcher 时恢复
     if (!this._dmState.readonly.preCustomSpec.peek()) {
       this._dmState.actions.setPreCustomSpec({
-        ...(this._dmState.readonly.currentSpec.peek() ?? this._dataState.readonly.symbols.peek()[0] ?? { symbol: '' }),
+        ...(this._dmState.readonly.currentSpec.peek() ??
+          this._dataState.readonly.symbols.peek()[0] ?? { symbol: '' }),
       })
     }
 
@@ -712,7 +725,7 @@ export class ChartDataManager {
       incremental: false,
       source: source.source ?? 'custom',
     }
-    this.setSymbols([spec, ...this._comparisonManager.specs])
+    this.setSymbols([spec, ...this.deps.comparisonSpecs$.peek()])
 
     const symbolCode = spec.symbol
     if (symbolCode) {
@@ -747,7 +760,7 @@ export class ChartDataManager {
     this._dataState.actions.setData([])
     this._dmState.actions.setRangeInitialized(false)
     this._dmState.actions.setSavedScrollTimestamp(null)
-    this.setSymbols([spec, ...this._comparisonManager.specs])
+    this.setSymbols([spec, ...this.deps.comparisonSpecs$.peek()])
   }
 
   getPreCustomSpec(): SymbolSpec | null {
@@ -757,9 +770,10 @@ export class ChartDataManager {
   // ── Main symbol switching ──
 
   setSymbols(specs: ReadonlyArray<SymbolSpec>): void {
-    this._dataState.actions.setSymbols(specs)
+    const selection = specs[0]?.period === 'timeshare' ? specs.slice(0, 1) : specs
+    this.deps.setSymbols(selection)
 
-    if (specs.length === 0) {
+    if (selection.length === 0) {
       this._dmState.actions.setCurrentSpec(null)
       this.disposeAllBuffers()
       this._dataState.actions.applyActiveBufferSnapshot({
@@ -771,12 +785,11 @@ export class ChartDataManager {
       return
     }
 
-    const primary = specs[0]!
+    const primary = selection[0]!
     this._dmState.actions.setCurrentSpec(primary)
 
     if (primary.period === 'timeshare') {
       // Switch to timeshare mode
-      this.clearComparisonBuffers()
       // Save scroll position before activating TS buffer (which clears _dataSignal).
       // Guarded by _savedScrollTimestamp === null so setTimeShareQueryDate (which
       // calls this method first) won't be overwritten.
@@ -805,15 +818,13 @@ export class ChartDataManager {
       this.disposeBuffer(key)
     }
 
-    this.loadKLineSymbols(specs)
+    this.loadKLineSymbols(selection)
   }
 
   // ── KLine loading ──
 
   private loadKLineSymbols(specs: ReadonlyArray<SymbolSpec>): void {
     const spec = specs[0]!
-    this.syncComparisonBuffers(specs.slice(1))
-
     const buf = this.getPrimaryDataBuffer(spec.symbol, spec.period!)
     this.activateBuffer(bufKey(BUF_PRIMARY, spec.symbol, spec.period!))
     if (!this._dataFetcher) {
@@ -856,7 +867,9 @@ export class ChartDataManager {
     const buf = this.getActiveDataBuffer()
     const raw = buf ? (buf.getRawData() as KLineData[]) : null
     if (!raw || raw.length === 0) return false
-    const idx = raw.findIndex((d) => d.timestamp >= this._dmState.readonly.savedScrollTimestamp.peek()!)
+    const idx = raw.findIndex(
+      (d) => d.timestamp >= this._dmState.readonly.savedScrollTimestamp.peek()!,
+    )
     this._dmState.actions.setSavedScrollTimestamp(null)
     if (idx >= 0) {
       const dpr = this.deps.getEffectiveDpr()
@@ -981,6 +994,9 @@ export class ChartDataManager {
   }
 
   destroy(): void {
+    this._comparisonSpecsUnsub?.()
+    this._comparisonSpecsUnsub = null
+    this._comparisonManager.clearAll()
     this.unbindActiveBuffer()
     this.disposeAllBuffers()
     this._loadHint.destroy()

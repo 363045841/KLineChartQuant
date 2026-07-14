@@ -4,6 +4,7 @@ export class FetchScheduler {
   private _chain: Promise<void> | null = null
   private _loadingSignal: WritableSignal<boolean>
   private _disposed = false
+  private _generation = 0
 
   constructor() {
     this._loadingSignal = createSignal<boolean>(false)
@@ -18,13 +19,19 @@ export class FetchScheduler {
       return Promise.reject(new Error('FetchScheduler disposed'))
     }
 
+    const generation = this._generation
     const execute = async (): Promise<T> => {
+      if (generation !== this._generation) {
+        throw new Error('FetchScheduler task invalidated')
+      }
       this._loadingSignal.set(true)
       try {
         return await task()
       } finally {
-        this._chain = null
-        if (!this._disposed) this._loadingSignal.set(false)
+        if (generation === this._generation) {
+          this._chain = null
+          if (!this._disposed) this._loadingSignal.set(false)
+        }
       }
     }
 
@@ -45,12 +52,14 @@ export class FetchScheduler {
   }
 
   reset(): void {
+    this._generation++
     this._chain = null
     this._loadingSignal.set(false)
   }
 
   dispose(): void {
     this._disposed = true
+    this._generation++
     this._chain = null
   }
 }

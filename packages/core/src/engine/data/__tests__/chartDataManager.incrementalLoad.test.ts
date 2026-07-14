@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { JSDOM } from 'jsdom'
 
 import type { DataFetcher, KLineData, SymbolSpec } from '../../../controllers/types'
-import { createSignal } from '../../../foundation/reactivity/signal'
+import { computed, createSignal } from '../../../foundation/reactivity/signal'
 import type { ChartDom } from '../../chartTypes'
 import { createDataManagerState } from '../../state/dataManagerState'
 import { createDataState } from '../../state/dataState'
@@ -21,7 +21,11 @@ function makeKLine(timestamp: number): KLineData {
   }
 }
 
-function createDependencies(dom: ChartDom): DataDependencies {
+function createDependencies(
+  dom: ChartDom,
+  setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => void,
+  symbols$: ReturnType<typeof createSignal<ReadonlyArray<SymbolSpec>>>,
+): DataDependencies {
   let scrollLeft = 800
   return {
     getOption: () => ({ kWidth: 8, kGap: 2 }),
@@ -45,8 +49,9 @@ function createDependencies(dom: ChartDom): DataDependencies {
     }),
     isPointerDown: () => false,
     onTimeShareDataReady: () => {},
-    setComparisonColors: () => {},
+    setSymbols,
     setComparisonLoading: () => {},
+    comparisonSpecs$: computed(() => symbols$().slice(1)),
     comparisonColors$: createSignal(new Map() as ReadonlyMap<string, string>),
     comparisonLoading$: createSignal(false),
   }
@@ -85,11 +90,19 @@ describe('ChartDataManager incremental load', () => {
       source: 'mock',
     }
     const dataState = createDataState()
+    const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
     const dataManagerState = createDataManagerState()
     const container = document.querySelector<HTMLDivElement>('#container')!
     const scrollContent = document.querySelector<HTMLDivElement>('#scroll-content')!
     manager = new ChartDataManager(
-      createDependencies({ container, scrollContent }),
+      createDependencies(
+        { container, scrollContent },
+        (symbols) => {
+          symbols$.set(symbols)
+          dataState.actions.setSymbols(symbols)
+        },
+        symbols$,
+      ),
       dataState,
       dataManagerState,
     )

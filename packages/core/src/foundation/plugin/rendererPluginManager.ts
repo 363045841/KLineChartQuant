@@ -49,10 +49,34 @@ export class RendererPluginManager {
 
   private cacheInvalid = true
   private onInvalidate: (() => void) | null = null
+  private transactionDepth = 0
+  private invalidatePending = false
 
   /** 设置重绘回调（由 Chart 注入） */
   setInvalidateCallback(cb: () => void): void {
     this.onInvalidate = cb
+  }
+
+  /** 合并一组 renderer 变更，仅在最外层事务结束时触发一次重绘。 */
+  transaction<T>(run: () => T): T {
+    this.transactionDepth++
+    try {
+      return run()
+    } finally {
+      this.transactionDepth--
+      if (this.transactionDepth === 0 && this.invalidatePending) {
+        this.invalidatePending = false
+        this.onInvalidate?.()
+      }
+    }
+  }
+
+  private invalidate(): void {
+    if (this.transactionDepth > 0) {
+      this.invalidatePending = true
+      return
+    }
+    this.onInvalidate?.()
   }
 
   /** 设置 PluginHost（用于支持 RendererPluginWithHost） */
@@ -109,7 +133,7 @@ export class RendererPluginManager {
     }
 
     // 注册后自动触发重绘
-    this.onInvalidate?.()
+    this.invalidate()
   }
 
   /** 移除渲染器插件 */
@@ -137,7 +161,7 @@ export class RendererPluginManager {
     this.cacheInvalid = true
 
     // 卸载后自动触发重绘
-    this.onInvalidate?.()
+    this.invalidate()
   }
 
   /** 清空所有插件 */
@@ -308,7 +332,7 @@ export class RendererPluginManager {
   setEnabled(name: string, enabled: boolean): void {
     if (!this.plugins.has(name)) return
     this.enabledState.set(name, enabled)
-    this.onInvalidate?.()
+    this.invalidate()
   }
 
   /** 更新配置（自动触发重绘） */
@@ -317,7 +341,7 @@ export class RendererPluginManager {
     if (!plugin?.setConfig) return false
 
     plugin.setConfig(config)
-    this.onInvalidate?.()
+    this.invalidate()
     return true
   }
 

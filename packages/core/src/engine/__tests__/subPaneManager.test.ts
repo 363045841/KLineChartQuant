@@ -1,20 +1,20 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { IndicatorScheduler } from '../indicators/scheduler'
-import type { SubIndicatorType } from '../renderers/Indicator'
+import type { SubPaneSpec } from '../state/subPaneState'
 import { SubPaneManager, type SubPaneContext } from '../subPaneManager'
 
 function createMockScheduler(): Partial<IndicatorScheduler> {
   return {
-    getIndicatorMetadata: vi.fn((_id: string) => ({
-      name: _id,
+    getIndicatorMetadata: vi.fn((id: string) => ({
+      name: id,
       displayName: 'Test',
       category: 'sub' as const,
-      stateKey: _id,
+      stateKey: id,
       defaultPaneId: 'sub',
-      rendererFactory: vi.fn(() => ({
-        name: 'custom_rsi_rsi_0',
-        paneId: 'sub',
+      rendererFactory: vi.fn(({ paneId }: { paneId: string }) => ({
+        name: `${id.toLowerCase()}_${paneId}`,
+        paneId,
         priority: 0,
         draw: vi.fn(),
       })),
@@ -25,161 +25,151 @@ function createMockScheduler(): Partial<IndicatorScheduler> {
   }
 }
 
-function createMockContext(): SubPaneContext {
+function createMockContext(): SubPaneContext & {
+  renderers: Map<string, unknown>
+  layers: Set<string>
+} {
   const scheduler = createMockScheduler()
+  const renderers = new Map<string, unknown>()
+  const layers = new Set<string>()
   return {
-    getIndicatorScheduler: vi.fn(() => scheduler as unknown as IndicatorScheduler),
-    hasPane: vi.fn(() => false),
-    upsertPane: vi.fn(),
-    getRenderer: vi.fn(),
-    useRenderer: vi.fn(),
-    removeRenderer: vi.fn(),
+    renderers,
+    layers,
+    getIndicatorScheduler: () => scheduler as IndicatorScheduler,
+    getRenderer: vi.fn((name) => renderers.get(name) as any),
+    useRenderer: vi.fn((renderer: any) => renderers.set(renderer.name, renderer)),
+    removeRenderer: vi.fn((name) => renderers.delete(name)),
     setRendererEnabled: vi.fn(),
-    removePaneDefinition: vi.fn(),
     updateRendererConfig: vi.fn(),
-    getRightAxisWidth: vi.fn(() => 60),
-    getPriceLabelWidth: vi.fn(() => 60),
-    getYPaddingPx: vi.fn(() => 4),
-    getCrosshairPos: vi.fn(() => null),
-    getCrosshairPrice: vi.fn(() => null),
-    getActivePaneId: vi.fn(() => null),
-    addLayer: vi.fn(),
-    removeLayer: vi.fn(() => true),
-    getLayer: vi.fn(() => null),
+    getRightAxisWidth: () => 60,
+    getPriceLabelWidth: () => 60,
+    getYPaddingPx: () => 4,
+    getCrosshairPos: () => null,
+    getCrosshairPrice: () => null,
+    getActivePaneId: () => null,
+    addLayer: vi.fn((layer) => layers.add(layer.id)),
+    removeLayer: vi.fn((id) => layers.delete(id)),
+    getLayer: vi.fn((id) => (layers.has(id) ? ({ id } as any) : null)),
     setLayerVisibility: vi.fn(),
-    getRenderContext: vi.fn(() => null),
+    getRenderContext: () => null,
   }
 }
 
-describe('SubPaneManager', () => {
+describe('SubPaneManager runtime projection', () => {
   let manager: SubPaneManager
-  let ctx: SubPaneContext
+  let ctx: ReturnType<typeof createMockContext>
+  const rsi: SubPaneSpec = {
+    paneId: 'RSI_0',
+    indicatorId: 'RSI',
+    params: { period1: 6 },
+  }
 
   beforeEach(() => {
     manager = new SubPaneManager()
     ctx = createMockContext()
-    vi.clearAllMocks()
   })
 
-  describe('updateParams', () => {
-    it('should update paneTitle renderer config with new params and indicatorId', () => {
-      manager.create(ctx, 'RSI_0', 'RSI' as SubIndicatorType, {
-        period1: 6,
-        period2: 12,
-        period3: 24,
-      })
+  it('does not expose or own a business entries signal', () => {
+    expect('entriesSignal' in manager).toBe(false)
+  })
 
-      const entry = manager.getByPaneId('RSI_0')
-      expect(entry).toBeDefined()
-      vi.clearAllMocks()
+  it('mounts desired resources once across repeated reconcile calls', () => {
+    manager.reconcile(ctx, [rsi])
+    manager.reconcile(ctx, [rsi])
 
-      const newParams = { period1: 10, period2: 20, period3: 30 }
-      manager.updateParams(ctx, 'RSI_0', newParams)
+    expect(ctx.useRenderer).toHaveBeenCalledTimes(3)
+    expect(manager.getMountedResources('RSI_0')?.rendererName).toBe('rsi_RSI_0')
+  })
 
-      expect(ctx.updateRendererConfig).toHaveBeenCalledWith(entry!.paneTitleRendererName, {
-        params: newParams,
-        indicatorId: 'RSI',
-      })
+  it('updates configs without recreating resources when only params change', () => {
+    manager.reconcile(ctx, [rsi])
+    vi.clearAllMocks()
+
+    manager.reconcile(ctx, [{ ...rsi, params: { period1: 12 } }])
+
+    expect(ctx.useRenderer).not.toHaveBeenCalled()
+    expect(ctx.updateRendererConfig).toHaveBeenCalledWith('rsi_RSI_0', { period1: 12 })
+    expect(ctx.updateRendererConfig).toHaveBeenCalledWith('paneTitle_RSI_0', {
+      params: { period1: 12 },
+      indicatorId: 'RSI',
+    })
+  })
+
+  it('unmounts resources absent from desired state', () => {
+    manager.reconcile(ctx, [rsi])
+    vi.clearAllMocks()
+
+    manager.reconcile(ctx, [])
+
+    expect(ctx.removeRenderer).toHaveBeenCalledTimes(3)
+    expect(manager.getMountedResources('RSI_0')).toBeUndefined()
+  })
+
+  it('does not record a mount when renderer registration throws', () => {
+    ctx.useRenderer = vi.fn(() => {
+      throw new Error('mount failed')
     })
 
-    it('should update main indicator renderer config with new params', () => {
-      manager.create(ctx, 'RSI_0', 'RSI' as SubIndicatorType, {
-        period1: 6,
-        period2: 12,
-        period3: 24,
-      })
+    expect(() => manager.reconcile(ctx, [rsi])).not.toThrow()
+    expect(manager.getMountedResources('RSI_0')).toBeUndefined()
+  })
 
-      const entry = manager.getByPaneId('RSI_0')
-      expect(entry).toBeDefined()
-      vi.clearAllMocks()
-
-      const newParams = { period1: 10, period2: 20, period3: 30 }
-      manager.updateParams(ctx, 'RSI_0', newParams)
-
-      expect(ctx.updateRendererConfig).toHaveBeenCalledWith(entry!.rendererName, newParams)
+  it('does not record a mount when scheduler configuration throws', () => {
+    const scheduler = ctx.getIndicatorScheduler()
+    vi.mocked(scheduler.getIndicatorMetadata).mockReturnValue({
+      ...scheduler.getIndicatorMetadata('RSI')!,
+      updateConfig: vi.fn(() => {
+        throw new Error('config failed')
+      }),
     })
 
-    it('should update scheduler config via definition.updateConfig', () => {
-      const updateConfigSpy = vi.fn()
-      const customScheduler: Partial<IndicatorScheduler> = {
-        getIndicatorMetadata: vi.fn((_id: string) => ({
-          name: _id,
-          displayName: 'Test',
-          category: 'sub' as const,
-          stateKey: _id,
-          defaultPaneId: 'sub',
-          rendererFactory: vi.fn(() => ({
-            name: 'custom_rsi_rsi_0',
-            paneId: 'sub',
-            priority: 0,
-            draw: vi.fn(),
-          })),
-          updateConfig: updateConfigSpy,
-          scale: { indicatorKey: 'test', label: 'Test', decimals: 2 },
-        })),
-        onSubPaneChanged: vi.fn(),
+    expect(() => manager.reconcile(ctx, [rsi])).not.toThrow()
+    expect(manager.getMountedResources('RSI_0')).toBeUndefined()
+  })
+
+  it('keeps a failed parameter projection retryable', () => {
+    manager.reconcile(ctx, [rsi])
+    ctx.updateRendererConfig = vi.fn().mockImplementationOnce(() => {
+      throw new Error('config failed')
+    })
+
+    expect(() => manager.reconcile(ctx, [{ ...rsi, params: { period1: 12 } }])).not.toThrow()
+    manager.reconcile(ctx, [{ ...rsi, params: { period1: 12 } }])
+
+    expect(ctx.useRenderer).toHaveBeenCalledTimes(6)
+    expect(manager.getMountedResources('RSI_0')).toBeDefined()
+  })
+
+  it('distinguishes non-finite and null parameter values in projection keys', () => {
+    manager.reconcile(ctx, [{ ...rsi, params: { threshold: Number.NaN } }])
+    vi.clearAllMocks()
+
+    manager.reconcile(ctx, [{ ...rsi, params: { threshold: null } }])
+
+    expect(ctx.updateRendererConfig).toHaveBeenCalledWith('rsi_RSI_0', {
+      threshold: null,
+    })
+  })
+
+  it('removes the old projection when the replacement factory throws', () => {
+    manager.reconcile(ctx, [rsi])
+    const scheduler = ctx.getIndicatorScheduler()
+    vi.mocked(scheduler.getIndicatorMetadata).mockImplementation((id: string) => {
+      const definition = createMockScheduler().getIndicatorMetadata?.(id)
+      if (id === 'MACD' && definition) {
+        return {
+          ...definition,
+          rendererFactory: () => {
+            throw new Error('factory failed')
+          },
+        }
       }
-      const customCtx: SubPaneContext = {
-        ...ctx,
-        getIndicatorScheduler: vi.fn(() => customScheduler as unknown as IndicatorScheduler),
-      }
-
-      manager.create(customCtx, 'RSI_0', 'RSI' as SubIndicatorType, {
-        period1: 6,
-        period2: 12,
-        period3: 24,
-      })
-
-      const newParams = { period1: 10, period2: 20, period3: 30 }
-      manager.updateParams(customCtx, 'RSI_0', newParams)
-
-      expect(updateConfigSpy).toHaveBeenCalled()
+      return definition
     })
 
-    it('should update entry params in the manager', () => {
-      manager.create(ctx, 'RSI_0', 'RSI' as SubIndicatorType, {
-        period1: 6,
-        period2: 12,
-        period3: 24,
-      })
+    manager.reconcile(ctx, [{ paneId: 'RSI_0', indicatorId: 'MACD', params: {} }])
 
-      const newParams = { period1: 10, period2: 20, period3: 30 }
-      manager.updateParams(ctx, 'RSI_0', newParams)
-
-      const entry = manager.getByPaneId('RSI_0')
-      expect(entry?.params).toEqual(newParams)
-    })
-
-    it('getByPaneId returns snapshot; mutating it does not alter store', () => {
-      manager.create(ctx, 'RSI_0', 'RSI' as SubIndicatorType, { period1: 6 })
-      const snap = manager.getByPaneId('RSI_0')!
-      snap.params.period1 = 99
-      expect(manager.getByPaneId('RSI_0')?.params).toEqual({ period1: 6 })
-    })
-
-    it('should fire entries signal on update', () => {
-      manager.create(ctx, 'RSI_0', 'RSI' as SubIndicatorType, {
-        period1: 6,
-        period2: 12,
-        period3: 24,
-      })
-
-      const listener = vi.fn()
-      manager.entriesSignal.subscribe(listener)
-      vi.clearAllMocks()
-
-      const newParams = { period1: 10, period2: 20, period3: 30 }
-      manager.updateParams(ctx, 'RSI_0', newParams)
-
-      expect(listener).toHaveBeenCalledTimes(1)
-    })
-
-    it('should silently skip when paneId does not exist', () => {
-      const newParams = { period1: 10, period2: 20, period3: 30 }
-      manager.updateParams(ctx, 'NONEXISTENT', newParams)
-
-      expect(ctx.updateRendererConfig).not.toHaveBeenCalled()
-      expect(ctx.getIndicatorScheduler().onSubPaneChanged).not.toHaveBeenCalled()
-    })
+    expect(manager.getMountedResources('RSI_0')).toBeUndefined()
+    expect(ctx.removeRenderer).toHaveBeenCalled()
   })
 })

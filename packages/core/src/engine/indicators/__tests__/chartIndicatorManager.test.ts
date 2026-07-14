@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
 import { createPluginHost } from '../../../foundation/plugin/PluginHost'
 import { createSignal } from '../../../foundation/reactivity/signal'
 import { createIndicatorState } from '../../state/indicatorState'
+import { createSubPaneState } from '../../state/subPaneState'
 import type { VisibleRange } from '../../layout/pane'
 import { UpdateLevel } from '../../layout/pane'
 import { ChartIndicatorManager, type IndicatorDependencies } from '../chartIndicatorManager'
@@ -15,7 +16,9 @@ beforeAll(async () => {
 function createMockDeps() {
   const rendererMap = new Map<string, any>()
   const paneRatiosSignal = createSignal<Readonly<Record<string, number>>>({})
+  const paneSpecsSignal = createSignal<ReadonlyArray<any>>([])
   const indicatorState = createIndicatorState()
+  const subPaneState = createSubPaneState()
 
   return {
     rendererMap,
@@ -41,13 +44,16 @@ function createMockDeps() {
     removeRenderer: vi.fn((name: string) => {
       rendererMap.delete(name)
     }),
-    updateRendererConfig: vi.fn(),
+    updateRendererConfig: vi.fn((name: string, config: Record<string, unknown>) => {
+      rendererMap.get(name)?.setConfig?.(config)
+    }),
     setRendererEnabled: vi.fn(),
     hasPane: vi.fn(() => false),
     upsertPane: vi.fn(),
     removePaneDefinition: vi.fn(),
     getPaneSpecs: vi.fn(() => []),
     getPaneRatiosSignal: () => paneRatiosSignal,
+    paneSpecs$: paneSpecsSignal,
     getInternalPaneRatios: vi.fn(() => new Map()),
     setInternalPaneRatio: vi.fn(),
     deleteInternalPaneRatio: vi.fn(),
@@ -68,6 +74,20 @@ function createMockDeps() {
     setMainIndicatorParams: (id, p) => indicatorState.actions.setParams(id, p),
     replaceMainIndicators: (entries) => indicatorState.actions.replaceAll(entries),
     clearMainIndicators: () => indicatorState.actions.clear(),
+    subPanes$: subPaneState.readonly.entries,
+    createSubPaneState: vi.fn((paneId, indicatorId, params) =>
+      subPaneState.actions.upsert({ paneId, indicatorId, params }),
+    ),
+    removeSubPaneState: vi.fn((paneId) => subPaneState.actions.remove(paneId)),
+    replaceSubPaneState: vi.fn((paneId, indicatorId, params) =>
+      subPaneState.actions.replace({ paneId, indicatorId, params }),
+    ),
+    updateSubPaneStateParams: vi.fn((paneId, params) =>
+      subPaneState.actions.setParams(paneId, params),
+    ),
+    clearSubPaneState: vi.fn(() => subPaneState.actions.clear()),
+    projectPaneLayout: vi.fn(),
+    runRendererTransaction: (run) => run(),
     getIndicatorScheduler: vi.fn(),
     getRightAxisWidth: () => 60,
     getPriceLabelWidth: () => 60,
@@ -134,6 +154,69 @@ describe('ChartIndicatorManager', () => {
       const params = manager.getMainIndicatorParams('MA')!
       params.ma5 = false
       expect(manager.getMainIndicatorParams('MA')?.ma5).toBe(true)
+    })
+  })
+
+  describe('state-driven projection', () => {
+    it('registers main indicator resources once across duplicate enable calls', () => {
+      expect(manager.enableMainIndicator('MA')).toBe(true)
+      expect(manager.enableMainIndicator('MA')).toBe(true)
+
+      expect(deps.useRenderer).toHaveBeenCalledTimes(2)
+      expect(manager.isMainIndicatorActive('MA')).toBe(true)
+    })
+
+    it('creates sub-pane business state before projecting runtime resources', () => {
+      expect(manager.createSubPane('RSI_0', 'RSI', { period1: 6 })).toBe(true)
+
+      expect(deps.createSubPaneState).toHaveBeenCalledTimes(1)
+      expect(deps.useRenderer).toHaveBeenCalled()
+      expect(deps.createSubPaneState.mock.invocationCallOrder[0]).toBeLessThan(
+        deps.useRenderer.mock.invocationCallOrder[0]!,
+      )
+      expect(manager.getSubPaneEntry('RSI_0')?.params).toEqual({ period1: 6 })
+    })
+
+    it('treats a duplicate pane id as a no-op even when the indicator differs', () => {
+      manager.createSubPane('RSI_0', 'RSI', { period1: 6 })
+      vi.clearAllMocks()
+
+      expect(manager.createSubPane('RSI_0', 'MACD', { fast: 5 })).toBe(true)
+
+      expect(deps.replaceSubPaneState).not.toHaveBeenCalled()
+      expect(manager.getSubPaneEntry('RSI_0')?.indicatorId).toBe('RSI')
+      expect(manager.getSubPaneEntry('RSI_0')?.params).toEqual({ period1: 6 })
+    })
+
+    it('reasserts identical desired state when the initial runtime mount failed', () => {
+      deps.useRenderer.mockImplementationOnce(() => {
+        throw new Error('mount failed')
+      })
+      manager.createSubPane('RSI_0', 'RSI', { period1: 6 })
+      expect(manager.subPaneManagerAccessor.getMountedResources('RSI_0')).toBeUndefined()
+
+      manager.createSubPane('RSI_0', 'RSI', { period1: 6 })
+
+      expect(manager.subPaneManagerAccessor.getMountedResources('RSI_0')).toBeDefined()
+    })
+
+    it('projects distinct non-finite main-indicator parameter values', () => {
+      manager.enableMainIndicator('MA', { threshold: Number.NaN })
+      vi.clearAllMocks()
+
+      manager.updateMainIndicatorParams('MA', { threshold: Number.POSITIVE_INFINITY })
+
+      expect(deps.updateRendererConfig).toHaveBeenCalled()
+    })
+
+    it('stops projection before runtime resources are destroyed', () => {
+      manager.destroy()
+      vi.clearAllMocks()
+
+      deps.upsertMainIndicator('MA', { ma5: true })
+
+      expect(deps.useRenderer).not.toHaveBeenCalled()
+      expect(deps.scheduleDraw).not.toHaveBeenCalled()
     })
   })
 })
