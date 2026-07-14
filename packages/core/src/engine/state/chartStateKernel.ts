@@ -43,6 +43,10 @@ import {
   type ComparisonStateModule,
 } from './comparisonState'
 import {
+  createIndicatorState,
+  type IndicatorStateModule,
+} from './indicatorState'
+import {
   computed,
   type ReadonlySignal,
 } from '../../foundation/reactivity/signal'
@@ -84,6 +88,7 @@ export class ChartStateKernel extends StateKernel {
   readonly interaction: InteractionStateModule
   readonly dataManager: DataManagerStateModule
   readonly comparison: ComparisonStateModule
+  readonly indicator: IndicatorStateModule
 
   readonly zoomLevel$: ReadonlySignal<number>
   readonly dataLength$: ReadonlySignal<number>
@@ -124,6 +129,9 @@ export class ChartStateKernel extends StateKernel {
 
     // ── Comparison state ──
     this.comparison = createComparisonState()
+
+    // ── Indicator state ──
+    this.indicator = createIndicatorState()
 
     // ── Viewport state (now owned by kernel) ──
     this.viewport = createViewportState({
@@ -184,6 +192,8 @@ export class ChartStateKernel extends StateKernel {
       // Comparison
       comparisonColors: this.comparison.readonly.colors,
       comparisonLoading: this.comparison.readonly.loading,
+      // Indicator
+      mainIndicators: this.indicator.readonly.mainIndicators,
     }
 
     // ── Flat actions bag for framework adapters ──
@@ -248,6 +258,11 @@ export class ChartStateKernel extends StateKernel {
         this.comparison.actions.setColors(colors),
       setComparisonLoading: (loading: boolean) =>
         this.comparison.actions.setLoading(loading),
+      upsertMainIndicator: (id, params) => this.indicator.actions.upsert(id, params),
+      removeMainIndicator: (id) => this.indicator.actions.remove(id),
+      setMainIndicatorParams: (id, params) => this.indicator.actions.setParams(id, params),
+      replaceMainIndicators: (entries) => this.indicator.actions.replaceAll(entries),
+      clearMainIndicators: () => this.indicator.actions.clear(),
     }
   }
 
@@ -270,6 +285,7 @@ export class ChartStateKernel extends StateKernel {
     this.interaction.dispose()
     this.dataManager.dispose()
     this.comparison.dispose()
+    this.indicator.dispose()
   }
 }
 

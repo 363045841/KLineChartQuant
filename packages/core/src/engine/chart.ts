@@ -366,6 +366,12 @@ export class Chart {
       getRightAxisWidth: () => this.kernel.options.readonly.options.peek().rightAxisWidth,
       getPriceLabelWidth: () => this.kernel.options.readonly.options.peek().priceLabelWidth ?? 60,
       getYPaddingPx: () => this.kernel.options.readonly.options.peek().yPaddingPx,
+      mainIndicators$: this.kernel.indicator.readonly.mainIndicators,
+      upsertMainIndicator: (id, params) => this.kernel.indicator.actions.upsert(id, params),
+      removeMainIndicator: (id) => this.kernel.indicator.actions.remove(id),
+      setMainIndicatorParams: (id, params) => this.kernel.indicator.actions.setParams(id, params),
+      replaceMainIndicators: (entries) => this.kernel.indicator.actions.replaceAll(entries),
+      clearMainIndicators: () => this.kernel.indicator.actions.clear(),
     })
 
     // Worker 异步结果就绪后串联 Alert 管线
@@ -428,7 +434,7 @@ export class Chart {
       for (const r of this.paneRenderers) {
         this._savedTimeShareState.scaleTypes.set(r.getPane().id, r.getPane().yAxis.getScaleType())
       }
-      for (const [id, entry] of this.indicatorManager.mainIndicatorsSignalPeek) {
+      for (const [id, entry] of this.kernel.indicator.readonly.mainIndicators.peek()) {
         this._savedTimeShareState.mainIndicators.push({ id, params: { ...entry.params } })
       }
       this._savedTimeShareState.subPanes = this.indicatorManager.getSubPaneEntries().map((e) => ({
@@ -1045,7 +1051,7 @@ export class Chart {
   private __interactionSnapshot: Computed<InteractionSnapshot> | null = null
 
   /** 视口状态信号 */
-  get viewport(): Signal<ViewportState> {
+  get viewport(): ReadonlySignal<ViewportState> {
     return this.viewportManager.viewportSignal
   }
 

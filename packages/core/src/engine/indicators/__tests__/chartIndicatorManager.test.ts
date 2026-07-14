@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
 
 import { createPluginHost } from '../../../foundation/plugin/PluginHost'
 import { createSignal } from '../../../foundation/reactivity/signal'
+import { createIndicatorState } from '../../state/indicatorState'
 import type { VisibleRange } from '../../layout/pane'
 import { UpdateLevel } from '../../layout/pane'
 import { ChartIndicatorManager, type IndicatorDependencies } from '../chartIndicatorManager'
@@ -14,6 +15,7 @@ beforeAll(async () => {
 function createMockDeps() {
   const rendererMap = new Map<string, any>()
   const paneRatiosSignal = createSignal<Readonly<Record<string, number>>>({})
+  const indicatorState = createIndicatorState()
 
   return {
     rendererMap,
@@ -60,6 +62,16 @@ function createMockDeps() {
     removeLayer: vi.fn(() => false),
     getLayer: vi.fn(() => null),
     setLayerVisibility: vi.fn(),
+    mainIndicators$: indicatorState.readonly.mainIndicators,
+    upsertMainIndicator: (id, p) => indicatorState.actions.upsert(id, p),
+    removeMainIndicator: (id) => indicatorState.actions.remove(id),
+    setMainIndicatorParams: (id, p) => indicatorState.actions.setParams(id, p),
+    replaceMainIndicators: (entries) => indicatorState.actions.replaceAll(entries),
+    clearMainIndicators: () => indicatorState.actions.clear(),
+    getIndicatorScheduler: vi.fn(),
+    getRightAxisWidth: () => 60,
+    getPriceLabelWidth: () => 60,
+    getYPaddingPx: () => 4,
   } as IndicatorDependencies & { rendererMap: Map<string, any> }
 }
 

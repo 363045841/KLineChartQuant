@@ -48,3 +48,7 @@ export {
   createDataManagerState,
   type DataManagerStateModule,
 } from './dataManagerState'
+export {
+  createIndicatorState,
+  type IndicatorStateModule,
+} from './indicatorState'

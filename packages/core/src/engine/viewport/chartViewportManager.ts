@@ -1,4 +1,4 @@
-import { type Signal } from '../../foundation/reactivity/signal'
+import { type ReadonlySignal } from '../../foundation/reactivity/signal'
 import type { ChartDom, Viewport, ViewportState } from '../chartTypes'
 import type { ChartStateKernel } from '../state/chartStateKernel'
 
@@ -14,8 +14,8 @@ export class ChartViewportManager {
   private resizeObserver?: ResizeObserver
   private onScroll?: (e: Event) => void
 
-  get viewportSignal(): Signal<ViewportState> {
-    return this.kernel.viewport.readonly.viewportState as unknown as Signal<ViewportState>
+  get viewportSignal(): ReadonlySignal<ViewportState> {
+    return this.kernel.viewport.readonly.viewportState
   }
 
   constructor(deps: ViewportDependencies, kernel: ChartStateKernel) {

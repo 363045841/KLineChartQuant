@@ -6,12 +6,11 @@ import type {
   RenderContext,
 } from '../../foundation/plugin/index'
 import {
-  createSignal,
   computed,
-  type Signal,
   type ReadonlySignal,
   type Computed,
 } from '../../foundation/reactivity/signal'
+import type { MainIndicatorEntry } from '../state/indicatorState'
 import { createLayerFromPlugin } from '../../rendering/scene/createLayerFromPlugin'
 import type { Layer } from '../../rendering/scene/types'
 import type { KLineData } from '../../foundation/types/price'
@@ -28,11 +27,6 @@ import { IndicatorScheduler } from './scheduler'
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kWidth: number
   kGap: number
-}
-
-/** 主图指标条目，存在 = 激活 */
-interface MainIndicatorEntry {
-  params: Record<string, number | boolean | string>
 }
 
 export interface IndicatorDependencies {
@@ -69,13 +63,18 @@ export interface IndicatorDependencies {
   getRightAxisWidth: () => number
   getPriceLabelWidth: () => number
   getYPaddingPx: () => number
+  mainIndicators$: ReadonlySignal<ReadonlyMap<string, MainIndicatorEntry>>
+  upsertMainIndicator: (id: string, params: Record<string, number | boolean | string>) => void
+  removeMainIndicator: (id: string) => void
+  setMainIndicatorParams: (id: string, params: Record<string, number | boolean | string>) => void
+  replaceMainIndicators: (entries: ReadonlyMap<string, MainIndicatorEntry>) => void
+  clearMainIndicators: () => void
 }
 
 export class ChartIndicatorManager {
   private deps: IndicatorDependencies
   private indicatorScheduler: IndicatorScheduler
   private subPaneManager: SubPaneManager
-  private _mainIndicatorsSignal: Signal<Map<string, MainIndicatorEntry>>
   private _indicatorsComputed: Computed<ReadonlyArray<IndicatorInstance>>
   private _subPanesComputed: Computed<ReadonlyArray<SubPaneInfo>>
   private subPaneCtx: SubPaneContext
@@ -135,14 +134,10 @@ export class ChartIndicatorManager {
     // 注册副图活跃列表提供者
     this.indicatorScheduler.setActiveSubPaneProvider(() => this.subPaneManager.getPaneIds())
 
-    // 初始化主图指标信号
-    this._mainIndicatorsSignal = createSignal<Map<string, MainIndicatorEntry>>(new Map())
-
     // 派生信号
-    const mainSignal = this._mainIndicatorsSignal
     const subPaneManager = this.subPaneManager
     this._indicatorsComputed = computed<ReadonlyArray<IndicatorInstance>>(() => {
-      const mainIndicators: IndicatorInstance[] = [...mainSignal().entries()].map(
+      const mainIndicators: IndicatorInstance[] = [...this.deps.mainIndicators$().entries()].map(
         ([id, entry]) => ({
           id,
           definitionId: id,
@@ -196,8 +191,8 @@ export class ChartIndicatorManager {
     return this.subPaneManager
   }
 
-  get mainIndicatorsSignalPeek(): Map<string, MainIndicatorEntry> {
-    return this._mainIndicatorsSignal.peek()
+  get mainIndicatorsSignalPeek(): ReadonlyMap<string, MainIndicatorEntry> {
+    return this.deps.mainIndicators$.peek()
   }
 
   get indicatorsComputed(): Computed<ReadonlyArray<IndicatorInstance>> {
@@ -220,14 +215,11 @@ export class ChartIndicatorManager {
       return false
     }
 
-    const map = this._mainIndicatorsSignal.peek()
-    const existing = map.get(id)
+    const existing = this.deps.mainIndicators$.peek().get(id)
 
     if (existing) {
       if (params) {
-        const next = new Map(map)
-        next.set(id, { params: { ...existing.params, ...params } })
-        this._mainIndicatorsSignal.set(next)
+        this.deps.upsertMainIndicator(id, params)
         this.updateIndicatorSchedulerConfig(id)
       }
       return true
@@ -235,9 +227,7 @@ export class ChartIndicatorManager {
 
     const defaults = ChartIndicatorManager.DEFAULT_MAIN_PARAMS[id] ?? {}
     const merged = params ? { ...defaults, ...params } : defaults
-    const next = new Map(map)
-    next.set(id, { params: merged })
-    this._mainIndicatorsSignal.set(next)
+    this.deps.upsertMainIndicator(id, merged)
 
     this.enableMainIndicatorRenderer(id)
 
@@ -249,12 +239,9 @@ export class ChartIndicatorManager {
 
   disableMainIndicator(indicatorId: string): boolean {
     const id = indicatorId.toUpperCase()
-    const map = this._mainIndicatorsSignal.peek()
-    if (!map.has(id)) return false
+    if (!this.deps.mainIndicators$.peek().has(id)) return false
 
-    const next = new Map(map)
-    next.delete(id)
-    this._mainIndicatorsSignal.set(next)
+    this.deps.removeMainIndicator(id)
 
     this.disableMainIndicatorRenderer(id)
 
@@ -273,11 +260,11 @@ export class ChartIndicatorManager {
   }
 
   getActiveMainIndicators(): string[] {
-    return [...this._mainIndicatorsSignal.peek().keys()]
+    return [...this.deps.mainIndicators$.peek().keys()]
   }
 
   isMainIndicatorActive(indicatorId: string): boolean {
-    return this._mainIndicatorsSignal.peek().has(indicatorId.toUpperCase())
+    return this.deps.mainIndicators$.peek().has(indicatorId.toUpperCase())
   }
 
   updateMainIndicatorParams(
@@ -285,14 +272,11 @@ export class ChartIndicatorManager {
     params: Record<string, number | boolean | string>,
   ): void {
     const id = indicatorId.toUpperCase()
-    const map = this._mainIndicatorsSignal.peek()
-    const entry = map.get(id)
-    if (!entry) return
+    if (!this.deps.mainIndicators$.peek().has(id)) return
 
-    const merged = { ...entry.params, ...params }
-    const next = new Map(map)
-    next.set(id, { params: merged })
-    this._mainIndicatorsSignal.set(next)
+    this.deps.setMainIndicatorParams(id, params)
+
+    const merged = this.deps.mainIndicators$.peek().get(id)!.params
 
     const rendererName = id.toLowerCase()
     const renderer = this.deps.getRenderer(rendererName)
@@ -305,15 +289,14 @@ export class ChartIndicatorManager {
   }
 
   getMainIndicatorParams(indicatorId: string): Record<string, number | boolean | string> | null {
-    return this._mainIndicatorsSignal.peek().get(indicatorId.toUpperCase())?.params ?? null
+    return this.deps.mainIndicators$.peek().get(indicatorId.toUpperCase())?.params ?? null
   }
 
   clearMainIndicators(): void {
-    const map = this._mainIndicatorsSignal.peek()
-    for (const id of map.keys()) {
+    for (const id of this.deps.mainIndicators$.peek().keys()) {
       this.disableMainIndicatorRenderer(id)
     }
-    this._mainIndicatorsSignal.set(new Map())
+    this.deps.clearMainIndicators()
     this.deps.scheduleDraw()
   }
 
@@ -364,7 +347,7 @@ export class ChartIndicatorManager {
   }
 
   private updateIndicatorSchedulerConfig(indicatorId: string): void {
-    const entry = this._mainIndicatorsSignal.peek().get(indicatorId)
+    const entry = this.deps.mainIndicators$.peek().get(indicatorId)
     const isActive = entry !== undefined
     const params = entry?.params ?? {}
 
@@ -383,7 +366,7 @@ export class ChartIndicatorManager {
    */
   setActiveMainIndicators(indicators: string[]): void {
     const newSet = new Set(indicators.map((i) => i.toUpperCase()))
-    const currentSet = new Set(this._mainIndicatorsSignal.peek().keys())
+    const currentSet = new Set(this.deps.mainIndicators$.peek().keys())
 
     for (const id of currentSet) {
       if (!newSet.has(id)) {
@@ -552,7 +535,7 @@ export class ChartIndicatorManager {
   removeIndicator(instanceId: string): boolean {
     const id = instanceId.toUpperCase()
 
-    if (this._mainIndicatorsSignal.peek().has(id)) {
+    if (this.deps.mainIndicators$.peek().has(id)) {
       return this.disableMainIndicator(instanceId)
     }
 
@@ -568,7 +551,7 @@ export class ChartIndicatorManager {
   updateIndicatorParams(instanceId: string, params: Record<string, unknown>): boolean {
     const id = instanceId.toUpperCase()
 
-    if (this._mainIndicatorsSignal.peek().has(id)) {
+    if (this.deps.mainIndicators$.peek().has(id)) {
       this.updateMainIndicatorParams(
         instanceId,
         params as Record<string, number | boolean | string>,
