@@ -23,10 +23,6 @@ export class ChartViewportManager {
     this.kernel = kernel
   }
 
-  setContentWidthProvider(fn: (() => number) | null): void {
-    this.kernel.viewport.actions.setContentWidthProvider(fn)
-  }
-
   getCachedScrollLeft(): number {
     return this.kernel.viewport.readonly.scrollLeft.peek()
   }
@@ -64,7 +60,6 @@ export class ChartViewportManager {
     this.kernel.initViewport()
 
     this.onScroll = (e: Event) => {
-      if (!e.isTrusted) return
       this.kernel.viewport.actions.syncFromDomScroll()
     }
     target.addEventListener('scroll', this.onScroll, { passive: true })

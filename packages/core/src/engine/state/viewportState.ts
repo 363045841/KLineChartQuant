@@ -7,6 +7,8 @@ import {
 } from '../../foundation/reactivity/signal'
 import type { Viewport, ViewportState } from '../chartTypes'
 import type { VisibleRange } from '../layout/pane'
+import { SCROLL_TRAILING_SLOTS } from '../data/scrollCompensator'
+import { getPhysicalKLineConfig } from '../utils/klineConfig'
 import { getVisibleRange } from '../viewport/viewport'
 
 /**
@@ -58,6 +60,7 @@ export interface ViewportSignalDeps {
     kGap: number
   }>
   dataLength$: ReadonlySignal<number>
+  period$: ReadonlySignal<string>
   zoomLevel$: ReadonlySignal<number>
 }
 
@@ -100,7 +103,23 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
 
   const computeLeftLoadBufferWidth = (viewWidth: number): number => {
     const dl = signalDeps.dataLength$()
-    return dl === 0 ? 0 : Math.round(viewWidth)
+    return dl === 0 || signalDeps.period$() === 'timeshare' ? 0 : Math.round(viewWidth)
+  }
+
+  const computeContentWidth = (
+    viewWidth: number,
+    leftLoadBufferWidth: number,
+    dpr: number,
+  ): number => {
+    const dataLength = signalDeps.dataLength$()
+    if (dataLength === 0) return 0
+    if (signalDeps.period$() === 'timeshare') {
+      return leftLoadBufferWidth + Math.max(viewWidth, 1)
+    }
+    const options = signalDeps.options$()
+    const { startXPx, unitPx } = getPhysicalKLineConfig(options.kWidth, options.kGap, dpr)
+    const dataPlotWidth = (startXPx + (dataLength + SCROLL_TRAILING_SLOTS) * unitPx) / dpr
+    return leftLoadBufferWidth + Math.max(dataPlotWidth, viewWidth)
   }
 
   const computeViewport = (
@@ -120,7 +139,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
 
   const { signals, readonly } = createSubState(
     {
-      scrollLeft: 0,
+      requestedScrollLeft: 0,
       viewWidth: 0,
       viewHeight: 0,
       preciseDpr: 0,
@@ -131,9 +150,21 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
       plotWidth: (s) => computePlotWidth(s.viewWidth()),
       plotHeight: (s) => computePlotHeight(s.viewHeight()),
       leftLoadBufferWidth: (s) => computeLeftLoadBufferWidth(s.viewWidth()),
-      scrollLeftLogical: (s) => s.scrollLeft() - computeLeftLoadBufferWidth(s.viewWidth()),
     },
   )
+
+  const contentWidth = computed(() =>
+    computeContentWidth(
+      readonly.plotWidth(),
+      readonly.leftLoadBufferWidth(),
+      readonly.dpr(),
+    ),
+  )
+  const maxScrollLeft = computed(() => Math.max(0, contentWidth() - readonly.viewWidth()))
+  const scrollLeft = computed(() =>
+    Math.max(0, Math.min(readonly.requestedScrollLeft(), maxScrollLeft())),
+  )
+  const scrollLeftLogical = computed(() => scrollLeft() - readonly.leftLoadBufferWidth())
 
   // ── 带引用缓存的 computed —— 仅在字段值实际变化时返回新对象 ──
   // 避免 Object.is 短路失效导致下游 effect / Vue 订阅在子像素滚动时虚假重跑
@@ -143,7 +174,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
     const vp = computeViewport(
       readonly.viewWidth(),
       readonly.viewHeight(),
-      readonly.scrollLeft(),
+      scrollLeft(),
       readonly.leftLoadBufferWidth(),
       readonly.preciseDpr(),
     )
@@ -221,6 +252,20 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
   let webglEffect: (() => void) | null = null
   let scrollDomEffect: (() => void) | null = null
 
+  const setRequestedScrollLeft = (value: number): void => {
+    const normalized = Number.isFinite(value) ? value : 0
+    batch(() => {
+      signals.requestedScrollLeft.set(Math.max(0, Math.min(normalized, maxScrollLeft.peek())))
+    })
+  }
+
+  const syncFromDomScroll = () => {
+    const container = _getDom().container
+    if (container) {
+      setRequestedScrollLeft(container.scrollLeft)
+    }
+  }
+
   /**
    * 挂载 canvas DOM 尺寸与 WebGL surface 的同步 effect。
    *
@@ -245,16 +290,11 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
     })
     scrollDomEffect = effect(() => {
       if (!readonly.initialized()) return
-      const scrollLeft = readonly.scrollLeft()
+      const derivedContentWidth = contentWidth()
+      const derivedScrollLeft = scrollLeft()
       const dom = _getDom()
-      const container = dom.container
-      if (container && container.scrollLeft !== scrollLeft) {
-        container.scrollLeft = scrollLeft
-      }
-      if (_contentWidthProvider && dom.scrollContent) {
-        const w = _contentWidthProvider() + 'px'
-        if (dom.scrollContent.style.width !== w) dom.scrollContent.style.width = w
-      }
+      if (dom.scrollContent) dom.scrollContent.style.width = `${derivedContentWidth}px`
+      if (dom.container) dom.container.scrollLeft = derivedScrollLeft
     })
   }
 
@@ -302,12 +342,14 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
   // ── 合并 readonly：原始 subState + 缓存 computed ──
   const mergedReadonly = {
     ...readonly,
+    contentWidth,
+    maxScrollLeft,
+    scrollLeft,
+    scrollLeftLogical,
     viewport: cachedViewport,
     visibleRange: cachedVisibleRange,
     viewportState: cachedViewportState,
   }
-
-  let _contentWidthProvider: (() => number) | null = null
 
   return {
     readonly: mergedReadonly,
@@ -325,7 +367,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
        * @param v - 目标 scrollLeft（CSS px）
        */
       scrollTo(v: number) {
-        signals.scrollLeft.set(v)
+        setRequestedScrollLeft(v)
       },
 
       /**
@@ -334,11 +376,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
        * @remarks 在外部滚动事件中调用，使 signal 与 DOM 保持一致。
        */
       syncFromDomScroll() {
-        const container = _getDom().container
-        if (container) {
-          const v = container.scrollLeft
-          batch(() => { signals.scrollLeft.set(v) })
-        }
+        syncFromDomScroll()
       },
 
       /**
@@ -353,22 +391,13 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
        */
       resize(width: number, height: number, dpr: number) {
         batch(() => {
-          if (signals.scrollLeft.peek() === 0 && width > 0) {
-            signals.scrollLeft.set(width)
+          if (signals.requestedScrollLeft.peek() === 0 && width > 0) {
+            signals.requestedScrollLeft.set(width)
           }
           signals.viewWidth.set(width)
           signals.viewHeight.set(height)
           signals.preciseDpr.set(dpr)
         })
-      },
-
-      /**
-       * 注入 contentWidth 提供器。
-       *
-       * @param fn - 返回内容区总宽度的函数，或 null 以清除
-       */
-      setContentWidthProvider(fn: (() => number) | null) {
-        _contentWidthProvider = fn
       },
 
       /**
@@ -383,7 +412,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
         const container = _getDom().container
         if (!container) return
         signals.initialized.set(true)
-        signals.scrollLeft.set(container.scrollLeft)
+        setRequestedScrollLeft(container.scrollLeft)
         setupCanvasSync()
       },
     },

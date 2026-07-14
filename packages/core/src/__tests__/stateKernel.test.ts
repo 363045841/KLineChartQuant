@@ -133,6 +133,7 @@ describe('viewportState template', () => {
     const module = createViewportState({
       options$: (() => ({ bottomAxisHeight: 30, kWidth: 8, kGap: 2 })) as any,
       dataLength$: (() => 100) as any,
+      period$: (() => 'daily') as any,
       zoomLevel$: (() => 5) as any,
     })
     module.actions.resize(800, 600, 2)
@@ -154,10 +155,123 @@ describe('viewportState template', () => {
     const module = createViewportState({
       options$: (() => ({ bottomAxisHeight: 30, kWidth: 6, kGap: 1 })) as any,
       dataLength$: (() => 100) as any,
+      period$: (() => 'daily') as any,
       zoomLevel$: (() => 1) as any,
     })
     module.actions.scrollTo(100)
     expect(module.readonly.scrollLeft()).toBe(100)
+  })
+
+  it('derives content width and max scroll from viewport, data, DPR, options, and period', async () => {
+    const { createViewportState } = await import('../engine/state/viewportState')
+    const dataLength$ = createSignal(10)
+    const options$ = createSignal({ bottomAxisHeight: 30, kWidth: 6, kGap: 1 })
+    const period$ = createSignal('daily')
+    const module = createViewportState({
+      options$,
+      dataLength$,
+      zoomLevel$: (() => 1) as any,
+      period$,
+    } as any)
+    module.actions.resize(200, 150, 2)
+
+    // DPR=2: width=11px, gap=2px, 40 slots including the trailing buffer.
+    expect((module.readonly as any).contentWidth()).toBe(461)
+    expect((module.readonly as any).maxScrollLeft()).toBe(261)
+
+    dataLength$.set(20)
+    expect((module.readonly as any).contentWidth()).toBe(526)
+    expect((module.readonly as any).maxScrollLeft()).toBe(326)
+
+    module.actions.resize(300, 150, 2)
+    expect((module.readonly as any).contentWidth()).toBe(626)
+    expect((module.readonly as any).maxScrollLeft()).toBe(326)
+
+    options$.set({ bottomAxisHeight: 30, kWidth: 10, kGap: 2 })
+    expect((module.readonly as any).contentWidth()).toBe(877)
+    expect((module.readonly as any).maxScrollLeft()).toBe(577)
+
+    period$.set('timeshare')
+    expect((module.readonly as any).contentWidth()).toBe(300)
+    expect((module.readonly as any).maxScrollLeft()).toBe(0)
+  })
+
+  it('clamps programmatic and user DOM scroll inputs to the derived maximum', async () => {
+    const { createViewportState } = await import('../engine/state/viewportState')
+    const dataLength$ = createSignal(10)
+    let scrollLeft = 0
+    const container = {
+      get scrollLeft() {
+        return scrollLeft
+      },
+      set scrollLeft(value: number) {
+        scrollLeft = value
+      },
+    } as unknown as HTMLElement
+    const module = createViewportState({
+      options$: (() => ({ bottomAxisHeight: 30, kWidth: 6, kGap: 1 })) as any,
+      dataLength$,
+      zoomLevel$: (() => 1) as any,
+      period$: (() => 'daily') as any,
+    } as any)
+
+    module.setDomDeps({
+      getDom: () => ({ container, scrollContent: null, canvasLayer: null, xAxisCanvas: null }),
+      resizeSharedWebGLSurface: () => {},
+    })
+    module.actions.resize(100, 100, 1)
+    module.actions.init()
+    module.actions.scrollTo(10_000)
+    expect(module.readonly.scrollLeft()).toBe((module.readonly as any).maxScrollLeft())
+
+    scrollLeft = 10_000
+    module.actions.syncFromDomScroll()
+    expect(module.readonly.scrollLeft()).toBe((module.readonly as any).maxScrollLeft())
+
+    module.actions.scrollTo(Number.NaN)
+    expect(module.readonly.scrollLeft()).toBe(0)
+
+    module.actions.scrollTo(10_000)
+    dataLength$.set(1)
+    expect(module.readonly.scrollLeft()).toBe((module.readonly as any).maxScrollLeft())
+    expect(container.scrollLeft).toBe(module.readonly.scrollLeft())
+  })
+
+  it('writes derived content width before the derived scroll position', async () => {
+    const { createViewportState } = await import('../engine/state/viewportState')
+    const writes: string[] = []
+    let scrollLeft = 0
+    const scrollContent = {
+      style: {
+        set width(value: string) {
+          writes.push(`width:${value}`)
+        },
+      },
+    } as unknown as HTMLElement
+    const container = {
+      get scrollLeft() {
+        return scrollLeft
+      },
+      set scrollLeft(value: number) {
+        writes.push(`scroll:${value}`)
+        scrollLeft = value
+      },
+    } as unknown as HTMLElement
+    const module = createViewportState({
+      options$: (() => ({ bottomAxisHeight: 30, kWidth: 6, kGap: 1 })) as any,
+      dataLength$: (() => 10) as any,
+      zoomLevel$: (() => 1) as any,
+      period$: (() => 'daily') as any,
+    } as any)
+
+    module.setDomDeps({
+      getDom: () => ({ container, scrollContent, canvasLayer: null, xAxisCanvas: null }),
+      resizeSharedWebGLSurface: () => {},
+    })
+    module.actions.resize(100, 100, 1)
+    module.actions.init()
+
+    expect(writes).toEqual([`width:${(module.readonly as any).contentWidth()}px`, `scroll:${module.readonly.scrollLeft()}`])
   })
 
   it('resize batches dimension writes into one notification', async () => {
@@ -165,6 +279,7 @@ describe('viewportState template', () => {
     const module = createViewportState({
       options$: (() => ({ bottomAxisHeight: 30, kWidth: 6, kGap: 1 })) as any,
       dataLength$: (() => 100) as any,
+      period$: (() => 'daily') as any,
       zoomLevel$: (() => 1) as any,
     })
     const listener = vi.fn()

@@ -309,18 +309,6 @@ export class ChartRenderer {
       const levelToDraw = this.pendingUpdateLevel
       this.pendingUpdateLevel = UpdateLevel.All
 
-      const dom = this.deps.getDom()
-      const c = dom.container
-      if (c) {
-        const scrollContent = dom.scrollContent
-        if (scrollContent) {
-          const dataManager = this.deps.getDataManager()
-          const w =
-            Math.max(dataManager.getContentWidth(), dataManager.getLeftLoadBufferWidth()) + 'px'
-          if (scrollContent.style.width !== w) scrollContent.style.width = w
-        }
-      }
-
       const frame = this.prepareFrameData(levelToDraw)
       if (frame) {
         this.writeFramePositionsFromFrame(frame)

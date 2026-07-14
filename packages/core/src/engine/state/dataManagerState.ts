@@ -1,5 +1,14 @@
-import { createSubState, batch, type ReadonlySignal } from '../../foundation/reactivity/signal'
+import { createSubState } from '../../foundation/reactivity/signal'
 import type { SymbolSpec } from '../../controllers/types'
+
+export interface IncrementalLoadBatch {
+  readonly count: number
+  readonly leftBufferWidth: number
+}
+
+function emptyIncrementalLoadBatch(): IncrementalLoadBatch {
+  return { count: 0, leftBufferWidth: 0 }
+}
 
 export function createDataManagerState() {
   const { signals, readonly } = createSubState(
@@ -8,8 +17,7 @@ export function createDataManagerState() {
       savedScrollTimestamp: null as number | null,
       preCustomSpec: null as SymbolSpec | null,
       rangeInitialized: false,
-      pendingIncrementalLoadCount: 0,
-      pendingIncrementalLoadLeftBufferWidth: 0,
+      pendingIncrementalLoad: emptyIncrementalLoadBatch(),
     },
     {
       currentPeriod: (s) => s.currentSpec()?.period ?? 'daily',
@@ -37,25 +45,21 @@ export function createDataManagerState() {
       },
 
       recordIncrementalLoad(count: number, leftBufferWidth: number) {
-        batch(() => {
-          signals.pendingIncrementalLoadCount.set(
-            signals.pendingIncrementalLoadCount.peek() + count,
-          )
-          signals.pendingIncrementalLoadLeftBufferWidth.set(leftBufferWidth)
+        const pending = signals.pendingIncrementalLoad.peek()
+        signals.pendingIncrementalLoad.set({
+          count: pending.count + count,
+          leftBufferWidth,
         })
       },
 
-      flushIncrementalLoad(): { count: number; leftBufferWidth: number } {
-        const count = signals.pendingIncrementalLoadCount.peek()
-        const leftBufferWidth = signals.pendingIncrementalLoadLeftBufferWidth.peek()
-        signals.pendingIncrementalLoadCount.set(0)
-        signals.pendingIncrementalLoadLeftBufferWidth.set(0)
-        return { count, leftBufferWidth }
+      flushIncrementalLoad(): IncrementalLoadBatch {
+        const pending = signals.pendingIncrementalLoad.peek()
+        signals.pendingIncrementalLoad.set(emptyIncrementalLoadBatch())
+        return pending
       },
 
       resetIncrementalLoad() {
-        signals.pendingIncrementalLoadCount.set(0)
-        signals.pendingIncrementalLoadLeftBufferWidth.set(0)
+        signals.pendingIncrementalLoad.set(emptyIncrementalLoadBatch())
       },
 
       reset() {
@@ -63,18 +67,16 @@ export function createDataManagerState() {
         signals.savedScrollTimestamp.set(null)
         signals.preCustomSpec.set(null)
         signals.rangeInitialized.set(false)
-        signals.pendingIncrementalLoadCount.set(0)
-        signals.pendingIncrementalLoadLeftBufferWidth.set(0)
+        signals.pendingIncrementalLoad.set(emptyIncrementalLoadBatch())
       },
+    },
 
-      dispose() {
-        signals.currentSpec.set(null)
-        signals.savedScrollTimestamp.set(null)
-        signals.preCustomSpec.set(null)
-        signals.rangeInitialized.set(false)
-        signals.pendingIncrementalLoadCount.set(0)
-        signals.pendingIncrementalLoadLeftBufferWidth.set(0)
-      },
+    dispose() {
+      signals.currentSpec.set(null)
+      signals.savedScrollTimestamp.set(null)
+      signals.preCustomSpec.set(null)
+      signals.rangeInitialized.set(false)
+      signals.pendingIncrementalLoad.set(emptyIncrementalLoadBatch())
     },
   }
 }

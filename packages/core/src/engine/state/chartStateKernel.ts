@@ -108,10 +108,14 @@ export class ChartStateKernel extends StateKernel {
     this.data = createDataState()
     this.dataLength$ = computed(() => this.data.readonly.dataLength())
 
+    // ── Data manager state (coordination layer) ──
+    this.dataManager = createDataManagerState()
+
     // ── Viewport state (now owned by kernel) ──
     this.viewport = createViewportState({
       options$: this.optionsForViewport$,
       dataLength$: this.dataLength$,
+      period$: this.dataManager.readonly.currentPeriod,
       zoomLevel$: this.zoomLevel$,
     })
 
@@ -136,9 +140,6 @@ export class ChartStateKernel extends StateKernel {
       dpr$: this.viewport.readonly.dpr as unknown as ReadonlySignal<number>,
       scheduleDraw: deps.scheduleDraw,
     })
-
-    // ── Data manager state (coordination layer) ──
-    this.dataManager = createDataManagerState()
 
     // ── Flat signals bag for framework adapters ──
     this.signals = {

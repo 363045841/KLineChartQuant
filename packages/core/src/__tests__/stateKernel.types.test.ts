@@ -29,6 +29,7 @@ describe('StateKernel type constraints (compile-time)', () => {
     const m = createViewportState({
       options$: (() => ({ bottomAxisHeight: 30, kWidth: 6, kGap: 1 })) as any,
       dataLength$: (() => 100) as any,
+      period$: (() => 'daily') as any,
       zoomLevel$: (() => 1) as any,
     })
     // @ts-expect-error `.set` should not exist on the readonly view

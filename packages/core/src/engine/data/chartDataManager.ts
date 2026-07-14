@@ -66,6 +66,7 @@ export class ChartDataManager {
   private _dataState: DataStateModule
   private _dmState: DataManagerStateModule
   private _dataSyncEffect: (() => void) | null = null
+  private _loadingSyncEffect: (() => void) | null = null
   private _lastDataChange: DataChange | null = null
 
   private _batchScheduler = new FetchBatchScheduler()
@@ -102,14 +103,20 @@ export class ChartDataManager {
       this._lastDataChange = dataChange
 
       const prevDataLength = dataState.readonly.dataLength.peek()
-      const loading = buf.loading()
-
       batch(() => {
         dataState.actions.setData([...(dataChange.data as unknown[])])
-        dataState.actions.setLoading(loading)
         this.onBufferDataChanged(key, prevDataLength, dataChange.prependedCount)
       })
+    })
 
+    this._loadingSyncEffect = effect(() => {
+      const key = dataState.readonly.activeBufferKey()
+      if (!key) return
+      const buf = this._lookupBuffer(key)
+      if (!buf) return
+
+      const loading = buf.loading()
+      dataState.actions.setLoading(loading)
       if (!loading) {
         this.scheduleIncrementalLoadHintFlush(key)
       }
@@ -244,9 +251,6 @@ export class ChartDataManager {
     if (prependedCount > 0) {
       this.recordIncrementalLoad(prependedCount)
       this.checkVisibleRangeGap()
-      if (!buf.loading.peek()) {
-        this.scheduleIncrementalLoadHintFlush(key)
-      }
     }
   }
 
@@ -255,7 +259,10 @@ export class ChartDataManager {
   }
 
   private scheduleIncrementalLoadHintFlush(key: string): void {
-    if (this._dmState.readonly.pendingIncrementalLoadCount.peek() <= 0 || this._pendingIncrementalLoadFlushTimer !== 0) {
+    if (
+      this._dmState.readonly.pendingIncrementalLoad.peek().count <= 0 ||
+      this._pendingIncrementalLoadFlushTimer !== 0
+    ) {
       return
     }
 
@@ -916,6 +923,7 @@ export class ChartDataManager {
 
   destroy(): void {
     this._dataSyncEffect?.()
+    this._loadingSyncEffect?.()
     this.disposeAllBuffers()
     this._loadHint.destroy()
   }

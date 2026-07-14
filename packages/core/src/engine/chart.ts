@@ -244,10 +244,6 @@ export class Chart {
       this.kernel,
     )
 
-    this.viewportManager.setContentWidthProvider(() =>
-      Math.max(this.dataManager?.getContentWidth() ?? 0, this.dataManager?.getLeftLoadBufferWidth() ?? 0),
-    )
-
     // ── InteractionController ──
     this.interaction = new InteractionController(this, this.kernel.interaction)
 
