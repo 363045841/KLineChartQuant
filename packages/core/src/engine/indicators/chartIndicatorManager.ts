@@ -289,7 +289,8 @@ export class ChartIndicatorManager {
   }
 
   getMainIndicatorParams(indicatorId: string): Record<string, number | boolean | string> | null {
-    return this.deps.mainIndicators$.peek().get(indicatorId.toUpperCase())?.params ?? null
+    const params = this.deps.mainIndicators$.peek().get(indicatorId.toUpperCase())?.params
+    return params ? { ...params } : null
   }
 
   clearMainIndicators(): void {

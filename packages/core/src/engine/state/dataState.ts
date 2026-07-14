@@ -43,6 +43,19 @@ export function createDataState(_deps: DataDeps = {}) {
         signals.activeBufferKey.set(key)
       },
 
+      /** key/data/loading 同批发布，避免缓冲切换中间态 */
+      applyActiveBufferSnapshot(snapshot: {
+        key: string | null
+        data: ReadonlyArray<unknown>
+        loading: boolean
+      }) {
+        batch(() => {
+          signals.activeBufferKey.set(snapshot.key)
+          signals.data.set(snapshot.data)
+          signals.loading.set(snapshot.loading)
+        })
+      },
+
       reset() {
         batch(() => {
           signals.data.set([])

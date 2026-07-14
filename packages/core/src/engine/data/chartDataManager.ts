@@ -116,7 +116,6 @@ export class ChartDataManager {
   private activateBuffer(key: string): void {
     if (this._activeKey === key) return
     this.resetIncrementalLoadHintBatch()
-    this._dataState.actions.setActiveBufferKey(key)
     this.bindActiveBuffer(key)
   }
 
@@ -124,7 +123,14 @@ export class ChartDataManager {
   private bindActiveBuffer(key: string): void {
     this.unbindActiveBuffer()
     const buf = this._lookupBuffer(key)
-    if (!buf) return
+    if (!buf) {
+      this._dataState.actions.applyActiveBufferSnapshot({
+        key,
+        data: [],
+        loading: false,
+      })
+      return
+    }
 
     this._dataUnsub = buf.data.subscribe(() => {
       this.handleBufferDataEvent(key)
@@ -133,9 +139,18 @@ export class ChartDataManager {
       this.handleBufferLoadingEvent(key)
     })
 
-    // 初始同步：subscribe 不回放当前值，需显式 Action
-    this.handleBufferDataEvent(key)
-    this.handleBufferLoadingEvent(key)
+    // 初始同步：key/data/loading 同批；subscribe 不回放当前值
+    const { dataChanged, prependedCount, prevDataLength } = this.publishBufferSnapshot(
+      key,
+      buf,
+      true,
+    )
+    if (dataChanged) {
+      this.onBufferDataChanged(key, prevDataLength, prependedCount)
+    }
+    if (!buf.loading.peek()) {
+      this.scheduleIncrementalLoadHintFlush(key)
+    }
   }
 
   private unbindActiveBuffer(): void {
@@ -146,26 +161,47 @@ export class ChartDataManager {
     this._lastDataChange = null
   }
 
+  private publishBufferSnapshot(
+    key: string,
+    buf: KLineBuffer | TimeShareBuffer,
+    forceData: boolean,
+  ): { dataChanged: boolean; prependedCount: number; prevDataLength: number } {
+    const dataChange = buf.data.peek()
+    const dataChanged = forceData || dataChange !== this._lastDataChange
+    const prevDataLength = this._dataState.readonly.dataLength.peek()
+    const prependedCount = dataChanged ? dataChange.prependedCount : 0
+    if (dataChanged) this._lastDataChange = dataChange
+
+    this._dataState.actions.applyActiveBufferSnapshot({
+      key,
+      data: dataChanged
+        ? [...(dataChange.data as unknown[])]
+        : this._dataState.readonly.data.peek(),
+      loading: buf.loading.peek(),
+    })
+
+    return { dataChanged, prependedCount, prevDataLength }
+  }
+
   private handleBufferDataEvent(key: string): void {
     if (this._dataState.readonly.activeBufferKey.peek() !== key) return
     const buf = this._lookupBuffer(key)
     if (!buf) return
-    const dataChange = buf.data.peek()
-    if (dataChange === this._lastDataChange) return
-    this._lastDataChange = dataChange
-
-    const prevDataLength = this._dataState.readonly.dataLength.peek()
-    this._dataState.actions.setData([...(dataChange.data as unknown[])])
-    this.onBufferDataChanged(key, prevDataLength, dataChange.prependedCount)
+    const { dataChanged, prependedCount, prevDataLength } = this.publishBufferSnapshot(
+      key,
+      buf,
+      false,
+    )
+    if (!dataChanged) return
+    this.onBufferDataChanged(key, prevDataLength, prependedCount)
   }
 
   private handleBufferLoadingEvent(key: string): void {
     if (this._dataState.readonly.activeBufferKey.peek() !== key) return
     const buf = this._lookupBuffer(key)
     if (!buf) return
-    const loading = buf.loading.peek()
-    this._dataState.actions.setLoading(loading)
-    if (!loading) this.scheduleIncrementalLoadHintFlush(key)
+    this.publishBufferSnapshot(key, buf, false)
+    if (!buf.loading.peek()) this.scheduleIncrementalLoadHintFlush(key)
   }
 
   private disposeBuffer(key: string): void {
@@ -725,7 +761,11 @@ export class ChartDataManager {
     if (specs.length === 0) {
       this._dmState.actions.setCurrentSpec(null)
       this.disposeAllBuffers()
-      this._dataState.actions.setData([])
+      this._dataState.actions.applyActiveBufferSnapshot({
+        key: null,
+        data: [],
+        loading: false,
+      })
       this._dmState.actions.setRangeInitialized(false)
       return
     }

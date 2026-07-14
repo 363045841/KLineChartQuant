@@ -1,8 +1,9 @@
-import { createSubState } from '../../foundation/reactivity/signal'
+import { batch, createSubState } from '../../foundation/reactivity/signal'
+import { immutableMap } from './immutable'
 
 export function createComparisonState() {
   const { signals, readonly } = createSubState({
-    colors: new Map<string, string>() as ReadonlyMap<string, string>,
+    colors: immutableMap(new Map<string, string>()),
     loading: false,
   })
 
@@ -10,15 +11,17 @@ export function createComparisonState() {
     readonly,
     actions: {
       setColors(colors: ReadonlyMap<string, string>) {
-        signals.colors.set(colors)
+        signals.colors.set(immutableMap(colors))
       },
       setLoading(loading: boolean) {
         signals.loading.set(loading)
       },
     },
     dispose() {
-      signals.colors.set(new Map())
-      signals.loading.set(false)
+      batch(() => {
+        signals.colors.set(immutableMap(new Map()))
+        signals.loading.set(false)
+      })
     },
   }
 }

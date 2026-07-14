@@ -141,8 +141,16 @@ export class ChartStateKernel extends StateKernel {
       zoomLevel$: this.zoomLevel$,
     })
 
-    // ── Pane state ──
+    // ── Pane state（从 initialOptions.panes 初始化，避免 layout 与 kernel 初始不一致）──
     this.pane = createPaneState()
+    {
+      const initialPanes = (deps.initialOptions.panes ?? []).map((spec) => ({ ...spec }))
+      const initialRatios: Record<string, number> = {}
+      for (const spec of initialPanes) {
+        initialRatios[spec.id] = spec.ratio ?? 1
+      }
+      this.pane.actions.commitLayout(initialRatios, initialPanes)
+    }
 
     // ── Theme state ──
     this.theme = createThemeState()
@@ -211,6 +219,8 @@ export class ChartStateKernel extends StateKernel {
       setPaneRatios: (ratios: Record<string, number>) =>
         this.pane.actions.setPaneRatios(ratios),
       setPaneSpecs: (specs: PaneSpec[]) => this.pane.actions.setPaneSpecs(specs),
+      commitPaneLayout: (ratios: Record<string, number>, specs: PaneSpec[]) =>
+        this.pane.actions.commitLayout(ratios, specs),
       setTheme: (theme: 'light' | 'dark') => this.theme.actions.setTheme(theme),
       setDrawingTool: (tool: DrawingToolType | null) =>
         this.drawing.actions.setDrawingTool(tool),

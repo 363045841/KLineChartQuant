@@ -1,19 +1,35 @@
 import { createSubState, batch } from '../../foundation/reactivity/signal'
+import { freezeRecord, immutableMap } from './immutable'
 
 export type MainIndicatorEntry = {
-  params: Record<string, number | boolean | string>
+  readonly params: Readonly<Record<string, number | boolean | string>>
+}
+
+function snapshotEntry(params: Record<string, number | boolean | string>): MainIndicatorEntry {
+  return Object.freeze({
+    params: freezeRecord(params),
+  })
+}
+
+function snapshotMap(
+  entries: ReadonlyMap<string, MainIndicatorEntry | { params: Record<string, number | boolean | string> }>,
+): ReadonlyMap<string, MainIndicatorEntry> {
+  const next = new Map<string, MainIndicatorEntry>()
+  for (const [id, entry] of entries) {
+    next.set(id, snapshotEntry({ ...entry.params }))
+  }
+  return immutableMap(next)
 }
 
 export function createIndicatorState() {
   const { signals, readonly } = createSubState({
-    mainIndicators: new Map<string, MainIndicatorEntry>() as ReadonlyMap<
-      string,
-      MainIndicatorEntry
-    >,
+    mainIndicators: immutableMap(new Map<string, MainIndicatorEntry>()),
   })
 
-  const write = (next: Map<string, MainIndicatorEntry>) => {
-    signals.mainIndicators.set(next)
+  const write = (
+    next: ReadonlyMap<string, MainIndicatorEntry | { params: Record<string, number | boolean | string> }>,
+  ) => {
+    signals.mainIndicators.set(snapshotMap(next))
   }
 
   return {
@@ -46,8 +62,8 @@ export function createIndicatorState() {
         next.set(key, { params: { ...existing.params, ...params } })
         write(next)
       },
-      replaceAll(entries: ReadonlyMap<string, MainIndicatorEntry>) {
-        write(new Map(entries))
+      replaceAll(entries: ReadonlyMap<string, MainIndicatorEntry | { params: Record<string, number | boolean | string> }>) {
+        write(entries)
       },
       clear() {
         write(new Map())
@@ -55,7 +71,7 @@ export function createIndicatorState() {
     },
     dispose() {
       batch(() => {
-        signals.mainIndicators.set(new Map())
+        signals.mainIndicators.set(immutableMap(new Map()))
       })
     },
   }

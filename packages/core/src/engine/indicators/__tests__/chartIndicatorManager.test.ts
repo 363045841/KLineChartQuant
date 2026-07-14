@@ -128,5 +128,12 @@ describe('ChartIndicatorManager', () => {
       expect(deps.scheduleDraw).not.toHaveBeenCalled()
       expect(manager.getMainIndicatorParams('MA')).toBeNull()
     })
+
+    it('getMainIndicatorParams returns a copy', () => {
+      manager.enableMainIndicator('MA')
+      const params = manager.getMainIndicatorParams('MA')!
+      params.ma5 = false
+      expect(manager.getMainIndicatorParams('MA')?.ma5).toBe(true)
+    })
   })
 })

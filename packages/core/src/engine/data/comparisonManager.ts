@@ -43,7 +43,7 @@ export class ComparisonManager {
   }
 
   getColors(): Map<string, string> {
-    return this._colors
+    return new Map(this._colors)
   }
 
   syncBuffers(specs: ReadonlyArray<SymbolSpec>, mainEarliest?: number): void {
@@ -85,7 +85,7 @@ export class ComparisonManager {
       }
     }
     this._colors.clear()
-    this._hooks.setColors(new Map())
+    this._hooks.setColors(new Map(this._colors))
     this._hooks.setLoading(false)
     this._specs = []
   }

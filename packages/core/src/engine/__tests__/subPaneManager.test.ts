@@ -150,6 +150,13 @@ describe('SubPaneManager', () => {
       expect(entry?.params).toEqual(newParams)
     })
 
+    it('getByPaneId returns snapshot; mutating it does not alter store', () => {
+      manager.create(ctx, 'RSI_0', 'RSI' as SubIndicatorType, { period1: 6 })
+      const snap = manager.getByPaneId('RSI_0')!
+      snap.params.period1 = 99
+      expect(manager.getByPaneId('RSI_0')?.params).toEqual({ period1: 6 })
+    })
+
     it('should fire entries signal on update', () => {
       manager.create(ctx, 'RSI_0', 'RSI' as SubIndicatorType, {
         period1: 6,

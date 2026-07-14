@@ -260,8 +260,7 @@ export class Chart {
       scheduleDraw: (level) => this.scheduleDraw(level),
       getPaneRatios: () => this.kernel.pane.readonly.paneRatios.peek(),
       commitLayout: (ratios, specs) => {
-        this.kernel.pane.actions.setPaneRatios(ratios)
-        this.kernel.pane.actions.setPaneSpecs(specs)
+        this.kernel.pane.actions.commitLayout(ratios, specs)
       },
     })
 
@@ -1120,7 +1119,7 @@ export class Chart {
     return this.kernel.pane.readonly.paneRatios
   }
 
-  get paneLayout(): ReadonlySignal<PaneSpec[]> {
+  get paneLayout(): ReadonlySignal<ReadonlyArray<PaneSpec>> {
     return this.kernel.pane.readonly.paneSpecs
   }
 

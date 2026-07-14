@@ -48,11 +48,14 @@ export class ChartPaneLayout {
   }
 
   getPaneSpecs(): PaneSpec[] {
-    return this._paneSpecs
+    return this._paneSpecs.map((spec) => ({
+      ...spec,
+      ...(spec.capabilities ? { capabilities: { ...spec.capabilities } } : {}),
+    }))
   }
 
   getInternalPaneRatios(): Map<string, number> {
-    return this._internalPaneRatios
+    return new Map(this._internalPaneRatios)
   }
 
   private syncRatiosFromKernel(): void {
@@ -380,19 +383,24 @@ export class ChartPaneLayout {
     this.deps.commitLayout(ratios, this.getPaneLayoutSpecs())
   }
 
-  applyPaneLayoutSpecs(panes: PaneSpec[]): void {
-    this.syncRatiosFromKernel()
+  applyPaneLayoutSpecs(panes: PaneSpec[], options?: { preferIncomingRatios?: boolean }): void {
+    if (options?.preferIncomingRatios) {
+      // 显式替换布局：忽略 kernel 中旧 ratio，完全采用入参
+      this._internalPaneRatios = new Map()
+    } else {
+      this.syncRatiosFromKernel()
+    }
     this._paneSpecs = panes.map((spec) => ({ ...spec }))
     this.syncPaneRatiosFromSpecs(this._paneSpecs)
+    // 先提交到 kernel，避免 layoutPanes 开头 sync 读到旧 ratio
+    this.commitLayout()
     this.initPanes()
     this.layoutPanes()
     this.deps.scheduleDraw()
   }
 
   updatePaneLayout(panes: PaneSpec[]): void {
-    this.syncRatiosFromKernel()
-    this._internalPaneRatios.clear()
-    this.applyPaneLayoutSpecs(panes)
+    this.applyPaneLayoutSpecs(panes, { preferIncomingRatios: true })
   }
 
   setPaneDefinitions(defs: PaneSpec[]): void {

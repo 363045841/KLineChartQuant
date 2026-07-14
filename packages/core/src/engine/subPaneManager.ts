@@ -62,6 +62,13 @@ export class SubPaneManager {
     return this._entriesSignal
   }
 
+  private cloneEntry(entry: SubPaneEntry): SubPaneEntry {
+    return {
+      ...entry,
+      params: { ...entry.params },
+    }
+  }
+
   private syncEntriesSignal(): void {
     this._entriesSignal.set(this.getAll())
   }
@@ -105,7 +112,7 @@ export class SubPaneManager {
     this.entries.set(paneId, {
       paneId,
       indicatorId,
-      params,
+      params: { ...params },
       rendererName,
       scaleRendererName,
       paneTitleRendererName,
@@ -181,7 +188,7 @@ export class SubPaneManager {
     this.entries.set(paneId, {
       paneId,
       indicatorId: newIndicatorId,
-      params: newParams,
+      params: { ...newParams },
       rendererName: newRendererName,
       scaleRendererName: newScaleRendererName,
       paneTitleRendererName: newPaneTitleRendererName,
@@ -198,20 +205,25 @@ export class SubPaneManager {
     const entry = this.entries.get(paneId)
     if (!entry) return
 
-    entry.params = { ...params }
+    const nextParams = { ...params }
+    this.entries.set(paneId, {
+      ...entry,
+      params: nextParams,
+    })
 
-    ctx.updateRendererConfig(entry.rendererName, params)
+    ctx.updateRendererConfig(entry.rendererName, nextParams)
     ctx.updateRendererConfig(entry.paneTitleRendererName, {
-      params: entry.params,
+      params: nextParams,
       indicatorId: entry.indicatorId,
     })
 
-    this.syncSchedulerConfig(ctx, paneId, entry.indicatorId, entry.params)
+    this.syncSchedulerConfig(ctx, paneId, entry.indicatorId, nextParams)
     this.syncEntriesSignal()
   }
 
   getByPaneId(paneId: string): SubPaneEntry | undefined {
-    return this.entries.get(paneId)
+    const entry = this.entries.get(paneId)
+    return entry ? this.cloneEntry(entry) : undefined
   }
 
   private createIndicatorRenderer(
@@ -231,7 +243,7 @@ export class SubPaneManager {
   }
 
   getAll(): SubPaneEntry[] {
-    return [...this.entries.values()]
+    return [...this.entries.values()].map((entry) => this.cloneEntry(entry))
   }
 
   getPaneIds(): string[] {
