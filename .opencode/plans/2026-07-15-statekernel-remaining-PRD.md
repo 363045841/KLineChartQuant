@@ -24,15 +24,22 @@ StateKernel 已完成 12 个子状态模块的迁移（zoom、data、viewport、
 
 ### Phase 2 — MarkerManager（P1）
 
-**现状：**
+## Phase 2 status (2026-07-15)
+- [x] customMarkers → markerState
+- [x] MarkerManager 无 customMarkers Map
+- [x] 帧 runtime（positions / ephemeral markers / hover）留 Manager
+- [x] extrema / volumePrice 不进实体 SSOT（settings + 按帧计算）
+
+**现状（迁移前）：**
 - 自定义标记（`CustomMarkerEntity[]`）存于 `MarkerManager` 内部 `Map`
 - 触点标记（`VolumePriceMarker[]`）也是 plain field
 - 增删改查走命令式 API，无 signal 通知
 
 **目标：**
-- `markerState.ts` 新增子状态模块，管理 `customMarkers`, `extremaMarkers`, `volumePriceMarkers`
+- `markerState.ts` 新增子状态模块，管理 `customMarkers`
 - `MarkerManager` 变为 kernel 的投影器（类似 indicator/subPane 模式）
-- 渲染器通过 `markerState.readonly.customMarkers$` 获取标记数据
+- 渲染器通过 `markerManager.getCustomMarkers()` 读 kernel signal
+- extrema / volumePrice 保持 settings + 按帧计算，不进实体 SSOT
 
 ### Phase 3 — DrawingStore & PaneLayout（P2）
 

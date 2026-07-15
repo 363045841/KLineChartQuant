@@ -19,6 +19,7 @@ import { createOptionsState, type OptionsStateModule } from './optionsState'
 import { createComparisonState, type ComparisonStateModule } from './comparisonState'
 import { createIndicatorState, type IndicatorStateModule } from './indicatorState'
 import { createSubPaneState, type SubPaneStateModule } from './subPaneState'
+import { createMarkerState, type MarkerStateModule } from './markerState'
 import { batch, computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
 import type { DrawingObject } from '../../foundation/plugin/index'
 import type { PaneSpec, DrawingToolType } from '../chartTypes'
@@ -60,6 +61,7 @@ export class ChartStateKernel extends StateKernel {
   readonly comparison: ComparisonStateModule
   readonly indicator: IndicatorStateModule
   readonly subPane: SubPaneStateModule
+  readonly marker: MarkerStateModule
 
   readonly zoomLevel$: ReadonlySignal<number>
   readonly dataLength$: ReadonlySignal<number>
@@ -106,6 +108,9 @@ export class ChartStateKernel extends StateKernel {
 
     // ── Sub-pane business state ──
     this.subPane = createSubPaneState()
+
+    // ── Marker business state ──
+    this.marker = createMarkerState()
 
     // ── Viewport state (now owned by kernel) ──
     this.viewport = createViewportState({
@@ -179,6 +184,8 @@ export class ChartStateKernel extends StateKernel {
       // Indicator
       mainIndicators: this.indicator.readonly.mainIndicators,
       subPanes: this.subPane.readonly.entries,
+      // Marker
+      customMarkers: this.marker.readonly.customMarkers,
     }
 
     // ── Flat actions bag for framework adapters ──
@@ -333,6 +340,8 @@ export class ChartStateKernel extends StateKernel {
           )
         })
       },
+      // customMarkers 变更须走 Chart.update/clear/registerCustomMarkers：
+      // 同步 clearPositionCache + scheduleDraw。勿在此暴露仅写 state 的 flat actions。
     }
   }
 
@@ -357,6 +366,7 @@ export class ChartStateKernel extends StateKernel {
     this.comparison.dispose()
     this.indicator.dispose()
     this.subPane.dispose()
+    this.marker.dispose()
   }
 }
 

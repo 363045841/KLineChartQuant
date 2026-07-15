@@ -274,6 +274,43 @@ describe('Chart DPR pipeline', () => {
 
     await chart.destroy()
   })
+
+  it('routes custom markers through kernel and clears position cache', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const manager = chart.getMarkerManager()
+    const scheduleDrawSpy = vi.spyOn(chart, 'scheduleDraw')
+    const clearCacheSpy = vi.spyOn(manager, 'clearPositionCache')
+
+    const marker = {
+      id: 'm1',
+      date: '2025-01-15',
+      timestamp: 1,
+      shape: 'circle' as const,
+    }
+
+    chart.updateCustomMarkers([marker])
+    expect(manager.getCustomMarkers().map((m) => m.id)).toEqual(['m1'])
+    expect(clearCacheSpy).toHaveBeenCalled()
+    expect(scheduleDrawSpy).toHaveBeenCalled()
+
+    manager.setCustomMarkerPosition('m1', 10, 20, 12, 'circle')
+    expect(manager.hitTestCustomMarker(10, 20)?.id).toBe('m1')
+
+    clearCacheSpy.mockClear()
+    scheduleDrawSpy.mockClear()
+    chart.clearCustomMarkers()
+    expect(manager.getCustomMarkers()).toEqual([])
+    expect(clearCacheSpy).toHaveBeenCalledTimes(1)
+    expect(scheduleDrawSpy).toHaveBeenCalled()
+    expect(manager.hitTestCustomMarker(10, 20)).toBeNull()
+
+    clearCacheSpy.mockClear()
+    chart.registerCustomMarker({ ...marker, id: 'm2', shape: 'flag' })
+    expect(manager.getCustomMarkers().map((m) => m.id)).toEqual(['m2'])
+    expect(clearCacheSpy).toHaveBeenCalledTimes(1)
+
+    await chart.destroy()
+  })
 })
 
 describe('Chart pane layout regressions', () => {

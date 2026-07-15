@@ -437,6 +437,7 @@ export class Chart {
       getDataManager: () => this.dataManager,
       getIndicatorManager: () => this.indicatorManager,
       getActiveMode: () => this._activeMode,
+      customMarkers$: this.kernel.marker.readonly.customMarkers,
     })
     this.renderer.registerDrawingPlugins()
     this.renderer.initCoreRenderers()
@@ -675,15 +676,24 @@ export class Chart {
     return this.renderer.getMarkerManager()
   }
 
-  /** 更新自定义标记 */
+  /** 更新自定义标记（写 kernel + 清帧缓存 + 重绘） */
   updateCustomMarkers(markers: CustomMarkerEntity[]): void {
-    this.renderer.getMarkerManager().setCustomMarkers(markers)
+    this.kernel.marker.actions.setCustomMarkers(markers)
+    this.renderer.getMarkerManager().clearPositionCache()
+    this.scheduleDraw()
+  }
+
+  /** 注册或覆盖单个自定义标记 */
+  registerCustomMarker(marker: CustomMarkerEntity): void {
+    this.kernel.marker.actions.registerCustomMarker(marker)
+    this.renderer.getMarkerManager().clearPositionCache()
     this.scheduleDraw()
   }
 
   /** 清除自定义标记 */
   clearCustomMarkers(): void {
-    this.renderer.getMarkerManager().clearCustomMarkers()
+    this.kernel.marker.actions.clearCustomMarkers()
+    this.renderer.getMarkerManager().clearPositionCache()
     this.scheduleDraw()
   }
 

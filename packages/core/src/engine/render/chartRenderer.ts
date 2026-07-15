@@ -31,7 +31,11 @@ import { createDrawingRendererPlugin, createDrawingLabelOverlayPlugin } from '..
 import { ChartIndicatorManager } from '../indicators/chartIndicatorManager'
 import { UpdateLevel } from '../layout/pane'
 import type { VisibleRange } from '../layout/pane'
-import { MarkerManager, type CustomMarkerEntity } from '../marker/registry'
+import {
+  MarkerManager,
+  type CustomMarkerEntity,
+  type MarkerManagerDeps,
+} from '../marker/registry'
 import type { ChartModeHandler } from '../modes/types'
 import { PaneRenderer } from '../paneRenderer'
 import { createTimeAxisRendererPlugin } from '../renderers/timeAxis'
@@ -89,6 +93,7 @@ export interface RendererDependencies {
   getDataManager: () => ChartDataManager
   getIndicatorManager: () => ChartIndicatorManager
   getActiveMode: () => ChartModeHandler
+  customMarkers$: MarkerManagerDeps['customMarkers$']
 }
 
 export class ChartRenderer {
@@ -123,7 +128,7 @@ export class ChartRenderer {
 
   constructor(deps: RendererDependencies) {
     this.deps = deps
-    this.markerManager = new MarkerManager()
+    this.markerManager = new MarkerManager({ customMarkers$: deps.customMarkers$ })
     this.drawingStore = new DrawingStore()
     this.scene = createScene()
     const sharedSurface = deps.getSharedWebGLSurface()
