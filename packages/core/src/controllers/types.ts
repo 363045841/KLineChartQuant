@@ -202,6 +202,10 @@ export interface DrawingChartAdapter {
   getFullDrawings(): any[]
   /** highlight a drawing by ID */
   setSelectedDrawingId(id: string | null): void
+  /** write drawing tool id via Chart (kernel SSOT + session side effects) */
+  setDrawingToolId(toolId: import('../engine/drawing/toolConfig').DrawingToolId): void
+  /** read current drawing tool id from kernel */
+  getDrawingToolId(): import('../engine/drawing/toolConfig').DrawingToolId
   /** current viewport (nullable if chart not ready) */
   getViewport(): DrawingChartViewport | null
   /** resolved chart options (kWidth, kGap) */
@@ -285,7 +289,8 @@ export interface ChartController extends DrawingChartAdapter {
   readonly theme: ReadonlySignal<'light' | 'dark'>
   readonly indicators: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
   readonly subPanes: ReadonlySignal<ReadonlyArray<SubPaneInfo>>
-  readonly drawingTool: ReadonlySignal<DrawingToolType | null>
+  /** 当前绘图工具（DrawingToolId，默认 cursor） */
+  readonly drawingTool: ReadonlySignal<import('../engine/drawing/toolConfig').DrawingToolId>
   readonly drawings: ReadonlySignal<ReadonlyArray<DrawingObject>>
   /** 当前选中绘图 id（kernel.drawing SSOT） */
   readonly selectedDrawingId: ReadonlySignal<string | null>
@@ -356,7 +361,20 @@ export interface ChartController extends DrawingChartAdapter {
   updateRendererConfig(name: string, config: Record<string, unknown>): void
 
   // ---- Drawing ----
-  setDrawingTool(tool: DrawingToolType | null): void
+  /**
+   * 设置绘图工具。接受 DrawingToolId 或 legacy DrawingToolType；
+   * null 视为 cursor。
+   */
+  setDrawingTool(
+    tool:
+      | import('../engine/drawing/toolConfig').DrawingToolId
+      | DrawingToolType
+      | null,
+  ): void
+  setDrawingToolId(toolId: import('../engine/drawing/toolConfig').DrawingToolId): void
+  getDrawingToolId(): import('../engine/drawing/toolConfig').DrawingToolId
+  /** 注册绘图交互会话到 Chart，使工具切换能清会话副作用 */
+  registerDrawingSession(session: unknown | null): void
   clearDrawings(): void
   removeDrawing(drawingId: string): void
 

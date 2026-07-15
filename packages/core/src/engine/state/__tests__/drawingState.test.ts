@@ -17,6 +17,17 @@ function mk(id: string, overrides: Partial<DrawingObject> = {}): DrawingObject {
 }
 
 describe('drawingState', () => {
+  it('defaults drawingTool to cursor', () => {
+    const state = createDrawingState()
+    expect(state.readonly.drawingTool.peek()).toBe('cursor')
+  })
+
+  it('setDrawingTool accepts DrawingToolId', () => {
+    const state = createDrawingState()
+    state.actions.setDrawingTool('trend-line')
+    expect(state.readonly.drawingTool.peek()).toBe('trend-line')
+  })
+
   it('freezes drawings snapshot so external mutation cannot corrupt SSOT', () => {
     const state = createDrawingState()
     const list = [

@@ -27,7 +27,8 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
   let unsubSelected: (() => void) | null = null
 
   function handleSelectTool(toolId: string) {
-    drawingController.value?.setTool(toolId as DrawingToolId)
+    // Chart 单写路径：kernel + session side effects
+    ctrl.value?.setDrawingToolId(toolId as DrawingToolId)
   }
 
   function onUpdateDrawingStyle(style: Partial<DrawingStyle>) {
@@ -46,6 +47,7 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
 
   function setupDrawing(chartCtrl: ChartController): void {
     drawingController.value = new DrawingInteractionController(chartCtrl)
+    chartCtrl.registerDrawingSession(drawingController.value)
     drawingController.value.setCallbacks({
       onDrawingCreated: (drawing) => {
         drawings.value = [...drawings.value, drawing]

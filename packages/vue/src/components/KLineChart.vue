@@ -990,7 +990,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
   function handleSelectTool(toolId: string) {
     activeToolId.value = toolId
     if (toolId === 'range-select') {
-      drawingController.value?.setTool('cursor')
+      controller.value?.setDrawingToolId('cursor')
       selectedDrawingId.value = null
       return
     }

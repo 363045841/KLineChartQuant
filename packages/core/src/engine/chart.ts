@@ -55,8 +55,9 @@ import type {
   ViewportState,
   IndicatorInstance,
   SubPaneInfo,
-  DrawingToolType,
 } from './chartTypes'
+import type { DrawingToolId } from './drawing/toolConfig'
+import type { DrawingInteractionController } from './drawing/interaction'
 import type { SymbolSpec, SymbolInfo, CustomDataSource } from '../controllers/types'
 import type { AlertController, MarketSnapshot } from '../features/alerts/types'
 
@@ -68,7 +69,6 @@ export type {
   ChartDom,
   ChartOptions,
   DrawingObject,
-  DrawingToolType,
   IndicatorInstance,
   IndicatorRole,
   KLinePositions,
@@ -114,6 +114,9 @@ export class Chart {
   private renderer: ChartRenderer
   private runtimeProjectionDepth = 0
   private runtimeProjectionDrawPending = false
+
+  /** 绘图交互会话（锚点/预览/拖拽）；工具 id 在 kernel */
+  private drawingSession: DrawingInteractionController | null = null
 
   /** 当前活跃的模式处理器 */
   private _activeMode: ChartModeHandler
@@ -1189,9 +1192,17 @@ export class Chart {
     return this.indicatorManager.subPanesComputed
   }
 
-  /** 当前绘图工具信号 */
-  get drawingTool(): ReadonlySignal<DrawingToolType | null> {
+  /** 当前绘图工具信号（DrawingToolId，默认 cursor） */
+  get drawingTool(): ReadonlySignal<DrawingToolId> {
     return this.kernel.drawing.readonly.drawingTool
+  }
+
+  /** 注册/注销绘图交互会话，使 setDrawingTool 能清会话副作用 */
+  registerDrawingSession(session: DrawingInteractionController | null): void {
+    this.drawingSession = session
+    if (session) {
+      session.applyToolSession(this.kernel.drawing.readonly.drawingTool.peek())
+    }
   }
 
   /** 绘图对象列表信号 */
@@ -1476,12 +1487,14 @@ export class Chart {
   // ---------- Drawings ----------
 
   /**
-   * 设置当前绘图工具（高层 API）
-   * @param tool 工具类型或 null 取消选择
+   * 设置当前绘图工具（高层 API）—— 业务态只写 kernel，再清会话副作用
+   * @param tool DrawingToolId；传 null 时视为 cursor（兼容旧 API）
    */
-  setDrawingTool(tool: DrawingToolType | null): void {
-    this.kernel.drawing.actions.setDrawingTool(tool)
-    // TODO: 当 Chart 支持绘图工具切换时，在这里调用相应方法
+  setDrawingTool(tool: DrawingToolId | null): void {
+    const toolId: DrawingToolId = tool ?? 'cursor'
+    this.kernel.drawing.actions.setDrawingTool(toolId)
+    this.drawingSession?.applyToolSession(toolId)
+    this.scheduleDraw()
   }
 
   /**

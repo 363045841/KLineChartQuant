@@ -1,6 +1,6 @@
 import { batch, createSubState } from '../../foundation/reactivity/signal'
 import type { DrawingObject } from '../../foundation/plugin/index'
-import type { DrawingToolType } from '../chartTypes'
+import type { DrawingToolId } from '../drawing/toolConfig'
 import { deepFreezeSnapshot } from './immutable'
 
 function snapshotDrawings(drawings: ReadonlyArray<DrawingObject>): ReadonlyArray<DrawingObject> {
@@ -9,7 +9,7 @@ function snapshotDrawings(drawings: ReadonlyArray<DrawingObject>): ReadonlyArray
 
 export function createDrawingState() {
   const { signals, readonly } = createSubState({
-    drawingTool: null as DrawingToolType | null,
+    drawingTool: 'cursor' as DrawingToolId,
     drawings: Object.freeze([]) as ReadonlyArray<DrawingObject>,
     selectedDrawingId: null as string | null,
   })
@@ -18,7 +18,8 @@ export function createDrawingState() {
     readonly,
 
     actions: {
-      setDrawingTool(tool: DrawingToolType | null) {
+      setDrawingTool(tool: DrawingToolId) {
+        if (signals.drawingTool.peek() === tool) return
         signals.drawingTool.set(tool)
       },
 
@@ -52,7 +53,7 @@ export function createDrawingState() {
 
     dispose() {
       batch(() => {
-        signals.drawingTool.set(null)
+        signals.drawingTool.set('cursor')
         signals.drawings.set(Object.freeze([]))
         signals.selectedDrawingId.set(null)
       })

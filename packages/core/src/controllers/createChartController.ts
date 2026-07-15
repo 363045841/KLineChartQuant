@@ -374,7 +374,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   // Signals from ChartStateKernel — no wrapper needed
   const themeSignal: ReadonlySignal<'light' | 'dark'> = chart.kernel.theme.readonly.theme
-  const drawingTool: ReadonlySignal<DrawingToolType | null> = chart.kernel.drawing.readonly.drawingTool
+  const drawingTool = chart.kernel.drawing.readonly.drawingTool
   // drawings need type mapping (plugin DrawingObject → controller DrawingObject)
   const drawings = computed(() => chart.kernel.drawing.readonly.drawings().map(mapDrawingObject))
   const selectedDrawingId: ReadonlySignal<string | null> =
@@ -629,9 +629,65 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     return match?.label
   }
 
-  function setDrawingTool(tool: DrawingToolType | null): void {
+  function mapLegacyToolToId(
+    tool: DrawingToolType | import('../engine/drawing/toolConfig').DrawingToolId | null,
+  ): import('../engine/drawing/toolConfig').DrawingToolId {
+    if (tool === null) return 'cursor'
+    // already a DrawingToolId
+    if (
+      tool === 'cursor' ||
+      tool === 'trend-line' ||
+      tool === 'ray' ||
+      tool === 'h-line' ||
+      tool === 'h-ray' ||
+      tool === 'v-line' ||
+      tool === 'crosshair-line' ||
+      tool === 'info-line' ||
+      tool === 'parallel-channel' ||
+      tool === 'regression-channel' ||
+      tool === 'flat-line' ||
+      tool === 'disjoint-channel'
+    ) {
+      return tool
+    }
+    // legacy DrawingToolType
+    switch (tool as DrawingToolType) {
+      case 'trendline':
+        return 'trend-line'
+      case 'horizontal':
+        return 'h-line'
+      case 'fib':
+      case 'rectangle':
+      case 'arrow':
+      default:
+        return 'cursor'
+    }
+  }
+
+  function setDrawingTool(
+    tool: DrawingToolType | import('../engine/drawing/toolConfig').DrawingToolId | null,
+  ): void {
     if (disposed) return
-    chart.setDrawingTool(tool)
+    chart.setDrawingTool(mapLegacyToolToId(tool))
+  }
+
+  function setDrawingToolId(
+    toolId: import('../engine/drawing/toolConfig').DrawingToolId,
+  ): void {
+    if (disposed) return
+    chart.setDrawingTool(toolId)
+  }
+
+  function getDrawingToolId(): import('../engine/drawing/toolConfig').DrawingToolId {
+    if (disposed) return 'cursor'
+    return chart.kernel.drawing.readonly.drawingTool.peek()
+  }
+
+  function registerDrawingSession(session: unknown | null): void {
+    if (disposed) return
+    chart.registerDrawingSession(
+      session as import('../engine/drawing/interaction').DrawingInteractionController | null,
+    )
   }
 
   function clearDrawings(): void {
@@ -882,6 +938,9 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     getLeftLoadBufferWidth,
     scrollToRight,
     setDrawingTool,
+    setDrawingToolId,
+    getDrawingToolId,
+    registerDrawingSession,
     clearDrawings,
     removeDrawing,
     setDrawings,

@@ -473,6 +473,16 @@ describe('Chart pane layout regressions', () => {
     await chart.destroy()
   })
 
+  it('setDrawingTool writes DrawingToolId to kernel', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    expect(chart.kernel.drawing.readonly.drawingTool.peek()).toBe('cursor')
+    chart.setDrawingTool('trend-line')
+    expect(chart.kernel.drawing.readonly.drawingTool.peek()).toBe('trend-line')
+    chart.setDrawingTool(null)
+    expect(chart.kernel.drawing.readonly.drawingTool.peek()).toBe('cursor')
+    await chart.destroy()
+  })
+
   it('updateSettings writes kernel settings SSOT for renderer reads', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     chart.updateSettings({ showGridLines: false, rightAxisType: 'log' })

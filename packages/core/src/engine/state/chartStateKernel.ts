@@ -23,7 +23,8 @@ import { createSubPaneState, type SubPaneStateModule } from './subPaneState'
 import { createMarkerState, type MarkerStateModule } from './markerState'
 import { batch, computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
 import type { DrawingObject } from '../../foundation/plugin/index'
-import type { PaneSpec, DrawingToolType } from '../chartTypes'
+import type { PaneSpec } from '../chartTypes'
+import type { DrawingToolId } from '../drawing/toolConfig'
 import type { SymbolSpec, SymbolInfo } from '../../controllers/types'
 import type { MarkerEntity, CustomMarkerEntity } from '../marker/registry'
 import type { DragMode } from './interactionState'
@@ -219,7 +220,7 @@ export class ChartStateKernel extends StateKernel {
       commitPaneLayout: (ratios: Record<string, number>, specs: PaneSpec[]) =>
         this.pane.actions.commitLayout(ratios, specs),
       setTheme: (theme: 'light' | 'dark') => this.theme.actions.setTheme(theme),
-      setDrawingTool: (tool: DrawingToolType | null) => this.drawing.actions.setDrawingTool(tool),
+      setDrawingTool: (tool: DrawingToolId) => this.drawing.actions.setDrawingTool(tool),
       setDrawings: (drawings: ReadonlyArray<DrawingObject>) =>
         this.drawing.actions.setDrawings(drawings),
       clearDrawings: () => this.drawing.actions.clearDrawings(),
