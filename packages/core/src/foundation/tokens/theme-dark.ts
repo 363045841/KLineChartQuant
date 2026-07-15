@@ -117,7 +117,8 @@ export const darkTheme: Theme = {
       transparent: 'transparent',
       active: '#1890ff',
       activeHover: '#40a9ff',
-      hover: '#262C36',
+      // 相对 background #111827 提高悬停对比，列表项 hover 更易辨认
+      hover: '#2D3544',
     },
     border: {
       dark: 'rgba(255, 255, 255, 0.15)',

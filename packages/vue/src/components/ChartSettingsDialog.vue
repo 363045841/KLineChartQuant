@@ -104,6 +104,25 @@
           </div>
         </template>
       </template>
+
+      <div class="settings-section-divider">
+        <span class="settings-section-label">开源致谢</span>
+      </div>
+      <template v-for="section in openSourceCredits" :key="section.id">
+        <div class="settings-subsection-label">{{ section.title }}</div>
+        <a
+          v-for="credit in section.items"
+          :key="credit.name"
+          class="settings-item credit-item"
+          :href="credit.url"
+          target="_blank"
+          rel="noopener noreferrer"
+          :title="credit.url"
+        >
+          <span class="credit-name">{{ credit.name }}</span>
+          <span class="credit-meta">{{ credit.version }} · {{ credit.license }}</span>
+        </a>
+      </template>
     </div>
 
     <template #footer>
@@ -167,6 +186,8 @@
   } from '@363045841yyt/klinechart-core/config'
   import { ref, computed, watch } from 'vue'
 
+  import { getOpenSourceCredits } from '../credits/openSourceCredits'
+
   import BaseModal from './BaseModal.vue'
   import ColorPresetPanel from './ColorPresetPanel.vue'
   import Dropdown from './Dropdown.vue'
@@ -190,6 +211,7 @@
   const styleSettings = computed(
     () => DEFAULT_SETTINGS.filter((s) => s.group === 'style') as unknown as SettingItem[],
   )
+  const openSourceCredits = getOpenSourceCredits()
 
   const showColorPresetModal = ref(false)
   const colorPresetPanelRef = ref<InstanceType<typeof ColorPresetPanel> | null>(null)
@@ -291,6 +313,14 @@
     letter-spacing: 0.3px;
   }
 
+  .settings-subsection-label {
+    font-size: 11px;
+    color: var(--klc-color-axis-text);
+    font-weight: 500;
+    padding: 8px 12px 2px;
+    opacity: 0.85;
+  }
+
   /* 扁平化列表项 */
   .settings-item {
     display: flex;
@@ -307,7 +337,39 @@
   }
 
   .settings-item:hover {
-    background: var(--klc-color-grid-minor);
+    background: var(--klc-color-tag-bg-hover);
+  }
+
+  a.settings-item.credit-item {
+    cursor: pointer;
+    min-height: 32px;
+    padding: 6px 12px;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  a.settings-item.credit-item:hover {
+    background: var(--klc-color-tag-bg-hover);
+  }
+
+  a.settings-item.credit-item:hover .credit-name {
+    color: #3b82f6;
+  }
+
+  .credit-name {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: color 0.15s ease;
+  }
+
+  .credit-meta {
+    flex: 0 0 auto;
+    font-size: 11px;
+    color: var(--klc-color-axis-text);
+    white-space: nowrap;
   }
 
   .settings-item > span {

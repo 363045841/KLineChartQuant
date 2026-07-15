@@ -123,6 +123,7 @@ describe('ChartDataManager incremental load', () => {
     expect(hint).not.toBeNull()
     expect(hint!.style.opacity).toBe('1')
     expect(hint!.style.left).toBe('800px')
+    expect(hint!.style.background).toContain('--klc-color-selection-fill')
     expect(fetchCount).toBe(2)
   })
 })

@@ -123,7 +123,8 @@ export const lightTheme: Theme = {
       transparent: 'transparent',
       active: '#1890ff',
       activeHover: '#40a9ff',
-      hover: '#f0f0f0',
+      // 相对 background #FAFAFA 提高悬停对比，避免与底色糊成一片
+      hover: '#E5E7EB',
     },
     border: {
       dark: 'rgba(0, 0, 0, 0.12)',
