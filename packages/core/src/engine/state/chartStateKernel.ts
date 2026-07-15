@@ -8,6 +8,7 @@ import {
 } from './viewportState'
 import { createPaneState, type PaneStateModule } from './paneState'
 import { createThemeState, type ThemeStateModule } from './themeState'
+import { createSettingsState, type SettingsStateModule } from './settingsState'
 import { createDrawingState, type DrawingStateModule } from './drawingState'
 import {
   createInteractionState,
@@ -55,6 +56,7 @@ export class ChartStateKernel extends StateKernel {
   readonly viewport: ViewportStateModule
   readonly pane: PaneStateModule
   readonly theme: ThemeStateModule
+  readonly settings: SettingsStateModule
   readonly drawing: DrawingStateModule
   readonly interaction: InteractionStateModule
   readonly dataManager: DataManagerStateModule
@@ -134,6 +136,9 @@ export class ChartStateKernel extends StateKernel {
     // ── Theme state ──
     this.theme = createThemeState()
 
+    // ── Settings state（用户偏好 SSOT；rightAxisType 副作用走 Chart.updateSettings）──
+    this.settings = createSettingsState()
+
     // ── Drawing state ──
     this.drawing = createDrawingState()
 
@@ -172,6 +177,8 @@ export class ChartStateKernel extends StateKernel {
       paneSpecs: this.pane.readonly.paneSpecs,
       // Theme
       theme: this.theme.readonly.theme,
+      // Settings
+      settings: this.settings.readonly.settings,
       // Drawing
       drawingTool: this.drawing.readonly.drawingTool,
       drawings: this.drawing.readonly.drawings,
@@ -361,6 +368,7 @@ export class ChartStateKernel extends StateKernel {
     this.viewport.dispose()
     this.pane.dispose()
     this.theme.dispose()
+    this.settings.dispose()
     this.drawing.dispose()
     this.interaction.dispose()
     this.dataManager.dispose()

@@ -79,11 +79,14 @@ export class InteractionController {
   private lastClientPos: { x: number; y: number } | null = null
   private markerState = new MarkerInteractionState()
   private lastHoverRenderKey = ''
-  private settings: ChartSettings = {}
   private useTooltipAnchorPositioning = false
   private tooltipPositionMode: TooltipPositionMode = 'crosshair'
   private tooltipAdaptiveLock: 'top-left' | 'top-right' | null = null
   tooltipSize: { width: number; height: number } = { width: 220, height: 180 }
+
+  private get settings(): ChartSettings {
+    return this.chart.kernel.settings.readonly.settings.peek()
+  }
 
   /** 触屏长按判定时间 (ms) */
   private static readonly LONG_PRESS_MS = 400
@@ -127,14 +130,15 @@ export class InteractionController {
     })
   }
 
-  /** 更新用户设置 */
-  updateSettings(settings: ChartSettings): void {
-    const prev = this.settings.disableMainPaneVerticalScroll
-    this.settings = { ...settings }
-    const nextMode = (settings.tooltipPosition as TooltipPositionMode) ?? 'crosshair'
+  /**
+   * 同步 settings 变更带来的交互侧效应（tooltip 模式 / 主图纵轴复位）。
+   * 业务 settings 本体在 kernel.settings；此处不再持有 plain 副本。
+   */
+  onSettingsChanged(prev: ChartSettings, next: ChartSettings): void {
+    const nextMode = (next.tooltipPosition as TooltipPositionMode) ?? 'crosshair'
     if (nextMode !== 'adaptive') this.tooltipAdaptiveLock = null
     this.tooltipPositionMode = nextMode
-    if (!prev && this.settings.disableMainPaneVerticalScroll) {
+    if (!prev.disableMainPaneVerticalScroll && next.disableMainPaneVerticalScroll) {
       this.chart.resetPriceTransform('main')
     }
   }

@@ -437,6 +437,7 @@ export class Chart {
       getDataManager: () => this.dataManager,
       getIndicatorManager: () => this.indicatorManager,
       getActiveMode: () => this._activeMode,
+      settings$: this.kernel.settings.readonly.settings,
       customMarkers$: this.kernel.marker.readonly.customMarkers,
       drawings$: this.kernel.drawing.readonly.drawings,
       selectedDrawingId$: this.kernel.drawing.readonly.selectedDrawingId,
@@ -605,12 +606,14 @@ export class Chart {
     return this.rendererPluginManager.getAllPlugins()
   }
 
-  /** 更新用户设置（触发重绘） */
+  /** 更新用户设置（触发重绘）—— 业务态只写 kernel.settings */
   updateSettings(settings: ChartSettings): void {
-    this.renderer.updateSettings(settings)
-    this.interaction.updateSettings(settings)
+    const prev = this.kernel.settings.readonly.settings.peek()
+    this.kernel.settings.actions.replace(settings)
+    const next = this.kernel.settings.readonly.settings.peek()
+    this.interaction.onSettingsChanged(prev, next)
 
-    // 同步右轴刻度类型设置到所有 pane（百分比仅用于主图）
+    // 同步右轴刻度类型设置到所有 pane（百分比仅用于主图）；B2 将收口为 paneScaleTypes
     if ('rightAxisType' in settings) {
       const axisType = settings.rightAxisType as string
       if (axisType !== 'none') {

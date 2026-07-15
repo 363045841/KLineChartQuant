@@ -473,6 +473,16 @@ describe('Chart pane layout regressions', () => {
     await chart.destroy()
   })
 
+  it('updateSettings writes kernel settings SSOT for renderer reads', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    chart.updateSettings({ showGridLines: false, rightAxisType: 'log' })
+    expect(chart.kernel.settings.readonly.settings.peek().showGridLines).toBe(false)
+    expect(chart.kernel.settings.readonly.settings.peek().rightAxisType).toBe('log')
+    expect(chart['renderer'].getSettings().showGridLines).toBe(false)
+    expect(chart['renderer'].getSettings().rightAxisType).toBe('log')
+    await chart.destroy()
+  })
+
   it('normalizes only visible panes in updatePaneLayout', async () => {
     const chart = new Chart(createDom(1000, 800), defaultOptions)
     chart.updatePaneLayout([

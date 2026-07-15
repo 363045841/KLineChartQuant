@@ -24,6 +24,7 @@ export { createZoomState, type ZoomStateModule, type ZoomDeps } from './zoomStat
 export { createOptionsState, type OptionsStateModule } from './optionsState'
 export { createPaneState, type PaneStateModule } from './paneState'
 export { createThemeState, type ThemeStateModule } from './themeState'
+export { createSettingsState, type SettingsStateModule } from './settingsState'
 export { createDrawingState, type DrawingStateModule } from './drawingState'
 export { createDataManagerState, type DataManagerStateModule } from './dataManagerState'
 export { createIndicatorState, type IndicatorStateModule } from './indicatorState'

@@ -56,7 +56,7 @@ import { createLastPriceLineLayer } from './layers/lastPriceLineLayer'
 import { createLeftYAxisLayer } from './layers/leftYAxisLayer'
 import { createMainIndicatorLegendLayer } from './layers/mainIndicatorLegendLayer'
 import { createYAxisLayer } from './layers/yAxisLayer'
-import { batch } from '../../foundation/reactivity/signal'
+import { batch, type ReadonlySignal } from '../../foundation/reactivity/signal'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kWidth: number
@@ -93,6 +93,7 @@ export interface RendererDependencies {
   getDataManager: () => ChartDataManager
   getIndicatorManager: () => ChartIndicatorManager
   getActiveMode: () => ChartModeHandler
+  settings$: ReadonlySignal<ChartSettings>
   customMarkers$: MarkerManagerDeps['customMarkers$']
   drawings$: DrawingStoreDeps['drawings$']
   selectedDrawingId$: DrawingStoreDeps['selectedDrawingId$']
@@ -106,7 +107,6 @@ export class ChartRenderer {
 
   readonly markerManager: MarkerManager
   readonly drawingStore: DrawingStore
-  private settings: ChartSettings = {}
   private overlayHadCrosshair = false
   private xAxisCtx: CanvasRenderingContext2D | null = null
 
@@ -290,11 +290,11 @@ export class ChartRenderer {
   }
 
   getSettings(): ChartSettings {
-    return this.settings
+    return this.deps.settings$.peek()
   }
 
-  updateSettings(settings: ChartSettings): void {
-    this.settings = { ...settings }
+  private get settings(): ChartSettings {
+    return this.deps.settings$.peek()
   }
 
   scheduleDraw(level: UpdateLevel = UpdateLevel.All): void {
