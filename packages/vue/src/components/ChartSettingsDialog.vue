@@ -15,114 +15,198 @@
     </template>
 
     <div class="settings-body">
-      <template v-if="mainSettings.length > 0">
-        <div class="settings-section-divider">
+      <section v-if="mainSettings.length > 0" class="settings-section">
+        <button
+          type="button"
+          class="settings-section-header"
+          :aria-expanded="expandedSections.main"
+          @click="toggleSection('main')"
+        >
           <span class="settings-section-label">主图设置</span>
+          <svg
+            class="section-chevron"
+            :class="{ expanded: expandedSections.main }"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            width="14"
+            height="14"
+            aria-hidden="true"
+          >
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </button>
+        <div v-show="expandedSections.main" class="settings-section-body">
+          <template v-for="item in mainSettings" :key="item.key">
+            <div class="settings-item">
+              <span>{{ item.label }}</span>
+              <template v-if="item.type === 'boolean'">
+                <label class="md-switch">
+                  <input v-model="settings[item.key]" type="checkbox" />
+                  <span class="md-switch-slider"></span>
+                </label>
+              </template>
+              <template v-else-if="item.type === 'select' && item.options">
+                <Dropdown
+                  :model-value="String(settings[item.key])"
+                  :options="item.options"
+                  size="sm"
+                  min-width="100px"
+                  @update:model-value="settings[item.key] = $event"
+                />
+              </template>
+            </div>
+          </template>
         </div>
-        <template v-for="item in mainSettings" :key="item.key">
-          <div class="settings-item">
-            <span>{{ item.label }}</span>
-            <template v-if="item.type === 'boolean'">
-              <label class="md-switch">
-                <input v-model="settings[item.key]" type="checkbox" />
-                <span class="md-switch-slider"></span>
-              </label>
-            </template>
-            <template v-else-if="item.type === 'select' && item.options">
-              <Dropdown
-                :model-value="String(settings[item.key])"
-                :options="item.options"
-                size="sm"
-                min-width="100px"
-                @update:model-value="settings[item.key] = $event"
-              />
-            </template>
-          </div>
-        </template>
-      </template>
+      </section>
 
-      <div class="settings-section-divider">
-        <span class="settings-section-label">样式 / 颜色</span>
-      </div>
-      <template v-for="item in styleSettings" :key="item.key">
-        <div class="settings-item">
-          <span>{{ item.label }}</span>
-          <template v-if="item.type === 'boolean'">
-            <label class="md-switch">
-              <input v-model="settings[item.key]" type="checkbox" />
-              <span class="md-switch-slider"></span>
-            </label>
-          </template>
-          <template v-else-if="item.type === 'select' && item.options">
-            <Dropdown
-              :model-value="String(settings[item.key])"
-              :options="item.options"
-              size="sm"
-              min-width="100px"
-              @update:model-value="settings[item.key] = $event"
-            />
-          </template>
-        </div>
-      </template>
-      <div class="settings-item nav-item" @click="showColorPresetModal = true">
-        <span>颜色配置</span>
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          width="16"
-          height="16"
-          class="nav-arrow"
+      <section class="settings-section">
+        <button
+          type="button"
+          class="settings-section-header"
+          :aria-expanded="expandedSections.style"
+          @click="toggleSection('style')"
         >
-          <path d="M9 18l6-6-6-6" />
-        </svg>
-      </div>
+          <span class="settings-section-label">样式 / 颜色</span>
+          <svg
+            class="section-chevron"
+            :class="{ expanded: expandedSections.style }"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            width="14"
+            height="14"
+            aria-hidden="true"
+          >
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </button>
+        <div v-show="expandedSections.style" class="settings-section-body">
+          <template v-for="item in styleSettings" :key="item.key">
+            <div class="settings-item">
+              <span>{{ item.label }}</span>
+              <template v-if="item.type === 'boolean'">
+                <label class="md-switch">
+                  <input v-model="settings[item.key]" type="checkbox" />
+                  <span class="md-switch-slider"></span>
+                </label>
+              </template>
+              <template v-else-if="item.type === 'select' && item.options">
+                <Dropdown
+                  :model-value="String(settings[item.key])"
+                  :options="item.options"
+                  size="sm"
+                  min-width="100px"
+                  @update:model-value="settings[item.key] = $event"
+                />
+              </template>
+            </div>
+          </template>
+          <div class="settings-item nav-item" @click="showColorPresetModal = true">
+            <span>颜色配置</span>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              width="16"
+              height="16"
+              class="nav-arrow"
+            >
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </div>
+        </div>
+      </section>
 
-      <template v-if="experimentalSettings.length > 0">
-        <div class="settings-section-divider">
+      <section v-if="experimentalSettings.length > 0" class="settings-section">
+        <button
+          type="button"
+          class="settings-section-header"
+          :aria-expanded="expandedSections.experimental"
+          @click="toggleSection('experimental')"
+        >
           <span class="settings-section-label">实验性 / 调试设置</span>
+          <svg
+            class="section-chevron"
+            :class="{ expanded: expandedSections.experimental }"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            width="14"
+            height="14"
+            aria-hidden="true"
+          >
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </button>
+        <div v-show="expandedSections.experimental" class="settings-section-body">
+          <template v-for="item in experimentalSettings" :key="item.key">
+            <div class="settings-item experimental">
+              <span>{{ item.label }}</span>
+              <template v-if="item.type === 'boolean'">
+                <label class="md-switch">
+                  <input v-model="settings[item.key]" type="checkbox" />
+                  <span class="md-switch-slider"></span>
+                </label>
+              </template>
+              <template v-else-if="item.type === 'select' && item.options">
+                <Dropdown
+                  :model-value="String(settings[item.key])"
+                  :options="item.options"
+                  size="sm"
+                  min-width="100px"
+                  @update:model-value="settings[item.key] = $event"
+                />
+              </template>
+            </div>
+          </template>
         </div>
-        <template v-for="item in experimentalSettings" :key="item.key">
-          <div class="settings-item experimental">
-            <span>{{ item.label }}</span>
-            <template v-if="item.type === 'boolean'">
-              <label class="md-switch">
-                <input v-model="settings[item.key]" type="checkbox" />
-                <span class="md-switch-slider"></span>
-              </label>
-            </template>
-            <template v-else-if="item.type === 'select' && item.options">
-              <Dropdown
-                :model-value="String(settings[item.key])"
-                :options="item.options"
-                size="sm"
-                min-width="100px"
-                @update:model-value="settings[item.key] = $event"
-              />
-            </template>
-          </div>
-        </template>
-      </template>
+      </section>
 
-      <div class="settings-section-divider">
-        <span class="settings-section-label">开源致谢</span>
-      </div>
-      <template v-for="section in openSourceCredits" :key="section.id">
-        <div class="settings-subsection-label">{{ section.title }}</div>
-        <a
-          v-for="credit in section.items"
-          :key="credit.name"
-          class="settings-item credit-item"
-          :href="credit.url"
-          target="_blank"
-          rel="noopener noreferrer"
-          :title="credit.url"
+      <section class="settings-section">
+        <button
+          type="button"
+          class="settings-section-header"
+          :aria-expanded="expandedSections.opensource"
+          @click="toggleSection('opensource')"
         >
-          <span class="credit-name">{{ credit.name }}</span>
-          <span class="credit-meta">{{ credit.version }} · {{ credit.license }}</span>
-        </a>
-      </template>
+          <span class="settings-section-label">开源致谢</span>
+          <svg
+            class="section-chevron"
+            :class="{ expanded: expandedSections.opensource }"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            width="14"
+            height="14"
+            aria-hidden="true"
+          >
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </button>
+        <div v-show="expandedSections.opensource" class="settings-section-body">
+          <template v-for="section in openSourceCredits" :key="section.id">
+            <div class="settings-subsection-label">{{ section.title }}</div>
+            <a
+              v-for="credit in section.items"
+              :key="credit.name"
+              class="settings-item credit-item"
+              :href="credit.url"
+              target="_blank"
+              rel="noopener noreferrer"
+              :title="credit.url"
+            >
+              <span class="credit-name">{{ credit.name }}</span>
+              <span class="credit-meta">{{ credit.version }} · {{ credit.license }}</span>
+            </a>
+          </template>
+        </div>
+      </section>
     </div>
 
     <template #footer>
@@ -213,6 +297,27 @@
   )
   const openSourceCredits = getOpenSourceCredits()
 
+  type SettingsSectionId = 'main' | 'style' | 'experimental' | 'opensource'
+
+  /** 主图+样式默认展开；实验+开源默认折叠。不持久化，每次打开弹窗重置 */
+  function createDefaultExpandedSections(): Record<SettingsSectionId, boolean> {
+    return {
+      main: true,
+      style: true,
+      experimental: false,
+      opensource: false,
+    }
+  }
+
+  const expandedSections = ref(createDefaultExpandedSections())
+
+  function toggleSection(id: SettingsSectionId) {
+    expandedSections.value = {
+      ...expandedSections.value,
+      [id]: !expandedSections.value[id],
+    }
+  }
+
   const showColorPresetModal = ref(false)
   const colorPresetPanelRef = ref<InstanceType<typeof ColorPresetPanel> | null>(null)
 
@@ -244,6 +349,7 @@
     (val) => {
       if (val) {
         settings.value = props.initialSettings ? { ...props.initialSettings } : loadSettings()
+        expandedSections.value = createDefaultExpandedSections()
       }
     },
   )
@@ -293,15 +399,34 @@
     flex-direction: column;
   }
 
-  /* 优化区块小标题 */
-  .settings-section-divider {
+  .settings-section {
     display: flex;
-    align-items: center;
-    margin: 18px 0 6px;
+    flex-direction: column;
   }
 
-  .settings-section-divider:first-child {
-    margin-top: 0;
+  .settings-section + .settings-section {
+    margin-top: 4px;
+  }
+
+  .settings-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    min-height: 36px;
+    margin: 0;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s ease;
+  }
+
+  .settings-section-header:hover {
+    background: var(--klc-color-tag-bg-hover);
   }
 
   .settings-section-label {
@@ -311,6 +436,26 @@
     white-space: nowrap;
     line-height: 1;
     letter-spacing: 0.3px;
+  }
+
+  .section-chevron {
+    flex-shrink: 0;
+    color: var(--klc-color-axis-text);
+    transform: rotate(0deg);
+    transition: transform 0.15s ease, color 0.15s ease;
+  }
+
+  .section-chevron.expanded {
+    transform: rotate(90deg);
+  }
+
+  .settings-section-header:hover .section-chevron {
+    color: var(--klc-color-foreground);
+  }
+
+  .settings-section-body {
+    display: flex;
+    flex-direction: column;
   }
 
   .settings-subsection-label {
