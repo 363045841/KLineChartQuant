@@ -13,6 +13,7 @@ import { resolveStateKey } from '../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../indicators/scheduler'
 
 import { createVolumeScaleRendererPlugin } from './Indicator/scale/volume_scale'
+import { tryDrawRectsGpu } from './rectsViaRenderer'
 
 interface VolumeRendererOptions {
   /** 目标 pane ID（默认 'sub'） */
@@ -164,19 +165,16 @@ function createVolumeRendererPlugin(options: VolumeRendererOptions = {}): Render
         buf[off + 3] = finalH
       }
 
-      const usedWebGL = drawVolumeWithWebGL(
+      const usedGpu = tryDrawRectsGpu(
         context,
-        upBuf,
-        upCount,
-        downBuf,
-        downCount,
-        neutralBuf,
-        neutralCount,
-        upVolume,
-        downVolume,
-        neutralVolume,
+        [
+          { buf: upBuf, count: upCount, color: upVolume },
+          { buf: downBuf, count: downCount, color: downVolume },
+          { buf: neutralBuf, count: neutralCount, color: neutralVolume },
+        ],
+        context.scrollLeft,
       )
-      if (!usedWebGL) {
+      if (!usedGpu) {
         drawVolumeWithCanvas2D(
           ctx,
           context.scrollLeft,
@@ -190,52 +188,9 @@ function createVolumeRendererPlugin(options: VolumeRendererOptions = {}): Render
           downVolume,
           neutralVolume,
         )
-      } else {
-        compositeVolumeWebGL(ctx, context)
       }
     },
   }
-}
-
-function drawVolumeWithWebGL(
-  context: RenderContext,
-  upBuf: Float32Array,
-  upCount: number,
-  downBuf: Float32Array,
-  downCount: number,
-  neutralBuf: Float32Array,
-  neutralCount: number,
-  upColor: string,
-  downColor: string,
-  neutralColor: string,
-): boolean {
-  if (context.settings?.enableWebGLRendering === false) return false
-  const surface = context.candleWebGLSurface
-  if (!surface || !surface.isAvailable()) return false
-
-  surface.clear()
-
-  const ok1 =
-    upCount === 0 ||
-    surface.drawRectBuffer(upBuf.subarray(0, upCount * 4), upCount, upColor, context.scrollLeft)
-  const ok2 =
-    downCount === 0 ||
-    surface.drawRectBuffer(
-      downBuf.subarray(0, downCount * 4),
-      downCount,
-      downColor,
-      context.scrollLeft,
-    )
-  const ok3 =
-    neutralCount === 0 ||
-    surface.drawRectBuffer(
-      neutralBuf.subarray(0, neutralCount * 4),
-      neutralCount,
-      neutralColor,
-      context.scrollLeft,
-    )
-
-  return ok1 && ok2 && ok3
 }
 
 function drawVolumeWithCanvas2D(
@@ -273,13 +228,6 @@ function drawVolumeWithCanvas2D(
   }
 
   ctx.restore()
-}
-
-function compositeVolumeWebGL(ctx: CanvasRenderingContext2D, context: RenderContext): void {
-  const surface = context.candleWebGLSurface
-  if (!surface) return
-
-  surface.compositeTo(ctx)
 }
 
 /**
