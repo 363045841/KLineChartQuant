@@ -4,6 +4,7 @@ import { PaneRenderer } from '../paneRenderer'
 import type { SharedWebGLSurface } from '../renderers/webgl/sharedWebGLSurface'
 
 import { Pane, UpdateLevel } from './pane'
+import { normalizeVisiblePaneRatios as pureNormalizeVisiblePaneRatios } from './paneRatioMath'
 
 export interface PaneLayoutDependencies {
   getDom: () => ChartDom
@@ -24,6 +25,16 @@ export interface PaneLayoutDependencies {
   commitLayout: (ratios: Record<string, number>, specs: PaneSpec[]) => void
 }
 
+/**
+ * Pane DOM / PaneRenderer 投影器 + 布局算法。
+ *
+ * SSOT: kernel.pane（paneRatios / paneSpecs）。
+ * 本地 _internalPaneRatios / _paneSpecs 仅是算法工作副本：
+ * - 入站: projectState(kernel snapshot) 或 applyPaneLayoutSpecs
+ * - 出站: 每次突变结束必须 commitLayout() → kernel
+ * projectState 必须 layoutPanes({ commit: false })，禁止回写抖动。
+ * 禁止在未 commit 的中间态对外暴露为业务真相。
+ */
 export class ChartPaneLayout {
   private deps: PaneLayoutDependencies
   private paneRenderers: PaneRenderer[] = []
@@ -55,6 +66,7 @@ export class ChartPaneLayout {
   }
 
   getInternalPaneRatios(): Map<string, number> {
+    this.syncRatiosFromKernel()
     return new Map(this._internalPaneRatios)
   }
 
@@ -207,29 +219,12 @@ export class ChartPaneLayout {
   }
 
   private normalizeVisiblePaneRatios(specs: PaneSpec[]): void {
-    const visible = specs.filter((p) => p.visible !== false)
-    if (visible.length === 0) return
-
-    let sum = 0
-    for (const spec of visible) {
-      const raw = this._internalPaneRatios.get(spec.id) ?? spec.ratio ?? 0
-      const safe = Number.isFinite(raw) && raw > 0 ? raw : 0
-      this._internalPaneRatios.set(spec.id, safe)
-      sum += safe
-    }
-
-    if (sum <= 0) {
-      const equal = 1 / visible.length
-      for (const spec of visible) {
-        this._internalPaneRatios.set(spec.id, equal)
-      }
-      return
-    }
-
-    for (const spec of visible) {
-      const v = this._internalPaneRatios.get(spec.id) ?? 0
-      this._internalPaneRatios.set(spec.id, v / sum)
-    }
+    const asRecord: Record<string, number> = {}
+    this._internalPaneRatios.forEach((ratio, id) => {
+      asRecord[id] = ratio
+    })
+    const normalized = pureNormalizeVisiblePaneRatios(specs, asRecord)
+    this._internalPaneRatios = new Map(Object.entries(normalized))
   }
 
   private getPaneMinHeight(spec: PaneSpec, plotHeight: number): number {

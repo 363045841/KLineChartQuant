@@ -43,6 +43,15 @@ StateKernel 已完成 12 个子状态模块的迁移（zoom、data、viewport、
 
 ### Phase 3 — DrawingStore & PaneLayout（P2）
 
+## Phase 3 status (2026-07-15)
+- [x] DrawingStore 无业务 drawings 数组；读 kernel
+- [x] selectedDrawingId 进 drawingState
+- [x] Chart setDrawings/setSelected 只写 kernel
+- [x] pane ratio pure helpers（normalize）
+- [x] ChartPaneLayout 工作副本契约文档化 + 公共读 sync
+- [ ] (optional follow-up) DrawingState class 去本地数组
+- [ ] (optional) resizePaneBoundary 全量 pure 化
+
 - 审计 `DrawingStore` 与 `drawingState` 是否有重复持有
 - `ChartPaneLayout` 的计算逻辑是否适合拆为 computed
 
