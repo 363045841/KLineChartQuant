@@ -4,7 +4,9 @@ import type { DrawingObject, DrawingStyle } from '../../foundation/plugin/index'
 const PREVIEW_ID = '__preview__'
 
 /**
- * Drawing 数据管理层 —— 图元 CRUD、选中状态、预览管理。
+ * 交互会话层 CRUD。本地 drawings 数组是工作副本；
+ * 持久业务 SSOT 是 kernel.drawing，经 DrawingChartAdapter.setDrawings 同步。
+ * 禁止直接写 DrawingStore。
  *
  * 所有变更操作会自动同步到 DrawingChartAdapter（触发渲染）。
  * 不处理事件、不处理命中检测、不处理拖拽逻辑，只维护数据一致性。

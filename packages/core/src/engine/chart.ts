@@ -438,6 +438,8 @@ export class Chart {
       getIndicatorManager: () => this.indicatorManager,
       getActiveMode: () => this._activeMode,
       customMarkers$: this.kernel.marker.readonly.customMarkers,
+      drawings$: this.kernel.drawing.readonly.drawings,
+      selectedDrawingId$: this.kernel.drawing.readonly.selectedDrawingId,
     })
     this.renderer.registerDrawingPlugins()
     this.renderer.initCoreRenderers()
@@ -759,19 +761,22 @@ export class Chart {
     this.indicatorManager.bindIndicatorToPane(paneId, indicatorId, params)
   }
 
-  /** 更新绘图对象 */
+  /** 更新绘图对象（写 kernel + 重绘） */
   setDrawings(drawings: import('../foundation/plugin').DrawingObject[]): void {
-    this.renderer.getDrawingStore().setAll(drawings)
-    this.kernel.drawing.actions.setDrawings(drawings as any)
+    this.kernel.drawing.actions.setDrawings(drawings)
     this.scheduleDraw()
   }
 
   /** 更新选中的绘图 ID */
   setSelectedDrawingId(id: string | null): void {
-    const store = this.renderer.getDrawingStore()
-    if (store.getSelectedId() === id) return
-    store.setSelectedId(id)
+    if (this.kernel.drawing.readonly.selectedDrawingId.peek() === id) return
+    this.kernel.drawing.actions.setSelectedDrawingId(id)
     this.scheduleDraw()
+  }
+
+  /** 获取 DrawingStore（投影 kernel，供交互/测试） */
+  getDrawingStore() {
+    return this.renderer.getDrawingStore()
   }
 
   getPaneLayoutSpecs(): PaneSpec[] {

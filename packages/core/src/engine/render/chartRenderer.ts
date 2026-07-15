@@ -26,7 +26,7 @@ import type {
 } from '../chartTypes'
 import { InteractionController } from '../controller/interaction'
 import { ChartDataManager } from '../data/chartDataManager'
-import { DrawingStore } from '../drawing'
+import { DrawingStore, type DrawingStoreDeps } from '../drawing'
 import { createDrawingRendererPlugin, createDrawingLabelOverlayPlugin } from '../drawing/plugin'
 import { ChartIndicatorManager } from '../indicators/chartIndicatorManager'
 import { UpdateLevel } from '../layout/pane'
@@ -94,6 +94,8 @@ export interface RendererDependencies {
   getIndicatorManager: () => ChartIndicatorManager
   getActiveMode: () => ChartModeHandler
   customMarkers$: MarkerManagerDeps['customMarkers$']
+  drawings$: DrawingStoreDeps['drawings$']
+  selectedDrawingId$: DrawingStoreDeps['selectedDrawingId$']
 }
 
 export class ChartRenderer {
@@ -129,7 +131,10 @@ export class ChartRenderer {
   constructor(deps: RendererDependencies) {
     this.deps = deps
     this.markerManager = new MarkerManager({ customMarkers$: deps.customMarkers$ })
-    this.drawingStore = new DrawingStore()
+    this.drawingStore = new DrawingStore({
+      drawings$: deps.drawings$,
+      selectedDrawingId$: deps.selectedDrawingId$,
+    })
     this.scene = createScene()
     const sharedSurface = deps.getSharedWebGLSurface()
     const surfaceBackend = createWebGLSurfaceBackend(sharedSurface)

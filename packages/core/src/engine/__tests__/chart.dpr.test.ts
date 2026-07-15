@@ -311,6 +311,37 @@ describe('Chart DPR pipeline', () => {
 
     await chart.destroy()
   })
+
+  it('routes drawings through kernel for store projection', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const store = chart.getDrawingStore()
+    const scheduleDrawSpy = vi.spyOn(chart, 'scheduleDraw')
+    const drawing = {
+      id: 'd1',
+      kind: 'trend-line' as const,
+      paneId: 'main',
+      visible: true,
+      anchors: [],
+      params: {},
+      style: { stroke: '#2962ff' },
+    }
+
+    chart.setDrawings([drawing])
+    expect(chart.drawings.peek().map((d) => d.id)).toEqual(['d1'])
+    expect(store.getAll().map((d) => d.id)).toEqual(['d1'])
+    expect(scheduleDrawSpy).toHaveBeenCalled()
+
+    chart.setSelectedDrawingId('d1')
+    expect(store.getSelectedId()).toBe('d1')
+
+    scheduleDrawSpy.mockClear()
+    chart.setDrawings([])
+    expect(store.getAll()).toEqual([])
+    expect(store.getSelectedId()).toBeNull()
+    expect(scheduleDrawSpy).toHaveBeenCalled()
+
+    await chart.destroy()
+  })
 })
 
 describe('Chart pane layout regressions', () => {

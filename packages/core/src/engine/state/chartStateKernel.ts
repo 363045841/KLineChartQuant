@@ -175,6 +175,7 @@ export class ChartStateKernel extends StateKernel {
       // Drawing
       drawingTool: this.drawing.readonly.drawingTool,
       drawings: this.drawing.readonly.drawings,
+      selectedDrawingId: this.drawing.readonly.selectedDrawingId,
       // Interaction
       interactionSnapshot: this.interaction.readonly.interactionSnapshot,
       crosshairIndex: this.interaction.readonly.crosshairIndex,
