@@ -517,6 +517,15 @@ describe('Chart pane layout regressions', () => {
     await chart.destroy()
   })
 
+  it('updateSettings partial patch preserves prior keys', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    chart.updateSettings({ showGridLines: false })
+    chart.updateSettings({ rightAxisType: 'log' })
+    expect(chart.kernel.settings.readonly.settings.peek().showGridLines).toBe(false)
+    expect(chart.kernel.settings.readonly.settings.peek().rightAxisType).toBe('log')
+    await chart.destroy()
+  })
+
   it('normalizes only visible panes in updatePaneLayout', async () => {
     const chart = new Chart(createDom(1000, 800), defaultOptions)
     chart.updatePaneLayout([

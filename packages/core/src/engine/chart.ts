@@ -634,10 +634,13 @@ export class Chart {
     this.projectPaneScaleTypes()
   }
 
-  /** 更新用户设置（触发重绘）—— 业务态只写 kernel.settings */
+  /**
+   * 更新用户设置（触发重绘）—— 业务态只写 kernel.settings。
+   * 使用 patch 合并到当前 resolved，避免 partial 覆盖把未传 key 打回默认。
+   */
   updateSettings(settings: ChartSettings): void {
     const prev = this.kernel.settings.readonly.settings.peek()
-    this.kernel.settings.actions.replace(settings)
+    this.kernel.settings.actions.patch(settings)
     const next = this.kernel.settings.readonly.settings.peek()
     this.interaction.onSettingsChanged(prev, next)
 

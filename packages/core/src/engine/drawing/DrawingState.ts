@@ -53,19 +53,33 @@ export class DrawingState {
   // ---- Write ----
   // 所有 write 方法都会调用 adapter.setDrawings() 触发渲染
 
+  /**
+   * 工作副本必须可变：kernel deepFreezeSnapshot 会冻结数组与元素。
+   * 浅 slice 仍会让 anchors/style 不可写，故做一层 plain 深拷贝。
+   */
+  private adoptWorkCopy(drawings: ReadonlyArray<DrawingObject>): DrawingObject[] {
+    return drawings.map((d) => ({
+      ...d,
+      anchors: d.anchors.map((a) => ({ ...a })),
+      params: { ...d.params },
+      style: { ...d.style },
+      ...(d.metadata ? { metadata: { ...d.metadata } } : {}),
+    }))
+  }
+
   /** 整体替换图元列表；选中 id 不在列表时同步清本地与 kernel */
   setDrawings(drawings: DrawingObject[]): void {
-    this.drawings = drawings
+    this.drawings = this.adoptWorkCopy(drawings)
     if (this.selectedDrawingId && !this.drawings.some((d) => d.id === this.selectedDrawingId)) {
       this.selectedDrawingId = null
       this.adapter.setSelectedDrawingId(null)
     }
-    this.adapter.setDrawings(drawings)
+    this.adapter.setDrawings(this.drawings)
   }
 
   /** 替换图元列表，若选中项被移除则自动清除选中（含 kernel） */
   replaceDrawings(drawings: DrawingObject[]): void {
-    this.drawings = drawings
+    this.drawings = this.adoptWorkCopy(drawings)
     if (this.selectedDrawingId && !this.drawings.some((d) => d.id === this.selectedDrawingId)) {
       this.selectedDrawingId = null
       this.adapter.setSelectedDrawingId(null)
@@ -77,9 +91,11 @@ export class DrawingState {
   addOrUpdate(drawing: DrawingObject): void {
     const idx = this.drawings.findIndex((d) => d.id === drawing.id)
     if (idx >= 0) {
-      this.drawings[idx] = drawing
+      const next = this.drawings.slice()
+      next[idx] = drawing
+      this.drawings = next
     } else {
-      this.drawings.push(drawing)
+      this.drawings = [...this.drawings, drawing]
     }
     this.adapter.setDrawings(this.drawings)
   }
@@ -122,8 +138,7 @@ export class DrawingState {
 
   /** 设置预览图元（替换已有的 __preview__） */
   setPreview(preview: DrawingObject): void {
-    this.drawings = this.drawings.filter((d) => d.id !== PREVIEW_ID)
-    this.drawings.push(preview)
+    this.drawings = [...this.drawings.filter((d) => d.id !== PREVIEW_ID), preview]
     this.adapter.setDrawings(this.drawings)
   }
 
