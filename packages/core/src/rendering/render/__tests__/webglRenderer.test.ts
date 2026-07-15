@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
   mockDestroyLine: vi.fn(),
 }))
 
-vi.mock('../../engine/renderers/webgl/candleSurface', () => {
+vi.mock('../../../engine/renderers/webgl/candleSurface', () => {
   const mr = mocks
   return {
     CandleWebGLSurface: class {
