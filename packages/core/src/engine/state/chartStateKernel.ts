@@ -184,6 +184,8 @@ export class ChartStateKernel extends StateKernel {
     // ── Flat actions bag for framework adapters ──
     this.actions = {
       setZoomLevel: (level: number) => this.zoom.actions.setZoomLevel(level),
+      setDirectKWidth: (kWidth: number) => this.zoom.actions.setDirectKWidth(kWidth),
+      clearDirectKWidth: () => this.zoom.actions.clearDirectKWidth(),
       setData: (data: ReadonlyArray<unknown>) => this.data.actions.setData(data),
       setLoading: (loading: boolean) => this.data.actions.setLoading(loading),
       setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => {

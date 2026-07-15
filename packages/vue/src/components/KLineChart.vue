@@ -147,7 +147,10 @@
               <div
                 ref="tooltipContentRef"
                 class="kline-tooltip"
-                :class="{ 'use-anchor': useAnchorPositioning }"
+                :class="{
+                  'use-anchor': useAnchorPositioning,
+                  'is-draggable': (chartSettings?.tooltipPosition ?? 'adaptive') === 'adaptive',
+                }"
                 :style="useAnchorPositioning ? undefined : { left: teleportedTooltipPos.x + 'px', top: teleportedTooltipPos.y + 'px' }"
                 @pointerdown="onTooltipPointerDown"
                 @dblclick="onTooltipDblClick"
@@ -1101,7 +1104,9 @@ import MarkerTooltip from './MarkerTooltip.vue'
 
   // ── Tooltip Drag ──
   function onTooltipPointerDown(e: PointerEvent) {
-    if (chartSettings.value?.tooltipPosition !== 'adaptive') return
+    if ((chartSettings.value?.tooltipPosition ?? 'adaptive') !== 'adaptive') return
+    e.preventDefault()
+    e.stopPropagation()
     _tooltipDragOffset = {
       x: e.clientX - teleportedTooltipPos.value.x,
       y: e.clientY - teleportedTooltipPos.value.y,

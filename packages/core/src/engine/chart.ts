@@ -344,7 +344,6 @@ export class Chart {
         getMinKWidth: () => this.kernel.options.readonly.options.peek().minKWidth,
         getMaxKWidth: () => this.kernel.options.readonly.options.peek().maxKWidth,
         zoomLevelCount,
-        initialZoomLevel,
       },
       this.kernel.zoom,
     )
@@ -431,8 +430,8 @@ export class Chart {
       getPluginHost: () => this.pluginHost,
       getRendererPluginManager: () => this.rendererPluginManager,
       getTheme: () => this.kernel.theme.readonly.theme.peek(),
-      getCurrentZoomLevel: () => this.zoomController.currentZoomLevel,
-      getZoomLevelCount: () => this.zoomController.zoomLevelCount,
+      getCurrentZoomLevel: () => this.kernel.zoom.readonly.zoomLevel.peek(),
+      getZoomLevelCount: () => this.kernel.options.readonly.options.peek().zoomLevelCount,
       getViewportManager: () => this.viewportManager,
       getDataManager: () => this.dataManager,
       getIndicatorManager: () => this.indicatorManager,
@@ -459,7 +458,7 @@ export class Chart {
 
     if (mode === this._timeShareMode) {
       this._savedTimeShareState = {
-        zoomLevel: this.zoomController.currentZoomLevel,
+        zoomLevel: this.kernel.zoom.readonly.zoomLevel.peek(),
         scaleTypes: new Map<string, ScaleType>(),
         mainIndicators: [],
         subPanes: [],
@@ -484,7 +483,7 @@ export class Chart {
     }
 
     if (this._savedTimeShareState && mode !== this._timeShareMode) {
-      this.zoomController.setZoomLevel(this._savedTimeShareState.zoomLevel)
+      this.kernel.zoom.actions.setZoomLevel(this._savedTimeShareState.zoomLevel)
     }
 
     prev.onDeactivate(
@@ -640,14 +639,21 @@ export class Chart {
    * 当 zoomLevel 不提供时（如分时图），直接设置 kWidth/kGap。
    */
   applyRenderState(kWidth: number, kGap: number, zoomLevel?: number): void {
+    void kGap
+    const beforeLevel = this.kernel.zoom.readonly.zoomLevel.peek()
+    const beforeWidth = this.kernel.zoom.readonly.kWidth.peek()
+
     if (zoomLevel !== undefined) {
-      const clamped = Math.max(1, Math.min(this.zoomController.zoomLevelCount, zoomLevel))
-      if (this.zoomController.currentZoomLevel === clamped) return
-      this.zoomController.setZoomLevel(clamped)
+      this.kernel.zoom.actions.setZoomLevel(zoomLevel)
     } else {
-      if (this.zoomController.currentKWidth === kWidth && this.zoomController.currentKGap === kGap)
-        return
-      this.zoomController.setKWidthKGap(kWidth, kGap)
+      this.kernel.zoom.actions.setDirectKWidth(kWidth)
+    }
+
+    if (
+      beforeLevel === this.kernel.zoom.readonly.zoomLevel.peek() &&
+      beforeWidth === this.kernel.zoom.readonly.kWidth.peek()
+    ) {
+      return
     }
 
     this.scheduleDraw()
@@ -655,7 +661,7 @@ export class Chart {
 
   /** 获取总缩放级别数 */
   getZoomLevelCount(): number {
-    return this.zoomController.zoomLevelCount
+    return this.kernel.options.readonly.options.peek().zoomLevelCount
   }
 
   /** 获取所有 PaneRenderer */
