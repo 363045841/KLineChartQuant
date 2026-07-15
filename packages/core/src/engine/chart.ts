@@ -339,10 +339,11 @@ export class Chart {
           this.viewportManager.setScrollLeft(v)
         },
         onChange: () => {
-          /* zoomController writes directly to zoomState — no bridge needed */
+          this.scheduleDraw()
         },
         getMinKWidth: () => this.kernel.options.readonly.options.peek().minKWidth,
         getMaxKWidth: () => this.kernel.options.readonly.options.peek().maxKWidth,
+        getPeriod: () => this.kernel.dataManager.readonly.currentPeriod.peek(),
         zoomLevelCount,
       },
       this.kernel.zoom,
@@ -634,9 +635,9 @@ export class Chart {
 
   /**
    * 应用渲染状态
-   * kWidth/kGap/zoomLevel 由 zoomController 统一管理（SSOT）。
-   * 当 zoomLevel 提供时，kWidth/kGap 由 zoomController 从 zoomLevel 推导。
-   * 当 zoomLevel 不提供时（如分时图），直接设置 kWidth/kGap。
+   * kWidth/zoomLevel 写入 kernel；kGap 由 viewport 根据 kWidth+dpr+period 派生，禁止外部写入。
+   * 有 zoomLevel 时走离散缩放；无 zoomLevel（分时）时写 direct kWidth。
+   * @param kGap 已废弃，保留签名兼容旧调用方
    */
   applyRenderState(kWidth: number, kGap: number, zoomLevel?: number): void {
     void kGap

@@ -1,4 +1,4 @@
-import { computeZoom, kGapFromKWidth } from './zoom'
+import { computeZoom, deriveKGap } from './zoom'
 import type { ZoomStateModule } from '../state/zoomState'
 
 export interface ZoomDependencies {
@@ -11,6 +11,7 @@ export interface ZoomDependencies {
   onChange?: () => void
   getMinKWidth: () => number
   getMaxKWidth: () => number
+  getPeriod: () => string
   zoomLevelCount: number
 }
 
@@ -36,7 +37,11 @@ export class ChartZoomController {
   }
 
   get currentKGap(): number {
-    return kGapFromKWidth(this.currentKWidth, this.deps.getCurrentDpr())
+    return deriveKGap({
+      kWidth: this.currentKWidth,
+      dpr: this.deps.getCurrentDpr(),
+      period: this.deps.getPeriod(),
+    })
   }
 
   get zoomLevelCount(): number {

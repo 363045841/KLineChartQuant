@@ -13,7 +13,7 @@ import {
   computeContentWidth as pureContentWidth,
   computeMaxScrollLeft as pureMaxScrollLeft,
 } from './contentGeometry'
-import { kGapFromKWidth } from '../utils/zoom'
+import { deriveKGap } from '../utils/zoom'
 
 /**
  * 钳制 effective DPR，避免超出 MAX_CANVAS_PIXELS 上限。
@@ -145,7 +145,11 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
   )
 
   const kGap = computed<number>(() => {
-    return kGapFromKWidth(signalDeps.options$().kWidth, readonly.dpr())
+    return deriveKGap({
+      kWidth: signalDeps.options$().kWidth,
+      dpr: readonly.dpr(),
+      period: signalDeps.period$(),
+    })
   })
 
   const contentWidth = computed(() => {

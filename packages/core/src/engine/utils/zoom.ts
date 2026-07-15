@@ -48,6 +48,26 @@ export function kGapFromKWidth(kWidth: number, dpr: number): number {
   return kGapPx / dpr
 }
 
+export interface DeriveKGapInput {
+  kWidth: number
+  dpr: number
+  period: string
+}
+
+/**
+ * 图表内部 kGap 派生规则。
+ *
+ * @remarks kGap 不是可写业务状态。分时固定 1 物理像素间隙；
+ * 离散 K 线周期走 kGapFromKWidth。
+ */
+export function deriveKGap(input: DeriveKGapInput): number {
+  const dpr = input.dpr > 0 ? input.dpr : 1
+  if (input.period === 'timeshare') {
+    return 1 / dpr
+  }
+  return kGapFromKWidth(input.kWidth, dpr)
+}
+
 /**
  * 缩放一级（+1 放大 / -1 缩小）
  * 返回新状态或 null（已达边界）
