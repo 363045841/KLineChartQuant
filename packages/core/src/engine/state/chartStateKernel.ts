@@ -7,7 +7,7 @@ import {
   type ViewportDomDeps,
 } from './viewportState'
 import { createPaneState, type PaneStateModule } from './paneState'
-import { createThemeState, type ThemeStateModule } from './themeState'
+import { createSystemThemeState, type SystemThemeStateModule } from './themeState'
 import { createSettingsState, type SettingsStateModule } from './settingsState'
 import { createModeState, type ModeStateModule } from './modeState'
 import { createDrawingState, type DrawingStateModule } from './drawingState'
@@ -57,7 +57,8 @@ export class ChartStateKernel extends StateKernel {
   readonly data: DataStateModule
   readonly viewport: ViewportStateModule
   readonly pane: PaneStateModule
-  readonly theme: ThemeStateModule
+  /** 系统主题注入（非用户偏好）；用户偏好在 settings.theme */
+  readonly systemTheme: SystemThemeStateModule
   readonly settings: SettingsStateModule
   readonly mode: ModeStateModule
   readonly drawing: DrawingStateModule
@@ -70,6 +71,8 @@ export class ChartStateKernel extends StateKernel {
 
   readonly zoomLevel$: ReadonlySignal<number>
   readonly dataLength$: ReadonlySignal<number>
+  /** 生效主题 light|dark（settings.theme + systemTheme 推导） */
+  readonly effectiveTheme$: ReadonlySignal<'light' | 'dark'>
   readonly optionsForViewport$: ReadonlySignal<{
     bottomAxisHeight: number
     kWidth: number
@@ -136,11 +139,16 @@ export class ChartStateKernel extends StateKernel {
       this.pane.actions.commitLayout(initialRatios, initialPanes)
     }
 
-    // ── Theme state ──
-    this.theme = createThemeState()
-
-    // ── Settings state（用户偏好 SSOT；rightAxisType 副作用走 Chart.updateSettings）──
+    // ── Settings state（用户偏好 SSOT，含 theme light|dark|auto）──
     this.settings = createSettingsState()
+
+    // ── 系统主题（auto 时参与 effectiveTheme 推导）──
+    this.systemTheme = createSystemThemeState()
+    this.effectiveTheme$ = computed(() => {
+      const pref = this.settings.readonly.settings().theme
+      if (pref === 'auto') return this.systemTheme.readonly.systemTheme()
+      return pref === 'dark' ? 'dark' : 'light'
+    })
 
     // ── Mode state（kline / timeshare id；ModeHandler 仍在 Chart）──
     this.mode = createModeState()
@@ -181,8 +189,8 @@ export class ChartStateKernel extends StateKernel {
       // Pane
       paneRatios: this.pane.readonly.paneRatios,
       paneSpecs: this.pane.readonly.paneSpecs,
-      // Theme
-      theme: this.theme.readonly.theme,
+      // Theme（生效主题；偏好在 settings.theme）
+      theme: this.effectiveTheme$,
       // Settings
       settings: this.settings.readonly.settings,
       // Mode
@@ -228,7 +236,8 @@ export class ChartStateKernel extends StateKernel {
       setPaneSpecs: (specs: PaneSpec[]) => this.pane.actions.setPaneSpecs(specs),
       commitPaneLayout: (ratios: Record<string, number>, specs: PaneSpec[]) =>
         this.pane.actions.commitLayout(ratios, specs),
-      setTheme: (theme: 'light' | 'dark') => this.theme.actions.setTheme(theme),
+      setTheme: (theme: 'light' | 'dark') => this.settings.actions.patch({ theme }),
+      setSystemTheme: (theme: 'light' | 'dark') => this.systemTheme.actions.setSystemTheme(theme),
       setDrawingTool: (tool: DrawingToolId) => this.drawing.actions.setDrawingTool(tool),
       setDrawings: (drawings: ReadonlyArray<DrawingObject>) =>
         this.drawing.actions.setDrawings(drawings),
@@ -377,8 +386,8 @@ export class ChartStateKernel extends StateKernel {
     this.data.dispose()
     this.viewport.dispose()
     this.pane.dispose()
-    this.theme.dispose()
     this.settings.dispose()
+    this.systemTheme.dispose()
     this.mode.dispose()
     this.drawing.dispose()
     this.interaction.dispose()

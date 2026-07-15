@@ -21,7 +21,8 @@ export function useChartState(initialZoom: number, opts?: ChartStateOptions) {
   const paneRatios = ref<Record<string, number>>({})
   const comparisonColorsMap = ref<Map<string, string>>(new Map())
   const comparisonLoading = ref(false)
-  const activeToolId = ref('cursor')
+  /** range-select 为 UI 模式，不进 kernel DrawingToolId */
+  const isRangeSelectMode = ref(false)
 
   kWidth.value = zoomLevelToKWidth(initialZoom, {
     minKWidth: opts?.minKWidth ?? 1,
@@ -43,6 +44,6 @@ export function useChartState(initialZoom: number, opts?: ChartStateOptions) {
     paneRatios,
     comparisonColorsMap,
     comparisonLoading,
-    activeToolId,
+    isRangeSelectMode,
   }
 }

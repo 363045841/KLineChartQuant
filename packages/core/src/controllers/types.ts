@@ -202,6 +202,8 @@ export interface DrawingChartAdapter {
   getFullDrawings(): any[]
   /** highlight a drawing by ID */
   setSelectedDrawingId(id: string | null): void
+  /** read selected drawing id from kernel */
+  getSelectedDrawingId(): string | null
   /** write drawing tool id via Chart (kernel SSOT + session side effects) */
   setDrawingToolId(toolId: import('../engine/drawing/toolConfig').DrawingToolId): void
   /** read current drawing tool id from kernel */
@@ -343,7 +345,10 @@ export interface ChartController extends DrawingChartAdapter {
   ensureDataRange(startTs: number): void
 
   // ---- Theme ----
+  /** 设置主题偏好 light|dark（写 settings） */
   setTheme(theme: 'light' | 'dark'): void
+  /** 注入系统主题（settings.theme === auto 时驱动 effectiveTheme） */
+  setSystemTheme(theme: 'light' | 'dark'): void
 
   // ---- Zoom ----
   zoomToLevel(level: number, anchorX?: number): void

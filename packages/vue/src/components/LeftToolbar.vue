@@ -53,7 +53,7 @@
               :key="child.id"
               type="button"
               class="left-toolbar__button"
-              :class="{ active: selectedToolId === child.id }"
+              :class="{ active: highlightToolId === child.id }"
               :title="child.title"
               :aria-label="child.title"
               @click="selectChild(child)"
@@ -174,7 +174,7 @@
     SETTINGS_STORAGE_KEY,
     type ChartSettings,
   } from '@363045841yyt/klinechart-core/config'
-  import { ref, watch, onMounted, onUnmounted } from 'vue'
+  import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 
   import { useAlerts } from '../composables/useAlerts'
   import { setCanvasProfilerEnabled } from '../debug/canvasProfiler'
@@ -252,6 +252,10 @@
     isFullscreen?: boolean
     alertController?: ChartController | null
     effectiveSettings?: ChartSettings
+    /** kernel drawingTool 镜像；高亮以它为准 */
+    drawingToolId?: string
+    /** range-select 本地模式 */
+    isRangeSelectMode?: boolean
   }>()
 
   const { unreadCount } = useAlerts(() => props.alertController ?? null)
@@ -260,6 +264,12 @@
   const openGroupId = ref<string | null>(null)
   const showSettings = ref(false)
   const showAlerts = ref(false)
+
+  /** 高亮 id：range 模式优先，否则 kernel tool，否则本地 click 缓存 */
+  const highlightToolId = computed(() => {
+    if (props.isRangeSelectMode) return 'range-select'
+    return props.drawingToolId ?? selectedToolId.value
+  })
 
   function loadSettings(): ChartSettings {
     try {
@@ -301,9 +311,10 @@
   )
 
   function isActive(tool: ToolDef): boolean {
-    if (selectedToolId.value === tool.id) return true
+    const id = highlightToolId.value
+    if (tool.id === id) return true
     if (tool.children) {
-      return tool.children.some((c) => c.id === selectedToolId.value)
+      return tool.children.some((c) => c.id === id)
     }
     return false
   }

@@ -206,13 +206,13 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
     })
     this.controller = controller
 
-    // settings.theme → setTheme bridge (仅当 theme @Input 未提供时生效)
+    // settings.theme：auto 时只注入 systemTheme，勿用 setTheme 覆盖偏好
     if (this.theme === undefined && this.settings?.theme) {
       const settingsTheme = this.settings.theme as string
       if (settingsTheme === 'auto') {
         const mq = window.matchMedia('(prefers-color-scheme: dark)')
-        controller.setTheme(mq.matches ? 'dark' : 'light')
-      } else if (settingsTheme !== 'light') {
+        controller.setSystemTheme(mq.matches ? 'dark' : 'light')
+      } else {
         controller.setTheme(settingsTheme as 'light' | 'dark')
       }
     }
@@ -257,13 +257,13 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
       if (this.settings !== undefined) {
         const resolved = resolveSettings(this.settings)
         this.controller?.updateSettingsFacade(resolved)
-        // settings.theme → setTheme bridge (仅当 theme @Input 未提供时生效)
+        // settings.theme：auto 时只注入 systemTheme
         if (this.theme === undefined && resolved.theme) {
           const themeValue = resolved.theme as string
           if (themeValue === 'auto') {
             const mq = window.matchMedia('(prefers-color-scheme: dark)')
-            this.controller?.setTheme(mq.matches ? 'dark' : 'light')
-          } else if (themeValue !== 'light') {
+            this.controller?.setSystemTheme(mq.matches ? 'dark' : 'light')
+          } else {
             this.controller?.setTheme(themeValue as 'light' | 'dark')
           }
         }

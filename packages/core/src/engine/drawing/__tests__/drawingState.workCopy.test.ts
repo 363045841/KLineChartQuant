@@ -15,11 +15,15 @@ function mk(id: string): DrawingObject {
   }
 }
 
-function mockAdapter(): DrawingChartAdapter {
+function mockAdapter(initialSelected: string | null = null): DrawingChartAdapter {
+  let selected: string | null = initialSelected
   return {
     setDrawings: vi.fn(),
     getFullDrawings: vi.fn(() => []),
-    setSelectedDrawingId: vi.fn(),
+    setSelectedDrawingId: vi.fn((id: string | null) => {
+      selected = id
+    }),
+    getSelectedDrawingId: vi.fn(() => selected),
     setDrawingToolId: vi.fn(),
     getDrawingToolId: vi.fn(() => 'cursor'),
     getViewport: vi.fn(() => null),

@@ -200,6 +200,9 @@ export function createMockChartController(
     getFullDrawings() {
       return []
     },
+    getSelectedDrawingId() {
+      return null
+    },
     setSelectedDrawingId() {
       /* no-op */
     },

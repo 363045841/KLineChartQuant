@@ -181,6 +181,7 @@ export function createMockChartController(
     setDrawings: () => {},
     getFullDrawings: () => [],
     setSelectedDrawingId: () => {},
+    getSelectedDrawingId: () => null,
     getViewport: () => null,
     getKWidthKGap: () => ({ kWidth: 6, kGap: 2 }),
     getCurrentDpr: () => 1,

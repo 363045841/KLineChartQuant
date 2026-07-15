@@ -373,7 +373,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const comparisonLoading = chart.comparisonLoading
 
   // Signals from ChartStateKernel — no wrapper needed
-  const themeSignal: ReadonlySignal<'light' | 'dark'> = chart.kernel.theme.readonly.theme
+  const themeSignal: ReadonlySignal<'light' | 'dark'> = chart.theme
   const settingsSignal = chart.kernel.settings.readonly.settings
   const chartModeSignal = chart.kernel.mode.readonly.chartMode
   const drawingTool = chart.kernel.drawing.readonly.drawingTool
@@ -414,8 +414,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     chart.setSymbols(opts.symbols)
   }
 
-  // Apply initial theme if non-default
-  if (opts.theme && opts.theme !== 'light') {
+  // Apply mount theme preference (settings default may be dark — always honor explicit opts.theme)
+  if (opts.theme) {
     try {
       chart.setTheme(opts.theme)
     } catch {
@@ -535,6 +535,11 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   function setTheme(nextTheme: 'light' | 'dark'): void {
     if (disposed) return
     chart.setTheme(nextTheme)
+  }
+
+  function setSystemTheme(nextTheme: 'light' | 'dark'): void {
+    if (disposed) return
+    chart.setSystemTheme(nextTheme)
   }
 
   function zoomToLevel(level: number, anchorX?: number): void {
@@ -717,6 +722,11 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   function setSelectedDrawingId(id: string | null): void {
     if (disposed) return
     chart.setSelectedDrawingId(id)
+  }
+
+  function getSelectedDrawingId(): string | null {
+    if (disposed) return null
+    return chart.kernel.drawing.readonly.selectedDrawingId.peek()
   }
 
   function getViewport(): { scrollLeft: number; plotWidth: number; plotHeight: number } | null {
@@ -924,6 +934,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     getData,
     getZoomLevelCount,
     setTheme,
+    setSystemTheme,
     zoomToLevel,
     zoomIn,
     zoomOut,
@@ -950,6 +961,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     setDrawings,
     getFullDrawings,
     setSelectedDrawingId,
+    getSelectedDrawingId,
     getViewport,
     getKWidthKGap,
     getCurrentDpr,

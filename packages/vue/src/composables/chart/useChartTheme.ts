@@ -1,7 +1,7 @@
 /**
  * Manages chart theme state (light/dark), computed CSS vars for theming,
  * tooltip up/down colors, and auto theme detection via prefers-color-scheme.
- * Handles settings persistence through ChartController.updateSettingsFacade.
+ * Preference lives in settings.theme; effective theme is ctrl.theme (kernel computed).
  */
 import {
   resolveThemeColors,
@@ -13,11 +13,34 @@ import {
 import { resolveSettings, type ChartSettings } from '@363045841yyt/klinechart-core/config'
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import type { Ref } from 'vue'
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { ref, shallowRef, computed, watch, onUnmounted } from 'vue'
 
 export function useChartTheme(ctrl: Ref<ChartController | null>, initialTheme?: 'light' | 'dark') {
-  const chartTheme = ref<'light' | 'dark'>(initialTheme ?? 'light')
+  /** 镜像 kernel effectiveTheme（shallowRef 避免 deep proxy） */
+  const chartTheme = shallowRef<'light' | 'dark'>(initialTheme ?? 'light')
   const chartSettings = ref<ChartSettings>({})
+
+  let unsubTheme: (() => void) | null = null
+
+  function syncThemeFromController() {
+    const c = ctrl.value
+    if (!c) return
+    chartTheme.value = c.theme.peek()
+  }
+
+  watch(
+    ctrl,
+    (c) => {
+      unsubTheme?.()
+      unsubTheme = null
+      if (!c) return
+      syncThemeFromController()
+      unsubTheme = c.theme.subscribe(() => {
+        chartTheme.value = c.theme.peek()
+      })
+    },
+    { immediate: true },
+  )
 
   const tooltipColors = computed(() => {
     const isAsiaMarket = chartSettings.value.isAsiaMarket ?? false
@@ -50,7 +73,7 @@ export function useChartTheme(ctrl: Ref<ChartController | null>, initialTheme?: 
   let autoThemeMediaQuery: MediaQueryList | null = null
 
   function onSystemThemeChange(e: MediaQueryListEvent) {
-    ctrl.value?.setTheme(e.matches ? 'dark' : 'light')
+    ctrl.value?.setSystemTheme(e.matches ? 'dark' : 'light')
   }
 
   function applyThemeFromSettings(themeSetting: string | undefined) {
@@ -58,8 +81,12 @@ export function useChartTheme(ctrl: Ref<ChartController | null>, initialTheme?: 
     if (!chartCtrl || !themeSetting) return
 
     if (themeSetting === 'auto') {
+      // 确保偏好为 auto（即使调用方未先 facade）
+      chartCtrl.updateSettingsFacade(
+        resolveSettings({ ...chartSettings.value, theme: 'auto' }),
+      )
       const mq = window.matchMedia('(prefers-color-scheme: dark)')
-      chartCtrl.setTheme(mq.matches ? 'dark' : 'light')
+      chartCtrl.setSystemTheme(mq.matches ? 'dark' : 'light')
       if (autoThemeMediaQuery !== mq) {
         autoThemeMediaQuery?.removeEventListener('change', onSystemThemeChange)
         autoThemeMediaQuery = mq
@@ -74,11 +101,14 @@ export function useChartTheme(ctrl: Ref<ChartController | null>, initialTheme?: 
 
   function handleSettingsChange(settings: ChartSettings) {
     chartSettings.value = settings
+    const resolved = resolveSettings(settings)
+    ctrl.value?.updateSettingsFacade(resolved)
     applyThemeFromSettings(settings.theme as string)
-    ctrl.value?.updateSettingsFacade(resolveSettings(settings))
   }
 
   onUnmounted(() => {
+    unsubTheme?.()
+    unsubTheme = null
     autoThemeMediaQuery?.removeEventListener('change', onSystemThemeChange)
     autoThemeMediaQuery = null
     document.body.style.backgroundColor = ''

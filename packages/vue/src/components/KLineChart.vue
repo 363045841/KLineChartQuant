@@ -34,6 +34,8 @@
         :is-fullscreen="effectiveIsFullscreen"
         :alert-controller="controller"
         :effective-settings="chartSettings"
+        :drawing-tool-id="drawingToolId"
+        :is-range-select-mode="isRangeSelectMode"
         @select-tool="handleSelectTool"
         @toggle-indicator="onToggleIndicator"
         @toggle-fullscreen="handleToggleFullscreen"
@@ -565,8 +567,11 @@ import MarkerTooltip from './MarkerTooltip.vue'
     paneRatios,
     comparisonColorsMap,
     comparisonLoading,
-    activeToolId,
+    isRangeSelectMode,
   } = chartState
+
+  /** 镜像 kernel.drawingTool，供工具栏高亮 */
+  const drawingToolId = shallowRef('cursor')
 
   const {
     mainActiveIndicators,
@@ -621,7 +626,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
     onEdgePointerUp,
   } = useRangeSelection({
     controller,
-    activeToolId,
+    isRangeSelectMode,
     containerRef,
     dataVersion,
     viewportVersion,
@@ -988,13 +993,14 @@ import MarkerTooltip from './MarkerTooltip.vue'
   }
 
   function handleSelectTool(toolId: string) {
-    activeToolId.value = toolId
     if (toolId === 'range-select') {
+      isRangeSelectMode.value = true
       controller.value?.setDrawingToolId('cursor')
-      selectedDrawingId.value = null
+      controller.value?.setSelectedDrawingId(null)
       return
     }
 
+    isRangeSelectMode.value = false
     clearRangeSelection()
     handleDrawingToolSelect(toolId)
   }
@@ -1280,6 +1286,11 @@ import MarkerTooltip from './MarkerTooltip.vue'
       emit('themeChange', newTheme)
     })
 
+    drawingToolId.value = ctrl.drawingTool.peek()
+    const unsubscribeDrawingTool = ctrl.drawingTool.subscribe(() => {
+      drawingToolId.value = ctrl.drawingTool.peek()
+    })
+
     const unsubscribeIndicators = setupIndicatorSubscriptions(ctrl)
 
     const unsubscribeComparisonColors = ctrl.comparisonColors.subscribe(() => {
@@ -1339,6 +1350,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
       unsubscribePaneRatios()
       unsubscribePaneLayout()
       unsubscribeTheme()
+      unsubscribeDrawingTool()
       unsubscribeIndicators()
       unsubscribeComparisonColors()
       unsubscribeComparisonLoading()

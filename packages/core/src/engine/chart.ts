@@ -438,7 +438,7 @@ export class Chart {
       getSharedWebGLSurface: () => this.sharedWebGLSurface,
       getPluginHost: () => this.pluginHost,
       getRendererPluginManager: () => this.rendererPluginManager,
-      getTheme: () => this.kernel.theme.readonly.theme.peek(),
+      getTheme: () => this.kernel.effectiveTheme$.peek(),
       getCurrentZoomLevel: () => this.kernel.zoom.readonly.zoomLevel.peek(),
       getZoomLevelCount: () => this.kernel.options.readonly.options.peek().zoomLevelCount,
       getViewportManager: () => this.viewportManager,
@@ -1236,9 +1236,9 @@ export class Chart {
     return this.dataManager.comparisonLoading
   }
 
-  /** 主题信号 */
+  /** 生效主题信号（settings.theme + systemTheme 推导） */
   get theme(): ReadonlySignal<'light' | 'dark'> {
-    return this.kernel.theme.readonly.theme
+    return this.kernel.effectiveTheme$
   }
 
   /** 指标实例列表信号（派生信号，自动随主/副图状态更新） */
@@ -1365,11 +1365,21 @@ export class Chart {
   // ---------- Theme ----------
 
   /**
-   * 设置主题（高层 API）
+   * 设置主题偏好 light|dark（写 settings.theme）
    */
   setTheme(theme: 'light' | 'dark'): void {
-    this.kernel.theme.actions.setTheme(theme)
+    this.kernel.settings.actions.patch({ theme })
     this.scheduleDraw()
+  }
+
+  /**
+   * 注入系统主题（仅 settings.theme === auto 时影响 effectiveTheme）
+   */
+  setSystemTheme(theme: 'light' | 'dark'): void {
+    this.kernel.systemTheme.actions.setSystemTheme(theme)
+    if (this.kernel.settings.readonly.settings.peek().theme === 'auto') {
+      this.scheduleDraw()
+    }
   }
 
   // ---------- Zoom ----------
@@ -1557,12 +1567,18 @@ export class Chart {
   }
 
   /**
-   * 移除绘图（高层 API）
+   * 移除绘图（高层 API）—— 优先会话工作副本，否则只写 kernel
    * @param drawingId 绘图 ID
    */
-  removeDrawing(_drawingId: string): void {
-    // TODO: 实现绘图移除
-    console.warn('[Chart] removeDrawing not fully implemented yet')
+  removeDrawing(drawingId: string): void {
+    if (this.drawingSession) {
+      this.drawingSession.removeDrawing(drawingId)
+      return
+    }
+    const next = this.kernel.drawing.readonly.drawings
+      .peek()
+      .filter((d) => d.id !== drawingId)
+    this.setDrawings([...next])
   }
 
   /**

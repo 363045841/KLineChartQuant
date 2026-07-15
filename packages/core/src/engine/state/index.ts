@@ -23,7 +23,12 @@ export { createDataState, type DataStateModule } from './dataState'
 export { createZoomState, type ZoomStateModule, type ZoomDeps } from './zoomState'
 export { createOptionsState, type OptionsStateModule } from './optionsState'
 export { createPaneState, type PaneStateModule } from './paneState'
-export { createSystemThemeState, type SystemThemeStateModule } from './themeState'
+export {
+  createSystemThemeState,
+  createThemeState,
+  type SystemThemeStateModule,
+  type ThemeStateModule,
+} from './themeState'
 export { createSettingsState, type SettingsStateModule } from './settingsState'
 export { createModeState, type ModeStateModule, type ChartModeId } from './modeState'
 export { createDrawingState, type DrawingStateModule } from './drawingState'

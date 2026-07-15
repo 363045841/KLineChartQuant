@@ -57,7 +57,7 @@ function parseDateToTimestamp(input: string): number | null {
 
 export function useRangeSelection(options: {
   controller: Ref<ChartController | null>
-  activeToolId: Ref<string>
+  isRangeSelectMode: Ref<boolean>
   containerRef: Ref<HTMLElement | null>
   dataVersion: Ref<number>
   viewportVersion: Ref<number>
@@ -66,7 +66,7 @@ export function useRangeSelection(options: {
 }) {
   const {
     controller,
-    activeToolId,
+    isRangeSelectMode,
     containerRef,
     dataVersion,
     viewportVersion,
@@ -85,7 +85,7 @@ export function useRangeSelection(options: {
     isDragging: false,
   })
 
-  const isRangeSelectActive = computed(() => activeToolId.value === 'range-select')
+  const isRangeSelectActive = computed(() => isRangeSelectMode.value)
 
   const rangeSelectionReady = computed(
     () =>

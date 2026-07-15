@@ -86,7 +86,7 @@ pnpm stockbao
 - **DPR/ResizeObserver** is the single source of truth for canvas sizing (`devicePixelContentBoxSize` with `window.devicePixelRatio` fallback).
 - **Rendering pipeline**: computeViewport → getVisibleRange → calcKLinePositions → iterate panes → build RenderContext → rendererPluginManager.render(paneId) → renderPlugin('timeAxis').
 - **Three renderer categories**: business (pane-local, e.g. candle/ma/boll), global (paneId=GLOBAL, e.g. gridLines/crosshair), system (isSystem=true, e.g. timeAxis).
-- **StateKernel** is the single source of truth for all chart state (7 sub-state modules: viewport, zoom, data, pane, theme, drawing, interaction). Each sub-state module exposes `readonly` (ReadonlySignal bag) + semantic `actions`. WritableSignal bag (`signals`) is never part of the public return — all mutations flow through actions. Derived state lives in computed(); DOM side-effects in effect(). See `docs/state-kernel-migration-plan.md`.**
+- **StateKernel** is the single source of truth for chart business state (sub-state modules include options, zoom, data, dataManager, comparison, indicator, subPane, marker, viewport, pane, settings, mode, drawing, interaction, systemTheme). Preference theme is `settings.theme` (`light|dark|auto`); **effective** theme is `computed` from preference + `systemTheme` (exposed as flat `signals.theme`). Each sub-state module exposes `readonly` (ReadonlySignal bag) + semantic `actions`. WritableSignal bag (`signals`) is never part of the public return — all mutations flow through actions. Derived state lives in computed(); DOM side-effects in effect(). See `docs/state-kernel-migration-plan.md`.**
 
 ### StateKernel Reactive Kernel Design Principles
 

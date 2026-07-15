@@ -64,6 +64,15 @@ StateKernel 已完成 12 个子状态模块的迁移（zoom、data、viewport、
 Spec: `docs/superpowers/specs/2026-07-15-kernel-b-class-settings-mode-tool-design.md`  
 Plan: `docs/superpowers/plans/2026-07-15-kernel-b-class-settings-mode-tool.md`
 
+## Phase C — SSOT cleanup (2026-07-15)
+- [x] C1 drawing selection/getAll/removeDrawing
+- [x] C2 Vue tool / range-select split
+- [x] C3 theme preference in settings + effectiveTheme
+- [x] C4 scale three-layer semantics documented
+
+Spec: `docs/superpowers/specs/2026-07-15-ssot-cleanup-C-design.md`  
+Plan: `docs/superpowers/plans/2026-07-15-ssot-cleanup-C.md`
+
 ## 非目标
 
 - `PaneRenderer` canvas/yAxis 等渲染基础设施不进 kernel（属于副作用持有，非状态）

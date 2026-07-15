@@ -24,3 +24,7 @@ export function createSystemThemeState() {
 }
 
 export type SystemThemeStateModule = ReturnType<typeof createSystemThemeState>
+
+/** @deprecated 使用 createSystemThemeState；偏好主题在 settingsState */
+export const createThemeState = createSystemThemeState
+export type ThemeStateModule = SystemThemeStateModule

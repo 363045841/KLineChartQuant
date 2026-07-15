@@ -268,13 +268,13 @@ export const KLineChart = forwardRef<KLineChartHandle, KLineChartProps>(function
 
     const resolved = resolveSettings(settings)
     ctrl.updateSettingsFacade(resolved)
-    // settings.theme → setTheme bridge (仅当 theme prop 未提供时生效)
+    // settings.theme：auto 时只注入 systemTheme，勿用 setTheme 覆盖偏好
     if (!theme && resolved.theme) {
       const themeValue = resolved.theme as string
       if (themeValue === 'auto') {
         const mq = window.matchMedia('(prefers-color-scheme: dark)')
-        ctrl.setTheme(mq.matches ? 'dark' : 'light')
-      } else if (themeValue !== 'light') {
+        ctrl.setSystemTheme(mq.matches ? 'dark' : 'light')
+      } else {
         ctrl.setTheme(themeValue as 'light' | 'dark')
       }
     }
