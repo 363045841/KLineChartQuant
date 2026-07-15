@@ -342,6 +342,25 @@ describe('Chart DPR pipeline', () => {
 
     await chart.destroy()
   })
+
+  it('projectState does not commitLayout back to kernel', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const commitSpy = vi.spyOn(chart.kernel.pane.actions, 'commitLayout')
+    commitSpy.mockClear()
+
+    const layout = (chart as unknown as { layoutManager: { projectState: Function } })
+      .layoutManager
+    layout.projectState(
+      [
+        { id: 'main', ratio: 0.7, role: 'price', visible: true },
+        { id: 'MACD_0', ratio: 0.3, role: 'indicator', visible: true },
+      ],
+      { main: 0.7, MACD_0: 0.3 },
+    )
+
+    expect(commitSpy).not.toHaveBeenCalled()
+    await chart.destroy()
+  })
 })
 
 describe('Chart pane layout regressions', () => {
@@ -391,10 +410,11 @@ describe('Chart pane layout regressions', () => {
     const specs = chart.getPaneLayoutSpecs().filter((pane) => pane.visible !== false)
     expect(specs).toHaveLength(3)
 
+    // 公共读对齐 kernel SSOT（createSubPane 3:1:1 → 0.6:0.2:0.2）
     const byId = new Map(specs.map((pane) => [pane.id, pane]))
-    expect(byId.get('main')?.ratio ?? 0).toBeCloseTo(7 / 12, 6)
-    expect(byId.get('MACD_0')?.ratio ?? 0).toBeCloseTo(5 / 24, 6)
-    expect(byId.get('RSI_0')?.ratio ?? 0).toBeCloseTo(5 / 24, 6)
+    expect(byId.get('main')?.ratio ?? 0).toBeCloseTo(0.6, 6)
+    expect(byId.get('MACD_0')?.ratio ?? 0).toBeCloseTo(0.2, 6)
+    expect(byId.get('RSI_0')?.ratio ?? 0).toBeCloseTo(0.2, 6)
 
     await chart.destroy()
   })

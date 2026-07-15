@@ -10,12 +10,13 @@ import {
   type DrawingToolId,
 } from '@363045841yyt/klinechart-core/controllers'
 import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
-import { ref, computed, shallowRef, onUnmounted, type Ref } from 'vue'
+import { computed, shallowRef, onUnmounted, type Ref } from 'vue'
 
 export function useDrawingManager(ctrl: Ref<ChartController | null>) {
   const drawingController = shallowRef<DrawingInteractionController | null>(null)
-  const selectedDrawingId = ref<string | null>(null)
-  const drawings = ref<DrawingObject[]>([])
+  /** 镜像 kernel.selectedDrawingId（shallowRef 避免 deep proxy 破坏 Object.is） */
+  const selectedDrawingId = shallowRef<string | null>(null)
+  const drawings = shallowRef<DrawingObject[]>([])
   const selectedDrawing = computed(() => {
     const id = selectedDrawingId.value
     if (!id) return null
@@ -23,6 +24,7 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
   })
 
   let unsubDrawings: (() => void) | null = null
+  let unsubSelected: (() => void) | null = null
 
   function handleSelectTool(toolId: string) {
     drawingController.value?.setTool(toolId as DrawingToolId)
@@ -47,11 +49,12 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
     drawingController.value.setCallbacks({
       onDrawingCreated: (drawing) => {
         drawings.value = [...drawings.value, drawing]
-        selectedDrawingId.value = drawing.id
+        // selection 写 kernel；UI 由 selectedDrawingId signal 回推
+        chartCtrl.setSelectedDrawingId(drawing.id)
       },
       onToolChange: () => {},
       onDrawingSelected: (drawing) => {
-        selectedDrawingId.value = drawing?.id ?? null
+        chartCtrl.setSelectedDrawingId(drawing?.id ?? null)
       },
     })
 
@@ -61,13 +64,23 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
       syncing = true
       const full = chartCtrl.getFullDrawings()
       drawingController.value?.setDrawings(full)
+      drawings.value = full as DrawingObject[]
       syncing = false
     })
+    drawings.value = chartCtrl.getFullDrawings() as DrawingObject[]
+
+    const syncSelected = () => {
+      selectedDrawingId.value = chartCtrl.selectedDrawingId.peek()
+    }
+    unsubSelected = chartCtrl.selectedDrawingId.subscribe(syncSelected)
+    syncSelected()
   }
 
   onUnmounted(() => {
     unsubDrawings?.()
     unsubDrawings = null
+    unsubSelected?.()
+    unsubSelected = null
   })
 
   return {

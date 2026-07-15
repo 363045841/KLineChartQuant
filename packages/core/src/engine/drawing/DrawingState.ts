@@ -53,17 +53,22 @@ export class DrawingState {
   // ---- Write ----
   // 所有 write 方法都会调用 adapter.setDrawings() 触发渲染
 
-  /** 整体替换图元列表（会清理选中状态） */
+  /** 整体替换图元列表；选中 id 不在列表时同步清本地与 kernel */
   setDrawings(drawings: DrawingObject[]): void {
     this.drawings = drawings
+    if (this.selectedDrawingId && !this.drawings.some((d) => d.id === this.selectedDrawingId)) {
+      this.selectedDrawingId = null
+      this.adapter.setSelectedDrawingId(null)
+    }
     this.adapter.setDrawings(drawings)
   }
 
-  /** 替换图元列表，若选中项被移除则自动清除选中 */
+  /** 替换图元列表，若选中项被移除则自动清除选中（含 kernel） */
   replaceDrawings(drawings: DrawingObject[]): void {
     this.drawings = drawings
     if (this.selectedDrawingId && !this.drawings.some((d) => d.id === this.selectedDrawingId)) {
       this.selectedDrawingId = null
+      this.adapter.setSelectedDrawingId(null)
     }
     this.adapter.setDrawings(this.drawings)
   }

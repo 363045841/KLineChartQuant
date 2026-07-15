@@ -774,7 +774,10 @@ export class Chart {
     this.scheduleDraw()
   }
 
-  /** 获取 DrawingStore（投影 kernel，供交互/测试） */
+  /**
+   * 获取 DrawingStore（只读投影 kernel.drawing）。
+   * @remarks 禁止经 store 写入；变更请用 setDrawings / setSelectedDrawingId。
+   */
   getDrawingStore() {
     return this.renderer.getDrawingStore()
   }

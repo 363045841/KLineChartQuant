@@ -58,16 +58,23 @@ export class ChartPaneLayout {
     return this.paneRenderers
   }
 
+  /**
+   * 公共读：specs 结构来自工作副本定义，ratio 字段取自 kernel（不写工作副本）。
+   */
   getPaneSpecs(): PaneSpec[] {
+    const kernelRatios = this.deps.getPaneRatios()
     return this._paneSpecs.map((spec) => ({
       ...spec,
+      ratio: kernelRatios[spec.id] ?? spec.ratio,
       ...(spec.capabilities ? { capabilities: { ...spec.capabilities } } : {}),
     }))
   }
 
+  /**
+   * 公共读：直接返回 kernel paneRatios 副本，不触碰算法工作副本。
+   */
   getInternalPaneRatios(): Map<string, number> {
-    this.syncRatiosFromKernel()
-    return new Map(this._internalPaneRatios)
+    return new Map(Object.entries(this.deps.getPaneRatios()))
   }
 
   private syncRatiosFromKernel(): void {
@@ -375,15 +382,29 @@ export class ChartPaneLayout {
     this.layoutPanes({ commit: false })
   }
 
+  /**
+   * 公共读：用 kernel ratios + 本地 specs 定义组装快照，不写工作副本。
+   * commitLayout 走 buildLayoutSpecsFromWorkingCopy，避免公共读污染算法中间态。
+   */
   getPaneLayoutSpecs(): PaneSpec[] {
+    return this.buildLayoutSpecs(this.deps.getPaneRatios())
+  }
+
+  /** 仅算法/commit 使用：读当前工作副本 ratios，不读 kernel */
+  private buildLayoutSpecsFromWorkingCopy(): PaneSpec[] {
+    const ratios: Record<string, number> = {}
+    this._internalPaneRatios.forEach((ratio, id) => {
+      ratios[id] = ratio
+    })
+    return this.buildLayoutSpecs(ratios)
+  }
+
+  private buildLayoutSpecs(ratios: Readonly<Record<string, number>>): PaneSpec[] {
     const visible = this._paneSpecs.filter((p) => p.visible !== false)
-    const sum = visible.reduce(
-      (s, p) => s + (this._internalPaneRatios.get(p.id) ?? p.ratio ?? 0),
-      0,
-    )
+    const sum = visible.reduce((s, p) => s + (ratios[p.id] ?? p.ratio ?? 0), 0)
     const safeSum = sum > 0 ? sum : 1
     return this._paneSpecs.map((spec) => {
-      const base = this._internalPaneRatios.get(spec.id) ?? spec.ratio ?? 0
+      const base = ratios[spec.id] ?? spec.ratio ?? 0
       const ratio = spec.visible === false ? base : base / safeSum
       const pane = this.paneRenderers.find((r) => r.getPane().id === spec.id)?.getPane()
       return {
@@ -400,7 +421,7 @@ export class ChartPaneLayout {
     this._internalPaneRatios.forEach((ratio, id) => {
       ratios[id] = ratio
     })
-    this.deps.commitLayout(ratios, this.getPaneLayoutSpecs())
+    this.deps.commitLayout(ratios, this.buildLayoutSpecsFromWorkingCopy())
   }
 
   applyPaneLayoutSpecs(panes: PaneSpec[], options?: { preferIncomingRatios?: boolean }): void {

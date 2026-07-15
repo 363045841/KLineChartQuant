@@ -377,6 +377,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const drawingTool: ReadonlySignal<DrawingToolType | null> = chart.kernel.drawing.readonly.drawingTool
   // drawings need type mapping (plugin DrawingObject → controller DrawingObject)
   const drawings = computed(() => chart.kernel.drawing.readonly.drawings().map(mapDrawingObject))
+  const selectedDrawingId: ReadonlySignal<string | null> =
+    chart.kernel.drawing.readonly.selectedDrawingId
   const paneRatios: ReadonlySignal<Readonly<Record<string, number>>> = chart.kernel.pane.readonly.paneRatios
   const paneLayout: ReadonlySignal<ReadonlyArray<PaneSpec>> = chart.kernel.pane.readonly.paneSpecs
   const interactionState: ReadonlySignal<InteractionSnapshot> = chart.kernel.interaction.readonly.interactionSnapshot
@@ -834,6 +836,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     subPanes,
     drawingTool,
     drawings,
+    selectedDrawingId,
     paneRatios,
     paneLayout,
     interactionState,

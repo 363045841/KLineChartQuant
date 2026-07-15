@@ -19,12 +19,22 @@ function mk(id: string, overrides: Partial<DrawingObject> = {}): DrawingObject {
 describe('drawingState', () => {
   it('freezes drawings snapshot so external mutation cannot corrupt SSOT', () => {
     const state = createDrawingState()
-    const list = [mk('a', { style: { stroke: '#f00' } })]
+    const list = [
+      mk('a', {
+        style: { stroke: '#f00' },
+        anchors: [{ id: 'p1', index: 0, price: 10 }],
+      }),
+    ]
     state.actions.setDrawings(list)
     list[0]!.id = 'hack'
     const stored = state.readonly.drawings.peek()[0]!
     expect(stored.id).toBe('a')
     expect(Object.isFrozen(stored)).toBe(true)
+    expect(Object.isFrozen(stored.style)).toBe(true)
+    expect(Object.isFrozen(stored.anchors)).toBe(true)
+    expect(() => {
+      ;(stored.anchors as { index: number }[])[0]!.index = 99
+    }).toThrow()
   })
 
   it('tracks selectedDrawingId and clears when drawing removed via setDrawings', () => {

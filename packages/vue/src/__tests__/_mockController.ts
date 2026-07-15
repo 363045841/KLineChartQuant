@@ -96,6 +96,7 @@ export function createMockChartController(
     subPanes: createSignal<ReadonlyArray<SubPaneInfo>>([]),
     drawingTool: createSignal<DrawingToolType | null>(null),
     drawings: createSignal<ReadonlyArray<DrawingObject>>([]),
+    selectedDrawingId: createSignal<string | null>(null),
     paneRatios: createSignal<Readonly<Record<string, number>>>({}),
     paneLayout,
     interactionState: createSignal<InteractionSnapshot>({

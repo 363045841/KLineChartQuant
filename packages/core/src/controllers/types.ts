@@ -287,6 +287,8 @@ export interface ChartController extends DrawingChartAdapter {
   readonly subPanes: ReadonlySignal<ReadonlyArray<SubPaneInfo>>
   readonly drawingTool: ReadonlySignal<DrawingToolType | null>
   readonly drawings: ReadonlySignal<ReadonlyArray<DrawingObject>>
+  /** 当前选中绘图 id（kernel.drawing SSOT） */
+  readonly selectedDrawingId: ReadonlySignal<string | null>
   readonly paneRatios: ReadonlySignal<Readonly<Record<string, number>>>
   readonly paneLayout: ReadonlySignal<ReadonlyArray<PaneSpec>>
   readonly interactionState: ReadonlySignal<InteractionSnapshot>
