@@ -331,7 +331,8 @@ pnpm type-check
 - [x] Phase 0 — 单路径调度（2026-07-15：删 `renderPanes` 内 Manager.render；`useRenderer` 挂 Scene；去掉 drawing/指标/副图 `setEnabled(false)` 双注册；`setRendererEnabled` 驱动 Layer 显隐；审查修复：paint 隔离 / onUninstall 单点 / useRenderer 幂等）
 - [x] Phase 1 — candle 经 sceneRenderer.drawInstances（2026-07-15：注入 sceneRenderer；drawCandlesViaRenderer；legacy surface 兜底；beginFrame clear；fail-closed）
 - [x] Phase 1.1 样板 — MA 经 drawLinesViaRenderer（2026-07-15：drawLines boolean fail-closed；linesViaRenderer helper；MA 优先 sceneRenderer）
-- [x] Phase 1.1 批量 — 纯折线指标 `tryDrawLinesGpu`（dema/tema/hma/…/rsi/macd-lines/ichimoku 等；BOLL/ENE 含 fill band 仍 legacy）
+- [x] Phase 1.1 批量 — 纯折线指标 `tryDrawLinesGpu`（dema/tema/hma/…/rsi/macd-lines/ichimoku 等）
+- [x] Phase 1.1 fill — BOLL/ENE 经 tryDrawFilledBandGpu + tryDrawLinesGpu（2026-07-15）
 - [ ] Phase 2 — 清理与文档
 - [ ] Phase 3 — WebGPU（可选）
 

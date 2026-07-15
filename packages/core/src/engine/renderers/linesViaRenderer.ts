@@ -108,3 +108,107 @@ export function tryDrawLinesGpu(
   }
   return false
 }
+
+/**
+ * 经 Renderer fill pipeline 画上下轨填充带（BOLL/ENE）。
+ * 顶点布局与 createWebGLRenderer fill 一致：每点 upper.x,y + lower.x,y。
+ */
+export function drawFilledBandViaRenderer(
+  renderer: Renderer,
+  upperPoints: ReadonlyArray<LinePoint>,
+  lowerPoints: ReadonlyArray<LinePoint>,
+  color: string,
+  scrollLeft: number,
+): boolean {
+  if (!renderer.surface.isAvailable()) return false
+  const n = Math.min(upperPoints.length, lowerPoints.length)
+  if (n < 2) return false
+
+  let pipeline: ReturnType<Renderer['createPipeline']> | null = null
+  let vertices: ReturnType<Renderer['createBuffer']> | null = null
+  try {
+    pipeline = renderer.createPipeline({ type: 'fill' })
+    // vertexCount = n*2（上轨 n + 下轨 n 交错为 n 组 4 floats）
+    const floats = new Float32Array(n * 4)
+    for (let i = 0; i < n; i++) {
+      const o = i * 4
+      floats[o] = upperPoints[i]!.x
+      floats[o + 1] = upperPoints[i]!.y
+      floats[o + 2] = lowerPoints[i]!.x
+      floats[o + 3] = lowerPoints[i]!.y
+    }
+    vertices = renderer.createBuffer('vertex', floats.byteLength)
+    renderer.writeBuffer(vertices, floats)
+    return renderer.drawLines({
+      pipeline,
+      vertices,
+      vertexCount: n * 2,
+      uniforms: { color, scrollLeft },
+    })
+  } catch {
+    return false
+  } finally {
+    if (vertices) renderer.destroyBuffer(vertices)
+    if (pipeline) renderer.destroyPipeline(pipeline)
+  }
+}
+
+/**
+ * 填充带 GPU 阶梯：sceneRenderer fill → legacy drawFilledBand → false。
+ * @param alpha composite 时的全局透明度（半透明 bandFill）
+ */
+export function tryDrawFilledBandGpu(
+  context: RenderContext,
+  upperPoints: ReadonlyArray<LinePoint>,
+  lowerPoints: ReadonlyArray<LinePoint>,
+  color: string,
+  scrollLeft: number,
+  alpha = 1,
+): boolean {
+  const enableWebGL = context.settings?.enableWebGLRendering !== false
+  if (!enableWebGL) return false
+  if (Math.min(upperPoints.length, lowerPoints.length) < 2) return false
+
+  if (context.sceneRenderer) {
+    if (
+      drawFilledBandViaRenderer(
+        context.sceneRenderer,
+        upperPoints,
+        lowerPoints,
+        color,
+        scrollLeft,
+      )
+    ) {
+      const r = context.sceneRenderer
+      r.surface.compositeTo(
+        context.ctx,
+        {
+          x: 0,
+          y: context.pane.top,
+          width: context.viewport?.plotWidth ?? context.paneWidth,
+          height: context.pane.height,
+          dpr: context.dpr,
+        },
+        { imageSmoothingEnabled: false, alpha },
+      )
+      return true
+    }
+  }
+
+  const surface = context.lineWebGLSurface
+  if (surface?.isAvailable()) {
+    const ok = surface.drawFilledBand(
+      {
+        upperPoints: upperPoints.map((p) => ({ x: p.x, y: p.y })),
+        lowerPoints: lowerPoints.map((p) => ({ x: p.x, y: p.y })),
+      },
+      color,
+      scrollLeft,
+    )
+    if (ok) {
+      surface.compositeTo(context.ctx, { imageSmoothingEnabled: false, alpha })
+      return true
+    }
+  }
+  return false
+}

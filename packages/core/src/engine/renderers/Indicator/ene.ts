@@ -20,10 +20,14 @@ import type {
 import type { ENESchedulerConfig, IndicatorScheduler } from '../../indicators/scheduler'
 import { ENE_STATE_KEY, type ENERenderState } from '../../indicators/state/eneState'
 
-import { getRgbaAlpha, toOpaqueRgba, compositeLineSurface } from './shared/webglBand'
+import { getRgbaAlpha, toOpaqueRgba } from './shared/webglBand'
+import { tryDrawFilledBandGpu, tryDrawLinesGpu } from '../linesViaRenderer'
 
 type LinePoint = { x: number; y: number }
 
+/**
+ * ENE GPU：先 band fill 再上/中/下轨。sceneRenderer → legacy → false。
+ */
 function drawENEWithWebGL(
   context: RenderContext,
   data: {
@@ -38,24 +42,19 @@ function drawENEWithWebGL(
     context.colorPresetSettings,
   )
   if (context.settings?.enableWebGLRendering === false) return false
-  const surface = context.lineWebGLSurface
-  if (!surface || !surface.isAvailable()) return false
 
-  surface.clear()
-
-  let allOk = true
+  // band 默认 false：无 surface 时不得假成功跳过 2D
+  let bandOk = false
   if (data.upperPoints.length >= 2 && data.lowerPoints.length >= 2) {
-    surface.clear()
-    allOk = surface.drawFilledBand(
-      { upperPoints: data.upperPoints, lowerPoints: data.lowerPoints },
+    bandOk = tryDrawFilledBandGpu(
+      context,
+      data.upperPoints,
+      data.lowerPoints,
       toOpaqueRgba(colors.ene.bandFill),
       context.scrollLeft,
+      getRgbaAlpha(colors.ene.bandFill),
     )
-    if (allOk) {
-      compositeLineSurface(context, surface, getRgbaAlpha(colors.ene.bandFill))
-    }
   }
-  surface.clear()
 
   const lineStrips: Array<{ points: LinePoint[]; width: number; color: string }> = []
   if (data.upperPoints.length >= 2) {
@@ -67,17 +66,10 @@ function drawENEWithWebGL(
   if (data.lowerPoints.length >= 2) {
     lineStrips.push({ points: data.lowerPoints, width: 1, color: colors.ene.lower })
   }
-  if (lineStrips.length > 0) {
-    allOk = surface.drawLineStrips(lineStrips, context.scrollLeft)
-  }
-  if (!allOk) {
-    surface.clear()
-    return false
-  }
 
-  compositeLineSurface(context, surface)
-  surface.clear()
-  return true
+  if (lineStrips.length === 0) return bandOk
+  // 线失败 → false，整图 2D 重画（含 band）
+  return tryDrawLinesGpu(context, lineStrips, context.scrollLeft)
 }
 
 /** 创建 ENE（轨道线）渲染器插件（无状态版本）

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 
 import type { Renderer } from '../../../rendering/render/Renderer'
-import { drawLinesViaRenderer } from '../linesViaRenderer'
+import { drawFilledBandViaRenderer, drawLinesViaRenderer } from '../linesViaRenderer'
 
 function mockRenderer(): Renderer & {
   drawLines: ReturnType<typeof vi.fn>
@@ -114,5 +114,38 @@ describe('drawLinesViaRenderer', () => {
         0,
       ),
     ).toBe(false)
+  })
+})
+
+describe('drawFilledBandViaRenderer', () => {
+  it('uses fill pipeline and packs upper/lower points', () => {
+    const r = mockRenderer()
+    r.drawLines.mockReturnValue(true)
+    const ok = drawFilledBandViaRenderer(
+      r,
+      [
+        { x: 0, y: 10 },
+        { x: 1, y: 12 },
+      ],
+      [
+        { x: 0, y: 20 },
+        { x: 1, y: 22 },
+      ],
+      'rgba(0,0,255,0.2)',
+      5,
+    )
+    expect(ok).toBe(true)
+    expect(r.createPipeline).toHaveBeenCalledWith({ type: 'fill' })
+    expect(r.drawLines).toHaveBeenCalledTimes(1)
+    const args = r.drawLines.mock.calls[0]![0]
+    expect(args.vertexCount).toBe(4)
+    expect(args.uniforms.color).toBe('rgba(0,0,255,0.2)')
+    expect(args.uniforms.scrollLeft).toBe(5)
+  })
+
+  it('returns false when fewer than 2 points', () => {
+    const r = mockRenderer()
+    expect(drawFilledBandViaRenderer(r, [{ x: 0, y: 1 }], [{ x: 0, y: 2 }], '#00f', 0)).toBe(false)
+    expect(r.drawLines).not.toHaveBeenCalled()
   })
 })
