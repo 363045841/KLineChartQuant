@@ -260,14 +260,12 @@ export class ChartRenderer {
     {
       const plugin = createDrawingRendererPlugin({ store: this.drawingStore })
       this.deps.getRendererPluginManager().register(plugin)
-      this.deps.getRendererPluginManager().setEnabled(plugin.name, false)
       const layer = createLayerFromPlugin(plugin, getCtxForCurrentPane, 'global')
       this.scene.addLayer(layer)
     }
     {
       const plugin = createDrawingLabelOverlayPlugin({ store: this.drawingStore })
       this.deps.getRendererPluginManager().register(plugin)
-      this.deps.getRendererPluginManager().setEnabled(plugin.name, false)
       const layer = createLayerFromPlugin(plugin, getCtxForCurrentPane, 'global')
       this.scene.addLayer(layer)
     }
@@ -279,6 +277,10 @@ export class ChartRenderer {
 
   getPaneCtxMap(): Map<string, RenderContext> {
     return this.paneCtxMap
+  }
+
+  getCurrentPaneId(): string {
+    return this.currentPaneId
   }
 
   getMarkerManager(): MarkerManager {
@@ -587,8 +589,6 @@ export class ChartRenderer {
     const sharedXAxisRanges: XAxisRange[] = []
 
     const dataManager = this.deps.getDataManager()
-    const rendererPluginManager = this.deps.getRendererPluginManager()
-    const pluginHost = this.deps.getPluginHost()
     const mode = this.deps.getActiveMode()
 
     for (const renderer of this.deps.getPaneRenderers()) {
@@ -700,13 +700,6 @@ export class ChartRenderer {
 
       this.paneCtxMap.set(pane.id, context)
       this.currentPaneId = pane.id
-
-      if (shouldUpdateMain || shouldUpdateOverlay) {
-        const errors = rendererPluginManager.render(pane.id, context, level)
-        if (errors.length > 0) {
-          pluginHost.events.emit('renderer:error', { paneId: pane.id, errors })
-        }
-      }
 
       const region = { x: 0, y: pane.top, width: vp.plotWidth, height: pane.height, dpr: vp.dpr }
       if (shouldUpdateMain) {

@@ -11,6 +11,7 @@ import type { IndicatorScheduler, PVTSchedulerConfig } from '../../indicators/sc
 import type { PVTRenderState } from '../../indicators/state/pvtState'
 import { createPVTStateKey, EMPTY_PVT_STATE } from '../../indicators/state/pvtState'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo'
 
@@ -54,7 +55,7 @@ function createPVTRendererPlugin(options: { paneId?: string } = {}): RendererPlu
       return key ? [key] : []
     },
     draw(context: RenderContext) {
-      const { ctx, pane, range, scrollLeft, kLineCenters, lineWebGLSurface } = context
+      const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const stateKey = resolveKey()
       if (!stateKey) return
       const state = pluginHost?.getSharedState<PVTRenderState>(stateKey)
@@ -81,20 +82,7 @@ function createPVTRendererPlugin(options: { paneId?: string } = {}): RendererPlu
 
       if (points.length < 2) return
 
-      const enableWebGL = context.settings?.enableWebGLRendering !== false
-      let usedWebGL = false
-      if (enableWebGL && lineWebGLSurface?.isAvailable()) {
-        const allOk = lineWebGLSurface.drawLineStrips(
-          [{ points, width: 1, color: PVT_COLOR }],
-          scrollLeft,
-        )
-        if (allOk) {
-          usedWebGL = true
-          lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
-        }
-      }
-
-      if (usedWebGL) return
+      if (tryDrawLinesGpu(context, [{ points, width: 1, color: PVT_COLOR }], scrollLeft)) return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)

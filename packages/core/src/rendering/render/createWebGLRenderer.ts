@@ -148,57 +148,63 @@ export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurf
       if (candleSurface) {
         candleSurface.setRegion(toWebGLRegion(region))
         candleSurface.resize(region.width, region.height, region.dpr)
+        candleSurface.clear()
       }
       if (lineSurface) {
         lineSurface.setRegion(toWebGLRegion(region))
         lineSurface.resize(region.width, region.height, region.dpr)
+        lineSurface.clear()
       }
     },
 
-    drawInstances(params: DrawInstancesParams): void {
-      if (disposed) return
+    drawInstances(params: DrawInstancesParams): boolean {
+      if (disposed) return false
       const pipelineMeta_rec = pipelineMeta.get(params.pipeline as object)
-      if (!pipelineMeta_rec || pipelineMeta_rec.type !== 'candle') return
-
-      const instanceMeta = bufferMeta.get(params.instances as object)
-      if (!instanceMeta || !instanceMeta.data) return
+      if (!pipelineMeta_rec || pipelineMeta_rec.type !== 'candle') return false
 
       const rectCount = params.instanceCount
-      if (rectCount <= 0) return
+      if (rectCount <= 0) return true
+
+      const instanceMeta = bufferMeta.get(params.instances as object)
+      if (!instanceMeta || !instanceMeta.data) return false
 
       const floats = new Float32Array(instanceMeta.data, 0, rectCount * 4)
       const color = (params.uniforms?.color as string) ?? '#000000'
       const scrollLeft = (params.uniforms?.scrollLeft as number) ?? 0
 
-      if (candleSurface) {
-        candleSurface.drawRectBuffer(floats, rectCount, color, scrollLeft)
-        return
-      }
-
-      if (fallbackCtx) {
-        const ctx = fallbackCtx
-        ctx.fillStyle = color
-        for (let i = 0; i < rectCount; i++) {
-          const x = floats[i * 4] - scrollLeft
-          const y = floats[i * 4 + 1]
-          const w = Math.max(0, floats[i * 4 + 2])
-          const h = floats[i * 4 + 3]
-          ctx.fillRect(x, y, w, h)
-        }
-      }
+      // candle 路径 fail-closed：只用 candleSurface，不回落到 overlay fallbackCtx
+      if (!candleSurface) return false
+      return candleSurface.drawRectBuffer(floats, rectCount, color, scrollLeft)
     },
 
-    drawLines(params: DrawLinesParams): void {
-      if (disposed) return
+    drawLines(params: DrawLinesParams): boolean {
+      if (disposed) return false
       const pipelineMeta_rec = pipelineMeta.get(params.pipeline as object)
-      if (!pipelineMeta_rec) return
+      if (!pipelineMeta_rec) return false
 
+      const scrollLeft = (params.uniforms?.scrollLeft as number) ?? 0
+      // 折线/填充 fail-closed：只用 lineSurface，不回落到 overlay fallbackCtx
+      if (!lineSurface) return false
+
+      // 批量 strips：一次 drawLineStrips（单次 MSAA clear），多周期 MA 必须走此路径
+      if (params.strips && params.strips.length > 0) {
+        if (pipelineMeta_rec.type === 'fill') return false
+        const lines = params.strips
+          .filter((s) => s.points.length >= 2)
+          .map((s) => ({
+            points: s.points.map((p) => ({ x: p.x, y: p.y })),
+            color: s.color,
+            width: s.width ?? 1,
+          }))
+        if (lines.length === 0) return true
+        return lineSurface.drawLineStrips(lines, scrollLeft)
+      }
+
+      if (!params.vertices || params.vertexCount == null || params.vertexCount < 2) return false
       const vertexMeta = bufferMeta.get(params.vertices as object)
-      if (!vertexMeta || !vertexMeta.data) return
-      if (params.vertexCount < 2) return
+      if (!vertexMeta || !vertexMeta.data) return false
 
       const color = (params.uniforms?.color as string) ?? '#000000'
-      const scrollLeft = (params.uniforms?.scrollLeft as number) ?? 0
 
       if (pipelineMeta_rec.type === 'fill') {
         const floats = new Float32Array(vertexMeta.data, 0, params.vertexCount * 2)
@@ -210,61 +216,16 @@ export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurf
           upperPoints.push({ x: floats[offset], y: floats[offset + 1] })
           lowerPoints.push({ x: floats[offset + 2], y: floats[offset + 3] })
         }
-
-        if (lineSurface) {
-          lineSurface.drawFilledBand({ upperPoints, lowerPoints }, color, scrollLeft)
-          return
-        }
-
-        if (fallbackCtx) {
-          const ctx = fallbackCtx
-          ctx.beginPath()
-          ctx.moveTo(upperPoints[0].x - scrollLeft, upperPoints[0].y)
-          for (let i = 1; i < upperPoints.length; i++) {
-            ctx.lineTo(upperPoints[i].x - scrollLeft, upperPoints[i].y)
-          }
-          for (let i = lowerPoints.length - 1; i >= 0; i--) {
-            ctx.lineTo(lowerPoints[i].x - scrollLeft, lowerPoints[i].y)
-          }
-          ctx.closePath()
-          ctx.fillStyle = color
-          ctx.fill()
-        }
-        return
+        return lineSurface.drawFilledBand({ upperPoints, lowerPoints }, color, scrollLeft)
       }
 
       const floats = new Float32Array(vertexMeta.data, 0, params.vertexCount * 2)
-
-      if (lineSurface) {
-        const points: Array<{ x: number; y: number }> = []
-        for (let i = 0; i < params.vertexCount; i++) {
-          points.push({ x: floats[i * 2], y: floats[i * 2 + 1] })
-        }
-        const lineWidth = (params.uniforms?.lineWidth as number) ?? 1
-        const lines = [{ points, color, width: lineWidth }]
-        lineSurface.drawLineStrips(lines, scrollLeft)
-        return
+      const points: Array<{ x: number; y: number }> = []
+      for (let i = 0; i < params.vertexCount; i++) {
+        points.push({ x: floats[i * 2], y: floats[i * 2 + 1] })
       }
-
-      if (fallbackCtx) {
-        const ctx = fallbackCtx
-        const lineWidth = (params.uniforms?.lineWidth as number) ?? 1
-        const dashPattern = params.uniforms?.dashPattern as number[] | undefined
-        ctx.beginPath()
-        ctx.moveTo(floats[0] - scrollLeft, floats[1])
-        for (let i = 1; i < params.vertexCount; i++) {
-          ctx.lineTo(floats[i * 2] - scrollLeft, floats[i * 2 + 1])
-        }
-        ctx.strokeStyle = color
-        ctx.lineWidth = lineWidth
-        if (dashPattern && dashPattern.length > 0) {
-          ctx.setLineDash(dashPattern)
-        }
-        ctx.stroke()
-        if (dashPattern && dashPattern.length > 0) {
-          ctx.setLineDash([])
-        }
-      }
+      const lineWidth = (params.uniforms?.lineWidth as number) ?? 1
+      return lineSurface.drawLineStrips([{ points, color, width: lineWidth }], scrollLeft)
     },
 
     dispatchCompute(_params: DispatchComputeParams): void {

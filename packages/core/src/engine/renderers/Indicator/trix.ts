@@ -64,7 +64,7 @@ function createTRIXRendererPlugin(options: TRIXRendererOptions = {}): RendererPl
     },
 
     draw(context: RenderContext) {
-      const { ctx, pane, range, scrollLeft, kLineCenters, lineWebGLSurface } = context
+      const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const stateKey = resolveKey()
       if (!stateKey) return
       const state = pluginHost?.getSharedState<TRIXRenderState>(stateKey)
@@ -118,17 +118,7 @@ function createTRIXRendererPlugin(options: TRIXRendererOptions = {}): RendererPl
       if (trixPts.length >= 2) lines.push({ points: trixPts, width: 1, color: TRIX_COLOR })
       if (sigPts.length >= 2) lines.push({ points: sigPts, width: 1, color: SIGNAL_COLOR })
 
-      const enableWebGL = context.settings?.enableWebGLRendering !== false
-      let usedWebGL = false
-      if (enableWebGL && lineWebGLSurface?.isAvailable()) {
-        const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
-        if (allOk) {
-          usedWebGL = true
-          lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
-        }
-      }
-
-      if (usedWebGL) return
+      if (tryDrawLinesGpu(context, lines, scrollLeft)) return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)

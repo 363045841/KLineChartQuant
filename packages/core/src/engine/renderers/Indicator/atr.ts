@@ -16,6 +16,7 @@ import { createNonNegativeSparseVisibleStateComposer } from '../../indicators/vi
 
 import { createAtrScaleRendererPlugin } from './scale/atr_scale'
 import { createSingleLineTitleInfo } from './shared/titleInfo'
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 type LinePoint = { x: number; y: number }
 
@@ -98,7 +99,7 @@ function createATRRendererPlugin(options: ATRRendererOptions = {}): RendererPlug
     },
 
     draw(context: RenderContext) {
-      const { ctx, pane, range, scrollLeft, kLineCenters, lineWebGLSurface } = context
+      const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
@@ -159,22 +160,9 @@ function createATRRendererPlugin(options: ATRRendererOptions = {}): RendererPlug
         }
       }
 
-      const enableWebGL = context.settings?.enableWebGLRendering !== false
-      let usedWebGL = false
-      if (enableWebGL && lineWebGLSurface?.isAvailable()) {
-        if (cachedPoints.length >= 2) {
-          const ok = lineWebGLSurface.drawLineStrips(
-            [{ points: cachedPoints, width: 1, color: atrColor }],
-            scrollLeft,
-          )
-          if (ok) {
-            usedWebGL = true
-            lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
-          }
-        }
-      }
-
-      if (!usedWebGL) {
+      if (
+        !tryDrawLinesGpu(context, [{ points: cachedPoints, width: 1, color: atrColor }], scrollLeft)
+      ) {
         drawWithCanvas2D(ctx, scrollLeft, cachedPoints, atrColor)
       }
     },

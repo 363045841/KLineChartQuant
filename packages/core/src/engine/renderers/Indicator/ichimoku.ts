@@ -19,6 +19,7 @@ import type { IchimokuRenderState } from '../../indicators/state/ichimokuState'
 import { createIchimokuStateKey, EMPTY_ICHIMOKU_STATE } from '../../indicators/state/ichimokuState'
 import { createIchimokuVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { getPhysicalKLineConfig } from '../../utils/klineConfig'
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 const TENKAN_COLOR = '#dc2626'
 const KIJUN_COLOR = '#2563eb'
@@ -99,16 +100,14 @@ function renderCloudFill(
 }
 
 function renderIchimokuLines(
-  ctx: CanvasRenderingContext2D,
-  lineWebGLSurface: RenderContext['lineWebGLSurface'],
-  scrollLeft: number,
-  enableWebGL: boolean,
+  context: RenderContext,
   tenkanPts: Point[],
   kijunPts: Point[],
   spanAPts: Point[],
   spanBPts: Point[],
   chikouPts: Point[],
 ): void {
+  const { ctx, scrollLeft } = context
   const lines: Array<{ points: Point[]; width: number; color: string }> = []
   if (tenkanPts.length >= 2) lines.push({ points: tenkanPts, width: 1, color: TENKAN_COLOR })
   if (kijunPts.length >= 2) lines.push({ points: kijunPts, width: 1, color: KIJUN_COLOR })
@@ -116,13 +115,7 @@ function renderIchimokuLines(
   if (spanBPts.length >= 2) lines.push({ points: spanBPts, width: 1, color: SPAN_B_COLOR })
   if (chikouPts.length >= 2) lines.push({ points: chikouPts, width: 1, color: CHIKOU_COLOR })
 
-  if (enableWebGL && lineWebGLSurface?.isAvailable()) {
-    const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
-    if (allOk) {
-      lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
-      return
-    }
-  }
+  if (tryDrawLinesGpu(context, lines, scrollLeft)) return
 
   ctx.save()
   ctx.translate(-scrollLeft, 0)
@@ -182,7 +175,7 @@ function createIchimokuRendererPlugin(
     },
 
     draw(context: RenderContext) {
-      const { ctx, pane, range, scrollLeft, kLineCenters, lineWebGLSurface } = context
+      const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
@@ -200,10 +193,7 @@ function createIchimokuRendererPlugin(
         renderCloudFill(ctx, points.cloudSegs, colors, scrollLeft)
       }
       renderIchimokuLines(
-        ctx,
-        lineWebGLSurface,
-        scrollLeft,
-        context.settings?.enableWebGLRendering !== false,
+        context,
         points.tenkanPts,
         points.kijunPts,
         points.spanAPts,

@@ -65,12 +65,24 @@ export type DrawInstancesParams = {
   uniforms?: Record<string, unknown>
 }
 
+export type DrawLineStrip = {
+  points: ReadonlyArray<{ x: number; y: number }>
+  color: string
+  width?: number
+}
+
 export type DrawLinesParams = {
   pipeline: PipelineHandle
-  vertices: BufferHandle
-  vertexCount: number
+  /**
+   * 单 strip 路径：vertices 为交错 x,y Float32。
+   * 若提供 strips，则忽略 vertices/vertexCount，一次 GPU 提交多条（避免 MSAA 逐条 clear）。
+   */
+  vertices?: BufferHandle
+  vertexCount?: number
   /** Line strip vs disconnected segments. */
   topology?: 'strip' | 'list'
+  /** 多色折线批量（推荐 MA 等多周期） */
+  strips?: ReadonlyArray<DrawLineStrip>
   uniforms?: Record<string, unknown>
 }
 
@@ -117,8 +129,16 @@ export interface Renderer {
   // --- frame ---
 
   beginFrame(region: SurfaceRegion): void
-  drawInstances(params: DrawInstancesParams): void
-  drawLines(params: DrawLinesParams): void
+  /**
+   * 返回 true 表示本批已成功提交 GPU（或 instanceCount<=0 无需绘制）。
+   * 返回 false 表示未画上（无 surface / pipeline 不匹配 / 资源缺失）——调用方应 fail-closed 走 2D。
+   */
+  drawInstances(params: DrawInstancesParams): boolean
+  /**
+   * 返回 true 表示本批折线/填充已成功提交 GPU。
+   * 返回 false 表示未画上——调用方应 fail-closed 走 2D。
+   */
+  drawLines(params: DrawLinesParams): boolean
   /** WebGPU only — WebGL implementations MUST throw. Caller checks caps first. */
   dispatchCompute(params: DispatchComputeParams): void
   endFrame(): void

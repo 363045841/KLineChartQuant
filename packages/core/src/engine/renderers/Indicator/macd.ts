@@ -135,7 +135,7 @@ function createMACDRendererPlugin(options: MACDRendererOptions = {}): RendererPl
     },
 
     draw(context: RenderContext) {
-      const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
+      const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters } = context
       const klineData = data as KLineData[]
       const colors = resolveThemeColors(
         context.theme,
@@ -313,10 +313,8 @@ function createMACDRendererPlugin(options: MACDRendererOptions = {}): RendererPl
         }
       }
 
-      // 绘制 DIF/DEA 线（WebGL 优先，Canvas2D 回退）
-      const enableWebGL = context.settings?.enableWebGLRendering !== false
-      let usedWebGLForLines = false
-      if (enableWebGL && lineWebGLSurface?.isAvailable()) {
+      // 绘制 DIF/DEA 线（sceneRenderer → legacy → Canvas2D）
+      {
         const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
         if (config.showDIF && cachedDifPoints.length >= 2) {
           lines.push({ points: cachedDifPoints, width: 1, color: colors.macd.dif })
@@ -324,23 +322,19 @@ function createMACDRendererPlugin(options: MACDRendererOptions = {}): RendererPl
         if (config.showDEA && cachedDeaPoints.length >= 2) {
           lines.push({ points: cachedDeaPoints, width: 1, color: colors.macd.dea })
         }
-        const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
-        if (allOk) {
-          usedWebGLForLines = true
-          lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
+        if (
+          !tryDrawLinesGpu(context, lines, scrollLeft)
+        ) {
+          drawMacdLinesWithCanvas2D(
+            ctx,
+            scrollLeft,
+            colors.macd.dif,
+            colors.macd.dea,
+            cachedDifPoints,
+            cachedDeaPoints,
+            config,
+          )
         }
-      }
-
-      if (!usedWebGLForLines) {
-        drawMacdLinesWithCanvas2D(
-          ctx,
-          scrollLeft,
-          colors.macd.dif,
-          colors.macd.dea,
-          cachedDifPoints,
-          cachedDeaPoints,
-          config,
-        )
       }
     },
 

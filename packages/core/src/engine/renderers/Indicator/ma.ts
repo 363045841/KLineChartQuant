@@ -19,6 +19,7 @@ import type {
 } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
 import { MA_STATE_KEY, type MARenderState } from '../../indicators/state/maState'
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 // Re-export MAFlags from calculators for backward compatibility
 export type { MAFlags } from '../../indicators/calculators'
@@ -227,7 +228,7 @@ export function createMARendererPlugin(): RendererPluginWithHost {
     },
 
     draw(context: RenderContext) {
-      const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
+      const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
@@ -285,28 +286,15 @@ export function createMARendererPlugin(): RendererPluginWithHost {
         }
       }
 
-      // 检查 WebGL 渲染开关（默认开启）及 GPU 加速是否可用
-      const enableWebGL = context.settings?.enableWebGLRendering !== false
-      let usedWebGL = false
-      if (enableWebGL && lineWebGLSurface?.isAvailable()) {
-        // 组装所有周期的折线数据，批量提交 GPU 一次性渲染，避免逐条 beginPath 的 CPU 开销
-        const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
-        for (const period of state.enabledPeriods) {
-          const points = cachedLines.get(period)
-          if (!points) continue
-          lines.push({ points, width: 1, color: maColors[period] ?? colors.ma.ma5 })
-        }
-        const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
-
-        if (allOk) {
-          usedWebGL = true
-          // 将 WebGL 离屏帧缓冲区内容通过 drawImage 合成到主 Canvas2D
-          lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
-        }
+      const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
+      for (const period of state.enabledPeriods) {
+        const points = cachedLines.get(period)
+        if (!points) continue
+        lines.push({ points, width: 1, color: maColors[period] ?? colors.ma.ma5 })
       }
 
-      // WebGL 渲染失败或未开启时的 Canvas2D 降级路径
-      if (usedWebGL) return
+      // Phase 1.1: sceneRenderer → legacy surface → 2D
+      if (tryDrawLinesGpu(context, lines, scrollLeft)) return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)

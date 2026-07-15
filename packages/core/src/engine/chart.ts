@@ -6,12 +6,14 @@ import {
 } from '../features/alerts/rollingVolume'
 import {
   createPluginHost,
+  GLOBAL_PANE_ID,
   RendererPluginManager,
   wrapPaneInfo,
   type PluginHostImpl,
   type RendererPlugin,
   type RendererPluginWithHost,
 } from '../foundation/plugin/index'
+import { createLayerFromPlugin } from '../rendering/scene/createLayerFromPlugin'
 import {
   computed,
   type Computed,
@@ -585,22 +587,80 @@ export class Chart {
     return this.pluginHost
   }
 
-  // ========== 渲染器插件 API ==========
+  // ========== 渲染器插件 API（绘制只走 Scene；Manager 仅作注册表） ==========
 
-  /** 安装渲染器插件 */
+  private resolvePluginLayerTarget(plugin: RendererPlugin): string {
+    if (typeof plugin.paneId === 'symbol' || plugin.paneId === GLOBAL_PANE_ID) {
+      return 'global'
+    }
+    return String(plugin.paneId)
+  }
+
+  private getContextForPluginLayer(targetPaneId: string) {
+    return () => {
+      if (!this.renderer) return null
+      const map = this.renderer.getPaneCtxMap()
+      if (targetPaneId === 'global') {
+        return map.get(this.renderer.getCurrentPaneId()) ?? null
+      }
+      return map.get(targetPaneId) ?? null
+    }
+  }
+
+  /** 安装渲染器插件：注册元数据 + 挂 Scene Layer（唯一绘制路径；幂等） */
   useRenderer(
     plugin: RendererPlugin | RendererPluginWithHost,
     config?: Record<string, unknown>,
   ): void {
+    const layerId = `plugin:${plugin.name}`
+    const scene = this.renderer?.getScene()
+    const existingPlugin = this.rendererPluginManager.getPlugin(plugin.name)
+    const alreadyLayer = scene?.getLayer(layerId) != null
+
+    if (existingPlugin && alreadyLayer) {
+      if (config && existingPlugin.setConfig) existingPlugin.setConfig(config)
+      return
+    }
+
+    // 仅有注册表：补挂 Layer（不新建 plugin 实例）
+    if (existingPlugin && !alreadyLayer) {
+      if (config && existingPlugin.setConfig) existingPlugin.setConfig(config)
+      const targetPaneId = this.resolvePluginLayerTarget(existingPlugin)
+      scene?.addLayer(
+        createLayerFromPlugin(
+          existingPlugin,
+          this.getContextForPluginLayer(targetPaneId),
+          targetPaneId,
+        ),
+      )
+      return
+    }
+
+    // 仅有 Layer（core 预挂）：不二次 register，避免 Manager 实例 ≠ 绘制实例
+    if (!existingPlugin && alreadyLayer) {
+      return
+    }
+
     this.rendererPluginManager.register(plugin)
     if (config && plugin.setConfig) {
       plugin.setConfig(config)
     }
+    const targetPaneId = this.resolvePluginLayerTarget(plugin)
+    const layer = createLayerFromPlugin(
+      plugin,
+      this.getContextForPluginLayer(targetPaneId),
+      targetPaneId,
+    )
+    scene?.addLayer(layer)
   }
 
-  /** 移除渲染器插件 */
+  /**
+   * 移除渲染器插件。
+   * onUninstall 仅由 Manager.unregister 调用；Scene removeLayer 不 dispose，避免双调。
+   */
   removeRenderer(name: string): void {
     this.rendererPluginManager.unregister(name)
+    this.renderer?.getScene()?.removeLayer(`plugin:${name}`)
   }
 
   /** 获取渲染器插件 */
@@ -613,9 +673,18 @@ export class Chart {
     this.rendererPluginManager.updateConfig(name, config)
   }
 
-  /** 启用/禁用渲染器 */
+  /** 启用/禁用渲染器（Scene Layer 显隐；Manager enabled 仅同步元数据） */
   setRendererEnabled(name: string, enabled: boolean): void {
-    this.rendererPluginManager.setEnabled(name, enabled)
+    const inManager = this.rendererPluginManager.getPlugin(name) != null
+    if (inManager) {
+      // setEnabled → invalidate → scheduleDraw（勿再 schedule 双唤醒）
+      this.rendererPluginManager.setEnabled(name, enabled)
+    }
+    this.renderer?.getScene()?.setLayerVisibility(`plugin:${name}`, enabled)
+    // core-only Layer（如 candle）不在 Manager：需显式重绘
+    if (!inManager) {
+      this.scheduleDraw()
+    }
   }
 
   /** 获取所有渲染器 */
@@ -1169,6 +1238,8 @@ export class Chart {
   /** 销毁图表实例 */
   async destroy() {
     this.indicatorManager.destroy()
+    // onUninstall 由 Manager 单点负责；须在 scene.dispose 之前 clear
+    this.rendererPluginManager.clear()
     this.renderer.destroy()
     this.dataManager.destroy()
     this.viewportManager.destroy()

@@ -11,6 +11,7 @@ import type { IndicatorScheduler, KAMASchedulerConfig } from '../../indicators/s
 import type { KAMARenderState } from '../../indicators/state/kamaState'
 import { createKAMAStateKey, EMPTY_KAMA_STATE } from '../../indicators/state/kamaState'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo'
 
@@ -62,7 +63,7 @@ function createKAMARendererPlugin(options: KAMARendererOptions = {}): RendererPl
     },
 
     draw(context: RenderContext) {
-      const { ctx, pane, range, scrollLeft, kLineCenters, lineWebGLSurface } = context
+      const { ctx, pane, range, scrollLeft, kLineCenters } = context
 
       const stateKey = resolveKey()
       if (!stateKey) return
@@ -84,20 +85,7 @@ function createKAMARendererPlugin(options: KAMARendererOptions = {}): RendererPl
 
       if (points.length < 2) return
 
-      const enableWebGL = context.settings?.enableWebGLRendering !== false
-      let usedWebGL = false
-      if (enableWebGL && lineWebGLSurface?.isAvailable()) {
-        const allOk = lineWebGLSurface.drawLineStrips(
-          [{ points, width: 1, color: KAMA_COLOR }],
-          scrollLeft,
-        )
-        if (allOk) {
-          usedWebGL = true
-          lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
-        }
-      }
-
-      if (usedWebGL) return
+      if (tryDrawLinesGpu(context, [{ points, width: 1, color: KAMA_COLOR }], scrollLeft)) return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)

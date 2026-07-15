@@ -17,6 +17,7 @@ import { createPaddedSparseVisibleStateComposer } from '../../indicators/visible
 
 import { createMomScaleRendererPlugin } from './scale/mom_scale'
 import { createSingleLineTitleInfo } from './shared/titleInfo'
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 type LinePoint = { x: number; y: number }
 
@@ -158,7 +159,7 @@ function createMOMRendererPlugin(options: MOMRendererOptions = {}): RendererPlug
     },
 
     draw(context: RenderContext) {
-      const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
+      const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
@@ -236,22 +237,11 @@ function createMOMRendererPlugin(options: MOMRendererOptions = {}): RendererPlug
       }
 
       // 绘制 MOM 线（WebGL 优先，Canvas2D 回退）
-      const enableWebGL = context.settings?.enableWebGLRendering !== false
-      let usedWebGL = false
-      if (enableWebGL && lineWebGLSurface?.isAvailable()) {
-        if (params.showMOM && cachedMOMPoints.length >= 2) {
-          const ok = lineWebGLSurface.drawLineStrips(
-            [{ points: cachedMOMPoints, width: 1, color: colors.mom.mom }],
-            scrollLeft,
-          )
-          if (ok) {
-            usedWebGL = true
-            lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
-          }
-        }
-      }
-
-      if (!usedWebGL) {
+      const momLines =
+        params.showMOM && cachedMOMPoints.length >= 2
+          ? [{ points: cachedMOMPoints, width: 1, color: colors.mom.mom }]
+          : []
+      if (!tryDrawLinesGpu(context, momLines, scrollLeft)) {
         drawMOMLineWithCanvas2D(ctx, scrollLeft, cachedMOMPoints, params, colors)
       }
     },

@@ -10,6 +10,7 @@ import {
 } from '../../foundation/utils/volumePrice'
 import type { MarkerManager } from '../marker/registry'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
+import { drawCandlesViaRenderer } from './candleViaRenderer'
 
 // --- Float32Array buffer pool (reduces per-frame GC pressure) ---
 let poolUpBody: Float32Array | null = null
@@ -108,22 +109,41 @@ export function createCandleRenderer(): RendererPlugin {
         settings,
       })
 
-      const usedWebGL = drawCandlesWithWebGL(
-        context,
-        prepared,
-        colors.candleUpBody,
-        colors.candleDownBody,
-      )
-      if (!usedWebGL) {
-        drawCandlesWithCanvas2D(
-          ctx,
-          scrollLeft,
+      const upColor = colors.candleUpBody
+      const downColor = colors.candleDownBody
+      const webglOn = settings?.enableWebGLRendering !== false
+
+      // Phase 1: 优先统一画笔；失败再 legacy surface；再 2D
+      let usedGpu = false
+      if (webglOn && context.sceneRenderer) {
+        usedGpu = drawCandlesViaRenderer(
+          context.sceneRenderer,
           prepared,
-          colors.candleUpBody,
-          colors.candleDownBody,
+          upColor,
+          downColor,
+          scrollLeft,
         )
-      } else {
-        compositeWebGLToMainCanvas(ctx, context)
+        if (usedGpu) {
+          const region = {
+            x: 0,
+            y: pane.top,
+            width: context.viewport?.plotWidth ?? context.paneWidth,
+            height: pane.height,
+            dpr,
+          }
+          context.sceneRenderer.surface.compositeTo(ctx, region, {
+            imageSmoothingEnabled: false,
+          })
+        }
+      }
+      if (!usedGpu && webglOn) {
+        usedGpu = drawCandlesWithWebGL(context, prepared, upColor, downColor)
+        if (usedGpu) {
+          compositeWebGLToMainCanvas(ctx, context)
+        }
+      }
+      if (!usedGpu) {
+        drawCandlesWithCanvas2D(ctx, scrollLeft, prepared, upColor, downColor)
       }
 
       drawVolumePriceMarkers(context, prepared, markerManager as MarkerManager | undefined)

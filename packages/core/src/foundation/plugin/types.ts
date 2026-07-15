@@ -313,10 +313,21 @@ export interface RenderContext {
   borderCtx?: CanvasRenderingContext2D
   /** 覆盖层 Canvas 上下文（用于十字线、Tooltip 等动态内容） */
   overlayCtx?: CanvasRenderingContext2D
-  /** price pane 可选的 WebGL candle surface */
+  /**
+   * price pane 可选的 WebGL candle surface
+   * @deprecated Phase 1+: prefer sceneRenderer for rect draws; remove after all rect drawers migrate
+   */
   candleWebGLSurface?: CandleWebGLSurface
-  /** line indicator 可选的 WebGL line surface */
+  /**
+   * line indicator 可选的 WebGL line surface
+   * @deprecated Phase 1+: prefer sceneRenderer for line draws; remove after line drawers migrate
+   */
   lineWebGLSurface?: LineWebGLSurface
+  /**
+   * Scene 本帧 Renderer（createLayerFromPlugin 注入）。
+   * candle 等迁出 surface 旁路时经 drawInstances / drawLines 出画。
+   */
+  sceneRenderer?: import('../../rendering/render/Renderer').Renderer
   /** 当前缩放级别（1 ~ zoomLevels） */
   zoomLevel?: number
   /** 总缩放级别数 */

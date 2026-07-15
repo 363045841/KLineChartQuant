@@ -68,7 +68,7 @@ function createDonchianRendererPlugin(
     },
 
     draw(context: RenderContext) {
-      const { ctx, pane, range, scrollLeft, kLineCenters, lineWebGLSurface } = context
+      const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const stateKey = resolveKey()
       if (!stateKey) return
       const state = pluginHost?.getSharedState<DonchianRenderState>(stateKey)
@@ -102,17 +102,7 @@ function createDonchianRendererPlugin(
       if (lowerPts.length >= 2)
         lines.push({ points: lowerPts, width: 1, color: DONCHIAN_LOWER_COLOR })
 
-      const enableWebGL = context.settings?.enableWebGLRendering !== false
-      let usedWebGL = false
-      if (enableWebGL && lineWebGLSurface?.isAvailable()) {
-        const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
-        if (allOk) {
-          usedWebGL = true
-          lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
-        }
-      }
-
-      if (usedWebGL) return
+      if (tryDrawLinesGpu(context, lines, scrollLeft)) return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)
