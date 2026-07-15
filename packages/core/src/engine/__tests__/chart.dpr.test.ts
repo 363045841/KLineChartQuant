@@ -521,6 +521,71 @@ describe('Chart pane layout regressions', () => {
     await chart.destroy()
   })
 
+  it('removeDrawing drops id from kernel and clears selection', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const d1 = {
+      id: 'd1',
+      kind: 'trend-line' as const,
+      paneId: 'main',
+      visible: true,
+      anchors: [],
+      params: {},
+      style: { stroke: '#f00' },
+    }
+    const d2 = { ...d1, id: 'd2' }
+    chart.setDrawings([d1, d2])
+    chart.setSelectedDrawingId('d1')
+    chart.removeDrawing('d1')
+    expect(chart.kernel.drawing.readonly.drawings.peek().map((d) => d.id)).toEqual(['d2'])
+    expect(chart.kernel.drawing.readonly.selectedDrawingId.peek()).toBeNull()
+    await chart.destroy()
+  })
+
+  it('removeDrawing with registered session updates work-copy and kernel', async () => {
+    const { DrawingInteractionController } = await import('../drawing/interaction')
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const d1 = {
+      id: 'd1',
+      kind: 'trend-line' as const,
+      paneId: 'main',
+      visible: true,
+      anchors: [],
+      params: {},
+      style: { stroke: '#f00' },
+    }
+    const d2 = { ...d1, id: 'd2' }
+    chart.setDrawings([d1, d2])
+    chart.setSelectedDrawingId('d1')
+
+    const adapter = {
+      setDrawings: (list: typeof d1[]) => chart.setDrawings(list),
+      getFullDrawings: () => [...chart.kernel.drawing.readonly.drawings.peek()],
+      setSelectedDrawingId: (id: string | null) => chart.setSelectedDrawingId(id),
+      getSelectedDrawingId: () => chart.kernel.drawing.readonly.selectedDrawingId.peek(),
+      setDrawingToolId: (id: import('../drawing/toolConfig').DrawingToolId) =>
+        chart.setDrawingTool(id),
+      getDrawingToolId: () => chart.kernel.drawing.readonly.drawingTool.peek(),
+      getViewport: () => null,
+      getKWidthKGap: () => ({ kWidth: 6, kGap: 2 }),
+      getCurrentDpr: () => 1,
+      getData: () => [],
+      getLogicalIndexAtX: () => null,
+      getTimestampAtLogicalIndex: () => null,
+      priceToY: () => 0,
+      yToPrice: () => 0,
+      getPaneInfo: () => undefined,
+    }
+    const session = new DrawingInteractionController(adapter)
+    // registerDrawingSession 会 applyToolSession 清选中，先挂会话再 seed 工作副本与选中
+    chart.registerDrawingSession(session)
+    session.setDrawings([d1, d2])
+    chart.setSelectedDrawingId('d1')
+    chart.removeDrawing('d1')
+    expect(chart.kernel.drawing.readonly.drawings.peek().map((d) => d.id)).toEqual(['d2'])
+    expect(chart.kernel.drawing.readonly.selectedDrawingId.peek()).toBeNull()
+    chart.registerDrawingSession(null)
+    await chart.destroy()
+  })
   it('setDrawingTool writes DrawingToolId to kernel', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     expect(chart.kernel.drawing.readonly.drawingTool.peek()).toBe('cursor')

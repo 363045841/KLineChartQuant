@@ -48,6 +48,7 @@ export function createMockChartController(
   })
   const data = createSignal<ReadonlyArray<KLineData>>(initialData)
   const theme = createSignal<'light' | 'dark'>('light')
+  const settings = createSignal({ theme: 'light' as 'light' | 'dark' | 'auto' } as any)
   const interactionState = createSignal<InteractionSnapshot>({
     crosshairPos: null,
     crosshairIndex: null,
@@ -76,7 +77,7 @@ export function createMockChartController(
     viewport,
     data,
     theme,
-    settings: createSignal({} as any),
+    settings,
     chartMode: createSignal('kline' as const),
     interactionState,
     indicators: createSignal<ReadonlyArray<IndicatorInstance>>([]),
@@ -107,7 +108,14 @@ export function createMockChartController(
       return 10
     },
     setTheme(next: 'light' | 'dark') {
+      settings.set({ ...settings(), theme: next })
       theme.set(next)
+    },
+    setSystemTheme(next: 'light' | 'dark') {
+      // 仅 settings.theme === auto 时影响生效主题（对齐 Chart.setSystemTheme）
+      if ((settings() as { theme?: string }).theme === 'auto') {
+        theme.set(next)
+      }
     },
     zoomToLevel(level: number) {
       viewport.set({ ...viewport(), zoomLevel: level })

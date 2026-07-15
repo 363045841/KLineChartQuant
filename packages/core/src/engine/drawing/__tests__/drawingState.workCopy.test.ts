@@ -57,6 +57,33 @@ describe('DrawingState work copy', () => {
     expect(state.hasPreview()).toBe(true)
   })
 
+  it('getAll returns a copy so push on result does not mutate internal', () => {
+    const adapter = mockAdapter()
+    const state = new DrawingState(adapter)
+    state.setDrawings([mk('a')])
+    const all = state.getAll()
+    all.push(mk('hack'))
+    expect(state.getAll()).toHaveLength(1)
+  })
+
+  it('setSelected only writes adapter; getSelectedId reads adapter', () => {
+    const adapter = mockAdapter()
+    const state = new DrawingState(adapter)
+    state.setDrawings([mk('a')])
+    state.setSelected(mk('a'))
+    expect(adapter.setSelectedDrawingId).toHaveBeenCalledWith('a')
+    expect(state.getSelectedId()).toBe('a')
+  })
+
+  it('removeDrawing drops id and clears selection via adapter', () => {
+    const adapter = mockAdapter('a')
+    const state = new DrawingState(adapter)
+    state.setDrawings([mk('a'), mk('b')])
+    state.removeDrawing('a')
+    expect(state.getAll().map((d) => d.id)).toEqual(['b'])
+    expect(adapter.setSelectedDrawingId).toHaveBeenCalledWith(null)
+    expect(adapter.setDrawings).toHaveBeenCalled()
+  })
   it('nested fields from frozen snapshot are mutable after adopt', () => {
     const adapter = mockAdapter()
     const state = new DrawingState(adapter)

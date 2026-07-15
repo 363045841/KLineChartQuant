@@ -46,6 +46,7 @@ export function createMockChartController(
   })
   const data = createSignal<ReadonlyArray<KLineData>>(initialData)
   const theme = createSignal<'light' | 'dark'>('light')
+  const settings = createSignal({ theme: 'light' as 'light' | 'dark' | 'auto' } as any)
 
   let disposeCount = 0
 
@@ -55,7 +56,7 @@ export function createMockChartController(
     dataLoading: createSignal(false),
     symbols: createSignal([] as ReadonlyArray<SymbolSpec>),
     theme,
-    settings: createSignal({} as any),
+    settings,
     chartMode: createSignal('kline' as const),
     indicators: createSignal<ReadonlyArray<IndicatorInstance>>([]),
     subPanes: createSignal<ReadonlyArray<SubPaneInfo>>([]),
@@ -133,7 +134,14 @@ export function createMockChartController(
       /* no-op */
     },
     setTheme(next: 'light' | 'dark') {
+      settings.set({ ...settings(), theme: next })
       theme.set(next)
+    },
+    setSystemTheme(next: 'light' | 'dark') {
+      // 仅 settings.theme === auto 时影响生效主题（对齐 Chart.setSystemTheme）
+      if ((settings() as { theme?: string }).theme === 'auto') {
+        theme.set(next)
+      }
     },
     zoomToLevel(level: number) {
       viewport.set({ ...viewport(), zoomLevel: level })

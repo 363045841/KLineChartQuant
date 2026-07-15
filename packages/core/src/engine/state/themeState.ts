@@ -1,23 +1,26 @@
 import { createSubState } from '../../foundation/reactivity/signal'
 
-export function createThemeState() {
+/**
+ * 系统主题（OS / matchMedia）注入点。
+ * 用户偏好在 settings.theme（含 auto）；生效主题由 kernel effectiveTheme computed 推导。
+ */
+export function createSystemThemeState() {
   const { signals, readonly } = createSubState({
-    theme: 'light' as 'light' | 'dark',
+    systemTheme: 'light' as 'light' | 'dark',
   })
 
   return {
     readonly,
-
     actions: {
-      setTheme(theme: 'light' | 'dark') {
-        signals.theme.set(theme)
+      setSystemTheme(theme: 'light' | 'dark') {
+        if (signals.systemTheme.peek() === theme) return
+        signals.systemTheme.set(theme)
       },
     },
-
     dispose() {
-      signals.theme.set('light')
+      signals.systemTheme.set('light')
     },
   }
 }
 
-export type ThemeStateModule = ReturnType<typeof createThemeState>
+export type SystemThemeStateModule = ReturnType<typeof createSystemThemeState>

@@ -83,7 +83,9 @@ export function createMockChartController(
     visibleTo: 0,
   })
   const data = createSignal<ReadonlyArray<KLineData>>(opts.data ?? [])
-  const theme = createSignal<'light' | 'dark'>(opts.theme ?? 'light')
+  const themePreference = opts.theme ?? 'light'
+  const theme = createSignal<'light' | 'dark'>(themePreference)
+  const settings = createSignal({ theme: themePreference } as any)
   const paneLayout = createSignal<ReadonlyArray<PaneSpec>>([])
 
   return {
@@ -92,7 +94,7 @@ export function createMockChartController(
     dataLoading: createSignal(false),
     symbols: createSignal([] as ReadonlyArray<SymbolSpec>),
     theme,
-    settings: createSignal({} as any),
+    settings,
     chartMode: createSignal('kline' as const),
     indicators: createSignal<ReadonlyArray<IndicatorInstance>>([]),
     subPanes: createSignal<ReadonlyArray<SubPaneInfo>>([]),
@@ -142,7 +144,14 @@ export function createMockChartController(
     ensureDataRange: () => {},
     setTheme: (next) => {
       setThemeCalls.push(next)
+      settings.set({ ...settings.peek(), theme: next })
       theme.set(next)
+    },
+    setSystemTheme: (next) => {
+      // 仅 settings.theme === auto 时影响生效主题（对齐 Chart.setSystemTheme）
+      if ((settings.peek() as { theme?: string }).theme === 'auto') {
+        theme.set(next)
+      }
     },
     zoomToLevel: (level) => viewport.set({ ...viewport.peek(), zoomLevel: level }),
     zoomIn: () =>
