@@ -473,6 +473,30 @@ describe('Chart pane layout regressions', () => {
     await chart.destroy()
   })
 
+  it('updateSettings rightAxisType writes paneScaleTypes then projects', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    chart.resize()
+    chart.updateSettings({ rightAxisType: 'log' })
+    expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('main')).toBe('log')
+    const main = chart.getPaneRenderers()[0]?.getPane()
+    expect(main?.yAxis.getScaleType()).toBe('log')
+    await chart.destroy()
+  })
+
+  it('setActiveMode updates kernel chartMode', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    expect(chart.kernel.mode.readonly.chartMode.peek()).toBe('kline')
+    const tsMode = (chart as unknown as { _timeShareMode: import('../modes/types').ChartModeHandler })
+      ._timeShareMode
+    const kMode = (chart as unknown as { _kLineMode: import('../modes/types').ChartModeHandler })
+      ._kLineMode
+    chart.setActiveMode(tsMode)
+    expect(chart.kernel.mode.readonly.chartMode.peek()).toBe('timeshare')
+    chart.setActiveMode(kMode)
+    expect(chart.kernel.mode.readonly.chartMode.peek()).toBe('kline')
+    await chart.destroy()
+  })
+
   it('setDrawingTool writes DrawingToolId to kernel', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     expect(chart.kernel.drawing.readonly.drawingTool.peek()).toBe('cursor')

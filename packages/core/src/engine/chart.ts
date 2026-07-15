@@ -467,12 +467,9 @@ export class Chart {
     if (mode === this._timeShareMode) {
       this._savedTimeShareState = {
         zoomLevel: this.kernel.zoom.readonly.zoomLevel.peek(),
-        scaleTypes: new Map<string, ScaleType>(),
+        scaleTypes: new Map(this.kernel.pane.readonly.paneScaleTypes.peek()),
         mainIndicators: [],
         subPanes: [],
-      }
-      for (const r of this.paneRenderers) {
-        this._savedTimeShareState.scaleTypes.set(r.getPane().id, r.getPane().yAxis.getScaleType())
       }
       for (const [id, entry] of this.kernel.indicator.readonly.mainIndicators.peek()) {
         this._savedTimeShareState.mainIndicators.push({ id, params: { ...entry.params } })
@@ -482,11 +479,11 @@ export class Chart {
         params: { ...e.params },
       }))
     } else if (prev === this._timeShareMode) {
+      const savedTypes = this._savedTimeShareState?.scaleTypes ?? new Map<string, ScaleType>()
+      this.kernel.pane.actions.replacePaneScaleTypes(savedTypes)
+      this.projectPaneScaleTypes()
       for (const renderer of this.paneRenderers) {
-        const p = renderer.getPane()
-        const saved = this._savedTimeShareState?.scaleTypes.get(p.id) ?? 'linear'
-        p.yAxis.setScaleType(saved)
-        p.yAxis.setBasePrice(null)
+        renderer.getPane().yAxis.setBasePrice(null)
       }
     }
 
@@ -536,6 +533,10 @@ export class Chart {
       }
       this._savedTimeShareState = null
     }
+
+    // 副作用成功后再写 kernel mode id
+    const id = mode === this._timeShareMode ? 'timeshare' : 'kline'
+    this.kernel.mode.actions.setChartMode(id)
   }
 
   getCurrentDpr(): number {
@@ -609,6 +610,30 @@ export class Chart {
     return this.rendererPluginManager.getAllPlugins()
   }
 
+  /** 将 kernel.paneScaleTypes 投影到各 pane PriceScale（runtime 非 SSOT） */
+  private projectPaneScaleTypes(): void {
+    const types = this.kernel.pane.readonly.paneScaleTypes.peek()
+    for (const renderer of this.paneRenderers) {
+      const pane = renderer.getPane()
+      const t = types.get(pane.id) ?? 'linear'
+      if (pane.yAxis.getScaleType() !== t) pane.yAxis.setScaleType(t)
+    }
+  }
+
+  /** 按 rightAxisType 写入 paneScaleTypes 并投影 */
+  private applyRightAxisTypeToKernel(axisType: string): void {
+    if (axisType === 'none') return
+    const next = new Map(this.kernel.pane.readonly.paneScaleTypes.peek())
+    for (const renderer of this.paneRenderers) {
+      const pane = renderer.getPane()
+      const scaleType =
+        axisType === 'percent' && pane.role !== 'price' ? 'linear' : (axisType as ScaleType)
+      next.set(pane.id, scaleType)
+    }
+    this.kernel.pane.actions.replacePaneScaleTypes(next)
+    this.projectPaneScaleTypes()
+  }
+
   /** 更新用户设置（触发重绘）—— 业务态只写 kernel.settings */
   updateSettings(settings: ChartSettings): void {
     const prev = this.kernel.settings.readonly.settings.peek()
@@ -616,17 +641,8 @@ export class Chart {
     const next = this.kernel.settings.readonly.settings.peek()
     this.interaction.onSettingsChanged(prev, next)
 
-    // 同步右轴刻度类型设置到所有 pane（百分比仅用于主图）；B2 将收口为 paneScaleTypes
     if ('rightAxisType' in settings) {
-      const axisType = settings.rightAxisType as string
-      if (axisType !== 'none') {
-        for (const renderer of this.paneRenderers) {
-          const pane = renderer.getPane()
-          const scaleType =
-            axisType === 'percent' && pane.role !== 'price' ? 'linear' : (axisType as ScaleType)
-          pane.yAxis.setScaleType(scaleType)
-        }
-      }
+      this.applyRightAxisTypeToKernel(settings.rightAxisType as string)
     }
 
     this.scheduleDraw()

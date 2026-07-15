@@ -55,6 +55,15 @@ StateKernel 已完成 12 个子状态模块的迁移（zoom、data、viewport、
 - 审计 `DrawingStore` 与 `drawingState` 是否有重复持有
 - `ChartPaneLayout` 的计算逻辑是否适合拆为 computed
 
+## Phase B — residual business SSOT (2026-07-15)
+- [x] B1 settingsState（ChartSettings SSOT；Renderer/Interaction 读 signal）
+- [x] B2 paneScaleTypes（每 pane scaleType 进 paneState；PriceScale 投影）
+- [x] B3 chartMode id（modeState：`kline` | `timeshare`）
+- [x] B4 DrawingToolId engine 单写路径（kernel + Chart session apply）
+
+Spec: `docs/superpowers/specs/2026-07-15-kernel-b-class-settings-mode-tool-design.md`  
+Plan: `docs/superpowers/plans/2026-07-15-kernel-b-class-settings-mode-tool.md`
+
 ## 非目标
 
 - `PaneRenderer` canvas/yAxis 等渲染基础设施不进 kernel（属于副作用持有，非状态）

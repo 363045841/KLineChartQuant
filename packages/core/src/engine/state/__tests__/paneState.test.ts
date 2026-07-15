@@ -37,4 +37,37 @@ describe('paneState', () => {
     expect(m.readonly.paneRatios().main).toBe(1)
     expect(m.readonly.paneSpecs()[0]?.ratio).toBe(1)
   })
+
+  it('commitLayout seeds paneScaleTypes with linear defaults', () => {
+    const m = createPaneState()
+    m.actions.commitLayout({ main: 1 }, [{ id: 'main', ratio: 1, role: 'price' }])
+    expect(m.readonly.paneScaleTypes.peek().get('main')).toBe('linear')
+  })
+
+  it('setPaneScaleType / replacePaneScaleTypes / removePaneScaleType', () => {
+    const m = createPaneState()
+    m.actions.commitLayout({ main: 1, MACD: 1 }, [
+      { id: 'main', ratio: 1, role: 'price' },
+      { id: 'MACD', ratio: 1, role: 'indicator' },
+    ])
+    m.actions.setPaneScaleType('main', 'log')
+    expect(m.readonly.paneScaleTypes.peek().get('main')).toBe('log')
+    m.actions.replacePaneScaleTypes(new Map([['main', 'percent']]))
+    expect(m.readonly.paneScaleTypes.peek().get('main')).toBe('percent')
+    expect(m.readonly.paneScaleTypes.peek().has('MACD')).toBe(false)
+    m.actions.removePaneScaleType('main')
+    expect(m.readonly.paneScaleTypes.peek().has('main')).toBe(false)
+  })
+
+  it('commitLayout preserves existing scale types for surviving panes', () => {
+    const m = createPaneState()
+    m.actions.commitLayout({ main: 1 }, [{ id: 'main', ratio: 1, role: 'price' }])
+    m.actions.setPaneScaleType('main', 'log')
+    m.actions.commitLayout({ main: 0.75, RSI: 0.25 }, [
+      { id: 'main', ratio: 0.75, role: 'price' },
+      { id: 'RSI', ratio: 0.25, role: 'indicator' },
+    ])
+    expect(m.readonly.paneScaleTypes.peek().get('main')).toBe('log')
+    expect(m.readonly.paneScaleTypes.peek().get('RSI')).toBe('linear')
+  })
 })
