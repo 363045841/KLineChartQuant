@@ -19,7 +19,7 @@
  * to MTF by writing such a compute fn.
  */
 
-import type { Signal } from '../../reactivity'
+import type { Signal } from '../../foundation/reactivity/index'
 
 /**
  * One bar of the BASE timeframe (the chart's primary candle stream).

@@ -1,6 +1,10 @@
-import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
-import { RENDERER_PRIORITY } from '../../../plugin'
-import { resolveThemeColors } from '../../../tokens'
+import type {
+  RendererPluginWithHost,
+  RenderContext,
+  PluginHost,
+} from '../../../foundation/plugin/index'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcFASTKData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'

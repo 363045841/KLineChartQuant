@@ -137,4 +137,3 @@ Legacy helper — prefer `executeTool` + `mcp` prop pattern above.
 ## 📄 License
 
 [MIT](LICENSE)
-

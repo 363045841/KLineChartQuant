@@ -12,8 +12,8 @@
  *   - Tear down DOM + listeners on dispose().
  */
 
-import { resolveSettings } from '../config/chartSettings'
-import { Chart, type InteractionSnapshot as LegacyInteractionSnapshot } from '../engine/chart'
+import { resolveSettings } from '../foundation/config/chartSettings'
+import { Chart } from '../engine/chart'
 import type {
   ChartOptions,
   ViewportState as LegacyViewportState,
@@ -26,8 +26,8 @@ import { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins'
 import type { CustomMarkerEntity } from '../engine/marker/registry'
 import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
 import { KLineChartError } from '../errors'
-import { ChartBridge } from '../mcp/chartBridge'
-import { createSignal, type Signal } from '../reactivity'
+import { ChartBridge } from '../features/mcp/chartBridge'
+import { computed, type ReadonlySignal } from '../foundation/reactivity/index'
 
 import type {
   ChartController,
@@ -189,36 +189,6 @@ function mapDrawingObject(drawing: LegacyDrawingObject | PluginBackedDrawingObje
       'type' in drawing
         ? (mapDrawingTool(drawing.type) ?? drawing.type)
         : mapPluginDrawingKind(drawing.kind),
-  }
-}
-
-function mapPaneRatios(ratios: Readonly<Record<string, number>>): Readonly<Record<string, number>> {
-  return { ...ratios }
-}
-
-function mapInteractionRecord<T>(value: T | null | undefined): T | null {
-  if (!value) {
-    return null
-  }
-  return { ...value } as T
-}
-
-function mapInteractionSnapshot(snapshot: LegacyInteractionSnapshot): InteractionSnapshot {
-  return {
-    crosshairPos: snapshot.crosshairPos ? { ...snapshot.crosshairPos } : null,
-    crosshairIndex: snapshot.crosshairIndex,
-    crosshairPrice: snapshot.crosshairPrice,
-    hoveredIndex: snapshot.hoveredIndex,
-    activePaneId: snapshot.activePaneId,
-    tooltipPos: { ...snapshot.tooltipPos },
-    tooltipAnchorPlacement: snapshot.tooltipAnchorPlacement,
-    hoveredMarkerData: mapInteractionRecord(snapshot.hoveredMarkerData),
-    hoveredCustomMarker: mapInteractionRecord(snapshot.hoveredCustomMarker),
-    isDragging: snapshot.isDragging,
-    isResizingPaneBoundary: snapshot.isResizingPaneBoundary,
-    isHoveringPaneBoundary: snapshot.isHoveringPaneBoundary,
-    hoveredPaneBoundaryId: snapshot.hoveredPaneBoundaryId,
-    isHoveringRightAxis: snapshot.isHoveringRightAxis,
   }
 }
 
@@ -386,46 +356,35 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const currentKGap = kGapFromKWidth(currentKWidth, currentDpr)
 
   // -------------------------------------------------------------------
-  // Controller signals (bridge mode: subscribe to Chart's signals)
+  // Controller signals — most come directly from ChartStateKernel
   // -------------------------------------------------------------------
 
-  const viewport: Signal<ChartViewport> = createSignal<ChartViewport>({
-    zoomLevel: initialZoomLevel,
-    plotWidth: 0,
-    plotHeight: 0,
-    dpr: currentDpr,
-    visibleFrom: 0,
-    visibleTo: 0,
-    kWidth: currentKWidth,
-    kGap: currentKGap,
-  })
+  const viewport = computed(() => mapViewportState(chart.viewport()))
 
-  const data: Signal<ReadonlyArray<KLineData>> = createSignal(opts.data ?? [])
-  const dataLoading: Signal<boolean> = createSignal(false)
+  const data = chart.data
+  const dataLoading = chart.loading
+  const symbols = chart.symbols
 
-  const symbols: Signal<ReadonlyArray<SymbolSpec>> = chart.symbols
+  const indicators = computed(() => chart.indicators().map(mapIndicatorInstance))
+  const subPanes = computed(() => chart.subPanes().map(mapSubPaneInfo))
 
-  const themeSignal: Signal<'light' | 'dark'> = createSignal(opts.theme ?? 'light')
+  // comparisonColors/comparisonLoading — not yet migrated to kernel state
+  const comparisonColors = chart.comparisonColors
+  const comparisonLoading = chart.comparisonLoading
 
-  const indicators: Signal<ReadonlyArray<IndicatorInstance>> = createSignal<
-    ReadonlyArray<IndicatorInstance>
-  >([])
-  const subPanes: Signal<ReadonlyArray<SubPaneInfo>> = createSignal<ReadonlyArray<SubPaneInfo>>([])
-  const drawingTool: Signal<DrawingToolType | null> = createSignal<DrawingToolType | null>(null)
-  const drawings: Signal<ReadonlyArray<DrawingObject>> = createSignal<ReadonlyArray<DrawingObject>>(
-    [],
-  )
-  const paneRatios: Signal<Readonly<Record<string, number>>> = createSignal<
-    Readonly<Record<string, number>>
-  >({})
-  const interactionState: Signal<InteractionSnapshot> = createSignal(INITIAL_INTERACTION)
-  const comparisonColors: Signal<ReadonlyMap<string, string>> = createSignal<
-    ReadonlyMap<string, string>
-  >(new Map())
-  const comparisonLoading: Signal<boolean> = createSignal(false)
-
-  // symbolCatalog — bridge from Chart's data manager
-  const symbolCatalog: Signal<ReadonlyArray<SymbolInfo>> = chart.symbolCatalog
+  // Signals from ChartStateKernel — no wrapper needed
+  const themeSignal: ReadonlySignal<'light' | 'dark'> = chart.kernel.theme.readonly.theme
+  const settingsSignal = chart.kernel.settings.readonly.settings
+  const chartModeSignal = chart.kernel.mode.readonly.chartMode
+  const drawingTool = chart.kernel.drawing.readonly.drawingTool
+  // drawings need type mapping (plugin DrawingObject → controller DrawingObject)
+  const drawings = computed(() => chart.kernel.drawing.readonly.drawings().map(mapDrawingObject))
+  const selectedDrawingId: ReadonlySignal<string | null> =
+    chart.kernel.drawing.readonly.selectedDrawingId
+  const paneRatios: ReadonlySignal<Readonly<Record<string, number>>> = chart.kernel.pane.readonly.paneRatios
+  const paneLayout: ReadonlySignal<ReadonlyArray<PaneSpec>> = chart.kernel.pane.readonly.paneSpecs
+  const interactionState: ReadonlySignal<InteractionSnapshot> = chart.kernel.interaction.readonly.interactionSnapshot
+  const symbolCatalog: ReadonlySignal<ReadonlyArray<SymbolInfo>> = chart.kernel.data.readonly.symbolCatalog
 
   // -------------------------------------------------------------------
   // Apply initial render state + seed data
@@ -474,79 +433,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   }
 
   // -------------------------------------------------------------------
-  // Signal bridges — subscribe to Chart's facade signals and forward
-  // -------------------------------------------------------------------
-
-  const unsubs: Array<() => void> = []
-
-  // viewport: after zoom/scroll through facade methods
-  unsubs.push(
-    chart.viewport.subscribe(() => {
-      viewport.set(mapViewportState(chart.viewport.peek()))
-    }),
-  )
-
-  // data
-  unsubs.push(chart.data.subscribe(() => data.set(chart.data.peek())))
-
-  // dataLoading
-  unsubs.push(chart.loading.subscribe(() => dataLoading.set(chart.loading.peek())))
-
-  // theme
-  unsubs.push(chart.theme.subscribe(() => themeSignal.set(chart.theme.peek())))
-
-  // indicators
-  unsubs.push(
-    chart.indicators.subscribe(() =>
-      indicators.set(chart.indicators.peek().map(mapIndicatorInstance)),
-    ),
-  )
-
-  // subPanes
-  unsubs.push(
-    chart.subPanes.subscribe(() => subPanes.set(chart.subPanes.peek().map(mapSubPaneInfo))),
-  )
-
-  // drawingTool
-  unsubs.push(
-    chart.drawingTool.subscribe(() => drawingTool.set(mapDrawingTool(chart.drawingTool.peek()))),
-  )
-
-  // drawings
-  unsubs.push(
-    chart.drawings.subscribe(() => drawings.set(chart.drawings.peek().map(mapDrawingObject))),
-  )
-
-  // paneRatios
-  unsubs.push(
-    chart.paneRatios.subscribe(() => paneRatios.set(mapPaneRatios(chart.paneRatios.peek()))),
-  )
-
-  // paneLayout
-  const paneLayout: Signal<ReadonlyArray<PaneSpec>> = createSignal<ReadonlyArray<PaneSpec>>([])
-  unsubs.push(chart.paneLayout.subscribe(() => paneLayout.set([...chart.paneLayout.peek()])))
-
-  // interactionState
-  unsubs.push(
-    chart.interactionState.subscribe(() =>
-      interactionState.set(mapInteractionSnapshot(chart.interactionState.peek())),
-    ),
-  )
-
-  // comparisonColors
-  unsubs.push(
-    chart.comparisonColors.subscribe(() =>
-      comparisonColors.set(new Map(chart.comparisonColors.peek())),
-    ),
-  )
-
-  // comparisonLoading
-  unsubs.push(
-    chart.comparisonLoading.subscribe(() => comparisonLoading.set(chart.comparisonLoading.peek())),
-  )
-
-  // -------------------------------------------------------------------
-  // Lifecycle guard
+  // Apply initial render state + seed data
   // -------------------------------------------------------------------
 
   let disposed = false
@@ -557,11 +444,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   function setData(next: ReadonlyArray<KLineData>): void {
     if (disposed) return
-    try {
-      chart.setData([...next])
-    } catch {
-      data.set([...next])
-    }
+    chart.setData([...next])
   }
 
   function setSymbols(next: ReadonlyArray<SymbolSpec>): void {
@@ -748,9 +631,65 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     return match?.label
   }
 
-  function setDrawingTool(tool: DrawingToolType | null): void {
+  function mapLegacyToolToId(
+    tool: DrawingToolType | import('../engine/drawing/toolConfig').DrawingToolId | null,
+  ): import('../engine/drawing/toolConfig').DrawingToolId {
+    if (tool === null) return 'cursor'
+    // already a DrawingToolId
+    if (
+      tool === 'cursor' ||
+      tool === 'trend-line' ||
+      tool === 'ray' ||
+      tool === 'h-line' ||
+      tool === 'h-ray' ||
+      tool === 'v-line' ||
+      tool === 'crosshair-line' ||
+      tool === 'info-line' ||
+      tool === 'parallel-channel' ||
+      tool === 'regression-channel' ||
+      tool === 'flat-line' ||
+      tool === 'disjoint-channel'
+    ) {
+      return tool
+    }
+    // legacy DrawingToolType
+    switch (tool as DrawingToolType) {
+      case 'trendline':
+        return 'trend-line'
+      case 'horizontal':
+        return 'h-line'
+      case 'fib':
+      case 'rectangle':
+      case 'arrow':
+      default:
+        return 'cursor'
+    }
+  }
+
+  function setDrawingTool(
+    tool: DrawingToolType | import('../engine/drawing/toolConfig').DrawingToolId | null,
+  ): void {
     if (disposed) return
-    chart.setDrawingTool(tool)
+    chart.setDrawingTool(mapLegacyToolToId(tool))
+  }
+
+  function setDrawingToolId(
+    toolId: import('../engine/drawing/toolConfig').DrawingToolId,
+  ): void {
+    if (disposed) return
+    chart.setDrawingTool(toolId)
+  }
+
+  function getDrawingToolId(): import('../engine/drawing/toolConfig').DrawingToolId {
+    if (disposed) return 'cursor'
+    return chart.kernel.drawing.readonly.drawingTool.peek()
+  }
+
+  function registerDrawingSession(session: unknown | null): void {
+    if (disposed) return
+    chart.registerDrawingSession(
+      session as import('../engine/drawing/interaction').DrawingInteractionController | null,
+    )
   }
 
   function clearDrawings(): void {
@@ -788,8 +727,10 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   function getKWidthKGap(): { kWidth: number; kGap: number } {
     if (disposed) return { kWidth: 0, kGap: 0 }
-    const opt = chart.getOption()
-    return { kWidth: opt.kWidth, kGap: opt.kGap }
+    return {
+      kWidth: chart.kernel.zoom.readonly.kWidth.peek(),
+      kGap: chart.kernel.viewport.readonly.kGap.peek(),
+    }
   }
 
   function getCurrentDpr(): number {
@@ -897,13 +838,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     if (disposed) return
     disposed = true
     bridge?.destroy()
-    for (const unsub of unsubs) {
-      try {
-        unsub()
-      } catch {
-        /* best-effort */
-      }
-    }
     try {
       void chart.destroy()
     } catch {
@@ -956,10 +890,13 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     dataLoading,
     symbols,
     theme: themeSignal,
+    settings: settingsSignal,
+    chartMode: chartModeSignal,
     indicators,
     subPanes,
     drawingTool,
     drawings,
+    selectedDrawingId,
     paneRatios,
     paneLayout,
     interactionState,
@@ -1005,6 +942,9 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     getLeftLoadBufferWidth,
     scrollToRight,
     setDrawingTool,
+    setDrawingToolId,
+    getDrawingToolId,
+    registerDrawingSession,
     clearDrawings,
     removeDrawing,
     setDrawings,

@@ -9,8 +9,8 @@ import type {
   LinePrimitive,
   AreaPrimitive,
   TextPrimitive,
-} from '../../plugin'
-import type { KLineData } from '../../types/price'
+} from '../../foundation/plugin/index'
+import type { KLineData } from '../../foundation/types/price'
 
 export type {
   DrawingObject,
@@ -25,51 +25,33 @@ export type {
   TextPrimitive,
 }
 
+import type { ReadonlySignal } from '../../foundation/reactivity/signal'
+
+export interface DrawingStoreDeps {
+  drawings$: ReadonlySignal<ReadonlyArray<DrawingObject>>
+  selectedDrawingId$: ReadonlySignal<string | null>
+}
+
+/**
+ * 绘图投影器 —— 业务态在 kernel.drawing；此类只读 signal 供渲染插件使用。
+ */
 export class DrawingStore {
-  private drawings: DrawingObject[] = []
-  private selectedId: string | null = null
+  constructor(private readonly deps: DrawingStoreDeps) {}
 
   getSelectedId(): string | null {
-    return this.selectedId
-  }
-
-  setSelectedId(id: string | null): void {
-    this.selectedId = id
+    return this.deps.selectedDrawingId$.peek()
   }
 
   getAll(): DrawingObject[] {
-    return this.drawings
+    return [...this.deps.drawings$.peek()]
   }
 
   getVisibleByPane(paneId: string): DrawingObject[] {
-    return this.drawings
+    return this.deps.drawings$
+      .peek()
       .filter((drawing) => drawing.visible && drawing.paneId === paneId)
+      .slice()
       .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
-  }
-
-  setAll(drawings: DrawingObject[]): void {
-    this.drawings = [...drawings]
-    if (this.selectedId && !this.drawings.some((d) => d.id === this.selectedId)) {
-      this.selectedId = null
-    }
-  }
-
-  upsert(drawing: DrawingObject): void {
-    const index = this.drawings.findIndex((item) => item.id === drawing.id)
-    if (index >= 0) {
-      this.drawings[index] = drawing
-      return
-    }
-    this.drawings.push(drawing)
-  }
-
-  remove(id: string): void {
-    this.drawings = this.drawings.filter((drawing) => drawing.id !== id)
-  }
-
-  clear(): void {
-    this.drawings = []
-    this.selectedId = null
   }
 }
 

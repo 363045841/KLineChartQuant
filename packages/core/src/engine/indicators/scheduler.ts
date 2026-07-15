@@ -13,9 +13,9 @@
  * - Inline fallback backend（indicatorRuntime.ts）
  */
 
-import type { PluginHost } from '../../plugin'
-import type { BaseIndicatorState } from '../../plugin'
-import type { KLineData } from '../../types/price'
+import type { PluginHost } from '../../foundation/plugin/index'
+import type { BaseIndicatorState } from '../../foundation/plugin/index'
+import type { KLineData } from '../../foundation/types/price'
 
 import { resolveStateKey, type IndicatorMetadata } from './indicatorMetadata'
 import { IndicatorRegistry } from './indicatorRegistry'
@@ -80,7 +80,7 @@ import type {
   SerializedRuntimeDescriptor,
 } from './workerProtocol'
 import type { IndicatorWorkerResponse } from './workerProtocol'
-import { createSignal, type Signal } from '../../reactivity/signal'
+import { createSignal, effect, type ReadonlySignal, type Signal } from '../../foundation/reactivity/signal'
 
 /**
  * 可见范围
@@ -175,6 +175,10 @@ export class IndicatorScheduler {
 
   /** 调度器繁忙信号（Worker 计算中时为 true，结果应用后恢复 false） */
   private _busySignal = createSignal(false)
+
+  /** rAF 节流的 visible state 更新，避免 onPointerMove 等频繁信号变化触发多次重算 */
+  private _pendingVisibleUpdate = false
+  private _visibleUpdateRaf: number | null = null
 
   /** 从 Chart 获取活跃副图 paneId 列表的回调 */
   private getActiveSubPaneIds: (() => string[]) | null = null
@@ -294,9 +298,47 @@ export class IndicatorScheduler {
   }
 
   /**
+   * 绑定 visibleRange 信号 — 替代手动 updateVisibleRange 调用。
+   * signal 变化时自动更新内部 visibleRange 并重算 visible state。
+   */
+  setVisibleRangeSignal(signal: ReadonlySignal<{ start: number; end: number } | null>): void {
+    let prevStart = -1
+    let prevEnd = -1
+    effect(() => {
+      const range = signal()
+      if (range && (range.start !== prevStart || range.end !== prevEnd)) {
+        prevStart = range.start
+        prevEnd = range.end
+        this.visibleRange = range
+        if (this.latestResult) {
+          this._scheduleVisibleStateUpdate()
+        }
+      }
+    })
+  }
+
+  private _scheduleVisibleStateUpdate(): void {
+    if (this._pendingVisibleUpdate) return
+    this._pendingVisibleUpdate = true
+    this._visibleUpdateRaf = requestAnimationFrame(() => {
+      this._visibleUpdateRaf = null
+      this._pendingVisibleUpdate = false
+      const mainStateUpdated = this.updateVisibleStatesOnly()
+      if (mainStateUpdated) {
+        this.invalidateCallback?.()
+      }
+    })
+  }
+
+  /**
    * 销毁调度器
    */
   destroy(): void {
+    if (this._visibleUpdateRaf !== null) {
+      cancelAnimationFrame(this._visibleUpdateRaf)
+      this._visibleUpdateRaf = null
+    }
+    this._pendingVisibleUpdate = false
     this.terminateWorker()
     this.inlineRuntime = null
     this.latestResult = null
@@ -338,10 +380,9 @@ export class IndicatorScheduler {
     }
     try {
       console.log('[IndicatorScheduler] Creating worker...')
-      this.worker = new Worker(
-        new URL('./indicator.worker.js', import.meta.url),
-        { type: 'module' },
-      )
+      this.worker = new Worker(new URL('./indicator.worker.js', import.meta.url), {
+        type: 'module',
+      })
       console.log('[IndicatorScheduler] Worker created, waiting for ready...')
       this.worker.onmessage = (e) => this.handleWorkerMessage(e.data)
       this.worker.onerror = (err) => {

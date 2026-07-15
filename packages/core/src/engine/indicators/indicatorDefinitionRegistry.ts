@@ -1,6 +1,6 @@
 import { KLineChartError } from '../../errors'
-import type { PluginHost } from '../../plugin'
-import { createIndicatorStateKey } from '../../plugin/stateKeys'
+import type { PluginHost } from '../../foundation/plugin/index'
+import { createIndicatorStateKey } from '../../foundation/plugin/stateKeys'
 
 import type {
   IndicatorMetadata,

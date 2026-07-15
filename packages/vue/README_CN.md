@@ -1,6 +1,5 @@
 高性能金融图表库，单帧生成时间仅需2ms，200hz环境下稳定滚动190-200fps，原生支持 AI Agent 控制，全链路 ResizeObserver 驱动清晰渲染，插件化架构。
 
-
 <div align="center">
 
 [English](README.md) | 简体中文
@@ -16,7 +15,6 @@
 </div>
 
 ---
-
 
 轻量级金融 K 线图表库，专注量化交易场景。**Agent 是一等公民** — 支持 AI Agent 直接控制图表操作，提供 TradingView 级别的交互体验。
 
@@ -38,7 +36,6 @@
   <img src="https://files.seeusercontent.com/2026/06/20/0flS/1YHDQQB321JZ5QW.png" width="400" style="border-radius: 12px; margin: 8px;" />
 </div>
 
-
 ## ✨ 核心特性
 
 - **Agent 优先 / MCP 原生** - 支持 AI Agent 直接控制图表，通过 [Model Context Protocol](https://modelcontextprotocol.io) 协议接入。内置 WebSocket 桥接 MCP 服务器，任何 MCP 客户端（Inspector、Claude Desktop、Cursor 等）均可实时缩放、平移、增删指标、切换主题
@@ -53,7 +50,6 @@
 - **多数据源** - 支持多数据源聚合并可自由扩展
 - **批量数据导出** - 选择时间范围后，批量输入多个股票代码，一键导出合并 CSV 文件，支持进度提示
 - **自定义 Tooltip** - 通过命名插槽（`#kline-tooltip`、`#marker-tooltip`）完全自定义 tooltip，引擎提供悬停数据、位置和样式
-
 
 ## 🚀 快速开始
 
@@ -82,7 +78,6 @@ npm run stockbao
 ```
 
 后端启动后，API 地址为 `http://localhost:8000`
-
 
 ### 3. 安装并使用
 
@@ -160,19 +155,22 @@ createApp(App).mount('#app')
         <span>{{ hoverData.stockCode }}</span>
         <span>{{ formatTimestamp(hoverData.timestamp, { timeZone: 'Asia/Shanghai' }) }}</span>
       </div>
-      <div class="custom-tooltip__price"
-           :style="{ color: hoverData.close >= hoverData.open ? upColor : downColor }">
+      <div
+        class="custom-tooltip__price"
+        :style="{ color: hoverData.close >= hoverData.open ? upColor : downColor }"
+      >
         {{ hoverData.close.toFixed(2) }}
       </div>
       <div class="custom-tooltip__detail">
-        O: {{ hoverData.open.toFixed(2) }}<br> H: {{ hoverData.high.toFixed(2) }}<br>
-        L: {{ hoverData.low.toFixed(2) }}<br> C: {{ hoverData.close.toFixed(2) }}
+        O: {{ hoverData.open.toFixed(2) }}<br />
+        H: {{ hoverData.high.toFixed(2) }}<br />
+        L: {{ hoverData.low.toFixed(2) }}<br />
+        C: {{ hoverData.close.toFixed(2) }}
       </div>
     </div>
   </template>
 </KlineChart>
 ```
-
 
 ## 🎨 自定义 Tooltip
 
@@ -180,12 +178,12 @@ createApp(App).mount('#app')
 
 ### `#kline-tooltip`
 
-| 插槽属性              | 类型                                          | 说明                                      |
-| ---------------------- | --------------------------------------------- | ------------------------------------------------ |
-| `hoverData`            | `KLineData`                                   | 悬停 K 线数据（非 null）        |
-| `hoveredIndex`         | `number \| null`                              | 数据索引                                       |
-| `data`                 | `ReadonlyArray<KLineData>`                    | 完整数据数组                                  |
-| `upColor` / `downColor`| `string`                                      | 当前主题的涨/跌颜色                   |
+| 插槽属性                | 类型                       | 说明                     |
+| ----------------------- | -------------------------- | ------------------------ |
+| `hoverData`             | `KLineData`                | 悬停 K 线数据（非 null） |
+| `hoveredIndex`          | `number \| null`           | 数据索引                 |
+| `data`                  | `ReadonlyArray<KLineData>` | 完整数据数组             |
+| `upColor` / `downColor` | `string`                   | 当前主题的涨/跌颜色      |
 
 ```vue
 <KlineChart v-model:theme="currentTheme">
@@ -223,21 +221,28 @@ createApp(App).mount('#app')
     backdrop-filter: blur(6px);
   }
   .custom-tooltip__title {
-    display: flex; justify-content: space-between; gap: 12px;
-    font-weight: 600; margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-weight: 600;
+    margin-bottom: 4px;
   }
   .custom-tooltip__price {
-    font-size: 18px; font-weight: 700; margin-bottom: 4px;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 4px;
   }
-  .custom-tooltip__detail { opacity: 0.7; }
+  .custom-tooltip__detail {
+    opacity: 0.7;
+  }
 </style>
 ```
 
 ### `#marker-tooltip`
 
-| 插槽属性              | 类型                                                            | 说明                     |
-| ---------------------- | --------------------------------------------------------------- | ------------------------------- |
-| `marker`               | `MarkerEntity \| CustomMarkerEntity \| null`                    | 悬停的标记数据             |
+| 插槽属性 | 类型                                         | 说明           |
+| -------- | -------------------------------------------- | -------------- |
+| `marker` | `MarkerEntity \| CustomMarkerEntity \| null` | 悬停的标记数据 |
 
 ## 📖 更多文档
 
@@ -245,29 +250,27 @@ createApp(App).mount('#app')
 - [插件系统](../../docs/PLUGIN_SYSTEM.md) - 扩展机制与自定义开发
 - [渲染器开发指南](../../docs/renderer-development-guide.md) - 自定义渲染器开发
 
-
 ## 📋 组件 Props
 
-| 属性 | 类型 | 默认值 | 说明 |
-|------|------|---------|-------------|
-| semanticConfig | `SemanticChartConfig` | — | 语义化配置（可选）。传入后驱动图表数据、指标、标记和选项 |
-| dataFetcher | `DataFetcher` | 内置 | 数据获取函数，默认为代理 `/api/stock` 的内置请求器 |
-| theme | `'light' \| 'dark'` | — | 图表主题。可用 `v-model:theme` 双向绑定 |
-| isFullscreen | `boolean` | — | 全屏状态（受控）。不传则使用组件内部非受控模式 |
-| timezone | `string` | `'Asia/Shanghai'` | 时区 |
-| yPaddingPx | `number` | 20 | Y轴上下留白像素 |
-| minKWidth | `number` | 1 | K线最小宽度（逻辑像素） |
-| maxKWidth | `number` | 50 | K线最大宽度（逻辑像素） |
-| rightAxisWidth | `number` | 0 | 右侧价格轴宽度 |
-| leftAxisWidth | `number` | 0 | 左侧价格轴宽度（0=隐藏） |
-| bottomAxisHeight | `number` | 24 | 底部时间轴高度 |
-| priceLabelWidth | `number` | 60 | 价格标签额外宽度（用于显示涨跌幅） |
-| zoomLevels | `number` | 20 | 缩放级别总数 |
-| initialZoomLevel | `number` | 3 | 初始缩放级别（1 ~ zoomLevels） |
-| customData | `CustomDataSource` | — | 内联数据包：`{ symbol?, period?, data, comparisons? }`。完全绕过数据请求器，直接使用传入的数据渲染 |
-| teleportContainer | `string \| HTMLElement` | — | 下拉/弹窗的 Teleport 目标容器（CSS 选择器或元素）。默认渲染到内部 `.chart-wrapper` |
-| mcp | `McpConfig` | — | MCP/AI runtime 桥接配置：`{ wsUrl?, autoReconnect?, onToolCall? }`。详见 [@363045841yyt/klinechart-ai-runtime](../../packages/ai-runtime/README.md) |
-
+| 属性              | 类型                    | 默认值            | 说明                                                                                                                                                |
+| ----------------- | ----------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| semanticConfig    | `SemanticChartConfig`   | —                 | 语义化配置（可选）。传入后驱动图表数据、指标、标记和选项                                                                                            |
+| dataFetcher       | `DataFetcher`           | 内置              | 数据获取函数，默认为代理 `/api/stock` 的内置请求器                                                                                                  |
+| theme             | `'light' \| 'dark'`     | —                 | 图表主题。可用 `v-model:theme` 双向绑定                                                                                                             |
+| isFullscreen      | `boolean`               | —                 | 全屏状态（受控）。不传则使用组件内部非受控模式                                                                                                      |
+| timezone          | `string`                | `'Asia/Shanghai'` | 时区                                                                                                                                                |
+| yPaddingPx        | `number`                | 20                | Y轴上下留白像素                                                                                                                                     |
+| minKWidth         | `number`                | 1                 | K线最小宽度（逻辑像素）                                                                                                                             |
+| maxKWidth         | `number`                | 50                | K线最大宽度（逻辑像素）                                                                                                                             |
+| rightAxisWidth    | `number`                | 0                 | 右侧价格轴宽度                                                                                                                                      |
+| leftAxisWidth     | `number`                | 0                 | 左侧价格轴宽度（0=隐藏）                                                                                                                            |
+| bottomAxisHeight  | `number`                | 24                | 底部时间轴高度                                                                                                                                      |
+| priceLabelWidth   | `number`                | 60                | 价格标签额外宽度（用于显示涨跌幅）                                                                                                                  |
+| zoomLevels        | `number`                | 20                | 缩放级别总数                                                                                                                                        |
+| initialZoomLevel  | `number`                | 3                 | 初始缩放级别（1 ~ zoomLevels）                                                                                                                      |
+| customData        | `CustomDataSource`      | —                 | 内联数据包：`{ symbol?, period?, data, comparisons? }`。完全绕过数据请求器，直接使用传入的数据渲染                                                  |
+| teleportContainer | `string \| HTMLElement` | —                 | 下拉/弹窗的 Teleport 目标容器（CSS 选择器或元素）。默认渲染到内部 `.chart-wrapper`                                                                  |
+| mcp               | `McpConfig`             | —                 | MCP/AI runtime 桥接配置：`{ wsUrl?, autoReconnect?, onToolCall? }`。详见 [@363045841yyt/klinechart-ai-runtime](../../packages/ai-runtime/README.md) |
 
 ## 🗺️ Roadmap
 
@@ -283,7 +286,6 @@ createApp(App).mount('#app')
 - [ ] 支持分钟、多日、月、年 K 线显示
 - [ ] 支持将绘制的图形转换为量化代码
 
-
 ## 🚀 What's New
 
 - **v0.8** 支持商品比较，支持多数据源聚合
@@ -298,8 +300,6 @@ createApp(App).mount('#app')
 - **v0.5.0** 完整绘图工具系统，支持直线、矩形、文字绘制与样式编辑
 - **v0.4** 现代化 UI，左侧工具栏、右轴优化、TradingView 式缩放手感
 
-
 ## 📄 License
 
 [MIT](LICENSE)
-

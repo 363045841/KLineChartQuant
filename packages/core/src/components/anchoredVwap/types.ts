@@ -22,7 +22,7 @@
  * `createIndicatorSelectorController.ts`.
  */
 
-import type { Signal } from '../../reactivity'
+import type { Signal } from '../../foundation/reactivity/index'
 
 /**
  * Minimum bar shape consumed by `computeAnchoredVwap`. Matches the

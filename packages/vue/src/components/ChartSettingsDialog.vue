@@ -221,9 +221,7 @@
     () => props.show,
     (val) => {
       if (val) {
-        settings.value = props.initialSettings
-          ? { ...props.initialSettings }
-          : loadSettings()
+        settings.value = props.initialSettings ? { ...props.initialSettings } : loadSettings()
       }
     },
   )

@@ -26,28 +26,28 @@
       "import": "./dist/index.js"
     },
     "./reactivity": {
-      "types": "./dist/reactivity/index.d.ts",
-      "import": "./dist/reactivity/index.js"
+      "types": "./dist/foundation/reactivity/index.d.ts",
+      "import": "./dist/foundation/reactivity/index.js"
     },
     "./controllers": {
       "types": "./dist/controllers/index.d.ts",
       "import": "./dist/controllers/index.js"
     },
     "./semantic": {
-      "types": "./dist/semantic/index.d.ts",
-      "import": "./dist/semantic/index.js"
+      "types": "./dist/features/semantic/index.d.ts",
+      "import": "./dist/features/semantic/index.js"
     },
     "./plugin": {
-      "types": "./dist/plugin/index.d.ts",
-      "import": "./dist/plugin/index.js"
+      "types": "./dist/foundation/plugin/index.d.ts",
+      "import": "./dist/foundation/plugin/index.js"
     },
     "./config": {
-      "types": "./dist/config/chartSettings.d.ts",
-      "import": "./dist/config/chartSettings.js"
+      "types": "./dist/foundation/config/chartSettings.d.ts",
+      "import": "./dist/foundation/config/chartSettings.js"
     },
     "./types/price": {
-      "types": "./dist/types/price.d.ts",
-      "import": "./dist/types/price.js"
+      "types": "./dist/foundation/types/price.d.ts",
+      "import": "./dist/foundation/types/price.js"
     },
     "./engine/chart": {
       "types": "./dist/engine/chart.d.ts",

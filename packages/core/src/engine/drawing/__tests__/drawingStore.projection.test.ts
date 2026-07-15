@@ -1,0 +1,38 @@
+import { describe, expect, it } from 'vitest'
+
+import type { DrawingObject } from '../../../foundation/plugin/index'
+import { createDrawingState } from '../../state/drawingState'
+import { DrawingStore } from '../index'
+
+function mk(id: string, paneId = 'main'): DrawingObject {
+  return {
+    id,
+    kind: 'trend-line',
+    paneId,
+    visible: true,
+    anchors: [],
+    params: {},
+    style: { stroke: '#2962ff' },
+  }
+}
+
+describe('DrawingStore projection', () => {
+  it('reads drawings and selection from injected signals', () => {
+    const state = createDrawingState()
+    state.actions.setDrawings([mk('a'), mk('b', 'sub')])
+    state.actions.setSelectedDrawingId('a')
+
+    const store = new DrawingStore({
+      drawings$: state.readonly.drawings,
+      selectedDrawingId$: state.readonly.selectedDrawingId,
+    })
+
+    expect(store.getAll().map((d) => d.id)).toEqual(['a', 'b'])
+    expect(store.getSelectedId()).toBe('a')
+    expect(store.getVisibleByPane('main').map((d) => d.id)).toEqual(['a'])
+
+    state.actions.setDrawings([mk('c')])
+    expect(store.getAll().map((d) => d.id)).toEqual(['c'])
+    expect(store.getSelectedId()).toBeNull()
+  })
+})

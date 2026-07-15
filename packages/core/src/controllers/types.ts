@@ -2,18 +2,18 @@
  * Framework-agnostic controller interfaces.
  *
  * Every adapter (React, Vue, Angular) consumes these. Controllers expose state as
- * `Signal<T>` so adapters bridge with their own reactivity (useSyncExternalStore,
+ * `ReadonlySignal<T>` so adapters bridge with their own reactivity (useSyncExternalStore,
  * shallowRef, toSignal).
  *
  * Mutation methods are imperative — adapters call them in event handlers.
  */
 
-import type { AlertController } from '../alerts/types'
-import type { ChartSettings } from '../config/chartSettings'
+import type { AlertController } from '../features/alerts/types'
+import type { ChartSettings } from '../foundation/config/chartSettings'
 import type { InteractionSnapshot } from '../engine/chart'
 import type { PaneSpec } from '../engine/chartTypes'
 import type { CustomMarkerEntity } from '../engine/marker/registry'
-import type { Signal } from '../reactivity'
+import type { ReadonlySignal, Signal } from '../foundation/reactivity/index'
 
 // Controller-owned public surface. Legacy engine types may mirror these
 // shapes internally, but adapters depend only on core-defined contracts.
@@ -202,6 +202,10 @@ export interface DrawingChartAdapter {
   getFullDrawings(): any[]
   /** highlight a drawing by ID */
   setSelectedDrawingId(id: string | null): void
+  /** write drawing tool id via Chart (kernel SSOT + session side effects) */
+  setDrawingToolId(toolId: import('../engine/drawing/toolConfig').DrawingToolId): void
+  /** read current drawing tool id from kernel */
+  getDrawingToolId(): import('../engine/drawing/toolConfig').DrawingToolId
   /** current viewport (nullable if chart not ready) */
   getViewport(): DrawingChartViewport | null
   /** resolved chart options (kWidth, kGap) */
@@ -270,30 +274,40 @@ export interface ChartMountOptions {
       name: string
       input: Record<string, unknown>
     }) =>
-      Promise<{ success: boolean; error?: string; data?: unknown }> | { success: boolean; error?: string; data?: unknown }
+      | Promise<{ success: boolean; error?: string; data?: unknown }>
+      | { success: boolean; error?: string; data?: unknown }
     autoReconnect?: boolean
   }
 }
 
 export interface ChartController extends DrawingChartAdapter {
   // ---- Signals ----
-  readonly viewport: Signal<ChartViewport>
-  readonly data: Signal<ReadonlyArray<KLineData>>
-  readonly dataLoading: Signal<boolean>
-  readonly symbols: Signal<ReadonlyArray<SymbolSpec>>
-  readonly theme: Signal<'light' | 'dark'>
-  readonly indicators: Signal<ReadonlyArray<IndicatorInstance>>
-  readonly subPanes: Signal<ReadonlyArray<SubPaneInfo>>
-  readonly drawingTool: Signal<DrawingToolType | null>
-  readonly drawings: Signal<ReadonlyArray<DrawingObject>>
-  readonly paneRatios: Signal<Readonly<Record<string, number>>>
-  readonly paneLayout: Signal<ReadonlyArray<PaneSpec>>
-  readonly interactionState: Signal<InteractionSnapshot>
-  readonly comparisonColors: Signal<ReadonlyMap<string, string>>
-  readonly comparisonLoading: Signal<boolean>
+  readonly viewport: ReadonlySignal<ChartViewport>
+  readonly data: ReadonlySignal<ReadonlyArray<KLineData>>
+  readonly dataLoading: ReadonlySignal<boolean>
+  readonly symbols: ReadonlySignal<ReadonlyArray<SymbolSpec>>
+  readonly theme: ReadonlySignal<'light' | 'dark'>
+  /** 用户偏好 settings（kernel.settings resolved 快照） */
+  readonly settings: ReadonlySignal<
+    Readonly<import('../foundation/config/chartSettings').ChartSettings>
+  >
+  /** 图表模式 id：kline | timeshare */
+  readonly chartMode: ReadonlySignal<'kline' | 'timeshare'>
+  readonly indicators: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
+  readonly subPanes: ReadonlySignal<ReadonlyArray<SubPaneInfo>>
+  /** 当前绘图工具（DrawingToolId，默认 cursor） */
+  readonly drawingTool: ReadonlySignal<import('../engine/drawing/toolConfig').DrawingToolId>
+  readonly drawings: ReadonlySignal<ReadonlyArray<DrawingObject>>
+  /** 当前选中绘图 id（kernel.drawing SSOT） */
+  readonly selectedDrawingId: ReadonlySignal<string | null>
+  readonly paneRatios: ReadonlySignal<Readonly<Record<string, number>>>
+  readonly paneLayout: ReadonlySignal<ReadonlyArray<PaneSpec>>
+  readonly interactionState: ReadonlySignal<InteractionSnapshot>
+  readonly comparisonColors: ReadonlySignal<ReadonlyMap<string, string>>
+  readonly comparisonLoading: ReadonlySignal<boolean>
 
   /** Registered symbol catalog — adapters use for picker UI */
-  readonly symbolCatalog: Signal<ReadonlyArray<SymbolInfo>>
+  readonly symbolCatalog: ReadonlySignal<ReadonlyArray<SymbolInfo>>
 
   // indicator catalog (static — adapters use for picker UI)
   readonly catalog: ReadonlyArray<IndicatorDefinition>
@@ -353,7 +367,20 @@ export interface ChartController extends DrawingChartAdapter {
   updateRendererConfig(name: string, config: Record<string, unknown>): void
 
   // ---- Drawing ----
-  setDrawingTool(tool: DrawingToolType | null): void
+  /**
+   * 设置绘图工具。接受 DrawingToolId 或 legacy DrawingToolType；
+   * null 视为 cursor。
+   */
+  setDrawingTool(
+    tool:
+      | import('../engine/drawing/toolConfig').DrawingToolId
+      | DrawingToolType
+      | null,
+  ): void
+  setDrawingToolId(toolId: import('../engine/drawing/toolConfig').DrawingToolId): void
+  getDrawingToolId(): import('../engine/drawing/toolConfig').DrawingToolId
+  /** 注册绘图交互会话到 Chart，使工具切换能清会话副作用 */
+  registerDrawingSession(session: unknown | null): void
   clearDrawings(): void
   removeDrawing(drawingId: string): void
 

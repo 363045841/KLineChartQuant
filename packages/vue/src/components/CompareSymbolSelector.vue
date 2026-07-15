@@ -137,8 +137,8 @@
               type="button"
               class="compare-list__item"
               :class="{ 'is-selected': isSelected(item.symbol) }"
-               role="option"
-               :aria-selected="isSelected(item.symbol)"
+              role="option"
+              :aria-selected="isSelected(item.symbol)"
               @click="toggleSymbol(item)"
             >
               <span class="compare-list__left">

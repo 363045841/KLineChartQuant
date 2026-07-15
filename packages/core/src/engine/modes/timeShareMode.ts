@@ -53,7 +53,7 @@ export class TimeShareMode implements ChartModeHandler {
     const baseline = tsData[0]?.price ?? 0
     if (baseline === 0) return
 
-    pane.yAxis.setScaleType('percent')
+    // scaleType 由 kernel.paneScaleTypes 投影（进入 timeshare 时写 percent）；此处只设会话 basePrice
     pane.yAxis.setBasePrice(baseline)
 
     let maxAbsPct = 0

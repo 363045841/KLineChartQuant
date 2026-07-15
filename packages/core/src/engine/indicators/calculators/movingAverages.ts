@@ -1,4 +1,4 @@
-import type { KLineData } from '../../../types/price'
+import type { KLineData } from '../../../foundation/types/price'
 
 import { _computeEMASeries, _computeWMAOnNumbers } from './_shared'
 

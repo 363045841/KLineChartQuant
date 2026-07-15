@@ -1,4 +1,4 @@
-import type { ChartSettings } from '../../config/chartSettings'
+import type { ChartSettings } from '../../foundation/config/chartSettings'
 import type { SymbolSpec } from '../../controllers/types'
 import type {
   PluginHostImpl,
@@ -8,14 +8,14 @@ import type {
   YAxisRange,
   XAxisRange,
   YAxisTick,
-} from '../../plugin'
-import { RendererPluginManager, wrapPaneInfo } from '../../plugin'
-import { createWebGLRenderer, createWebGLSurfaceBackend } from '../../render'
-import type { Renderer } from '../../render/Renderer'
-import { createLayerFromPlugin } from '../../scene/createLayerFromPlugin'
-import { createScene } from '../../scene/createScene'
-import type { Scene, PaintContext, PaneRole, Layer } from '../../scene/types'
-import type { KLineData } from '../../types/price'
+} from '../../foundation/plugin/index'
+import { RendererPluginManager, wrapPaneInfo } from '../../foundation/plugin/index'
+import { createWebGLRenderer, createWebGLSurfaceBackend } from '../../rendering/render/index'
+import type { Renderer } from '../../rendering/render/Renderer'
+import { createLayerFromPlugin } from '../../rendering/scene/createLayerFromPlugin'
+import { createScene } from '../../rendering/scene/createScene'
+import type { Scene, PaintContext, PaneRole, Layer } from '../../rendering/scene/types'
+import type { KLineData } from '../../foundation/types/price'
 import type {
   ChartDom,
   PaneSpec,
@@ -26,12 +26,16 @@ import type {
 } from '../chartTypes'
 import { InteractionController } from '../controller/interaction'
 import { ChartDataManager } from '../data/chartDataManager'
-import { DrawingStore } from '../drawing'
+import { DrawingStore, type DrawingStoreDeps } from '../drawing'
 import { createDrawingRendererPlugin, createDrawingLabelOverlayPlugin } from '../drawing/plugin'
 import { ChartIndicatorManager } from '../indicators/chartIndicatorManager'
 import { UpdateLevel } from '../layout/pane'
 import type { VisibleRange } from '../layout/pane'
-import { MarkerManager, type CustomMarkerEntity } from '../marker/registry'
+import {
+  MarkerManager,
+  type CustomMarkerEntity,
+  type MarkerManagerDeps,
+} from '../marker/registry'
 import type { ChartModeHandler } from '../modes/types'
 import { PaneRenderer } from '../paneRenderer'
 import { createTimeAxisRendererPlugin } from '../renderers/timeAxis'
@@ -52,7 +56,7 @@ import { createLastPriceLineLayer } from './layers/lastPriceLineLayer'
 import { createLeftYAxisLayer } from './layers/leftYAxisLayer'
 import { createMainIndicatorLegendLayer } from './layers/mainIndicatorLegendLayer'
 import { createYAxisLayer } from './layers/yAxisLayer'
-import { batch } from '../../reactivity/signal'
+import { batch, type ReadonlySignal } from '../../foundation/reactivity/signal'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kWidth: number
@@ -89,6 +93,10 @@ export interface RendererDependencies {
   getDataManager: () => ChartDataManager
   getIndicatorManager: () => ChartIndicatorManager
   getActiveMode: () => ChartModeHandler
+  settings$: ReadonlySignal<ChartSettings>
+  customMarkers$: MarkerManagerDeps['customMarkers$']
+  drawings$: DrawingStoreDeps['drawings$']
+  selectedDrawingId$: DrawingStoreDeps['selectedDrawingId$']
 }
 
 export class ChartRenderer {
@@ -99,7 +107,6 @@ export class ChartRenderer {
 
   readonly markerManager: MarkerManager
   readonly drawingStore: DrawingStore
-  private settings: ChartSettings = {}
   private overlayHadCrosshair = false
   private xAxisCtx: CanvasRenderingContext2D | null = null
 
@@ -123,8 +130,11 @@ export class ChartRenderer {
 
   constructor(deps: RendererDependencies) {
     this.deps = deps
-    this.markerManager = new MarkerManager()
-    this.drawingStore = new DrawingStore()
+    this.markerManager = new MarkerManager({ customMarkers$: deps.customMarkers$ })
+    this.drawingStore = new DrawingStore({
+      drawings$: deps.drawings$,
+      selectedDrawingId$: deps.selectedDrawingId$,
+    })
     this.scene = createScene()
     const sharedSurface = deps.getSharedWebGLSurface()
     const surfaceBackend = createWebGLSurfaceBackend(sharedSurface)
@@ -280,11 +290,11 @@ export class ChartRenderer {
   }
 
   getSettings(): ChartSettings {
-    return this.settings
+    return this.deps.settings$.peek()
   }
 
-  updateSettings(settings: ChartSettings): void {
-    this.settings = { ...settings }
+  private get settings(): ChartSettings {
+    return this.deps.settings$.peek()
   }
 
   scheduleDraw(level: UpdateLevel = UpdateLevel.All): void {
@@ -306,30 +316,29 @@ export class ChartRenderer {
 
     this.pendingUpdateLevel = level
     this.raf = requestAnimationFrame(() => {
-      this.raf = null
       const levelToDraw = this.pendingUpdateLevel
       this.pendingUpdateLevel = UpdateLevel.All
 
-      const dom = this.deps.getDom()
-      const c = dom.container
-      if (c) {
-        const scrollContent = dom.scrollContent
-        if (scrollContent) {
-          const dataManager = this.deps.getDataManager()
-          const w =
-            Math.max(dataManager.getContentWidth(), dataManager.getLeftLoadBufferWidth()) + 'px'
-          if (scrollContent.style.width !== w) scrollContent.style.width = w
-        }
+      const frame = this.prepareFrameData(levelToDraw)
+      if (frame) {
+        this.writeFramePositionsFromFrame(frame)
       }
+      this.drawWithFrame(levelToDraw, frame)
 
-      this.draw(levelToDraw)
+      this.raf = null
+      if (this.pendingUpdateLevel !== UpdateLevel.All) {
+        this.scheduleDraw(this.pendingUpdateLevel)
+      }
     })
   }
 
   draw(level: UpdateLevel = UpdateLevel.All): void {
+    this.drawWithFrame(level, this.prepareFrameData(level))
+  }
+
+  private drawWithFrame(level: UpdateLevel, frame: FrameContext | null): void {
     this.markerManager.clear()
 
-    const frame = this.prepareFrameData(level)
     if (!frame) {
       const dataManager = this.deps.getDataManager()
       if (dataManager.getInternalData().length === 0 && dataManager.getTimeShareData().length === 0)
@@ -338,11 +347,6 @@ export class ChartRenderer {
     }
 
     const { vp, range, kLinePositions, kLineCenters, kBarRects, kWidthPx, useCachedFrame } = frame
-
-    batch(() => {
-      this.deps.getInteraction().setKLinePositions(kLinePositions, range, kWidthPx, kLineCenters)
-      this.deps.getViewportManager().updateViewportSignal()
-    })
 
     const dataManager = this.deps.getDataManager()
     const mode = this.deps.getActiveMode()
@@ -360,6 +364,8 @@ export class ChartRenderer {
       : this.deps.getIndicatorManager().indicatorSchedulerAccessor.getMainIndicatorPriceRange()
     const hasCrosshair = this.deps.getInteraction().getCrosshairIndex() !== null
 
+    const renderData = frame.data
+
     const { sharedXAxisLabels, sharedXAxisRanges } = this.renderPanes(
       vp,
       range,
@@ -371,6 +377,7 @@ export class ChartRenderer {
       hasCrosshair,
       useCachedFrame,
       level,
+      renderData,
     )
 
     this.overlayHadCrosshair = hasCrosshair
@@ -383,7 +390,21 @@ export class ChartRenderer {
       kWidthPx,
       sharedXAxisLabels,
       sharedXAxisRanges,
+      renderData,
     )
+  }
+
+  /** 在 draw() 之前单独写入帧数据到 interactionState，分离状态变更与渲染 */
+  private writeFramePositions(level: UpdateLevel): void {
+    const frame = this.prepareFrameData(level)
+    if (!frame) return
+    this.writeFramePositionsFromFrame(frame)
+  }
+
+  private writeFramePositionsFromFrame(frame: FrameContext): void {
+    batch(() => {
+      this.deps.getInteraction().setKLinePositions(frame.kLinePositions, frame.range, frame.kWidthPx, frame.kLineCenters)
+    })
   }
 
   private prepareFrameData(level: UpdateLevel): FrameContext | null {
@@ -423,9 +444,6 @@ export class ChartRenderer {
         rawRange.start !== this._prevFrameRange.raw.start ||
         rawRange.end !== this._prevFrameRange.raw.end)
     ) {
-      if (mode.useIndicatorScheduler) {
-        this.deps.getIndicatorManager().indicatorSchedulerAccessor.updateVisibleRange(range)
-      }
       this._prevFrameRange = { visible: range, raw: rawRange }
       this.checkVisibleRangeGapWhenIdle()
     }
@@ -561,6 +579,7 @@ export class ChartRenderer {
     hasCrosshair: boolean,
     useCachedFrame: boolean,
     level: UpdateLevel,
+    renderData: unknown[],
   ): { sharedXAxisLabels: XAxisLabel[]; sharedXAxisRanges: XAxisRange[] } {
     const sharedYAxisLabels: YAxisLabel[] = []
     const sharedXAxisLabels: XAxisLabel[] = []
@@ -623,7 +642,7 @@ export class ChartRenderer {
         ctx: mainCtx!,
         overlayCtx: overlayCtx ?? undefined,
         pane: wrapPaneInfo(pane),
-        data: dataManager.getRenderData(),
+        data: renderData,
         period: dataManager.currentPeriod,
         comparisonData: dataManager.getComparisonData(),
         comparisonSymbols: dataManager.getComparisonSpecs(),
@@ -733,6 +752,7 @@ export class ChartRenderer {
     kWidthPx: number,
     sharedXAxisLabels: XAxisLabel[],
     sharedXAxisRanges: XAxisRange[],
+    renderData: unknown[],
   ): void {
     const dom = this.deps.getDom()
     const xAxisCtx = this.xAxisCtx ?? dom.xAxisCanvas.getContext('2d')
@@ -771,7 +791,7 @@ export class ChartRenderer {
           priceRange: { maxPrice: 0, minPrice: 0 },
         },
         period: dataManager.currentPeriod,
-        data: dataManager.getRenderData(),
+        data: renderData,
         range,
         scrollLeft: vp.scrollLeft,
         kWidth: opt.kWidth,

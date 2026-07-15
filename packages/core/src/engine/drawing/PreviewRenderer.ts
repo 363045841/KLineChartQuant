@@ -1,4 +1,4 @@
-import type { DrawingObject } from '../../plugin'
+import type { DrawingObject } from '../../foundation/plugin/index'
 
 import { PREVIEW_ID } from './DrawingState'
 import type { DrawingAnchorInput } from './coordinateUtils'

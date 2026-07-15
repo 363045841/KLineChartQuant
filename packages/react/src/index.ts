@@ -106,7 +106,6 @@ export function useChart(
       controllerRef.current = null
       setController(null)
     }
-     
   }, [ref])
 
   return controller

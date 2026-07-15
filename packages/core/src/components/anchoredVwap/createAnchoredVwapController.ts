@@ -21,7 +21,7 @@
  *   `appendBar incrementally matches full recompute` pins this.
  */
 
-import { createSignal, type Signal } from '../../reactivity'
+import { createSignal, type Signal } from '../../foundation/reactivity/index'
 
 import { computeAnchoredVwap } from './computeAnchoredVwap'
 import type {

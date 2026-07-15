@@ -1,4 +1,5 @@
-import { hitTestShape } from '../../semantic/drawShape'
+import type { ReadonlySignal } from '../../foundation/reactivity/signal'
+import { hitTestShape } from '../../features/semantic/drawShape'
 
 /**
  * 标记类型
@@ -100,10 +101,16 @@ export interface CustomMarkerEntity {
   metadata?: Record<string, unknown>
 }
 
+export interface MarkerManagerDeps {
+  customMarkers$: ReadonlySignal<ReadonlyMap<string, CustomMarkerEntity>>
+}
+
 /**
  * 标记 Manager
+ * 自定义标记业务态由 kernel markerState 持有；此类只投影读取 + 帧级 runtime。
  */
 export class MarkerManager {
+  private readonly deps: MarkerManagerDeps
   /** 当前帧可见的标记集合（key: marker.id） */
   private markers: Map<string, MarkerEntity> = new Map()
   /** 当前 hover 的标记 ID（跨帧持久） */
@@ -111,14 +118,15 @@ export class MarkerManager {
   /** 上一帧 hover 的标记 ID（用于触发 enter/leave 事件） */
   private lastHoveredId: string | null = null
 
-  // ============ 自定义标记状态管理 ============
-  /** 自定义标记集合 */
-  private customMarkers: Map<string, CustomMarkerEntity> = new Map()
   /** 自定义标记位置缓存（用于 hitTest） */
   private customMarkerPositions: Map<
     string,
     { x: number; y: number; size: number; shape: CustomMarkerShape }
   > = new Map()
+
+  constructor(deps: MarkerManagerDeps) {
+    this.deps = deps
+  }
 
   /**
    * 清空标记集合
@@ -216,38 +224,20 @@ export class MarkerManager {
     return [...this.markers.values()]
   }
 
-  // ============ 自定义标记管理方法 ============
+  // ============ 自定义标记投影（业务态在 kernel） ============
 
   /**
-   * 注册自定义标记
+   * 清空自定义标记位置缓存（业务态清除后调用）
    */
-  registerCustomMarker(marker: CustomMarkerEntity): void {
-    this.customMarkers.set(marker.id, marker)
-  }
-
-  /**
-   * 批量设置自定义标记
-   */
-  setCustomMarkers(markers: CustomMarkerEntity[]): void {
-    this.clearCustomMarkers()
-    for (const marker of markers) {
-      this.customMarkers.set(marker.id, marker)
-    }
-  }
-
-  /**
-   * 清空自定义标记（含位置缓存）
-   */
-  clearCustomMarkers(): void {
-    this.customMarkers.clear()
+  clearPositionCache(): void {
     this.customMarkerPositions.clear()
   }
 
   /**
-   * 获取所有自定义标记
+   * 获取所有自定义标记（读 kernel signal）
    */
   getCustomMarkers(): CustomMarkerEntity[] {
-    return [...this.customMarkers.values()]
+    return [...this.deps.customMarkers$.peek().values()]
   }
 
   /**
@@ -270,7 +260,7 @@ export class MarkerManager {
    * @returns 命中的自定义标记，未命中返回 null
    */
   hitTestCustomMarker(x: number, y: number): CustomMarkerEntity | null {
-    for (const marker of this.customMarkers.values()) {
+    for (const marker of this.deps.customMarkers$.peek().values()) {
       const pos = this.customMarkerPositions.get(marker.id)
       if (pos) {
         // 使用实际渲染的大小进行命中测试

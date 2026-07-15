@@ -15,8 +15,11 @@
     "useDefineForClassFields": true,
     "resolveJsonModule": true,
     "paths": {
-      "@/*": ["./packages/core/src/*"],
-      "@/core/*": ["./packages/core/src/engine/*"]
+      "@/core/*": ["./packages/core/src/engine/*"],
+      "@/types/*": ["./packages/core/src/foundation/types/*"],
+      "@/plugin": ["./packages/core/src/foundation/plugin"],
+      "@/utils/*": ["./packages/core/src/foundation/utils/*"],
+      "@/*": ["./packages/core/src/*"]
     },
     "plugins": [
       { "name": "@effect/language-service/tsconfig-plugin" }

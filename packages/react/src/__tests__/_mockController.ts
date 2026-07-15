@@ -55,9 +55,11 @@ export function createMockChartController(
     dataLoading: createSignal(false),
     symbols: createSignal([] as ReadonlyArray<SymbolSpec>),
     theme,
+    settings: createSignal({} as any),
+    chartMode: createSignal('kline' as const),
     indicators: createSignal<ReadonlyArray<IndicatorInstance>>([]),
     subPanes: createSignal<ReadonlyArray<SubPaneInfo>>([]),
-    drawingTool: createSignal<DrawingToolType | null>(null),
+    drawingTool: createSignal('cursor' as const),
     drawings: createSignal<ReadonlyArray<DrawingObject>>([]),
     paneRatios: createSignal<Readonly<Record<string, number>>>({}),
     paneLayout: createSignal<ReadonlyArray<PaneSpec>>([]),
@@ -167,6 +169,15 @@ export function createMockChartController(
       /* no-op */
     },
     setDrawingTool() {
+      /* no-op */
+    },
+    setDrawingToolId() {
+      /* no-op */
+    },
+    getDrawingToolId() {
+      return 'cursor' as const
+    },
+    registerDrawingSession() {
       /* no-op */
     },
     clearDrawings() {

@@ -16,7 +16,7 @@
  * planned WebGPU compute path of the heavy `binBarToBuckets` work.
  */
 
-import type { Signal } from '../../reactivity'
+import type { Signal } from '../../foundation/reactivity/index'
 
 /**
  * How a bar's volume is distributed across price buckets.

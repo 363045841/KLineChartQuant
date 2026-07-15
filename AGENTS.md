@@ -7,7 +7,7 @@ When you launch a sub-agent, use codegraph MCP when prompted to explore the code
 
 ## Committing
 
-- **Must use commit-message-generator skill**: When committing, always load the skill at `.claude/skills/commit/SKILL.md` via `skill("commit-message-generator")` to generate conventional commit messages.
+- **Must use commit-message-generator skill**: When committing, always load the skill at `.opencode/skills/commit/SKILL.md` via `skill("commit-message-generator")` to generate conventional commit messages.
 - **PR descriptions should cover the entire branch**: When creating a PR, describe the full scope of changes across all commits in the branch, not just the latest commit.
 
 ## Monorepo
@@ -86,31 +86,21 @@ pnpm stockbao
 - **DPR/ResizeObserver** is the single source of truth for canvas sizing (`devicePixelContentBoxSize` with `window.devicePixelRatio` fallback).
 - **Rendering pipeline**: computeViewport → getVisibleRange → calcKLinePositions → iterate panes → build RenderContext → rendererPluginManager.render(paneId) → renderPlugin('timeAxis').
 - **Three renderer categories**: business (pane-local, e.g. candle/ma/boll), global (paneId=GLOBAL, e.g. gridLines/crosshair), system (isSystem=true, e.g. timeAxis).
+- **StateKernel** is the single source of truth for all chart state (7 sub-state modules: viewport, zoom, data, pane, theme, drawing, interaction). Each sub-state module exposes `readonly` (ReadonlySignal bag) + semantic `actions`. WritableSignal bag (`signals`) is never part of the public return — all mutations flow through actions. Derived state lives in computed(); DOM side-effects in effect(). See `docs/state-kernel-migration-plan.md`.**
 
-## Scroll / Coordinate System
+### StateKernel Reactive Kernel Design Principles
 
-Three coordinate systems must stay in sync:
+**Single Source of Truth** — All state mutations go through Actions writing to WritableSignal only. No scattered writes, no shadow caches, no manual sync paths.
 
-1. **DOM scroll** (`scrollLeft`, `scrollWidth`) — CSS px on `.scroll-content`
-2. **K-line world** (`calcKLinePositions`, `getVisibleRange`, `getLogicalIndexAtX`) — data-index-based, origin at `startXPx`
-3. **Content width** (`getContentWidth()`) — drives `scrollWidth` via Vue `totalWidth` computed
+**Automatic Derivation** — Derived state lives in computed() pure functions. The reactive system tracks dependencies and re-evaluates automatically. No manual syncXxx() / updateYyy() methods.
 
-### Key rules
+**Read/Write Separation** — External consumers receive ReadonlySignal<T> (no .set()). Internal mutation uses WritableSignal<T> accessible only within Actions. TypeScript enforces the boundary at compile time.
 
-- **`getContentWidth()` must NOT include virtual leading slots** unless every world-coordinate function also accounts for the offset. Currently none do, so `LEADING_SLOTS` was removed.
-- **`onPointerUp()` must call `checkVisibleRangeGap()` for BOTH touch and mouse panning**. The touch-only guard caused mouse drags to exit without triggering gap detection.
-- **Programmatic `scrollLeft` writes must sync cache immediately** — `applyPanScroll()` calls `syncScrollLeft()` because native scroll events are async and `prepareFrameData` may read stale `cachedScrollLeft`.
-- **`DataBuffer._attemptedBoundaries` clears on no-prepend fetch** — prevents permanent boundary lockout after transient fetch failures.
-- **`checkVisibleRangeGapWhenIdle()` bails when `isPointerDown()` is true** — gap check only fires after drag ends; `onPointerUp()` is the last guaranteed trigger point.
-- **Bundle logically related info into a single signal payload instead of splitting across multiple signals that rely on timing order, and never use shared mutable variables to coordinate between independent signal subscribers.**
+**Effect Isolation** — DOM/WebGL side effects run in effect() only, decoupled from state computation. Pure derivation functions stay testable without a DOM.
 
-### Signal Atomicity
+**Batched Atomic Updates** — Multi-field writes are batched via batch() into a single notification cycle. No intermediate state leaks — consumers always observe a consistent snapshot.
 
-**SSOT + derived values（首选）。** Every piece of state must have exactly one single source of truth (SSOT). Any value that can be derived from that SSOT must be a getter/computed — never store it as a separate field, never cache the result. If a value has multiple writers, eliminate all but one and route the rest through the sole writer.
-
-**`batch()` sync（SSOT 走不通时的兜底）。** When two semantically dependent signals cannot be reduced to a single SSOT + getter (e.g. cross-subsystem state), they must be written in the same synchronous call stack, wrapped in `batch()`. Do not split them across a RAF boundary or rely on Vue's `queueFlush()` / React's automatic batching — they only merge updates within the same call stack, not across signal domains.
-
-**Prefer reading from DOM over maintaining a shadow cache.** If you cache DOM values (e.g. `scrollLeft`) for performance, the cache must be written in the same synchronous step as the DOM write — but consider whether the cache is worth the complexity at all. For values read in hot paths like rendering, a cache is justified; for everything else, read the DOM directly.
+Best practice: @packages/core/src/engine/state/viewportState.ts @packages/core/src/engine/state/stateKernel.ts 
 
 ## CI
 
@@ -143,6 +133,12 @@ Never guess at Effect patterns - check the guide first.
 - **Semantic renderer names** (e.g. `ma`, `boll`) are stringly-typed conventions — renaming requires sync in `semantic/controller.ts`.
 - **Web component build**: `pnpm build:wc` in packages/vue (cross-env BUILD_TARGET=web-component).
 
+## Comment Style
+
+- Language: body in Chinese; technical terms keep English (Signal, batch, computed, Action, etc.)
+- No Markdown symbols: no backticks, bold, or arrows. Use natural language for code references.
+- Prefer JSDoc tags: `@remarks` (detailed explanation), `@param`, `@returns`, `@typeParam`, `@example`.
+- Inline comments: `/** brief */` or `// brief`, no tags needed.
+
 ## ATTENTION
 - You can only commit when I explicitly ask you to do it.
-

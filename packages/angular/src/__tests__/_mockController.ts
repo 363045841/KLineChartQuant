@@ -65,7 +65,7 @@ export function createMockChartController(
     isHoveringRightAxis: false,
   })
 
-  const drawingTool = createSignal<DrawingToolType | null>(null)
+  const drawingTool = createSignal('cursor' as 'cursor' | DrawingToolType)
   const drawings = createSignal<ReadonlyArray<DrawingObject>>([])
   const paneRatios = createSignal<Readonly<Record<string, number>>>({})
   const paneLayout = createSignal<ReadonlyArray<PaneSpec>>([])
@@ -76,6 +76,8 @@ export function createMockChartController(
     viewport,
     data,
     theme,
+    settings: createSignal({} as any),
+    chartMode: createSignal('kline' as const),
     interactionState,
     indicators: createSignal<ReadonlyArray<IndicatorInstance>>([]),
     subPanes: createSignal<ReadonlyArray<SubPaneInfo>>([]),
@@ -140,8 +142,17 @@ export function createMockChartController(
     updateRendererConfig() {
       /* no-op */
     },
-    setDrawingTool(tool: DrawingToolType | null) {
-      drawingTool.set(tool)
+    setDrawingTool(tool: DrawingToolType | string | null) {
+      drawingTool.set((tool as any) ?? 'cursor')
+    },
+    setDrawingToolId(toolId: string) {
+      drawingTool.set(toolId as any)
+    },
+    getDrawingToolId() {
+      return drawingTool() as any
+    },
+    registerDrawingSession() {
+      /* no-op */
     },
     clearDrawings() {
       drawings.set([])

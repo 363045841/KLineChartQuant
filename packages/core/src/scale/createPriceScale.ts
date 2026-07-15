@@ -31,8 +31,8 @@
  */
 
 import { KLineChartError } from '../errors'
-import { createSignal } from '../reactivity/signal'
-import type { Signal } from '../reactivity/signal'
+import { createSignal } from '../foundation/reactivity/signal'
+import type { Signal } from '../foundation/reactivity/signal'
 
 import { createOriginShiftPolicy, type OriginShiftPolicy } from './originShift'
 import type { PriceScale, ScaleMode } from './types'

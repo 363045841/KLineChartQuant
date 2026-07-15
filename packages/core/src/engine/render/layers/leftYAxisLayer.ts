@@ -1,6 +1,6 @@
-import type { RenderContext } from '../../../plugin'
-import { createLayerFromPlugin } from '../../../scene/createLayerFromPlugin'
-import type { Layer } from '../../../scene/types'
+import type { RenderContext } from '../../../foundation/plugin/index'
+import { createLayerFromPlugin } from '../../../rendering/scene/createLayerFromPlugin'
+import type { Layer } from '../../../rendering/scene/types'
 import { createLeftYAxisRendererPlugin } from '../../renderers/leftYAxis'
 
 export function createLeftYAxisLayer(

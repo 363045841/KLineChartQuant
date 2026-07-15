@@ -1,36 +1,42 @@
 import { KLineChartError } from '../errors'
-import type { RendererPlugin, RendererPluginWithHost, RenderContext } from '../plugin'
-import { createSignal, type Signal } from '../reactivity/signal'
-import { createLayerFromPlugin } from '../scene/createLayerFromPlugin'
-import type { Layer } from '../scene/types'
-
-import type { PaneSpec } from './chartTypes'
+import type {
+  RendererPlugin,
+  RendererPluginWithHost,
+  RenderContext,
+} from '../foundation/plugin/index'
+import { createLayerFromPlugin } from '../rendering/scene/createLayerFromPlugin'
+import type { Layer } from '../rendering/scene/types'
 import type { IndicatorScheduler } from './indicators/scheduler'
-import type { SubIndicatorType } from './renderers/Indicator'
-import { createSubIndicatorRenderer } from './renderers/Indicator'
 import { findIndicator } from './renderers/Indicator/indicatorCatalog'
+import { createSubIndicatorRenderer } from './renderers/Indicator'
 import { createIndicatorScaleRendererPlugin } from './renderers/Indicator/scale/indicator_scale'
 import { createPaneTitleRendererPlugin } from './renderers/paneTitle'
+import type { SubPaneSpec } from './state/subPaneState'
 
-
-
-
-export interface SubPaneEntry {
-  paneId: string
-  indicatorId: SubIndicatorType
-  params: Record<string, unknown>
-  rendererName: string
-  scaleRendererName: string
-  paneTitleRendererName: string
-  layerId: string
-  scaleLayerId: string
-  paneTitleLayerId: string
+export interface SubPaneResources {
+  readonly paneId: string
+  readonly rendererName: string
+  readonly scaleRendererName: string
+  readonly paneTitleRendererName: string
+  readonly layerId: string
+  readonly scaleLayerId: string
+  readonly paneTitleLayerId: string
 }
+
+export interface SubPaneEntry extends SubPaneSpec {
+  readonly rendererName?: string
+  readonly scaleRendererName?: string
+  readonly paneTitleRendererName?: string
+  readonly layerId?: string
+  readonly scaleLayerId?: string
+  readonly paneTitleLayerId?: string
+}
+
+type ProjectedSubPaneEntry = SubPaneSpec & SubPaneResources
+type MountedSubPaneResources = SubPaneResources & { readonly projectionKey: string }
 
 export interface SubPaneContext {
   getIndicatorScheduler: () => IndicatorScheduler
-  hasPane: (paneId: string) => boolean
-  upsertPane: (def: PaneSpec) => void
   getRenderer: <T extends RendererPlugin = RendererPlugin>(name: string) => T | undefined
   useRenderer: (
     plugin: RendererPlugin | RendererPluginWithHost,
@@ -38,7 +44,6 @@ export interface SubPaneContext {
   ) => void
   removeRenderer: (name: string) => void
   setRendererEnabled: (name: string, enabled: boolean) => void
-  removePaneDefinition: (paneId: string) => void
   updateRendererConfig: (name: string, config: Record<string, unknown>) => void
   getRightAxisWidth: () => number
   getPriceLabelWidth: () => number
@@ -53,290 +58,245 @@ export interface SubPaneContext {
   getRenderContext: (paneId: string) => RenderContext | null
 }
 
+function stableConfig(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableConfig).join(',')}]`
+  if (value !== null && typeof value === 'object') {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => `${JSON.stringify(key)}:${stableConfig(item)}`)
+      .join(',')}}`
+  }
+  if (typeof value === 'number') {
+    if (Number.isNaN(value)) return 'number:NaN'
+    if (value === Number.POSITIVE_INFINITY) return 'number:Infinity'
+    if (value === Number.NEGATIVE_INFINITY) return 'number:-Infinity'
+    if (Object.is(value, -0)) return 'number:-0'
+    return `number:${value}`
+  }
+  if (value === null) return 'null'
+  if (value === undefined) return 'undefined'
+  return `${typeof value}:${JSON.stringify(value) ?? String(value)}`
+}
+
+function toResources(entry: ProjectedSubPaneEntry): SubPaneResources {
+  return {
+    paneId: entry.paneId,
+    rendererName: entry.rendererName,
+    scaleRendererName: entry.scaleRendererName,
+    paneTitleRendererName: entry.paneTitleRendererName,
+    layerId: entry.layerId,
+    scaleLayerId: entry.scaleLayerId,
+    paneTitleLayerId: entry.paneTitleLayerId,
+  }
+}
+
+/** 副图 renderer/layer 的 runtime projection，不持有业务 Signal。 */
 export class SubPaneManager {
-  private entries = new Map<string, SubPaneEntry>()
-  private _entriesSignal = createSignal<ReadonlyArray<SubPaneEntry>>([])
+  private readonly mounted = new Map<string, MountedSubPaneResources>()
 
-  get entriesSignal(): Signal<ReadonlyArray<SubPaneEntry>> {
-    return this._entriesSignal
-  }
+  reconcile(ctx: SubPaneContext, desired: ReadonlyArray<SubPaneSpec>): boolean {
+    const desiredByPane = new Map(desired.map((spec) => [spec.paneId, spec]))
+    let changed = false
 
-  private syncEntriesSignal(): void {
-    this._entriesSignal.set(this.getAll())
-  }
-
-  create(
-    ctx: SubPaneContext,
-    paneId: string,
-    indicatorId: SubIndicatorType,
-    params: Record<string, unknown>,
-  ): boolean {
-    if (this.entries.has(paneId)) {
-      return true
+    for (const [paneId, entry] of [...this.mounted]) {
+      if (desiredByPane.has(paneId)) continue
+      this.unmount(ctx, entry)
+      this.mounted.delete(paneId)
+      changed = true
     }
 
-    const scaleRendererName = `${indicatorId.toLowerCase()}_scale_${paneId}`
-    const paneTitleRendererName = `paneTitle_${paneId}`
-    const renderer = this.createIndicatorRenderer(ctx, paneId, indicatorId, params)
-    if (!renderer) return false
-    const rendererName = renderer.name
-    const layerId = `plugin:${rendererName}`
+    for (const spec of desired) {
+      const current = this.mounted.get(spec.paneId)
+      let candidate: ProjectedSubPaneEntry | undefined
+      try {
+        candidate = this.describeEntry(ctx, spec)
+        const nextProjectionKey = `${spec.indicatorId}:${stableConfig(spec.params)}`
+        if (current?.projectionKey === nextProjectionKey) continue
 
-    const paneExists = ctx.hasPane(paneId)
-    if (!paneExists) {
-      ctx.upsertPane({ id: paneId, ratio: 1, visible: true, role: 'indicator' })
+        if (current?.rendererName === candidate.rendererName) {
+          this.updateParams(ctx, current, spec)
+        } else {
+          this.mount(ctx, candidate)
+          this.mountPaneTitleRenderer(ctx, candidate)
+          this.syncSchedulerConfig(ctx, spec.paneId, spec.indicatorId, spec.params)
+          if (current) this.unmount(ctx, current, true)
+        }
+        this.mounted.set(spec.paneId, {
+          ...toResources(candidate),
+          projectionKey: nextProjectionKey,
+        })
+        changed = true
+      } catch (error) {
+        if (candidate) {
+          this.invalidateProjection(ctx, candidate, current)
+        } else if (current) {
+          this.unmount(ctx, current)
+        }
+        this.mounted.delete(spec.paneId)
+        console.error(`[SubPaneManager] Failed to project pane "${spec.paneId}":`, error)
+      }
     }
 
-    const existingRenderer = ctx.getRenderer(rendererName)
-    if (!existingRenderer) {
-      ctx.useRenderer(renderer, params as Record<string, number | boolean | string>)
-      ctx.setRendererEnabled(rendererName, false)
-      const layer = createLayerFromPlugin(renderer, () => ctx.getRenderContext(paneId), paneId)
-      ctx.addLayer(layer)
-    }
-
-    this.mountScaleRenderer(ctx, paneId, indicatorId, scaleRendererName)
-    this.mountPaneTitleRenderer(ctx, paneId, indicatorId, params)
-
-    const scaleLayerId = `plugin:${scaleRendererName}`
-    const paneTitleLayerId = `plugin:${paneTitleRendererName}`
-
-    this.entries.set(paneId, {
-      paneId,
-      indicatorId,
-      params,
-      rendererName,
-      scaleRendererName,
-      paneTitleRendererName,
-      layerId,
-      scaleLayerId,
-      paneTitleLayerId,
-    })
-
-    this.syncSchedulerConfig(ctx, paneId, indicatorId, params)
-
-    ctx.getIndicatorScheduler().onSubPaneChanged()
-
-    this.syncEntriesSignal()
-    return true
+    if (changed) ctx.getIndicatorScheduler().onSubPaneChanged()
+    return changed
   }
 
-  remove(ctx: SubPaneContext, paneId: string): void {
-    const entry = this.entries.get(paneId)
-    if (!entry) return
-
-    ctx.removeRenderer(entry.rendererName)
-    ctx.removeRenderer(entry.scaleRendererName)
-    ctx.removeRenderer(entry.paneTitleRendererName)
-    ctx.removeLayer(entry.layerId)
-    ctx.removeLayer(entry.scaleLayerId)
-    ctx.removeLayer(entry.paneTitleLayerId)
-
-    this.entries.delete(paneId)
-
-    if (ctx.hasPane(paneId)) {
-      ctx.removePaneDefinition(paneId)
-    }
-
-    ctx.getIndicatorScheduler().onSubPaneChanged()
-    this.syncEntriesSignal()
-  }
-
-  replaceIndicator(
-    ctx: SubPaneContext,
-    paneId: string,
-    newIndicatorId: SubIndicatorType,
-    newParams: Record<string, unknown>,
-  ): void {
-    const entry = this.entries.get(paneId)
-    if (!entry) return
-
-    ctx.removeRenderer(entry.rendererName)
-    ctx.removeRenderer(entry.scaleRendererName)
-    ctx.removeRenderer(entry.paneTitleRendererName)
-    ctx.removeLayer(entry.layerId)
-    ctx.removeLayer(entry.scaleLayerId)
-    ctx.removeLayer(entry.paneTitleLayerId)
-
-    const newScaleRendererName = `${newIndicatorId.toLowerCase()}_scale_${paneId}`
-    const newPaneTitleRendererName = `paneTitle_${paneId}`
-    const renderer = this.createIndicatorRenderer(ctx, paneId, newIndicatorId, newParams)
-    if (!renderer) return
-    const newRendererName = renderer.name
-    const newLayerId = `plugin:${newRendererName}`
-    const newScaleLayerId = `plugin:${newScaleRendererName}`
-    const newPaneTitleLayerId = `plugin:${newPaneTitleRendererName}`
-
-    ctx.useRenderer(renderer, newParams as Record<string, number | boolean | string>)
-    ctx.setRendererEnabled(newRendererName, false)
-    const layer = createLayerFromPlugin(renderer, () => ctx.getRenderContext(paneId), paneId)
-    ctx.addLayer(layer)
-
-    this.mountScaleRenderer(ctx, paneId, newIndicatorId, newScaleRendererName)
-    this.mountPaneTitleRenderer(ctx, paneId, newIndicatorId, newParams)
-
-    this.syncSchedulerConfig(ctx, paneId, newIndicatorId, newParams)
-
-    this.entries.set(paneId, {
-      paneId,
-      indicatorId: newIndicatorId,
-      params: newParams,
-      rendererName: newRendererName,
-      scaleRendererName: newScaleRendererName,
-      paneTitleRendererName: newPaneTitleRendererName,
-      layerId: newLayerId,
-      scaleLayerId: newScaleLayerId,
-      paneTitleLayerId: newPaneTitleLayerId,
-    })
-
-    ctx.getIndicatorScheduler().onSubPaneChanged()
-    this.syncEntriesSignal()
-  }
-
-  updateParams(ctx: SubPaneContext, paneId: string, params: Record<string, unknown>): void {
-    const entry = this.entries.get(paneId)
-    if (!entry) return
-
-    entry.params = { ...params }
-
-    ctx.updateRendererConfig(entry.rendererName, params)
-    ctx.updateRendererConfig(entry.paneTitleRendererName, {
-      params: entry.params,
-      indicatorId: entry.indicatorId,
-    })
-
-    this.syncSchedulerConfig(ctx, paneId, entry.indicatorId, entry.params)
-    this.syncEntriesSignal()
-  }
-
-  getByPaneId(paneId: string): SubPaneEntry | undefined {
-    return this.entries.get(paneId)
-  }
-
-  private createIndicatorRenderer(
-    ctx: SubPaneContext,
-    paneId: string,
-    indicatorId: SubIndicatorType,
-    params: Record<string, unknown>,
-  ): RendererPlugin {
-    const definition = ctx.getIndicatorScheduler().getIndicatorMetadata(indicatorId)
-    if (!definition) {
-      throw new KLineChartError(
-        'NOT_REGISTERED',
-        `[SubPaneManager] Unknown indicator: ${indicatorId}`,
-      )
-    }
-    return createSubIndicatorRenderer({ indicatorId, paneId, definition, params })
-  }
-
-  getAll(): SubPaneEntry[] {
-    return [...this.entries.values()]
-  }
-
-  getPaneIds(): string[] {
-    return [...this.entries.keys()]
+  getMountedResources(paneId: string): SubPaneResources | undefined {
+    const resources = this.mounted.get(paneId)
+    if (!resources) return undefined
+    const { projectionKey: _, ...snapshot } = resources
+    return { ...snapshot }
   }
 
   clear(ctx: SubPaneContext): void {
-    for (const entry of this.entries.values()) {
-      ctx.removeRenderer(entry.rendererName)
-      ctx.removeRenderer(entry.scaleRendererName)
+    if (this.mounted.size === 0) return
+    for (const entry of this.mounted.values()) this.unmount(ctx, entry)
+    this.mounted.clear()
+    ctx.getIndicatorScheduler().onSubPaneChanged()
+  }
+
+  private describeEntry(ctx: SubPaneContext, spec: SubPaneSpec): ProjectedSubPaneEntry {
+    const definition = ctx.getIndicatorScheduler().getIndicatorMetadata(spec.indicatorId)
+    if (!definition) {
+      throw new KLineChartError(
+        'NOT_REGISTERED',
+        `[SubPaneManager] Unknown indicator: ${spec.indicatorId}`,
+      )
+    }
+    const renderer = createSubIndicatorRenderer({
+      paneId: spec.paneId,
+      indicatorId: spec.indicatorId,
+      definition,
+      params: { ...spec.params },
+    })
+    const scaleRendererName = `${spec.indicatorId.toLowerCase()}_scale_${spec.paneId}`
+    const paneTitleRendererName = `paneTitle_${spec.paneId}`
+    return {
+      ...spec,
+      params: { ...spec.params },
+      rendererName: renderer.name,
+      scaleRendererName,
+      paneTitleRendererName,
+      layerId: `plugin:${renderer.name}`,
+      scaleLayerId: `plugin:${scaleRendererName}`,
+      paneTitleLayerId: `plugin:${paneTitleRendererName}`,
+    }
+  }
+
+  private mount(ctx: SubPaneContext, entry: ProjectedSubPaneEntry): void {
+    const definition = ctx.getIndicatorScheduler().getIndicatorMetadata(entry.indicatorId)!
+    if (!ctx.getRenderer(entry.rendererName)) {
+      const renderer = createSubIndicatorRenderer({
+        paneId: entry.paneId,
+        indicatorId: entry.indicatorId,
+        definition,
+        params: { ...entry.params },
+      })
+      ctx.useRenderer(renderer, { ...entry.params })
+      ctx.setRendererEnabled(entry.rendererName, false)
+      ctx.addLayer(
+        createLayerFromPlugin(renderer, () => ctx.getRenderContext(entry.paneId), entry.paneId),
+      )
+    }
+    this.mountScaleRenderer(ctx, entry)
+  }
+
+  private mountScaleRenderer(ctx: SubPaneContext, entry: ProjectedSubPaneEntry): void {
+    if (ctx.getRenderer(entry.scaleRendererName)) {
+      ctx.setLayerVisibility(entry.scaleLayerId, true)
+      return
+    }
+    const definition = ctx.getIndicatorScheduler().getIndicatorMetadata(entry.indicatorId)
+    const axisWidth = ctx.getRightAxisWidth() + ctx.getPriceLabelWidth()
+    const getCrosshair = () => {
+      const pos = ctx.getCrosshairPos()
+      const price = ctx.getCrosshairPrice()
+      if (pos && price !== null) return { y: pos.y, price, activePaneId: ctx.getActivePaneId() }
+      return null
+    }
+    const options = {
+      axisWidth,
+      paneId: entry.paneId,
+      yPaddingPx: ctx.getYPaddingPx(),
+      getCrosshair,
+    }
+    const plugin = definition?.scaleRendererFactory
+      ? definition.scaleRendererFactory({ ...options, indicatorId: entry.indicatorId })
+      : definition?.scale
+        ? createIndicatorScaleRendererPlugin({
+            ...options,
+            indicatorKey: definition.scale.indicatorKey ?? definition.name,
+            label: definition.scale.label ?? definition.displayName,
+            decimals: definition.scale.decimals,
+          })
+        : null
+    if (!plugin) return
+    ctx.useRenderer(plugin)
+    ctx.setRendererEnabled(entry.scaleRendererName, false)
+    ctx.addLayer(
+      createLayerFromPlugin(plugin, () => ctx.getRenderContext(entry.paneId), entry.paneId),
+    )
+  }
+
+  private mountPaneTitleRenderer(ctx: SubPaneContext, entry: ProjectedSubPaneEntry): void {
+    if (ctx.getRenderer(entry.paneTitleRendererName)) {
+      ctx.updateRendererConfig(entry.paneTitleRendererName, {
+        params: { ...entry.params },
+        indicatorId: entry.indicatorId,
+      })
+      ctx.setLayerVisibility(entry.paneTitleLayerId, true)
+      return
+    }
+    const renderer = createPaneTitleRendererPlugin({
+      paneId: entry.paneId,
+      title: findIndicator(entry.indicatorId)?.label ?? entry.indicatorId,
+      indicatorId: entry.indicatorId,
+      params: { ...entry.params },
+    })
+    ctx.useRenderer(renderer)
+    ctx.setRendererEnabled(entry.paneTitleRendererName, false)
+    ctx.addLayer(
+      createLayerFromPlugin(renderer, () => ctx.getRenderContext(entry.paneId), entry.paneId),
+    )
+  }
+
+  private updateParams(ctx: SubPaneContext, resources: SubPaneResources, spec: SubPaneSpec): void {
+    const snapshot = { ...spec.params }
+    ctx.updateRendererConfig(resources.rendererName, snapshot)
+    ctx.updateRendererConfig(resources.paneTitleRendererName, {
+      params: snapshot,
+      indicatorId: spec.indicatorId,
+    })
+    this.syncSchedulerConfig(ctx, spec.paneId, spec.indicatorId, snapshot)
+  }
+
+  private unmount(ctx: SubPaneContext, entry: SubPaneResources, preserveTitle = false): void {
+    ctx.removeRenderer(entry.rendererName)
+    ctx.removeRenderer(entry.scaleRendererName)
+    ctx.removeLayer(entry.layerId)
+    ctx.removeLayer(entry.scaleLayerId)
+    if (!preserveTitle) {
       ctx.removeRenderer(entry.paneTitleRendererName)
-      ctx.removeLayer(entry.layerId)
-      ctx.removeLayer(entry.scaleLayerId)
       ctx.removeLayer(entry.paneTitleLayerId)
     }
-    this.entries.clear()
-    ctx.getIndicatorScheduler().onSubPaneChanged()
-    this.syncEntriesSignal()
+  }
+
+  private invalidateProjection(
+    ctx: SubPaneContext,
+    candidate: ProjectedSubPaneEntry,
+    current: SubPaneResources | undefined,
+  ): void {
+    this.unmount(ctx, toResources(candidate))
+    if (current && current.rendererName !== candidate.rendererName) this.unmount(ctx, current)
   }
 
   private syncSchedulerConfig(
     ctx: SubPaneContext,
     paneId: string,
-    indicatorId: SubIndicatorType,
-    params: Record<string, unknown>,
+    indicatorId: string,
+    params: Readonly<Record<string, unknown>>,
   ): void {
     const scheduler = ctx.getIndicatorScheduler()
-    const definition = scheduler.getIndicatorMetadata(indicatorId)
-    definition?.updateConfig?.(scheduler, params, paneId)
-  }
-
-  private mountScaleRenderer(
-    ctx: SubPaneContext,
-    paneId: string,
-    indicatorId: SubIndicatorType,
-    scaleRendererName: string,
-  ): void {
-    const existing = ctx.getRenderer(scaleRendererName)
-    if (existing) {
-      // ensure existing layer is visible
-      ctx.setLayerVisibility(`plugin:${scaleRendererName}`, true)
-      return
-    }
-
-    const axisWidth = ctx.getRightAxisWidth() + (ctx.getPriceLabelWidth() ?? 60)
-    const yPaddingPx = ctx.getYPaddingPx()
-    const getCrosshair = () => {
-      const pos = ctx.getCrosshairPos()
-      const price = ctx.getCrosshairPrice()
-      const activePaneId = ctx.getActivePaneId()
-      if (pos && price !== null) {
-        return { y: pos.y, price, activePaneId }
-      }
-      return null
-    }
-
-    const opts = { axisWidth, paneId, yPaddingPx, getCrosshair }
-
-    const definition = ctx.getIndicatorScheduler().getIndicatorMetadata(indicatorId)
-    if (definition?.scaleRendererFactory) {
-      const plugin = definition.scaleRendererFactory({ ...opts, indicatorId })
-      ctx.useRenderer(plugin)
-      ctx.setRendererEnabled(scaleRendererName, false)
-      const layer = createLayerFromPlugin(plugin, () => ctx.getRenderContext(paneId), paneId)
-      ctx.addLayer(layer)
-      return
-    }
-
-    if (definition?.scale) {
-      const plugin = createIndicatorScaleRendererPlugin({
-        ...opts,
-        indicatorKey: definition.scale.indicatorKey ?? definition.name,
-        label: definition.scale.label ?? definition.displayName,
-        decimals: definition.scale.decimals,
-      })
-      ctx.useRenderer(plugin)
-      ctx.setRendererEnabled(scaleRendererName, false)
-      const layer = createLayerFromPlugin(plugin, () => ctx.getRenderContext(paneId), paneId)
-      ctx.addLayer(layer)
-      return
-    }
-  }
-
-  private mountPaneTitleRenderer(
-    ctx: SubPaneContext,
-    paneId: string,
-    indicatorId: SubIndicatorType,
-    params: Record<string, unknown>,
-  ): void {
-    const rendererName = `paneTitle_${paneId}`
-    const existing = ctx.getRenderer(rendererName)
-    if (existing) {
-      ctx.updateRendererConfig(rendererName, { params, indicatorId })
-      ctx.setLayerVisibility(`plugin:${rendererName}`, true)
-      return
-    }
-
-    const renderer = createPaneTitleRendererPlugin({
-      paneId,
-      title: findIndicator(indicatorId)?.label ?? indicatorId,
-      indicatorId,
-      params,
-    })
-    ctx.useRenderer(renderer)
-    ctx.setRendererEnabled(rendererName, false)
-    const layer = createLayerFromPlugin(renderer, () => ctx.getRenderContext(paneId), paneId)
-    ctx.addLayer(layer)
+    scheduler.getIndicatorMetadata(indicatorId)?.updateConfig?.(scheduler, { ...params }, paneId)
   }
 }

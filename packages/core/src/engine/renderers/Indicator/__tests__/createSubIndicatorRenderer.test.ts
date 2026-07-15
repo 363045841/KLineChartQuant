@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeAll } from 'vitest'
 
-import type { RendererPluginWithHost } from '../../../../plugin'
+import type { RendererPluginWithHost } from '../../../../foundation/plugin'
 import type { IndicatorMetadata } from '../../../indicators/indicatorMetadata'
 import { IndicatorRegistry } from '../../../indicators/indicatorRegistry'
 import {

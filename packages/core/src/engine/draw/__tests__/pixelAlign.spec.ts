@@ -6,7 +6,7 @@ import {
   alignRect,
   createVerticalLineRect,
   createHorizontalLineRect,
-} from '../pixelAlign'
+} from '../../../foundation/utils/pixelAlign'
 
 describe('roundToPhysicalPixel', () => {
   it('应该正确对齐到物理像素边界（dpr=1）', () => {

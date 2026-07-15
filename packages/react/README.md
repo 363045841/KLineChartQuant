@@ -1,6 +1,5 @@
 High-performance financial chart library with a single-frame generation time of just 2ms, stable scrolling at 190–200fps in a 200Hz environment, native support for AI Agent control, full-link ResizeObserver-driven crisp rendering, and a pluggable architecture.
 
-
 <div align="center">
 
 English | [简体中文](README_CN.md)
@@ -16,7 +15,6 @@ English | [简体中文](README_CN.md)
 </div>
 
 ---
-
 
 A lightweight financial K-line charting library focused on quantitative trading scenarios. **Agent is a first-class citizen** — supports AI Agent direct control of chart operations, providing TradingView-level interaction experience.
 
@@ -38,7 +36,6 @@ A lightweight financial K-line charting library focused on quantitative trading 
   <img src="https://files.seeusercontent.com/2026/06/20/0flS/1YHDQQB321JZ5QW.png" width="400" style="border-radius: 12px; margin: 8px;" />
 </div>
 
-
 ## ✨ Core Features
 
 - **Agent First / MCP Native** - Supports AI Agent direct control of charts via the [Model Context Protocol](https://modelcontextprotocol.io). Built-in WebSocket-bridged MCP server enables any MCP client (Inspector, Claude Desktop, Cursor, etc.) to zoom, pan, add/remove indicators, and change theme in real time
@@ -54,7 +51,6 @@ A lightweight financial K-line charting library focused on quantitative trading 
 - **Batch Data Export** - Select a date range and export multiple stocks' K-line data into a single CSV file, with progress indication
 - **Custom Tooltip** - Fully customizable tooltip via named slots (`#kline-tooltip`, `#marker-tooltip`), with engine-provided hover data, position, and styling
 
-
 ## 🚀 Quick Start
 
 ```bash
@@ -68,13 +64,7 @@ import { KLineChart } from '@363045841yyt/klinechart-react'
 import type { ChartSettings } from '@363045841yyt/klinechart-core'
 
 function App() {
-  return (
-    <KLineChart
-      theme="dark"
-      customData={demoData}
-      settings={chartSettings}
-    />
-  )
+  return <KLineChart theme="dark" customData={demoData} settings={chartSettings} />
 }
 ```
 
@@ -85,7 +75,6 @@ For full setup including the data backend, see the [root README]../../README.md)
 - [Rendering Engine Architecture](../../docs/rendering-engine-architecture.md) - Core rendering pipeline and physical pixel alignment mechanism
 - [Plugin System](../../docs/PLUGIN_SYSTEM.md) - Extension mechanism and custom development
 - [Renderer Development Guide](../../docs/renderer-development-guide.md) - Custom renderer development
-
 
 ## 🗺️ Roadmap
 
@@ -101,19 +90,16 @@ For full setup including the data backend, see the [root README]../../README.md)
 - [ ] Support for minute, multi-day, monthly, and yearly K-line display
 - [ ] Support convert the drawing to quant code
 
-
 ## 📦 Packages
 
-| Package | Description | npm |
-|---------|-------------|-----|
-| `@363045841yyt/klinechart-core` | Headless chart engine + controllers | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-core) |
-| `@363045841yyt/klinechart` | Vue 3 bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart) |
-| `@363045841yyt/klinechart-react` | React bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-react) |
-| `@363045841yyt/klinechart-angular` | Angular bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-angular) |
+| Package                               | Description                             | npm                                                                      |
+| ------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------ |
+| `@363045841yyt/klinechart-core`       | Headless chart engine + controllers     | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-core)       |
+| `@363045841yyt/klinechart`            | Vue 3 bindings                          | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart)            |
+| `@363045841yyt/klinechart-react`      | React bindings                          | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-react)      |
+| `@363045841yyt/klinechart-angular`    | Angular bindings                        | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-angular)    |
 | `@363045841yyt/klinechart-ai-runtime` | MCP server + AI tool schemas (optional) | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-ai-runtime) |
-
 
 ## 📄 License
 
 [MIT](LICENSE)
-

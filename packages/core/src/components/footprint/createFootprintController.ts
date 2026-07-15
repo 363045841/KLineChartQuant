@@ -26,7 +26,7 @@
  */
 
 import { KLineChartError } from '../../errors'
-import { createSignal, type Signal } from '../../reactivity'
+import { createSignal, type Signal } from '../../foundation/reactivity/index'
 
 import {
   classifyExplicit,

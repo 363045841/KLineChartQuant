@@ -1,4 +1,4 @@
-import type { KLineData } from '../../types/price'
+import type { KLineData } from '../../foundation/types/price'
 import type { PriceRange } from '../scale/price'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
 

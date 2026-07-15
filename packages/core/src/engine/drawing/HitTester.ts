@@ -1,5 +1,5 @@
 import type { DrawingChartAdapter } from '../../controllers/types'
-import type { DrawingObject } from '../../plugin'
+import type { DrawingObject } from '../../foundation/plugin/index'
 
 import { anchorToScreen, pointToSegmentDist } from './coordinateUtils'
 import { computeLinearRegression } from './linearRegression'

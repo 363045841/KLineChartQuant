@@ -1,14 +1,14 @@
-import type { RendererPlugin, RenderContext } from '../../plugin'
-import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../plugin'
-import { resolveThemeColors } from '../../tokens'
-import type { KLineData } from '../../types/price'
+import type { RendererPlugin, RenderContext } from '../../foundation/plugin/index'
+import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../foundation/plugin/index'
+import { resolveThemeColors } from '../../foundation/tokens/index'
+import type { KLineData } from '../../foundation/types/price'
 import {
   roundToPhysicalPixel,
   alignToPhysicalPixelCenter,
   createHorizontalLineRect,
-} from '../draw/pixelAlign'
-import { isOnRightHalf } from '../../utils/viewportSide'
-import { getFont, setCanvasFont } from '../theme/fonts'
+} from '../../foundation/utils/pixelAlign'
+import { isOnRightHalf } from '../../foundation/utils/viewportSide'
+import { getFont, setCanvasFont } from '../../foundation/tokens/fonts'
 
 const textWidthCache = new Map<string, number>()
 const TEXT_WIDTH_CACHE_LIMIT = 256
@@ -115,7 +115,18 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
 
     draw(context: RenderContext) {
       if (context.period === 'timeshare') return
-      const { overlayCtx, pane, data, range, scrollLeft, dpr, paneWidth, kLineCenters, kWidth, kGap } = context
+      const {
+        overlayCtx,
+        pane,
+        data,
+        range,
+        scrollLeft,
+        dpr,
+        paneWidth,
+        kLineCenters,
+        kWidth,
+        kGap,
+      } = context
       const ctx = overlayCtx
       const colors = resolveThemeColors(
         context.theme,
@@ -144,8 +155,14 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
       for (let i = start; i < end; i++) {
         const e = klineData[i]
         if (!e) continue
-        if (e.high >= max) { max = e.high; maxIndex = i }
-        if (e.low <= min) { min = e.low; minIndex = i }
+        if (e.high >= max) {
+          max = e.high
+          maxIndex = i
+        }
+        if (e.low <= min) {
+          min = e.low
+          minIndex = i
+        }
       }
 
       if (!Number.isFinite(max) || !Number.isFinite(min)) return
@@ -160,8 +177,14 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
         for (let i = strictStart; i < strictEnd; i++) {
           const e = klineData[i]
           if (!e) continue
-          if (e.high >= strictMax) { strictMax = e.high; strictMaxIdx = i }
-          if (e.low <= strictMin) { strictMin = e.low; strictMinIdx = i }
+          if (e.high >= strictMax) {
+            strictMax = e.high
+            strictMaxIdx = i
+          }
+          if (e.low <= strictMin) {
+            strictMin = e.low
+            strictMinIdx = i
+          }
         }
       }
 
@@ -176,8 +199,10 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
 
       // 首选全局极值（center 在视口内），否则 fallback 到严格范围极值，防止标记被吞
       const pickExtreme = (
-        globalIdx: number, globalVal: number,
-        strictIdx: number, strictVal: number,
+        globalIdx: number,
+        globalVal: number,
+        strictIdx: number,
+        strictVal: number,
       ): { idx: number; val: number; cx: number } | null => {
         const globalCx = getCenterX(globalIdx)
         if (inViewport(globalCx)) return { idx: globalIdx, val: globalVal, cx: globalCx }

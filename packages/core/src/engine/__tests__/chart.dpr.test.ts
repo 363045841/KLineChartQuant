@@ -274,6 +274,93 @@ describe('Chart DPR pipeline', () => {
 
     await chart.destroy()
   })
+
+  it('routes custom markers through kernel and clears position cache', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const manager = chart.getMarkerManager()
+    const scheduleDrawSpy = vi.spyOn(chart, 'scheduleDraw')
+    const clearCacheSpy = vi.spyOn(manager, 'clearPositionCache')
+
+    const marker = {
+      id: 'm1',
+      date: '2025-01-15',
+      timestamp: 1,
+      shape: 'circle' as const,
+    }
+
+    chart.updateCustomMarkers([marker])
+    expect(manager.getCustomMarkers().map((m) => m.id)).toEqual(['m1'])
+    expect(clearCacheSpy).toHaveBeenCalled()
+    expect(scheduleDrawSpy).toHaveBeenCalled()
+
+    manager.setCustomMarkerPosition('m1', 10, 20, 12, 'circle')
+    expect(manager.hitTestCustomMarker(10, 20)?.id).toBe('m1')
+
+    clearCacheSpy.mockClear()
+    scheduleDrawSpy.mockClear()
+    chart.clearCustomMarkers()
+    expect(manager.getCustomMarkers()).toEqual([])
+    expect(clearCacheSpy).toHaveBeenCalledTimes(1)
+    expect(scheduleDrawSpy).toHaveBeenCalled()
+    expect(manager.hitTestCustomMarker(10, 20)).toBeNull()
+
+    clearCacheSpy.mockClear()
+    chart.registerCustomMarker({ ...marker, id: 'm2', shape: 'flag' })
+    expect(manager.getCustomMarkers().map((m) => m.id)).toEqual(['m2'])
+    expect(clearCacheSpy).toHaveBeenCalledTimes(1)
+
+    await chart.destroy()
+  })
+
+  it('routes drawings through kernel for store projection', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const store = chart.getDrawingStore()
+    const scheduleDrawSpy = vi.spyOn(chart, 'scheduleDraw')
+    const drawing = {
+      id: 'd1',
+      kind: 'trend-line' as const,
+      paneId: 'main',
+      visible: true,
+      anchors: [],
+      params: {},
+      style: { stroke: '#2962ff' },
+    }
+
+    chart.setDrawings([drawing])
+    expect(chart.drawings.peek().map((d) => d.id)).toEqual(['d1'])
+    expect(store.getAll().map((d) => d.id)).toEqual(['d1'])
+    expect(scheduleDrawSpy).toHaveBeenCalled()
+
+    chart.setSelectedDrawingId('d1')
+    expect(store.getSelectedId()).toBe('d1')
+
+    scheduleDrawSpy.mockClear()
+    chart.setDrawings([])
+    expect(store.getAll()).toEqual([])
+    expect(store.getSelectedId()).toBeNull()
+    expect(scheduleDrawSpy).toHaveBeenCalled()
+
+    await chart.destroy()
+  })
+
+  it('projectState does not commitLayout back to kernel', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const commitSpy = vi.spyOn(chart.kernel.pane.actions, 'commitLayout')
+    commitSpy.mockClear()
+
+    const layout = (chart as unknown as { layoutManager: { projectState: Function } })
+      .layoutManager
+    layout.projectState(
+      [
+        { id: 'main', ratio: 0.7, role: 'price', visible: true },
+        { id: 'MACD_0', ratio: 0.3, role: 'indicator', visible: true },
+      ],
+      { main: 0.7, MACD_0: 0.3 },
+    )
+
+    expect(commitSpy).not.toHaveBeenCalled()
+    await chart.destroy()
+  })
 })
 
 describe('Chart pane layout regressions', () => {
@@ -323,10 +410,11 @@ describe('Chart pane layout regressions', () => {
     const specs = chart.getPaneLayoutSpecs().filter((pane) => pane.visible !== false)
     expect(specs).toHaveLength(3)
 
+    // 公共读对齐 kernel SSOT（createSubPane 3:1:1 → 0.6:0.2:0.2）
     const byId = new Map(specs.map((pane) => [pane.id, pane]))
-    expect(byId.get('main')?.ratio ?? 0).toBeCloseTo(7 / 12, 6)
-    expect(byId.get('MACD_0')?.ratio ?? 0).toBeCloseTo(5 / 24, 6)
-    expect(byId.get('RSI_0')?.ratio ?? 0).toBeCloseTo(5 / 24, 6)
+    expect(byId.get('main')?.ratio ?? 0).toBeCloseTo(0.6, 6)
+    expect(byId.get('MACD_0')?.ratio ?? 0).toBeCloseTo(0.2, 6)
+    expect(byId.get('RSI_0')?.ratio ?? 0).toBeCloseTo(0.2, 6)
 
     await chart.destroy()
   })
@@ -382,6 +470,83 @@ describe('Chart pane layout regressions', () => {
     expect(zeroDelta).toBe(false)
     expect(after).toEqual(before)
 
+    await chart.destroy()
+  })
+
+  it('updateSettings rightAxisType writes paneScaleTypes then projects', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    chart.resize()
+    chart.updateSettings({ rightAxisType: 'log' })
+    expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('main')).toBe('log')
+    const main = chart.getPaneRenderers()[0]?.getPane()
+    expect(main?.yAxis.getScaleType()).toBe('log')
+    await chart.destroy()
+  })
+
+  it('createSubPane seeds scale from settings and projects', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    chart.resize()
+    chart.updateSettings({ rightAxisType: 'log' })
+    expect(chart.createSubPane('MACD_0', 'MACD')).toBe(true)
+    expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('main')).toBe('log')
+    expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('MACD_0')).toBe('log')
+    const macd = chart.getPaneRenderers().find((r) => r.getPane().id === 'MACD_0')?.getPane()
+    expect(macd?.yAxis.getScaleType()).toBe('log')
+    await chart.destroy()
+  })
+
+  it('enter timeshare writes percent scaleTypes to kernel', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    chart.resize()
+    chart.updateSettings({ rightAxisType: 'log' })
+    const tsMode = (chart as unknown as { _timeShareMode: import('../modes/types').ChartModeHandler })
+      ._timeShareMode
+    chart.setActiveMode(tsMode)
+    expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('main')).toBe('percent')
+    expect(chart.getPaneRenderers()[0]?.getPane().yAxis.getScaleType()).toBe('percent')
+    await chart.destroy()
+  })
+
+  it('setActiveMode updates kernel chartMode', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    expect(chart.kernel.mode.readonly.chartMode.peek()).toBe('kline')
+    const tsMode = (chart as unknown as { _timeShareMode: import('../modes/types').ChartModeHandler })
+      ._timeShareMode
+    const kMode = (chart as unknown as { _kLineMode: import('../modes/types').ChartModeHandler })
+      ._kLineMode
+    chart.setActiveMode(tsMode)
+    expect(chart.kernel.mode.readonly.chartMode.peek()).toBe('timeshare')
+    chart.setActiveMode(kMode)
+    expect(chart.kernel.mode.readonly.chartMode.peek()).toBe('kline')
+    await chart.destroy()
+  })
+
+  it('setDrawingTool writes DrawingToolId to kernel', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    expect(chart.kernel.drawing.readonly.drawingTool.peek()).toBe('cursor')
+    chart.setDrawingTool('trend-line')
+    expect(chart.kernel.drawing.readonly.drawingTool.peek()).toBe('trend-line')
+    chart.setDrawingTool(null)
+    expect(chart.kernel.drawing.readonly.drawingTool.peek()).toBe('cursor')
+    await chart.destroy()
+  })
+
+  it('updateSettings writes kernel settings SSOT for renderer reads', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    chart.updateSettings({ showGridLines: false, rightAxisType: 'log' })
+    expect(chart.kernel.settings.readonly.settings.peek().showGridLines).toBe(false)
+    expect(chart.kernel.settings.readonly.settings.peek().rightAxisType).toBe('log')
+    expect(chart['renderer'].getSettings().showGridLines).toBe(false)
+    expect(chart['renderer'].getSettings().rightAxisType).toBe('log')
+    await chart.destroy()
+  })
+
+  it('updateSettings partial patch preserves prior keys', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    chart.updateSettings({ showGridLines: false })
+    chart.updateSettings({ rightAxisType: 'log' })
+    expect(chart.kernel.settings.readonly.settings.peek().showGridLines).toBe(false)
+    expect(chart.kernel.settings.readonly.settings.peek().rightAxisType).toBe('log')
     await chart.destroy()
   })
 

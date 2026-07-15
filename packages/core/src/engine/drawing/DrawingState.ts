@@ -1,10 +1,12 @@
 import type { DrawingChartAdapter } from '../../controllers/types'
-import type { DrawingObject, DrawingStyle } from '../../plugin'
+import type { DrawingObject, DrawingStyle } from '../../foundation/plugin/index'
 
 const PREVIEW_ID = '__preview__'
 
 /**
- * Drawing 数据管理层 —— 图元 CRUD、选中状态、预览管理。
+ * 交互会话层 CRUD。本地 drawings 数组是工作副本；
+ * 持久业务 SSOT 是 kernel.drawing，经 DrawingChartAdapter.setDrawings 同步。
+ * 禁止直接写 DrawingStore。
  *
  * 所有变更操作会自动同步到 DrawingChartAdapter（触发渲染）。
  * 不处理事件、不处理命中检测、不处理拖拽逻辑，只维护数据一致性。
@@ -51,17 +53,35 @@ export class DrawingState {
   // ---- Write ----
   // 所有 write 方法都会调用 adapter.setDrawings() 触发渲染
 
-  /** 整体替换图元列表（会清理选中状态） */
-  setDrawings(drawings: DrawingObject[]): void {
-    this.drawings = drawings
-    this.adapter.setDrawings(drawings)
+  /**
+   * 工作副本必须可变：kernel deepFreezeSnapshot 会冻结数组与元素。
+   * 浅 slice 仍会让 anchors/style 不可写，故做一层 plain 深拷贝。
+   */
+  private adoptWorkCopy(drawings: ReadonlyArray<DrawingObject>): DrawingObject[] {
+    return drawings.map((d) => ({
+      ...d,
+      anchors: d.anchors.map((a) => ({ ...a })),
+      params: { ...d.params },
+      style: { ...d.style },
+    }))
   }
 
-  /** 替换图元列表，若选中项被移除则自动清除选中 */
-  replaceDrawings(drawings: DrawingObject[]): void {
-    this.drawings = drawings
+  /** 整体替换图元列表；选中 id 不在列表时同步清本地与 kernel */
+  setDrawings(drawings: DrawingObject[]): void {
+    this.drawings = this.adoptWorkCopy(drawings)
     if (this.selectedDrawingId && !this.drawings.some((d) => d.id === this.selectedDrawingId)) {
       this.selectedDrawingId = null
+      this.adapter.setSelectedDrawingId(null)
+    }
+    this.adapter.setDrawings(this.drawings)
+  }
+
+  /** 替换图元列表，若选中项被移除则自动清除选中（含 kernel） */
+  replaceDrawings(drawings: DrawingObject[]): void {
+    this.drawings = this.adoptWorkCopy(drawings)
+    if (this.selectedDrawingId && !this.drawings.some((d) => d.id === this.selectedDrawingId)) {
+      this.selectedDrawingId = null
+      this.adapter.setSelectedDrawingId(null)
     }
     this.adapter.setDrawings(this.drawings)
   }
@@ -70,9 +90,11 @@ export class DrawingState {
   addOrUpdate(drawing: DrawingObject): void {
     const idx = this.drawings.findIndex((d) => d.id === drawing.id)
     if (idx >= 0) {
-      this.drawings[idx] = drawing
+      const next = this.drawings.slice()
+      next[idx] = drawing
+      this.drawings = next
     } else {
-      this.drawings.push(drawing)
+      this.drawings = [...this.drawings, drawing]
     }
     this.adapter.setDrawings(this.drawings)
   }
@@ -115,8 +137,7 @@ export class DrawingState {
 
   /** 设置预览图元（替换已有的 __preview__） */
   setPreview(preview: DrawingObject): void {
-    this.drawings = this.drawings.filter((d) => d.id !== PREVIEW_ID)
-    this.drawings.push(preview)
+    this.drawings = [...this.drawings.filter((d) => d.id !== PREVIEW_ID), preview]
     this.adapter.setDrawings(this.drawings)
   }
 

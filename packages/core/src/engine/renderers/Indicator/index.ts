@@ -2,7 +2,7 @@
  * 指标渲染器导出入口
  */
 
-import type { RendererPlugin } from '../../../plugin'
+import type { RendererPlugin } from '../../../foundation/plugin/index'
 import type { IndicatorMetadata } from '../../indicators/indicatorMetadata'
 
 // 主图指标图例（统一管理 MA、BOLL 等）

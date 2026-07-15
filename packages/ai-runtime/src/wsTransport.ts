@@ -4,7 +4,6 @@ import { WebSocketServer, type WebSocket } from 'ws'
 
 import type { SessionHandle } from './sessionRegistry'
 
-
 export class WsSessionHandle implements SessionHandle {
   readonly sessionId: string
   private ws: WebSocket

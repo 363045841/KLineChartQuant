@@ -1,4 +1,4 @@
-import type { PaneRole, PaneCapabilities } from '../plugin'
+import type { PaneRole, PaneCapabilities } from '../foundation/plugin/index'
 
 export type ChartDom = {
   container: HTMLDivElement

@@ -337,7 +337,7 @@ export function useRangeSelection(options: {
     URL.revokeObjectURL(url)
   }
 
-  async   function exportRangeToCsv() {
+  async function exportRangeToCsv() {
     const bounds = rangeSelectionBounds.value
     const data = controller.value?.getData() ?? []
     if (!bounds || data.length === 0) return

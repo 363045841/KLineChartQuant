@@ -1,210 +1,129 @@
-import type { KLineData, SymbolSpec, DataFetcher } from '../../controllers/types'
-import { createSignal, type Signal } from '../../reactivity/signal'
+import type { KLineData, SymbolSpec } from '../../controllers/types'
+import type { KLineBuffer } from '../../data/dataBufferTypes'
 
-const COMPARISON_PALETTE = [
-  '#f59e0b',
-  '#8b5cf6',
-  '#06b6d4',
-  '#ec4899',
-  '#84cc16',
-  '#f97316',
-]
-const DEFAULT_COMPARISON_COLOR = '#f59e0b'
-const BUF_COMPARISON = 'cmp'
+const BUF_COMPARISON = 'cmp:'
 
-export interface ComparisonHooks {
-  createComparisonBuffer(
-    spec: SymbolSpec,
-  ): { key: string; buffer: import('../../data-fetchers/dataBufferTypes').KLineBuffer }
-  disposeBuffer(key: string): void
-  getKLineBuffer(key: string): import('../../data-fetchers/dataBufferTypes').KLineBuffer | undefined
-  hasKLineBuffer(key: string): boolean
-  getKLineBufferKeys(): string[]
-  scheduleDraw(): void
+function comparisonKey(spec: SymbolSpec): string {
+  return `cmp:${spec.symbol}:${spec.period ?? 'daily'}`
 }
 
-export class ComparisonManager {
-  private _specs: SymbolSpec[] = []
-  private _colors: Map<string, string> = new Map()
-  private _colorsSignal = createSignal<ReadonlyMap<string, string>>(new Map())
-  private _loadingSignal = createSignal<boolean>(false)
-  private _cmpLoadingUnsubs = new Map<string, () => void>()
-  private _hooks: ComparisonHooks
+function specsEqual(left: SymbolSpec | undefined, right: SymbolSpec): boolean {
+  if (!left) return false
+  const leftKeys = Object.keys(left) as Array<keyof SymbolSpec>
+  const rightKeys = Object.keys(right) as Array<keyof SymbolSpec>
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every((key) => Object.is(left[key], right[key]))
+  )
+}
 
-  constructor(hooks: ComparisonHooks) {
-    this._hooks = hooks
-  }
+export interface ComparisonHooks {
+  createComparisonBuffer(spec: SymbolSpec): { key: string; buffer: KLineBuffer }
+  disposeBuffer(key: string): void
+  getKLineBuffer(key: string): KLineBuffer | undefined
+  getKLineBufferKeys(): string[]
+  scheduleDraw(): void
+  getSpecs(): ReadonlyArray<SymbolSpec>
+  setLoading(loading: boolean): void
+}
+
+type BufferSubscriptions = {
+  data: () => void
+  loading: () => void
+}
+
+/** Comparison buffer 的 runtime projection，不持有业务状态。 */
+export class ComparisonManager {
+  private readonly subscriptions = new Map<string, BufferSubscriptions>()
+
+  constructor(private readonly hooks: ComparisonHooks) {}
 
   get specs(): SymbolSpec[] {
-    return this._specs
+    return this.hooks.getSpecs().map((spec) => ({ ...spec }))
   }
 
   get data(): Map<string, KLineData[]> {
     const result = new Map<string, KLineData[]>()
-    for (const spec of this._specs) {
-      const key = `cmp:${spec.symbol}:${spec.period ?? 'daily'}`
-      const buf = this._hooks.getKLineBuffer(key)
-      if (buf) result.set(spec.symbol, [...buf.getRawData()])
+    for (const spec of this.hooks.getSpecs()) {
+      const buffer = this.hooks.getKLineBuffer(comparisonKey(spec))
+      if (buffer) result.set(spec.symbol, [...buffer.getRawData()])
     }
     return result
   }
 
-  get colorsSignal(): Signal<ReadonlyMap<string, string>> {
-    return this._colorsSignal
-  }
+  reconcile(mainEarliest?: number): void {
+    const specs = this.hooks.getSpecs()
+    const desired = new Map(specs.map((spec) => [comparisonKey(spec), spec]))
 
-  get loadingSignal(): Signal<boolean> {
-    return this._loadingSignal
-  }
-
-  getColors(): Map<string, string> {
-    return this._colors
-  }
-
-  syncBuffers(specs: ReadonlyArray<SymbolSpec>, mainEarliest?: number): void {
-    this._specs = [...specs]
-    const nextKeys = new Set(specs.map((s) => s.symbol))
-
-    for (const key of this._hooks.getKLineBufferKeys()) {
-      if (!key.startsWith(BUF_COMPARISON)) continue
-      const symbol = key.split(':')[1]!
-      if (nextKeys.has(symbol)) continue
-      this._hooks.disposeBuffer(key)
+    for (const key of this.hooks.getKLineBufferKeys()) {
+      if (key.startsWith(BUF_COMPARISON) && !desired.has(key)) this.removeRuntime(key)
     }
 
-    for (const spec of specs) {
-      const key = `cmp:${spec.symbol}:${spec.period ?? 'daily'}`
-      const symbol = spec.symbol
-      let buf = this._hooks.getKLineBuffer(key)
-      if (!buf) {
-        const created = this._hooks.createComparisonBuffer(spec)
-        buf = created.buffer
-
-        const b = buf
-        const unsub = b.data.subscribe(() => {
-          this._hooks.scheduleDraw()
-        })
-        this._cmpLoadingUnsubs.set(key, unsub)
-
-        const unsubLoading = buf.loading.subscribe(() => this._recomputeLoading())
-        this._cmpLoadingUnsubs.set(`loading:${key}`, unsubLoading)
+    for (const [key, spec] of desired) {
+      let buffer = this.hooks.getKLineBuffer(key)
+      if (!buffer) {
+        buffer = this.hooks.createComparisonBuffer(spec).buffer
+        this.mountSubscriptions(key, buffer)
+      } else if (!this.subscriptions.has(key)) {
+        this.mountSubscriptions(key, buffer)
       }
-      buf.setSymbol(spec, mainEarliest)
+      if (!specsEqual(buffer.currentSpec ?? undefined, spec)) {
+        buffer.setSymbol(spec, mainEarliest)
+      }
     }
+
+    this.recomputeLoading()
   }
 
   clearAll(): void {
-    for (const key of this._hooks.getKLineBufferKeys()) {
-      if (key.startsWith(BUF_COMPARISON)) {
-        this._hooks.disposeBuffer(key)
-      }
+    for (const key of this.hooks.getKLineBufferKeys()) {
+      if (key.startsWith(BUF_COMPARISON)) this.removeRuntime(key)
     }
-    this._colors.clear()
-    this._colorsSignal.set(new Map())
-    this._loadingSignal.set(false)
-    this._specs = []
+    for (const subscriptions of this.subscriptions.values()) {
+      subscriptions.data()
+      subscriptions.loading()
+    }
+    this.subscriptions.clear()
+    this.hooks.setLoading(false)
   }
 
-  addSymbol(spec: SymbolSpec, onComplete: () => void): void {
-    const symbol = spec.symbol
-
-    for (const k of this._hooks.getKLineBufferKeys()) {
-      if (k.startsWith(BUF_COMPARISON) && k.split(':')[1] === symbol) return
+  setData(symbol: string, data: KLineData[]): boolean {
+    const spec = this.hooks.getSpecs().find((candidate) => candidate.symbol === symbol)
+    if (!spec) return false
+    let buffer = this.hooks.getKLineBuffer(comparisonKey(spec))
+    if (!buffer) {
+      this.reconcile()
+      buffer = this.hooks.getKLineBuffer(comparisonKey(spec))
     }
-
-    this._specs.push(spec)
-
-    const color =
-      COMPARISON_PALETTE[this._colors.size % COMPARISON_PALETTE.length] ??
-      DEFAULT_COMPARISON_COLOR
-    this._colors.set(symbol, color)
-    this._colorsSignal.set(new Map(this._colors))
-
-    const key = `cmp:${symbol}:${spec.period ?? 'daily'}`
-
-    if (!this._hooks.hasKLineBuffer(key)) {
-      const created = this._hooks.createComparisonBuffer(spec)
-      const buf = created.buffer
-
-      const unsub = buf.data.subscribe(() => {
-        this._hooks.scheduleDraw()
-      })
-      this._cmpLoadingUnsubs.set(key, unsub)
-
-      const unsubLoading = buf.loading.subscribe(() => this._recomputeLoading())
-      this._cmpLoadingUnsubs.set(`loading:${key}`, unsubLoading)
-
-      buf.setSymbol(spec)
-    }
-
-    onComplete()
-  }
-
-  setData(symbol: string, data: KLineData[], onNewBuffer: (key: string) => void): void {
-    const period = 'daily'
-    const key = `cmp:${symbol}:${period}`
-
-    const existing = this._hooks.getKLineBuffer(key)
-    if (!existing) {
-      const buffer = this._hooks.createComparisonBuffer({
-        symbol,
-        period,
-      }).buffer
-
-      const unsub = buffer.data.subscribe(() => {
-        this._hooks.scheduleDraw()
-      })
-      this._cmpLoadingUnsubs.set(key, unsub)
-
-      const unsubLoading = buffer.loading.subscribe(() => this._recomputeLoading())
-      this._cmpLoadingUnsubs.set(`loading:${key}`, unsubLoading)
-
-      const color =
-        COMPARISON_PALETTE[this._colors.size % COMPARISON_PALETTE.length] ??
-        DEFAULT_COMPARISON_COLOR
-      this._colors.set(symbol, color)
-      this._colorsSignal.set(new Map(this._colors))
-
-      const spec: SymbolSpec = { symbol, period }
-      this._specs.push(spec)
-
-      buffer.setInlineData(data)
-      onNewBuffer(key)
-      return
-    }
-    existing.setInlineData(data)
-  }
-
-  removeSymbol(symbol: string): boolean {
-    let found = false
-    for (const key of this._hooks.getKLineBufferKeys()) {
-      if (key.startsWith(BUF_COMPARISON) && key.split(':')[1] === symbol) {
-        this._hooks.disposeBuffer(key)
-        found = true
-        break
-      }
-    }
-    if (!found) return false
-
-    this._colors.delete(symbol)
-    this._colorsSignal.set(new Map(this._colors))
-    this._specs = this._specs.filter((s) => s.symbol !== symbol)
-    this._recomputeLoading()
+    if (!buffer) return false
+    buffer.setInlineData(data)
     return true
   }
 
   ensureRange(firstVisibleTs: number, windowEarliestTs: number): void {
-    for (const key of this._hooks.getKLineBufferKeys()) {
-      if (key.startsWith(BUF_COMPARISON)) {
-        this._hooks.getKLineBuffer(key)?.ensureRange(firstVisibleTs, windowEarliestTs)
-      }
+    for (const spec of this.hooks.getSpecs()) {
+      this.hooks.getKLineBuffer(comparisonKey(spec))?.ensureRange(firstVisibleTs, windowEarliestTs)
     }
   }
 
-  private _recomputeLoading(): void {
-    const anyLoading = [...this._hooks.getKLineBufferKeys()].some(
-      (k) => k.startsWith(BUF_COMPARISON) && this._hooks.getKLineBuffer(k)?.loading.peek(),
-    )
-    this._loadingSignal.set(anyLoading)
+  private mountSubscriptions(key: string, buffer: KLineBuffer): void {
+    const data = buffer.data.subscribe(() => this.hooks.scheduleDraw())
+    const loading = buffer.loading.subscribe(() => this.recomputeLoading())
+    this.subscriptions.set(key, { data, loading })
+  }
+
+  private removeRuntime(key: string): void {
+    const subscriptions = this.subscriptions.get(key)
+    subscriptions?.data()
+    subscriptions?.loading()
+    this.subscriptions.delete(key)
+    this.hooks.disposeBuffer(key)
+  }
+
+  private recomputeLoading(): void {
+    const anyLoading = this.hooks
+      .getSpecs()
+      .some((spec) => this.hooks.getKLineBuffer(comparisonKey(spec))?.loading.peek() === true)
+    this.hooks.setLoading(anyLoading)
   }
 }

@@ -1,4 +1,4 @@
-import { isOnRightHalf } from '../../utils/viewportSide'
+import { isOnRightHalf } from '../../foundation/utils/viewportSide'
 
 export type TooltipPositionMode = 'crosshair' | 'adaptive'
 

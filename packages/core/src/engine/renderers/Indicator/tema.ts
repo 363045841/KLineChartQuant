@@ -1,5 +1,9 @@
-import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
-import { RENDERER_PRIORITY } from '../../../plugin'
+import type {
+  RendererPluginWithHost,
+  RenderContext,
+  PluginHost,
+} from '../../../foundation/plugin/index'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
 import { calcTEMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'

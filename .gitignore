@@ -66,3 +66,6 @@ examples/next-app/pnpm-lock.yaml
 
 # Fallow
 .fallow/
+
+# Migration script temp files
+.opencode-temp/

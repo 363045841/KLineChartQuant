@@ -1,6 +1,10 @@
-import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
-import { RENDERER_PRIORITY } from '../../../plugin'
-import type { KLineData } from '../../../types/price'
+import type {
+  RendererPluginWithHost,
+  RenderContext,
+  PluginHost,
+} from '../../../foundation/plugin/index'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import type { KLineData } from '../../../foundation/types/price'
 import { calcKeltnerData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import {
