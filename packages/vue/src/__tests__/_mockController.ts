@@ -92,6 +92,8 @@ export function createMockChartController(
     dataLoading: createSignal(false),
     symbols: createSignal([] as ReadonlyArray<SymbolSpec>),
     theme,
+    settings: createSignal({} as any),
+    chartMode: createSignal('kline' as const),
     indicators: createSignal<ReadonlyArray<IndicatorInstance>>([]),
     subPanes: createSignal<ReadonlyArray<SubPaneInfo>>([]),
     drawingTool: createSignal('cursor' as const),

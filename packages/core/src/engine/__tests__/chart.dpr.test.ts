@@ -483,6 +483,30 @@ describe('Chart pane layout regressions', () => {
     await chart.destroy()
   })
 
+  it('createSubPane seeds scale from settings and projects', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    chart.resize()
+    chart.updateSettings({ rightAxisType: 'log' })
+    expect(chart.createSubPane('MACD_0', 'MACD')).toBe(true)
+    expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('main')).toBe('log')
+    expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('MACD_0')).toBe('log')
+    const macd = chart.getPaneRenderers().find((r) => r.getPane().id === 'MACD_0')?.getPane()
+    expect(macd?.yAxis.getScaleType()).toBe('log')
+    await chart.destroy()
+  })
+
+  it('enter timeshare writes percent scaleTypes to kernel', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    chart.resize()
+    chart.updateSettings({ rightAxisType: 'log' })
+    const tsMode = (chart as unknown as { _timeShareMode: import('../modes/types').ChartModeHandler })
+      ._timeShareMode
+    chart.setActiveMode(tsMode)
+    expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('main')).toBe('percent')
+    expect(chart.getPaneRenderers()[0]?.getPane().yAxis.getScaleType()).toBe('percent')
+    await chart.destroy()
+  })
+
   it('setActiveMode updates kernel chartMode', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     expect(chart.kernel.mode.readonly.chartMode.peek()).toBe('kline')

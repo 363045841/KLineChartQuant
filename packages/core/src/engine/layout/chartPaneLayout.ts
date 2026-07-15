@@ -2,6 +2,7 @@ import type { PaneRole } from '../../foundation/plugin/index'
 import type { ChartDom, PaneSpec, Viewport } from '../chartTypes'
 import { PaneRenderer } from '../paneRenderer'
 import type { SharedWebGLSurface } from '../renderers/webgl/sharedWebGLSurface'
+import type { ScaleType } from '../utils/tickPosition'
 
 import { Pane, UpdateLevel } from './pane'
 import { normalizeVisiblePaneRatios as pureNormalizeVisiblePaneRatios } from './paneRatioMath'
@@ -22,6 +23,8 @@ export interface PaneLayoutDependencies {
   notifyPaneResize: (paneId: string, pane: Pane) => void
   scheduleDraw: (level?: UpdateLevel) => void
   getPaneRatios: () => Record<string, number>
+  /** kernel.paneScaleTypes 投影源；initPanes 优先于此 */
+  getPaneScaleTypes: () => ReadonlyMap<string, ScaleType>
   commitLayout: (ratios: Record<string, number>, specs: PaneSpec[]) => void
 }
 
@@ -109,7 +112,8 @@ export class ChartPaneLayout {
   }
 
   private initPanes() {
-    const prevScaleTypes = new Map<string, 'linear' | 'log' | 'percent'>()
+    const kernelScaleTypes = this.deps.getPaneScaleTypes()
+    const prevScaleTypes = new Map<string, ScaleType>()
     for (const r of this.paneRenderers) {
       prevScaleTypes.set(r.getPane().id, r.getPane().yAxis.getScaleType())
     }
@@ -120,8 +124,10 @@ export class ChartPaneLayout {
         capabilities: spec.capabilities,
       })
 
-      const prev = prevScaleTypes.get(spec.id)
-      if (prev) pane.yAxis.setScaleType(prev)
+      // 优先 kernel SSOT，其次重建前 runtime，最后 linear
+      const scaleType =
+        kernelScaleTypes.get(spec.id) ?? prevScaleTypes.get(spec.id) ?? 'linear'
+      pane.yAxis.setScaleType(scaleType)
 
       const mainCanvas = document.createElement('canvas')
       const overlayCanvas = document.createElement('canvas')

@@ -76,6 +76,8 @@ export function createMockChartController(
     viewport,
     data,
     theme,
+    settings: createSignal({} as any),
+    chartMode: createSignal('kline' as const),
     interactionState,
     indicators: createSignal<ReadonlyArray<IndicatorInstance>>([]),
     subPanes: createSignal<ReadonlyArray<SubPaneInfo>>([]),

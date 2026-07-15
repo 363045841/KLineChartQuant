@@ -287,6 +287,12 @@ export interface ChartController extends DrawingChartAdapter {
   readonly dataLoading: ReadonlySignal<boolean>
   readonly symbols: ReadonlySignal<ReadonlyArray<SymbolSpec>>
   readonly theme: ReadonlySignal<'light' | 'dark'>
+  /** 用户偏好 settings（kernel.settings resolved 快照） */
+  readonly settings: ReadonlySignal<
+    Readonly<import('../foundation/config/chartSettings').ChartSettings>
+  >
+  /** 图表模式 id：kline | timeshare */
+  readonly chartMode: ReadonlySignal<'kline' | 'timeshare'>
   readonly indicators: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
   readonly subPanes: ReadonlySignal<ReadonlyArray<SubPaneInfo>>
   /** 当前绘图工具（DrawingToolId，默认 cursor） */

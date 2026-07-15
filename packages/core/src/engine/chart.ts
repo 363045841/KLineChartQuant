@@ -263,8 +263,10 @@ export class Chart {
         this.rendererPluginManager.notifyResize(paneId, wrapPaneInfo(pane)),
       scheduleDraw: (level) => this.scheduleDraw(level),
       getPaneRatios: () => this.kernel.pane.readonly.paneRatios.peek(),
+      getPaneScaleTypes: () => this.kernel.pane.readonly.paneScaleTypes.peek(),
       commitLayout: (ratios, specs) => {
         this.kernel.pane.actions.commitLayout(ratios, specs)
+        this.ensurePaneScaleTypesFromSettings()
       },
     })
 
@@ -370,7 +372,10 @@ export class Chart {
       getPaneRatiosSignal: () =>
         this.kernel.pane.readonly.paneRatios as ReadonlySignal<Readonly<Record<string, number>>>,
       paneSpecs$: this.kernel.pane.readonly.paneSpecs,
-      projectPaneLayout: (specs, ratios) => this.layoutManager.projectState(specs, ratios),
+      projectPaneLayout: (specs, ratios) => {
+        this.layoutManager.projectState(specs, ratios)
+        this.ensurePaneScaleTypesFromSettings()
+      },
       getLastVisibleRange: () => this.dataManager.getCurrentVisibleRange() ?? { start: 0, end: 0 },
       getCrosshairPos: () => this.interaction.crosshairPos,
       getCrosshairPrice: () => this.interaction.crosshairPrice,
@@ -448,6 +453,7 @@ export class Chart {
     this.renderer.registerDrawingPlugins()
     this.renderer.initCoreRenderers()
     this.viewportManager.init()
+    this.ensurePaneScaleTypesFromSettings()
   }
 
   getViewport(): Viewport | null {
@@ -478,6 +484,13 @@ export class Chart {
         id: e.indicatorId,
         params: { ...e.params },
       }))
+      // 分时强制 percent 进 kernel，再投影（不再由 updatePaneRange 每帧旁路写）
+      const percentMap = new Map<string, ScaleType>()
+      for (const r of this.paneRenderers) {
+        percentMap.set(r.getPane().id, 'percent')
+      }
+      this.kernel.pane.actions.replacePaneScaleTypes(percentMap)
+      this.projectPaneScaleTypes()
     } else if (prev === this._timeShareMode) {
       const savedTypes = this._savedTimeShareState?.scaleTypes ?? new Map<string, ScaleType>()
       this.kernel.pane.actions.replacePaneScaleTypes(savedTypes)
@@ -618,6 +631,32 @@ export class Chart {
       const t = types.get(pane.id) ?? 'linear'
       if (pane.yAxis.getScaleType() !== t) pane.yAxis.setScaleType(t)
     }
+  }
+
+  /**
+   * 为缺失 paneScaleTypes 的 pane 按 settings.rightAxisType 补齐，再投影。
+   * commitLayout 只保留已有 id，不静默塞 linear，避免盖掉用户偏好。
+   */
+  private ensurePaneScaleTypesFromSettings(): void {
+    const axisType = this.kernel.settings.readonly.settings.peek().rightAxisType as
+      | string
+      | undefined
+    const next = new Map(this.kernel.pane.readonly.paneScaleTypes.peek())
+    let changed = false
+    for (const renderer of this.paneRenderers) {
+      const pane = renderer.getPane()
+      if (next.has(pane.id)) continue
+      const scaleType =
+        !axisType || axisType === 'none'
+          ? 'linear'
+          : axisType === 'percent' && pane.role !== 'price'
+            ? 'linear'
+            : (axisType as ScaleType)
+      next.set(pane.id, scaleType)
+      changed = true
+    }
+    if (changed) this.kernel.pane.actions.replacePaneScaleTypes(next)
+    this.projectPaneScaleTypes()
   }
 
   /** 按 rightAxisType 写入 paneScaleTypes 并投影 */
@@ -764,6 +803,7 @@ export class Chart {
 
   updatePaneLayout(panes: PaneSpec[]): void {
     this.layoutManager.updatePaneLayout(panes)
+    this.ensurePaneScaleTypesFromSettings()
   }
 
   setPaneDefinitions(defs: PaneSpec[]): void {

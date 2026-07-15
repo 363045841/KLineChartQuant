@@ -63,7 +63,6 @@ export class DrawingState {
       anchors: d.anchors.map((a) => ({ ...a })),
       params: { ...d.params },
       style: { ...d.style },
-      ...(d.metadata ? { metadata: { ...d.metadata } } : {}),
     }))
   }
 

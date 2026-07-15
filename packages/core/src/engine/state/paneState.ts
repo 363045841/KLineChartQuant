@@ -54,11 +54,12 @@ export function createPaneState() {
         batch(() => {
           signals.paneRatios.set(copyRatios(ratios))
           signals.paneSpecs.set(copySpecs(specs))
-          // 新 pane 默认 linear；已有 scale 保留；已删除 pane 的 scale 剔除
+          // 仅保留仍存在 pane 的 scale；缺失 id 由 Chart.ensurePaneScaleTypes 按 settings 补齐
           const prev = signals.paneScaleTypes.peek()
           const next = new Map<string, ScaleType>()
           for (const spec of specs) {
-            next.set(spec.id, prev.get(spec.id) ?? 'linear')
+            const existing = prev.get(spec.id)
+            if (existing !== undefined) next.set(spec.id, existing)
           }
           writeScaleTypes(immutableMap(next))
         })

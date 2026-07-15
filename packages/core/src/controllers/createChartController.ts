@@ -374,6 +374,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   // Signals from ChartStateKernel — no wrapper needed
   const themeSignal: ReadonlySignal<'light' | 'dark'> = chart.kernel.theme.readonly.theme
+  const settingsSignal = chart.kernel.settings.readonly.settings
+  const chartModeSignal = chart.kernel.mode.readonly.chartMode
   const drawingTool = chart.kernel.drawing.readonly.drawingTool
   // drawings need type mapping (plugin DrawingObject → controller DrawingObject)
   const drawings = computed(() => chart.kernel.drawing.readonly.drawings().map(mapDrawingObject))
@@ -888,6 +890,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     dataLoading,
     symbols,
     theme: themeSignal,
+    settings: settingsSignal,
+    chartMode: chartModeSignal,
     indicators,
     subPanes,
     drawingTool,

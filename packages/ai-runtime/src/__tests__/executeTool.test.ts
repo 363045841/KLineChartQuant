@@ -18,6 +18,8 @@ function createMockChart(overrides?: Partial<ChartController>): ChartController 
     dataLoading: stubSignal(false),
     symbols: stubSignal([]),
     theme: stubSignal('light'),
+    settings: stubSignal({} as any),
+    chartMode: stubSignal('kline' as const),
     indicators: stubSignal([]),
     subPanes: stubSignal([]),
     drawingTool: stubSignal('cursor' as const),
