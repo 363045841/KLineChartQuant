@@ -205,3 +205,4 @@ semantic.applyConfig({
 ## 📄 License
 
 [MIT](LICENSE)
+

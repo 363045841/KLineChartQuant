@@ -205,3 +205,4 @@ Requires support for:
 ## 📄 License
 
 [MIT](LICENSE)
+
