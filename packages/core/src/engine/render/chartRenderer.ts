@@ -61,18 +61,27 @@ type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kGap: number
 }
 
+/** 一帧的绘制数据 */
 type FrameContext = {
+  /** 视口（scrollLeft、plotWidth、dpr 等） */
   vp: Viewport
+  /** 可见 K 线起止索引 */
   range: VisibleRange
+  /** 每根 K 线在大图上的 x 坐标 */
   kLinePositions: KLinePositions
+  /** 每根 K 线中心的 x 坐标（由物理像素回算逻辑值） */
   kLineCenters: number[]
+  /** 每根 K 线实体的 x 和宽度 */
   kBarRects: Array<{ x: number; width: number }>
+  /** K 线柱物理像素宽度 */
   kWidthPx: number
+  /** Overlay 帧复用上一帧的几何缓存 */
   useCachedFrame: boolean
+  /** 原始 K 线数据 */
   data: KLineData[]
-  mainIndicatorRange: { min: number; max: number } | null
-  hasCrosshair: boolean
+  /** 当前缩放级别索引 */
   zoomLevel: number
+  /** 缩放级别总数 */
   zoomLevelCount: number
 }
 
@@ -98,9 +107,12 @@ export interface RendererDependencies {
 }
 
 export class ChartRenderer {
+  /** 依赖注入容器，ChartRenderer 不直接持有状态，从 deps 接口读取，也便于测试 mock */
   private deps: RendererDependencies
 
+  /** requestAnimationFrame id，不为 null 时触发 RAF 节流，取消被分配帧，确保展示最新帧 */
   private raf: number | null = null
+  // 下一帧重绘级别
   private pendingUpdateLevel: UpdateLevel = UpdateLevel.All
 
   readonly markerManager: MarkerManager
@@ -293,13 +305,25 @@ export class ChartRenderer {
     return this.deps.settings$.peek()
   }
 
+  /**
+   * 申请绘制，把绘制元数据配置合并到下一帧 requestAnimationFrame，避免同帧多次重绘。
+   *
+   * 已有 rAF 在等时只更新 pendingUpdateLevel，不重复注册。如果
+   * pending 和 level 分别是 Main 和 Overlay，合并成 All。
+   *
+   * @param level - Main 只画主层，Overlay 只画覆盖层（crosshair 等），All 全画
+   */
   scheduleDraw(level: UpdateLevel = UpdateLevel.All): void {
+    // 已经有下一帧 raf 被申请，只改下一个申请帧的重绘级别
     if (this.raf !== null) {
+      // pending 已是最全，新请求不论什么级别都不影响
       if (this.pendingUpdateLevel === UpdateLevel.All) return
+      // 新请求要全画，升 pending
       if (level === UpdateLevel.All) {
         this.pendingUpdateLevel = UpdateLevel.All
         return
       }
+      // Main 和 Overlay 各来一次后合并成全画
       if (
         (this.pendingUpdateLevel === UpdateLevel.Main && level === UpdateLevel.Overlay) ||
         (this.pendingUpdateLevel === UpdateLevel.Overlay && level === UpdateLevel.Main)
@@ -307,27 +331,38 @@ export class ChartRenderer {
         this.pendingUpdateLevel = UpdateLevel.All
         return
       }
+      // 同级别重复请求，pending 不变
       return
     }
 
     this.pendingUpdateLevel = level
     this.raf = requestAnimationFrame(() => {
+      // 取出本次要画的级别，pending 改回 All 表示「没有挂起的请求了」
       const levelToDraw = this.pendingUpdateLevel
       this.pendingUpdateLevel = UpdateLevel.All
 
+      // 准备帧绘制数据
       const frame = this.prepareFrameData(levelToDraw)
       if (frame) {
+        // 把 K 线位置写入 interaction state，供十字线等模块读取
         this.writeFramePositionsFromFrame(frame)
       }
+      // 清屏、组 context、遍历 pane 调 Scene.paintPane、画时间轴
       this.drawWithFrame(levelToDraw, frame)
 
       this.raf = null
+      // 如果刚才画的过程中又有 scheduleDraw 写过 pending，补一帧
       if (this.pendingUpdateLevel !== UpdateLevel.All) {
         this.scheduleDraw(this.pendingUpdateLevel)
       }
     })
   }
 
+  /**
+   * 同步绘制一帧，不经 rAF 合并。测试与必须立刻出图的路径使用。
+   *
+   * @param level - 同 scheduleDraw
+   */
   draw(level: UpdateLevel = UpdateLevel.All): void {
     this.drawWithFrame(level, this.prepareFrameData(level))
   }
@@ -390,12 +425,28 @@ export class ChartRenderer {
     )
   }
 
+  /**
+   * 把 K 线位置写入 interaction state。
+   * setKLinePositions 会更新多个 signal（位置、区间、宽度、中心点），
+   * batch 确保这组写入完成后才通知订阅者，不会让十字线等读到一半的新数据。
+   */
   private writeFramePositionsFromFrame(frame: FrameContext): void {
     batch(() => {
       this.deps.getInteraction().setKLinePositions(frame.kLinePositions, frame.range, frame.kWidthPx, frame.kLineCenters)
     })
   }
 
+  /**
+   * 准备一帧的绘制数据：viewport、可见区间、K 线位置。
+   *
+   * Overlay 且上次画完没清缓存时，直接复用 cachedDrawFrame，不重复
+   * 算 viewport 和 bar 位置。非缓存路径会刷新 cachedDrawFrame。
+   * range 变了会调用 checkVisibleRangeGapWhenIdle，方便空闲时补数据。
+   * TimeShare 模式按 plotWidth 平分 bar，不走 K 线物理宽度那套。
+   *
+   * @param level - Overlay 可走缓存，Main/All 强制重算
+   * @returns 无 viewport 或无数据时返回 null，调用方自己清屏或跳过
+   */
   private prepareFrameData(level: UpdateLevel): FrameContext | null {
     const useCachedFrame = level === UpdateLevel.Overlay && this.cachedDrawFrame !== null
 
@@ -514,8 +565,6 @@ export class ChartRenderer {
       kWidthPx,
       useCachedFrame,
       data: internalData,
-      mainIndicatorRange: null,
-      hasCrosshair: false,
       zoomLevel: this.deps.getCurrentZoomLevel(),
       zoomLevelCount: this.deps.getZoomLevelCount(),
     }

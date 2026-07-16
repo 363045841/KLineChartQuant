@@ -139,6 +139,9 @@ Never guess at Effect patterns - check the guide first.
 - No Markdown symbols: no backticks, bold, or arrows. Use natural language for code references.
 - Prefer JSDoc tags: `@remarks` (detailed explanation), `@param`, `@returns`, `@typeParam`, `@example`.
 - Inline comments: `/** brief */` or `// brief`, no tags needed.
+- **Say what it is, not what to do with it**
+- **Never invent Chinese jargon**
+- **One sentence if possible**
 
 ## ATTENTION
 - You can only commit when I explicitly ask you to do it.
