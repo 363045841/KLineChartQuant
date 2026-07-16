@@ -464,6 +464,7 @@ export class Chart {
       customMarkers$: this.kernel.marker.readonly.customMarkers,
       drawings$: this.kernel.drawing.readonly.drawings,
       selectedDrawingId$: this.kernel.drawing.readonly.selectedDrawingId,
+      getOverlay: () => this.drawingSession?.getPaintOverlay() ?? [],
     })
     this.renderer.registerDrawingPlugins()
     this.renderer.initCoreRenderers()
@@ -912,9 +913,10 @@ export class Chart {
     this.indicatorManager.bindIndicatorToPane(paneId, indicatorId, params)
   }
 
-  /** 更新绘图对象（写 kernel + 重绘） */
+  /** 更新绘图对象（写 kernel + 重绘）；剥离会话预览 id */
   setDrawings(drawings: import('../foundation/plugin').DrawingObject[]): void {
-    this.kernel.drawing.actions.setDrawings(drawings)
+    const committed = drawings.filter((d) => d.id !== '__preview__')
+    this.kernel.drawing.actions.setDrawings(committed)
     this.scheduleDraw()
   }
 

@@ -104,6 +104,7 @@ export interface RendererDependencies {
   customMarkers$: MarkerManagerDeps['customMarkers$']
   drawings$: DrawingStoreDeps['drawings$']
   selectedDrawingId$: DrawingStoreDeps['selectedDrawingId$']
+  getOverlay?: DrawingStoreDeps['getOverlay']
 }
 
 export class ChartRenderer {
@@ -143,6 +144,7 @@ export class ChartRenderer {
     this.drawingStore = new DrawingStore({
       drawings$: deps.drawings$,
       selectedDrawingId$: deps.selectedDrawingId$,
+      getOverlay: deps.getOverlay,
     })
     this.scene = createScene()
   }

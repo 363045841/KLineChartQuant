@@ -541,7 +541,7 @@ describe('Chart pane layout regressions', () => {
     await chart.destroy()
   })
 
-  it('removeDrawing with registered session updates work-copy and kernel', async () => {
+  it('removeDrawing with registered session updates kernel only', async () => {
     const { DrawingInteractionController } = await import('../drawing/interaction')
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     const d1 = {
@@ -565,6 +565,7 @@ describe('Chart pane layout regressions', () => {
       setDrawingToolId: (id: import('../drawing/toolConfig').DrawingToolId) =>
         chart.setDrawingTool(id),
       getDrawingToolId: () => chart.kernel.drawing.readonly.drawingTool.peek(),
+      requestDraw: () => chart.scheduleDraw(),
       getViewport: () => null,
       getKWidthKGap: () => ({ kWidth: 6, kGap: 2 }),
       getCurrentDpr: () => 1,
@@ -576,9 +577,7 @@ describe('Chart pane layout regressions', () => {
       getPaneInfo: () => undefined,
     }
     const session = new DrawingInteractionController(adapter)
-    // registerDrawingSession 会 applyToolSession 清选中，先挂会话再 seed 工作副本与选中
     chart.registerDrawingSession(session)
-    session.setDrawings([d1, d2])
     chart.setSelectedDrawingId('d1')
     chart.removeDrawing('d1')
     expect(chart.kernel.drawing.readonly.drawings.peek().map((d) => d.id)).toEqual(['d2'])

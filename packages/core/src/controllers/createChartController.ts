@@ -720,6 +720,11 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     return chart.drawings() as any[]
   }
 
+  function requestDraw(): void {
+    if (disposed) return
+    chart.scheduleDraw()
+  }
+
   function setSelectedDrawingId(id: string | null): void {
     if (disposed) return
     chart.setSelectedDrawingId(id)
@@ -962,6 +967,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     removeDrawing,
     setDrawings,
     getFullDrawings,
+    requestDraw,
     setSelectedDrawingId,
     getSelectedDrawingId,
     getViewport,

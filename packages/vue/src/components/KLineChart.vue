@@ -1042,7 +1042,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
           return true
         }
         if (drawingController.value?.onPointerMove(event, container)) {
-          drawings.value = drawingController.value.getDrawings()
+          // 预览/拖拽只在会话层；UI 列表仍订 kernel.drawings，此处不镜像会话态
           return true
         }
         return false

@@ -60,14 +60,9 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
       },
     })
 
-    let syncing = false
+    // UI 只镜像 kernel 已确认列表；预览/拖拽不进 Vue ref
     unsubDrawings = chartCtrl.drawings.subscribe(() => {
-      if (syncing) return
-      syncing = true
-      const full = chartCtrl.getFullDrawings()
-      drawingController.value?.setDrawings(full)
-      drawings.value = full as DrawingObject[]
-      syncing = false
+      drawings.value = chartCtrl.getFullDrawings() as DrawingObject[]
     })
     drawings.value = chartCtrl.getFullDrawings() as DrawingObject[]
 

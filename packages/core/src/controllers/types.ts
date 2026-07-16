@@ -208,6 +208,11 @@ export interface DrawingChartAdapter {
   setDrawingToolId(toolId: import('../engine/drawing/toolConfig').DrawingToolId): void
   /** read current drawing tool id from kernel */
   getDrawingToolId(): import('../engine/drawing/toolConfig').DrawingToolId
+  /**
+   * 会话态变更后请求重绘（不写 kernel）。
+   * 预览 / 拖拽中间态只改会话层时调用。
+   */
+  requestDraw?(): void
   /** current viewport (nullable if chart not ready) */
   getViewport(): DrawingChartViewport | null
   /** resolved chart options (kWidth, kGap) */
