@@ -228,20 +228,27 @@ function fillCloud(
   bearColor: string,
   alpha = 0.15,
 ): void {
+  if (segs.length < 2) return
   ctx.save()
   ctx.globalAlpha = alpha
-  for (let i = 0; i < segs.length - 1; i++) {
-    const a = segs[i]!
-    const b = segs[i + 1]!
-    ctx.fillStyle = a.bull ? bullColor : bearColor
+
+  let start = 0
+  const lastSeg = segs.length - 1
+  while (start < lastSeg) {
+    const isBull = segs[start]!.bull
+    ctx.fillStyle = isBull ? bullColor : bearColor
+    let end = start
+    while (end < lastSeg && segs[end]!.bull === isBull) end++
+    end--
     ctx.beginPath()
-    ctx.moveTo(a.x, a.ya)
-    ctx.lineTo(b.x, b.ya)
-    ctx.lineTo(b.x, b.yb)
-    ctx.lineTo(a.x, a.yb)
+    ctx.moveTo(segs[start]!.x, segs[start]!.ya)
+    for (let k = start + 1; k <= end + 1; k++) ctx.lineTo(segs[k]!.x, segs[k]!.ya)
+    for (let k = end; k >= start; k--) ctx.lineTo(segs[k]!.x, segs[k]!.yb)
     ctx.closePath()
     ctx.fill()
+    start = end + 1
   }
+
   ctx.restore()
 }
 
