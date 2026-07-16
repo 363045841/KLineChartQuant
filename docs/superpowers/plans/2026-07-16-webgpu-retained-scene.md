@@ -302,12 +302,15 @@ If current code calls endFrame per pane, change to: beginFrame per pane (bind re
 ### Task 6: M2 Hybrid DOM (after M1 green)
 
 **Files:**
-- `createWebGPUSurfaceBackend.ts` — optional getCanvas / style sizing
-- Vue/chart DOM mount for gpu canvas
-- Remove WebGPU `compositeTo` from candle/lines helpers when effective backend is webgpu
-- underlay/overlay role split in ChartRenderer paint
+- `createWebGPUSurfaceBackend.ts` — CSS size on resize; compositeTo no-op
+- `chart.ts` — syncGpuSceneCanvas mount/unmount; z-index underlay/gpu/overlay
+- `chartPaneLayout.ts` — preserve `.gpu-scene-canvas`; main z=0 overlay z=2
+- helpers — skip composite when `caps.name === 'webgpu'`
 
-Checklist from spec §11 M2. Separate commit series.
+- [x] Mount visible WebGPU canvas in plot stack
+- [x] Skip compositeTo on WebGPU path
+- [x] Resize GPU canvas with plot; hide on non-webgpu
+- [x] Unit tests for hybrid path
 
 ---
 

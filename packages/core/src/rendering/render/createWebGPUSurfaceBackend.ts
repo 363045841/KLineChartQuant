@@ -45,34 +45,45 @@ export function createWebGPUSurfaceBackend(
       const height = Math.max(1, Math.round(heightLogical * dpr))
       if (canvas.width !== width) canvas.width = width
       if (canvas.height !== height) canvas.height = height
+      // 可见 DOM 合成：CSS 尺寸跟逻辑 plot，buffer 跟物理像素
+      if (canvas.style) {
+        canvas.style.width = `${Math.max(0, widthLogical)}px`
+        canvas.style.height = `${Math.max(0, heightLogical)}px`
+      }
     },
     bindRegion(region: SurfaceRegion): boolean {
       if (disposed || region.width <= 0 || region.height <= 0 || region.dpr <= 0) return false
       boundRegion = { ...region }
       return true
     },
-    clearRegion(_region: SurfaceRegion): void {},
+    clearRegion(_region: SurfaceRegion): void {
+      if (disposed) return
+      // 空数据/清屏：提交透明 clear，避免 hybrid 可见 canvas 残留上一帧
+      try {
+        const view = context.getCurrentTexture().createView()
+        const encoder = device.createCommandEncoder()
+        const pass = encoder.beginRenderPass({
+          colorAttachments: [
+            {
+              view,
+              clearValue: { r: 0, g: 0, b: 0, a: 0 },
+              loadOp: 'clear',
+              storeOp: 'store',
+            },
+          ],
+        })
+        pass.end()
+        device.queue.submit([encoder.finish()])
+      } catch {
+        // device lost / texture unavailable：忽略，下帧 beginFrame 会重建
+      }
+    },
     compositeTo(
-      targetCtx: CanvasRenderingContext2D,
-      region: SurfaceRegion,
-      compositeOptions?: CompositeOptions,
+      _targetCtx: CanvasRenderingContext2D,
+      _region: SurfaceRegion,
+      _compositeOptions?: CompositeOptions,
     ): void {
-      if (disposed || region.width <= 0 || region.height <= 0) return
-      const sx = Math.round(region.x * region.dpr)
-      const sy = Math.round(region.y * region.dpr)
-      const sw = Math.round(region.width * region.dpr)
-      const sh = Math.round(region.height * region.dpr)
-
-      targetCtx.save()
-      targetCtx.setTransform(1, 0, 0, 1, 0, 0)
-      if (compositeOptions?.alpha !== undefined) {
-        targetCtx.globalAlpha *= compositeOptions.alpha
-      }
-      if (compositeOptions?.imageSmoothingEnabled !== undefined) {
-        targetCtx.imageSmoothingEnabled = compositeOptions.imageSmoothingEnabled
-      }
-      targetCtx.drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh)
-      targetCtx.restore()
+      // M2：WebGPU 可见 canvas 直接参与 DOM 分层，禁止 GPU→2D drawImage
     },
     getBoundRegion(): SurfaceRegion | null {
       return boundRegion ? { ...boundRegion } : null

@@ -481,12 +481,11 @@ export async function createWebGPURenderer(
     }
   }
 
-  // M1 保留即时 composite 语义（与 2D 交错）；M2 混合 DOM 后再去掉
+  // M2：compositeTo 为 no-op（可见 GPU canvas）；仅 endFrame submit
   const surface: WebGPUSurfaceBackend = {
     ...rawSurface,
-    compositeTo(targetCtx, region, compositeOptions) {
-      flushPendingDraws({ composite: true })
-      rawSurface.compositeTo(targetCtx, region, compositeOptions)
+    compositeTo(_targetCtx, _region, _compositeOptions) {
+      // 禁止中途 flush，保证每 chart 帧单次 queue.submit
     },
   }
 

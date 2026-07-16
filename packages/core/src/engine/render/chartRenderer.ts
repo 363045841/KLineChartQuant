@@ -670,6 +670,17 @@ export class ChartRenderer {
       const xH = xCtx.canvas.height
       xCtx.clearRect(0, 0, xW, xH)
     }
+    // M2 hybrid：可见 WebGPU canvas 不经 2D clearRect，需显式 transparent clear
+    const scene = this.deps.getSceneRenderer()
+    if (scene.caps.name === 'webgpu') {
+      scene.surface.clearRegion({
+        x: 0,
+        y: 0,
+        width: vp.plotWidth,
+        height: vp.plotHeight,
+        dpr: vp.dpr,
+      })
+    }
   }
 
   private renderPanes(

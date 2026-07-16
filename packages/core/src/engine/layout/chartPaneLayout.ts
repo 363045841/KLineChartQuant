@@ -138,6 +138,7 @@ export class ChartPaneLayout {
       mainCanvas.style.position = 'absolute'
       mainCanvas.style.left = '0'
       mainCanvas.style.top = '0'
+      mainCanvas.style.zIndex = '0'
 
       overlayCanvas.id = `${spec.id}-overlay`
       overlayCanvas.className = 'overlay-canvas'
@@ -146,6 +147,7 @@ export class ChartPaneLayout {
       overlayCanvas.style.top = '0'
       overlayCanvas.style.pointerEvents = 'none'
       overlayCanvas.style.backgroundColor = 'transparent'
+      overlayCanvas.style.zIndex = '2'
 
       const leftYAxisCanvas = this.createAxisCanvas(spec, pane, 'left')
 
@@ -168,7 +170,10 @@ export class ChartPaneLayout {
     const rightAxisLayer = dom.rightAxisLayer
     const leftAxisLayer = dom.leftAxisLayer
     if (canvasLayer) {
-      const existingCanvases = canvasLayer.querySelectorAll('canvas:not(.x-axis-canvas)')
+      // 保留 chart 级 WebGPU scene canvas（M2 hybrid DOM）
+      const existingCanvases = canvasLayer.querySelectorAll(
+        'canvas:not(.x-axis-canvas):not(.gpu-scene-canvas)',
+      )
       existingCanvases.forEach((canvas) => canvas.remove())
     }
     if (rightAxisLayer) {

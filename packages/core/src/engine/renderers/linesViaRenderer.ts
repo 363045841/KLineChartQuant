@@ -54,10 +54,15 @@ export function drawLinesViaRenderer(
   }
 }
 
+/** WebGPU 走可见 DOM canvas，禁止 drawImage 回 2D（M2 hybrid） */
+export function shouldCompositeSceneRenderer(renderer: Renderer): boolean {
+  return renderer.caps.name !== 'webgpu'
+}
+
 /**
  * 将 sceneRenderer 输出合成到主 canvas。
- * 注意：candle 与 line 共用 SharedWebGLSurface；MSAA resolve 会覆盖 shared 上前序 GPU 内容，
- * 因此各业务在本层 GPU 画完后应立即 composite 到 2D（先 candle 后 line），不能只 end-of-pane 合成一次。
+ * WebGL：即时 composite（MSAA resolve 会盖掉 shared 上前序内容，须按层立即合成）。
+ * WebGPU：no-op，由 plot 区可见 GPU canvas 直接显示。
  */
 export function compositeSceneRenderer(context: {
   ctx: CanvasRenderingContext2D
@@ -68,7 +73,7 @@ export function compositeSceneRenderer(context: {
   sceneRenderer?: Renderer
 }): void {
   const r = context.sceneRenderer
-  if (!r) return
+  if (!r || !shouldCompositeSceneRenderer(r)) return
   r.surface.compositeTo(
     context.ctx,
     {
@@ -167,9 +172,26 @@ export function drawFilledBandViaRenderer(
   }
 }
 
+/** 将全局 alpha 烘焙进 rgba 颜色串（WebGPU 无 compositeTo 时用） */
+function bakeAlphaIntoColor(color: string, alpha: number): string {
+  if (!(alpha < 1)) return color
+  const a = Math.max(0, Math.min(1, alpha))
+  const rgba = color.match(/^rgba?\(([^)]+)\)$/i)
+  if (rgba) {
+    const parts = rgba[1]!.split(',').map((p) => p.trim())
+    if (parts.length >= 3) {
+      const baseA = parts.length >= 4 ? Number(parts[3]) : 1
+      const nextA = (Number.isFinite(baseA) ? baseA : 1) * a
+      return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${nextA})`
+    }
+  }
+  return color
+}
+
 /**
  * 填充带 GPU：仅 sceneRenderer fill；失败返回 false。
  * @param alpha composite 时的全局透明度（半透明 bandFill）
+ * @remarks WebGL 走 compositeTo(alpha)；WebGPU hybrid 把 alpha 烘焙进 fill color
  */
 export function tryDrawFilledBandGpu(
   context: RenderContext,
@@ -182,27 +204,22 @@ export function tryDrawFilledBandGpu(
   if (Math.min(upperPoints.length, lowerPoints.length) < 2) return false
 
   if (!context.sceneRenderer) return false
-  if (
-    drawFilledBandViaRenderer(
-      context.sceneRenderer,
-      upperPoints,
-      lowerPoints,
-      color,
-      scrollLeft,
-    )
-  ) {
-    const r = context.sceneRenderer
-    r.surface.compositeTo(
-      context.ctx,
-      {
-        x: 0,
-        y: context.pane.top,
-        width: context.viewport?.plotWidth ?? context.paneWidth,
-        height: context.pane.height,
-        dpr: context.dpr,
-      },
-      { imageSmoothingEnabled: false, alpha },
-    )
+  const r = context.sceneRenderer
+  const fillColor = shouldCompositeSceneRenderer(r) ? color : bakeAlphaIntoColor(color, alpha)
+  if (drawFilledBandViaRenderer(r, upperPoints, lowerPoints, fillColor, scrollLeft)) {
+    if (shouldCompositeSceneRenderer(r)) {
+      r.surface.compositeTo(
+        context.ctx,
+        {
+          x: 0,
+          y: context.pane.top,
+          width: context.viewport?.plotWidth ?? context.paneWidth,
+          height: context.pane.height,
+          dpr: context.dpr,
+        },
+        { imageSmoothingEnabled: false, alpha },
+      )
+    }
     return true
   }
   return false

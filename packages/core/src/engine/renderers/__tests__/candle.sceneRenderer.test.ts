@@ -56,7 +56,7 @@ function makeSceneRenderer() {
 }
 
 describe('candle sceneRenderer path', () => {
-  it('draws via sceneRenderer.drawInstances and composites', () => {
+  it('draws via sceneRenderer.drawInstances and composites on webgl', () => {
     const { r, drawInstances, compositeTo } = makeSceneRenderer()
 
     const data = Array.from({ length: 5 }, (_, i) => ({
@@ -103,6 +103,56 @@ describe('candle sceneRenderer path', () => {
 
     expect(drawInstances).toHaveBeenCalled()
     expect(compositeTo).toHaveBeenCalledOnce()
+  })
+
+  it('skips compositeTo when sceneRenderer is webgpu (hybrid DOM)', () => {
+    const { r, drawInstances, compositeTo } = makeSceneRenderer()
+    r.caps = { ...r.caps, name: 'webgpu' }
+
+    const data = Array.from({ length: 3 }, (_, i) => ({
+      timestamp: i,
+      open: 100,
+      high: 105,
+      low: 95,
+      close: 102,
+      volume: 1000,
+    }))
+
+    const ctx = {
+      ctx: {
+        save: vi.fn(),
+        restore: vi.fn(),
+        translate: vi.fn(),
+        fillRect: vi.fn(),
+        beginPath: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        closePath: vi.fn(),
+        fill: vi.fn(),
+      } as unknown as CanvasRenderingContext2D,
+      pane: makePane(),
+      data,
+      period: 'daily',
+      range: { start: 0, end: 3 },
+      scrollLeft: 0,
+      kWidth: 8,
+      kGap: 2,
+      dpr: 1,
+      paneWidth: 800,
+      kLinePositions: [0, 10, 20],
+      kLineCenters: [4, 14, 24],
+      kBarRects: [],
+      theme: 'dark' as const,
+      viewport: { scrollLeft: 0, plotWidth: 800, plotHeight: 400 },
+      settings: { rendererBackend: 'webgpu', showVolumePriceMarkers: false },
+      sceneRenderer: r,
+      zoomLevel: 1,
+    } as unknown as RenderContext
+
+    createCandleRenderer().draw(ctx)
+
+    expect(drawInstances).toHaveBeenCalled()
+    expect(compositeTo).not.toHaveBeenCalled()
   })
 
   it('falls to Canvas2D when drawInstances returns false (fail-closed)', () => {

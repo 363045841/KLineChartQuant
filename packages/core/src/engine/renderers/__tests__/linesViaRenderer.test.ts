@@ -1,7 +1,13 @@
 import { describe, it, expect, vi } from 'vitest'
 
 import type { Renderer } from '../../../rendering/render/Renderer'
-import { drawFilledBandViaRenderer, drawLinesViaRenderer } from '../linesViaRenderer'
+import {
+  compositeSceneRenderer,
+  drawFilledBandViaRenderer,
+  drawLinesViaRenderer,
+  shouldCompositeSceneRenderer,
+  tryDrawFilledBandGpu,
+} from '../linesViaRenderer'
 
 function mockRenderer(): Renderer & {
   drawLines: ReturnType<typeof vi.fn>
@@ -165,5 +171,93 @@ describe('drawFilledBandViaRenderer', () => {
     expect(r.createPipeline).toHaveBeenCalledTimes(1)
     expect(r.createBuffer).toHaveBeenCalledTimes(1)
     expect(r.destroyBuffer).not.toHaveBeenCalled()
+  })
+})
+
+describe('compositeSceneRenderer hybrid DOM', () => {
+  it('composites on webgl and skips on webgpu', () => {
+    const webgl = mockRenderer()
+    const webgpu = mockRenderer()
+    ;(webgpu.caps as { name: string }).name = 'webgpu'
+    expect(shouldCompositeSceneRenderer(webgl)).toBe(true)
+    expect(shouldCompositeSceneRenderer(webgpu)).toBe(false)
+
+    compositeSceneRenderer({
+      ctx: {} as CanvasRenderingContext2D,
+      pane: { top: 0, height: 100 },
+      paneWidth: 200,
+      dpr: 1,
+      sceneRenderer: webgpu,
+    })
+    expect(webgpu.surface.compositeTo).not.toHaveBeenCalled()
+
+    compositeSceneRenderer({
+      ctx: {} as CanvasRenderingContext2D,
+      pane: { top: 0, height: 100 },
+      paneWidth: 200,
+      dpr: 1,
+      sceneRenderer: webgl,
+    })
+    expect(webgl.surface.compositeTo).toHaveBeenCalledOnce()
+  })
+})
+
+describe('tryDrawFilledBandGpu alpha on hybrid DOM', () => {
+  const upper = [
+    { x: 0, y: 10 },
+    { x: 1, y: 12 },
+  ]
+  const lower = [
+    { x: 0, y: 20 },
+    { x: 1, y: 22 },
+  ]
+
+  it('webgl keeps opaque color and applies alpha via compositeTo', () => {
+    const r = mockRenderer()
+    r.drawLines.mockReturnValue(true)
+    const ok = tryDrawFilledBandGpu(
+      {
+        ctx: {} as CanvasRenderingContext2D,
+        pane: { top: 0, height: 100 },
+        paneWidth: 200,
+        dpr: 1,
+        sceneRenderer: r,
+      } as never,
+      upper,
+      lower,
+      'rgba(0, 128, 255, 1)',
+      0,
+      0.2,
+    )
+    expect(ok).toBe(true)
+    expect(r.drawLines.mock.calls[0]![0].uniforms.color).toBe('rgba(0, 128, 255, 1)')
+    expect(r.surface.compositeTo).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ alpha: 0.2 }),
+    )
+  })
+
+  it('webgpu bakes alpha into fill color and skips compositeTo', () => {
+    const r = mockRenderer()
+    ;(r.caps as { name: string }).name = 'webgpu'
+    r.drawLines.mockReturnValue(true)
+    const ok = tryDrawFilledBandGpu(
+      {
+        ctx: {} as CanvasRenderingContext2D,
+        pane: { top: 0, height: 100 },
+        paneWidth: 200,
+        dpr: 1,
+        sceneRenderer: r,
+      } as never,
+      upper,
+      lower,
+      'rgba(0, 128, 255, 1)',
+      0,
+      0.2,
+    )
+    expect(ok).toBe(true)
+    expect(r.drawLines.mock.calls[0]![0].uniforms.color).toBe('rgba(0, 128, 255, 0.2)')
+    expect(r.surface.compositeTo).not.toHaveBeenCalled()
   })
 })

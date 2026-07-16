@@ -232,10 +232,13 @@ export class Chart {
       scheduleDraw: (level) => this.scheduleDraw(level as UpdateLevel | undefined),
     })
     this.rendererHost.setListeners({
-      onRuntimeChange: (rendererRuntime) =>
-        this.kernel.renderer.actions.setRuntime(rendererRuntime),
+      onRuntimeChange: (rendererRuntime) => {
+        this.kernel.renderer.actions.setRuntime(rendererRuntime)
+        this.syncGpuSceneCanvas()
+      },
       requestRedraw: () => this.scheduleDraw(UpdateLevel.All),
     })
+    this.syncGpuSceneCanvas()
 
     // Inject DOM deps into kernel's viewportState (needed before init)
     this.kernel.setViewportDomDeps({
@@ -771,7 +774,11 @@ export class Chart {
     }
 
     if (prev.rendererBackend !== next.rendererBackend) {
-      void this.rendererHost.switchTo(next.rendererBackend as RendererBackend)
+      void this.rendererHost.switchTo(next.rendererBackend as RendererBackend).then(() => {
+        this.syncGpuSceneCanvas()
+        this.scheduleDraw(UpdateLevel.All)
+      })
+      return
     }
 
     this.scheduleDraw()
@@ -1254,6 +1261,39 @@ export class Chart {
     }
   }
 
+  /**
+   * M2：将 WebGPU canvas 挂到 plot 区（main 与 overlay 之间），非 webgpu 时移除。
+   * 多 pane 共用一张 canvas，region.y + scissor 区分。
+   */
+  private syncGpuSceneCanvas(): void {
+    const layer = this.dom.canvasLayer
+    if (!layer) return
+    const effective = this.rendererHost.runtime.effective
+    const existing = layer.querySelector('canvas.gpu-scene-canvas') as HTMLCanvasElement | null
+
+    if (effective !== 'webgpu') {
+      existing?.remove()
+      return
+    }
+
+    const surface = this.rendererHost.renderer.surface as { canvas?: HTMLCanvasElement }
+    const canvas = surface.canvas
+    if (!canvas) return
+
+    canvas.classList.add('gpu-scene-canvas')
+    canvas.style.position = 'absolute'
+    canvas.style.left = '0'
+    canvas.style.top = '0'
+    canvas.style.pointerEvents = 'none'
+    canvas.style.zIndex = '1'
+    canvas.style.backgroundColor = 'transparent'
+
+    if (existing !== canvas) {
+      existing?.remove()
+      if (!canvas.isConnected) layer.appendChild(canvas)
+    }
+  }
+
   /** 销毁图表实例 */
   async destroy() {
     this.indicatorManager.destroy()
@@ -1263,6 +1303,7 @@ export class Chart {
     this.dataManager.destroy()
     this.viewportManager.destroy()
     this.layoutManager.destroy()
+    this.dom.canvasLayer?.querySelector('canvas.gpu-scene-canvas')?.remove()
     this.rendererHost.dispose()
     this.kernel.dispose()
     this.alertController.dispose()

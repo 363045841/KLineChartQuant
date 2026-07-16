@@ -121,7 +121,7 @@ export function createCandleRenderer(): RendererPlugin {
           downColor,
           scrollLeft,
         )
-        if (usedGpu) {
+        if (usedGpu && context.sceneRenderer.caps.name !== 'webgpu') {
           const region = {
             x: 0,
             y: pane.top,

@@ -76,6 +76,7 @@ function makeWebGPU() {
   const canvas = {
     width: 1,
     height: 1,
+    style: { width: '', height: '' },
     getContext: vi.fn(() => context),
   } as unknown as HTMLCanvasElement
 
