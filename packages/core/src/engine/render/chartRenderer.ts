@@ -54,14 +54,18 @@ import { createLastPriceLineLayer } from './layers/lastPriceLineLayer'
 import { createLeftYAxisLayer } from './layers/leftYAxisLayer'
 import { createMainIndicatorLegendLayer } from './layers/mainIndicatorLegendLayer'
 import { createYAxisLayer } from './layers/yAxisLayer'
-import { batch, type ReadonlySignal } from '../../foundation/reactivity/signal'
+import { createFrameTransaction } from '../../foundation/reactivity/frameTransaction'
+import type { ReadonlySignal } from '../../foundation/reactivity/signal'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kWidth: number
   kGap: number
 }
 
-/** 一帧的绘制数据 */
+/**
+ * 一帧绘制几何与数据（prepare 产出，render 只读）。
+ * 大数组字段做结构共享，禁止深拷贝。
+ */
 type FrameContext = {
   /** 视口（scrollLeft、plotWidth、dpr 等） */
   vp: Viewport
@@ -83,6 +87,34 @@ type FrameContext = {
   zoomLevel: number
   /** 缩放级别总数 */
   zoomLevelCount: number
+}
+
+/** 帧事务输入：仅重绘级别；多次 schedule 浅合并后由 mergeUpdateLevel 升格 */
+type FrameDrawInput = {
+  level: UpdateLevel
+}
+
+/**
+ * 帧事务快照：单代际绘制契约。
+ * generation 由 FrameTransaction 写入；frame 为 null 表示无可画数据。
+ */
+type FrameDrawSnapshot = {
+  generation: number
+  level: UpdateLevel
+  frame: FrameContext | null
+}
+
+/** Main 与 Overlay 合并为 All，其余取更全或后者 */
+function mergeUpdateLevel(current: UpdateLevel, next: UpdateLevel): UpdateLevel {
+  if (current === UpdateLevel.All || next === UpdateLevel.All) return UpdateLevel.All
+  if (current === next) return current
+  if (
+    (current === UpdateLevel.Main && next === UpdateLevel.Overlay) ||
+    (current === UpdateLevel.Overlay && next === UpdateLevel.Main)
+  ) {
+    return UpdateLevel.All
+  }
+  return next
 }
 
 export interface RendererDependencies {
@@ -111,10 +143,22 @@ export class ChartRenderer {
   /** 依赖注入容器，ChartRenderer 不直接持有状态，从 deps 接口读取，也便于测试 mock */
   private deps: RendererDependencies
 
-  /** requestAnimationFrame id，不为 null 时触发 RAF 节流，取消被分配帧，确保展示最新帧 */
+  /**
+   * 帧事务：scheduleDraw 只写输入并合并 rAF；flush 内 prepare → seal → paint。
+   * 绘制阶段不再反向写 kernel 几何（seal 在 render 回调最前、与 paint 同代）。
+   */
+  private readonly frameTx: ReturnType<
+    typeof createFrameTransaction<FrameDrawInput, FrameDrawSnapshot>
+  >
+
+  /**
+   * 与 frameTx pending 同步的重绘级别镜像。
+   * FrameTransaction 对 level 是浅覆盖，Main/Overlay 升格在此完成。
+   */
+  private pendingLevel: UpdateLevel = UpdateLevel.All
+
+  /** 已排队的 rAF 句柄；null 表示当前没有挂起的帧调度 */
   private raf: number | null = null
-  // 下一帧重绘级别
-  private pendingUpdateLevel: UpdateLevel = UpdateLevel.All
 
   readonly markerManager: MarkerManager
   readonly drawingStore: DrawingStore
@@ -147,6 +191,40 @@ export class ChartRenderer {
       getOverlay: deps.getOverlay,
     })
     this.scene = createScene()
+    this.frameTx = createFrameTransaction<FrameDrawInput, FrameDrawSnapshot>({
+      initialInput: { level: UpdateLevel.All },
+      derive: (input, generation) => {
+        // generation 0 是 createFrameTransaction 构造占位，禁止 prepare/副作用
+        if (generation === 0) {
+          return { generation: 0, level: input.level, frame: null }
+        }
+        return {
+          generation,
+          level: input.level,
+          frame: this.prepareFrameData(input.level),
+        }
+      },
+      render: (snapshot) => {
+        // generation 0 占位不绘制
+        if (snapshot.generation === 0) return
+        // seal 与 paint 同属本帧；seal 供 interaction hover 读几何，不得在 paint 中途再写
+        if (snapshot.frame) {
+          this.sealFrameGeometry(snapshot.frame)
+        }
+        this.drawWithFrame(snapshot.level, snapshot.frame)
+      },
+      schedule: (run) => {
+        this.raf = requestAnimationFrame(() => {
+          this.raf = null
+          run()
+          // 若 paint 中又 scheduleDraw，已写入新 pendingLevel 且 raf 非 null，不得清掉
+          if (this.raf === null) {
+            this.pendingLevel = UpdateLevel.All
+          }
+        })
+        return this.raf
+      },
+    })
   }
 
   initCoreRenderers(): void {
@@ -308,65 +386,44 @@ export class ChartRenderer {
   }
 
   /**
-   * 申请绘制，把绘制元数据配置合并到下一帧 requestAnimationFrame，避免同帧多次重绘。
+   * 申请绘制：合并重绘级别并写入帧事务，由 rAF 最多 flush 一次。
    *
-   * 已有 rAF 在等时只更新 pendingUpdateLevel，不重复注册。如果
-   * pending 和 level 分别是 Main 和 Overlay，合并成 All。
+   * 已有调度时只更新 pending level（Main+Overlay→All），不重复注册 rAF。
+   * flush 内：prepareFrameData → sealFrameGeometry → drawWithFrame。
    *
    * @param level - Main 只画主层，Overlay 只画覆盖层（crosshair 等），All 全画
    */
   scheduleDraw(level: UpdateLevel = UpdateLevel.All): void {
-    // 已经有下一帧 raf 被申请，只改下一个申请帧的重绘级别
     if (this.raf !== null) {
-      // pending 已是最全，新请求不论什么级别都不影响
-      if (this.pendingUpdateLevel === UpdateLevel.All) return
-      // 新请求要全画，升 pending
-      if (level === UpdateLevel.All) {
-        this.pendingUpdateLevel = UpdateLevel.All
-        return
-      }
-      // Main 和 Overlay 各来一次后合并成全画
-      if (
-        (this.pendingUpdateLevel === UpdateLevel.Main && level === UpdateLevel.Overlay) ||
-        (this.pendingUpdateLevel === UpdateLevel.Overlay && level === UpdateLevel.Main)
-      ) {
-        this.pendingUpdateLevel = UpdateLevel.All
-        return
-      }
-      // 同级别重复请求，pending 不变
+      this.pendingLevel = mergeUpdateLevel(this.pendingLevel, level)
+      this.frameTx.writeInput({ level: this.pendingLevel })
       return
     }
-
-    this.pendingUpdateLevel = level
-    this.raf = requestAnimationFrame(() => {
-      // 取出本次要画的级别，pending 改回 All 表示「没有挂起的请求了」
-      const levelToDraw = this.pendingUpdateLevel
-      this.pendingUpdateLevel = UpdateLevel.All
-
-      // 准备帧绘制数据
-      const frame = this.prepareFrameData(levelToDraw)
-      if (frame) {
-        // 把 K 线位置写入 interaction state，供十字线等模块读取
-        this.writeFramePositionsFromFrame(frame)
-      }
-      // 清屏、组 context、遍历 pane 调 Scene.paintPane、画时间轴
-      this.drawWithFrame(levelToDraw, frame)
-
-      this.raf = null
-      // 如果刚才画的过程中又有 scheduleDraw 写过 pending，补一帧
-      if (this.pendingUpdateLevel !== UpdateLevel.All) {
-        this.scheduleDraw(this.pendingUpdateLevel)
-      }
-    })
+    this.pendingLevel = level
+    this.frameTx.writeInput({ level })
+    this.frameTx.scheduleFlush()
   }
 
   /**
-   * 同步绘制一帧，不经 rAF 合并。测试与必须立刻出图的路径使用。
+   * 同步绘制一帧，走与 rAF 相同的 flush 管线（prepare → seal → paint）。
    *
    * @param level - 同 scheduleDraw
    */
   draw(level: UpdateLevel = UpdateLevel.All): void {
-    this.drawWithFrame(level, this.prepareFrameData(level))
+    this.pendingLevel = level
+    this.frameTx.writeInput({ level })
+    this.frameTx.flush()
+    this.pendingLevel = UpdateLevel.All
+  }
+
+  /**
+   * 将本帧几何封存到 interaction，供 hover 二分与十字线重算读取。
+   * 在 paint 之前调用；引用未变时 interaction 侧应跳过 signal 通知。
+   */
+  private sealFrameGeometry(frame: FrameContext): void {
+    this.deps
+      .getInteraction()
+      .setKLinePositions(frame.kLinePositions, frame.range, frame.kWidthPx, frame.kLineCenters)
   }
 
   private drawWithFrame(level: UpdateLevel, frame: FrameContext | null): void {
@@ -425,17 +482,6 @@ export class ChartRenderer {
       sharedXAxisRanges,
       renderData,
     )
-  }
-
-  /**
-   * 把 K 线位置写入 interaction state。
-   * setKLinePositions 会更新多个 signal（位置、区间、宽度、中心点），
-   * batch 确保这组写入完成后才通知订阅者，不会让十字线等读到一半的新数据。
-   */
-  private writeFramePositionsFromFrame(frame: FrameContext): void {
-    batch(() => {
-      this.deps.getInteraction().setKLinePositions(frame.kLinePositions, frame.range, frame.kWidthPx, frame.kLineCenters)
-    })
   }
 
   /**

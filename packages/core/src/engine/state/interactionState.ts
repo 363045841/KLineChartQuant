@@ -190,11 +190,22 @@ export function createInteractionState(deps: InteractionDeps) {
         signals.activePaneId.set(paneId)
       },
 
+      /**
+       * 封存本帧几何。同一引用且 kWidth 未变时跳过 set，避免每帧无意义广播。
+       * 数组所有权在 ChartRenderer 帧缓存；此处不拷贝。
+       */
       updateFramePositions(
         positions: number[] | null,
         centers: number[] | null,
         kWidthPx: number | null,
       ) {
+        if (
+          signals.kLinePositions.peek() === positions &&
+          signals.kLineCenters.peek() === centers &&
+          signals.kWidthPx.peek() === kWidthPx
+        ) {
+          return
+        }
         batch(() => {
           signals.kLinePositions.set(positions)
           signals.kLineCenters.set(centers)

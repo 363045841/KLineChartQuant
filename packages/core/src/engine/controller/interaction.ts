@@ -428,22 +428,32 @@ export class InteractionController {
   }
 
   /**
-   * 设置当前帧的 K 线起始 x 坐标数组和可见范围
+   * 封存本帧 K 线几何（由 ChartRenderer 在 paint 前调用）。
+   * 引用未变时不触发 signal 通知；几何变化后用 lastClientPos 重算十字线。
+   *
    * @param positions K 线起始 x 坐标数组
-   * @param visibleRange 可见 K 线索引范围
+   * @param visibleRange 可见 K 线索引范围（hover 用 viewport signal，此处保留兼容签名）
    * @param kWidthPx K 线宽度（物理像素）
    * @param centers K 线中心 x 坐标数组（物理像素对齐后）
    */
   setKLinePositions(
     positions: number[] | null,
-    visibleRange: { start: number; end: number } | null,
+    _visibleRange: { start: number; end: number } | null,
     kWidthPx?: number,
     centers?: number[] | null,
   ) {
-    this._state.actions.updateFramePositions(positions, centers ?? null, kWidthPx ?? null)
+    const prevPositions = this._state.readonly.kLinePositions.peek()
+    const prevCenters = this._state.readonly.kLineCenters.peek()
+    const prevWidth = this._state.readonly.kWidthPx.peek()
+    const nextWidth = kWidthPx ?? null
+    const nextCenters = centers ?? null
+    const unchanged =
+      prevPositions === positions && prevCenters === nextCenters && prevWidth === nextWidth
 
-    // 十字线自动同步：positions 刷新后用最新鼠标位置重算，防止缩放/滚动后索引滞后
-    if (this.lastClientPos && !this._state.readonly.isDragging.peek()) {
+    this._state.actions.updateFramePositions(positions, nextCenters, nextWidth)
+
+    // 几何未变则不必重算 hover；变化时用最后指针位置对齐十字线索引
+    if (!unchanged && this.lastClientPos && !this._state.readonly.isDragging.peek()) {
       this.updatePlotHoverFromPoint(this.lastClientPos.x, this.lastClientPos.y)
     }
   }
