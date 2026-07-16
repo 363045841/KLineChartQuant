@@ -29,10 +29,17 @@ export function createLayerFromPlugin(
       if (paneRole === 'sub' && ctx.paneId !== targetPaneId) return
       const context = getContext()
       if (!context) return
-      plugin.draw(context)
+      // 注入本帧 Scene Renderer，供已迁路径（candle 等）走统一画笔
+      context.sceneRenderer = ctx.renderer
+      try {
+        plugin.draw(context)
+      } catch (e) {
+        // 隔离单层异常，避免中断同 pane 后续 Layer（对齐旧 Manager.render）
+        console.error(`[RendererPlugin] ${plugin.name} draw error:`, e)
+      }
     },
     dispose() {
-      plugin.onUninstall?.()
+      // onUninstall 由 removeRenderer / Manager.unregister 单点负责，避免双调
     },
   }
 }

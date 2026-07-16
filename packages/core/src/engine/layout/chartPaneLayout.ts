@@ -1,7 +1,6 @@
 import type { PaneRole } from '../../foundation/plugin/index'
 import type { ChartDom, PaneSpec, Viewport } from '../chartTypes'
 import { PaneRenderer } from '../paneRenderer'
-import type { SharedWebGLSurface } from '../renderers/webgl/sharedWebGLSurface'
 import type { ScaleType } from '../utils/tickPosition'
 
 import { Pane, UpdateLevel } from './pane'
@@ -18,7 +17,6 @@ export interface PaneLayoutDependencies {
     defaultPaneMinHeightPx?: number
   }
   getViewport: () => Viewport | null
-  getSharedWebGLSurface: () => SharedWebGLSurface
   setKnownPaneIds: (ids: string[]) => void
   notifyPaneResize: (paneId: string, pane: Pane) => void
   scheduleDraw: (level?: UpdateLevel) => void
@@ -140,6 +138,7 @@ export class ChartPaneLayout {
       mainCanvas.style.position = 'absolute'
       mainCanvas.style.left = '0'
       mainCanvas.style.top = '0'
+      mainCanvas.style.zIndex = '0'
 
       overlayCanvas.id = `${spec.id}-overlay`
       overlayCanvas.className = 'overlay-canvas'
@@ -148,6 +147,7 @@ export class ChartPaneLayout {
       overlayCanvas.style.top = '0'
       overlayCanvas.style.pointerEvents = 'none'
       overlayCanvas.style.backgroundColor = 'transparent'
+      overlayCanvas.style.zIndex = '2'
 
       const leftYAxisCanvas = this.createAxisCanvas(spec, pane, 'left')
 
@@ -160,7 +160,6 @@ export class ChartPaneLayout {
           yPaddingPx: this.deps.getOption().yPaddingPx,
           priceLabelWidth: this.deps.getOption().priceLabelWidth,
         },
-        this.deps.getSharedWebGLSurface(),
       )
 
       return renderer
@@ -171,7 +170,10 @@ export class ChartPaneLayout {
     const rightAxisLayer = dom.rightAxisLayer
     const leftAxisLayer = dom.leftAxisLayer
     if (canvasLayer) {
-      const existingCanvases = canvasLayer.querySelectorAll('canvas:not(.x-axis-canvas)')
+      // 保留 chart 级 WebGPU scene canvas（M2 hybrid DOM）
+      const existingCanvases = canvasLayer.querySelectorAll(
+        'canvas:not(.x-axis-canvas):not(.gpu-scene-canvas)',
+      )
       existingCanvases.forEach((canvas) => canvas.remove())
     }
     if (rightAxisLayer) {
@@ -330,13 +332,6 @@ export class ChartPaneLayout {
       pane.setPadding(opt.yPaddingPx, opt.yPaddingPx)
 
       renderer.resize(vp.plotWidth, h, vp.dpr)
-      renderer.setWebGLRegion({
-        x: 0,
-        y,
-        width: vp.plotWidth,
-        height: h,
-        dpr: vp.dpr,
-      })
       this.deps.notifyPaneResize(pane.id, pane)
       const domEls = renderer.getDom()
       domEls.mainCanvas.style.top = `${y}px`

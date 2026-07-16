@@ -26,14 +26,17 @@ export type {
 }
 
 import type { ReadonlySignal } from '../../foundation/reactivity/signal'
+import { mergePaint } from './DrawingState'
 
 export interface DrawingStoreDeps {
   drawings$: ReadonlySignal<ReadonlyArray<DrawingObject>>
   selectedDrawingId$: ReadonlySignal<string | null>
+  /** 会话层覆盖（拖拽/预览）；缺省为空 */
+  getOverlay?: () => ReadonlyArray<DrawingObject>
 }
 
 /**
- * 绘图投影器 —— 业务态在 kernel.drawing；此类只读 signal 供渲染插件使用。
+ * 绘图投影器 —— kernel 业务 SSOT ⊕ 会话 overlay，供渲染插件读取。
  */
 export class DrawingStore {
   constructor(private readonly deps: DrawingStoreDeps) {}
@@ -42,13 +45,18 @@ export class DrawingStore {
     return this.deps.selectedDrawingId$.peek()
   }
 
+  private paintList(): DrawingObject[] {
+    const committed = this.deps.drawings$.peek()
+    const overlay = this.deps.getOverlay?.() ?? []
+    return mergePaint(committed, overlay)
+  }
+
   getAll(): DrawingObject[] {
-    return [...this.deps.drawings$.peek()]
+    return this.paintList()
   }
 
   getVisibleByPane(paneId: string): DrawingObject[] {
-    return this.deps.drawings$
-      .peek()
+    return this.paintList()
       .filter((drawing) => drawing.visible && drawing.paneId === paneId)
       .slice()
       .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))

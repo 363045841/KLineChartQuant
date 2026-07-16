@@ -71,7 +71,7 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-color-tag-bg-transparent: transparent;
   --klc-color-tag-bg-active: #1890ff;
   --klc-color-tag-bg-active-hover: #40a9ff;
-  --klc-color-tag-bg-hover: #262C36;
+  --klc-color-tag-bg-hover: #2D3544;
   --klc-color-border-dark: rgba(255, 255, 255, 0.15);
   --klc-color-border-medium: rgba(255, 255, 255, 0.12);
   --klc-color-border-light: rgba(255, 255, 255, 0.08);
@@ -271,7 +271,7 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-color-tag-bg-transparent: transparent;
   --klc-color-tag-bg-active: #1890ff;
   --klc-color-tag-bg-active-hover: #40a9ff;
-  --klc-color-tag-bg-hover: #f0f0f0;
+  --klc-color-tag-bg-hover: #E5E7EB;
   --klc-color-border-dark: rgba(0, 0, 0, 0.12);
   --klc-color-border-medium: rgba(0, 0, 0, 0.10);
   --klc-color-border-light: rgba(0, 0, 0, 0.08);

@@ -12,7 +12,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "lib": ["ES2022", "DOM"],
-    "types": ["vite/client"],
+    "types": ["vite/client", "@webgpu/types"],
     "outDir": "dist",
     "rootDir": "src"
   },

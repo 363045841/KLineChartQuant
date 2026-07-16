@@ -20,7 +20,8 @@ import type {
 import type { BOLLSchedulerConfig, IndicatorScheduler } from '../../indicators/scheduler'
 import { BOLL_STATE_KEY, type BOLLRenderState } from '../../indicators/state/bollState'
 
-import { getRgbaAlpha, toOpaqueRgba, compositeLineSurface } from './shared/webglBand'
+import { getRgbaAlpha, toOpaqueRgba } from './shared/webglBand'
+import { tryDrawFilledBandGpu, tryDrawLinesGpu } from '../linesViaRenderer'
 
 type LinePoint = { x: number; y: number }
 
@@ -32,6 +33,10 @@ interface PriceData {
   lower: number
 }
 
+/**
+ * BOLL GPU：先 band fill（半透明 composite）再三轨折线。
+ * 仅 sceneRenderer；失败返回 false 走 2D。
+ */
 function drawBOLLWithWebGL(
   context: RenderContext,
   data: {
@@ -51,25 +56,18 @@ function drawBOLLWithWebGL(
     context.isAsiaMarket,
     context.colorPresetSettings,
   )
-  if (context.settings?.enableWebGLRendering === false) return false
-  const surface = context.lineWebGLSurface
-  if (!surface || !surface.isAvailable()) return false
-
-  surface.clear()
-
-  let allOk = true
+  // band：画完立即 composite（alpha），再画线（MSAA 会 clear FBO，band 已在 2D）
+  let bandOk = false
   if (data.showBand && data.bandUpperPoints.length >= 2 && data.bandLowerPoints.length >= 2) {
-    surface.clear()
-    allOk = surface.drawFilledBand(
-      { upperPoints: data.bandUpperPoints, lowerPoints: data.bandLowerPoints },
+    bandOk = tryDrawFilledBandGpu(
+      context,
+      data.bandUpperPoints,
+      data.bandLowerPoints,
       toOpaqueRgba(colors.boll.bandFill),
       context.scrollLeft,
+      getRgbaAlpha(colors.boll.bandFill),
     )
-    if (allOk) {
-      compositeLineSurface(context, surface, getRgbaAlpha(colors.boll.bandFill))
-    }
   }
-  surface.clear()
 
   const lineStrips: Array<{ points: LinePoint[]; width: number; color: string }> = []
   if (data.showUpper && data.upperPoints.length >= 2) {
@@ -86,17 +84,8 @@ function drawBOLLWithWebGL(
     lineStrips.push({ points: data.lowerPoints, width: BOLL_LINE_WIDTH, color: colors.boll.lower })
   }
 
-  if (lineStrips.length > 0) {
-    allOk = surface.drawLineStrips(lineStrips, context.scrollLeft)
-  }
-  if (!allOk) {
-    surface.clear()
-    return false
-  }
-
-  compositeLineSurface(context, surface)
-  surface.clear()
-  return true
+  if (lineStrips.length === 0) return bandOk
+  return tryDrawLinesGpu(context, lineStrips, context.scrollLeft)
 }
 
 function buildPriceCacheKey(

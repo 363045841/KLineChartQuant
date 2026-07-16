@@ -15,7 +15,7 @@ describe('settingsState', () => {
     const s = createSettingsState()
     s.actions.replace({ showGridLines: false })
     expect(s.readonly.settings.peek().showGridLines).toBe(false)
-    expect(s.readonly.settings.peek().enableWebGLRendering).toBeDefined()
+    expect(s.readonly.settings.peek().rendererBackend).toBe('webgl')
   })
 
   it('patch merges onto current then re-resolves', () => {

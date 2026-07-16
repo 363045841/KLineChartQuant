@@ -10,7 +10,6 @@ import type {
   YAxisTick,
 } from '../../foundation/plugin/index'
 import { RendererPluginManager, wrapPaneInfo } from '../../foundation/plugin/index'
-import { createWebGLRenderer, createWebGLSurfaceBackend } from '../../rendering/render/index'
 import type { Renderer } from '../../rendering/render/Renderer'
 import { createLayerFromPlugin } from '../../rendering/scene/createLayerFromPlugin'
 import { createScene } from '../../rendering/scene/createScene'
@@ -39,7 +38,6 @@ import {
 import type { ChartModeHandler } from '../modes/types'
 import { PaneRenderer } from '../paneRenderer'
 import { createTimeAxisRendererPlugin } from '../renderers/timeAxis'
-import { SharedWebGLSurface } from '../renderers/webgl/sharedWebGLSurface'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
 import { calculateTickCount } from '../utils/tickCount'
 import { ChartViewportManager } from '../viewport/chartViewportManager'
@@ -56,26 +54,67 @@ import { createLastPriceLineLayer } from './layers/lastPriceLineLayer'
 import { createLeftYAxisLayer } from './layers/leftYAxisLayer'
 import { createMainIndicatorLegendLayer } from './layers/mainIndicatorLegendLayer'
 import { createYAxisLayer } from './layers/yAxisLayer'
-import { batch, type ReadonlySignal } from '../../foundation/reactivity/signal'
+import { createFrameTransaction } from '../../foundation/reactivity/frameTransaction'
+import type { ReadonlySignal } from '../../foundation/reactivity/signal'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kWidth: number
   kGap: number
 }
 
+/**
+ * 一帧绘制几何与数据（prepare 产出，render 只读）。
+ * 大数组字段做结构共享，禁止深拷贝。
+ */
 type FrameContext = {
+  /** 视口（scrollLeft、plotWidth、dpr 等） */
   vp: Viewport
+  /** 可见 K 线起止索引 */
   range: VisibleRange
+  /** 每根 K 线在大图上的 x 坐标 */
   kLinePositions: KLinePositions
+  /** 每根 K 线中心的 x 坐标（由物理像素回算逻辑值） */
   kLineCenters: number[]
+  /** 每根 K 线实体的 x 和宽度 */
   kBarRects: Array<{ x: number; width: number }>
+  /** K 线柱物理像素宽度 */
   kWidthPx: number
+  /** Overlay 帧复用上一帧的几何缓存 */
   useCachedFrame: boolean
+  /** 原始 K 线数据 */
   data: KLineData[]
-  mainIndicatorRange: { min: number; max: number } | null
-  hasCrosshair: boolean
+  /** 当前缩放级别索引 */
   zoomLevel: number
+  /** 缩放级别总数 */
   zoomLevelCount: number
+}
+
+/** 帧事务输入：仅重绘级别；多次 schedule 浅合并后由 mergeUpdateLevel 升格 */
+type FrameDrawInput = {
+  level: UpdateLevel
+}
+
+/**
+ * 帧事务快照：单代际绘制契约。
+ * generation 由 FrameTransaction 写入；frame 为 null 表示无可画数据。
+ */
+type FrameDrawSnapshot = {
+  generation: number
+  level: UpdateLevel
+  frame: FrameContext | null
+}
+
+/** Main 与 Overlay 合并为 All，其余取更全或后者 */
+function mergeUpdateLevel(current: UpdateLevel, next: UpdateLevel): UpdateLevel {
+  if (current === UpdateLevel.All || next === UpdateLevel.All) return UpdateLevel.All
+  if (current === next) return current
+  if (
+    (current === UpdateLevel.Main && next === UpdateLevel.Overlay) ||
+    (current === UpdateLevel.Overlay && next === UpdateLevel.Main)
+  ) {
+    return UpdateLevel.All
+  }
+  return next
 }
 
 export interface RendererDependencies {
@@ -83,7 +122,7 @@ export interface RendererDependencies {
   getOption: () => ResolvedChartOptions
   getPaneRenderers: () => PaneRenderer[]
   getInteraction: () => InteractionController
-  getSharedWebGLSurface: () => SharedWebGLSurface
+  getSceneRenderer: () => Renderer
   getPluginHost: () => PluginHostImpl
   getRendererPluginManager: () => RendererPluginManager
   getTheme: () => 'light' | 'dark'
@@ -97,13 +136,29 @@ export interface RendererDependencies {
   customMarkers$: MarkerManagerDeps['customMarkers$']
   drawings$: DrawingStoreDeps['drawings$']
   selectedDrawingId$: DrawingStoreDeps['selectedDrawingId$']
+  getOverlay?: DrawingStoreDeps['getOverlay']
 }
 
 export class ChartRenderer {
+  /** 依赖注入容器，ChartRenderer 不直接持有状态，从 deps 接口读取，也便于测试 mock */
   private deps: RendererDependencies
 
+  /**
+   * 帧事务：scheduleDraw 只写输入并合并 rAF；flush 内 prepare → seal → paint。
+   * 绘制阶段不再反向写 kernel 几何（seal 在 render 回调最前、与 paint 同代）。
+   */
+  private readonly frameTx: ReturnType<
+    typeof createFrameTransaction<FrameDrawInput, FrameDrawSnapshot>
+  >
+
+  /**
+   * 与 frameTx pending 同步的重绘级别镜像。
+   * FrameTransaction 对 level 是浅覆盖，Main/Overlay 升格在此完成。
+   */
+  private pendingLevel: UpdateLevel = UpdateLevel.All
+
+  /** 已排队的 rAF 句柄；null 表示当前没有挂起的帧调度 */
   private raf: number | null = null
-  private pendingUpdateLevel: UpdateLevel = UpdateLevel.All
 
   readonly markerManager: MarkerManager
   readonly drawingStore: DrawingStore
@@ -123,7 +178,6 @@ export class ChartRenderer {
   private frameCount = 0
   private paneCtxMap = new Map<string, RenderContext>()
   private currentPaneId = 'main'
-  private sceneRenderer: Renderer = {} as Renderer
   private timeAxisCtx: RenderContext | null = null
   private timeAxisLayer: Layer | null = null
   private _prevFrameRange: { visible: VisibleRange; raw: VisibleRange } | null = null
@@ -134,11 +188,44 @@ export class ChartRenderer {
     this.drawingStore = new DrawingStore({
       drawings$: deps.drawings$,
       selectedDrawingId$: deps.selectedDrawingId$,
+      getOverlay: deps.getOverlay,
     })
     this.scene = createScene()
-    const sharedSurface = deps.getSharedWebGLSurface()
-    const surfaceBackend = createWebGLSurfaceBackend(sharedSurface)
-    this.sceneRenderer = createWebGLRenderer(surfaceBackend, sharedSurface)
+    this.frameTx = createFrameTransaction<FrameDrawInput, FrameDrawSnapshot>({
+      initialInput: { level: UpdateLevel.All },
+      derive: (input, generation) => {
+        // generation 0 是 createFrameTransaction 构造占位，禁止 prepare/副作用
+        if (generation === 0) {
+          return { generation: 0, level: input.level, frame: null }
+        }
+        return {
+          generation,
+          level: input.level,
+          frame: this.prepareFrameData(input.level),
+        }
+      },
+      render: (snapshot) => {
+        // generation 0 占位不绘制
+        if (snapshot.generation === 0) return
+        // seal 几何 → flush hover（同代）→ paint；禁止 paint 中途再写 kernel 几何
+        if (snapshot.frame) {
+          this.sealFrameGeometry(snapshot.frame)
+        }
+        this.deps.getInteraction().flushPendingHover()
+        this.drawWithFrame(snapshot.level, snapshot.frame)
+      },
+      schedule: (run) => {
+        this.raf = requestAnimationFrame(() => {
+          this.raf = null
+          run()
+          // 若 paint 中又 scheduleDraw，已写入新 pendingLevel 且 raf 非 null，不得清掉
+          if (this.raf === null) {
+            this.pendingLevel = UpdateLevel.All
+          }
+        })
+        return this.raf
+      },
+    })
   }
 
   initCoreRenderers(): void {
@@ -260,14 +347,12 @@ export class ChartRenderer {
     {
       const plugin = createDrawingRendererPlugin({ store: this.drawingStore })
       this.deps.getRendererPluginManager().register(plugin)
-      this.deps.getRendererPluginManager().setEnabled(plugin.name, false)
       const layer = createLayerFromPlugin(plugin, getCtxForCurrentPane, 'global')
       this.scene.addLayer(layer)
     }
     {
       const plugin = createDrawingLabelOverlayPlugin({ store: this.drawingStore })
       this.deps.getRendererPluginManager().register(plugin)
-      this.deps.getRendererPluginManager().setEnabled(plugin.name, false)
       const layer = createLayerFromPlugin(plugin, getCtxForCurrentPane, 'global')
       this.scene.addLayer(layer)
     }
@@ -279,6 +364,10 @@ export class ChartRenderer {
 
   getPaneCtxMap(): Map<string, RenderContext> {
     return this.paneCtxMap
+  }
+
+  getCurrentPaneId(): string {
+    return this.currentPaneId
   }
 
   getMarkerManager(): MarkerManager {
@@ -297,43 +386,62 @@ export class ChartRenderer {
     return this.deps.settings$.peek()
   }
 
+  /**
+   * 申请绘制：合并重绘级别并写入帧事务，由 rAF 最多 flush 一次。
+   *
+   * 已有调度时只更新 pending level（Main+Overlay→All），不重复注册 rAF。
+   * flush 内：prepareFrameData → sealFrameGeometry → drawWithFrame。
+   *
+   * @param level - Main 只画主层，Overlay 只画覆盖层（crosshair 等），All 全画
+   */
   scheduleDraw(level: UpdateLevel = UpdateLevel.All): void {
     if (this.raf !== null) {
-      if (this.pendingUpdateLevel === UpdateLevel.All) return
-      if (level === UpdateLevel.All) {
-        this.pendingUpdateLevel = UpdateLevel.All
-        return
-      }
-      if (
-        (this.pendingUpdateLevel === UpdateLevel.Main && level === UpdateLevel.Overlay) ||
-        (this.pendingUpdateLevel === UpdateLevel.Overlay && level === UpdateLevel.Main)
-      ) {
-        this.pendingUpdateLevel = UpdateLevel.All
-        return
-      }
+      this.pendingLevel = mergeUpdateLevel(this.pendingLevel, level)
+      this.frameTx.writeInput({ level: this.pendingLevel })
+      return
+    }
+    this.pendingLevel = level
+    this.frameTx.writeInput({ level })
+    this.frameTx.scheduleFlush()
+  }
+
+  /**
+   * 同步绘制一帧，走与 rAF 相同的 flush 管线（prepare → seal → paint）。
+   *
+   * 若已有 rAF 挂起：与 pendingLevel 合并后同步 flush（消费合并后的 level）。
+   * 若正处于帧事务非 idle（render/publish 重入）：只写输入并调度下一帧，禁止嵌套 flush。
+   *
+   * @param level - 同 scheduleDraw
+   */
+  draw(level: UpdateLevel = UpdateLevel.All): void {
+    if (this.frameTx.phase !== 'idle') {
+      this.pendingLevel = mergeUpdateLevel(this.pendingLevel, level)
+      this.frameTx.writeInput({ level: this.pendingLevel })
+      this.frameTx.scheduleFlush()
       return
     }
 
-    this.pendingUpdateLevel = level
-    this.raf = requestAnimationFrame(() => {
-      const levelToDraw = this.pendingUpdateLevel
-      this.pendingUpdateLevel = UpdateLevel.All
-
-      const frame = this.prepareFrameData(levelToDraw)
-      if (frame) {
-        this.writeFramePositionsFromFrame(frame)
-      }
-      this.drawWithFrame(levelToDraw, frame)
-
-      this.raf = null
-      if (this.pendingUpdateLevel !== UpdateLevel.All) {
-        this.scheduleDraw(this.pendingUpdateLevel)
-      }
-    })
+    if (this.raf !== null) {
+      this.pendingLevel = mergeUpdateLevel(this.pendingLevel, level)
+    } else {
+      this.pendingLevel = level
+    }
+    this.frameTx.writeInput({ level: this.pendingLevel })
+    this.frameTx.flush()
+    // 同步 flush 已消费本帧；若 flush 中又 scheduleDraw，raf 非 null，保留 pendingLevel
+    if (this.raf === null) {
+      this.pendingLevel = UpdateLevel.All
+    }
   }
 
-  draw(level: UpdateLevel = UpdateLevel.All): void {
-    this.drawWithFrame(level, this.prepareFrameData(level))
+  /**
+   * 将本帧几何封存到 interaction，供 hover 二分与十字线重算读取。
+   * 在 paint 之前调用；引用未变时 interaction 侧应跳过 signal 通知。
+   */
+  private sealFrameGeometry(frame: FrameContext): void {
+    this.deps
+      .getInteraction()
+      .setKLinePositions(frame.kLinePositions, frame.range, frame.kWidthPx, frame.kLineCenters)
   }
 
   private drawWithFrame(level: UpdateLevel, frame: FrameContext | null): void {
@@ -394,19 +502,17 @@ export class ChartRenderer {
     )
   }
 
-  /** 在 draw() 之前单独写入帧数据到 interactionState，分离状态变更与渲染 */
-  private writeFramePositions(level: UpdateLevel): void {
-    const frame = this.prepareFrameData(level)
-    if (!frame) return
-    this.writeFramePositionsFromFrame(frame)
-  }
-
-  private writeFramePositionsFromFrame(frame: FrameContext): void {
-    batch(() => {
-      this.deps.getInteraction().setKLinePositions(frame.kLinePositions, frame.range, frame.kWidthPx, frame.kLineCenters)
-    })
-  }
-
+  /**
+   * 准备一帧的绘制数据：viewport、可见区间、K 线位置。
+   *
+   * Overlay 且上次画完没清缓存时，直接复用 cachedDrawFrame，不重复
+   * 算 viewport 和 bar 位置。非缓存路径会刷新 cachedDrawFrame。
+   * range 变了会调用 checkVisibleRangeGapWhenIdle，方便空闲时补数据。
+   * TimeShare 模式按 plotWidth 平分 bar，不走 K 线物理宽度那套。
+   *
+   * @param level - Overlay 可走缓存，Main/All 强制重算
+   * @returns 无 viewport 或无数据时返回 null，调用方自己清屏或跳过
+   */
   private prepareFrameData(level: UpdateLevel): FrameContext | null {
     const useCachedFrame = level === UpdateLevel.Overlay && this.cachedDrawFrame !== null
 
@@ -525,8 +631,6 @@ export class ChartRenderer {
       kWidthPx,
       useCachedFrame,
       data: internalData,
-      mainIndicatorRange: null,
-      hasCrosshair: false,
       zoomLevel: this.deps.getCurrentZoomLevel(),
       zoomLevelCount: this.deps.getZoomLevelCount(),
     }
@@ -566,6 +670,17 @@ export class ChartRenderer {
       const xH = xCtx.canvas.height
       xCtx.clearRect(0, 0, xW, xH)
     }
+    // M2 hybrid：可见 WebGPU canvas 不经 2D clearRect，需显式 transparent clear
+    const scene = this.deps.getSceneRenderer()
+    if (scene.caps.name === 'webgpu') {
+      scene.surface.clearRegion({
+        x: 0,
+        y: 0,
+        width: vp.plotWidth,
+        height: vp.plotHeight,
+        dpr: vp.dpr,
+      })
+    }
   }
 
   private renderPanes(
@@ -587,14 +702,11 @@ export class ChartRenderer {
     const sharedXAxisRanges: XAxisRange[] = []
 
     const dataManager = this.deps.getDataManager()
-    const rendererPluginManager = this.deps.getRendererPluginManager()
-    const pluginHost = this.deps.getPluginHost()
     const mode = this.deps.getActiveMode()
 
     for (const renderer of this.deps.getPaneRenderers()) {
       const pane = renderer.getPane()
       const { mainCtx, overlayCtx, yAxisCtx, leftAxisCtx } = renderer.getContexts()
-      const { candleSurface, lineSurface } = renderer.getWebGL()
 
       if (!useCachedFrame) {
         const indicatorRange =
@@ -617,8 +729,6 @@ export class ChartRenderer {
         mainCtx.setTransform(1, 0, 0, 1, 0, 0)
         mainCtx.scale(vp.dpr, vp.dpr)
         mainCtx.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
-        candleSurface?.clear()
-        lineSurface?.clear()
       }
 
       if (shouldUpdateOverlay && overlayCtx) {
@@ -660,8 +770,6 @@ export class ChartRenderer {
         crosshairIndex: this.deps.getInteraction().getCrosshairIndex(),
         yAxisCtx: yAxisCtx ?? undefined,
         leftAxisCtx: leftAxisCtx ?? undefined,
-        candleWebGLSurface: candleSurface ?? undefined,
-        lineWebGLSurface: lineSurface ?? undefined,
         zoomLevel: this.deps.getCurrentZoomLevel(),
         zoomLevelCount: this.deps.getZoomLevelCount(),
         viewport: {
@@ -701,33 +809,24 @@ export class ChartRenderer {
       this.paneCtxMap.set(pane.id, context)
       this.currentPaneId = pane.id
 
-      if (shouldUpdateMain || shouldUpdateOverlay) {
-        const errors = rendererPluginManager.render(pane.id, context, level)
-        if (errors.length > 0) {
-          pluginHost.events.emit('renderer:error', { paneId: pane.id, errors })
-        }
-      }
-
       const region = { x: 0, y: pane.top, width: vp.plotWidth, height: pane.height, dpr: vp.dpr }
+      const sceneRenderer = this.deps.getSceneRenderer()
       if (shouldUpdateMain) {
-        this.sceneRenderer.beginFrame(region)
-        ;(this.sceneRenderer as any).setFallbackContext(overlayCtx ?? null, vp.dpr)
+        sceneRenderer.beginFrame(region)
         this.scene.paintPane({
-          renderer: this.sceneRenderer,
+          renderer: sceneRenderer,
           region,
           paneRole: (pane.id === 'main' ? 'main' : 'sub') as PaneRole,
           paneId: pane.id,
           frameNumber: this.frameCount++,
           deltaMs: 0,
         })
-        this.sceneRenderer.endFrame()
       }
       if (shouldUpdateOverlay && !shouldUpdateMain) {
-        this.sceneRenderer.beginFrame(region)
-        ;(this.sceneRenderer as any).setFallbackContext(overlayCtx ?? null, vp.dpr)
+        sceneRenderer.beginFrame(region)
         this.scene.paintPane(
           {
-            renderer: this.sceneRenderer,
+            renderer: sceneRenderer,
             region,
             paneRole: (pane.id === 'main' ? 'main' : 'sub') as PaneRole,
             paneId: pane.id,
@@ -736,9 +835,11 @@ export class ChartRenderer {
           },
           ['overlay'],
         )
-        this.sceneRenderer.endFrame()
       }
     }
+
+    // WebGPU: one submit after all panes recorded draws
+    this.deps.getSceneRenderer().endFrame()
 
     return { sharedXAxisLabels, sharedXAxisRanges }
   }
@@ -817,7 +918,7 @@ export class ChartRenderer {
         dayKeys: dataManager.getDayKeys() ?? undefined,
       }
       const paintCtx: PaintContext = {
-        renderer: this.sceneRenderer,
+        renderer: this.deps.getSceneRenderer(),
         region: { x: 0, y: 0, width: vp.plotWidth, height: opt.bottomAxisHeight, dpr: vp.dpr },
         paneRole: 'global',
         paneId: 'xAxis',
@@ -877,7 +978,6 @@ export class ChartRenderer {
     }
     this.cachedDrawFrame = null
     this.xAxisCtx = null
-    this.sceneRenderer.dispose()
     this.scene.dispose()
     this.paneCtxMap.clear()
   }

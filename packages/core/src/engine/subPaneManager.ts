@@ -4,7 +4,6 @@ import type {
   RendererPluginWithHost,
   RenderContext,
 } from '../foundation/plugin/index'
-import { createLayerFromPlugin } from '../rendering/scene/createLayerFromPlugin'
 import type { Layer } from '../rendering/scene/types'
 import type { IndicatorScheduler } from './indicators/scheduler'
 import { findIndicator } from './renderers/Indicator/indicatorCatalog'
@@ -192,11 +191,8 @@ export class SubPaneManager {
         definition,
         params: { ...entry.params },
       })
+      // useRenderer：注册表 + 唯一 Scene Layer
       ctx.useRenderer(renderer, { ...entry.params })
-      ctx.setRendererEnabled(entry.rendererName, false)
-      ctx.addLayer(
-        createLayerFromPlugin(renderer, () => ctx.getRenderContext(entry.paneId), entry.paneId),
-      )
     }
     this.mountScaleRenderer(ctx, entry)
   }
@@ -232,10 +228,6 @@ export class SubPaneManager {
         : null
     if (!plugin) return
     ctx.useRenderer(plugin)
-    ctx.setRendererEnabled(entry.scaleRendererName, false)
-    ctx.addLayer(
-      createLayerFromPlugin(plugin, () => ctx.getRenderContext(entry.paneId), entry.paneId),
-    )
   }
 
   private mountPaneTitleRenderer(ctx: SubPaneContext, entry: ProjectedSubPaneEntry): void {
@@ -254,10 +246,6 @@ export class SubPaneManager {
       params: { ...entry.params },
     })
     ctx.useRenderer(renderer)
-    ctx.setRendererEnabled(entry.paneTitleRendererName, false)
-    ctx.addLayer(
-      createLayerFromPlugin(renderer, () => ctx.getRenderContext(entry.paneId), entry.paneId),
-    )
   }
 
   private updateParams(ctx: SubPaneContext, resources: SubPaneResources, spec: SubPaneSpec): void {
@@ -271,13 +259,11 @@ export class SubPaneManager {
   }
 
   private unmount(ctx: SubPaneContext, entry: SubPaneResources, preserveTitle = false): void {
+    // removeRenderer 已同步卸 Scene Layer + Manager onUninstall，勿再 removeLayer
     ctx.removeRenderer(entry.rendererName)
     ctx.removeRenderer(entry.scaleRendererName)
-    ctx.removeLayer(entry.layerId)
-    ctx.removeLayer(entry.scaleLayerId)
     if (!preserveTitle) {
       ctx.removeRenderer(entry.paneTitleRendererName)
-      ctx.removeLayer(entry.paneTitleLayerId)
     }
   }
 

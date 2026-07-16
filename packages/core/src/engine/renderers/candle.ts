@@ -10,6 +10,7 @@ import {
 } from '../../foundation/utils/volumePrice'
 import type { MarkerManager } from '../marker/registry'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
+import { drawCandlesViaRenderer } from './candleViaRenderer'
 
 // --- Float32Array buffer pool (reduces per-frame GC pressure) ---
 let poolUpBody: Float32Array | null = null
@@ -108,22 +109,33 @@ export function createCandleRenderer(): RendererPlugin {
         settings,
       })
 
-      const usedWebGL = drawCandlesWithWebGL(
-        context,
-        prepared,
-        colors.candleUpBody,
-        colors.candleDownBody,
-      )
-      if (!usedWebGL) {
-        drawCandlesWithCanvas2D(
-          ctx,
-          scrollLeft,
+      const upColor = colors.candleUpBody
+      const downColor = colors.candleDownBody
+      // sceneRenderer → fail-closed 2D
+      let usedGpu = false
+      if (context.sceneRenderer) {
+        usedGpu = drawCandlesViaRenderer(
+          context.sceneRenderer,
           prepared,
-          colors.candleUpBody,
-          colors.candleDownBody,
+          upColor,
+          downColor,
+          scrollLeft,
         )
-      } else {
-        compositeWebGLToMainCanvas(ctx, context)
+        if (usedGpu && context.sceneRenderer.caps.name !== 'webgpu') {
+          const region = {
+            x: 0,
+            y: pane.top,
+            width: context.viewport?.plotWidth ?? context.paneWidth,
+            height: pane.height,
+            dpr,
+          }
+          context.sceneRenderer.surface.compositeTo(ctx, region, {
+            imageSmoothingEnabled: false,
+          })
+        }
+      }
+      if (!usedGpu) {
+        drawCandlesWithCanvas2D(ctx, scrollLeft, prepared, upColor, downColor)
       }
 
       drawVolumePriceMarkers(context, prepared, markerManager as MarkerManager | undefined)
@@ -367,61 +379,6 @@ function drawCandlesWithCanvas2D(
   }
 
   ctx.restore()
-}
-
-function drawCandlesWithWebGL(
-  context: RenderContext,
-  prepared: PreparedCandles,
-  upColor: string,
-  downColor: string,
-): boolean {
-  if (context.settings?.enableWebGLRendering === false) return false
-  const surface = context.candleWebGLSurface
-  if (!surface || !surface.isAvailable()) return false
-
-  surface.clear()
-
-  const bodyUpOk =
-    prepared.upBodyCount === 0 ||
-    surface.drawRectBuffer(
-      prepared.upBodyBuf.subarray(0, prepared.upBodyCount * 4),
-      prepared.upBodyCount,
-      upColor,
-      context.scrollLeft,
-    )
-  const bodyDownOk =
-    prepared.downBodyCount === 0 ||
-    surface.drawRectBuffer(
-      prepared.downBodyBuf.subarray(0, prepared.downBodyCount * 4),
-      prepared.downBodyCount,
-      downColor,
-      context.scrollLeft,
-    )
-  const wickUpOk =
-    prepared.upWickCount === 0 ||
-    surface.drawRectBuffer(
-      prepared.upWickBuf.subarray(0, prepared.upWickCount * 4),
-      prepared.upWickCount,
-      upColor,
-      context.scrollLeft,
-    )
-  const wickDownOk =
-    prepared.downWickCount === 0 ||
-    surface.drawRectBuffer(
-      prepared.downWickBuf.subarray(0, prepared.downWickCount * 4),
-      prepared.downWickCount,
-      downColor,
-      context.scrollLeft,
-    )
-
-  return bodyUpOk && bodyDownOk && wickUpOk && wickDownOk
-}
-
-function compositeWebGLToMainCanvas(ctx: CanvasRenderingContext2D, context: RenderContext): void {
-  const surface = context.candleWebGLSurface
-  if (!surface) return
-
-  surface.compositeTo(ctx)
 }
 
 function drawVolumePriceMarkers(

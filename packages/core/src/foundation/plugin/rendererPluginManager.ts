@@ -2,23 +2,12 @@
  * 渲染器插件管理器
  */
 
-import { UpdateLevel } from '../../engine/layout/pane'
-
 import type {
   RendererPlugin,
-  RenderContext,
   PaneInfo,
   RendererPluginWithHost,
   PluginHost,
 } from './types'
-
-/** 渲染器错误事件（裁剪后，不含大数据） */
-export interface RendererErrorEvent {
-  name: string
-  error: { message: string; stack?: string }
-  paneId: string
-  timestamp: number
-}
 
 /** 内部缓存 key（模块私有，避免与外部 paneId 冲突） */
 const GLOBAL_CACHE_KEY = Symbol('renderer:global-cache')
@@ -256,78 +245,6 @@ export class RendererPluginManager {
     return cached
   }
 
-  /** 获取指定 pane 的渲染器（已缓存，无穿透） */
-  getRenderers(paneId: string): RendererPlugin[] {
-    const cached = this.getMergedRenderers(paneId)
-
-    // 根据启用状态过滤，同时排除系统渲染器
-    return cached.filter((p) => {
-      // 系统渲染器不通过 getRenderers 返回，只能通过 renderPlugin 单独渲染
-      if (p.isSystem) return false
-      return this.isRendererEnabled(p)
-    })
-  }
-
-  /** 渲染指定 pane（带错误隔离，支持按 UpdateLevel 过滤） */
-  render(paneId: string, context: RenderContext, level?: UpdateLevel): RendererErrorEvent[] {
-    const renderers = this.getRenderers(paneId)
-    const errors: RendererErrorEvent[] = []
-
-    for (const renderer of renderers) {
-      // UpdateLevel 过滤：未传 level 或为 All 时不过滤
-      if (level) {
-        const rendererLayer = renderer.layer ?? 'main'
-        if (level === UpdateLevel.Overlay && rendererLayer !== 'overlay') {
-          continue // Overlay 更新时跳过非 overlay 渲染器
-        }
-        if (level === UpdateLevel.Main && rendererLayer === 'overlay') {
-          continue // Main 更新时跳过 overlay 渲染器
-        }
-      }
-
-      try {
-        renderer.draw(context)
-      } catch (e) {
-        const error = e instanceof Error ? e : new Error(String(e))
-        console.error(`[RendererPlugin] ${renderer.name} draw error:`, error)
-        // 裁剪错误事件，不含大数据
-        errors.push({
-          name: renderer.name,
-          error: { message: error.message, stack: error.stack },
-          paneId: context.pane.id,
-          timestamp: Date.now(),
-        })
-      }
-    }
-
-    return errors
-  }
-
-  /** 渲染指定名称的插件（带错误隔离，用于系统渲染器） */
-  renderPlugin(name: string, context: RenderContext): RendererErrorEvent[] {
-    const plugin = this.plugins.get(name)
-    if (!plugin) return []
-
-    // 检查启用状态
-    if (!this.isRendererEnabled(plugin)) return []
-
-    const errors: RendererErrorEvent[] = []
-    try {
-      plugin.draw(context)
-    } catch (e) {
-      const error = e instanceof Error ? e : new Error(String(e))
-      console.error(`[RendererPlugin] ${name} draw error:`, error)
-      errors.push({
-        name,
-        error: { message: error.message, stack: error.stack },
-        paneId: context.pane.id,
-        timestamp: Date.now(),
-      })
-    }
-
-    return errors
-  }
-
   /** 启用/禁用渲染器（修改独立状态，不影响原始插件对象） */
   setEnabled(name: string, enabled: boolean): void {
     if (!this.plugins.has(name)) return
@@ -353,22 +270,6 @@ export class RendererPluginManager {
   /** 获取指定渲染器 */
   getPlugin<T extends RendererPlugin = RendererPlugin>(name: string): T | undefined {
     return this.plugins.get(name) as T | undefined
-  }
-
-  /* 调用 onDataUpdate 钩子通知数据更新 */
-  notifyDataUpdate(data: unknown[], range: { start: number; end: number }): void {
-    for (const plugin of this.plugins.values()) {
-      if (!plugin.onDataUpdate) continue
-
-      // 检查启用状态，跳过禁用的插件
-      if (!this.isRendererEnabled(plugin)) continue
-
-      try {
-        plugin.onDataUpdate(data, range)
-      } catch (e) {
-        console.error(`[RendererPlugin] ${plugin.name} onDataUpdate error:`, e)
-      }
-    }
   }
 
   /** 通知尺寸变化 */

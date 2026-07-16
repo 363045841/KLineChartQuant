@@ -208,6 +208,11 @@ export interface DrawingChartAdapter {
   setDrawingToolId(toolId: import('../engine/drawing/toolConfig').DrawingToolId): void
   /** read current drawing tool id from kernel */
   getDrawingToolId(): import('../engine/drawing/toolConfig').DrawingToolId
+  /**
+   * 会话态变更后请求重绘（不写 kernel）。
+   * 预览 / 拖拽中间态只改会话层时调用。
+   */
+  requestDraw?(): void
   /** current viewport (nullable if chart not ready) */
   getViewport(): DrawingChartViewport | null
   /** resolved chart options (kWidth, kGap) */
@@ -292,6 +297,10 @@ export interface ChartController extends DrawingChartAdapter {
   /** 用户偏好 settings（kernel.settings resolved 快照） */
   readonly settings: ReadonlySignal<
     Readonly<import('../foundation/config/chartSettings').ChartSettings>
+  >
+  /** 当前有效 renderer、切换状态和最近错误。 */
+  readonly rendererRuntime: ReadonlySignal<
+    Readonly<import('../rendering/render/rendererHost').RendererBackendRuntime>
   >
   /** 图表模式 id：kline | timeshare */
   readonly chartMode: ReadonlySignal<'kline' | 'timeshare'>

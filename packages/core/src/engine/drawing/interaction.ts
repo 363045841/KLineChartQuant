@@ -1,5 +1,5 @@
 import type { DrawingChartAdapter } from '../../controllers/types'
-import type { DrawingObject, DrawingKind, DrawingStyle } from '../../foundation/plugin/index'
+import type { DrawingObject, DrawingStyle } from '../../foundation/plugin/index'
 
 import { AnchorCollector } from './AnchorCollector'
 import { DragHandler } from './DragHandler'
@@ -22,16 +22,9 @@ export interface DrawingInteractionCallbacks {
 }
 
 /**
- * 绘图交互控制器 v2 — 精简事件路由，组合子模块。
+ * 绘图交互控制器 —— 精简事件路由，组合子模块。
  *
- * ┌─────────────────────────────────────┐
- * │ DrawingInteractionController        │
- * │  ├─ DrawingState     (图元 CRUD)   │
- * │  ├─ AnchorCollector  (锚点累积)    │
- * │  ├─ PreviewRenderer  (预览构建)    │
- * │  ├─ HitTester        (命中检测)    │
- * │  └─ DragHandler      (拖拽管理)    │
- * └─────────────────────────────────────┘
+ * 已确认图元只写 kernel；预览与拖拽覆盖只在 DrawingState 会话层。
  */
 export class DrawingInteractionController {
   private adapter: DrawingChartAdapter
@@ -52,16 +45,19 @@ export class DrawingInteractionController {
     this.dragHandler = new DragHandler()
   }
 
+  /** 渲染合成用：拖拽覆盖 + 预览 */
+  getPaintOverlay(): DrawingObject[] {
+    return this.drawingState.getPaintOverlay()
+  }
+
   // ============ 配置 ============
 
-  /** 注册回调（创建/选中/工具切换事件通知） */
   setCallbacks(callbacks: DrawingInteractionCallbacks) {
     this.callbacks = callbacks
   }
 
   // ============ 工具状态 ============
 
-  /** 返回当前激活的绘图工具 ID（读 kernel SSOT） */
   getActiveTool(): DrawingToolId {
     return this.adapter.getDrawingToolId()
   }
@@ -72,51 +68,48 @@ export class DrawingInteractionController {
   applyToolSession(toolId: DrawingToolId): void {
     this.anchorCollector.reset()
     this.drawingState.removePreview()
-    this.dragHandler.endDrag()
+    if (this.dragHandler.isDragging()) {
+      this.drawingState.clearDragOverride()
+      this.dragHandler.endDrag()
+    }
     this.setSelected(null)
     this.callbacks.onToolChange?.(toolId)
   }
 
-  /**
-   * 切换绘图工具 —— 经 adapter 写 kernel（Chart 单写路径）。
-   */
   setTool(toolId: DrawingToolId) {
     this.adapter.setDrawingToolId(toolId)
   }
 
-  // ============ 图元 CRUD（委托 DrawingState） ============
+  // ============ 图元 CRUD ============
 
-  /** 返回所有图元（含预览） */
   getDrawings(): DrawingObject[] {
     return this.drawingState.getAll()
   }
 
-  /** 整体替换图元列表 */
   setDrawings(drawings: DrawingObject[]) {
     this.drawingState.setDrawings(drawings)
   }
 
-  /** 清空锚点累积、预览、拖拽状态及所有图元 */
   clear() {
     this.anchorCollector.reset()
     this.drawingState.removePreview()
-    this.dragHandler.endDrag()
+    if (this.dragHandler.isDragging()) {
+      this.drawingState.clearDragOverride()
+      this.dragHandler.endDrag()
+    }
     this.drawingState.clear()
   }
 
-  /** 更新指定图元的样式（合并） */
   updateDrawingStyle(drawingId: string, style: Partial<DrawingStyle>): void {
     this.drawingState.updateDrawingStyle(drawingId, style)
   }
 
-  /** 删除指定图元 */
   removeDrawing(drawingId: string): void {
     this.drawingState.removeDrawing(drawingId)
   }
 
   // ============ 选中状态 ============
 
-  /** 返回当前选中的图元 */
   getSelectedDrawing(): DrawingObject | null {
     return this.drawingState.getSelected()
   }
@@ -124,25 +117,23 @@ export class DrawingInteractionController {
   // ============ 事件处理 ============
 
   /**
-   * 指针移动事件入口。
-   * 拖拽中 → 委托 DragHandler 更新锚点；绘图模式 → 构建预览图元。
+   * 指针移动：拖拽只写会话覆盖；绘图模式只写预览。均不写 kernel。
    * @returns true 表示事件已消费，需要重绘
    */
   onPointerMove(e: PointerEvent, container: HTMLElement): boolean {
-    // 1) 正在拖拽
     if (this.dragHandler.isDragging()) {
       const drawing = this.drawingState.getById(this.dragHandler.getDraggingDrawingId() ?? '')
       if (!drawing) {
+        this.drawingState.clearDragOverride()
         this.dragHandler.endDrag()
         return false
       }
       const updated = this.dragHandler.handleDragMove(drawing, e, container, this.adapter)
       if (!updated) return false
-      this.drawingState.addOrUpdate(updated)
+      this.drawingState.setDragOverride(updated)
       return true
     }
 
-    // 2) 绘图工具预览
     const activeTool = this.getActiveTool()
     if (activeTool !== 'cursor') {
       const anchor = resolveAnchorFromPointer(e, container, this.adapter)
@@ -169,30 +160,25 @@ export class DrawingInteractionController {
   }
 
   /**
-   * 指针按下事件入口。
-   * 光标模式 → 命中检测 + 选中 + 拖拽开始；绘图模式 → 创建或累积锚点。
+   * 指针按下：光标模式命中+选中+开拖；绘图模式创建或累积锚点。
    * @returns true 表示事件已消费
    */
   onPointerDown(e: PointerEvent, container: HTMLElement): boolean {
     const activeTool = this.getActiveTool()
-    // 光标模式：命中检测 → 选中 → 开始拖拽
     if (activeTool === 'cursor') {
       return this.handleCursorDown(e, container)
     }
 
-    // 绘图模式
     const anchor = resolveAnchorFromPointer(e, container, this.adapter)
     if (!anchor) return false
 
     const anchorCount = getAnchorCountForTool(activeTool)
 
-    // 单锚点工具：点击即创建
     if (anchorCount === 1) {
       this.createSingleAnchorDrawing(anchor, activeTool)
       return true
     }
 
-    // 多锚点工具：累积
     if (anchorCount === 2 || anchorCount === 3) {
       const result = this.anchorCollector.addAnchor(anchor, activeTool)
       if (result) {
@@ -205,18 +191,18 @@ export class DrawingInteractionController {
   }
 
   /**
-   * 指针抬起事件入口。结束拖拽。
+   * 指针抬起：拖拽结果一次 commit 到 kernel。
    * @returns true 表示事件已消费
    */
   onPointerUp(_e: PointerEvent, _container: HTMLElement): boolean {
     if (!this.dragHandler.isDragging()) return false
+    this.drawingState.commitDrag()
     this.dragHandler.endDrag()
     return true
   }
 
   // ============ 私有方法 ============
 
-  /** 光标模式下指针按下：命中检测 → 选中 → 开始拖拽 */
   private handleCursorDown(e: PointerEvent, container: HTMLElement): boolean {
     const rect = container.getBoundingClientRect()
     const mouseX = e.clientX - rect.left
@@ -244,13 +230,11 @@ export class DrawingInteractionController {
     return true
   }
 
-  /** 设置选中图元并通知回调 */
   private setSelected(drawing: DrawingObject | null) {
     this.drawingState.setSelected(drawing)
     this.callbacks.onDrawingSelected?.(drawing)
   }
 
-  /** 单锚点工具：点击即创建图元，完成后切回光标模式 */
   private createSingleAnchorDrawing(anchor: DrawingAnchorInput, activeTool: DrawingToolId) {
     this.drawingState.removePreview()
 
@@ -280,7 +264,6 @@ export class DrawingInteractionController {
     this.adapter.setDrawingToolId('cursor')
   }
 
-  /** 多锚点工具（2-3 锚点）：锚点累积满后创建图元，完成后切回光标模式 */
   private createMultiAnchorDrawing(anchors: DrawingAnchorInput[], activeTool: DrawingToolId) {
     this.drawingState.removePreview()
 
@@ -327,3 +310,5 @@ export class DrawingInteractionController {
     this.adapter.setDrawingToolId('cursor')
   }
 }
+
+export { PREVIEW_ID }

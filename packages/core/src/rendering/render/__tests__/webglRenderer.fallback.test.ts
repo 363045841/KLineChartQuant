@@ -54,50 +54,16 @@ function createMockSharedWebGLSurface() {
   }
 }
 
-function makeMockFallbackCtx() {
-  return {
-    beginPath: vi.fn(),
-    moveTo: vi.fn(),
-    lineTo: vi.fn(),
-    closePath: vi.fn(),
-    fill: vi.fn(),
-    stroke: vi.fn(),
-    fillStyle: '',
-    strokeStyle: '',
-    lineWidth: 1,
-    fillRect: vi.fn(),
-  }
-}
-
 beforeEach(() => {
   vi.clearAllMocks()
 })
 
-describe('Canvas2D fallback', () => {
-  it('setFallbackContext stores the context and dpr', () => {
-    const surface = createMockSurfaceBackend()
-    const glSurface = createMockSharedWebGLSurface()
-    const renderer = createWebGLRenderer(surface, glSurface as any)
-    const ctx = makeMockFallbackCtx()
-
-    expect(() => (renderer as any).setFallbackContext(ctx, 2)).not.toThrow()
-  })
-
-  it('setFallbackContext with null clears the fallback', () => {
-    const surface = createMockSurfaceBackend()
-    const glSurface = createMockSharedWebGLSurface()
-    const renderer = createWebGLRenderer(surface, glSurface as any)
-
-    expect(() => (renderer as any).setFallbackContext(null, 1)).not.toThrow()
-  })
-
+describe('fail-closed when GPU surfaces unavailable', () => {
   describe('drawLines — line type', () => {
-    it('draws a polyline on the fallback context when WebGL is unavailable', () => {
+    it('returns false when lineSurface unavailable', () => {
       const surface = createMockSurfaceBackend()
       const glSurface = createMockSharedWebGLSurface()
       const renderer = createWebGLRenderer(surface, glSurface as any)
-      const ctx = makeMockFallbackCtx()
-      ;(renderer as any).setFallbackContext(ctx, 1)
 
       renderer.beginFrame({ x: 0, y: 0, width: 100, height: 100, dpr: 1 })
 
@@ -106,23 +72,17 @@ describe('Canvas2D fallback', () => {
       const verts = new Float32Array([10, 20, 30, 40, 50, 60])
       renderer.writeBuffer(vertexBuf, verts)
 
-      renderer.drawLines({
+      const ok = renderer.drawLines({
         pipeline,
         vertices: vertexBuf,
         vertexCount: 3,
         uniforms: { color: '#00ff00', scrollLeft: 5, lineWidth: 2 },
       })
 
-      expect(ctx.beginPath).toHaveBeenCalledTimes(1)
-      expect(ctx.moveTo).toHaveBeenCalledWith(5, 20)
-      expect(ctx.lineTo).toHaveBeenCalledWith(25, 40)
-      expect(ctx.lineTo).toHaveBeenCalledWith(45, 60)
-      expect(ctx.strokeStyle).toBe('#00ff00')
-      expect(ctx.lineWidth).toBe(2)
-      expect(ctx.stroke).toHaveBeenCalledTimes(1)
+      expect(ok).toBe(false)
     })
 
-    it('no-ops on drawLines with no fallback context', () => {
+    it('returns false on drawLines with no lineSurface', () => {
       const surface = createMockSurfaceBackend()
       const glSurface = createMockSharedWebGLSurface()
       const renderer = createWebGLRenderer(surface, glSurface as any)
@@ -132,19 +92,15 @@ describe('Canvas2D fallback', () => {
       const vertexBuf = renderer.createBuffer('vertex', 256)
       renderer.writeBuffer(vertexBuf, new Float32Array([0, 0, 100, 100]))
 
-      expect(() =>
-        renderer.drawLines({ pipeline, vertices: vertexBuf, vertexCount: 2 }),
-      ).not.toThrow()
+      expect(renderer.drawLines({ pipeline, vertices: vertexBuf, vertexCount: 2 })).toBe(false)
     })
   })
 
   describe('drawLines — fill type', () => {
-    it('draws a filled band on the fallback context', () => {
+    it('returns false when lineSurface unavailable', () => {
       const surface = createMockSurfaceBackend()
       const glSurface = createMockSharedWebGLSurface()
       const renderer = createWebGLRenderer(surface, glSurface as any)
-      const ctx = makeMockFallbackCtx()
-      ;(renderer as any).setFallbackContext(ctx, 1)
 
       renderer.beginFrame({ x: 0, y: 0, width: 100, height: 100, dpr: 1 })
 
@@ -153,33 +109,22 @@ describe('Canvas2D fallback', () => {
       const verts = new Float32Array([0, 100, 0, 50, 100, 100, 100, 50, 200, 100, 200, 50])
       renderer.writeBuffer(vertexBuf, verts)
 
-      renderer.drawLines({
+      const ok = renderer.drawLines({
         pipeline,
         vertices: vertexBuf,
         vertexCount: 6,
         uniforms: { color: '#0000ff', scrollLeft: 5 },
       })
 
-      expect(ctx.beginPath).toHaveBeenCalledTimes(1)
-      expect(ctx.moveTo).toHaveBeenCalledWith(-5, 100)
-      expect(ctx.lineTo).toHaveBeenCalledWith(95, 100)
-      expect(ctx.lineTo).toHaveBeenCalledWith(195, 100)
-      expect(ctx.lineTo).toHaveBeenCalledWith(195, 50)
-      expect(ctx.lineTo).toHaveBeenCalledWith(95, 50)
-      expect(ctx.lineTo).toHaveBeenCalledWith(-5, 50)
-      expect(ctx.closePath).toHaveBeenCalledTimes(1)
-      expect(ctx.fillStyle).toBe('#0000ff')
-      expect(ctx.fill).toHaveBeenCalledTimes(1)
+      expect(ok).toBe(false)
     })
   })
 
   describe('drawInstances', () => {
-    it('draws rectangles on the fallback context', () => {
+    it('returns false when candleSurface unavailable', () => {
       const surface = createMockSurfaceBackend()
       const glSurface = createMockSharedWebGLSurface()
       const renderer = createWebGLRenderer(surface, glSurface as any)
-      const ctx = makeMockFallbackCtx()
-      ;(renderer as any).setFallbackContext(ctx, 1)
 
       renderer.beginFrame({ x: 0, y: 0, width: 100, height: 100, dpr: 1 })
 
@@ -188,7 +133,7 @@ describe('Canvas2D fallback', () => {
       const rects = new Float32Array([10, 20, 30, 40, 60, 70, 20, 10])
       renderer.writeBuffer(instanceBuf, rects)
 
-      renderer.drawInstances({
+      const ok = renderer.drawInstances({
         pipeline,
         vertices: instanceBuf,
         instances: instanceBuf,
@@ -197,20 +142,15 @@ describe('Canvas2D fallback', () => {
         uniforms: { color: '#ff0000', scrollLeft: 5 },
       })
 
-      expect(ctx.fillRect).toHaveBeenCalledTimes(2)
-      expect(ctx.fillRect).toHaveBeenNthCalledWith(1, 5, 20, 30, 40)
-      expect(ctx.fillRect).toHaveBeenNthCalledWith(2, 55, 70, 20, 10)
-      expect(ctx.fillStyle).toBe('#ff0000')
+      expect(ok).toBe(false)
     })
   })
 
   describe('dispose behaviour', () => {
-    it('after dispose, fallback draw calls are no-ops', () => {
+    it('after dispose, draw calls are no-ops / false', () => {
       const surface = createMockSurfaceBackend()
       const glSurface = createMockSharedWebGLSurface()
       const renderer = createWebGLRenderer(surface, glSurface as any)
-      const ctx = makeMockFallbackCtx()
-      ;(renderer as any).setFallbackContext(ctx, 1)
 
       const pipeline = renderer.createPipeline({ type: 'line' })
       const vertexBuf = renderer.createBuffer('vertex', 256)
@@ -221,7 +161,7 @@ describe('Canvas2D fallback', () => {
       expect(() =>
         renderer.drawLines({ pipeline, vertices: vertexBuf, vertexCount: 2 }),
       ).not.toThrow()
-      expect(ctx.stroke).not.toHaveBeenCalled()
+      expect(renderer.drawLines({ pipeline, vertices: vertexBuf, vertexCount: 2 })).toBe(false)
     })
   })
 })

@@ -16,6 +16,7 @@ import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/vis
 
 import { createWmsrScaleRendererPlugin } from './scale/wmsr_scale'
 import { createSingleLineTitleInfo } from './shared/titleInfo'
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 type LinePoint = { x: number; y: number }
 
@@ -180,7 +181,7 @@ function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): RendererPl
     },
 
     draw(context: RenderContext) {
-      const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
+      const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
@@ -258,22 +259,11 @@ function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): RendererPl
       }
 
       // 绘制 WMSR 线（WebGL 优先，Canvas2D 回退）
-      const enableWebGL = context.settings?.enableWebGLRendering !== false
-      let usedWebGL = false
-      if (enableWebGL && lineWebGLSurface?.isAvailable()) {
-        if (params.showWMSR && cachedWMSRPoints.length >= 2) {
-          const ok = lineWebGLSurface.drawLineStrips(
-            [{ points: cachedWMSRPoints, width: 1, color: colors.wmsr.wmsr }],
-            scrollLeft,
-          )
-          if (ok) {
-            usedWebGL = true
-            lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
-          }
-        }
-      }
-
-      if (!usedWebGL) {
+      const wmsrLines =
+        params.showWMSR && cachedWMSRPoints.length >= 2
+          ? [{ points: cachedWMSRPoints, width: 1, color: colors.wmsr.wmsr }]
+          : []
+      if (!tryDrawLinesGpu(context, wmsrLines, scrollLeft)) {
         drawWMSRLineWithCanvas2D(ctx, scrollLeft, cachedWMSRPoints, params, colors)
       }
     },

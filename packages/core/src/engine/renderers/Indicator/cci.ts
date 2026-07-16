@@ -15,6 +15,7 @@ import { createCCIVisibleStateComposer } from '../../indicators/visibleStateComp
 
 import { createCciScaleRendererPlugin } from './scale/cci_scale'
 import { createSingleLineTitleInfo } from './shared/titleInfo'
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 type LinePoint = { x: number; y: number }
 
@@ -100,7 +101,7 @@ function createCCIRendererPlugin(options: CCIRendererOptions = {}): RendererPlug
     },
 
     draw(context: RenderContext) {
-      const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
+      const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
@@ -185,22 +186,11 @@ function createCCIRendererPlugin(options: CCIRendererOptions = {}): RendererPlug
       }
 
       // 绘制 CCI 线（WebGL 优先，Canvas2D 回退）
-      const enableWebGL = context.settings?.enableWebGLRendering !== false
-      let usedWebGL = false
-      if (enableWebGL && lineWebGLSurface?.isAvailable()) {
-        if (params.showCCI && cachedCCIPoints.length >= 2) {
-          const ok = lineWebGLSurface.drawLineStrips(
-            [{ points: cachedCCIPoints, width: 1, color: colors.cci.cci }],
-            scrollLeft,
-          )
-          if (ok) {
-            usedWebGL = true
-            lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
-          }
-        }
-      }
-
-      if (!usedWebGL) {
+      const cciLines =
+        params.showCCI && cachedCCIPoints.length >= 2
+          ? [{ points: cachedCCIPoints, width: 1, color: colors.cci.cci }]
+          : []
+      if (!tryDrawLinesGpu(context, cciLines, scrollLeft)) {
         drawCCILineWithCanvas2D(ctx, scrollLeft, cachedCCIPoints, params, colors)
       }
     },

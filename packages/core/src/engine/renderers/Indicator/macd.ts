@@ -16,6 +16,9 @@ import { createMACDStateKey, EMPTY_MACD_STATE } from '../../indicators/state/mac
 import type { MACDRenderState } from '../../indicators/state/macdState'
 import { createMACDVisibleStateComposer } from '../../indicators/visibleStateComposers'
 
+import { tryDrawLinesGpu } from '../linesViaRenderer'
+import { tryDrawRectsGpu } from '../rectsViaRenderer'
+
 import { createMacdScaleRendererPlugin } from './scale/macd_scale'
 
 type LinePoint = { x: number; y: number }
@@ -135,7 +138,7 @@ function createMACDRendererPlugin(options: MACDRendererOptions = {}): RendererPl
     },
 
     draw(context: RenderContext) {
-      const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
+      const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters } = context
       const klineData = data as KLineData[]
       const colors = resolveThemeColors(
         context.theme,
@@ -241,18 +244,17 @@ function createMACDRendererPlugin(options: MACDRendererOptions = {}): RendererPl
           }
         }
 
-        const usedWebGL = drawMacdBarsWithWebGL(
+        const usedGpu = tryDrawRectsGpu(
           context,
-          barUpBuf,
-          barUpCount,
-          barUpLightBuf,
-          barUpLightCount,
-          barDownBuf,
-          barDownCount,
-          barDownLightBuf,
-          barDownLightCount,
+          [
+            { buf: barUpBuf, count: barUpCount, color: colors.macd.barUp },
+            { buf: barUpLightBuf, count: barUpLightCount, color: colors.macd.barUpLight },
+            { buf: barDownBuf, count: barDownCount, color: colors.macd.barDown },
+            { buf: barDownLightBuf, count: barDownLightCount, color: colors.macd.barDownLight },
+          ],
+          scrollLeft,
         )
-        if (!usedWebGL) {
+        if (!usedGpu) {
           drawMacdBarsWithCanvas2D(
             ctx,
             scrollLeft,
@@ -269,8 +271,6 @@ function createMACDRendererPlugin(options: MACDRendererOptions = {}): RendererPl
             barDownLightBuf,
             barDownLightCount,
           )
-        } else {
-          compositeMacdWebGL(ctx, context)
         }
       }
 
@@ -313,10 +313,8 @@ function createMACDRendererPlugin(options: MACDRendererOptions = {}): RendererPl
         }
       }
 
-      // 绘制 DIF/DEA 线（WebGL 优先，Canvas2D 回退）
-      const enableWebGL = context.settings?.enableWebGLRendering !== false
-      let usedWebGLForLines = false
-      if (enableWebGL && lineWebGLSurface?.isAvailable()) {
+      // 绘制 DIF/DEA 线（sceneRenderer → Canvas2D）
+      {
         const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
         if (config.showDIF && cachedDifPoints.length >= 2) {
           lines.push({ points: cachedDifPoints, width: 1, color: colors.macd.dif })
@@ -324,28 +322,20 @@ function createMACDRendererPlugin(options: MACDRendererOptions = {}): RendererPl
         if (config.showDEA && cachedDeaPoints.length >= 2) {
           lines.push({ points: cachedDeaPoints, width: 1, color: colors.macd.dea })
         }
-        const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
-        if (allOk) {
-          usedWebGLForLines = true
-          lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
+        if (
+          !tryDrawLinesGpu(context, lines, scrollLeft)
+        ) {
+          drawMacdLinesWithCanvas2D(
+            ctx,
+            scrollLeft,
+            colors.macd.dif,
+            colors.macd.dea,
+            cachedDifPoints,
+            cachedDeaPoints,
+            config,
+          )
         }
       }
-
-      if (!usedWebGLForLines) {
-        drawMacdLinesWithCanvas2D(
-          ctx,
-          scrollLeft,
-          colors.macd.dif,
-          colors.macd.dea,
-          cachedDifPoints,
-          cachedDeaPoints,
-          config,
-        )
-      }
-    },
-
-    onDataUpdate() {
-      clearLineCache()
     },
 
     getConfig() {
@@ -375,64 +365,6 @@ function createMACDRendererPlugin(options: MACDRendererOptions = {}): RendererPl
       }
     },
   }
-}
-
-function drawMacdBarsWithWebGL(
-  context: RenderContext,
-  barUpBuf: Float32Array,
-  barUpCount: number,
-  barUpLightBuf: Float32Array,
-  barUpLightCount: number,
-  barDownBuf: Float32Array,
-  barDownCount: number,
-  barDownLightBuf: Float32Array,
-  barDownLightCount: number,
-): boolean {
-  const colors = resolveThemeColors(
-    context.theme,
-    context.isAsiaMarket,
-    context.colorPresetSettings,
-  )
-  if (context.settings?.enableWebGLRendering === false) return false
-  const surface = context.candleWebGLSurface
-  if (!surface || !surface.isAvailable()) return false
-
-  surface.clear()
-
-  const ok1 =
-    barUpCount === 0 ||
-    surface.drawRectBuffer(
-      barUpBuf.subarray(0, barUpCount * 4),
-      barUpCount,
-      colors.macd.barUp,
-      context.scrollLeft,
-    )
-  const ok2 =
-    barUpLightCount === 0 ||
-    surface.drawRectBuffer(
-      barUpLightBuf.subarray(0, barUpLightCount * 4),
-      barUpLightCount,
-      colors.macd.barUpLight,
-      context.scrollLeft,
-    )
-  const ok3 =
-    barDownCount === 0 ||
-    surface.drawRectBuffer(
-      barDownBuf.subarray(0, barDownCount * 4),
-      barDownCount,
-      colors.macd.barDown,
-      context.scrollLeft,
-    )
-  const ok4 =
-    barDownLightCount === 0 ||
-    surface.drawRectBuffer(
-      barDownLightBuf.subarray(0, barDownLightCount * 4),
-      barDownLightCount,
-      colors.macd.barDownLight,
-      context.scrollLeft,
-    )
-
-  return ok1 && ok2 && ok3 && ok4
 }
 
 function drawMacdBarsWithCanvas2D(
@@ -529,13 +461,6 @@ function drawMacdLinesWithCanvas2D(
   }
 
   ctx.restore()
-}
-
-function compositeMacdWebGL(ctx: CanvasRenderingContext2D, context: RenderContext): void {
-  const surface = context.candleWebGLSurface
-  if (!surface) return
-
-  surface.compositeTo(ctx)
 }
 
 /**

@@ -16,6 +16,7 @@ import { EMPTY_KST_STATE } from '../../indicators/state/kstState'
 import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 
 import { createKstScaleRendererPlugin } from './scale/kst_scale'
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 type LinePoint = { x: number; y: number }
 
@@ -108,7 +109,7 @@ function createKSTRendererPlugin(options: KSTRendererOptions = {}): RendererPlug
     },
 
     draw(context: RenderContext) {
-      const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
+      const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
@@ -189,26 +190,14 @@ function createKSTRendererPlugin(options: KSTRendererOptions = {}): RendererPlug
       }
 
       // 绘制 KST 线（WebGL 优先，Canvas2D 回退）
-      const enableWebGL = context.settings?.enableWebGLRendering !== false
-      let usedWebGL = false
-      if (enableWebGL && lineWebGLSurface?.isAvailable()) {
-        const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
-        if (params.showKST && cachedKSTPoints.length >= 2) {
-          lines.push({ points: cachedKSTPoints, width: 1, color: colors.kst.kst })
-        }
-        if (params.showSignal && cachedSignalPoints.length >= 2) {
-          lines.push({ points: cachedSignalPoints, width: 1, color: colors.kst.signal })
-        }
-
-        const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
-
-        if (allOk) {
-          usedWebGL = true
-          lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
-        }
+      const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
+      if (params.showKST && cachedKSTPoints.length >= 2) {
+        lines.push({ points: cachedKSTPoints, width: 1, color: colors.kst.kst })
       }
-
-      if (!usedWebGL) {
+      if (params.showSignal && cachedSignalPoints.length >= 2) {
+        lines.push({ points: cachedSignalPoints, width: 1, color: colors.kst.signal })
+      }
+      if (!tryDrawLinesGpu(context, lines, scrollLeft)) {
         drawKSTLinesWithCanvas2D(
           ctx,
           scrollLeft,

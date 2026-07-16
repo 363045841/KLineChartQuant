@@ -198,7 +198,7 @@ describe('createWebGLRenderer', () => {
       renderer.writeBuffer(instanceBuf, rects)
 
       const vertices = renderer.createBuffer('vertex', 48)
-      renderer.drawInstances({
+      const ok = renderer.drawInstances({
         pipeline,
         vertices,
         instances: instanceBuf,
@@ -207,6 +207,7 @@ describe('createWebGLRenderer', () => {
         uniforms: { color: '#ff0000', scrollLeft: 0 },
       })
 
+      expect(ok).toBe(true)
       expect(mocks.mockDrawRectBuffer).toHaveBeenCalledTimes(1)
       const args = mocks.mockDrawRectBuffer.mock.calls[0]
       expect(args[0]).toBeInstanceOf(Float32Array)
@@ -215,36 +216,55 @@ describe('createWebGLRenderer', () => {
       expect(args[3]).toBe(0)
     })
 
-    it('no-ops when instanceCount is zero', () => {
+    it('returns true without GPU when instanceCount is zero', () => {
       const { renderer } = makeRenderer()
       renderer.beginFrame({ x: 0, y: 0, width: 100, height: 100, dpr: 1 })
       const pipeline = renderer.createPipeline({ type: 'candle' })
       const buf = renderer.createBuffer('instance', 64)
       renderer.writeBuffer(buf, new Float32Array([0, 0, 50, 50]))
-      renderer.drawInstances({
+      const ok = renderer.drawInstances({
         pipeline,
         vertices: buf,
         instances: buf,
         instanceCount: 0,
         vertexCount: 6,
       })
+      expect(ok).toBe(true)
       expect(mocks.mockDrawRectBuffer).not.toHaveBeenCalled()
     })
 
-    it('no-ops when pipeline type mismatch (line -> instances)', () => {
+    it('returns false when pipeline type mismatch (line -> instances)', () => {
       const { renderer } = makeRenderer()
       renderer.beginFrame({ x: 0, y: 0, width: 100, height: 100, dpr: 1 })
       const pipeline = renderer.createPipeline({ type: 'line' })
       const buf = renderer.createBuffer('instance', 64)
       renderer.writeBuffer(buf, new Float32Array([0, 0, 50, 50]))
-      renderer.drawInstances({
+      const ok = renderer.drawInstances({
         pipeline,
         vertices: buf,
         instances: buf,
         instanceCount: 1,
         vertexCount: 6,
       })
+      expect(ok).toBe(false)
       expect(mocks.mockDrawRectBuffer).not.toHaveBeenCalled()
+    })
+
+    it('returns false when drawRectBuffer fails', () => {
+      mocks.mockDrawRectBuffer.mockReturnValueOnce(false)
+      const { renderer } = makeRenderer()
+      renderer.beginFrame({ x: 0, y: 0, width: 100, height: 100, dpr: 1 })
+      const pipeline = renderer.createPipeline({ type: 'candle' })
+      const buf = renderer.createBuffer('instance', 64)
+      renderer.writeBuffer(buf, new Float32Array([0, 0, 50, 50]))
+      const ok = renderer.drawInstances({
+        pipeline,
+        vertices: buf,
+        instances: buf,
+        instanceCount: 1,
+        vertexCount: 6,
+      })
+      expect(ok).toBe(false)
     })
   })
 
@@ -258,7 +278,7 @@ describe('createWebGLRenderer', () => {
       const verts = new Float32Array([10, 20, 30, 40, 50, 60])
       renderer.writeBuffer(vertexBuf, verts)
 
-      renderer.drawLines({
+      const ok = renderer.drawLines({
         pipeline,
         vertices: vertexBuf,
         vertexCount: 3,
@@ -266,6 +286,7 @@ describe('createWebGLRenderer', () => {
         uniforms: { color: '#00ff00', scrollLeft: 10, lineWidth: 1 },
       })
 
+      expect(ok).toBe(true)
       expect(mocks.mockDrawLineStrips).toHaveBeenCalledTimes(1)
       const args = mocks.mockDrawLineStrips.mock.calls[0]
       expect(args[0]).toHaveLength(1)
@@ -273,6 +294,43 @@ describe('createWebGLRenderer', () => {
       expect(args[0][0].width).toBe(1)
       expect(args[0][0].points).toHaveLength(3)
       expect(args[1]).toBe(10)
+    })
+
+    it('batches multiple strips in one drawLineStrips call', () => {
+      const { renderer } = makeRenderer()
+      renderer.beginFrame({ x: 0, y: 0, width: 800, height: 600, dpr: 1 })
+      const pipeline = renderer.createPipeline({ type: 'line' })
+      const ok = renderer.drawLines({
+        pipeline,
+        strips: [
+          {
+            points: [
+              { x: 0, y: 0 },
+              { x: 1, y: 1 },
+            ],
+            color: '#f00',
+            width: 1,
+          },
+          {
+            points: [
+              { x: 0, y: 2 },
+              { x: 1, y: 3 },
+              { x: 2, y: 2 },
+            ],
+            color: '#0f0',
+            width: 2,
+          },
+        ],
+        uniforms: { scrollLeft: 5 },
+      })
+      expect(ok).toBe(true)
+      expect(mocks.mockDrawLineStrips).toHaveBeenCalledTimes(1)
+      const lines = mocks.mockDrawLineStrips.mock.calls[0]![0]
+      expect(lines).toHaveLength(2)
+      expect(lines[0].color).toBe('#f00')
+      expect(lines[1].color).toBe('#0f0')
+      expect(lines[1].width).toBe(2)
+      expect(mocks.mockDrawLineStrips.mock.calls[0]![1]).toBe(5)
     })
 
     it('delegates to line surface drawFilledBand for fill pipeline', () => {

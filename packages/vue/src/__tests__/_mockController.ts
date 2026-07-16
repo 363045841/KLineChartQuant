@@ -95,6 +95,11 @@ export function createMockChartController(
     symbols: createSignal([] as ReadonlyArray<SymbolSpec>),
     theme,
     settings,
+    rendererRuntime: createSignal({
+      effective: 'webgl' as const,
+      status: 'ready' as const,
+      error: null,
+    }),
     chartMode: createSignal('kline' as const),
     indicators: createSignal<ReadonlyArray<IndicatorInstance>>([]),
     subPanes: createSignal<ReadonlyArray<SubPaneInfo>>([]),

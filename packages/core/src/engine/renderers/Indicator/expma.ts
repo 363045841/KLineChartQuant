@@ -19,6 +19,7 @@ import type {
 } from '../../indicators/indicatorMetadata'
 import type { EXPMASchedulerConfig, IndicatorScheduler } from '../../indicators/scheduler'
 import { EXPMA_STATE_KEY, type EXPMARenderState } from '../../indicators/state/expmaState'
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 type LinePoint = { x: number; y: number }
 
@@ -127,7 +128,7 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
     },
 
     draw(context: RenderContext) {
-      const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
+      const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters } = context
       const klineData = data as KLineData[]
       const colors = resolveThemeColors(
         context.theme,
@@ -169,9 +170,7 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
         }
       }
 
-      const enableWebGL = context.settings?.enableWebGLRendering !== false
-      let usedWebGL = false
-      if (enableWebGL && lineWebGLSurface?.isAvailable()) {
+      {
         const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
         if (cachedFastPoints.length >= 2) {
           lines.push({ points: cachedFastPoints, width: 1, color: colors.expma.fast })
@@ -179,16 +178,8 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
         if (cachedSlowPoints.length >= 2) {
           lines.push({ points: cachedSlowPoints, width: 1, color: colors.expma.slow })
         }
-
-        const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
-
-        if (allOk) {
-          usedWebGL = true
-          lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
-        }
+        if (tryDrawLinesGpu(context, lines, scrollLeft)) return
       }
-
-      if (usedWebGL) return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)

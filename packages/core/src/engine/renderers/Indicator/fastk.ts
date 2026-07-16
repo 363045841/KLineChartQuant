@@ -16,6 +16,7 @@ import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/vis
 import { createFastkScaleRendererPlugin } from './scale/fastk_scale'
 import { createDashedLineRenderer } from './shared/dashedLines'
 import { createSingleLineTitleInfo } from './shared/titleInfo'
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 type LinePoint = { x: number; y: number }
 
@@ -104,7 +105,7 @@ function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): Renderer
     },
 
     draw(context: RenderContext) {
-      const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
+      const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
@@ -161,22 +162,11 @@ function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): Renderer
       }
 
       // 绘制 FASTK 线（WebGL 优先，Canvas2D 回退）
-      const enableWebGL = context.settings?.enableWebGLRendering !== false
-      let usedWebGL = false
-      if (enableWebGL && lineWebGLSurface?.isAvailable()) {
-        if (params.showFASTK && cachedFASTKPoints.length >= 2) {
-          const ok = lineWebGLSurface.drawLineStrips(
-            [{ points: cachedFASTKPoints, width: 1, color: colors.kdj.k }],
-            scrollLeft,
-          )
-          if (ok) {
-            usedWebGL = true
-            lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
-          }
-        }
-      }
-
-      if (!usedWebGL) {
+      const fastkLines =
+        params.showFASTK && cachedFASTKPoints.length >= 2
+          ? [{ points: cachedFASTKPoints, width: 1, color: colors.kdj.k }]
+          : []
+      if (!tryDrawLinesGpu(context, fastkLines, scrollLeft)) {
         drawFASTKLineWithCanvas2D(ctx, scrollLeft, cachedFASTKPoints, params, colors)
       }
     },

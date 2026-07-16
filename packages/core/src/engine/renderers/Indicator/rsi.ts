@@ -16,6 +16,7 @@ import { createRSIStateKey, EMPTY_RSI_STATE } from '../../indicators/state/rsiSt
 import { createFixedRangeRecordVisibleStateComposer } from '../../indicators/visibleStateComposers'
 
 import { createRsiScaleRendererPlugin } from './scale/rsi_scale'
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 type LinePoint = { x: number; y: number }
 
@@ -188,7 +189,7 @@ function createRSIRendererPlugin(options: RSIRendererOptions = {}): RendererPlug
     },
 
     draw(context: RenderContext) {
-      const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
+      const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
@@ -272,29 +273,17 @@ function createRSIRendererPlugin(options: RSIRendererOptions = {}): RendererPlug
       }
 
       // 绘制 RSI 线（WebGL 优先，Canvas2D 回退）
-      const enableWebGL = context.settings?.enableWebGLRendering !== false
-      let usedWebGL = false
-      if (enableWebGL && lineWebGLSurface?.isAvailable()) {
-        const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
-        if (params.showRSI1 && cachedRSI1Points.length >= 2) {
-          lines.push({ points: cachedRSI1Points, width: 1, color: colors.rsi.rsi1 })
-        }
-        if (params.showRSI2 && cachedRSI2Points.length >= 2) {
-          lines.push({ points: cachedRSI2Points, width: 1, color: colors.rsi.rsi2 })
-        }
-        if (params.showRSI3 && cachedRSI3Points.length >= 2) {
-          lines.push({ points: cachedRSI3Points, width: 1, color: colors.rsi.rsi3 })
-        }
-
-        const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
-
-        if (allOk) {
-          usedWebGL = true
-          lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
-        }
+      const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
+      if (params.showRSI1 && cachedRSI1Points.length >= 2) {
+        lines.push({ points: cachedRSI1Points, width: 1, color: colors.rsi.rsi1 })
       }
-
-      if (!usedWebGL) {
+      if (params.showRSI2 && cachedRSI2Points.length >= 2) {
+        lines.push({ points: cachedRSI2Points, width: 1, color: colors.rsi.rsi2 })
+      }
+      if (params.showRSI3 && cachedRSI3Points.length >= 2) {
+        lines.push({ points: cachedRSI3Points, width: 1, color: colors.rsi.rsi3 })
+      }
+      if (!tryDrawLinesGpu(context, lines, scrollLeft)) {
         drawRSILinesWithCanvas2D(
           ctx,
           scrollLeft,

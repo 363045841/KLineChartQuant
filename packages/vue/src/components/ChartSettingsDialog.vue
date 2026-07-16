@@ -57,6 +57,12 @@
                 />
               </template>
             </div>
+            <div
+              v-if="item.key === 'rendererBackend' && runtimeHint"
+              class="settings-item runtime-hint"
+            >
+              <span>{{ runtimeHint }}</span>
+            </div>
           </template>
         </div>
       </section>
@@ -265,9 +271,11 @@
   import {
     DEFAULT_SETTINGS,
     SETTINGS_STORAGE_KEY,
+    migrateStoredSettings,
     type ChartSettings,
     type SettingItem,
   } from '@363045841yyt/klinechart-core/config'
+  import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
   import { ref, computed, watch } from 'vue'
 
   import { getOpenSourceCredits } from '../credits/openSourceCredits'
@@ -279,6 +287,7 @@
   const props = defineProps<{
     show: boolean
     initialSettings?: ChartSettings
+    rendererRuntime?: RendererBackendRuntime | null
   }>()
 
   const emit = defineEmits<{
@@ -325,7 +334,7 @@
     try {
       const saved = localStorage.getItem(SETTINGS_STORAGE_KEY)
       if (saved) {
-        const parsed = JSON.parse(saved)
+        const parsed = migrateStoredSettings(JSON.parse(saved) as Record<string, unknown>)
         const result: ChartSettings = {}
         DEFAULT_SETTINGS.forEach((item) => {
           ;(result as Record<string, unknown>)[item.key] = parsed[item.key] ?? item.default
@@ -341,6 +350,20 @@
     defaults.colorPresetSettings = {}
     return defaults
   }
+
+  const runtimeHint = computed(() => {
+    const runtime = props.rendererRuntime
+    if (!runtime) return ''
+    const status =
+      runtime.status === 'ready'
+        ? ''
+        : runtime.status === 'switching'
+          ? '切换中'
+          : runtime.status === 'degraded'
+            ? '已降级'
+            : runtime.status
+    return status ? `当前有效：${runtime.effective}（${status}）` : `当前有效：${runtime.effective}`
+  })
 
   const settings = ref<ChartSettings>(loadSettings())
 
@@ -483,6 +506,19 @@
 
   .settings-item:hover {
     background: var(--klc-color-tag-bg-hover);
+  }
+
+  .settings-item.runtime-hint {
+    min-height: 28px;
+    padding-top: 0;
+    padding-bottom: 8px;
+    font-size: 12px;
+    color: var(--klc-color-axis-text);
+    cursor: default;
+  }
+
+  .settings-item.runtime-hint:hover {
+    background: transparent;
   }
 
   a.settings-item.credit-item {

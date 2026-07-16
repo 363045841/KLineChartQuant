@@ -16,6 +16,7 @@ import type { IndicatorScheduler, DonchianSchedulerConfig } from '../../indicato
 import type { DonchianRenderState } from '../../indicators/state/donchianState'
 import { createDonchianStateKey, EMPTY_DONCHIAN_STATE } from '../../indicators/state/donchianState'
 import { createBandVisibleStateComposer } from '../../indicators/visibleStateComposers'
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 const DONCHIAN_UPPER_COLOR = '#0891b2'
 const DONCHIAN_MIDDLE_COLOR = '#94a3b8'
@@ -68,7 +69,7 @@ function createDonchianRendererPlugin(
     },
 
     draw(context: RenderContext) {
-      const { ctx, pane, range, scrollLeft, kLineCenters, lineWebGLSurface } = context
+      const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const stateKey = resolveKey()
       if (!stateKey) return
       const state = pluginHost?.getSharedState<DonchianRenderState>(stateKey)
@@ -102,17 +103,7 @@ function createDonchianRendererPlugin(
       if (lowerPts.length >= 2)
         lines.push({ points: lowerPts, width: 1, color: DONCHIAN_LOWER_COLOR })
 
-      const enableWebGL = context.settings?.enableWebGLRendering !== false
-      let usedWebGL = false
-      if (enableWebGL && lineWebGLSurface?.isAvailable()) {
-        const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
-        if (allOk) {
-          usedWebGL = true
-          lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
-        }
-      }
-
-      if (usedWebGL) return
+      if (tryDrawLinesGpu(context, lines, scrollLeft)) return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)

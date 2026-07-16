@@ -34,6 +34,7 @@
         :is-fullscreen="effectiveIsFullscreen"
         :alert-controller="controller"
         :effective-settings="chartSettings"
+        :renderer-runtime="rendererRuntime"
         :drawing-tool-id="drawingToolId"
         :is-range-select-mode="isRangeSelectMode"
         @select-tool="handleSelectTool"
@@ -212,9 +213,11 @@
 <script setup lang="ts">
   import {
     SETTINGS_STORAGE_KEY,
+    migrateStoredSettings,
     resolveSettings,
     type ChartSettings,
   } from '@363045841yyt/klinechart-core/config'
+  import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
   import {
     createChartController,
     routerDataFetcher,
@@ -463,7 +466,10 @@ import MarkerTooltip from './MarkerTooltip.vue'
 
   function forcePercentAxis() {
     if (chartSettings.value.axisType === 'percent') return
-    const nextSettings = { ...chartSettings.value, axisType: 'percent' as const }
+    const nextSettings = migrateStoredSettings({
+      ...chartSettings.value,
+      axisType: 'percent',
+    })
     chartSettings.value = nextSettings
     controller.value?.updateSettingsFacade(resolveSettings(nextSettings))
     try {
@@ -572,6 +578,8 @@ import MarkerTooltip from './MarkerTooltip.vue'
 
   /** 镜像 kernel.drawingTool，供工具栏高亮 */
   const drawingToolId = shallowRef('cursor')
+  /** 镜像 kernel.rendererRuntime，供设置页显示有效后端 */
+  const rendererRuntime = shallowRef<RendererBackendRuntime | null>(null)
 
   const {
     mainActiveIndicators,
@@ -783,6 +791,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
     _unsubTooltip = ctrl.interactionState.subscribe(() => {
       const el = tooltipContentRef.value
       if (!el) return
+      // 订阅整包 snapshot；内容更新仅依赖 hoveredIndex，索引未变时只动 display
       const snapshot = ctrl.interactionState.peek()
       const idx = snapshot.hoveredIndex
       const data = ctrl.getData()
@@ -1034,7 +1043,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
           return true
         }
         if (drawingController.value?.onPointerMove(event, container)) {
-          drawings.value = drawingController.value.getDrawings()
+          // 预览/拖拽只在会话层；UI 列表仍订 kernel.drawings，此处不镜像会话态
           return true
         }
         return false
@@ -1214,6 +1223,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
       priceLabelWidth: props.priceLabelWidth,
       minKWidth: props.minKWidth,
       maxKWidth: props.maxKWidth,
+      settings: props.settings,
       mcp: props.mcp,
     })
     return ctrl
@@ -1291,6 +1301,11 @@ import MarkerTooltip from './MarkerTooltip.vue'
       drawingToolId.value = ctrl.drawingTool.peek()
     })
 
+    rendererRuntime.value = ctrl.rendererRuntime.peek()
+    const unsubscribeRendererRuntime = ctrl.rendererRuntime.subscribe(() => {
+      rendererRuntime.value = ctrl.rendererRuntime.peek()
+    })
+
     const unsubscribeIndicators = setupIndicatorSubscriptions(ctrl)
 
     const unsubscribeComparisonColors = ctrl.comparisonColors.subscribe(() => {
@@ -1351,6 +1366,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
       unsubscribePaneLayout()
       unsubscribeTheme()
       unsubscribeDrawingTool()
+      unsubscribeRendererRuntime()
       unsubscribeIndicators()
       unsubscribeComparisonColors()
       unsubscribeComparisonLoading()
@@ -1360,7 +1376,9 @@ import MarkerTooltip from './MarkerTooltip.vue'
   }
 
   function applyInitialSettings(ctrl: ChartController): void {
-    const toolbarSettings = toolbarRef.value?.getSettings() ?? {}
+    const toolbarSettings = migrateStoredSettings(
+      (toolbarRef.value?.getSettings() ?? {}) as Record<string, unknown>,
+    )
     const propSettings = props.settings ?? {}
     const merged = { ...toolbarSettings, ...propSettings }
     chartSettings.value = merged
@@ -1371,8 +1389,11 @@ import MarkerTooltip from './MarkerTooltip.vue'
 
   function setupInteractionCallbacks(ctrl: ChartController): void {
     ctrl.setTooltipAnchorPositioning(useAnchorPositioning.value)
+    // 引用相等短路：kernel interactionSnapshot 已字段级缓存
     ctrl.interactionState.subscribe(() => {
-      interactionState.value = ctrl.interactionState.peek()
+      const next = ctrl.interactionState.peek()
+      if (interactionState.value === next) return
+      interactionState.value = next
     })
 
     interactionState.value = ctrl.interactionState.peek()

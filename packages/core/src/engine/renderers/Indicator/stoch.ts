@@ -16,6 +16,7 @@ import { createFixedRangePointVisibleStateComposer } from '../../indicators/visi
 
 import { createStochScaleRendererPlugin } from './scale/stoch_scale'
 import { createDashedLineRenderer } from './shared/dashedLines'
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 type LinePoint = { x: number; y: number }
 
@@ -108,7 +109,7 @@ function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): Renderer
     },
 
     draw(context: RenderContext) {
-      const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
+      const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
@@ -181,26 +182,14 @@ function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): Renderer
       }
 
       // 绘制 STOCH 线（WebGL 优先，Canvas2D 回退）
-      const enableWebGL = context.settings?.enableWebGLRendering !== false
-      let usedWebGL = false
-      if (enableWebGL && lineWebGLSurface?.isAvailable()) {
-        const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
-        if (params.showK && cachedKPoints.length >= 2) {
-          lines.push({ points: cachedKPoints, width: 1, color: colors.kdj.k })
-        }
-        if (params.showD && cachedDPoints.length >= 2) {
-          lines.push({ points: cachedDPoints, width: 1, color: colors.kdj.d })
-        }
-
-        const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
-
-        if (allOk) {
-          usedWebGL = true
-          lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
-        }
+      const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
+      if (params.showK && cachedKPoints.length >= 2) {
+        lines.push({ points: cachedKPoints, width: 1, color: colors.kdj.k })
       }
-
-      if (!usedWebGL) {
+      if (params.showD && cachedDPoints.length >= 2) {
+        lines.push({ points: cachedDPoints, width: 1, color: colors.kdj.d })
+      }
+      if (!tryDrawLinesGpu(context, lines, scrollLeft)) {
         drawSTOCHLinesWithCanvas2D(ctx, scrollLeft, cachedKPoints, cachedDPoints, params, colors)
       }
     },

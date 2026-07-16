@@ -4,6 +4,7 @@ export {
   computed,
   effect,
   batch,
+  selectSignal,
   createStateStore,
   createSubState,
 } from './signal'
@@ -14,4 +15,11 @@ export type {
   WritableRef,
   ReadonlyRef,
   Computed,
+  SelectedSignal,
 } from './signal'
+export { createFrameTransaction } from './frameTransaction'
+export type {
+  FramePhase,
+  FrameTransaction,
+  FrameTransactionOptions,
+} from './frameTransaction'

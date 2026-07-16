@@ -156,6 +156,7 @@
   <ChartSettingsDialog
     :show="showSettings"
     :initial-settings="appliedSettings"
+    :renderer-runtime="rendererRuntime"
     @close="showSettings = false"
     @confirm="handleConfirmSettings"
   />
@@ -172,8 +173,10 @@
   import {
     DEFAULT_SETTINGS,
     SETTINGS_STORAGE_KEY,
+    migrateStoredSettings,
     type ChartSettings,
   } from '@363045841yyt/klinechart-core/config'
+  import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
   import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 
   import { useAlerts } from '../composables/useAlerts'
@@ -252,6 +255,7 @@
     isFullscreen?: boolean
     alertController?: ChartController | null
     effectiveSettings?: ChartSettings
+    rendererRuntime?: RendererBackendRuntime | null
     /** kernel drawingTool 镜像；高亮以它为准 */
     drawingToolId?: string
     /** range-select 本地模式 */
@@ -275,7 +279,7 @@
     try {
       const saved = localStorage.getItem(SETTINGS_STORAGE_KEY)
       if (saved) {
-        const parsed = JSON.parse(saved)
+        const parsed = migrateStoredSettings(JSON.parse(saved) as Record<string, unknown>)
         const result: ChartSettings = { ...parsed }
         DEFAULT_SETTINGS.forEach((item) => {
           ;(result as Record<string, unknown>)[item.key] = parsed[item.key] ?? item.default

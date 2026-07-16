@@ -109,8 +109,8 @@ function makeMockRenderer(surface: SurfaceBackend, computeSupported: boolean): R
     },
     destroyComputePipeline: () => {},
     beginFrame: () => {},
-    drawInstances: () => {},
-    drawLines: () => {},
+    drawInstances: () => true,
+    drawLines: () => true,
     dispatchCompute: () => {
       if (!computeSupported) {
         throw new Error('dispatchCompute requires a backend with caps.compute === true')

@@ -12,6 +12,7 @@ import {
   type RendererPlugin,
   type RendererPluginWithHost,
 } from '../foundation/plugin/index'
+import { createLayerFromPlugin } from '../rendering/scene/createLayerFromPlugin'
 import {
   computed,
   type Computed,
@@ -22,6 +23,11 @@ import {
 import { InteractionController, type InteractionSnapshot } from './controller/interaction'
 
 import type { ChartSettings } from '../foundation/config/chartSettings'
+import {
+  createDefaultRendererHostSync,
+  type RendererBackend,
+  type RendererHost,
+} from '../rendering/render/index'
 import type { KLineData } from '../foundation/types/price'
 
 import type { IndicatorScheduler } from './indicators/scheduler'
@@ -41,7 +47,6 @@ import { KLineMode } from './modes/kLineMode'
 import { TimeShareMode } from './modes/timeShareMode'
 import { PaneRenderer } from './paneRenderer'
 import { ChartRenderer } from './render/chartRenderer'
-import { SharedWebGLSurface } from './renderers/webgl/sharedWebGLSurface'
 import { ChartStateKernel } from './state/chartStateKernel'
 import { ChartViewportManager } from './viewport/chartViewportManager'
 import { getVisibleRange } from './viewport/viewport'
@@ -101,8 +106,8 @@ export class Chart {
   /** 渲染器插件管理器 */
   private rendererPluginManager: RendererPluginManager
 
-  /** Chart 级共享 WebGL canvas/context */
-  private sharedWebGLSurface: SharedWebGLSurface
+  /** 具体渲染后端及其生命周期所有者 */
+  private rendererHost: RendererHost
 
   /** 缩放控制器 */
   private zoomController: ChartZoomController
@@ -196,13 +201,17 @@ export class Chart {
    * @param dom 由 Vue 组件传入的 DOM 句柄
    * @param opt 初始配置
    */
-  constructor(dom: ChartDom, opt: ChartOptions) {
+  constructor(
+    dom: ChartDom,
+    opt: ChartOptions,
+    runtime?: { rendererHost?: RendererHost; initialSettings?: Partial<ChartSettings> },
+  ) {
     this.dom = dom
     const { kWidth: _kWidth, kGap: _kGap, ...restOpt } = opt
     this._activeMode = this._kLineMode
     this.pluginHost = createPluginHost()
     this.rendererPluginManager = new RendererPluginManager()
-    this.sharedWebGLSurface = new SharedWebGLSurface()
+    this.rendererHost = runtime?.rendererHost ?? createDefaultRendererHostSync()
 
     // 注入依赖
     this.rendererPluginManager.setPluginHost(this.pluginHost)
@@ -218,14 +227,24 @@ export class Chart {
         zoomLevelCount,
       },
       initialZoomLevel,
+      initialSettings: runtime?.initialSettings,
+      initialRendererRuntime: this.rendererHost.runtime,
       scheduleDraw: (level) => this.scheduleDraw(level as UpdateLevel | undefined),
     })
+    this.rendererHost.setListeners({
+      onRuntimeChange: (rendererRuntime) => {
+        this.kernel.renderer.actions.setRuntime(rendererRuntime)
+        this.syncGpuSceneCanvas()
+      },
+      requestRedraw: () => this.scheduleDraw(UpdateLevel.All),
+    })
+    this.syncGpuSceneCanvas()
 
     // Inject DOM deps into kernel's viewportState (needed before init)
     this.kernel.setViewportDomDeps({
       getDom: () => this.dom,
       resizeSharedWebGLSurface: (plotWidth, plotHeight, dpr) =>
-        this.sharedWebGLSurface.resize(plotWidth, plotHeight, dpr),
+        this.rendererHost.resize(plotWidth, plotHeight, dpr),
     })
 
     // ── ViewportManager (DOM lifecycle: ResizeObserver + scroll events) ──
@@ -257,7 +276,6 @@ export class Chart {
         }
       },
       getViewport: () => this.viewportManager.getViewport(),
-      getSharedWebGLSurface: () => this.sharedWebGLSurface,
       setKnownPaneIds: (ids) => this.rendererPluginManager.setKnownPaneIds(ids),
       notifyPaneResize: (paneId, pane) =>
         this.rendererPluginManager.notifyResize(paneId, wrapPaneInfo(pane)),
@@ -435,7 +453,7 @@ export class Chart {
       },
       getPaneRenderers: () => this.paneRenderers,
       getInteraction: () => this.interaction,
-      getSharedWebGLSurface: () => this.sharedWebGLSurface,
+      getSceneRenderer: () => this.rendererHost.renderer,
       getPluginHost: () => this.pluginHost,
       getRendererPluginManager: () => this.rendererPluginManager,
       getTheme: () => this.kernel.effectiveTheme$.peek(),
@@ -449,6 +467,7 @@ export class Chart {
       customMarkers$: this.kernel.marker.readonly.customMarkers,
       drawings$: this.kernel.drawing.readonly.drawings,
       selectedDrawingId$: this.kernel.drawing.readonly.selectedDrawingId,
+      getOverlay: () => this.drawingSession?.getPaintOverlay() ?? [],
     })
     this.renderer.registerDrawingPlugins()
     this.renderer.initCoreRenderers()
@@ -585,22 +604,80 @@ export class Chart {
     return this.pluginHost
   }
 
-  // ========== 渲染器插件 API ==========
+  // ========== 渲染器插件 API（绘制只走 Scene；Manager 仅作注册表） ==========
 
-  /** 安装渲染器插件 */
+  private resolvePluginLayerTarget(plugin: RendererPlugin): string {
+    if (typeof plugin.paneId === 'symbol') {
+      return 'global'
+    }
+    return String(plugin.paneId)
+  }
+
+  private getContextForPluginLayer(targetPaneId: string) {
+    return () => {
+      if (!this.renderer) return null
+      const map = this.renderer.getPaneCtxMap()
+      if (targetPaneId === 'global') {
+        return map.get(this.renderer.getCurrentPaneId()) ?? null
+      }
+      return map.get(targetPaneId) ?? null
+    }
+  }
+
+  /** 安装渲染器插件：注册元数据 + 挂 Scene Layer（唯一绘制路径；幂等） */
   useRenderer(
     plugin: RendererPlugin | RendererPluginWithHost,
     config?: Record<string, unknown>,
   ): void {
+    const layerId = `plugin:${plugin.name}`
+    const scene = this.renderer?.getScene()
+    const existingPlugin = this.rendererPluginManager.getPlugin(plugin.name)
+    const alreadyLayer = scene?.getLayer(layerId) != null
+
+    if (existingPlugin && alreadyLayer) {
+      if (config && existingPlugin.setConfig) existingPlugin.setConfig(config)
+      return
+    }
+
+    // 仅有注册表：补挂 Layer（不新建 plugin 实例）
+    if (existingPlugin && !alreadyLayer) {
+      if (config && existingPlugin.setConfig) existingPlugin.setConfig(config)
+      const targetPaneId = this.resolvePluginLayerTarget(existingPlugin)
+      scene?.addLayer(
+        createLayerFromPlugin(
+          existingPlugin,
+          this.getContextForPluginLayer(targetPaneId),
+          targetPaneId,
+        ),
+      )
+      return
+    }
+
+    // 仅有 Layer（core 预挂）：不二次 register，避免 Manager 实例 ≠ 绘制实例
+    if (!existingPlugin && alreadyLayer) {
+      return
+    }
+
     this.rendererPluginManager.register(plugin)
     if (config && plugin.setConfig) {
       plugin.setConfig(config)
     }
+    const targetPaneId = this.resolvePluginLayerTarget(plugin)
+    const layer = createLayerFromPlugin(
+      plugin,
+      this.getContextForPluginLayer(targetPaneId),
+      targetPaneId,
+    )
+    scene?.addLayer(layer)
   }
 
-  /** 移除渲染器插件 */
+  /**
+   * 移除渲染器插件。
+   * onUninstall 仅由 Manager.unregister 调用；Scene removeLayer 不 dispose，避免双调。
+   */
   removeRenderer(name: string): void {
     this.rendererPluginManager.unregister(name)
+    this.renderer?.getScene()?.removeLayer(`plugin:${name}`)
   }
 
   /** 获取渲染器插件 */
@@ -613,9 +690,18 @@ export class Chart {
     this.rendererPluginManager.updateConfig(name, config)
   }
 
-  /** 启用/禁用渲染器 */
+  /** 启用/禁用渲染器（Scene Layer 显隐；Manager enabled 仅同步元数据） */
   setRendererEnabled(name: string, enabled: boolean): void {
-    this.rendererPluginManager.setEnabled(name, enabled)
+    const inManager = this.rendererPluginManager.getPlugin(name) != null
+    if (inManager) {
+      // setEnabled → invalidate → scheduleDraw（勿再 schedule 双唤醒）
+      this.rendererPluginManager.setEnabled(name, enabled)
+    }
+    this.renderer?.getScene()?.setLayerVisibility(`plugin:${name}`, enabled)
+    // core-only Layer（如 candle）不在 Manager：需显式重绘
+    if (!inManager) {
+      this.scheduleDraw()
+    }
   }
 
   /** 获取所有渲染器 */
@@ -685,6 +771,14 @@ export class Chart {
 
     if ('rightAxisType' in settings) {
       this.applyRightAxisTypeToKernel(settings.rightAxisType as string)
+    }
+
+    if (prev.rendererBackend !== next.rendererBackend) {
+      void this.rendererHost.switchTo(next.rendererBackend as RendererBackend).then(() => {
+        this.syncGpuSceneCanvas()
+        this.scheduleDraw(UpdateLevel.All)
+      })
+      return
     }
 
     this.scheduleDraw()
@@ -826,9 +920,10 @@ export class Chart {
     this.indicatorManager.bindIndicatorToPane(paneId, indicatorId, params)
   }
 
-  /** 更新绘图对象（写 kernel + 重绘） */
+  /** 更新绘图对象（写 kernel + 重绘）；剥离会话预览 id */
   setDrawings(drawings: import('../foundation/plugin').DrawingObject[]): void {
-    this.kernel.drawing.actions.setDrawings(drawings)
+    const committed = drawings.filter((d) => d.id !== '__preview__')
+    this.kernel.drawing.actions.setDrawings(committed)
     this.scheduleDraw()
   }
 
@@ -1166,14 +1261,50 @@ export class Chart {
     }
   }
 
+  /**
+   * M2：将 WebGPU canvas 挂到 plot 区（main 与 overlay 之间），非 webgpu 时移除。
+   * 多 pane 共用一张 canvas，region.y + scissor 区分。
+   */
+  private syncGpuSceneCanvas(): void {
+    const layer = this.dom.canvasLayer
+    if (!layer) return
+    const effective = this.rendererHost.runtime.effective
+    const existing = layer.querySelector('canvas.gpu-scene-canvas') as HTMLCanvasElement | null
+
+    if (effective !== 'webgpu') {
+      existing?.remove()
+      return
+    }
+
+    const surface = this.rendererHost.renderer.surface as { canvas?: HTMLCanvasElement }
+    const canvas = surface.canvas
+    if (!canvas) return
+
+    canvas.classList.add('gpu-scene-canvas')
+    canvas.style.position = 'absolute'
+    canvas.style.left = '0'
+    canvas.style.top = '0'
+    canvas.style.pointerEvents = 'none'
+    canvas.style.zIndex = '1'
+    canvas.style.backgroundColor = 'transparent'
+
+    if (existing !== canvas) {
+      existing?.remove()
+      if (!canvas.isConnected) layer.appendChild(canvas)
+    }
+  }
+
   /** 销毁图表实例 */
   async destroy() {
     this.indicatorManager.destroy()
+    // onUninstall 由 Manager 单点负责；须在 scene.dispose 之前 clear
+    this.rendererPluginManager.clear()
     this.renderer.destroy()
     this.dataManager.destroy()
     this.viewportManager.destroy()
     this.layoutManager.destroy()
-    this.sharedWebGLSurface.destroy()
+    this.dom.canvasLayer?.querySelector('canvas.gpu-scene-canvas')?.remove()
+    this.rendererHost.dispose()
     this.kernel.dispose()
     this.alertController.dispose()
     await this.pluginHost.destroy()

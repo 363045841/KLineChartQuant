@@ -16,6 +16,7 @@ import type { IndicatorScheduler, KeltnerSchedulerConfig } from '../../indicator
 import type { KeltnerRenderState } from '../../indicators/state/keltnerState'
 import { createKeltnerStateKey, EMPTY_KELTNER_STATE } from '../../indicators/state/keltnerState'
 import { createBandVisibleStateComposer } from '../../indicators/visibleStateComposers'
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 const KELTNER_UPPER_COLOR = '#7c3aed'
 const KELTNER_MIDDLE_COLOR = '#f59e0b'
@@ -66,7 +67,7 @@ function createKeltnerRendererPlugin(options: KeltnerRendererOptions = {}): Rend
     },
 
     draw(context: RenderContext) {
-      const { ctx, pane, range, scrollLeft, kLineCenters, lineWebGLSurface } = context
+      const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const stateKey = resolveKey()
       if (!stateKey) return
       const state = pluginHost?.getSharedState<KeltnerRenderState>(stateKey)
@@ -100,17 +101,7 @@ function createKeltnerRendererPlugin(options: KeltnerRendererOptions = {}): Rend
       if (lowerPts.length >= 2)
         lines.push({ points: lowerPts, width: 1, color: KELTNER_LOWER_COLOR })
 
-      const enableWebGL = context.settings?.enableWebGLRendering !== false
-      let usedWebGL = false
-      if (enableWebGL && lineWebGLSurface?.isAvailable()) {
-        const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
-        if (allOk) {
-          usedWebGL = true
-          lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
-        }
-      }
-
-      if (usedWebGL) return
+      if (tryDrawLinesGpu(context, lines, scrollLeft)) return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)

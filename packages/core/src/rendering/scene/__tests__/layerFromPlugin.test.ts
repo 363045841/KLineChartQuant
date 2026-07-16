@@ -70,6 +70,33 @@ describe('createLayerFromPlugin', () => {
     expect(plugin.draw).toHaveBeenCalledWith(context)
   })
 
+  it('injects PaintContext.renderer as RenderContext.sceneRenderer before draw', () => {
+    const plugin = makeMockPlugin({
+      draw: vi.fn((c: RenderContext) => {
+        expect(c.sceneRenderer).toBe(stubPaintCtx.renderer)
+      }),
+    })
+    const context = makeMockContext()
+    const layer = createLayerFromPlugin(plugin, () => context, 'main')
+    layer.paint(stubPaintCtx)
+    expect(plugin.draw).toHaveBeenCalledOnce()
+  })
+
+  it('isolates plugin.draw errors so paint does not throw', () => {
+    const plugin = makeMockPlugin({
+      draw: vi.fn(() => {
+        throw new Error('draw boom')
+      }),
+    })
+    const context = makeMockContext()
+    const layer = createLayerFromPlugin(plugin, () => context, 'main')
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    expect(() => layer.paint(stubPaintCtx)).not.toThrow()
+    expect(plugin.draw).toHaveBeenCalledOnce()
+    err.mockRestore()
+  })
+
   it('skips plugin.draw when getContext returns null', () => {
     const plugin = makeMockPlugin()
     const getContext = vi.fn(() => null)
@@ -93,7 +120,7 @@ describe('createLayerFromPlugin', () => {
     expect(plugin.draw).not.toHaveBeenCalled()
   })
 
-  it('calls plugin.onUninstall on dispose', () => {
+  it('does not call plugin.onUninstall on dispose (owned by removeRenderer)', () => {
     const onUninstall = vi.fn()
     const plugin = makeMockPlugin({ onUninstall })
     const getContext = vi.fn(() => makeMockContext())
@@ -101,7 +128,7 @@ describe('createLayerFromPlugin', () => {
 
     layer.dispose()
 
-    expect(onUninstall).toHaveBeenCalledOnce()
+    expect(onUninstall).not.toHaveBeenCalled()
   })
 
   it('does not throw when dispose is called without onUninstall', () => {

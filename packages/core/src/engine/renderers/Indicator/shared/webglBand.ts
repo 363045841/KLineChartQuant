@@ -1,5 +1,3 @@
-import type { RenderContext } from '../../../../foundation/plugin/index'
-
 export function getRgbaAlpha(color: string): number {
   const match = color.match(/^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)$/i)
   if (!match) return 1
@@ -9,15 +7,4 @@ export function getRgbaAlpha(color: string): number {
 
 export function toOpaqueRgba(color: string): string {
   return color.replace(/,\s*[\d.]+\s*\)$/i, ', 1)')
-}
-
-export function compositeLineSurface(
-  context: RenderContext,
-  surface: NonNullable<RenderContext['lineWebGLSurface']>,
-  alpha = 1,
-): void {
-  surface.compositeTo(context.ctx, {
-    alpha,
-    imageSmoothingEnabled: false,
-  })
 }

@@ -16,4 +16,3 @@ export { ConfigManager } from './ConfigManager'
 
 // 渲染器插件
 export { RendererPluginManager } from './rendererPluginManager'
-export type { RendererErrorEvent } from './rendererPluginManager'

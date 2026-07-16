@@ -13,6 +13,7 @@ import type { ParkinsonRenderState } from '../../indicators/state/parkinsonState
 import { createParkinsonStateKey } from '../../indicators/state/parkinsonState'
 import { EMPTY_PARKINSON_STATE } from '../../indicators/state/parkinsonState'
 import { createNonNegativeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo'
 
@@ -57,7 +58,7 @@ function createParkinsonRendererPlugin(options: { paneId?: string } = {}): Rende
       return key ? [key] : []
     },
     draw(context: RenderContext) {
-      const { ctx, pane, range, scrollLeft, kLineCenters, lineWebGLSurface } = context
+      const { ctx, pane, range, scrollLeft, kLineCenters } = context
       const stateKey = resolveKey()
       if (!stateKey) return
       const state = pluginHost?.getSharedState<ParkinsonRenderState>(stateKey)
@@ -84,20 +85,7 @@ function createParkinsonRendererPlugin(options: { paneId?: string } = {}): Rende
 
       if (points.length < 2) return
 
-      const enableWebGL = context.settings?.enableWebGLRendering !== false
-      let usedWebGL = false
-      if (enableWebGL && lineWebGLSurface?.isAvailable()) {
-        const allOk = lineWebGLSurface.drawLineStrips(
-          [{ points, width: 1, color: PARKINSON_COLOR }],
-          scrollLeft,
-        )
-        if (allOk) {
-          usedWebGL = true
-          lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
-        }
-      }
-
-      if (usedWebGL) return
+      if (tryDrawLinesGpu(context, [{ points, width: 1, color: PARKINSON_COLOR }], scrollLeft)) return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)

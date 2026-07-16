@@ -13,7 +13,6 @@ import {
 } from '../../foundation/reactivity/signal'
 import type { MainIndicatorEntry } from '../state/indicatorState'
 import type { SubPaneSpec } from '../state/subPaneState'
-import { createLayerFromPlugin } from '../../rendering/scene/createLayerFromPlugin'
 import type { Layer } from '../../rendering/scene/types'
 import type { KLineData } from '../../foundation/types/price'
 import type { IndicatorInstance, SubPaneInfo, PaneSpec, ChartOptions } from '../chartTypes'
@@ -371,29 +370,21 @@ export class ChartIndicatorManager {
 
     if (!existingLayer) {
       const plugin = definition.rendererFactory({ paneId: 'main', indicatorId })
-      // register with old system for getRenderer compatibility
+      // useRenderer：注册表 + 唯一 Scene Layer
       this.deps.useRenderer(plugin)
-      // disable old rendering to avoid double rendering (scene handles it)
-      this.deps.setRendererEnabled(rendererName, false)
-      // create bridge layer and add to scene
-      const layer = createLayerFromPlugin(plugin, () => this.deps.getRenderContext('main'), 'main')
-      this.deps.addLayer(layer)
     }
 
     this.deps.setLayerVisibility(layerId, true)
 
-    if (!this.deps.getRenderer('mainIndicatorLegend')) {
+    // core 可能已挂 legend Layer 且未进 Manager；两者任一存在都不再注册第二实例
+    if (
+      !this.deps.getLayer('plugin:mainIndicatorLegend') &&
+      !this.deps.getRenderer('mainIndicatorLegend')
+    ) {
       const legend = createMainIndicatorLegendRendererPlugin({
         yPaddingPx: this.deps.getOption().yPaddingPx,
       })
       this.deps.useRenderer(legend)
-      this.deps.setRendererEnabled('mainIndicatorLegend', false)
-      const legendLayer = createLayerFromPlugin(
-        legend,
-        () => this.deps.getRenderContext('main'),
-        'main',
-      )
-      this.deps.addLayer(legendLayer)
     }
   }
 
@@ -402,7 +393,6 @@ export class ChartIndicatorManager {
       this.indicatorScheduler.getIndicatorMetadata(indicatorId)?.mainPane?.rendererName
     if (rendererName) {
       this.deps.setRendererEnabled(rendererName, false)
-      this.deps.setLayerVisibility(`plugin:${rendererName}`, false)
     }
   }
 
