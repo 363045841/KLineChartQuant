@@ -1,6 +1,7 @@
 ## 🚀 What's New
 
-- **v0.9** 自研 Core 层响应式模型迁移，时序问题消除
+- **v0.9.0** 自研 Core 层响应式模型迁移，时序问题消除
+- **v0.9.0** 单路径 Scene 渲染器 + WebGPU 后端（混合 DOM Canvas，无 compositeTo）、FrameTransaction 响应式、设备丢失恢复、自动降级 WebGPU → WebGL → Canvas2D
 - **v0.8** 支持商品比较，支持多数据源聚合
 - **v0.7** 渲染器注册链路AOP重构，支持装饰器语法，拆分monorepo，支持vue、react（实验性），core单独发包，令牌化颜色系统
 - **v0.6.10** 统一 WebGL 渲染上下文共享，重构副图生命周期管理 — 通过 SubPaneManager 集中管理副图实例，paneId 作为一等标识

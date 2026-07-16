@@ -1,6 +1,7 @@
 ## 🚀 What's New
 
-- **v0.9** Self-developed Core-layer reactive state model migration, timing issues eliminated
+- **v0.9.0** Self-developed Core-layer reactive state model migration, timing issues eliminated
+- **v0.9.0** Single-path Scene renderer + WebGPU backend (hybrid DOM canvas, no compositeTo), FrameTransaction reactivity, device-lost recovery, auto-fallback WebGPU → WebGL → Canvas2D
 - **v0.8** Symbol comparison, multi-source data aggregation
 - **v0.7** Renderer registration chain AOP refactoring with decorator syntax, monorepo split, Vue/React bindings (experimental), standalone core package, tokenized color system
 - **v0.6.10** Unified WebGL rendering context sharing for all panes, plus sub-pane lifecycle refactoring — centralized pane instance management via SubPaneManager with first-class paneId identity
