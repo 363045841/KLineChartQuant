@@ -148,4 +148,22 @@ describe('drawFilledBandViaRenderer', () => {
     expect(drawFilledBandViaRenderer(r, [{ x: 0, y: 1 }], [{ x: 0, y: 2 }], '#00f', 0)).toBe(false)
     expect(r.drawLines).not.toHaveBeenCalled()
   })
+
+  it('reuses fill pipeline and vertex buffer across frames', () => {
+    const r = mockRenderer()
+    r.drawLines.mockReturnValue(true)
+    const upper = [
+      { x: 0, y: 10 },
+      { x: 1, y: 12 },
+    ]
+    const lower = [
+      { x: 0, y: 20 },
+      { x: 1, y: 22 },
+    ]
+    expect(drawFilledBandViaRenderer(r, upper, lower, '#00f', 0)).toBe(true)
+    expect(drawFilledBandViaRenderer(r, upper, lower, '#00f', 5)).toBe(true)
+    expect(r.createPipeline).toHaveBeenCalledTimes(1)
+    expect(r.createBuffer).toHaveBeenCalledTimes(1)
+    expect(r.destroyBuffer).not.toHaveBeenCalled()
+  })
 })

@@ -1,5 +1,5 @@
 import type { RenderContext } from '../../foundation/plugin/index'
-import type { Renderer } from '../../rendering/render/Renderer'
+import type { BufferHandle, PipelineHandle, Renderer } from '../../rendering/render/Renderer'
 import { compositeSceneRenderer } from './linesViaRenderer'
 
 export type RectBatch = {
@@ -8,9 +8,49 @@ export type RectBatch = {
   color: string
 }
 
+type RectGpuCache = {
+  pipeline: PipelineHandle
+  unit: BufferHandle
+  instances: BufferHandle[]
+  instanceCapacities: number[]
+}
+
+const rectCacheByRenderer = new WeakMap<Renderer, RectGpuCache>()
+
+function ensureRectCache(renderer: Renderer): RectGpuCache {
+  let cache = rectCacheByRenderer.get(renderer)
+  if (!cache) {
+    cache = {
+      pipeline: renderer.createPipeline({ type: 'candle' }),
+      unit: renderer.createBuffer('vertex', 64),
+      instances: [],
+      instanceCapacities: [],
+    }
+    rectCacheByRenderer.set(renderer, cache)
+  }
+  return cache
+}
+
+function ensureInstanceBuffer(
+  renderer: Renderer,
+  cache: RectGpuCache,
+  slot: number,
+  byteLength: number,
+): BufferHandle {
+  const existing = cache.instances[slot]
+  const capacity = cache.instanceCapacities[slot] ?? 0
+  if (existing && capacity >= byteLength) return existing
+  if (existing) renderer.destroyBuffer(existing)
+  const handle = renderer.createBuffer('instance', byteLength)
+  cache.instances[slot] = handle
+  cache.instanceCapacities[slot] = byteLength
+  return handle
+}
+
 /**
  * 经 Renderer.drawInstances 画多组矩形（volume / MACD bar / candle 共用）。
  * 任一非空 batch 失败 → false。不负责 composite。
+ * instance buffer 按 renderer 缓存，跨帧复用。
  */
 export function drawRectBatchesViaRenderer(
   renderer: Renderer,
@@ -19,37 +59,28 @@ export function drawRectBatchesViaRenderer(
 ): boolean {
   if (!renderer.surface.isAvailable()) return false
 
-  let pipeline: ReturnType<Renderer['createPipeline']> | null = null
-  let unit: ReturnType<Renderer['createBuffer']> | null = null
-
   try {
-    pipeline = renderer.createPipeline({ type: 'candle' })
-    unit = renderer.createBuffer('vertex', 64)
-
+    const cache = ensureRectCache(renderer)
+    let slot = 0
     for (const batch of batches) {
       if (batch.count <= 0) continue
-      const instances = renderer.createBuffer('instance', batch.count * 4 * 4)
-      try {
-        renderer.writeBuffer(instances, batch.buf.subarray(0, batch.count * 4))
-        const ok = renderer.drawInstances({
-          pipeline,
-          vertices: unit,
-          instances,
-          instanceCount: batch.count,
-          vertexCount: 6,
-          uniforms: { color: batch.color, scrollLeft },
-        })
-        if (!ok) return false
-      } finally {
-        renderer.destroyBuffer(instances)
-      }
+      const byteLength = batch.count * 4 * 4
+      const instances = ensureInstanceBuffer(renderer, cache, slot, byteLength)
+      slot += 1
+      renderer.writeBuffer(instances, batch.buf.subarray(0, batch.count * 4))
+      const ok = renderer.drawInstances({
+        pipeline: cache.pipeline,
+        vertices: cache.unit,
+        instances,
+        instanceCount: batch.count,
+        vertexCount: 6,
+        uniforms: { color: batch.color, scrollLeft },
+      })
+      if (!ok) return false
     }
     return true
   } catch {
     return false
-  } finally {
-    if (unit) renderer.destroyBuffer(unit)
-    if (pipeline) renderer.destroyPipeline(pipeline)
   }
 }
 

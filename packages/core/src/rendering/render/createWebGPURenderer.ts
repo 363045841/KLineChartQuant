@@ -10,6 +10,8 @@ import type {
   Renderer,
 } from './Renderer'
 import { createWebGPUSurfaceBackend, type WebGPUSurfaceBackend } from './createWebGPUSurfaceBackend'
+import { createFrameMetrics } from './frameMetrics'
+import { createWebGPUResourceTable } from './webgpuResourceTable'
 
 type PipelineType = 'candle' | 'line' | 'fill'
 
@@ -26,6 +28,8 @@ export type CreateWebGPURendererOptions = {
   gpu?: GPU
   canvas?: HTMLCanvasElement
   onDeviceLost?: (info: GPUDeviceLostInfo) => void
+  /** 可选帧指标探针；默认使用模块级 createFrameMetrics */
+  metrics?: ReturnType<typeof createFrameMetrics>
 }
 
 const GPU_BUFFER_COPY_DST = globalThis.GPUBufferUsage?.COPY_DST ?? 0x0008
@@ -177,6 +181,16 @@ function linePoints(strip: DrawLineStrip): Float32Array {
   return values
 }
 
+/** 几何 revision：按 float32 位型哈希，避免截断精度导致漏 upload */
+function geometryRevision(values: Float32Array): number {
+  const bits = new Uint32Array(values.buffer, values.byteOffset, values.length)
+  let h = values.length >>> 0
+  for (let i = 0; i < bits.length; i++) {
+    h = Math.imul(h ^ bits[i]!, 16777619) >>> 0
+  }
+  return h
+}
+
 export async function createWebGPURenderer(
   options: CreateWebGPURendererOptions = {},
 ): Promise<Renderer> {
@@ -189,6 +203,8 @@ export async function createWebGPURenderer(
   if (!canvas) throw new Error('WebGPU canvas unavailable')
   const format = gpu.getPreferredCanvasFormat()
   const rawSurface = createWebGPUSurfaceBackend({ canvas, device, format })
+  const metrics = options.metrics ?? createFrameMetrics()
+  const resourceTable = createWebGPUResourceTable({ device, metrics })
 
   type PendingDraw =
     | {
@@ -208,7 +224,6 @@ export async function createWebGPURenderer(
         vertexCount: number
         color: unknown
         scrollLeft: number
-        temporary?: BufferRecord
       }
 
   let disposed = false
@@ -217,15 +232,40 @@ export async function createWebGPURenderer(
   let msaaHeight = 0
   let currentRegion: import('./SurfaceBackend').SurfaceRegion | null = null
   let pendingDraws: PendingDraw[] = []
-  let frameTemporaryRecords: BufferRecord[] = []
+  let metricsFrameOpen = false
+  let stripSeq = 0
+  /** 本帧 touch 的 strip ResourceTable key；flush 后 prune 未 touch 的 */
+  const stripKeysThisFrame = new Set<string>()
+  const stripKeysKnown = new Set<string>()
   const buffers = new WeakMap<object, BufferRecord>()
   const bufferRecords = new Set<BufferRecord>()
   const pipelines = new WeakMap<object, PipelineRecord>()
   const pipelineCache = new Map<string, GPURenderPipeline>()
+  /** 帧内 uniform 环：跨帧复用，flush 后游标归零 */
+  const uniformPool: BufferRecord[] = []
+  let uniformPoolUsed = 0
 
   void device.lost.then((info) => {
     if (!disposed) options.onDeviceLost?.(info)
   })
+
+  function openMetricsFrame(): void {
+    if (metricsFrameOpen) return
+    metrics.beginFrame()
+    metricsFrameOpen = true
+    stripSeq = 0
+    stripKeysThisFrame.clear()
+    uniformPoolUsed = 0
+  }
+
+  function pruneUnusedStripKeys(): void {
+    for (const key of stripKeysKnown) {
+      if (stripKeysThisFrame.has(key)) continue
+      resourceTable.destroyKey(key)
+      stripKeysKnown.delete(key)
+    }
+    for (const key of stripKeysThisFrame) stripKeysKnown.add(key)
+  }
 
   function createBufferRecord(usage: BufferUsage, sizeBytes: number): BufferRecord {
     const size = Math.max(4, Math.ceil(sizeBytes / 4) * 4)
@@ -234,12 +274,33 @@ export async function createWebGPURenderer(
       size,
     }
     bufferRecords.add(record)
+    metrics.recordBufferCreate()
     return record
   }
 
   function deferDestroy(record: BufferRecord): void {
     bufferRecords.delete(record)
     void device.queue.onSubmittedWorkDone().then(() => record.buffer.destroy())
+  }
+
+  function acquireUniform(byteLength: number): BufferRecord {
+    if (uniformPoolUsed < uniformPool.length) {
+      const existing = uniformPool[uniformPoolUsed]!
+      if (existing.size >= byteLength) {
+        uniformPoolUsed += 1
+        return existing
+      }
+    }
+    const record = createBufferRecord('uniform', byteLength)
+    if (uniformPoolUsed < uniformPool.length) {
+      const old = uniformPool[uniformPoolUsed]!
+      deferDestroy(old)
+      uniformPool[uniformPoolUsed] = record
+    } else {
+      uniformPool.push(record)
+    }
+    uniformPoolUsed += 1
+    return record
   }
 
   function getPipeline(kind: 'candle' | 'line-strip' | 'line-wide' | 'fill'): GPURenderPipeline {
@@ -303,7 +364,7 @@ export async function createWebGPURenderer(
     colorValue: unknown,
     scrollLeft: number,
     region: import('./SurfaceBackend').SurfaceRegion,
-  ): { record: BufferRecord; bindGroup: GPUBindGroup } | null {
+  ): { bindGroup: GPUBindGroup } | null {
     const color = parseColor(colorValue ?? '#000000')
     if (!color) return null
     const values = new Float32Array([
@@ -316,13 +377,14 @@ export async function createWebGPURenderer(
       color[2],
       color[3],
     ])
-    const record = createBufferRecord('uniform', values.byteLength)
+    const record = acquireUniform(values.byteLength)
     device.queue.writeBuffer(record.buffer, 0, values.buffer, 0, values.byteLength)
+    metrics.recordUpload(values.byteLength)
     const bindGroup = device.createBindGroup({
       layout: pipeline.getBindGroupLayout(0),
       entries: [{ binding: 0, resource: { buffer: record.buffer } }],
     })
-    return { record, bindGroup }
+    return { bindGroup }
   }
 
   function beginPass(
@@ -361,14 +423,11 @@ export async function createWebGPURenderer(
     return `${region.x},${region.y},${region.width},${region.height},${region.dpr}`
   }
 
-  function flushPendingDraws(): void {
-    if (pendingDraws.length === 0) {
-      frameTemporaryRecords = []
-      return
-    }
-    const encoder = device.createCommandEncoder()
-    const temporaryUniforms: BufferRecord[] = []
-    try {
+  function flushPendingDraws(options?: { composite?: boolean }): void {
+    const hadDraws = pendingDraws.length > 0
+    if (hadDraws) {
+      openMetricsFrame()
+      const encoder = device.createCommandEncoder()
       const groups = new Map<string, PendingDraw[]>()
       for (const draw of pendingDraws) {
         const key = regionKey(draw.region)
@@ -387,34 +446,46 @@ export async function createWebGPURenderer(
         for (const draw of draws) {
           const uniform = createUniform(draw.pipeline, draw.color, draw.scrollLeft, draw.region)
           if (!uniform) continue
-          temporaryUniforms.push(uniform.record)
           pass.setPipeline(draw.pipeline)
           if (draw.kind === 'instances') {
             pass.setVertexBuffer(0, draw.instanceBuffer)
             pass.setBindGroup(0, uniform.bindGroup)
             pass.draw(6, draw.instanceCount)
+            metrics.recordDraw()
           } else {
             pass.setVertexBuffer(0, draw.vertexBuffer)
             pass.setBindGroup(0, uniform.bindGroup)
             pass.draw(draw.vertexCount, 1)
+            metrics.recordDraw()
           }
         }
         pass.end()
       }
       device.queue.submit([encoder.finish()])
-    } finally {
-      for (const record of temporaryUniforms) deferDestroy(record)
-      for (const record of frameTemporaryRecords) deferDestroy(record)
+      metrics.recordSubmit()
       pendingDraws = []
-      frameTemporaryRecords = []
+    }
+
+    if (options?.composite) {
+      if (metricsFrameOpen || hadDraws) {
+        openMetricsFrame()
+        metrics.recordComposite()
+      }
+    }
+
+    // endFrame 收口：prune 未 touch 的 strip 资源；composite 中途 flush 保持 frame open
+    if (!options?.composite && metricsFrameOpen) {
+      pruneUnusedStripKeys()
+      metrics.endFrame()
+      metricsFrameOpen = false
     }
   }
 
-  // Flush before composite so M1 mid-frame compositeTo still sees GPU output.
+  // M1 保留即时 composite 语义（与 2D 交错）；M2 混合 DOM 后再去掉
   const surface: WebGPUSurfaceBackend = {
     ...rawSurface,
     compositeTo(targetCtx, region, compositeOptions) {
-      flushPendingDraws()
+      flushPendingDraws({ composite: true })
       rawSurface.compositeTo(targetCtx, region, compositeOptions)
     },
   }
@@ -424,6 +495,7 @@ export async function createWebGPURenderer(
     caps: { compute: false, storageBuffer: false, maxInstances: 1_000_000, name: 'webgpu' },
     createBuffer(usage, sizeBytes): BufferHandle {
       if (disposed) throw new Error('Renderer is disposed')
+      openMetricsFrame()
       const handle = {}
       buffers.set(handle, createBufferRecord(usage, sizeBytes))
       return handle as BufferHandle
@@ -432,6 +504,7 @@ export async function createWebGPURenderer(
       if (disposed) return
       const record = buffers.get(handle as object)
       if (!record || offsetBytes < 0 || offsetBytes + data.byteLength > record.size) return
+      openMetricsFrame()
       device.queue.writeBuffer(
         record.buffer,
         offsetBytes,
@@ -439,11 +512,14 @@ export async function createWebGPURenderer(
         data.byteOffset,
         data.byteLength,
       )
+      metrics.recordUpload(data.byteLength)
     },
     destroyBuffer(handle): void {
       if (disposed) return
       const record = buffers.get(handle as object)
       if (!record) return
+      // 不立即 destroy：helper 可跨帧复用同一 handle；显式 dispose 才释放
+      // 兼容仍调用 destroyBuffer 的旧路径：仅解除 handle 映射，GPU buffer 延迟回收
       buffers.delete(handle as object)
       deferDestroy(record)
     },
@@ -466,6 +542,7 @@ export async function createWebGPURenderer(
     destroyComputePipeline(_handle): void {},
     beginFrame(region): void {
       if (!disposed) {
+        openMetricsFrame()
         currentRegion = { ...region }
         rawSurface.bindRegion(region)
       }
@@ -483,6 +560,7 @@ export async function createWebGPURenderer(
       const instanceRecord = buffers.get(params.instances as object)
       if (pipelineRecord?.type !== 'candle' || !instanceRecord || !currentRegion) return false
       try {
+        openMetricsFrame()
         pendingDraws.push({
           kind: 'instances',
           region: { ...currentRegion },
@@ -503,6 +581,7 @@ export async function createWebGPURenderer(
       if (!pipelineRecord || pipelineRecord.type === 'candle') return false
       if (params.strips && params.strips.length === 0) return true
       try {
+        openMetricsFrame()
         if (params.strips) {
           const scrollLeft = (params.uniforms?.scrollLeft as number) ?? 0
           for (const strip of params.strips) {
@@ -510,18 +589,23 @@ export async function createWebGPURenderer(
             const wide = (strip.width ?? 1) > 1
             const values = wide ? buildWideLine(strip) : linePoints(strip)
             if (!values) return false
-            const vertexRecord = createBufferRecord('vertex', values.byteLength)
-            device.queue.writeBuffer(vertexRecord.buffer, 0, values.buffer, 0, values.byteLength)
-            frameTemporaryRecords.push(vertexRecord)
+            // 帧内序号作 key：同顺序跨帧复用；revision 未变则不 upload
+            const key = `strip/${stripSeq++}`
+            stripKeysThisFrame.add(key)
+            const uploaded = resourceTable.ensureUploaded({
+              key,
+              revision: geometryRevision(values),
+              data: values,
+              usage: 'vertex',
+            })
             pendingDraws.push({
               kind: 'lines',
               region: { ...currentRegion },
               pipeline: getPipeline(wide ? 'line-wide' : 'line-strip'),
-              vertexBuffer: vertexRecord.buffer,
+              vertexBuffer: uploaded.buffer,
               vertexCount: values.length / 2,
               color: strip.color,
               scrollLeft,
-              temporary: vertexRecord,
             })
           }
           return true
@@ -554,9 +638,13 @@ export async function createWebGPURenderer(
       if (disposed) return
       disposed = true
       pendingDraws = []
-      frameTemporaryRecords = []
+      stripKeysThisFrame.clear()
+      stripKeysKnown.clear()
       msaaTexture?.destroy()
       msaaTexture = null
+      resourceTable.destroyAll()
+      for (const record of uniformPool) record.buffer.destroy()
+      uniformPool.length = 0
       for (const record of bufferRecords) record.buffer.destroy()
       bufferRecords.clear()
       rawSurface.dispose()

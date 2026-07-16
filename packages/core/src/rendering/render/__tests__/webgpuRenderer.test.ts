@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { createWebGPURenderer } from '../createWebGPURenderer'
+import { createFrameMetrics, getFrameMetrics, resetFrameMetrics } from '../frameMetrics'
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -288,5 +289,81 @@ describe('createWebGPURenderer', () => {
     fake.lost.resolve(info)
     await Promise.resolve()
     expect(onDeviceLost).toHaveBeenCalledWith(info)
+  })
+
+  it('reuses strip ResourceTable buffers when geometry revision is unchanged', async () => {
+    resetFrameMetrics()
+    const fake = makeWebGPU()
+    const metrics = createFrameMetrics()
+    const renderer = await createWebGPURenderer({
+      gpu: fake.gpu as unknown as GPU,
+      canvas: fake.canvas,
+      metrics,
+    })
+    renderer.surface.resize(200, 100, 1)
+    const pipeline = renderer.createPipeline({ type: 'line' })
+    const strips = [
+      {
+        points: [
+          { x: 0, y: 1 },
+          { x: 2, y: 3 },
+        ],
+        color: '#f00',
+        width: 1,
+      },
+    ]
+
+    renderer.beginFrame({ x: 0, y: 0, width: 200, height: 100, dpr: 1 })
+    expect(renderer.drawLines({ pipeline, strips, uniforms: { scrollLeft: 0 } })).toBe(true)
+    renderer.endFrame()
+    const createsAfterFirst = fake.device.createBuffer.mock.calls.length
+    // strip 点列 4 floats = 16 bytes；uniform 为 32 bytes
+    const vertexWritesAfterFirst = fake.queue.writeBuffer.mock.calls.filter((c) => c[4] === 16)
+      .length
+    const uniformWritesAfterFirst = fake.queue.writeBuffer.mock.calls.filter((c) => c[4] === 32)
+      .length
+
+    renderer.beginFrame({ x: 0, y: 0, width: 200, height: 100, dpr: 1 })
+    expect(renderer.drawLines({ pipeline, strips, uniforms: { scrollLeft: 12 } })).toBe(true)
+    renderer.endFrame()
+
+    // 几何未变：strip vertex 不新建、不重传；uniform 仍写
+    expect(fake.device.createBuffer.mock.calls.length).toBe(createsAfterFirst)
+    expect(
+      fake.queue.writeBuffer.mock.calls.filter((c) => c[4] === 16).length,
+    ).toBe(vertexWritesAfterFirst)
+    expect(
+      fake.queue.writeBuffer.mock.calls.filter((c) => c[4] === 32).length,
+    ).toBeGreaterThan(uniformWritesAfterFirst)
+    expect(getFrameMetrics().queueSubmitCount).toBe(1)
+  })
+
+  it('records submit and draw metrics on endFrame', async () => {
+    resetFrameMetrics()
+    const fake = makeWebGPU()
+    const metrics = createFrameMetrics()
+    const renderer = await createWebGPURenderer({
+      gpu: fake.gpu as unknown as GPU,
+      canvas: fake.canvas,
+      metrics,
+    })
+    renderer.surface.resize(200, 100, 1)
+    renderer.beginFrame({ x: 0, y: 0, width: 200, height: 100, dpr: 1 })
+    const pipeline = renderer.createPipeline({ type: 'candle' })
+    const instances = renderer.createBuffer('instance', 16)
+    const vertices = renderer.createBuffer('vertex', 4)
+    renderer.drawInstances({
+      pipeline,
+      vertices,
+      instances,
+      instanceCount: 1,
+      vertexCount: 6,
+      uniforms: { color: '#f00', scrollLeft: 0 },
+    })
+    renderer.endFrame()
+    expect(getFrameMetrics()).toMatchObject({
+      queueSubmitCount: 1,
+      drawCallCount: 1,
+    })
   })
 })

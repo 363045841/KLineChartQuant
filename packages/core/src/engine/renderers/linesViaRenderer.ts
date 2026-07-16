@@ -9,10 +9,25 @@ export type ColoredLineStrip = {
   width?: number
 }
 
+type LineGpuCache = {
+  pipeline: ReturnType<Renderer['createPipeline']>
+}
+
+const lineCacheByRenderer = new WeakMap<Renderer, LineGpuCache>()
+
+function ensureLineCache(renderer: Renderer): LineGpuCache {
+  let cache = lineCacheByRenderer.get(renderer)
+  if (!cache) {
+    cache = { pipeline: renderer.createPipeline({ type: 'line' }) }
+    lineCacheByRenderer.set(renderer, cache)
+  }
+  return cache
+}
+
 /**
  * 经 Renderer.drawLines 一次提交多条折线（strips 批量）。
  * 禁止 per-strip 循环 drawLines：LineWebGLSurface MSAA 每次 clear 会盖掉前一条。
- * 不负责 composite。
+ * 不负责 composite。pipeline 按 renderer 缓存。
  */
 export function drawLinesViaRenderer(
   renderer: Renderer,
@@ -23,11 +38,10 @@ export function drawLinesViaRenderer(
   const drawable = lines.filter((l) => l.points.length >= 2)
   if (drawable.length === 0) return true
 
-  let pipeline: ReturnType<Renderer['createPipeline']> | null = null
   try {
-    pipeline = renderer.createPipeline({ type: 'line' })
+    const cache = ensureLineCache(renderer)
     return renderer.drawLines({
-      pipeline,
+      pipeline: cache.pipeline,
       strips: drawable.map((l) => ({
         points: l.points,
         color: l.color,
@@ -37,8 +51,6 @@ export function drawLinesViaRenderer(
     })
   } catch {
     return false
-  } finally {
-    if (pipeline) renderer.destroyPipeline(pipeline)
   }
 }
 
@@ -90,9 +102,31 @@ export function tryDrawLinesGpu(
   return false
 }
 
+type FillGpuCache = {
+  pipeline: ReturnType<Renderer['createPipeline']>
+  vertices: ReturnType<Renderer['createBuffer']> | null
+  capacity: number
+}
+
+const fillCacheByRenderer = new WeakMap<Renderer, FillGpuCache>()
+
+function ensureFillCache(renderer: Renderer): FillGpuCache {
+  let cache = fillCacheByRenderer.get(renderer)
+  if (!cache) {
+    cache = {
+      pipeline: renderer.createPipeline({ type: 'fill' }),
+      vertices: null,
+      capacity: 0,
+    }
+    fillCacheByRenderer.set(renderer, cache)
+  }
+  return cache
+}
+
 /**
  * 经 Renderer fill pipeline 画上下轨填充带（BOLL/ENE）。
  * 顶点布局与 createWebGLRenderer fill 一致：每点 upper.x,y + lower.x,y。
+ * vertex buffer 按 renderer 缓存扩容，不每帧 destroy。
  */
 export function drawFilledBandViaRenderer(
   renderer: Renderer,
@@ -105,10 +139,8 @@ export function drawFilledBandViaRenderer(
   const n = Math.min(upperPoints.length, lowerPoints.length)
   if (n < 2) return false
 
-  let pipeline: ReturnType<Renderer['createPipeline']> | null = null
-  let vertices: ReturnType<Renderer['createBuffer']> | null = null
   try {
-    pipeline = renderer.createPipeline({ type: 'fill' })
+    const cache = ensureFillCache(renderer)
     // vertexCount = n*2（上轨 n + 下轨 n 交错为 n 组 4 floats）
     const floats = new Float32Array(n * 4)
     for (let i = 0; i < n; i++) {
@@ -118,19 +150,20 @@ export function drawFilledBandViaRenderer(
       floats[o + 2] = lowerPoints[i]!.x
       floats[o + 3] = lowerPoints[i]!.y
     }
-    vertices = renderer.createBuffer('vertex', floats.byteLength)
-    renderer.writeBuffer(vertices, floats)
+    if (!cache.vertices || cache.capacity < floats.byteLength) {
+      if (cache.vertices) renderer.destroyBuffer(cache.vertices)
+      cache.vertices = renderer.createBuffer('vertex', floats.byteLength)
+      cache.capacity = floats.byteLength
+    }
+    renderer.writeBuffer(cache.vertices, floats)
     return renderer.drawLines({
-      pipeline,
-      vertices,
+      pipeline: cache.pipeline,
+      vertices: cache.vertices,
       vertexCount: n * 2,
       uniforms: { color, scrollLeft },
     })
   } catch {
     return false
-  } finally {
-    if (vertices) renderer.destroyBuffer(vertices)
-    if (pipeline) renderer.destroyPipeline(pipeline)
   }
 }
 

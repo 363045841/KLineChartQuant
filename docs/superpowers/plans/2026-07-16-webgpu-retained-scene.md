@@ -33,7 +33,7 @@
 - Create: `packages/core/src/rendering/render/__tests__/frameMetrics.test.ts`
 - Modify: `packages/core/src/rendering/render/index.ts`
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 ```ts
 import { createFrameMetrics, resetFrameMetrics, getFrameMetrics } from '../frameMetrics'
@@ -58,13 +58,13 @@ it('counts submits uploads and buffer creates per frame', () => {
 })
 ```
 
-- [ ] **Step 2: Run test — expect FAIL (module missing)**
+- [x] **Step 2: Run test — expect FAIL (module missing)**
 
 ```bash
 pnpm --filter @363045841yyt/klinechart-core exec vitest run src/rendering/render/__tests__/frameMetrics.test.ts
 ```
 
-- [ ] **Step 3: Implement minimal frameMetrics**
+- [x] **Step 3: Implement minimal frameMetrics**
 
 ```ts
 export type FrameMetricsSnapshot = {
@@ -123,9 +123,9 @@ export function createFrameMetrics() {
 }
 ```
 
-- [ ] **Step 4: Export from index; run tests PASS**
+- [x] **Step 4: Export from index; run tests PASS**
 
-- [ ] **Step 5: Commit** (only when user asks)
+- [x] **Step 5: Commit** (only when user asks)
 
 ---
 
@@ -135,7 +135,7 @@ export function createFrameMetrics() {
 - Create: `packages/core/src/rendering/scene/retainedScene.ts`
 - Create: `packages/core/src/rendering/scene/__tests__/retainedScene.test.ts`
 
-- [ ] **Step 1: Failing tests for upsert, scroll-without-revision-change policy helper, prune**
+- [x] **Step 1: Failing tests for upsert, scroll-without-revision-change policy helper, prune**
 
 ```ts
 it('upserts by key and replaces geometry when revision changes', () => {
@@ -183,11 +183,11 @@ it('prunes keys not touched for N frames', () => {
 })
 ```
 
-- [ ] **Step 2: Implement createRetainedScene**
+- [x] **Step 2: Implement createRetainedScene**
 
 Types from spec section 6. Methods: `beginFrame(frameNumber)`, `upsert(node)`, `collectVisible(paneId?)`, `endFrame()`, `prune(): string[]`, `clear()`.
 
-- [ ] **Step 3: Tests PASS**
+- [x] **Step 3: Tests PASS**
 
 ---
 
@@ -197,7 +197,7 @@ Types from spec section 6. Methods: `beginFrame(frameNumber)`, `upsert(node)`, `
 - Create: `packages/core/src/rendering/render/webgpuResourceTable.ts`
 - Create: `packages/core/src/rendering/render/__tests__/webgpuResourceTable.test.ts`
 
-- [ ] **Step 1: Failing test — upload only on revision change; grow capacity**
+- [x] **Step 1: Failing test — upload only on revision change; grow capacity**
 
 Use fake device with `createBuffer` / `queue.writeBuffer` spies.
 
@@ -221,9 +221,9 @@ it('uploads again when revision changes', () => {
 })
 ```
 
-- [ ] **Step 2: Implement ensureUploaded / destroyKey / destroyAll**
+- [x] **Step 2: Implement ensureUploaded / destroyKey / destroyAll**
 
-- [ ] **Step 3: Tests PASS**
+- [x] **Step 3: Tests PASS**
 
 ---
 
@@ -233,7 +233,7 @@ it('uploads again when revision changes', () => {
 - Modify: `packages/core/src/rendering/render/createWebGPURenderer.ts`
 - Modify: `packages/core/src/rendering/render/__tests__/webgpuRenderer.test.ts`
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 ```ts
 it('records multiple draws and submits once on endFrame', async () => {
@@ -261,17 +261,18 @@ it('records multiple draws and submits once on endFrame', async () => {
 })
 ```
 
-- [ ] **Step 2: Refactor renderer**
+- [x] **Step 2: Refactor renderer**
 
 Internal pending draw list per frame:
 - `drawInstances` / `drawLines` push commands, return true/false for validation only.
 - `endFrame` builds one encoder, one or more pane passes, single `queue.submit`.
-- Wire frameMetrics.
-- Keep compositeTo available (M1 does not remove it).
+- Wire frameMetrics + ResourceTable (strips) + uniform pool.
+- Keep compositeTo available (M1 does not remove it); mid-frame composite still flushes for 2D interleave.
+- Helpers (`rectsViaRenderer` / `linesViaRenderer`) cache pipeline+buffers per renderer.
 
-- [ ] **Step 3: Update existing tests that expected immediate submit**
+- [x] **Step 3: Update existing tests that expected immediate submit**
 
-- [ ] **Step 4: All webgpuRenderer tests PASS**
+- [x] **Step 4: All webgpuRenderer tests PASS**
 
 ---
 
@@ -281,7 +282,7 @@ Internal pending draw list per frame:
 - Modify: `packages/core/src/engine/render/chartRenderer.ts` (`renderPanes`)
 - Test: extend or add chart/render unit if feasible; otherwise rely on renderer unit tests + manual checklist
 
-- [ ] **Step 1:** After all panes `paintPane`, ensure `sceneRenderer.endFrame()` once per chart draw (not only per pane if multi-pane). Preferred API:
+- [x] **Step 1:** After all panes `paintPane`, ensure `sceneRenderer.endFrame()` once per chart draw (not only per pane if multi-pane). Preferred API:
 
 ```ts
 // per pane
@@ -293,7 +294,8 @@ sceneRenderer.endFrame()
 
 If current code calls endFrame per pane, change to: beginFrame per pane (bind region + queue pane draws), endFrame once after loop.
 
-- [ ] **Step 2:** Multi-pane test or fake renderer asserting single endFrame submit.
+- [x] **Step 2:** Multi-pane test or fake renderer asserting single endFrame submit.
+  Note: true single-submit-per-chart still limited by mid-frame `compositeTo` until M2.
 
 ---
 

@@ -73,4 +73,14 @@ describe('drawRectBatchesViaRenderer', () => {
     ).toBe(true)
     expect(r.drawInstances).not.toHaveBeenCalled()
   })
+
+  it('reuses pipeline and instance buffers across frames', () => {
+    const r = mockRenderer()
+    const batches = [{ buf: new Float32Array([0, 0, 10, 20]), count: 1, color: '#0f0' }]
+    expect(drawRectBatchesViaRenderer(r, batches, 0)).toBe(true)
+    expect(drawRectBatchesViaRenderer(r, batches, 3)).toBe(true)
+    expect(r.createPipeline).toHaveBeenCalledTimes(1)
+    expect(r.createBuffer).toHaveBeenCalledTimes(2) // unit + one instance slot
+    expect(r.destroyBuffer).not.toHaveBeenCalled()
+  })
 })
