@@ -28,6 +28,10 @@ import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
 import { KLineChartError } from '../errors'
 import { ChartBridge } from '../features/mcp/chartBridge'
 import { computed, type ReadonlySignal } from '../foundation/reactivity/index'
+import {
+  createDefaultRendererHost,
+  type RendererBackend,
+} from '../rendering/render/index'
 
 import type {
   ChartController,
@@ -334,6 +338,10 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     initialZoomLevel,
   }
 
+  const initialSettings = resolveSettings(opts.settings)
+  const rendererHost = await createDefaultRendererHost(
+    initialSettings.rendererBackend as RendererBackend,
+  )
   const chart = new Chart(
     {
       container: mounted.container,
@@ -344,6 +352,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       xAxisCanvas: mounted.xAxisCanvas,
     },
     chartOptions,
+    { rendererHost, initialSettings },
   )
 
   const currentDpr =
@@ -375,6 +384,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   // Signals from ChartStateKernel — no wrapper needed
   const themeSignal: ReadonlySignal<'light' | 'dark'> = chart.theme
   const settingsSignal = chart.kernel.settings.readonly.settings
+  const rendererRuntimeSignal = chart.kernel.renderer.readonly.runtime
   const chartModeSignal = chart.kernel.mode.readonly.chartMode
   const drawingTool = chart.kernel.drawing.readonly.drawingTool
   // drawings need type mapping (plugin DrawingObject → controller DrawingObject)
@@ -418,15 +428,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   if (opts.theme) {
     try {
       chart.setTheme(opts.theme)
-    } catch {
-      /* tolerate first-paint racing */
-    }
-  }
-
-  // Apply initial settings (partial, merged with defaults)
-  if (opts.settings) {
-    try {
-      chart.updateSettingsFacade(resolveSettings(opts.settings))
     } catch {
       /* tolerate first-paint racing */
     }
@@ -901,6 +902,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     symbols,
     theme: themeSignal,
     settings: settingsSignal,
+    rendererRuntime: rendererRuntimeSignal,
     chartMode: chartModeSignal,
     indicators,
     subPanes,

@@ -78,6 +78,11 @@ export function createMockChartController(
     data,
     theme,
     settings,
+    rendererRuntime: createSignal({
+      effective: 'webgl' as const,
+      status: 'ready' as const,
+      error: null,
+    }),
     chartMode: createSignal('kline' as const),
     interactionState,
     indicators: createSignal<ReadonlyArray<IndicatorInstance>>([]),

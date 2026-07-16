@@ -61,8 +61,6 @@ export function tryDrawRectsGpu(
   batches: ReadonlyArray<RectBatch>,
   scrollLeft: number,
 ): boolean {
-  const enableWebGL = context.settings?.enableWebGLRendering !== false
-  if (!enableWebGL) return false
   const active = batches.filter((b) => b.count > 0)
   if (active.length === 0) return true
 

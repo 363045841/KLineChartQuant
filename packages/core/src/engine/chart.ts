@@ -23,6 +23,11 @@ import {
 import { InteractionController, type InteractionSnapshot } from './controller/interaction'
 
 import type { ChartSettings } from '../foundation/config/chartSettings'
+import {
+  createDefaultRendererHostSync,
+  type RendererBackend,
+  type RendererHost,
+} from '../rendering/render/index'
 import type { KLineData } from '../foundation/types/price'
 
 import type { IndicatorScheduler } from './indicators/scheduler'
@@ -42,7 +47,6 @@ import { KLineMode } from './modes/kLineMode'
 import { TimeShareMode } from './modes/timeShareMode'
 import { PaneRenderer } from './paneRenderer'
 import { ChartRenderer } from './render/chartRenderer'
-import { SharedWebGLSurface } from './renderers/webgl/sharedWebGLSurface'
 import { ChartStateKernel } from './state/chartStateKernel'
 import { ChartViewportManager } from './viewport/chartViewportManager'
 import { getVisibleRange } from './viewport/viewport'
@@ -102,8 +106,8 @@ export class Chart {
   /** 渲染器插件管理器 */
   private rendererPluginManager: RendererPluginManager
 
-  /** Chart 级共享 WebGL canvas/context */
-  private sharedWebGLSurface: SharedWebGLSurface
+  /** 具体渲染后端及其生命周期所有者 */
+  private rendererHost: RendererHost
 
   /** 缩放控制器 */
   private zoomController: ChartZoomController
@@ -197,13 +201,17 @@ export class Chart {
    * @param dom 由 Vue 组件传入的 DOM 句柄
    * @param opt 初始配置
    */
-  constructor(dom: ChartDom, opt: ChartOptions) {
+  constructor(
+    dom: ChartDom,
+    opt: ChartOptions,
+    runtime?: { rendererHost?: RendererHost; initialSettings?: Partial<ChartSettings> },
+  ) {
     this.dom = dom
     const { kWidth: _kWidth, kGap: _kGap, ...restOpt } = opt
     this._activeMode = this._kLineMode
     this.pluginHost = createPluginHost()
     this.rendererPluginManager = new RendererPluginManager()
-    this.sharedWebGLSurface = new SharedWebGLSurface()
+    this.rendererHost = runtime?.rendererHost ?? createDefaultRendererHostSync()
 
     // 注入依赖
     this.rendererPluginManager.setPluginHost(this.pluginHost)
@@ -219,14 +227,21 @@ export class Chart {
         zoomLevelCount,
       },
       initialZoomLevel,
+      initialSettings: runtime?.initialSettings,
+      initialRendererRuntime: this.rendererHost.runtime,
       scheduleDraw: (level) => this.scheduleDraw(level as UpdateLevel | undefined),
+    })
+    this.rendererHost.setListeners({
+      onRuntimeChange: (rendererRuntime) =>
+        this.kernel.renderer.actions.setRuntime(rendererRuntime),
+      requestRedraw: () => this.scheduleDraw(UpdateLevel.All),
     })
 
     // Inject DOM deps into kernel's viewportState (needed before init)
     this.kernel.setViewportDomDeps({
       getDom: () => this.dom,
       resizeSharedWebGLSurface: (plotWidth, plotHeight, dpr) =>
-        this.sharedWebGLSurface.resize(plotWidth, plotHeight, dpr),
+        this.rendererHost.resize(plotWidth, plotHeight, dpr),
     })
 
     // ── ViewportManager (DOM lifecycle: ResizeObserver + scroll events) ──
@@ -435,7 +450,7 @@ export class Chart {
       },
       getPaneRenderers: () => this.paneRenderers,
       getInteraction: () => this.interaction,
-      getSharedWebGLSurface: () => this.sharedWebGLSurface,
+      getSceneRenderer: () => this.rendererHost.renderer,
       getPluginHost: () => this.pluginHost,
       getRendererPluginManager: () => this.rendererPluginManager,
       getTheme: () => this.kernel.effectiveTheme$.peek(),
@@ -752,6 +767,10 @@ export class Chart {
 
     if ('rightAxisType' in settings) {
       this.applyRightAxisTypeToKernel(settings.rightAxisType as string)
+    }
+
+    if (prev.rendererBackend !== next.rendererBackend) {
+      void this.rendererHost.switchTo(next.rendererBackend as RendererBackend)
     }
 
     this.scheduleDraw()
@@ -1242,7 +1261,7 @@ export class Chart {
     this.dataManager.destroy()
     this.viewportManager.destroy()
     this.layoutManager.destroy()
-    this.sharedWebGLSurface.destroy()
+    this.rendererHost.dispose()
     this.kernel.dispose()
     this.alertController.dispose()
     await this.pluginHost.destroy()

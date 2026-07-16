@@ -41,8 +41,6 @@ function drawENEWithWebGL(
     context.isAsiaMarket,
     context.colorPresetSettings,
   )
-  if (context.settings?.enableWebGLRendering === false) return false
-
   // band 默认 false：无 surface 时不得假成功跳过 2D
   let bandOk = false
   if (data.upperPoints.length >= 2 && data.lowerPoints.length >= 2) {

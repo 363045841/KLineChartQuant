@@ -9,6 +9,30 @@ export type { SurfaceBackend, SurfaceRegion, CompositeOptions } from './SurfaceB
 
 export { createWebGLSurfaceBackend } from './createWebGLSurfaceBackend'
 export { createWebGLRenderer } from './createWebGLRenderer'
+export { createWebGPUSurfaceBackend } from './createWebGPUSurfaceBackend'
+export { createWebGPURenderer } from './createWebGPURenderer'
+export { createCanvas2DRenderer } from './createCanvas2DRenderer'
+export { createRendererHost, createRendererHostFromRenderer } from './rendererHost'
+export {
+  createDefaultRendererHost,
+  createDefaultRendererHostSync,
+} from './createDefaultRendererHost'
+
+export type {
+  RendererBackend,
+  RendererBackendStatus,
+  RendererBackendRuntime,
+  RendererFactory,
+  RendererHostDependencies,
+  RendererHostListeners,
+  RendererHost,
+} from './rendererHost'
+
+export type {
+  WebGPUSurfaceBackend,
+  WebGPUSurfaceBackendOptions,
+} from './createWebGPUSurfaceBackend'
+export type { CreateWebGPURendererOptions } from './createWebGPURenderer'
 
 export type {
   Renderer,

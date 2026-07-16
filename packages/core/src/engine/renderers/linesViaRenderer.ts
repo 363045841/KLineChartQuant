@@ -79,8 +79,6 @@ export function tryDrawLinesGpu(
   lines: ReadonlyArray<ColoredLineStrip>,
   scrollLeft: number,
 ): boolean {
-  const enableWebGL = context.settings?.enableWebGLRendering !== false
-  if (!enableWebGL) return false
   const drawable = lines.filter((l) => l.points.length >= 2)
   if (drawable.length === 0) return false
 
@@ -148,8 +146,6 @@ export function tryDrawFilledBandGpu(
   scrollLeft: number,
   alpha = 1,
 ): boolean {
-  const enableWebGL = context.settings?.enableWebGLRendering !== false
-  if (!enableWebGL) return false
   if (Math.min(upperPoints.length, lowerPoints.length) < 2) return false
 
   if (!context.sceneRenderer) return false

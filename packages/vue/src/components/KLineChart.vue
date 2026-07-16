@@ -34,6 +34,7 @@
         :is-fullscreen="effectiveIsFullscreen"
         :alert-controller="controller"
         :effective-settings="chartSettings"
+        :renderer-runtime="rendererRuntime"
         :drawing-tool-id="drawingToolId"
         :is-range-select-mode="isRangeSelectMode"
         @select-tool="handleSelectTool"
@@ -212,9 +213,11 @@
 <script setup lang="ts">
   import {
     SETTINGS_STORAGE_KEY,
+    migrateStoredSettings,
     resolveSettings,
     type ChartSettings,
   } from '@363045841yyt/klinechart-core/config'
+  import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
   import {
     createChartController,
     routerDataFetcher,
@@ -463,7 +466,10 @@ import MarkerTooltip from './MarkerTooltip.vue'
 
   function forcePercentAxis() {
     if (chartSettings.value.axisType === 'percent') return
-    const nextSettings = { ...chartSettings.value, axisType: 'percent' as const }
+    const nextSettings = migrateStoredSettings({
+      ...chartSettings.value,
+      axisType: 'percent',
+    })
     chartSettings.value = nextSettings
     controller.value?.updateSettingsFacade(resolveSettings(nextSettings))
     try {
@@ -572,6 +578,8 @@ import MarkerTooltip from './MarkerTooltip.vue'
 
   /** 镜像 kernel.drawingTool，供工具栏高亮 */
   const drawingToolId = shallowRef('cursor')
+  /** 镜像 kernel.rendererRuntime，供设置页显示有效后端 */
+  const rendererRuntime = shallowRef<RendererBackendRuntime | null>(null)
 
   const {
     mainActiveIndicators,
@@ -1214,6 +1222,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
       priceLabelWidth: props.priceLabelWidth,
       minKWidth: props.minKWidth,
       maxKWidth: props.maxKWidth,
+      settings: props.settings,
       mcp: props.mcp,
     })
     return ctrl
@@ -1291,6 +1300,11 @@ import MarkerTooltip from './MarkerTooltip.vue'
       drawingToolId.value = ctrl.drawingTool.peek()
     })
 
+    rendererRuntime.value = ctrl.rendererRuntime.peek()
+    const unsubscribeRendererRuntime = ctrl.rendererRuntime.subscribe(() => {
+      rendererRuntime.value = ctrl.rendererRuntime.peek()
+    })
+
     const unsubscribeIndicators = setupIndicatorSubscriptions(ctrl)
 
     const unsubscribeComparisonColors = ctrl.comparisonColors.subscribe(() => {
@@ -1351,6 +1365,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
       unsubscribePaneLayout()
       unsubscribeTheme()
       unsubscribeDrawingTool()
+      unsubscribeRendererRuntime()
       unsubscribeIndicators()
       unsubscribeComparisonColors()
       unsubscribeComparisonLoading()
@@ -1360,7 +1375,9 @@ import MarkerTooltip from './MarkerTooltip.vue'
   }
 
   function applyInitialSettings(ctrl: ChartController): void {
-    const toolbarSettings = toolbarRef.value?.getSettings() ?? {}
+    const toolbarSettings = migrateStoredSettings(
+      (toolbarRef.value?.getSettings() ?? {}) as Record<string, unknown>,
+    )
     const propSettings = props.settings ?? {}
     const merged = { ...toolbarSettings, ...propSettings }
     chartSettings.value = merged

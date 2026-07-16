@@ -111,11 +111,9 @@ export function createCandleRenderer(): RendererPlugin {
 
       const upColor = colors.candleUpBody
       const downColor = colors.candleDownBody
-      const webglOn = settings?.enableWebGLRendering !== false
-
       // sceneRenderer → fail-closed 2D
       let usedGpu = false
-      if (webglOn && context.sceneRenderer) {
+      if (context.sceneRenderer) {
         usedGpu = drawCandlesViaRenderer(
           context.sceneRenderer,
           prepared,

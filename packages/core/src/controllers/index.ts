@@ -31,6 +31,11 @@ export type {
   DataFetcher,
   CustomDataSource,
 } from './types'
+export type {
+  RendererBackend,
+  RendererBackendRuntime,
+  RendererBackendStatus,
+} from '../rendering/render/rendererHost'
 
 export { createChartController } from './createChartController'
 export { createIndicatorSelectorController } from './createIndicatorSelectorController'

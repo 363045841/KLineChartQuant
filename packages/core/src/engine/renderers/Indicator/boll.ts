@@ -56,8 +56,6 @@ function drawBOLLWithWebGL(
     context.isAsiaMarket,
     context.colorPresetSettings,
   )
-  if (context.settings?.enableWebGLRendering === false) return false
-
   // band：画完立即 composite（alpha），再画线（MSAA 会 clear FBO，band 已在 2D）
   let bandOk = false
   if (data.showBand && data.bandUpperPoints.length >= 2 && data.bandLowerPoints.length >= 2) {

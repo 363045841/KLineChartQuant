@@ -94,7 +94,7 @@ describe('candle sceneRenderer path', () => {
       kBarRects: [],
       theme: 'dark' as const,
       viewport: { scrollLeft: 0, plotWidth: 800, plotHeight: 400 },
-      settings: { enableWebGLRendering: true, showVolumePriceMarkers: false },
+      settings: { rendererBackend: 'webgl', showVolumePriceMarkers: false },
       sceneRenderer: r,
       zoomLevel: 1,
     } as unknown as RenderContext
@@ -145,7 +145,7 @@ describe('candle sceneRenderer path', () => {
       kBarRects: [],
       theme: 'dark' as const,
       viewport: { scrollLeft: 0, plotWidth: 800, plotHeight: 400 },
-      settings: { enableWebGLRendering: true, showVolumePriceMarkers: false },
+      settings: { rendererBackend: 'webgl', showVolumePriceMarkers: false },
       sceneRenderer: r,
       zoomLevel: 1,
     } as unknown as RenderContext

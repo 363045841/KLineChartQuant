@@ -44,9 +44,6 @@ export function getDeviceType(): 'mobile' | 'tablet' | 'desktop' {
   return 'desktop'
 }
 
-/** 移动端（含平板）默认不开启 WebGL */
-const ENABLE_WEBGL_DEFAULT = getDeviceType() === 'desktop'
-
 /** 默认设置配置 */
 export const DEFAULT_SETTINGS = [
   { key: 'showGridLines', label: '显示网格', type: 'boolean', default: true, group: 'main' },
@@ -96,11 +93,16 @@ export const DEFAULT_SETTINGS = [
     group: 'style',
   },
   {
-    key: 'enableWebGLRendering',
-    label: '启用 WebGL 硬件加速渲染',
-    type: 'boolean',
-    default: ENABLE_WEBGL_DEFAULT,
+    key: 'rendererBackend',
+    label: '渲染后端',
+    type: 'select',
+    default: 'webgl',
     group: 'main',
+    options: [
+      { value: 'webgl', label: 'WebGL' },
+      { value: 'webgpu', label: 'WebGPU' },
+      { value: 'canvas', label: 'Canvas' },
+    ],
   },
   {
     key: 'theme',
@@ -169,6 +171,21 @@ export function resolveSettings(partial?: Partial<ChartSettings>): ChartSettings
     partial?.colorPresetSettings,
   )
   return result as ChartSettings
+}
+
+/** 将旧版持久设置迁移为 rendererBackend，返回结果不保留旧字段。 */
+export function migrateStoredSettings(stored: Record<string, unknown>): Partial<ChartSettings> {
+  const { enableWebGLRendering, rendererBackend, ...rest } = stored
+  const validBackend =
+    rendererBackend === 'webgpu' || rendererBackend === 'webgl' || rendererBackend === 'canvas'
+      ? rendererBackend
+      : typeof enableWebGLRendering === 'boolean'
+        ? enableWebGLRendering
+          ? 'webgl'
+          : 'canvas'
+        : undefined
+
+  return validBackend ? { ...rest, rendererBackend: validBackend } : rest
 }
 
 /** localStorage 存储键名 */

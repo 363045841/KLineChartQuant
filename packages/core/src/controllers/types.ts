@@ -293,6 +293,10 @@ export interface ChartController extends DrawingChartAdapter {
   readonly settings: ReadonlySignal<
     Readonly<import('../foundation/config/chartSettings').ChartSettings>
   >
+  /** 当前有效 renderer、切换状态和最近错误。 */
+  readonly rendererRuntime: ReadonlySignal<
+    Readonly<import('../rendering/render/rendererHost').RendererBackendRuntime>
+  >
   /** 图表模式 id：kline | timeshare */
   readonly chartMode: ReadonlySignal<'kline' | 'timeshare'>
   readonly indicators: ReadonlySignal<ReadonlyArray<IndicatorInstance>>

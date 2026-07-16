@@ -22,6 +22,7 @@ import { createComparisonState, type ComparisonStateModule } from './comparisonS
 import { createIndicatorState, type IndicatorStateModule } from './indicatorState'
 import { createSubPaneState, type SubPaneStateModule } from './subPaneState'
 import { createMarkerState, type MarkerStateModule } from './markerState'
+import { createRendererState, type RendererStateModule } from './rendererState'
 import { batch, computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
 import type { DrawingObject } from '../../foundation/plugin/index'
 import type { PaneSpec } from '../chartTypes'
@@ -29,6 +30,8 @@ import type { DrawingToolId } from '../drawing/toolConfig'
 import type { SymbolSpec, SymbolInfo } from '../../controllers/types'
 import type { MarkerEntity, CustomMarkerEntity } from '../marker/registry'
 import type { DragMode } from './interactionState'
+import type { ChartSettings } from '../../foundation/config/chartSettings'
+import type { RendererBackendRuntime } from '../../rendering/render/rendererHost'
 
 export interface ChartStateKernelDeps {
   initialOptions: {
@@ -48,6 +51,8 @@ export interface ChartStateKernelDeps {
     [key: string]: unknown
   }
   initialZoomLevel: number
+  initialSettings?: Partial<ChartSettings>
+  initialRendererRuntime?: RendererBackendRuntime
   scheduleDraw: (level?: unknown) => void
 }
 
@@ -68,6 +73,7 @@ export class ChartStateKernel extends StateKernel {
   readonly indicator: IndicatorStateModule
   readonly subPane: SubPaneStateModule
   readonly marker: MarkerStateModule
+  readonly renderer: RendererStateModule
 
   readonly zoomLevel$: ReadonlySignal<number>
   readonly dataLength$: ReadonlySignal<number>
@@ -140,7 +146,10 @@ export class ChartStateKernel extends StateKernel {
     }
 
     // ── Settings state（用户偏好 SSOT，含 theme light|dark|auto）──
-    this.settings = createSettingsState()
+    this.settings = createSettingsState(deps.initialSettings)
+    this.renderer = createRendererState(
+      deps.initialRendererRuntime ?? { effective: 'webgl', status: 'ready', error: null },
+    )
 
     // ── 系统主题（auto 时参与 effectiveTheme 推导）──
     this.systemTheme = createSystemThemeState()
@@ -193,6 +202,7 @@ export class ChartStateKernel extends StateKernel {
       theme: this.effectiveTheme$,
       // Settings
       settings: this.settings.readonly.settings,
+      rendererRuntime: this.renderer.readonly.runtime,
       // Mode
       chartMode: this.mode.readonly.chartMode,
       // Pane scale types
@@ -238,6 +248,8 @@ export class ChartStateKernel extends StateKernel {
         this.pane.actions.commitLayout(ratios, specs),
       setTheme: (theme: 'light' | 'dark') => this.settings.actions.patch({ theme }),
       setSystemTheme: (theme: 'light' | 'dark') => this.systemTheme.actions.setSystemTheme(theme),
+      setRendererRuntime: (runtime: RendererBackendRuntime) =>
+        this.renderer.actions.setRuntime(runtime),
       setDrawingTool: (tool: DrawingToolId) => this.drawing.actions.setDrawingTool(tool),
       setDrawings: (drawings: ReadonlyArray<DrawingObject>) =>
         this.drawing.actions.setDrawings(drawings),
@@ -396,6 +408,7 @@ export class ChartStateKernel extends StateKernel {
     this.indicator.dispose()
     this.subPane.dispose()
     this.marker.dispose()
+    this.renderer.dispose()
   }
 }
 

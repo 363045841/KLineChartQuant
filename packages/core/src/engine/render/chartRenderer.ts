@@ -10,7 +10,6 @@ import type {
   YAxisTick,
 } from '../../foundation/plugin/index'
 import { RendererPluginManager, wrapPaneInfo } from '../../foundation/plugin/index'
-import { createWebGLRenderer, createWebGLSurfaceBackend } from '../../rendering/render/index'
 import type { Renderer } from '../../rendering/render/Renderer'
 import { createLayerFromPlugin } from '../../rendering/scene/createLayerFromPlugin'
 import { createScene } from '../../rendering/scene/createScene'
@@ -39,7 +38,6 @@ import {
 import type { ChartModeHandler } from '../modes/types'
 import { PaneRenderer } from '../paneRenderer'
 import { createTimeAxisRendererPlugin } from '../renderers/timeAxis'
-import { SharedWebGLSurface } from '../renderers/webgl/sharedWebGLSurface'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
 import { calculateTickCount } from '../utils/tickCount'
 import { ChartViewportManager } from '../viewport/chartViewportManager'
@@ -83,7 +81,7 @@ export interface RendererDependencies {
   getOption: () => ResolvedChartOptions
   getPaneRenderers: () => PaneRenderer[]
   getInteraction: () => InteractionController
-  getSharedWebGLSurface: () => SharedWebGLSurface
+  getSceneRenderer: () => Renderer
   getPluginHost: () => PluginHostImpl
   getRendererPluginManager: () => RendererPluginManager
   getTheme: () => 'light' | 'dark'
@@ -123,7 +121,6 @@ export class ChartRenderer {
   private frameCount = 0
   private paneCtxMap = new Map<string, RenderContext>()
   private currentPaneId = 'main'
-  private sceneRenderer: Renderer = {} as Renderer
   private timeAxisCtx: RenderContext | null = null
   private timeAxisLayer: Layer | null = null
   private _prevFrameRange: { visible: VisibleRange; raw: VisibleRange } | null = null
@@ -136,9 +133,6 @@ export class ChartRenderer {
       selectedDrawingId$: deps.selectedDrawingId$,
     })
     this.scene = createScene()
-    const sharedSurface = deps.getSharedWebGLSurface()
-    const surfaceBackend = createWebGLSurfaceBackend(sharedSurface)
-    this.sceneRenderer = createWebGLRenderer(surfaceBackend, sharedSurface)
   }
 
   initCoreRenderers(): void {
@@ -690,23 +684,24 @@ export class ChartRenderer {
       this.currentPaneId = pane.id
 
       const region = { x: 0, y: pane.top, width: vp.plotWidth, height: pane.height, dpr: vp.dpr }
+      const sceneRenderer = this.deps.getSceneRenderer()
       if (shouldUpdateMain) {
-        this.sceneRenderer.beginFrame(region)
+        sceneRenderer.beginFrame(region)
         this.scene.paintPane({
-          renderer: this.sceneRenderer,
+          renderer: sceneRenderer,
           region,
           paneRole: (pane.id === 'main' ? 'main' : 'sub') as PaneRole,
           paneId: pane.id,
           frameNumber: this.frameCount++,
           deltaMs: 0,
         })
-        this.sceneRenderer.endFrame()
+        sceneRenderer.endFrame()
       }
       if (shouldUpdateOverlay && !shouldUpdateMain) {
-        this.sceneRenderer.beginFrame(region)
+        sceneRenderer.beginFrame(region)
         this.scene.paintPane(
           {
-            renderer: this.sceneRenderer,
+            renderer: sceneRenderer,
             region,
             paneRole: (pane.id === 'main' ? 'main' : 'sub') as PaneRole,
             paneId: pane.id,
@@ -715,7 +710,7 @@ export class ChartRenderer {
           },
           ['overlay'],
         )
-        this.sceneRenderer.endFrame()
+        sceneRenderer.endFrame()
       }
     }
 
@@ -796,7 +791,7 @@ export class ChartRenderer {
         dayKeys: dataManager.getDayKeys() ?? undefined,
       }
       const paintCtx: PaintContext = {
-        renderer: this.sceneRenderer,
+        renderer: this.deps.getSceneRenderer(),
         region: { x: 0, y: 0, width: vp.plotWidth, height: opt.bottomAxisHeight, dpr: vp.dpr },
         paneRole: 'global',
         paneId: 'xAxis',
@@ -856,7 +851,6 @@ export class ChartRenderer {
     }
     this.cachedDrawFrame = null
     this.xAxisCtx = null
-    this.sceneRenderer.dispose()
     this.scene.dispose()
     this.paneCtxMap.clear()
   }
