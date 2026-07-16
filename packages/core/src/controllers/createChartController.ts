@@ -355,6 +355,10 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     { rendererHost, initialSettings },
   )
 
+  if (import.meta.env?.MODE !== 'production' && typeof window !== 'undefined') {
+    ;(window as any).__chart = chart
+  }
+
   const currentDpr =
     typeof window !== 'undefined' && window.devicePixelRatio > 0 ? window.devicePixelRatio : 1
   const currentKWidth = zoomLevelToKWidth(initialZoomLevel, {

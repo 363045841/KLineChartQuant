@@ -436,27 +436,50 @@ export async function createWebGPURenderer(
         else groups.set(key, [draw])
       }
 
-      let isFirstPass = true
-      for (const draws of groups.values()) {
-        const region = draws[0]!.region
-        rawSurface.bindRegion(region)
-        const pass = beginPass(encoder, region, isFirstPass ? 'clear' : 'load')
-        isFirstPass = false
-        if (!pass) continue
-        for (const draw of draws) {
-          const uniform = createUniform(draw.pipeline, draw.color, draw.scrollLeft, draw.region)
-          if (!uniform) continue
-          pass.setPipeline(draw.pipeline)
-          if (draw.kind === 'instances') {
-            pass.setVertexBuffer(0, draw.instanceBuffer)
-            pass.setBindGroup(0, uniform.bindGroup)
-            pass.draw(6, draw.instanceCount)
-            metrics.recordDraw()
-          } else {
-            pass.setVertexBuffer(0, draw.vertexBuffer)
-            pass.setBindGroup(0, uniform.bindGroup)
-            pass.draw(draw.vertexCount, 1)
-            metrics.recordDraw()
+      // 单 RenderPass：所有 region 组共享一次 clear + resolve，避免 MSAA 多 pass 驱动问题
+      const view = rawSurface.getCurrentTextureView()
+      const msaaView = ensureMsaaView()
+      if (view && msaaView) {
+        const pass = encoder.beginRenderPass({
+          colorAttachments: [
+            {
+              view: msaaView,
+              resolveTarget: view,
+              clearValue: { r: 0, g: 0, b: 0, a: 0 },
+              loadOp: 'clear',
+              storeOp: 'store',
+            },
+          ],
+        })
+
+        for (const draws of groups.values()) {
+          const region = draws[0]!.region
+          rawSurface.bindRegion(region)
+
+          const x = Math.max(0, Math.round(region.x * region.dpr))
+          const y = Math.max(0, Math.round(region.y * region.dpr))
+          const width = Math.min(canvas.width - x, Math.round(region.width * region.dpr))
+          const height = Math.min(canvas.height - y, Math.round(region.height * region.dpr))
+          if (width > 0 && height > 0) {
+            pass.setViewport(x, y, width, height, 0, 1)
+            pass.setScissorRect(x, y, width, height)
+
+            for (const draw of draws) {
+              const uniform = createUniform(draw.pipeline, draw.color, draw.scrollLeft, draw.region)
+              if (!uniform) continue
+              pass.setPipeline(draw.pipeline)
+              if (draw.kind === 'instances') {
+                pass.setVertexBuffer(0, draw.instanceBuffer)
+                pass.setBindGroup(0, uniform.bindGroup)
+                pass.draw(6, draw.instanceCount)
+                metrics.recordDraw()
+              } else {
+                pass.setVertexBuffer(0, draw.vertexBuffer)
+                pass.setBindGroup(0, uniform.bindGroup)
+                pass.draw(draw.vertexCount, 1)
+                metrics.recordDraw()
+              }
+            }
           }
         }
         pass.end()

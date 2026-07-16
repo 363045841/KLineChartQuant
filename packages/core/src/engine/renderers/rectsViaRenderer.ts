@@ -11,8 +11,6 @@ export type RectBatch = {
 type RectGpuCache = {
   pipeline: PipelineHandle
   unit: BufferHandle
-  instances: BufferHandle[]
-  instanceCapacities: number[]
 }
 
 const rectCacheByRenderer = new WeakMap<Renderer, RectGpuCache>()
@@ -23,34 +21,16 @@ function ensureRectCache(renderer: Renderer): RectGpuCache {
     cache = {
       pipeline: renderer.createPipeline({ type: 'candle' }),
       unit: renderer.createBuffer('vertex', 64),
-      instances: [],
-      instanceCapacities: [],
     }
     rectCacheByRenderer.set(renderer, cache)
   }
   return cache
 }
 
-function ensureInstanceBuffer(
-  renderer: Renderer,
-  cache: RectGpuCache,
-  slot: number,
-  byteLength: number,
-): BufferHandle {
-  const existing = cache.instances[slot]
-  const capacity = cache.instanceCapacities[slot] ?? 0
-  if (existing && capacity >= byteLength) return existing
-  if (existing) renderer.destroyBuffer(existing)
-  const handle = renderer.createBuffer('instance', byteLength)
-  cache.instances[slot] = handle
-  cache.instanceCapacities[slot] = byteLength
-  return handle
-}
-
 /**
  * 经 Renderer.drawInstances 画多组矩形（volume / MACD bar / candle 共用）。
  * 任一非空 batch 失败 → false。不负责 composite。
- * instance buffer 按 renderer 缓存，跨帧复用。
+ * instance buffer 每 batch 独立创建，避免同 frame 内不同绘制目标互相覆盖。
  */
 export function drawRectBatchesViaRenderer(
   renderer: Renderer,
@@ -61,12 +41,10 @@ export function drawRectBatchesViaRenderer(
 
   try {
     const cache = ensureRectCache(renderer)
-    let slot = 0
     for (const batch of batches) {
       if (batch.count <= 0) continue
       const byteLength = batch.count * 4 * 4
-      const instances = ensureInstanceBuffer(renderer, cache, slot, byteLength)
-      slot += 1
+      const instances = renderer.createBuffer('instance', byteLength)
       renderer.writeBuffer(instances, batch.buf.subarray(0, batch.count * 4))
       const ok = renderer.drawInstances({
         pipeline: cache.pipeline,
@@ -76,6 +54,7 @@ export function drawRectBatchesViaRenderer(
         vertexCount: 6,
         uniforms: { color: batch.color, scrollLeft },
       })
+      renderer.destroyBuffer(instances)
       if (!ok) return false
     }
     return true
