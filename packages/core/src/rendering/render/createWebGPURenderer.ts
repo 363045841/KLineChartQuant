@@ -188,13 +188,36 @@ export async function createWebGPURenderer(
   const canvas = options.canvas ?? globalThis.document?.createElement('canvas')
   if (!canvas) throw new Error('WebGPU canvas unavailable')
   const format = gpu.getPreferredCanvasFormat()
-  const surface = createWebGPUSurfaceBackend({ canvas, device, format })
+  const rawSurface = createWebGPUSurfaceBackend({ canvas, device, format })
+
+  type PendingDraw =
+    | {
+        kind: 'instances'
+        region: import('./SurfaceBackend').SurfaceRegion
+        pipeline: GPURenderPipeline
+        instanceBuffer: GPUBuffer
+        instanceCount: number
+        color: unknown
+        scrollLeft: number
+      }
+    | {
+        kind: 'lines'
+        region: import('./SurfaceBackend').SurfaceRegion
+        pipeline: GPURenderPipeline
+        vertexBuffer: GPUBuffer
+        vertexCount: number
+        color: unknown
+        scrollLeft: number
+        temporary?: BufferRecord
+      }
 
   let disposed = false
   let msaaTexture: GPUTexture | null = null
   let msaaWidth = 0
   let msaaHeight = 0
-  let clearPending = true
+  let currentRegion: import('./SurfaceBackend').SurfaceRegion | null = null
+  let pendingDraws: PendingDraw[] = []
+  let frameTemporaryRecords: BufferRecord[] = []
   const buffers = new WeakMap<object, BufferRecord>()
   const bufferRecords = new Set<BufferRecord>()
   const pipelines = new WeakMap<object, PipelineRecord>()
@@ -279,10 +302,10 @@ export async function createWebGPURenderer(
     pipeline: GPURenderPipeline,
     colorValue: unknown,
     scrollLeft: number,
+    region: import('./SurfaceBackend').SurfaceRegion,
   ): { record: BufferRecord; bindGroup: GPUBindGroup } | null {
-    const region = surface.getBoundRegion()
     const color = parseColor(colorValue ?? '#000000')
-    if (!region || !color) return null
+    if (!color) return null
     const values = new Float32Array([
       region.width,
       region.height,
@@ -302,19 +325,21 @@ export async function createWebGPURenderer(
     return { record, bindGroup }
   }
 
-  function beginPass(): { encoder: GPUCommandEncoder; pass: GPURenderPassEncoder } | null {
-    const region = surface.getBoundRegion()
-    const view = surface.getCurrentTextureView()
+  function beginPass(
+    encoder: GPUCommandEncoder,
+    region: import('./SurfaceBackend').SurfaceRegion,
+    loadOp: 'clear' | 'load',
+  ): GPURenderPassEncoder | null {
+    const view = rawSurface.getCurrentTextureView()
     const msaaView = ensureMsaaView()
-    if (!region || !view || !msaaView) return null
-    const encoder = device.createCommandEncoder()
+    if (!view || !msaaView) return null
     const pass = encoder.beginRenderPass({
       colorAttachments: [
         {
           view: msaaView,
           resolveTarget: view,
           clearValue: { r: 0, g: 0, b: 0, a: 0 },
-          loadOp: clearPending ? 'clear' : 'load',
+          loadOp,
           storeOp: 'store',
         },
       ],
@@ -327,10 +352,71 @@ export async function createWebGPURenderer(
       pass.end()
       return null
     }
-    clearPending = false
     pass.setViewport(x, y, width, height, 0, 1)
     pass.setScissorRect(x, y, width, height)
-    return { encoder, pass }
+    return pass
+  }
+
+  function regionKey(region: import('./SurfaceBackend').SurfaceRegion): string {
+    return `${region.x},${region.y},${region.width},${region.height},${region.dpr}`
+  }
+
+  function flushPendingDraws(): void {
+    if (pendingDraws.length === 0) {
+      frameTemporaryRecords = []
+      return
+    }
+    const encoder = device.createCommandEncoder()
+    const temporaryUniforms: BufferRecord[] = []
+    try {
+      const groups = new Map<string, PendingDraw[]>()
+      for (const draw of pendingDraws) {
+        const key = regionKey(draw.region)
+        const list = groups.get(key)
+        if (list) list.push(draw)
+        else groups.set(key, [draw])
+      }
+
+      let isFirstPass = true
+      for (const draws of groups.values()) {
+        const region = draws[0]!.region
+        rawSurface.bindRegion(region)
+        const pass = beginPass(encoder, region, isFirstPass ? 'clear' : 'load')
+        isFirstPass = false
+        if (!pass) continue
+        for (const draw of draws) {
+          const uniform = createUniform(draw.pipeline, draw.color, draw.scrollLeft, draw.region)
+          if (!uniform) continue
+          temporaryUniforms.push(uniform.record)
+          pass.setPipeline(draw.pipeline)
+          if (draw.kind === 'instances') {
+            pass.setVertexBuffer(0, draw.instanceBuffer)
+            pass.setBindGroup(0, uniform.bindGroup)
+            pass.draw(6, draw.instanceCount)
+          } else {
+            pass.setVertexBuffer(0, draw.vertexBuffer)
+            pass.setBindGroup(0, uniform.bindGroup)
+            pass.draw(draw.vertexCount, 1)
+          }
+        }
+        pass.end()
+      }
+      device.queue.submit([encoder.finish()])
+    } finally {
+      for (const record of temporaryUniforms) deferDestroy(record)
+      for (const record of frameTemporaryRecords) deferDestroy(record)
+      pendingDraws = []
+      frameTemporaryRecords = []
+    }
+  }
+
+  // Flush before composite so M1 mid-frame compositeTo still sees GPU output.
+  const surface: WebGPUSurfaceBackend = {
+    ...rawSurface,
+    compositeTo(targetCtx, region, compositeOptions) {
+      flushPendingDraws()
+      rawSurface.compositeTo(targetCtx, region, compositeOptions)
+    },
   }
 
   const renderer: Renderer = {
@@ -380,8 +466,8 @@ export async function createWebGPURenderer(
     destroyComputePipeline(_handle): void {},
     beginFrame(region): void {
       if (!disposed) {
-        clearPending = true
-        surface.bindRegion(region)
+        currentRegion = { ...region }
+        rawSurface.bindRegion(region)
       }
     },
     drawInstances(params: DrawInstancesParams): boolean {
@@ -395,38 +481,28 @@ export async function createWebGPURenderer(
       if (params.instanceCount === 0) return true
       const pipelineRecord = pipelines.get(params.pipeline as object)
       const instanceRecord = buffers.get(params.instances as object)
-      if (pipelineRecord?.type !== 'candle' || !instanceRecord) return false
+      if (pipelineRecord?.type !== 'candle' || !instanceRecord || !currentRegion) return false
       try {
-        const pipeline = getPipeline('candle')
-        const uniform = createUniform(
-          pipeline,
-          params.uniforms?.color,
-          (params.uniforms?.scrollLeft as number) ?? 0,
-        )
-        const frame = beginPass()
-        if (!uniform || !frame) return false
-        frame.pass.setPipeline(pipeline)
-        frame.pass.setVertexBuffer(0, instanceRecord.buffer)
-        frame.pass.setBindGroup(0, uniform.bindGroup)
-        frame.pass.draw(6, params.instanceCount)
-        frame.pass.end()
-        device.queue.submit([frame.encoder.finish()])
-        deferDestroy(uniform.record)
+        pendingDraws.push({
+          kind: 'instances',
+          region: { ...currentRegion },
+          pipeline: getPipeline('candle'),
+          instanceBuffer: instanceRecord.buffer,
+          instanceCount: params.instanceCount,
+          color: params.uniforms?.color,
+          scrollLeft: (params.uniforms?.scrollLeft as number) ?? 0,
+        })
         return true
       } catch {
         return false
       }
     },
     drawLines(params: DrawLinesParams): boolean {
-      if (disposed) return false
+      if (disposed || !currentRegion) return false
       const pipelineRecord = pipelines.get(params.pipeline as object)
       if (!pipelineRecord || pipelineRecord.type === 'candle') return false
       if (params.strips && params.strips.length === 0) return true
       try {
-        const frame = beginPass()
-        if (!frame) return false
-        const temporaryRecords: BufferRecord[] = []
-
         if (params.strips) {
           const scrollLeft = (params.uniforms?.scrollLeft as number) ?? 0
           for (const strip of params.strips) {
@@ -436,38 +512,33 @@ export async function createWebGPURenderer(
             if (!values) return false
             const vertexRecord = createBufferRecord('vertex', values.byteLength)
             device.queue.writeBuffer(vertexRecord.buffer, 0, values.buffer, 0, values.byteLength)
-            temporaryRecords.push(vertexRecord)
-            const pipeline = getPipeline(wide ? 'line-wide' : 'line-strip')
-            const uniform = createUniform(pipeline, strip.color, scrollLeft)
-            if (!uniform) return false
-            temporaryRecords.push(uniform.record)
-            frame.pass.setPipeline(pipeline)
-            frame.pass.setVertexBuffer(0, vertexRecord.buffer)
-            frame.pass.setBindGroup(0, uniform.bindGroup)
-            frame.pass.draw(values.length / 2, 1)
+            frameTemporaryRecords.push(vertexRecord)
+            pendingDraws.push({
+              kind: 'lines',
+              region: { ...currentRegion },
+              pipeline: getPipeline(wide ? 'line-wide' : 'line-strip'),
+              vertexBuffer: vertexRecord.buffer,
+              vertexCount: values.length / 2,
+              color: strip.color,
+              scrollLeft,
+              temporary: vertexRecord,
+            })
           }
-        } else {
-          if (pipelineRecord.type !== 'fill' || !params.vertices || !params.vertexCount)
-            return false
-          const vertexRecord = buffers.get(params.vertices as object)
-          if (!vertexRecord || params.vertexCount < 3) return false
-          const pipeline = getPipeline('fill')
-          const uniform = createUniform(
-            pipeline,
-            params.uniforms?.color,
-            (params.uniforms?.scrollLeft as number) ?? 0,
-          )
-          if (!uniform) return false
-          temporaryRecords.push(uniform.record)
-          frame.pass.setPipeline(pipeline)
-          frame.pass.setVertexBuffer(0, vertexRecord.buffer)
-          frame.pass.setBindGroup(0, uniform.bindGroup)
-          frame.pass.draw(params.vertexCount, 1)
+          return true
         }
 
-        frame.pass.end()
-        device.queue.submit([frame.encoder.finish()])
-        for (const record of temporaryRecords) deferDestroy(record)
+        if (pipelineRecord.type !== 'fill' || !params.vertices || !params.vertexCount) return false
+        const vertexRecord = buffers.get(params.vertices as object)
+        if (!vertexRecord || params.vertexCount < 3) return false
+        pendingDraws.push({
+          kind: 'lines',
+          region: { ...currentRegion },
+          pipeline: getPipeline('fill'),
+          vertexBuffer: vertexRecord.buffer,
+          vertexCount: params.vertexCount,
+          color: params.uniforms?.color,
+          scrollLeft: (params.uniforms?.scrollLeft as number) ?? 0,
+        })
         return true
       } catch {
         return false
@@ -476,15 +547,19 @@ export async function createWebGPURenderer(
     dispatchCompute(_params: DispatchComputeParams): void {
       throw new Error('dispatchCompute requires a backend with caps.compute === true')
     },
-    endFrame(): void {},
+    endFrame(): void {
+      if (!disposed) flushPendingDraws()
+    },
     dispose(): void {
       if (disposed) return
       disposed = true
+      pendingDraws = []
+      frameTemporaryRecords = []
       msaaTexture?.destroy()
       msaaTexture = null
       for (const record of bufferRecords) record.buffer.destroy()
       bufferRecords.clear()
-      surface.dispose()
+      rawSurface.dispose()
     },
   }
 

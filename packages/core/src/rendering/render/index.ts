@@ -33,6 +33,12 @@ export type {
   WebGPUSurfaceBackendOptions,
 } from './createWebGPUSurfaceBackend'
 export type { CreateWebGPURendererOptions } from './createWebGPURenderer'
+export {
+  createFrameMetrics,
+  getFrameMetrics,
+  resetFrameMetrics,
+} from './frameMetrics'
+export type { FrameMetricsSnapshot } from './frameMetrics'
 
 export type {
   Renderer,

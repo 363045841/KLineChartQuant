@@ -148,6 +148,8 @@ describe('createWebGPURenderer', () => {
     })
 
     expect(drawn).toBe(true)
+    expect(fake.queue.submit).not.toHaveBeenCalled()
+    renderer.endFrame()
     expect(fake.device.createTexture).toHaveBeenCalledWith(
       expect.objectContaining({ sampleCount: 4, format: 'bgra8unorm' }),
     )
@@ -155,6 +157,34 @@ describe('createWebGPURenderer', () => {
     expect(fake.passes[0]?.setScissorRect).toHaveBeenCalledWith(20, 10, 160, 80)
     expect(fake.passes[0]?.draw).toHaveBeenCalledWith(6, 3)
     expect(fake.queue.submit).toHaveBeenCalledOnce()
+  })
+
+  it('records multiple draws and submits once on endFrame', async () => {
+    const fake = makeWebGPU()
+    const renderer = await createWebGPURenderer({
+      gpu: fake.gpu as unknown as GPU,
+      canvas: fake.canvas,
+    })
+    renderer.surface.resize(200, 100, 1)
+    renderer.beginFrame({ x: 0, y: 0, width: 200, height: 100, dpr: 1 })
+    const pipeline = renderer.createPipeline({ type: 'candle' })
+    const instances = renderer.createBuffer('instance', 16)
+    renderer.writeBuffer(instances, new Float32Array([0, 0, 10, 20]))
+    const vertices = renderer.createBuffer('vertex', 4)
+    const params = {
+      pipeline,
+      vertices,
+      instances,
+      instanceCount: 1,
+      vertexCount: 6,
+      uniforms: { color: '#f00', scrollLeft: 0 },
+    }
+
+    expect(renderer.drawInstances(params)).toBe(true)
+    expect(renderer.drawInstances(params)).toBe(true)
+    expect(fake.queue.submit).not.toHaveBeenCalled()
+    renderer.endFrame()
+    expect(fake.queue.submit).toHaveBeenCalledTimes(1)
   })
 
   it('preserves earlier rectangle batches within the same frame', async () => {
@@ -179,15 +209,14 @@ describe('createWebGPURenderer', () => {
 
     expect(renderer.drawInstances(params)).toBe(true)
     expect(renderer.drawInstances(params)).toBe(true)
+    renderer.endFrame()
 
+    expect(fake.renderPassDescriptors).toHaveLength(1)
     expect(fake.renderPassDescriptors[0]?.colorAttachments[0]).toMatchObject({
       loadOp: 'clear',
       storeOp: 'store',
     })
-    expect(fake.renderPassDescriptors[1]?.colorAttachments[0]).toMatchObject({
-      loadOp: 'load',
-      storeOp: 'store',
-    })
+    expect(fake.passes[0]?.draw).toHaveBeenCalledTimes(2)
   })
 
   it('draws multiple line strips in one render pass', async () => {
@@ -224,6 +253,8 @@ describe('createWebGPURenderer', () => {
     })
 
     expect(drawn).toBe(true)
+    expect(fake.queue.submit).not.toHaveBeenCalled()
+    renderer.endFrame()
     expect(fake.passes).toHaveLength(1)
     expect(fake.passes[0]?.draw).toHaveBeenCalledTimes(2)
     const uniformWrites = fake.queue.writeBuffer.mock.calls.filter((call) => call[4] === 32)
@@ -248,6 +279,7 @@ describe('createWebGPURenderer', () => {
     const pipeline = renderer.createPipeline({ type: 'fill' })
 
     expect(renderer.drawLines({ pipeline, vertices, vertexCount: 4 })).toBe(true)
+    renderer.endFrame()
     expect(
       fake.pipelineDescriptors.some((item) => item.primitive?.topology === 'triangle-strip'),
     ).toBe(true)

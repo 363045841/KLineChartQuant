@@ -695,7 +695,6 @@ export class ChartRenderer {
           frameNumber: this.frameCount++,
           deltaMs: 0,
         })
-        sceneRenderer.endFrame()
       }
       if (shouldUpdateOverlay && !shouldUpdateMain) {
         sceneRenderer.beginFrame(region)
@@ -710,9 +709,11 @@ export class ChartRenderer {
           },
           ['overlay'],
         )
-        sceneRenderer.endFrame()
       }
     }
+
+    // WebGPU: one submit after all panes recorded draws
+    this.deps.getSceneRenderer().endFrame()
 
     return { sharedXAxisLabels, sharedXAxisRanges }
   }
