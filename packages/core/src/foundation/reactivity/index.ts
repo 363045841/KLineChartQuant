@@ -4,6 +4,7 @@ export {
   computed,
   effect,
   batch,
+  selectSignal,
   createStateStore,
   createSubState,
 } from './signal'

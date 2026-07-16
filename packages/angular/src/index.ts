@@ -217,18 +217,24 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
       }
     }
 
-    // Bridge viewport
+    // Bridge viewport（引用相等则跳过）
     this._viewport.set(controller.viewport.peek())
     this.destroyRef.onDestroy(
-      controller.viewport.subscribe(() => this._viewport.set(controller.viewport.peek())),
+      controller.viewport.subscribe(() => {
+        const next = controller.viewport.peek()
+        if (this._viewport() === next) return
+        this._viewport.set(next)
+      }),
     )
 
-    // Bridge interactionState
+    // Bridge interactionState（引用相等则跳过）
     this._interactionState.set(controller.interactionState.peek())
     this.destroyRef.onDestroy(
-      controller.interactionState.subscribe(() =>
-        this._interactionState.set(controller.interactionState.peek()),
-      ),
+      controller.interactionState.subscribe(() => {
+        const next = controller.interactionState.peek()
+        if (this._interactionState() === next) return
+        this._interactionState.set(next)
+      }),
     )
 
     // Bridge paneRatios

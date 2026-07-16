@@ -168,10 +168,23 @@ export function createInteractionState(deps: InteractionDeps) {
     readonly: mergedReadonly,
 
     actions: {
+      /**
+       * 更新十字线。坐标结构相等时保留旧对象引用，避免无意义 notify。
+       */
       updateCrosshair(pos: { x: number; y: number } | null, price: number | null) {
+        const prevPos = signals.crosshairPos.peek()
+        const prevPrice = signals.crosshairPrice.peek()
+        const posUnchanged =
+          prevPos === pos ||
+          (prevPos === null && pos === null) ||
+          (prevPos !== null &&
+            pos !== null &&
+            prevPos.x === pos.x &&
+            prevPos.y === pos.y)
+        if (posUnchanged && prevPrice === price) return
         batch(() => {
-          signals.crosshairPos.set(pos)
-          signals.crosshairPrice.set(price)
+          if (!posUnchanged) signals.crosshairPos.set(pos)
+          if (prevPrice !== price) signals.crosshairPrice.set(price)
         })
       },
 
@@ -239,13 +252,29 @@ export function createInteractionState(deps: InteractionDeps) {
         signals.hoveredRightAxisPaneId.set(paneId)
       },
 
+      /**
+       * 更新 tooltip。位置与锚点均未变时跳过写入。
+       */
       updateTooltip(
         pos: { x: number; y: number },
         placement: 'right-bottom' | 'left-bottom',
       ) {
+        const prevPos = signals.tooltipPos.peek()
+        const prevPlacement = signals.tooltipAnchorPlacement.peek()
+        if (
+          prevPos.x === pos.x &&
+          prevPos.y === pos.y &&
+          prevPlacement === placement
+        ) {
+          return
+        }
         batch(() => {
-          signals.tooltipPos.set(pos)
-          signals.tooltipAnchorPlacement.set(placement)
+          if (prevPos.x !== pos.x || prevPos.y !== pos.y) {
+            signals.tooltipPos.set(pos)
+          }
+          if (prevPlacement !== placement) {
+            signals.tooltipAnchorPlacement.set(placement)
+          }
         })
       },
 

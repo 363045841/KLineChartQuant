@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 
-import { createSignal, effect, computed } from '../foundation/reactivity/signal'
+import { createSignal, effect, computed, selectSignal } from '../foundation/reactivity/signal'
 
 describe('createSignal', () => {
   it('reads initial value', () => {
@@ -120,6 +120,41 @@ describe('computed', () => {
     const listener = vi.fn()
     c.subscribe(listener)
     a.set(2)
+    expect(listener).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('selectSignal', () => {
+  it('notifies only when selected value changes', () => {
+    const source = createSignal({ a: 1, b: 2 })
+    const selected = selectSignal(source, (s) => s.a)
+    const listener = vi.fn()
+    selected.subscribe(listener)
+
+    source.set({ a: 1, b: 9 })
+    expect(listener).not.toHaveBeenCalled()
+    expect(selected.peek()).toBe(1)
+
+    source.set({ a: 3, b: 9 })
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(selected.peek()).toBe(3)
+  })
+
+  it('supports custom equality for structural fields', () => {
+    const source = createSignal({ pos: { x: 1, y: 2 } as { x: number; y: number } | null })
+    const selected = selectSignal(
+      source,
+      (s) => s.pos,
+      (a, b) =>
+        a === b || (a !== null && b !== null && a.x === b.x && a.y === b.y) || (a === null && b === null),
+    )
+    const listener = vi.fn()
+    selected.subscribe(listener)
+
+    source.set({ pos: { x: 1, y: 2 } })
+    expect(listener).not.toHaveBeenCalled()
+
+    source.set({ pos: { x: 2, y: 2 } })
     expect(listener).toHaveBeenCalledTimes(1)
   })
 })

@@ -192,11 +192,14 @@ export function useIndicators(controller: ChartController): {
 
 /**
  * Bridge the Chart's interactionState signal into a Vue shallowRef.
+ * 仅当 snapshot 引用变化时更新（kernel 侧已做字段级短路与引用缓存）。
  */
 export function useInteractionState(controller: ChartController): Ref<InteractionSnapshot> {
   const state = shallowRef(controller.interactionState.peek()) as Ref<InteractionSnapshot>
   const unsub = controller.interactionState.subscribe(() => {
-    state.value = controller.interactionState.peek()
+    const next = controller.interactionState.peek()
+    if (state.value === next) return
+    state.value = next
   })
   onScopeDispose(unsub)
   return state
@@ -216,11 +219,14 @@ export function usePaneRatios(controller: ChartController): Ref<Readonly<Record<
 
 /**
  * Bridge the Chart's viewport signal into a Vue shallowRef.
+ * 引用相等则跳过，配合 viewport 侧缓存减少滚动抖动更新。
  */
 export function useViewport(controller: ChartController): Ref<ChartViewport> {
   const vp = shallowRef(controller.viewport.peek()) as Ref<ChartViewport>
   const unsub = controller.viewport.subscribe(() => {
-    vp.value = controller.viewport.peek()
+    const next = controller.viewport.peek()
+    if (vp.value === next) return
+    vp.value = next
   })
   onScopeDispose(unsub)
   return vp

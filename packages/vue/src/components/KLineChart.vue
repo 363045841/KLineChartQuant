@@ -791,6 +791,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
     _unsubTooltip = ctrl.interactionState.subscribe(() => {
       const el = tooltipContentRef.value
       if (!el) return
+      // 订阅整包 snapshot；内容更新仅依赖 hoveredIndex，索引未变时只动 display
       const snapshot = ctrl.interactionState.peek()
       const idx = snapshot.hoveredIndex
       const data = ctrl.getData()
@@ -1388,8 +1389,11 @@ import MarkerTooltip from './MarkerTooltip.vue'
 
   function setupInteractionCallbacks(ctrl: ChartController): void {
     ctrl.setTooltipAnchorPositioning(useAnchorPositioning.value)
+    // 引用相等短路：kernel interactionSnapshot 已字段级缓存
     ctrl.interactionState.subscribe(() => {
-      interactionState.value = ctrl.interactionState.peek()
+      const next = ctrl.interactionState.peek()
+      if (interactionState.value === next) return
+      interactionState.value = next
     })
 
     interactionState.value = ctrl.interactionState.peek()

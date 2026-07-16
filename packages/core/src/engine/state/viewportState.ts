@@ -256,11 +256,14 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
   let webglEffect: (() => void) | null = null
   let scrollDomEffect: (() => void) | null = null
 
+  /**
+   * 写入请求 scrollLeft；与当前值相等时跳过，避免 pan 重复事件空通知。
+   */
   const setRequestedScrollLeft = (value: number): void => {
     const normalized = Number.isFinite(value) ? value : 0
-    batch(() => {
-      signals.requestedScrollLeft.set(Math.max(0, Math.min(normalized, maxScrollLeft.peek())))
-    })
+    const clamped = Math.max(0, Math.min(normalized, maxScrollLeft.peek()))
+    if (signals.requestedScrollLeft.peek() === clamped) return
+    signals.requestedScrollLeft.set(clamped)
   }
 
   const syncFromDomScroll = () => {
