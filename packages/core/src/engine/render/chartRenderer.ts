@@ -207,10 +207,11 @@ export class ChartRenderer {
       render: (snapshot) => {
         // generation 0 占位不绘制
         if (snapshot.generation === 0) return
-        // seal 与 paint 同属本帧；seal 供 interaction hover 读几何，不得在 paint 中途再写
+        // seal 几何 → flush hover（同代）→ paint；禁止 paint 中途再写 kernel 几何
         if (snapshot.frame) {
           this.sealFrameGeometry(snapshot.frame)
         }
+        this.deps.getInteraction().flushPendingHover()
         this.drawWithFrame(snapshot.level, snapshot.frame)
       },
       schedule: (run) => {

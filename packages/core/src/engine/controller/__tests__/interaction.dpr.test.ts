@@ -283,9 +283,11 @@ describe('InteractionController DPR consumption', () => {
     interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
 
     interaction.onPointerMove({ clientX: 50, clientY: 40, isPrimary: true } as PointerEvent)
+    interaction.flushPendingHover()
     expect(interaction.crosshairPos).not.toBeNull()
 
     interaction.onPointerMove({ clientX: 120, clientY: 40, isPrimary: true } as PointerEvent)
+    interaction.flushPendingHover()
     expect(interaction.crosshairPos).toBeNull()
     expect(interaction.crosshairIndex).toBeNull()
   })
@@ -296,6 +298,7 @@ describe('InteractionController DPR consumption', () => {
     interactionDpr1.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
 
     interactionDpr1.onPointerMove({ clientX: 8, clientY: 40, isPrimary: true } as PointerEvent)
+    interactionDpr1.flushPendingHover()
     expect(interactionDpr1.crosshairIndex).toBe(0)
 
     const chartDpr2 = createChartStub({ dpr: 2, plotWidth: 300, plotHeight: 160 })
@@ -303,7 +306,20 @@ describe('InteractionController DPR consumption', () => {
     interactionDpr2.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
 
     interactionDpr2.onPointerMove({ clientX: 8, clientY: 40, isPrimary: true } as PointerEvent)
+    interactionDpr2.flushPendingHover()
     expect(interactionDpr2.crosshairIndex).toBe(1)
+  })
+
+  it('pointermove does not write crosshair until flushPendingHover', () => {
+    const chart = createChartStub({ dpr: 1, plotWidth: 100, plotHeight: 80 })
+    const interaction = new InteractionController(chart as never, createMockInteractionState())
+    interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
+
+    interaction.onPointerMove({ clientX: 50, clientY: 40, isPrimary: true } as PointerEvent)
+    expect(interaction.crosshairPos).toBeNull()
+
+    interaction.flushPendingHover()
+    expect(interaction.crosshairPos).not.toBeNull()
   })
 })
 
@@ -322,6 +338,7 @@ describe('InteractionController pane capability gating', () => {
 
     interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
     interaction.onPointerMove({ clientX: 5, clientY: 140, isPrimary: true } as PointerEvent)
+    interaction.flushPendingHover()
 
     expect(interaction.activePaneId).toBe('sub_MACD')
     expect(interaction.hoveredIndex).toBeNull()
@@ -341,6 +358,7 @@ describe('InteractionController pane capability gating', () => {
 
     interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
     interaction.onPointerMove({ clientX: 5, clientY: 10, isPrimary: true } as PointerEvent)
+    interaction.flushPendingHover()
 
     expect(interaction.activePaneId).toBe('main')
     expect(interaction.crosshairIndex).not.toBeNull()
@@ -361,9 +379,11 @@ describe('InteractionController pane capability gating', () => {
 
     interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
     interaction.onPointerMove({ clientX: 5, clientY: 10, isPrimary: true } as PointerEvent)
+    interaction.flushPendingHover()
     expect(interaction.hoveredIndex).toBe(interaction.crosshairIndex)
 
     interaction.onPointerMove({ clientX: 5, clientY: 140, isPrimary: true } as PointerEvent)
+    interaction.flushPendingHover()
     expect(interaction.activePaneId).toBe('sub_MACD')
     expect(interaction.hoveredIndex).toBeNull()
   })
@@ -386,6 +406,7 @@ describe('InteractionController hover snapshot', () => {
     const interaction = new InteractionController(chart as never, createMockInteractionState())
 
     interaction.onPointerMove({ clientX: 20, clientY: 20, isPrimary: true } as PointerEvent)
+    interaction.flushPendingHover()
     expect(interaction.getInteractionSnapshot().hoveredMarkerData).toBe(marker)
 
     interaction.onScroll()
@@ -414,11 +435,13 @@ describe('InteractionController hover snapshot', () => {
     const interaction = new InteractionController(chart as never, createMockInteractionState())
 
     interaction.onPointerMove({ clientX: 20, clientY: 20, isPrimary: true } as PointerEvent)
+    interaction.flushPendingHover()
     expect(interaction.getInteractionSnapshot().hoveredCustomMarker).toBe(customMarker)
 
     hoveringCustom = false
     interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
     interaction.onPointerMove({ clientX: 20, clientY: 20, isPrimary: true } as PointerEvent)
+    interaction.flushPendingHover()
 
     expect(interaction.getInteractionSnapshot().hoveredCustomMarker).toBeNull()
   })

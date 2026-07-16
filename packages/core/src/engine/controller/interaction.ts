@@ -77,6 +77,11 @@ export class InteractionController {
   private touchStartY = 0
   private pinchTracker = new PinchTracker()
   private lastClientPos: { x: number; y: number } | null = null
+  /**
+   * 空闲 hover 是否有未推导的指针输入。
+   * pointermove 只置位；flushPendingHover 每帧最多推导一次并写 kernel。
+   */
+  private hoverFlushPending = false
   private markerState = new MarkerInteractionState()
   private lastHoverRenderKey = ''
   private useTooltipAnchorPositioning = false
@@ -331,6 +336,7 @@ export class InteractionController {
   /** 处理滚动事件 */
   onScroll(options: { scheduleDraw?: boolean } = {}) {
     this._state.actions.updateFramePositions(null, null, null)
+    this.hoverFlushPending = false
     this.clearHover()
     if (options.scheduleDraw !== false) {
       this.chart.scheduleDraw()
@@ -382,15 +388,14 @@ export class InteractionController {
         const dy = Math.abs(e.clientY - this.touchStartY)
         if (elapsed >= InteractionController.LONG_PRESS_MS && dx < 10 && dy < 10) {
           this._state.actions.setDragMode('explore')
-          this.updatePlotHoverFromPoint(e.clientX, e.clientY)
-          this.chart.scheduleDraw()
+          this.queueHoverFlush()
           return
         }
       }
 
       if (this._state.readonly.dragMode.peek() === 'explore') {
-        this.updatePlotHoverFromPoint(e.clientX, e.clientY)
-        this.chart.scheduleDraw()
+        // explore 跟手：仍走 pending，由本帧 flush 推导（与空闲 hover 同路径）
+        this.queueHoverFlush()
         return
       }
 
@@ -415,15 +420,33 @@ export class InteractionController {
       return
     }
 
-    const location = this.getPlotPointerLocation(e.clientX, e.clientY)
-    if (!location) return
-    this._state.actions.setSeparatorHover(this.hitTestPaneSeparator(location.mouseY))
+    // 空闲 hover：只记录指针，不写 crosshair/tooltip Signal
+    this.queueHoverFlush()
+  }
 
-    this.updatePlotHoverFromPoint(e.clientX, e.clientY)
+  /**
+   * 标记有待推导的 hover 输入，并申请 Overlay 帧。
+   * 真正的 updatePlotHoverFromPoint 在 flushPendingHover 中执行。
+   */
+  private queueHoverFlush(): void {
+    this.hoverFlushPending = true
+    this.chart.scheduleDraw(UpdateLevel.Overlay)
+  }
+
+  /**
+   * 将 pending 指针推导为 crosshair/hover/tooltip 并写入 kernel。
+   * ChartRenderer 在 seal 几何之后、paint 之前调用，保证与本帧几何同代。
+   * 无 pending 时为 no-op。
+   */
+  flushPendingHover(): void {
+    if (!this.hoverFlushPending) return
+    this.hoverFlushPending = false
+    if (!this.lastClientPos) return
+
+    this.updatePlotHoverFromPoint(this.lastClientPos.x, this.lastClientPos.y)
     const hoverRenderKey = this.getHoverRenderKey()
     if (hoverRenderKey !== this.lastHoverRenderKey) {
       this.lastHoverRenderKey = hoverRenderKey
-      this.chart.scheduleDraw(UpdateLevel.Overlay)
     }
   }
 
@@ -452,9 +475,10 @@ export class InteractionController {
 
     this._state.actions.updateFramePositions(positions, nextCenters, nextWidth)
 
-    // 几何未变则不必重算 hover；变化时用最后指针位置对齐十字线索引
+    // 几何变化时标记 hover 待刷新；由 flushPendingHover 与 paint 同帧完成
     if (!unchanged && this.lastClientPos && !this._state.readonly.isDragging.peek()) {
-      this.updatePlotHoverFromPoint(this.lastClientPos.x, this.lastClientPos.y)
+      this.hoverFlushPending = true
+      this.flushPendingHover()
     }
   }
 
