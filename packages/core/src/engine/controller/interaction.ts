@@ -82,6 +82,13 @@ export class InteractionController {
    * pointermove 只置位；flushPendingHover 每帧最多推导一次并写 kernel。
    */
   private hoverFlushPending = false
+  /**
+   * 本帧封存的 K 线几何（非 kernel signal，避免每帧广播大数组）。
+   * 仅 InteractionController hover 读取；绘制走 ChartRenderer FrameContext。
+   */
+  private framePositions: number[] | null = null
+  private frameCenters: number[] | null = null
+  private frameKWidthPx: number | null = null
   private markerState = new MarkerInteractionState()
   private lastHoverRenderKey = ''
   private useTooltipAnchorPositioning = false
@@ -338,7 +345,9 @@ export class InteractionController {
 
   /** 处理滚动事件 */
   onScroll(options: { scheduleDraw?: boolean } = {}) {
-    this._state.actions.updateFramePositions(null, null, null)
+    this.framePositions = null
+    this.frameCenters = null
+    this.frameKWidthPx = null
     this.hoverFlushPending = false
     this.clearHover()
     if (options.scheduleDraw !== false) {
@@ -454,13 +463,13 @@ export class InteractionController {
   }
 
   /**
-   * 封存本帧 K 线几何（由 ChartRenderer 在 paint 前调用）。
-   * 引用未变时不触发 signal 通知；几何变化后用 lastClientPos 重算十字线。
+   * 封存本帧 K 线几何到 controller 私有字段（非 kernel signal）。
+   * ChartRenderer 在 paint 前调用；引用未变则跳过 hover 重算。
    *
    * @param positions K 线起始 x 坐标数组
-   * @param visibleRange 可见 K 线索引范围（hover 用 viewport signal，此处保留兼容签名）
+   * @param visibleRange 保留兼容签名（hover 用 viewport）
    * @param kWidthPx K 线宽度（物理像素）
-   * @param centers K 线中心 x 坐标数组（物理像素对齐后）
+   * @param centers K 线中心 x 坐标数组
    */
   setKLinePositions(
     positions: number[] | null,
@@ -468,15 +477,16 @@ export class InteractionController {
     kWidthPx?: number,
     centers?: number[] | null,
   ) {
-    const prevPositions = this._state.readonly.kLinePositions.peek()
-    const prevCenters = this._state.readonly.kLineCenters.peek()
-    const prevWidth = this._state.readonly.kWidthPx.peek()
     const nextWidth = kWidthPx ?? null
     const nextCenters = centers ?? null
     const unchanged =
-      prevPositions === positions && prevCenters === nextCenters && prevWidth === nextWidth
+      this.framePositions === positions &&
+      this.frameCenters === nextCenters &&
+      this.frameKWidthPx === nextWidth
 
-    this._state.actions.updateFramePositions(positions, nextCenters, nextWidth)
+    this.framePositions = positions
+    this.frameCenters = nextCenters
+    this.frameKWidthPx = nextWidth
 
     // 几何变化时标记 hover 待刷新；由 flushPendingHover 与 paint 同帧完成
     if (!unchanged && this.lastClientPos && !this._state.readonly.isDragging.peek()) {
@@ -603,7 +613,7 @@ export class InteractionController {
     this.activePaneIdOnDrag = pane.id
     this._state.actions.setRightAxisHover(pane.id)
     this._state.actions.setSeparatorHover(null)
-    this._state.actions.updateCrosshair(null, null)
+    this._state.actions.updateCrosshair(null, null, null)
     this._state.actions.updateHover(null, pane.id)
     return true
   }
@@ -612,7 +622,7 @@ export class InteractionController {
     this.hoverFlushPending = false
     this.lastHoverRenderKey = ''
     this._state.actions.setRightAxisHover(null)
-    this._state.actions.updateCrosshair(null, null)
+    this._state.actions.updateCrosshair(null, null, null)
     this._state.actions.updateHover(null, null)
     this._state.actions.updateMarkerHover(null, null, null)
     this.markerState.clearAll(this.chart.getMarkerManager())
@@ -646,7 +656,7 @@ export class InteractionController {
     const pane = this.getPaneByY(mouseY)
     this._state.actions.setRightAxisHover(pane?.id || null)
     this._state.actions.setSeparatorHover(null)
-    this._state.actions.updateCrosshair(null, null)
+    this._state.actions.updateCrosshair(null, null, null)
     this._state.actions.updateHover(null, pane?.id || null)
   }
 
@@ -742,7 +752,7 @@ if (this.tooltipPositionMode === 'adaptive') {
     const separatorUpperPaneId = this.hitTestPaneSeparator(ctx.mouseY)
     this._state.actions.setSeparatorHover(separatorUpperPaneId)
     if (separatorUpperPaneId) {
-      this._state.actions.updateCrosshair(null, null)
+      this._state.actions.updateCrosshair(null, null, null)
       this._state.actions.updateHover(null, null)
       return true
     }
@@ -759,7 +769,7 @@ if (this.tooltipPositionMode === 'adaptive') {
     const result = this.markerState.updateHoverFromPoint(ctx.worldX, ctx.mouseX, ctx.mouseY, markerManager)
     this._state.actions.updateMarkerHover(result.hitMarkerId, result.hitMarkerData, result.hitCustomMarker)
     if (result.hit) {
-      this._state.actions.updateCrosshair(null, null)
+      this._state.actions.updateCrosshair(null, null, null)
       this._state.actions.setHoveredIndex(null)
       return true
     }
@@ -773,8 +783,8 @@ if (this.tooltipPositionMode === 'adaptive') {
    * 若无 kLinePositions、visibleRange 或 kWidthPx，返回 null。
    */
   private findNearestBar(ctx: HoverContext): NearestBar | null {
-    const kLinePositions = this._state.readonly.kLinePositions.peek()
-    const kWidthPx = this._state.readonly.kWidthPx.peek()
+    const kLinePositions = this.framePositions
+    const kWidthPx = this.frameKWidthPx
     const vp = this.chart.viewport.peek()
     const visibleRange = vp ? { start: vp.visibleFrom, end: vp.visibleTo } : null
     if (!kLinePositions || !visibleRange || !kWidthPx) return null
@@ -837,16 +847,16 @@ if (this.tooltipPositionMode === 'adaptive') {
    * 索引无效时清除十字线状态。
    */
   private positionCrosshair(ctx: HoverContext, bar: NearestBar): void {
-    const { mouseX, mouseY, scrollLeft, plotWidth, plotHeight, dpr } = ctx
+    const { mouseY, scrollLeft, plotWidth, plotHeight } = ctx
     const pane = this.getPaneByY(mouseY)
     this._state.actions.setActivePaneId(pane?.id || null)
 
     if (bar.globalIdx < 0 || bar.globalIdx >= this.chart.getInternalData().length) {
-      this._state.actions.updateCrosshair(null, null)
+      this._state.actions.updateCrosshair(null, null, null)
       return
     }
 
-    const kLineCenters = this._state.readonly.kLineCenters.peek()
+    const kLineCenters = this.frameCenters
     const centerX = kLineCenters?.[bar.localIdx] ?? bar.kLineStartX + bar.widthLogical / 2
     const snappedX = centerX - scrollLeft
 
@@ -857,6 +867,7 @@ if (this.tooltipPositionMode === 'adaptive') {
         y: Math.min(Math.max(mouseY, 0), plotHeight),
       },
       price,
+      bar.globalIdx,
     )
   }
 
@@ -976,10 +987,12 @@ if (this.tooltipPositionMode === 'adaptive') {
     this.clearSeparatorState()
     this.isTouchSession = false
     this.pinchTracker.reset()
-    this._state.actions.updateCrosshair(null, null)
+    this._state.actions.updateCrosshair(null, null, null)
     this._state.actions.updateHover(null, null)
     this.markerState.reset()
-    this._state.actions.updateFramePositions(null, null, null)
+    this.framePositions = null
+    this.frameCenters = null
+    this.frameKWidthPx = null
     this.lastHoverRenderKey = ''
   }
 

@@ -27,77 +27,30 @@ export interface InteractionDeps {
   scheduleDraw: (level?: unknown) => void
 }
 
-function computeCrosshairIndex(
-  crosshairPos: { x: number; y: number } | null,
-  kLinePositions: number[] | null,
-  kWidthPx: number | null,
-  visibleRange: { start: number; end: number } | null,
-  scrollLeftLogical: number,
-  dpr: number,
-): number | null {
-  if (!crosshairPos || !kLinePositions || !kWidthPx || !visibleRange) return null
-  const kWidthLogical = kWidthPx / dpr
-  const worldX = scrollLeftLogical + crosshairPos.x
-  const positions = kLinePositions
+/**
+ * 交互业务态（kernel）。
+ * 帧几何 kLinePositions/centers/kWidth 不在此模块，由 InteractionController 私有持有。
+ */
+export function createInteractionState(_deps: InteractionDeps) {
+  const { signals, readonly } = createSubState({
+    crosshairPos: null as { x: number; y: number } | null,
+    crosshairPrice: null as number | null,
+    /** 由 controller 在 flush hover 时写入，不再从几何 signal 推导 */
+    crosshairIndex: null as number | null,
+    hoveredIndex: null as number | null,
+    activePaneId: null as string | null,
+    isDragging: false,
+    dragMode: 'none' as DragMode,
+    hoveredSeparatorUpperPaneId: null as string | null,
+    hoveredRightAxisPaneId: null as string | null,
+    tooltipPos: { x: 0, y: 0 },
+    tooltipAnchorPlacement: 'right-bottom' as 'right-bottom' | 'left-bottom',
+    hoveredMarkerData: null as MarkerEntity | null,
+    hoveredCustomMarker: null as CustomMarkerEntity | null,
+    hoveredMarkerId: null as string | null,
+  })
 
-  let lo = 0
-  let hi = positions.length
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1
-    if (positions[mid]! < worldX) lo = mid + 1
-    else hi = mid
-  }
-  let localIdx = lo
-  if (lo > 0 && lo < positions.length) {
-    const prevCenter = positions[lo - 1]! + kWidthLogical / 2
-    const currCenter = positions[lo]! + kWidthLogical / 2
-    if (Math.abs(worldX - prevCenter) < Math.abs(worldX - currCenter)) {
-      localIdx = lo - 1
-    }
-  } else if (lo === positions.length && positions.length > 0) {
-    localIdx = positions.length - 1
-  }
-  return localIdx + visibleRange.start
-}
-
-export function createInteractionState(deps: InteractionDeps) {
-  const { signals, readonly } = createSubState(
-    {
-      crosshairPos: null as { x: number; y: number } | null,
-      crosshairPrice: null as number | null,
-      hoveredIndex: null as number | null,
-      activePaneId: null as string | null,
-      isDragging: false,
-      dragMode: 'none' as DragMode,
-      hoveredSeparatorUpperPaneId: null as string | null,
-      hoveredRightAxisPaneId: null as string | null,
-      tooltipPos: { x: 0, y: 0 },
-      tooltipAnchorPlacement: 'right-bottom' as 'right-bottom' | 'left-bottom',
-      hoveredMarkerData: null as MarkerEntity | null,
-      hoveredCustomMarker: null as CustomMarkerEntity | null,
-      hoveredMarkerId: null as string | null,
-      kLinePositions: null as number[] | null,
-      kLineCenters: null as number[] | null,
-      kWidthPx: null as number | null,
-    },
-    {
-      crosshairIndex: (s) => {
-        if (!s.crosshairPos()) return null
-        return computeCrosshairIndex(
-          s.crosshairPos(),
-          s.kLinePositions(),
-          s.kWidthPx(),
-          deps.visibleRange$(),
-          deps.scrollLeftLogical$(),
-          deps.dpr$(),
-        )
-      },
-    },
-  )
-
-  // ── 带引用缓存 + deps 收紧的 interactionSnapshot ──
-  // crosshairPos 为 null 时跳过 visibleRange$/scrollLeftLogical$ 读取，
-  // 避免滚动事件触发无十字线状态下的虚假重算
+  // ── 带引用缓存的 interactionSnapshot ──
   let _cachedSnapshot: InteractionSnapshot | null = null
   const cachedInteractionSnapshot = computed<InteractionSnapshot>(() => {
     const crosshairPos = readonly.crosshairPos()
@@ -106,20 +59,9 @@ export function createInteractionState(deps: InteractionDeps) {
     const hoveredSep = readonly.hoveredSeparatorUpperPaneId()
     const hoveredRight = readonly.hoveredRightAxisPaneId()
 
-    const crosshairIndex = crosshairPos
-      ? computeCrosshairIndex(
-          crosshairPos,
-          readonly.kLinePositions(),
-          readonly.kWidthPx(),
-          deps.visibleRange$(),
-          deps.scrollLeftLogical$(),
-          deps.dpr$(),
-        )
-      : null
-
     const next: InteractionSnapshot = {
       crosshairPos,
-      crosshairIndex,
+      crosshairIndex: readonly.crosshairIndex(),
       crosshairPrice: readonly.crosshairPrice(),
       hoveredIndex,
       activePaneId: readonly.activePaneId(),
@@ -169,11 +111,18 @@ export function createInteractionState(deps: InteractionDeps) {
 
     actions: {
       /**
-       * 更新十字线。坐标结构相等时保留旧对象引用，避免无意义 notify。
+       * 更新十字线位置与价格。坐标结构相等时保留旧对象引用。
+       * @param index 可选；传入时同步写入 crosshairIndex（与几何同帧）
        */
-      updateCrosshair(pos: { x: number; y: number } | null, price: number | null) {
+      updateCrosshair(
+        pos: { x: number; y: number } | null,
+        price: number | null,
+        index?: number | null,
+      ) {
         const prevPos = signals.crosshairPos.peek()
         const prevPrice = signals.crosshairPrice.peek()
+        const prevIndex = signals.crosshairIndex.peek()
+        const nextIndex = index === undefined ? prevIndex : index
         const posUnchanged =
           prevPos === pos ||
           (prevPos === null && pos === null) ||
@@ -181,11 +130,17 @@ export function createInteractionState(deps: InteractionDeps) {
             pos !== null &&
             prevPos.x === pos.x &&
             prevPos.y === pos.y)
-        if (posUnchanged && prevPrice === price) return
+        if (posUnchanged && prevPrice === price && prevIndex === nextIndex) return
         batch(() => {
           if (!posUnchanged) signals.crosshairPos.set(pos)
           if (prevPrice !== price) signals.crosshairPrice.set(price)
+          if (prevIndex !== nextIndex) signals.crosshairIndex.set(nextIndex)
         })
+      },
+
+      setCrosshairIndex(index: number | null) {
+        if (signals.crosshairIndex.peek() === index) return
+        signals.crosshairIndex.set(index)
       },
 
       updateHover(index: number | null, paneId: string | null) {
@@ -201,29 +156,6 @@ export function createInteractionState(deps: InteractionDeps) {
 
       setActivePaneId(paneId: string | null) {
         signals.activePaneId.set(paneId)
-      },
-
-      /**
-       * 封存本帧几何。同一引用且 kWidth 未变时跳过 set，避免每帧无意义广播。
-       * 数组所有权在 ChartRenderer 帧缓存；此处不拷贝。
-       */
-      updateFramePositions(
-        positions: number[] | null,
-        centers: number[] | null,
-        kWidthPx: number | null,
-      ) {
-        if (
-          signals.kLinePositions.peek() === positions &&
-          signals.kLineCenters.peek() === centers &&
-          signals.kWidthPx.peek() === kWidthPx
-        ) {
-          return
-        }
-        batch(() => {
-          signals.kLinePositions.set(positions)
-          signals.kLineCenters.set(centers)
-          signals.kWidthPx.set(kWidthPx)
-        })
       },
 
       startDrag(mode: DragMode) {
@@ -294,6 +226,7 @@ export function createInteractionState(deps: InteractionDeps) {
         batch(() => {
           signals.crosshairPos.set(null)
           signals.crosshairPrice.set(null)
+          signals.crosshairIndex.set(null)
           signals.hoveredIndex.set(null)
           signals.activePaneId.set(null)
           signals.isDragging.set(false)
@@ -313,6 +246,7 @@ export function createInteractionState(deps: InteractionDeps) {
       batch(() => {
         signals.crosshairPos.set(null)
         signals.crosshairPrice.set(null)
+        signals.crosshairIndex.set(null)
         signals.hoveredIndex.set(null)
         signals.activePaneId.set(null)
         signals.isDragging.set(false)
@@ -324,9 +258,6 @@ export function createInteractionState(deps: InteractionDeps) {
         signals.hoveredMarkerData.set(null)
         signals.hoveredCustomMarker.set(null)
         signals.hoveredMarkerId.set(null)
-        signals.kLinePositions.set(null)
-        signals.kLineCenters.set(null)
-        signals.kWidthPx.set(null)
       })
     },
   }

@@ -254,17 +254,16 @@ export class ChartStateKernel extends StateKernel {
       setDrawings: (drawings: ReadonlyArray<DrawingObject>) =>
         this.drawing.actions.setDrawings(drawings),
       clearDrawings: () => this.drawing.actions.clearDrawings(),
-      updateCrosshair: (pos: { x: number; y: number } | null, price: number | null) =>
-        this.interaction.actions.updateCrosshair(pos, price),
+      updateCrosshair: (
+        pos: { x: number; y: number } | null,
+        price: number | null,
+        index?: number | null,
+      ) => this.interaction.actions.updateCrosshair(pos, price, index),
+      setCrosshairIndex: (index: number | null) => this.interaction.actions.setCrosshairIndex(index),
       updateHover: (index: number | null, paneId: string | null) =>
         this.interaction.actions.updateHover(index, paneId),
       setHoveredIndex: (index: number | null) => this.interaction.actions.setHoveredIndex(index),
       setActivePaneId: (paneId: string | null) => this.interaction.actions.setActivePaneId(paneId),
-      updateFramePositions: (
-        positions: number[] | null,
-        centers: number[] | null,
-        kWidthPx: number | null,
-      ) => this.interaction.actions.updateFramePositions(positions, centers, kWidthPx),
       startDrag: (mode: DragMode) => this.interaction.actions.startDrag(mode),
       endDrag: () => this.interaction.actions.endDrag(),
       setDragMode: (mode: DragMode) => this.interaction.actions.setDragMode(mode),

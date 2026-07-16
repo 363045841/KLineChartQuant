@@ -53,8 +53,9 @@
 
 ### Task 5: Delete legacy high-frequency signals
 
-- [ ] remove kLinePositions/crosshair high-freq dual paths
-- [ ] full core tests + tsc
+- [x] move kLinePositions/centers/kWidthPx off kernel signals into InteractionController private fields
+- [x] crosshairIndex becomes explicit write on flush (not computed from geometry signals)
+- [x] full core tests + tsc
 
 ---
 
