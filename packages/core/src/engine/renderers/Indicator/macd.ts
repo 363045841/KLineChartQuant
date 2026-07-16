@@ -338,10 +338,6 @@ function createMACDRendererPlugin(options: MACDRendererOptions = {}): RendererPl
       }
     },
 
-    onDataUpdate() {
-      clearLineCache()
-    },
-
     getConfig() {
       return { ...config }
     },

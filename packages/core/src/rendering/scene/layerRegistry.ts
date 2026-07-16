@@ -15,11 +15,9 @@ import { KLineChartError } from '../../errors'
  *    avoids forcing every consumer through a single "register + auto-add"
  *    pipeline that would be hard to compose with config-driven scenes.
  *
- * This PR does NOT pre-register any factories — that's a follow-up PR
- * once the legacy WebGL renderers have adapters that satisfy the `Layer`
- * interface. This file ships the registry mechanism plus the canonical
- * `typeId` constants so the rest of the codebase can reference layer types
- * by symbol rather than magic string.
+ * Factories are registered by chart wiring / plugins; this file ships the
+ * registry mechanism plus the canonical `typeId` constants so the rest of
+ * the codebase can reference layer types by symbol rather than magic string.
  */
 
 import type { Layer, LayerRole } from './types'
@@ -98,7 +96,7 @@ export function createLayerRegistry(): LayerRegistry {
  * string literal types without an enum import — useful for config blobs.
  */
 export const BUILTIN_LAYER_TYPES = {
-  // Existing in v0 (handled by legacy renderers)
+  // Built-in chart layers
   CANDLE: 'builtin:candle',
   VOLUME: 'builtin:volume',
   INDICATOR_MA: 'builtin:indicator:ma',

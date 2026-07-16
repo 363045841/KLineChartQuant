@@ -396,13 +396,6 @@ export class ChartRenderer {
     )
   }
 
-  /** 在 draw() 之前单独写入帧数据到 interactionState，分离状态变更与渲染 */
-  private writeFramePositions(level: UpdateLevel): void {
-    const frame = this.prepareFrameData(level)
-    if (!frame) return
-    this.writeFramePositionsFromFrame(frame)
-  }
-
   private writeFramePositionsFromFrame(frame: FrameContext): void {
     batch(() => {
       this.deps.getInteraction().setKLinePositions(frame.kLinePositions, frame.range, frame.kWidthPx, frame.kLineCenters)

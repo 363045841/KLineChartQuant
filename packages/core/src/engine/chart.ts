@@ -6,7 +6,6 @@ import {
 } from '../features/alerts/rollingVolume'
 import {
   createPluginHost,
-  GLOBAL_PANE_ID,
   RendererPluginManager,
   wrapPaneInfo,
   type PluginHostImpl,
@@ -589,7 +588,7 @@ export class Chart {
   // ========== 渲染器插件 API（绘制只走 Scene；Manager 仅作注册表） ==========
 
   private resolvePluginLayerTarget(plugin: RendererPlugin): string {
-    if (typeof plugin.paneId === 'symbol' || plugin.paneId === GLOBAL_PANE_ID) {
+    if (typeof plugin.paneId === 'symbol') {
       return 'global'
     }
     return String(plugin.paneId)

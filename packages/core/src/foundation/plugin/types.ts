@@ -529,9 +529,6 @@ export interface RendererPlugin {
   /** 渲染方法 */
   draw(context: RenderContext): void
 
-  /** 数据更新时回调 */
-  onDataUpdate?(data: unknown[], range: { start: number; end: number }): void
-
   /** 容器尺寸变化时回调 */
   onResize?(pane: PaneInfo): void
 

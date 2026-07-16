@@ -2,12 +2,9 @@
  * High-level renderer interface — the drawing primitives the chart's
  * scene layers (candles, volume, indicators, drawings) call into.
  *
- * Both the existing WebGL renderer (currently spread across
- * `src/core/renderers/{candle,subVolume,crosshair,...}.ts`) and the
- * P1 WebGPU renderer implement this contract. v0's WebGL path will
- * be refactored to fit behind it in a follow-up PR (this file ships
- * the contract first; the legacy code is unchanged until the next
- * step is approved).
+ * WebGL (`createWebGLRenderer`) implements this contract today; P1 WebGPU
+ * will implement the same surface. Call sites only use sceneRenderer
+ * (fail-closed boolean → Canvas2D), never dual-path surfaces.
  *
  * Design notes:
  * - `drawInstances` is the workhorse: render N copies of a unit geometry
@@ -22,10 +19,6 @@
  * - `setUniforms` is intentionally schemaless on the interface — the
  *   uniform layout is owned by each shader/program. Callers pass a
  *   structured object that the backend translates into uniform writes.
- *
- * This file is **pure interface** in this PR; behaviour comes in the
- * next two PRs (Scale interfaces, then a Renderer impl that wraps
- * the existing WebGL primitives).
  */
 
 import type { SurfaceBackend, SurfaceRegion } from './SurfaceBackend'

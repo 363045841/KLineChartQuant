@@ -293,7 +293,7 @@ export function createMARendererPlugin(): RendererPluginWithHost {
         lines.push({ points, width: 1, color: maColors[period] ?? colors.ma.ma5 })
       }
 
-      // Phase 1.1: sceneRenderer → legacy surface → 2D
+      // sceneRenderer → fail-closed 2D
       if (tryDrawLinesGpu(context, lines, scrollLeft)) return
 
       ctx.save()

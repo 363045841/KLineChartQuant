@@ -2,22 +2,20 @@
  * Low-level GPU surface backend.
  *
  * Abstracts canvas + context lifecycle, viewport / scissor regions, clear,
- * compositing into a 2D canvas overlay, and teardown. Both the existing
- * WebGL surface (`src/core/renderers/webgl/sharedWebGLSurface.ts`) and the
- * P1 WebGPU surface implement this contract.
+ * compositing into a 2D canvas overlay, and teardown. WebGL
+ * (`createWebGLSurfaceBackend` over SharedWebGLSurface) implements this today;
+ * P1 WebGPU will implement the same contract.
  *
  * This file is **pure interface** — no implementation. It exists so that:
  *
- * 1. Existing WebGL code can declare conformance via a one-line adapter
- *    (see `createLegacyWebGLBackend` below) without changing any behaviour.
+ * 1. WebGL can adapt SharedWebGLSurface behind a stable contract.
  * 2. P1's WebGPU implementation has a fixed target to write against.
  * 3. The higher-level `Renderer` (`./Renderer.ts`) can compose a backend
  *    without knowing which GPU API it sits on.
  *
  * Design notes:
  * - All region coordinates are in **logical pixels** with the surface
- *   responsible for DPR scaling internally. This matches the existing
- *   `WebGLRegion` semantics so the legacy adapter is a transparent pass-through.
+ *   responsible for DPR scaling internally (same semantics as WebGLRegion).
  * - `compositeTo` takes a 2D `CanvasRenderingContext2D` because the chart's
  *   final composition target is a 2D overlay canvas — WebGL/WebGPU pixels
  *   are drawn into the overlay via `drawImage`. Future paths that bypass

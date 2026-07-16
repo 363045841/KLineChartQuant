@@ -245,16 +245,6 @@ export class RendererPluginManager {
     return cached
   }
 
-  /** 获取指定 pane 的渲染器元数据（已缓存；不含系统渲染器） */
-  getRenderers(paneId: string): RendererPlugin[] {
-    const cached = this.getMergedRenderers(paneId)
-
-    return cached.filter((p) => {
-      if (p.isSystem) return false
-      return this.isRendererEnabled(p)
-    })
-  }
-
   /** 启用/禁用渲染器（修改独立状态，不影响原始插件对象） */
   setEnabled(name: string, enabled: boolean): void {
     if (!this.plugins.has(name)) return
@@ -280,22 +270,6 @@ export class RendererPluginManager {
   /** 获取指定渲染器 */
   getPlugin<T extends RendererPlugin = RendererPlugin>(name: string): T | undefined {
     return this.plugins.get(name) as T | undefined
-  }
-
-  /* 调用 onDataUpdate 钩子通知数据更新 */
-  notifyDataUpdate(data: unknown[], range: { start: number; end: number }): void {
-    for (const plugin of this.plugins.values()) {
-      if (!plugin.onDataUpdate) continue
-
-      // 检查启用状态，跳过禁用的插件
-      if (!this.isRendererEnabled(plugin)) continue
-
-      try {
-        plugin.onDataUpdate(data, range)
-      } catch (e) {
-        console.error(`[RendererPlugin] ${plugin.name} onDataUpdate error:`, e)
-      }
-    }
   }
 
   /** 通知尺寸变化 */

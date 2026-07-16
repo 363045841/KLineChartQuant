@@ -26,7 +26,7 @@ import { tryDrawFilledBandGpu, tryDrawLinesGpu } from '../linesViaRenderer'
 type LinePoint = { x: number; y: number }
 
 /**
- * ENE GPU：先 band fill 再上/中/下轨。sceneRenderer → legacy → false。
+ * ENE GPU：先 band fill 再上/中/下轨。仅 sceneRenderer；失败返回 false 走 2D。
  */
 function drawENEWithWebGL(
   context: RenderContext,

@@ -35,7 +35,7 @@ interface PriceData {
 
 /**
  * BOLL GPU：先 band fill（半透明 composite）再三轨折线。
- * sceneRenderer → legacy surface；失败返回 false 走 2D。
+ * 仅 sceneRenderer；失败返回 false 走 2D。
  */
 function drawBOLLWithWebGL(
   context: RenderContext,
