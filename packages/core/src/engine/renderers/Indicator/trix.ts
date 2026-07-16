@@ -15,6 +15,7 @@ import type { TRIXRenderState } from '../../indicators/state/trixState'
 import { createTRIXStateKey } from '../../indicators/state/trixState'
 import { EMPTY_TRIX_STATE } from '../../indicators/state/trixState'
 import { createDualSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 const TRIX_COLOR = '#e11d48'
 const SIGNAL_COLOR = '#f59e0b'

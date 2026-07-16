@@ -26,7 +26,7 @@ export function createTimeAxisRendererPlugin(options: {
     debugName: '时间轴',
     paneId: TIME_AXIS_PANE_ID,
     priority: RENDERER_PRIORITY.SYSTEM_XAXIS,
-    isSystem: true, // 系统渲染器，只能通过 renderPlugin 单独渲染
+    isSystem: true, // 系统渲染器：由 Scene Layer 调度
 
     draw(context: RenderContext) {
       const { ctx, data, range, scrollLeft, kWidth, kGap, dpr, paneWidth } = context

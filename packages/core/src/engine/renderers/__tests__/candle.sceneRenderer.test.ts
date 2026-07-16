@@ -56,15 +56,8 @@ function makeSceneRenderer() {
 }
 
 describe('candle sceneRenderer path', () => {
-  it('prefers sceneRenderer.drawInstances over candleWebGLSurface', () => {
+  it('draws via sceneRenderer.drawInstances and composites', () => {
     const { r, drawInstances, compositeTo } = makeSceneRenderer()
-    const legacyDraw = vi.fn(() => true)
-    const legacySurface = {
-      isAvailable: () => true,
-      clear: vi.fn(),
-      drawRectBuffer: legacyDraw,
-      compositeTo: vi.fn(),
-    }
 
     const data = Array.from({ length: 5 }, (_, i) => ({
       timestamp: i,
@@ -103,21 +96,18 @@ describe('candle sceneRenderer path', () => {
       viewport: { scrollLeft: 0, plotWidth: 800, plotHeight: 400 },
       settings: { enableWebGLRendering: true, showVolumePriceMarkers: false },
       sceneRenderer: r,
-      candleWebGLSurface: legacySurface as never,
       zoomLevel: 1,
     } as unknown as RenderContext
 
     createCandleRenderer().draw(ctx)
 
     expect(drawInstances).toHaveBeenCalled()
-    expect(legacyDraw).not.toHaveBeenCalled()
     expect(compositeTo).toHaveBeenCalledOnce()
   })
 
   it('falls to Canvas2D when drawInstances returns false (fail-closed)', () => {
     const { r, drawInstances, compositeTo } = makeSceneRenderer()
     drawInstances.mockReturnValue(false)
-    const legacyDraw = vi.fn(() => false)
     const fillRect = vi.fn()
 
     const data = Array.from({ length: 3 }, (_, i) => ({
@@ -157,12 +147,6 @@ describe('candle sceneRenderer path', () => {
       viewport: { scrollLeft: 0, plotWidth: 800, plotHeight: 400 },
       settings: { enableWebGLRendering: true, showVolumePriceMarkers: false },
       sceneRenderer: r,
-      candleWebGLSurface: {
-        isAvailable: () => true,
-        clear: vi.fn(),
-        drawRectBuffer: legacyDraw,
-        compositeTo: vi.fn(),
-      } as never,
       zoomLevel: 1,
     } as unknown as RenderContext
 

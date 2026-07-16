@@ -16,6 +16,7 @@ import type { IndicatorScheduler, DonchianSchedulerConfig } from '../../indicato
 import type { DonchianRenderState } from '../../indicators/state/donchianState'
 import { createDonchianStateKey, EMPTY_DONCHIAN_STATE } from '../../indicators/state/donchianState'
 import { createBandVisibleStateComposer } from '../../indicators/visibleStateComposers'
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 const DONCHIAN_UPPER_COLOR = '#0891b2'
 const DONCHIAN_MIDDLE_COLOR = '#94a3b8'

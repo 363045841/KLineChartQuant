@@ -2,10 +2,6 @@
  * 插件系统核心类型定义
  */
 
-import type {
-  CandleWebGLSurface,
-  LineWebGLSurface,
-} from '../../engine/renderers/webgl/candleSurface'
 import type { KLineData } from '../types/price'
 
 /** 插件生命周期状态 */
@@ -314,18 +310,8 @@ export interface RenderContext {
   /** 覆盖层 Canvas 上下文（用于十字线、Tooltip 等动态内容） */
   overlayCtx?: CanvasRenderingContext2D
   /**
-   * price pane 可选的 WebGL candle surface
-   * @deprecated Phase 1+: prefer sceneRenderer for rect draws; remove after all rect drawers migrate
-   */
-  candleWebGLSurface?: CandleWebGLSurface
-  /**
-   * line indicator 可选的 WebGL line surface
-   * @deprecated Phase 1+: prefer sceneRenderer for line draws; remove after line drawers migrate
-   */
-  lineWebGLSurface?: LineWebGLSurface
-  /**
    * Scene 本帧 Renderer（createLayerFromPlugin 注入）。
-   * candle 等迁出 surface 旁路时经 drawInstances / drawLines 出画。
+   * 业务绘制经 drawInstances / drawLines；失败 fail-closed 走 2D。
    */
   sceneRenderer?: import('../../rendering/render/Renderer').Renderer
   /** 当前缩放级别（1 ~ zoomLevels） */
@@ -527,17 +513,16 @@ export interface RendererPlugin {
   enabled?: boolean
 
   /**
-   * 是否为系统渲染器
-   * 系统渲染器不会通过 getRenderers() 返回，只能通过 renderPlugin() 单独渲染
-   * 用于时间轴、全局边框等需要单独控制渲染时机的场景
+   * 是否为系统渲染器（时间轴等）。
+   * 调度由 Scene Layer 负责；Manager 仅作注册表。
    */
   isSystem?: boolean
 
   /**
-   * 渲染器所属层，决定 UpdateLevel 过滤行为
-   * - 'main': 低频/静态内容，随主画布一起渲染
-   * - 'overlay': 高频/动态内容，可在 overlay-only 更新时独立重绘
-   * 未指定时默认为 'main'（向后兼容）
+   * 渲染器所属层，供 Scene role 过滤
+   * - 'main': 低频/静态内容
+   * - 'overlay': 高频/动态内容
+   * 未指定时默认为 'main'
    */
   layer?: 'main' | 'overlay'
 

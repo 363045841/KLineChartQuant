@@ -50,8 +50,6 @@ export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurf
   let disposed = false
   let candleSurface: CandleWebGLSurface | null = null
   let lineSurface: LineWebGLSurface | null = null
-  let fallbackCtx: CanvasRenderingContext2D | null = null
-  let fallbackDpr = 1
 
   const candle = new CandleWebGLSurface(gl)
   if (candle.isAvailable()) candleSurface = candle
@@ -79,11 +77,6 @@ export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurf
 
     get caps(): RendererCapabilities {
       return handleCaps
-    },
-
-    setFallbackContext(ctx: CanvasRenderingContext2D | null, dpr: number): void {
-      fallbackCtx = ctx
-      fallbackDpr = dpr
     },
 
     createBuffer(usage: BufferUsage, sizeBytes: number): BufferHandle {
@@ -172,7 +165,7 @@ export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurf
       const color = (params.uniforms?.color as string) ?? '#000000'
       const scrollLeft = (params.uniforms?.scrollLeft as number) ?? 0
 
-      // candle 路径 fail-closed：只用 candleSurface，不回落到 overlay fallbackCtx
+      // candle 路径 fail-closed：无 surface 则 false，由业务层 2D 兜底
       if (!candleSurface) return false
       return candleSurface.drawRectBuffer(floats, rectCount, color, scrollLeft)
     },
@@ -183,7 +176,7 @@ export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurf
       if (!pipelineMeta_rec) return false
 
       const scrollLeft = (params.uniforms?.scrollLeft as number) ?? 0
-      // 折线/填充 fail-closed：只用 lineSurface，不回落到 overlay fallbackCtx
+      // 折线/填充 fail-closed：无 surface 则 false，由业务层 2D 兜底
       if (!lineSurface) return false
 
       // 批量 strips：一次 drawLineStrips（单次 MSAA clear），多周期 MA 必须走此路径

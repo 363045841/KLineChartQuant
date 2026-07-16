@@ -1,6 +1,4 @@
 import type { PaneRendererDom } from './chartTypes'
-import { CandleWebGLSurface, LineWebGLSurface } from './renderers/webgl/candleSurface'
-import type { SharedWebGLSurface, WebGLRegion } from './renderers/webgl/sharedWebGLSurface'
 
 export type { PaneRendererDom }
 
@@ -18,38 +16,23 @@ export type PaneRendererOptions = {
   priceLabelWidth?: number
 }
 
-export type PaneRendererWebGLHandles = {
-  candleSurface: CandleWebGLSurface | null
-  lineSurface: LineWebGLSurface | null
-}
-
 /* PaneRenderer：负责单个 Pane 的 Canvas 管理与运行时状态持有
    创建并管理 mainCanvas / overlayCanvas / yAxisCanvas
    持有 Pane 实例（布局、Y 轴、价格范围）
    响应 Chart 的 resize / layout 信号
-   渲染逻辑由 RendererPluginManager 统一调度 */
+   GPU 绘制经 ChartRenderer.sceneRenderer（SharedWebGLSurface），本类不再持有 per-pane surface */
 export class PaneRenderer {
   private dom: PaneRendererDom
   private pane: import('./layout/pane').Pane
   private opt: PaneRendererOptions
   private contexts: PaneRendererContexts | null = null
-  private webgl: PaneRendererWebGLHandles
 
-  constructor(
-    dom: PaneRendererDom,
-    pane: import('./layout/pane').Pane,
-    opt: PaneRendererOptions,
-    sharedWebGLSurface: SharedWebGLSurface,
-  ) {
+  constructor(dom: PaneRendererDom, pane: import('./layout/pane').Pane, opt: PaneRendererOptions) {
     this.dom = dom
     this.pane = pane
     this.opt = {
       ...opt,
       priceLabelWidth: opt.priceLabelWidth || 60,
-    }
-    this.webgl = {
-      candleSurface: new CandleWebGLSurface(sharedWebGLSurface),
-      lineSurface: new LineWebGLSurface(sharedWebGLSurface),
     }
   }
 
@@ -97,15 +80,6 @@ export class PaneRenderer {
     }
   }
 
-  getWebGL(): PaneRendererWebGLHandles {
-    return this.webgl
-  }
-
-  setWebGLRegion(region: WebGLRegion): void {
-    this.webgl.candleSurface?.setRegion(region)
-    this.webgl.lineSurface?.setRegion(region)
-  }
-
   /**
    * 调整 Canvas 尺寸
    * @param width pane 宽度（逻辑像素）
@@ -147,15 +121,10 @@ export class PaneRenderer {
         dpr,
       )
     }
-
-    this.webgl.candleSurface?.resize(width, height, dpr)
-    this.webgl.lineSurface?.resize(width, height, dpr)
   }
 
   /** 销毁 PaneRenderer 实例 */
   destroy() {
     this.contexts = null
-    this.webgl.candleSurface?.destroy()
-    this.webgl.lineSurface?.destroy()
   }
 }

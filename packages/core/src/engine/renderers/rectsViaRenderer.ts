@@ -54,7 +54,7 @@ export function drawRectBatchesViaRenderer(
 }
 
 /**
- * 矩形 GPU 阶梯：sceneRenderer → legacy candleWebGLSurface → false。
+ * 矩形 GPU：仅 sceneRenderer；失败返回 false。
  */
 export function tryDrawRectsGpu(
   context: RenderContext,
@@ -66,29 +66,9 @@ export function tryDrawRectsGpu(
   const active = batches.filter((b) => b.count > 0)
   if (active.length === 0) return true
 
-  if (context.sceneRenderer) {
-    if (drawRectBatchesViaRenderer(context.sceneRenderer, active, scrollLeft)) {
-      compositeSceneRenderer(context)
-      return true
-    }
-  }
-
-  const surface = context.candleWebGLSurface
-  if (surface?.isAvailable()) {
-    surface.clear()
-    for (const batch of active) {
-      const ok = surface.drawRectBuffer(
-        batch.buf.subarray(0, batch.count * 4),
-        batch.count,
-        batch.color,
-        scrollLeft,
-      )
-      if (!ok) {
-        surface.clear()
-        return false
-      }
-    }
-    surface.compositeTo(context.ctx)
+  if (!context.sceneRenderer) return false
+  if (drawRectBatchesViaRenderer(context.sceneRenderer, active, scrollLeft)) {
+    compositeSceneRenderer(context)
     return true
   }
   return false

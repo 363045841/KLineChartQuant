@@ -16,6 +16,7 @@ import { createMACDStateKey, EMPTY_MACD_STATE } from '../../indicators/state/mac
 import type { MACDRenderState } from '../../indicators/state/macdState'
 import { createMACDVisibleStateComposer } from '../../indicators/visibleStateComposers'
 
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 import { tryDrawRectsGpu } from '../rectsViaRenderer'
 
 import { createMacdScaleRendererPlugin } from './scale/macd_scale'
@@ -312,7 +313,7 @@ function createMACDRendererPlugin(options: MACDRendererOptions = {}): RendererPl
         }
       }
 
-      // 绘制 DIF/DEA 线（sceneRenderer → legacy → Canvas2D）
+      // 绘制 DIF/DEA 线（sceneRenderer → Canvas2D）
       {
         const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
         if (config.showDIF && cachedDifPoints.length >= 2) {

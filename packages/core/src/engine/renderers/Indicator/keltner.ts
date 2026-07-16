@@ -16,6 +16,7 @@ import type { IndicatorScheduler, KeltnerSchedulerConfig } from '../../indicator
 import type { KeltnerRenderState } from '../../indicators/state/keltnerState'
 import { createKeltnerStateKey, EMPTY_KELTNER_STATE } from '../../indicators/state/keltnerState'
 import { createBandVisibleStateComposer } from '../../indicators/visibleStateComposers'
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 const KELTNER_UPPER_COLOR = '#7c3aed'
 const KELTNER_MIDDLE_COLOR = '#f59e0b'

@@ -113,7 +113,7 @@ export function createCandleRenderer(): RendererPlugin {
       const downColor = colors.candleDownBody
       const webglOn = settings?.enableWebGLRendering !== false
 
-      // Phase 1: 优先统一画笔；失败再 legacy surface；再 2D
+      // sceneRenderer → fail-closed 2D
       let usedGpu = false
       if (webglOn && context.sceneRenderer) {
         usedGpu = drawCandlesViaRenderer(
@@ -134,12 +134,6 @@ export function createCandleRenderer(): RendererPlugin {
           context.sceneRenderer.surface.compositeTo(ctx, region, {
             imageSmoothingEnabled: false,
           })
-        }
-      }
-      if (!usedGpu && webglOn) {
-        usedGpu = drawCandlesWithWebGL(context, prepared, upColor, downColor)
-        if (usedGpu) {
-          compositeWebGLToMainCanvas(ctx, context)
         }
       }
       if (!usedGpu) {
@@ -387,61 +381,6 @@ function drawCandlesWithCanvas2D(
   }
 
   ctx.restore()
-}
-
-function drawCandlesWithWebGL(
-  context: RenderContext,
-  prepared: PreparedCandles,
-  upColor: string,
-  downColor: string,
-): boolean {
-  if (context.settings?.enableWebGLRendering === false) return false
-  const surface = context.candleWebGLSurface
-  if (!surface || !surface.isAvailable()) return false
-
-  surface.clear()
-
-  const bodyUpOk =
-    prepared.upBodyCount === 0 ||
-    surface.drawRectBuffer(
-      prepared.upBodyBuf.subarray(0, prepared.upBodyCount * 4),
-      prepared.upBodyCount,
-      upColor,
-      context.scrollLeft,
-    )
-  const bodyDownOk =
-    prepared.downBodyCount === 0 ||
-    surface.drawRectBuffer(
-      prepared.downBodyBuf.subarray(0, prepared.downBodyCount * 4),
-      prepared.downBodyCount,
-      downColor,
-      context.scrollLeft,
-    )
-  const wickUpOk =
-    prepared.upWickCount === 0 ||
-    surface.drawRectBuffer(
-      prepared.upWickBuf.subarray(0, prepared.upWickCount * 4),
-      prepared.upWickCount,
-      upColor,
-      context.scrollLeft,
-    )
-  const wickDownOk =
-    prepared.downWickCount === 0 ||
-    surface.drawRectBuffer(
-      prepared.downWickBuf.subarray(0, prepared.downWickCount * 4),
-      prepared.downWickCount,
-      downColor,
-      context.scrollLeft,
-    )
-
-  return bodyUpOk && bodyDownOk && wickUpOk && wickDownOk
-}
-
-function compositeWebGLToMainCanvas(ctx: CanvasRenderingContext2D, context: RenderContext): void {
-  const surface = context.candleWebGLSurface
-  if (!surface) return
-
-  surface.compositeTo(ctx)
 }
 
 function drawVolumePriceMarkers(

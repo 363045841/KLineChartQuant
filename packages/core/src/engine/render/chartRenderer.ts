@@ -594,7 +594,6 @@ export class ChartRenderer {
     for (const renderer of this.deps.getPaneRenderers()) {
       const pane = renderer.getPane()
       const { mainCtx, overlayCtx, yAxisCtx, leftAxisCtx } = renderer.getContexts()
-      const { candleSurface, lineSurface } = renderer.getWebGL()
 
       if (!useCachedFrame) {
         const indicatorRange =
@@ -617,8 +616,6 @@ export class ChartRenderer {
         mainCtx.setTransform(1, 0, 0, 1, 0, 0)
         mainCtx.scale(vp.dpr, vp.dpr)
         mainCtx.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
-        candleSurface?.clear()
-        lineSurface?.clear()
       }
 
       if (shouldUpdateOverlay && overlayCtx) {
@@ -660,8 +657,6 @@ export class ChartRenderer {
         crosshairIndex: this.deps.getInteraction().getCrosshairIndex(),
         yAxisCtx: yAxisCtx ?? undefined,
         leftAxisCtx: leftAxisCtx ?? undefined,
-        candleWebGLSurface: candleSurface ?? undefined,
-        lineWebGLSurface: lineSurface ?? undefined,
         zoomLevel: this.deps.getCurrentZoomLevel(),
         zoomLevelCount: this.deps.getZoomLevelCount(),
         viewport: {
@@ -704,7 +699,6 @@ export class ChartRenderer {
       const region = { x: 0, y: pane.top, width: vp.plotWidth, height: pane.height, dpr: vp.dpr }
       if (shouldUpdateMain) {
         this.sceneRenderer.beginFrame(region)
-        ;(this.sceneRenderer as any).setFallbackContext(overlayCtx ?? null, vp.dpr)
         this.scene.paintPane({
           renderer: this.sceneRenderer,
           region,
@@ -717,7 +711,6 @@ export class ChartRenderer {
       }
       if (shouldUpdateOverlay && !shouldUpdateMain) {
         this.sceneRenderer.beginFrame(region)
-        ;(this.sceneRenderer as any).setFallbackContext(overlayCtx ?? null, vp.dpr)
         this.scene.paintPane(
           {
             renderer: this.sceneRenderer,

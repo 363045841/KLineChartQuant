@@ -71,7 +71,7 @@ export function compositeSceneRenderer(context: {
 }
 
 /**
- * 折线 GPU 阶梯：sceneRenderer → legacy lineWebGLSurface → false（调用方 2D）。
+ * 折线 GPU：仅 sceneRenderer；失败返回 false（调用方 2D）。
  * 指标 draw 内：if (tryDrawLinesGpu(context, lines, scrollLeft)) return
  */
 export function tryDrawLinesGpu(
@@ -84,27 +84,10 @@ export function tryDrawLinesGpu(
   const drawable = lines.filter((l) => l.points.length >= 2)
   if (drawable.length === 0) return false
 
-  if (context.sceneRenderer) {
-    if (drawLinesViaRenderer(context.sceneRenderer, drawable, scrollLeft)) {
-      compositeSceneRenderer(context)
-      return true
-    }
-  }
-
-  const surface = context.lineWebGLSurface
-  if (surface?.isAvailable()) {
-    const ok = surface.drawLineStrips(
-      drawable.map((l) => ({
-        points: l.points,
-        color: l.color,
-        width: l.width ?? 1,
-      })),
-      scrollLeft,
-    )
-    if (ok) {
-      surface.compositeTo(context.ctx, { imageSmoothingEnabled: false })
-      return true
-    }
+  if (!context.sceneRenderer) return false
+  if (drawLinesViaRenderer(context.sceneRenderer, drawable, scrollLeft)) {
+    compositeSceneRenderer(context)
+    return true
   }
   return false
 }
@@ -154,7 +137,7 @@ export function drawFilledBandViaRenderer(
 }
 
 /**
- * 填充带 GPU 阶梯：sceneRenderer fill → legacy drawFilledBand → false。
+ * 填充带 GPU：仅 sceneRenderer fill；失败返回 false。
  * @param alpha composite 时的全局透明度（半透明 bandFill）
  */
 export function tryDrawFilledBandGpu(
@@ -169,46 +152,29 @@ export function tryDrawFilledBandGpu(
   if (!enableWebGL) return false
   if (Math.min(upperPoints.length, lowerPoints.length) < 2) return false
 
-  if (context.sceneRenderer) {
-    if (
-      drawFilledBandViaRenderer(
-        context.sceneRenderer,
-        upperPoints,
-        lowerPoints,
-        color,
-        scrollLeft,
-      )
-    ) {
-      const r = context.sceneRenderer
-      r.surface.compositeTo(
-        context.ctx,
-        {
-          x: 0,
-          y: context.pane.top,
-          width: context.viewport?.plotWidth ?? context.paneWidth,
-          height: context.pane.height,
-          dpr: context.dpr,
-        },
-        { imageSmoothingEnabled: false, alpha },
-      )
-      return true
-    }
-  }
-
-  const surface = context.lineWebGLSurface
-  if (surface?.isAvailable()) {
-    const ok = surface.drawFilledBand(
-      {
-        upperPoints: upperPoints.map((p) => ({ x: p.x, y: p.y })),
-        lowerPoints: lowerPoints.map((p) => ({ x: p.x, y: p.y })),
-      },
+  if (!context.sceneRenderer) return false
+  if (
+    drawFilledBandViaRenderer(
+      context.sceneRenderer,
+      upperPoints,
+      lowerPoints,
       color,
       scrollLeft,
     )
-    if (ok) {
-      surface.compositeTo(context.ctx, { imageSmoothingEnabled: false, alpha })
-      return true
-    }
+  ) {
+    const r = context.sceneRenderer
+    r.surface.compositeTo(
+      context.ctx,
+      {
+        x: 0,
+        y: context.pane.top,
+        width: context.viewport?.plotWidth ?? context.paneWidth,
+        height: context.pane.height,
+        dpr: context.dpr,
+      },
+      { imageSmoothingEnabled: false, alpha },
+    )
+    return true
   }
   return false
 }

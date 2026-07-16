@@ -259,7 +259,6 @@ export class Chart {
         }
       },
       getViewport: () => this.viewportManager.getViewport(),
-      getSharedWebGLSurface: () => this.sharedWebGLSurface,
       setKnownPaneIds: (ids) => this.rendererPluginManager.setKnownPaneIds(ids),
       notifyPaneResize: (paneId, pane) =>
         this.rendererPluginManager.notifyResize(paneId, wrapPaneInfo(pane)),

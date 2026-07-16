@@ -106,19 +106,15 @@ describe('render single-path (Phase 0)', () => {
     expect(ok).toHaveBeenCalledOnce()
   })
 
-  it('Manager.render is not required for paint (single path)', () => {
+  it('Scene paints without Manager draw API (single path)', () => {
     const draw = vi.fn()
     const plugin = makePlugin('only-scene', draw)
     manager.register(plugin)
     manager.setEnabled(plugin.name, false)
     scene.addLayer(createLayerFromPlugin(plugin, () => ({}) as RenderContext, 'main'))
 
-    // 旧路径：enabled false → Manager 不画
-    const errors = manager.render('main', { pane: { id: 'main' } } as RenderContext)
-    expect(errors).toEqual([])
-    expect(draw).not.toHaveBeenCalled()
-
-    // 新路径：Scene 仍画
+    // Manager 无 render 入口；Scene 仍画
+    expect(typeof (manager as { render?: unknown }).render).toBe('undefined')
     paintMain()
     expect(draw).toHaveBeenCalledOnce()
   })

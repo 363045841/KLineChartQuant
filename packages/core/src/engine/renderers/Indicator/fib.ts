@@ -16,6 +16,7 @@ import type { IndicatorScheduler, FibSchedulerConfig } from '../../indicators/sc
 import type { FibRenderState } from '../../indicators/state/fibState'
 import { createFibStateKey, EMPTY_FIB_STATE } from '../../indicators/state/fibState'
 import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 const FIB_COLORS = {
   high: '#94a3b8',

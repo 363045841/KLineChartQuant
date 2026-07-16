@@ -1,7 +1,6 @@
 import type { PaneRole } from '../../foundation/plugin/index'
 import type { ChartDom, PaneSpec, Viewport } from '../chartTypes'
 import { PaneRenderer } from '../paneRenderer'
-import type { SharedWebGLSurface } from '../renderers/webgl/sharedWebGLSurface'
 import type { ScaleType } from '../utils/tickPosition'
 
 import { Pane, UpdateLevel } from './pane'
@@ -18,7 +17,6 @@ export interface PaneLayoutDependencies {
     defaultPaneMinHeightPx?: number
   }
   getViewport: () => Viewport | null
-  getSharedWebGLSurface: () => SharedWebGLSurface
   setKnownPaneIds: (ids: string[]) => void
   notifyPaneResize: (paneId: string, pane: Pane) => void
   scheduleDraw: (level?: UpdateLevel) => void
@@ -160,7 +158,6 @@ export class ChartPaneLayout {
           yPaddingPx: this.deps.getOption().yPaddingPx,
           priceLabelWidth: this.deps.getOption().priceLabelWidth,
         },
-        this.deps.getSharedWebGLSurface(),
       )
 
       return renderer
@@ -330,13 +327,6 @@ export class ChartPaneLayout {
       pane.setPadding(opt.yPaddingPx, opt.yPaddingPx)
 
       renderer.resize(vp.plotWidth, h, vp.dpr)
-      renderer.setWebGLRegion({
-        x: 0,
-        y,
-        width: vp.plotWidth,
-        height: h,
-        dpr: vp.dpr,
-      })
       this.deps.notifyPaneResize(pane.id, pane)
       const domEls = renderer.getDom()
       domEls.mainCanvas.style.top = `${y}px`
