@@ -15,6 +15,7 @@ export type {
   WritableRef,
   ReadonlyRef,
   Computed,
+  SelectedSignal,
 } from './signal'
 export { createFrameTransaction } from './frameTransaction'
 export type {

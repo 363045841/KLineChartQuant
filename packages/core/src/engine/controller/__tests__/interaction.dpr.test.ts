@@ -321,6 +321,19 @@ describe('InteractionController DPR consumption', () => {
     interaction.flushPendingHover()
     expect(interaction.crosshairPos).not.toBeNull()
   })
+
+  it('pointerleave cancels pending hover so flush does not restore crosshair', () => {
+    const chart = createChartStub({ dpr: 1, plotWidth: 100, plotHeight: 80 })
+    const interaction = new InteractionController(chart as never, createMockInteractionState())
+    interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
+
+    interaction.onPointerMove({ clientX: 50, clientY: 40, isPrimary: true } as PointerEvent)
+    interaction.onPointerLeave({ isPrimary: true } as PointerEvent)
+    interaction.flushPendingHover()
+
+    expect(interaction.crosshairPos).toBeNull()
+    expect(interaction.crosshairIndex).toBeNull()
+  })
 })
 
 describe('InteractionController pane capability gating', () => {

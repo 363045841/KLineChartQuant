@@ -9,6 +9,7 @@
  * 本原语只暴露 pending 写入与 published 快照，不暴露公开 latest。
  * 一帧固定走 capture → derive → seal → render → publish → complete。
  * render 或 publish 期间的 writeInput 一律进入下一代 pending。
+ * 非 idle 时调用 flush 不会嵌套发布，仅保留 dirty 供外层完成后调度。
  */
 
 import { createSignal, type ReadonlySignal } from './signal'
@@ -24,6 +25,14 @@ function mergeInput<T extends Record<string, unknown>>(base: T, patch: Partial<T
   return { ...base, ...patch }
 }
 
+/** 浅冻结快照根对象；大数组字段由 derive 侧结构共享，禁止深拷贝 */
+function sealSnapshotRoot<T>(snapshot: T): T {
+  if (typeof snapshot === 'object' && snapshot !== null) {
+    Object.freeze(snapshot)
+  }
+  return snapshot
+}
+
 export interface FrameTransactionOptions<TInput extends Record<string, unknown>, TSnapshot> {
   /** 初始 pending 输入；也会用于生成 generation 0 的占位 published */
   initialInput: TInput
@@ -36,7 +45,7 @@ export interface FrameTransactionOptions<TInput extends Record<string, unknown>,
    * 可选：使用本帧快照绘制或执行副作用。
    * 此阶段 writeInput 进入下一代，不得假定能改当前快照。
    */
-  render?: (snapshot: TSnapshot) => void
+  render?: (snapshot: Readonly<TSnapshot>) => void
   /**
    * 调度 flush 的宿主。默认 requestAnimationFrame；测试可注入同步队列。
    * 返回值可忽略（兼容 rAF handle）。
@@ -46,7 +55,7 @@ export interface FrameTransactionOptions<TInput extends Record<string, unknown>,
 
 export interface FrameTransaction<TInput extends Record<string, unknown>, TSnapshot> {
   /** 最近一次成功发布的快照（只读 Signal） */
-  readonly published$: ReadonlySignal<TSnapshot>
+  readonly published$: ReadonlySignal<Readonly<TSnapshot>>
   /** 已成功发布的帧代际；失败 flush 不增加 */
   readonly generation: number
   /** 当前阶段，调试与不变量检查用 */
@@ -58,9 +67,10 @@ export interface FrameTransaction<TInput extends Record<string, unknown>, TSnaps
   writeInput(patch: Partial<TInput>): void
   /**
    * 同步执行一帧事务。无 pending 时返回当前 published，且不通知。
+   * 非 idle 调用不会嵌套发布，返回当前 published。
    * @returns 本帧使用的快照（成功时等于 published$.peek()）
    */
-  flush(): TSnapshot
+  flush(): Readonly<TSnapshot>
   /**
    * 请求在宿主调度器上合并 flush；多次调用在同一 pending 调度内只注册一次。
    */
@@ -69,7 +79,7 @@ export interface FrameTransaction<TInput extends Record<string, unknown>, TSnaps
    * 从 published 投影只读 Signal。
    * 仅当 select 结果相对上一值 Object.is 不等时通知。
    */
-  select<T>(selector: (snapshot: TSnapshot) => T): ReadonlySignal<T>
+  select<T>(selector: (snapshot: Readonly<TSnapshot>) => T): ReadonlySignal<T>
 }
 
 /**
@@ -103,7 +113,7 @@ export function createFrameTransaction<
   let scheduleQueued = false
 
   // generation 0：用初始输入 derive 一次，作为 published 占位，避免订阅者读到 undefined
-  const initialSnapshot = derive({ ...pending }, 0)
+  const initialSnapshot = sealSnapshotRoot(derive({ ...pending }, 0))
   const published = createSignal<TSnapshot>(initialSnapshot)
 
   function writeInput(patch: Partial<TInput>): void {
@@ -117,7 +127,12 @@ export function createFrameTransaction<
     nextPending = mergeInput(base, patch)
   }
 
-  function flush(): TSnapshot {
+  function flush(): Readonly<TSnapshot> {
+    // 禁止嵌套发布：订阅者 / render 中 flush 只保留 dirty，由外层 complete 后再调度
+    if (phase !== 'idle') {
+      return published.peek()
+    }
+
     if (!dirty && nextPending === null) {
       return published.peek()
     }
@@ -142,21 +157,19 @@ export function createFrameTransaction<
       const snapshot = derive(sealedInput, nextGeneration)
 
       phase = 'sealing'
-      // 浅层冻结快照根对象；大数组字段由 derive 侧做结构共享，禁止在此深拷贝
-      if (typeof snapshot === 'object' && snapshot !== null) {
-        Object.freeze(snapshot)
-      }
+      sealSnapshotRoot(snapshot)
 
       phase = 'rendering'
       render?.(snapshot)
 
+      // 先推进代际再发布，保证订阅者读 generation 与 snapshot.generation 一致
       phase = 'publishing'
-      published.set(snapshot)
       generation = nextGeneration
+      published.set(snapshot)
 
       return snapshot
     } catch (err) {
-      // derive/render 失败：不推进 generation，保留 sealed 输入供重试
+      // derive/render 失败：不推进 generation（若已推进则回滚），保留 sealed 输入供重试
       if (sealedInput !== undefined) {
         pending = sealedInput
         dirty = true
@@ -170,6 +183,10 @@ export function createFrameTransaction<
         nextPending = null
         dirty = true
       }
+      // 有残留 dirty 时挂下一代调度（含 re-entrant write / 失败重试）
+      if (dirty) {
+        scheduleFlush()
+      }
     }
   }
 
@@ -177,17 +194,20 @@ export function createFrameTransaction<
     if (scheduleQueued) return
     if (!dirty && nextPending === null) return
     scheduleQueued = true
-    schedule(() => {
+    try {
+      schedule(() => {
+        scheduleQueued = false
+        // flush 的 finally 已在失败时保留 dirty 并 scheduleFlush；此处继续抛出供测试/诊断
+        flush()
+      })
+    } catch (err) {
+      // schedule 本身失败：复位标志，允许后续 scheduleFlush 重试
       scheduleQueued = false
-      flush()
-      // flush 内 render 可能再次 dirty；再挂一轮
-      if (dirty || nextPending !== null) {
-        scheduleFlush()
-      }
-    })
+      throw err
+    }
   }
 
-  function select<T>(selector: (snapshot: TSnapshot) => T): ReadonlySignal<T> {
+  function select<T>(selector: (snapshot: Readonly<TSnapshot>) => T): ReadonlySignal<T> {
     const selected = createSignal(selector(published.peek()))
     published.subscribe(() => {
       const next = selector(published.peek())
@@ -201,7 +221,7 @@ export function createFrameTransaction<
   }
 
   return {
-    published$: Object.assign((() => published()) as ReadonlySignal<TSnapshot>, {
+    published$: Object.assign((() => published()) as ReadonlySignal<Readonly<TSnapshot>>, {
       peek: published.peek,
       subscribe: published.subscribe,
     }),

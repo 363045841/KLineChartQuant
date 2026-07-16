@@ -234,12 +234,21 @@ export function batch<T>(fn: () => T): T {
 }
 
 /**
+ * selectSignal 返回值：只读投影 + 解除对 source 的订阅。
+ */
+export type SelectedSignal<U> = ReadonlySignal<U> & {
+  /** 取消对 source 的订阅；之后不再随 source 更新 */
+  dispose: () => void
+}
+
+/**
  * 从源 Signal 投影只读 Signal。
  * 仅当 selector 结果相对上一值 equal 判定为不等时通知。
  *
  * @remarks
  * 用于框架桥接：避免整包 snapshot 变化时无关字段也触发 UI 更新。
  * 默认 equal 为 Object.is；对 {x,y} 等可传入结构相等函数。
+ * 短生命周期投影必须调用 dispose，否则会永久订阅 source。
  *
  * @typeParam T - 源快照类型
  * @typeParam U - 投影结果类型
@@ -248,9 +257,9 @@ export function selectSignal<T, U>(
   source: ReadonlySignal<T>,
   selector: (value: T) => U,
   equal: (a: U, b: U) => boolean = Object.is,
-): ReadonlySignal<U> {
+): SelectedSignal<U> {
   const selected = createSignal(selector(source.peek()))
-  source.subscribe(() => {
+  const unsubSource = source.subscribe(() => {
     const next = selector(source.peek())
     if (equal(selected.peek(), next)) return
     selected.set(next)
@@ -259,7 +268,8 @@ export function selectSignal<T, U>(
   return Object.assign(read, {
     peek: selected.peek,
     subscribe: selected.subscribe,
-  }) as ReadonlySignal<U>
+    dispose: unsubSource,
+  }) as SelectedSignal<U>
 }
 
 /**

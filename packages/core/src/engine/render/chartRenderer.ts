@@ -408,13 +408,30 @@ export class ChartRenderer {
   /**
    * 同步绘制一帧，走与 rAF 相同的 flush 管线（prepare → seal → paint）。
    *
+   * 若已有 rAF 挂起：与 pendingLevel 合并后同步 flush（消费合并后的 level）。
+   * 若正处于帧事务非 idle（render/publish 重入）：只写输入并调度下一帧，禁止嵌套 flush。
+   *
    * @param level - 同 scheduleDraw
    */
   draw(level: UpdateLevel = UpdateLevel.All): void {
-    this.pendingLevel = level
-    this.frameTx.writeInput({ level })
+    if (this.frameTx.phase !== 'idle') {
+      this.pendingLevel = mergeUpdateLevel(this.pendingLevel, level)
+      this.frameTx.writeInput({ level: this.pendingLevel })
+      this.frameTx.scheduleFlush()
+      return
+    }
+
+    if (this.raf !== null) {
+      this.pendingLevel = mergeUpdateLevel(this.pendingLevel, level)
+    } else {
+      this.pendingLevel = level
+    }
+    this.frameTx.writeInput({ level: this.pendingLevel })
     this.frameTx.flush()
-    this.pendingLevel = UpdateLevel.All
+    // 同步 flush 已消费本帧；若 flush 中又 scheduleDraw，raf 非 null，保留 pendingLevel
+    if (this.raf === null) {
+      this.pendingLevel = UpdateLevel.All
+    }
   }
 
   /**

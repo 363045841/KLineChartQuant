@@ -173,4 +173,134 @@ describe('createFrameTransaction', () => {
     expect(ft.published$.peek().x).toBe(2)
     expect(ft.generation).toBe(1)
   })
+
+  it('advances generation before notifying published subscribers', () => {
+    const ft = createFrameTransaction<Input, Snapshot>({
+      initialInput: { x: 0, y: 0 },
+      derive: (input, generation) => ({
+        generation,
+        x: input.x,
+        y: input.y,
+        sum: input.x + input.y,
+      }),
+    })
+    let seenGeneration = -1
+    ft.published$.subscribe(() => {
+      seenGeneration = ft.generation
+    })
+    ft.writeInput({ x: 1 })
+    ft.flush()
+    expect(seenGeneration).toBe(1)
+    expect(ft.published$.peek().generation).toBe(1)
+  })
+
+  it('defers re-entrant flush during publish to next generation only', () => {
+    const order: number[] = []
+    const ft = createFrameTransaction<Input, Snapshot>({
+      initialInput: { x: 0, y: 0 },
+      derive: (input, generation) => ({
+        generation,
+        x: input.x,
+        y: input.y,
+        sum: input.x + input.y,
+      }),
+    })
+    ft.published$.subscribe(() => {
+      const snap = ft.published$.peek()
+      order.push(snap.x)
+      if (snap.x === 1) {
+        ft.writeInput({ x: 2 })
+        // re-entrant flush must not publish x=2 before remaining listeners of gen1
+        ft.flush()
+      }
+    })
+    const late = vi.fn()
+    ft.published$.subscribe(late)
+
+    ft.writeInput({ x: 1 })
+    ft.flush()
+    expect(order).toEqual([1])
+    expect(late).toHaveBeenCalledTimes(1)
+    expect(ft.published$.peek().x).toBe(1)
+    expect(ft.generation).toBe(1)
+
+    // deferred work runs on next idle flush
+    const second = ft.flush()
+    expect(second.x).toBe(2)
+    expect(second.generation).toBe(2)
+  })
+
+  it('freezes generation-0 published snapshot root', () => {
+    const ft = createFrameTransaction<Input, Snapshot>({
+      initialInput: { x: 0, y: 0 },
+      derive: (input, generation) => ({
+        generation,
+        x: input.x,
+        y: input.y,
+        sum: input.x + input.y,
+      }),
+    })
+    const snap = ft.published$.peek() as Snapshot & { x: number }
+    expect(Object.isFrozen(snap)).toBe(true)
+    expect(() => {
+      ;(snap as { x: number }).x = 99
+    }).toThrow()
+  })
+
+  it('reschedules after scheduled flush throws', () => {
+    const runners: Array<() => void> = []
+    let failNextRealFrame = false
+    const ft = createFrameTransaction<Input, Snapshot>({
+      initialInput: { x: 0, y: 0 },
+      derive: (input, generation) => {
+        // generation 0 是构造占位，不可失败
+        if (generation > 0 && failNextRealFrame) {
+          failNextRealFrame = false
+          throw new Error('boom')
+        }
+        return {
+          generation,
+          x: input.x,
+          y: input.y,
+          sum: input.x + input.y,
+        }
+      },
+      schedule: (run) => {
+        runners.push(run)
+        return 1
+      },
+    })
+    failNextRealFrame = true
+    ft.writeInput({ x: 3 })
+    ft.scheduleFlush()
+    expect(runners).toHaveLength(1)
+    expect(() => runners[0]!()).toThrow('boom')
+    // dirty retained → another schedule registered
+    expect(runners.length).toBeGreaterThanOrEqual(2)
+    runners[runners.length - 1]!()
+    expect(ft.published$.peek().x).toBe(3)
+    expect(ft.generation).toBe(1)
+  })
+
+  it('resets scheduleQueued when schedule() throws', () => {
+    let shouldThrow = true
+    const ft = createFrameTransaction<Input, Snapshot>({
+      initialInput: { x: 0, y: 0 },
+      derive: (input, generation) => ({
+        generation,
+        x: input.x,
+        y: input.y,
+        sum: input.x + input.y,
+      }),
+      schedule: () => {
+        if (shouldThrow) throw new Error('no-raf')
+        return 1
+      },
+    })
+    ft.writeInput({ x: 1 })
+    expect(() => ft.scheduleFlush()).toThrow('no-raf')
+    shouldThrow = false
+    // must not be permanently stuck
+    expect(() => ft.scheduleFlush()).not.toThrow()
+  })
 })

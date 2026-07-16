@@ -327,6 +327,9 @@ export class InteractionController {
     this.activePaneIdOnDrag = null
     this.clearSeparatorState()
     if (!this.isTouchSession) {
+      // 取消已排队 hover，避免后续帧用 lastClientPos 把十字线刷回来
+      this.hoverFlushPending = false
+      this.lastClientPos = null
       this.clearHover()
       this.chart.scheduleDraw()
     }
@@ -606,6 +609,7 @@ export class InteractionController {
   }
 
   clearHover() {
+    this.hoverFlushPending = false
     this.lastHoverRenderKey = ''
     this._state.actions.setRightAxisHover(null)
     this._state.actions.updateCrosshair(null, null)

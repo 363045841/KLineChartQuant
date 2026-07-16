@@ -157,4 +157,15 @@ describe('selectSignal', () => {
     source.set({ pos: { x: 2, y: 2 } })
     expect(listener).toHaveBeenCalledTimes(1)
   })
+
+  it('dispose stops following source updates', () => {
+    const source = createSignal({ a: 1, b: 0 })
+    const selected = selectSignal(source, (s) => s.a)
+    const listener = vi.fn()
+    selected.subscribe(listener)
+    selected.dispose()
+    source.set({ a: 9, b: 0 })
+    expect(listener).not.toHaveBeenCalled()
+    expect(selected.peek()).toBe(1)
+  })
 })
