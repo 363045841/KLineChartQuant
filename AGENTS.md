@@ -80,13 +80,14 @@ pnpm stockbao
 
 - **Entrypoints**: `packages/core/src/index.ts` (re-exports reactivity, controllers, tokens), `packages/vue/src/index.ts` (SFC components + createChart + composables), `packages/vue/src/components/KLineChart.vue` (legacy SFC).
 - **Core engine** lives at `packages/core/src/engine/` — chart, viewport, panes, renderers, interaction, markers, drawing.
-- **Plugin subsystem** at `packages/core/src/plugin/` — PluginHost, HookSystem, EventBus, ConfigManager, StateStore, RendererPluginManager.
-- **Semantic config** at `packages/core/src/semantic/` — JSON → chart config mapping.
+- **Plugin subsystem** at `packages/core/src/foundation/plugin/` — PluginHost, HookSystem, EventBus, ConfigManager, StateStore, RendererPluginManager (register/config only; paint goes through Scene).
+- **Rendering** at `packages/core/src/rendering/` — Scene/Layer, RendererHost, WebGPU/WebGL/Canvas2D backends.
+- **Semantic config** at `packages/core/src/features/semantic/` — JSON → chart config mapping.
 - **Root `src/` no longer exists**. Code was migrated to packages. The root `vite.config.ts` still builds a library entry from the (now-removed) `src/index.ts`; for publishing, use `pnpm build:packages`.
-- **DPR/ResizeObserver** is the single source of truth for canvas sizing (`devicePixelContentBoxSize` with `window.devicePixelRatio` fallback).
-- **Rendering pipeline**: computeViewport → getVisibleRange → calcKLinePositions → iterate panes → build RenderContext → rendererPluginManager.render(paneId) → renderPlugin('timeAxis').
-- **Three renderer categories**: business (pane-local, e.g. candle/ma/boll), global (paneId=GLOBAL, e.g. gridLines/crosshair), system (isSystem=true, e.g. timeAxis).
-- **StateKernel** is the single source of truth for chart business state (sub-state modules include options, zoom, data, dataManager, comparison, indicator, subPane, marker, viewport, pane, settings, mode, drawing, interaction, systemTheme). Preference theme is `settings.theme` (`light|dark|auto`); **effective** theme is `computed` from preference + `systemTheme` (exposed as flat `signals.theme`). Each sub-state module exposes `readonly` (ReadonlySignal bag) + semantic `actions`. WritableSignal bag (`signals`) is never part of the public return — all mutations flow through actions. Derived state lives in computed(); DOM side-effects in effect(). See `docs/state-kernel-migration-plan.md`.**
+- **DPR/ResizeObserver** is the single source of truth for canvas sizing (`devicePixelContentBoxSize` with `window.devicePixelRatio` fallback); state in `viewportState`, DOM adapter in `ChartViewportManager`.
+- **Rendering pipeline** (SSOT: `docs/rendering-pipeline.md`): `Chart.scheduleDraw` → `ChartRenderer` + `FrameTransaction` → `prepareFrameData` (viewport → getVisibleRange → calcKLinePositions) → `sealFrameGeometry` → per-pane `scene.paintPane` → `sceneRenderer.endFrame` → `timeAxisLayer.paint`.
+- **Layer roles**: background / primary / indicator / component / drawing / overlay; UpdateLevel Main|Overlay|All for dual-canvas incremental paint.
+- **StateKernel** is the single source of truth for chart business state (sub-state modules include options, zoom, data, dataManager, comparison, indicator, subPane, marker, viewport, pane, settings, mode, drawing, interaction, systemTheme). Preference theme is `settings.theme` (`light|dark|auto`); **effective** theme is `computed` from preference + `systemTheme` (exposed as flat `signals.theme`). Each sub-state module exposes `readonly` (ReadonlySignal bag) + semantic `actions`. WritableSignal bag (`signals`) is never part of the public return — all mutations flow through actions. Derived state lives in computed(); DOM side-effects in effect(). See `docs/state-kernel-migration-plan.md`.
 
 ### StateKernel Reactive Kernel Design Principles
 
@@ -128,9 +129,9 @@ Never guess at Effect patterns - check the guide first.
 ## Known Quirks
 
 - **Local times in tests**: dateFormat tests assume CST (Asia/Shanghai). Run `$env:TZ='Asia/Shanghai'` on Windows if they fail locally.
-- **`docs/PLUGIN_SYSTEM.md` is stale**. Prefer `docs/architecture.md` and `docs/system-architecture-overview.md` for current docs.
-- **Viewport too large** may trigger `MAX_CANVAS_PIXELS`, causing DPR to be actively downgraded.
-- **Semantic renderer names** (e.g. `ma`, `boll`) are stringly-typed conventions — renaming requires sync in `semantic/controller.ts`.
+- **Rendering docs SSOT**: `docs/rendering-pipeline.md` only. Do not revive deleted architecture/plugin rendering docs.
+- **Viewport too large** may trigger `MAX_CANVAS_PIXELS` (`clampDpr` in viewportState), causing DPR to be actively downgraded.
+- **Semantic renderer names** (e.g. `ma`, `boll`) are stringly-typed conventions — renaming requires sync in semantic controller.
 - **Web component build**: `pnpm build:wc` in packages/vue (cross-env BUILD_TARGET=web-component).
 
 ## Lessons Learned
