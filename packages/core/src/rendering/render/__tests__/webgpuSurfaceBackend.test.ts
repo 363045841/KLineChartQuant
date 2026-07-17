@@ -51,6 +51,17 @@ describe('createWebGPUSurfaceBackend', () => {
     expect(canvas.style.height).toBe('180px')
   })
 
+  it('derives CSS size from the rounded backing buffer', () => {
+    const { canvas, surface } = makeSurface()
+
+    surface.resize(101.2, 80.4, 1.25)
+
+    expect(canvas.width).toBe(127)
+    expect(canvas.height).toBe(101)
+    expect(canvas.style.width).toBe('101.6px')
+    expect(canvas.style.height).toBe('80.8px')
+  })
+
   it('compositeTo is a no-op under hybrid DOM (M2)', () => {
     const { surface } = makeSurface()
     const target = {

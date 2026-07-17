@@ -159,6 +159,15 @@ describe('createWebGPURenderer', () => {
     expect(fake.passes[0]?.setScissorRect).toHaveBeenCalledWith(20, 10, 160, 80)
     expect(fake.passes[0]?.draw).toHaveBeenCalledWith(6, 3)
     expect(fake.queue.submit).toHaveBeenCalledOnce()
+
+    const uniformWrite = fake.queue.writeBuffer.mock.calls.find((call) => call[4] === 32)
+    expect(uniformWrite).toBeDefined()
+    expect(
+      Array.from(new Float32Array(uniformWrite![2] as ArrayBuffer, uniformWrite![3], 8)),
+    ).toEqual([160, 80, 2, 4, 1, 0, 0, 1])
+    expect(
+      (fake.pipelineDescriptors[0]?.vertex.module as { code: string }).code,
+    ).toContain('round((rect.x - uniforms.scrollLeft) * uniforms.dpr)')
   })
 
   it('records multiple draws and submits once on endFrame', async () => {
@@ -187,6 +196,27 @@ describe('createWebGPURenderer', () => {
     expect(fake.queue.submit).not.toHaveBeenCalled()
     renderer.endFrame()
     expect(fake.queue.submit).toHaveBeenCalledTimes(1)
+  })
+
+  it('expands a logical one-pixel line to its physical DPR width', async () => {
+    const fake = makeWebGPU()
+    const renderer = await createWebGPURenderer({
+      gpu: fake.gpu as unknown as GPU,
+      canvas: fake.canvas,
+    })
+    renderer.surface.resize(100, 100, 2)
+    renderer.beginFrame({ x: 0, y: 0, width: 100, height: 100, dpr: 2 })
+    const pipeline = renderer.createPipeline({ type: 'line' })
+
+    expect(
+      renderer.drawLines({
+        pipeline,
+        strips: [{ points: [{ x: 0, y: 10 }, { x: 100, y: 10 }], color: '#f00', width: 1 }],
+      }),
+    ).toBe(true)
+    renderer.endFrame()
+
+    expect(fake.pipelineDescriptors[0]?.primitive?.topology).toBe('triangle-list')
   })
 
   it('preserves earlier rectangle batches within the same frame', async () => {
@@ -262,7 +292,7 @@ describe('createWebGPURenderer', () => {
     const uniformWrites = fake.queue.writeBuffer.mock.calls.filter((call) => call[4] === 32)
     expect(uniformWrites).toHaveLength(2)
     for (const call of uniformWrites) {
-      expect(new Float32Array(call[2] as ArrayBuffer)[2]).toBe(12)
+      expect(new Float32Array(call[2] as ArrayBuffer)[3]).toBe(12)
     }
     expect(fake.queue.submit).toHaveBeenCalledOnce()
   })

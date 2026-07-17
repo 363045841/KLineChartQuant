@@ -45,10 +45,10 @@ export function createWebGPUSurfaceBackend(
       const height = Math.max(1, Math.round(heightLogical * dpr))
       if (canvas.width !== width) canvas.width = width
       if (canvas.height !== height) canvas.height = height
-      // 可见 DOM 合成：CSS 尺寸跟逻辑 plot，buffer 跟物理像素
+      // CSS 尺寸由物理 buffer 反算，避免浏览器二次缩放。
       if (canvas.style) {
-        canvas.style.width = `${Math.max(0, widthLogical)}px`
-        canvas.style.height = `${Math.max(0, heightLogical)}px`
+        canvas.style.width = `${width / dpr}px`
+        canvas.style.height = `${height / dpr}px`
       }
     },
     bindRegion(region: SurfaceRegion): boolean {

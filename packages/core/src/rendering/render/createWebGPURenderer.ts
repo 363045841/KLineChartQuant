@@ -11,6 +11,8 @@ import type {
 } from './Renderer'
 import { createWebGPUSurfaceBackend, type WebGPUSurfaceBackend } from './createWebGPUSurfaceBackend'
 import { createFrameMetrics } from './frameMetrics'
+import { prepareLineStripForPhysicalPixels } from './physicalLine'
+import { toPhysicalRegion } from './physicalRegion'
 import { createWebGPUResourceTable } from './webgpuResourceTable'
 
 type PipelineType = 'candle' | 'line' | 'fill'
@@ -42,8 +44,8 @@ const GPU_TEXTURE_RENDER_ATTACHMENT = globalThis.GPUTextureUsage?.RENDER_ATTACHM
 const RECT_SHADER = `
 struct Uniforms {
   resolution: vec2f,
+  dpr: f32,
   scrollLeft: f32,
-  padding: f32,
   color: vec4f,
 }
 
@@ -56,7 +58,14 @@ fn vertexMain(@builtin(vertex_index) vertexIndex: u32, @location(0) rect: vec4f)
     vec2f(0.0, 1.0), vec2f(1.0, 0.0), vec2f(1.0, 1.0)
   );
   let unit = corners[vertexIndex];
-  let position = vec2f(rect.x - uniforms.scrollLeft + unit.x * rect.z, rect.y + unit.y * rect.w);
+  let left = round((rect.x - uniforms.scrollLeft) * uniforms.dpr);
+  let top = round(rect.y * uniforms.dpr);
+  let right = round((rect.x + rect.z - uniforms.scrollLeft) * uniforms.dpr);
+  let bottom = round((rect.y + rect.w) * uniforms.dpr);
+  let position = vec2f(
+    left + unit.x * max(1.0, right - left),
+    top + unit.y * max(1.0, bottom - top),
+  );
   let clip = vec2f(position.x / uniforms.resolution.x * 2.0 - 1.0, 1.0 - position.y / uniforms.resolution.y * 2.0);
   return vec4f(clip, 0.0, 1.0);
 }
@@ -70,8 +79,8 @@ fn fragmentMain() -> @location(0) vec4f {
 const LINE_SHADER = `
 struct Uniforms {
   resolution: vec2f,
+  dpr: f32,
   scrollLeft: f32,
-  padding: f32,
   color: vec4f,
 }
 
@@ -79,7 +88,10 @@ struct Uniforms {
 
 @vertex
 fn vertexMain(@location(0) point: vec2f) -> @builtin(position) vec4f {
-  let position = vec2f(point.x - uniforms.scrollLeft, point.y);
+  let position = vec2f(
+    (point.x - uniforms.scrollLeft) * uniforms.dpr,
+    point.y * uniforms.dpr,
+  );
   let clip = vec2f(position.x / uniforms.resolution.x * 2.0 - 1.0, 1.0 - position.y / uniforms.resolution.y * 2.0);
   return vec4f(clip, 0.0, 1.0);
 }
@@ -368,10 +380,10 @@ export async function createWebGPURenderer(
     const color = parseColor(colorValue ?? '#000000')
     if (!color) return null
     const values = new Float32Array([
-      region.width,
-      region.height,
+      Math.round(region.width * region.dpr),
+      Math.round(region.height * region.dpr),
+      region.dpr,
       scrollLeft,
-      0,
       color[0],
       color[1],
       color[2],
@@ -406,10 +418,10 @@ export async function createWebGPURenderer(
         },
       ],
     })
-    const x = Math.max(0, Math.round(region.x * region.dpr))
-    const y = Math.max(0, Math.round(region.y * region.dpr))
-    const width = Math.min(canvas.width - x, Math.round(region.width * region.dpr))
-    const height = Math.min(canvas.height - y, Math.round(region.height * region.dpr))
+    const { x, y, width, height } = toPhysicalRegion(region, {
+      width: canvas.width,
+      height: canvas.height,
+    })
     if (width <= 0 || height <= 0) {
       pass.end()
       return null
@@ -456,10 +468,10 @@ export async function createWebGPURenderer(
           const region = draws[0]!.region
           rawSurface.bindRegion(region)
 
-          const x = Math.max(0, Math.round(region.x * region.dpr))
-          const y = Math.max(0, Math.round(region.y * region.dpr))
-          const width = Math.min(canvas.width - x, Math.round(region.width * region.dpr))
-          const height = Math.min(canvas.height - y, Math.round(region.height * region.dpr))
+          const { x, y, width, height } = toPhysicalRegion(region, {
+            width: canvas.width,
+            height: canvas.height,
+          })
           if (width > 0 && height > 0) {
             pass.setViewport(x, y, width, height, 0, 1)
             pass.setScissorRect(x, y, width, height)
@@ -608,8 +620,9 @@ export async function createWebGPURenderer(
           const scrollLeft = (params.uniforms?.scrollLeft as number) ?? 0
           for (const strip of params.strips) {
             if (strip.points.length < 2) return false
-            const wide = (strip.width ?? 1) > 1
-            const values = wide ? buildWideLine(strip) : linePoints(strip)
+            const physicalStrip = prepareLineStripForPhysicalPixels(strip, currentRegion.dpr)
+            const wide = Math.round((physicalStrip.width ?? 1) * currentRegion.dpr) > 1
+            const values = wide ? buildWideLine(physicalStrip) : linePoints(physicalStrip)
             if (!values) return false
             // 帧内序号作 key：同顺序跨帧复用；revision 未变则不 upload
             const key = `strip/${stripSeq++}`
