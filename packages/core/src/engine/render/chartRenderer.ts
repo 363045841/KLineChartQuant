@@ -58,6 +58,9 @@ import {
   type FrameTransaction,
 } from '../../foundation/reactivity/frameTransaction'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal'
+import type { ViewportStateModule } from '../state/viewportState'
+import type { ZoomStateModule } from '../state/zoomState'
+import type { OptionsStateModule } from '../state/optionsState'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kWidth: number
@@ -124,11 +127,14 @@ export interface RendererDependencies {
   getSceneRenderer: () => Renderer
   getPluginHost: () => PluginHostImpl
   getRendererPluginManager: () => RendererPluginManager
-  getTheme: () => 'light' | 'dark'
-  getCurrentZoomLevel: () => number
-  getZoomLevelCount: () => number
-  getViewport: () => Viewport | null
-  getEffectiveDpr: () => number
+  /** 生效主题 SSOT */
+  theme$: ReadonlySignal<'light' | 'dark'>
+  /** zoomLevel / kWidth SSOT */
+  zoom: ZoomStateModule
+  /** zoomLevelCount 等 options SSOT */
+  options: OptionsStateModule
+  /** scroll / dpr / plot 几何 SSOT */
+  viewport: ViewportStateModule
   getDataManager: () => ChartDataManager
   getIndicatorManager: () => ChartIndicatorManager
   getActiveMode: () => ChartModeHandler
@@ -501,12 +507,18 @@ export class ChartRenderer {
    * range 变化时调 checkVisibleRangeGapWhenIdle 触发空闲补数据。
    * TimeShare 模式按 plotWidth 平分 bar，覆盖 K 线位置。
    */
+  /** viewWidth 为 0 表示尚未完成首帧尺寸 */
+  private peekViewport(): Viewport | null {
+    if (this.deps.viewport.readonly.viewWidth.peek() === 0) return null
+    return this.deps.viewport.readonly.viewport.peek()
+  }
+
   private prepareFrameData(level: UpdateLevel): FrameContext | null {
     const useCachedFrame = level === UpdateLevel.Overlay && this.cachedDrawFrame !== null
 
     const vp = useCachedFrame
       ? this.cachedDrawFrame!.viewport
-      : this.deps.getViewport()
+      : this.peekViewport()
     if (!vp) return null
 
     const internalData = this.deps.getDataManager().getRenderData() as KLineData[]
@@ -623,8 +635,8 @@ export class ChartRenderer {
       kWidthPx,
       useCachedFrame,
       data: internalData,
-      zoomLevel: this.deps.getCurrentZoomLevel(),
-      zoomLevelCount: this.deps.getZoomLevelCount(),
+      zoomLevel: this.deps.zoom.readonly.zoomLevel.peek(),
+      zoomLevelCount: this.deps.options.readonly.options.peek().zoomLevelCount,
     }
   }
 
@@ -640,7 +652,7 @@ export class ChartRenderer {
   }
 
   clearAllCanvases(): void {
-    const vp = this.deps.getViewport()
+    const vp = this.peekViewport()
     if (!vp) return
     for (const r of this.deps.getPaneRenderers()) {
       const { mainCtx, overlayCtx, yAxisCtx, leftAxisCtx } = r.getContexts()
@@ -762,8 +774,8 @@ export class ChartRenderer {
         crosshairIndex: this.deps.getInteraction().getCrosshairIndex(),
         yAxisCtx: yAxisCtx ?? undefined,
         leftAxisCtx: leftAxisCtx ?? undefined,
-        zoomLevel: this.deps.getCurrentZoomLevel(),
-        zoomLevelCount: this.deps.getZoomLevelCount(),
+        zoomLevel: this.deps.zoom.readonly.zoomLevel.peek(),
+        zoomLevelCount: this.deps.options.readonly.options.peek().zoomLevelCount,
         viewport: {
           scrollLeft: vp.scrollLeft,
           plotWidth: vp.plotWidth,
@@ -774,7 +786,7 @@ export class ChartRenderer {
         xAxisLabels: sharedXAxisLabels,
         yAxisRanges: sharedYAxisRanges,
         xAxisRanges: sharedXAxisRanges,
-        theme: this.deps.getTheme(),
+        theme: this.deps.theme$.peek(),
         isAsiaMarket: this.settings.isAsiaMarket as boolean,
         colorPresetSettings: this.settings.colorPresetSettings,
         monthKeys: dataManager.getMonthKeys() ?? undefined,
@@ -903,7 +915,7 @@ export class ChartRenderer {
         yAxisLabels: [],
         xAxisLabels: sharedXAxisLabels,
         xAxisRanges: sharedXAxisRanges,
-        theme: this.deps.getTheme(),
+        theme: this.deps.theme$.peek(),
         isAsiaMarket: this.settings.isAsiaMarket as boolean,
         colorPresetSettings: this.settings.colorPresetSettings,
         monthKeys: dataManager.getMonthKeys() ?? undefined,
@@ -927,7 +939,7 @@ export class ChartRenderer {
 
     if (count <= 0) return []
 
-    const dpr = this.deps.getEffectiveDpr()
+    const dpr = this.deps.viewport.readonly.dpr.peek()
     const opt = this.deps.getOption()
     const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
 

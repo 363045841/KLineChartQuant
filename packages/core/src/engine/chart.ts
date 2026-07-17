@@ -286,7 +286,7 @@ export class Chart {
           defaultPaneMinHeightPx: o.defaultPaneMinHeightPx,
         }
       },
-      getViewport: () => this.getViewport(),
+      viewport: this.kernel.viewport,
       setKnownPaneIds: (ids) => this.rendererPluginManager.setKnownPaneIds(ids),
       notifyPaneResize: (paneId, pane) =>
         this.rendererPluginManager.notifyResize(paneId, wrapPaneInfo(pane)),
@@ -334,6 +334,8 @@ export class Chart {
     this.zoomController = new ChartZoomController(
       {
         viewport: this.kernel.viewport,
+        options: this.kernel.options,
+        period$: this.kernel.dataManager.readonly.currentPeriod,
         getClientWidth: () =>
           this.getViewport()?.viewWidth ?? this.dom.container?.clientWidth ?? 0,
         getDataLength: () => this.dataManager.getData().length,
@@ -341,10 +343,6 @@ export class Chart {
         onChange: () => {
           this.scheduleDraw()
         },
-        getMinKWidth: () => this.kernel.options.readonly.options.peek().minKWidth,
-        getMaxKWidth: () => this.kernel.options.readonly.options.peek().maxKWidth,
-        getPeriod: () => this.kernel.dataManager.readonly.currentPeriod.peek(),
-        zoomLevelCount,
       },
       this.kernel.zoom,
     )
@@ -364,8 +362,9 @@ export class Chart {
       removeRenderer: (name) => this.removeRenderer(name),
       updateRendererConfig: (name, config) => this.updateRendererConfig(name, config),
       setRendererEnabled: (name, enabled) => this.setRendererEnabled(name, enabled),
-      getPaneRatiosSignal: () =>
-        this.kernel.pane.readonly.paneRatios as ReadonlySignal<Readonly<Record<string, number>>>,
+      paneRatios$: this.kernel.pane.readonly.paneRatios as ReadonlySignal<
+        Readonly<Record<string, number>>
+      >,
       paneSpecs$: this.kernel.pane.readonly.paneSpecs,
       projectPaneLayout: (specs, ratios) => {
         this.layoutManager.projectState(specs, ratios)
@@ -382,9 +381,6 @@ export class Chart {
       getLayer: (id) => this.renderer?.getScene()?.getLayer(id) ?? null,
       setLayerVisibility: (id, visible) =>
         this.renderer?.getScene()?.setLayerVisibility(id, visible),
-      getRightAxisWidth: () => this.kernel.options.readonly.options.peek().rightAxisWidth,
-      getPriceLabelWidth: () => this.kernel.options.readonly.options.peek().priceLabelWidth ?? 60,
-      getYPaddingPx: () => this.kernel.options.readonly.options.peek().yPaddingPx,
       indicator: this.kernel.indicator,
       subPaneOps: {
         entries: this.kernel.subPane.readonly.entries,
@@ -429,11 +425,10 @@ export class Chart {
       getSceneRenderer: () => this.rendererHost.renderer,
       getPluginHost: () => this.pluginHost,
       getRendererPluginManager: () => this.rendererPluginManager,
-      getTheme: () => this.kernel.effectiveTheme$.peek(),
-      getCurrentZoomLevel: () => this.kernel.zoom.readonly.zoomLevel.peek(),
-      getZoomLevelCount: () => this.kernel.options.readonly.options.peek().zoomLevelCount,
-      getViewport: () => this.getViewport(),
-      getEffectiveDpr: () => this.kernel.viewport.readonly.dpr.peek(),
+      theme$: this.kernel.effectiveTheme$,
+      zoom: this.kernel.zoom,
+      options: this.kernel.options,
+      viewport: this.kernel.viewport,
       getDataManager: () => this.dataManager,
       getIndicatorManager: () => this.indicatorManager,
       getActiveMode: () => this._activeMode,

@@ -52,7 +52,7 @@ function createMockDeps() {
     upsertPane: vi.fn(),
     removePaneDefinition: vi.fn(),
     getPaneSpecs: vi.fn(() => []),
-    getPaneRatiosSignal: () => paneRatiosSignal,
+    paneRatios$: paneRatiosSignal,
     paneSpecs$: paneSpecsSignal,
     getInternalPaneRatios: vi.fn(() => new Map()),
     setInternalPaneRatio: vi.fn(),
@@ -84,9 +84,6 @@ function createMockDeps() {
     projectPaneLayout: vi.fn(),
     runRendererTransaction: (run) => run(),
     getIndicatorScheduler: vi.fn(),
-    getRightAxisWidth: () => 60,
-    getPriceLabelWidth: () => 60,
-    getYPaddingPx: () => 4,
   } as IndicatorDependencies & { rendererMap: Map<string, any> }
 }
 

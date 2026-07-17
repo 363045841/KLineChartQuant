@@ -76,7 +76,8 @@ export interface IndicatorDependencies {
   removeRenderer: (name: string) => void
   updateRendererConfig: (name: string, config: Record<string, unknown>) => void
   setRendererEnabled: (name: string, enabled: boolean) => void
-  getPaneRatiosSignal: () => ReadonlySignal<Readonly<Record<string, number>>>
+  /** pane ratios SSOT */
+  paneRatios$: ReadonlySignal<Readonly<Record<string, number>>>
   paneSpecs$: ReadonlySignal<ReadonlyArray<PaneSpec>>
   projectPaneLayout: (
     specs: ReadonlyArray<PaneSpec>,
@@ -92,9 +93,6 @@ export interface IndicatorDependencies {
   removeLayer: (id: string) => boolean
   getLayer: (id: string) => Layer | null
   setLayerVisibility: (id: string, visible: boolean) => void
-  getRightAxisWidth: () => number
-  getPriceLabelWidth: () => number
-  getYPaddingPx: () => number
   /** 主图指标状态模块 */
   indicator: IndicatorStateModule
   /** 副图状态 + 联动 pane 布局的复合操作 */
@@ -200,7 +198,7 @@ export class ChartIndicatorManager {
       return [...mainIndicators, ...subIndicators]
     })
     this._subPanesComputed = computed<ReadonlyArray<SubPaneInfo>>(() => {
-      const ratios = deps.getPaneRatiosSignal()()
+      const ratios = deps.paneRatios$()
       return this.deps.subPaneOps.entries().map((entry) => ({
         paneId: entry.paneId,
         indicatorId: entry.indicatorId,
@@ -222,10 +220,10 @@ export class ChartIndicatorManager {
     }
 
     this.projectedPaneSpecs = this.deps.paneSpecs$.peek()
-    this.projectedPaneRatios = this.deps.getPaneRatiosSignal().peek()
+    this.projectedPaneRatios = this.deps.paneRatios$.peek()
     this.disposeProjection = effect(() => {
       const paneSpecs = this.deps.paneSpecs$()
-      const paneRatios = this.deps.getPaneRatiosSignal()()
+      const paneRatios = this.deps.paneRatios$()
       const mainIndicators = this.deps.indicator.readonly.mainIndicators()
       const subPanes = this.deps.subPaneOps.entries()
       this.deps.runRendererTransaction(() => {

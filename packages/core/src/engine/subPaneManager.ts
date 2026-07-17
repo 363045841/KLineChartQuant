@@ -44,9 +44,11 @@ export interface SubPaneContext {
   removeRenderer: (name: string) => void
   setRendererEnabled: (name: string, enabled: boolean) => void
   updateRendererConfig: (name: string, config: Record<string, unknown>) => void
-  getRightAxisWidth: () => number
-  getPriceLabelWidth: () => number
-  getYPaddingPx: () => number
+  getOption: () => {
+    rightAxisWidth: number
+    priceLabelWidth?: number
+    yPaddingPx: number
+  }
   getCrosshairPos: () => { x: number; y: number } | null
   getCrosshairPrice: () => number | null
   getActivePaneId: () => string | null
@@ -203,7 +205,8 @@ export class SubPaneManager {
       return
     }
     const definition = ctx.getIndicatorScheduler().getIndicatorMetadata(entry.indicatorId)
-    const axisWidth = ctx.getRightAxisWidth() + ctx.getPriceLabelWidth()
+    const opt = ctx.getOption()
+    const axisWidth = opt.rightAxisWidth + (opt.priceLabelWidth ?? 60)
     const getCrosshair = () => {
       const pos = ctx.getCrosshairPos()
       const price = ctx.getCrosshairPrice()
@@ -213,7 +216,7 @@ export class SubPaneManager {
     const options = {
       axisWidth,
       paneId: entry.paneId,
-      yPaddingPx: ctx.getYPaddingPx(),
+      yPaddingPx: opt.yPaddingPx,
       getCrosshair,
     }
     const plugin = definition?.scaleRendererFactory

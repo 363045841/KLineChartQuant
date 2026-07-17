@@ -3,6 +3,7 @@ import type { ChartDom, PaneSpec, Viewport } from '../chartTypes'
 import { PaneRenderer } from '../paneRenderer'
 import type { ScaleType } from '../utils/tickPosition'
 import type { PaneStateModule } from '../state/paneState'
+import type { ViewportStateModule } from '../state/viewportState'
 
 import { Pane, UpdateLevel } from './pane'
 import { normalizeVisiblePaneRatios as pureNormalizeVisiblePaneRatios } from './paneRatioMath'
@@ -17,7 +18,8 @@ export interface PaneLayoutDependencies {
     paneGap?: number
     defaultPaneMinHeightPx?: number
   }
-  getViewport: () => Viewport | null
+  /** scroll / plot 几何 SSOT */
+  viewport: ViewportStateModule
   setKnownPaneIds: (ids: string[]) => void
   notifyPaneResize: (paneId: string, pane: Pane) => void
   scheduleDraw: (level?: UpdateLevel) => void
@@ -300,10 +302,16 @@ export class ChartPaneLayout {
     return heights
   }
 
+  /** viewWidth 为 0 表示尚未完成首帧尺寸 */
+  private peekViewport(): Viewport | null {
+    if (this.deps.viewport.readonly.viewWidth.peek() === 0) return null
+    return this.deps.viewport.readonly.viewport.peek()
+  }
+
   layoutPanes(options?: { commit?: boolean }) {
     this.syncRatiosFromKernel()
 
-    const vp = this.deps.getViewport()
+    const vp = this.peekViewport()
     if (!vp) return
 
     const visibleSpecs = this._paneSpecs.filter((p) => p.visible !== false)
@@ -501,7 +509,7 @@ export class ChartPaneLayout {
 
   resizePaneBoundary(upperPaneId: string, deltaY: number): boolean {
     if (!Number.isFinite(deltaY) || deltaY === 0) return false
-    const vp = this.deps.getViewport()
+    const vp = this.peekViewport()
     if (!vp) return false
 
     this.syncRatiosFromKernel()
