@@ -1,18 +1,21 @@
-import type { RenderContext, PluginHost } from '../../../foundation/plugin/index'
+import type {
+  RenderContext,
+  RendererPluginWithHost,
+} from '../../../foundation/plugin/index'
 import { createLayerFromPlugin } from '../../../rendering/scene/createLayerFromPlugin'
 import type { Layer } from '../../../rendering/scene/types'
-import { createMainIndicatorLegendRendererPlugin } from '../../renderers/Indicator/mainIndicatorLegend'
+import {
+  createMainIndicatorLegendRendererPlugin,
+  type MainIndicatorLegendOptions,
+} from '../../renderers/Indicator/mainIndicatorLegend'
 
 export function createMainIndicatorLegendLayer(
-  config: { yPaddingPx: number },
+  config: MainIndicatorLegendOptions,
   getContext: () => RenderContext | null,
-  pluginHost: PluginHost,
-): Layer {
+): { layer: Layer; plugin: RendererPluginWithHost } {
   const plugin = createMainIndicatorLegendRendererPlugin(config)
-  try {
-    plugin.onInstall?.(pluginHost)
-  } catch (e) {
-    console.error(`[MainIndicatorLegendLayer] onInstall error:`, e)
+  return {
+    layer: createLayerFromPlugin(plugin, getContext, 'main'),
+    plugin,
   }
-  return createLayerFromPlugin(plugin, getContext, 'main')
 }

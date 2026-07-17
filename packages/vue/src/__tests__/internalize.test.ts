@@ -11,7 +11,7 @@
 
 import { mount } from '@vue/test-utils'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { nextTick } from 'vue'
+import { defineComponent, h, nextTick, ref } from 'vue'
 
 import { createMockChartController, type MockChartController } from './_mockController'
 
@@ -138,6 +138,58 @@ describe('KLineChart internalization — dataFetcher default', () => {
     expect(calls.length).toBe(1)
     expect(calls[0]).toBe(customFetcher)
     expect(calls[0]).not.toBe(routerDataFetcher)
+
+    wrapper.unmount()
+  })
+})
+
+describe('KLineChart legend slot lifecycle', () => {
+  it('does not subscribe to legend context or enable external mode without a legend slot', async () => {
+    const wrapper = mount(KlineChart, { attachTo: document.body })
+    await flushMount()
+
+    expect(mockController.legendSubscriberCount()).toBe(0)
+    expect(mockController.rendererConfigCalls()).toEqual([
+      { name: 'mainIndicatorLegend', config: { renderMode: 'canvas' } },
+    ])
+
+    wrapper.unmount()
+  })
+
+  it('switches legend rendering when a conditional slot changes', async () => {
+    const showLegend = ref(false)
+    const Host = defineComponent({
+      setup() {
+        return () =>
+          h(KlineChart, null, {
+            legend: showLegend.value ? () => h('span', 'custom legend') : undefined,
+          })
+      },
+    })
+    const wrapper = mount(Host, { attachTo: document.body })
+    await flushMount()
+
+    expect(mockController.legendSubscriberCount()).toBe(0)
+
+    showLegend.value = true
+    await nextTick()
+    await nextTick()
+
+    expect(mockController.legendSubscriberCount()).toBe(1)
+    expect(mockController.rendererConfigCalls().at(-1)).toEqual({
+      name: 'mainIndicatorLegend',
+      config: { renderMode: 'external' },
+    })
+
+    showLegend.value = false
+    await nextTick()
+    await nextTick()
+
+    expect(mockController.legendSubscriberCount()).toBe(0)
+    expect(mockController.rendererConfigCalls().at(-1)).toEqual({
+      name: 'mainIndicatorLegend',
+      config: { renderMode: 'canvas' },
+    })
 
     wrapper.unmount()
   })

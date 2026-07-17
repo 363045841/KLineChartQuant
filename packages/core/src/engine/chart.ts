@@ -26,10 +26,13 @@ import {
 import { createLayerFromPlugin } from '../rendering/scene/createLayerFromPlugin'
 import {
   computed,
+  createSignal,
   type Computed,
   type ReadonlySignal,
   type Signal,
+  type WritableSignal,
 } from '../foundation/reactivity/signal'
+import type { LegendTemplateContext } from './renderers/Indicator/mainIndicatorLegendContext'
 
 import { InteractionController, type InteractionSnapshot } from './controller/interaction'
 
@@ -130,6 +133,9 @@ export class Chart {
   private renderer: ChartRenderer
   private runtimeProjectionDepth = 0
   private runtimeProjectionDrawPending = false
+  /** 主图图例模板上下文（每帧由 mainIndicatorLegend 发布） */
+  private readonly _legendTemplateContext: WritableSignal<LegendTemplateContext | null> =
+    createSignal<LegendTemplateContext | null>(null)
 
   /** 绘图交互会话（锚点/预览/拖拽）；工具 id 在 kernel */
   private drawingSession: DrawingInteractionController | null = null
@@ -437,6 +443,9 @@ export class Chart {
       drawings$: this.kernel.drawing.readonly.drawings,
       selectedDrawingId$: this.kernel.drawing.readonly.selectedDrawingId,
       getOverlay: () => this.drawingSession?.getPaintOverlay() ?? [],
+      onLegendContext: (ctx) => {
+        this._legendTemplateContext.set(ctx)
+      },
     })
     this.renderer.registerDrawingPlugins()
     this.renderer.initCoreRenderers()
@@ -1359,6 +1368,11 @@ export class Chart {
   /** 交互状态信号 */
   get interactionState(): ReadonlySignal<InteractionSnapshot> {
     return this._interactionSnapshot
+  }
+
+  /** 主图左上角图例模板上下文（null 表示无数据） */
+  get legendTemplateContext(): ReadonlySignal<LegendTemplateContext | null> {
+    return this._legendTemplateContext
   }
 
   // ---------- Data ----------

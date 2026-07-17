@@ -85,6 +85,7 @@ export function createMockChartController(
       hoveredPaneBoundaryId: null,
       isHoveringRightAxis: false,
     }),
+    legendTemplateContext: createSignal(null),
     comparisonColors: createSignal<ReadonlyMap<string, string>>(new Map()),
     comparisonLoading: createSignal(false),
     symbolCatalog: createSignal([] as ReadonlyArray<SymbolInfo>),

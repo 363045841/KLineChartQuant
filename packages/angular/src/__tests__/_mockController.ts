@@ -85,6 +85,7 @@ export function createMockChartController(
     }),
     chartMode: createSignal('kline' as const),
     interactionState,
+    legendTemplateContext: createSignal(null),
     indicators: createSignal<ReadonlyArray<IndicatorInstance>>([]),
     subPanes: createSignal<ReadonlyArray<SubPaneInfo>>([]),
     drawingTool,

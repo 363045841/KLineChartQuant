@@ -143,6 +143,10 @@ export interface RendererDependencies {
   drawings$: DrawingStoreDeps['drawings$']
   selectedDrawingId$: DrawingStoreDeps['selectedDrawingId$']
   getOverlay?: DrawingStoreDeps['getOverlay']
+  /** 主图图例上下文发布（canvas / external 均触发；draw 内回调） */
+  onLegendContext?: (
+    ctx: import('../renderers/Indicator/mainIndicatorLegendContext').LegendTemplateContext | null,
+  ) => void
 }
 
 export class ChartRenderer {
@@ -281,11 +285,15 @@ export class ChartRenderer {
       this.scene.addLayer(layer)
     }
     {
-      const layer = createMainIndicatorLegendLayer(
-        { yPaddingPx: opt.yPaddingPx },
+      const { layer, plugin } = createMainIndicatorLegendLayer(
+        {
+          yPaddingPx: opt.yPaddingPx,
+          onContext: this.deps.onLegendContext,
+        },
         getCtx('main'),
-        this.deps.getPluginHost(),
       )
+      // 注册进 Manager，使 updateRendererConfig('mainIndicatorLegend') 可切换 renderMode
+      this.deps.getRendererPluginManager().register(plugin)
       this.scene.addLayer(layer)
     }
     {

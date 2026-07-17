@@ -7,4 +7,8 @@ export { default as KLineTooltip } from './KLineTooltip.vue'
 export { default as LeftToolbar } from './LeftToolbar.vue'
 export { default as MarkerTooltip } from './MarkerTooltip.vue'
 export { default as AlertDialog } from './alert/AlertDialog.vue'
-export type { KlineTooltipSlotProps, MarkerTooltipSlotProps } from './KLineChart.vue'
+export type {
+  KlineTooltipSlotProps,
+  MarkerTooltipSlotProps,
+  LegendSlotProps,
+} from './KLineChart.vue'

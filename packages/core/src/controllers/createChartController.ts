@@ -397,6 +397,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const paneRatios: ReadonlySignal<Readonly<Record<string, number>>> = chart.paneRatios
   const paneLayout: ReadonlySignal<ReadonlyArray<PaneSpec>> = chart.paneLayout
   const interactionState: ReadonlySignal<InteractionSnapshot> = chart.interactionState
+  const legendTemplateContext = chart.legendTemplateContext
   const symbolCatalog: ReadonlySignal<ReadonlyArray<SymbolInfo>> = chart.symbolCatalog
 
   // -------------------------------------------------------------------
@@ -920,6 +921,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     paneRatios,
     paneLayout,
     interactionState,
+    legendTemplateContext,
     comparisonColors,
     comparisonLoading,
     symbolCatalog,
