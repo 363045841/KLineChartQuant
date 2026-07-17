@@ -211,7 +211,7 @@ export class InteractionController {
     if (!location) return
 
     const { mouseX, mouseY } = location
-    const scrollLeft = this.chart.getLogicalScrollLeft()
+    const scrollLeft = this.chart.kernel.viewport.readonly.scrollLeftLogical.peek()
 
     const markerManager = this.chart.getMarkerManager()
     const worldX = scrollLeft + mouseX
@@ -248,7 +248,7 @@ export class InteractionController {
     // 触屏始终以 pan 模式开始，长按后才切换为 explore
     this.dragStartX = e.clientX
     this.dragStartY = e.clientY
-    this.scrollStartX = this.chart.getCachedScrollLeft()
+    this.scrollStartX = this.chart.kernel.viewport.readonly.scrollLeft.peek()
     this._cachedMaxScrollLeft = -1
     const captureContainer = this.chart.getDom().container
     captureContainer?.setPointerCapture(e.pointerId)
@@ -419,7 +419,7 @@ export class InteractionController {
         }
         const clamped = Math.min(Math.max(0, this.scrollStartX + deltaX), this._cachedMaxScrollLeft)
         const dpr = this.chart.getCurrentDpr()
-        this.chart.syncScrollLeft(Math.round(clamped * dpr) / dpr)
+        this.chart.kernel.viewport.actions.scrollTo(Math.round(clamped * dpr) / dpr)
 
         const deltaY = e.clientY - this.dragStartY
         this.dragStartY = e.clientY
@@ -726,7 +726,7 @@ if (this.tooltipPositionMode === 'adaptive') {
       return null
     }
 
-    const scrollLeft = this.chart.getLogicalScrollLeft()
+    const scrollLeft = this.chart.kernel.viewport.readonly.scrollLeftLogical.peek()
     const dpr = this.chart.getCurrentDpr()
 
     return {

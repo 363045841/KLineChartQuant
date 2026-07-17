@@ -1,13 +1,13 @@
 import { computeZoom, deriveKGap } from './zoom'
 import type { ZoomStateModule } from '../state/zoomState'
+import type { ViewportStateModule } from '../state/viewportState'
 
 export interface ZoomDependencies {
-  getLogicalScrollLeft: () => number
-  getCurrentDpr: () => number
+  /** scroll / dpr 几何，读写走 kernel.viewport */
+  viewport: ViewportStateModule
   getClientWidth: () => number
   getDataLength: () => number
   getPlotWidth: () => number
-  setScrollLeft: (v: number) => void
   onChange?: () => void
   getMinKWidth: () => number
   getMaxKWidth: () => number
@@ -39,7 +39,7 @@ export class ChartZoomController {
   get currentKGap(): number {
     return deriveKGap({
       kWidth: this.currentKWidth,
-      dpr: this.deps.getCurrentDpr(),
+      dpr: this.deps.viewport.readonly.dpr.peek(),
       period: this.deps.getPeriod(),
     })
   }
@@ -84,8 +84,8 @@ export class ChartZoomController {
     if (targetLevel === this.currentZoomLevel) return
 
     const delta = targetLevel - this.currentZoomLevel
-    const logicalScrollLeft = this.deps.getLogicalScrollLeft()
-    const dpr = this.deps.getCurrentDpr()
+    const logicalScrollLeft = this.deps.viewport.readonly.scrollLeftLogical.peek()
+    const dpr = this.deps.viewport.readonly.dpr.peek()
 
     const result = computeZoom(
       delta,
@@ -108,7 +108,7 @@ export class ChartZoomController {
     if (!result) return
 
     this.zoomState.actions.setZoomLevel(result.targetLevel)
-    this.deps.setScrollLeft(result.newDomScrollLeft)
+    this.deps.viewport.actions.scrollTo(result.newDomScrollLeft)
     this.deps.onChange?.()
   }
 }

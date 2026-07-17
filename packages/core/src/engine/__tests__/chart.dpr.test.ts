@@ -250,7 +250,7 @@ describe('Chart DPR pipeline', () => {
     expect(ro?.disconnect).toHaveBeenCalledTimes(1)
   })
 
-  it('does not emit viewport change repeatedly for identical viewport draws', async () => {
+  it('does not emit viewport change on draw when viewport is unchanged', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     const onViewportChange = vi.fn()
 
@@ -258,7 +258,8 @@ describe('Chart DPR pipeline', () => {
     chart.draw()
     chart.draw()
 
-    expect(onViewportChange).toHaveBeenCalledTimes(1)
+    // draw 只读 viewport，不写 signal
+    expect(onViewportChange).toHaveBeenCalledTimes(0)
 
     await chart.destroy()
   })

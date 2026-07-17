@@ -10,6 +10,17 @@
  * 一帧固定走 capture → derive → seal → render → publish → complete。
  * render 或 publish 期间的 writeInput 一律进入下一代 pending。
  * 非 idle 时调用 flush 不会嵌套发布，仅保留 dirty 供外层完成后调度。
+ *
+ * @remarks 适用范围
+ * 这是一个半通用的 rAF 合帧器（semi-general frame coalescer），
+ * 专为 ChartRenderer 的绘制管线设计，并非全场景通用的高频处理方案。
+ *
+ * @Todo 如需在其他场景（WebSocket 消息合并、键盘事件批处理）复用，需补充：
+ * - 深层合并 / 自定义 merge 策略（目前 mergeInput 仅浅合并）
+ * - 快照深层不可变保证（目前 sealSnapshotRoot 只冻根对象）
+ * - 超时/失帧策略（目前纯乐观逐帧）
+ * - 背压与优先级集成（FrameBudget 在 scheduler 层但未在此集成）
+ * - 非 Record 输入类型支持（目前 TInput 约束为 Record）
  */
 
 import { createSignal, type ReadonlySignal } from './signal'
@@ -88,10 +99,9 @@ export interface FrameTransaction<TInput extends Record<string, unknown>, TSnaps
  * @typeParam TInput - 可合并的输入形状（浅层 Partial 合并）
  * @typeParam TSnapshot - derive 产出的不可变快照类型
  */
-export function createFrameTransaction<
-  TInput extends Record<string, unknown>,
-  TSnapshot,
->(options: FrameTransactionOptions<TInput, TSnapshot>): FrameTransaction<TInput, TSnapshot> {
+export function createFrameTransaction<TInput extends Record<string, unknown>, TSnapshot>(
+  options: FrameTransactionOptions<TInput, TSnapshot>,
+): FrameTransaction<TInput, TSnapshot> {
   const { derive, render } = options
   const schedule =
     options.schedule ??
@@ -191,6 +201,7 @@ export function createFrameTransaction<
   }
 
   function scheduleFlush(): void {
+    // 已有 raf 帧，
     if (scheduleQueued) return
     if (!dirty && nextPending === null) return
     scheduleQueued = true

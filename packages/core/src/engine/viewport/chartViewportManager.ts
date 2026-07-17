@@ -1,68 +1,39 @@
-import { type ReadonlySignal } from '../../foundation/reactivity/signal'
-import type { ChartDom, Viewport, ViewportState } from '../chartTypes'
+import type { ChartDom } from '../chartTypes'
 import type { ChartStateKernel } from '../state/chartStateKernel'
 
-/** Minimal manager-level deps (DOM + lifecycle callbacks). */
+/** DOM 生命周期依赖：ResizeObserver / scroll 监听 */
 export interface ViewportDependencies {
   getDom: () => ChartDom
   onResizeCompleted: () => void
 }
 
+/**
+ * Viewport DOM 适配层：只挂 ResizeObserver 与 scroll，读写一律走 kernel。
+ */
 export class ChartViewportManager {
   private deps: ViewportDependencies
   private kernel: ChartStateKernel
   private resizeObserver?: ResizeObserver
   private onScroll?: (e: Event) => void
 
-  get viewportSignal(): ReadonlySignal<ViewportState> {
-    return this.kernel.viewport.readonly.viewportState
-  }
-
   constructor(deps: ViewportDependencies, kernel: ChartStateKernel) {
     this.deps = deps
     this.kernel = kernel
   }
 
-  getCachedScrollLeft(): number {
-    return this.kernel.viewport.readonly.scrollLeft.peek()
-  }
-
-  getLogicalScrollLeft(): number {
-    return this.kernel.viewport.readonly.scrollLeftLogical.peek()
-  }
-
-  getViewport(): Viewport | null {
-    if (this.kernel.viewport.readonly.viewWidth.peek() === 0) return null
-    return this.kernel.viewport.readonly.viewport.peek()
-  }
-
-  getEffectiveDpr(): number {
-    return this.kernel.viewport.readonly.dpr.peek()
-  }
-
-  getObservedSize(): { width: number; height: number } {
-    return {
-      width: this.kernel.viewport.readonly.viewWidth.peek(),
-      height: this.kernel.viewport.readonly.viewHeight.peek(),
-    }
-  }
-
-  setScrollLeft(v: number): void {
-    this.kernel.viewport.actions.scrollTo(v)
-  }
-
   init(): void {
-    if (typeof ResizeObserver === 'undefined') return
-
     const target = this.deps.getDom().container
     if (!target) return
 
+    // 首帧尺寸写入 kernel，不依赖 ResizeObserver 是否可用
     this.kernel.initViewport()
 
-    this.onScroll = (e: Event) => {
+    this.onScroll = () => {
       this.kernel.viewport.actions.syncFromDomScroll()
     }
     target.addEventListener('scroll', this.onScroll, { passive: true })
+
+    if (typeof ResizeObserver === 'undefined') return
 
     this.resizeObserver = new ResizeObserver((entries) => {
       const entry = entries[0]
@@ -118,27 +89,5 @@ export class ChartViewportManager {
       this.deps.getDom().container?.removeEventListener('scroll', this.onScroll)
       this.onScroll = undefined
     }
-  }
-
-  computeViewport(): Viewport | null {
-    const container = this.deps.getDom().container
-    if (!container) return null
-
-    const viewWidth = this.kernel.viewport.readonly.viewWidth.peek()
-    const viewHeight = this.kernel.viewport.readonly.viewHeight.peek()
-    if (viewWidth === 0 || viewHeight === 0) {
-      const fallbackW = Math.max(1, Math.round(container.clientWidth))
-      const fallbackH = Math.max(1, Math.round(container.clientHeight))
-      if (fallbackW > 0 && fallbackH > 0) {
-        this.kernel.viewport.actions.resize(fallbackW, fallbackH, this.kernel.viewport.readonly.preciseDpr.peek())
-      }
-    }
-
-    return this.kernel.viewport.readonly.viewport.peek()
-  }
-
-  /** @deprecated No-op — viewportState is now computed(). */
-  updateViewportSignal(): void {
-    // no-op
   }
 }

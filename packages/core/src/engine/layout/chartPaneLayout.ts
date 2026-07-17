@@ -2,6 +2,7 @@ import type { PaneRole } from '../../foundation/plugin/index'
 import type { ChartDom, PaneSpec, Viewport } from '../chartTypes'
 import { PaneRenderer } from '../paneRenderer'
 import type { ScaleType } from '../utils/tickPosition'
+import type { PaneStateModule } from '../state/paneState'
 
 import { Pane, UpdateLevel } from './pane'
 import { normalizeVisiblePaneRatios as pureNormalizeVisiblePaneRatios } from './paneRatioMath'
@@ -20,10 +21,10 @@ export interface PaneLayoutDependencies {
   setKnownPaneIds: (ids: string[]) => void
   notifyPaneResize: (paneId: string, pane: Pane) => void
   scheduleDraw: (level?: UpdateLevel) => void
-  getPaneRatios: () => Record<string, number>
-  /** kernel.paneScaleTypes 投影源；initPanes 优先于此 */
-  getPaneScaleTypes: () => ReadonlyMap<string, ScaleType>
-  commitLayout: (ratios: Record<string, number>, specs: PaneSpec[]) => void
+  /** pane ratios / specs / scaleTypes SSOT */
+  pane: PaneStateModule
+  /** commitLayout 写入 kernel 后的副作用（如 ensurePaneScaleTypes） */
+  afterCommitLayout?: () => void
 }
 
 /**
@@ -63,7 +64,7 @@ export class ChartPaneLayout {
    * 公共读：specs 结构来自工作副本定义，ratio 字段取自 kernel（不写工作副本）。
    */
   getPaneSpecs(): PaneSpec[] {
-    const kernelRatios = this.deps.getPaneRatios()
+    const kernelRatios = this.deps.pane.readonly.paneRatios.peek()
     return this._paneSpecs.map((spec) => ({
       ...spec,
       ratio: kernelRatios[spec.id] ?? spec.ratio,
@@ -75,11 +76,11 @@ export class ChartPaneLayout {
    * 公共读：直接返回 kernel paneRatios 副本，不触碰算法工作副本。
    */
   getInternalPaneRatios(): Map<string, number> {
-    return new Map(Object.entries(this.deps.getPaneRatios()))
+    return new Map(Object.entries(this.deps.pane.readonly.paneRatios.peek()))
   }
 
   private syncRatiosFromKernel(): void {
-    const kernelRatios = this.deps.getPaneRatios()
+    const kernelRatios = this.deps.pane.readonly.paneRatios.peek()
     this._internalPaneRatios = new Map(Object.entries(kernelRatios))
   }
 
@@ -110,7 +111,7 @@ export class ChartPaneLayout {
   }
 
   private initPanes() {
-    const kernelScaleTypes = this.deps.getPaneScaleTypes()
+    const kernelScaleTypes = this.deps.pane.readonly.paneScaleTypes.peek()
     const prevScaleTypes = new Map<string, ScaleType>()
     for (const r of this.paneRenderers) {
       prevScaleTypes.set(r.getPane().id, r.getPane().yAxis.getScaleType())
@@ -388,7 +389,7 @@ export class ChartPaneLayout {
    * commitLayout 走 buildLayoutSpecsFromWorkingCopy，避免公共读污染算法中间态。
    */
   getPaneLayoutSpecs(): PaneSpec[] {
-    return this.buildLayoutSpecs(this.deps.getPaneRatios())
+    return this.buildLayoutSpecs(this.deps.pane.readonly.paneRatios.peek())
   }
 
   /** 仅算法/commit 使用：读当前工作副本 ratios，不读 kernel */
@@ -422,7 +423,8 @@ export class ChartPaneLayout {
     this._internalPaneRatios.forEach((ratio, id) => {
       ratios[id] = ratio
     })
-    this.deps.commitLayout(ratios, this.buildLayoutSpecsFromWorkingCopy())
+    this.deps.pane.actions.commitLayout(ratios, this.buildLayoutSpecsFromWorkingCopy())
+    this.deps.afterCommitLayout?.()
   }
 
   applyPaneLayoutSpecs(panes: PaneSpec[], options?: { preferIncomingRatios?: boolean }): void {

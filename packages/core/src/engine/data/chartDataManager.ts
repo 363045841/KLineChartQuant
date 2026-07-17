@@ -6,12 +6,13 @@ import { TimeShareBuffer } from '../../data/timeShareBuffer'
 import type { TimeShareFetcherFn } from '../../data/types'
 import { createSignal, type ReadonlySignal, type Signal } from '../../foundation/reactivity/signal'
 import type { KLineData, TimeShareData } from '../../foundation/types/price'
-import type { ChartDom, Viewport } from '../chartTypes'
+import type { ChartDom } from '../chartTypes'
 import type { VisibleRange, UpdateLevel } from '../layout/pane'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
-import { getVisibleRange } from '../viewport/viewport'
 import type { DataStateModule } from '../state/dataState'
 import type { DataManagerStateModule } from '../state/dataManagerState'
+import type { ViewportStateModule } from '../state/viewportState'
+import type { ComparisonStateModule } from '../state/comparisonState'
 
 import { ComparisonManager } from './comparisonManager'
 import { FetchBatchScheduler } from './fetchBatchScheduler'
@@ -20,17 +21,11 @@ import { ScrollCompensator } from './scrollCompensator'
 
 export interface DataDependencies {
   getOption: () => { kWidth: number; kGap: number }
-  getEffectiveDpr: () => number
-  getLogicalScrollLeft: () => number
-  getCachedScrollLeft: () => number
-  setScrollLeft: (v: number) => void
   getDom: () => ChartDom
-  getObservedSize: () => { width: number; height: number }
-  getViewport: () => Viewport | null
-  getVisibleRange: () => VisibleRange | null
-  /** 几何 SSOT：由 kernel viewport.readonly 注入 */
-  getLeftLoadBufferWidth: () => number
-  getContentWidth: () => number
+  /** scroll / dpr / 可见区间 / 几何 SSOT */
+  viewport: ViewportStateModule
+  /** 对比叠加状态 SSOT */
+  comparison: ComparisonStateModule
   scheduleDraw: (level?: UpdateLevel) => void
   resetInteraction: () => void
   getIndicatorScheduler: () => {
@@ -40,11 +35,8 @@ export interface DataDependencies {
   isPointerDown: () => boolean
   onTimeShareDataReady: (dataLength: number) => void
   onDataProcessed?: (data: KLineData[], range: VisibleRange) => void
+  /** 写 symbols 选择（含 primary + comparison） */
   setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => void
-  setComparisonLoading: (loading: boolean) => void
-  comparisonSpecs$: ReadonlySignal<ReadonlyArray<SymbolSpec>>
-  comparisonColors$: ReadonlySignal<ReadonlyMap<string, string>>
-  comparisonLoading$: ReadonlySignal<boolean>
 }
 
 const BUF_PRIMARY = 'main'
@@ -95,10 +87,10 @@ export class ChartDataManager {
       getKLineBuffer: (key) => this._klineBuffers.get(key),
       getKLineBufferKeys: () => [...this._klineBuffers.keys()],
       scheduleDraw: () => this.deps.scheduleDraw(),
-      getSpecs: () => this.deps.comparisonSpecs$.peek(),
-      setLoading: (loading) => this.deps.setComparisonLoading(loading),
+      getSpecs: () => this.deps.comparison.readonly.specs.peek(),
+      setLoading: (loading) => this.deps.comparison.actions.setLoading(loading),
     })
-    this._comparisonSpecsUnsub = this.deps.comparisonSpecs$.subscribe(() => {
+    this._comparisonSpecsUnsub = this.deps.comparison.readonly.specs.subscribe(() => {
       this.reconcileComparisonBuffers()
     })
     this.reconcileComparisonBuffers()
@@ -305,7 +297,7 @@ export class ChartDataManager {
       this._dmState.actions.setRangeInitialized(true)
     }
 
-    let currentRange = this.deps.getVisibleRange()
+    let currentRange = this.getVisibleRangeOrNull()
     if (!currentRange && this._dmState.readonly.rangeInitialized.peek() && bufferData.length > 0) {
       currentRange = { start: 0, end: bufferData.length }
     }
@@ -325,7 +317,7 @@ export class ChartDataManager {
   }
 
   private recordIncrementalLoad(prependedCount: number): void {
-    this._dmState.actions.recordIncrementalLoad(prependedCount, this.deps.getLeftLoadBufferWidth())
+    this._dmState.actions.recordIncrementalLoad(prependedCount, this.deps.viewport.readonly.leftLoadBufferWidth.peek())
   }
 
   private scheduleIncrementalLoadHintFlush(key: string): void {
@@ -370,7 +362,7 @@ export class ChartDataManager {
   // ── Internal helpers ──
 
   getLeftLoadBufferWidth(): number {
-    return this.deps.getLeftLoadBufferWidth()
+    return this.deps.viewport.readonly.leftLoadBufferWidth.peek()
   }
 
   private getActiveKLineLength(): number {
@@ -378,9 +370,16 @@ export class ChartDataManager {
     return buf ? buf.getRawData().length : 0
   }
 
+  /** 无 viewport / 无数据时返回 null，与旧 getVisibleRange 注入语义一致 */
+  private getVisibleRangeOrNull(): VisibleRange | null {
+    if (this.deps.viewport.readonly.viewWidth.peek() === 0) return null
+    if (this.getActiveKLineLength() === 0) return null
+    return this.deps.viewport.readonly.visibleRange.peek()
+  }
+
   /** 当前可见范围（on-demand 实时计算，消除 stale 缓存） */
   getCurrentVisibleRange(): VisibleRange | null {
-    return this.deps.getVisibleRange()
+    return this.getVisibleRangeOrNull()
   }
 
   /** Unified data signal — always reflects the active buffer's data */
@@ -469,7 +468,7 @@ export class ChartDataManager {
   }
 
   getComparisonSpecs(): SymbolSpec[] {
-    return this.deps.comparisonSpecs$.peek().map((spec) => ({ ...spec }))
+    return this.deps.comparison.readonly.specs.peek().map((spec) => ({ ...spec }))
   }
 
   get dataBuffer(): KLineBuffer {
@@ -485,15 +484,15 @@ export class ChartDataManager {
   }
 
   get comparisonColors(): ReadonlySignal<ReadonlyMap<string, string>> {
-    return this.deps.comparisonColors$
+    return this.deps.comparison.readonly.colors
   }
 
   get comparisonLoading(): ReadonlySignal<boolean> {
-    return this.deps.comparisonLoading$
+    return this.deps.comparison.readonly.loading
   }
 
   getComparisonColors(): Map<string, string> {
-    return new Map(this.deps.comparisonColors$.peek())
+    return new Map(this.deps.comparison.readonly.colors.peek())
   }
 
   // ── Data updates (KLine) ──
@@ -554,7 +553,7 @@ export class ChartDataManager {
     if (data.length === 0) return
     const window = buf.loadedWindow
     if (!window) return
-    const range = this.deps.getVisibleRange()
+    const range = this.getVisibleRangeOrNull()
     if (!range) return
 
     const MS_PER_DAY = 86_400_000
@@ -587,18 +586,18 @@ export class ChartDataManager {
 
   addComparisonSymbol(spec: SymbolSpec): void {
     const primary = this._dataState.readonly.symbols.peek()[0]
-    if (!primary || this.deps.comparisonSpecs$.peek().some((item) => item.symbol === spec.symbol))
+    if (!primary || this.deps.comparison.readonly.specs.peek().some((item) => item.symbol === spec.symbol))
       return
-    this.deps.setSymbols([primary, ...this.deps.comparisonSpecs$.peek(), spec])
+    this.deps.setSymbols([primary, ...this.deps.comparison.readonly.specs.peek(), spec])
   }
 
   setComparisonData(symbol: string, data: KLineData[]): void {
     const primary = this._dataState.readonly.symbols.peek()[0]
     if (!primary) return
-    if (!this.deps.comparisonSpecs$.peek().some((spec) => spec.symbol === symbol)) {
+    if (!this.deps.comparison.readonly.specs.peek().some((spec) => spec.symbol === symbol)) {
       this.deps.setSymbols([
         primary,
-        ...this.deps.comparisonSpecs$.peek(),
+        ...this.deps.comparison.readonly.specs.peek(),
         { symbol, period: 'daily' },
       ])
     }
@@ -607,11 +606,11 @@ export class ChartDataManager {
 
   removeComparisonSymbol(symbol: string): void {
     const primary = this._dataState.readonly.symbols.peek()[0]
-    if (!primary || !this.deps.comparisonSpecs$.peek().some((spec) => spec.symbol === symbol))
+    if (!primary || !this.deps.comparison.readonly.specs.peek().some((spec) => spec.symbol === symbol))
       return
     this.deps.setSymbols([
       primary,
-      ...this.deps.comparisonSpecs$.peek().filter((spec) => spec.symbol !== symbol),
+      ...this.deps.comparison.readonly.specs.peek().filter((spec) => spec.symbol !== symbol),
     ])
     this.deps.scheduleDraw()
   }
@@ -636,19 +635,8 @@ export class ChartDataManager {
     const dataLen = kRaw?.length ?? 0
     let visibleStart = 0
     if (dataLen > 0) {
-      const vp = this.deps.getViewport()
-      if (vp) {
-        const opt = this.deps.getOption()
-        const vRange = getVisibleRange(
-          vp.scrollLeft,
-          vp.plotWidth,
-          opt.kWidth,
-          opt.kGap,
-          dataLen,
-          vp.dpr,
-        )
-        visibleStart = vRange ? Math.max(0, vRange.start) : 0
-      }
+      const vRange = this.getVisibleRangeOrNull()
+      visibleStart = vRange ? Math.max(0, vRange.start) : 0
     }
     // 双路径守卫：
     //   - switchToTimeShareForDate 路径：setTimeShareQueryDate 已在
@@ -693,7 +681,7 @@ export class ChartDataManager {
       return
     }
     const next = { ...current, period }
-    this.setSymbols([next, ...this.deps.comparisonSpecs$.peek()])
+    this.setSymbols([next, ...this.deps.comparison.readonly.specs.peek()])
   }
 
   /**
@@ -725,7 +713,7 @@ export class ChartDataManager {
       incremental: false,
       source: source.source ?? 'custom',
     }
-    this.setSymbols([spec, ...this.deps.comparisonSpecs$.peek()])
+    this.setSymbols([spec, ...this.deps.comparison.readonly.specs.peek()])
 
     const symbolCode = spec.symbol
     if (symbolCode) {
@@ -760,7 +748,7 @@ export class ChartDataManager {
     this._dataState.actions.setData([])
     this._dmState.actions.setRangeInitialized(false)
     this._dmState.actions.setSavedScrollTimestamp(null)
-    this.setSymbols([spec, ...this.deps.comparisonSpecs$.peek()])
+    this.setSymbols([spec, ...this.deps.comparison.readonly.specs.peek()])
   }
 
   getPreCustomSpec(): SymbolSpec | null {
@@ -872,12 +860,12 @@ export class ChartDataManager {
     )
     this._dmState.actions.setSavedScrollTimestamp(null)
     if (idx >= 0) {
-      const dpr = this.deps.getEffectiveDpr()
+      const dpr = this.deps.viewport.readonly.dpr.peek()
       const opt = this.deps.getOption()
       const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
       const leftBuffer = this.getLeftLoadBufferWidth()
       const scrollLeft = ((idx + 1) * unitPx + startXPx) / dpr + leftBuffer
-      this.deps.setScrollLeft(scrollLeft)
+      this.deps.viewport.actions.scrollTo(scrollLeft)
       return true
     }
     return false
@@ -886,7 +874,7 @@ export class ChartDataManager {
   // ── Content width ──
 
   getContentWidth(): number {
-    return this.deps.getContentWidth()
+    return this.deps.viewport.readonly.contentWidth.peek()
   }
 
   scrollToRight(): void {
@@ -962,12 +950,12 @@ export class ChartDataManager {
   }
 
   getLogicalIndexAtX(mouseX: number): number | null {
-    const vp = this.deps.getViewport()
-    if (!vp) return null
+    if (this.deps.viewport.readonly.viewWidth.peek() === 0) return null
+    const vp = this.deps.viewport.readonly.viewport.peek()
     const buf = this.getActiveDataBuffer()
     const data = buf ? buf.getRawData() : []
     if (data.length === 0) return null
-    const dpr = this.deps.getEffectiveDpr()
+    const dpr = this.deps.viewport.readonly.dpr.peek()
     const opt = this.deps.getOption()
     const { startXPx, unitPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
     const worldX = Math.round((vp.scrollLeft + mouseX) * dpr)

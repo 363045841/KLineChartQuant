@@ -223,8 +223,22 @@ function createChartStub(args: {
       dpr: args.dpr,
     }),
     getCurrentDpr: () => args.dpr,
-    getCachedScrollLeft: () => 0,
-    getLogicalScrollLeft: () => 0,
+    kernel: {
+      viewport: {
+        readonly: {
+          scrollLeft: { peek: () => 0 },
+          scrollLeftLogical: { peek: () => 0 },
+        },
+        actions: {
+          scrollTo: () => undefined,
+        },
+      },
+      settings: {
+        readonly: {
+          settings: { peek: () => ({}) },
+        },
+      },
+    },
     getMarkerManager: () => markerManager,
     getPaneRenderers: () => paneRenderers,
     getData: () => data,

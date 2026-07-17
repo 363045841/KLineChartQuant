@@ -1,14 +1,14 @@
 import type { ChartDom } from '../chartTypes'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
+import type { ViewportStateModule } from '../state/viewportState'
 
 /** 与 theme selectionFill 对齐：light #2D7FF933 / dark #4A9EFF33；fallback 为 light 默认 */
 const INCREMENTAL_LOAD_HINT_BG = 'var(--klc-color-selection-fill, #2D7FF933)'
 
 export interface HintDeps {
   getOption: () => { kWidth: number; kGap: number }
-  getEffectiveDpr: () => number
   getDom: () => ChartDom
-  getViewport: () => { viewHeight: number } | null
+  viewport: ViewportStateModule
 }
 
 interface ActiveHint {
@@ -86,17 +86,18 @@ export class IncrementalLoadHint {
   }
 
   private _updateGeometry(hint: HTMLDivElement, count: number, leftBufferWidth: number): void {
-    const dpr = this.deps.getEffectiveDpr()
+    const dpr = this.deps.viewport.readonly.dpr.peek()
     const opt = this.deps.getOption()
     const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
 
     hint.style.left = `${leftBufferWidth}px`
     const width = (startXPx + count * unitPx) / dpr
     hint.style.width = `${Math.max(0, width)}px`
-    hint.style.height = `${Math.max(
-      0,
-      this.deps.getViewport()?.viewHeight ?? this.deps.getDom().container?.clientHeight ?? 0,
-    )}px`
+    const viewHeight =
+      this.deps.viewport.readonly.viewHeight.peek() ||
+      this.deps.getDom().container?.clientHeight ||
+      0
+    hint.style.height = `${Math.max(0, viewHeight)}px`
   }
 
   private _fadeOutAndRemove(entry: ActiveHint): void {

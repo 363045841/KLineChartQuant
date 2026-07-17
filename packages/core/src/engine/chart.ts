@@ -1,3 +1,14 @@
+/**
+ * Chart — 图表顶层编排器。
+ *
+ * 职责范围：
+ * - 持有 StateKernel（所有配置与状态的唯一数据源）
+ * - 管理 Viewport / 布局 / 渲染器生命周期
+ * - 提供 scheduleDraw / draw 入口供外部（交互、数据、插件）触发重绘
+ * - 协调插件宿主、指标控制器、标注管理器等子系统的初始化与销毁
+ *
+ * 不是绘制管线的一部分。绘制由 ChartRenderer 完成，Chart 仅负责代理调用并维护 runtimeProjection（批量投影）屏障。
+ */
 import { createAlertController } from '../features/alerts/index'
 import {
   createVolumeLookbacks,
@@ -275,17 +286,13 @@ export class Chart {
           defaultPaneMinHeightPx: o.defaultPaneMinHeightPx,
         }
       },
-      getViewport: () => this.viewportManager.getViewport(),
+      getViewport: () => this.getViewport(),
       setKnownPaneIds: (ids) => this.rendererPluginManager.setKnownPaneIds(ids),
       notifyPaneResize: (paneId, pane) =>
         this.rendererPluginManager.notifyResize(paneId, wrapPaneInfo(pane)),
       scheduleDraw: (level) => this.scheduleDraw(level),
-      getPaneRatios: () => this.kernel.pane.readonly.paneRatios.peek(),
-      getPaneScaleTypes: () => this.kernel.pane.readonly.paneScaleTypes.peek(),
-      commitLayout: (ratios, specs) => {
-        this.kernel.pane.actions.commitLayout(ratios, specs)
-        this.ensurePaneScaleTypesFromSettings()
-      },
+      pane: this.kernel.pane,
+      afterCommitLayout: () => this.ensurePaneScaleTypesFromSettings(),
     })
 
     this.alertController = createAlertController()
@@ -300,51 +307,25 @@ export class Chart {
             kGap: this.kernel.viewport.readonly.kGap(),
           }
         },
-        getEffectiveDpr: () => this.viewportManager.getEffectiveDpr(),
-        getLogicalScrollLeft: () => this.viewportManager.getLogicalScrollLeft(),
-        getCachedScrollLeft: () => this.viewportManager.getCachedScrollLeft(),
-        setScrollLeft: (v) => {
-          this.viewportManager.setScrollLeft(v)
-        },
         getDom: () => this.dom,
-        getObservedSize: () => this.viewportManager.getObservedSize(),
-        getViewport: () => this.viewportManager.getViewport(),
-        getVisibleRange: () => {
-          const vp = this.viewportManager.computeViewport()
-          if (!vp) return null
-          const dataLen = this.dataManager?.getData().length ?? 0
-          if (dataLen === 0) return null
-          return getVisibleRange(
-            vp.scrollLeft,
-            vp.plotWidth,
-            this.kernel.zoom.readonly.kWidth(),
-            this.kernel.viewport.readonly.kGap(),
-            dataLen,
-            vp.dpr,
-          )
-        },
-        getLeftLoadBufferWidth: () => this.kernel.viewport.readonly.leftLoadBufferWidth.peek(),
-        getContentWidth: () => this.kernel.viewport.readonly.contentWidth.peek(),
+        viewport: this.kernel.viewport,
+        comparison: this.kernel.comparison,
         scheduleDraw: (level) => this.scheduleDraw(level),
         resetInteraction: () => this.interaction.reset(),
         getIndicatorScheduler: () => this.indicatorManager.indicatorSchedulerAccessor,
         isPointerDown: () => this.interaction.isPointerDown(),
         onTimeShareDataReady: (dataLength) => {
-          const vp = this.viewportManager.computeViewport()
+          const vp = this.getViewport()
           if (!vp || vp.plotWidth <= 0) return
           const result = this._activeMode.computeKWidth(dataLength, vp.plotWidth, vp.dpr)
           if (result) {
             this.applyRenderState(result.kWidth, result.kGap)
             const leftBuffer = this.getLeftLoadBufferWidth()
-            this.viewportManager.setScrollLeft(leftBuffer)
+            this.kernel.viewport.actions.scrollTo(leftBuffer)
           }
         },
         onDataProcessed: (data, range) => this.evaluateAlerts(data, range),
         setSymbols: (symbols) => this.kernel.actions.setSymbols(symbols),
-        setComparisonLoading: (loading) => this.kernel.comparison.actions.setLoading(loading),
-        comparisonSpecs$: this.kernel.comparison.readonly.specs,
-        comparisonColors$: this.kernel.comparison.readonly.colors,
-        comparisonLoading$: this.kernel.comparison.readonly.loading,
       },
       this.kernel.data,
       this.kernel.dataManager,
@@ -352,15 +333,11 @@ export class Chart {
 
     this.zoomController = new ChartZoomController(
       {
-        getLogicalScrollLeft: () => this.viewportManager.getLogicalScrollLeft(),
-        getCurrentDpr: () => this.viewportManager.getEffectiveDpr(),
+        viewport: this.kernel.viewport,
         getClientWidth: () =>
-          this.viewportManager.getViewport()?.viewWidth ?? this.dom.container?.clientWidth ?? 0,
+          this.getViewport()?.viewWidth ?? this.dom.container?.clientWidth ?? 0,
         getDataLength: () => this.dataManager.getData().length,
         getPlotWidth: () => this.getLeftLoadBufferWidth(),
-        setScrollLeft: (v) => {
-          this.viewportManager.setScrollLeft(v)
-        },
         onChange: () => {
           this.scheduleDraw()
         },
@@ -408,21 +385,17 @@ export class Chart {
       getRightAxisWidth: () => this.kernel.options.readonly.options.peek().rightAxisWidth,
       getPriceLabelWidth: () => this.kernel.options.readonly.options.peek().priceLabelWidth ?? 60,
       getYPaddingPx: () => this.kernel.options.readonly.options.peek().yPaddingPx,
-      mainIndicators$: this.kernel.indicator.readonly.mainIndicators,
-      upsertMainIndicator: (id, params) => this.kernel.indicator.actions.upsert(id, params),
-      removeMainIndicator: (id) => this.kernel.indicator.actions.remove(id),
-      setMainIndicatorParams: (id, params) => this.kernel.indicator.actions.setParams(id, params),
-      replaceMainIndicators: (entries) => this.kernel.indicator.actions.replaceAll(entries),
-      clearMainIndicators: () => this.kernel.indicator.actions.clear(),
-      subPanes$: this.kernel.subPane.readonly.entries,
-      createSubPaneState: (paneId, indicatorId, params) =>
-        this.kernel.actions.createSubPane(paneId, indicatorId, params),
-      removeSubPaneState: (paneId) => this.kernel.actions.removeSubPane(paneId),
-      replaceSubPaneState: (paneId, indicatorId, params) =>
-        this.kernel.actions.replaceSubPane(paneId, indicatorId, params),
-      updateSubPaneStateParams: (paneId, params) =>
-        this.kernel.actions.updateSubPaneParams(paneId, params),
-      clearSubPaneState: () => this.kernel.actions.clearSubPanes(),
+      indicator: this.kernel.indicator,
+      subPaneOps: {
+        entries: this.kernel.subPane.readonly.entries,
+        create: (paneId, indicatorId, params) =>
+          this.kernel.actions.createSubPane(paneId, indicatorId, params),
+        remove: (paneId) => this.kernel.actions.removeSubPane(paneId),
+        replace: (paneId, indicatorId, params) =>
+          this.kernel.actions.replaceSubPane(paneId, indicatorId, params),
+        setParams: (paneId, params) => this.kernel.actions.updateSubPaneParams(paneId, params),
+        clear: () => this.kernel.actions.clearSubPanes(),
+      },
       runRendererTransaction: (run) => this.runRuntimeProjection(run),
     })
 
@@ -459,7 +432,8 @@ export class Chart {
       getTheme: () => this.kernel.effectiveTheme$.peek(),
       getCurrentZoomLevel: () => this.kernel.zoom.readonly.zoomLevel.peek(),
       getZoomLevelCount: () => this.kernel.options.readonly.options.peek().zoomLevelCount,
-      getViewportManager: () => this.viewportManager,
+      getViewport: () => this.getViewport(),
+      getEffectiveDpr: () => this.kernel.viewport.readonly.dpr.peek(),
       getDataManager: () => this.dataManager,
       getIndicatorManager: () => this.indicatorManager,
       getActiveMode: () => this._activeMode,
@@ -476,7 +450,8 @@ export class Chart {
   }
 
   getViewport(): Viewport | null {
-    return this.viewportManager.getViewport()
+    if (this.kernel.viewport.readonly.viewWidth.peek() === 0) return null
+    return this.kernel.viewport.readonly.viewport.peek()
   }
 
   /** 获取当前活跃的模式处理器 */
@@ -572,31 +547,12 @@ export class Chart {
   }
 
   getCurrentDpr(): number {
-    return this.viewportManager.getEffectiveDpr()
+    return this.kernel.viewport.readonly.dpr.peek()
   }
 
   /** 获取当前周期 */
   get currentPeriod(): string {
     return this.dataManager.currentPeriod
-  }
-
-  /** 获取缓存的 scrollLeft（避免读取 DOM 触发强制回流） */
-  getCachedScrollLeft(): number {
-    return this.viewportManager.getCachedScrollLeft()
-  }
-
-  /** 同步程序性 scrollLeft 写入后的缓存，避免等待异步 scroll 事件 */
-  syncScrollLeft(scrollLeft: number): void {
-    this.viewportManager.setScrollLeft(scrollLeft)
-  }
-
-  setScrollLeft(v: number): void {
-    this.viewportManager.setScrollLeft(v)
-  }
-
-  /** 获取逻辑 scrollLeft（减去左侧加载缓冲宽度，可为负值） */
-  getLogicalScrollLeft(): number {
-    return this.viewportManager.getLogicalScrollLeft()
   }
 
   /** 获取插件宿主 */
@@ -1211,14 +1167,14 @@ export class Chart {
   resize() {
     if (this._activeMode === this._timeShareMode) {
       const tsData = this.dataManager.getTimeShareData()
-      const vp = this.viewportManager.computeViewport()
+      const vp = this.getViewport()
       if (!vp || vp.plotWidth <= 0) return
       if (tsData.length > 0) {
         const result = this._activeMode.computeKWidth(tsData.length, vp.plotWidth, vp.dpr)
         if (result) {
           this.applyRenderState(result.kWidth, result.kGap)
           const leftBuffer = this.getLeftLoadBufferWidth()
-          this.viewportManager.setScrollLeft(leftBuffer)
+          this.kernel.viewport.actions.scrollTo(leftBuffer)
         }
       }
       this.renderer.clearCachedFrame()
@@ -1226,7 +1182,7 @@ export class Chart {
       this.scheduleDraw()
       return
     }
-    const vp = this.viewportManager.computeViewport()
+    const vp = this.getViewport()
     // 防御性检查：容器尺寸无效时跳过布局
     if (!vp || vp.viewWidth < 10 || vp.viewHeight < 10) {
       return
@@ -1310,10 +1266,6 @@ export class Chart {
     await this.pluginHost.destroy()
   }
 
-  private computeViewport(): Viewport | null {
-    return this.viewportManager.computeViewport()
-  }
-
   // ==================== Facade API (High-level interface for adapters) ====================
 
   /** interactionSnapshot lazy computed for the createChartController facade */
@@ -1329,7 +1281,7 @@ export class Chart {
 
   /** 视口状态信号 */
   get viewport(): ReadonlySignal<ViewportState> {
-    return this.viewportManager.viewportSignal
+    return this.kernel.viewport.readonly.viewportState
   }
 
   /** 数据信号 */
@@ -1359,12 +1311,12 @@ export class Chart {
 
   /** 比较商品颜色信号 */
   get comparisonColors(): ReadonlySignal<ReadonlyMap<string, string>> {
-    return this.dataManager.comparisonColors
+    return this.kernel.comparison.readonly.colors
   }
 
   /** 比较商品加载信号 */
   get comparisonLoading(): ReadonlySignal<boolean> {
-    return this.dataManager.comparisonLoading
+    return this.kernel.comparison.readonly.loading
   }
 
   /** 生效主题信号（settings.theme + systemTheme 推导） */

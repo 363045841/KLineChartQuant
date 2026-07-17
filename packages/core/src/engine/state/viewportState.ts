@@ -414,7 +414,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
       /**
        * 初始化视口状态。
        *
-       * @remarks 从 DOM 容器读取当前 scrollLeft，并挂载 canvas 尺寸同步 effect。
+       * @remarks 从 DOM 容器读取首帧尺寸与 scrollLeft，并挂载 canvas 尺寸同步 effect。
        * 重复调用安全（仅首次生效）。
        */
       init() {
@@ -423,7 +423,21 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
         const container = _getDom().container
         if (!container) return
         signals.initialized.set(true)
-        setRequestedScrollLeft(container.scrollLeft)
+        // 首帧尺寸写入 kernel，避免 paint 路径读 DOM fallback
+        const w = Math.max(0, Math.round(container.clientWidth))
+        const h = Math.max(0, Math.round(container.clientHeight))
+        batch(() => {
+          if (w > 0 && h > 0) {
+            signals.viewWidth.set(w)
+            signals.viewHeight.set(h)
+          }
+          // 与 resize 一致：首帧 scrollLeft 为 0 时落到 viewWidth
+          if (container.scrollLeft === 0 && w > 0) {
+            signals.requestedScrollLeft.set(w)
+          } else {
+            setRequestedScrollLeft(container.scrollLeft)
+          }
+        })
         setupCanvasSync()
       },
     },

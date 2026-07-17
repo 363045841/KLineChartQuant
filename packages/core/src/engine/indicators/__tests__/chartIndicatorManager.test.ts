@@ -68,24 +68,19 @@ function createMockDeps() {
     removeLayer: vi.fn(() => false),
     getLayer: vi.fn(() => null),
     setLayerVisibility: vi.fn(),
-    mainIndicators$: indicatorState.readonly.mainIndicators,
-    upsertMainIndicator: (id, p) => indicatorState.actions.upsert(id, p),
-    removeMainIndicator: (id) => indicatorState.actions.remove(id),
-    setMainIndicatorParams: (id, p) => indicatorState.actions.setParams(id, p),
-    replaceMainIndicators: (entries) => indicatorState.actions.replaceAll(entries),
-    clearMainIndicators: () => indicatorState.actions.clear(),
-    subPanes$: subPaneState.readonly.entries,
-    createSubPaneState: vi.fn((paneId, indicatorId, params) =>
-      subPaneState.actions.upsert({ paneId, indicatorId, params }),
-    ),
-    removeSubPaneState: vi.fn((paneId) => subPaneState.actions.remove(paneId)),
-    replaceSubPaneState: vi.fn((paneId, indicatorId, params) =>
-      subPaneState.actions.replace({ paneId, indicatorId, params }),
-    ),
-    updateSubPaneStateParams: vi.fn((paneId, params) =>
-      subPaneState.actions.setParams(paneId, params),
-    ),
-    clearSubPaneState: vi.fn(() => subPaneState.actions.clear()),
+    indicator: indicatorState,
+    subPaneOps: {
+      entries: subPaneState.readonly.entries,
+      create: vi.fn((paneId, indicatorId, params) =>
+        subPaneState.actions.upsert({ paneId, indicatorId, params }),
+      ),
+      remove: vi.fn((paneId) => subPaneState.actions.remove(paneId)),
+      replace: vi.fn((paneId, indicatorId, params) =>
+        subPaneState.actions.replace({ paneId, indicatorId, params }),
+      ),
+      setParams: vi.fn((paneId, params) => subPaneState.actions.setParams(paneId, params)),
+      clear: vi.fn(() => subPaneState.actions.clear()),
+    },
     projectPaneLayout: vi.fn(),
     runRendererTransaction: (run) => run(),
     getIndicatorScheduler: vi.fn(),
@@ -169,9 +164,9 @@ describe('ChartIndicatorManager', () => {
     it('creates sub-pane business state before projecting runtime resources', () => {
       expect(manager.createSubPane('RSI_0', 'RSI', { period1: 6 })).toBe(true)
 
-      expect(deps.createSubPaneState).toHaveBeenCalledTimes(1)
+      expect(deps.subPaneOps.create).toHaveBeenCalledTimes(1)
       expect(deps.useRenderer).toHaveBeenCalled()
-      expect(deps.createSubPaneState.mock.invocationCallOrder[0]).toBeLessThan(
+      expect(deps.subPaneOps.create.mock.invocationCallOrder[0]).toBeLessThan(
         deps.useRenderer.mock.invocationCallOrder[0]!,
       )
       expect(manager.getSubPaneEntry('RSI_0')?.params).toEqual({ period1: 6 })
@@ -183,7 +178,7 @@ describe('ChartIndicatorManager', () => {
 
       expect(manager.createSubPane('RSI_0', 'MACD', { fast: 5 })).toBe(true)
 
-      expect(deps.replaceSubPaneState).not.toHaveBeenCalled()
+      expect(deps.subPaneOps.replace).not.toHaveBeenCalled()
       expect(manager.getSubPaneEntry('RSI_0')?.indicatorId).toBe('RSI')
       expect(manager.getSubPaneEntry('RSI_0')?.params).toEqual({ period1: 6 })
     })
@@ -213,7 +208,7 @@ describe('ChartIndicatorManager', () => {
       manager.destroy()
       vi.clearAllMocks()
 
-      deps.upsertMainIndicator('MA', { ma5: true })
+      deps.indicator.actions.upsert('MA', { ma5: true })
 
       expect(deps.useRenderer).not.toHaveBeenCalled()
       expect(deps.scheduleDraw).not.toHaveBeenCalled()

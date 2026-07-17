@@ -40,7 +40,6 @@ import { PaneRenderer } from '../paneRenderer'
 import { createTimeAxisRendererPlugin } from '../renderers/timeAxis'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
 import { calculateTickCount } from '../utils/tickCount'
-import { ChartViewportManager } from '../viewport/chartViewportManager'
 import { getVisibleRange } from '../viewport/viewport'
 
 import { createCandleLayer } from './layers/candleLayer'
@@ -54,7 +53,10 @@ import { createLastPriceLineLayer } from './layers/lastPriceLineLayer'
 import { createLeftYAxisLayer } from './layers/leftYAxisLayer'
 import { createMainIndicatorLegendLayer } from './layers/mainIndicatorLegendLayer'
 import { createYAxisLayer } from './layers/yAxisLayer'
-import { createFrameTransaction } from '../../foundation/reactivity/frameTransaction'
+import {
+  createFrameTransaction,
+  type FrameTransaction,
+} from '../../foundation/reactivity/frameTransaction'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
@@ -89,15 +91,12 @@ type FrameContext = {
   zoomLevelCount: number
 }
 
-/** 帧事务输入：仅重绘级别；多次 schedule 浅合并后由 mergeUpdateLevel 升格 */
+/** 帧事务输入：合并多次 scheduleDraw 的 level */
 type FrameDrawInput = {
   level: UpdateLevel
 }
 
-/**
- * 帧事务快照：单代际绘制契约。
- * generation 由 FrameTransaction 写入；frame 为 null 表示无可画数据。
- */
+/** 单帧快照，frame 为 null 表示无可画数据 */
 type FrameDrawSnapshot = {
   generation: number
   level: UpdateLevel
@@ -128,7 +127,8 @@ export interface RendererDependencies {
   getTheme: () => 'light' | 'dark'
   getCurrentZoomLevel: () => number
   getZoomLevelCount: () => number
-  getViewportManager: () => ChartViewportManager
+  getViewport: () => Viewport | null
+  getEffectiveDpr: () => number
   getDataManager: () => ChartDataManager
   getIndicatorManager: () => ChartIndicatorManager
   getActiveMode: () => ChartModeHandler
@@ -147,14 +147,9 @@ export class ChartRenderer {
    * 帧事务：scheduleDraw 只写输入并合并 rAF；flush 内 prepare → seal → paint。
    * 绘制阶段不再反向写 kernel 几何（seal 在 render 回调最前、与 paint 同代）。
    */
-  private readonly frameTx: ReturnType<
-    typeof createFrameTransaction<FrameDrawInput, FrameDrawSnapshot>
-  >
+  private readonly frameTx: FrameTransaction<FrameDrawInput, FrameDrawSnapshot>
 
-  /**
-   * 与 frameTx pending 同步的重绘级别镜像。
-   * FrameTransaction 对 level 是浅覆盖，Main/Overlay 升格在此完成。
-   */
+  /** 合并多次 scheduleDraw 的 level，合并后写入 frameTx */
   private pendingLevel: UpdateLevel = UpdateLevel.All
 
   /** 已排队的 rAF 句柄；null 表示当前没有挂起的帧调度 */
@@ -396,22 +391,23 @@ export class ChartRenderer {
    */
   scheduleDraw(level: UpdateLevel = UpdateLevel.All): void {
     if (this.raf !== null) {
+      // 合并重绘 Level
       this.pendingLevel = mergeUpdateLevel(this.pendingLevel, level)
       this.frameTx.writeInput({ level: this.pendingLevel })
       return
     }
     this.pendingLevel = level
     this.frameTx.writeInput({ level })
+    // 提交帧，下次 rAF 上屏
     this.frameTx.scheduleFlush()
   }
 
   /**
-   * 同步绘制一帧，走与 rAF 相同的 flush 管线（prepare → seal → paint）。
+   * 立即同步重绘一帧，不走 rAF。
    *
-   * 若已有 rAF 挂起：与 pendingLevel 合并后同步 flush（消费合并后的 level）。
-   * 若正处于帧事务非 idle（render/publish 重入）：只写输入并调度下一帧，禁止嵌套 flush。
-   *
-   * @param level - 同 scheduleDraw
+   * 若已有 rAF 挂起：合并本次 level 后同步 flush，把挂起的也带走。
+   * 若正处于帧事务非 idle（paint 重入中）：只写输入，调度下一帧，不嵌套 flush。
+   * 与 scheduleDraw 的唯一区别：同步还是异步。
    */
   draw(level: UpdateLevel = UpdateLevel.All): void {
     if (this.frameTx.phase !== 'idle') {
@@ -428,10 +424,6 @@ export class ChartRenderer {
     }
     this.frameTx.writeInput({ level: this.pendingLevel })
     this.frameTx.flush()
-    // 同步 flush 已消费本帧；若 flush 中又 scheduleDraw，raf 非 null，保留 pendingLevel
-    if (this.raf === null) {
-      this.pendingLevel = UpdateLevel.All
-    }
   }
 
   /**
@@ -503,22 +495,18 @@ export class ChartRenderer {
   }
 
   /**
-   * 准备一帧的绘制数据：viewport、可见区间、K 线位置。
+   * 计算一帧的 viewport、可见区间、K 线位置。
    *
-   * Overlay 且上次画完没清缓存时，直接复用 cachedDrawFrame，不重复
-   * 算 viewport 和 bar 位置。非缓存路径会刷新 cachedDrawFrame。
-   * range 变了会调用 checkVisibleRangeGapWhenIdle，方便空闲时补数据。
-   * TimeShare 模式按 plotWidth 平分 bar，不走 K 线物理宽度那套。
-   *
-   * @param level - Overlay 可走缓存，Main/All 强制重算
-   * @returns 无 viewport 或无数据时返回 null，调用方自己清屏或跳过
+   * Overlay 时复用 cachedDrawFrame 跳过重算，Main/All 强制刷新缓存。
+   * range 变化时调 checkVisibleRangeGapWhenIdle 触发空闲补数据。
+   * TimeShare 模式按 plotWidth 平分 bar，覆盖 K 线位置。
    */
   private prepareFrameData(level: UpdateLevel): FrameContext | null {
     const useCachedFrame = level === UpdateLevel.Overlay && this.cachedDrawFrame !== null
 
     const vp = useCachedFrame
       ? this.cachedDrawFrame!.viewport
-      : this.deps.getViewportManager().computeViewport()
+      : this.deps.getViewport()
     if (!vp) return null
 
     const internalData = this.deps.getDataManager().getRenderData() as KLineData[]
@@ -538,6 +526,7 @@ export class ChartRenderer {
           )
           return { start, end }
         })()
+    // rawRange start 可能为 -1（向左扩了一根），clamp 到 0
     const range = { start: Math.max(0, rawRange.start), end: rawRange.end }
 
     const dataManager = this.deps.getDataManager()
@@ -568,6 +557,7 @@ export class ChartRenderer {
       kWidthPx = this.cachedDrawFrame!.kWidthPx
     } else {
       const physConfig = getPhysicalKLineConfig(opt.kWidth, opt.kGap, vp.dpr)
+      // bar 宽度取奇数，保证 center 对齐整数像素
       let barWidthPx = Math.max(1, physConfig.unitPx - 1)
       if (barWidthPx % 2 === 0) barWidthPx -= 1
 
@@ -577,6 +567,7 @@ export class ChartRenderer {
       for (let i = 0; i < kLinePositions.length; i++) {
         const x = kLinePositions[i]!
         const leftPx = Math.round(x * vp.dpr)
+        // 影线 center = left + 半根物理宽度
         const wickXPx = leftPx + (physConfig.kWidthPx - 1) / 2
         kLineCenters[i] = wickXPx / vp.dpr
 
@@ -584,6 +575,7 @@ export class ChartRenderer {
         kBarRects[i] = { x: barLeftPx / vp.dpr, width: barWidthPx / vp.dpr }
       }
 
+      // TimeShare 按 plotWidth 平分 bar，覆盖 calcKLinePositions 的结果
       if (mode.debugName === 'TimeShare') {
         const totalWidth = vp.plotWidth
         const count = kLineCenters.length
@@ -648,7 +640,7 @@ export class ChartRenderer {
   }
 
   clearAllCanvases(): void {
-    const vp = this.deps.getViewportManager().computeViewport()
+    const vp = this.deps.getViewport()
     if (!vp) return
     for (const r of this.deps.getPaneRenderers()) {
       const { mainCtx, overlayCtx, yAxisCtx, leftAxisCtx } = r.getContexts()
@@ -935,7 +927,7 @@ export class ChartRenderer {
 
     if (count <= 0) return []
 
-    const dpr = this.deps.getViewportManager().getEffectiveDpr()
+    const dpr = this.deps.getEffectiveDpr()
     const opt = this.deps.getOption()
     const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
 

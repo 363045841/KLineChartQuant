@@ -385,20 +385,19 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const comparisonColors = chart.comparisonColors
   const comparisonLoading = chart.comparisonLoading
 
-  // Signals from ChartStateKernel — no wrapper needed
+  // 优先走 Chart facade；kernel 仅用于尚无 facade 的字段
   const themeSignal: ReadonlySignal<'light' | 'dark'> = chart.theme
   const settingsSignal = chart.kernel.settings.readonly.settings
   const rendererRuntimeSignal = chart.kernel.renderer.readonly.runtime
   const chartModeSignal = chart.kernel.mode.readonly.chartMode
-  const drawingTool = chart.kernel.drawing.readonly.drawingTool
-  // drawings need type mapping (plugin DrawingObject → controller DrawingObject)
-  const drawings = computed(() => chart.kernel.drawing.readonly.drawings().map(mapDrawingObject))
+  const drawingTool = chart.drawingTool
+  const drawings = computed(() => chart.drawings().map(mapDrawingObject))
   const selectedDrawingId: ReadonlySignal<string | null> =
     chart.kernel.drawing.readonly.selectedDrawingId
-  const paneRatios: ReadonlySignal<Readonly<Record<string, number>>> = chart.kernel.pane.readonly.paneRatios
-  const paneLayout: ReadonlySignal<ReadonlyArray<PaneSpec>> = chart.kernel.pane.readonly.paneSpecs
-  const interactionState: ReadonlySignal<InteractionSnapshot> = chart.kernel.interaction.readonly.interactionSnapshot
-  const symbolCatalog: ReadonlySignal<ReadonlyArray<SymbolInfo>> = chart.kernel.data.readonly.symbolCatalog
+  const paneRatios: ReadonlySignal<Readonly<Record<string, number>>> = chart.paneRatios
+  const paneLayout: ReadonlySignal<ReadonlyArray<PaneSpec>> = chart.paneLayout
+  const interactionState: ReadonlySignal<InteractionSnapshot> = chart.interactionState
+  const symbolCatalog: ReadonlySignal<ReadonlyArray<SymbolInfo>> = chart.symbolCatalog
 
   // -------------------------------------------------------------------
   // Apply initial render state + seed data

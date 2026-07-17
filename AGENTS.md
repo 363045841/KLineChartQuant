@@ -145,6 +145,7 @@ Never guess at Effect patterns - check the guide first.
 - Inline comments: `/** brief */` or `// brief`, no tags needed.
 - **Say what it is, not what to do with it**
 - **Never invent Chinese jargon**
+- **表述直接，不说倒装话**：说"合并后写入 X"，不说"写入 X 前先在此合并"。注释要一眼看完，不要兜圈子
 - **One sentence if possible**
 
 ## ATTENTION

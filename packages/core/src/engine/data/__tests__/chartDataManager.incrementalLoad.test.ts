@@ -2,10 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { JSDOM } from 'jsdom'
 
 import type { DataFetcher, KLineData, SymbolSpec } from '../../../controllers/types'
-import { computed, createSignal } from '../../../foundation/reactivity/signal'
+import { createSignal } from '../../../foundation/reactivity/signal'
 import type { ChartDom } from '../../chartTypes'
+import { createComparisonState } from '../../state/comparisonState'
 import { createDataManagerState } from '../../state/dataManagerState'
 import { createDataState } from '../../state/dataState'
+import type { ViewportStateModule } from '../../state/viewportState'
 import { ChartDataManager, type DataDependencies } from '../chartDataManager'
 
 const MS_PER_DAY = 86_400_000
@@ -21,26 +23,47 @@ function makeKLine(timestamp: number): KLineData {
   }
 }
 
+function createMockViewport(scrollLeft = 800): ViewportStateModule {
+  let scroll = scrollLeft
+  return {
+    readonly: {
+      dpr: { peek: () => 1 },
+      scrollLeft: { peek: () => scroll },
+      scrollLeftLogical: { peek: () => scroll },
+      leftLoadBufferWidth: { peek: () => 800 },
+      contentWidth: { peek: () => 1600 },
+      viewWidth: { peek: () => 800 },
+      viewHeight: { peek: () => 600 },
+      visibleRange: { peek: () => ({ start: 0, end: 0 }) },
+      viewport: {
+        peek: () => ({
+          viewWidth: 800,
+          viewHeight: 600,
+          plotWidth: 800,
+          plotHeight: 600,
+          scrollLeft: scroll,
+          dpr: 1,
+        }),
+      },
+    },
+    actions: {
+      scrollTo: (v: number) => {
+        scroll = v
+      },
+    },
+  } as unknown as ViewportStateModule
+}
+
 function createDependencies(
   dom: ChartDom,
   setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => void,
   symbols$: ReturnType<typeof createSignal<ReadonlyArray<SymbolSpec>>>,
 ): DataDependencies {
-  let scrollLeft = 800
   return {
     getOption: () => ({ kWidth: 8, kGap: 2 }),
-    getEffectiveDpr: () => 1,
-    getLogicalScrollLeft: () => scrollLeft,
-    getCachedScrollLeft: () => scrollLeft,
-    setScrollLeft: (value) => {
-      scrollLeft = value
-    },
     getDom: () => dom,
-    getObservedSize: () => ({ width: 800, height: 600 }),
-    getViewport: () => null,
-    getVisibleRange: () => null,
-    getLeftLoadBufferWidth: () => 800,
-    getContentWidth: () => 1600,
+    viewport: createMockViewport(),
+    comparison: createComparisonState({ symbols$ }),
     scheduleDraw: () => {},
     resetInteraction: () => {},
     getIndicatorScheduler: () => ({
@@ -50,10 +73,6 @@ function createDependencies(
     isPointerDown: () => false,
     onTimeShareDataReady: () => {},
     setSymbols,
-    setComparisonLoading: () => {},
-    comparisonSpecs$: computed(() => symbols$().slice(1)),
-    comparisonColors$: createSignal(new Map() as ReadonlyMap<string, string>),
-    comparisonLoading$: createSignal(false),
   }
 }
 
