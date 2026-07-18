@@ -149,6 +149,7 @@ Never guess at Effect patterns - check the guide first.
 - **Never invent Chinese jargon**
 - **表述直接，不说倒装话**：说"合并后写入 X"，不说"写入 X 前先在此合并"。注释要一眼看完，不要兜圈子
 - **One sentence if possible**
+- **分支注释写在 `if` 上一行**，不要写到分支内部
 
 ## ATTENTION
 - You can only commit when I explicitly ask you to do it.

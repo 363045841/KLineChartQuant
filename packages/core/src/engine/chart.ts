@@ -57,7 +57,7 @@ import { UpdateLevel, type VisibleRange } from './layout/pane'
 import { KLineMode } from './modes/kLineMode'
 import { TimeShareMode } from './modes/timeShareMode'
 import { PaneRenderer } from './paneRenderer'
-import { ChartRenderer } from './render/chartRenderer'
+import { ChartRenderer, mergeUpdateLevel } from './render/chartRenderer'
 import { ChartStateKernel } from './state/chartStateKernel'
 import { ChartViewportManager } from './viewport/chartViewportManager'
 import { getVisibleRange } from './viewport/viewport'
@@ -128,8 +128,10 @@ export class Chart {
 
   /** 渲染器 */
   private renderer: ChartRenderer
+  /** runRuntimeProjection 嵌套深度，大于 0 时推迟 scheduleDraw */
   private runtimeProjectionDepth = 0
-  private runtimeProjectionDrawPending = false
+  /** 被推迟的绘制级别，退出嵌套后统一 flush */
+  private pendingProjectionLevel: UpdateLevel | null = null
 
   /** 绘图交互会话（锚点/预览/拖拽）；工具 id 在 kernel */
   private drawingSession: DrawingInteractionController | null = null
@@ -1192,22 +1194,27 @@ export class Chart {
    * @param level 更新级别，默认为 All
    */
   scheduleDraw(level: UpdateLevel = UpdateLevel.All): void {
+    // 正在批量安装/卸载 renderer（pane 重排、指标切换、子图增删），等全部完成再 flush
     if (this.runtimeProjectionDepth > 0) {
-      this.runtimeProjectionDrawPending = true
+      this.pendingProjectionLevel = this.pendingProjectionLevel
+        ? mergeUpdateLevel(this.pendingProjectionLevel, level)
+        : level
       return
     }
     this.renderer.scheduleDraw(level)
   }
 
+  /** 在 RendererPluginManager 事务内执行 run，推迟期间的所有 scheduleDraw 到最外层统一 flush */
   private runRuntimeProjection(run: () => void): void {
     this.runtimeProjectionDepth++
     try {
       this.rendererPluginManager.transaction(run)
     } finally {
       this.runtimeProjectionDepth--
-      if (this.runtimeProjectionDepth === 0 && this.runtimeProjectionDrawPending) {
-        this.runtimeProjectionDrawPending = false
-        this.renderer?.scheduleDraw(UpdateLevel.All)
+      if (this.runtimeProjectionDepth === 0 && this.pendingProjectionLevel !== null) {
+        const level = this.pendingProjectionLevel
+        this.pendingProjectionLevel = null
+        this.renderer?.scheduleDraw(level)
       }
     }
   }

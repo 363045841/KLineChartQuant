@@ -155,24 +155,27 @@ export function createFrameTransaction<TInput extends Record<string, unknown>, T
     }
 
     let sealedInput: TInput | undefined
+    // 封存输入，后续写入只能进下一代
     phase = 'capturing'
     try {
       sealedInput = pending
       dirty = false
-      // 本帧 capture 之后的新写入进入 nextPending，不得污染 sealedInput
       pending = { ...sealedInput }
 
+      // 从封存输入纯推导不可变快照
       phase = 'deriving'
       const nextGeneration = generation + 1
       const snapshot = derive(sealedInput, nextGeneration)
 
+      // 冻结快照根对象
       phase = 'sealing'
       sealSnapshotRoot(snapshot)
 
+      // 用本帧快照绘制
       phase = 'rendering'
       render?.(snapshot)
 
-      // 先推进代际再发布，保证订阅者读 generation 与 snapshot.generation 一致
+      // 先推进代际再发布，保证订阅者读到一致代际
       phase = 'publishing'
       generation = nextGeneration
       published.set(snapshot)

@@ -22,7 +22,10 @@ export type PaneRendererDom = {
   mainCanvas: HTMLCanvasElement
   overlayCanvas: HTMLCanvasElement
   yAxisCanvas: HTMLCanvasElement
+  /** 轴区动态层（最新价标签、十字线价签），叠在 yAxisCanvas 上 */
+  yAxisOverlayCanvas: HTMLCanvasElement
   leftYAxisCanvas?: HTMLCanvasElement
+  leftYAxisOverlayCanvas?: HTMLCanvasElement
 }
 
 export type ChartOptions = {

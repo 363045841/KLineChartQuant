@@ -23,18 +23,23 @@ export function createLayerFromPlugin(
     set visible(v: boolean) {
       visible = v
     },
+    /**
+     * @Todo 兼容层：把旧 RendererPlugin.draw 包装成 Layer.paint。
+     */
     paint(ctx: PaintContext) {
       if (!visible) return
-      // For sub-pane layers, skip if we're painting a different sub-pane
+      // 子图 layer 只画自己的 pane
       if (paneRole === 'sub' && ctx.paneId !== targetPaneId) return
+      // 获取业务层 RenderContext（含数据、几何、2D ctx）
       const context = getContext()
       if (!context) return
-      // 注入本帧 Scene Renderer，供已迁路径（candle 等）走统一画笔
+      // 注入本帧 sceneRenderer，已迁路径走统一 GPU 画笔，未迁路径仍用 context.ctx
       context.sceneRenderer = ctx.renderer
       try {
+        // 调用各个渲染器的绘制能力
         plugin.draw(context)
       } catch (e) {
-        // 隔离单层异常，避免中断同 pane 后续 Layer（对齐旧 Manager.render）
+        // 异常隔离，不中断同 pane 后续 layer
         console.error(`[RendererPlugin] ${plugin.name} draw error:`, e)
       }
     },
