@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-import { createYAxisRendererPlugin } from '@/core/renderers/yAxis'
+import { createYAxisRendererPlugin, createYAxisOverlayRendererPlugin } from '@/core/renderers/yAxis'
 import type { RenderContext, PaneInfo, YAxisTick } from '@/plugin'
 
 vi.mock('@/utils/kLineDraw/axis', () => ({
@@ -135,9 +135,10 @@ describe('yAxis renderer', () => {
   })
 
   it('draws last price label via drawAxisPriceLabel for main pane when yAxisLabels contains lastPrice', () => {
-    const plugin = createYAxisRendererPlugin({ axisWidth: 80, yPaddingPx: 0 })
+    const plugin = createYAxisOverlayRendererPlugin({ axisWidth: 80, yPaddingPx: 0 })
     const context = createContext({
       pane: createPane({ id: 'main' }),
+      yAxisOverlayCtx: createCtx(),
       yAxisLabels: [
         {
           type: 'lastPrice',
@@ -165,12 +166,15 @@ describe('yAxis renderer', () => {
   })
 
   it('draws crosshair price label exactly once for active pane', () => {
-    const plugin = createYAxisRendererPlugin({
+    const plugin = createYAxisOverlayRendererPlugin({
       axisWidth: 80,
       yPaddingPx: 0,
       getCrosshair: () => ({ y: 55, price: 95, activePaneId: 'main' }),
     })
-    const context = createContext({ pane: createPane({ id: 'main' }) })
+    const context = createContext({
+      pane: createPane({ id: 'main' }),
+      yAxisOverlayCtx: createCtx(),
+    })
 
     plugin.draw(context)
 
@@ -178,12 +182,12 @@ describe('yAxis renderer', () => {
   })
 
   it('does not draw crosshair price label when getCrosshair returns null', () => {
-    const plugin = createYAxisRendererPlugin({
+    const plugin = createYAxisOverlayRendererPlugin({
       axisWidth: 80,
       yPaddingPx: 0,
       getCrosshair: () => null,
     })
-    const context = createContext()
+    const context = createContext({ yAxisOverlayCtx: createCtx() })
 
     plugin.draw(context)
 

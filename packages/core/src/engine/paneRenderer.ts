@@ -6,7 +6,9 @@ export type PaneRendererContexts = {
   mainCtx: CanvasRenderingContext2D | null
   overlayCtx: CanvasRenderingContext2D | null
   yAxisCtx: CanvasRenderingContext2D | null
+  yAxisOverlayCtx: CanvasRenderingContext2D | null
   leftAxisCtx: CanvasRenderingContext2D | null
+  leftAxisOverlayCtx: CanvasRenderingContext2D | null
 }
 
 export type PaneRendererOptions = {
@@ -17,7 +19,7 @@ export type PaneRendererOptions = {
 }
 
 /* PaneRenderer：负责单个 Pane 的 Canvas 管理与运行时状态持有
-   创建并管理 mainCanvas / overlayCanvas / yAxisCanvas
+   创建并管理 main/overlay/yAxis/yAxisOverlay（及可选 left 轴）canvas
    持有 Pane 实例（布局、Y 轴、价格范围）
    响应 Chart 的 resize / layout 信号
    GPU 绘制经 ChartRenderer.sceneRenderer（SharedWebGLSurface），本类不再持有 per-pane surface */
@@ -52,7 +54,9 @@ export class PaneRenderer {
         mainCtx: this.dom.mainCanvas.getContext('2d'),
         overlayCtx: this.dom.overlayCanvas.getContext('2d'),
         yAxisCtx: this.dom.yAxisCanvas.getContext('2d'),
+        yAxisOverlayCtx: this.dom.yAxisOverlayCanvas.getContext('2d'),
         leftAxisCtx: this.dom.leftYAxisCanvas?.getContext('2d') ?? null,
+        leftAxisOverlayCtx: this.dom.leftYAxisOverlayCanvas?.getContext('2d') ?? null,
       }
     }
     return this.contexts
@@ -90,6 +94,7 @@ export class PaneRenderer {
     const mainCanvas = this.dom.mainCanvas
     const overlayCanvas = this.dom.overlayCanvas
     const yAxisCanvas = this.dom.yAxisCanvas
+    const yAxisOverlayCanvas = this.dom.yAxisOverlayCanvas
 
     // 先读取 parentClientWidth，避免在写入样式后读取触发强制回流
     const fallbackYAxisWidth = this.opt.rightAxisWidth + (this.opt.priceLabelWidth || 60)
@@ -104,22 +109,24 @@ export class PaneRenderer {
     // Overlay Canvas - 与 Main Canvas 相同尺寸
     PaneRenderer.resizeCanvas(overlayCanvas, mainWidth, mainHeight, dpr)
 
-    // YAxis Canvas
+    // YAxis Canvas + overlay 轴（同尺寸）
     const yAxisWidth = Math.round(canvasYAxisWidth * dpr)
-    PaneRenderer.resizeCanvas(yAxisCanvas, yAxisWidth, Math.round(height * dpr), dpr)
+    const yAxisHeight = Math.round(height * dpr)
+    PaneRenderer.resizeCanvas(yAxisCanvas, yAxisWidth, yAxisHeight, dpr)
+    PaneRenderer.resizeCanvas(yAxisOverlayCanvas, yAxisWidth, yAxisHeight, dpr)
 
-    // Left YAxis Canvas
+    // Left YAxis Canvas + overlay
     const leftCanvas = this.dom.leftYAxisCanvas
+    const leftOverlayCanvas = this.dom.leftYAxisOverlayCanvas
     if (leftCanvas) {
       const fallbackLeftAxisWidth = this.opt.leftAxisWidth
       const leftParentWidth = leftCanvas.parentElement?.clientWidth ?? 0
       const canvasLeftAxisWidth = leftParentWidth > 0 ? leftParentWidth : fallbackLeftAxisWidth
-      PaneRenderer.resizeCanvas(
-        leftCanvas,
-        Math.round(Math.max(canvasLeftAxisWidth, 0) * dpr),
-        Math.round(height * dpr),
-        dpr,
-      )
+      const leftW = Math.round(Math.max(canvasLeftAxisWidth, 0) * dpr)
+      PaneRenderer.resizeCanvas(leftCanvas, leftW, yAxisHeight, dpr)
+      if (leftOverlayCanvas) {
+        PaneRenderer.resizeCanvas(leftOverlayCanvas, leftW, yAxisHeight, dpr)
+      }
     }
   }
 

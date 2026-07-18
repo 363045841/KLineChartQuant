@@ -103,12 +103,31 @@ export class ChartPaneLayout {
     return index === 0 ? 'price' : 'indicator'
   }
 
-  private createAxisCanvas(spec: PaneSpec, pane: Pane, side: 'left' | 'right'): HTMLCanvasElement {
+  private createAxisCanvas(
+    spec: PaneSpec,
+    side: 'left' | 'right',
+    kind: 'base' | 'overlay' = 'base',
+  ): HTMLCanvasElement {
     const canvas = document.createElement('canvas')
-    canvas.id = `${spec.id}-${side}Axis`
-    canvas.className = side === 'right' ? 'right-axis' : 'left-axis'
+    const isRight = side === 'right'
+    const isOverlay = kind === 'overlay'
+    canvas.id = `${spec.id}-${side}Axis${isOverlay ? 'Overlay' : ''}`
+    canvas.className = isRight
+      ? isOverlay
+        ? 'right-axis-overlay'
+        : 'right-axis'
+      : isOverlay
+        ? 'left-axis-overlay'
+        : 'left-axis'
     canvas.style.position = 'absolute'
     canvas.style.left = '0'
+    if (isOverlay) {
+      canvas.style.pointerEvents = 'none'
+      canvas.style.backgroundColor = 'transparent'
+      canvas.style.zIndex = '1'
+    } else {
+      canvas.style.zIndex = '0'
+    }
     return canvas
   }
 
@@ -132,7 +151,8 @@ export class ChartPaneLayout {
 
       const mainCanvas = document.createElement('canvas')
       const overlayCanvas = document.createElement('canvas')
-      const yAxisCanvas = this.createAxisCanvas(spec, pane, 'right')
+      const yAxisCanvas = this.createAxisCanvas(spec, 'right', 'base')
+      const yAxisOverlayCanvas = this.createAxisCanvas(spec, 'right', 'overlay')
 
       const isMain = pane.role === 'price'
 
@@ -152,10 +172,18 @@ export class ChartPaneLayout {
       overlayCanvas.style.backgroundColor = 'transparent'
       overlayCanvas.style.zIndex = '2'
 
-      const leftYAxisCanvas = this.createAxisCanvas(spec, pane, 'left')
+      const leftYAxisCanvas = this.createAxisCanvas(spec, 'left', 'base')
+      const leftYAxisOverlayCanvas = this.createAxisCanvas(spec, 'left', 'overlay')
 
       const renderer = new PaneRenderer(
-        { mainCanvas, overlayCanvas, yAxisCanvas, leftYAxisCanvas },
+        {
+          mainCanvas,
+          overlayCanvas,
+          yAxisCanvas,
+          yAxisOverlayCanvas,
+          leftYAxisCanvas,
+          leftYAxisOverlayCanvas,
+        },
         pane,
         {
           rightAxisWidth: this.deps.getOption().rightAxisWidth,
@@ -180,11 +208,15 @@ export class ChartPaneLayout {
       existingCanvases.forEach((canvas) => canvas.remove())
     }
     if (rightAxisLayer) {
-      const existingAxisCanvases = rightAxisLayer.querySelectorAll('canvas.right-axis')
+      const existingAxisCanvases = rightAxisLayer.querySelectorAll(
+        'canvas.right-axis, canvas.right-axis-overlay',
+      )
       existingAxisCanvases.forEach((canvas) => canvas.remove())
     }
     if (leftAxisLayer) {
-      const existingLeftAxisCanvases = leftAxisLayer.querySelectorAll('canvas.left-axis')
+      const existingLeftAxisCanvases = leftAxisLayer.querySelectorAll(
+        'canvas.left-axis, canvas.left-axis-overlay',
+      )
       existingLeftAxisCanvases.forEach((canvas) => canvas.remove())
     }
 
@@ -193,8 +225,12 @@ export class ChartPaneLayout {
       canvasLayer.appendChild(domEls.mainCanvas)
       canvasLayer.appendChild(domEls.overlayCanvas)
       rightAxisLayer.appendChild(domEls.yAxisCanvas)
+      rightAxisLayer.appendChild(domEls.yAxisOverlayCanvas)
       if (leftAxisLayer && domEls.leftYAxisCanvas) {
         leftAxisLayer.appendChild(domEls.leftYAxisCanvas)
+        if (domEls.leftYAxisOverlayCanvas) {
+          leftAxisLayer.appendChild(domEls.leftYAxisOverlayCanvas)
+        }
       }
     })
 
@@ -347,9 +383,15 @@ export class ChartPaneLayout {
       domEls.overlayCanvas.style.top = `${y}px`
       domEls.yAxisCanvas.style.top = `${y}px`
       domEls.yAxisCanvas.style.left = '0px'
+      domEls.yAxisOverlayCanvas.style.top = `${y}px`
+      domEls.yAxisOverlayCanvas.style.left = '0px'
       if (domEls.leftYAxisCanvas) {
         domEls.leftYAxisCanvas.style.top = `${y}px`
         domEls.leftYAxisCanvas.style.left = '0px'
+      }
+      if (domEls.leftYAxisOverlayCanvas) {
+        domEls.leftYAxisOverlayCanvas.style.top = `${y}px`
+        domEls.leftYAxisOverlayCanvas.style.left = '0px'
       }
 
       y += h + gap

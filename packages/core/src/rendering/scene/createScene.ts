@@ -73,17 +73,18 @@ export function createScene(): Scene {
     return true
   }
 
+  /** 按 role 和可见性过滤 layer，z 排序后逐层 paint */
   const paintPane = (ctx: PaintContext, roles?: ReadonlyArray<LayerRole>): void => {
     if (disposed) return
+    // 选出属于当前 pane 或全局、且可见的 layer
     let candidates = layerList.filter(
       (layer) => (layer.paneRole === ctx.paneRole || layer.paneRole === 'global') && layer.visible,
     )
+    // 若传了 roles 参数，进一步按角色过滤（如只画 overlay）
     if (roles) {
       candidates = candidates.filter((layer) => roles.includes(layer.role))
     }
-    // Stable-sort by z. Native Array.prototype.sort is required
-    // by ECMAScript 2019+ to be stable, so equal z values preserve the
-    // surviving registration order from the filter pass.
+    // 按 z 升序稳定排序，相同时保留注册顺序（ECMAScript 2019+ 保证 sort 稳定）
     candidates.sort((a, b) => a.z - b.z)
     for (const layer of candidates) {
       layer.paint(ctx)

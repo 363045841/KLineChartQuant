@@ -30,11 +30,7 @@ import { createDrawingRendererPlugin, createDrawingLabelOverlayPlugin } from '..
 import { ChartIndicatorManager } from '../indicators/chartIndicatorManager'
 import { UpdateLevel } from '../layout/pane'
 import type { VisibleRange } from '../layout/pane'
-import {
-  MarkerManager,
-  type CustomMarkerEntity,
-  type MarkerManagerDeps,
-} from '../marker/registry'
+import { MarkerManager, type CustomMarkerEntity, type MarkerManagerDeps } from '../marker/registry'
 import type { ChartModeHandler } from '../modes/types'
 import { PaneRenderer } from '../paneRenderer'
 import { createTimeAxisRendererPlugin } from '../renderers/timeAxis'
@@ -50,9 +46,13 @@ import { createExtremaMarkersLayer } from './layers/extremaMarkersLayer'
 import { createGridLinesLayer } from './layers/gridLinesLayer'
 import { createLastPriceLabelLayer } from './layers/lastPriceLabelLayer'
 import { createLastPriceLineLayer } from './layers/lastPriceLineLayer'
-import { createLeftYAxisLayer } from './layers/leftYAxisLayer'
+import {
+  createLeftYAxisOverlayLayer,
+  createLeftYAxisStaticLayer,
+} from './layers/leftYAxisLayer'
 import { createMainIndicatorLegendLayer } from './layers/mainIndicatorLegendLayer'
-import { createYAxisLayer } from './layers/yAxisLayer'
+import { createYAxisOverlayLayer, createYAxisStaticLayer } from './layers/yAxisLayer'
+import type { LayerRole } from '../../rendering/scene/types'
 import {
   createFrameTransaction,
   type FrameTransaction,
@@ -107,7 +107,7 @@ type FrameDrawSnapshot = {
 }
 
 /** Main 与 Overlay 合并为 All，其余取更全或后者 */
-function mergeUpdateLevel(current: UpdateLevel, next: UpdateLevel): UpdateLevel {
+export function mergeUpdateLevel(current: UpdateLevel, next: UpdateLevel): UpdateLevel {
   if (current === UpdateLevel.All || next === UpdateLevel.All) return UpdateLevel.All
   if (current === next) return current
   if (
@@ -212,11 +212,13 @@ export class ChartRenderer {
       render: (snapshot) => {
         // generation 0 占位不绘制
         if (snapshot.generation === 0) return
-        // seal 几何 → flush hover（同代）→ paint；禁止 paint 中途再写 kernel 几何
+        // 把本帧 K 线信息(kLinePositions,range,kWidthPx,kLineCenters)写入 InteractionController，保证 hover 命中与本帧一致
         if (snapshot.frame) {
           this.sealFrameGeometry(snapshot.frame)
         }
+        // 用本帧几何将鼠标坐标吸附到最近 K 线，算出十字线位置
         this.deps.getInteraction().flushPendingHover()
+        // 绘制：清 canvas → 构建 RenderContext → 遍历 pane 调 scene.paintPane → endFrame（GPU 一次性 submit 所有 pane）→ 时间轴
         this.drawWithFrame(snapshot.level, snapshot.frame)
       },
       schedule: (run) => {
@@ -311,42 +313,38 @@ export class ChartRenderer {
       this.scene.addLayer(layer)
     }
     {
-      const layer = createYAxisLayer(
-        {
-          axisWidth,
-          yPaddingPx: opt.yPaddingPx,
-          getCrosshair: () => {
-            const pos = interaction.crosshairPos
-            const price = interaction.crosshairPrice
-            const activePaneId = interaction.activePaneId
-            if (pos && price !== null) {
-              return { y: pos.y, price, activePaneId }
-            }
-            return null
-          },
+      const yAxisOpts = {
+        axisWidth,
+        yPaddingPx: opt.yPaddingPx,
+        getCrosshair: () => {
+          const pos = interaction.crosshairPos
+          const price = interaction.crosshairPrice
+          const activePaneId = interaction.activePaneId
+          if (pos && price !== null) {
+            return { y: pos.y, price, activePaneId }
+          }
+          return null
         },
-        getCtxForCurrentPane,
-      )
-      this.scene.addLayer(layer)
+      }
+      this.scene.addLayer(createYAxisStaticLayer(yAxisOpts, getCtxForCurrentPane))
+      this.scene.addLayer(createYAxisOverlayLayer(yAxisOpts, getCtxForCurrentPane))
     }
     {
-      const layer = createLeftYAxisLayer(
-        {
-          axisWidth: opt.leftAxisWidth,
-          yPaddingPx: opt.yPaddingPx,
-          getCrosshair: () => {
-            const pos = interaction.crosshairPos
-            const price = interaction.crosshairPrice
-            const activePaneId = interaction.activePaneId
-            if (pos && price !== null) {
-              return { y: pos.y, price, activePaneId }
-            }
-            return null
-          },
+      const leftYAxisOpts = {
+        axisWidth: opt.leftAxisWidth,
+        yPaddingPx: opt.yPaddingPx,
+        getCrosshair: () => {
+          const pos = interaction.crosshairPos
+          const price = interaction.crosshairPrice
+          const activePaneId = interaction.activePaneId
+          if (pos && price !== null) {
+            return { y: pos.y, price, activePaneId }
+          }
+          return null
         },
-        getCtxForCurrentPane,
-      )
-      this.scene.addLayer(layer)
+      }
+      this.scene.addLayer(createLeftYAxisStaticLayer(leftYAxisOpts, getCtxForCurrentPane))
+      this.scene.addLayer(createLeftYAxisOverlayLayer(leftYAxisOpts, getCtxForCurrentPane))
     }
   }
 
@@ -404,8 +402,8 @@ export class ChartRenderer {
    * @param level - Main 只画主层，Overlay 只画覆盖层（crosshair 等），All 全画
    */
   scheduleDraw(level: UpdateLevel = UpdateLevel.All): void {
+    // 已经有待执行的下一帧，只合并 level，不重复 scheduleFlush
     if (this.raf !== null) {
-      // 合并重绘 Level
       this.pendingLevel = mergeUpdateLevel(this.pendingLevel, level)
       this.frameTx.writeInput({ level: this.pendingLevel })
       return
@@ -450,9 +448,11 @@ export class ChartRenderer {
       .setKLinePositions(frame.kLinePositions, frame.range, frame.kWidthPx, frame.kLineCenters)
   }
 
+  /** 将 prepareFrameData 的帧几何按 level 画到 canvas，含所有 pane 的 main/overlay/yAxis 及时间轴 */
   private drawWithFrame(level: UpdateLevel, frame: FrameContext | null): void {
     this.markerManager.clear()
 
+    // frame 为空（无数据或首帧），清理画布后跳过绘制
     if (!frame) {
       const dataManager = this.deps.getDataManager()
       if (dataManager.getInternalData().length === 0 && dataManager.getTimeShareData().length === 0)
@@ -465,7 +465,9 @@ export class ChartRenderer {
     const dataManager = this.deps.getDataManager()
     const mode = this.deps.getActiveMode()
     if (mode.useIndicatorScheduler) {
+      // 获取指标管理器实例（持有 scheduler、状态、reconcile 逻辑）
       const indicatorManager = this.deps.getIndicatorManager()
+      // 将主图指标列表（含参数）同步给 scheduler，使其在本帧预计算价格区间
       indicatorManager.indicatorSchedulerAccessor.setActiveMainIndicators(
         [...indicatorManager.mainIndicatorsSignalPeek.entries()].map(([id, entry]) => ({
           id,
@@ -480,13 +482,13 @@ export class ChartRenderer {
 
     const renderData = frame.data
 
+    // 遍历所有 pane，清 canvas → 构建 RenderContext → scene.paintPane
     const { sharedXAxisLabels, sharedXAxisRanges } = this.renderPanes(
       vp,
       range,
       kLinePositions,
       kLineCenters,
       kBarRects,
-      kWidthPx,
       mainIndicatorRange,
       hasCrosshair,
       useCachedFrame,
@@ -495,6 +497,7 @@ export class ChartRenderer {
     )
 
     this.overlayHadCrosshair = hasCrosshair
+    // 画底部时间轴（独立 layer，不进 scene）
     this.renderXAxis(
       vp,
       range,
@@ -524,9 +527,7 @@ export class ChartRenderer {
   private prepareFrameData(level: UpdateLevel): FrameContext | null {
     const useCachedFrame = level === UpdateLevel.Overlay && this.cachedDrawFrame !== null
 
-    const vp = useCachedFrame
-      ? this.cachedDrawFrame!.viewport
-      : this.peekViewport()
+    const vp = useCachedFrame ? this.cachedDrawFrame!.viewport : this.peekViewport()
     if (!vp) return null
 
     const internalData = this.deps.getDataManager().getRenderData() as KLineData[]
@@ -612,7 +613,7 @@ export class ChartRenderer {
           const barWidthPx = Math.round(logicalBarWidth * dpr)
           const halfBarPx = Math.floor(barWidthPx / 2)
           for (let i = 0; i < count; i++) {
-            const centerPx = Math.round(kLineCenters[i] * dpr)
+            const centerPx = Math.round(kLineCenters[i]! * dpr)
             kBarRects[i] = {
               x: (centerPx - halfBarPx) / dpr,
               width: barWidthPx / dpr,
@@ -663,17 +664,25 @@ export class ChartRenderer {
     const vp = this.peekViewport()
     if (!vp) return
     for (const r of this.deps.getPaneRenderers()) {
-      const { mainCtx, overlayCtx, yAxisCtx, leftAxisCtx } = r.getContexts()
+      const { mainCtx, overlayCtx, yAxisCtx, yAxisOverlayCtx, leftAxisCtx, leftAxisOverlayCtx } =
+        r.getContexts()
       const pane = r.getPane()
       mainCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
       overlayCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
-      yAxisCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
+      yAxisCtx?.clearRect(0, 0, (yAxisCtx.canvas?.width ?? 0) / vp.dpr || vp.plotWidth + 1, pane.height + 2 / vp.dpr)
+      yAxisOverlayCtx?.clearRect(
+        0,
+        0,
+        (yAxisOverlayCtx.canvas?.width ?? 0) / vp.dpr || vp.plotWidth + 1,
+        pane.height + 2 / vp.dpr,
+      )
       if (leftAxisCtx) {
-        const leftCanvas = leftAxisCtx.canvas
-        if (leftCanvas) {
-          const laW = leftCanvas.width / vp.dpr
-          leftAxisCtx.clearRect(0, 0, laW, pane.height + 2 / vp.dpr)
-        }
+        const laW = (leftAxisCtx.canvas?.width ?? 0) / vp.dpr || vp.plotWidth + 1
+        leftAxisCtx.clearRect(0, 0, laW, pane.height + 2 / vp.dpr)
+      }
+      if (leftAxisOverlayCtx) {
+        const laW = (leftAxisOverlayCtx.canvas?.width ?? 0) / vp.dpr || vp.plotWidth + 1
+        leftAxisOverlayCtx.clearRect(0, 0, laW, pane.height + 2 / vp.dpr)
       }
     }
     const xCtx = this.xAxisCtx
@@ -695,19 +704,20 @@ export class ChartRenderer {
     }
   }
 
+  /** 遍历所有 pane，逐 pane 清 canvas → 构建 RenderContext → beginFrame → scene.paintPane，所有 pane 结束后 endFrame 统一提交 GPU / 时间轴 */
   private renderPanes(
     vp: Viewport,
     range: VisibleRange,
     kLinePositions: KLinePositions,
     kLineCenters: number[],
     kBarRects: Array<{ x: number; width: number }>,
-    kWidthPx: number,
     mainIndicatorRange: { min: number; max: number } | null,
     hasCrosshair: boolean,
     useCachedFrame: boolean,
     level: UpdateLevel,
     renderData: unknown[],
   ): { sharedXAxisLabels: XAxisLabel[]; sharedXAxisRanges: XAxisRange[] } {
+    // 跨 pane 共享的 Y/X 轴 labels 和 ranges（各 layer 写入，时间轴层读取）
     const sharedYAxisLabels: YAxisLabel[] = []
     const sharedXAxisLabels: XAxisLabel[] = []
     const sharedYAxisRanges: YAxisRange[] = []
@@ -716,10 +726,28 @@ export class ChartRenderer {
     const dataManager = this.deps.getDataManager()
     const mode = this.deps.getActiveMode()
 
+    // main canvas 只画非 overlay 角色；overlay canvas 只画 overlay 角色
+    const MAIN_CANVAS_ROLES: readonly LayerRole[] = [
+      'background',
+      'primary',
+      'indicator',
+      'component',
+      'drawing',
+    ]
+
+    // 遍历主图 pane 和所有子图 pane，每个 pane 有一组独立 canvas 以及对应更新级别（main/overlay/yAxis）
     for (const renderer of this.deps.getPaneRenderers()) {
       const pane = renderer.getPane()
-      const { mainCtx, overlayCtx, yAxisCtx, leftAxisCtx } = renderer.getContexts()
+      const {
+        mainCtx,
+        overlayCtx,
+        yAxisCtx,
+        yAxisOverlayCtx,
+        leftAxisCtx,
+        leftAxisOverlayCtx,
+      } = renderer.getContexts()
 
+      // 非缓存帧：合并指标与对比标的极值，更新 pane Y 轴范围
       if (!useCachedFrame) {
         const indicatorRange =
           pane.role === 'price' && mode.useIndicatorScheduler ? mainIndicatorRange : null
@@ -732,17 +760,21 @@ export class ChartRenderer {
         }
       }
 
+      // 根据 UpdateLevel 决定清哪些 canvas
       const shouldUpdateMain = level === UpdateLevel.Main || level === UpdateLevel.All
+      // Overlay 单独重绘：有十字线才画；overlayHadCrosshair 保证十字线消失时最后清一次
       const shouldUpdateOverlay =
         level === UpdateLevel.All ||
         (level === UpdateLevel.Overlay && (hasCrosshair || this.overlayHadCrosshair))
 
+      // 清 main canvas
       if (shouldUpdateMain && mainCtx) {
         mainCtx.setTransform(1, 0, 0, 1, 0, 0)
         mainCtx.scale(vp.dpr, vp.dpr)
         mainCtx.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
       }
 
+      // 清 overlay canvas
       if (shouldUpdateOverlay && overlayCtx) {
         const overlayWidth = overlayCtx.canvas.width / vp.dpr
         overlayCtx.setTransform(1, 0, 0, 1, 0, 0)
@@ -750,15 +782,26 @@ export class ChartRenderer {
         overlayCtx.clearRect(0, 0, overlayWidth + 1, pane.height + 2 / vp.dpr)
       }
 
-      if (yAxisCtx && !useCachedFrame) {
+      // 清 Y 轴静态 canvas（Main/All）
+      if (shouldUpdateMain && yAxisCtx) {
         const yAxisWidth = yAxisCtx.canvas.width / vp.dpr
         this.clearAxisCtx(yAxisCtx, vp.dpr, yAxisWidth, pane.height)
       }
-      if (leftAxisCtx && !useCachedFrame) {
+      if (shouldUpdateMain && leftAxisCtx) {
         const leftAxisWidth = leftAxisCtx.canvas.width / vp.dpr
         this.clearAxisCtx(leftAxisCtx, vp.dpr, leftAxisWidth, pane.height)
       }
+      // 清 Y 轴动态 canvas（Overlay/All）
+      if (shouldUpdateOverlay && yAxisOverlayCtx) {
+        const yAxisWidth = yAxisOverlayCtx.canvas.width / vp.dpr
+        this.clearAxisCtx(yAxisOverlayCtx, vp.dpr, yAxisWidth, pane.height)
+      }
+      if (shouldUpdateOverlay && leftAxisOverlayCtx) {
+        const leftAxisWidth = leftAxisOverlayCtx.canvas.width / vp.dpr
+        this.clearAxisCtx(leftAxisOverlayCtx, vp.dpr, leftAxisWidth, pane.height)
+      }
 
+      // 构造本 pane 的 RenderContext，供所有 layer 读取
       const opt = this.deps.getOption()
       const context: RenderContext = {
         ctx: mainCtx!,
@@ -781,7 +824,9 @@ export class ChartRenderer {
         markerManager: this.markerManager,
         crosshairIndex: this.deps.getInteraction().getCrosshairIndex(),
         yAxisCtx: yAxisCtx ?? undefined,
+        yAxisOverlayCtx: yAxisOverlayCtx ?? undefined,
         leftAxisCtx: leftAxisCtx ?? undefined,
+        leftAxisOverlayCtx: leftAxisOverlayCtx ?? undefined,
         zoomLevel: this.deps.zoom.readonly.zoomLevel.peek(),
         zoomLevelCount: this.deps.options.readonly.options.peek().zoomLevelCount,
         viewport: {
@@ -801,6 +846,7 @@ export class ChartRenderer {
         dayKeys: dataManager.getDayKeys() ?? undefined,
       }
 
+      // 计算本 pane 的 Y 轴刻度（等分 + yToPrice 映射）
       {
         const pt = pane.yAxis.getPaddingTop()
         const pb = pane.yAxis.getPaddingBottom()
@@ -823,24 +869,32 @@ export class ChartRenderer {
 
       const region = { x: 0, y: pane.top, width: vp.plotWidth, height: pane.height, dpr: vp.dpr }
       const sceneRenderer = this.deps.getSceneRenderer()
+      const paneRole = (pane.id === 'main' ? 'main' : 'sub') as PaneRole
+      // 画 main canvas（非 overlay 角色 layer）
       if (shouldUpdateMain) {
+        // 标记后续 GPU 绘制属于此 region
         sceneRenderer.beginFrame(region)
-        this.scene.paintPane({
-          renderer: sceneRenderer,
-          region,
-          paneRole: (pane.id === 'main' ? 'main' : 'sub') as PaneRole,
-          paneId: pane.id,
-          frameNumber: this.frameCount++,
-          deltaMs: 0,
-        })
+        // 遍历 Scene 中该 pane 的可见 layer，逐层 paint
+        this.scene.paintPane(
+          {
+            renderer: sceneRenderer,
+            region,
+            paneRole,
+            paneId: pane.id,
+            frameNumber: this.frameCount++,
+            deltaMs: 0,
+          },
+          MAIN_CANVAS_ROLES,
+        )
       }
-      if (shouldUpdateOverlay && !shouldUpdateMain) {
+      // 画 overlay canvas（仅 overlay 角色 layer）；All 级也画
+      if (shouldUpdateOverlay) {
         sceneRenderer.beginFrame(region)
         this.scene.paintPane(
           {
             renderer: sceneRenderer,
             region,
-            paneRole: (pane.id === 'main' ? 'main' : 'sub') as PaneRole,
+            paneRole,
             paneId: pane.id,
             frameNumber: this.frameCount++,
             deltaMs: 0,
@@ -850,7 +904,7 @@ export class ChartRenderer {
       }
     }
 
-    // WebGPU: one submit after all panes recorded draws
+    // 所有 pane 绘制完成后统一提交 GPU（WebGPU 单次 queue.submit，WebGL 单次 flush）
     this.deps.getSceneRenderer().endFrame()
 
     return { sharedXAxisLabels, sharedXAxisRanges }

@@ -1909,7 +1909,10 @@ import MarkerTooltip from './MarkerTooltip.vue'
     display: block;
   }
 
-  .right-axis {
+  .right-axis,
+  .right-axis-overlay,
+  .left-axis,
+  .left-axis-overlay {
     position: absolute;
     display: block;
     left: 0;
@@ -1923,8 +1926,15 @@ import MarkerTooltip from './MarkerTooltip.vue'
     z-index: 10;
   }
 
-  .right-axis {
+  .right-axis,
+  .left-axis {
     z-index: 15;
+  }
+
+  .right-axis-overlay,
+  .left-axis-overlay {
+    z-index: 16;
+    pointer-events: none;
   }
 </style>
 
