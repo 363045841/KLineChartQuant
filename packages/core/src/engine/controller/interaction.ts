@@ -89,6 +89,8 @@ export class InteractionController {
   private framePositions: number[] | null = null
   private frameCenters: number[] | null = null
   private frameKWidthPx: number | null = null
+  /** 与 framePositions 同代的可见区间（已 clamp start>=0，与 calcKLinePositions 一致） */
+  private frameVisibleRange: { start: number; end: number } | null = null
   private markerState = new MarkerInteractionState()
   private lastHoverRenderKey = ''
   private useTooltipAnchorPositioning = false
@@ -348,6 +350,7 @@ export class InteractionController {
     this.framePositions = null
     this.frameCenters = null
     this.frameKWidthPx = null
+    this.frameVisibleRange = null
     this.hoverFlushPending = false
     this.clearHover()
     if (options.scheduleDraw !== false) {
@@ -467,26 +470,30 @@ export class InteractionController {
    * ChartRenderer 在 paint 前调用；引用未变则跳过 hover 重算。
    *
    * @param positions K 线起始 x 坐标数组
-   * @param visibleRange 保留兼容签名（hover 用 viewport）
+   * @param visibleRange 与 positions 同代的可见区间（start 已 clamp 到 >=0）
    * @param kWidthPx K 线宽度（物理像素）
    * @param centers K 线中心 x 坐标数组
    */
   setKLinePositions(
     positions: number[] | null,
-    _visibleRange: { start: number; end: number } | null,
+    visibleRange: { start: number; end: number } | null,
     kWidthPx?: number,
     centers?: number[] | null,
   ) {
     const nextWidth = kWidthPx ?? null
     const nextCenters = centers ?? null
+    const nextRange = visibleRange
     const unchanged =
       this.framePositions === positions &&
       this.frameCenters === nextCenters &&
-      this.frameKWidthPx === nextWidth
+      this.frameKWidthPx === nextWidth &&
+      this.frameVisibleRange?.start === nextRange?.start &&
+      this.frameVisibleRange?.end === nextRange?.end
 
     this.framePositions = positions
     this.frameCenters = nextCenters
     this.frameKWidthPx = nextWidth
+    this.frameVisibleRange = nextRange
 
     // 几何变化时标记 hover 待刷新；由 flushPendingHover 与 paint 同帧完成
     if (!unchanged && this.lastClientPos && !this._state.readonly.isDragging.peek()) {
@@ -785,11 +792,11 @@ if (this.tooltipPositionMode === 'adaptive') {
   private findNearestBar(ctx: HoverContext): NearestBar | null {
     const kLinePositions = this.framePositions
     const kWidthPx = this.frameKWidthPx
-    const vp = this.chart.viewport.peek()
-    const visibleRange = vp ? { start: vp.visibleFrom, end: vp.visibleTo } : null
+    // 必须用 seal 时的 range（start 已 clamp），不可用 viewport.visibleFrom（可为 -1）
+    const visibleRange = this.frameVisibleRange
     if (!kLinePositions || !visibleRange || !kWidthPx) return null
 
-    const { worldX, mouseY, dpr, scrollLeft, plotWidth } = ctx
+    const { worldX, dpr, scrollLeft, plotWidth } = ctx
     const kWidthLogical = kWidthPx / dpr
     const positions = kLinePositions
 
@@ -993,6 +1000,7 @@ if (this.tooltipPositionMode === 'adaptive') {
     this.framePositions = null
     this.frameCenters = null
     this.frameKWidthPx = null
+    this.frameVisibleRange = null
     this.lastHoverRenderKey = ''
   }
 
