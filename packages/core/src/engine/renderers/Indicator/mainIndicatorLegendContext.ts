@@ -16,11 +16,8 @@ export interface LegendLayout {
   compact: boolean
 }
 
-export interface LegendOhlcRow {
-  open: number
-  high: number
-  low: number
-  close: number
+/** 当前 K 线及图例派生的展示字段，保留 KLineData 自定义属性。 */
+export type LegendOhlcRow = Omit<KLineData, 'volume'> & {
   volume: number | null
   volumeText: string | null
   color: string
@@ -154,10 +151,7 @@ export function buildLegendTemplateContext(
     if (k && typeof k.close === 'number') {
       const isUp = k.close >= k.open
       ohlc = {
-        open: k.open,
-        high: k.high,
-        low: k.low,
-        close: k.close,
+        ...k,
         volume: typeof k.volume === 'number' ? k.volume : null,
         volumeText: typeof k.volume === 'number' ? formatVolumeShort(k.volume) : null,
         color: isUp ? colors.candleUpBody : colors.candleDownBody,

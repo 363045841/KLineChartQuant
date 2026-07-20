@@ -600,4 +600,26 @@ describe('MainIndicatorLegend external mode & context callback', () => {
     expect(onContext.mock.calls[0]![0]).not.toBeNull()
     expect(vi.mocked(ctx.fillText)).not.toHaveBeenCalled()
   })
+
+  it('retains custom KLineData fields in the ohlc slot context', () => {
+    const onContext = vi.fn()
+    const plugin = createMainIndicatorLegendRendererPlugin({
+      yPaddingPx: 20,
+      onContext,
+    }) as TestableLegendRenderer
+    plugin.onInstall(createMockPluginHost())
+    plugin.setConfig({ renderMode: 'external' })
+
+    const ctx = createMockCanvasContext()
+    const context = createMockRenderContext(ctx, { crosshairIndex: 10 })
+    Object.assign((context.data as KLineData[])[10]!, {
+      turnoverRate: 3.14,
+      customLabel: 'featured',
+    })
+    plugin.draw(context)
+
+    const legend = onContext.mock.calls[0]![0]
+    expect(legend.ohlc.turnoverRate).toBe(3.14)
+    expect(legend.ohlc.customLabel).toBe('featured')
+  })
 })
