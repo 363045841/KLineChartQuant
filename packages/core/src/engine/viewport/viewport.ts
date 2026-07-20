@@ -41,6 +41,20 @@ export function getVisibleRange(
 }
 
 /**
+ * 将 raw visible range 钳制为可索引区间。
+ *
+ * @remarks getVisibleRange 左右各扩 1 根时 start 可能为 -1；
+ * 绘制 / hit-test / 数据下标必须用 clamp 后的 start>=0。
+ * 增量加载检测仍读 raw（start 小于 0 表示已滚到左缘扩窗）。
+ */
+export function clampVisibleRange(range: {
+  start: number
+  end: number
+}): { start: number; end: number } {
+  return { start: Math.max(0, range.start), end: range.end }
+}
+
+/**
  * 计算指定索引区间内的价格范围（max/min）。
  *
  * 主要用途：

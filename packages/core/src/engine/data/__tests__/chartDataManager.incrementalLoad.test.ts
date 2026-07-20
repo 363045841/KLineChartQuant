@@ -35,6 +35,7 @@ function createMockViewport(scrollLeft = 800): ViewportStateModule {
       viewWidth: { peek: () => 800 },
       viewHeight: { peek: () => 600 },
       visibleRange: { peek: () => ({ start: 0, end: 0 }) },
+      rawVisibleRange: { peek: () => ({ start: 0, end: 0 }) },
       viewport: {
         peek: () => ({
           viewWidth: 800,

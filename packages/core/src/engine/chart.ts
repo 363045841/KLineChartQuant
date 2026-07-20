@@ -63,7 +63,6 @@ import { PaneRenderer } from './paneRenderer'
 import { ChartRenderer, mergeUpdateLevel } from './render/chartRenderer'
 import { ChartStateKernel } from './state/chartStateKernel'
 import { ChartViewportManager } from './viewport/chartViewportManager'
-import { getVisibleRange } from './viewport/viewport'
 import { ChartZoomController } from './utils/chartZoomController'
 import { getPhysicalKLineConfig } from './utils/klineConfig'
 import type {

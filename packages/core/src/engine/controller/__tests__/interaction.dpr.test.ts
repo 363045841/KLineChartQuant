@@ -317,17 +317,16 @@ describe('InteractionController DPR consumption', () => {
     expect(interaction.crosshairIndex).toBeNull()
   })
 
-  it('uses sealed frameVisibleRange even when viewport.visibleFrom is negative (right-align)', () => {
-    // 右对齐时 getVisibleRange 常返回 start=-1，viewport 未 clamp；
-    // positions 按 clamp 后的 range 计算。必须用 seal 的 range，否则 globalIdx 全非法。
+  it('indexes bars from sealed frameVisibleRange, not stale viewport.visibleFrom', () => {
+    // hit-test 与 positions 必须同帧同源；即使 viewport 快照与 seal range 不一致，也以 seal 为准
     const chart = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 160 })
     chart.viewport.peek = () => ({
       zoomLevel: 1,
       plotWidth: 300,
       plotHeight: 160,
       dpr: 1,
-      visibleFrom: -1,
-      visibleTo: 2,
+      visibleFrom: 99,
+      visibleTo: 101,
       kWidth: 6,
       kGap: 2,
     })

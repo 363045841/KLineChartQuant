@@ -61,7 +61,9 @@ export type ViewportState = {
   plotWidth: number
   plotHeight: number
   dpr: number
+  /** 可索引可见起点（已 clamp start>=0） */
   visibleFrom: number
+  /** 可索引可见终点（开区间） */
   visibleTo: number
   kWidth: number
   kGap: number

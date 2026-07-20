@@ -145,6 +145,7 @@ describe('viewportState template', () => {
     expect(vs.zoomLevel).toBe(5)
     expect(vs.plotWidth).toBe(800)
     expect(vs.plotHeight).toBe(570)
+    expect(vs.visibleFrom).toBeGreaterThanOrEqual(0)
     expect(vs.visibleFrom).toBeLessThan(vs.visibleTo)
     expect(vs.kWidth).toBe(8)
     // kGap 由 kGapFromKWidth(8,2)=1.5 推导，不再从 options$ 透传

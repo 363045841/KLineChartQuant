@@ -792,7 +792,7 @@ if (this.tooltipPositionMode === 'adaptive') {
   private findNearestBar(ctx: HoverContext): NearestBar | null {
     const kLinePositions = this.framePositions
     const kWidthPx = this.frameKWidthPx
-    // 必须用 seal 时的 range（start 已 clamp），不可用 viewport.visibleFrom（可为 -1）
+    // 与 framePositions 同代的 seal range（viewport 已 clamp，此处仍用 seal 保证同帧一致）
     const visibleRange = this.frameVisibleRange
     if (!kLinePositions || !visibleRange || !kWidthPx) return null
 
