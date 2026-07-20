@@ -77,6 +77,14 @@
             <div ref="canvasLayerRef" class="canvas-layer">
               <canvas ref="xAxisCanvasRef" class="x-axis-canvas"></canvas>
 
+              <div
+                v-if="hasLegendSlot && legendTemplateContext"
+                class="main-legend-overlay"
+                :style="legendOverlayStyle"
+              >
+                <slot name="legend" v-bind="legendTemplateContext" />
+              </div>
+
               <CanvasToolbarStack>
                 <RangeSelectionExport
                   v-if="rangeSelectionReady"
@@ -223,6 +231,7 @@
     routerDataFetcher,
     type ChartController,
     type InteractionSnapshot,
+    type LegendTemplateContext,
     type SymbolSpec,
     type SymbolInfo,
     type CustomDataSource,
@@ -232,7 +241,17 @@
     type SemanticChartConfig,
     type DataFetcher,
   } from '@363045841yyt/klinechart-core/semantic'
-  import { ref, computed, onMounted, onUnmounted, watch, nextTick, shallowRef, useSlots } from 'vue'
+  import {
+    ref,
+    computed,
+    onBeforeUpdate,
+    onMounted,
+    onUnmounted,
+    watch,
+    nextTick,
+    shallowRef,
+    useSlots,
+  } from 'vue'
   import { formatTimestamp } from '@363045841yyt/klinechart-core'
 
   const slots = useSlots()
@@ -352,6 +371,12 @@ import MarkerTooltip from './MarkerTooltip.vue'
       zIndex: number
     }
   }
+
+  /**
+   * legend 插槽作用域。
+   * 存在 #legend 时完全替换主图左上角 Canvas 图例；字段与 core LegendTemplateContext 一致。
+   */
+  export type LegendSlotProps = LegendTemplateContext
 
   // ── Symbol / Comparison State ──
 
@@ -888,6 +913,57 @@ import MarkerTooltip from './MarkerTooltip.vue'
     isHoveringRightAxis: false,
   })
 
+  /** 主图图例模板上下文（#legend slot 消费） */
+  const legendTemplateContext = shallowRef<LegendTemplateContext | null>(null)
+  let _unsubLegend: (() => void) | null = null
+
+  const hasLegendSlot = ref(!!slots.legend)
+
+  onBeforeUpdate(() => {
+    hasLegendSlot.value = !!slots.legend
+  })
+
+  const legendOverlayStyle = computed(() => {
+    const ctx = legendTemplateContext.value
+    if (!ctx) return undefined
+    return {
+      left: `${ctx.layout.x}px`,
+      top: `${ctx.layout.y}px`,
+    }
+  })
+
+  function applyLegendRenderMode(ctrl: ChartController | null, external: boolean): void {
+    if (!ctrl) return
+    ctrl.updateRendererConfig('mainIndicatorLegend', {
+      renderMode: external ? 'external' : 'canvas',
+    })
+  }
+
+  function syncLegendSubscription(ctrl: ChartController): void {
+    _unsubLegend?.()
+    _unsubLegend = null
+    if (!hasLegendSlot.value) {
+      legendTemplateContext.value = null
+      return
+    }
+
+    _unsubLegend = ctrl.legendTemplateContext.subscribe(() => {
+      const next = ctrl.legendTemplateContext.peek()
+      if (legendTemplateContext.value === next) return
+      legendTemplateContext.value = next
+    })
+    legendTemplateContext.value = ctrl.legendTemplateContext.peek()
+  }
+
+  watch(
+    hasLegendSlot,
+    (external) => {
+      if (controller.value) syncLegendSubscription(controller.value)
+      applyLegendRenderMode(controller.value, external)
+    },
+    { immediate: false },
+  )
+
   const paneSeparatorLines = ref<Array<{ id: string; top: number }>>([])
   const markerTooltipSize = ref({ width: 220, height: 120 })
   const tooltipLayerOffset = computed(() => {
@@ -1398,6 +1474,11 @@ import MarkerTooltip from './MarkerTooltip.vue'
 
     interactionState.value = ctrl.interactionState.peek()
     viewportDpr.value = ctrl.viewport.peek().dpr
+
+    syncLegendSubscription(ctrl)
+
+    // #legend 存在时切换为 external，隐藏 Canvas 图例文字
+    applyLegendRenderMode(ctrl, hasLegendSlot.value)
   }
 
   function setupSemanticController(ctrl: ChartController): void {
@@ -1508,6 +1589,10 @@ import MarkerTooltip from './MarkerTooltip.vue'
     cleanupChartCallbacks = null
     _unsubTooltip?.()
     _unsubTooltip = null
+    _unsubLegend?.()
+    _unsubLegend = null
+    applyLegendRenderMode(controller.value, false)
+    legendTemplateContext.value = null
     const ctrl = controller.value
     if (ctrl) {
       controller.value = null
@@ -1764,6 +1849,15 @@ import MarkerTooltip from './MarkerTooltip.vue'
 
   .range-selection-handle--right {
     right: -4px;
+  }
+
+  .main-legend-overlay {
+    position: absolute;
+    z-index: 8;
+    pointer-events: none;
+    font-size: 12px;
+    line-height: 18px;
+    color: var(--klc-color-foreground, #111);
   }
 
   .canvas-layer {

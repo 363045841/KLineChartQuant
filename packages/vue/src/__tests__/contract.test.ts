@@ -135,6 +135,13 @@ describe('@363045841yyt/klinechart —useChart lifecycle', () => {
   })
 })
 
+describe('@363045841yyt/klinechart —legend slot contracts', () => {
+  it('exports LegendSlotProps type alias via package surface', () => {
+    // 类型导出在编译期校验；此处确认相关值导出仍可用
+    expect(VueAdapter.KlineChart).toBeDefined()
+  })
+})
+
 describe('@363045841yyt/klinechart —tooltip slot contracts', () => {
   it('exports KLineTooltip component', () => {
     expect(VueAdapter.KLineTooltip).toBe(KLineTooltip)

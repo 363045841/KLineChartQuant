@@ -173,6 +173,42 @@ createApp(App).mount('#app')
 </KlineChart>
 ```
 
+**Slot Usage — Custom Main-Pane Legend:**
+
+Providing `#legend` fully replaces the default Canvas legend. The slot scope is the full `LegendTemplateContext` (OHLC, timeshare, main indicators, comparisons, layout, colors).
+
+```vue
+<template>
+  <KlineChart>
+    <template #legend="{ ohlc, indicators, comparisons, colors }">
+      <div class="my-legend" v-if="ohlc">
+        <span :style="{ color: ohlc.color }">
+          O {{ ohlc.open.toFixed(2) }}
+          H {{ ohlc.high.toFixed(2) }}
+          L {{ ohlc.low.toFixed(2) }}
+          C {{ ohlc.close.toFixed(2) }}
+        </span>
+        <span v-for="ind in indicators" :key="ind.name" class="my-legend__ind">
+          {{ ind.name }}
+          <template v-if="ind.values">
+            <span
+              v-for="v in ind.values"
+              :key="v.label"
+              :style="{ color: v.color }"
+            >
+              {{ v.label }} {{ v.value.toFixed(3) }}
+            </span>
+          </template>
+        </span>
+        <span v-for="c in comparisons" :key="c.symbol" :style="{ color: c.percentColor }">
+          {{ c.symbol }} {{ c.percent > 0 ? '+' : '' }}{{ c.percent.toFixed(2) }}%
+        </span>
+      </div>
+    </template>
+  </KlineChart>
+</template>
+```
+
 
 ### 4. (Optional) Enable MCP / AI Agent Control
 

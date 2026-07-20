@@ -32,7 +32,9 @@ import type { Signal } from '@363045841yyt/klinechart-core/reactivity'
 // with `@363045841yyt/klinechart-core/reactivity` for shape-only test purposes.
 // ---------------------------------------------------------------------------
 
-function createSignal<T>(initial: T): Signal<T> {
+type TestSignal<T> = Signal<T> & { subscriberCount: () => number }
+
+function createSignal<T>(initial: T): TestSignal<T> {
   let value = initial
   const subs = new Set<() => void>()
   const read = (): T => value
@@ -48,7 +50,7 @@ function createSignal<T>(initial: T): Signal<T> {
       subs.delete(listener)
     }
   }
-  return Object.assign(read, { peek, set, subscribe }) as Signal<T>
+  return Object.assign(read, { peek, set, subscribe, subscriberCount: () => subs.size }) as TestSignal<T>
 }
 
 export interface MockChartController extends ChartController {
@@ -58,6 +60,10 @@ export interface MockChartController extends ChartController {
   setDataFetcherCalls: () => ReadonlyArray<DataFetcher | null>
   /** spy: themes passed to `setTheme` */
   setThemeCalls: () => ReadonlyArray<'light' | 'dark'>
+  /** spy: main legend renderer configuration updates */
+  rendererConfigCalls: () => ReadonlyArray<{ name: string; config: Record<string, unknown> }>
+  /** 当前 legendTemplateContext Signal 的订阅数量 */
+  legendSubscriberCount: () => number
   /** test-only signal mutators */
   _setViewport: (vp: ChartViewport) => void
   _setData: (data: ReadonlyArray<KLineData>) => void
@@ -87,6 +93,8 @@ export function createMockChartController(
   const theme = createSignal<'light' | 'dark'>(themePreference)
   const settings = createSignal({ theme: themePreference } as any)
   const paneLayout = createSignal<ReadonlyArray<PaneSpec>>([])
+  const legendTemplateContext = createSignal(null)
+  const rendererConfigCalls: Array<{ name: string; config: Record<string, unknown> }> = []
 
   return {
     viewport,
@@ -124,6 +132,7 @@ export function createMockChartController(
       hoveredPaneBoundaryId: null,
       isHoveringRightAxis: false,
     }),
+    legendTemplateContext,
     comparisonColors: createSignal<ReadonlyMap<string, string>>(new Map()),
     comparisonLoading: createSignal(false),
     symbolCatalog: createSignal([] as ReadonlyArray<SymbolInfo>),
@@ -176,7 +185,9 @@ export function createMockChartController(
     addIndicator: () => null,
     removeIndicator: () => false,
     updateIndicatorParams: () => false,
-    updateRendererConfig: () => {},
+    updateRendererConfig: (name, config) => {
+      rendererConfigCalls.push({ name, config })
+    },
     setDrawingTool: () => {},
     setDrawingToolId: () => {},
     getDrawingToolId: () => 'cursor' as const,
@@ -216,6 +227,8 @@ export function createMockChartController(
     disposeCalls: () => disposeCalls,
     setDataFetcherCalls: () => setDataFetcherCalls,
     setThemeCalls: () => setThemeCalls,
+    rendererConfigCalls: () => rendererConfigCalls,
+    legendSubscriberCount: () => legendTemplateContext.subscriberCount(),
     _setViewport: (vp) => viewport.set(vp),
     _setData: (next) => data.set(next),
     _emitTheme: (next) => theme.set(next),

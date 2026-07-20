@@ -370,11 +370,16 @@ export class ChartDataManager {
     return buf ? buf.getRawData().length : 0
   }
 
-  /** 无 viewport / 无数据时返回 null，与旧 getVisibleRange 注入语义一致 */
+  /** 无 viewport / 无数据时返回 null；clamped 可索引区间（start>=0） */
   private getVisibleRangeOrNull(): VisibleRange | null {
     if (this.deps.viewport.readonly.viewWidth.peek() === 0) return null
-    if (this.getActiveKLineLength() === 0) return null
     return this.deps.viewport.readonly.visibleRange.peek()
+  }
+
+  /** raw 可见区间（含左右扩窗，start 可能为 -1）；供增量加载左缘检测 */
+  private getRawVisibleRangeOrNull(): VisibleRange | null {
+    if (this.deps.viewport.readonly.viewWidth.peek() === 0) return null
+    return this.deps.viewport.readonly.rawVisibleRange.peek()
   }
 
   /** 当前可见范围（on-demand 实时计算，消除 stale 缓存） */
@@ -553,20 +558,22 @@ export class ChartDataManager {
     if (data.length === 0) return
     const window = buf.loadedWindow
     if (!window) return
+    // 左缘扩窗检测必须用 raw（start 可为 -1）；数据下标用 clamped
+    const rawRange = this.getRawVisibleRangeOrNull()
     const range = this.getVisibleRangeOrNull()
-    if (!range) return
+    if (!rawRange || !range) return
 
     const MS_PER_DAY = 86_400_000
     const spec = buf.currentSpec
     const gapDays = getPeriodDays(spec?.period)
     let firstVisibleTs: number | undefined
 
-    if (range.start < 0 && this._dataFetcher) {
+    if (rawRange.start < 0 && this._dataFetcher) {
       const earlierThanEarliest = window.earliestTs - gapDays * MS_PER_DAY
       buf.ensureRange(earlierThanEarliest, window.earliestTs)
       firstVisibleTs = data[0]?.timestamp
     } else if (range.start < data.length) {
-      firstVisibleTs = data[Math.max(0, range.start)]?.timestamp
+      firstVisibleTs = data[range.start]?.timestamp
       if (firstVisibleTs !== undefined && firstVisibleTs < window.earliestTs) {
         buf.ensureRange(firstVisibleTs, window.earliestTs)
       }

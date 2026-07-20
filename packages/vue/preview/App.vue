@@ -44,6 +44,47 @@
             </div>
           </div>
         </template> -->
+        <!-- 自定义主图左上角图例，替换默认 Canvas 图例并由调用方组合图例数据。 -->
+        <template #legend="{ ohlc, timeshare, indicators, comparisons, colors }">
+          <div class="my-legend">
+            <template v-if="ohlc">
+              <span :style="{ color: ohlc.color }">
+                O {{ ohlc.open.toFixed(2) }} H {{ ohlc.high.toFixed(2) }} L
+                {{ ohlc.low.toFixed(2) }} C {{ ohlc.close.toFixed(2) }}
+              </span>
+              <span v-if="ohlc.volumeText">Vol {{ ohlc.volumeText }}</span>
+              <!-- ohlc 保留 KLineData 自定义字段，可直接读取 strategySignal、confidence。 -->
+              <span v-if="ohlc.strategySignal" class="my-legend__signal">
+                {{ ohlc.strategySignal }} {{ ohlc.confidence }}%
+              </span>
+            </template>
+
+            <template v-if="timeshare">
+              <span :style="{ color: timeshare.changeColor }">
+                现价 {{ timeshare.price.toFixed(2) }} 涨幅
+                {{ timeshare.changePercent.toFixed(2) }}% </span
+              >/
+            </template>
+
+            <span v-for="indicator in indicators" :key="indicator.name">
+              {{ indicator.name }}
+              <template v-for="value in indicator.values" :key="value.label">
+                <span :style="{ color: value.color }">
+                  {{ value.label }} {{ value.value.toFixed(3) }}
+                </span>
+              </template>
+            </span>
+
+            <span
+              v-for="comparison in comparisons"
+              :key="comparison.symbol"
+              :style="{ color: comparison.percentColor }"
+            >
+              {{ comparison.symbol }}
+              {{ comparison.percent > 0 ? '+' : '' }}{{ comparison.percent.toFixed(2) }}%
+            </span>
+          </div>
+        </template>
       </KlineChart>
     </div>
 
@@ -218,7 +259,11 @@
       close: 35.8,
       volume: 1600000,
     },
-  ]
+  ].map((bar, index) => ({
+    ...bar,
+    strategySignal: index % 3 === 0 ? 'BUY' : index % 3 === 1 ? 'HOLD' : 'WATCH',
+    confidence: 72 + ((index * 7) % 24),
+  }))
 
   /** 硬编码演示数据：对比商品 COMP.A（15 根日 K，偏弱走势） */
   const DEMO_COMP_A_DATA: KLineData[] = [
@@ -784,6 +829,19 @@
     line-height: 1.5;
     backdrop-filter: blur(6px);
     pointer-events: none;
+  }
+
+  .my-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    max-width: min(760px, calc(100vw - 96px));
+    font-variant-numeric: tabular-nums;
+  }
+
+  .my-legend__signal {
+    color: #f59e0b;
+    font-weight: 600;
   }
 
   .custom-tooltip__title {

@@ -36,7 +36,7 @@ import { PaneRenderer } from '../paneRenderer'
 import { createTimeAxisRendererPlugin } from '../renderers/timeAxis'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
 import { calculateTickCount } from '../utils/tickCount'
-import { getVisibleRange } from '../viewport/viewport'
+
 
 import { createCandleLayer } from './layers/candleLayer'
 import { createComparisonLineLayer } from './layers/comparisonLineLayer'
@@ -143,6 +143,10 @@ export interface RendererDependencies {
   drawings$: DrawingStoreDeps['drawings$']
   selectedDrawingId$: DrawingStoreDeps['selectedDrawingId$']
   getOverlay?: DrawingStoreDeps['getOverlay']
+  /** 主图图例上下文发布（canvas / external 均触发；draw 内回调） */
+  onLegendContext?: (
+    ctx: import('../renderers/Indicator/mainIndicatorLegendContext').LegendTemplateContext | null,
+  ) => void
 }
 
 export class ChartRenderer {
@@ -283,11 +287,15 @@ export class ChartRenderer {
       this.scene.addLayer(layer)
     }
     {
-      const layer = createMainIndicatorLegendLayer(
-        { yPaddingPx: opt.yPaddingPx },
+      const { layer, plugin } = createMainIndicatorLegendLayer(
+        {
+          yPaddingPx: opt.yPaddingPx,
+          onContext: this.deps.onLegendContext,
+        },
         getCtx('main'),
-        this.deps.getPluginHost(),
       )
+      // 注册进 Manager，使 updateRendererConfig('mainIndicatorLegend') 可切换 renderMode
+      this.deps.getRendererPluginManager().register(plugin)
       this.scene.addLayer(layer)
     }
     {
@@ -526,21 +534,13 @@ export class ChartRenderer {
     if (internalData.length === 0) return null
 
     const opt = this.deps.getOption()
-    const rawRange = useCachedFrame
+    // 可见区间 SSOT 在 viewportState：clamped 可索引；raw 含扩窗（start 可能为 -1）
+    const range = useCachedFrame
       ? this.cachedDrawFrame!.range
-      : (() => {
-          const { start, end } = getVisibleRange(
-            vp.scrollLeft,
-            vp.plotWidth,
-            opt.kWidth,
-            opt.kGap,
-            internalData.length,
-            vp.dpr,
-          )
-          return { start, end }
-        })()
-    // rawRange start 可能为 -1（向左扩了一根），clamp 到 0
-    const range = { start: Math.max(0, rawRange.start), end: rawRange.end }
+      : this.deps.viewport.readonly.visibleRange.peek()
+    const rawRange = useCachedFrame
+      ? (this._prevFrameRange?.raw ?? range)
+      : this.deps.viewport.readonly.rawVisibleRange.peek()
 
     const dataManager = this.deps.getDataManager()
     const mode = this.deps.getActiveMode()

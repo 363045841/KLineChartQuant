@@ -316,6 +316,29 @@ describe('InteractionController DPR consumption', () => {
     expect(interaction.crosshairPos).toBeNull()
     expect(interaction.crosshairIndex).toBeNull()
   })
+
+  it('indexes bars from sealed frameVisibleRange, not stale viewport.visibleFrom', () => {
+    // hit-test 与 positions 必须同帧同源；即使 viewport 快照与 seal range 不一致，也以 seal 为准
+    const chart = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 160 })
+    chart.viewport.peek = () => ({
+      zoomLevel: 1,
+      plotWidth: 300,
+      plotHeight: 160,
+      dpr: 1,
+      visibleFrom: 99,
+      visibleTo: 101,
+      kWidth: 6,
+      kGap: 2,
+    })
+    const interaction = new InteractionController(chart as never, createMockInteractionState())
+    interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
+
+    interaction.onPointerMove({ clientX: 5, clientY: 40, isPrimary: true } as PointerEvent)
+    interaction.flushPendingHover()
+
+    expect(interaction.crosshairIndex).toBe(0)
+    expect(interaction.crosshairPos).not.toBeNull()
+  })
 })
 
 describe('InteractionController pane capability gating', () => {

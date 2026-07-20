@@ -7,7 +7,7 @@ import {
 } from '../../foundation/reactivity/signal'
 import type { Viewport, ViewportState } from '../chartTypes'
 import type { VisibleRange } from '../layout/pane'
-import { getVisibleRange } from '../viewport/viewport'
+import { clampVisibleRange, getVisibleRange } from '../viewport/viewport'
 import {
   computeLeftLoadBufferWidth as pureLeftBuffer,
   computeContentWidth as pureContentWidth,
@@ -197,8 +197,8 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
     return vp
   })
 
-  let _cachedVisibleRange: VisibleRange | null = null
-  const cachedVisibleRange = computed<VisibleRange>(() => {
+  let _cachedRawVisibleRange: VisibleRange | null = null
+  const cachedRawVisibleRange = computed<VisibleRange>(() => {
     const vp = cachedViewport()
     const opts = signalDeps.options$()
     const vr = getVisibleRange(
@@ -209,11 +209,30 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
       signalDeps.dataLength$(),
       vp.dpr,
     )
-    if (_cachedVisibleRange && _cachedVisibleRange.start === vr.start && _cachedVisibleRange.end === vr.end) {
+    if (
+      _cachedRawVisibleRange &&
+      _cachedRawVisibleRange.start === vr.start &&
+      _cachedRawVisibleRange.end === vr.end
+    ) {
+      return _cachedRawVisibleRange
+    }
+    _cachedRawVisibleRange = vr
+    return vr
+  })
+
+  // 可索引可见区间（start>=0）— 绘制 / hit-test / 指标 / ViewportState 的 SSOT
+  let _cachedVisibleRange: VisibleRange | null = null
+  const cachedVisibleRange = computed<VisibleRange>(() => {
+    const clamped = clampVisibleRange(cachedRawVisibleRange())
+    if (
+      _cachedVisibleRange &&
+      _cachedVisibleRange.start === clamped.start &&
+      _cachedVisibleRange.end === clamped.end
+    ) {
       return _cachedVisibleRange
     }
-    _cachedVisibleRange = vr
-    return vr
+    _cachedVisibleRange = clamped
+    return clamped
   })
 
   let _cachedViewportState: ViewportState | null = null
@@ -355,6 +374,9 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
     scrollLeftLogical,
     kGap,
     viewport: cachedViewport,
+    /** raw：含左右扩窗，start 可能为 -1（增量加载左缘检测） */
+    rawVisibleRange: cachedRawVisibleRange,
+    /** clamped：start>=0，绘制 / hit-test / 指标 / ViewportState 的 SSOT */
     visibleRange: cachedVisibleRange,
     viewportState: cachedViewportState,
   }

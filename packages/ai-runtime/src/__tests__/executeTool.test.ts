@@ -27,6 +27,7 @@ function createMockChart(overrides?: Partial<ChartController>): ChartController 
     paneRatios: stubSignal({}),
     paneLayout: stubSignal([]),
     interactionState: stubSignal({} as any),
+    legendTemplateContext: stubSignal(null),
     comparisonColors: stubSignal(new Map()),
     comparisonLoading: stubSignal(false),
     zoomToLevel: vi.fn(),

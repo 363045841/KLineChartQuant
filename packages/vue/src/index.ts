@@ -47,7 +47,20 @@ export {
   MarkerTooltip,
 } from './components/index'
 
-export type { KlineTooltipSlotProps, MarkerTooltipSlotProps } from './components/index'
+export type {
+  KlineTooltipSlotProps,
+  MarkerTooltipSlotProps,
+  LegendSlotProps,
+} from './components/index'
+export type {
+  LegendTemplateContext,
+  LegendRenderMode,
+  LegendLayout,
+  LegendOhlcRow,
+  LegendTimeshareRow,
+  LegendIndicatorRow,
+  LegendComparisonRow,
+} from '@363045841yyt/klinechart-core/controllers'
 
 // ---------------------------------------------------------------------------
 // Controller factory injection

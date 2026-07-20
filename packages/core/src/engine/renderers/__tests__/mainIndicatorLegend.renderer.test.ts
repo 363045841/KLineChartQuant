@@ -20,7 +20,7 @@ import type { KLineData } from '@/types/price'
 // Type helper for tests - we know these methods exist on the implementation
 interface TestableLegendRenderer extends RendererPluginWithHost {
   draw: (context: RenderContext) => void
-  getConfig: () => { yPaddingPx: number }
+  getConfig: () => { yPaddingPx: number; renderMode: 'canvas' | 'external' }
   setConfig: (config: Record<string, unknown>) => void
 }
 
@@ -210,7 +210,7 @@ describe('createMainIndicatorLegendRendererPlugin', () => {
     const plugin = createMainIndicatorLegendRendererPlugin({ yPaddingPx: 20 })
 
     expect(plugin.name).toBe('mainIndicatorLegend')
-    expect(plugin.version).toBe('2.1.0')
+    expect(plugin.version).toBe('2.2.0')
     expect(plugin.description).toBe('主图指标图例渲染器（MA 数据来自 StateStore）')
     expect(plugin.debugName).toBe('主图指标图例')
     expect(plugin.paneId).toBe('main')
@@ -550,5 +550,76 @@ describe('MainIndicatorLegend with other indicators', () => {
     const fillTextCalls = vi.mocked(ctx.fillText).mock.calls
     const wmaLabelCalls = fillTextCalls.filter((call) => String(call[0]).includes('WMA'))
     expect(wmaLabelCalls.length).toBeGreaterThan(0)
+  })
+})
+
+describe('MainIndicatorLegend external mode & context callback', () => {
+  it('publishes legend context via onContext while still painting in canvas mode', () => {
+    const onContext = vi.fn()
+    const scheduler = createMockScheduler({ ma: { getTitleInfo: createMAGetTitleInfo() } }, ['ma'])
+    const state = createTestMARenderState()
+    const mockHost = createMockPluginHost(state, scheduler)
+    const plugin = createMainIndicatorLegendRendererPlugin({
+      yPaddingPx: 20,
+      onContext,
+    }) as TestableLegendRenderer
+    plugin.onInstall(mockHost)
+
+    const ctx = createMockCanvasContext()
+    const context = createMockRenderContext(ctx, { crosshairIndex: 50 })
+    plugin.draw(context)
+
+    expect(onContext).toHaveBeenCalledTimes(1)
+    const legend = onContext.mock.calls[0]![0]
+    expect(legend).not.toBeNull()
+    expect(legend.index).toBe(50)
+    expect(legend.hasCrosshair).toBe(true)
+    expect(legend.ohlc).not.toBeNull()
+    expect(legend.indicators.some((row: { name: string }) => row.name === 'MA')).toBe(true)
+    expect(vi.mocked(ctx.fillText).mock.calls.length).toBeGreaterThan(0)
+  })
+
+  it('does not paint canvas text when renderMode is external but still publishes context', () => {
+    const onContext = vi.fn()
+    const scheduler = createMockScheduler({ ma: { getTitleInfo: createMAGetTitleInfo() } }, ['ma'])
+    const state = createTestMARenderState()
+    const mockHost = createMockPluginHost(state, scheduler)
+    const plugin = createMainIndicatorLegendRendererPlugin({
+      yPaddingPx: 20,
+      onContext,
+    }) as TestableLegendRenderer
+    plugin.onInstall(mockHost)
+    plugin.setConfig({ renderMode: 'external' })
+    expect(plugin.getConfig().renderMode).toBe('external')
+
+    const ctx = createMockCanvasContext()
+    const context = createMockRenderContext(ctx, { crosshairIndex: 10 })
+    plugin.draw(context)
+
+    expect(onContext).toHaveBeenCalledTimes(1)
+    expect(onContext.mock.calls[0]![0]).not.toBeNull()
+    expect(vi.mocked(ctx.fillText)).not.toHaveBeenCalled()
+  })
+
+  it('retains custom KLineData fields in the ohlc slot context', () => {
+    const onContext = vi.fn()
+    const plugin = createMainIndicatorLegendRendererPlugin({
+      yPaddingPx: 20,
+      onContext,
+    }) as TestableLegendRenderer
+    plugin.onInstall(createMockPluginHost())
+    plugin.setConfig({ renderMode: 'external' })
+
+    const ctx = createMockCanvasContext()
+    const context = createMockRenderContext(ctx, { crosshairIndex: 10 })
+    Object.assign((context.data as KLineData[])[10]!, {
+      turnoverRate: 3.14,
+      customLabel: 'featured',
+    })
+    plugin.draw(context)
+
+    const legend = onContext.mock.calls[0]![0]
+    expect(legend.ohlc.turnoverRate).toBe(3.14)
+    expect(legend.ohlc.customLabel).toBe('featured')
   })
 })

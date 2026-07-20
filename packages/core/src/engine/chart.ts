@@ -26,10 +26,13 @@ import {
 import { createLayerFromPlugin } from '../rendering/scene/createLayerFromPlugin'
 import {
   computed,
+  createSignal,
   type Computed,
   type ReadonlySignal,
   type Signal,
+  type WritableSignal,
 } from '../foundation/reactivity/signal'
+import type { LegendTemplateContext } from './renderers/Indicator/mainIndicatorLegendContext'
 
 import { InteractionController, type InteractionSnapshot } from './controller/interaction'
 
@@ -60,7 +63,6 @@ import { PaneRenderer } from './paneRenderer'
 import { ChartRenderer, mergeUpdateLevel } from './render/chartRenderer'
 import { ChartStateKernel } from './state/chartStateKernel'
 import { ChartViewportManager } from './viewport/chartViewportManager'
-import { getVisibleRange } from './viewport/viewport'
 import { ChartZoomController } from './utils/chartZoomController'
 import { getPhysicalKLineConfig } from './utils/klineConfig'
 import type {
@@ -132,6 +134,9 @@ export class Chart {
   private runtimeProjectionDepth = 0
   /** 被推迟的绘制级别，退出嵌套后统一 flush */
   private pendingProjectionLevel: UpdateLevel | null = null
+  /** 主图图例模板上下文（每帧由 mainIndicatorLegend 发布） */
+  private readonly _legendTemplateContext: WritableSignal<LegendTemplateContext | null> =
+    createSignal<LegendTemplateContext | null>(null)
 
   /** 绘图交互会话（锚点/预览/拖拽）；工具 id 在 kernel */
   private drawingSession: DrawingInteractionController | null = null
@@ -439,6 +444,9 @@ export class Chart {
       drawings$: this.kernel.drawing.readonly.drawings,
       selectedDrawingId$: this.kernel.drawing.readonly.selectedDrawingId,
       getOverlay: () => this.drawingSession?.getPaintOverlay() ?? [],
+      onLegendContext: (ctx) => {
+        this._legendTemplateContext.set(ctx)
+      },
     })
     this.renderer.registerDrawingPlugins()
     this.renderer.initCoreRenderers()
@@ -1366,6 +1374,11 @@ export class Chart {
   /** 交互状态信号 */
   get interactionState(): ReadonlySignal<InteractionSnapshot> {
     return this._interactionSnapshot
+  }
+
+  /** 主图左上角图例模板上下文（null 表示无数据） */
+  get legendTemplateContext(): ReadonlySignal<LegendTemplateContext | null> {
+    return this._legendTemplateContext
   }
 
   // ---------- Data ----------

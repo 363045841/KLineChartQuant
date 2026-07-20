@@ -314,6 +314,13 @@ export interface ChartController extends DrawingChartAdapter {
   readonly paneRatios: ReadonlySignal<Readonly<Record<string, number>>>
   readonly paneLayout: ReadonlySignal<ReadonlyArray<PaneSpec>>
   readonly interactionState: ReadonlySignal<InteractionSnapshot>
+  /**
+   * 主图左上角图例模板上下文。
+   * Vue `#legend` slot 等外部模板消费；null 表示当前帧无图例数据。
+   */
+  readonly legendTemplateContext: ReadonlySignal<
+    import('../engine/renderers/Indicator/mainIndicatorLegendContext').LegendTemplateContext | null
+  >
   readonly comparisonColors: ReadonlySignal<ReadonlyMap<string, string>>
   readonly comparisonLoading: ReadonlySignal<boolean>
 
