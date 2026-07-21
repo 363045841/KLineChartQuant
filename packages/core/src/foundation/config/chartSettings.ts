@@ -158,6 +158,11 @@ export type ChartSettings = {
  * @param partial - 偏好的部分设置（通常是组件 prop 传入）
  * @returns 合并后的 ChartSettings 对象
  */
+const KNOWN_SETTING_KEYS = new Set<string>([
+  ...DEFAULT_SETTINGS.map((item) => item.key),
+  'colorPresetSettings',
+])
+
 export function resolveSettings(partial?: Partial<ChartSettings>): ChartSettings {
   // 用 Partial<_SettingByKey> 而非 ChartSettings 避免交叉类型索引赋值报错
   const result: Partial<_SettingByKey> = {}
@@ -170,6 +175,14 @@ export function resolveSettings(partial?: Partial<ChartSettings>): ChartSettings
   ;(result as ChartSettings).colorPresetSettings = normalizeColorPresetSettings(
     partial?.colorPresetSettings,
   )
+  // 保留扩展字段（如 preClose），避免业务元数据被 resolve 清掉
+  if (partial) {
+    for (const [key, value] of Object.entries(partial)) {
+      if (KNOWN_SETTING_KEYS.has(key)) continue
+      if (value === undefined) continue
+      ;(result as Record<string, unknown>)[key] = value
+    }
+  }
   return result as ChartSettings
 }
 

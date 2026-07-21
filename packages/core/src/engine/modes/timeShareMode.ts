@@ -1,6 +1,14 @@
 import type { ChartDataManager } from '../data/chartDataManager'
 import type { Pane, VisibleRange } from '../layout/pane'
 
+import type { MarketSessionConfig } from '../../foundation/utils/timeShareAxisLabels'
+import { ASHARE_MARKET_SESSION } from '../../foundation/utils/timeShareAxisLabels'
+
+import {
+  computeTimeShareBarMetrics,
+  computeTimeSharePriceRange,
+  resolveTimeShareBaseline,
+} from './timeShareMath'
 import type { ChartModeHandler } from './types'
 
 export class TimeShareMode implements ChartModeHandler {
@@ -11,6 +19,17 @@ export class TimeShareMode implements ChartModeHandler {
   readonly allowVerticalScroll = false
   readonly allowRightAxisScale = false
   readonly useIndicatorScheduler = false
+
+  /** 市场 session；默认 A 股，可 setMarketSession 切换 */
+  private _marketSession: MarketSessionConfig = ASHARE_MARKET_SESSION
+
+  get marketSession(): MarketSessionConfig {
+    return this._marketSession
+  }
+
+  setMarketSession(config: MarketSessionConfig): void {
+    this._marketSession = config
+  }
 
   computeContentWidth(
     _dataLength: number,
@@ -27,17 +46,7 @@ export class TimeShareMode implements ChartModeHandler {
     viewWidth: number,
     dpr: number,
   ): { kWidth: number; kGap: number } | null {
-    if (dataLength <= 0 || viewWidth <= 0) return null
-
-    const kGapPx = 1
-    const totalGapPx = (dataLength + 1) * kGapPx
-    const availablePx = Math.max(1, viewWidth * dpr - totalGapPx)
-    const kWidthPx = Math.max(1, Math.floor(availablePx / dataLength))
-
-    return {
-      kWidth: kWidthPx / dpr,
-      kGap: kGapPx / dpr,
-    }
+    return computeTimeShareBarMetrics(dataLength, viewWidth, dpr, this._marketSession)
   }
 
   updatePaneRange(
@@ -47,30 +56,28 @@ export class TimeShareMode implements ChartModeHandler {
     _mergedIndicatorRange?: { min: number; max: number } | null,
   ): void {
     const tsData = dm.getTimeShareData()
-    const end = Math.min(range.end, tsData.length)
     if (tsData.length === 0) return
 
-    const baseline = tsData[0]?.price ?? 0
-    if (baseline === 0) return
+    const end = Math.min(range.end, tsData.length)
+    const start = Math.max(0, range.start)
+    // 优先昨收；缺失时回退首笔价
+    const baseline = resolveTimeShareBaseline({
+      preClose: dm.getTimeSharePreClose(),
+      firstPrice: tsData[0]?.price,
+    })
+    if (baseline === null) return
 
     // scaleType 由 kernel.paneScaleTypes 投影（进入 timeshare 时写 percent）；此处只设会话 basePrice
     pane.yAxis.setBasePrice(baseline)
 
-    let maxAbsPct = 0
-    for (let i = Math.max(0, range.start); i < end; i++) {
+    const prices: number[] = []
+    for (let i = start; i < end; i++) {
       const p = tsData[i]?.price
-      if (p !== undefined && Number.isFinite(p)) {
-        const pct = Math.abs((p - baseline) / baseline) * 100
-        if (pct > maxAbsPct) maxAbsPct = pct
-      }
+      if (p !== undefined) prices.push(p)
     }
-    if (maxAbsPct <= 0) return
-
-    const padding = Math.max(maxAbsPct * 0.1, 0.5)
-    const displayPct = maxAbsPct + padding
-    const minPrice = baseline * (1 - displayPct / 100)
-    const maxPrice = baseline * (1 + displayPct / 100)
-    pane.yAxis.setRange({ maxPrice, minPrice })
+    const priceRange = computeTimeSharePriceRange(prices, baseline)
+    if (!priceRange) return
+    pane.yAxis.setRange(priceRange)
   }
 
   onActivate(
@@ -103,6 +110,6 @@ export class TimeShareMode implements ChartModeHandler {
     _next: ChartModeHandler | null,
   ): void {
     chart.disableMainIndicator('timeShare')
-    chart.setRendererEnabled('candle', true)
+    // candle 可见性由 Chart.setActiveMode 按进入前快照恢复，此处不强制 true
   }
 }

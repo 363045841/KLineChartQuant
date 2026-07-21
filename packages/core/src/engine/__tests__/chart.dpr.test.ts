@@ -522,6 +522,34 @@ describe('Chart pane layout regressions', () => {
     await chart.destroy()
   })
 
+  it('timeshare round-trip restores subPane paneId and ratios', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    chart.resize()
+    expect(chart.createSubPane('MACD_0', 'MACD')).toBe(true)
+    expect(chart.createSubPane('RSI_0', 'RSI')).toBe(true)
+    const ratiosBefore = { ...chart.kernel.pane.readonly.paneRatios.peek() }
+    const entriesBefore = chart.getSubPaneEntries().map((e) => ({
+      paneId: e.paneId,
+      indicatorId: e.indicatorId,
+    }))
+
+    const tsMode = (chart as unknown as { _timeShareMode: import('../modes/types').ChartModeHandler })
+      ._timeShareMode
+    const kMode = (chart as unknown as { _kLineMode: import('../modes/types').ChartModeHandler })
+      ._kLineMode
+    chart.setActiveMode(tsMode)
+    expect(chart.getSubPaneEntries()).toEqual([])
+    chart.setActiveMode(kMode)
+
+    const entriesAfter = chart.getSubPaneEntries().map((e) => ({
+      paneId: e.paneId,
+      indicatorId: e.indicatorId,
+    }))
+    expect(entriesAfter).toEqual(entriesBefore)
+    expect(chart.kernel.pane.readonly.paneRatios.peek()).toEqual(ratiosBefore)
+    await chart.destroy()
+  })
+
   it('removeDrawing drops id from kernel and clears selection', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     const d1 = {

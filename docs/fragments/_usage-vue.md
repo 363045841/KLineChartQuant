@@ -94,13 +94,13 @@ Providing `#legend` fully replaces the default Canvas legend. The slot scope is 
 ```vue
 <template>
   <KlineChart>
-    <template #legend="{ ohlc, indicators, comparisons, colors }">
-      <div class="my-legend" v-if="ohlc">
-        <span :style="{ color: ohlc.color }">
-          O {{ ohlc.open.toFixed(2) }}
-          H {{ ohlc.high.toFixed(2) }}
-          L {{ ohlc.low.toFixed(2) }}
-          C {{ ohlc.close.toFixed(2) }}
+    <template #legend="{ currentBar, indicators, comparisons, colors }">
+      <div class="my-legend" v-if="currentBar">
+        <span :style="{ color: currentBar.color }">
+          O {{ currentBar.open.toFixed(2) }}
+          H {{ currentBar.high.toFixed(2) }}
+          L {{ currentBar.low.toFixed(2) }}
+          C {{ currentBar.close.toFixed(2) }}
         </span>
         <span v-for="ind in indicators" :key="ind.name" class="my-legend__ind">
           {{ ind.name }}

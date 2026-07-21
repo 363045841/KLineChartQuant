@@ -378,6 +378,16 @@ import MarkerTooltip from './MarkerTooltip.vue'
    */
   export type LegendSlotProps = LegendTemplateContext
 
+  /**
+   * 声明命名插槽作用域类型，供 Volar 在父组件模板中做 slot props 补全。
+   * @remarks 仅类型契约，运行时仍用 useSlots() 判断插槽是否存在。
+   */
+  defineSlots<{
+    legend(props: LegendSlotProps): unknown
+    'kline-tooltip'(props: KlineTooltipSlotProps): unknown
+    'marker-tooltip'(props: MarkerTooltipSlotProps): unknown
+  }>()
+
   // ── Symbol / Comparison State ──
 
   // Default symbol catalog — registered into the controller on mount so the
