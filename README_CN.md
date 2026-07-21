@@ -59,76 +59,32 @@
 
 ### 前置要求
 
-图表通过 **DataFetcher** 拉取 K 线 / 分时 / 深度。开发时建议将相关仓库放在同一父目录：
+KLineChart 需要股票数据后端支持。请确保 `kmap` 与 `stockbao` 处于同一目录下：
 
 ```
 workspace/
-├── KLineChartQuant/      # 本仓库（前端）
-├── stockbao/             # BaoStock 后端（可选，端口 8000）
-└── KlineChartQuantGo/    # TDX + 币安后端（可选，端口 8080 / 8081）
+├── KLineChartQuant/ # 本仓库
+└── stockbao/    # 数据后端仓库
 ```
-
-### 数据源
-
-| 数据源 `source` | 后端仓库 | 默认端口 | 能力 | 启动方式 |
-|---|---|---|---|---|
-| `baostock` | [stockbao](https://github.com/363045841/stockbao) | `8000` | A 股 K 线（日/周/月/5–60 分） | 见下方 |
-| `gotdx` | [KlineChartQuantGo](https://github.com/363045841/KlineChartQuantGo) `services/tdx-api` | `8080` | A 股 + 外盘 K 线、分时、tick | 见下方 |
-| `binance` | 同上 `services/binance-api` | `8081` | 币安 L2 深度（SSE） | 见下方 |
-| `tradingview` / mock | 无后端 | — | 演示 / 对照 | 内置，无需启动 |
-
-**选择数据源：** 在 symbol 配置里设 `source`，例如：
-
-```ts
-// K 线走 gotdx
-{ symbol: '600519', period: 'daily', source: 'gotdx' }
-
-// K 线走 baostock
-{ symbol: 'sh.600519', period: 'daily', source: 'baostock' }
-
-// 深度热力图走币安 SSE（默认 URL）
-import { BinanceSSESource, DEFAULT_BINANCE_SSE_URL } from '@363045841yyt/klinechart-core'
-const depth = new BinanceSSESource('btcusdt') // → http://localhost:8081/api/binance/depth-events
-```
-
-**启动后端（按需）：**
-
-```bash
-# 1) BaoStock — http://localhost:8000
-cd KLineChartQuant
-npm run stockbao
-# 或: cd ../stockbao && uv run python ./server.py
-
-# 2) 通达信 gotdx — http://127.0.0.1:8080
-cd ../KlineChartQuantGo
-go run . tdx
-
-# 3) 币安深度 — http://127.0.0.1:8081
-go run . binance
-# 需要可访问 Binance 的代理时设置 HTTP_PROXY / HTTPS_PROXY
-# 默认会尝试 http://127.0.0.1:6666
-```
-
-对应前端适配器：
-
-| 源 | 适配器文件 | 主要接口 |
-|---|---|---|
-| baostock | `packages/core/src/data/baostock.ts` | `GET :8000/api/stock/kdata?...` |
-| gotdx | `packages/core/src/data/gotdx.ts` | `POST :8080/api/stock/*`、`/api/ex/*` |
-| binance | `packages/core/src/data/binance.ts` | `GET :8081/api/binance/depth-events`、`/orderbook` |
-
-也可不启后端，直接用 `customData` 内联 K 线（见下方示例）。
 
 ### 1. 克隆仓库
 
 ```bash
 git clone https://github.com/363045841/KLineChartQuant.git
-# 按需克隆数据后端
 git clone https://github.com/363045841/stockbao.git
-git clone https://github.com/363045841/KlineChartQuantGo.git
 ```
 
-### 2. 安装并使用
+### 2. 启动数据后端
+
+```bash
+cd KLineChartQuant
+npm run stockbao
+```
+
+后端启动后，API 地址为 `http://localhost:8000`
+
+
+### 3. 安装并使用
 
 ```bash
 npm install @363045841yyt/klinechart @363045841yyt/klinechart-core
@@ -312,7 +268,7 @@ pnpm inspect
 | 属性 | 类型 | 默认值 | 说明 |
 |------|------|---------|-------------|
 | semanticConfig | `SemanticChartConfig` | — | 语义化配置（可选）。传入后驱动图表数据、指标、标记和选项 |
-| dataFetcher | `DataFetcher` | 内置 `routerDataFetcher` | 按 `source` 路由到 baostock / gotdx 等注册适配器；见上文「数据源」 |
+| dataFetcher | `DataFetcher` | 内置 | 数据获取函数，默认为代理 `/api/stock` 的内置请求器 |
 | theme | `'light' \| 'dark'` | — | 图表主题。可用 `v-model:theme` 双向绑定 |
 | isFullscreen | `boolean` | — | 全屏状态（受控）。不传则使用组件内部非受控模式 |
 | timezone | `string` | `'Asia/Shanghai'` | 时区 |
