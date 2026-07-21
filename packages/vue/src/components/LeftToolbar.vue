@@ -171,9 +171,8 @@
 <script setup lang="ts">
   import type { ChartController } from '@363045841yyt/klinechart-core'
   import {
-    DEFAULT_SETTINGS,
     SETTINGS_STORAGE_KEY,
-    migrateStoredSettings,
+    resolveRuntimeSettings,
     type ChartSettings,
   } from '@363045841yyt/klinechart-core/config'
   import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
@@ -276,22 +275,7 @@
   })
 
   function loadSettings(): ChartSettings {
-    try {
-      const saved = localStorage.getItem(SETTINGS_STORAGE_KEY)
-      if (saved) {
-        const parsed = migrateStoredSettings(JSON.parse(saved) as Record<string, unknown>)
-        const result: ChartSettings = { ...parsed }
-        DEFAULT_SETTINGS.forEach((item) => {
-          ;(result as Record<string, unknown>)[item.key] = parsed[item.key] ?? item.default
-        })
-        return result
-      }
-    } catch {}
-    const defaults: ChartSettings = {}
-    DEFAULT_SETTINGS.forEach((item) => {
-      ;(defaults as Record<string, unknown>)[item.key] = item.default
-    })
-    return defaults
+    return resolveRuntimeSettings(undefined)
   }
 
   function saveSettings(settings: ChartSettings) {
@@ -300,9 +284,10 @@
     } catch {}
   }
 
+  // 父组件已 seed 的 effectiveSettings 优先；否则读 localStorage
   const appliedSettings = ref<ChartSettings>(
     props.effectiveSettings && Object.keys(props.effectiveSettings).length > 0
-      ? props.effectiveSettings
+      ? { ...props.effectiveSettings }
       : loadSettings(),
   )
 

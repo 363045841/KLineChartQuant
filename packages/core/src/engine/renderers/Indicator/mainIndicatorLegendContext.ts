@@ -17,8 +17,9 @@ export interface LegendLayout {
 }
 
 /** 当前 K 线及图例派生的展示字段，保留 KLineData 自定义属性。 */
-export type LegendOhlcRow = Omit<KLineData, 'volume'> & {
+export type LegendCurrentBar = Omit<KLineData, 'volume'> & {
   volume: number | null
+  // 成交量+单位格式化文本(eg. 1.23亿)
   volumeText: string | null
   color: string
 }
@@ -63,11 +64,12 @@ export interface LegendTemplateContext {
     up: string
     down: string
   }
-  ohlc: LegendOhlcRow | null
+  /** 十字线指向的当前 K 线展示行（含 volumeText / color 与自定义字段） */
+  currentBar: LegendCurrentBar | null
   timeshare: LegendTimeshareRow | null
   indicators: ReadonlyArray<LegendIndicatorRow>
   comparisons: ReadonlyArray<LegendComparisonRow>
-  /** 当前索引处的 K 线（分时模式下可能无 close） */
+  /** 当前索引处的原始 K 线（分时模式下可能无 close） */
   bar: KLineData | TimeShareData | null
 }
 
@@ -110,9 +112,7 @@ export function buildLegendTemplateContext(
   const range = context.range
   const crosshairIndex = context.crosshairIndex
   const hasCrosshair = typeof crosshairIndex === 'number'
-  const targetIndex = hasCrosshair
-    ? crosshairIndex
-    : Math.min(range.end - 1, klineData.length - 1)
+  const targetIndex = hasCrosshair ? crosshairIndex : Math.min(range.end - 1, klineData.length - 1)
 
   const layout: LegendLayout = {
     x: legendX,
@@ -126,7 +126,11 @@ export function buildLegendTemplateContext(
   let timeshare: LegendTimeshareRow | null = null
   if (context.period === 'timeshare') {
     const tsData = context.data as TimeShareData[]
-    const preClose = (context.settings?.preClose as number) ?? tsData[0]?.price ?? 0
+    const rawPreClose = context.settings?.preClose as number | undefined
+    const preClose =
+      typeof rawPreClose === 'number' && Number.isFinite(rawPreClose) && rawPreClose !== 0
+        ? rawPreClose
+        : (tsData[0]?.price ?? 0)
     const item = tsData[targetIndex]
     if (item) {
       const changeAmount = item.price - preClose
@@ -145,12 +149,12 @@ export function buildLegendTemplateContext(
     }
   }
 
-  let ohlc: LegendOhlcRow | null = null
+  let currentBar: LegendCurrentBar | null = null
   if (hasCrosshair) {
     const k = klineData[targetIndex]
     if (k && typeof k.close === 'number') {
       const isUp = k.close >= k.open
-      ohlc = {
+      currentBar = {
         ...k,
         volume: typeof k.volume === 'number' ? k.volume : null,
         volumeText: typeof k.volume === 'number' ? formatVolumeShort(k.volume) : null,
@@ -173,7 +177,7 @@ export function buildLegendTemplateContext(
       up: colors.candleUpBody,
       down: colors.candleDownBody,
     },
-    ohlc,
+    currentBar,
     timeshare,
     indicators,
     comparisons,
@@ -258,7 +262,11 @@ function collectComparisonRows(
       percent,
       color,
       percentColor:
-        percent > 0 ? colors.candleUpBody : percent < 0 ? colors.candleDownBody : colors.text.primary,
+        percent > 0
+          ? colors.candleUpBody
+          : percent < 0
+            ? colors.candleDownBody
+            : colors.text.primary,
     })
   }
   return rows

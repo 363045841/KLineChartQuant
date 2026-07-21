@@ -31,6 +31,9 @@ import { ChartIndicatorManager } from '../indicators/chartIndicatorManager'
 import { UpdateLevel } from '../layout/pane'
 import type { VisibleRange } from '../layout/pane'
 import { MarkerManager, type CustomMarkerEntity, type MarkerManagerDeps } from '../marker/registry'
+import { ASHARE_MARKET_SESSION } from '../../foundation/utils/timeShareAxisLabels'
+import { resolveMarketSessionSlots } from '../../foundation/utils/timeShareAxisLabels'
+import { computeTimeShareXLayout } from '../modes/timeShareMath'
 import type { ChartModeHandler } from '../modes/types'
 import { PaneRenderer } from '../paneRenderer'
 import { createTimeAxisRendererPlugin } from '../renderers/timeAxis'
@@ -588,29 +591,31 @@ export class ChartRenderer {
         kBarRects[i] = { x: barLeftPx / vp.dpr, width: barWidthPx / vp.dpr }
       }
 
-      // TimeShare 按 plotWidth 平分 bar，覆盖 calcKLinePositions 的结果
+      // TimeShare：按全天 sessionSlots 划分宽度，已到达点落在时间线上，未到时段右侧留白
       if (mode.debugName === 'TimeShare') {
-        const totalWidth = vp.plotWidth
         const count = kLineCenters.length
-        if (count > 0) {
-          const dpr = vp.dpr
-          const step = totalWidth / count
+        const marketSession =
+          'marketSession' in mode && mode.marketSession
+            ? (mode as { marketSession: typeof ASHARE_MARKET_SESSION }).marketSession
+            : ASHARE_MARKET_SESSION
+        const layout = computeTimeShareXLayout({
+          arrivedCount: count,
+          sessionSlots: resolveMarketSessionSlots(marketSession),
+          totalWidth: vp.plotWidth,
+          dpr: vp.dpr,
+        })
+        if (layout) {
+          const halfBarPx = Math.floor((layout.barWidth * vp.dpr) / 2)
           for (let i = 0; i < count; i++) {
-            kLineCenters[i] = Math.round((i + 0.5) * step * dpr) / dpr
-            kLinePositions[i] = Math.round(i * step * dpr) / dpr
-          }
-          kWidthPx = Math.round((totalWidth * dpr) / count)
-
-          const logicalBarWidth = Math.max(1, step * 0.6)
-          const barWidthPx = Math.round(logicalBarWidth * dpr)
-          const halfBarPx = Math.floor(barWidthPx / 2)
-          for (let i = 0; i < count; i++) {
-            const centerPx = Math.round(kLineCenters[i]! * dpr)
+            kLineCenters[i] = layout.centers[i]!
+            kLinePositions[i] = layout.lefts[i]!
+            const centerPx = Math.round(layout.centers[i]! * vp.dpr)
             kBarRects[i] = {
-              x: (centerPx - halfBarPx) / dpr,
-              width: barWidthPx / dpr,
+              x: (centerPx - halfBarPx) / vp.dpr,
+              width: layout.barWidth,
             }
           }
+          kWidthPx = layout.kWidthPx
         } else {
           kWidthPx = getPhysicalKLineConfig(opt.kWidth, opt.kGap, vp.dpr).kWidthPx
         }
@@ -826,7 +831,13 @@ export class ChartRenderer {
           plotWidth: vp.plotWidth,
           plotHeight: vp.plotHeight,
         },
-        settings: this.settings,
+        settings: {
+          ...this.settings,
+          // 分时昨收优先读 series 元数据，settings 作回退
+          preClose:
+            dataManager.getTimeSharePreClose() ??
+            (this.settings.preClose as number | undefined),
+        },
         yAxisLabels: sharedYAxisLabels,
         xAxisLabels: sharedXAxisLabels,
         yAxisRanges: sharedYAxisRanges,

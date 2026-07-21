@@ -574,7 +574,7 @@ describe('MainIndicatorLegend external mode & context callback', () => {
     expect(legend).not.toBeNull()
     expect(legend.index).toBe(50)
     expect(legend.hasCrosshair).toBe(true)
-    expect(legend.ohlc).not.toBeNull()
+    expect(legend.currentBar).not.toBeNull()
     expect(legend.indicators.some((row: { name: string }) => row.name === 'MA')).toBe(true)
     expect(vi.mocked(ctx.fillText).mock.calls.length).toBeGreaterThan(0)
   })
@@ -601,7 +601,7 @@ describe('MainIndicatorLegend external mode & context callback', () => {
     expect(vi.mocked(ctx.fillText)).not.toHaveBeenCalled()
   })
 
-  it('retains custom KLineData fields in the ohlc slot context', () => {
+  it('retains custom KLineData fields in the currentBar slot context', () => {
     const onContext = vi.fn()
     const plugin = createMainIndicatorLegendRendererPlugin({
       yPaddingPx: 20,
@@ -619,7 +619,7 @@ describe('MainIndicatorLegend external mode & context callback', () => {
     plugin.draw(context)
 
     const legend = onContext.mock.calls[0]![0]
-    expect(legend.ohlc.turnoverRate).toBe(3.14)
-    expect(legend.ohlc.customLabel).toBe('featured')
+    expect(legend.currentBar.turnoverRate).toBe(3.14)
+    expect(legend.currentBar.customLabel).toBe('featured')
   })
 })

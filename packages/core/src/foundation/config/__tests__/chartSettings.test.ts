@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { migrateStoredSettings, resolveSettings } from '../chartSettings'
+import {
+  loadStoredSettings,
+  migrateStoredSettings,
+  resolveRuntimeSettings,
+  resolveSettings,
+  SETTINGS_STORAGE_KEY,
+} from '../chartSettings'
 
 describe('chart renderer settings', () => {
   it('defaults to WebGL', () => {
@@ -21,5 +27,66 @@ describe('chart renderer settings', () => {
     expect(
       migrateStoredSettings({ rendererBackend: 'webgpu', enableWebGLRendering: false }),
     ).toEqual({ rendererBackend: 'webgpu' })
+  })
+})
+
+describe('resolveRuntimeSettings', () => {
+  it('uses prop as sole authority and drops stored ghost fields', () => {
+    const stored = {
+      showGridLines: false,
+      colorPresetSettings: {
+        dark: { candleUpBody: '#e85d04' },
+      },
+    }
+    const resolved = resolveRuntimeSettings(
+      { showGridLines: true, theme: 'dark' },
+      stored,
+    )
+    expect(resolved.showGridLines).toBe(true)
+    expect(resolved.theme).toBe('dark')
+    expect(resolved.colorPresetSettings).toEqual({})
+  })
+
+  it('treats empty prop object as authority over stored', () => {
+    const resolved = resolveRuntimeSettings(
+      {},
+      { colorPresetSettings: { dark: { candleUpBody: '#e85d04' } } },
+    )
+    expect(resolved.colorPresetSettings).toEqual({})
+  })
+
+  it('falls back to stored when prop is omitted', () => {
+    const resolved = resolveRuntimeSettings(undefined, {
+      showGridLines: false,
+      colorPresetSettings: { dark: { candleUpBody: '#e85d04' } },
+    })
+    expect(resolved.showGridLines).toBe(false)
+    expect(resolved.colorPresetSettings).toEqual({
+      dark: { candleUpBody: '#e85d04' },
+    })
+  })
+})
+
+describe('loadStoredSettings', () => {
+  it('returns null when storage is empty or missing', () => {
+    expect(loadStoredSettings(null)).toBeNull()
+    expect(
+      loadStoredSettings({
+        getItem: () => null,
+      }),
+    ).toBeNull()
+  })
+
+  it('migrates persisted JSON', () => {
+    const storage = {
+      getItem: (key: string) =>
+        key === SETTINGS_STORAGE_KEY
+          ? JSON.stringify({ enableWebGLRendering: true, showGridLines: false })
+          : null,
+    }
+    expect(loadStoredSettings(storage)).toEqual({
+      rendererBackend: 'webgl',
+      showGridLines: false,
+    })
   })
 })

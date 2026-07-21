@@ -131,7 +131,14 @@
         </div>
         <Teleport v-if="tooltipLayerRef" :to="tooltipLayerRef">
           <template v-if="hoveredKLine && !isMobile">
-            <div v-if="slots['kline-tooltip']" :style="klineTooltipStyle">
+            <div
+              v-if="slots['kline-tooltip']"
+              class="kline-tooltip-host"
+              :class="{ 'is-draggable': isTooltipDraggable }"
+              :style="klineTooltipStyle"
+              @pointerdown="onTooltipPointerDown"
+              @dblclick="onTooltipDblClick"
+            >
               <slot
                 name="kline-tooltip"
                 :hover-data="hoveredKLine!"
@@ -160,7 +167,7 @@
                 class="kline-tooltip"
                 :class="{
                   'use-anchor': useAnchorPositioning,
-                  'is-draggable': (chartSettings?.tooltipPosition ?? 'adaptive') === 'adaptive',
+                  'is-draggable': isTooltipDraggable,
                 }"
                 :style="useAnchorPositioning ? undefined : { left: teleportedTooltipPos.x + 'px', top: teleportedTooltipPos.y + 'px' }"
                 @pointerdown="onTooltipPointerDown"
@@ -222,6 +229,7 @@
   import {
     SETTINGS_STORAGE_KEY,
     migrateStoredSettings,
+    resolveRuntimeSettings,
     resolveSettings,
     type ChartSettings,
   } from '@363045841yyt/klinechart-core/config'
@@ -303,7 +311,10 @@ import MarkerTooltip from './MarkerTooltip.vue'
       /** 时区，默认 Asia/Shanghai */
       timezone?: string
 
-      /** 初始化图表设置（传入后覆盖工具栏/localStorage 中的同名设置） */
+      /**
+       * 图表设置。传入后作为权威源：未写 key 走默认值，不合并 localStorage 幽灵字段。
+       * 未传时才从 localStorage 恢复用户偏好。
+       */
       settings?: Partial<ChartSettings>
 
       /** 用户自定义数据源（传入后 bypass fetcher，使用此数据） */
@@ -377,6 +388,16 @@ import MarkerTooltip from './MarkerTooltip.vue'
    * 存在 #legend 时完全替换主图左上角 Canvas 图例；字段与 core LegendTemplateContext 一致。
    */
   export type LegendSlotProps = LegendTemplateContext
+
+  /**
+   * 声明命名插槽作用域类型，供 Volar 在父组件模板中做 slot props 补全。
+   * @remarks 仅类型契约，运行时仍用 useSlots() 判断插槽是否存在。
+   */
+  defineSlots<{
+    legend(props: LegendSlotProps): unknown
+    'kline-tooltip'(props: KlineTooltipSlotProps): unknown
+    'marker-tooltip'(props: MarkerTooltipSlotProps): unknown
+  }>()
 
   // ── Symbol / Comparison State ──
 
@@ -553,8 +574,8 @@ import MarkerTooltip from './MarkerTooltip.vue'
   // ── Controller & Composable Wiring ──
   const controller = shallowRef<ChartController | null>(null)
 
-  // Resolve initial theme synchronously before first render
-  const _initialResolved = resolveSettings(props.settings)
+  // 有 settings prop 时 setup 阶段即解析，避免子组件先读 localStorage 造成闪色
+  const _initialResolved = resolveRuntimeSettings(props.settings)
   const _initialTheme: 'light' | 'dark' = (() => {
     const theme = _initialResolved.theme as string
     if (theme === 'auto') {
@@ -574,6 +595,10 @@ import MarkerTooltip from './MarkerTooltip.vue'
     handleSettingsChange,
     applyThemeFromSettings,
   } = useChartTheme(controller, _initialTheme)
+
+  if (props.settings !== undefined) {
+    chartSettings.value = _initialResolved
+  }
 
   const semanticController = shallowRef<SemanticChartController | null>(null)
 
@@ -1048,11 +1073,16 @@ import MarkerTooltip from './MarkerTooltip.vue'
     return wouldOverflowRight ? 'left-bottom' : 'right-bottom'
   })
 
+  /** adaptive 模式下 tooltip 可拖拽（内置与 #kline-tooltip 共用） */
+  const isTooltipDraggable = computed(
+    () => (chartSettings.value?.tooltipPosition ?? 'adaptive') === 'adaptive',
+  )
+
   const klineTooltipStyle = computed(() => ({
     left: `${teleportedTooltipPos.value.x}px`,
     top: `${teleportedTooltipPos.value.y}px`,
     position: 'absolute' as const,
-    pointerEvents: 'none' as const,
+    pointerEvents: (isTooltipDraggable.value ? 'auto' : 'none') as 'auto' | 'none',
     zIndex: 10,
   }))
   const markerTooltipStyle = computed(() => ({
@@ -1195,7 +1225,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
 
   // ── Tooltip Drag ──
   function onTooltipPointerDown(e: PointerEvent) {
-    if ((chartSettings.value?.tooltipPosition ?? 'adaptive') !== 'adaptive') return
+    if (!isTooltipDraggable.value) return
     e.preventDefault()
     e.stopPropagation()
     _tooltipDragOffset = {
@@ -1452,13 +1482,14 @@ import MarkerTooltip from './MarkerTooltip.vue'
   }
 
   function applyInitialSettings(ctrl: ChartController): void {
-    const toolbarSettings = migrateStoredSettings(
-      (toolbarRef.value?.getSettings() ?? {}) as Record<string, unknown>,
-    )
-    const propSettings = props.settings ?? {}
-    const merged = { ...toolbarSettings, ...propSettings }
-    chartSettings.value = merged
-    const resolved = resolveSettings(merged)
+    // settings prop 权威：不合并 toolbar/localStorage 幽灵字段
+    // 未传 prop 时才用工具栏当前值（通常来自 localStorage）
+    const storedOrToolbar =
+      props.settings === undefined
+        ? migrateStoredSettings((toolbarRef.value?.getSettings() ?? {}) as Record<string, unknown>)
+        : null
+    const resolved = resolveRuntimeSettings(props.settings, storedOrToolbar)
+    chartSettings.value = resolved
     ctrl.updateSettingsFacade(resolved)
     applyThemeFromSettings(resolved.theme as string)
   }
@@ -1656,14 +1687,15 @@ import MarkerTooltip from './MarkerTooltip.vue'
     },
   )
 
-  // 受控设置：外部 settings 变化时 merge 到当前设置并同步到控制器
+  // 受控设置：外部 settings 变化时整体替换（prop 权威，不与当前态/LS 浅合并）
   watch(
     () => props.settings,
     (next) => {
-      if (!next || !controller.value) return
-      const merged = { ...chartSettings.value, ...next }
-      chartSettings.value = merged
-      controller.value.updateSettingsFacade(resolveSettings(merged))
+      if (next === undefined || !controller.value) return
+      const resolved = resolveSettings(next)
+      chartSettings.value = resolved
+      controller.value.updateSettingsFacade(resolved)
+      applyThemeFromSettings(resolved.theme as string)
     },
     { deep: true },
   )
@@ -1960,11 +1992,13 @@ import MarkerTooltip from './MarkerTooltip.vue'
     backdrop-filter: blur(6px);
     user-select: none;
   }
-  .kline-tooltip.is-draggable {
+  .kline-tooltip.is-draggable,
+  .kline-tooltip-host.is-draggable {
     pointer-events: auto;
     cursor: grab;
   }
-  .kline-tooltip.is-draggable:active {
+  .kline-tooltip.is-draggable:active,
+  .kline-tooltip-host.is-draggable:active {
     cursor: grabbing;
   }
   .kline-tooltip__title {

@@ -158,6 +158,11 @@ export type ChartSettings = {
  * @param partial - 偏好的部分设置（通常是组件 prop 传入）
  * @returns 合并后的 ChartSettings 对象
  */
+const KNOWN_SETTING_KEYS = new Set<string>([
+  ...DEFAULT_SETTINGS.map((item) => item.key),
+  'colorPresetSettings',
+])
+
 export function resolveSettings(partial?: Partial<ChartSettings>): ChartSettings {
   // 用 Partial<_SettingByKey> 而非 ChartSettings 避免交叉类型索引赋值报错
   const result: Partial<_SettingByKey> = {}
@@ -170,6 +175,14 @@ export function resolveSettings(partial?: Partial<ChartSettings>): ChartSettings
   ;(result as ChartSettings).colorPresetSettings = normalizeColorPresetSettings(
     partial?.colorPresetSettings,
   )
+  // 保留扩展字段（如 preClose），避免业务元数据被 resolve 清掉
+  if (partial) {
+    for (const [key, value] of Object.entries(partial)) {
+      if (KNOWN_SETTING_KEYS.has(key)) continue
+      if (value === undefined) continue
+      ;(result as Record<string, unknown>)[key] = value
+    }
+  }
   return result as ChartSettings
 }
 
@@ -190,6 +203,49 @@ export function migrateStoredSettings(stored: Record<string, unknown>): Partial<
 
 /** localStorage 存储键名 */
 export const SETTINGS_STORAGE_KEY = 'kline-chart-settings'
+
+/**
+ * 从 storage 读取并迁移持久设置；无数据或解析失败时返回 null。
+ *
+ * @param storage - 可读 Storage；省略时尝试使用全局 localStorage
+ */
+export function loadStoredSettings(
+  storage: Pick<Storage, 'getItem'> | null | undefined =
+    typeof globalThis !== 'undefined' && 'localStorage' in globalThis
+      ? globalThis.localStorage
+      : null,
+): Partial<ChartSettings> | null {
+  if (!storage) return null
+  try {
+    const saved = storage.getItem(SETTINGS_STORAGE_KEY)
+    if (!saved) return null
+    return migrateStoredSettings(JSON.parse(saved) as Record<string, unknown>)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 解析运行时设置的权威源。
+ *
+ * @remarks
+ * - 传入 settings prop（含空对象）时：prop 为唯一权威源，未写 key 走 DEFAULT_SETTINGS，
+ *   不合并 localStorage 幽灵字段（避免注释掉 prop 字段后仍被持久配置顶回）
+ * - 未传 settings prop 时：localStorage + 默认值
+ *
+ * @param propSettings - 组件 settings prop；undefined 表示未传
+ * @param stored - 已读取的持久设置；省略时由 loadStoredSettings 读取
+ */
+export function resolveRuntimeSettings(
+  propSettings?: Partial<ChartSettings>,
+  stored?: Partial<ChartSettings> | null,
+): ChartSettings {
+  if (propSettings !== undefined) {
+    return resolveSettings(propSettings)
+  }
+  return resolveSettings(stored ?? loadStoredSettings() ?? undefined)
+}
+
 import {
   type ColorPresetSettings,
   normalizeColorPresetSettings,

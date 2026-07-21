@@ -180,13 +180,13 @@ Providing `#legend` fully replaces the default Canvas legend. The slot scope is 
 ```vue
 <template>
   <KlineChart>
-    <template #legend="{ ohlc, indicators, comparisons, colors }">
-      <div class="my-legend" v-if="ohlc">
-        <span :style="{ color: ohlc.color }">
-          O {{ ohlc.open.toFixed(2) }}
-          H {{ ohlc.high.toFixed(2) }}
-          L {{ ohlc.low.toFixed(2) }}
-          C {{ ohlc.close.toFixed(2) }}
+    <template #legend="{ currentBar, indicators, comparisons, colors }">
+      <div class="my-legend" v-if="currentBar">
+        <span :style="{ color: currentBar.color }">
+          O {{ currentBar.open.toFixed(2) }}
+          H {{ currentBar.high.toFixed(2) }}
+          L {{ currentBar.low.toFixed(2) }}
+          C {{ currentBar.close.toFixed(2) }}
         </span>
         <span v-for="ind in indicators" :key="ind.name" class="my-legend__ind">
           {{ ind.name }}
@@ -212,7 +212,9 @@ Providing `#legend` fully replaces the default Canvas legend. The slot scope is 
 
 ## 🎨 Custom Tooltip
 
-`KlineChart` exposes `#kline-tooltip` and `#marker-tooltip` slots for custom tooltip rendering. When a slot is provided, the default tooltip is replaced entirely, giving you full control over the display content and styling.
+`KlineChart` exposes `#kline-tooltip` and `#marker-tooltip` slots for custom tooltip rendering. When a slot is provided, the default tooltip content is replaced entirely, giving you full control over display content and styling.
+
+Positioning and drag stay owned by the chart: with `tooltipPosition === 'adaptive'` (default), a custom `#kline-tooltip` is also draggable; double-click resets.
 
 ### `#kline-tooltip`
 

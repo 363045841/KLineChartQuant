@@ -43,4 +43,13 @@ describe('settingsState', () => {
       ;(snap as { showGridLines?: boolean }).showGridLines = false
     }).toThrow()
   })
+
+  it('preserves extension keys like preClose through resolve/patch', () => {
+    expect(resolveSettings({ preClose: 12.34 }).preClose).toBe(12.34)
+    const s = createSettingsState({ preClose: 12.34 })
+    expect(s.readonly.settings.peek().preClose).toBe(12.34)
+    s.actions.patch({ showGridLines: false })
+    expect(s.readonly.settings.peek().preClose).toBe(12.34)
+    expect(s.readonly.settings.peek().showGridLines).toBe(false)
+  })
 })
