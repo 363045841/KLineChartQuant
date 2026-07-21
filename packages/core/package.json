@@ -14,8 +14,8 @@
     "./dist/engine/indicators/registerBuiltins.js",
     "./dist/engine/renderers/Indicator/*.js",
     "./dist/engine/renderers/subVolume.js",
-    "./src/data-fetchers/*.ts",
-    "./dist/data-fetchers/*.js"
+    "./src/data/*.ts",
+    "./dist/data/*.js"
   ],
   "main": "./dist/index.js",
   "module": "./dist/index.js",
