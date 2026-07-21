@@ -74,13 +74,17 @@ createApp(App).mount('#app')
         <span>{{ hoverData.stockCode }}</span>
         <span>{{ formatTimestamp(hoverData.timestamp, { timeZone: 'Asia/Shanghai' }) }}</span>
       </div>
-      <div class="custom-tooltip__price"
-           :style="{ color: hoverData.close >= hoverData.open ? upColor : downColor }">
+      <div
+        class="custom-tooltip__price"
+        :style="{ color: hoverData.close >= hoverData.open ? upColor : downColor }"
+      >
         {{ hoverData.close.toFixed(2) }}
       </div>
       <div class="custom-tooltip__detail">
-        O: {{ hoverData.open.toFixed(2) }}<br> H: {{ hoverData.high.toFixed(2) }}<br>
-        L: {{ hoverData.low.toFixed(2) }}<br> C: {{ hoverData.close.toFixed(2) }}
+        O: {{ hoverData.open.toFixed(2) }}<br />
+        H: {{ hoverData.high.toFixed(2) }}<br />
+        L: {{ hoverData.low.toFixed(2) }}<br />
+        C: {{ hoverData.close.toFixed(2) }}
       </div>
     </div>
   </template>
@@ -92,33 +96,42 @@ createApp(App).mount('#app')
 提供 `#legend` 时完全替换 Canvas 默认图例；作用域为完整 `LegendTemplateContext`（OHLC、分时、主图指标、对比品种、布局与颜色）。
 
 ```vue
-<template>
-  <KlineChart>
-    <template #legend="{ currentBar, indicators, comparisons, colors }">
-      <div class="my-legend" v-if="currentBar">
-        <span :style="{ color: currentBar.color }">
-          O {{ currentBar.open.toFixed(2) }}
-          H {{ currentBar.high.toFixed(2) }}
-          L {{ currentBar.low.toFixed(2) }}
-          C {{ currentBar.close.toFixed(2) }}
+<template #legend="{ index, currentBar, timeshare, indicators, comparisons, colors }">
+  <div class="my-legend">
+    <!-- PR #98 为 KLineData[] 添加的自定义字段会展开通过 currentBar 暴露 -->
+    <div v-if="currentBar" class="my-legend__row">
+      <span :style="{ color: currentBar.color }">
+        开盘 {{ currentBar.open.toFixed(2) }} 最高 {{ currentBar.high.toFixed(2) }} 最低
+        {{ currentBar.low.toFixed(2) }} 收盘 {{ currentBar.close.toFixed(2) }}
+      </span>
+      <span v-if="currentBar.volumeText"> Vol {{ currentBar.volumeText }}</span>
+    </div>
+
+    <div v-if="timeshare" class="my-legend__row">
+      <span :style="{ color: timeshare.changeColor }">
+        现价 {{ timeshare.price.toFixed(2) }} 涨幅 {{ timeshare.changePercent.toFixed(2) }}%
+      </span>
+    </div>
+
+    <!-- 使用主图指标图例数据 -->
+    <div v-for="indicator in indicators" :key="indicator.name" class="my-legend__row">
+      <span>{{ indicator.name }}:</span>
+      <template v-for="value in indicator.values" :key="value.label">
+        <span :style="{ color: value.color }">
+          {{ value.label }} {{ value.value.toFixed(3) }}
         </span>
-        <span v-for="ind in indicators" :key="ind.name" class="my-legend__ind">
-          {{ ind.name }}
-          <template v-if="ind.values">
-            <span
-              v-for="v in ind.values"
-              :key="v.label"
-              :style="{ color: v.color }"
-            >
-              {{ v.label }} {{ v.value.toFixed(3) }}
-            </span>
-          </template>
-        </span>
-        <span v-for="c in comparisons" :key="c.symbol" :style="{ color: c.percentColor }">
-          {{ c.symbol }} {{ c.percent > 0 ? '+' : '' }}{{ c.percent.toFixed(2) }}%
-        </span>
-      </div>
-    </template>
-  </KlineChart>
+      </template>
+    </div>
+    <!-- 使用比较商品数据 -->
+    <div
+      v-for="comparison in comparisons"
+      :key="comparison.symbol"
+      class="my-legend__row"
+      :style="{ color: comparison.percentColor }"
+    >
+      {{ comparison.symbol }}
+      {{ comparison.percent > 0 ? '+' : '' }}{{ comparison.percent.toFixed(2) }}%
+    </div>
+  </div>
 </template>
 ```

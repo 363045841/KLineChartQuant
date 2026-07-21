@@ -59,76 +59,32 @@ A lightweight financial K-line charting library focused on quantitative trading 
 
 ### Prerequisites
 
-The chart loads K-line / timeshare / depth via **DataFetcher**. For local development, keep related repos under the same parent directory:
+KLineChart requires a stock data backend. Please ensure `kmap` and `stockbao` are in the same directory:
 
 ```
 workspace/
-├── KLineChartQuant/      # This repository (frontend)
-├── stockbao/             # BaoStock backend (optional, port 8000)
-└── KlineChartQuantGo/    # TDX + Binance backends (optional, ports 8080 / 8081)
+├── KLineChartQuant/ # This repository
+└── stockbao/    # Data backend repository
 ```
-
-### Data Sources
-
-| Source `source` | Backend repo | Default port | Capabilities | How to start |
-|---|---|---|---|---|
-| `baostock` | [stockbao](https://github.com/363045841/stockbao) | `8000` | A-share K-lines (daily/weekly/monthly/5–60m) | see below |
-| `gotdx` | [KlineChartQuantGo](https://github.com/363045841/KlineChartQuantGo) `services/tdx-api` | `8080` | A-share + overseas K-lines, timeshare, ticks | see below |
-| `binance` | same repo `services/binance-api` | `8081` | Binance L2 depth (SSE) | see below |
-| `tradingview` / mock | none | — | demo / fixtures | built-in |
-
-**Pick a source** via symbol config:
-
-```ts
-// K-lines via gotdx
-{ symbol: '600519', period: 'daily', source: 'gotdx' }
-
-// K-lines via baostock
-{ symbol: 'sh.600519', period: 'daily', source: 'baostock' }
-
-// Depth heatmap via Binance SSE (default URL)
-import { BinanceSSESource, DEFAULT_BINANCE_SSE_URL } from '@363045841yyt/klinechart-core'
-const depth = new BinanceSSESource('btcusdt') // → http://localhost:8081/api/binance/depth-events
-```
-
-**Start backends (as needed):**
-
-```bash
-# 1) BaoStock — http://localhost:8000
-cd KLineChartQuant
-npm run stockbao
-# or: cd ../stockbao && uv run python ./server.py
-
-# 2) TDX gotdx — http://127.0.0.1:8080
-cd ../KlineChartQuantGo
-go run . tdx
-
-# 3) Binance depth — http://127.0.0.1:8081
-go run . binance
-# Set HTTP_PROXY / HTTPS_PROXY if Binance needs a proxy
-# (defaults to http://127.0.0.1:6666 when unset)
-```
-
-Frontend adapters:
-
-| Source | Adapter | Main endpoints |
-|---|---|---|
-| baostock | `packages/core/src/data/baostock.ts` | `GET :8000/api/stock/kdata?...` |
-| gotdx | `packages/core/src/data/gotdx.ts` | `POST :8080/api/stock/*`, `/api/ex/*` |
-| binance | `packages/core/src/data/binance.ts` | `GET :8081/api/binance/depth-events`, `/orderbook` |
-
-You can also skip backends entirely and pass inline bars via `customData` (see example below).
 
 ### 1. Clone Repositories
 
 ```bash
 git clone https://github.com/363045841/KLineChartQuant.git
-# optional backends
 git clone https://github.com/363045841/stockbao.git
-git clone https://github.com/363045841/KlineChartQuantGo.git
 ```
 
-### 2. Install and Use
+### 2. Start Data Backend
+
+```bash
+cd KLineChartQuant
+npm run stockbao
+```
+
+After startup, the API is available at `http://localhost:8000`
+
+
+### 3. Install and Use
 
 ```bash
 npm install @363045841yyt/klinechart @363045841yyt/klinechart-core
@@ -204,13 +160,17 @@ createApp(App).mount('#app')
         <span>{{ hoverData.stockCode }}</span>
         <span>{{ formatTimestamp(hoverData.timestamp, { timeZone: 'Asia/Shanghai' }) }}</span>
       </div>
-      <div class="custom-tooltip__price"
-           :style="{ color: hoverData.close >= hoverData.open ? upColor : downColor }">
+      <div
+        class="custom-tooltip__price"
+        :style="{ color: hoverData.close >= hoverData.open ? upColor : downColor }"
+      >
         {{ hoverData.close.toFixed(2) }}
       </div>
       <div class="custom-tooltip__detail">
-        O: {{ hoverData.open.toFixed(2) }}<br> H: {{ hoverData.high.toFixed(2) }}<br>
-        L: {{ hoverData.low.toFixed(2) }}<br> C: {{ hoverData.close.toFixed(2) }}
+        O: {{ hoverData.open.toFixed(2) }}<br />
+        H: {{ hoverData.high.toFixed(2) }}<br />
+        L: {{ hoverData.low.toFixed(2) }}<br />
+        C: {{ hoverData.close.toFixed(2) }}
       </div>
     </div>
   </template>
@@ -222,34 +182,43 @@ createApp(App).mount('#app')
 Providing `#legend` fully replaces the default Canvas legend. The slot scope is the full `LegendTemplateContext` (OHLC, timeshare, main indicators, comparisons, layout, colors).
 
 ```vue
-<template>
-  <KlineChart>
-    <template #legend="{ currentBar, indicators, comparisons, colors }">
-      <div class="my-legend" v-if="currentBar">
-        <span :style="{ color: currentBar.color }">
-          O {{ currentBar.open.toFixed(2) }}
-          H {{ currentBar.high.toFixed(2) }}
-          L {{ currentBar.low.toFixed(2) }}
-          C {{ currentBar.close.toFixed(2) }}
+<template #legend="{ index, currentBar, timeshare, indicators, comparisons, colors }">
+  <div class="my-legend">
+    <!-- Custom fields added to KLineData[] for PR #98 are exposed through currentBar -->
+    <div v-if="currentBar" class="my-legend__row">
+      <span :style="{ color: currentBar.color }">
+        开盘 {{ currentBar.open.toFixed(2) }} 最高 {{ currentBar.high.toFixed(2) }} 最低
+        {{ currentBar.low.toFixed(2) }} 收盘 {{ currentBar.close.toFixed(2) }}
+      </span>
+      <span v-if="currentBar.volumeText"> Vol {{ currentBar.volumeText }}</span>
+    </div>
+
+    <div v-if="timeshare" class="my-legend__row">
+      <span :style="{ color: timeshare.changeColor }">
+        现价 {{ timeshare.price.toFixed(2) }} 涨幅 {{ timeshare.changePercent.toFixed(2) }}%
+      </span>
+    </div>
+
+    <!-- Using main chart indicator legend data -->
+    <div v-for="indicator in indicators" :key="indicator.name" class="my-legend__row">
+      <span>{{ indicator.name }}:</span>
+      <template v-for="value in indicator.values" :key="value.label">
+        <span :style="{ color: value.color }">
+          {{ value.label }} {{ value.value.toFixed(3) }}
         </span>
-        <span v-for="ind in indicators" :key="ind.name" class="my-legend__ind">
-          {{ ind.name }}
-          <template v-if="ind.values">
-            <span
-              v-for="v in ind.values"
-              :key="v.label"
-              :style="{ color: v.color }"
-            >
-              {{ v.label }} {{ v.value.toFixed(3) }}
-            </span>
-          </template>
-        </span>
-        <span v-for="c in comparisons" :key="c.symbol" :style="{ color: c.percentColor }">
-          {{ c.symbol }} {{ c.percent > 0 ? '+' : '' }}{{ c.percent.toFixed(2) }}%
-        </span>
-      </div>
-    </template>
-  </KlineChart>
+      </template>
+    </div>
+    <!-- Using comparison commodity data -->
+    <div
+      v-for="comparison in comparisons"
+      :key="comparison.symbol"
+      class="my-legend__row"
+      :style="{ color: comparison.percentColor }"
+    >
+      {{ comparison.symbol }}
+      {{ comparison.percent > 0 ? '+' : '' }}{{ comparison.percent.toFixed(2) }}%
+    </div>
+  </div>
 </template>
 ```
 
@@ -312,7 +281,7 @@ Connect via MCP Inspector and call `chart.zoomToLevel`, `indicators.add`, etc.
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | semanticConfig | `SemanticChartConfig` | — | Semantic configuration (optional). When provided, drives chart data, indicators, markers and chart options |
-| dataFetcher | `DataFetcher` | built-in `routerDataFetcher` | Routes by `source` to registered adapters (baostock / gotdx / …); see **Data Sources** above |
+| dataFetcher | `DataFetcher` | built-in | Data fetching function. Defaults to an internal fetcher that proxies `/api/stock` |
 | theme | `'light' \| 'dark'` | — | Chart theme. Use `v-model:theme` for two-way binding |
 | isFullscreen | `boolean` | — | Controlled fullscreen state. Leave unbound for internal (non-controlled) mode |
 | timezone | `string` | `'Asia/Shanghai'` | Time zone for date/time display |
