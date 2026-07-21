@@ -28,6 +28,7 @@
         @update:is-fullscreen="isFullscreen = $event"
         @theme-change="onThemeChange"
       >
+        <!-- 自定义 Tooltip -->
         <!-- <template #kline-tooltip="{ hoverData, upColor, downColor }">
           <div class="custom-tooltip">
             <div class="custom-tooltip__title">
@@ -45,17 +46,17 @@
           </div>
         </template> -->
         <!-- 自定义主图左上角图例，替换默认 Canvas 图例并由调用方组合图例数据。 -->
-        <template #legend="{ ohlc, timeshare, indicators, comparisons, colors }">
+        <template #legend="{ index, currentBar, timeshare, indicators, comparisons, colors }">
           <div class="my-legend">
-            <template v-if="ohlc">
-              <span :style="{ color: ohlc.color }">
-                O {{ ohlc.open.toFixed(2) }} H {{ ohlc.high.toFixed(2) }} L
-                {{ ohlc.low.toFixed(2) }} C {{ ohlc.close.toFixed(2) }}
+            <template v-if="currentBar">
+              <span :style="{ color: currentBar.color }">
+                O {{ currentBar.open.toFixed(2) }} H {{ currentBar.high.toFixed(2) }} L
+                {{ currentBar.low.toFixed(2) }} C {{ currentBar.close.toFixed(2) }}
               </span>
-              <span v-if="ohlc.volumeText">Vol {{ ohlc.volumeText }}</span>
-              <!-- ohlc 保留 KLineData 自定义字段，可直接读取 strategySignal、confidence。 -->
-              <span v-if="ohlc.strategySignal" class="my-legend__signal">
-                {{ ohlc.strategySignal }} {{ ohlc.confidence }}%
+              <span v-if="currentBar.volumeText">Vol {{ currentBar.volumeText }}</span>
+              <!-- currentBar 保留 KLineData 自定义字段，可直接读取 strategySignal、confidence。 -->
+              <span v-if="currentBar.strategySignal" class="my-legend__signal">
+                {{ currentBar.strategySignal }} {{ currentBar.confidence }}%
               </span>
             </template>
 

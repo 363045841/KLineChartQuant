@@ -209,7 +209,7 @@ describe('KLineChart legend slot lifecycle', () => {
               hasCrosshair: props.hasCrosshair,
               layout: props.layout,
               colors: props.colors,
-              ohlc: props.ohlc,
+              currentBar: props.currentBar,
               timeshare: props.timeshare,
               indicators: props.indicators,
               comparisons: props.comparisons,
@@ -226,7 +226,7 @@ describe('KLineChart legend slot lifecycle', () => {
       hasCrosshair: true,
       layout: { x: 12, y: 16, lineHeight: 18, gap: 10, paneWidth: 800, compact: false },
       colors: { textPrimary: '#111111', textTertiary: '#777777', up: '#ff0000', down: '#00aa00' },
-      ohlc: {
+      currentBar: {
         open: 10,
         high: 12,
         low: 9,

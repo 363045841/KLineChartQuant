@@ -224,8 +224,8 @@ function paintLegendOnCanvas(overlayCtx: CanvasRenderingContext2D, legend: Legen
     }
   }
 
-  if (legend.ohlc) {
-    const k = legend.ohlc
+  if (legend.currentBar) {
+    const k = legend.currentBar
     if (!compact) {
       let x = legendX
       const y = rowY()

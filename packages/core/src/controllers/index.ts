@@ -54,6 +54,7 @@ export type {
   LegendTemplateContext,
   LegendRenderMode,
   LegendLayout,
+  LegendCurrentBar,
   LegendOhlcRow,
   LegendTimeshareRow,
   LegendIndicatorRow,
