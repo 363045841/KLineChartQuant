@@ -19,12 +19,10 @@ export interface LegendLayout {
 /** 当前 K 线及图例派生的展示字段，保留 KLineData 自定义属性。 */
 export type LegendCurrentBar = Omit<KLineData, 'volume'> & {
   volume: number | null
+  // 成交量+单位格式化文本(eg. 1.23亿)
   volumeText: string | null
   color: string
 }
-
-/** @deprecated 使用 LegendCurrentBar */
-export type LegendOhlcRow = LegendCurrentBar
 
 export interface LegendTimeshareRow {
   price: number
@@ -114,9 +112,7 @@ export function buildLegendTemplateContext(
   const range = context.range
   const crosshairIndex = context.crosshairIndex
   const hasCrosshair = typeof crosshairIndex === 'number'
-  const targetIndex = hasCrosshair
-    ? crosshairIndex
-    : Math.min(range.end - 1, klineData.length - 1)
+  const targetIndex = hasCrosshair ? crosshairIndex : Math.min(range.end - 1, klineData.length - 1)
 
   const layout: LegendLayout = {
     x: legendX,
@@ -130,7 +126,11 @@ export function buildLegendTemplateContext(
   let timeshare: LegendTimeshareRow | null = null
   if (context.period === 'timeshare') {
     const tsData = context.data as TimeShareData[]
-    const preClose = (context.settings?.preClose as number) ?? tsData[0]?.price ?? 0
+    const rawPreClose = context.settings?.preClose as number | undefined
+    const preClose =
+      typeof rawPreClose === 'number' && Number.isFinite(rawPreClose) && rawPreClose !== 0
+        ? rawPreClose
+        : (tsData[0]?.price ?? 0)
     const item = tsData[targetIndex]
     if (item) {
       const changeAmount = item.price - preClose
@@ -262,7 +262,11 @@ function collectComparisonRows(
       percent,
       color,
       percentColor:
-        percent > 0 ? colors.candleUpBody : percent < 0 ? colors.candleDownBody : colors.text.primary,
+        percent > 0
+          ? colors.candleUpBody
+          : percent < 0
+            ? colors.candleDownBody
+            : colors.text.primary,
     })
   }
   return rows

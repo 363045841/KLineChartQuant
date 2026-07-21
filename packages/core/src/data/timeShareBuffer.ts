@@ -21,6 +21,8 @@ export class TimeShareBuffer implements DataBufferLike {
   private _fetcher: TimeShareFetcherFn | null = null
   // 指定查询的历史日期（0 = 当天）
   private _queryDate = 0
+  // 昨收价（分时涨跌基准）；未设置时为 null
+  private _preClose: number | null = null
   // 请求序号，每次 load() 递增
   private _requestSeq = 0
   // 当前运行的 fetch Fiber 句柄，用于随时中断旧请求
@@ -64,6 +66,16 @@ export class TimeShareBuffer implements DataBufferLike {
     return this._queryDate
   }
 
+  getPreClose(): number | null {
+    return this._preClose
+  }
+
+  setPreClose(preClose: number | null): void {
+    if (preClose === null || (Number.isFinite(preClose) && preClose !== 0)) {
+      this._preClose = preClose
+    }
+  }
+
   load(spec: SymbolSpec): void {
     if (this._disposed) return
 
@@ -73,6 +85,9 @@ export class TimeShareBuffer implements DataBufferLike {
     }
 
     const requestSeq = ++this._requestSeq
+    // 新请求开始即清空旧点，避免历史日期切换时短暂显示另一天数据
+    this._data = []
+    this._dataSignal.set({ data: [], prependedCount: 0 })
     this._loadingSignal.set(true)
 
     const timeShareService: {

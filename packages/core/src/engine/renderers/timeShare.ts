@@ -8,6 +8,10 @@ import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import { resolveThemeColors } from '../../foundation/tokens/index'
 import type { TimeShareData } from '../../foundation/types/price'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry'
+import {
+  computeTimeSharePaneLayout,
+  resolveTimeShareBaseline,
+} from '../modes/timeShareMath'
 
 /** 成交量区域占 pane 高度的比例（底部） */
 const VOLUME_RATIO = 0.25
@@ -34,15 +38,17 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      const preClose = (settings?.preClose as number) ?? tsData[0]?.price ?? 0
-      if (preClose === 0) return
+      const preClose = resolveTimeShareBaseline({
+        preClose: settings?.preClose as number | undefined,
+        firstPrice: tsData[0]?.price,
+      })
+      if (preClose === null) return
 
       const paneHeight = pane.height
-      const volumeAreaHeight = Math.round(paneHeight * VOLUME_RATIO * dpr) / dpr
-      const priceAreaHeight = paneHeight - volumeAreaHeight
+      const layout = computeTimeSharePaneLayout(paneHeight, VOLUME_RATIO)
+      const { volumeAreaHeight, priceAreaHeight } = layout
 
       const { start, end } = range
-      const visibleCount = Math.min(end - start, tsData.length - start)
       const itemCount = Math.min(end, tsData.length) - start
 
       const xPositions: number[] = []
@@ -51,16 +57,19 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
       const volumes: number[] = []
       let maxVolume = 0
 
+      // 价格 Y 映射到 price 子区域：pane.yAxis 仍按全高，再线性压到 priceAreaHeight
+      const scaleYToPriceArea = (y: number) => (y / Math.max(paneHeight, 1)) * priceAreaHeight
+
       for (let i = start; i < start + itemCount; i++) {
         const item = tsData[i]
         if (!item) continue
         const x = kLineCenters[i - start]
         if (x === undefined) continue
         xPositions.push(x)
-        yPrices.push(pane.yAxis.priceToY(item.price))
-        yAvgs.push(pane.yAxis.priceToY(item.average))
+        yPrices.push(scaleYToPriceArea(pane.yAxis.priceToY(item.price)))
+        yAvgs.push(scaleYToPriceArea(pane.yAxis.priceToY(item.average)))
         volumes.push(item.volume ?? 0)
-        maxVolume = Math.max(maxVolume, item.volume)
+        maxVolume = Math.max(maxVolume, item.volume ?? 0)
       }
 
       if (xPositions.length < 2) return
@@ -68,7 +77,13 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
       ctx.save()
       ctx.translate(-scrollLeft, 0)
 
-      const preCloseY = pane.yAxis.priceToY(preClose)
+      const preCloseY = scaleYToPriceArea(pane.yAxis.priceToY(preClose))
+
+      // 价格区裁剪，避免线/填充画进成交量区（translate 后世界 scrollLeft 映射到 0）
+      ctx.save()
+      ctx.beginPath()
+      ctx.rect(scrollLeft, 0, context.paneWidth, priceAreaHeight)
+      ctx.clip()
 
       drawPreCloseLine(ctx, xPositions, preCloseY, dpr, colors.timeSharePreClose)
 
@@ -85,6 +100,7 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
       drawSegmentLine(ctx, xPositions, yPrices, dpr, colors.timeSharePriceLine, 2)
 
       drawSegmentLine(ctx, xPositions, yAvgs, dpr, colors.timeShareAvgLine, 1.5)
+      ctx.restore()
 
       drawVolumeBars(
         ctx,

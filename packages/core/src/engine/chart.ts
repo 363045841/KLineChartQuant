@@ -151,7 +151,13 @@ export class Chart {
     zoomLevel: number
     scaleTypes: Map<string, ScaleType>
     mainIndicators: Array<{ id: string; params: Record<string, number | boolean | string> }>
-    subPanes: Array<{ id: string; params: Record<string, unknown> }>
+    subPanes: Array<{
+      paneId: string
+      indicatorId: string
+      params: Record<string, unknown>
+    }>
+    paneRatios: Record<string, number>
+    candleEnabled: boolean
   } | null = null
 
   /** 上次预警评估的最新 K 线时间戳（用于去重） */
@@ -470,17 +476,21 @@ export class Chart {
     const prev = this._activeMode
 
     if (mode === this._timeShareMode) {
+      const candlePlugin = this.rendererPluginManager.getPlugin('candle')
       this._savedTimeShareState = {
         zoomLevel: this.kernel.zoom.readonly.zoomLevel.peek(),
         scaleTypes: new Map(this.kernel.pane.readonly.paneScaleTypes.peek()),
         mainIndicators: [],
         subPanes: [],
+        paneRatios: { ...this.kernel.pane.readonly.paneRatios.peek() },
+        candleEnabled: candlePlugin?.enabled !== false,
       }
       for (const [id, entry] of this.kernel.indicator.readonly.mainIndicators.peek()) {
         this._savedTimeShareState.mainIndicators.push({ id, params: { ...entry.params } })
       }
       this._savedTimeShareState.subPanes = this.indicatorManager.getSubPaneEntries().map((e) => ({
-        id: e.indicatorId,
+        paneId: e.paneId,
+        indicatorId: e.indicatorId,
         params: { ...e.params },
       }))
       // 分时强制 percent 进 kernel，再投影（不再由 updatePaneRange 每帧旁路写）
@@ -526,7 +536,7 @@ export class Chart {
 
     if (mode === this._timeShareMode) {
       for (const { id } of this._savedTimeShareState!.mainIndicators) {
-        if (id !== 'TIMESHARE') {
+        if (id !== 'TIMESHARE' && id !== 'timeShare') {
           this.indicatorManager.disableMainIndicator(id)
         }
       }
@@ -535,13 +545,26 @@ export class Chart {
       const saved = this._savedTimeShareState
       if (saved) {
         for (const { id, params } of saved.mainIndicators) {
-          if (id !== 'TIMESHARE') {
+          if (id !== 'TIMESHARE' && id !== 'timeShare') {
             this.indicatorManager.enableMainIndicator(id, params)
           }
         }
-        for (const { id, params } of saved.subPanes) {
-          this.indicatorManager.addIndicator(id, 'sub', params)
+        for (const { paneId, indicatorId, params } of saved.subPanes) {
+          this.indicatorManager.createSubPane(
+            paneId,
+            indicatorId as SubIndicatorType,
+            params as Record<string, number | boolean | string>,
+          )
         }
+        // 恢复进入分时前的 pane 比例（createSubPane 会重算 3:1 分配）
+        if (Object.keys(saved.paneRatios).length > 0) {
+          const specs = this.kernel.pane.readonly.paneSpecs.peek().map((pane) => ({
+            ...pane,
+            ratio: saved.paneRatios[pane.id] ?? pane.ratio,
+          }))
+          this.kernel.pane.actions.commitLayout(saved.paneRatios, specs)
+        }
+        this.setRendererEnabled('candle', saved.candleEnabled)
       }
       this._savedTimeShareState = null
     }

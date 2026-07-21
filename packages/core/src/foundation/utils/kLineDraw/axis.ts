@@ -12,6 +12,14 @@ import {
   findDayBoundaries,
 } from '../dateFormat'
 import { priceToY, yToPrice } from '../priceToY'
+import {
+  ASHARE_MARKET_SESSION,
+  computeTimeShareTimeLabels,
+  minuteOfDayToTimestamp,
+  resolveMarketSessionSlots,
+  timeShareSlotCenterX,
+  type MarketSessionConfig,
+} from '../timeShareAxisLabels'
 
 const textWidthCache = new Map<string, number>()
 const TEXT_WIDTH_CACHE_LIMIT = 512
@@ -63,6 +71,8 @@ export interface TimeAxisOptions {
   monthKeys?: Int32Array
   /** 预计算的日期键值数组（year*366+dayOfYear），与 data 长度一致 */
   dayKeys?: Int32Array
+  /** 分时市场 session；默认 A 股 */
+  marketSession?: MarketSessionConfig
 }
 
 export interface LastPriceLineOptions {
@@ -362,16 +372,47 @@ export function drawTimeAxis(
   let labelFn: (ts: number) => { text: string; isYear: boolean }
 
   if (isTimeShare) {
-    const visibleCount = endIndex - startIndex
-    const maxLabels = Math.max(2, Math.min(8, Math.floor(visibleCount / 2) || 1))
-    const step = Math.max(1, Math.floor(visibleCount / maxLabels))
-    boundaries = []
-    for (let i = 0; i <= maxLabels; i++) {
-      const idx = startIndex + Math.min(i * step, Math.max(0, visibleCount - 1))
-      boundaries.push(idx)
+    // 只画各区间闭侧端点；全天首/末槽贴边 left/right 对齐
+    const market = opts.marketSession ?? ASHARE_MARKET_SESSION
+    const sessionSlots = resolveMarketSessionSlots(market)
+    const labels = computeTimeShareTimeLabels({
+      axisWidth: width,
+      marketSession: market,
+      minLabelSpacingPx: 56,
+    })
+    const baseTs = data[0]?.timestamp ?? Date.now()
+    setCanvasFont(ctx, regularFont)
+    ctx.textBaseline = 'middle'
+    const edgePad = 2
+    const lastSlot = Math.max(0, sessionSlots - 1)
+    for (const label of labels) {
+      const ts = minuteOfDayToTimestamp(baseTs, label.minuteOfDay, market.timeZone)
+      const text = formatTimeLabel(ts)
+      const isDayStart = label.slotIndex === 0
+      const isDayEnd = label.slotIndex === lastSlot
+
+      let align: CanvasTextAlign = 'center'
+      let drawX: number
+      if (isDayStart) {
+        align = 'left'
+        drawX = x + edgePad
+      } else if (isDayEnd) {
+        align = 'right'
+        drawX = x + width - edgePad
+      } else {
+        const centerX = timeShareSlotCenterX(label.slotIndex, width, sessionSlots, dpr)
+        drawX = centerX - scrollLeft
+        if (drawX < edgePad || drawX > width - edgePad) continue
+      }
+
+      ctx.textAlign = align
+      ctx.fillText(text, roundToPhysicalPixel(drawX, dpr), alignToPhysicalPixelCenter(textY, dpr))
     }
-    labelFn = (ts) => ({ text: formatTimeLabel(ts), isYear: false })
-  } else if (isMinuteData) {
+    ctx.textAlign = 'center'
+    return
+  }
+
+  if (isMinuteData) {
     boundaries = findDayBoundaries(data, opts.dayKeys)
     labelFn = formatDay
   } else {

@@ -452,6 +452,16 @@ export class ChartDataManager {
     return buf ? buf.getRawData() : []
   }
 
+  getTimeSharePreClose(): number | null {
+    const buf = this.getActiveTimeShareBuffer()
+    return buf?.getPreClose() ?? null
+  }
+
+  setTimeSharePreClose(preClose: number | null): void {
+    const buf = this.getActiveTimeShareBuffer()
+    if (buf) buf.setPreClose(preClose)
+  }
+
   getTimeShareSignal(): ReadonlySignal<ReadonlyArray<TimeShareData>> {
     const buf = this.getActiveTimeShareBuffer()
     return (buf?.data ?? createSignal<ReadonlyArray<TimeShareData>>([])) as ReadonlySignal<
