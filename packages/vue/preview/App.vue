@@ -48,42 +48,45 @@
         <!-- 自定义主图左上角图例，替换默认 Canvas 图例并由调用方组合图例数据。 -->
         <template #legend="{ index, currentBar, timeshare, indicators, comparisons, colors }">
           <div class="my-legend">
-            <template v-if="currentBar">
+            <!-- PR #98 为 KLineData[] 添加的自定义字段会展开通过 currentBar 暴露 -->
+            <div v-if="currentBar" class="my-legend__row">
               <span :style="{ color: currentBar.color }">
-                O {{ currentBar.open.toFixed(2) }} H {{ currentBar.high.toFixed(2) }} L
-                {{ currentBar.low.toFixed(2) }} C {{ currentBar.close.toFixed(2) }}
+                O {{ currentBar.open.toFixed(2) }} H {{ currentBar.high.toFixed(2) }}
+                L {{ currentBar.low.toFixed(2) }} C {{ currentBar.close.toFixed(2) }}
               </span>
               <span v-if="currentBar.volumeText">Vol {{ currentBar.volumeText }}</span>
-              <!-- currentBar 保留 KLineData 自定义字段，可直接读取 strategySignal、confidence。 -->
-              <span v-if="currentBar.strategySignal" class="my-legend__signal">
-                {{ currentBar.strategySignal }} {{ currentBar.confidence }}%
-              </span>
-            </template>
+            </div>
 
-            <template v-if="timeshare">
+            <div v-if="timeshare" class="my-legend__row">
               <span :style="{ color: timeshare.changeColor }">
                 现价 {{ timeshare.price.toFixed(2) }} 涨幅
-                {{ timeshare.changePercent.toFixed(2) }}% </span
-              >/
-            </template>
+                {{ timeshare.changePercent.toFixed(2) }}%
+              </span>
+            </div>
 
-            <span v-for="indicator in indicators" :key="indicator.name">
-              {{ indicator.name }}
+            <!-- 主图指标图例 -->
+            <div
+              v-for="indicator in indicators"
+              :key="indicator.name"
+              class="my-legend__row"
+            >
+              <span>{{ indicator.name }}</span>
               <template v-for="value in indicator.values" :key="value.label">
                 <span :style="{ color: value.color }">
                   {{ value.label }} {{ value.value.toFixed(3) }}
                 </span>
               </template>
-            </span>
+            </div>
 
-            <span
+            <div
               v-for="comparison in comparisons"
               :key="comparison.symbol"
+              class="my-legend__row"
               :style="{ color: comparison.percentColor }"
             >
               {{ comparison.symbol }}
               {{ comparison.percent > 0 ? '+' : '' }}{{ comparison.percent.toFixed(2) }}%
-            </span>
+            </div>
           </div>
         </template>
       </KlineChart>
@@ -834,10 +837,18 @@
 
   .my-legend {
     display: flex;
-    flex-wrap: wrap;
-    gap: 4px 10px;
+    flex-direction: column;
+    gap: 2px;
     max-width: min(760px, calc(100vw - 96px));
     font-variant-numeric: tabular-nums;
+    line-height: 18px;
+  }
+
+  .my-legend__row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 10px;
+    align-items: baseline;
   }
 
   .my-legend__signal {
