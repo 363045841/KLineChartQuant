@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '../gotdx'
 import { getRegisteredFetcher } from '../fetcherDefinitionRegistry'
@@ -16,6 +16,10 @@ describe('gotdx fetcher', () => {
   beforeEach(() => {
     fetchMock.mockReset()
     vi.stubGlobal('fetch', fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   it('declares and implements symbol search', async () => {
@@ -68,6 +72,43 @@ describe('gotdx fetcher', () => {
     const [url, init] = fetchMock.mock.calls[0] ?? []
     expect(url).toBe('http://127.0.0.1:8080/api/stock/kline-by-date')
     expect(JSON.parse(String(init?.body))).toMatchObject({ market: 2, code: '920001' })
+  })
+
+  it('uses the default gotdx API base URL', async () => {
+    fetchMock.mockResolvedValue(jsonResponse([]))
+    const definition = getRegisteredFetcher('gotdx')
+
+    await definition?.fetcher('gotdx', {
+      symbol: '600519',
+      period: 'daily',
+      startDate: '2026-01-01',
+      endDate: '2026-01-31',
+      adjust: 'none',
+      exchange: 'SH',
+      params: { market: 1 },
+    })
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      'http://127.0.0.1:8080/api/stock/kline-by-date',
+    )
+  })
+
+  it('uses and normalizes VITE_GOTDX_API_BASE_URL', async () => {
+    vi.stubEnv('VITE_GOTDX_API_BASE_URL', 'http://gotdx.test:9090///')
+    fetchMock.mockResolvedValue(jsonResponse([]))
+    const definition = getRegisteredFetcher('gotdx')
+
+    await definition?.fetcher('gotdx', {
+      symbol: '600519',
+      period: 'daily',
+      startDate: '2026-01-01',
+      endDate: '2026-01-31',
+      adjust: 'none',
+      exchange: 'SH',
+      params: { market: 1 },
+    })
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('http://gotdx.test:9090/api/stock/kline-by-date')
   })
 
   it('uses params.category for extended-market requests', async () => {

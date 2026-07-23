@@ -31,7 +31,11 @@ const EXCHANGE_EX_CATEGORY: Record<string, number> = {
   DE: 73,
 }
 
-const BASE_URL = 'http://127.0.0.1:8080'
+const DEFAULT_BASE_URL = 'http://127.0.0.1:8080'
+
+function getBaseUrl(): string {
+  return (import.meta.env.VITE_GOTDX_API_BASE_URL || DEFAULT_BASE_URL).replace(/\/+$/, '')
+}
 
 function getShanghaiDateYYYYMMDD(): number {
   const formatter = new Intl.DateTimeFormat('zh-CN', {
@@ -66,7 +70,7 @@ async function fetchGotdxHistoryTick(
           : 0,
     code: config.symbol,
   }
-  const res = await fetch(`${BASE_URL}/api/stock/history-tick`, {
+  const res = await fetch(`${getBaseUrl()}/api/stock/history-tick`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -91,7 +95,7 @@ async function searchGotdx(
   _source: string,
   config: SearchConfig,
 ): Promise<ReadonlyArray<SearchResult>> {
-  const res = await fetch(`${BASE_URL}/api/symbol/search`, {
+  const res = await fetch(`${getBaseUrl()}/api/symbol/search`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query: config.query, limit: config.limit }),
@@ -191,7 +195,7 @@ async function fetchGotdx(_source: string, config: FetchConfig): Promise<Readonl
       end_date: config.endDate,
       times: 1,
     }
-    const res = await fetch(`${BASE_URL}/api/ex/kline-by-date`, {
+    const res = await fetch(`${getBaseUrl()}/api/ex/kline-by-date`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -222,7 +226,7 @@ async function fetchGotdx(_source: string, config: FetchConfig): Promise<Readonl
     times: 1,
     adjust,
   }
-  const res = await fetch(`${BASE_URL}/api/stock/kline-by-date`, {
+  const res = await fetch(`${getBaseUrl()}/api/stock/kline-by-date`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
