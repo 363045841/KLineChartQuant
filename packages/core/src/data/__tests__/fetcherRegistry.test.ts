@@ -5,11 +5,13 @@ import {
   DataFetcher,
   getRegisteredFetcher,
   getRegisteredFetcherNames,
+  fetcherHasCapability,
+  fetcherSupportsSearch,
   fetcherSupportsPeriod,
   clearRegisteredFetchersForTest,
 } from '../fetcherDefinitionRegistry'
-import { routerDataFetcher } from '../router'
-import type { DataFetcherFn } from '../types'
+import { routerDataFetcher, routerSearchFetchers } from '../router'
+import type { DataFetcherFn, SearchFetcherFn, SearchResult } from '../types'
 
 const mockFetch = vi.fn<() => Promise<ReadonlyArray<KLineData>>>()
 
@@ -234,5 +236,137 @@ describe('routerDataFetcher capability check', () => {
       /unknown source "nonexistent"/,
     )
     await expect(routerDataFetcher('nonexistent', defaultConfig)).rejects.toThrow(/baostock/)
+  })
+})
+
+describe('search fetcher registry and router', () => {
+  beforeEach(() => {
+    clearRegisteredFetchersForTest()
+  })
+
+  it('requires both the search capability and a searcher implementation', () => {
+    @DataFetcher({
+      name: 'searchable',
+      displayName: 'Searchable',
+      capabilities: ['daily', 'search'],
+    })
+    class SearchableFetcher {
+      static fetcher = fetchFn
+      static searcher: SearchFetcherFn = async () => []
+    }
+    void SearchableFetcher
+
+    @DataFetcher({ name: 'missing-capability', displayName: 'Missing capability' })
+    class MissingCapabilityFetcher {
+      static fetcher = fetchFn
+      static searcher: SearchFetcherFn = async () => []
+    }
+    void MissingCapabilityFetcher
+
+    expect(fetcherHasCapability('searchable', 'search')).toBe(true)
+    expect(fetcherSupportsSearch('searchable')).toBe(true)
+    expect(fetcherSupportsSearch('missing-capability')).toBe(false)
+  })
+
+  it('aggregates searchable fetchers and removes duplicate results', async () => {
+    @DataFetcher({ name: 'first', displayName: 'First', capabilities: ['search'] })
+    class FirstFetcher {
+      static fetcher = fetchFn
+      static searcher: SearchFetcherFn = async () =>
+        [
+          {
+            symbol: '600519',
+            description: '贵州茅台',
+            exchange: 'SH',
+            source: 'gotdx',
+            params: { market: 1 },
+          },
+        ] as SearchResult[]
+    }
+    void FirstFetcher
+
+    @DataFetcher({ name: 'second', displayName: 'Second', capabilities: ['search'] })
+    class SecondFetcher {
+      static fetcher = fetchFn
+      static searcher: SearchFetcherFn = async () =>
+        [
+          {
+            symbol: '600519',
+            description: '贵州茅台',
+            exchange: 'SH',
+            source: 'gotdx',
+            params: { market: 1 },
+          },
+          {
+            symbol: '00700',
+            description: '腾讯控股',
+            exchange: 'HK',
+            source: 'gotdx',
+            params: { category: 71 },
+          },
+        ] as SearchResult[]
+    }
+    void SecondFetcher
+
+    await expect(routerSearchFetchers({ query: '股', limit: 10 })).resolves.toEqual([
+      {
+        symbol: '600519',
+        description: '贵州茅台',
+        exchange: 'SH',
+        source: 'gotdx',
+        params: { market: 1 },
+      },
+      {
+        symbol: '00700',
+        description: '腾讯控股',
+        exchange: 'HK',
+        source: 'gotdx',
+        params: { category: 71 },
+      },
+    ])
+  })
+
+  it('returns successful results when another searcher fails', async () => {
+    @DataFetcher({ name: 'failed', displayName: 'Failed', capabilities: ['search'] })
+    class FailedFetcher {
+      static fetcher = fetchFn
+      static searcher: SearchFetcherFn = async () => Promise.reject(new Error('offline'))
+    }
+    void FailedFetcher
+
+    @DataFetcher({ name: 'working', displayName: 'Working', capabilities: ['search'] })
+    class WorkingFetcher {
+      static fetcher = fetchFn
+      static searcher: SearchFetcherFn = async () => [
+        {
+          symbol: '000001',
+          description: '平安银行',
+          exchange: 'SZ',
+          source: 'gotdx',
+        },
+      ]
+    }
+    void WorkingFetcher
+
+    await expect(routerSearchFetchers({ query: '平安' })).resolves.toHaveLength(1)
+  })
+
+  it('rejects when every searchable fetcher fails', async () => {
+    @DataFetcher({ name: 'failed', displayName: 'Failed', capabilities: ['search'] })
+    class FailedFetcher {
+      static fetcher = fetchFn
+      static searcher: SearchFetcherFn = async () => Promise.reject(new Error('offline'))
+    }
+    void FailedFetcher
+
+    await expect(routerSearchFetchers({ query: 'test' })).rejects.toThrow(
+      /all search fetchers failed/,
+    )
+  })
+
+  it('rejects when no fetcher supports search', async () => {
+    await expect(routerSearchFetchers({ query: 'test' })).rejects.toThrow(
+      /no registered fetcher supports search/,
+    )
   })
 })

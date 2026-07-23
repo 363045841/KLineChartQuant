@@ -75,6 +75,16 @@ describe('DataBuffer', () => {
     expect(endDate - startDate).toBeLessThanOrEqual(366 * MS_PER_DAY)
   })
 
+  it('passes data source params to the fetcher', async () => {
+    const fetcher = vi.fn<DataFetcher>().mockResolvedValue([makeKLine(Date.now())])
+    buffer.setFetcher(fetcher)
+    buffer.setSymbol({ ...defaultSpec, params: { market: 1 } })
+
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalled())
+
+    expect(fetcher.mock.calls[0]?.[1].params).toEqual({ market: 1 })
+  })
+
   it('ensureRange triggers incremental load when visible range is before loaded window', async () => {
     const now = Date.now()
     const oneYearAgo = now - 365 * MS_PER_DAY

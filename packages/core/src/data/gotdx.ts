@@ -2,7 +2,7 @@ import type { KLineData, TimeShareData } from '../controllers/types'
 import { KLineChartError } from '../errors'
 
 import { DataFetcher } from './fetcherDefinitionRegistry'
-import type { FetchConfig, TimeShareFetchConfig } from './types'
+import type { FetchConfig, SearchConfig, SearchResult, TimeShareFetchConfig } from './types'
 
 const PERIOD_TO_CATEGORY: Record<string, number> = {
   '1min': 8,
@@ -58,7 +58,12 @@ async function fetchGotdxHistoryTick(
 ): Promise<ReadonlyArray<TimeShareData>> {
   const body = {
     date: config.date ?? getShanghaiDateYYYYMMDD(),
-    market: config.symbol.startsWith('6') || config.symbol.startsWith('9') ? 1 : 0,
+    market:
+      typeof config.params?.market === 'number'
+        ? config.params.market
+        : config.symbol.startsWith('6') || config.symbol.startsWith('9')
+          ? 1
+          : 0,
     code: config.symbol,
   }
   const res = await fetch(`${BASE_URL}/api/stock/history-tick`, {
@@ -80,6 +85,25 @@ async function fetchGotdxHistoryTick(
     volume: item.Vol,
     amount: item.Price * item.Vol,
   }))
+}
+
+async function searchGotdx(
+  _source: string,
+  config: SearchConfig,
+): Promise<ReadonlyArray<SearchResult>> {
+  const res = await fetch(`${BASE_URL}/api/symbol/search`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: config.query, limit: config.limit }),
+    signal: config.signal,
+  })
+  if (!res.ok) {
+    throw new KLineChartError(
+      'FETCH_FAILED',
+      `[gotdx] symbol search failed: ${res.status} ${res.statusText}`,
+    )
+  }
+  return (await res.json()) as ReadonlyArray<SearchResult>
 }
 
 interface SecurityBar {
@@ -149,8 +173,15 @@ function mapExItem(item: ExKLineItem, code: string): KLineData {
 }
 
 async function fetchGotdx(_source: string, config: FetchConfig): Promise<ReadonlyArray<KLineData>> {
-  if (config.exchange && config.exchange in EXCHANGE_EX_CATEGORY) {
-    const category = EXCHANGE_EX_CATEGORY[config.exchange]
+  const explicitCategory = config.params?.category
+  if (
+    typeof explicitCategory === 'number' ||
+    (config.exchange && config.exchange in EXCHANGE_EX_CATEGORY)
+  ) {
+    const category =
+      typeof explicitCategory === 'number'
+        ? explicitCategory
+        : EXCHANGE_EX_CATEGORY[config.exchange as string]
     const period = PERIOD_TO_CATEGORY[config.period] ?? 4
     const body = {
       category,
@@ -174,7 +205,12 @@ async function fetchGotdx(_source: string, config: FetchConfig): Promise<Readonl
     return list.map((item) => mapExItem(item, config.symbol))
   }
 
-  const market = config.symbol.startsWith('6') || config.symbol.startsWith('9') ? 1 : 0
+  const market =
+    typeof config.params?.market === 'number'
+      ? config.params.market
+      : config.symbol.startsWith('6') || config.symbol.startsWith('9')
+        ? 1
+        : 0
   const category = PERIOD_TO_CATEGORY[config.period] ?? 4
   const adjust = ADJUST_MAP[config.adjust] ?? 0
   const body = {
@@ -216,9 +252,11 @@ async function fetchGotdx(_source: string, config: FetchConfig): Promise<Readonl
     'monthly',
     'quarterly',
     'yearly',
+    'search',
   ],
 })
 class GotdxFetcher {
   static fetcher = fetchGotdx
   static timeShareFetcher = fetchGotdxHistoryTick
+  static searcher = searchGotdx
 }

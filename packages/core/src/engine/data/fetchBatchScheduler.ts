@@ -74,6 +74,7 @@ export class FetchBatchScheduler {
             period: spec.period ?? 'daily',
             adjust: spec.adjust ?? 'none',
             exchange: spec.exchange,
+            params: spec.params,
           }).then(resolve, reject),
         ),
       )

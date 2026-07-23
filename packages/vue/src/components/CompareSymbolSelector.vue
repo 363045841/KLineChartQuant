@@ -110,7 +110,11 @@
           </div>
 
           <div class="compare-list" role="listbox" aria-label="商品列表">
-            <div v-if="filteredSymbols.length === 0" class="compare-list__empty">
+            <div v-if="searchLoading" class="compare-list__empty">
+              <span class="compare-chip__spinner" aria-hidden="true" />
+              <span>正在搜索</span>
+            </div>
+            <div v-else-if="comparisonSymbols.length === 0" class="compare-list__empty">
               <svg
                 width="32"
                 height="32"
@@ -129,10 +133,10 @@
                   stroke-linecap="round"
                 />
               </svg>
-              <span>未找到相关商品</span>
+              <span>{{ searchError ? '搜索失败' : '未找到相关商品' }}</span>
             </div>
             <button
-              v-for="item in filteredSymbols"
+              v-for="item in comparisonSymbols"
               :key="item.symbol"
               type="button"
               class="compare-list__item"
@@ -174,6 +178,11 @@
   import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 
   import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
+  import {
+    uniqueSymbolsByCode,
+    useSymbolSearch,
+    type SymbolSearchFn,
+  } from '../composables/useSymbolSearch'
   import { useTeleportedPopup } from '../composables/useTeleportedPopup'
 
   import type { SymbolItem } from './SymbolSelector.vue'
@@ -181,6 +190,7 @@
   const props = withDefaults(
     defineProps<{
       symbols: SymbolItem[]
+      search?: SymbolSearchFn<SymbolItem>
       selected?: string[]
       selectedItems?: SymbolItem[]
       comparisonColors?: Map<string, string>
@@ -219,16 +229,16 @@
     return props.symbols.filter((s) => set.has(s.symbol))
   })
 
-  const filteredSymbols = computed<SymbolItem[]>(() => {
-    const q = searchQuery.value.trim().toLowerCase()
-    if (!q) return props.symbols
-    return props.symbols.filter(
-      (s) =>
-        s.symbol.toLowerCase().includes(q) ||
-        s.description.toLowerCase().includes(q) ||
-        s.exchange.toLowerCase().includes(q),
-    )
+  const {
+    results: filteredSymbols,
+    loading: searchLoading,
+    error: searchError,
+  } = useSymbolSearch<SymbolItem>({
+    query: searchQuery,
+    symbols: computed(() => props.symbols),
+    search: computed(() => props.search),
   })
+  const comparisonSymbols = computed(() => uniqueSymbolsByCode(filteredSymbols.value))
 
   function isSelected(code: string): boolean {
     return selectedSet.value.has(code)

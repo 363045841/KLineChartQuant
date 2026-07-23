@@ -47,7 +47,6 @@
               autocomplete="off"
               spellcheck="false"
               aria-label="搜索商品"
-              @input="onSearchInput"
             />
             <button
               v-if="searchQuery"
@@ -74,7 +73,11 @@
           </div>
 
           <div class="symbol-list" role="listbox" aria-label="商品列表">
-            <div v-if="filteredSymbols.length === 0" class="symbol-list__empty">
+            <div v-if="searchLoading" class="symbol-list__empty">
+              <span class="symbol-chip__spinner" aria-hidden="true" />
+              <span>正在搜索</span>
+            </div>
+            <div v-else-if="filteredSymbols.length === 0" class="symbol-list__empty">
               <svg
                 width="32"
                 height="32"
@@ -93,11 +96,11 @@
                   stroke-linecap="round"
                 />
               </svg>
-              <span>未找到相关商品</span>
+              <span>{{ searchError ? '搜索失败' : '未找到相关商品' }}</span>
             </div>
             <button
               v-for="item in filteredSymbols"
-              :key="item.symbol"
+              :key="symbolIdentityKey(item)"
               type="button"
               class="symbol-list__item"
               :class="{ 'is-active': item.symbol === symbol }"
@@ -122,20 +125,22 @@
   import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 
   import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
+  import {
+    useSymbolSearch,
+    symbolIdentityKey,
+    type SearchableSymbol,
+    type SymbolSearchFn,
+  } from '../composables/useSymbolSearch'
   import { useTeleportedPopup } from '../composables/useTeleportedPopup'
 
   import IconTablerAlertTriangle from '~icons/tabler/alert-triangle'
 
-  export interface SymbolItem {
-    symbol: string
-    description: string
-    exchange: string
-    source: string
-  }
+  export interface SymbolItem extends SearchableSymbol {}
 
   const props = defineProps<{
     symbol: string
     symbols: SymbolItem[]
+    search?: SymbolSearchFn<SymbolItem>
     loading?: boolean
     error?: boolean
   }>()
@@ -168,15 +173,14 @@
     return props.symbol
   })
 
-  const filteredSymbols = computed<SymbolItem[]>(() => {
-    const q = searchQuery.value.trim().toLowerCase()
-    if (!q) return props.symbols
-    return props.symbols.filter(
-      (s) =>
-        s.symbol.toLowerCase().includes(q) ||
-        s.description.toLowerCase().includes(q) ||
-        s.exchange.toLowerCase().includes(q),
-    )
+  const {
+    results: filteredSymbols,
+    loading: searchLoading,
+    error: searchError,
+  } = useSymbolSearch<SymbolItem>({
+    query: searchQuery,
+    symbols: computed(() => props.symbols),
+    search: computed(() => props.search),
   })
 
   function togglePopup() {
@@ -198,8 +202,6 @@
     searchQuery.value = ''
     searchInputRef.value?.focus()
   }
-
-  function onSearchInput() {}
 
   function selectSymbol(item: SymbolItem) {
     emit('change', item)

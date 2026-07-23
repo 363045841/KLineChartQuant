@@ -4,6 +4,7 @@ import type {
   DataFetcherDefinitionConfig,
   DataFetcherDefinition,
   DataFetcherFn,
+  SearchFetcherFn,
   TimeShareFetcherFn,
 } from './types'
 
@@ -11,6 +12,7 @@ type DataFetcherClass = {
   new (...args: never[]): unknown
   fetcher: DataFetcherFn
   timeShareFetcher?: TimeShareFetcherFn
+  searcher?: SearchFetcherFn
 }
 
 const definitions = new Map<string, DataFetcherDefinition>()
@@ -37,6 +39,7 @@ export function DataFetcher(config: DataFetcherDefinitionConfig) {
         ...config,
         fetcher: this.fetcher,
         timeShareFetcher: this.timeShareFetcher,
+        searcher: this.searcher,
       })
     })
     // 返回原类，不改变类本身
@@ -56,7 +59,7 @@ function getRegisteredFetchers(): DataFetcherDefinition[] {
   return [...definitions.values()]
 }
 
-function fetcherHasCapability(name: string, capability: string): boolean {
+export function fetcherHasCapability(name: string, capability: string): boolean {
   return definitions.get(name)?.capabilities?.includes(capability) ?? false
 }
 
@@ -73,6 +76,15 @@ export function getTimeShareFetcher(name: string): TimeShareFetcherFn | undefine
 
 export function fetcherSupportsTimeShare(name: string): boolean {
   return typeof definitions.get(name)?.timeShareFetcher === 'function'
+}
+
+export function getSearchFetcher(name: string): SearchFetcherFn | undefined {
+  if (!fetcherHasCapability(name, 'search')) return undefined
+  return definitions.get(name)?.searcher
+}
+
+export function fetcherSupportsSearch(name: string): boolean {
+  return typeof getSearchFetcher(name) === 'function'
 }
 
 export function clearRegisteredFetchersForTest(): void {

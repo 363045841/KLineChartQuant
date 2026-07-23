@@ -3,6 +3,7 @@
     <TopToolbar
       :symbol="currentSymbol"
       :symbols="symbolPool"
+      :search="searchSymbols"
       :k-line-level="kLineLevel"
       :k-line-adjust="kLineAdjust"
       :symbol-loading="symbolStatus === 'loading'"
@@ -237,6 +238,7 @@
   import {
     createChartController,
     routerDataFetcher,
+    routerSearchFetchers,
     type ChartController,
     type InteractionSnapshot,
     type LegendTemplateContext,
@@ -471,6 +473,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
     const ctrl = controller.value
     if (!ctrl) return
     ctrl.setDataFetcher(effectiveDataFetcher.value)
+    ctrl.registerSymbols([item])
     const current = ctrl.symbols.peek() ?? []
     const comparisonSpecs = current.slice(1)
     ctrl.setSymbols([toSymbolSpec(item), ...comparisonSpecs])
@@ -482,6 +485,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
     const current = ctrl.symbols.peek()
     const currentCodes = current.map((s) => s.symbol)
     if (currentCodes.includes(item.symbol)) return
+    ctrl.registerSymbols([item])
     forcePercentAxis()
     ctrl.addComparisonSymbol(toSymbolSpec(item))
   }
@@ -496,10 +500,19 @@ import MarkerTooltip from './MarkerTooltip.vue'
       exchange: item.exchange,
       period: kLineLevel.value,
       source: item.source,
+      params: item.params,
       startDate: props.semanticConfig?.data?.startDate ?? '',
       endDate: props.semanticConfig?.data?.endDate ?? '',
       adjust: kLineAdjust.value,
     }
+  }
+
+  async function searchSymbols(
+    query: string,
+    limit: number,
+    signal: AbortSignal,
+  ): Promise<ReadonlyArray<SymbolItem>> {
+    return routerSearchFetchers({ query, limit, signal })
   }
 
   function syncSymbolsToController() {
@@ -1429,6 +1442,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
         description: info.description ?? info.symbol,
         exchange: info.exchange ?? '',
         source: info.source ?? '',
+        params: info.params,
       }))
     })
     // 立即同步当前值，确保 dropdown 在 subscribe 创建后立即拿到数据，
@@ -1438,30 +1452,49 @@ import MarkerTooltip from './MarkerTooltip.vue'
       description: info.description ?? info.symbol,
       exchange: info.exchange ?? '',
       source: info.source ?? '',
+      params: info.params,
     }))
 
     const unsubscribeSymbols = ctrl.symbols.subscribe(() => {
       const specs = ctrl.symbols.peek()
       if (specs.length === 0) return
       const primary = specs[0]
+      const primaryInfo = ctrl.symbolCatalog
+        .peek()
+        .find(
+          (info) =>
+            info.symbol === primary.symbol &&
+            info.source === primary.source &&
+            info.exchange === primary.exchange,
+        )
       currentSymbol.value = primary.symbol
       currentSymbolItem.value = {
         symbol: primary.symbol,
-        description: primary.symbol,
+        description: primaryInfo?.description ?? primary.symbol,
         exchange: primary.exchange ?? '',
         source: primary.source ?? '',
+        params: primary.params,
       }
       if (primary.period) kLineLevel.value = primary.period
       if (primary.adjust) kLineAdjust.value = primary.adjust as 'qfq' | 'hfq' | 'splits' | 'none'
 
       const comparisonSpecs = specs.slice(1)
       overlaySymbols.value = comparisonSpecs.map((s) => s.symbol)
-      overlaySymbolItems.value = comparisonSpecs.map((s) => ({
-        symbol: s.symbol,
-        description: s.symbol,
-        exchange: s.exchange ?? '',
-        source: s.source ?? '',
-      }))
+      overlaySymbolItems.value = comparisonSpecs.map((s) => {
+        const info = ctrl.symbolCatalog
+          .peek()
+          .find(
+            (item) =>
+              item.symbol === s.symbol && item.source === s.source && item.exchange === s.exchange,
+          )
+        return {
+          symbol: s.symbol,
+          description: info?.description ?? s.symbol,
+          exchange: s.exchange ?? '',
+          source: s.source ?? '',
+          params: s.params,
+        }
+      })
     })
 
     return () => {

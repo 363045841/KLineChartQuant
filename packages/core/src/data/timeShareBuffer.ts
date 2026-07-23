@@ -102,6 +102,7 @@ export class TimeShareBuffer implements DataBufferLike {
           return fetcher(s.source ?? 'gotdx', {
             symbol: s.symbol,
             exchange: s.exchange,
+            params: s.params,
             date,
           })
         }),

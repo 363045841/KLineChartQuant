@@ -11,12 +11,14 @@
       v-if="displaySymbol"
       :symbol="displaySymbol"
       :symbols="symbolPool"
+      :search="search"
       :loading="symbolLoading"
       :error="symbolError"
       @change="onSymbolSelectorChange"
     />
     <CompareSymbolSelector
       :symbols="symbolPool"
+      :search="search"
       :selected="overlaySymbols"
       :selected-items="overlaySymbolItems"
       :comparison-colors="comparisonColors"
@@ -53,6 +55,7 @@
   import KLineLevelDropdown, { type KLineLevel } from './KLineLevelDropdown.vue'
   import SymbolSelector from './SymbolSelector.vue'
   import type { SymbolItem } from './SymbolSelector.vue'
+  import type { SymbolSearchFn } from '../composables/useSymbolSearch'
 
   export type { SymbolItem }
 
@@ -96,6 +99,7 @@
     kLineLevel?: string
     kLineAdjust?: string
     symbols?: SymbolItem[]
+    search?: SymbolSearchFn<SymbolItem>
     symbolLoading?: boolean
     symbolError?: boolean
     overlaySymbols?: string[]
