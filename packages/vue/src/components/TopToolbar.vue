@@ -10,6 +10,7 @@
     <SymbolSelector
       v-if="displaySymbol"
       :symbol="displaySymbol"
+      :selected-item="symbolItem"
       :symbols="symbolPool"
       :search="search"
       :loading="symbolLoading"
@@ -96,6 +97,7 @@
 
   const props = defineProps<{
     symbol?: string
+    symbolItem?: SymbolItem
     kLineLevel?: string
     kLineAdjust?: string
     symbols?: SymbolItem[]

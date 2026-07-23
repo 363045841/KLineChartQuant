@@ -1,6 +1,7 @@
 import type { RendererPlugin, RenderContext } from '../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import type { KLineData } from '../../foundation/types/price'
+import { symbolSpecIdentityKey } from '../data/symbolIdentity'
 
 const DEFAULT_COMPARISON_COLOR = '#f59e0b'
 
@@ -34,7 +35,8 @@ export function createComparisonLineRenderer(): RendererPlugin {
 
       for (let symbolIndex = 0; symbolIndex < comparisonSymbols.length; symbolIndex++) {
         const spec = comparisonSymbols[symbolIndex]!
-        const data = comparisonData.get(spec.symbol)
+        const identity = symbolSpecIdentityKey(spec)
+        const data = comparisonData.get(identity)
         if (!data?.length) continue
 
         const baseline = baseDate
@@ -51,7 +53,7 @@ export function createComparisonLineRenderer(): RendererPlugin {
         const colors = context.comparisonColors
 
         ctx.beginPath()
-        ctx.strokeStyle = colors?.get(spec.symbol) ?? DEFAULT_COMPARISON_COLOR
+        ctx.strokeStyle = colors?.get(identity) ?? DEFAULT_COMPARISON_COLOR
         let hasPath = false
         let previousHadPoint = false
 

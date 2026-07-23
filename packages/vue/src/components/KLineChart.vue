@@ -2,6 +2,7 @@
   <div ref="chartWrapperRef" class="chart-wrapper" :data-theme="chartTheme" :style="themeCssVars">
     <TopToolbar
       :symbol="currentSymbol"
+      :symbol-item="currentSymbolItem ?? undefined"
       :symbols="symbolPool"
       :search="searchSymbols"
       :k-line-level="kLineLevel"
@@ -271,6 +272,7 @@
   import { useDrawingManager } from '../composables/chart/useDrawingManager'
   import { useIndicatorManager } from '../composables/chart/useIndicatorManager'
   import { useRangeSelection } from '../composables/chart/useRangeSelection'
+  import { symbolIdentityKey } from '../composables/useSymbolSearch'
   import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
 
   import BatchStockDialog from './BatchStockDialog.vue'
@@ -483,15 +485,15 @@ import MarkerTooltip from './MarkerTooltip.vue'
     const ctrl = controller.value
     if (!ctrl) return
     const current = ctrl.symbols.peek()
-    const currentCodes = current.map((s) => s.symbol)
-    if (currentCodes.includes(item.symbol)) return
+    const currentKeys = current.map(symbolIdentityKey)
+    if (currentKeys.includes(symbolIdentityKey(item))) return
     ctrl.registerSymbols([item])
     forcePercentAxis()
     ctrl.addComparisonSymbol(toSymbolSpec(item))
   }
 
-  function onRemoveOverlaySymbol(code: string) {
-    controller.value?.removeComparisonSymbol(code)
+  function onRemoveOverlaySymbol(identity: string) {
+    controller.value?.removeComparisonSymbol(identity)
   }
 
   function toSymbolSpec(item: SymbolItem): SymbolSpec {
@@ -1479,7 +1481,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
       if (primary.adjust) kLineAdjust.value = primary.adjust as 'qfq' | 'hfq' | 'splits' | 'none'
 
       const comparisonSpecs = specs.slice(1)
-      overlaySymbols.value = comparisonSpecs.map((s) => s.symbol)
+      overlaySymbols.value = comparisonSpecs.map(symbolIdentityKey)
       overlaySymbolItems.value = comparisonSpecs.map((s) => {
         const info = ctrl.symbolCatalog
           .peek()

@@ -18,6 +18,13 @@ export interface SearchableSymbol {
   params?: Readonly<Record<string, string | number | boolean>>
 }
 
+export type SymbolIdentity = {
+  symbol: string
+  exchange?: string
+  source?: string
+  params?: Readonly<Record<string, string | number | boolean>>
+}
+
 export type SymbolSearchFn<T extends SearchableSymbol = SearchableSymbol> = (
   query: string,
   limit: number,
@@ -40,18 +47,18 @@ function matchesQuery(item: SearchableSymbol, query: string): boolean {
   )
 }
 
-export function symbolIdentityKey(item: SearchableSymbol): string {
+export function symbolIdentityKey(item: SymbolIdentity): string {
   const params = Object.entries(item.params ?? {}).sort(([left], [right]) =>
     left.localeCompare(right),
   )
-  return JSON.stringify([item.source, item.exchange, item.symbol, params])
+  return JSON.stringify([item.source ?? '', item.exchange ?? '', item.symbol, params])
 }
 
-/** Comparison 当前以 symbol 作为唯一标识，同代码候选保留搜索排序最靠前的一项。 */
-export function uniqueSymbolsByCode<T extends SearchableSymbol>(symbols: ReadonlyArray<T>): T[] {
+export function uniqueSymbolsByIdentity<T extends SearchableSymbol>(symbols: ReadonlyArray<T>): T[] {
   const unique = new Map<string, T>()
   for (const item of symbols) {
-    if (!unique.has(item.symbol)) unique.set(item.symbol, item)
+    const key = symbolIdentityKey(item)
+    if (!unique.has(key)) unique.set(key, item)
   }
   return [...unique.values()]
 }

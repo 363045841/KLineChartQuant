@@ -1,10 +1,12 @@
 import type { KLineData, SymbolSpec } from '../../controllers/types'
 import type { KLineBuffer } from '../../data/dataBufferTypes'
 
+import { symbolSpecIdentityKey } from './symbolIdentity'
+
 const BUF_COMPARISON = 'cmp:'
 
-function comparisonKey(spec: SymbolSpec): string {
-  return `cmp:${spec.symbol}:${spec.period ?? 'daily'}`
+export function comparisonBufferKey(spec: SymbolSpec): string {
+  return `cmp:${symbolSpecIdentityKey(spec)}:${spec.period ?? 'daily'}`
 }
 
 function specsEqual(left: SymbolSpec | undefined, right: SymbolSpec): boolean {
@@ -45,15 +47,15 @@ export class ComparisonManager {
   get data(): Map<string, KLineData[]> {
     const result = new Map<string, KLineData[]>()
     for (const spec of this.hooks.getSpecs()) {
-      const buffer = this.hooks.getKLineBuffer(comparisonKey(spec))
-      if (buffer) result.set(spec.symbol, [...buffer.getRawData()])
+      const buffer = this.hooks.getKLineBuffer(comparisonBufferKey(spec))
+      if (buffer) result.set(symbolSpecIdentityKey(spec), [...buffer.getRawData()])
     }
     return result
   }
 
   reconcile(mainEarliest?: number): void {
     const specs = this.hooks.getSpecs()
-    const desired = new Map(specs.map((spec) => [comparisonKey(spec), spec]))
+    const desired = new Map(specs.map((spec) => [comparisonBufferKey(spec), spec]))
 
     for (const key of this.hooks.getKLineBufferKeys()) {
       if (key.startsWith(BUF_COMPARISON) && !desired.has(key)) this.removeRuntime(key)
@@ -87,13 +89,15 @@ export class ComparisonManager {
     this.hooks.setLoading(false)
   }
 
-  setData(symbol: string, data: KLineData[]): boolean {
-    const spec = this.hooks.getSpecs().find((candidate) => candidate.symbol === symbol)
+  setData(identity: string, data: KLineData[]): boolean {
+    const spec = this.hooks
+      .getSpecs()
+      .find((candidate) => symbolSpecIdentityKey(candidate) === identity || candidate.symbol === identity)
     if (!spec) return false
-    let buffer = this.hooks.getKLineBuffer(comparisonKey(spec))
+    let buffer = this.hooks.getKLineBuffer(comparisonBufferKey(spec))
     if (!buffer) {
       this.reconcile()
-      buffer = this.hooks.getKLineBuffer(comparisonKey(spec))
+      buffer = this.hooks.getKLineBuffer(comparisonBufferKey(spec))
     }
     if (!buffer) return false
     buffer.setInlineData(data)
@@ -102,7 +106,9 @@ export class ComparisonManager {
 
   ensureRange(firstVisibleTs: number, windowEarliestTs: number): void {
     for (const spec of this.hooks.getSpecs()) {
-      this.hooks.getKLineBuffer(comparisonKey(spec))?.ensureRange(firstVisibleTs, windowEarliestTs)
+      this.hooks
+        .getKLineBuffer(comparisonBufferKey(spec))
+        ?.ensureRange(firstVisibleTs, windowEarliestTs)
     }
   }
 
@@ -123,7 +129,7 @@ export class ComparisonManager {
   private recomputeLoading(): void {
     const anyLoading = this.hooks
       .getSpecs()
-      .some((spec) => this.hooks.getKLineBuffer(comparisonKey(spec))?.loading.peek() === true)
+      .some((spec) => this.hooks.getKLineBuffer(comparisonBufferKey(spec))?.loading.peek() === true)
     this.hooks.setLoading(anyLoading)
   }
 }

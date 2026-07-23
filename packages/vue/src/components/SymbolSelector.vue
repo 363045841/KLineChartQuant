@@ -103,9 +103,9 @@
               :key="symbolIdentityKey(item)"
               type="button"
               class="symbol-list__item"
-              :class="{ 'is-active': item.symbol === symbol }"
+              :class="{ 'is-active': symbolIdentityKey(item) === selectedKey }"
               role="option"
-              :aria-selected="item.symbol === symbol"
+              :aria-selected="symbolIdentityKey(item) === selectedKey"
               @click="selectSymbol(item)"
             >
               <span class="symbol-list__left">
@@ -139,6 +139,7 @@
 
   const props = defineProps<{
     symbol: string
+    selectedItem?: SymbolItem
     symbols: SymbolItem[]
     search?: SymbolSearchFn<SymbolItem>
     loading?: boolean
@@ -163,8 +164,14 @@
     8,
   )
 
+  const selectedKey = computed(() =>
+    props.selectedItem ? symbolIdentityKey(props.selectedItem) : undefined,
+  )
+
   const currentSymbol = computed<SymbolItem | undefined>(() =>
-    props.symbols.find((s) => s.symbol === props.symbol),
+    selectedKey.value
+      ? props.symbols.find((s) => symbolIdentityKey(s) === selectedKey.value)
+      : props.symbols.find((s) => s.symbol === props.symbol),
   )
 
   const displayText = computed(() => {

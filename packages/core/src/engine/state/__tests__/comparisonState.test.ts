@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createSignal } from '../../../foundation/reactivity/signal'
+import { symbolSpecIdentityKey } from '../../data/symbolIdentity'
 import { ChartStateKernel } from '../chartStateKernel'
 import { createComparisonState } from '../comparisonState'
 
@@ -98,7 +99,11 @@ describe('ChartStateKernel comparison selection transaction', () => {
 
     expect(snapshots.length).toBeGreaterThan(0)
     expect(snapshots).toEqual(
-      snapshots.map(() => ({ symbols: ['MAIN', 'CMP'], specs: ['CMP'], colors: ['CMP'] })),
+      snapshots.map(() => ({
+        symbols: ['MAIN', 'CMP'],
+        specs: ['CMP'],
+        colors: [symbolSpecIdentityKey({ symbol: 'CMP', period: 'daily' })],
+      })),
     )
   })
 })

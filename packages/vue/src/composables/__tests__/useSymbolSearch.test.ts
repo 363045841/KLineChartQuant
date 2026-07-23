@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   symbolIdentityKey,
-  uniqueSymbolsByCode,
+  uniqueSymbolsByIdentity,
   useSymbolSearch,
   type SearchableSymbol,
   type SymbolSearchFn,
@@ -100,11 +100,11 @@ describe('useSymbolSearch', () => {
     expect(symbolIdentityKey(main)).not.toBe(symbolIdentityKey(extended))
   })
 
-  it('keeps one comparison candidate per symbol code', () => {
+  it('keeps comparison candidates with the same code but distinct identities', () => {
     const first = { ...catalog[0]!, params: { market: 1 } }
     const duplicate = { ...catalog[0]!, exchange: 'CN', params: { category: 1 } }
 
-    expect(uniqueSymbolsByCode([first, duplicate])).toEqual([first])
+    expect(uniqueSymbolsByIdentity([first, duplicate])).toEqual([first, duplicate])
   })
 
   it('keeps local results and exposes an error when remote search fails', async () => {

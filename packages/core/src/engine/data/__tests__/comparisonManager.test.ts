@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import type { SymbolSpec } from '../../../controllers/types'
-import { ComparisonManager } from '../comparisonManager'
+import { comparisonBufferKey, ComparisonManager } from '../comparisonManager'
 
 function createHarness() {
   let specs: ReadonlyArray<SymbolSpec> = []
@@ -16,7 +16,7 @@ function createHarness() {
     }
   >()
   const createComparisonBuffer = vi.fn((spec: SymbolSpec) => {
-    const key = `cmp:${spec.symbol}:${spec.period ?? 'daily'}`
+    const key = comparisonBufferKey(spec)
     const buffer = {
       loading: { peek: () => false, subscribe: () => () => {} },
       data: { subscribe: () => () => {} },
@@ -68,7 +68,20 @@ describe('ComparisonManager runtime projection', () => {
     harness.manager.reconcile()
 
     expect(harness.createComparisonBuffer).toHaveBeenCalledTimes(1)
-    expect([...harness.buffers.keys()]).toEqual(['cmp:A:daily'])
+    expect([...harness.buffers.keys()]).toEqual([comparisonBufferKey({ symbol: 'A', period: 'daily' })])
+  })
+
+  it('keeps separate buffers for the same code from different exchanges', () => {
+    const harness = createHarness()
+    harness.setSpecs([
+      { symbol: '000001', exchange: 'SH', source: 'gotdx', period: 'daily', params: { market: 1 } },
+      { symbol: '000001', exchange: 'SZ', source: 'gotdx', period: 'daily', params: { market: 0 } },
+    ])
+
+    harness.manager.reconcile()
+
+    expect(harness.createComparisonBuffer).toHaveBeenCalledTimes(2)
+    expect(harness.buffers.size).toBe(2)
   })
 
   it('removes runtime buffers that are absent from desired specs', () => {
@@ -82,7 +95,7 @@ describe('ComparisonManager runtime projection', () => {
     harness.setSpecs([{ symbol: 'B', period: 'daily' }])
     harness.manager.reconcile()
 
-    expect([...harness.buffers.keys()]).toEqual(['cmp:B:daily'])
+    expect([...harness.buffers.keys()]).toEqual([comparisonBufferKey({ symbol: 'B', period: 'daily' })])
     expect(harness.manager.specs).toEqual([{ symbol: 'B', period: 'daily' }])
   })
 
@@ -93,7 +106,9 @@ describe('ComparisonManager runtime projection', () => {
     harness.setSpecs([{ symbol: 'A', period: 'daily' }])
     harness.manager.reconcile()
     expect(harness.manager.setData('A', [])).toBe(true)
-    expect(harness.buffers.get('cmp:A:daily')?.setInlineData).toHaveBeenCalledWith([])
+    expect(
+      harness.buffers.get(comparisonBufferKey({ symbol: 'A', period: 'daily' }))?.setInlineData,
+    ).toHaveBeenCalledWith([])
   })
 
   it('clearAll only clears runtime resources and loading', () => {
