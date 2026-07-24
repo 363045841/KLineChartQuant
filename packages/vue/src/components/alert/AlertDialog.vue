@@ -76,14 +76,12 @@
                 <span class="rule-item-predicate">{{ describePredicate(rule) }}</span>
               </div>
               <div class="rule-item-actions">
-                <label class="rule-toggle" :title="rule.enabled ? '禁用' : '启用'">
-                  <input
-                    type="checkbox"
-                    :checked="rule.enabled"
-                    @change="toggleRule(rule.id, !rule.enabled)"
-                  />
-                  <span class="rule-toggle-slider"></span>
-                </label>
+                <ToggleSwitch
+                  :model-value="rule.enabled"
+                  :title="rule.enabled ? '禁用' : '启用'"
+                  :aria-label="`${rule.name}启用状态`"
+                  @update:model-value="toggleRule(rule.id, $event)"
+                />
                 <button class="rule-item-btn" title="编辑" @click="startEditRule(rule)">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M4 20h4L18.5 9.5a2 2 0 0 0-3-3L4 16v4" />
@@ -222,6 +220,7 @@
 
   import { useAlerts } from '../../composables/useAlerts'
   import BaseModal from '../BaseModal.vue'
+  import ToggleSwitch from '../common/ToggleSwitch.vue'
 
   import AlertRuleForm from './AlertRuleForm.vue'
 
@@ -687,58 +686,6 @@
   .rule-meta-icon {
     width: 10px;
     height: 10px;
-  }
-
-  /* ══════════════════════════════════════════
-   Toggle Switch
-══════════════════════════════════════════ */
-  .rule-toggle {
-    position: relative;
-    display: inline-block;
-    width: 32px;
-    height: 18px;
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-
-  .rule-toggle input {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-  }
-
-  .rule-toggle-slider {
-    position: absolute;
-    inset: 0;
-    background: var(--klc-color-border-button);
-    border-radius: 999px;
-    transition: background 0.2s;
-  }
-
-  .rule-toggle-slider::before {
-    content: '';
-    position: absolute;
-    left: 2px;
-    top: 2px;
-    width: 14px;
-    height: 14px;
-    background: #fff;
-    border-radius: 50%;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .rule-toggle input:checked + .rule-toggle-slider {
-    background: #3b82f6;
-  }
-
-  .rule-toggle input:checked + .rule-toggle-slider::before {
-    transform: translateX(14px);
-  }
-
-  .rule-toggle:hover .rule-toggle-slider {
-    filter: brightness(1.08);
   }
 
   /* ══════════════════════════════════════════

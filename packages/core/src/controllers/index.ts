@@ -80,6 +80,12 @@ export {
   baostockDataFetcher,
   routerDataFetcher,
   routerSearchFetchers,
+  getRegisteredFetchers,
+  setFetcherBaseUrl,
+  getFetcherBaseUrl,
+  composeFetcherBaseUrl,
+  parseFetcherEndpoint,
+  clearFetcherBaseUrlsForTest,
   DataBuffer,
   BinanceSSESource,
   DEFAULT_BINANCE_SSE_URL,
@@ -93,6 +99,7 @@ export type {
   DepthSourceStatus,
   SearchConfig,
   SearchResult,
+  DataFetcherDefinition,
 } from '../data'
 
 // Heatmap controller (depth pipeline rendering half)

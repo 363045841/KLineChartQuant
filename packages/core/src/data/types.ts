@@ -32,6 +32,7 @@ export interface SearchConfig {
   query: string
   limit?: number
   signal?: AbortSignal
+  sources?: ReadonlyArray<string>
 }
 
 export interface SearchResult {
@@ -53,6 +54,11 @@ export interface DataFetcherDefinitionConfig {
   description?: string
   version?: string
   capabilities?: string[]
+  /**
+   * 网络数据源的默认 Base URL
+   * 有此字段时聚合源面板可编辑地址与端口；本地 mock 等无网络源不填
+   */
+  defaultBaseUrl?: string
 }
 
 export interface DataFetcherDefinition extends DataFetcherDefinitionConfig {

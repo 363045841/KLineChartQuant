@@ -351,6 +351,37 @@ describe('search fetcher registry and router', () => {
     await expect(routerSearchFetchers({ query: '平安' })).resolves.toHaveLength(1)
   })
 
+  it('searches only the explicitly enabled fetchers', async () => {
+    const firstSearch = vi.fn<SearchFetcherFn>().mockResolvedValue([])
+    const secondSearch = vi.fn<SearchFetcherFn>().mockResolvedValue([])
+
+    @DataFetcher({ name: 'first', displayName: 'First', capabilities: ['search'] })
+    class FirstFetcher {
+      static fetcher = fetchFn
+      static searcher = firstSearch
+    }
+    void FirstFetcher
+
+    @DataFetcher({ name: 'second', displayName: 'Second', capabilities: ['search'] })
+    class SecondFetcher {
+      static fetcher = fetchFn
+      static searcher = secondSearch
+    }
+    void SecondFetcher
+
+    await routerSearchFetchers({ query: 'test', sources: ['second'] })
+
+    expect(firstSearch).not.toHaveBeenCalled()
+    expect(secondSearch).toHaveBeenCalledWith('second', {
+      query: 'test',
+      sources: ['second'],
+    })
+  })
+
+  it('returns no results when every search fetcher is disabled', async () => {
+    await expect(routerSearchFetchers({ query: 'test', sources: [] })).resolves.toEqual([])
+  })
+
   it('rejects when every searchable fetcher fails', async () => {
     @DataFetcher({ name: 'failed', displayName: 'Failed', capabilities: ['search'] })
     class FailedFetcher {

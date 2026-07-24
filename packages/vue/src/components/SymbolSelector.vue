@@ -70,6 +70,7 @@
                 <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
               </svg>
             </button>
+            <AggregationSourceButton @click="emit('manageSources')" />
           </div>
 
           <div class="symbol-list" role="listbox" aria-label="商品列表">
@@ -133,6 +134,7 @@
   } from '../composables/useSymbolSearch'
   import { useTeleportedPopup } from '../composables/useTeleportedPopup'
 
+  import AggregationSourceButton from './AggregationSourceButton.vue'
   import IconTablerAlertTriangle from '~icons/tabler/alert-triangle'
 
   export interface SymbolItem extends SearchableSymbol {}
@@ -148,6 +150,7 @@
 
   const emit = defineEmits<{
     (e: 'change', symbol: SymbolItem): void
+    (e: 'manageSources'): void
   }>()
 
   const showPopup = ref(false)

@@ -1,6 +1,7 @@
 import type { KLineData } from '../controllers/types'
 import { KLineChartError } from '../errors'
 
+import { getFetcherBaseUrl } from './fetcherBaseUrl'
 import { DataFetcher } from './fetcherDefinitionRegistry'
 import type { FetchConfig } from './types'
 
@@ -20,7 +21,8 @@ const ADJUST_TO_TV: Record<string, string | undefined> = {
   none: 'none',
 }
 
-const BASE_URL = 'http://localhost:8000'
+/** TradingView 本地代理默认地址；运行时由聚合源面板覆盖 */
+const DEFAULT_BASE_URL = 'http://localhost:8000'
 
 async function fetchTradingview(
   _source: string,
@@ -32,7 +34,8 @@ async function fetchTradingview(
   const tvAdjust = ADJUST_TO_TV[config.adjust]
   const exchangeQ = config.exchange ? `&exchange=${config.exchange}` : ''
   const adjustQ = tvAdjust ? `&adjust=${tvAdjust}` : ''
-  const url = `${BASE_URL}/api/tradingview/kdata?symbol=${config.symbol}&timeframe=${timeframe}&start_date=${startDate}&end_date=${endDate}${exchangeQ}${adjustQ}`
+  const baseUrl = getFetcherBaseUrl('tradingview', DEFAULT_BASE_URL)
+  const url = `${baseUrl}/api/tradingview/kdata?symbol=${config.symbol}&timeframe=${timeframe}&start_date=${startDate}&end_date=${endDate}${exchangeQ}${adjustQ}`
   try {
     const res = await fetch(url)
     if (!res.ok) {
@@ -69,6 +72,7 @@ async function fetchTradingview(
   displayName: 'TradingView',
   description: 'TradingView-style data source via local proxy',
   version: '1.0.0',
+  defaultBaseUrl: DEFAULT_BASE_URL,
   capabilities: ['daily', 'weekly', 'monthly', '5min', '15min', '30min', '60min'],
 })
 class TradingviewFetcher {

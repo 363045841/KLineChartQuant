@@ -13,12 +13,17 @@
       :overlay-symbol-items="overlaySymbolItems"
       :comparison-colors="comparisonColorsMap"
       :comparison-loading="comparisonLoading"
+      :aggregation-sources="aggregationSources"
+      :enabled-source-names="enabledSourceNameSet"
+      :source-endpoints="sourceEndpoints"
       :show-back-button="kLineLevel === 'timeshare'"
       @add-overlay-symbol="onAddOverlaySymbol"
       @remove-overlay-symbol="onRemoveOverlaySymbol"
       @k-line-level-change="onKLineLevelChange"
       @k-line-adjust-change="onKLineAdjustChange"
       @symbol-change="onSymbolChange"
+      @toggle-aggregation-source="setAggregationSourceEnabled"
+      @update-source-endpoint="setAggregationSourceEndpoint"
       @back="onBackFromTimeShare"
     />
     <div
@@ -39,12 +44,17 @@
         :renderer-runtime="rendererRuntime"
         :drawing-tool-id="drawingToolId"
         :is-range-select-mode="isRangeSelectMode"
+        :aggregation-sources="aggregationSources"
+        :enabled-source-names="enabledSourceNameSet"
+        :source-endpoints="sourceEndpoints"
         @select-tool="handleSelectTool"
         @toggle-indicator="onToggleIndicator"
         @toggle-fullscreen="handleToggleFullscreen"
         @zoom-in="applyZoomToLevel(zoomLevel + 1)"
         @zoom-out="applyZoomToLevel(zoomLevel - 1)"
         @settings-change="handleSettingsChange"
+        @toggle-aggregation-source="setAggregationSourceEnabled"
+        @update-source-endpoint="setAggregationSourceEndpoint"
       />
       <div ref="chartMainRef" class="chart-main">
         <div class="pane-separator-layer" aria-hidden="true">
@@ -240,6 +250,7 @@
     createChartController,
     routerDataFetcher,
     routerSearchFetchers,
+    getRegisteredFetchers,
     type ChartController,
     type InteractionSnapshot,
     type LegendTemplateContext,
@@ -263,9 +274,18 @@
     shallowRef,
     useSlots,
   } from 'vue'
+  import { useAggregationSources } from '../composables/useAggregationSources'
   import { formatTimestamp } from '@363045841yyt/klinechart-core'
 
   const slots = useSlots()
+  const aggregationSources = getRegisteredFetchers()
+  const {
+    enabledNames: enabledSourceNames,
+    enabledNameSet: enabledSourceNameSet,
+    endpoints: sourceEndpoints,
+    setEnabled: setAggregationSourceEnabled,
+    setEndpoint: setAggregationSourceEndpoint,
+  } = useAggregationSources(aggregationSources)
 
   import { useChartState } from '../composables/chart/useChartState'
   import { useChartTheme } from '../composables/chart/useChartTheme'
@@ -514,7 +534,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
     limit: number,
     signal: AbortSignal,
   ): Promise<ReadonlyArray<SymbolItem>> {
-    return routerSearchFetchers({ query, limit, signal })
+    return routerSearchFetchers({ query, limit, signal, sources: enabledSourceNames.value })
   }
 
   function syncSymbolsToController() {

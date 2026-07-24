@@ -1,6 +1,7 @@
 import type { KLineData } from '../controllers/types'
 import { KLineChartError } from '../errors'
 
+import { getFetcherBaseUrl } from './fetcherBaseUrl'
 import { DataFetcher } from './fetcherDefinitionRegistry'
 import type { FetchConfig } from './types'
 
@@ -16,7 +17,8 @@ const PERIOD_MAP: Record<string, string> = {
   '60min': '60',
 }
 
-const BASE_URL = 'http://localhost:8000'
+/** BaoStock 本地代理默认地址；运行时由聚合源面板覆盖 */
+const DEFAULT_BASE_URL = 'http://localhost:8000'
 
 async function fetchBaoStock(
   _source: string,
@@ -25,7 +27,8 @@ async function fetchBaoStock(
   console.log(
     `[baostock] fetching ${config.symbol} ${config.period} ${config.startDate}~${config.endDate}`,
   )
-  const url = `${BASE_URL}/api/stock/kdata?stock_code=${config.symbol}&start_date=${config.startDate}&end_date=${config.endDate}&frequency=${PERIOD_MAP[config.period] ?? 'd'}&adjustflag=${ADJUST_MAP[config.adjust] ?? '3'}`
+  const baseUrl = getFetcherBaseUrl('baostock', DEFAULT_BASE_URL)
+  const url = `${baseUrl}/api/stock/kdata?stock_code=${config.symbol}&start_date=${config.startDate}&end_date=${config.endDate}&frequency=${PERIOD_MAP[config.period] ?? 'd'}&adjustflag=${ADJUST_MAP[config.adjust] ?? '3'}`
   try {
     const res = await fetch(url)
     if (!res.ok) {
@@ -61,6 +64,7 @@ async function fetchBaoStock(
   displayName: 'BaoStock',
   description: 'BaoStock data source via local proxy',
   version: '1.0.0',
+  defaultBaseUrl: DEFAULT_BASE_URL,
   capabilities: ['daily', 'weekly', 'monthly', '5min', '15min', '30min', '60min'],
 })
 class BaoStockFetcher {

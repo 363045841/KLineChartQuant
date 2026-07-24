@@ -71,6 +71,7 @@
                 <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
               </svg>
             </button>
+            <AggregationSourceButton @click="emit('manageSources')" />
           </div>
 
           <div v-if="selected.length > 0" class="compare-selected">
@@ -186,6 +187,7 @@
   } from '../composables/useSymbolSearch'
   import { useTeleportedPopup } from '../composables/useTeleportedPopup'
 
+  import AggregationSourceButton from './AggregationSourceButton.vue'
   import type { SymbolItem } from './SymbolSelector.vue'
 
   const props = withDefaults(
@@ -206,6 +208,7 @@
   const emit = defineEmits<{
     (e: 'add', item: SymbolItem): void
     (e: 'remove', code: string): void
+    (e: 'manageSources'): void
   }>()
 
   const showPopup = ref(false)

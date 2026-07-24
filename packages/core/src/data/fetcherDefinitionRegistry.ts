@@ -55,7 +55,7 @@ export function getRegisteredFetcherNames(): string[] {
   return [...definitions.keys()]
 }
 
-function getRegisteredFetchers(): DataFetcherDefinition[] {
+export function getRegisteredFetchers(): DataFetcherDefinition[] {
   return [...definitions.values()]
 }
 

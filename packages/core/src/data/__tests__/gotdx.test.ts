@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '../gotdx'
+import { clearFetcherBaseUrlsForTest, setFetcherBaseUrl } from '../fetcherBaseUrl'
 import { getRegisteredFetcher } from '../fetcherDefinitionRegistry'
 
 const fetchMock = vi.fn<typeof fetch>()
@@ -15,11 +16,12 @@ function jsonResponse(value: unknown, status = 200): Response {
 describe('gotdx fetcher', () => {
   beforeEach(() => {
     fetchMock.mockReset()
+    clearFetcherBaseUrlsForTest()
     vi.stubGlobal('fetch', fetchMock)
   })
 
   afterEach(() => {
-    vi.unstubAllEnvs()
+    clearFetcherBaseUrlsForTest()
   })
 
   it('declares and implements symbol search', async () => {
@@ -93,8 +95,8 @@ describe('gotdx fetcher', () => {
     )
   })
 
-  it('uses and normalizes VITE_GOTDX_API_BASE_URL', async () => {
-    vi.stubEnv('VITE_GOTDX_API_BASE_URL', 'http://gotdx.test:9090///')
+  it('uses runtime base URL override from aggregation source config', async () => {
+    setFetcherBaseUrl('gotdx', 'http://gotdx.test:9090///')
     fetchMock.mockResolvedValue(jsonResponse([]))
     const definition = getRegisteredFetcher('gotdx')
 

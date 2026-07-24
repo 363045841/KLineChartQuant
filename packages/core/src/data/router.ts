@@ -57,10 +57,12 @@ function searchResultKey(result: SearchResult): string {
 export async function routerSearchFetchers(
   config: SearchConfig,
 ): Promise<ReadonlyArray<SearchResult>> {
-  const searchers = getRegisteredFetcherNames().flatMap((source) => {
+  const sourceNames = config.sources ? [...new Set(config.sources)] : getRegisteredFetcherNames()
+  const searchers = sourceNames.flatMap((source) => {
     const searcher = getSearchFetcher(source)
     return searcher ? [{ source, searcher }] : []
   })
+  if (config.sources && searchers.length === 0) return []
   if (searchers.length === 0) {
     throw new KLineChartError('FETCH_FAILED', '[DataFetcher] no registered fetcher supports search')
   }

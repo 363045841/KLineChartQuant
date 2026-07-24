@@ -1,6 +1,7 @@
 import type { KLineData, TimeShareData } from '../controllers/types'
 import { KLineChartError } from '../errors'
 
+import { getFetcherBaseUrl } from './fetcherBaseUrl'
 import { DataFetcher } from './fetcherDefinitionRegistry'
 import type { FetchConfig, SearchConfig, SearchResult, TimeShareFetchConfig } from './types'
 
@@ -31,10 +32,11 @@ const EXCHANGE_EX_CATEGORY: Record<string, number> = {
   DE: 73,
 }
 
+/** GOTDX 本地代理默认地址；运行时由聚合源面板覆盖 */
 const DEFAULT_BASE_URL = 'http://127.0.0.1:8080'
 
 function getBaseUrl(): string {
-  return (import.meta.env.VITE_GOTDX_API_BASE_URL || DEFAULT_BASE_URL).replace(/\/+$/, '')
+  return getFetcherBaseUrl('gotdx', DEFAULT_BASE_URL)
 }
 
 function getShanghaiDateYYYYMMDD(): number {
@@ -245,6 +247,7 @@ async function fetchGotdx(_source: string, config: FetchConfig): Promise<Readonl
   displayName: 'GOTDX',
   description: 'TDX data source via local proxy',
   version: '1.0.0',
+  defaultBaseUrl: DEFAULT_BASE_URL,
   capabilities: [
     '1min',
     '5min',

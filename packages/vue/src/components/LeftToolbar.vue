@@ -157,8 +157,13 @@
     :show="showSettings"
     :initial-settings="appliedSettings"
     :renderer-runtime="rendererRuntime"
+    :aggregation-sources="aggregationSources"
+    :enabled-source-names="enabledSourceNames"
+    :source-endpoints="sourceEndpoints"
     @close="showSettings = false"
     @confirm="handleConfirmSettings"
+    @toggle-aggregation-source="onToggleAggregationSource"
+    @update-source-endpoint="onUpdateSourceEndpoint"
   />
 
   <AlertDialog
@@ -175,9 +180,13 @@
     resolveRuntimeSettings,
     type ChartSettings,
   } from '@363045841yyt/klinechart-core/config'
-  import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
+  import type {
+    DataFetcherDefinition,
+    RendererBackendRuntime,
+  } from '@363045841yyt/klinechart-core/controllers'
   import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 
+  import type { AggregationSourceEndpoint } from '../composables/useAggregationSources'
   import { useAlerts } from '../composables/useAlerts'
   import { setCanvasProfilerEnabled } from '../debug/canvasProfiler'
 
@@ -248,18 +257,30 @@
     (e: 'zoomIn'): void
     (e: 'zoomOut'): void
     (e: 'settingsChange', settings: ChartSettings): void
+    (e: 'toggleAggregationSource', name: string, enabled: boolean): void
+    (e: 'updateSourceEndpoint', name: string, patch: Partial<AggregationSourceEndpoint>): void
   }>()
 
-  const props = defineProps<{
-    isFullscreen?: boolean
-    alertController?: ChartController | null
-    effectiveSettings?: ChartSettings
-    rendererRuntime?: RendererBackendRuntime | null
-    /** kernel drawingTool 镜像；高亮以它为准 */
-    drawingToolId?: string
-    /** range-select 本地模式 */
-    isRangeSelectMode?: boolean
-  }>()
+  const props = withDefaults(
+    defineProps<{
+      isFullscreen?: boolean
+      alertController?: ChartController | null
+      effectiveSettings?: ChartSettings
+      rendererRuntime?: RendererBackendRuntime | null
+      /** kernel drawingTool 镜像；高亮以它为准 */
+      drawingToolId?: string
+      /** range-select 本地模式 */
+      isRangeSelectMode?: boolean
+      aggregationSources?: ReadonlyArray<DataFetcherDefinition>
+      enabledSourceNames?: ReadonlySet<string>
+      sourceEndpoints?: Record<string, AggregationSourceEndpoint>
+    }>(),
+    {
+      aggregationSources: () => [],
+      enabledSourceNames: () => new Set<string>(),
+      sourceEndpoints: () => ({}),
+    },
+  )
 
   const { unreadCount } = useAlerts(() => props.alertController ?? null)
 
@@ -336,6 +357,14 @@
 
   function openSettings() {
     showSettings.value = true
+  }
+
+  function onToggleAggregationSource(name: string, enabled: boolean) {
+    emit('toggleAggregationSource', name, enabled)
+  }
+
+  function onUpdateSourceEndpoint(name: string, patch: Partial<AggregationSourceEndpoint>) {
+    emit('updateSourceEndpoint', name, patch)
   }
 
   function getCurrentSettings(): ChartSettings {

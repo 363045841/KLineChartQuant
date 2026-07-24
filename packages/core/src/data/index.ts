@@ -8,6 +8,7 @@ export { TimeShareBuffer } from './timeShareBuffer'
 export type { DataBufferLike } from './dataBufferTypes'
 export {
   getRegisteredFetcher,
+  getRegisteredFetchers,
   getRegisteredFetcherNames,
   getTimeShareFetcher,
   getSearchFetcher,
@@ -15,12 +16,21 @@ export {
   fetcherSupportsSearch,
   fetcherSupportsTimeShare,
 } from './fetcherDefinitionRegistry'
+export {
+  clearFetcherBaseUrlsForTest,
+  composeFetcherBaseUrl,
+  getFetcherBaseUrl,
+  normalizeFetcherBaseUrl,
+  parseFetcherEndpoint,
+  setFetcherBaseUrl,
+} from './fetcherBaseUrl'
 export type {
   SearchConfig,
   SearchFetcherFn,
   SearchResult,
   TimeShareFetcherFn,
   TimeShareFetchConfig,
+  DataFetcherDefinition,
 } from './types'
 export {
   getPeriodDays,
