@@ -9,6 +9,7 @@ When you launch a sub-agent, use codegraph MCP when prompted to explore the code
 
 - **Must use commit-message-generator skill**: When committing, always load the skill at `.opencode/skills/commit/SKILL.md` via `skill("commit-message-generator")` to generate conventional commit messages.
 - **PR descriptions should cover the entire branch**: When creating a PR, describe the full scope of changes across all commits in the branch, not just the latest commit.
+- You can **only** commit when I explicitly ask you to do it.
 
 ## Monorepo
 
@@ -24,7 +25,7 @@ pnpm workspace at `packages/*`. Published packages:
 
 **Build order matters**: `pnpm build:packages` (core → vue). Each framework package depends on core via `workspace:*`.
 
-Node: `^20.19.0 \|\| >=22.12.0`. pnpm 9.x.
+Node: `^20.19.0 \|\| >=22.12.0`. pnpm 11.x.
 
 ## README Generation
 
@@ -147,9 +148,6 @@ Never guess at Effect patterns - check the guide first.
 - Inline comments: `/** brief */` or `// brief`, no tags needed.
 - **Say what it is, not what to do with it**
 - **Never invent Chinese jargon**
-- **表述直接，不说倒装话**：说"合并后写入 X"，不说"写入 X 前先在此合并"。注释要一眼看完，不要兜圈子
+- **表述直接，不说倒装话**：说"合并后写入 X"，不说"写入 X 前先在此合并"。注释要一眼看完就能理解，不要兜圈子
 - **One sentence if possible**
 - **分支注释写在 `if` 上一行**，不要写到分支内部
-
-## ATTENTION
-- You can only commit when I explicitly ask you to do it.

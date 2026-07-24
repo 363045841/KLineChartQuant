@@ -42,4 +42,21 @@ describe('TimeShareBuffer', () => {
     expect(buf.loading.peek()).toBe(false)
     buf.dispose()
   })
+
+  it('passes data source params to the fetcher', async () => {
+    const buf = new TimeShareBuffer()
+    const fetcher = vi.fn().mockResolvedValue([point(10)])
+    buf.setFetcher(fetcher)
+    buf.load({
+      symbol: '00700',
+      period: 'timeshare',
+      source: 'gotdx',
+      params: { category: 71 },
+    })
+
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalled())
+
+    expect(fetcher.mock.calls[0]?.[1].params).toEqual({ category: 71 })
+    buf.dispose()
+  })
 })

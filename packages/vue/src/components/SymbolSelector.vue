@@ -23,6 +23,11 @@
           role="dialog"
           aria-label="切换合约"
         >
+          <AggregationSourceTabs
+            v-if="sourceTabs.length > 0"
+            v-model="activeSourceTab"
+            :tabs="sourceTabs"
+          />
           <div class="symbol-search">
             <span class="symbol-search__icon" aria-hidden="true">
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -47,7 +52,6 @@
               autocomplete="off"
               spellcheck="false"
               aria-label="搜索商品"
-              @input="onSearchInput"
             />
             <button
               v-if="searchQuery"
@@ -71,10 +75,15 @@
                 <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
               </svg>
             </button>
+            <AggregationSourceButton @click="emit('manageSources')" />
           </div>
 
           <div class="symbol-list" role="listbox" aria-label="商品列表">
-            <div v-if="filteredSymbols.length === 0" class="symbol-list__empty">
+            <div v-if="searchLoading" class="symbol-list__empty">
+              <span class="symbol-chip__spinner" aria-hidden="true" />
+              <span>正在搜索</span>
+            </div>
+            <div v-else-if="filteredSymbols.length === 0" class="symbol-list__empty">
               <svg
                 width="32"
                 height="32"
@@ -93,23 +102,23 @@
                   stroke-linecap="round"
                 />
               </svg>
-              <span>未找到相关商品</span>
+              <span>{{ searchError ? '搜索失败' : '未找到相关商品' }}</span>
             </div>
             <button
               v-for="item in filteredSymbols"
-              :key="item.symbol"
+              :key="symbolIdentityKey(item)"
               type="button"
               class="symbol-list__item"
-              :class="{ 'is-active': item.symbol === symbol }"
+              :class="{ 'is-active': symbolIdentityKey(item) === selectedKey }"
               role="option"
-              :aria-selected="item.symbol === symbol"
+              :aria-selected="symbolIdentityKey(item) === selectedKey"
               @click="selectSymbol(item)"
             >
               <span class="symbol-list__left">
                 <span class="symbol-list__code">{{ item.symbol }}</span>
                 <span class="symbol-list__desc">{{ item.description }}</span>
               </span>
-              <span class="symbol-list__exchange">{{ item.exchange }}</span>
+              <span class="symbol-list__exchange">{{ formatSymbolMeta(item) }}</span>
             </button>
           </div>
         </div>
@@ -119,36 +128,76 @@
 </template>
 
 <script setup lang="ts">
+  import type { DataFetcherDefinition } from '@363045841yyt/klinechart-core/controllers'
   import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 
   import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
+  import {
+    useSymbolSearch,
+    symbolIdentityKey,
+    type SearchableSymbol,
+    type SymbolSearchFn,
+  } from '../composables/useSymbolSearch'
   import { useTeleportedPopup } from '../composables/useTeleportedPopup'
 
+  import AggregationSourceButton from './AggregationSourceButton.vue'
+  import AggregationSourceTabs, {
+    type AggregationSourceTabItem,
+    type AggregationSourceTabKey,
+  } from './AggregationSourceTabs.vue'
   import IconTablerAlertTriangle from '~icons/tabler/alert-triangle'
 
-  export interface SymbolItem {
-    symbol: string
-    description: string
-    exchange: string
-    source: string
-  }
+  export interface SymbolItem extends SearchableSymbol {}
 
-  const props = defineProps<{
-    symbol: string
-    symbols: SymbolItem[]
-    loading?: boolean
-    error?: boolean
-  }>()
+  const props = withDefaults(
+    defineProps<{
+      symbol: string
+      selectedItem?: SymbolItem
+      symbols: SymbolItem[]
+      search?: SymbolSearchFn<SymbolItem>
+      loading?: boolean
+      error?: boolean
+      /** 已注册数据源，用于 Tabs 展示名 */
+      aggregationSources?: ReadonlyArray<DataFetcherDefinition>
+      /** 已启用的搜索源名称 */
+      enabledSourceNames?: ReadonlySet<string>
+    }>(),
+    {
+      aggregationSources: () => [],
+      enabledSourceNames: () => new Set<string>(),
+    },
+  )
 
   const emit = defineEmits<{
     (e: 'change', symbol: SymbolItem): void
+    (e: 'manageSources'): void
   }>()
 
   const showPopup = ref(false)
   const searchQuery = ref('')
+  const activeSourceTab = ref<AggregationSourceTabKey>('all')
   const searchInputRef = ref<HTMLInputElement | null>(null)
   const chipWrapRef = ref<HTMLElement | null>(null)
   const popupRef = ref<HTMLElement | null>(null)
+
+  /** 全部 + 已启用且可搜索的源；mock 沉底 */
+  const sourceTabs = computed<AggregationSourceTabItem[]>(() => {
+    const enabled = props.enabledSourceNames
+    const searchable = props.aggregationSources
+      .filter(
+        (source) =>
+          enabled.has(source.name) &&
+          source.capabilities?.includes('search') &&
+          typeof source.searcher === 'function',
+      )
+      .slice()
+      .sort((a, b) => Number(a.name.startsWith('mock-')) - Number(b.name.startsWith('mock-')))
+    if (searchable.length === 0) return []
+    return [
+      { key: 'all', label: '全部' },
+      ...searchable.map((source) => ({ key: source.name, label: source.displayName })),
+    ]
+  })
 
   const teleportTarget = useFullscreenTeleportTarget()
 
@@ -158,8 +207,14 @@
     8,
   )
 
+  const selectedKey = computed(() =>
+    props.selectedItem ? symbolIdentityKey(props.selectedItem) : undefined,
+  )
+
   const currentSymbol = computed<SymbolItem | undefined>(() =>
-    props.symbols.find((s) => s.symbol === props.symbol),
+    selectedKey.value
+      ? props.symbols.find((s) => symbolIdentityKey(s) === selectedKey.value)
+      : props.symbols.find((s) => s.symbol === props.symbol),
   )
 
   const displayText = computed(() => {
@@ -168,15 +223,15 @@
     return props.symbol
   })
 
-  const filteredSymbols = computed<SymbolItem[]>(() => {
-    const q = searchQuery.value.trim().toLowerCase()
-    if (!q) return props.symbols
-    return props.symbols.filter(
-      (s) =>
-        s.symbol.toLowerCase().includes(q) ||
-        s.description.toLowerCase().includes(q) ||
-        s.exchange.toLowerCase().includes(q),
-    )
+  const {
+    results: filteredSymbols,
+    loading: searchLoading,
+    error: searchError,
+  } = useSymbolSearch<SymbolItem>({
+    query: searchQuery,
+    symbols: computed(() => props.symbols),
+    search: computed(() => props.search),
+    sourceFilter: activeSourceTab,
   })
 
   function togglePopup() {
@@ -191,6 +246,14 @@
       startPositionSync()
     } else {
       stopPositionSync()
+      activeSourceTab.value = 'all'
+    }
+  })
+
+  // 启用列表变化时，若当前 Tab 已不存在则回到全部
+  watch(sourceTabs, (tabs) => {
+    if (!tabs.some((tab) => tab.key === activeSourceTab.value)) {
+      activeSourceTab.value = 'all'
     }
   })
 
@@ -199,12 +262,19 @@
     searchInputRef.value?.focus()
   }
 
-  function onSearchInput() {}
-
   function selectSymbol(item: SymbolItem) {
     emit('change', item)
     showPopup.value = false
     searchQuery.value = ''
+  }
+
+  /** 展示 exchange + kind + market/category，便于区分同代码多语义 */
+  function formatSymbolMeta(item: SymbolItem): string {
+    const parts = [item.exchange]
+    if (typeof item.params?.kind === 'string') parts.push(String(item.params.kind))
+    if (typeof item.params?.market === 'number') parts.push(`M${item.params.market}`)
+    if (typeof item.params?.category === 'number') parts.push(`C${item.params.category}`)
+    return parts.join(' · ')
   }
 
   function onDocumentClick(e: MouseEvent) {

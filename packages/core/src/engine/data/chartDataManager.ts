@@ -14,10 +14,11 @@ import type { DataManagerStateModule } from '../state/dataManagerState'
 import type { ViewportStateModule } from '../state/viewportState'
 import type { ComparisonStateModule } from '../state/comparisonState'
 
-import { ComparisonManager } from './comparisonManager'
+import { comparisonBufferKey, ComparisonManager } from './comparisonManager'
 import { FetchBatchScheduler } from './fetchBatchScheduler'
 import { IncrementalLoadHint } from './incrementalLoadHint'
 import { ScrollCompensator } from './scrollCompensator'
+import { symbolSpecIdentityKey } from './symbolIdentity'
 
 export interface DataDependencies {
   getOption: () => { kWidth: number; kGap: number }
@@ -246,7 +247,7 @@ export class ChartDataManager {
   }
 
   private _createCmpBuffer(spec: SymbolSpec): { key: string; buffer: KLineBuffer } {
-    const key = bufKey(BUF_COMPARISON, spec.symbol, spec.period)
+    const key = comparisonBufferKey(spec)
     const buffer = this._createKLineBuffer()
     buffer.setFetcher(this._dataFetcher)
     if (this._dataFetcher) {
@@ -603,7 +604,12 @@ export class ChartDataManager {
 
   addComparisonSymbol(spec: SymbolSpec): void {
     const primary = this._dataState.readonly.symbols.peek()[0]
-    if (!primary || this.deps.comparison.readonly.specs.peek().some((item) => item.symbol === spec.symbol))
+    if (
+      !primary ||
+      this.deps.comparison.readonly.specs
+        .peek()
+        .some((item) => symbolSpecIdentityKey(item) === symbolSpecIdentityKey(spec))
+    )
       return
     this.deps.setSymbols([primary, ...this.deps.comparison.readonly.specs.peek(), spec])
   }
@@ -621,13 +627,15 @@ export class ChartDataManager {
     this._comparisonManager.setData(symbol, data)
   }
 
-  removeComparisonSymbol(symbol: string): void {
+  removeComparisonSymbol(identity: string): void {
     const primary = this._dataState.readonly.symbols.peek()[0]
-    if (!primary || !this.deps.comparison.readonly.specs.peek().some((spec) => spec.symbol === symbol))
+    const matches = (spec: SymbolSpec) =>
+      symbolSpecIdentityKey(spec) === identity || spec.symbol === identity
+    if (!primary || !this.deps.comparison.readonly.specs.peek().some(matches))
       return
     this.deps.setSymbols([
       primary,
-      ...this.deps.comparison.readonly.specs.peek().filter((spec) => spec.symbol !== symbol),
+      ...this.deps.comparison.readonly.specs.peek().filter((spec) => !matches(spec)),
     ])
     this.deps.scheduleDraw()
   }

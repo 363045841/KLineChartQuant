@@ -28,6 +28,7 @@ export type {
   PaneLayoutInfo,
   SymbolSpec,
   SymbolInfo,
+  DataSourceParams,
   DataFetcher,
   CustomDataSource,
 } from './types'
@@ -78,12 +79,28 @@ export {
   hundredMockDataFetcher,
   baostockDataFetcher,
   routerDataFetcher,
+  routerSearchFetchers,
+  getRegisteredFetchers,
+  setFetcherBaseUrl,
+  getFetcherBaseUrl,
+  composeFetcherBaseUrl,
+  parseFetcherEndpoint,
+  clearFetcherBaseUrlsForTest,
   DataBuffer,
   BinanceSSESource,
   DEFAULT_BINANCE_SSE_URL,
   DepthConnector,
 } from '../data'
-export type { DataWindow, DepthSource, DepthDelta, DepthSnapshot, DepthSourceStatus } from '../data'
+export type {
+  DataWindow,
+  DepthSource,
+  DepthDelta,
+  DepthSnapshot,
+  DepthSourceStatus,
+  SearchConfig,
+  SearchResult,
+  DataFetcherDefinition,
+} from '../data'
 
 // Heatmap controller (depth pipeline rendering half)
 export { createHeatmapController } from '../components/orderBookHeatmap'

@@ -191,6 +191,7 @@ export class DataBuffer implements KLineBuffer {
                 period: s.period ?? 'daily',
                 adjust: s.adjust ?? 'none',
                 exchange: s.exchange,
+                params: s.params,
               })
             },
             catch: (e) => e,

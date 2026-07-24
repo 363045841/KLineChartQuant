@@ -88,12 +88,15 @@ export interface TimeShareData {
 export type { PaneSpec }
 
 // ---------------------------------------------------------------------------
+export type DataSourceParams = Readonly<Record<string, string | number | boolean>>
+
 /** Registered symbol metadata — for the symbol catalog/dropdown UI */
 export interface SymbolInfo {
   symbol: string
   description?: string
   exchange?: string
   source?: string
+  params?: DataSourceParams
 }
 
 // Symbol specification & DataFetcher adapter
@@ -105,6 +108,7 @@ export interface SymbolSpec {
   period?: string
   adjust?: string
   source?: string
+  params?: DataSourceParams
   startDate?: string
   endDate?: string
   /**
@@ -125,6 +129,7 @@ export type DataFetcher = (
     period: string
     adjust: string
     exchange?: string
+    params?: DataSourceParams
   },
 ) => Promise<ReadonlyArray<KLineData>>
 

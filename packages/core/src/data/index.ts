@@ -1,18 +1,37 @@
 export { hundredMockDataFetcher } from './hundred-mock'
 export { thousandMockDataFetcher } from './thousand-mock'
 export { baostockDataFetcher } from './baostock'
-export { routerDataFetcher, routerTimeShareFetcher } from './router'
+export { routerDataFetcher, routerSearchFetchers, routerTimeShareFetcher } from './router'
 export { DataBuffer } from './dataBuffer'
 export type { DataWindow } from './dataBufferTypes'
 export { TimeShareBuffer } from './timeShareBuffer'
 export type { DataBufferLike } from './dataBufferTypes'
 export {
   getRegisteredFetcher,
+  getRegisteredFetchers,
   getRegisteredFetcherNames,
   getTimeShareFetcher,
+  getSearchFetcher,
+  fetcherHasCapability,
+  fetcherSupportsSearch,
   fetcherSupportsTimeShare,
 } from './fetcherDefinitionRegistry'
-export type { TimeShareFetcherFn, TimeShareFetchConfig } from './types'
+export {
+  clearFetcherBaseUrlsForTest,
+  composeFetcherBaseUrl,
+  getFetcherBaseUrl,
+  normalizeFetcherBaseUrl,
+  parseFetcherEndpoint,
+  setFetcherBaseUrl,
+} from './fetcherBaseUrl'
+export type {
+  SearchConfig,
+  SearchFetcherFn,
+  SearchResult,
+  TimeShareFetcherFn,
+  TimeShareFetchConfig,
+  DataFetcherDefinition,
+} from './types'
 export {
   getPeriodDays,
   fetchKLine,

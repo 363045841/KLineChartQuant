@@ -2,7 +2,9 @@
   <div ref="chartWrapperRef" class="chart-wrapper" :data-theme="chartTheme" :style="themeCssVars">
     <TopToolbar
       :symbol="currentSymbol"
+      :symbol-item="currentSymbolItem ?? undefined"
       :symbols="symbolPool"
+      :search="searchSymbols"
       :k-line-level="kLineLevel"
       :k-line-adjust="kLineAdjust"
       :symbol-loading="symbolStatus === 'loading'"
@@ -11,12 +13,17 @@
       :overlay-symbol-items="overlaySymbolItems"
       :comparison-colors="comparisonColorsMap"
       :comparison-loading="comparisonLoading"
+      :aggregation-sources="aggregationSources"
+      :enabled-source-names="enabledSourceNameSet"
+      :source-endpoints="sourceEndpoints"
       :show-back-button="kLineLevel === 'timeshare'"
       @add-overlay-symbol="onAddOverlaySymbol"
       @remove-overlay-symbol="onRemoveOverlaySymbol"
       @k-line-level-change="onKLineLevelChange"
       @k-line-adjust-change="onKLineAdjustChange"
       @symbol-change="onSymbolChange"
+      @toggle-aggregation-source="setAggregationSourceEnabled"
+      @update-source-endpoint="setAggregationSourceEndpoint"
       @back="onBackFromTimeShare"
     />
     <div
@@ -37,12 +44,17 @@
         :renderer-runtime="rendererRuntime"
         :drawing-tool-id="drawingToolId"
         :is-range-select-mode="isRangeSelectMode"
+        :aggregation-sources="aggregationSources"
+        :enabled-source-names="enabledSourceNameSet"
+        :source-endpoints="sourceEndpoints"
         @select-tool="handleSelectTool"
         @toggle-indicator="onToggleIndicator"
         @toggle-fullscreen="handleToggleFullscreen"
         @zoom-in="applyZoomToLevel(zoomLevel + 1)"
         @zoom-out="applyZoomToLevel(zoomLevel - 1)"
         @settings-change="handleSettingsChange"
+        @toggle-aggregation-source="setAggregationSourceEnabled"
+        @update-source-endpoint="setAggregationSourceEndpoint"
       />
       <div ref="chartMainRef" class="chart-main">
         <div class="pane-separator-layer" aria-hidden="true">
@@ -237,6 +249,8 @@
   import {
     createChartController,
     routerDataFetcher,
+    routerSearchFetchers,
+    getRegisteredFetchers,
     type ChartController,
     type InteractionSnapshot,
     type LegendTemplateContext,
@@ -260,15 +274,25 @@
     shallowRef,
     useSlots,
   } from 'vue'
+  import { useAggregationSources } from '../composables/useAggregationSources'
   import { formatTimestamp } from '@363045841yyt/klinechart-core'
 
   const slots = useSlots()
+  const aggregationSources = getRegisteredFetchers()
+  const {
+    enabledNames: enabledSourceNames,
+    enabledNameSet: enabledSourceNameSet,
+    endpoints: sourceEndpoints,
+    setEnabled: setAggregationSourceEnabled,
+    setEndpoint: setAggregationSourceEndpoint,
+  } = useAggregationSources(aggregationSources)
 
   import { useChartState } from '../composables/chart/useChartState'
   import { useChartTheme } from '../composables/chart/useChartTheme'
   import { useDrawingManager } from '../composables/chart/useDrawingManager'
   import { useIndicatorManager } from '../composables/chart/useIndicatorManager'
   import { useRangeSelection } from '../composables/chart/useRangeSelection'
+  import { symbolIdentityKey } from '../composables/useSymbolSearch'
   import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
 
   import BatchStockDialog from './BatchStockDialog.vue'
@@ -424,11 +448,35 @@ import MarkerTooltip from './MarkerTooltip.vue'
     { symbol: 'AAPL', description: 'Apple Inc.', exchange: 'NASDAQ', source: 'tradingview' },
     { symbol: 'TSLA', description: 'Tesla, Inc.', exchange: 'NASDAQ', source: 'tradingview' },
     { symbol: '1810', description: '小米集团', exchange: 'HKEX', source: 'tradingview' },
-    // gotdx A shares
-    { symbol: '600519', description: '贵州茅台', exchange: 'SSE', source: 'gotdx' },
-    { symbol: '601360', description: '三六零', exchange: 'SSE', source: 'gotdx' },
-    { symbol: '000858', description: '五 粮 液', exchange: 'SZSE', source: 'gotdx' },
-    { symbol: '000001', description: '平安银行', exchange: 'SZSE', source: 'gotdx' },
+    // gotdx A 股：必须带 params.market，与搜索目录一致，禁止按代码猜市场
+    {
+      symbol: '600519',
+      description: '贵州茅台',
+      exchange: 'SH',
+      source: 'gotdx',
+      params: { market: 1 },
+    },
+    {
+      symbol: '601360',
+      description: '三六零',
+      exchange: 'SH',
+      source: 'gotdx',
+      params: { market: 1 },
+    },
+    {
+      symbol: '000858',
+      description: '五 粮 液',
+      exchange: 'SZ',
+      source: 'gotdx',
+      params: { market: 0 },
+    },
+    {
+      symbol: '000001',
+      description: '平安银行',
+      exchange: 'SZ',
+      source: 'gotdx',
+      params: { market: 0 },
+    },
     // Mock
     { symbol: 'MOCK-100', description: 'Mock 100 条', exchange: 'MOCK', source: 'mock-100' },
     { symbol: 'MOCK-10000', description: 'Mock 10000 条', exchange: 'MOCK', source: 'mock-10000' },
@@ -471,6 +519,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
     const ctrl = controller.value
     if (!ctrl) return
     ctrl.setDataFetcher(effectiveDataFetcher.value)
+    ctrl.registerSymbols([item])
     const current = ctrl.symbols.peek() ?? []
     const comparisonSpecs = current.slice(1)
     ctrl.setSymbols([toSymbolSpec(item), ...comparisonSpecs])
@@ -480,14 +529,15 @@ import MarkerTooltip from './MarkerTooltip.vue'
     const ctrl = controller.value
     if (!ctrl) return
     const current = ctrl.symbols.peek()
-    const currentCodes = current.map((s) => s.symbol)
-    if (currentCodes.includes(item.symbol)) return
+    const currentKeys = current.map(symbolIdentityKey)
+    if (currentKeys.includes(symbolIdentityKey(item))) return
+    ctrl.registerSymbols([item])
     forcePercentAxis()
     ctrl.addComparisonSymbol(toSymbolSpec(item))
   }
 
-  function onRemoveOverlaySymbol(code: string) {
-    controller.value?.removeComparisonSymbol(code)
+  function onRemoveOverlaySymbol(identity: string) {
+    controller.value?.removeComparisonSymbol(identity)
   }
 
   function toSymbolSpec(item: SymbolItem): SymbolSpec {
@@ -496,10 +546,26 @@ import MarkerTooltip from './MarkerTooltip.vue'
       exchange: item.exchange,
       period: kLineLevel.value,
       source: item.source,
+      params: item.params,
       startDate: props.semanticConfig?.data?.startDate ?? '',
       endDate: props.semanticConfig?.data?.endDate ?? '',
       adjust: kLineAdjust.value,
     }
+  }
+
+  async function searchSymbols(
+    query: string,
+    limit: number,
+    signal: AbortSignal,
+    sources?: ReadonlyArray<string>,
+  ): Promise<ReadonlyArray<SymbolItem>> {
+    // Tab 指定单源时只查该源；否则查全部已启用源
+    return routerSearchFetchers({
+      query,
+      limit,
+      signal,
+      sources: sources ?? enabledSourceNames.value,
+    })
   }
 
   function syncSymbolsToController() {
@@ -1429,6 +1495,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
         description: info.description ?? info.symbol,
         exchange: info.exchange ?? '',
         source: info.source ?? '',
+        params: info.params,
       }))
     })
     // 立即同步当前值，确保 dropdown 在 subscribe 创建后立即拿到数据，
@@ -1438,30 +1505,49 @@ import MarkerTooltip from './MarkerTooltip.vue'
       description: info.description ?? info.symbol,
       exchange: info.exchange ?? '',
       source: info.source ?? '',
+      params: info.params,
     }))
 
     const unsubscribeSymbols = ctrl.symbols.subscribe(() => {
       const specs = ctrl.symbols.peek()
       if (specs.length === 0) return
       const primary = specs[0]
+      const primaryInfo = ctrl.symbolCatalog
+        .peek()
+        .find(
+          (info) =>
+            info.symbol === primary.symbol &&
+            info.source === primary.source &&
+            info.exchange === primary.exchange,
+        )
       currentSymbol.value = primary.symbol
       currentSymbolItem.value = {
         symbol: primary.symbol,
-        description: primary.symbol,
+        description: primaryInfo?.description ?? primary.symbol,
         exchange: primary.exchange ?? '',
         source: primary.source ?? '',
+        params: primary.params,
       }
       if (primary.period) kLineLevel.value = primary.period
       if (primary.adjust) kLineAdjust.value = primary.adjust as 'qfq' | 'hfq' | 'splits' | 'none'
 
       const comparisonSpecs = specs.slice(1)
-      overlaySymbols.value = comparisonSpecs.map((s) => s.symbol)
-      overlaySymbolItems.value = comparisonSpecs.map((s) => ({
-        symbol: s.symbol,
-        description: s.symbol,
-        exchange: s.exchange ?? '',
-        source: s.source ?? '',
-      }))
+      overlaySymbols.value = comparisonSpecs.map(symbolIdentityKey)
+      overlaySymbolItems.value = comparisonSpecs.map((s) => {
+        const info = ctrl.symbolCatalog
+          .peek()
+          .find(
+            (item) =>
+              item.symbol === s.symbol && item.source === s.source && item.exchange === s.exchange,
+          )
+        return {
+          symbol: s.symbol,
+          description: info?.description ?? s.symbol,
+          exchange: s.exchange ?? '',
+          source: s.source ?? '',
+          params: s.params,
+        }
+      })
     })
 
     return () => {

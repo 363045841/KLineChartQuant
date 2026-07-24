@@ -186,10 +186,7 @@
           <span class="rule-form-advanced-label">单次触发</span>
           <span class="rule-form-advanced-hint">触发后自动禁用本规则</span>
         </div>
-        <label class="rule-toggle">
-          <input v-model="draftOneShot" type="checkbox" />
-          <span class="rule-toggle-slider"></span>
-        </label>
+        <ToggleSwitch v-model="draftOneShot" aria-label="单次触发" />
       </div>
 
       <div class="rule-form-advanced-divider"></div>
@@ -240,6 +237,8 @@
     IndicatorCrossPairDirection,
   } from '@363045841yyt/klinechart-core'
   import { ref, computed, reactive } from 'vue'
+
+  import ToggleSwitch from '../common/ToggleSwitch.vue'
 
   const props = defineProps<{ rule?: AlertRule }>()
 
@@ -649,54 +648,6 @@
     width: 88px;
     text-align: right;
     padding-right: 30px;
-  }
-
-  /* ══════════════════════════════════════════
-   Toggle Switch
-══════════════════════════════════════════ */
-  .rule-toggle {
-    position: relative;
-    display: inline-block;
-    width: 34px;
-    height: 20px;
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-
-  .rule-toggle input {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-  }
-
-  .rule-toggle-slider {
-    position: absolute;
-    inset: 0;
-    background: var(--klc-color-border-button);
-    border-radius: 999px;
-    transition: background 0.2s;
-  }
-
-  .rule-toggle-slider::before {
-    content: '';
-    position: absolute;
-    left: 3px;
-    top: 3px;
-    width: 14px;
-    height: 14px;
-    background: #fff;
-    border-radius: 50%;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
-    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .rule-toggle input:checked + .rule-toggle-slider {
-    background: #3b82f6;
-  }
-
-  .rule-toggle input:checked + .rule-toggle-slider::before {
-    transform: translateX(14px);
   }
 
   /* ══════════════════════════════════════════

@@ -1,8 +1,9 @@
 import type { KLineData, TimeShareData } from '../controllers/types'
 import { KLineChartError } from '../errors'
 
+import { getFetcherBaseUrl } from './fetcherBaseUrl'
 import { DataFetcher } from './fetcherDefinitionRegistry'
-import type { FetchConfig, TimeShareFetchConfig } from './types'
+import type { FetchConfig, SearchConfig, SearchResult, TimeShareFetchConfig } from './types'
 
 const PERIOD_TO_CATEGORY: Record<string, number> = {
   '1min': 8,
@@ -24,14 +25,12 @@ const ADJUST_MAP: Record<string, number> = {
   splits: 0,
 }
 
-const EXCHANGE_EX_CATEGORY: Record<string, number> = {
-  US: 74,
-  HK: 71,
-  SG: 78,
-  DE: 73,
-}
+/** GOTDX 本地代理默认地址；运行时由聚合源面板覆盖 */
+const DEFAULT_BASE_URL = 'http://127.0.0.1:8080'
 
-const BASE_URL = 'http://127.0.0.1:8080'
+function getBaseUrl(): string {
+  return getFetcherBaseUrl('gotdx', DEFAULT_BASE_URL)
+}
 
 function getShanghaiDateYYYYMMDD(): number {
   const formatter = new Intl.DateTimeFormat('zh-CN', {
@@ -56,12 +55,19 @@ async function fetchGotdxHistoryTick(
   _source: string,
   config: TimeShareFetchConfig,
 ): Promise<ReadonlyArray<TimeShareData>> {
+  // 分时只认搜索/目录带来的 params.market，不按代码前缀猜市场
+  if (typeof config.params?.market !== 'number') {
+    throw new KLineChartError(
+      'FETCH_FAILED',
+      `[gotdx] history-tick requires params.market for ${config.symbol}`,
+    )
+  }
   const body = {
     date: config.date ?? getShanghaiDateYYYYMMDD(),
-    market: config.symbol.startsWith('6') || config.symbol.startsWith('9') ? 1 : 0,
+    market: config.params.market,
     code: config.symbol,
   }
-  const res = await fetch(`${BASE_URL}/api/stock/history-tick`, {
+  const res = await fetch(`${getBaseUrl()}/api/stock/history-tick`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -80,6 +86,25 @@ async function fetchGotdxHistoryTick(
     volume: item.Vol,
     amount: item.Price * item.Vol,
   }))
+}
+
+async function searchGotdx(
+  _source: string,
+  config: SearchConfig,
+): Promise<ReadonlyArray<SearchResult>> {
+  const res = await fetch(`${getBaseUrl()}/api/symbol/search`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: config.query, limit: config.limit }),
+    signal: config.signal,
+  })
+  if (!res.ok) {
+    throw new KLineChartError(
+      'FETCH_FAILED',
+      `[gotdx] symbol search failed: ${res.status} ${res.statusText}`,
+    )
+  }
+  return (await res.json()) as ReadonlyArray<SearchResult>
 }
 
 interface SecurityBar {
@@ -149,18 +174,19 @@ function mapExItem(item: ExKLineItem, code: string): KLineData {
 }
 
 async function fetchGotdx(_source: string, config: FetchConfig): Promise<ReadonlyArray<KLineData>> {
-  if (config.exchange && config.exchange in EXCHANGE_EX_CATEGORY) {
-    const category = EXCHANGE_EX_CATEGORY[config.exchange]
+  // 路由只看 params：有 category 走扩展行情，有 market 走 A 股；不做代码/exchange 猜测
+  const explicitCategory = config.params?.category
+  if (typeof explicitCategory === 'number') {
     const period = PERIOD_TO_CATEGORY[config.period] ?? 4
     const body = {
-      category,
+      category: explicitCategory,
       code: config.symbol,
       period,
       start_date: config.startDate,
       end_date: config.endDate,
       times: 1,
     }
-    const res = await fetch(`${BASE_URL}/api/ex/kline-by-date`, {
+    const res = await fetch(`${getBaseUrl()}/api/ex/kline-by-date`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -174,9 +200,18 @@ async function fetchGotdx(_source: string, config: FetchConfig): Promise<Readonl
     return list.map((item) => mapExItem(item, config.symbol))
   }
 
-  const market = config.symbol.startsWith('6') || config.symbol.startsWith('9') ? 1 : 0
+  if (typeof config.params?.market !== 'number') {
+    throw new KLineChartError(
+      'FETCH_FAILED',
+      `[gotdx] stock kline requires params.market or params.category for ${config.symbol}`,
+    )
+  }
+  const market = config.params.market
   const category = PERIOD_TO_CATEGORY[config.period] ?? 4
   const adjust = ADJUST_MAP[config.adjust] ?? 0
+  // kind 原样传给胶水层：index → GetIndexBars，stock → StockKLine
+  const kind =
+    typeof config.params.kind === 'string' ? config.params.kind : undefined
   const body = {
     market,
     code: config.symbol,
@@ -185,8 +220,9 @@ async function fetchGotdx(_source: string, config: FetchConfig): Promise<Readonl
     end_date: config.endDate,
     times: 1,
     adjust,
+    ...(kind ? { kind } : {}),
   }
-  const res = await fetch(`${BASE_URL}/api/stock/kline-by-date`, {
+  const res = await fetch(`${getBaseUrl()}/api/stock/kline-by-date`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -205,6 +241,7 @@ async function fetchGotdx(_source: string, config: FetchConfig): Promise<Readonl
   displayName: 'GOTDX',
   description: 'TDX data source via local proxy',
   version: '1.0.0',
+  defaultBaseUrl: DEFAULT_BASE_URL,
   capabilities: [
     '1min',
     '5min',
@@ -216,9 +253,11 @@ async function fetchGotdx(_source: string, config: FetchConfig): Promise<Readonl
     'monthly',
     'quarterly',
     'yearly',
+    'search',
   ],
 })
 class GotdxFetcher {
   static fetcher = fetchGotdx
   static timeShareFetcher = fetchGotdxHistoryTick
+  static searcher = searchGotdx
 }
