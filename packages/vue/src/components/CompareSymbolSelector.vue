@@ -24,6 +24,11 @@
           role="dialog"
           aria-label="比较商品"
         >
+          <AggregationSourceTabs
+            v-if="sourceTabs.length > 0"
+            v-model="activeSourceTab"
+            :tabs="sourceTabs"
+          />
           <div class="compare-search">
             <span class="compare-search__icon" aria-hidden="true">
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -178,6 +183,8 @@
 <script setup lang="ts">
   import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 
+  import type { DataFetcherDefinition } from '@363045841yyt/klinechart-core/controllers'
+
   import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
   import {
     symbolIdentityKey,
@@ -188,6 +195,10 @@
   import { useTeleportedPopup } from '../composables/useTeleportedPopup'
 
   import AggregationSourceButton from './AggregationSourceButton.vue'
+  import AggregationSourceTabs, {
+    type AggregationSourceTabItem,
+    type AggregationSourceTabKey,
+  } from './AggregationSourceTabs.vue'
   import type { SymbolItem } from './SymbolSelector.vue'
 
   const props = withDefaults(
@@ -198,10 +209,14 @@
       selectedItems?: SymbolItem[]
       comparisonColors?: Map<string, string>
       comparisonLoading?: boolean
+      aggregationSources?: ReadonlyArray<DataFetcherDefinition>
+      enabledSourceNames?: ReadonlySet<string>
     }>(),
     {
       selected: () => [],
       selectedItems: () => [],
+      aggregationSources: () => [],
+      enabledSourceNames: () => new Set<string>(),
     },
   )
 
@@ -213,9 +228,28 @@
 
   const showPopup = ref(false)
   const searchQuery = ref('')
+  const activeSourceTab = ref<AggregationSourceTabKey>('all')
   const searchInputRef = ref<HTMLInputElement | null>(null)
   const rootRef = ref<HTMLElement | null>(null)
   const popupRef = ref<HTMLElement | null>(null)
+
+  const sourceTabs = computed<AggregationSourceTabItem[]>(() => {
+    const enabled = props.enabledSourceNames
+    const searchable = props.aggregationSources
+      .filter(
+        (source) =>
+          enabled.has(source.name) &&
+          source.capabilities?.includes('search') &&
+          typeof source.searcher === 'function',
+      )
+      .slice()
+      .sort((a, b) => Number(a.name.startsWith('mock-')) - Number(b.name.startsWith('mock-')))
+    if (searchable.length === 0) return []
+    return [
+      { key: 'all', label: '全部' },
+      ...searchable.map((source) => ({ key: source.name, label: source.displayName })),
+    ]
+  })
 
   const teleportTarget = useFullscreenTeleportTarget()
 
@@ -241,6 +275,7 @@
     query: searchQuery,
     symbols: computed(() => props.symbols),
     search: computed(() => props.search),
+    sourceFilter: activeSourceTab,
   })
   const comparisonSymbols = computed(() => uniqueSymbolsByIdentity(filteredSymbols.value))
 
@@ -272,6 +307,13 @@
       startPositionSync()
     } else {
       stopPositionSync()
+      activeSourceTab.value = 'all'
+    }
+  })
+
+  watch(sourceTabs, (tabs) => {
+    if (!tabs.some((tab) => tab.key === activeSourceTab.value)) {
+      activeSourceTab.value = 'all'
     }
   })
 

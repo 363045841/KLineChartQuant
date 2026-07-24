@@ -60,9 +60,30 @@ describe('useSymbolSearch', () => {
 
     await vi.advanceTimersByTimeAsync(250)
 
-    expect(search).toHaveBeenCalledWith('600', 20, expect.any(AbortSignal))
+    expect(search).toHaveBeenCalledWith('600', 20, expect.any(AbortSignal), undefined)
     expect(state.results.value.map((item) => item.symbol)).toEqual(['600519', '600036'])
     expect(state.loading.value).toBe(false)
+  })
+
+  it('filters local catalog and remote search by the selected source tab', async () => {
+    const query = ref('A')
+    const sourceFilter = ref<'all' | string>('tradingview')
+    const search = vi.fn<SymbolSearchFn<SearchableSymbol>>().mockResolvedValue([
+      { symbol: 'AMZN', description: 'Amazon', exchange: 'NASDAQ', source: 'tradingview' },
+    ])
+    const state = useSymbolSearch({
+      query,
+      symbols: ref(catalog),
+      search: ref(search),
+      sourceFilter,
+    })
+
+    expect(state.results.value.map((item) => item.symbol)).toEqual(['AAPL'])
+
+    await vi.advanceTimersByTimeAsync(250)
+
+    expect(search).toHaveBeenCalledWith('A', 20, expect.any(AbortSignal), ['tradingview'])
+    expect(state.results.value.map((item) => item.symbol)).toEqual(['AAPL', 'AMZN'])
   })
 
   it('ignores an older response that resolves after a newer query', async () => {

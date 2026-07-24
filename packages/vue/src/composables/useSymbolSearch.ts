@@ -29,12 +29,16 @@ export type SymbolSearchFn<T extends SearchableSymbol = SearchableSymbol> = (
   query: string,
   limit: number,
   signal: AbortSignal,
+  /** 限定搜索的数据源；省略则使用调用方默认启用列表 */
+  sources?: ReadonlyArray<string>,
 ) => Promise<ReadonlyArray<T>>
 
 interface UseSymbolSearchOptions<T extends SearchableSymbol> {
   query: Ref<string>
   symbols: MaybeRefOrGetter<ReadonlyArray<T>>
   search: MaybeRefOrGetter<SymbolSearchFn<T> | undefined>
+  /** 当前选中的聚合源；all 或未传表示不过滤 */
+  sourceFilter?: MaybeRefOrGetter<string | 'all' | undefined>
   limit?: number
   debounceMs?: number
 }
@@ -73,9 +77,17 @@ export function useSymbolSearch<T extends SearchableSymbol>(options: UseSymbolSe
   let timer: ReturnType<typeof setTimeout> | undefined
   let activeController: AbortController | undefined
 
+  function activeSourceFilter(): string | undefined {
+    const filter = options.sourceFilter === undefined ? 'all' : toValue(options.sourceFilter)
+    if (!filter || filter === 'all') return undefined
+    return filter
+  }
+
   const localResults = computed<ReadonlyArray<T>>(() => {
     const query = options.query.value.trim().toLowerCase()
-    const symbols = toValue(options.symbols)
+    const source = activeSourceFilter()
+    let symbols = toValue(options.symbols)
+    if (source) symbols = symbols.filter((item) => item.source === source)
     return query ? symbols.filter((item) => matchesQuery(item, query)) : symbols
   })
 
@@ -103,12 +115,15 @@ export function useSymbolSearch<T extends SearchableSymbol>(options: UseSymbolSe
     const search = toValue(options.search)
     if (!query || !search) return
 
+    const source = activeSourceFilter()
+    const sources = source ? [source] : undefined
+
     timer = setTimeout(async () => {
       const controller = new AbortController()
       activeController = controller
       loading.value = true
       try {
-        const found = await search(query, limit, controller.signal)
+        const found = await search(query, limit, controller.signal, sources)
         if (currentRequest !== requestId) return
         remoteResults.value = found
       } catch {
@@ -124,7 +139,11 @@ export function useSymbolSearch<T extends SearchableSymbol>(options: UseSymbolSe
     }, debounceMs)
   }
 
-  watch([options.query, () => toValue(options.search)], scheduleSearch, { immediate: true })
+  watch(
+    [options.query, () => toValue(options.search), () => toValue(options.sourceFilter)],
+    scheduleSearch,
+    { immediate: true },
+  )
 
   if (getCurrentScope()) {
     onScopeDispose(() => {

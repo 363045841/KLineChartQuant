@@ -15,6 +15,8 @@
       :search="search"
       :loading="symbolLoading"
       :error="symbolError"
+      :aggregation-sources="aggregationSources"
+      :enabled-source-names="enabledSourceNames"
       @change="onSymbolSelectorChange"
       @manage-sources="showSourceDialog = true"
     />
@@ -25,6 +27,8 @@
       :selected-items="overlaySymbolItems"
       :comparison-colors="comparisonColors"
       :comparison-loading="comparisonLoading"
+      :aggregation-sources="aggregationSources"
+      :enabled-source-names="enabledSourceNames"
       @add="emit('addOverlaySymbol', $event)"
       @remove="emit('removeOverlaySymbol', $event)"
       @manage-sources="showSourceDialog = true"

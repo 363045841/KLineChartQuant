@@ -533,8 +533,15 @@ import MarkerTooltip from './MarkerTooltip.vue'
     query: string,
     limit: number,
     signal: AbortSignal,
+    sources?: ReadonlyArray<string>,
   ): Promise<ReadonlyArray<SymbolItem>> {
-    return routerSearchFetchers({ query, limit, signal, sources: enabledSourceNames.value })
+    // Tab 指定单源时只查该源；否则查全部已启用源
+    return routerSearchFetchers({
+      query,
+      limit,
+      signal,
+      sources: sources ?? enabledSourceNames.value,
+    })
   }
 
   function syncSymbolsToController() {

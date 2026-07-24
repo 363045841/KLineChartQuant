@@ -23,6 +23,11 @@
           role="dialog"
           aria-label="切换合约"
         >
+          <AggregationSourceTabs
+            v-if="sourceTabs.length > 0"
+            v-model="activeSourceTab"
+            :tabs="sourceTabs"
+          />
           <div class="symbol-search">
             <span class="symbol-search__icon" aria-hidden="true">
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -123,6 +128,7 @@
 </template>
 
 <script setup lang="ts">
+  import type { DataFetcherDefinition } from '@363045841yyt/klinechart-core/controllers'
   import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 
   import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
@@ -135,18 +141,32 @@
   import { useTeleportedPopup } from '../composables/useTeleportedPopup'
 
   import AggregationSourceButton from './AggregationSourceButton.vue'
+  import AggregationSourceTabs, {
+    type AggregationSourceTabItem,
+    type AggregationSourceTabKey,
+  } from './AggregationSourceTabs.vue'
   import IconTablerAlertTriangle from '~icons/tabler/alert-triangle'
 
   export interface SymbolItem extends SearchableSymbol {}
 
-  const props = defineProps<{
-    symbol: string
-    selectedItem?: SymbolItem
-    symbols: SymbolItem[]
-    search?: SymbolSearchFn<SymbolItem>
-    loading?: boolean
-    error?: boolean
-  }>()
+  const props = withDefaults(
+    defineProps<{
+      symbol: string
+      selectedItem?: SymbolItem
+      symbols: SymbolItem[]
+      search?: SymbolSearchFn<SymbolItem>
+      loading?: boolean
+      error?: boolean
+      /** 已注册数据源，用于 Tabs 展示名 */
+      aggregationSources?: ReadonlyArray<DataFetcherDefinition>
+      /** 已启用的搜索源名称 */
+      enabledSourceNames?: ReadonlySet<string>
+    }>(),
+    {
+      aggregationSources: () => [],
+      enabledSourceNames: () => new Set<string>(),
+    },
+  )
 
   const emit = defineEmits<{
     (e: 'change', symbol: SymbolItem): void
@@ -155,9 +175,29 @@
 
   const showPopup = ref(false)
   const searchQuery = ref('')
+  const activeSourceTab = ref<AggregationSourceTabKey>('all')
   const searchInputRef = ref<HTMLInputElement | null>(null)
   const chipWrapRef = ref<HTMLElement | null>(null)
   const popupRef = ref<HTMLElement | null>(null)
+
+  /** 全部 + 已启用且可搜索的源；mock 沉底 */
+  const sourceTabs = computed<AggregationSourceTabItem[]>(() => {
+    const enabled = props.enabledSourceNames
+    const searchable = props.aggregationSources
+      .filter(
+        (source) =>
+          enabled.has(source.name) &&
+          source.capabilities?.includes('search') &&
+          typeof source.searcher === 'function',
+      )
+      .slice()
+      .sort((a, b) => Number(a.name.startsWith('mock-')) - Number(b.name.startsWith('mock-')))
+    if (searchable.length === 0) return []
+    return [
+      { key: 'all', label: '全部' },
+      ...searchable.map((source) => ({ key: source.name, label: source.displayName })),
+    ]
+  })
 
   const teleportTarget = useFullscreenTeleportTarget()
 
@@ -191,6 +231,7 @@
     query: searchQuery,
     symbols: computed(() => props.symbols),
     search: computed(() => props.search),
+    sourceFilter: activeSourceTab,
   })
 
   function togglePopup() {
@@ -205,6 +246,14 @@
       startPositionSync()
     } else {
       stopPositionSync()
+      activeSourceTab.value = 'all'
+    }
+  })
+
+  // 启用列表变化时，若当前 Tab 已不存在则回到全部
+  watch(sourceTabs, (tabs) => {
+    if (!tabs.some((tab) => tab.key === activeSourceTab.value)) {
+      activeSourceTab.value = 'all'
     }
   })
 
