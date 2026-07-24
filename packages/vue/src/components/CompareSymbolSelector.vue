@@ -156,7 +156,7 @@
                 <span class="compare-list__desc">{{ item.description }}</span>
               </span>
               <span class="compare-list__right">
-                <span class="compare-list__exchange">{{ item.exchange }}</span>
+                <span class="compare-list__exchange">{{ formatSymbolMeta(item) }}</span>
                 <span v-if="isSelected(item)" class="compare-list__check" aria-hidden="true">
                   <svg
                     viewBox="0 0 24 24"
@@ -293,6 +293,15 @@
 
   function removeSymbol(item: SymbolItem) {
     emit('remove', symbolIdentityKey(item))
+  }
+
+  /** 展示 exchange + kind + market/category，便于区分同代码多语义 */
+  function formatSymbolMeta(item: SymbolItem): string {
+    const parts = [item.exchange]
+    if (typeof item.params?.kind === 'string') parts.push(String(item.params.kind))
+    if (typeof item.params?.market === 'number') parts.push(`M${item.params.market}`)
+    if (typeof item.params?.category === 'number') parts.push(`C${item.params.category}`)
+    return parts.join(' · ')
   }
 
   function togglePopup() {

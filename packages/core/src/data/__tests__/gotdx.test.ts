@@ -132,6 +132,38 @@ describe('gotdx fetcher', () => {
     expect(JSON.parse(String(init?.body))).toMatchObject({ category: 31, code: '00700' })
   })
 
+  it('rejects stock requests without params.market or params.category', async () => {
+    const definition = getRegisteredFetcher('gotdx')
+
+    await expect(
+      definition?.fetcher('gotdx', {
+        symbol: '000001',
+        period: 'daily',
+        startDate: '2026-01-01',
+        endDate: '2026-01-31',
+        adjust: 'none',
+        exchange: 'SZ',
+      }),
+    ).rejects.toThrow(/params\.market or params\.category/)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('does not infer market from exchange alone', async () => {
+    const definition = getRegisteredFetcher('gotdx')
+
+    await expect(
+      definition?.fetcher('gotdx', {
+        symbol: '00700',
+        period: 'daily',
+        startDate: '2026-01-01',
+        endDate: '2026-01-31',
+        adjust: 'none',
+        exchange: 'HK',
+      }),
+    ).rejects.toThrow(/params\.market or params\.category/)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('wraps search HTTP failures', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ error: 'offline' }, 503))
     const definition = getRegisteredFetcher('gotdx')

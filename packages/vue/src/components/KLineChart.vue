@@ -448,11 +448,35 @@ import MarkerTooltip from './MarkerTooltip.vue'
     { symbol: 'AAPL', description: 'Apple Inc.', exchange: 'NASDAQ', source: 'tradingview' },
     { symbol: 'TSLA', description: 'Tesla, Inc.', exchange: 'NASDAQ', source: 'tradingview' },
     { symbol: '1810', description: '小米集团', exchange: 'HKEX', source: 'tradingview' },
-    // gotdx A shares
-    { symbol: '600519', description: '贵州茅台', exchange: 'SSE', source: 'gotdx' },
-    { symbol: '601360', description: '三六零', exchange: 'SSE', source: 'gotdx' },
-    { symbol: '000858', description: '五 粮 液', exchange: 'SZSE', source: 'gotdx' },
-    { symbol: '000001', description: '平安银行', exchange: 'SZSE', source: 'gotdx' },
+    // gotdx A 股：必须带 params.market，与搜索目录一致，禁止按代码猜市场
+    {
+      symbol: '600519',
+      description: '贵州茅台',
+      exchange: 'SH',
+      source: 'gotdx',
+      params: { market: 1 },
+    },
+    {
+      symbol: '601360',
+      description: '三六零',
+      exchange: 'SH',
+      source: 'gotdx',
+      params: { market: 1 },
+    },
+    {
+      symbol: '000858',
+      description: '五 粮 液',
+      exchange: 'SZ',
+      source: 'gotdx',
+      params: { market: 0 },
+    },
+    {
+      symbol: '000001',
+      description: '平安银行',
+      exchange: 'SZ',
+      source: 'gotdx',
+      params: { market: 0 },
+    },
     // Mock
     { symbol: 'MOCK-100', description: 'Mock 100 条', exchange: 'MOCK', source: 'mock-100' },
     { symbol: 'MOCK-10000', description: 'Mock 10000 条', exchange: 'MOCK', source: 'mock-10000' },

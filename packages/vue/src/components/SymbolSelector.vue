@@ -118,7 +118,7 @@
                 <span class="symbol-list__code">{{ item.symbol }}</span>
                 <span class="symbol-list__desc">{{ item.description }}</span>
               </span>
-              <span class="symbol-list__exchange">{{ item.exchange }}</span>
+              <span class="symbol-list__exchange">{{ formatSymbolMeta(item) }}</span>
             </button>
           </div>
         </div>
@@ -266,6 +266,15 @@
     emit('change', item)
     showPopup.value = false
     searchQuery.value = ''
+  }
+
+  /** 展示 exchange + kind + market/category，便于区分同代码多语义 */
+  function formatSymbolMeta(item: SymbolItem): string {
+    const parts = [item.exchange]
+    if (typeof item.params?.kind === 'string') parts.push(String(item.params.kind))
+    if (typeof item.params?.market === 'number') parts.push(`M${item.params.market}`)
+    if (typeof item.params?.category === 'number') parts.push(`C${item.params.category}`)
+    return parts.join(' · ')
   }
 
   function onDocumentClick(e: MouseEvent) {
