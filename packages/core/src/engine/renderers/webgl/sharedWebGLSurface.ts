@@ -1,3 +1,5 @@
+import { toPhysicalRegion } from '../../../rendering/render/physicalRegion'
+
 /**
  * SharedWebGLSurface — 单 WebGL canvas 共享后端
  *
@@ -18,6 +20,7 @@
  *   clearRegion(...) + 外部绘制调用         ← pane 内的 GL 命令
  *   compositeRegionTo(ctx, region)        ← drawImage 到 2D canvas
  */
+
 export type WebGLRegion = {
   x: number
   y: number
@@ -132,6 +135,10 @@ export class SharedWebGLSurface {
     ctx.imageSmoothingEnabled = prevImageSmoothingEnabled
   }
 
+  private getPhysicalBounds(): { width: number; height: number } {
+    return { width: this.canvas.width, height: this.canvas.height }
+  }
+
   destroy(): void {
     this.canvas.width = 1
     this.canvas.height = 1
@@ -139,17 +146,14 @@ export class SharedWebGLSurface {
   }
 
   private toPhysicalRegion(region: WebGLRegion): PhysicalRegion | null {
-    const widthPx = Math.max(0, Math.round(region.width * region.dpr))
-    const heightPx = Math.max(0, Math.round(region.height * region.dpr))
-    if (widthPx <= 0 || heightPx <= 0) return null
-
-    const sourceX = Math.max(0, Math.round(region.x * region.dpr))
-    const sourceY = Math.max(0, Math.round(region.y * region.dpr))
+    const bounds = this.getPhysicalBounds()
+    const physical = toPhysicalRegion(region, bounds)
+    if (physical.width <= 0 || physical.height <= 0) return null
     return {
-      sourceX,
-      sourceY,
-      widthPx,
-      heightPx,
+      sourceX: physical.x,
+      sourceY: physical.y,
+      widthPx: physical.width,
+      heightPx: physical.height,
     }
   }
 

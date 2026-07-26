@@ -410,7 +410,8 @@ export class LineWebGLSurface {
       const colorValue = parseColor(line.color)
       if (!colorValue) return false
 
-      if (line.width <= 1) {
+      const physicalWidthPx = Math.round((line.width ?? 1) * this.dpr)
+      if (physicalWidthPx <= 1) {
         hasNativeLines = true
         drawCmds.push({
           colorValue,

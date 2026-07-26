@@ -12,6 +12,7 @@ import type {
   DrawLinesParams,
   DispatchComputeParams,
 } from './Renderer'
+import { prepareLineStripForPhysicalPixels } from './physicalLine'
 import type { SurfaceBackend, SurfaceRegion } from './SurfaceBackend'
 
 type WebGLPipelineDescriptor = {
@@ -58,6 +59,7 @@ export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurf
 
   const bufferMeta = new WeakMap<object, BufferRecord>()
   const pipelineMeta = new WeakMap<object, PipelineRecord>()
+  let currentRegion: SurfaceRegion | null = null
 
   function disposeSurfaces(): void {
     if (candleSurface) {
@@ -137,6 +139,7 @@ export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurf
 
     beginFrame(region: SurfaceRegion): void {
       if (disposed) return
+      currentRegion = { ...region }
       surface.bindRegion(region)
       if (candleSurface) {
         candleSurface.setRegion(toWebGLRegion(region))
@@ -182,13 +185,17 @@ export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurf
       // 批量 strips：一次 drawLineStrips（单次 MSAA clear），多周期 MA 必须走此路径
       if (params.strips && params.strips.length > 0) {
         if (pipelineMeta_rec.type === 'fill') return false
+        const dpr = currentRegion?.dpr ?? 1
         const lines = params.strips
           .filter((s) => s.points.length >= 2)
-          .map((s) => ({
-            points: s.points.map((p) => ({ x: p.x, y: p.y })),
-            color: s.color,
-            width: s.width ?? 1,
-          }))
+          .map((s) => {
+            const physical = prepareLineStripForPhysicalPixels(s, dpr)
+            return {
+              points: physical.points.map((p) => ({ x: p.x, y: p.y })),
+              color: physical.color,
+              width: physical.width ?? 1,
+            }
+          })
         if (lines.length === 0) return true
         return lineSurface.drawLineStrips(lines, scrollLeft)
       }
@@ -206,8 +213,8 @@ export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurf
         const lowerPoints: Array<{ x: number; y: number }> = []
         for (let i = 0; i < pointCount; i++) {
           const offset = i * 4
-          upperPoints.push({ x: floats[offset], y: floats[offset + 1] })
-          lowerPoints.push({ x: floats[offset + 2], y: floats[offset + 3] })
+          upperPoints.push({ x: floats[offset]!, y: floats[offset + 1]! })
+          lowerPoints.push({ x: floats[offset + 2]!, y: floats[offset + 3]! })
         }
         return lineSurface.drawFilledBand({ upperPoints, lowerPoints }, color, scrollLeft)
       }
@@ -215,10 +222,24 @@ export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurf
       const floats = new Float32Array(vertexMeta.data, 0, params.vertexCount * 2)
       const points: Array<{ x: number; y: number }> = []
       for (let i = 0; i < params.vertexCount; i++) {
-        points.push({ x: floats[i * 2], y: floats[i * 2 + 1] })
+        points.push({ x: floats[i * 2]!, y: floats[i * 2 + 1]! })
       }
       const lineWidth = (params.uniforms?.lineWidth as number) ?? 1
-      return lineSurface.drawLineStrips([{ points, color, width: lineWidth }], scrollLeft)
+      const dpr = currentRegion?.dpr ?? 1
+      const physicalStrip = prepareLineStripForPhysicalPixels(
+        { points, color, width: lineWidth },
+        dpr,
+      )
+      return lineSurface.drawLineStrips(
+        [
+          {
+            points: physicalStrip.points.map((p) => ({ x: p.x, y: p.y })),
+            color: physicalStrip.color,
+            width: physicalStrip.width ?? 1,
+          },
+        ],
+        scrollLeft,
+      )
     },
 
     dispatchCompute(_params: DispatchComputeParams): void {

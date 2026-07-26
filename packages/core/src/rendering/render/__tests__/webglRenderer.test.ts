@@ -333,6 +333,58 @@ describe('createWebGLRenderer', () => {
       expect(mocks.mockDrawLineStrips.mock.calls[0]![1]).toBe(5)
     })
 
+    it('prepares strips for physical pixels at fractional DPR', () => {
+      const { renderer } = makeRenderer()
+      renderer.beginFrame({ x: 0, y: 0, width: 800, height: 600, dpr: 1.25 })
+      const pipeline = renderer.createPipeline({ type: 'line' })
+      renderer.drawLines({
+        pipeline,
+        strips: [
+          {
+            points: [
+              { x: 0.2, y: 5.1 },
+              { x: 10.7, y: 5.1 },
+            ],
+            color: '#f00',
+            width: 1,
+          },
+        ],
+        uniforms: { scrollLeft: 0 },
+      })
+      const lines = mocks.mockDrawLineStrips.mock.calls[0]![0]
+      expect(lines[0].width).toBe(0.8)
+      expect(lines[0].points).toEqual([
+        { x: 0, y: 5.2 },
+        { x: 10.4, y: 5.2 },
+      ])
+    })
+
+    it('preserves diagonal vertices and quantizes width at high DPR', () => {
+      const { renderer } = makeRenderer()
+      renderer.beginFrame({ x: 0, y: 0, width: 800, height: 600, dpr: 2 })
+      const pipeline = renderer.createPipeline({ type: 'line' })
+      renderer.drawLines({
+        pipeline,
+        strips: [
+          {
+            points: [
+              { x: 0.2, y: 5.1 },
+              { x: 10.7, y: 8.4 },
+            ],
+            color: '#0f0',
+            width: 1,
+          },
+        ],
+        uniforms: { scrollLeft: 0 },
+      })
+      const lines = mocks.mockDrawLineStrips.mock.calls[0]![0]
+      expect(lines[0].width).toBe(1)
+      expect(lines[0].points).toEqual([
+        { x: 0.2, y: 5.1 },
+        { x: 10.7, y: 8.4 },
+      ])
+    })
+
     it('delegates to line surface drawFilledBand for fill pipeline', () => {
       const { renderer } = makeRenderer()
       renderer.beginFrame({ x: 0, y: 0, width: 800, height: 600, dpr: 2 })
