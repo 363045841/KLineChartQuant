@@ -28,7 +28,8 @@ const SPAN_B_COLOR = '#dc2626'
 const CHIKOU_COLOR = '#7c3aed'
 
 type Point = { x: number; y: number }
-type CloudSeg = { x: number; ya: number; yb: number; bull: boolean }
+/** @internal 对测试暴露 */
+export type CloudSeg = { x: number; ya: number; yb: number; bull: boolean }
 
 function collectIchimokuPoints(
   context: RenderContext,
@@ -221,9 +222,10 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
   ctx.stroke()
 }
 
-function fillCloud(
+/** @internal */
+export function fillCloud(
   ctx: CanvasRenderingContext2D,
-  segs: { x: number; ya: number; yb: number; bull: boolean }[],
+  segs: CloudSeg[],
   bullColor: string,
   bearColor: string,
   alpha = 0.15,
@@ -243,7 +245,7 @@ function fillCloud(
     ctx.beginPath()
     ctx.moveTo(segs[start]!.x, segs[start]!.ya)
     for (let k = start + 1; k <= end + 1; k++) ctx.lineTo(segs[k]!.x, segs[k]!.ya)
-    for (let k = end; k >= start; k--) ctx.lineTo(segs[k]!.x, segs[k]!.yb)
+    for (let k = end + 1; k >= start; k--) ctx.lineTo(segs[k]!.x, segs[k]!.yb)
     ctx.closePath()
     ctx.fill()
     start = end + 1
