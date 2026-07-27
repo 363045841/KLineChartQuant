@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { TimeShareBuffer } from '../timeShareBuffer'
 import type { TimeShareData } from '../../foundation/types/price'
-import type { TimeShareFetchResult } from '../types'
+import type { TimeShareFetcherFn, TimeShareFetchResult } from '../types'
 
 function point(price: number, ts = 1): TimeShareData {
   return { timestamp: ts, price, average: price, volume: 1, amount: price }
@@ -16,6 +16,8 @@ describe('TimeShareBuffer', () => {
     expect(buf.getPreClose()).toBe(10.5)
     buf.setPreClose(null)
     expect(buf.getPreClose()).toBeNull()
+    buf.setPreClose(-1)
+    expect(buf.getPreClose()).toBeNull()
   })
 
   it('stores the fetched preClose with its time-share points', async () => {
@@ -25,6 +27,17 @@ describe('TimeShareBuffer', () => {
 
     await vi.waitFor(() => expect(buf.getRawData()).toHaveLength(1))
     expect(buf.getPreClose()).toBe(9.5)
+    buf.dispose()
+  })
+
+  it('accepts a custom fetcher that returns a legacy point array', async () => {
+    const buf = new TimeShareBuffer()
+    const fetcher: TimeShareFetcherFn = async () => [point(10)]
+    buf.setFetcher(fetcher)
+    buf.load({ symbol: 'custom', period: 'timeshare', source: 'custom' })
+
+    await vi.waitFor(() => expect(buf.getRawData()).toEqual([point(10)]))
+    expect(buf.getPreClose()).toBeNull()
     buf.dispose()
   })
 

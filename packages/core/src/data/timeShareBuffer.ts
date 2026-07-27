@@ -71,7 +71,7 @@ export class TimeShareBuffer implements DataBufferLike {
   }
 
   setPreClose(preClose: number | null): void {
-    if (preClose === null || (Number.isFinite(preClose) && preClose !== 0)) {
+    if (preClose === null || (Number.isFinite(preClose) && preClose > 0)) {
       this._preClose = preClose
     }
   }
@@ -105,6 +105,11 @@ export class TimeShareBuffer implements DataBufferLike {
             exchange: s.exchange,
             params: s.params,
             date,
+          }).then((result) => {
+            if (Array.isArray(result)) {
+              return { data: result, preClose: null }
+            }
+            return result as TimeShareFetchResult
           })
         }),
     }

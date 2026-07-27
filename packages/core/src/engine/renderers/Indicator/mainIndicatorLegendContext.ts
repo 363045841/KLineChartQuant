@@ -128,13 +128,13 @@ export function buildLegendTemplateContext(
     const tsData = context.data as TimeShareData[]
     const rawPreClose = context.settings?.preClose as number | undefined
     const preClose =
-      typeof rawPreClose === 'number' && Number.isFinite(rawPreClose) && rawPreClose !== 0
+      typeof rawPreClose === 'number' && Number.isFinite(rawPreClose) && rawPreClose > 0
         ? rawPreClose
-        : (tsData[0]?.price ?? 0)
+        : null
     const item = tsData[targetIndex]
-    if (item) {
+    if (item && preClose !== null) {
       const changeAmount = item.price - preClose
-      const changePercent = preClose !== 0 ? (changeAmount / preClose) * 100 : 0
+      const changePercent = (changeAmount / preClose) * 100
       timeshare = {
         price: item.price,
         average: item.average,

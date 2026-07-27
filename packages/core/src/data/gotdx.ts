@@ -83,30 +83,41 @@ async function fetchGotdxHistoryTick(
       'FETCH_FAILED',
       `[gotdx] history-tick failed: ${res.status} ${res.statusText}`,
     )
-  const payload = (await res.json()) as
-    | {
-        preClose?: number | null
-        data?: Array<{ timestamp: string; Price: number; Avg: number; Vol: number }>
-      }
-    | Array<{ timestamp: string; Price: number; Avg: number; Vol: number }>
+  const payload: unknown = await res.json()
+  if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new KLineChartError(
+      'FETCH_FAILED',
+      '[gotdx] incompatible history-tick response: expected { preClose, data }',
+    )
+  }
 
-  // 兼容旧数组响应；新契约为 { preClose, data }
-  const list = Array.isArray(payload) ? payload : (payload.data ?? [])
-  const rawPreClose = Array.isArray(payload) ? null : (payload.preClose ?? null)
-  const preClose =
-    typeof rawPreClose === 'number' && Number.isFinite(rawPreClose) && rawPreClose !== 0
-      ? rawPreClose
-      : null
+  const { preClose, data: list } = payload as {
+    preClose?: unknown
+    data?: unknown
+  }
+  if (
+    typeof preClose !== 'number' ||
+    !Number.isFinite(preClose) ||
+    preClose <= 0 ||
+    !Array.isArray(list)
+  ) {
+    throw new KLineChartError(
+      'FETCH_FAILED',
+      '[gotdx] incompatible history-tick response: expected positive preClose and data array',
+    )
+  }
 
   return {
     preClose,
-    data: list.map((item) => ({
-      timestamp: new Date(item.timestamp).getTime(),
-      price: item.Price,
-      average: item.Avg,
-      volume: item.Vol,
-      amount: item.Price * item.Vol,
-    })),
+    data: (list as Array<{ timestamp: string; Price: number; Avg: number; Vol: number }>).map(
+      (item) => ({
+        timestamp: new Date(item.timestamp).getTime(),
+        price: item.Price,
+        average: item.Avg,
+        volume: item.Vol,
+        amount: item.Price * item.Vol,
+      }),
+    ),
   }
 }
 

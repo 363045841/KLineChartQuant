@@ -33,7 +33,7 @@ export type TimeShareFetchResult = {
 export type TimeShareFetcherFn = (
   source: string,
   config: TimeShareFetchConfig,
-) => Promise<TimeShareFetchResult>
+) => Promise<TimeShareFetchResult | ReadonlyArray<TimeShareData>>
 
 export interface SearchConfig {
   query: string

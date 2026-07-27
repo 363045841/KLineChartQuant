@@ -172,4 +172,35 @@ describe('gotdx fetcher', () => {
       /symbol search failed: 503/,
     )
   })
+
+  it('rejects the legacy array history-tick protocol', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse([{ timestamp: '2026-07-27T09:30:00+08:00', Price: 8.5, Avg: 8.5, Vol: 100 }]),
+    )
+    const definition = getRegisteredFetcher('gotdx')
+
+    await expect(
+      definition?.timeShareFetcher?.('gotdx', {
+        symbol: '000001',
+        params: { market: 0 },
+        date: 20260727,
+      }),
+    ).rejects.toThrow(/incompatible history-tick response/i)
+  })
+
+  it.each([null, {}, { preClose: 8.3, data: 'invalid' }, { preClose: -1, data: [] }])(
+    'rejects a malformed history-tick protocol response: %j',
+    async (payload) => {
+      fetchMock.mockResolvedValue(jsonResponse(payload))
+      const definition = getRegisteredFetcher('gotdx')
+
+      await expect(
+        definition?.timeShareFetcher?.('gotdx', {
+          symbol: '000001',
+          params: { market: 0 },
+          date: 20260727,
+        }),
+      ).rejects.toThrow(/incompatible history-tick response/i)
+    },
+  )
 })
