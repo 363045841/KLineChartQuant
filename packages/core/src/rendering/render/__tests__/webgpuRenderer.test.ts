@@ -198,14 +198,14 @@ describe('createWebGPURenderer', () => {
     expect(fake.queue.submit).toHaveBeenCalledTimes(1)
   })
 
-  it('expands a logical one-pixel line to its physical DPR width', async () => {
+  it('expands a line wider than one physical pixel at fractional DPR', async () => {
     const fake = makeWebGPU()
     const renderer = await createWebGPURenderer({
       gpu: fake.gpu as unknown as GPU,
       canvas: fake.canvas,
     })
-    renderer.surface.resize(100, 100, 2)
-    renderer.beginFrame({ x: 0, y: 0, width: 100, height: 100, dpr: 2 })
+    renderer.surface.resize(100, 100, 1.25)
+    renderer.beginFrame({ x: 0, y: 0, width: 100, height: 100, dpr: 1.25 })
     const pipeline = renderer.createPipeline({ type: 'line' })
 
     expect(

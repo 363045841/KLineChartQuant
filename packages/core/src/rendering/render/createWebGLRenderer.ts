@@ -189,7 +189,7 @@ export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurf
         const lines = params.strips
           .filter((s) => s.points.length >= 2)
           .map((s) => {
-            const physical = prepareLineStripForPhysicalPixels(s, dpr)
+            const physical = prepareLineStripForPhysicalPixels(s, dpr, scrollLeft)
             return {
               points: physical.points.map((p) => ({ x: p.x, y: p.y })),
               color: physical.color,
@@ -229,6 +229,7 @@ export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurf
       const physicalStrip = prepareLineStripForPhysicalPixels(
         { points, color, width: lineWidth },
         dpr,
+        scrollLeft,
       )
       return lineSurface.drawLineStrips(
         [
