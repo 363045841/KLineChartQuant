@@ -10,7 +10,7 @@ export type TimeShareBaselineInput = {
 }
 
 export function resolveTimeShareBaseline(input: TimeShareBaselineInput): number | null {
-  const candidates = [input.preClose, input.firstPrice]
+  const candidates = [input.preClose]
   for (const v of candidates) {
     if (typeof v === 'number' && Number.isFinite(v) && v !== 0) return v
   }

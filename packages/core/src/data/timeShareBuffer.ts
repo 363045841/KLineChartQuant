@@ -8,7 +8,7 @@ import type { TimeShareData } from '../foundation/types/price'
 import { fetchTimeShare, TimeShareFetchService } from './dataBuffer.effects'
 import type { DataBufferLike, DataWindow, DataChange } from './dataBufferTypes'
 import { routerTimeShareFetcher } from './router'
-import type { TimeShareFetcherFn } from './types'
+import type { TimeShareFetcherFn, TimeShareFetchResult } from './types'
 
 export class TimeShareBuffer implements DataBufferLike {
   // 当前持有的分时数据数组（内部可变副本）
@@ -26,7 +26,7 @@ export class TimeShareBuffer implements DataBufferLike {
   // 请求序号，每次 load() 递增
   private _requestSeq = 0
   // 当前运行的 fetch Fiber 句柄，用于随时中断旧请求
-  private _fetchFiber: Fiber.RuntimeFiber<readonly TimeShareData[], unknown> | null = null
+  private _fetchFiber: Fiber.RuntimeFiber<TimeShareFetchResult, unknown> | null = null
   // 实例是否已销毁，阻止后续任何操作
   private _disposed = false
 
@@ -85,8 +85,9 @@ export class TimeShareBuffer implements DataBufferLike {
     }
 
     const requestSeq = ++this._requestSeq
-    // 新请求开始即清空旧点，避免历史日期切换时短暂显示另一天数据
+    // 新请求开始即清空旧点与昨收，避免历史日期切换时短暂显示另一天数据
     this._data = []
+    this._preClose = null
     this._dataSignal.set({ data: [], prependedCount: 0 })
     this._loadingSignal.set(true)
 
@@ -94,7 +95,7 @@ export class TimeShareBuffer implements DataBufferLike {
       readonly fetch: (
         s: SymbolSpec,
         date?: number,
-      ) => EffectType<ReadonlyArray<TimeShareData>, unknown>
+      ) => EffectType<TimeShareFetchResult, unknown>
     } = {
       fetch: (s, date) =>
         Effect.tryPromise(() => {
@@ -111,12 +112,13 @@ export class TimeShareBuffer implements DataBufferLike {
     const effect = pipe(
       fetchTimeShare(spec, this._queryDate || undefined),
       Effect.provideService(TimeShareFetchService, timeShareService),
-      Effect.tap((data) =>
+      Effect.tap((result) =>
         Effect.sync(() => {
           if (this._disposed) return
           this._queryDate = 0
-          this._data = [...data]
-          this._dataSignal.set({ data: [...data], prependedCount: 0 })
+          this._data = [...result.data]
+          this.setPreClose(result.preClose)
+          this._dataSignal.set({ data: [...result.data], prependedCount: 0 })
         }),
       ),
       Effect.ensuring(
@@ -146,6 +148,7 @@ export class TimeShareBuffer implements DataBufferLike {
       this._fetchFiber = null
     }
     this._data = []
+    this._preClose = null
     this._loadingSignal.set(false)
   }
 }

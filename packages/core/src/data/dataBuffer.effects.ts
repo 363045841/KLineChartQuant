@@ -3,7 +3,7 @@ import type { Effect as EffectType } from 'effect/Effect'
 
 import type { KLineData, SymbolSpec } from '../controllers/types'
 import { KLineChartError } from '../errors'
-import type { TimeShareData } from '../foundation/types/price'
+import type { TimeShareFetchResult } from './types'
 
 // ── KLine fetch service tag ──
 // Tag: 定义 Effect 服务接口
@@ -27,7 +27,7 @@ export class TimeShareFetchService extends Context.Tag('@klc/TimeShareFetchServi
     readonly fetch: (
       spec: SymbolSpec,
       date?: number,
-    ) => EffectType<ReadonlyArray<TimeShareData>, unknown>
+    ) => EffectType<TimeShareFetchResult, unknown>
   }
 >() {}
 
@@ -104,12 +104,12 @@ export const fetchKLine = (
 export const fetchTimeShare = (
   spec: SymbolSpec,
   date?: number,
-): EffectType<ReadonlyArray<TimeShareData>, unknown, TimeShareFetchService> =>
+): EffectType<TimeShareFetchResult, unknown, TimeShareFetchService> =>
   pipe(
     Effect.gen(function* () {
       const { fetch } = yield* TimeShareFetchService // 获取服务实例
-      const data = yield* pipe(fetch(spec, date), Effect.timeout(REQUEST_TIMEOUT))
-      return data
+      const result = yield* pipe(fetch(spec, date), Effect.timeout(REQUEST_TIMEOUT))
+      return result
     }),
     Effect.retry(retrySchedule),
     Effect.tapError((err) =>

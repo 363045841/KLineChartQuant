@@ -20,10 +20,10 @@ describe('resolveTimeShareBaseline', () => {
     expect(resolveTimeShareBaseline({ preClose: 10.5, firstPrice: 11 })).toBe(10.5)
   })
 
-  it('falls back to first price when preClose is missing or zero', () => {
-    expect(resolveTimeShareBaseline({ preClose: 0, firstPrice: 11 })).toBe(11)
-    expect(resolveTimeShareBaseline({ firstPrice: 11 })).toBe(11)
-    expect(resolveTimeShareBaseline({ preClose: null, firstPrice: 9 })).toBe(9)
+  it('does not treat the first trade as the pre-close baseline', () => {
+    expect(resolveTimeShareBaseline({ preClose: 0, firstPrice: 11 })).toBeNull()
+    expect(resolveTimeShareBaseline({ firstPrice: 11 })).toBeNull()
+    expect(resolveTimeShareBaseline({ preClose: null, firstPrice: 9 })).toBeNull()
   })
 
   it('returns null when no valid baseline exists', () => {

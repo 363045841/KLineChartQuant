@@ -1,9 +1,15 @@
-import type { KLineData, TimeShareData } from '../controllers/types'
+import type { KLineData } from '../controllers/types'
 import { KLineChartError } from '../errors'
 
 import { getFetcherBaseUrl } from './fetcherBaseUrl'
 import { DataFetcher } from './fetcherDefinitionRegistry'
-import type { FetchConfig, SearchConfig, SearchResult, TimeShareFetchConfig } from './types'
+import type {
+  FetchConfig,
+  SearchConfig,
+  SearchResult,
+  TimeShareFetchConfig,
+  TimeShareFetchResult,
+} from './types'
 
 const PERIOD_TO_CATEGORY: Record<string, number> = {
   '1min': 8,
@@ -54,7 +60,7 @@ function getShanghaiDateYYYYMMDD(): number {
 async function fetchGotdxHistoryTick(
   _source: string,
   config: TimeShareFetchConfig,
-): Promise<ReadonlyArray<TimeShareData>> {
+): Promise<TimeShareFetchResult> {
   // 分时只认搜索/目录带来的 params.market，不按代码前缀猜市场
   if (typeof config.params?.market !== 'number') {
     throw new KLineChartError(
@@ -77,15 +83,31 @@ async function fetchGotdxHistoryTick(
       'FETCH_FAILED',
       `[gotdx] history-tick failed: ${res.status} ${res.statusText}`,
     )
-  const list: Array<{ timestamp: string; Price: number; Avg: number; Vol: number }> =
-    await res.json()
-  return list.map((item) => ({
-    timestamp: new Date(item.timestamp).getTime(),
-    price: item.Price,
-    average: item.Avg,
-    volume: item.Vol,
-    amount: item.Price * item.Vol,
-  }))
+  const payload = (await res.json()) as
+    | {
+        preClose?: number | null
+        data?: Array<{ timestamp: string; Price: number; Avg: number; Vol: number }>
+      }
+    | Array<{ timestamp: string; Price: number; Avg: number; Vol: number }>
+
+  // 兼容旧数组响应；新契约为 { preClose, data }
+  const list = Array.isArray(payload) ? payload : (payload.data ?? [])
+  const rawPreClose = Array.isArray(payload) ? null : (payload.preClose ?? null)
+  const preClose =
+    typeof rawPreClose === 'number' && Number.isFinite(rawPreClose) && rawPreClose !== 0
+      ? rawPreClose
+      : null
+
+  return {
+    preClose,
+    data: list.map((item) => ({
+      timestamp: new Date(item.timestamp).getTime(),
+      price: item.Price,
+      average: item.Avg,
+      volume: item.Vol,
+      amount: item.Price * item.Vol,
+    })),
+  }
 }
 
 async function searchGotdx(

@@ -30,6 +30,7 @@ export type {
   SearchResult,
   TimeShareFetcherFn,
   TimeShareFetchConfig,
+  TimeShareFetchResult,
   DataFetcherDefinition,
 } from './types'
 export {
