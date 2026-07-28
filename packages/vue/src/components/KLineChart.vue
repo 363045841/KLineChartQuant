@@ -462,15 +462,28 @@ import MarkerTooltip from './MarkerTooltip.vue'
     syncSymbolsToController()
   }
 
+  function formatUnsupportedSymbolMessage(item: SymbolItem, error: unknown): string {
+    const detail = error instanceof Error ? error.message : String(error)
+    if (!item.market?.trim() || /market is required|Market session is not registered/i.test(detail)) {
+      return `暂不支持该品种（${item.exchange || item.symbol}）`
+    }
+    return detail || '切换品种失败'
+  }
+
   function onSymbolChange(item: SymbolItem) {
     symbolStatus.value = 'loading'
     const ctrl = controller.value
     if (!ctrl) return
-    ctrl.setDataFetcher(effectiveDataFetcher.value)
-    ctrl.registerSymbols([item])
-    const current = ctrl.symbols.peek() ?? []
-    const comparisonSpecs = current.slice(1)
-    ctrl.setSymbols([toSymbolSpec(item), ...comparisonSpecs])
+    try {
+      ctrl.setDataFetcher(effectiveDataFetcher.value)
+      ctrl.registerSymbols([item])
+      const current = ctrl.symbols.peek() ?? []
+      const comparisonSpecs = current.slice(1)
+      ctrl.setSymbols([toSymbolSpec(item), ...comparisonSpecs])
+    } catch (error) {
+      symbolStatus.value = 'error'
+      symbolErrorMessage.value = formatUnsupportedSymbolMessage(item, error)
+    }
   }
 
   function onAddOverlaySymbol(item: SymbolItem) {
@@ -479,9 +492,14 @@ import MarkerTooltip from './MarkerTooltip.vue'
     const current = ctrl.symbols.peek()
     const currentKeys = current.map(symbolIdentityKey)
     if (currentKeys.includes(symbolIdentityKey(item))) return
-    ctrl.registerSymbols([item])
-    forcePercentAxis()
-    ctrl.addComparisonSymbol(toSymbolSpec(item))
+    try {
+      ctrl.registerSymbols([item])
+      forcePercentAxis()
+      ctrl.addComparisonSymbol(toSymbolSpec(item))
+    } catch (error) {
+      symbolStatus.value = 'error'
+      symbolErrorMessage.value = formatUnsupportedSymbolMessage(item, error)
+    }
   }
 
   function onRemoveOverlaySymbol(identity: string) {

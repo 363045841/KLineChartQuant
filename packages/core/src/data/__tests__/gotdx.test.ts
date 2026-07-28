@@ -101,7 +101,7 @@ describe('gotdx fetcher', () => {
     ])
   })
 
-  it('keeps supported results when the same response contains unsupported markets', async () => {
+  it('returns all search rows and leaves unsupported markets empty', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse([
         {
@@ -124,10 +124,11 @@ describe('gotdx fetcher', () => {
 
     await expect(definition?.searcher?.('gotdx', { query: '01810' })).resolves.toEqual([
       expect.objectContaining({ symbol: '01810', market: 'HK' }),
+      expect.objectContaining({ symbol: 'IF2608', market: '', exchange: 'FUTURES' }),
     ])
   })
 
-  it('rejects gotdx search metadata that cannot be normalized', async () => {
+  it('keeps unmapped gotdx search rows with empty market instead of failing search', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse([
         {
@@ -137,13 +138,21 @@ describe('gotdx fetcher', () => {
           source: 'gotdx',
           params: { category: 47, kind: 'ex' },
         },
+        {
+          symbol: 'CBA07501',
+          description: '同业存单总指数',
+          exchange: 'EX-0',
+          source: 'gotdx',
+          params: { category: 0, kind: 'ex' },
+        },
       ]),
     )
     const definition = getRegisteredFetcher('gotdx')
 
-    await expect(definition?.searcher?.('gotdx', { query: 'IF2608' })).rejects.toThrow(
-      /cannot normalize market.*IF2608/i,
-    )
+    await expect(definition?.searcher?.('gotdx', { query: '同业存单' })).resolves.toEqual([
+      expect.objectContaining({ symbol: 'IF2608', market: '' }),
+      expect.objectContaining({ symbol: 'CBA07501', market: '', exchange: 'EX-0' }),
+    ])
   })
 
   it('uses params.market for stock requests', async () => {

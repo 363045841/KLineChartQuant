@@ -162,17 +162,14 @@ async function searchGotdx(
     )
   }
   const raw = (await res.json()) as ReadonlyArray<Omit<SearchResult, 'market'>>
-  const normalized: SearchResult[] = []
-  let normalizationError: unknown
-  for (const item of raw) {
+  // 搜索只负责列出结果；无法归一化的品种 market 置空，选中时由图表校验提示
+  return raw.map((item) => {
     try {
-      normalized.push({ ...item, market: normalizeGotdxMarket(item) })
-    } catch (error) {
-      normalizationError ??= error
+      return { ...item, market: normalizeGotdxMarket(item) }
+    } catch {
+      return { ...item, market: '' }
     }
-  }
-  if (normalized.length > 0 || raw.length === 0) return normalized
-  throw normalizationError
+  })
 }
 
 /** 扩展市场 exchange → 统一 market；仅含已有 session 的映射 */
