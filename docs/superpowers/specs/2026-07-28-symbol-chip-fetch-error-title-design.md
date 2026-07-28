@@ -1,105 +1,105 @@
-# Symbol Chip Fetch Error Title Design
+# 品种 Chip 拉取错误 Title 设计
 
-## Goal
+## 目标
 
-When the main symbol K-line fetch fails with an explicit Effect error, the Vue symbol chip must show the failure reason on hover via the native `title` attribute. Users should not need the console to understand why the warning icon appears.
+主品种 K 线拉取因 Effect 显式失败时，Vue 品种 chip 悬停须通过原生 `title` 显示失败原因。用户无需打开控制台即可理解警告图标含义。
 
-## Scope
+## 范围
 
-- Main-symbol K-line fetch only.
-- Propagate explicit Effect failures: network errors, HTTP/fetcher `FETCH_FAILED`, timeouts, missing source, and other rejected fetch promises after retries.
-- Empty successful responses (`[]`) remain non-fatal warnings and do not set chip error reason.
-- Native browser `title` only; no custom tooltip component.
-- Out of scope for this change: TimeShareBuffer, comparison-symbol chips, search-result errors, custom popup UI.
+- 仅主品种 K 线拉取。
+- 传播 Effect 显式失败：网络错误、HTTP/fetcher 的 `FETCH_FAILED`、超时、缺少 source，以及重试后仍 reject 的拉取 Promise。
+- 成功但返回空数组 `[]` 仍为非致命 warning，不写入 chip 错误原因。
+- 仅使用浏览器原生 `title`；不做自定义 tooltip 组件。
+- 本次不做：TimeShareBuffer、对比品种 chip、搜索结果错误、自定义气泡 UI。
 
-## Problem
+## 问题
 
-Today:
+现状：
 
-1. `DataBuffer` catches fetch failures and only clears inflight state.
-2. Vue `symbolStatus` becomes `'error'` when loading ends with no data.
-3. `SymbolSelector` shows a warning icon for `error === true`.
-4. Chip `title` is always the symbol display name, never the failure reason.
+1. `DataBuffer` 捕获拉取失败后只清理 inflight 状态。
+2. Vue 的 `symbolStatus` 在 loading 结束且无数据时变为 `'error'`。
+3. `SymbolSelector` 在 `error === true` 时显示警告图标。
+4. chip 的 `title` 始终是品种展示名，从不显示失败原因。
 
-The warning icon therefore has no user-facing explanation.
+因此警告图标没有面向用户的解释。
 
-## Design
+## 设计
 
-### Core: buffer-owned last error
+### Core：由 buffer 持有 lastError
 
-`DataBuffer` owns a writable error signal and exposes it as readonly:
+`DataBuffer` 内部维护可写错误信号，对外暴露只读：
 
 ```ts
 readonly lastError: ReadonlySignal<string | null>
 ```
 
-Rules:
+规则：
 
-- On explicit fetch failure after Effect retry/timeout, set `lastError` to a human-readable message derived from the thrown value.
-- Prefer `Error.message` when available; otherwise `String(error)`.
-- On successful merge of any fetch result (including empty `[]`), clear `lastError` to `null`.
-- On `setSymbol`, `setInlineData`, and `dispose`, clear `lastError` to `null`.
-- Stale-request failures must not overwrite the current request's error or clear a newer request's success.
+- Effect 在重试/超时后仍显式失败时，将 `lastError` 设为可读的错误 message。
+- 优先使用 `Error.message`；否则使用 `String(error)`。
+- 任意一次拉取成功 merge（含空 `[]`）时，将 `lastError` 清为 `null`。
+- 在 `setSymbol`、`setInlineData`、`dispose` 时将 `lastError` 清为 `null`。
+- 过期请求的失败不得覆盖当前请求的错误，也不得清除更新请求的成功状态。
 
-`KLineBuffer` / `DataBufferLike` surface the same readonly signal so consumers do not cast to the concrete class.
+`KLineBuffer` / `DataBufferLike` 同步暴露同一只读信号，避免消费者向下转型。
 
-### Core: chart surface
+### Core：Chart 对外表面
 
-`ChartDataManager` and `Chart` expose:
+`ChartDataManager` 与 `Chart` 暴露：
 
 ```ts
 readonly dataError: ReadonlySignal<string | null>
 ```
 
-This reads the active primary K-line buffer's `lastError`. When no active K-line buffer exists, the value is `null`.
+读取当前主 K 线 buffer 的 `lastError`。无活动 K 线 buffer 时为 `null`。
 
-No global EventBus path. Error state remains part of the data buffer lifecycle.
+不走全局 EventBus。错误状态留在 data buffer 生命周期内。
 
-### Vue: chip title
+### Vue：chip title
 
-`KLineChart` subscribes to `ctrl.dataError` (or equivalent controller exposure) and keeps a local `symbolErrorMessage: string | null`.
+`KLineChart` 订阅 `ctrl.dataError`（或等价 controller 暴露），维护本地 `symbolErrorMessage: string | null`。
 
-Pass-through:
+传递链路：
 
-1. `KLineChart` → `TopToolbar` as `symbolErrorMessage`
-2. `TopToolbar` → `SymbolSelector` as `errorMessage`
+1. `KLineChart` → `TopToolbar` 的 `symbolErrorMessage`
+2. `TopToolbar` → `SymbolSelector` 的 `errorMessage`
 
-`SymbolSelector` chip title:
+`SymbolSelector` chip title：
 
-- If `error && errorMessage`: use `errorMessage`
-- Else: keep current `displayText`
+- 若 `error && errorMessage`：使用 `errorMessage`
+- 否则：保持现有 `displayText`
 
-Warning icon continues to use the existing boolean `error` prop. This change does not invent a second visual state machine; it only supplies the reason text for hover.
+警告图标仍由现有布尔 `error` 控制。本改动不新增第二套视觉状态机，只为悬停提供原因文案。
 
-`symbolStatus === 'error'` may still be inferred from loading end without data for icon visibility. The title reason must come from `lastError` / `dataError`, not a hard-coded generic string, when an explicit Effect failure exists.
+`symbolStatus === 'error'` 仍可由 loading 结束且无数据推断，用于图标可见性。title 原因在存在 Effect 显式失败时必须来自 `lastError` / `dataError`，不得写死通用文案。
 
-If the icon is shown because data is empty but `lastError` is null (successful empty fetch), title may remain the symbol display name. Empty data is not an explicit Effect failure.
+若因空数据显示图标但 `lastError` 为 null（成功空拉取），title 可仍为品种展示名。空数据不是 Effect 显式失败。
 
-## Message quality
+## 文案质量
 
-Do not invent new marketing copy in the UI layer. Surface the existing failure message from the Effect/fetcher boundary, for example:
+UI 层不编造营销文案。直接透出 Effect/fetcher 边界已有的失败 message，例如：
 
 - `[gotdx] stock/kline-by-date failed: 500 Internal Server Error`
 - `[DataBuffer] source is required for symbol "..."`
-- timeout messages produced by Effect timeout
+- Effect timeout 产生的超时文案
 
-If a message is empty after normalization, fall back to `加载失败`.
+规范化后 message 为空时，回退为 `加载失败`。
 
-## Testing
+## 测试
 
-- DataBuffer unit tests:
-  - failed fetch sets `lastError` to the error message
-  - successful fetch clears `lastError`
-  - `setSymbol` / `setInlineData` clear `lastError`
-  - empty successful `[]` does not set `lastError`
-  - stale rejected request does not clobber a newer successful request
-- Vue wiring test or component-level assertion:
-  - when error message is provided, chip `title` equals that message
-  - when not in error, chip `title` remains display text
+- DataBuffer 单元测试：
+  - 失败拉取将 `lastError` 设为错误 message
+  - 成功拉取清空 `lastError`
+  - `setSymbol` / `setInlineData` 清空 `lastError`
+  - 成功空 `[]` 不设置 `lastError`
+  - 过期 reject 不覆盖更新成功请求
+- Vue 接线测试或组件级断言：
+  - 提供 error message 时 chip `title` 等于该文案
+  - 非错误时 chip `title` 仍为展示名
 
-## Non-goals
+## 非目标
 
-- Custom styled tooltip
-- Localizing/rewriting every fetcher message
-- Comparison or timeshare error chips
-- Changing empty-data policy back to hard failure
+- 自定义样式 tooltip
+- 本地化/重写每条 fetcher message
+- 对比或分时错误 chip
+- 将空数据策略改回硬失败
