@@ -18,8 +18,8 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-color-axis-text: #9AA0A6;
   --klc-color-axis-line: #2A2F36;
   --klc-color-axis-tick: #2A2F36;
-  --klc-color-grid-major: #1B1F26;
-  --klc-color-grid-minor: #161A20;
+  --klc-color-grid-major: #2A3547;
+  --klc-color-grid-minor: #202A39;
   --klc-color-crosshair-line: #686C72;
   --klc-color-crosshair-label-bg: #E8EAED;
   --klc-color-crosshair-label-text: #0E1116;

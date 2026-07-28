@@ -46,8 +46,8 @@ export const darkTheme: Theme = {
     axisLine: '#2A2F36',
     axisTick: '#2A2F36',
 
-    gridMajor: '#1B1F26',
-    gridMinor: '#161A20',
+    gridMajor: '#2A3547',
+    gridMinor: '#202A39',
 
     crosshairLine: '#686C72',
     crosshairLabelBg: '#E8EAED',
