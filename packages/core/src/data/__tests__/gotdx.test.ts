@@ -77,6 +77,30 @@ describe('gotdx fetcher', () => {
     ])
   })
 
+  it('normalizes mainland fund extended symbols to the unified CN market', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse([
+        {
+          symbol: '003760',
+          description: '国泰中证500A',
+          exchange: 'FUND',
+          source: 'gotdx',
+          params: { category: 33, kind: 'ex' },
+        },
+      ]),
+    )
+    const definition = getRegisteredFetcher('gotdx')
+
+    await expect(definition?.searcher?.('gotdx', { query: '国泰中' })).resolves.toEqual([
+      expect.objectContaining({
+        symbol: '003760',
+        market: 'CN',
+        exchange: 'FUND',
+        params: { category: 33, kind: 'ex' },
+      }),
+    ])
+  })
+
   it('keeps supported results when the same response contains unsupported markets', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse([
@@ -88,11 +112,11 @@ describe('gotdx fetcher', () => {
           params: { category: 31, kind: 'ex' },
         },
         {
-          symbol: '018100',
-          description: '太平恒泰3月定债A',
-          exchange: 'FUND',
+          symbol: 'IF2608',
+          description: '沪深300期货',
+          exchange: 'FUTURES',
           source: 'gotdx',
-          params: { category: 33, kind: 'ex' },
+          params: { category: 47, kind: 'ex' },
         },
       ]),
     )

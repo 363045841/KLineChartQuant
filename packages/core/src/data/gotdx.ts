@@ -175,6 +175,16 @@ async function searchGotdx(
   throw normalizationError
 }
 
+/** 扩展市场 exchange → 统一 market；仅含已有 session 的映射 */
+const GOTDX_EX_EXCHANGE_TO_MARKET: Readonly<Record<string, string>> = {
+  CN: 'CN',
+  FUND: 'CN',
+  MONEY: 'CN',
+  MONEY_FUND: 'CN',
+  HK: 'HK',
+  US: 'US',
+}
+
 function normalizeGotdxMarket(item: Omit<SearchResult, 'market'>): string {
   const sourceMarket = item.params?.market
   if (
@@ -185,8 +195,8 @@ function normalizeGotdxMarket(item: Omit<SearchResult, 'market'>): string {
   }
 
   if (typeof item.params?.category === 'number' && item.params.kind === 'ex') {
-    if (item.exchange === 'HK') return 'HK'
-    if (item.exchange === 'US') return 'US'
+    const market = GOTDX_EX_EXCHANGE_TO_MARKET[item.exchange]
+    if (market) return market
   }
 
   throw new KLineChartError(
