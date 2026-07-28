@@ -86,4 +86,27 @@ describe('TimeShareBuffer', () => {
     expect(fetcher.mock.calls[0]?.[1].params).toEqual({ category: 71 })
     buf.dispose()
   })
+
+  it('preserves the fetcher error message in Effect logs', async () => {
+    const buf = new TimeShareBuffer()
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    buf.setFetcher(async () => {
+      throw new Error('history-tick backend unavailable')
+    })
+
+    try {
+      buf.load({ symbol: '000001', period: 'timeshare', source: 'gotdx' })
+
+      await vi.waitFor(
+        () => {
+          const output = logSpy.mock.calls.flat().join(' ')
+          expect(output).toContain('history-tick backend unavailable')
+        },
+        { timeout: 5_000 },
+      )
+    } finally {
+      buf.dispose()
+      logSpy.mockRestore()
+    }
+  }, 7_000)
 })

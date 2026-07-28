@@ -98,19 +98,22 @@ export class TimeShareBuffer implements DataBufferLike {
       ) => EffectType<TimeShareFetchResult, unknown>
     } = {
       fetch: (s, date) =>
-        Effect.tryPromise(() => {
-          const fetcher = this._fetcher ?? routerTimeShareFetcher
-          return fetcher(s.source ?? 'gotdx', {
-            symbol: s.symbol,
-            exchange: s.exchange,
-            params: s.params,
-            date,
-          }).then((result) => {
-            if (Array.isArray(result)) {
-              return { data: result, preClose: null }
-            }
-            return result as TimeShareFetchResult
-          })
+        Effect.tryPromise({
+          try: () => {
+            const fetcher = this._fetcher ?? routerTimeShareFetcher
+            return fetcher(s.source ?? 'gotdx', {
+              symbol: s.symbol,
+              exchange: s.exchange,
+              params: s.params,
+              date,
+            }).then((result) => {
+              if (Array.isArray(result)) {
+                return { data: result, preClose: null }
+              }
+              return result as TimeShareFetchResult
+            })
+          },
+          catch: (error) => (error instanceof Error ? error : new Error(String(error))),
         }),
     }
 
