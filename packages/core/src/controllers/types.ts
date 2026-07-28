@@ -302,6 +302,8 @@ export interface ChartController extends DrawingChartAdapter {
   readonly viewport: ReadonlySignal<ChartViewport>
   readonly data: ReadonlySignal<ReadonlyArray<KLineData>>
   readonly dataLoading: ReadonlySignal<boolean>
+  /** 主品种最近一次显式拉取失败原因；成功或重置后为 null */
+  readonly dataError: ReadonlySignal<string | null>
   readonly symbols: ReadonlySignal<ReadonlyArray<SymbolSpec>>
   readonly theme: ReadonlySignal<'light' | 'dark'>
   /** 用户偏好 settings（kernel.settings resolved 快照） */

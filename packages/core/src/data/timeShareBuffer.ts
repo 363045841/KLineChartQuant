@@ -17,6 +17,7 @@ export class TimeShareBuffer implements DataBufferLike {
   private _dataSignal: WritableSignal<DataChange> = createSignal<DataChange>({ data: [], prependedCount: 0 })
   // 是否正在加载中，外部 UI 绑定用
   private _loadingSignal: WritableSignal<boolean> = createSignal<boolean>(false)
+  private _lastError: WritableSignal<string | null> = createSignal<string | null>(null)
   // 可选的自定义 fetcher，优先级大于默认 fectcher
   private _fetcher: TimeShareFetcherFn | null = null
   // 指定查询的历史日期（0 = 当天）
@@ -36,6 +37,11 @@ export class TimeShareBuffer implements DataBufferLike {
 
   get loading(): ReadonlySignal<boolean> {
     return this._loadingSignal
+  }
+
+  /** 分时暂不记录 lastError；满足 DataBufferLike 契约 */
+  get lastError(): ReadonlySignal<string | null> {
+    return this._lastError
   }
 
   get loadedWindow(): DataWindow | null {

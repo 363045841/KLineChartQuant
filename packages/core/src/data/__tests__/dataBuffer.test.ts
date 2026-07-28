@@ -583,4 +583,51 @@ describe('DataBuffer', () => {
       expect(buffer.getDayKeys()![i]).toBe(expectedDayKey(allData[i]!.timestamp))
     }
   })
+
+  it('records lastError when fetch fails after retries', async () => {
+    const fetcher: DataFetcher = async () => {
+      throw new Error('[gotdx] stock/kline-by-date failed: 500')
+    }
+    buffer.setFetcher(fetcher)
+    buffer.setSymbol(defaultSpec)
+
+    await vi.waitFor(() => expect(buffer.loading()).toBe(false), { timeout: 10_000 })
+    expect(buffer.lastError()).toBe('[gotdx] stock/kline-by-date failed: 500')
+  })
+
+  it('clears lastError on successful fetch', async () => {
+    let fail = true
+    const fetcher: DataFetcher = async () => {
+      if (fail) throw new Error('offline')
+      return [makeKLine(Date.now())]
+    }
+    buffer.setFetcher(fetcher)
+    buffer.setSymbol(defaultSpec)
+    await vi.waitFor(() => expect(buffer.lastError()).toBe('offline'), { timeout: 10_000 })
+
+    fail = false
+    buffer.setSymbol({ ...defaultSpec, symbol: 'sh.600001' })
+    await vi.waitFor(() => {
+      expect(buffer.loading()).toBe(false)
+      expect(buffer.data().data.length).toBe(1)
+    })
+    expect(buffer.lastError()).toBeNull()
+  })
+
+  it('does not set lastError for successful empty data', async () => {
+    buffer.setFetcher(async () => [])
+    buffer.setSymbol(defaultSpec)
+    await vi.waitFor(() => expect(buffer.loading()).toBe(false))
+    expect(buffer.lastError()).toBeNull()
+  })
+
+  it('clears lastError on setInlineData', async () => {
+    buffer.setFetcher(async () => {
+      throw new Error('boom')
+    })
+    buffer.setSymbol(defaultSpec)
+    await vi.waitFor(() => expect(buffer.lastError()).toBe('boom'), { timeout: 10_000 })
+    buffer.setInlineData([makeKLine(Date.now())])
+    expect(buffer.lastError()).toBeNull()
+  })
 })

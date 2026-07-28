@@ -1335,6 +1335,11 @@ export class Chart {
     return this.dataManager.loading
   }
 
+  /** 主品种最近一次显式拉取失败原因 */
+  get dataError(): ReadonlySignal<string | null> {
+    return this.dataManager.dataError
+  }
+
   /** 符号信号 */
   get symbols(): ReadonlySignal<ReadonlyArray<SymbolSpec>> {
     return this.dataManager.symbols

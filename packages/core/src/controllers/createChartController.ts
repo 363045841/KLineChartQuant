@@ -376,6 +376,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   const data = chart.data
   const dataLoading = chart.loading
+  const dataError = chart.dataError
   const symbols = chart.symbols
 
   const indicators = computed(() => chart.indicators().map(mapIndicatorInstance))
@@ -908,6 +909,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     viewport,
     data,
     dataLoading,
+    dataError,
     symbols,
     theme: themeSignal,
     settings: settingsSignal,

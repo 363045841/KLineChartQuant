@@ -93,6 +93,7 @@ export function createMockChartController(
     paneRatios,
     paneLayout,
     dataLoading: createSignal(false),
+    dataError: createSignal<string | null>(null),
     symbols: createSignal([] as ReadonlyArray<SymbolSpec>),
     comparisonColors: createSignal<ReadonlyMap<string, string>>(new Map()),
     comparisonLoading: createSignal(false),

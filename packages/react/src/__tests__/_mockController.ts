@@ -54,6 +54,7 @@ export function createMockChartController(
     viewport,
     data,
     dataLoading: createSignal(false),
+    dataError: createSignal<string | null>(null),
     symbols: createSignal([] as ReadonlyArray<SymbolSpec>),
     theme,
     settings,

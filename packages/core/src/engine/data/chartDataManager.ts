@@ -65,7 +65,9 @@ export class ChartDataManager {
   private _dmState: DataManagerStateModule
   private _dataUnsub: (() => void) | null = null
   private _loadingUnsub: (() => void) | null = null
+  private _errorUnsub: (() => void) | null = null
   private _lastDataChange: DataChange | null = null
+  private _dataError = createSignal<string | null>(null)
 
   private _batchScheduler = new FetchBatchScheduler()
   private _scrollCompensator: ScrollCompensator
@@ -124,6 +126,7 @@ export class ChartDataManager {
         data: [],
         loading: false,
       })
+      this._dataError.set(null)
       return
     }
 
@@ -133,6 +136,10 @@ export class ChartDataManager {
     this._loadingUnsub = buf.loading.subscribe(() => {
       this.handleBufferLoadingEvent(key)
     })
+    this._errorUnsub = buf.lastError.subscribe(() => {
+      if (this._dataState.readonly.activeBufferKey.peek() !== key) return
+      this._dataError.set(buf.lastError.peek())
+    })
 
     // 初始同步：key/data/loading 同批；subscribe 不回放当前值
     const { dataChanged, prependedCount, prevDataLength } = this.publishBufferSnapshot(
@@ -140,6 +147,7 @@ export class ChartDataManager {
       buf,
       true,
     )
+    this._dataError.set(buf.lastError.peek())
     if (dataChanged) {
       this.onBufferDataChanged(key, prevDataLength, prependedCount)
     }
@@ -151,8 +159,10 @@ export class ChartDataManager {
   private unbindActiveBuffer(): void {
     this._dataUnsub?.()
     this._loadingUnsub?.()
+    this._errorUnsub?.()
     this._dataUnsub = null
     this._loadingUnsub = null
+    this._errorUnsub = null
     this._lastDataChange = null
   }
 
@@ -396,6 +406,11 @@ export class ChartDataManager {
   /** Loading signal — mirrors the active buffer's loading state */
   get loading(): ReadonlySignal<boolean> {
     return this._dataState.readonly.loading
+  }
+
+  /** 主品种最近一次显式拉取失败原因 */
+  get dataError(): ReadonlySignal<string | null> {
+    return this._dataError
   }
 
   get symbols(): ReadonlySignal<ReadonlyArray<SymbolSpec>> {

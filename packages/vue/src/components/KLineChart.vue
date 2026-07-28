@@ -9,6 +9,7 @@
       :k-line-adjust="kLineAdjust"
       :symbol-loading="symbolStatus === 'loading'"
       :symbol-error="symbolStatus === 'error'"
+      :symbol-error-message="symbolErrorMessage || undefined"
       :overlay-symbols="overlaySymbols"
       :overlay-symbol-items="overlaySymbolItems"
       :comparison-colors="comparisonColorsMap"
@@ -434,6 +435,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
   const isIntraday = computed(() => kLineLevel.value.includes('min'))
   const currentSymbol = ref('选择商品')
   const currentSymbolItem = ref<SymbolItem | null>(null)
+  const symbolErrorMessage = ref<string | null>(null)
   const overlaySymbols = ref<string[]>([])
   const overlaySymbolItems = ref<SymbolItem[]>([])
   const symbolPool = ref<SymbolItem[]>([])
@@ -1410,6 +1412,11 @@ import MarkerTooltip from './MarkerTooltip.vue'
       }
     })
 
+    symbolErrorMessage.value = ctrl.dataError.peek()
+    const unsubscribeDataError = ctrl.dataError.subscribe(() => {
+      symbolErrorMessage.value = ctrl.dataError.peek()
+    })
+
     const unsubscribeTheme = ctrl.theme.subscribe(() => {
       const newTheme = ctrl.theme.peek()
       chartTheme.value = newTheme
@@ -1506,6 +1513,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
       unsubscribeViewport()
       unsubscribeData()
       unsubscribeDataLoading()
+      unsubscribeDataError()
       unsubscribePaneRatios()
       unsubscribePaneLayout()
       unsubscribeTheme()

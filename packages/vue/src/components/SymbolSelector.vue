@@ -4,7 +4,7 @@
       type="button"
       class="symbol-chip"
       :class="{ 'is-open': showPopup }"
-      :title="displayText"
+      :title="chipTitle"
       :aria-expanded="showPopup"
       aria-haspopup="dialog"
       @click="togglePopup"
@@ -157,6 +157,8 @@
       search?: SymbolSearchFn<SymbolItem>
       loading?: boolean
       error?: boolean
+      /** 主品种拉取失败原因；与 error 同时为真时作为 chip title */
+      errorMessage?: string
       /** 已注册数据源，用于 Tabs 展示名 */
       aggregationSources?: ReadonlyArray<DataFetcherDefinition>
       /** 已启用的搜索源名称 */
@@ -221,6 +223,11 @@
     const cur = currentSymbol.value
     if (cur) return `${cur.symbol} - ${cur.description}`
     return props.symbol
+  })
+
+  const chipTitle = computed(() => {
+    if (props.error && props.errorMessage?.trim()) return props.errorMessage
+    return displayText.value
   })
 
   const {

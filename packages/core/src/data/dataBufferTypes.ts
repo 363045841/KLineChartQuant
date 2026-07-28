@@ -19,6 +19,8 @@ export interface DataChange {
 export interface DataBufferLike {
   readonly data: ReadonlySignal<DataChange>
   readonly loading: ReadonlySignal<boolean>
+  /** 最近一次显式拉取失败的可读原因；成功或重置后为 null */
+  readonly lastError: ReadonlySignal<string | null>
   readonly loadedWindow: DataWindow | null
   getRawData(): unknown[]
   setInlineData(data: unknown[]): void

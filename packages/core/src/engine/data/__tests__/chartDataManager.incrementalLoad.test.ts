@@ -185,4 +185,39 @@ describe('ChartDataManager incremental load', () => {
 
     expect(fetchCount).toBe(2)
   })
+
+  it(
+    'mirrors active buffer lastError onto dataError',
+    async () => {
+      const fetcher: DataFetcher = async () => {
+        throw new Error('[gotdx] stock/kline-by-date failed: 500')
+      }
+      const dataState = createDataState()
+      const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
+      const dataManagerState = createDataManagerState()
+      const container = document.querySelector<HTMLDivElement>('#container')!
+      const scrollContent = document.querySelector<HTMLDivElement>('#scroll-content')!
+      manager = new ChartDataManager(
+        createDependencies(
+          { container, scrollContent },
+          (symbols) => {
+            symbols$.set(symbols)
+            dataState.actions.setSymbols(symbols)
+          },
+          symbols$,
+        ),
+        dataState,
+        dataManagerState,
+      )
+      manager.setDataFetcher(fetcher)
+      manager.setSymbols([{ symbol: '158017', market: 'CN', period: 'daily', source: 'gotdx' }])
+
+      await vi.waitFor(
+        () =>
+          expect(manager!.dataError.peek()).toBe('[gotdx] stock/kline-by-date failed: 500'),
+        { timeout: 10_000 },
+      )
+    },
+    15_000,
+  )
 })
