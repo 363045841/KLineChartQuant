@@ -50,13 +50,48 @@ All READMEs are generated from `docs/fragments/` (reusable Markdown snippets) + 
 | `pnpm docs:check`    | Verify READMEs are up-to-date (exit 1 if stale) |
 | `pnpm format` | `prettier --write --experimental-cli src/` |
 
-### Data backend (dev prerequisite)
+## 数据源
+
+本地开发所需的行情后端，均与本仓库**同级目录**，不在 monorepo 内。
+
+| 仓库 | 路径 | 默认端口 | 作用 |
+|------|------|----------|------|
+| **stockbao** | 同级 `stockbao/` | `8000` | BaoStock FastAPI：A 股日/分钟 K 线等 |
+| **KlineChartQuantGo** | `D:\Code\KlineChartQuantGo` | `8080` / `8081` | Go 多数据源代理：gotdx + 加密所 |
+
+### stockbao
 
 ```bash
 pnpm stockbao
 # starts FastAPI at http://localhost:8000
 # requires `stockbao/` alongside this repo; uses `uv run python ./server.py`
 ```
+
+Vite 开发代理：`/api/stock` → `:8000`。
+
+### KlineChartQuantGo
+
+提供 **gotdx（通达信）** 与 **加密所（币安）** 行情。
+
+| 服务 | 包路径 | 默认端口 | 作用 |
+|------|--------|----------|------|
+| tdx-api | `services/tdx-api` | `8080` | 通达信 gotdx：股票/期货/MAC K 线、分笔、列表等 |
+| binance-api | `services/binance-api` | `8081` | 币安 L2 订单簿 + SSE 深度流 |
+
+本前端对接：
+
+- gotdx → `packages/core/src/data/gotdx.ts`（默认 base `http://127.0.0.1:8080`，可用 `VITE_GOTDX_API_BASE_URL`）
+- binance → `packages/core/src/data/binance.ts`（`:8081`）
+- Vite 开发代理：`/api/public` → `:8080`（见 `pnpm dev`）
+
+本地启动（在 `KlineChartQuantGo` 根目录）：
+
+```bash
+go run . tdx       # 或 go run ./services/tdx-api
+go run . binance   # 或 go run ./services/binance-api
+```
+
+Agent 细节见该仓库 `AGENTS.md`。
 
 ## Testing
 
