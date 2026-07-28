@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   resolveTimeShareSlotTimestamp,
+  resolveTimestampSessionSlot,
   timeShareSlotCenterX,
 } from '../../../foundation/utils/timeShareAxisLabels'
 import {
@@ -129,6 +130,19 @@ describe('computeTimeShareXLayout', () => {
     expect(layout!.centers[0]).toBeCloseTo(1, 6)
     expect(layout!.centers[239]).toBeCloseTo(479, 6)
   })
+
+  it('uses supplied session slots instead of compacting across lunch', () => {
+    const layout = computeTimeShareXLayout({
+      arrivedCount: 4,
+      sessionSlots: 240,
+      totalWidth: 480,
+      dpr: 1,
+      slotIndices: [0, 119, 121, 239],
+    })
+
+    expect(layout).not.toBeNull()
+    expect(layout!.centers).toEqual([1, 239, 243, 479])
+  })
 })
 
 describe('computeTimeSharePaneLayout', () => {
@@ -163,6 +177,16 @@ describe('computeTimeShareTimeLabelIndices', () => {
 })
 
 describe('timeShare slot time/x helpers', () => {
+  it('maps gotdx closing timestamps without compacting the lunch break', () => {
+    const time = (hour: number, minute: number) => Date.UTC(2026, 6, 28, hour - 8, minute)
+
+    expect(resolveTimestampSessionSlot(time(9, 30))).toBe(0)
+    expect(resolveTimestampSessionSlot(time(11, 30))).toBe(119)
+    expect(resolveTimestampSessionSlot(time(13, 1))).toBe(121)
+    expect(resolveTimestampSessionSlot(time(15, 0))).toBe(239)
+    expect(resolveTimestampSessionSlot(1e100)).toBeNull()
+  })
+
   it('maps A-share slots across lunch break', () => {
     // 2026-07-21 local
     const day = new Date(2026, 6, 21, 10, 0, 0, 0).getTime()
