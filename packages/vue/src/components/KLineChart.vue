@@ -255,7 +255,6 @@
     type InteractionSnapshot,
     type LegendTemplateContext,
     type SymbolSpec,
-    type SymbolInfo,
     type CustomDataSource,
   } from '@363045841yyt/klinechart-core/controllers'
   import {
@@ -424,63 +423,6 @@ import MarkerTooltip from './MarkerTooltip.vue'
   }>()
 
   // ── Symbol / Comparison State ──
-
-  // Default symbol catalog — registered into the controller on mount so the
-  // dropdown picker shows a meaningful list out of the box. Consumers can
-  // replace/extend via ctrl.registerSymbols() after mount.
-  const DEFAULT_SYMBOLS: SymbolInfo[] = [
-    // TradingView global
-    { symbol: 'XAUUSD', description: '现货黄金', exchange: 'OANDA', source: 'tradingview' },
-    {
-      symbol: 'BTCUSDT',
-      description: 'Bitcoin / Tether',
-      exchange: 'BINANCE',
-      source: 'tradingview',
-    },
-    {
-      symbol: 'ETHUSDT',
-      description: 'Ethereum / Tether',
-      exchange: 'BINANCE',
-      source: 'tradingview',
-    },
-    { symbol: 'EURUSD', description: '欧元/美元', exchange: 'OANDA', source: 'tradingview' },
-    { symbol: 'SPX', description: '标普 500 指数', exchange: 'SP', source: 'tradingview' },
-    { symbol: 'AAPL', description: 'Apple Inc.', exchange: 'NASDAQ', source: 'tradingview' },
-    { symbol: 'TSLA', description: 'Tesla, Inc.', exchange: 'NASDAQ', source: 'tradingview' },
-    { symbol: '1810', description: '小米集团', exchange: 'HKEX', source: 'tradingview' },
-    // gotdx A 股：必须带 params.market，与搜索目录一致，禁止按代码猜市场
-    {
-      symbol: '600519',
-      description: '贵州茅台',
-      exchange: 'SH',
-      source: 'gotdx',
-      params: { market: 1 },
-    },
-    {
-      symbol: '601360',
-      description: '三六零',
-      exchange: 'SH',
-      source: 'gotdx',
-      params: { market: 1 },
-    },
-    {
-      symbol: '000858',
-      description: '五 粮 液',
-      exchange: 'SZ',
-      source: 'gotdx',
-      params: { market: 0 },
-    },
-    {
-      symbol: '000001',
-      description: '平安银行',
-      exchange: 'SZ',
-      source: 'gotdx',
-      params: { market: 0 },
-    },
-    // Mock
-    { symbol: 'MOCK-100', description: 'Mock 100 条', exchange: 'MOCK', source: 'mock-100' },
-    { symbol: 'MOCK-10000', description: 'Mock 10000 条', exchange: 'MOCK', source: 'mock-10000' },
-  ]
 
   const kLineLevel = ref<string>(props.semanticConfig?.data?.period ?? 'daily')
   const previousKLineLevel = ref<string>('daily')
@@ -1669,10 +1611,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
     // 4) 直接订阅 kernel 的 tooltip 信号，绕过 VNode
     _setupTooltipSub()
 
-    // Seed the default symbol catalog — subscribe 已建立, set 会触发回调刷新 dropdown
-    ctrl.registerSymbols(DEFAULT_SYMBOLS)
-
-    // 3.5) 在任何 draw 之前注册主图指标（BOLL/MA 等）
+    // 在任何 draw 之前注册主图指标（BOLL/MA 等）
     //      initIndicatorsFromConfig 是同步的，读 props.semanticConfig 即可注册，
     //      确保 scheduler 首次 applyResults 时 BOLL 已在 registry 里
     initIndicatorsFromConfig(props.semanticConfig)
