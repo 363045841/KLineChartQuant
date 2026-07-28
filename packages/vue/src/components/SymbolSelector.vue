@@ -4,14 +4,22 @@
       type="button"
       class="symbol-chip"
       :class="{ 'is-open': showPopup }"
-      :title="chipTitle"
+      :title="displayText"
       :aria-expanded="showPopup"
       aria-haspopup="dialog"
       @click="togglePopup"
     >
       <span class="symbol-chip__code">{{ displayText }}</span>
       <span v-if="loading" class="symbol-chip__spinner" aria-hidden="true" />
-      <IconTablerAlertTriangle v-else-if="error" class="symbol-chip__warn" aria-hidden="true" />
+      <span
+        v-else-if="error"
+        class="symbol-chip__error-tag"
+        :title="errorTagTitle"
+        role="status"
+      >
+        <IconTablerAlertTriangle class="symbol-chip__warn" aria-hidden="true" />
+        <span v-if="errorTagText" class="symbol-chip__error-text">{{ errorTagText }}</span>
+      </span>
     </button>
     <Teleport :to="teleportTarget">
       <Transition name="symbol-popover">
@@ -225,10 +233,8 @@
     return props.symbol
   })
 
-  const chipTitle = computed(() => {
-    if (props.error && props.errorMessage?.trim()) return props.errorMessage
-    return displayText.value
-  })
+  const errorTagText = computed(() => props.errorMessage?.trim() || '')
+  const errorTagTitle = computed(() => errorTagText.value || '加载失败')
 
   const {
     results: filteredSymbols,
@@ -600,10 +606,41 @@
     }
   }
 
-  .symbol-chip__warn {
-    width: 14px;
-    height: 14px;
+  .symbol-chip__error-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 180px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--klc-color-danger, #e53935) 35%, transparent);
+    background: color-mix(in srgb, var(--klc-color-danger, #e53935) 12%, transparent);
     color: var(--klc-color-danger, #e53935);
+    flex-shrink: 1;
+    min-width: 0;
+  }
+
+  .symbol-chip__warn {
+    width: 12px;
+    height: 12px;
+    color: inherit;
     flex-shrink: 0;
+  }
+
+  .symbol-chip__error-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1;
+  }
+
+  @media (max-width: 768px), (max-height: 640px) {
+    .symbol-chip__error-tag {
+      max-width: 96px;
+      padding: 0 5px;
+    }
   }
 </style>
