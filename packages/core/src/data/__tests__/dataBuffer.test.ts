@@ -614,11 +614,11 @@ describe('DataBuffer', () => {
     expect(buffer.lastError()).toBeNull()
   })
 
-  it('does not set lastError for successful empty data', async () => {
+  it('sets lastError to 暂无K线数据 for successful empty data', async () => {
     buffer.setFetcher(async () => [])
     buffer.setSymbol(defaultSpec)
     await vi.waitFor(() => expect(buffer.loading()).toBe(false))
-    expect(buffer.lastError()).toBeNull()
+    expect(buffer.lastError()).toBe('暂无K线数据')
   })
 
   it('clears lastError on setInlineData', async () => {

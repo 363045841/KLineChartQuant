@@ -229,7 +229,8 @@ export class DataBuffer implements KLineBuffer {
           const incoming = await fetchEffect()
           if (disposed() || requestVersion !== this._requestVersion) return
 
-          this._lastError.set(null)
+          // 成功空数组：接口无 K 线，记可读原因供 chip 展示
+          this._lastError.set(incoming.length === 0 ? '暂无K线数据' : null)
           const result = this._store.merge(incoming)
           this._keyIndex.recompute(this._store.getRawData())
 
