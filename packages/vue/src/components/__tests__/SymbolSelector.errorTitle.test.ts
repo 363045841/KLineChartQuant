@@ -25,7 +25,6 @@ describe('SymbolSelector error tag', () => {
     })
 
     const tag = wrapper.get('.symbol-chip__error-tag')
-    expect(tag.classes()).toContain('symbol-chip__error-tag')
     expect(tag.find('.symbol-chip__warn').exists()).toBe(true)
     expect(tag.get('.symbol-chip__error-text').text()).toBe(
       '[gotdx] stock/kline-by-date failed: 500',
@@ -47,7 +46,7 @@ describe('SymbolSelector error tag', () => {
     expect(wrapper.get('button.symbol-chip').attributes('title')).toBe('158017 - 化工ETF易方达')
   })
 
-  it('shows error tag with icon only when error has no message', () => {
+  it('shows fallback text when error has no message', () => {
     const wrapper = mount(SymbolSelector, {
       props: {
         symbol: '158017',
@@ -58,6 +57,7 @@ describe('SymbolSelector error tag', () => {
 
     const tag = wrapper.get('.symbol-chip__error-tag')
     expect(tag.find('.symbol-chip__warn').exists()).toBe(true)
-    expect(tag.find('.symbol-chip__error-text').exists()).toBe(false)
+    expect(tag.get('.symbol-chip__error-text').text()).toBe('加载失败')
+    expect(tag.attributes('title')).toBe('加载失败')
   })
 })

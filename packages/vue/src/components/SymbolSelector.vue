@@ -14,11 +14,11 @@
       <span
         v-else-if="error"
         class="symbol-chip__error-tag"
-        :title="errorTagTitle"
+        :title="errorTagText"
         role="status"
       >
         <IconTablerAlertTriangle class="symbol-chip__warn" aria-hidden="true" />
-        <span v-if="errorTagText" class="symbol-chip__error-text">{{ errorTagText }}</span>
+        <span class="symbol-chip__error-text">{{ errorTagText }}</span>
       </span>
     </button>
     <Teleport :to="teleportTarget">
@@ -233,8 +233,7 @@
     return props.symbol
   })
 
-  const errorTagText = computed(() => props.errorMessage?.trim() || '')
-  const errorTagTitle = computed(() => errorTagText.value || '加载失败')
+  const errorTagText = computed(() => props.errorMessage?.trim() || '加载失败')
 
   const {
     results: filteredSymbols,
@@ -323,13 +322,14 @@
     align-items: center;
     justify-content: center;
     padding: 0 10px;
-    gap: 5px;
+    gap: 6px;
     border: 1px solid transparent;
     border-radius: 4px;
     background: transparent;
     color: var(--klc-color-foreground);
     font: inherit;
     cursor: pointer;
+    max-width: min(420px, 70vw);
     transition:
       background 0.15s ease,
       border-color 0.15s ease,
@@ -354,6 +354,8 @@
     font-weight: 600;
     line-height: 1;
     letter-spacing: 0.01em;
+    flex: 0 1 auto;
+    min-width: 0;
   }
 
   .symbol-chip__arrow {
@@ -610,15 +612,15 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    max-width: 180px;
+    max-width: 220px;
+    min-width: 72px;
     height: 20px;
-    padding: 0 6px;
+    padding: 0 8px;
     border-radius: 999px;
     border: 1px solid color-mix(in srgb, var(--klc-color-danger, #e53935) 35%, transparent);
     background: color-mix(in srgb, var(--klc-color-danger, #e53935) 12%, transparent);
     color: var(--klc-color-danger, #e53935);
-    flex-shrink: 1;
-    min-width: 0;
+    flex: 0 1 auto;
   }
 
   .symbol-chip__warn {
@@ -635,12 +637,18 @@
     font-size: 11px;
     font-weight: 500;
     line-height: 1;
+    min-width: 0;
   }
 
   @media (max-width: 768px), (max-height: 640px) {
+    .symbol-chip {
+      max-width: min(280px, 80vw);
+    }
+
     .symbol-chip__error-tag {
-      max-width: 96px;
-      padding: 0 5px;
+      max-width: 140px;
+      min-width: 56px;
+      padding: 0 6px;
     }
   }
 </style>
