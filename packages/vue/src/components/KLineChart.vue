@@ -252,6 +252,7 @@
     routerSearchFetchers,
     getRegisteredFetchers,
     type ChartController,
+    type ChartMountOptions,
     type InteractionSnapshot,
     type LegendTemplateContext,
     type SymbolSpec,
@@ -312,6 +313,9 @@ import MarkerTooltip from './MarkerTooltip.vue'
 
       /** 数据获取函数（可选）。默认使用内置 routerDataFetcher，亦可由使用者注入覆盖。 */
       dataFetcher?: DataFetcher
+
+      /** 当前图表实例的市场交易时段覆盖 */
+      marketSessions?: ChartMountOptions['marketSessions']
 
       yPaddingPx?: number
       minKWidth?: number
@@ -485,6 +489,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
   function toSymbolSpec(item: SymbolItem): SymbolSpec {
     return {
       symbol: item.symbol,
+      market: item.market,
       exchange: item.exchange,
       period: kLineLevel.value,
       source: item.source,
@@ -1323,6 +1328,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
     const ctrl = createChartController({
       container,
       data: [],
+      marketSessions: props.marketSessions,
       canvasLayer,
       rightAxisLayer,
       leftAxisLayer,
@@ -1434,6 +1440,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
     const unsubscribeSymbolCatalog = ctrl.symbolCatalog.subscribe(() => {
       symbolPool.value = ctrl.symbolCatalog.peek().map((info) => ({
         symbol: info.symbol,
+        market: info.market,
         description: info.description ?? info.symbol,
         exchange: info.exchange ?? '',
         source: info.source ?? '',
@@ -1444,6 +1451,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
     // 不依赖 registerSymbols 在 subscribe 之前还是之后调用。
     symbolPool.value = ctrl.symbolCatalog.peek().map((info) => ({
       symbol: info.symbol,
+      market: info.market,
       description: info.description ?? info.symbol,
       exchange: info.exchange ?? '',
       source: info.source ?? '',
@@ -1465,6 +1473,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
       currentSymbol.value = primary.symbol
       currentSymbolItem.value = {
         symbol: primary.symbol,
+        market: primary.market,
         description: primaryInfo?.description ?? primary.symbol,
         exchange: primary.exchange ?? '',
         source: primary.source ?? '',
@@ -1484,6 +1493,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
           )
         return {
           symbol: s.symbol,
+          market: s.market,
           description: info?.description ?? s.symbol,
           exchange: s.exchange ?? '',
           source: s.source ?? '',

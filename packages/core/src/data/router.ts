@@ -51,7 +51,7 @@ function searchResultKey(result: SearchResult): string {
   const params = Object.entries(result.params ?? {}).sort(([left], [right]) =>
     left.localeCompare(right),
   )
-  return JSON.stringify([result.source, result.exchange, result.symbol, params])
+  return JSON.stringify([result.source, result.market, result.exchange, result.symbol, params])
 }
 
 export async function routerSearchFetchers(

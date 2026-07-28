@@ -57,33 +57,7 @@ function getShanghaiDateYYYYMMDD(): number {
   return +y * 10000 + +m * 100 + +d
 }
 
-async function fetchGotdxHistoryTick(
-  _source: string,
-  config: TimeShareFetchConfig,
-): Promise<TimeShareFetchResult> {
-  // 分时只认搜索/目录带来的 params.market，不按代码前缀猜市场
-  if (typeof config.params?.market !== 'number') {
-    throw new KLineChartError(
-      'FETCH_FAILED',
-      `[gotdx] history-tick requires params.market for ${config.symbol}`,
-    )
-  }
-  const body = {
-    date: config.date ?? getShanghaiDateYYYYMMDD(),
-    market: config.params.market,
-    code: config.symbol,
-  }
-  const res = await fetch(`${getBaseUrl()}/api/stock/history-tick`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  if (!res.ok)
-    throw new KLineChartError(
-      'FETCH_FAILED',
-      `[gotdx] history-tick failed: ${res.status} ${res.statusText}`,
-    )
-  const payload: unknown = await res.json()
+function parseHistoryTickPayload(payload: unknown): TimeShareFetchResult {
   if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
     throw new KLineChartError(
       'FETCH_FAILED',
@@ -121,6 +95,56 @@ async function fetchGotdxHistoryTick(
   }
 }
 
+async function fetchGotdxHistoryTick(
+  _source: string,
+  config: TimeShareFetchConfig,
+): Promise<TimeShareFetchResult> {
+  // 分时只认搜索/目录带来的 params：category 走扩展，market 走 A 股；不按代码前缀猜
+  const date = config.date ?? getShanghaiDateYYYYMMDD()
+  const explicitCategory = config.params?.category
+  if (typeof explicitCategory === 'number') {
+    const body = {
+      date,
+      category: explicitCategory,
+      code: config.symbol,
+    }
+    const res = await fetch(`${getBaseUrl()}/api/ex/history-tick`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    if (!res.ok)
+      throw new KLineChartError(
+        'FETCH_FAILED',
+        `[gotdx] ex/history-tick failed: ${res.status} ${res.statusText}`,
+      )
+    return parseHistoryTickPayload(await res.json())
+  }
+
+  if (typeof config.params?.market !== 'number') {
+    throw new KLineChartError(
+      'FETCH_FAILED',
+      `[gotdx] history-tick requires params.market or params.category for ${config.symbol}`,
+    )
+  }
+  const body = {
+    date,
+    market: config.params.market,
+    code: config.symbol,
+  }
+  const res = await fetch(`${getBaseUrl()}/api/stock/history-tick`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok)
+    throw new KLineChartError(
+      'FETCH_FAILED',
+      `[gotdx] history-tick failed: ${res.status} ${res.statusText}`,
+    )
+  return parseHistoryTickPayload(await res.json())
+}
+
 async function searchGotdx(
   _source: string,
   config: SearchConfig,
@@ -137,7 +161,38 @@ async function searchGotdx(
       `[gotdx] symbol search failed: ${res.status} ${res.statusText}`,
     )
   }
-  return (await res.json()) as ReadonlyArray<SearchResult>
+  const raw = (await res.json()) as ReadonlyArray<Omit<SearchResult, 'market'>>
+  const normalized: SearchResult[] = []
+  let normalizationError: unknown
+  for (const item of raw) {
+    try {
+      normalized.push({ ...item, market: normalizeGotdxMarket(item) })
+    } catch (error) {
+      normalizationError ??= error
+    }
+  }
+  if (normalized.length > 0 || raw.length === 0) return normalized
+  throw normalizationError
+}
+
+function normalizeGotdxMarket(item: Omit<SearchResult, 'market'>): string {
+  const sourceMarket = item.params?.market
+  if (
+    typeof sourceMarket === 'number' &&
+    (sourceMarket === 0 || sourceMarket === 1 || sourceMarket === 2)
+  ) {
+    return 'CN'
+  }
+
+  if (typeof item.params?.category === 'number' && item.params.kind === 'ex') {
+    if (item.exchange === 'HK') return 'HK'
+    if (item.exchange === 'US') return 'US'
+  }
+
+  throw new KLineChartError(
+    'FETCH_FAILED',
+    `[gotdx] cannot normalize market for ${item.symbol}: exchange=${item.exchange} params=${JSON.stringify(item.params ?? {})}`,
+  )
 }
 
 interface SecurityBar {

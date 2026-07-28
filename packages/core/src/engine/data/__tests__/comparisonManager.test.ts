@@ -51,6 +51,13 @@ function createHarness() {
 }
 
 describe('ComparisonManager runtime projection', () => {
+  it('uses unified market identity to separate otherwise identical symbols', () => {
+    const cn = comparisonBufferKey({ symbol: '000001', market: 'CN', period: 'daily' })
+    const hk = comparisonBufferKey({ symbol: '000001', market: 'HK', period: 'daily' })
+
+    expect(cn).not.toBe(hk)
+  })
+
   it('reads specs from the injected kernel reader without a local shadow', () => {
     const harness = createHarness()
     harness.setSpecs([{ symbol: 'A', period: 'daily' }])

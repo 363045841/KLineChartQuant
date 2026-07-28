@@ -23,9 +23,11 @@ export type AdjustType = 'qfq' | 'hfq' | 'splits' | 'none'
 
 export interface DataConfig {
   source: 'baostock' | 'dongcai'
+  /** 图表统一市场标识，必须已由调用方归一化 */
+  market: string
   /** 股票代码（6位数字，不含前缀） */
   symbol: string
-  /** 交易所（可选，默认根据代码自动识别） */
+  /** 交易所展示标识 */
   exchange?: string
   /** 开始日期 YYYY-MM-DD */
   startDate: string

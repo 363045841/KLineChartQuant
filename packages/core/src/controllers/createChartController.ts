@@ -352,7 +352,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       xAxisCanvas: mounted.xAxisCanvas,
     },
     chartOptions,
-    { rendererHost, initialSettings },
+    { rendererHost, initialSettings, marketSessions: opts.marketSessions },
   )
 
   if (import.meta.env?.MODE !== 'production' && typeof window !== 'undefined') {

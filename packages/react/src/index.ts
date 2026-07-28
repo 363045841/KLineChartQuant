@@ -181,6 +181,7 @@ export interface KLineChartProps {
   data: ChartMountOptions['data']
   symbols?: ChartMountOptions['symbols']
   dataFetcher?: ChartMountOptions['dataFetcher']
+  marketSessions?: ChartMountOptions['marketSessions']
   settings?: Partial<ChartSettings>
   initialZoomLevel?: number
   theme?: 'light' | 'dark'
@@ -210,7 +211,18 @@ export interface KLineChartHandle {
 }
 
 export const KLineChart = forwardRef<KLineChartHandle, KLineChartProps>(function KLineChart(
-  { data, symbols, dataFetcher, settings, initialZoomLevel, theme, zoomLevels, className, style },
+  {
+    data,
+    symbols,
+    dataFetcher,
+    marketSessions,
+    settings,
+    initialZoomLevel,
+    theme,
+    zoomLevels,
+    className,
+    style,
+  },
   ref: ForwardedRef<KLineChartHandle>,
 ) {
   const divRef = useRef<HTMLDivElement | null>(null)
@@ -225,6 +237,7 @@ export const KLineChart = forwardRef<KLineChartHandle, KLineChartProps>(function
       data,
       symbols,
       dataFetcher,
+      marketSessions,
       settings,
       initialZoomLevel,
       zoomLevels,

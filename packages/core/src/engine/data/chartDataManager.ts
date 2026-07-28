@@ -44,9 +44,9 @@ const BUF_PRIMARY = 'main'
 const BUF_COMPARISON = 'cmp'
 const BUF_TIMESHARE = 'ts'
 
-function bufKey(type: string, symbol: string, period?: string): string {
-  if (type === BUF_TIMESHARE) return `ts:${symbol}`
-  return `${type}:${symbol}:${period ?? 'daily'}`
+function bufKey(type: string, market: string, symbol: string, period?: string): string {
+  if (type === BUF_TIMESHARE) return `ts:${market}:${symbol}`
+  return `${type}:${market}:${symbol}:${period ?? 'daily'}`
 }
 
 export class ChartDataManager {
@@ -223,8 +223,8 @@ export class ChartDataManager {
       : null
   }
 
-  private getPrimaryDataBuffer(symbol: string, period: string): KLineBuffer {
-    const key = bufKey(BUF_PRIMARY, symbol, period)
+  private getPrimaryDataBuffer(spec: SymbolSpec): KLineBuffer {
+    const key = bufKey(BUF_PRIMARY, spec.market, spec.symbol, spec.period)
     let buf = this._klineBuffers.get(key)
     if (!buf) {
       buf = this._createKLineBuffer()
@@ -490,7 +490,7 @@ export class ChartDataManager {
   get dataBuffer(): KLineBuffer {
     const buf = this.getActiveDataBuffer()
     if (buf) return buf
-    const key = bufKey(BUF_PRIMARY, '', 'daily')
+    const key = bufKey(BUF_PRIMARY, '', '', 'daily')
     let fallback = this._klineBuffers.get(key)
     if (!fallback) {
       fallback = this._createKLineBuffer()
@@ -621,7 +621,7 @@ export class ChartDataManager {
       this.deps.setSymbols([
         primary,
         ...this.deps.comparison.readonly.specs.peek(),
-        { symbol, period: 'daily' },
+        { symbol, market: primary.market, period: 'daily' },
       ])
     }
     this._comparisonManager.setData(symbol, data)
@@ -643,7 +643,8 @@ export class ChartDataManager {
   // ── Symbol / Period ──
 
   setCurrentSymbol(symbol: string): void {
-    const current = this._dmState.readonly.currentSpec.peek() ?? { symbol }
+    const current = this._dmState.readonly.currentSpec.peek()
+    if (!current) return
     this._dmState.actions.setCurrentSpec({ ...current, symbol })
     const specs = this._dataState.readonly.symbols.peek()
     if (specs.length > 0) {
@@ -691,7 +692,7 @@ export class ChartDataManager {
       tsBuf.setQueryDate(date)
       const spec = this._dmState.readonly.currentSpec.peek()
       if (spec) {
-        const key = bufKey(BUF_TIMESHARE, spec.symbol)
+        const key = bufKey(BUF_TIMESHARE, spec.market, spec.symbol)
         this._tsBuffers.set(key, tsBuf)
         this.activateBuffer(key)
         tsBuf.load(spec)
@@ -701,10 +702,7 @@ export class ChartDataManager {
 
   setCurrentPeriod(period: string): void {
     const current = this._dmState.readonly.currentSpec.peek()
-    if (!current) {
-      this._dmState.actions.setCurrentSpec({ symbol: '', period })
-      return
-    }
+    if (!current) return
     const next = { ...current, period }
     this.setSymbols([next, ...this.deps.comparison.readonly.specs.peek()])
   }
@@ -727,13 +725,17 @@ export class ChartDataManager {
     if (!this._dmState.readonly.preCustomSpec.peek()) {
       this._dmState.actions.setPreCustomSpec({
         ...(this._dmState.readonly.currentSpec.peek() ??
-          this._dataState.readonly.symbols.peek()[0] ?? { symbol: '' }),
+          this._dataState.readonly.symbols.peek()[0] ?? {
+            symbol: source.symbol ?? '',
+            market: source.market,
+          }),
       })
     }
 
     // 每次都切到 custom 品种，注册到目录，填入数据
     const spec: SymbolSpec = {
       symbol: source.symbol ?? '',
+      market: source.market,
       period: ChartDataManager.normalizePeriod(source.period),
       incremental: false,
       source: source.source ?? 'custom',
@@ -745,6 +747,7 @@ export class ChartDataManager {
       this.registerSymbols([
         {
           symbol: symbolCode,
+          market: source.market,
           description: source.description ?? symbolCode,
           exchange: source.exchange ?? '',
           source: source.source ?? 'custom',
@@ -813,7 +816,7 @@ export class ChartDataManager {
       this._dmState.actions.setRangeInitialized(false)
 
       // Get or create timeshare buffer
-      const tsKey = bufKey(BUF_TIMESHARE, primary.symbol)
+      const tsKey = bufKey(BUF_TIMESHARE, primary.market, primary.symbol)
       let tsBuf = this._tsBuffers.get(tsKey)
       if (!tsBuf) {
         tsBuf = new TimeShareBuffer()
@@ -838,8 +841,8 @@ export class ChartDataManager {
 
   private loadKLineSymbols(specs: ReadonlyArray<SymbolSpec>): void {
     const spec = specs[0]!
-    const buf = this.getPrimaryDataBuffer(spec.symbol, spec.period!)
-    this.activateBuffer(bufKey(BUF_PRIMARY, spec.symbol, spec.period!))
+    const buf = this.getPrimaryDataBuffer(spec)
+    this.activateBuffer(bufKey(BUF_PRIMARY, spec.market, spec.symbol, spec.period))
     if (!this._dataFetcher) {
       buf.setCurrentSpec(spec)
       return

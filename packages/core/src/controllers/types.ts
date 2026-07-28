@@ -10,6 +10,7 @@
 
 import type { AlertController } from '../features/alerts/types'
 import type { ChartSettings } from '../foundation/config/chartSettings'
+import type { MarketSessionConfig } from '../foundation/utils/sessionTimeLabels'
 import type { InteractionSnapshot } from '../engine/chart'
 import type { PaneSpec } from '../engine/chartTypes'
 import type { CustomMarkerEntity } from '../engine/marker/registry'
@@ -93,6 +94,7 @@ export type DataSourceParams = Readonly<Record<string, string | number | boolean
 /** Registered symbol metadata — for the symbol catalog/dropdown UI */
 export interface SymbolInfo {
   symbol: string
+  market: string
   description?: string
   exchange?: string
   source?: string
@@ -104,6 +106,7 @@ export interface SymbolInfo {
 
 export interface SymbolSpec {
   symbol: string
+  market: string
   exchange?: string
   period?: string
   adjust?: string
@@ -135,6 +138,7 @@ export type DataFetcher = (
 
 /** User-provided K-line data bundle — bypasses the fetcher pipeline entirely */
 export interface CustomDataSource {
+  market: string
   symbol?: string
   period?: string
   adjust?: string
@@ -260,6 +264,7 @@ export interface ChartMountOptions {
   initialZoomLevel?: number
   zoomLevels?: number
   theme?: 'light' | 'dark'
+  marketSessions?: Readonly<Record<string, MarketSessionConfig>>
 
   // Pre-existing DOM elements (skip buildDom when provided)
   canvasLayer?: HTMLElement

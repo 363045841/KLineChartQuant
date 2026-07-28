@@ -154,6 +154,7 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
   @Input() data: ReadonlyArray<KLineData> = []
   @Input() symbols: ReadonlyArray<SymbolSpec> | undefined = undefined
   @Input() dataFetcher: DataFetcher | undefined = undefined
+  @Input() marketSessions: ChartMountOptions['marketSessions'] = undefined
   @Input() theme: 'light' | 'dark' | undefined = undefined
   @Input() settings: Partial<ChartSettings> | undefined = undefined
   @Input() initialZoomLevel: number | undefined = undefined
@@ -198,6 +199,7 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
       data: this.data,
       symbols: this.symbols,
       dataFetcher: this.dataFetcher,
+      marketSessions: this.marketSessions,
       settings: this.settings,
       initialZoomLevel: this.initialZoomLevel,
       zoomLevels: this.zoomLevels,

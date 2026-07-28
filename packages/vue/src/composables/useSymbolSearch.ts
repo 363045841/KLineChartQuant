@@ -12,6 +12,7 @@ import {
 
 export interface SearchableSymbol {
   symbol: string
+  market: string
   description: string
   exchange: string
   source: string
@@ -20,6 +21,7 @@ export interface SearchableSymbol {
 
 export type SymbolIdentity = {
   symbol: string
+  market: string
   exchange?: string
   source?: string
   params?: Readonly<Record<string, string | number | boolean>>
@@ -55,7 +57,7 @@ export function symbolIdentityKey(item: SymbolIdentity): string {
   const params = Object.entries(item.params ?? {}).sort(([left], [right]) =>
     left.localeCompare(right),
   )
-  return JSON.stringify([item.source ?? '', item.exchange ?? '', item.symbol, params])
+  return JSON.stringify([item.source ?? '', item.market, item.exchange ?? '', item.symbol, params])
 }
 
 export function uniqueSymbolsByIdentity<T extends SearchableSymbol>(symbols: ReadonlyArray<T>): T[] {

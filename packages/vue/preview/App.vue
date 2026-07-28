@@ -629,6 +629,7 @@
     if (useCustomData.value) {
       customData.value = {
         symbol: 'CUSTOM.DEMO',
+        market: 'CN',
         period: 'daily',
         data: DEMO_MAIN_DATA,
         comparisons: {

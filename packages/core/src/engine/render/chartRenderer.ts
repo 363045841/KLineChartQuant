@@ -932,6 +932,11 @@ export class ChartRenderer {
     if (xAxisCtx && this.timeAxisLayer) {
       const opt = this.deps.getOption()
       const dataManager = this.deps.getDataManager()
+      const activeMode = this.deps.getActiveMode()
+      const marketSession =
+        'marketSession' in activeMode
+          ? (activeMode as { marketSession: typeof ASHARE_MARKET_SESSION }).marketSession
+          : undefined
       this.timeAxisCtx = {
         ctx: xAxisCtx,
         pane: {
@@ -961,6 +966,7 @@ export class ChartRenderer {
           priceRange: { maxPrice: 0, minPrice: 0 },
         },
         period: dataManager.currentPeriod,
+        marketSession,
         data: renderData,
         range,
         scrollLeft: vp.scrollLeft,

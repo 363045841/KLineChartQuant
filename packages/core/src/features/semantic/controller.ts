@@ -115,6 +115,7 @@ export class SemanticChartController {
     this.chart.setSymbols([
       {
         symbol: config.data.symbol,
+        market: config.data.market,
         exchange: config.data.exchange,
         period: config.data.period,
         adjust: config.data.adjust,

@@ -59,6 +59,8 @@ import { ChartPaneLayout } from './layout/chartPaneLayout'
 import { UpdateLevel, type VisibleRange } from './layout/pane'
 import { KLineMode } from './modes/kLineMode'
 import { TimeShareMode } from './modes/timeShareMode'
+import { MarketSessionRegistry } from './market/marketSessionRegistry'
+import { resolveSymbolMarketSession } from './market/resolveSymbolMarketSession'
 import { PaneRenderer } from './paneRenderer'
 import { ChartRenderer, mergeUpdateLevel } from './render/chartRenderer'
 import { ChartStateKernel } from './state/chartStateKernel'
@@ -145,6 +147,7 @@ export class Chart {
   private _activeMode: ChartModeHandler
   private _kLineMode = new KLineMode()
   private _timeShareMode = new TimeShareMode()
+  private readonly marketSessions: MarketSessionRegistry
 
   /** 进入分时模式时保存的快照，退出时恢复（包含 zoom/scale/indicators） */
   private _savedTimeShareState: {
@@ -228,11 +231,16 @@ export class Chart {
   constructor(
     dom: ChartDom,
     opt: ChartOptions,
-    runtime?: { rendererHost?: RendererHost; initialSettings?: Partial<ChartSettings> },
+    runtime?: {
+      rendererHost?: RendererHost
+      initialSettings?: Partial<ChartSettings>
+      marketSessions?: Readonly<Record<string, import('../foundation/utils/sessionTimeLabels').MarketSessionConfig>>
+    },
   ) {
     this.dom = dom
     const { kWidth: _kWidth, kGap: _kGap, ...restOpt } = opt
     this._activeMode = this._kLineMode
+    this.marketSessions = new MarketSessionRegistry(runtime?.marketSessions)
     this.pluginHost = createPluginHost()
     this.rendererPluginManager = new RendererPluginManager()
     this.rendererHost = runtime?.rendererHost ?? createDefaultRendererHostSync()
@@ -1427,9 +1435,14 @@ export class Chart {
   }
 
   setSymbols(specs: ReadonlyArray<SymbolSpec>): void {
+    const sessions = specs.map((spec) => resolveSymbolMarketSession(spec, this.marketSessions))
+    const primaryPeriod = specs[0]?.period
+    if (primaryPeriod === 'timeshare') {
+      this._timeShareMode.setMarketSession(sessions[0]!)
+    }
+
     // 品种/周期切换时重置最新 K 线时间戳，确保新数据触发预警
     this._lastAlertTimestamp = null
-    const primaryPeriod = specs[0]?.period
     if (primaryPeriod) {
       // ⚠️ setActiveMode 必须在 dataManager.setSymbols 之前调用，
       //    以确保 kWidth/kGap（从 zoom level 恢复）先写入 _optionsSignal，
@@ -1445,6 +1458,7 @@ export class Chart {
   }
 
   addComparisonSymbol(spec: SymbolSpec): void {
+    resolveSymbolMarketSession(spec, this.marketSessions)
     this.dataManager.addComparisonSymbol(spec)
   }
 
@@ -1460,22 +1474,43 @@ export class Chart {
     this.dataManager.setCurrentSymbol(symbol)
   }
 
+  private configureCurrentTimeShareSession(): void {
+    const primary = this.dataManager.symbols.peek()[0]
+    if (!primary) return
+    this._timeShareMode.setMarketSession(resolveSymbolMarketSession(primary, this.marketSessions))
+  }
+
+  private configureModeForSpec(spec: SymbolSpec): void {
+    const session = resolveSymbolMarketSession(spec, this.marketSessions)
+    const isTimeShare = spec.period === 'timeshare'
+    if (isTimeShare) this._timeShareMode.setMarketSession(session)
+    this.setActiveMode(isTimeShare ? this._timeShareMode : this._kLineMode)
+  }
+
   setCurrentPeriod(period: string): void {
+    if (period === 'timeshare') this.configureCurrentTimeShareSession()
     this.setActiveMode(period === 'timeshare' ? this._timeShareMode : this._kLineMode)
     this.dataManager.setCurrentPeriod(period)
   }
 
   switchToTimeShareForDate(dateYYYYMMDD: number): void {
+    this.configureCurrentTimeShareSession()
     this.dataManager.setTimeShareQueryDate(dateYYYYMMDD)
     this.setActiveMode(this._timeShareMode)
     this.dataManager.setCurrentPeriod('timeshare')
   }
 
   applyCustomData(source: CustomDataSource): void {
+    this.configureModeForSpec({
+      symbol: source.symbol ?? '',
+      market: source.market,
+      period: source.period ?? 'daily',
+    })
     this.dataManager.applyCustomData(source)
   }
 
   resetToFetcher(spec: SymbolSpec): void {
+    this.configureModeForSpec(spec)
     this.dataManager.resetToFetcher(spec)
   }
 

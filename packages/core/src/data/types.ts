@@ -46,6 +46,7 @@ export interface SearchResult {
   symbol: string
   description: string
   exchange: string
+  market: string
   source: string
   params?: DataSourceParams
 }
