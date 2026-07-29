@@ -308,6 +308,20 @@ describe('gotdx fetcher', () => {
     })
   })
 
+  it('preserves the API error message for unavailable extended-market timeshare', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ error: '该日期暂无历史分时数据' }, 422))
+    const definition = getRegisteredFetcher('gotdx')
+
+    await expect(
+      definition?.timeShareFetcher?.('gotdx', {
+        symbol: '00700',
+        exchange: 'HK',
+        params: { category: 31, kind: 'ex' },
+        date: 20250908,
+      }),
+    ).rejects.toThrow('该日期暂无历史分时数据')
+  })
+
   it('routes A-share timeshare by params.market to stock/history-tick', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({

@@ -87,26 +87,26 @@ describe('TimeShareBuffer', () => {
     buf.dispose()
   })
 
-  it('preserves the fetcher error message in Effect logs', async () => {
+  it('publishes the fetcher error and clears it after a successful reload', async () => {
     const buf = new TimeShareBuffer()
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
-    buf.setFetcher(async () => {
-      throw new Error('history-tick backend unavailable')
+    // fetchTimeShare 有重试：首轮 load 需连续失败耗尽重试才落 lastError
+    const fetcher = vi
+      .fn<TimeShareFetcherFn>()
+      .mockRejectedValueOnce(new Error('该日期暂无历史分时数据'))
+      .mockRejectedValueOnce(new Error('该日期暂无历史分时数据'))
+      .mockRejectedValueOnce(new Error('该日期暂无历史分时数据'))
+      .mockResolvedValue({ data: [point(10)], preClose: 9.5 })
+    buf.setFetcher(fetcher)
+
+    buf.load({ symbol: '00700', period: 'timeshare', source: 'gotdx' })
+    await vi.waitFor(() => expect(buf.lastError()).toBe('该日期暂无历史分时数据'), {
+      timeout: 5_000,
     })
 
-    try {
-      buf.load({ symbol: '000001', period: 'timeshare', source: 'gotdx' })
-
-      await vi.waitFor(
-        () => {
-          const output = logSpy.mock.calls.flat().join(' ')
-          expect(output).toContain('history-tick backend unavailable')
-        },
-        { timeout: 5_000 },
-      )
-    } finally {
-      buf.dispose()
-      logSpy.mockRestore()
-    }
-  }, 7_000)
+    buf.load({ symbol: '00700', period: 'timeshare', source: 'gotdx' })
+    expect(buf.lastError()).toBeNull()
+    await vi.waitFor(() => expect(buf.getRawData()).toEqual([point(10)]))
+    expect(buf.lastError()).toBeNull()
+    buf.dispose()
+  })
 })

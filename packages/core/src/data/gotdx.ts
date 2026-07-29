@@ -95,6 +95,21 @@ function parseHistoryTickPayload(payload: unknown): TimeShareFetchResult {
   }
 }
 
+async function historyTickHttpError(
+  res: Response,
+  fallback: string,
+): Promise<KLineChartError> {
+  try {
+    const body = (await res.json()) as { error?: unknown }
+    if (typeof body?.error === 'string' && body.error.trim()) {
+      return new KLineChartError('FETCH_FAILED', body.error.trim())
+    }
+  } catch {
+    // 非 JSON 体时用 HTTP 状态文案
+  }
+  return new KLineChartError('FETCH_FAILED', fallback)
+}
+
 async function fetchGotdxHistoryTick(
   _source: string,
   config: TimeShareFetchConfig,
@@ -113,11 +128,12 @@ async function fetchGotdxHistoryTick(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
-    if (!res.ok)
-      throw new KLineChartError(
-        'FETCH_FAILED',
+    if (!res.ok) {
+      throw await historyTickHttpError(
+        res,
         `[gotdx] ex/history-tick failed: ${res.status} ${res.statusText}`,
       )
+    }
     return parseHistoryTickPayload(await res.json())
   }
 
@@ -137,11 +153,12 @@ async function fetchGotdxHistoryTick(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!res.ok)
-    throw new KLineChartError(
-      'FETCH_FAILED',
+  if (!res.ok) {
+    throw await historyTickHttpError(
+      res,
       `[gotdx] history-tick failed: ${res.status} ${res.statusText}`,
     )
+  }
   return parseHistoryTickPayload(await res.json())
 }
 
