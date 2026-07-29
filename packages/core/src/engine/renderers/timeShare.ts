@@ -97,9 +97,9 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
         colors.timeShareAreaDown,
       )
 
-      drawSegmentLine(ctx, xPositions, yPrices, dpr, colors.timeSharePriceLine, 2)
+      drawSegmentLine(ctx, xPositions, yPrices, dpr, colors.timeSharePriceLine, 1)
 
-      drawSegmentLine(ctx, xPositions, yAvgs, dpr, colors.timeShareAvgLine, 1.5)
+      drawSegmentLine(ctx, xPositions, yAvgs, dpr, colors.timeShareAvgLine, 1)
       ctx.restore()
 
       drawVolumeBars(

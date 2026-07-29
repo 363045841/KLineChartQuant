@@ -62,6 +62,7 @@
                 现价 {{ timeshare.price.toFixed(2) }} 涨幅
                 {{ timeshare.changePercent.toFixed(2) }}%
               </span>
+              <span>成交量 {{ timeshare.volumeText }}</span>
             </div>
 
             <!-- 主图指标图例 -->

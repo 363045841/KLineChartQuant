@@ -30,6 +30,7 @@ export interface LegendTimeshareRow {
   changeAmount: number
   changePercent: number
   volume: number
+  /** 带手数单位的成交量文本。 */
   volumeText: string
   amount: number
   amountText: string
@@ -141,7 +142,7 @@ export function buildLegendTemplateContext(
         changeAmount,
         changePercent,
         volume: item.volume,
-        volumeText: formatVolumeShort(item.volume),
+        volumeText: `${formatVolumeShort(item.volume)}手`,
         amount: item.amount,
         amountText: formatAmountShort(item.amount),
         changeColor: changeAmount >= 0 ? colors.candleUpBody : colors.candleDownBody,
