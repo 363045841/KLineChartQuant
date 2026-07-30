@@ -89,4 +89,16 @@ describe('timeShare renderer line width', () => {
     // stroke 顺序：昨收虚线 → 现价折线 → 均价折线
     expect(ctx.strokeLineWidths).toEqual([1, 1, 1])
   })
+
+  // 验证上游未提供成交量时不预留量柱区域，也不绘制量柱。
+  it('uses the full pane for price when timeshare data has no volume', () => {
+    const ctx = createMockCanvasContext()
+    const plugin = createTimeShareRendererPlugin()
+    const amountOnly = createTsData().map(({ volume: _volume, ...item }) => item)
+
+    plugin.draw(createContext(ctx, amountOnly))
+
+    expect(ctx.fillRect).not.toHaveBeenCalled()
+    expect(ctx.moveTo).toHaveBeenCalledWith(5, 200)
+  })
 })

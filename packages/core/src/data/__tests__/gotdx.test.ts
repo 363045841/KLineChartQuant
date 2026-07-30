@@ -271,11 +271,11 @@ describe('gotdx fetcher', () => {
     )
   })
 
-  it('routes HK timeshare by params.category to ex/history-tick', async () => {
+  it('maps extended-market timeshare without unverified metrics', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({
         preClose: 18.5,
-        data: [{ timestamp: '2026-07-24T09:30:00+08:00', Price: 18.6, Avg: 18.55, Vol: 100 }],
+        data: [{ timestamp: '2026-07-24T09:30:00+08:00', Price: 18.6, Avg: 18.55 }],
       }),
     )
     const definition = getRegisteredFetcher('gotdx')
@@ -301,8 +301,65 @@ describe('gotdx fetcher', () => {
           timestamp: new Date('2026-07-24T09:30:00+08:00').getTime(),
           price: 18.6,
           average: 18.55,
-          volume: 100,
-          amount: 18.6 * 100,
+        },
+      ],
+    })
+  })
+
+  it('maps stock volume and index amount without synthesizing the missing metric', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({
+          preClose: 8.3,
+          data: [{ timestamp: '2026-07-30T09:30:00+08:00', Price: 8.7, Avg: 8.7, Volume: 7101 }],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          preClose: 3828.47,
+          data: [
+            {
+              timestamp: '2026-07-30T09:30:00+08:00',
+              Price: 3812.11,
+              Avg: 3812.11,
+              Amount: 6_972_838_100,
+            },
+          ],
+        }),
+      )
+    const definition = getRegisteredFetcher('gotdx')
+
+    await expect(
+      definition?.timeShareFetcher?.('gotdx', {
+        symbol: '601360',
+        params: { market: 1 },
+        date: 20260730,
+      }),
+    ).resolves.toEqual({
+      preClose: 8.3,
+      data: [
+        {
+          timestamp: new Date('2026-07-30T09:30:00+08:00').getTime(),
+          price: 8.7,
+          average: 8.7,
+          volume: 7101,
+        },
+      ],
+    })
+    await expect(
+      definition?.timeShareFetcher?.('gotdx', {
+        symbol: '000001',
+        params: { market: 1 },
+        date: 20260730,
+      }),
+    ).resolves.toEqual({
+      preClose: 3828.47,
+      data: [
+        {
+          timestamp: new Date('2026-07-30T09:30:00+08:00').getTime(),
+          price: 3812.11,
+          average: 3812.11,
+          amount: 6_972_838_100,
         },
       ],
     })

@@ -29,11 +29,11 @@ export interface LegendTimeshareRow {
   average: number
   changeAmount: number
   changePercent: number
-  volume: number
+  volume: number | null
   /** 带手数单位的成交量文本。 */
-  volumeText: string
-  amount: number
-  amountText: string
+  volumeText: string | null
+  amount: number | null
+  amountText: string | null
   changeColor: string
 }
 
@@ -136,15 +136,19 @@ export function buildLegendTemplateContext(
     if (item && preClose !== null) {
       const changeAmount = item.price - preClose
       const changePercent = (changeAmount / preClose) * 100
+      const volume =
+        typeof item.volume === 'number' && Number.isFinite(item.volume) ? item.volume : null
+      const amount =
+        typeof item.amount === 'number' && Number.isFinite(item.amount) ? item.amount : null
       timeshare = {
         price: item.price,
         average: item.average,
         changeAmount,
         changePercent,
-        volume: item.volume,
-        volumeText: `${formatVolumeShort(item.volume)}手`,
-        amount: item.amount,
-        amountText: formatAmountShort(item.amount),
+        volume,
+        volumeText: volume === null ? null : `${formatVolumeShort(volume)}手`,
+        amount,
+        amountText: amount === null ? null : formatAmountShort(amount),
         changeColor: changeAmount >= 0 ? colors.candleUpBody : colors.candleDownBody,
       }
     }

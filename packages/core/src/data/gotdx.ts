@@ -1,4 +1,4 @@
-import type { KLineData } from '../controllers/types'
+import type { KLineData, TimeShareData } from '../controllers/types'
 import { KLineChartError } from '../errors'
 
 import { getFetcherBaseUrl } from './fetcherBaseUrl'
@@ -83,15 +83,26 @@ function parseHistoryTickPayload(payload: unknown): TimeShareFetchResult {
 
   return {
     preClose,
-    data: (list as Array<{ timestamp: string; Price: number; Avg: number; Vol: number }>).map(
-      (item) => ({
+    data: (list as Array<{
+      timestamp: string
+      Price: number
+      Avg: number
+      Volume?: unknown
+      Amount?: unknown
+    }>).map((item) => {
+      const point: TimeShareData = {
         timestamp: new Date(item.timestamp).getTime(),
         price: item.Price,
         average: item.Avg,
-        volume: item.Vol,
-        amount: item.Price * item.Vol,
-      }),
-    ),
+      }
+      if (typeof item.Volume === 'number' && Number.isFinite(item.Volume) && item.Volume >= 0) {
+        point.volume = item.Volume
+      }
+      if (typeof item.Amount === 'number' && Number.isFinite(item.Amount) && item.Amount >= 0) {
+        point.amount = item.Amount
+      }
+      return point
+    }),
   }
 }
 

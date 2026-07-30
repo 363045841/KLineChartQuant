@@ -158,18 +158,22 @@ function paintLegendOnCanvas(overlayCtx: CanvasRenderingContext2D, legend: Legen
       overlayCtx.fillText(`${pctSign}${ts.changePercent.toFixed(2)}%`, x, y)
       x += measureTextWidth(overlayCtx, `${pctSign}${ts.changePercent.toFixed(2)}%`) + gap
 
-      overlayCtx.fillStyle = colors.textTertiary
-      overlayCtx.fillText('成交量 ', x, y)
-      x += measureTextWidth(overlayCtx, '成交量 ')
-      overlayCtx.fillStyle = colors.textPrimary
-      overlayCtx.fillText(ts.volumeText, x, y)
-      x += measureTextWidth(overlayCtx, ts.volumeText) + gap
+      if (ts.volumeText) {
+        overlayCtx.fillStyle = colors.textTertiary
+        overlayCtx.fillText('成交量 ', x, y)
+        x += measureTextWidth(overlayCtx, '成交量 ')
+        overlayCtx.fillStyle = colors.textPrimary
+        overlayCtx.fillText(ts.volumeText, x, y)
+        x += measureTextWidth(overlayCtx, ts.volumeText) + gap
+      }
 
-      overlayCtx.fillStyle = colors.textTertiary
-      overlayCtx.fillText('成交额 ', x, y)
-      x += measureTextWidth(overlayCtx, '成交额 ')
-      overlayCtx.fillStyle = colors.textPrimary
-      overlayCtx.fillText(ts.amountText, x, y)
+      if (ts.amountText) {
+        overlayCtx.fillStyle = colors.textTertiary
+        overlayCtx.fillText('成交额 ', x, y)
+        x += measureTextWidth(overlayCtx, '成交额 ')
+        overlayCtx.fillStyle = colors.textPrimary
+        overlayCtx.fillText(ts.amountText, x, y)
+      }
       rowIndex++
     } else {
       {
@@ -188,11 +192,13 @@ function paintLegendOnCanvas(overlayCtx: CanvasRenderingContext2D, legend: Legen
         overlayCtx.fillText(ts.average.toFixed(2), x, y)
         x += measureTextWidth(overlayCtx, ts.average.toFixed(2)) + gap
 
-        overlayCtx.fillStyle = colors.textTertiary
-        overlayCtx.fillText('成交量 ', x, y)
-        x += measureTextWidth(overlayCtx, '成交量 ')
-        overlayCtx.fillStyle = colors.textPrimary
-        overlayCtx.fillText(ts.volumeText, x, y)
+        if (ts.volumeText) {
+          overlayCtx.fillStyle = colors.textTertiary
+          overlayCtx.fillText('成交量 ', x, y)
+          x += measureTextWidth(overlayCtx, '成交量 ')
+          overlayCtx.fillStyle = colors.textPrimary
+          overlayCtx.fillText(ts.volumeText, x, y)
+        }
         rowIndex++
       }
       {
@@ -214,11 +220,13 @@ function paintLegendOnCanvas(overlayCtx: CanvasRenderingContext2D, legend: Legen
         overlayCtx.fillText(`${pctSign}${ts.changePercent.toFixed(2)}%`, x, y)
         x += measureTextWidth(overlayCtx, `${pctSign}${ts.changePercent.toFixed(2)}%`) + gap
 
-        overlayCtx.fillStyle = colors.textTertiary
-        overlayCtx.fillText('成交额 ', x, y)
-        x += measureTextWidth(overlayCtx, '成交额 ')
-        overlayCtx.fillStyle = colors.textPrimary
-        overlayCtx.fillText(ts.amountText, x, y)
+        if (ts.amountText) {
+          overlayCtx.fillStyle = colors.textTertiary
+          overlayCtx.fillText('成交额 ', x, y)
+          x += measureTextWidth(overlayCtx, '成交额 ')
+          overlayCtx.fillStyle = colors.textPrimary
+          overlayCtx.fillText(ts.amountText, x, y)
+        }
         rowIndex++
       }
     }

@@ -26,6 +26,27 @@ describe('buildLegendTemplateContext timeshare baseline', () => {
     expect(result?.timeshare?.volumeText).toBe('1.23万手')
   })
 
+  // 验证仅有成交额的分时不伪造成交量。
+  it('keeps amount-only timeshare metrics separate from volume', () => {
+    const context = {
+      data: [{ timestamp: 1, price: 3812.11, average: 3812.11, amount: 6_972_838_100 }],
+      period: 'timeshare',
+      range: { start: 0, end: 1 },
+      crosshairIndex: 0,
+      paneWidth: 800,
+      theme: 'light',
+      isAsiaMarket: true,
+      settings: { preClose: 3828.47 },
+    } as unknown as RenderContext
+
+    const result = buildLegendTemplateContext({ context, host: null, yPaddingPx: 0 })
+
+    expect(result?.timeshare?.volume).toBeNull()
+    expect(result?.timeshare?.volumeText).toBeNull()
+    expect(result?.timeshare?.amount).toBe(6_972_838_100)
+    expect(result?.timeshare?.amountText).toBe('69.73亿')
+  })
+
   it.each([undefined, -1])(
     'does not derive changes from the first price when preClose is %s',
     (preClose) => {
