@@ -290,6 +290,7 @@ function getSTOCHTitleInfo(
   name: 'stoch',
   displayName: 'STOCH',
   category: 'oscillator',
+  indicatorType: 'momentum',
   defaultPaneId: 'sub_STOCH',
   visibleState: {
     compose: createFixedRangePointVisibleStateComposer('stoch', EMPTY_STOCH_STATE, [

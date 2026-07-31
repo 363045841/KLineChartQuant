@@ -127,6 +127,7 @@ const getDEMATitleInfo = createSingleLineTitleInfo({
   displayName: 'DEMA',
   getTitleInfo: getDEMATitleInfo,
   category: 'main',
+  indicatorType: 'moving-average',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {

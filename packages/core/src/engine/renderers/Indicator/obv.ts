@@ -118,6 +118,7 @@ const getOBVTitleInfo = createSingleLineTitleInfo({
   name: 'obv',
   displayName: 'OBV',
   category: 'volume',
+  indicatorType: 'volume',
   defaultPaneId: 'sub_OBV',
   visibleState: { compose: createSparseVisibleStateComposer('obv', EMPTY_OBV_STATE) },
   scale: { indicatorKey: 'obv', label: 'OBV', decimals: 0 },

@@ -49,6 +49,12 @@ export { getPhysicalKLineConfig } from '../engine/utils/klineConfig'
 
 // Indicator types & config
 export type { SubIndicatorType } from '../engine/renderers/Indicator'
+export {
+  BUILTIN_INDICATOR_TYPES,
+  getBuiltinIndicatorTypeLabel,
+  getBuiltinIndicatorTypeOrder,
+} from '../engine/indicators/indicatorMetadata'
+export type { IndicatorType, IndicatorTypeRegistry } from '../engine/indicators/indicatorMetadata'
 
 // Main-pane legend template context (Vue #legend slot / external renderers)
 export type {

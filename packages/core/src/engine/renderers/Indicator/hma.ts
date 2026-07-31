@@ -127,6 +127,7 @@ const getHMATitleInfo = createSingleLineTitleInfo({
   displayName: 'HMA',
   getTitleInfo: getHMATitleInfo,
   category: 'main',
+  indicatorType: 'moving-average',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {

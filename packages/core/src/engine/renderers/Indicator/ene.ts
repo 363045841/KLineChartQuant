@@ -312,6 +312,7 @@ const getENETitleInfo: GetTitleInfoFn = (
   name: 'ene',
   displayName: 'ENE',
   category: 'main',
+  indicatorType: 'channel',
   defaultPaneId: 'main',
   mainPane: {
     rendererName: 'ene',

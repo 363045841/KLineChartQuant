@@ -127,6 +127,7 @@ const getTEMATitleInfo = createSingleLineTitleInfo({
   displayName: 'TEMA',
   getTitleInfo: getTEMATitleInfo,
   category: 'main',
+  indicatorType: 'moving-average',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {

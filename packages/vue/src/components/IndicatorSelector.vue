@@ -18,176 +18,83 @@
         </div>
       </template>
 
-      <template #header-extra>
-        <button
-          class="view-toggle-btn"
-          :class="{ active: isCompactView }"
-          title="简洁模式"
-          @click="isCompactView = !isCompactView"
-        >
-          <svg v-if="!isCompactView" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-            <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z" />
-          </svg>
-          <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-            <path
-              d="M3 3h18v18H3V3zm16 16V5H5v14h14zM7 7h4v4H7V7zm0 6h4v4H7v-4zm6-6h4v4h-4V7zm0 6h4v4h-4v-4z"
-            />
-          </svg>
-        </button>
-      </template>
-
       <template #subheader>
-        <div class="search-box">
-          <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-            <path
-              d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
+        <div class="selector-toolbar">
+          <div class="search-box">
+            <IconTablerSearch class="search-icon" aria-hidden="true" />
+            <input
+              :value="searchQuery"
+              type="text"
+              class="search-input"
+              placeholder="搜索指标名称..."
+              @input="controller.setSearchQuery(($event.target as HTMLInputElement).value)"
             />
-          </svg>
-          <input
-            :value="searchQuery"
-            type="text"
-            class="search-input"
-            placeholder="搜索指标名称..."
-            @input="controller.setSearchQuery(($event.target as HTMLInputElement).value)"
-          />
+          </div>
+          <div class="view-tabs" role="tablist" aria-label="指标视图">
+            <button
+              v-for="option in viewOptions"
+              :key="option.value"
+              class="view-tab"
+              :class="{ active: indicatorView === option.value }"
+              role="tab"
+              :aria-selected="indicatorView === option.value"
+              @click="indicatorView = option.value"
+            >
+              {{ option.label }}
+            </button>
+          </div>
         </div>
       </template>
 
-      <!-- 主图指标 -->
-      <div v-if="filteredMain.length > 0" class="indicator-section">
+      <div v-for="group in indicatorGroups" :key="group.key" class="indicator-section">
         <div class="section-header">
-          <span class="section-title">主图指标</span>
-          <span class="section-count">{{ filteredMain.length }}</span>
+          <span class="section-title">{{ group.label }}</span>
+          <span class="section-count">{{ group.items.length }}</span>
         </div>
-        <div class="indicator-grid" :class="{ compact: isCompactView }">
-          <button
-            v-for="indicator in filteredMain"
+        <div class="indicator-grid" :class="{ compact: indicatorView === 'compact' }">
+          <div
+            v-for="indicator in group.items"
             :key="indicator.id"
             class="indicator-card"
-            :class="{ active: isActive(indicator.id), compact: isCompactView }"
-            @click="
-              isActive(indicator.id) ? removeIndicator(indicator.id) : addIndicator(indicator.id)
-            "
+            :class="{ active: isActive(indicator.id) }"
           >
-            <template v-if="isCompactView">
-              <span class="card-label">{{ indicator.label }}</span>
-              <span class="card-tooltip">{{ indicator.name }}</span>
-            </template>
-            <template v-else>
+            <button class="card-select" @click="toggleIndicator(indicator.id)">
               <div class="card-header">
                 <span class="card-label">{{ indicator.label }}</span>
-                <div class="card-header-actions">
-                  <button
-                    v-if="indicator.params?.length"
-                    class="card-settings-btn"
-                    title="编辑参数"
-                    @click.stop="showParams(indicator.id)"
-                  >
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                      <path
-                        d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    v-else-if="indicator.description"
-                    class="card-info-btn"
-                    title="查看指标说明"
-                    @click.stop="showDescription(indicator.id)"
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      width="14"
-                      height="14"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <circle cx="12" cy="12" r="9" />
-                      <path d="M12 11v5" />
-                      <path d="M12 8h.01" />
-                    </svg>
-                  </button>
-                </div>
+                <span v-if="indicatorView === 'type'" class="pane-badge">
+                  {{ indicator.role === 'main' ? '主' : '副' }}
+                </span>
               </div>
-              <div class="card-name">{{ indicator.name }}</div>
-            </template>
-          </button>
+              <div v-if="indicatorView !== 'compact'" class="card-name">{{ indicator.name }}</div>
+              <span v-else class="card-tooltip">{{ indicator.name }}</span>
+            </button>
+            <button
+              v-if="indicator.params?.length"
+              class="card-action-btn"
+              title="编辑参数"
+              aria-label="编辑参数"
+              @click="showParams(indicator.id)"
+            >
+              <IconTablerSettings aria-hidden="true" />
+            </button>
+            <button
+              v-else-if="indicator.description"
+              class="card-action-btn"
+              title="查看指标说明"
+              aria-label="查看指标说明"
+              @click="showDescription(indicator.id)"
+            >
+              <IconTablerInfoCircle aria-hidden="true" />
+            </button>
+          </div>
         </div>
       </div>
 
       <!-- 无匹配 -->
       <div v-if="!hasSearchResults && searchQuery.trim()" class="no-results">
-        <svg viewBox="0 0 24 24" width="40" height="40" fill="currentColor">
-          <path
-            d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
-          />
-        </svg>
+        <IconTablerSearch class="no-results-icon" aria-hidden="true" />
         <p>未找到匹配的指标</p>
         <span class="no-results-hint">请尝试其他关键词</span>
-      </div>
-
-      <!-- 副图指标 -->
-      <div v-if="filteredSub.length > 0" class="indicator-section">
-        <div class="section-header">
-          <span class="section-title">副图指标</span>
-          <span class="section-count">{{ filteredSub.length }}</span>
-        </div>
-        <div class="indicator-grid" :class="{ compact: isCompactView }">
-          <button
-            v-for="indicator in filteredSub"
-            :key="indicator.id"
-            class="indicator-card"
-            :class="{ active: isActive(indicator.id), compact: isCompactView }"
-            @click="
-              isActive(indicator.id) ? removeIndicator(indicator.id) : addIndicator(indicator.id)
-            "
-          >
-            <template v-if="isCompactView">
-              <span class="card-label">{{ indicator.label }}</span>
-              <span class="card-tooltip">{{ indicator.name }}</span>
-            </template>
-            <template v-else>
-              <div class="card-header">
-                <span class="card-label">{{ indicator.label }}</span>
-                <div class="card-header-actions">
-                  <button
-                    v-if="indicator.params?.length"
-                    class="card-settings-btn"
-                    title="编辑参数"
-                    @click.stop="showParams(indicator.id)"
-                  >
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                      <path
-                        d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    v-else-if="indicator.description"
-                    class="card-info-btn"
-                    title="查看指标说明"
-                    @click.stop="showDescription(indicator.id)"
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      width="14"
-                      height="14"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <circle cx="12" cy="12" r="9" />
-                      <path d="M12 11v5" />
-                      <path d="M12 8h.01" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              <div class="card-name">{{ indicator.name }}</div>
-            </template>
-          </button>
-        </div>
       </div>
 
       <template #footer>
@@ -236,6 +143,9 @@
     isBuiltinIndicatorsLoaded,
   } from '@363045841yyt/klinechart-core/controllers'
   import { ref, computed, onMounted, onUnmounted } from 'vue'
+  import IconTablerInfoCircle from '~icons/tabler/info-circle'
+  import IconTablerSearch from '~icons/tabler/search'
+  import IconTablerSettings from '~icons/tabler/settings'
 
   import { coreSignalToVueRef } from '../utils/signalBridge'
 
@@ -260,6 +170,9 @@
       name: i.name,
       description: i.description,
       role: i.pane,
+      indicatorType: i.indicatorType,
+      indicatorTypeLabel: i.indicatorTypeLabel,
+      indicatorTypeOrder: i.indicatorTypeOrder,
       params: (i.params ?? []).map((p) => ({
         key: p.key,
         label: p.label,
@@ -297,7 +210,51 @@
   const currentIndicatorId = ref<string | null>(null)
   const descriptionVisible = ref(false)
   const descriptionIndicatorId = ref<string | null>(null)
-  const isCompactView = ref(false)
+  type IndicatorView = 'position' | 'compact' | 'type'
+
+  interface IndicatorGroup {
+    key: string
+    label: string
+    items: ReadonlyArray<IndicatorDefinition>
+  }
+
+  const indicatorView = ref<IndicatorView>('position')
+  const viewOptions: ReadonlyArray<{ value: IndicatorView; label: string }> = [
+    { value: 'position', label: '按位置' },
+    { value: 'compact', label: '简洁' },
+    { value: 'type', label: '按类型' },
+  ]
+
+  /** 按当前视图组织搜索后的指标，所有分组始终保持展开。 */
+  const indicatorGroups = computed<IndicatorGroup[]>(() => {
+    if (indicatorView.value === 'position') {
+      return [
+        { key: 'main', label: '主图指标', items: filteredMain.value },
+        { key: 'sub', label: '副图指标', items: filteredSub.value },
+      ].filter((group) => group.items.length > 0)
+    }
+
+    const indicators = [...filteredMain.value, ...filteredSub.value]
+    if (indicatorView.value === 'compact') {
+      return indicators.length > 0 ? [{ key: 'all', label: '全部指标', items: indicators }] : []
+    }
+
+    const groups = new Map<string, IndicatorGroup & { order: number }>()
+    for (const indicator of indicators) {
+      const existing = groups.get(indicator.indicatorType)
+      if (existing) {
+        existing.items = [...existing.items, indicator]
+      } else {
+        groups.set(indicator.indicatorType, {
+          key: indicator.indicatorType,
+          label: indicator.indicatorTypeLabel ?? indicator.indicatorType,
+          order: indicator.indicatorTypeOrder ?? 900,
+          items: [indicator],
+        })
+      }
+    }
+    return [...groups.values()].sort((a, b) => a.order - b.order || a.label.localeCompare(b.label))
+  })
 
   const currentIndicator = computed(() => {
     if (!currentIndicatorId.value) return null
@@ -324,6 +281,15 @@
 
   function removeIndicator(indicatorId: string) {
     emit('toggle', indicatorId, false)
+  }
+
+  /** 切换指标启用状态。 */
+  function toggleIndicator(indicatorId: string) {
+    if (isActive(indicatorId)) {
+      removeIndicator(indicatorId)
+    } else {
+      addIndicator(indicatorId)
+    }
   }
 
   function showParams(indicatorId: string) {
@@ -412,30 +378,50 @@
     line-height: 1.3;
   }
 
-  .view-toggle-btn {
-    background: var(--klc-color-background);
-    border: 1px solid var(--klc-color-border-button);
-    border-radius: 6px;
-    width: 32px;
-    height: 32px;
+  .selector-toolbar {
     display: flex;
     align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: var(--klc-color-axis-text);
-    transition: all 0.15s ease;
-    padding: 0;
+    gap: 12px;
   }
 
-  .view-toggle-btn:hover {
-    background: var(--klc-color-tag-bg-hover);
+  .view-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(64px, 1fr));
+    flex: 0 0 auto;
+    padding: 2px;
+    border: 1px solid var(--klc-color-border-button);
+    border-radius: 6px;
+    background: var(--klc-color-grid-minor);
+  }
+
+  .view-tab {
+    height: 30px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--klc-color-axis-text);
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .view-tab:hover {
     color: var(--klc-color-foreground);
-    border-color: var(--klc-color-axis-line);
+  }
+
+  .view-tab.active {
+    background: var(--klc-color-background);
+    color: var(--klc-color-foreground);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   }
 
   /* ── 搜索 ── */
   .search-box {
     display: flex;
+    flex: 1;
+    min-width: 0;
     align-items: center;
     gap: 10px;
     padding: 8px 14px;
@@ -537,20 +523,18 @@
   }
 
   .indicator-grid.compact {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
     gap: 8px;
   }
 
   .indicator-grid.compact .indicator-card {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 6px 14px;
-    border-radius: 16px;
     min-height: 32px;
-    white-space: nowrap;
-    position: relative;
+  }
+
+  .indicator-grid.compact .card-select {
+    justify-content: center;
+    padding: 6px 32px 6px 10px;
   }
 
   .indicator-grid.compact .indicator-card .card-tooltip {
@@ -570,7 +554,8 @@
     z-index: 10;
   }
 
-  .indicator-grid.compact .indicator-card:hover .card-tooltip {
+  .indicator-grid.compact .indicator-card:hover .card-tooltip,
+  .indicator-grid.compact .indicator-card:focus-within .card-tooltip {
     opacity: 1;
   }
 
@@ -581,15 +566,38 @@
 
   .indicator-card {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 10px 12px;
+    position: relative;
+    min-width: 0;
+    min-height: 58px;
+    padding: 0;
     border: 1px solid var(--klc-color-border-chart);
     border-radius: 6px;
     background: var(--klc-color-background);
     cursor: pointer;
     transition: all 0.15s ease;
     text-align: left;
+  }
+
+  .card-select {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    padding: 10px 38px 10px 12px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .card-select:focus-visible,
+  .card-action-btn:focus-visible,
+  .view-tab:focus-visible {
+    outline: 2px solid var(--klc-color-foreground);
+    outline-offset: -2px;
   }
 
   .indicator-card:hover:not(.disabled) {
@@ -607,7 +615,7 @@
   .card-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 8px;
   }
 
@@ -617,19 +625,27 @@
     color: var(--klc-color-foreground);
   }
 
-  .card-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 4px;
+  .pane-badge {
+    flex: 0 0 auto;
+    padding: 1px 4px;
+    border: 1px solid var(--klc-color-border-button);
+    border-radius: 3px;
+    color: var(--klc-color-axis-text);
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1.2;
   }
 
-  .card-settings-btn,
-  .card-info-btn {
+  .card-action-btn {
     display: flex;
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
     align-items: center;
     justify-content: center;
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
     padding: 0;
     border: none;
     border-radius: 4px;
@@ -639,16 +655,18 @@
     transition: all 0.15s;
   }
 
-  .card-settings-btn:hover,
-  .card-info-btn:hover {
+  .card-action-btn:hover {
     background: var(--klc-color-tag-bg-hover);
     color: var(--klc-color-foreground);
   }
 
   .card-name {
+    overflow: hidden;
     font-size: 11px;
     color: var(--klc-color-axis-text);
     line-height: 1.4;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .indicator-description {
@@ -697,8 +715,22 @@
 
   /* ── 响应式 ── */
   @media (max-width: 640px) {
+    .selector-toolbar {
+      align-items: stretch;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .view-tabs {
+      width: 100%;
+    }
+
     .indicator-grid {
-      grid-template-columns: 1fr;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .indicator-grid.compact {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 </style>

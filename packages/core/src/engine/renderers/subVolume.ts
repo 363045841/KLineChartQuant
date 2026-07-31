@@ -250,6 +250,7 @@ function judgeColor(
   name: 'volume',
   displayName: 'VOL',
   category: 'volume',
+  indicatorType: 'volume',
   defaultPaneId: 'sub',
   scaleRendererFactory: createVolumeScaleRendererPlugin,
 })

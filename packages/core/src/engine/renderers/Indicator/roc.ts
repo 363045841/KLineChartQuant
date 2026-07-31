@@ -142,6 +142,7 @@ const getROCTitleInfo = createSingleLineTitleInfo({
   name: 'roc',
   displayName: 'ROC',
   category: 'oscillator',
+  indicatorType: 'momentum',
   defaultPaneId: 'sub_ROC',
   visibleState: { compose: createSparseVisibleStateComposer('roc', EMPTY_ROC_STATE) },
   scale: { indicatorKey: 'roc', label: 'ROC', decimals: 2 },

@@ -142,6 +142,7 @@ const getZonesTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId) 
   displayName: 'Zones',
   getTitleInfo: getZonesTitleInfo,
   category: 'main',
+  indicatorType: 'structure',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {

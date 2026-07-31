@@ -253,6 +253,7 @@ const getEXPMATitleInfo: GetTitleInfoFn = (
   name: 'expma',
   displayName: 'EXPMA',
   category: 'main',
+  indicatorType: 'moving-average',
   defaultPaneId: 'main',
   mainPane: {
     rendererName: 'expma',

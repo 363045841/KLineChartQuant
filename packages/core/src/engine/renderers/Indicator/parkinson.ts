@@ -122,6 +122,7 @@ const getParkinsonTitleInfo = createSingleLineTitleInfo({
   name: 'parkinson',
   displayName: 'Parkinson',
   category: 'oscillator',
+  indicatorType: 'volatility',
   defaultPaneId: 'sub_Parkinson',
   scale: { indicatorKey: 'parkinson', label: 'Parkinson', decimals: 2 },
   getTitleInfo: getParkinsonTitleInfo,

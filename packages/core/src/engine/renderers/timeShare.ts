@@ -316,6 +316,7 @@ function drawVolumeBars(
   name: 'timeShare',
   displayName: '分时',
   category: 'main',
+  indicatorType: 'other',
   defaultPaneId: 'main',
   mainPane: { rendererName: 'timeShare' },
 })

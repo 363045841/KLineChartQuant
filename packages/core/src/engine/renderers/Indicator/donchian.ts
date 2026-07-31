@@ -163,6 +163,7 @@ function getDonchianTitleInfo(
   displayName: 'Donchian',
   getTitleInfo: getDonchianTitleInfo,
   category: 'main',
+  indicatorType: 'channel',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {

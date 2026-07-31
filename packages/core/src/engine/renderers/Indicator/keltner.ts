@@ -165,6 +165,7 @@ function getKeltnerTitleInfo(
   displayName: 'Keltner',
   getTitleInfo: getKeltnerTitleInfo,
   category: 'main',
+  indicatorType: 'channel',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {

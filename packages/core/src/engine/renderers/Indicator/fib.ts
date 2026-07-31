@@ -166,6 +166,7 @@ const getFibTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId) =>
   displayName: 'Fib',
   getTitleInfo: getFibTitleInfo,
   category: 'main',
+  indicatorType: 'support-resistance',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {

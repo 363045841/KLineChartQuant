@@ -176,6 +176,7 @@ const getPivotTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId) 
   displayName: 'Pivot',
   getTitleInfo: getPivotTitleInfo,
   category: 'main',
+  indicatorType: 'support-resistance',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {

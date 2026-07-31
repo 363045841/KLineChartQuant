@@ -170,6 +170,7 @@ function getStructureTitleInfo(
   name: 'structure',
   displayName: 'Structure',
   category: 'main',
+  indicatorType: 'structure',
   defaultPaneId: 'sub_Structure',
   allowMainPane: true,
   mainPane: {

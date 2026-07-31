@@ -154,6 +154,7 @@ function getSuperTrendTitleInfo(
   displayName: 'SuperTrend',
   getTitleInfo: getSuperTrendTitleInfo,
   category: 'main',
+  indicatorType: 'trend',
   defaultPaneId: 'sub_SuperTrend',
   allowMainPane: true,
   mainPane: {

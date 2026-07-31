@@ -226,6 +226,7 @@ const getFASTKTitleInfo = createSingleLineTitleInfo({
   name: 'fastk',
   displayName: 'FASTK',
   category: 'oscillator',
+  indicatorType: 'momentum',
   defaultPaneId: 'sub_FASTK',
   visibleState: { compose: createFixedRangeSparseVisibleStateComposer('fastk', EMPTY_FASTK_STATE) },
   scaleRendererFactory: createFastkScaleRendererPlugin,

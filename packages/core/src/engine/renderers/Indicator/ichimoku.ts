@@ -290,6 +290,7 @@ function getIchimokuTitleInfo(
   displayName: 'Ichimoku',
   getTitleInfo: getIchimokuTitleInfo,
   category: 'main',
+  indicatorType: 'trend',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {

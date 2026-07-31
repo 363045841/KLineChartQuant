@@ -187,6 +187,7 @@ function getTRIXTitleInfo(
   name: 'trix',
   displayName: 'TRIX',
   category: 'oscillator',
+  indicatorType: 'momentum',
   defaultPaneId: 'sub_TRIX',
   scale: { indicatorKey: 'trix', label: 'TRIX', decimals: 6 },
   visibleState: { compose: createDualSparseVisibleStateComposer('trix', EMPTY_TRIX_STATE) },

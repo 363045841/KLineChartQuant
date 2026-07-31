@@ -177,6 +177,9 @@ export interface IndicatorDefinition {
   name?: string
   description?: string
   role: IndicatorPaneRole
+  indicatorType: import('../engine/indicators/indicatorMetadata').IndicatorType
+  indicatorTypeLabel?: string
+  indicatorTypeOrder?: number
   params: ReadonlyArray<IndicatorParamDef>
 }
 
@@ -407,10 +410,7 @@ export interface ChartController extends DrawingChartAdapter {
    * null 视为 cursor。
    */
   setDrawingTool(
-    tool:
-      | import('../engine/drawing/toolConfig').DrawingToolId
-      | DrawingToolType
-      | null,
+    tool: import('../engine/drawing/toolConfig').DrawingToolId | DrawingToolType | null,
   ): void
   setDrawingToolId(toolId: import('../engine/drawing/toolConfig').DrawingToolId): void
   getDrawingToolId(): import('../engine/drawing/toolConfig').DrawingToolId

@@ -309,6 +309,7 @@ function getKSTTitleInfo(
   name: 'kst',
   displayName: 'KST',
   category: 'oscillator',
+  indicatorType: 'momentum',
   defaultPaneId: 'sub_KST',
   scaleRendererFactory: createKstScaleRendererPlugin,
   visibleState: {

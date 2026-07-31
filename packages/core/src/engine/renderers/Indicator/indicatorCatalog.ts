@@ -1,4 +1,9 @@
 import { getRegisteredIndicatorDefinitions } from '../../indicators/indicatorDefinitionRegistry'
+import {
+  getBuiltinIndicatorTypeLabel,
+  getBuiltinIndicatorTypeOrder,
+  type IndicatorType,
+} from '../../indicators/indicatorMetadata'
 
 export interface ParamConfig {
   key: string
@@ -16,6 +21,9 @@ export interface Indicator {
   label: string
   name: string
   pane: 'main' | 'sub'
+  indicatorType: IndicatorType
+  indicatorTypeLabel: string
+  indicatorTypeOrder: number
   description?: string
   params?: ParamConfig[]
 }
@@ -936,6 +944,12 @@ function rebuildIfStale(): Indicator[] {
           pane: (def.category === 'main' || def.allowMainPane
             ? 'main'
             : 'sub') as Indicator['pane'],
+          indicatorType: def.indicatorType,
+          indicatorTypeLabel:
+            def.indicatorTypeLabel ??
+            getBuiltinIndicatorTypeLabel(def.indicatorType) ??
+            def.indicatorType,
+          indicatorTypeOrder: getBuiltinIndicatorTypeOrder(def.indicatorType),
           description: ui?.description,
           params: ui?.params,
         }

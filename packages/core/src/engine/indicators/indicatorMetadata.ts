@@ -13,6 +13,47 @@ import type { IndicatorConfigSnapshot, IndicatorSeriesBundle } from './workerPro
 
 export type IndicatorId = string
 
+/**
+ * 可扩展的指标业务类型注册表，第三方可通过 TypeScript declaration merging 增加类型。
+ */
+export interface IndicatorTypeRegistry {
+  'moving-average': unknown
+  trend: unknown
+  momentum: unknown
+  volatility: unknown
+  channel: unknown
+  volume: unknown
+  'support-resistance': unknown
+  structure: unknown
+  other: unknown
+}
+
+/** 指标业务类型 ID。 */
+export type IndicatorType = keyof IndicatorTypeRegistry
+
+/** 内置指标类型定义，同时作为 UI 的默认名称与排序来源。 */
+export const BUILTIN_INDICATOR_TYPES = [
+  { id: 'moving-average', label: '均线类', order: 10 },
+  { id: 'trend', label: '趋势类', order: 20 },
+  { id: 'momentum', label: '动量类', order: 30 },
+  { id: 'volatility', label: '波动率类', order: 40 },
+  { id: 'channel', label: '通道类', order: 50 },
+  { id: 'volume', label: '成交量类', order: 60 },
+  { id: 'support-resistance', label: '支撑阻力类', order: 70 },
+  { id: 'structure', label: '市场结构类', order: 80 },
+  { id: 'other', label: '其他', order: 999 },
+] as const satisfies ReadonlyArray<{ id: IndicatorType; label: string; order: number }>
+
+/** 返回内置类型名称，扩展类型使用注册时声明的名称。 */
+export function getBuiltinIndicatorTypeLabel(type: IndicatorType): string | undefined {
+  return BUILTIN_INDICATOR_TYPES.find((item) => item.id === type)?.label
+}
+
+/** 返回内置类型排序，扩展类型默认排列在内置类型之后。 */
+export function getBuiltinIndicatorTypeOrder(type: IndicatorType): number {
+  return BUILTIN_INDICATOR_TYPES.find((item) => item.id === type)?.order ?? 900
+}
+
 export interface IndicatorRendererOptions {
   paneId: string
   indicatorId: IndicatorId
@@ -164,6 +205,12 @@ export interface IndicatorMetadata<T = unknown> {
    * 分类：主图/副图
    */
   category: IndicatorCategory
+
+  /** 用于指标选择器分组的业务类型。 */
+  indicatorType: IndicatorType
+
+  /** 扩展类型的显示名称；内置类型可省略。 */
+  indicatorTypeLabel?: string
 
   /**
    * StateStore key
