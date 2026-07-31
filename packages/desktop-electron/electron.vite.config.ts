@@ -62,7 +62,7 @@ export default defineConfig({
       alias: [
         {
           find: /^@363045841yyt\/klinechart-core\/config$/,
-          replacement: r('config/chartSettings.ts'),
+          replacement: r('foundation/config/chartSettings.ts'),
         },
         {
           find: /^@363045841yyt\/klinechart-core\/types\/price$/,
@@ -70,7 +70,7 @@ export default defineConfig({
         },
         {
           find: /^@363045841yyt\/klinechart-core\/semantic$/,
-          replacement: r('semantic/index.ts'),
+          replacement: r('features/semantic/index.ts'),
         },
         {
           find: /^@363045841yyt\/klinechart-core\/plugin$/,
