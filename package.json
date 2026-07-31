@@ -47,6 +47,9 @@
   "scripts": {
     "dev": "pnpm --filter @363045841yyt/klinechart dev",
     "dev:lan": "pnpm --filter @363045841yyt/klinechart dev:lan",
+    "dev:tdx": "cd .. && cd KlineChartQuantGo && go run . tdx",
+    "dev:full": "run-p dev dev:tdx",
+    "dev:lan:full": "run-p dev:lan dev:tdx",
     "stockbao": "cd .. && cd stockbao && uv run python ./server.py",
     "aktools": "cd .. && cd aktoolshttp && uv run python -m aktools",
     "build": "pnpm build:packages",
