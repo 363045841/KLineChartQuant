@@ -89,6 +89,25 @@
                       />
                     </svg>
                   </button>
+                  <button
+                    v-else-if="indicator.description"
+                    class="card-info-btn"
+                    title="查看指标说明"
+                    @click.stop="showDescription(indicator.id)"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="14"
+                      height="14"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M12 11v5" />
+                      <path d="M12 8h.01" />
+                    </svg>
+                  </button>
                 </div>
               </div>
               <div class="card-name">{{ indicator.name }}</div>
@@ -144,6 +163,25 @@
                       />
                     </svg>
                   </button>
+                  <button
+                    v-else-if="indicator.description"
+                    class="card-info-btn"
+                    title="查看指标说明"
+                    @click.stop="showDescription(indicator.id)"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="14"
+                      height="14"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M12 11v5" />
+                      <path d="M12 8h.01" />
+                    </svg>
+                  </button>
                 </div>
               </div>
               <div class="card-name">{{ indicator.name }}</div>
@@ -171,6 +209,19 @@
       @close="paramsVisible = false"
       @confirm="onParamsConfirm"
     />
+
+    <BaseModal
+      v-if="descriptionIndicator"
+      :show="descriptionVisible"
+      :title="descriptionIndicator.name"
+      subtitle="指标说明"
+      width="90vw"
+      max-width="420px"
+      transition-variant="compact"
+      @close="descriptionVisible = false"
+    >
+      <p class="indicator-description">{{ descriptionIndicator.description }}</p>
+    </BaseModal>
   </div>
 </template>
 
@@ -244,11 +295,18 @@
 
   const paramsVisible = ref(false)
   const currentIndicatorId = ref<string | null>(null)
+  const descriptionVisible = ref(false)
+  const descriptionIndicatorId = ref<string | null>(null)
   const isCompactView = ref(false)
 
   const currentIndicator = computed(() => {
     if (!currentIndicatorId.value) return null
     return findIndicator(currentIndicatorId.value)
+  })
+
+  const descriptionIndicator = computed(() => {
+    if (!descriptionIndicatorId.value) return null
+    return findIndicator(descriptionIndicatorId.value)
   })
 
   const activeCount = computed(() => props.activeIndicators?.length ?? 0)
@@ -271,6 +329,12 @@
   function showParams(indicatorId: string) {
     currentIndicatorId.value = indicatorId
     paramsVisible.value = true
+  }
+
+  /** 显示无参数指标的用途说明。 */
+  function showDescription(indicatorId: string) {
+    descriptionIndicatorId.value = indicatorId
+    descriptionVisible.value = true
   }
 
   function getParamValues(indicatorId: string): Record<string, number> {
@@ -352,8 +416,8 @@
     background: var(--klc-color-background);
     border: 1px solid var(--klc-color-border-button);
     border-radius: 6px;
-    width: 34px;
-    height: 34px;
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -559,7 +623,8 @@
     gap: 4px;
   }
 
-  .card-settings-btn {
+  .card-settings-btn,
+  .card-info-btn {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -574,7 +639,8 @@
     transition: all 0.15s;
   }
 
-  .card-settings-btn:hover {
+  .card-settings-btn:hover,
+  .card-info-btn:hover {
     background: var(--klc-color-tag-bg-hover);
     color: var(--klc-color-foreground);
   }
@@ -583,6 +649,13 @@
     font-size: 11px;
     color: var(--klc-color-axis-text);
     line-height: 1.4;
+  }
+
+  .indicator-description {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--klc-color-axis-text);
   }
 
   /* ── 底部 ── */

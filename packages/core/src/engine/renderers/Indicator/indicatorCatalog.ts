@@ -38,7 +38,8 @@ const uiMeta: Record<
 > = {
   ma: {
     name: '均线',
-    description: '',
+    description:
+      'MA 将指定周期内的收盘价取平均，用于观察价格趋势。价格位于均线上方通常偏强，下方通常偏弱；均线交叉可作为趋势变化参考。',
     params: [],
   },
   volume: {
@@ -714,7 +715,7 @@ const uiMeta: Record<
       },
     ],
   },
-  chaikin_vol: {
+  chaikinvol: {
     name: '蔡金波动率',
     description: 'Chaikin Volatility 衡量价格区间的宽度变化，波动率扩张预示突破，收缩预示盘整。',
     params: [
@@ -878,7 +879,7 @@ const uiMeta: Record<
       },
     ],
   },
-  volume_profile: {
+  volumeprofile: {
     name: '成交量分布',
     description:
       'Volume Profile 显示各价位成交量分布，识别高量区域（价值区）和低量区域（缺口），POC 为成交量最大价位。',
