@@ -7,6 +7,7 @@
 
 import { KLineChartError } from '../../errors'
 import type { PluginHost, RendererPluginWithHost } from '../../foundation/plugin/index'
+import type { ColorTokens } from '../../foundation/tokens/index'
 import type { KLineData } from '../../foundation/types/price'
 
 import type { IndicatorConfigSnapshot, IndicatorSeriesBundle } from './workerProtocol'
@@ -158,6 +159,7 @@ export type GetTitleInfoFn = (
   params: Record<string, number | boolean | string>,
   host: PluginHost,
   paneId: string,
+  colors: ColorTokens,
 ) => TitleInfo | null
 
 /**

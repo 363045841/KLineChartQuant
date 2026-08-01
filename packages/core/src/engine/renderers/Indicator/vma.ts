@@ -4,6 +4,7 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcVMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -15,8 +16,6 @@ import { createNonNegativeSparseVisibleStateComposer } from '../../indicators/vi
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo'
-
-const VMA_COLOR = '#0ea5e9'
 
 type LinePoint = { x: number; y: number }
 
@@ -47,7 +46,7 @@ function createVMARendererPlugin(options: { paneId?: string } = {}): RendererPlu
     description: 'VMA 成交量均线渲染器（WebGL + Canvas2D 回退）',
     debugName: 'VMA',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
     onInstall(host) {
       pluginHost = host
     },
@@ -57,6 +56,11 @@ function createVMARendererPlugin(options: { paneId?: string } = {}): RendererPlu
     },
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
       const stateKey = resolveKey()
       if (!stateKey) return
       const state = pluginHost?.getSharedState<VMARenderState>(stateKey)
@@ -84,11 +88,12 @@ function createVMARendererPlugin(options: { paneId?: string } = {}): RendererPlu
 
       if (points.length < 2) return
 
-      if (tryDrawLinesGpu(context, [{ points, width: 1, color: VMA_COLOR }], scrollLeft)) return
+      if (tryDrawLinesGpu(context, [{ points, width: 1, color: colors.palette.i6 }], scrollLeft))
+        return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = VMA_COLOR
+      ctx.strokeStyle = colors.palette.i6
       ctx.lineWidth = 1
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
@@ -114,7 +119,7 @@ const getVMATitleInfo = createSingleLineTitleInfo({
   createStateKey: createVMAStateKey,
   name: 'VMA',
   defaultPeriod: 5,
-  color: VMA_COLOR,
+  getColor: (colors) => colors.palette.i6,
 })
 
 @Indicator({

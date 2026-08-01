@@ -8,6 +8,7 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcALMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -18,8 +19,6 @@ import { createSparseVisibleStateComposer } from '../../indicators/visibleStateC
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo'
-
-const ALMA_COLOR = '#22c55e'
 
 type Point = { x: number; y: number }
 
@@ -55,7 +54,7 @@ function createALMARendererPlugin(options: ALMARendererOptions = {}): RendererPl
     description: 'ALMA Arnaud Legoux 移动均线渲染器（WebGL + Canvas2D 回退）',
     debugName: 'ALMA',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host
@@ -68,6 +67,11 @@ function createALMARendererPlugin(options: ALMARendererOptions = {}): RendererPl
 
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
 
       const stateKey = resolveKey()
       if (!stateKey) return
@@ -89,11 +93,12 @@ function createALMARendererPlugin(options: ALMARendererOptions = {}): RendererPl
 
       if (points.length < 2) return
 
-      if (tryDrawLinesGpu(context, [{ points, width: 1, color: ALMA_COLOR }], scrollLeft)) return
+      if (tryDrawLinesGpu(context, [{ points, width: 1, color: colors.palette.i3 }], scrollLeft))
+        return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = ALMA_COLOR
+      ctx.strokeStyle = colors.palette.i3
       ctx.lineWidth = 1
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
@@ -123,7 +128,7 @@ const getALMATitleInfo = createSingleLineTitleInfo({
   createStateKey: createALMAStateKey,
   name: 'ALMA',
   getParams: (p) => [p.period as number, p.offset as number, p.sigma as number],
-  color: ALMA_COLOR,
+  getColor: (colors) => colors.palette.i3,
 })
 
 @Indicator({

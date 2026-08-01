@@ -169,7 +169,7 @@ function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): RendererPl
     description: 'WMSR 威廉指标渲染器（WebGL + Canvas2D 回退）',
     debugName: 'WMSR',
     paneId: paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host

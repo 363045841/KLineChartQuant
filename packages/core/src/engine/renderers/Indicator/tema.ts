@@ -4,6 +4,7 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcTEMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -14,8 +15,6 @@ import { createSparseVisibleStateComposer } from '../../indicators/visibleStateC
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo'
-
-const TEMA_COLOR = '#d946ef'
 
 type Point = { x: number; y: number }
 
@@ -51,7 +50,7 @@ function createTEMARendererPlugin(options: TEMARendererOptions = {}): RendererPl
     description: 'TEMA 三重指数移动均线渲染器（WebGL + Canvas2D 回退）',
     debugName: 'TEMA',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host
@@ -64,6 +63,11 @@ function createTEMARendererPlugin(options: TEMARendererOptions = {}): RendererPl
 
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
 
       const stateKey = resolveKey()
       if (!stateKey) return
@@ -85,11 +89,12 @@ function createTEMARendererPlugin(options: TEMARendererOptions = {}): RendererPl
 
       if (points.length < 2) return
 
-      if (tryDrawLinesGpu(context, [{ points, width: 1, color: TEMA_COLOR }], scrollLeft)) return
+      if (tryDrawLinesGpu(context, [{ points, width: 1, color: colors.palette.i4 }], scrollLeft))
+        return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = TEMA_COLOR
+      ctx.strokeStyle = colors.palette.i4
       ctx.lineWidth = 1
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
@@ -119,7 +124,7 @@ const getTEMATitleInfo = createSingleLineTitleInfo({
   createStateKey: createTEMAStateKey,
   name: 'TEMA',
   getParams: (p) => [p.period as number],
-  color: TEMA_COLOR,
+  getColor: (colors) => colors.palette.i4,
 })
 
 @Indicator({

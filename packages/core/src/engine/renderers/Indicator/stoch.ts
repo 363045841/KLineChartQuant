@@ -5,6 +5,7 @@ import type {
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
 import { resolveThemeColors } from '../../../foundation/tokens/index'
+import type { ColorTokens } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { calcSTOCHData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
@@ -97,7 +98,7 @@ function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): Renderer
     description: 'STOCH 随机指标渲染器（WebGL + Canvas2D 回退）',
     debugName: 'STOCH',
     paneId: paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host
@@ -258,6 +259,7 @@ function getSTOCHTitleInfo(
   params: Record<string, number | boolean | string>,
   pluginHost: PluginHost,
   paneId: string,
+  colors: ColorTokens,
 ): {
   name: string
   params: number[]
@@ -266,7 +268,6 @@ function getSTOCHTitleInfo(
   if (index === null) return null
   const n = (params.n as number) ?? 9
   const m = (params.m as number) ?? 3
-  const colors = resolveThemeColors('light')
   const state = pluginHost.getSharedState<STOCHRenderState>(createSTOCHStateKey(paneId))
   if (!state) return null
 

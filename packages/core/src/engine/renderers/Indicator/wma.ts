@@ -4,6 +4,7 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcWMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -14,8 +15,6 @@ import { createSparseVisibleStateComposer } from '../../indicators/visibleStateC
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo'
-
-const WMA_COLOR = '#10b981'
 
 type Point = { x: number; y: number }
 
@@ -51,7 +50,7 @@ function createWMARendererPlugin(options: WMARendererOptions = {}): RendererPlug
     description: 'WMA 线性加权移动均线渲染器（WebGL + Canvas2D 回退）',
     debugName: 'WMA',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host
@@ -64,6 +63,11 @@ function createWMARendererPlugin(options: WMARendererOptions = {}): RendererPlug
 
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
 
       const stateKey = resolveKey()
       if (!stateKey) return
@@ -85,11 +89,12 @@ function createWMARendererPlugin(options: WMARendererOptions = {}): RendererPlug
 
       if (points.length < 2) return
 
-      if (tryDrawLinesGpu(context, [{ points, width: 1, color: WMA_COLOR }], scrollLeft)) return
+      if (tryDrawLinesGpu(context, [{ points, width: 1, color: colors.palette.i3 }], scrollLeft))
+        return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = WMA_COLOR
+      ctx.strokeStyle = colors.palette.i3
       ctx.lineWidth = 1
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
@@ -119,7 +124,7 @@ const getWMATitleInfo = createSingleLineTitleInfo({
   createStateKey: createWMAStateKey,
   name: 'WMA',
   getParams: (p) => [p.period as number],
-  color: WMA_COLOR,
+  getColor: (colors) => colors.palette.i3,
 })
 
 @Indicator({

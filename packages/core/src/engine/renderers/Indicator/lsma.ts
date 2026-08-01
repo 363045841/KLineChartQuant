@@ -4,6 +4,7 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcLSMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -14,8 +15,6 @@ import { createSparseVisibleStateComposer } from '../../indicators/visibleStateC
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo'
-
-const LSMA_COLOR = '#eab308'
 
 type Point = { x: number; y: number }
 
@@ -51,7 +50,7 @@ function createLSMARendererPlugin(options: LSMARendererOptions = {}): RendererPl
     description: 'LSMA 线性回归移动均线渲染器（WebGL + Canvas2D 回退）',
     debugName: 'LSMA',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host
@@ -64,6 +63,11 @@ function createLSMARendererPlugin(options: LSMARendererOptions = {}): RendererPl
 
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
 
       const stateKey = resolveKey()
       if (!stateKey) return
@@ -85,11 +89,12 @@ function createLSMARendererPlugin(options: LSMARendererOptions = {}): RendererPl
 
       if (points.length < 2) return
 
-      if (tryDrawLinesGpu(context, [{ points, width: 1, color: LSMA_COLOR }], scrollLeft)) return
+      if (tryDrawLinesGpu(context, [{ points, width: 1, color: colors.palette.i7 }], scrollLeft))
+        return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = LSMA_COLOR
+      ctx.strokeStyle = colors.palette.i7
       ctx.lineWidth = 1
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
@@ -119,7 +124,7 @@ const getLSMATitleInfo = createSingleLineTitleInfo({
   createStateKey: createLSMAStateKey,
   name: 'LSMA',
   getParams: (p) => [p.period as number],
-  color: LSMA_COLOR,
+  getColor: (colors) => colors.palette.i7,
 })
 
 @Indicator({

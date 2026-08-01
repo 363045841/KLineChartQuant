@@ -135,11 +135,11 @@ export const lightTheme: Theme = {
       chart: '#e5e5e5',
     },
     ma: {
-      ma5: 'rgba(255, 193, 37, 1)',
-      ma10: 'rgba(190, 131, 12, 1)',
-      ma20: 'rgba(69, 112, 249, 1)',
-      ma30: 'rgba(76, 175, 80, 1)',
-      ma60: 'rgba(156, 39, 176, 1)',
+      ma5: '#e8590c',
+      ma10: '#0891b2',
+      ma20: '#2563eb',
+      ma30: '#2f9e44',
+      ma60: '#ae3ec9',
     },
     boll: {
       upper: 'rgba(178, 34, 34, 1)',

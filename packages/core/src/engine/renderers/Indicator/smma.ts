@@ -8,6 +8,7 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcSMMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -18,8 +19,6 @@ import { createSparseVisibleStateComposer } from '../../indicators/visibleStateC
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo'
-
-const SMMA_COLOR = '#8b5cf6'
 
 type Point = { x: number; y: number }
 
@@ -66,7 +65,7 @@ function createSMMARendererPlugin(options: SMMARendererOptions = {}): RendererPl
     description: 'SMMA Wilder 平滑移动均线渲染器（WebGL + Canvas2D 回退）',
     debugName: 'SMMA',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host
@@ -79,6 +78,11 @@ function createSMMARendererPlugin(options: SMMARendererOptions = {}): RendererPl
 
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
 
       const stateKey = resolveKey()
       if (!stateKey) return
@@ -102,11 +106,12 @@ function createSMMARendererPlugin(options: SMMARendererOptions = {}): RendererPl
       if (points.length < 2) return
 
       // 优先走 GPU 批量折线，不可用时回退 Canvas2D
-      if (tryDrawLinesGpu(context, [{ points, width: 1, color: SMMA_COLOR }], scrollLeft)) return
+      if (tryDrawLinesGpu(context, [{ points, width: 1, color: colors.palette.i8 }], scrollLeft))
+        return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = SMMA_COLOR
+      ctx.strokeStyle = colors.palette.i8
       ctx.lineWidth = 1
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
@@ -136,7 +141,7 @@ const getSMMATitleInfo = createSingleLineTitleInfo({
   createStateKey: createSMMAStateKey,
   name: 'SMMA',
   getParams: (p) => [p.period as number],
-  color: SMMA_COLOR,
+  getColor: (colors) => colors.palette.i8,
 })
 
 @Indicator({

@@ -5,6 +5,7 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcTRIMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -15,8 +16,6 @@ import { createSparseVisibleStateComposer } from '../../indicators/visibleStateC
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo'
-
-const TRIMA_COLOR = '#f97316'
 
 type Point = { x: number; y: number }
 
@@ -52,7 +51,7 @@ function createTRIMARendererPlugin(options: TRIMARendererOptions = {}): Renderer
     description: 'TRIMA 三角移动均线渲染器（WebGL + Canvas2D 回退）',
     debugName: 'TRIMA',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host
@@ -65,6 +64,11 @@ function createTRIMARendererPlugin(options: TRIMARendererOptions = {}): Renderer
 
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
 
       const stateKey = resolveKey()
       if (!stateKey) return
@@ -86,11 +90,12 @@ function createTRIMARendererPlugin(options: TRIMARendererOptions = {}): Renderer
 
       if (points.length < 2) return
 
-      if (tryDrawLinesGpu(context, [{ points, width: 1, color: TRIMA_COLOR }], scrollLeft)) return
+      if (tryDrawLinesGpu(context, [{ points, width: 1, color: colors.palette.i5 }], scrollLeft))
+        return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = TRIMA_COLOR
+      ctx.strokeStyle = colors.palette.i5
       ctx.lineWidth = 1
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
@@ -120,7 +125,7 @@ const getTRIMATitleInfo = createSingleLineTitleInfo({
   createStateKey: createTRIMAStateKey,
   name: 'TRIMA',
   getParams: (p) => [p.period as number],
-  color: TRIMA_COLOR,
+  getColor: (colors) => colors.palette.i5,
 })
 
 @Indicator({

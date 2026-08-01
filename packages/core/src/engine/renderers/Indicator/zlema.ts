@@ -8,6 +8,7 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcZLEMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -18,8 +19,6 @@ import { createSparseVisibleStateComposer } from '../../indicators/visibleStateC
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo'
-
-const ZLEMA_COLOR = '#06b6d4'
 
 type Point = { x: number; y: number }
 
@@ -60,7 +59,7 @@ function createZLEMARendererPlugin(options: ZLEMARendererOptions = {}): Renderer
     description: 'ZLEMA 零滞后指数移动均线渲染器（WebGL + Canvas2D 回退）',
     debugName: 'ZLEMA',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host
@@ -73,6 +72,11 @@ function createZLEMARendererPlugin(options: ZLEMARendererOptions = {}): Renderer
 
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
 
       const stateKey = resolveKey()
       if (!stateKey) return
@@ -94,11 +98,12 @@ function createZLEMARendererPlugin(options: ZLEMARendererOptions = {}): Renderer
 
       if (points.length < 2) return
 
-      if (tryDrawLinesGpu(context, [{ points, width: 1, color: ZLEMA_COLOR }], scrollLeft)) return
+      if (tryDrawLinesGpu(context, [{ points, width: 1, color: colors.palette.i6 }], scrollLeft))
+        return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = ZLEMA_COLOR
+      ctx.strokeStyle = colors.palette.i6
       ctx.lineWidth = 1
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
@@ -128,7 +133,7 @@ const getZLEMATitleInfo = createSingleLineTitleInfo({
   createStateKey: createZLEMAStateKey,
   name: 'ZLEMA',
   getParams: (p) => [p.period as number],
-  color: ZLEMA_COLOR,
+  getColor: (colors) => colors.palette.i6,
 })
 
 @Indicator({

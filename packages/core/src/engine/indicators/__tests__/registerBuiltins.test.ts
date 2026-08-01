@@ -349,7 +349,6 @@ describe('builtin indicator registration', () => {
       showUpper: false,
       showMiddle: false,
       showLower: false,
-      showBand: false,
     })
     expect(
       getRegisteredIndicatorDefinition('EXPMA')?.mainPane?.toActiveConfig?.({}, false),

@@ -4,7 +4,7 @@ import type {
   RenderContext,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
+import { resolveThemeColors, type ColorTokens } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
 import { calcENEData } from '../../indicators/calculators'
@@ -287,6 +287,7 @@ const getENETitleInfo: GetTitleInfoFn = (
   _params: Record<string, number | boolean | string>,
   pluginHost: PluginHost,
   _paneId: string,
+  colors: ColorTokens,
 ): TitleInfo | null => {
   if (index === null) return null
 
@@ -300,9 +301,9 @@ const getENETitleInfo: GetTitleInfoFn = (
   if (!enePoint) return null
 
   const values: TitleValueItem[] = [
-    { label: 'UP', value: enePoint.upper, color: '#FF5064' },
-    { label: 'MID', value: enePoint.middle, color: '#5A8CFF' },
-    { label: 'DN', value: enePoint.lower, color: '#3CC8A0' },
+    { label: 'UP', value: enePoint.upper, color: colors.ene.upper },
+    { label: 'MID', value: enePoint.middle, color: colors.ene.middle },
+    { label: 'DN', value: enePoint.lower, color: colors.ene.lower },
   ]
 
   return { name: 'ENE', params: [state.params.period, state.params.deviation], values }

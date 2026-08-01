@@ -507,7 +507,6 @@ describe('BOLL State in scheduler', () => {
     expect(state!.params.showUpper).toBe(true)
     expect(state!.params.showMiddle).toBe(true)
     expect(state!.params.showLower).toBe(true)
-    expect(state!.params.showBand).toBe(true)
   })
 
   it('should update BOLL config via updateBOLLConfig', () => {
@@ -755,7 +754,6 @@ describe('EMPTY_BOLL_STATE', () => {
         showUpper: true,
         showMiddle: true,
         showLower: true,
-        showBand: true,
       },
       visibleMin: Infinity,
       visibleMax: -Infinity,

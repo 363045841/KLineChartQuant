@@ -5,6 +5,7 @@ import type {
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
 import { resolveThemeColors } from '../../../foundation/tokens/index'
+import type { ColorTokens } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
 import { calcRSIData } from '../../indicators/calculators'
@@ -94,8 +95,9 @@ function createRSIRendererPlugin(options: RSIRendererOptions = {}): RendererPlug
     displayMin: number,
     displayMax: number,
     dpr: number,
+    color: string,
   ): string {
-    return `${paneWidth}|${paneHeight}|${displayMin.toFixed(4)}|${displayMax.toFixed(4)}|${dpr}`
+    return `${paneWidth}|${paneHeight}|${displayMin.toFixed(4)}|${displayMax.toFixed(4)}|${dpr}|${color}`
   }
 
   /**
@@ -108,6 +110,7 @@ function createRSIRendererPlugin(options: RSIRendererOptions = {}): RendererPlug
     displayMin: number,
     displayMax: number,
     dpr: number,
+    color: string,
   ): void {
     const displayValueRange = displayMax - displayMin || 1
 
@@ -129,7 +132,7 @@ function createRSIRendererPlugin(options: RSIRendererOptions = {}): RendererPlug
     ctx.save()
     ctx.scale(dpr, dpr)
 
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)'
+    ctx.strokeStyle = color
     ctx.lineWidth = 1
     ctx.setLineDash([4, 4])
 
@@ -177,7 +180,7 @@ function createRSIRendererPlugin(options: RSIRendererOptions = {}): RendererPlug
     description: 'RSI 相对强弱指标渲染器（WebGL + Canvas2D 回退）',
     debugName: 'RSI',
     paneId: paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host
@@ -221,7 +224,14 @@ function createRSIRendererPlugin(options: RSIRendererOptions = {}): RendererPlug
         clearLineCache()
         return
       }
-      const dashedLinesKey = buildDashedLinesKey(paneWidth, paneHeight, displayMin, displayMax, dpr)
+      const dashedLinesKey = buildDashedLinesKey(
+        paneWidth,
+        paneHeight,
+        displayMin,
+        displayMax,
+        dpr,
+        colors.wmsrGrid,
+      )
 
       if (cachedDashedLinesKey !== dashedLinesKey) {
         cachedDashedLinesKey = dashedLinesKey
@@ -229,7 +239,15 @@ function createRSIRendererPlugin(options: RSIRendererOptions = {}): RendererPlug
           Math.ceil(paneWidth * dpr),
           Math.ceil(paneHeight * dpr),
         )
-        renderDashedLinesToOffscreen(offCtx, paneWidth, paneHeight, displayMin, displayMax, dpr)
+        renderDashedLinesToOffscreen(
+          offCtx,
+          paneWidth,
+          paneHeight,
+          displayMin,
+          displayMax,
+          dpr,
+          colors.wmsrGrid,
+        )
       }
 
       // 绘制离屏缓存的虚线（只需 drawImage，无需 setLineDash）
@@ -374,6 +392,7 @@ function getRSITitleInfo(
   params: Record<string, number | boolean | string>,
   pluginHost: PluginHost,
   paneId: string,
+  colors: ColorTokens,
 ): {
   name: string
   params: number[]
@@ -383,7 +402,6 @@ function getRSITitleInfo(
   const period1 = (params.period1 as number) ?? 6
   const period2 = (params.period2 as number) ?? 12
   const period3 = (params.period3 as number) ?? 24
-  const colors = resolveThemeColors('light')
   const stateKey = createRSIStateKey(paneId)
   const state = pluginHost.getSharedState<RSIRenderState>(stateKey)
 

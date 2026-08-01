@@ -4,6 +4,7 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcMFIData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -14,8 +15,6 @@ import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/vis
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo'
-
-const MFI_COLOR = '#fb923c'
 
 type LinePoint = { x: number; y: number }
 
@@ -46,7 +45,7 @@ function createMFIRendererPlugin(options: { paneId?: string } = {}): RendererPlu
     description: 'MFI 资金流强弱渲染器（WebGL + Canvas2D 回退，80/20 超买超卖线）',
     debugName: 'MFI',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
     onInstall(host) {
       pluginHost = host
     },
@@ -56,6 +55,11 @@ function createMFIRendererPlugin(options: { paneId?: string } = {}): RendererPlu
     },
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
       const stateKey = resolveKey()
       if (!stateKey) return
       const state = pluginHost?.getSharedState<MFIRenderState>(stateKey)
@@ -71,17 +75,17 @@ function createMFIRendererPlugin(options: { paneId?: string } = {}): RendererPlu
       const rangeStart = range.start
       const toY = (v: number) => paneH - (v - displayMin) * invRange
 
-      // 80 / 20 reference lines
+      // 80 / 20 reference lines（复用 CCI 超买超卖 token：语义同为买卖压力带）
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = 'rgba(239, 68, 68, 0.3)'
+      ctx.strokeStyle = colors.cci.overbought
       ctx.lineWidth = 1
       ctx.setLineDash([4, 4])
       ctx.beginPath()
       ctx.moveTo(scrollLeft, toY(80))
       ctx.lineTo(scrollLeft + context.paneWidth, toY(80))
       ctx.stroke()
-      ctx.strokeStyle = 'rgba(34, 197, 94, 0.3)'
+      ctx.strokeStyle = colors.cci.oversold
       ctx.beginPath()
       ctx.moveTo(scrollLeft, toY(20))
       ctx.lineTo(scrollLeft + context.paneWidth, toY(20))
@@ -101,11 +105,12 @@ function createMFIRendererPlugin(options: { paneId?: string } = {}): RendererPlu
 
       if (points.length < 2) return
 
-      if (tryDrawLinesGpu(context, [{ points, width: 1, color: MFI_COLOR }], scrollLeft)) return
+      if (tryDrawLinesGpu(context, [{ points, width: 1, color: colors.palette.i5 }], scrollLeft))
+        return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = MFI_COLOR
+      ctx.strokeStyle = colors.palette.i5
       ctx.lineWidth = 1
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
@@ -131,7 +136,7 @@ const getMFITitleInfo = createSingleLineTitleInfo({
   createStateKey: createMFIStateKey,
   name: 'MFI',
   defaultPeriod: 14,
-  color: MFI_COLOR,
+  getColor: (colors) => colors.palette.i5,
 })
 
 @Indicator({

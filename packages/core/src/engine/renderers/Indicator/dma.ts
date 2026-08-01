@@ -4,6 +4,7 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcDMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
@@ -12,9 +13,6 @@ import type { DMARenderState } from '../../indicators/state/dmaState'
 import { createDMAStateKey, EMPTY_DMA_STATE } from '../../indicators/state/dmaState'
 import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { tryDrawLinesGpu } from '../linesViaRenderer'
-
-const DMA_DIF_COLOR = '#3b82f6'
-const DMA_AMA_COLOR = '#f59e0b'
 
 type LinePoint = { x: number; y: number }
 
@@ -50,7 +48,7 @@ function createDMARendererPlugin(options: DMARendererOptions = {}): RendererPlug
     description: 'DMA 平行线差渲染器（WebGL + Canvas2D 回退）',
     debugName: 'DMA',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host
@@ -63,6 +61,11 @@ function createDMARendererPlugin(options: DMARendererOptions = {}): RendererPlug
 
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
 
       const stateKey = resolveKey()
       if (!stateKey) return
@@ -99,8 +102,10 @@ function createDMARendererPlugin(options: DMARendererOptions = {}): RendererPlug
       }
 
       const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
-      if (difPoints.length >= 2) lines.push({ points: difPoints, width: 1, color: DMA_DIF_COLOR })
-      if (amaPoints.length >= 2) lines.push({ points: amaPoints, width: 1, color: DMA_AMA_COLOR })
+      if (difPoints.length >= 2)
+        lines.push({ points: difPoints, width: 1, color: colors.palette.i9 })
+      if (amaPoints.length >= 2)
+        lines.push({ points: amaPoints, width: 1, color: colors.palette.i2 })
       if (lines.length === 0) return
 
       // GPU 批量画两条折线，失败回退 Canvas2D
@@ -139,7 +144,7 @@ function createDMARendererPlugin(options: DMARendererOptions = {}): RendererPlug
   }
 }
 
-const getDMATitleInfo: GetTitleInfoFn = (_data, index, _params, pluginHost, paneId) => {
+const getDMATitleInfo: GetTitleInfoFn = (_data, index, _params, pluginHost, paneId, colors) => {
   if (index === null) return null
   const key = createDMAStateKey(paneId)
   const state = pluginHost.getSharedState<DMARenderState>(key)
@@ -150,8 +155,8 @@ const getDMATitleInfo: GetTitleInfoFn = (_data, index, _params, pluginHost, pane
     name: 'DMA',
     params: [state.params.p1, state.params.p2, state.params.p3],
     values: [
-      { label: 'DIF', value: p.dif, color: DMA_DIF_COLOR },
-      { label: 'AMA', value: p.ama, color: DMA_AMA_COLOR },
+      { label: 'DIF', value: p.dif, color: colors.palette.i9 },
+      { label: 'AMA', value: p.ama, color: colors.palette.i2 },
     ],
   }
 }

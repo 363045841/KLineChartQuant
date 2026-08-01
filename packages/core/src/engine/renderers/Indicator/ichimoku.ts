@@ -5,6 +5,7 @@ import type {
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
 import { resolveThemeColors } from '../../../foundation/tokens/index'
+import type { ColorTokens } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { calcIchimokuData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
@@ -22,10 +23,7 @@ import { getPhysicalKLineConfig } from '../../utils/klineConfig'
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 const TENKAN_COLOR = '#dc2626'
-const KIJUN_COLOR = '#2563eb'
-const SPAN_A_COLOR = '#16a34a'
 const SPAN_B_COLOR = '#dc2626'
-const CHIKOU_COLOR = '#7c3aed'
 
 type Point = { x: number; y: number }
 /** @internal 对测试暴露 */
@@ -107,14 +105,15 @@ function renderIchimokuLines(
   spanAPts: Point[],
   spanBPts: Point[],
   chikouPts: Point[],
+  colors: ReturnType<typeof resolveThemeColors>,
 ): void {
   const { ctx, scrollLeft } = context
   const lines: Array<{ points: Point[]; width: number; color: string }> = []
   if (tenkanPts.length >= 2) lines.push({ points: tenkanPts, width: 1, color: TENKAN_COLOR })
-  if (kijunPts.length >= 2) lines.push({ points: kijunPts, width: 1, color: KIJUN_COLOR })
-  if (spanAPts.length >= 2) lines.push({ points: spanAPts, width: 1, color: SPAN_A_COLOR })
+  if (kijunPts.length >= 2) lines.push({ points: kijunPts, width: 1, color: colors.palette.i9 })
+  if (spanAPts.length >= 2) lines.push({ points: spanAPts, width: 1, color: colors.palette.i3 })
   if (spanBPts.length >= 2) lines.push({ points: spanBPts, width: 1, color: SPAN_B_COLOR })
-  if (chikouPts.length >= 2) lines.push({ points: chikouPts, width: 1, color: CHIKOU_COLOR })
+  if (chikouPts.length >= 2) lines.push({ points: chikouPts, width: 1, color: colors.palette.i8 })
 
   if (tryDrawLinesGpu(context, lines, scrollLeft)) return
 
@@ -124,10 +123,10 @@ function renderIchimokuLines(
   ctx.lineJoin = 'round'
   ctx.lineCap = 'round'
   drawLine(ctx, tenkanPts, TENKAN_COLOR)
-  drawLine(ctx, kijunPts, KIJUN_COLOR)
-  drawLine(ctx, spanAPts, SPAN_A_COLOR)
+  drawLine(ctx, kijunPts, colors.palette.i9)
+  drawLine(ctx, spanAPts, colors.palette.i3)
   drawLine(ctx, spanBPts, SPAN_B_COLOR)
-  drawLine(ctx, chikouPts, CHIKOU_COLOR)
+  drawLine(ctx, chikouPts, colors.palette.i8)
   ctx.restore()
 }
 
@@ -200,6 +199,7 @@ function createIchimokuRendererPlugin(
         points.spanAPts,
         points.spanBPts,
         points.chikouPts,
+        colors,
       )
     },
 
@@ -260,6 +260,7 @@ function getIchimokuTitleInfo(
   params: Record<string, number | boolean | string>,
   host: PluginHost,
   paneId: string,
+  colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
   const state = host.getSharedState<IchimokuRenderState>(createIchimokuStateKey(paneId))
@@ -267,11 +268,14 @@ function getIchimokuTitleInfo(
   if (!p) return null
 
   const values: TitleValueItem[] = []
-  if (p.tenkan !== undefined) values.push({ label: 'Tenkan', value: p.tenkan, color: '#dc2626' })
-  if (p.kijun !== undefined) values.push({ label: 'Kijun', value: p.kijun, color: '#2563eb' })
-  if (p.spanA !== undefined) values.push({ label: 'SpanA', value: p.spanA, color: '#16a34a' })
-  if (p.spanB !== undefined) values.push({ label: 'SpanB', value: p.spanB, color: '#dc2626' })
-  if (p.chikou !== undefined) values.push({ label: 'Chikou', value: p.chikou, color: '#7c3aed' })
+  if (p.tenkan !== undefined) values.push({ label: 'Tenkan', value: p.tenkan, color: TENKAN_COLOR })
+  if (p.kijun !== undefined)
+    values.push({ label: 'Kijun', value: p.kijun, color: colors.palette.i9 })
+  if (p.spanA !== undefined)
+    values.push({ label: 'SpanA', value: p.spanA, color: colors.palette.i3 })
+  if (p.spanB !== undefined) values.push({ label: 'SpanB', value: p.spanB, color: SPAN_B_COLOR })
+  if (p.chikou !== undefined)
+    values.push({ label: 'Chikou', value: p.chikou, color: colors.palette.i8 })
 
   return {
     name: 'Ichimoku',
