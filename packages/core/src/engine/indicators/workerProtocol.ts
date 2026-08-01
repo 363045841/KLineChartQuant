@@ -9,6 +9,7 @@ import type {
   MAFlags,
   BOLLPoint,
   EXPMAPoint,
+  DMAPoint,
   ENEPoint,
   STOCHPoint,
   KSTPoint,
@@ -133,6 +134,49 @@ export interface KAMASchedulerConfig {
   fastPeriod: number
   slowPeriod: number
   showKAMA: boolean
+}
+
+export interface SMMASchedulerConfig {
+  period: number
+  showSMMA: boolean
+}
+
+export interface TRIMASchedulerConfig {
+  period: number
+  showTRIMA: boolean
+}
+
+export interface ZLEMASchedulerConfig {
+  period: number
+  showZLEMA: boolean
+}
+
+export interface VWMASchedulerConfig {
+  period: number
+  showVWMA: boolean
+}
+
+export interface ALMASchedulerConfig {
+  period: number
+  offset: number
+  sigma: number
+  showALMA: boolean
+}
+
+export interface LSMASchedulerConfig {
+  period: number
+  showLSMA: boolean
+}
+
+export interface DMASchedulerConfig {
+  p1: number
+  p2: number
+  p3: number
+  showDMA: boolean
+}
+
+export interface GMMASchedulerConfig {
+  showGMMA: boolean
 }
 
 export interface SARSchedulerConfig {
@@ -381,6 +425,14 @@ export interface IndicatorConfigSnapshot {
   tema: TEMASchedulerConfig
   hma: HMASchedulerConfig
   kama: KAMASchedulerConfig
+  smma: SMMASchedulerConfig
+  trima: TRIMASchedulerConfig
+  zlema: ZLEMASchedulerConfig
+  vwma: VWMASchedulerConfig
+  alma: ALMASchedulerConfig
+  lsma: LSMASchedulerConfig
+  dma: DMASchedulerConfig
+  gmma: GMMASchedulerConfig
   sar: SARSchedulerConfig
   supertrend: SuperTrendSchedulerConfig
   keltner: KeltnerSchedulerConfig
@@ -481,6 +533,39 @@ export interface IndicatorSeriesBundle {
   kama: {
     series: (number | undefined)[]
     params: KAMASchedulerConfig
+  }
+  smma: {
+    series: (number | undefined)[]
+    params: SMMASchedulerConfig
+  }
+  trima: {
+    series: (number | undefined)[]
+    params: TRIMASchedulerConfig
+  }
+  zlema: {
+    series: (number | undefined)[]
+    params: ZLEMASchedulerConfig
+  }
+  vwma: {
+    series: (number | undefined)[]
+    params: VWMASchedulerConfig
+  }
+  alma: {
+    series: (number | undefined)[]
+    params: ALMASchedulerConfig
+  }
+  lsma: {
+    series: (number | undefined)[]
+    params: LSMASchedulerConfig
+  }
+  dma: {
+    series: (DMAPoint | undefined)[]
+    params: DMASchedulerConfig
+  }
+  gmma: {
+    series: Record<number, (number | undefined)[]>
+    enabledPeriods: number[]
+    params: GMMASchedulerConfig
   }
   sar: {
     series: (SARPoint | undefined)[]

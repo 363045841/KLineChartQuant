@@ -48,6 +48,14 @@ export async function loadBuiltinIndicators(): Promise<void> {
     import('../renderers/Indicator/wma'),
     import('../renderers/Indicator/wmsr'),
     import('../renderers/Indicator/zones'),
+    import('../renderers/Indicator/smma'),
+    import('../renderers/Indicator/trima'),
+    import('../renderers/Indicator/zlema'),
+    import('../renderers/Indicator/vwma'),
+    import('../renderers/Indicator/alma'),
+    import('../renderers/Indicator/lsma'),
+    import('../renderers/Indicator/dma'),
+    import('../renderers/Indicator/gmma'),
   ])
   loaded = true
 }
