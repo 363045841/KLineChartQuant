@@ -2,8 +2,7 @@ import { Context, Effect, pipe, Schedule } from 'effect'
 import type { Effect as EffectType } from 'effect/Effect'
 
 import type { KLineData, SymbolSpec } from '../controllers/types'
-import { KLineChartError } from '../errors'
-import type { TimeShareData } from '../foundation/types/price'
+import type { TimeShareFetchResult } from './types'
 
 // ── KLine fetch service tag ──
 // Tag: 定义 Effect 服务接口
@@ -27,7 +26,7 @@ export class TimeShareFetchService extends Context.Tag('@klc/TimeShareFetchServi
     readonly fetch: (
       spec: SymbolSpec,
       date?: number,
-    ) => EffectType<ReadonlyArray<TimeShareData>, unknown>
+    ) => EffectType<TimeShareFetchResult, unknown>
   }
 >() {}
 
@@ -72,7 +71,7 @@ const retrySchedule = pipe(
   Schedule.compose(Schedule.recurs(FETCH_MAX_RETRIES)),
 )
 
-// ── KLine fetch Effect (retry + timeout + empty-data check) ──
+// ── KLine fetch Effect (retry + timeout) ──
 
 export const fetchKLine = (
   spec: SymbolSpec,
@@ -83,20 +82,15 @@ export const fetchKLine = (
     Effect.gen(function* () {
       const { fetch } = yield* KLineFetchService // 获取 Service 实例
       const data = yield* pipe(fetch(spec, startTs, endTs), Effect.timeout(REQUEST_TIMEOUT))
+      // 部分无数据品种返回 []
       if (data.length === 0) {
-        return yield* Effect.fail(
-          new KLineChartError(
-            'FETCH_FAILED',
-            `[DataBuffer] empty data for ${spec.symbol} ${formatDate(startTs)}~${formatDate(endTs)}`,
-          ),
+        yield* Effect.logWarning(
+          `[DataBuffer] empty data for ${spec.symbol} ${formatDate(startTs)}~${formatDate(endTs)}`,
         )
       }
       return data
     }),
-    Effect.retry(retrySchedule), // 上个 Error 时触发
-    Effect.tapError((err) =>
-      Effect.logError(`[DataBuffer] fetch failed: ${(err as Error).message}`),
-    ),
+    Effect.retry(retrySchedule),
   )
 
 // ── TimeShare fetch Effect (retry + timeout) ──
@@ -104,12 +98,12 @@ export const fetchKLine = (
 export const fetchTimeShare = (
   spec: SymbolSpec,
   date?: number,
-): EffectType<ReadonlyArray<TimeShareData>, unknown, TimeShareFetchService> =>
+): EffectType<TimeShareFetchResult, unknown, TimeShareFetchService> =>
   pipe(
     Effect.gen(function* () {
       const { fetch } = yield* TimeShareFetchService // 获取服务实例
-      const data = yield* pipe(fetch(spec, date), Effect.timeout(REQUEST_TIMEOUT))
-      return data
+      const result = yield* pipe(fetch(spec, date), Effect.timeout(REQUEST_TIMEOUT))
+      return result
     }),
     Effect.retry(retrySchedule),
     Effect.tapError((err) =>

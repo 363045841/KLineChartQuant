@@ -2,7 +2,11 @@ import { Effect, pipe } from 'effect'
 import type { Effect as EffectType } from 'effect/Effect'
 
 import type { DataFetcher, KLineData, SymbolSpec } from '../controllers/types'
-import type { ReadonlySignal } from '../foundation/reactivity/signal'
+import {
+  createSignal,
+  type ReadonlySignal,
+  type WritableSignal,
+} from '../foundation/reactivity/signal'
 
 import {
   fetchKLine,
@@ -15,6 +19,12 @@ import type { DataBufferLike, DataWindow, DataChange, KLineBuffer } from './data
 import { FetchScheduler } from './fetchScheduler'
 import { KLineDataStore } from './kLineDataStore'
 import { TimeKeyIndex } from './timeKeyIndex'
+
+function errorMessage(err: unknown): string {
+  if (err instanceof Error && err.message.trim()) return err.message
+  if (err != null && String(err).trim()) return String(err)
+  return '加载失败'
+}
 
 export class DataBuffer implements KLineBuffer {
   private _store = new KLineDataStore()
@@ -31,6 +41,7 @@ export class DataBuffer implements KLineBuffer {
   private _pendingRequestStartTs: number | null = null
   private _requestVersion = 0
   private _disposed = false
+  private _lastError: WritableSignal<string | null> = createSignal<string | null>(null)
 
   constructor() {}
 
@@ -40,6 +51,10 @@ export class DataBuffer implements KLineBuffer {
 
   get loading(): ReadonlySignal<boolean> {
     return this._scheduler.loading
+  }
+
+  get lastError(): ReadonlySignal<string | null> {
+    return this._lastError
   }
 
   get currentSpec(): SymbolSpec | null {
@@ -82,6 +97,7 @@ export class DataBuffer implements KLineBuffer {
     this._keyIndex.reset()
     this._inflightBoundary = null
     this._pendingRequestStartTs = null
+    this._lastError.set(null)
     if (initialStartTs !== undefined) {
       this._loadInitialRange(initialStartTs, Date.now())
     } else {
@@ -118,6 +134,7 @@ export class DataBuffer implements KLineBuffer {
     this._scheduler.reset()
     this._inflightBoundary = null
     this._pendingRequestStartTs = null
+    this._lastError.set(null)
     this._keyIndex.recompute(this._store.getRawData())
   }
 
@@ -134,6 +151,7 @@ export class DataBuffer implements KLineBuffer {
     this._keyIndex.reset()
     this._inflightBoundary = null
     this._pendingRequestStartTs = null
+    this._lastError.set(null)
   }
 
   // ── Private ──
@@ -207,23 +225,30 @@ export class DataBuffer implements KLineBuffer {
 
     this._scheduler
       .run(async () => {
-        const incoming = await fetchEffect()
-        if (disposed() || requestVersion !== this._requestVersion) return
+        try {
+          const incoming = await fetchEffect()
+          if (disposed() || requestVersion !== this._requestVersion) return
 
-        const result = this._store.merge(incoming)
-        this._keyIndex.recompute(this._store.getRawData())
+          // 成功空数组：接口无 K 线，记可读原因供 chip 展示
+          this._lastError.set(incoming.length === 0 ? '暂无K线数据' : null)
+          const result = this._store.merge(incoming)
+          this._keyIndex.recompute(this._store.getRawData())
 
-        this._inflightBoundary = null
-        const pending = this._pendingRequestStartTs
-        this._pendingRequestStartTs = null
-        if (result.advancedEarliest && pending !== null) {
-          this.ensureRange(pending, this._store.loadedWindow!.earliestTs)
+          this._inflightBoundary = null
+          const pending = this._pendingRequestStartTs
+          this._pendingRequestStartTs = null
+          if (result.advancedEarliest && pending !== null) {
+            this.ensureRange(pending, this._store.loadedWindow!.earliestTs)
+          }
+        } catch (err) {
+          if (disposed() || requestVersion !== this._requestVersion) return
+          this._lastError.set(errorMessage(err))
+          this._inflightBoundary = null
+          this._pendingRequestStartTs = null
         }
       })
       .catch(() => {
-        if (requestVersion !== this._requestVersion) return
-        this._inflightBoundary = null
-        this._pendingRequestStartTs = null
+        // task 内已处理失败；此处仅吞掉 scheduler 链上的 residual reject
       })
   }
 }

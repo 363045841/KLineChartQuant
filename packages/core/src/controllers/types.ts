@@ -10,6 +10,7 @@
 
 import type { AlertController } from '../features/alerts/types'
 import type { ChartSettings } from '../foundation/config/chartSettings'
+import type { MarketSessionConfig } from '../foundation/utils/sessionTimeLabels'
 import type { InteractionSnapshot } from '../engine/chart'
 import type { PaneSpec } from '../engine/chartTypes'
 import type { CustomMarkerEntity } from '../engine/marker/registry'
@@ -81,8 +82,10 @@ export interface TimeShareData {
   timestamp: number
   price: number
   average: number
-  volume: number
-  amount: number
+  /** 分时成交量，单位手；上游未提供时缺失。 */
+  volume?: number
+  /** 分时成交额，单位元；上游未提供时缺失。 */
+  amount?: number
 }
 
 export type { PaneSpec }
@@ -93,6 +96,7 @@ export type DataSourceParams = Readonly<Record<string, string | number | boolean
 /** Registered symbol metadata — for the symbol catalog/dropdown UI */
 export interface SymbolInfo {
   symbol: string
+  market: string
   description?: string
   exchange?: string
   source?: string
@@ -104,6 +108,7 @@ export interface SymbolInfo {
 
 export interface SymbolSpec {
   symbol: string
+  market: string
   exchange?: string
   period?: string
   adjust?: string
@@ -135,6 +140,7 @@ export type DataFetcher = (
 
 /** User-provided K-line data bundle — bypasses the fetcher pipeline entirely */
 export interface CustomDataSource {
+  market: string
   symbol?: string
   period?: string
   adjust?: string
@@ -171,6 +177,9 @@ export interface IndicatorDefinition {
   name?: string
   description?: string
   role: IndicatorPaneRole
+  indicatorType: import('../engine/indicators/indicatorMetadata').IndicatorType
+  indicatorTypeLabel?: string
+  indicatorTypeOrder?: number
   params: ReadonlyArray<IndicatorParamDef>
 }
 
@@ -260,6 +269,7 @@ export interface ChartMountOptions {
   initialZoomLevel?: number
   zoomLevels?: number
   theme?: 'light' | 'dark'
+  marketSessions?: Readonly<Record<string, MarketSessionConfig>>
 
   // Pre-existing DOM elements (skip buildDom when provided)
   canvasLayer?: HTMLElement
@@ -297,6 +307,8 @@ export interface ChartController extends DrawingChartAdapter {
   readonly viewport: ReadonlySignal<ChartViewport>
   readonly data: ReadonlySignal<ReadonlyArray<KLineData>>
   readonly dataLoading: ReadonlySignal<boolean>
+  /** 主品种最近一次显式拉取失败原因；成功或重置后为 null */
+  readonly dataError: ReadonlySignal<string | null>
   readonly symbols: ReadonlySignal<ReadonlyArray<SymbolSpec>>
   readonly theme: ReadonlySignal<'light' | 'dark'>
   /** 用户偏好 settings（kernel.settings resolved 快照） */
@@ -398,10 +410,7 @@ export interface ChartController extends DrawingChartAdapter {
    * null 视为 cursor。
    */
   setDrawingTool(
-    tool:
-      | import('../engine/drawing/toolConfig').DrawingToolId
-      | DrawingToolType
-      | null,
+    tool: import('../engine/drawing/toolConfig').DrawingToolId | DrawingToolType | null,
   ): void
   setDrawingToolId(toolId: import('../engine/drawing/toolConfig').DrawingToolId): void
   getDrawingToolId(): import('../engine/drawing/toolConfig').DrawingToolId

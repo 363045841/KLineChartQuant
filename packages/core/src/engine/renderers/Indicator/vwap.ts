@@ -118,6 +118,7 @@ const getVWAPTitleInfo = createSingleLineTitleInfo({
   name: 'vwap',
   displayName: 'VWAP',
   category: 'volume',
+  indicatorType: 'volume',
   defaultPaneId: 'sub_VWAP',
   visibleState: { compose: createSparseVisibleStateComposer('vwap', EMPTY_VWAP_STATE) },
   scale: { indicatorKey: 'vwap', label: 'VWAP', decimals: 2 },

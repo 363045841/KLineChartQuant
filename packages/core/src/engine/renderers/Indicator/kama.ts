@@ -127,6 +127,7 @@ const getKAMATitleInfo = createSingleLineTitleInfo({
   displayName: 'KAMA',
   getTitleInfo: getKAMATitleInfo,
   category: 'main',
+  indicatorType: 'moving-average',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {

@@ -9,6 +9,7 @@
       :k-line-adjust="kLineAdjust"
       :symbol-loading="symbolStatus === 'loading'"
       :symbol-error="symbolStatus === 'error'"
+      :symbol-error-message="symbolErrorMessage || undefined"
       :overlay-symbols="overlaySymbols"
       :overlay-symbol-items="overlaySymbolItems"
       :comparison-colors="comparisonColorsMap"
@@ -252,10 +253,10 @@
     routerSearchFetchers,
     getRegisteredFetchers,
     type ChartController,
+    type ChartMountOptions,
     type InteractionSnapshot,
     type LegendTemplateContext,
     type SymbolSpec,
-    type SymbolInfo,
     type CustomDataSource,
   } from '@363045841yyt/klinechart-core/controllers'
   import {
@@ -313,6 +314,9 @@ import MarkerTooltip from './MarkerTooltip.vue'
 
       /** 数据获取函数（可选）。默认使用内置 routerDataFetcher，亦可由使用者注入覆盖。 */
       dataFetcher?: DataFetcher
+
+      /** 当前图表实例的市场交易时段覆盖 */
+      marketSessions?: ChartMountOptions['marketSessions']
 
       yPaddingPx?: number
       minKWidth?: number
@@ -425,69 +429,13 @@ import MarkerTooltip from './MarkerTooltip.vue'
 
   // ── Symbol / Comparison State ──
 
-  // Default symbol catalog — registered into the controller on mount so the
-  // dropdown picker shows a meaningful list out of the box. Consumers can
-  // replace/extend via ctrl.registerSymbols() after mount.
-  const DEFAULT_SYMBOLS: SymbolInfo[] = [
-    // TradingView global
-    { symbol: 'XAUUSD', description: '现货黄金', exchange: 'OANDA', source: 'tradingview' },
-    {
-      symbol: 'BTCUSDT',
-      description: 'Bitcoin / Tether',
-      exchange: 'BINANCE',
-      source: 'tradingview',
-    },
-    {
-      symbol: 'ETHUSDT',
-      description: 'Ethereum / Tether',
-      exchange: 'BINANCE',
-      source: 'tradingview',
-    },
-    { symbol: 'EURUSD', description: '欧元/美元', exchange: 'OANDA', source: 'tradingview' },
-    { symbol: 'SPX', description: '标普 500 指数', exchange: 'SP', source: 'tradingview' },
-    { symbol: 'AAPL', description: 'Apple Inc.', exchange: 'NASDAQ', source: 'tradingview' },
-    { symbol: 'TSLA', description: 'Tesla, Inc.', exchange: 'NASDAQ', source: 'tradingview' },
-    { symbol: '1810', description: '小米集团', exchange: 'HKEX', source: 'tradingview' },
-    // gotdx A 股：必须带 params.market，与搜索目录一致，禁止按代码猜市场
-    {
-      symbol: '600519',
-      description: '贵州茅台',
-      exchange: 'SH',
-      source: 'gotdx',
-      params: { market: 1 },
-    },
-    {
-      symbol: '601360',
-      description: '三六零',
-      exchange: 'SH',
-      source: 'gotdx',
-      params: { market: 1 },
-    },
-    {
-      symbol: '000858',
-      description: '五 粮 液',
-      exchange: 'SZ',
-      source: 'gotdx',
-      params: { market: 0 },
-    },
-    {
-      symbol: '000001',
-      description: '平安银行',
-      exchange: 'SZ',
-      source: 'gotdx',
-      params: { market: 0 },
-    },
-    // Mock
-    { symbol: 'MOCK-100', description: 'Mock 100 条', exchange: 'MOCK', source: 'mock-100' },
-    { symbol: 'MOCK-10000', description: 'Mock 10000 条', exchange: 'MOCK', source: 'mock-10000' },
-  ]
-
   const kLineLevel = ref<string>(props.semanticConfig?.data?.period ?? 'daily')
   const previousKLineLevel = ref<string>('daily')
   const kLineAdjust = ref(props.semanticConfig?.data?.adjust ?? 'none')
   const isIntraday = computed(() => kLineLevel.value.includes('min'))
   const currentSymbol = ref('选择商品')
   const currentSymbolItem = ref<SymbolItem | null>(null)
+  const symbolErrorMessage = ref<string | null>(null)
   const overlaySymbols = ref<string[]>([])
   const overlaySymbolItems = ref<SymbolItem[]>([])
   const symbolPool = ref<SymbolItem[]>([])
@@ -514,15 +462,28 @@ import MarkerTooltip from './MarkerTooltip.vue'
     syncSymbolsToController()
   }
 
+  function formatUnsupportedSymbolMessage(item: SymbolItem, error: unknown): string {
+    const detail = error instanceof Error ? error.message : String(error)
+    if (!item.market?.trim() || /market is required|Market session is not registered/i.test(detail)) {
+      return `暂不支持该品种（${item.exchange || item.symbol}）`
+    }
+    return detail || '切换品种失败'
+  }
+
   function onSymbolChange(item: SymbolItem) {
     symbolStatus.value = 'loading'
     const ctrl = controller.value
     if (!ctrl) return
-    ctrl.setDataFetcher(effectiveDataFetcher.value)
-    ctrl.registerSymbols([item])
-    const current = ctrl.symbols.peek() ?? []
-    const comparisonSpecs = current.slice(1)
-    ctrl.setSymbols([toSymbolSpec(item), ...comparisonSpecs])
+    try {
+      ctrl.setDataFetcher(effectiveDataFetcher.value)
+      ctrl.registerSymbols([item])
+      const current = ctrl.symbols.peek() ?? []
+      const comparisonSpecs = current.slice(1)
+      ctrl.setSymbols([toSymbolSpec(item), ...comparisonSpecs])
+    } catch (error) {
+      symbolStatus.value = 'error'
+      symbolErrorMessage.value = formatUnsupportedSymbolMessage(item, error)
+    }
   }
 
   function onAddOverlaySymbol(item: SymbolItem) {
@@ -531,9 +492,14 @@ import MarkerTooltip from './MarkerTooltip.vue'
     const current = ctrl.symbols.peek()
     const currentKeys = current.map(symbolIdentityKey)
     if (currentKeys.includes(symbolIdentityKey(item))) return
-    ctrl.registerSymbols([item])
-    forcePercentAxis()
-    ctrl.addComparisonSymbol(toSymbolSpec(item))
+    try {
+      ctrl.registerSymbols([item])
+      forcePercentAxis()
+      ctrl.addComparisonSymbol(toSymbolSpec(item))
+    } catch (error) {
+      symbolStatus.value = 'error'
+      symbolErrorMessage.value = formatUnsupportedSymbolMessage(item, error)
+    }
   }
 
   function onRemoveOverlaySymbol(identity: string) {
@@ -543,6 +509,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
   function toSymbolSpec(item: SymbolItem): SymbolSpec {
     return {
       symbol: item.symbol,
+      market: item.market,
       exchange: item.exchange,
       period: kLineLevel.value,
       source: item.source,
@@ -1381,6 +1348,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
     const ctrl = createChartController({
       container,
       data: [],
+      marketSessions: props.marketSessions,
       canvasLayer,
       rightAxisLayer,
       leftAxisLayer,
@@ -1462,6 +1430,11 @@ import MarkerTooltip from './MarkerTooltip.vue'
       }
     })
 
+    symbolErrorMessage.value = ctrl.dataError.peek()
+    const unsubscribeDataError = ctrl.dataError.subscribe(() => {
+      symbolErrorMessage.value = ctrl.dataError.peek()
+    })
+
     const unsubscribeTheme = ctrl.theme.subscribe(() => {
       const newTheme = ctrl.theme.peek()
       chartTheme.value = newTheme
@@ -1492,6 +1465,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
     const unsubscribeSymbolCatalog = ctrl.symbolCatalog.subscribe(() => {
       symbolPool.value = ctrl.symbolCatalog.peek().map((info) => ({
         symbol: info.symbol,
+        market: info.market,
         description: info.description ?? info.symbol,
         exchange: info.exchange ?? '',
         source: info.source ?? '',
@@ -1502,6 +1476,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
     // 不依赖 registerSymbols 在 subscribe 之前还是之后调用。
     symbolPool.value = ctrl.symbolCatalog.peek().map((info) => ({
       symbol: info.symbol,
+      market: info.market,
       description: info.description ?? info.symbol,
       exchange: info.exchange ?? '',
       source: info.source ?? '',
@@ -1523,6 +1498,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
       currentSymbol.value = primary.symbol
       currentSymbolItem.value = {
         symbol: primary.symbol,
+        market: primary.market,
         description: primaryInfo?.description ?? primary.symbol,
         exchange: primary.exchange ?? '',
         source: primary.source ?? '',
@@ -1542,6 +1518,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
           )
         return {
           symbol: s.symbol,
+          market: s.market,
           description: info?.description ?? s.symbol,
           exchange: s.exchange ?? '',
           source: s.source ?? '',
@@ -1554,6 +1531,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
       unsubscribeViewport()
       unsubscribeData()
       unsubscribeDataLoading()
+      unsubscribeDataError()
       unsubscribePaneRatios()
       unsubscribePaneLayout()
       unsubscribeTheme()
@@ -1669,10 +1647,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
     // 4) 直接订阅 kernel 的 tooltip 信号，绕过 VNode
     _setupTooltipSub()
 
-    // Seed the default symbol catalog — subscribe 已建立, set 会触发回调刷新 dropdown
-    ctrl.registerSymbols(DEFAULT_SYMBOLS)
-
-    // 3.5) 在任何 draw 之前注册主图指标（BOLL/MA 等）
+    // 在任何 draw 之前注册主图指标（BOLL/MA 等）
     //      initIndicatorsFromConfig 是同步的，读 props.semanticConfig 即可注册，
     //      确保 scheduler 首次 applyResults 时 BOLL 已在 registry 里
     initIndicatorsFromConfig(props.semanticConfig)

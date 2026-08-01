@@ -214,6 +214,7 @@ const getATRTitleInfo = createSingleLineTitleInfo({
   name: 'atr',
   displayName: 'ATR',
   category: 'oscillator',
+  indicatorType: 'volatility',
   defaultPaneId: 'sub_ATR',
   scaleRendererFactory: createAtrScaleRendererPlugin,
   visibleState: { compose: createNonNegativeSparseVisibleStateComposer('atr', EMPTY_ATR_STATE) },

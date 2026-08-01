@@ -8,6 +8,7 @@ function createConfig(indicators: SemanticChartConfig['indicators']): SemanticCh
     version: '1.0.0',
     data: {
       source: 'baostock',
+      market: 'CN',
       symbol: '600000',
       exchange: 'SH',
       startDate: '2025-01-01',
@@ -87,6 +88,7 @@ describe('SemanticChartController', () => {
     expect(chart.setSymbols).toHaveBeenCalledWith([
       {
         symbol: '600000',
+        market: 'CN',
         exchange: 'SH',
         period: 'daily',
         adjust: 'qfq',

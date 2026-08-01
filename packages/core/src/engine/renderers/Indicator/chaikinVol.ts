@@ -139,6 +139,7 @@ const getChaikinVolTitleInfo = createSingleLineTitleInfo({
   name: 'chaikinVol',
   displayName: 'ChaikinVol',
   category: 'oscillator',
+  indicatorType: 'volatility',
   defaultPaneId: 'sub_ChaikinVol',
   visibleState: {
     compose: createSparseVisibleStateComposer('chaikinVol', EMPTY_CHAIKIN_VOL_STATE),

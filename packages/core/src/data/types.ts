@@ -23,10 +23,17 @@ export type DataFetcherFn = (
   config: FetchConfig,
 ) => Promise<ReadonlyArray<KLineData>>
 
+/** 分时拉取结果：点列 + 昨收元数据（与具体市场无关的统一契约） */
+export type TimeShareFetchResult = {
+  data: ReadonlyArray<TimeShareData>
+  /** 昨收；缺失或无效时为 null，渲染侧不得回退首笔价 */
+  preClose: number | null
+}
+
 export type TimeShareFetcherFn = (
   source: string,
   config: TimeShareFetchConfig,
-) => Promise<ReadonlyArray<TimeShareData>>
+) => Promise<TimeShareFetchResult | ReadonlyArray<TimeShareData>>
 
 export interface SearchConfig {
   query: string
@@ -39,6 +46,7 @@ export interface SearchResult {
   symbol: string
   description: string
   exchange: string
+  market: string
   source: string
   params?: DataSourceParams
 }

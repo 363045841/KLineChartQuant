@@ -177,6 +177,7 @@ const getBOLLTitleInfo: GetTitleInfoFn = (
   name: 'boll',
   displayName: 'BOLL',
   category: 'main',
+  indicatorType: 'channel',
   defaultPaneId: 'main',
   mainPane: {
     rendererName: 'boll',

@@ -4,6 +4,7 @@ import {
   computeSessionTimeLabels,
   countSessionSlots,
   minuteOfDayToTimestamp,
+  resolveTimestampSessionSlot,
   resolveMarketSessionSlots,
   sessionSlotCenterX,
   type MarketSessionConfig,
@@ -83,6 +84,7 @@ export {
   computeSessionTimeLabels,
   countSessionSlots,
   minuteOfDayToTimestamp,
+  resolveTimestampSessionSlot,
   resolveMarketSessionSlots,
   sessionSlotCenterX,
 }

@@ -28,10 +28,7 @@ import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
 import { KLineChartError } from '../errors'
 import { ChartBridge } from '../features/mcp/chartBridge'
 import { computed, type ReadonlySignal } from '../foundation/reactivity/index'
-import {
-  createDefaultRendererHost,
-  type RendererBackend,
-} from '../rendering/render/index'
+import { createDefaultRendererHost, type RendererBackend } from '../rendering/render/index'
 
 import type {
   ChartController,
@@ -97,26 +94,103 @@ const INITIAL_INTERACTION: InteractionSnapshot = {
 // ---------------------------------------------------------------------------
 
 const DEFAULT_INDICATOR_CATALOG: ReadonlyArray<IndicatorDefinition> = [
-  { id: 'MA', label: 'MA', name: '移动平均线', role: 'main', params: [] },
-  { id: 'BOLL', label: 'BOLL', name: '布林带', role: 'main', params: [] },
-  { id: 'EXPMA', label: 'EXPMA', name: '指数平均线', role: 'main', params: [] },
-  { id: 'ENE', label: 'ENE', name: '轨道线', role: 'main', params: [] },
-  { id: 'SAR', label: 'SAR', name: '抛物线', role: 'main', params: [] },
-  { id: 'SUPERTREND', label: 'SuperTrend', name: '超级趋势', role: 'main', params: [] },
-  { id: 'STRUCTURE', label: 'Structure', name: 'SMC 结构', role: 'main', params: [] },
-  { id: 'ZONES', label: 'Zones', name: 'SMC 区域', role: 'main', params: [] },
-  { id: 'VOLUME', label: 'VOL', name: '成交量', role: 'sub', params: [] },
-  { id: 'MACD', label: 'MACD', name: 'MACD', role: 'sub', params: [] },
-  { id: 'RSI', label: 'RSI', name: '相对强弱', role: 'sub', params: [] },
-  { id: 'CCI', label: 'CCI', name: '顺势指标', role: 'sub', params: [] },
-  { id: 'STOCH', label: 'KDJ/STOCH', name: '随机指标', role: 'sub', params: [] },
-  { id: 'MOM', label: 'MOM', name: '动量', role: 'sub', params: [] },
-  { id: 'WMSR', label: 'WMSR', name: '威廉指标', role: 'sub', params: [] },
-  { id: 'KST', label: 'KST', name: 'KST 振荡器', role: 'sub', params: [] },
-  { id: 'FASTK', label: 'FASTK', name: '快速 K', role: 'sub', params: [] },
-  { id: 'OBV', label: 'OBV', name: '能量潮', role: 'sub', params: [] },
-  { id: 'VWAP', label: 'VWAP', name: '成交量加权均价', role: 'sub', params: [] },
-  { id: 'VOLUME_PROFILE', label: 'VP', name: '成交量分布', role: 'sub', params: [] },
+  {
+    id: 'MA',
+    label: 'MA',
+    name: '移动平均线',
+    role: 'main',
+    indicatorType: 'moving-average',
+    params: [],
+  },
+  { id: 'BOLL', label: 'BOLL', name: '布林带', role: 'main', indicatorType: 'channel', params: [] },
+  {
+    id: 'EXPMA',
+    label: 'EXPMA',
+    name: '指数平均线',
+    role: 'main',
+    indicatorType: 'moving-average',
+    params: [],
+  },
+  { id: 'ENE', label: 'ENE', name: '轨道线', role: 'main', indicatorType: 'channel', params: [] },
+  { id: 'SAR', label: 'SAR', name: '抛物线', role: 'main', indicatorType: 'trend', params: [] },
+  {
+    id: 'SUPERTREND',
+    label: 'SuperTrend',
+    name: '超级趋势',
+    role: 'main',
+    indicatorType: 'trend',
+    params: [],
+  },
+  {
+    id: 'STRUCTURE',
+    label: 'Structure',
+    name: 'SMC 结构',
+    role: 'main',
+    indicatorType: 'structure',
+    params: [],
+  },
+  {
+    id: 'ZONES',
+    label: 'Zones',
+    name: 'SMC 区域',
+    role: 'main',
+    indicatorType: 'structure',
+    params: [],
+  },
+  { id: 'VOLUME', label: 'VOL', name: '成交量', role: 'sub', indicatorType: 'volume', params: [] },
+  { id: 'MACD', label: 'MACD', name: 'MACD', role: 'sub', indicatorType: 'momentum', params: [] },
+  { id: 'RSI', label: 'RSI', name: '相对强弱', role: 'sub', indicatorType: 'momentum', params: [] },
+  { id: 'CCI', label: 'CCI', name: '顺势指标', role: 'sub', indicatorType: 'momentum', params: [] },
+  {
+    id: 'STOCH',
+    label: 'KDJ/STOCH',
+    name: '随机指标',
+    role: 'sub',
+    indicatorType: 'momentum',
+    params: [],
+  },
+  { id: 'MOM', label: 'MOM', name: '动量', role: 'sub', indicatorType: 'momentum', params: [] },
+  {
+    id: 'WMSR',
+    label: 'WMSR',
+    name: '威廉指标',
+    role: 'sub',
+    indicatorType: 'momentum',
+    params: [],
+  },
+  {
+    id: 'KST',
+    label: 'KST',
+    name: 'KST 振荡器',
+    role: 'sub',
+    indicatorType: 'momentum',
+    params: [],
+  },
+  {
+    id: 'FASTK',
+    label: 'FASTK',
+    name: '快速 K',
+    role: 'sub',
+    indicatorType: 'momentum',
+    params: [],
+  },
+  { id: 'OBV', label: 'OBV', name: '能量潮', role: 'sub', indicatorType: 'volume', params: [] },
+  {
+    id: 'VWAP',
+    label: 'VWAP',
+    name: '成交量加权均价',
+    role: 'sub',
+    indicatorType: 'volume',
+    params: [],
+  },
+  {
+    id: 'VOLUME_PROFILE',
+    label: 'VP',
+    name: '成交量分布',
+    role: 'sub',
+    indicatorType: 'volume',
+    params: [],
+  },
 ]
 
 // ---------------------------------------------------------------------------
@@ -352,7 +426,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       xAxisCanvas: mounted.xAxisCanvas,
     },
     chartOptions,
-    { rendererHost, initialSettings },
+    { rendererHost, initialSettings, marketSessions: opts.marketSessions },
   )
 
   if (import.meta.env?.MODE !== 'production' && typeof window !== 'undefined') {
@@ -376,6 +450,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   const data = chart.data
   const dataLoading = chart.loading
+  const dataError = chart.dataError
   const symbols = chart.symbols
 
   const indicators = computed(() => chart.indicators().map(mapIndicatorInstance))
@@ -683,9 +758,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     chart.setDrawingTool(mapLegacyToolToId(tool))
   }
 
-  function setDrawingToolId(
-    toolId: import('../engine/drawing/toolConfig').DrawingToolId,
-  ): void {
+  function setDrawingToolId(toolId: import('../engine/drawing/toolConfig').DrawingToolId): void {
     if (disposed) return
     chart.setDrawingTool(toolId)
   }
@@ -908,6 +981,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     viewport,
     data,
     dataLoading,
+    dataError,
     symbols,
     theme: themeSignal,
     settings: settingsSignal,

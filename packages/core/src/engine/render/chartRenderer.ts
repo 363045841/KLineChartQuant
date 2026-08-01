@@ -31,8 +31,11 @@ import { ChartIndicatorManager } from '../indicators/chartIndicatorManager'
 import { UpdateLevel } from '../layout/pane'
 import type { VisibleRange } from '../layout/pane'
 import { MarkerManager, type CustomMarkerEntity, type MarkerManagerDeps } from '../marker/registry'
-import { ASHARE_MARKET_SESSION } from '../../foundation/utils/timeShareAxisLabels'
-import { resolveMarketSessionSlots } from '../../foundation/utils/timeShareAxisLabels'
+import {
+  ASHARE_MARKET_SESSION,
+  resolveMarketSessionSlots,
+  resolveTimestampSessionSlot,
+} from '../../foundation/utils/timeShareAxisLabels'
 import { computeTimeShareXLayout } from '../modes/timeShareMath'
 import type { ChartModeHandler } from '../modes/types'
 import { PaneRenderer } from '../paneRenderer'
@@ -603,6 +606,9 @@ export class ChartRenderer {
           sessionSlots: resolveMarketSessionSlots(marketSession),
           totalWidth: vp.plotWidth,
           dpr: vp.dpr,
+          slotIndices: internalData.slice(range.start, range.end).map(
+            (item, index) => resolveTimestampSessionSlot(item.timestamp, marketSession) ?? index,
+          ),
         })
         if (layout) {
           const halfBarPx = Math.floor((layout.barWidth * vp.dpr) / 2)
@@ -932,6 +938,11 @@ export class ChartRenderer {
     if (xAxisCtx && this.timeAxisLayer) {
       const opt = this.deps.getOption()
       const dataManager = this.deps.getDataManager()
+      const activeMode = this.deps.getActiveMode()
+      const marketSession =
+        'marketSession' in activeMode
+          ? (activeMode as { marketSession: typeof ASHARE_MARKET_SESSION }).marketSession
+          : undefined
       this.timeAxisCtx = {
         ctx: xAxisCtx,
         pane: {
@@ -961,6 +972,7 @@ export class ChartRenderer {
           priceRange: { maxPrice: 0, minPrice: 0 },
         },
         period: dataManager.currentPeriod,
+        marketSession,
         data: renderData,
         range,
         scrollLeft: vp.scrollLeft,

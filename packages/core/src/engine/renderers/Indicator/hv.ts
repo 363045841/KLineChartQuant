@@ -122,6 +122,7 @@ const getHVTitleInfo = createSingleLineTitleInfo({
   name: 'hv',
   displayName: 'HV',
   category: 'oscillator',
+  indicatorType: 'volatility',
   defaultPaneId: 'sub_HV',
   scale: { indicatorKey: 'hv', label: 'HV', decimals: 2 },
   getTitleInfo: getHVTitleInfo,

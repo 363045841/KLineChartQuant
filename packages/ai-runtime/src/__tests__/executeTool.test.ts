@@ -16,6 +16,7 @@ function createMockChart(overrides?: Partial<ChartController>): ChartController 
     viewport: stubSignal({} as any),
     data: stubSignal([]),
     dataLoading: stubSignal(false),
+    dataError: stubSignal(null),
     symbols: stubSignal([]),
     theme: stubSignal('light'),
     settings: stubSignal({} as any),

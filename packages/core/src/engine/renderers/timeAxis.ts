@@ -69,6 +69,7 @@ export function createTimeAxisRendererPlugin(options: {
           drawTopBorder: false,
           drawBottomBorder: false,
           period: context.period,
+          marketSession: context.marketSession,
           monthKeys: context.monthKeys,
           dayKeys: context.dayKeys,
         },

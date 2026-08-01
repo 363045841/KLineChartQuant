@@ -127,6 +127,7 @@ const getWMATitleInfo = createSingleLineTitleInfo({
   displayName: 'WMA',
   getTitleInfo: getWMATitleInfo,
   category: 'main',
+  indicatorType: 'moving-average',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {

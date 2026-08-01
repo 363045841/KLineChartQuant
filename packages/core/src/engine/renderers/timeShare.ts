@@ -45,7 +45,10 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
       if (preClose === null) return
 
       const paneHeight = pane.height
-      const layout = computeTimeSharePaneLayout(paneHeight, VOLUME_RATIO)
+      const hasVolume = tsData.some(
+        (item) => typeof item.volume === 'number' && Number.isFinite(item.volume) && item.volume > 0,
+      )
+      const layout = computeTimeSharePaneLayout(paneHeight, hasVolume ? VOLUME_RATIO : 0)
       const { volumeAreaHeight, priceAreaHeight } = layout
 
       const { start, end } = range
@@ -68,8 +71,11 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
         xPositions.push(x)
         yPrices.push(scaleYToPriceArea(pane.yAxis.priceToY(item.price)))
         yAvgs.push(scaleYToPriceArea(pane.yAxis.priceToY(item.average)))
-        volumes.push(item.volume ?? 0)
-        maxVolume = Math.max(maxVolume, item.volume ?? 0)
+        if (hasVolume) {
+          const volume = item.volume ?? 0
+          volumes.push(volume)
+          maxVolume = Math.max(maxVolume, volume)
+        }
       }
 
       if (xPositions.length < 2) return
@@ -97,26 +103,28 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
         colors.timeShareAreaDown,
       )
 
-      drawSegmentLine(ctx, xPositions, yPrices, dpr, colors.timeSharePriceLine, 2)
+      drawSegmentLine(ctx, xPositions, yPrices, dpr, colors.timeSharePriceLine, 1)
 
-      drawSegmentLine(ctx, xPositions, yAvgs, dpr, colors.timeShareAvgLine, 1.5)
+      drawSegmentLine(ctx, xPositions, yAvgs, dpr, colors.timeShareAvgLine, 1)
       ctx.restore()
 
-      drawVolumeBars(
-        ctx,
-        kBarRects,
-        volumes,
-        maxVolume,
-        volumeAreaHeight,
-        paneHeight,
-        preClose,
-        dpr,
-        colors.volumeUp,
-        colors.volumeDown,
-        colors.volumeNeutral,
-        tsData,
-        start,
-      )
+      if (hasVolume) {
+        drawVolumeBars(
+          ctx,
+          kBarRects,
+          volumes,
+          maxVolume,
+          volumeAreaHeight,
+          paneHeight,
+          preClose,
+          dpr,
+          colors.volumeUp,
+          colors.volumeDown,
+          colors.volumeNeutral,
+          tsData,
+          start,
+        )
+      }
 
       ctx.restore()
     },
@@ -308,6 +316,7 @@ function drawVolumeBars(
   name: 'timeShare',
   displayName: '分时',
   category: 'main',
+  indicatorType: 'other',
   defaultPaneId: 'main',
   mainPane: { rendererName: 'timeShare' },
 })

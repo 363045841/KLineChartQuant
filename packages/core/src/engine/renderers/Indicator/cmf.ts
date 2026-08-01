@@ -133,6 +133,7 @@ const getCMFTitleInfo = createSingleLineTitleInfo({
   name: 'cmf',
   displayName: 'CMF',
   category: 'volume',
+  indicatorType: 'volume',
   defaultPaneId: 'sub_CMF',
   visibleState: { compose: createFixedRangeSparseVisibleStateComposer('cmf', EMPTY_CMF_STATE) },
   scale: { indicatorKey: 'cmf', label: 'CMF', decimals: 4 },

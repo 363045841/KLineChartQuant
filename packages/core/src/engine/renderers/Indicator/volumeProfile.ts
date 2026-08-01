@@ -168,6 +168,7 @@ function getVolumeProfileTitleInfo(
   name: 'volumeProfile',
   displayName: 'VP',
   category: 'volume',
+  indicatorType: 'volume',
   defaultPaneId: 'sub_VolumeProfile',
   scale: { indicatorKey: 'volumeProfile', label: 'VP', decimals: 0 },
   getTitleInfo: getVolumeProfileTitleInfo,

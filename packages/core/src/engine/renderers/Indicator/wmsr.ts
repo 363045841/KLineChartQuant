@@ -320,6 +320,7 @@ const getWMSRTitleInfo = createSingleLineTitleInfo({
   name: 'wmsr',
   displayName: 'WMSR',
   category: 'oscillator',
+  indicatorType: 'momentum',
   defaultPaneId: 'sub_WMSR',
   visibleState: { compose: createFixedRangeSparseVisibleStateComposer('wmsr', EMPTY_WMSR_STATE) },
   scaleRendererFactory: createWmsrScaleRendererPlugin,

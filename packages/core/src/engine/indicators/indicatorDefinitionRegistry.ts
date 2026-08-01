@@ -5,6 +5,7 @@ import { createIndicatorStateKey } from '../../foundation/plugin/stateKeys'
 import type {
   IndicatorMetadata,
   IndicatorCategory,
+  IndicatorType,
   StateKey,
   RendererFactory,
   ScaleRendererFactory,
@@ -19,6 +20,8 @@ export type IndicatorDefinitionConfig<T = unknown> = {
   aliases?: readonly string[]
   displayName: string
   category: IndicatorCategory
+  indicatorType: IndicatorType
+  indicatorTypeLabel?: string
   stateKey?: StateKey
   defaultPaneId: string
   paneIdField?: string

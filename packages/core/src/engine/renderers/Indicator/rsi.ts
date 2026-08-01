@@ -414,6 +414,7 @@ function getRSITitleInfo(
   name: 'rsi',
   displayName: 'RSI',
   category: 'oscillator',
+  indicatorType: 'momentum',
   defaultPaneId: 'sub_RSI',
   visibleState: { compose: createFixedRangeRecordVisibleStateComposer('rsi', EMPTY_RSI_STATE) },
   scaleRendererFactory: createRsiScaleRendererPlugin,

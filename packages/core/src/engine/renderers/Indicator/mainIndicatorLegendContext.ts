@@ -29,10 +29,11 @@ export interface LegendTimeshareRow {
   average: number
   changeAmount: number
   changePercent: number
-  volume: number
-  volumeText: string
-  amount: number
-  amountText: string
+  volume: number | null
+  /** 带手数单位的成交量文本。 */
+  volumeText: string | null
+  amount: number | null
+  amountText: string | null
   changeColor: string
 }
 
@@ -128,22 +129,26 @@ export function buildLegendTemplateContext(
     const tsData = context.data as TimeShareData[]
     const rawPreClose = context.settings?.preClose as number | undefined
     const preClose =
-      typeof rawPreClose === 'number' && Number.isFinite(rawPreClose) && rawPreClose !== 0
+      typeof rawPreClose === 'number' && Number.isFinite(rawPreClose) && rawPreClose > 0
         ? rawPreClose
-        : (tsData[0]?.price ?? 0)
+        : null
     const item = tsData[targetIndex]
-    if (item) {
+    if (item && preClose !== null) {
       const changeAmount = item.price - preClose
-      const changePercent = preClose !== 0 ? (changeAmount / preClose) * 100 : 0
+      const changePercent = (changeAmount / preClose) * 100
+      const volume =
+        typeof item.volume === 'number' && Number.isFinite(item.volume) ? item.volume : null
+      const amount =
+        typeof item.amount === 'number' && Number.isFinite(item.amount) ? item.amount : null
       timeshare = {
         price: item.price,
         average: item.average,
         changeAmount,
         changePercent,
-        volume: item.volume,
-        volumeText: formatVolumeShort(item.volume),
-        amount: item.amount,
-        amountText: formatAmountShort(item.amount),
+        volume,
+        volumeText: volume === null ? null : `${formatVolumeShort(volume)}手`,
+        amount,
+        amountText: amount === null ? null : formatAmountShort(amount),
         changeColor: changeAmount >= 0 ? colors.candleUpBody : colors.candleDownBody,
       }
     }

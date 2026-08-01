@@ -10,7 +10,7 @@ export type TimeShareBaselineInput = {
 }
 
 export function resolveTimeShareBaseline(input: TimeShareBaselineInput): number | null {
-  const candidates = [input.preClose, input.firstPrice]
+  const candidates = [input.preClose]
   for (const v of candidates) {
     if (typeof v === 'number' && Number.isFinite(v) && v !== 0) return v
   }
@@ -88,6 +88,7 @@ export type TimeShareXLayoutInput = {
   sessionSlots: number
   totalWidth: number
   dpr: number
+  slotIndices?: ReadonlyArray<number>
 }
 
 export type TimeShareXLayout = {
@@ -102,15 +103,16 @@ export type TimeShareXLayout = {
  * 分时 X 布局：step = totalWidth / sessionSlots，已到达点按 slot 索引落位，未到时段留白。
  */
 export function computeTimeShareXLayout(input: TimeShareXLayoutInput): TimeShareXLayout | null {
-  const { arrivedCount, sessionSlots, totalWidth, dpr } = input
+  const { arrivedCount, sessionSlots, totalWidth, dpr, slotIndices } = input
   if (arrivedCount <= 0 || sessionSlots <= 0 || totalWidth <= 0 || !(dpr > 0)) return null
 
   const step = totalWidth / sessionSlots
   const centers: number[] = new Array(arrivedCount)
   const lefts: number[] = new Array(arrivedCount)
   for (let i = 0; i < arrivedCount; i++) {
-    centers[i] = Math.round((i + 0.5) * step * dpr) / dpr
-    lefts[i] = Math.round(i * step * dpr) / dpr
+    const slotIndex = slotIndices?.[i] ?? i
+    centers[i] = Math.round((slotIndex + 0.5) * step * dpr) / dpr
+    lefts[i] = Math.round(slotIndex * step * dpr) / dpr
   }
 
   const logicalBarWidth = Math.max(step * 0.6, 1 / dpr)

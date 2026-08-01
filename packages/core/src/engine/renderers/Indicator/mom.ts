@@ -298,6 +298,7 @@ const getMOMTitleInfo = createSingleLineTitleInfo({
   name: 'mom',
   displayName: 'MOM',
   category: 'oscillator',
+  indicatorType: 'momentum',
   defaultPaneId: 'sub_MOM',
   scaleRendererFactory: createMomScaleRendererPlugin,
   visibleState: { compose: createPaddedSparseVisibleStateComposer('mom', EMPTY_MOM_STATE) },

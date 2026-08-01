@@ -138,6 +138,7 @@ const getMFITitleInfo = createSingleLineTitleInfo({
   name: 'mfi',
   displayName: 'MFI',
   category: 'volume',
+  indicatorType: 'volume',
   defaultPaneId: 'sub_MFI',
   visibleState: { compose: createFixedRangeSparseVisibleStateComposer('mfi', EMPTY_MFI_STATE) },
   scale: { indicatorKey: 'mfi', label: 'MFI', decimals: 2 },

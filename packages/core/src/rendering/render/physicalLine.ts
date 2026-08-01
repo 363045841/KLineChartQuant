@@ -1,12 +1,11 @@
 import type { DrawLineStrip } from './Renderer'
 
 function physicalLineWidth(width: number, dpr: number): number {
-  return Math.max(1, Math.round(width * dpr))
+  return Math.max(1, width * dpr)
 }
 
 function alignedCenter(value: number, widthPx: number, dpr: number): number {
-  const base = Math.floor(value * dpr)
-  return (base + (widthPx % 2 === 0 ? 0 : 0.5)) / dpr
+  return (Math.round(value * dpr - widthPx / 2) + widthPx / 2) / dpr
 }
 
 function alignedEdge(value: number, dpr: number): number {
@@ -17,6 +16,7 @@ function alignedEdge(value: number, dpr: number): number {
 export function prepareLineStripForPhysicalPixels(
   strip: DrawLineStrip,
   dpr: number,
+  scrollLeft = 0,
 ): DrawLineStrip {
   const widthPx = physicalLineWidth(strip.width ?? 1, dpr)
   const width = widthPx / dpr
@@ -36,7 +36,7 @@ export function prepareLineStripForPhysicalPixels(
     }
   }
 
-  const x = alignedCenter(first.x, widthPx, dpr)
+  const x = alignedCenter(first.x - scrollLeft, widthPx, dpr) + scrollLeft
   return {
     ...strip,
     width,

@@ -42,8 +42,10 @@ export interface TimeShareData {
   timestamp: number
   price: number
   average: number
-  volume: number
-  amount: number
+  /** 分时成交量，单位手；上游未提供时缺失。 */
+  volume?: number
+  /** 分时成交额，单位元；上游未提供时缺失。 */
+  amount?: number
 }
 
 export function isTimeShareData(data: unknown[]): data is TimeShareData[] {

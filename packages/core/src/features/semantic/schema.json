@@ -21,10 +21,11 @@
   "$defs": {
     "DataConfig": {
       "type": "object",
-      "required": ["source", "symbol", "startDate", "endDate", "period", "adjust"],
+      "required": ["source", "market", "symbol", "startDate", "endDate", "period", "adjust"],
       "additionalProperties": false,
       "properties": {
         "source": { "type": "string", "enum": ["baostock", "dongcai"] },
+        "market": { "type": "string", "minLength": 1 },
         "symbol": { "type": "string", "pattern": "^[0-9]{6}$" },
         "exchange": { "type": "string", "enum": ["SH", "SZ", "BJ"] },
         "startDate": { "type": "string", "format": "date" },

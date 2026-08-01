@@ -152,6 +152,7 @@ function getMATitleInfo(
   name: 'ma',
   displayName: 'MA',
   category: 'main',
+  indicatorType: 'moving-average',
   defaultPaneId: 'main',
   mainPane: {
     rendererName: 'ma',

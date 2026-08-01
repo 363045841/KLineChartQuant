@@ -11,7 +11,15 @@
     >
       <span class="symbol-chip__code">{{ displayText }}</span>
       <span v-if="loading" class="symbol-chip__spinner" aria-hidden="true" />
-      <IconTablerAlertTriangle v-else-if="error" class="symbol-chip__warn" aria-hidden="true" />
+      <span
+        v-else-if="error"
+        class="symbol-chip__error"
+        :title="errorTagText"
+        role="status"
+      >
+        <IconTablerAlertTriangle class="symbol-chip__warn" aria-hidden="true" />
+        <span class="symbol-chip__error-text">{{ errorTagText }}</span>
+      </span>
     </button>
     <Teleport :to="teleportTarget">
       <Transition name="symbol-popover">
@@ -157,6 +165,8 @@
       search?: SymbolSearchFn<SymbolItem>
       loading?: boolean
       error?: boolean
+      /** 主品种拉取失败原因；与 error 同时为真时作为 chip title */
+      errorMessage?: string
       /** 已注册数据源，用于 Tabs 展示名 */
       aggregationSources?: ReadonlyArray<DataFetcherDefinition>
       /** 已启用的搜索源名称 */
@@ -222,6 +232,8 @@
     if (cur) return `${cur.symbol} - ${cur.description}`
     return props.symbol
   })
+
+  const errorTagText = computed(() => props.errorMessage?.trim() || '加载失败')
 
   const {
     results: filteredSymbols,
@@ -593,10 +605,32 @@
     }
   }
 
+  .symbol-chip__error {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 180px;
+    min-width: 0;
+    color: var(--klc-color-danger, #e53935);
+    line-height: 1;
+  }
+
   .symbol-chip__warn {
+    display: block;
     width: 14px;
     height: 14px;
-    color: var(--klc-color-danger, #e53935);
+    color: inherit;
     flex-shrink: 0;
+  }
+
+  .symbol-chip__error-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 14px;
+    color: inherit;
   }
 </style>

@@ -250,6 +250,7 @@ const getCCITitleInfo = createSingleLineTitleInfo({
   name: 'cci',
   displayName: 'CCI',
   category: 'oscillator',
+  indicatorType: 'momentum',
   defaultPaneId: 'sub_CCI',
   scaleRendererFactory: createCciScaleRendererPlugin,
   visibleState: { compose: createCCIVisibleStateComposer('cci', EMPTY_CCI_STATE) },

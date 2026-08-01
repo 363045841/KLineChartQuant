@@ -15,6 +15,7 @@
       :search="search"
       :loading="symbolLoading"
       :error="symbolError"
+      :error-message="symbolErrorMessage"
       :aggregation-sources="aggregationSources"
       :enabled-source-names="enabledSourceNames"
       @change="onSymbolSelectorChange"
@@ -125,6 +126,7 @@
       search?: SymbolSearchFn<SymbolItem>
       symbolLoading?: boolean
       symbolError?: boolean
+      symbolErrorMessage?: string
       overlaySymbols?: string[]
       overlaySymbolItems?: SymbolItem[]
       comparisonColors?: Map<string, string>

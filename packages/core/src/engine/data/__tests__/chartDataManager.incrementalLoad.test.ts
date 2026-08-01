@@ -105,6 +105,7 @@ describe('ChartDataManager incremental load', () => {
     }
     const spec: SymbolSpec = {
       symbol: 'sh.600000',
+      market: 'CN',
       period: 'daily',
       adjust: 'none',
       source: 'mock',
@@ -146,4 +147,77 @@ describe('ChartDataManager incremental load', () => {
     expect(hint!.style.background).toContain('--klc-color-selection-fill')
     expect(fetchCount).toBe(2)
   })
+
+  it('does not reuse primary data across unified markets', async () => {
+    let fetchCount = 0
+    const fetcher: DataFetcher = async () => {
+      fetchCount++
+      return [makeKLine(Date.now())]
+    }
+    const dataState = createDataState()
+    const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
+    const dataManagerState = createDataManagerState()
+    const container = document.querySelector<HTMLDivElement>('#container')!
+    const scrollContent = document.querySelector<HTMLDivElement>('#scroll-content')!
+    manager = new ChartDataManager(
+      createDependencies(
+        { container, scrollContent },
+        (symbols) => {
+          symbols$.set(symbols)
+          dataState.actions.setSymbols(symbols)
+        },
+        symbols$,
+      ),
+      dataState,
+      dataManagerState,
+    )
+    manager.setDataFetcher(fetcher)
+
+    manager.setSymbols([
+      { symbol: '000001', market: 'CN', period: 'daily', source: 'mock' },
+    ])
+    await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
+
+    manager.setSymbols([
+      { symbol: '000001', market: 'HK', period: 'daily', source: 'mock' },
+    ])
+    await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
+
+    expect(fetchCount).toBe(2)
+  })
+
+  it(
+    'mirrors active buffer lastError onto dataError',
+    async () => {
+      const fetcher: DataFetcher = async () => {
+        throw new Error('[gotdx] stock/kline-by-date failed: 500')
+      }
+      const dataState = createDataState()
+      const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
+      const dataManagerState = createDataManagerState()
+      const container = document.querySelector<HTMLDivElement>('#container')!
+      const scrollContent = document.querySelector<HTMLDivElement>('#scroll-content')!
+      manager = new ChartDataManager(
+        createDependencies(
+          { container, scrollContent },
+          (symbols) => {
+            symbols$.set(symbols)
+            dataState.actions.setSymbols(symbols)
+          },
+          symbols$,
+        ),
+        dataState,
+        dataManagerState,
+      )
+      manager.setDataFetcher(fetcher)
+      manager.setSymbols([{ symbol: '158017', market: 'CN', period: 'daily', source: 'gotdx' }])
+
+      await vi.waitFor(
+        () =>
+          expect(manager!.dataError.peek()).toBe('[gotdx] stock/kline-by-date failed: 500'),
+        { timeout: 10_000 },
+      )
+    },
+    15_000,
+  )
 })

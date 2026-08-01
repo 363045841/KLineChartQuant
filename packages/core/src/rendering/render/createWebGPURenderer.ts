@@ -620,8 +620,12 @@ export async function createWebGPURenderer(
           const scrollLeft = (params.uniforms?.scrollLeft as number) ?? 0
           for (const strip of params.strips) {
             if (strip.points.length < 2) return false
-            const physicalStrip = prepareLineStripForPhysicalPixels(strip, currentRegion.dpr)
-            const wide = Math.round((physicalStrip.width ?? 1) * currentRegion.dpr) > 1
+            const physicalStrip = prepareLineStripForPhysicalPixels(
+              strip,
+              currentRegion.dpr,
+              scrollLeft,
+            )
+            const wide = (physicalStrip.width ?? 1) * currentRegion.dpr > 1
             const values = wide ? buildWideLine(physicalStrip) : linePoints(physicalStrip)
             if (!values) return false
             // 帧内序号作 key：同顺序跨帧复用；revision 未变则不 upload

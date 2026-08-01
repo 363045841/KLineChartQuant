@@ -121,6 +121,7 @@ const getVMATitleInfo = createSingleLineTitleInfo({
   name: 'vma',
   displayName: 'VMA',
   category: 'volume',
+  indicatorType: 'volume',
   defaultPaneId: 'sub_VMA',
   scale: { indicatorKey: 'vma', label: 'VMA', decimals: 0 },
   getTitleInfo: getVMATitleInfo,

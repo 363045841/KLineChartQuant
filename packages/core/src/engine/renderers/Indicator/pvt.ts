@@ -118,6 +118,7 @@ const getPVTTitleInfo = createSingleLineTitleInfo({
   name: 'pvt',
   displayName: 'PVT',
   category: 'volume',
+  indicatorType: 'volume',
   defaultPaneId: 'sub_PVT',
   visibleState: { compose: createSparseVisibleStateComposer('pvt', EMPTY_PVT_STATE) },
   scale: { indicatorKey: 'pvt', label: 'PVT', decimals: 0 },

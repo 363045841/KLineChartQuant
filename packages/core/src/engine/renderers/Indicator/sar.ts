@@ -135,6 +135,7 @@ function getSARTitleInfo(
   displayName: 'SAR',
   getTitleInfo: getSARTitleInfo,
   category: 'main',
+  indicatorType: 'trend',
   defaultPaneId: 'main',
   allowMainPane: true,
   mainPane: {

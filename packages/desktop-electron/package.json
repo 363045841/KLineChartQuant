@@ -1,6 +1,6 @@
 {
   "name": "@363045841yyt/klinechart-desktop",
-  "version": "0.9.1",
+  "version": "0.9.3",
   "private": true,
   "description": "Electron desktop shell for @363045841yyt/klinechart",
   "license": "MIT",

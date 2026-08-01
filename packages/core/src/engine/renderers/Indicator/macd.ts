@@ -508,6 +508,7 @@ function getMACDTitleInfo(
   name: 'macd',
   displayName: 'MACD',
   category: 'oscillator',
+  indicatorType: 'momentum',
   defaultPaneId: 'sub_MACD',
   scaleRendererFactory: createMacdScaleRendererPlugin,
   visibleState: { compose: createMACDVisibleStateComposer('macd', EMPTY_MACD_STATE) },

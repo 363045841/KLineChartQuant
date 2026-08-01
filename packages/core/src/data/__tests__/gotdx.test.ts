@@ -44,6 +44,7 @@ describe('gotdx fetcher', () => {
         symbol: '600519',
         description: '贵州茅台',
         exchange: 'SH',
+        market: 'CN',
         source: 'gotdx',
         params: { market: 1 },
       },
@@ -55,6 +56,103 @@ describe('gotdx fetcher', () => {
         body: JSON.stringify({ query: '茅台', limit: 12 }),
       }),
     )
+  })
+
+  it('normalizes Hong Kong extended symbols to the unified HK market', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse([
+        {
+          symbol: '01810',
+          description: '小米集团-W',
+          exchange: 'HK',
+          source: 'gotdx',
+          params: { category: 31, kind: 'ex' },
+        },
+      ]),
+    )
+    const definition = getRegisteredFetcher('gotdx')
+
+    await expect(definition?.searcher?.('gotdx', { query: '01810' })).resolves.toEqual([
+      expect.objectContaining({ symbol: '01810', market: 'HK' }),
+    ])
+  })
+
+  it('normalizes mainland fund extended symbols to the unified CN market', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse([
+        {
+          symbol: '003760',
+          description: '国泰中证500A',
+          exchange: 'FUND',
+          source: 'gotdx',
+          params: { category: 33, kind: 'ex' },
+        },
+      ]),
+    )
+    const definition = getRegisteredFetcher('gotdx')
+
+    await expect(definition?.searcher?.('gotdx', { query: '国泰中' })).resolves.toEqual([
+      expect.objectContaining({
+        symbol: '003760',
+        market: 'CN',
+        exchange: 'FUND',
+        params: { category: 33, kind: 'ex' },
+      }),
+    ])
+  })
+
+  it('returns all search rows and leaves unsupported markets empty', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse([
+        {
+          symbol: '01810',
+          description: '小米集团-W',
+          exchange: 'HK',
+          source: 'gotdx',
+          params: { category: 31, kind: 'ex' },
+        },
+        {
+          symbol: 'IF2608',
+          description: '沪深300期货',
+          exchange: 'FUTURES',
+          source: 'gotdx',
+          params: { category: 47, kind: 'ex' },
+        },
+      ]),
+    )
+    const definition = getRegisteredFetcher('gotdx')
+
+    await expect(definition?.searcher?.('gotdx', { query: '01810' })).resolves.toEqual([
+      expect.objectContaining({ symbol: '01810', market: 'HK' }),
+      expect.objectContaining({ symbol: 'IF2608', market: '', exchange: 'FUTURES' }),
+    ])
+  })
+
+  it('keeps unmapped gotdx search rows with empty market instead of failing search', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse([
+        {
+          symbol: 'IF2608',
+          description: '沪深300期货',
+          exchange: 'FUTURES',
+          source: 'gotdx',
+          params: { category: 47, kind: 'ex' },
+        },
+        {
+          symbol: 'CBA07501',
+          description: '同业存单总指数',
+          exchange: 'EX-0',
+          source: 'gotdx',
+          params: { category: 0, kind: 'ex' },
+        },
+      ]),
+    )
+    const definition = getRegisteredFetcher('gotdx')
+
+    await expect(definition?.searcher?.('gotdx', { query: '同业存单' })).resolves.toEqual([
+      expect.objectContaining({ symbol: 'IF2608', market: '' }),
+      expect.objectContaining({ symbol: 'CBA07501', market: '', exchange: 'EX-0' }),
+    ])
   })
 
   it('uses params.market for stock requests', async () => {
@@ -172,4 +270,176 @@ describe('gotdx fetcher', () => {
       /symbol search failed: 503/,
     )
   })
+
+  it('maps extended-market timeshare without unverified metrics', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        preClose: 18.5,
+        data: [{ timestamp: '2026-07-24T09:30:00+08:00', Price: 18.6, Avg: 18.55 }],
+      }),
+    )
+    const definition = getRegisteredFetcher('gotdx')
+
+    const result = await definition?.timeShareFetcher?.('gotdx', {
+      symbol: '01810',
+      exchange: 'HK',
+      params: { category: 31, kind: 'ex' },
+      date: 20260724,
+    })
+
+    const [url, init] = fetchMock.mock.calls[0] ?? []
+    expect(url).toBe('http://127.0.0.1:8080/api/ex/history-tick')
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      category: 31,
+      code: '01810',
+      date: 20260724,
+    })
+    expect(result).toEqual({
+      preClose: 18.5,
+      data: [
+        {
+          timestamp: new Date('2026-07-24T09:30:00+08:00').getTime(),
+          price: 18.6,
+          average: 18.55,
+        },
+      ],
+    })
+  })
+
+  it('maps stock volume and index amount without synthesizing the missing metric', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({
+          preClose: 8.3,
+          data: [{ timestamp: '2026-07-30T09:30:00+08:00', Price: 8.7, Avg: 8.7, Volume: 7101 }],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          preClose: 3828.47,
+          data: [
+            {
+              timestamp: '2026-07-30T09:30:00+08:00',
+              Price: 3812.11,
+              Avg: 3812.11,
+              Amount: 6_972_838_100,
+            },
+          ],
+        }),
+      )
+    const definition = getRegisteredFetcher('gotdx')
+
+    await expect(
+      definition?.timeShareFetcher?.('gotdx', {
+        symbol: '601360',
+        params: { market: 1 },
+        date: 20260730,
+      }),
+    ).resolves.toEqual({
+      preClose: 8.3,
+      data: [
+        {
+          timestamp: new Date('2026-07-30T09:30:00+08:00').getTime(),
+          price: 8.7,
+          average: 8.7,
+          volume: 7101,
+        },
+      ],
+    })
+    await expect(
+      definition?.timeShareFetcher?.('gotdx', {
+        symbol: '000001',
+        params: { market: 1 },
+        date: 20260730,
+      }),
+    ).resolves.toEqual({
+      preClose: 3828.47,
+      data: [
+        {
+          timestamp: new Date('2026-07-30T09:30:00+08:00').getTime(),
+          price: 3812.11,
+          average: 3812.11,
+          amount: 6_972_838_100,
+        },
+      ],
+    })
+  })
+
+  it('preserves the API error message for unavailable extended-market timeshare', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ error: '该日期暂无历史分时数据' }, 422))
+    const definition = getRegisteredFetcher('gotdx')
+
+    await expect(
+      definition?.timeShareFetcher?.('gotdx', {
+        symbol: '00700',
+        exchange: 'HK',
+        params: { category: 31, kind: 'ex' },
+        date: 20250908,
+      }),
+    ).rejects.toThrow('该日期暂无历史分时数据')
+  })
+
+  it('routes A-share timeshare by params.market to stock/history-tick', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        preClose: 8.3,
+        data: [{ timestamp: '2026-07-27T09:30:00+08:00', Price: 8.5, Avg: 8.5, Vol: 100 }],
+      }),
+    )
+    const definition = getRegisteredFetcher('gotdx')
+
+    await definition?.timeShareFetcher?.('gotdx', {
+      symbol: '000001',
+      params: { market: 0 },
+      date: 20260727,
+    })
+
+    const [url, init] = fetchMock.mock.calls[0] ?? []
+    expect(url).toBe('http://127.0.0.1:8080/api/stock/history-tick')
+    expect(JSON.parse(String(init?.body))).toMatchObject({ market: 0, code: '000001', date: 20260727 })
+  })
+
+  it('rejects timeshare without params.market or params.category', async () => {
+    const definition = getRegisteredFetcher('gotdx')
+
+    await expect(
+      definition?.timeShareFetcher?.('gotdx', {
+        symbol: '01810',
+        exchange: 'HK',
+        date: 20260724,
+      }),
+    ).rejects.toThrow(/params\.market or params\.category/)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects the legacy array history-tick protocol', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse([{ timestamp: '2026-07-27T09:30:00+08:00', Price: 8.5, Avg: 8.5, Vol: 100 }]),
+    )
+    const definition = getRegisteredFetcher('gotdx')
+
+    await expect(
+      definition?.timeShareFetcher?.('gotdx', {
+        symbol: '000001',
+        params: { market: 0 },
+        date: 20260727,
+      }),
+    ).rejects.toThrow(/incompatible history-tick response/i)
+  })
+
+  it.each([null, {}, { preClose: 8.3, data: 'invalid' }, { preClose: -1, data: [] }])(
+    'rejects a malformed history-tick protocol response: %j',
+    async (payload) => {
+      fetchMock.mockResolvedValue(jsonResponse(payload))
+      const definition = getRegisteredFetcher('gotdx')
+
+      await expect(
+        definition?.timeShareFetcher?.('gotdx', {
+          symbol: '000001',
+          params: { market: 0 },
+          date: 20260727,
+        }),
+      ).rejects.toThrow(/incompatible history-tick response/i)
+    },
+  )
 })

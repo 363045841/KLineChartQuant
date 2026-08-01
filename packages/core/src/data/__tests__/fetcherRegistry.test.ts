@@ -276,6 +276,7 @@ describe('search fetcher registry and router', () => {
         [
           {
             symbol: '600519',
+            market: 'CN',
             description: '贵州茅台',
             exchange: 'SH',
             source: 'gotdx',
@@ -292,6 +293,7 @@ describe('search fetcher registry and router', () => {
         [
           {
             symbol: '600519',
+            market: 'CN',
             description: '贵州茅台',
             exchange: 'SH',
             source: 'gotdx',
@@ -299,6 +301,7 @@ describe('search fetcher registry and router', () => {
           },
           {
             symbol: '00700',
+            market: 'HK',
             description: '腾讯控股',
             exchange: 'HK',
             source: 'gotdx',
@@ -311,6 +314,7 @@ describe('search fetcher registry and router', () => {
     await expect(routerSearchFetchers({ query: '股', limit: 10 })).resolves.toEqual([
       {
         symbol: '600519',
+        market: 'CN',
         description: '贵州茅台',
         exchange: 'SH',
         source: 'gotdx',
@@ -318,12 +322,41 @@ describe('search fetcher registry and router', () => {
       },
       {
         symbol: '00700',
+        market: 'HK',
         description: '腾讯控股',
         exchange: 'HK',
         source: 'gotdx',
         params: { category: 71 },
       },
     ])
+  })
+
+  it('keeps otherwise identical search results from different unified markets', async () => {
+    @DataFetcher({ name: 'multi-market', displayName: 'Multi Market', capabilities: ['search'] })
+    class MultiMarketFetcher {
+      static fetcher = fetchFn
+      static searcher: SearchFetcherFn = async () => [
+        {
+          symbol: '000001',
+          market: 'CN',
+          description: 'CN symbol',
+          exchange: 'X',
+          source: 'normalized',
+        },
+        {
+          symbol: '000001',
+          market: 'HK',
+          description: 'HK symbol',
+          exchange: 'X',
+          source: 'normalized',
+        },
+      ]
+    }
+    void MultiMarketFetcher
+
+    const results = await routerSearchFetchers({ query: '000001' })
+
+    expect(results.map((item) => item.market)).toEqual(['CN', 'HK'])
   })
 
   it('returns successful results when another searcher fails', async () => {

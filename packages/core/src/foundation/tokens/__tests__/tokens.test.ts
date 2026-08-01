@@ -161,6 +161,13 @@ describe('WCAG AA contrast — foreground text vs background (≥ 4.5:1)', () =>
   }
 })
 
+describe('dark theme grid colors', () => {
+  it('uses restrained cool-gray contrast against the chart background', () => {
+    expect(darkTheme.colors.gridMajor).toBe('#2A3547')
+    expect(darkTheme.colors.gridMinor).toBe('#202A39')
+  })
+})
+
 // ---------------------------------------------------------------------------
 // mergeTheme
 // ---------------------------------------------------------------------------

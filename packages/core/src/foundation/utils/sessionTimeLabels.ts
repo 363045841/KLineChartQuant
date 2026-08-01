@@ -132,6 +132,32 @@ export function resolveMarketSessionSlots(
   return Math.max(0, Math.floor(minutes / step))
 }
 
+/** 将实际交易时间映射到 session 槽位，收盘边界归入前一槽。 */
+export function resolveTimestampSessionSlot(
+  timestamp: number,
+  config: MarketSessionConfig = ASHARE_MARKET_SESSION,
+): number | null {
+  if (!Number.isFinite(timestamp)) return null
+
+  if (Number.isNaN(new Date(timestamp).getTime())) return null
+
+  const wall = getWallClockInTimeZone(timestamp, config.timeZone)
+  const minuteOfDay = wall.hour * 60 + wall.minute
+  const step = config.slotMinutes && config.slotMinutes > 0 ? config.slotMinutes : 1
+  let offset = 0
+
+  for (const range of config.sessions) {
+    const slotCount = Math.floor((range.close - range.open) / step)
+    if (slotCount <= 0) continue
+    if (minuteOfDay >= range.open && minuteOfDay < range.close) {
+      return offset + Math.floor((minuteOfDay - range.open) / step)
+    }
+    if (minuteOfDay === range.close) return offset + slotCount - 1
+    offset += slotCount
+  }
+  return null
+}
+
 /**
  * 将交易所墙钟 minuteOfDay 转为 UTC 毫秒。
  * baseTimestamp 用于确定「哪一天」（按 timeZone 日历日）。

@@ -182,7 +182,6 @@
   .indicator-description {
     padding: 8px 12px;
     background: var(--klc-color-grid-minor);
-    border-left: 3px solid var(--klc-color-alert-active);
     border-radius: 4px;
     margin-bottom: 12px;
   }

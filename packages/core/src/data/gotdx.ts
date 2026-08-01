@@ -3,7 +3,13 @@ import { KLineChartError } from '../errors'
 
 import { getFetcherBaseUrl } from './fetcherBaseUrl'
 import { DataFetcher } from './fetcherDefinitionRegistry'
-import type { FetchConfig, SearchConfig, SearchResult, TimeShareFetchConfig } from './types'
+import type {
+  FetchConfig,
+  SearchConfig,
+  SearchResult,
+  TimeShareFetchConfig,
+  TimeShareFetchResult,
+} from './types'
 
 const PERIOD_TO_CATEGORY: Record<string, number> = {
   '1min': 8,
@@ -51,19 +57,105 @@ function getShanghaiDateYYYYMMDD(): number {
   return +y * 10000 + +m * 100 + +d
 }
 
+function parseHistoryTickPayload(payload: unknown): TimeShareFetchResult {
+  if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new KLineChartError(
+      'FETCH_FAILED',
+      '[gotdx] incompatible history-tick response: expected { preClose, data }',
+    )
+  }
+
+  const { preClose, data: list } = payload as {
+    preClose?: unknown
+    data?: unknown
+  }
+  if (
+    typeof preClose !== 'number' ||
+    !Number.isFinite(preClose) ||
+    preClose <= 0 ||
+    !Array.isArray(list)
+  ) {
+    throw new KLineChartError(
+      'FETCH_FAILED',
+      '[gotdx] incompatible history-tick response: expected positive preClose and data array',
+    )
+  }
+
+  return {
+    preClose,
+    data: (list as Array<{
+      timestamp: string
+      Price: number
+      Avg: number
+      Volume?: unknown
+      Amount?: unknown
+    }>).map((item) => {
+      const point: TimeShareData = {
+        timestamp: new Date(item.timestamp).getTime(),
+        price: item.Price,
+        average: item.Avg,
+      }
+      if (typeof item.Volume === 'number' && Number.isFinite(item.Volume) && item.Volume >= 0) {
+        point.volume = item.Volume
+      }
+      if (typeof item.Amount === 'number' && Number.isFinite(item.Amount) && item.Amount >= 0) {
+        point.amount = item.Amount
+      }
+      return point
+    }),
+  }
+}
+
+async function historyTickHttpError(
+  res: Response,
+  fallback: string,
+): Promise<KLineChartError> {
+  try {
+    const body = (await res.json()) as { error?: unknown }
+    if (typeof body?.error === 'string' && body.error.trim()) {
+      return new KLineChartError('FETCH_FAILED', body.error.trim())
+    }
+  } catch {
+    // 非 JSON 体时用 HTTP 状态文案
+  }
+  return new KLineChartError('FETCH_FAILED', fallback)
+}
+
 async function fetchGotdxHistoryTick(
   _source: string,
   config: TimeShareFetchConfig,
-): Promise<ReadonlyArray<TimeShareData>> {
-  // 分时只认搜索/目录带来的 params.market，不按代码前缀猜市场
+): Promise<TimeShareFetchResult> {
+  // 分时只认搜索/目录带来的 params：category 走扩展，market 走 A 股；不按代码前缀猜
+  const date = config.date ?? getShanghaiDateYYYYMMDD()
+  const explicitCategory = config.params?.category
+  if (typeof explicitCategory === 'number') {
+    const body = {
+      date,
+      category: explicitCategory,
+      code: config.symbol,
+    }
+    const res = await fetch(`${getBaseUrl()}/api/ex/history-tick`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) {
+      throw await historyTickHttpError(
+        res,
+        `[gotdx] ex/history-tick failed: ${res.status} ${res.statusText}`,
+      )
+    }
+    return parseHistoryTickPayload(await res.json())
+  }
+
   if (typeof config.params?.market !== 'number') {
     throw new KLineChartError(
       'FETCH_FAILED',
-      `[gotdx] history-tick requires params.market for ${config.symbol}`,
+      `[gotdx] history-tick requires params.market or params.category for ${config.symbol}`,
     )
   }
   const body = {
-    date: config.date ?? getShanghaiDateYYYYMMDD(),
+    date,
     market: config.params.market,
     code: config.symbol,
   }
@@ -72,20 +164,13 @@ async function fetchGotdxHistoryTick(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!res.ok)
-    throw new KLineChartError(
-      'FETCH_FAILED',
+  if (!res.ok) {
+    throw await historyTickHttpError(
+      res,
       `[gotdx] history-tick failed: ${res.status} ${res.statusText}`,
     )
-  const list: Array<{ timestamp: string; Price: number; Avg: number; Vol: number }> =
-    await res.json()
-  return list.map((item) => ({
-    timestamp: new Date(item.timestamp).getTime(),
-    price: item.Price,
-    average: item.Avg,
-    volume: item.Vol,
-    amount: item.Price * item.Vol,
-  }))
+  }
+  return parseHistoryTickPayload(await res.json())
 }
 
 async function searchGotdx(
@@ -104,7 +189,45 @@ async function searchGotdx(
       `[gotdx] symbol search failed: ${res.status} ${res.statusText}`,
     )
   }
-  return (await res.json()) as ReadonlyArray<SearchResult>
+  const raw = (await res.json()) as ReadonlyArray<Omit<SearchResult, 'market'>>
+  // 搜索只负责列出结果；无法归一化的品种 market 置空，选中时由图表校验提示
+  return raw.map((item) => {
+    try {
+      return { ...item, market: normalizeGotdxMarket(item) }
+    } catch {
+      return { ...item, market: '' }
+    }
+  })
+}
+
+/** 扩展市场 exchange → 统一 market；仅含已有 session 的映射 */
+const GOTDX_EX_EXCHANGE_TO_MARKET: Readonly<Record<string, string>> = {
+  CN: 'CN',
+  FUND: 'CN',
+  MONEY: 'CN',
+  MONEY_FUND: 'CN',
+  HK: 'HK',
+  US: 'US',
+}
+
+function normalizeGotdxMarket(item: Omit<SearchResult, 'market'>): string {
+  const sourceMarket = item.params?.market
+  if (
+    typeof sourceMarket === 'number' &&
+    (sourceMarket === 0 || sourceMarket === 1 || sourceMarket === 2)
+  ) {
+    return 'CN'
+  }
+
+  if (typeof item.params?.category === 'number' && item.params.kind === 'ex') {
+    const market = GOTDX_EX_EXCHANGE_TO_MARKET[item.exchange]
+    if (market) return market
+  }
+
+  throw new KLineChartError(
+    'FETCH_FAILED',
+    `[gotdx] cannot normalize market for ${item.symbol}: exchange=${item.exchange} params=${JSON.stringify(item.params ?? {})}`,
+  )
 }
 
 interface SecurityBar {
