@@ -151,8 +151,8 @@ function createCCIRendererPlugin(options: CCIRendererOptions = {}): RendererPlug
       ctx.lineTo(lineEndX, yNeg100)
       ctx.stroke()
 
-      // 零轴
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)'
+      // 零轴（使用主题 wmsrGrid token，避免硬编码颜色）
+      ctx.strokeStyle = colors.wmsrGrid
       ctx.beginPath()
       ctx.moveTo(lineStartX, zeroY)
       ctx.lineTo(lineEndX, zeroY)
