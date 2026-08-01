@@ -4,6 +4,8 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
+import type { ColorTokens } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { calcGMMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
@@ -21,20 +23,27 @@ import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 type LinePoint = { x: number; y: number }
 
-/** 顾比均线 12 周期颜色映射（短组暖色、长组冷色） */
-const GMMA_COLORS: Record<number, string> = {
-  3: '#f59e0b',
-  5: '#f97316',
+// GMMA 12 个周期色超出 palette 的 10 个槽位：红系（8/10）与末 2 个周期（50/60）保留 const
+const GMMA_FIXED_COLORS: Record<number, string> = {
   8: '#ef4444',
   10: '#e11d48',
-  12: '#ec4899',
-  15: '#a855f7',
-  30: '#06b6d4',
-  35: '#0ea5e9',
-  40: '#3b82f6',
-  45: '#6366f1',
   50: '#8b5cf6',
   60: '#6366f1',
+}
+
+/** 构建 GMMA 周期颜色映射：palette 索引（按色相）+ 固定 const，draw/title 共用同一来源 */
+function getGMMAColors(colors: ColorTokens): Record<number, string> {
+  return {
+    3: colors.palette.i2,
+    5: colors.palette.i5,
+    12: colors.palette.i4,
+    15: colors.palette.i8,
+    30: colors.palette.i6,
+    35: colors.palette.i6,
+    40: colors.palette.i9,
+    45: colors.palette.i9,
+    ...GMMA_FIXED_COLORS,
+  }
 }
 
 /**
@@ -82,7 +91,7 @@ function getGMMAStateKey(host: PluginHost | null, paneId: string): string | null
 
 /**
  * GMMA 标题信息：按启用周期取对应 EMA 值
- * 短组用 G{period} 标签、长组用 L{period} 标签，颜色沿用 GMMA_COLORS
+ * 短组用 G{period} 标签、长组用 L{period} 标签，颜色沿用 getGMMAColors 映射
  */
 function getGMMATitleInfo(
   _data: KLineData[],
@@ -90,6 +99,7 @@ function getGMMATitleInfo(
   _params: Record<string, number | boolean | string>,
   pluginHost: PluginHost,
   paneId: string,
+  colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
 
@@ -99,6 +109,7 @@ function getGMMATitleInfo(
   const state = pluginHost?.getSharedState<GMMARenderState>(stateKey)
   if (!state || state.visibleMin > state.visibleMax) return null
 
+  const gmmaColors = getGMMAColors(colors)
   const values: TitleValueItem[] = []
   for (const period of state.enabledPeriods) {
     const value = state.series[period]?.[index]
@@ -108,7 +119,7 @@ function getGMMATitleInfo(
     values.push({
       label: isShort ? `G${period}` : `L${period}`,
       value,
-      color: GMMA_COLORS[period] ?? '#f59e0b',
+      color: gmmaColors[period] ?? colors.palette.i2,
     })
   }
 
@@ -142,7 +153,9 @@ class GMMADefinition {
 }
 
 /** 创建 GMMA 多线渲染器插件（WebGL 优先，失败回退 Canvas2D） */
-export function createGMMARendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
+export function createGMMARendererPlugin(
+  options: { paneId?: string } = {},
+): RendererPluginWithHost {
   const { paneId = 'main' } = options
   let pluginHost: PluginHost | null = null
   let cachedKey = ''
@@ -176,6 +189,12 @@ export function createGMMARendererPlugin(options: { paneId?: string } = {}): Ren
 
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
+      const gmmaColors = getGMMAColors(colors)
       const stateKey = resolveKey()
       if (!stateKey) return
       const state = pluginHost?.getSharedState<GMMARenderState>(stateKey)
@@ -225,7 +244,7 @@ export function createGMMARendererPlugin(options: { paneId?: string } = {}): Ren
       for (const period of state.enabledPeriods) {
         const points = cachedLines.get(period)
         if (!points) continue
-        lines.push({ points, width: 1, color: GMMA_COLORS[period] ?? '#f59e0b' })
+        lines.push({ points, width: 1, color: gmmaColors[period] ?? colors.palette.i2 })
       }
 
       // sceneRenderer → fail-closed 2D
@@ -240,7 +259,7 @@ export function createGMMARendererPlugin(options: { paneId?: string } = {}): Ren
       for (const period of state.enabledPeriods) {
         const points = cachedLines.get(period)
         if (!points || points.length < 2) continue
-        ctx.strokeStyle = GMMA_COLORS[period] ?? '#f59e0b'
+        ctx.strokeStyle = gmmaColors[period] ?? colors.palette.i2
         ctx.beginPath()
         ctx.moveTo(points[0]!.x, points[0]!.y)
         for (let i = 1; i < points.length; i++) {

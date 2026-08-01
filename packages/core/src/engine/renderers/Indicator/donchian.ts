@@ -4,6 +4,8 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
+import type { ColorTokens } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { calcDonchianData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
@@ -17,10 +19,6 @@ import type { DonchianRenderState } from '../../indicators/state/donchianState'
 import { createDonchianStateKey, EMPTY_DONCHIAN_STATE } from '../../indicators/state/donchianState'
 import { createBandVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { tryDrawLinesGpu } from '../linesViaRenderer'
-
-const DONCHIAN_UPPER_COLOR = '#0891b2'
-const DONCHIAN_MIDDLE_COLOR = '#94a3b8'
-const DONCHIAN_LOWER_COLOR = '#0891b2'
 
 type Point = { x: number; y: number }
 
@@ -70,6 +68,11 @@ function createDonchianRendererPlugin(
 
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
       const stateKey = resolveKey()
       if (!stateKey) return
       const state = pluginHost?.getSharedState<DonchianRenderState>(stateKey)
@@ -96,12 +99,10 @@ function createDonchianRendererPlugin(
       }
 
       const lines: Array<{ points: Point[]; width: number; color: string }> = []
-      if (upperPts.length >= 2)
-        lines.push({ points: upperPts, width: 1, color: DONCHIAN_UPPER_COLOR })
+      if (upperPts.length >= 2) lines.push({ points: upperPts, width: 1, color: colors.palette.i6 })
       if (middlePts.length >= 2)
-        lines.push({ points: middlePts, width: 1, color: DONCHIAN_MIDDLE_COLOR })
-      if (lowerPts.length >= 2)
-        lines.push({ points: lowerPts, width: 1, color: DONCHIAN_LOWER_COLOR })
+        lines.push({ points: middlePts, width: 1, color: colors.palette.i10 })
+      if (lowerPts.length >= 2) lines.push({ points: lowerPts, width: 1, color: colors.palette.i6 })
 
       if (tryDrawLinesGpu(context, lines, scrollLeft)) return
 
@@ -110,9 +111,9 @@ function createDonchianRendererPlugin(
       ctx.lineWidth = 1
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
-      drawLine(ctx, upperPts, DONCHIAN_UPPER_COLOR)
-      drawLine(ctx, middlePts, DONCHIAN_MIDDLE_COLOR)
-      drawLine(ctx, lowerPts, DONCHIAN_LOWER_COLOR)
+      drawLine(ctx, upperPts, colors.palette.i6)
+      drawLine(ctx, middlePts, colors.palette.i10)
+      drawLine(ctx, lowerPts, colors.palette.i6)
       ctx.restore()
     },
 
@@ -141,6 +142,7 @@ function getDonchianTitleInfo(
   params: Record<string, number | boolean | string>,
   host: PluginHost,
   paneId: string,
+  colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
   const state = host.getSharedState<DonchianRenderState>(createDonchianStateKey(paneId))
@@ -151,9 +153,9 @@ function getDonchianTitleInfo(
     name: 'Donchian',
     params: [(params.period as number) ?? 20],
     values: [
-      { label: 'Upper', value: p.upper, color: '#0891b2' },
-      { label: 'Mid', value: p.middle, color: '#94a3b8' },
-      { label: 'Lower', value: p.lower, color: '#0891b2' },
+      { label: 'Upper', value: p.upper, color: colors.palette.i6 },
+      { label: 'Mid', value: p.middle, color: colors.palette.i10 },
+      { label: 'Lower', value: p.lower, color: colors.palette.i6 },
     ],
   }
 }

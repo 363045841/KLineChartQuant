@@ -4,6 +4,7 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcPVTData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -14,8 +15,6 @@ import { createSparseVisibleStateComposer } from '../../indicators/visibleStateC
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo'
-
-const PVT_COLOR = '#a855f7'
 
 type LinePoint = { x: number; y: number }
 
@@ -56,6 +55,11 @@ function createPVTRendererPlugin(options: { paneId?: string } = {}): RendererPlu
     },
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
       const stateKey = resolveKey()
       if (!stateKey) return
       const state = pluginHost?.getSharedState<PVTRenderState>(stateKey)
@@ -82,11 +86,12 @@ function createPVTRendererPlugin(options: { paneId?: string } = {}): RendererPlu
 
       if (points.length < 2) return
 
-      if (tryDrawLinesGpu(context, [{ points, width: 1, color: PVT_COLOR }], scrollLeft)) return
+      if (tryDrawLinesGpu(context, [{ points, width: 1, color: colors.palette.i8 }], scrollLeft))
+        return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = PVT_COLOR
+      ctx.strokeStyle = colors.palette.i8
       ctx.lineWidth = 1
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
@@ -111,7 +116,7 @@ function createPVTRendererPlugin(options: { paneId?: string } = {}): RendererPlu
 const getPVTTitleInfo = createSingleLineTitleInfo({
   createStateKey: createPVTStateKey,
   name: 'PVT',
-  color: PVT_COLOR,
+  getColor: (colors) => colors.palette.i8,
 })
 
 @Indicator({

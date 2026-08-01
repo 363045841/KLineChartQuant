@@ -4,6 +4,7 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcVWAPData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -14,8 +15,6 @@ import { createSparseVisibleStateComposer } from '../../indicators/visibleStateC
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo'
-
-const VWAP_COLOR = '#ec4899'
 
 type LinePoint = { x: number; y: number }
 
@@ -56,6 +55,11 @@ function createVWAPRendererPlugin(options: { paneId?: string } = {}): RendererPl
     },
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
       const stateKey = resolveKey()
       if (!stateKey) return
       const state = pluginHost?.getSharedState<VWAPRenderState>(stateKey)
@@ -82,11 +86,12 @@ function createVWAPRendererPlugin(options: { paneId?: string } = {}): RendererPl
 
       if (points.length < 2) return
 
-      if (tryDrawLinesGpu(context, [{ points, width: 1, color: VWAP_COLOR }], scrollLeft)) return
+      if (tryDrawLinesGpu(context, [{ points, width: 1, color: colors.palette.i4 }], scrollLeft))
+        return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = VWAP_COLOR
+      ctx.strokeStyle = colors.palette.i4
       ctx.lineWidth = 1
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
@@ -111,7 +116,7 @@ function createVWAPRendererPlugin(options: { paneId?: string } = {}): RendererPl
 const getVWAPTitleInfo = createSingleLineTitleInfo({
   createStateKey: createVWAPStateKey,
   name: 'VWAP',
-  color: VWAP_COLOR,
+  getColor: (colors) => colors.palette.i4,
 })
 
 @Indicator({

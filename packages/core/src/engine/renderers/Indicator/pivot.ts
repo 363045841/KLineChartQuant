@@ -4,6 +4,8 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
+import type { ColorTokens } from '../../../foundation/tokens/index'
 import { calcPivotData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import {
@@ -17,9 +19,8 @@ import type { PivotRenderState } from '../../indicators/state/pivotState'
 import { createPivotStateKey, EMPTY_PIVOT_STATE } from '../../indicators/state/pivotState'
 import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 
-const PP_COLOR = '#94a3b8'
+// R 阻力线保留红色 const：palette 无红色系，不强配
 const R_COLOR = '#dc2626'
-const S_COLOR = '#16a34a'
 
 type Point = { x: number; y: number }
 
@@ -61,6 +62,11 @@ function createPivotRendererPlugin(options: { paneId?: string } = {}): RendererP
     },
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
       const stateKey = resolveKey()
       if (!stateKey) return
       const state = pluginHost?.getSharedState<PivotRenderState>(stateKey)
@@ -97,13 +103,13 @@ function createPivotRendererPlugin(options: { paneId?: string } = {}): RendererP
       ctx.save()
       ctx.translate(-scrollLeft, 0)
       ctx.lineWidth = 1
-      drawStep(ctx, ppPts, PP_COLOR)
+      drawStep(ctx, ppPts, colors.palette.i10)
       drawStep(ctx, r1Pts, R_COLOR)
       drawStep(ctx, r2Pts, R_COLOR)
       drawStep(ctx, r3Pts, R_COLOR)
-      drawStep(ctx, s1Pts, S_COLOR)
-      drawStep(ctx, s2Pts, S_COLOR)
-      drawStep(ctx, s3Pts, S_COLOR)
+      drawStep(ctx, s1Pts, colors.palette.i3)
+      drawStep(ctx, s2Pts, colors.palette.i3)
+      drawStep(ctx, s3Pts, colors.palette.i3)
       ctx.restore()
     },
     getConfig() {
@@ -128,7 +134,7 @@ function drawStep(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
   ctx.stroke()
 }
 
-const getPivotTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId) => {
+const getPivotTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId, colors) => {
   if (index === null || index < 0) return null
 
   const stateKey = createPivotStateKey(paneId)
@@ -141,7 +147,7 @@ const getPivotTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId) 
   const values: TitleValueItem[] = []
 
   if (state.params.showPP) {
-    values.push({ label: 'PP', value: p.pp, color: PP_COLOR })
+    values.push({ label: 'PP', value: p.pp, color: colors.palette.i10 })
   }
   if (state.params.showR1) {
     values.push({ label: 'R1', value: p.r1, color: R_COLOR })
@@ -153,13 +159,13 @@ const getPivotTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId) 
     values.push({ label: 'R3', value: p.r3, color: R_COLOR })
   }
   if (state.params.showS1) {
-    values.push({ label: 'S1', value: p.s1, color: S_COLOR })
+    values.push({ label: 'S1', value: p.s1, color: colors.palette.i3 })
   }
   if (state.params.showS2) {
-    values.push({ label: 'S2', value: p.s2, color: S_COLOR })
+    values.push({ label: 'S2', value: p.s2, color: colors.palette.i3 })
   }
   if (state.params.showS3) {
-    values.push({ label: 'S3', value: p.s3, color: S_COLOR })
+    values.push({ label: 'S3', value: p.s3, color: colors.palette.i3 })
   }
 
   if (values.length === 0) return null

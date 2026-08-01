@@ -4,6 +4,7 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcCMFData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -14,8 +15,6 @@ import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/vis
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo'
-
-const CMF_COLOR = '#06b6d4'
 
 type LinePoint = { x: number; y: number }
 
@@ -56,6 +55,11 @@ function createCMFRendererPlugin(options: { paneId?: string } = {}): RendererPlu
     },
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
       const stateKey = resolveKey()
       if (!stateKey) return
       const state = pluginHost?.getSharedState<CMFRenderState>(stateKey)
@@ -74,7 +78,7 @@ function createCMFRendererPlugin(options: { paneId?: string } = {}): RendererPlu
       const zeroY = paneH - (0 - displayMin) * invRange
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)'
+      ctx.strokeStyle = colors.wmsrGrid
       ctx.lineWidth = 1
       ctx.setLineDash([4, 4])
       ctx.beginPath()
@@ -96,11 +100,12 @@ function createCMFRendererPlugin(options: { paneId?: string } = {}): RendererPlu
 
       if (points.length < 2) return
 
-      if (tryDrawLinesGpu(context, [{ points, width: 1, color: CMF_COLOR }], scrollLeft)) return
+      if (tryDrawLinesGpu(context, [{ points, width: 1, color: colors.palette.i6 }], scrollLeft))
+        return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = CMF_COLOR
+      ctx.strokeStyle = colors.palette.i6
       ctx.lineWidth = 1
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
@@ -126,7 +131,7 @@ const getCMFTitleInfo = createSingleLineTitleInfo({
   createStateKey: createCMFStateKey,
   name: 'CMF',
   defaultPeriod: 20,
-  color: CMF_COLOR,
+  getColor: (colors) => colors.palette.i6,
 })
 
 @Indicator({

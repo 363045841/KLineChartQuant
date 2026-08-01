@@ -17,8 +17,6 @@ import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo'
 
-const HV_COLOR = '#7c3aed'
-
 type LinePoint = { x: number; y: number }
 
 function getHVStateKey(host: PluginHost | null, paneId: string): string | null {
@@ -59,6 +57,11 @@ function createHVRendererPlugin(options: { paneId?: string } = {}): RendererPlug
     },
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
       const stateKey = resolveKey()
       if (!stateKey) return
       const state = pluginHost?.getSharedState<HVRenderState>(stateKey)
@@ -85,11 +88,12 @@ function createHVRendererPlugin(options: { paneId?: string } = {}): RendererPlug
 
       if (points.length < 2) return
 
-      if (tryDrawLinesGpu(context, [{ points, width: 1, color: HV_COLOR }], scrollLeft)) return
+      if (tryDrawLinesGpu(context, [{ points, width: 1, color: colors.palette.i8 }], scrollLeft))
+        return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = HV_COLOR
+      ctx.strokeStyle = colors.palette.i8
       ctx.lineWidth = 1
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
@@ -115,7 +119,7 @@ const getHVTitleInfo = createSingleLineTitleInfo({
   createStateKey: createHVStateKey,
   name: 'HV',
   getParams: (p) => [(p.period as number) ?? 20, (p.annualizationFactor as number) ?? 252],
-  color: HV_COLOR,
+  getColor: (colors) => colors.palette.i8,
 })
 
 @Indicator({

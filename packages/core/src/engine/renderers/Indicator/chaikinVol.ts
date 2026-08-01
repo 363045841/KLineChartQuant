@@ -4,6 +4,7 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcChaikinVolData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -17,8 +18,6 @@ import { createSparseVisibleStateComposer } from '../../indicators/visibleStateC
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo'
-
-const CHAIKIN_VOL_COLOR = '#f59e0b'
 
 type LinePoint = { x: number; y: number }
 
@@ -62,6 +61,11 @@ function createChaikinVolRendererPlugin(options: { paneId?: string } = {}): Rend
     },
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
       const stateKey = resolveKey()
       if (!stateKey) return
       const state = pluginHost?.getSharedState<ChaikinVolRenderState>(stateKey)
@@ -80,7 +84,7 @@ function createChaikinVolRendererPlugin(options: { paneId?: string } = {}): Rend
       const zeroY = paneH - (0 - displayMin) * invRange
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)'
+      ctx.strokeStyle = colors.wmsrGrid
       ctx.lineWidth = 1
       ctx.setLineDash([4, 4])
       ctx.beginPath()
@@ -102,11 +106,12 @@ function createChaikinVolRendererPlugin(options: { paneId?: string } = {}): Rend
 
       if (points.length < 2) return
 
-      if (tryDrawLinesGpu(context, [{ points, width: 1, color: CHAIKIN_VOL_COLOR }], scrollLeft)) return
+      if (tryDrawLinesGpu(context, [{ points, width: 1, color: colors.palette.i2 }], scrollLeft))
+        return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = CHAIKIN_VOL_COLOR
+      ctx.strokeStyle = colors.palette.i2
       ctx.lineWidth = 1
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
@@ -132,7 +137,7 @@ const getChaikinVolTitleInfo = createSingleLineTitleInfo({
   createStateKey: createChaikinVolStateKey,
   name: 'ChaikinVol',
   getParams: (p) => [(p.emaPeriod as number) ?? 10, (p.rocPeriod as number) ?? 10],
-  color: CHAIKIN_VOL_COLOR,
+  getColor: (colors) => colors.palette.i2,
 })
 
 @Indicator({

@@ -5,6 +5,7 @@ import type {
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
 import { resolveThemeColors } from '../../../foundation/tokens/index'
+import type { ColorTokens } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { calcTRIXData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
@@ -16,9 +17,6 @@ import { createTRIXStateKey } from '../../indicators/state/trixState'
 import { EMPTY_TRIX_STATE } from '../../indicators/state/trixState'
 import { createDualSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { tryDrawLinesGpu } from '../linesViaRenderer'
-
-const TRIX_COLOR = '#e11d48'
-const SIGNAL_COLOR = '#f59e0b'
 
 type Point = { x: number; y: number }
 
@@ -66,6 +64,13 @@ function createTRIXRendererPlugin(options: TRIXRendererOptions = {}): RendererPl
 
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
+      const trixColor = colors.palette.i4
+      const signalColor = colors.palette.i2
       const stateKey = resolveKey()
       if (!stateKey) return
       const state = pluginHost?.getSharedState<TRIXRenderState>(stateKey)
@@ -87,7 +92,7 @@ function createTRIXRendererPlugin(options: TRIXRendererOptions = {}): RendererPl
       const zeroY = toY(0)
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)'
+      ctx.strokeStyle = colors.wmsrGrid
       ctx.lineWidth = 1
       ctx.setLineDash([4, 4])
       ctx.beginPath()
@@ -116,8 +121,8 @@ function createTRIXRendererPlugin(options: TRIXRendererOptions = {}): RendererPl
       if (trixPts.length < 2 && sigPts.length < 2) return
 
       const lines: Array<{ points: Point[]; width: number; color: string }> = []
-      if (trixPts.length >= 2) lines.push({ points: trixPts, width: 1, color: TRIX_COLOR })
-      if (sigPts.length >= 2) lines.push({ points: sigPts, width: 1, color: SIGNAL_COLOR })
+      if (trixPts.length >= 2) lines.push({ points: trixPts, width: 1, color: trixColor })
+      if (sigPts.length >= 2) lines.push({ points: sigPts, width: 1, color: signalColor })
 
       if (tryDrawLinesGpu(context, lines, scrollLeft)) return
 
@@ -126,8 +131,8 @@ function createTRIXRendererPlugin(options: TRIXRendererOptions = {}): RendererPl
       ctx.lineWidth = 1
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
-      drawLine(ctx, trixPts, TRIX_COLOR)
-      drawLine(ctx, sigPts, SIGNAL_COLOR)
+      drawLine(ctx, trixPts, trixColor)
+      drawLine(ctx, sigPts, signalColor)
       ctx.restore()
     },
 
@@ -156,6 +161,7 @@ function getTRIXTitleInfo(
   params: Record<string, number | boolean | string>,
   pluginHost: PluginHost,
   paneId: string,
+  colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
   const period = (params.period as number) ?? 15
@@ -167,11 +173,11 @@ function getTRIXTitleInfo(
 
   if (state.params.showTRIX) {
     const v = state.series[index]
-    if (v !== undefined) values.push({ label: 'TRIX', value: v, color: TRIX_COLOR })
+    if (v !== undefined) values.push({ label: 'TRIX', value: v, color: colors.palette.i4 })
   }
   if (state.params.showSignal) {
     const v = state.signalSeries[index]
-    if (v !== undefined) values.push({ label: 'Signal', value: v, color: SIGNAL_COLOR })
+    if (v !== undefined) values.push({ label: 'Signal', value: v, color: colors.palette.i2 })
   }
 
   if (values.length === 0) return null

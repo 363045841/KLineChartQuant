@@ -4,6 +4,8 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
+import type { ColorTokens } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { calcKeltnerData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
@@ -17,10 +19,6 @@ import type { KeltnerRenderState } from '../../indicators/state/keltnerState'
 import { createKeltnerStateKey, EMPTY_KELTNER_STATE } from '../../indicators/state/keltnerState'
 import { createBandVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { tryDrawLinesGpu } from '../linesViaRenderer'
-
-const KELTNER_UPPER_COLOR = '#7c3aed'
-const KELTNER_MIDDLE_COLOR = '#f59e0b'
-const KELTNER_LOWER_COLOR = '#7c3aed'
 
 type Point = { x: number; y: number }
 
@@ -68,6 +66,11 @@ function createKeltnerRendererPlugin(options: KeltnerRendererOptions = {}): Rend
 
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
       const stateKey = resolveKey()
       if (!stateKey) return
       const state = pluginHost?.getSharedState<KeltnerRenderState>(stateKey)
@@ -94,12 +97,10 @@ function createKeltnerRendererPlugin(options: KeltnerRendererOptions = {}): Rend
       }
 
       const lines: Array<{ points: Point[]; width: number; color: string }> = []
-      if (upperPts.length >= 2)
-        lines.push({ points: upperPts, width: 1, color: KELTNER_UPPER_COLOR })
+      if (upperPts.length >= 2) lines.push({ points: upperPts, width: 1, color: colors.palette.i8 })
       if (middlePts.length >= 2)
-        lines.push({ points: middlePts, width: 1, color: KELTNER_MIDDLE_COLOR })
-      if (lowerPts.length >= 2)
-        lines.push({ points: lowerPts, width: 1, color: KELTNER_LOWER_COLOR })
+        lines.push({ points: middlePts, width: 1, color: colors.palette.i2 })
+      if (lowerPts.length >= 2) lines.push({ points: lowerPts, width: 1, color: colors.palette.i8 })
 
       if (tryDrawLinesGpu(context, lines, scrollLeft)) return
 
@@ -108,9 +109,9 @@ function createKeltnerRendererPlugin(options: KeltnerRendererOptions = {}): Rend
       ctx.lineWidth = 1
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
-      drawLine(ctx, upperPts, KELTNER_UPPER_COLOR)
-      drawLine(ctx, middlePts, KELTNER_MIDDLE_COLOR)
-      drawLine(ctx, lowerPts, KELTNER_LOWER_COLOR)
+      drawLine(ctx, upperPts, colors.palette.i8)
+      drawLine(ctx, middlePts, colors.palette.i2)
+      drawLine(ctx, lowerPts, colors.palette.i8)
       ctx.restore()
     },
 
@@ -139,6 +140,7 @@ function getKeltnerTitleInfo(
   params: Record<string, number | boolean | string>,
   host: PluginHost,
   paneId: string,
+  colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
   const state = host.getSharedState<KeltnerRenderState>(createKeltnerStateKey(paneId))
@@ -153,9 +155,9 @@ function getKeltnerTitleInfo(
       (params.multiplier as number) ?? 2,
     ],
     values: [
-      { label: 'Upper', value: p.upper, color: '#7c3aed' },
-      { label: 'Mid', value: p.middle, color: '#f59e0b' },
-      { label: 'Lower', value: p.lower, color: '#7c3aed' },
+      { label: 'Upper', value: p.upper, color: colors.palette.i8 },
+      { label: 'Mid', value: p.middle, color: colors.palette.i2 },
+      { label: 'Lower', value: p.lower, color: colors.palette.i8 },
     ],
   }
 }
