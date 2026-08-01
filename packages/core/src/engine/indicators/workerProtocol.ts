@@ -36,7 +36,6 @@ export interface BOLLSchedulerConfig {
   showUpper: boolean
   showMiddle: boolean
   showLower: boolean
-  showBand: boolean
 }
 
 export interface EXPMASchedulerConfig {

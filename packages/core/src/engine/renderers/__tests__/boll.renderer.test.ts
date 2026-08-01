@@ -137,7 +137,6 @@ function createTestBOLLState(overrides: Partial<BOLLRenderState> = {}): BOLLRend
       showUpper: true,
       showMiddle: true,
       showLower: true,
-      showBand: true,
     },
     visibleMin: 90,
     visibleMax: 120,
@@ -216,34 +215,6 @@ describe('BOLL renderer draw', () => {
     expect(ctx.restore).toHaveBeenCalledTimes(1)
   })
 
-  it('should draw band when showBand is true', () => {
-    const state = createTestBOLLState({
-      params: { ...createTestBOLLState().params, showBand: true },
-    })
-    const mockHost = createMockPluginHost(state)
-    plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
-    plugin.onInstall(mockHost)
-
-    const context = createMockRenderContext(ctx)
-    plugin.draw(context)
-
-    expect(ctx.fill).toHaveBeenCalled()
-  })
-
-  it('should not draw band when showBand is false', () => {
-    const state = createTestBOLLState({
-      params: { ...createTestBOLLState().params, showBand: false },
-    })
-    const mockHost = createMockPluginHost(state)
-    plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
-    plugin.onInstall(mockHost)
-
-    const context = createMockRenderContext(ctx)
-    plugin.draw(context)
-
-    expect(ctx.fill).not.toHaveBeenCalled()
-  })
-
   it('should draw upper line when showUpper is true', () => {
     const state = createTestBOLLState({
       params: { ...createTestBOLLState().params, showUpper: true },
@@ -297,7 +268,6 @@ describe('BOLL renderer config', () => {
         showUpper: false,
         showMiddle: true,
         showLower: false,
-        showBand: false,
       },
     })
     const mockHost = createMockPluginHost(state)
