@@ -1,9 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { KLineChartWC, type KLineChartWCProps } from '../src/KLineChartWC'
-import { hundredMockDataFetcher } from '@363045841yyt/klinechart-core/controllers'
+import { mockDataFetcher } from '@363045841yyt/klinechart-core/controllers'
 import '@363045841yyt/klinechart/web-component'
 
-const dataFetcher = hundredMockDataFetcher
+const dataFetcher = mockDataFetcher
 
 const SIZES = [
   { w: '95%', h: '95%' },

@@ -81,8 +81,9 @@ export {
 
 // Data fetcher adapters
 export {
-  thousandMockDataFetcher,
+  mockDataFetcher,
   hundredMockDataFetcher,
+  thousandMockDataFetcher,
   baostockDataFetcher,
   routerDataFetcher,
   routerSearchFetchers,

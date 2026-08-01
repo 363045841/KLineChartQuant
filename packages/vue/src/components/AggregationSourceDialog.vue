@@ -94,6 +94,7 @@
 
   import {
     probeAggregationSource,
+    isMockSourceName,
     type AggregationSourceEndpoint,
     type AggregationSourceStatus,
   } from '../composables/useAggregationSources'
@@ -137,7 +138,7 @@
   })
 
   function isMockSource(source: DataFetcherDefinition): boolean {
-    return source.name.startsWith('mock-')
+    return isMockSourceName(source.name)
   }
 
   function supportsSearch(source: DataFetcherDefinition): boolean {

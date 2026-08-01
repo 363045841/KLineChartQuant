@@ -55,34 +55,21 @@ A lightweight financial K-line charting library focused on quantitative trading 
 - **Custom Tooltip** - Fully customizable tooltip via named slots (`#kline-tooltip`, `#marker-tooltip`), with engine-provided hover data, position, and styling
 
 
+## 📡 Data Sources
+
+KLineChart requires a market data backend. Supported data sources:
+
+| Data Source | Description | Docs |
+|---|---|---|
+| `gotdx` | Tongdaxin (GOTDX) quotes: A-share / futures / MAC, served by `KlineChartQuantGo` | [KlineChartQuantGo](docs/data-sources/klinechartquantgo.zh-CN.md) |
+| `baostock` | BaoStock A-share daily / weekly / monthly & minute K-lines, served by `stockbao` | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
+| `tradingview` | TradingView global instruments, served by `stockbao` | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
+| `mock` | Debug only: local MOCK-100 / MOCK-10000 K-lines, no backend needed, always online | — |
+
+Backend repos live alongside this one (outside the monorepo). See each doc above for the specific startup steps.
+
+
 ## 🚀 Quick Start
-
-### Prerequisites
-
-KLineChart requires a stock data backend. Please ensure `kmap` and `stockbao` are in the same directory:
-
-```
-workspace/
-├── KLineChartQuant/ # This repository
-└── stockbao/    # Data backend repository
-```
-
-### 1. Clone Repositories
-
-```bash
-git clone https://github.com/363045841/KLineChartQuant.git
-git clone https://github.com/363045841/stockbao.git
-```
-
-### 2. Start Data Backend
-
-```bash
-cd KLineChartQuant
-npm run stockbao
-```
-
-After startup, the API is available at `http://localhost:8000`
-
 
 ### 3. Install and Use
 
