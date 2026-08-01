@@ -129,11 +129,11 @@ export const darkTheme: Theme = {
       chart: '#3A4048',
     },
     ma: {
-      ma5: 'rgba(255, 200, 50, 1)',
-      ma10: 'rgba(200, 150, 30, 1)',
-      ma20: 'rgba(90, 140, 255, 1)',
-      ma30: 'rgba(90, 190, 95, 1)',
-      ma60: 'rgba(170, 60, 195, 1)',
+      ma5: '#e8590c',
+      ma10: '#0891b2',
+      ma20: '#2563eb',
+      ma30: '#2f9e44',
+      ma60: '#ae3ec9',
     },
     boll: {
       upper: 'rgba(200, 60, 60, 1)',

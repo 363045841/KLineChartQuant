@@ -168,7 +168,7 @@ export function buildLegendTemplateContext(
     }
   }
 
-  const indicators = collectIndicatorRows(host, klineData, targetIndex)
+  const indicators = collectIndicatorRows(host, klineData, targetIndex, colors)
   const comparisons = collectComparisonRows(context, klineData, targetIndex, range, colors)
 
   return {
@@ -194,6 +194,7 @@ function collectIndicatorRows(
   host: PluginHost | null,
   klineData: KLineData[],
   targetIndex: number,
+  colors: ReturnType<typeof resolveThemeColors>,
 ): LegendIndicatorRow[] {
   if (!host || typeof host.getService !== 'function') return []
   const scheduler = host.getService<IndicatorScheduler>('indicatorScheduler')
@@ -210,6 +211,7 @@ function collectIndicatorRows(
       params as Record<string, number | boolean | string>,
       host,
       'main',
+      colors,
     )
     if (!titleInfo) continue
     rows.push({

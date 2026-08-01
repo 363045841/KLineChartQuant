@@ -113,6 +113,7 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
           castParams,
           pluginHost,
           currentOptions.paneId,
+          colors,
         )
       }
 
