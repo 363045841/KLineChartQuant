@@ -4,7 +4,7 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
+import { resolveThemeColors, type ColorTokens } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { calcVolumeProfileData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
@@ -17,10 +17,6 @@ import {
   EMPTY_VOLUME_PROFILE_STATE,
 } from '../../indicators/state/volumeProfileState'
 import { createVolumeProfileVisibleStateComposer } from '../../indicators/visibleStateComposers'
-
-const BAR_FILL = 'rgba(99, 102, 241, 0.35)'
-const POC_COLOR = '#f59e0b'
-const VA_COLOR = 'rgba(99, 102, 241, 0.6)'
 
 const PROFILE_WIDTH_PX = 80
 
@@ -65,6 +61,12 @@ function createVolumeProfileRendererPlugin(
     },
     draw(context: RenderContext) {
       const { ctx, pane, scrollLeft } = context
+      // 颜色统一取自 theme tokens，保证与标题栏一致并支持主题/预设切换
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
       const stateKey = resolveKey()
       if (!stateKey) return
       const state = pluginHost?.getSharedState<VolumeProfileRenderState>(stateKey)
@@ -85,7 +87,7 @@ function createVolumeProfileRendererPlugin(
       ctx.translate(-scrollLeft, 0)
       const profileX = scrollLeft + context.paneWidth - PROFILE_WIDTH_PX
 
-      ctx.fillStyle = BAR_FILL
+      ctx.fillStyle = colors.volumeProfileFill
       for (const bin of bins) {
         const yTop = toY(bin.priceHigh)
         const yBot = toY(bin.priceLow)
@@ -94,7 +96,7 @@ function createVolumeProfileRendererPlugin(
       }
 
       if (showValueArea) {
-        ctx.strokeStyle = VA_COLOR
+        ctx.strokeStyle = colors.volumeProfileValueArea
         ctx.lineWidth = 1
         ctx.setLineDash([4, 4])
         const vahY = toY(vah)
@@ -109,7 +111,7 @@ function createVolumeProfileRendererPlugin(
       }
 
       if (showPOC) {
-        ctx.strokeStyle = POC_COLOR
+        ctx.strokeStyle = colors.volumeProfilePoc
         ctx.lineWidth = 1
         const pocY = toY(poc)
         ctx.beginPath()
@@ -130,16 +132,13 @@ function createVolumeProfileRendererPlugin(
   }
 }
 
-const VP_POC_COLOR = '#8b5cf6'
-const VP_VAH_COLOR = '#6366f1'
-const VP_VAL_COLOR = '#818cf8'
-
 function getVolumeProfileTitleInfo(
   _data: KLineData[],
   index: number | null,
   params: Record<string, number | boolean | string>,
   host: PluginHost,
   paneId: string,
+  colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
   const bins = (params.bins as number) ?? 24
@@ -149,11 +148,11 @@ function getVolumeProfileTitleInfo(
   const values: Array<{ label: string; value: number; color: string }> = []
   if (vp && vp.bins.length > 0) {
     if (state.params.showPOC) {
-      values.push({ label: 'POC', value: vp.poc, color: VP_POC_COLOR })
+      values.push({ label: 'POC', value: vp.poc, color: colors.volumeProfilePoc })
     }
     if (state.params.showValueArea) {
-      values.push({ label: 'VAH', value: vp.vah, color: VP_VAH_COLOR })
-      values.push({ label: 'VAL', value: vp.val, color: VP_VAL_COLOR })
+      values.push({ label: 'VAH', value: vp.vah, color: colors.volumeProfileValueArea })
+      values.push({ label: 'VAL', value: vp.val, color: colors.volumeProfileValueArea })
     }
   }
 

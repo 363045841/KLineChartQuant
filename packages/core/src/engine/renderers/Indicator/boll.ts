@@ -4,7 +4,7 @@ import type {
   RenderContext,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
+import { resolveThemeColors, type ColorTokens } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
 import { calcBOLLData } from '../../indicators/calculators'
@@ -135,6 +135,7 @@ const getBOLLTitleInfo: GetTitleInfoFn = (
   _params: Record<string, number | boolean | string>,
   pluginHost: PluginHost,
   _paneId: string,
+  colors: ColorTokens,
 ): TitleInfo | null => {
   if (index === null) return null
 
@@ -148,9 +149,9 @@ const getBOLLTitleInfo: GetTitleInfoFn = (
   if (!bollPoint) return null
 
   const values: TitleValueItem[] = [
-    { label: 'UP', value: bollPoint.upper, color: '#C83C3C' },
-    { label: 'MID', value: bollPoint.middle, color: '#5A8CFF' },
-    { label: 'DN', value: bollPoint.lower, color: '#32AA3C' },
+    { label: 'UP', value: bollPoint.upper, color: colors.boll.upper },
+    { label: 'MID', value: bollPoint.middle, color: colors.boll.middle },
+    { label: 'DN', value: bollPoint.lower, color: colors.boll.lower },
   ]
 
   return { name: 'BOLL', params: [state.params.period, state.params.multiplier], values }
@@ -165,9 +166,7 @@ const getBOLLTitleInfo: GetTitleInfoFn = (
   mainPane: {
     rendererName: 'boll',
     toActiveConfig: (params, active) =>
-      active
-        ? params
-        : { ...params, showUpper: false, showMiddle: false, showLower: false },
+      active ? params : { ...params, showUpper: false, showMiddle: false, showLower: false },
     computePriceRange: computeBOLLPriceRange,
     composeRenderState: composeBOLLRenderState,
   },
@@ -180,14 +179,14 @@ const getBOLLTitleInfo: GetTitleInfoFn = (
       })
     },
   },
-    runtime: {
-      defaultConfig: {
-        period: 20,
-        multiplier: 2,
-        showUpper: true,
-        showMiddle: true,
-        showLower: true,
-      },
+  runtime: {
+    defaultConfig: {
+      period: 20,
+      multiplier: 2,
+      showUpper: true,
+      showMiddle: true,
+      showLower: true,
+    },
     computeKey: 'calcBOLLData',
     compute: (data, c) => calcBOLLData(data, c.period, c.multiplier),
   },

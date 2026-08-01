@@ -4,7 +4,7 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
+import { resolveThemeColors, type ColorTokens } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { calcSARData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
@@ -117,6 +117,7 @@ function getSARTitleInfo(
   params: Record<string, number | boolean | string>,
   host: PluginHost,
   paneId: string,
+  colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
   const state = host.getSharedState<SARRenderState>(createSARStateKey(paneId))
@@ -126,7 +127,13 @@ function getSARTitleInfo(
   return {
     name: 'SAR',
     params: [(params.step as number) ?? 0.02, (params.maxStep as number) ?? 0.2],
-    values: [{ label: 'SAR', value: p.value, color: p.trend === 'up' ? '#22c55e' : '#ef4444' }],
+    values: [
+      {
+        label: 'SAR',
+        value: p.value,
+        color: p.trend === 'up' ? colors.candleUpBody : colors.candleDownBody,
+      },
+    ],
   }
 }
 

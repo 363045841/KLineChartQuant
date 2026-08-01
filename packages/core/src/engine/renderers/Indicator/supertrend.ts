@@ -4,7 +4,7 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
+import { resolveThemeColors, type ColorTokens } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { calcSuperTrendData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
@@ -130,6 +130,7 @@ function getSuperTrendTitleInfo(
   params: Record<string, number | boolean | string>,
   host: PluginHost,
   paneId: string,
+  colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
   const state = host.getSharedState<SuperTrendRenderState>(createSuperTrendStateKey(paneId))
@@ -143,7 +144,7 @@ function getSuperTrendTitleInfo(
       {
         label: p.trend === 'up' ? 'Up' : 'Down',
         value: p.value,
-        color: p.trend === 'up' ? '#22c55e' : '#ef4444',
+        color: p.trend === 'up' ? colors.candleUpBody : colors.candleDownBody,
       },
     ],
   }
