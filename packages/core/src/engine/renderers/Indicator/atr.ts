@@ -87,7 +87,7 @@ function createATRRendererPlugin(options: ATRRendererOptions = {}): RendererPlug
     description: 'ATR 平均真实波幅渲染器（Wilder 平滑）',
     debugName: 'ATR',
     paneId: paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host

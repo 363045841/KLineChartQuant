@@ -47,7 +47,7 @@ function createHVRendererPlugin(options: { paneId?: string } = {}): RendererPlug
     description: 'HV 历史波动率渲染器（WebGL + Canvas2D 回退）',
     debugName: 'HV',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
     onInstall(host) {
       pluginHost = host
     },

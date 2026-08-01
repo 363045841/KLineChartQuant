@@ -45,7 +45,7 @@ function createPVTRendererPlugin(options: { paneId?: string } = {}): RendererPlu
     description: 'PVT 量价趋势渲染器（WebGL + Canvas2D 回退）',
     debugName: 'PVT',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
     onInstall(host) {
       pluginHost = host
     },

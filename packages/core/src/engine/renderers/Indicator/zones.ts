@@ -45,7 +45,7 @@ function createZonesRendererPlugin(options: { paneId?: string } = {}): RendererP
     description: 'SMC 区域渲染器（FVG 缺口 + Order Blocks 订单块）',
     debugName: 'Zones',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
     onInstall(host) {
       pluginHost = host
     },

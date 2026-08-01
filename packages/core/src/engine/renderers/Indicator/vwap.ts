@@ -45,7 +45,7 @@ function createVWAPRendererPlugin(options: { paneId?: string } = {}): RendererPl
     description: 'VWAP 成交量加权均价渲染器（WebGL + Canvas2D 回退）',
     debugName: 'VWAP',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
     onInstall(host) {
       pluginHost = host
     },

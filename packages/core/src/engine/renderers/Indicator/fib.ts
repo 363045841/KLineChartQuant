@@ -69,7 +69,7 @@ function createFibRendererPlugin(options: { paneId?: string } = {}): RendererPlu
     description: '斐波那契回撤线渲染器（WebGL + Canvas2D 回退）',
     debugName: 'Fib',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
     onInstall(host) {
       pluginHost = host
     },

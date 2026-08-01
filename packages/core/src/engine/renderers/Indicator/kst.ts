@@ -98,7 +98,7 @@ function createKSTRendererPlugin(options: KSTRendererOptions = {}): RendererPlug
     description: 'KST 确知指标渲染器（WebGL + Canvas2D 回退）',
     debugName: 'KST',
     paneId: paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host

@@ -47,7 +47,7 @@ function createParkinsonRendererPlugin(options: { paneId?: string } = {}): Rende
     description: 'Parkinson 波动率渲染器（WebGL + Canvas2D 回退）',
     debugName: 'Parkinson',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
     onInstall(host) {
       pluginHost = host
     },

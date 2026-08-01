@@ -50,7 +50,7 @@ function createKAMARendererPlugin(options: KAMARendererOptions = {}): RendererPl
     description: 'KAMA Kaufman 自适应均线渲染器（WebGL + Canvas2D 回退）',
     debugName: 'KAMA',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host

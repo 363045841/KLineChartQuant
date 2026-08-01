@@ -53,7 +53,7 @@ function createSARRendererPlugin(options: SARRendererOptions = {}): RendererPlug
     description: 'Parabolic SAR 渲染器（绿色 = 多头止损 / 红色 = 空头止损）',
     debugName: 'SAR',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host

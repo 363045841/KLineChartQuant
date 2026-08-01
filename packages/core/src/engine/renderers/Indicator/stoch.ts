@@ -98,7 +98,7 @@ function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): Renderer
     description: 'STOCH 随机指标渲染器（WebGL + Canvas2D 回退）',
     debugName: 'STOCH',
     paneId: paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host

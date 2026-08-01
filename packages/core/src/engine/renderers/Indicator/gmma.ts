@@ -176,7 +176,7 @@ export function createGMMARendererPlugin(
     description: 'GMMA 顾比移动均线渲染器（WebGL + Canvas2D 回退）',
     debugName: 'GMMA',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost): void {
       pluginHost = host

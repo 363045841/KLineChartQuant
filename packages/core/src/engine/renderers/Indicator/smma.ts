@@ -65,7 +65,7 @@ function createSMMARendererPlugin(options: SMMARendererOptions = {}): RendererPl
     description: 'SMMA Wilder 平滑移动均线渲染器（WebGL + Canvas2D 回退）',
     debugName: 'SMMA',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host

@@ -50,7 +50,7 @@ function createTEMARendererPlugin(options: TEMARendererOptions = {}): RendererPl
     description: 'TEMA 三重指数移动均线渲染器（WebGL + Canvas2D 回退）',
     debugName: 'TEMA',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host

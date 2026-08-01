@@ -50,7 +50,7 @@ function createWMARendererPlugin(options: WMARendererOptions = {}): RendererPlug
     description: 'WMA 线性加权移动均线渲染器（WebGL + Canvas2D 回退）',
     debugName: 'WMA',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host

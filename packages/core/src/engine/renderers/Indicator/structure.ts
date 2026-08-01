@@ -48,7 +48,7 @@ function createStructureRendererPlugin(options: { paneId?: string } = {}): Rende
     description: 'SMC 结构渲染器（swing 标签 + BOS/CHOCH 触发线）',
     debugName: 'Structure',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
     onInstall(host) {
       pluginHost = host
     },

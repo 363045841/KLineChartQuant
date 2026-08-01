@@ -56,7 +56,7 @@ function createDonchianRendererPlugin(
     description: 'Donchian Channel 渲染器（WebGL + Canvas2D 回退）',
     debugName: 'Donchian',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host

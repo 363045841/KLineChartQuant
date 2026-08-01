@@ -50,7 +50,7 @@ function createVWMARendererPlugin(options: VWMARendererOptions = {}): RendererPl
     description: 'VWMA 成交量加权移动均线渲染器（WebGL + Canvas2D 回退）',
     debugName: 'VWMA',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host

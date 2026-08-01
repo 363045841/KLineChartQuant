@@ -51,7 +51,7 @@ function createVolumeProfileRendererPlugin(
     description: 'Volume Profile 渲染器（POC + Value Area + 价格-成交量直方图）',
     debugName: 'VolumeProfile',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
     onInstall(host) {
       pluginHost = host
     },

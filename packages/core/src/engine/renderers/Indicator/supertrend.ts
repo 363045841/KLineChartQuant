@@ -57,7 +57,7 @@ function createSuperTrendRendererPlugin(
     description: 'SuperTrend ATR 趋势带渲染器（趋势翻转处颜色切换）',
     debugName: 'SuperTrend',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host

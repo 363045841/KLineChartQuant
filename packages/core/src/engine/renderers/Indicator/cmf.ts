@@ -45,7 +45,7 @@ function createCMFRendererPlugin(options: { paneId?: string } = {}): RendererPlu
     description: 'CMF Chaikin 资金流渲染器（WebGL + Canvas2D 回退）',
     debugName: 'CMF',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
     onInstall(host) {
       pluginHost = host
     },

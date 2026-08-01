@@ -52,7 +52,7 @@ function createPivotRendererPlugin(options: { paneId?: string } = {}): RendererP
     description: 'Pivot Points 枢轴点渲染器（PP/R1-3/S1-3 阶梯线）',
     debugName: 'Pivot',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
     onInstall(host) {
       pluginHost = host
     },

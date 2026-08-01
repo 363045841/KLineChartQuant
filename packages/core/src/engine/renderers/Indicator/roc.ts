@@ -50,7 +50,7 @@ function createROCRendererPlugin(options: ROCRendererOptions = {}): RendererPlug
     description: 'ROC 变化率渲染器（WebGL + Canvas2D 回退）',
     debugName: 'ROC',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host
