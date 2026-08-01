@@ -5,6 +5,7 @@ import type {
 } from '../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import { resolveThemeColors } from '../../foundation/tokens/index'
+import type { ColorTokens } from '../../foundation/tokens/index'
 import type { KLineData } from '../../foundation/types/price'
 import type { TitleInfo } from '../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../indicators/scheduler'
@@ -23,11 +24,12 @@ function getVolumeTitleInfo(
   _params: Record<string, number | boolean | string>,
   _host: PluginHost,
   _paneId: string,
+  colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
   const kline = data[index]
   if (!kline || kline.volume === undefined) return null
-  const color = kline.open < kline.close ? '#ef4444' : '#22c55e'
+  const color = kline.open < kline.close ? colors.volumeUp : colors.volumeDown
   return {
     name: 'VOL',
     params: [],
@@ -125,6 +127,7 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
           castParams,
           pluginHost,
           currentOptions.paneId,
+          colors,
         )
       }
 

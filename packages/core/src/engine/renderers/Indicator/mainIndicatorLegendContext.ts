@@ -263,7 +263,7 @@ function collectComparisonRows(
     if (!currentItem || !Number.isFinite(currentItem.close)) continue
 
     const percent = ((currentItem.close - baseline.close) / baseline.close) * 100
-    const color = comparisonColors?.get(spec.symbol) ?? '#f59e0b'
+    const color = comparisonColors?.get(spec.symbol) ?? colors.palette.i2
     rows.push({
       symbol: spec.symbol,
       percent,

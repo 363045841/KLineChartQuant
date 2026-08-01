@@ -1,5 +1,5 @@
 import type { PluginHost } from '../../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../../foundation/tokens/index'
+import type { ColorTokens } from '../../../../foundation/tokens/index'
 import type { KLineData } from '../../../../foundation/types/price'
 import type { GetTitleInfoFn, TitleInfo } from '../../../indicators/indicatorMetadata'
 
@@ -14,7 +14,7 @@ interface SingleLineTitleInfoConfig {
   name: string
   label?: string
   defaultPeriod?: number
-  getColor?: (colors: ReturnType<typeof resolveThemeColors>) => string
+  getColor?: (colors: ColorTokens) => string
   color?: string
   getParams?: (stateParams: Record<string, unknown>) => number[]
 }
@@ -28,6 +28,7 @@ export function createSingleLineTitleInfo(config: SingleLineTitleInfoConfig): Ge
     _params: Record<string, number | boolean | string>,
     pluginHost: PluginHost,
     paneId: string,
+    colors: ColorTokens,
   ): TitleInfo | null => {
     if (index === null) return null
 
@@ -38,7 +39,7 @@ export function createSingleLineTitleInfo(config: SingleLineTitleInfoConfig): Ge
     const val = state.series[index]
     if (val === undefined) return null
 
-    const resolvedColor = color ?? (getColor ? getColor(resolveThemeColors('light')) : 'inherit')
+    const resolvedColor = color ?? (getColor ? getColor(colors) : 'inherit')
     const resolvedParams = getParams
       ? getParams(state.params as Record<string, unknown>)
       : defaultPeriod !== undefined
