@@ -5,6 +5,7 @@ import type {
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
 import { resolveThemeColors } from '../../../foundation/tokens/index'
+import type { ColorTokens } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
 import type { MACDPoint } from '../../indicators/calculators'
@@ -322,9 +323,7 @@ function createMACDRendererPlugin(options: MACDRendererOptions = {}): RendererPl
         if (config.showDEA && cachedDeaPoints.length >= 2) {
           lines.push({ points: cachedDeaPoints, width: 1, color: colors.macd.dea })
         }
-        if (
-          !tryDrawLinesGpu(context, lines, scrollLeft)
-        ) {
+        if (!tryDrawLinesGpu(context, lines, scrollLeft)) {
           drawMacdLinesWithCanvas2D(
             ctx,
             scrollLeft,
@@ -473,6 +472,7 @@ function getMACDTitleInfo(
   params: Record<string, number | boolean | string>,
   pluginHost: PluginHost,
   paneId: string,
+  colors: ColorTokens,
 ): {
   name: string
   params: number[]
@@ -482,7 +482,6 @@ function getMACDTitleInfo(
   const fastPeriod = (params.fastPeriod as number) ?? 12
   const slowPeriod = (params.slowPeriod as number) ?? 26
   const signalPeriod = (params.signalPeriod as number) ?? 9
-  const colors = resolveThemeColors('light')
   const state = pluginHost.getSharedState<MACDRenderState>(createMACDStateKey(paneId))
   if (!state) return null
 

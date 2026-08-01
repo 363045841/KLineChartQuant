@@ -5,6 +5,7 @@ import type {
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
 import { resolveThemeColors } from '../../../foundation/tokens/index'
+import type { ColorTokens } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { calcKSTData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
@@ -140,7 +141,7 @@ function createKSTRendererPlugin(options: KSTRendererOptions = {}): RendererPlug
       const lineStartX = scrollLeft
       const lineEndX = scrollLeft + context.paneWidth
 
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)'
+      ctx.strokeStyle = colors.wmsrGrid
       ctx.lineWidth = 1
       ctx.beginPath()
       ctx.moveTo(lineStartX, zeroY)
@@ -273,6 +274,7 @@ function getKSTTitleInfo(
   params: Record<string, number | boolean | string>,
   pluginHost: PluginHost,
   paneId: string,
+  colors: ColorTokens,
 ): {
   name: string
   params: number[]
@@ -284,7 +286,6 @@ function getKSTTitleInfo(
   const roc3 = (params.roc3 as number) ?? 20
   const roc4 = (params.roc4 as number) ?? 30
   const signalPeriod = (params.signalPeriod as number) ?? 9
-  const colors = resolveThemeColors('light')
   const state = pluginHost.getSharedState<KSTRenderState>(createKSTStateKey(paneId))
   if (!state) return null
 
