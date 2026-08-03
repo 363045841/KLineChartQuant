@@ -135,6 +135,7 @@ describe('viewportState template', () => {
       dataLength$: (() => 100) as any,
       period$: (() => 'daily') as any,
       zoomLevel$: (() => 5) as any,
+      sessionSlots$: (() => 240) as any,
     })
     module.actions.resize(800, 600, 2)
     expect(module.readonly.viewWidth()).toBe(800)
@@ -159,6 +160,7 @@ describe('viewportState template', () => {
       dataLength$: (() => 100) as any,
       period$: (() => 'daily') as any,
       zoomLevel$: (() => 1) as any,
+      sessionSlots$: (() => 240) as any,
     })
     module.actions.scrollTo(100)
     expect(module.readonly.scrollLeft()).toBe(100)
@@ -174,6 +176,7 @@ describe('viewportState template', () => {
       dataLength$,
       zoomLevel$: (() => 1) as any,
       period$,
+      sessionSlots$: (() => 240) as any,
     } as any)
     module.actions.resize(200, 150, 2)
 
@@ -283,6 +286,7 @@ describe('viewportState template', () => {
       dataLength$: (() => 100) as any,
       period$: (() => 'daily') as any,
       zoomLevel$: (() => 1) as any,
+      sessionSlots$: (() => 240) as any,
     })
     const listener = vi.fn()
     module.readonly.viewWidth.subscribe(listener)

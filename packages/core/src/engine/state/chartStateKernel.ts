@@ -32,6 +32,9 @@ import type { MarkerEntity, CustomMarkerEntity } from '../marker/registry'
 import type { DragMode } from './interactionState'
 import type { ChartSettings } from '../../foundation/config/chartSettings'
 import type { RendererBackendRuntime } from '../../rendering/render/rendererHost'
+import type { MarketSessionRegistry } from '../market/marketSessionRegistry'
+import { resolveSymbolMarketSession } from '../market/resolveSymbolMarketSession'
+import { resolveMarketSessionSlots } from '../../foundation/utils/sessionTimeLabels'
 
 export interface ChartStateKernelDeps {
   initialOptions: {
@@ -53,6 +56,8 @@ export interface ChartStateKernelDeps {
   initialZoomLevel: number
   initialSettings?: Partial<ChartSettings>
   initialRendererRuntime?: RendererBackendRuntime
+  /** 各市场分时交易时段注册表（分时几何 / 槽位共用）；未注入时分时槽位退化为 0 */
+  marketSessions?: MarketSessionRegistry
   scheduleDraw: (level?: unknown) => void
 }
 
@@ -83,6 +88,8 @@ export class ChartStateKernel extends StateKernel {
     bottomAxisHeight: number
     kWidth: number
   }>
+  /** 分时交易时段槽位数（由当前品种 market 派生，供可见区间与布局共用） */
+  readonly sessionSlots$: ReadonlySignal<number>
 
   readonly signals: Record<string, ReadonlySignal<unknown>>
   readonly actions: Record<string, (...args: any[]) => void>
@@ -113,6 +120,16 @@ export class ChartStateKernel extends StateKernel {
 
     // ── Data manager state (coordination layer) ──
     this.dataManager = createDataManagerState()
+    // computed() 立即求值一次，故须在 dataManager 创建之后定义
+    this.sessionSlots$ = computed(() => {
+      const spec = this.dataManager.readonly.currentSpec()
+      if (!deps.marketSessions || !spec?.market) return 0
+      try {
+        return resolveMarketSessionSlots(resolveSymbolMarketSession(spec, deps.marketSessions))
+      } catch {
+        return 0
+      }
+    })
 
     // ── Comparison state ──
     this.comparison = createComparisonState({ symbols$: this.data.readonly.symbols })
@@ -132,6 +149,7 @@ export class ChartStateKernel extends StateKernel {
       dataLength$: this.dataLength$,
       period$: this.dataManager.readonly.currentPeriod,
       zoomLevel$: this.zoomLevel$,
+      sessionSlots$: this.sessionSlots$,
     })
 
     // ── Pane state（从 initialOptions.panes 初始化，避免 layout 与 kernel 初始不一致）──

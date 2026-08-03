@@ -31,6 +31,7 @@ describe('viewportState visibleRange SSOT', () => {
       dataLength$,
       period$: (() => 'daily') as any,
       zoomLevel$: (() => 3) as any,
+      sessionSlots$: (() => 240) as any,
     })
 
     // resize 后 scrollLeftLogical≈0（右对齐短序列或左缘），raw start 常为 -1
@@ -46,5 +47,24 @@ describe('viewportState visibleRange SSOT', () => {
     expect(clamped.end).toBe(raw.end)
     expect(vs.visibleFrom).toBe(0)
     expect(vs.visibleTo).toBe(clamped.end)
+  })
+
+  it('timeshare visible range covers full data regardless of kWidth rounding (slot grid)', () => {
+    const dataLength$ = createSignal(240)
+    const module = createViewportState({
+      options$: (() => ({ bottomAxisHeight: 30, kWidth: 3, kGap: 1 })) as any,
+      dataLength$,
+      period$: (() => 'timeshare') as any,
+      zoomLevel$: (() => 3) as any,
+      sessionSlots$: (() => 240) as any,
+    })
+    // 旧实现（kWidth/kGap 取整网格）在 W=900, kWidth=3, kGap=1 时 end 只有 226
+    module.actions.resize(900, 400, 1)
+    const raw = module.readonly.rawVisibleRange()
+    const clamped = module.readonly.visibleRange()
+    expect(raw.start).toBe(-1)
+    expect(clamped.start).toBe(0)
+    expect(clamped.end).toBe(240)
+    expect(raw.end).toBe(240)
   })
 })

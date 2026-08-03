@@ -261,6 +261,7 @@ export class Chart {
       initialZoomLevel,
       initialSettings: runtime?.initialSettings,
       initialRendererRuntime: this.rendererHost.runtime,
+      marketSessions: this.marketSessions,
       scheduleDraw: (level) => this.scheduleDraw(level as UpdateLevel | undefined),
     })
     this.rendererHost.setListeners({

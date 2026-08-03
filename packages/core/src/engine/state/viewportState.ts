@@ -8,6 +8,7 @@ import {
 import type { Viewport, ViewportState } from '../chartTypes'
 import type { VisibleRange } from '../layout/pane'
 import { clampVisibleRange, getVisibleRange } from '../viewport/viewport'
+import { computeTimeShareVisibleRange } from '../modes/timeShareMath'
 import {
   computeLeftLoadBufferWidth as pureLeftBuffer,
   computeContentWidth as pureContentWidth,
@@ -65,6 +66,8 @@ export interface ViewportSignalDeps {
   dataLength$: ReadonlySignal<number>
   period$: ReadonlySignal<string>
   zoomLevel$: ReadonlySignal<number>
+  /** 分时交易时段槽位数（由当前品种 market 经 MarketSessionRegistry 派生，与渲染器同源） */
+  sessionSlots$: ReadonlySignal<number>
 }
 
 /**
@@ -200,15 +203,24 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
   let _cachedRawVisibleRange: VisibleRange | null = null
   const cachedRawVisibleRange = computed<VisibleRange>(() => {
     const vp = cachedViewport()
-    const opts = signalDeps.options$()
-    const vr = getVisibleRange(
-      vp.scrollLeft,
-      vp.plotWidth,
-      opts.kWidth,
-      kGap(),
-      signalDeps.dataLength$(),
-      vp.dpr,
-    )
+    // 分时：与 computeTimeShareXLayout 共用 slot 网格，避免 kWidth/kGap 取整误差截断右缘数据；
+    // K 线：仍按 kWidth/kGap 物理像素网格计算
+    const vr =
+      signalDeps.period$() === 'timeshare'
+        ? computeTimeShareVisibleRange({
+            scrollLeft: vp.scrollLeft,
+            totalWidth: vp.plotWidth,
+            dataLength: signalDeps.dataLength$(),
+            sessionSlots: signalDeps.sessionSlots$(),
+          })
+        : getVisibleRange(
+            vp.scrollLeft,
+            vp.plotWidth,
+            signalDeps.options$().kWidth,
+            kGap(),
+            signalDeps.dataLength$(),
+            vp.dpr,
+          )
     if (
       _cachedRawVisibleRange &&
       _cachedRawVisibleRange.start === vr.start &&

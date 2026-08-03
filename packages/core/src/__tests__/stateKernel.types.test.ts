@@ -31,6 +31,7 @@ describe('StateKernel type constraints (compile-time)', () => {
       dataLength$: (() => 100) as any,
       period$: (() => 'daily') as any,
       zoomLevel$: (() => 1) as any,
+      sessionSlots$: (() => 240) as any,
     })
     // @ts-expect-error `.set` should not exist on the readonly view
     void m.readonly.viewportState.set

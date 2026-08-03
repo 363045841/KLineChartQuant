@@ -123,6 +123,31 @@ export function computeTimeShareXLayout(input: TimeShareXLayoutInput): TimeShare
   return { step, centers, lefts, barWidth, kWidthPx }
 }
 
+export type TimeShareVisibleRangeInput = {
+  scrollLeft: number
+  totalWidth: number
+  dataLength: number
+  sessionSlots: number
+}
+
+/**
+ * 分时可见区间：与 computeTimeShareXLayout 共用同一套 slot 网格（step = totalWidth / sessionSlots）。
+ *
+ * 不能复用 getVisibleRange（K 线按 kWidth/kGap 取整的网格）：分时落点按 step 均分，
+ * 两者取整误差会累积，导致窄屏时右侧数据被排除在渲染范围之外。
+ * 分时无平移/缩放（scrollLeft 恒为 0），此函数结果恒为 [-1, dataLength]。
+ */
+export function computeTimeShareVisibleRange(
+  input: TimeShareVisibleRangeInput,
+): { start: number; end: number } {
+  const { scrollLeft, totalWidth, dataLength, sessionSlots } = input
+  if (dataLength <= 0 || sessionSlots <= 0 || totalWidth <= 0) return { start: 0, end: 0 }
+  const step = totalWidth / sessionSlots
+  const start = Math.floor(scrollLeft / step) - 1
+  const end = Math.min(dataLength, Math.ceil((scrollLeft + totalWidth) / step) + 1)
+  return { start, end }
+}
+
 export type TimeSharePaneLayout = {
   priceTop: number
   priceAreaHeight: number

@@ -11,6 +11,7 @@ import {
   computeTimeSharePaneLayout,
   computeTimeSharePriceRange,
   computeTimeShareTimeLabelIndices,
+  computeTimeShareVisibleRange,
   computeTimeShareXLayout,
   resolveTimeShareSessionSlots,
   resolveTimeShareBaseline,
@@ -142,6 +143,61 @@ describe('computeTimeShareXLayout', () => {
 
     expect(layout).not.toBeNull()
     expect(layout!.centers).toEqual([1, 239, 243, 479])
+  })
+})
+
+describe('computeTimeShareVisibleRange', () => {
+  it('covers full data when scrolled to left edge (no scroll in timeshare)', () => {
+    const r = computeTimeShareVisibleRange({
+      scrollLeft: 0,
+      totalWidth: 900,
+      dataLength: 240,
+      sessionSlots: 240,
+    })
+    expect(r.start).toBe(-1)
+    expect(r.end).toBe(240)
+  })
+
+  it('uses the same step grid as the layout for a scrolled viewport', () => {
+    // step = 480/240 = 2；视口 [120, 480] 覆盖第 60..239 槽
+    const r = computeTimeShareVisibleRange({
+      scrollLeft: 120,
+      totalWidth: 480,
+      dataLength: 240,
+      sessionSlots: 240,
+    })
+    expect(r.start).toBe(59)
+    expect(r.end).toBe(240)
+  })
+
+  it('respects per-market session slots (HK 330) without clipping', () => {
+    const r = computeTimeShareVisibleRange({
+      scrollLeft: 0,
+      totalWidth: 990,
+      dataLength: 330,
+      sessionSlots: 330,
+    })
+    expect(r.start).toBe(-1)
+    expect(r.end).toBe(330)
+  })
+
+  it('returns empty range for invalid input', () => {
+    expect(
+      computeTimeShareVisibleRange({
+        scrollLeft: 0,
+        totalWidth: 0,
+        dataLength: 240,
+        sessionSlots: 240,
+      }),
+    ).toEqual({ start: 0, end: 0 })
+    expect(
+      computeTimeShareVisibleRange({
+        scrollLeft: 0,
+        totalWidth: 480,
+        dataLength: 0,
+        sessionSlots: 240,
+      }),
+    ).toEqual({ start: 0, end: 0 })
   })
 })
 
