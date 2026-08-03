@@ -194,6 +194,15 @@ export interface ENEColors {
   readonly bandFill: ColorValue
 }
 
+/** Ichimoku (一目均衡表) indicator colours. */
+export interface IchimokuColors {
+  readonly tenkan: ColorValue
+  readonly kijun: ColorValue
+  readonly spanA: ColorValue
+  readonly spanB: ColorValue
+  readonly chikou: ColorValue
+}
+
 /** Generic label colours (tooltip-like overlays). */
 export interface LabelColors {
   readonly bg: ColorValue
@@ -323,6 +332,7 @@ export interface ColorTokens {
   readonly kst: KSTColors
   readonly expma: EXPMAColors
   readonly ene: ENEColors
+  readonly ichimoku: IchimokuColors
   readonly label: LabelColors
   readonly lastPriceLabel: LastPriceLabelColors
   readonly volumePrice: VolumePriceColors

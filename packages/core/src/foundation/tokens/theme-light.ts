@@ -193,6 +193,13 @@ export const lightTheme: Theme = {
       lower: 'rgba(3, 123, 102, 1)',
       bandFill: 'rgba(69, 112, 249, 0.08)',
     },
+    ichimoku: {
+      tenkan: 'rgb(128, 25, 34)',
+      kijun: 'rgba(69, 112, 249, 1)',
+      spanA: 'rgba(3, 123, 102, 1)',
+      spanB: '#dc2626',
+      chikou: 'rgba(156, 39, 176, 1)',
+    },
     label: {
       bg: 'rgba(0, 0, 0, 0.8)',
       text: '#ffffff',

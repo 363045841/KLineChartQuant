@@ -187,6 +187,13 @@ export const darkTheme: Theme = {
       lower: 'rgba(60, 200, 160, 1)',
       bandFill: 'rgba(90, 140, 255, 0.12)',
     },
+    ichimoku: {
+      tenkan: 'rgb(224, 96, 86)',
+      kijun: 'rgba(90, 140, 255, 1)',
+      spanA: 'rgba(60, 200, 160, 1)',
+      spanB: '#dc2626',
+      chikou: 'rgba(180, 70, 205, 1)',
+    },
     label: {
       bg: 'rgba(30, 30, 40, 0.9)',
       text: '#ffffff',

@@ -22,9 +22,6 @@ import { createIchimokuVisibleStateComposer } from '../../indicators/visibleStat
 import { getPhysicalKLineConfig } from '../../utils/klineConfig'
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 
-const TENKAN_COLOR = '#dc2626'
-const SPAN_B_COLOR = '#dc2626'
-
 type Point = { x: number; y: number }
 /** @internal 对测试暴露 */
 export type CloudSeg = { x: number; ya: number; yb: number; bull: boolean }
@@ -109,11 +106,13 @@ function renderIchimokuLines(
 ): void {
   const { ctx, scrollLeft } = context
   const lines: Array<{ points: Point[]; width: number; color: string }> = []
-  if (tenkanPts.length >= 2) lines.push({ points: tenkanPts, width: 1, color: TENKAN_COLOR })
-  if (kijunPts.length >= 2) lines.push({ points: kijunPts, width: 1, color: colors.palette.i9 })
-  if (spanAPts.length >= 2) lines.push({ points: spanAPts, width: 1, color: colors.palette.i3 })
-  if (spanBPts.length >= 2) lines.push({ points: spanBPts, width: 1, color: SPAN_B_COLOR })
-  if (chikouPts.length >= 2) lines.push({ points: chikouPts, width: 1, color: colors.palette.i8 })
+  if (tenkanPts.length >= 2)
+    lines.push({ points: tenkanPts, width: 1, color: colors.ichimoku.tenkan })
+  if (kijunPts.length >= 2) lines.push({ points: kijunPts, width: 1, color: colors.ichimoku.kijun })
+  if (spanAPts.length >= 2) lines.push({ points: spanAPts, width: 1, color: colors.ichimoku.spanA })
+  if (spanBPts.length >= 2) lines.push({ points: spanBPts, width: 1, color: colors.ichimoku.spanB })
+  if (chikouPts.length >= 2)
+    lines.push({ points: chikouPts, width: 1, color: colors.ichimoku.chikou })
 
   if (tryDrawLinesGpu(context, lines, scrollLeft)) return
 
@@ -122,11 +121,11 @@ function renderIchimokuLines(
   ctx.lineWidth = 1
   ctx.lineJoin = 'round'
   ctx.lineCap = 'round'
-  drawLine(ctx, tenkanPts, TENKAN_COLOR)
-  drawLine(ctx, kijunPts, colors.palette.i9)
-  drawLine(ctx, spanAPts, colors.palette.i3)
-  drawLine(ctx, spanBPts, SPAN_B_COLOR)
-  drawLine(ctx, chikouPts, colors.palette.i8)
+  drawLine(ctx, tenkanPts, colors.ichimoku.tenkan)
+  drawLine(ctx, kijunPts, colors.ichimoku.kijun)
+  drawLine(ctx, spanAPts, colors.ichimoku.spanA)
+  drawLine(ctx, spanBPts, colors.ichimoku.spanB)
+  drawLine(ctx, chikouPts, colors.ichimoku.chikou)
   ctx.restore()
 }
 
@@ -268,14 +267,16 @@ function getIchimokuTitleInfo(
   if (!p) return null
 
   const values: TitleValueItem[] = []
-  if (p.tenkan !== undefined) values.push({ label: 'Tenkan', value: p.tenkan, color: TENKAN_COLOR })
+  if (p.tenkan !== undefined)
+    values.push({ label: 'Tenkan', value: p.tenkan, color: colors.ichimoku.tenkan })
   if (p.kijun !== undefined)
-    values.push({ label: 'Kijun', value: p.kijun, color: colors.palette.i9 })
+    values.push({ label: 'Kijun', value: p.kijun, color: colors.ichimoku.kijun })
   if (p.spanA !== undefined)
-    values.push({ label: 'SpanA', value: p.spanA, color: colors.palette.i3 })
-  if (p.spanB !== undefined) values.push({ label: 'SpanB', value: p.spanB, color: SPAN_B_COLOR })
+    values.push({ label: 'SpanA', value: p.spanA, color: colors.ichimoku.spanA })
+  if (p.spanB !== undefined)
+    values.push({ label: 'SpanB', value: p.spanB, color: colors.ichimoku.spanB })
   if (p.chikou !== undefined)
-    values.push({ label: 'Chikou', value: p.chikou, color: colors.palette.i8 })
+    values.push({ label: 'Chikou', value: p.chikou, color: colors.ichimoku.chikou })
 
   return {
     name: 'Ichimoku',
