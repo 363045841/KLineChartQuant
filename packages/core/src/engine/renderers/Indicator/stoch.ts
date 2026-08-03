@@ -134,7 +134,7 @@ function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): Renderer
 
       const paneWidth = context.paneWidth
       const paneHeight = pane.height
-      dashedLines.render(ctx, paneWidth, paneHeight, displayMin, displayMax, dpr)
+      dashedLines.render(ctx, paneWidth, paneHeight, displayMin, displayMax, dpr, colors.wmsrGrid)
 
       // 确定绘制范围
       const drawStart = Math.max(range.start, params.n + params.m - 2)

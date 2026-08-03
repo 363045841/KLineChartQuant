@@ -194,6 +194,19 @@ export const darkTheme: Theme = {
       spanB: '#dc2626',
       chikou: 'rgba(180, 70, 205, 1)',
     },
+    fib: {
+      l618: '#f87171',
+      l786: '#d97706',
+    },
+    gmma: {
+      g8: '#f87171',
+      g10: '#fb7185',
+      g50: '#a78bfa',
+      g60: '#818cf8',
+    },
+    pivot: {
+      resistance: '#f87171',
+    },
     label: {
       bg: 'rgba(30, 30, 40, 0.9)',
       text: '#ffffff',

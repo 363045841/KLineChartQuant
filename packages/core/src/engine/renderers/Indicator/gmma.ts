@@ -23,15 +23,7 @@ import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 type LinePoint = { x: number; y: number }
 
-// GMMA 12 个周期色超出 palette 的 10 个槽位：红系（8/10）与末 2 个周期（50/60）保留 const
-const GMMA_FIXED_COLORS: Record<number, string> = {
-  8: '#ef4444',
-  10: '#e11d48',
-  50: '#8b5cf6',
-  60: '#6366f1',
-}
-
-/** 构建 GMMA 周期颜色映射：palette 索引（按色相）+ 固定 const，draw/title 共用同一来源 */
+/** 构建 GMMA 周期颜色映射：palette 索引（按色相）+ token 色组，draw/title 共用同一来源 */
 function getGMMAColors(colors: ColorTokens): Record<number, string> {
   return {
     3: colors.palette.i2,
@@ -42,7 +34,10 @@ function getGMMAColors(colors: ColorTokens): Record<number, string> {
     35: colors.palette.i6,
     40: colors.palette.i9,
     45: colors.palette.i9,
-    ...GMMA_FIXED_COLORS,
+    8: colors.gmma.g8,
+    10: colors.gmma.g10,
+    50: colors.gmma.g50,
+    60: colors.gmma.g60,
   }
 }
 

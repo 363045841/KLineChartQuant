@@ -25,8 +25,9 @@ export function createDashedLineRenderer() {
     displayMin: number,
     displayMax: number,
     dpr: number,
+    color: string,
   ): string {
-    return `${paneWidth}|${paneHeight}|${displayMin.toFixed(4)}|${displayMax.toFixed(4)}|${dpr}`
+    return `${paneWidth}|${paneHeight}|${displayMin.toFixed(4)}|${displayMax.toFixed(4)}|${dpr}|${color}`
   }
 
   function renderToOffscreen(
@@ -36,6 +37,7 @@ export function createDashedLineRenderer() {
     displayMin: number,
     displayMax: number,
     dpr: number,
+    color: string,
   ): void {
     const displayValueRange = displayMax - displayMin || 1
     const y80 = alignToPhysicalPixelCenter(
@@ -51,7 +53,7 @@ export function createDashedLineRenderer() {
     ctx.save()
     ctx.scale(dpr, dpr)
 
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)'
+    ctx.strokeStyle = color
     ctx.lineWidth = 1
     ctx.setLineDash([4, 4])
     ctx.beginPath()
@@ -71,15 +73,16 @@ export function createDashedLineRenderer() {
     displayMin: number,
     displayMax: number,
     dpr: number,
+    color: string,
   ): void {
-    const key = buildKey(paneWidth, paneHeight, displayMin, displayMax, dpr)
+    const key = buildKey(paneWidth, paneHeight, displayMin, displayMax, dpr, color)
     if (cachedDashedLinesKey !== key) {
       cachedDashedLinesKey = key
       const { ctx: offCtx } = getOffscreenCanvas(
         Math.ceil(paneWidth * dpr),
         Math.ceil(paneHeight * dpr),
       )
-      renderToOffscreen(offCtx, paneWidth, paneHeight, displayMin, displayMax, dpr)
+      renderToOffscreen(offCtx, paneWidth, paneHeight, displayMin, displayMax, dpr, color)
     }
     if (offscreenCanvas) {
       ctx.drawImage(offscreenCanvas, 0, 0, paneWidth, paneHeight)

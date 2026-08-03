@@ -203,6 +203,25 @@ export interface IchimokuColors {
   readonly chikou: ColorValue
 }
 
+/** Fibonacci retracement indicator colours. */
+export interface FibColors {
+  readonly l618: ColorValue
+  readonly l786: ColorValue
+}
+
+/** GMMA (Guernsey Multiple Moving Average) indicator colours. */
+export interface GMMAColors {
+  readonly g8: ColorValue
+  readonly g10: ColorValue
+  readonly g50: ColorValue
+  readonly g60: ColorValue
+}
+
+/** Pivot Points indicator colours. */
+export interface PivotColors {
+  readonly resistance: ColorValue
+}
+
 /** Generic label colours (tooltip-like overlays). */
 export interface LabelColors {
   readonly bg: ColorValue
@@ -333,6 +352,9 @@ export interface ColorTokens {
   readonly expma: EXPMAColors
   readonly ene: ENEColors
   readonly ichimoku: IchimokuColors
+  readonly fib: FibColors
+  readonly gmma: GMMAColors
+  readonly pivot: PivotColors
   readonly label: LabelColors
   readonly lastPriceLabel: LastPriceLabelColors
   readonly volumePrice: VolumePriceColors

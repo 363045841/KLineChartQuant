@@ -19,9 +19,6 @@ import type { PivotRenderState } from '../../indicators/state/pivotState'
 import { createPivotStateKey, EMPTY_PIVOT_STATE } from '../../indicators/state/pivotState'
 import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 
-// R 阻力线保留红色 const：palette 无红色系，不强配
-const R_COLOR = '#dc2626'
-
 type Point = { x: number; y: number }
 
 function getPivotStateKey(host: PluginHost | null, paneId: string): string | null {
@@ -104,9 +101,9 @@ function createPivotRendererPlugin(options: { paneId?: string } = {}): RendererP
       ctx.translate(-scrollLeft, 0)
       ctx.lineWidth = 1
       drawStep(ctx, ppPts, colors.palette.i10)
-      drawStep(ctx, r1Pts, R_COLOR)
-      drawStep(ctx, r2Pts, R_COLOR)
-      drawStep(ctx, r3Pts, R_COLOR)
+      drawStep(ctx, r1Pts, colors.pivot.resistance)
+      drawStep(ctx, r2Pts, colors.pivot.resistance)
+      drawStep(ctx, r3Pts, colors.pivot.resistance)
       drawStep(ctx, s1Pts, colors.palette.i3)
       drawStep(ctx, s2Pts, colors.palette.i3)
       drawStep(ctx, s3Pts, colors.palette.i3)
@@ -150,13 +147,13 @@ const getPivotTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId, 
     values.push({ label: 'PP', value: p.pp, color: colors.palette.i10 })
   }
   if (state.params.showR1) {
-    values.push({ label: 'R1', value: p.r1, color: R_COLOR })
+    values.push({ label: 'R1', value: p.r1, color: colors.pivot.resistance })
   }
   if (state.params.showR2) {
-    values.push({ label: 'R2', value: p.r2, color: R_COLOR })
+    values.push({ label: 'R2', value: p.r2, color: colors.pivot.resistance })
   }
   if (state.params.showR3) {
-    values.push({ label: 'R3', value: p.r3, color: R_COLOR })
+    values.push({ label: 'R3', value: p.r3, color: colors.pivot.resistance })
   }
   if (state.params.showS1) {
     values.push({ label: 'S1', value: p.s1, color: colors.palette.i3 })

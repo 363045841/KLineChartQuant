@@ -20,13 +20,7 @@ import { createFibStateKey, EMPTY_FIB_STATE } from '../../indicators/state/fibSt
 import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 
-// 斐波那契回撤线中 palette 无对应映射的颜色（红/深棕）保留 const
-const FIB_FIXED_COLORS = {
-  l618: '#dc2626',
-  l786: '#7c2d12',
-}
-
-/** 构建斐波那契回撤线颜色映射：palette 索引 + 固定 const，draw/title 共用同一来源 */
+/** 构建斐波那契回撤线颜色映射：palette 索引 + token 色组，draw/title 共用同一来源 */
 function getFibColors(colors: ColorTokens) {
   return {
     high: colors.palette.i10,
@@ -34,8 +28,8 @@ function getFibColors(colors: ColorTokens) {
     l236: colors.palette.i2,
     l382: colors.palette.i2,
     l500: colors.palette.i2,
-    l618: FIB_FIXED_COLORS.l618,
-    l786: FIB_FIXED_COLORS.l786,
+    l618: colors.fib.l618,
+    l786: colors.fib.l786,
   }
 }
 

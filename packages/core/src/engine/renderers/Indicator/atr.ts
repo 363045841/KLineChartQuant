@@ -20,8 +20,6 @@ import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 type LinePoint = { x: number; y: number }
 
-const ATR_COLOR = '#d97706'
-
 interface ATRRendererOptions {
   paneId?: string
 }
@@ -105,7 +103,7 @@ function createATRRendererPlugin(options: ATRRendererOptions = {}): RendererPlug
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      const atrColor = colors.palette?.indicatorAtr ?? ATR_COLOR
+      const atrColor = colors.palette.indicatorAtr
 
       const stateKey = resolveKey()
       if (!stateKey) return
@@ -208,7 +206,7 @@ const getATRTitleInfo = createSingleLineTitleInfo({
   createStateKey: createATRStateKey,
   name: 'ATR',
   defaultPeriod: 14,
-  color: ATR_COLOR,
+  getColor: (colors) => colors.palette.indicatorAtr,
 })
 
 @Indicator({

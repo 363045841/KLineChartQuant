@@ -200,6 +200,19 @@ export const lightTheme: Theme = {
       spanB: '#dc2626',
       chikou: 'rgba(156, 39, 176, 1)',
     },
+    fib: {
+      l618: '#dc2626',
+      l786: '#7c2d12',
+    },
+    gmma: {
+      g8: '#ef4444',
+      g10: '#e11d48',
+      g50: '#8b5cf6',
+      g60: '#6366f1',
+    },
+    pivot: {
+      resistance: '#dc2626',
+    },
     label: {
       bg: 'rgba(0, 0, 0, 0.8)',
       text: '#ffffff',

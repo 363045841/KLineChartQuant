@@ -120,6 +120,13 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-color-ichimoku-span-a: rgba(60, 200, 160, 1);
   --klc-color-ichimoku-span-b: #dc2626;
   --klc-color-ichimoku-chikou: rgba(180, 70, 205, 1);
+  --klc-color-fib-l618: #f87171;
+  --klc-color-fib-l786: #d97706;
+  --klc-color-gmma-g8: #f87171;
+  --klc-color-gmma-g10: #fb7185;
+  --klc-color-gmma-g50: #a78bfa;
+  --klc-color-gmma-g60: #818cf8;
+  --klc-color-pivot-resistance: #f87171;
   --klc-color-label-bg: rgba(30, 30, 40, 0.9);
   --klc-color-label-text: #ffffff;
   --klc-color-last-price-label-bg: rgba(60, 50, 55, 0.98);
@@ -325,6 +332,13 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-color-ichimoku-span-a: rgba(3, 123, 102, 1);
   --klc-color-ichimoku-span-b: #dc2626;
   --klc-color-ichimoku-chikou: rgba(156, 39, 176, 1);
+  --klc-color-fib-l618: #dc2626;
+  --klc-color-fib-l786: #7c2d12;
+  --klc-color-gmma-g8: #ef4444;
+  --klc-color-gmma-g10: #e11d48;
+  --klc-color-gmma-g50: #8b5cf6;
+  --klc-color-gmma-g60: #6366f1;
+  --klc-color-pivot-resistance: #dc2626;
   --klc-color-label-bg: rgba(0, 0, 0, 0.8);
   --klc-color-label-text: #ffffff;
   --klc-color-last-price-label-bg: rgba(255, 247, 248, 0.98);
