@@ -710,7 +710,9 @@ export class ChartDataManager {
         const key = bufKey(BUF_TIMESHARE, spec.market, spec.symbol)
         this._tsBuffers.set(key, tsBuf)
         this.activateBuffer(key)
-        tsBuf.load(spec)
+        // 本方法只负责"准备"（建 buffer + 设日期 + 激活），不触发拉取：
+        // switchToTimeShareForDate 紧跟的 setSymbols（period=timeshare）是唯一
+        // load 入口，避免同一 buffer 在首次进入分时图时被重复请求两次。
       }
     }
   }
