@@ -4,6 +4,8 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
+import type { ColorTokens } from '../../../foundation/tokens/index'
 import { calcFibData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import {
@@ -18,14 +20,23 @@ import { createFibStateKey, EMPTY_FIB_STATE } from '../../indicators/state/fibSt
 import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 
-const FIB_COLORS = {
-  high: '#94a3b8',
-  low: '#94a3b8',
-  l236: '#fbbf24',
-  l382: '#f59e0b',
-  l500: '#d97706',
+// 斐波那契回撤线中 palette 无对应映射的颜色（红/深棕）保留 const
+const FIB_FIXED_COLORS = {
   l618: '#dc2626',
   l786: '#7c2d12',
+}
+
+/** 构建斐波那契回撤线颜色映射：palette 索引 + 固定 const，draw/title 共用同一来源 */
+function getFibColors(colors: ColorTokens) {
+  return {
+    high: colors.palette.i10,
+    low: colors.palette.i10,
+    l236: colors.palette.i2,
+    l382: colors.palette.i2,
+    l500: colors.palette.i2,
+    l618: FIB_FIXED_COLORS.l618,
+    l786: FIB_FIXED_COLORS.l786,
+  }
 }
 
 type Point = { x: number; y: number }
@@ -58,7 +69,7 @@ function createFibRendererPlugin(options: { paneId?: string } = {}): RendererPlu
     description: '斐波那契回撤线渲染器（WebGL + Canvas2D 回退）',
     debugName: 'Fib',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
     onInstall(host) {
       pluginHost = host
     },
@@ -68,6 +79,11 @@ function createFibRendererPlugin(options: { paneId?: string } = {}): RendererPlu
     },
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
       const stateKey = resolveKey()
       if (!stateKey) return
       const state = pluginHost?.getSharedState<FibRenderState>(stateKey)
@@ -101,10 +117,15 @@ function createFibRendererPlugin(options: { paneId?: string } = {}): RendererPlu
         collectors.l786!.push({ x: centerX, y: toY(pt.level786) })
       }
 
+      const fibColors = getFibColors(colors)
       const lines: Array<{ points: Point[]; width: number; color: string }> = []
       for (const [key, pts] of Object.entries(collectors)) {
         if (pts.length >= 2) {
-          lines.push({ points: pts, width: 1, color: FIB_COLORS[key as keyof typeof FIB_COLORS] })
+          lines.push({
+            points: pts,
+            width: 1,
+            color: fibColors[key as keyof typeof fibColors],
+          })
         }
       }
 
@@ -114,7 +135,7 @@ function createFibRendererPlugin(options: { paneId?: string } = {}): RendererPlu
       ctx.translate(-scrollLeft, 0)
       ctx.lineWidth = 1
       for (const [key, pts] of Object.entries(collectors)) {
-        drawLine(ctx, pts, FIB_COLORS[key as keyof typeof FIB_COLORS])
+        drawLine(ctx, pts, fibColors[key as keyof typeof fibColors])
       }
       ctx.restore()
     },
@@ -136,7 +157,7 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
   ctx.stroke()
 }
 
-const getFibTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId) => {
+const getFibTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId, colors) => {
   if (index === null || index < 0) return null
 
   const stateKey = createFibStateKey(paneId)
@@ -146,12 +167,13 @@ const getFibTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId) =>
   const p = state.series[index]
   if (!p) return null
 
+  const fibColors = getFibColors(colors)
   const values: TitleValueItem[] = [
-    { label: '236', value: p.level236, color: FIB_COLORS.l236 },
-    { label: '382', value: p.level382, color: FIB_COLORS.l382 },
-    { label: '500', value: p.level500, color: FIB_COLORS.l500 },
-    { label: '618', value: p.level618, color: FIB_COLORS.l618 },
-    { label: '786', value: p.level786, color: FIB_COLORS.l786 },
+    { label: '236', value: p.level236, color: fibColors.l236 },
+    { label: '382', value: p.level382, color: fibColors.l382 },
+    { label: '500', value: p.level500, color: fibColors.l500 },
+    { label: '618', value: p.level618, color: fibColors.l618 },
+    { label: '786', value: p.level786, color: fibColors.l786 },
   ]
 
   return {

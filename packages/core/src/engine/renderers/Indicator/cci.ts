@@ -89,7 +89,7 @@ function createCCIRendererPlugin(options: CCIRendererOptions = {}): RendererPlug
     description: 'CCI 顺势指标渲染器（WebGL + Canvas2D 回退）',
     debugName: 'CCI',
     paneId: paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host
@@ -151,8 +151,8 @@ function createCCIRendererPlugin(options: CCIRendererOptions = {}): RendererPlug
       ctx.lineTo(lineEndX, yNeg100)
       ctx.stroke()
 
-      // 零轴
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)'
+      // 零轴（使用主题 wmsrGrid token，避免硬编码颜色）
+      ctx.strokeStyle = colors.wmsrGrid
       ctx.beginPath()
       ctx.moveTo(lineStartX, zeroY)
       ctx.lineTo(lineEndX, zeroY)

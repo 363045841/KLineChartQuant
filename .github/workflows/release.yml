@@ -112,6 +112,31 @@ jobs:
           current_tag="${GITHUB_REF_NAME}"
           git fetch --force --tags
 
+          notes_file="release-notes.md"
+
+          # 优先使用本地生成的 release 日志（docs/release/<tag>.md）
+          if [ -f "docs/release/${current_tag}.md" ]; then
+            echo "📝 使用 docs/release/${current_tag}.md 作为 release notes"
+            cp "docs/release/${current_tag}.md" "$notes_file"
+            previous_tag="$(git tag --sort=-creatordate | awk -v current="$current_tag" '$0 != current { print; exit }')"
+            if [ -n "$previous_tag" ]; then
+              range="$previous_tag..$current_tag"
+            else
+              range="$current_tag"
+            fi
+            {
+              echo 'previous_tag<<EOF'
+              echo "$previous_tag"
+              echo 'EOF'
+              echo 'range<<EOF'
+              echo "$range"
+              echo 'EOF'
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # 兜底：未找到日志文件时自动生成
+          echo "⚠️ 未找到 docs/release/${current_tag}.md，回退到自动生成 release notes"
           previous_tag="$(git tag --sort=-creatordate | awk -v current="$current_tag" '$0 != current { print; exit }')"
 
           if [ -n "$previous_tag" ]; then
@@ -119,8 +144,6 @@ jobs:
           else
             range="$current_tag"
           fi
-
-          notes_file="release-notes.md"
 
           CURRENT_TAG="$current_tag" PREVIOUS_TAG="$previous_tag" RANGE="$range" python <<'PY'
           import os

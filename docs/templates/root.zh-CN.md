@@ -6,9 +6,9 @@
 
 {{include:_features.zh-CN.md}}
 
-## 🚀 快速开始
+{{include:_data-sources.zh-CN.md}}
 
-{{include:_prerequisites.zh-CN.md}}
+## 🚀 快速开始
 
 {{include:_usage-vue.zh-CN.md}}
 

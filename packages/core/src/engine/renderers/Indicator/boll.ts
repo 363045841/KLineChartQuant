@@ -4,7 +4,7 @@ import type {
   RenderContext,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
+import { resolveThemeColors, type ColorTokens } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
 import { calcBOLLData } from '../../indicators/calculators'
@@ -20,8 +20,7 @@ import type {
 import type { BOLLSchedulerConfig, IndicatorScheduler } from '../../indicators/scheduler'
 import { BOLL_STATE_KEY, type BOLLRenderState } from '../../indicators/state/bollState'
 
-import { getRgbaAlpha, toOpaqueRgba } from './shared/webglBand'
-import { tryDrawFilledBandGpu, tryDrawLinesGpu } from '../linesViaRenderer'
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 type LinePoint = { x: number; y: number }
 
@@ -34,8 +33,7 @@ interface PriceData {
 }
 
 /**
- * BOLL GPU：先 band fill（半透明 composite）再三轨折线。
- * 仅 sceneRenderer；失败返回 false 走 2D。
+ * BOLL GPU：三轨折线；仅 sceneRenderer，失败返回 false 走 2D。
  */
 function drawBOLLWithWebGL(
   context: RenderContext,
@@ -43,12 +41,9 @@ function drawBOLLWithWebGL(
     showUpper: boolean
     showMiddle: boolean
     showLower: boolean
-    showBand: boolean
     upperPoints: LinePoint[]
     middlePoints: LinePoint[]
     lowerPoints: LinePoint[]
-    bandUpperPoints: LinePoint[]
-    bandLowerPoints: LinePoint[]
   },
 ): boolean {
   const colors = resolveThemeColors(
@@ -56,18 +51,6 @@ function drawBOLLWithWebGL(
     context.isAsiaMarket,
     context.colorPresetSettings,
   )
-  // band：画完立即 composite（alpha），再画线（MSAA 会 clear FBO，band 已在 2D）
-  let bandOk = false
-  if (data.showBand && data.bandUpperPoints.length >= 2 && data.bandLowerPoints.length >= 2) {
-    bandOk = tryDrawFilledBandGpu(
-      context,
-      data.bandUpperPoints,
-      data.bandLowerPoints,
-      toOpaqueRgba(colors.boll.bandFill),
-      context.scrollLeft,
-      getRgbaAlpha(colors.boll.bandFill),
-    )
-  }
 
   const lineStrips: Array<{ points: LinePoint[]; width: number; color: string }> = []
   if (data.showUpper && data.upperPoints.length >= 2) {
@@ -84,7 +67,7 @@ function drawBOLLWithWebGL(
     lineStrips.push({ points: data.lowerPoints, width: BOLL_LINE_WIDTH, color: colors.boll.lower })
   }
 
-  if (lineStrips.length === 0) return bandOk
+  if (lineStrips.length === 0) return false
   return tryDrawLinesGpu(context, lineStrips, context.scrollLeft)
 }
 
@@ -152,6 +135,7 @@ const getBOLLTitleInfo: GetTitleInfoFn = (
   _params: Record<string, number | boolean | string>,
   pluginHost: PluginHost,
   _paneId: string,
+  colors: ColorTokens,
 ): TitleInfo | null => {
   if (index === null) return null
 
@@ -165,9 +149,9 @@ const getBOLLTitleInfo: GetTitleInfoFn = (
   if (!bollPoint) return null
 
   const values: TitleValueItem[] = [
-    { label: 'UP', value: bollPoint.upper, color: '#C83C3C' },
-    { label: 'MID', value: bollPoint.middle, color: '#5A8CFF' },
-    { label: 'DN', value: bollPoint.lower, color: '#32AA3C' },
+    { label: 'UP', value: bollPoint.upper, color: colors.boll.upper },
+    { label: 'MID', value: bollPoint.middle, color: colors.boll.middle },
+    { label: 'DN', value: bollPoint.lower, color: colors.boll.lower },
   ]
 
   return { name: 'BOLL', params: [state.params.period, state.params.multiplier], values }
@@ -182,9 +166,7 @@ const getBOLLTitleInfo: GetTitleInfoFn = (
   mainPane: {
     rendererName: 'boll',
     toActiveConfig: (params, active) =>
-      active
-        ? params
-        : { ...params, showUpper: false, showMiddle: false, showLower: false, showBand: false },
+      active ? params : { ...params, showUpper: false, showMiddle: false, showLower: false },
     computePriceRange: computeBOLLPriceRange,
     composeRenderState: composeBOLLRenderState,
   },
@@ -204,7 +186,6 @@ const getBOLLTitleInfo: GetTitleInfoFn = (
       showUpper: true,
       showMiddle: true,
       showLower: true,
-      showBand: true,
     },
     computeKey: 'calcBOLLData',
     compute: (data, c) => calcBOLLData(data, c.period, c.multiplier),
@@ -222,8 +203,6 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
   const _upperPool: LinePoint[] = []
   const _middlePool: LinePoint[] = []
   const _lowerPool: LinePoint[] = []
-  const _bandUpperPool: LinePoint[] = []
-  const _bandLowerPool: LinePoint[] = []
   let _poolSize = 0
 
   function _growPool(size: number) {
@@ -232,8 +211,6 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
       _upperPool[i] = { x: 0, y: 0 }
       _middlePool[i] = { x: 0, y: 0 }
       _lowerPool[i] = { x: 0, y: 0 }
-      _bandUpperPool[i] = { x: 0, y: 0 }
-      _bandLowerPool[i] = { x: 0, y: 0 }
     }
     _poolSize = size
   }
@@ -275,7 +252,7 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
         return
       }
 
-      const { period, showUpper, showMiddle, showLower, showBand } = state.params
+      const { period, showUpper, showMiddle, showLower } = state.params
       const bollData = state.series
 
       if (klineData.length < period) return
@@ -295,13 +272,10 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
       const upperPoints: LinePoint[] = new Array(pointCount)
       const middlePoints: LinePoint[] = new Array(pointCount)
       const lowerPoints: LinePoint[] = new Array(pointCount)
-      const bandUpperPoints: LinePoint[] = showBand ? new Array(pointCount) : []
-      const bandLowerPoints: LinePoint[] = showBand ? new Array(pointCount) : []
 
       let upperIdx = 0,
         middleIdx = 0,
-        lowerIdx = 0,
-        bandIdx = 0
+        lowerIdx = 0
 
       for (let i = drawStart; i < drawEnd; i++) {
         const boll = bollData[i]
@@ -328,28 +302,12 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
         p.x = centerX
         p.y = lowerY
         lowerPoints[lowerIdx++] = p
-
-        if (showBand) {
-          p = _bandUpperPool[bandIdx]
-          p.x = centerX
-          p.y = upperY
-          bandUpperPoints[bandIdx] = p
-          p = _bandLowerPool[bandIdx]
-          p.x = centerX
-          p.y = lowerY
-          bandLowerPoints[bandIdx] = p
-          bandIdx++
-        }
       }
 
       // 截断到实际长度
       upperPoints.length = upperIdx
       middlePoints.length = middleIdx
       lowerPoints.length = lowerIdx
-      if (showBand) {
-        bandUpperPoints.length = bandIdx
-        bandLowerPoints.length = bandIdx
-      }
 
       // ====== 渲染 ======
       if (
@@ -357,12 +315,9 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
           showUpper,
           showMiddle,
           showLower,
-          showBand,
           upperPoints,
           middlePoints,
           lowerPoints,
-          bandUpperPoints,
-          bandLowerPoints,
         })
       ) {
         return
@@ -374,20 +329,6 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
       ctx.lineWidth = BOLL_LINE_WIDTH
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
-
-      if (showBand && bandUpperPoints.length >= 2) {
-        const bandPath = new Path2D()
-        bandPath.moveTo(bandUpperPoints[0].x, bandUpperPoints[0].y)
-        for (let i = 1; i < bandUpperPoints.length; i++) {
-          bandPath.lineTo(bandUpperPoints[i].x, bandUpperPoints[i].y)
-        }
-        for (let i = bandLowerPoints.length - 1; i >= 0; i--) {
-          bandPath.lineTo(bandLowerPoints[i].x, bandLowerPoints[i].y)
-        }
-        bandPath.closePath()
-        ctx.fillStyle = colors.boll.bandFill
-        ctx.fill(bandPath)
-      }
 
       const drawLine = (points: LinePoint[], color: string) => {
         if (points.length < 2) return

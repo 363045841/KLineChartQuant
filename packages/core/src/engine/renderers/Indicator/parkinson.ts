@@ -17,8 +17,6 @@ import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo'
 
-const PARKINSON_COLOR = '#0891b2'
-
 type LinePoint = { x: number; y: number }
 
 function getParkinsonStateKey(host: PluginHost | null, paneId: string): string | null {
@@ -49,7 +47,7 @@ function createParkinsonRendererPlugin(options: { paneId?: string } = {}): Rende
     description: 'Parkinson 波动率渲染器（WebGL + Canvas2D 回退）',
     debugName: 'Parkinson',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
     onInstall(host) {
       pluginHost = host
     },
@@ -59,6 +57,11 @@ function createParkinsonRendererPlugin(options: { paneId?: string } = {}): Rende
     },
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
       const stateKey = resolveKey()
       if (!stateKey) return
       const state = pluginHost?.getSharedState<ParkinsonRenderState>(stateKey)
@@ -85,11 +88,12 @@ function createParkinsonRendererPlugin(options: { paneId?: string } = {}): Rende
 
       if (points.length < 2) return
 
-      if (tryDrawLinesGpu(context, [{ points, width: 1, color: PARKINSON_COLOR }], scrollLeft)) return
+      if (tryDrawLinesGpu(context, [{ points, width: 1, color: colors.palette.i6 }], scrollLeft))
+        return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = PARKINSON_COLOR
+      ctx.strokeStyle = colors.palette.i6
       ctx.lineWidth = 1
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
@@ -115,7 +119,7 @@ const getParkinsonTitleInfo = createSingleLineTitleInfo({
   createStateKey: createParkinsonStateKey,
   name: 'Parkinson',
   getParams: (p) => [(p.period as number) ?? 20, (p.annualizationFactor as number) ?? 252],
-  color: PARKINSON_COLOR,
+  getColor: (colors) => colors.palette.i6,
 })
 
 @Indicator({

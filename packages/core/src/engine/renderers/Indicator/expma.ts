@@ -4,7 +4,7 @@ import type {
   RenderContext,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
+import { resolveThemeColors, type ColorTokens } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
 import { calcEXPMAData } from '../../indicators/calculators'
@@ -229,6 +229,7 @@ const getEXPMATitleInfo: GetTitleInfoFn = (
   _params: Record<string, number | boolean | string>,
   pluginHost: PluginHost,
   _paneId: string,
+  colors: ColorTokens,
 ): TitleInfo | null => {
   if (index === null) return null
 
@@ -242,8 +243,8 @@ const getEXPMATitleInfo: GetTitleInfoFn = (
   if (!expmaPoint) return null
 
   const values: TitleValueItem[] = [
-    { label: 'FAST', value: expmaPoint.fast, color: '#FFAA32' },
-    { label: 'SLOW', value: expmaPoint.slow, color: '#5A8CFF' },
+    { label: 'FAST', value: expmaPoint.fast, color: colors.expma.fast },
+    { label: 'SLOW', value: expmaPoint.slow, color: colors.expma.slow },
   ]
 
   return { name: 'EXPMA', params: [state.params.fastPeriod, state.params.slowPeriod], values }

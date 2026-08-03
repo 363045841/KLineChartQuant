@@ -48,14 +48,18 @@
 export const VERSION = "0.7.5"
 ```
 
-### 2. 提交版本更新
+### 2. 编写 Release 日志（可选）
+
+发布前可用 `update-version` skill（或手动）生成 `docs/release/<tag>.md`（如 `docs/release/v0.7.5.md`），作为 GitHub Release 的日志内容。若未提供，CI 将回退为自动生成。
+
+### 3. 提交版本更新
 
 ```bash
-git add packages/core/package.json packages/vue/package.json packages/core/src/version.ts
+git add packages/core/package.json packages/vue/package.json packages/core/src/version.ts docs/release/v0.7.5.md
 git commit -m "chore(release): v0.7.5"
 ```
 
-### 3. 创建并推送 Tag
+### 4. 创建并推送 Tag
 
 ```bash
 # 创建 tag
@@ -101,7 +105,7 @@ npm publish --provenance --access public
 
 ### 阶段 4: 生成 Release Notes
 
-脚本会自动分析 git log，按以下分类整理提交：
+优先使用仓库内的 `docs/release/<tag>.md`（与 tag 同 commit 提交）。若该文件不存在，脚本会自动分析 git log，按以下分类整理提交：
 
 | 分类 | 匹配规则 |
 |------|----------|

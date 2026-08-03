@@ -11,7 +11,7 @@ describe('builtin indicator registration', () => {
   it('loads all builtin indicator definitions through decorators', () => {
     const definitions = getBuiltinIndicatorDefinitions()
 
-    expect(definitions).toHaveLength(41)
+    expect(definitions).toHaveLength(49)
     expect(definitions.map((definition) => definition.name)).toEqual(
       expect.arrayContaining(['ma', 'boll', 'rsi', 'macd', 'volume', 'volumeProfile', 'zones']),
     )
@@ -349,7 +349,6 @@ describe('builtin indicator registration', () => {
       showUpper: false,
       showMiddle: false,
       showLower: false,
-      showBand: false,
     })
     expect(
       getRegisteredIndicatorDefinition('EXPMA')?.mainPane?.toActiveConfig?.({}, false),

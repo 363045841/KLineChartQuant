@@ -4,6 +4,7 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcKAMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -14,8 +15,6 @@ import { createSparseVisibleStateComposer } from '../../indicators/visibleStateC
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo'
-
-const KAMA_COLOR = '#0ea5e9'
 
 type Point = { x: number; y: number }
 
@@ -51,7 +50,7 @@ function createKAMARendererPlugin(options: KAMARendererOptions = {}): RendererPl
     description: 'KAMA Kaufman 自适应均线渲染器（WebGL + Canvas2D 回退）',
     debugName: 'KAMA',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host
@@ -64,6 +63,11 @@ function createKAMARendererPlugin(options: KAMARendererOptions = {}): RendererPl
 
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
 
       const stateKey = resolveKey()
       if (!stateKey) return
@@ -85,11 +89,12 @@ function createKAMARendererPlugin(options: KAMARendererOptions = {}): RendererPl
 
       if (points.length < 2) return
 
-      if (tryDrawLinesGpu(context, [{ points, width: 1, color: KAMA_COLOR }], scrollLeft)) return
+      if (tryDrawLinesGpu(context, [{ points, width: 1, color: colors.palette.i6 }], scrollLeft))
+        return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = KAMA_COLOR
+      ctx.strokeStyle = colors.palette.i6
       ctx.lineWidth = 1
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
@@ -119,7 +124,7 @@ const getKAMATitleInfo = createSingleLineTitleInfo({
   createStateKey: createKAMAStateKey,
   name: 'KAMA',
   getParams: (p) => [p.period as number, p.fastPeriod as number, p.slowPeriod as number],
-  color: KAMA_COLOR,
+  getColor: (colors) => colors.palette.i6,
 })
 
 @Indicator({

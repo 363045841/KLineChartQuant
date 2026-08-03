@@ -192,6 +192,7 @@
     useSymbolSearch,
     type SymbolSearchFn,
   } from '../composables/useSymbolSearch'
+  import { isMockSourceName } from '../composables/useAggregationSources'
   import { useTeleportedPopup } from '../composables/useTeleportedPopup'
 
   import AggregationSourceButton from './AggregationSourceButton.vue'
@@ -243,7 +244,7 @@
           typeof source.searcher === 'function',
       )
       .slice()
-      .sort((a, b) => Number(a.name.startsWith('mock-')) - Number(b.name.startsWith('mock-')))
+      .sort((a, b) => Number(isMockSourceName(a.name)) - Number(isMockSourceName(b.name)))
     if (searchable.length === 0) return []
     return [
       { key: 'all', label: '全部' },

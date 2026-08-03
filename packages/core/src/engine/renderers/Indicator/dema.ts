@@ -4,6 +4,7 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcDEMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -14,8 +15,6 @@ import { createSparseVisibleStateComposer } from '../../indicators/visibleStateC
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo'
-
-const DEMA_COLOR = '#6366f1'
 
 type Point = { x: number; y: number }
 
@@ -51,7 +50,7 @@ function createDEMARendererPlugin(options: DEMARendererOptions = {}): RendererPl
     description: 'DEMA 双重指数移动均线渲染器（WebGL + Canvas2D 回退）',
     debugName: 'DEMA',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host
@@ -64,6 +63,11 @@ function createDEMARendererPlugin(options: DEMARendererOptions = {}): RendererPl
 
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
 
       const stateKey = resolveKey()
       if (!stateKey) return
@@ -85,11 +89,12 @@ function createDEMARendererPlugin(options: DEMARendererOptions = {}): RendererPl
 
       if (points.length < 2) return
 
-      if (tryDrawLinesGpu(context, [{ points, width: 1, color: DEMA_COLOR }], scrollLeft)) return
+      if (tryDrawLinesGpu(context, [{ points, width: 1, color: colors.palette.i9 }], scrollLeft))
+        return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = DEMA_COLOR
+      ctx.strokeStyle = colors.palette.i9
       ctx.lineWidth = 1
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
@@ -119,7 +124,7 @@ const getDEMATitleInfo = createSingleLineTitleInfo({
   createStateKey: createDEMAStateKey,
   name: 'DEMA',
   getParams: (p) => [p.period as number],
-  color: DEMA_COLOR,
+  getColor: (colors) => colors.palette.i9,
 })
 
 @Indicator({

@@ -24,6 +24,11 @@ interface StoredAggregationSources {
 
 export type AggregationSourceStatus = 'checking' | 'online' | 'offline'
 
+/** 判断数据源是否为本地 MOCK 源（UI 中用于将 mock 沉底展示） */
+export function isMockSourceName(name: string): boolean {
+  return name === 'mock' || name.startsWith('mock-')
+}
+
 /**
  * 对支持搜索的数据源做一次轻量拨测
  * @remarks 查询 "0"、limit 1；只关心请求成败，不要求返回结果

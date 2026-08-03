@@ -104,6 +104,13 @@ export function createYAxisOverlayRendererPlugin(options: YAxisOptions): Rendere
       const targetCtx = yAxisOverlayCtx ?? yAxisCtx
       if (!targetCtx) return
 
+      // 标签默认底色/文字色统一取自 theme tokens，与静态层一致
+      const tokenColors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
+
       const axisWidth = targetCtx.canvas ? targetCtx.canvas.width / dpr : options.axisWidth
       targetCtx.clearRect(0, 0, axisWidth, pane.height)
 
@@ -126,9 +133,9 @@ export function createYAxisOverlayRendererPlugin(options: YAxisOptions): Rendere
               priceY: label.y + pane.top,
               price: label.price,
               dpr,
-              bgColor: label.style?.bgColor ?? 'rgba(0, 0, 0, 0.8)',
+              bgColor: label.style?.bgColor ?? tokenColors.label.bg,
               borderColor: label.style?.borderColor,
-              textColor: label.style?.textColor ?? '#ffffff',
+              textColor: label.style?.textColor ?? tokenColors.label.text,
               fontSize: isLastPrice ? 12 : 11,
             },
             context.theme,

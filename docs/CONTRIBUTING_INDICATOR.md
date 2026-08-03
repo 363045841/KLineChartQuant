@@ -6,6 +6,37 @@
 
 ---
 
+## 指标命名约定（MA 家族）
+
+均线家族 `name` 一律用标准英文缩写、全小写；`displayName` 用全大写。已占用名称：
+
+| name | 全称 | 说明 |
+|------|------|------|
+| `ma` | Simple Moving Average | 已有 |
+| `expma` | EXPMA | 已有；国内双线平滑（快/慢两条 EMA），**不是**标准单线 EMA |
+| `wma` | Weighted Moving Average | 已有 |
+| `dema` | Double Exponential Moving Average | 已有 |
+| `tema` | Triple Exponential Moving Average | 已有；**恒为 Triple EMA，保持国际标准不改** |
+| `hma` | Hull Moving Average | 已有 |
+| `kama` | Kaufman Adaptive Moving Average | 已有 |
+| `vma` | Volume Moving Average（量的 MA） | 已有；区别于 `vwap` |
+| `trix` | Triple Exponential Average | 已有 |
+
+待新增指标使用以下保留名，避免歧义：
+
+- 三角均线（Triangular）→ **`trima`**（Pine 标准名，与 `tema` 无歧义；不用 `tma`）
+- Wilder 平滑（Smoothed MA）→ `smma` / `rma`
+- 成交量加权均线 → `vwma`（区别于已有 `vma` 与 `vwap`）
+- 零滞后 EMA → `zlema`
+- Arnaud Legoux → `alma`
+- 线性回归均线 → `lsma`
+- 平行线差（通达信 DMA）→ `dma`
+- 顾比均线（Guppy）→ `gmma`
+
+新增前先确认 `indicatorCatalog.ts` 的 `uiMeta` 与 `@Indicator` 注册名是否已占用。
+
+---
+
 ## 文件改动清单（按依赖顺序）
 
 下表以新指标 `XXX` 为例（小写 `xxx`、大写 `XXX`，对应实例：`ATR` / `atr`）。

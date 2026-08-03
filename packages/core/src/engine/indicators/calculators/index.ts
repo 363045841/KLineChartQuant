@@ -8,7 +8,16 @@ export {
   calcTEMAData,
   calcHMAData,
   calcKAMAData,
+  calcSMMAData,
+  calcTRIMAData,
+  calcZLEMAData,
+  calcVWMAData,
+  calcALMAData,
+  calcLSMAData,
+  calcGMMAData,
 } from './movingAverages'
+export type { DMAPoint } from './movingAverages'
+export { calcDMAData } from './movingAverages'
 
 export type { BOLLPoint } from './bands'
 export { calcBOLLData } from './bands'

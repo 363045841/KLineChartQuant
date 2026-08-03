@@ -6,9 +6,9 @@
 
 {{include:_features.md}}
 
-## 🚀 Quick Start
+{{include:_data-sources.md}}
 
-{{include:_prerequisites.md}}
+## 🚀 Quick Start
 
 {{include:_usage-vue.md}}
 

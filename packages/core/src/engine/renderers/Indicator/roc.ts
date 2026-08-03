@@ -16,8 +16,6 @@ import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 import { createSingleLineTitleInfo } from './shared/titleInfo'
 
-const ROC_COLOR = '#0ea5e9'
-
 type LinePoint = { x: number; y: number }
 
 interface ROCRendererOptions {
@@ -52,7 +50,7 @@ function createROCRendererPlugin(options: ROCRendererOptions = {}): RendererPlug
     description: 'ROC 变化率渲染器（WebGL + Canvas2D 回退）',
     debugName: 'ROC',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost) {
       pluginHost = host
@@ -64,6 +62,11 @@ function createROCRendererPlugin(options: ROCRendererOptions = {}): RendererPlug
 
     draw(context: RenderContext) {
       const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
       const stateKey = resolveKey()
       if (!stateKey) return
       const state = pluginHost?.getSharedState<ROCRenderState>(stateKey)
@@ -82,7 +85,7 @@ function createROCRendererPlugin(options: ROCRendererOptions = {}): RendererPlug
       const zeroY = paneH - (0 - displayMin) * invRange
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)'
+      ctx.strokeStyle = colors.wmsrGrid
       ctx.lineWidth = 1
       ctx.setLineDash([4, 4])
       ctx.beginPath()
@@ -104,11 +107,12 @@ function createROCRendererPlugin(options: ROCRendererOptions = {}): RendererPlug
 
       if (points.length < 2) return
 
-      if (tryDrawLinesGpu(context, [{ points, width: 1, color: ROC_COLOR }], scrollLeft)) return
+      if (tryDrawLinesGpu(context, [{ points, width: 1, color: colors.palette.i6 }], scrollLeft))
+        return
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = ROC_COLOR
+      ctx.strokeStyle = colors.palette.i6
       ctx.lineWidth = 1
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
@@ -135,7 +139,7 @@ const getROCTitleInfo = createSingleLineTitleInfo({
   createStateKey: createROCStateKey,
   name: 'ROC',
   defaultPeriod: 12,
-  color: ROC_COLOR,
+  getColor: (colors) => colors.palette.i6,
 })
 
 @Indicator({

@@ -117,6 +117,7 @@
       @confirm="onParamsConfirm"
     />
 
+    <!-- z-index 高于指标选择弹窗(1000)，避免被其 Teleport 重排后遮挡 -->
     <BaseModal
       v-if="descriptionIndicator"
       :show="descriptionVisible"
@@ -125,6 +126,7 @@
       width="90vw"
       max-width="420px"
       transition-variant="compact"
+      :z-index="1100"
       @close="descriptionVisible = false"
     >
       <p class="indicator-description">{{ descriptionIndicator.description }}</p>

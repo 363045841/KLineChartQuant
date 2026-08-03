@@ -55,34 +55,21 @@
 - **自定义 Tooltip** - 通过命名插槽（`#kline-tooltip`、`#marker-tooltip`）完全自定义 tooltip，引擎提供悬停数据、位置和样式
 
 
+## 📡 数据源
+
+KLineChart 需要行情数据后端支持。支持的数据源如下：
+
+| 数据源 | 说明 | 文档 |
+|---|---|---|
+| `gotdx` | 通达信（GOTDX）行情：A 股 / 期货 / MAC，由 `KlineChartQuantGo` 提供 | [KlineChartQuantGo](docs/data-sources/klinechartquantgo.zh-CN.md) |
+| `baostock` | BaoStock A 股日 / 周 / 月及分钟 K 线，由 `stockbao` 提供 | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
+| `tradingview` | TradingView 全球品种，由 `stockbao` 提供 | [BaoStock](docs/data-sources/baostock.zh-CN.md) |
+| `mock` | 调试用：本地生成 MOCK-100 / MOCK-10000 K 线，无需后端，探测恒为在线 | — |
+
+后端仓库与本仓库同级（不在 monorepo 内），具体启动方式见各文档。
+
+
 ## 🚀 快速开始
-
-### 前置要求
-
-KLineChart 需要股票数据后端支持。请确保 `kmap` 与 `stockbao` 处于同一目录下：
-
-```
-workspace/
-├── KLineChartQuant/ # 本仓库
-└── stockbao/    # 数据后端仓库
-```
-
-### 1. 克隆仓库
-
-```bash
-git clone https://github.com/363045841/KLineChartQuant.git
-git clone https://github.com/363045841/stockbao.git
-```
-
-### 2. 启动数据后端
-
-```bash
-cd KLineChartQuant
-npm run stockbao
-```
-
-后端启动后，API 地址为 `http://localhost:8000`
-
 
 ### 3. 安装并使用
 

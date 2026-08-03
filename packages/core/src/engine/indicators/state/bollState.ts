@@ -13,14 +13,13 @@ export interface BOLLRenderState extends BaseIndicatorState {
   timestamp: number
   /** 全量 BOLL 数组（稀疏：前 period-1 个为 undefined） */
   series: BOLLPoint[]
-  /** 计算和渲染参数（渲染器从此读取 showUpper/showMiddle/showLower/showBand） */
+  /** 计算和渲染参数（渲染器从此读取 showUpper/showMiddle/showLower） */
   params: {
     period: number
     multiplier: number
     showUpper: boolean
     showMiddle: boolean
     showLower: boolean
-    showBand: boolean
   }
   /** 视口内所有 BOLL 线的最低价 */
   visibleMin: number
@@ -47,7 +46,6 @@ export const EMPTY_BOLL_STATE: BOLLRenderState = {
     showUpper: true,
     showMiddle: true,
     showLower: true,
-    showBand: true,
   },
   visibleMin: Infinity,
   visibleMax: -Infinity,

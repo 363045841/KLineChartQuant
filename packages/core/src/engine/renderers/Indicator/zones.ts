@@ -4,7 +4,7 @@ import type {
   PluginHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
+import { resolveThemeColors, type ColorTokens } from '../../../foundation/tokens/index'
 import { calcZonesData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import {
@@ -45,7 +45,7 @@ function createZonesRendererPlugin(options: { paneId?: string } = {}): RendererP
     description: 'SMC 区域渲染器（FVG 缺口 + Order Blocks 订单块）',
     debugName: 'Zones',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
     onInstall(host) {
       pluginHost = host
     },
@@ -112,7 +112,7 @@ function createZonesRendererPlugin(options: { paneId?: string } = {}): RendererP
   }
 }
 
-const getZonesTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId) => {
+const getZonesTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId, colors) => {
   if (index === null) return null
 
   const stateKey = createZonesStateKey(paneId)
@@ -127,7 +127,14 @@ const getZonesTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId) 
   const values: TitleValueItem[] = activeZones.slice(0, 5).map((z) => ({
     label: z.kind,
     value: z.high,
-    color: z.kind.includes('Bull') ? '#22c55e' : '#ef4444',
+    color:
+      z.kind === 'FVG_BULL'
+        ? colors.zones.fvgBullFill
+        : z.kind === 'FVG_BEAR'
+          ? colors.zones.fvgBearFill
+          : z.kind === 'OB_BULL'
+            ? colors.zones.obBullFill
+            : colors.zones.obBearFill,
   }))
 
   return {

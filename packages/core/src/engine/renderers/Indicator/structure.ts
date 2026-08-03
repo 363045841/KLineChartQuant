@@ -5,6 +5,7 @@ import type {
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
 import { resolveThemeColors } from '../../../foundation/tokens/index'
+import type { ColorTokens } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { calcStructureData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
@@ -47,7 +48,7 @@ function createStructureRendererPlugin(options: { paneId?: string } = {}): Rende
     description: 'SMC 结构渲染器（swing 标签 + BOS/CHOCH 触发线）',
     debugName: 'Structure',
     paneId,
-    priority: RENDERER_PRIORITY.MAIN,
+    priority: RENDERER_PRIORITY.INDICATOR,
     onInstall(host) {
       pluginHost = host
     },
@@ -142,11 +143,11 @@ function getStructureTitleInfo(
   params: Record<string, number | boolean | string>,
   host: PluginHost,
   paneId: string,
+  colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
   const leftWindow = (params.leftWindow as number) ?? 5
   const rightWindow = (params.rightWindow as number) ?? 2
-  const colors = resolveThemeColors('light')
   const state = host.getSharedState<StructureRenderState>(createStructureStateKey(paneId))
 
   const values: Array<{ label: string; value: number; color: string }> = []

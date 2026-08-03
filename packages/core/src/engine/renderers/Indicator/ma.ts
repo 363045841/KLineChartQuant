@@ -5,6 +5,7 @@ import type {
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
 import { resolveThemeColors } from '../../../foundation/tokens/index'
+import type { ColorTokens } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
 import { calcMAData, type MAFlags } from '../../indicators/calculators'
@@ -115,6 +116,7 @@ function getMATitleInfo(
   _params: Record<string, number | boolean | string>,
   pluginHost: PluginHost,
   _paneId: string,
+  colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
 
@@ -125,11 +127,11 @@ function getMATitleInfo(
   if (!state || state.visibleMin > state.visibleMax) return null
 
   const maColors: Record<number, string> = {
-    5: '#f5a623',
-    10: '#4ecdc4',
-    20: '#45b7d1',
-    30: '#96ceb4',
-    60: '#dda0dd',
+    5: colors.ma.ma5,
+    10: colors.ma.ma10,
+    20: colors.ma.ma20,
+    30: colors.ma.ma30,
+    60: colors.ma.ma60,
   }
 
   const values: TitleValueItem[] = []
@@ -141,7 +143,7 @@ function getMATitleInfo(
     values.push({
       label: `MA${period}`,
       value,
-      color: maColors[period] ?? '#f5a623',
+      color: maColors[period] ?? colors.ma.ma5,
     })
   }
 
