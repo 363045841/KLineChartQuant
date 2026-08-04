@@ -4,8 +4,8 @@ import { Pane } from '../../layout/pane'
 import { TimeShareMode } from '../timeShareMode'
 import type { TimeShareData } from '../../../foundation/types/price'
 
-function ts(price: number, i = 0): TimeShareData {
-  return { timestamp: i, price, average: price, volume: 1, amount: price }
+function ts(price: number, i = 0, average = price): TimeShareData {
+  return { timestamp: i, price, average, volume: 1, amount: price }
 }
 
 function mockDm(points: TimeShareData[], preClose: number | null = null) {
@@ -77,5 +77,19 @@ describe('TimeShareMode', () => {
     const range = setRange.mock.calls[0]![0] as { minPrice: number; maxPrice: number }
     expect(range.maxPrice).toBeCloseTo(10.05, 6)
     expect(range.minPrice).toBeCloseTo(9.95, 6)
+  })
+
+  // 验证黄色均线超出价格线范围时仍包含在分时 Y 轴内。
+  it('updatePaneRange includes the average line in the Y-axis range', () => {
+    const mode = new TimeShareMode()
+    const pane = new Pane('main')
+    const setRange = vi.spyOn(pane.yAxis, 'setRange')
+
+    mode.updatePaneRange(pane, { start: 0, end: 2 }, mockDm([ts(10, 0, 11), ts(10, 1, 11)], 10))
+
+    const range = setRange.mock.calls[0]![0] as { minPrice: number; maxPrice: number }
+    // average=11，相对昨收 +10%，加 1% padding 后范围为 +/-11%。
+    expect(range.maxPrice).toBeCloseTo(11.1, 6)
+    expect(range.minPrice).toBeCloseTo(8.9, 6)
   })
 })

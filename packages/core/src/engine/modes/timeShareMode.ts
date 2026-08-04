@@ -70,12 +70,13 @@ export class TimeShareMode implements ChartModeHandler {
     // scaleType 由 kernel.paneScaleTypes 投影（进入 timeshare 时写 percent）；此处只设会话 basePrice
     pane.yAxis.setBasePrice(baseline)
 
-    const prices: number[] = []
+    const visibleValues: number[] = []
     for (let i = start; i < end; i++) {
-      const p = tsData[i]?.price
-      if (p !== undefined) prices.push(p)
+      const item = tsData[i]
+      if (!item) continue
+      visibleValues.push(item.price, item.average)
     }
-    const priceRange = computeTimeSharePriceRange(prices, baseline)
+    const priceRange = computeTimeSharePriceRange(visibleValues, baseline)
     if (!priceRange) return
     pane.yAxis.setRange(priceRange)
   }
