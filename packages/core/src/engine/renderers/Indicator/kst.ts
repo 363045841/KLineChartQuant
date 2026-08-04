@@ -141,7 +141,7 @@ function createKSTRendererPlugin(options: KSTRendererOptions = {}): RendererPlug
       const lineStartX = scrollLeft
       const lineEndX = scrollLeft + context.paneWidth
 
-      ctx.strokeStyle = colors.wmsrGrid
+      ctx.strokeStyle = colors.referenceLine.neutral
       ctx.lineWidth = 1
       ctx.beginPath()
       ctx.moveTo(lineStartX, zeroY)

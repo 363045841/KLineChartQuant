@@ -95,7 +95,7 @@ function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): RendererPl
     displayMin: number,
     displayMax: number,
     dpr: number,
-    colors: { wmsr: { overbought: string; oversold: string }; wmsrGrid: string },
+    colors: { wmsr: { overbought: string; oversold: string; guide: string } },
   ): void {
     const displayValueRange = displayMax - displayMin || 1
     const y20 = alignToPhysicalPixelCenter(
@@ -129,7 +129,7 @@ function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): RendererPl
     ctx.lineTo(paneWidth, y80)
     ctx.stroke()
 
-    ctx.strokeStyle = colors.wmsrGrid
+    ctx.strokeStyle = colors.wmsr.guide
     ctx.beginPath()
     ctx.moveTo(0, y50)
     ctx.lineTo(paneWidth, y50)

@@ -153,6 +153,7 @@ export const darkTheme: Theme = {
       rsi1: 'rgba(90, 140, 255, 1)',
       rsi2: 'rgba(255, 170, 50, 1)',
       rsi3: 'rgba(180, 70, 205, 1)',
+      guide: 'rgba(255, 255, 255, 0.3)',
     },
     cci: {
       cci: 'rgba(90, 140, 255, 1)',
@@ -163,6 +164,7 @@ export const darkTheme: Theme = {
       k: 'rgba(90, 140, 255, 1)',
       d: 'rgba(255, 170, 50, 1)',
       j: 'rgba(180, 70, 205, 1)',
+      guide: 'rgba(255, 255, 255, 0.3)',
     },
     mom: {
       mom: 'rgba(90, 140, 255, 1)',
@@ -172,6 +174,7 @@ export const darkTheme: Theme = {
       wmsr: 'rgba(90, 140, 255, 1)',
       overbought: 'rgba(255, 80, 100, 0.6)',
       oversold: 'rgba(60, 200, 160, 0.6)',
+      guide: 'rgba(255, 255, 255, 0.3)',
     },
     kst: {
       kst: 'rgba(90, 140, 255, 1)',
@@ -235,6 +238,9 @@ export const darkTheme: Theme = {
       fvgBearBorder: 'rgba(248, 113, 113, 0.8)',
       obBullFill: 'rgba(74, 222, 128, 0.35)',
       obBearFill: 'rgba(248, 113, 113, 0.35)',
+    },
+    referenceLine: {
+      neutral: 'rgba(255, 255, 255, 0.3)',
     },
     wmsrGrid: 'rgba(255, 255, 255, 0.1)',
   },

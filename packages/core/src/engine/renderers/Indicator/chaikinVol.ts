@@ -84,7 +84,7 @@ function createChaikinVolRendererPlugin(options: { paneId?: string } = {}): Rend
       const zeroY = paneH - (0 - displayMin) * invRange
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = colors.wmsrGrid
+      ctx.strokeStyle = colors.referenceLine.neutral
       ctx.lineWidth = 1
       ctx.setLineDash([4, 4])
       ctx.beginPath()

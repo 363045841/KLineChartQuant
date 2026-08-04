@@ -92,7 +92,7 @@ function createTRIXRendererPlugin(options: TRIXRendererOptions = {}): RendererPl
       const zeroY = toY(0)
       ctx.save()
       ctx.translate(-scrollLeft, 0)
-      ctx.strokeStyle = colors.wmsrGrid
+      ctx.strokeStyle = colors.referenceLine.neutral
       ctx.lineWidth = 1
       ctx.setLineDash([4, 4])
       ctx.beginPath()

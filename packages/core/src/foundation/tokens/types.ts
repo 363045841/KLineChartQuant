@@ -145,6 +145,7 @@ export interface RSIColors {
   readonly rsi1: ColorValue
   readonly rsi2: ColorValue
   readonly rsi3: ColorValue
+  readonly guide: ColorValue
 }
 
 /** CCI indicator colours. */
@@ -159,6 +160,7 @@ export interface KDJColors {
   readonly k: ColorValue
   readonly d: ColorValue
   readonly j: ColorValue
+  readonly guide: ColorValue
 }
 
 /** MOM (Momentum) indicator colours. */
@@ -172,6 +174,12 @@ export interface WMSRColors {
   readonly wmsr: ColorValue
   readonly overbought: ColorValue
   readonly oversold: ColorValue
+  readonly guide: ColorValue
+}
+
+/** 通用副图零轴等参考线颜色。 */
+export interface ReferenceLineColors {
+  readonly neutral: ColorValue
 }
 
 /** KST (Know Sure Thing) indicator colours. */
@@ -360,6 +368,7 @@ export interface ColorTokens {
   readonly volumePrice: VolumePriceColors
   readonly structure: StructureColors
   readonly zones: ZonesColors
+  readonly referenceLine: ReferenceLineColors
   readonly wmsrGrid: ColorValue
 }
 

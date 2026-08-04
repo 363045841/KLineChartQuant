@@ -230,7 +230,7 @@ function createRSIRendererPlugin(options: RSIRendererOptions = {}): RendererPlug
         displayMin,
         displayMax,
         dpr,
-        colors.wmsrGrid,
+        colors.rsi.guide,
       )
 
       if (cachedDashedLinesKey !== dashedLinesKey) {
@@ -246,7 +246,7 @@ function createRSIRendererPlugin(options: RSIRendererOptions = {}): RendererPlug
           displayMin,
           displayMax,
           dpr,
-          colors.wmsrGrid,
+          colors.rsi.guide,
         )
       }
 

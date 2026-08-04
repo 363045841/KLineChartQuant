@@ -129,7 +129,7 @@ function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): Renderer
 
       const paneWidth = context.paneWidth
       const paneHeight = pane.height
-      dashedLines.render(ctx, paneWidth, paneHeight, displayMin, displayMax, dpr, colors.wmsrGrid)
+      dashedLines.render(ctx, paneWidth, paneHeight, displayMin, displayMax, dpr, colors.kdj.guide)
 
       // 确定绘制范围
       const drawStart = Math.max(range.start, params.period - 1)

@@ -127,8 +127,8 @@ function createATRRendererPlugin(options: ATRRendererOptions = {}): RendererPlug
       ctx.save()
       ctx.translate(-scrollLeft, 0)
 
-      // 零线使用主题 wmsrGrid token，避免硬编码颜色
-      ctx.strokeStyle = colors.wmsrGrid
+      // 零线使用通用参考线 token。
+      ctx.strokeStyle = colors.referenceLine.neutral
       ctx.lineWidth = 1
       ctx.setLineDash([4, 4])
       ctx.beginPath()
