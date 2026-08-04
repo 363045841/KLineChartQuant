@@ -13,7 +13,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, STOCHSchedulerConfig } from '../../indicators/scheduler'
 import type { STOCHRenderState } from '../../indicators/state/stochState'
 import { createSTOCHStateKey, EMPTY_STOCH_STATE } from '../../indicators/state/stochState'
-import { createFixedRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
+import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 
 import { createStochScaleRendererPlugin } from './scale/stoch_scale'
 import { createDashedLineRenderer } from './shared/dashedLines'
@@ -41,7 +41,7 @@ function getSTOCHStateKey(host: PluginHost | null, paneId: string): string | nul
 }
 
 /**
- * 创建 STOCH 渲染器插件
+ * 创建 KDJ 渲染器插件
  */
 function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): RendererPluginWithHost {
   const { paneId = 'sub' } = options
@@ -55,6 +55,7 @@ function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): Renderer
   let cachedKey = ''
   let cachedKPoints: LinePoint[] = []
   let cachedDPoints: LinePoint[] = []
+  let cachedJPoints: LinePoint[] = []
 
   // 离屏 Canvas 缓存虚线背景线 (80/20)
   const dashedLines = createDashedLineRenderer()
@@ -63,6 +64,7 @@ function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): Renderer
     cachedKey = ''
     cachedKPoints = []
     cachedDPoints = []
+    cachedJPoints = []
   }
 
   function buildSTOCHCacheKey(
@@ -87,6 +89,7 @@ function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): Renderer
       pane.height.toFixed(2),
       params.showK,
       params.showD,
+      params.showJ,
       params.n,
       params.m,
     ].join('|')
@@ -95,8 +98,8 @@ function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): Renderer
   return {
     name: `stoch_${paneId}`,
     version: '2.1.0',
-    description: 'STOCH 随机指标渲染器（WebGL + Canvas2D 回退）',
-    debugName: 'STOCH',
+    description: 'KDJ 指标渲染器（WebGL + Canvas2D 回退）',
+    debugName: 'KDJ',
     paneId: paneId,
     priority: RENDERER_PRIORITY.INDICATOR,
 
@@ -180,9 +183,25 @@ function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): Renderer
         } else {
           cachedDPoints = []
         }
+
+        if (params.showJ) {
+          const points: LinePoint[] = []
+          for (let i = drawStart; i < drawEnd; i++) {
+            const point = series[i]
+            if (!point) continue
+
+            const centerX = kLineCenters[i - rangeStart]
+            if (centerX === undefined) continue
+
+            points.push({ x: centerX, y: paneH - (point.j - displayMin) * invRange })
+          }
+          cachedJPoints = points
+        } else {
+          cachedJPoints = []
+        }
       }
 
-      // 绘制 STOCH 线（WebGL 优先，Canvas2D 回退）
+      // 绘制 KDJ 三线（WebGL 优先，Canvas2D 回退）
       const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
       if (params.showK && cachedKPoints.length >= 2) {
         lines.push({ points: cachedKPoints, width: 1, color: colors.kdj.k })
@@ -190,8 +209,19 @@ function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): Renderer
       if (params.showD && cachedDPoints.length >= 2) {
         lines.push({ points: cachedDPoints, width: 1, color: colors.kdj.d })
       }
+      if (params.showJ && cachedJPoints.length >= 2) {
+        lines.push({ points: cachedJPoints, width: 1, color: colors.kdj.j })
+      }
       if (!tryDrawLinesGpu(context, lines, scrollLeft)) {
-        drawSTOCHLinesWithCanvas2D(ctx, scrollLeft, cachedKPoints, cachedDPoints, params, colors)
+        drawSTOCHLinesWithCanvas2D(
+          ctx,
+          scrollLeft,
+          cachedKPoints,
+          cachedDPoints,
+          cachedJPoints,
+          params,
+          colors,
+        )
       }
     },
 
@@ -209,15 +239,16 @@ function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): Renderer
 }
 
 /**
- * 使用 Canvas 2D 绘制 STOCH 线（WebGL 回退）
+ * 使用 Canvas 2D 绘制 KDJ 线（WebGL 回退）
  */
 function drawSTOCHLinesWithCanvas2D(
   ctx: CanvasRenderingContext2D,
   scrollLeft: number,
   kPoints: LinePoint[],
   dPoints: LinePoint[],
-  params: { showK: boolean; showD: boolean },
-  colors: { kdj: { k: string; d: string } },
+  jPoints: LinePoint[],
+  params: { showK: boolean; showD: boolean; showJ: boolean },
+  colors: { kdj: { k: string; d: string; j: string } },
 ): void {
   ctx.save()
   ctx.translate(-scrollLeft, 0)
@@ -247,11 +278,22 @@ function drawSTOCHLinesWithCanvas2D(
     ctx.stroke()
   }
 
+  if (params.showJ && jPoints.length >= 2) {
+    ctx.strokeStyle = colors.kdj.j
+    ctx.beginPath()
+    ctx.moveTo(jPoints[0]!.x, jPoints[0]!.y)
+    for (let i = 1; i < jPoints.length; i++) {
+      const point = jPoints[i]!
+      ctx.lineTo(point.x, point.y)
+    }
+    ctx.stroke()
+  }
+
   ctx.restore()
 }
 
 /**
- * 获取 STOCH 标题信息（供 paneTitle 使用）
+ * 获取 KDJ 标题信息（供 paneTitle 使用）
  */
 function getSTOCHTitleInfo(
   _data: KLineData[],
@@ -264,45 +306,50 @@ function getSTOCHTitleInfo(
   name: string
   params: number[]
   values: Array<{ label: string; value: number; color: string }>
-} | null {
-  if (index === null) return null
+  } | null {
   const n = (params.n as number) ?? 9
   const m = (params.m as number) ?? 3
+  const title: {
+    name: string
+    params: number[]
+    values: Array<{ label: string; value: number; color: string }>
+  } = { name: '随机指标', params: [n, m], values: [] }
+  if (index === null) return title
+
   const state = pluginHost.getSharedState<STOCHRenderState>(createSTOCHStateKey(paneId))
-  if (!state) return null
+  if (!state) return title
 
   const point = state.series[index]
-  if (!point || point.k === undefined) return null
+  if (!point || point.k === undefined) return title
 
   const values = []
   if (state.params.showK) values.push({ label: 'K', value: point.k, color: colors.kdj.k })
   if (state.params.showD) values.push({ label: 'D', value: point.d, color: colors.kdj.d })
-
-  if (values.length === 0) return null
+  if (state.params.showJ) values.push({ label: 'J', value: point.j, color: colors.kdj.j })
 
   return {
-    name: 'STOCH',
-    params: [n, m],
+    ...title,
     values,
   }
 }
 
 @Indicator({
   name: 'stoch',
-  displayName: 'STOCH',
+  displayName: 'KDJ',
   category: 'oscillator',
   indicatorType: 'momentum',
   defaultPaneId: 'sub_STOCH',
   visibleState: {
-    compose: createFixedRangePointVisibleStateComposer('stoch', EMPTY_STOCH_STATE, [
+    compose: createPaddedPointVisibleStateComposer('stoch', EMPTY_STOCH_STATE, [
       'k',
       'd',
+      'j',
     ] as const),
   },
   scaleRendererFactory: createStochScaleRendererPlugin,
   getTitleInfo: getSTOCHTitleInfo,
   runtime: {
-    defaultConfig: { n: 9, m: 3, showK: true, showD: true },
+    defaultConfig: { n: 9, m: 3, showK: true, showD: true, showJ: true },
     computeKey: 'calcSTOCHData',
     compute: (data, c) => calcSTOCHData(data, c.n, c.m),
   },

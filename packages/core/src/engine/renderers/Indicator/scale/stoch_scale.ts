@@ -12,7 +12,7 @@ export function createStochScaleRendererPlugin(options: {
     axisWidth: options.axisWidth,
     paneId: options.paneId,
     indicatorKey: 'stoch',
-    label: 'STOCH',
+    label: 'KDJ',
     decimals: 2,
     yPaddingPx: options.yPaddingPx,
     getCrosshair: options.getCrosshair,

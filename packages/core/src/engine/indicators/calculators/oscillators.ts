@@ -96,6 +96,7 @@ export function calcCCIData(data: KLineData[], period: number): (number | undefi
 export interface STOCHPoint {
   k: number
   d: number
+  j: number
 }
 
 export function calcSTOCHData(data: KLineData[], n: number, m: number): STOCHPoint[] {
@@ -139,7 +140,8 @@ export function calcSTOCHData(data: KLineData[], n: number, m: number): STOCHPoi
     }
 
     if (validCount === m) {
-      result[i] = { k, d: sum / m }
+      const d = sum / m
+      result[i] = { k, d, j: 3 * k - 2 * d }
     }
   }
 

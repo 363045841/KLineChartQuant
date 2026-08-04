@@ -67,6 +67,7 @@ export interface STOCHSchedulerConfig {
   m: number
   showK: boolean
   showD: boolean
+  showJ: boolean
 }
 
 export interface MOMSchedulerConfig {

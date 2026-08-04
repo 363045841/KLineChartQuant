@@ -473,6 +473,18 @@ describe('SoA Calculator Wrappers', () => {
     })
   })
 
+  describe('calcSTOCHData', () => {
+    it('J 值应按 3K - 2D 计算', () => {
+      const data: KLineData[] = [
+        { timestamp: 1, open: 5, high: 10, low: 0, close: 5, volume: 1 },
+        { timestamp: 2, open: 8, high: 10, low: 0, close: 8, volume: 1 },
+        { timestamp: 3, open: 2, high: 10, low: 0, close: 2, volume: 1 },
+      ]
+
+      expect(calcSTOCHData(data, 2, 2)[2]).toMatchObject({ k: 20, d: 50, j: -40 })
+    })
+  })
+
   describe('calcSTOCHDataSoA', () => {
     it('SoA 结果应该与 AoS 结果一致', () => {
       const aosResult = calcSTOCHData(testData, 9, 3)
@@ -487,6 +499,7 @@ describe('SoA Calculator Wrappers', () => {
         } else {
           expect(s!.k).toBeCloseTo(a.k, 10)
           expect(s!.d).toBeCloseTo(a.d, 10)
+          expect(s!.j).toBeCloseTo(a.j, 10)
         }
       }
     })

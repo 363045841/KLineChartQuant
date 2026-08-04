@@ -142,9 +142,9 @@ const DEFAULT_INDICATOR_CATALOG: ReadonlyArray<IndicatorDefinition> = [
   { id: 'RSI', label: 'RSI', name: '相对强弱', role: 'sub', indicatorType: 'momentum', params: [] },
   { id: 'CCI', label: 'CCI', name: '顺势指标', role: 'sub', indicatorType: 'momentum', params: [] },
   {
-    id: 'STOCH',
-    label: 'KDJ/STOCH',
-    name: '随机指标',
+    id: 'KDJ',
+    label: 'KDJ',
+    name: 'KDJ',
     role: 'sub',
     indicatorType: 'momentum',
     params: [],

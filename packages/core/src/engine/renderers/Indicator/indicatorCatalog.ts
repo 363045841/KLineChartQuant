@@ -227,9 +227,9 @@ const uiMeta: Record<
     ],
   },
   stoch: {
-    name: '随机指标',
+    name: 'KDJ',
     description:
-      'KDJ 随机指标通过比较收盘价与价格区间判断超买超卖。K > 80 超买，K < 20 超卖，K 上穿 D 金叉。',
+      'KDJ 通过比较收盘价与近期价格区间判断超买超卖。K、D、J 三线可用于观察动量与交叉信号。',
     params: [
       {
         key: 'n',
