@@ -151,6 +151,6 @@ const getALMATitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcALMAData(data, c.period, c.offset, c.sigma),
   },
 })
-class ALMADefinition {
+export class ALMADefinition {
   static rendererFactory = createALMARendererPlugin
 }

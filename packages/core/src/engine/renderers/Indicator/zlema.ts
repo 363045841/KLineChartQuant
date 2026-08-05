@@ -156,6 +156,6 @@ const getZLEMATitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcZLEMAData(data, c.period),
   },
 })
-class ZLEMADefinition {
+export class ZLEMADefinition {
   static rendererFactory = createZLEMARendererPlugin
 }

@@ -187,6 +187,6 @@ function getDonchianTitleInfo(
     compute: (data, c) => calcDonchianData(data, c.period),
   },
 })
-class DonchianDefinition {
+export class DonchianDefinition {
   static rendererFactory = createDonchianRendererPlugin
 }

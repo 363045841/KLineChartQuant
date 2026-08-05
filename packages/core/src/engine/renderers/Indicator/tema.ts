@@ -147,6 +147,6 @@ const getTEMATitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcTEMAData(data, c.period),
   },
 })
-class TEMADefinition {
+export class TEMADefinition {
   static rendererFactory = createTEMARendererPlugin
 }

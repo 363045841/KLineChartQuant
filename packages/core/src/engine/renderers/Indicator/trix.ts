@@ -204,6 +204,6 @@ function getTRIXTitleInfo(
     compute: (data, c) => calcTRIXData(data, c.period, c.signalPeriod),
   },
 })
-class TRIXIndicatorDefinition {
+export class TRIXIndicatorDefinition {
   static rendererFactory = createTRIXRendererPlugin
 }

@@ -525,6 +525,6 @@ function getMACDTitleInfo(
     compute: (data, c) => calcMACDData(data, c.fastPeriod, c.slowPeriod, c.signalPeriod),
   },
 })
-class MACDIndicatorDefinition {
+export class MACDIndicatorDefinition {
   static rendererFactory = createMACDRendererPlugin
 }

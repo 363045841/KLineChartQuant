@@ -237,6 +237,6 @@ const getFASTKTitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcFASTKData(data, c.period),
   },
 })
-class FASTKIndicatorDefinition {
+export class FASTKIndicatorDefinition {
   static rendererFactory = createFASTKRendererPlugin
 }

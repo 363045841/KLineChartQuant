@@ -139,6 +139,6 @@ const getParkinsonTitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcParkinsonData(data, c.period, c.annualizationFactor),
   },
 })
-class ParkinsonIndicatorDefinition {
+export class ParkinsonIndicatorDefinition {
   static rendererFactory = createParkinsonRendererPlugin
 }

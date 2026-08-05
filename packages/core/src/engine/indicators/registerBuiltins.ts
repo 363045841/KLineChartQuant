@@ -6,7 +6,7 @@ let loaded = false
 
 export async function loadBuiltinIndicators(): Promise<void> {
   if (loaded) return
-  await Promise.all([
+  const modules = await Promise.all([
     import('../renderers/subVolume'),
     import('../renderers/timeShare'),
     import('../renderers/Indicator/atr'),
@@ -57,6 +57,13 @@ export async function loadBuiltinIndicators(): Promise<void> {
     import('../renderers/Indicator/dma'),
     import('../renderers/Indicator/gmma'),
   ])
+
+  // 读取命名空间，确保打包器保留由装饰器初始化的指标定义导出。
+  for (const module of modules) {
+    if (Object.keys(module).length === 0) {
+      throw new KLineChartError('INVALID_STATE', 'Builtin indicator module has no definition export.')
+    }
+  }
   loaded = true
 }
 

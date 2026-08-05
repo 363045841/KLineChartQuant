@@ -157,6 +157,6 @@ const getChaikinVolTitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcChaikinVolData(data, c.emaPeriod, c.rocPeriod),
   },
 })
-class ChaikinVolIndicatorDefinition {
+export class ChaikinVolIndicatorDefinition {
   static rendererFactory = createChaikinVolRendererPlugin
 }

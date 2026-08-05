@@ -154,6 +154,6 @@ const getMFITitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcMFIData(data, c.period),
   },
 })
-class MFIIndicatorDefinition {
+export class MFIIndicatorDefinition {
   static rendererFactory = createMFIRendererPlugin
 }

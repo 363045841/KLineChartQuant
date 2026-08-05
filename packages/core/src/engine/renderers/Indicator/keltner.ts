@@ -196,6 +196,6 @@ function getKeltnerTitleInfo(
     compute: (data, c) => calcKeltnerData(data, c.emaPeriod, c.atrPeriod, c.multiplier),
   },
 })
-class KeltnerDefinition {
+export class KeltnerDefinition {
   static rendererFactory = createKeltnerRendererPlugin
 }

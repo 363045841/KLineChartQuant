@@ -147,6 +147,6 @@ const getDEMATitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcDEMAData(data, c.period),
   },
 })
-class DEMADefinition {
+export class DEMADefinition {
   static rendererFactory = createDEMARendererPlugin
 }

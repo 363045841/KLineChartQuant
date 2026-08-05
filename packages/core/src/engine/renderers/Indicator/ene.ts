@@ -337,6 +337,6 @@ const getENETitleInfo: GetTitleInfoFn = (
   },
   getTitleInfo: getENETitleInfo,
 })
-class ENEDefinition {
+export class ENEDefinition {
   static rendererFactory = createENERendererPlugin
 }

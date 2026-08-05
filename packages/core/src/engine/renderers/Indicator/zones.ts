@@ -169,6 +169,6 @@ const getZonesTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId, 
     compute: (data, c) => calcZonesData(data, c.obLookback, 5, 2, 'close'),
   },
 })
-class ZonesDefinition {
+export class ZonesDefinition {
   static rendererFactory = createZonesRendererPlugin
 }

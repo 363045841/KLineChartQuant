@@ -331,6 +331,6 @@ const getWMSRTitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcWMSRData(data, c.period),
   },
 })
-class WMSRIndicatorDefinition {
+export class WMSRIndicatorDefinition {
   static rendererFactory = createWMSRRendererPlugin
 }

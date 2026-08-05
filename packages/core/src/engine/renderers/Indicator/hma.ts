@@ -147,6 +147,6 @@ const getHMATitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcHMAData(data, c.period),
   },
 })
-class HMADefinition {
+export class HMADefinition {
   static rendererFactory = createHMARendererPlugin
 }

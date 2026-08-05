@@ -224,6 +224,6 @@ const getATRTitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcATRData(data, c.period),
   },
 })
-class ATRIndicatorDefinition {
+export class ATRIndicatorDefinition {
   static rendererFactory = createATRRendererPlugin
 }

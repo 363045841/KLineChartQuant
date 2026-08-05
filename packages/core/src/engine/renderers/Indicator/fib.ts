@@ -199,6 +199,6 @@ const getFibTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId, co
     compute: (data, c) => calcFibData(data, c.period),
   },
 })
-class FibDefinition {
+export class FibDefinition {
   static rendererFactory = createFibRendererPlugin
 }

@@ -147,6 +147,6 @@ const getKAMATitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcKAMAData(data, c.period, c.fastPeriod, c.slowPeriod),
   },
 })
-class KAMADefinition {
+export class KAMADefinition {
   static rendererFactory = createKAMARendererPlugin
 }

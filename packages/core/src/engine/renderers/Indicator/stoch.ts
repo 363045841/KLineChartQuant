@@ -354,6 +354,6 @@ function getSTOCHTitleInfo(
     compute: (data, c) => calcSTOCHData(data, c.n, c.m),
   },
 })
-class STOCHIndicatorDefinition {
+export class STOCHIndicatorDefinition {
   static rendererFactory = createSTOCHRendererPlugin
 }

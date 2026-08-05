@@ -458,6 +458,6 @@ function getRSITitleInfo(
     },
   },
 })
-class RSIIndicatorDefinition {
+export class RSIIndicatorDefinition {
   static rendererFactory = createRSIRendererPlugin
 }

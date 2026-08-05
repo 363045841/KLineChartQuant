@@ -137,6 +137,6 @@ const getHVTitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcHVData(data, c.period, c.annualizationFactor),
   },
 })
-class HVIndicatorDefinition {
+export class HVIndicatorDefinition {
   static rendererFactory = createHVRendererPlugin
 }

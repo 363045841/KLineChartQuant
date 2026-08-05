@@ -134,6 +134,6 @@ const getPVTTitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcPVTData(data),
   },
 })
-class PVTIndicatorDefinition {
+export class PVTIndicatorDefinition {
   static rendererFactory = createPVTRendererPlugin
 }

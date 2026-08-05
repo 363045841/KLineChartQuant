@@ -192,7 +192,7 @@ const getBOLLTitleInfo: GetTitleInfoFn = (
   },
   getTitleInfo: getBOLLTitleInfo,
 })
-class BOLLDefinition {
+export class BOLLDefinition {
   static rendererFactory = createBOLLRendererPlugin
 }
 

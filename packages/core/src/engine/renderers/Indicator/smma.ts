@@ -164,6 +164,6 @@ const getSMMATitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcSMMAData(data, c.period),
   },
 })
-class SMMADefinition {
+export class SMMADefinition {
   static rendererFactory = createSMMARendererPlugin
 }

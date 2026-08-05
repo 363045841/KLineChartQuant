@@ -147,6 +147,6 @@ const getWMATitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcWMAData(data, c.period),
   },
 })
-class WMADefinition {
+export class WMADefinition {
   static rendererFactory = createWMARendererPlugin
 }

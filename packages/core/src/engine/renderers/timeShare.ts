@@ -320,6 +320,6 @@ function drawVolumeBars(
   defaultPaneId: 'main',
   mainPane: { rendererName: 'timeShare' },
 })
-class TimeShareIndicatorDefinition {
+export class TimeShareIndicatorDefinition {
   static rendererFactory = createTimeShareRendererPlugin
 }

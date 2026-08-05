@@ -334,6 +334,6 @@ function getKSTTitleInfo(
     compute: (data, c) => calcKSTData(data, c.roc1, c.roc2, c.roc3, c.roc4, c.signalPeriod),
   },
 })
-class KSTIndicatorDefinition {
+export class KSTIndicatorDefinition {
   static rendererFactory = createKSTRendererPlugin
 }

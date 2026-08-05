@@ -147,6 +147,6 @@ const getLSMATitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcLSMAData(data, c.period),
   },
 })
-class LSMADefinition {
+export class LSMADefinition {
   static rendererFactory = createLSMARendererPlugin
 }

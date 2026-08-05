@@ -159,6 +159,6 @@ function getSARTitleInfo(
     compute: (data, c) => calcSARData(data, c.step, c.maxStep),
   },
 })
-class SARDefinition {
+export class SARDefinition {
   static rendererFactory = createSARRendererPlugin
 }

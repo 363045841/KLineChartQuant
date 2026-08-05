@@ -261,6 +261,6 @@ const getCCITitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcCCIData(data, c.period),
   },
 })
-class CCIIndicatorDefinition {
+export class CCIIndicatorDefinition {
   static rendererFactory = createCCIRendererPlugin
 }

@@ -195,7 +195,7 @@ function getMATitleInfo(
   },
   getTitleInfo: getMATitleInfo,
 })
-class MADefinition {
+export class MADefinition {
   static rendererFactory = createMARendererPlugin
 }
 

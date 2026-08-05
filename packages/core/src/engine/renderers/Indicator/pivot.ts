@@ -221,6 +221,6 @@ const getPivotTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId, 
     compute: (data, c) => calcPivotData(data),
   },
 })
-class PivotDefinition {
+export class PivotDefinition {
   static rendererFactory = createPivotRendererPlugin
 }

@@ -143,7 +143,7 @@ function getGMMATitleInfo(
     compute: (data) => calcGMMAData(data),
   },
 })
-class GMMADefinition {
+export class GMMADefinition {
   static rendererFactory = createGMMARendererPlugin
 }
 

@@ -147,6 +147,6 @@ const getVWMATitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcVWMAData(data, c.period),
   },
 })
-class VWMADefinition {
+export class VWMADefinition {
   static rendererFactory = createVWMARendererPlugin
 }

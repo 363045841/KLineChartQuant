@@ -157,6 +157,6 @@ const getROCTitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcROCData(data, c.period),
   },
 })
-class ROCIndicatorDefinition {
+export class ROCIndicatorDefinition {
   static rendererFactory = createROCRendererPlugin
 }

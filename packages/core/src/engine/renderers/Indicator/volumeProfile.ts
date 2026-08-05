@@ -186,6 +186,6 @@ function getVolumeProfileTitleInfo(
     compute: (data, c) => calcVolumeProfileData(data, c.bins, c.lookback, c.valueAreaPercent),
   },
 })
-class VolumeProfileIndicatorDefinition {
+export class VolumeProfileIndicatorDefinition {
   static rendererFactory = createVolumeProfileRendererPlugin
 }

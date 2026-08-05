@@ -148,6 +148,6 @@ const getTRIMATitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcTRIMAData(data, c.period),
   },
 })
-class TRIMADefinition {
+export class TRIMADefinition {
   static rendererFactory = createTRIMARendererPlugin
 }

@@ -309,6 +309,6 @@ const getMOMTitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcMOMData(data, c.period),
   },
 })
-class MOMIndicatorDefinition {
+export class MOMIndicatorDefinition {
   static rendererFactory = createMOMRendererPlugin
 }

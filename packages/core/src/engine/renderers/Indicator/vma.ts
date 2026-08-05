@@ -137,6 +137,6 @@ const getVMATitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcVMAData(data, c.period),
   },
 })
-class VMAIndicatorDefinition {
+export class VMAIndicatorDefinition {
   static rendererFactory = createVMARendererPlugin
 }

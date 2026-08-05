@@ -278,6 +278,6 @@ const getEXPMATitleInfo: GetTitleInfoFn = (
   },
   getTitleInfo: getEXPMATitleInfo,
 })
-class EXPMADefinition {
+export class EXPMADefinition {
   static rendererFactory = createEXPMARendererPlugin
 }

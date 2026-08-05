@@ -134,6 +134,6 @@ const getOBVTitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcOBVData(data),
   },
 })
-class OBVIndicatorDefinition {
+export class OBVIndicatorDefinition {
   static rendererFactory = createOBVRendererPlugin
 }

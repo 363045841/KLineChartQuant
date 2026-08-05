@@ -202,6 +202,6 @@ function getStructureTitleInfo(
     compute: (data, c) => calcStructureData(data, c.leftWindow, c.rightWindow, c.breakoutSource),
   },
 })
-class StructureIndicatorDefinition {
+export class StructureIndicatorDefinition {
   static rendererFactory = createStructureRendererPlugin
 }

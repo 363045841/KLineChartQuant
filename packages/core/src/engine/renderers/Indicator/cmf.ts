@@ -149,6 +149,6 @@ const getCMFTitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcCMFData(data, c.period),
   },
 })
-class CMFIndicatorDefinition {
+export class CMFIndicatorDefinition {
   static rendererFactory = createCMFRendererPlugin
 }

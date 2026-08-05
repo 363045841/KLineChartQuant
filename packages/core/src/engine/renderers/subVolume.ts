@@ -254,6 +254,6 @@ function judgeColor(
   defaultPaneId: 'sub',
   scaleRendererFactory: createVolumeScaleRendererPlugin,
 })
-class VolumeIndicatorDefinition {
+export class VolumeIndicatorDefinition {
   static rendererFactory = createVolumeRendererPlugin
 }

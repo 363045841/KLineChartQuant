@@ -178,6 +178,6 @@ const getDMATitleInfo: GetTitleInfoFn = (_data, index, _params, pluginHost, pane
     compute: (data, c) => calcDMAData(data, c.p1, c.p2, c.p3),
   },
 })
-class DMADefinition {
+export class DMADefinition {
   static rendererFactory = createDMARendererPlugin
 }

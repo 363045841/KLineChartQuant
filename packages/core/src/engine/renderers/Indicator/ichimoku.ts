@@ -338,6 +338,6 @@ function getIchimokuTitleInfo(
       calcIchimokuData(data, c.tenkanPeriod, c.kijunPeriod, c.spanBPeriod, c.displacement),
   },
 })
-class IchimokuDefinition {
+export class IchimokuDefinition {
   static rendererFactory = createIchimokuRendererPlugin
 }

@@ -172,6 +172,6 @@ function getSuperTrendTitleInfo(
     compute: (data, c) => calcSuperTrendData(data, c.atrPeriod, c.multiplier),
   },
 })
-class SuperTrendIndicatorDefinition {
+export class SuperTrendIndicatorDefinition {
   static rendererFactory = createSuperTrendRendererPlugin
 }

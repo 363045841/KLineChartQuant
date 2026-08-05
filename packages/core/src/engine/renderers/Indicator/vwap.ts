@@ -134,6 +134,6 @@ const getVWAPTitleInfo = createSingleLineTitleInfo({
     compute: (data, c) => calcVWAPData(data, c.sessionResetGapMs),
   },
 })
-class VWAPIndicatorDefinition {
+export class VWAPIndicatorDefinition {
   static rendererFactory = createVWAPRendererPlugin
 }
