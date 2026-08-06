@@ -47,7 +47,9 @@ export const routerTimeShareFetcher: TimeShareFetcherFn = (source, config) => {
   return fetcher(source, config)
 }
 
+/** 优先按统一品种 ID 去重，旧搜索结果回退到完整来源身份。 */
 function searchResultKey(result: SearchResult): string {
+  if (result.id?.trim()) return `id:${result.id.trim()}`
   const params = Object.entries(result.params ?? {}).sort(([left], [right]) =>
     left.localeCompare(right),
   )

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import '../gotdx'
+import { gotdxMarketDataProvider } from '../gotdx'
 import { clearFetcherBaseUrlsForTest, setFetcherBaseUrl } from '../fetcherBaseUrl'
 import { getRegisteredFetcher } from '../fetcherDefinitionRegistry'
 
@@ -40,14 +40,17 @@ describe('gotdx fetcher', () => {
 
     expect(definition?.capabilities).toContain('search')
     await expect(definition?.searcher?.('gotdx', { query: '茅台', limit: 12 })).resolves.toEqual([
-      {
+      expect.objectContaining({
+        id: 'gotdx:stock:1:600519',
+        assetClass: 'stock',
+        sessionId: 'CN',
         symbol: '600519',
         description: '贵州茅台',
         exchange: 'SH',
         market: 'CN',
         source: 'gotdx',
         params: { market: 1 },
-      },
+      }),
     ])
     expect(fetchMock).toHaveBeenCalledWith(
       'http://127.0.0.1:8080/api/symbol/search',
@@ -73,7 +76,7 @@ describe('gotdx fetcher', () => {
     const definition = getRegisteredFetcher('gotdx')
 
     await expect(definition?.searcher?.('gotdx', { query: '01810' })).resolves.toEqual([
-      expect.objectContaining({ symbol: '01810', market: 'HK' }),
+      expect.objectContaining({ symbol: '01810', market: 'HK', id: 'gotdx:ex:31:01810' }),
     ])
   })
 
@@ -188,9 +191,7 @@ describe('gotdx fetcher', () => {
       params: { market: 1 },
     })
 
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      'http://127.0.0.1:8080/api/stock/kline-by-date',
-    )
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('http://127.0.0.1:8080/api/stock/kline-by-date')
   })
 
   it('uses runtime base URL override from aggregation source config', async () => {
@@ -209,6 +210,285 @@ describe('gotdx fetcher', () => {
     })
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe('http://gotdx.test:9090/api/stock/kline-by-date')
+  })
+
+  // 验证统一目录 Provider 返回稳定 ID、资产类别和前端能力。
+  it('exposes normalized instruments through MarketDataProvider', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        data: {
+          items: [
+            {
+              id: 'gotdx:stock:1:600519',
+              sourceId: 'gotdx',
+              symbol: '600519',
+              name: '贵州茅台',
+              assetClass: 'stock',
+              exchange: 'SH',
+              sessionId: 'CN',
+              currency: 'CNY',
+              providerRef: { market: 1, kind: 'stock' },
+              capabilities: {
+                bars: { periods: ['daily'], adjustments: ['qfq', 'hfq', 'none'] },
+                timeShare: true,
+              },
+            },
+          ],
+        },
+        requestId: 'test',
+      }),
+    )
+
+    const result = await gotdxMarketDataProvider.catalog!.search({ keyword: '茅台', limit: 12 })
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: 'gotdx:stock:1:600519',
+        sourceId: 'gotdx',
+        symbol: '600519',
+        name: '贵州茅台',
+        assetClass: 'stock',
+        exchange: 'SH',
+        sessionId: 'CN',
+        currency: 'CNY',
+        providerRef: { market: 1, kind: 'stock' },
+      }),
+    ])
+    expect(result[0]?.capabilities.bars?.adjustments).toEqual(['qfq', 'hfq', 'none'])
+    expect(result[0]?.capabilities.timeShare).toBe(true)
+  })
+
+  // 验证统一 K 线查询继续调用 GOTDX 股票日期接口并附带序列元数据。
+  it('fetches normalized bars through MarketDataProvider', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        data: {
+          instrumentId: 'gotdx:stock:1:600519',
+          period: 'daily',
+          adjustment: 'qfq',
+          timezone: 'Asia/Shanghai',
+          volumeUnit: 'lot',
+          items: [
+            {
+              timestamp: 1785945600000,
+              date: '2026-08-06',
+              open: 10,
+              high: 11,
+              low: 9,
+              close: 10.5,
+              volume: 100,
+              turnover: 1000,
+            },
+          ],
+        },
+        requestId: 'test',
+      }),
+    )
+
+    const item = {
+      id: 'gotdx:stock:1:600519',
+      sourceId: 'gotdx',
+      symbol: '600519',
+      name: '贵州茅台',
+      assetClass: 'stock' as const,
+      exchange: 'SH',
+      sessionId: 'CN',
+      providerRef: { market: 1, kind: 'stock' },
+      capabilities: {
+        bars: {
+          periods: ['daily'] as const,
+          adjustments: ['qfq', 'none'] as const,
+        },
+      },
+    }
+    const result = await gotdxMarketDataProvider.bars!.fetch({
+      instrument: item,
+      period: 'daily',
+      adjustment: 'qfq',
+      from: Date.parse('2026-08-01T00:00:00Z'),
+      to: Date.parse('2026-08-06T23:59:59Z'),
+    })
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('http://127.0.0.1:8080/api/v1/market-data/bars')
+    expect(result.instrumentId).toBe(item.id)
+    expect(result.timezone).toBe('Asia/Shanghai')
+    expect(result.volumeUnit).toBe('lot')
+    expect(result.data[0]).toMatchObject({ close: 10.5, symbol: '600519' })
+  })
+
+  // 验证统一分时查询使用标准交易日并保留昨收元数据。
+  it('fetches normalized timeshare through MarketDataProvider', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        data: {
+          instrumentId: 'gotdx:stock:1:600519',
+          tradingDate: '2026-08-06',
+          timezone: 'Asia/Shanghai',
+          preClose: 10,
+          volumeUnit: 'lot',
+          items: [{ timestamp: 1785979800000, price: 10.2, average: 10.1, volume: 100 }],
+        },
+        requestId: 'test',
+      }),
+    )
+
+    const item = {
+      id: 'gotdx:stock:1:600519',
+      sourceId: 'gotdx',
+      symbol: '600519',
+      name: '贵州茅台',
+      assetClass: 'stock' as const,
+      exchange: 'SH',
+      sessionId: 'CN',
+      providerRef: { market: 1, kind: 'stock' },
+      capabilities: { timeShare: true },
+    }
+    const result = await gotdxMarketDataProvider.timeShare!.fetch({
+      instrument: item,
+      tradingDate: '2026-08-06',
+    })
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('http://127.0.0.1:8080/api/v1/market-data/timeshare')
+    expect(result).toMatchObject({
+      instrumentId: item.id,
+      tradingDate: '2026-08-06',
+      timezone: 'Asia/Shanghai',
+      preClose: 10,
+      volumeUnit: 'lot',
+    })
+    expect(result.data[0]).toMatchObject({ price: 10.2, average: 10.1, volume: 100 })
+  })
+
+  // 验证相同 GOTDX 响应经旧 Fetcher 和新 Provider 得到完全一致的 K 线数据。
+  it('keeps K-line data identical across legacy and Provider paths', async () => {
+    const payload = [
+      {
+        DateTime: '2026-08-06T00:00:00+08:00',
+        Open: 10,
+        High: 11,
+        Low: 9,
+        Close: 10.5,
+        Vol: 100,
+        Amount: 1000,
+        Turnover: 1,
+        RisePrice: 0.5,
+        RiseRate: 5,
+        Amplitude: 20,
+      },
+    ]
+    fetchMock.mockResolvedValueOnce(jsonResponse(payload)).mockResolvedValueOnce(
+      jsonResponse({
+        data: {
+          instrumentId: 'gotdx:stock:1:600519',
+          period: 'daily',
+          adjustment: 'qfq',
+          timezone: 'Asia/Shanghai',
+          volumeUnit: 'lot',
+          items: [
+            {
+              timestamp: 1785945600000,
+              date: '2026-08-06',
+              open: 10,
+              high: 11,
+              low: 9,
+              close: 10.5,
+              volume: 100,
+              turnover: 1000,
+              changePercent: 5,
+              changeAmount: 0.5,
+              turnoverRate: 1,
+              amplitude: 20,
+            },
+          ],
+        },
+        requestId: 'test',
+      }),
+    )
+    const definition = getRegisteredFetcher('gotdx')!
+    const legacy = await definition.fetcher('gotdx', {
+      symbol: '600519',
+      period: 'daily',
+      startDate: '2026-08-01',
+      endDate: '2026-08-06',
+      adjust: 'qfq',
+      exchange: 'SH',
+      params: { market: 1, kind: 'stock' },
+    })
+    const modern = await gotdxMarketDataProvider.bars!.fetch({
+      instrument: {
+        id: 'gotdx:stock:1:600519',
+        sourceId: 'gotdx',
+        symbol: '600519',
+        name: '贵州茅台',
+        assetClass: 'stock',
+        exchange: 'SH',
+        sessionId: 'CN',
+        providerRef: { market: 1, kind: 'stock' },
+        capabilities: {
+          bars: { periods: ['daily'], adjustments: ['qfq'] },
+        },
+      },
+      period: 'daily',
+      adjustment: 'qfq',
+      from: Date.parse('2026-08-01T00:00:00Z'),
+      to: Date.parse('2026-08-06T00:00:00Z'),
+    })
+
+    expect(modern.data).toEqual(legacy)
+  })
+
+  // 验证相同 history-tick 响应经旧 Fetcher 和新 Provider 保持点列与昨收一致。
+  it('keeps timeshare data identical across legacy and Provider paths', async () => {
+    const payload = {
+      preClose: 10,
+      data: [
+        {
+          timestamp: '2026-08-06T09:30:00+08:00',
+          Price: 10.2,
+          Avg: 10.1,
+          Volume: 100,
+          Amount: 1020,
+        },
+      ],
+    }
+    fetchMock.mockResolvedValueOnce(jsonResponse(payload)).mockResolvedValueOnce(
+      jsonResponse({
+        data: {
+          instrumentId: 'gotdx:stock:1:600519',
+          tradingDate: '2026-08-06',
+          timezone: 'Asia/Shanghai',
+          preClose: 10,
+          volumeUnit: 'lot',
+          items: [
+            { timestamp: 1785979800000, price: 10.2, average: 10.1, volume: 100, amount: 1020 },
+          ],
+        },
+        requestId: 'test',
+      }),
+    )
+    const definition = getRegisteredFetcher('gotdx')!
+    const legacy = await definition.timeShareFetcher!('gotdx', {
+      symbol: '600519',
+      date: 20260806,
+      params: { market: 1, kind: 'stock' },
+    })
+    const modern = await gotdxMarketDataProvider.timeShare!.fetch({
+      instrument: {
+        id: 'gotdx:stock:1:600519',
+        sourceId: 'gotdx',
+        symbol: '600519',
+        name: '贵州茅台',
+        assetClass: 'stock',
+        exchange: 'SH',
+        sessionId: 'CN',
+        providerRef: { market: 1, kind: 'stock' },
+        capabilities: { timeShare: true },
+      },
+      tradingDate: '2026-08-06',
+    })
+
+    expect(modern.data).toEqual(Array.isArray(legacy) ? legacy : legacy.data)
+    expect(modern.preClose).toBe(Array.isArray(legacy) ? null : legacy.preClose)
   })
 
   it('uses params.category for extended-market requests', async () => {
@@ -396,7 +676,11 @@ describe('gotdx fetcher', () => {
 
     const [url, init] = fetchMock.mock.calls[0] ?? []
     expect(url).toBe('http://127.0.0.1:8080/api/stock/history-tick')
-    expect(JSON.parse(String(init?.body))).toMatchObject({ market: 0, code: '000001', date: 20260727 })
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      market: 0,
+      code: '000001',
+      date: 20260727,
+    })
   })
 
   it('rejects timeshare without params.market or params.category', async () => {

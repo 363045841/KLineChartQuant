@@ -9,6 +9,7 @@
  */
 
 import type { AlertController } from '../features/alerts/types'
+import type { AssetClass, InstrumentCapabilities } from '../data/marketData/types'
 import type { ChartSettings } from '../foundation/config/chartSettings'
 import type { MarketSessionConfig } from '../foundation/utils/sessionTimeLabels'
 import type { InteractionSnapshot } from '../engine/chart'
@@ -95,6 +96,11 @@ export type DataSourceParams = Readonly<Record<string, string | number | boolean
 
 /** Registered symbol metadata — for the symbol catalog/dropdown UI */
 export interface SymbolInfo {
+  /** 统一行情模型提供的稳定品种 ID；旧目录结果可暂时缺失。 */
+  id?: string
+  assetClass?: AssetClass
+  sessionId?: string
+  capabilities?: InstrumentCapabilities
   symbol: string
   market: string
   description?: string
@@ -107,6 +113,8 @@ export interface SymbolInfo {
 // ---------------------------------------------------------------------------
 
 export interface SymbolSpec {
+  /** 统一行情模型提供的稳定品种 ID；旧调用可暂时缺失。 */
+  id?: string
   symbol: string
   market: string
   exchange?: string

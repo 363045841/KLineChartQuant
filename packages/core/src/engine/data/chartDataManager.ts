@@ -328,7 +328,10 @@ export class ChartDataManager {
   }
 
   private recordIncrementalLoad(prependedCount: number): void {
-    this._dmState.actions.recordIncrementalLoad(prependedCount, this.deps.viewport.readonly.leftLoadBufferWidth.peek())
+    this._dmState.actions.recordIncrementalLoad(
+      prependedCount,
+      this.deps.viewport.readonly.leftLoadBufferWidth.peek(),
+    )
   }
 
   private scheduleIncrementalLoadHintFlush(key: string): void {
@@ -423,11 +426,15 @@ export class ChartDataManager {
 
   /**
    * Register symbols into the available catalog.
-   * Deduplicates by symbol code: newer entries replace older ones.
+   * 优先按稳定 id 去重；旧目录结果回退到 source/market/exchange/symbol/params 身份。
    */
   registerSymbols(infos: ReadonlyArray<SymbolInfo>): void {
-    const current = new Map(this._dataState.readonly.symbolCatalog.peek().map((s) => [s.symbol, s]))
-    for (const info of infos) current.set(info.symbol, info)
+    const current = new Map(
+      this._dataState.readonly.symbolCatalog
+        .peek()
+        .map((info) => [symbolSpecIdentityKey(info), info]),
+    )
+    for (const info of infos) current.set(symbolSpecIdentityKey(info), info)
     this._dataState.actions.setSymbolCatalog([...current.values()])
   }
 
@@ -646,8 +653,7 @@ export class ChartDataManager {
     const primary = this._dataState.readonly.symbols.peek()[0]
     const matches = (spec: SymbolSpec) =>
       symbolSpecIdentityKey(spec) === identity || spec.symbol === identity
-    if (!primary || !this.deps.comparison.readonly.specs.peek().some(matches))
-      return
+    if (!primary || !this.deps.comparison.readonly.specs.peek().some(matches)) return
     this.deps.setSymbols([
       primary,
       ...this.deps.comparison.readonly.specs.peek().filter((spec) => !matches(spec)),

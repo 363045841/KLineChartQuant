@@ -84,13 +84,17 @@
               <span class="compare-selected__title">已添加商品</span>
             </div>
             <div class="compare-selected__list">
-              <div v-for="item in displayItems" :key="symbolIdentityKey(item)" class="compare-selected__item">
+              <div
+                v-for="item in displayItems"
+                :key="symbolIdentityKey(item)"
+                class="compare-selected__item"
+              >
                 <span
                   class="compare-selected__color"
                   :style="{ background: comparisonColors?.get(symbolIdentityKey(item)) ?? '#888' }"
                 />
                 <span class="compare-selected__code">{{ item.symbol }}</span>
-                <span class="compare-selected__desc">{{ item.description }}</span>
+                <span class="compare-selected__desc">{{ item.name }}</span>
                 <button
                   type="button"
                   class="compare-selected__remove"
@@ -153,7 +157,7 @@
             >
               <span class="compare-list__left">
                 <span class="compare-list__code">{{ item.symbol }}</span>
-                <span class="compare-list__desc">{{ item.description }}</span>
+                <span class="compare-list__desc">{{ item.name }}</span>
               </span>
               <span class="compare-list__right">
                 <span class="compare-list__exchange">{{ formatSymbolMeta(item) }}</span>
@@ -296,12 +300,11 @@
     emit('remove', symbolIdentityKey(item))
   }
 
-  /** 展示 exchange + kind + market/category，便于区分同代码多语义 */
+  /** 展示交易所、品种类别和会话，便于区分同代码多语义。 */
   function formatSymbolMeta(item: SymbolItem): string {
     const parts = [item.exchange]
-    if (typeof item.params?.kind === 'string') parts.push(String(item.params.kind))
-    if (typeof item.params?.market === 'number') parts.push(`M${item.params.market}`)
-    if (typeof item.params?.category === 'number') parts.push(`C${item.params.category}`)
+    if (item.assetClass !== 'unknown') parts.push(item.assetClass)
+    if (item.sessionId) parts.push(item.sessionId)
     return parts.join(' · ')
   }
 

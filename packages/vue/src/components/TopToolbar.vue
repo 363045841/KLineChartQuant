@@ -35,11 +35,15 @@
       @manage-sources="showSourceDialog = true"
     />
     <KLineLevelDropdown
+      v-if="supportedKLineLevels === undefined || supportedKLineLevels.length > 0"
       :model-value="kLineLevel"
+      :supported-levels="supportedKLineLevels"
       @update:model-value="emit('kLineLevelChange', $event)"
     />
     <KLineAdjustmentDropdown
+      v-if="supportedAdjustments === undefined || supportedAdjustments.length > 0"
       :model-value="kLineAdjust"
+      :supported-adjustments="supportedAdjustments"
       @update:model-value="emit('kLineAdjustChange', $event)"
     />
     <button
@@ -155,6 +159,21 @@
   }>()
 
   const displaySymbol = computed(() => props.symbol?.trim() ?? '')
+
+  /** 当前品种可展示的周期；undefined 表示尚未迁移能力模型。 */
+  const supportedKLineLevels = computed<ReadonlyArray<KLineLevel> | undefined>(() => {
+    const capabilities = props.symbolItem?.capabilities
+    if (!capabilities) return undefined
+    return [
+      ...(capabilities.timeShare ? (['timeshare'] as const) : []),
+      ...(capabilities.bars?.periods ?? []),
+    ]
+  })
+
+  /** 当前品种可展示的复权方式；undefined 表示尚未迁移能力模型。 */
+  const supportedAdjustments = computed<ReadonlyArray<KLineAdjustment> | undefined>(
+    () => props.symbolItem?.capabilities?.bars?.adjustments,
+  )
 
   // Symbol pool comes exclusively from props — driven by the controller's symbolCatalog.
   // If no symbols are provided, the picker displays an empty list (no hardcoded fallback).

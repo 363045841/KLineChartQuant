@@ -182,7 +182,11 @@
                   'use-anchor': useAnchorPositioning,
                   'is-draggable': isTooltipDraggable,
                 }"
-                :style="useAnchorPositioning ? undefined : { left: teleportedTooltipPos.x + 'px', top: teleportedTooltipPos.y + 'px' }"
+                :style="
+                  useAnchorPositioning
+                    ? undefined
+                    : { left: teleportedTooltipPos.x + 'px', top: teleportedTooltipPos.y + 'px' }
+                "
                 @pointerdown="onTooltipPointerDown"
                 @dblclick="onTooltipDblClick"
               ></div>
@@ -257,8 +261,11 @@
     type InteractionSnapshot,
     type LegendTemplateContext,
     type SymbolSpec,
+    type SymbolInfo,
+    type SearchResult,
     type CustomDataSource,
   } from '@363045841yyt/klinechart-core/controllers'
+  import type { InstrumentDescriptor } from '@363045841yyt/klinechart-core/market-data'
   import {
     SemanticChartController,
     type SemanticChartConfig,
@@ -300,8 +307,8 @@
   import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
   import ExportProgressDialog from './ExportProgressDialog.vue'
   import IndicatorSelector from './IndicatorSelector.vue'
-import LeftToolbar from './LeftToolbar.vue'
-import MarkerTooltip from './MarkerTooltip.vue'
+  import LeftToolbar from './LeftToolbar.vue'
+  import MarkerTooltip from './MarkerTooltip.vue'
   import RangeSelectionExport from './RangeSelectionExport.vue'
   import TopToolbar, { type SymbolItem } from './TopToolbar.vue'
   import CanvasToolbarStack from './common/CanvasToolbarStack.vue'
@@ -442,11 +449,24 @@ import MarkerTooltip from './MarkerTooltip.vue'
 
   function onKLineLevelChange(level: string) {
     if (level === 'timeshare') {
+      const item = currentSymbolItem.value
+      if (item?.capabilities && (item.capabilities.timeShare !== true || !item.sessionId)) {
+        symbolStatus.value = 'error'
+        symbolErrorMessage.value = `暂不支持该品种分时（${item.exchange || item.symbol}）`
+        return
+      }
       previousKLineLevel.value = kLineLevel.value as string
     }
     kLineLevel.value = level as typeof kLineLevel.value
     emit('kLineLevelChange', level)
-    syncSymbolsToController()
+    try {
+      syncSymbolsToController()
+    } catch (error) {
+      symbolStatus.value = 'error'
+      if (currentSymbolItem.value) {
+        symbolErrorMessage.value = formatUnsupportedSymbolMessage(currentSymbolItem.value, error)
+      }
+    }
   }
 
   function onBackFromTimeShare() {
@@ -464,7 +484,8 @@ import MarkerTooltip from './MarkerTooltip.vue'
 
   function formatUnsupportedSymbolMessage(item: SymbolItem, error: unknown): string {
     const detail = error instanceof Error ? error.message : String(error)
-    if (!item.market?.trim() || /market is required|Market session is not registered/i.test(detail)) {
+    const sessionId = item.sessionId
+    if (!sessionId?.trim() || /market is required|Market session is not registered/i.test(detail)) {
       return `暂不支持该品种（${item.exchange || item.symbol}）`
     }
     return detail || '切换品种失败'
@@ -475,14 +496,38 @@ import MarkerTooltip from './MarkerTooltip.vue'
     const ctrl = controller.value
     if (!ctrl) return
     try {
+      applyInstrumentCapabilities(item)
       ctrl.setDataFetcher(effectiveDataFetcher.value)
-      ctrl.registerSymbols([item])
+      ctrl.registerSymbols([toLegacySymbolInfo(item)])
       const current = ctrl.symbols.peek() ?? []
       const comparisonSpecs = current.slice(1)
       ctrl.setSymbols([toSymbolSpec(item), ...comparisonSpecs])
     } catch (error) {
       symbolStatus.value = 'error'
       symbolErrorMessage.value = formatUnsupportedSymbolMessage(item, error)
+    }
+  }
+
+  /** 切换品种时将当前周期和复权收敛到该品种声明的能力范围。 */
+  function applyInstrumentCapabilities(item: SymbolItem): void {
+    const capabilities = item.capabilities
+    if (!capabilities) return
+    const supportedPeriods = capabilities.bars?.periods ?? []
+    const currentPeriodSupported =
+      kLineLevel.value === 'timeshare'
+        ? capabilities.timeShare === true
+        : supportedPeriods.includes(kLineLevel.value as (typeof supportedPeriods)[number])
+    if (!currentPeriodSupported) {
+      kLineLevel.value =
+        supportedPeriods[0] ?? (capabilities.timeShare ? 'timeshare' : kLineLevel.value)
+    }
+
+    const adjustments = capabilities.bars?.adjustments ?? []
+    if (
+      adjustments.length > 0 &&
+      !adjustments.includes(kLineAdjust.value as (typeof adjustments)[number])
+    ) {
+      kLineAdjust.value = adjustments[0]!
     }
   }
 
@@ -493,7 +538,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
     const currentKeys = current.map(symbolIdentityKey)
     if (currentKeys.includes(symbolIdentityKey(item))) return
     try {
-      ctrl.registerSymbols([item])
+      ctrl.registerSymbols([toLegacySymbolInfo(item)])
       forcePercentAxis()
       ctrl.addComparisonSymbol(toSymbolSpec(item))
     } catch (error) {
@@ -508,12 +553,13 @@ import MarkerTooltip from './MarkerTooltip.vue'
 
   function toSymbolSpec(item: SymbolItem): SymbolSpec {
     return {
+      id: item.id,
       symbol: item.symbol,
-      market: item.market,
+      market: item.sessionId ?? '',
       exchange: item.exchange,
       period: kLineLevel.value,
-      source: item.source,
-      params: item.params,
+      source: item.sourceId,
+      params: item.providerRef,
       startDate: props.semanticConfig?.data?.startDate ?? '',
       endDate: props.semanticConfig?.data?.endDate ?? '',
       adjust: kLineAdjust.value,
@@ -527,12 +573,76 @@ import MarkerTooltip from './MarkerTooltip.vue'
     sources?: ReadonlyArray<string>,
   ): Promise<ReadonlyArray<SymbolItem>> {
     // Tab 指定单源时只查该源；否则查全部已启用源
-    return routerSearchFetchers({
+    const results = await routerSearchFetchers({
       query,
       limit,
       signal,
       sources: sources ?? enabledSourceNames.value,
     })
+    return results.map(toInstrumentDescriptor)
+  }
+
+  /** 为没有稳定 ID 的旧搜索结果生成确定性身份。 */
+  function legacyInstrumentId(
+    sourceId: string,
+    symbol: string,
+    exchange: string,
+    providerRef?: Readonly<Record<string, string | number | boolean>>,
+  ): string {
+    const params = Object.entries(providerRef ?? {}).sort(([left], [right]) =>
+      left.localeCompare(right),
+    )
+    return `legacy:${sourceId}:${exchange}:${symbol}:${JSON.stringify(params)}`
+  }
+
+  /** 将旧聚合搜索结果转换为 UI 使用的统一品种模型。 */
+  function toInstrumentDescriptor(result: SearchResult): InstrumentDescriptor {
+    const providerRef = result.params
+    return {
+      id:
+        result.id ?? legacyInstrumentId(result.source, result.symbol, result.exchange, providerRef),
+      sourceId: result.source,
+      symbol: result.symbol,
+      name: result.description,
+      assetClass: result.assetClass ?? 'unknown',
+      exchange: result.exchange,
+      sessionId: result.sessionId ?? (result.market || undefined),
+      providerRef,
+      capabilities: result.capabilities ?? {},
+    }
+  }
+
+  /** 将旧 controller 目录条目转换为 UI 使用的统一品种模型。 */
+  function fromSymbolInfo(info: SymbolInfo): InstrumentDescriptor {
+    return {
+      id:
+        info.id ??
+        legacyInstrumentId(info.source ?? '', info.symbol, info.exchange ?? '', info.params),
+      sourceId: info.source ?? '',
+      symbol: info.symbol,
+      name: info.description ?? info.symbol,
+      assetClass: info.assetClass ?? 'unknown',
+      exchange: info.exchange ?? '',
+      sessionId: info.sessionId ?? (info.market || undefined),
+      providerRef: info.params,
+      capabilities: info.capabilities ?? {},
+    }
+  }
+
+  /** 将统一品种转换为旧 controller 目录结构，仅用于兼容边界。 */
+  function toLegacySymbolInfo(item: InstrumentDescriptor): SymbolInfo {
+    return {
+      id: item.id,
+      assetClass: item.assetClass,
+      sessionId: item.sessionId,
+      capabilities: item.capabilities,
+      symbol: item.symbol,
+      market: item.sessionId ?? '',
+      description: item.name,
+      exchange: item.exchange,
+      source: item.sourceId,
+      params: item.providerRef,
+    }
   }
 
   function syncSymbolsToController() {
@@ -739,7 +849,20 @@ import MarkerTooltip from './MarkerTooltip.vue'
   let _tooltipSlots: _TooltipSlots | null = null
 
   const NEUTRAL_COLOR = '#6b7280'
-  interface _KLineData { timestamp: number; open: number; high: number; low: number; close: number; volume?: number; turnover?: number; amplitude?: number; changePercent?: number; changeAmount?: number; turnoverRate?: number; symbol?: string }
+  interface _KLineData {
+    timestamp: number
+    open: number
+    high: number
+    low: number
+    close: number
+    volume?: number
+    turnover?: number
+    amplitude?: number
+    changePercent?: number
+    changeAmount?: number
+    turnoverRate?: number
+    symbol?: string
+  }
   interface _TooltipSlots {
     container: HTMLDivElement
     symbol: HTMLSpanElement | null
@@ -763,7 +886,11 @@ import MarkerTooltip from './MarkerTooltip.vue'
   function _formatSigned(val: number, unit: string): string {
     return (val >= 0 ? '+' : '') + val.toFixed(2) + unit
   }
-  function _calcDirection(data: _KLineData, allData: ReadonlyArray<_KLineData>, idx: number | null): number {
+  function _calcDirection(
+    data: _KLineData,
+    allData: ReadonlyArray<_KLineData>,
+    idx: number | null,
+  ): number {
     if (data.close >= data.open) return 1
     const prev = typeof idx === 'number' && idx > 0 ? allData[idx - 1] : undefined
     if (prev && data.close > prev.close) return 1
@@ -854,9 +981,12 @@ import MarkerTooltip from './MarkerTooltip.vue'
     slots.low.textContent = kline.low.toFixed(2)
     slots.close.textContent = kline.close.toFixed(2)
     slots.close.style.color = closeC
-    if (slots.volume && typeof kline.volume === 'number') slots.volume.textContent = _formatVolume(kline.volume)
-    if (slots.turnover && typeof kline.turnover === 'number') slots.turnover.textContent = _formatVolume(kline.turnover)
-    if (slots.amplitude && typeof kline.amplitude === 'number') slots.amplitude.textContent = kline.amplitude + '%'
+    if (slots.volume && typeof kline.volume === 'number')
+      slots.volume.textContent = _formatVolume(kline.volume)
+    if (slots.turnover && typeof kline.turnover === 'number')
+      slots.turnover.textContent = _formatVolume(kline.turnover)
+    if (slots.amplitude && typeof kline.amplitude === 'number')
+      slots.amplitude.textContent = kline.amplitude + '%'
     if (slots.changePercent && typeof kline.changePercent === 'number') {
       slots.changePercent.textContent = _formatSigned(kline.changePercent, '%')
       slots.changePercent.style.color = changeC
@@ -865,7 +995,8 @@ import MarkerTooltip from './MarkerTooltip.vue'
       slots.changeAmount.textContent = _formatSigned(kline.changeAmount, '')
       slots.changeAmount.style.color = changeC
     }
-    if (slots.turnoverRate && typeof kline.turnoverRate === 'number') slots.turnoverRate.textContent = kline.turnoverRate.toFixed(2) + '%'
+    if (slots.turnoverRate && typeof kline.turnoverRate === 'number')
+      slots.turnoverRate.textContent = kline.turnoverRate.toFixed(2) + '%'
   }
 
   function _setupTooltipSub(): void {
@@ -878,7 +1009,8 @@ import MarkerTooltip from './MarkerTooltip.vue'
       const snapshot = ctrl.interactionState.peek()
       const idx = snapshot.hoveredIndex
       const data = ctrl.getData()
-      const kline = typeof idx === 'number' && data && idx >= 0 && idx < data.length ? data[idx] : undefined
+      const kline =
+        typeof idx === 'number' && data && idx >= 0 && idx < data.length ? data[idx] : undefined
       if (!kline || !data) {
         el.style.display = 'none'
         return
@@ -893,9 +1025,14 @@ import MarkerTooltip from './MarkerTooltip.vue'
         }
         const colors = tooltipColors.value
         _updateTooltipDOM(
-          _tooltipSlots, kline, idx!, data,
-          colors.upColor, colors.downColor,
-          props.timezone, isIntraday.value,
+          _tooltipSlots,
+          kline,
+          idx!,
+          data,
+          colors.upColor,
+          colors.downColor,
+          props.timezone,
+          isIntraday.value,
         )
         if (!_tooltipRO) {
           _tooltipRO = new ResizeObserver((entries) => {
@@ -1463,25 +1600,11 @@ import MarkerTooltip from './MarkerTooltip.vue'
 
     // Sync symbol catalog from controller to dropdown pool.
     const unsubscribeSymbolCatalog = ctrl.symbolCatalog.subscribe(() => {
-      symbolPool.value = ctrl.symbolCatalog.peek().map((info) => ({
-        symbol: info.symbol,
-        market: info.market,
-        description: info.description ?? info.symbol,
-        exchange: info.exchange ?? '',
-        source: info.source ?? '',
-        params: info.params,
-      }))
+      symbolPool.value = ctrl.symbolCatalog.peek().map(fromSymbolInfo)
     })
     // 立即同步当前值，确保 dropdown 在 subscribe 创建后立即拿到数据，
     // 不依赖 registerSymbols 在 subscribe 之前还是之后调用。
-    symbolPool.value = ctrl.symbolCatalog.peek().map((info) => ({
-      symbol: info.symbol,
-      market: info.market,
-      description: info.description ?? info.symbol,
-      exchange: info.exchange ?? '',
-      source: info.source ?? '',
-      params: info.params,
-    }))
+    symbolPool.value = ctrl.symbolCatalog.peek().map(fromSymbolInfo)
 
     const unsubscribeSymbols = ctrl.symbols.subscribe(() => {
       const specs = ctrl.symbols.peek()
@@ -1489,21 +1612,34 @@ import MarkerTooltip from './MarkerTooltip.vue'
       const primary = specs[0]
       const primaryInfo = ctrl.symbolCatalog
         .peek()
-        .find(
-          (info) =>
-            info.symbol === primary.symbol &&
-            info.source === primary.source &&
-            info.exchange === primary.exchange,
+        .find((info) =>
+          primary.id && info.id
+            ? primary.id === info.id
+            : info.symbol === primary.symbol &&
+              info.source === primary.source &&
+              info.exchange === primary.exchange,
         )
       currentSymbol.value = primary.symbol
-      currentSymbolItem.value = {
-        symbol: primary.symbol,
-        market: primary.market,
-        description: primaryInfo?.description ?? primary.symbol,
-        exchange: primary.exchange ?? '',
-        source: primary.source ?? '',
-        params: primary.params,
-      }
+      currentSymbolItem.value = primaryInfo
+        ? fromSymbolInfo(primaryInfo)
+        : {
+            id:
+              primary.id ??
+              legacyInstrumentId(
+                primary.source ?? '',
+                primary.symbol,
+                primary.exchange ?? '',
+                primary.params,
+              ),
+            sourceId: primary.source ?? '',
+            symbol: primary.symbol,
+            name: primary.symbol,
+            assetClass: 'unknown',
+            exchange: primary.exchange ?? '',
+            sessionId: primary.market || undefined,
+            providerRef: primary.params,
+            capabilities: {},
+          }
       if (primary.period) kLineLevel.value = primary.period
       if (primary.adjust) kLineAdjust.value = primary.adjust as 'qfq' | 'hfq' | 'splits' | 'none'
 
@@ -1512,18 +1648,26 @@ import MarkerTooltip from './MarkerTooltip.vue'
       overlaySymbolItems.value = comparisonSpecs.map((s) => {
         const info = ctrl.symbolCatalog
           .peek()
-          .find(
-            (item) =>
-              item.symbol === s.symbol && item.source === s.source && item.exchange === s.exchange,
+          .find((item) =>
+            s.id && item.id
+              ? s.id === item.id
+              : item.symbol === s.symbol &&
+                item.source === s.source &&
+                item.exchange === s.exchange,
           )
-        return {
-          symbol: s.symbol,
-          market: s.market,
-          description: info?.description ?? s.symbol,
-          exchange: s.exchange ?? '',
-          source: s.source ?? '',
-          params: s.params,
-        }
+        return info
+          ? fromSymbolInfo(info)
+          : {
+              id: s.id ?? legacyInstrumentId(s.source ?? '', s.symbol, s.exchange ?? '', s.params),
+              sourceId: s.source ?? '',
+              symbol: s.symbol,
+              name: s.symbol,
+              assetClass: 'unknown',
+              exchange: s.exchange ?? '',
+              sessionId: s.market || undefined,
+              providerRef: s.params,
+              capabilities: {},
+            }
       })
     })
 

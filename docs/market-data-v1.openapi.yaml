@@ -1,0 +1,491 @@
+openapi: 3.1.0
+info:
+  title: KLineChartQuant Market Data API
+  version: 1.0.0
+  license:
+    name: MIT
+    identifier: MIT
+  description: |
+    前端主导的统一行情协议。数据源后端负责将私有上游字段转换为此协议，
+    前端通过 InstrumentDescriptor、BarSeries 和 TimeShareSeries 消费数据。
+
+    V1 覆盖数据源探测、品种搜索、历史 K 线和单交易日分时。实时深度使用
+    独立连接 Transport，不包含在本 REST 协议中。
+servers:
+  - url: http://127.0.0.1:8080
+    description: 本地 GOTDX 服务
+# 本地默认部署无认证；生产部署可由网关追加认证方案。
+security: []
+paths:
+  /api/v1/market-data/sources/{sourceId}/probe:
+    get:
+      operationId: probeMarketDataSource
+      summary: 探测数据源可用性
+      parameters:
+        - $ref: '#/components/parameters/SourceId'
+      responses:
+        '200':
+          description: 数据源探测结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProbeResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /api/v1/market-data/instruments/search:
+    post:
+      operationId: searchInstruments
+      summary: 搜索数据源内的标准品种目录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstrumentSearchRequest'
+      responses:
+        '200':
+          description: 搜索结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstrumentSearchResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '502':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /api/v1/market-data/bars:
+    post:
+      operationId: fetchBars
+      summary: 拉取指定品种、周期和 UTC 区间的 K 线
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BarRequest'
+      responses:
+        '200':
+          description: K 线序列；无行情时 data.items 为空数组
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BarResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+        '502':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /api/v1/market-data/timeshare:
+    post:
+      operationId: fetchTimeShare
+      summary: 拉取指定品种在单个交易日内的分时序列
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TimeShareRequest'
+      responses:
+        '200':
+          description: 分时序列；无行情时 data.items 为空数组
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeShareResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+        '502':
+          $ref: '#/components/responses/ErrorResponse'
+
+components:
+  parameters:
+    SourceId:
+      name: sourceId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+      example: gotdx
+
+  responses:
+    ErrorResponse:
+      description: 标准错误响应
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+
+  schemas:
+    ApiEnvelope:
+      type: object
+      required: [data, requestId]
+      properties:
+        data: {}
+        requestId:
+          type: string
+          description: 服务端生成的请求追踪 ID
+
+    ErrorEnvelope:
+      type: object
+      required: [error, requestId]
+      properties:
+        error:
+          $ref: '#/components/schemas/ApiError'
+        requestId:
+          type: string
+
+    ApiError:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - INVALID_REQUEST
+            - UNSUPPORTED_CAPABILITY
+            - INSTRUMENT_NOT_FOUND
+            - UPSTREAM_UNAVAILABLE
+            - TIMEOUT
+            - INVALID_RESPONSE
+            - INTERNAL
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+    SourceId:
+      type: string
+      minLength: 1
+      example: gotdx
+
+    AssetClass:
+      type: string
+      enum: [stock, index, fund, etf, future, option, forex, crypto, unknown]
+
+    KLinePeriod:
+      type: string
+      enum: [1min, 5min, 15min, 30min, 60min, daily, weekly, monthly, quarterly, yearly]
+
+    KLineAdjustment:
+      type: string
+      enum: [qfq, hfq, splits, none]
+
+    VolumeUnit:
+      type: string
+      enum: [share, lot, contract, baseAsset]
+
+    ProviderRef:
+      type: object
+      description: |
+        数据源私有路由引用。客户端只能原样带回，不得推断或修改字段含义。
+      additionalProperties:
+        anyOf:
+          - type: string
+          - type: number
+          - type: boolean
+      example:
+        market: 1
+        kind: stock
+
+    BarCapability:
+      type: object
+      required: [periods, adjustments]
+      properties:
+        periods:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/KLinePeriod'
+        adjustments:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/KLineAdjustment'
+
+    InstrumentCapabilities:
+      type: object
+      properties:
+        bars:
+          $ref: '#/components/schemas/BarCapability'
+        timeShare:
+          type: boolean
+        depth:
+          type: boolean
+
+    InstrumentDescriptor:
+      type: object
+      required:
+        - id
+        - sourceId
+        - symbol
+        - name
+        - assetClass
+        - exchange
+        - capabilities
+      properties:
+        id:
+          type: string
+          description: 数据源范围内稳定且唯一的品种 ID
+          example: gotdx:stock:1:600519
+        sourceId:
+          $ref: '#/components/schemas/SourceId'
+        symbol:
+          type: string
+          example: '600519'
+        name:
+          type: string
+          example: 贵州茅台
+        assetClass:
+          $ref: '#/components/schemas/AssetClass'
+        exchange:
+          type: string
+          example: SH
+        sessionId:
+          type: string
+          description: 前端 MarketSessionRegistry 的会话标识
+          example: CN
+        currency:
+          type: string
+          example: CNY
+        tickSize:
+          type: number
+          exclusiveMinimum: 0
+        lotSize:
+          type: number
+          exclusiveMinimum: 0
+        providerRef:
+          $ref: '#/components/schemas/ProviderRef'
+        capabilities:
+          $ref: '#/components/schemas/InstrumentCapabilities'
+
+    InstrumentReference:
+      type: object
+      required: [id, symbol, exchange]
+      properties:
+        id:
+          type: string
+          description: 由先前 InstrumentDescriptor 返回的稳定 ID
+        symbol:
+          type: string
+        exchange:
+          type: string
+        providerRef:
+          $ref: '#/components/schemas/ProviderRef'
+
+    InstrumentSearchRequest:
+      type: object
+      required: [sourceId, keyword, limit]
+      properties:
+        sourceId:
+          $ref: '#/components/schemas/SourceId'
+        keyword:
+          type: string
+          minLength: 1
+          maxLength: 128
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+        assetClasses:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/AssetClass'
+
+    InstrumentSearchResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiEnvelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/InstrumentDescriptor'
+
+    BarRequest:
+      type: object
+      required: [sourceId, instrument, period, adjustment, from, to]
+      properties:
+        sourceId:
+          $ref: '#/components/schemas/SourceId'
+        instrument:
+          $ref: '#/components/schemas/InstrumentReference'
+        period:
+          $ref: '#/components/schemas/KLinePeriod'
+        adjustment:
+          $ref: '#/components/schemas/KLineAdjustment'
+        from:
+          type: integer
+          format: int64
+          description: UTC Unix 毫秒时间戳，包含边界
+          example: 1785945600000
+        to:
+          type: integer
+          format: int64
+          description: UTC Unix 毫秒时间戳，包含边界，必须不早于 from
+          example: 1786463999999
+
+    KLineItem:
+      type: object
+      required: [timestamp, open, high, low, close]
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+          description: UTC Unix 毫秒时间戳
+        date:
+          type: string
+          description: 品种时区内的 YYYY-MM-DD 日期
+        open:
+          type: number
+        high:
+          type: number
+        low:
+          type: number
+        close:
+          type: number
+        volume:
+          type: number
+        turnover:
+          type: number
+        amplitude:
+          type: number
+        changePercent:
+          type: number
+        changeAmount:
+          type: number
+        turnoverRate:
+          type: number
+
+    BarSeries:
+      type: object
+      required: [instrumentId, period, adjustment, timezone, items]
+      properties:
+        instrumentId:
+          type: string
+        period:
+          $ref: '#/components/schemas/KLinePeriod'
+        adjustment:
+          $ref: '#/components/schemas/KLineAdjustment'
+        timezone:
+          type: string
+          description: IANA 时区
+          example: Asia/Shanghai
+        volumeUnit:
+          $ref: '#/components/schemas/VolumeUnit'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/KLineItem'
+
+    BarResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiEnvelope'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/BarSeries'
+
+    TimeShareRequest:
+      type: object
+      required: [sourceId, instrument, tradingDate]
+      properties:
+        sourceId:
+          $ref: '#/components/schemas/SourceId'
+        instrument:
+          $ref: '#/components/schemas/InstrumentReference'
+        tradingDate:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: 品种交易时区内的 YYYY-MM-DD 交易日
+          example: '2026-08-06'
+
+    TimeShareItem:
+      type: object
+      required: [timestamp, price, average]
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+          description: UTC Unix 毫秒时间戳
+        price:
+          type: number
+        average:
+          type: number
+        volume:
+          type: number
+        amount:
+          type: number
+
+    TimeShareSeries:
+      type: object
+      required: [instrumentId, tradingDate, timezone, preClose, items]
+      properties:
+        instrumentId:
+          type: string
+        tradingDate:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+        timezone:
+          type: string
+          example: Asia/Shanghai
+        preClose:
+          type: [number, 'null']
+          description: 昨收无效或不可得时为 null
+        volumeUnit:
+          $ref: '#/components/schemas/VolumeUnit'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeShareItem'
+
+    TimeShareResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiEnvelope'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/TimeShareSeries'
+
+    SourceProbe:
+      type: object
+      required: [status, checkedAt]
+      properties:
+        status:
+          type: string
+          enum: [online, offline, degraded]
+        checkedAt:
+          type: integer
+          format: int64
+          description: UTC Unix 毫秒时间戳
+        latencyMs:
+          type: number
+          minimum: 0
+        message:
+          type: string
+
+    ProbeResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiEnvelope'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/SourceProbe'

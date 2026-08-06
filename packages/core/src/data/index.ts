@@ -40,6 +40,7 @@ export {
   TimeShareFetchService,
 } from './dataBuffer.effects'
 export { BinanceSSESource, DEFAULT_BINANCE_SSE_URL } from './binance'
+export { gotdxMarketDataProvider } from './gotdx'
 export { DepthConnector } from './depthConnector'
 export type { DepthSource, DepthDelta, DepthSnapshot, DepthSourceStatus } from './depthTypes'
 export * from './marketData'

@@ -1,6 +1,7 @@
 import {
   clearFetcherBaseUrlsForTest,
   getFetcherBaseUrl,
+  marketDataProviderRegistry,
   type DataFetcherDefinition,
 } from '@363045841yyt/klinechart-core/controllers'
 import { nextTick } from 'vue'
@@ -45,7 +46,10 @@ describe('useAggregationSources', () => {
 
   it('enables every searchable fetcher on first use', () => {
     expect(
-      resolveEnabledAggregationSources([source('first'), source('chart-only', { searchable: false })]),
+      resolveEnabledAggregationSources([
+        source('first'),
+        source('chart-only', { searchable: false }),
+      ]),
     ).toEqual(['first'])
   })
 
@@ -74,10 +78,9 @@ describe('useAggregationSources', () => {
   })
 
   it('applies endpoint edits to the core runtime base URL', () => {
-    applyAggregationSourceBaseUrls(
-      [source('gotdx', { defaultBaseUrl: 'http://127.0.0.1:8080' })],
-      { gotdx: { host: '10.0.0.2', port: '7000' } },
-    )
+    applyAggregationSourceBaseUrls([source('gotdx', { defaultBaseUrl: 'http://127.0.0.1:8080' })], {
+      gotdx: { host: '10.0.0.2', port: '7000' },
+    })
 
     expect(getFetcherBaseUrl('gotdx', 'http://127.0.0.1:8080')).toBe('http://10.0.0.2:7000')
   })
@@ -115,10 +118,34 @@ describe('useAggregationSources', () => {
   })
 
   it('marks a fetcher offline when its search probe fails', async () => {
-    const definition = { ...source('first'), searcher: vi.fn().mockRejectedValue(new Error('down')) }
+    const definition = {
+      ...source('first'),
+      searcher: vi.fn().mockRejectedValue(new Error('down')),
+    }
 
     await expect(probeAggregationSource(definition, new AbortController().signal)).resolves.toBe(
       'offline',
     )
+  })
+
+  // 验证已迁移 Provider 优先使用统一 probe，而不是旧 searcher 拨测。
+  it('uses MarketDataProvider probe for migrated sources', async () => {
+    const probe = vi.fn().mockResolvedValue({ status: 'online', checkedAt: 1 })
+    marketDataProviderRegistry.register({
+      source: { id: 'probe-source', displayName: 'Probe Source' },
+      probe,
+    })
+    const search = vi.fn().mockResolvedValue([])
+
+    await expect(
+      probeAggregationSource(
+        { ...source('probe-source'), searcher: search },
+        new AbortController().signal,
+      ),
+    ).resolves.toBe('online')
+    expect(probe).toHaveBeenCalledOnce()
+    expect(search).not.toHaveBeenCalled()
+
+    marketDataProviderRegistry.unregister('probe-source')
   })
 })

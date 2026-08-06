@@ -1,4 +1,5 @@
 import type { DataSourceParams, KLineData, TimeShareData } from '../controllers/types'
+import type { AssetClass, InstrumentCapabilities } from './marketData/types'
 
 export type FetchConfig = {
   symbol: string
@@ -43,6 +44,11 @@ export interface SearchConfig {
 }
 
 export interface SearchResult {
+  /** 统一行情模型提供的稳定品种 ID；旧数据源结果可暂时缺失。 */
+  id?: string
+  assetClass?: AssetClass
+  sessionId?: string
+  capabilities?: InstrumentCapabilities
   symbol: string
   description: string
   exchange: string

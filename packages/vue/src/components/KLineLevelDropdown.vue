@@ -1,7 +1,7 @@
 <template>
   <Dropdown
     :model-value="modelValue"
-    :options="kLineLevelOptions"
+    :options="visibleOptions"
     label="级别"
     title="K线级别"
     size="md"
@@ -10,6 +10,8 @@
 </template>
 
 <script setup lang="ts">
+  import { computed } from 'vue'
+
   import Dropdown from './Dropdown.vue'
 
   export type KLineLevel =
@@ -39,9 +41,17 @@
     { label: '12月', value: 'yearly' },
   ]
 
-  defineProps<{
+  const props = defineProps<{
     modelValue?: string
+    supportedLevels?: ReadonlyArray<KLineLevel>
   }>()
+
+  /** 根据当前品种能力过滤周期选项；未提供能力时保持旧行为。 */
+  const visibleOptions = computed(() => {
+    if (!props.supportedLevels) return kLineLevelOptions
+    const supported = new Set(props.supportedLevels)
+    return kLineLevelOptions.filter((option) => supported.has(option.value))
+  })
 
   const emit = defineEmits<{
     (e: 'update:modelValue', level: KLineLevel): void

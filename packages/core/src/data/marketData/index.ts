@@ -2,6 +2,13 @@
 
 export { MarketDataProviderRegistry, marketDataProviderRegistry } from './providerRegistry'
 export type { MarketDataSourceConfig, MarketDataSourceConfigPatch } from './providerRegistry'
+export { createLegacyMarketDataAdapters } from './legacyAdapter'
+export type {
+  LegacyInstrumentResolveRequest,
+  LegacyInstrumentResolver,
+  LegacyMarketDataAdapterOptions,
+  LegacyMarketDataAdapters,
+} from './legacyAdapter'
 export type {
   AssetClass,
   BarCapability,

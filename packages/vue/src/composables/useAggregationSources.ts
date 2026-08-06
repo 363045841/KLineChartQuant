@@ -2,6 +2,7 @@ import {
   composeFetcherBaseUrl,
   parseFetcherEndpoint,
   setFetcherBaseUrl,
+  marketDataProviderRegistry,
   type DataFetcherDefinition,
 } from '@363045841yyt/klinechart-core/controllers'
 import { computed, ref, watch } from 'vue'
@@ -37,6 +38,15 @@ export async function probeAggregationSource(
   source: DataFetcherDefinition,
   signal: AbortSignal,
 ): Promise<Exclude<AggregationSourceStatus, 'checking'>> {
+  const provider = marketDataProviderRegistry.get(source.name)
+  if (provider) {
+    try {
+      const result = await provider.probe(signal)
+      return result.status === 'offline' ? 'offline' : 'online'
+    } catch {
+      return 'offline'
+    }
+  }
   if (!source.capabilities?.includes('search') || typeof source.searcher !== 'function') {
     return 'offline'
   }
@@ -113,11 +123,12 @@ export function applyAggregationSourceBaseUrls(
     const next = composeFetcherBaseUrl(ep.host, ep.port, source.defaultBaseUrl)
     const sameAsDefault =
       next === source.defaultBaseUrl.replace(/\/+$/, '') ||
-      next === composeFetcherBaseUrl(
-        parseFetcherEndpoint(source.defaultBaseUrl).host,
-        parseFetcherEndpoint(source.defaultBaseUrl).port,
-        source.defaultBaseUrl,
-      )
+      next ===
+        composeFetcherBaseUrl(
+          parseFetcherEndpoint(source.defaultBaseUrl).host,
+          parseFetcherEndpoint(source.defaultBaseUrl).port,
+          source.defaultBaseUrl,
+        )
     setFetcherBaseUrl(source.name, sameAsDefault ? undefined : next)
   }
 }
@@ -138,7 +149,9 @@ export function useAggregationSources(sources: ReadonlyArray<DataFetcherDefiniti
     const next = new Set(enabledNames.value)
     if (enabled) next.add(name)
     else next.delete(name)
-    enabledNames.value = sources.filter((source) => next.has(source.name)).map((source) => source.name)
+    enabledNames.value = sources
+      .filter((source) => next.has(source.name))
+      .map((source) => source.name)
   }
 
   /**

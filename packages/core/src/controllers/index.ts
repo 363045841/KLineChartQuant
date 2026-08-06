@@ -99,6 +99,8 @@ export {
   DepthConnector,
   MarketDataProviderRegistry,
   marketDataProviderRegistry,
+  createLegacyMarketDataAdapters,
+  gotdxMarketDataProvider,
 } from '../data'
 export type {
   DataWindow,
@@ -128,6 +130,10 @@ export type {
   MarketDataSourceStatus,
   MarketDataSourceConfig,
   MarketDataSourceConfigPatch,
+  LegacyInstrumentResolveRequest,
+  LegacyInstrumentResolver,
+  LegacyMarketDataAdapterOptions,
+  LegacyMarketDataAdapters,
   ProviderRef,
   SourceProbeResult,
   TimeShareDataSource,
