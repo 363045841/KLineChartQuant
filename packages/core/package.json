@@ -33,6 +33,10 @@
       "types": "./dist/controllers/index.d.ts",
       "import": "./dist/controllers/index.js"
     },
+    "./market-data": {
+      "types": "./dist/data/marketData/index.d.ts",
+      "import": "./dist/data/marketData/index.js"
+    },
     "./semantic": {
       "types": "./dist/features/semantic/index.d.ts",
       "import": "./dist/features/semantic/index.js"
