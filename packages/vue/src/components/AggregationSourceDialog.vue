@@ -86,17 +86,16 @@
 </template>
 
 <script setup lang="ts">
-  import {
-    parseFetcherEndpoint,
-    type DataFetcherDefinition,
-  } from '@363045841yyt/klinechart-core/controllers'
+  import { parseFetcherEndpoint } from '@363045841yyt/klinechart-core/controllers'
   import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
   import {
     probeAggregationSource,
     isMockSourceName,
     type AggregationSourceEndpoint,
+    type AggregationSourceDefinition,
     type AggregationSourceStatus,
+    supportsAggregationSourceSearch,
   } from '../composables/useAggregationSources'
 
   import BaseModal from './BaseModal.vue'
@@ -106,7 +105,7 @@
   const props = withDefaults(
     defineProps<{
       show: boolean
-      sources: ReadonlyArray<DataFetcherDefinition>
+      sources: ReadonlyArray<AggregationSourceDefinition>
       enabledNames: ReadonlySet<string>
       /** source name -> host/port 草稿 */
       endpoints: Record<string, AggregationSourceEndpoint>
@@ -137,20 +136,20 @@
     return list.sort((a, b) => Number(isMockSource(a)) - Number(isMockSource(b)))
   })
 
-  function isMockSource(source: DataFetcherDefinition): boolean {
+  function isMockSource(source: AggregationSourceDefinition): boolean {
     return isMockSourceName(source.name)
   }
 
-  function supportsSearch(source: DataFetcherDefinition): boolean {
-    return source.capabilities?.includes('search') === true && typeof source.searcher === 'function'
+  function supportsSearch(source: AggregationSourceDefinition): boolean {
+    return supportsAggregationSourceSearch(source)
   }
 
   /** 是否可在面板里改地址/端口 */
-  function isConfigurable(source: DataFetcherDefinition): boolean {
+  function isConfigurable(source: AggregationSourceDefinition): boolean {
     return Boolean(source.defaultBaseUrl)
   }
 
-  function sourceDescription(source: DataFetcherDefinition): string {
+  function sourceDescription(source: AggregationSourceDefinition): string {
     if (supportsSearch(source)) return source.description || '可用于聚合搜索'
     if (isConfigurable(source)) return source.description || '可配置地址'
     return '不支持搜索'
@@ -162,11 +161,11 @@
     return '检测中'
   }
 
-  function defaultHost(source: DataFetcherDefinition): string {
+  function defaultHost(source: AggregationSourceDefinition): string {
     return source.defaultBaseUrl ? parseFetcherEndpoint(source.defaultBaseUrl).host : ''
   }
 
-  function defaultPort(source: DataFetcherDefinition): string {
+  function defaultPort(source: AggregationSourceDefinition): string {
     return source.defaultBaseUrl ? parseFetcherEndpoint(source.defaultBaseUrl).port : ''
   }
 

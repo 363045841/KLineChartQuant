@@ -131,7 +131,6 @@
 </template>
 
 <script setup lang="ts">
-  import type { DataFetcherDefinition } from '@363045841yyt/klinechart-core/controllers'
   import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 
   import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
@@ -141,7 +140,11 @@
     type SearchableSymbol,
     type SymbolSearchFn,
   } from '../composables/useSymbolSearch'
-  import { isMockSourceName } from '../composables/useAggregationSources'
+  import {
+    isMockSourceName,
+    supportsAggregationSourceSearch,
+    type AggregationSourceDefinition,
+  } from '../composables/useAggregationSources'
   import { useTeleportedPopup } from '../composables/useTeleportedPopup'
 
   import AggregationSourceButton from './AggregationSourceButton.vue'
@@ -164,7 +167,7 @@
       /** 主品种拉取失败原因；与 error 同时为真时作为 chip title */
       errorMessage?: string
       /** 已注册数据源，用于 Tabs 展示名 */
-      aggregationSources?: ReadonlyArray<DataFetcherDefinition>
+      aggregationSources?: ReadonlyArray<AggregationSourceDefinition>
       /** 已启用的搜索源名称 */
       enabledSourceNames?: ReadonlySet<string>
     }>(),
@@ -190,12 +193,7 @@
   const sourceTabs = computed<AggregationSourceTabItem[]>(() => {
     const enabled = props.enabledSourceNames
     const searchable = props.aggregationSources
-      .filter(
-        (source) =>
-          enabled.has(source.name) &&
-          source.capabilities?.includes('search') &&
-          typeof source.searcher === 'function',
-      )
+      .filter((source) => enabled.has(source.name) && supportsAggregationSourceSearch(source))
       .slice()
       .sort((a, b) => Number(isMockSourceName(a.name)) - Number(isMockSourceName(b.name)))
     if (searchable.length === 0) return []
@@ -225,7 +223,10 @@
 
   const displayText = computed(() => {
     const cur = currentSymbol.value
-    if (cur) return `${cur.symbol} - ${cur.name}`
+    if (cur) {
+      const legacy = cur as SymbolItem & { description?: string }
+      return `${cur.symbol} - ${cur.name ?? legacy.description ?? cur.symbol}`
+    }
     return props.symbol
   })
 

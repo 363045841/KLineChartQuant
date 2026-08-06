@@ -2,8 +2,17 @@ import type { SymbolSpec, SymbolInfo, DataFetcher, CustomDataSource } from '../.
 import { DataBuffer } from '../../data/dataBuffer'
 import { getPeriodDays } from '../../data/dataBuffer.effects'
 import type { KLineBuffer, DataChange } from '../../data/dataBufferTypes'
+import { marketDataProviderRegistry } from '../../data/marketData/providerRegistry'
+import type {
+  InstrumentDescriptor,
+  KLineAdjustment,
+  KLinePeriod,
+  MarketDataProvider,
+  TradingDate,
+} from '../../data/marketData/types'
 import { TimeShareBuffer } from '../../data/timeShareBuffer'
-import type { TimeShareFetcherFn } from '../../data/types'
+import type { TimeShareFetcherFn, TimeShareFetchResult } from '../../data/types'
+import { MarketSessionRegistry } from '../market/marketSessionRegistry'
 import { createSignal, type ReadonlySignal, type Signal } from '../../foundation/reactivity/signal'
 import type { KLineData, TimeShareData } from '../../foundation/types/price'
 import type { ChartDom } from '../chartTypes'
@@ -43,6 +52,22 @@ export interface DataDependencies {
 const BUF_PRIMARY = 'main'
 const BUF_COMPARISON = 'cmp'
 const BUF_TIMESHARE = 'ts'
+const PROVIDER_MARKET_SESSIONS = new MarketSessionRegistry()
+
+const KLINE_PERIODS = new Set<KLinePeriod>([
+  '1min',
+  '5min',
+  '15min',
+  '30min',
+  '60min',
+  'daily',
+  'weekly',
+  'monthly',
+  'quarterly',
+  'yearly',
+])
+
+const KLINE_ADJUSTMENTS = new Set<KLineAdjustment>(['qfq', 'hfq', 'splits', 'none'])
 
 function bufKey(type: string, market: string, symbol: string, period?: string): string {
   if (type === BUF_TIMESHARE) return `ts:${market}:${symbol}`
@@ -239,15 +264,11 @@ export class ChartDataManager {
     if (!buf) {
       buf = this._createKLineBuffer()
       buf.setFetcher(this._dataFetcher)
-      if (this._dataFetcher) {
-        buf.setRequestFetch(this._batchScheduler.createHandler())
-      }
+      buf.setRequestFetch((request, from, to) => this.requestBars(request, from, to))
       this._klineBuffers.set(key, buf)
     } else {
       buf.setFetcher(this._dataFetcher)
-      if (this._dataFetcher) {
-        buf.setRequestFetch(this._batchScheduler.createHandler())
-      }
+      buf.setRequestFetch((request, from, to) => this.requestBars(request, from, to))
     }
     return buf
   }
@@ -260,11 +281,158 @@ export class ChartDataManager {
     const key = comparisonBufferKey(spec)
     const buffer = this._createKLineBuffer()
     buffer.setFetcher(this._dataFetcher)
-    if (this._dataFetcher) {
-      buffer.setRequestFetch(this._batchScheduler.createHandler())
-    }
+    buffer.setRequestFetch((request, from, to) => this.requestBars(request, from, to))
     this._klineBuffers.set(key, buffer)
     return { key, buffer }
+  }
+
+  /** 优先使用统一 Provider 解析品种；未迁移数据源继续由旧 Fetcher 处理。 */
+  private async resolveProviderInstrument(
+    spec: SymbolSpec,
+    capability: 'bars' | 'timeShare',
+  ): Promise<{ provider: MarketDataProvider; instrument: InstrumentDescriptor } | null> {
+    const sourceId = spec.source
+    if (!sourceId) return null
+    const provider = marketDataProviderRegistry.get(sourceId)
+    if (!provider) return null
+
+    const attached = spec.instrument
+    if (attached?.sourceId === sourceId && attached.symbol === spec.symbol) {
+      const supported =
+        capability === 'bars'
+          ? attached.capabilities.bars !== undefined
+          : attached.capabilities.timeShare === true
+      if (!supported) {
+        throw new Error(
+          `[MarketDataProvider] instrument "${attached.id}" does not support ${capability}`,
+        )
+      }
+      return { provider, instrument: attached }
+    }
+    if (!provider.catalog) {
+      throw new Error(`[MarketDataProvider] source "${sourceId}" cannot resolve "${spec.symbol}"`)
+    }
+
+    const candidates = await provider.catalog.search({ keyword: spec.symbol, limit: 20 })
+    const instrument = candidates.find(
+      (candidate) =>
+        candidate.symbol === spec.symbol &&
+        (spec.exchange === undefined || candidate.exchange === spec.exchange),
+    )
+    if (!instrument) {
+      throw new Error(
+        `[MarketDataProvider] instrument "${spec.symbol}" was not found in "${sourceId}"`,
+      )
+    }
+    const supported =
+      capability === 'bars'
+        ? instrument.capabilities.bars !== undefined
+        : instrument.capabilities.timeShare
+    if (!supported) {
+      throw new Error(
+        `[MarketDataProvider] instrument "${instrument.id}" does not support ${capability}`,
+      )
+    }
+    return { provider, instrument }
+  }
+
+  /** 让 K 线缓冲直接调用 Provider bars；未迁移数据源回退到旧批量 Fetcher。 */
+  private async requestBars(
+    spec: SymbolSpec,
+    from: number,
+    to: number,
+  ): Promise<ReadonlyArray<KLineData>> {
+    const resolved = await this.resolveProviderInstrument(spec, 'bars')
+    if (resolved) {
+      if (!resolved.provider.bars) {
+        throw new Error(
+          `[MarketDataProvider] source "${resolved.provider.source.id}" has no bars source`,
+        )
+      }
+      const period = spec.period ?? 'daily'
+      const adjustment = spec.adjust ?? 'none'
+      if (
+        !KLINE_PERIODS.has(period as KLinePeriod) ||
+        !KLINE_ADJUSTMENTS.has(adjustment as KLineAdjustment)
+      ) {
+        throw new Error(`[MarketDataProvider] invalid bars request for "${resolved.instrument.id}"`)
+      }
+      const capability = resolved.instrument.capabilities.bars
+      if (!capability?.periods.includes(period as KLinePeriod)) {
+        throw new Error(
+          `[MarketDataProvider] instrument "${resolved.instrument.id}" does not support ${period}`,
+        )
+      }
+      if (!capability.adjustments.includes(adjustment as KLineAdjustment)) {
+        throw new Error(
+          `[MarketDataProvider] instrument "${resolved.instrument.id}" does not support ${adjustment}`,
+        )
+      }
+      const series = await resolved.provider.bars.fetch({
+        instrument: resolved.instrument,
+        period: period as KLinePeriod,
+        adjustment: adjustment as KLineAdjustment,
+        from,
+        to,
+      })
+      return series.data
+    }
+    if (!this._dataFetcher) {
+      throw new Error(`[DataFetcher] source is required for symbol "${spec.symbol}"`)
+    }
+    return this._batchScheduler.createHandler()(spec, from, to)
+  }
+
+  /** 将旧 YYYYMMDD 或当前品种时区日期转换为 Provider TradingDate。 */
+  private resolveTradingDate(instrument: InstrumentDescriptor, date?: number): TradingDate {
+    if (date !== undefined) {
+      const raw = String(date)
+      if (!/^\d{8}$/.test(raw))
+        throw new Error(`[MarketDataProvider] invalid trading date "${date}"`)
+      return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}` as TradingDate
+    }
+    if (!instrument.sessionId) {
+      throw new Error(`[MarketDataProvider] sessionId is required for "${instrument.id}" timeshare`)
+    }
+    const timeZone = PROVIDER_MARKET_SESSIONS.getRequired(instrument.sessionId).timeZone
+    const values = Object.fromEntries(
+      new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      })
+        .formatToParts(new Date())
+        .map((part) => [part.type, part.value]),
+    )
+    return `${values.year}-${values.month}-${values.day}` as TradingDate
+  }
+
+  /** 让分时缓冲直接调用 Provider timeShare；未迁移数据源回退到旧 Fetcher。 */
+  private async requestTimeShare(spec: SymbolSpec, date?: number): Promise<TimeShareFetchResult> {
+    const resolved = await this.resolveProviderInstrument(spec, 'timeShare')
+    if (resolved) {
+      if (!resolved.provider.timeShare) {
+        throw new Error(
+          `[MarketDataProvider] source "${resolved.provider.source.id}" has no timeshare source`,
+        )
+      }
+      const series = await resolved.provider.timeShare.fetch({
+        instrument: resolved.instrument,
+        tradingDate: this.resolveTradingDate(resolved.instrument, date),
+      })
+      return { data: series.data, preClose: series.preClose }
+    }
+    const fetcher = this._timeShareFetcher
+    if (!fetcher)
+      throw new Error(`[DataFetcher] "${spec.source}" does not support timeshare data fetching`)
+    const result = await fetcher(spec.source ?? 'gotdx', {
+      symbol: spec.symbol,
+      exchange: spec.exchange,
+      params: spec.params,
+      date,
+    })
+    return 'data' in result ? result : { data: result, preClose: null }
   }
 
   // ── Buffer data change handler ──
@@ -572,15 +740,8 @@ export class ChartDataManager {
   setDataFetcher(fetcher: DataFetcher | null): void {
     this._dataFetcher = fetcher
     this._batchScheduler.setFetcher(fetcher)
-    if (!fetcher) {
-      for (const [, buf] of this._klineBuffers) {
-        buf.setRequestFetch(null)
-      }
-      return
-    }
-    const handler = this._batchScheduler.createHandler()
     for (const [, buf] of this._klineBuffers) {
-      buf.setRequestFetch(handler)
+      buf.setRequestFetch((request, from, to) => this.requestBars(request, from, to))
     }
   }
 
@@ -710,6 +871,7 @@ export class ChartDataManager {
 
       const tsBuf = new TimeShareBuffer()
       tsBuf.setFetcher(this._timeShareFetcher)
+      tsBuf.setRequestFetch((request, date) => this.requestTimeShare(request, date))
       tsBuf.setQueryDate(date)
       const spec = this._dmState.readonly.currentSpec.peek()
       if (spec) {
@@ -844,6 +1006,7 @@ export class ChartDataManager {
       if (!tsBuf) {
         tsBuf = new TimeShareBuffer()
         tsBuf.setFetcher(this._timeShareFetcher)
+        tsBuf.setRequestFetch((request, date) => this.requestTimeShare(request, date))
         this._tsBuffers.set(tsKey, tsBuf)
       }
       this.activateBuffer(tsKey)

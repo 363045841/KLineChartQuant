@@ -2,13 +2,23 @@ import { Effect, pipe } from 'effect'
 import type { Effect as EffectType } from 'effect/Effect'
 
 import type { SymbolSpec } from '../controllers/types'
-import { createSignal, type ReadonlySignal, type WritableSignal } from '../foundation/reactivity/signal'
+import {
+  createSignal,
+  type ReadonlySignal,
+  type WritableSignal,
+} from '../foundation/reactivity/signal'
 import type { TimeShareData } from '../foundation/types/price'
 
 import { fetchTimeShare, TimeShareFetchService } from './dataBuffer.effects'
 import type { DataBufferLike, DataWindow, DataChange } from './dataBufferTypes'
 import { routerTimeShareFetcher } from './router'
 import type { TimeShareFetcherFn, TimeShareFetchResult } from './types'
+
+/** 由数据管理层注入的统一 Provider 分时请求。 */
+export type TimeShareRequestFetch = (
+  spec: SymbolSpec,
+  date?: number,
+) => Promise<TimeShareFetchResult>
 
 function errorMessage(err: unknown): string {
   if (err instanceof Error && err.message.trim()) return err.message
@@ -20,12 +30,16 @@ export class TimeShareBuffer implements DataBufferLike {
   // 当前持有的分时数据数组（内部可变副本）
   private _data: TimeShareData[] = []
   // 向外部广播只读数据快照的信号
-  private _dataSignal: WritableSignal<DataChange> = createSignal<DataChange>({ data: [], prependedCount: 0 })
+  private _dataSignal: WritableSignal<DataChange> = createSignal<DataChange>({
+    data: [],
+    prependedCount: 0,
+  })
   // 是否正在加载中，外部 UI 绑定用
   private _loadingSignal: WritableSignal<boolean> = createSignal<boolean>(false)
   private _lastError: WritableSignal<string | null> = createSignal<string | null>(null)
   // 可选的自定义 fetcher，优先级大于默认 fetcher
   private _fetcher: TimeShareFetcherFn | null = null
+  private _requestFetch: TimeShareRequestFetch | null = null
   // 指定查询的历史日期（0 = 当天）
   private _queryDate = 0
   // 昨收价（分时涨跌基准）；未设置时为 null
@@ -63,6 +77,11 @@ export class TimeShareBuffer implements DataBufferLike {
     this._fetcher = fetcher
   }
 
+  /** 设置优先于旧 Fetcher 的统一 Provider 分时请求。 */
+  setRequestFetch(fetcher: TimeShareRequestFetch | null): void {
+    this._requestFetch = fetcher
+  }
+
   setQueryDate(date: number): void {
     this._queryDate = date
   }
@@ -97,14 +116,12 @@ export class TimeShareBuffer implements DataBufferLike {
     this._loadingSignal.set(true)
 
     const timeShareService: {
-      readonly fetch: (
-        s: SymbolSpec,
-        date?: number,
-      ) => EffectType<TimeShareFetchResult, unknown>
+      readonly fetch: (s: SymbolSpec, date?: number) => EffectType<TimeShareFetchResult, unknown>
     } = {
       fetch: (s, date) =>
         Effect.tryPromise({
           try: () => {
+            if (this._requestFetch) return this._requestFetch(s, date)
             const fetcher = this._fetcher ?? routerTimeShareFetcher
             return fetcher(s.source ?? 'gotdx', {
               symbol: s.symbol,

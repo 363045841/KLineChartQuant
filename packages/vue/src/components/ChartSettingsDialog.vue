@@ -232,10 +232,7 @@
     type ChartSettings,
     type SettingItem,
   } from '@363045841yyt/klinechart-core/config'
-  import type {
-    DataFetcherDefinition,
-    RendererBackendRuntime,
-  } from '@363045841yyt/klinechart-core/controllers'
+  import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
   import { ref, computed, watch } from 'vue'
 
   import type { AggregationSourceEndpoint } from '../composables/useAggregationSources'
@@ -253,7 +250,9 @@
       show: boolean
       initialSettings?: ChartSettings
       rendererRuntime?: RendererBackendRuntime | null
-      aggregationSources?: ReadonlyArray<DataFetcherDefinition>
+      aggregationSources?: ReadonlyArray<
+        import('../composables/useAggregationSources').AggregationSourceDefinition
+      >
       enabledSourceNames?: ReadonlySet<string>
       sourceEndpoints?: Record<string, AggregationSourceEndpoint>
     }>(),

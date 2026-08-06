@@ -69,7 +69,7 @@
 </template>
 
 <script setup lang="ts">
-  import type { DataFetcherDefinition } from '@363045841yyt/klinechart-core/controllers'
+  import type { AggregationSourceDefinition } from '../composables/useAggregationSources'
   import { computed, ref } from 'vue'
 
   import type { AggregationSourceEndpoint } from '../composables/useAggregationSources'
@@ -136,7 +136,7 @@
       comparisonColors?: Map<string, string>
       comparisonLoading?: boolean
       showBackButton?: boolean
-      aggregationSources?: ReadonlyArray<DataFetcherDefinition>
+      aggregationSources?: ReadonlyArray<AggregationSourceDefinition>
       enabledSourceNames?: ReadonlySet<string>
       sourceEndpoints?: Record<string, AggregationSourceEndpoint>
     }>(),

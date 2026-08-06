@@ -187,8 +187,6 @@
 <script setup lang="ts">
   import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 
-  import type { DataFetcherDefinition } from '@363045841yyt/klinechart-core/controllers'
-
   import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
   import {
     symbolIdentityKey,
@@ -196,7 +194,11 @@
     useSymbolSearch,
     type SymbolSearchFn,
   } from '../composables/useSymbolSearch'
-  import { isMockSourceName } from '../composables/useAggregationSources'
+  import {
+    isMockSourceName,
+    supportsAggregationSourceSearch,
+    type AggregationSourceDefinition,
+  } from '../composables/useAggregationSources'
   import { useTeleportedPopup } from '../composables/useTeleportedPopup'
 
   import AggregationSourceButton from './AggregationSourceButton.vue'
@@ -214,7 +216,7 @@
       selectedItems?: SymbolItem[]
       comparisonColors?: Map<string, string>
       comparisonLoading?: boolean
-      aggregationSources?: ReadonlyArray<DataFetcherDefinition>
+      aggregationSources?: ReadonlyArray<AggregationSourceDefinition>
       enabledSourceNames?: ReadonlySet<string>
     }>(),
     {
@@ -241,12 +243,7 @@
   const sourceTabs = computed<AggregationSourceTabItem[]>(() => {
     const enabled = props.enabledSourceNames
     const searchable = props.aggregationSources
-      .filter(
-        (source) =>
-          enabled.has(source.name) &&
-          source.capabilities?.includes('search') &&
-          typeof source.searcher === 'function',
-      )
+      .filter((source) => enabled.has(source.name) && supportsAggregationSourceSearch(source))
       .slice()
       .sort((a, b) => Number(isMockSourceName(a.name)) - Number(isMockSourceName(b.name)))
     if (searchable.length === 0) return []

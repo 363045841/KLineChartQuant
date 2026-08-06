@@ -72,6 +72,8 @@ export interface DataSourceDescriptor {
   id: string
   displayName: string
   description?: string
+  /** 网络 Provider 的默认 Transport 地址。 */
+  defaultBaseUrl?: string
   /** Provider 可声明额外交易时段，注册前仍由前端校验。 */
   marketSessions?: Readonly<Record<string, MarketSessionConfig>>
 }

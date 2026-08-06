@@ -255,6 +255,7 @@
     createChartController,
     routerDataFetcher,
     routerSearchFetchers,
+    marketDataProviderRegistry,
     getRegisteredFetchers,
     type ChartController,
     type ChartMountOptions,
@@ -282,11 +283,33 @@
     shallowRef,
     useSlots,
   } from 'vue'
-  import { useAggregationSources } from '../composables/useAggregationSources'
+  import {
+    useAggregationSources,
+    type AggregationSourceDefinition,
+  } from '../composables/useAggregationSources'
   import { formatTimestamp } from '@363045841yyt/klinechart-core'
 
   const slots = useSlots()
-  const aggregationSources = getRegisteredFetchers()
+  /** Provider 与遗留 Fetcher 的展示元数据；已迁移源不再注册旧 Fetcher。 */
+  const aggregationSources: ReadonlyArray<AggregationSourceDefinition> = [
+    ...marketDataProviderRegistry.getAll().map((provider) => ({
+      name: provider.source.id,
+      displayName: provider.source.displayName,
+      description: provider.source.description,
+      capabilities: provider.catalog ? ['search'] : [],
+      defaultBaseUrl: provider.source.defaultBaseUrl,
+    })),
+    ...getRegisteredFetchers()
+      .filter((source) => !marketDataProviderRegistry.get(source.name))
+      .map(({ name, displayName, description, capabilities, defaultBaseUrl, searcher }) => ({
+        name,
+        displayName,
+        description,
+        capabilities,
+        defaultBaseUrl,
+        searcher,
+      })),
+  ]
   const {
     enabledNames: enabledSourceNames,
     enabledNameSet: enabledSourceNameSet,
@@ -554,6 +577,7 @@
   function toSymbolSpec(item: SymbolItem): SymbolSpec {
     return {
       id: item.id,
+      instrument: item,
       symbol: item.symbol,
       market: item.sessionId ?? '',
       exchange: item.exchange,
@@ -572,14 +596,25 @@
     signal: AbortSignal,
     sources?: ReadonlyArray<string>,
   ): Promise<ReadonlyArray<SymbolItem>> {
-    // Tab 指定单源时只查该源；否则查全部已启用源
-    const results = await routerSearchFetchers({
-      query,
-      limit,
-      signal,
-      sources: sources ?? enabledSourceNames.value,
+    const sourceNames = sources ?? enabledSourceNames.value
+    const requests = sourceNames.map(async (sourceId) => {
+      const provider = marketDataProviderRegistry.get(sourceId)
+      if (provider?.catalog) {
+        return provider.catalog.search({ keyword: query, limit, signal })
+      }
+      const results = await routerSearchFetchers({ query, limit, signal, sources: [sourceId] })
+      return results.map(toInstrumentDescriptor)
     })
-    return results.map(toInstrumentDescriptor)
+    const settled = await Promise.allSettled(requests)
+    const results = settled.flatMap((result) => (result.status === 'fulfilled' ? result.value : []))
+    if (results.length === 0 && settled.every((result) => result.status === 'rejected')) {
+      throw new Error('[MarketDataProvider] all enabled source searches failed')
+    }
+    const unique = new Map<string, SymbolItem>()
+    for (const item of results) {
+      if (!unique.has(item.id)) unique.set(item.id, item)
+    }
+    return [...unique.values()].slice(0, limit)
   }
 
   /** 为没有稳定 ID 的旧搜索结果生成确定性身份。 */

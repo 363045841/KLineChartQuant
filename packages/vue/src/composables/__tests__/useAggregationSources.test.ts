@@ -38,10 +38,12 @@ describe('useAggregationSources', () => {
   beforeEach(() => {
     window.localStorage.clear()
     clearFetcherBaseUrlsForTest()
+    marketDataProviderRegistry.setConfig('gotdx', { baseUrl: undefined })
   })
 
   afterEach(() => {
     clearFetcherBaseUrlsForTest()
+    marketDataProviderRegistry.setConfig('gotdx', { baseUrl: undefined })
   })
 
   it('enables every searchable fetcher on first use', () => {
@@ -78,11 +80,29 @@ describe('useAggregationSources', () => {
   })
 
   it('applies endpoint edits to the core runtime base URL', () => {
-    applyAggregationSourceBaseUrls([source('gotdx', { defaultBaseUrl: 'http://127.0.0.1:8080' })], {
-      gotdx: { host: '10.0.0.2', port: '7000' },
-    })
+    applyAggregationSourceBaseUrls(
+      [source('legacy-source', { defaultBaseUrl: 'http://127.0.0.1:8080' })],
+      {
+        'legacy-source': { host: '10.0.0.2', port: '7000' },
+      },
+    )
 
-    expect(getFetcherBaseUrl('gotdx', 'http://127.0.0.1:8080')).toBe('http://10.0.0.2:7000')
+    expect(getFetcherBaseUrl('legacy-source', 'http://127.0.0.1:8080')).toBe('http://10.0.0.2:7000')
+  })
+
+  // 验证已迁移 Provider 的地址写入 Provider registry，而不是旧 Fetcher 地址表。
+  it('applies endpoint edits to a migrated provider', () => {
+    applyAggregationSourceBaseUrls(
+      [{ name: 'gotdx', displayName: 'GOTDX', defaultBaseUrl: 'http://127.0.0.1:8080' }],
+      {
+        gotdx: { host: '10.0.0.2', port: '7000' },
+      },
+    )
+
+    expect(marketDataProviderRegistry.getConfig('gotdx')).toEqual({
+      enabled: true,
+      baseUrl: 'http://10.0.0.2:7000',
+    })
   })
 
   it('persists toggle and endpoint changes', async () => {

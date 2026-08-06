@@ -9,7 +9,11 @@
  */
 
 import type { AlertController } from '../features/alerts/types'
-import type { AssetClass, InstrumentCapabilities } from '../data/marketData/types'
+import type {
+  AssetClass,
+  InstrumentCapabilities,
+  InstrumentDescriptor,
+} from '../data/marketData/types'
 import type { ChartSettings } from '../foundation/config/chartSettings'
 import type { MarketSessionConfig } from '../foundation/utils/sessionTimeLabels'
 import type { InteractionSnapshot } from '../engine/chart'
@@ -115,6 +119,8 @@ export interface SymbolInfo {
 export interface SymbolSpec {
   /** 统一行情模型提供的稳定品种 ID；旧调用可暂时缺失。 */
   id?: string
+  /** 已选品种的统一领域模型；Provider 加载时必须原样使用。 */
+  instrument?: InstrumentDescriptor
   symbol: string
   market: string
   exchange?: string

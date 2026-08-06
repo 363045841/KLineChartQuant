@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import { getRegisteredFetcher } from '../fetcherDefinitionRegistry'
-import { MOCK_100_SYMBOL, MOCK_10000_SYMBOL, mockDataFetcher } from '../mock'
+import { marketDataProviderRegistry } from '../marketData/providerRegistry'
+import {
+  MOCK_100_SYMBOL,
+  MOCK_10000_SYMBOL,
+  mockDataFetcher,
+  mockMarketDataProvider,
+} from '../mock'
 import { routerDataFetcher, routerSearchFetchers } from '../router'
 
 const defaultConfig = {
@@ -61,5 +67,42 @@ describe('mock data source', () => {
       endDate: '2024-01-01',
     })
     expect(data).toEqual([])
+  })
+
+  // 验证本地数据源通过统一 Provider 契约报告在线状态。
+  it('reports online through the MarketDataProvider probe', async () => {
+    expect(marketDataProviderRegistry.get('mock')).toBe(mockMarketDataProvider)
+    await expect(mockMarketDataProvider.probe()).resolves.toMatchObject({ status: 'online' })
+  })
+
+  // 验证统一目录返回稳定品种标识与仅日 K 能力。
+  it('exposes instruments and daily bars through the MarketDataProvider', async () => {
+    const instruments = await mockMarketDataProvider.catalog!.search({ keyword: '100', limit: 10 })
+
+    expect(instruments).toEqual([
+      expect.objectContaining({
+        id: 'mock:MOCK-100',
+        sourceId: 'mock',
+        symbol: MOCK_100_SYMBOL,
+        capabilities: { bars: { periods: ['daily'], adjustments: ['none'] } },
+      }),
+      expect.objectContaining({ id: 'mock:MOCK-10000', symbol: MOCK_10000_SYMBOL }),
+    ])
+
+    const series = await mockMarketDataProvider.bars!.fetch({
+      instrument: instruments[0]!,
+      period: 'daily',
+      adjustment: 'none',
+      from: new Date('2024-01-01').getTime(),
+      to: new Date('2024-01-31').getTime(),
+    })
+    expect(series).toMatchObject({
+      instrumentId: 'mock:MOCK-100',
+      period: 'daily',
+      adjustment: 'none',
+      timezone: 'Asia/Shanghai',
+      volumeUnit: 'share',
+    })
+    expect(series.data).toHaveLength(31)
   })
 })

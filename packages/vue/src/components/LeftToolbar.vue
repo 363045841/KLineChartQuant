@@ -180,10 +180,7 @@
     resolveRuntimeSettings,
     type ChartSettings,
   } from '@363045841yyt/klinechart-core/config'
-  import type {
-    DataFetcherDefinition,
-    RendererBackendRuntime,
-  } from '@363045841yyt/klinechart-core/controllers'
+  import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
   import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 
   import type { AggregationSourceEndpoint } from '../composables/useAggregationSources'
@@ -271,7 +268,9 @@
       drawingToolId?: string
       /** range-select 本地模式 */
       isRangeSelectMode?: boolean
-      aggregationSources?: ReadonlyArray<DataFetcherDefinition>
+      aggregationSources?: ReadonlyArray<
+        import('../composables/useAggregationSources').AggregationSourceDefinition
+      >
       enabledSourceNames?: ReadonlySet<string>
       sourceEndpoints?: Record<string, AggregationSourceEndpoint>
     }>(),

@@ -7,6 +7,8 @@
 import type { KLineData } from '../controllers/types'
 
 import { DataFetcher } from './fetcherDefinitionRegistry'
+import { marketDataProviderRegistry } from './marketData/providerRegistry'
+import type { InstrumentDescriptor, MarketDataProvider } from './marketData/types'
 import type { FetchConfig, SearchConfig, SearchResult } from './types'
 
 /** MOCK-100 品种：按请求日期范围生成日 K */
@@ -15,21 +17,27 @@ export const MOCK_100_SYMBOL = 'MOCK-100'
 /** MOCK-10000 品种：固定生成 10000 根日 K，忽略日期范围 */
 export const MOCK_10000_SYMBOL = 'MOCK-10000'
 
-/** MOCK 源拥有的全部品种（搜索与探测均返回此列表） */
-const MOCK_VARIETIES: ReadonlyArray<SearchResult> = [
+/** MOCK 源拥有的全部品种，供 Provider 目录和旧搜索适配共用。 */
+const MOCK_INSTRUMENTS: ReadonlyArray<InstrumentDescriptor> = [
   {
+    id: 'mock:MOCK-100',
+    sourceId: 'mock',
     symbol: MOCK_100_SYMBOL,
-    description: 'Mock ~100 daily bars',
+    name: 'Mock ~100 daily bars',
+    assetClass: 'index',
     exchange: 'MOCK',
-    market: 'CN',
-    source: 'mock',
+    sessionId: 'CN',
+    capabilities: { bars: { periods: ['daily'], adjustments: ['none'] } },
   },
   {
+    id: 'mock:MOCK-10000',
+    sourceId: 'mock',
     symbol: MOCK_10000_SYMBOL,
-    description: 'Mock 10,000 daily bars',
+    name: 'Mock 10,000 daily bars',
+    assetClass: 'index',
     exchange: 'MOCK',
-    market: 'CN',
-    source: 'mock',
+    sessionId: 'CN',
+    capabilities: { bars: { periods: ['daily'], adjustments: ['none'] } },
   },
 ]
 
@@ -138,6 +146,18 @@ function generateTenThousandBars(): KLineData[] {
   return data
 }
 
+/** 按关键词和数量限制筛选本地 MOCK 品种目录。 */
+function searchMockInstruments(keyword: string, limit?: number): ReadonlyArray<InstrumentDescriptor> {
+  const normalizedKeyword = keyword.trim().toLowerCase()
+  const matched = MOCK_INSTRUMENTS.filter(
+    (instrument) =>
+      !normalizedKeyword ||
+      instrument.symbol.toLowerCase().includes(normalizedKeyword) ||
+      instrument.name.toLowerCase().includes(normalizedKeyword),
+  )
+  return limit === undefined ? matched : matched.slice(0, limit)
+}
+
 /**
  * MOCK 源 K 线拉取：按品种分发，MOCK-10000 固定 10k 根，其余按日期范围生成
  * @param _source - 注册名（固定为 'mock'，未使用）
@@ -162,14 +182,66 @@ async function searchMock(
   _source: string,
   config: SearchConfig,
 ): Promise<ReadonlyArray<SearchResult>> {
-  const query = config.query.trim().toLowerCase()
-  const matched = MOCK_VARIETIES.filter(
-    (item) =>
-      !query ||
-      item.symbol.toLowerCase().includes(query) ||
-      item.description.toLowerCase().includes(query),
-  )
-  return config.limit === undefined ? matched : matched.slice(0, config.limit)
+  return searchMockInstruments(config.query, config.limit).map((instrument) => ({
+    id: instrument.id,
+    assetClass: instrument.assetClass,
+    sessionId: instrument.sessionId,
+    capabilities: instrument.capabilities,
+    symbol: instrument.symbol,
+    description: instrument.name,
+    exchange: instrument.exchange,
+    market: instrument.sessionId ?? '',
+    source: instrument.sourceId,
+    params: instrument.providerRef,
+  }))
+}
+
+/** 统一行情模型下的本地 MOCK Provider，不依赖 HTTP 后端。 */
+export const mockMarketDataProvider: MarketDataProvider = {
+  source: {
+    id: 'mock',
+    displayName: 'Mock',
+    description: 'Local mock source with generated daily bars',
+  },
+
+  /** 本地生成数据始终可用，因此探测恒为在线。 */
+  async probe() {
+    return { status: 'online', checkedAt: Date.now(), latencyMs: 0 }
+  },
+
+  catalog: {
+    /** 搜索本地 MOCK 品种目录。 */
+    async search(query) {
+      return searchMockInstruments(query.keyword, query.limit)
+    },
+  },
+
+  bars: {
+    /** 复用旧 MOCK 生成器拉取日 K 数据。 */
+    async fetch(query) {
+      const data = await fetchMock('mock', {
+        symbol: query.instrument.symbol,
+        startDate: new Date(query.from).toISOString().slice(0, 10),
+        endDate: new Date(query.to).toISOString().slice(0, 10),
+        period: query.period,
+        adjust: query.adjustment,
+        exchange: query.instrument.exchange,
+        params: query.instrument.providerRef,
+      })
+      return {
+        instrumentId: query.instrument.id,
+        period: query.period,
+        adjustment: query.adjustment,
+        timezone: 'Asia/Shanghai',
+        volumeUnit: 'share',
+        data,
+      }
+    },
+  },
+}
+
+if (!marketDataProviderRegistry.get('mock')) {
+  marketDataProviderRegistry.register(mockMarketDataProvider)
 }
 
 @DataFetcher({

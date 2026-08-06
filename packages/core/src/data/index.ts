@@ -1,4 +1,9 @@
-export { mockDataFetcher, hundredMockDataFetcher, thousandMockDataFetcher } from './mock'
+export {
+  mockDataFetcher,
+  hundredMockDataFetcher,
+  thousandMockDataFetcher,
+  mockMarketDataProvider,
+} from './mock'
 export { baostockDataFetcher } from './baostock'
 export { routerDataFetcher, routerSearchFetchers, routerTimeShareFetcher } from './router'
 export { DataBuffer } from './dataBuffer'

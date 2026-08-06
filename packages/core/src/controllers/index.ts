@@ -98,10 +98,11 @@ export {
   DEFAULT_BINANCE_SSE_URL,
   DepthConnector,
   MarketDataProviderRegistry,
-  marketDataProviderRegistry,
-  createLegacyMarketDataAdapters,
-  gotdxMarketDataProvider,
-} from '../data'
+   marketDataProviderRegistry,
+   createLegacyMarketDataAdapters,
+   gotdxMarketDataProvider,
+   mockMarketDataProvider,
+ } from '../data'
 export type {
   DataWindow,
   DepthSource,

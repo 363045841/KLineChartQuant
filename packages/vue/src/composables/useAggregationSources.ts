@@ -25,6 +25,16 @@ interface StoredAggregationSources {
 
 export type AggregationSourceStatus = 'checking' | 'online' | 'offline'
 
+/** 聚合源管理 UI 所需的最小元数据，不依赖旧 DataFetcher。 */
+export interface AggregationSourceDefinition {
+  name: string
+  displayName: string
+  description?: string
+  capabilities?: ReadonlyArray<string>
+  defaultBaseUrl?: string
+  searcher?: DataFetcherDefinition['searcher']
+}
+
 /** 判断数据源是否为本地 MOCK 源（UI 中用于将 mock 沉底展示） */
 export function isMockSourceName(name: string): boolean {
   return name === 'mock' || name.startsWith('mock-')
@@ -35,7 +45,7 @@ export function isMockSourceName(name: string): boolean {
  * @remarks 查询 "0"、limit 1；只关心请求成败，不要求返回结果
  */
 export async function probeAggregationSource(
-  source: DataFetcherDefinition,
+  source: AggregationSourceDefinition,
   signal: AbortSignal,
 ): Promise<Exclude<AggregationSourceStatus, 'checking'>> {
   const provider = marketDataProviderRegistry.get(source.name)
@@ -58,6 +68,14 @@ export async function probeAggregationSource(
   }
 }
 
+/** Provider catalog 或旧 searcher 存在时，该源可参与聚合搜索。 */
+export function supportsAggregationSourceSearch(source: AggregationSourceDefinition): boolean {
+  return (
+    Boolean(marketDataProviderRegistry.get(source.name)?.catalog) ||
+    typeof source.searcher === 'function'
+  )
+}
+
 function readStoredSources(): StoredAggregationSources | undefined {
   if (typeof window === 'undefined') return undefined
   try {
@@ -74,12 +92,10 @@ function readStoredSources(): StoredAggregationSources | undefined {
  * 首次：全部可搜索源启用；已有配置：新注册源默认启用，旧源沿用开关
  */
 export function resolveEnabledAggregationSources(
-  sources: ReadonlyArray<DataFetcherDefinition>,
+  sources: ReadonlyArray<AggregationSourceDefinition>,
   stored = readStoredSources(),
 ): string[] {
-  const searchable = sources.filter(
-    (source) => source.capabilities?.includes('search') && typeof source.searcher === 'function',
-  )
+  const searchable = sources.filter(supportsAggregationSourceSearch)
   if (!stored) return searchable.map((source) => source.name)
 
   const known = new Set(stored.known)
@@ -93,7 +109,7 @@ export function resolveEnabledAggregationSources(
  * 从 definition.defaultBaseUrl 与 localStorage 合并出每个可配置源的 host/port
  */
 export function resolveAggregationSourceEndpoints(
-  sources: ReadonlyArray<DataFetcherDefinition>,
+  sources: ReadonlyArray<AggregationSourceDefinition>,
   stored = readStoredSources(),
 ): Record<string, AggregationSourceEndpoint> {
   const result: Record<string, AggregationSourceEndpoint> = {}
@@ -110,14 +126,16 @@ export function resolveAggregationSourceEndpoints(
  * 与默认相同则清除覆盖，避免多余状态
  */
 export function applyAggregationSourceBaseUrls(
-  sources: ReadonlyArray<DataFetcherDefinition>,
+  sources: ReadonlyArray<AggregationSourceDefinition>,
   endpoints: Record<string, AggregationSourceEndpoint>,
 ): void {
   for (const source of sources) {
     if (!source.defaultBaseUrl) continue
+    const provider = marketDataProviderRegistry.get(source.name)
     const ep = endpoints[source.name]
     if (!ep?.host.trim()) {
-      setFetcherBaseUrl(source.name, undefined)
+      if (provider) marketDataProviderRegistry.setConfig(source.name, { baseUrl: undefined })
+      else setFetcherBaseUrl(source.name, undefined)
       continue
     }
     const next = composeFetcherBaseUrl(ep.host, ep.port, source.defaultBaseUrl)
@@ -129,7 +147,11 @@ export function applyAggregationSourceBaseUrls(
           parseFetcherEndpoint(source.defaultBaseUrl).port,
           source.defaultBaseUrl,
         )
-    setFetcherBaseUrl(source.name, sameAsDefault ? undefined : next)
+    if (provider)
+      marketDataProviderRegistry.setConfig(source.name, {
+        baseUrl: sameAsDefault ? undefined : next,
+      })
+    else setFetcherBaseUrl(source.name, sameAsDefault ? undefined : next)
   }
 }
 
@@ -137,7 +159,7 @@ export function applyAggregationSourceBaseUrls(
  * 聚合源启用状态 + 地址端口
  * 变更会同步到 localStorage 与 core setFetcherBaseUrl
  */
-export function useAggregationSources(sources: ReadonlyArray<DataFetcherDefinition>) {
+export function useAggregationSources(sources: ReadonlyArray<AggregationSourceDefinition>) {
   const enabledNames = ref(resolveEnabledAggregationSources(sources))
   const enabledNameSet = computed(() => new Set(enabledNames.value))
   const endpoints = ref(resolveAggregationSourceEndpoints(sources))
