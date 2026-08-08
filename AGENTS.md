@@ -80,8 +80,8 @@ Vite 开发代理：`/api/stock` → `:8000`。
 
 本前端对接：
 
-- gotdx → `packages/core/src/data/gotdx.ts`（默认 base `http://127.0.0.1:8080`，可用 `VITE_GOTDX_API_BASE_URL`）
-- binance → `packages/core/src/data/binance.ts`（`:8081`）
+- gotdx → `packages/core/src/data/provider/sources/gotdx.ts`（默认 base `http://127.0.0.1:8080`，可用 `VITE_GOTDX_API_BASE_URL`）
+- binance → `packages/core/src/data/depth/binance.ts`（`:8081`）
 - Vite 开发代理：`/api/public` → `:8080`（见 `pnpm dev`）
 
 本地启动（在 `KlineChartQuantGo` 根目录）：

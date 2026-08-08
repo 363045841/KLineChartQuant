@@ -1432,8 +1432,8 @@ export class Chart {
     this.dataManager.setDataFetcher(fetcher)
   }
 
-  get dataBuffer(): import('../data/dataBuffer').DataBuffer {
-    return this.dataManager.dataBuffer as import('../data/dataBuffer').DataBuffer
+  get dataBuffer(): import('../data/buffer/dataBuffer').DataBuffer {
+    return this.dataManager.dataBuffer as import('../data/buffer/dataBuffer').DataBuffer
   }
 
   checkVisibleRangeGap(): void {

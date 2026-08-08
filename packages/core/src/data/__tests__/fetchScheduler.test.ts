@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { FetchScheduler } from '../fetchScheduler'
+import { FetchScheduler } from '../buffer/fetchScheduler'
 
 describe('FetchScheduler generations', () => {
   it('does not execute a queued task from before reset', async () => {

@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
-import { getRegisteredFetcher } from '../fetcherDefinitionRegistry'
-import { marketDataProviderRegistry } from '../marketData/providerRegistry'
+import { getRegisteredFetcher } from '../legacy/fetcherDefinitionRegistry'
+import { marketDataProviderRegistry } from '../provider/registry'
 import {
   MOCK_100_SYMBOL,
   MOCK_10000_SYMBOL,
   mockDataFetcher,
-  mockMarketDataProvider,
-} from '../mock'
-import { routerDataFetcher, routerSearchFetchers } from '../router'
+} from '../legacy/mock'
+import { mockMarketDataProvider } from '../provider/sources/mock'
+import { routerDataFetcher, routerSearchFetchers } from '../legacy/router'
 
 const defaultConfig = {
   startDate: '2024-01-01',

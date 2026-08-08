@@ -14,8 +14,8 @@
     "./dist/engine/indicators/registerBuiltins.js",
     "./dist/engine/renderers/Indicator/*.js",
     "./dist/engine/renderers/subVolume.js",
-    "./src/data/*.ts",
-    "./dist/data/*.js"
+    "./src/data/**/*.ts",
+    "./dist/data/**/*.js"
   ],
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -34,8 +34,8 @@
       "import": "./dist/controllers/index.js"
     },
     "./market-data": {
-      "types": "./dist/data/marketData/index.d.ts",
-      "import": "./dist/data/marketData/index.js"
+      "types": "./dist/data/provider/index.d.ts",
+      "import": "./dist/data/provider/index.js"
     },
     "./semantic": {
       "types": "./dist/features/semantic/index.d.ts",

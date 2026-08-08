@@ -1,4 +1,5 @@
-import type { KLineData } from '../controllers/types'
+/** 时间 key 索引：为每根 K 线计算所在月/日的归一化 key，供坐标轴刻度快速定位。 */
+import type { KLineData } from '../../controllers/types'
 
 export class TimeKeyIndex {
   private _monthKeys: Int32Array | null = null

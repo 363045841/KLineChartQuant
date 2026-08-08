@@ -1,5 +1,5 @@
-import type { DataSourceParams, KLineData, TimeShareData } from '../controllers/types'
-import type { AssetClass, InstrumentCapabilities } from './marketData/types'
+import type { DataSourceParams, KLineData, TimeShareData } from '../../controllers/types'
+import type { AssetClass, InstrumentCapabilities } from '../provider/types'
 
 export type FetchConfig = {
   symbol: string

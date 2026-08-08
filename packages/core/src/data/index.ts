@@ -3,14 +3,15 @@ export {
   mockDataFetcher,
   hundredMockDataFetcher,
   thousandMockDataFetcher,
-  mockMarketDataProvider,
-} from './mock'
-export { baostockDataFetcher, baostockMarketDataProvider } from './baostock'
-export { routerDataFetcher, routerSearchFetchers, routerTimeShareFetcher } from './router'
-export { DataBuffer } from './dataBuffer'
-export type { DataWindow } from './dataBufferTypes'
-export { TimeShareBuffer } from './timeShareBuffer'
-export type { DataBufferLike } from './dataBufferTypes'
+} from './legacy/mock'
+export { mockMarketDataProvider } from './provider/sources/mock'
+export { baostockDataFetcher } from './legacy/baostock'
+export { baostockMarketDataProvider } from './provider/sources/baostock'
+export { routerDataFetcher, routerSearchFetchers, routerTimeShareFetcher } from './legacy/router'
+export { DataBuffer } from './buffer/dataBuffer'
+export type { DataWindow } from './buffer/dataBufferTypes'
+export { TimeShareBuffer } from './buffer/timeShareBuffer'
+export type { DataBufferLike } from './buffer/dataBufferTypes'
 export {
   getRegisteredFetcher,
   getRegisteredFetchers,
@@ -20,7 +21,7 @@ export {
   fetcherHasCapability,
   fetcherSupportsSearch,
   fetcherSupportsTimeShare,
-} from './fetcherDefinitionRegistry'
+} from './legacy/fetcherDefinitionRegistry'
 export {
   clearFetcherBaseUrlsForTest,
   composeFetcherBaseUrl,
@@ -28,7 +29,7 @@ export {
   normalizeFetcherBaseUrl,
   parseFetcherEndpoint,
   setFetcherBaseUrl,
-} from './fetcherBaseUrl'
+} from './legacy/fetcherBaseUrl'
 export type {
   SearchConfig,
   SearchFetcherFn,
@@ -37,21 +38,24 @@ export type {
   TimeShareFetchConfig,
   TimeShareFetchResult,
   DataFetcherDefinition,
-} from './types'
+} from './legacy/types'
 export {
   getPeriodDays,
   fetchKLine,
   fetchTimeShare,
   KLineFetchService,
   TimeShareFetchService,
-} from './dataBuffer.effects'
-export { BinanceSSESource, DEFAULT_BINANCE_SSE_URL } from './binance'
-export { gotdxMarketDataProvider } from './gotdx'
-export { tradingviewMarketDataProvider } from './tradingview'
-export { DepthConnector } from './depthConnector'
-export type { DepthSource, DepthDelta, DepthSnapshot, DepthSourceStatus } from './depthTypes'
-export * from './marketData'
-import './baostock'
-import './mock'
-import './gotdx'
-import './tradingview'
+} from './buffer/dataBuffer.effects'
+export { BinanceSSESource, DEFAULT_BINANCE_SSE_URL } from './depth/binance'
+export { gotdxMarketDataProvider } from './provider/sources/gotdx'
+export { tradingviewMarketDataProvider } from './provider/sources/tradingview'
+export { DepthConnector } from './depth/depthConnector'
+export type { DepthSource, DepthDelta, DepthSnapshot, DepthSourceStatus } from './depth/depthTypes'
+export * from './provider'
+import './legacy/baostock'
+import './legacy/mock'
+import './legacy/tradingview'
+import './provider/sources/gotdx'
+import './provider/sources/baostock'
+import './provider/sources/tradingview'
+import './provider/sources/mock'

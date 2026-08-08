@@ -1,8 +1,9 @@
-import type { KLineData, SymbolSpec, DataFetcher } from '../controllers/types'
-import type { ReadonlySignal } from '../foundation/reactivity/signal'
-import type { TimeShareData } from '../foundation/types/price'
+/** 数据缓冲层共享契约：定义已加载窗口、数据变更描述与 K 线/分时缓冲的统一接口。 */
+import type { KLineData, SymbolSpec, DataFetcher } from '../../controllers/types'
+import type { ReadonlySignal } from '../../foundation/reactivity/signal'
+import type { TimeShareData } from '../../foundation/types/price'
 
-import type { TimeShareFetcherFn } from './types'
+import type { TimeShareFetcherFn } from '../legacy/types'
 
 export interface DataWindow {
   earliestTs: number

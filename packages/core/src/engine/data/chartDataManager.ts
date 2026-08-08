@@ -1,17 +1,17 @@
 import type { SymbolSpec, SymbolInfo, DataFetcher, CustomDataSource } from '../../controllers/types'
-import { DataBuffer } from '../../data/dataBuffer'
-import { getPeriodDays } from '../../data/dataBuffer.effects'
-import type { KLineBuffer, DataChange } from '../../data/dataBufferTypes'
-import { marketDataProviderRegistry } from '../../data/marketData/providerRegistry'
+import { DataBuffer } from '../../data/buffer/dataBuffer'
+import { getPeriodDays } from '../../data/buffer/dataBuffer.effects'
+import type { KLineBuffer, DataChange } from '../../data/buffer/dataBufferTypes'
+import { marketDataProviderRegistry } from '../../data/provider/registry'
 import type {
   InstrumentDescriptor,
   KLineAdjustment,
   KLinePeriod,
   MarketDataProvider,
   TradingDate,
-} from '../../data/marketData/types'
-import { TimeShareBuffer } from '../../data/timeShareBuffer'
-import type { TimeShareFetcherFn, TimeShareFetchResult } from '../../data/types'
+} from '../../data/provider/types'
+import { TimeShareBuffer } from '../../data/buffer/timeShareBuffer'
+import type { TimeShareFetcherFn, TimeShareFetchResult } from '../../data/legacy/types'
 import { MarketSessionRegistry } from '../market/marketSessionRegistry'
 import { createSignal, type ReadonlySignal, type Signal } from '../../foundation/reactivity/signal'
 import type { KLineData, TimeShareData } from '../../foundation/types/price'

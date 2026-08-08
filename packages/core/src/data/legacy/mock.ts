@@ -4,15 +4,11 @@
  * 按品种名（MOCK-100 / MOCK-10000）分发生成不同规模的 K 线。
  * 数据本地生成、不依赖后端，因此探测（probe）恒为在线。
  */
-import type { KLineData } from '../controllers/types'
+import type { KLineData } from '../../controllers/types'
 
 import { DataFetcher } from './fetcherDefinitionRegistry'
-import { marketDataProviderRegistry } from './marketData/providerRegistry'
-import { dataSourceRegistry } from './marketData/sourceRegistry'
-import type { InstrumentDescriptor, MarketDataProvider } from './marketData/types'
 import type { FetchConfig, SearchConfig, SearchResult } from './types'
-
-const MOCK_SOURCE = dataSourceRegistry.mock
+import type { InstrumentDescriptor } from '../provider/types'
 
 /** MOCK-100 品种：按请求日期范围生成日 K */
 export const MOCK_100_SYMBOL = 'MOCK-100'
@@ -150,7 +146,10 @@ function generateTenThousandBars(): KLineData[] {
 }
 
 /** 按关键词和数量限制筛选本地 MOCK 品种目录。 */
-function searchMockInstruments(keyword: string, limit?: number): ReadonlyArray<InstrumentDescriptor> {
+export function searchMockInstruments(
+  keyword: string,
+  limit?: number,
+): ReadonlyArray<InstrumentDescriptor> {
   const normalizedKeyword = keyword.trim().toLowerCase()
   const matched = MOCK_INSTRUMENTS.filter(
     (instrument) =>
@@ -166,7 +165,7 @@ function searchMockInstruments(keyword: string, limit?: number): ReadonlyArray<I
  * @param _source - 注册名（固定为 'mock'，未使用）
  * @param config - 统一 FetchConfig 契约
  */
-async function fetchMock(_source: string, config: FetchConfig): Promise<ReadonlyArray<KLineData>> {
+export async function fetchMock(_source: string, config: FetchConfig): Promise<ReadonlyArray<KLineData>> {
   console.log(`[mock] generating ${config.symbol} ${config.period}`)
   if (config.symbol === MOCK_10000_SYMBOL) {
     return generateTenThousandBars()
@@ -199,53 +198,14 @@ async function searchMock(
   }))
 }
 
-/** 统一行情模型下的本地 MOCK Provider，不依赖 HTTP 后端。 */
-export const mockMarketDataProvider: MarketDataProvider = {
-  source: {
-    id: MOCK_SOURCE.id,
-    displayName: MOCK_SOURCE.displayName,
-    description: MOCK_SOURCE.description,
-  },
+/** 统一 MOCK 数据源拉取函数（可直接用作 dataFetcher，或经 routerDataFetcher 按名调用） */
+export const mockDataFetcher = fetchMock
 
-  /** 本地生成数据始终可用，因此探测恒为在线。 */
-  async probe() {
-    return { status: 'online', checkedAt: Date.now(), latencyMs: 0 }
-  },
+/** @deprecated 已合并到 'mock' 源；直接调用时按品种名分发 */
+export const hundredMockDataFetcher = fetchMock
 
-  catalog: {
-    /** 搜索本地 MOCK 品种目录。 */
-    async search(query) {
-      return searchMockInstruments(query.keyword, query.limit)
-    },
-  },
-
-  bars: {
-    /** 复用旧 MOCK 生成器拉取日 K 数据。 */
-    async fetch(query) {
-      const data = await fetchMock('mock', {
-        symbol: query.instrument.symbol,
-        startDate: new Date(query.from).toISOString().slice(0, 10),
-        endDate: new Date(query.to).toISOString().slice(0, 10),
-        period: query.period,
-        adjust: query.adjustment,
-        exchange: query.instrument.exchange,
-        params: query.instrument.providerRef,
-      })
-      return {
-        instrumentId: query.instrument.id,
-        period: query.period,
-        adjustment: query.adjustment,
-        timezone: 'Asia/Shanghai',
-        volumeUnit: 'share',
-        data,
-      }
-    },
-  },
-}
-
-if (!marketDataProviderRegistry.get('mock')) {
-  marketDataProviderRegistry.register(mockMarketDataProvider)
-}
+/** @deprecated 已合并到 'mock' 源；MOCK-10000 仍固定生成 10k 根 */
+export const thousandMockDataFetcher = fetchMock
 
 @DataFetcher({
   name: 'mock',
@@ -258,12 +218,3 @@ class MockFetcher {
   static fetcher = fetchMock
   static searcher = searchMock
 }
-
-/** 统一 MOCK 数据源拉取函数（可直接用作 dataFetcher，或经 routerDataFetcher 按名调用） */
-export const mockDataFetcher = fetchMock
-
-/** @deprecated 已合并到 'mock' 源；直接调用时按品种名分发 */
-export const hundredMockDataFetcher = fetchMock
-
-/** @deprecated 已合并到 'mock' 源；MOCK-10000 仍固定生成 10k 根 */
-export const thousandMockDataFetcher = fetchMock

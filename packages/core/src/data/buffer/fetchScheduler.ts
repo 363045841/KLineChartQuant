@@ -1,4 +1,5 @@
-import { createSignal, type ReadonlySignal, type WritableSignal } from '../foundation/reactivity/signal'
+/** 串行化数据请求的调度器：保证同一时刻至多一个 in-flight 任务，并暴露 loading 信号。 */
+import { createSignal, type ReadonlySignal, type WritableSignal } from '../../foundation/reactivity/signal'
 
 export class FetchScheduler {
   private _chain: Promise<void> | null = null

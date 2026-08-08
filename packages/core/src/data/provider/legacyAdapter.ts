@@ -12,7 +12,7 @@ import type {
   SearchFetcherFn,
   TimeShareFetchConfig,
   TimeShareFetcherFn,
-} from '../types'
+} from '../legacy/types'
 import type {
   InstrumentDescriptor,
   KLineAdjustment,

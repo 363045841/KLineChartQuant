@@ -5,7 +5,7 @@
 
 import type { KLineData, TimeShareData } from '../../controllers/types'
 import type { MarketSessionConfig } from '../../foundation/utils/sessionTimeLabels'
-import type { DepthSource } from '../depthTypes'
+import type { DepthSource } from '../depth/depthTypes'
 
 /** 前端可识别的品种类别；unknown 用于尚未完成语义归一化的数据源品种。 */
 export type AssetClass =

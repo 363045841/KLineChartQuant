@@ -13,7 +13,7 @@ import type {
   AssetClass,
   InstrumentCapabilities,
   InstrumentDescriptor,
-} from '../data/marketData/types'
+} from '../data/provider/types'
 import type { ChartSettings } from '../foundation/config/chartSettings'
 import type { MarketSessionConfig } from '../foundation/utils/sessionTimeLabels'
 import type { InteractionSnapshot } from '../engine/chart'

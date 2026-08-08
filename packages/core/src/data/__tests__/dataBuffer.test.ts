@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 import type { DataFetcher, KLineData, SymbolSpec } from '../../controllers/types'
-import { DataBuffer } from '../dataBuffer'
+import { DataBuffer } from '../buffer/dataBuffer'
 
 function makeKLine(ts: number): KLineData {
   return {

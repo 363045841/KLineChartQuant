@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { TimeShareBuffer } from '../timeShareBuffer'
+import { TimeShareBuffer } from '../buffer/timeShareBuffer'
 import type { TimeShareData } from '../../foundation/types/price'
-import type { TimeShareFetcherFn, TimeShareFetchResult } from '../types'
+import type { TimeShareFetcherFn, TimeShareFetchResult } from '../legacy/types'
 
 function point(price: number, ts = 1): TimeShareData {
   return { timestamp: ts, price, average: price, volume: 1, amount: price }

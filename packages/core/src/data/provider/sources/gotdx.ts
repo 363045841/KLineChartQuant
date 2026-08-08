@@ -1,7 +1,7 @@
 /** GOTDX Provider：注册配置集中声明于 sourceRegistry，接入逻辑由通用装配器提供。 */
-import { createHttpMarketDataV1Transport, createV1MarketDataProvider } from './marketData/api'
-import { marketDataProviderRegistry } from './marketData/providerRegistry'
-import { dataSourceRegistry } from './marketData/sourceRegistry'
+import { createHttpMarketDataV1Transport, createV1MarketDataProvider } from '../protocol'
+import { marketDataProviderRegistry } from '../registry'
+import { dataSourceRegistry } from '../sourceRegistry'
 
 const GOTDX = dataSourceRegistry.gotdx
 

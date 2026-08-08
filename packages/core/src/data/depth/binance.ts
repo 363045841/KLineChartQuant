@@ -1,4 +1,4 @@
-import { KLineChartError } from '../errors'
+import { KLineChartError } from '../../errors'
 
 import type { DepthDelta, DepthSnapshot, DepthSource, DepthSourceStatus } from './depthTypes'
 

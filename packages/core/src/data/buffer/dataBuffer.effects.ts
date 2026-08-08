@@ -1,8 +1,9 @@
+/** 缓冲层取数 Effect 编排：定义 K 线/分时 Service tag、初始窗口天数、重试退避与 fetch 入口。 */
 import { Context, Effect, pipe } from 'effect'
 import type { Effect as EffectType } from 'effect/Effect'
 
-import type { KLineData, SymbolSpec } from '../controllers/types'
-import type { TimeShareFetchResult } from './types'
+import type { KLineData, SymbolSpec } from '../../controllers/types'
+import type { TimeShareFetchResult } from '../legacy/types'
 
 // ── KLine fetch service tag ──
 // Tag: 定义 Effect 服务接口

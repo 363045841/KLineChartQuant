@@ -1,12 +1,13 @@
+/** K 线数据增量缓冲：管理初始/滚动加载、缓存合并、重试与加载/错误状态，对渲染层屏蔽取数细节。 */
 import { Effect, pipe } from 'effect'
 import type { Effect as EffectType } from 'effect/Effect'
 
-import type { DataFetcher, KLineData, SymbolSpec } from '../controllers/types'
+import type { DataFetcher, KLineData, SymbolSpec } from '../../controllers/types'
 import {
   createSignal,
   type ReadonlySignal,
   type WritableSignal,
-} from '../foundation/reactivity/signal'
+} from '../../foundation/reactivity/signal'
 
 import {
   fetchKLine,

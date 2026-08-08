@@ -1,5 +1,5 @@
-import type { DataFetcher } from '../controllers/types'
-import { KLineChartError } from '../errors'
+import type { DataFetcher } from '../../controllers/types'
+import { KLineChartError } from '../../errors'
 
 import {
   getRegisteredFetcher,

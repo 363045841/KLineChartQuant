@@ -1,8 +1,8 @@
 /** 验证 GOTDX Provider 只通过统一 V1 协议访问行情服务。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { gotdxMarketDataProvider } from '../gotdx'
-import { marketDataProviderRegistry } from '../marketData/providerRegistry'
+import { gotdxMarketDataProvider } from '../provider/sources/gotdx'
+import { marketDataProviderRegistry } from '../provider/registry'
 
 const fetchMock = vi.fn<typeof fetch>()
 
@@ -41,7 +41,7 @@ describe('gotdx V1 provider', () => {
 
   // 验证 Provider 已注册且不依赖旧 DataFetcher 定义。
   it('registers the GOTDX Provider without a legacy fetcher', async () => {
-    const { getRegisteredFetcher } = await import('../fetcherDefinitionRegistry')
+    const { getRegisteredFetcher } = await import('../legacy/fetcherDefinitionRegistry')
 
     expect(marketDataProviderRegistry.get('gotdx')).toBe(gotdxMarketDataProvider)
     expect(getRegisteredFetcher('gotdx')).toBeUndefined()

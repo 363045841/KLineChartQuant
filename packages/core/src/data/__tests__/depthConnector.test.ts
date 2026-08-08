@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 import type { HeatmapController, HeatmapControllerConfig } from '../../components/orderBookHeatmap'
-import { DepthConnector } from '../depthConnector'
-import type { DepthDelta, DepthSnapshot, DepthSource, DepthSourceStatus } from '../depthTypes'
+import { DepthConnector } from '../depth/depthConnector'
+import type { DepthDelta, DepthSnapshot, DepthSource, DepthSourceStatus } from '../depth/depthTypes'
 
 // ---------------------------------------------------------------------------
 // Fake DepthSource — controllable callbacks

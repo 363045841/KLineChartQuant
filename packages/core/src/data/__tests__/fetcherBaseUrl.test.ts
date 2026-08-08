@@ -7,7 +7,7 @@ import {
   normalizeFetcherBaseUrl,
   parseFetcherEndpoint,
   setFetcherBaseUrl,
-} from '../fetcherBaseUrl'
+} from '../legacy/fetcherBaseUrl'
 
 describe('fetcherBaseUrl', () => {
   afterEach(() => {

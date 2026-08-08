@@ -1,5 +1,5 @@
 import type { KLineData, SymbolSpec } from '../../controllers/types'
-import type { KLineBuffer } from '../../data/dataBufferTypes'
+import type { KLineBuffer } from '../../data/buffer/dataBufferTypes'
 
 import { symbolSpecIdentityKey } from './symbolIdentity'
 

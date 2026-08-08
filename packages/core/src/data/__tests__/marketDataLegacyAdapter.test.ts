@@ -2,8 +2,8 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { InstrumentDescriptor, MarketDataProvider } from '../marketData'
-import { createLegacyMarketDataAdapters } from '../marketData'
+import type { InstrumentDescriptor, MarketDataProvider } from '../provider'
+import { createLegacyMarketDataAdapters } from '../provider'
 
 const instrument = {
   id: 'gotdx:stock:0:000001',

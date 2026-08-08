@@ -9,9 +9,9 @@ import {
   fetcherSupportsSearch,
   fetcherSupportsPeriod,
   clearRegisteredFetchersForTest,
-} from '../fetcherDefinitionRegistry'
-import { routerDataFetcher, routerSearchFetchers } from '../router'
-import type { DataFetcherFn, SearchFetcherFn, SearchResult } from '../types'
+} from '../legacy/fetcherDefinitionRegistry'
+import { routerDataFetcher, routerSearchFetchers } from '../legacy/router'
+import type { DataFetcherFn, SearchFetcherFn, SearchResult } from '../legacy/types'
 
 const mockFetch = vi.fn<() => Promise<ReadonlyArray<KLineData>>>()
 

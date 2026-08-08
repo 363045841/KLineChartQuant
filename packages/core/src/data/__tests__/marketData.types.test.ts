@@ -13,7 +13,7 @@ import type {
   MarketDataProvider,
   ProviderRef,
   TradingDate,
-} from '../marketData'
+} from '../provider'
 
 const stock = {
   id: 'gotdx:stock:0:000001',

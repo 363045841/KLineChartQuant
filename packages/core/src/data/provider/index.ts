@@ -6,7 +6,7 @@ export {
   V1_PROTOCOL_VERSION,
   createHttpMarketDataV1Transport,
   createV1MarketDataProvider,
-} from './api'
+} from './protocol'
 export type {
   MarketDataV1Transport,
   V1BarCapability,
@@ -26,9 +26,9 @@ export type {
   V1TimeShareItem,
   V1TimeShareRequest,
   V1TimeShareSeries,
-} from './api'
-export { MarketDataProviderRegistry, marketDataProviderRegistry } from './providerRegistry'
-export type { MarketDataSourceConfig, MarketDataSourceConfigPatch } from './providerRegistry'
+} from './protocol'
+export { MarketDataProviderRegistry, marketDataProviderRegistry } from './registry'
+export type { MarketDataSourceConfig, MarketDataSourceConfigPatch } from './registry'
 export { dataSourceRegistry } from './sourceRegistry'
 export type { DataSourceRegistration } from './sourceRegistry'
 export { createLegacyMarketDataAdapters } from './legacyAdapter'

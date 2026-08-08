@@ -1,13 +1,14 @@
+/** 分时数据缓冲：按交易日拉取并缓存分时点列，管理昨收元数据与加载/错误状态。 */
 import { Effect, pipe } from 'effect'
 import type { Effect as EffectType } from 'effect/Effect'
 
-import type { SymbolSpec } from '../controllers/types'
+import type { SymbolSpec } from '../../controllers/types'
 import {
   createSignal,
   type ReadonlySignal,
   type WritableSignal,
-} from '../foundation/reactivity/signal'
-import type { TimeShareData } from '../foundation/types/price'
+} from '../../foundation/reactivity/signal'
+import type { TimeShareData } from '../../foundation/types/price'
 
 import {
   FETCH_TOTAL_ATTEMPTS,
@@ -16,8 +17,8 @@ import {
   TimeShareFetchService,
 } from './dataBuffer.effects'
 import type { DataBufferLike, DataWindow, DataChange } from './dataBufferTypes'
-import { routerTimeShareFetcher } from './router'
-import type { TimeShareFetcherFn, TimeShareFetchResult } from './types'
+import { routerTimeShareFetcher } from '../legacy/router'
+import type { TimeShareFetcherFn, TimeShareFetchResult } from '../legacy/types'
 
 /** 由数据管理层注入的统一 Provider 分时请求。 */
 export type TimeShareRequestFetch = (
