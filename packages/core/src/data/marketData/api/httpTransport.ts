@@ -1,8 +1,11 @@
 /**
- * 行情协议的 HTTP 实现：封装请求 URL、envelope 解包与错误解析
+ * 协议的 HTTP 实现：封装请求 URL、envelope 解包与错误解析
  * 任意后端只要实现该契约即可复用本 Transport，测试可注入 fetchImpl
  */
 import { KLineChartError } from '../../../errors'
+
+import { DEFAULT_V1_BASE_URL } from '../sourceRegistry'
+export { DEFAULT_V1_BASE_URL } from '../sourceRegistry'
 
 import type {
   MarketDataV1Transport,
@@ -16,9 +19,6 @@ import type {
   V1TimeShareRequest,
   V1TimeShareSeries,
 } from './types'
-
-// 本地默认服务地址，可通过 baseUrl 覆盖
-export const DEFAULT_V1_BASE_URL = 'http://127.0.0.1:8080'
 
 // 基础地址：静态字符串或惰性解析函数，函数形式支持运行时动态覆盖
 export type V1BaseUrl = string | (() => string)
@@ -48,7 +48,13 @@ async function request<T>(
   getFetch: () => typeof fetch,
   label: string,
 ): Promise<T> {
-  const res = await getFetch()(`${baseUrl}${path}`, init)
+  // 捕获网络异常与 AbortSignal 中止，统一转换为 KLineChartError 契约
+  let res: Response
+  try {
+    res = await getFetch()(`${baseUrl}${path}`, init)
+  } catch (cause) {
+    throw toFetchError(cause, label)
+  }
   const body = (await res.json().catch(() => undefined)) as
     V1Envelope<T> | V1ErrorEnvelope | undefined
   if (!res.ok) {
@@ -62,6 +68,18 @@ async function request<T>(
     throw new KLineChartError('FETCH_FAILED', `[${label}] invalid V1 response envelope`)
   }
   return body.data
+}
+
+// 把 fetch 原生异常（网络 TypeError、AbortError 等）转为协议错误
+// 中止保留独立错误码，调用方可区分主动取消与真实失败
+function toFetchError(cause: unknown, label: string): KLineChartError {
+  const aborted = cause instanceof Error && cause.name === 'AbortError'
+  const detail = cause instanceof Error ? cause.message : String(cause)
+  return new KLineChartError(
+    aborted ? 'FETCH_ABORTED' : 'FETCH_FAILED',
+    aborted ? `[${label}] request aborted` : `[${label}] network error: ${detail}`,
+    { cause },
+  )
 }
 
 // 创建基于 HTTP 的 Transport 实例

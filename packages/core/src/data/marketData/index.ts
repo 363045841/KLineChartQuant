@@ -29,6 +29,8 @@ export type {
 } from './api'
 export { MarketDataProviderRegistry, marketDataProviderRegistry } from './providerRegistry'
 export type { MarketDataSourceConfig, MarketDataSourceConfigPatch } from './providerRegistry'
+export { dataSourceRegistry } from './sourceRegistry'
+export type { DataSourceRegistration } from './sourceRegistry'
 export { createLegacyMarketDataAdapters } from './legacyAdapter'
 export type {
   LegacyInstrumentResolveRequest,

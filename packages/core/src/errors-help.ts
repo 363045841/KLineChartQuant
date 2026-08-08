@@ -100,6 +100,8 @@ const HINTS: Readonly<Record<KLineChartErrorCode, string>> = {
   // Data-fetcher
   FETCH_FAILED:
     'A remote data-fetch failed. Check network connectivity, API endpoint, and authentication tokens. If using baostock/tradingview provider, verify the symbol and period are valid.',
+  FETCH_ABORTED:
+    'The data request was cancelled via AbortSignal — this is not a real failure. Retry the operation if the user actually expects the data.',
   DEPTH_SOURCE_ERROR:
     'The depth/SSE data source encountered an error. Verify the Go backend SSE endpoint is reachable and the symbol is valid. EventSource will auto-reconnect.',
 

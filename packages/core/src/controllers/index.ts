@@ -100,6 +100,7 @@ export {
   DepthConnector,
   MarketDataProviderRegistry,
   marketDataProviderRegistry,
+  dataSourceRegistry,
   createLegacyMarketDataAdapters,
   gotdxMarketDataProvider,
   mockMarketDataProvider,

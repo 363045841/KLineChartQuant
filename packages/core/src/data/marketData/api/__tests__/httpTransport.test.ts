@@ -171,6 +171,33 @@ describe('createHttpMarketDataV1Transport', () => {
     expect((error as KLineChartError).message).toContain('invalid V1 response envelope')
   })
 
+  // 验证断网等原生网络异常统一包装为 FETCH_FAILED 并保留 cause
+  it('wraps native network errors as FETCH_FAILED', async () => {
+    const networkError = new TypeError('Failed to fetch')
+    fetchMock.mockRejectedValue(networkError)
+
+    const transport = createHttpMarketDataV1Transport({ sourceLabel: 'gotdx' })
+    const error = await transport.probe('gotdx').catch((e: unknown) => e)
+
+    expect(error).toBeInstanceOf(KLineChartError)
+    expect((error as KLineChartError).code).toBe('FETCH_FAILED')
+    expect((error as KLineChartError).message).toContain('[gotdx] network error')
+    expect((error as KLineChartError).cause).toBe(networkError)
+  })
+
+  // 验证 signal 中止统一包装为 FETCH_ABORTED，调用方可区分取消与失败
+  it('wraps AbortSignal aborts as FETCH_ABORTED', async () => {
+    const abortError = new DOMException('The operation was aborted', 'AbortError')
+    fetchMock.mockRejectedValue(abortError)
+
+    const transport = createHttpMarketDataV1Transport({ sourceLabel: 'gotdx' })
+    const error = await transport.probe('gotdx').catch((e: unknown) => e)
+
+    expect(error).toBeInstanceOf(KLineChartError)
+    expect((error as KLineChartError).code).toBe('FETCH_ABORTED')
+    expect((error as KLineChartError).cause).toBe(abortError)
+  })
+
   // 验证 baseUrl 支持静态字符串形式
   it('accepts a static base URL string', async () => {
     fetchMock.mockResolvedValue(

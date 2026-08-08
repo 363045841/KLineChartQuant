@@ -64,6 +64,8 @@ export type KLineChartErrorCode =
   | 'CONTROLLER_CONFIG_INVALID'
   // data-fetcher (gotdx / baostock / tradingview)
   | 'FETCH_FAILED'
+  // fetch aborted via AbortSignal (cancelation, not a failure)
+  | 'FETCH_ABORTED'
   // depth/SSE source
   | 'DEPTH_SOURCE_ERROR'
   // serialization
@@ -87,6 +89,9 @@ export interface KLineChartErrorOptions {
  */
 export class KLineChartError extends Error {
   readonly code: KLineChartErrorCode
+  // 显式声明下层错误引用，ES2022 标准 Error.cause 的稳定访问入口
+  // declare 仅作类型声明，避免 useDefineForClassFields 把 cause 覆盖为 undefined
+  declare readonly cause?: unknown
 
   constructor(code: KLineChartErrorCode, message: string, opts?: KLineChartErrorOptions) {
     // Forward `cause` via the ES2022 Error options bag when available.

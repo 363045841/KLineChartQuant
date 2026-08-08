@@ -1,21 +1,23 @@
-/** GOTDX V1 Provider：后端支持 V1 契约的注册配置，接入逻辑由通用装配器提供。 */
+/** GOTDX Provider：注册配置集中声明于 sourceRegistry，接入逻辑由通用装配器提供。 */
 import { createHttpMarketDataV1Transport, createV1MarketDataProvider } from './marketData/api'
-import { DEFAULT_V1_BASE_URL } from './marketData/api'
 import { marketDataProviderRegistry } from './marketData/providerRegistry'
+import { dataSourceRegistry } from './marketData/sourceRegistry'
+
+const GOTDX = dataSourceRegistry.gotdx
 
 /** V1 HTTP Transport：运行时从注册表读取 baseUrl，支持面板动态覆盖。 */
 const transport = createHttpMarketDataV1Transport({
-  baseUrl: () => marketDataProviderRegistry.getConfig('gotdx').baseUrl ?? DEFAULT_V1_BASE_URL,
+  baseUrl: () => marketDataProviderRegistry.getConfig('gotdx').baseUrl ?? GOTDX.defaultBaseUrl,
   sourceLabel: 'gotdx',
 })
 
-/** GOTDX V1 Provider：通过统一 V1 协议访问行情服务。 */
+/** GOTDX V1 Provider：通过统一行情协议访问行情服务。 */
 export const gotdxMarketDataProvider = createV1MarketDataProvider({
   source: {
-    id: 'gotdx',
-    displayName: 'GOTDX',
-    description: 'TDX data source via V1 local proxy',
-    defaultBaseUrl: DEFAULT_V1_BASE_URL,
+    id: GOTDX.id,
+    displayName: GOTDX.displayName,
+    description: GOTDX.description,
+    defaultBaseUrl: GOTDX.defaultBaseUrl,
   },
   transport,
 })

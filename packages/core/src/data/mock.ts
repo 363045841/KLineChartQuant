@@ -8,8 +8,11 @@ import type { KLineData } from '../controllers/types'
 
 import { DataFetcher } from './fetcherDefinitionRegistry'
 import { marketDataProviderRegistry } from './marketData/providerRegistry'
+import { dataSourceRegistry } from './marketData/sourceRegistry'
 import type { InstrumentDescriptor, MarketDataProvider } from './marketData/types'
 import type { FetchConfig, SearchConfig, SearchResult } from './types'
+
+const MOCK_SOURCE = dataSourceRegistry.mock
 
 /** MOCK-100 品种：按请求日期范围生成日 K */
 export const MOCK_100_SYMBOL = 'MOCK-100'
@@ -199,9 +202,9 @@ async function searchMock(
 /** 统一行情模型下的本地 MOCK Provider，不依赖 HTTP 后端。 */
 export const mockMarketDataProvider: MarketDataProvider = {
   source: {
-    id: 'mock',
-    displayName: 'Mock',
-    description: 'Local mock source with generated daily bars.',
+    id: MOCK_SOURCE.id,
+    displayName: MOCK_SOURCE.displayName,
+    description: MOCK_SOURCE.description,
   },
 
   /** 本地生成数据始终可用，因此探测恒为在线。 */
