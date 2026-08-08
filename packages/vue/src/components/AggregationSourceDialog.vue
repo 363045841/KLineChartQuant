@@ -2,7 +2,6 @@
   <BaseModal
     :show="show"
     title="聚合源管理"
-    subtitle="启用搜索源，并配置地址与端口"
     width="min(92vw, 480px)"
     body-padding="8px"
     :z-index="zIndex"
@@ -20,7 +19,6 @@
           <span class="source-item__content">
             <span class="source-item__heading">
               <span class="source-item__name">{{ source.displayName }}</span>
-              <span class="source-item__id">{{ source.name }}</span>
             </span>
             <span class="source-item__description">
               {{ sourceDescription(source) }}
@@ -308,16 +306,9 @@
     font-weight: 600;
   }
 
-  .source-item__id,
   .source-item__description {
     color: var(--klc-color-axis-text);
     font-size: 11px;
-  }
-
-  .source-item__id {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .source-status {

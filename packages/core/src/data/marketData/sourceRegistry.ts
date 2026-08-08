@@ -21,24 +21,25 @@ export const dataSourceRegistry = {
   gotdx: {
     id: 'gotdx',
     displayName: 'GOTDX',
-    description: 'TDX data source via local proxy',
+    description: 'TDX data connector, source: https://github.com/363045841/GoTDX-Connecter',
     defaultBaseUrl: DEFAULT_V1_BASE_URL,
   },
   mock: {
     id: 'mock',
     displayName: 'Mock',
-    description: 'Local mock source with generated daily bars',
+    description: 'Provides two test rendering instruments: MOCK-100 and MOCK-10000',
   },
   baostock: {
     id: 'baostock',
     displayName: 'BaoStock',
-    description: 'A-share history K-line via BaoStock',
+    description: 'BaoStock data connector, source: https://github.com/363045841/Baostock-Connecter',
     defaultBaseUrl: 'http://127.0.0.1:8000',
   },
   tradingview: {
     id: 'tradingview',
     displayName: 'TradingView',
-    description: 'Global instruments via TradingView proxy',
+    description:
+      'Tradingview data connector, source: https://github.com/363045841/Baostock-Tradingview-Connecter',
     defaultBaseUrl: 'http://127.0.0.1:8000',
   },
 } as const satisfies Record<string, DataSourceRegistration>
