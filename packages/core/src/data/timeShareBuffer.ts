@@ -9,7 +9,12 @@ import {
 } from '../foundation/reactivity/signal'
 import type { TimeShareData } from '../foundation/types/price'
 
-import { fetchTimeShare, TimeShareFetchService } from './dataBuffer.effects'
+import {
+  FETCH_TOTAL_ATTEMPTS,
+  fetchTimeShare,
+  retryBackoffMs,
+  TimeShareFetchService,
+} from './dataBuffer.effects'
 import type { DataBufferLike, DataWindow, DataChange } from './dataBufferTypes'
 import { routerTimeShareFetcher } from './router'
 import type { TimeShareFetcherFn, TimeShareFetchResult } from './types'
@@ -24,6 +29,11 @@ function errorMessage(err: unknown): string {
   if (err instanceof Error && err.message.trim()) return err.message
   if (err != null && String(err).trim()) return String(err)
   return '加载失败'
+}
+
+// 按当前重试次数等待退避时间，避免请求连续打满上游。
+function waitForRetry(attempt: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, retryBackoffMs(attempt)))
 }
 
 export class TimeShareBuffer implements DataBufferLike {
@@ -144,24 +154,35 @@ export class TimeShareBuffer implements DataBufferLike {
       Effect.provideService(TimeShareFetchService, timeShareService),
     )
 
-    void Effect.runPromise(effect)
-      .then((result) => {
-        if (this._disposed || requestSeq !== this._requestSeq) return
+    void (async () => {
+      try {
+        let result: TimeShareFetchResult | undefined
+        for (let attempt = 1; attempt <= FETCH_TOTAL_ATTEMPTS; attempt++) {
+          try {
+            result = await Effect.runPromise(effect)
+            break
+          } catch (err) {
+            if (this._disposed || requestSeq !== this._requestSeq) return
+            if (attempt === FETCH_TOTAL_ATTEMPTS) throw err
+            this._lastError.set(`${errorMessage(err)} Retry ${attempt}/${FETCH_TOTAL_ATTEMPTS}`)
+            await waitForRetry(attempt)
+          }
+        }
+        if (!result || this._disposed || requestSeq !== this._requestSeq) return
         this._queryDate = 0
         this._data = [...result.data]
         this.setPreClose(result.preClose)
         this._lastError.set(null)
         this._dataSignal.set({ data: [...result.data], prependedCount: 0 })
-      })
-      .catch((err) => {
+      } catch (err) {
         if (this._disposed || requestSeq !== this._requestSeq) return
         this._lastError.set(errorMessage(err))
-      })
-      .finally(() => {
+      } finally {
         if (requestSeq === this._requestSeq) {
           this._loadingSignal.set(false)
         }
-      })
+      }
+    })()
   }
 
   setInlineData(data: unknown[]): void {

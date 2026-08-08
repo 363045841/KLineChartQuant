@@ -10,10 +10,12 @@ import {
 
 import {
   fetchKLine,
+  FETCH_TOTAL_ATTEMPTS,
   KLineFetchService,
   getPeriodDays,
   formatDate,
   MS_PER_DAY,
+  retryBackoffMs,
 } from './dataBuffer.effects'
 import type { DataBufferLike, DataWindow, DataChange, KLineBuffer } from './dataBufferTypes'
 import { FetchScheduler } from './fetchScheduler'
@@ -24,6 +26,11 @@ function errorMessage(err: unknown): string {
   if (err instanceof Error && err.message.trim()) return err.message
   if (err != null && String(err).trim()) return String(err)
   return '加载失败'
+}
+
+// 按当前重试次数等待退避时间，避免请求连续打满上游。
+function waitForRetry(attempt: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, retryBackoffMs(attempt)))
 }
 
 export class DataBuffer implements KLineBuffer {
@@ -226,8 +233,20 @@ export class DataBuffer implements KLineBuffer {
     this._scheduler
       .run(async () => {
         try {
-          const incoming = await fetchEffect()
-          if (disposed() || requestVersion !== this._requestVersion) return
+          let incoming: ReadonlyArray<KLineData> | undefined
+          for (let attempt = 1; attempt <= FETCH_TOTAL_ATTEMPTS; attempt++) {
+            try {
+              incoming = await fetchEffect()
+              break
+            } catch (err) {
+              if (disposed() || requestVersion !== this._requestVersion) return
+              if (attempt === FETCH_TOTAL_ATTEMPTS) throw err
+              this._lastError.set(`${errorMessage(err)} Retry ${attempt}/${FETCH_TOTAL_ATTEMPTS}`)
+              await waitForRetry(attempt)
+            }
+          }
+          if (incoming === undefined || disposed() || requestVersion !== this._requestVersion)
+            return
 
           // 成功空数组：接口无 K 线，记可读原因供 chip 展示
           this._lastError.set(incoming.length === 0 ? '暂无K线数据' : null)

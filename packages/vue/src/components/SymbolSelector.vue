@@ -10,8 +10,13 @@
       @click="togglePopup"
     >
       <span class="symbol-chip__code">{{ displayText }}</span>
-      <span v-if="loading" class="symbol-chip__spinner" aria-hidden="true" />
-      <span v-else-if="error" class="symbol-chip__error" :title="errorTagText" role="status">
+      <span v-if="loading && !retrying" class="symbol-chip__spinner" aria-hidden="true" />
+      <span
+        v-else-if="error || retrying"
+        class="symbol-chip__error"
+        :title="errorTagText"
+        role="status"
+      >
         <IconTablerAlertTriangle class="symbol-chip__warn" aria-hidden="true" />
         <span class="symbol-chip__error-text">{{ errorTagText }}</span>
       </span>
@@ -164,6 +169,8 @@
       search?: SymbolSearchFn<SymbolItem>
       loading?: boolean
       error?: boolean
+      /** 加载中已有本轮失败信息时显示重试提示。 */
+      retrying?: boolean
       /** 主品种拉取失败原因；与 error 同时为真时作为 chip title */
       errorMessage?: string
       /** 已注册数据源，用于 Tabs 展示名 */

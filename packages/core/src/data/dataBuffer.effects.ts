@@ -1,4 +1,4 @@
-import { Context, Effect, pipe, Schedule } from 'effect'
+import { Context, Effect, pipe } from 'effect'
 import type { Effect as EffectType } from 'effect/Effect'
 
 import type { KLineData, SymbolSpec } from '../controllers/types'
@@ -23,18 +23,15 @@ export class KLineFetchService extends Context.Tag('@klc/KLineFetchService')<
 export class TimeShareFetchService extends Context.Tag('@klc/TimeShareFetchService')<
   TimeShareFetchService,
   {
-    readonly fetch: (
-      spec: SymbolSpec,
-      date?: number,
-    ) => EffectType<TimeShareFetchResult, unknown>
+    readonly fetch: (spec: SymbolSpec, date?: number) => EffectType<TimeShareFetchResult, unknown>
   }
 >() {}
 
 // ── Constants ──
 
 export const MS_PER_DAY = 86_400_000
-const REQUEST_TIMEOUT = '15 seconds'
-const FETCH_MAX_RETRIES = 2 // 最大重试次数
+export const FETCH_MAX_RETRIES = 2 // 最大重试次数
+export const FETCH_TOTAL_ATTEMPTS = FETCH_MAX_RETRIES + 1
 
 // ── Helpers ──
 
@@ -64,14 +61,13 @@ export function formatDate(ts: number): string {
   return `${y}-${m}-${day}`
 }
 
-// ── Retry schedule: exponential backoff ~1s / ~2s ──
+// ── Retry backoff: 失败后等待约 1 秒 / 2 秒 ──
 
-const retrySchedule = pipe(
-  Schedule.exponential('1 seconds'),
-  Schedule.compose(Schedule.recurs(FETCH_MAX_RETRIES)),
-)
+export function retryBackoffMs(attempt: number): number {
+  return 1_000 * 2 ** Math.max(0, attempt - 1)
+}
 
-// ── KLine fetch Effect (retry + timeout) ──
+// ── KLine fetch Effect ──
 
 export const fetchKLine = (
   spec: SymbolSpec,
@@ -81,7 +77,7 @@ export const fetchKLine = (
   pipe(
     Effect.gen(function* () {
       const { fetch } = yield* KLineFetchService // 获取 Service 实例
-      const data = yield* pipe(fetch(spec, startTs, endTs), Effect.timeout(REQUEST_TIMEOUT))
+      const data = yield* fetch(spec, startTs, endTs)
       // 部分无数据品种返回 []
       if (data.length === 0) {
         yield* Effect.logWarning(
@@ -90,10 +86,9 @@ export const fetchKLine = (
       }
       return data
     }),
-    Effect.retry(retrySchedule),
   )
 
-// ── TimeShare fetch Effect (retry + timeout) ──
+// ── TimeShare fetch Effect ──
 
 export const fetchTimeShare = (
   spec: SymbolSpec,
@@ -102,11 +97,7 @@ export const fetchTimeShare = (
   pipe(
     Effect.gen(function* () {
       const { fetch } = yield* TimeShareFetchService // 获取服务实例
-      const result = yield* pipe(fetch(spec, date), Effect.timeout(REQUEST_TIMEOUT))
+      const result = yield* fetch(spec, date)
       return result
     }),
-    Effect.retry(retrySchedule),
-    Effect.tapError((err) =>
-      Effect.logError(`[TimeShareBuffer] fetch failed: ${(err as Error).message}`),
-    ),
   )

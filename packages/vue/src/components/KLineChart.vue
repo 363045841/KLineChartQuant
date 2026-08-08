@@ -9,6 +9,7 @@
       :k-line-adjust="kLineAdjust"
       :symbol-loading="symbolStatus === 'loading'"
       :symbol-error="symbolStatus === 'error'"
+      :symbol-retrying="symbolRetrying"
       :symbol-error-message="symbolErrorMessage || undefined"
       :overlay-symbols="overlaySymbols"
       :overlay-symbol-items="overlaySymbolItems"
@@ -466,6 +467,9 @@
   const currentSymbol = ref('选择商品')
   const currentSymbolItem = ref<SymbolItem | null>(null)
   const symbolErrorMessage = ref<string | null>(null)
+  const symbolRetrying = computed(
+    () => symbolStatus.value === 'loading' && Boolean(symbolErrorMessage.value),
+  )
   const overlaySymbols = ref<string[]>([])
   const overlaySymbolItems = ref<SymbolItem[]>([])
   const symbolPool = ref<SymbolItem[]>([])
@@ -516,6 +520,7 @@
 
   function onSymbolChange(item: SymbolItem) {
     symbolStatus.value = 'loading'
+    symbolErrorMessage.value = null
     const ctrl = controller.value
     if (!ctrl) return
     try {

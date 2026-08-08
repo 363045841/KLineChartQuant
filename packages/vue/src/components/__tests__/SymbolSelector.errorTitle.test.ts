@@ -47,6 +47,21 @@ describe('SymbolSelector error hint', () => {
     expect(wrapper.get('button.symbol-chip').attributes('title')).toBe('158017 - 化工ETF易方达')
   })
 
+  it('shows retry progress while loading', () => {
+    const wrapper = mount(SymbolSelector, {
+      props: {
+        symbol: '158017',
+        symbols,
+        loading: true,
+        retrying: true,
+        errorMessage: '加载失败 Retry 1/3',
+      },
+    })
+
+    expect(wrapper.find('.symbol-chip__spinner').exists()).toBe(false)
+    expect(wrapper.get('.symbol-chip__error-text').text()).toBe('加载失败 Retry 1/3')
+  })
+
   it('shows fallback text when error has no message', () => {
     const wrapper = mount(SymbolSelector, {
       props: {

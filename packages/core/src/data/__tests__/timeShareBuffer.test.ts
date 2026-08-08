@@ -89,7 +89,7 @@ describe('TimeShareBuffer', () => {
 
   it('publishes the fetcher error and clears it after a successful reload', async () => {
     const buf = new TimeShareBuffer()
-    // fetchTimeShare 有重试：首轮 load 需连续失败耗尽重试才落 lastError
+    // 首轮 load 会在每次失败后更新可见的重试进度。
     const fetcher = vi
       .fn<TimeShareFetcherFn>()
       .mockRejectedValueOnce(new Error('该日期暂无历史分时数据'))
@@ -99,6 +99,8 @@ describe('TimeShareBuffer', () => {
     buf.setFetcher(fetcher)
 
     buf.load({ symbol: '00700', period: 'timeshare', source: 'gotdx' })
+    await vi.waitFor(() => expect(buf.lastError()).toBe('该日期暂无历史分时数据 Retry 1/3'))
+    expect(buf.loading()).toBe(true)
     await vi.waitFor(() => expect(buf.lastError()).toBe('该日期暂无历史分时数据'), {
       timeout: 5_000,
     })

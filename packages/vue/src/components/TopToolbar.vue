@@ -15,6 +15,7 @@
       :search="search"
       :loading="symbolLoading"
       :error="symbolError"
+      :retrying="symbolRetrying"
       :error-message="symbolErrorMessage"
       :aggregation-sources="aggregationSources"
       :enabled-source-names="enabledSourceNames"
@@ -130,6 +131,7 @@
       search?: SymbolSearchFn<SymbolItem>
       symbolLoading?: boolean
       symbolError?: boolean
+      symbolRetrying?: boolean
       symbolErrorMessage?: string
       overlaySymbols?: string[]
       overlaySymbolItems?: SymbolItem[]

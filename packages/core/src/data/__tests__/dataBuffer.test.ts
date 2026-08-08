@@ -595,6 +595,17 @@ describe('DataBuffer', () => {
     expect(buffer.lastError()).toBe('[gotdx] stock/kline-by-date failed: 500')
   })
 
+  it('publishes retry progress before the final failure', async () => {
+    const fetcher: DataFetcher = async () => {
+      throw new Error('offline')
+    }
+    buffer.setFetcher(fetcher)
+    buffer.setSymbol(defaultSpec)
+
+    await vi.waitFor(() => expect(buffer.lastError()).toBe('offline Retry 1/3'))
+    expect(buffer.loading()).toBe(true)
+  })
+
   it('clears lastError on successful fetch', async () => {
     let fail = true
     const fetcher: DataFetcher = async () => {
