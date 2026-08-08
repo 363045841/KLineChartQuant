@@ -1,6 +1,9 @@
 import type { KLineData } from '../controllers/types'
 import { KLineChartError } from '../errors'
 
+import { createHttpMarketDataV1Transport, createV1MarketDataProvider } from './marketData/api'
+import { marketDataProviderRegistry } from './marketData/providerRegistry'
+import { dataSourceRegistry } from './marketData/sourceRegistry'
 import { getFetcherBaseUrl } from './fetcherBaseUrl'
 import { DataFetcher } from './fetcherDefinitionRegistry'
 import type { FetchConfig } from './types'
@@ -73,3 +76,28 @@ class BaoStockFetcher {
 
 /** @deprecated Use `BaoStockFetcher.fetcher` directly or rely on routerDataFetcher. */
 export const baostockDataFetcher = fetchBaoStock
+
+const BAOSTOCK = dataSourceRegistry.baostock
+
+/** V1 HTTP Transport：运行时从注册表读取 baseUrl，支持面板动态覆盖。 */
+const v1Transport = createHttpMarketDataV1Transport({
+  baseUrl: () => marketDataProviderRegistry.getConfig('baostock').baseUrl ?? BAOSTOCK.defaultBaseUrl,
+  sourceLabel: 'baostock',
+})
+
+/** BaoStock V1 Provider：通过统一行情协议访问 BaoStock 代理。 */
+export const baostockMarketDataProvider = createV1MarketDataProvider({
+  source: {
+    id: BAOSTOCK.id,
+    displayName: BAOSTOCK.displayName,
+    description: BAOSTOCK.description,
+    defaultBaseUrl: BAOSTOCK.defaultBaseUrl,
+  },
+  transport: v1Transport,
+})
+
+// 模块加载副作用：把 baostock Provider 注册进全局注册表，供应用直接使用。
+// 幂等保护：已注册过（如 HMR 或重复 import）则跳过，避免重复注册报错。
+if (!marketDataProviderRegistry.get('baostock')) {
+  marketDataProviderRegistry.register(baostockMarketDataProvider)
+}

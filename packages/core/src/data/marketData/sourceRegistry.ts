@@ -29,4 +29,10 @@ export const dataSourceRegistry = {
     displayName: 'Mock',
     description: 'Local mock source with generated daily bars',
   },
+  baostock: {
+    id: 'baostock',
+    displayName: 'BaoStock',
+    description: 'A-share history K-line via BaoStock',
+    defaultBaseUrl: 'http://127.0.0.1:8000',
+  },
 } as const satisfies Record<string, DataSourceRegistration>

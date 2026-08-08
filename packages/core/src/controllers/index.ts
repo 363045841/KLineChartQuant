@@ -104,6 +104,7 @@ export {
   createLegacyMarketDataAdapters,
   gotdxMarketDataProvider,
   mockMarketDataProvider,
+  baostockMarketDataProvider,
 } from '../data'
 export type {
   DataWindow,

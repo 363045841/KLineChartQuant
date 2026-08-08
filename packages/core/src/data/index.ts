@@ -5,7 +5,7 @@ export {
   thousandMockDataFetcher,
   mockMarketDataProvider,
 } from './mock'
-export { baostockDataFetcher } from './baostock'
+export { baostockDataFetcher, baostockMarketDataProvider } from './baostock'
 export { routerDataFetcher, routerSearchFetchers, routerTimeShareFetcher } from './router'
 export { DataBuffer } from './dataBuffer'
 export type { DataWindow } from './dataBufferTypes'
