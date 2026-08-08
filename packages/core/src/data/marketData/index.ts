@@ -1,5 +1,32 @@
 /** 统一行情领域模型公共入口。 */
 
+export {
+  DEFAULT_V1_BASE_URL,
+  V1_PROTOCOL_NAME,
+  V1_PROTOCOL_VERSION,
+  createHttpMarketDataV1Transport,
+  createV1MarketDataProvider,
+} from './api'
+export type {
+  MarketDataV1Transport,
+  V1BarCapability,
+  V1BarRequest,
+  V1BarSeries,
+  V1Envelope,
+  V1ErrorEnvelope,
+  V1HttpTransportOptions,
+  V1InstrumentCapabilities,
+  V1InstrumentDescriptor,
+  V1InstrumentReference,
+  V1InstrumentSearchRequest,
+  V1InstrumentSearchResult,
+  V1KLineItem,
+  V1MarketDataProviderOptions,
+  V1SourceProbe,
+  V1TimeShareItem,
+  V1TimeShareRequest,
+  V1TimeShareSeries,
+} from './api'
 export { MarketDataProviderRegistry, marketDataProviderRegistry } from './providerRegistry'
 export type { MarketDataSourceConfig, MarketDataSourceConfigPatch } from './providerRegistry'
 export { createLegacyMarketDataAdapters } from './legacyAdapter'

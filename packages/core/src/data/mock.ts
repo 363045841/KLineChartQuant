@@ -201,7 +201,7 @@ export const mockMarketDataProvider: MarketDataProvider = {
   source: {
     id: 'mock',
     displayName: 'Mock',
-    description: 'Local mock source with generated daily bars',
+    description: 'Local mock source with generated daily bars.',
   },
 
   /** 本地生成数据始终可用，因此探测恒为在线。 */

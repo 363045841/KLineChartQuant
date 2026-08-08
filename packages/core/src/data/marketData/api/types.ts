@@ -1,0 +1,172 @@
+/**
+ * 行情协议契约：前端唯一的数据接入层定义
+ * DTO 与 Transport 接口集中于此，后端只要支持该契约即可接入数据
+ * OpenAPI 文档为派生物，以本接口为唯一权威
+ */
+import type {
+  AssetClass,
+  KLineAdjustment,
+  KLinePeriod,
+  ProviderRef,
+  TradingDate,
+  VolumeUnit,
+} from '../types'
+
+// 协议名称
+export const V1_PROTOCOL_NAME = 'market-data-v1' as const
+// 协议版本
+export const V1_PROTOCOL_VERSION = 1 as const
+
+// 成功 envelope：服务端对每次请求包装的通用外壳
+export interface V1Envelope<T> {
+  data: T
+  requestId: string
+}
+
+// 错误 envelope：请求失败时返回统一错误结构
+export interface V1ErrorEnvelope {
+  error: { code: string; message: string; details?: Readonly<Record<string, unknown>> }
+  requestId: string
+}
+
+// 数据源探测结果
+export interface V1SourceProbe {
+  status: 'online' | 'offline' | 'degraded' // 在线/离线/降级
+  checkedAt: number
+  latencyMs?: number
+  message?: string
+}
+
+// 品种支持的 K 线能力
+export interface V1BarCapability {
+  periods: ReadonlyArray<KLinePeriod> // K线周期级别
+  adjustments: ReadonlyArray<KLineAdjustment> // 复权
+}
+
+// 品种可被前端启用的行情能力
+export interface V1InstrumentCapabilities {
+  bars?: V1BarCapability
+  timeShare?: boolean
+  depth?: boolean // 实时深度（订单簿/盘口 L2），预留
+}
+
+// 品种描述：搜索目录与请求体共用的稳定品种信息
+export interface V1InstrumentDescriptor {
+  id: string // 品种唯一标识
+  sourceId: string // 所属数据源 ID
+  symbol: string // 品种代码
+  name: string // 品种名称
+  assetClass: AssetClass // 品种类别
+  exchange: string // 交易所标识
+  sessionId?: string // 交易时段标识
+  currency?: string // 计价货币
+  tickSize?: number // 最小报价单位
+  lotSize?: number // 最小交易手数
+  providerRef?: ProviderRef // 数据源私有路由引用
+  capabilities: V1InstrumentCapabilities // 可被前端启用的行情能力
+}
+
+/**
+ * 请求体中的品种身份引用：相比目录描述只带定位品种所需的最小字段集
+ * 后端凭 id 直接获取行情，无需再次搜索品种目录
+ * providerRef 为数据源私有路由参数，客户端只原样带回、不得解析
+ */
+export interface V1InstrumentReference {
+  id: string // 数据源范围内稳定且唯一的品种标识
+  symbol: string // 品种代码
+  exchange: string // 交易所标识
+  providerRef?: ProviderRef // 数据源私有路由参数，仅原样带回，不得解析
+}
+
+// 品种目录搜索请求
+export interface V1InstrumentSearchRequest {
+  sourceId: string
+  keyword: string
+  limit: number
+  assetClasses?: ReadonlyArray<AssetClass>
+}
+
+// 品种目录搜索结果
+export interface V1InstrumentSearchResult {
+  items: ReadonlyArray<V1InstrumentDescriptor>
+}
+
+// K 线请求：from/to 为 UTC Unix 毫秒时间戳，含边界
+export interface V1BarRequest {
+  sourceId: string
+  instrument: V1InstrumentReference
+  period: KLinePeriod
+  adjustment: KLineAdjustment
+  from: number
+  to: number
+}
+
+// K 线条目
+export interface V1KLineItem {
+  timestamp: number
+  date?: string
+  open: number
+  high: number
+  low: number
+  close: number
+  volume?: number
+  turnover?: number
+  amplitude?: number
+  changePercent?: number
+  changeAmount?: number
+  turnoverRate?: number
+}
+
+// K 线序列
+export interface V1BarSeries {
+  instrumentId: string
+  period: KLinePeriod
+  adjustment: KLineAdjustment
+  timezone: string
+  volumeUnit?: VolumeUnit
+  items: ReadonlyArray<V1KLineItem>
+}
+
+// 分时请求：tradingDate 为品种时区内的 YYYY-MM-DD 交易日
+export interface V1TimeShareRequest {
+  sourceId: string
+  instrument: V1InstrumentReference
+  tradingDate: TradingDate
+}
+
+// 分时条目
+export interface V1TimeShareItem {
+  timestamp: number
+  price: number
+  average: number
+  volume?: number
+  amount?: number
+}
+
+// 分时序列
+export interface V1TimeShareSeries {
+  instrumentId: string
+  tradingDate: TradingDate
+  timezone: string
+  preClose: number | null
+  volumeUnit?: VolumeUnit
+  items: ReadonlyArray<V1TimeShareItem>
+}
+
+/**
+ * 协议传输接口：实现负责 wire 语义（URL、envelope 解包、错误解析）
+ * 返回统一解包后的 data 载荷，不掺领域映射逻辑
+ */
+export interface MarketDataV1Transport {
+  // 探测指定数据源可用性
+  probe(sourceId: string, signal?: AbortSignal): Promise<V1SourceProbe>
+  // 搜索数据源内的标准品种目录
+  searchInstruments(
+    request: V1InstrumentSearchRequest,
+    signal?: AbortSignal,
+  ): Promise<V1InstrumentSearchResult>
+  // 拉取指定品种、周期和 UTC 区间的 K 线
+  fetchBars(request: V1BarRequest, signal?: AbortSignal): Promise<V1BarSeries>
+  // 拉取指定品种在单个交易日内的分时序列
+  fetchTimeShare(request: V1TimeShareRequest, signal?: AbortSignal): Promise<V1TimeShareSeries>
+}

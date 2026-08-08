@@ -25,6 +25,12 @@ interface StoredAggregationSources {
 
 export type AggregationSourceStatus = 'checking' | 'online' | 'offline'
 
+/** 聚合源拨测结果：在线时附带请求延迟毫秒。 */
+export interface AggregationSourceProbeResult {
+  status: 'online' | 'offline'
+  latencyMs?: number
+}
+
 /** 聚合源管理 UI 所需的最小元数据，不依赖旧 DataFetcher。 */
 export interface AggregationSourceDefinition {
   name: string
@@ -47,24 +53,29 @@ export function isMockSourceName(name: string): boolean {
 export async function probeAggregationSource(
   source: AggregationSourceDefinition,
   signal: AbortSignal,
-): Promise<Exclude<AggregationSourceStatus, 'checking'>> {
+): Promise<AggregationSourceProbeResult> {
   const provider = marketDataProviderRegistry.get(source.name)
   if (provider) {
     try {
-      const result = await provider.probe(signal)
-      return result.status === 'offline' ? 'offline' : 'online'
+      const probeResult = await provider.probe(signal)
+      const result: AggregationSourceProbeResult = {
+        status: probeResult.status === 'offline' ? 'offline' : 'online',
+      }
+      if (probeResult.latencyMs !== undefined) result.latencyMs = probeResult.latencyMs
+      return result
     } catch {
-      return 'offline'
+      return { status: 'offline' }
     }
   }
   if (!source.capabilities?.includes('search') || typeof source.searcher !== 'function') {
-    return 'offline'
+    return { status: 'offline' }
   }
+  const startedAt = performance.now()
   try {
     await source.searcher(source.name, { query: '0', limit: 1, signal })
-    return 'online'
+    return { status: 'online', latencyMs: Math.round(performance.now() - startedAt) }
   } catch {
-    return 'offline'
+    return { status: 'offline' }
   }
 }
 

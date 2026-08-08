@@ -32,7 +32,7 @@
             :class="`is-${sourceStatuses[source.name] ?? 'checking'}`"
           >
             <span class="source-status__dot" aria-hidden="true" />
-            {{ statusText(sourceStatuses[source.name] ?? 'checking') }}
+            {{ statusText(source) }}
           </span>
           <!-- 仅支持搜索的源可参与聚合开关；无 search 的网络源只改地址 -->
           <ToggleSwitch
@@ -125,6 +125,8 @@
   }>()
 
   const sourceStatuses = ref<Record<string, AggregationSourceStatus>>({})
+  /** 各源最近一次在线拨测的延迟毫秒 */
+  const sourceLatencies = ref<Record<string, number>>({})
   /** 每个源的地址区块展开状态；默认全部收起 */
   const expandedEndpoints = ref<Record<string, boolean>>({})
   let probeController: AbortController | undefined
@@ -155,8 +157,12 @@
     return '不支持搜索'
   }
 
-  function statusText(status: AggregationSourceStatus): string {
-    if (status === 'online') return '在线'
+  function statusText(source: AggregationSourceDefinition): string {
+    const status = sourceStatuses.value[source.name] ?? 'checking'
+    if (status === 'online') {
+      const ms = sourceLatencies.value[source.name]
+      return ms !== undefined ? `在线 · ${ms}ms` : '在线'
+    }
     if (status === 'offline') return '离线'
     return '检测中'
   }
@@ -194,13 +200,17 @@
     sourceStatuses.value = Object.fromEntries(
       searchableSources.map((source) => [source.name, 'checking' as const]),
     )
+    sourceLatencies.value = {}
     const timeout = setTimeout(() => controller.abort(), 5000)
 
     await Promise.all(
       searchableSources.map(async (source) => {
-        const status = await probeAggregationSource(source, controller.signal)
+        const result = await probeAggregationSource(source, controller.signal)
         if (requestId !== probeRequestId) return
-        sourceStatuses.value = { ...sourceStatuses.value, [source.name]: status }
+        sourceStatuses.value = { ...sourceStatuses.value, [source.name]: result.status }
+        if (result.latencyMs !== undefined) {
+          sourceLatencies.value = { ...sourceLatencies.value, [source.name]: result.latencyMs }
+        }
       }),
     )
     clearTimeout(timeout)

@@ -124,12 +124,16 @@ describe('useAggregationSources', () => {
     })
   })
 
+  // 验证旧 searcher 拨测成功时返回在线状态与实测延迟。
   it('marks a fetcher online when its search probe succeeds', async () => {
     const search = vi.fn().mockResolvedValue([])
     const definition = { ...source('first'), searcher: search }
     const controller = new AbortController()
 
-    await expect(probeAggregationSource(definition, controller.signal)).resolves.toBe('online')
+    await expect(probeAggregationSource(definition, controller.signal)).resolves.toEqual({
+      status: 'online',
+      latencyMs: expect.any(Number),
+    })
     expect(search).toHaveBeenCalledWith('first', {
       query: '0',
       limit: 1,
@@ -137,20 +141,23 @@ describe('useAggregationSources', () => {
     })
   })
 
+  // 验证旧 searcher 拨测失败时返回离线状态且无延迟。
   it('marks a fetcher offline when its search probe fails', async () => {
     const definition = {
       ...source('first'),
       searcher: vi.fn().mockRejectedValue(new Error('down')),
     }
 
-    await expect(probeAggregationSource(definition, new AbortController().signal)).resolves.toBe(
-      'offline',
+    await expect(probeAggregationSource(definition, new AbortController().signal)).resolves.toEqual(
+      {
+        status: 'offline',
+      },
     )
   })
 
   // 验证已迁移 Provider 优先使用统一 probe，而不是旧 searcher 拨测。
   it('uses MarketDataProvider probe for migrated sources', async () => {
-    const probe = vi.fn().mockResolvedValue({ status: 'online', checkedAt: 1 })
+    const probe = vi.fn().mockResolvedValue({ status: 'online', checkedAt: 1, latencyMs: 12 })
     marketDataProviderRegistry.register({
       source: { id: 'probe-source', displayName: 'Probe Source' },
       probe,
@@ -162,7 +169,7 @@ describe('useAggregationSources', () => {
         { ...source('probe-source'), searcher: search },
         new AbortController().signal,
       ),
-    ).resolves.toBe('online')
+    ).resolves.toEqual({ status: 'online', latencyMs: 12 })
     expect(probe).toHaveBeenCalledOnce()
     expect(search).not.toHaveBeenCalled()
 

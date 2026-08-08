@@ -1,3 +1,4 @@
+/** 市场会话注册表：以内置 CN/HK/US 会话为基础，支持注册覆盖并提供时区与交易时间查询。 */
 import {
   ASHARE_MARKET_SESSION,
   HK_MARKET_SESSION,

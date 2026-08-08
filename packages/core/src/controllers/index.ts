@@ -1,3 +1,4 @@
+/** 控制器层公共出口：导出 framework-agnostic 控制器类型、工厂函数与引擎子模块的 facade 重导出。 */
 // -- Controller types (framework-agnostic) --
 export type {
   KLineData,
@@ -98,11 +99,11 @@ export {
   DEFAULT_BINANCE_SSE_URL,
   DepthConnector,
   MarketDataProviderRegistry,
-   marketDataProviderRegistry,
-   createLegacyMarketDataAdapters,
-   gotdxMarketDataProvider,
-   mockMarketDataProvider,
- } from '../data'
+  marketDataProviderRegistry,
+  createLegacyMarketDataAdapters,
+  gotdxMarketDataProvider,
+  mockMarketDataProvider,
+} from '../data'
 export type {
   DataWindow,
   DepthSource,

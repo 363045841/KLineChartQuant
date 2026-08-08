@@ -1,3 +1,4 @@
+/** 数据层公共出口：导出行情 Provider、DataFetcher、数据缓冲与配置工具，并副作用注册内置数据源。 */
 export {
   mockDataFetcher,
   hundredMockDataFetcher,
