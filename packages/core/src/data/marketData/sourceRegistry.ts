@@ -35,4 +35,10 @@ export const dataSourceRegistry = {
     description: 'A-share history K-line via BaoStock',
     defaultBaseUrl: 'http://127.0.0.1:8000',
   },
+  tradingview: {
+    id: 'tradingview',
+    displayName: 'TradingView',
+    description: 'Global instruments via TradingView proxy',
+    defaultBaseUrl: 'http://127.0.0.1:8000',
+  },
 } as const satisfies Record<string, DataSourceRegistration>

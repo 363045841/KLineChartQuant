@@ -105,6 +105,7 @@ export {
   gotdxMarketDataProvider,
   mockMarketDataProvider,
   baostockMarketDataProvider,
+  tradingviewMarketDataProvider,
 } from '../data'
 export type {
   DataWindow,
