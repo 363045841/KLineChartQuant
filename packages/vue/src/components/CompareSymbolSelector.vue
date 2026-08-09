@@ -199,12 +199,12 @@
     supportsAggregationSourceSearch,
     type AggregationSourceDefinition,
   } from '../composables/useAggregationSources'
+  import { useAggregationSourceTab } from '../composables/useAggregationSourceTab'
   import { useTeleportedPopup } from '../composables/useTeleportedPopup'
 
   import AggregationSourceButton from './AggregationSourceButton.vue'
   import AggregationSourceTabs, {
     type AggregationSourceTabItem,
-    type AggregationSourceTabKey,
   } from './AggregationSourceTabs.vue'
   import type { SymbolItem } from './SymbolSelector.vue'
 
@@ -235,7 +235,7 @@
 
   const showPopup = ref(false)
   const searchQuery = ref('')
-  const activeSourceTab = ref<AggregationSourceTabKey>('all')
+  const activeSourceTab = useAggregationSourceTab()
   const searchInputRef = ref<HTMLInputElement | null>(null)
   const rootRef = ref<HTMLElement | null>(null)
   const popupRef = ref<HTMLElement | null>(null)
@@ -317,7 +317,6 @@
       startPositionSync()
     } else {
       stopPositionSync()
-      activeSourceTab.value = 'all'
     }
   })
 
