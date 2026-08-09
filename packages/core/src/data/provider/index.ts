@@ -14,6 +14,8 @@ export type {
   V1BarSeries,
   V1Envelope,
   V1ErrorEnvelope,
+  V1ErrorCode,
+  V1HistoryCoverage,
   V1HttpTransportOptions,
   V1InstrumentCapabilities,
   V1InstrumentDescriptor,
@@ -23,10 +25,13 @@ export type {
   V1KLineItem,
   V1MarketDataProviderOptions,
   V1SourceProbe,
+  V1SourceCapabilities,
+  V1SourceRejectionCode,
   V1TimeShareItem,
   V1TimeShareRequest,
   V1TimeShareSeries,
 } from './protocol'
+export { V1_SOURCE_REJECTION_CODES } from './protocol'
 export { MarketDataProviderRegistry, marketDataProviderRegistry } from './registry'
 export type { MarketDataSourceConfig, MarketDataSourceConfigPatch } from './registry'
 export { dataSourceRegistry } from './sourceRegistry'

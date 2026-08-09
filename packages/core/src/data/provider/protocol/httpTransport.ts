@@ -2,7 +2,8 @@
  * 协议的 HTTP 实现：封装请求 URL、envelope 解包与错误解析
  * 任意后端只要实现该契约即可复用本 Transport，测试可注入 fetchImpl
  */
-import { KLineChartError } from '../../../errors'
+import { ERROR_CODES, KLineChartError } from '../../../errors'
+import type { KLineChartErrorCode } from '../../../errors'
 
 import { DEFAULT_V1_BASE_URL } from '../sourceRegistry'
 export { DEFAULT_V1_BASE_URL } from '../sourceRegistry'
@@ -13,12 +14,21 @@ import type {
   V1BarSeries,
   V1Envelope,
   V1ErrorEnvelope,
+  V1ErrorCode,
   V1InstrumentSearchRequest,
   V1InstrumentSearchResult,
   V1SourceProbe,
   V1TimeShareRequest,
   V1TimeShareSeries,
 } from './types'
+import { V1_SOURCE_REJECTION_CODES } from './types'
+
+// 判定数据后端错误是否触发能力流转
+function mapServerErrorCode(code: V1ErrorCode): KLineChartErrorCode {
+  return (V1_SOURCE_REJECTION_CODES as readonly V1ErrorCode[]).includes(code)
+    ? (code as KLineChartErrorCode)
+    : ERROR_CODES.FETCH_FAILED
+}
 
 // 基础地址：静态字符串或惰性解析函数，函数形式支持运行时动态覆盖
 export type V1BaseUrl = string | (() => string)
@@ -53,20 +63,37 @@ async function request<T>(
   try {
     res = await getFetch()(`${baseUrl}${path}`, init)
   } catch (cause) {
+    // 网络层异常（断网、DNS 解析失败、请求被中止等），转为标准错误
     throw toFetchError(cause, label)
   }
+
+  // 尝试解析 JSON 响应体，解析失败则返回 undefined
   const body = (await res.json().catch(() => undefined)) as
     V1Envelope<T> | V1ErrorEnvelope | undefined
+
+  // 处理非 2xx 状态码：提取服务端返回的错误信息
   if (!res.ok) {
+    // 从错误 envelope 中提取错误消息
     const message =
       body && 'error' in body && typeof body.error?.message === 'string'
         ? body.error.message
         : `[${label}] V1 request failed: ${res.status} ${res.statusText}`
-    throw new KLineChartError('FETCH_FAILED', message)
+    // 从错误 envelope 中提取错误码
+    const serverErrorCode =
+      body && 'error' in body && typeof body.error?.code === 'string' ? body.error.code : undefined
+    // 抛出标准化错误（有服务端错误码则映射，否则使用通用 FETCH_FAILED）
+    throw new KLineChartError(
+      serverErrorCode ? mapServerErrorCode(serverErrorCode) : ERROR_CODES.FETCH_FAILED,
+      message,
+    )
   }
+
+  // 成功响应（2xx）：检查 envelope 是否包含 data 字段
   if (!body || !('data' in body)) {
-    throw new KLineChartError('FETCH_FAILED', `[${label}] invalid V1 response envelope`)
+    // 响应格式不符合 V1Envelope 契约，抛出格式错误
+    throw new KLineChartError(ERROR_CODES.FETCH_FAILED, `[${label}] invalid V1 response envelope`)
   }
+
   return body.data
 }
 
@@ -76,7 +103,7 @@ function toFetchError(cause: unknown, label: string): KLineChartError {
   const aborted = cause instanceof Error && cause.name === 'AbortError'
   const detail = cause instanceof Error ? cause.message : String(cause)
   return new KLineChartError(
-    aborted ? 'FETCH_ABORTED' : 'FETCH_FAILED',
+    aborted ? ERROR_CODES.FETCH_ABORTED : ERROR_CODES.FETCH_FAILED,
     aborted ? `[${label}] request aborted` : `[${label}] network error: ${detail}`,
     { cause },
   )

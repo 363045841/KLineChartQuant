@@ -11,6 +11,8 @@ export type {
   V1BarSeries,
   V1Envelope,
   V1ErrorEnvelope,
+  V1ErrorCode,
+  V1HistoryCoverage,
   V1InstrumentCapabilities,
   V1InstrumentDescriptor,
   V1InstrumentReference,
@@ -18,7 +20,10 @@ export type {
   V1InstrumentSearchResult,
   V1KLineItem,
   V1SourceProbe,
+  V1SourceCapabilities,
+  V1SourceRejectionCode,
   V1TimeShareItem,
   V1TimeShareRequest,
   V1TimeShareSeries,
 } from './types'
+export { V1_SOURCE_REJECTION_CODES } from './types'

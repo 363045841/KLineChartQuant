@@ -7,6 +7,7 @@ import type {
   AssetClass,
   KLineAdjustment,
   KLinePeriod,
+  MarketDataErrorCode,
   ProviderRef,
   TradingDate,
   VolumeUnit,
@@ -25,8 +26,34 @@ export interface V1Envelope<T> {
 
 // 错误 envelope：请求失败时返回统一错误结构
 export interface V1ErrorEnvelope {
-  error: { code: string; message: string; details?: Readonly<Record<string, unknown>> }
+  error: { code: V1ErrorCode; message: string; details?: Readonly<Record<string, unknown>> }
   requestId: string
+}
+
+// V1 后端可返回的错误码；INTERNAL 保留给尚未完成领域错误映射的服务
+export type V1ErrorCode = MarketDataErrorCode | 'INTERNAL'
+
+// 源明确无法完成请求时的确定性错误码；触发请求流转
+export const V1_SOURCE_REJECTION_CODES = [
+  'UNSUPPORTED_CAPABILITY',
+  'INSTRUMENT_NOT_FOUND',
+] as const satisfies ReadonlyArray<V1ErrorCode>
+
+export type V1SourceRejectionCode = (typeof V1_SOURCE_REJECTION_CODES)[number]
+
+// 数据源已知的历史数据粗粒度覆盖区间，UTC Unix 毫秒；具体品种可用范围可能更窄
+export interface V1HistoryCoverage {
+  from?: number
+  to?: number
+}
+
+// 数据源级能力声明，用于请求流转前筛选候选源
+export interface V1SourceCapabilities {
+  assetClasses: ReadonlyArray<AssetClass>
+  bars?: V1BarCapability
+  timeShare?: boolean
+  depth?: boolean
+  historyCoverage?: V1HistoryCoverage
 }
 
 // 数据源探测结果
@@ -35,6 +62,7 @@ export interface V1SourceProbe {
   checkedAt: number
   latencyMs?: number
   message?: string
+  capabilities?: V1SourceCapabilities
 }
 
 // 品种支持的 K 线能力

@@ -100,6 +100,10 @@ const HINTS: Readonly<Record<KLineChartErrorCode, string>> = {
   // Data-fetcher
   FETCH_FAILED:
     'A remote data-fetch failed. Check network connectivity, API endpoint, and authentication tokens. If using baostock/tradingview provider, verify the symbol and period are valid.',
+  UNSUPPORTED_CAPABILITY:
+    'The data source explicitly does not support this capability (period / adjustment / asset class). If another enabled source declares support, the request may be routed there.',
+  INSTRUMENT_NOT_FOUND:
+    'The data source explicitly has no such instrument. The instrument may be delisted or out of the source coverage; if another enabled source resolves it, the request may be routed there.',
   FETCH_ABORTED:
     'The data request was cancelled via AbortSignal — this is not a real failure. Retry the operation if the user actually expects the data.',
   DEPTH_SOURCE_ERROR:

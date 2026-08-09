@@ -64,6 +64,10 @@ export type KLineChartErrorCode =
   | 'CONTROLLER_CONFIG_INVALID'
   // data-fetcher (gotdx / baostock / tradingview)
   | 'FETCH_FAILED'
+  // 数据源明确不支持请求能力，可由行情流转层处理
+  | 'UNSUPPORTED_CAPABILITY'
+  // 数据源明确不存在请求品种，可由行情流转层处理
+  | 'INSTRUMENT_NOT_FOUND'
   // fetch aborted via AbortSignal (cancelation, not a failure)
   | 'FETCH_ABORTED'
   // depth/SSE source
@@ -134,3 +138,18 @@ export function isKLineChartError(value: unknown, code?: KLineChartErrorCode): b
   if (!(value instanceof KLineChartError)) return false
   return code === undefined || value.code === code
 }
+
+// 数据获取错误码具名常量，供协议与流转层引用，避免散落字符串字面量。
+export const ERROR_CODES: Readonly<Record<FetchErrorCodeName, KLineChartErrorCode>> = {
+  FETCH_FAILED: 'FETCH_FAILED',
+  FETCH_ABORTED: 'FETCH_ABORTED',
+  UNSUPPORTED_CAPABILITY: 'UNSUPPORTED_CAPABILITY',
+  INSTRUMENT_NOT_FOUND: 'INSTRUMENT_NOT_FOUND',
+}
+
+// ERROR_CODES 的键名集合，保证键与值一一对应。
+type FetchErrorCodeName =
+  | 'FETCH_FAILED'
+  | 'FETCH_ABORTED'
+  | 'UNSUPPORTED_CAPABILITY'
+  | 'INSTRUMENT_NOT_FOUND'

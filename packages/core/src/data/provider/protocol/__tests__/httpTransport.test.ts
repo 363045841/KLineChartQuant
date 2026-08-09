@@ -26,11 +26,28 @@ describe('createHttpMarketDataV1Transport', () => {
   // 验证 probe 走 GET 并返回解包后的探测结果
   it('probes a source through GET and unwraps the envelope', async () => {
     fetchMock.mockResolvedValue(
-      jsonResponse({ data: { status: 'online', checkedAt: 1 }, requestId: 'r' }),
+      jsonResponse({
+        data: {
+          status: 'online',
+          checkedAt: 1,
+          capabilities: {
+            assetClasses: ['stock'],
+            bars: { periods: ['daily'], adjustments: ['none'] },
+          },
+        },
+        requestId: 'r',
+      }),
     )
 
     const transport = createHttpMarketDataV1Transport()
-    await expect(transport.probe('gotdx')).resolves.toEqual({ status: 'online', checkedAt: 1 })
+    await expect(transport.probe('gotdx')).resolves.toEqual({
+      status: 'online',
+      checkedAt: 1,
+      capabilities: {
+        assetClasses: ['stock'],
+        bars: { periods: ['daily'], adjustments: ['none'] },
+      },
+    })
     expect(fetchMock).toHaveBeenCalledWith(
       `${DEFAULT_V1_BASE_URL}/api/v1/market-data/sources/gotdx/probe`,
       expect.objectContaining({ method: 'GET' }),
@@ -151,6 +168,25 @@ describe('createHttpMarketDataV1Transport', () => {
 
     const transport = createHttpMarketDataV1Transport()
     await expect(transport.probe('gotdx')).rejects.toThrow(/upstream down/)
+  })
+
+  // 验证可流转的确定性 V1 错误原样保留为稳定的前端错误码。
+  it.each([
+    ['UNSUPPORTED_CAPABILITY', 'UNSUPPORTED_CAPABILITY'],
+    ['INSTRUMENT_NOT_FOUND', 'INSTRUMENT_NOT_FOUND'],
+  ] as const)('passes through %s as %s', async (serverErrorCode, chartErrorCode) => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(
+        { error: { code: serverErrorCode, message: 'not available' }, requestId: 'r' },
+        422,
+      ),
+    )
+
+    const transport = createHttpMarketDataV1Transport()
+    const error = await transport.probe('gotdx').catch((cause: unknown) => cause)
+
+    expect(error).toBeInstanceOf(KLineChartError)
+    expect((error as KLineChartError).code).toBe(chartErrorCode)
   })
 
   // 验证非 2xx 且无错误 envelope 时使用兜底消息，并带 sourceLabel 前缀
