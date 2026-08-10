@@ -3,7 +3,7 @@
  * 后端只要实现该契约即可接入数据，接入方仅需提供 source 元信息与可选的本地规则
  */
 import type { KLineData, TimeShareData } from '../../../controllers/types'
-import { KLineChartError } from '../../../errors'
+import { createMissingSessionError, KLineChartError } from '../../../errors'
 import { MarketSessionRegistry } from '../../../engine/market/marketSessionRegistry'
 
 import type {
@@ -89,16 +89,14 @@ export function createV1MarketDataProvider(
   options: V1MarketDataProviderOptions,
 ): MarketDataProvider {
   const { source, transport } = options
+  const runtimeSource = { ...source }
   const sessions = new MarketSessionRegistry(source.marketSessions)
   const resolveVolumeUnit = options.resolveVolumeUnit ?? defaultResolveVolumeUnit
 
   // 读取品种会话时区，缺失或未注册时拒绝请求
   function getInstrumentTimeZone(instrument: InstrumentDescriptor): string {
     if (!instrument.sessionId) {
-      throw new KLineChartError(
-        'FETCH_FAILED',
-        `[${source.id}] sessionId is required for instrument ${instrument.id}`,
-      )
+      throw createMissingSessionError(source.id, instrument.id)
     }
     return sessions.getRequired(instrument.sessionId).timeZone
   }
@@ -115,24 +113,26 @@ export function createV1MarketDataProvider(
         : instrument.capabilities.timeShare === true)
     if (!supported) {
       throw new KLineChartError(
-        'FETCH_FAILED',
+        'UNSUPPORTED_CAPABILITY',
         `[${source.id}] instrument ${instrument.id} does not support ${capability}`,
       )
     }
   }
 
   return {
-    source,
+    source: runtimeSource,
 
     // 通过 probe endpoint 探测数据源可用性，失败时返回 offline 而非抛错
     async probe(signal) {
       const startedAt = Date.now()
       try {
         const result = await transport.probe(source.id, signal)
+        runtimeSource.capabilities = result.capabilities
         return {
           status: result.status,
           checkedAt: result.checkedAt,
           latencyMs: Date.now() - startedAt,
+          capabilities: result.capabilities,
         }
       } catch (error) {
         return {

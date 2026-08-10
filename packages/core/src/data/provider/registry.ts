@@ -5,11 +5,18 @@
 
 import { KLineChartError } from '../../errors'
 
-import type { MarketDataProvider } from './types'
+import type {
+  AssetClass,
+  KLineAdjustment,
+  KLinePeriod,
+  MarketDataProvider,
+  SourceCapabilities,
+} from './types'
 
 /** 单个行情数据源的运行时配置。 */
 export interface MarketDataSourceConfig {
   enabled: boolean
+  priority: number
   baseUrl?: string
 }
 
@@ -28,10 +35,44 @@ function mergeConfig(
   patch: MarketDataSourceConfigPatch,
 ): MarketDataSourceConfig {
   const enabled = patch.enabled ?? current.enabled
+  const priority = patch.priority ?? current.priority
   const baseUrl = Object.prototype.hasOwnProperty.call(patch, 'baseUrl')
     ? normalizeBaseUrl(patch.baseUrl)
     : current.baseUrl
-  return baseUrl === undefined ? { enabled } : { enabled, baseUrl }
+  return baseUrl === undefined ? { enabled, priority } : { enabled, priority, baseUrl }
+}
+
+/** 源级能力筛选条件。 */
+export interface SourceCapabilityQuery {
+  capability: 'bars' | 'timeShare' | 'depth'
+  assetClass?: AssetClass
+  period?: KLinePeriod
+  adjustment?: KLineAdjustment
+  from?: number
+  to?: number
+}
+
+/** 判断源级能力是否满足一次请求的候选条件。 */
+function supportsCapability(
+  capabilities: SourceCapabilities | undefined,
+  query: SourceCapabilityQuery,
+): boolean {
+  if (!capabilities) return false
+  if (query.assetClass !== undefined && !capabilities.assetClasses.includes(query.assetClass)) {
+    return false
+  }
+  if (query.capability === 'timeShare') return capabilities.timeShare === true
+  if (query.capability === 'depth') return capabilities.depth === true
+  const bars = capabilities.bars
+  if (!bars) return false
+  if (query.period !== undefined && !bars.periods.includes(query.period)) return false
+  if (query.adjustment !== undefined && !bars.adjustments.includes(query.adjustment)) return false
+  const coverage = capabilities.historyCoverage
+  if (coverage?.from !== undefined && query.from !== undefined && query.from < coverage.from) {
+    return false
+  }
+  if (coverage?.to !== undefined && query.to !== undefined && query.to > coverage.to) return false
+  return true
 }
 
 /** 管理 Provider 实例及其启用状态和 Transport 地址。 */
@@ -56,7 +97,7 @@ export class MarketDataProviderRegistry {
     }
 
     this.providers.set(sourceId, provider)
-    this.configs.set(sourceId, mergeConfig({ enabled: true }, config))
+    this.configs.set(sourceId, mergeConfig({ enabled: true, priority: 0 }, config))
   }
 
   /** 注销 Provider 及其运行时配置，并返回是否实际删除。 */
@@ -93,6 +134,37 @@ export class MarketDataProviderRegistry {
     return this.getAll().filter(
       (provider) => this.configs.get(provider.source.id)?.enabled === true,
     )
+  }
+
+  /** 返回按 priority 从高到低排列的已启用 Provider。 */
+  getEnabledByPriority(): ReadonlyArray<MarketDataProvider> {
+    return [...this.getEnabled()].sort(
+      (left, right) =>
+        (this.configs.get(right.source.id)?.priority ?? 0) -
+        (this.configs.get(left.source.id)?.priority ?? 0),
+    )
+  }
+
+  /** 返回当前声明能力满足条件的已启用 Provider。 */
+  getEnabledByCapability(query: SourceCapabilityQuery): ReadonlyArray<MarketDataProvider> {
+    return this.getEnabledByPriority().filter((provider) =>
+      supportsCapability(this.getCapabilities(provider.source.id), query),
+    )
+  }
+
+  /** 保存 Provider 最近一次探测得到的源级能力。 */
+  setCapabilities(sourceId: string, capabilities: SourceCapabilities | undefined): void {
+    const provider = this.getRequired(sourceId)
+    if (capabilities === undefined) {
+      provider.source.capabilities = undefined
+      return
+    }
+    provider.source.capabilities = capabilities
+  }
+
+  /** 读取 Provider 当前源级能力声明。 */
+  getCapabilities(sourceId: string): SourceCapabilities | undefined {
+    return this.getRequired(sourceId).source.capabilities
   }
 
   /** 读取数据源配置副本，避免调用方绕过注册表直接修改。 */

@@ -13,6 +13,8 @@ export {
   isKLineChartError,
   type KLineChartErrorCode,
   type KLineChartErrorOptions,
+  createMarketDataError,
+  createMissingSessionError,
 } from './errors'
 export { getRecoveryHint, formatKLineChartError, type FormatErrorOptions } from './errors-help'
 
@@ -33,10 +35,7 @@ export * from './features/chartTypes'
 export * from './features/indicators'
 export * from './engine/market/marketSessionRegistry'
 export * from './engine/market/resolveSymbolMarketSession'
-export type {
-  MarketSessionConfig,
-  OpenTimeRange,
-} from './foundation/utils/sessionTimeLabels'
+export type { MarketSessionConfig, OpenTimeRange } from './foundation/utils/sessionTimeLabels'
 
 // ── Batch 5: Component data models ────────────────────────────────────────
 export * from './components/volumeProfile'

@@ -101,6 +101,7 @@ describe('useAggregationSources', () => {
 
     expect(marketDataProviderRegistry.getConfig('gotdx')).toEqual({
       enabled: true,
+      priority: 0,
       baseUrl: 'http://10.0.0.2:7000',
     })
   })

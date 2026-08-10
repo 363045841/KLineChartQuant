@@ -12,6 +12,10 @@ export const mockMarketDataProvider: MarketDataProvider = {
     id: MOCK_SOURCE.id,
     displayName: MOCK_SOURCE.displayName,
     description: MOCK_SOURCE.description,
+    capabilities: {
+      assetClasses: ['index'],
+      bars: { periods: ['daily'], adjustments: ['none'] },
+    },
   },
 
   /** 本地生成数据始终可用，因此探测恒为在线。 */

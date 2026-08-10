@@ -33,7 +33,19 @@ export type {
 } from './protocol'
 export { V1_SOURCE_REJECTION_CODES } from './protocol'
 export { MarketDataProviderRegistry, marketDataProviderRegistry } from './registry'
-export type { MarketDataSourceConfig, MarketDataSourceConfigPatch } from './registry'
+export type {
+  MarketDataSourceConfig,
+  MarketDataSourceConfigPatch,
+  SourceCapabilityQuery,
+} from './registry'
+export { SourceRouter, SourceRoutingError, sourceRouter } from './router'
+export type {
+  RoutedMarketData,
+  SourceRouteAttempt,
+  SourceRouterBarsRequest,
+  SourceRouterInstrumentIdentity,
+  SourceRouterTimeShareRequest,
+} from './router'
 export { dataSourceRegistry } from './sourceRegistry'
 export type { DataSourceRegistration } from './sourceRegistry'
 export { createLegacyMarketDataAdapters } from './legacyAdapter'
@@ -63,6 +75,7 @@ export type {
   MarketDataSourceStatus,
   ProviderRef,
   SourceProbeResult,
+  SourceCapabilities,
   TimeShareDataSource,
   TimeShareQuery,
   TimeShareSeries,

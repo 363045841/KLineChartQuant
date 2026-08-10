@@ -6,7 +6,14 @@ import { KLineChartError } from '../../errors'
 import { MarketDataProviderRegistry, type MarketDataProvider } from '../provider'
 
 const gotdxProvider = {
-  source: { id: 'gotdx', displayName: 'GOTDX' },
+  source: {
+    id: 'gotdx',
+    displayName: 'GOTDX',
+    capabilities: {
+      assetClasses: ['stock'],
+      bars: { periods: ['daily'], adjustments: ['none'] },
+    },
+  },
   /** 返回固定在线状态，避免测试依赖网络。 */
   async probe() {
     return { status: 'online' as const, checkedAt: 1 }
@@ -14,7 +21,14 @@ const gotdxProvider = {
 } satisfies MarketDataProvider
 
 const mockProvider = {
-  source: { id: 'mock', displayName: 'Mock' },
+  source: {
+    id: 'mock',
+    displayName: 'Mock',
+    capabilities: {
+      assetClasses: ['index'],
+      bars: { periods: ['daily'], adjustments: ['none'] },
+    },
+  },
   /** 返回固定在线状态，避免测试依赖网络。 */
   async probe() {
     return { status: 'online' as const, checkedAt: 1 }
@@ -36,7 +50,7 @@ describe('MarketDataProviderRegistry', () => {
     expect(registry.get('gotdx')).toBe(gotdxProvider)
     expect(registry.getAll()).toEqual([gotdxProvider, mockProvider])
     expect(registry.getEnabled()).toEqual([gotdxProvider, mockProvider])
-    expect(registry.getConfig('gotdx')).toEqual({ enabled: true })
+    expect(registry.getConfig('gotdx')).toEqual({ enabled: true, priority: 0 })
   })
 
   // 验证重复 source ID 不会覆盖已有 Provider。
@@ -61,16 +75,19 @@ describe('MarketDataProviderRegistry', () => {
   it('管理数据源运行时配置', () => {
     registry.register(gotdxProvider, {
       enabled: false,
+      priority: 10,
       baseUrl: ' http://127.0.0.1:8080/ ',
     })
 
     expect(registry.getEnabled()).toEqual([])
     expect(registry.getConfig('gotdx')).toEqual({
       enabled: false,
+      priority: 10,
       baseUrl: 'http://127.0.0.1:8080',
     })
     expect(registry.setConfig('gotdx', { enabled: true, baseUrl: '' })).toEqual({
       enabled: true,
+      priority: 10,
     })
   })
 
@@ -81,7 +98,23 @@ describe('MarketDataProviderRegistry', () => {
 
     snapshot.enabled = false
 
-    expect(registry.getConfig('gotdx')).toEqual({ enabled: true })
+    expect(registry.getConfig('gotdx')).toEqual({ enabled: true, priority: 0 })
+  })
+
+  // 验证能力筛选只返回已启用且声明满足条件的 Provider，并按优先级排序。
+  it('按能力和 priority 筛选 Provider', () => {
+    registry.register(gotdxProvider, { priority: 1 })
+    registry.register(mockProvider, { priority: 10 })
+
+    expect(
+      registry.getEnabledByCapability({
+        capability: 'bars',
+        assetClass: 'stock',
+        period: 'daily',
+        adjustment: 'none',
+      }),
+    ).toEqual([gotdxProvider])
+    expect(registry.getEnabledByPriority()).toEqual([mockProvider, gotdxProvider])
   })
 
   // 验证未注册数据源无法读取或写入配置。

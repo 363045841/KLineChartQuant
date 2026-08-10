@@ -3,6 +3,7 @@ import { DataBuffer } from '../../data/buffer/dataBuffer'
 import { getPeriodDays } from '../../data/buffer/dataBuffer.effects'
 import type { KLineBuffer, DataChange } from '../../data/buffer/dataBufferTypes'
 import { marketDataProviderRegistry } from '../../data/provider/registry'
+import { sourceRouter } from '../../data/provider/router'
 import type {
   InstrumentDescriptor,
   KLineAdjustment,
@@ -69,9 +70,18 @@ const KLINE_PERIODS = new Set<KLinePeriod>([
 
 const KLINE_ADJUSTMENTS = new Set<KLineAdjustment>(['qfq', 'hfq', 'splits', 'none'])
 
-function bufKey(type: string, market: string, symbol: string, period?: string): string {
-  if (type === BUF_TIMESHARE) return `ts:${market}:${symbol}`
-  return `${type}:${market}:${symbol}:${period ?? 'daily'}`
+function bufKey(
+  type: string,
+  market: string,
+  symbol: string,
+  period?: string,
+  sourceId?: string,
+  instrumentId?: string,
+): string {
+  const source = sourceId ?? ''
+  const identity = instrumentId ?? `${market}:${symbol}`
+  if (type === BUF_TIMESHARE) return `ts:${source}:${identity}`
+  return `${type}:${source}:${identity}:${period ?? 'daily'}`
 }
 
 export class ChartDataManager {
@@ -259,7 +269,14 @@ export class ChartDataManager {
   }
 
   private getPrimaryDataBuffer(spec: SymbolSpec): KLineBuffer {
-    const key = bufKey(BUF_PRIMARY, spec.market, spec.symbol, spec.period)
+    const key = bufKey(
+      BUF_PRIMARY,
+      spec.market,
+      spec.symbol,
+      spec.period,
+      spec.instrument?.sourceId ?? spec.source,
+      spec.id ?? spec.instrument?.id,
+    )
     let buf = this._klineBuffers.get(key)
     if (!buf) {
       buf = this._createKLineBuffer()
@@ -342,40 +359,47 @@ export class ChartDataManager {
     from: number,
     to: number,
   ): Promise<ReadonlyArray<KLineData>> {
-    const resolved = await this.resolveProviderInstrument(spec, 'bars')
-    if (resolved) {
-      if (!resolved.provider.bars) {
-        throw new Error(
-          `[MarketDataProvider] source "${resolved.provider.source.id}" has no bars source`,
-        )
-      }
+    if (spec.source && spec.instrument) {
       const period = spec.period ?? 'daily'
       const adjustment = spec.adjust ?? 'none'
       if (
         !KLINE_PERIODS.has(period as KLinePeriod) ||
         !KLINE_ADJUSTMENTS.has(adjustment as KLineAdjustment)
       ) {
-        throw new Error(`[MarketDataProvider] invalid bars request for "${resolved.instrument.id}"`)
+        throw new Error(`[MarketDataProvider] invalid bars request for "${spec.instrument.id}"`)
       }
-      const capability = resolved.instrument.capabilities.bars
-      if (!capability?.periods.includes(period as KLinePeriod)) {
-        throw new Error(
-          `[MarketDataProvider] instrument "${resolved.instrument.id}" does not support ${period}`,
-        )
-      }
-      if (!capability.adjustments.includes(adjustment as KLineAdjustment)) {
-        throw new Error(
-          `[MarketDataProvider] instrument "${resolved.instrument.id}" does not support ${adjustment}`,
-        )
-      }
-      const series = await resolved.provider.bars.fetch({
-        instrument: resolved.instrument,
+      const result = await sourceRouter.bars({
+        preferredSourceId: spec.source,
+        instrument: spec.instrument,
+        symbol: spec.symbol,
+        exchange: spec.exchange,
+        assetClass: spec.instrument.assetClass,
         period: period as KLinePeriod,
         adjustment: adjustment as KLineAdjustment,
         from,
         to,
       })
-      return series.data
+      return result.series.data
+    }
+    if (spec.source && marketDataProviderRegistry.get(spec.source)) {
+      const period = spec.period ?? 'daily'
+      const adjustment = spec.adjust ?? 'none'
+      if (
+        !KLINE_PERIODS.has(period as KLinePeriod) ||
+        !KLINE_ADJUSTMENTS.has(adjustment as KLineAdjustment)
+      ) {
+        throw new Error(`[MarketDataProvider] invalid bars request for "${spec.symbol}"`)
+      }
+      const result = await sourceRouter.bars({
+        preferredSourceId: spec.source,
+        symbol: spec.symbol,
+        exchange: spec.exchange,
+        period: period as KLinePeriod,
+        adjustment: adjustment as KLineAdjustment,
+        from,
+        to,
+      })
+      return result.series.data
     }
     if (!this._dataFetcher) {
       throw new Error(`[DataFetcher] source is required for symbol "${spec.symbol}"`)
@@ -410,18 +434,21 @@ export class ChartDataManager {
 
   /** 让分时缓冲直接调用 Provider timeShare；未迁移数据源回退到旧 Fetcher。 */
   private async requestTimeShare(spec: SymbolSpec, date?: number): Promise<TimeShareFetchResult> {
-    const resolved = await this.resolveProviderInstrument(spec, 'timeShare')
-    if (resolved) {
-      if (!resolved.provider.timeShare) {
-        throw new Error(
-          `[MarketDataProvider] source "${resolved.provider.source.id}" has no timeshare source`,
-        )
-      }
-      const series = await resolved.provider.timeShare.fetch({
-        instrument: resolved.instrument,
-        tradingDate: this.resolveTradingDate(resolved.instrument, date),
+    if (spec.source && marketDataProviderRegistry.get(spec.source)) {
+      const identity = spec.instrument
+        ? {
+            symbol: spec.symbol,
+            exchange: spec.exchange,
+            assetClass: spec.instrument.assetClass,
+          }
+        : { symbol: spec.symbol, exchange: spec.exchange }
+      const result = await sourceRouter.timeShare({
+        ...identity,
+        preferredSourceId: spec.source,
+        instrument: spec.instrument,
+        resolveTradingDate: (instrument) => this.resolveTradingDate(instrument, date),
       })
-      return { data: series.data, preClose: series.preClose }
+      return { data: result.series.data, preClose: result.series.preClose }
     }
     const fetcher = this._timeShareFetcher
     if (!fetcher)
@@ -875,7 +902,14 @@ export class ChartDataManager {
       tsBuf.setQueryDate(date)
       const spec = this._dmState.readonly.currentSpec.peek()
       if (spec) {
-        const key = bufKey(BUF_TIMESHARE, spec.market, spec.symbol)
+        const key = bufKey(
+          BUF_TIMESHARE,
+          spec.market,
+          spec.symbol,
+          undefined,
+          spec.instrument?.sourceId ?? spec.source,
+          spec.id ?? spec.instrument?.id,
+        )
         this._tsBuffers.set(key, tsBuf)
         this.activateBuffer(key)
         // 本方法只负责"准备"（建 buffer + 设日期 + 激活），不触发拉取：
@@ -1001,7 +1035,14 @@ export class ChartDataManager {
       this._dmState.actions.setRangeInitialized(false)
 
       // Get or create timeshare buffer
-      const tsKey = bufKey(BUF_TIMESHARE, primary.market, primary.symbol)
+      const tsKey = bufKey(
+        BUF_TIMESHARE,
+        primary.market,
+        primary.symbol,
+        undefined,
+        primary.instrument?.sourceId ?? primary.source,
+        primary.id ?? primary.instrument?.id,
+      )
       let tsBuf = this._tsBuffers.get(tsKey)
       if (!tsBuf) {
         tsBuf = new TimeShareBuffer()
@@ -1028,7 +1069,16 @@ export class ChartDataManager {
   private loadKLineSymbols(specs: ReadonlyArray<SymbolSpec>): void {
     const spec = specs[0]!
     const buf = this.getPrimaryDataBuffer(spec)
-    this.activateBuffer(bufKey(BUF_PRIMARY, spec.market, spec.symbol, spec.period))
+    this.activateBuffer(
+      bufKey(
+        BUF_PRIMARY,
+        spec.market,
+        spec.symbol,
+        spec.period,
+        spec.instrument?.sourceId ?? spec.source,
+        spec.id ?? spec.instrument?.id,
+      ),
+    )
     if (!this._dataFetcher) {
       buf.setCurrentSpec(spec)
       return

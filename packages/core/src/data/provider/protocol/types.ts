@@ -12,6 +12,7 @@ import type {
   TradingDate,
   VolumeUnit,
 } from '../types'
+import type { SourceCapabilities } from '../types'
 
 // 协议名称
 export const V1_PROTOCOL_NAME = 'market-data-v1' as const
@@ -48,13 +49,7 @@ export interface V1HistoryCoverage {
 }
 
 // 数据源级能力声明，用于请求流转前筛选候选源
-export interface V1SourceCapabilities {
-  assetClasses: ReadonlyArray<AssetClass>
-  bars?: V1BarCapability
-  timeShare?: boolean
-  depth?: boolean
-  historyCoverage?: V1HistoryCoverage
-}
+export type V1SourceCapabilities = SourceCapabilities
 
 // 数据源探测结果
 export interface V1SourceProbe {

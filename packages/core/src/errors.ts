@@ -149,7 +149,21 @@ export const ERROR_CODES: Readonly<Record<FetchErrorCodeName, KLineChartErrorCod
 
 // ERROR_CODES 的键名集合，保证键与值一一对应。
 type FetchErrorCodeName =
-  | 'FETCH_FAILED'
-  | 'FETCH_ABORTED'
-  | 'UNSUPPORTED_CAPABILITY'
-  | 'INSTRUMENT_NOT_FOUND'
+  'FETCH_FAILED' | 'FETCH_ABORTED' | 'UNSUPPORTED_CAPABILITY' | 'INSTRUMENT_NOT_FOUND'
+
+/** 便捷构造器：按错误码抛出统一错误。 */
+export function createMarketDataError(
+  code: KLineChartErrorCode,
+  message: string,
+  opts?: KLineChartErrorOptions,
+): KLineChartError {
+  return new KLineChartError(code, message, opts)
+}
+
+/** 便捷构造器：品种缺失交易时段。 */
+export function createMissingSessionError(sourceId: string, instrumentId: string): KLineChartError {
+  return createMarketDataError(
+    ERROR_CODES.UNSUPPORTED_CAPABILITY,
+    `[${sourceId}] sessionId is required for instrument ${instrumentId}`,
+  )
+}

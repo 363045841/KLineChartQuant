@@ -49,6 +49,18 @@ export interface InstrumentCapabilities {
   depth?: boolean
 }
 
+/** 数据源级能力声明，用于在请求前筛选流转候选源。 */
+export interface SourceCapabilities {
+  assetClasses: ReadonlyArray<AssetClass>
+  bars?: BarCapability
+  timeShare?: boolean
+  depth?: boolean
+  historyCoverage?: {
+    from?: number
+    to?: number
+  }
+}
+
 /** 搜索、选择、加载和比较流程共用的稳定品种描述。 */
 export interface InstrumentDescriptor {
   /** 数据源范围内稳定且唯一的标识。 */
@@ -76,6 +88,8 @@ export interface DataSourceDescriptor {
   defaultBaseUrl?: string
   /** Provider 可声明额外交易时段，注册前仍由前端校验。 */
   marketSessions?: Readonly<Record<string, MarketSessionConfig>>
+  /** 后端或本地 Provider 声明的源级能力。 */
+  capabilities?: SourceCapabilities
 }
 
 /** 数据源探测状态。 */
@@ -87,6 +101,8 @@ export interface SourceProbeResult {
   checkedAt: number
   latencyMs?: number
   message?: string
+  /** 最近一次探测得到的源级能力。 */
+  capabilities?: SourceCapabilities
 }
 
 /** 品种目录搜索条件。 */
