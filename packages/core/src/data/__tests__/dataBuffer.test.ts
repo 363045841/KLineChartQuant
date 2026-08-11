@@ -87,6 +87,27 @@ describe('DataBuffer', () => {
     expect(buffer.getRawData().map((item) => item.timestamp)).toEqual([100, 200, 300])
   })
 
+  it('keeps loaded data when an older cursor page is empty', async () => {
+    const loaded = [makeKLine(200), makeKLine(300)]
+    const requestFetch = vi
+      .fn()
+      .mockResolvedValueOnce({ data: loaded, olderData: 'unknown' })
+      .mockResolvedValueOnce({ data: [], olderData: 'exhausted' })
+    buffer.setRequestFetch(requestFetch)
+
+    buffer.setSymbol(defaultSpec)
+    await vi.waitFor(() => expect(buffer.loading()).toBe(false))
+
+    buffer.ensureRange(100, 200)
+    await vi.waitFor(() => expect(buffer.loading()).toBe(false))
+
+    expect(buffer.getRawData()).toEqual(loaded)
+    expect(buffer.lastError()).toBeNull()
+
+    buffer.ensureRange(50, 200)
+    expect(requestFetch).toHaveBeenCalledTimes(2)
+  })
+
   it('ensureRange triggers incremental load when visible range is before loaded window', async () => {
     const now = Date.now()
     const oneYearAgo = now - 365 * MS_PER_DAY
@@ -639,11 +660,11 @@ describe('DataBuffer', () => {
     expect(buffer.lastError()).toBeNull()
   })
 
-  it('sets lastError to 暂无K线数据 for successful empty data', async () => {
+  it('does not report an error for a successful empty page', async () => {
     buffer.setRequestFetch(async () => [])
     buffer.setSymbol(defaultSpec)
     await vi.waitFor(() => expect(buffer.loading()).toBe(false))
-    expect(buffer.lastError()).toBe('暂无K线数据')
+    expect(buffer.lastError()).toBeNull()
   })
 
   it('clears lastError on setInlineData', async () => {

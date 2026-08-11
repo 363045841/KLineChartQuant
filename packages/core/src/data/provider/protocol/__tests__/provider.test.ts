@@ -36,6 +36,7 @@ function fakeTransport(overrides: Partial<MarketDataV1Transport> = {}): MarketDa
       adjustment: 'none',
       timezone: 'Asia/Shanghai',
       items: [],
+      olderData: 'unknown',
     }),
     fetchTimeShare: async (): Promise<V1TimeShareSeries> => ({
       instrumentId: 'gotdx:stock:1:600519',
@@ -107,8 +108,9 @@ describe('createV1MarketDataProvider', () => {
           instrumentId: 'gotdx:stock:1:600519',
           period: 'daily',
           adjustment: 'none',
-          timezone: 'Asia/Shanghai',
-          items: [{ timestamp: 1, open: 1, high: 2, low: 0.5, close: 1.5, volume: 100 }],
+           timezone: 'Asia/Shanghai',
+           olderData: 'unknown',
+           items: [{ timestamp: 1, open: 1, high: 2, low: 0.5, close: 1.5, volume: 100 }],
         }),
       }),
     )
@@ -120,6 +122,7 @@ describe('createV1MarketDataProvider', () => {
     })
     expect(series.timezone).toBe('Asia/Shanghai')
     expect(series.volumeUnit).toBe('lot')
+    expect(series.olderData).toBe('unknown')
     expect(series.data).toEqual([
       expect.objectContaining({ symbol: '600519', close: 1.5, volume: 100 }),
     ])
@@ -134,8 +137,9 @@ describe('createV1MarketDataProvider', () => {
           period: 'daily',
           adjustment: 'none',
           timezone: 'Asia/Shanghai',
-          volumeUnit: 'share',
-          items: [],
+           volumeUnit: 'share',
+           olderData: 'exhausted',
+           items: [],
         }),
       }),
     )

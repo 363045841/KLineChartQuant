@@ -2,6 +2,7 @@
 import type { KLineData, SymbolSpec } from '../../controllers/types'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal'
 import type { TimeShareData } from '../../foundation/types/price'
+import type { OlderDataStatus } from '../provider/types'
 
 import type { TimeShareFetcherFn } from '../legacy/types'
 
@@ -24,6 +25,15 @@ export interface BarPageRequest {
   before?: number
 }
 
+/** K 线分页成功结果；历史状态必须由后端声明，前端不从空数组推断。 */
+export interface BarPageResult {
+  data: ReadonlyArray<KLineData>
+  olderData: OlderDataStatus
+}
+
+/** 非 V1 自定义请求的兼容结果；状态未知时不得由前端推断耗尽。 */
+export type BarPageFetchResult = BarPageResult | ReadonlyArray<KLineData>
+
 export interface DataBufferLike {
   readonly data: ReadonlySignal<DataChange>
   readonly loading: ReadonlySignal<boolean>
@@ -41,7 +51,7 @@ export interface KLineBuffer extends DataBufferLike {
   getMonthKeys(): Int32Array | null
   getDayKeys(): Int32Array | null
   setRequestFetch(
-    fn: ((spec: SymbolSpec, page: BarPageRequest) => Promise<ReadonlyArray<KLineData>>) | null,
+    fn: ((spec: SymbolSpec, page: BarPageRequest) => Promise<BarPageFetchResult>) | null,
   ): void
   setSymbol(spec: SymbolSpec, initialStartTs?: number): void
   setCurrentSpec(spec: SymbolSpec): void

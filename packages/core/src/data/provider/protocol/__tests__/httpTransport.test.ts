@@ -97,8 +97,9 @@ describe('createHttpMarketDataV1Transport', () => {
           instrumentId: 'gotdx:stock:1:600519',
           period: 'daily',
           adjustment: 'none',
-          timezone: 'Asia/Shanghai',
-          items: [],
+           timezone: 'Asia/Shanghai',
+           olderData: 'exhausted',
+           items: [],
         },
         requestId: 'r',
       }),
@@ -115,6 +116,7 @@ describe('createHttpMarketDataV1Transport', () => {
     })
 
     expect(result.items).toEqual([])
+    expect(result.olderData).toBe('exhausted')
     const [url, init] = fetchMock.mock.calls[0]!
     expect(url).toBe(`${DEFAULT_V1_BASE_URL}/api/v1/market-data/bars`)
     expect(JSON.parse(String(init?.body))).toMatchObject({

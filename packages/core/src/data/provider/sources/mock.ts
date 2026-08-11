@@ -49,6 +49,7 @@ export const mockMarketDataProvider: MarketDataProvider = {
         adjustment: query.adjustment,
         timezone: 'Asia/Shanghai',
         volumeUnit: 'share',
+        olderData: 'unknown',
         data: data
           .filter((item) => query.before === undefined || item.timestamp < query.before)
           .slice(-query.limit),

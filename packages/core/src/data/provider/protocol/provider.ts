@@ -191,6 +191,7 @@ export function createV1MarketDataProvider(
           timezone: result.timezone || timeZone,
           volumeUnit: result.volumeUnit ?? resolveVolumeUnit(query.instrument),
           data: result.items.map((item) => mapBar(item, query.instrument.symbol)),
+          olderData: result.olderData,
         }
       },
     },

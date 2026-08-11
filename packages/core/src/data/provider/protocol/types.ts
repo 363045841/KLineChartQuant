@@ -8,6 +8,7 @@ import type {
   KLineAdjustment,
   KLinePeriod,
   MarketDataErrorCode,
+  OlderDataStatus,
   ProviderRef,
   TradingDate,
   VolumeUnit,
@@ -148,6 +149,8 @@ export interface V1BarSeries {
   timezone: string
   volumeUnit?: VolumeUnit
   items: ReadonlyArray<V1KLineItem>
+  /** 当前游标之前是否还有可继续加载的历史数据。 */
+  olderData: OlderDataStatus
 }
 
 // 分时请求：tradingDate 为品种时区内的 YYYY-MM-DD 交易日

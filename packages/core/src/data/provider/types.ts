@@ -27,6 +27,9 @@ export type KLinePeriod =
 /** 图表当前支持的复权方式。 */
 export type KLineAdjustment = 'qfq' | 'hfq' | 'splits' | 'none'
 
+/** 当前游标之前的历史数据状态；unknown 表示数据源无法可靠判断。 */
+export type OlderDataStatus = 'available' | 'exhausted' | 'unknown'
+
 /** 成交量数值对应的业务单位。 */
 export type VolumeUnit = 'share' | 'lot' | 'contract' | 'baseAsset'
 
@@ -131,6 +134,8 @@ export interface BarSeries {
   timezone: string
   volumeUnit?: VolumeUnit
   data: ReadonlyArray<KLineData>
+  /** 后端明确声明的游标历史状态，避免前端由空数组推断。 */
+  olderData: OlderDataStatus
 }
 
 /** 分时查询使用品种所在时区的 YYYY-MM-DD 交易日。 */

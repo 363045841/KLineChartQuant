@@ -3,6 +3,7 @@ import { Effect, pipe } from 'effect'
 import type { Effect as EffectType } from 'effect/Effect'
 
 import type { KLineData, SymbolSpec } from '../../controllers/types'
+import type { OlderDataStatus } from '../provider/types'
 import {
   createSignal,
   type ReadonlySignal,
@@ -18,6 +19,8 @@ import {
 } from './dataBuffer.effects'
 import type {
   BarPageRequest,
+  BarPageFetchResult,
+  BarPageResult,
   DataBufferLike,
   DataWindow,
   DataChange,
@@ -43,8 +46,10 @@ export class DataBuffer implements KLineBuffer {
   private _scheduler = new FetchScheduler()
   private _keyIndex = new TimeKeyIndex()
   private _requestFetch:
-    | ((spec: SymbolSpec, page: BarPageRequest) => Promise<ReadonlyArray<KLineData>>)
+    | ((spec: SymbolSpec, page: BarPageRequest) => Promise<BarPageFetchResult>)
     | null = null
+  /** 后端声明的当前缓存左侧历史状态；仅 exhausted 会停止继续翻页。 */
+  private _olderData: OlderDataStatus = 'unknown'
   private _currentSpec: SymbolSpec | null = null
   /** 当前 inflight 请求的 boundary（earliestTs），最多一个 */
   private _inflightBoundary: number | null = null
@@ -89,7 +94,7 @@ export class DataBuffer implements KLineBuffer {
   }
 
   setRequestFetch(
-    fn: ((spec: SymbolSpec, page: BarPageRequest) => Promise<ReadonlyArray<KLineData>>) | null,
+    fn: ((spec: SymbolSpec, page: BarPageRequest) => Promise<BarPageFetchResult>) | null,
   ): void {
     this._requestFetch = fn
   }
@@ -102,6 +107,7 @@ export class DataBuffer implements KLineBuffer {
     this._keyIndex.reset()
     this._inflightBoundary = null
     this._pendingRequestStartTs = initialStartTs ?? null
+    this._olderData = 'unknown'
     this._lastError.set(null)
     this._loadInitial()
   }
@@ -109,6 +115,7 @@ export class DataBuffer implements KLineBuffer {
   ensureRange(requestStartTs: number, _requestEndTs: number): void {
     if (this._disposed || !this._requestFetch || !this._currentSpec) return
     if (this._currentSpec.incremental === false) return
+    if (this._olderData === 'exhausted') return
     if (!this._currentSpec.source) return
     const window = this._store.loadedWindow
     if (!window) return
@@ -135,6 +142,7 @@ export class DataBuffer implements KLineBuffer {
     this._scheduler.reset()
     this._inflightBoundary = null
     this._pendingRequestStartTs = null
+    this._olderData = 'unknown'
     this._lastError.set(null)
     this._keyIndex.recompute(this._store.getRawData())
   }
@@ -152,6 +160,7 @@ export class DataBuffer implements KLineBuffer {
     this._keyIndex.reset()
     this._inflightBoundary = null
     this._pendingRequestStartTs = null
+    this._olderData = 'unknown'
     this._lastError.set(null)
   }
 
@@ -173,22 +182,24 @@ export class DataBuffer implements KLineBuffer {
     const requestFetch = this._requestFetch
     const disposed = (): boolean => this._disposed
 
-    const fetchEffect = (): Promise<ReadonlyArray<KLineData>> => {
+    const fetchEffect = (): Promise<BarPageResult> => {
       const service: {
         readonly fetch: (
           s: SymbolSpec,
           request: BarPageRequest,
-        ) => EffectType<ReadonlyArray<KLineData>, unknown>
+        ) => EffectType<BarPageResult, unknown>
       } = {
         fetch: (s, request) =>
           Effect.tryPromise({
-            try: () => {
+            try: async () => {
               if (!s.source) {
                 return Promise.reject(
                   new Error(`[DataBuffer] source is required for symbol "${s.symbol}"`),
                 )
               }
-              return requestFetch(s, request)
+              const result = await requestFetch(s, request)
+              if (!Array.isArray(result)) return result as BarPageResult
+              return { data: result, olderData: 'unknown' }
             },
             catch: (e) => e,
           }),
@@ -204,10 +215,10 @@ export class DataBuffer implements KLineBuffer {
     this._scheduler
       .run(async () => {
         try {
-          let incoming: ReadonlyArray<KLineData> | undefined
+          let response: BarPageResult | undefined
           for (let attempt = 1; attempt <= FETCH_TOTAL_ATTEMPTS; attempt++) {
             try {
-              incoming = await fetchEffect()
+              response = await fetchEffect()
               break
             } catch (err) {
               if (disposed() || requestVersion !== this._requestVersion) return
@@ -216,12 +227,13 @@ export class DataBuffer implements KLineBuffer {
               await waitForRetry(attempt)
             }
           }
-          if (incoming === undefined || disposed() || requestVersion !== this._requestVersion)
+          if (response === undefined || disposed() || requestVersion !== this._requestVersion)
             return
 
-          // 成功空数组：接口无 K 线，记可读原因供 chip 展示
-          this._lastError.set(incoming.length === 0 ? '暂无K线数据' : null)
-          const result = this._store.merge(incoming)
+          // 空页是合法的分页结果，不能据此推断品种没有数据或请求失败。
+          this._lastError.set(null)
+          this._olderData = response.olderData
+          const result = this._store.merge(response.data)
           this._keyIndex.recompute(this._store.getRawData())
 
           this._inflightBoundary = null

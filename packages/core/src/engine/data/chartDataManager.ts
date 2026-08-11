@@ -1,7 +1,12 @@
 import type { SymbolSpec, SymbolInfo, DataFetcher, CustomDataSource } from '../../controllers/types'
 import { DataBuffer } from '../../data/buffer/dataBuffer'
 import { getPeriodDays } from '../../data/buffer/dataBuffer.effects'
-import type { BarPageRequest, KLineBuffer, DataChange } from '../../data/buffer/dataBufferTypes'
+import type {
+  BarPageRequest,
+  BarPageResult,
+  KLineBuffer,
+  DataChange,
+} from '../../data/buffer/dataBufferTypes'
 import { marketDataProviderRegistry } from '../../data/provider/registry'
 import { sourceRouter } from '../../data/provider/router'
 import type {
@@ -354,7 +359,7 @@ export class ChartDataManager {
   private async requestBars(
     spec: SymbolSpec,
     page: BarPageRequest,
-  ): Promise<ReadonlyArray<KLineData>> {
+  ): Promise<BarPageResult> {
     if (spec.source && spec.instrument) {
       const period = spec.period ?? 'daily'
       const adjustment = spec.adjust ?? 'none'
@@ -375,7 +380,7 @@ export class ChartDataManager {
         limit: page.limit,
         ...(page.before === undefined ? {} : { before: page.before }),
       })
-      return result.series.data
+      return { data: result.series.data, olderData: result.series.olderData }
     }
     if (spec.source && marketDataProviderRegistry.get(spec.source)) {
       const period = spec.period ?? 'daily'
@@ -395,7 +400,7 @@ export class ChartDataManager {
         limit: page.limit,
         ...(page.before === undefined ? {} : { before: page.before }),
       })
-      return result.series.data
+      return { data: result.series.data, olderData: result.series.olderData }
     }
     if (!this._dataFetcher) {
       throw new Error(`[DataFetcher] source is required for symbol "${spec.symbol}"`)
@@ -403,7 +408,10 @@ export class ChartDataManager {
     // 未迁移 Fetcher 的日期区间仅存在于兼容适配边界。
     const to = page.before ?? Date.now()
     const from = to - getPeriodDays(spec.period) * 86_400_000
-    return this._batchScheduler.createHandler()(spec, from, to)
+    return {
+      data: await this._batchScheduler.createHandler()(spec, from, to),
+      olderData: 'unknown',
+    }
   }
 
   /** 将旧 YYYYMMDD 或当前品种时区日期转换为 Provider TradingDate。 */
