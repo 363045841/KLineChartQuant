@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-import type { DataFetcher, KLineData, SymbolSpec } from '../../controllers/types'
+import type { KLineData, SymbolSpec } from '../../controllers/types'
 import { DataBuffer } from '../buffer/dataBuffer'
 
 function makeKLine(ts: number): KLineData {
@@ -23,13 +23,6 @@ const defaultSpec: SymbolSpec = {
   source: 'mock',
 }
 
-function makeMockFetcher(responses: Map<string, KLineData[]>): DataFetcher {
-  return async (source, config) => {
-    const key = `${config.symbol}_${config.startDate}_${config.endDate}`
-    return responses.get(key) ?? []
-  }
-}
-
 describe('DataBuffer', () => {
   let buffer: DataBuffer
 
@@ -43,18 +36,13 @@ describe('DataBuffer', () => {
     expect(buffer.loadedWindow).toBeNull()
   })
 
-  it('setSymbol triggers initial load (now - 1 year)', async () => {
+  it('setSymbol triggers initial load with default page limit', async () => {
     const now = Date.now()
     const oneYearAgo = now - 365 * MS_PER_DAY
     const fetchedData = [makeKLine(oneYearAgo + 86400000), makeKLine(now)]
 
-    let capturedConfig: { startDate: string; endDate: string } | null = null
-    const fetcher: DataFetcher = async (_source, config) => {
-      capturedConfig = config
-      return fetchedData
-    }
-
-    buffer.setFetcher(fetcher)
+    const requestFetch = vi.fn().mockResolvedValue(fetchedData)
+    buffer.setRequestFetch(requestFetch)
     buffer.setSymbol(defaultSpec)
 
     expect(buffer.loading()).toBe(true)
@@ -63,26 +51,21 @@ describe('DataBuffer', () => {
       expect(buffer.loading()).toBe(false)
     })
 
+    expect(requestFetch).toHaveBeenCalledWith(defaultSpec, { limit: 500 })
     expect(buffer.data().data).toHaveLength(2)
     expect(buffer.loadedWindow).not.toBeNull()
     expect(buffer.loadedWindow!.earliestTs).toBe(fetchedData[0]!.timestamp)
     expect(buffer.loadedWindow!.latestTs).toBe(fetchedData[1]!.timestamp)
-
-    expect(capturedConfig).not.toBeNull()
-    const startDate = new Date(capturedConfig!.startDate).getTime()
-    const endDate = new Date(capturedConfig!.endDate).getTime()
-    expect(endDate - startDate).toBeGreaterThan(364 * MS_PER_DAY)
-    expect(endDate - startDate).toBeLessThanOrEqual(366 * MS_PER_DAY)
   })
 
-  it('passes data source params to the fetcher', async () => {
-    const fetcher = vi.fn<DataFetcher>().mockResolvedValue([makeKLine(Date.now())])
-    buffer.setFetcher(fetcher)
+  it('passes the symbol spec through to the requestFetch', async () => {
+    const requestFetch = vi.fn().mockResolvedValue([makeKLine(Date.now())])
+    buffer.setRequestFetch(requestFetch)
     buffer.setSymbol({ ...defaultSpec, params: { market: 1 } })
 
-    await vi.waitFor(() => expect(fetcher).toHaveBeenCalled())
+    await vi.waitFor(() => expect(requestFetch).toHaveBeenCalled())
 
-    expect(fetcher.mock.calls[0]?.[1].params).toEqual({ market: 1 })
+    expect(requestFetch.mock.calls[0]?.[0].params).toEqual({ market: 1 })
   })
 
   it('loads Provider bars with latest and exclusive cursor pages', async () => {
@@ -111,13 +94,15 @@ describe('DataBuffer', () => {
     const initialData = [makeKLine(oneYearAgo + MS_PER_DAY), makeKLine(now)]
 
     let fetchCount = 0
-    const fetcher: DataFetcher = async () => {
+    const requestFetch: (spec: SymbolSpec, page: { limit: number; before?: number }) => Promise<
+      KLineData[]
+    > = async () => {
       fetchCount++
       if (fetchCount === 1) return initialData
       return [makeKLine(oneYearAgo - 90 * MS_PER_DAY), makeKLine(oneYearAgo)]
     }
 
-    buffer.setFetcher(fetcher)
+    buffer.setRequestFetch(requestFetch)
     buffer.setSymbol(defaultSpec)
 
     await vi.waitFor(() => {
@@ -146,12 +131,14 @@ describe('DataBuffer', () => {
     const initialData = [makeKLine(oneYearAgo), makeKLine(now)]
 
     let fetchCount = 0
-    const fetcher: DataFetcher = async () => {
+    const requestFetch: (spec: SymbolSpec, page: { limit: number; before?: number }) => Promise<
+      KLineData[]
+    > = async () => {
       fetchCount++
       return initialData
     }
 
-    buffer.setFetcher(fetcher)
+    buffer.setRequestFetch(requestFetch)
     buffer.setSymbol(defaultSpec)
 
     await vi.waitFor(() => {
@@ -174,13 +161,15 @@ describe('DataBuffer', () => {
     const incrementalData = [makeKLine(oneYearAgo - 90 * MS_PER_DAY), makeKLine(sharedTs)]
 
     let fetchCount = 0
-    const fetcher: DataFetcher = async () => {
+    const requestFetch: (spec: SymbolSpec, page: { limit: number; before?: number }) => Promise<
+      KLineData[]
+    > = async () => {
       fetchCount++
       if (fetchCount === 1) return initialData
       return incrementalData
     }
 
-    buffer.setFetcher(fetcher)
+    buffer.setRequestFetch(requestFetch)
     buffer.setSymbol(defaultSpec)
 
     await vi.waitFor(() => {
@@ -205,14 +194,16 @@ describe('DataBuffer', () => {
 
     const initialData = [makeKLine(oneYearAgo + MS_PER_DAY), makeKLine(now)]
     let fetchCount = 0
-    const fetcher: DataFetcher = async () => {
+    const requestFetch: (spec: SymbolSpec, page: { limit: number; before?: number }) => Promise<
+      KLineData[]
+    > = async () => {
       fetchCount++
       await new Promise((r) => setTimeout(r, 10))
       if (fetchCount === 1) return initialData
       return [makeKLine(oneYearAgo - 90 * MS_PER_DAY)]
     }
 
-    buffer.setFetcher(fetcher)
+    buffer.setRequestFetch(requestFetch)
     buffer.setSymbol(defaultSpec)
 
     await vi.waitFor(() => {
@@ -235,14 +226,16 @@ describe('DataBuffer', () => {
 
     const initialData = [makeKLine(oneYearAgo), makeKLine(now)]
     let fetchCount = 0
-    const fetcher: DataFetcher = async () => {
+    const requestFetch: (spec: SymbolSpec, page: { limit: number; before?: number }) => Promise<
+      KLineData[]
+    > = async () => {
       fetchCount++
       await new Promise((r) => setTimeout(r, 10))
       if (fetchCount === 1) return initialData
       return [makeKLine(oneYearAgo - 90 * MS_PER_DAY)]
     }
 
-    buffer.setFetcher(fetcher)
+    buffer.setRequestFetch(requestFetch)
     buffer.setSymbol(defaultSpec)
 
     await vi.waitFor(() => {
@@ -260,11 +253,9 @@ describe('DataBuffer', () => {
   })
 
   it('dispose prevents further fetches', async () => {
-    const fetcher: DataFetcher = async () => {
-      return [makeKLine(Date.now())]
-    }
+    const requestFetch = vi.fn().mockResolvedValue([makeKLine(Date.now())])
 
-    buffer.setFetcher(fetcher)
+    buffer.setRequestFetch(requestFetch)
     buffer.dispose()
 
     expect(buffer.data().data).toEqual([])
@@ -272,9 +263,9 @@ describe('DataBuffer', () => {
 
   it('setSymbol resets data before loading', async () => {
     const now = Date.now()
-    const fetcher: DataFetcher = async () => [makeKLine(now)]
+    const requestFetch = vi.fn().mockResolvedValue([makeKLine(now)])
 
-    buffer.setFetcher(fetcher)
+    buffer.setRequestFetch(requestFetch)
     buffer.setSymbol(defaultSpec)
 
     await vi.waitFor(() => {
@@ -297,13 +288,13 @@ describe('DataBuffer', () => {
 
   it('ignores an inflight fetch result after inline data replaces the buffer', async () => {
     let resolveFetch!: (data: KLineData[]) => void
-    const fetcher: DataFetcher = () =>
+    const requestFetch = () =>
       new Promise<KLineData[]>((resolve) => {
         resolveFetch = resolve
       })
     const inline = [makeKLine(100)]
 
-    buffer.setFetcher(fetcher)
+    buffer.setRequestFetch(requestFetch)
     buffer.setSymbol(defaultSpec)
     await vi.waitFor(() => expect(resolveFetch).toBeTypeOf('function'))
     buffer.setInlineData(inline)
@@ -315,12 +306,12 @@ describe('DataBuffer', () => {
 
   it('keeps loading true when an old symbol request settles before the new request', async () => {
     const resolvers: Array<(data: KLineData[]) => void> = []
-    const fetcher: DataFetcher = () =>
+    const requestFetch = () =>
       new Promise<KLineData[]>((resolve) => {
         resolvers.push(resolve)
       })
 
-    buffer.setFetcher(fetcher)
+    buffer.setRequestFetch(requestFetch)
     buffer.setSymbol(defaultSpec)
     await vi.waitFor(() => expect(resolvers).toHaveLength(1))
     buffer.setSymbol({ ...defaultSpec, symbol: 'sz.000001' })
@@ -340,13 +331,15 @@ describe('DataBuffer', () => {
     const initialData = [makeKLine(oneYearAgo), makeKLine(now)]
 
     let fetchCount = 0
-    const fetcher: DataFetcher = async () => {
+    const requestFetch: (spec: SymbolSpec, page: { limit: number; before?: number }) => Promise<
+      KLineData[]
+    > = async () => {
       fetchCount++
       if (fetchCount === 1) return initialData
       return [makeKLine(oneYearAgo - 90 * MS_PER_DAY), makeKLine(oneYearAgo - 45 * MS_PER_DAY)]
     }
 
-    buffer.setFetcher(fetcher)
+    buffer.setRequestFetch(requestFetch)
     buffer.setSymbol(defaultSpec)
 
     await vi.waitFor(() => {
@@ -371,14 +364,14 @@ describe('DataBuffer', () => {
   it('prependedCount is 0 for initial load', async () => {
     const now = Date.now()
     const oneYearAgo = now - 365 * MS_PER_DAY
-    const fetcher: DataFetcher = async () => [makeKLine(oneYearAgo), makeKLine(now)]
+    const requestFetch = vi.fn().mockResolvedValue([makeKLine(oneYearAgo), makeKLine(now)])
 
     const prependCalls: number[] = []
     const unsub = buffer.data.subscribe(() => {
       prependCalls.push(buffer.data.peek().prependedCount)
     })
 
-    buffer.setFetcher(fetcher)
+    buffer.setRequestFetch(requestFetch)
     buffer.setSymbol(defaultSpec)
 
     await vi.waitFor(() => {
@@ -395,7 +388,9 @@ describe('DataBuffer', () => {
     const initialData = [makeKLine(oneYearAgo), makeKLine(now)]
 
     let fetchCount = 0
-    const fetcher: DataFetcher = async () => {
+    const requestFetch: (spec: SymbolSpec, page: { limit: number; before?: number }) => Promise<
+      KLineData[]
+    > = async () => {
       fetchCount++
       if (fetchCount === 1) return initialData
       // Return data with same timestamps so mergeSortedData deduplicates them,
@@ -403,7 +398,7 @@ describe('DataBuffer', () => {
       return initialData
     }
 
-    buffer.setFetcher(fetcher)
+    buffer.setRequestFetch(requestFetch)
     buffer.setSymbol(defaultSpec)
 
     await vi.waitFor(() => {
@@ -436,14 +431,16 @@ describe('DataBuffer', () => {
     const initialData = [makeKLine(oneYearAgo), makeKLine(now)]
 
     let fetchCount = 0
-    const fetcher: DataFetcher = async () => {
+    const requestFetch: (spec: SymbolSpec, page: { limit: number; before?: number }) => Promise<
+      KLineData[]
+    > = async () => {
       fetchCount++
       if (fetchCount === 1) return initialData
       if (fetchCount === 2) return [makeKLine(oneYearAgo - 90 * MS_PER_DAY)]
       return [makeKLine(oneYearAgo - 180 * MS_PER_DAY)]
     }
 
-    buffer.setFetcher(fetcher)
+    buffer.setRequestFetch(requestFetch)
     buffer.setSymbol(defaultSpec)
 
     await vi.waitFor(() => {
@@ -545,8 +542,8 @@ describe('DataBuffer', () => {
     const oneYearAgo = now - 365 * MS_PER_DAY
     const initialData = [makeKLine(oneYearAgo), makeKLine(now)]
 
-    const fetcher: DataFetcher = async () => initialData
-    buffer.setFetcher(fetcher)
+    const requestFetch = vi.fn().mockResolvedValue(initialData)
+    buffer.setRequestFetch(requestFetch)
     buffer.setSymbol(defaultSpec)
 
     await vi.waitFor(() => {
@@ -574,13 +571,15 @@ describe('DataBuffer', () => {
     const allData = [...prependData, ...initialData]
 
     let fetchCount = 0
-    const fetcher: DataFetcher = async () => {
+    const requestFetch: (spec: SymbolSpec, page: { limit: number; before?: number }) => Promise<
+      KLineData[]
+    > = async () => {
       fetchCount++
       if (fetchCount === 1) return initialData
       return prependData
     }
 
-    buffer.setFetcher(fetcher)
+    buffer.setRequestFetch(requestFetch)
     buffer.setSymbol(defaultSpec)
 
     await vi.waitFor(() => {
@@ -604,10 +603,8 @@ describe('DataBuffer', () => {
   })
 
   it('records lastError when fetch fails after retries', async () => {
-    const fetcher: DataFetcher = async () => {
-      throw new Error('[gotdx] stock/kline-by-date failed: 500')
-    }
-    buffer.setFetcher(fetcher)
+    const requestFetch = vi.fn().mockRejectedValue(new Error('[gotdx] stock/kline-by-date failed: 500'))
+    buffer.setRequestFetch(requestFetch)
     buffer.setSymbol(defaultSpec)
 
     await vi.waitFor(() => expect(buffer.loading()).toBe(false), { timeout: 10_000 })
@@ -615,10 +612,8 @@ describe('DataBuffer', () => {
   })
 
   it('publishes retry progress before the final failure', async () => {
-    const fetcher: DataFetcher = async () => {
-      throw new Error('offline')
-    }
-    buffer.setFetcher(fetcher)
+    const requestFetch = vi.fn().mockRejectedValue(new Error('offline'))
+    buffer.setRequestFetch(requestFetch)
     buffer.setSymbol(defaultSpec)
 
     await vi.waitFor(() => expect(buffer.lastError()).toBe('offline Retry 1/3'))
@@ -627,11 +622,11 @@ describe('DataBuffer', () => {
 
   it('clears lastError on successful fetch', async () => {
     let fail = true
-    const fetcher: DataFetcher = async () => {
+    const requestFetch = vi.fn().mockImplementation(async () => {
       if (fail) throw new Error('offline')
       return [makeKLine(Date.now())]
-    }
-    buffer.setFetcher(fetcher)
+    })
+    buffer.setRequestFetch(requestFetch)
     buffer.setSymbol(defaultSpec)
     await vi.waitFor(() => expect(buffer.lastError()).toBe('offline'), { timeout: 10_000 })
 
@@ -645,14 +640,14 @@ describe('DataBuffer', () => {
   })
 
   it('sets lastError to 暂无K线数据 for successful empty data', async () => {
-    buffer.setFetcher(async () => [])
+    buffer.setRequestFetch(async () => [])
     buffer.setSymbol(defaultSpec)
     await vi.waitFor(() => expect(buffer.loading()).toBe(false))
     expect(buffer.lastError()).toBe('暂无K线数据')
   })
 
   it('clears lastError on setInlineData', async () => {
-    buffer.setFetcher(async () => {
+    buffer.setRequestFetch(async () => {
       throw new Error('boom')
     })
     buffer.setSymbol(defaultSpec)

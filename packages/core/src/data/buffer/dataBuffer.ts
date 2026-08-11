@@ -2,7 +2,7 @@
 import { Effect, pipe } from 'effect'
 import type { Effect as EffectType } from 'effect/Effect'
 
-import type { DataFetcher, KLineData, SymbolSpec } from '../../controllers/types'
+import type { KLineData, SymbolSpec } from '../../controllers/types'
 import {
   createSignal,
   type ReadonlySignal,
@@ -14,9 +14,6 @@ import {
   DEFAULT_BAR_PAGE_LIMIT,
   FETCH_TOTAL_ATTEMPTS,
   KLineFetchService,
-  getPeriodDays,
-  formatDate,
-  MS_PER_DAY,
   retryBackoffMs,
 } from './dataBuffer.effects'
 import type {
@@ -45,7 +42,6 @@ export class DataBuffer implements KLineBuffer {
   private _store = new KLineDataStore()
   private _scheduler = new FetchScheduler()
   private _keyIndex = new TimeKeyIndex()
-  private _fetcher: DataFetcher | null = null
   private _requestFetch:
     | ((spec: SymbolSpec, page: BarPageRequest) => Promise<ReadonlyArray<KLineData>>)
     | null = null
@@ -92,10 +88,6 @@ export class DataBuffer implements KLineBuffer {
     return this._keyIndex.dayKeys
   }
 
-  setFetcher(fetcher: DataFetcher | null): void {
-    this._fetcher = fetcher
-  }
-
   setRequestFetch(
     fn: ((spec: SymbolSpec, page: BarPageRequest) => Promise<ReadonlyArray<KLineData>>) | null,
   ): void {
@@ -115,7 +107,7 @@ export class DataBuffer implements KLineBuffer {
   }
 
   ensureRange(requestStartTs: number, _requestEndTs: number): void {
-    if (this._disposed || (!this._requestFetch && !this._fetcher) || !this._currentSpec) return
+    if (this._disposed || !this._requestFetch || !this._currentSpec) return
     if (this._currentSpec.incremental === false) return
     if (!this._currentSpec.source) return
     const window = this._store.loadedWindow
@@ -166,20 +158,19 @@ export class DataBuffer implements KLineBuffer {
   // ── Private ──
 
   private _loadInitial(): void {
-    if ((!this._requestFetch && !this._fetcher) || !this._currentSpec || this._disposed) return
+    if (!this._requestFetch || !this._currentSpec || this._disposed) return
     if (!this._currentSpec.source) return
 
     this._fetchAndMerge({ limit: DEFAULT_BAR_PAGE_LIMIT })
   }
 
   private _fetchAndMerge(page: BarPageRequest): void {
-    if ((!this._requestFetch && !this._fetcher) || !this._currentSpec || this._disposed) return
+    if (!this._requestFetch || !this._currentSpec || this._disposed) return
     if (this._currentSpec.incremental === false) return
 
     const spec = this._currentSpec
     const requestVersion = this._requestVersion
     const requestFetch = this._requestFetch
-    const fetcher = this._fetcher
     const disposed = (): boolean => this._disposed
 
     const fetchEffect = (): Promise<ReadonlyArray<KLineData>> => {
@@ -197,21 +188,7 @@ export class DataBuffer implements KLineBuffer {
                   new Error(`[DataBuffer] source is required for symbol "${s.symbol}"`),
                 )
               }
-              if (requestFetch) {
-                return requestFetch(s, request)
-              }
-              // 遗留 Fetcher 仍接收日期；仅在适配边界按页游标换算近似窗口。
-              const end = (request.before ?? Date.now()) - (request.before === undefined ? 0 : 1)
-              const start = end - getPeriodDays(s.period) * MS_PER_DAY
-              return (fetcher as NonNullable<DataFetcher>)(s.source, {
-                symbol: s.symbol,
-                startDate: formatDate(start),
-                endDate: formatDate(end),
-                period: s.period ?? 'daily',
-                adjust: s.adjust ?? 'none',
-                exchange: s.exchange,
-                params: s.params,
-              })
+              return requestFetch(s, request)
             },
             catch: (e) => e,
           }),

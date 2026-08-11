@@ -280,11 +280,9 @@ export class ChartDataManager {
     let buf = this._klineBuffers.get(key)
     if (!buf) {
       buf = this._createKLineBuffer()
-      buf.setFetcher(this._dataFetcher)
       buf.setRequestFetch((request, page) => this.requestBars(request, page))
       this._klineBuffers.set(key, buf)
     } else {
-      buf.setFetcher(this._dataFetcher)
       buf.setRequestFetch((request, page) => this.requestBars(request, page))
     }
     return buf
@@ -297,7 +295,6 @@ export class ChartDataManager {
   private _createCmpBuffer(spec: SymbolSpec): { key: string; buffer: KLineBuffer } {
     const key = comparisonBufferKey(spec)
     const buffer = this._createKLineBuffer()
-    buffer.setFetcher(this._dataFetcher)
     buffer.setRequestFetch((request, page) => this.requestBars(request, page))
     this._klineBuffers.set(key, buffer)
     return { key, buffer }

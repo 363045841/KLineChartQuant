@@ -30,7 +30,6 @@ export class TimeShareFetchService extends Context.Tag('@klc/TimeShareFetchServi
 
 // ── Constants ──
 
-export const MS_PER_DAY = 86_400_000
 export const FETCH_MAX_RETRIES = 2 // 最大重试次数
 export const FETCH_TOTAL_ATTEMPTS = FETCH_MAX_RETRIES + 1
 /** 初始加载和向左增量加载的统一页大小。 */
@@ -54,14 +53,6 @@ const PERIOD_INITIAL_DAYS: Record<string, number> = {
 
 export function getPeriodDays(period?: string): number {
   return PERIOD_INITIAL_DAYS[period ?? 'daily'] ?? 365
-}
-
-export function formatDate(ts: number): string {
-  const d = new Date(ts)
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
 }
 
 // ── Retry backoff: 失败后等待约 1 秒 / 2 秒 ──
