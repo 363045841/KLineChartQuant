@@ -64,9 +64,13 @@ describe('SourceRouter', () => {
     )
     const targetFetch = async ({
       instrument,
+      limit,
+      before,
     }: Parameters<NonNullable<MarketDataProvider['bars']>['fetch']>[0]) => {
       expect(instrument.sourceId).toBe('baostock')
       expect(instrument.providerRef).toEqual({ code: 'sh.600519' })
+      expect(limit).toBe(500)
+      expect(before).toBe(2)
       return {
         instrumentId: instrument.id,
         period: 'daily' as const,
@@ -88,8 +92,8 @@ describe('SourceRouter', () => {
       assetClass: baseInstrument.assetClass,
       period: 'daily',
       adjustment: 'none',
-      from: 1,
-      to: 2,
+      limit: 500,
+      before: 2,
     })
 
     expect(result.provider.source.id).toBe('baostock')
@@ -133,8 +137,7 @@ describe('SourceRouter', () => {
         exchange: baseInstrument.exchange,
         period: 'daily',
         adjustment: 'none',
-        from: 1,
-        to: 2,
+        limit: 500,
       }),
     ).rejects.toMatchObject({ code: 'FETCH_FAILED' })
     expect(fallbackCalled).toBe(false)
@@ -158,8 +161,7 @@ describe('SourceRouter', () => {
       exchange: baseInstrument.exchange,
       period: 'daily',
       adjustment: 'none',
-      from: 1,
-      to: 2,
+      limit: 500,
     })
     await expect(promise).rejects.toBeInstanceOf(SourceRoutingError)
     await expect(promise).rejects.toMatchObject({

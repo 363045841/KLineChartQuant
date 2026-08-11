@@ -92,8 +92,7 @@ describe('gotdx V1 provider', () => {
       instrument,
       period: 'daily',
       adjustment: 'none',
-      from: 1704067200000,
-      to: 1704153600000,
+      limit: 500,
     })
 
     expect(series.data).toEqual([expect.objectContaining({ symbol: '600519', close: 1.5 })])

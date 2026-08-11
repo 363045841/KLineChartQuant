@@ -32,8 +32,8 @@ export interface SourceRouterBarsRequest extends SourceRouterInstrumentIdentity 
   instrument?: InstrumentDescriptor
   period: KLinePeriod
   adjustment: KLineAdjustment
-  from: number
-  to: number
+  limit: number
+  before?: number
 }
 
 /** 分时流转请求。 */
@@ -235,8 +235,6 @@ export class SourceRouter {
         assetClass: request.assetClass,
         period: request.period,
         adjustment: request.adjustment,
-        from: request.from,
-        to: request.to,
       },
       request,
       request.preferredSourceId,
@@ -263,8 +261,8 @@ export class SourceRouter {
           instrument,
           period: request.period,
           adjustment: request.adjustment,
-          from: request.from,
-          to: request.to,
+          limit: request.limit,
+          before: request.before,
         })
       },
     )

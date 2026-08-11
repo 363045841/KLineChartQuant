@@ -89,8 +89,7 @@ describe('MarketData 类型契约', () => {
       instrument: stock,
       period: 'daily',
       adjustment: 'qfq',
-      from: 0,
-      to: 1,
+      limit: 500,
     })
 
     expect('timeShare' in provider).toBe(false)

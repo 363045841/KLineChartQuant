@@ -1,7 +1,7 @@
 import type { SymbolSpec, SymbolInfo, DataFetcher, CustomDataSource } from '../../controllers/types'
 import { DataBuffer } from '../../data/buffer/dataBuffer'
 import { getPeriodDays } from '../../data/buffer/dataBuffer.effects'
-import type { KLineBuffer, DataChange } from '../../data/buffer/dataBufferTypes'
+import type { BarPageRequest, KLineBuffer, DataChange } from '../../data/buffer/dataBufferTypes'
 import { marketDataProviderRegistry } from '../../data/provider/registry'
 import { sourceRouter } from '../../data/provider/router'
 import type {
@@ -281,11 +281,11 @@ export class ChartDataManager {
     if (!buf) {
       buf = this._createKLineBuffer()
       buf.setFetcher(this._dataFetcher)
-      buf.setRequestFetch((request, from, to) => this.requestBars(request, from, to))
+      buf.setRequestFetch((request, page) => this.requestBars(request, page))
       this._klineBuffers.set(key, buf)
     } else {
       buf.setFetcher(this._dataFetcher)
-      buf.setRequestFetch((request, from, to) => this.requestBars(request, from, to))
+      buf.setRequestFetch((request, page) => this.requestBars(request, page))
     }
     return buf
   }
@@ -298,7 +298,7 @@ export class ChartDataManager {
     const key = comparisonBufferKey(spec)
     const buffer = this._createKLineBuffer()
     buffer.setFetcher(this._dataFetcher)
-    buffer.setRequestFetch((request, from, to) => this.requestBars(request, from, to))
+    buffer.setRequestFetch((request, page) => this.requestBars(request, page))
     this._klineBuffers.set(key, buffer)
     return { key, buffer }
   }
@@ -356,8 +356,7 @@ export class ChartDataManager {
   /** 让 K 线缓冲直接调用 Provider bars；未迁移数据源回退到旧批量 Fetcher。 */
   private async requestBars(
     spec: SymbolSpec,
-    from: number,
-    to: number,
+    page: BarPageRequest,
   ): Promise<ReadonlyArray<KLineData>> {
     if (spec.source && spec.instrument) {
       const period = spec.period ?? 'daily'
@@ -376,8 +375,8 @@ export class ChartDataManager {
         assetClass: spec.instrument.assetClass,
         period: period as KLinePeriod,
         adjustment: adjustment as KLineAdjustment,
-        from,
-        to,
+        limit: page.limit,
+        ...(page.before === undefined ? {} : { before: page.before }),
       })
       return result.series.data
     }
@@ -396,14 +395,17 @@ export class ChartDataManager {
         exchange: spec.exchange,
         period: period as KLinePeriod,
         adjustment: adjustment as KLineAdjustment,
-        from,
-        to,
+        limit: page.limit,
+        ...(page.before === undefined ? {} : { before: page.before }),
       })
       return result.series.data
     }
     if (!this._dataFetcher) {
       throw new Error(`[DataFetcher] source is required for symbol "${spec.symbol}"`)
     }
+    // 未迁移 Fetcher 的日期区间仅存在于兼容适配边界。
+    const to = page.before ?? Date.now()
+    const from = to - getPeriodDays(spec.period) * 86_400_000
     return this._batchScheduler.createHandler()(spec, from, to)
   }
 
@@ -768,7 +770,7 @@ export class ChartDataManager {
     this._dataFetcher = fetcher
     this._batchScheduler.setFetcher(fetcher)
     for (const [, buf] of this._klineBuffers) {
-      buf.setRequestFetch((request, from, to) => this.requestBars(request, from, to))
+      buf.setRequestFetch((request, page) => this.requestBars(request, page))
     }
   }
 

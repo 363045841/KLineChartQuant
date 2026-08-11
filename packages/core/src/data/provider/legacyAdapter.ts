@@ -211,10 +211,10 @@ export function createLegacyMarketDataAdapters(
           instrument,
           period: parsePeriod(config.period),
           adjustment: parseAdjustment(config.adjust),
-          from,
-          to,
+          limit: 500,
+          before: to + 24 * 60 * 60 * 1000,
         })
-        return series.data
+        return series.data.filter((item) => item.timestamp >= from && item.timestamp <= to)
       }
     : undefined
 

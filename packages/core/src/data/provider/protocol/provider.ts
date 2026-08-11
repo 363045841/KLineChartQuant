@@ -179,8 +179,8 @@ export function createV1MarketDataProvider(
             },
             period: query.period,
             adjustment: query.adjustment,
-            from: query.from,
-            to: query.to,
+            limit: query.limit,
+            ...(query.before === undefined ? {} : { before: query.before }),
           },
           query.signal,
         )

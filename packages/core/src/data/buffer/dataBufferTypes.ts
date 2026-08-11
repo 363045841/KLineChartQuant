@@ -17,6 +17,13 @@ export interface DataChange {
   readonly prependedCount: number
 }
 
+/** 图表自动加载使用的 K 线游标页请求。 */
+export interface BarPageRequest {
+  limit: number
+  /** 排他上界；缺省表示从数据源最新一根开始。 */
+  before?: number
+}
+
 export interface DataBufferLike {
   readonly data: ReadonlySignal<DataChange>
   readonly loading: ReadonlySignal<boolean>
@@ -35,9 +42,7 @@ export interface KLineBuffer extends DataBufferLike {
   getDayKeys(): Int32Array | null
   setFetcher(fetcher: DataFetcher | null): void
   setRequestFetch(
-    fn:
-      | ((spec: SymbolSpec, startTs: number, endTs: number) => Promise<ReadonlyArray<KLineData>>)
-      | null,
+    fn: ((spec: SymbolSpec, page: BarPageRequest) => Promise<ReadonlyArray<KLineData>>) | null,
   ): void
   setSymbol(spec: SymbolSpec, initialStartTs?: number): void
   setCurrentSpec(spec: SymbolSpec): void

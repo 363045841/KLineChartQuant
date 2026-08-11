@@ -4,6 +4,7 @@ import type { Effect as EffectType } from 'effect/Effect'
 
 import type { KLineData, SymbolSpec } from '../../controllers/types'
 import type { TimeShareFetchResult } from '../legacy/types'
+import type { BarPageRequest } from './dataBufferTypes'
 
 // ── KLine fetch service tag ──
 // Tag: 定义 Effect 服务接口
@@ -13,8 +14,7 @@ export class KLineFetchService extends Context.Tag('@klc/KLineFetchService')<
   {
     readonly fetch: (
       spec: SymbolSpec,
-      startTs: number,
-      endTs: number,
+      page: BarPageRequest,
     ) => EffectType<ReadonlyArray<KLineData>, unknown>
   }
 >() {}
@@ -33,6 +33,8 @@ export class TimeShareFetchService extends Context.Tag('@klc/TimeShareFetchServi
 export const MS_PER_DAY = 86_400_000
 export const FETCH_MAX_RETRIES = 2 // 最大重试次数
 export const FETCH_TOTAL_ATTEMPTS = FETCH_MAX_RETRIES + 1
+/** 初始加载和向左增量加载的统一页大小。 */
+export const DEFAULT_BAR_PAGE_LIMIT = 500
 
 // ── Helpers ──
 
@@ -72,17 +74,16 @@ export function retryBackoffMs(attempt: number): number {
 
 export const fetchKLine = (
   spec: SymbolSpec,
-  startTs: number,
-  endTs: number,
+  page: BarPageRequest,
 ): EffectType<ReadonlyArray<KLineData>, unknown, KLineFetchService> =>
   pipe(
     Effect.gen(function* () {
       const { fetch } = yield* KLineFetchService // 获取 Service 实例
-      const data = yield* fetch(spec, startTs, endTs)
+      const data = yield* fetch(spec, page)
       // 部分无数据品种返回 []
       if (data.length === 0) {
         yield* Effect.logWarning(
-          `[DataBuffer] empty data for ${spec.symbol} ${formatDate(startTs)}~${formatDate(endTs)}`,
+          `[DataBuffer] empty data for ${spec.symbol} limit=${page.limit} before=${page.before ?? 'latest'}`,
         )
       }
       return data

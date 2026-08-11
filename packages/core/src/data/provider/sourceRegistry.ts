@@ -35,6 +35,12 @@ export const dataSourceRegistry = {
     description: 'BaoStock data connector, source: https://github.com/363045841/Baostock-Connecter',
     defaultBaseUrl: 'http://127.0.0.1:8000',
   },
+  finshare: {
+    id: 'finshare',
+    displayName: 'FinShare Futures',
+    description: 'China futures data via FinShare SDK and Baostock-Connecter',
+    defaultBaseUrl: 'http://127.0.0.1:8000',
+  },
   tradingview: {
     id: 'tradingview',
     displayName: 'TradingView',

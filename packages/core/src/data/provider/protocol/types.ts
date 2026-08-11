@@ -114,14 +114,14 @@ export interface V1InstrumentSearchResult {
   items: ReadonlyArray<V1InstrumentDescriptor>
 }
 
-// K 线请求：from/to 为 UTC Unix 毫秒时间戳，含边界
+// K 线请求：before 为可选的 UTC Unix 毫秒排他游标，不传时返回最新一页
 export interface V1BarRequest {
   sourceId: string
   instrument: V1InstrumentReference
   period: KLinePeriod
   adjustment: KLineAdjustment
-  from: number
-  to: number
+  limit: number
+  before?: number
 }
 
 // K 线条目
@@ -188,7 +188,7 @@ export interface MarketDataV1Transport {
     request: V1InstrumentSearchRequest,
     signal?: AbortSignal,
   ): Promise<V1InstrumentSearchResult>
-  // 拉取指定品种、周期和 UTC 区间的 K 线
+  // 拉取指定品种、周期的游标分页 K 线
   fetchBars(request: V1BarRequest, signal?: AbortSignal): Promise<V1BarSeries>
   // 拉取指定品种在单个交易日内的分时序列
   fetchTimeShare(request: V1TimeShareRequest, signal?: AbortSignal): Promise<V1TimeShareSeries>

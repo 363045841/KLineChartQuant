@@ -89,8 +89,8 @@ describe('createHttpMarketDataV1Transport', () => {
     })
   })
 
-  // 验证 K 线请求体完整携带品种引用与区间参数
-  it('fetches bars with instrument and range parameters', async () => {
+  // 验证 K 线请求体完整携带品种引用与游标分页参数
+  it('fetches bars with instrument and cursor parameters', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({
         data: {
@@ -110,8 +110,8 @@ describe('createHttpMarketDataV1Transport', () => {
       instrument: { id: 'gotdx:stock:1:600519', symbol: '600519', exchange: 'SH' },
       period: 'daily',
       adjustment: 'none',
-      from: 1,
-      to: 2,
+      limit: 500,
+      before: 2,
     })
 
     expect(result.items).toEqual([])
@@ -120,8 +120,8 @@ describe('createHttpMarketDataV1Transport', () => {
     expect(JSON.parse(String(init?.body))).toMatchObject({
       sourceId: 'gotdx',
       period: 'daily',
-      from: 1,
-      to: 2,
+      limit: 500,
+      before: 2,
     })
   })
 

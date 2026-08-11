@@ -11,6 +11,7 @@ import {
 
 import {
   fetchKLine,
+  DEFAULT_BAR_PAGE_LIMIT,
   FETCH_TOTAL_ATTEMPTS,
   KLineFetchService,
   getPeriodDays,
@@ -18,7 +19,13 @@ import {
   MS_PER_DAY,
   retryBackoffMs,
 } from './dataBuffer.effects'
-import type { DataBufferLike, DataWindow, DataChange, KLineBuffer } from './dataBufferTypes'
+import type {
+  BarPageRequest,
+  DataBufferLike,
+  DataWindow,
+  DataChange,
+  KLineBuffer,
+} from './dataBufferTypes'
 import { FetchScheduler } from './fetchScheduler'
 import { KLineDataStore } from './kLineDataStore'
 import { TimeKeyIndex } from './timeKeyIndex'
@@ -40,7 +47,7 @@ export class DataBuffer implements KLineBuffer {
   private _keyIndex = new TimeKeyIndex()
   private _fetcher: DataFetcher | null = null
   private _requestFetch:
-    | ((spec: SymbolSpec, startTs: number, endTs: number) => Promise<ReadonlyArray<KLineData>>)
+    | ((spec: SymbolSpec, page: BarPageRequest) => Promise<ReadonlyArray<KLineData>>)
     | null = null
   private _currentSpec: SymbolSpec | null = null
   /** 当前 inflight 请求的 boundary（earliestTs），最多一个 */
@@ -90,9 +97,7 @@ export class DataBuffer implements KLineBuffer {
   }
 
   setRequestFetch(
-    fn:
-      | ((spec: SymbolSpec, startTs: number, endTs: number) => Promise<ReadonlyArray<KLineData>>)
-      | null,
+    fn: ((spec: SymbolSpec, page: BarPageRequest) => Promise<ReadonlyArray<KLineData>>) | null,
   ): void {
     this._requestFetch = fn
   }
@@ -104,13 +109,9 @@ export class DataBuffer implements KLineBuffer {
     this._scheduler.reset()
     this._keyIndex.reset()
     this._inflightBoundary = null
-    this._pendingRequestStartTs = null
+    this._pendingRequestStartTs = initialStartTs ?? null
     this._lastError.set(null)
-    if (initialStartTs !== undefined) {
-      this._loadInitialRange(initialStartTs, Date.now())
-    } else {
-      this._loadInitial()
-    }
+    this._loadInitial()
   }
 
   ensureRange(requestStartTs: number, _requestEndTs: number): void {
@@ -132,7 +133,7 @@ export class DataBuffer implements KLineBuffer {
 
     this._inflightBoundary = incrementalEnd
     this._pendingRequestStartTs = requestStartTs
-    this._fetchAndMerge(requestStartTs, incrementalEnd)
+    this._fetchAndMerge({ limit: DEFAULT_BAR_PAGE_LIMIT, before: incrementalEnd })
   }
 
   setInlineData(data: unknown[]): void {
@@ -168,20 +169,10 @@ export class DataBuffer implements KLineBuffer {
     if ((!this._requestFetch && !this._fetcher) || !this._currentSpec || this._disposed) return
     if (!this._currentSpec.source) return
 
-    const now = Date.now()
-    const days = getPeriodDays(this._currentSpec.period)
-    const startDate = now - days * MS_PER_DAY
-
-    this._fetchAndMerge(startDate, now)
+    this._fetchAndMerge({ limit: DEFAULT_BAR_PAGE_LIMIT })
   }
 
-  private _loadInitialRange(startTs: number, endTs: number): void {
-    if ((!this._requestFetch && !this._fetcher) || !this._currentSpec || this._disposed) return
-    if (!this._currentSpec.source) return
-    this._fetchAndMerge(startTs, endTs)
-  }
-
-  private _fetchAndMerge(startTs: number, endTs: number): void {
+  private _fetchAndMerge(page: BarPageRequest): void {
     if ((!this._requestFetch && !this._fetcher) || !this._currentSpec || this._disposed) return
     if (this._currentSpec.incremental === false) return
 
@@ -195,11 +186,10 @@ export class DataBuffer implements KLineBuffer {
       const service: {
         readonly fetch: (
           s: SymbolSpec,
-          start: number,
-          end: number,
+          request: BarPageRequest,
         ) => EffectType<ReadonlyArray<KLineData>, unknown>
       } = {
-        fetch: (s, start, end) =>
+        fetch: (s, request) =>
           Effect.tryPromise({
             try: () => {
               if (!s.source) {
@@ -208,8 +198,11 @@ export class DataBuffer implements KLineBuffer {
                 )
               }
               if (requestFetch) {
-                return requestFetch(s, start, end)
+                return requestFetch(s, request)
               }
+              // 遗留 Fetcher 仍接收日期；仅在适配边界按页游标换算近似窗口。
+              const end = (request.before ?? Date.now()) - (request.before === undefined ? 0 : 1)
+              const start = end - getPeriodDays(s.period) * MS_PER_DAY
               return (fetcher as NonNullable<DataFetcher>)(s.source, {
                 symbol: s.symbol,
                 startDate: formatDate(start),
@@ -225,7 +218,7 @@ export class DataBuffer implements KLineBuffer {
       }
 
       return pipe(
-        fetchKLine(spec, startTs, endTs),
+        fetchKLine(spec, page),
         Effect.provideService(KLineFetchService, service),
         Effect.runPromise,
       )

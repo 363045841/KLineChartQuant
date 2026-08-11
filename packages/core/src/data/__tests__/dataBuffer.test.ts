@@ -85,6 +85,25 @@ describe('DataBuffer', () => {
     expect(fetcher.mock.calls[0]?.[1].params).toEqual({ market: 1 })
   })
 
+  it('loads Provider bars with latest and exclusive cursor pages', async () => {
+    const latest = [makeKLine(200), makeKLine(300)]
+    const older = [makeKLine(100)]
+    const requestFetch = vi.fn().mockResolvedValueOnce(latest).mockResolvedValueOnce(older)
+    buffer.setRequestFetch(requestFetch)
+
+    buffer.setSymbol(defaultSpec)
+    await vi.waitFor(() => expect(buffer.loading()).toBe(false))
+    expect(requestFetch).toHaveBeenNthCalledWith(1, defaultSpec, { limit: 500 })
+
+    buffer.ensureRange(150, 200)
+    await vi.waitFor(() => expect(buffer.loading()).toBe(false))
+    expect(requestFetch).toHaveBeenNthCalledWith(2, defaultSpec, {
+      limit: 500,
+      before: 200,
+    })
+    expect(buffer.getRawData().map((item) => item.timestamp)).toEqual([100, 200, 300])
+  })
+
   it('ensureRange triggers incremental load when visible range is before loaded window', async () => {
     const now = Date.now()
     const oneYearAgo = now - 365 * MS_PER_DAY

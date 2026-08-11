@@ -113,13 +113,13 @@ export interface InstrumentSearchQuery {
   signal?: AbortSignal
 }
 
-/** K 线区间查询；from 和 to 均为 UTC 毫秒时间戳。 */
+/** K 线游标分页查询；before 为可选的 UTC 毫秒时间戳排他上界。 */
 export interface BarQuery {
   instrument: InstrumentDescriptor
   period: KLinePeriod
   adjustment: KLineAdjustment
-  from: number
-  to: number
+  limit: number
+  before?: number
   signal?: AbortSignal
 }
 
@@ -158,7 +158,7 @@ export interface InstrumentCatalog {
 
 /** 历史 K 线能力。 */
 export interface BarDataSource {
-  /** 拉取指定品种、周期和时间区间的 K 线序列。 */
+  /** 拉取指定品种、周期的最新一页或游标之前一页 K 线。 */
   fetch(query: BarQuery): Promise<BarSeries>
 }
 

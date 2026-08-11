@@ -93,8 +93,8 @@ describe('mock data source', () => {
       instrument: instruments[0]!,
       period: 'daily',
       adjustment: 'none',
-      from: new Date('2024-01-01').getTime(),
-      to: new Date('2024-01-31').getTime(),
+      limit: 31,
+      before: new Date('2024-02-01').getTime(),
     })
     expect(series).toMatchObject({
       instrumentId: 'mock:MOCK-100',

@@ -46,7 +46,9 @@ describe('createLegacyMarketDataAdapters', () => {
       adjustment: 'qfq',
       timezone: 'Asia/Shanghai',
       volumeUnit: 'share',
-      data: [{ timestamp: 1, open: 1, high: 2, low: 1, close: 2 }],
+      data: [
+        { timestamp: Date.parse('2026-08-03'), open: 1, high: 2, low: 1, close: 2 },
+      ],
     })
     catalogSearch.mockResolvedValue([instrument])
     timeShareFetch.mockResolvedValue({
@@ -81,10 +83,12 @@ describe('createLegacyMarketDataAdapters', () => {
       instrument,
       period: 'daily',
       adjustment: 'qfq',
-      from: Date.parse('2026-08-01'),
-      to: Date.parse('2026-08-06'),
+      limit: 500,
+      before: Date.parse('2026-08-07'),
     })
-    expect(result).toEqual([{ timestamp: 1, open: 1, high: 2, low: 1, close: 2 }])
+    expect(result).toEqual([
+      { timestamp: Date.parse('2026-08-03'), open: 1, high: 2, low: 1, close: 2 },
+    ])
   })
 
   // 验证目录结果降级为旧 SearchResult，providerRef 保持原样。

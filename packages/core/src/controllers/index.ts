@@ -105,10 +105,12 @@ export {
   gotdxMarketDataProvider,
   mockMarketDataProvider,
   baostockMarketDataProvider,
+  finshareMarketDataProvider,
   tradingviewMarketDataProvider,
 } from '../data'
 export type {
   DataWindow,
+  BarPageRequest,
   DepthSource,
   DepthDelta,
   DepthSnapshot,

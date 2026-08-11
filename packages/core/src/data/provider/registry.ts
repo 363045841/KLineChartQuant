@@ -48,8 +48,6 @@ export interface SourceCapabilityQuery {
   assetClass?: AssetClass
   period?: KLinePeriod
   adjustment?: KLineAdjustment
-  from?: number
-  to?: number
 }
 
 /** 判断源级能力是否满足一次请求的候选条件。 */
@@ -67,11 +65,6 @@ function supportsCapability(
   if (!bars) return false
   if (query.period !== undefined && !bars.periods.includes(query.period)) return false
   if (query.adjustment !== undefined && !bars.adjustments.includes(query.adjustment)) return false
-  const coverage = capabilities.historyCoverage
-  if (coverage?.from !== undefined && query.from !== undefined && query.from < coverage.from) {
-    return false
-  }
-  if (coverage?.to !== undefined && query.to !== undefined && query.to > coverage.to) return false
   return true
 }
 

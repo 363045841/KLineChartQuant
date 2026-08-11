@@ -152,8 +152,8 @@ export function createHttpMarketDataV1Transport(
         instrument: req.instrument,
         period: req.period,
         adjustment: req.adjustment,
-        from: req.from,
-        to: req.to,
+        limit: req.limit,
+        ...(req.before === undefined ? {} : { before: req.before }),
       })
       return request<V1BarSeries>(
         baseUrl(),

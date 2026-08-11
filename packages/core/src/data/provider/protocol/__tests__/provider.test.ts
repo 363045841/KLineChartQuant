@@ -116,8 +116,7 @@ describe('createV1MarketDataProvider', () => {
       instrument,
       period: 'daily',
       adjustment: 'none',
-      from: 1,
-      to: 2,
+      limit: 500,
     })
     expect(series.timezone).toBe('Asia/Shanghai')
     expect(series.volumeUnit).toBe('lot')
@@ -144,8 +143,7 @@ describe('createV1MarketDataProvider', () => {
       instrument,
       period: 'daily',
       adjustment: 'none',
-      from: 1,
-      to: 2,
+      limit: 500,
     })
     expect(series.volumeUnit).toBe('share')
   })
@@ -159,8 +157,7 @@ describe('createV1MarketDataProvider', () => {
         instrument: noBars,
         period: 'daily',
         adjustment: 'none',
-        from: 1,
-        to: 2,
+        limit: 500,
       }),
     ).rejects.toThrow(/does not support bars/)
   })

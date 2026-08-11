@@ -33,10 +33,11 @@ export const mockMarketDataProvider: MarketDataProvider = {
   bars: {
     /** 复用旧 MOCK 生成器拉取日 K 数据。 */
     async fetch(query) {
+      const end = (query.before ?? Date.now()) - (query.before === undefined ? 0 : 1)
       const data = await fetchMock('mock', {
         symbol: query.instrument.symbol,
-        startDate: new Date(query.from).toISOString().slice(0, 10),
-        endDate: new Date(query.to).toISOString().slice(0, 10),
+        startDate: new Date(end - query.limit * 2 * 86_400_000).toISOString().slice(0, 10),
+        endDate: new Date(end).toISOString().slice(0, 10),
         period: query.period,
         adjust: query.adjustment,
         exchange: query.instrument.exchange,
@@ -48,7 +49,9 @@ export const mockMarketDataProvider: MarketDataProvider = {
         adjustment: query.adjustment,
         timezone: 'Asia/Shanghai',
         volumeUnit: 'share',
-        data,
+        data: data
+          .filter((item) => query.before === undefined || item.timestamp < query.before)
+          .slice(-query.limit),
       }
     },
   },
