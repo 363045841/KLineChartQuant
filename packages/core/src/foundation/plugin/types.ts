@@ -290,6 +290,8 @@ export interface RenderContext {
   comparisonData?: ReadonlyMap<string, ReadonlyArray<KLineData>>
   comparisonSymbols?: ReadonlyArray<import('../../controllers/types').SymbolSpec>
   comparisonColors?: ReadonlyMap<string, string>
+  /** 主品种代码（比较视图图例主品种行使用） */
+  primarySymbol?: string
   range: { start: number; end: number }
   scrollLeft: number
   kWidth: number

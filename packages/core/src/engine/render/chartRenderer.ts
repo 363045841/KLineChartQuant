@@ -840,6 +840,7 @@ export class ChartRenderer {
         comparisonData: dataManager.getComparisonData(),
         comparisonSymbols: dataManager.getComparisonSpecs(),
         comparisonColors: dataManager.getComparisonColors(),
+        primarySymbol: dataManager.symbols.peek()[0]?.symbol,
         range,
         scrollLeft: vp.scrollLeft,
         kWidth: opt.kWidth,

@@ -232,16 +232,36 @@ function collectComparisonRows(
   colors: ReturnType<typeof resolveThemeColors>,
 ): LegendComparisonRow[] {
   const comparisonSymbols = context.comparisonSymbols
-  const comparisonData = context.comparisonData
-  const comparisonColors = context.comparisonColors
-  if (!comparisonSymbols?.length || !comparisonData?.size) return []
+  if (!comparisonSymbols?.length) return []
 
   const baseIndex = Math.max(0, range.start)
   const baseItem = klineData[baseIndex]
   if (!baseItem || !Number.isFinite(baseItem.close) || baseItem.close <= 0) return []
 
-  const baseDate = baseItem.date ?? ''
   const rows: LegendComparisonRow[] = []
+
+  // 比较视图：主品种作为首行（色块颜色与主商品折线一致）
+  const mainItem = klineData[targetIndex]
+  if (mainItem && Number.isFinite(mainItem.close)) {
+    const percent = ((mainItem.close - baseItem.close) / baseItem.close) * 100
+    rows.push({
+      symbol: context.primarySymbol ?? mainItem.symbol ?? '',
+      percent,
+      color: colors.palette.i1,
+      percentColor:
+        percent > 0
+          ? colors.candleUpBody
+          : percent < 0
+            ? colors.candleDownBody
+            : colors.text.primary,
+    })
+  }
+
+  const comparisonData = context.comparisonData
+  if (!comparisonData?.size) return rows
+
+  const comparisonColors = context.comparisonColors
+  const baseDate = baseItem.date ?? ''
 
   for (const spec of comparisonSymbols) {
     const identity = symbolSpecIdentityKey(spec)
@@ -258,13 +278,11 @@ function collectComparisonRows(
       byDate.set(item.date ?? String(item.timestamp), item)
     }
 
-    const mainItem = klineData[targetIndex]
-    if (!mainItem) continue
-    const key = mainItem.date ?? String(mainItem.timestamp)
-    const currentItem = byDate.get(key)
-    if (!currentItem || !Number.isFinite(currentItem.close)) continue
+    const key = mainItem?.date ?? String(mainItem?.timestamp ?? '')
+    const cmpItem = byDate.get(key)
+    if (!cmpItem || !Number.isFinite(cmpItem.close)) continue
 
-    const percent = ((currentItem.close - baseline.close) / baseline.close) * 100
+    const percent = ((cmpItem.close - baseline.close) / baseline.close) * 100
     const color = comparisonColors?.get(identity) ?? colors.palette.i2
     rows.push({
       symbol: spec.symbol,

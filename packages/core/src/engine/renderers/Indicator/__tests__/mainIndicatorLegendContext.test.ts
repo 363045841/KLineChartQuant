@@ -118,6 +118,7 @@ describe('buildLegendTemplateContext comparison rows', () => {
       paneWidth: 800,
       theme: 'light',
       isAsiaMarket: true,
+      primarySymbol: '600000',
       comparisonSymbols: [spec],
       comparisonData: new Map([[identity, comparisonDataFor(spec)]]),
       comparisonColors: new Map([[identity, '#123456']]),
@@ -125,7 +126,14 @@ describe('buildLegendTemplateContext comparison rows', () => {
 
     const result = buildLegendTemplateContext({ context, host: null, yPaddingPx: 0 })
 
+    // 主品种首行（close 10 → 11，+10%）+ 比较品种行
     expect(result?.comparisons).toEqual([
+      {
+        symbol: '600000',
+        percent: 10,
+        color: '#0072B2',
+        percentColor: result?.colors?.up,
+      },
       {
         symbol: spec.symbol,
         percent: expectedPercent,
@@ -135,7 +143,7 @@ describe('buildLegendTemplateContext comparison rows', () => {
     ])
   })
 
-  it('skips comparison rows whose data is missing for the identity', () => {
+  it('shows the main symbol row even when comparison data is not loaded', () => {
     const spec: SymbolSpec = { id: 'SH.600000', symbol: '600000', market: 'SH', period: 'daily' }
     const context = {
       data: mainData,
@@ -144,13 +152,22 @@ describe('buildLegendTemplateContext comparison rows', () => {
       paneWidth: 800,
       theme: 'light',
       isAsiaMarket: true,
+      primarySymbol: 'MAIN',
       comparisonSymbols: [spec],
-      comparisonData: new Map([['id:SH.600000', []]]),
+      comparisonData: new Map([[symbolSpecIdentityKey(spec), []]]),
       comparisonColors: new Map([[symbolSpecIdentityKey(spec), '#123456']]),
     } as unknown as RenderContext
 
     const result = buildLegendTemplateContext({ context, host: null, yPaddingPx: 0 })
 
-    expect(result?.comparisons).toEqual([])
+    // 主品种 targetIndex=1 close=11，base close=10 → +10%
+    expect(result?.comparisons).toEqual([
+      {
+        symbol: 'MAIN',
+        percent: 10,
+        color: '#0072B2',
+        percentColor: result?.colors?.up,
+      },
+    ])
   })
 })
