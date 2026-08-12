@@ -761,6 +761,15 @@ export class ChartRenderer {
         if (pane.id === 'main' && this.settings.disableMainPaneVerticalScroll) {
           pane.yAxis.resetTransform()
         }
+        // 比较视图：主图右轴切换为百分比轴（退出比较视图时恢复线性）
+        // basePrice 已由 Pane.updateRange 设为可见区首根 close，percent 映射随数据逐帧生效
+        if (pane.id === 'main') {
+          const comparisonActive = dataManager.getComparisonSpecs().length > 0
+          const nextScale = comparisonActive ? 'percent' : 'linear'
+          if (pane.yAxis.getScaleType() !== nextScale) {
+            pane.yAxis.setScaleType(nextScale)
+          }
+        }
       }
 
       // 根据 UpdateLevel 决定清哪些 canvas

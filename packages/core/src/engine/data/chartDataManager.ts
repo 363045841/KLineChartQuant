@@ -829,6 +829,8 @@ export class ChartDataManager {
     )
       return
     this.deps.setSymbols([primary, ...this.deps.comparison.readonly.specs.peek(), spec])
+    // 立即重绘，让主图右轴切到百分比轴、K 线切换为折线（不依赖比较数据加载）
+    this.deps.scheduleDraw()
   }
 
   setComparisonData(symbol: string, data: KLineData[]): void {

@@ -77,6 +77,8 @@ export function createCandleRenderer(): RendererPlugin {
     priority: RENDERER_PRIORITY.MAIN,
 
     draw(context: RenderContext) {
+      // 比较视图：主商品以折线展示，隐藏 K 线蜡烛
+      if (context.comparisonSymbols?.length) return
       const {
         ctx,
         pane,
