@@ -59,6 +59,7 @@
             class="my-legend__row"
             :style="{ color: comparison.percentColor }"
           >
+            <span class="my-legend__dot" :style="{ backgroundColor: comparison.color }"></span>
             {{ comparison.symbol }}
             {{ comparison.percent > 0 ? '+' : '' }}{{ comparison.percent.toFixed(2) }}%
           </div>
@@ -136,5 +137,21 @@
 
   .custom-tooltip__detail {
     opacity: 0.7;
+  }
+
+  .my-legend__row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 10px;
+    align-items: center;
+  }
+
+  .my-legend__dot {
+    align-self: center;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: none;
+    margin-right: -6px;
   }
 </style>

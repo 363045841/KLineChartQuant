@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
 import type { RenderContext } from '../../../../foundation/plugin'
-import type { TimeShareData } from '../../../../foundation/types/price'
+import type { SymbolSpec } from '../../../../controllers/types'
+import type { KLineData, TimeShareData } from '../../../../foundation/types/price'
+import { symbolSpecIdentityKey } from '../../../data/symbolIdentity'
 import { buildLegendTemplateContext } from '../mainIndicatorLegendContext'
 
 function point(timestamp: number, price: number): TimeShareData {
@@ -66,4 +68,89 @@ describe('buildLegendTemplateContext timeshare baseline', () => {
       expect(result?.timeshare).toBeNull()
     },
   )
+})
+
+describe('buildLegendTemplateContext comparison rows', () => {
+  const mainData: KLineData[] = [
+    { timestamp: 1000, date: '2025-01-01', open: 10, high: 11, low: 9, close: 10 },
+    { timestamp: 2000, date: '2025-01-02', open: 10, high: 12, low: 10, close: 11 },
+  ]
+
+  function comparisonDataFor(spec: SymbolSpec): KLineData[] {
+    const base = spec.symbol === 'COMP.A' ? 20 : 30
+    return [
+      {
+        timestamp: 1000,
+        date: '2025-01-01',
+        open: base,
+        high: base + 1,
+        low: base - 1,
+        close: base,
+      },
+      {
+        timestamp: 2000,
+        date: '2025-01-02',
+        open: base,
+        high: base + 2,
+        low: base,
+        close: base + 2,
+      },
+    ]
+  }
+
+  it.each([
+    {
+      spec: { id: 'SH.600000', symbol: '600000', market: 'SH', period: 'daily' },
+      label: 'with id',
+      expectedPercent: 100 / 15,
+    },
+    {
+      spec: { symbol: 'COMP.A', market: 'CN', period: 'daily' },
+      label: 'without id',
+      expectedPercent: 10,
+    },
+  ])('resolves comparison data by identity key ($label)', ({ spec, expectedPercent }) => {
+    const identity = symbolSpecIdentityKey(spec)
+    const context = {
+      data: mainData,
+      period: 'daily',
+      range: { start: 0, end: 2 },
+      paneWidth: 800,
+      theme: 'light',
+      isAsiaMarket: true,
+      comparisonSymbols: [spec],
+      comparisonData: new Map([[identity, comparisonDataFor(spec)]]),
+      comparisonColors: new Map([[identity, '#123456']]),
+    } as unknown as RenderContext
+
+    const result = buildLegendTemplateContext({ context, host: null, yPaddingPx: 0 })
+
+    expect(result?.comparisons).toEqual([
+      {
+        symbol: spec.symbol,
+        percent: expectedPercent,
+        color: '#123456',
+        percentColor: result?.colors?.up,
+      },
+    ])
+  })
+
+  it('skips comparison rows whose data is missing for the identity', () => {
+    const spec: SymbolSpec = { id: 'SH.600000', symbol: '600000', market: 'SH', period: 'daily' }
+    const context = {
+      data: mainData,
+      period: 'daily',
+      range: { start: 0, end: 2 },
+      paneWidth: 800,
+      theme: 'light',
+      isAsiaMarket: true,
+      comparisonSymbols: [spec],
+      comparisonData: new Map([['id:SH.600000', []]]),
+      comparisonColors: new Map([[symbolSpecIdentityKey(spec), '#123456']]),
+    } as unknown as RenderContext
+
+    const result = buildLegendTemplateContext({ context, host: null, yPaddingPx: 0 })
+
+    expect(result?.comparisons).toEqual([])
+  })
 })

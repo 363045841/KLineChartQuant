@@ -1,6 +1,7 @@
 import type { PluginHost, RenderContext } from '../../../foundation/plugin/index'
 import { resolveThemeColors } from '../../../foundation/tokens/index'
 import type { KLineData, TimeShareData } from '../../../foundation/types/price'
+import { symbolSpecIdentityKey } from '../../data/symbolIdentity'
 import type { TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
 
@@ -243,7 +244,8 @@ function collectComparisonRows(
   const rows: LegendComparisonRow[] = []
 
   for (const spec of comparisonSymbols) {
-    const data = comparisonData.get(spec.symbol)
+    const identity = symbolSpecIdentityKey(spec)
+    const data = comparisonData.get(identity)
     if (!data?.length) continue
 
     const baseline = baseDate
@@ -263,7 +265,7 @@ function collectComparisonRows(
     if (!currentItem || !Number.isFinite(currentItem.close)) continue
 
     const percent = ((currentItem.close - baseline.close) / baseline.close) * 100
-    const color = comparisonColors?.get(spec.symbol) ?? colors.palette.i2
+    const color = comparisonColors?.get(identity) ?? colors.palette.i2
     rows.push({
       symbol: spec.symbol,
       percent,
