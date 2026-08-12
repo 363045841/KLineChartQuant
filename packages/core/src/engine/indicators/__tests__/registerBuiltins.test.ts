@@ -11,9 +11,26 @@ describe('builtin indicator registration', () => {
   it('loads all builtin indicator definitions through decorators', () => {
     const definitions = getBuiltinIndicatorDefinitions()
 
-    expect(definitions).toHaveLength(49)
+    expect(definitions).toHaveLength(58)
     expect(definitions.map((definition) => definition.name)).toEqual(
-      expect.arrayContaining(['ma', 'boll', 'rsi', 'macd', 'volume', 'volumeProfile', 'zones']),
+      expect.arrayContaining([
+        'ma',
+        'boll',
+        'rsi',
+        'macd',
+        'volume',
+        'volumeProfile',
+        'zones',
+        't3',
+        'vidya',
+        'frama',
+        'dpo',
+        'awesomeOscillator',
+        'ultimateOscillator',
+        'stochRSI',
+        'fisherTransform',
+        'schaffTrendCycle',
+      ]),
     )
   })
 

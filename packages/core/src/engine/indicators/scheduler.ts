@@ -138,6 +138,15 @@ export type {
   StructureSchedulerConfig,
   ZonesSchedulerConfig,
   VolumeProfileSchedulerConfig,
+  T3SchedulerConfig,
+  VIDYASchedulerConfig,
+  FRAMASchedulerConfig,
+  DPOSchedulerConfig,
+  AwesomeOscillatorSchedulerConfig,
+  UltimateOscillatorSchedulerConfig,
+  StochRSISchedulerConfig,
+  FisherTransformSchedulerConfig,
+  SchaffTrendCycleSchedulerConfig,
 } from './workerProtocol'
 
 /**

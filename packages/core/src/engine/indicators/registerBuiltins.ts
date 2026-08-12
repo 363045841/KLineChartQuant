@@ -56,6 +56,15 @@ export async function loadBuiltinIndicators(): Promise<void> {
     import('../renderers/Indicator/lsma'),
     import('../renderers/Indicator/dma'),
     import('../renderers/Indicator/gmma'),
+    import('../renderers/Indicator/t3'),
+    import('../renderers/Indicator/vidya'),
+    import('../renderers/Indicator/frama'),
+    import('../renderers/Indicator/dpo'),
+    import('../renderers/Indicator/awesomeOscillator'),
+    import('../renderers/Indicator/ultimateOscillator'),
+    import('../renderers/Indicator/stochRSI'),
+    import('../renderers/Indicator/fisherTransform'),
+    import('../renderers/Indicator/schaffTrendCycle'),
   ])
 
   // 读取命名空间，确保打包器保留由装饰器初始化的指标定义导出。

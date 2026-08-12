@@ -24,6 +24,8 @@ import type {
   StructureSnapshot,
   Zone,
   VolumeProfileResult,
+  StochRSIPoint,
+  FisherPoint,
 } from './calculators'
 
 // ============================================================================
@@ -318,6 +320,63 @@ export interface VolumeProfileSchedulerConfig {
   showValueArea: boolean
 }
 
+export interface T3SchedulerConfig {
+  period: number
+  volumeFactor: number
+  showT3: boolean
+}
+
+export interface VIDYASchedulerConfig {
+  period: number
+  cmoPeriod: number
+  showVIDYA: boolean
+}
+
+export interface FRAMASchedulerConfig {
+  period: number
+  showFRAMA: boolean
+}
+
+export interface DPOSchedulerConfig {
+  period: number
+  showDPO: boolean
+}
+
+export interface AwesomeOscillatorSchedulerConfig {
+  fast: number
+  slow: number
+  showAO: boolean
+}
+
+export interface UltimateOscillatorSchedulerConfig {
+  p1: number
+  p2: number
+  p3: number
+  showUO: boolean
+}
+
+export interface StochRSISchedulerConfig {
+  period: number
+  kPeriod: number
+  dPeriod: number
+  showK: boolean
+  showD: boolean
+}
+
+export interface FisherTransformSchedulerConfig {
+  period: number
+  showFisher: boolean
+  showSignal: boolean
+}
+
+export interface SchaffTrendCycleSchedulerConfig {
+  fast: number
+  slow: number
+  cycle: number
+  factor: number
+  showSTC: boolean
+}
+
 // ============================================================================
 // Worker 请求类型
 // ============================================================================
@@ -454,6 +513,15 @@ export interface IndicatorConfigSnapshot {
   structure: StructureSchedulerConfig
   zones: ZonesSchedulerConfig
   volumeProfile: VolumeProfileSchedulerConfig
+  t3: T3SchedulerConfig
+  vidya: VIDYASchedulerConfig
+  frama: FRAMASchedulerConfig
+  dpo: DPOSchedulerConfig
+  awesomeOscillator: AwesomeOscillatorSchedulerConfig
+  ultimateOscillator: UltimateOscillatorSchedulerConfig
+  stochRSI: StochRSISchedulerConfig
+  fisherTransform: FisherTransformSchedulerConfig
+  schaffTrendCycle: SchaffTrendCycleSchedulerConfig
 }
 
 // ============================================================================
@@ -651,6 +719,42 @@ export interface IndicatorSeriesBundle {
   volumeProfile: {
     series: VolumeProfileResult
     params: VolumeProfileSchedulerConfig
+  }
+  t3: {
+    series: (number | undefined)[]
+    params: T3SchedulerConfig
+  }
+  vidya: {
+    series: (number | undefined)[]
+    params: VIDYASchedulerConfig
+  }
+  frama: {
+    series: (number | undefined)[]
+    params: FRAMASchedulerConfig
+  }
+  dpo: {
+    series: (number | undefined)[]
+    params: DPOSchedulerConfig
+  }
+  awesomeOscillator: {
+    series: (number | undefined)[]
+    params: AwesomeOscillatorSchedulerConfig
+  }
+  ultimateOscillator: {
+    series: (number | undefined)[]
+    params: UltimateOscillatorSchedulerConfig
+  }
+  stochRSI: {
+    series: (StochRSIPoint | undefined)[]
+    params: StochRSISchedulerConfig
+  }
+  fisherTransform: {
+    series: (FisherPoint | undefined)[]
+    params: FisherTransformSchedulerConfig
+  }
+  schaffTrendCycle: {
+    series: (number | undefined)[]
+    params: SchaffTrendCycleSchedulerConfig
   }
   /** 本次计算中实际变更的指标列表 */
   _changed: string[]

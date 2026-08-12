@@ -66,6 +66,15 @@ function createBundle(): IndicatorSeriesBundle {
       series: { bins: [], vah: 0, val: 0, poc: 0, totalVolume: 0 },
       params: {} as never,
     },
+    t3: { series: [], params: {} as never },
+    vidya: { series: [], params: {} as never },
+    frama: { series: [], params: {} as never },
+    dpo: { series: [], params: {} as never },
+    awesomeOscillator: { series: [], params: {} as never },
+    ultimateOscillator: { series: [], params: {} as never },
+    stochRSI: { series: [], params: {} as never },
+    fisherTransform: { series: [], params: {} as never },
+    schaffTrendCycle: { series: [], params: {} as never },
     _changed: [],
   }
 }

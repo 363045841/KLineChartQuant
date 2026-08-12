@@ -48,6 +48,15 @@ import {
   calcStructureData,
   calcZonesData,
   calcVolumeProfileData,
+  calcT3Data,
+  calcVIDYAData,
+  calcFRAMAData,
+  calcDPOData,
+  calcAwesomeOscillatorData,
+  calcUltimateOscillatorData,
+  calcStochRSIData,
+  calcFisherTransformData,
+  calcSchaffTrendCycleData,
   DEFAULT_MA_PERIODS,
 } from './calculators'
 import type { IndicatorRuntimeDescriptor } from './indicatorMetadata'
@@ -118,6 +127,17 @@ export const CALCULATOR_MAP: Record<string, (data: KLineData[], config: any) => 
   calcZonesData: (data, c) => calcZonesData(data, c.obLookback, 5, 2, 'close'),
   calcVolumeProfileData: (data, c) =>
     calcVolumeProfileData(data, c.bins, c.lookback, c.valueAreaPercent),
+  calcT3Data: (data, c) => calcT3Data(data, c.period, c.volumeFactor),
+  calcVIDYAData: (data, c) => calcVIDYAData(data, c.period, c.cmoPeriod),
+  calcFRAMAData: (data, c) => calcFRAMAData(data, c.period),
+  calcDPOData: (data, c) => calcDPOData(data, c.period),
+  calcAwesomeOscillatorData: (data, c) => calcAwesomeOscillatorData(data, c.fast, c.slow),
+  calcUltimateOscillatorData: (data, c) =>
+    calcUltimateOscillatorData(data, c.p1, c.p2, c.p3),
+  calcStochRSIData: (data, c) => calcStochRSIData(data, c.period, c.kPeriod, c.dPeriod),
+  calcFisherTransformData: (data, c) => calcFisherTransformData(data, c.period),
+  calcSchaffTrendCycleData: (data, c) =>
+    calcSchaffTrendCycleData(data, c.fast, c.slow, c.cycle, c.factor),
 }
 
 export function createWorkerCompute(descriptor: {

@@ -43,6 +43,18 @@ export { calcROCData } from './oscillators'
 export type { TRIXResult } from './oscillators'
 export { calcTRIXData } from './oscillators'
 
+export { calcT3Data } from './t3'
+export { calcVIDYAData } from './vidya'
+export { calcFRAMAData } from './frama'
+export { calcDPOData } from './dpo'
+export { calcAwesomeOscillatorData } from './awesomeOscillator'
+export { calcUltimateOscillatorData } from './ultimateOscillator'
+export type { StochRSIPoint } from './stochRSI'
+export { calcStochRSIData } from './stochRSI'
+export type { FisherPoint } from './fisherTransform'
+export { calcFisherTransformData } from './fisherTransform'
+export { calcSchaffTrendCycleData } from './schaffTrendCycle'
+
 export { calcATRData, calcHVData, calcParkinsonData, calcChaikinVolData } from './volatility'
 
 export {
