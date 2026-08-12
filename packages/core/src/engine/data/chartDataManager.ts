@@ -1157,24 +1157,40 @@ export class ChartDataManager {
     this.deps.scheduleDraw()
   }
 
-  // ── Comparison price range ──
+  // ── Comparison view line range ──
 
-  getComparisonEquivalentPriceRange(range: VisibleRange): { min: number; max: number } | null {
-    if (this._comparisonManager.specs.length === 0 || this._comparisonManager.data.size === 0)
-      return null
+  /**
+   * 比较视图下可见区折线（主商品 close + 各比较商品等价价）的极值范围。
+   * 用作主图 y 轴范围及缩放/平移 clamp 上下限；返回 null 表示当前不可用。
+   */
+  getComparisonViewLineRange(range: VisibleRange): { min: number; max: number } | null {
+    const comparisonSpecs = this.deps.comparison.readonly.specs.peek()
+    if (comparisonSpecs.length === 0) return null
     const buf = this.getActiveDataBuffer()
     const internalData = buf ? buf.getRawData() : []
+    if (internalData.length === 0) return null
     const baseIndex = Math.max(0, range.start)
     const baseItem = internalData[baseIndex]
     if (!baseItem || !Number.isFinite(baseItem.close) || baseItem.close <= 0) return null
     const mainBase = baseItem.close
     const baseDate = baseItem.date ?? ''
+    const startIdx = Math.max(0, range.start)
 
     let min = Number.POSITIVE_INFINITY
     let max = Number.NEGATIVE_INFINITY
 
-    for (const spec of this._comparisonManager.specs) {
-      const data = this._comparisonManager.data.get(spec.symbol)
+    // 主商品折线：close（蜡烛已隐藏，不使用 high/low）
+    for (let i = startIdx; i < range.end && i < internalData.length; i++) {
+      const close = internalData[i]?.close
+      if (Number.isFinite(close)) {
+        if (close < min) min = close
+        if (close > max) max = close
+      }
+    }
+
+    // 比较商品折线：相对自身基准的涨跌幅折算为主商品基准上的等价价
+    for (const spec of comparisonSpecs) {
+      const data = this._comparisonManager.data.get(symbolSpecIdentityKey(spec))
       if (!data?.length) continue
 
       const baseline = baseDate
@@ -1188,7 +1204,7 @@ export class ChartDataManager {
         else byDate.set(String(item.timestamp), item)
       }
 
-      for (let i = Math.max(0, range.start); i < range.end && i < internalData.length; i++) {
+      for (let i = startIdx; i < range.end && i < internalData.length; i++) {
         const mainItem = internalData[i]
         if (!mainItem) continue
         const key = mainItem.date ?? String(mainItem.timestamp)
@@ -1198,8 +1214,8 @@ export class ChartDataManager {
         const pct = (item.close - baseline.close) / baseline.close
         const equivalentPrice = mainBase * (1 + pct)
         if (!Number.isFinite(equivalentPrice)) continue
-        min = Math.min(min, equivalentPrice)
-        max = Math.max(max, equivalentPrice)
+        if (equivalentPrice < min) min = equivalentPrice
+        if (equivalentPrice > max) max = equivalentPrice
       }
     }
 

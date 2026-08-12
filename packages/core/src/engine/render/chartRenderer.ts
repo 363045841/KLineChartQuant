@@ -750,21 +750,37 @@ export class ChartRenderer {
         leftAxisOverlayCtx,
       } = renderer.getContexts()
 
-      // 非缓存帧：合并指标与对比标的极值，更新 pane Y 轴范围
+      // 非缓存帧：更新 pane Y 轴范围；比较视图下以可见折线极值为准
       if (!useCachedFrame) {
-        const indicatorRange =
-          pane.role === 'price' && mode.useIndicatorScheduler ? mainIndicatorRange : null
-        const comparisonRange =
-          pane.id === 'main' ? dataManager.getComparisonEquivalentPriceRange(range) : null
-        const mergedRange = this.mergeNumericRanges(indicatorRange, comparisonRange)
-        mode.updatePaneRange(pane as any, range, dataManager, mergedRange)
+        const comparisonActive = dataManager.getComparisonSpecs().length > 0
+
+        if (pane.id === 'main' && comparisonActive) {
+          // 比较视图：y 轴范围 = 可见区折线（主商品 close + 比较商品等价价）极值，
+          // 随滚动/缩放逐帧重算，缩放与平移的 clamp 上下限同步跟随折线
+          const lineRange = dataManager.getComparisonViewLineRange(range)
+          if (lineRange) {
+            const linePriceRange = { maxPrice: lineRange.max, minPrice: lineRange.min }
+            pane.priceRange = linePriceRange
+            pane.yAxis.setRange(linePriceRange)
+          } else {
+            mode.updatePaneRange(pane as any, range, dataManager, null)
+          }
+          // 绕过 Pane.updateRange 时需手动补齐 percent 基准价
+          const internalData = dataManager.getInternalData()
+          const baseIdx = Math.max(0, range.start)
+          pane.yAxis.setBasePrice(internalData[baseIdx]?.close ?? null)
+        } else {
+          const indicatorRange =
+            pane.role === 'price' && mode.useIndicatorScheduler ? mainIndicatorRange : null
+          mode.updatePaneRange(pane as any, range, dataManager, indicatorRange)
+        }
+
         if (pane.id === 'main' && this.settings.disableMainPaneVerticalScroll) {
           pane.yAxis.resetTransform()
         }
         // 比较视图：主图右轴切换为百分比轴（退出比较视图时恢复线性）
-        // basePrice 已由 Pane.updateRange 设为可见区首根 close，percent 映射随数据逐帧生效
+        // basePrice 由上面的比较视图分支或 Pane.updateRange 保证已设置
         if (pane.id === 'main') {
-          const comparisonActive = dataManager.getComparisonSpecs().length > 0
           const nextScale = comparisonActive ? 'percent' : 'linear'
           if (pane.yAxis.getScaleType() !== nextScale) {
             pane.yAxis.setScaleType(nextScale)
@@ -1043,18 +1059,6 @@ export class ChartRenderer {
   private checkVisibleRangeGapWhenIdle(): void {
     if (this.deps.getInteraction().isPointerDown()) return
     this.deps.getDataManager().checkVisibleRangeGap()
-  }
-
-  private mergeNumericRanges(
-    left: { min: number; max: number } | null | undefined,
-    right: { min: number; max: number } | null | undefined,
-  ): { min: number; max: number } | null {
-    if (!left) return right ?? null
-    if (!right) return left
-    return {
-      min: Math.min(left.min, right.min),
-      max: Math.max(left.max, right.max),
-    }
   }
 
   clearCachedFrame(): void {
