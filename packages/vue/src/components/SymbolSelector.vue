@@ -112,22 +112,32 @@
               </svg>
               <span>{{ searchError ? '搜索失败' : '未找到相关商品' }}</span>
             </div>
-            <button
+            <div
               v-for="item in filteredSymbols"
               :key="symbolIdentityKey(item)"
-              type="button"
               class="symbol-list__item"
               :class="{ 'is-active': symbolIdentityKey(item) === selectedKey }"
               role="option"
               :aria-selected="symbolIdentityKey(item) === selectedKey"
-              @click="selectSymbol(item)"
             >
-              <span class="symbol-list__left">
-                <span class="symbol-list__code">{{ item.symbol }}</span>
-                <span class="symbol-list__desc">{{ item.name }}</span>
-              </span>
-              <span class="symbol-list__exchange">{{ formatSymbolMeta(item) }}</span>
-            </button>
+              <button type="button" class="symbol-list__select" @click="selectSymbol(item)">
+                <span class="symbol-list__left">
+                  <span class="symbol-list__code">{{ item.symbol }}</span>
+                  <span class="symbol-list__desc">{{ item.name }}</span>
+                </span>
+                <span class="symbol-list__exchange">{{ formatSymbolMeta(item) }}</span>
+              </button>
+              <button
+                v-if="!watchlistKeys.has(symbolIdentityKey(item))"
+                type="button"
+                class="symbol-list__add"
+                title="添加自选"
+                aria-label="添加自选"
+                @click.stop="emit('addWatchlist', item)"
+              >
+                <IconTablerPlus aria-hidden="true" />
+              </button>
+            </div>
           </div>
         </div>
       </Transition>
@@ -154,10 +164,9 @@
   import { useTeleportedPopup } from '../composables/useTeleportedPopup'
 
   import AggregationSourceButton from './AggregationSourceButton.vue'
-  import AggregationSourceTabs, {
-    type AggregationSourceTabItem,
-  } from './AggregationSourceTabs.vue'
+  import AggregationSourceTabs, { type AggregationSourceTabItem } from './AggregationSourceTabs.vue'
   import IconTablerAlertTriangle from '~icons/tabler/alert-triangle'
+  import IconTablerPlus from '~icons/tabler/plus'
 
   export type SymbolItem = SearchableSymbol
 
@@ -177,15 +186,19 @@
       aggregationSources?: ReadonlyArray<AggregationSourceDefinition>
       /** 已启用的搜索源名称 */
       enabledSourceNames?: ReadonlySet<string>
+      /** 已加入自选股的品种身份 */
+      watchlistKeys?: ReadonlySet<string>
     }>(),
     {
       aggregationSources: () => [],
       enabledSourceNames: () => new Set<string>(),
+      watchlistKeys: () => new Set<string>(),
     },
   )
 
   const emit = defineEmits<{
     (e: 'change', symbol: SymbolItem): void
+    (e: 'addWatchlist', symbol: SymbolItem): void
     (e: 'manageSources'): void
   }>()
 
@@ -484,17 +497,9 @@
   .symbol-list__item {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 8px;
-    padding: 9px 10px;
     margin: 0 4px;
-    border: none;
     border-radius: 7px;
-    background: transparent;
-    color: var(--klc-color-foreground);
-    font: inherit;
-    cursor: pointer;
-    text-align: left;
     transition: background 0.12s ease;
     flex-shrink: 0;
   }
@@ -505,6 +510,49 @@
 
   .symbol-list__item.is-active {
     background: color-mix(in srgb, var(--klc-color-alert-active) 10%, transparent);
+  }
+
+  .symbol-list__select {
+    min-width: 0;
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 9px 2px 9px 10px;
+    border: 0;
+    background: transparent;
+    color: var(--klc-color-foreground);
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+  }
+
+  .symbol-list__add {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    margin-right: 4px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--klc-color-axis-text);
+    cursor: pointer;
+  }
+
+  .symbol-list__add:hover {
+    border-color: var(--klc-color-border-button);
+    background: var(--klc-color-grid-major);
+    color: var(--klc-color-foreground);
+  }
+
+  .symbol-list__add svg {
+    width: 15px;
+    height: 15px;
   }
 
   .symbol-list__left {

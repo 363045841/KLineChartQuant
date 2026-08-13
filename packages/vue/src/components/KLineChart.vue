@@ -1,231 +1,241 @@
 <template>
   <div ref="chartWrapperRef" class="chart-wrapper" :data-theme="chartTheme" :style="themeCssVars">
-    <TopToolbar
-      :symbol="currentSymbol"
-      :symbol-item="currentSymbolItem ?? undefined"
-      :symbols="symbolPool"
-      :search="searchSymbols"
-      :k-line-level="kLineLevel"
-      :k-line-adjust="kLineAdjust"
-      :symbol-loading="symbolStatus === 'loading'"
-      :symbol-error="symbolStatus === 'error'"
-      :symbol-retrying="symbolRetrying"
-      :symbol-error-message="symbolErrorMessage || undefined"
-      :overlay-symbols="overlaySymbols"
-      :overlay-symbol-items="overlaySymbolItems"
-      :comparison-colors="comparisonColorsMap"
-      :comparison-loading="comparisonLoading"
-      :aggregation-sources="aggregationSources"
-      :enabled-source-names="enabledSourceNameSet"
-      :source-endpoints="sourceEndpoints"
-      :show-back-button="kLineLevel === 'timeshare'"
-      @add-overlay-symbol="onAddOverlaySymbol"
-      @remove-overlay-symbol="onRemoveOverlaySymbol"
-      @k-line-level-change="onKLineLevelChange"
-      @k-line-adjust-change="onKLineAdjustChange"
-      @symbol-change="onSymbolChange"
-      @toggle-aggregation-source="setAggregationSourceEnabled"
-      @update-source-endpoint="setAggregationSourceEndpoint"
-      @back="onBackFromTimeShare"
-    />
-    <div
-      class="chart-stage"
-      :class="{
-        'is-dragging': isDragging,
-        'is-resizing-pane': isResizingPane,
-        'is-hovering-pane-separator': isHoveringPaneSeparator,
-        'is-hovering-right-axis': isHoveringRightAxis,
-        'is-hovering-kline': hoveredIndex !== null,
-      }"
-    >
-      <LeftToolbar
-        ref="toolbarRef"
-        :is-fullscreen="effectiveIsFullscreen"
-        :alert-controller="controller"
-        :effective-settings="chartSettings"
-        :renderer-runtime="rendererRuntime"
-        :drawing-tool-id="drawingToolId"
-        :is-range-select-mode="isRangeSelectMode"
+    <div class="chart-workspace">
+      <TopToolbar
+        :symbol="currentSymbol"
+        :symbol-item="currentSymbolItem ?? undefined"
+        :symbols="symbolPool"
+        :search="searchSymbols"
+        :k-line-level="kLineLevel"
+        :k-line-adjust="kLineAdjust"
+        :symbol-loading="symbolStatus === 'loading'"
+        :symbol-error="symbolStatus === 'error'"
+        :symbol-retrying="symbolRetrying"
+        :symbol-error-message="symbolErrorMessage || undefined"
+        :overlay-symbols="overlaySymbols"
+        :overlay-symbol-items="overlaySymbolItems"
+        :comparison-colors="comparisonColorsMap"
+        :comparison-loading="comparisonLoading"
         :aggregation-sources="aggregationSources"
         :enabled-source-names="enabledSourceNameSet"
         :source-endpoints="sourceEndpoints"
-        @select-tool="handleSelectTool"
-        @toggle-indicator="onToggleIndicator"
-        @toggle-fullscreen="handleToggleFullscreen"
-        @zoom-in="applyZoomToLevel(zoomLevel + 1)"
-        @zoom-out="applyZoomToLevel(zoomLevel - 1)"
-        @settings-change="handleSettingsChange"
+        :watchlist-keys="watchlistKeys"
+        :show-back-button="kLineLevel === 'timeshare'"
+        @add-overlay-symbol="onAddOverlaySymbol"
+        @remove-overlay-symbol="onRemoveOverlaySymbol"
+        @k-line-level-change="onKLineLevelChange"
+        @k-line-adjust-change="onKLineAdjustChange"
+        @symbol-change="onSymbolChange"
+        @add-watchlist="addWatchlistItem"
         @toggle-aggregation-source="setAggregationSourceEnabled"
         @update-source-endpoint="setAggregationSourceEndpoint"
+        @back="onBackFromTimeShare"
       />
-      <div ref="chartMainRef" class="chart-main">
-        <div class="pane-separator-layer" aria-hidden="true">
-          <div
-            v-for="line in paneSeparatorLines"
-            :key="line.id"
-            class="pane-separator-line"
-            :class="{ 'is-active': hoveredPaneBoundaryId === line.id }"
-            :style="{ top: `${line.top}px` }"
-          ></div>
-        </div>
-        <div ref="tooltipLayerRef" class="tooltip-layer"></div>
-        <div
-          v-if="computedLeftAxisWidth > 0"
-          ref="leftAxisLayerRef"
-          class="left-axis-host"
-          :style="leftAxisHostStyle"
-        ></div>
-        <div
-          ref="containerRef"
-          class="chart-container"
-          :style="chartContainerStyle"
-          @scroll.passive="onScroll"
-          @pointerdown="onPointerDown"
-          @pointermove="onPointerMove"
-          @pointerup="onPointerUp"
-          @pointerleave="onPointerLeave"
-          @dblclick="onDoubleClick"
-          @contextmenu.prevent
-        >
-          <div class="scroll-content">
-            <div ref="canvasLayerRef" class="canvas-layer">
-              <canvas ref="xAxisCanvasRef" class="x-axis-canvas"></canvas>
-
-              <div
-                v-if="hasLegendSlot && legendTemplateContext"
-                class="main-legend-overlay"
-                :style="legendOverlayStyle"
-              >
-                <slot name="legend" v-bind="legendTemplateContext" />
-              </div>
-
-              <CanvasToolbarStack>
-                <RangeSelectionExport
-                  v-if="rangeSelectionReady"
-                  v-model:start-date="customStartDate"
-                  v-model:end-date="customEndDate"
-                  :start-label="rangeSelectionStartLabel"
-                  :end-label="rangeSelectionEndLabel"
-                  :count="rangeSelectionCount"
-                  @export="exportRangeToCsv"
-                  @clear="clearRangeSelection"
-                  @batch-setting="showBatchStockDialog = true"
-                />
-                <DrawingStyleToolbar
-                  v-if="selectedDrawing"
-                  :drawing="selectedDrawing"
-                  @update-style="onUpdateDrawingStyle"
-                  @delete="onDeleteDrawing"
-                />
-              </CanvasToolbarStack>
-            </div>
+      <div
+        class="chart-stage"
+        :class="{
+          'is-dragging': isDragging,
+          'is-resizing-pane': isResizingPane,
+          'is-hovering-pane-separator': isHoveringPaneSeparator,
+          'is-hovering-right-axis': isHoveringRightAxis,
+          'is-hovering-kline': hoveredIndex !== null,
+        }"
+      >
+        <LeftToolbar
+          ref="toolbarRef"
+          :is-fullscreen="effectiveIsFullscreen"
+          :alert-controller="controller"
+          :effective-settings="chartSettings"
+          :renderer-runtime="rendererRuntime"
+          :drawing-tool-id="drawingToolId"
+          :is-range-select-mode="isRangeSelectMode"
+          :aggregation-sources="aggregationSources"
+          :enabled-source-names="enabledSourceNameSet"
+          :source-endpoints="sourceEndpoints"
+          @select-tool="handleSelectTool"
+          @toggle-indicator="onToggleIndicator"
+          @toggle-fullscreen="handleToggleFullscreen"
+          @zoom-in="applyZoomToLevel(zoomLevel + 1)"
+          @zoom-out="applyZoomToLevel(zoomLevel - 1)"
+          @settings-change="handleSettingsChange"
+          @toggle-aggregation-source="setAggregationSourceEnabled"
+          @update-source-endpoint="setAggregationSourceEndpoint"
+        />
+        <div ref="chartMainRef" class="chart-main">
+          <div class="pane-separator-layer" aria-hidden="true">
             <div
-              v-if="rangeSelectionOverlayStyle"
-              class="range-selection-overlay"
-              :class="{ 'is-dragging': rangeSelection.isDragging }"
-              :style="rangeSelectionOverlayStyle"
-              aria-label="已选择的 K 线区间"
-            >
+              v-for="line in paneSeparatorLines"
+              :key="line.id"
+              class="pane-separator-line"
+              :class="{ 'is-active': hoveredPaneBoundaryId === line.id }"
+              :style="{ top: `${line.top}px` }"
+            ></div>
+          </div>
+          <div ref="tooltipLayerRef" class="tooltip-layer"></div>
+          <div
+            v-if="computedLeftAxisWidth > 0"
+            ref="leftAxisLayerRef"
+            class="left-axis-host"
+            :style="leftAxisHostStyle"
+          ></div>
+          <div
+            ref="containerRef"
+            class="chart-container"
+            :style="chartContainerStyle"
+            @scroll.passive="onScroll"
+            @pointerdown="onPointerDown"
+            @pointermove="onPointerMove"
+            @pointerup="onPointerUp"
+            @pointerleave="onPointerLeave"
+            @dblclick="onDoubleClick"
+            @contextmenu.prevent
+          >
+            <div class="scroll-content">
+              <div ref="canvasLayerRef" class="canvas-layer">
+                <canvas ref="xAxisCanvasRef" class="x-axis-canvas"></canvas>
+
+                <div
+                  v-if="hasLegendSlot && legendTemplateContext"
+                  class="main-legend-overlay"
+                  :style="legendOverlayStyle"
+                >
+                  <slot name="legend" v-bind="legendTemplateContext" />
+                </div>
+
+                <CanvasToolbarStack>
+                  <RangeSelectionExport
+                    v-if="rangeSelectionReady"
+                    v-model:start-date="customStartDate"
+                    v-model:end-date="customEndDate"
+                    :start-label="rangeSelectionStartLabel"
+                    :end-label="rangeSelectionEndLabel"
+                    :count="rangeSelectionCount"
+                    @export="exportRangeToCsv"
+                    @clear="clearRangeSelection"
+                    @batch-setting="showBatchStockDialog = true"
+                  />
+                  <DrawingStyleToolbar
+                    v-if="selectedDrawing"
+                    :drawing="selectedDrawing"
+                    @update-style="onUpdateDrawingStyle"
+                    @delete="onDeleteDrawing"
+                  />
+                </CanvasToolbarStack>
+              </div>
               <div
-                v-if="rangeSelectionReady"
-                class="range-selection-handle range-selection-handle--left"
-                @pointerdown.stop="onEdgePointerDown('left', $event)"
-                @pointermove.stop="onEdgePointerMove($event)"
-                @pointerup.stop="onEdgePointerUp($event)"
-              />
-              <div
-                v-if="rangeSelectionReady"
-                class="range-selection-handle range-selection-handle--right"
-                @pointerdown.stop="onEdgePointerDown('right', $event)"
-                @pointermove.stop="onEdgePointerMove($event)"
-                @pointerup.stop="onEdgePointerUp($event)"
-              />
+                v-if="rangeSelectionOverlayStyle"
+                class="range-selection-overlay"
+                :class="{ 'is-dragging': rangeSelection.isDragging }"
+                :style="rangeSelectionOverlayStyle"
+                aria-label="已选择的 K 线区间"
+              >
+                <div
+                  v-if="rangeSelectionReady"
+                  class="range-selection-handle range-selection-handle--left"
+                  @pointerdown.stop="onEdgePointerDown('left', $event)"
+                  @pointermove.stop="onEdgePointerMove($event)"
+                  @pointerup.stop="onEdgePointerUp($event)"
+                />
+                <div
+                  v-if="rangeSelectionReady"
+                  class="range-selection-handle range-selection-handle--right"
+                  @pointerdown.stop="onEdgePointerDown('right', $event)"
+                  @pointermove.stop="onEdgePointerMove($event)"
+                  @pointerup.stop="onEdgePointerUp($event)"
+                />
+              </div>
             </div>
           </div>
-        </div>
-        <Teleport v-if="tooltipLayerRef" :to="tooltipLayerRef">
-          <template v-if="hoveredKLine && !isMobile">
-            <div
-              v-if="slots['kline-tooltip']"
-              class="kline-tooltip-host"
-              :class="{ 'is-draggable': isTooltipDraggable }"
-              :style="klineTooltipStyle"
-              @pointerdown="onTooltipPointerDown"
-              @dblclick="onTooltipDblClick"
-            >
+          <Teleport v-if="tooltipLayerRef" :to="tooltipLayerRef">
+            <template v-if="hoveredKLine && !isMobile">
+              <div
+                v-if="slots['kline-tooltip']"
+                class="kline-tooltip-host"
+                :class="{ 'is-draggable': isTooltipDraggable }"
+                :style="klineTooltipStyle"
+                @pointerdown="onTooltipPointerDown"
+                @dblclick="onTooltipDblClick"
+              >
+                <slot
+                  name="kline-tooltip"
+                  :hover-data="hoveredKLine!"
+                  :hovered-index="hoveredIndex"
+                  :data="chartData"
+                  :up-color="tooltipColors.upColor"
+                  :down-color="tooltipColors.downColor"
+                />
+              </div>
               <slot
+                v-else
                 name="kline-tooltip"
                 :hover-data="hoveredKLine!"
                 :hovered-index="hoveredIndex"
                 :data="chartData"
                 :up-color="tooltipColors.upColor"
                 :down-color="tooltipColors.downColor"
-              />
-            </div>
-            <slot
-              v-else
-              name="kline-tooltip"
-              :hover-data="hoveredKLine!"
-              :hovered-index="hoveredIndex"
-              :data="chartData"
-              :up-color="tooltipColors.upColor"
-              :down-color="tooltipColors.downColor"
-            >
-              <div
-                class="tooltip-anchor kline-tooltip-anchor"
-                :class="{ 'use-anchor': useAnchorPositioning }"
-                :style="klineTooltipAnchorStyle"
-              ></div>
-              <div
-                ref="tooltipContentRef"
-                class="kline-tooltip"
-                :class="{
-                  'use-anchor': useAnchorPositioning,
-                  'is-draggable': isTooltipDraggable,
-                }"
-                :style="
-                  useAnchorPositioning
-                    ? undefined
-                    : { left: teleportedTooltipPos.x + 'px', top: teleportedTooltipPos.y + 'px' }
-                "
-                @pointerdown="onTooltipPointerDown"
-                @dblclick="onTooltipDblClick"
-              ></div>
-            </slot>
-          </template>
-          <template v-if="hoveredMarker || hoveredCustomMarker">
-            <slot
-              name="marker-tooltip"
-              :marker="hoveredMarker || hoveredCustomMarker"
-              :tooltip-style="markerTooltipStyle"
-            >
-              <div
-                class="tooltip-anchor marker-tooltip-anchor"
-                :class="{ 'use-anchor': useAnchorPositioning }"
-                :style="markerTooltipAnchorStyle"
-              ></div>
-              <MarkerTooltip
+              >
+                <div
+                  class="tooltip-anchor kline-tooltip-anchor"
+                  :class="{ 'use-anchor': useAnchorPositioning }"
+                  :style="klineTooltipAnchorStyle"
+                ></div>
+                <div
+                  ref="tooltipContentRef"
+                  class="kline-tooltip"
+                  :class="{
+                    'use-anchor': useAnchorPositioning,
+                    'is-draggable': isTooltipDraggable,
+                  }"
+                  :style="
+                    useAnchorPositioning
+                      ? undefined
+                      : { left: teleportedTooltipPos.x + 'px', top: teleportedTooltipPos.y + 'px' }
+                  "
+                  @pointerdown="onTooltipPointerDown"
+                  @dblclick="onTooltipDblClick"
+                ></div>
+              </slot>
+            </template>
+            <template v-if="hoveredMarker || hoveredCustomMarker">
+              <slot
+                name="marker-tooltip"
                 :marker="hoveredMarker || hoveredCustomMarker"
-                :pos="teleportedMarkerTooltipPos"
-                :use-anchor="useAnchorPositioning"
-                :anchor-placement="markerTooltipAnchorPlacement"
-                :set-el="setMarkerTooltipEl"
-              />
-            </slot>
-          </template>
-        </Teleport>
-        <div
-          ref="rightAxisLayerRef"
-          class="right-axis-host"
-          :style="{ width: axisHostWidth + 'px' }"
-          @pointerdown="onRightAxisPointerDown"
-          @pointermove="onRightAxisPointerMove"
-          @pointerup="onRightAxisPointerUp"
-          @pointerleave="onRightAxisPointerLeave"
-          @contextmenu.prevent
-        ></div>
+                :tooltip-style="markerTooltipStyle"
+              >
+                <div
+                  class="tooltip-anchor marker-tooltip-anchor"
+                  :class="{ 'use-anchor': useAnchorPositioning }"
+                  :style="markerTooltipAnchorStyle"
+                ></div>
+                <MarkerTooltip
+                  :marker="hoveredMarker || hoveredCustomMarker"
+                  :pos="teleportedMarkerTooltipPos"
+                  :use-anchor="useAnchorPositioning"
+                  :anchor-placement="markerTooltipAnchorPlacement"
+                  :set-el="setMarkerTooltipEl"
+                />
+              </slot>
+            </template>
+          </Teleport>
+          <div
+            ref="rightAxisLayerRef"
+            class="right-axis-host"
+            :style="{ width: axisHostWidth + 'px' }"
+            @pointerdown="onRightAxisPointerDown"
+            @pointermove="onRightAxisPointerMove"
+            @pointerup="onRightAxisPointerUp"
+            @pointerleave="onRightAxisPointerLeave"
+            @contextmenu.prevent
+          ></div>
+        </div>
       </div>
     </div>
+    <WatchlistPanel
+      :items="watchlistItems"
+      :active-key="currentSymbolItem ? symbolIdentityKey(currentSymbolItem) : undefined"
+      @select="onSymbolChange"
+      @remove="removeWatchlistItem"
+    />
     <ExportProgressDialog :progress="exportingProgress" @close="exportingProgress = null" />
     <BatchStockDialog
       :show="showBatchStockDialog"
@@ -335,6 +345,7 @@
   import MarkerTooltip from './MarkerTooltip.vue'
   import RangeSelectionExport from './RangeSelectionExport.vue'
   import TopToolbar, { type SymbolItem } from './TopToolbar.vue'
+  import WatchlistPanel from './WatchlistPanel.vue'
   import CanvasToolbarStack from './common/CanvasToolbarStack.vue'
 
   // ── Props & Emits ──
@@ -473,6 +484,60 @@
   const overlaySymbols = ref<string[]>([])
   const overlaySymbolItems = ref<SymbolItem[]>([])
   const symbolPool = ref<SymbolItem[]>([])
+  const WATCHLIST_STORAGE_KEY = 'klinechart.watchlist'
+  const watchlistItems = ref<SymbolItem[]>([])
+  const watchlistKeys = computed(
+    () => new Set(watchlistItems.value.map((item) => symbolIdentityKey(item))),
+  )
+
+  /** 从本地存储恢复自选股，损坏数据按空列表处理。 */
+  function restoreWatchlist(): void {
+    try {
+      const stored = window.localStorage.getItem(WATCHLIST_STORAGE_KEY)
+      if (!stored) return
+      const parsed: unknown = JSON.parse(stored)
+      if (!Array.isArray(parsed)) return
+      watchlistItems.value = parsed.filter(
+        (item): item is SymbolItem =>
+          typeof item === 'object' &&
+          item !== null &&
+          typeof item.id === 'string' &&
+          typeof item.symbol === 'string' &&
+          typeof item.name === 'string',
+      )
+    } catch {
+      watchlistItems.value = []
+    }
+  }
+
+  /** 保存当前自选股列表，存储不可用时保持内存状态。 */
+  function persistWatchlist(): void {
+    try {
+      window.localStorage.setItem(WATCHLIST_STORAGE_KEY, JSON.stringify(watchlistItems.value))
+    } catch {
+      // localStorage 不可用不影响图表与自选股当前会话操作。
+    }
+  }
+
+  /** 将搜索到的品种加入自选股，并按稳定身份去重。 */
+  function addWatchlistItem(item: SymbolItem): void {
+    if (
+      watchlistItems.value.some((saved) => symbolIdentityKey(saved) === symbolIdentityKey(item))
+    ) {
+      return
+    }
+    watchlistItems.value = [...watchlistItems.value, item]
+    persistWatchlist()
+  }
+
+  /** 从自选股中移除指定品种。 */
+  function removeWatchlistItem(item: SymbolItem): void {
+    const identity = symbolIdentityKey(item)
+    watchlistItems.value = watchlistItems.value.filter(
+      (saved) => symbolIdentityKey(saved) !== identity,
+    )
+    persistWatchlist()
+  }
 
   function onKLineLevelChange(level: string) {
     if (level === 'timeshare') {
@@ -1792,6 +1857,7 @@
   // ── onMounted ──
   onMounted(async () => {
     useAnchorPositioning.value = false
+    restoreWatchlist()
 
     // 全屏状态监听（非受控模式下驱动内部状态与 update:isFullscreen）
     if (typeof document !== 'undefined') {
@@ -1963,10 +2029,18 @@
     width: var(--kmap-width);
     height: calc(var(--kmap-height) - 32px);
     min-height: 300px;
-    flex-direction: column;
+    flex-direction: row;
     margin: 16px 0;
     padding: 0;
     box-sizing: border-box;
+    gap: 4px;
+  }
+
+  .chart-workspace {
+    min-width: 0;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
     gap: 4px;
   }
 
@@ -2169,11 +2243,16 @@
 
   @media (max-width: 768px), (max-height: 640px) {
     .chart-wrapper {
+      flex-direction: column;
       gap: 4px;
     }
 
     .chart-stage {
       gap: 4px;
+    }
+
+    .watchlist-panel {
+      flex: 0 0 132px;
     }
   }
 </style>

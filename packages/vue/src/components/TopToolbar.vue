@@ -19,7 +19,9 @@
       :error-message="symbolErrorMessage"
       :aggregation-sources="aggregationSources"
       :enabled-source-names="enabledSourceNames"
+      :watchlist-keys="watchlistKeys"
       @change="onSymbolSelectorChange"
+      @add-watchlist="emit('addWatchlist', $event)"
       @manage-sources="showSourceDialog = true"
     />
     <CompareSymbolSelector
@@ -141,11 +143,13 @@
       aggregationSources?: ReadonlyArray<AggregationSourceDefinition>
       enabledSourceNames?: ReadonlySet<string>
       sourceEndpoints?: Record<string, AggregationSourceEndpoint>
+      watchlistKeys?: ReadonlySet<string>
     }>(),
     {
       aggregationSources: () => [],
       enabledSourceNames: () => new Set<string>(),
       sourceEndpoints: () => ({}),
+      watchlistKeys: () => new Set<string>(),
     },
   )
 
@@ -155,6 +159,7 @@
     (e: 'kLineLevelChange', level: KLineLevel): void
     (e: 'kLineAdjustChange', adjust: KLineAdjustment): void
     (e: 'symbolChange', symbol: SymbolItem): void
+    (e: 'addWatchlist', symbol: SymbolItem): void
     (e: 'toggleAggregationSource', name: string, enabled: boolean): void
     (e: 'updateSourceEndpoint', name: string, patch: Partial<AggregationSourceEndpoint>): void
     (e: 'back'): void
