@@ -49,14 +49,14 @@
     "@363045841yyt/klinechart-core": "workspace:*"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1",
-    "effect": "^3.21.4",
-    "ws": "^8"
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "effect": "^3.22.1",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "@types/ws": "^8",
     "typescript": "~6.0.3",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.10"
   },
   "publishConfig": {
     "access": "public"
