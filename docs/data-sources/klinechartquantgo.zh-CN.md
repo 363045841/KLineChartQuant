@@ -1,18 +1,22 @@
-# KlineChartQuantGo（GOTDX + Binance）
+# GoTDX-Connecter（GOTDX + Binance，原 KlineChartQuantGo）
 
 ## 简介
 
-KlineChartQuantGo 是 Go 实现的多数据源代理，单一 module，包含两个独立服务：
+GoTDX-Connecter 是 Go 实现的多数据源代理，单一 module（`KlineChartQuantGo`），包含两个独立服务：
 
 - **tdx-api**（`:8080`）：通达信协议（gotdx），提供 A 股 / 期货 / MAC K 线、分笔、列表与搜索
 - **binance-api**（`:8081`）：币安 L2 订单簿 + SSE 深度流
 
-本地仓库与 `KlineChartQuantGo` 保持同级目录（不在本 monorepo 内）：
+本地仓库与 `GoTDX-Connecter` 保持同级目录（不在本 monorepo 内）。用 `pnpm setup` 一键克隆：
 
 ```
 workspace/
-├── KLineChartQuant/    # 本仓库
-└── KlineChartQuantGo/  # GOTDX + Binance 数据代理
+├── KLineChartQuant/           # 本仓库
+└── GoTDX-Connecter/           # GOTDX + Binance 数据代理
+```
+
+```bash
+pnpm setup   # 幂等：目录已存在则跳过
 ```
 
 ## 使用方法
@@ -26,7 +30,14 @@ workspace/
 
 ## 启动方式
 
-在 `KlineChartQuantGo` 根目录执行：
+在本仓库根目录统一启动：
+
+```bash
+pnpm connecter tdx        # gotdx 通达信，默认 8080
+pnpm connecter binance    # 币安深度，默认 8081
+```
+
+或在 `GoTDX-Connecter` 根目录执行：
 
 ```bash
 # 通达信，默认 8080

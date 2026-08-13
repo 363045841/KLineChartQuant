@@ -46,7 +46,7 @@ echo -e "${BLUE}检查本地数据源服务...${NC}"
 
 if ! curl -s http://localhost:${LOCAL_BAOSTOCK_PORT} > /dev/null 2>&1; then
     echo -e "${YELLOW}警告: Baostock 服务未在端口 ${LOCAL_BAOSTOCK_PORT} 运行${NC}"
-    echo -e "请先启动 Baostock 服务: ${GREEN}pnpm run stockbao${NC}"
+    echo -e "请先启动 Baostock 服务: ${GREEN}pnpm connecter baostock${NC}"
 fi
 
 if ! curl -s http://localhost:${LOCAL_AKTOOLS_PORT} > /dev/null 2>&1; then

@@ -35,8 +35,9 @@ All READMEs are generated from `docs/fragments/` (reusable Markdown snippets) + 
 
 | Command | What |
 |---------|------|
-| `pnpm dev` | Vite dev server (host `0.0.0.0`; proxies `/api/stock` → `:8000`, `/api/public` → `:8080`) |
-| `pnpm dev:lan` | Same, `--host 0.0.0.0` explicit |
+| `pnpm setup` | Clone data-source backends (`GoTDX-Connecter`, `Baostock-Tradingview-Connecter`) into the sibling directory; then `pnpm dev -c full` works out of the box |
+| `pnpm dev` | Vite dev server; `-c <names>` also starts selected connecters (e.g. `pnpm dev -c full`; aliases `tdx/g/b/bnb/all`) |
+| `pnpm dev:lan` | Same, `--lan` (dev server bound to `0.0.0.0`) |
 | `pnpm build` | `vue-tsc --build` + `vite build` (uses `run-p`) |
 | `pnpm build:packages` | `pnpm --filter @363045841yyt/klinechart-core build && pnpm --filter @363045841yyt/klinechart build` |
 | `pnpm build:demo` | `vite build --config vite.demo.config.ts` |
@@ -52,24 +53,56 @@ All READMEs are generated from `docs/fragments/` (reusable Markdown snippets) + 
 
 ## 数据源
 
-本地开发所需的行情后端，均与本仓库**同级目录**，不在 monorepo 内。
+本地开发所需的行情后端，均与本仓库**同级目录**，不在 monorepo 内。运行 `pnpm setup` 一键克隆以下两个仓库到同级目录。
 
 | 仓库 | 路径 | 默认端口 | 作用 |
 |------|------|----------|------|
-| **stockbao** | 同级 `stockbao/` | `8000` | BaoStock FastAPI：A 股日/分钟 K 线等 |
-| **KlineChartQuantGo** | `D:\Code\KlineChartQuantGo` | `8080` / `8081` | Go 多数据源代理：gotdx + 加密所 |
-
-### stockbao
+| **Baostock-Tradingview-Connecter** | 同级 `Baostock-Tradingview-Connecter/`（原 `stockbao`） | `8000` | BaoStock FastAPI：A 股日/分钟 K 线、TradingView 全球品种 |
+| **GoTDX-Connecter** | 同级 `GoTDX-Connecter/`（原 `KlineChartQuantGo`） | `8080` / `8081` | Go 多数据源代理：gotdx + 加密所 |
 
 ```bash
-pnpm stockbao
+pnpm setup   # 幂等：目录已存在则跳过；首次运行后 dev 开箱即用
+```
+
+统一启动命令——`pnpm dev` 带 `-c` 参数即可同时启动前端与选定的数据源后端：
+
+```bash
+pnpm dev                      # 仅前端（Vite 开发服务器）
+pnpm dev -c full              # 前端 + 全部后端（gotdx + binance + baostock）
+pnpm dev -c gotdx baostock    # 前端 + 指定的后端
+pnpm dev -c tdx               # 支持别名（tdx / g / b / bnb / all）
+pnpm dev -c full --lan        # 同上，前端绑定 0.0.0.0（局域网可访问）
+```
+
+常用简写命令：
+
+```bash
+pnpm dev:full                 # 前端 + 全部后端
+pnpm dev:g                    # 前端 + gotdx 通达信
+pnpm dev:b                    # 前端 + BaoStock / TradingView
+pnpm dev:bnb                  # 前端 + 币安深度
+pnpm dev:lan:full             # 前端（0.0.0.0）+ 全部后端
+```
+
+仅启动后端（不带前端）：
+
+```bash
+pnpm connecter                # 全部后端
+pnpm connecter gotdx          # gotdx 通达信（:8080）
+pnpm connecter baostock       # BaoStock / TradingView（:8000）
+```
+
+### Baostock-Tradingview-Connecter（原 stockbao）
+
+```bash
+pnpm connecter baostock
 # starts FastAPI at http://localhost:8000
-# requires `stockbao/` alongside this repo; uses `uv run python ./server.py`
+# requires `Baostock-Tradingview-Connecter/` alongside this repo; uses `uv run python ./server.py`
 ```
 
 Vite 开发代理：`/api/stock` → `:8000`。
 
-### KlineChartQuantGo
+### GoTDX-Connecter（原 KlineChartQuantGo）
 
 提供 **gotdx（通达信）** 与 **加密所（币安）** 行情。
 
@@ -84,7 +117,7 @@ Vite 开发代理：`/api/stock` → `:8000`。
 - binance → `packages/core/src/data/depth/binance.ts`（`:8081`）
 - Vite 开发代理：`/api/public` → `:8080`（见 `pnpm dev`）
 
-本地启动（在 `KlineChartQuantGo` 根目录）：
+本地启动（在本仓库根目录 `pnpm connecter tdx`，或在 `GoTDX-Connecter` 根目录）：
 
 ```bash
 go run . tdx       # 或 go run ./services/tdx-api

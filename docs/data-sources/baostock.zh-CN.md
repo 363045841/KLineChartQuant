@@ -1,15 +1,19 @@
-# BaoStock（`stockbao`）
+# BaoStock / TradingView（`Baostock-Tradingview-Connecter`，原 `stockbao`）
 
 ## 简介
 
-BaoStock 是免费的证券数据平台，提供 A 股日 / 周 / 月及分钟 K 线。前端通过同级仓库 `stockbao`（FastAPI 服务）作为本地代理访问；该服务还通过 tvDatafeed 提供 TradingView 全球品种数据（`/api/tradingview/kdata`）。
+BaoStock 是免费的证券数据平台，提供 A 股日 / 周 / 月及分钟 K 线。前端通过同级仓库 `Baostock-Tradingview-Connecter`（FastAPI 服务）作为本地代理访问；该服务还通过 tvDatafeed 提供 TradingView 全球品种数据（`/api/tradingview/kdata`）。
 
-本地仓库与 `stockbao` 保持同级目录（不在本 monorepo 内）：
+本地仓库与 `Baostock-Tradingview-Connecter` 保持同级目录（不在本 monorepo 内）。用 `pnpm setup` 一键克隆：
 
 ```
 workspace/
-├── KLineChartQuant/  # 本仓库
-└── stockbao/         # BaoStock 数据后端
+├── KLineChartQuant/                     # 本仓库
+└── Baostock-Tradingview-Connecter/      # BaoStock / TradingView 数据后端
+```
+
+```bash
+pnpm setup   # 幂等：目录已存在则跳过
 ```
 
 ## 使用方法
@@ -23,14 +27,14 @@ workspace/
 
 ## 启动方式
 
-前置：Python 3.12 + [uv](https://docs.astral.sh/uv/)。`stockbao` 与本仓库同级：
+前置：Python 3.12 + [uv](https://docs.astral.sh/uv/)。`Baostock-Tradingview-Connecter` 与本仓库同级：
 
 ```bash
-# 在本仓库根目录执行（等价于 cd ../stockbao && uv run python ./server.py）
-pnpm stockbao
+# 在本仓库根目录执行（等价于 cd ../Baostock-Tradingview-Connecter && uv run python ./server.py）
+pnpm connecter baostock
 
-# 或在 stockbao 目录手动启动
-cd ../stockbao
+# 或在 Baostock-Tradingview-Connecter 目录手动启动
+cd ../Baostock-Tradingview-Connecter
 uv sync
 uv run python server.py
 ```
@@ -38,7 +42,7 @@ uv run python server.py
 Docker 方式：
 
 ```bash
-cd ../stockbao
+cd ../Baostock-Tradingview-Connecter
 docker build -t stockbao .
 docker run -p 8000:8000 stockbao
 ```
