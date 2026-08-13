@@ -2,7 +2,7 @@
  * setup-backends.mjs
  *
  * 一次性安装数据源后端：将 GoTDX-Connecter（gotdx）与 Baostock-Tradingview-Connecter
- * （baostock / tradingview）克隆到本仓库的同级目录，供 `pnpm dev -c full` / `pnpm connecter` 直接使用。
+ * （baostock / tradingview）克隆到本仓库的同级目录，供 `pnpm dev -c all` / `pnpm connecter` 直接使用。
  * 幂等：目标目录已存在时跳过克隆，不会重复拉取。
  *
  * 用法：
@@ -54,7 +54,7 @@ for (const backend of BACKENDS) {
 }
 
 console.log('完成。启动命令：')
-console.log('  pnpm dev -c full              # Vite 开发服务器 + 全部 connecter')
+console.log('  pnpm dev -c all               # Vite 开发服务器 + 全部 connecter')
 console.log('  pnpm dev -c gotdx baostock    # 前端 + 指定的 connecter')
 console.log('  pnpm connecter baostock       # 仅 BaoStock / TradingView 后端')
 console.log('\n要求本机已安装 git，以及 Go（>=1.21）与 uv/Python 3.12（后端首次运行时会自动下载依赖）。')

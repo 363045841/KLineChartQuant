@@ -4,12 +4,12 @@
  * 启动 Vite 开发服务器，并可同时启动数据源后端（connecter）。参数：
  *
  *   node scripts/dev.mjs                        # 仅开发服务器
- *   node scripts/dev.mjs -c full                # 开发服务器 + 全部 connecter
+ *   node scripts/dev.mjs -c all                 # 开发服务器 + 全部 connecter
  *   node scripts/dev.mjs -c gotdx baostock      # 开发服务器 + 指定的 connecter
  *   node scripts/dev.mjs -c tdx                 # 支持别名（tdx / g / b / bnb / all）
- *   node scripts/dev.mjs --lan -c full          # 开发服务器绑定 0.0.0.0（局域网可访问）
+ *   node scripts/dev.mjs --lan -c all           # 开发服务器绑定 0.0.0.0（局域网可访问）
  *
- * 对应 pnpm 简写命令：pnpm dev:full / pnpm dev:g / pnpm dev:b / pnpm dev:bnb / pnpm dev:lan:full。
+ * 对应 pnpm 简写命令：pnpm dev:all / pnpm dev:g / pnpm dev:b / pnpm dev:bnb / pnpm dev:lan:all。
  */
 
 import { spawn } from 'node:child_process'
@@ -52,5 +52,5 @@ process.on('SIGINT', shutdown)
 process.on('SIGTERM', shutdown)
 
 if (connNames.length === 0) {
-  console.log('（未指定 -c，仅启动开发服务器。用 `pnpm dev -c full` 同时启动全部 connecter。）')
+  console.log('（未指定 -c，仅启动开发服务器。用 `pnpm dev -c all` 同时启动全部 connecter。）')
 }

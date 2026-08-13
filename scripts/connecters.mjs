@@ -2,7 +2,7 @@
  * connecters.mjs
  *
  * 数据源后端（connecter）的启动逻辑，供 `scripts/dev.mjs` 与 `scripts/start-connecter.mjs` 复用。
- * 支持名称与别名：gotdx（别名 tdx / g）、binance（别名 bnb）、baostock（别名 b）、full（全部）。
+ * 支持名称与别名：gotdx（别名 tdx / g）、binance（别名 bnb）、baostock（别名 b）、all（全部）。
  */
 
 import { spawn } from 'node:child_process'
@@ -44,7 +44,7 @@ const CONNECTERS = {
 
 export const CONNECTER_NAMES = Object.keys(CONNECTERS)
 
-// 名称 → 标准名；`full` / `all` 展开为全部
+// 名称 → 标准名；`all` 展开为全部
 const ALIASES = {
   gotdx: 'gotdx',
   tdx: 'gotdx',
@@ -60,13 +60,13 @@ export function resolveConnecters(names) {
   const resolved = new Set()
   for (const raw of names) {
     const key = String(raw).toLowerCase().trim()
-    if (key === 'full' || key === 'all') {
+    if (key === 'all') {
       for (const n of CONNECTER_NAMES) resolved.add(n)
       continue
     }
     const target = ALIASES[key]
     if (!target) {
-      console.error(`  ✗ 未知 connecter：${raw}（可用：gotdx / binance / baostock / full）`)
+      console.error(`  ✗ 未知 connecter：${raw}（可用：gotdx / binance / baostock / all）`)
       continue
     }
     resolved.add(target)

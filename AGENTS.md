@@ -35,8 +35,8 @@ All READMEs are generated from `docs/fragments/` (reusable Markdown snippets) + 
 
 | Command | What |
 |---------|------|
-| `pnpm setup` | Clone data-source backends (`GoTDX-Connecter`, `Baostock-Tradingview-Connecter`) into the sibling directory; then `pnpm dev -c full` works out of the box |
-| `pnpm dev` | Vite dev server; `-c <names>` also starts selected connecters (e.g. `pnpm dev -c full`; aliases `tdx/g/b/bnb/all`) |
+| `pnpm setup` | Clone data-source backends (`GoTDX-Connecter`, `Baostock-Tradingview-Connecter`) into the sibling directory; then `pnpm dev -c all` works out of the box |
+| `pnpm dev` | Vite dev server; `-c <names>` also starts selected connecters (e.g. `pnpm dev -c all`; aliases `tdx/g/b/bnb/all`) |
 | `pnpm dev:lan` | Same, `--lan` (dev server bound to `0.0.0.0`) |
 | `pnpm build` | `vue-tsc --build` + `vite build` (uses `run-p`) |
 | `pnpm build:packages` | `pnpm --filter @363045841yyt/klinechart-core build && pnpm --filter @363045841yyt/klinechart build` |
@@ -53,35 +53,31 @@ All READMEs are generated from `docs/fragments/` (reusable Markdown snippets) + 
 
 ## 数据源
 
-本地开发所需的行情后端，均与本仓库**同级目录**，不在 monorepo 内。运行 `pnpm setup` 一键克隆以下两个仓库到同级目录。
+本地开发所需的行情后端，均与本仓库**同级目录**，不在 monorepo 内。
 
 | 仓库 | 路径 | 默认端口 | 作用 |
 |------|------|----------|------|
 | **Baostock-Tradingview-Connecter** | 同级 `Baostock-Tradingview-Connecter/`（原 `stockbao`） | `8000` | BaoStock FastAPI：A 股日/分钟 K 线、TradingView 全球品种 |
 | **GoTDX-Connecter** | 同级 `GoTDX-Connecter/`（原 `KlineChartQuantGo`） | `8080` / `8081` | Go 多数据源代理：gotdx + 加密所 |
 
-```bash
-pnpm setup   # 幂等：目录已存在则跳过；首次运行后 dev 开箱即用
-```
-
-统一启动命令——`pnpm dev` 带 `-c` 参数即可同时启动前端与选定的数据源后端：
+统一启动命令——先安装数据源后端（`pnpm setup` 幂等：目录已存在则跳过），再用 `pnpm dev` 带 `-c` 参数同时启动前端与选定的数据源后端：
 
 ```bash
 pnpm dev                      # 仅前端（Vite 开发服务器）
-pnpm dev -c full              # 前端 + 全部后端（gotdx + binance + baostock）
+pnpm dev -c all               # 前端 + 全部后端（gotdx + binance + baostock）
 pnpm dev -c gotdx baostock    # 前端 + 指定的后端
 pnpm dev -c tdx               # 支持别名（tdx / g / b / bnb / all）
-pnpm dev -c full --lan        # 同上，前端绑定 0.0.0.0（局域网可访问）
+pnpm dev -c all --lan         # 同上，前端绑定 0.0.0.0（局域网可访问）
 ```
 
 常用简写命令：
 
 ```bash
-pnpm dev:full                 # 前端 + 全部后端
+pnpm dev:all                  # 前端 + 全部后端
 pnpm dev:g                    # 前端 + gotdx 通达信
 pnpm dev:b                    # 前端 + BaoStock / TradingView
 pnpm dev:bnb                  # 前端 + 币安深度
-pnpm dev:lan:full             # 前端（0.0.0.0）+ 全部后端
+pnpm dev:lan:all              # 前端（0.0.0.0）+ 全部后端
 ```
 
 仅启动后端（不带前端）：
