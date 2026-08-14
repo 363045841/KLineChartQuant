@@ -24,16 +24,26 @@ interface SubPaneSlot {
 
 export function useIndicatorManager(
   ctrl: Ref<ChartController | null>,
-  paneRatiosRef: Ref<Record<string, number>>,
+  paneRatiosRef: Readonly<Ref<Readonly<Record<string, number>>>>,
 ) {
   const maxSubPanes = 4
 
-  const indicatorInstances = useControllerSignal(ctrl, (controller) => controller.indicators, () => [])
-  const subPaneInfos = useControllerSignal(ctrl, (controller) => controller.subPanes, () => [])
+  const indicatorInstances = useControllerSignal(
+    ctrl,
+    (controller) => controller.indicators,
+    () => [],
+  )
+  const subPaneInfos = useControllerSignal(
+    ctrl,
+    (controller) => controller.subPanes,
+    () => [],
+  )
 
   const mainActiveIndicators = computed(() =>
     indicatorInstances.value
-      .filter((indicator): indicator is IndicatorInstance & { role: 'main' } => indicator.role === 'main')
+      .filter(
+        (indicator): indicator is IndicatorInstance & { role: 'main' } => indicator.role === 'main',
+      )
       .map((indicator) => indicator.definitionId),
   )
   const subPanes = computed<SubPaneSlot[]>(() =>

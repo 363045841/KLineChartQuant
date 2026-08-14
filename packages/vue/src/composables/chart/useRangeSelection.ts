@@ -2,6 +2,7 @@ import { formatTimestamp } from '@363045841yyt/klinechart-core'
 import type {
   KLineData,
   ChartController,
+  ChartViewport,
   DataFetcher,
 } from '@363045841yyt/klinechart-core/controllers'
 import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
@@ -59,20 +60,13 @@ export function useRangeSelection(options: {
   controller: Ref<ChartController | null>
   isRangeSelectMode: Ref<boolean>
   containerRef: Ref<HTMLElement | null>
-  dataVersion: Ref<number>
-  viewportVersion: Ref<number>
+  data: Readonly<Ref<ReadonlyArray<KLineData>>>
+  viewport: Readonly<Ref<ChartViewport>>
   dataFetcher: Ref<DataFetcher | null>
   batchSymbols: Ref<string[]>
 }) {
-  const {
-    controller,
-    isRangeSelectMode,
-    containerRef,
-    dataVersion,
-    viewportVersion,
-    dataFetcher,
-    batchSymbols,
-  } = options
+  const { controller, isRangeSelectMode, containerRef, data, viewport, dataFetcher, batchSymbols } =
+    options
 
   const customStartDate = ref('')
   const customEndDate = ref('')
@@ -93,13 +87,12 @@ export function useRangeSelection(options: {
   )
 
   const rangeSelectionBounds: ComputedRef<Bounds | null> = computed(() => {
-    void dataVersion.value
-    const data = controller.value?.getData() ?? []
+    const items = data.value
     const { startTimestamp, endTimestamp } = rangeSelection.value
-    if (startTimestamp === null || endTimestamp === null || data.length === 0) return null
+    if (startTimestamp === null || endTimestamp === null || items.length === 0) return null
 
-    const rawStart = findNearestKLineIndex(data, startTimestamp, 'left')
-    const rawEnd = findNearestKLineIndex(data, endTimestamp, 'right')
+    const rawStart = findNearestKLineIndex(items, startTimestamp, 'left')
+    const rawEnd = findNearestKLineIndex(items, endTimestamp, 'right')
     if (rawStart === null || rawEnd === null) return null
 
     return { start: Math.min(rawStart, rawEnd), end: Math.max(rawStart, rawEnd) }
@@ -129,13 +122,13 @@ export function useRangeSelection(options: {
     const bounds = rangeSelectionBounds.value
     if (!bounds) return null
 
-    void viewportVersion.value
+    void viewport.value
 
     const ctrl = controller.value
-    const viewport = ctrl?.getViewport()
-    if (!ctrl || !viewport) return null
+    const vp = ctrl?.getViewport()
+    if (!ctrl || !vp) return null
 
-    const px = calcRangeOverlayPixel(bounds, ctrl, viewport)
+    const px = calcRangeOverlayPixel(bounds, ctrl, vp)
     return {
       left: `${px.left}px`,
       width: `${px.width}px`,

@@ -1,46 +1,50 @@
-import { zoomLevelToKWidth, kGapFromKWidth } from '@363045841yyt/klinechart-core/controllers'
-import { ref } from 'vue'
+import type {
+  ChartController,
+  ChartViewport,
+  KLineData,
+} from '@363045841yyt/klinechart-core/controllers'
+import { computed, ref, type Ref } from 'vue'
 
-export interface ChartStateOptions {
-  minKWidth?: number
-  maxKWidth?: number
-  zoomLevelCount?: number
-  dpr?: number
-}
+import { useControllerSignal } from './useControllerSignal'
 
-export function useChartState(initialZoom: number, opts?: ChartStateOptions) {
+/** 仅保存 Vue 自身的交互状态；图表业务状态直接订阅 Controller。 */
+export function useChartState(controller: Ref<ChartController | null>) {
   const symbolStatus = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
-  const zoomLevel = ref(initialZoom)
-  const kWidth = ref(0)
-  const kGap = ref(1)
-  const viewWidth = ref(0)
-  const viewportDpr = ref(1)
-  const viewportVersion = ref(0)
-  const dataLength = ref(0)
-  const dataVersion = ref(0)
-  const paneRatios = ref<Record<string, number>>({})
+  const viewport = useControllerSignal<ChartViewport>(
+    controller,
+    (chart) => chart.viewport,
+    () => ({
+      zoomLevel: 1,
+      plotWidth: 0,
+      plotHeight: 0,
+      dpr: 1,
+      visibleFrom: 0,
+      visibleTo: 0,
+      kWidth: 0,
+      kGap: 1,
+    }),
+  )
+  const data = useControllerSignal<ReadonlyArray<KLineData>>(
+    controller,
+    (chart) => chart.data,
+    () => [],
+  )
+  const paneRatios = useControllerSignal<Readonly<Record<string, number>>>(
+    controller,
+    (chart) => chart.paneRatios,
+    () => ({}),
+  )
+  const zoomLevel = computed(() => viewport.value.zoomLevel)
   const comparisonColorsMap = ref<Map<string, string>>(new Map())
   const comparisonLoading = ref(false)
   /** range-select 为 UI 模式，不进 kernel DrawingToolId */
   const isRangeSelectMode = ref(false)
 
-  kWidth.value = zoomLevelToKWidth(initialZoom, {
-    minKWidth: opts?.minKWidth ?? 1,
-    maxKWidth: opts?.maxKWidth ?? 50,
-    zoomLevelCount: opts?.zoomLevelCount ?? 20,
-  })
-  kGap.value = kGapFromKWidth(kWidth.value, opts?.dpr ?? 1)
-
   return {
     symbolStatus,
+    viewport,
+    data,
     zoomLevel,
-    kWidth,
-    kGap,
-    viewWidth,
-    viewportDpr,
-    viewportVersion,
-    dataLength,
-    dataVersion,
     paneRatios,
     comparisonColorsMap,
     comparisonLoading,

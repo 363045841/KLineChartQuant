@@ -768,8 +768,16 @@
 
   // ── Controller & Composable Wiring ──
   const controller = shallowRef<ChartController | null>(null)
-  const chartMode = useControllerSignal(controller, (ctrl) => ctrl.chartMode, () => 'kline' as const)
-  const controllerSymbols = useControllerSignal(controller, (ctrl) => ctrl.symbols, () => [])
+  const chartMode = useControllerSignal(
+    controller,
+    (ctrl) => ctrl.chartMode,
+    () => 'kline' as const,
+  )
+  const controllerSymbols = useControllerSignal(
+    controller,
+    (ctrl) => ctrl.symbols,
+    () => [],
+  )
   const kLineLevel = computed(() => {
     if (chartMode.value === 'timeshare') return 'timeshare'
     return controllerSymbols.value[0]?.period ?? initialKLineLevel
@@ -807,21 +815,12 @@
   const showBatchStockDialog = ref(false)
   const batchSymbols = ref<string[]>([])
 
-  const chartState = useChartState(props.initialZoomLevel ?? 1, {
-    minKWidth: props.minKWidth,
-    maxKWidth: props.maxKWidth,
-    zoomLevelCount: props.zoomLevels,
-  })
+  const chartState = useChartState(controller)
   const {
     symbolStatus,
+    viewport,
+    data,
     zoomLevel,
-    kWidth,
-    kGap,
-    viewWidth,
-    viewportDpr,
-    viewportVersion,
-    dataLength,
-    dataVersion,
     paneRatios,
     comparisonColorsMap,
     comparisonLoading,
@@ -887,8 +886,8 @@
     controller,
     isRangeSelectMode,
     containerRef,
-    dataVersion,
-    viewportVersion,
+    data,
+    viewport,
     dataFetcher: effectiveDataFetcher,
     batchSymbols,
   })
@@ -1250,10 +1249,10 @@
   const hoveredKLine = computed(() => {
     const idx = interactionState.value.hoveredIndex
     if (typeof idx !== 'number') return null
-    void dataVersion.value
-    const data = controller.value?.getData()
-    if (data && idx >= 0 && idx < data.length) {
-      return data[idx]
+    void data.value
+    const items = data.value
+    if (items && idx >= 0 && idx < items.length) {
+      return items[idx]
     }
     return null
   })
@@ -1322,8 +1321,8 @@
   }))
 
   const chartData = computed(() => {
-    void dataVersion.value
-    return controller.value?.getData() ?? []
+    void data.value
+    return data.value
   })
 
   // ── Pointer Event Handlers ──
@@ -1578,37 +1577,8 @@
       })
     })
 
-    const unsubscribePaneRatios = ctrl.paneRatios.subscribe(() => {
-      const ratios = ctrl.paneRatios.peek()
-      paneRatios.value = { ...ratios }
-    })
-
-    const unsubscribeViewport = ctrl.viewport.subscribe(() => {
-      const vp = ctrl.viewport.peek()
-
-      viewportVersion.value++
-
-      if (viewportDpr.value !== vp.dpr) {
-        viewportDpr.value = vp.dpr
-      }
-      if (viewWidth.value !== vp.plotWidth) {
-        viewWidth.value = vp.plotWidth
-      }
-      if (
-        zoomLevel.value !== vp.zoomLevel ||
-        kWidth.value !== vp.kWidth ||
-        kGap.value !== vp.kGap
-      ) {
-        zoomLevel.value = vp.zoomLevel
-        kWidth.value = vp.kWidth
-        kGap.value = vp.kGap
-      }
-    })
-
     const unsubscribeData = ctrl.data.subscribe(() => {
       const data = ctrl.data.peek()
-      dataLength.value = data.length
-      dataVersion.value++
       if (data.length > 0 && (symbolStatus.value === 'loading' || symbolStatus.value === 'error')) {
         symbolStatus.value = 'ready'
       }
@@ -1725,11 +1695,9 @@
     })
 
     return () => {
-      unsubscribeViewport()
       unsubscribeData()
       unsubscribeDataLoading()
       unsubscribeDataError()
-      unsubscribePaneRatios()
       unsubscribePaneLayout()
       unsubscribeTheme()
       unsubscribeDrawingTool()
@@ -1764,8 +1732,6 @@
     })
 
     interactionState.value = ctrl.interactionState.peek()
-    viewportDpr.value = ctrl.viewport.peek().dpr
-
     syncLegendSubscription(ctrl)
 
     // #legend 存在时切换为 external，隐藏 Canvas 图例文字
