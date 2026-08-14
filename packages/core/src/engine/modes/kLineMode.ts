@@ -6,10 +6,6 @@ import type { ChartModeHandler } from './types'
 export class KLineMode implements ChartModeHandler {
   readonly debugName = 'KLine'
 
-  readonly allowPan = true
-  readonly allowZoom = true
-  readonly allowVerticalScroll = true
-  readonly allowRightAxisScale = true
   readonly useIndicatorScheduler = true
 
   computeContentWidth(

@@ -465,6 +465,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const settingsSignal = chart.kernel.settings.readonly.settings
   const rendererRuntimeSignal = chart.kernel.renderer.readonly.runtime
   const chartModeSignal = chart.kernel.mode.readonly.chartMode
+  const lastBarPeriodSignal = chart.kernel.mode.readonly.lastBarPeriod
   const drawingTool = chart.drawingTool
   const drawings = computed(() => chart.drawings().map(mapDrawingObject))
   const selectedDrawingId: ReadonlySignal<string | null> =
@@ -987,6 +988,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     settings: settingsSignal,
     rendererRuntime: rendererRuntimeSignal,
     chartMode: chartModeSignal,
+    lastBarPeriod: lastBarPeriodSignal,
     indicators,
     subPanes,
     drawingTool,

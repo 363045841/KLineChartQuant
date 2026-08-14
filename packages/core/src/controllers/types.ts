@@ -335,6 +335,8 @@ export interface ChartController extends DrawingChartAdapter {
   >
   /** 图表模式 id：kline | timeshare */
   readonly chartMode: ReadonlySignal<'kline' | 'timeshare'>
+  /** 最近一次 K 线周期；分时返回操作使用该值。 */
+  readonly lastBarPeriod: ReadonlySignal<string>
   readonly indicators: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
   readonly subPanes: ReadonlySignal<ReadonlyArray<SubPaneInfo>>
   /** 当前绘图工具（DrawingToolId，默认 cursor） */

@@ -147,25 +147,9 @@ export class Chart {
   /** 绘图交互会话（锚点/预览/拖拽）；工具 id 在 kernel */
   private drawingSession: DrawingInteractionController | null = null
 
-  /** 当前活跃的模式处理器 */
-  private _activeMode: ChartModeHandler
   private _kLineMode = new KLineMode()
   private _timeShareMode = new TimeShareMode()
   private readonly marketSessions: MarketSessionRegistry
-
-  /** 进入分时模式时保存的快照，退出时恢复（包含 zoom/scale/indicators） */
-  private _savedTimeShareState: {
-    zoomLevel: number
-    scaleTypes: Map<string, ScaleType>
-    mainIndicators: Array<{ id: string; params: Record<string, number | boolean | string> }>
-    subPanes: Array<{
-      paneId: string
-      indicatorId: string
-      params: Record<string, unknown>
-    }>
-    paneRatios: Record<string, number>
-    candleEnabled: boolean
-  } | null = null
 
   /** 比较视图进入前的刻度快照，退出比较视图时恢复。 */
   private _savedComparisonScaleTypes: Map<string, ScaleType> | null = null
@@ -248,7 +232,6 @@ export class Chart {
   ) {
     this.dom = dom
     const { kWidth: _kWidth, kGap: _kGap, ...restOpt } = opt
-    this._activeMode = this._kLineMode
     this.marketSessions = new MarketSessionRegistry(runtime?.marketSessions)
     this.pluginHost = createPluginHost()
     this.rendererPluginManager = new RendererPluginManager()
@@ -348,7 +331,7 @@ export class Chart {
         onTimeShareDataReady: (dataLength) => {
           const vp = this.getViewport()
           if (!vp || vp.plotWidth <= 0) return
-          const result = this._activeMode.computeKWidth(dataLength, vp.plotWidth, vp.dpr)
+          const result = this.activeMode.computeKWidth(dataLength, vp.plotWidth, vp.dpr)
           if (result) {
             this.applyRenderState(result.kWidth, result.kGap)
             const leftBuffer = this.getLeftLoadBufferWidth()
@@ -461,7 +444,7 @@ export class Chart {
       viewport: this.kernel.viewport,
       getDataManager: () => this.dataManager,
       getIndicatorManager: () => this.indicatorManager,
-      getActiveMode: () => this._activeMode,
+      getActiveMode: () => this.activeMode,
       settings$: this.kernel.settings.readonly.settings,
       customMarkers$: this.kernel.marker.readonly.customMarkers,
       drawings$: this.kernel.drawing.readonly.drawings,
@@ -484,52 +467,15 @@ export class Chart {
 
   /** 获取当前活跃的模式处理器 */
   get activeMode(): ChartModeHandler {
-    return this._activeMode
+    return this.kernel.mode.readonly.dataView.peek() === 'timeshare'
+      ? this._timeShareMode
+      : this._kLineMode
   }
 
   /** 切换模式处理器 */
   setActiveMode(mode: ChartModeHandler): void {
-    if (this._activeMode === mode) return
-    const prev = this._activeMode
-
-    if (mode === this._timeShareMode) {
-      const candlePlugin = this.rendererPluginManager.getPlugin('candle')
-      this._savedTimeShareState = {
-        zoomLevel: this.kernel.zoom.readonly.zoomLevel.peek(),
-        scaleTypes: new Map(this.kernel.pane.readonly.paneScaleTypes.peek()),
-        mainIndicators: [],
-        subPanes: [],
-        paneRatios: { ...this.kernel.pane.readonly.paneRatios.peek() },
-        candleEnabled: candlePlugin?.enabled !== false,
-      }
-      for (const [id, entry] of this.kernel.indicator.readonly.mainIndicators.peek()) {
-        this._savedTimeShareState.mainIndicators.push({ id, params: { ...entry.params } })
-      }
-      this._savedTimeShareState.subPanes = this.indicatorManager.getSubPaneEntries().map((e) => ({
-        paneId: e.paneId,
-        indicatorId: e.indicatorId,
-        params: { ...e.params },
-      }))
-      // 分时只强制价格 Pane 为 percent；副图保留各自的刻度语义。
-      const percentMap = new Map(this.kernel.pane.readonly.paneScaleTypes.peek())
-      for (const r of this.paneRenderers) {
-        const pane = r.getPane()
-        if (pane.role === 'price') percentMap.set(pane.id, 'percent')
-      }
-      this.kernel.pane.actions.replacePaneScaleTypes(percentMap)
-      this.projectPaneScaleTypes()
-    } else if (prev === this._timeShareMode) {
-      const savedTypes = this._savedTimeShareState?.scaleTypes ?? new Map<string, ScaleType>()
-      this.kernel.pane.actions.replacePaneScaleTypes(savedTypes)
-      this.projectPaneScaleTypes()
-      for (const renderer of this.paneRenderers) {
-        renderer.getPane().yAxis.setBasePrice(null)
-      }
-    }
-
-    if (this._savedTimeShareState && mode !== this._timeShareMode) {
-      this.kernel.zoom.actions.setZoomLevel(this._savedTimeShareState.zoomLevel)
-    }
+    const prev = this.activeMode
+    if (prev === mode) return
 
     prev.onDeactivate(
       {
@@ -540,8 +486,30 @@ export class Chart {
       },
       mode,
     )
-    this._activeMode = mode
-    this._activeMode.onActivate(
+    const dataView = mode === this._timeShareMode ? 'timeshare' : 'kline'
+    this.kernel.mode.actions.setDataView(
+      dataView,
+      dataView === 'timeshare' ? this.dataManager.currentPeriod : undefined,
+    )
+
+    if (dataView === 'timeshare') {
+      const percentMap = new Map(this.kernel.pane.readonly.paneScaleTypes.peek())
+      for (const renderer of this.paneRenderers) {
+        const pane = renderer.getPane()
+        if (pane.role === 'price') percentMap.set(pane.id, 'percent')
+      }
+      this.kernel.pane.actions.replacePaneScaleTypes(percentMap)
+      this.projectPaneScaleTypes()
+    } else {
+      for (const renderer of this.paneRenderers) renderer.getPane().yAxis.setBasePrice(null)
+      this.applyPriceScaleSettingToKernel(
+        resolvePriceScaleTypeSetting(
+          this.kernel.settings.readonly.settings.peek().mainRightAxisTypeSetting,
+        ),
+      )
+    }
+
+    mode.onActivate(
       {
         enableMainIndicator: (id, p) => this.enableMainIndicator(id, p),
         disableMainIndicator: (id) => this.disableMainIndicator(id),
@@ -551,45 +519,6 @@ export class Chart {
       },
       prev,
     )
-
-    if (mode === this._timeShareMode) {
-      for (const { id } of this._savedTimeShareState!.mainIndicators) {
-        if (id !== 'TIMESHARE' && id !== 'timeShare') {
-          this.indicatorManager.disableMainIndicator(id)
-        }
-      }
-      this.indicatorManager.clearSubPanes()
-    } else if (prev === this._timeShareMode) {
-      const saved = this._savedTimeShareState
-      if (saved) {
-        for (const { id, params } of saved.mainIndicators) {
-          if (id !== 'TIMESHARE' && id !== 'timeShare') {
-            this.indicatorManager.enableMainIndicator(id, params)
-          }
-        }
-        for (const { paneId, indicatorId, params } of saved.subPanes) {
-          this.indicatorManager.createSubPane(
-            paneId,
-            indicatorId as SubIndicatorType,
-            params as Record<string, number | boolean | string>,
-          )
-        }
-        // 恢复进入分时前的 pane 比例（createSubPane 会重算 3:1 分配）
-        if (Object.keys(saved.paneRatios).length > 0) {
-          const specs = this.kernel.pane.readonly.paneSpecs.peek().map((pane) => ({
-            ...pane,
-            ratio: saved.paneRatios[pane.id] ?? pane.ratio,
-          }))
-          this.kernel.pane.actions.commitLayout(saved.paneRatios, specs)
-        }
-        this.setRendererEnabled('candle', saved.candleEnabled)
-      }
-      this._savedTimeShareState = null
-    }
-
-    // 副作用成功后再写 kernel mode id
-    const id = mode === this._timeShareMode ? 'timeshare' : 'kline'
-    this.kernel.mode.actions.setChartMode(id)
   }
 
   getCurrentDpr(): number {
@@ -755,12 +684,11 @@ export class Chart {
 
   /**
    * 将用户坐标偏好写入 paneScaleTypes。
-   * 分时/比较覆盖期间只更新退出后要恢复的快照，不改当前生效刻度。
+   * 分时覆盖期间保留用户 Setting，由 dataView 返回 K 线时重新派生生效刻度。
    */
   private applyPriceScaleSettingToKernel(setting: ScaleType): void {
     const next = this.buildScaleTypesFromSetting(setting)
     if (this.kernel.mode.readonly.chartMode.peek() === 'timeshare') {
-      if (this._savedTimeShareState) this._savedTimeShareState.scaleTypes = next
       return
     }
     if (this.dataManager.getComparisonSpecs().length > 0) {
@@ -1250,12 +1178,12 @@ export class Chart {
 
   /** 容器尺寸变化时调用 */
   resize() {
-    if (this._activeMode === this._timeShareMode) {
+    if (this.activeMode === this._timeShareMode) {
       const tsData = this.dataManager.getTimeShareData()
       const vp = this.getViewport()
       if (!vp || vp.plotWidth <= 0) return
       if (tsData.length > 0) {
-        const result = this._activeMode.computeKWidth(tsData.length, vp.plotWidth, vp.dpr)
+        const result = this.activeMode.computeKWidth(tsData.length, vp.plotWidth, vp.dpr)
         if (result) {
           this.applyRenderState(result.kWidth, result.kGap)
           const leftBuffer = this.getLeftLoadBufferWidth()
@@ -1550,6 +1478,7 @@ export class Chart {
     if (period === 'timeshare') this.configureCurrentTimeShareSession()
     this.setActiveMode(period === 'timeshare' ? this._timeShareMode : this._kLineMode)
     this.dataManager.setCurrentPeriod(period)
+    this.kernel?.mode.actions.setLastBarPeriod(period)
   }
 
   switchToTimeShareForDate(dateYYYYMMDD: number): void {
@@ -1604,7 +1533,7 @@ export class Chart {
    * 计算并应用新的 render state，更新 viewport signal
    */
   zoomToLevel(level: number, anchorX?: number): void {
-    if (!this._activeMode.allowZoom) return
+    if (!this.kernel.mode.readonly.interactionCapabilities.peek().allowZoom) return
     this.zoomController.zoomToLevel(level, anchorX)
   }
 
@@ -1612,7 +1541,7 @@ export class Chart {
    * 放大（高层 API）
    */
   zoomIn(anchorX?: number): void {
-    if (!this._activeMode.allowZoom) return
+    if (!this.kernel.mode.readonly.interactionCapabilities.peek().allowZoom) return
     this.zoomController.zoomIn(anchorX)
   }
 
@@ -1620,7 +1549,7 @@ export class Chart {
    * 缩小（高层 API）
    */
   zoomOut(anchorX?: number): void {
-    if (!this._activeMode.allowZoom) return
+    if (!this.kernel.mode.readonly.interactionCapabilities.peek().allowZoom) return
     this.zoomController.zoomOut(anchorX)
   }
 
@@ -1700,7 +1629,7 @@ export class Chart {
    * 使用 computeZoom 计算精确的 scrollLeft，更新 viewport signal
    */
   handleWheelEvent(e: WheelEvent): void {
-    if (!this._activeMode.allowZoom) return
+    if (!this.kernel.mode.readonly.interactionCapabilities.peek().allowZoom) return
     const rect = this.dom.container.getBoundingClientRect()
     this.zoomController.handleWheel(e.deltaY, e.clientX - rect.left)
   }
@@ -1723,7 +1652,7 @@ export class Chart {
    * @param centerClientX 捏合中心在视口中的 X 坐标
    */
   handlePinchZoom(delta: number, centerClientX: number): void {
-    if (!this._activeMode.allowZoom) return
+    if (!this.kernel.mode.readonly.interactionCapabilities.peek().allowZoom) return
     this.zoomController.handlePinch(delta, centerClientX)
   }
 

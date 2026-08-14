@@ -5,18 +5,6 @@ import type { VisibleRange } from '../layout/pane'
 export interface ChartModeHandler {
   readonly debugName: string
 
-  /** 是否允许水平拖拽平移 */
-  readonly allowPan: boolean
-
-  /** 是否允许缩放（滚轮/捏合/API） */
-  readonly allowZoom: boolean
-
-  /** 是否允许主图垂直滚动 */
-  readonly allowVerticalScroll: boolean
-
-  /** 是否允许右轴价格缩放 */
-  readonly allowRightAxisScale: boolean
-
   /** 是否使用指标调度器（计算 MA/BOLL 等技术指标） */
   readonly useIndicatorScheduler: boolean
 

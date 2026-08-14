@@ -236,7 +236,7 @@ export class InteractionController {
     }
 
     // 分时模式下禁止拖拽平移
-    if (!this.chart.activeMode.allowPan) {
+    if (!this.chart.kernel.mode.readonly.interactionCapabilities.peek().allowPan) {
       this.clearHover()
       this.chart.scheduleDraw()
       return

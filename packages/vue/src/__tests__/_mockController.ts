@@ -110,6 +110,7 @@ export function createMockChartController(
       error: null,
     }),
     chartMode: createSignal('kline' as const),
+    lastBarPeriod: createSignal('daily'),
     indicators: createSignal<ReadonlyArray<IndicatorInstance>>([]),
     subPanes: createSignal<ReadonlyArray<SubPaneInfo>>([]),
     drawingTool: createSignal('cursor' as const),

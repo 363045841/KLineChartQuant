@@ -1,8 +1,8 @@
 /**
  * Manages indicator state for both main-pane and sub-pane indicators.
  * Provides pane layout construction, default param resolution,
- * indicator toggle/update/reorder logic, and bridges signal subscriptions
- * (ctrl.indicators, ctrl.subPanes) to Vue reactive refs.
+ * indicator toggle/update/reorder logic. Indicator state is read directly
+ * from Core controller signals; Vue keeps no business-state mirror.
  */
 import type {
   ChartController,
@@ -12,7 +12,9 @@ import type {
 } from '@363045841yyt/klinechart-core/controllers'
 import { getRegisteredIndicatorDefinition } from '@363045841yyt/klinechart-core/indicators'
 import type { SemanticChartConfig } from '@363045841yyt/klinechart-core/semantic'
-import { ref, computed, type Ref } from 'vue'
+import { computed, type Ref } from 'vue'
+
+import { useControllerSignal } from './useControllerSignal'
 
 interface SubPaneSlot {
   id: string
@@ -26,9 +28,21 @@ export function useIndicatorManager(
 ) {
   const maxSubPanes = 4
 
-  const mainActiveIndicators = ref<string[]>([])
+  const indicatorInstances = useControllerSignal(ctrl, (controller) => controller.indicators, () => [])
+  const subPaneInfos = useControllerSignal(ctrl, (controller) => controller.subPanes, () => [])
 
-  const subPanes = ref<SubPaneSlot[]>([])
+  const mainActiveIndicators = computed(() =>
+    indicatorInstances.value
+      .filter((indicator): indicator is IndicatorInstance & { role: 'main' } => indicator.role === 'main')
+      .map((indicator) => indicator.definitionId),
+  )
+  const subPanes = computed<SubPaneSlot[]>(() =>
+    subPaneInfos.value.map((pane) => ({
+      id: pane.paneId,
+      indicatorId: pane.indicatorId as SubIndicatorType,
+      params: { ...pane.params },
+    })),
+  )
 
   const subActiveIndicators = computed(() => {
     const ids: string[] = []
@@ -47,7 +61,20 @@ export function useIndicatorManager(
     ...subActiveIndicators.value,
   ])
 
-  const indicatorParams = ref<Record<string, Record<string, unknown>>>({})
+  const indicatorParams = computed<Record<string, Record<string, unknown>>>(() => {
+    const params: Record<string, Record<string, unknown>> = {}
+    for (const indicator of indicatorInstances.value) {
+      if (indicator.params && Object.keys(indicator.params).length > 0) {
+        params[indicator.definitionId] = { ...indicator.params }
+      }
+    }
+    for (const pane of subPaneInfos.value) {
+      if (pane.params && Object.keys(pane.params).length > 0) {
+        params[pane.indicatorId] = { ...pane.params }
+      }
+    }
+    return params
+  })
 
   function buildPaneLayoutIntent(): PaneSpec[] {
     const mainRatio = paneRatiosRef.value['main'] ?? 3
@@ -217,71 +244,17 @@ export function useIndicatorManager(
     const nextSubIds = nextSubPanes.map((p) => p.id)
     if (currentSubIds.join('|') === nextSubIds.join('|')) return
 
-    subPanes.value = nextSubPanes
-
     const c = ctrl.value
     if (!c) return
-    c.updatePaneLayout(buildPaneLayoutIntent())
-  }
-
-  function setupIndicatorSubscriptions(chartCtrl: ChartController): () => void {
-    const unsubIndicators = chartCtrl.indicators.subscribe(() => {
-      const instances = chartCtrl.indicators.peek()
-
-      const mains = instances
-        .filter((i): i is IndicatorInstance & { role: 'main' } => i.role === 'main')
-        .map((i) => i.definitionId)
-      mainActiveIndicators.value = mains
-
-      const nextParams = { ...indicatorParams.value }
-      for (const inst of instances) {
-        if (inst.role === 'main' && inst.params && Object.keys(inst.params).length > 0) {
-          nextParams[inst.definitionId] = { ...inst.params }
-        }
-      }
-
-      chartCtrl.updateRendererConfig('mainIndicatorLegend', {
-        indicators: {
-          MA: { enabled: mains.includes('MA'), params: nextParams['MA'] || {} },
-          BOLL: { enabled: mains.includes('BOLL'), params: nextParams['BOLL'] || {} },
-          EXPMA: { enabled: mains.includes('EXPMA'), params: nextParams['EXPMA'] || {} },
-          ENE: { enabled: mains.includes('ENE'), params: nextParams['ENE'] || {} },
-        },
-      })
-
-      indicatorParams.value = nextParams
-    })
-
-    const unsubSubPanes = chartCtrl.subPanes.subscribe(() => {
-      const subPaneInfos = chartCtrl.subPanes.peek()
-      const signalIds = new Set(subPaneInfos.map((sp) => sp.paneId))
-
-      const merged = subPanes.value.filter((p) => signalIds.has(p.id))
-      const existingIds = new Set(merged.map((p) => p.id))
-      for (const sp of subPaneInfos) {
-        if (!existingIds.has(sp.paneId)) {
-          merged.push({
-            id: sp.paneId,
-            indicatorId: sp.indicatorId as SubIndicatorType,
-            params: sp.params,
-          })
-        }
-      }
-      subPanes.value = merged
-
-      const nextParams = { ...indicatorParams.value }
-      for (const sp of subPaneInfos) {
-        if (sp.params && Object.keys(sp.params).length > 0) {
-          nextParams[sp.indicatorId] = { ...sp.params }
-        }
-      }
-      indicatorParams.value = nextParams
-    })
-
-    return () => {
-      unsubIndicators()
-      unsubSubPanes()
-    }
+    c.updatePaneLayout([
+      { id: 'main', ratio: paneRatiosRef.value['main'] ?? 3, visible: true, role: 'price' },
+      ...nextSubPanes.map((pane) => ({
+        id: pane.id,
+        ratio: paneRatiosRef.value[pane.id] ?? 1,
+        visible: true,
+        role: 'indicator' as const,
+      })),
+    ])
   }
 
   return {
@@ -302,6 +275,5 @@ export function useIndicatorManager(
     handleIndicatorToggle,
     handleUpdateParams,
     handleReorderSubIndicators,
-    setupIndicatorSubscriptions,
   }
 }

@@ -206,6 +206,7 @@ Never guess at Effect patterns - check the guide first.
 
 ## Comment Style
 
+- 涉及核心 Core 引擎改动的，都需要附加设计决策文档，放在 @docs\design 中
 - 单行注释使用//
 - 每个文件必须有头部注释，说明文件用途
 - 每个函数必须有注释，说明其职责、参数和返回值；简单函数可使用简短注释

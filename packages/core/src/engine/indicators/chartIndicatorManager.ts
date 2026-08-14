@@ -199,12 +199,19 @@ export class ChartIndicatorManager {
     })
     this._subPanesComputed = computed<ReadonlyArray<SubPaneInfo>>(() => {
       const ratios = deps.paneRatios$()
-      return this.deps.subPaneOps.entries().map((entry) => ({
-        paneId: entry.paneId,
-        indicatorId: entry.indicatorId,
-        params: { ...entry.params },
-        ratio: ratios[entry.paneId] ?? 1,
-      }))
+      const paneOrder = new Map(deps.paneSpecs$().map((pane, index) => [pane.id, index]))
+      return this.deps.subPaneOps.entries()
+        .map((entry) => ({
+          paneId: entry.paneId,
+          indicatorId: entry.indicatorId,
+          params: { ...entry.params },
+          ratio: ratios[entry.paneId] ?? 1,
+        }))
+        .sort(
+          (left, right) =>
+            (paneOrder.get(left.paneId) ?? Number.MAX_SAFE_INTEGER) -
+            (paneOrder.get(right.paneId) ?? Number.MAX_SAFE_INTEGER),
+        )
     })
 
     // dev: 主副图状态变更日志

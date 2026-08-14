@@ -333,6 +333,7 @@
   import { useChartTheme } from '../composables/chart/useChartTheme'
   import { useDrawingManager } from '../composables/chart/useDrawingManager'
   import { useIndicatorManager } from '../composables/chart/useIndicatorManager'
+  import { useControllerSignal } from '../composables/chart/useControllerSignal'
   import { useWatchlist } from '../composables/useWatchlist'
   import { useRangeSelection } from '../composables/chart/useRangeSelection'
   import { symbolIdentityKey } from '../composables/useSymbolSearch'
@@ -472,10 +473,8 @@
 
   // ── Symbol / Comparison State ──
 
-  const kLineLevel = ref<string>(props.semanticConfig?.data?.period ?? 'daily')
-  const previousKLineLevel = ref<string>('daily')
+  const initialKLineLevel = props.semanticConfig?.data?.period ?? 'daily'
   const kLineAdjust = ref(props.semanticConfig?.data?.adjust ?? 'none')
-  const isIntraday = computed(() => kLineLevel.value.includes('min'))
   const currentSymbol = ref('选择商品')
   const currentSymbolItem = ref<SymbolItem | null>(null)
   const symbolErrorMessage = ref<string | null>(null)
@@ -496,12 +495,10 @@
         symbolErrorMessage.value = `暂不支持该品种分时（${item.exchange || item.symbol}）`
         return
       }
-      previousKLineLevel.value = kLineLevel.value as string
     }
-    kLineLevel.value = level as typeof kLineLevel.value
     emit('kLineLevelChange', level)
     try {
-      syncSymbolsToController()
+      controller.value?.setCurrentPeriod(level)
     } catch (error) {
       symbolStatus.value = 'error'
       if (currentSymbolItem.value) {
@@ -511,8 +508,8 @@
   }
 
   function onBackFromTimeShare() {
-    const prevLevel = previousKLineLevel.value
-    if (prevLevel && prevLevel !== 'timeshare') {
+    const prevLevel = controller.value?.lastBarPeriod.peek()
+    if (prevLevel) {
       onKLineLevelChange(prevLevel)
     }
   }
@@ -560,8 +557,9 @@
         ? capabilities.timeShare === true
         : supportedPeriods.includes(kLineLevel.value as (typeof supportedPeriods)[number])
     if (!currentPeriodSupported) {
-      kLineLevel.value =
+      const nextLevel =
         supportedPeriods[0] ?? (capabilities.timeShare ? 'timeshare' : kLineLevel.value)
+      controller.value?.setCurrentPeriod(nextLevel)
     }
 
     const adjustments = capabilities.bars?.adjustments ?? []
@@ -770,6 +768,13 @@
 
   // ── Controller & Composable Wiring ──
   const controller = shallowRef<ChartController | null>(null)
+  const chartMode = useControllerSignal(controller, (ctrl) => ctrl.chartMode, () => 'kline' as const)
+  const controllerSymbols = useControllerSignal(controller, (ctrl) => ctrl.symbols, () => [])
+  const kLineLevel = computed(() => {
+    if (chartMode.value === 'timeshare') return 'timeshare'
+    return controllerSymbols.value[0]?.period ?? initialKLineLevel
+  })
+  const isIntraday = computed(() => kLineLevel.value.includes('min'))
 
   // 有 settings prop 时 setup 阶段即解析，避免子组件先读 localStorage 造成闪色
   const _initialResolved = resolveRuntimeSettings(props.settings)
@@ -845,7 +850,6 @@
     handleIndicatorToggle,
     handleUpdateParams,
     handleReorderSubIndicators,
-    setupIndicatorSubscriptions,
   } = useIndicatorManager(controller, paneRatios)
 
   const {
@@ -1421,8 +1425,6 @@
     const shD = new Date(d.toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }))
     const yyyymmdd = shD.getFullYear() * 10000 + (shD.getMonth() + 1) * 100 + shD.getDate()
 
-    previousKLineLevel.value = 'daily'
-    kLineLevel.value = 'timeshare'
     controller.value.switchToTimeShareForDate(yyyymmdd)
     emit('kLineLevelChange', 'timeshare')
   }
@@ -1642,8 +1644,6 @@
       rendererRuntime.value = ctrl.rendererRuntime.peek()
     })
 
-    const unsubscribeIndicators = setupIndicatorSubscriptions(ctrl)
-
     const unsubscribeComparisonColors = ctrl.comparisonColors.subscribe(() => {
       comparisonColorsMap.value = new Map(ctrl.comparisonColors.peek())
     })
@@ -1694,7 +1694,6 @@
             providerRef: primary.params,
             capabilities: {},
           }
-      if (primary.period) kLineLevel.value = primary.period
       if (primary.adjust) kLineAdjust.value = primary.adjust as 'qfq' | 'hfq' | 'splits' | 'none'
 
       const comparisonSpecs = specs.slice(1)
@@ -1735,7 +1734,6 @@
       unsubscribeTheme()
       unsubscribeDrawingTool()
       unsubscribeRendererRuntime()
-      unsubscribeIndicators()
       unsubscribeComparisonColors()
       unsubscribeComparisonLoading()
       unsubscribeSymbolCatalog()

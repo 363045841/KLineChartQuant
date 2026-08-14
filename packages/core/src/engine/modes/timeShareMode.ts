@@ -14,10 +14,6 @@ import type { ChartModeHandler } from './types'
 export class TimeShareMode implements ChartModeHandler {
   readonly debugName = 'TimeShare'
 
-  readonly allowPan = false
-  readonly allowZoom = false
-  readonly allowVerticalScroll = false
-  readonly allowRightAxisScale = false
   readonly useIndicatorScheduler = false
 
   /** 市场 session；默认 A 股，可 setMarketSession 切换 */
@@ -111,6 +107,6 @@ export class TimeShareMode implements ChartModeHandler {
     _next: ChartModeHandler | null,
   ): void {
     chart.disableMainIndicator('timeShare')
-    // candle 可见性由 Chart.setActiveMode 按进入前快照恢复，此处不强制 true
+    chart.setRendererEnabled('candle', true)
   }
 }

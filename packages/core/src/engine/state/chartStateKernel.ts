@@ -177,7 +177,7 @@ export class ChartStateKernel extends StateKernel {
       return pref === 'dark' ? 'dark' : 'light'
     })
 
-    // ── Mode state（kline / timeshare id；ModeHandler 仍在 Chart）──
+    // ── Data view state（数据视图、主序列渲染偏好与交互能力派生）──
     this.mode = createModeState()
 
     // ── Drawing state ──
@@ -223,6 +223,11 @@ export class ChartStateKernel extends StateKernel {
       rendererRuntime: this.renderer.readonly.runtime,
       // Mode
       chartMode: this.mode.readonly.chartMode,
+      dataView: this.mode.readonly.dataView,
+      lastBarPeriod: this.mode.readonly.lastBarPeriod,
+      primaryRendererByView: this.mode.readonly.primaryRendererByView,
+      effectivePrimaryRenderer: this.mode.readonly.effectivePrimaryRenderer,
+      interactionCapabilities: this.mode.readonly.interactionCapabilities,
       // Pane scale types
       paneScaleTypes: this.pane.readonly.paneScaleTypes,
       // Drawing
@@ -268,6 +273,13 @@ export class ChartStateKernel extends StateKernel {
       setSystemTheme: (theme: 'light' | 'dark') => this.systemTheme.actions.setSystemTheme(theme),
       setRendererRuntime: (runtime: RendererBackendRuntime) =>
         this.renderer.actions.setRuntime(runtime),
+      setDataView: (view: 'kline' | 'timeshare', lastBarPeriod?: string) =>
+        this.mode.actions.setDataView(view, lastBarPeriod),
+      setLastBarPeriod: (period: string) => this.mode.actions.setLastBarPeriod(period),
+      setPrimaryRenderer: (
+        view: 'kline' | 'timeshare',
+        renderer: 'candlestick' | 'ohlc-bar' | 'line' | 'area',
+      ) => this.mode.actions.setPrimaryRenderer(view, renderer),
       setDrawingTool: (tool: DrawingToolId) => this.drawing.actions.setDrawingTool(tool),
       setDrawings: (drawings: ReadonlyArray<DrawingObject>) =>
         this.drawing.actions.setDrawings(drawings),

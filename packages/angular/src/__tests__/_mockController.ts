@@ -84,6 +84,7 @@ export function createMockChartController(
       error: null,
     }),
     chartMode: createSignal('kline' as const),
+    lastBarPeriod: createSignal('daily'),
     interactionState,
     legendTemplateContext: createSignal(null),
     indicators: createSignal<ReadonlyArray<IndicatorInstance>>([]),

@@ -1,22 +1,97 @@
-import { createSubState } from '../../foundation/reactivity/signal'
+/** 图表数据视图、主序列渲染偏好及运行时能力状态。 */
+import { batch, computed, createSubState } from '../../foundation/reactivity/signal'
 
 export type ChartModeId = 'kline' | 'timeshare'
+export type ChartDataView = ChartModeId
+export type PrimaryRendererType = 'candlestick' | 'ohlc-bar' | 'line' | 'area'
+export type PrimaryRendererByView = Readonly<Record<ChartDataView, PrimaryRendererType>>
+
+export type InteractionCapabilities = Readonly<{
+  allowPan: boolean
+  allowZoom: boolean
+  allowVerticalScroll: boolean
+  allowRightAxisScale: boolean
+}>
+
+const DEFAULT_PRIMARY_RENDERERS: PrimaryRendererByView = Object.freeze({
+  kline: 'candlestick',
+  timeshare: 'line',
+})
+
+/** 复制并冻结主序列渲染偏好，避免外部原地修改。 */
+function snapshotPrimaryRenderers(
+  value: Record<ChartDataView, PrimaryRendererType>,
+): PrimaryRendererByView {
+  return Object.freeze({ ...value })
+}
+
+/** 按数据视图校验主渲染器，不支持的组合回退到视图默认值。 */
+function resolveEffectivePrimaryRenderer(
+  view: ChartDataView,
+  renderer: PrimaryRendererType,
+): PrimaryRendererType {
+  if (view === 'timeshare' && renderer !== 'line' && renderer !== 'area') return 'line'
+  return renderer
+}
 
 export function createModeState() {
-  const { signals, readonly } = createSubState({
-    chartMode: 'kline' as ChartModeId,
+  const { signals, readonly: sourceReadonly } = createSubState({
+    dataView: 'kline' as ChartDataView,
+    lastBarPeriod: 'daily',
+    primaryRendererByView: DEFAULT_PRIMARY_RENDERERS,
   })
 
+  const effectivePrimaryRenderer = computed(() => {
+    const view = sourceReadonly.dataView()
+    return resolveEffectivePrimaryRenderer(view, sourceReadonly.primaryRendererByView()[view])
+  })
+  const interactionCapabilities = computed<InteractionCapabilities>(() => {
+    const isKLine = sourceReadonly.dataView() === 'kline'
+    return Object.freeze({
+      allowPan: isKLine,
+      allowZoom: isKLine,
+      allowVerticalScroll: isKLine,
+      allowRightAxisScale: isKLine,
+    })
+  })
+
+  const setDataView = (view: ChartDataView, lastBarPeriod?: string): void => {
+    if (view === 'timeshare' && lastBarPeriod && lastBarPeriod !== 'timeshare') {
+      signals.lastBarPeriod.set(lastBarPeriod)
+    }
+    if (signals.dataView.peek() === view) return
+    signals.dataView.set(view)
+  }
+
   return {
-    readonly,
+    readonly: {
+      ...sourceReadonly,
+      /** 兼容现有 Controller API；与 dataView 指向同一只读 Signal。 */
+      chartMode: sourceReadonly.dataView,
+      effectivePrimaryRenderer,
+      interactionCapabilities,
+    },
     actions: {
-      setChartMode(mode: ChartModeId) {
-        if (signals.chartMode.peek() === mode) return
-        signals.chartMode.set(mode)
+      setDataView,
+      setChartMode: setDataView,
+      setLastBarPeriod(period: string): void {
+        if (!period || period === 'timeshare' || signals.lastBarPeriod.peek() === period) return
+        signals.lastBarPeriod.set(period)
+      },
+      setPrimaryRenderer(view: ChartDataView, renderer: PrimaryRendererType): void {
+        const current = signals.primaryRendererByView.peek()
+        if (current[view] === renderer) return
+        signals.primaryRendererByView.set(
+          snapshotPrimaryRenderers({ ...current, [view]: renderer }),
+        )
       },
     },
-    dispose() {
-      signals.chartMode.set('kline')
+    dispose(): void {
+      batch(() => {
+        signals.dataView.set('kline')
+        signals.lastBarPeriod.set('daily')
+        signals.primaryRendererByView.set(DEFAULT_PRIMARY_RENDERERS)
+      })
     },
   }
 }
