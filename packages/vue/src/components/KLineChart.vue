@@ -333,6 +333,7 @@
   import { useChartTheme } from '../composables/chart/useChartTheme'
   import { useDrawingManager } from '../composables/chart/useDrawingManager'
   import { useIndicatorManager } from '../composables/chart/useIndicatorManager'
+  import { useWatchlist } from '../composables/useWatchlist'
   import { useRangeSelection } from '../composables/chart/useRangeSelection'
   import { symbolIdentityKey } from '../composables/useSymbolSearch'
   import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
@@ -484,60 +485,8 @@
   const overlaySymbols = ref<string[]>([])
   const overlaySymbolItems = ref<SymbolItem[]>([])
   const symbolPool = ref<SymbolItem[]>([])
-  const WATCHLIST_STORAGE_KEY = 'klinechart.watchlist'
-  const watchlistItems = ref<SymbolItem[]>([])
-  const watchlistKeys = computed(
-    () => new Set(watchlistItems.value.map((item) => symbolIdentityKey(item))),
-  )
-
-  /** 从本地存储恢复自选股，损坏数据按空列表处理。 */
-  function restoreWatchlist(): void {
-    try {
-      const stored = window.localStorage.getItem(WATCHLIST_STORAGE_KEY)
-      if (!stored) return
-      const parsed: unknown = JSON.parse(stored)
-      if (!Array.isArray(parsed)) return
-      watchlistItems.value = parsed.filter(
-        (item): item is SymbolItem =>
-          typeof item === 'object' &&
-          item !== null &&
-          typeof item.id === 'string' &&
-          typeof item.symbol === 'string' &&
-          typeof item.name === 'string',
-      )
-    } catch {
-      watchlistItems.value = []
-    }
-  }
-
-  /** 保存当前自选股列表，存储不可用时保持内存状态。 */
-  function persistWatchlist(): void {
-    try {
-      window.localStorage.setItem(WATCHLIST_STORAGE_KEY, JSON.stringify(watchlistItems.value))
-    } catch {
-      // localStorage 不可用不影响图表与自选股当前会话操作。
-    }
-  }
-
-  /** 将搜索到的品种加入自选股，并按稳定身份去重。 */
-  function addWatchlistItem(item: SymbolItem): void {
-    if (
-      watchlistItems.value.some((saved) => symbolIdentityKey(saved) === symbolIdentityKey(item))
-    ) {
-      return
-    }
-    watchlistItems.value = [...watchlistItems.value, item]
-    persistWatchlist()
-  }
-
-  /** 从自选股中移除指定品种。 */
-  function removeWatchlistItem(item: SymbolItem): void {
-    const identity = symbolIdentityKey(item)
-    watchlistItems.value = watchlistItems.value.filter(
-      (saved) => symbolIdentityKey(saved) !== identity,
-    )
-    persistWatchlist()
-  }
+  const { watchlistItems, watchlistKeys, restoreWatchlist, addWatchlistItem, removeWatchlistItem } =
+    useWatchlist()
 
   function onKLineLevelChange(level: string) {
     if (level === 'timeshare') {
@@ -1857,7 +1806,7 @@
   // ── onMounted ──
   onMounted(async () => {
     useAnchorPositioning.value = false
-    restoreWatchlist()
+    void restoreWatchlist()
 
     // 全屏状态监听（非受控模式下驱动内部状态与 update:isFullscreen）
     if (typeof document !== 'undefined') {
@@ -2242,11 +2191,6 @@
   }
 
   @media (max-width: 768px), (max-height: 640px) {
-    .chart-wrapper {
-      flex-direction: column;
-      gap: 4px;
-    }
-
     .chart-stage {
       gap: 4px;
     }

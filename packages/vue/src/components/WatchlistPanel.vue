@@ -2,12 +2,10 @@
 <template>
   <aside class="watchlist-panel" :class="{ 'is-collapsed': isCollapsed }" aria-label="自选股">
     <div class="watchlist-panel__header">
-      <template v-if="!isCollapsed">
-        <div class="watchlist-panel__title">
-          <span>自选股</span>
-          <span class="watchlist-panel__count">{{ items.length }}</span>
-        </div>
-      </template>
+      <div class="watchlist-panel__title">
+        <span>自选股</span>
+        <span class="watchlist-panel__count">{{ items.length }}</span>
+      </div>
       <button
         type="button"
         class="watchlist-panel__toggle"
@@ -91,11 +89,9 @@
   }
 
   .watchlist-panel__header {
+    position: relative;
     height: 40px;
     flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
     padding: 0 10px;
     border-bottom: 1px solid var(--klc-color-border-chart);
     font-size: 13px;
@@ -103,13 +99,14 @@
   }
 
   .watchlist-panel.is-collapsed .watchlist-panel__header {
-    justify-content: center;
-    padding: 0;
     border-bottom: 0;
   }
 
   .watchlist-panel__toggle {
-    flex: 0 0 auto;
+    position: absolute;
+    top: 50%;
+    right: 5px;
+    transform: translateY(-50%);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -141,10 +138,18 @@
   }
 
   .watchlist-panel__title {
-    min-width: 0;
+    position: absolute;
+    top: 50%;
+    left: 10px;
+    transform: translateY(-50%);
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    white-space: nowrap;
+  }
+
+  .watchlist-panel.is-collapsed .watchlist-panel__title {
+    visibility: hidden;
   }
 
   .watchlist-panel__empty {
