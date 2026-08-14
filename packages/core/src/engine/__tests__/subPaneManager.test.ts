@@ -18,6 +18,9 @@ function createMockScheduler(): Partial<IndicatorScheduler> {
         priority: 0,
         draw: vi.fn(),
       })),
+      getScaleRendererName: ({ paneId }: { paneId: string }) =>
+        `${id.toLowerCase()}Scale_${paneId}`,
+      getPaneTitleRendererName: ({ paneId }: { paneId: string }) => `paneTitle_${paneId}`,
       updateConfig: vi.fn(),
       scale: { indicatorKey: 'test', label: 'Test', decimals: 2 },
     })),
@@ -39,7 +42,6 @@ function createMockContext(): SubPaneContext & {
     getRenderer: vi.fn((name) => renderers.get(name) as any),
     useRenderer: vi.fn((renderer: any) => renderers.set(renderer.name, renderer)),
     removeRenderer: vi.fn((name) => renderers.delete(name)),
-    setRendererEnabled: vi.fn(),
     updateRendererConfig: vi.fn(),
     getOption: () => ({
       rightAxisWidth: 60,
@@ -52,7 +54,6 @@ function createMockContext(): SubPaneContext & {
     addLayer: vi.fn((layer) => layers.add(layer.id)),
     removeLayer: vi.fn((id) => layers.delete(id)),
     getLayer: vi.fn((id) => (layers.has(id) ? ({ id } as any) : null)),
-    setLayerVisibility: vi.fn(),
     getRenderContext: () => null,
   }
 }
@@ -81,6 +82,7 @@ describe('SubPaneManager runtime projection', () => {
 
     expect(ctx.useRenderer).toHaveBeenCalledTimes(3)
     expect(manager.getMountedResources('RSI_0')?.rendererName).toBe('rsi_RSI_0')
+    expect(manager.getMountedResources('RSI_0')?.scaleRendererName).toBe('rsiScale_RSI_0')
   })
 
   it('updates configs without recreating resources when only params change', () => {

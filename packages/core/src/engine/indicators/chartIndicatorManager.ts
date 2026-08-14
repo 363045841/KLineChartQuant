@@ -24,6 +24,7 @@ import { SubPaneManager, type SubPaneEntry, type SubPaneContext } from '../subPa
 
 import { getRegisteredIndicatorDefinitions } from './indicatorDefinitionRegistry'
 import { IndicatorScheduler } from './scheduler'
+import { makePluginLayerId } from '../../foundation/plugin/rendererLayerId'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kWidth: number
@@ -50,17 +51,9 @@ function mainIndicatorProjectionKey(
 /** 副图业务操作：create/remove/clear 会联动 pane 布局，不能只写 subPane 模块 */
 export interface SubPaneOps {
   readonly entries: ReadonlySignal<ReadonlyArray<SubPaneSpec>>
-  create: (
-    paneId: string,
-    indicatorId: string,
-    params: Readonly<Record<string, unknown>>,
-  ) => void
+  create: (paneId: string, indicatorId: string, params: Readonly<Record<string, unknown>>) => void
   remove: (paneId: string) => void
-  replace: (
-    paneId: string,
-    indicatorId: string,
-    params: Readonly<Record<string, unknown>>,
-  ) => void
+  replace: (paneId: string, indicatorId: string, params: Readonly<Record<string, unknown>>) => void
   setParams: (paneId: string, params: Readonly<Record<string, unknown>>) => void
   clear: () => void
 }
@@ -75,7 +68,6 @@ export interface IndicatorDependencies {
   ) => void
   removeRenderer: (name: string) => void
   updateRendererConfig: (name: string, config: Record<string, unknown>) => void
-  setRendererEnabled: (name: string, enabled: boolean) => void
   /** pane ratios SSOT */
   paneRatios$: ReadonlySignal<Readonly<Record<string, number>>>
   paneSpecs$: ReadonlySignal<ReadonlyArray<PaneSpec>>
@@ -89,10 +81,7 @@ export interface IndicatorDependencies {
   getActivePaneId: () => string | null
   scheduleDraw: (level?: UpdateLevel) => void
   getRenderContext: (paneId: string) => RenderContext | null
-  addLayer: (layer: Layer) => void
-  removeLayer: (id: string) => boolean
   getLayer: (id: string) => Layer | null
-  setLayerVisibility: (id: string, visible: boolean) => void
   /** 主图指标状态模块 */
   indicator: IndicatorStateModule
   /** 副图状态 + 联动 pane 布局的复合操作 */
@@ -174,16 +163,16 @@ export class ChartIndicatorManager {
 
     // 派生信号
     this._indicatorsComputed = computed<ReadonlyArray<IndicatorInstance>>(() => {
-      const mainIndicators: IndicatorInstance[] = [...this.deps.indicator.readonly.mainIndicators().entries()].map(
-        ([id, entry]) => ({
-          id,
-          definitionId: id,
-          label: id,
-          name: id,
-          role: 'main' as const,
-          params: { ...entry.params },
-        }),
-      )
+      const mainIndicators: IndicatorInstance[] = [
+        ...this.deps.indicator.readonly.mainIndicators().entries(),
+      ].map(([id, entry]) => ({
+        id,
+        definitionId: id,
+        label: id,
+        name: id,
+        role: 'main' as const,
+        params: { ...entry.params },
+      }))
 
       const subIndicators: IndicatorInstance[] = this.deps.subPaneOps.entries().map((entry) => ({
         id: entry.paneId,
@@ -200,7 +189,8 @@ export class ChartIndicatorManager {
     this._subPanesComputed = computed<ReadonlyArray<SubPaneInfo>>(() => {
       const ratios = deps.paneRatios$()
       const paneOrder = new Map(deps.paneSpecs$().map((pane, index) => [pane.id, index]))
-      return this.deps.subPaneOps.entries()
+      return this.deps.subPaneOps
+        .entries()
         .map((entry) => ({
           paneId: entry.paneId,
           indicatorId: entry.indicatorId,
@@ -330,7 +320,9 @@ export class ChartIndicatorManager {
   }
 
   getMainIndicatorParams(indicatorId: string): Record<string, number | boolean | string> | null {
-    const params = this.deps.indicator.readonly.mainIndicators.peek().get(indicatorId.toUpperCase())?.params
+    const params = this.deps.indicator.readonly.mainIndicators
+      .peek()
+      .get(indicatorId.toUpperCase())?.params
     return params ? { ...params } : null
   }
 
@@ -342,7 +334,6 @@ export class ChartIndicatorManager {
     let changed = false
     for (const id of [...this.appliedMainIndicators.keys()]) {
       if (desired.has(id)) continue
-      this.disableMainIndicatorRenderer(id)
       this.appliedMainIndicators.delete(id)
       this.updateIndicatorSchedulerConfig(id)
       changed = true
@@ -372,8 +363,7 @@ export class ChartIndicatorManager {
     if (!definition || !mainPane) return
 
     const rendererName = mainPane.rendererName
-    const layerId = `plugin:${rendererName}`
-    const existingLayer = this.deps.getLayer(layerId)
+    const existingLayer = this.deps.getLayer(makePluginLayerId(rendererName))
 
     if (!existingLayer) {
       const plugin = definition.rendererFactory({ paneId: 'main', indicatorId })
@@ -381,25 +371,15 @@ export class ChartIndicatorManager {
       this.deps.useRenderer(plugin)
     }
 
-    this.deps.setLayerVisibility(layerId, true)
-
     // core 可能已挂 legend Layer 且未进 Manager；两者任一存在都不再注册第二实例
     if (
-      !this.deps.getLayer('plugin:mainIndicatorLegend') &&
+      !this.deps.getLayer(makePluginLayerId('mainIndicatorLegend')) &&
       !this.deps.getRenderer('mainIndicatorLegend')
     ) {
       const legend = createMainIndicatorLegendRendererPlugin({
         yPaddingPx: this.deps.getOption().yPaddingPx,
       })
       this.deps.useRenderer(legend)
-    }
-  }
-
-  private disableMainIndicatorRenderer(indicatorId: string): void {
-    const rendererName =
-      this.indicatorScheduler.getIndicatorMetadata(indicatorId)?.mainPane?.rendererName
-    if (rendererName) {
-      this.deps.setRendererEnabled(rendererName, false)
     }
   }
 
@@ -471,11 +451,7 @@ export class ChartIndicatorManager {
         existing.indicatorId === indicatorId &&
         !this.subPaneManager.getMountedResources(paneId)
       ) {
-        this.deps.subPaneOps.replace(
-          paneId,
-          existing.indicatorId,
-          existing.params,
-        )
+        this.deps.subPaneOps.replace(paneId, existing.indicatorId, existing.params)
       }
       return true
     }
@@ -533,7 +509,9 @@ export class ChartIndicatorManager {
   }
 
   getSubPaneEntry(paneId: string): SubPaneEntry | undefined {
-    const entry = this.deps.subPaneOps.entries.peek().find((candidate) => candidate.paneId === paneId)
+    const entry = this.deps.subPaneOps.entries
+      .peek()
+      .find((candidate) => candidate.paneId === paneId)
     if (!entry) return undefined
     return {
       ...entry,

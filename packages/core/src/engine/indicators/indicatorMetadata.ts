@@ -9,6 +9,7 @@ import { KLineChartError } from '../../errors'
 import type { PluginHost, RendererPluginWithHost } from '../../foundation/plugin/index'
 import type { ColorTokens } from '../../foundation/tokens/index'
 import type { KLineData } from '../../foundation/types/price'
+import type { ChartDataView } from '../state/modeState'
 
 import type { IndicatorConfigSnapshot, IndicatorSeriesBundle } from './workerProtocol'
 
@@ -85,6 +86,20 @@ export type StateKey = string | ((paneId: string) => string)
  * 渲染器工厂函数
  */
 export type RendererFactory = (options?: IndicatorRendererOptions) => RendererPluginWithHost
+
+/** 解析 renderer plugin 名称所需的稳定上下文，不创建 renderer 实例。 */
+export interface IndicatorRendererNameOptions {
+  paneId: string
+  indicatorId: IndicatorId
+}
+
+/** 指标 renderer plugin 名称解析器。 */
+export type IndicatorRendererNameResolver = (options: IndicatorRendererNameOptions) => string
+
+/** 指标附属 renderer plugin 名称解析器，不创建 renderer 实例。 */
+export type IndicatorAuxiliaryRendererNameResolver = (
+  options: IndicatorRendererNameOptions,
+) => string | null
 
 export type ScaleRendererFactory = (
   options: IndicatorScaleRendererOptions,
@@ -254,6 +269,9 @@ export interface IndicatorMetadata<T = unknown> {
    */
   defaultPaneId: string
 
+  /** 指标可参与渲染的数据视图；未声明时仅支持 K 线。 */
+  dataViews?: readonly ChartDataView[]
+
   /**
    * 是否启用（可选条件判断）
    * 用于副图指标根据配置决定是否参与计算
@@ -292,6 +310,15 @@ export interface IndicatorMetadata<T = unknown> {
     computePriceRange?: IndicatorPriceRangeComputer
     composeRenderState?: IndicatorRenderStateComposer
   }
+
+  /** 不创建 renderer 实例地解析其 plugin 名称。 */
+  getRendererName: IndicatorRendererNameResolver
+
+  /** 不创建 renderer 实例地解析副图坐标轴 plugin 名称；无坐标轴时返回 null。 */
+  getScaleRendererName: IndicatorAuxiliaryRendererNameResolver
+
+  /** 不创建 renderer 实例地解析副图标题 plugin 名称；无标题时返回 null。 */
+  getPaneTitleRendererName: IndicatorAuxiliaryRendererNameResolver
 
   visibleState?: {
     compose: IndicatorVisibleStateComposer

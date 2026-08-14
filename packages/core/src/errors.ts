@@ -151,6 +151,15 @@ export const ERROR_CODES: Readonly<Record<FetchErrorCodeName, KLineChartErrorCod
 type FetchErrorCodeName =
   'FETCH_FAILED' | 'FETCH_ABORTED' | 'UNSUPPORTED_CAPABILITY' | 'INSTRUMENT_NOT_FOUND'
 
+// 副图/渲染器投影错误码具名常量，供引擎层引用，避免散落字符串字面量。
+export const SUBPANE_ERROR_CODES: Readonly<Record<SubPaneErrorCodeName, KLineChartErrorCode>> = {
+  UNKNOWN_INDICATOR: 'NOT_REGISTERED',
+  MISSING_RENDERER_METADATA: 'INVALID_PARAM',
+}
+
+// SUBPANE_ERROR_CODES 的键名集合，保证键与值一一对应。
+type SubPaneErrorCodeName = 'UNKNOWN_INDICATOR' | 'MISSING_RENDERER_METADATA'
+
 /** 便捷构造器：按错误码抛出统一错误。 */
 export function createMarketDataError(
   code: KLineChartErrorCode,

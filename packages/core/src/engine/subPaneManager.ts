@@ -1,16 +1,16 @@
-import { KLineChartError } from '../errors'
+import { KLineChartError, SUBPANE_ERROR_CODES } from '../errors'
 import type {
   RendererPlugin,
   RendererPluginWithHost,
   RenderContext,
 } from '../foundation/plugin/index'
-import type { Layer } from '../rendering/scene/types'
 import type { IndicatorScheduler } from './indicators/scheduler'
 import { findIndicator } from './renderers/Indicator/indicatorCatalog'
 import { createSubIndicatorRenderer } from './renderers/Indicator'
 import { createIndicatorScaleRendererPlugin } from './renderers/Indicator/scale/indicator_scale'
 import { createPaneTitleRendererPlugin } from './renderers/paneTitle'
 import type { SubPaneSpec } from './state/subPaneState'
+import { makePluginLayerId } from '../foundation/plugin/rendererLayerId'
 
 export interface SubPaneResources {
   readonly paneId: string
@@ -42,7 +42,6 @@ export interface SubPaneContext {
     config?: Record<string, unknown>,
   ) => void
   removeRenderer: (name: string) => void
-  setRendererEnabled: (name: string, enabled: boolean) => void
   updateRendererConfig: (name: string, config: Record<string, unknown>) => void
   getOption: () => {
     rightAxisWidth: number
@@ -52,10 +51,6 @@ export interface SubPaneContext {
   getCrosshairPos: () => { x: number; y: number } | null
   getCrosshairPrice: () => number | null
   getActivePaneId: () => string | null
-  addLayer: (layer: Layer) => void
-  removeLayer: (id: string) => boolean
-  getLayer: (id: string) => Layer | null
-  setLayerVisibility: (id: string, visible: boolean) => void
   getRenderContext: (paneId: string) => RenderContext | null
 }
 
@@ -160,7 +155,7 @@ export class SubPaneManager {
     const definition = ctx.getIndicatorScheduler().getIndicatorMetadata(spec.indicatorId)
     if (!definition) {
       throw new KLineChartError(
-        'NOT_REGISTERED',
+        SUBPANE_ERROR_CODES.UNKNOWN_INDICATOR,
         `[SubPaneManager] Unknown indicator: ${spec.indicatorId}`,
       )
     }
@@ -170,17 +165,29 @@ export class SubPaneManager {
       definition,
       params: { ...spec.params },
     })
-    const scaleRendererName = `${spec.indicatorId.toLowerCase()}_scale_${spec.paneId}`
-    const paneTitleRendererName = `paneTitle_${spec.paneId}`
+    const scaleRendererName = definition.getScaleRendererName({
+      paneId: spec.paneId,
+      indicatorId: spec.indicatorId,
+    })
+    const paneTitleRendererName = definition.getPaneTitleRendererName({
+      paneId: spec.paneId,
+      indicatorId: spec.indicatorId,
+    })
+    if (!scaleRendererName || !paneTitleRendererName) {
+      throw new KLineChartError(
+        SUBPANE_ERROR_CODES.MISSING_RENDERER_METADATA,
+        `[SubPaneManager] Indicator "${spec.indicatorId}" is missing required sub-pane renderer metadata`,
+      )
+    }
     return {
       ...spec,
       params: { ...spec.params },
       rendererName: renderer.name,
       scaleRendererName,
       paneTitleRendererName,
-      layerId: `plugin:${renderer.name}`,
-      scaleLayerId: `plugin:${scaleRendererName}`,
-      paneTitleLayerId: `plugin:${paneTitleRendererName}`,
+      layerId: makePluginLayerId(renderer.name),
+      scaleLayerId: makePluginLayerId(scaleRendererName),
+      paneTitleLayerId: makePluginLayerId(paneTitleRendererName),
     }
   }
 
@@ -201,7 +208,6 @@ export class SubPaneManager {
 
   private mountScaleRenderer(ctx: SubPaneContext, entry: ProjectedSubPaneEntry): void {
     if (ctx.getRenderer(entry.scaleRendererName)) {
-      ctx.setLayerVisibility(entry.scaleLayerId, true)
       return
     }
     const definition = ctx.getIndicatorScheduler().getIndicatorMetadata(entry.indicatorId)
@@ -239,7 +245,6 @@ export class SubPaneManager {
         params: { ...entry.params },
         indicatorId: entry.indicatorId,
       })
-      ctx.setLayerVisibility(entry.paneTitleLayerId, true)
       return
     }
     const renderer = createPaneTitleRendererPlugin({

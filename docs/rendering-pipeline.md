@@ -66,18 +66,20 @@ Surface / GPU
 
 **业务绘制**（`engine/renderers/*`、`engine/render/layers/*`）：旧 `RendererPlugin.draw` 经 `createLayerFromPlugin` 挂到 Scene。
 
+`ChartStateKernel.activeRenderers$` 输出 renderer/layer 描述符，而不是 plugin 名称数组。描述符由主图、主图指标数据与 legend、副图数据与 scale/title 组成；`Chart` 订阅该投影并只切换这些受管 Scene Layer 的可见性。指标与模式管理器只负责安装、配置和卸载资源，不能直接修改 Layer 可见性。副图 scale/title 名称由 `IndicatorMetadata` 的无副作用 resolver 解析，禁止在 computed 中调用 renderer factory。
+
 ---
 
 ## 3. 单帧主链路
 
 ### 3.1 入口
 
-| API | 行为 |
-|-----|------|
+| API                          | 行为                                                                              |
+| ---------------------------- | --------------------------------------------------------------------------------- |
 | `Chart.scheduleDraw(level?)` | 代理到 `ChartRenderer.scheduleDraw`。runtimeProjection 期间只记 pending，不重复调 |
-| `Chart.draw(level?)` | 同步 flush，测试或强制上屏时用 |
-| `ChartRenderer.scheduleDraw` | 合并 UpdateLevel，frameTx.writeInput + rAF scheduleFlush |
-| `ChartRenderer.draw` | 非 idle 时只写输入并调度下一帧，禁止嵌套 flush |
+| `Chart.draw(level?)`         | 同步 flush，测试或强制上屏时用                                                    |
+| `ChartRenderer.scheduleDraw` | 合并 UpdateLevel，frameTx.writeInput + rAF scheduleFlush                          |
+| `ChartRenderer.draw`         | 非 idle 时只写输入并调度下一帧，禁止嵌套 flush                                    |
 
 `UpdateLevel` 分三档：`Main`（只刷主层）、`Overlay`（只刷覆盖层）、`All`（全刷）。两档合并时自动升为 All。
 
@@ -155,7 +157,9 @@ Overlay 且有 `cachedDrawFrame` 时复用上一帧 viewport、range、几何，
 Viewport 各字段都是逻辑像素：
 
 ```ts
-{ viewWidth, viewHeight, plotWidth, plotHeight, scrollLeft, dpr }
+{
+  ;(viewWidth, viewHeight, plotWidth, plotHeight, scrollLeft, dpr)
+}
 ```
 
 来源是 `viewportState` 的 `cachedViewport` computed（`computeViewport` + DPR 钳制 + scroll 吸附）。
@@ -254,11 +258,11 @@ WebGPU 时 plot 区还会挂一张可见 GPU canvas，放在 main 和 overlay �
 
 ## 6. UpdateLevel 与双层 Canvas
 
-| Level | 几何 | Main canvas | Overlay canvas | Scene roles |
-|-------|------|-------------|----------------|-------------|
-| All | 重算 | 清 + paint 全 layer | 清 + paint | 全部 |
-| Main | 重算 | 清 + paint 全 layer | 不强制 | 全部 |
-| Overlay | 复用 cache | 跳过 | 有十字线或上一帧有时清 + paint | 仅 overlay |
+| Level   | 几何       | Main canvas         | Overlay canvas                 | Scene roles |
+| ------- | ---------- | ------------------- | ------------------------------ | ----------- |
+| All     | 重算       | 清 + paint 全 layer | 清 + paint                     | 全部        |
+| Main    | 重算       | 清 + paint 全 layer | 不强制                         | 全部        |
+| Overlay | 复用 cache | 跳过                | 有十字线或上一帧有时清 + paint | 仅 overlay  |
 
 十字线移动等高频交互应调 `scheduleDraw(UpdateLevel.Overlay)`，避免重刷主层。
 
@@ -313,11 +317,11 @@ viewportState 的 effect（`setupCanvasSync`）负责：
 
 `createDefaultRendererHost(preference)` 或 `createDefaultRendererHostSync()`：
 
-| preference | 尝试顺序 |
-|------------|----------|
-| webgpu | WebGPU → WebGL → Canvas |
-| webgl | WebGL → Canvas |
-| canvas | Canvas |
+| preference | 尝试顺序                |
+| ---------- | ----------------------- |
+| webgpu     | WebGPU → WebGL → Canvas |
+| webgl      | WebGL → Canvas          |
+| canvas     | Canvas                  |
 
 runtime.effective 跟用户 preference 可能不一致，降级时 status 为 degraded。WebGPU device lost 会自动降级 WebGL。支持 `switchTo` 热切换并触发 redraw。
 
@@ -346,14 +350,14 @@ WebGPU 的 Retained Scene 还在规划阶段，当前每帧仍是临时 buffer +
 
 ## 9. 状态与绘制边界
 
-| 数据 | 写入方 | 读取方（绘制） |
-|------|--------|----------------|
-| scroll / dpr / plot 尺寸 | viewport actions + ResizeObserver | prepareFrameData |
-| kWidth / zoomLevel | zoom / options actions | prepare + RenderContext |
-| K 线数据 | dataManager / data actions | getRenderData() |
-| 主题 | settings + systemTheme → effective theme$ | RenderContext.theme |
-| 绘图对象 | drawing actions | drawing layers |
-| 指标计算结果 | indicator scheduler → StateStore | 指标 plugin.draw |
+| 数据                     | 写入方                                    | 读取方（绘制）          |
+| ------------------------ | ----------------------------------------- | ----------------------- |
+| scroll / dpr / plot 尺寸 | viewport actions + ResizeObserver         | prepareFrameData        |
+| kWidth / zoomLevel       | zoom / options actions                    | prepare + RenderContext |
+| K 线数据                 | dataManager / data actions                | getRenderData()         |
+| 主题                     | settings + systemTheme → effective theme$ | RenderContext.theme     |
+| 绘图对象                 | drawing actions                           | drawing layers          |
+| 指标计算结果             | indicator scheduler → StateStore          | 指标 plugin.draw        |
 
 绘制路径只 peek 或读 RenderContext，状态变更走 actions，再 scheduleDraw。
 
@@ -364,21 +368,25 @@ WebGPU 的 Retained Scene 还在规划阶段，当前每帧仍是临时 buffer +
 按主题归类，路径都是 `packages/core/src/...`：
 
 **编排入口**
+
 - `engine/chart.ts` — Chart 主类
 - `engine/render/chartRenderer.ts` — 帧事务、prepare、paint
 
 **状态与视口**
+
 - `engine/state/viewportState.ts` — viewport SSOT、DPR 计算、DOM effect
 - `engine/viewport/viewport.ts` — getVisibleRange、getVisiblePriceRange
 - `engine/viewport/chartViewportManager.ts` — ResizeObserver、scroll 监听
 - `engine/utils/klineConfig.ts` — getPhysicalKLineConfig
 
 **Scene / Layer**
+
 - `rendering/scene/createScene.ts` — Scene 实现
 - `rendering/scene/createLayerFromPlugin.ts` — Plugin→Layer 桥接
 - `rendering/scene/types.ts` — LayerRole、PaneRole、PaintContext
 
 **Renderer 后端**
+
 - `rendering/render/Renderer.ts` — Renderer 接口
 - `rendering/render/rendererHost.ts` — RendererHost、降级、热切换
 - `rendering/render/createDefaultRendererHost.ts` — 默认 Host 构造
@@ -386,6 +394,7 @@ WebGPU 的 Retained Scene 还在规划阶段，当前每帧仍是临时 buffer +
 - `rendering/render/createWebGPURenderer.ts` — WebGPU 实现
 
 **插件与 pane**
+
 - `foundation/plugin/rendererPluginManager.ts` — 注册表、配置、启停
 - `engine/layout/pane.ts` — Pane、UpdateLevel
 - `engine/render/layers/*` — 内置 layer 工厂

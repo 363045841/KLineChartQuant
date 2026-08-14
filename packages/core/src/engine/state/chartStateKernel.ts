@@ -9,7 +9,7 @@ import {
 import { createPaneState, type PaneStateModule } from './paneState'
 import { createSystemThemeState, type SystemThemeStateModule } from './themeState'
 import { createSettingsState, type SettingsStateModule } from './settingsState'
-import { createModeState, type ModeStateModule } from './modeState'
+import { createModeState, type ChartDataView, type ModeStateModule } from './modeState'
 import { createDrawingState, type DrawingStateModule } from './drawingState'
 import {
   createInteractionState,
@@ -24,6 +24,7 @@ import { createSubPaneState, type SubPaneStateModule } from './subPaneState'
 import { createMarkerState, type MarkerStateModule } from './markerState'
 import { createRendererState, type RendererStateModule } from './rendererState'
 import { batch, computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
+import { makePluginLayerId } from '../../foundation/plugin/rendererLayerId'
 import type { DrawingObject } from '../../foundation/plugin/index'
 import type { PaneSpec } from '../chartTypes'
 import type { DrawingToolId } from '../drawing/toolConfig'
@@ -32,10 +33,85 @@ import type { MarkerEntity, CustomMarkerEntity } from '../marker/registry'
 import type { DragMode } from './interactionState'
 import type { ChartSettings } from '../../foundation/config/chartSettings'
 import type { RendererBackendRuntime } from '../../rendering/render/rendererHost'
+import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
+import type { IndicatorMetadata } from '../indicators/indicatorMetadata'
+import type { MainIndicatorEntry } from './indicatorState'
+import type { SubPaneSpec } from './subPaneState'
 import type { MarketSessionRegistry } from '../market/marketSessionRegistry'
 import { resolveSymbolMarketSession } from '../market/resolveSymbolMarketSession'
 import { resolveMarketSessionSlots } from '../../foundation/utils/sessionTimeLabels'
 
+/** Chart 投影到 Scene 的受管 renderer layer 描述。 */
+export interface ActiveRendererDescriptor {
+  readonly name: string
+  readonly layerId: string
+}
+
+/** 判断指标是否可在当前数据视图参与渲染；旧指标默认仅支持 K 线。 */
+function supportsIndicatorDataView(
+  definition: IndicatorMetadata,
+  dataView: ChartDataView,
+): boolean {
+  return definition.dataViews?.includes(dataView) ?? dataView === 'kline'
+}
+
+/** 在支持当前数据视图时解析指标的 renderer plugin 名称。 */
+function tryResolveIndicatorMetadata(
+  definition: IndicatorMetadata | undefined,
+  dataView: ChartDataView,
+  paneId: string,
+  indicatorId: string,
+): IndicatorMetadata | null {
+  if (!definition || !supportsIndicatorDataView(definition, dataView)) return null
+  return definition
+}
+
+/** 从已启用指标状态解析当前数据视图实际需要的 renderer layer。 */
+function resolveIndicatorRenderers(
+  dataView: ChartDataView,
+  mainIndicators: ReadonlyMap<string, MainIndicatorEntry>,
+  subPanes: ReadonlyArray<SubPaneSpec>,
+): ReadonlyArray<ActiveRendererDescriptor> {
+  const renderers: ActiveRendererDescriptor[] = []
+  const seen = new Set<string>()
+  let hasMainIndicatorRenderer = false
+  const add = (name: string | null): void => {
+    if (!name || seen.has(name)) return
+    seen.add(name)
+    renderers.push({ name, layerId: makePluginLayerId(name) })
+  }
+
+  // 主图指标数据 Layer 共用一个 legend Layer。
+  for (const id of mainIndicators.keys()) {
+    const definition = tryResolveIndicatorMetadata(
+      getRegisteredIndicatorDefinition(id),
+      dataView,
+      'main',
+      id,
+    )
+    if (!definition) continue
+    const rendererName = definition.getRendererName({ paneId: 'main', indicatorId: id })
+    add(rendererName)
+    hasMainIndicatorRenderer ||= Boolean(rendererName)
+  }
+  if (hasMainIndicatorRenderer) add('mainIndicatorLegend')
+
+  // 副图由数据、坐标轴和标题三个独立 Layer 组成。
+  for (const pane of subPanes) {
+    const definition = tryResolveIndicatorMetadata(
+      getRegisteredIndicatorDefinition(pane.indicatorId),
+      dataView,
+      pane.paneId,
+      pane.indicatorId,
+    )
+    if (!definition) continue
+    const options = { paneId: pane.paneId, indicatorId: pane.indicatorId }
+    add(definition.getRendererName(options))
+    add(definition.getScaleRendererName(options))
+    add(definition.getPaneTitleRendererName(options))
+  }
+  return renderers
+}
 export interface ChartStateKernelDeps {
   initialOptions: {
     minKWidth: number
@@ -84,6 +160,8 @@ export class ChartStateKernel extends StateKernel {
   readonly dataLength$: ReadonlySignal<number>
   /** 生效主题 light|dark（settings.theme + systemTheme 推导） */
   readonly effectiveTheme$: ReadonlySignal<'light' | 'dark'>
+  /** 当前图表状态要求启用的受管 renderer layer。 */
+  readonly activeRenderers$: ReadonlySignal<ReadonlyArray<ActiveRendererDescriptor>>
   readonly optionsForViewport$: ReadonlySignal<{
     bottomAxisHeight: number
     kWidth: number
@@ -179,6 +257,24 @@ export class ChartStateKernel extends StateKernel {
 
     // ── Data view state（数据视图、主序列渲染偏好与交互能力派生）──
     this.mode = createModeState()
+    // 主图和指标统一从 kernel 状态投影；此处只输出意图，不执行 Layer 副作用。
+    this.activeRenderers$ = computed(() => {
+      const dataView = this.mode.readonly.dataView()
+      const primary = dataView === 'timeshare' ? 'timeShare' : 'candle'
+      const renderers = [
+        { name: primary, layerId: makePluginLayerId(primary) },
+        ...resolveIndicatorRenderers(
+          dataView,
+          this.indicator.readonly.mainIndicators(),
+          this.subPane.readonly.entries(),
+        ),
+      ]
+      return Object.freeze([
+        ...new Map(
+          renderers.map((descriptor) => [descriptor.layerId, Object.freeze(descriptor)]),
+        ).values(),
+      ])
+    })
 
     // ── Drawing state ──
     this.drawing = createDrawingState()
@@ -228,6 +324,7 @@ export class ChartStateKernel extends StateKernel {
       primaryRendererByView: this.mode.readonly.primaryRendererByView,
       effectivePrimaryRenderer: this.mode.readonly.effectivePrimaryRenderer,
       interactionCapabilities: this.mode.readonly.interactionCapabilities,
+      activeRenderers: this.activeRenderers$,
       // Pane scale types
       paneScaleTypes: this.pane.readonly.paneScaleTypes,
       // Drawing
@@ -289,7 +386,8 @@ export class ChartStateKernel extends StateKernel {
         price: number | null,
         index?: number | null,
       ) => this.interaction.actions.updateCrosshair(pos, price, index),
-      setCrosshairIndex: (index: number | null) => this.interaction.actions.setCrosshairIndex(index),
+      setCrosshairIndex: (index: number | null) =>
+        this.interaction.actions.setCrosshairIndex(index),
       updateHover: (index: number | null, paneId: string | null) =>
         this.interaction.actions.updateHover(index, paneId),
       setHoveredIndex: (index: number | null) => this.interaction.actions.setHoveredIndex(index),

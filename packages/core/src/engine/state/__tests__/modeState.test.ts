@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import { loadBuiltinIndicators } from '../../indicators/registerBuiltins'
+import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry'
+import { ChartStateKernel } from '../chartStateKernel'
 import { createModeState } from '../modeState'
 
 describe('modeState', () => {
@@ -50,5 +53,76 @@ describe('modeState', () => {
 
     m.actions.setDataView('timeshare')
     expect(m.readonly.effectivePrimaryRenderer.peek()).toBe('line')
+  })
+
+  it('publishes the data-view primary plugin through the kernel active renderer set', () => {
+    const kernel = new ChartStateKernel({
+      initialOptions: {
+        minKWidth: 1,
+        maxKWidth: 50,
+        zoomLevelCount: 20,
+        bottomAxisHeight: 24,
+        rightAxisWidth: 0,
+        leftAxisWidth: 0,
+        yPaddingPx: 20,
+        panes: [{ id: 'main', ratio: 1, visible: true, role: 'price' }],
+      },
+      initialZoomLevel: 3,
+      scheduleDraw: () => undefined,
+    })
+
+    expect(kernel.activeRenderers$.peek()).toEqual([{ name: 'candle', layerId: 'plugin:candle' }])
+    expect(Object.isFrozen(kernel.activeRenderers$.peek())).toBe(true)
+
+    kernel.mode.actions.setDataView('timeshare')
+
+    expect(kernel.activeRenderers$.peek()).toEqual([
+      { name: 'timeShare', layerId: 'plugin:timeShare' },
+    ])
+  })
+
+  it('includes only indicators supported by the active data view', async () => {
+    await loadBuiltinIndicators()
+    expect(
+      getRegisteredIndicatorDefinition('RSI')?.getRendererName({
+        paneId: 'sub_RSI',
+        indicatorId: 'RSI',
+      }),
+    ).toBe('rsi_sub_RSI')
+    const kernel = new ChartStateKernel({
+      initialOptions: {
+        minKWidth: 1,
+        maxKWidth: 50,
+        zoomLevelCount: 20,
+        bottomAxisHeight: 24,
+        rightAxisWidth: 0,
+        leftAxisWidth: 0,
+        yPaddingPx: 20,
+        panes: [{ id: 'main', ratio: 1, visible: true, role: 'price' }],
+      },
+      initialZoomLevel: 3,
+      scheduleDraw: () => undefined,
+    })
+    kernel.indicator.actions.upsert('MA', {})
+    kernel.indicator.actions.upsert('BOLL', {})
+    kernel.subPane.actions.upsert({ paneId: 'sub_RSI', indicatorId: 'RSI', params: {} })
+
+    expect(kernel.activeRenderers$.peek()).toEqual([
+      { name: 'candle', layerId: 'plugin:candle' },
+      { name: 'ma', layerId: 'plugin:ma' },
+      { name: 'boll', layerId: 'plugin:boll' },
+      { name: 'mainIndicatorLegend', layerId: 'plugin:mainIndicatorLegend' },
+      { name: 'rsi_sub_RSI', layerId: 'plugin:rsi_sub_RSI' },
+      { name: 'rsiScale_sub_RSI', layerId: 'plugin:rsiScale_sub_RSI' },
+      { name: 'paneTitle_sub_RSI', layerId: 'plugin:paneTitle_sub_RSI' },
+    ])
+
+    kernel.indicator.actions.upsert('timeShare', {})
+    kernel.mode.actions.setDataView('timeshare')
+
+    expect(kernel.activeRenderers$.peek()).toEqual([
+      { name: 'timeShare', layerId: 'plugin:timeShare' },
+      { name: 'mainIndicatorLegend', layerId: 'plugin:mainIndicatorLegend' },
+    ])
   })
 })

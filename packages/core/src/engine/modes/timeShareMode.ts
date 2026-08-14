@@ -84,14 +84,12 @@ export class TimeShareMode implements ChartModeHandler {
         params?: Record<string, number | boolean | string>,
       ) => boolean
       disableMainIndicator: (id: string) => boolean
-      setRendererEnabled: (name: string, enabled: boolean) => void
       dataManager: ChartDataManager
       currentPeriod: string
     },
     _prev: ChartModeHandler | null,
   ): void {
     chart.enableMainIndicator('timeShare')
-    chart.setRendererEnabled('candle', false)
   }
 
   onDeactivate(
@@ -101,12 +99,10 @@ export class TimeShareMode implements ChartModeHandler {
         params?: Record<string, number | boolean | string>,
       ) => boolean
       disableMainIndicator: (id: string) => boolean
-      setRendererEnabled: (name: string, enabled: boolean) => void
       dataManager: ChartDataManager
     },
     _next: ChartModeHandler | null,
   ): void {
     chart.disableMainIndicator('timeShare')
-    chart.setRendererEnabled('candle', true)
   }
 }

@@ -23,10 +23,12 @@ import {
   type RendererPlugin,
   type RendererPluginWithHost,
 } from '../foundation/plugin/index'
+import { makePluginLayerId } from '../foundation/plugin/rendererLayerId'
 import { createLayerFromPlugin } from '../rendering/scene/createLayerFromPlugin'
 import {
   computed,
   createSignal,
+  effect,
   type Computed,
   type ReadonlySignal,
   type Signal,
@@ -140,6 +142,8 @@ export class Chart {
   private runtimeProjectionDepth = 0
   /** 被推迟的绘制级别，退出嵌套后统一 flush */
   private pendingProjectionLevel: UpdateLevel | null = null
+  /** activeRenderers 到 Scene 可见性的唯一投影。 */
+  private disposeActiveRendererProjection: (() => void) | null = null
   /** 主图图例模板上下文（每帧由 mainIndicatorLegend 发布） */
   private readonly _legendTemplateContext: WritableSignal<LegendTemplateContext | null> =
     createSignal<LegendTemplateContext | null>(null)
@@ -374,7 +378,7 @@ export class Chart {
       useRenderer: (plugin, config) => this.useRenderer(plugin, config),
       removeRenderer: (name) => this.removeRenderer(name),
       updateRendererConfig: (name, config) => this.updateRendererConfig(name, config),
-      setRendererEnabled: (name, enabled) => this.setRendererEnabled(name, enabled),
+      getLayer: (id) => this.renderer?.getScene()?.getLayer(id) ?? null,
       paneRatios$: this.kernel.pane.readonly.paneRatios as ReadonlySignal<
         Readonly<Record<string, number>>
       >,
@@ -389,11 +393,6 @@ export class Chart {
       getActivePaneId: () => this.interaction.activePaneId,
       scheduleDraw: (level) => this.scheduleDraw(level),
       getRenderContext: (paneId) => this.renderer?.getPaneCtxMap()?.get(paneId) ?? null,
-      addLayer: (layer) => this.renderer?.getScene()?.addLayer(layer),
-      removeLayer: (id) => this.renderer?.getScene()?.removeLayer(id) ?? false,
-      getLayer: (id) => this.renderer?.getScene()?.getLayer(id) ?? null,
-      setLayerVisibility: (id, visible) =>
-        this.renderer?.getScene()?.setLayerVisibility(id, visible),
       indicator: this.kernel.indicator,
       subPaneOps: {
         entries: this.kernel.subPane.readonly.entries,
@@ -458,6 +457,7 @@ export class Chart {
     this.renderer.initCoreRenderers()
     this.viewportManager.init()
     this.ensurePaneScaleTypesFromSettings()
+    this.installActiveRendererProjection()
   }
 
   getViewport(): Viewport | null {
@@ -481,7 +481,6 @@ export class Chart {
       {
         enableMainIndicator: (id, p) => this.enableMainIndicator(id, p),
         disableMainIndicator: (id) => this.disableMainIndicator(id),
-        setRendererEnabled: (n, e) => this.setRendererEnabled(n, e),
         dataManager: this.dataManager,
       },
       mode,
@@ -513,7 +512,6 @@ export class Chart {
       {
         enableMainIndicator: (id, p) => this.enableMainIndicator(id, p),
         disableMainIndicator: (id) => this.disableMainIndicator(id),
-        setRendererEnabled: (n, e) => this.setRendererEnabled(n, e),
         dataManager: this.dataManager,
         currentPeriod: this.dataManager.currentPeriod,
       },
@@ -560,7 +558,7 @@ export class Chart {
     plugin: RendererPlugin | RendererPluginWithHost,
     config?: Record<string, unknown>,
   ): void {
-    const layerId = `plugin:${plugin.name}`
+    const layerId = makePluginLayerId(plugin.name)
     const scene = this.renderer?.getScene()
     const existingPlugin = this.rendererPluginManager.getPlugin(plugin.name)
     const alreadyLayer = scene?.getLayer(layerId) != null
@@ -608,7 +606,7 @@ export class Chart {
    */
   removeRenderer(name: string): void {
     this.rendererPluginManager.unregister(name)
-    this.renderer?.getScene()?.removeLayer(`plugin:${name}`)
+    this.renderer?.getScene()?.removeLayer(makePluginLayerId(name))
   }
 
   /** 获取渲染器插件 */
@@ -628,7 +626,7 @@ export class Chart {
       // setEnabled → invalidate → scheduleDraw（勿再 schedule 双唤醒）
       this.rendererPluginManager.setEnabled(name, enabled)
     }
-    this.renderer?.getScene()?.setLayerVisibility(`plugin:${name}`, enabled)
+    this.renderer?.getScene()?.setLayerVisibility(makePluginLayerId(name), enabled)
     // core-only Layer（如 candle）不在 Manager：需显式重绘
     if (!inManager) {
       this.scheduleDraw()
@@ -1235,6 +1233,30 @@ export class Chart {
     }
   }
 
+  /** 当活跃渲染器列表变化时，仅对发生变化的图层执行显示或隐藏操作，而不是每帧重建所有图层状态 */
+  private installActiveRendererProjection(): void {
+    let previousLayerIds = new Set<string>()
+    this.disposeActiveRendererProjection = effect(() => {
+      // 应显示的活跃图层
+      const desiredLayerIds = new Set(
+        this.kernel.activeRenderers$().map((descriptor) => descriptor.layerId),
+      )
+      const scene = this.renderer?.getScene()
+      let changed = false
+
+      for (const layerId of new Set([...previousLayerIds, ...desiredLayerIds])) {
+        const visible = desiredLayerIds.has(layerId)
+        const layer = scene?.getLayer(layerId)
+        if (layer && layer.visible !== visible) {
+          scene!.setLayerVisibility(layerId, visible)
+          changed = true
+        }
+      }
+      previousLayerIds = desiredLayerIds
+      if (changed) this.scheduleDraw()
+    })
+  }
+
   /**
    * M2：将 WebGPU canvas 挂到 plot 区（main 与 overlay 之间），非 webgpu 时移除。
    * 多 pane 共用一张 canvas，region.y + scissor 区分。
@@ -1270,6 +1292,8 @@ export class Chart {
 
   /** 销毁图表实例 */
   async destroy() {
+    this.disposeActiveRendererProjection?.()
+    this.disposeActiveRendererProjection = null
     this.indicatorManager.destroy()
     // onUninstall 由 Manager 单点负责；须在 scene.dispose 之前 clear
     this.rendererPluginManager.clear()

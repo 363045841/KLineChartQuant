@@ -2,6 +2,7 @@ import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import type { RendererPlugin, RenderContext } from '../../foundation/plugin/index'
 
 import type { Layer, LayerRole, PaintContext, PaneRole } from './types'
+import { makePluginLayerId } from '../../foundation/plugin/rendererLayerId'
 
 export function createLayerFromPlugin(
   plugin: RendererPlugin,
@@ -13,7 +14,7 @@ export function createLayerFromPlugin(
   let visible = plugin.enabled !== false
 
   return {
-    id: `plugin:${plugin.name}`,
+    id: makePluginLayerId(plugin.name),
     role: pluginPriorityToRole(plugin.priority, plugin),
     paneRole,
     z: plugin.priority,

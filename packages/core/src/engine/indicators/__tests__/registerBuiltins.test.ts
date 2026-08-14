@@ -243,6 +243,15 @@ describe('builtin indicator registration', () => {
     expect(bollRenderer?.name).toBe('boll')
   })
 
+  it('resolves renderer names without creating renderer instances', () => {
+    for (const definition of getBuiltinIndicatorDefinitions()) {
+      const paneId = definition.category === 'main' ? 'main' : `sub_${definition.name}`
+      const options = { paneId, indicatorId: definition.name }
+
+      expect(definition.getRendererName(options)).toBe(definition.rendererFactory(options).name)
+    }
+  })
+
   it('registers main pane renderer metadata for stage 6A-2 indicators', () => {
     const expected: Record<string, string> = {
       WMA: 'wma_main',

@@ -140,6 +140,7 @@ Agent 细节见该仓库 `AGENTS.md`。
 - **Generated files**: `components.d.ts` (by `unplugin-vue-components` + `unplugin-icons`) — regenerated on dev server start.
 - **`vue-tsc` for type-checking**: not `tsc`. Runs against `tsconfig.app.json`.
 - **Vue SFC composable extraction**: always extract logic into composables (`useXxx`); avoid coupling logic inside `<script setup>` blocks.
+- **Error codes**: `KLineChartError` 的错误码必须从 `packages/core/src/errors.ts` 中的具名常量引用，禁止在业务代码里散落字符串字面量。新增错误码时在 `errors.ts` 追加常量并保持 append-only。
 
 ## Architecture
 

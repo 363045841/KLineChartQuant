@@ -8,10 +8,7 @@ import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import { resolveThemeColors } from '../../foundation/tokens/index'
 import type { TimeShareData } from '../../foundation/types/price'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry'
-import {
-  computeTimeSharePaneLayout,
-  resolveTimeShareBaseline,
-} from '../modes/timeShareMath'
+import { computeTimeSharePaneLayout, resolveTimeShareBaseline } from '../modes/timeShareMath'
 
 /** 成交量区域占 pane 高度的比例（底部） */
 const VOLUME_RATIO = 0.25
@@ -46,7 +43,8 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
 
       const paneHeight = pane.height
       const hasVolume = tsData.some(
-        (item) => typeof item.volume === 'number' && Number.isFinite(item.volume) && item.volume > 0,
+        (item) =>
+          typeof item.volume === 'number' && Number.isFinite(item.volume) && item.volume > 0,
       )
       const layout = computeTimeSharePaneLayout(paneHeight, hasVolume ? VOLUME_RATIO : 0)
       const { volumeAreaHeight, priceAreaHeight } = layout
@@ -318,6 +316,7 @@ function drawVolumeBars(
   category: 'main',
   indicatorType: 'other',
   defaultPaneId: 'main',
+  dataViews: ['timeshare'],
   mainPane: { rendererName: 'timeShare' },
 })
 export class TimeShareIndicatorDefinition {

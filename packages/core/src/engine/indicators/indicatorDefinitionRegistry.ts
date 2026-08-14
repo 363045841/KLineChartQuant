@@ -12,8 +12,11 @@ import type {
   IndicatorConfigUpdater,
   IndicatorRuntimeDescriptor,
   GetTitleInfoFn,
+  IndicatorRendererNameResolver,
+  IndicatorAuxiliaryRendererNameResolver,
 } from './indicatorMetadata'
 import { resolveStateKey } from './indicatorMetadata'
+import type { ChartDataView } from '../state/modeState'
 
 export type IndicatorDefinitionConfig<T = unknown> = {
   name: string
@@ -24,6 +27,8 @@ export type IndicatorDefinitionConfig<T = unknown> = {
   indicatorTypeLabel?: string
   stateKey?: StateKey
   defaultPaneId: string
+  /** 指标可参与渲染的数据视图；未声明时仅支持 K 线。 */
+  dataViews?: readonly ChartDataView[]
   paneIdField?: string
   allowMainPane?: boolean
   scaleRendererFactory?: ScaleRendererFactory
@@ -31,6 +36,12 @@ export type IndicatorDefinitionConfig<T = unknown> = {
   updateConfig?: IndicatorConfigUpdater
   applyResult?: (host: PluginHost, state: unknown, paneId: string) => void
   mainPane?: IndicatorMetadata['mainPane']
+  /** 覆盖默认的 renderer plugin 命名规则。 */
+  getRendererName?: IndicatorRendererNameResolver
+  /** 覆盖默认的副图坐标轴 plugin 命名规则。 */
+  getScaleRendererName?: IndicatorAuxiliaryRendererNameResolver
+  /** 覆盖默认的副图标题 plugin 命名规则。 */
+  getPaneTitleRendererName?: IndicatorAuxiliaryRendererNameResolver
   visibleState?: IndicatorMetadata['visibleState']
   runtime?: IndicatorRuntimeDescriptor
   semantic?: IndicatorMetadata<T>['semantic']
@@ -91,6 +102,17 @@ export function Indicator(config: IndicatorDefinitionConfig) {
       }
 
       const normalizedName = normalizeIndicatorId(config.name)
+      const getRendererName: IndicatorRendererNameResolver =
+        config.getRendererName ??
+        (({ paneId }) => config.mainPane?.rendererName ?? `${config.name}_${paneId}`)
+      const getScaleRendererName: IndicatorAuxiliaryRendererNameResolver =
+        config.getScaleRendererName ??
+        (({ paneId }) =>
+          config.scaleRendererFactory || config.scale
+            ? `${config.scale?.indicatorKey ?? config.name}Scale_${paneId}`
+            : null)
+      const getPaneTitleRendererName: IndicatorAuxiliaryRendererNameResolver =
+        config.getPaneTitleRendererName ?? (({ paneId }) => `paneTitle_${paneId}`)
       removeAliasesFor(normalizedName)
 
       // 自动生成 stateKey
@@ -127,6 +149,9 @@ export function Indicator(config: IndicatorDefinitionConfig) {
 
       indicatorDefinitions.set(normalizedName, {
         ...config,
+        getRendererName,
+        getScaleRendererName,
+        getPaneTitleRendererName,
         stateKey,
         runtime,
         updateConfig,

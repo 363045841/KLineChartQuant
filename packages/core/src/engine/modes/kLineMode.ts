@@ -42,7 +42,6 @@ export class KLineMode implements ChartModeHandler {
         params?: Record<string, number | boolean | string>,
       ) => boolean
       disableMainIndicator: (id: string) => boolean
-      setRendererEnabled: (name: string, enabled: boolean) => void
       dataManager: ChartDataManager
       currentPeriod: string
     },
@@ -56,7 +55,6 @@ export class KLineMode implements ChartModeHandler {
         params?: Record<string, number | boolean | string>,
       ) => boolean
       disableMainIndicator: (id: string) => boolean
-      setRendererEnabled: (name: string, enabled: boolean) => void
       dataManager: ChartDataManager
     },
     _next: ChartModeHandler | null,
