@@ -4,6 +4,7 @@ import { resolveThemeColors } from '../../foundation/tokens/index'
 import { drawCrosshairPriceLabel, drawAxisPriceLabel } from '../../foundation/utils/kLineDraw/axis'
 import { roundToPhysicalPixel } from '../../foundation/utils/pixelAlign'
 import { getFont, setCanvasFont } from '../../foundation/tokens/fonts'
+import { resolveEffectiveAxisDisplay } from '../../foundation/config/axisSettings'
 
 type YAxisOptions = {
   axisWidth: number
@@ -11,10 +12,14 @@ type YAxisOptions = {
   getCrosshair?: () => { y: number; price: number; activePaneId: string | null } | null
 }
 
-function shouldShowRightAxis(period: string, settings: RenderContext['settings']): boolean {
-  if (period === 'timeshare') return true
-  const rightType = settings?.rightAxisType as string | undefined
-  return rightType !== 'none'
+/** 右轴当前展示语义：分时强制价格，比较视图默认百分比 */
+function resolveRightAxisDisplay(context: RenderContext) {
+  return resolveEffectiveAxisDisplay('right', {
+    period: context.period,
+    comparisonActive: (context.comparisonSymbols?.length ?? 0) > 0,
+    leftSetting: context.settings?.mainLeftAxisDisplaySetting,
+    rightTypeSetting: context.settings?.mainRightAxisTypeSetting,
+  })
 }
 
 /**
@@ -30,18 +35,18 @@ export function createYAxisStaticRendererPlugin(options: YAxisOptions): Renderer
     priority: RENDERER_PRIORITY.SYSTEM_YAXIS,
 
     draw(context: RenderContext) {
-      const { ctx, pane, dpr, yAxisCtx, period } = context
-      if (!shouldShowRightAxis(period, context.settings)) return
+      const { ctx, pane, dpr, yAxisCtx } = context
+      const axisDisplay = resolveRightAxisDisplay(context)
+      if (axisDisplay === 'none') return
 
       const tokenColors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
-      const scaleType = pane.yAxis.getScaleType()
       const targetCtx = yAxisCtx || ctx
       const axisWidth = yAxisCtx?.canvas ? yAxisCtx.canvas.width / dpr : options.axisWidth
-      const isPercent = scaleType === 'percent' && pane.role === 'price'
+      const isPercent = axisDisplay === 'percent' && pane.role === 'price'
 
       if (pane.capabilities.showPriceAxisTicks && context.yAxisTicks) {
         targetCtx.clearRect(0, 0, axisWidth, pane.height)
@@ -98,8 +103,9 @@ export function createYAxisOverlayRendererPlugin(options: YAxisOptions): Rendere
     layer: 'overlay',
 
     draw(context: RenderContext) {
-      const { pane, dpr, yAxisOverlayCtx, yAxisCtx, period } = context
-      if (!shouldShowRightAxis(period, context.settings)) return
+      const { pane, dpr, yAxisOverlayCtx, yAxisCtx } = context
+      const axisDisplay = resolveRightAxisDisplay(context)
+      if (axisDisplay === 'none') return
 
       const targetCtx = yAxisOverlayCtx ?? yAxisCtx
       if (!targetCtx) return
@@ -114,9 +120,8 @@ export function createYAxisOverlayRendererPlugin(options: YAxisOptions): Rendere
       const axisWidth = targetCtx.canvas ? targetCtx.canvas.width / dpr : options.axisWidth
       targetCtx.clearRect(0, 0, axisWidth, pane.height)
 
-      const scaleType = pane.yAxis.getScaleType()
       const displayRange = pane.yAxis.getDisplayRange(pane.priceRange)
-      const isPercent = scaleType === 'percent' && pane.role === 'price'
+      const isPercent = axisDisplay === 'percent' && pane.role === 'price'
 
       // 绘制来自 yAxisLabels 的标签（最新价格、极值点、绘图锚点等）
       if (context.yAxisLabels && pane.role === 'price') {

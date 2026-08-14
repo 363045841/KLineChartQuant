@@ -8,7 +8,9 @@ describe('settingsState', () => {
     const s = createSettingsState()
     const resolved = resolveSettings({})
     expect(s.readonly.settings.peek().showGridLines).toBe(resolved.showGridLines)
-    expect(s.readonly.settings.peek().rightAxisType).toBe(resolved.rightAxisType)
+    expect(s.readonly.settings.peek().mainRightAxisTypeSetting).toBe(
+      resolved.mainRightAxisTypeSetting,
+    )
   })
 
   it('replace merges partial via resolveSettings', () => {
@@ -21,9 +23,9 @@ describe('settingsState', () => {
   it('patch merges onto current then re-resolves', () => {
     const s = createSettingsState()
     s.actions.replace({ showGridLines: false })
-    s.actions.patch({ rightAxisType: 'log' })
+    s.actions.patch({ mainRightAxisTypeSetting: 'log' })
     expect(s.readonly.settings.peek().showGridLines).toBe(false)
-    expect(s.readonly.settings.peek().rightAxisType).toBe('log')
+    expect(s.readonly.settings.peek().mainRightAxisTypeSetting).toBe('log')
   })
 
   it('equal-skip does not notify on identical replace', () => {
@@ -42,6 +44,13 @@ describe('settingsState', () => {
     expect(() => {
       ;(snap as { showGridLines?: boolean }).showGridLines = false
     }).toThrow()
+  })
+
+  it('migrates a legacy rightAxisType patch onto the new setting key', () => {
+    const s = createSettingsState()
+    s.actions.patch({ rightAxisType: 'log' } as ChartSettings)
+    expect(s.readonly.settings.peek().mainRightAxisTypeSetting).toBe('log')
+    expect(s.readonly.settings.peek().rightAxisType).toBeUndefined()
   })
 
   it('preserves extension keys like preClose through resolve/patch', () => {

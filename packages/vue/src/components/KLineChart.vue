@@ -1536,8 +1536,8 @@
     const width = computedLeftAxisWidth.value
     if (width <= 0) return { display: 'none' }
     if (kLineLevel.value === 'timeshare') return { width: `${width}px` }
-    const leftType = chartSettings.value?.leftAxisType
-    if (!leftType || leftType === 'none') return { width: `${width}px`, display: 'none' }
+    const leftDisplay = chartSettings.value?.mainLeftAxisDisplaySetting
+    if (!leftDisplay || leftDisplay === 'none') return { width: `${width}px`, display: 'none' }
     return { width: `${width}px` }
   })
 

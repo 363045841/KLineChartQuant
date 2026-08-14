@@ -1,12 +1,18 @@
 import { batch, createSubState } from '../../foundation/reactivity/signal'
 import {
+  migrateStoredSettings,
   resolveSettings,
   type ChartSettings,
 } from '../../foundation/config/chartSettings'
 import { deepFreezeSnapshot } from './immutable'
 
+function normalizePartial(partial?: Partial<ChartSettings>): Partial<ChartSettings> {
+  if (!partial) return {}
+  return migrateStoredSettings(partial as Record<string, unknown>)
+}
+
 function snapshotSettings(partial?: Partial<ChartSettings>): Readonly<ChartSettings> {
-  return deepFreezeSnapshot(resolveSettings(partial)) as Readonly<ChartSettings>
+  return deepFreezeSnapshot(resolveSettings(normalizePartial(partial))) as Readonly<ChartSettings>
 }
 
 function settingsEqual(a: Readonly<ChartSettings>, b: Readonly<ChartSettings>): boolean {
@@ -40,7 +46,7 @@ export function createSettingsState(initial?: Partial<ChartSettings>) {
         write(snapshotSettings(partial))
       },
       patch(partial: Partial<ChartSettings>) {
-        const merged = { ...signals.settings.peek(), ...partial }
+        const merged = { ...signals.settings.peek(), ...normalizePartial(partial) }
         write(snapshotSettings(merged))
       },
     },

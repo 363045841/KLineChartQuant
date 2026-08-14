@@ -36,7 +36,11 @@ import type { LegendTemplateContext } from './renderers/Indicator/mainIndicatorL
 
 import { InteractionController, type InteractionSnapshot } from './controller/interaction'
 
-import type { ChartSettings } from '../foundation/config/chartSettings'
+import {
+  buildPaneScaleTypesFromSetting,
+  resolvePriceScaleTypeSetting,
+  type ChartSettings,
+} from '../foundation/config/chartSettings'
 import {
   createDefaultRendererHostSync,
   type RendererBackend,
@@ -163,6 +167,9 @@ export class Chart {
     candleEnabled: boolean
   } | null = null
 
+  /** 比较视图进入前的刻度快照，退出比较视图时恢复。 */
+  private _savedComparisonScaleTypes: Map<string, ScaleType> | null = null
+
   /** 上次预警评估的最新 K 线时间戳（用于去重） */
   private _lastAlertTimestamp: number | null = null
 
@@ -234,7 +241,9 @@ export class Chart {
     runtime?: {
       rendererHost?: RendererHost
       initialSettings?: Partial<ChartSettings>
-      marketSessions?: Readonly<Record<string, import('../foundation/utils/sessionTimeLabels').MarketSessionConfig>>
+      marketSessions?: Readonly<
+        Record<string, import('../foundation/utils/sessionTimeLabels').MarketSessionConfig>
+      >
     },
   ) {
     this.dom = dom
@@ -358,8 +367,7 @@ export class Chart {
         viewport: this.kernel.viewport,
         options: this.kernel.options,
         period$: this.kernel.dataManager.readonly.currentPeriod,
-        getClientWidth: () =>
-          this.getViewport()?.viewWidth ?? this.dom.container?.clientWidth ?? 0,
+        getClientWidth: () => this.getViewport()?.viewWidth ?? this.dom.container?.clientWidth ?? 0,
         getDataLength: () => this.dataManager.getData().length,
         getPlotWidth: () => this.getLeftLoadBufferWidth(),
         onChange: () => {
@@ -502,10 +510,11 @@ export class Chart {
         indicatorId: e.indicatorId,
         params: { ...e.params },
       }))
-      // 分时强制 percent 进 kernel，再投影（不再由 updatePaneRange 每帧旁路写）
-      const percentMap = new Map<string, ScaleType>()
+      // 分时只强制价格 Pane 为 percent；副图保留各自的刻度语义。
+      const percentMap = new Map(this.kernel.pane.readonly.paneScaleTypes.peek())
       for (const r of this.paneRenderers) {
-        percentMap.set(r.getPane().id, 'percent')
+        const pane = r.getPane()
+        if (pane.role === 'price') percentMap.set(pane.id, 'percent')
       }
       this.kernel.pane.actions.replacePaneScaleTypes(percentMap)
       this.projectPaneScaleTypes()
@@ -712,42 +721,76 @@ export class Chart {
     }
   }
 
+  /** 按用户坐标偏好生成各 pane 的刻度 Map */
+  private buildScaleTypesFromSetting(setting: ScaleType): Map<string, ScaleType> {
+    return buildPaneScaleTypesFromSetting(
+      this.paneRenderers.map((renderer) => {
+        const pane = renderer.getPane()
+        return { id: pane.id, role: pane.role }
+      }),
+      resolvePriceScaleTypeSetting(setting),
+    )
+  }
+
   /**
-   * 为缺失 paneScaleTypes 的 pane 按 settings.rightAxisType 补齐，再投影。
+   * 为缺失 paneScaleTypes 的 pane 按用户坐标偏好补齐，再投影。
    * commitLayout 只保留已有 id，不静默塞 linear，避免盖掉用户偏好。
    */
   private ensurePaneScaleTypesFromSettings(): void {
-    const axisType = this.kernel.settings.readonly.settings.peek().rightAxisType as
-      | string
-      | undefined
+    const setting = resolvePriceScaleTypeSetting(
+      this.kernel.settings.readonly.settings.peek().mainRightAxisTypeSetting,
+    )
+    const seeded = this.buildScaleTypesFromSetting(setting)
     const next = new Map(this.kernel.pane.readonly.paneScaleTypes.peek())
     let changed = false
     for (const renderer of this.paneRenderers) {
       const pane = renderer.getPane()
       if (next.has(pane.id)) continue
-      const scaleType =
-        !axisType || axisType === 'none'
-          ? 'linear'
-          : axisType === 'percent' && pane.role !== 'price'
-            ? 'linear'
-            : (axisType as ScaleType)
-      next.set(pane.id, scaleType)
+      next.set(pane.id, seeded.get(pane.id) ?? 'linear')
       changed = true
     }
     if (changed) this.kernel.pane.actions.replacePaneScaleTypes(next)
     this.projectPaneScaleTypes()
   }
 
-  /** 按 rightAxisType 写入 paneScaleTypes 并投影 */
-  private applyRightAxisTypeToKernel(axisType: string): void {
-    if (axisType === 'none') return
-    const next = new Map(this.kernel.pane.readonly.paneScaleTypes.peek())
-    for (const renderer of this.paneRenderers) {
-      const pane = renderer.getPane()
-      const scaleType =
-        axisType === 'percent' && pane.role !== 'price' ? 'linear' : (axisType as ScaleType)
-      next.set(pane.id, scaleType)
+  /**
+   * 将用户坐标偏好写入 paneScaleTypes。
+   * 分时/比较覆盖期间只更新退出后要恢复的快照，不改当前生效刻度。
+   */
+  private applyPriceScaleSettingToKernel(setting: ScaleType): void {
+    const next = this.buildScaleTypesFromSetting(setting)
+    if (this.kernel.mode.readonly.chartMode.peek() === 'timeshare') {
+      if (this._savedTimeShareState) this._savedTimeShareState.scaleTypes = next
+      return
     }
+    if (this.dataManager.getComparisonSpecs().length > 0) {
+      this._savedComparisonScaleTypes = next
+      this.applyComparisonScaleType(true)
+      return
+    }
+    this.kernel.pane.actions.replacePaneScaleTypes(next)
+    this.projectPaneScaleTypes()
+  }
+
+  /** 比较视图的主图刻度通过 kernel 管理，避免渲染期旁路写入 PriceScale。 */
+  private applyComparisonScaleType(active: boolean): void {
+    if (!active) {
+      if (!this._savedComparisonScaleTypes) return
+      this.kernel.pane.actions.replacePaneScaleTypes(this._savedComparisonScaleTypes)
+      this._savedComparisonScaleTypes = null
+      this.projectPaneScaleTypes()
+      return
+    }
+
+    if (!this._savedComparisonScaleTypes) {
+      this._savedComparisonScaleTypes = new Map(this.kernel.pane.readonly.paneScaleTypes.peek())
+    }
+    const next = new Map(this.kernel.pane.readonly.paneScaleTypes.peek())
+    const mainPane = this.paneRenderers
+      .find((renderer) => renderer.getPane().role === 'price')
+      ?.getPane()
+    if (!mainPane || next.get(mainPane.id) === 'percent') return
+    next.set(mainPane.id, 'percent')
     this.kernel.pane.actions.replacePaneScaleTypes(next)
     this.projectPaneScaleTypes()
   }
@@ -762,8 +805,13 @@ export class Chart {
     const next = this.kernel.settings.readonly.settings.peek()
     this.interaction.onSettingsChanged(prev, next)
 
-    if ('rightAxisType' in settings) {
-      this.applyRightAxisTypeToKernel(settings.rightAxisType as string)
+    if (
+      prev.mainRightAxisTypeSetting !== next.mainRightAxisTypeSetting &&
+      next.mainRightAxisTypeSetting !== 'none'
+    ) {
+      this.applyPriceScaleSettingToKernel(
+        resolvePriceScaleTypeSetting(next.mainRightAxisTypeSetting),
+      )
     }
 
     if (prev.rendererBackend !== next.rendererBackend) {
@@ -1465,11 +1513,16 @@ export class Chart {
 
   addComparisonSymbol(spec: SymbolSpec): void {
     resolveSymbolMarketSession(spec, this.marketSessions)
+    const hadComparisons = this.dataManager.getComparisonSpecs().length > 0
     this.dataManager.addComparisonSymbol(spec)
+    if (!hadComparisons && this.dataManager.getComparisonSpecs().length > 0) {
+      this.applyComparisonScaleType(true)
+    }
   }
 
   removeComparisonSymbol(symbol: string): void {
     this.dataManager.removeComparisonSymbol(symbol)
+    if (this.dataManager.getComparisonSpecs().length === 0) this.applyComparisonScaleType(false)
   }
 
   setComparisonData(symbol: string, data: KLineData[]): void {
@@ -1737,9 +1790,7 @@ export class Chart {
       this.drawingSession.removeDrawing(drawingId)
       return
     }
-    const next = this.kernel.drawing.readonly.drawings
-      .peek()
-      .filter((d) => d.id !== drawingId)
+    const next = this.kernel.drawing.readonly.drawings.peek().filter((d) => d.id !== drawingId)
     this.setDrawings([...next])
   }
 

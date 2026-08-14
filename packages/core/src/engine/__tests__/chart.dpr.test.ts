@@ -349,8 +349,7 @@ describe('Chart DPR pipeline', () => {
     const commitSpy = vi.spyOn(chart.kernel.pane.actions, 'commitLayout')
     commitSpy.mockClear()
 
-    const layout = (chart as unknown as { layoutManager: { projectState: Function } })
-      .layoutManager
+    const layout = (chart as unknown as { layoutManager: { projectState: Function } }).layoutManager
     layout.projectState(
       [
         { id: 'main', ratio: 0.7, role: 'price', visible: true },
@@ -474,10 +473,10 @@ describe('Chart pane layout regressions', () => {
     await chart.destroy()
   })
 
-  it('updateSettings rightAxisType writes paneScaleTypes then projects', async () => {
+  it('updateSettings mainRightAxisTypeSetting writes paneScaleTypes then projects', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     chart.resize()
-    chart.updateSettings({ rightAxisType: 'log' })
+    chart.updateSettings({ mainRightAxisTypeSetting: 'log' })
     expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('main')).toBe('log')
     const main = chart.getPaneRenderers()[0]?.getPane()
     expect(main?.yAxis.getScaleType()).toBe('log')
@@ -487,21 +486,25 @@ describe('Chart pane layout regressions', () => {
   it('createSubPane seeds scale from settings and projects', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     chart.resize()
-    chart.updateSettings({ rightAxisType: 'log' })
+    chart.updateSettings({ mainRightAxisTypeSetting: 'log' })
     expect(chart.createSubPane('MACD_0', 'MACD')).toBe(true)
     expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('main')).toBe('log')
     expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('MACD_0')).toBe('log')
-    const macd = chart.getPaneRenderers().find((r) => r.getPane().id === 'MACD_0')?.getPane()
+    const macd = chart
+      .getPaneRenderers()
+      .find((r) => r.getPane().id === 'MACD_0')
+      ?.getPane()
     expect(macd?.yAxis.getScaleType()).toBe('log')
     await chart.destroy()
   })
 
-  it('enter timeshare writes percent scaleTypes to kernel', async () => {
+  it('enter timeshare writes the price pane percent scale to kernel', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     chart.resize()
-    chart.updateSettings({ rightAxisType: 'log' })
-    const tsMode = (chart as unknown as { _timeShareMode: import('../modes/types').ChartModeHandler })
-      ._timeShareMode
+    chart.updateSettings({ mainRightAxisTypeSetting: 'log' })
+    const tsMode = (
+      chart as unknown as { _timeShareMode: import('../modes/types').ChartModeHandler }
+    )._timeShareMode
     chart.setActiveMode(tsMode)
     expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('main')).toBe('percent')
     expect(chart.getPaneRenderers()[0]?.getPane().yAxis.getScaleType()).toBe('percent')
@@ -511,8 +514,9 @@ describe('Chart pane layout regressions', () => {
   it('setActiveMode updates kernel chartMode', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     expect(chart.kernel.mode.readonly.chartMode.peek()).toBe('kline')
-    const tsMode = (chart as unknown as { _timeShareMode: import('../modes/types').ChartModeHandler })
-      ._timeShareMode
+    const tsMode = (
+      chart as unknown as { _timeShareMode: import('../modes/types').ChartModeHandler }
+    )._timeShareMode
     const kMode = (chart as unknown as { _kLineMode: import('../modes/types').ChartModeHandler })
       ._kLineMode
     chart.setActiveMode(tsMode)
@@ -533,8 +537,9 @@ describe('Chart pane layout regressions', () => {
       indicatorId: e.indicatorId,
     }))
 
-    const tsMode = (chart as unknown as { _timeShareMode: import('../modes/types').ChartModeHandler })
-      ._timeShareMode
+    const tsMode = (
+      chart as unknown as { _timeShareMode: import('../modes/types').ChartModeHandler }
+    )._timeShareMode
     const kMode = (chart as unknown as { _kLineMode: import('../modes/types').ChartModeHandler })
       ._kLineMode
     chart.setActiveMode(tsMode)
@@ -587,7 +592,7 @@ describe('Chart pane layout regressions', () => {
     chart.setSelectedDrawingId('d1')
 
     const adapter = {
-      setDrawings: (list: typeof d1[]) => chart.setDrawings(list),
+      setDrawings: (list: (typeof d1)[]) => chart.setDrawings(list),
       getFullDrawings: () => [...chart.kernel.drawing.readonly.drawings.peek()],
       setSelectedDrawingId: (id: string | null) => chart.setSelectedDrawingId(id),
       getSelectedDrawingId: () => chart.kernel.drawing.readonly.selectedDrawingId.peek(),
@@ -626,20 +631,20 @@ describe('Chart pane layout regressions', () => {
 
   it('updateSettings writes kernel settings SSOT for renderer reads', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
-    chart.updateSettings({ showGridLines: false, rightAxisType: 'log' })
+    chart.updateSettings({ showGridLines: false, mainRightAxisTypeSetting: 'log' })
     expect(chart.kernel.settings.readonly.settings.peek().showGridLines).toBe(false)
-    expect(chart.kernel.settings.readonly.settings.peek().rightAxisType).toBe('log')
+    expect(chart.kernel.settings.readonly.settings.peek().mainRightAxisTypeSetting).toBe('log')
     expect(chart['renderer'].getSettings().showGridLines).toBe(false)
-    expect(chart['renderer'].getSettings().rightAxisType).toBe('log')
+    expect(chart['renderer'].getSettings().mainRightAxisTypeSetting).toBe('log')
     await chart.destroy()
   })
 
   it('updateSettings partial patch preserves prior keys', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     chart.updateSettings({ showGridLines: false })
-    chart.updateSettings({ rightAxisType: 'log' })
+    chart.updateSettings({ mainRightAxisTypeSetting: 'log' })
     expect(chart.kernel.settings.readonly.settings.peek().showGridLines).toBe(false)
-    expect(chart.kernel.settings.readonly.settings.peek().rightAxisType).toBe('log')
+    expect(chart.kernel.settings.readonly.settings.peek().mainRightAxisTypeSetting).toBe('log')
     await chart.destroy()
   })
 

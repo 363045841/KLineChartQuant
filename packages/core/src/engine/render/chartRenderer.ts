@@ -778,14 +778,6 @@ export class ChartRenderer {
         if (pane.id === 'main' && this.settings.disableMainPaneVerticalScroll) {
           pane.yAxis.resetTransform()
         }
-        // 比较视图：主图右轴切换为百分比轴（退出比较视图时恢复线性）
-        // basePrice 由上面的比较视图分支或 Pane.updateRange 保证已设置
-        if (pane.id === 'main') {
-          const nextScale = comparisonActive ? 'percent' : 'linear'
-          if (pane.yAxis.getScaleType() !== nextScale) {
-            pane.yAxis.setScaleType(nextScale)
-          }
-        }
       }
 
       // 根据 UpdateLevel 决定清哪些 canvas

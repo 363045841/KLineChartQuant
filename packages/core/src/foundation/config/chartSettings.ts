@@ -55,8 +55,8 @@ export const DEFAULT_SETTINGS = [
     group: 'main',
   },
   {
-    key: 'rightAxisType',
-    label: '右轴类型',
+    key: 'mainRightAxisTypeSetting',
+    label: '主图右轴类型',
     type: 'select',
     default: 'linear',
     group: 'main',
@@ -68,14 +68,15 @@ export const DEFAULT_SETTINGS = [
     ],
   },
   {
-    key: 'leftAxisType',
-    label: '左轴类型',
+    key: 'mainLeftAxisDisplaySetting',
+    label: '左轴显示',
     type: 'select',
     default: 'none',
     group: 'main',
     options: [
       { value: 'none', label: '不显示' },
-      { value: 'percent', label: '百分比轴' },
+      { value: 'price', label: '价格' },
+      { value: 'percent', label: '百分比' },
     ],
   },
   {
@@ -164,20 +165,21 @@ const KNOWN_SETTING_KEYS = new Set<string>([
 ])
 
 export function resolveSettings(partial?: Partial<ChartSettings>): ChartSettings {
+  const source = partial ? migrateStoredSettings(partial as Record<string, unknown>) : undefined
   // 用 Partial<_SettingByKey> 而非 ChartSettings 避免交叉类型索引赋值报错
   const result: Partial<_SettingByKey> = {}
   DEFAULT_SETTINGS.forEach((item) => {
     // 未在 partial 中指定的 key 回退到 DEFAULT_SETTINGS 的默认值
     // 用 ?? 而非 ||，确保显式传入 false / '' 不会被默认值覆盖
-    ;(result as Record<string, unknown>)[item.key] = partial?.[item.key] ?? item.default
+    ;(result as Record<string, unknown>)[item.key] = source?.[item.key] ?? item.default
   })
   // colorPresetSettings 不在 DEFAULT_SETTINGS 中，需单独归一化
   ;(result as ChartSettings).colorPresetSettings = normalizeColorPresetSettings(
-    partial?.colorPresetSettings,
+    source?.colorPresetSettings,
   )
   // 保留扩展字段（如 preClose），避免业务元数据被 resolve 清掉
-  if (partial) {
-    for (const [key, value] of Object.entries(partial)) {
+  if (source) {
+    for (const [key, value] of Object.entries(source)) {
       if (KNOWN_SETTING_KEYS.has(key)) continue
       if (value === undefined) continue
       ;(result as Record<string, unknown>)[key] = value
@@ -186,7 +188,7 @@ export function resolveSettings(partial?: Partial<ChartSettings>): ChartSettings
   return result as ChartSettings
 }
 
-/** 将旧版持久设置迁移为 rendererBackend，返回结果不保留旧字段。 */
+/** 将旧版持久设置迁移为 rendererBackend 与轴 Setting 字段，返回结果不保留旧字段。 */
 export function migrateStoredSettings(stored: Record<string, unknown>): Partial<ChartSettings> {
   const { enableWebGLRendering, rendererBackend, ...rest } = stored
   const validBackend =
@@ -198,7 +200,8 @@ export function migrateStoredSettings(stored: Record<string, unknown>): Partial<
           : 'canvas'
         : undefined
 
-  return validBackend ? { ...rest, rendererBackend: validBackend } : rest
+  const afterBackend = validBackend ? { ...rest, rendererBackend: validBackend } : rest
+  return migrateAxisSettings(afterBackend) as Partial<ChartSettings>
 }
 
 /** localStorage 存储键名 */
@@ -210,10 +213,10 @@ export const SETTINGS_STORAGE_KEY = 'kline-chart-settings'
  * @param storage - 可读 Storage；省略时尝试使用全局 localStorage
  */
 export function loadStoredSettings(
-  storage: Pick<Storage, 'getItem'> | null | undefined =
-    typeof globalThis !== 'undefined' && 'localStorage' in globalThis
-      ? globalThis.localStorage
-      : null,
+  storage: Pick<Storage, 'getItem'> | null | undefined = typeof globalThis !== 'undefined' &&
+  'localStorage' in globalThis
+    ? globalThis.localStorage
+    : null,
 ): Partial<ChartSettings> | null {
   if (!storage) return null
   try {
@@ -250,3 +253,19 @@ import {
   type ColorPresetSettings,
   normalizeColorPresetSettings,
 } from '../tokens/colorPresetSettings'
+import { migrateAxisSettings } from './axisSettings'
+
+export {
+  buildPaneScaleTypesFromSetting,
+  migrateAxisSettings,
+  resolveAxisDisplaySetting,
+  resolveEffectiveAxisDisplay,
+  resolvePriceScaleTypeSetting,
+  resolveRightAxisDisplayFromType,
+  resolveRightAxisTypeSetting,
+} from './axisSettings'
+export type {
+  AxisDisplaySetting,
+  PriceScaleTypeSetting,
+  RightAxisTypeSetting,
+} from './axisSettings'

@@ -4,7 +4,7 @@ import { resolveThemeColors } from '../../foundation/tokens/index'
 import { drawCrosshairPriceLabel } from '../../foundation/utils/kLineDraw/axis'
 import { roundToPhysicalPixel } from '../../foundation/utils/pixelAlign'
 import { getFont, setCanvasFont } from '../../foundation/tokens/fonts'
-import { priceAtYForScaleType, type ScaleType } from '../utils/tickPosition'
+import { resolveEffectiveAxisDisplay } from '../../foundation/config/axisSettings'
 
 type LeftYAxisOptions = {
   axisWidth: number
@@ -12,10 +12,14 @@ type LeftYAxisOptions = {
   getCrosshair?: () => { y: number; price: number; activePaneId: string | null } | null
 }
 
-function shouldShowLeftAxis(period: string, settings: RenderContext['settings']): boolean {
-  if (period === 'timeshare') return true
-  const leftType = settings?.leftAxisType as string | undefined
-  return Boolean(leftType && leftType !== 'none')
+/** 左轴当前展示语义：分时强制百分比 */
+function resolveLeftAxisDisplay(context: RenderContext) {
+  return resolveEffectiveAxisDisplay('left', {
+    period: context.period,
+    comparisonActive: (context.comparisonSymbols?.length ?? 0) > 0,
+    leftSetting: context.settings?.mainLeftAxisDisplaySetting,
+    rightTypeSetting: context.settings?.mainRightAxisTypeSetting,
+  })
 }
 
 /**
@@ -31,9 +35,10 @@ export function createLeftYAxisStaticRendererPlugin(options: LeftYAxisOptions): 
     priority: RENDERER_PRIORITY.SYSTEM_YAXIS,
 
     draw(context: RenderContext) {
-      const { leftAxisCtx, pane, dpr, period } = context
+      const { leftAxisCtx, pane, dpr } = context
       if (!leftAxisCtx) return
-      if (!shouldShowLeftAxis(period, context.settings)) return
+      const axisDisplay = resolveLeftAxisDisplay(context)
+      if (axisDisplay === 'none') return
       if (!pane.capabilities.showPriceAxisTicks) return
       if (!context.yAxisTicks) return
 
@@ -46,12 +51,6 @@ export function createLeftYAxisStaticRendererPlugin(options: LeftYAxisOptions): 
         context.colorPresetSettings,
       )
 
-      const scaleType: ScaleType =
-        period === 'timeshare'
-          ? 'linear'
-          : ((context.settings?.leftAxisType as ScaleType) ?? 'linear')
-      const paneScaleType = pane.yAxis.getScaleType()
-
       leftAxisCtx.clearRect(0, 0, axisWidth, pane.height)
 
       const font = getFont(12)
@@ -61,37 +60,17 @@ export function createLeftYAxisStaticRendererPlugin(options: LeftYAxisOptions): 
       leftAxisCtx.fillStyle = tokenColors.text.secondary
 
       const textX = roundToPhysicalPixel(axisWidth / 2, dpr)
-      const needsOwnValues = scaleType !== paneScaleType
-      const crosshairPriceRange = pane.yAxis.getDisplayRange()
+      const isPercent = axisDisplay === 'percent' && pane.role === 'price'
 
-      const formatTick =
-        scaleType === 'percent'
-          ? (v: number) => {
-              const sign = v >= 0 ? '+' : ''
-              return sign + v.toFixed(2) + '%'
-            }
-          : (v: number) => v.toFixed(2)
+      const formatTick = isPercent
+        ? (v: number) => {
+            const sign = v >= 0 ? '+' : ''
+            return sign + v.toFixed(2) + '%'
+          }
+        : (v: number) => v.toFixed(2)
 
       for (const tick of context.yAxisTicks) {
-        let displayValue: number
-        if (needsOwnValues) {
-          if (scaleType === 'percent') {
-            displayValue = pane.yAxis.toPercent(tick.value)
-          } else {
-            const { minPrice, maxPrice } = crosshairPriceRange
-            displayValue = priceAtYForScaleType(
-              tick.y,
-              minPrice,
-              maxPrice,
-              scaleType,
-              pane.height,
-              pane.yAxis.getPaddingTop(),
-              pane.yAxis.getPaddingBottom(),
-            )
-          }
-        } else {
-          displayValue = tick.value
-        }
+        const displayValue = isPercent ? pane.yAxis.toPercent(tick.value) : tick.value
         leftAxisCtx.fillText(formatTick(displayValue), textX, tick.y)
       }
     },
@@ -112,8 +91,9 @@ export function createLeftYAxisOverlayRendererPlugin(options: LeftYAxisOptions):
     layer: 'overlay',
 
     draw(context: RenderContext) {
-      const { leftAxisOverlayCtx, leftAxisCtx, pane, dpr, period } = context
-      if (!shouldShowLeftAxis(period, context.settings)) return
+      const { leftAxisOverlayCtx, leftAxisCtx, pane, dpr } = context
+      const axisDisplay = resolveLeftAxisDisplay(context)
+      if (axisDisplay === 'none') return
 
       const targetCtx = leftAxisOverlayCtx ?? leftAxisCtx
       if (!targetCtx) return
@@ -126,11 +106,7 @@ export function createLeftYAxisOverlayRendererPlugin(options: LeftYAxisOptions):
       const crosshair = options.getCrosshair?.()
       if (!crosshair || crosshair.activePaneId !== pane.id || crosshair.price === null) return
 
-      const scaleType: ScaleType =
-        period === 'timeshare'
-          ? 'linear'
-          : ((context.settings?.leftAxisType as ScaleType) ?? 'linear')
-      const isCrosshairPercent = scaleType === 'percent'
+      const isCrosshairPercent = axisDisplay === 'percent'
       const crosshairPrice = isCrosshairPercent
         ? pane.yAxis.toPercent(crosshair.price)
         : crosshair.price

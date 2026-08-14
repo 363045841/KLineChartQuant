@@ -13,6 +13,14 @@ describe('chart renderer settings', () => {
     expect(resolveSettings().rendererBackend).toBe('webgl')
   })
 
+  it('migrates legacy axis keys into Setting fields', () => {
+    expect(migrateStoredSettings({ rightAxisType: 'log', leftAxisType: 'percent' })).toEqual({
+      mainRightAxisTypeSetting: 'log',
+      mainLeftAxisDisplaySetting: 'percent',
+    })
+    expect(resolveSettings({ rightAxisType: 'percent' }).mainRightAxisTypeSetting).toBe('percent')
+  })
+
   it('migrates the old WebGL toggle without retaining it', () => {
     expect(migrateStoredSettings({ enableWebGLRendering: true, showGridLines: false })).toEqual({
       rendererBackend: 'webgl',
@@ -38,10 +46,7 @@ describe('resolveRuntimeSettings', () => {
         dark: { candleUpBody: '#e85d04' },
       },
     }
-    const resolved = resolveRuntimeSettings(
-      { showGridLines: true, theme: 'dark' },
-      stored,
-    )
+    const resolved = resolveRuntimeSettings({ showGridLines: true, theme: 'dark' }, stored)
     expect(resolved.showGridLines).toBe(true)
     expect(resolved.theme).toBe('dark')
     expect(resolved.colorPresetSettings).toEqual({})

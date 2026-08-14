@@ -595,7 +595,7 @@
     showGridLines: true,
     isAsiaMarket: true,
     showVolumePriceMarkers: false,
-    leftAxisType: 'none',
+    mainLeftAxisDisplaySetting: 'none',
     theme: 'dark',
     /* colorPresetSettings: {
       dark: {

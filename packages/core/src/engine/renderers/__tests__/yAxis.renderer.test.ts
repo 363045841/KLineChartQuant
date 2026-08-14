@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 import { createYAxisRendererPlugin, createYAxisOverlayRendererPlugin } from '@/core/renderers/yAxis'
+import { createLeftYAxisStaticRendererPlugin } from '@/core/renderers/leftYAxis'
 import type { RenderContext, PaneInfo, YAxisTick } from '@/plugin'
 
 vi.mock('@/utils/kLineDraw/axis', () => ({
@@ -121,6 +122,44 @@ describe('yAxis renderer', () => {
 
     const targetCtx = context.yAxisCtx!
     expect(targetCtx.fillText).toHaveBeenCalledTimes(0)
+  })
+
+  it('uses the percent scale for timeshare left-axis ticks', () => {
+    const plugin = createLeftYAxisStaticRendererPlugin({ axisWidth: 80, yPaddingPx: 0 })
+    const leftAxisCtx = createCtx()
+    const context = createContext({
+      period: 'timeshare',
+      leftAxisCtx,
+      pane: createPane({
+        yAxis: {
+          ...createPane().yAxis,
+          getScaleType: () => 'percent',
+          toPercent: (price) => price - 100,
+        },
+      }),
+    })
+
+    plugin.draw(context)
+
+    expect(leftAxisCtx.fillText).toHaveBeenCalledWith('+20.00%', expect.any(Number), 10)
+  })
+
+  it('uses price values for timeshare right-axis ticks', () => {
+    const plugin = createYAxisRendererPlugin({ axisWidth: 80, yPaddingPx: 0 })
+    const context = createContext({
+      period: 'timeshare',
+      pane: createPane({
+        yAxis: {
+          ...createPane().yAxis,
+          getScaleType: () => 'percent',
+          toPercent: (price) => price - 100,
+        },
+      }),
+    })
+
+    plugin.draw(context)
+
+    expect(context.yAxisCtx?.fillText).toHaveBeenCalledWith('120.00', expect.any(Number), 10)
   })
 
   it('uses ctx when yAxisCtx is not provided', () => {
