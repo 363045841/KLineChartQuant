@@ -8,6 +8,8 @@ import {
   countSessionSlots,
   minuteOfDayToTimestamp,
   resolveMarketSessionSlots,
+  resolveSessionSlotPhysicalGrid,
+  sessionSlotCenterX,
   type MarketSessionConfig,
   type OpenTimeRange,
 } from '../sessionTimeLabels'
@@ -70,6 +72,26 @@ describe('computeSessionTimeLabels multi-market', () => {
     const labels = computeSessionTimeLabels(night, { axisWidth: 800 })
     expect(labels.map((l) => l.minuteOfDay)).toEqual([hm(21, 0), hm(0, 0), hm(2, 30)])
     expect(countSessionSlots(night)).toBe(270)
+  })
+})
+
+describe('session slot physical grid', () => {
+  it('uses a fixed integer pitch and symmetric margins', () => {
+    const grid = resolveSessionSlotPhysicalGrid(600, 240, 1)
+
+    expect(grid).toEqual({
+      axisWidthPx: 600,
+      unitPx: 2,
+      contentWidthPx: 480,
+      offsetPx: 60,
+    })
+    expect(sessionSlotCenterX(0, 600, 240, 1)).toBe(61)
+    expect(sessionSlotCenterX(1, 600, 240, 1)).toBe(63)
+  })
+
+  it('falls back when the physical axis cannot fit one pixel per slot', () => {
+    expect(resolveSessionSlotPhysicalGrid(200, 240, 1)).toBeNull()
+    expect(sessionSlotCenterX(239, 200, 240, 1)).toBeLessThanOrEqual(200)
   })
 })
 

@@ -1,8 +1,10 @@
 import {
   ASHARE_MARKET_SESSION,
   resolveMarketSessionSlots,
+  resolveSessionSlotPhysicalGrid,
   type MarketSessionConfig,
 } from '../../foundation/utils/timeShareAxisLabels'
+import { calcKBarWidthPx } from '../utils/klineConfig'
 
 export type TimeShareBaselineInput = {
   preClose?: number | null
@@ -63,8 +65,8 @@ export function resolveTimeShareSessionSlots(
 }
 
 /**
- * 分时 bar 宽度：按全天 sessionSlots 均分 viewWidth，而非按已到达点数。
- * 盘中部分数据时右侧留白；允许亚像素，避免窄屏截断。
+ * 分时 bar 宽度：使用可容纳全部 sessionSlots 的固定整数物理网格。
+ * 多余像素均分到左右边距；物理宽度不足时回退比例布局。
  */
 export function computeTimeShareBarMetrics(
   dataLength: number,
@@ -76,11 +78,14 @@ export function computeTimeShareBarMetrics(
 
   const sessionSlots = resolveMarketSessionSlots(marketSession)
   if (sessionSlots <= 0) return null
-  const unit = viewWidth / sessionSlots
-  const preferredGap = 1 / dpr
-  const kGap = Math.min(preferredGap, unit * 0.2)
-  const kWidth = Math.max(unit - kGap, unit * 0.01)
-  return { kWidth, kGap: unit - kWidth }
+  const grid = resolveSessionSlotPhysicalGrid(viewWidth, sessionSlots, dpr)
+  if (!grid) {
+    const unit = viewWidth / sessionSlots
+    const kWidth = Math.max(unit - 1 / dpr, unit * 0.01)
+    return { kWidth, kGap: unit - kWidth }
+  }
+  const barWidthPx = calcKBarWidthPx(grid.unitPx)
+  return { kWidth: barWidthPx / dpr, kGap: (grid.unitPx - barWidthPx) / dpr }
 }
 
 export type TimeShareXLayoutInput = {
@@ -95,31 +100,38 @@ export type TimeShareXLayout = {
   step: number
   centers: number[]
   barWidth: number
+  /** 同一物理中心的端点重复数据仅保留最后一根量柱。 */
+  barVisible: boolean[]
   kWidthPx: number
 }
 
 /**
- * 分时 X 布局：step = totalWidth / sessionSlots，已到达点按 slot 索引落位，未到时段留白。
+ * 分时 X 布局：优先使用固定整数物理间距，已到达点按 slot 索引落位。
  */
 export function computeTimeShareXLayout(input: TimeShareXLayoutInput): TimeShareXLayout | null {
   const { arrivedCount, sessionSlots, totalWidth, dpr, slotIndices } = input
   if (arrivedCount <= 0 || sessionSlots <= 0 || totalWidth <= 0 || !(dpr > 0)) return null
 
-  const step = totalWidth / sessionSlots
+  const grid = resolveSessionSlotPhysicalGrid(totalWidth, sessionSlots, dpr)
+  const step = grid ? grid.unitPx / dpr : totalWidth / sessionSlots
   const centers: number[] = new Array(arrivedCount)
+  const centerPxValues: number[] = new Array(arrivedCount)
+  const lastIndexByCenterPx = new Map<number, number>()
   for (let i = 0; i < arrivedCount; i++) {
     const slotIndex = slotIndices?.[i] ?? i
-    centers[i] = Math.round((slotIndex + 0.5) * step * dpr) / dpr
+    const centerPx = grid
+      ? grid.offsetPx + slotIndex * grid.unitPx + Math.floor(grid.unitPx / 2)
+      : Math.round((slotIndex + 0.5) * step * dpr)
+    centerPxValues[i] = centerPx
+    centers[i] = centerPx / dpr
+    lastIndexByCenterPx.set(centerPx, i)
   }
 
-  const logicalBarWidth = Math.max(step * 0.6, 1 / dpr)
-  let barWidthPx = Math.max(1, Math.round(logicalBarWidth * dpr))
-  // 柱体宽度保持奇数物理像素，才能以中心点向两侧整数像素展开。
-  if (barWidthPx % 2 === 0 && barWidthPx > 1) barWidthPx -= 1
-  const barWidth = barWidthPx / dpr
-  const kWidthPx = Math.max(1, Math.round(step * dpr))
+  const barVisible = centerPxValues.map((centerPx, index) => lastIndexByCenterPx.get(centerPx) === index)
+  const kWidthPx = grid?.unitPx ?? 1
+  const barWidth = calcKBarWidthPx(kWidthPx) / dpr
 
-  return { step, centers, barWidth, kWidthPx }
+  return { step, centers, barWidth, barVisible, kWidthPx }
 }
 
 export type TimeShareVisibleRangeInput = {

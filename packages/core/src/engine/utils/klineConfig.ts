@@ -15,6 +15,13 @@ export function calcKWidthPx(kWidth: number, dpr: number): number {
   return px
 }
 
+/** 根据整数单元宽度计算柱状图宽度，保留固定整数间隙并确保中心对称。 */
+export function calcKBarWidthPx(unitPx: number): number {
+  let px = Math.max(1, Math.floor(unitPx) - 1)
+  if (px % 2 === 0 && px > 1) px -= 1
+  return px
+}
+
 /**
  * 获取图表渲染使用的物理像素配置
  * @param kWidth K 线宽度（逻辑像素）

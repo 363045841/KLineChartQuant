@@ -372,7 +372,7 @@ export function drawTimeAxis(
   let labelFn: (ts: number) => { text: string; isYear: boolean }
 
   if (isTimeShare) {
-    // 只画各区间闭侧端点；全天首/末槽贴边 left/right 对齐
+    // 所有时间标签使用共享槽位中心，首尾标签也必须与首尾量柱和十字线对齐。
     const market = opts.marketSession ?? ASHARE_MARKET_SESSION
     const sessionSlots = resolveMarketSessionSlots(market)
     const labels = computeTimeShareTimeLabels({
@@ -383,29 +383,12 @@ export function drawTimeAxis(
     const baseTs = data[0]?.timestamp ?? Date.now()
     setCanvasFont(ctx, regularFont)
     ctx.textBaseline = 'middle'
-    const edgePad = 2
-    const lastSlot = Math.max(0, sessionSlots - 1)
     for (const label of labels) {
       const ts = minuteOfDayToTimestamp(baseTs, label.minuteOfDay, market.timeZone)
       const text = formatTimeLabel(ts)
-      const isDayStart = label.slotIndex === 0
-      const isDayEnd = label.slotIndex === lastSlot
-
-      let align: CanvasTextAlign = 'center'
-      let drawX: number
-      if (isDayStart) {
-        align = 'left'
-        drawX = x + edgePad
-      } else if (isDayEnd) {
-        align = 'right'
-        drawX = x + width - edgePad
-      } else {
-        const centerX = timeShareSlotCenterX(label.slotIndex, width, sessionSlots, dpr)
-        drawX = centerX - scrollLeft
-        if (drawX < edgePad || drawX > width - edgePad) continue
-      }
-
-      ctx.textAlign = align
+      const centerX = timeShareSlotCenterX(label.slotIndex, width, sessionSlots, dpr)
+      const drawX = centerX - scrollLeft
+      ctx.textAlign = 'center'
       ctx.fillText(text, roundToPhysicalPixel(drawX, dpr), alignToPhysicalPixelCenter(textY, dpr))
     }
     ctx.textAlign = 'center'

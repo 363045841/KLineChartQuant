@@ -72,30 +72,30 @@ describe('resolveTimeShareSessionSlots', () => {
 })
 
 describe('computeTimeShareBarMetrics', () => {
-  it('divides viewWidth by full session slots, not arrived point count', () => {
-    // 盘中仅 60 点：宽度仍按 240 槽划分，不把 60 点拉满屏
+  it('uses the same full-session integer grid for partial and full data', () => {
+    // 盘中仅 60 点：宽度仍按 240 槽计算，不把 60 点拉满屏。
     const partial = computeTimeShareBarMetrics(60, 320, 1)
     const full = computeTimeShareBarMetrics(240, 320, 1)
     expect(partial).not.toBeNull()
     expect(full).not.toBeNull()
     expect(partial!.kWidth).toBeCloseTo(full!.kWidth, 8)
     expect(partial!.kGap).toBeCloseTo(full!.kGap, 8)
-    expect((partial!.kWidth + partial!.kGap) * 240).toBeCloseTo(320, 6)
+    expect((partial!.kWidth + partial!.kGap) * 240).toBeLessThanOrEqual(320)
   })
 
-  it('fits full session into viewWidth even when per-bar width is sub-pixel (DPR=1 narrow)', () => {
+  it('keeps a constant one-pixel unit and puts remainder into margins at DPR=1', () => {
     const m = computeTimeShareBarMetrics(240, 320, 1)
     expect(m).not.toBeNull()
     const unit = m!.kWidth + m!.kGap
-    expect(unit * 240).toBeCloseTo(320, 6)
-    expect(m!.kWidth).toBeGreaterThan(0)
-    expect(m!.kGap).toBeGreaterThanOrEqual(0)
+    expect(unit).toBe(1)
+    expect(unit * 240).toBe(240)
   })
 
-  it('keeps full session visible at high DPR', () => {
+  it('keeps width and gap as integer physical pixels at high DPR', () => {
     const m = computeTimeShareBarMetrics(240, 320, 2)
     expect(m).not.toBeNull()
-    expect((m!.kWidth + m!.kGap) * 240).toBeCloseTo(320, 6)
+    expect(m!.kWidth * 2).toBe(1)
+    expect(m!.kGap * 2).toBe(1)
   })
 
   it('returns null for empty data or invalid width', () => {
@@ -145,7 +145,7 @@ describe('computeTimeShareXLayout', () => {
     expect(layout!.centers).toEqual([1, 239, 243, 479])
   })
 
-  it('keeps volume bars symmetric around physical-pixel centers', () => {
+  it('uses the main-chart physical width algorithm for volume bars', () => {
     const layout = computeTimeShareXLayout({
       arrivedCount: 1,
       sessionSlots: 24,
@@ -155,7 +155,36 @@ describe('computeTimeShareXLayout', () => {
 
     expect(layout).not.toBeNull()
     expect(layout!.centers[0]).toBe(5)
-    expect(layout!.barWidth).toBe(5)
+    expect(layout!.barWidth).toBe(9)
+  })
+
+  it('keeps center distance and volume gap constant on non-divisible widths', () => {
+    const layout = computeTimeShareXLayout({
+      arrivedCount: 3,
+      sessionSlots: 240,
+      totalWidth: 600,
+      dpr: 1,
+      slotIndices: [0, 1, 2],
+    })
+
+    expect(layout).not.toBeNull()
+    expect(layout!.centers).toEqual([61, 63, 65])
+    expect(layout!.barWidth).toBe(1)
+    expect(layout!.centers[1]! - layout!.centers[0]! - layout!.barWidth).toBe(1)
+    expect(layout!.centers[2]! - layout!.centers[1]! - layout!.barWidth).toBe(1)
+  })
+
+  it('keeps only the latest bar when endpoint timestamps share one slot', () => {
+    const layout = computeTimeShareXLayout({
+      arrivedCount: 4,
+      sessionSlots: 240,
+      totalWidth: 480,
+      dpr: 1,
+      slotIndices: [119, 120, 120, 121],
+    })
+
+    expect(layout).not.toBeNull()
+    expect(layout!.barVisible).toEqual([true, false, true, true])
   })
 })
 

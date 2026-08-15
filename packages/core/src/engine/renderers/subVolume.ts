@@ -74,9 +74,10 @@ function createVolumeRendererPlugin(options: VolumeRendererOptions = {}): Render
         context.isAsiaMarket,
         context.colorPresetSettings,
       )
+      // K 线与分时量柱统一使用独立的成交量配色，不跟随主图价格线或 K 线实体色。
       const upVolume = colors.volumeUp
       const downVolume = colors.volumeDown
-      const neutralVolume = colors.candleDojiBorder
+      const neutralVolume = colors.volumeNeutral
       const chartData = data as Array<KLineData | TimeShareData>
       if (!chartData.length) return
 
@@ -134,7 +135,7 @@ function createVolumeRendererPlugin(options: VolumeRendererOptions = {}): Render
         const volume = item.volume
         if (!volume) continue
         const barRect = context.kBarRects[i - start]
-        if (!barRect) continue
+        if (!barRect || barRect.width <= 0) continue
 
         const y = pane.height - ((volume - displayMin) / displayValueRange) * pane.height
         const alignedY = Math.round(y * dpr) / dpr

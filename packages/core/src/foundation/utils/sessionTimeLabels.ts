@@ -32,6 +32,14 @@ export type SessionTimeLabelOptions = {
   minLabelSpacingPx?: number
 }
 
+/** 分时槽位的整数物理像素网格。 */
+export type SessionSlotPhysicalGrid = {
+  axisWidthPx: number
+  unitPx: number
+  contentWidthPx: number
+  offsetPx: number
+}
+
 function hm(h: number, m: number): number {
   return h * 60 + m
 }
@@ -174,7 +182,22 @@ export function minuteOfDayToTimestamp(
   return zonedWallTimeToUtc(year, month, day, minuteOfDay, timeZone)
 }
 
-/** 槽中心 X */
+/** 在画布可容纳全部槽位时，创建固定整数物理像素间距的居中网格。 */
+export function resolveSessionSlotPhysicalGrid(
+  axisWidth: number,
+  sessionSlots: number,
+  dpr: number,
+): SessionSlotPhysicalGrid | null {
+  if (!(axisWidth > 0) || !(sessionSlots > 0) || !(dpr > 0)) return null
+  const axisWidthPx = Math.max(1, Math.round(axisWidth * dpr))
+  if (axisWidthPx < sessionSlots) return null
+  const unitPx = Math.max(1, Math.floor(axisWidthPx / sessionSlots))
+  const contentWidthPx = unitPx * sessionSlots
+  const offsetPx = Math.floor((axisWidthPx - contentWidthPx) / 2)
+  return { axisWidthPx, unitPx, contentWidthPx, offsetPx }
+}
+
+/** 槽中心 X；优先使用固定整数物理网格，窄屏无法容纳全部槽位时回退比例布局。 */
 export function sessionSlotCenterX(
   slotIndex: number,
   axisWidth: number,
@@ -182,6 +205,11 @@ export function sessionSlotCenterX(
   dpr: number,
 ): number {
   if (!(axisWidth > 0) || !(sessionSlots > 0)) return 0
+  const grid = resolveSessionSlotPhysicalGrid(axisWidth, sessionSlots, dpr)
+  if (grid) {
+    const centerPx = grid.offsetPx + slotIndex * grid.unitPx + Math.floor(grid.unitPx / 2)
+    return centerPx / dpr
+  }
   const step = axisWidth / sessionSlots
   return Math.round((slotIndex + 0.5) * step * dpr) / dpr
 }

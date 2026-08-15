@@ -41,7 +41,7 @@ import type { ChartModeHandler } from '../modes/types'
 import { PaneRenderer } from '../paneRenderer'
 import { createTimeAxisRendererPlugin } from '../renderers/timeAxis'
 import { createTimeShareRendererPlugin } from '../renderers/timeShare'
-import { getPhysicalKLineConfig } from '../utils/klineConfig'
+import { calcKBarWidthPx, getPhysicalKLineConfig } from '../utils/klineConfig'
 import { calculateTickCount } from '../utils/tickCount'
 
 
@@ -582,8 +582,7 @@ export class ChartRenderer {
     } else {
       const physConfig = getPhysicalKLineConfig(opt.kWidth, opt.kGap, vp.dpr)
       // bar 宽度取奇数，保证 center 对齐整数像素
-      let barWidthPx = Math.max(1, physConfig.unitPx - 1)
-      if (barWidthPx % 2 === 0) barWidthPx -= 1
+      const barWidthPx = calcKBarWidthPx(physConfig.unitPx)
 
       kLineCenters = this.calcKLineCenters(range)
       kLinePositions = new Array(kLineCenters.length)
@@ -623,7 +622,7 @@ export class ChartRenderer {
             kLinePositions[i] = (centerPx - Math.floor(layout.kWidthPx / 2)) / vp.dpr
             kBarRects[i] = {
               x: (centerPx - (barWidthPx - 1) / 2) / vp.dpr,
-              width: layout.barWidth,
+              width: layout.barVisible[i] ? layout.barWidth : 0,
             }
           }
           kWidthPx = layout.kWidthPx

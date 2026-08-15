@@ -6,6 +6,7 @@ import {
   minuteOfDayToTimestamp,
   resolveTimestampSessionSlot,
   resolveMarketSessionSlots,
+  resolveSessionSlotPhysicalGrid,
   sessionSlotCenterX,
   type MarketSessionConfig,
   type SessionTimeLabel,
@@ -86,6 +87,7 @@ export {
   minuteOfDayToTimestamp,
   resolveTimestampSessionSlot,
   resolveMarketSessionSlots,
+  resolveSessionSlotPhysicalGrid,
   sessionSlotCenterX,
 }
 export type {

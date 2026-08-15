@@ -38,5 +38,7 @@ describe('time axis market session', () => {
     const labels = fillText.mock.calls.map(([text]) => text)
     expect(labels).toContain('16:00')
     expect(labels).not.toContain('15:00')
+    expect(fillText).toHaveBeenCalledWith('09:30', 0, expect.any(Number))
+    expect(fillText).toHaveBeenCalledWith('16:00', 329, expect.any(Number))
   })
 })
