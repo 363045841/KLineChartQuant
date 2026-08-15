@@ -1,0 +1,26 @@
+# Center-First Frame Geometry
+
+## 背景
+
+图表此前先计算 `kLinePositions` 左边界，再由左边界推导中心点。分时模式的折线、量柱和十字线需要同一条时间轴基准，左边界优先会让不同渲染器再次执行 `position + width / 2`，在 DPR 取整、奇偶宽度和午休时间槽缺口下产生不同结果。
+
+## 决策
+
+`ChartRenderer` 以 `kLineCenters` 为一帧 X 几何的唯一基准，所有中心点均先在物理像素空间确定：
+
+- K 线中心由交易序号、`unitPx` 和奇数 `kWidthPx` 计算。
+- 分时中心由交易时段 slot 和 `step` 计算。
+- K 线实体、量柱矩形与兼容的 `kLinePositions` 都由中心点向左推导。
+- 十字线的命中、吸附，以及折线、指标、标记和月份分界线直接使用 `kLineCenters`。
+
+实体与量柱宽度保持奇数物理像素，因此左边界可使用 `centerPx - (widthPx - 1) / 2` 推导，避免半物理像素坐标和模糊边缘。
+
+## 兼容性
+
+`RenderContext.kLinePositions` 继续保留，供绘图等旧接口读取，但它是派生数据，不再作为中心点的来源。K 线实体渲染直接消费 `kLineCenters`。
+
+## 验证
+
+- `timeShareMath.test.ts` 验证分时 slot 中心与奇数物理像素量柱宽度。
+- `interaction.dpr.test.ts` 验证十字线按封存中心点选择并吸附。
+- `gridLines.mode.test.ts` 验证月份分界线使用帧级中心点。

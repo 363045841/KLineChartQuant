@@ -38,6 +38,7 @@ function buildContext(period: string): { ctx: ReturnType<typeof createMockCtx>; 
       kGap: 2,
       dpr: 1,
       kLinePositions: [0, 10, 20],
+      kLineCenters: [1, 11, 21],
       pane: { top: 0, height: 400 },
       period,
       theme: 'light',
@@ -53,6 +54,7 @@ describe('gridLines mode', () => {
     createGridLinesRendererPlugin().draw(context)
     const verticals = ctx.fillRects.filter((r) => r.width < r.height)
     expect(verticals.length).toBeGreaterThan(0)
+    expect(verticals[0]?.x).toBe(1)
   })
 
   it('does not draw vertical month boundary lines in timeshare mode', () => {

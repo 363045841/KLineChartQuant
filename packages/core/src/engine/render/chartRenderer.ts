@@ -569,15 +569,13 @@ export class ChartRenderer {
       this.checkVisibleRangeGapWhenIdle()
     }
 
-    const kLinePositions = useCachedFrame
-      ? this.cachedDrawFrame!.kLinePositions
-      : this.calcKLinePositions(range)
-
+    let kLinePositions: KLinePositions
     let kLineCenters: number[]
     let kBarRects: Array<{ x: number; width: number }>
     let kWidthPx: number
 
     if (useCachedFrame) {
+      kLinePositions = this.cachedDrawFrame!.kLinePositions
       kLineCenters = this.cachedDrawFrame!.kLineCenters
       kBarRects = this.cachedDrawFrame!.kBarRects
       kWidthPx = this.cachedDrawFrame!.kWidthPx
@@ -587,17 +585,16 @@ export class ChartRenderer {
       let barWidthPx = Math.max(1, physConfig.unitPx - 1)
       if (barWidthPx % 2 === 0) barWidthPx -= 1
 
-      kLineCenters = new Array(kLinePositions.length)
-      kBarRects = new Array(kLinePositions.length)
+      kLineCenters = this.calcKLineCenters(range)
+      kLinePositions = new Array(kLineCenters.length)
+      kBarRects = new Array(kLineCenters.length)
 
-      for (let i = 0; i < kLinePositions.length; i++) {
-        const x = kLinePositions[i]!
-        const leftPx = Math.round(x * vp.dpr)
-        // 影线 center = left + 半根物理宽度
-        const wickXPx = leftPx + (physConfig.kWidthPx - 1) / 2
-        kLineCenters[i] = wickXPx / vp.dpr
+      for (let i = 0; i < kLineCenters.length; i++) {
+        const centerPx = Math.round(kLineCenters[i]! * vp.dpr)
+        const leftPx = centerPx - (physConfig.kWidthPx - 1) / 2
+        kLinePositions[i] = leftPx / vp.dpr
 
-        const barLeftPx = wickXPx - (barWidthPx - 1) / 2
+        const barLeftPx = centerPx - (barWidthPx - 1) / 2
         kBarRects[i] = { x: barLeftPx / vp.dpr, width: barWidthPx / vp.dpr }
       }
 
@@ -618,13 +615,14 @@ export class ChartRenderer {
           ),
         })
         if (layout) {
-          const halfBarPx = Math.floor((layout.barWidth * vp.dpr) / 2)
+          const barWidthPx = Math.round(layout.barWidth * vp.dpr)
           for (let i = 0; i < count; i++) {
-            kLineCenters[i] = layout.centers[i]!
-            kLinePositions[i] = layout.lefts[i]!
             const centerPx = Math.round(layout.centers[i]! * vp.dpr)
+            kLineCenters[i] = centerPx / vp.dpr
+            // 兼容需要起点的旧接口；分时绘制与交互均以 kLineCenters 为准。
+            kLinePositions[i] = (centerPx - Math.floor(layout.kWidthPx / 2)) / vp.dpr
             kBarRects[i] = {
-              x: (centerPx - halfBarPx) / vp.dpr,
+              x: (centerPx - (barWidthPx - 1) / 2) / vp.dpr,
               width: layout.barWidth,
             }
           }
@@ -1035,7 +1033,8 @@ export class ChartRenderer {
     }
   }
 
-  private calcKLinePositions(range: VisibleRange): KLinePositions {
+  /** 按物理像素网格计算 K 线中心点，后续几何均由中心点派生。 */
+  private calcKLineCenters(range: VisibleRange): number[] {
     const { start, end } = range
     const count = end - start
 
@@ -1043,17 +1042,18 @@ export class ChartRenderer {
 
     const dpr = this.deps.viewport.readonly.dpr.peek()
     const opt = this.deps.getOption()
-    const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
+    const { unitPx, startXPx, kWidthPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
 
-    const positions: number[] = new Array(count)
+    const centers: number[] = new Array(count)
+    const halfWidthPx = (kWidthPx - 1) / 2
 
     for (let i = 0; i < count; i++) {
       const dataIndex = start + i
       const leftPx = startXPx + dataIndex * unitPx
-      positions[i] = leftPx / dpr
+      centers[i] = (leftPx + halfWidthPx) / dpr
     }
 
-    return positions
+    return centers
   }
 
   private checkVisibleRangeGapWhenIdle(): void {

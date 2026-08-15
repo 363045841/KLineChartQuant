@@ -292,6 +292,19 @@ describe('InteractionController DPR consumption', () => {
     expect(interactionDpr2.crosshairIndex).toBe(1)
   })
 
+  it('uses sealed centers to select and snap the timeshare crosshair', () => {
+    const chart = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 160 })
+    const interaction = new InteractionController(chart as never, createMockInteractionState())
+
+    // 分时 slot 间距可与 K 线物理宽度不同，不能从 position + width/2 推导中心。
+    interaction.setKLinePositions([0, 10], { start: 0, end: 2 }, 10, [1, 21])
+    interaction.onPointerMove({ clientX: 10, clientY: 40, isPrimary: true } as PointerEvent)
+    interaction.flushPendingHover()
+
+    expect(interaction.crosshairIndex).toBe(0)
+    expect(interaction.crosshairPos?.x).toBe(1)
+  })
+
   it('pointermove does not write crosshair until flushPendingHover', () => {
     const chart = createChartStub({ dpr: 1, plotWidth: 100, plotHeight: 80 })
     const interaction = new InteractionController(chart as never, createMockInteractionState())

@@ -20,7 +20,7 @@ export function createGridLinesRendererPlugin(): RendererPlugin {
     priority: RENDERER_PRIORITY.GRID,
 
 draw(context: RenderContext) {
-      const { ctx, pane, data, range, scrollLeft, kWidth, dpr, kLinePositions, settings } = context
+      const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters, settings } = context
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
@@ -59,10 +59,10 @@ draw(context: RenderContext) {
         for (const idx of boundaries) {
           if (idx < range.start || idx >= range.end || idx >= klineData.length) continue
 
-          // 使用统一的 kLinePositions 计算 K 线中心 X 坐标
+          // 使用帧级中心点，避免 kWidth 物理像素取整后与 K 线实体、十字线偏移。
           const localIdx = idx - range.start
-          if (localIdx < 0 || localIdx >= kLinePositions.length) continue
-          const worldX = kLinePositions[localIdx]! + kWidth / 2
+          if (localIdx < 0 || localIdx >= kLineCenters.length) continue
+          const worldX = kLineCenters[localIdx]!
 
           const v = createVerticalLineRect(worldX, 0, pane.height, dpr)
           if (v) ctx.fillRect(v.x, v.y, v.width, v.height)

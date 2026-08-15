@@ -88,7 +88,7 @@ export function createCandleRenderer(): RendererPlugin {
         kWidth,
         kGap,
         dpr,
-        kLinePositions,
+        kLineCenters,
         markerManager,
         settings,
       } = context
@@ -107,7 +107,7 @@ export function createCandleRenderer(): RendererPlugin {
         kWidth,
         kGap,
         dpr,
-        kLinePositions,
+        kLineCenters,
         settings,
       })
 
@@ -152,10 +152,10 @@ function prepareCandles(args: {
   kWidth: number
   kGap: number
   dpr: number
-  kLinePositions: number[]
+  kLineCenters: number[]
   settings?: RenderContext['settings']
 }): PreparedCandles {
-  const { pane, data, range, kWidth, kGap, dpr, kLinePositions, settings } = args
+  const { pane, data, range, kWidth, kGap, dpr, kLineCenters, settings } = args
   const { kWidthPx } = getPhysicalKLineConfig(kWidth, kGap, dpr)
   const showVolumePriceMarkers = settings?.showVolumePriceMarkers !== false
   const relations = showVolumePriceMarkers
@@ -207,8 +207,8 @@ function prepareCandles(args: {
     const highY = fastPriceToY(e.high)
     const lowY = fastPriceToY(e.low)
 
-    const leftLogical = kLinePositions[i - range.start]
-    if (leftLogical === undefined) continue
+    const centerLogical = kLineCenters[i - range.start]
+    if (centerLogical === undefined) continue
 
     const alignedOpenY = alignY(openY)
     const alignedCloseY = alignY(closeY)
@@ -217,7 +217,8 @@ function prepareCandles(args: {
     const alignedRawRectY = Math.min(alignedOpenY, alignedCloseY)
     const alignedRawRectH = Math.max(Math.abs(alignedOpenY - alignedCloseY), 1)
 
-    const roundedLeftPx = Math.round(leftLogical * dpr)
+    const centerPx = Math.round(centerLogical * dpr)
+    const roundedLeftPx = centerPx - (kWidthPx - 1) / 2
 
     // Inlined createAlignedKLineFromPx — no object allocation
     const topPx = Math.round(alignedRawRectY * dpr)
@@ -228,7 +229,7 @@ function prepareCandles(args: {
     const bodyY = topPx * invDpr
     const bodyW = kWidthPx * invDpr
     const bodyH = bodyHPx * invDpr
-    const wickCenterX = (roundedLeftPx + (kWidthPx - 1) / 2) * invDpr
+    const wickCenterX = centerPx * invDpr
 
     const preClose = i > 0 ? data[i - 1]?.close : undefined
     const trend = getKLineTrend(e, preClose)

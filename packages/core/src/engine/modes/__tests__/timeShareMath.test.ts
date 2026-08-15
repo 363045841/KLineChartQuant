@@ -144,6 +144,19 @@ describe('computeTimeShareXLayout', () => {
     expect(layout).not.toBeNull()
     expect(layout!.centers).toEqual([1, 239, 243, 479])
   })
+
+  it('keeps volume bars symmetric around physical-pixel centers', () => {
+    const layout = computeTimeShareXLayout({
+      arrivedCount: 1,
+      sessionSlots: 24,
+      totalWidth: 240,
+      dpr: 1,
+    })
+
+    expect(layout).not.toBeNull()
+    expect(layout!.centers[0]).toBe(5)
+    expect(layout!.barWidth).toBe(5)
+  })
 })
 
 describe('computeTimeShareVisibleRange', () => {

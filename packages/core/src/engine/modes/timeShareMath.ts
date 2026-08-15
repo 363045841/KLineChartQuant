@@ -94,7 +94,6 @@ export type TimeShareXLayoutInput = {
 export type TimeShareXLayout = {
   step: number
   centers: number[]
-  lefts: number[]
   barWidth: number
   kWidthPx: number
 }
@@ -108,19 +107,19 @@ export function computeTimeShareXLayout(input: TimeShareXLayoutInput): TimeShare
 
   const step = totalWidth / sessionSlots
   const centers: number[] = new Array(arrivedCount)
-  const lefts: number[] = new Array(arrivedCount)
   for (let i = 0; i < arrivedCount; i++) {
     const slotIndex = slotIndices?.[i] ?? i
     centers[i] = Math.round((slotIndex + 0.5) * step * dpr) / dpr
-    lefts[i] = Math.round(slotIndex * step * dpr) / dpr
   }
 
   const logicalBarWidth = Math.max(step * 0.6, 1 / dpr)
-  const barWidthPx = Math.max(1, Math.round(logicalBarWidth * dpr))
+  let barWidthPx = Math.max(1, Math.round(logicalBarWidth * dpr))
+  // 柱体宽度保持奇数物理像素，才能以中心点向两侧整数像素展开。
+  if (barWidthPx % 2 === 0 && barWidthPx > 1) barWidthPx -= 1
   const barWidth = barWidthPx / dpr
   const kWidthPx = Math.max(1, Math.round(step * dpr))
 
-  return { step, centers, lefts, barWidth, kWidthPx }
+  return { step, centers, barWidth, kWidthPx }
 }
 
 export type TimeShareVisibleRangeInput = {

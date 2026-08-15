@@ -791,6 +791,7 @@ if (this.tooltipPositionMode === 'adaptive') {
    */
   private findNearestBar(ctx: HoverContext): NearestBar | null {
     const kLinePositions = this.framePositions
+    const kLineCenters = this.frameCenters
     const kWidthPx = this.frameKWidthPx
     // 与 framePositions 同代的 seal range（viewport 已 clamp，此处仍用 seal 保证同帧一致）
     const visibleRange = this.frameVisibleRange
@@ -799,12 +800,15 @@ if (this.tooltipPositionMode === 'adaptive') {
     const { worldX, dpr, scrollLeft, plotWidth } = ctx
     const kWidthLogical = kWidthPx / dpr
     const positions = kLinePositions
+    // 优先使用渲染帧封存的中心点，保证分时折线、量柱和十字线共用同一 X 基准。
+    const centers = kLineCenters?.length === positions.length ? kLineCenters : null
 
     let lo = 0,
       hi = positions.length
     while (lo < hi) {
       const mid = (lo + hi) >> 1
-      if (positions[mid]! < worldX) {
+      const center = centers?.[mid] ?? positions[mid]! + kWidthLogical / 2
+      if (center < worldX) {
         lo = mid + 1
       } else {
         hi = mid
@@ -813,8 +817,8 @@ if (this.tooltipPositionMode === 'adaptive') {
 
     let localIdx = lo
     if (lo > 0 && lo < positions.length) {
-      const prevCenter = positions[lo - 1]! + kWidthLogical / 2
-      const currCenter = positions[lo]! + kWidthLogical / 2
+      const prevCenter = centers?.[lo - 1] ?? positions[lo - 1]! + kWidthLogical / 2
+      const currCenter = centers?.[lo] ?? positions[lo]! + kWidthLogical / 2
       if (Math.abs(worldX - prevCenter) < Math.abs(worldX - currCenter)) {
         localIdx = lo - 1
       }
@@ -823,7 +827,7 @@ if (this.tooltipPositionMode === 'adaptive') {
     }
 
     // 跳过中心不在可视视口内的 K 线（边缘裁剪），取相邻可见 K 线
-    const barCenter = positions[localIdx]! + kWidthLogical / 2
+    const barCenter = centers?.[localIdx] ?? positions[localIdx]! + kWidthLogical / 2
     if (barCenter < scrollLeft) {
       if (localIdx + 1 < positions.length) {
         localIdx += 1
