@@ -78,7 +78,7 @@ export class TimeShareMode implements ChartModeHandler {
   }
 
   onActivate(
-    chart: {
+    _chart: {
       enableMainIndicator: (
         id: string,
         params?: Record<string, number | boolean | string>,
@@ -89,11 +89,11 @@ export class TimeShareMode implements ChartModeHandler {
     },
     _prev: ChartModeHandler | null,
   ): void {
-    chart.enableMainIndicator('timeShare')
+    // 分时主序列与成交量 Pane 由 ChartStateKernel.setDataView 原子写入。
   }
 
   onDeactivate(
-    chart: {
+    _chart: {
       enableMainIndicator: (
         id: string,
         params?: Record<string, number | boolean | string>,
@@ -103,6 +103,6 @@ export class TimeShareMode implements ChartModeHandler {
     },
     _next: ChartModeHandler | null,
   ): void {
-    chart.disableMainIndicator('timeShare')
+    // 分时系统实例由 ChartStateKernel.setDataView 在退出时移除。
   }
 }

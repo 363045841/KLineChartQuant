@@ -485,7 +485,7 @@ export class Chart {
       mode,
     )
     const dataView = mode === this._timeShareMode ? 'timeshare' : 'kline'
-    this.kernel.mode.actions.setDataView(
+    this.kernel.actions.setDataView(
       dataView,
       dataView === 'timeshare' ? this.dataManager.currentPeriod : undefined,
     )

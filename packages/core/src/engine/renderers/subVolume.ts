@@ -7,7 +7,7 @@ import type {
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import { resolveThemeColors } from '../../foundation/tokens/index'
 import { getKLineTrend } from '../../foundation/types/kLine'
-import type { KLineData } from '../../foundation/types/price'
+import type { KLineData, TimeShareData } from '../../foundation/types/price'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../indicators/scheduler'
@@ -77,15 +77,15 @@ function createVolumeRendererPlugin(options: VolumeRendererOptions = {}): Render
       const upVolume = colors.volumeUp
       const downVolume = colors.volumeDown
       const neutralVolume = colors.candleDojiBorder
-      const klineData = data as KLineData[]
-      if (!klineData.length) return
+      const chartData = data as Array<KLineData | TimeShareData>
+      if (!chartData.length) return
 
       const { start, end } = range
 
       let maxVolume = 0
       let minVolume = Infinity
-      for (let i = start; i < end && i < klineData.length; i++) {
-        const item = klineData[i]
+      for (let i = start; i < end && i < chartData.length; i++) {
+        const item = chartData[i]
         if (!item) continue
         const volume = item.volume
         if (volume !== undefined && volume !== null) {
@@ -129,7 +129,7 @@ function createVolumeRendererPlugin(options: VolumeRendererOptions = {}): Render
       let neutralCount = 0
 
       for (let i = start; i < end; i++) {
-        const item = klineData[i]
+        const item = chartData[i]
         if (!item) continue
         const volume = item.volume
         if (!volume) continue
@@ -143,8 +143,8 @@ function createVolumeRendererPlugin(options: VolumeRendererOptions = {}): Render
         const finalH = rawH <= 0 ? minBarHPx : Math.max(rawH, minBarHPx)
         const finalY = rawH <= 0 ? alignedBaseY - minBarHPx : alignedBaseY - finalH
 
-        const preClose = i > 0 ? klineData[i - 1]?.close : undefined
-        const color = judgeColor(item, upVolume, downVolume, neutralVolume, preClose)
+        const previous = i > 0 ? chartData[i - 1] : undefined
+        const color = judgeVolumeColor(item, previous, upVolume, downVolume, neutralVolume)
 
         let buf: Float32Array
         let idx: number
@@ -233,14 +233,21 @@ function drawVolumeWithCanvas2D(
 /**
  * 判断成交量柱子颜色
  */
-function judgeColor(
-  dayData: KLineData,
+function judgeVolumeColor(
+  data: KLineData | TimeShareData,
+  previous: KLineData | TimeShareData | undefined,
   upColor: string,
   downColor: string,
   neutralColor: string,
-  preClose?: number,
 ): string {
-  const trend = getKLineTrend(dayData, preClose)
+  if ('price' in data) {
+    const previousPrice = previous && 'price' in previous ? previous.price : undefined
+    if (previousPrice === undefined) return neutralColor
+    if (data.price > previousPrice) return upColor
+    if (data.price < previousPrice) return downColor
+    return neutralColor
+  }
+  const trend = getKLineTrend(data, previous && !('price' in previous) ? previous.close : undefined)
   if (trend === 'up') return upColor
   if (trend === 'down') return downColor
   return neutralColor
@@ -252,6 +259,7 @@ function judgeColor(
   category: 'volume',
   indicatorType: 'volume',
   defaultPaneId: 'sub',
+  dataViews: ['kline', 'timeshare'],
   scaleRendererFactory: createVolumeScaleRendererPlugin,
 })
 export class VolumeIndicatorDefinition {

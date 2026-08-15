@@ -4,12 +4,15 @@ import { deepFreezeSnapshot } from './immutable'
 
 /** 指标实例所在的图表区域。 */
 export type IndicatorInstanceRole = 'main' | 'sub'
+export type IndicatorInstanceSource = 'user' | 'mode'
 
 /** 统一的指标实例业务状态；主图固定 paneId 为 main。 */
 export interface IndicatorInstanceSpec {
   readonly indicatorId: string
   readonly paneId: string
   readonly role: IndicatorInstanceRole
+  /** mode 实例由 Kernel 管理，用户指标操作不能删除。 */
+  readonly source?: IndicatorInstanceSource
   readonly params: Readonly<Record<string, unknown>>
 }
 
@@ -22,12 +25,13 @@ export interface SubPaneSpec {
 
 /** 冻结统一指标实例，隔离调用方对参数对象的修改。 */
 function snapshotInstance(entry: IndicatorInstanceSpec): IndicatorInstanceSpec {
-  return Object.freeze({
+  const snapshot = {
     indicatorId: entry.indicatorId,
     paneId: entry.paneId,
     role: entry.role,
     params: deepFreezeSnapshot(entry.params),
-  })
+  }
+  return Object.freeze(entry.source === 'mode' ? { ...snapshot, source: 'mode' as const } : snapshot)
 }
 
 /** 判断副图 upsert 是否与当前实例完全相同，避免无效通知。 */
@@ -111,7 +115,13 @@ export function createIndicatorState() {
         const indicatorId = id.toUpperCase()
         const prev = readonly.instances.peek()
         if (findMainIndex(prev, indicatorId) < 0) return
-        write(prev.filter((instance) => !(instance.role === 'main' && instance.indicatorId === indicatorId)))
+        write(
+          prev.filter(
+            (instance) =>
+              instance.source === 'mode' ||
+              !(instance.role === 'main' && instance.indicatorId === indicatorId),
+          ),
+        )
       },
       /** 仅更新已存在主图实例的参数。 */
       setMainParams(id: string, params: Record<string, number | boolean | string>) {
@@ -121,20 +131,36 @@ export function createIndicatorState() {
       },
       /** 整体替换主图实例，保留副图实例。 */
       replaceAllMain(instances: ReadonlyArray<IndicatorInstanceSpec>) {
-        const subInstances = readonly.instances.peek().filter((instance) => instance.role === 'sub')
+        const retained = readonly.instances
+          .peek()
+          .filter((instance) => instance.role === 'sub' || instance.source === 'mode')
         write([
+          ...retained.filter((instance) => instance.role === 'main'),
           ...instances.map((entry) => ({ ...entry, role: 'main' as const, paneId: 'main' })),
-          ...subInstances,
+          ...retained.filter((instance) => instance.role === 'sub'),
         ])
       },
       /** 清空全部主图实例。 */
       clearMain() {
-        write(readonly.instances.peek().filter((instance) => instance.role === 'sub'))
+        write(
+          readonly.instances
+            .peek()
+            .filter((instance) => instance.role === 'sub' || instance.source === 'mode'),
+        )
+      },
+      /** 整体替换当前 mode 所需的系统实例，保留用户指标实例。 */
+      replaceModeInstances(instances: ReadonlyArray<IndicatorInstanceSpec>) {
+        const userInstances = readonly.instances.peek().filter((instance) => instance.source !== 'mode')
+        write([
+          ...instances.map((entry) => ({ ...entry, source: 'mode' as const })),
+          ...userInstances,
+        ])
       },
       /** 按 paneId 新增或替换副图实例。 */
       upsertSub(entry: SubPaneSpec) {
         const prev = readonly.instances.peek()
         const index = findSubIndex(prev, entry.paneId)
+        if (index >= 0 && prev[index]!.source === 'mode') return
         const nextEntry = snapshotInstance({ ...entry, role: 'sub' })
         if (index < 0) write([...prev, nextEntry])
         else if (subInstanceEqual(prev[index]!, nextEntry)) return
@@ -147,14 +173,15 @@ export function createIndicatorState() {
       /** 按 paneId 删除副图实例。 */
       removeSub(paneId: string) {
         const prev = readonly.instances.peek()
-        if (findSubIndex(prev, paneId) < 0) return
+        const entry = prev.find((instance) => instance.role === 'sub' && instance.paneId === paneId)
+        if (!entry || entry.source === 'mode') return
         write(prev.filter((instance) => !(instance.role === 'sub' && instance.paneId === paneId)))
       },
       /** 替换已存在副图实例绑定的指标和参数。 */
       replaceSub(entry: SubPaneSpec) {
         const prev = readonly.instances.peek()
         const index = findSubIndex(prev, entry.paneId)
-        if (index < 0) return
+        if (index < 0 || prev[index]!.source === 'mode') return
         const next = [...prev]
         next[index] = snapshotInstance({ ...entry, role: 'sub' })
         write(next)
@@ -163,7 +190,7 @@ export function createIndicatorState() {
       setSubParams(paneId: string, params: Readonly<Record<string, unknown>>) {
         const prev = readonly.instances.peek()
         const index = findSubIndex(prev, paneId)
-        if (index < 0) return
+        if (index < 0 || prev[index]!.source === 'mode') return
         const current = prev[index]!
         const next = [...prev]
         next[index] = snapshotInstance({ ...current, params })
@@ -171,7 +198,11 @@ export function createIndicatorState() {
       },
       /** 清空全部副图实例。 */
       clearSub() {
-        write(readonly.instances.peek().filter((instance) => instance.role === 'main'))
+        write(
+          readonly.instances
+            .peek()
+            .filter((instance) => instance.role === 'main' || instance.source === 'mode'),
+        )
       },
     },
     dispose() {

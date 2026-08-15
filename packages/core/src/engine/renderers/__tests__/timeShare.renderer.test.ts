@@ -88,6 +88,7 @@ describe('timeShare renderer line width', () => {
 
     // stroke 顺序：昨收虚线 → 现价折线 → 均价折线
     expect(ctx.strokeLineWidths).toEqual([1, 1, 1])
+    expect(ctx.fillRect).not.toHaveBeenCalled()
   })
 
   // 验证上游未提供成交量时不预留量柱区域，也不绘制量柱。

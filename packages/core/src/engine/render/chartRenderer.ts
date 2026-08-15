@@ -40,6 +40,7 @@ import { computeTimeShareXLayout } from '../modes/timeShareMath'
 import type { ChartModeHandler } from '../modes/types'
 import { PaneRenderer } from '../paneRenderer'
 import { createTimeAxisRendererPlugin } from '../renderers/timeAxis'
+import { createTimeShareRendererPlugin } from '../renderers/timeShare'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
 import { calculateTickCount } from '../utils/tickCount'
 
@@ -273,6 +274,10 @@ export class ChartRenderer {
       this.scene.addLayer(layer)
     }
     {
+      const layer = createLayerFromPlugin(createTimeShareRendererPlugin(), getCtx('main'), 'main')
+      this.scene.addLayer(layer)
+    }
+    {
       const layer = createLastPriceLabelLayer(getCtx('main'))
       this.scene.addLayer(layer)
     }
@@ -476,7 +481,7 @@ export class ChartRenderer {
       // 将主图指标列表（含参数）同步给 scheduler，使其在本帧预计算价格区间
       indicatorManager.indicatorSchedulerAccessor.setActiveMainIndicators(
         indicatorManager.indicatorInstancesSignalPeek
-          .filter((instance) => instance.role === 'main')
+          .filter((instance) => instance.role === 'main' && instance.source !== 'mode')
           .map((instance) => ({
             id: instance.indicatorId,
             params: { ...(instance.params as Record<string, string | number | boolean>) },

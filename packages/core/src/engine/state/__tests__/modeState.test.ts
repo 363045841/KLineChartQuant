@@ -74,8 +74,28 @@ describe('modeState', () => {
     expect(kernel.activeRenderers$.peek()).toEqual([{ name: 'candle', layerId: 'plugin:candle' }])
     expect(Object.isFrozen(kernel.activeRenderers$.peek())).toBe(true)
 
-    kernel.mode.actions.setDataView('timeshare')
+    kernel.actions.setDataView('timeshare')
 
+    expect(kernel.indicator.readonly.instances.peek()).toEqual([
+      {
+        indicatorId: 'timeShare',
+        paneId: 'main',
+        role: 'main',
+        source: 'mode',
+        params: {},
+      },
+      {
+        indicatorId: 'volume',
+        paneId: 'timeshare_volume',
+        role: 'sub',
+        source: 'mode',
+        params: {},
+      },
+    ])
+    expect(kernel.pane.readonly.paneSpecs.peek()).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'timeshare_volume', role: 'indicator' })]),
+    )
+    expect(kernel.pane.readonly.paneRatios.peek().timeshare_volume).toBeCloseTo(0.25)
     expect(kernel.activeRenderers$.peek()).toEqual([
       { name: 'timeShare', layerId: 'plugin:timeShare' },
     ])
@@ -117,12 +137,13 @@ describe('modeState', () => {
       { name: 'paneTitle_sub_RSI', layerId: 'plugin:paneTitle_sub_RSI' },
     ])
 
-    kernel.indicator.actions.upsertMain('timeShare', {})
-    kernel.mode.actions.setDataView('timeshare')
+    kernel.actions.setDataView('timeshare')
 
     expect(kernel.activeRenderers$.peek()).toEqual([
       { name: 'timeShare', layerId: 'plugin:timeShare' },
-      { name: 'mainIndicatorLegend', layerId: 'plugin:mainIndicatorLegend' },
+      { name: 'volume_timeshare_volume', layerId: 'plugin:volume_timeshare_volume' },
+      { name: 'volumeScale_timeshare_volume', layerId: 'plugin:volumeScale_timeshare_volume' },
+      { name: 'paneTitle_timeshare_volume', layerId: 'plugin:paneTitle_timeshare_volume' },
     ])
   })
 })

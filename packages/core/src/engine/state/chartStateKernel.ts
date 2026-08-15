@@ -84,6 +84,10 @@ function resolveIndicatorRenderers(
 
   // 主图和副图指标均从统一实例集合读取；主图数据 Layer 共用一个 legend Layer。
   for (const instance of instances) {
+    if (instance.source === 'mode' && (instance.indicatorId === 'candle' || instance.indicatorId === 'timeShare')) {
+      add(mainRenderers, instance.indicatorId)
+      continue
+    }
     const definition = tryResolveIndicatorMetadata(
       getRegisteredIndicatorDefinition(instance.indicatorId),
       dataView,
@@ -251,14 +255,7 @@ export class ChartStateKernel extends StateKernel {
     // 主图和指标统一从 kernel 状态投影；此处只输出意图，不执行 Layer 副作用。
     this.activeRenderers$ = computed(() => {
       const dataView = this.mode.readonly.dataView()
-      const primary = dataView === 'timeshare' ? 'timeShare' : 'candle'
-      const renderers = [
-        { name: primary, layerId: makePluginLayerId(primary) },
-        ...resolveIndicatorRenderers(
-          dataView,
-          this.indicator.readonly.instances(),
-        ),
-      ]
+      const renderers = resolveIndicatorRenderers(dataView, this.indicator.readonly.instances())
       return Object.freeze([
         ...new Map(
           renderers.map((descriptor) => [descriptor.layerId, Object.freeze(descriptor)]),
@@ -359,8 +356,47 @@ export class ChartStateKernel extends StateKernel {
       setSystemTheme: (theme: 'light' | 'dark') => this.systemTheme.actions.setSystemTheme(theme),
       setRendererRuntime: (runtime: RendererBackendRuntime) =>
         this.renderer.actions.setRuntime(runtime),
-      setDataView: (view: 'kline' | 'timeshare', lastBarPeriod?: string) =>
-        this.mode.actions.setDataView(view, lastBarPeriod),
+      setDataView: (view: 'kline' | 'timeshare', lastBarPeriod?: string) => {
+        const modeInstances: IndicatorInstanceSpec[] =
+          view === 'timeshare'
+            ? [
+                { indicatorId: 'timeShare', paneId: 'main', role: 'main', params: {} },
+                { indicatorId: 'volume', paneId: 'timeshare_volume', role: 'sub', params: {} },
+              ]
+            : [{ indicatorId: 'candle', paneId: 'main', role: 'main', params: {} }]
+        const currentSpecs = this.pane.readonly.paneSpecs.peek()
+        const nextSpecs =
+          view === 'timeshare'
+            ? currentSpecs.some((pane) => pane.id === 'timeshare_volume')
+              ? currentSpecs
+              : [...currentSpecs, { id: 'timeshare_volume', ratio: 1, visible: true, role: 'indicator' as const }]
+            : currentSpecs.filter((pane) => pane.id !== 'timeshare_volume')
+        const rawRatios = { ...this.pane.readonly.paneRatios.peek() }
+        delete rawRatios.timeshare_volume
+        if (view === 'timeshare') {
+          // 分时量默认占主图高度的三分之一，避免仅有主图时平分为 50%。
+          rawRatios.timeshare_volume = (rawRatios.main ?? 1) / 3
+        }
+        const visible = nextSpecs.filter((pane) => pane.visible !== false)
+        const total = visible.reduce((sum, pane) => sum + (rawRatios[pane.id] ?? 1), 0) || 1
+        const normalizeRatio = (value: number) => Math.round(value * 1_000_000_000_000) / 1_000_000_000_000
+        const ratios = Object.fromEntries(
+          nextSpecs.map((pane) => [
+            pane.id,
+            pane.visible === false
+              ? (rawRatios[pane.id] ?? pane.ratio ?? 1)
+              : normalizeRatio((rawRatios[pane.id] ?? 1) / total),
+          ]),
+        )
+        batch(() => {
+          this.mode.actions.setDataView(view, lastBarPeriod)
+          this.indicator.actions.replaceModeInstances(modeInstances)
+          this.pane.actions.commitLayout(
+            ratios,
+            nextSpecs.map((pane) => ({ ...pane, ratio: ratios[pane.id] })),
+          )
+        })
+      },
       setLastBarPeriod: (period: string) => this.mode.actions.setLastBarPeriod(period),
       setPrimaryRenderer: (
         view: 'kline' | 'timeshare',
@@ -443,7 +479,10 @@ export class ChartStateKernel extends StateKernel {
         })
       },
       removeSubPane: (paneId: string) => {
-        if (!this.indicator.readonly.subPanes.peek().some((entry) => entry.paneId === paneId)) return
+        const instance = this.indicator.readonly.instances
+          .peek()
+          .find((entry) => entry.role === 'sub' && entry.paneId === paneId)
+        if (!instance || instance.source === 'mode') return
         const specs = this.pane.readonly.paneSpecs.peek().filter((pane) => pane.id !== paneId)
         const rawRatios = { ...this.pane.readonly.paneRatios.peek() }
         delete rawRatios[paneId]
@@ -467,14 +506,20 @@ export class ChartStateKernel extends StateKernel {
         indicatorId: string,
         params: Readonly<Record<string, unknown>>,
       ) => {
-        if (!this.indicator.readonly.subPanes.peek().some((entry) => entry.paneId === paneId)) return
+        const instance = this.indicator.readonly.instances
+          .peek()
+          .find((entry) => entry.role === 'sub' && entry.paneId === paneId)
+        if (!instance || instance.source === 'mode') return
         this.indicator.actions.replaceSub({ paneId, indicatorId, params })
       },
       updateSubPaneParams: (paneId: string, params: Readonly<Record<string, unknown>>) =>
         this.indicator.actions.setSubParams(paneId, params),
       clearSubPanes: () => {
         const subPaneIds = new Set(
-          this.indicator.readonly.subPanes.peek().map((entry) => entry.paneId),
+          this.indicator.readonly.instances
+            .peek()
+            .filter((entry) => entry.role === 'sub' && entry.source !== 'mode')
+            .map((entry) => entry.paneId),
         )
         const specs = this.pane.readonly.paneSpecs.peek().filter((pane) => !subPaneIds.has(pane.id))
         const ratios: Record<string, number> = {}
@@ -499,6 +544,7 @@ export class ChartStateKernel extends StateKernel {
       // customMarkers 变更须走 Chart.update/clear/registerCustomMarkers：
       // 同步 clearPositionCache + scheduleDraw。勿在此暴露仅写 state 的 flat actions。
     }
+    this.actions.setDataView('kline')
   }
 
   setViewportDomDeps(deps: ViewportDomDeps): void {

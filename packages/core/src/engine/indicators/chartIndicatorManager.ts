@@ -229,7 +229,9 @@ export class ChartIndicatorManager {
           this.projectedPaneRatios = paneRatios
           paneChanged = true
         }
-        const mainChanged = this.reconcileMainIndicators(instances)
+        const mainChanged = this.reconcileMainIndicators(
+          instances.filter((instance) => instance.source !== 'mode'),
+        )
         const subChanged = this.subPaneManager.reconcile(this.subPaneCtx, subPanes)
         if (paneChanged || mainChanged || subChanged) this.deps.scheduleDraw()
       })

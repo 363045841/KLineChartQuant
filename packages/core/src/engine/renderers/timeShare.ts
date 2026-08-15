@@ -8,10 +8,7 @@ import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import { resolveThemeColors } from '../../foundation/tokens/index'
 import type { TimeShareData } from '../../foundation/types/price'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry'
-import { computeTimeSharePaneLayout, resolveTimeShareBaseline } from '../modes/timeShareMath'
-
-/** 成交量区域占 pane 高度的比例（底部） */
-const VOLUME_RATIO = 0.25
+import { resolveTimeShareBaseline } from '../modes/timeShareMath'
 
 export function createTimeShareRendererPlugin(): RendererPluginWithHost {
   return {
@@ -25,7 +22,7 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
     onInstall(_host: PluginHost) {},
 
     draw(context: RenderContext) {
-      const { ctx, pane, data, range, dpr, kLineCenters, scrollLeft, settings, kBarRects } = context
+      const { ctx, pane, data, range, dpr, kLineCenters, scrollLeft, settings } = context
       if (context.period !== 'timeshare') return
       const tsData = data as TimeShareData[]
       if (!tsData.length) return
@@ -41,39 +38,20 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
       })
       if (preClose === null) return
 
-      const paneHeight = pane.height
-      const hasVolume = tsData.some(
-        (item) =>
-          typeof item.volume === 'number' && Number.isFinite(item.volume) && item.volume > 0,
-      )
-      const layout = computeTimeSharePaneLayout(paneHeight, hasVolume ? VOLUME_RATIO : 0)
-      const { volumeAreaHeight, priceAreaHeight } = layout
-
       const { start, end } = range
       const itemCount = Math.min(end, tsData.length) - start
 
       const xPositions: number[] = []
       const yPrices: number[] = []
       const yAvgs: number[] = []
-      const volumes: number[] = []
-      let maxVolume = 0
-
-      // 价格 Y 映射到 price 子区域：pane.yAxis 仍按全高，再线性压到 priceAreaHeight
-      const scaleYToPriceArea = (y: number) => (y / Math.max(paneHeight, 1)) * priceAreaHeight
-
       for (let i = start; i < start + itemCount; i++) {
         const item = tsData[i]
         if (!item) continue
         const x = kLineCenters[i - start]
         if (x === undefined) continue
         xPositions.push(x)
-        yPrices.push(scaleYToPriceArea(pane.yAxis.priceToY(item.price)))
-        yAvgs.push(scaleYToPriceArea(pane.yAxis.priceToY(item.average)))
-        if (hasVolume) {
-          const volume = item.volume ?? 0
-          volumes.push(volume)
-          maxVolume = Math.max(maxVolume, volume)
-        }
+        yPrices.push(pane.yAxis.priceToY(item.price))
+        yAvgs.push(pane.yAxis.priceToY(item.average))
       }
 
       if (xPositions.length < 2) return
@@ -81,12 +59,11 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
       ctx.save()
       ctx.translate(-scrollLeft, 0)
 
-      const preCloseY = scaleYToPriceArea(pane.yAxis.priceToY(preClose))
+      const preCloseY = pane.yAxis.priceToY(preClose)
 
-      // 价格区裁剪，避免线/填充画进成交量区（translate 后世界 scrollLeft 映射到 0）
       ctx.save()
       ctx.beginPath()
-      ctx.rect(scrollLeft, 0, context.paneWidth, priceAreaHeight)
+      ctx.rect(scrollLeft, 0, context.paneWidth, pane.height)
       ctx.clip()
 
       drawPreCloseLine(ctx, xPositions, preCloseY, dpr, colors.timeSharePreClose)
@@ -105,24 +82,6 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
 
       drawSegmentLine(ctx, xPositions, yAvgs, dpr, colors.timeShareAvgLine, 1)
       ctx.restore()
-
-      if (hasVolume) {
-        drawVolumeBars(
-          ctx,
-          kBarRects,
-          volumes,
-          maxVolume,
-          volumeAreaHeight,
-          paneHeight,
-          preClose,
-          dpr,
-          colors.volumeUp,
-          colors.volumeDown,
-          colors.volumeNeutral,
-          tsData,
-          start,
-        )
-      }
 
       ctx.restore()
     },
@@ -257,57 +216,6 @@ function drawSegmentLine(
 
   ctx.stroke()
   ctx.restore()
-}
-
-function drawVolumeBars(
-  ctx: CanvasRenderingContext2D,
-  barRects: Array<{ x: number; width: number }>,
-  volumes: number[],
-  maxVolume: number,
-  volumeAreaHeight: number,
-  paneHeight: number,
-  preClose: number,
-  dpr: number,
-  upColor: string,
-  downColor: string,
-  neutralColor: string,
-  data: TimeShareData[],
-  startIdx: number,
-): void {
-  if (!barRects.length || maxVolume <= 0) return
-
-  const snappedBottom = Math.round(paneHeight * dpr) / dpr
-
-  for (let i = 0; i < barRects.length; i++) {
-    const volume = volumes[i]!
-    if (volume <= 0) continue
-
-    const barHeight = (volume / maxVolume) * volumeAreaHeight
-    const snappedH = Math.round(barHeight * dpr) / dpr
-    const snappedY = snappedBottom - snappedH
-    const { x, width } = barRects[i]!
-    const idx = startIdx + i
-
-    let barColor: string
-    if (i > 0) {
-      const price = data[idx]!.price
-      const prevPrice = data[idx - 1]!.price
-      if (price > prevPrice) barColor = upColor
-      else if (price < prevPrice) barColor = downColor
-      else barColor = neutralColor
-    } else {
-      if (data[idx]!.price > preClose) barColor = upColor
-      else if (data[idx]!.price < preClose) barColor = downColor
-      else barColor = neutralColor
-    }
-
-    const minSize = 1 / dpr
-    const finalW = width > 0 ? Math.max(width, minSize) : 0
-    const finalH = snappedH > 0 ? Math.max(snappedH, minSize) : 0
-
-    ctx.fillStyle = barColor
-    ctx.fillRect(x, snappedY, finalW, finalH)
-  }
 }
 
 @Indicator({

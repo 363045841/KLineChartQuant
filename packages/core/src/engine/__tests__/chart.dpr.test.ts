@@ -527,7 +527,7 @@ describe('Chart pane layout regressions', () => {
     await chart.destroy()
   })
 
-  it('timeshare switching preserves indicators, subPane ids, and ratios in kernel', async () => {
+  it('timeshare switching adds a system volume pane and restores user panes on exit', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     chart.resize()
     expect(chart.enableMainIndicator('MA')).toBe(true)
@@ -551,13 +551,13 @@ describe('Chart pane layout regressions', () => {
         .peek()
         .some((instance) => instance.role === 'main' && instance.indicatorId === 'MA'),
     ).toBe(true)
-    expect(
-      chart.getSubPaneEntries().map((entry) => ({
-        paneId: entry.paneId,
-        indicatorId: entry.indicatorId,
-      })),
-    ).toEqual(entriesBefore)
-    expect(chart.kernel.pane.readonly.paneRatios.peek()).toEqual(ratiosBefore)
+    expect(chart.getSubPaneEntries()).toEqual(
+      expect.arrayContaining([
+        ...entriesBefore.map((entry) => expect.objectContaining(entry)),
+        expect.objectContaining({ paneId: 'timeshare_volume', indicatorId: 'volume' }),
+      ]),
+    )
+    expect(chart.kernel.pane.readonly.paneRatios.peek().timeshare_volume).toBeGreaterThan(0)
     chart.setActiveMode(kMode)
 
     const entriesAfter = chart.getSubPaneEntries().map((e) => ({
