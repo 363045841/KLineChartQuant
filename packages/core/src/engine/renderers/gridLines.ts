@@ -52,18 +52,21 @@ draw(context: RenderContext) {
         }
       }
 
-      const boundaries = findMonthBoundaries(klineData, context.monthKeys)
+      // 分时模式只画水平网格线，不画月份纵向分界线（分时数据无跨月语义，且首点月份边界会形成左侧纵线）
+      if (context.period !== 'timeshare') {
+        const boundaries = findMonthBoundaries(klineData, context.monthKeys)
 
-      for (const idx of boundaries) {
-        if (idx < range.start || idx >= range.end || idx >= klineData.length) continue
+        for (const idx of boundaries) {
+          if (idx < range.start || idx >= range.end || idx >= klineData.length) continue
 
-        // 使用统一的 kLinePositions 计算 K 线中心 X 坐标
-        const localIdx = idx - range.start
-        if (localIdx < 0 || localIdx >= kLinePositions.length) continue
-        const worldX = kLinePositions[localIdx]! + kWidth / 2
+          // 使用统一的 kLinePositions 计算 K 线中心 X 坐标
+          const localIdx = idx - range.start
+          if (localIdx < 0 || localIdx >= kLinePositions.length) continue
+          const worldX = kLinePositions[localIdx]! + kWidth / 2
 
-        const v = createVerticalLineRect(worldX, 0, pane.height, dpr)
-        if (v) ctx.fillRect(v.x, v.y, v.width, v.height)
+          const v = createVerticalLineRect(worldX, 0, pane.height, dpr)
+          if (v) ctx.fillRect(v.x, v.y, v.width, v.height)
+        }
       }
 
       ctx.restore()
