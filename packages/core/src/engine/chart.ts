@@ -395,7 +395,6 @@ export class Chart {
       getRenderContext: (paneId) => this.renderer?.getPaneCtxMap()?.get(paneId) ?? null,
       indicator: this.kernel.indicator,
       subPaneOps: {
-        entries: this.kernel.subPane.readonly.entries,
         create: (paneId, indicatorId, params) =>
           this.kernel.actions.createSubPane(paneId, indicatorId, params),
         remove: (paneId) => this.kernel.actions.removeSubPane(paneId),

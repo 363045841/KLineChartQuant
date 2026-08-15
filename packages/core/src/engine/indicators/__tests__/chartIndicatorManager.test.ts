@@ -3,7 +3,6 @@ import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
 import { createPluginHost } from '../../../foundation/plugin/PluginHost'
 import { createSignal } from '../../../foundation/reactivity/signal'
 import { createIndicatorState } from '../../state/indicatorState'
-import { createSubPaneState } from '../../state/subPaneState'
 import type { VisibleRange } from '../../layout/pane'
 import { UpdateLevel } from '../../layout/pane'
 import { ChartIndicatorManager, type IndicatorDependencies } from '../chartIndicatorManager'
@@ -18,7 +17,6 @@ function createMockDeps() {
   const paneRatiosSignal = createSignal<Readonly<Record<string, number>>>({})
   const paneSpecsSignal = createSignal<ReadonlyArray<any>>([])
   const indicatorState = createIndicatorState()
-  const subPaneState = createSubPaneState()
 
   return {
     rendererMap,
@@ -70,16 +68,15 @@ function createMockDeps() {
     setLayerVisibility: vi.fn(),
     indicator: indicatorState,
     subPaneOps: {
-      entries: subPaneState.readonly.entries,
       create: vi.fn((paneId, indicatorId, params) =>
-        subPaneState.actions.upsert({ paneId, indicatorId, params }),
+        indicatorState.actions.upsertSub({ paneId, indicatorId, params }),
       ),
-      remove: vi.fn((paneId) => subPaneState.actions.remove(paneId)),
+      remove: vi.fn((paneId) => indicatorState.actions.removeSub(paneId)),
       replace: vi.fn((paneId, indicatorId, params) =>
-        subPaneState.actions.replace({ paneId, indicatorId, params }),
+        indicatorState.actions.replaceSub({ paneId, indicatorId, params }),
       ),
-      setParams: vi.fn((paneId, params) => subPaneState.actions.setParams(paneId, params)),
-      clear: vi.fn(() => subPaneState.actions.clear()),
+      setParams: vi.fn((paneId, params) => indicatorState.actions.setSubParams(paneId, params)),
+      clear: vi.fn(() => indicatorState.actions.clearSub()),
     },
     projectPaneLayout: vi.fn(),
     runRendererTransaction: (run) => run(),
@@ -205,7 +202,7 @@ describe('ChartIndicatorManager', () => {
       manager.destroy()
       vi.clearAllMocks()
 
-      deps.indicator.actions.upsert('MA', { ma5: true })
+      deps.indicator.actions.upsertMain('MA', { ma5: true })
 
       expect(deps.useRenderer).not.toHaveBeenCalled()
       expect(deps.scheduleDraw).not.toHaveBeenCalled()

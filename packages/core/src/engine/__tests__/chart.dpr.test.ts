@@ -545,7 +545,12 @@ describe('Chart pane layout regressions', () => {
     const kMode = (chart as unknown as { _kLineMode: import('../modes/types').ChartModeHandler })
       ._kLineMode
     chart.setActiveMode(tsMode)
-    expect(chart.kernel.indicator.readonly.mainIndicators.peek().has('MA')).toBe(true)
+    expect(
+      chart.kernel.indicator.readonly
+        .instances
+        .peek()
+        .some((instance) => instance.role === 'main' && instance.indicatorId === 'MA'),
+    ).toBe(true)
     expect(
       chart.getSubPaneEntries().map((entry) => ({
         paneId: entry.paneId,

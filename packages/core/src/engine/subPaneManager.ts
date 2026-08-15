@@ -9,7 +9,7 @@ import { findIndicator } from './renderers/Indicator/indicatorCatalog'
 import { createSubIndicatorRenderer } from './renderers/Indicator'
 import { createIndicatorScaleRendererPlugin } from './renderers/Indicator/scale/indicator_scale'
 import { createPaneTitleRendererPlugin } from './renderers/paneTitle'
-import type { SubPaneSpec } from './state/subPaneState'
+import type { SubPaneSpec } from './state/indicatorState'
 import { makePluginLayerId } from '../foundation/plugin/rendererLayerId'
 
 export interface SubPaneResources {

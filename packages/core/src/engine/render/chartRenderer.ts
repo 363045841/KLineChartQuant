@@ -475,10 +475,12 @@ export class ChartRenderer {
       const indicatorManager = this.deps.getIndicatorManager()
       // 将主图指标列表（含参数）同步给 scheduler，使其在本帧预计算价格区间
       indicatorManager.indicatorSchedulerAccessor.setActiveMainIndicators(
-        [...indicatorManager.mainIndicatorsSignalPeek.entries()].map(([id, entry]) => ({
-          id,
-          params: entry.params,
-        })),
+        indicatorManager.indicatorInstancesSignalPeek
+          .filter((instance) => instance.role === 'main')
+          .map((instance) => ({
+            id: instance.indicatorId,
+            params: { ...(instance.params as Record<string, string | number | boolean>) },
+          })),
       )
     }
     const mainIndicatorRange = useCachedFrame

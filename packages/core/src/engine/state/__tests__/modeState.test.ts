@@ -103,9 +103,9 @@ describe('modeState', () => {
       initialZoomLevel: 3,
       scheduleDraw: () => undefined,
     })
-    kernel.indicator.actions.upsert('MA', {})
-    kernel.indicator.actions.upsert('BOLL', {})
-    kernel.subPane.actions.upsert({ paneId: 'sub_RSI', indicatorId: 'RSI', params: {} })
+    kernel.indicator.actions.upsertMain('MA', {})
+    kernel.indicator.actions.upsertMain('BOLL', {})
+    kernel.indicator.actions.upsertSub({ paneId: 'sub_RSI', indicatorId: 'RSI', params: {} })
 
     expect(kernel.activeRenderers$.peek()).toEqual([
       { name: 'candle', layerId: 'plugin:candle' },
@@ -117,7 +117,7 @@ describe('modeState', () => {
       { name: 'paneTitle_sub_RSI', layerId: 'plugin:paneTitle_sub_RSI' },
     ])
 
-    kernel.indicator.actions.upsert('timeShare', {})
+    kernel.indicator.actions.upsertMain('timeShare', {})
     kernel.mode.actions.setDataView('timeshare')
 
     expect(kernel.activeRenderers$.peek()).toEqual([

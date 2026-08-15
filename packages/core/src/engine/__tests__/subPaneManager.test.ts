@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { IndicatorScheduler } from '../indicators/scheduler'
-import type { SubPaneSpec } from '../state/subPaneState'
+import type { SubPaneSpec } from '../state/indicatorState'
 import { SubPaneManager, type SubPaneContext } from '../subPaneManager'
 
 function createMockScheduler(): Partial<IndicatorScheduler> {

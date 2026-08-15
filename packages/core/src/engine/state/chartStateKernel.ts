@@ -19,8 +19,11 @@ import {
 import { createDataManagerState, type DataManagerStateModule } from './dataManagerState'
 import { createOptionsState, type OptionsStateModule } from './optionsState'
 import { createComparisonState, type ComparisonStateModule } from './comparisonState'
-import { createIndicatorState, type IndicatorStateModule } from './indicatorState'
-import { createSubPaneState, type SubPaneStateModule } from './subPaneState'
+import {
+  createIndicatorState,
+  type IndicatorInstanceSpec,
+  type IndicatorStateModule,
+} from './indicatorState'
 import { createMarkerState, type MarkerStateModule } from './markerState'
 import { createRendererState, type RendererStateModule } from './rendererState'
 import { batch, computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
@@ -35,8 +38,6 @@ import type { ChartSettings } from '../../foundation/config/chartSettings'
 import type { RendererBackendRuntime } from '../../rendering/render/rendererHost'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
 import type { IndicatorMetadata } from '../indicators/indicatorMetadata'
-import type { MainIndicatorEntry } from './indicatorState'
-import type { SubPaneSpec } from './subPaneState'
 import type { MarketSessionRegistry } from '../market/marketSessionRegistry'
 import { resolveSymbolMarketSession } from '../market/resolveSymbolMarketSession'
 import { resolveMarketSessionSlots } from '../../foundation/utils/sessionTimeLabels'
@@ -69,48 +70,42 @@ function tryResolveIndicatorMetadata(
 /** 从已启用指标状态解析当前数据视图实际需要的 renderer layer。 */
 function resolveIndicatorRenderers(
   dataView: ChartDataView,
-  mainIndicators: ReadonlyMap<string, MainIndicatorEntry>,
-  subPanes: ReadonlyArray<SubPaneSpec>,
+  instances: ReadonlyArray<IndicatorInstanceSpec>,
 ): ReadonlyArray<ActiveRendererDescriptor> {
-  const renderers: ActiveRendererDescriptor[] = []
+  const mainRenderers: ActiveRendererDescriptor[] = []
+  const subRenderers: ActiveRendererDescriptor[] = []
   const seen = new Set<string>()
   let hasMainIndicatorRenderer = false
-  const add = (name: string | null): void => {
+  const add = (target: ActiveRendererDescriptor[], name: string | null): void => {
     if (!name || seen.has(name)) return
     seen.add(name)
-    renderers.push({ name, layerId: makePluginLayerId(name) })
+    target.push({ name, layerId: makePluginLayerId(name) })
   }
 
-  // 主图指标数据 Layer 共用一个 legend Layer。
-  for (const id of mainIndicators.keys()) {
+  // 主图和副图指标均从统一实例集合读取；主图数据 Layer 共用一个 legend Layer。
+  for (const instance of instances) {
     const definition = tryResolveIndicatorMetadata(
-      getRegisteredIndicatorDefinition(id),
+      getRegisteredIndicatorDefinition(instance.indicatorId),
       dataView,
-      'main',
-      id,
+      instance.paneId,
+      instance.indicatorId,
     )
     if (!definition) continue
-    const rendererName = definition.getRendererName({ paneId: 'main', indicatorId: id })
-    add(rendererName)
-    hasMainIndicatorRenderer ||= Boolean(rendererName)
-  }
-  if (hasMainIndicatorRenderer) add('mainIndicatorLegend')
 
-  // 副图由数据、坐标轴和标题三个独立 Layer 组成。
-  for (const pane of subPanes) {
-    const definition = tryResolveIndicatorMetadata(
-      getRegisteredIndicatorDefinition(pane.indicatorId),
-      dataView,
-      pane.paneId,
-      pane.indicatorId,
-    )
-    if (!definition) continue
-    const options = { paneId: pane.paneId, indicatorId: pane.indicatorId }
-    add(definition.getRendererName(options))
-    add(definition.getScaleRendererName(options))
-    add(definition.getPaneTitleRendererName(options))
+    const options = { paneId: instance.paneId, indicatorId: instance.indicatorId }
+    if (instance.role === 'main') {
+      const rendererName = definition.getRendererName(options)
+      add(mainRenderers, rendererName)
+      hasMainIndicatorRenderer ||= Boolean(rendererName)
+    } else {
+      // 副图由数据、坐标轴和标题三个独立 Layer 组成。
+      add(subRenderers, definition.getRendererName(options))
+      add(subRenderers, definition.getScaleRendererName(options))
+      add(subRenderers, definition.getPaneTitleRendererName(options))
+    }
   }
-  return renderers
+  if (hasMainIndicatorRenderer) add(mainRenderers, 'mainIndicatorLegend')
+  return [...mainRenderers, ...subRenderers]
 }
 export interface ChartStateKernelDeps {
   initialOptions: {
@@ -152,7 +147,6 @@ export class ChartStateKernel extends StateKernel {
   readonly dataManager: DataManagerStateModule
   readonly comparison: ComparisonStateModule
   readonly indicator: IndicatorStateModule
-  readonly subPane: SubPaneStateModule
   readonly marker: MarkerStateModule
   readonly renderer: RendererStateModule
 
@@ -215,9 +209,6 @@ export class ChartStateKernel extends StateKernel {
     // ── Indicator state ──
     this.indicator = createIndicatorState()
 
-    // ── Sub-pane business state ──
-    this.subPane = createSubPaneState()
-
     // ── Marker business state ──
     this.marker = createMarkerState()
 
@@ -265,8 +256,7 @@ export class ChartStateKernel extends StateKernel {
         { name: primary, layerId: makePluginLayerId(primary) },
         ...resolveIndicatorRenderers(
           dataView,
-          this.indicator.readonly.mainIndicators(),
-          this.subPane.readonly.entries(),
+          this.indicator.readonly.instances(),
         ),
       ]
       return Object.freeze([
@@ -338,8 +328,7 @@ export class ChartStateKernel extends StateKernel {
       comparisonColors: this.comparison.readonly.colors,
       comparisonLoading: this.comparison.readonly.loading,
       // Indicator
-      mainIndicators: this.indicator.readonly.mainIndicators,
-      subPanes: this.subPane.readonly.entries,
+      subPanes: this.indicator.readonly.subPanes,
       // Marker
       customMarkers: this.marker.readonly.customMarkers,
     }
@@ -410,17 +399,18 @@ export class ChartStateKernel extends StateKernel {
       setComparisonColors: (colors: ReadonlyMap<string, string>) =>
         this.comparison.actions.setColors(colors),
       setComparisonLoading: (loading: boolean) => this.comparison.actions.setLoading(loading),
-      upsertMainIndicator: (id, params) => this.indicator.actions.upsert(id, params),
-      removeMainIndicator: (id) => this.indicator.actions.remove(id),
-      setMainIndicatorParams: (id, params) => this.indicator.actions.setParams(id, params),
-      replaceMainIndicators: (entries) => this.indicator.actions.replaceAll(entries),
-      clearMainIndicators: () => this.indicator.actions.clear(),
+      upsertMainIndicator: (id, params) => this.indicator.actions.upsertMain(id, params),
+      removeMainIndicator: (id) => this.indicator.actions.removeMain(id),
+      setMainIndicatorParams: (id, params) => this.indicator.actions.setMainParams(id, params),
+      replaceMainIndicators: (instances: ReadonlyArray<IndicatorInstanceSpec>) =>
+        this.indicator.actions.replaceAllMain(instances),
+      clearMainIndicators: () => this.indicator.actions.clearMain(),
       createSubPane: (
         paneId: string,
         indicatorId: string,
         params: Readonly<Record<string, unknown>>,
       ) => {
-        if (this.subPane.readonly.entries.peek().some((entry) => entry.paneId === paneId)) return
+        if (this.indicator.readonly.subPanes.peek().some((entry) => entry.paneId === paneId)) return
         const currentSpecs = this.pane.readonly.paneSpecs.peek()
         const nextSpecs = currentSpecs.some((pane) => pane.id === paneId)
           ? currentSpecs.map((pane) => ({ ...pane }))
@@ -448,12 +438,12 @@ export class ChartStateKernel extends StateKernel {
         }
         const specs = nextSpecs.map((pane) => ({ ...pane, ratio: ratios[pane.id] }))
         batch(() => {
-          this.subPane.actions.upsert({ paneId, indicatorId, params })
+          this.indicator.actions.upsertSub({ paneId, indicatorId, params })
           this.pane.actions.commitLayout(ratios, specs)
         })
       },
       removeSubPane: (paneId: string) => {
-        if (!this.subPane.readonly.entries.peek().some((entry) => entry.paneId === paneId)) return
+        if (!this.indicator.readonly.subPanes.peek().some((entry) => entry.paneId === paneId)) return
         const specs = this.pane.readonly.paneSpecs.peek().filter((pane) => pane.id !== paneId)
         const rawRatios = { ...this.pane.readonly.paneRatios.peek() }
         delete rawRatios[paneId]
@@ -468,7 +458,7 @@ export class ChartStateKernel extends StateKernel {
         }
         const nextSpecs = specs.map((pane) => ({ ...pane, ratio: ratios[pane.id] }))
         batch(() => {
-          this.subPane.actions.remove(paneId)
+          this.indicator.actions.removeSub(paneId)
           this.pane.actions.commitLayout(ratios, nextSpecs)
         })
       },
@@ -477,14 +467,14 @@ export class ChartStateKernel extends StateKernel {
         indicatorId: string,
         params: Readonly<Record<string, unknown>>,
       ) => {
-        if (!this.subPane.readonly.entries.peek().some((entry) => entry.paneId === paneId)) return
-        this.subPane.actions.replace({ paneId, indicatorId, params })
+        if (!this.indicator.readonly.subPanes.peek().some((entry) => entry.paneId === paneId)) return
+        this.indicator.actions.replaceSub({ paneId, indicatorId, params })
       },
       updateSubPaneParams: (paneId: string, params: Readonly<Record<string, unknown>>) =>
-        this.subPane.actions.setParams(paneId, params),
+        this.indicator.actions.setSubParams(paneId, params),
       clearSubPanes: () => {
         const subPaneIds = new Set(
-          this.subPane.readonly.entries.peek().map((entry) => entry.paneId),
+          this.indicator.readonly.subPanes.peek().map((entry) => entry.paneId),
         )
         const specs = this.pane.readonly.paneSpecs.peek().filter((pane) => !subPaneIds.has(pane.id))
         const ratios: Record<string, number> = {}
@@ -499,7 +489,7 @@ export class ChartStateKernel extends StateKernel {
           ratios[pane.id] = pane.visible === false ? raw : raw / total
         }
         batch(() => {
-          this.subPane.actions.clear()
+          this.indicator.actions.clearSub()
           this.pane.actions.commitLayout(
             ratios,
             specs.map((pane) => ({ ...pane, ratio: ratios[pane.id] })),
@@ -533,7 +523,6 @@ export class ChartStateKernel extends StateKernel {
     this.dataManager.dispose()
     this.comparison.dispose()
     this.indicator.dispose()
-    this.subPane.dispose()
     this.marker.dispose()
     this.renderer.dispose()
   }

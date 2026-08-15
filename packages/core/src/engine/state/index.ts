@@ -33,6 +33,11 @@ export { createSettingsState, type SettingsStateModule } from './settingsState'
 export { createModeState, type ModeStateModule, type ChartModeId } from './modeState'
 export { createDrawingState, type DrawingStateModule } from './drawingState'
 export { createDataManagerState, type DataManagerStateModule } from './dataManagerState'
-export { createIndicatorState, type IndicatorStateModule } from './indicatorState'
-export { createSubPaneState, type SubPaneStateModule, type SubPaneSpec } from './subPaneState'
+export {
+  createIndicatorState,
+  type IndicatorInstanceRole,
+  type IndicatorInstanceSpec,
+  type IndicatorStateModule,
+  type SubPaneSpec,
+} from './indicatorState'
 export { createMarkerState, type MarkerStateModule } from './markerState'

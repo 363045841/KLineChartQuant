@@ -1,17 +1,17 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { ChartStateKernel } from '../chartStateKernel'
-import { createSubPaneState } from '../subPaneState'
+import { createIndicatorState } from '../indicatorState'
 
-describe('subPaneState', () => {
+describe('indicatorState sub-pane instances', () => {
   it('publishes immutable entry snapshots and copies action inputs', () => {
-    const state = createSubPaneState()
+    const state = createIndicatorState()
     const params = { period1: 6 }
 
-    state.actions.upsert({ paneId: 'RSI_0', indicatorId: 'RSI', params })
+    state.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'RSI', params })
     params.period1 = 99
 
-    const entry = state.readonly.entries.peek()[0]!
+    const entry = state.readonly.subPanes.peek()[0]!
     expect(entry.params).toEqual({ period1: 6 })
     expect(Object.isFrozen(entry)).toBe(true)
     expect(Object.isFrozen(entry.params)).toBe(true)
@@ -21,55 +21,55 @@ describe('subPaneState', () => {
   })
 
   it('does not publish a new snapshot for an identical upsert', () => {
-    const state = createSubPaneState()
+    const state = createIndicatorState()
     const listener = vi.fn()
-    state.readonly.entries.subscribe(listener)
+    state.readonly.subPanes.subscribe(listener)
 
-    state.actions.upsert({ paneId: 'RSI_0', indicatorId: 'RSI', params: { period1: 6 } })
-    state.actions.upsert({ paneId: 'RSI_0', indicatorId: 'RSI', params: { period1: 6 } })
+    state.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'RSI', params: { period1: 6 } })
+    state.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'RSI', params: { period1: 6 } })
 
     expect(listener).toHaveBeenCalledTimes(1)
   })
 
   it('deeply snapshots nested parameter arrays and objects', () => {
-    const state = createSubPaneState()
+    const state = createIndicatorState()
     const params = { levels: [20, 80], style: { width: 2 } }
 
-    state.actions.upsert({ paneId: 'RSI_0', indicatorId: 'RSI', params })
+    state.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'RSI', params })
     params.levels[0] = 10
     params.style.width = 4
 
-    const stored = state.readonly.entries.peek()[0]!.params as typeof params
+    const stored = state.readonly.subPanes.peek()[0]!.params as typeof params
     expect(stored).toEqual({ levels: [20, 80], style: { width: 2 } })
     expect(Object.isFrozen(stored.levels)).toBe(true)
     expect(Object.isFrozen(stored.style)).toBe(true)
   })
 
   it('rejects mutable non-plain parameter objects', () => {
-    const state = createSubPaneState()
+    const state = createIndicatorState()
 
     expect(() =>
-      state.actions.upsert({
+      state.actions.upsertSub({
         paneId: 'RSI_0',
         indicatorId: 'RSI',
         params: { dates: new Map([['start', new Date()]]) },
       }),
     ).toThrow(TypeError)
-    expect(state.readonly.entries.peek()).toEqual([])
+    expect(state.readonly.subPanes.peek()).toEqual([])
   })
 
   it('rejects bigint and symbol parameter values', () => {
-    const state = createSubPaneState()
+    const state = createIndicatorState()
 
     expect(() =>
-      state.actions.upsert({
+      state.actions.upsertSub({
         paneId: 'RSI_0',
         indicatorId: 'RSI',
         params: { value: 1n },
       }),
     ).toThrow(TypeError)
     expect(() =>
-      state.actions.upsert({
+      state.actions.upsertSub({
         paneId: 'RSI_0',
         indicatorId: 'RSI',
         params: { value: Symbol('x') },
@@ -78,14 +78,14 @@ describe('subPaneState', () => {
   })
 
   it('replace rewrites even when params are equal', () => {
-    const state = createSubPaneState()
-    state.actions.upsert({ paneId: 'RSI_0', indicatorId: 'RSI', params: { period1: 6 } })
-    const first = state.readonly.entries.peek()
+    const state = createIndicatorState()
+    state.actions.upsertSub({ paneId: 'RSI_0', indicatorId: 'RSI', params: { period1: 6 } })
+    const first = state.readonly.subPanes.peek()
 
-    state.actions.replace({ paneId: 'RSI_0', indicatorId: 'RSI', params: { period1: 6 } })
+    state.actions.replaceSub({ paneId: 'RSI_0', indicatorId: 'RSI', params: { period1: 6 } })
 
-    expect(state.readonly.entries.peek()).not.toBe(first)
-    expect(state.readonly.entries.peek()[0]).toEqual({
+    expect(state.readonly.subPanes.peek()).not.toBe(first)
+    expect(state.readonly.subPanes.peek()[0]).toEqual({
       paneId: 'RSI_0',
       indicatorId: 'RSI',
       params: { period1: 6 },
@@ -117,11 +117,11 @@ describe('ChartStateKernel sub-pane transactions', () => {
     const capture = () => {
       snapshots.push({
         paneIds: kernel.pane.readonly.paneSpecs.peek().map((pane) => pane.id),
-        entryIds: kernel.subPane.readonly.entries.peek().map((entry) => entry.paneId),
+        entryIds: kernel.indicator.readonly.subPanes.peek().map((entry) => entry.paneId),
       })
     }
     kernel.pane.readonly.paneSpecs.subscribe(capture)
-    kernel.subPane.readonly.entries.subscribe(capture)
+    kernel.indicator.readonly.subPanes.subscribe(capture)
 
     kernel.actions.createSubPane('RSI_0', 'RSI', { period1: 6 })
 
@@ -139,11 +139,11 @@ describe('ChartStateKernel sub-pane transactions', () => {
     const capture = () => {
       snapshots.push({
         paneIds: kernel.pane.readonly.paneSpecs.peek().map((pane) => pane.id),
-        entryIds: kernel.subPane.readonly.entries.peek().map((entry) => entry.paneId),
+        entryIds: kernel.indicator.readonly.subPanes.peek().map((entry) => entry.paneId),
       })
     }
     kernel.pane.readonly.paneSpecs.subscribe(capture)
-    kernel.subPane.readonly.entries.subscribe(capture)
+    kernel.indicator.readonly.subPanes.subscribe(capture)
 
     kernel.actions.removeSubPane('RSI_0')
 
