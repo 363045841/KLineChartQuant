@@ -132,7 +132,7 @@ export function resolveMarketSessionSlots(
   return Math.max(0, Math.floor(minutes / step))
 }
 
-/** 将实际交易时间映射到 session 槽位，收盘边界归入前一槽。 */
+/** 将实际交易时间映射到 session 槽位。非末段收盘点落在下一时段共享的边界槽。 */
 export function resolveTimestampSessionSlot(
   timestamp: number,
   config: MarketSessionConfig = ASHARE_MARKET_SESSION,
@@ -146,13 +146,16 @@ export function resolveTimestampSessionSlot(
   const step = config.slotMinutes && config.slotMinutes > 0 ? config.slotMinutes : 1
   let offset = 0
 
-  for (const range of config.sessions) {
+  for (let i = 0; i < config.sessions.length; i++) {
+    const range = config.sessions[i]!
     const slotCount = Math.floor((range.close - range.open) / step)
     if (slotCount <= 0) continue
     if (minuteOfDay >= range.open && minuteOfDay < range.close) {
       return offset + Math.floor((minuteOfDay - range.open) / step)
     }
-    if (minuteOfDay === range.close) return offset + slotCount - 1
+    if (minuteOfDay === range.close) {
+      return offset + (i === config.sessions.length - 1 ? slotCount - 1 : slotCount)
+    }
     offset += slotCount
   }
   return null

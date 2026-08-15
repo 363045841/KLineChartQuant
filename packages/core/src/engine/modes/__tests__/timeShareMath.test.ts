@@ -233,11 +233,12 @@ describe('computeTimeShareTimeLabelIndices', () => {
 })
 
 describe('timeShare slot time/x helpers', () => {
-  it('maps gotdx closing timestamps without compacting the lunch break', () => {
+  it('maps gotdx closing timestamps to the lunch boundary without overlap', () => {
     const time = (hour: number, minute: number) => Date.UTC(2026, 6, 28, hour - 8, minute)
 
     expect(resolveTimestampSessionSlot(time(9, 30))).toBe(0)
-    expect(resolveTimestampSessionSlot(time(11, 30))).toBe(119)
+    expect(resolveTimestampSessionSlot(time(11, 30))).toBe(120)
+    expect(resolveTimestampSessionSlot(time(13, 0))).toBe(120)
     expect(resolveTimestampSessionSlot(time(13, 1))).toBe(121)
     expect(resolveTimestampSessionSlot(time(15, 0))).toBe(239)
     expect(resolveTimestampSessionSlot(1e100)).toBeNull()
