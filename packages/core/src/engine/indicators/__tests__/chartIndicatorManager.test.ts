@@ -68,9 +68,7 @@ function createMockDeps() {
     setLayerVisibility: vi.fn(),
     indicator: indicatorState,
     subPaneOps: {
-      create: vi.fn((paneId, indicatorId, params) =>
-        indicatorState.actions.upsertSub({ paneId, indicatorId, params }),
-      ),
+      create: vi.fn((entry) => indicatorState.actions.upsertSub(entry)),
       remove: vi.fn((paneId) => indicatorState.actions.removeSub(paneId)),
       replace: vi.fn((paneId, indicatorId, params) =>
         indicatorState.actions.replaceSub({ paneId, indicatorId, params }),
@@ -147,6 +145,21 @@ describe('ChartIndicatorManager', () => {
   })
 
   describe('state-driven projection', () => {
+    it('separates sub-indicator instance identity from pane identity and capability', () => {
+      const instanceId = manager.addIndicator('VOL', 'sub')
+      expect(instanceId).not.toBeNull()
+
+      const entry = manager.getSubPaneEntries()[0]!
+      expect(entry.instanceId).toBe(instanceId)
+      expect(entry.instanceId).not.toBe(entry.paneId)
+      expect(entry.indicatorId).toBe('volume')
+      expect(entry.ordinal).toBe(0)
+
+      expect(manager.updateIndicatorParams(instanceId!, { opacity: 0.5 })).toBe(true)
+      expect(manager.removeIndicator(instanceId!)).toBe(true)
+      expect(manager.getSubPaneEntries()).toEqual([])
+    })
+
     it('registers main indicator resources once across duplicate enable calls', () => {
       expect(manager.enableMainIndicator('MA')).toBe(true)
       expect(manager.enableMainIndicator('MA')).toBe(true)
@@ -173,7 +186,7 @@ describe('ChartIndicatorManager', () => {
       expect(manager.createSubPane('RSI_0', 'MACD', { fast: 5 })).toBe(true)
 
       expect(deps.subPaneOps.replace).not.toHaveBeenCalled()
-      expect(manager.getSubPaneEntry('RSI_0')?.indicatorId).toBe('RSI')
+      expect(manager.getSubPaneEntry('RSI_0')?.indicatorId).toBe('rsi')
       expect(manager.getSubPaneEntry('RSI_0')?.params).toEqual({ period1: 6 })
     })
 

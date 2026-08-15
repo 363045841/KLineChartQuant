@@ -234,8 +234,10 @@ function mapIndicatorInstance(indicator: LegacyIndicatorInstance): IndicatorInst
 
 function mapSubPaneInfo(subPane: LegacySubPaneInfo): SubPaneInfo {
   return {
+    instanceId: subPane.instanceId,
     paneId: subPane.paneId,
     indicatorId: subPane.indicatorId,
+    ordinal: subPane.ordinal,
     params: { ...subPane.params },
     ratio: subPane.ratio,
   }

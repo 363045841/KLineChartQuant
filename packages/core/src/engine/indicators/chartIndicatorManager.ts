@@ -14,6 +14,7 @@ import {
 import type {
   IndicatorInstanceSpec,
   IndicatorStateModule,
+  SubPaneInput,
   SubPaneSpec,
 } from '../state/indicatorState'
 import type { Layer } from '../../rendering/scene/types'
@@ -28,6 +29,7 @@ import { SubPaneManager, type SubPaneEntry, type SubPaneContext } from '../subPa
 import { getRegisteredIndicatorDefinitions } from './indicatorDefinitionRegistry'
 import { IndicatorScheduler } from './scheduler'
 import { makePluginLayerId } from '../../foundation/plugin/rendererLayerId'
+import { generateUUID } from '../../foundation/utils/uuid'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kWidth: number
@@ -53,7 +55,7 @@ function mainIndicatorProjectionKey(
 
 /** 副图业务操作：create/remove/clear 会联动 pane 布局，不能只写 subPane 模块 */
 export interface SubPaneOps {
-  create: (paneId: string, indicatorId: string, params: Readonly<Record<string, unknown>>) => void
+  create: (entry: SubPaneInput) => void
   remove: (paneId: string) => void
   replace: (paneId: string, indicatorId: string, params: Readonly<Record<string, unknown>>) => void
   setParams: (paneId: string, params: Readonly<Record<string, unknown>>) => void
@@ -169,12 +171,13 @@ export class ChartIndicatorManager {
     // 派生信号
     this._indicatorsComputed = computed<ReadonlyArray<IndicatorInstance>>(() =>
       this.deps.indicator.readonly.instances().map((instance) => ({
-        id: instance.role === 'main' ? instance.indicatorId : instance.paneId,
+        id: instance.instanceId,
         definitionId: instance.indicatorId,
         label: instance.indicatorId,
         name: instance.indicatorId,
         role: instance.role,
         paneId: instance.role === 'sub' ? instance.paneId : undefined,
+        ordinal: instance.ordinal,
         params: { ...instance.params },
       })),
     )
@@ -184,8 +187,10 @@ export class ChartIndicatorManager {
       return this.deps.indicator.readonly
         .subPanes()
         .map((entry) => ({
+          instanceId: entry.instanceId,
           paneId: entry.paneId,
           indicatorId: entry.indicatorId,
+          ordinal: entry.ordinal,
           params: { ...entry.params },
           ratio: ratios[entry.paneId] ?? 1,
         }))
@@ -217,8 +222,10 @@ export class ChartIndicatorManager {
       const subPanes: SubPaneSpec[] = instances
         .filter((instance) => instance.role === 'sub')
         .map((instance) => ({
+          instanceId: instance.instanceId,
           paneId: instance.paneId,
           indicatorId: instance.indicatorId,
+          ordinal: instance.ordinal,
           params: instance.params,
         }))
       this.deps.runRendererTransaction(() => {
@@ -260,8 +267,7 @@ export class ChartIndicatorManager {
 
   /** 从统一实例集合读取指定主图指标。 */
   private getMainIndicatorInstance(indicatorId: string): IndicatorInstanceSpec | undefined {
-    return this.deps.indicator.readonly
-      .instances
+    return this.deps.indicator.readonly.instances
       .peek()
       .find((instance) => instance.role === 'main' && instance.indicatorId === indicatorId)
   }
@@ -310,8 +316,7 @@ export class ChartIndicatorManager {
   }
 
   getActiveMainIndicators(): string[] {
-    return this.deps.indicator.readonly
-      .instances
+    return this.deps.indicator.readonly.instances
       .peek()
       .filter((instance) => instance.role === 'main')
       .map((instance) => instance.indicatorId)
@@ -333,8 +338,7 @@ export class ChartIndicatorManager {
 
   getMainIndicatorParams(indicatorId: string): Record<string, number | boolean | string> | null {
     const params = this.getMainIndicatorInstance(indicatorId.toUpperCase())?.params as
-      | Readonly<Record<string, number | boolean | string>>
-      | undefined
+      Readonly<Record<string, number | boolean | string>> | undefined
     return params ? { ...params } : null
   }
 
@@ -345,7 +349,8 @@ export class ChartIndicatorManager {
   private reconcileMainIndicators(desired: ReadonlyArray<IndicatorInstanceSpec>): boolean {
     let changed = false
     for (const id of [...this.appliedMainIndicators.keys()]) {
-      if (desired.some((instance) => instance.role === 'main' && instance.indicatorId === id)) continue
+      if (desired.some((instance) => instance.role === 'main' && instance.indicatorId === id))
+        continue
       this.appliedMainIndicators.delete(id)
       this.updateIndicatorSchedulerConfig(id)
       changed = true
@@ -424,10 +429,14 @@ export class ChartIndicatorManager {
     const instances: IndicatorInstanceSpec[] = newIds.map((id) => {
       const existing = this.getMainIndicatorInstance(id)
       return {
+        instanceId: `main:${id}`,
         indicatorId: id,
         paneId: 'main',
         role: 'main',
-        params: existing ? { ...existing.params } : { ...(ChartIndicatorManager.DEFAULT_MAIN_PARAMS[id] ?? {}) },
+        ordinal: 0,
+        params: existing
+          ? { ...existing.params }
+          : { ...(ChartIndicatorManager.DEFAULT_MAIN_PARAMS[id] ?? {}) },
       }
     })
     this.deps.indicator.actions.replaceAllMain(instances)
@@ -444,11 +453,7 @@ export class ChartIndicatorManager {
     if (!definition) {
       throw new KLineChartError('NOT_REGISTERED', `[Chart] Unknown indicator: ${indicatorId}`)
     }
-    this.deps.subPaneOps.create(
-      paneId,
-      indicatorId,
-      params ?? this.getDefaultSubPaneParams(indicatorId),
-    )
+    this.deps.subPaneOps.create(this.createSubPaneInput(paneId, definition.name, params))
   }
 
   createSubPane(
@@ -456,24 +461,23 @@ export class ChartIndicatorManager {
     indicatorId: SubIndicatorType,
     params?: Record<string, number | boolean | string>,
   ): boolean {
-    const existing = this.deps.indicator.readonly.subPanes.peek().find((entry) => entry.paneId === paneId)
+    const definition = this.indicatorScheduler.getIndicatorMetadata(indicatorId)
+    if (!definition) {
+      throw new KLineChartError('NOT_REGISTERED', `[Chart] Unknown indicator: ${indicatorId}`)
+    }
+    const existing = this.deps.indicator.readonly.subPanes
+      .peek()
+      .find((entry) => entry.paneId === paneId)
     if (existing) {
       if (
-        existing.indicatorId === indicatorId &&
+        existing.indicatorId === definition.name &&
         !this.subPaneManager.getMountedResources(paneId)
       ) {
         this.deps.subPaneOps.replace(paneId, existing.indicatorId, existing.params)
       }
       return true
     }
-    if (!this.indicatorScheduler.getIndicatorMetadata(indicatorId)) {
-      throw new KLineChartError('NOT_REGISTERED', `[Chart] Unknown indicator: ${indicatorId}`)
-    }
-    this.deps.subPaneOps.create(
-      paneId,
-      indicatorId,
-      params ?? this.getDefaultSubPaneParams(indicatorId),
-    )
+    this.deps.subPaneOps.create(this.createSubPaneInput(paneId, definition.name, params))
     return true
   }
 
@@ -536,6 +540,27 @@ export class ChartIndicatorManager {
     return { ...((meta?.runtime?.defaultConfig as Record<string, unknown>) ?? {}) }
   }
 
+  /** 创建副图实例描述，分别生成实例身份、布局身份和显示序号。 */
+  private createSubPaneInput(
+    paneId: string,
+    indicatorId: string,
+    params?: Readonly<Record<string, unknown>>,
+    instanceId = `legacy:${paneId}`,
+  ): SubPaneInput {
+    const ordinal =
+      this.deps.indicator.readonly.instances
+        .peek()
+        .filter((instance) => instance.role === 'sub' && instance.indicatorId === indicatorId)
+        .reduce((max, instance) => Math.max(max, instance.ordinal), -1) + 1
+    return {
+      instanceId,
+      paneId,
+      indicatorId,
+      ordinal,
+      params: params ?? this.getDefaultSubPaneParams(indicatorId as SubIndicatorType),
+    }
+  }
+
   // ========== 高层指标 API ==========
 
   addIndicator(
@@ -551,14 +576,14 @@ export class ChartIndicatorManager {
       if (!success) return null
       return definitionId.toUpperCase()
     } else {
-      const paneId = `${definitionId.toUpperCase()}_${Date.now()}`
-      const success = this.createSubPane(
-        paneId,
-        definitionId as SubIndicatorType,
-        params as Record<string, number | boolean | string>,
+      const definition = this.indicatorScheduler.getIndicatorMetadata(definitionId)
+      if (!definition) return null
+      const instanceId = generateUUID()
+      const paneId = generateUUID()
+      this.deps.subPaneOps.create(
+        this.createSubPaneInput(paneId, definition.name, params, instanceId),
       )
-      if (!success) return null
-      return paneId
+      return instanceId
     }
   }
 
@@ -569,9 +594,11 @@ export class ChartIndicatorManager {
       return this.disableMainIndicator(instanceId)
     }
 
-    const subPaneEntry = this.getSubPaneEntry(instanceId)
+    const subPaneEntry = this.deps.indicator.readonly.instances
+      .peek()
+      .find((entry) => entry.role === 'sub' && entry.instanceId === instanceId)
     if (subPaneEntry) {
-      this.removeSubPane(instanceId)
+      this.removeSubPane(subPaneEntry.paneId)
       return true
     }
 
@@ -589,9 +616,11 @@ export class ChartIndicatorManager {
       return true
     }
 
-    const subPaneEntry = this.getSubPaneEntry(instanceId)
+    const subPaneEntry = this.deps.indicator.readonly.instances
+      .peek()
+      .find((entry) => entry.role === 'sub' && entry.instanceId === instanceId)
     if (subPaneEntry) {
-      this.updateSubPaneParams(instanceId, params)
+      this.updateSubPaneParams(subPaneEntry.paneId, params)
       return true
     }
 

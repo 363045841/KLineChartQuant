@@ -1,12 +1,57 @@
 import { describe, it, expect } from 'vitest'
-import { createIndicatorState, type IndicatorInstanceSpec } from '../indicatorState'
+import {
+  createIndicatorState,
+  resolveModeIndicatorInstances,
+  type IndicatorInstanceSpec,
+} from '../indicatorState'
+import '../../renderers/subVolume'
 
 describe('indicatorState', () => {
+  it('reuses a user sub-pane when a mode requests the same indicator', () => {
+    const requested: IndicatorInstanceSpec[] = [
+      {
+        instanceId: 'mode:timeshare',
+        indicatorId: 'timeShare',
+        paneId: 'main',
+        role: 'main',
+        ordinal: 0,
+        params: {},
+      },
+      {
+        instanceId: 'mode:timeshare-volume',
+        indicatorId: 'volume',
+        paneId: 'timeshare_volume',
+        role: 'sub',
+        ordinal: 0,
+        params: {},
+      },
+    ]
+    const current: IndicatorInstanceSpec[] = [
+      {
+        instanceId: 'user:volume',
+        indicatorId: 'VOL',
+        paneId: 'VOL_0',
+        role: 'sub',
+        ordinal: 0,
+        params: {},
+      },
+    ]
+
+    expect(resolveModeIndicatorInstances(requested, current)).toEqual([requested[0]])
+  })
+
   it('upsert adds and merges params immutably', () => {
     const m = createIndicatorState()
     m.actions.upsertMain('MA', { period: 5 })
     expect(m.readonly.instances()).toEqual([
-      { indicatorId: 'MA', paneId: 'main', role: 'main', params: { period: 5 } },
+      {
+        instanceId: 'main:MA',
+        indicatorId: 'MA',
+        paneId: 'main',
+        role: 'main',
+        ordinal: 0,
+        params: { period: 5 },
+      },
     ])
     const first = m.readonly.instances()
     m.actions.upsertMain('MA', { period: 10, color: 'red' })
@@ -46,7 +91,9 @@ describe('indicatorState', () => {
     m.actions.upsertMain('MA', { period: 5 })
     const instances = m.readonly.instances() as IndicatorInstanceSpec[]
     const entry = instances[0]!
-    expect(() => instances.push({ indicatorId: 'HACK', paneId: 'main', role: 'main', params: {} })).toThrow()
+    expect(() =>
+      instances.push({ indicatorId: 'HACK', paneId: 'main', role: 'main', params: {} }),
+    ).toThrow()
     expect(() => {
       ;(entry.params as Record<string, number>).period = 99
     }).toThrow()
@@ -62,7 +109,7 @@ describe('indicatorState', () => {
     input.push({ indicatorId: 'BOLL', paneId: 'main', role: 'main', params: { n: 20 } })
     params.period = 99
     expect(m.readonly.instances()).toEqual([
-      { indicatorId: 'MA', paneId: 'main', role: 'main', params: { period: 5 } },
+      expect.objectContaining({ instanceId: 'legacy:main', ordinal: 0, indicatorId: 'MA' }),
     ])
   })
 
@@ -72,11 +119,11 @@ describe('indicatorState', () => {
     m.actions.upsertMain('MA', { period: 5 })
 
     expect(m.readonly.instances()).toEqual([
-      { indicatorId: 'MA', paneId: 'main', role: 'main', params: { period: 5 } },
-      { indicatorId: 'RSI', paneId: 'RSI_0', role: 'sub', params: { period1: 6 } },
+      expect.objectContaining({ instanceId: 'main:MA', ordinal: 0, indicatorId: 'MA' }),
+      expect.objectContaining({ instanceId: 'legacy:RSI_0', ordinal: 0, indicatorId: 'RSI' }),
     ])
     expect(m.readonly.subPanes()).toEqual([
-      { paneId: 'RSI_0', indicatorId: 'RSI', params: { period1: 6 } },
+      expect.objectContaining({ instanceId: 'legacy:RSI_0', ordinal: 0, indicatorId: 'RSI' }),
     ])
   })
 
@@ -90,13 +137,29 @@ describe('indicatorState', () => {
 
     expect(m.readonly.instances()).toEqual([
       {
+        instanceId: 'main:MA',
         indicatorId: 'MA',
         paneId: 'main',
         role: 'main',
+        ordinal: 0,
         params: { period: 5, color: 'red' },
       },
-      { indicatorId: 'MACD', paneId: 'RSI_0', role: 'sub', params: { fast: 12 } },
-      { indicatorId: 'RSI', paneId: 'RSI_1', role: 'sub', params: { period1: 14 } },
+      {
+        instanceId: 'legacy:RSI_0',
+        indicatorId: 'MACD',
+        paneId: 'RSI_0',
+        role: 'sub',
+        ordinal: 0,
+        params: { fast: 12 },
+      },
+      {
+        instanceId: 'legacy:RSI_1',
+        indicatorId: 'RSI',
+        paneId: 'RSI_1',
+        role: 'sub',
+        ordinal: 0,
+        params: { period1: 14 },
+      },
     ])
   })
 })

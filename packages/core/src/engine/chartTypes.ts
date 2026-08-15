@@ -78,12 +78,15 @@ export interface IndicatorInstance {
   name: string
   role: IndicatorRole
   paneId?: string
+  ordinal: number
   params: Record<string, unknown>
 }
 
 export interface SubPaneInfo {
+  instanceId: string
   paneId: string
   indicatorId: string
+  ordinal: number
   params: Record<string, unknown>
   ratio: number
 }

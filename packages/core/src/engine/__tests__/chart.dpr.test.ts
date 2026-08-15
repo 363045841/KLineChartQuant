@@ -546,8 +546,7 @@ describe('Chart pane layout regressions', () => {
       ._kLineMode
     chart.setActiveMode(tsMode)
     expect(
-      chart.kernel.indicator.readonly
-        .instances
+      chart.kernel.indicator.readonly.instances
         .peek()
         .some((instance) => instance.role === 'main' && instance.indicatorId === 'MA'),
     ).toBe(true)
@@ -566,6 +565,33 @@ describe('Chart pane layout regressions', () => {
     }))
     expect(entriesAfter).toEqual(entriesBefore)
     expect(chart.kernel.pane.readonly.paneRatios.peek()).toEqual(ratiosBefore)
+    await chart.destroy()
+  })
+
+  it('timeshare switching reuses an existing user volume pane', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    chart.resize()
+    const volumePaneId = chart.addIndicator('VOL', 'sub')
+    expect(volumePaneId).not.toBeNull()
+    const tsMode = (
+      chart as unknown as { _timeShareMode: import('../modes/types').ChartModeHandler }
+    )._timeShareMode
+    const kMode = (chart as unknown as { _kLineMode: import('../modes/types').ChartModeHandler })
+      ._kLineMode
+
+    chart.setActiveMode(tsMode)
+    expect(chart.getSubPaneEntries()).toHaveLength(1)
+    expect(chart.getSubPaneEntries()[0]?.instanceId).toBe(volumePaneId)
+    expect(
+      chart.kernel.pane.readonly.paneSpecs.peek().some((pane) => pane.id === 'timeshare_volume'),
+    ).toBe(false)
+
+    chart.setActiveMode(kMode)
+    expect(chart.getSubPaneEntries()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ instanceId: volumePaneId, indicatorId: 'volume' }),
+      ]),
+    )
     await chart.destroy()
   })
 

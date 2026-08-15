@@ -1,6 +1,7 @@
 // 统一管理主图与副图指标实例的状态模块。
 import { batch, computed, createSubState } from '../../foundation/reactivity/signal'
 import { deepFreezeSnapshot } from './immutable'
+import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
 
 /** 指标实例所在的图表区域。 */
 export type IndicatorInstanceRole = 'main' | 'sub'
@@ -8,30 +9,67 @@ export type IndicatorInstanceSource = 'user' | 'mode'
 
 /** 统一的指标实例业务状态；主图固定 paneId 为 main。 */
 export interface IndicatorInstanceSpec {
+  /** 指标实例唯一身份，不参与 pane 布局或指标能力判断。 */
+  readonly instanceId: string
   readonly indicatorId: string
   readonly paneId: string
   readonly role: IndicatorInstanceRole
+  /** 同类指标的显示序号，不参与任何身份或能力判断。 */
+  readonly ordinal: number
   /** mode 实例由 Kernel 管理，用户指标操作不能删除。 */
   readonly source?: IndicatorInstanceSource
   readonly params: Readonly<Record<string, unknown>>
 }
 
+/** 写入指标状态时允许由 State 生成缺省实例身份，供旧 API 迁移使用。 */
+export type IndicatorInstanceInput = Omit<IndicatorInstanceSpec, 'instanceId' | 'ordinal'> &
+  Partial<Pick<IndicatorInstanceSpec, 'instanceId' | 'ordinal'>>
+
 /** 副图对 pane 投影使用的兼容结构。 */
 export interface SubPaneSpec {
+  readonly instanceId: string
   readonly paneId: string
   readonly indicatorId: string
+  readonly ordinal: number
   readonly params: Readonly<Record<string, unknown>>
 }
 
+/** 旧 pane API 的输入结构；显式 paneId 不再承担实例身份。 */
+export type SubPaneInput = Omit<SubPaneSpec, 'instanceId' | 'ordinal'> &
+  Partial<Pick<SubPaneSpec, 'instanceId' | 'ordinal'>>
+
+/** 解析 mode 请求的实例，优先复用可提供相同能力的用户副图。 */
+export function resolveModeIndicatorInstances(
+  requested: ReadonlyArray<IndicatorInstanceInput>,
+  current: ReadonlyArray<IndicatorInstanceSpec>,
+): ReadonlyArray<IndicatorInstanceInput> {
+  const canonicalIndicatorId = (indicatorId: string): string =>
+    getRegisteredIndicatorDefinition(indicatorId)?.name.toLowerCase() ?? indicatorId.toLowerCase()
+  const userSubIndicatorIds = new Set(
+    current
+      .filter((instance) => instance.role === 'sub' && instance.source !== 'mode')
+      .map((instance) => canonicalIndicatorId(instance.indicatorId)),
+  )
+  return requested.filter(
+    (instance) =>
+      instance.role !== 'sub' ||
+      !userSubIndicatorIds.has(canonicalIndicatorId(instance.indicatorId)),
+  )
+}
+
 /** 冻结统一指标实例，隔离调用方对参数对象的修改。 */
-function snapshotInstance(entry: IndicatorInstanceSpec): IndicatorInstanceSpec {
+function snapshotInstance(entry: IndicatorInstanceInput): IndicatorInstanceSpec {
   const snapshot = {
+    instanceId: entry.instanceId ?? `legacy:${entry.paneId}`,
     indicatorId: entry.indicatorId,
     paneId: entry.paneId,
     role: entry.role,
+    ordinal: entry.ordinal ?? 0,
     params: deepFreezeSnapshot(entry.params),
   }
-  return Object.freeze(entry.source === 'mode' ? { ...snapshot, source: 'mode' as const } : snapshot)
+  return Object.freeze(
+    entry.source === 'mode' ? { ...snapshot, source: 'mode' as const } : snapshot,
+  )
 }
 
 /** 判断副图 upsert 是否与当前实例完全相同，避免无效通知。 */
@@ -52,19 +90,22 @@ export function createIndicatorState() {
   })
 
   /** 写入不可变实例快照。 */
-  const write = (instances: ReadonlyArray<IndicatorInstanceSpec>) => {
+  const write = (instances: ReadonlyArray<IndicatorInstanceInput>) => {
     signals.instances.set(Object.freeze(instances.map(snapshotInstance)))
   }
 
   /** 从统一实例集合派生副图读取接口。 */
   const subPanes = computed<ReadonlyArray<SubPaneSpec>>(() =>
     Object.freeze(
-      readonly.instances()
+      readonly
+        .instances()
         .filter((instance) => instance.role === 'sub')
         .map((instance) =>
           Object.freeze({
+            instanceId: instance.instanceId,
             paneId: instance.paneId,
             indicatorId: instance.indicatorId,
+            ordinal: instance.ordinal,
             params: instance.params,
           }),
         ),
@@ -72,7 +113,10 @@ export function createIndicatorState() {
   )
 
   /** 查找指定主图指标实例的数组下标。 */
-  const findMainIndex = (instances: ReadonlyArray<IndicatorInstanceSpec>, indicatorId: string): number =>
+  const findMainIndex = (
+    instances: ReadonlyArray<IndicatorInstanceSpec>,
+    indicatorId: string,
+  ): number =>
     instances.findIndex(
       (instance) => instance.role === 'main' && instance.indicatorId === indicatorId,
     )
@@ -89,9 +133,11 @@ export function createIndicatorState() {
     const existing = index < 0 ? undefined : prev[index]
     const next = [...prev]
     const entry = snapshotInstance({
+      instanceId: `main:${indicatorId}`,
       indicatorId,
       paneId: 'main',
       role: 'main',
+      ordinal: 0,
       params: { ...(existing?.params ?? {}), ...params },
     })
     if (index >= 0) next[index] = entry
@@ -149,15 +195,17 @@ export function createIndicatorState() {
         )
       },
       /** 整体替换当前 mode 所需的系统实例，保留用户指标实例。 */
-      replaceModeInstances(instances: ReadonlyArray<IndicatorInstanceSpec>) {
-        const userInstances = readonly.instances.peek().filter((instance) => instance.source !== 'mode')
+      replaceModeInstances(instances: ReadonlyArray<IndicatorInstanceInput>) {
+        const current = readonly.instances.peek()
+        const userInstances = current.filter((instance) => instance.source !== 'mode')
+        const resolvedModeInstances = resolveModeIndicatorInstances(instances, current)
         write([
-          ...instances.map((entry) => ({ ...entry, source: 'mode' as const })),
+          ...resolvedModeInstances.map((entry) => ({ ...entry, source: 'mode' as const })),
           ...userInstances,
         ])
       },
       /** 按 paneId 新增或替换副图实例。 */
-      upsertSub(entry: SubPaneSpec) {
+      upsertSub(entry: SubPaneInput) {
         const prev = readonly.instances.peek()
         const index = findSubIndex(prev, entry.paneId)
         if (index >= 0 && prev[index]!.source === 'mode') return
@@ -178,12 +226,17 @@ export function createIndicatorState() {
         write(prev.filter((instance) => !(instance.role === 'sub' && instance.paneId === paneId)))
       },
       /** 替换已存在副图实例绑定的指标和参数。 */
-      replaceSub(entry: SubPaneSpec) {
+      replaceSub(entry: SubPaneInput) {
         const prev = readonly.instances.peek()
         const index = findSubIndex(prev, entry.paneId)
         if (index < 0 || prev[index]!.source === 'mode') return
         const next = [...prev]
-        next[index] = snapshotInstance({ ...entry, role: 'sub' })
+        next[index] = snapshotInstance({
+          ...entry,
+          instanceId: entry.instanceId ?? prev[index]!.instanceId,
+          ordinal: entry.ordinal ?? prev[index]!.ordinal,
+          role: 'sub',
+        })
         write(next)
       },
       /** 替换已存在副图实例的完整参数。 */

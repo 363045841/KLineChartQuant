@@ -78,16 +78,20 @@ describe('modeState', () => {
 
     expect(kernel.indicator.readonly.instances.peek()).toEqual([
       {
+        instanceId: 'mode:timeshare',
         indicatorId: 'timeShare',
         paneId: 'main',
         role: 'main',
+        ordinal: 0,
         source: 'mode',
         params: {},
       },
       {
+        instanceId: 'mode:timeshare-volume',
         indicatorId: 'volume',
         paneId: 'timeshare_volume',
         role: 'sub',
+        ordinal: 0,
         source: 'mode',
         params: {},
       },

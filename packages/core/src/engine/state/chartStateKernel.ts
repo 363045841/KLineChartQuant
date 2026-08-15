@@ -21,7 +21,9 @@ import { createOptionsState, type OptionsStateModule } from './optionsState'
 import { createComparisonState, type ComparisonStateModule } from './comparisonState'
 import {
   createIndicatorState,
+  resolveModeIndicatorInstances,
   type IndicatorInstanceSpec,
+  type SubPaneInput,
   type IndicatorStateModule,
 } from './indicatorState'
 import { createMarkerState, type MarkerStateModule } from './markerState'
@@ -84,7 +86,10 @@ function resolveIndicatorRenderers(
 
   // 主图和副图指标均从统一实例集合读取；主图数据 Layer 共用一个 legend Layer。
   for (const instance of instances) {
-    if (instance.source === 'mode' && (instance.indicatorId === 'candle' || instance.indicatorId === 'timeShare')) {
+    if (
+      instance.source === 'mode' &&
+      (instance.indicatorId === 'candle' || instance.indicatorId === 'timeShare')
+    ) {
       add(mainRenderers, instance.indicatorId)
       continue
     }
@@ -360,26 +365,62 @@ export class ChartStateKernel extends StateKernel {
         const modeInstances: IndicatorInstanceSpec[] =
           view === 'timeshare'
             ? [
-                { indicatorId: 'timeShare', paneId: 'main', role: 'main', params: {} },
-                { indicatorId: 'volume', paneId: 'timeshare_volume', role: 'sub', params: {} },
+                {
+                  instanceId: 'mode:timeshare',
+                  indicatorId: 'timeShare',
+                  paneId: 'main',
+                  role: 'main',
+                  ordinal: 0,
+                  params: {},
+                },
+                {
+                  instanceId: 'mode:timeshare-volume',
+                  indicatorId: 'volume',
+                  paneId: 'timeshare_volume',
+                  role: 'sub',
+                  ordinal: 0,
+                  params: {},
+                },
               ]
-            : [{ indicatorId: 'candle', paneId: 'main', role: 'main', params: {} }]
+            : [
+                {
+                  instanceId: 'mode:candle',
+                  indicatorId: 'candle',
+                  paneId: 'main',
+                  role: 'main',
+                  ordinal: 0,
+                  params: {},
+                },
+              ]
+        // mode 仅声明所需能力；统一实例调度器决定复用用户副图还是创建系统实例。
+        const resolvedModeInstances = resolveModeIndicatorInstances(
+          modeInstances,
+          this.indicator.readonly.instances.peek(),
+        )
+        const needsSystemTimeShareVolume = resolvedModeInstances.some(
+          (instance) => instance.role === 'sub' && instance.paneId === 'timeshare_volume',
+        )
         const currentSpecs = this.pane.readonly.paneSpecs.peek()
         const nextSpecs =
           view === 'timeshare'
-            ? currentSpecs.some((pane) => pane.id === 'timeshare_volume')
+            ? !needsSystemTimeShareVolume ||
+              currentSpecs.some((pane) => pane.id === 'timeshare_volume')
               ? currentSpecs
-              : [...currentSpecs, { id: 'timeshare_volume', ratio: 1, visible: true, role: 'indicator' as const }]
+              : [
+                  ...currentSpecs,
+                  { id: 'timeshare_volume', ratio: 1, visible: true, role: 'indicator' as const },
+                ]
             : currentSpecs.filter((pane) => pane.id !== 'timeshare_volume')
         const rawRatios = { ...this.pane.readonly.paneRatios.peek() }
         delete rawRatios.timeshare_volume
-        if (view === 'timeshare') {
+        if (view === 'timeshare' && needsSystemTimeShareVolume) {
           // 分时量默认占主图高度的三分之一，避免仅有主图时平分为 50%。
           rawRatios.timeshare_volume = (rawRatios.main ?? 1) / 3
         }
         const visible = nextSpecs.filter((pane) => pane.visible !== false)
         const total = visible.reduce((sum, pane) => sum + (rawRatios[pane.id] ?? 1), 0) || 1
-        const normalizeRatio = (value: number) => Math.round(value * 1_000_000_000_000) / 1_000_000_000_000
+        const normalizeRatio = (value: number) =>
+          Math.round(value * 1_000_000_000_000) / 1_000_000_000_000
         const ratios = Object.fromEntries(
           nextSpecs.map((pane) => [
             pane.id,
@@ -390,7 +431,7 @@ export class ChartStateKernel extends StateKernel {
         )
         batch(() => {
           this.mode.actions.setDataView(view, lastBarPeriod)
-          this.indicator.actions.replaceModeInstances(modeInstances)
+          this.indicator.actions.replaceModeInstances(resolvedModeInstances)
           this.pane.actions.commitLayout(
             ratios,
             nextSpecs.map((pane) => ({ ...pane, ratio: ratios[pane.id] })),
@@ -442,10 +483,15 @@ export class ChartStateKernel extends StateKernel {
         this.indicator.actions.replaceAllMain(instances),
       clearMainIndicators: () => this.indicator.actions.clearMain(),
       createSubPane: (
-        paneId: string,
-        indicatorId: string,
-        params: Readonly<Record<string, unknown>>,
+        entryOrPaneId: SubPaneInput | string,
+        indicatorId?: string,
+        params?: Readonly<Record<string, unknown>>,
       ) => {
+        const entry: SubPaneInput =
+          typeof entryOrPaneId === 'string'
+            ? { paneId: entryOrPaneId, indicatorId: indicatorId!, params: params ?? {} }
+            : entryOrPaneId
+        const { paneId } = entry
         if (this.indicator.readonly.subPanes.peek().some((entry) => entry.paneId === paneId)) return
         const currentSpecs = this.pane.readonly.paneSpecs.peek()
         const nextSpecs = currentSpecs.some((pane) => pane.id === paneId)
@@ -474,7 +520,7 @@ export class ChartStateKernel extends StateKernel {
         }
         const specs = nextSpecs.map((pane) => ({ ...pane, ratio: ratios[pane.id] }))
         batch(() => {
-          this.indicator.actions.upsertSub({ paneId, indicatorId, params })
+          this.indicator.actions.upsertSub(entry)
           this.pane.actions.commitLayout(ratios, specs)
         })
       },
