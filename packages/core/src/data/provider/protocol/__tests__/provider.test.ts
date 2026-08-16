@@ -7,6 +7,7 @@ import type {
   V1BarSeries,
   V1InstrumentSearchResult,
   V1TimeShareSeries,
+  V1TimeShareRangeSeries,
 } from '../types'
 import type { InstrumentDescriptor } from '../../types'
 
@@ -44,6 +45,13 @@ function fakeTransport(overrides: Partial<MarketDataV1Transport> = {}): MarketDa
       timezone: 'Asia/Shanghai',
       preClose: 1500,
       items: [],
+    }),
+    fetchTimeShareRange: async (): Promise<V1TimeShareRangeSeries> => ({
+      instrumentId: 'gotdx:stock:1:600519',
+      timezone: 'Asia/Shanghai',
+      requestedDays: 1,
+      days: [],
+      olderData: 'unknown',
     }),
     ...overrides,
   }
@@ -108,9 +116,9 @@ describe('createV1MarketDataProvider', () => {
           instrumentId: 'gotdx:stock:1:600519',
           period: 'daily',
           adjustment: 'none',
-           timezone: 'Asia/Shanghai',
-           olderData: 'unknown',
-           items: [{ timestamp: 1, open: 1, high: 2, low: 0.5, close: 1.5, volume: 100 }],
+          timezone: 'Asia/Shanghai',
+          olderData: 'unknown',
+          items: [{ timestamp: 1, open: 1, high: 2, low: 0.5, close: 1.5, volume: 100 }],
         }),
       }),
     )
@@ -137,9 +145,9 @@ describe('createV1MarketDataProvider', () => {
           period: 'daily',
           adjustment: 'none',
           timezone: 'Asia/Shanghai',
-           volumeUnit: 'share',
-           olderData: 'exhausted',
-           items: [],
+          volumeUnit: 'share',
+          olderData: 'exhausted',
+          items: [],
         }),
       }),
     )
@@ -193,6 +201,48 @@ describe('createV1MarketDataProvider', () => {
       preClose: 1500,
       timezone: 'Asia/Shanghai',
       data: [expect.objectContaining({ amount: 100 })],
+    })
+  })
+
+  // 验证多日分时保留逐日昨收与点列，并透传历史状态。
+  it('maps timeshare range data by trading day', async () => {
+    const rangeInstrument = {
+      ...instrument,
+      capabilities: { ...instrument.capabilities, timeShareRange: { maxTradingDays: 20 } },
+    }
+    const provider = createProvider(
+      fakeTransport({
+        fetchTimeShareRange: async () => ({
+          instrumentId: rangeInstrument.id,
+          timezone: 'Asia/Shanghai',
+          requestedDays: 2,
+          olderData: 'unknown',
+          days: [
+            {
+              tradingDate: '2026-08-05',
+              preClose: 1490,
+              items: [{ timestamp: 1, price: 1500, average: 1498, volume: 10 }],
+            },
+          ],
+        }),
+      }),
+    )
+
+    const series = await provider.timeShareRange!.fetch({
+      instrument: rangeInstrument,
+      endTradingDate: '2026-08-06',
+      days: 2,
+    })
+    expect(series).toMatchObject({
+      requestedDays: 2,
+      olderData: 'unknown',
+      days: [
+        expect.objectContaining({
+          tradingDate: '2026-08-05',
+          preClose: 1490,
+          data: [expect.objectContaining({ price: 1500, volume: 10 })],
+        }),
+      ],
     })
   })
 })

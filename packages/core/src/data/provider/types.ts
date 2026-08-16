@@ -45,10 +45,16 @@ export interface BarCapability {
   adjustments: ReadonlyArray<KLineAdjustment>
 }
 
+/** 多日分时单次请求可拉取的交易日数量上限。 */
+export interface TimeShareRangeCapability {
+  maxTradingDays: number
+}
+
 /** 单个品种可被前端启用的行情能力。 */
 export interface InstrumentCapabilities {
   bars?: BarCapability
   timeShare?: boolean
+  timeShareRange?: TimeShareRangeCapability
   depth?: boolean
 }
 
@@ -57,6 +63,7 @@ export interface SourceCapabilities {
   assetClasses: ReadonlyArray<AssetClass>
   bars?: BarCapability
   timeShare?: boolean
+  timeShareRange?: TimeShareRangeCapability
   depth?: boolean
   historyCoverage?: {
     from?: number
@@ -155,6 +162,31 @@ export interface TimeShareSeries {
   data: ReadonlyArray<TimeShareData>
 }
 
+/** 多日分时查询以 endTradingDate 为包含上界，days 按实际交易日计数。 */
+export interface TimeShareRangeQuery {
+  instrument: InstrumentDescriptor
+  endTradingDate: TradingDate
+  days: number
+  signal?: AbortSignal
+}
+
+/** 多日分时内的单个交易日，preClose 不可跨日复用。 */
+export interface TimeShareDaySeries {
+  tradingDate: TradingDate
+  preClose: number | null
+  data: ReadonlyArray<TimeShareData>
+}
+
+/** 多日分时序列，days 按交易日升序。 */
+export interface TimeShareRangeSeries {
+  instrumentId: string
+  timezone: string
+  volumeUnit?: VolumeUnit
+  requestedDays: number
+  days: ReadonlyArray<TimeShareDaySeries>
+  olderData: OlderDataStatus
+}
+
 /** 品种目录能力。 */
 export interface InstrumentCatalog {
   /** 按关键字和品种类别搜索当前 Provider 的品种目录。 */
@@ -173,6 +205,12 @@ export interface TimeShareDataSource {
   fetch(query: TimeShareQuery): Promise<TimeShareSeries>
 }
 
+/** 多日分时能力。 */
+export interface TimeShareRangeDataSource {
+  /** 拉取截止交易日之前多个实际交易日的分时序列。 */
+  fetch(query: TimeShareRangeQuery): Promise<TimeShareRangeSeries>
+}
+
 /** 实时深度连接工厂。 */
 export interface DepthDataSource {
   /** 为指定品种创建尚未连接的实时深度数据源。 */
@@ -187,6 +225,7 @@ export interface MarketDataProvider {
   readonly catalog?: InstrumentCatalog
   readonly bars?: BarDataSource
   readonly timeShare?: TimeShareDataSource
+  readonly timeShareRange?: TimeShareRangeDataSource
   readonly depth?: DepthDataSource
 }
 

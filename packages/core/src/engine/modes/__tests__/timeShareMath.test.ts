@@ -13,6 +13,7 @@ import {
   computeTimeShareTimeLabelIndices,
   computeTimeShareVisibleRange,
   computeTimeShareXLayout,
+  resolveMultiDayTimeShareSlot,
   resolveTimeShareSessionSlots,
   resolveTimeShareBaseline,
 } from '../timeShareMath'
@@ -101,6 +102,21 @@ describe('computeTimeShareBarMetrics', () => {
   it('returns null for empty data or invalid width', () => {
     expect(computeTimeShareBarMetrics(0, 320, 1)).toBeNull()
     expect(computeTimeShareBarMetrics(10, 0, 1)).toBeNull()
+  })
+
+  it('uses total slots across multiple trading days', () => {
+    const metrics = computeTimeShareBarMetrics(480, 320, 1, undefined, 2)
+    expect(metrics).not.toBeNull()
+    expect((metrics!.kWidth + metrics!.kGap) * 480).toBeLessThanOrEqual(320)
+  })
+})
+
+describe('resolveMultiDayTimeShareSlot', () => {
+  it('offsets identical wall-clock times by complete trading sessions', () => {
+    const firstDay = Date.UTC(2026, 0, 2, 1, 30)
+    const secondDay = Date.UTC(2026, 0, 5, 1, 30)
+    expect(resolveMultiDayTimeShareSlot(0, firstDay)).toBe(0)
+    expect(resolveMultiDayTimeShareSlot(1, secondDay)).toBe(240)
   })
 })
 

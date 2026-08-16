@@ -229,7 +229,12 @@ export class ChartStateKernel extends StateKernel {
       const spec = this.dataManager.readonly.currentSpec()
       if (!deps.marketSessions || !spec?.market) return 0
       try {
-        return resolveMarketSessionSlots(resolveSymbolMarketSession(spec, deps.marketSessions))
+        const slots = resolveMarketSessionSlots(
+          resolveSymbolMarketSession(spec, deps.marketSessions),
+        )
+        return spec.period === 'timeshare'
+          ? slots * this.dataManager.readonly.timeShareDayCount()
+          : slots
       } catch {
         return 0
       }

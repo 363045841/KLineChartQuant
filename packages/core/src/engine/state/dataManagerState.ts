@@ -16,6 +16,7 @@ export function createDataManagerState() {
       currentSpec: null as SymbolSpec | null,
       savedScrollTimestamp: null as number | null,
       preCustomSpec: null as SymbolSpec | null,
+      timeShareDayCount: 1,
       rangeInitialized: false,
       pendingIncrementalLoad: emptyIncrementalLoadBatch(),
     },
@@ -38,6 +39,10 @@ export function createDataManagerState() {
 
       setPreCustomSpec(spec: SymbolSpec | null) {
         signals.preCustomSpec.set(spec)
+      },
+
+      setTimeShareDayCount(count: number) {
+        signals.timeShareDayCount.set(Math.max(1, Math.floor(count)))
       },
 
       setRangeInitialized(v: boolean) {
@@ -67,6 +72,7 @@ export function createDataManagerState() {
           signals.currentSpec.set(null)
           signals.savedScrollTimestamp.set(null)
           signals.preCustomSpec.set(null)
+          signals.timeShareDayCount.set(1)
           signals.rangeInitialized.set(false)
           signals.pendingIncrementalLoad.set(emptyIncrementalLoadBatch())
         })
@@ -78,6 +84,7 @@ export function createDataManagerState() {
         signals.currentSpec.set(null)
         signals.savedScrollTimestamp.set(null)
         signals.preCustomSpec.set(null)
+        signals.timeShareDayCount.set(1)
         signals.rangeInitialized.set(false)
         signals.pendingIncrementalLoad.set(emptyIncrementalLoadBatch())
       })

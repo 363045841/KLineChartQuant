@@ -15,6 +15,7 @@ import type {
   KLinePeriod,
   MarketDataErrorCode,
   MarketDataProvider,
+  TimeShareRangeSeries,
   TimeShareSeries,
   TradingDate,
 } from './types'
@@ -42,6 +43,15 @@ export interface SourceRouterTimeShareRequest extends SourceRouterInstrumentIden
   instrument?: InstrumentDescriptor
   tradingDate?: TradingDate
   resolveTradingDate?: (instrument: InstrumentDescriptor) => TradingDate
+}
+
+/** 多日分时流转请求。 */
+export interface SourceRouterTimeShareRangeRequest extends SourceRouterInstrumentIdentity {
+  preferredSourceId?: string
+  instrument?: InstrumentDescriptor
+  endTradingDate?: TradingDate
+  resolveTradingDate?: (instrument: InstrumentDescriptor) => TradingDate
+  days: number
 }
 
 /** 单次源尝试的结果，用于链耗尽后的诊断。 */
@@ -107,7 +117,7 @@ async function resolveInstrument(
   provider: MarketDataProvider,
   identity: SourceRouterInstrumentIdentity,
   attached: InstrumentDescriptor | undefined,
-  capability: 'bars' | 'timeShare',
+  capability: 'bars' | 'timeShare' | 'timeShareRange',
 ): Promise<InstrumentDescriptor> {
   if (
     attached?.sourceId === provider.source.id &&
@@ -118,7 +128,9 @@ async function resolveInstrument(
     const supported =
       capability === 'bars'
         ? attached.capabilities.bars !== undefined
-        : attached.capabilities.timeShare === true
+        : capability === 'timeShare'
+          ? attached.capabilities.timeShare === true
+          : attached.capabilities.timeShareRange !== undefined
     if (!supported) {
       throw new KLineChartError(
         'UNSUPPORTED_CAPABILITY',
@@ -156,7 +168,9 @@ async function resolveInstrument(
   const supported =
     capability === 'bars'
       ? instrument.capabilities.bars !== undefined
-      : instrument.capabilities.timeShare === true
+      : capability === 'timeShare'
+        ? instrument.capabilities.timeShare === true
+        : instrument.capabilities.timeShareRange !== undefined
   if (!supported) {
     throw new KLineChartError(
       'UNSUPPORTED_CAPABILITY',
@@ -207,7 +221,7 @@ export class SourceRouter {
     identity: SourceRouterInstrumentIdentity,
     preferredSourceId: string | undefined,
     attached: InstrumentDescriptor | undefined,
-    capability: 'bars' | 'timeShare',
+    capability: 'bars' | 'timeShare' | 'timeShareRange',
     fetch: (provider: MarketDataProvider, instrument: InstrumentDescriptor) => Promise<T>,
   ): Promise<RoutedMarketData<T>> {
     const attempts: SourceRouteAttempt[] = []
@@ -293,6 +307,39 @@ export class SourceRouter {
           )
         }
         return provider.timeShare.fetch({ instrument, tradingDate })
+      },
+    )
+  }
+
+  /** 请求多日分时并在确定性源拒绝时自动流转。 */
+  async timeShareRange(
+    request: SourceRouterTimeShareRangeRequest,
+  ): Promise<RoutedMarketData<TimeShareRangeSeries>> {
+    return this.route(
+      { capability: 'timeShareRange', assetClass: request.assetClass },
+      request,
+      request.preferredSourceId,
+      request.instrument,
+      'timeShareRange',
+      async (provider, instrument) => {
+        if (!provider.timeShareRange) {
+          throw new KLineChartError(
+            'UNSUPPORTED_CAPABILITY',
+            `[${provider.source.id}] has no timeShareRange source`,
+          )
+        }
+        const endTradingDate = request.endTradingDate ?? request.resolveTradingDate?.(instrument)
+        if (!endTradingDate) {
+          throw new KLineChartError(
+            'INVALID_PARAM',
+            `[${provider.source.id}] endTradingDate is required for timeShareRange`,
+          )
+        }
+        return provider.timeShareRange.fetch({
+          instrument,
+          endTradingDate,
+          days: request.days,
+        })
       },
     )
   }

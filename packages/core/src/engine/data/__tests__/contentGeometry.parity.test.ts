@@ -37,6 +37,17 @@ describe('contentGeometry parity', () => {
     expect(computeContentWidth(narrow)).toBe(1)
   })
 
+  it('timeshare expands to its multi-day physical slot width for horizontal scrolling', () => {
+    const input = baseInput({
+      period: 'timeshare',
+      dataLength: 480,
+      viewWidth: 320,
+      dpr: 1,
+      sessionSlots: 480,
+    })
+    expect(computeContentWidth(input)).toBe(480)
+  })
+
   it('kline with data → left buffer = Math.round(viewWidth)', () => {
     const input = baseInput({ dataLength: 100, period: 'daily', viewWidth: 800.4 })
     expect(computeLeftLoadBufferWidth(input)).toBe(Math.round(800.4))

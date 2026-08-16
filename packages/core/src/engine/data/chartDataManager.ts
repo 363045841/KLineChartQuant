@@ -17,7 +17,12 @@ import type {
   TradingDate,
 } from '../../data/provider/types'
 import { TimeShareBuffer } from '../../data/buffer/timeShareBuffer'
-import type { TimeShareFetcherFn, TimeShareFetchResult } from '../../data/legacy/types'
+import type {
+  TimeShareDayFetchResult,
+  TimeShareFetcherFn,
+  TimeShareFetchResult,
+  TimeShareRangeFetchResult,
+} from '../../data/legacy/types'
 import { MarketSessionRegistry } from '../market/marketSessionRegistry'
 import { createSignal, type ReadonlySignal, type Signal } from '../../foundation/reactivity/signal'
 import type { KLineData, TimeShareData } from '../../foundation/types/price'
@@ -49,7 +54,7 @@ export interface DataDependencies {
     busySignal: Signal<boolean>
   }
   isPointerDown: () => boolean
-  onTimeShareDataReady: (dataLength: number) => void
+  onTimeShareDataReady: (dataLength: number, dayCount: number) => void
   onDataProcessed?: (data: KLineData[], range: VisibleRange) => void
   /** 写 symbols 选择（含 primary + comparison） */
   setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => void
@@ -308,7 +313,7 @@ export class ChartDataManager {
   /** 优先使用统一 Provider 解析品种；未迁移数据源继续由旧 Fetcher 处理。 */
   private async resolveProviderInstrument(
     spec: SymbolSpec,
-    capability: 'bars' | 'timeShare',
+    capability: 'bars' | 'timeShare' | 'timeShareRange',
   ): Promise<{ provider: MarketDataProvider; instrument: InstrumentDescriptor } | null> {
     const sourceId = spec.source
     if (!sourceId) return null
@@ -320,7 +325,9 @@ export class ChartDataManager {
       const supported =
         capability === 'bars'
           ? attached.capabilities.bars !== undefined
-          : attached.capabilities.timeShare === true
+          : capability === 'timeShare'
+            ? attached.capabilities.timeShare === true
+            : attached.capabilities.timeShareRange !== undefined
       if (!supported) {
         throw new Error(
           `[MarketDataProvider] instrument "${attached.id}" does not support ${capability}`,
@@ -346,7 +353,9 @@ export class ChartDataManager {
     const supported =
       capability === 'bars'
         ? instrument.capabilities.bars !== undefined
-        : instrument.capabilities.timeShare
+        : capability === 'timeShare'
+          ? instrument.capabilities.timeShare
+          : instrument.capabilities.timeShareRange
     if (!supported) {
       throw new Error(
         `[MarketDataProvider] instrument "${instrument.id}" does not support ${capability}`,
@@ -356,10 +365,7 @@ export class ChartDataManager {
   }
 
   /** 让 K 线缓冲直接调用 Provider bars；未迁移数据源回退到旧批量 Fetcher。 */
-  private async requestBars(
-    spec: SymbolSpec,
-    page: BarPageRequest,
-  ): Promise<BarPageResult> {
+  private async requestBars(spec: SymbolSpec, page: BarPageRequest): Promise<BarPageResult> {
     if (spec.source && spec.instrument) {
       const period = spec.period ?? 'daily'
       const adjustment = spec.adjust ?? 'none'
@@ -469,6 +475,40 @@ export class ChartDataManager {
     return 'data' in result ? result : { data: result, preClose: null }
   }
 
+  /** 让多日分时缓冲调用 Provider timeShareRange；旧 Fetcher 不支持该能力。 */
+  private async requestTimeShareRange(
+    spec: SymbolSpec,
+    date: number | undefined,
+    days: number,
+  ): Promise<TimeShareRangeFetchResult> {
+    if (!spec.source || !marketDataProviderRegistry.get(spec.source)) {
+      throw new Error(`[DataFetcher] "${spec.source}" does not support multi-day timeshare`)
+    }
+    const identity = spec.instrument
+      ? {
+          symbol: spec.symbol,
+          exchange: spec.exchange,
+          assetClass: spec.instrument.assetClass,
+        }
+      : { symbol: spec.symbol, exchange: spec.exchange }
+    const result = await sourceRouter.timeShareRange({
+      ...identity,
+      preferredSourceId: spec.source,
+      instrument: spec.instrument,
+      days,
+      resolveTradingDate: (instrument) => this.resolveTradingDate(instrument, date),
+    })
+    return {
+      requestedDays: result.series.requestedDays,
+      days: result.series.days.map((day) => ({
+        tradingDate: day.tradingDate,
+        preClose: day.preClose,
+        data: day.data,
+      })),
+      olderData: result.series.olderData,
+    }
+  }
+
   // ── Buffer data change handler ──
 
   private onBufferDataChanged(key: string, prevDataLength?: number, prependedCount?: number): void {
@@ -570,9 +610,11 @@ export class ChartDataManager {
 
   private onTimeShareBufferChanged(): void {
     const data = this._dataState.readonly.data.peek() as TimeShareData[]
+    const dayCount = Math.max(1, this.getActiveTimeShareBuffer()?.getDays().length ?? 0)
+    this._dmState.actions.setTimeShareDayCount(dayCount)
     this._dmState.actions.setRangeInitialized(true)
     this.deps.resetInteraction()
-    this.deps.onTimeShareDataReady(data.length)
+    this.deps.onTimeShareDataReady(data.length, dayCount)
   }
 
   // ── Internal helpers ──
@@ -677,6 +719,11 @@ export class ChartDataManager {
     return buf ? buf.getRawData() : []
   }
 
+  /** 返回多日分时按交易日分组的数据；单日旧路径返回空数组。 */
+  getTimeShareDays(): ReadonlyArray<TimeShareDayFetchResult> {
+    return this.getActiveTimeShareBuffer()?.getDays() ?? []
+  }
+
   getTimeSharePreClose(): number | null {
     const buf = this.getActiveTimeShareBuffer()
     return buf?.getPreClose() ?? null
@@ -685,6 +732,15 @@ export class ChartDataManager {
   setTimeSharePreClose(preClose: number | null): void {
     const buf = this.getActiveTimeShareBuffer()
     if (buf) buf.setPreClose(preClose)
+  }
+
+  /** 设置多日分时查询天数；在已激活分时图中立即按新值重新拉取。 */
+  setTimeShareDays(days: number): void {
+    const buf = this.getActiveTimeShareBuffer()
+    if (!buf) return
+    buf.setQueryDays(days)
+    const spec = this._dmState.readonly.currentSpec.peek()
+    if (spec?.period === 'timeshare') buf.load(spec)
   }
 
   getTimeShareSignal(): ReadonlySignal<ReadonlyArray<TimeShareData>> {
@@ -908,6 +964,9 @@ export class ChartDataManager {
       const tsBuf = new TimeShareBuffer()
       tsBuf.setFetcher(this._timeShareFetcher)
       tsBuf.setRequestFetch((request, date) => this.requestTimeShare(request, date))
+      tsBuf.setRangeRequestFetch((request, date, days) =>
+        this.requestTimeShareRange(request, date, days),
+      )
       tsBuf.setQueryDate(date)
       const spec = this._dmState.readonly.currentSpec.peek()
       if (spec) {
@@ -1057,6 +1116,9 @@ export class ChartDataManager {
         tsBuf = new TimeShareBuffer()
         tsBuf.setFetcher(this._timeShareFetcher)
         tsBuf.setRequestFetch((request, date) => this.requestTimeShare(request, date))
+        tsBuf.setRangeRequestFetch((request, date, days) =>
+          this.requestTimeShareRange(request, date, days),
+        )
         this._tsBuffers.set(tsKey, tsBuf)
       }
       this.activateBuffer(tsKey)

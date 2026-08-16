@@ -28,6 +28,9 @@ export type {
   V1SourceCapabilities,
   V1SourceRejectionCode,
   V1TimeShareItem,
+  V1TimeShareDay,
+  V1TimeShareRangeRequest,
+  V1TimeShareRangeSeries,
   V1TimeShareRequest,
   V1TimeShareSeries,
 } from './protocol'
@@ -45,6 +48,7 @@ export type {
   SourceRouterBarsRequest,
   SourceRouterInstrumentIdentity,
   SourceRouterTimeShareRequest,
+  SourceRouterTimeShareRangeRequest,
 } from './router'
 export { dataSourceRegistry } from './sourceRegistry'
 export type { DataSourceRegistration } from './sourceRegistry'
@@ -77,7 +81,12 @@ export type {
   SourceProbeResult,
   SourceCapabilities,
   TimeShareDataSource,
+  TimeShareDaySeries,
   TimeShareQuery,
+  TimeShareRangeCapability,
+  TimeShareRangeDataSource,
+  TimeShareRangeQuery,
+  TimeShareRangeSeries,
   TimeShareSeries,
   TradingDate,
   VolumeUnit,

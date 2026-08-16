@@ -44,7 +44,7 @@ function mergeConfig(
 
 /** 源级能力筛选条件。 */
 export interface SourceCapabilityQuery {
-  capability: 'bars' | 'timeShare' | 'depth'
+  capability: 'bars' | 'timeShare' | 'timeShareRange' | 'depth'
   assetClass?: AssetClass
   period?: KLinePeriod
   adjustment?: KLineAdjustment
@@ -60,6 +60,7 @@ function supportsCapability(
     return false
   }
   if (query.capability === 'timeShare') return capabilities.timeShare === true
+  if (query.capability === 'timeShareRange') return capabilities.timeShareRange !== undefined
   if (query.capability === 'depth') return capabilities.depth === true
   const bars = capabilities.bars
   if (!bars) return false

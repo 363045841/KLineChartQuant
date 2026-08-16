@@ -31,6 +31,20 @@ export type TimeShareFetchResult = {
   preClose: number | null
 }
 
+/** 多日分时中单个交易日的数据与独立昨收基准。 */
+export type TimeShareDayFetchResult = {
+  tradingDate: string
+  preClose: number | null
+  data: ReadonlyArray<TimeShareData>
+}
+
+/** 多日分时拉取结果；days 按交易日升序。 */
+export type TimeShareRangeFetchResult = {
+  requestedDays: number
+  days: ReadonlyArray<TimeShareDayFetchResult>
+  olderData: 'available' | 'exhausted' | 'unknown'
+}
+
 export type TimeShareFetcherFn = (
   source: string,
   config: TimeShareFetchConfig,

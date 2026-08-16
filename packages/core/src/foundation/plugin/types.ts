@@ -354,6 +354,8 @@ export interface RenderContext {
   monthKeys?: Int32Array
   /** 预计算的日期键值数组（year*366+dayOfYear），与 data 长度一致，由 DataBuffer 在数据加载时计算 */
   dayKeys?: Int32Array
+  /** 多日分时各交易日首个点的全局数据索引；单日分时缺省。 */
+  timeShareDayStartIndices?: ReadonlyArray<number>
 }
 
 export type DrawingAnchor = {
