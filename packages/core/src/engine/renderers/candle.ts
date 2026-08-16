@@ -77,8 +77,8 @@ export function createCandleRenderer(): RendererPlugin {
     priority: RENDERER_PRIORITY.MAIN,
 
     draw(context: RenderContext) {
-      // 比较视图：主商品以折线展示，隐藏 K 线蜡烛
-      if (context.comparisonSymbols?.length) return
+      // 比较模式只展示各品种的涨跌幅折线。
+      if (context.dataView === 'comparison') return
       const {
         ctx,
         pane,

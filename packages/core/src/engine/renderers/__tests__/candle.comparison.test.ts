@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { createCandleRenderer } from '../candle'
 
 describe('candle renderer in comparison view', () => {
-  it('skips drawing candles when comparison symbols are present', () => {
+  it('skips drawing candles in comparison mode', () => {
     const ctx = {
       save: vi.fn(),
       restore: vi.fn(),
@@ -16,6 +16,7 @@ describe('candle renderer in comparison view', () => {
     const renderer = createCandleRenderer()
     renderer.draw({
       ctx,
+      dataView: 'comparison',
       comparisonSymbols: [{ symbol: 'CMP', market: 'CN', period: 'daily' }],
     } as never)
     expect(ctx.save).not.toHaveBeenCalled()

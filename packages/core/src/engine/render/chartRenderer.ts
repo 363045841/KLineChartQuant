@@ -38,6 +38,7 @@ import {
 } from '../../foundation/utils/timeShareAxisLabels'
 import { computeTimeShareXLayout } from '../modes/timeShareMath'
 import type { ChartModeHandler } from '../modes/types'
+import type { ChartDataView } from '../state/modeState'
 import { PaneRenderer } from '../paneRenderer'
 import { createTimeAxisRendererPlugin } from '../renderers/timeAxis'
 import { createTimeShareRendererPlugin } from '../renderers/timeShare'
@@ -145,6 +146,7 @@ export interface RendererDependencies {
   getDataManager: () => ChartDataManager
   getIndicatorManager: () => ChartIndicatorManager
   getActiveMode: () => ChartModeHandler
+  dataView$: ReadonlySignal<ChartDataView>
   settings$: ReadonlySignal<ChartSettings>
   customMarkers$: MarkerManagerDeps['customMarkers$']
   drawings$: DrawingStoreDeps['drawings$']
@@ -833,6 +835,7 @@ export class ChartRenderer {
         pane: wrapPaneInfo(pane),
         data: renderData,
         period: dataManager.currentPeriod,
+        dataView: this.deps.dataView$(),
         comparisonData: dataManager.getComparisonData(),
         comparisonSymbols: dataManager.getComparisonSpecs(),
         comparisonColors: dataManager.getComparisonColors(),

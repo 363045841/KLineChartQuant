@@ -285,6 +285,8 @@ export interface RenderContext {
   data: unknown[]
   /** K线级别，如 'daily'、'5min'、'15min' */
   period: string
+  /** 当前图表数据视图。 */
+  dataView?: 'kline' | 'timeshare' | 'comparison'
   /** 当前图表实例解析后的市场交易时段 */
   marketSession?: import('../utils/sessionTimeLabels').MarketSessionConfig
   comparisonData?: ReadonlyMap<string, ReadonlyArray<KLineData>>

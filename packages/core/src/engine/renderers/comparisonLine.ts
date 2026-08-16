@@ -14,7 +14,7 @@ export function createComparisonLineRenderer(): RendererPlugin {
     priority: RENDERER_PRIORITY.MAIN + 2,
 
     draw(context: RenderContext) {
-      if (context.period === 'timeshare') return
+      if (context.dataView !== 'comparison') return
       const mainData = context.data as KLineData[]
       const comparisonSymbols = context.comparisonSymbols ?? []
       if (comparisonSymbols.length === 0 || mainData.length === 0) return

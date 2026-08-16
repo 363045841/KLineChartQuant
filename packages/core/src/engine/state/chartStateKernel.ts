@@ -43,6 +43,7 @@ import type { IndicatorMetadata } from '../indicators/indicatorMetadata'
 import type { MarketSessionRegistry } from '../market/marketSessionRegistry'
 import { resolveSymbolMarketSession } from '../market/resolveSymbolMarketSession'
 import { resolveMarketSessionSlots } from '../../foundation/utils/sessionTimeLabels'
+import '../renderers/extremaMarkers'
 
 /** Chart 投影到 Scene 的受管 renderer layer 描述。 */
 export interface ActiveRendererDescriptor {
@@ -86,31 +87,53 @@ function resolveIndicatorRenderers(
 
   // 主图和副图指标均从统一实例集合读取；主图数据 Layer 共用一个 legend Layer。
   for (const instance of instances) {
+    const definition = getRegisteredIndicatorDefinition(instance.indicatorId)
+    // mode 实例的业务 renderer 由 @Indicator.dataViews 声明可见性，且不参与用户指标图例。
+    if (instance.source === 'mode' && instance.role === 'main' && definition) {
+      const modeDefinition = tryResolveIndicatorMetadata(
+        definition,
+        dataView,
+        instance.paneId,
+        instance.indicatorId,
+      )
+      if (modeDefinition) {
+        add(
+          mainRenderers,
+          modeDefinition.getRendererName({
+            paneId: instance.paneId,
+            indicatorId: instance.indicatorId,
+          }),
+        )
+        continue
+      }
+    }
     if (
       instance.source === 'mode' &&
-      (instance.indicatorId === 'candle' || instance.indicatorId === 'timeShare')
+      (instance.indicatorId === 'candle' ||
+        instance.indicatorId === 'timeShare' ||
+        instance.indicatorId === 'comparisonLine')
     ) {
       add(mainRenderers, instance.indicatorId)
       continue
     }
-    const definition = tryResolveIndicatorMetadata(
-      getRegisteredIndicatorDefinition(instance.indicatorId),
+    const resolvedDefinition = tryResolveIndicatorMetadata(
+      definition,
       dataView,
       instance.paneId,
       instance.indicatorId,
     )
-    if (!definition) continue
+    if (!resolvedDefinition) continue
 
     const options = { paneId: instance.paneId, indicatorId: instance.indicatorId }
     if (instance.role === 'main') {
-      const rendererName = definition.getRendererName(options)
+      const rendererName = resolvedDefinition.getRendererName(options)
       add(mainRenderers, rendererName)
       hasMainIndicatorRenderer ||= Boolean(rendererName)
     } else {
       // 副图由数据、坐标轴和标题三个独立 Layer 组成。
-      add(subRenderers, definition.getRendererName(options))
-      add(subRenderers, definition.getScaleRendererName(options))
-      add(subRenderers, definition.getPaneTitleRendererName(options))
+      add(subRenderers, resolvedDefinition.getRendererName(options))
+      add(subRenderers, resolvedDefinition.getScaleRendererName(options))
+      add(subRenderers, resolvedDefinition.getPaneTitleRendererName(options))
     }
   }
   if (hasMainIndicatorRenderer) add(mainRenderers, 'mainIndicatorLegend')
@@ -361,7 +384,7 @@ export class ChartStateKernel extends StateKernel {
       setSystemTheme: (theme: 'light' | 'dark') => this.systemTheme.actions.setSystemTheme(theme),
       setRendererRuntime: (runtime: RendererBackendRuntime) =>
         this.renderer.actions.setRuntime(runtime),
-      setDataView: (view: 'kline' | 'timeshare', lastBarPeriod?: string) => {
+      setDataView: (view: ChartDataView, lastBarPeriod?: string) => {
         const modeInstances: IndicatorInstanceSpec[] =
           view === 'timeshare'
             ? [
@@ -382,16 +405,35 @@ export class ChartStateKernel extends StateKernel {
                   params: {},
                 },
               ]
-            : [
-                {
-                  instanceId: 'mode:candle',
-                  indicatorId: 'candle',
-                  paneId: 'main',
-                  role: 'main',
-                  ordinal: 0,
-                  params: {},
-                },
-              ]
+            : view === 'comparison'
+              ? [
+                  {
+                    instanceId: 'mode:comparison',
+                    indicatorId: 'comparisonLine',
+                    paneId: 'main',
+                    role: 'main',
+                    ordinal: 0,
+                    params: {},
+                  },
+                ]
+              : [
+                  {
+                    instanceId: 'mode:candle',
+                    indicatorId: 'candle',
+                    paneId: 'main',
+                    role: 'main',
+                    ordinal: 0,
+                    params: {},
+                  },
+                  {
+                    instanceId: 'mode:extrema-markers',
+                    indicatorId: 'extremaMarkers',
+                    paneId: 'main',
+                    role: 'main',
+                    ordinal: 0,
+                    params: {},
+                  },
+                ]
         // mode 仅声明所需能力；统一实例调度器决定复用用户副图还是创建系统实例。
         const resolvedModeInstances = resolveModeIndicatorInstances(
           modeInstances,
@@ -440,7 +482,7 @@ export class ChartStateKernel extends StateKernel {
       },
       setLastBarPeriod: (period: string) => this.mode.actions.setLastBarPeriod(period),
       setPrimaryRenderer: (
-        view: 'kline' | 'timeshare',
+        view: ChartDataView,
         renderer: 'candlestick' | 'ohlc-bar' | 'line' | 'area',
       ) => this.mode.actions.setPrimaryRenderer(view, renderer),
       setDrawingTool: (tool: DrawingToolId) => this.drawing.actions.setDrawingTool(tool),

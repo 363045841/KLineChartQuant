@@ -1,5 +1,6 @@
 import type { RendererPlugin, RenderContext } from '../../foundation/plugin/index'
 import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../foundation/plugin/index'
+import { Indicator } from '../indicators/indicatorDefinitionRegistry'
 import { resolveThemeColors } from '../../foundation/tokens/index'
 import type { KLineData } from '../../foundation/types/price'
 import {
@@ -262,6 +263,19 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
       ctx.restore()
     },
   }
+}
+
+@Indicator({
+  name: 'extremaMarkers',
+  displayName: '极值标记',
+  category: 'main',
+  indicatorType: 'other',
+  defaultPaneId: 'main',
+  dataViews: ['kline'],
+  mainPane: { rendererName: 'extremaMarkers' },
+})
+export class ExtremaMarkersIndicatorDefinition {
+  static rendererFactory = createExtremaMarkersRendererPlugin
 }
 
 /**

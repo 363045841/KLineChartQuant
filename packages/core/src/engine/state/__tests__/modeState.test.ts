@@ -40,6 +40,20 @@ describe('modeState', () => {
     })
   })
 
+  it('uses a line renderer while retaining K-line interactions in comparison view', () => {
+    const m = createModeState()
+
+    m.actions.setDataView('comparison')
+
+    expect(m.readonly.effectivePrimaryRenderer.peek()).toBe('line')
+    expect(m.readonly.interactionCapabilities.peek()).toEqual({
+      allowPan: true,
+      allowZoom: true,
+      allowVerticalScroll: true,
+      allowRightAxisScale: true,
+    })
+  })
+
   it('stores renderer preferences per view and falls back for unsupported combinations', () => {
     const m = createModeState()
     m.actions.setPrimaryRenderer('kline', 'ohlc-bar')
@@ -48,6 +62,7 @@ describe('modeState', () => {
     expect(m.readonly.primaryRendererByView.peek()).toEqual({
       kline: 'ohlc-bar',
       timeshare: 'candlestick',
+      comparison: 'line',
     })
     expect(m.readonly.effectivePrimaryRenderer.peek()).toBe('ohlc-bar')
 
@@ -71,7 +86,10 @@ describe('modeState', () => {
       scheduleDraw: () => undefined,
     })
 
-    expect(kernel.activeRenderers$.peek()).toEqual([{ name: 'candle', layerId: 'plugin:candle' }])
+    expect(kernel.activeRenderers$.peek()).toEqual([
+      { name: 'candle', layerId: 'plugin:candle' },
+      { name: 'extremaMarkers', layerId: 'plugin:extremaMarkers' },
+    ])
     expect(Object.isFrozen(kernel.activeRenderers$.peek())).toBe(true)
 
     kernel.actions.setDataView('timeshare')
@@ -97,11 +115,30 @@ describe('modeState', () => {
       },
     ])
     expect(kernel.pane.readonly.paneSpecs.peek()).toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: 'timeshare_volume', role: 'indicator' })]),
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'timeshare_volume', role: 'indicator' }),
+      ]),
     )
     expect(kernel.pane.readonly.paneRatios.peek().timeshare_volume).toBeCloseTo(0.25)
     expect(kernel.activeRenderers$.peek()).toEqual([
       { name: 'timeShare', layerId: 'plugin:timeShare' },
+    ])
+
+    kernel.actions.setDataView('comparison')
+
+    expect(kernel.indicator.readonly.instances.peek()).toEqual([
+      {
+        instanceId: 'mode:comparison',
+        indicatorId: 'comparisonLine',
+        paneId: 'main',
+        role: 'main',
+        ordinal: 0,
+        source: 'mode',
+        params: {},
+      },
+    ])
+    expect(kernel.activeRenderers$.peek()).toEqual([
+      { name: 'comparisonLine', layerId: 'plugin:comparisonLine' },
     ])
   })
 
@@ -133,6 +170,7 @@ describe('modeState', () => {
 
     expect(kernel.activeRenderers$.peek()).toEqual([
       { name: 'candle', layerId: 'plugin:candle' },
+      { name: 'extremaMarkers', layerId: 'plugin:extremaMarkers' },
       { name: 'ma', layerId: 'plugin:ma' },
       { name: 'boll', layerId: 'plugin:boll' },
       { name: 'mainIndicatorLegend', layerId: 'plugin:mainIndicatorLegend' },

@@ -335,8 +335,8 @@ export interface ChartController extends DrawingChartAdapter {
   readonly rendererRuntime: ReadonlySignal<
     Readonly<import('../rendering/render/rendererHost').RendererBackendRuntime>
   >
-  /** 图表模式 id：kline | timeshare */
-  readonly chartMode: ReadonlySignal<'kline' | 'timeshare'>
+  /** 图表模式 id：kline | timeshare | comparison */
+  readonly chartMode: ReadonlySignal<'kline' | 'timeshare' | 'comparison'>
   /** 最近一次 K 线周期；分时返回操作使用该值。 */
   readonly lastBarPeriod: ReadonlySignal<string>
   readonly indicators: ReadonlySignal<ReadonlyArray<IndicatorInstance>>

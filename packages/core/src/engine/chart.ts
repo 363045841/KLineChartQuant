@@ -442,6 +442,7 @@ export class Chart {
       getDataManager: () => this.dataManager,
       getIndicatorManager: () => this.indicatorManager,
       getActiveMode: () => this.activeMode,
+      dataView$: this.kernel.mode.readonly.dataView,
       settings$: this.kernel.settings.readonly.settings,
       customMarkers$: this.kernel.marker.readonly.customMarkers,
       drawings$: this.kernel.drawing.readonly.drawings,
@@ -473,7 +474,8 @@ export class Chart {
   /** 切换模式处理器 */
   setActiveMode(mode: ChartModeHandler): void {
     const prev = this.activeMode
-    if (prev === mode) return
+    const dataView = mode === this._timeShareMode ? 'timeshare' : 'kline'
+    if (prev === mode && this.kernel.mode.readonly.dataView.peek() === dataView) return
 
     prev.onDeactivate(
       {
@@ -483,7 +485,6 @@ export class Chart {
       },
       mode,
     )
-    const dataView = mode === this._timeShareMode ? 'timeshare' : 'kline'
     this.kernel.actions.setDataView(
       dataView,
       dataView === 'timeshare' ? this.dataManager.currentPeriod : undefined,
@@ -1447,6 +1448,7 @@ export class Chart {
 
     // 品种/周期切换时重置最新 K 线时间戳，确保新数据触发预警
     this._lastAlertTimestamp = null
+    const isComparison = primaryPeriod !== 'timeshare' && specs.length > 1
     if (primaryPeriod) {
       // ⚠️ setActiveMode 必须在 dataManager.setSymbols 之前调用，
       //    以确保 kWidth/kGap（从 zoom level 恢复）先写入 _optionsSignal，
@@ -1454,6 +1456,12 @@ export class Chart {
       this.setActiveMode(primaryPeriod === 'timeshare' ? this._timeShareMode : this._kLineMode)
     }
     this.dataManager.setSymbols(specs)
+    if (isComparison) {
+      this.kernel.actions.setDataView('comparison')
+      this.applyComparisonScaleType(true)
+    } else {
+      this.applyComparisonScaleType(false)
+    }
     // Scroll position 恢复必须放在 setActiveMode + setSymbols 之后，
     // 此时 kWidth/kGap 已由 zoom level 恢复写回，计算不出错。
     if (primaryPeriod && primaryPeriod !== 'timeshare') {
@@ -1466,13 +1474,18 @@ export class Chart {
     const hadComparisons = this.dataManager.getComparisonSpecs().length > 0
     this.dataManager.addComparisonSymbol(spec)
     if (!hadComparisons && this.dataManager.getComparisonSpecs().length > 0) {
+      this.setActiveMode(this._kLineMode)
+      this.kernel.actions.setDataView('comparison')
       this.applyComparisonScaleType(true)
     }
   }
 
   removeComparisonSymbol(symbol: string): void {
     this.dataManager.removeComparisonSymbol(symbol)
-    if (this.dataManager.getComparisonSpecs().length === 0) this.applyComparisonScaleType(false)
+    if (this.dataManager.getComparisonSpecs().length === 0) {
+      this.applyComparisonScaleType(false)
+      this.setActiveMode(this._kLineMode)
+    }
   }
 
   setComparisonData(symbol: string, data: KLineData[]): void {
@@ -1500,6 +1513,10 @@ export class Chart {
     if (period === 'timeshare') this.configureCurrentTimeShareSession()
     this.setActiveMode(period === 'timeshare' ? this._timeShareMode : this._kLineMode)
     this.dataManager.setCurrentPeriod(period)
+    if (period !== 'timeshare' && this.dataManager.getComparisonSpecs().length > 0) {
+      this.kernel.actions.setDataView('comparison')
+      this.applyComparisonScaleType(true)
+    }
     this.kernel?.mode.actions.setLastBarPeriod(period)
   }
 

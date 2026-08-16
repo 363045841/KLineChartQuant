@@ -59,6 +59,7 @@ function makeContext(overrides: Partial<RenderContext> = {}): RenderContext {
     pane: makePane(),
     data: mainData,
     period: 'daily',
+    dataView: 'comparison',
     comparisonData: new Map([[CMP_IDENTITY, cmpData]]),
     comparisonSymbols: [{ symbol: 'CMP', market: 'CN', period: 'daily' }],
     comparisonColors: new Map(),
@@ -161,6 +162,13 @@ describe('createComparisonLineRenderer.draw', () => {
     renderer.draw(makeContext({ ctx, comparisonSymbols: [] }))
     expect(ctx.save).not.toHaveBeenCalled()
     expect(ctx.stroke).not.toHaveBeenCalled()
+  })
+
+  it('does not draw outside comparison view', () => {
+    const ctx = mockCtx()
+    const renderer = createComparisonLineRenderer()
+    renderer.draw(makeContext({ ctx, dataView: 'kline' }))
+    expect(ctx.save).not.toHaveBeenCalled()
   })
 
   it('skips comparison symbols without loaded data', () => {

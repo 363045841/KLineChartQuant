@@ -1,7 +1,7 @@
 /** 图表数据视图、主序列渲染偏好及运行时能力状态。 */
 import { batch, computed, createSubState } from '../../foundation/reactivity/signal'
 
-export type ChartModeId = 'kline' | 'timeshare'
+export type ChartModeId = 'kline' | 'timeshare' | 'comparison'
 export type ChartDataView = ChartModeId
 export type PrimaryRendererType = 'candlestick' | 'ohlc-bar' | 'line' | 'area'
 export type PrimaryRendererByView = Readonly<Record<ChartDataView, PrimaryRendererType>>
@@ -16,6 +16,7 @@ export type InteractionCapabilities = Readonly<{
 const DEFAULT_PRIMARY_RENDERERS: PrimaryRendererByView = Object.freeze({
   kline: 'candlestick',
   timeshare: 'line',
+  comparison: 'line',
 })
 
 /** 复制并冻结主序列渲染偏好，避免外部原地修改。 */
@@ -30,7 +31,13 @@ function resolveEffectivePrimaryRenderer(
   view: ChartDataView,
   renderer: PrimaryRendererType,
 ): PrimaryRendererType {
-  if (view === 'timeshare' && renderer !== 'line' && renderer !== 'area') return 'line'
+  if (
+    (view === 'timeshare' || view === 'comparison') &&
+    renderer !== 'line' &&
+    renderer !== 'area'
+  ) {
+    return 'line'
+  }
   return renderer
 }
 
@@ -46,12 +53,12 @@ export function createModeState() {
     return resolveEffectivePrimaryRenderer(view, sourceReadonly.primaryRendererByView()[view])
   })
   const interactionCapabilities = computed<InteractionCapabilities>(() => {
-    const isKLine = sourceReadonly.dataView() === 'kline'
+    const supportsKLineInteraction = sourceReadonly.dataView() !== 'timeshare'
     return Object.freeze({
-      allowPan: isKLine,
-      allowZoom: isKLine,
-      allowVerticalScroll: isKLine,
-      allowRightAxisScale: isKLine,
+      allowPan: supportsKLineInteraction,
+      allowZoom: supportsKLineInteraction,
+      allowVerticalScroll: supportsKLineInteraction,
+      allowRightAxisScale: supportsKLineInteraction,
     })
   })
 
