@@ -127,12 +127,26 @@ function parseColor(value: unknown): readonly [number, number, number, number] |
         Number.parseInt(hex[2]! + hex[2]!, 16) / 255,
         1,
       ]
+    } else if (hex.length === 4) {
+      rgba = [
+        Number.parseInt(hex[0]! + hex[0]!, 16) / 255,
+        Number.parseInt(hex[1]! + hex[1]!, 16) / 255,
+        Number.parseInt(hex[2]! + hex[2]!, 16) / 255,
+        Number.parseInt(hex[3]! + hex[3]!, 16) / 255,
+      ]
     } else if (hex.length === 6) {
       rgba = [
         Number.parseInt(hex.slice(0, 2), 16) / 255,
         Number.parseInt(hex.slice(2, 4), 16) / 255,
         Number.parseInt(hex.slice(4, 6), 16) / 255,
         1,
+      ]
+    } else if (hex.length === 8) {
+      rgba = [
+        Number.parseInt(hex.slice(0, 2), 16) / 255,
+        Number.parseInt(hex.slice(2, 4), 16) / 255,
+        Number.parseInt(hex.slice(4, 6), 16) / 255,
+        Number.parseInt(hex.slice(6, 8), 16) / 255,
       ]
     }
   } else {

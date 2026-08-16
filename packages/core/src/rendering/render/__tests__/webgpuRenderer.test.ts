@@ -170,6 +170,37 @@ describe('createWebGPURenderer', () => {
     ).toContain('round((rect.x - uniforms.scrollLeft) * uniforms.dpr)')
   })
 
+  it('draws rectangle instances with an alpha hex color', async () => {
+    const fake = makeWebGPU()
+    const renderer = await createWebGPURenderer({
+      gpu: fake.gpu as unknown as GPU,
+      canvas: fake.canvas,
+    })
+    renderer.surface.resize(100, 100, 1)
+    renderer.beginFrame({ x: 0, y: 0, width: 100, height: 100, dpr: 1 })
+    const instances = renderer.createBuffer('instance', 16)
+    const pipeline = renderer.createPipeline({ type: 'candle' })
+
+    expect(
+      renderer.drawInstances({
+        pipeline,
+        vertices: renderer.createBuffer('vertex', 4),
+        instances,
+        instanceCount: 1,
+        vertexCount: 6,
+        uniforms: { color: '#0F8B5C66' },
+      }),
+    ).toBe(true)
+    renderer.endFrame()
+
+    expect(fake.passes[0]?.draw).toHaveBeenCalledWith(6, 1)
+    const uniformWrite = fake.queue.writeBuffer.mock.calls.find((call) => call[4] === 32)
+    expect(uniformWrite).toBeDefined()
+    expect(new Float32Array(uniformWrite![2] as ArrayBuffer, uniformWrite![3], 8)[7]).toBeCloseTo(
+      0x66 / 255,
+    )
+  })
+
   it('records multiple draws and submits once on endFrame', async () => {
     const fake = makeWebGPU()
     const renderer = await createWebGPURenderer({
