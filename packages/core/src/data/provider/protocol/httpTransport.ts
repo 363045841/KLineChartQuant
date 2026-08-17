@@ -18,6 +18,8 @@ import type {
   V1InstrumentSearchRequest,
   V1InstrumentSearchResult,
   V1SourceProbe,
+  V1TimeShareRangeRequest,
+  V1TimeShareRangeSeries,
   V1TimeShareRequest,
   V1TimeShareSeries,
 } from './types'
@@ -174,6 +176,23 @@ export function createHttpMarketDataV1Transport(
       return request<V1TimeShareSeries>(
         baseUrl(),
         '/api/v1/market-data/timeshare',
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal },
+        getFetch,
+        label,
+      )
+    },
+
+    // 通过 timeshare/range endpoint 拉取多个实际交易日的分时
+    async fetchTimeShareRange(req: V1TimeShareRangeRequest, signal) {
+      const body = JSON.stringify({
+        sourceId: req.sourceId,
+        instrument: req.instrument,
+        endTradingDate: req.endTradingDate,
+        days: req.days,
+      })
+      return request<V1TimeShareRangeSeries>(
+        baseUrl(),
+        '/api/v1/market-data/timeshare/range',
         { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal },
         getFetch,
         label,

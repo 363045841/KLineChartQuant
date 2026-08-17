@@ -97,9 +97,9 @@ describe('createHttpMarketDataV1Transport', () => {
           instrumentId: 'gotdx:stock:1:600519',
           period: 'daily',
           adjustment: 'none',
-           timezone: 'Asia/Shanghai',
-           olderData: 'exhausted',
-           items: [],
+          timezone: 'Asia/Shanghai',
+          olderData: 'exhausted',
+          items: [],
         },
         requestId: 'r',
       }),
@@ -156,6 +156,40 @@ describe('createHttpMarketDataV1Transport', () => {
       sourceId: 'gotdx',
       instrument: { id: 'gotdx:stock:1:600519', symbol: '600519', exchange: 'SH' },
       tradingDate: '2026-08-06',
+    })
+  })
+
+  // 验证多日分时请求保留可配置 days，并使用包含截止交易日的 range endpoint
+  it('fetches a configurable timeshare range', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        data: {
+          instrumentId: 'gotdx:stock:1:600519',
+          timezone: 'Asia/Shanghai',
+          requestedDays: 5,
+          days: [],
+          olderData: 'unknown',
+        },
+        requestId: 'r',
+      }),
+    )
+
+    const transport = createHttpMarketDataV1Transport()
+    const result = await transport.fetchTimeShareRange({
+      sourceId: 'gotdx',
+      instrument: { id: 'gotdx:stock:1:600519', symbol: '600519', exchange: 'SH' },
+      endTradingDate: '2026-08-06',
+      days: 5,
+    })
+
+    expect(result.requestedDays).toBe(5)
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe(`${DEFAULT_V1_BASE_URL}/api/v1/market-data/timeshare/range`)
+    expect(JSON.parse(String(init?.body))).toEqual({
+      sourceId: 'gotdx',
+      instrument: { id: 'gotdx:stock:1:600519', symbol: '600519', exchange: 'SH' },
+      endTradingDate: '2026-08-06',
+      days: 5,
     })
   })
 

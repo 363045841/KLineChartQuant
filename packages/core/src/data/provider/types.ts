@@ -45,10 +45,16 @@ export interface BarCapability {
   adjustments: ReadonlyArray<KLineAdjustment>
 }
 
+/** 多日分时接口可一次查询的交易日范围。 */
+export interface TimeShareRangeCapability {
+  maxTradingDays: number
+}
+
 /** 单个品种可被前端启用的行情能力。 */
 export interface InstrumentCapabilities {
   bars?: BarCapability
   timeShare?: boolean
+  timeShareRange?: TimeShareRangeCapability
   depth?: boolean
 }
 
@@ -57,6 +63,7 @@ export interface SourceCapabilities {
   assetClasses: ReadonlyArray<AssetClass>
   bars?: BarCapability
   timeShare?: boolean
+  timeShareRange?: TimeShareRangeCapability
   depth?: boolean
   historyCoverage?: {
     from?: number

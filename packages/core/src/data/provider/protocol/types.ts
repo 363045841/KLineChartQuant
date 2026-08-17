@@ -71,7 +71,13 @@ export interface V1BarCapability {
 export interface V1InstrumentCapabilities {
   bars?: V1BarCapability
   timeShare?: boolean
+  timeShareRange?: V1TimeShareRangeCapability
   depth?: boolean // 实时深度（订单簿/盘口 L2），预留
+}
+
+// 多日分时接口可一次查询的交易日上限
+export interface V1TimeShareRangeCapability {
+  maxTradingDays: number
 }
 
 // 品种描述：搜索目录与请求体共用的稳定品种信息
@@ -179,6 +185,30 @@ export interface V1TimeShareSeries {
   items: ReadonlyArray<V1TimeShareItem>
 }
 
+// 多日分时请求：endTradingDate 包含在结果内，days 按实际交易日计数
+export interface V1TimeShareRangeRequest {
+  sourceId: string
+  instrument: V1InstrumentReference
+  endTradingDate: TradingDate
+  days: number
+}
+
+// 多日分时中的单个交易日；每天独立保留涨跌基准
+export interface V1TimeShareDay {
+  tradingDate: TradingDate
+  preClose: number | null
+  items: ReadonlyArray<V1TimeShareItem>
+}
+
+// 多日分时序列；days 按交易日升序排列
+export interface V1TimeShareRangeSeries {
+  instrumentId: string
+  timezone: string
+  requestedDays: number
+  days: ReadonlyArray<V1TimeShareDay>
+  olderData: OlderDataStatus
+}
+
 /**
  * 协议传输接口：实现负责 wire 语义（URL、envelope 解包、错误解析）
  * 返回统一解包后的 data 载荷，不掺领域映射逻辑
@@ -195,4 +225,9 @@ export interface MarketDataV1Transport {
   fetchBars(request: V1BarRequest, signal?: AbortSignal): Promise<V1BarSeries>
   // 拉取指定品种在单个交易日内的分时序列
   fetchTimeShare(request: V1TimeShareRequest, signal?: AbortSignal): Promise<V1TimeShareSeries>
+  // 拉取截止交易日前若干个实际交易日的分时序列
+  fetchTimeShareRange?(
+    request: V1TimeShareRangeRequest,
+    signal?: AbortSignal,
+  ): Promise<V1TimeShareRangeSeries>
 }
