@@ -5,11 +5,14 @@
  */
 import type {
   AssetClass,
+  BarCapability,
+  InstrumentCapabilities,
   KLineAdjustment,
   KLinePeriod,
   MarketDataErrorCode,
   OlderDataStatus,
   ProviderRef,
+  TimeShareRangeCapability,
   TradingDate,
   VolumeUnit,
 } from '../types'
@@ -61,24 +64,14 @@ export interface ProtocolSourceProbe {
   capabilities?: ProtocolSourceCapabilities
 }
 
-// 品种支持的 K 线能力
-export interface ProtocolBarCapability {
-  periods: ReadonlyArray<KLinePeriod> // K线周期级别
-  adjustments: ReadonlyArray<KLineAdjustment> // 复权
-}
+// V1 协议直接采用领域层的能力模型
+export type ProtocolBarCapability = BarCapability
 
-// 品种可被前端启用的行情能力
-export interface ProtocolInstrumentCapabilities {
-  bars?: ProtocolBarCapability
-  timeShare?: boolean
-  timeShareRange?: ProtocolTimeShareRangeCapability
-  depth?: boolean // 实时深度（订单簿/盘口 L2），预留
-}
+// V1 协议直接采用领域层的品种能力模型
+export type ProtocolInstrumentCapabilities = InstrumentCapabilities
 
-// 多日分时接口可一次查询的交易日上限
-export interface ProtocolTimeShareRangeCapability {
-  maxTradingDays: number
-}
+// V1 协议直接采用领域层的多日分时能力模型
+export type ProtocolTimeShareRangeCapability = TimeShareRangeCapability
 
 // 品种描述：搜索目录与请求体共用的稳定品种信息
 export interface ProtocolInstrumentDescriptor {
