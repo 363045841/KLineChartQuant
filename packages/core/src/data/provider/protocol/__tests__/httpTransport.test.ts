@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { KLineChartError } from '../../../../errors'
-import { createHttpMarketDataV1Transport, DEFAULT_V1_BASE_URL } from '../httpTransport'
+import { createHttpMarketDataTransport, DEFAULT_V1_BASE_URL } from '../httpTransport'
 
 const fetchMock = vi.fn<typeof fetch>()
 
@@ -13,7 +13,7 @@ function jsonResponse(value: unknown, status = 200): Response {
   })
 }
 
-describe('createHttpMarketDataV1Transport', () => {
+describe('createHttpMarketDataTransport', () => {
   beforeEach(() => {
     fetchMock.mockReset()
     vi.stubGlobal('fetch', fetchMock)
@@ -39,7 +39,7 @@ describe('createHttpMarketDataV1Transport', () => {
       }),
     )
 
-    const transport = createHttpMarketDataV1Transport()
+    const transport = createHttpMarketDataTransport()
     await expect(transport.probe('gotdx')).resolves.toEqual({
       status: 'online',
       checkedAt: 1,
@@ -60,7 +60,7 @@ describe('createHttpMarketDataV1Transport', () => {
       jsonResponse({ data: { status: 'offline', checkedAt: 1 }, requestId: 'r' }),
     )
 
-    const transport = createHttpMarketDataV1Transport()
+    const transport = createHttpMarketDataTransport()
     await transport.probe('my source')
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       `${DEFAULT_V1_BASE_URL}/api/v1/market-data/sources/my%20source/probe`,
@@ -71,7 +71,7 @@ describe('createHttpMarketDataV1Transport', () => {
   it('searches instruments with the expected JSON body', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ data: { items: [] }, requestId: 'r' }))
 
-    const transport = createHttpMarketDataV1Transport()
+    const transport = createHttpMarketDataTransport()
     const result = await transport.searchInstruments({
       sourceId: 'gotdx',
       keyword: '茅台',
@@ -105,7 +105,7 @@ describe('createHttpMarketDataV1Transport', () => {
       }),
     )
 
-    const transport = createHttpMarketDataV1Transport()
+    const transport = createHttpMarketDataTransport()
     const result = await transport.fetchBars({
       sourceId: 'gotdx',
       instrument: { id: 'gotdx:stock:1:600519', symbol: '600519', exchange: 'SH' },
@@ -142,7 +142,7 @@ describe('createHttpMarketDataV1Transport', () => {
       }),
     )
 
-    const transport = createHttpMarketDataV1Transport()
+    const transport = createHttpMarketDataTransport()
     const result = await transport.fetchTimeShare({
       sourceId: 'gotdx',
       instrument: { id: 'gotdx:stock:1:600519', symbol: '600519', exchange: 'SH' },
@@ -174,7 +174,7 @@ describe('createHttpMarketDataV1Transport', () => {
       }),
     )
 
-    const transport = createHttpMarketDataV1Transport()
+    const transport = createHttpMarketDataTransport()
     const result = await transport.fetchTimeShareRange({
       sourceId: 'gotdx',
       instrument: { id: 'gotdx:stock:1:600519', symbol: '600519', exchange: 'SH' },
@@ -202,7 +202,7 @@ describe('createHttpMarketDataV1Transport', () => {
       ),
     )
 
-    const transport = createHttpMarketDataV1Transport()
+    const transport = createHttpMarketDataTransport()
     await expect(transport.probe('gotdx')).rejects.toThrow(/upstream down/)
   })
 
@@ -218,7 +218,7 @@ describe('createHttpMarketDataV1Transport', () => {
       ),
     )
 
-    const transport = createHttpMarketDataV1Transport()
+    const transport = createHttpMarketDataTransport()
     const error = await transport.probe('gotdx').catch((cause: unknown) => cause)
 
     expect(error).toBeInstanceOf(KLineChartError)
@@ -229,7 +229,7 @@ describe('createHttpMarketDataV1Transport', () => {
   it('falls back to a generic message when no error envelope is present', async () => {
     fetchMock.mockResolvedValue(new Response('', { status: 500 }))
 
-    const transport = createHttpMarketDataV1Transport({ sourceLabel: 'gotdx' })
+    const transport = createHttpMarketDataTransport({ sourceLabel: 'gotdx' })
     await expect(transport.probe('gotdx')).rejects.toThrow(/\[gotdx\] V1 request failed: 500/)
   })
 
@@ -237,7 +237,7 @@ describe('createHttpMarketDataV1Transport', () => {
   it('rejects a 2xx response without a data field', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ requestId: 'r' }))
 
-    const transport = createHttpMarketDataV1Transport()
+    const transport = createHttpMarketDataTransport()
     const error = await transport.probe('gotdx').catch((e: unknown) => e)
     expect(error).toBeInstanceOf(KLineChartError)
     expect((error as KLineChartError).message).toContain('invalid V1 response envelope')
@@ -248,7 +248,7 @@ describe('createHttpMarketDataV1Transport', () => {
     const networkError = new TypeError('Failed to fetch')
     fetchMock.mockRejectedValue(networkError)
 
-    const transport = createHttpMarketDataV1Transport({ sourceLabel: 'gotdx' })
+    const transport = createHttpMarketDataTransport({ sourceLabel: 'gotdx' })
     const error = await transport.probe('gotdx').catch((e: unknown) => e)
 
     expect(error).toBeInstanceOf(KLineChartError)
@@ -262,7 +262,7 @@ describe('createHttpMarketDataV1Transport', () => {
     const abortError = new DOMException('The operation was aborted', 'AbortError')
     fetchMock.mockRejectedValue(abortError)
 
-    const transport = createHttpMarketDataV1Transport({ sourceLabel: 'gotdx' })
+    const transport = createHttpMarketDataTransport({ sourceLabel: 'gotdx' })
     const error = await transport.probe('gotdx').catch((e: unknown) => e)
 
     expect(error).toBeInstanceOf(KLineChartError)
@@ -276,7 +276,7 @@ describe('createHttpMarketDataV1Transport', () => {
       jsonResponse({ data: { status: 'online', checkedAt: 1 }, requestId: 'r' }),
     )
 
-    const transport = createHttpMarketDataV1Transport({ baseUrl: 'http://static.test' })
+    const transport = createHttpMarketDataTransport({ baseUrl: 'http://static.test' })
     await transport.probe('gotdx')
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       'http://static.test/api/v1/market-data/sources/gotdx/probe',
@@ -291,7 +291,7 @@ describe('createHttpMarketDataV1Transport', () => {
     )
 
     let baseUrl = 'http://a.test'
-    const transport = createHttpMarketDataV1Transport({ baseUrl: () => baseUrl })
+    const transport = createHttpMarketDataTransport({ baseUrl: () => baseUrl })
     await transport.probe('gotdx')
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       'http://a.test/api/v1/market-data/sources/gotdx/probe',
@@ -310,7 +310,7 @@ describe('createHttpMarketDataV1Transport', () => {
       .fn<typeof fetch>()
       .mockResolvedValue(jsonResponse({ data: { status: 'online', checkedAt: 1 }, requestId: 'r' }))
 
-    const transport = createHttpMarketDataV1Transport({ fetchImpl: injected })
+    const transport = createHttpMarketDataTransport({ fetchImpl: injected })
     await transport.probe('gotdx')
     expect(injected).toHaveBeenCalledTimes(1)
     expect(fetchMock).not.toHaveBeenCalled()

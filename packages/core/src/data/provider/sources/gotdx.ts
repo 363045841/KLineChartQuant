@@ -1,18 +1,18 @@
 /** GOTDX Provider：注册配置集中声明于 sourceRegistry，接入逻辑由通用装配器提供。 */
-import { createHttpMarketDataV1Transport, createV1MarketDataProvider } from '../protocol'
+import { createHttpMarketDataTransport, createMarketDataProvider } from '../protocol'
 import { marketDataProviderRegistry } from '../registry'
 import { dataSourceRegistry } from '../sourceRegistry'
 
 const GOTDX = dataSourceRegistry.gotdx
 
 /** V1 HTTP Transport：运行时从注册表读取 baseUrl，支持面板动态覆盖。 */
-const transport = createHttpMarketDataV1Transport({
+const transport = createHttpMarketDataTransport({
   baseUrl: () => marketDataProviderRegistry.getConfig('gotdx').baseUrl ?? GOTDX.defaultBaseUrl,
   sourceLabel: 'gotdx',
 })
 
 /** GOTDX V1 Provider：通过统一行情协议访问行情服务。 */
-export const gotdxMarketDataProvider = createV1MarketDataProvider({
+export const gotdxMarketDataProvider = createMarketDataProvider({
   source: {
     id: GOTDX.id,
     displayName: GOTDX.displayName,

@@ -85,7 +85,7 @@ function mapTimeShare(item: ProtocolTimeShareItem): TimeShareData {
 }
 
 // 创建基于该协议的标准 MarketDataProvider
-export function createV1MarketDataProvider(
+export function createMarketDataProvider(
   options: MarketDataProviderOptions,
 ): MarketDataProvider {
   const { source, transport } = options

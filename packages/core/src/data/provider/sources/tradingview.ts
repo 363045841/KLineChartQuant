@@ -1,19 +1,19 @@
 /** TradingView V1 Provider：装配与注册集中于此，接入逻辑由通用装配器提供。 */
-import { createHttpMarketDataV1Transport, createV1MarketDataProvider } from '../protocol'
+import { createHttpMarketDataTransport, createMarketDataProvider } from '../protocol'
 import { marketDataProviderRegistry } from '../registry'
 import { dataSourceRegistry } from '../sourceRegistry'
 
 const TRADINGVIEW = dataSourceRegistry.tradingview
 
 /** V1 HTTP Transport：运行时从注册表读取 baseUrl，支持面板动态覆盖。 */
-const v1Transport = createHttpMarketDataV1Transport({
+const v1Transport = createHttpMarketDataTransport({
   baseUrl: () =>
     marketDataProviderRegistry.getConfig('tradingview').baseUrl ?? TRADINGVIEW.defaultBaseUrl,
   sourceLabel: 'tradingview',
 })
 
 /** TradingView V1 Provider：通过统一行情协议访问本地代理。 */
-export const tradingviewMarketDataProvider = createV1MarketDataProvider({
+export const tradingviewMarketDataProvider = createMarketDataProvider({
   source: {
     id: TRADINGVIEW.id,
     displayName: TRADINGVIEW.displayName,

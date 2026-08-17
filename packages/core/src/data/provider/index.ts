@@ -4,8 +4,8 @@ export {
   DEFAULT_V1_BASE_URL,
   V1_PROTOCOL_NAME,
   V1_PROTOCOL_VERSION,
-  createHttpMarketDataV1Transport,
-  createV1MarketDataProvider,
+  createHttpMarketDataTransport,
+  createMarketDataProvider,
 } from './protocol'
 export type {
   HttpTransportOptions,
@@ -36,7 +36,7 @@ export type {
   ProtocolTimeShareRequest,
   ProtocolTimeShareSeries,
 } from './protocol'
-export { V1_SOURCE_REJECTION_CODES } from './protocol'
+export { SOURCE_REJECTION_CODES } from './protocol'
 export { MarketDataProviderRegistry, marketDataProviderRegistry } from './registry'
 export type {
   MarketDataSourceConfig,

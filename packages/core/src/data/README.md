@@ -66,27 +66,27 @@ data/
 
 - `registry.ts`：Provider 注册表 + 运行时配置（`enabled` / `baseUrl`），聚合源面板写入此处的配置。
 - `sourceRegistry.ts`：数据源静态元数据，作为注册表与 UI 展示的单一事实来源。
-- `protocol/`：V1 wire 契约 —— `types.ts`（请求/响应类型）、`httpTransport.ts`（HTTP 实现）、`provider.ts`（`createV1MarketDataProvider` 通用装配器）。
+- `protocol/`：V1 wire 契约 —— `types.ts`（请求/响应类型）、`httpTransport.ts`（HTTP 实现）、`provider.ts`（`createMarketDataProvider` 通用装配器）。
 - `sources/`：各数据源 Provider 装配与注册（gotdx / baostock / finshare / tradingview / mock）。mock 为本地生成、不依赖后端。
 - `legacyAdapter.ts`：把 Provider 的能力桥接回旧 `DataFetcher` 接口，供迁移期兼容。
 
 #### V1 协议接口
 
-`provider/protocol/` 定义前端唯一的数据接入契约（`MarketDataV1Transport`），任何后端实现该契约即可接入。HTTP 实现位于 `httpTransport.ts`，请求统一包装为 `V1Envelope<T>`，失败时返回 `V1ErrorEnvelope`。协议名 `market-data-v1`，版本 1。
+`provider/protocol/` 定义前端唯一的数据接入契约（`MarketDataTransport`），任何后端实现该契约即可接入。HTTP 实现位于 `httpTransport.ts`，请求统一包装为 `ProtocolEnvelope<T>`，失败时返回 `ProtocolErrorEnvelope`。协议名 `market-data-v1`，版本 1。
 
 | Transport 方法 | HTTP 端点 | 方法 | 请求 | 响应 | 作用 |
 |---|---|---|---|---|---|
-| `probe` | `/api/v1/market-data/sources/{sourceId}/probe` | GET | — | `V1SourceProbe` | 探测数据源可用性（在线/离线/降级） |
-| `searchInstruments` | `/api/v1/market-data/instruments/search` | POST | `V1InstrumentSearchRequest` | `V1InstrumentSearchResult` | 按关键词搜索品种目录 |
-| `fetchBars` | `/api/v1/market-data/bars` | POST | `V1BarRequest` | `V1BarSeries` | 游标分页拉取指定品种/周期的 K 线 |
-| `fetchTimeShare` | `/api/v1/market-data/timeshare` | POST | `V1TimeShareRequest` | `V1TimeShareSeries` | 拉取单个交易日内的分时序列 |
+| `probe` | `/api/v1/market-data/sources/{sourceId}/probe` | GET | — | `ProtocolSourceProbe` | 探测数据源可用性（在线/离线/降级） |
+| `searchInstruments` | `/api/v1/market-data/instruments/search` | POST | `ProtocolInstrumentSearchRequest` | `ProtocolInstrumentSearchResult` | 按关键词搜索品种目录 |
+| `fetchBars` | `/api/v1/market-data/bars` | POST | `ProtocolBarRequest` | `ProtocolBarSeries` | 游标分页拉取指定品种/周期的 K 线 |
+| `fetchTimeShare` | `/api/v1/market-data/timeshare` | POST | `ProtocolTimeShareRequest` | `ProtocolTimeShareSeries` | 拉取单个交易日内的分时序列 |
 
 核心载荷类型：
 
-- `V1InstrumentDescriptor`：品种目录描述（含 `capabilities`，声明 bars / timeShare / depth 能力）。
-- `V1InstrumentReference`：请求体中的品种身份引用，仅 `id` / `symbol` / `exchange` / `providerRef` 最小字段集。
-- `V1BarRequest` / `V1BarSeries`：K 线拉取，`limit` 控制页大小，`before` 为可选的 UTC 毫秒排他游标；不传游标返回最新一页。
-- `V1TimeShareRequest` / `V1TimeShareSeries`：分时拉取，按品种时区 `YYYY-MM-DD` 交易日，响应含 `preClose`。
+- `ProtocolInstrumentDescriptor`：品种目录描述（含 `capabilities`，声明 bars / timeShare / depth 能力）。
+- `ProtocolInstrumentReference`：请求体中的品种身份引用，仅 `id` / `symbol` / `exchange` / `providerRef` 最小字段集。
+- `ProtocolBarRequest` / `ProtocolBarSeries`：K 线拉取，`limit` 控制页大小，`before` 为可选的 UTC 毫秒排他游标；不传游标返回最新一页。
+- `ProtocolTimeShareRequest` / `ProtocolTimeShareSeries`：分时拉取，按品种时区 `YYYY-MM-DD` 交易日，响应含 `preClose`。
 
 ## 两条取数路径的取舍
 

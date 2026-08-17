@@ -36,12 +36,12 @@ export interface ProtocolErrorEnvelope {
 export type ProtocolErrorCode = MarketDataErrorCode | 'INTERNAL'
 
 // 源明确无法完成请求时的确定性错误码；触发请求流转
-export const V1_SOURCE_REJECTION_CODES = [
+export const SOURCE_REJECTION_CODES = [
   'UNSUPPORTED_CAPABILITY',
   'INSTRUMENT_NOT_FOUND',
 ] as const satisfies ReadonlyArray<ProtocolErrorCode>
 
-export type ProtocolSourceRejectionCode = (typeof V1_SOURCE_REJECTION_CODES)[number]
+export type ProtocolSourceRejectionCode = (typeof SOURCE_REJECTION_CODES)[number]
 
 // 数据源已知的历史数据粗粒度覆盖区间，UTC Unix 毫秒；具体品种可用范围可能更窄
 export interface ProtocolHistoryCoverage {

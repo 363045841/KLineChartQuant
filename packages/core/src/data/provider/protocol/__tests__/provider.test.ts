@@ -1,9 +1,9 @@
 // 验证 Provider 装配器的领域映射、能力断言、时区解析与 probe 容错
 import { describe, expect, it } from 'vitest'
 
-import { createV1MarketDataProvider } from '../provider'
+import { createMarketDataProvider } from '../provider'
 import type {
-  MarketDataV1Transport,
+  MarketDataTransport,
   ProtocolBarSeries,
   ProtocolInstrumentSearchResult,
   ProtocolTimeShareSeries,
@@ -26,7 +26,7 @@ const instrument: InstrumentDescriptor = {
 }
 
 // 构造只探针的假 Transport，其余能力由各测试按需覆盖
-function fakeTransport(overrides: Partial<MarketDataV1Transport> = {}): MarketDataV1Transport {
+function fakeTransport(overrides: Partial<MarketDataTransport> = {}): MarketDataTransport {
   return {
     probe: async () => ({ status: 'online', checkedAt: 1 }),
     searchInstruments: async (): Promise<ProtocolInstrumentSearchResult> => ({ items: [] }),
@@ -50,14 +50,14 @@ function fakeTransport(overrides: Partial<MarketDataV1Transport> = {}): MarketDa
 }
 
 // 以 GOTDX 元信息构造装配器，便于断言错误消息前缀
-function createProvider(transport: MarketDataV1Transport) {
-  return createV1MarketDataProvider({
+function createProvider(transport: MarketDataTransport) {
+  return createMarketDataProvider({
     source: { id: 'gotdx', displayName: 'GOTDX', defaultBaseUrl: 'http://127.0.0.1:8080' },
     transport,
   })
 }
 
-describe('createV1MarketDataProvider', () => {
+describe('createMarketDataProvider', () => {
   // 验证探测成功时透传状态并附带耗时
   it('reports probe online with latency', async () => {
     const provider = createProvider(fakeTransport())

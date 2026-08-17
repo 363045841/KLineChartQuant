@@ -1,7 +1,7 @@
 // 行情协议公共入口：导出契约类型、HTTP 实现与通用 Provider 装配器
-export { DEFAULT_V1_BASE_URL, createHttpMarketDataV1Transport } from './httpTransport'
+export { DEFAULT_V1_BASE_URL, createHttpMarketDataTransport } from './httpTransport'
 export type { HttpTransportOptions, ProtocolBaseUrl } from './httpTransport'
-export { createV1MarketDataProvider } from './provider'
+export { createMarketDataProvider } from './provider'
 export type { MarketDataProviderOptions } from './provider'
 export { V1_PROTOCOL_NAME, V1_PROTOCOL_VERSION } from './types'
 export type {
@@ -30,4 +30,4 @@ export type {
   ProtocolTimeShareRequest,
   ProtocolTimeShareSeries,
 } from './types'
-export { V1_SOURCE_REJECTION_CODES } from './types'
+export { SOURCE_REJECTION_CODES } from './types'

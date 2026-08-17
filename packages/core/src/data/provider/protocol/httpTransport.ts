@@ -23,11 +23,11 @@ import type {
   ProtocolTimeShareRequest,
   ProtocolTimeShareSeries,
 } from './types'
-import { V1_SOURCE_REJECTION_CODES } from './types'
+import { SOURCE_REJECTION_CODES } from './types'
 
 // 判定数据后端错误是否触发能力流转
 function mapServerErrorCode(code: ProtocolErrorCode): KLineChartErrorCode {
-  return (V1_SOURCE_REJECTION_CODES as readonly ProtocolErrorCode[]).includes(code)
+  return (SOURCE_REJECTION_CODES as readonly ProtocolErrorCode[]).includes(code)
     ? (code as KLineChartErrorCode)
     : ERROR_CODES.FETCH_FAILED
 }
@@ -112,7 +112,7 @@ function toFetchError(cause: unknown, label: string): KLineChartError {
 }
 
 // 创建基于 HTTP 的 Transport 实例
-export function createHttpMarketDataV1Transport(
+export function createHttpMarketDataTransport(
   options: HttpTransportOptions = {},
 ): MarketDataTransport {
   // 惰性解析：每次请求动态读取，支持 vi.stubGlobal 等运行时替换
