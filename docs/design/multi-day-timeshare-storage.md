@@ -23,7 +23,7 @@ GOTDX V1 的 `POST /api/v1/market-data/timeshare/range` 接受截止交易日和
 
 ## 存储决策
 
-Buffer 以分组结构作为多日分时的单一事实来源：
+活动分时状态以一个不可变内容快照作为单一事实来源：
 
 ```ts
 interface TimeShareDay {
@@ -41,11 +41,13 @@ interface TimeShareRange {
 }
 ```
 
-不应只存一条拼接后的 `TimeShareData[]`。跨日数据没有单一 `preClose`，扁平存储会
-丢失每日涨跌基准和交易日边界，后续横轴、悬浮提示与增量更新都需要反向推断日期。
+Range 与旧单日数据通过判别联合区分。不得同时维护 Range、扁平数组、时间窗口和昨收
+等相互同步的 writable 字段。跨日数据没有单一 `preClose`，因此每日基准必须保留在
+Range 内部。
 
-渲染层可从分组数据派生一次性的扁平投影，并为每个点附加 `dayIndex`、`slotIndex`
-和对应日的 `preClose`。该投影只服务布局与绘制，不作为第二份可写业务状态。
+Buffer 负责请求生命周期和非活动品种缓存；当前活动 Buffer 的快照通过一次 Action
+发布到 StateKernel 的 data state。渲染层从 readonly snapshot 派生扁平投影、加载窗口
+和最新交易日基准，不再从 Buffer 和 Kernel 分别读取镜像状态。
 
 ## 后续接入
 

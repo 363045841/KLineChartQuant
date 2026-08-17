@@ -24,6 +24,8 @@ describe('dataState', () => {
       key: 'main:A:daily',
       data: [{ t: 2 }, { t: 3 }],
       loading: false,
+      timeShareRange: null,
+      timeSharePreClose: null,
     })
 
     expect(m.readonly.activeBufferKey()).toBe('main:A:daily')
@@ -40,10 +42,35 @@ describe('dataState', () => {
       key: 'main:A:daily',
       data: [{ t: 1 }],
       loading: true,
+      timeShareRange: null,
+      timeSharePreClose: null,
     })
     m.actions.reset()
     expect(m.readonly.activeBufferKey()).toBeNull()
     expect(m.readonly.data()).toEqual([])
     expect(m.readonly.loading()).toBe(false)
+  })
+
+  it('publishes timeshare metadata with the active buffer snapshot', () => {
+    const m = createDataState()
+    const range = {
+      instrumentId: 'gotdx:stock:1:600519',
+      timezone: 'Asia/Shanghai',
+      requestedDays: 1,
+      olderData: 'unknown' as const,
+      days: [{ tradingDate: '2026-08-06' as const, preClose: 10, data: [] }],
+    }
+
+    m.actions.applyActiveBufferSnapshot({
+      key: 'ts:gotdx:600519',
+      data: [{ timestamp: 1 }],
+      loading: false,
+      timeShareRange: range,
+      timeSharePreClose: 10,
+    })
+
+    expect(m.readonly.timeShareRange()).toBe(range)
+    expect(m.readonly.timeSharePreClose()).toBe(10)
+    expect(m.readonly.data()).toEqual([{ timestamp: 1 }])
   })
 })

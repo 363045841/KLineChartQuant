@@ -59,6 +59,7 @@ function createDependencies(
   dom: ChartDom,
   setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => void,
   symbols$: ReturnType<typeof createSignal<ReadonlyArray<SymbolSpec>>>,
+  scheduleDraw: () => void = () => {},
 ): DataDependencies {
   return {
     getOption: () => ({ kWidth: 8, kGap: 2 }),
@@ -67,7 +68,7 @@ function createDependencies(
     getDom: () => dom,
     viewport: createMockViewport(),
     comparison: createComparisonState({ symbols$ }),
-    scheduleDraw: () => {},
+    scheduleDraw,
     resetInteraction: () => {},
     getIndicatorScheduler: () => ({
       update: () => true,
@@ -186,6 +187,37 @@ describe('ChartDataManager incremental load', () => {
     await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
 
     expect(fetchCount).toBe(2)
+  })
+
+  it('schedules a draw after timeshare data finishes loading', async () => {
+    const dataState = createDataState()
+    const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
+    const dataManagerState = createDataManagerState()
+    const scheduleDraw = vi.fn()
+    const container = document.querySelector<HTMLDivElement>('#container')!
+    const scrollContent = document.querySelector<HTMLDivElement>('#scroll-content')!
+    manager = new ChartDataManager(
+      createDependencies(
+        { container, scrollContent },
+        (symbols) => {
+          symbols$.set(symbols)
+          dataState.actions.setSymbols(symbols)
+        },
+        symbols$,
+        scheduleDraw,
+      ),
+      dataState,
+      dataManagerState,
+    )
+    manager.setTimeShareFetcher(async () => ({
+      data: [{ timestamp: 1, price: 10, average: 10 }],
+      preClose: 9.5,
+    }))
+
+    manager.setSymbols([{ symbol: '000001', market: 'CN', period: 'timeshare', source: 'mock' }])
+
+    await vi.waitFor(() => expect(dataState.readonly.data.peek()).toHaveLength(1))
+    expect(scheduleDraw).toHaveBeenCalled()
   })
 
   it(

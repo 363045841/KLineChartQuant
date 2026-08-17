@@ -4,6 +4,8 @@ import type { Effect as EffectType } from 'effect/Effect'
 
 import type { SymbolSpec } from '../../controllers/types'
 import {
+  batch,
+  computed,
   createSignal,
   type ReadonlySignal,
   type WritableSignal,
@@ -18,7 +20,6 @@ import {
   TimeShareFetchService,
 } from './dataBuffer.effects'
 import type { DataBufferLike, DataWindow, DataChange } from './dataBufferTypes'
-import { TimeShareRangeStore } from './timeShareRangeStore'
 import { routerTimeShareFetcher } from '../legacy/router'
 import type { TimeShareFetcherFn, TimeShareFetchResult } from '../legacy/types'
 
@@ -39,9 +40,69 @@ function waitForRetry(attempt: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, retryBackoffMs(attempt)))
 }
 
+/** 分时 Buffer 的唯一内容状态；扁平点列、窗口和昨收均从该快照派生。 */
+type TimeShareContentSnapshot =
+  | { readonly kind: 'empty' }
+  | {
+      readonly kind: 'inline'
+      readonly data: ReadonlyArray<TimeShareData>
+      readonly preClose: number | null
+    }
+  | { readonly kind: 'range'; readonly range: TimeShareRange }
+
+const EMPTY_CONTENT: TimeShareContentSnapshot = Object.freeze({ kind: 'empty' })
+
+/** 复制分时点，隔离调用方后续修改。 */
+function copyPoint(point: TimeShareData): TimeShareData {
+  return Object.freeze({ ...point })
+}
+
+/** 创建不可变的多日分时快照。 */
+function copyRange(range: TimeShareRange): TimeShareRange {
+  return Object.freeze({
+    ...range,
+    days: Object.freeze(
+      range.days.map((day) =>
+        Object.freeze({ ...day, data: Object.freeze(day.data.map(copyPoint)) }),
+      ),
+    ),
+  })
+}
+
+/** 从唯一内容快照派生旧渲染链路需要的扁平点列。 */
+function flattenContent(snapshot: TimeShareContentSnapshot): ReadonlyArray<TimeShareData> {
+  if (snapshot.kind === 'empty') return []
+  if (snapshot.kind === 'inline') return snapshot.data
+  return Object.freeze(snapshot.range.days.flatMap((day) => day.data))
+}
+
+/** 从唯一内容快照派生涨跌基准。 */
+function resolvePreClose(snapshot: TimeShareContentSnapshot): number | null {
+  if (snapshot.kind === 'empty') return null
+  if (snapshot.kind === 'inline') return snapshot.preClose
+  return snapshot.range.days.at(-1)?.preClose ?? null
+}
+
+/** 从扁平点列派生已加载时间窗口。 */
+function resolveLoadedWindow(data: ReadonlyArray<TimeShareData>): DataWindow | null {
+  if (data.length === 0) return null
+  return { earliestTs: data[0]!.timestamp, latestTs: data[data.length - 1]!.timestamp }
+}
+
 export class TimeShareBuffer implements DataBufferLike {
-  // 分组 Range 是多日分时的 SSOT，Store 同步维护旧渲染链路所需的扁平投影。
-  private readonly _store = new TimeShareRangeStore()
+  // 内容快照是分时数据的唯一可写状态，其他业务值均由 computed 自动派生。
+  private readonly _contentSignal = createSignal<TimeShareContentSnapshot>(EMPTY_CONTENT)
+  private readonly _flatDataSignal = computed(() => flattenContent(this._contentSignal()))
+  private readonly _dataSignal = computed<DataChange>(() => ({
+    data: this._flatDataSignal(),
+    prependedCount: 0,
+  }))
+  private readonly _rangeSignal = computed<TimeShareRange | null>(() => {
+    const snapshot = this._contentSignal()
+    return snapshot.kind === 'range' ? snapshot.range : null
+  })
+  private readonly _preCloseSignal = computed(() => resolvePreClose(this._contentSignal()))
+  private readonly _loadedWindowSignal = computed(() => resolveLoadedWindow(this._flatDataSignal()))
   // 是否正在加载中，外部 UI 绑定用
   private _loadingSignal: WritableSignal<boolean> = createSignal<boolean>(false)
   private _lastError: WritableSignal<string | null> = createSignal<string | null>(null)
@@ -50,20 +111,23 @@ export class TimeShareBuffer implements DataBufferLike {
   private _requestFetch: TimeShareRequestFetch | null = null
   // 指定查询的历史日期（0 = 当天）
   private _queryDate = 0
-  // 昨收价（分时涨跌基准）；未设置时为 null
-  private _preClose: number | null = null
   // 请求序号，每次 load() 递增；过期结果丢弃
   private _requestSeq = 0
   // 实例是否已销毁，阻止后续任何操作
   private _disposed = false
 
+  /** 批量替换唯一内容快照，确保所有 computed 投影完成后再通知外部订阅者。 */
+  private setContent(snapshot: TimeShareContentSnapshot): void {
+    batch(() => this._contentSignal.set(snapshot))
+  }
+
   get data(): ReadonlySignal<DataChange> {
-    return this._store.data
+    return this._dataSignal
   }
 
   /** 返回按日分组的只读响应式快照。 */
   get range(): ReadonlySignal<TimeShareRange | null> {
-    return this._store.range
+    return this._rangeSignal
   }
 
   get loading(): ReadonlySignal<boolean> {
@@ -75,23 +139,25 @@ export class TimeShareBuffer implements DataBufferLike {
   }
 
   get loadedWindow(): DataWindow | null {
-    return this._store.loadedWindow
+    return this._loadedWindowSignal.peek()
   }
 
   getRawData(): TimeShareData[] {
-    return this._store.getRawData()
+    return [...this._flatDataSignal.peek()]
   }
 
   /** 返回多日分时分组快照。 */
   getRange(): TimeShareRange | null {
-    return this._store.getRange()
+    return this._rangeSignal.peek()
   }
 
   /** 写入多日分时分组快照，并采用最新交易日昨收作为统一轴基准。 */
   setRange(range: TimeShareRange): void {
     if (this._disposed) return
-    this._store.setRange(range)
-    this._preClose = this._store.getLatestPreClose()
+    this._requestSeq++
+    this.setContent({ kind: 'range', range: copyRange(range) })
+    this._lastError.set(null)
+    this._loadingSignal.set(false)
   }
 
   setFetcher(fetcher: TimeShareFetcherFn | null): void {
@@ -116,13 +182,29 @@ export class TimeShareBuffer implements DataBufferLike {
   }
 
   getPreClose(): number | null {
-    return this._preClose
+    return this._preCloseSignal.peek()
   }
 
   setPreClose(preClose: number | null): void {
-    if (preClose === null || (Number.isFinite(preClose) && preClose > 0)) {
-      this._preClose = preClose
+    if (preClose !== null && (!Number.isFinite(preClose) || preClose <= 0)) return
+    const snapshot = this._contentSignal.peek()
+    if (snapshot.kind === 'empty') {
+      this.setContent({ kind: 'inline', data: Object.freeze([]), preClose })
+      return
     }
+    if (snapshot.kind === 'inline') {
+      this.setContent({ ...snapshot, preClose })
+      return
+    }
+    const lastIndex = snapshot.range.days.length - 1
+    if (lastIndex < 0) return
+    const days = snapshot.range.days.map((day, index) =>
+      index === lastIndex ? Object.freeze({ ...day, preClose }) : day,
+    )
+    this.setContent({
+      kind: 'range',
+      range: Object.freeze({ ...snapshot.range, days: Object.freeze(days) }),
+    })
   }
 
   load(spec: SymbolSpec): void {
@@ -130,8 +212,7 @@ export class TimeShareBuffer implements DataBufferLike {
 
     const requestSeq = ++this._requestSeq
     // 新请求开始即清空旧点、昨收与错误，避免历史日期切换时短暂显示另一天数据
-    this._store.reset()
-    this._preClose = null
+    this.setContent(EMPTY_CONTENT)
     this._lastError.set(null)
     this._loadingSignal.set(true)
 
@@ -180,8 +261,7 @@ export class TimeShareBuffer implements DataBufferLike {
         }
         if (!result || this._disposed || requestSeq !== this._requestSeq) return
         this._queryDate = 0
-        this._store.setInlineData(result.data)
-        this.setPreClose(result.preClose)
+        this.setInlineSnapshot(result.data, result.preClose)
         this._lastError.set(null)
       } catch (err) {
         if (this._disposed || requestSeq !== this._requestSeq) return
@@ -196,16 +276,24 @@ export class TimeShareBuffer implements DataBufferLike {
 
   setInlineData(data: unknown[]): void {
     if (this._disposed) return
-    this._store.setInlineData(data as TimeShareData[])
+    this.setInlineSnapshot(data as TimeShareData[], this.getPreClose())
     this._lastError.set(null)
+  }
+
+  /** 原子写入单日点列及其昨收，避免数据与元数据分步发布。 */
+  private setInlineSnapshot(data: ReadonlyArray<TimeShareData>, preClose: number | null): void {
+    this.setContent({
+      kind: 'inline',
+      data: Object.freeze(data.map(copyPoint)),
+      preClose,
+    })
   }
 
   // 销毁实例
   dispose(): void {
     this._disposed = true
     this._requestSeq++
-    this._store.reset()
-    this._preClose = null
+    this.setContent(EMPTY_CONTENT)
     this._lastError.set(null)
     this._loadingSignal.set(false)
   }

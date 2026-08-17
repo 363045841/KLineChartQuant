@@ -30,6 +30,28 @@ describe('TimeShareBuffer', () => {
     expect(buf.getPreClose()).toBe(10)
   })
 
+  it('publishes range data and preClose from one content snapshot', () => {
+    const buf = new TimeShareBuffer()
+    const changes: Array<{ data: number; range: number; preClose: number | null }> = []
+    buf.data.subscribe(() => {
+      changes.push({
+        data: buf.data.peek().data.length,
+        range: buf.range.peek()?.days.length ?? 0,
+        preClose: buf.getPreClose(),
+      })
+    })
+
+    buf.setRange({
+      instrumentId: 'gotdx:stock:1:600519',
+      timezone: 'Asia/Shanghai',
+      requestedDays: 1,
+      olderData: 'unknown',
+      days: [{ tradingDate: '2026-08-06', preClose: 10, data: [point(11)] }],
+    })
+
+    expect(changes).toEqual([{ data: 1, range: 1, preClose: 10 }])
+  })
+
   it('stores and returns preClose metadata', () => {
     const buf = new TimeShareBuffer()
     expect(buf.getPreClose()).toBeNull()

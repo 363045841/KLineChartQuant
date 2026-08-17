@@ -174,6 +174,8 @@ export class ChartDataManager {
         key,
         data: [],
         loading: false,
+        timeShareRange: null,
+        timeSharePreClose: null,
       })
       this._dataError.set(null)
       return
@@ -232,6 +234,8 @@ export class ChartDataManager {
         ? [...(dataChange.data as unknown[])]
         : this._dataState.readonly.data.peek(),
       loading: buf.loading.peek(),
+      timeShareRange: buf instanceof TimeShareBuffer ? buf.range.peek() : null,
+      timeSharePreClose: buf instanceof TimeShareBuffer ? buf.getPreClose() : null,
     })
 
     return { dataChanged, prependedCount, prevDataLength }
@@ -581,6 +585,8 @@ export class ChartDataManager {
     this._dmState.actions.setRangeInitialized(true)
     this.deps.resetInteraction()
     this.deps.onTimeShareDataReady(data.length)
+    // 分时模式不经过 indicator scheduler，数据就绪后必须直接请求首帧绘制。
+    this.deps.scheduleDraw()
   }
 
   // ── Internal helpers ──
@@ -1037,6 +1043,8 @@ export class ChartDataManager {
         key: null,
         data: [],
         loading: false,
+        timeShareRange: null,
+        timeSharePreClose: null,
       })
       this._dmState.actions.setRangeInitialized(false)
       return

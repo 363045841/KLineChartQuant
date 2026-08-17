@@ -224,12 +224,15 @@ export function batch<T>(fn: () => T): T {
   try {
     return fn()
   } finally {
-    batchDepth--
-    if (batchDepth === 0 && pendingBatch.size > 0) {
-      const toNotify = [...pendingBatch]
-      pendingBatch.clear()
-      for (const listener of toNotify) listener()
+    if (batchDepth === 1) {
+      // computed 可能在本轮执行中继续产生下游 listener，必须持续清空队列才能发布完整快照。
+      while (pendingBatch.size > 0) {
+        const toNotify = [...pendingBatch]
+        pendingBatch.clear()
+        for (const listener of toNotify) listener()
+      }
     }
+    batchDepth--
   }
 }
 
