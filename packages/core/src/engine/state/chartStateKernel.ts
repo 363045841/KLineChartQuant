@@ -49,6 +49,7 @@ import type { MarketSessionRegistry } from '../market/marketSessionRegistry'
 import { resolveSymbolMarketSession } from '../market/resolveSymbolMarketSession'
 import { resolveMarketSessionSlots } from '../../foundation/utils/sessionTimeLabels'
 import '../renderers/extremaMarkers'
+import '../renderers/lastPrice'
 
 /** Chart 投影到 Scene 的受管 renderer layer 描述。 */
 export interface ActiveRendererDescriptor {
@@ -433,6 +434,14 @@ export class ChartStateKernel extends StateKernel {
                   {
                     instanceId: 'mode:extrema-markers',
                     indicatorId: 'extremaMarkers',
+                    paneId: 'main',
+                    role: 'main',
+                    ordinal: 0,
+                    params: {},
+                  },
+                  {
+                    instanceId: 'mode:last-price-line',
+                    indicatorId: 'lastPriceLine',
                     paneId: 'main',
                     role: 'main',
                     ordinal: 0,

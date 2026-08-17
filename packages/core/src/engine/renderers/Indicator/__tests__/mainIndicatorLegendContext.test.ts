@@ -120,7 +120,9 @@ describe('buildLegendTemplateContext comparison rows', () => {
     const context = {
       data: mainData,
       period: 'daily',
+      dataView: 'comparison',
       range: { start: 0, end: 2 },
+      crosshairIndex: 1,
       paneWidth: 800,
       theme: 'light',
       isAsiaMarket: true,
@@ -133,6 +135,7 @@ describe('buildLegendTemplateContext comparison rows', () => {
 
     const result = buildLegendTemplateContext({ context, host: null, yPaddingPx: 0 })
 
+    expect(result?.currentBar).toBeNull()
     // 主品种首行（close 10 → 11，+10%）+ 比较品种行
     expect(result?.comparisons).toEqual([
       {

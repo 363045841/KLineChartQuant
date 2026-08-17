@@ -157,7 +157,7 @@ export function buildLegendTemplateContext(
   }
 
   let currentBar: LegendCurrentBar | null = null
-  if (hasCrosshair) {
+  if (hasCrosshair && context.dataView !== 'comparison') {
     const k = klineData[targetIndex]
     if (k && typeof k.close === 'number') {
       const isUp = k.close >= k.open

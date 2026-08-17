@@ -2,6 +2,7 @@ import type { RendererPlugin, RenderContext } from '../../foundation/plugin/inde
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import { resolveThemeColors } from '../../foundation/tokens/index'
 import type { KLineData } from '../../foundation/types/price'
+import { Indicator } from '../indicators/indicatorDefinitionRegistry'
 
 function getLastPriceInfo(context: RenderContext) {
   const { pane, data } = context
@@ -108,4 +109,17 @@ export function createLastPriceLineRendererPlugin(): RendererPlugin {
       ctx.restore()
     },
   }
+}
+
+@Indicator({
+  name: 'lastPriceLine',
+  displayName: '最新价虚线',
+  category: 'main',
+  indicatorType: 'other',
+  defaultPaneId: 'main',
+  dataViews: ['kline'],
+  mainPane: { rendererName: 'lastPriceLine' },
+})
+export class LastPriceLineIndicatorDefinition {
+  static rendererFactory = createLastPriceLineRendererPlugin
 }

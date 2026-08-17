@@ -89,6 +89,7 @@ describe('modeState', () => {
     expect(kernel.activeRenderers$.peek()).toEqual([
       { name: 'candle', layerId: 'plugin:candle' },
       { name: 'extremaMarkers', layerId: 'plugin:extremaMarkers' },
+      { name: 'lastPriceLine', layerId: 'plugin:lastPriceLine' },
     ])
     expect(Object.isFrozen(kernel.activeRenderers$.peek())).toBe(true)
 
@@ -171,6 +172,7 @@ describe('modeState', () => {
     expect(kernel.activeRenderers$.peek()).toEqual([
       { name: 'candle', layerId: 'plugin:candle' },
       { name: 'extremaMarkers', layerId: 'plugin:extremaMarkers' },
+      { name: 'lastPriceLine', layerId: 'plugin:lastPriceLine' },
       { name: 'ma', layerId: 'plugin:ma' },
       { name: 'boll', layerId: 'plugin:boll' },
       { name: 'mainIndicatorLegend', layerId: 'plugin:mainIndicatorLegend' },
