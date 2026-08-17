@@ -70,6 +70,7 @@ import { resolveSymbolMarketSession } from './market/resolveSymbolMarketSession'
 import { PaneRenderer } from './paneRenderer'
 import { ChartRenderer, mergeUpdateLevel } from './render/chartRenderer'
 import { ChartStateKernel } from './state/chartStateKernel'
+import { ChartDataViewId } from './state/modeState'
 import { ChartViewportManager } from './viewport/chartViewportManager'
 import { ChartZoomController } from './utils/chartZoomController'
 import { getPhysicalKLineConfig } from './utils/klineConfig'
@@ -84,7 +85,7 @@ import type {
 } from './chartTypes'
 import type { DrawingToolId } from './drawing/toolConfig'
 import type { DrawingInteractionController } from './drawing/interaction'
-import type { SymbolSpec, SymbolInfo, CustomDataSource } from '../controllers/types'
+import { TIME_SHARE_PERIOD, type SymbolSpec, type SymbolInfo, type CustomDataSource } from '../controllers/types'
 import type { AlertController, MarketSnapshot } from '../features/alerts/types'
 
 export type { InteractionSnapshot }
@@ -325,6 +326,8 @@ export class Chart {
             kGap: this.kernel.viewport.readonly.kGap(),
           }
         },
+        getZoomLevel: () => this.kernel.zoom.readonly.zoomLevel.peek(),
+        setZoomLevel: (level) => this.kernel.zoom.actions.setZoomLevel(level),
         getDom: () => this.dom,
         viewport: this.kernel.viewport,
         comparison: this.kernel.comparison,
@@ -466,7 +469,7 @@ export class Chart {
 
   /** 获取当前活跃的模式处理器 */
   get activeMode(): ChartModeHandler {
-    return this.kernel.mode.readonly.dataView.peek() === 'timeshare'
+    return this.kernel.mode.readonly.dataView.peek() === ChartDataViewId.TimeShare
       ? this._timeShareMode
       : this._kLineMode
   }
@@ -474,7 +477,8 @@ export class Chart {
   /** 切换模式处理器 */
   setActiveMode(mode: ChartModeHandler): void {
     const prev = this.activeMode
-    const dataView = mode === this._timeShareMode ? 'timeshare' : 'kline'
+    const dataView =
+      mode === this._timeShareMode ? ChartDataViewId.TimeShare : ChartDataViewId.KLine
     if (prev === mode && this.kernel.mode.readonly.dataView.peek() === dataView) return
 
     prev.onDeactivate(
@@ -487,10 +491,10 @@ export class Chart {
     )
     this.kernel.actions.setDataView(
       dataView,
-      dataView === 'timeshare' ? this.dataManager.currentPeriod : undefined,
+      dataView === ChartDataViewId.TimeShare ? this.dataManager.currentPeriod : undefined,
     )
 
-    if (dataView === 'timeshare') {
+    if (dataView === ChartDataViewId.TimeShare) {
       const percentMap = new Map(this.kernel.pane.readonly.paneScaleTypes.peek())
       for (const renderer of this.paneRenderers) {
         const pane = renderer.getPane()
@@ -685,7 +689,7 @@ export class Chart {
    */
   private applyPriceScaleSettingToKernel(setting: ScaleType): void {
     const next = this.buildScaleTypesFromSetting(setting)
-    if (this.kernel.mode.readonly.chartMode.peek() === 'timeshare') {
+    if (this.kernel.mode.readonly.chartMode.peek() === ChartDataViewId.TimeShare) {
       return
     }
     if (this.dataManager.getComparisonSpecs().length > 0) {
@@ -763,18 +767,21 @@ export class Chart {
   /**
    * 应用渲染状态
    * kWidth/zoomLevel 写入 kernel；kGap 由 viewport 根据 kWidth+dpr+period 派生，禁止外部写入。
-   * 有 zoomLevel 时走离散缩放；无 zoomLevel（分时）时写 direct kWidth。
+   * 当前 dataView 决定状态语义：分时写布局宽度，K 线/对比视图写缩放等级。
    * @param kGap 已废弃，保留签名兼容旧调用方
    */
   applyRenderState(kWidth: number, kGap: number, zoomLevel?: number): void {
     void kGap
+    const dataView = this.kernel.mode.readonly.dataView.peek()
+    if (dataView !== ChartDataViewId.TimeShare && zoomLevel === undefined) return
+
     const beforeLevel = this.kernel.zoom.readonly.zoomLevel.peek()
     const beforeWidth = this.kernel.zoom.readonly.kWidth.peek()
 
-    if (zoomLevel !== undefined) {
+    if (dataView === ChartDataViewId.TimeShare) {
+      this.kernel.zoom.actions.setTimeShareKWidth(kWidth)
+    } else if (zoomLevel !== undefined) {
       this.kernel.zoom.actions.setZoomLevel(zoomLevel)
-    } else {
-      this.kernel.zoom.actions.setDirectKWidth(kWidth)
     }
 
     if (
@@ -1442,29 +1449,29 @@ export class Chart {
   setSymbols(specs: ReadonlyArray<SymbolSpec>): void {
     const sessions = specs.map((spec) => resolveSymbolMarketSession(spec, this.marketSessions))
     const primaryPeriod = specs[0]?.period
-    if (primaryPeriod === 'timeshare') {
+    if (primaryPeriod === TIME_SHARE_PERIOD) {
       this._timeShareMode.setMarketSession(sessions[0]!)
     }
 
     // 品种/周期切换时重置最新 K 线时间戳，确保新数据触发预警
     this._lastAlertTimestamp = null
-    const isComparison = primaryPeriod !== 'timeshare' && specs.length > 1
+    const isComparison = primaryPeriod !== TIME_SHARE_PERIOD && specs.length > 1
     if (primaryPeriod) {
       // ⚠️ setActiveMode 必须在 dataManager.setSymbols 之前调用，
       //    以确保 kWidth/kGap（从 zoom level 恢复）先写入 _optionsSignal，
       //    后续 scrollLeft 恢复才能正确反推物理像素偏移。
-      this.setActiveMode(primaryPeriod === 'timeshare' ? this._timeShareMode : this._kLineMode)
+      this.setActiveMode(primaryPeriod === TIME_SHARE_PERIOD ? this._timeShareMode : this._kLineMode)
     }
     this.dataManager.setSymbols(specs)
     if (isComparison) {
-      this.kernel.actions.setDataView('comparison')
+      this.kernel.actions.setDataView(ChartDataViewId.Comparison)
       this.applyComparisonScaleType(true)
     } else {
       this.applyComparisonScaleType(false)
     }
     // Scroll position 恢复必须放在 setActiveMode + setSymbols 之后，
     // 此时 kWidth/kGap 已由 zoom level 恢复写回，计算不出错。
-    if (primaryPeriod && primaryPeriod !== 'timeshare') {
+    if (primaryPeriod && primaryPeriod !== TIME_SHARE_PERIOD) {
       this.dataManager.tryRestoreScrollFromSnapshot()
     }
   }
@@ -1475,7 +1482,7 @@ export class Chart {
     this.dataManager.addComparisonSymbol(spec)
     if (!hadComparisons && this.dataManager.getComparisonSpecs().length > 0) {
       this.setActiveMode(this._kLineMode)
-      this.kernel.actions.setDataView('comparison')
+      this.kernel.actions.setDataView(ChartDataViewId.Comparison)
       this.applyComparisonScaleType(true)
     }
   }
@@ -1504,17 +1511,18 @@ export class Chart {
 
   private configureModeForSpec(spec: SymbolSpec): void {
     const session = resolveSymbolMarketSession(spec, this.marketSessions)
-    const isTimeShare = spec.period === 'timeshare'
+    const isTimeShare = spec.period === TIME_SHARE_PERIOD
     if (isTimeShare) this._timeShareMode.setMarketSession(session)
     this.setActiveMode(isTimeShare ? this._timeShareMode : this._kLineMode)
   }
 
   setCurrentPeriod(period: string): void {
-    if (period === 'timeshare') this.configureCurrentTimeShareSession()
-    this.setActiveMode(period === 'timeshare' ? this._timeShareMode : this._kLineMode)
+    if (period === TIME_SHARE_PERIOD) this.configureCurrentTimeShareSession()
+    this.setActiveMode(period === TIME_SHARE_PERIOD ? this._timeShareMode : this._kLineMode)
     this.dataManager.setCurrentPeriod(period)
-    if (period !== 'timeshare' && this.dataManager.getComparisonSpecs().length > 0) {
-      this.kernel.actions.setDataView('comparison')
+    if (period !== TIME_SHARE_PERIOD) this.dataManager.tryRestoreScrollFromSnapshot()
+    if (period !== TIME_SHARE_PERIOD && this.dataManager.getComparisonSpecs().length > 0) {
+      this.kernel.actions.setDataView(ChartDataViewId.Comparison)
       this.applyComparisonScaleType(true)
     }
     this.kernel?.mode.actions.setLastBarPeriod(period)
@@ -1524,7 +1532,7 @@ export class Chart {
     this.configureCurrentTimeShareSession()
     this.dataManager.setTimeShareQueryDate(dateYYYYMMDD)
     this.setActiveMode(this._timeShareMode)
-    this.dataManager.setCurrentPeriod('timeshare')
+    this.dataManager.setCurrentPeriod(TIME_SHARE_PERIOD)
   }
 
   applyCustomData(source: CustomDataSource): void {

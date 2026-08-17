@@ -62,6 +62,8 @@ function createDependencies(
 ): DataDependencies {
   return {
     getOption: () => ({ kWidth: 8, kGap: 2 }),
+    getZoomLevel: () => 1,
+    setZoomLevel: () => {},
     getDom: () => dom,
     viewport: createMockViewport(),
     comparison: createComparisonState({ symbols$ }),

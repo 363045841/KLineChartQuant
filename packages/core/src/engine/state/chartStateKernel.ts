@@ -9,7 +9,12 @@ import {
 import { createPaneState, type PaneStateModule } from './paneState'
 import { createSystemThemeState, type SystemThemeStateModule } from './themeState'
 import { createSettingsState, type SettingsStateModule } from './settingsState'
-import { createModeState, type ChartDataView, type ModeStateModule } from './modeState'
+import {
+  ChartDataViewId,
+  createModeState,
+  type ChartDataView,
+  type ModeStateModule,
+} from './modeState'
 import { createDrawingState, type DrawingStateModule } from './drawingState'
 import {
   createInteractionState,
@@ -56,7 +61,7 @@ function supportsIndicatorDataView(
   definition: IndicatorMetadata,
   dataView: ChartDataView,
 ): boolean {
-  return definition.dataViews?.includes(dataView) ?? dataView === 'kline'
+  return definition.dataViews?.includes(dataView) ?? dataView === ChartDataViewId.KLine
 }
 
 /** 在支持当前数据视图时解析指标的 renderer plugin 名称。 */
@@ -204,10 +209,14 @@ export class ChartStateKernel extends StateKernel {
     // ── Options state (before zoom, since zoom reads from options) ──
     this.options = createOptionsState(deps.initialOptions)
 
+    // ── Data view state（缩放宽度需按视图派生）──
+    this.mode = createModeState()
+
     // ── Zoom state ──
     this.zoom = createZoomState({
       minKWidth$: computed(() => this.options.readonly.options().minKWidth),
       maxKWidth$: computed(() => this.options.readonly.options().maxKWidth),
+      dataView$: this.mode.readonly.dataView,
       zoomLevelCount: Math.max(2, Math.round(this.options.readonly.options.peek().zoomLevelCount)),
     })
     this.zoom.actions.setZoomLevel(deps.initialZoomLevel)
@@ -278,8 +287,7 @@ export class ChartStateKernel extends StateKernel {
       return pref === 'dark' ? 'dark' : 'light'
     })
 
-    // ── Data view state（数据视图、主序列渲染偏好与交互能力派生）──
-    this.mode = createModeState()
+    // ── 数据视图投影（数据视图、主序列渲染偏好与交互能力派生）──
     // 主图和指标统一从 kernel 状态投影；此处只输出意图，不执行 Layer 副作用。
     this.activeRenderers$ = computed(() => {
       const dataView = this.mode.readonly.dataView()
@@ -361,8 +369,8 @@ export class ChartStateKernel extends StateKernel {
     // ── Flat actions bag for framework adapters ──
     this.actions = {
       setZoomLevel: (level: number) => this.zoom.actions.setZoomLevel(level),
-      setDirectKWidth: (kWidth: number) => this.zoom.actions.setDirectKWidth(kWidth),
-      clearDirectKWidth: () => this.zoom.actions.clearDirectKWidth(),
+      setTimeShareKWidth: (kWidth: number) => this.zoom.actions.setTimeShareKWidth(kWidth),
+      clearTimeShareKWidth: () => this.zoom.actions.clearTimeShareKWidth(),
       setData: (data: ReadonlyArray<unknown>) => this.data.actions.setData(data),
       setLoading: (loading: boolean) => this.data.actions.setLoading(loading),
       setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => {
@@ -386,7 +394,7 @@ export class ChartStateKernel extends StateKernel {
         this.renderer.actions.setRuntime(runtime),
       setDataView: (view: ChartDataView, lastBarPeriod?: string) => {
         const modeInstances: IndicatorInstanceSpec[] =
-          view === 'timeshare'
+          view === ChartDataViewId.TimeShare
             ? [
                 {
                   instanceId: 'mode:timeshare',
@@ -405,7 +413,7 @@ export class ChartStateKernel extends StateKernel {
                   params: {},
                 },
               ]
-            : view === 'comparison'
+            : view === ChartDataViewId.Comparison
               ? [
                   {
                     instanceId: 'mode:comparison',
@@ -444,7 +452,7 @@ export class ChartStateKernel extends StateKernel {
         )
         const currentSpecs = this.pane.readonly.paneSpecs.peek()
         const nextSpecs =
-          view === 'timeshare'
+          view === ChartDataViewId.TimeShare
             ? !needsSystemTimeShareVolume ||
               currentSpecs.some((pane) => pane.id === 'timeshare_volume')
               ? currentSpecs
@@ -455,7 +463,7 @@ export class ChartStateKernel extends StateKernel {
             : currentSpecs.filter((pane) => pane.id !== 'timeshare_volume')
         const rawRatios = { ...this.pane.readonly.paneRatios.peek() }
         delete rawRatios.timeshare_volume
-        if (view === 'timeshare' && needsSystemTimeShareVolume) {
+        if (view === ChartDataViewId.TimeShare && needsSystemTimeShareVolume) {
           // 分时量默认占主图高度的三分之一，避免仅有主图时平分为 50%。
           rawRatios.timeshare_volume = (rawRatios.main ?? 1) / 3
         }
@@ -632,7 +640,7 @@ export class ChartStateKernel extends StateKernel {
       // customMarkers 变更须走 Chart.update/clear/registerCustomMarkers：
       // 同步 clearPositionCache + scheduleDraw。勿在此暴露仅写 state 的 flat actions。
     }
-    this.actions.setDataView('kline')
+    this.actions.setDataView(ChartDataViewId.KLine)
   }
 
   setViewportDomDeps(deps: ViewportDomDeps): void {

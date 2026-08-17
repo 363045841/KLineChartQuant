@@ -1,4 +1,10 @@
-import type { SymbolSpec, SymbolInfo, DataFetcher, CustomDataSource } from '../../controllers/types'
+import {
+  TIME_SHARE_PERIOD,
+  type SymbolSpec,
+  type SymbolInfo,
+  type DataFetcher,
+  type CustomDataSource,
+} from '../../controllers/types'
 import { DataBuffer } from '../../data/buffer/dataBuffer'
 import { getPeriodDays } from '../../data/buffer/dataBuffer.effects'
 import type {
@@ -25,9 +31,10 @@ import type { ChartDom } from '../chartTypes'
 import type { VisibleRange, UpdateLevel } from '../layout/pane'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
 import type { DataStateModule } from '../state/dataState'
-import type { DataManagerStateModule } from '../state/dataManagerState'
+import type { DataManagerStateModule, ViewportSnapshot } from '../state/dataManagerState'
 import type { ViewportStateModule } from '../state/viewportState'
 import type { ComparisonStateModule } from '../state/comparisonState'
+import { ChartDataViewId } from '../state/modeState'
 
 import { comparisonBufferKey, ComparisonManager } from './comparisonManager'
 import { FetchBatchScheduler } from './fetchBatchScheduler'
@@ -37,6 +44,8 @@ import { symbolSpecIdentityKey } from './symbolIdentity'
 
 export interface DataDependencies {
   getOption: () => { kWidth: number; kGap: number }
+  getZoomLevel: () => number
+  setZoomLevel: (level: number) => void
   getDom: () => ChartDom
   /** scroll / dpr / 可见区间 / 几何 SSOT */
   viewport: ViewportStateModule
@@ -497,10 +506,9 @@ export class ChartDataManager {
       this._scrollCompensator.adjustScrollAfterDataChange(bufferData.length)
     }
 
-    if (
-      (prevDataLength ?? this._dataState.readonly.dataLength.peek()) === 0 &&
-      bufferData.length > 0
-    ) {
+    const isInitialData =
+      (prevDataLength ?? this._dataState.readonly.dataLength.peek()) === 0 && bufferData.length > 0
+    if (isInitialData && !this.tryRestoreScrollFromSnapshot()) {
       this.scrollToRight()
     }
 
@@ -738,7 +746,7 @@ export class ChartDataManager {
   // ── Data updates (KLine) ──
 
   updateData(data: KLineData[]): void {
-    if (this.currentPeriod === 'timeshare') return
+    if (this.currentPeriod === TIME_SHARE_PERIOD) return
     const buf = this.getActiveDataBuffer()
     if (buf) {
       buf.setInlineData(data)
@@ -871,8 +879,8 @@ export class ChartDataManager {
     }
   }
 
-  /** 进入分时模式前保存当前 K 线第一根可见数据的时间戳，用于退出后恢复滚动位置 */
-  private _saveKLineScrollTimestamp(): void {
+  /** 为当前 K 线视图保存可恢复的横向锚点。 */
+  private saveActiveKLineViewportSnapshot(): void {
     const kBuf = this.getActiveDataBuffer()
     const rawFromBuf = kBuf?.getRawData() as KLineData[] | undefined
     const kRaw = rawFromBuf ?? (this._dataState.readonly.data() as KLineData[])
@@ -882,18 +890,25 @@ export class ChartDataManager {
       const vRange = this.getVisibleRangeOrNull()
       visibleStart = vRange ? Math.max(0, vRange.start) : 0
     }
-    // 双路径守卫：
-    //   - switchToTimeShareForDate 路径：setTimeShareQueryDate 已在
-    //     activateBuffer 之前调用此方法，已保存 → 跳过。
-    //   - 直接 setSymbols({period:'timeshare'}) 路径：未经过
-    //     setTimeShareQueryDate，_savedScrollTimestamp 为 null → 正常写入。
-    if (this._dmState.readonly.savedScrollTimestamp.peek() === null) {
-      this._dmState.actions.setSavedScrollTimestamp(
-        kRaw && visibleStart >= 0 && visibleStart < kRaw.length
-          ? kRaw[visibleStart]!.timestamp
-          : null,
-      )
+    const spec = kBuf?.currentSpec
+    const anchor = kRaw?.[visibleStart]
+    if (!spec || !anchor) return
+    const dpr = this.deps.viewport.readonly.dpr.peek()
+    const opt = this.deps.getOption()
+    const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
+    const leftBuffer = this.getLeftLoadBufferWidth()
+    const baseScrollLeft = ((visibleStart + 1) * unitPx + startXPx) / dpr + leftBuffer
+    const snapshot: ViewportSnapshot = {
+      anchorTimestamp: anchor.timestamp,
+      anchorOffsetPx: this.deps.viewport.readonly.scrollLeft.peek() - baseScrollLeft,
+      zoomLevel: this.deps.getZoomLevel(),
     }
+    this._dmState.actions.saveViewportSnapshot(this.getViewportSnapshotKey(spec), snapshot)
+  }
+
+  /** 生成与品种来源、周期、复权和视图绑定的快照键。 */
+  private getViewportSnapshotKey(spec: SymbolSpec): string {
+    return `${symbolSpecIdentityKey(spec)}:${spec.period ?? 'daily'}:${spec.adjust ?? 'none'}:${ChartDataViewId.KLine}`
   }
 
   setTimeShareQueryDate(date: number): void {
@@ -901,9 +916,8 @@ export class ChartDataManager {
     if (buf) {
       buf.setQueryDate(date)
     } else {
-      // Save scroll timestamp before activateBuffer clears _dataSignal,
-      // so setSymbols can't overwrite the saved value with empty TS data.
-      this._saveKLineScrollTimestamp()
+      // 激活分时 buffer 前保存当前 K 线视图锚点。
+      this.saveActiveKLineViewportSnapshot()
 
       const tsBuf = new TimeShareBuffer()
       tsBuf.setFetcher(this._timeShareFetcher)
@@ -1003,7 +1017,6 @@ export class ChartDataManager {
     }
     this._dataState.actions.setData([])
     this._dmState.actions.setRangeInitialized(false)
-    this._dmState.actions.setSavedScrollTimestamp(null)
     this.setSymbols([spec, ...this.deps.comparison.readonly.specs.peek()])
   }
 
@@ -1014,7 +1027,7 @@ export class ChartDataManager {
   // ── Main symbol switching ──
 
   setSymbols(specs: ReadonlyArray<SymbolSpec>): void {
-    const selection = specs[0]?.period === 'timeshare' ? specs.slice(0, 1) : specs
+    const selection = specs[0]?.period === TIME_SHARE_PERIOD ? specs.slice(0, 1) : specs
     this.deps.setSymbols(selection)
 
     if (selection.length === 0) {
@@ -1032,12 +1045,10 @@ export class ChartDataManager {
     const primary = selection[0]!
     this._dmState.actions.setCurrentSpec(primary)
 
-    if (primary.period === 'timeshare') {
+    if (primary.period === TIME_SHARE_PERIOD) {
       // Switch to timeshare mode
-      // Save scroll position before activating TS buffer (which clears _dataSignal).
-      // Guarded by _savedScrollTimestamp === null so setTimeShareQueryDate (which
-      // calls this method first) won't be overwritten.
-      this._saveKLineScrollTimestamp()
+      // 激活分时 buffer 前保存当前 K 线视图锚点。
+      this.saveActiveKLineViewportSnapshot()
       // Keep primary KLine buffer in memory — don't dispose it,
       // so data and scroll position are preserved when user returns
       this._dataState.actions.setData([])
@@ -1103,10 +1114,8 @@ export class ChartDataManager {
         incremental: spec.incremental ?? buf.currentSpec?.incremental ?? true,
       })
       this.deps.resetInteraction()
-      // Scroll restoration from _savedScrollTimestamp is deferred to
-      // chart → tryRestoreScrollFromSnapshot() so kWidth/kGap have been
-      // restored by setActiveMode before scrollLeft calculation.
-      if (this._dmState.readonly.savedScrollTimestamp.peek() === null) {
+      // 有快照时由 Chart 在模式切换后恢复；否则定位到最新数据。
+      if (!this._dmState.actions.getViewportSnapshot(this.getViewportSnapshotKey(spec))) {
         this.scrollToRight()
       }
       return
@@ -1122,22 +1131,25 @@ export class ChartDataManager {
     buf.setSymbol(spec)
   }
 
-  /** 退出分时图时根据保存的时间戳恢复 K 线滚动位置。返回是否成功恢复。 */
+  /** K 线数据可用后按其视图快照恢复横向位置。 */
   tryRestoreScrollFromSnapshot(): boolean {
-    if (this._dmState.readonly.savedScrollTimestamp.peek() === null) return false
     const buf = this.getActiveDataBuffer()
-    const raw = buf ? (buf.getRawData() as KLineData[]) : null
-    if (!raw || raw.length === 0) return false
-    const idx = raw.findIndex(
-      (d) => d.timestamp >= this._dmState.readonly.savedScrollTimestamp.peek()!,
-    )
-    this._dmState.actions.setSavedScrollTimestamp(null)
+    if (!buf) return false
+    const raw = buf.getRawData() as KLineData[]
+    if (raw.length === 0) return false
+    const spec = buf.currentSpec
+    if (!spec) return false
+    const snapshot = this._dmState.actions.consumeViewportSnapshot(this.getViewportSnapshotKey(spec))
+    if (!snapshot) return false
+    const idx = raw.findIndex((d) => d.timestamp >= snapshot.anchorTimestamp)
     if (idx >= 0) {
+      this.deps.setZoomLevel(snapshot.zoomLevel)
       const dpr = this.deps.viewport.readonly.dpr.peek()
       const opt = this.deps.getOption()
       const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
       const leftBuffer = this.getLeftLoadBufferWidth()
-      const scrollLeft = ((idx + 1) * unitPx + startXPx) / dpr + leftBuffer
+      const scrollLeft =
+        ((idx + 1) * unitPx + startXPx) / dpr + leftBuffer + snapshot.anchorOffsetPx
       this.deps.viewport.actions.scrollTo(scrollLeft)
       return true
     }

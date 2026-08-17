@@ -1,8 +1,15 @@
 /** 图表数据视图、主序列渲染偏好及运行时能力状态。 */
 import { batch, computed, createSubState } from '../../foundation/reactivity/signal'
 
-export type ChartModeId = 'kline' | 'timeshare' | 'comparison'
-export type ChartDataView = ChartModeId
+/** 图表数据视图的运行时标识。 */
+export const ChartDataViewId = Object.freeze({
+  KLine: 'kline',
+  TimeShare: 'timeshare',
+  Comparison: 'comparison',
+} as const)
+
+export type ChartDataView = (typeof ChartDataViewId)[keyof typeof ChartDataViewId]
+export type ChartModeId = ChartDataView
 export type PrimaryRendererType = 'candlestick' | 'ohlc-bar' | 'line' | 'area'
 export type PrimaryRendererByView = Readonly<Record<ChartDataView, PrimaryRendererType>>
 
@@ -14,9 +21,9 @@ export type InteractionCapabilities = Readonly<{
 }>
 
 const DEFAULT_PRIMARY_RENDERERS: PrimaryRendererByView = Object.freeze({
-  kline: 'candlestick',
-  timeshare: 'line',
-  comparison: 'line',
+  [ChartDataViewId.KLine]: 'candlestick',
+  [ChartDataViewId.TimeShare]: 'line',
+  [ChartDataViewId.Comparison]: 'line',
 })
 
 /** 复制并冻结主序列渲染偏好，避免外部原地修改。 */
@@ -32,7 +39,7 @@ function resolveEffectivePrimaryRenderer(
   renderer: PrimaryRendererType,
 ): PrimaryRendererType {
   if (
-    (view === 'timeshare' || view === 'comparison') &&
+    (view === ChartDataViewId.TimeShare || view === ChartDataViewId.Comparison) &&
     renderer !== 'line' &&
     renderer !== 'area'
   ) {
@@ -43,7 +50,7 @@ function resolveEffectivePrimaryRenderer(
 
 export function createModeState() {
   const { signals, readonly: sourceReadonly } = createSubState({
-    dataView: 'kline' as ChartDataView,
+    dataView: ChartDataViewId.KLine as ChartDataView,
     lastBarPeriod: 'daily',
     primaryRendererByView: DEFAULT_PRIMARY_RENDERERS,
   })
@@ -53,7 +60,7 @@ export function createModeState() {
     return resolveEffectivePrimaryRenderer(view, sourceReadonly.primaryRendererByView()[view])
   })
   const interactionCapabilities = computed<InteractionCapabilities>(() => {
-    const supportsKLineInteraction = sourceReadonly.dataView() !== 'timeshare'
+    const supportsKLineInteraction = sourceReadonly.dataView() !== ChartDataViewId.TimeShare
     return Object.freeze({
       allowPan: supportsKLineInteraction,
       allowZoom: supportsKLineInteraction,
@@ -63,7 +70,11 @@ export function createModeState() {
   })
 
   const setDataView = (view: ChartDataView, lastBarPeriod?: string): void => {
-    if (view === 'timeshare' && lastBarPeriod && lastBarPeriod !== 'timeshare') {
+    if (
+      view === ChartDataViewId.TimeShare &&
+      lastBarPeriod &&
+      lastBarPeriod !== ChartDataViewId.TimeShare
+    ) {
       signals.lastBarPeriod.set(lastBarPeriod)
     }
     if (signals.dataView.peek() === view) return
@@ -82,7 +93,8 @@ export function createModeState() {
       setDataView,
       setChartMode: setDataView,
       setLastBarPeriod(period: string): void {
-        if (!period || period === 'timeshare' || signals.lastBarPeriod.peek() === period) return
+        if (!period || period === ChartDataViewId.TimeShare || signals.lastBarPeriod.peek() === period)
+          return
         signals.lastBarPeriod.set(period)
       },
       setPrimaryRenderer(view: ChartDataView, renderer: PrimaryRendererType): void {
@@ -95,7 +107,7 @@ export function createModeState() {
     },
     dispose(): void {
       batch(() => {
-        signals.dataView.set('kline')
+        signals.dataView.set(ChartDataViewId.KLine)
         signals.lastBarPeriod.set('daily')
         signals.primaryRendererByView.set(DEFAULT_PRIMARY_RENDERERS)
       })

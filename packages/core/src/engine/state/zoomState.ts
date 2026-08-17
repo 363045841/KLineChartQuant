@@ -1,9 +1,11 @@
 import { batch, createSubState, type ReadonlySignal } from '../../foundation/reactivity/signal'
+import { ChartDataViewId, type ChartDataView } from './modeState'
 import { zoomLevelToKWidth } from '../utils/zoom'
 
 export interface ZoomDeps {
   minKWidth$: ReadonlySignal<number>
   maxKWidth$: ReadonlySignal<number>
+  dataView$: ReadonlySignal<ChartDataView>
   zoomLevelCount: number
 }
 
@@ -25,12 +27,13 @@ export function createZoomState(deps: ZoomDeps) {
   const { signals, readonly } = createSubState(
     {
       zoomLevel: 1,
-      kWidthOverride: null as number | null,
+      timeShareKWidth: null as number | null,
     },
     {
       kWidth: (s) => {
-        const override = s.kWidthOverride()
-        if (override !== null) return override
+        const timeShareWidth = s.timeShareKWidth()
+        if (deps.dataView$() === ChartDataViewId.TimeShare && timeShareWidth !== null)
+          return timeShareWidth
         return zoomLevelToKWidth(s.zoomLevel(), readZoomConfig(deps))
       },
     },
@@ -44,24 +47,23 @@ export function createZoomState(deps: ZoomDeps) {
         const clamped = clampZoomLevel(level, deps.zoomLevelCount)
         batch(() => {
           signals.zoomLevel.set(clamped)
-          signals.kWidthOverride.set(null)
         })
       },
 
-      setDirectKWidth(kWidth: number) {
+      setTimeShareKWidth(kWidth: number) {
         if (!Number.isFinite(kWidth) || kWidth <= 0) return
-        signals.kWidthOverride.set(kWidth)
+        signals.timeShareKWidth.set(kWidth)
       },
 
-      clearDirectKWidth() {
-        signals.kWidthOverride.set(null)
+      clearTimeShareKWidth() {
+        signals.timeShareKWidth.set(null)
       },
     },
 
     dispose() {
       batch(() => {
         signals.zoomLevel.set(1)
-        signals.kWidthOverride.set(null)
+        signals.timeShareKWidth.set(null)
       })
     },
   }

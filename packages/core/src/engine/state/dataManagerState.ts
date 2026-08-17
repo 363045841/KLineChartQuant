@@ -6,6 +6,13 @@ export interface IncrementalLoadBatch {
   readonly leftBufferWidth: number
 }
 
+/** 单个数据视图的可恢复横向位置。 */
+export interface ViewportSnapshot {
+  readonly anchorTimestamp: number
+  readonly anchorOffsetPx: number
+  readonly zoomLevel: number
+}
+
 function emptyIncrementalLoadBatch(): IncrementalLoadBatch {
   return { count: 0, leftBufferWidth: 0 }
 }
@@ -14,7 +21,7 @@ export function createDataManagerState() {
   const { signals, readonly } = createSubState(
     {
       currentSpec: null as SymbolSpec | null,
-      savedScrollTimestamp: null as number | null,
+      viewportSnapshots: Object.freeze({}) as Readonly<Record<string, ViewportSnapshot>>,
       preCustomSpec: null as SymbolSpec | null,
       rangeInitialized: false,
       pendingIncrementalLoad: emptyIncrementalLoadBatch(),
@@ -32,8 +39,24 @@ export function createDataManagerState() {
         signals.currentSpec.set(spec)
       },
 
-      setSavedScrollTimestamp(ts: number | null) {
-        signals.savedScrollTimestamp.set(ts)
+      saveViewportSnapshot(key: string, snapshot: ViewportSnapshot) {
+        if (!key || !Number.isFinite(snapshot.anchorTimestamp)) return
+        signals.viewportSnapshots.set(
+          Object.freeze({ ...signals.viewportSnapshots.peek(), [key]: Object.freeze({ ...snapshot }) }),
+        )
+      },
+
+      getViewportSnapshot(key: string): ViewportSnapshot | null {
+        return signals.viewportSnapshots.peek()[key] ?? null
+      },
+
+      consumeViewportSnapshot(key: string): ViewportSnapshot | null {
+        const snapshots = signals.viewportSnapshots.peek()
+        const snapshot = snapshots[key] ?? null
+        if (!snapshot) return null
+        const { [key]: _, ...remaining } = snapshots
+        signals.viewportSnapshots.set(Object.freeze(remaining))
+        return snapshot
       },
 
       setPreCustomSpec(spec: SymbolSpec | null) {
@@ -65,7 +88,7 @@ export function createDataManagerState() {
       reset() {
         batch(() => {
           signals.currentSpec.set(null)
-          signals.savedScrollTimestamp.set(null)
+          signals.viewportSnapshots.set(Object.freeze({}))
           signals.preCustomSpec.set(null)
           signals.rangeInitialized.set(false)
           signals.pendingIncrementalLoad.set(emptyIncrementalLoadBatch())
@@ -76,7 +99,7 @@ export function createDataManagerState() {
     dispose() {
       batch(() => {
         signals.currentSpec.set(null)
-        signals.savedScrollTimestamp.set(null)
+        signals.viewportSnapshots.set(Object.freeze({}))
         signals.preCustomSpec.set(null)
         signals.rangeInitialized.set(false)
         signals.pendingIncrementalLoad.set(emptyIncrementalLoadBatch())

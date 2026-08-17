@@ -23,6 +23,9 @@ import type { ReadonlySignal, Signal } from '../foundation/reactivity/index'
 
 // Controller-owned public surface. Legacy engine types may mirror these
 // shapes internally, but adapters depend only on core-defined contracts.
+/** 分时数据在 SymbolSpec.period 中使用的专用周期标识。 */
+export const TIME_SHARE_PERIOD = 'timeshare' as const
+
 export interface ChartViewport {
   zoomLevel: number
   plotWidth: number
