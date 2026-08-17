@@ -100,7 +100,13 @@ describe('buildLegendTemplateContext comparison rows', () => {
 
   it.each([
     {
-      spec: { id: 'SH.600000', symbol: '600000', market: 'SH', period: 'daily' },
+      spec: {
+        id: 'SH.600000',
+        symbol: '600000',
+        market: 'SH',
+        period: 'daily',
+        instrument: { name: '浦发银行' },
+      } as SymbolSpec,
       label: 'with id',
       expectedPercent: 100 / 15,
     },
@@ -119,6 +125,7 @@ describe('buildLegendTemplateContext comparison rows', () => {
       theme: 'light',
       isAsiaMarket: true,
       primarySymbol: '600000',
+      primarySymbolName: '三六零',
       comparisonSymbols: [spec],
       comparisonData: new Map([[identity, comparisonDataFor(spec)]]),
       comparisonColors: new Map([[identity, '#123456']]),
@@ -130,12 +137,14 @@ describe('buildLegendTemplateContext comparison rows', () => {
     expect(result?.comparisons).toEqual([
       {
         symbol: '600000',
+        name: '三六零',
         percent: 10,
         color: '#0072B2',
         percentColor: result?.colors?.up,
       },
       {
         symbol: spec.symbol,
+        ...(spec.instrument?.name ? { name: spec.instrument.name } : {}),
         percent: expectedPercent,
         color: '#123456',
         percentColor: result?.colors?.up,
@@ -153,6 +162,7 @@ describe('buildLegendTemplateContext comparison rows', () => {
       theme: 'light',
       isAsiaMarket: true,
       primarySymbol: 'MAIN',
+      primarySymbolName: '主品种',
       comparisonSymbols: [spec],
       comparisonData: new Map([[symbolSpecIdentityKey(spec), []]]),
       comparisonColors: new Map([[symbolSpecIdentityKey(spec), '#123456']]),
@@ -164,6 +174,7 @@ describe('buildLegendTemplateContext comparison rows', () => {
     expect(result?.comparisons).toEqual([
       {
         symbol: 'MAIN',
+        name: '主品种',
         percent: 10,
         color: '#0072B2',
         percentColor: result?.colors?.up,

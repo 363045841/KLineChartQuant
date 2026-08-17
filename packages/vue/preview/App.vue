@@ -81,7 +81,7 @@
               :style="{ color: comparison.percentColor }"
             >
               <span class="my-legend__dot" :style="{ backgroundColor: comparison.color }"></span>
-              {{ comparison.symbol }}
+              {{ comparison.symbol }}{{ comparison.name ? ` ${comparison.name}` : '' }}
               {{ comparison.percent > 0 ? '+' : '' }}{{ comparison.percent.toFixed(2) }}%
             </div>
           </div>

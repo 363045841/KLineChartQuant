@@ -46,6 +46,7 @@ export interface LegendIndicatorRow {
 
 export interface LegendComparisonRow {
   symbol: string
+  name?: string
   percent: number
   color: string
   percentColor: string
@@ -246,6 +247,7 @@ function collectComparisonRows(
     const percent = ((mainItem.close - baseItem.close) / baseItem.close) * 100
     rows.push({
       symbol: context.primarySymbol ?? mainItem.symbol ?? '',
+      ...(context.primarySymbolName ? { name: context.primarySymbolName } : {}),
       percent,
       color: colors.palette.i1,
       percentColor:
@@ -286,6 +288,7 @@ function collectComparisonRows(
     const color = comparisonColors?.get(identity) ?? colors.palette.i2
     rows.push({
       symbol: spec.symbol,
+      ...(spec.instrument?.name ? { name: spec.instrument.name } : {}),
       percent,
       color,
       percentColor:

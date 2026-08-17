@@ -294,6 +294,8 @@ export interface RenderContext {
   comparisonColors?: ReadonlyMap<string, string>
   /** 主品种代码（比较视图图例主品种行使用） */
   primarySymbol?: string
+  /** 主品种名称（比较视图图例主品种行使用） */
+  primarySymbolName?: string
   range: { start: number; end: number }
   scrollLeft: number
   kWidth: number

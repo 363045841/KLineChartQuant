@@ -353,8 +353,9 @@ function paintLegendOnCanvas(overlayCtx: CanvasRenderingContext2D, legend: Legen
     x += dotRadius * 2 + 4
 
     overlayCtx.fillStyle = colors.textPrimary
-    overlayCtx.fillText(cmp.symbol, x, y)
-    x += measureTextWidth(overlayCtx, cmp.symbol) + gap
+    const symbolText = cmp.name && cmp.name !== cmp.symbol ? `${cmp.symbol} ${cmp.name}` : cmp.symbol
+    overlayCtx.fillText(symbolText, x, y)
+    x += measureTextWidth(overlayCtx, symbolText) + gap
 
     const sign = cmp.percent > 0 ? '+' : ''
     const pctText = `${sign}${cmp.percent.toFixed(2)}%`
