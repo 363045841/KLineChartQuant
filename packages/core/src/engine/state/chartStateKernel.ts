@@ -371,8 +371,6 @@ export class ChartStateKernel extends StateKernel {
       setZoomLevel: (level: number) => this.zoom.actions.setZoomLevel(level),
       setTimeShareKWidth: (kWidth: number) => this.zoom.actions.setTimeShareKWidth(kWidth),
       clearTimeShareKWidth: () => this.zoom.actions.clearTimeShareKWidth(),
-      setData: (data: ReadonlyArray<unknown>) => this.data.actions.setData(data),
-      setLoading: (loading: boolean) => this.data.actions.setLoading(loading),
       setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => {
         const snapshot = symbols.map((symbol) => ({ ...symbol }))
         batch(() => {
@@ -382,7 +380,6 @@ export class ChartStateKernel extends StateKernel {
       },
       setSymbolCatalog: (catalog: ReadonlyArray<SymbolInfo>) =>
         this.data.actions.setSymbolCatalog(catalog),
-      setActiveBufferKey: (key: string | null) => this.data.actions.setActiveBufferKey(key),
       resetData: () => this.data.actions.reset(),
       setPaneRatios: (ratios: Record<string, number>) => this.pane.actions.setPaneRatios(ratios),
       setPaneSpecs: (specs: PaneSpec[]) => this.pane.actions.setPaneSpecs(specs),

@@ -51,23 +51,6 @@ export function createDataState(_deps: DataDeps = {}) {
     readonly,
 
     actions: {
-      setData(data: ReadonlyArray<unknown>) {
-        batch(() =>
-          signals.activeBuffer.set(
-            Object.freeze({
-              ...signals.activeBuffer.peek(),
-              data,
-              timeShareRange: null,
-              timeSharePreClose: null,
-            }),
-          ),
-        )
-      },
-
-      setLoading(loading: boolean) {
-        batch(() => signals.activeBuffer.set(Object.freeze({ ...signals.activeBuffer.peek(), loading })))
-      },
-
       setSymbols(symbols: ReadonlyArray<SymbolSpec>) {
         signals.symbols.set(snapshotSymbols(symbols))
       },
@@ -76,11 +59,7 @@ export function createDataState(_deps: DataDeps = {}) {
         signals.symbolCatalog.set(catalog)
       },
 
-      setActiveBufferKey(key: string | null) {
-        batch(() => signals.activeBuffer.set(Object.freeze({ ...signals.activeBuffer.peek(), key })))
-      },
-
-      /** key/data/loading 同批发布，避免缓冲切换中间态 */
+      /** 发布完整活动 Buffer 快照，避免缓冲切换中间态。 */
       applyActiveBufferSnapshot(snapshot: ActiveBufferSnapshot) {
         batch(() => signals.activeBuffer.set(Object.freeze({ ...snapshot })))
       },

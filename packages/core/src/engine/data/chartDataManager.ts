@@ -217,6 +217,17 @@ export class ChartDataManager {
     this._lastDataChange = null
   }
 
+  /** 发布未绑定 Buffer 的内联数据，避免沿用已释放 Buffer 的 key 或分时元数据。 */
+  private publishUnbufferedData(data: ReadonlyArray<unknown>): void {
+    this._dataState.actions.applyActiveBufferSnapshot({
+      key: null,
+      data: [...data],
+      loading: false,
+      timeShareRange: null,
+      timeSharePreClose: null,
+    })
+  }
+
   private publishBufferSnapshot(
     key: string,
     buf: KLineBuffer | TimeShareBuffer,
@@ -696,11 +707,6 @@ export class ChartDataManager {
     return buf?.getPreClose() ?? null
   }
 
-  setTimeSharePreClose(preClose: number | null): void {
-    const buf = this.getActiveTimeShareBuffer()
-    if (buf) buf.setPreClose(preClose)
-  }
-
   getTimeShareSignal(): ReadonlySignal<ReadonlyArray<TimeShareData>> {
     const buf = this.getActiveTimeShareBuffer()
     return (buf?.data ?? createSignal<ReadonlyArray<TimeShareData>>([])) as ReadonlySignal<
@@ -764,7 +770,7 @@ export class ChartDataManager {
     if (buf) {
       buf.setInlineData(data)
     } else {
-      this._dataState.actions.setData([...data])
+      this.publishUnbufferedData(data)
     }
   }
 
@@ -774,7 +780,7 @@ export class ChartDataManager {
       const merged = [...buf.getRawData(), ...newData]
       buf.setInlineData(merged)
     } else {
-      this._dataState.actions.setData([...this._dataState.readonly.data(), ...newData])
+      this.publishUnbufferedData([...this._dataState.readonly.data(), ...newData])
     }
   }
 
@@ -1021,7 +1027,7 @@ export class ChartDataManager {
     if (this._activeKey && !this._activeKey.startsWith(BUF_TIMESHARE)) {
       this.disposeBuffer(this._activeKey)
     }
-    this._dataState.actions.setData([])
+    this.publishUnbufferedData([])
     this._dmState.actions.setRangeInitialized(false)
     this.setSymbols([spec, ...this.deps.comparison.readonly.specs.peek()])
   }
@@ -1059,7 +1065,6 @@ export class ChartDataManager {
       this.saveActiveKLineViewportSnapshot()
       // Keep primary KLine buffer in memory — don't dispose it,
       // so data and scroll position are preserved when user returns
-      this._dataState.actions.setData([])
       this._dmState.actions.setRangeInitialized(false)
 
       // Get or create timeshare buffer

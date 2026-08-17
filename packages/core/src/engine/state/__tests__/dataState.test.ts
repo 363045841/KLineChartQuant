@@ -4,9 +4,13 @@ import { createDataState } from '../dataState'
 describe('dataState', () => {
   it('applyActiveBufferSnapshot publishes key/data/loading atomically', () => {
     const m = createDataState()
-    m.actions.setData([{ t: 1 }])
-    m.actions.setLoading(true)
-    m.actions.setActiveBufferKey('old')
+    m.actions.applyActiveBufferSnapshot({
+      key: 'old',
+      data: [{ t: 1 }],
+      loading: true,
+      timeShareRange: null,
+      timeSharePreClose: null,
+    })
 
     const snaps: Array<{ key: string | null; len: number; loading: boolean }> = []
     const push = () => {

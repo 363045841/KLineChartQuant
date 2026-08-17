@@ -41,13 +41,13 @@ export interface DataBufferLike {
   readonly lastError: ReadonlySignal<string | null>
   readonly loadedWindow: DataWindow | null
   getRawData(): unknown[]
-  setInlineData(data: unknown[]): void
   dispose(): void
 }
 
 export interface KLineBuffer extends DataBufferLike {
   readonly currentSpec: SymbolSpec | null
   getRawData(): KLineData[]
+  setInlineData(data: unknown[]): void
   getMonthKeys(): Int32Array | null
   getDayKeys(): Int32Array | null
   setRequestFetch(
@@ -61,6 +61,7 @@ export interface KLineBuffer extends DataBufferLike {
 export interface TimeShareBuffer extends DataBufferLike {
   readonly range: ReadonlySignal<TimeShareRange | null>
   getRawData(): TimeShareData[]
+  setInlineData(data: ReadonlyArray<TimeShareData>, preClose: number | null): void
   getRange(): TimeShareRange | null
   setRange(range: TimeShareRange): void
   setFetcher(fetcher: TimeShareFetcherFn | null): void

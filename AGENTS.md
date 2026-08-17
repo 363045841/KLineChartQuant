@@ -167,6 +167,8 @@ Agent 细节见该仓库 `AGENTS.md`。
 
 **Batched Atomic Updates** — Multi-field writes are batched via batch() into a single notification cycle. No intermediate state leaks — consumers always observe a consistent snapshot.
 
+**业务快照原子写入** — 具有关联语义的数据必须通过一次完整快照 Action 写入
+
 Best practice: @packages/core/src/engine/state/viewportState.ts @packages/core/src/engine/state/stateKernel.ts 
 
 ## CI

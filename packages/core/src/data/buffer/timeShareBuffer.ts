@@ -185,26 +185,12 @@ export class TimeShareBuffer implements DataBufferLike {
     return this._preCloseSignal.peek()
   }
 
-  setPreClose(preClose: number | null): void {
+  /** 原子写入单日点列及昨收，拒绝无效的昨收值。 */
+  setInlineData(data: ReadonlyArray<TimeShareData>, preClose: number | null): void {
+    if (this._disposed) return
     if (preClose !== null && (!Number.isFinite(preClose) || preClose <= 0)) return
-    const snapshot = this._contentSignal.peek()
-    if (snapshot.kind === 'empty') {
-      this.setContent({ kind: 'inline', data: Object.freeze([]), preClose })
-      return
-    }
-    if (snapshot.kind === 'inline') {
-      this.setContent({ ...snapshot, preClose })
-      return
-    }
-    const lastIndex = snapshot.range.days.length - 1
-    if (lastIndex < 0) return
-    const days = snapshot.range.days.map((day, index) =>
-      index === lastIndex ? Object.freeze({ ...day, preClose }) : day,
-    )
-    this.setContent({
-      kind: 'range',
-      range: Object.freeze({ ...snapshot.range, days: Object.freeze(days) }),
-    })
+    this.setInlineSnapshot(data, preClose)
+    this._lastError.set(null)
   }
 
   load(spec: SymbolSpec): void {
@@ -274,13 +260,6 @@ export class TimeShareBuffer implements DataBufferLike {
     })()
   }
 
-  setInlineData(data: unknown[]): void {
-    if (this._disposed) return
-    this.setInlineSnapshot(data as TimeShareData[], this.getPreClose())
-    this._lastError.set(null)
-  }
-
-  /** 原子写入单日点列及其昨收，避免数据与元数据分步发布。 */
   private setInlineSnapshot(data: ReadonlyArray<TimeShareData>, preClose: number | null): void {
     this.setContent({
       kind: 'inline',
