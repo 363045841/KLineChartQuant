@@ -37,7 +37,7 @@ export default defineConfig({
           formats: ['es', 'cjs'],
           fileName: (format) => (format === 'es' ? 'index.js' : 'index.cjs'),
         },
-    rollupOptions: {
+    rolldownOptions: {
       external: isWC ? [] : ['vue', /@363045841yyt\/klinechart-core/],
       output: isWC ? { inlineDynamicImports: true } : { globals: { vue: 'Vue' } },
     },
