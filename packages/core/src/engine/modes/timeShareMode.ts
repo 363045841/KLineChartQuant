@@ -18,7 +18,6 @@ export class TimeShareMode implements ChartModeHandler {
 
   /** 市场 session；默认 A 股，可 setMarketSession 切换 */
   private _marketSession: MarketSessionConfig = ASHARE_MARKET_SESSION
-  private _dayCount = 1
 
   get marketSession(): MarketSessionConfig {
     return this._marketSession
@@ -26,11 +25,6 @@ export class TimeShareMode implements ChartModeHandler {
 
   setMarketSession(config: MarketSessionConfig): void {
     this._marketSession = config
-  }
-
-  /** 设置多日分时的已加载交易日数量。 */
-  setDayCount(dayCount: number): void {
-    this._dayCount = Math.max(1, Math.floor(dayCount))
   }
 
   computeContentWidth(
@@ -48,13 +42,7 @@ export class TimeShareMode implements ChartModeHandler {
     viewWidth: number,
     dpr: number,
   ): { kWidth: number; kGap: number } | null {
-    return computeTimeShareBarMetrics(
-      dataLength,
-      viewWidth,
-      dpr,
-      this._marketSession,
-      this._dayCount,
-    )
+    return computeTimeShareBarMetrics(dataLength, viewWidth, dpr, this._marketSession)
   }
 
   updatePaneRange(
@@ -68,12 +56,11 @@ export class TimeShareMode implements ChartModeHandler {
 
     const end = Math.min(range.end, tsData.length)
     const start = Math.max(0, range.start)
-    const timeShareDays = dm.getTimeShareDays?.() ?? []
-    // 多日分时以首日第一笔有效价格统一价格/百分比轴；单日保持昨收基准。
-    const baseline =
-      timeShareDays.length > 1
-        ? resolveTimeShareBaseline({ preClose: timeShareDays[0]?.data[0]?.price })
-        : resolveTimeShareBaseline({ preClose: dm.getTimeSharePreClose() })
+    // 优先昨收；缺失时回退首笔价
+    const baseline = resolveTimeShareBaseline({
+      preClose: dm.getTimeSharePreClose(),
+      firstPrice: tsData[0]?.price,
+    })
     if (baseline === null) return
 
     // scaleType 由 kernel.paneScaleTypes 投影（进入 timeshare 时写 percent）；此处只设会话 basePrice

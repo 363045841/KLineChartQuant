@@ -36,7 +36,7 @@ import {
   resolveMarketSessionSlots,
   resolveTimestampSessionSlot,
 } from '../../foundation/utils/timeShareAxisLabels'
-import { computeTimeShareXLayout, resolveMultiDayTimeShareSlot } from '../modes/timeShareMath'
+import { computeTimeShareXLayout } from '../modes/timeShareMath'
 import type { ChartModeHandler } from '../modes/types'
 import type { ChartDataView } from '../state/modeState'
 import { PaneRenderer } from '../paneRenderer'
@@ -44,6 +44,7 @@ import { createTimeAxisRendererPlugin } from '../renderers/timeAxis'
 import { createTimeShareRendererPlugin } from '../renderers/timeShare'
 import { calcKBarWidthPx, getPhysicalKLineConfig } from '../utils/klineConfig'
 import { calculateTickCount } from '../utils/tickCount'
+
 
 import { createCandleLayer } from './layers/candleLayer'
 import { createComparisonLineLayer } from './layers/comparisonLineLayer'
@@ -53,7 +54,10 @@ import { createExtremaMarkersLayer } from './layers/extremaMarkersLayer'
 import { createGridLinesLayer } from './layers/gridLinesLayer'
 import { createLastPriceLabelLayer } from './layers/lastPriceLabelLayer'
 import { createLastPriceLineLayer } from './layers/lastPriceLineLayer'
-import { createLeftYAxisOverlayLayer, createLeftYAxisStaticLayer } from './layers/leftYAxisLayer'
+import {
+  createLeftYAxisOverlayLayer,
+  createLeftYAxisStaticLayer,
+} from './layers/leftYAxisLayer'
 import { createMainIndicatorLegendLayer } from './layers/mainIndicatorLegendLayer'
 import { createYAxisOverlayLayer, createYAxisStaticLayer } from './layers/yAxisLayer'
 import type { LayerRole } from '../../rendering/scene/types'
@@ -602,32 +606,14 @@ export class ChartRenderer {
           'marketSession' in mode && mode.marketSession
             ? (mode as { marketSession: typeof ASHARE_MARKET_SESSION }).marketSession
             : ASHARE_MARKET_SESSION
-        const timeShareDays = dataManager.getTimeShareDays()
-        const dayCount = Math.max(1, timeShareDays.length)
-        const sessionSlots = resolveMarketSessionSlots(marketSession)
-        // 多日分时通过交易日偏移把相同墙钟时间放到不同全局槽位。
-        const globalSlotIndices = timeShareDays.flatMap((day, dayIndex) =>
-          day.data.map(
-            (item) =>
-              resolveMultiDayTimeShareSlot(dayIndex, item.timestamp, marketSession) ??
-              dayIndex * sessionSlots,
-          ),
-        )
-        const slotIndices =
-          globalSlotIndices.length === internalData.length
-            ? globalSlotIndices.slice(range.start, range.end)
-            : internalData
-                .slice(range.start, range.end)
-                .map(
-                  (item, index) =>
-                    resolveTimestampSessionSlot(item.timestamp, marketSession) ?? index,
-                )
         const layout = computeTimeShareXLayout({
           arrivedCount: count,
-          sessionSlots: sessionSlots * dayCount,
-          totalWidth: dataManager.getContentWidth(),
+          sessionSlots: resolveMarketSessionSlots(marketSession),
+          totalWidth: vp.plotWidth,
           dpr: vp.dpr,
-          slotIndices,
+          slotIndices: internalData.slice(range.start, range.end).map(
+            (item, index) => resolveTimestampSessionSlot(item.timestamp, marketSession) ?? index,
+          ),
         })
         if (layout) {
           const barWidthPx = Math.round(layout.barWidth * vp.dpr)
@@ -692,12 +678,7 @@ export class ChartRenderer {
       const pane = r.getPane()
       mainCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
       overlayCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
-      yAxisCtx?.clearRect(
-        0,
-        0,
-        (yAxisCtx.canvas?.width ?? 0) / vp.dpr || vp.plotWidth + 1,
-        pane.height + 2 / vp.dpr,
-      )
+      yAxisCtx?.clearRect(0, 0, (yAxisCtx.canvas?.width ?? 0) / vp.dpr || vp.plotWidth + 1, pane.height + 2 / vp.dpr)
       yAxisOverlayCtx?.clearRect(
         0,
         0,
@@ -766,8 +747,14 @@ export class ChartRenderer {
     // 遍历主图 pane 和所有子图 pane，每个 pane 有一组独立 canvas 以及对应更新级别（main/overlay/yAxis）
     for (const renderer of this.deps.getPaneRenderers()) {
       const pane = renderer.getPane()
-      const { mainCtx, overlayCtx, yAxisCtx, yAxisOverlayCtx, leftAxisCtx, leftAxisOverlayCtx } =
-        renderer.getContexts()
+      const {
+        mainCtx,
+        overlayCtx,
+        yAxisCtx,
+        yAxisOverlayCtx,
+        leftAxisCtx,
+        leftAxisOverlayCtx,
+      } = renderer.getContexts()
 
       // 非缓存帧：更新 pane Y 轴范围；比较视图下以可见折线极值为准
       if (!useCachedFrame) {
@@ -842,12 +829,6 @@ export class ChartRenderer {
 
       // 构造本 pane 的 RenderContext，供所有 layer 读取
       const opt = this.deps.getOption()
-      const timeShareDayStartIndices: number[] = []
-      let timeShareDataOffset = 0
-      for (const day of dataManager.getTimeShareDays()) {
-        if (timeShareDataOffset > 0) timeShareDayStartIndices.push(timeShareDataOffset)
-        timeShareDataOffset += day.data.length
-      }
       const context: RenderContext = {
         ctx: mainCtx!,
         overlayCtx: overlayCtx ?? undefined,
@@ -885,7 +866,8 @@ export class ChartRenderer {
           ...this.settings,
           // 分时昨收优先读 series 元数据，settings 作回退
           preClose:
-            dataManager.getTimeSharePreClose() ?? (this.settings.preClose as number | undefined),
+            dataManager.getTimeSharePreClose() ??
+            (this.settings.preClose as number | undefined),
         },
         yAxisLabels: sharedYAxisLabels,
         xAxisLabels: sharedXAxisLabels,
@@ -896,8 +878,6 @@ export class ChartRenderer {
         colorPresetSettings: this.settings.colorPresetSettings,
         monthKeys: dataManager.getMonthKeys() ?? undefined,
         dayKeys: dataManager.getDayKeys() ?? undefined,
-        timeShareDayStartIndices:
-          timeShareDayStartIndices.length > 0 ? timeShareDayStartIndices : undefined,
       }
 
       // 计算本 pane 的 Y 轴刻度（等分 + yToPrice 映射）
@@ -1027,15 +1007,6 @@ export class ChartRenderer {
         paneWidth: vp.plotWidth,
         kLinePositions,
         kLineCenters,
-        timeShareDayStartIndices: (() => {
-          const starts: number[] = []
-          let offset = 0
-          for (const day of dataManager.getTimeShareDays()) {
-            if (offset > 0) starts.push(offset)
-            offset += day.data.length
-          }
-          return starts.length > 0 ? starts : undefined
-        })(),
         kBarRects,
         xAxisCtx,
         viewport: {

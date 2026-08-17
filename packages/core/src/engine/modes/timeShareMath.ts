@@ -2,7 +2,6 @@ import {
   ASHARE_MARKET_SESSION,
   resolveMarketSessionSlots,
   resolveSessionSlotPhysicalGrid,
-  resolveTimestampSessionSlot,
   type MarketSessionConfig,
 } from '../../foundation/utils/timeShareAxisLabels'
 import { calcKBarWidthPx } from '../utils/klineConfig'
@@ -18,18 +17,6 @@ export function resolveTimeShareBaseline(input: TimeShareBaselineInput): number 
     if (typeof v === 'number' && Number.isFinite(v) && v !== 0) return v
   }
   return null
-}
-
-/** 将多日分时点映射到全局槽位，避免不同交易日相同墙钟时间重叠。 */
-export function resolveMultiDayTimeShareSlot(
-  dayIndex: number,
-  timestamp: number,
-  marketSession: MarketSessionConfig = ASHARE_MARKET_SESSION,
-): number | null {
-  const localSlot = resolveTimestampSessionSlot(timestamp, marketSession)
-  if (localSlot === null) return null
-  const dayOffset = Math.max(0, Math.floor(dayIndex)) * resolveMarketSessionSlots(marketSession)
-  return dayOffset + localSlot
 }
 
 export type TimeSharePriceRange = {
@@ -86,11 +73,10 @@ export function computeTimeShareBarMetrics(
   viewWidth: number,
   dpr: number,
   marketSession: MarketSessionConfig = ASHARE_MARKET_SESSION,
-  dayCount = 1,
 ): { kWidth: number; kGap: number } | null {
   if (dataLength <= 0 || viewWidth <= 0 || !(dpr > 0)) return null
 
-  const sessionSlots = resolveMarketSessionSlots(marketSession) * Math.max(1, Math.floor(dayCount))
+  const sessionSlots = resolveMarketSessionSlots(marketSession)
   if (sessionSlots <= 0) return null
   const grid = resolveSessionSlotPhysicalGrid(viewWidth, sessionSlots, dpr)
   if (!grid) {
@@ -141,9 +127,7 @@ export function computeTimeShareXLayout(input: TimeShareXLayoutInput): TimeShare
     lastIndexByCenterPx.set(centerPx, i)
   }
 
-  const barVisible = centerPxValues.map(
-    (centerPx, index) => lastIndexByCenterPx.get(centerPx) === index,
-  )
+  const barVisible = centerPxValues.map((centerPx, index) => lastIndexByCenterPx.get(centerPx) === index)
   const kWidthPx = grid?.unitPx ?? 1
   const barWidth = calcKBarWidthPx(kWidthPx) / dpr
 
@@ -164,10 +148,9 @@ export type TimeShareVisibleRangeInput = {
  * 两者取整误差会累积，导致窄屏时右侧数据被排除在渲染范围之外。
  * 分时无平移/缩放（scrollLeft 恒为 0），此函数结果恒为 [-1, dataLength]。
  */
-export function computeTimeShareVisibleRange(input: TimeShareVisibleRangeInput): {
-  start: number
-  end: number
-} {
+export function computeTimeShareVisibleRange(
+  input: TimeShareVisibleRangeInput,
+): { start: number; end: number } {
   const { scrollLeft, totalWidth, dataLength, sessionSlots } = input
   if (dataLength <= 0 || sessionSlots <= 0 || totalWidth <= 0) return { start: 0, end: 0 }
   const step = totalWidth / sessionSlots

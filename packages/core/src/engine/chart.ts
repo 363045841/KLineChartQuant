@@ -332,10 +332,9 @@ export class Chart {
         resetInteraction: () => this.interaction.reset(),
         getIndicatorScheduler: () => this.indicatorManager.indicatorSchedulerAccessor,
         isPointerDown: () => this.interaction.isPointerDown(),
-        onTimeShareDataReady: (dataLength, dayCount) => {
+        onTimeShareDataReady: (dataLength) => {
           const vp = this.getViewport()
           if (!vp || vp.plotWidth <= 0) return
-          this._timeShareMode.setDayCount(dayCount)
           const result = this.activeMode.computeKWidth(dataLength, vp.plotWidth, vp.dpr)
           if (result) {
             this.applyRenderState(result.kWidth, result.kGap)
@@ -1526,11 +1525,6 @@ export class Chart {
     this.dataManager.setTimeShareQueryDate(dateYYYYMMDD)
     this.setActiveMode(this._timeShareMode)
     this.dataManager.setCurrentPeriod('timeshare')
-  }
-
-  /** 设置当前分时图查询的实际交易日数量。 */
-  setTimeShareDays(days: number): void {
-    this.dataManager.setTimeShareDays(days)
   }
 
   applyCustomData(source: CustomDataSource): void {

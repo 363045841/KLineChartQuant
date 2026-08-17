@@ -71,7 +71,6 @@ export interface V1BarCapability {
 export interface V1InstrumentCapabilities {
   bars?: V1BarCapability
   timeShare?: boolean
-  timeShareRange?: { maxTradingDays: number }
   depth?: boolean // 实时深度（订单簿/盘口 L2），预留
 }
 
@@ -180,31 +179,6 @@ export interface V1TimeShareSeries {
   items: ReadonlyArray<V1TimeShareItem>
 }
 
-/** 多日分时请求：以 endTradingDate 为包含上界，days 按实际交易日计数。 */
-export interface V1TimeShareRangeRequest {
-  sourceId: string
-  instrument: V1InstrumentReference
-  endTradingDate: TradingDate
-  days: number
-}
-
-/** 多日分时内的单个交易日，preClose 不可跨日复用。 */
-export interface V1TimeShareDay {
-  tradingDate: TradingDate
-  preClose: number | null
-  items: ReadonlyArray<V1TimeShareItem>
-}
-
-/** 多日分时序列：days 按交易日升序，olderData 说明历史是否已耗尽。 */
-export interface V1TimeShareRangeSeries {
-  instrumentId: string
-  timezone: string
-  volumeUnit?: VolumeUnit
-  requestedDays: number
-  days: ReadonlyArray<V1TimeShareDay>
-  olderData: OlderDataStatus
-}
-
 /**
  * 协议传输接口：实现负责 wire 语义（URL、envelope 解包、错误解析）
  * 返回统一解包后的 data 载荷，不掺领域映射逻辑
@@ -221,9 +195,4 @@ export interface MarketDataV1Transport {
   fetchBars(request: V1BarRequest, signal?: AbortSignal): Promise<V1BarSeries>
   // 拉取指定品种在单个交易日内的分时序列
   fetchTimeShare(request: V1TimeShareRequest, signal?: AbortSignal): Promise<V1TimeShareSeries>
-  // 拉取指定品种截止交易日之前多个实际交易日的分时序列
-  fetchTimeShareRange(
-    request: V1TimeShareRangeRequest,
-    signal?: AbortSignal,
-  ): Promise<V1TimeShareRangeSeries>
 }

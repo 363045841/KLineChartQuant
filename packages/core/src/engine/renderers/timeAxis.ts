@@ -72,7 +72,6 @@ export function createTimeAxisRendererPlugin(options: {
           marketSession: context.marketSession,
           monthKeys: context.monthKeys,
           dayKeys: context.dayKeys,
-          timeShareDayStartIndices: context.timeShareDayStartIndices,
         },
         context.theme,
         context.isAsiaMarket,

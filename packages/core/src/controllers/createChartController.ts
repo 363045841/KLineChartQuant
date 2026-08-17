@@ -565,11 +565,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     chart.switchToTimeShareForDate(dateYYYYMMDD)
   }
 
-  function setTimeShareDays(days: number): void {
-    if (disposed) return
-    chart.setTimeShareDays(days)
-  }
-
   function registerSymbols(infos: ReadonlyArray<SymbolInfo>): void {
     if (disposed) return
     chart.registerSymbols(infos)
@@ -1018,7 +1013,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     setCurrentSymbol,
     setCurrentPeriod,
     switchToTimeShareForDate,
-    setTimeShareDays,
     applyCustomData,
     resetToFetcher,
     getPreCustomSpec,

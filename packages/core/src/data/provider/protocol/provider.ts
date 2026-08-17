@@ -14,8 +14,6 @@ import type {
   InstrumentSearchQuery,
   MarketDataProvider,
   TimeShareQuery,
-  TimeShareRangeQuery,
-  TimeShareRangeSeries,
   TimeShareSeries,
   VolumeUnit,
 } from '../types'
@@ -24,7 +22,6 @@ import type {
   V1InstrumentDescriptor,
   V1KLineItem,
   V1TimeShareItem,
-  V1TimeShareRangeSeries,
 } from './types'
 
 export interface V1MarketDataProviderOptions {
@@ -107,15 +104,13 @@ export function createV1MarketDataProvider(
   // 校验请求品种属于本源且声明了对应能力
   function assertCapability(
     instrument: InstrumentDescriptor,
-    capability: 'bars' | 'timeShare' | 'timeShareRange',
+    capability: 'bars' | 'timeShare',
   ): void {
     const supported =
       instrument.sourceId === source.id &&
       (capability === 'bars'
         ? instrument.capabilities.bars !== undefined
-        : capability === 'timeShare'
-          ? instrument.capabilities.timeShare === true
-          : instrument.capabilities.timeShareRange !== undefined)
+        : instrument.capabilities.timeShare === true)
     if (!supported) {
       throw new KLineChartError(
         'UNSUPPORTED_CAPABILITY',
@@ -229,44 +224,5 @@ export function createV1MarketDataProvider(
         }
       },
     },
-
-    timeShareRange: {
-      // 通过 timeshare/range endpoint 拉取按交易日分组的分时序列
-      async fetch(query: TimeShareRangeQuery): Promise<TimeShareRangeSeries> {
-        assertCapability(query.instrument, 'timeShareRange')
-        const timezone = getInstrumentTimeZone(query.instrument)
-        const result = await transport.fetchTimeShareRange(
-          {
-            sourceId: source.id,
-            instrument: {
-              id: query.instrument.id,
-              symbol: query.instrument.symbol,
-              exchange: query.instrument.exchange,
-              providerRef: query.instrument.providerRef,
-            },
-            endTradingDate: query.endTradingDate,
-            days: query.days,
-          },
-          query.signal,
-        )
-        return {
-          instrumentId: query.instrument.id,
-          timezone: result.timezone || timezone,
-          volumeUnit: result.volumeUnit ?? resolveVolumeUnit(query.instrument),
-          requestedDays: result.requestedDays,
-          days: result.days.map(mapTimeShareDay),
-          olderData: result.olderData,
-        }
-      },
-    },
-  }
-}
-
-// 将多日分时内的单个交易日映射为核心领域模型。
-function mapTimeShareDay(result: V1TimeShareRangeSeries['days'][number]) {
-  return {
-    tradingDate: result.tradingDate,
-    preClose: result.preClose,
-    data: result.items.map(mapTimeShare),
   }
 }

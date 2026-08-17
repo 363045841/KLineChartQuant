@@ -67,7 +67,7 @@ export interface ViewportSignalDeps {
   period$: ReadonlySignal<string>
   zoomLevel$: ReadonlySignal<number>
   /** 分时交易时段槽位数（由当前品种 market 经 MarketSessionRegistry 派生，与渲染器同源） */
-  sessionSlots$?: ReadonlySignal<number>
+  sessionSlots$: ReadonlySignal<number>
 }
 
 /**
@@ -165,7 +165,6 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
       dpr: readonly.dpr(),
       kWidth: options.kWidth,
       kGap: kGap(),
-      sessionSlots: signalDeps.sessionSlots$?.() ?? 0,
     })
   })
   const maxScrollLeft = computed(() => pureMaxScrollLeft(contentWidth(), readonly.viewWidth()))
@@ -212,7 +211,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
             scrollLeft: vp.scrollLeft,
             totalWidth: vp.plotWidth,
             dataLength: signalDeps.dataLength$(),
-            sessionSlots: signalDeps.sessionSlots$?.() ?? 0,
+            sessionSlots: signalDeps.sessionSlots$(),
           })
         : getVisibleRange(
             vp.scrollLeft,

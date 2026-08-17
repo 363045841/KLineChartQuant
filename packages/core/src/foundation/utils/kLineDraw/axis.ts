@@ -63,8 +63,6 @@ export interface TimeAxisOptions {
   drawBottomBorder?: boolean
   /** K线级别，如 'daily'、'5min'、'15min' */
   period: string
-  /** 多日分时各交易日首个点的全局数据索引。 */
-  timeShareDayStartIndices?: ReadonlyArray<number>
   /** K 线中心点 x 坐标（逻辑像素），由 calcKLinePositions 预计算 */
   kLineCenters: number[]
   /** 数据索引可见范围 { start, end } */
@@ -374,25 +372,6 @@ export function drawTimeAxis(
   let labelFn: (ts: number) => { text: string; isYear: boolean }
 
   if (isTimeShare) {
-    const dayBoundaries = opts.timeShareDayStartIndices
-    if (dayBoundaries && dayBoundaries.length > 0) {
-      // 多日分时使用真实数据日界显示日期，位置与对应交易日首个点严格对齐。
-      setCanvasFont(ctx, regularFont)
-      for (const index of [0, ...dayBoundaries]) {
-        if (index < visibleRange.start || index >= visibleRange.end) continue
-        const centerX = kLineCenters[index - visibleRange.start]
-        const item = data[index]
-        if (centerX === undefined || !item) continue
-        const screenX = centerX - scrollLeft
-        if (screenX < paddingX || screenX > width - paddingX) continue
-        ctx.fillText(
-          formatYMDShanghai(item.timestamp).slice(5),
-          roundToPhysicalPixel(screenX, dpr),
-          alignToPhysicalPixelCenter(textY, dpr),
-        )
-      }
-      return
-    }
     // 所有时间标签使用共享槽位中心，首尾标签也必须与首尾量柱和十字线对齐。
     const market = opts.marketSession ?? ASHARE_MARKET_SESSION
     const sessionSlots = resolveMarketSessionSlots(market)

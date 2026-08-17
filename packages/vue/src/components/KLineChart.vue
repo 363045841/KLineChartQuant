@@ -8,8 +8,6 @@
         :search="searchSymbols"
         :k-line-level="kLineLevel"
         :k-line-adjust="kLineAdjust"
-        :time-share-days="timeShareDays"
-        :max-trading-days="currentSymbolItem?.capabilities?.timeShareRange?.maxTradingDays"
         :symbol-loading="symbolStatus === 'loading'"
         :symbol-error="symbolStatus === 'error'"
         :symbol-retrying="symbolRetrying"
@@ -27,7 +25,6 @@
         @remove-overlay-symbol="onRemoveOverlaySymbol"
         @k-line-level-change="onKLineLevelChange"
         @k-line-adjust-change="onKLineAdjustChange"
-        @time-share-days-change="onTimeShareDaysChange"
         @symbol-change="onSymbolChange"
         @add-watchlist="addWatchlistItem"
         @toggle-aggregation-source="setAggregationSourceEnabled"
@@ -478,7 +475,6 @@
 
   const initialKLineLevel = props.semanticConfig?.data?.period ?? 'daily'
   const kLineAdjust = ref(props.semanticConfig?.data?.adjust ?? 'none')
-  const timeShareDays = ref(1)
   const currentSymbol = ref('选择商品')
   const currentSymbolItem = ref<SymbolItem | null>(null)
   const symbolErrorMessage = ref<string | null>(null)
@@ -522,13 +518,6 @@
     kLineAdjust.value = adjust
     emit('kLineAdjustChange', adjust)
     syncSymbolsToController()
-  }
-
-  function onTimeShareDaysChange(days: number): void {
-    const maxDays = currentSymbolItem.value?.capabilities?.timeShareRange?.maxTradingDays
-    if (!Number.isInteger(days) || days < 1 || (maxDays !== undefined && days > maxDays)) return
-    timeShareDays.value = days
-    controller.value?.setTimeShareDays(days)
   }
 
   function formatUnsupportedSymbolMessage(item: SymbolItem, error: unknown): string {

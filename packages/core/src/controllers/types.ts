@@ -382,8 +382,6 @@ export interface ChartController extends DrawingChartAdapter {
   setCurrentPeriod(period: string): void
   /** Switch to time-share view for a specific date (YYYYMMDD), e.g. after double-clicking a daily bar */
   switchToTimeShareForDate(dateYYYYMMDD: number): void
-  /** 设置当前分时图查询的实际交易日数量；days 为 1 时保持单日分时。 */
-  setTimeShareDays(days: number): void
   /** Inject a complete custom data bundle (bypasses fetcher pipeline) */
   applyCustomData(source: CustomDataSource): void
   resetToFetcher(spec: SymbolSpec): void

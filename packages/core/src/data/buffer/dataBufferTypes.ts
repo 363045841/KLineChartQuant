@@ -4,7 +4,7 @@ import type { ReadonlySignal } from '../../foundation/reactivity/signal'
 import type { TimeShareData } from '../../foundation/types/price'
 import type { OlderDataStatus } from '../provider/types'
 
-import type { TimeShareFetcherFn, TimeShareDayFetchResult } from '../legacy/types'
+import type { TimeShareFetcherFn } from '../legacy/types'
 
 export interface DataWindow {
   earliestTs: number
@@ -60,12 +60,9 @@ export interface KLineBuffer extends DataBufferLike {
 
 export interface TimeShareBuffer extends DataBufferLike {
   getRawData(): TimeShareData[]
-  getDays(): ReadonlyArray<TimeShareDayFetchResult>
   setFetcher(fetcher: TimeShareFetcherFn | null): void
   setQueryDate(date: number): void
-  setQueryDays(days: number): void
   getFetcher(): TimeShareFetcherFn | null
   getQueryDate(): number
-  getQueryDays(): number
   load(spec: SymbolSpec): void
 }

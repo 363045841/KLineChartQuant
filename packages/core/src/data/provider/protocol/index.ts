@@ -23,9 +23,6 @@ export type {
   V1SourceCapabilities,
   V1SourceRejectionCode,
   V1TimeShareItem,
-  V1TimeShareDay,
-  V1TimeShareRangeRequest,
-  V1TimeShareRangeSeries,
   V1TimeShareRequest,
   V1TimeShareSeries,
 } from './types'

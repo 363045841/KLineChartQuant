@@ -49,12 +49,6 @@
       :supported-adjustments="supportedAdjustments"
       @update:model-value="emit('kLineAdjustChange', $event)"
     />
-    <TimeShareDaysDropdown
-      v-if="kLineLevel === 'timeshare' && maxTradingDays !== undefined"
-      :model-value="timeShareDays"
-      :max-trading-days="maxTradingDays"
-      @update:model-value="emit('timeShareDaysChange', $event)"
-    />
     <button
       v-if="showBackButton"
       type="button"
@@ -89,7 +83,6 @@
   import KLineAdjustmentDropdown, { type KLineAdjustment } from './KLineAdjustmentDropdown.vue'
   import KLineLevelDropdown, { type KLineLevel } from './KLineLevelDropdown.vue'
   import SymbolSelector from './SymbolSelector.vue'
-  import TimeShareDaysDropdown from './TimeShareDaysDropdown.vue'
   import type { SymbolItem } from './SymbolSelector.vue'
 
   export type { SymbolItem }
@@ -136,8 +129,6 @@
       symbolItem?: SymbolItem
       kLineLevel?: string
       kLineAdjust?: string
-      timeShareDays?: number
-      maxTradingDays?: number
       symbols?: SymbolItem[]
       search?: SymbolSearchFn<SymbolItem>
       symbolLoading?: boolean
@@ -167,7 +158,6 @@
     (e: 'removeOverlaySymbol', code: string): void
     (e: 'kLineLevelChange', level: KLineLevel): void
     (e: 'kLineAdjustChange', adjust: KLineAdjustment): void
-    (e: 'timeShareDaysChange', days: number): void
     (e: 'symbolChange', symbol: SymbolItem): void
     (e: 'addWatchlist', symbol: SymbolItem): void
     (e: 'toggleAggregationSource', name: string, enabled: boolean): void

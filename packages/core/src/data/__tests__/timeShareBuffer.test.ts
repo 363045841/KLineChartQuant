@@ -41,34 +41,6 @@ describe('TimeShareBuffer', () => {
     buf.dispose()
   })
 
-  // 验证多日请求保留按日分组数据，同时向旧渲染链路发布平铺点列。
-  it('stores multi-day timeshare data by trading day and flattens its points', async () => {
-    const buf = new TimeShareBuffer()
-    buf.setQueryDate(20260102)
-    buf.setQueryDays(2)
-    buf.setRangeRequestFetch(async (_spec, date, days) => {
-      expect(date).toBe(20260102)
-      expect(days).toBe(2)
-      return {
-        requestedDays: 2,
-        olderData: 'unknown',
-        days: [
-          { tradingDate: '2026-01-01', preClose: 9.5, data: [point(10, 1)] },
-          { tradingDate: '2026-01-02', preClose: 10.5, data: [point(11, 2)] },
-        ],
-      }
-    })
-    buf.load({ symbol: '000001', period: 'timeshare', source: 'gotdx' })
-
-    await vi.waitFor(() => expect(buf.getRawData()).toHaveLength(2))
-    expect(buf.getDays()).toEqual([
-      { tradingDate: '2026-01-01', preClose: 9.5, data: [point(10, 1)] },
-      { tradingDate: '2026-01-02', preClose: 10.5, data: [point(11, 2)] },
-    ])
-    expect(buf.getPreClose()).toBe(10.5)
-    buf.dispose()
-  })
-
   it('clears previous points when a new load starts (no stale date flash)', async () => {
     const buf = new TimeShareBuffer()
     buf.setInlineData([point(10), point(11)])

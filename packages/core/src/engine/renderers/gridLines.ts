@@ -19,7 +19,7 @@ export function createGridLinesRendererPlugin(): RendererPlugin {
     paneId: GLOBAL_PANE_ID,
     priority: RENDERER_PRIORITY.GRID,
 
-    draw(context: RenderContext) {
+draw(context: RenderContext) {
       const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters, settings } = context
       const colors = resolveThemeColors(
         context.theme,
@@ -44,7 +44,7 @@ export function createGridLinesRendererPlugin(): RendererPlugin {
         if (h) ctx.fillRect(h.x, h.y, h.width, h.height)
       }
 
-      // 水平网格线：从预计算的 yAxisTicks 取 Y 位置，确保与轴刻度对齐
+// 水平网格线：从预计算的 yAxisTicks 取 Y 位置，确保与轴刻度对齐
       if (context.yAxisTicks) {
         for (const tick of context.yAxisTicks) {
           const h = createHorizontalLineRect(startX, endX, tick.y, dpr)
@@ -52,12 +52,10 @@ export function createGridLinesRendererPlugin(): RendererPlugin {
         }
       }
 
-      // 分时模式仅按显式多日分组画纵向分隔，避免单日数据的首点形成伪分隔线。
-      const boundaries =
-        context.period === 'timeshare'
-          ? (context.timeShareDayStartIndices ?? [])
-          : findMonthBoundaries(klineData, context.monthKeys)
-      if (boundaries.length > 0) {
+      // 分时模式只画水平网格线，不画月份纵向分界线（分时数据无跨月语义，且首点月份边界会形成左侧纵线）
+      if (context.period !== 'timeshare') {
+        const boundaries = findMonthBoundaries(klineData, context.monthKeys)
+
         for (const idx of boundaries) {
           if (idx < range.start || idx >= range.end || idx >= klineData.length) continue
 

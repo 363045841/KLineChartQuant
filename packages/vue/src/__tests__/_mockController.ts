@@ -50,12 +50,7 @@ function createSignal<T>(initial: T): TestSignal<T> {
       subs.delete(listener)
     }
   }
-  return Object.assign(read, {
-    peek,
-    set,
-    subscribe,
-    subscriberCount: () => subs.size,
-  }) as TestSignal<T>
+  return Object.assign(read, { peek, set, subscribe, subscriberCount: () => subs.size }) as TestSignal<T>
 }
 
 export interface MockChartController extends ChartController {
@@ -158,7 +153,6 @@ export function createMockChartController(
     setCurrentSymbol: () => {},
     setCurrentPeriod: () => {},
     switchToTimeShareForDate: () => {},
-    setTimeShareDays: () => {},
     applyCustomData: () => {},
     setDataFetcher: (fetcher) => {
       setDataFetcherCalls.push(fetcher)
