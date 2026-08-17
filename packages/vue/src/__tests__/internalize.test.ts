@@ -1,12 +1,10 @@
 /**
- * Tests for the 3-part internalization of the Vue KLineChart SFC:
- *   1. dataFetcher default (routerDataFetcher) + override
- *   2. theme prop (controlled) applied on mount + on change, themeChange still emits
- *   3. fullscreen internalization (uncontrolled toggles DOM, controlled does not)
+ * Tests for the internalization of the Vue KLineChart SFC:
+ *   1. theme prop (controlled) applied on mount + on change, themeChange still emits
+ *   2. fullscreen internalization (uncontrolled toggles DOM, controlled does not)
  *
  * Strategy: mock `@363045841yyt/klinechart-core/controllers` so the heavy real
- * `createChartController` (canvas engine) is swapped for the shape-compatible
- * mock, while `routerDataFetcher` and all other named exports stay real.
+ * `createChartController` (canvas engine) is swapped for the shape-compatible mock.
  */
 
 import { mount } from '@vue/test-utils'
@@ -31,7 +29,7 @@ vi.mock('@363045841yyt/klinechart-core/controllers', async () => {
 import { KlineChart } from '../components/index'
 import type { LegendSlotProps } from '../index'
 
-import { loadBuiltinIndicators, routerDataFetcher } from '@363045841yyt/klinechart-core/controllers'
+import { loadBuiltinIndicators } from '@363045841yyt/klinechart-core/controllers'
 
 // ── Pre-load builtin indicators so IndicatorSelector mounted hook doesn't
 //    trigger in-flight dynamic imports after environment teardown ──
@@ -114,35 +112,6 @@ async function flushMount() {
   await Promise.resolve()
   await nextTick()
 }
-
-describe('KLineChart internalization — dataFetcher default', () => {
-  it('applies the built-in routerDataFetcher when no prop is bound', async () => {
-    const wrapper = mount(KlineChart, { attachTo: document.body })
-    await flushMount()
-
-    const calls = mockController.setDataFetcherCalls()
-    expect(calls.length).toBe(1)
-    expect(calls[0]).toBe(routerDataFetcher)
-
-    wrapper.unmount()
-  })
-
-  it('uses the caller-provided dataFetcher when the prop is bound', async () => {
-    const customFetcher = vi.fn(async () => [])
-    const wrapper = mount(KlineChart, {
-      attachTo: document.body,
-      props: { dataFetcher: customFetcher },
-    })
-    await flushMount()
-
-    const calls = mockController.setDataFetcherCalls()
-    expect(calls.length).toBe(1)
-    expect(calls[0]).toBe(customFetcher)
-    expect(calls[0]).not.toBe(routerDataFetcher)
-
-    wrapper.unmount()
-  })
-})
 
 describe('KLineChart legend slot lifecycle', () => {
   it('does not subscribe to legend context or enable external mode without a legend slot', async () => {

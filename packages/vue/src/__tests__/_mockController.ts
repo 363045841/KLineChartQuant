@@ -13,7 +13,6 @@ import type {
   ChartController,
   ChartMountOptions,
   ChartViewport,
-  DataFetcher,
   DrawingObject,
   DrawingToolType,
   IndicatorDefinition,
@@ -56,8 +55,6 @@ function createSignal<T>(initial: T): TestSignal<T> {
 export interface MockChartController extends ChartController {
   /** spy: how many times `dispose` was called */
   disposeCalls: () => number
-  /** spy: data fetchers passed to `setDataFetcher` */
-  setDataFetcherCalls: () => ReadonlyArray<DataFetcher | null>
   /** spy: themes passed to `setTheme` */
   setThemeCalls: () => ReadonlyArray<'light' | 'dark'>
   /** spy: main legend renderer configuration updates */
@@ -75,7 +72,6 @@ export function createMockChartController(
   opts: Partial<ChartMountOptions> = {},
 ): MockChartController {
   let disposeCalls = 0
-  const setDataFetcherCalls: Array<DataFetcher | null> = []
   const setThemeCalls: Array<'light' | 'dark'> = []
 
   const viewport = createSignal<ChartViewport>({
@@ -154,9 +150,6 @@ export function createMockChartController(
     setCurrentPeriod: () => {},
     switchToTimeShareForDate: () => {},
     applyCustomData: () => {},
-    setDataFetcher: (fetcher) => {
-      setDataFetcherCalls.push(fetcher)
-    },
     ensureDataRange: () => {},
     setTheme: (next) => {
       setThemeCalls.push(next)
@@ -227,7 +220,6 @@ export function createMockChartController(
       disposeCalls += 1
     },
     disposeCalls: () => disposeCalls,
-    setDataFetcherCalls: () => setDataFetcherCalls,
     setThemeCalls: () => setThemeCalls,
     rendererConfigCalls: () => rendererConfigCalls,
     legendSubscriberCount: () => legendTemplateContext.subscriberCount(),

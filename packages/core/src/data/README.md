@@ -9,7 +9,7 @@
 1. 屏蔽多数据源（gotdx / BaoStock / TradingView / Mock）的协议差异。
 2. 提供统一的增量加载与缓存合并，避免滚动时重复拉取。
 3. 统一处理重试、错误、加载状态，供 UI 展示。
-4. 让旧 `DataFetcher` 调用链与新的统一 Provider 模型并行共存、平滑迁移。
+4. 让图表运行时只通过统一 Provider 取数，避免第二套 Fetcher 契约。
 
 ## 结构
 
@@ -18,13 +18,11 @@ data/
 ├── index.ts          # 数据层公共出口：re-export 各子模块，副作用注册内置数据源
 ├── buffer/           # 数据缓冲层：K 线/分时的增量加载、缓存合并、加载状态
 ├── depth/            # 深度数据：盘口订单簿（binance SSE + 热力图连接器）
-├── legacy/           # 旧 DataFetcher 体系：@DataFetcher 注册、路由、baseUrl 覆盖、旧 fetch 实现
-└── provider/         # 统一行情 Provider 体系（V1）：注册表、数据源元数据、wire 协议、各源装配
+└── provider/         # 统一行情 Provider 体系：注册表、数据源元数据、wire 协议、各源装配
     ├── registry.ts       # MarketDataProviderRegistry：Provider 注册 + 运行时配置（enabled/baseUrl）
     ├── sourceRegistry.ts # dataSourceRegistry：数据源静态元数据（id/displayName/description/defaultBaseUrl）
     ├── types.ts          # 领域模型：InstrumentDescriptor / BarSeries / MarketDataProvider 等
-    ├── legacyAdapter.ts  # Provider → 旧 Fetcher 的一次性迁移桥
-    ├── protocol/         # V1 wire 契约：envelope、HTTP transport、通用 Provider 装配器
+    ├── protocol/         # wire 契约：envelope、HTTP transport、通用 Provider 装配器
     └── sources/          # 各数据源装配：gotdx / baostock / tradingview / mock 的 Provider 实例 + 注册
 ```
 
@@ -40,7 +38,7 @@ data/
 - `dataBufferTypes.ts`：缓冲层共享契约（`DataBufferLike` / `KLineBuffer` / `TimeShareBuffer`）。
 - `kLineDataStore.ts` / `timeKeyIndex.ts` / `fetchScheduler.ts`：存储合并、时间索引、调度器。
 
-支持两种取数方式：`setFetcher`（旧 `DataFetcher` 回调）或 `setRequestFetch`（统一 Provider 批量请求，由 `chartDataManager.requestBars` 注入）。
+K 线与分时缓冲只通过 `setRequestFetch` 取数，由 `chartDataManager` 注入 `SourceRouter`。
 
 ### depth/ — 深度数据
 
@@ -50,17 +48,7 @@ data/
 - `depthConnector.ts`：连接深度源与热力图渲染的控制器。
 - `depthTypes.ts`：深度领域类型。
 
-### legacy/ — 旧 DataFetcher 体系
-
-迁移保留的旧体系，供尚未迁移的数据源与兼容路径使用。
-
-- `fetcherDefinitionRegistry.ts`：`@DataFetcher` 装饰器注册表。
-- `router.ts`：`routerDataFetcher` / `routerSearchFetchers` / `routerTimeShareFetcher` 按名分发。
-- `fetcherBaseUrl.ts`：运行时 Base URL 覆盖表。
-- `types.ts`：旧取数契约（`FetchConfig` / `SearchResult` / `DataFetcherFn` 等）。
-- `baostock.ts` / `tradingview.ts` / `mock.ts`：旧 `@DataFetcher` 实现（含 mock 本地数据生成器）。
-
-### provider/ — 统一行情 Provider 体系（V1）
+### provider/ — 统一行情 Provider 体系
 
 前端主导的统一行情模型。数据源适配器把私有协议转换为标准类型，图表与 UI 不解析上游字段（`providerRef` 只由创建它的 Provider 消费）。
 
@@ -68,9 +56,7 @@ data/
 - `sourceRegistry.ts`：数据源静态元数据，作为注册表与 UI 展示的单一事实来源。
 - `protocol/`：V1 wire 契约 —— `types.ts`（请求/响应类型）、`httpTransport.ts`（HTTP 实现）、`provider.ts`（`createMarketDataProvider` 通用装配器）。
 - `sources/`：各数据源 Provider 装配与注册（gotdx / baostock / finshare / tradingview / mock）。mock 为本地生成、不依赖后端。
-- `legacyAdapter.ts`：把 Provider 的能力桥接回旧 `DataFetcher` 接口，供迁移期兼容。
-
-#### V1 协议接口
+#### 协议接口
 
 `provider/protocol/` 定义前端唯一的数据接入契约（`MarketDataTransport`），任何后端实现该契约即可接入。HTTP 实现位于 `httpTransport.ts`，请求统一包装为 `ProtocolEnvelope<T>`，失败时返回 `ProtocolErrorEnvelope`。协议名 `market-data-v1`，版本 1。
 
@@ -88,9 +74,9 @@ data/
 - `ProtocolBarRequest` / `ProtocolBarSeries`：K 线拉取，`limit` 控制页大小，`before` 为可选的 UTC 毫秒排他游标；不传游标返回最新一页。
 - `ProtocolTimeShareRequest` / `ProtocolTimeShareSeries`：分时拉取，按品种时区 `YYYY-MM-DD` 交易日，响应含 `preClose`。
 
-## 两条取数路径的取舍
+## 取数路径
 
-图表运行时优先走 Provider 路径（`chartDataManager.resolveProviderInstrument`），未注册 Provider 的源回退到旧 `routerDataFetcher`。聚合源管理 UI 会合并两套注册表展示完整数据源列表。新数据源应实现为 Provider 并注册进 `marketDataProviderRegistry`。
+图表运行时只走 Provider 路径：`ChartDataManager` 通过 `SourceRouter` 选择已注册的 `MarketDataProvider`。聚合源管理 UI 只展示 Provider 注册表。新数据源应实现为 Provider 并注册进 `marketDataProviderRegistry`。
 
 ## 公共导出
 

@@ -84,10 +84,10 @@
 </template>
 
 <script setup lang="ts">
-  import { parseFetcherEndpoint } from '@363045841yyt/klinechart-core/controllers'
   import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
   import {
+    parseProviderEndpoint,
     probeAggregationSource,
     isMockSourceName,
     type AggregationSourceEndpoint,
@@ -166,11 +166,11 @@
   }
 
   function defaultHost(source: AggregationSourceDefinition): string {
-    return source.defaultBaseUrl ? parseFetcherEndpoint(source.defaultBaseUrl).host : ''
+    return source.defaultBaseUrl ? parseProviderEndpoint(source.defaultBaseUrl).host : ''
   }
 
   function defaultPort(source: AggregationSourceDefinition): string {
-    return source.defaultBaseUrl ? parseFetcherEndpoint(source.defaultBaseUrl).port : ''
+    return source.defaultBaseUrl ? parseProviderEndpoint(source.defaultBaseUrl).port : ''
   }
 
   function toggleEndpoint(name: string) {

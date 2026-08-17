@@ -1,9 +1,4 @@
-import {
-  clearFetcherBaseUrlsForTest,
-  getFetcherBaseUrl,
-  marketDataProviderRegistry,
-  type DataFetcherDefinition,
-} from '@363045841yyt/klinechart-core/controllers'
+import { marketDataProviderRegistry } from '@363045841yyt/klinechart-core/controllers'
 import { nextTick } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -14,39 +9,43 @@ import {
   resolveAggregationSourceEndpoints,
   resolveEnabledAggregationSources,
   useAggregationSources,
+  type AggregationSourceDefinition,
 } from '../useAggregationSources'
-
-const fetcher = async () => []
-const searcher = async () => []
 
 function source(
   name: string,
   options: { searchable?: boolean; defaultBaseUrl?: string } = {},
-): DataFetcherDefinition {
+): AggregationSourceDefinition {
   const searchable = options.searchable ?? true
   return {
     name,
     displayName: name.toUpperCase(),
     capabilities: searchable ? ['search'] : ['daily'],
     defaultBaseUrl: options.defaultBaseUrl,
-    fetcher,
-    searcher: searchable ? searcher : undefined,
   }
 }
 
 describe('useAggregationSources', () => {
   beforeEach(() => {
     window.localStorage.clear()
-    clearFetcherBaseUrlsForTest()
     marketDataProviderRegistry.setConfig('gotdx', { baseUrl: undefined })
   })
 
   afterEach(() => {
-    clearFetcherBaseUrlsForTest()
     marketDataProviderRegistry.setConfig('gotdx', { baseUrl: undefined })
+    marketDataProviderRegistry.unregister('first')
+    marketDataProviderRegistry.unregister('second')
+    marketDataProviderRegistry.unregister('probe-source')
   })
 
-  it('enables every searchable fetcher on first use', () => {
+  it('enables every searchable provider on first use', () => {
+    marketDataProviderRegistry.register({
+      source: { id: 'first', displayName: 'First' },
+      async probe() {
+        return { status: 'online', checkedAt: 1 }
+      },
+      catalog: { search: async () => [] },
+    })
     expect(
       resolveEnabledAggregationSources([
         source('first'),
@@ -55,7 +54,21 @@ describe('useAggregationSources', () => {
     ).toEqual(['first'])
   })
 
-  it('keeps disabled fetchers disabled and enables newly registered fetchers', () => {
+  it('keeps disabled sources disabled and enables newly registered sources', () => {
+    marketDataProviderRegistry.register({
+      source: { id: 'first', displayName: 'First' },
+      async probe() {
+        return { status: 'online', checkedAt: 1 }
+      },
+      catalog: { search: async () => [] },
+    })
+    marketDataProviderRegistry.register({
+      source: { id: 'second', displayName: 'Second' },
+      async probe() {
+        return { status: 'online', checkedAt: 1 }
+      },
+      catalog: { search: async () => [] },
+    })
     expect(
       resolveEnabledAggregationSources([source('first'), source('second')], {
         known: ['first'],
@@ -79,19 +92,7 @@ describe('useAggregationSources', () => {
     })
   })
 
-  it('applies endpoint edits to the core runtime base URL', () => {
-    applyAggregationSourceBaseUrls(
-      [source('legacy-source', { defaultBaseUrl: 'http://127.0.0.1:8080' })],
-      {
-        'legacy-source': { host: '10.0.0.2', port: '7000' },
-      },
-    )
-
-    expect(getFetcherBaseUrl('legacy-source', 'http://127.0.0.1:8080')).toBe('http://10.0.0.2:7000')
-  })
-
-  // 验证已迁移 Provider 的地址写入 Provider registry，而不是旧 Fetcher 地址表。
-  it('applies endpoint edits to a migrated provider', () => {
+  it('applies endpoint edits to a provider registry', () => {
     applyAggregationSourceBaseUrls(
       [{ name: 'gotdx', displayName: 'GOTDX', defaultBaseUrl: 'http://127.0.0.1:8080' }],
       {
@@ -107,6 +108,20 @@ describe('useAggregationSources', () => {
   })
 
   it('persists toggle and endpoint changes', async () => {
+    marketDataProviderRegistry.register({
+      source: { id: 'first', displayName: 'First', defaultBaseUrl: 'http://127.0.0.1:8080' },
+      async probe() {
+        return { status: 'online', checkedAt: 1 }
+      },
+      catalog: { search: async () => [] },
+    })
+    marketDataProviderRegistry.register({
+      source: { id: 'second', displayName: 'Second' },
+      async probe() {
+        return { status: 'online', checkedAt: 1 }
+      },
+      catalog: { search: async () => [] },
+    })
     const state = useAggregationSources([
       source('first', { defaultBaseUrl: 'http://127.0.0.1:8080' }),
       source('second'),
@@ -125,55 +140,25 @@ describe('useAggregationSources', () => {
     })
   })
 
-  // 验证旧 searcher 拨测成功时返回在线状态与实测延迟。
-  it('marks a fetcher online when its search probe succeeds', async () => {
-    const search = vi.fn().mockResolvedValue([])
-    const definition = { ...source('first'), searcher: search }
-    const controller = new AbortController()
-
-    await expect(probeAggregationSource(definition, controller.signal)).resolves.toEqual({
-      status: 'online',
-      latencyMs: expect.any(Number),
-    })
-    expect(search).toHaveBeenCalledWith('first', {
-      query: '0',
-      limit: 1,
-      signal: controller.signal,
-    })
-  })
-
-  // 验证旧 searcher 拨测失败时返回离线状态且无延迟。
-  it('marks a fetcher offline when its search probe fails', async () => {
-    const definition = {
-      ...source('first'),
-      searcher: vi.fn().mockRejectedValue(new Error('down')),
-    }
-
-    await expect(probeAggregationSource(definition, new AbortController().signal)).resolves.toEqual(
+  it('marks a source offline when it is not a registered provider', async () => {
+    await expect(probeAggregationSource(source('first'), new AbortController().signal)).resolves.toEqual(
       {
         status: 'offline',
       },
     )
   })
 
-  // 验证已迁移 Provider 优先使用统一 probe，而不是旧 searcher 拨测。
-  it('uses MarketDataProvider probe for migrated sources', async () => {
+  it('uses MarketDataProvider probe for registered sources', async () => {
     const probe = vi.fn().mockResolvedValue({ status: 'online', checkedAt: 1, latencyMs: 12 })
     marketDataProviderRegistry.register({
       source: { id: 'probe-source', displayName: 'Probe Source' },
       probe,
+      catalog: { search: async () => [] },
     })
-    const search = vi.fn().mockResolvedValue([])
 
     await expect(
-      probeAggregationSource(
-        { ...source('probe-source'), searcher: search },
-        new AbortController().signal,
-      ),
+      probeAggregationSource(source('probe-source'), new AbortController().signal),
     ).resolves.toEqual({ status: 'online', latencyMs: 12 })
     expect(probe).toHaveBeenCalledOnce()
-    expect(search).not.toHaveBeenCalled()
-
-    marketDataProviderRegistry.unregister('probe-source')
   })
 })

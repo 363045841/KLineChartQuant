@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { JSDOM } from 'jsdom'
 
-import type { DataFetcher, KLineData, SymbolSpec } from '../../../controllers/types'
+import type { KLineData, SymbolSpec } from '../../../controllers/types'
+import { marketDataProviderRegistry } from '../../../data/provider/registry'
+import type { MarketDataProvider } from '../../../data/provider/types'
 import { createSignal } from '../../../foundation/reactivity/signal'
 import type { ChartDom } from '../../chartTypes'
 import { createComparisonState } from '../../state/comparisonState'
@@ -55,6 +57,54 @@ function createMockViewport(scrollLeft = 800): ViewportStateModule {
   } as unknown as ViewportStateModule
 }
 
+function instrumentFor(symbol: string) {
+  return {
+    id: `test:${symbol}`,
+    sourceId: 'test',
+    symbol,
+    name: symbol,
+    assetClass: 'stock' as const,
+    exchange: 'SZ',
+    sessionId: 'CN',
+    capabilities: {
+      bars: { periods: ['daily'] as const, adjustments: ['none'] as const },
+      timeShare: true,
+    },
+  }
+}
+
+function registerTestProvider(provider: MarketDataProvider): void {
+  if (marketDataProviderRegistry.get('test')) marketDataProviderRegistry.unregister('test')
+  marketDataProviderRegistry.register(provider)
+}
+
+function createTestProvider(options: {
+  fetchBars?: MarketDataProvider['bars']
+  fetchTimeShare?: NonNullable<MarketDataProvider['timeShare']>['fetch']
+}): MarketDataProvider {
+  return {
+    source: {
+      id: 'test',
+      displayName: 'Test',
+      capabilities: {
+        assetClasses: ['stock'],
+        bars: { periods: ['daily'], adjustments: ['none'] },
+        timeShare: true,
+      },
+    },
+    async probe() {
+      return { status: 'online', checkedAt: 1 }
+    },
+    catalog: {
+      async search(query) {
+        return [instrumentFor(query.keyword)]
+      },
+    },
+    bars: options.fetchBars,
+    timeShare: options.fetchTimeShare ? { fetch: options.fetchTimeShare } : undefined,
+  }
+}
+
 function createDependencies(
   dom: ChartDom,
   setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => void,
@@ -93,6 +143,7 @@ describe('ChartDataManager incremental load', () => {
   afterEach(() => {
     manager?.destroy()
     manager = null
+    marketDataProviderRegistry.unregister('test')
     vi.unstubAllGlobals()
   })
 
@@ -100,18 +151,33 @@ describe('ChartDataManager incremental load', () => {
     const now = Date.now()
     const initialStart = now - 365 * MS_PER_DAY
     let fetchCount = 0
-    const fetcher: DataFetcher = async () => {
-      fetchCount++
-      return fetchCount === 1
-        ? [makeKLine(initialStart), makeKLine(now)]
-        : [makeKLine(initialStart - 90 * MS_PER_DAY)]
-    }
+    registerTestProvider(
+      createTestProvider({
+        fetchBars: {
+          async fetch() {
+            fetchCount++
+            return {
+              instrumentId: 'test:sh.600000',
+              period: 'daily',
+              adjustment: 'none',
+              timezone: 'Asia/Shanghai',
+              olderData: fetchCount === 1 ? 'available' : 'exhausted',
+              data:
+                fetchCount === 1
+                  ? [makeKLine(initialStart), makeKLine(now)]
+                  : [makeKLine(initialStart - 90 * MS_PER_DAY)],
+            }
+          },
+        },
+      }),
+    )
     const spec: SymbolSpec = {
       symbol: 'sh.600000',
       market: 'CN',
       period: 'daily',
       adjust: 'none',
-      source: 'mock',
+      source: 'test',
+      instrument: instrumentFor('sh.600000'),
     }
     const dataState = createDataState()
     const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
@@ -130,7 +196,6 @@ describe('ChartDataManager incremental load', () => {
       dataState,
       dataManagerState,
     )
-    manager.setDataFetcher(fetcher)
     manager.setSymbols([spec])
 
     await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
@@ -153,10 +218,23 @@ describe('ChartDataManager incremental load', () => {
 
   it('does not reuse primary data across unified markets', async () => {
     let fetchCount = 0
-    const fetcher: DataFetcher = async () => {
-      fetchCount++
-      return [makeKLine(Date.now())]
-    }
+    registerTestProvider(
+      createTestProvider({
+        fetchBars: {
+          async fetch() {
+            fetchCount++
+            return {
+              instrumentId: 'test:000001',
+              period: 'daily',
+              adjustment: 'none',
+              timezone: 'Asia/Shanghai',
+              olderData: 'unknown',
+              data: [makeKLine(Date.now())],
+            }
+          },
+        },
+      }),
+    )
     const dataState = createDataState()
     const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
     const dataManagerState = createDataManagerState()
@@ -174,15 +252,25 @@ describe('ChartDataManager incremental load', () => {
       dataState,
       dataManagerState,
     )
-    manager.setDataFetcher(fetcher)
-
     manager.setSymbols([
-      { symbol: '000001', market: 'CN', period: 'daily', source: 'mock' },
+      {
+        symbol: '000001',
+        market: 'CN',
+        period: 'daily',
+        source: 'test',
+        instrument: { ...instrumentFor('000001'), id: 'test:CN:000001' },
+      },
     ])
     await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
 
     manager.setSymbols([
-      { symbol: '000001', market: 'HK', period: 'daily', source: 'mock' },
+      {
+        symbol: '000001',
+        market: 'HK',
+        period: 'daily',
+        source: 'test',
+        instrument: { ...instrumentFor('000001'), id: 'test:HK:000001', sessionId: 'HK' },
+      },
     ])
     await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
 
@@ -209,12 +297,27 @@ describe('ChartDataManager incremental load', () => {
       dataState,
       dataManagerState,
     )
-    manager.setTimeShareFetcher(async () => ({
-      data: [{ timestamp: 1, price: 10, average: 10 }],
-      preClose: 9.5,
-    }))
+    registerTestProvider(
+      createTestProvider({
+        fetchTimeShare: async () => ({
+          instrumentId: 'test:000001',
+          tradingDate: '2026-08-06',
+          timezone: 'Asia/Shanghai',
+          preClose: 9.5,
+          data: [{ timestamp: 1, price: 10, average: 10 }],
+        }),
+      }),
+    )
 
-    manager.setSymbols([{ symbol: '000001', market: 'CN', period: 'timeshare', source: 'mock' }])
+    manager.setSymbols([
+      {
+        symbol: '000001',
+        market: 'CN',
+        period: 'timeshare',
+        source: 'test',
+        instrument: instrumentFor('000001'),
+      },
+    ])
 
     await vi.waitFor(() => expect(dataState.readonly.data.peek()).toHaveLength(1))
     expect(scheduleDraw).toHaveBeenCalled()
@@ -223,9 +326,15 @@ describe('ChartDataManager incremental load', () => {
   it(
     'mirrors active buffer lastError onto dataError',
     async () => {
-      const fetcher: DataFetcher = async () => {
-        throw new Error('[gotdx] stock/kline-by-date failed: 500')
-      }
+      registerTestProvider(
+        createTestProvider({
+          fetchBars: {
+            async fetch() {
+              throw new Error('[gotdx] stock/kline-by-date failed: 500')
+            },
+          },
+        }),
+      )
       const dataState = createDataState()
       const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
       const dataManagerState = createDataManagerState()
@@ -243,12 +352,21 @@ describe('ChartDataManager incremental load', () => {
         dataState,
         dataManagerState,
       )
-      manager.setDataFetcher(fetcher)
-      manager.setSymbols([{ symbol: '158017', market: 'CN', period: 'daily', source: 'gotdx' }])
+      manager.setSymbols([
+        {
+          symbol: '158017',
+          market: 'CN',
+          period: 'daily',
+          source: 'test',
+          instrument: instrumentFor('158017'),
+        },
+      ])
 
       await vi.waitFor(
         () =>
-          expect(manager!.dataError.peek()).toBe('[gotdx] stock/kline-by-date failed: 500'),
+          expect(manager!.dataError.peek()).toBe(
+            '[test] Error: [gotdx] stock/kline-by-date failed: 500',
+          ),
         { timeout: 10_000 },
       )
     },

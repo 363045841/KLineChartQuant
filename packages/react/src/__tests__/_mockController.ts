@@ -135,9 +135,6 @@ export function createMockChartController(
     applyCustomData() {
       /* no-op */
     },
-    setDataFetcher() {
-      /* no-op */
-    },
     ensureDataRange() {
       /* no-op */
     },

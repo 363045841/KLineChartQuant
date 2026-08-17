@@ -1,9 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { KLineChartWC, type KLineChartWCProps } from '../src/KLineChartWC'
-import { mockDataFetcher } from '@363045841yyt/klinechart-core/controllers'
 import '@363045841yyt/klinechart/web-component'
-
-const dataFetcher = mockDataFetcher
 
 const SIZES = [
   { w: '95%', h: '95%' },
@@ -122,7 +119,6 @@ export default function App() {
         }}
       >
         <KLineChartWC
-          dataFetcher={dataFetcher}
           style={{ width: '100%', height: '100%' }}
           onToggleFullscreen={toggleFullscreen}
         />
@@ -138,7 +134,7 @@ export default function App() {
               </button>
             </header>
             <div style={styles.modalBody}>
-              <KLineChartWC dataFetcher={dataFetcher} style={{ width: '100%', height: '100%' }} />
+              <KLineChartWC style={{ width: '100%', height: '100%' }} />
             </div>
           </div>
         </div>

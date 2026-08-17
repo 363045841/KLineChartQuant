@@ -4,8 +4,6 @@ import type { ReadonlySignal } from '../../foundation/reactivity/signal'
 import type { TimeShareData } from '../../foundation/types/price'
 import type { OlderDataStatus, TimeShareRange } from '../provider/types'
 
-import type { TimeShareFetcherFn } from '../legacy/types'
-
 export interface DataWindow {
   earliestTs: number
   latestTs: number
@@ -31,9 +29,6 @@ export interface BarPageResult {
   olderData: OlderDataStatus
 }
 
-/** 非 V1 自定义请求的兼容结果；状态未知时不得由前端推断耗尽。 */
-export type BarPageFetchResult = BarPageResult | ReadonlyArray<KLineData>
-
 export interface DataBufferLike {
   readonly data: ReadonlySignal<DataChange>
   readonly loading: ReadonlySignal<boolean>
@@ -51,7 +46,7 @@ export interface KLineBuffer extends DataBufferLike {
   getMonthKeys(): Int32Array | null
   getDayKeys(): Int32Array | null
   setRequestFetch(
-    fn: ((spec: SymbolSpec, page: BarPageRequest) => Promise<BarPageFetchResult>) | null,
+    fn: ((spec: SymbolSpec, page: BarPageRequest) => Promise<BarPageResult>) | null,
   ): void
   setSymbol(spec: SymbolSpec, initialStartTs?: number): void
   setCurrentSpec(spec: SymbolSpec): void
@@ -64,9 +59,16 @@ export interface TimeShareBuffer extends DataBufferLike {
   setInlineData(data: ReadonlyArray<TimeShareData>, preClose: number | null): void
   getRange(): TimeShareRange | null
   setRange(range: TimeShareRange): void
-  setFetcher(fetcher: TimeShareFetcherFn | null): void
+  setRequestFetch(
+    fn: ((spec: SymbolSpec, date?: number) => Promise<TimeShareResult>) | null,
+  ): void
   setQueryDate(date: number): void
-  getFetcher(): TimeShareFetcherFn | null
   getQueryDate(): number
   load(spec: SymbolSpec): void
+}
+
+/** 分时请求结果：点列与昨收必须作为一个业务快照返回。 */
+export interface TimeShareResult {
+  data: ReadonlyArray<TimeShareData>
+  preClose: number | null
 }

@@ -19,7 +19,6 @@ import {
 } from './dataBuffer.effects'
 import type {
   BarPageRequest,
-  BarPageFetchResult,
   BarPageResult,
   DataBufferLike,
   DataWindow,
@@ -46,7 +45,7 @@ export class DataBuffer implements KLineBuffer {
   private _scheduler = new FetchScheduler()
   private _keyIndex = new TimeKeyIndex()
   private _requestFetch:
-    | ((spec: SymbolSpec, page: BarPageRequest) => Promise<BarPageFetchResult>)
+    | ((spec: SymbolSpec, page: BarPageRequest) => Promise<BarPageResult>)
     | null = null
   /** 后端声明的当前缓存左侧历史状态；仅 exhausted 会停止继续翻页。 */
   private _olderData: OlderDataStatus = 'unknown'
@@ -94,7 +93,7 @@ export class DataBuffer implements KLineBuffer {
   }
 
   setRequestFetch(
-    fn: ((spec: SymbolSpec, page: BarPageRequest) => Promise<BarPageFetchResult>) | null,
+    fn: ((spec: SymbolSpec, page: BarPageRequest) => Promise<BarPageResult>) | null,
   ): void {
     this._requestFetch = fn
   }
@@ -197,9 +196,7 @@ export class DataBuffer implements KLineBuffer {
                   new Error(`[DataBuffer] source is required for symbol "${s.symbol}"`),
                 )
               }
-              const result = await requestFetch(s, request)
-              if (!Array.isArray(result)) return result as BarPageResult
-              return { data: result, olderData: 'unknown' }
+               return requestFetch(s, request)
             },
             catch: (e) => e,
           }),

@@ -308,7 +308,6 @@ pnpm inspect
 | 属性 | 类型 | 默认值 | 说明 |
 |------|------|---------|-------------|
 | semanticConfig | `SemanticChartConfig` | — | 语义化配置（可选）。传入后驱动图表数据、指标、标记和选项 |
-| dataFetcher | `DataFetcher` | 内置 | 数据获取函数，默认为代理 `/api/stock` 的内置请求器 |
 | theme | `'light' \| 'dark'` | — | 图表主题。可用 `v-model:theme` 双向绑定 |
 | isFullscreen | `boolean` | — | 全屏状态（受控）。不传则使用组件内部非受控模式 |
 | timezone | `string` | `'Asia/Shanghai'` | 时区 |

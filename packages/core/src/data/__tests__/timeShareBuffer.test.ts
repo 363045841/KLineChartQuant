@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { TimeShareBuffer } from '../buffer/timeShareBuffer'
+import type { TimeShareResult } from '../buffer/dataBufferTypes'
 import type { TimeShareData } from '../../foundation/types/price'
-import type { TimeShareFetcherFn, TimeShareFetchResult } from '../legacy/types'
 import type { TimeShareRange } from '../provider/types'
 
 function point(price: number, ts = 1): TimeShareData {
@@ -81,22 +81,11 @@ describe('TimeShareBuffer', () => {
 
   it('stores the fetched preClose with its time-share points', async () => {
     const buf = new TimeShareBuffer()
-    buf.setFetcher(async () => ({ data: [point(10)], preClose: 9.5 }))
-    buf.load({ symbol: '000001', period: 'timeshare', source: 'gotdx' })
+    buf.setRequestFetch(async () => ({ data: [point(10)], preClose: 9.5 }))
+    buf.load({ symbol: '000001', market: 'CN', period: 'timeshare', source: 'gotdx' })
 
     await vi.waitFor(() => expect(buf.getRawData()).toHaveLength(1))
     expect(buf.getPreClose()).toBe(9.5)
-    buf.dispose()
-  })
-
-  it('accepts a custom fetcher that returns a legacy point array', async () => {
-    const buf = new TimeShareBuffer()
-    const fetcher: TimeShareFetcherFn = async () => [point(10)]
-    buf.setFetcher(fetcher)
-    buf.load({ symbol: 'custom', period: 'timeshare', source: 'custom' })
-
-    await vi.waitFor(() => expect(buf.getRawData()).toEqual([point(10)]))
-    expect(buf.getPreClose()).toBeNull()
     buf.dispose()
   })
 
@@ -105,14 +94,14 @@ describe('TimeShareBuffer', () => {
     buf.setInlineData([point(10), point(11)], null)
     expect(buf.getRawData()).toHaveLength(2)
 
-    let resolveFetch!: (v: TimeShareFetchResult) => void
-    const pending = new Promise<TimeShareFetchResult>((resolve) => {
+    let resolveFetch!: (v: TimeShareResult) => void
+    const pending = new Promise<TimeShareResult>((resolve) => {
       resolveFetch = resolve
     })
-    buf.setFetcher(async () => pending)
+    buf.setRequestFetch(async () => pending)
     buf.setQueryDate(20260101)
     buf.setInlineData([point(10), point(11)], 9.9)
-    buf.load({ symbol: '000001', period: 'timeshare', source: 'gotdx' })
+    buf.load({ symbol: '000001', market: 'CN', period: 'timeshare', source: 'gotdx' })
 
     // 新 load 开始后旧点与昨收应被清空，避免显示另一天数据
     expect(buf.getRawData()).toEqual([])
@@ -132,9 +121,10 @@ describe('TimeShareBuffer', () => {
   it('passes data source params to the fetcher', async () => {
     const buf = new TimeShareBuffer()
     const fetcher = vi.fn().mockResolvedValue({ data: [point(10)], preClose: null })
-    buf.setFetcher(fetcher)
+    buf.setRequestFetch(fetcher)
     buf.load({
       symbol: '00700',
+      market: 'CN',
       period: 'timeshare',
       source: 'gotdx',
       params: { category: 71 },
@@ -142,7 +132,7 @@ describe('TimeShareBuffer', () => {
 
     await vi.waitFor(() => expect(fetcher).toHaveBeenCalled())
 
-    expect(fetcher.mock.calls[0]?.[1].params).toEqual({ category: 71 })
+    expect(fetcher.mock.calls[0]?.[0].params).toEqual({ category: 71 })
     buf.dispose()
   })
 
@@ -150,21 +140,21 @@ describe('TimeShareBuffer', () => {
     const buf = new TimeShareBuffer()
     // 首轮 load 会在每次失败后更新可见的重试进度。
     const fetcher = vi
-      .fn<TimeShareFetcherFn>()
+      .fn<(spec: unknown, date?: number) => Promise<TimeShareResult>>()
       .mockRejectedValueOnce(new Error('该日期暂无历史分时数据'))
       .mockRejectedValueOnce(new Error('该日期暂无历史分时数据'))
       .mockRejectedValueOnce(new Error('该日期暂无历史分时数据'))
       .mockResolvedValue({ data: [point(10)], preClose: 9.5 })
-    buf.setFetcher(fetcher)
+    buf.setRequestFetch(fetcher)
 
-    buf.load({ symbol: '00700', period: 'timeshare', source: 'gotdx' })
+    buf.load({ symbol: '00700', market: 'CN', period: 'timeshare', source: 'gotdx' })
     await vi.waitFor(() => expect(buf.lastError()).toBe('该日期暂无历史分时数据 Retry 1/3'))
     expect(buf.loading()).toBe(true)
     await vi.waitFor(() => expect(buf.lastError()).toBe('该日期暂无历史分时数据'), {
       timeout: 5_000,
     })
 
-    buf.load({ symbol: '00700', period: 'timeshare', source: 'gotdx' })
+    buf.load({ symbol: '00700', market: 'CN', period: 'timeshare', source: 'gotdx' })
     expect(buf.lastError()).toBeNull()
     await vi.waitFor(() => expect(buf.getRawData()).toEqual([point(10)]))
     expect(buf.lastError()).toBeNull()

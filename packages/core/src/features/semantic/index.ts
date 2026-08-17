@@ -23,7 +23,7 @@ export type {
 
 export { SemanticChartController, type SemanticEventType } from './controller'
 export type { SemanticChartAdapter } from './controller'
-export type { DataFetcher, SymbolSpec } from '../../controllers/types'
+export type { SymbolSpec } from '../../controllers/types'
 
 export {
   SemanticConfigValidator,

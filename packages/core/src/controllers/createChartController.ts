@@ -46,7 +46,6 @@ import type {
   PaneSpec,
   SymbolSpec,
   SymbolInfo,
-  DataFetcher,
   CustomDataSource,
 } from './types'
 
@@ -496,11 +495,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     }
   }
 
-  // Apply initial DataFetcher
-  if (opts.dataFetcher) {
-    chart.setDataFetcher(opts.dataFetcher)
-  }
-
   // Apply initial symbols
   if (opts.symbols && opts.symbols.length > 0) {
     chart.setSymbols(opts.symbols)
@@ -583,11 +577,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   function getPreCustomSpec(): SymbolSpec | null {
     if (disposed) return null
     return chart.getPreCustomSpec()
-  }
-
-  function setDataFetcher(fetcher: DataFetcher | null): void {
-    if (disposed) return
-    chart.setDataFetcher(fetcher)
   }
 
   function ensureDataRange(startTs: number): void {
@@ -1016,7 +1005,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     applyCustomData,
     resetToFetcher,
     getPreCustomSpec,
-    setDataFetcher,
     ensureDataRange,
     setData,
     appendData,

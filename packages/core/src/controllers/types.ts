@@ -118,7 +118,7 @@ export interface SymbolInfo {
   params?: DataSourceParams
 }
 
-// Symbol specification & DataFetcher adapter
+// Symbol specification
 // ---------------------------------------------------------------------------
 
 export interface SymbolSpec {
@@ -143,19 +143,6 @@ export interface SymbolSpec {
    */
   incremental?: boolean
 }
-
-export type DataFetcher = (
-  source: string,
-  config: {
-    symbol: string
-    startDate: string
-    endDate: string
-    period: string
-    adjust: string
-    exchange?: string
-    params?: DataSourceParams
-  },
-) => Promise<ReadonlyArray<KLineData>>
 
 /** User-provided K-line data bundle — bypasses the fetcher pipeline entirely */
 export interface CustomDataSource {
@@ -284,7 +271,6 @@ export interface ChartMountOptions {
   container: HTMLElement
   data?: ReadonlyArray<KLineData>
   symbols?: ReadonlyArray<SymbolSpec>
-  dataFetcher?: DataFetcher
   initialZoomLevel?: number
   zoomLevels?: number
   theme?: 'light' | 'dark'
@@ -389,7 +375,6 @@ export interface ChartController extends DrawingChartAdapter {
   applyCustomData(source: CustomDataSource): void
   resetToFetcher(spec: SymbolSpec): void
   getPreCustomSpec(): SymbolSpec | null
-  setDataFetcher(fetcher: DataFetcher | null): void
   setData(next: ReadonlyArray<KLineData>): void
   appendData(next: ReadonlyArray<KLineData>): void
   updateData(next: ReadonlyArray<KLineData>): void

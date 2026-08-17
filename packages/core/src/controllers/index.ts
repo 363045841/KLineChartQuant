@@ -30,7 +30,6 @@ export type {
   SymbolSpec,
   SymbolInfo,
   DataSourceParams,
-  DataFetcher,
   CustomDataSource,
 } from './types'
 export type {
@@ -80,20 +79,8 @@ export {
   isBuiltinIndicatorsLoaded,
 } from '../engine/indicators/registerBuiltins'
 
-// Data fetcher adapters
+// Data access
 export {
-  mockDataFetcher,
-  hundredMockDataFetcher,
-  thousandMockDataFetcher,
-  baostockDataFetcher,
-  routerDataFetcher,
-  routerSearchFetchers,
-  getRegisteredFetchers,
-  setFetcherBaseUrl,
-  getFetcherBaseUrl,
-  composeFetcherBaseUrl,
-  parseFetcherEndpoint,
-  clearFetcherBaseUrlsForTest,
   DataBuffer,
   BinanceSSESource,
   DEFAULT_BINANCE_SSE_URL,
@@ -101,7 +88,6 @@ export {
   MarketDataProviderRegistry,
   marketDataProviderRegistry,
   dataSourceRegistry,
-  createLegacyMarketDataAdapters,
   gotdxMarketDataProvider,
   mockMarketDataProvider,
   baostockMarketDataProvider,
@@ -115,9 +101,6 @@ export type {
   DepthDelta,
   DepthSnapshot,
   DepthSourceStatus,
-  SearchConfig,
-  SearchResult,
-  DataFetcherDefinition,
   AssetClass,
   BarCapability,
   BarDataSource,
@@ -137,10 +120,6 @@ export type {
   MarketDataSourceStatus,
   MarketDataSourceConfig,
   MarketDataSourceConfigPatch,
-  LegacyInstrumentResolveRequest,
-  LegacyInstrumentResolver,
-  LegacyMarketDataAdapterOptions,
-  LegacyMarketDataAdapters,
   ProviderRef,
   SourceProbeResult,
   TimeShareDataSource,

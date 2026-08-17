@@ -53,13 +53,6 @@ export type {
 } from './router'
 export { dataSourceRegistry } from './sourceRegistry'
 export type { DataSourceRegistration } from './sourceRegistry'
-export { createLegacyMarketDataAdapters } from './legacyAdapter'
-export type {
-  LegacyInstrumentResolveRequest,
-  LegacyInstrumentResolver,
-  LegacyMarketDataAdapterOptions,
-  LegacyMarketDataAdapters,
-} from './legacyAdapter'
 export type {
   AssetClass,
   BarCapability,

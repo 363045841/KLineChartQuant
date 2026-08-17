@@ -11,7 +11,6 @@ import type {
   InteractionSnapshot,
   KLineData,
   SymbolSpec,
-  DataFetcher,
   DrawingControllerCallbacks,
 } from '@363045841yyt/klinechart-core'
 import { createChartController } from '@363045841yyt/klinechart-core'
@@ -34,7 +33,6 @@ export type {
   ChartMountOptions,
   ChartViewport,
   SymbolSpec,
-  DataFetcher,
 } from '@363045841yyt/klinechart-core'
 
 let chartFactory: ChartControllerFactory | null = null
@@ -180,7 +178,6 @@ export function useViewport(controller: ChartController): ChartViewport {
 export interface KLineChartProps {
   data: ChartMountOptions['data']
   symbols?: ChartMountOptions['symbols']
-  dataFetcher?: ChartMountOptions['dataFetcher']
   marketSessions?: ChartMountOptions['marketSessions']
   settings?: Partial<ChartSettings>
   initialZoomLevel?: number
@@ -207,14 +204,12 @@ export interface KLineChartHandle {
   setTheme: (theme: 'light' | 'dark') => void
   setData: (next: ReadonlyArray<KLineData>) => void
   setSymbols: (next: ReadonlyArray<SymbolSpec>) => void
-  setDataFetcher: (fetcher: DataFetcher | null) => void
 }
 
 export const KLineChart = forwardRef<KLineChartHandle, KLineChartProps>(function KLineChart(
   {
     data,
     symbols,
-    dataFetcher,
     marketSessions,
     settings,
     initialZoomLevel,
@@ -236,7 +231,6 @@ export const KLineChart = forwardRef<KLineChartHandle, KLineChartProps>(function
       container,
       data,
       symbols,
-      dataFetcher,
       marketSessions,
       settings,
       initialZoomLevel,
@@ -309,7 +303,6 @@ export const KLineChart = forwardRef<KLineChartHandle, KLineChartProps>(function
       setTheme: (t) => controllerRef.current?.setTheme(t),
       setData: (next) => controllerRef.current?.setData(next),
       setSymbols: (next) => controllerRef.current?.setSymbols(next),
-      setDataFetcher: (fetcher) => controllerRef.current?.setDataFetcher(fetcher),
     }),
     [],
   )

@@ -50,7 +50,6 @@ function createMockChart(overrides?: Partial<ChartController>): ChartController 
     setCurrentPeriod: vi.fn(),
     switchToTimeShareForDate: vi.fn(),
     applyCustomData: vi.fn(),
-    setDataFetcher: vi.fn(),
     ensureDataRange: vi.fn(),
     setDrawingTool: vi.fn(),
     setDrawingToolId: vi.fn(),

@@ -1,9 +1,5 @@
 import {
-  composeFetcherBaseUrl,
-  parseFetcherEndpoint,
-  setFetcherBaseUrl,
   marketDataProviderRegistry,
-  type DataFetcherDefinition,
 } from '@363045841yyt/klinechart-core/controllers'
 import { computed, ref, watch } from 'vue'
 
@@ -31,14 +27,27 @@ export interface AggregationSourceProbeResult {
   latencyMs?: number
 }
 
-/** 聚合源管理 UI 所需的最小元数据，不依赖旧 DataFetcher。 */
+/** 聚合源管理 UI 所需的最小元数据。 */
 export interface AggregationSourceDefinition {
   name: string
   displayName: string
   description?: string
   capabilities?: ReadonlyArray<string>
   defaultBaseUrl?: string
-  searcher?: DataFetcherDefinition['searcher']
+}
+
+/** 解析 Provider 默认地址，供 UI 编辑 host/port。 */
+export function parseProviderEndpoint(baseUrl: string): AggregationSourceEndpoint {
+  const url = new URL(baseUrl)
+  return { host: url.hostname, port: url.port || (url.protocol === 'https:' ? '443' : '80') }
+}
+
+/** 根据 UI 的 host/port 生成 Provider 地址覆盖。 */
+function composeProviderBaseUrl(host: string, port: string, defaultBaseUrl: string): string {
+  const url = new URL(defaultBaseUrl)
+  url.hostname = host.trim()
+  url.port = port.trim()
+  return url.toString().replace(/\/$/, '')
 }
 
 /** 判断数据源是否为本地 MOCK 源（UI 中用于将 mock 沉底展示） */
@@ -55,36 +64,22 @@ export async function probeAggregationSource(
   signal: AbortSignal,
 ): Promise<AggregationSourceProbeResult> {
   const provider = marketDataProviderRegistry.get(source.name)
-  if (provider) {
-    try {
-      const probeResult = await provider.probe(signal)
-      const result: AggregationSourceProbeResult = {
-        status: probeResult.status === 'offline' ? 'offline' : 'online',
-      }
-      if (probeResult.latencyMs !== undefined) result.latencyMs = probeResult.latencyMs
-      return result
-    } catch {
-      return { status: 'offline' }
-    }
-  }
-  if (!source.capabilities?.includes('search') || typeof source.searcher !== 'function') {
-    return { status: 'offline' }
-  }
-  const startedAt = performance.now()
+  if (!provider) return { status: 'offline' }
   try {
-    await source.searcher(source.name, { query: '0', limit: 1, signal })
-    return { status: 'online', latencyMs: Math.round(performance.now() - startedAt) }
+    const probeResult = await provider.probe(signal)
+    const result: AggregationSourceProbeResult = {
+      status: probeResult.status === 'offline' ? 'offline' : 'online',
+    }
+    if (probeResult.latencyMs !== undefined) result.latencyMs = probeResult.latencyMs
+    return result
   } catch {
     return { status: 'offline' }
   }
 }
 
-/** Provider catalog 或旧 searcher 存在时，该源可参与聚合搜索。 */
+/** Provider catalog 存在时，该源可参与聚合搜索。 */
 export function supportsAggregationSourceSearch(source: AggregationSourceDefinition): boolean {
-  return (
-    Boolean(marketDataProviderRegistry.get(source.name)?.catalog) ||
-    typeof source.searcher === 'function'
-  )
+  return Boolean(marketDataProviderRegistry.get(source.name)?.catalog)
 }
 
 function readStoredSources(): StoredAggregationSources | undefined {
@@ -127,7 +122,7 @@ export function resolveAggregationSourceEndpoints(
   for (const source of sources) {
     if (!source.defaultBaseUrl) continue
     const baseUrl = stored?.baseUrls?.[source.name] ?? source.defaultBaseUrl
-    result[source.name] = parseFetcherEndpoint(baseUrl)
+    result[source.name] = parseProviderEndpoint(baseUrl)
   }
   return result
 }
@@ -144,31 +139,29 @@ export function applyAggregationSourceBaseUrls(
     if (!source.defaultBaseUrl) continue
     const provider = marketDataProviderRegistry.get(source.name)
     const ep = endpoints[source.name]
+    if (!provider) continue
     if (!ep?.host.trim()) {
-      if (provider) marketDataProviderRegistry.setConfig(source.name, { baseUrl: undefined })
-      else setFetcherBaseUrl(source.name, undefined)
+      marketDataProviderRegistry.setConfig(source.name, { baseUrl: undefined })
       continue
     }
-    const next = composeFetcherBaseUrl(ep.host, ep.port, source.defaultBaseUrl)
+    const next = composeProviderBaseUrl(ep.host, ep.port, source.defaultBaseUrl)
     const sameAsDefault =
       next === source.defaultBaseUrl.replace(/\/+$/, '') ||
       next ===
-        composeFetcherBaseUrl(
-          parseFetcherEndpoint(source.defaultBaseUrl).host,
-          parseFetcherEndpoint(source.defaultBaseUrl).port,
+        composeProviderBaseUrl(
+          parseProviderEndpoint(source.defaultBaseUrl).host,
+          parseProviderEndpoint(source.defaultBaseUrl).port,
           source.defaultBaseUrl,
         )
-    if (provider)
-      marketDataProviderRegistry.setConfig(source.name, {
-        baseUrl: sameAsDefault ? undefined : next,
-      })
-    else setFetcherBaseUrl(source.name, sameAsDefault ? undefined : next)
+    marketDataProviderRegistry.setConfig(source.name, {
+      baseUrl: sameAsDefault ? undefined : next,
+    })
   }
 }
 
 /**
  * 聚合源启用状态 + 地址端口
- * 变更会同步到 localStorage 与 core setFetcherBaseUrl
+ * 变更会同步到 localStorage 与 Provider 注册表
  */
 export function useAggregationSources(sources: ReadonlyArray<AggregationSourceDefinition>) {
   const enabledNames = ref(resolveEnabledAggregationSources(sources))
@@ -212,7 +205,7 @@ export function useAggregationSources(sources: ReadonlyArray<AggregationSourceDe
         if (!source.defaultBaseUrl) continue
         const ep = endpoints.value[source.name]
         if (!ep?.host.trim()) continue
-        baseUrls[source.name] = composeFetcherBaseUrl(ep.host, ep.port, source.defaultBaseUrl)
+        baseUrls[source.name] = composeProviderBaseUrl(ep.host, ep.port, source.defaultBaseUrl)
       }
       const value: StoredAggregationSources = {
         known: sources.map((source) => source.name),

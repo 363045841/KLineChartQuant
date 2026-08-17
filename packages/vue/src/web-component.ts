@@ -1,4 +1,4 @@
-import type { SemanticChartConfig, DataFetcher } from '@363045841yyt/klinechart-core/semantic'
+import type { SemanticChartConfig } from '@363045841yyt/klinechart-core/semantic'
 import { defineCustomElement } from 'vue'
 
 import KlineChart from './components/KLineChart.vue'
@@ -12,4 +12,4 @@ customElements.define('kline-chart', KLineChartElement)
 export { KLineChartElement }
 export default KLineChartElement
 
-export type { SemanticChartConfig, DataFetcher }
+export type { SemanticChartConfig }

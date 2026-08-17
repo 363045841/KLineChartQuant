@@ -3,8 +3,7 @@ import { Context, Effect, pipe } from 'effect'
 import type { Effect as EffectType } from 'effect/Effect'
 
 import type { KLineData, SymbolSpec } from '../../controllers/types'
-import type { TimeShareFetchResult } from '../legacy/types'
-import type { BarPageRequest, BarPageResult } from './dataBufferTypes'
+import type { BarPageRequest, BarPageResult, TimeShareResult } from './dataBufferTypes'
 
 // ── KLine fetch service tag ──
 // Tag: 定义 Effect 服务接口
@@ -24,7 +23,7 @@ export class KLineFetchService extends Context.Tag('@klc/KLineFetchService')<
 export class TimeShareFetchService extends Context.Tag('@klc/TimeShareFetchService')<
   TimeShareFetchService,
   {
-    readonly fetch: (spec: SymbolSpec, date?: number) => EffectType<TimeShareFetchResult, unknown>
+    readonly fetch: (spec: SymbolSpec, date?: number) => EffectType<TimeShareResult, unknown>
   }
 >() {}
 
@@ -86,7 +85,7 @@ export const fetchKLine = (
 export const fetchTimeShare = (
   spec: SymbolSpec,
   date?: number,
-): EffectType<TimeShareFetchResult, unknown, TimeShareFetchService> =>
+): EffectType<TimeShareResult, unknown, TimeShareFetchService> =>
   pipe(
     Effect.gen(function* () {
       const { fetch } = yield* TimeShareFetchService // 获取服务实例

@@ -264,24 +264,19 @@
   import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
   import {
     createChartController,
-    routerDataFetcher,
-    routerSearchFetchers,
     marketDataProviderRegistry,
-    getRegisteredFetchers,
     type ChartController,
     type ChartMountOptions,
     type InteractionSnapshot,
     type LegendTemplateContext,
     type SymbolSpec,
     type SymbolInfo,
-    type SearchResult,
     type CustomDataSource,
   } from '@363045841yyt/klinechart-core/controllers'
   import type { InstrumentDescriptor } from '@363045841yyt/klinechart-core/market-data'
   import {
     SemanticChartController,
     type SemanticChartConfig,
-    type DataFetcher,
   } from '@363045841yyt/klinechart-core/semantic'
   import {
     ref,
@@ -310,16 +305,6 @@
       capabilities: provider.catalog ? ['search'] : [],
       defaultBaseUrl: provider.source.defaultBaseUrl,
     })),
-    ...getRegisteredFetchers()
-      .filter((source) => !marketDataProviderRegistry.get(source.name))
-      .map(({ name, displayName, description, capabilities, defaultBaseUrl, searcher }) => ({
-        name,
-        displayName,
-        description,
-        capabilities,
-        defaultBaseUrl,
-        searcher,
-      })),
   ]
   const {
     enabledNames: enabledSourceNames,
@@ -355,9 +340,6 @@
     defineProps<{
       /** 语义化配置（可选，唯一控制源） */
       semanticConfig?: SemanticChartConfig
-
-      /** 数据获取函数（可选）。默认使用内置 routerDataFetcher，亦可由使用者注入覆盖。 */
-      dataFetcher?: DataFetcher
 
       /** 当前图表实例的市场交易时段覆盖 */
       marketSessions?: ChartMountOptions['marketSessions']
@@ -536,7 +518,6 @@
     if (!ctrl) return
     try {
       applyInstrumentCapabilities(item)
-      ctrl.setDataFetcher(effectiveDataFetcher.value)
       ctrl.registerSymbols([toLegacySymbolInfo(item)])
       const current = ctrl.symbols.peek() ?? []
       const comparisonSpecs = current.slice(1)
@@ -616,11 +597,8 @@
     const sourceNames = sources ?? enabledSourceNames.value
     const requests = sourceNames.map(async (sourceId) => {
       const provider = marketDataProviderRegistry.get(sourceId)
-      if (provider?.catalog) {
-        return provider.catalog.search({ keyword: query, limit, signal })
-      }
-      const results = await routerSearchFetchers({ query, limit, signal, sources: [sourceId] })
-      return results.map(toInstrumentDescriptor)
+      if (!provider?.catalog) return []
+      return provider.catalog.search({ keyword: query, limit, signal })
     })
     const settled = await Promise.allSettled(requests)
     const results = settled.flatMap((result) => (result.status === 'fulfilled' ? result.value : []))
@@ -645,23 +623,6 @@
       left.localeCompare(right),
     )
     return `legacy:${sourceId}:${exchange}:${symbol}:${JSON.stringify(params)}`
-  }
-
-  /** 将旧聚合搜索结果转换为 UI 使用的统一品种模型。 */
-  function toInstrumentDescriptor(result: SearchResult): InstrumentDescriptor {
-    const providerRef = result.params
-    return {
-      id:
-        result.id ?? legacyInstrumentId(result.source, result.symbol, result.exchange, providerRef),
-      sourceId: result.source,
-      symbol: result.symbol,
-      name: result.description,
-      assetClass: result.assetClass ?? 'unknown',
-      exchange: result.exchange,
-      sessionId: result.sessionId ?? (result.market || undefined),
-      providerRef,
-      capabilities: result.capabilities ?? {},
-    }
   }
 
   /** 将旧 controller 目录条目转换为 UI 使用的统一品种模型。 */
@@ -730,11 +691,6 @@
   const indicatorSelectorRef = ref<InstanceType<typeof IndicatorSelector> | null>(null)
   const leftAxisLayerRef = ref<HTMLDivElement | null>(null)
   provideFullscreenTeleportTarget(chartWrapperRef)
-
-  // ── DataFetcher 默认值（未绑定时回退到内置 routerDataFetcher）──
-  // 用 computed 解析默认值，避免依赖 Vue 对「函数类型 prop 默认值」的特殊语义
-  // （函数类型 prop 的 withDefaults 默认值会被原样使用而非作为工厂调用，跨编译条件不稳定）
-  const effectiveDataFetcher = computed(() => props.dataFetcher ?? routerDataFetcher)
 
   // ── Fullscreen (controlled / uncontrolled) ──
   const internalIsFullscreen = ref(false)
@@ -888,7 +844,6 @@
     containerRef,
     data,
     viewport,
-    dataFetcher: effectiveDataFetcher,
     batchSymbols,
   })
 
@@ -1747,7 +1702,6 @@
       }
     }
 
-    ctrl.setDataFetcher(effectiveDataFetcher.value)
     semanticController.value = new SemanticChartController(ctrl)
 
     semanticController.value.on('config:error', (error) => {
@@ -1891,7 +1845,6 @@
       } else if (oldVal && controller.value) {
         const saved = controller.value.getPreCustomSpec()
         if (saved) {
-          controller.value.setDataFetcher(effectiveDataFetcher.value)
           controller.value.resetToFetcher({
             ...saved,
             period: kLineLevel.value,

@@ -11,7 +11,6 @@ import type {
   ChartControllerFactory,
   ChartMountOptions,
   ChartViewport,
-  DataFetcher,
   DrawingControllerCallbacks,
   IndicatorInstance,
   InteractionSnapshot,
@@ -45,7 +44,6 @@ export type {
   ChartController,
   ChartMountOptions,
   ChartControllerFactory,
-  DataFetcher,
   SymbolSpec,
 } from '@363045841yyt/klinechart-core'
 
@@ -153,7 +151,6 @@ export async function createChart(
 export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() data: ReadonlyArray<KLineData> = []
   @Input() symbols: ReadonlyArray<SymbolSpec> | undefined = undefined
-  @Input() dataFetcher: DataFetcher | undefined = undefined
   @Input() marketSessions: ChartMountOptions['marketSessions'] = undefined
   @Input() theme: 'light' | 'dark' | undefined = undefined
   @Input() settings: Partial<ChartSettings> | undefined = undefined
@@ -198,7 +195,6 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
       container: containerEl,
       data: this.data,
       symbols: this.symbols,
-      dataFetcher: this.dataFetcher,
       marketSessions: this.marketSessions,
       settings: this.settings,
       initialZoomLevel: this.initialZoomLevel,
@@ -339,9 +335,5 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
 
   setSymbols(next: ReadonlyArray<SymbolSpec>): void {
     this.controller?.setSymbols(next)
-  }
-
-  setDataFetcher(fetcher: DataFetcher | null): void {
-    this.controller?.setDataFetcher(fetcher)
   }
 }

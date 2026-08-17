@@ -1,8 +1,8 @@
 /** 统一 MOCK Provider：本地生成数据、不依赖后端，探测恒为在线。 */
-import { fetchMock, searchMockInstruments } from '../../legacy/mock'
 import { marketDataProviderRegistry } from '../registry'
 import { dataSourceRegistry } from '../sourceRegistry'
 import type { MarketDataProvider } from '../types'
+import { fetchMockBars, searchMockInstruments } from './mockData'
 
 const MOCK_SOURCE = dataSourceRegistry.mock
 
@@ -31,18 +31,9 @@ export const mockMarketDataProvider: MarketDataProvider = {
   },
 
   bars: {
-    /** 复用旧 MOCK 生成器拉取日 K 数据。 */
+    /** 使用 Provider 原生请求生成日 K 数据。 */
     async fetch(query) {
-      const end = (query.before ?? Date.now()) - (query.before === undefined ? 0 : 1)
-      const data = await fetchMock('mock', {
-        symbol: query.instrument.symbol,
-        startDate: new Date(end - query.limit * 2 * 86_400_000).toISOString().slice(0, 10),
-        endDate: new Date(end).toISOString().slice(0, 10),
-        period: query.period,
-        adjust: query.adjustment,
-        exchange: query.instrument.exchange,
-        params: query.instrument.providerRef,
-      })
+      const data = fetchMockBars(query)
       return {
         instrumentId: query.instrument.id,
         period: query.period,
@@ -50,9 +41,7 @@ export const mockMarketDataProvider: MarketDataProvider = {
         timezone: 'Asia/Shanghai',
         volumeUnit: 'share',
         olderData: 'unknown',
-        data: data
-          .filter((item) => query.before === undefined || item.timestamp < query.before)
-          .slice(-query.limit),
+        data,
       }
     },
   },

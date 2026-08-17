@@ -1,4 +1,4 @@
-import type { KLineData, DataFetcher, SymbolSpec } from '../../controllers/types'
+import type { KLineData, SymbolSpec } from '../../controllers/types'
 import { getRegisteredIndicatorDefinition } from '../../engine/indicators/indicatorDefinitionRegistry'
 import type { IndicatorMetadata } from '../../engine/indicators/indicatorMetadata'
 import { getBuiltinIndicatorDefinitions } from '../../engine/indicators/registerBuiltins'
@@ -17,7 +17,7 @@ import type {
 import { SemanticConfigValidator } from './validator'
 
 export type SemanticEventType = 'config:loading' | 'config:ready' | 'config:error'
-export type { DataFetcher, SymbolSpec } from '../../controllers/types'
+export type { SymbolSpec } from '../../controllers/types'
 
 function normalizeIndicatorId(id: string): string {
   return id

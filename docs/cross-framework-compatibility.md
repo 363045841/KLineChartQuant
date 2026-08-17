@@ -18,7 +18,7 @@ This gives us two compatibility paths:
 The most important design choice is that framework code does not own chart behavior. It talks to the core through stable data and controller contracts:
 
 - `SemanticChartConfig` describes what should be shown.
-- `DataFetcher` lets the host inject data loading without coupling the package to a specific backend.
+- `MarketDataProvider` supplies market data through the shared registry and router.
 - `ChartController` exposes imperative methods such as `setData`, `setTheme`, `zoomToLevel`, `addIndicator`, and `dispose`.
 - Core `Signal<T>` streams expose viewport, indicators, pane ratios, drawing state, and interaction snapshots.
 
@@ -52,7 +52,6 @@ It receives semantic inputs as props:
 
 ```ts
 semanticConfig: SemanticChartConfig
-dataFetcher: DataFetcher
 ```
 
 This matters for compatibility. The Vue SFC is not a Vue-only chart engine. It is a Vue-hosted shell around the shared engine. That shell can be published as normal Vue bindings or compiled into a Web Component.
@@ -155,12 +154,11 @@ The package scripts reflect that split:
 
 ## 6. Passing Data Across the DOM Boundary
 
-Custom Element attributes are strings. KLineChart needs to receive complex objects and functions, especially `SemanticChartConfig` and `DataFetcher`. The React wrapper therefore assigns them as DOM properties instead of attributes:
+Custom Element attributes are strings. KLineChart needs to receive complex objects, especially `SemanticChartConfig`. The React wrapper therefore assigns them as DOM properties instead of attributes:
 
 ```ts
 const el = hostRef.current
 el.semanticConfig = props.semanticConfig
-el.dataFetcher = props.dataFetcher
 ```
 
 Primitive options still map cleanly to attributes:
@@ -260,7 +258,7 @@ The fastest Regular integration is to consume the existing Web Component:
 
 1. Import `@363045841yyt/klinechart/web-component` once at app startup or inside the Regular package entry.
 2. Render `<kline-chart>` from a Regular component.
-3. Assign `semanticConfig` and `dataFetcher` as element properties after mount and whenever they change.
+3. Assign `semanticConfig` as an element property after mount and whenever it changes.
 4. Reflect primitive props such as `initialZoomLevel`, `zoomLevels`, and `isFullscreen` as attributes.
 5. Register DOM listeners for `zoom-level-change` and `toggle-fullscreen`, then remove them during component teardown.
 

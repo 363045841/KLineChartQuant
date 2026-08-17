@@ -39,12 +39,9 @@ describe('gotdx V1 provider', () => {
     marketDataProviderRegistry.setConfig('gotdx', { baseUrl: undefined })
   })
 
-  // 验证 Provider 已注册且不依赖旧 DataFetcher 定义。
-  it('registers the GOTDX Provider without a legacy fetcher', async () => {
-    const { getRegisteredFetcher } = await import('../legacy/fetcherDefinitionRegistry')
-
+  // 验证 Provider 已注册。
+  it('registers the GOTDX Provider', () => {
     expect(marketDataProviderRegistry.get('gotdx')).toBe(gotdxMarketDataProvider)
-    expect(getRegisteredFetcher('gotdx')).toBeUndefined()
   })
 
   // 验证服务探测请求统一 V1 probe endpoint。

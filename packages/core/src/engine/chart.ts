@@ -1434,10 +1434,6 @@ export class Chart {
     this.dataManager.appendData(newData)
   }
 
-  setDataFetcher(fetcher: import('../controllers/types').DataFetcher | null): void {
-    this.dataManager.setDataFetcher(fetcher)
-  }
-
   get dataBuffer(): import('../data/buffer/dataBuffer').DataBuffer {
     return this.dataManager.dataBuffer as import('../data/buffer/dataBuffer').DataBuffer
   }

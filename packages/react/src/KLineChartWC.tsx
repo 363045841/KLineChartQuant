@@ -1,4 +1,4 @@
-import type { SemanticChartConfig, DataFetcher } from '@363045841yyt/klinechart-core/semantic'
+import type { SemanticChartConfig } from '@363045841yyt/klinechart-core/semantic'
 import {
   createElement,
   forwardRef,
@@ -12,13 +12,11 @@ import {
 declare global {
   interface HTMLElement {
     semanticConfig?: SemanticChartConfig | undefined
-    dataFetcher?: DataFetcher | undefined
   }
 }
 
 export interface KLineChartWCProps {
   semanticConfig?: SemanticChartConfig
-  dataFetcher: DataFetcher
 
   yPaddingPx?: number
   minKWidth?: number
@@ -39,7 +37,6 @@ export interface KLineChartWCProps {
 
 export type KLineChartWCHandle = HTMLElement & {
   semanticConfig: SemanticChartConfig
-  dataFetcher: DataFetcher
 }
 
 export const KLineChartWC = forwardRef<KLineChartWCHandle, KLineChartWCProps>(function KLineChartWC(
@@ -54,8 +51,7 @@ export const KLineChartWC = forwardRef<KLineChartWCHandle, KLineChartWCProps>(fu
     const el = hostRef.current
     if (!el || !props.semanticConfig) return
     el.semanticConfig = props.semanticConfig
-    el.dataFetcher = props.dataFetcher
-  }, [props.semanticConfig, props.dataFetcher])
+  }, [props.semanticConfig])
 
   useEffect(() => {
     const el = hostRef.current

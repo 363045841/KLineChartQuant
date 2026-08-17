@@ -3,8 +3,9 @@ import type {
   KLineData,
   ChartController,
   ChartViewport,
-  DataFetcher,
 } from '@363045841yyt/klinechart-core/controllers'
+import { sourceRouter } from '@363045841yyt/klinechart-core/market-data'
+import type { KLineAdjustment, KLinePeriod } from '@363045841yyt/klinechart-core/market-data'
 import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
 
 import { calcRangeOverlayPixel } from '../../tools/calcRangeOverlayPixel'
@@ -62,11 +63,9 @@ export function useRangeSelection(options: {
   containerRef: Ref<HTMLElement | null>
   data: Readonly<Ref<ReadonlyArray<KLineData>>>
   viewport: Readonly<Ref<ChartViewport>>
-  dataFetcher: Ref<DataFetcher | null>
   batchSymbols: Ref<string[]>
 }) {
-  const { controller, isRangeSelectMode, containerRef, data, viewport, dataFetcher, batchSymbols } =
-    options
+  const { controller, isRangeSelectMode, containerRef, data, viewport, batchSymbols } = options
 
   const customStartDate = ref('')
   const customEndDate = ref('')
@@ -353,31 +352,28 @@ export function useRangeSelection(options: {
     }
     exportingProgress.value = { current: 1, total, label: '主品种数据已就绪' }
 
-    // Batch stocks (sequential)
-    const fetchFn = dataFetcher.value
-    if (fetchFn && batchCodes.length > 0) {
+    if (batchCodes.length > 0) {
       const spec = controller.value?.symbols.peek()?.[0]
-      const startDate = formatTimestamp(startTs)
-      const endDate = formatTimestamp(endTs)
-      const period = spec?.period ?? 'daily'
-      const adjust = spec?.adjust ?? 'none'
-      const exchange = spec?.exchange
-      const source = spec?.source ?? 'gotdx'
+      const period = (spec?.period ?? 'daily') as KLinePeriod
+      const adjustment = (spec?.adjust ?? 'none') as KLineAdjustment
 
       for (let i = 0; i < batchCodes.length; i++) {
         const code = batchCodes[i]!
         exportingProgress.value = { current: 1 + i, total, label: `正在获取 ${code}...` }
         try {
-          const items = await fetchFn(source, {
+          const result = await sourceRouter.bars({
+            preferredSourceId: spec?.source,
+            instrument: spec?.instrument,
             symbol: code,
-            startDate,
-            endDate,
+            exchange: spec?.exchange,
+            assetClass: spec?.instrument?.assetClass,
             period,
-            adjust,
-            exchange,
+            adjustment,
+            limit: 500,
+            before: endTs + 86_400_000,
           })
-          for (const item of items) {
-            allItems.push(item)
+          for (const item of result.series.data) {
+            if (item.timestamp >= startTs && item.timestamp <= endTs) allItems.push(item)
           }
         } catch {
           continue

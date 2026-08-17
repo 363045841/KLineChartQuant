@@ -327,7 +327,6 @@ Positioning and drag stay owned by the chart: with `tooltipPosition === 'adaptiv
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | semanticConfig | `SemanticChartConfig` | — | Semantic configuration (optional). When provided, drives chart data, indicators, markers and chart options |
-| dataFetcher | `DataFetcher` | built-in | Data fetching function. Defaults to an internal fetcher that proxies `/api/stock` |
 | theme | `'light' \| 'dark'` | — | Chart theme. Use `v-model:theme` for two-way binding |
 | isFullscreen | `boolean` | — | Controlled fullscreen state. Leave unbound for internal (non-controlled) mode |
 | timezone | `string` | `'Asia/Shanghai'` | Time zone for date/time display |

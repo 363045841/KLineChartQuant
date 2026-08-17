@@ -19,15 +19,13 @@ import {
   retryBackoffMs,
   TimeShareFetchService,
 } from './dataBuffer.effects'
-import type { DataBufferLike, DataWindow, DataChange } from './dataBufferTypes'
-import { routerTimeShareFetcher } from '../legacy/router'
-import type { TimeShareFetcherFn, TimeShareFetchResult } from '../legacy/types'
+import type { DataBufferLike, DataWindow, DataChange, TimeShareResult } from './dataBufferTypes'
 
 /** 由数据管理层注入的统一 Provider 分时请求。 */
 export type TimeShareRequestFetch = (
   spec: SymbolSpec,
   date?: number,
-) => Promise<TimeShareFetchResult>
+) => Promise<TimeShareResult>
 
 function errorMessage(err: unknown): string {
   if (err instanceof Error && err.message.trim()) return err.message
@@ -106,8 +104,6 @@ export class TimeShareBuffer implements DataBufferLike {
   // 是否正在加载中，外部 UI 绑定用
   private _loadingSignal: WritableSignal<boolean> = createSignal<boolean>(false)
   private _lastError: WritableSignal<string | null> = createSignal<string | null>(null)
-  // 可选的自定义 fetcher，优先级大于默认 fetcher
-  private _fetcher: TimeShareFetcherFn | null = null
   private _requestFetch: TimeShareRequestFetch | null = null
   // 指定查询的历史日期（0 = 当天）
   private _queryDate = 0
@@ -160,21 +156,13 @@ export class TimeShareBuffer implements DataBufferLike {
     this._loadingSignal.set(false)
   }
 
-  setFetcher(fetcher: TimeShareFetcherFn | null): void {
-    this._fetcher = fetcher
-  }
-
-  /** 设置优先于旧 Fetcher 的统一 Provider 分时请求。 */
+  /** 设置统一 Provider 分时请求。 */
   setRequestFetch(fetcher: TimeShareRequestFetch | null): void {
     this._requestFetch = fetcher
   }
 
   setQueryDate(date: number): void {
     this._queryDate = date
-  }
-
-  getFetcher(): TimeShareFetcherFn | null {
-    return this._fetcher
   }
 
   getQueryDate(): number {
@@ -203,24 +191,15 @@ export class TimeShareBuffer implements DataBufferLike {
     this._loadingSignal.set(true)
 
     const timeShareService: {
-      readonly fetch: (s: SymbolSpec, date?: number) => EffectType<TimeShareFetchResult, unknown>
+      readonly fetch: (s: SymbolSpec, date?: number) => EffectType<TimeShareResult, unknown>
     } = {
       fetch: (s, date) =>
         Effect.tryPromise({
           try: () => {
-            if (this._requestFetch) return this._requestFetch(s, date)
-            const fetcher = this._fetcher ?? routerTimeShareFetcher
-            return fetcher(s.source ?? 'gotdx', {
-              symbol: s.symbol,
-              exchange: s.exchange,
-              params: s.params,
-              date,
-            }).then((result) => {
-              if (Array.isArray(result)) {
-                return { data: result, preClose: null }
-              }
-              return result as TimeShareFetchResult
-            })
+            if (!this._requestFetch) {
+              return Promise.reject(new Error(`[TimeShareBuffer] request is not configured`))
+            }
+            return this._requestFetch(s, date)
           },
           catch: (error) => (error instanceof Error ? error : new Error(String(error))),
         }),
@@ -233,7 +212,7 @@ export class TimeShareBuffer implements DataBufferLike {
 
     void (async () => {
       try {
-        let result: TimeShareFetchResult | undefined
+        let result: TimeShareResult | undefined
         for (let attempt = 1; attempt <= FETCH_TOTAL_ATTEMPTS; attempt++) {
           try {
             result = await Effect.runPromise(effect)
