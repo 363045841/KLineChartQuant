@@ -18,17 +18,17 @@ import type {
   VolumeUnit,
 } from '../types'
 import type {
-  MarketDataV1Transport,
-  V1InstrumentDescriptor,
-  V1KLineItem,
-  V1TimeShareItem,
+  MarketDataTransport,
+  ProtocolInstrumentDescriptor,
+  ProtocolKLineItem,
+  ProtocolTimeShareItem,
 } from './types'
 
-export interface V1MarketDataProviderOptions {
+export interface MarketDataProviderOptions {
   // 数据源元信息；marketSessions 中声明的会话会注册进本地会话表
   source: DataSourceDescriptor
   // 传输实现，负责 wire 语义
-  transport: MarketDataV1Transport
+  transport: MarketDataTransport
   // 成交量单位兜底推断；后端未返回 volumeUnit 时使用
   resolveVolumeUnit?: (instrument: InstrumentDescriptor) => VolumeUnit | undefined
 }
@@ -39,7 +39,7 @@ function defaultResolveVolumeUnit(instrument: InstrumentDescriptor): VolumeUnit 
 }
 
 // 将品种响应转换为前端领域模型
-function mapInstrument(item: V1InstrumentDescriptor): InstrumentDescriptor {
+function mapInstrument(item: ProtocolInstrumentDescriptor): InstrumentDescriptor {
   return {
     id: item.id,
     sourceId: item.sourceId,
@@ -55,7 +55,7 @@ function mapInstrument(item: V1InstrumentDescriptor): InstrumentDescriptor {
 }
 
 // 将 K 线条目映射为核心 KLineData
-function mapBar(item: V1KLineItem, symbol: string): KLineData {
+function mapBar(item: ProtocolKLineItem, symbol: string): KLineData {
   return {
     timestamp: item.timestamp,
     date: item.date,
@@ -74,7 +74,7 @@ function mapBar(item: V1KLineItem, symbol: string): KLineData {
 }
 
 // 将分时条目映射为核心 TimeShareData
-function mapTimeShare(item: V1TimeShareItem): TimeShareData {
+function mapTimeShare(item: ProtocolTimeShareItem): TimeShareData {
   return {
     timestamp: item.timestamp,
     price: item.price,
@@ -86,7 +86,7 @@ function mapTimeShare(item: V1TimeShareItem): TimeShareData {
 
 // 创建基于该协议的标准 MarketDataProvider
 export function createV1MarketDataProvider(
-  options: V1MarketDataProviderOptions,
+  options: MarketDataProviderOptions,
 ): MarketDataProvider {
   const { source, transport } = options
   const runtimeSource = { ...source }

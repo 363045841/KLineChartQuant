@@ -4,9 +4,9 @@ import { describe, expect, it } from 'vitest'
 import { createV1MarketDataProvider } from '../provider'
 import type {
   MarketDataV1Transport,
-  V1BarSeries,
-  V1InstrumentSearchResult,
-  V1TimeShareSeries,
+  ProtocolBarSeries,
+  ProtocolInstrumentSearchResult,
+  ProtocolTimeShareSeries,
 } from '../types'
 import type { InstrumentDescriptor } from '../../types'
 
@@ -29,8 +29,8 @@ const instrument: InstrumentDescriptor = {
 function fakeTransport(overrides: Partial<MarketDataV1Transport> = {}): MarketDataV1Transport {
   return {
     probe: async () => ({ status: 'online', checkedAt: 1 }),
-    searchInstruments: async (): Promise<V1InstrumentSearchResult> => ({ items: [] }),
-    fetchBars: async (): Promise<V1BarSeries> => ({
+    searchInstruments: async (): Promise<ProtocolInstrumentSearchResult> => ({ items: [] }),
+    fetchBars: async (): Promise<ProtocolBarSeries> => ({
       instrumentId: 'gotdx:stock:1:600519',
       period: 'daily',
       adjustment: 'none',
@@ -38,7 +38,7 @@ function fakeTransport(overrides: Partial<MarketDataV1Transport> = {}): MarketDa
       items: [],
       olderData: 'unknown',
     }),
-    fetchTimeShare: async (): Promise<V1TimeShareSeries> => ({
+    fetchTimeShare: async (): Promise<ProtocolTimeShareSeries> => ({
       instrumentId: 'gotdx:stock:1:600519',
       tradingDate: '2026-08-06',
       timezone: 'Asia/Shanghai',
