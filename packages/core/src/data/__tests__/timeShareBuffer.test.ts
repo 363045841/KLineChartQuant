@@ -3,12 +3,33 @@ import { describe, expect, it, vi } from 'vitest'
 import { TimeShareBuffer } from '../buffer/timeShareBuffer'
 import type { TimeShareData } from '../../foundation/types/price'
 import type { TimeShareFetcherFn, TimeShareFetchResult } from '../legacy/types'
+import type { TimeShareRange } from '../provider/types'
 
 function point(price: number, ts = 1): TimeShareData {
   return { timestamp: ts, price, average: price, volume: 1, amount: price }
 }
 
 describe('TimeShareBuffer', () => {
+  it('stores a grouped range and uses the latest daily preClose', () => {
+    const buf = new TimeShareBuffer()
+    const range: TimeShareRange = {
+      instrumentId: 'gotdx:stock:1:600519',
+      timezone: 'Asia/Shanghai',
+      requestedDays: 2,
+      olderData: 'unknown',
+      days: [
+        { tradingDate: '2026-08-05', preClose: 9, data: [point(10, 1)] },
+        { tradingDate: '2026-08-06', preClose: 10, data: [point(11, 2)] },
+      ],
+    }
+
+    buf.setRange(range)
+
+    expect(buf.getRange()?.days).toHaveLength(2)
+    expect(buf.getRawData()).toEqual([point(10, 1), point(11, 2)])
+    expect(buf.getPreClose()).toBe(10)
+  })
+
   it('stores and returns preClose metadata', () => {
     const buf = new TimeShareBuffer()
     expect(buf.getPreClose()).toBeNull()

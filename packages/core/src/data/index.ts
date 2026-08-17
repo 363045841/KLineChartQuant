@@ -12,6 +12,7 @@ export { routerDataFetcher, routerSearchFetchers, routerTimeShareFetcher } from 
 export { DataBuffer } from './buffer/dataBuffer'
 export type { BarPageRequest, DataWindow } from './buffer/dataBufferTypes'
 export { TimeShareBuffer } from './buffer/timeShareBuffer'
+export { TimeShareRangeStore } from './buffer/timeShareRangeStore'
 export type { DataBufferLike } from './buffer/dataBufferTypes'
 export {
   getRegisteredFetcher,

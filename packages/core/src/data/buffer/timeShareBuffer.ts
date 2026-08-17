@@ -9,6 +9,7 @@ import {
   type WritableSignal,
 } from '../../foundation/reactivity/signal'
 import type { TimeShareData } from '../../foundation/types/price'
+import type { TimeShareRange } from '../provider/types'
 
 import {
   FETCH_TOTAL_ATTEMPTS,
@@ -17,6 +18,7 @@ import {
   TimeShareFetchService,
 } from './dataBuffer.effects'
 import type { DataBufferLike, DataWindow, DataChange } from './dataBufferTypes'
+import { TimeShareRangeStore } from './timeShareRangeStore'
 import { routerTimeShareFetcher } from '../legacy/router'
 import type { TimeShareFetcherFn, TimeShareFetchResult } from '../legacy/types'
 
@@ -38,13 +40,8 @@ function waitForRetry(attempt: number): Promise<void> {
 }
 
 export class TimeShareBuffer implements DataBufferLike {
-  // 当前持有的分时数据数组（内部可变副本）
-  private _data: TimeShareData[] = []
-  // 向外部广播只读数据快照的信号
-  private _dataSignal: WritableSignal<DataChange> = createSignal<DataChange>({
-    data: [],
-    prependedCount: 0,
-  })
+  // 分组 Range 是多日分时的 SSOT，Store 同步维护旧渲染链路所需的扁平投影。
+  private readonly _store = new TimeShareRangeStore()
   // 是否正在加载中，外部 UI 绑定用
   private _loadingSignal: WritableSignal<boolean> = createSignal<boolean>(false)
   private _lastError: WritableSignal<string | null> = createSignal<string | null>(null)
@@ -61,7 +58,12 @@ export class TimeShareBuffer implements DataBufferLike {
   private _disposed = false
 
   get data(): ReadonlySignal<DataChange> {
-    return this._dataSignal
+    return this._store.data
+  }
+
+  /** 返回按日分组的只读响应式快照。 */
+  get range(): ReadonlySignal<TimeShareRange | null> {
+    return this._store.range
   }
 
   get loading(): ReadonlySignal<boolean> {
@@ -73,15 +75,23 @@ export class TimeShareBuffer implements DataBufferLike {
   }
 
   get loadedWindow(): DataWindow | null {
-    if (this._data.length === 0) return null
-    return {
-      earliestTs: this._data[0]!.timestamp,
-      latestTs: this._data[this._data.length - 1]!.timestamp,
-    }
+    return this._store.loadedWindow
   }
 
   getRawData(): TimeShareData[] {
-    return this._data
+    return this._store.getRawData()
+  }
+
+  /** 返回多日分时分组快照。 */
+  getRange(): TimeShareRange | null {
+    return this._store.getRange()
+  }
+
+  /** 写入多日分时分组快照，并采用最新交易日昨收作为统一轴基准。 */
+  setRange(range: TimeShareRange): void {
+    if (this._disposed) return
+    this._store.setRange(range)
+    this._preClose = this._store.getLatestPreClose()
   }
 
   setFetcher(fetcher: TimeShareFetcherFn | null): void {
@@ -120,10 +130,9 @@ export class TimeShareBuffer implements DataBufferLike {
 
     const requestSeq = ++this._requestSeq
     // 新请求开始即清空旧点、昨收与错误，避免历史日期切换时短暂显示另一天数据
-    this._data = []
+    this._store.reset()
     this._preClose = null
     this._lastError.set(null)
-    this._dataSignal.set({ data: [], prependedCount: 0 })
     this._loadingSignal.set(true)
 
     const timeShareService: {
@@ -171,10 +180,9 @@ export class TimeShareBuffer implements DataBufferLike {
         }
         if (!result || this._disposed || requestSeq !== this._requestSeq) return
         this._queryDate = 0
-        this._data = [...result.data]
+        this._store.setInlineData(result.data)
         this.setPreClose(result.preClose)
         this._lastError.set(null)
-        this._dataSignal.set({ data: [...result.data], prependedCount: 0 })
       } catch (err) {
         if (this._disposed || requestSeq !== this._requestSeq) return
         this._lastError.set(errorMessage(err))
@@ -188,16 +196,15 @@ export class TimeShareBuffer implements DataBufferLike {
 
   setInlineData(data: unknown[]): void {
     if (this._disposed) return
-    this._data = data as TimeShareData[]
+    this._store.setInlineData(data as TimeShareData[])
     this._lastError.set(null)
-    this._dataSignal.set({ data: [...(data as TimeShareData[])], prependedCount: 0 })
   }
 
   // 销毁实例
   dispose(): void {
     this._disposed = true
     this._requestSeq++
-    this._data = []
+    this._store.reset()
     this._preClose = null
     this._lastError.set(null)
     this._loadingSignal.set(false)

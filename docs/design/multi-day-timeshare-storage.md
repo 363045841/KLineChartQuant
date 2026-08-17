@@ -23,7 +23,7 @@ GOTDX V1 的 `POST /api/v1/market-data/timeshare/range` 接受截止交易日和
 
 ## 存储决策
 
-建议 Buffer 以分组结构作为多日分时的单一事实来源：
+Buffer 以分组结构作为多日分时的单一事实来源：
 
 ```ts
 interface TimeShareDay {
@@ -50,6 +50,6 @@ interface TimeShareRange {
 ## 后续接入
 
 1. 在领域 Provider 中映射 `TimeShareRangeQuery` 与 `TimeShareRangeSeries`。
-2. 让 `TimeShareBuffer` 保存分组 Range，并按 `instrument + endTradingDate + days` 区分缓存。
+2. 按 `instrument + endTradingDate + days` 区分多日分时缓存。
 3. 五日模式使用 `days=5`，按五个交易日共享画布宽度，每日内部按 session slot 布局。
-4. Y 轴基准策略在渲染设计阶段确定；分组存储保留每日 `preClose`，同时支持统一价格轴或逐日涨跌幅投影。
+4. Y 轴采用统一绝对价格轴，最新交易日 `preClose` 作为右侧涨跌幅参考；每日 `preClose` 继续用于 Tooltip 的当日涨跌计算。

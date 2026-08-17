@@ -162,6 +162,22 @@ export interface TimeShareSeries {
   data: ReadonlyArray<TimeShareData>
 }
 
+/** 单个交易日的分时点列及其独立昨收基准。 */
+export interface TimeShareDay {
+  tradingDate: TradingDate
+  preClose: number | null
+  data: ReadonlyArray<TimeShareData>
+}
+
+/** 按交易日升序排列的多日分时领域数据。 */
+export interface TimeShareRange {
+  instrumentId: string
+  timezone: string
+  requestedDays: number
+  olderData: OlderDataStatus
+  days: ReadonlyArray<TimeShareDay>
+}
+
 /** 品种目录能力。 */
 export interface InstrumentCatalog {
   /** 按关键字和品种类别搜索当前 Provider 的品种目录。 */

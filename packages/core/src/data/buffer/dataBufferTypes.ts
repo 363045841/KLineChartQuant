@@ -2,7 +2,7 @@
 import type { KLineData, SymbolSpec } from '../../controllers/types'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal'
 import type { TimeShareData } from '../../foundation/types/price'
-import type { OlderDataStatus } from '../provider/types'
+import type { OlderDataStatus, TimeShareRange } from '../provider/types'
 
 import type { TimeShareFetcherFn } from '../legacy/types'
 
@@ -59,7 +59,10 @@ export interface KLineBuffer extends DataBufferLike {
 }
 
 export interface TimeShareBuffer extends DataBufferLike {
+  readonly range: ReadonlySignal<TimeShareRange | null>
   getRawData(): TimeShareData[]
+  getRange(): TimeShareRange | null
+  setRange(range: TimeShareRange): void
   setFetcher(fetcher: TimeShareFetcherFn | null): void
   setQueryDate(date: number): void
   getFetcher(): TimeShareFetcherFn | null
