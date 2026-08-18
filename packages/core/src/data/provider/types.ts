@@ -27,8 +27,21 @@ export type KLinePeriod =
 /** 图表当前支持的复权方式。 */
 export type KLineAdjustment = 'qfq' | 'hfq' | 'splits' | 'none'
 
+/** K 线请求未指定时使用的默认周期。 */
+export const DEFAULT_KLINE_PERIOD: KLinePeriod = 'daily'
+
+/** K 线请求未指定时使用的默认复权方式。 */
+export const DEFAULT_KLINE_ADJUSTMENT: KLineAdjustment = 'none'
+
 /** 当前游标之前的历史数据状态；unknown 表示数据源无法可靠判断。 */
-export type OlderDataStatus = 'available' | 'exhausted' | 'unknown'
+export const OLDER_DATA_STATUS = {
+  AVAILABLE: 'available',
+  EXHAUSTED: 'exhausted',
+  UNKNOWN: 'unknown',
+} as const
+
+/** 当前游标之前的历史数据状态。 */
+export type OlderDataStatus = (typeof OLDER_DATA_STATUS)[keyof typeof OLDER_DATA_STATUS]
 
 /** 成交量数值对应的业务单位。 */
 export type VolumeUnit = 'share' | 'lot' | 'contract' | 'baseAsset'

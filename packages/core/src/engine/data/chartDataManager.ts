@@ -20,8 +20,10 @@ import type {
   KLinePeriod,
   TradingDate,
 } from '../../data/provider/types'
+import { DEFAULT_KLINE_ADJUSTMENT, DEFAULT_KLINE_PERIOD } from '../../data/provider/types'
 import { TimeShareBuffer as TimeShareBufferImpl } from '../../data/buffer/timeShareBuffer'
 import {
+  AUTO_SOURCE_ID,
   LATEST_TRADING_DATE,
   SeriesRepository,
   instrumentKeyFromSpec,
@@ -142,7 +144,7 @@ export class ChartDataManager {
   /** 将业务品种转换为 Repository K 线选择。 */
   private barsSelectionForSpec(spec: SymbolSpec): BarsSelection {
     const period = ChartDataManager.normalizePeriod(spec.period)
-    const adjustment = spec.adjust ?? 'none'
+    const adjustment = spec.adjust ?? DEFAULT_KLINE_ADJUSTMENT
     if (!KLINE_PERIODS.has(period as KLinePeriod)) {
       throw new Error(`[ChartDataManager] invalid K-line period "${period}"`)
     }
@@ -343,8 +345,8 @@ export class ChartDataManager {
 
   /** 让 K 线缓冲直接调用 Provider Router。 */
   private async requestBars(spec: SymbolSpec, page: BarPageRequest): Promise<BarPageResult> {
-    const period = spec.period ?? 'daily'
-    const adjustment = spec.adjust ?? 'none'
+    const period = spec.period ?? DEFAULT_KLINE_PERIOD
+    const adjustment = spec.adjust ?? DEFAULT_KLINE_ADJUSTMENT
     if (
       !KLINE_PERIODS.has(period as KLinePeriod) ||
       !KLINE_ADJUSTMENTS.has(adjustment as KLineAdjustment)
@@ -420,12 +422,12 @@ export class ChartDataManager {
     instrument: InstrumentDescriptor,
     resolvingBuffer: KLineBuffer | TimeShareBuffer,
   ): boolean {
-    if (selection.sourceId !== 'auto') return true
+    if (selection.sourceId !== AUTO_SOURCE_ID) return true
     const resolved = this._repository.moveToSource(selection, sourceId)
     const symbols = this._dataState.readonly.symbols
       .peek()
       .map((spec) =>
-        sourceIdFromSpec(spec) === 'auto' &&
+        sourceIdFromSpec(spec) === AUTO_SOURCE_ID &&
         (selection.kind === 'bars'
           ? spec.period !== TIME_SHARE_PERIOD &&
             seriesSelectionKey(this.barsSelectionForSpec(spec)) === seriesSelectionKey(selection)
@@ -438,7 +440,7 @@ export class ChartDataManager {
     const current = this._dmState.readonly.currentSpec.peek()
     if (
       current &&
-      sourceIdFromSpec(current) === 'auto' &&
+      sourceIdFromSpec(current) === AUTO_SOURCE_ID &&
       (selection.kind === 'bars'
         ? current.period !== TIME_SHARE_PERIOD &&
           seriesSelectionKey(this.barsSelectionForSpec(current)) === seriesSelectionKey(selection)
@@ -681,8 +683,8 @@ export class ChartDataManager {
     const spec: SymbolSpec = {
       market: 'custom',
       symbol: '',
-      period: 'daily',
-      adjust: 'none',
+      period: DEFAULT_KLINE_PERIOD,
+      adjust: DEFAULT_KLINE_ADJUSTMENT,
       source: 'custom',
       incremental: false,
     }
@@ -741,8 +743,8 @@ export class ChartDataManager {
     if (!buf) return
     const data = buf.getRawData()
     if (data.length === 0) return
-    const window = buf.loadedWindow
-    if (!window) return
+    const loadedTimeRange = buf.loadedTimeRange
+    if (!loadedTimeRange) return
     // 左缘扩窗检测必须用 raw（start 可为 -1）；数据下标用 clamped
     const rawRange = this.getRawVisibleRangeOrNull()
     const range = this.getVisibleRangeOrNull()
@@ -754,26 +756,26 @@ export class ChartDataManager {
     let firstVisibleTs: number | undefined
 
     if (rawRange.start < 0) {
-      const earlierThanEarliest = window.earliestTs - gapDays * MS_PER_DAY
-      buf.ensureRange(earlierThanEarliest, window.earliestTs)
+      const earlierThanEarliest = loadedTimeRange.earliestTs - gapDays * MS_PER_DAY
+      buf.ensureRange(earlierThanEarliest, loadedTimeRange.earliestTs)
       firstVisibleTs = data[0]?.timestamp
     } else if (range.start < data.length) {
       firstVisibleTs = data[range.start]?.timestamp
-      if (firstVisibleTs !== undefined && firstVisibleTs < window.earliestTs) {
-        buf.ensureRange(firstVisibleTs, window.earliestTs)
+      if (firstVisibleTs !== undefined && firstVisibleTs < loadedTimeRange.earliestTs) {
+        buf.ensureRange(firstVisibleTs, loadedTimeRange.earliestTs)
       }
     }
 
     if (firstVisibleTs === undefined) return
 
-    this._comparisonManager.ensureRange(firstVisibleTs, window.earliestTs)
+    this._comparisonManager.ensureRange(firstVisibleTs, loadedTimeRange.earliestTs)
   }
 
   // ── Comparison management ──
 
   private reconcileComparisonBuffers(): void {
     const primaryBuf = this.getActiveDataBuffer()
-    this._comparisonManager.reconcile(primaryBuf?.loadedWindow?.earliestTs)
+    this._comparisonManager.reconcile(primaryBuf?.loadedTimeRange?.earliestTs)
   }
 
   /** 删除不再被 comparison 或当前主品种引用的 Repository 叶子。 */
@@ -812,7 +814,7 @@ export class ChartDataManager {
       this.deps.setSymbols([
         primary,
         ...this.deps.comparison.readonly.specs.peek(),
-        { symbol, market: primary.market, period: 'daily' },
+        { symbol, market: primary.market, period: DEFAULT_KLINE_PERIOD },
       ])
     }
     this._comparisonManager.setData(symbol, data)
@@ -872,7 +874,7 @@ export class ChartDataManager {
 
   /** 生成与品种来源、周期、复权和视图绑定的快照键。 */
   private getViewportSnapshotKey(spec: SymbolSpec): string {
-    return `${symbolSpecIdentityKey(spec)}:${spec.period ?? 'daily'}:${spec.adjust ?? 'none'}:${ChartDataViewId.KLine}`
+    return `${symbolSpecIdentityKey(spec)}:${spec.period ?? DEFAULT_KLINE_PERIOD}:${spec.adjust ?? DEFAULT_KLINE_ADJUSTMENT}:${ChartDataViewId.KLine}`
   }
 
   setTimeShareQueryDate(date: number): void {
@@ -900,9 +902,9 @@ export class ChartDataManager {
    *  "day" → "daily"，其余保持原值
    */
   private static normalizePeriod(period?: string): string {
-    if (!period) return 'daily'
+    if (!period) return DEFAULT_KLINE_PERIOD
     const alias = period.toLowerCase().trim()
-    if (alias === 'day') return 'daily'
+    if (alias === 'day') return DEFAULT_KLINE_PERIOD
     return period
   }
 
@@ -930,7 +932,7 @@ export class ChartDataManager {
       market: source.market,
       exchange: source.exchange,
       period: ChartDataManager.normalizePeriod(source.period),
-      adjust: source.adjust ?? 'none',
+      adjust: source.adjust ?? DEFAULT_KLINE_ADJUSTMENT,
       incremental: false,
       source: sourceId,
     }

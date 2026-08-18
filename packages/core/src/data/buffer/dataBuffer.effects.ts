@@ -4,6 +4,7 @@ import type { Effect as EffectType } from 'effect/Effect'
 
 import type { KLineData, SymbolSpec } from '../../controllers/types'
 import type { BarPageRequest, BarPageResult, TimeShareResult } from './dataBufferTypes'
+import { DEFAULT_KLINE_PERIOD } from '../provider/types'
 
 // ── KLine fetch service tag ──
 // Tag: 定义 Effect 服务接口
@@ -11,10 +12,7 @@ import type { BarPageRequest, BarPageResult, TimeShareResult } from './dataBuffe
 export class KLineFetchService extends Context.Tag('@klc/KLineFetchService')<
   KLineFetchService,
   {
-    readonly fetch: (
-      spec: SymbolSpec,
-      page: BarPageRequest,
-    ) => EffectType<BarPageResult, unknown>
+    readonly fetch: (spec: SymbolSpec, page: BarPageRequest) => EffectType<BarPageResult, unknown>
   }
 >() {}
 
@@ -51,7 +49,7 @@ const PERIOD_INITIAL_DAYS: Record<string, number> = {
 }
 
 export function getPeriodDays(period?: string): number {
-  return PERIOD_INITIAL_DAYS[period ?? 'daily'] ?? 365
+  return PERIOD_INITIAL_DAYS[period ?? DEFAULT_KLINE_PERIOD] ?? 365
 }
 
 // ── Retry backoff: 失败后等待约 1 秒 / 2 秒 ──

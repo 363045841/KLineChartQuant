@@ -4,7 +4,8 @@ import type { ReadonlySignal } from '../../foundation/reactivity/signal'
 import type { TimeShareData } from '../../foundation/types/price'
 import type { InstrumentDescriptor, OlderDataStatus, TimeShareRange } from '../provider/types'
 
-export interface DataWindow {
+/** 已加载行情数据覆盖的时间范围。 */
+export interface LoadedTimeRange {
   earliestTs: number
   latestTs: number
 }
@@ -37,7 +38,8 @@ export interface DataBufferLike<T = KLineData | TimeShareData> {
   readonly loading: ReadonlySignal<boolean>
   /** 最近一次显式拉取失败的可读原因；成功或重置后为 null */
   readonly lastError: ReadonlySignal<string | null>
-  readonly loadedWindow: DataWindow | null
+  /** 当前已加载数据覆盖的时间范围。 */
+  readonly loadedTimeRange: LoadedTimeRange | null
   getRawData(): T[]
   dispose(): void
 }

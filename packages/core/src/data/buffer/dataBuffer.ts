@@ -3,7 +3,7 @@ import { Effect, pipe } from 'effect'
 import type { Effect as EffectType } from 'effect/Effect'
 
 import type { KLineData, SymbolSpec } from '../../controllers/types'
-import type { OlderDataStatus } from '../provider/types'
+import { OLDER_DATA_STATUS, type OlderDataStatus } from '../provider/types'
 import {
   createSignal,
   type ReadonlySignal,
@@ -21,14 +21,16 @@ import type {
   BarPageRequest,
   BarPageResult,
   DataBufferLike,
-  DataWindow,
+  LoadedTimeRange,
   DataChange,
   KLineBuffer,
 } from './dataBufferTypes'
 import { FetchScheduler } from './fetchScheduler'
 import { KLineDataStore } from './kLineDataStore'
 import { TimeKeyIndex } from './timeKeyIndex'
+import { AUTO_SOURCE_ID } from './seriesRepository'
 
+/** 将未知异常转换为可展示的错误信息。 */
 function errorMessage(err: unknown): string {
   if (err instanceof Error && err.message.trim()) return err.message
   if (err != null && String(err).trim()) return String(err)
@@ -50,7 +52,7 @@ export class DataBuffer implements KLineBuffer {
     | ((sourceId: string, instrument: import('../provider/types').InstrumentDescriptor) => boolean)
     | null = null
   /** 后端声明的当前缓存左侧历史状态；仅 exhausted 会停止继续翻页。 */
-  private _olderData: OlderDataStatus = 'unknown'
+  private _olderData: OlderDataStatus = OLDER_DATA_STATUS.UNKNOWN
   private _currentSpec: SymbolSpec | null = null
   /** 当前 inflight 请求的 boundary（earliestTs），最多一个 */
   private _inflightBoundary: number | null = null
@@ -80,8 +82,9 @@ export class DataBuffer implements KLineBuffer {
     return this._currentSpec
   }
 
-  get loadedWindow(): DataWindow | null {
-    return this._store.loadedWindow
+  /** 返回当前已加载数据覆盖的时间范围。 */
+  get loadedTimeRange(): LoadedTimeRange | null {
+    return this._store.loadedTimeRange
   }
 
   getRawData(): KLineData[] {
@@ -96,6 +99,10 @@ export class DataBuffer implements KLineBuffer {
     return this._keyIndex.dayKeys
   }
 
+  /**
+   * 设置 K 线分页请求函数。
+   * @param fn 由上层协调器依赖注入的具体取数实现。
+   */
   setRequestFetch(
     fn: ((spec: SymbolSpec, page: BarPageRequest) => Promise<BarPageResult>) | null,
   ): void {
@@ -114,6 +121,7 @@ export class DataBuffer implements KLineBuffer {
     this._sourceResolvedHandler = handler
   }
 
+  /** 切换当前品种，清空旧缓存并请求首个数据页。 */
   setSymbol(spec: SymbolSpec, initialStartTs?: number): void {
     this._requestVersion++
     this._currentSpec = spec
@@ -123,22 +131,24 @@ export class DataBuffer implements KLineBuffer {
     this._inflightBoundary = null
     this._pendingRequestStartTs = initialStartTs ?? null
     this._initialRangePending = initialStartTs !== undefined
-    this._olderData = 'unknown'
+    this._olderData = OLDER_DATA_STATUS.UNKNOWN
     this._lastError.set(null)
     this._loadInitial()
   }
 
+  /** 确保缓存覆盖目标左边界，必要时向前分页请求历史数据。 */
   ensureRange(requestStartTs: number, _requestEndTs: number): void {
     if (this._disposed || !this._requestFetch || !this._currentSpec) return
     if (this._currentSpec.incremental === false) return
-    if (this._olderData === 'exhausted') return
+    if (this._olderData === OLDER_DATA_STATUS.EXHAUSTED) return
     if (!this._currentSpec.source) return
-    const window = this._store.loadedWindow
-    if (!window) return
+    const loadedTimeRange = this._store.loadedTimeRange
+    if (!loadedTimeRange) return
 
-    if (requestStartTs >= window.earliestTs) return
+    if (requestStartTs >= loadedTimeRange.earliestTs) return
 
-    const incrementalEnd = window.earliestTs
+    // 防止重复加载
+    const incrementalEnd = loadedTimeRange.earliestTs
     if (this._inflightBoundary === incrementalEnd) {
       if (this._pendingRequestStartTs === null || requestStartTs < this._pendingRequestStartTs) {
         this._pendingRequestStartTs = requestStartTs
@@ -151,6 +161,7 @@ export class DataBuffer implements KLineBuffer {
     this._fetchAndMerge({ limit: DEFAULT_BAR_PAGE_LIMIT, before: incrementalEnd })
   }
 
+  /** 写入静态内联 K 线数据并取消当前请求状态。 */
   setInlineData(data: ReadonlyArray<KLineData>): void {
     if (this._disposed) return
     this._requestVersion++
@@ -159,16 +170,18 @@ export class DataBuffer implements KLineBuffer {
     this._inflightBoundary = null
     this._pendingRequestStartTs = null
     this._initialRangePending = false
-    this._olderData = 'unknown'
+    this._olderData = OLDER_DATA_STATUS.UNKNOWN
     this._lastError.set(null)
     this._keyIndex.recompute(this._store.getRawData())
   }
 
+  /** 仅更新当前品种元数据，不重置或请求已有缓存。 */
   setCurrentSpec(spec: SymbolSpec): void {
     this._requestVersion++
     this._currentSpec = spec
   }
 
+  /** 销毁缓存并使进行中的请求结果失效。 */
   dispose(): void {
     this._disposed = true
     this._requestVersion++
@@ -178,12 +191,13 @@ export class DataBuffer implements KLineBuffer {
     this._inflightBoundary = null
     this._pendingRequestStartTs = null
     this._initialRangePending = false
-    this._olderData = 'unknown'
+    this._olderData = OLDER_DATA_STATUS.UNKNOWN
     this._lastError.set(null)
   }
 
   // ── Private ──
 
+  /** 请求当前品种的首个 K 线数据页。 */
   private _loadInitial(): void {
     if (!this._requestFetch || !this._currentSpec || this._disposed) return
     if (!this._currentSpec.source) return
@@ -191,6 +205,7 @@ export class DataBuffer implements KLineBuffer {
     this._fetchAndMerge({ limit: DEFAULT_BAR_PAGE_LIMIT })
   }
 
+  /** 请求一页 K 线数据，处理重试、来源解析和缓存合并。 */
   private _fetchAndMerge(page: BarPageRequest): void {
     if (!this._requestFetch || !this._currentSpec || this._disposed) return
     if (this._currentSpec.incremental === false) return
@@ -251,7 +266,7 @@ export class DataBuffer implements KLineBuffer {
           if (
             response.sourceId &&
             response.instrument &&
-            (spec.source === undefined || spec.source === 'auto')
+            (spec.source === undefined || spec.source === AUTO_SOURCE_ID)
           ) {
             this._currentSpec = {
               ...spec,
@@ -268,16 +283,16 @@ export class DataBuffer implements KLineBuffer {
           this._inflightBoundary = null
           const pending = this._pendingRequestStartTs
           this._pendingRequestStartTs = null
-          const loadedWindow = this._store.loadedWindow
+          const loadedTimeRange = this._store.loadedTimeRange
           const initialRangePending = this._initialRangePending
           this._initialRangePending = false
           if (
             pending !== null &&
-            loadedWindow &&
-            pending < loadedWindow.earliestTs &&
+            loadedTimeRange &&
+            pending < loadedTimeRange.earliestTs &&
             (initialRangePending || result.advancedEarliest)
           ) {
-            this.ensureRange(pending, loadedWindow.earliestTs)
+            this.ensureRange(pending, loadedTimeRange.earliestTs)
           }
         } catch (err) {
           if (disposed() || requestVersion !== this._requestVersion) return

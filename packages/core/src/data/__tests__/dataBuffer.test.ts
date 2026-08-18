@@ -42,7 +42,7 @@ describe('DataBuffer', () => {
   it('initial state: empty data, not loading', () => {
     expect(buffer.data().data).toEqual([])
     expect(buffer.loading()).toBe(false)
-    expect(buffer.loadedWindow).toBeNull()
+    expect(buffer.loadedTimeRange).toBeNull()
   })
 
   it('setSymbol triggers initial load with default page limit', async () => {
@@ -62,9 +62,9 @@ describe('DataBuffer', () => {
 
     expect(requestFetch).toHaveBeenCalledWith(defaultSpec, { limit: 500 })
     expect(buffer.data().data).toHaveLength(2)
-    expect(buffer.loadedWindow).not.toBeNull()
-    expect(buffer.loadedWindow!.earliestTs).toBe(fetchedData[0]!.timestamp)
-    expect(buffer.loadedWindow!.latestTs).toBe(fetchedData[1]!.timestamp)
+    expect(buffer.loadedTimeRange).not.toBeNull()
+    expect(buffer.loadedTimeRange!.earliestTs).toBe(fetchedData[0]!.timestamp)
+    expect(buffer.loadedTimeRange!.latestTs).toBe(fetchedData[1]!.timestamp)
   })
 
   it('continues loading after the initial page when an initial range is pending', async () => {
@@ -172,7 +172,7 @@ describe('DataBuffer', () => {
 
     expect(fetchCount).toBe(2)
     expect(buffer.data().data).toHaveLength(4)
-    expect(buffer.loadedWindow!.earliestTs).toBe(oneYearAgo - 90 * MS_PER_DAY)
+    expect(buffer.loadedTimeRange!.earliestTs).toBe(oneYearAgo - 90 * MS_PER_DAY)
   })
 
   it('ensureRange does nothing when visible range is within loaded window', async () => {
@@ -331,7 +331,7 @@ describe('DataBuffer', () => {
     buffer.setSymbol({ ...defaultSpec, symbol: 'sz.000001' })
 
     expect(buffer.data().data).toEqual([])
-    expect(buffer.loadedWindow).toBeNull()
+    expect(buffer.loadedTimeRange).toBeNull()
 
     await vi.waitFor(() => {
       expect(buffer.loading()).toBe(false)
@@ -453,7 +453,7 @@ describe('DataBuffer', () => {
       fetchCount++
       if (fetchCount === 1) return page(initialData)
       // Return data with same timestamps so mergeSortedData deduplicates them,
-      // avoiding loadedWindow change. The boundary should remain retryable.
+      // avoiding loadedTimeRange change. The boundary should remain retryable.
       return page(initialData)
     }
 
@@ -516,7 +516,7 @@ describe('DataBuffer', () => {
     })
 
     expect(fetchCount).toBe(2)
-    expect(buffer.loadedWindow!.earliestTs).toBe(oneYearAgo - 90 * MS_PER_DAY)
+    expect(buffer.loadedTimeRange!.earliestTs).toBe(oneYearAgo - 90 * MS_PER_DAY)
 
     const newEarliest = oneYearAgo - 90 * MS_PER_DAY
     buffer.ensureRange(newEarliest - 30 * MS_PER_DAY, newEarliest)

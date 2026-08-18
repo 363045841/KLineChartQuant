@@ -96,7 +96,7 @@ export {
   tradingviewMarketDataProvider,
 } from '../data'
 export type {
-  DataWindow,
+  LoadedTimeRange,
   BarPageRequest,
   DepthSource,
   DepthDelta,

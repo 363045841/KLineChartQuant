@@ -3,7 +3,7 @@ export { mockMarketDataProvider } from './provider/sources/mock'
 export { baostockMarketDataProvider } from './provider/sources/baostock'
 export { finshareMarketDataProvider } from './provider/sources/finshare'
 export { DataBuffer } from './buffer/dataBuffer'
-export type { BarPageRequest, DataWindow } from './buffer/dataBufferTypes'
+export type { BarPageRequest, LoadedTimeRange } from './buffer/dataBufferTypes'
 export { TimeShareBuffer } from './buffer/timeShareBuffer'
 export type { DataBufferLike } from './buffer/dataBufferTypes'
 export {

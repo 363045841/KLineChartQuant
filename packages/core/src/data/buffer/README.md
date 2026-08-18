@@ -33,22 +33,7 @@ Provider 的选择和数据源回退由 `ChartDataManager` 与 `SourceRouter` �
 
 ## 主要实现
 
-### `DataBuffer`
-
-实现 `KLineBuffer`，用于日 K、周 K、月 K 和分钟 K 数据。
-
-- `setSymbol(spec)`：切换品种并开始初始加载。
-- `setInlineData(data)`：写入一次性内联 K 线数据，跳过 Provider 请求。
-- `ensureRange(start, end)`：请求可见范围之外的历史数据。
-- `setRequestFetch(fetcher)`：由上层注入分页请求函数。
-- `data`：发布包含数据和 `prependedCount` 的变更快照。
-- `loadedWindow`：返回当前已加载数据的时间范围。
-
-当 `SymbolSpec.incremental === false` 时，Buffer 不会继续请求更早的历史数据，适用于静态内联数据。
-
-### `TimeShareBuffer`
-
-实现分时数据缓冲。分时数据按交易日组织，并将点列、交易日范围和昨收作为一个内容快照写入，避免相关状态分开更新。
+`SeriesRepository` 是图表实例内全部 Buffer 的唯一根容器；`DataBuffer` 和`TimeShareBuffer` 是根容器中的数据容器，分别保存 K 线和分时数据。
 
 ### `dataBufferTypes.ts`
 
@@ -71,6 +56,55 @@ Provider 的选择和数据源回退由 `ChartDataManager` 与 `SourceRouter` �
 - 主图和对比图只引用同一叶子 Buffer，视图角色不进入序列身份。
 - `auto` 首次请求成功后将叶子迁移到实际 Provider 节点，后续请求锁定该来源；若实际节点已存在，则复用已有叶子并释放重复请求 Buffer。
 - 删除叶子、删除品种和销毁图表时，由 Repository 统一销毁 Buffer。
+
+### `DataBuffer`
+
+实现 `KLineBuffer`，用于日 K、周 K、月 K 和分钟 K 数据。
+
+- `setSymbol(spec)`：切换品种并开始初始加载。
+- `setInlineData(data)`：写入用户自备数据，跳过 Provider 请求。
+- `ensureRange(start, end)`：确认 Buffer 里是否已经有用户当前想看的时间范围，如果没有请求可见范围之外的历史数据。
+- `setRequestFetch(fetcher)`：由上层注入分页请求函数。
+- `data`：发布包含数据和 `prependedCount` 的变更快照。
+- `loadedTimeRange`：返回当前已加载数据覆盖的时间范围。
+
+当 `SymbolSpec.incremental === false` ，即不支持**增量加载**时，Buffer 不会继续请求更早的历史数据，适用于静态内联数据。
+
+```json
+[
+  {
+    "timestamp": 1786924800000,
+    "date": "2026-08-17",
+    "open": 1418.2,
+    "high": 1432.5,
+    "low": 1412.8,
+    "close": 1426.7,
+    "volume": 258000
+  }
+]
+```
+
+### `TimeShareBuffer`
+
+实现分时数据缓存。分时数据按交易日组织，并将点列、交易日范围和昨收作为一个内容快照写入，避免相关状态分开更新。
+
+```json
+{
+  "instrumentId": "gotdx:stock:1:600519",
+  "timezone": "Asia/Shanghai",
+  "requestedDays": 1,
+  "olderData": "unknown",
+  "days": [
+    {
+      "tradingDate": "2026-08-18",
+      "preClose": 1420.5,
+      "data": [
+        { "timestamp": 1787016600000, "price": 1428.2, "average": 1426.8, "volume": 1200 }
+      ]
+    }
+  ]
+}
+```
 
 ## 上层协作边界
 

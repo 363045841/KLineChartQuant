@@ -20,11 +20,18 @@ import {
   retryBackoffMs,
   TimeShareFetchService,
 } from './dataBuffer.effects'
-import type { DataBufferLike, DataWindow, DataChange, TimeShareResult } from './dataBufferTypes'
+import type {
+  DataBufferLike,
+  LoadedTimeRange,
+  DataChange,
+  TimeShareResult,
+} from './dataBufferTypes'
+import { AUTO_SOURCE_ID } from './seriesRepository'
 
 /** 由数据管理层注入的统一 Provider 分时请求。 */
 export type TimeShareRequestFetch = (spec: SymbolSpec, date?: number) => Promise<TimeShareResult>
 
+/** 将未知异常转换为可展示的错误信息。 */
 function errorMessage(err: unknown): string {
   if (err instanceof Error && err.message.trim()) return err.message
   if (err != null && String(err).trim()) return String(err)
@@ -79,8 +86,8 @@ function resolvePreClose(snapshot: TimeShareContentSnapshot): number | null {
   return snapshot.range.days.at(-1)?.preClose ?? null
 }
 
-/** 从扁平点列派生已加载时间窗口。 */
-function resolveLoadedWindow(data: ReadonlyArray<TimeShareData>): DataWindow | null {
+/** 从扁平点列派生已加载数据的时间范围。 */
+function resolveLoadedTimeRange(data: ReadonlyArray<TimeShareData>): LoadedTimeRange | null {
   if (data.length === 0) return null
   return { earliestTs: data[0]!.timestamp, latestTs: data[data.length - 1]!.timestamp }
 }
@@ -98,7 +105,9 @@ export class TimeShareBuffer implements DataBufferLike<TimeShareData> {
     return snapshot.kind === 'range' ? snapshot.range : null
   })
   private readonly _preCloseSignal = computed(() => resolvePreClose(this._contentSignal()))
-  private readonly _loadedWindowSignal = computed(() => resolveLoadedWindow(this._flatDataSignal()))
+  private readonly _loadedTimeRangeSignal = computed(() =>
+    resolveLoadedTimeRange(this._flatDataSignal()),
+  )
   // 是否正在加载中，外部 UI 绑定用
   private _loadingSignal: WritableSignal<boolean> = createSignal<boolean>(false)
   private _lastError: WritableSignal<string | null> = createSignal<string | null>(null)
@@ -134,8 +143,9 @@ export class TimeShareBuffer implements DataBufferLike<TimeShareData> {
     return this._lastError
   }
 
-  get loadedWindow(): DataWindow | null {
-    return this._loadedWindowSignal.peek()
+  /** 返回当前已加载数据覆盖的时间范围。 */
+  get loadedTimeRange(): LoadedTimeRange | null {
+    return this._loadedTimeRangeSignal.peek()
   }
 
   getRawData(): TimeShareData[] {
@@ -168,14 +178,17 @@ export class TimeShareBuffer implements DataBufferLike<TimeShareData> {
     this._sourceResolvedHandler = handler
   }
 
+  /** 设置下次加载使用的历史查询日期，0 表示最新交易日。 */
   setQueryDate(date: number): void {
     this._queryDate = date
   }
 
+  /** 返回当前待查询的交易日期。 */
   getQueryDate(): number {
     return this._queryDate
   }
 
+  /** 返回当前内容快照派生的昨收价。 */
   getPreClose(): number | null {
     return this._preCloseSignal.peek()
   }
@@ -188,6 +201,7 @@ export class TimeShareBuffer implements DataBufferLike<TimeShareData> {
     this._lastError.set(null)
   }
 
+  /** 按当前查询日期请求分时数据，并丢弃已过期的响应。 */
   load(spec: SymbolSpec): void {
     if (this._disposed) return
 
@@ -235,7 +249,7 @@ export class TimeShareBuffer implements DataBufferLike<TimeShareData> {
         if (
           result.sourceId &&
           result.instrument &&
-          (spec.source === undefined || spec.source === 'auto')
+          (spec.source === undefined || spec.source === AUTO_SOURCE_ID)
         ) {
           if (this._sourceResolvedHandler?.(result.sourceId, result.instrument) === false) return
         }
@@ -253,6 +267,7 @@ export class TimeShareBuffer implements DataBufferLike<TimeShareData> {
     })()
   }
 
+  /** 将单日点列和昨收复制为不可变内容快照。 */
   private setInlineSnapshot(data: ReadonlyArray<TimeShareData>, preClose: number | null): void {
     this.setContent({
       kind: 'inline',
@@ -261,7 +276,7 @@ export class TimeShareBuffer implements DataBufferLike<TimeShareData> {
     })
   }
 
-  // 销毁实例
+  /** 销毁实例并使进行中的请求结果失效。 */
   dispose(): void {
     this._disposed = true
     this._requestSeq++

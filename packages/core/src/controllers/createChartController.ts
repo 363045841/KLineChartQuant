@@ -577,9 +577,9 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   function ensureDataRange(startTs: number): void {
     if (disposed) return
     const buf = chart.dataBuffer
-    const win = buf.loadedWindow
-    if (!win || startTs >= win.earliestTs) return
-    buf.ensureRange(startTs, win.earliestTs)
+    const loadedTimeRange = buf.loadedTimeRange
+    if (!loadedTimeRange || startTs >= loadedTimeRange.earliestTs) return
+    buf.ensureRange(startTs, loadedTimeRange.earliestTs)
   }
 
   function appendData(next: ReadonlyArray<KLineData>): void {
