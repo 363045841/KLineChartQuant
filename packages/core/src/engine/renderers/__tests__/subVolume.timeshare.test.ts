@@ -27,7 +27,7 @@ function createContext(): RenderContext {
       top: 0,
       height: 100,
       yAxis: {
-        getDisplayRange: (range) => range!,
+        getDisplayRange: (range: { maxPrice: number; minPrice: number }) => range,
       },
     },
     data: [
@@ -51,7 +51,9 @@ function createContext(): RenderContext {
 describe('timeshare volume renderer', () => {
   it('uses the dedicated volume palette instead of the timeshare price-line color', () => {
     const renderer = VolumeIndicatorDefinition.rendererFactory({ paneId: 'sub' })
-    renderer.onInstall({
+    const { onInstall } = renderer
+    if (!onInstall) throw new Error('Volume renderer must expose an install hook')
+    onInstall({
       getService: () => ({ getIndicatorMetadata: () => ({ stateKey: 'volume' }) }),
       setSharedState: vi.fn(),
     } as never)

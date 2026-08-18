@@ -160,6 +160,10 @@ export const DATA_TOOLS: McpToolSchema[] = [
       type: 'object',
       properties: {
         symbol: { type: 'string', description: 'Ticker symbol, e.g. AAPL, BTC/USDT, 600519.' },
+        market: {
+          type: 'string',
+          description: 'Market code, e.g. CN, HK, US, FUTURES. Defaults to CN when omitted.',
+        },
         exchange: {
           type: 'string',
           description: 'Optional exchange name, e.g. NASDAQ, SSE, SZSE, HKEX, BINANCE.',
@@ -260,6 +264,10 @@ export const DATA_TOOLS: McpToolSchema[] = [
         symbol: {
           type: 'string',
           description: 'Ticker symbol to compare, e.g. SPY, MSFT, 000001.',
+        },
+        market: {
+          type: 'string',
+          description: 'Market code, e.g. CN, HK, US, FUTURES. Defaults to CN when omitted.',
         },
         exchange: {
           type: 'string',

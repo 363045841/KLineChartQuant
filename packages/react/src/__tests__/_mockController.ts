@@ -8,6 +8,9 @@
  */
 
 import type {
+  AlertController,
+  AlertEvent,
+  AlertRule,
   ChartController,
   ChartViewport,
   DrawingObject,
@@ -46,6 +49,19 @@ export function createMockChartController(
   const data = createSignal<ReadonlyArray<KLineData>>(initialData)
   const theme = createSignal<'light' | 'dark'>('light')
   const settings = createSignal({ theme: 'light' as 'light' | 'dark' | 'auto' } as any)
+  const selectedDrawingId = createSignal<string | null>(null)
+  const alertController: AlertController = {
+    rules: createSignal<ReadonlyArray<AlertRule>>([]),
+    events: createSignal<ReadonlyArray<AlertEvent>>([]),
+    addRule: () => false,
+    removeRule: () => false,
+    setRuleEnabled: () => false,
+    updateRule: () => false,
+    evaluate: () => [],
+    clearEvents: () => {},
+    onEvent: () => () => {},
+    dispose: () => {},
+  }
 
   let disposeCount = 0
 
@@ -68,6 +84,7 @@ export function createMockChartController(
     subPanes: createSignal<ReadonlyArray<SubPaneInfo>>([]),
     drawingTool: createSignal('cursor' as const),
     drawings: createSignal<ReadonlyArray<DrawingObject>>([]),
+    selectedDrawingId,
     paneRatios: createSignal<Readonly<Record<string, number>>>({}),
     paneLayout: createSignal<ReadonlyArray<PaneSpec>>([]),
     interactionState: createSignal<InteractionSnapshot>({
@@ -91,6 +108,7 @@ export function createMockChartController(
     comparisonLoading: createSignal(false),
     symbolCatalog: createSignal([] as ReadonlyArray<SymbolInfo>),
     catalog: [],
+    alertController,
 
     setData(next: ReadonlyArray<KLineData>) {
       data.set(next)
@@ -132,6 +150,9 @@ export function createMockChartController(
       /* no-op */
     },
     applyCustomData() {
+      /* no-op */
+    },
+    resetToFetcher() {
       /* no-op */
     },
     ensureDataRange() {
@@ -205,10 +226,10 @@ export function createMockChartController(
       return []
     },
     getSelectedDrawingId() {
-      return null
+      return selectedDrawingId()
     },
-    setSelectedDrawingId() {
-      /* no-op */
+    setSelectedDrawingId(id) {
+      selectedDrawingId.set(id)
     },
     getViewport() {
       return null

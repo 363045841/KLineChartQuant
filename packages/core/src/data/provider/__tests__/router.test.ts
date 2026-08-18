@@ -77,6 +77,7 @@ describe('SourceRouter', () => {
         adjustment: 'none' as const,
         timezone: 'Asia/Shanghai',
         data: [],
+        olderData: 'unknown' as const,
       }
     }
     const second = createProvider('baostock', targetFetch, targetSearch)
@@ -166,6 +167,7 @@ describe('SourceRouter', () => {
           adjustment: 'none',
           timezone: 'Asia/Shanghai',
           data: [],
+          olderData: 'unknown',
         }
       },
       async () => [],

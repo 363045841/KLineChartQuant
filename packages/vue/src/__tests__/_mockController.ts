@@ -10,6 +10,9 @@
  */
 
 import type {
+  AlertController,
+  AlertEvent,
+  AlertRule,
   ChartController,
   ChartMountOptions,
   ChartViewport,
@@ -95,6 +98,18 @@ export function createMockChartController(
   const paneLayout = createSignal<ReadonlyArray<PaneSpec>>([])
   const legendTemplateContext = createSignal(null)
   const rendererConfigCalls: Array<{ name: string; config: Record<string, unknown> }> = []
+  const alertController: AlertController = {
+    rules: createSignal<ReadonlyArray<AlertRule>>([]),
+    events: createSignal<ReadonlyArray<AlertEvent>>([]),
+    addRule: () => false,
+    removeRule: () => false,
+    setRuleEnabled: () => false,
+    updateRule: () => false,
+    evaluate: () => [],
+    clearEvents: () => {},
+    onEvent: () => () => {},
+    dispose: () => {},
+  }
 
   return {
     viewport,
@@ -197,6 +212,8 @@ export function createMockChartController(
     getFullDrawings: () => [],
     setSelectedDrawingId: () => {},
     getSelectedDrawingId: () => null,
+    alertController,
+    resetToFetcher: () => {},
     getViewport: () => null,
     getKWidthKGap: () => ({ kWidth: 6, kGap: 2 }),
     getCurrentDpr: () => 1,

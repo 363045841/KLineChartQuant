@@ -14,6 +14,14 @@ import { createFrameMetrics } from './frameMetrics'
 import { prepareLineStripForPhysicalPixels } from './physicalLine'
 import { toPhysicalRegion } from './physicalRegion'
 import { createWebGPUResourceTable } from './webgpuResourceTable'
+import {
+  GPU_BUFFER_COPY_DST,
+  GPU_BUFFER_INDEX,
+  GPU_BUFFER_STORAGE,
+  GPU_BUFFER_UNIFORM,
+  GPU_BUFFER_VERTEX,
+  GPU_TEXTURE_RENDER_ATTACHMENT,
+} from './webgpuGlobals'
 
 type PipelineType = 'candle' | 'line' | 'fill'
 
@@ -33,13 +41,6 @@ export type CreateWebGPURendererOptions = {
   /** 可选帧指标探针；默认使用模块级 createFrameMetrics */
   metrics?: ReturnType<typeof createFrameMetrics>
 }
-
-const GPU_BUFFER_COPY_DST = globalThis.GPUBufferUsage?.COPY_DST ?? 0x0008
-const GPU_BUFFER_INDEX = globalThis.GPUBufferUsage?.INDEX ?? 0x0010
-const GPU_BUFFER_VERTEX = globalThis.GPUBufferUsage?.VERTEX ?? 0x0020
-const GPU_BUFFER_UNIFORM = globalThis.GPUBufferUsage?.UNIFORM ?? 0x0040
-const GPU_BUFFER_STORAGE = globalThis.GPUBufferUsage?.STORAGE ?? 0x0080
-const GPU_TEXTURE_RENDER_ATTACHMENT = globalThis.GPUTextureUsage?.RENDER_ATTACHMENT ?? 0x10
 
 const RECT_SHADER = `
 struct Uniforms {

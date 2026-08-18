@@ -5,11 +5,14 @@ import SymbolSelector from '../SymbolSelector.vue'
 
 const symbols = [
   {
+    id: 'SZ.158017',
+    sourceId: 'gotdx',
     symbol: '158017',
-    market: 'CN',
-    description: '化工ETF易方达',
+    name: '化工ETF易方达',
+    assetClass: 'etf' as const,
     exchange: 'SZ',
-    source: 'gotdx',
+    sessionId: 'CN',
+    capabilities: {},
   },
 ]
 

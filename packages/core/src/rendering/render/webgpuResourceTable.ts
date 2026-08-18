@@ -1,4 +1,5 @@
 import type { createFrameMetrics } from './frameMetrics'
+import { GPU_BUFFER_COPY_DST, GPU_BUFFER_UNIFORM, GPU_BUFFER_VERTEX } from './webgpuGlobals'
 
 type Metrics = ReturnType<typeof createFrameMetrics>
 
@@ -22,10 +23,6 @@ export type WebGPUResourceTable = {
   destroyKey(key: string): void
   destroyAll(): void
 }
-
-const GPU_BUFFER_COPY_DST = globalThis.GPUBufferUsage?.COPY_DST ?? 0x0008
-const GPU_BUFFER_VERTEX = globalThis.GPUBufferUsage?.VERTEX ?? 0x0020
-const GPU_BUFFER_UNIFORM = globalThis.GPUBufferUsage?.UNIFORM ?? 0x0040
 
 function gpuUsage(usage: ResourceUsage): GPUBufferUsageFlags {
   if (usage === 'uniform') return GPU_BUFFER_UNIFORM | GPU_BUFFER_COPY_DST

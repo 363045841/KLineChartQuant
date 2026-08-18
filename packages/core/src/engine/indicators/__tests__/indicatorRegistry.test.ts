@@ -14,9 +14,13 @@ function createMeta(overrides: Partial<IndicatorMetadata> = {}): IndicatorMetada
     aliases: ['relativeStrength'],
     displayName: 'RSI',
     category: 'oscillator',
+    indicatorType: 'momentum',
     stateKey: (paneId: string) => `indicator:rsi:${paneId}`,
     defaultPaneId: 'sub_RSI',
     rendererFactory: vi.fn() as any,
+    getRendererName: ({ paneId }) => `rsi_${paneId}`,
+    getScaleRendererName: () => null,
+    getPaneTitleRendererName: () => null,
     ...overrides,
   }
 }

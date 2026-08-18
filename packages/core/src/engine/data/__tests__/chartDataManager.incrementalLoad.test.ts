@@ -130,6 +130,16 @@ function createDependencies(
   }
 }
 
+function createChartDom(document: Document): ChartDom {
+  return {
+    container: document.querySelector<HTMLDivElement>('#container')!,
+    scrollContent: document.querySelector<HTMLDivElement>('#scroll-content')!,
+    canvasLayer: document.createElement('div'),
+    rightAxisLayer: document.createElement('div'),
+    xAxisCanvas: document.createElement('canvas'),
+  }
+}
+
 describe('ChartDataManager incremental load', () => {
   let manager: ChartDataManager | null = null
   let document: Document
@@ -182,11 +192,9 @@ describe('ChartDataManager incremental load', () => {
     const dataState = createDataState()
     const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
     const dataManagerState = createDataManagerState()
-    const container = document.querySelector<HTMLDivElement>('#container')!
-    const scrollContent = document.querySelector<HTMLDivElement>('#scroll-content')!
     manager = new ChartDataManager(
       createDependencies(
-        { container, scrollContent },
+        createChartDom(document),
         (symbols) => {
           symbols$.set(symbols)
           dataState.actions.setSymbols(symbols)
@@ -238,11 +246,9 @@ describe('ChartDataManager incremental load', () => {
     const dataState = createDataState()
     const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
     const dataManagerState = createDataManagerState()
-    const container = document.querySelector<HTMLDivElement>('#container')!
-    const scrollContent = document.querySelector<HTMLDivElement>('#scroll-content')!
     manager = new ChartDataManager(
       createDependencies(
-        { container, scrollContent },
+        createChartDom(document),
         (symbols) => {
           symbols$.set(symbols)
           dataState.actions.setSymbols(symbols)
@@ -282,11 +288,9 @@ describe('ChartDataManager incremental load', () => {
     const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
     const dataManagerState = createDataManagerState()
     const scheduleDraw = vi.fn()
-    const container = document.querySelector<HTMLDivElement>('#container')!
-    const scrollContent = document.querySelector<HTMLDivElement>('#scroll-content')!
     manager = new ChartDataManager(
       createDependencies(
-        { container, scrollContent },
+        createChartDom(document),
         (symbols) => {
           symbols$.set(symbols)
           dataState.actions.setSymbols(symbols)
@@ -337,11 +341,9 @@ describe('ChartDataManager incremental load', () => {
     const dataState = createDataState()
     const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
     const dataManagerState = createDataManagerState()
-    const container = document.querySelector<HTMLDivElement>('#container')!
-    const scrollContent = document.querySelector<HTMLDivElement>('#scroll-content')!
     manager = new ChartDataManager(
       createDependencies(
-        { container, scrollContent },
+        createChartDom(document),
         (symbols) => {
           symbols$.set(symbols)
           dataState.actions.setSymbols(symbols)
@@ -386,11 +388,9 @@ describe('ChartDataManager incremental load', () => {
     const dataState = createDataState()
     const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
     const dataManagerState = createDataManagerState()
-    const container = document.querySelector<HTMLDivElement>('#container')!
-    const scrollContent = document.querySelector<HTMLDivElement>('#scroll-content')!
     manager = new ChartDataManager(
       createDependencies(
-        { container, scrollContent },
+        createChartDom(document),
         (symbols) => {
           symbols$.set(symbols)
           dataState.actions.setSymbols(symbols)

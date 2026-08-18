@@ -87,6 +87,7 @@ export function executeTool(chart: ChartController, call: ToolCall): ToolResult 
     case 'data.setSymbols': {
       const input = call.input as {
         symbol: string
+        market?: string
         exchange?: string
         period?: string
         adjust?: string
@@ -97,6 +98,7 @@ export function executeTool(chart: ChartController, call: ToolCall): ToolResult 
       chart.setSymbols([
         {
           symbol: input.symbol,
+          market: input.market ?? 'CN',
           exchange: input.exchange,
           period: input.period,
           adjust: input.adjust,
@@ -139,9 +141,10 @@ export function executeTool(chart: ChartController, call: ToolCall): ToolResult 
     }
 
     case 'data.addComparisonSymbol': {
-      const input = call.input as { symbol: string; exchange?: string; source?: string }
+      const input = call.input as { symbol: string; market?: string; exchange?: string; source?: string }
       chart.addComparisonSymbol({
         symbol: input.symbol,
+        market: input.market ?? 'CN',
         exchange: input.exchange,
         source: input.source,
       })

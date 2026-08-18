@@ -56,11 +56,11 @@ function makeController(snapshotIntervalMs = 100, tickSize = 0.01): HeatmapContr
 // ---------------------------------------------------------------------------
 describe('depth pipeline: BinanceSSESource → DepthConnector → HeatmapController', () => {
   let es: FakeES
-  let esFactory: ReturnType<typeof vi.fn>
+  let esFactory: (url: string) => EventSource
 
   beforeEach(() => {
     es = createFakeES()
-    esFactory = vi.fn(() => es as unknown as EventSource)
+    esFactory = vi.fn<(url: string) => EventSource>(() => es as unknown as EventSource)
   })
 
   /**

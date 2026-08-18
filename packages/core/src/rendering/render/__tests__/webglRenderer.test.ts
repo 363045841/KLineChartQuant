@@ -3,10 +3,23 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createWebGLRenderer } from '../createWebGLRenderer'
 import type { SurfaceBackend, SurfaceRegion } from '../index'
 
+type MockLineStrip = {
+  points: Array<{ x: number; y: number }>
+  width: number
+  color: string
+}
+
+type MockFilledBand = {
+  upperPoints: Array<{ x: number; y: number }>
+  lowerPoints: Array<{ x: number; y: number }>
+}
+
 const mocks = vi.hoisted(() => ({
-  mockDrawRectBuffer: vi.fn(() => true),
-  mockDrawLineStrips: vi.fn(() => true),
-  mockDrawFilledBand: vi.fn(() => true),
+  mockDrawRectBuffer: vi.fn(
+    (_rectData: Float32Array, _rectCount: number, _color: string, _scrollLeft: number) => true,
+  ),
+  mockDrawLineStrips: vi.fn((_lines: MockLineStrip[], _scrollLeft: number) => true),
+  mockDrawFilledBand: vi.fn((_band: MockFilledBand, _color: string, _scrollLeft: number) => true),
   mockSetRegion: vi.fn(),
   mockResize: vi.fn(),
   mockDestroyCandle: vi.fn(),
@@ -209,7 +222,7 @@ describe('createWebGLRenderer', () => {
 
       expect(ok).toBe(true)
       expect(mocks.mockDrawRectBuffer).toHaveBeenCalledTimes(1)
-      const args = mocks.mockDrawRectBuffer.mock.calls[0]
+      const args = mocks.mockDrawRectBuffer.mock.calls[0]!
       expect(args[0]).toBeInstanceOf(Float32Array)
       expect(args[1]).toBe(2)
       expect(args[2]).toBe('#ff0000')
@@ -288,11 +301,11 @@ describe('createWebGLRenderer', () => {
 
       expect(ok).toBe(true)
       expect(mocks.mockDrawLineStrips).toHaveBeenCalledTimes(1)
-      const args = mocks.mockDrawLineStrips.mock.calls[0]
+      const args = mocks.mockDrawLineStrips.mock.calls[0]!
       expect(args[0]).toHaveLength(1)
-      expect(args[0][0].color).toBe('#00ff00')
-      expect(args[0][0].width).toBe(1)
-      expect(args[0][0].points).toHaveLength(3)
+      expect(args[0][0]!.color).toBe('#00ff00')
+      expect(args[0][0]!.width).toBe(1)
+      expect(args[0][0]!.points).toHaveLength(3)
       expect(args[1]).toBe(10)
     })
 
@@ -327,9 +340,9 @@ describe('createWebGLRenderer', () => {
       expect(mocks.mockDrawLineStrips).toHaveBeenCalledTimes(1)
       const lines = mocks.mockDrawLineStrips.mock.calls[0]![0]
       expect(lines).toHaveLength(2)
-      expect(lines[0].color).toBe('#f00')
-      expect(lines[1].color).toBe('#0f0')
-      expect(lines[1].width).toBe(2)
+      expect(lines[0]!.color).toBe('#f00')
+      expect(lines[1]!.color).toBe('#0f0')
+      expect(lines[1]!.width).toBe(2)
       expect(mocks.mockDrawLineStrips.mock.calls[0]![1]).toBe(5)
     })
 
@@ -352,8 +365,8 @@ describe('createWebGLRenderer', () => {
         uniforms: { scrollLeft: 0 },
       })
       const lines = mocks.mockDrawLineStrips.mock.calls[0]![0]
-      expect(lines[0].width).toBe(1)
-      expect(lines[0].points).toEqual([
+      expect(lines[0]!.width).toBe(1)
+      expect(lines[0]!.points).toEqual([
         { x: 0, y: 5.3 },
         { x: 10.4, y: 5.3 },
       ])
@@ -379,7 +392,7 @@ describe('createWebGLRenderer', () => {
       })
 
       const lines = mocks.mockDrawLineStrips.mock.calls[0]![0]
-      expect(lines[0].points).toEqual([
+      expect(lines[0]!.points).toEqual([
         { x: 10.4, y: 0 },
         { x: 10.4, y: 10.4 },
       ])
@@ -404,8 +417,8 @@ describe('createWebGLRenderer', () => {
         uniforms: { scrollLeft: 0 },
       })
       const lines = mocks.mockDrawLineStrips.mock.calls[0]![0]
-      expect(lines[0].width).toBe(1)
-      expect(lines[0].points).toEqual([
+      expect(lines[0]!.width).toBe(1)
+      expect(lines[0]!.points).toEqual([
         { x: 0.2, y: 5.1 },
         { x: 10.7, y: 8.4 },
       ])
@@ -429,7 +442,7 @@ describe('createWebGLRenderer', () => {
       })
 
       expect(mocks.mockDrawFilledBand).toHaveBeenCalledTimes(1)
-      const args = mocks.mockDrawFilledBand.mock.calls[0]
+      const args = mocks.mockDrawFilledBand.mock.calls[0]!
       expect(args[0].upperPoints).toHaveLength(3)
       expect(args[0].lowerPoints).toHaveLength(3)
       expect(args[1]).toBe('#0000ff')

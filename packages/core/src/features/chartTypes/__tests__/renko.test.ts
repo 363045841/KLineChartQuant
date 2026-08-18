@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 
 import { createRenko } from '../renko'
-import type { OHLCV } from '../types'
+import type { OHLCV, TransformedBar } from '../types'
 
 const bar = (i: number, o: number, h: number, l: number, c: number, v = 100): OHLCV => ({
   timestamp: 1_700_000_000_000 + i * 60_000,
@@ -116,7 +116,7 @@ describe('renko', () => {
     }
     const batch = createRenko().transform(series, { brickSize: 3 })
     const inc = createRenko()
-    const incremental: ReturnType<typeof inc.transform> = []
+    const incremental: TransformedBar[] = []
     // Prime config via transform on empty array (sets activeConfig)…
     inc.transform([], { brickSize: 3 })
     for (const b of series) {

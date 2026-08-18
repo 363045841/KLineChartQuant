@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 
 import { createRangeBars } from '../rangeBars'
-import type { OHLCV } from '../types'
+import type { OHLCV, TransformedBar } from '../types'
 
 const bar = (i: number, o: number, h: number, l: number, c: number, v = 100): OHLCV => ({
   timestamp: 1_700_000_000_000 + i * 60_000,
@@ -121,7 +121,7 @@ describe('rangeBars', () => {
     const batch = createRangeBars().transform(series, { range: 3 })
     const inc = createRangeBars()
     inc.transform([], { range: 3 })
-    const incremental: ReturnType<typeof inc.transform> = []
+    const incremental: TransformedBar[] = []
     for (const b of series) {
       for (const out of inc.appendBar!(b)) incremental.push(out)
     }

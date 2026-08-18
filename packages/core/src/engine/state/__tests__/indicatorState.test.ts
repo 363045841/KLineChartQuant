@@ -92,7 +92,14 @@ describe('indicatorState', () => {
     const instances = m.readonly.instances() as IndicatorInstanceSpec[]
     const entry = instances[0]!
     expect(() =>
-      instances.push({ indicatorId: 'HACK', paneId: 'main', role: 'main', params: {} }),
+      instances.push({
+        instanceId: 'hack:main',
+        indicatorId: 'HACK',
+        paneId: 'main',
+        role: 'main',
+        ordinal: 0,
+        params: {},
+      }),
     ).toThrow()
     expect(() => {
       ;(entry.params as Record<string, number>).period = 99
@@ -104,9 +111,25 @@ describe('indicatorState', () => {
   it('replaceAllMain deep-copies instances so caller mutation is ignored', () => {
     const m = createIndicatorState()
     const params = { period: 5 }
-    const input = [{ indicatorId: 'MA', paneId: 'main', role: 'main' as const, params }]
+    const input = [
+      {
+        instanceId: 'legacy:main',
+        indicatorId: 'MA',
+        paneId: 'main',
+        role: 'main' as const,
+        ordinal: 0,
+        params: params as Record<string, number>,
+      },
+    ]
     m.actions.replaceAllMain(input)
-    input.push({ indicatorId: 'BOLL', paneId: 'main', role: 'main', params: { n: 20 } })
+    input.push({
+      instanceId: 'legacy:main:boll',
+      indicatorId: 'BOLL',
+      paneId: 'main',
+      role: 'main',
+      ordinal: 0,
+      params: { period: 20 },
+    })
     params.period = 99
     expect(m.readonly.instances()).toEqual([
       expect.objectContaining({ instanceId: 'legacy:main', ordinal: 0, indicatorId: 'MA' }),

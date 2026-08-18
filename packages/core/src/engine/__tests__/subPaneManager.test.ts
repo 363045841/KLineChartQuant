@@ -1,26 +1,29 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { IndicatorScheduler } from '../indicators/scheduler'
+import type { IndicatorMetadata } from '../indicators/indicatorMetadata'
 import type { SubPaneSpec } from '../state/indicatorState'
 import { SubPaneManager, type SubPaneContext } from '../subPaneManager'
 
 function createMockScheduler(): Partial<IndicatorScheduler> {
   return {
-    getIndicatorMetadata: vi.fn((id: string) => ({
+    getIndicatorMetadata: vi.fn((id: string): IndicatorMetadata => ({
       name: id,
       displayName: 'Test',
       category: 'sub' as const,
+      indicatorType: 'other',
       stateKey: id,
       defaultPaneId: 'sub',
-      rendererFactory: vi.fn(({ paneId }: { paneId: string }) => ({
+      rendererFactory: vi.fn(({ paneId } = { paneId: '', indicatorId: '' }) => ({
         name: `${id.toLowerCase()}_${paneId}`,
         paneId,
         priority: 0,
         draw: vi.fn(),
       })),
-      getScaleRendererName: ({ paneId }: { paneId: string }) =>
+      getRendererName: ({ paneId }) => `${id.toLowerCase()}_${paneId}`,
+      getScaleRendererName: ({ paneId }) =>
         `${id.toLowerCase()}Scale_${paneId}`,
-      getPaneTitleRendererName: ({ paneId }: { paneId: string }) => `paneTitle_${paneId}`,
+      getPaneTitleRendererName: ({ paneId }) => `paneTitle_${paneId}`,
       updateConfig: vi.fn(),
       scale: { indicatorKey: 'test', label: 'Test', decimals: 2 },
     })),
@@ -39,8 +42,8 @@ function createMockContext(): SubPaneContext & {
     renderers,
     layers,
     getIndicatorScheduler: () => scheduler as IndicatorScheduler,
-    getRenderer: vi.fn((name) => renderers.get(name) as any),
-    useRenderer: vi.fn((renderer: any) => renderers.set(renderer.name, renderer)),
+    getRenderer: vi.fn((name) => renderers.get(name) as never),
+    useRenderer: vi.fn((renderer) => renderers.set(renderer.name, renderer)),
     removeRenderer: vi.fn((name) => renderers.delete(name)),
     updateRendererConfig: vi.fn(),
     getOption: () => ({
@@ -51,9 +54,6 @@ function createMockContext(): SubPaneContext & {
     getCrosshairPos: () => null,
     getCrosshairPrice: () => null,
     getActivePaneId: () => null,
-    addLayer: vi.fn((layer) => layers.add(layer.id)),
-    removeLayer: vi.fn((id) => layers.delete(id)),
-    getLayer: vi.fn((id) => (layers.has(id) ? ({ id } as any) : null)),
     getRenderContext: () => null,
   }
 }
@@ -62,8 +62,10 @@ describe('SubPaneManager runtime projection', () => {
   let manager: SubPaneManager
   let ctx: ReturnType<typeof createMockContext>
   const rsi: SubPaneSpec = {
+    instanceId: 'user:rsi:0',
     paneId: 'RSI_0',
     indicatorId: 'RSI',
+    ordinal: 0,
     params: { period1: 6 },
   }
 
@@ -171,7 +173,9 @@ describe('SubPaneManager runtime projection', () => {
       return definition
     })
 
-    manager.reconcile(ctx, [{ paneId: 'RSI_0', indicatorId: 'MACD', params: {} }])
+    manager.reconcile(ctx, [
+      { instanceId: 'user:macd:0', paneId: 'RSI_0', indicatorId: 'MACD', ordinal: 0, params: {} },
+    ])
 
     expect(manager.getMountedResources('RSI_0')).toBeUndefined()
     expect(ctx.removeRenderer).toHaveBeenCalled()

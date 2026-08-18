@@ -468,7 +468,9 @@ export interface ChartController extends DrawingChartAdapter {
  * Implementation lives in packages/core/src/controllers/createChartController.ts
  * (Phase 1 deliverable). It wires the existing Chart engine in src/core/chart.ts.
  */
-export type ChartControllerFactory = (opts: ChartMountOptions) => Promise<ChartController>
+export type ChartControllerFactory = (
+  opts: ChartMountOptions,
+) => ChartController | Promise<ChartController>
 
 // ---------------------------------------------------------------------------
 // Legacy type aliases (deprecated — kept for internal sub-controller tests)

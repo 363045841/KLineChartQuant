@@ -22,7 +22,7 @@ function makePane() {
   }
 }
 
-function makeSceneRenderer() {
+function makeSceneRenderer(name = 'webgl2') {
   const compositeTo = vi.fn()
   const drawInstances = vi.fn(() => true)
   const writeBuffer = vi.fn()
@@ -35,7 +35,7 @@ function makeSceneRenderer() {
       compositeTo,
       dispose: () => {},
     },
-    caps: { compute: false, storageBuffer: false, maxInstances: 1e6, name: 'webgl2' },
+    caps: { compute: false, storageBuffer: false, maxInstances: 1e6, name },
     createBuffer: vi.fn(() => ({}) as never),
     writeBuffer,
     destroyBuffer: vi.fn(),
@@ -106,8 +106,7 @@ describe('candle sceneRenderer path', () => {
   })
 
   it('skips compositeTo when sceneRenderer is webgpu (hybrid DOM)', () => {
-    const { r, drawInstances, compositeTo } = makeSceneRenderer()
-    r.caps = { ...r.caps, name: 'webgpu' }
+    const { r, drawInstances, compositeTo } = makeSceneRenderer('webgpu')
 
     const data = Array.from({ length: 3 }, (_, i) => ({
       timestamp: i,

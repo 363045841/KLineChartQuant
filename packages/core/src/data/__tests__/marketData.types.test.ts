@@ -72,7 +72,7 @@ describe('MarketData 类型契约', () => {
       },
       bars: {
         /** 返回标准 K 线序列。 */
-        async fetch(query) {
+        async fetch(query): Promise<BarSeries> {
           return {
             instrumentId: query.instrument.id,
             period: query.period,
@@ -80,6 +80,7 @@ describe('MarketData 类型契约', () => {
             timezone: 'Asia/Shanghai',
             volumeUnit: 'share' as const,
             data: [],
+            olderData: 'unknown',
           }
         },
       },

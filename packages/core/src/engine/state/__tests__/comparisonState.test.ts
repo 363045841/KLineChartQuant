@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createSignal } from '../../../foundation/reactivity/signal'
+import type { SymbolSpec } from '../../../controllers/types'
 import { symbolSpecIdentityKey } from '../../data/symbolIdentity'
 import { ChartStateKernel } from '../chartStateKernel'
 import { createComparisonState } from '../comparisonState'
@@ -42,18 +43,18 @@ describe('comparisonState', () => {
   })
 
   it('derives immutable comparison specs from the symbols signal', () => {
-    const symbols = createSignal([
-      { symbol: 'MAIN', period: 'daily' },
-      { symbol: 'CMP', period: 'weekly' },
+    const symbols = createSignal<ReadonlyArray<SymbolSpec>>([
+      { symbol: 'MAIN', market: 'CN', period: 'daily' },
+      { symbol: 'CMP', market: 'CN', period: 'weekly' },
     ])
     const m = createComparisonState({ symbols$: symbols })
 
     const specs = m.readonly.specs.peek()
-    expect(specs).toEqual([{ symbol: 'CMP', period: 'weekly' }])
+    expect(specs).toEqual([{ symbol: 'CMP', market: 'CN', period: 'weekly' }])
     expect(Object.isFrozen(specs)).toBe(true)
     expect(Object.isFrozen(specs[0])).toBe(true)
 
-    symbols.set([{ symbol: 'NEXT', period: 'daily' }])
+    symbols.set([{ symbol: 'NEXT', market: 'CN', period: 'daily' }])
     expect(m.readonly.specs.peek()).toEqual([])
   })
 
@@ -93,8 +94,8 @@ describe('ChartStateKernel comparison selection transaction', () => {
     kernel.comparison.readonly.colors.subscribe(capture)
 
     kernel.actions.setSymbols([
-      { symbol: 'MAIN', period: 'daily' },
-      { symbol: 'CMP', period: 'daily' },
+      { symbol: 'MAIN', market: 'CN', period: 'daily' },
+      { symbol: 'CMP', market: 'CN', period: 'daily' },
     ])
 
     expect(snapshots.length).toBeGreaterThan(0)
@@ -102,7 +103,7 @@ describe('ChartStateKernel comparison selection transaction', () => {
       snapshots.map(() => ({
         symbols: ['MAIN', 'CMP'],
         specs: ['CMP'],
-        colors: [symbolSpecIdentityKey({ symbol: 'CMP', period: 'daily' })],
+        colors: [symbolSpecIdentityKey({ symbol: 'CMP', market: 'CN' })],
       })),
     )
   })

@@ -1,4 +1,5 @@
 import type { CompositeOptions, SurfaceBackend, SurfaceRegion } from './SurfaceBackend'
+import { GPU_TEXTURE_RENDER_ATTACHMENT } from './webgpuGlobals'
 
 export type WebGPUSurfaceBackend = SurfaceBackend & {
   readonly canvas: HTMLCanvasElement
@@ -18,15 +19,14 @@ export function createWebGPUSurfaceBackend(
   options: WebGPUSurfaceBackendOptions,
 ): WebGPUSurfaceBackend {
   const { canvas, device, format } = options
-  const context = canvas.getContext('webgpu')
+  const context = canvas.getContext('webgpu') as GPUCanvasContext | null
   if (!context) throw new Error('WebGPU canvas context unavailable')
 
-  const renderAttachmentUsage = globalThis.GPUTextureUsage?.RENDER_ATTACHMENT ?? 0x10
   context.configure({
     device,
     format,
     alphaMode: 'premultiplied',
-    usage: renderAttachmentUsage,
+    usage: GPU_TEXTURE_RENDER_ATTACHMENT,
   })
 
   let disposed = false

@@ -17,9 +17,9 @@ const mainData: KLineData[] = [
 ]
 
 const cmpData: KLineData[] = [
-  { timestamp: 1743318000000, date: '2026-01-01', close: 50 },
-  { timestamp: 1743404400000, date: '2026-01-02', close: 51 },
-  { timestamp: 1743490800000, date: '2026-01-03', close: 52 },
+  { timestamp: 1743318000000, date: '2026-01-01', open: 50, high: 50, low: 50, close: 50 },
+  { timestamp: 1743404400000, date: '2026-01-02', open: 51, high: 51, low: 51, close: 51 },
+  { timestamp: 1743490800000, date: '2026-01-03', open: 52, high: 52, low: 52, close: 52 },
 ]
 
 function createMockViewport(): ViewportStateModule {
@@ -97,9 +97,12 @@ describe('ChartDataManager.getComparisonViewLineRange', () => {
     const dataManagerState = createDataManagerState()
     const container = document.querySelector<HTMLDivElement>('#container')!
     const scrollContent = document.querySelector<HTMLDivElement>('#scroll-content')!
+    const canvasLayer = document.createElement('div')
+    const rightAxisLayer = document.createElement('div')
+    const xAxisCanvas = document.createElement('canvas')
     const m = new ChartDataManager(
       createDependencies(
-        { container, scrollContent },
+        { container, scrollContent, canvasLayer, rightAxisLayer, xAxisCanvas },
         (symbols) => {
           symbols$.set(symbols)
           dataState.actions.setSymbols(symbols)

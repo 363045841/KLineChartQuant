@@ -11,6 +11,9 @@
  */
 
 import type {
+  AlertController,
+  AlertEvent,
+  AlertRule,
   ChartController,
   ChartViewport,
   DrawingObject,
@@ -68,8 +71,21 @@ export function createMockChartController(
 
   const drawingTool = createSignal('cursor' as DrawingToolId)
   const drawings = createSignal<ReadonlyArray<DrawingObject>>([])
+  const selectedDrawingId = createSignal<string | null>(null)
   const paneRatios = createSignal<Readonly<Record<string, number>>>({})
   const paneLayout = createSignal<ReadonlyArray<PaneSpec>>([])
+  const alertController: AlertController = {
+    rules: createSignal<ReadonlyArray<AlertRule>>([]),
+    events: createSignal<ReadonlyArray<AlertEvent>>([]),
+    addRule: () => false,
+    removeRule: () => false,
+    setRuleEnabled: () => false,
+    updateRule: () => false,
+    evaluate: () => [],
+    clearEvents: () => {},
+    onEvent: () => () => {},
+    dispose: () => {},
+  }
 
   let disposeCount = 0
 
@@ -91,6 +107,7 @@ export function createMockChartController(
     subPanes: createSignal<ReadonlyArray<SubPaneInfo>>([]),
     drawingTool,
     drawings,
+    selectedDrawingId,
     paneRatios,
     paneLayout,
     dataLoading: createSignal(false),
@@ -99,6 +116,7 @@ export function createMockChartController(
     comparisonColors: createSignal<ReadonlyMap<string, string>>(new Map()),
     comparisonLoading: createSignal(false),
     catalog: [],
+    alertController,
 
     setData(next: ReadonlyArray<KLineData>) {
       data.set(next)
@@ -240,6 +258,9 @@ export function createMockChartController(
     applyCustomData() {
       /* no-op */
     },
+    resetToFetcher() {
+      /* no-op */
+    },
     ensureDataRange() {
       /* no-op */
     },
@@ -250,10 +271,10 @@ export function createMockChartController(
       return []
     },
     getSelectedDrawingId() {
-      return null
+      return selectedDrawingId()
     },
-    setSelectedDrawingId() {
-      /* no-op */
+    setSelectedDrawingId(id) {
+      selectedDrawingId.set(id)
     },
     getViewport() {
       return null

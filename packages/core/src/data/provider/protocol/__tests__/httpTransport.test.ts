@@ -175,7 +175,9 @@ describe('createHttpMarketDataTransport', () => {
     )
 
     const transport = createHttpMarketDataTransport()
-    const result = await transport.fetchTimeShareRange({
+    const fetchTimeShareRange = transport.fetchTimeShareRange
+    if (!fetchTimeShareRange) throw new Error('HTTP transport must support timeshare ranges')
+    const result = await fetchTimeShareRange({
       sourceId: 'gotdx',
       instrument: { id: 'gotdx:stock:1:600519', symbol: '600519', exchange: 'SH' },
       endTradingDate: '2026-08-06',

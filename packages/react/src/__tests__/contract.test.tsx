@@ -16,7 +16,7 @@ import type {
   ChartViewport,
   KLineData,
 } from '@363045841yyt/klinechart-core'
-import { act, render } from '@testing-library/react'
+import { act, render, waitFor } from '@testing-library/react'
 import {
   createElement,
   createRef,
@@ -42,7 +42,7 @@ describe('@363045841yyt/klinechart-react —public API surface', () => {
     expect(typeof ReactAdapter.useIndicators).toBe('function')
     expect(ReactAdapter.KLineChart).not.toBeNull()
     expect(typeof ReactAdapter.KLineChart).toBe('object')
-    expect((ReactAdapter.KLineChart as Record<string, unknown>).$$typeof).toBeDefined()
+    expect((ReactAdapter.KLineChart as unknown as Record<string, unknown>).$$typeof).toBeDefined()
   })
 })
 
@@ -113,7 +113,7 @@ describe('@363045841yyt/klinechart-react —useChart lifecycle', () => {
   beforeEach(() => {
     // Inject a mock factory so useChart/createChart can mount without the
     // production chart engine (which is not yet wired in Phase 1B).
-    __setChartFactory((opts: ChartMountOptions) => {
+    __setChartFactory(async (opts: ChartMountOptions) => {
       const handle = createMockChartController(opts.data)
       lastHandle = handle
       return handle.controller
@@ -125,7 +125,7 @@ describe('@363045841yyt/klinechart-react —useChart lifecycle', () => {
     lastHandle = null
   })
 
-  it('mounts on first render with a valid ref', () => {
+  it('mounts on first render with a valid ref', async () => {
     const renderCalls: Array<ChartController | null> = []
     const Host = makeHost((controller) => {
       renderCalls.push(controller)
@@ -136,7 +136,7 @@ describe('@363045841yyt/klinechart-react —useChart lifecycle', () => {
     // First render: controller is null (ref not yet populated for the
     // effect-driven mount). After useEffect commits, the controller is
     // created and React re-renders with the non-null value.
-    expect(renderCalls.length).toBeGreaterThanOrEqual(2)
+    await waitFor(() => expect(renderCalls.length).toBeGreaterThanOrEqual(2))
     const finalController = renderCalls[renderCalls.length - 1]
     expect(finalController).not.toBeNull()
     expect(typeof (finalController as ChartController).dispose).toBe('function')
@@ -162,7 +162,7 @@ describe('@363045841yyt/klinechart-react —useChart lifecycle', () => {
     for (const c of renderCalls) expect(c).toBeNull()
   })
 
-  it('re-renders host when viewport signal changes', () => {
+  it('re-renders host when viewport signal changes', async () => {
     const renderSpy = vi.fn<(level: number | null) => void>()
     const Host = makeHost((_, viewport) => {
       renderSpy(viewport?.zoomLevel ?? null)
@@ -172,7 +172,7 @@ describe('@363045841yyt/klinechart-react —useChart lifecycle', () => {
 
     // After mount, lastHandle is set and we have at least one render with
     // the initial zoomLevel.
-    expect(lastHandle).not.toBeNull()
+    await waitFor(() => expect(lastHandle).not.toBeNull())
     const handle = lastHandle as unknown as MockControllerHandle
 
     const callsBeforeMutation = renderSpy.mock.calls.length
@@ -195,14 +195,14 @@ describe('@363045841yyt/klinechart-react —useChart lifecycle', () => {
     expect(renderSpy).toHaveBeenLastCalledWith(7)
   })
 
-  it('disposes cleanly on unmount', () => {
+  it('disposes cleanly on unmount', async () => {
     let captured: ChartController | null = null
     const Host = makeHost((controller) => {
       if (controller !== null && captured === null) captured = controller
     })
 
     const { unmount } = render(createElement(Host))
-    expect(captured).not.toBeNull()
+    await waitFor(() => expect(captured).not.toBeNull())
 
     const disposeSpy = vi.spyOn(captured as unknown as ChartController, 'dispose')
     unmount()

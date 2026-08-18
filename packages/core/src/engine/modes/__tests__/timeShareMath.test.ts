@@ -258,7 +258,6 @@ describe('computeTimeShareTimeLabelIndices', () => {
   it('only session closed-side endpoints: 9:30 / 13:00 / 15:00', () => {
     const labels = computeTimeShareTimeLabelIndices({
       axisWidth: 800,
-      sessionSlots: 240,
     })
     // 9:30 → 0；13:00 → 120；15:00 → 239
     expect(labels).toEqual([0, 120, 239])
@@ -268,7 +267,6 @@ describe('computeTimeShareTimeLabelIndices', () => {
     expect(
       computeTimeShareTimeLabelIndices({
         axisWidth: 0,
-        sessionSlots: 240,
       }),
     ).toEqual([])
   })

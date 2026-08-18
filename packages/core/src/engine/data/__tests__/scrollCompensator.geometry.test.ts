@@ -101,8 +101,6 @@ function makeDeps(options: {
   return {
     deps: {
       getOption: () => ({ kWidth, kGap }),
-      getZoomLevel: () => 1,
-      setZoomLevel: () => {},
       viewport,
     },
     getScrollLeft,
@@ -167,8 +165,6 @@ describe('ScrollCompensator geometry SSOT', () => {
 
     const deps: ScrollDeps = {
       getOption: () => ({ kWidth: 8, kGap: 2 }),
-      getZoomLevel: () => 1,
-      setZoomLevel: () => {},
       viewport,
     }
 
@@ -191,8 +187,6 @@ describe('ScrollCompensator geometry SSOT', () => {
     })
     const deps: ScrollDeps = {
       getOption: () => ({ kWidth: 8, kGap: 2 }),
-      getZoomLevel: () => 1,
-      setZoomLevel: () => {},
       viewport,
     }
 

@@ -166,7 +166,7 @@ describe('createWebGPURenderer', () => {
       Array.from(new Float32Array(uniformWrite![2] as ArrayBuffer, uniformWrite![3], 8)),
     ).toEqual([160, 80, 2, 4, 1, 0, 0, 1])
     expect(
-      (fake.pipelineDescriptors[0]?.vertex.module as { code: string }).code,
+      (fake.pipelineDescriptors[0]?.vertex.module as unknown as { code: string }).code,
     ).toContain('round((rect.x - uniforms.scrollLeft) * uniforms.dpr)')
   })
 

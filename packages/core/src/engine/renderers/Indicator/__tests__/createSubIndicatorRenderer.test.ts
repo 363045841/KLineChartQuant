@@ -31,9 +31,13 @@ describe('createSubIndicatorRenderer', () => {
       name: 'customIndicator',
       displayName: 'CUSTOM',
       category: 'sub',
+      indicatorType: 'other',
       stateKey: (paneId: string) => `indicator:custom:${paneId}`,
       defaultPaneId: 'sub_CUSTOM',
       rendererFactory,
+      getRendererName: ({ paneId }) => `custom_${paneId}`,
+      getScaleRendererName: () => null,
+      getPaneTitleRendererName: () => null,
     }
 
     const renderer = createSubIndicatorRenderer({

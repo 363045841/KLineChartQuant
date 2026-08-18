@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import type { Mock } from 'vitest'
 
 import { BinanceSSESource, DEFAULT_BINANCE_SSE_URL } from '../depth/binance'
 import type { DepthDelta, DepthSnapshot, DepthSourceStatus } from '../depth/depthTypes'
@@ -37,11 +38,11 @@ function makeDeltaEvent(entries: DepthDelta[]) {
 
 describe('BinanceSSESource', () => {
   let es: FakeEventSource
-  let esFactory: ReturnType<typeof vi.fn>
+  let esFactory: Mock<(url: string) => EventSource>
 
   beforeEach(() => {
     es = createFakeES()
-    esFactory = vi.fn(() => es as unknown as EventSource)
+    esFactory = vi.fn<(url: string) => EventSource>(() => es as unknown as EventSource)
   })
 
   afterEach(() => {

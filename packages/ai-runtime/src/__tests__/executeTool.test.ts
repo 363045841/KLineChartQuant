@@ -297,6 +297,7 @@ describe('executeTool', () => {
       expect(chart.setSymbols).toHaveBeenCalledWith([
         {
           symbol: 'AAPL',
+          market: 'CN',
           exchange: undefined,
           period: undefined,
           adjust: undefined,
@@ -317,6 +318,7 @@ describe('executeTool', () => {
       expect(chart.setSymbols).toHaveBeenCalledWith([
         {
           symbol: '600519',
+          market: 'CN',
           exchange: 'SSE',
           period: 'daily',
           adjust: 'qfq',
@@ -364,6 +366,7 @@ describe('executeTool', () => {
       })
       expect(chart.addComparisonSymbol).toHaveBeenCalledWith({
         symbol: 'MSFT',
+        market: 'CN',
         exchange: undefined,
       })
       expect(result.success).toBe(true)
@@ -377,6 +380,7 @@ describe('executeTool', () => {
       })
       expect(chart.addComparisonSymbol).toHaveBeenCalledWith({
         symbol: 'SPY',
+        market: 'CN',
         exchange: 'NYSE',
         source: 'tradingview',
       })

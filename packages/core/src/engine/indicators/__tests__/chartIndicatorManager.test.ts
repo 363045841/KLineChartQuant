@@ -14,9 +14,13 @@ beforeAll(async () => {
 
 function createMockDeps() {
   const rendererMap = new Map<string, any>()
+  const useRenderer = vi.fn((plugin: any, _config?: any) => {
+    if (plugin?.name) rendererMap.set(plugin.name, plugin)
+  })
   const paneRatiosSignal = createSignal<Readonly<Record<string, number>>>({})
   const paneSpecsSignal = createSignal<ReadonlyArray<any>>([])
   const indicatorState = createIndicatorState()
+  const createSubPane = vi.fn((entry) => indicatorState.actions.upsertSub(entry))
 
   return {
     rendererMap,
@@ -36,9 +40,7 @@ function createMockDeps() {
     }),
     getPluginHost: () => createPluginHost(),
     getRenderer: vi.fn((name: string) => rendererMap.get(name)),
-    useRenderer: vi.fn((plugin: any, _config?: any) => {
-      if (plugin?.name) rendererMap.set(plugin.name, plugin)
-    }),
+    useRenderer,
     removeRenderer: vi.fn((name: string) => {
       rendererMap.delete(name)
     }),
@@ -68,7 +70,7 @@ function createMockDeps() {
     setLayerVisibility: vi.fn(),
     indicator: indicatorState,
     subPaneOps: {
-      create: vi.fn((entry) => indicatorState.actions.upsertSub(entry)),
+      create: createSubPane,
       remove: vi.fn((paneId) => indicatorState.actions.removeSub(paneId)),
       replace: vi.fn((paneId, indicatorId, params) =>
         indicatorState.actions.replaceSub({ paneId, indicatorId, params }),
@@ -79,7 +81,11 @@ function createMockDeps() {
     projectPaneLayout: vi.fn(),
     runRendererTransaction: (run) => run(),
     getIndicatorScheduler: vi.fn(),
-  } as IndicatorDependencies & { rendererMap: Map<string, any> }
+  } as IndicatorDependencies & {
+    rendererMap: Map<string, any>
+    useRenderer: typeof useRenderer
+    subPaneOps: IndicatorDependencies['subPaneOps'] & { create: typeof createSubPane }
+  }
 }
 
 describe('ChartIndicatorManager', () => {

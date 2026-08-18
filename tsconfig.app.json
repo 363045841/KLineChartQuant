@@ -6,8 +6,10 @@
   ],
   "exclude": [
     "**/__tests__/**",
+    "**/__bench__/**",
     "**/node_modules",
     "**/dist",
+    "**/out",
     "**/*.config.*"
   ],
   "compilerOptions": {
