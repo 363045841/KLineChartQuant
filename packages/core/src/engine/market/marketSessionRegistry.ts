@@ -1,7 +1,8 @@
-/** 市场会话注册表：以内置 CN/HK/US 会话为基础，支持注册覆盖并提供时区与交易时间查询。 */
+/** 市场会话注册表：以内置 CN/HK/KR/US 会话为基础，支持注册覆盖并提供时区与交易时间查询。 */
 import {
   ASHARE_MARKET_SESSION,
   HK_MARKET_SESSION,
+  KR_MARKET_SESSION,
   US_MARKET_SESSION,
   type MarketSessionConfig,
 } from '../../foundation/utils/sessionTimeLabels'
@@ -9,6 +10,7 @@ import {
 const BUILTIN_MARKET_SESSIONS: Readonly<Record<string, MarketSessionConfig>> = {
   CN: ASHARE_MARKET_SESSION,
   HK: HK_MARKET_SESSION,
+  KR: KR_MARKET_SESSION,
   US: US_MARKET_SESSION,
 }
 

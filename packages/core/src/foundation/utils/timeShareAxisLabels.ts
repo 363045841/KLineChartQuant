@@ -95,4 +95,4 @@ export type {
   OpenTimeRange,
   SessionTimeLabel,
 } from './sessionTimeLabels'
-export { HK_MARKET_SESSION, US_MARKET_SESSION } from './sessionTimeLabels'
+export { HK_MARKET_SESSION, KR_MARKET_SESSION, US_MARKET_SESSION } from './sessionTimeLabels'

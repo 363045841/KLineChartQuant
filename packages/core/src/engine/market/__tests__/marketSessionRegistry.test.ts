@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { HK_MARKET_SESSION } from '../../../foundation/utils/sessionTimeLabels'
+import { HK_MARKET_SESSION, KR_MARKET_SESSION } from '../../../foundation/utils/sessionTimeLabels'
 import { MarketSessionRegistry } from '../marketSessionRegistry'
 
 describe('MarketSessionRegistry', () => {
@@ -8,6 +8,7 @@ describe('MarketSessionRegistry', () => {
     const registry = new MarketSessionRegistry()
 
     expect(registry.getRequired('HK')).toEqual(HK_MARKET_SESSION)
+    expect(registry.getRequired('KR')).toEqual(KR_MARKET_SESSION)
   })
 
   it('throws for an unknown market without falling back', () => {

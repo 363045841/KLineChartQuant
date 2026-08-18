@@ -66,6 +66,13 @@ export const HK_MARKET_SESSION: MarketSessionConfig = {
   slotMinutes: 1,
 }
 
+/** 韩股（常规盘，无午休） */
+export const KR_MARKET_SESSION: MarketSessionConfig = {
+  timeZone: 'Asia/Seoul',
+  sessions: [{ open: hm(9, 0), close: hm(15, 30) }],
+  slotMinutes: 1,
+}
+
 /** 美股（常规盘，无午休） */
 export const US_MARKET_SESSION: MarketSessionConfig = {
   timeZone: 'America/New_York',
