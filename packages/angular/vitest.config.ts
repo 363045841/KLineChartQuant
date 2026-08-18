@@ -1,23 +1,13 @@
-import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
+
+import { createCoreSourceAliases } from '../../scripts/core-source-aliases.mjs'
 
 const coreSrc = fileURLToPath(new URL('../core/src', import.meta.url))
 // Legacy engine root —needed so `@/...` imports inside src/core/chart.ts
 // resolve while the package transitively loads createChartController.
 const repoSrc = fileURLToPath(new URL('../../src', import.meta.url))
-
-// Build alias entries from core package.json exports so _every_
-// `@363045841yyt/klinechart-core/X` subpath resolves to its source .ts file.
-const corePkg = JSON.parse(readFileSync(new URL('../core/package.json', import.meta.url), 'utf-8'))
-const coreAliases: Array<{ find: string; replacement: string }> = []
-for (const [key, value] of Object.entries(corePkg.exports)) {
-  if (key === '.') continue
-  const subpath = `@363045841yyt/klinechart-core${key.slice(1)}`
-  const importPath = (value as any).import as string
-  const sourcePath = importPath.replace('./dist/', '').replace(/\.js$/, '.ts')
-  coreAliases.push({ find: subpath, replacement: `${coreSrc}/${sourcePath}` })
-}
+const coreAliases = createCoreSourceAliases(coreSrc)
 
 export default defineConfig({
   test: {

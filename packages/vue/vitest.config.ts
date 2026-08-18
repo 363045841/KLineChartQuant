@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { resolve, dirname } from 'node:path'
 import { defineConfig } from 'vitest/config'
@@ -6,25 +6,11 @@ import vue from '@vitejs/plugin-vue'
 import babel from 'vite-plugin-babel'
 import Icons from 'unplugin-icons/vite'
 
+import { createCoreSourceAliases } from '../../scripts/core-source-aliases.mjs'
+
 const coreSrc = fileURLToPath(new URL('../core/src', import.meta.url))
 const repoSrc = fileURLToPath(new URL('../../src', import.meta.url))
-
-const corePkg = JSON.parse(readFileSync(new URL('../core/package.json', import.meta.url), 'utf-8'))
-const coreAliases: Array<{ find: string | RegExp; replacement: string }> = []
-for (const [key, value] of Object.entries(corePkg.exports)) {
-  const importPath = (value as any).import as string
-  const sourcePath = importPath.replace('./dist/', '').replace(/\.js$/, '.ts')
-  if (key === '.') {
-    // Exact-match the bare root specifier so it does not clobber sub-paths.
-    coreAliases.push({
-      find: /^@363045841yyt\/klinechart-core$/,
-      replacement: `${coreSrc}/${sourcePath}`,
-    })
-    continue
-  }
-  const subpath = `@363045841yyt/klinechart-core${key.slice(1)}`
-  coreAliases.push({ find: subpath, replacement: `${coreSrc}/${sourcePath}` })
-}
+const coreAliases = createCoreSourceAliases(coreSrc)
 
 const vueResolverPlugin = {
   name: 'vue-resolver',

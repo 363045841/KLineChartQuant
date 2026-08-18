@@ -4,6 +4,8 @@ import vue from '@vitejs/plugin-vue'
 import babel from 'vite-plugin-babel'
 import Icons from 'unplugin-icons/vite'
 
+import { createCoreSourceAliases } from '../../../scripts/core-source-aliases.mjs'
+
 const decoratorTransform = babel({
   include: [/\/src\/.*\.tsx?$/],
   exclude: [/node_modules/],
@@ -19,10 +21,7 @@ const decoratorTransform = babel({
 })
 
 const root = fileURLToPath(new URL('../../..', import.meta.url))
-
-function r(rest: string): string {
-  return `${root}/packages/core/src/${rest}`
-}
+const coreSrc = `${root}/packages/core/src`
 
 export default defineConfig({
   root: fileURLToPath(new URL('.', import.meta.url)),
@@ -46,64 +45,7 @@ export default defineConfig({
   resolve: {
     extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json', '.vue'],
     alias: [
-      {
-        find: /^@363045841yyt\/klinechart-core\/config$/,
-        replacement: r('foundation/config/chartSettings.ts'),
-      },
-      {
-        find: /^@363045841yyt\/klinechart-core\/types\/price$/,
-        replacement: r('foundation/types/price.ts'),
-      },
-      {
-        find: /^@363045841yyt\/klinechart-core\/semantic$/,
-        replacement: r('features/semantic/index.ts'),
-      },
-      {
-        find: /^@363045841yyt\/klinechart-core\/plugin$/,
-        replacement: r('foundation/plugin/index.ts'),
-      },
-      {
-        find: /^@363045841yyt\/klinechart-core\/reactivity$/,
-        replacement: r('foundation/reactivity/index.ts'),
-      },
-      {
-        find: /^@363045841yyt\/klinechart-core\/controllers$/,
-        replacement: r('controllers/index.ts'),
-      },
-      {
-        find: /^@363045841yyt\/klinechart-core\/engine\/chart$/,
-        replacement: r('engine/chart.ts'),
-      },
-      {
-        find: /^@363045841yyt\/klinechart-core\/indicators$/,
-        replacement: r('engine/indicators/indicatorDefinitionRegistry.ts'),
-      },
-      {
-        find: /^@363045841yyt\/klinechart-core\/engine\/utils\/zoom$/,
-        replacement: r('engine/utils/zoom.ts'),
-      },
-      {
-        find: /^@363045841yyt\/klinechart-core\/engine\/utils\/klineConfig$/,
-        replacement: r('engine/utils/klineConfig.ts'),
-      },
-      {
-        find: /^@363045841yyt\/klinechart-core\/engine\/renderers\/Indicator(\/.*)?$/,
-        replacement: `${root}/packages/core/src/engine/renderers/Indicator$1`,
-      },
-      {
-        find: /^@363045841yyt\/klinechart-core\/engine\/renderers\/paneTitle$/,
-        replacement: r('engine/renderers/paneTitle.ts'),
-      },
-      {
-        find: /^@363045841yyt\/klinechart-core\/engine\/controller\/interaction$/,
-        replacement: r('engine/controller/interaction.ts'),
-      },
-      {
-        find: /^@363045841yyt\/klinechart-core\/engine\/drawing$/,
-        replacement: r('engine/drawing/index.ts'),
-      },
-      { find: /^@363045841yyt\/klinechart-core\/version$/, replacement: r('version.ts') },
-      { find: /^@363045841yyt\/klinechart-core$/, replacement: r('index.ts') },
+      ...createCoreSourceAliases(coreSrc),
       {
         find: /^@363045841yyt\/klinechart-ai-runtime$/,
         replacement: `${root}/packages/ai-runtime/src/browser.ts`,
