@@ -144,6 +144,55 @@ export class HitTester {
     if (points.length === 2) {
       const a = points[0]!
       const b = points[1]!
+
+      if (drawing.kind === 'rectangle') {
+        const left = Math.min(a.x, b.x)
+        const right = Math.max(a.x, b.x)
+        const top = Math.min(a.y, b.y)
+        const bottom = Math.max(a.y, b.y)
+        const topLeft = { x: left, y: top }
+        const topRight = { x: right, y: top }
+        const bottomRight = { x: right, y: bottom }
+        const bottomLeft = { x: left, y: bottom }
+        return [
+          { a: topLeft, b: topRight },
+          { a: topRight, b: bottomRight },
+          { a: bottomRight, b: bottomLeft },
+          { a: bottomLeft, b: topLeft },
+        ]
+      }
+
+      if (drawing.kind === 'fib-retracement') {
+        const ratios = (drawing.params as { levels?: number[] } | undefined)?.levels ?? [
+          0, 0.236, 0.382, 0.5, 0.618, 0.786, 1,
+        ]
+        const left = Math.min(a.x, b.x)
+        const right = Math.max(a.x, b.x)
+        return ratios.map((ratio) => {
+          const y = a.y + (b.y - a.y) * ratio
+          return { a: { x: left, y }, b: { x: right, y } }
+        })
+      }
+
+      if (drawing.kind === 'arrow') {
+        const angle = Math.atan2(b.y - a.y, b.x - a.x)
+        const headLength = 10
+        const headAngle = Math.PI / 6
+        const headA = {
+          x: b.x - headLength * Math.cos(angle - headAngle),
+          y: b.y - headLength * Math.sin(angle - headAngle),
+        }
+        const headB = {
+          x: b.x - headLength * Math.cos(angle + headAngle),
+          y: b.y - headLength * Math.sin(angle + headAngle),
+        }
+        return [
+          { a, b },
+          { a: headA, b },
+          { a: headB, b },
+        ]
+      }
+
       const dx = b.x - a.x
       const dy = b.y - a.y
 

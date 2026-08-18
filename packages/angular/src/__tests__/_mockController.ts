@@ -14,7 +14,7 @@ import type {
   ChartController,
   ChartViewport,
   DrawingObject,
-  DrawingToolType,
+  DrawingToolId,
   IndicatorInstance,
   InteractionSnapshot,
   KLineData,
@@ -66,7 +66,7 @@ export function createMockChartController(
     isHoveringRightAxis: false,
   })
 
-  const drawingTool = createSignal('cursor' as 'cursor' | DrawingToolType)
+  const drawingTool = createSignal('cursor' as DrawingToolId)
   const drawings = createSignal<ReadonlyArray<DrawingObject>>([])
   const paneRatios = createSignal<Readonly<Record<string, number>>>({})
   const paneLayout = createSignal<ReadonlyArray<PaneSpec>>([])
@@ -158,7 +158,7 @@ export function createMockChartController(
     updateRendererConfig() {
       /* no-op */
     },
-    setDrawingTool(tool: DrawingToolType | string | null) {
+    setDrawingTool(tool: DrawingToolId | null) {
       drawingTool.set((tool as any) ?? 'cursor')
     },
     setDrawingToolId(toolId: string) {

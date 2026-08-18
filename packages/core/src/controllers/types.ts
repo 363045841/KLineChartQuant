@@ -20,6 +20,8 @@ import type { InteractionSnapshot } from '../engine/chart'
 import type { PaneSpec } from '../engine/chartTypes'
 import type { CustomMarkerEntity } from '../engine/marker/registry'
 import type { ReadonlySignal, Signal } from '../foundation/reactivity/index'
+import type { DrawingObject as PluginDrawingObject } from '../foundation/plugin/index'
+import type { DrawingToolId } from '../engine/drawing/toolConfig'
 
 // Controller-owned public surface. Legacy engine types may mirror these
 // shapes internally, but adapters depend only on core-defined contracts.
@@ -66,12 +68,7 @@ export interface SubPaneInfo {
   ratio: number
 }
 
-export type DrawingToolType = 'trendline' | 'horizontal' | 'fib' | 'rectangle' | 'arrow'
-
-export interface DrawingObject {
-  id: string
-  type: DrawingToolType
-}
+export type DrawingObject = PluginDrawingObject
 
 export type IndicatorPaneRole = IndicatorRole
 
@@ -419,12 +416,9 @@ export interface ChartController extends DrawingChartAdapter {
 
   // ---- Drawing ----
   /**
-   * 设置绘图工具。接受 DrawingToolId 或 legacy DrawingToolType；
-   * null 视为 cursor。
+   * 设置绘图工具；null 视为 cursor。
    */
-  setDrawingTool(
-    tool: import('../engine/drawing/toolConfig').DrawingToolId | DrawingToolType | null,
-  ): void
+  setDrawingTool(tool: DrawingToolId | null): void
   setDrawingToolId(toolId: import('../engine/drawing/toolConfig').DrawingToolId): void
   getDrawingToolId(): import('../engine/drawing/toolConfig').DrawingToolId
   /** 注册绘图交互会话到 Chart，使工具切换能清会话副作用 */
@@ -529,13 +523,13 @@ export interface ToolbarController {
 }
 
 export interface DrawingState {
-  readonly activeTool: DrawingToolType | null
+  readonly activeTool: DrawingToolId | null
   readonly drawingCount: number
 }
 
 export interface DrawingController {
   readonly state: Signal<DrawingState>
-  setActiveTool(tool: DrawingToolType | null): void
+  setActiveTool(tool: DrawingToolId | null): void
   clearAll(): void
   deleteLast(): void
   dispose(): void

@@ -19,14 +19,15 @@
 
 import { createSignal, type Signal } from '../foundation/reactivity/index'
 
-import type { DrawingController, DrawingState, DrawingToolType } from './types'
+import type { DrawingController, DrawingState } from './types'
+import type { DrawingToolId } from '../engine/drawing/toolConfig'
 
 // ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
 
 export interface DrawingInit {
-  initialActiveTool?: DrawingToolType | null
+  initialActiveTool?: DrawingToolId | null
   initialDrawingCount?: number
 }
 
@@ -45,7 +46,7 @@ export function createDrawingController(init?: DrawingInit): DrawingController {
   // -------------------------------------------------------------------
   // Mutations — every update goes through immutable spread.
   // -------------------------------------------------------------------
-  function setActiveTool(tool: DrawingToolType | null): void {
+  function setActiveTool(tool: DrawingToolId | null): void {
     const current = state.peek()
     if (current.activeTool === tool) return // no change
     state.set({ ...current, activeTool: tool })

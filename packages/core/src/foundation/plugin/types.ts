@@ -369,6 +369,9 @@ export type DrawingKind =
   | 'trend-line'
   | 'ray'
   | 'extended-line'
+  | 'fib-retracement'
+  | 'rectangle'
+  | 'arrow'
   | 'horizontal-line'
   | 'horizontal-ray'
   | 'vertical-line'
@@ -437,7 +440,18 @@ export type TextPrimitive = {
   style?: DrawingStyle
 }
 
-export type DrawingPrimitive = PointPrimitive | LinePrimitive | AreaPrimitive | TextPrimitive
+/** 箭头图元：由渲染器作为一个整体绘制轴线和实心箭头头部。 */
+export type ArrowPrimitive = {
+  kind: 'arrow'
+  start: ScreenPoint
+  end: ScreenPoint
+  headLength?: number
+  headAngle?: number
+  style?: DrawingStyle
+}
+
+export type DrawingPrimitive =
+  PointPrimitive | LinePrimitive | AreaPrimitive | TextPrimitive | ArrowPrimitive
 
 export type DrawingGeometry = {
   primitives: DrawingPrimitive[]

@@ -11,7 +11,6 @@ import type {
   ChartController,
   ChartViewport,
   DrawingObject,
-  DrawingToolType,
   IndicatorDefinition,
   IndicatorInstance,
   InteractionSnapshot,

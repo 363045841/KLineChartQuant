@@ -12,6 +12,9 @@ export type DrawingToolId =
   | 'trend-line'
   | 'ray'
   | 'h-line'
+  | 'fib-retracement'
+  | 'rectangle'
+  | 'arrow'
   | 'h-ray'
   | 'v-line'
   | 'crosshair-line'
@@ -37,6 +40,9 @@ export const SINGLE_ANCHOR_TOOLS: readonly DrawingToolId[] = [
 export const DOUBLE_ANCHOR_TOOLS: readonly DrawingToolId[] = [
   'trend-line',
   'ray',
+  'fib-retracement',
+  'rectangle',
+  'arrow',
   'info-line',
   'regression-channel',
 ]
@@ -97,6 +103,7 @@ export function getExtendMode(kind: DrawingKind): 'none' | 'left' | 'right' | 'b
 
 /** 所有带填充区域的通道类图元 kind 列表 */
 export const CHANNEL_KINDS: readonly DrawingKind[] = [
+  'rectangle',
   'parallel-channel',
   'regression-channel',
   'flat-line',

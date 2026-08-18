@@ -401,9 +401,9 @@ describe('executeTool', () => {
       const chart = createMockChart()
       const result = executeTool(chart, {
         name: 'drawing.setTool',
-        input: { tool: 'trendline' },
+        input: { tool: 'trend-line' },
       })
-      expect(chart.setDrawingTool).toHaveBeenCalledWith('trendline')
+      expect(chart.setDrawingTool).toHaveBeenCalledWith('trend-line')
       expect(result.success).toBe(true)
     })
 

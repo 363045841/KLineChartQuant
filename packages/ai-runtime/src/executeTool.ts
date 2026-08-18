@@ -1,6 +1,6 @@
 import type {
   ChartController,
-  DrawingToolType,
+  DrawingToolId,
   KLineData,
   ToolCall,
   ToolResult,
@@ -156,7 +156,7 @@ export function executeTool(chart: ChartController, call: ToolCall): ToolResult 
 
     case 'drawing.setTool': {
       const { tool } = call.input as { tool: string | null }
-      chart.setDrawingTool(tool as DrawingToolType | null)
+      chart.setDrawingTool(tool as DrawingToolId | null)
       return { success: true }
     }
 

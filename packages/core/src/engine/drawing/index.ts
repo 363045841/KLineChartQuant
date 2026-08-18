@@ -9,6 +9,7 @@ import type {
   LinePrimitive,
   AreaPrimitive,
   TextPrimitive,
+  ArrowPrimitive,
 } from '../../foundation/plugin/index'
 import type { KLineData } from '../../foundation/types/price'
 
@@ -23,6 +24,7 @@ export type {
   LinePrimitive,
   AreaPrimitive,
   TextPrimitive,
+  ArrowPrimitive,
 }
 
 import type { ReadonlySignal } from '../../foundation/reactivity/signal'
@@ -91,6 +93,7 @@ export type PrimitiveRendererSet = {
   ) => void
   area: (ctx: CanvasRenderingContext2D, primitive: AreaPrimitive, dpr: number) => void
   text: (ctx: CanvasRenderingContext2D, primitive: TextPrimitive, dpr: number) => void
+  arrow: (ctx: CanvasRenderingContext2D, primitive: ArrowPrimitive, dpr: number) => void
 }
 
 function applyLineStyle(ctx: CanvasRenderingContext2D, style?: DrawingStyle): void {
@@ -297,6 +300,41 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
       }
       ctx.restore()
     },
+
+    arrow(ctx, primitive, dpr) {
+      const angle = Math.atan2(
+        primitive.end.y - primitive.start.y,
+        primitive.end.x - primitive.start.x,
+      )
+      const headLength = primitive.headLength ?? 10
+      const headAngle = primitive.headAngle ?? Math.PI / 6
+      const left = {
+        x: primitive.end.x - headLength * Math.cos(angle - headAngle),
+        y: primitive.end.y - headLength * Math.sin(angle - headAngle),
+      }
+      const right = {
+        x: primitive.end.x - headLength * Math.cos(angle + headAngle),
+        y: primitive.end.y - headLength * Math.sin(angle + headAngle),
+      }
+
+      ctx.save()
+      applyLineStyle(ctx, primitive.style)
+      const lineWidth = primitive.style?.strokeWidth ?? 1
+      const align = lineWidth <= 1 ? 0.5 / dpr : 0
+      ctx.beginPath()
+      ctx.moveTo(primitive.start.x + align, primitive.start.y + align)
+      ctx.lineTo(primitive.end.x + align, primitive.end.y + align)
+      ctx.stroke()
+
+      ctx.fillStyle = primitive.style?.fill ?? primitive.style?.stroke ?? '#2962ff'
+      ctx.beginPath()
+      ctx.moveTo(primitive.end.x, primitive.end.y)
+      ctx.lineTo(left.x, left.y)
+      ctx.lineTo(right.x, right.y)
+      ctx.closePath()
+      ctx.fill()
+      ctx.restore()
+    },
   }
 }
 
@@ -321,6 +359,96 @@ export function createTwoPointLineDefinition(
             style: drawing.style,
           },
         ],
+      }
+    },
+  }
+}
+
+/** 创建斐波那契回撤图形：两个锚点定义区间，水平线覆盖区间的时间范围。 */
+export function createFibRetracementDefinition(): DrawingDefinition {
+  const levels = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1]
+  return {
+    kind: 'fib-retracement',
+    minAnchors: 2,
+    maxAnchors: 2,
+    compute(drawing, context) {
+      const [first, second] = drawing.anchors
+      if (!first || !second) return { primitives: [] }
+      const a = context.toScreen(first)
+      const b = context.toScreen(second)
+      const left = Math.min(a.x, b.x)
+      const right = Math.max(a.x, b.x)
+      const configured = (drawing.params as { levels?: number[] } | undefined)?.levels
+      const ratios = configured?.length ? configured : levels
+      return {
+        primitives: ratios.flatMap((ratio) => {
+          const y = a.y + (b.y - a.y) * ratio
+          return [
+            { kind: 'line' as const, a: { x: left, y }, b: { x: right, y }, style: drawing.style },
+            {
+              kind: 'text' as const,
+              point: { x: right + 4, y },
+              text: `${(ratio * 100).toFixed(1)}%`,
+              baseline: 'middle' as const,
+              style: drawing.style,
+            },
+          ]
+        }),
+      }
+    },
+  }
+}
+
+/** 创建矩形图形：两个锚点分别代表矩形的对角点。 */
+export function createRectangleDefinition(): DrawingDefinition {
+  return {
+    kind: 'rectangle',
+    minAnchors: 2,
+    maxAnchors: 2,
+    compute(drawing, context) {
+      const [first, second] = drawing.anchors
+      if (!first || !second) return { primitives: [] }
+      const a = context.toScreen(first)
+      const b = context.toScreen(second)
+      const left = Math.min(a.x, b.x)
+      const right = Math.max(a.x, b.x)
+      const top = Math.min(a.y, b.y)
+      const bottom = Math.max(a.y, b.y)
+      const topLeft = { x: left, y: top }
+      const topRight = { x: right, y: top }
+      const bottomRight = { x: right, y: bottom }
+      const bottomLeft = { x: left, y: bottom }
+      return {
+        primitives: [
+          {
+            kind: 'area',
+            points: [topLeft, topRight, bottomRight, bottomLeft],
+            closed: true,
+            style: { ...drawing.style, fillOpacity: drawing.style.fillOpacity ?? 0.1 },
+          },
+          { kind: 'line', a: topLeft, b: topRight, style: drawing.style },
+          { kind: 'line', a: topRight, b: bottomRight, style: drawing.style },
+          { kind: 'line', a: bottomRight, b: bottomLeft, style: drawing.style },
+          { kind: 'line', a: bottomLeft, b: topLeft, style: drawing.style },
+        ],
+      }
+    },
+  }
+}
+
+/** 创建箭头图形：第二个锚点是箭头尖端。 */
+export function createArrowDefinition(): DrawingDefinition {
+  return {
+    kind: 'arrow',
+    minAnchors: 2,
+    maxAnchors: 2,
+    compute(drawing, context) {
+      const [first, second] = drawing.anchors
+      if (!first || !second) return { primitives: [] }
+      const a = context.toScreen(first)
+      const b = context.toScreen(second)
+      return {
+        primitives: [{ kind: 'arrow', start: a, end: b, style: drawing.style }],
       }
     },
   }
@@ -681,6 +809,9 @@ export function registerDefaultDrawingDefinitions(registry: DrawingDefinitionReg
   registry.register(createTwoPointLineDefinition('trend-line', 'none'))
   registry.register(createTwoPointLineDefinition('ray', 'right'))
   registry.register(createTwoPointLineDefinition('extended-line', 'both'))
+  registry.register(createFibRetracementDefinition())
+  registry.register(createRectangleDefinition())
+  registry.register(createArrowDefinition())
   registry.register(createSingleAnchorLineDefinition('horizontal-line'))
   registry.register(createSingleAnchorLineDefinition('horizontal-ray'))
   registry.register(createSingleAnchorLineDefinition('vertical-line'))

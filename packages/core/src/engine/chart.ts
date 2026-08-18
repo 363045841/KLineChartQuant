@@ -100,7 +100,6 @@ export { getPhysicalKLineConfig }
 export type {
   ChartDom,
   ChartOptions,
-  DrawingObject,
   IndicatorInstance,
   IndicatorRole,
   KLinePositions,

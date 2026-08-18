@@ -90,10 +90,3 @@ export interface SubPaneInfo {
   params: Record<string, unknown>
   ratio: number
 }
-
-export type DrawingToolType = 'trendline' | 'horizontal' | 'fib' | 'rectangle' | 'arrow'
-
-export interface DrawingObject {
-  id: string
-  type: DrawingToolType
-}

@@ -245,6 +245,16 @@
         { id: 'disjoint-channel', title: '不相交通道', icon: IconTablerBrackets },
       ],
     },
+    {
+      id: 'annotations',
+      title: '标注',
+      icon: IconTablerShape,
+      children: [
+        { id: 'fib-retracement', title: '斐波那契回撤', icon: IconTablerChartDots3 },
+        { id: 'rectangle', title: '矩形', icon: IconTablerShape },
+        { id: 'arrow', title: '箭头', icon: IconTablerArrowUpRight },
+      ],
+    },
     { id: 'range-select', title: '导出区间数据', icon: IconTablerArrowsHorizontal },
   ]
   const emit = defineEmits<{

@@ -307,15 +307,15 @@ export const DRAWING_TOOLS: McpToolSchema[] = [
           oneOf: [
             {
               type: 'string',
-              enum: ['trendline', 'horizontal', 'fib', 'rectangle', 'arrow'],
+              enum: ['trend-line', 'h-line', 'fib-retracement', 'rectangle', 'arrow'],
               description: 'Drawing tool type.',
             },
             { type: 'null', description: 'Deactivate drawing tool.' },
           ],
           description:
-            'Drawing tool type, or null to deactivate. ' +
-            'trendline=trend line, horizontal=horizontal line, fib=Fibo retracement, ' +
-            'rectangle=rectangle, arrow=arrow marker.',
+            'Drawing tool ID, or null to deactivate. ' +
+            'trend-line=trend line, h-line=horizontal line, fib-retracement=Fibo retracement, ' +
+            'rectangle=rectangle, arrow=arrow.',
         },
       },
       required: ['tool'],

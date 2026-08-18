@@ -13,8 +13,8 @@ describe('createDrawingController — construction', () => {
   })
 
   it('accepts an initial active tool', () => {
-    const c = createDrawingController({ initialActiveTool: 'trendline' })
-    expect(c.state().activeTool).toBe('trendline')
+    const c = createDrawingController({ initialActiveTool: 'trend-line' })
+    expect(c.state().activeTool).toBe('trend-line')
     expect(c.state().drawingCount).toBe(0)
   })
 
@@ -30,10 +30,10 @@ describe('createDrawingController — construction', () => {
 
   it('accepts both initial values together', () => {
     const c = createDrawingController({
-      initialActiveTool: 'fib',
+      initialActiveTool: 'fib-retracement',
       initialDrawingCount: 2,
     })
-    expect(c.state()).toEqual({ activeTool: 'fib', drawingCount: 2 })
+    expect(c.state()).toEqual({ activeTool: 'fib-retracement', drawingCount: 2 })
   })
 })
 
@@ -44,7 +44,7 @@ describe('createDrawingController — construction', () => {
 describe('setActiveTool', () => {
   it('round-trips through every drawing tool type', () => {
     const c = createDrawingController()
-    const types = ['trendline', 'horizontal', 'fib', 'rectangle', 'arrow'] as const
+    const types = ['trend-line', 'h-line', 'fib-retracement', 'rectangle', 'arrow'] as const
 
     for (const t of types) {
       c.setActiveTool(t)
@@ -53,7 +53,7 @@ describe('setActiveTool', () => {
   })
 
   it('can clear the active tool with null', () => {
-    const c = createDrawingController({ initialActiveTool: 'trendline' })
+    const c = createDrawingController({ initialActiveTool: 'trend-line' })
     c.setActiveTool(null)
     expect(c.state().activeTool).toBeNull()
   })
@@ -67,10 +67,10 @@ describe('setActiveTool', () => {
   })
 
   it('does not emit when the value is unchanged', () => {
-    const c = createDrawingController({ initialActiveTool: 'fib' })
+    const c = createDrawingController({ initialActiveTool: 'fib-retracement' })
     const listener = vi.fn()
     c.state.subscribe(listener)
-    c.setActiveTool('fib')
+    c.setActiveTool('fib-retracement')
     expect(listener).not.toHaveBeenCalled()
   })
 
@@ -94,11 +94,11 @@ describe('clearAll', () => {
 
   it('preserves activeTool', () => {
     const c = createDrawingController({
-      initialActiveTool: 'horizontal',
+      initialActiveTool: 'h-line',
       initialDrawingCount: 3,
     })
     c.clearAll()
-    expect(c.state().activeTool).toBe('horizontal')
+    expect(c.state().activeTool).toBe('h-line')
   })
 
   it('emits one notification when count was non-zero', () => {
@@ -189,7 +189,7 @@ describe('dispose', () => {
 
     c.dispose()
 
-    c.setActiveTool('fib')
+    c.setActiveTool('fib-retracement')
     c.clearAll()
     c.deleteLast()
 

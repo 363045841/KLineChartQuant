@@ -19,8 +19,6 @@ import type {
   ViewportState as LegacyViewportState,
   IndicatorInstance as LegacyIndicatorInstance,
   SubPaneInfo as LegacySubPaneInfo,
-  DrawingObject as LegacyDrawingObject,
-  DrawingToolType as LegacyDrawingToolType,
 } from '../engine/chartTypes'
 import { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins'
 import type { CustomMarkerEntity } from '../engine/marker/registry'
@@ -34,8 +32,6 @@ import type {
   ChartController,
   ChartMountOptions,
   ChartViewport,
-  DrawingToolType,
-  DrawingObject,
   SubPaneInfo,
   IndicatorInstance,
   InteractionSnapshot,
@@ -48,12 +44,6 @@ import type {
   SymbolInfo,
   CustomDataSource,
 } from './types'
-
-// Plugin-backed drawings expose `kind` instead of legacy `type`.
-type PluginBackedDrawingObject = {
-  id: string
-  kind: string
-}
 
 // ---------------------------------------------------------------------------
 // Defaults
@@ -239,35 +229,6 @@ function mapSubPaneInfo(subPane: LegacySubPaneInfo): SubPaneInfo {
     ordinal: subPane.ordinal,
     params: { ...subPane.params },
     ratio: subPane.ratio,
-  }
-}
-
-function mapDrawingTool(tool: LegacyDrawingToolType | null): DrawingToolType | null {
-  return tool
-}
-
-function mapPluginDrawingKind(kind: PluginBackedDrawingObject['kind']): DrawingToolType {
-  switch (kind) {
-    case 'trend-line':
-    case 'ray':
-    case 'extended-line':
-      return 'trendline'
-    case 'horizontal-line':
-    case 'horizontal-ray':
-    case 'flat-line':
-      return 'horizontal'
-    default:
-      return 'trendline'
-  }
-}
-
-function mapDrawingObject(drawing: LegacyDrawingObject | PluginBackedDrawingObject): DrawingObject {
-  return {
-    id: drawing.id,
-    type:
-      'type' in drawing
-        ? (mapDrawingTool(drawing.type) ?? drawing.type)
-        : mapPluginDrawingKind(drawing.kind),
   }
 }
 
@@ -468,7 +429,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const chartModeSignal = chart.kernel.mode.readonly.chartMode
   const lastBarPeriodSignal = chart.kernel.mode.readonly.lastBarPeriod
   const drawingTool = chart.drawingTool
-  const drawings = computed(() => chart.drawings().map(mapDrawingObject))
+  const drawings = chart.drawings
   const selectedDrawingId: ReadonlySignal<string | null> =
     chart.kernel.drawing.readonly.selectedDrawingId
   const paneRatios: ReadonlySignal<Readonly<Record<string, number>>> = chart.paneRatios
@@ -703,46 +664,9 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     return match?.label
   }
 
-  function mapLegacyToolToId(
-    tool: DrawingToolType | import('../engine/drawing/toolConfig').DrawingToolId | null,
-  ): import('../engine/drawing/toolConfig').DrawingToolId {
-    if (tool === null) return 'cursor'
-    // already a DrawingToolId
-    if (
-      tool === 'cursor' ||
-      tool === 'trend-line' ||
-      tool === 'ray' ||
-      tool === 'h-line' ||
-      tool === 'h-ray' ||
-      tool === 'v-line' ||
-      tool === 'crosshair-line' ||
-      tool === 'info-line' ||
-      tool === 'parallel-channel' ||
-      tool === 'regression-channel' ||
-      tool === 'flat-line' ||
-      tool === 'disjoint-channel'
-    ) {
-      return tool
-    }
-    // legacy DrawingToolType
-    switch (tool as DrawingToolType) {
-      case 'trendline':
-        return 'trend-line'
-      case 'horizontal':
-        return 'h-line'
-      case 'fib':
-      case 'rectangle':
-      case 'arrow':
-      default:
-        return 'cursor'
-    }
-  }
-
-  function setDrawingTool(
-    tool: DrawingToolType | import('../engine/drawing/toolConfig').DrawingToolId | null,
-  ): void {
+  function setDrawingTool(tool: import('../engine/drawing/toolConfig').DrawingToolId | null): void {
     if (disposed) return
-    chart.setDrawingTool(mapLegacyToolToId(tool))
+    chart.setDrawingTool(tool)
   }
 
   function setDrawingToolId(toolId: import('../engine/drawing/toolConfig').DrawingToolId): void {

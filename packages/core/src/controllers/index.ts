@@ -10,7 +10,6 @@ export type {
   IndicatorInstance,
   ActiveIndicator,
   SubPaneInfo,
-  DrawingToolType,
   DrawingObject,
   InteractionSnapshot,
   DrawingControllerCallbacks,

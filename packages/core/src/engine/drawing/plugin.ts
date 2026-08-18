@@ -70,6 +70,10 @@ function renderPrimitives(
       renderers.area(ctx, primitive, dpr)
       continue
     }
+    if (primitive.kind === 'arrow') {
+      renderers.arrow(ctx, primitive, dpr)
+      continue
+    }
     renderers.text(ctx, primitive, dpr)
   }
 }
@@ -464,6 +468,12 @@ function applySelectedStyle(
   }
   if (primitive.kind === 'area') {
     return { ...primitive, style: { ...primitive.style, stroke: selectedStroke } }
+  }
+  if (primitive.kind === 'arrow') {
+    return {
+      ...primitive,
+      style: { ...primitive.style, stroke: selectedStroke, strokeWidth: selectedWidth },
+    }
   }
   // text
   return {
