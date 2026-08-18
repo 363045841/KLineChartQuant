@@ -88,7 +88,7 @@ pnpm connecter gotdx          # gotdx 通达信（:8080）
 pnpm connecter baostock       # BaoStock / TradingView（:8000）
 ```
 
-### Baostock-Tradingview-Connecter（原 stockbao）
+### Baostock-Tradingview-Connecter
 
 ```bash
 pnpm connecter baostock
@@ -98,7 +98,7 @@ pnpm connecter baostock
 
 Vite 开发代理：`/api/stock` → `:8000`。
 
-### GoTDX-Connecter（原 KlineChartQuantGo）
+### GoTDX-Connecter
 
 提供 **gotdx（通达信）** 与 **加密所（币安）** 行情。
 
@@ -141,6 +141,7 @@ Agent 细节见该仓库 `AGENTS.md`。
 - **`vue-tsc` for type-checking**: not `tsc`. Runs against `tsconfig.app.json`.
 - **Vue SFC composable extraction**: always extract logic into composables (`useXxx`); avoid coupling logic inside `<script setup>` blocks.
 - **Error codes**: `KLineChartError` 的错误码必须从 `packages/core/src/errors.ts` 中的具名常量引用，禁止在业务代码里散落字符串字面量。新增错误码时在 `errors.ts` 追加常量并保持 append-only。
+- 不要硬编码字符串
 
 ## Architecture
 
@@ -199,7 +200,6 @@ Never guess at Effect patterns - check the guide first.
 - **Local times in tests**: dateFormat tests assume CST (Asia/Shanghai). Run `$env:TZ='Asia/Shanghai'` on Windows if they fail locally.
 - **Rendering docs SSOT**: `docs/rendering-pipeline.md` only. Do not revive deleted architecture/plugin rendering docs.
 - **Viewport too large** may trigger `MAX_CANVAS_PIXELS` (`clampDpr` in viewportState), causing DPR to be actively downgraded.
-- **Semantic renderer names** (e.g. `ma`, `boll`) are stringly-typed conventions — renaming requires sync in semantic controller.
 - **Web component build**: `pnpm build:wc` in packages/vue (cross-env BUILD_TARGET=web-component).
 
 ## Lessons Learned
