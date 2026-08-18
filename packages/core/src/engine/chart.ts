@@ -85,7 +85,12 @@ import type {
 } from './chartTypes'
 import type { DrawingToolId } from './drawing/toolConfig'
 import type { DrawingInteractionController } from './drawing/interaction'
-import { TIME_SHARE_PERIOD, type SymbolSpec, type SymbolInfo, type CustomDataSource } from '../controllers/types'
+import {
+  TIME_SHARE_PERIOD,
+  type SymbolSpec,
+  type SymbolInfo,
+  type CustomDataSource,
+} from '../controllers/types'
 import type { AlertController, MarketSnapshot } from '../features/alerts/types'
 
 export type { InteractionSnapshot }
@@ -1042,7 +1047,7 @@ export class Chart {
   }
 
   /** 获取渲染数据源（分时图下为 TimeShareData，K线图为 KLineData） */
-  getRenderData(): unknown[] {
+  getRenderData(): ReadonlyArray<KLineData | import('../foundation/types/price').TimeShareData> {
     return this.dataManager.getRenderData()
   }
 
@@ -1456,7 +1461,9 @@ export class Chart {
       // ⚠️ setActiveMode 必须在 dataManager.setSymbols 之前调用，
       //    以确保 kWidth/kGap（从 zoom level 恢复）先写入 _optionsSignal，
       //    后续 scrollLeft 恢复才能正确反推物理像素偏移。
-      this.setActiveMode(primaryPeriod === TIME_SHARE_PERIOD ? this._timeShareMode : this._kLineMode)
+      this.setActiveMode(
+        primaryPeriod === TIME_SHARE_PERIOD ? this._timeShareMode : this._kLineMode,
+      )
     }
     this.dataManager.setSymbols(specs)
     if (isComparison) {
@@ -1543,10 +1550,6 @@ export class Chart {
   resetToFetcher(spec: SymbolSpec): void {
     this.configureModeForSpec(spec)
     this.dataManager.resetToFetcher(spec)
-  }
-
-  getPreCustomSpec(): SymbolSpec | null {
-    return this.dataManager.getPreCustomSpec()
   }
 
   // ---------- Theme ----------

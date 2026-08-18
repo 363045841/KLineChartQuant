@@ -22,7 +22,6 @@ export function createDataManagerState() {
     {
       currentSpec: null as SymbolSpec | null,
       viewportSnapshots: Object.freeze({}) as Readonly<Record<string, ViewportSnapshot>>,
-      preCustomSpec: null as SymbolSpec | null,
       rangeInitialized: false,
       pendingIncrementalLoad: emptyIncrementalLoadBatch(),
     },
@@ -42,7 +41,10 @@ export function createDataManagerState() {
       saveViewportSnapshot(key: string, snapshot: ViewportSnapshot) {
         if (!key || !Number.isFinite(snapshot.anchorTimestamp)) return
         signals.viewportSnapshots.set(
-          Object.freeze({ ...signals.viewportSnapshots.peek(), [key]: Object.freeze({ ...snapshot }) }),
+          Object.freeze({
+            ...signals.viewportSnapshots.peek(),
+            [key]: Object.freeze({ ...snapshot }),
+          }),
         )
       },
 
@@ -57,10 +59,6 @@ export function createDataManagerState() {
         const { [key]: _, ...remaining } = snapshots
         signals.viewportSnapshots.set(Object.freeze(remaining))
         return snapshot
-      },
-
-      setPreCustomSpec(spec: SymbolSpec | null) {
-        signals.preCustomSpec.set(spec)
       },
 
       setRangeInitialized(v: boolean) {
@@ -89,7 +87,6 @@ export function createDataManagerState() {
         batch(() => {
           signals.currentSpec.set(null)
           signals.viewportSnapshots.set(Object.freeze({}))
-          signals.preCustomSpec.set(null)
           signals.rangeInitialized.set(false)
           signals.pendingIncrementalLoad.set(emptyIncrementalLoadBatch())
         })
@@ -100,7 +97,6 @@ export function createDataManagerState() {
       batch(() => {
         signals.currentSpec.set(null)
         signals.viewportSnapshots.set(Object.freeze({}))
-        signals.preCustomSpec.set(null)
         signals.rangeInitialized.set(false)
         signals.pendingIncrementalLoad.set(emptyIncrementalLoadBatch())
       })

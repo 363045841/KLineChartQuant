@@ -1,6 +1,10 @@
 /** K 线数据存储：按时间戳去重合并增量数据、维护已加载窗口，并通过信号发布数据变更。 */
 import type { KLineData } from '../../controllers/types'
-import { createSignal, type ReadonlySignal, type WritableSignal } from '../../foundation/reactivity/signal'
+import {
+  createSignal,
+  type ReadonlySignal,
+  type WritableSignal,
+} from '../../foundation/reactivity/signal'
 
 import type { DataWindow, DataChange } from './dataBufferTypes'
 
@@ -24,14 +28,14 @@ function mergeSortedData(existing: KLineData[], incoming: KLineData[]): KLineDat
 
 export class KLineDataStore {
   private _data: KLineData[] = []
-  private _dataSignal: WritableSignal<DataChange>
+  private _dataSignal: WritableSignal<DataChange<KLineData>>
   private _loadedWindow: DataWindow | null = null
 
   constructor() {
-    this._dataSignal = createSignal<DataChange>({ data: [], prependedCount: 0 })
+    this._dataSignal = createSignal<DataChange<KLineData>>({ data: [], prependedCount: 0 })
   }
 
-  get data(): ReadonlySignal<DataChange> {
+  get data(): ReadonlySignal<DataChange<KLineData>> {
     return this._dataSignal
   }
 

@@ -1,62 +1,76 @@
-import { describe, it, expect } from 'vitest'
+/** dataState 单元测试：验证活动选择和强类型业务快照原子发布。 */
+import { describe, expect, it } from 'vitest'
+
+import type { SeriesSelection } from '../../../data/buffer/seriesRepository'
 import { createDataState } from '../dataState'
 
-describe('dataState', () => {
-  it('applyActiveBufferSnapshot publishes key/data/loading atomically', () => {
-    const m = createDataState()
-    m.actions.applyActiveBufferSnapshot({
-      key: 'old',
-      data: [{ t: 1 }],
-      loading: true,
-      timeShareRange: null,
-      timeSharePreClose: null,
-    })
+const barsSelection: Extract<SeriesSelection, { kind: 'bars' }> = {
+  kind: 'bars',
+  instrumentKey: '["CN","SH","600000"]',
+  sourceId: 'gotdx',
+  period: 'daily',
+  adjustment: 'none',
+}
 
-    const snaps: Array<{ key: string | null; len: number; loading: boolean }> = []
-    const push = () => {
-      snaps.push({
-        key: m.readonly.activeBufferKey.peek(),
-        len: m.readonly.data.peek().length,
-        loading: m.readonly.loading.peek(),
+describe('dataState', () => {
+  it('publishes selection, data and loading atomically', () => {
+    const state = createDataState()
+    const snapshots: Array<{
+      selection: SeriesSelection | null
+      length: number
+      loading: boolean
+    }> = []
+    const record = () => {
+      snapshots.push({
+        selection: state.readonly.activeSelection.peek(),
+        length: state.readonly.data.peek().length,
+        loading: state.readonly.loading.peek(),
       })
     }
-    m.readonly.activeBufferKey.subscribe(push)
-    m.readonly.data.subscribe(push)
-    m.readonly.loading.subscribe(push)
+    state.readonly.activeSelection.subscribe(record)
+    state.readonly.data.subscribe(record)
+    state.readonly.loading.subscribe(record)
 
-    m.actions.applyActiveBufferSnapshot({
-      key: 'main:A:daily',
-      data: [{ t: 2 }, { t: 3 }],
-      loading: false,
+    state.actions.applyActiveBufferSnapshot({
+      kind: 'bars',
+      selection: barsSelection,
+      data: [{ timestamp: 1, open: 1, high: 1, low: 1, close: 1 }],
+      loading: true,
+      error: null,
       timeShareRange: null,
       timeSharePreClose: null,
     })
 
-    expect(m.readonly.activeBufferKey()).toBe('main:A:daily')
-    expect(m.readonly.data()).toHaveLength(2)
-    expect(m.readonly.loading()).toBe(false)
-    for (const s of snaps) {
-      expect(s).toEqual({ key: 'main:A:daily', len: 2, loading: false })
+    expect(state.readonly.activeSelection()).toBe(barsSelection)
+    expect(state.readonly.data()).toHaveLength(1)
+    expect(state.readonly.loading()).toBe(true)
+    for (const snapshot of snapshots) {
+      expect(snapshot).toEqual({ selection: barsSelection, length: 1, loading: true })
     }
   })
 
-  it('reset clears activeBufferKey with other fields', () => {
-    const m = createDataState()
-    m.actions.applyActiveBufferSnapshot({
-      key: 'main:A:daily',
-      data: [{ t: 1 }],
+  it('reset clears the complete active snapshot', () => {
+    const state = createDataState()
+    state.actions.applyActiveBufferSnapshot({
+      kind: 'bars',
+      selection: barsSelection,
+      data: [],
       loading: true,
+      error: 'failed',
       timeShareRange: null,
       timeSharePreClose: null,
     })
-    m.actions.reset()
-    expect(m.readonly.activeBufferKey()).toBeNull()
-    expect(m.readonly.data()).toEqual([])
-    expect(m.readonly.loading()).toBe(false)
+
+    state.actions.reset()
+
+    expect(state.readonly.activeSelection()).toBeNull()
+    expect(state.readonly.data()).toEqual([])
+    expect(state.readonly.loading()).toBe(false)
+    expect(state.readonly.error()).toBeNull()
   })
 
-  it('publishes timeshare metadata with the active buffer snapshot', () => {
-    const m = createDataState()
+  it('publishes time-share metadata with its discriminated snapshot', () => {
+    const state = createDataState()
     const range = {
       instrumentId: 'gotdx:stock:1:600519',
       timezone: 'Asia/Shanghai',
@@ -64,17 +78,25 @@ describe('dataState', () => {
       olderData: 'unknown' as const,
       days: [{ tradingDate: '2026-08-06' as const, preClose: 10, data: [] }],
     }
+    const selection: Extract<SeriesSelection, { kind: 'timeShare' }> = {
+      kind: 'timeShare',
+      instrumentKey: '["CN","SH","600519"]',
+      sourceId: 'gotdx',
+      tradingDate: '2026-08-06',
+    }
 
-    m.actions.applyActiveBufferSnapshot({
-      key: 'ts:gotdx:600519',
-      data: [{ timestamp: 1 }],
+    state.actions.applyActiveBufferSnapshot({
+      kind: 'timeShare',
+      selection,
+      data: [{ timestamp: 1, price: 10, average: 10 }],
       loading: false,
+      error: null,
       timeShareRange: range,
       timeSharePreClose: 10,
     })
 
-    expect(m.readonly.timeShareRange()).toBe(range)
-    expect(m.readonly.timeSharePreClose()).toBe(10)
-    expect(m.readonly.data()).toEqual([{ timestamp: 1 }])
+    expect(state.readonly.timeShareRange()).toBe(range)
+    expect(state.readonly.timeSharePreClose()).toBe(10)
+    expect(state.readonly.activeSelection()).toBe(selection)
   })
 })

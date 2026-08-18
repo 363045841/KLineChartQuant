@@ -12,6 +12,7 @@ import {
 } from '../../foundation/reactivity/signal'
 import type { TimeShareData } from '../../foundation/types/price'
 import type { TimeShareRange } from '../provider/types'
+import type { InstrumentDescriptor } from '../provider/types'
 
 import {
   FETCH_TOTAL_ATTEMPTS,
@@ -22,10 +23,7 @@ import {
 import type { DataBufferLike, DataWindow, DataChange, TimeShareResult } from './dataBufferTypes'
 
 /** 由数据管理层注入的统一 Provider 分时请求。 */
-export type TimeShareRequestFetch = (
-  spec: SymbolSpec,
-  date?: number,
-) => Promise<TimeShareResult>
+export type TimeShareRequestFetch = (spec: SymbolSpec, date?: number) => Promise<TimeShareResult>
 
 function errorMessage(err: unknown): string {
   if (err instanceof Error && err.message.trim()) return err.message
@@ -87,11 +85,11 @@ function resolveLoadedWindow(data: ReadonlyArray<TimeShareData>): DataWindow | n
   return { earliestTs: data[0]!.timestamp, latestTs: data[data.length - 1]!.timestamp }
 }
 
-export class TimeShareBuffer implements DataBufferLike {
+export class TimeShareBuffer implements DataBufferLike<TimeShareData> {
   // 内容快照是分时数据的唯一可写状态，其他业务值均由 computed 自动派生。
   private readonly _contentSignal = createSignal<TimeShareContentSnapshot>(EMPTY_CONTENT)
   private readonly _flatDataSignal = computed(() => flattenContent(this._contentSignal()))
-  private readonly _dataSignal = computed<DataChange>(() => ({
+  private readonly _dataSignal = computed<DataChange<TimeShareData>>(() => ({
     data: this._flatDataSignal(),
     prependedCount: 0,
   }))
@@ -105,6 +103,8 @@ export class TimeShareBuffer implements DataBufferLike {
   private _loadingSignal: WritableSignal<boolean> = createSignal<boolean>(false)
   private _lastError: WritableSignal<string | null> = createSignal<string | null>(null)
   private _requestFetch: TimeShareRequestFetch | null = null
+  private _sourceResolvedHandler:
+    ((sourceId: string, instrument: InstrumentDescriptor) => boolean) | null = null
   // 指定查询的历史日期（0 = 当天）
   private _queryDate = 0
   // 请求序号，每次 load() 递增；过期结果丢弃
@@ -117,7 +117,7 @@ export class TimeShareBuffer implements DataBufferLike {
     batch(() => this._contentSignal.set(snapshot))
   }
 
-  get data(): ReadonlySignal<DataChange> {
+  get data(): ReadonlySignal<DataChange<TimeShareData>> {
     return this._dataSignal
   }
 
@@ -159,6 +159,13 @@ export class TimeShareBuffer implements DataBufferLike {
   /** 设置统一 Provider 分时请求。 */
   setRequestFetch(fetcher: TimeShareRequestFetch | null): void {
     this._requestFetch = fetcher
+  }
+
+  /** 注册 auto 来源首次成功后的身份迁移回调。 */
+  setSourceResolvedHandler(
+    handler: ((sourceId: string, instrument: InstrumentDescriptor) => boolean) | null,
+  ): void {
+    this._sourceResolvedHandler = handler
   }
 
   setQueryDate(date: number): void {
@@ -225,6 +232,13 @@ export class TimeShareBuffer implements DataBufferLike {
           }
         }
         if (!result || this._disposed || requestSeq !== this._requestSeq) return
+        if (
+          result.sourceId &&
+          result.instrument &&
+          (spec.source === undefined || spec.source === 'auto')
+        ) {
+          if (this._sourceResolvedHandler?.(result.sourceId, result.instrument) === false) return
+        }
         this._queryDate = 0
         this.setInlineSnapshot(result.data, result.preClose)
         this._lastError.set(null)

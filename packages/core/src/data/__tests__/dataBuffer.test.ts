@@ -67,6 +67,22 @@ describe('DataBuffer', () => {
     expect(buffer.loadedWindow!.latestTs).toBe(fetchedData[1]!.timestamp)
   })
 
+  it('continues loading after the initial page when an initial range is pending', async () => {
+    const latest = [makeKLine(100), makeKLine(200)]
+    const older = [makeKLine(50)]
+    const requestFetch = vi
+      .fn()
+      .mockResolvedValueOnce(page(latest, 'available'))
+      .mockResolvedValueOnce(page(older, 'exhausted'))
+    buffer.setRequestFetch(requestFetch)
+
+    buffer.setSymbol(defaultSpec, 50)
+
+    await vi.waitFor(() => expect(requestFetch).toHaveBeenCalledTimes(2))
+    expect(requestFetch).toHaveBeenNthCalledWith(2, defaultSpec, { limit: 500, before: 100 })
+    expect(buffer.getRawData().map((item) => item.timestamp)).toEqual([50, 100, 200])
+  })
+
   it('passes the symbol spec through to the requestFetch', async () => {
     const requestFetch = vi.fn().mockResolvedValue(page([makeKLine(Date.now())]))
     buffer.setRequestFetch(requestFetch)
@@ -80,7 +96,10 @@ describe('DataBuffer', () => {
   it('loads Provider bars with latest and exclusive cursor pages', async () => {
     const latest = [makeKLine(200), makeKLine(300)]
     const older = [makeKLine(100)]
-    const requestFetch = vi.fn().mockResolvedValueOnce(page(latest)).mockResolvedValueOnce(page(older))
+    const requestFetch = vi
+      .fn()
+      .mockResolvedValueOnce(page(latest))
+      .mockResolvedValueOnce(page(older))
     buffer.setRequestFetch(requestFetch)
 
     buffer.setSymbol(defaultSpec)
@@ -124,9 +143,10 @@ describe('DataBuffer', () => {
     const initialData = [makeKLine(oneYearAgo + MS_PER_DAY), makeKLine(now)]
 
     let fetchCount = 0
-    const requestFetch: (spec: SymbolSpec, page: { limit: number; before?: number }) => Promise<
-      BarPageResult
-    > = async () => {
+    const requestFetch: (
+      spec: SymbolSpec,
+      page: { limit: number; before?: number },
+    ) => Promise<BarPageResult> = async () => {
       fetchCount++
       if (fetchCount === 1) return page(initialData)
       return page([makeKLine(oneYearAgo - 90 * MS_PER_DAY), makeKLine(oneYearAgo)])
@@ -161,9 +181,10 @@ describe('DataBuffer', () => {
     const initialData = [makeKLine(oneYearAgo), makeKLine(now)]
 
     let fetchCount = 0
-    const requestFetch: (spec: SymbolSpec, page: { limit: number; before?: number }) => Promise<
-      BarPageResult
-    > = async () => {
+    const requestFetch: (
+      spec: SymbolSpec,
+      page: { limit: number; before?: number },
+    ) => Promise<BarPageResult> = async () => {
       fetchCount++
       return page(initialData)
     }
@@ -191,9 +212,10 @@ describe('DataBuffer', () => {
     const incrementalData = [makeKLine(oneYearAgo - 90 * MS_PER_DAY), makeKLine(sharedTs)]
 
     let fetchCount = 0
-    const requestFetch: (spec: SymbolSpec, page: { limit: number; before?: number }) => Promise<
-      BarPageResult
-    > = async () => {
+    const requestFetch: (
+      spec: SymbolSpec,
+      page: { limit: number; before?: number },
+    ) => Promise<BarPageResult> = async () => {
       fetchCount++
       if (fetchCount === 1) return page(initialData)
       return page(incrementalData)
@@ -224,9 +246,10 @@ describe('DataBuffer', () => {
 
     const initialData = [makeKLine(oneYearAgo + MS_PER_DAY), makeKLine(now)]
     let fetchCount = 0
-    const requestFetch: (spec: SymbolSpec, page: { limit: number; before?: number }) => Promise<
-      BarPageResult
-    > = async () => {
+    const requestFetch: (
+      spec: SymbolSpec,
+      page: { limit: number; before?: number },
+    ) => Promise<BarPageResult> = async () => {
       fetchCount++
       await new Promise((r) => setTimeout(r, 10))
       if (fetchCount === 1) return page(initialData)
@@ -256,9 +279,10 @@ describe('DataBuffer', () => {
 
     const initialData = [makeKLine(oneYearAgo), makeKLine(now)]
     let fetchCount = 0
-    const requestFetch: (spec: SymbolSpec, page: { limit: number; before?: number }) => Promise<
-      BarPageResult
-    > = async () => {
+    const requestFetch: (
+      spec: SymbolSpec,
+      page: { limit: number; before?: number },
+    ) => Promise<BarPageResult> = async () => {
       fetchCount++
       await new Promise((r) => setTimeout(r, 10))
       if (fetchCount === 1) return page(initialData)
@@ -361,12 +385,16 @@ describe('DataBuffer', () => {
     const initialData = [makeKLine(oneYearAgo), makeKLine(now)]
 
     let fetchCount = 0
-    const requestFetch: (spec: SymbolSpec, page: { limit: number; before?: number }) => Promise<
-      BarPageResult
-    > = async () => {
+    const requestFetch: (
+      spec: SymbolSpec,
+      page: { limit: number; before?: number },
+    ) => Promise<BarPageResult> = async () => {
       fetchCount++
       if (fetchCount === 1) return page(initialData)
-      return page([makeKLine(oneYearAgo - 90 * MS_PER_DAY), makeKLine(oneYearAgo - 45 * MS_PER_DAY)])
+      return page([
+        makeKLine(oneYearAgo - 90 * MS_PER_DAY),
+        makeKLine(oneYearAgo - 45 * MS_PER_DAY),
+      ])
     }
 
     buffer.setRequestFetch(requestFetch)
@@ -418,9 +446,10 @@ describe('DataBuffer', () => {
     const initialData = [makeKLine(oneYearAgo), makeKLine(now)]
 
     let fetchCount = 0
-    const requestFetch: (spec: SymbolSpec, page: { limit: number; before?: number }) => Promise<
-      BarPageResult
-    > = async () => {
+    const requestFetch: (
+      spec: SymbolSpec,
+      page: { limit: number; before?: number },
+    ) => Promise<BarPageResult> = async () => {
       fetchCount++
       if (fetchCount === 1) return page(initialData)
       // Return data with same timestamps so mergeSortedData deduplicates them,
@@ -461,9 +490,10 @@ describe('DataBuffer', () => {
     const initialData = [makeKLine(oneYearAgo), makeKLine(now)]
 
     let fetchCount = 0
-    const requestFetch: (spec: SymbolSpec, page: { limit: number; before?: number }) => Promise<
-      BarPageResult
-    > = async () => {
+    const requestFetch: (
+      spec: SymbolSpec,
+      page: { limit: number; before?: number },
+    ) => Promise<BarPageResult> = async () => {
       fetchCount++
       if (fetchCount === 1) return page(initialData)
       if (fetchCount === 2) return page([makeKLine(oneYearAgo - 90 * MS_PER_DAY)])
@@ -601,9 +631,10 @@ describe('DataBuffer', () => {
     const allData = [...prependData, ...initialData]
 
     let fetchCount = 0
-    const requestFetch: (spec: SymbolSpec, page: { limit: number; before?: number }) => Promise<
-      BarPageResult
-    > = async () => {
+    const requestFetch: (
+      spec: SymbolSpec,
+      page: { limit: number; before?: number },
+    ) => Promise<BarPageResult> = async () => {
       fetchCount++
       if (fetchCount === 1) return page(initialData)
       return page(prependData)
@@ -633,7 +664,9 @@ describe('DataBuffer', () => {
   })
 
   it('records lastError when fetch fails after retries', async () => {
-    const requestFetch = vi.fn().mockRejectedValue(new Error('[gotdx] stock/kline-by-date failed: 500'))
+    const requestFetch = vi
+      .fn()
+      .mockRejectedValue(new Error('[gotdx] stock/kline-by-date failed: 500'))
     buffer.setRequestFetch(requestFetch)
     buffer.setSymbol(defaultSpec)
 

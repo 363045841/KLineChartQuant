@@ -46,8 +46,8 @@ describe('SourceRouter', () => {
     marketDataProviderRegistry.clear()
   })
 
-  // 验证确定性拒绝会重新搜索目标源并使用目标源私有 providerRef。
-  it('flows on deterministic rejection and resolves target identity', async () => {
+  // 验证 auto 策略在确定性拒绝后重新搜索目标源并使用目标源私有 providerRef。
+  it('flows auto requests on deterministic rejection and resolves target identity', async () => {
     const targetInstrument = {
       ...baseInstrument,
       id: 'baostock:stock:600519',
@@ -85,7 +85,7 @@ describe('SourceRouter', () => {
 
     const router = new SourceRouter()
     const result = await router.bars({
-      preferredSourceId: 'gotdx',
+      preferredSourceId: 'auto',
       instrument: baseInstrument,
       symbol: baseInstrument.symbol,
       exchange: baseInstrument.exchange,
@@ -100,6 +100,50 @@ describe('SourceRouter', () => {
     expect(result.attempts).toEqual([
       { sourceId: 'gotdx', code: 'INSTRUMENT_NOT_FOUND', message: 'missing' },
     ])
+  })
+
+  // 验证显式来源即使确定性拒绝，也不得回退到其他 Provider。
+  it('does not flow explicit source requests', async () => {
+    let fallbackCalled = false
+    const first = createProvider(
+      'gotdx',
+      async () => {
+        throw new KLineChartError('INSTRUMENT_NOT_FOUND', 'missing')
+      },
+      async () => [baseInstrument],
+    )
+    const second = createProvider(
+      'baostock',
+      async () => {
+        fallbackCalled = true
+        return {
+          instrumentId: 'baostock:stock:600519',
+          period: 'daily',
+          adjustment: 'none',
+          timezone: 'Asia/Shanghai',
+          data: [],
+          olderData: 'unknown',
+        }
+      },
+      async () => [{ ...baseInstrument, sourceId: 'baostock' }],
+    )
+    marketDataProviderRegistry.register(first, { priority: 10 })
+    marketDataProviderRegistry.register(second, { priority: 1 })
+
+    await expect(
+      new SourceRouter().bars({
+        preferredSourceId: 'gotdx',
+        instrument: baseInstrument,
+        symbol: baseInstrument.symbol,
+        exchange: baseInstrument.exchange,
+        period: 'daily',
+        adjustment: 'none',
+        limit: 500,
+      }),
+    ).rejects.toMatchObject({
+      attempts: [{ sourceId: 'gotdx', code: 'INSTRUMENT_NOT_FOUND' }],
+    })
+    expect(fallbackCalled).toBe(false)
   })
 
   // 验证网络或上游故障不会触发下一个 Provider。

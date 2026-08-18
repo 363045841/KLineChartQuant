@@ -182,23 +182,32 @@ async function discoverCapabilities(
 export class SourceRouter {
   constructor(private readonly registry: MarketDataProviderRegistry = marketDataProviderRegistry) {}
 
-  /** 获取已启用且声明支持请求能力的候选源，首选源始终排在最前。 */
+  /** 获取请求候选源；显式来源只返回自身，auto 才允许按优先级流转。 */
   private async getCandidates(
     query: SourceCapabilityQuery,
     preferredSourceId: string | undefined,
   ): Promise<ReadonlyArray<MarketDataProvider>> {
     const enabled = this.registry.getEnabledByPriority()
-    const preferred = enabled.find((provider) => provider.source.id === preferredSourceId)
-    const others = enabled.filter((provider) => provider !== preferred)
+    const explicitSource =
+      preferredSourceId !== undefined && preferredSourceId !== 'auto'
+        ? preferredSourceId
+        : undefined
+    if (explicitSource) {
+      const provider = enabled.find((candidate) => candidate.source.id === explicitSource)
+      if (!provider) return []
+      if (this.registry.getCapabilities(provider.source.id) === undefined) {
+        await discoverCapabilities(this.registry, provider)
+      }
+      return this.registry.getEnabledByCapability(query).includes(provider) ? [provider] : []
+    }
+
     await Promise.all(
-      others
+      enabled
         .filter((provider) => this.registry.getCapabilities(provider.source.id) === undefined)
         .map((provider) => discoverCapabilities(this.registry, provider).catch(() => undefined)),
     )
     const filtered = this.registry.getEnabledByCapability(query)
-    return preferred
-      ? [preferred, ...filtered.filter((provider) => provider !== preferred)]
-      : filtered
+    return filtered
   }
 
   /** 执行通用流转循环，只对确定性拒绝尝试下一个源。 */

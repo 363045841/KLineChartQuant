@@ -45,7 +45,9 @@ export class DataBuffer implements KLineBuffer {
   private _scheduler = new FetchScheduler()
   private _keyIndex = new TimeKeyIndex()
   private _requestFetch:
-    | ((spec: SymbolSpec, page: BarPageRequest) => Promise<BarPageResult>)
+    ((spec: SymbolSpec, page: BarPageRequest) => Promise<BarPageResult>) | null = null
+  private _sourceResolvedHandler:
+    | ((sourceId: string, instrument: import('../provider/types').InstrumentDescriptor) => boolean)
     | null = null
   /** 后端声明的当前缓存左侧历史状态；仅 exhausted 会停止继续翻页。 */
   private _olderData: OlderDataStatus = 'unknown'
@@ -54,13 +56,15 @@ export class DataBuffer implements KLineBuffer {
   private _inflightBoundary: number | null = null
   /** inflight 期间记录的最宽 requestStartTs */
   private _pendingRequestStartTs: number | null = null
+  /** 标记 setSymbol 传入的初始左边界，避免与普通分页 pending 混用。 */
+  private _initialRangePending = false
   private _requestVersion = 0
   private _disposed = false
   private _lastError: WritableSignal<string | null> = createSignal<string | null>(null)
 
   constructor() {}
 
-  get data(): ReadonlySignal<DataChange> {
+  get data(): ReadonlySignal<DataChange<KLineData>> {
     return this._store.data
   }
 
@@ -98,6 +102,18 @@ export class DataBuffer implements KLineBuffer {
     this._requestFetch = fn
   }
 
+  /** 注册 auto 来源首次成功后的身份迁移回调。 */
+  setSourceResolvedHandler(
+    handler:
+      | ((
+          sourceId: string,
+          instrument: import('../provider/types').InstrumentDescriptor,
+        ) => boolean)
+      | null,
+  ): void {
+    this._sourceResolvedHandler = handler
+  }
+
   setSymbol(spec: SymbolSpec, initialStartTs?: number): void {
     this._requestVersion++
     this._currentSpec = spec
@@ -106,6 +122,7 @@ export class DataBuffer implements KLineBuffer {
     this._keyIndex.reset()
     this._inflightBoundary = null
     this._pendingRequestStartTs = initialStartTs ?? null
+    this._initialRangePending = initialStartTs !== undefined
     this._olderData = 'unknown'
     this._lastError.set(null)
     this._loadInitial()
@@ -134,13 +151,14 @@ export class DataBuffer implements KLineBuffer {
     this._fetchAndMerge({ limit: DEFAULT_BAR_PAGE_LIMIT, before: incrementalEnd })
   }
 
-  setInlineData(data: unknown[]): void {
+  setInlineData(data: ReadonlyArray<KLineData>): void {
     if (this._disposed) return
     this._requestVersion++
-    this._store.setInlineData(data as KLineData[])
+    this._store.setInlineData([...data])
     this._scheduler.reset()
     this._inflightBoundary = null
     this._pendingRequestStartTs = null
+    this._initialRangePending = false
     this._olderData = 'unknown'
     this._lastError.set(null)
     this._keyIndex.recompute(this._store.getRawData())
@@ -159,6 +177,7 @@ export class DataBuffer implements KLineBuffer {
     this._keyIndex.reset()
     this._inflightBoundary = null
     this._pendingRequestStartTs = null
+    this._initialRangePending = false
     this._olderData = 'unknown'
     this._lastError.set(null)
   }
@@ -196,7 +215,7 @@ export class DataBuffer implements KLineBuffer {
                   new Error(`[DataBuffer] source is required for symbol "${s.symbol}"`),
                 )
               }
-               return requestFetch(s, request)
+              return requestFetch(s, request)
             },
             catch: (e) => e,
           }),
@@ -229,6 +248,19 @@ export class DataBuffer implements KLineBuffer {
 
           // 空页是合法的分页结果，不能据此推断品种没有数据或请求失败。
           this._lastError.set(null)
+          if (
+            response.sourceId &&
+            response.instrument &&
+            (spec.source === undefined || spec.source === 'auto')
+          ) {
+            this._currentSpec = {
+              ...spec,
+              source: response.sourceId,
+              instrument: response.instrument,
+            }
+            if (this._sourceResolvedHandler?.(response.sourceId, response.instrument) === false)
+              return
+          }
           this._olderData = response.olderData
           const result = this._store.merge(response.data)
           this._keyIndex.recompute(this._store.getRawData())
@@ -236,8 +268,16 @@ export class DataBuffer implements KLineBuffer {
           this._inflightBoundary = null
           const pending = this._pendingRequestStartTs
           this._pendingRequestStartTs = null
-          if (result.advancedEarliest && pending !== null) {
-            this.ensureRange(pending, this._store.loadedWindow!.earliestTs)
+          const loadedWindow = this._store.loadedWindow
+          const initialRangePending = this._initialRangePending
+          this._initialRangePending = false
+          if (
+            pending !== null &&
+            loadedWindow &&
+            pending < loadedWindow.earliestTs &&
+            (initialRangePending || result.advancedEarliest)
+          ) {
+            this.ensureRange(pending, loadedWindow.earliestTs)
           }
         } catch (err) {
           if (disposed() || requestVersion !== this._requestVersion) return

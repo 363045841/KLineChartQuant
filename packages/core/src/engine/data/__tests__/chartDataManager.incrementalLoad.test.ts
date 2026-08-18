@@ -323,53 +323,99 @@ describe('ChartDataManager incremental load', () => {
     expect(scheduleDraw).toHaveBeenCalled()
   })
 
-  it(
-    'mirrors active buffer lastError onto dataError',
-    async () => {
-      registerTestProvider(
-        createTestProvider({
-          fetchBars: {
-            async fetch() {
-              throw new Error('[gotdx] stock/kline-by-date failed: 500')
-            },
-          },
-        }),
-      )
-      const dataState = createDataState()
-      const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
-      const dataManagerState = createDataManagerState()
-      const container = document.querySelector<HTMLDivElement>('#container')!
-      const scrollContent = document.querySelector<HTMLDivElement>('#scroll-content')!
-      manager = new ChartDataManager(
-        createDependencies(
-          { container, scrollContent },
-          (symbols) => {
-            symbols$.set(symbols)
-            dataState.actions.setSymbols(symbols)
-          },
-          symbols$,
-        ),
-        dataState,
-        dataManagerState,
-      )
-      manager.setSymbols([
-        {
-          symbol: '158017',
-          market: 'CN',
-          period: 'daily',
-          source: 'test',
-          instrument: instrumentFor('158017'),
+  it('keeps custom source data isolated from a Provider with the same label', async () => {
+    const providerData = makeKLine(2)
+    const fetchBars = vi.fn(async () => ({
+      instrumentId: 'test:000001',
+      period: 'daily' as const,
+      adjustment: 'none' as const,
+      timezone: 'Asia/Shanghai',
+      olderData: 'exhausted' as const,
+      data: [providerData],
+    }))
+    registerTestProvider(createTestProvider({ fetchBars: { fetch: fetchBars } }))
+    const dataState = createDataState()
+    const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
+    const dataManagerState = createDataManagerState()
+    const container = document.querySelector<HTMLDivElement>('#container')!
+    const scrollContent = document.querySelector<HTMLDivElement>('#scroll-content')!
+    manager = new ChartDataManager(
+      createDependencies(
+        { container, scrollContent },
+        (symbols) => {
+          symbols$.set(symbols)
+          dataState.actions.setSymbols(symbols)
         },
-      ])
+        symbols$,
+      ),
+      dataState,
+      dataManagerState,
+    )
 
-      await vi.waitFor(
-        () =>
-          expect(manager!.dataError.peek()).toBe(
-            '[test] Error: [gotdx] stock/kline-by-date failed: 500',
-          ),
-        { timeout: 10_000 },
-      )
-    },
-    15_000,
-  )
+    manager.applyCustomData({
+      market: 'CN',
+      symbol: '000001',
+      source: 'test',
+      data: [makeKLine(1)],
+    })
+    expect(manager.getData()[0]?.timestamp).toBe(1)
+
+    manager.resetToFetcher({
+      market: 'CN',
+      symbol: '000001',
+      period: 'daily',
+      adjust: 'none',
+      source: 'test',
+      instrument: instrumentFor('000001'),
+    })
+
+    await vi.waitFor(() => expect(manager!.getData()[0]?.timestamp).toBe(2))
+    expect(fetchBars).toHaveBeenCalledOnce()
+  })
+
+  it('mirrors active buffer lastError onto dataError', async () => {
+    registerTestProvider(
+      createTestProvider({
+        fetchBars: {
+          async fetch() {
+            throw new Error('[gotdx] stock/kline-by-date failed: 500')
+          },
+        },
+      }),
+    )
+    const dataState = createDataState()
+    const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
+    const dataManagerState = createDataManagerState()
+    const container = document.querySelector<HTMLDivElement>('#container')!
+    const scrollContent = document.querySelector<HTMLDivElement>('#scroll-content')!
+    manager = new ChartDataManager(
+      createDependencies(
+        { container, scrollContent },
+        (symbols) => {
+          symbols$.set(symbols)
+          dataState.actions.setSymbols(symbols)
+        },
+        symbols$,
+      ),
+      dataState,
+      dataManagerState,
+    )
+    manager.setSymbols([
+      {
+        symbol: '158017',
+        market: 'CN',
+        period: 'daily',
+        source: 'test',
+        instrument: instrumentFor('158017'),
+      },
+    ])
+
+    await vi.waitFor(
+      () =>
+        expect(manager!.dataError.peek()).toBe(
+          '[test] Error: [gotdx] stock/kline-by-date failed: 500',
+        ),
+      { timeout: 10_000 },
+    )
+  }, 15_000)
 })

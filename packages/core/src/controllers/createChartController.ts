@@ -574,11 +574,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     chart.resetToFetcher(spec)
   }
 
-  function getPreCustomSpec(): SymbolSpec | null {
-    if (disposed) return null
-    return chart.getPreCustomSpec()
-  }
-
   function ensureDataRange(startTs: number): void {
     if (disposed) return
     const buf = chart.dataBuffer
@@ -1004,7 +999,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     switchToTimeShareForDate,
     applyCustomData,
     resetToFetcher,
-    getPreCustomSpec,
     ensureDataRange,
     setData,
     appendData,

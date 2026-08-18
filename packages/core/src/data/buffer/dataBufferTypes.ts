@@ -2,7 +2,7 @@
 import type { KLineData, SymbolSpec } from '../../controllers/types'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal'
 import type { TimeShareData } from '../../foundation/types/price'
-import type { OlderDataStatus, TimeShareRange } from '../provider/types'
+import type { InstrumentDescriptor, OlderDataStatus, TimeShareRange } from '../provider/types'
 
 export interface DataWindow {
   earliestTs: number
@@ -10,8 +10,8 @@ export interface DataWindow {
 }
 
 /** 数据变更描述：在一次数据更新中携带数据本身和变更元数据 */
-export interface DataChange {
-  readonly data: ReadonlyArray<unknown>
+export interface DataChange<T> {
+  readonly data: ReadonlyArray<T>
   /** 本次新增了多少根 K 线到头部（向左滚动加载的历史数据） */
   readonly prependedCount: number
 }
@@ -27,40 +27,48 @@ export interface BarPageRequest {
 export interface BarPageResult {
   data: ReadonlyArray<KLineData>
   olderData: OlderDataStatus
+  /** 本页实际使用的 Provider；auto 首次成功后据此锁定来源。 */
+  sourceId?: string
+  instrument?: InstrumentDescriptor
 }
 
-export interface DataBufferLike {
-  readonly data: ReadonlySignal<DataChange>
+export interface DataBufferLike<T = KLineData | TimeShareData> {
+  readonly data: ReadonlySignal<DataChange<T>>
   readonly loading: ReadonlySignal<boolean>
   /** 最近一次显式拉取失败的可读原因；成功或重置后为 null */
   readonly lastError: ReadonlySignal<string | null>
   readonly loadedWindow: DataWindow | null
-  getRawData(): unknown[]
+  getRawData(): T[]
   dispose(): void
 }
 
-export interface KLineBuffer extends DataBufferLike {
+export interface KLineBuffer extends DataBufferLike<KLineData> {
   readonly currentSpec: SymbolSpec | null
   getRawData(): KLineData[]
-  setInlineData(data: unknown[]): void
+  setInlineData(data: ReadonlyArray<KLineData>): void
   getMonthKeys(): Int32Array | null
   getDayKeys(): Int32Array | null
   setRequestFetch(
     fn: ((spec: SymbolSpec, page: BarPageRequest) => Promise<BarPageResult>) | null,
+  ): void
+  setSourceResolvedHandler(
+    handler: ((sourceId: string, instrument: InstrumentDescriptor) => boolean) | null,
   ): void
   setSymbol(spec: SymbolSpec, initialStartTs?: number): void
   setCurrentSpec(spec: SymbolSpec): void
   ensureRange(requestStartTs: number, requestEndTs: number): void
 }
 
-export interface TimeShareBuffer extends DataBufferLike {
+export interface TimeShareBuffer extends DataBufferLike<TimeShareData> {
   readonly range: ReadonlySignal<TimeShareRange | null>
   getRawData(): TimeShareData[]
   setInlineData(data: ReadonlyArray<TimeShareData>, preClose: number | null): void
   getRange(): TimeShareRange | null
+  getPreClose(): number | null
   setRange(range: TimeShareRange): void
-  setRequestFetch(
-    fn: ((spec: SymbolSpec, date?: number) => Promise<TimeShareResult>) | null,
+  setRequestFetch(fn: ((spec: SymbolSpec, date?: number) => Promise<TimeShareResult>) | null): void
+  setSourceResolvedHandler(
+    handler: ((sourceId: string, instrument: InstrumentDescriptor) => boolean) | null,
   ): void
   setQueryDate(date: number): void
   getQueryDate(): number
@@ -71,4 +79,6 @@ export interface TimeShareBuffer extends DataBufferLike {
 export interface TimeShareResult {
   data: ReadonlyArray<TimeShareData>
   preClose: number | null
+  sourceId?: string
+  instrument?: InstrumentDescriptor
 }

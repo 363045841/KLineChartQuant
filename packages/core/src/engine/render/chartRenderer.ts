@@ -14,7 +14,7 @@ import type { Renderer } from '../../rendering/render/Renderer'
 import { createLayerFromPlugin } from '../../rendering/scene/createLayerFromPlugin'
 import { createScene } from '../../rendering/scene/createScene'
 import type { Scene, PaintContext, PaneRole, Layer } from '../../rendering/scene/types'
-import type { KLineData } from '../../foundation/types/price'
+import type { KLineData, TimeShareData } from '../../foundation/types/price'
 import type {
   ChartDom,
   PaneSpec,
@@ -45,7 +45,6 @@ import { createTimeShareRendererPlugin } from '../renderers/timeShare'
 import { calcKBarWidthPx, getPhysicalKLineConfig } from '../utils/klineConfig'
 import { calculateTickCount } from '../utils/tickCount'
 
-
 import { createCandleLayer } from './layers/candleLayer'
 import { createComparisonLineLayer } from './layers/comparisonLineLayer'
 import { createCrosshairLayer } from './layers/crosshairLayer'
@@ -54,10 +53,7 @@ import { createExtremaMarkersLayer } from './layers/extremaMarkersLayer'
 import { createGridLinesLayer } from './layers/gridLinesLayer'
 import { createLastPriceLabelLayer } from './layers/lastPriceLabelLayer'
 import { createLastPriceLineLayer } from './layers/lastPriceLineLayer'
-import {
-  createLeftYAxisOverlayLayer,
-  createLeftYAxisStaticLayer,
-} from './layers/leftYAxisLayer'
+import { createLeftYAxisOverlayLayer, createLeftYAxisStaticLayer } from './layers/leftYAxisLayer'
 import { createMainIndicatorLegendLayer } from './layers/mainIndicatorLegendLayer'
 import { createYAxisOverlayLayer, createYAxisStaticLayer } from './layers/yAxisLayer'
 import type { LayerRole } from '../../rendering/scene/types'
@@ -74,6 +70,8 @@ type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kWidth: number
   kGap: number
 }
+
+type MarketSeriesData = KLineData | TimeShareData
 
 /**
  * 一帧绘制几何与数据（prepare 产出，render 只读）。
@@ -94,8 +92,8 @@ type FrameContext = {
   kWidthPx: number
   /** Overlay 帧复用上一帧的几何缓存 */
   useCachedFrame: boolean
-  /** 原始 K 线数据 */
-  data: KLineData[]
+  /** 当前模式对应的强类型行情数据。 */
+  data: MarketSeriesData[]
   /** 当前缩放级别索引 */
   zoomLevel: number
   /** 缩放级别总数 */
@@ -545,7 +543,7 @@ export class ChartRenderer {
     const vp = useCachedFrame ? this.cachedDrawFrame!.viewport : this.peekViewport()
     if (!vp) return null
 
-    const internalData = this.deps.getDataManager().getRenderData() as KLineData[]
+    const internalData = [...this.deps.getDataManager().getRenderData()]
     if (internalData.length === 0) return null
 
     const opt = this.deps.getOption()
@@ -611,9 +609,11 @@ export class ChartRenderer {
           sessionSlots: resolveMarketSessionSlots(marketSession),
           totalWidth: vp.plotWidth,
           dpr: vp.dpr,
-          slotIndices: internalData.slice(range.start, range.end).map(
-            (item, index) => resolveTimestampSessionSlot(item.timestamp, marketSession) ?? index,
-          ),
+          slotIndices: internalData
+            .slice(range.start, range.end)
+            .map(
+              (item, index) => resolveTimestampSessionSlot(item.timestamp, marketSession) ?? index,
+            ),
         })
         if (layout) {
           const barWidthPx = Math.round(layout.barWidth * vp.dpr)
@@ -678,7 +678,12 @@ export class ChartRenderer {
       const pane = r.getPane()
       mainCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
       overlayCtx?.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
-      yAxisCtx?.clearRect(0, 0, (yAxisCtx.canvas?.width ?? 0) / vp.dpr || vp.plotWidth + 1, pane.height + 2 / vp.dpr)
+      yAxisCtx?.clearRect(
+        0,
+        0,
+        (yAxisCtx.canvas?.width ?? 0) / vp.dpr || vp.plotWidth + 1,
+        pane.height + 2 / vp.dpr,
+      )
       yAxisOverlayCtx?.clearRect(
         0,
         0,
@@ -724,7 +729,7 @@ export class ChartRenderer {
     hasCrosshair: boolean,
     useCachedFrame: boolean,
     level: UpdateLevel,
-    renderData: unknown[],
+    renderData: MarketSeriesData[],
   ): { sharedXAxisLabels: XAxisLabel[]; sharedXAxisRanges: XAxisRange[] } {
     // 跨 pane 共享的 Y/X 轴 labels 和 ranges（各 layer 写入，时间轴层读取）
     const sharedYAxisLabels: YAxisLabel[] = []
@@ -747,14 +752,8 @@ export class ChartRenderer {
     // 遍历主图 pane 和所有子图 pane，每个 pane 有一组独立 canvas 以及对应更新级别（main/overlay/yAxis）
     for (const renderer of this.deps.getPaneRenderers()) {
       const pane = renderer.getPane()
-      const {
-        mainCtx,
-        overlayCtx,
-        yAxisCtx,
-        yAxisOverlayCtx,
-        leftAxisCtx,
-        leftAxisOverlayCtx,
-      } = renderer.getContexts()
+      const { mainCtx, overlayCtx, yAxisCtx, yAxisOverlayCtx, leftAxisCtx, leftAxisOverlayCtx } =
+        renderer.getContexts()
 
       // 非缓存帧：更新 pane Y 轴范围；比较视图下以可见折线极值为准
       if (!useCachedFrame) {
@@ -867,8 +866,7 @@ export class ChartRenderer {
           ...this.settings,
           // 分时昨收优先读 series 元数据，settings 作回退
           preClose:
-            dataManager.getTimeSharePreClose() ??
-            (this.settings.preClose as number | undefined),
+            dataManager.getTimeSharePreClose() ?? (this.settings.preClose as number | undefined),
         },
         yAxisLabels: sharedYAxisLabels,
         xAxisLabels: sharedXAxisLabels,
@@ -954,7 +952,7 @@ export class ChartRenderer {
     kWidthPx: number,
     sharedXAxisLabels: XAxisLabel[],
     sharedXAxisRanges: XAxisRange[],
-    renderData: unknown[],
+    renderData: MarketSeriesData[],
   ): void {
     const dom = this.deps.getDom()
     const xAxisCtx = this.xAxisCtx ?? dom.xAxisCanvas.getContext('2d')

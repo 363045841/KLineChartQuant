@@ -1,26 +1,51 @@
-import { batch, createSubState, type ReadonlySignal } from '../../foundation/reactivity/signal'
+import { batch, createSubState } from '../../foundation/reactivity/signal'
 import type { SymbolSpec, SymbolInfo } from '../../controllers/types'
+import type { SeriesSelection } from '../../data/buffer/seriesRepository'
 import type { TimeShareRange } from '../../data/provider/types'
+import type { KLineData, TimeShareData } from '../../foundation/types/price'
 
 export interface DataDeps {
   /** placeholder — for future visibleRange computed */
 }
 
 /** Kernel 中当前活动 Buffer 的原子业务快照。 */
-export interface ActiveBufferSnapshot {
-  readonly key: string | null
-  readonly data: ReadonlyArray<unknown>
-  readonly loading: boolean
-  readonly timeShareRange: TimeShareRange | null
-  readonly timeSharePreClose: number | null
-}
+export type ActiveBufferSnapshot =
+  | {
+      readonly kind: 'empty'
+      readonly selection: null
+      readonly data: ReadonlyArray<never>
+      readonly loading: false
+      readonly error: null
+      readonly timeShareRange: null
+      readonly timeSharePreClose: null
+    }
+  | {
+      readonly kind: 'bars'
+      readonly selection: Extract<SeriesSelection, { kind: 'bars' }>
+      readonly data: ReadonlyArray<KLineData>
+      readonly loading: boolean
+      readonly error: string | null
+      readonly timeShareRange: null
+      readonly timeSharePreClose: null
+    }
+  | {
+      readonly kind: 'timeShare'
+      readonly selection: Extract<SeriesSelection, { kind: 'timeShare' }>
+      readonly data: ReadonlyArray<TimeShareData>
+      readonly loading: boolean
+      readonly error: string | null
+      readonly timeShareRange: TimeShareRange | null
+      readonly timeSharePreClose: number | null
+    }
 
 /** 创建空活动快照。 */
 function emptyActiveBufferSnapshot(): ActiveBufferSnapshot {
   return Object.freeze({
-    key: null,
+    kind: 'empty',
+    selection: null,
     data: Object.freeze([]),
     loading: false,
+    error: null,
     timeShareRange: null,
     timeSharePreClose: null,
   })
@@ -40,7 +65,8 @@ export function createDataState(_deps: DataDeps = {}) {
     {
       data: (s) => s.activeBuffer().data,
       loading: (s) => s.activeBuffer().loading,
-      activeBufferKey: (s) => s.activeBuffer().key,
+      error: (s) => s.activeBuffer().error,
+      activeSelection: (s) => s.activeBuffer().selection,
       timeShareRange: (s) => s.activeBuffer().timeShareRange,
       timeSharePreClose: (s) => s.activeBuffer().timeSharePreClose,
       dataLength: (s) => s.activeBuffer().data.length,

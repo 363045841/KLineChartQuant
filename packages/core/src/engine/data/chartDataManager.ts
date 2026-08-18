@@ -10,6 +10,7 @@ import type {
   BarPageRequest,
   BarPageResult,
   KLineBuffer,
+  TimeShareBuffer,
   DataChange,
 } from '../../data/buffer/dataBufferTypes'
 import { sourceRouter } from '../../data/provider/router'
@@ -19,9 +20,18 @@ import type {
   KLinePeriod,
   TradingDate,
 } from '../../data/provider/types'
-import { TimeShareBuffer } from '../../data/buffer/timeShareBuffer'
+import { TimeShareBuffer as TimeShareBufferImpl } from '../../data/buffer/timeShareBuffer'
+import {
+  LATEST_TRADING_DATE,
+  SeriesRepository,
+  instrumentKeyFromSpec,
+  seriesSelectionKey,
+  sourceIdFromSpec,
+  type SeriesSelection,
+  type TradingDateKey,
+} from '../../data/buffer/seriesRepository'
 import { MarketSessionRegistry } from '../market/marketSessionRegistry'
-import { createSignal, type ReadonlySignal, type Signal } from '../../foundation/reactivity/signal'
+import type { ReadonlySignal, Signal } from '../../foundation/reactivity/signal'
 import type { KLineData, TimeShareData } from '../../foundation/types/price'
 import type { ChartDom } from '../chartTypes'
 import type { VisibleRange, UpdateLevel } from '../layout/pane'
@@ -32,7 +42,7 @@ import type { ViewportStateModule } from '../state/viewportState'
 import type { ComparisonStateModule } from '../state/comparisonState'
 import { ChartDataViewId } from '../state/modeState'
 
-import { comparisonBufferKey, ComparisonManager } from './comparisonManager'
+import { ComparisonManager } from './comparisonManager'
 import { IncrementalLoadHint } from './incrementalLoadHint'
 import { ScrollCompensator } from './scrollCompensator'
 import { symbolSpecIdentityKey } from './symbolIdentity'
@@ -59,10 +69,8 @@ export interface DataDependencies {
   setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => void
 }
 
-const BUF_PRIMARY = 'main'
-const BUF_COMPARISON = 'cmp'
-const BUF_TIMESHARE = 'ts'
 const PROVIDER_MARKET_SESSIONS = new MarketSessionRegistry()
+const CUSTOM_SOURCE_PREFIX = 'chart-custom:'
 
 const KLINE_PERIODS = new Set<KLinePeriod>([
   '1min',
@@ -79,27 +87,15 @@ const KLINE_PERIODS = new Set<KLinePeriod>([
 
 const KLINE_ADJUSTMENTS = new Set<KLineAdjustment>(['qfq', 'hfq', 'splits', 'none'])
 
-function bufKey(
-  type: string,
-  market: string,
-  symbol: string,
-  period?: string,
-  sourceId?: string,
-  instrumentId?: string,
-): string {
-  const source = sourceId ?? ''
-  const identity = instrumentId ?? `${market}:${symbol}`
-  if (type === BUF_TIMESHARE) return `ts:${source}:${identity}`
-  return `${type}:${source}:${identity}:${period ?? 'daily'}`
-}
+type BarsSelection = Extract<SeriesSelection, { kind: 'bars' }>
+type TimeShareSelection = Extract<SeriesSelection, { kind: 'timeShare' }>
 
 export class ChartDataManager {
   static readonly TRAILING_SLOTS = 30
 
-  private _klineBuffers = new Map<string, KLineBuffer>()
-  private _tsBuffers = new Map<string, TimeShareBuffer>()
-  private get _activeKey(): string | null {
-    return this._dataState.readonly.activeBufferKey.peek()
+  private readonly _repository = new SeriesRepository()
+  private get _activeSelection(): SeriesSelection | null {
+    return this._dataState.readonly.activeSelection.peek()
   }
 
   private _dataState: DataStateModule
@@ -107,8 +103,7 @@ export class ChartDataManager {
   private _dataUnsub: (() => void) | null = null
   private _loadingUnsub: (() => void) | null = null
   private _errorUnsub: (() => void) | null = null
-  private _lastDataChange: DataChange | null = null
-  private _dataError = createSignal<string | null>(null)
+  private _lastDataChange: DataChange<KLineData> | DataChange<TimeShareData> | null = null
 
   private _scrollCompensator: ScrollCompensator
   private _comparisonManager: ComparisonManager
@@ -124,11 +119,10 @@ export class ChartDataManager {
     this._dmState = dmState
     this._scrollCompensator = new ScrollCompensator(deps)
     this._loadHint = new IncrementalLoadHint(deps)
-    this._comparisonManager = new ComparisonManager({
-      createComparisonBuffer: (spec) => this._createCmpBuffer(spec),
-      disposeBuffer: (key) => this.disposeBuffer(key),
-      getKLineBuffer: (key) => this._klineBuffers.get(key),
-      getKLineBufferKeys: () => [...this._klineBuffers.keys()],
+    this._comparisonManager = new ComparisonManager(this._repository, {
+      selectionForSpec: (spec) => this.barsSelectionForSpec(spec),
+      createBuffer: (_spec, selection) => this.createKLineBuffer(selection),
+      releaseSelection: (selection) => this.releaseComparisonSelection(selection),
       scheduleDraw: () => this.deps.scheduleDraw(),
       getSpecs: () => this.deps.comparison.readonly.specs.peek(),
       setLoading: (loading) => this.deps.comparison.actions.setLoading(loading),
@@ -141,60 +135,85 @@ export class ChartDataManager {
 
   // ── Buffer helpers ──
 
-  private _lookupBuffer(key: string): KLineBuffer | TimeShareBuffer | undefined {
-    if (key.startsWith(BUF_TIMESHARE)) return this._tsBuffers.get(key)
-    return this._klineBuffers.get(key)
+  private lookupBuffer(selection: SeriesSelection): KLineBuffer | TimeShareBuffer | undefined {
+    return this._repository.get(selection)
   }
 
-  private _lookupKLineBuffer(key: string): KLineBuffer | undefined {
-    return this._klineBuffers.get(key)
+  /** 将业务品种转换为 Repository K 线选择。 */
+  private barsSelectionForSpec(spec: SymbolSpec): BarsSelection {
+    const period = ChartDataManager.normalizePeriod(spec.period)
+    const adjustment = spec.adjust ?? 'none'
+    if (!KLINE_PERIODS.has(period as KLinePeriod)) {
+      throw new Error(`[ChartDataManager] invalid K-line period "${period}"`)
+    }
+    if (!KLINE_ADJUSTMENTS.has(adjustment as KLineAdjustment)) {
+      throw new Error(`[ChartDataManager] invalid K-line adjustment "${adjustment}"`)
+    }
+    return {
+      kind: 'bars',
+      instrumentKey: instrumentKeyFromSpec(spec),
+      sourceId: sourceIdFromSpec(spec),
+      period: period as KLinePeriod,
+      adjustment: adjustment as KLineAdjustment,
+    }
   }
 
-  private activateBuffer(key: string): void {
-    if (this._activeKey === key) return
+  /** 将业务品种转换为 Repository 分时选择。 */
+  private timeShareSelectionForSpec(
+    spec: SymbolSpec,
+    tradingDate: TradingDateKey = LATEST_TRADING_DATE,
+  ): TimeShareSelection {
+    return {
+      kind: 'timeShare',
+      instrumentKey: instrumentKeyFromSpec(spec),
+      sourceId: sourceIdFromSpec(spec),
+      tradingDate,
+    }
+  }
+
+  /** 激活一个 Repository 叶子 Buffer。 */
+  private activateBuffer(selection: SeriesSelection): void {
+    if (
+      this._activeSelection &&
+      seriesSelectionKey(this._activeSelection) === seriesSelectionKey(selection)
+    ) {
+      return
+    }
     this.resetIncrementalLoadHintBatch()
-    this.bindActiveBuffer(key)
+    this.bindActiveBuffer(selection)
   }
 
   /** 订阅当前 active buffer 的 data/loading，路径为 subscription → Action */
-  private bindActiveBuffer(key: string): void {
+  private bindActiveBuffer(selection: SeriesSelection): void {
     this.unbindActiveBuffer()
-    const buf = this._lookupBuffer(key)
+    const buf = this.lookupBuffer(selection)
     if (!buf) {
-      this._dataState.actions.applyActiveBufferSnapshot({
-        key,
-        data: [],
-        loading: false,
-        timeShareRange: null,
-        timeSharePreClose: null,
-      })
-      this._dataError.set(null)
+      this.publishEmptySnapshot()
       return
     }
 
     this._dataUnsub = buf.data.subscribe(() => {
-      this.handleBufferDataEvent(key)
+      this.handleBufferDataEvent(selection)
     })
     this._loadingUnsub = buf.loading.subscribe(() => {
-      this.handleBufferLoadingEvent(key)
+      this.handleBufferLoadingEvent(selection)
     })
     this._errorUnsub = buf.lastError.subscribe(() => {
-      if (this._dataState.readonly.activeBufferKey.peek() !== key) return
-      this._dataError.set(buf.lastError.peek())
+      if (!this.isActiveSelection(selection)) return
+      this.publishBufferSnapshot(selection, buf, false)
     })
 
     // 初始同步：key/data/loading 同批；subscribe 不回放当前值
     const { dataChanged, prependedCount, prevDataLength } = this.publishBufferSnapshot(
-      key,
+      selection,
       buf,
       true,
     )
-    this._dataError.set(buf.lastError.peek())
     if (dataChanged) {
-      this.onBufferDataChanged(key, prevDataLength, prependedCount)
+      this.onBufferDataChanged(selection, prevDataLength, prependedCount)
     }
     if (!buf.loading.peek()) {
-      this.scheduleIncrementalLoadHintFlush(key)
+      this.scheduleIncrementalLoadHintFlush(selection)
     }
   }
 
@@ -208,19 +227,28 @@ export class ChartDataManager {
     this._lastDataChange = null
   }
 
-  /** 发布未绑定 Buffer 的内联数据，避免沿用已释放 Buffer 的 key 或分时元数据。 */
-  private publishUnbufferedData(data: ReadonlyArray<unknown>): void {
+  /** 发布无活动序列快照。 */
+  private publishEmptySnapshot(): void {
     this._dataState.actions.applyActiveBufferSnapshot({
-      key: null,
-      data: [...data],
+      kind: 'empty',
+      selection: null,
+      data: [],
       loading: false,
+      error: null,
       timeShareRange: null,
       timeSharePreClose: null,
     })
   }
 
+  /** 判断给定选择是否仍是当前活动选择。 */
+  private isActiveSelection(selection: SeriesSelection): boolean {
+    const active = this._activeSelection
+    return active !== null && seriesSelectionKey(active) === seriesSelectionKey(selection)
+  }
+
+  /** 将叶子 Buffer 的完整业务状态发布到 Kernel。 */
   private publishBufferSnapshot(
-    key: string,
+    selection: SeriesSelection,
     buf: KLineBuffer | TimeShareBuffer,
     forceData: boolean,
   ): { dataChanged: boolean; prependedCount: number; prevDataLength: number } {
@@ -230,104 +258,97 @@ export class ChartDataManager {
     const prependedCount = dataChanged ? dataChange.prependedCount : 0
     if (dataChanged) this._lastDataChange = dataChange
 
-    this._dataState.actions.applyActiveBufferSnapshot({
-      key,
-      data: dataChanged
-        ? [...(dataChange.data as unknown[])]
-        : this._dataState.readonly.data.peek(),
-      loading: buf.loading.peek(),
-      timeShareRange: buf instanceof TimeShareBuffer ? buf.range.peek() : null,
-      timeSharePreClose: buf instanceof TimeShareBuffer ? buf.getPreClose() : null,
-    })
+    if (selection.kind === 'bars') {
+      const buffer = buf as KLineBuffer
+      this._dataState.actions.applyActiveBufferSnapshot({
+        kind: 'bars',
+        selection,
+        data: dataChanged
+          ? [...buffer.data.peek().data]
+          : (this._dataState.readonly.data.peek() as ReadonlyArray<KLineData>),
+        loading: buffer.loading.peek(),
+        error: buffer.lastError.peek(),
+        timeShareRange: null,
+        timeSharePreClose: null,
+      })
+    } else {
+      const buffer = buf as TimeShareBuffer
+      this._dataState.actions.applyActiveBufferSnapshot({
+        kind: 'timeShare',
+        selection,
+        data: dataChanged
+          ? [...buffer.data.peek().data]
+          : (this._dataState.readonly.data.peek() as ReadonlyArray<TimeShareData>),
+        loading: buffer.loading.peek(),
+        error: buffer.lastError.peek(),
+        timeShareRange: buffer.range.peek(),
+        timeSharePreClose: buffer.getPreClose(),
+      })
+    }
 
     return { dataChanged, prependedCount, prevDataLength }
   }
 
-  private handleBufferDataEvent(key: string): void {
-    if (this._dataState.readonly.activeBufferKey.peek() !== key) return
-    const buf = this._lookupBuffer(key)
+  private handleBufferDataEvent(selection: SeriesSelection): void {
+    if (!this.isActiveSelection(selection)) return
+    const buf = this.lookupBuffer(selection)
     if (!buf) return
     const { dataChanged, prependedCount, prevDataLength } = this.publishBufferSnapshot(
-      key,
+      selection,
       buf,
       false,
     )
     if (!dataChanged) return
-    this.onBufferDataChanged(key, prevDataLength, prependedCount)
+    this.onBufferDataChanged(selection, prevDataLength, prependedCount)
   }
 
-  private handleBufferLoadingEvent(key: string): void {
-    if (this._dataState.readonly.activeBufferKey.peek() !== key) return
-    const buf = this._lookupBuffer(key)
+  private handleBufferLoadingEvent(selection: SeriesSelection): void {
+    if (!this.isActiveSelection(selection)) return
+    const buf = this.lookupBuffer(selection)
     if (!buf) return
-    this.publishBufferSnapshot(key, buf, false)
-    if (!buf.loading.peek()) this.scheduleIncrementalLoadHintFlush(key)
-  }
-
-  private disposeBuffer(key: string): void {
-    const buf = this._lookupBuffer(key)
-    if (!buf) return
-    if (this._activeKey === key) {
-      this.unbindActiveBuffer()
-      this.resetIncrementalLoadHintBatch()
-    }
-    buf.dispose()
-    if (key.startsWith(BUF_TIMESHARE)) this._tsBuffers.delete(key)
-    else this._klineBuffers.delete(key)
+    this.publishBufferSnapshot(selection, buf, false)
+    if (!buf.loading.peek()) this.scheduleIncrementalLoadHintFlush(selection)
   }
 
   private getActiveDataBuffer(): KLineBuffer | null {
-    return this._activeKey && !this._activeKey.startsWith(BUF_TIMESHARE)
-      ? (this._klineBuffers.get(this._activeKey) ?? null)
-      : null
+    const selection = this._activeSelection
+    return selection?.kind === 'bars' ? (this._repository.getBars(selection) ?? null) : null
   }
 
   private getActiveTimeShareBuffer(): TimeShareBuffer | null {
-    return this._activeKey?.startsWith(BUF_TIMESHARE) === true
-      ? (this._tsBuffers.get(this._activeKey) ?? null)
+    const selection = this._activeSelection
+    return selection?.kind === 'timeShare'
+      ? (this._repository.getTimeShare(selection) ?? null)
       : null
   }
 
   private getPrimaryDataBuffer(spec: SymbolSpec): KLineBuffer {
-    const key = bufKey(
-      BUF_PRIMARY,
-      spec.market,
-      spec.symbol,
-      spec.period,
-      spec.instrument?.sourceId ?? spec.source,
-      spec.id ?? spec.instrument?.id,
-    )
-    let buf = this._klineBuffers.get(key)
-    if (!buf) {
-      buf = this._createKLineBuffer()
-      buf.setRequestFetch((request, page) => this.requestBars(request, page))
-      this._klineBuffers.set(key, buf)
-    } else {
-      buf.setRequestFetch((request, page) => this.requestBars(request, page))
-    }
+    const selection = this.barsSelectionForSpec(spec)
+    const buf = this._repository.getOrCreateBars(selection, () => this.createKLineBuffer(selection))
+    buf.setRequestFetch((request, page) => this.requestBars(request, page))
     return buf
   }
 
-  private _createKLineBuffer(): KLineBuffer {
-    return new DataBuffer()
-  }
-
-  private _createCmpBuffer(spec: SymbolSpec): { key: string; buffer: KLineBuffer } {
-    const key = comparisonBufferKey(spec)
-    const buffer = this._createKLineBuffer()
+  /** 创建已接入统一 Provider 请求的 K 线 Buffer。 */
+  private createKLineBuffer(selection?: BarsSelection): KLineBuffer {
+    const buffer = new DataBuffer()
     buffer.setRequestFetch((request, page) => this.requestBars(request, page))
-    this._klineBuffers.set(key, buffer)
-    return { key, buffer }
+    if (selection) {
+      buffer.setSourceResolvedHandler((sourceId, instrument) => {
+        return this.handleResolvedSource(selection, sourceId, instrument, buffer)
+      })
+    }
+    return buffer
   }
 
   /** 让 K 线缓冲直接调用 Provider Router。 */
-  private async requestBars(
-    spec: SymbolSpec,
-    page: BarPageRequest,
-  ): Promise<BarPageResult> {
+  private async requestBars(spec: SymbolSpec, page: BarPageRequest): Promise<BarPageResult> {
     const period = spec.period ?? 'daily'
     const adjustment = spec.adjust ?? 'none'
-    if (!KLINE_PERIODS.has(period as KLinePeriod) || !KLINE_ADJUSTMENTS.has(adjustment as KLineAdjustment)) {
+    if (
+      !KLINE_PERIODS.has(period as KLinePeriod) ||
+      !KLINE_ADJUSTMENTS.has(adjustment as KLineAdjustment)
+    ) {
       throw new Error(`[MarketDataProvider] invalid bars request for "${spec.symbol}"`)
     }
     const result = await sourceRouter.bars({
@@ -341,7 +362,12 @@ export class ChartDataManager {
       limit: page.limit,
       ...(page.before === undefined ? {} : { before: page.before }),
     })
-    return { data: result.series.data, olderData: result.series.olderData }
+    return {
+      data: result.series.data,
+      olderData: result.series.olderData,
+      sourceId: result.provider.source.id,
+      instrument: result.instrument,
+    }
   }
 
   /** 将旧 YYYYMMDD 或当前品种时区日期转换为 Provider TradingDate。 */
@@ -379,30 +405,75 @@ export class ChartDataManager {
       instrument: spec.instrument,
       resolveTradingDate: (instrument) => this.resolveTradingDate(instrument, date),
     })
-    return { data: result.series.data, preClose: result.series.preClose }
+    return {
+      data: result.series.data,
+      preClose: result.series.preClose,
+      sourceId: result.provider.source.id,
+      instrument: result.instrument,
+    }
+  }
+
+  /** 将 auto Buffer 迁移到实际 Provider，并同步 Kernel 中的业务选择。 */
+  private handleResolvedSource(
+    selection: SeriesSelection,
+    sourceId: string,
+    instrument: InstrumentDescriptor,
+    resolvingBuffer: KLineBuffer | TimeShareBuffer,
+  ): boolean {
+    if (selection.sourceId !== 'auto') return true
+    const resolved = this._repository.moveToSource(selection, sourceId)
+    const symbols = this._dataState.readonly.symbols
+      .peek()
+      .map((spec) =>
+        sourceIdFromSpec(spec) === 'auto' &&
+        (selection.kind === 'bars'
+          ? spec.period !== TIME_SHARE_PERIOD &&
+            seriesSelectionKey(this.barsSelectionForSpec(spec)) === seriesSelectionKey(selection)
+          : spec.period === TIME_SHARE_PERIOD &&
+            instrumentKeyFromSpec(spec) === selection.instrumentKey)
+          ? { ...spec, source: sourceId, instrument }
+          : spec,
+      )
+    this.deps.setSymbols(symbols)
+    const current = this._dmState.readonly.currentSpec.peek()
+    if (
+      current &&
+      sourceIdFromSpec(current) === 'auto' &&
+      (selection.kind === 'bars'
+        ? current.period !== TIME_SHARE_PERIOD &&
+          seriesSelectionKey(this.barsSelectionForSpec(current)) === seriesSelectionKey(selection)
+        : current.period === TIME_SHARE_PERIOD &&
+          instrumentKeyFromSpec(current) === selection.instrumentKey)
+    ) {
+      this._dmState.actions.setCurrentSpec({ ...current, source: sourceId, instrument })
+    }
+    if (this.isActiveSelection(selection)) this.bindActiveBuffer(resolved.selection)
+    this.reconcileComparisonBuffers()
+    return resolved.buffer === resolvingBuffer
   }
 
   // ── Buffer data change handler ──
 
-  private onBufferDataChanged(key: string, prevDataLength?: number, prependedCount?: number): void {
-    if (key.startsWith(BUF_TIMESHARE)) {
+  private onBufferDataChanged(
+    selection: SeriesSelection,
+    prevDataLength?: number,
+    prependedCount?: number,
+  ): void {
+    if (selection.kind === 'timeShare') {
       this.onTimeShareBufferChanged()
       return
     }
-    const buf = this._klineBuffers.get(key)
+    const buf = this._repository.getBars(selection)
     if (!buf) return
-    this.onKLineBufferChanged(key, buf, prevDataLength, prependedCount ?? 0)
+    this.onKLineBufferChanged(buf, prevDataLength, prependedCount ?? 0)
   }
 
   private onKLineBufferChanged(
-    key: string,
     buf: KLineBuffer,
     prevDataLength?: number,
     prependedCount: number = 0,
   ): void {
-    if (!key.startsWith('main:')) return
-
-    const bufferData = buf.getRawData() as KLineData[]
+    const bufferData = buf.getRawData()
 
     if (prependedCount > 0) {
       this._scrollCompensator.compensatePrepend(prependedCount)
@@ -448,7 +519,7 @@ export class ChartDataManager {
     )
   }
 
-  private scheduleIncrementalLoadHintFlush(key: string): void {
+  private scheduleIncrementalLoadHintFlush(selection: SeriesSelection): void {
     if (
       this._dmState.readonly.pendingIncrementalLoad.peek().count <= 0 ||
       this._pendingIncrementalLoadFlushTimer !== 0
@@ -458,8 +529,8 @@ export class ChartDataManager {
 
     this._pendingIncrementalLoadFlushTimer = window.setTimeout(() => {
       this._pendingIncrementalLoadFlushTimer = 0
-      if (this._activeKey !== key) return
-      const buf = this._lookupBuffer(key)
+      if (!this.isActiveSelection(selection)) return
+      const buf = this.lookupBuffer(selection)
       if (!buf || buf.loading.peek()) return
       this.flushIncrementalLoadHint()
     }, 0)
@@ -529,7 +600,7 @@ export class ChartDataManager {
 
   /** 主品种最近一次显式拉取失败原因 */
   get dataError(): ReadonlySignal<string | null> {
-    return this._dataError
+    return this._dataState.readonly.error
   }
 
   get symbols(): ReadonlySignal<ReadonlyArray<SymbolSpec>> {
@@ -574,8 +645,8 @@ export class ChartDataManager {
     return peek.length > 0 ? (peek as KLineData[]) : []
   }
 
-  getRenderData(): unknown[] {
-    return this._dataState.readonly.data.peek() as unknown[]
+  getRenderData(): ReadonlyArray<KLineData | TimeShareData> {
+    return this._dataState.readonly.data.peek()
   }
 
   getMonthKeys(): Int32Array | null {
@@ -596,18 +667,6 @@ export class ChartDataManager {
     return buf?.getPreClose() ?? null
   }
 
-  getTimeShareSignal(): ReadonlySignal<ReadonlyArray<TimeShareData>> {
-    const buf = this.getActiveTimeShareBuffer()
-    return (buf?.data ?? createSignal<ReadonlyArray<TimeShareData>>([])) as ReadonlySignal<
-      ReadonlyArray<TimeShareData>
-    >
-  }
-
-  getTimeShareLoadingSignal(): ReadonlySignal<boolean> {
-    const buf = this.getActiveTimeShareBuffer()
-    return (buf?.loading ?? createSignal<boolean>(false)) as ReadonlySignal<boolean>
-  }
-
   getComparisonData(): Map<string, KLineData[]> {
     return this._comparisonManager.data
   }
@@ -619,12 +678,20 @@ export class ChartDataManager {
   get dataBuffer(): KLineBuffer {
     const buf = this.getActiveDataBuffer()
     if (buf) return buf
-    const key = bufKey(BUF_PRIMARY, '', '', 'daily')
-    let fallback = this._klineBuffers.get(key)
-    if (!fallback) {
-      fallback = this._createKLineBuffer()
-      this._klineBuffers.set(key, fallback)
+    const spec: SymbolSpec = {
+      market: 'custom',
+      symbol: '',
+      period: 'daily',
+      adjust: 'none',
+      source: 'custom',
+      incremental: false,
     }
+    const selection = this.barsSelectionForSpec(spec)
+    const fallback = this._repository.getOrCreateBars(selection, () =>
+      this.createKLineBuffer(selection),
+    )
+    fallback.setCurrentSpec(spec)
+    this.activateBuffer(selection)
     return fallback
   }
 
@@ -651,12 +718,7 @@ export class ChartDataManager {
   }
 
   setData(data: KLineData[]): void {
-    const buf = this.getActiveDataBuffer()
-    if (buf) {
-      buf.setInlineData(data)
-    } else {
-      this.publishUnbufferedData(data)
-    }
+    this.dataBuffer.setInlineData(data)
   }
 
   appendData(newData: KLineData[]): void {
@@ -665,7 +727,7 @@ export class ChartDataManager {
       const merged = [...buf.getRawData(), ...newData]
       buf.setInlineData(merged)
     } else {
-      this.publishUnbufferedData([...this._dataState.readonly.data(), ...newData])
+      this.dataBuffer.setInlineData(newData)
     }
   }
 
@@ -712,6 +774,21 @@ export class ChartDataManager {
   private reconcileComparisonBuffers(): void {
     const primaryBuf = this.getActiveDataBuffer()
     this._comparisonManager.reconcile(primaryBuf?.loadedWindow?.earliestTs)
+  }
+
+  /** 删除不再被 comparison 或当前主品种引用的 Repository 叶子。 */
+  private releaseComparisonSelection(selection: BarsSelection): void {
+    if (this.isActiveSelection(selection)) return
+    const primary = this._dataState.readonly.symbols.peek()[0]
+    if (
+      primary &&
+      selection.kind === 'bars' &&
+      primary.period !== TIME_SHARE_PERIOD &&
+      seriesSelectionKey(this.barsSelectionForSpec(primary)) === seriesSelectionKey(selection)
+    ) {
+      return
+    }
+    this._repository.delete(selection)
   }
 
   addComparisonSymbol(spec: SymbolSpec): void {
@@ -799,33 +876,16 @@ export class ChartDataManager {
   }
 
   setTimeShareQueryDate(date: number): void {
-    const buf = this.getActiveTimeShareBuffer()
-    if (buf) {
-      buf.setQueryDate(date)
-    } else {
-      // 激活分时 buffer 前保存当前 K 线视图锚点。
-      this.saveActiveKLineViewportSnapshot()
-
-      const tsBuf = new TimeShareBuffer()
-       tsBuf.setRequestFetch((request, date) => this.requestTimeShare(request, date))
-      tsBuf.setQueryDate(date)
-      const spec = this._dmState.readonly.currentSpec.peek()
-      if (spec) {
-        const key = bufKey(
-          BUF_TIMESHARE,
-          spec.market,
-          spec.symbol,
-          undefined,
-          spec.instrument?.sourceId ?? spec.source,
-          spec.id ?? spec.instrument?.id,
-        )
-        this._tsBuffers.set(key, tsBuf)
-        this.activateBuffer(key)
-        // 本方法只负责"准备"（建 buffer + 设日期 + 激活），不触发拉取：
-        // switchToTimeShareForDate 紧跟的 setSymbols（period=timeshare）是唯一
-        // load 入口，避免同一 buffer 在首次进入分时图时被重复请求两次。
-      }
-    }
+    const spec = this._dmState.readonly.currentSpec.peek()
+    if (!spec) return
+    this.saveActiveKLineViewportSnapshot()
+    const tradingDate = this.tradingDateKey(date)
+    const selection = this.timeShareSelectionForSpec(spec, tradingDate)
+    const buffer = this._repository.getOrCreateTimeShare(selection, () =>
+      this.createTimeShareBuffer(selection),
+    )
+    buffer.setQueryDate(date)
+    this.activateBuffer(selection)
   }
 
   setCurrentPeriod(period: string): void {
@@ -846,29 +906,60 @@ export class ChartDataManager {
     return period
   }
 
+  /** 将 YYYYMMDD 查询参数转换为 Repository 交易日键。 */
+  private tradingDateKey(date: number): TradingDateKey {
+    const raw = String(date)
+    if (!/^\d{8}$/.test(raw)) throw new Error(`[ChartDataManager] invalid trading date "${date}"`)
+    return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`
+  }
+
+  /** 创建已接入统一 Provider 请求的分时 Buffer。 */
+  private createTimeShareBuffer(selection: TimeShareSelection): TimeShareBuffer {
+    const buffer = new TimeShareBufferImpl()
+    buffer.setRequestFetch((request, date) => this.requestTimeShare(request, date))
+    buffer.setSourceResolvedHandler((sourceId, instrument) => {
+      return this.handleResolvedSource(selection, sourceId, instrument, buffer)
+    })
+    return buffer
+  }
+
   applyCustomData(source: CustomDataSource): void {
-    const plainData = source.data.map((d) => ({ ...d }))
-
-    // 首次调用时保存原始 spec，用于切回 Fetcher 时恢复
-    if (!this._dmState.readonly.preCustomSpec.peek()) {
-      this._dmState.actions.setPreCustomSpec({
-        ...(this._dmState.readonly.currentSpec.peek() ??
-          this._dataState.readonly.symbols.peek()[0] ?? {
-            symbol: source.symbol ?? '',
-            market: source.market,
-          }),
-      })
-    }
-
-    // 每次都切到 custom 品种，注册到目录，填入数据
+    const sourceId = `${CUSTOM_SOURCE_PREFIX}${source.source?.trim() || 'default'}`
     const spec: SymbolSpec = {
       symbol: source.symbol ?? '',
       market: source.market,
+      exchange: source.exchange,
       period: ChartDataManager.normalizePeriod(source.period),
+      adjust: source.adjust ?? 'none',
       incremental: false,
-      source: source.source ?? 'custom',
+      source: sourceId,
     }
-    this.setSymbols([spec, ...this.deps.comparison.readonly.specs.peek()])
+    const comparisonSpecs = Object.keys(source.comparisons ?? {}).map<SymbolSpec>((symbol) => ({
+      symbol,
+      market: source.market,
+      exchange: source.exchange,
+      period: spec.period,
+      adjust: spec.adjust,
+      incremental: false,
+      source: sourceId,
+    }))
+
+    const mainBuffer = this._repository.getOrCreateBars(this.barsSelectionForSpec(spec), () =>
+      this.createKLineBuffer(this.barsSelectionForSpec(spec)),
+    )
+    mainBuffer.setCurrentSpec(spec)
+    mainBuffer.setInlineData(source.data.map((item) => ({ ...item })))
+
+    for (const comparisonSpec of comparisonSpecs) {
+      const buffer = this._repository.getOrCreateBars(
+        this.barsSelectionForSpec(comparisonSpec),
+        () => this.createKLineBuffer(this.barsSelectionForSpec(comparisonSpec)),
+      )
+      buffer.setCurrentSpec(comparisonSpec)
+      buffer.setInlineData(source.comparisons![comparisonSpec.symbol]!.map((item) => ({ ...item })))
+    }
+
+    this.setSymbols([spec, ...comparisonSpecs])
 
     const symbolCode = spec.symbol
     if (symbolCode) {
@@ -878,36 +969,15 @@ export class ChartDataManager {
           market: source.market,
           description: source.description ?? symbolCode,
           exchange: source.exchange ?? '',
-          source: source.source ?? 'custom',
+          source: sourceId,
         },
       ])
-    }
-
-    this.setData(plainData)
-    if (source.comparisons) {
-      for (const key of this._comparisonManager.data.keys()) {
-        if (!source.comparisons[key]) this.removeComparisonSymbol(key)
-      }
-      for (const [symbol, data] of Object.entries(source.comparisons)) {
-        this.setComparisonData(
-          symbol,
-          data.map((d) => ({ ...d })),
-        )
-      }
     }
   }
 
   resetToFetcher(spec: SymbolSpec): void {
-    if (this._activeKey && !this._activeKey.startsWith(BUF_TIMESHARE)) {
-      this.disposeBuffer(this._activeKey)
-    }
-    this.publishUnbufferedData([])
     this._dmState.actions.setRangeInitialized(false)
     this.setSymbols([spec, ...this.deps.comparison.readonly.specs.peek()])
-  }
-
-  getPreCustomSpec(): SymbolSpec | null {
-    return this._dmState.readonly.preCustomSpec.peek()
   }
 
   // ── Main symbol switching ──
@@ -918,14 +988,8 @@ export class ChartDataManager {
 
     if (selection.length === 0) {
       this._dmState.actions.setCurrentSpec(null)
-      this.disposeAllBuffers()
-      this._dataState.actions.applyActiveBufferSnapshot({
-        key: null,
-        data: [],
-        loading: false,
-        timeShareRange: null,
-        timeSharePreClose: null,
-      })
+      this._repository.clear()
+      this.publishEmptySnapshot()
       this._dmState.actions.setRangeInitialized(false)
       return
     }
@@ -941,30 +1005,20 @@ export class ChartDataManager {
       // so data and scroll position are preserved when user returns
       this._dmState.actions.setRangeInitialized(false)
 
-      // Get or create timeshare buffer
-      const tsKey = bufKey(
-        BUF_TIMESHARE,
-        primary.market,
-        primary.symbol,
-        undefined,
-        primary.instrument?.sourceId ?? primary.source,
-        primary.id ?? primary.instrument?.id,
+      const active = this._activeSelection
+      const latestSelection = this.timeShareSelectionForSpec(primary)
+      const tsSelection =
+        active?.kind === 'timeShare' &&
+        active.instrumentKey === latestSelection.instrumentKey &&
+        active.sourceId === latestSelection.sourceId
+          ? active
+          : latestSelection
+      const tsBuf = this._repository.getOrCreateTimeShare(tsSelection, () =>
+        this.createTimeShareBuffer(tsSelection),
       )
-      let tsBuf = this._tsBuffers.get(tsKey)
-      if (!tsBuf) {
-        tsBuf = new TimeShareBuffer()
-         tsBuf.setRequestFetch((request, date) => this.requestTimeShare(request, date))
-        this._tsBuffers.set(tsKey, tsBuf)
-      }
-      this.activateBuffer(tsKey)
+      this.activateBuffer(tsSelection)
       tsBuf.load(primary)
       return
-    }
-
-    // KLine mode
-    // Dispose timeshare buffer
-    for (const [key] of this._tsBuffers) {
-      this.disposeBuffer(key)
     }
 
     this.loadKLineSymbols(selection)
@@ -975,16 +1029,7 @@ export class ChartDataManager {
   private loadKLineSymbols(specs: ReadonlyArray<SymbolSpec>): void {
     const spec = specs[0]!
     const buf = this.getPrimaryDataBuffer(spec)
-    this.activateBuffer(
-      bufKey(
-        BUF_PRIMARY,
-        spec.market,
-        spec.symbol,
-        spec.period,
-        spec.instrument?.sourceId ?? spec.source,
-        spec.id ?? spec.instrument?.id,
-      ),
-    )
+    this.activateBuffer(this.barsSelectionForSpec(spec))
     // Buffer already has data (e.g. from a previous applyCustomData setInlineData call)
     // → just update the spec metadata, skip fetch to avoid clearing inline data.
     // Preserve the buffer's existing incremental flag so inline data sources
@@ -1020,7 +1065,9 @@ export class ChartDataManager {
     if (raw.length === 0) return false
     const spec = buf.currentSpec
     if (!spec) return false
-    const snapshot = this._dmState.actions.consumeViewportSnapshot(this.getViewportSnapshotKey(spec))
+    const snapshot = this._dmState.actions.consumeViewportSnapshot(
+      this.getViewportSnapshotKey(spec),
+    )
     if (!snapshot) return false
     const idx = raw.findIndex((d) => d.timestamp >= snapshot.anchorTimestamp)
     if (idx >= 0) {
@@ -1154,21 +1201,12 @@ export class ChartDataManager {
     return index
   }
 
-  private disposeAllBuffers(): void {
-    for (const key of this._klineBuffers.keys()) {
-      this.disposeBuffer(key)
-    }
-    for (const key of this._tsBuffers.keys()) {
-      this.disposeBuffer(key)
-    }
-  }
-
   destroy(): void {
     this._comparisonSpecsUnsub?.()
     this._comparisonSpecsUnsub = null
     this._comparisonManager.clearAll()
     this.unbindActiveBuffer()
-    this.disposeAllBuffers()
+    this._repository.dispose()
     this._loadHint.destroy()
   }
 }
