@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   ASHARE_MARKET_SESSION,
   HK_MARKET_SESSION,
+  KR_MARKET_SESSION,
   US_MARKET_SESSION,
   computeSessionTimeLabels,
   countSessionSlots,
@@ -24,8 +25,9 @@ describe('countSessionSlots / resolveMarketSessionSlots', () => {
     expect(resolveMarketSessionSlots(ASHARE_MARKET_SESSION)).toBe(240)
   })
 
-  it('HK is 330, US is 390 (not maxed to 240)', () => {
+  it('HK is 330, KR and US are 390 (not maxed to 240)', () => {
     expect(resolveMarketSessionSlots(HK_MARKET_SESSION)).toBe(330)
+    expect(resolveMarketSessionSlots(KR_MARKET_SESSION)).toBe(390)
     expect(resolveMarketSessionSlots(US_MARKET_SESSION)).toBe(390)
   })
 
@@ -60,6 +62,12 @@ describe('computeSessionTimeLabels multi-market', () => {
     const labels = computeSessionTimeLabels(US_MARKET_SESSION.sessions, { axisWidth: 800 })
     expect(labels.map((l) => l.minuteOfDay)).toEqual([hm(9, 30), hm(16, 0)])
     expect(labels.map((l) => l.slotIndex)).toEqual([0, 389])
+  })
+
+  it('KR single continuous session endpoints: 09:00 / 15:30', () => {
+    const labels = computeSessionTimeLabels(KR_MARKET_SESSION.sessions, { axisWidth: 800 })
+    expect(labels.map((label) => label.minuteOfDay)).toEqual([hm(9, 0), hm(15, 30)])
+    expect(labels.map((label) => label.slotIndex)).toEqual([0, 389])
   })
 
   it('accepts arbitrary sessions via config.sessions', () => {
