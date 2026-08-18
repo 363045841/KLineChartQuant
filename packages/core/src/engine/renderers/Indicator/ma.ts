@@ -8,7 +8,7 @@ import { resolveThemeColors } from '../../../foundation/tokens/index'
 import type { ColorTokens } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
-import { calcMAData, type MAFlags } from '../../indicators/calculators'
+import { calcMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type {
@@ -26,14 +26,6 @@ import { tryDrawLinesGpu } from '../linesViaRenderer'
 export type { MAFlags } from '../../indicators/calculators'
 
 type LinePoint = { x: number; y: number }
-
-const SEMANTIC_MA_PERIOD_FLAGS = new Map<number, keyof MAFlags>([
-  [5, 'ma5'],
-  [10, 'ma10'],
-  [20, 'ma20'],
-  [30, 'ma30'],
-  [60, 'ma60'],
-])
 
 const computeMAPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
   const seriesList = Object.values(bundle.ma.series)
@@ -167,19 +159,6 @@ function getMATitleInfo(
     }),
     computePriceRange: computeMAPriceRange,
     composeRenderState: composeMARenderState,
-  },
-  semantic: {
-    apply: (chart, indicator) => {
-      const periods = (indicator as { params?: { periods?: number[] } }).params?.periods ?? [
-        5, 10, 20, 30, 60,
-      ]
-      const maFlags: Partial<MAFlags> = {}
-      for (const period of periods) {
-        const flag = SEMANTIC_MA_PERIOD_FLAGS.get(period)
-        if (flag) maFlags[flag] = true
-      }
-      chart.updateRendererConfig('ma', maFlags)
-    },
   },
   runtime: {
     defaultConfig: { ma5: true, ma10: true, ma20: true, ma30: true, ma60: true },

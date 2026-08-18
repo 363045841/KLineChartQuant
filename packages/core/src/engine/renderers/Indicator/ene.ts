@@ -321,15 +321,6 @@ const getENETitleInfo: GetTitleInfoFn = (
     computePriceRange: computeENEPriceRange,
     composeRenderState: composeENERenderState,
   },
-  semantic: {
-    apply: (chart, indicator) => {
-      const params = (indicator as { params?: { period?: number; deviation?: number } }).params
-      chart.updateRendererConfig('ene', {
-        period: params?.period || 10,
-        deviation: params?.deviation || 11,
-      })
-    },
-  },
   runtime: {
     defaultConfig: { period: 10, deviation: 11 },
     computeKey: 'calcENEData',

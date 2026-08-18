@@ -404,44 +404,6 @@ describe('builtin indicator registration', () => {
     expect(scheduler.updateIndicatorConfig).toHaveBeenCalledWith('ene', { period: 10 }, 'main')
   })
 
-  it('registers semantic apply metadata for stage 7A main indicators', () => {
-    for (const id of ['MA', 'BOLL', 'EXPMA', 'ENE']) {
-      expect(getRegisteredIndicatorDefinition(id)?.semantic?.apply).toBeTypeOf('function')
-    }
-  })
-
-  it('routes semantic main indicator configs through stage 7A metadata', () => {
-    const chart = { updateRendererConfig: vi.fn() }
-
-    getRegisteredIndicatorDefinition('MA')?.semantic?.apply?.(chart, {
-      type: 'MA',
-      enabled: true,
-      params: { periods: [5, 20, 99] },
-    })
-    getRegisteredIndicatorDefinition('BOLL')?.semantic?.apply?.(chart, {
-      type: 'BOLL',
-      enabled: true,
-      params: { period: 21, multiplier: 2.5 },
-    })
-    getRegisteredIndicatorDefinition('EXPMA')?.semantic?.apply?.(chart, {
-      type: 'EXPMA',
-      enabled: true,
-      params: {},
-    })
-    getRegisteredIndicatorDefinition('ENE')?.semantic?.apply?.(chart, {
-      type: 'ENE',
-      enabled: true,
-    })
-
-    expect(chart.updateRendererConfig).toHaveBeenCalledWith('ma', { ma5: true, ma20: true })
-    expect(chart.updateRendererConfig).toHaveBeenCalledWith('boll', { period: 21, multiplier: 2.5 })
-    expect(chart.updateRendererConfig).toHaveBeenCalledWith('expma', {
-      fastPeriod: 12,
-      slowPeriod: 50,
-    })
-    expect(chart.updateRendererConfig).toHaveBeenCalledWith('ene', { period: 10, deviation: 11 })
-  })
-
   it('registers main pane price range metadata for stage 8A indicators', () => {
     for (const id of ['MA', 'BOLL', 'EXPMA', 'ENE']) {
       expect(getRegisteredIndicatorDefinition(id)?.mainPane?.computePriceRange).toBeTypeOf(

@@ -11,7 +11,6 @@ import type {
   SubIndicatorType,
 } from '@363045841yyt/klinechart-core/controllers'
 import { getRegisteredIndicatorDefinition } from '@363045841yyt/klinechart-core/indicators'
-import type { SemanticChartConfig } from '@363045841yyt/klinechart-core/semantic'
 import { computed, type Ref } from 'vue'
 
 import { useControllerSignal } from './useControllerSignal'
@@ -143,25 +142,6 @@ export function useIndicatorManager(
     }
   }
 
-  function initIndicatorsFromConfig(semanticConfig?: SemanticChartConfig): void {
-    const config = semanticConfig
-    const c = ctrl.value
-    if (!config || !c) return
-
-    const mainIndicators = config.indicators?.main
-    if (mainIndicators) {
-      for (const indicator of mainIndicators) {
-        if (indicator.enabled) {
-          c.addIndicator(
-            indicator.type,
-            'main',
-            indicator.params as Record<string, number | boolean | string>,
-          )
-        }
-      }
-    }
-  }
-
   function switchSubIndicator(paneId: string, newIndicatorId: SubIndicatorType): void {
     const nextParams = getDefaultParams(newIndicatorId)
     ctrl.value?.replaceSubPaneIndicator(paneId, newIndicatorId, nextParams)
@@ -280,7 +260,6 @@ export function useIndicatorManager(
     addSubPane,
     removeSubPane,
     clearAllSubPanes,
-    initIndicatorsFromConfig,
     switchSubIndicator,
     handleIndicatorToggle,
     handleUpdateParams,

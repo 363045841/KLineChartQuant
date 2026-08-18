@@ -111,10 +111,6 @@ export type IndicatorConfigUpdater = (
   paneId: string,
 ) => void
 
-export interface IndicatorSemanticChartAdapter {
-  updateRendererConfig(name: string, config: Record<string, unknown>): void
-}
-
 export interface IndicatorVisibleRange {
   start: number
   end: number
@@ -329,13 +325,6 @@ export interface IndicatorMetadata<T = unknown> {
    * 提供后，IndicatorRuntime 可据此自动调度计算，无需手写展开
    */
   runtime?: IndicatorRuntimeDescriptor
-
-  /**
-   * 语义配置应用入口。
-   */
-  semantic?: {
-    apply?: (chart: IndicatorSemanticChartAdapter, indicator: T) => void
-  }
 
   /**
    * 标题信息获取回调（决定 pane 标题栏显示内容）

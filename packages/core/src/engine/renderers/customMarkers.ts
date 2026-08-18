@@ -33,7 +33,7 @@ function isShapeRenderAboveKLine(shape: CustomMarkerShape): boolean {
 
 /**
  * 创建自定义标记渲染器插件
- * 负责渲染 semanticConfig 中配置的 customMarkers
+ * 负责渲染组件 props 中配置的 customMarkers
  */
 export function createCustomMarkersRenderer(): RendererPlugin {
   return {

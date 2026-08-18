@@ -39,6 +39,14 @@ export interface ChartViewport {
 
 export type IndicatorRole = 'main' | 'sub'
 
+/** 组件受控指标实例配置。 */
+export interface ChartIndicatorConfig {
+  definitionId: string
+  role: IndicatorRole
+  enabled: boolean
+  params?: Record<string, unknown>
+}
+
 export interface IndicatorInstance {
   id: string
   definitionId: string

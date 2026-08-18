@@ -170,15 +170,6 @@ const getBOLLTitleInfo: GetTitleInfoFn = (
     computePriceRange: computeBOLLPriceRange,
     composeRenderState: composeBOLLRenderState,
   },
-  semantic: {
-    apply: (chart, indicator) => {
-      const params = (indicator as { params?: { period?: number; multiplier?: number } }).params
-      chart.updateRendererConfig('boll', {
-        period: params?.period || 20,
-        multiplier: params?.multiplier || 2,
-      })
-    },
-  },
   runtime: {
     defaultConfig: {
       period: 20,

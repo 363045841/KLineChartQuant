@@ -14,15 +14,13 @@ export type {
   MarkerStyle,
   MarkerLabel,
   LegendConfig,
-  ChartOptions,
-  ThemeConfig,
-  ApplyResult,
   ValidationResult,
   SecurityResult,
 } from './types'
 
-export { SemanticChartController, type SemanticEventType } from './controller'
-export type { SemanticChartAdapter } from './controller'
+export { toKLineChartProps } from './props'
+export type { SemanticChartProps } from './props'
+export type { ChartIndicatorConfig } from '../../controllers/types'
 export type { SymbolSpec } from '../../controllers/types'
 
 export {

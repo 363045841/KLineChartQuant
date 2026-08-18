@@ -44,7 +44,6 @@ export type IndicatorDefinitionConfig<T = unknown> = {
   getPaneTitleRendererName?: IndicatorAuxiliaryRendererNameResolver
   visibleState?: IndicatorMetadata['visibleState']
   runtime?: IndicatorRuntimeDescriptor
-  semantic?: IndicatorMetadata<T>['semantic']
   getTitleInfo?: GetTitleInfoFn
 }
 

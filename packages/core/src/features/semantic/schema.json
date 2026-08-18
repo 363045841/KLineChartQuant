@@ -14,9 +14,7 @@
     },
     "data": { "$ref": "#/$defs/DataConfig" },
     "indicators": { "$ref": "#/$defs/IndicatorsConfig" },
-    "markers": { "$ref": "#/$defs/MarkersConfig" },
-    "chart": { "$ref": "#/$defs/ChartOptions" },
-    "theme": { "$ref": "#/$defs/ThemeConfig" }
+    "markers": { "$ref": "#/$defs/MarkersConfig" }
   },
   "$defs": {
     "DataConfig": {
@@ -246,23 +244,6 @@
           "enum": ["bottom-right", "bottom-left", "top-right", "top-left"]
         },
         "onClick": { "type": "string", "enum": ["highlight", "toggle", "none"] }
-      }
-    },
-    "ChartOptions": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "kWidth": { "type": "number", "minimum": 2, "maximum": 50 },
-        "kGap": { "type": "number", "minimum": 0, "maximum": 20 },
-        "autoScrollToRight": { "type": "boolean" }
-      }
-    },
-    "ThemeConfig": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "priceUpColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
-        "priceDownColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
       }
     }
   }

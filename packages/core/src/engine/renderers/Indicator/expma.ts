@@ -262,15 +262,6 @@ const getEXPMATitleInfo: GetTitleInfoFn = (
     computePriceRange: computeEXPMAPriceRange,
     composeRenderState: composeEXPMARenderState,
   },
-  semantic: {
-    apply: (chart, indicator) => {
-      const params = (indicator as { params?: { fastPeriod?: number; slowPeriod?: number } }).params
-      chart.updateRendererConfig('expma', {
-        fastPeriod: params?.fastPeriod || 12,
-        slowPeriod: params?.slowPeriod || 50,
-      })
-    },
-  },
   runtime: {
     defaultConfig: { fastPeriod: 12, slowPeriod: 50 },
     computeKey: 'calcEXPMAData',

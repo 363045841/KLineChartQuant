@@ -274,10 +274,7 @@
     type CustomDataSource,
   } from '@363045841yyt/klinechart-core/controllers'
   import type { InstrumentDescriptor } from '@363045841yyt/klinechart-core/market-data'
-  import {
-    SemanticChartController,
-    type SemanticChartConfig,
-  } from '@363045841yyt/klinechart-core/semantic'
+  import type { CustomMarkerEntity } from '@363045841yyt/klinechart-core/engine/marker/registry'
   import {
     ref,
     computed,
@@ -336,10 +333,21 @@
   import CanvasToolbarStack from './common/CanvasToolbarStack.vue'
 
   // ── Props & Emits ──
+  type ChartIndicatorConfig = {
+    definitionId: string
+    role: 'main' | 'sub'
+    enabled: boolean
+    params?: Record<string, unknown>
+  }
+
   const props = withDefaults(
     defineProps<{
-      /** 语义化配置（可选，唯一控制源） */
-      semanticConfig?: SemanticChartConfig
+      /** 受控品种列表；传入时由组件同步到图表数据源。 */
+      symbols?: ReadonlyArray<SymbolSpec>
+      /** 受控指标实例列表；传入时完整替换当前指标实例。 */
+      indicators?: ReadonlyArray<ChartIndicatorConfig>
+      /** 受控自定义标记列表；传入时完整替换当前自定义标记。 */
+      customMarkers?: ReadonlyArray<CustomMarkerEntity>
 
       /** 当前图表实例的市场交易时段覆盖 */
       marketSessions?: ChartMountOptions['marketSessions']
@@ -455,8 +463,10 @@
 
   // ── Symbol / Comparison State ──
 
-  const initialKLineLevel = props.semanticConfig?.data?.period ?? 'daily'
-  const kLineAdjust = ref(props.semanticConfig?.data?.adjust ?? 'none')
+  const initialKLineLevel = props.symbols?.[0]?.period ?? 'daily'
+  const kLineAdjust = ref<'qfq' | 'hfq' | 'splits' | 'none'>(
+    (props.symbols?.[0]?.adjust as 'qfq' | 'hfq' | 'splits' | 'none' | undefined) ?? 'none',
+  )
   const currentSymbol = ref('选择商品')
   const currentSymbolItem = ref<SymbolItem | null>(null)
   const symbolErrorMessage = ref<string | null>(null)
@@ -582,8 +592,8 @@
       period: kLineLevel.value,
       source: item.sourceId,
       params: item.providerRef,
-      startDate: props.semanticConfig?.data?.startDate ?? '',
-      endDate: props.semanticConfig?.data?.endDate ?? '',
+      startDate: props.symbols?.[0]?.startDate ?? '',
+      endDate: props.symbols?.[0]?.endDate ?? '',
       adjust: kLineAdjust.value,
     }
   }
@@ -766,8 +776,6 @@
     chartSettings.value = _initialResolved
   }
 
-  const semanticController = shallowRef<SemanticChartController | null>(null)
-
   const showBatchStockDialog = ref(false)
   const batchSymbols = ref<string[]>([])
 
@@ -800,7 +808,6 @@
     addSubPane,
     removeSubPane,
     clearAllSubPanes,
-    initIndicatorsFromConfig,
     switchSubIndicator,
     handleIndicatorToggle,
     handleUpdateParams,
@@ -1693,32 +1700,32 @@
     applyLegendRenderMode(ctrl, hasLegendSlot.value)
   }
 
-  function setupSemanticController(ctrl: ChartController): void {
-    if (props.customData) {
-      try {
-        ctrl.applyCustomData(props.customData)
-      } catch (err) {
-        console.error('[KLineChart] applyCustomData failed:', err)
+  /** 将受控业务 props 按固定顺序同步到 ChartController。 */
+  function applyControlledChartProps(ctrl: ChartController): void {
+    if (props.indicators !== undefined) {
+      for (const indicator of ctrl.indicators.peek()) {
+        ctrl.removeIndicator(indicator.id)
+      }
+      for (const indicator of props.indicators) {
+        if (indicator.enabled) {
+          ctrl.addIndicator(indicator.definitionId, indicator.role, indicator.params)
+        }
       }
     }
 
-    semanticController.value = new SemanticChartController(ctrl)
+    if (props.customData) {
+      ctrl.applyCustomData(props.customData)
+    } else if (props.symbols !== undefined) {
+      ctrl.setSymbols(props.symbols)
+    }
 
-    semanticController.value.on('config:error', (error) => {
-      console.error('Semantic config error:', error)
-    })
-
-    // config:ready → Chart 侧已完成创建，Vue 回读状态
-    semanticController.value.on('config:ready', () => {
-      initIndicatorsFromConfig(props.semanticConfig)
-      nextTick(() => controller.value?.scrollToRight())
-    })
-    // 暂时断开语义化配置加载，由搜索结果驱动
-    // semanticController.value.applyConfig(props.semanticConfig).then((result) => {
-    //   if (result && !result.success) {
-    //     console.error('Semantic config apply failed:', result.errors)
-    //   }
-    // })
+    if (props.customMarkers !== undefined) {
+      if (props.customMarkers.length === 0) {
+        ctrl.clearCustomMarkers()
+      } else {
+        ctrl.updateCustomMarkers(props.customMarkers)
+      }
+    }
   }
 
   // ── onMounted ──
@@ -1764,10 +1771,8 @@
     // 4) 直接订阅 kernel 的 tooltip 信号，绕过 VNode
     _setupTooltipSub()
 
-    // 在任何 draw 之前注册主图指标（BOLL/MA 等）
-    //      initIndicatorsFromConfig 是同步的，读 props.semanticConfig 即可注册，
-    //      确保 scheduler 首次 applyResults 时 BOLL 已在 registry 里
-    initIndicatorsFromConfig(props.semanticConfig)
+    // 指标必须在 data source 首次加载前创建，避免 scheduler 漏掉首帧计算。
+    applyControlledChartProps(ctrl)
 
     // 4) 工具栏初始设置
     applyInitialSettings(ctrl)
@@ -1777,13 +1782,6 @@
 
     // 6) 交互信号桥接
     setupInteractionCallbacks(ctrl)
-
-    // 7) 语义化配置
-    try {
-      setupSemanticController(ctrl)
-    } catch (err) {
-      console.error('[KLineChart] setupSemanticController failed:', err)
-    }
   })
 
   // ── onUnmounted & Watchers ──
@@ -1820,38 +1818,17 @@
     },
   )
 
-  // 监听 semanticConfig 变化（唯一数据源）
+  // 受控业务 props 使用同一条同步路径；指标总是在 data source 之前创建。
   watch(
-    () => props.semanticConfig,
-    async (newConfig, oldConfig) => {
-      if (newConfig && newConfig !== oldConfig) {
-        const result = await semanticController.value?.applyConfig(newConfig)
-        if (result && !result.success) {
-          console.error('Semantic config apply failed:', result.errors)
-        }
-      }
-    },
-    { deep: true },
-  )
-
-  // customData 变化时同步数据；
-  // 引擎层 applyCustomData 已改为首次初始化 period/spec，
-  // 后续调用只更新 data，不覆盖 UI dropdown 选择的 period
-  watch(
-    () => props.customData,
-    (newVal, oldVal) => {
-      if (newVal && controller.value) {
-        controller.value.applyCustomData(newVal)
-      } else if (oldVal && controller.value) {
-        const saved = controller.value.getPreCustomSpec()
-        if (saved) {
-          controller.value.resetToFetcher({
-            ...saved,
-            period: kLineLevel.value,
-            adjust: kLineAdjust.value,
-          })
-        }
-      }
+    [
+      () => props.symbols,
+      () => props.indicators,
+      () => props.customMarkers,
+      () => props.customData,
+    ],
+    () => {
+      const ctrl = controller.value
+      if (ctrl) applyControlledChartProps(ctrl)
     },
     { deep: true },
   )

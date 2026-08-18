@@ -12,8 +12,6 @@ export interface SemanticChartConfig {
   data: DataConfig
   indicators?: IndicatorsConfig
   markers?: MarkersConfig
-  chart?: ChartOptions
-  theme?: ThemeConfig
 }
 
 // ============ 数据配置 ============
@@ -161,12 +159,7 @@ export interface MarkersConfig {
 
 /** 预设图形形状 */
 export type MarkerShapeType =
-  | 'arrow_up'
-  | 'arrow_down'
-  | 'flag'
-  | 'circle'
-  | 'rectangle'
-  | 'diamond'
+  'arrow_up' | 'arrow_down' | 'flag' | 'circle' | 'rectangle' | 'diamond'
 
 /** 自定义标记 */
 export interface CustomMarker {
@@ -215,23 +208,6 @@ export interface LegendConfig {
   position?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'
   /** 点击图例项的行为 */
   onClick?: 'highlight' | 'toggle' | 'none'
-}
-
-// ============ 图表选项 ============
-
-/** 图表选项 */
-export interface ChartOptions {
-  kWidth?: number // 默认 10
-  kGap?: number // 默认 2
-  autoScrollToRight?: boolean
-}
-
-// ============ 主题配置 ============
-
-/** 主题配置 */
-export interface ThemeConfig {
-  priceUpColor?: string
-  priceDownColor?: string
 }
 
 // ============ 结果类型 ============

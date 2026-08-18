@@ -2,6 +2,7 @@
 // -- Controller types (framework-agnostic) --
 export type {
   KLineData,
+  ChartIndicatorConfig,
   IndicatorPaneRole,
   IndicatorRole,
   IndicatorParamDef,
