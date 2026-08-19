@@ -1,6 +1,8 @@
+/** 验证 WebGPU Renderer 的资源管理、批绘制、提交和 device lost 行为。 */
+
 import { describe, expect, it, vi } from 'vitest'
 
-import { createWebGPURenderer } from '../createWebGPURenderer'
+import { createWebGPURenderer } from '../backend/createWebGPURenderer'
 import { createFrameMetrics, getFrameMetrics, resetFrameMetrics } from '../frameMetrics'
 
 function deferred<T>() {

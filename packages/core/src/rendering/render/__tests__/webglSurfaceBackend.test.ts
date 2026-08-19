@@ -1,3 +1,5 @@
+/** 验证 WebGL SurfaceBackend 的区域绑定、清理、合成和销毁行为。 */
+
 import { describe, it, expect, vi } from 'vitest'
 
 import { createWebGLSurfaceBackend } from '../createWebGLSurfaceBackend'

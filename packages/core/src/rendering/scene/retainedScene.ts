@@ -1,3 +1,5 @@
+/** 保存按 revision 更新的图元节点，为 retained rendering 提供数据基础。 */
+
 export type SceneNodeKey = string
 
 export type RectsNode = {

@@ -1,3 +1,5 @@
+/** 验证帧指标的重置、记录和快照行为。 */
+
 import { describe, expect, it } from 'vitest'
 
 import { createFrameMetrics, getFrameMetrics, resetFrameMetrics } from '../frameMetrics'

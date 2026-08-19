@@ -1,3 +1,5 @@
+/** Canvas2D 后端实现，仅提供资源生命周期与降级契约。 */
+
 import type {
   BufferHandle,
   BufferUsage,
@@ -7,8 +9,8 @@ import type {
   DrawLinesParams,
   PipelineHandle,
   Renderer,
-} from './Renderer'
-import type { SurfaceBackend } from './SurfaceBackend'
+} from '../Renderer'
+import type { SurfaceBackend } from '../SurfaceBackend'
 
 export function createCanvas2DRenderer(): Renderer {
   let disposed = false

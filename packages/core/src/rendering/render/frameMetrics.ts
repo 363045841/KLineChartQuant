@@ -1,3 +1,5 @@
+/** 记录单帧 GPU 资源、绘制和提交次数，用于性能测试与诊断。 */
+
 export type FrameMetricsSnapshot = {
   bufferCreateCount: number
   bufferUploadBytes: number

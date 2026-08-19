@@ -1,3 +1,5 @@
+/** 验证逻辑绘制区域到物理像素边界的转换规则。 */
+
 import { describe, expect, it } from 'vitest'
 
 import { toPhysicalRegion } from '../physicalRegion'

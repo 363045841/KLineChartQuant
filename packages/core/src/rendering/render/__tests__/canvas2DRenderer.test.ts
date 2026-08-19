@@ -1,6 +1,8 @@
+/** 验证 Canvas2D fallback Renderer 的能力声明与资源生命周期契约。 */
+
 import { describe, expect, it } from 'vitest'
 
-import { createCanvas2DRenderer } from '../createCanvas2DRenderer'
+import { createCanvas2DRenderer } from '../backend/createCanvas2DRenderer'
 
 describe('createCanvas2DRenderer', () => {
   it('fails closed so business renderers use Canvas2D', () => {

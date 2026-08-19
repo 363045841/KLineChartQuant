@@ -1,6 +1,8 @@
+/** 验证 WebGL Renderer 在资源或表面不可用时的 fail-closed 行为。 */
+
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-import { createWebGLRenderer } from '../createWebGLRenderer'
+import { createWebGLRenderer } from '../backend/createWebGLRenderer'
 import type { SurfaceBackend, SurfaceRegion } from '../index'
 
 vi.mock('../../engine/renderers/webgl/candleSurface', () => ({

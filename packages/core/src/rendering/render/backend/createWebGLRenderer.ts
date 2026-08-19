@@ -1,5 +1,7 @@
-import { CandleWebGLSurface, LineWebGLSurface } from '../../engine/renderers/webgl/candleSurface'
-import { SharedWebGLSurface } from '../../engine/renderers/webgl/sharedWebGLSurface'
+/** WebGL2 后端实现，将通用 Renderer 原语适配到既有 WebGL 绘制表面。 */
+
+import { CandleWebGLSurface, LineWebGLSurface } from '../../../engine/renderers/webgl/candleSurface'
+import { SharedWebGLSurface } from '../../../engine/renderers/webgl/sharedWebGLSurface'
 
 import type {
   Renderer,
@@ -11,9 +13,9 @@ import type {
   DrawInstancesParams,
   DrawLinesParams,
   DispatchComputeParams,
-} from './Renderer'
-import { prepareLineStripForPhysicalPixels } from './physicalLine'
-import type { SurfaceBackend, SurfaceRegion } from './SurfaceBackend'
+} from '../Renderer'
+import { prepareLineStripForPhysicalPixels } from '../physicalLine'
+import type { SurfaceBackend, SurfaceRegion } from '../SurfaceBackend'
 
 type WebGLPipelineDescriptor = {
   type: 'candle' | 'line' | 'fill'

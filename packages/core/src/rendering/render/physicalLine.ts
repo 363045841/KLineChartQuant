@@ -1,3 +1,5 @@
+/** 将轴向线段吸附到物理像素中心，避免 DPR 下的线条模糊。 */
+
 import type { DrawLineStrip } from './Renderer'
 
 function physicalLineWidth(width: number, dpr: number): number {

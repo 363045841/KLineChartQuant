@@ -1,3 +1,5 @@
+/** 验证线段在不同 DPR 下的物理像素对齐规则。 */
+
 import { describe, expect, it } from 'vitest'
 
 import { prepareLineStripForPhysicalPixels } from '../physicalLine'

@@ -1,3 +1,5 @@
+/** 将旧式 RendererPlugin 适配为由 Scene 调度的 Layer。 */
+
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import type { RendererPlugin, RenderContext } from '../../foundation/plugin/index'
 

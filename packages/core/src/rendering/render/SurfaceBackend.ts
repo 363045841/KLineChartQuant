@@ -1,25 +1,22 @@
 /**
- * Low-level GPU surface backend.
+ * 底层 GPU surface 后端接口。
  *
- * Abstracts canvas + context lifecycle, viewport / scissor regions, clear,
- * compositing into a 2D canvas overlay, and teardown. WebGL
- * (`createWebGLSurfaceBackend` over SharedWebGLSurface) implements this today;
- * P1 WebGPU will implement the same contract.
+ * 抽象 canvas 与 context 的生命周期、viewport/scissor 区域、清屏、合成到 2D overlay
+ * canvas，以及销毁。当前 WebGL 实现通过 `createWebGLSurfaceBackend` 包装
+ * SharedWebGLSurface；P1 的 WebGPU 将实现同一契约。
  *
- * This file is **pure interface** — no implementation. It exists so that:
+ * 本文件是**纯接口**，不含实现，目的是：
  *
- * 1. WebGL can adapt SharedWebGLSurface behind a stable contract.
- * 2. P1's WebGPU implementation has a fixed target to write against.
- * 3. The higher-level `Renderer` (`./Renderer.ts`) can compose a backend
- *    without knowing which GPU API it sits on.
+ * 1. 让 WebGL 能以稳定的契约适配 SharedWebGLSurface。
+ * 2. 给 P1 WebGPU 实现一个固定的编写目标。
+ * 3. 让上层 `Renderer`（`./Renderer.ts`）无需感知底层 GPU API 即可组合后端。
  *
- * Design notes:
- * - All region coordinates are in **logical pixels** with the surface
- *   responsible for DPR scaling internally (same semantics as WebGLRegion).
- * - `compositeTo` takes a 2D `CanvasRenderingContext2D` because the chart's
- *   final composition target is a 2D overlay canvas — WebGL/WebGPU pixels
- *   are drawn into the overlay via `drawImage`. Future paths that bypass
- *   the 2D overlay (direct-to-screen WebGPU) can leave `compositeTo` as a no-op.
+ * 设计说明：
+ * - 所有 region 坐标都是**逻辑像素**，DPR 缩放由 surface 内部处理（与
+ *   WebGLRegion 语义一致）。
+ * - `compositeTo` 接收 2D `CanvasRenderingContext2D`，因为图表的最终合成目标是
+ *   2D overlay canvas——WebGL/WebGPU 像素通过 `drawImage` 写入 overlay。未来
+ *   绕过 2D overlay 的路径（WebGPU 直接上屏）可将 `compositeTo` 留空。
  */
 
 export type SurfaceRegion = {

@@ -1,3 +1,5 @@
+/** 验证 WebGPU 资源表按 key、revision 和容量复用 buffer 的行为。 */
+
 import { describe, expect, it, vi } from 'vitest'
 
 import { createFrameMetrics } from '../frameMetrics'

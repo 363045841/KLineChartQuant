@@ -8,10 +8,10 @@
 export type { SurfaceBackend, SurfaceRegion, CompositeOptions } from './SurfaceBackend'
 
 export { createWebGLSurfaceBackend } from './createWebGLSurfaceBackend'
-export { createWebGLRenderer } from './createWebGLRenderer'
-export { createWebGPUSurfaceBackend } from './createWebGPUSurfaceBackend'
-export { createWebGPURenderer } from './createWebGPURenderer'
-export { createCanvas2DRenderer } from './createCanvas2DRenderer'
+export { createWebGLRenderer } from './backend/createWebGLRenderer'
+export { createWebGPUSurfaceBackend } from './backend/createWebGPUSurfaceBackend'
+export { createWebGPURenderer } from './backend/createWebGPURenderer'
+export { createCanvas2DRenderer } from './backend/createCanvas2DRenderer'
 export { createRendererHost, createRendererHostFromRenderer } from './rendererHost'
 export {
   createDefaultRendererHost,
@@ -31,8 +31,8 @@ export type {
 export type {
   WebGPUSurfaceBackend,
   WebGPUSurfaceBackendOptions,
-} from './createWebGPUSurfaceBackend'
-export type { CreateWebGPURendererOptions } from './createWebGPURenderer'
+} from './backend/createWebGPUSurfaceBackend'
+export type { CreateWebGPURendererOptions } from './backend/createWebGPURenderer'
 export {
   createFrameMetrics,
   getFrameMetrics,

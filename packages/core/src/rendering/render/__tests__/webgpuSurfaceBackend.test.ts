@@ -1,6 +1,8 @@
+/** 验证 WebGPU SurfaceBackend 的 canvas 配置、尺寸、清屏和生命周期。 */
+
 import { describe, expect, it, vi } from 'vitest'
 
-import { createWebGPUSurfaceBackend } from '../createWebGPUSurfaceBackend'
+import { createWebGPUSurfaceBackend } from '../backend/createWebGPUSurfaceBackend'
 
 function makeSurface() {
   const context = {

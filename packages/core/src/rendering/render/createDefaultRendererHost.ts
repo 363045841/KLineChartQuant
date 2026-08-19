@@ -1,8 +1,10 @@
+/** 创建默认 RendererHost，并配置 WebGPU、WebGL 和 Canvas2D 的降级链。 */
+
 import { SharedWebGLSurface } from '../../engine/renderers/webgl/sharedWebGLSurface'
-import { createCanvas2DRenderer } from './createCanvas2DRenderer'
-import { createWebGLRenderer } from './createWebGLRenderer'
+import { createCanvas2DRenderer } from './backend/createCanvas2DRenderer'
+import { createWebGLRenderer } from './backend/createWebGLRenderer'
 import { createWebGLSurfaceBackend } from './createWebGLSurfaceBackend'
-import { createWebGPURenderer } from './createWebGPURenderer'
+import { createWebGPURenderer } from './backend/createWebGPURenderer'
 import {
   createRendererHost,
   createRendererHostFromRenderer,

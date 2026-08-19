@@ -1,3 +1,5 @@
+/** 将 SharedWebGLSurface 适配为统一的 SurfaceBackend 生命周期契约。 */
+
 import { SharedWebGLSurface } from '../../engine/renderers/webgl/sharedWebGLSurface'
 
 import type { SurfaceBackend, SurfaceRegion, CompositeOptions } from './SurfaceBackend'

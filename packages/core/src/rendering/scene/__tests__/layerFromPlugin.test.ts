@@ -1,3 +1,5 @@
+/** 验证 RendererPlugin 到 Scene Layer 适配器的绘制与生命周期行为。 */
+
 import { describe, it, expect, vi } from 'vitest'
 
 import { RENDERER_PRIORITY } from '../../../foundation/plugin'

@@ -1,3 +1,5 @@
+/** 验证 retained scene 的节点更新、可见收集和过期清理行为。 */
+
 import { describe, expect, it } from 'vitest'
 
 import { createRetainedScene } from '../retainedScene'

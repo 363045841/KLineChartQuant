@@ -1,4 +1,3 @@
-import { KLineChartError } from '../../errors'
 /**
  * Layer factory registry.
  *
@@ -19,6 +18,8 @@ import { KLineChartError } from '../../errors'
  * registry mechanism plus the canonical `typeId` constants so the rest of
  * the codebase can reference layer types by symbol rather than magic string.
  */
+
+import { KLineChartError } from '../../errors'
 
 import type { Layer, LayerRole } from './types'
 

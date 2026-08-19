@@ -1,6 +1,8 @@
+/** 验证 WebGL2 Renderer 的 buffer、pipeline、实例和线条绘制契约。 */
+
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-import { createWebGLRenderer } from '../createWebGLRenderer'
+import { createWebGLRenderer } from '../backend/createWebGLRenderer'
 import type { SurfaceBackend, SurfaceRegion } from '../index'
 
 type MockLineStrip = {
