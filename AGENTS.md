@@ -1,5 +1,9 @@
 # KLineChartQuant — Agent Guide
 
+##
+
+重中之重:拒绝一切治标不治本的“最小修复”
+
 ## Quick Search
 
 - **MUST USE CodeGraph MCP FIRST**: You can use `codegraph_codegraph_callees, codegraph_codegraph_callers, codegraph_codegraph_explore, codegraph_codegraph_files, codegraph_codegraph_impact, codegraph_codegraph_node, codegraph_codegraph_search, codegraph_codegraph_status` to expolore project, Call analysis.It is a replacement for grep and similar commands.
