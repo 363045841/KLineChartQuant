@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
 import { createPluginHost } from '../../../foundation/plugin/PluginHost'
 import { createSignal } from '../../../foundation/reactivity/signal'
 import { createIndicatorState } from '../../state/indicatorState'
+import { createIndicatorResultState } from '../../state/indicatorResultState'
 import type { VisibleRange } from '../../layout/pane'
 import { UpdateLevel } from '../../layout/pane'
 import { ChartIndicatorManager, type IndicatorDependencies } from '../chartIndicatorManager'
@@ -20,6 +21,7 @@ function createMockDeps() {
   const paneRatiosSignal = createSignal<Readonly<Record<string, number>>>({})
   const paneSpecsSignal = createSignal<ReadonlyArray<any>>([])
   const indicatorState = createIndicatorState()
+  const indicatorResultState = createIndicatorResultState()
   const createSubPane = vi.fn((entry) => indicatorState.actions.upsertSub(entry))
 
   return {
@@ -69,6 +71,7 @@ function createMockDeps() {
     getLayer: vi.fn(() => null),
     setLayerVisibility: vi.fn(),
     indicator: indicatorState,
+    indicatorResult: indicatorResultState,
     subPaneOps: {
       create: createSubPane,
       remove: vi.fn((paneId) => indicatorState.actions.removeSub(paneId)),

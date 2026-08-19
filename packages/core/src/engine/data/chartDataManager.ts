@@ -33,7 +33,7 @@ import {
   type TradingDateKey,
 } from '../../data/buffer/seriesRepository'
 import { MarketSessionRegistry } from '../market/marketSessionRegistry'
-import type { ReadonlySignal, Signal } from '../../foundation/reactivity/signal'
+import type { ReadonlySignal } from '../../foundation/reactivity/signal'
 import type { KLineData, TimeShareData } from '../../foundation/types/price'
 import type { ChartDom } from '../chartTypes'
 import type { VisibleRange, UpdateLevel } from '../layout/pane'
@@ -62,7 +62,7 @@ export interface DataDependencies {
   resetInteraction: () => void
   getIndicatorScheduler: () => {
     update: (data: KLineData[], range: VisibleRange) => boolean
-    busySignal: Signal<boolean>
+    busySignal: ReadonlySignal<boolean>
   }
   isPointerDown: () => boolean
   onTimeShareDataReady: (dataLength: number) => void

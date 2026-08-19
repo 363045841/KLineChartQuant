@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import type { IndicatorMetadata } from '../indicatorMetadata'
 import { getBuiltinIndicatorDefinitions, loadBuiltinIndicators } from '../registerBuiltins'
 import { IndicatorScheduler } from '../scheduler'
+import { createIndicatorResultState } from '../../state/indicatorResultState'
 import { BOLL_STATE_KEY, EMPTY_BOLL_STATE, type BOLLRenderState } from '../state/bollState'
 import { ENE_STATE_KEY, EMPTY_ENE_STATE, type ENERenderState } from '../state/eneState'
 import { EXPMA_STATE_KEY, EMPTY_EXPMA_STATE, type EXPMARenderState } from '../state/expmaState'
@@ -963,5 +964,27 @@ describe('EMPTY_RSI_STATE', () => {
   it('should have fixed valueMin and valueMax', () => {
     expect(EMPTY_RSI_STATE.valueMin).toBe(0)
     expect(EMPTY_RSI_STATE.valueMax).toBe(100)
+  })
+})
+
+describe('IndicatorScheduler failure handling', () => {
+  it('records inline failures and does not reset an injected result state on destroy', () => {
+    const resultState = createIndicatorResultState()
+    const scheduler = new IndicatorScheduler(resultState)
+    registerTestIndicators(scheduler)
+    const runtime = (scheduler as unknown as { inlineRuntime: { computeSeries: () => never } })
+      .inlineRuntime
+    vi.spyOn(runtime, 'computeSeries').mockImplementation(() => {
+      throw new Error('inline calculation failed')
+    })
+
+    scheduler.update(createTestData(10), { start: 0, end: 10 })
+
+    expect(resultState.readonly.snapshot.peek().attempt).toMatchObject({
+      status: 'error',
+      error: 'inline calculation failed',
+    })
+    scheduler.destroy()
+    expect(resultState.readonly.snapshot.peek().attempt.status).toBe('error')
   })
 })

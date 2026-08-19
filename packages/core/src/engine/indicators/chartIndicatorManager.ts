@@ -17,6 +17,7 @@ import type {
   SubPaneInput,
   SubPaneSpec,
 } from '../state/indicatorState'
+import type { IndicatorResultStateModule } from '../state/indicatorResultState'
 import type { Layer } from '../../rendering/scene/types'
 import type { KLineData } from '../../foundation/types/price'
 import type { IndicatorInstance, SubPaneInfo, PaneSpec, ChartOptions } from '../chartTypes'
@@ -88,6 +89,8 @@ export interface IndicatorDependencies {
   getLayer: (id: string) => Layer | null
   /** 主图指标状态模块 */
   indicator: IndicatorStateModule
+  /** 指标结果状态模块 */
+  indicatorResult: IndicatorResultStateModule
   /** 副图状态 + 联动 pane 布局的复合操作 */
   subPaneOps: SubPaneOps
   runRendererTransaction: (run: () => void) => void
@@ -147,7 +150,7 @@ export class ChartIndicatorManager {
     this.deps = deps
 
     // 初始化指标调度器（IndicatorRegistry 构造时自动从全局 registry 同步）
-    this.indicatorScheduler = new IndicatorScheduler()
+    this.indicatorScheduler = new IndicatorScheduler(deps.indicatorResult)
     this.indicatorScheduler.setPluginHost(deps.getPluginHost())
     this.indicatorScheduler.setInvalidateCallback(() => {
       deps.scheduleDraw()

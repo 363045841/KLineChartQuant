@@ -265,6 +265,10 @@ export class Chart {
       marketSessions: this.marketSessions,
       scheduleDraw: (level) => this.scheduleDraw(level as UpdateLevel | undefined),
     })
+    this.pluginHost.setSharedStateResolver(
+      (namespace) =>
+        this.kernel.indicatorResult.readonly.snapshot.peek().committed?.renderStates.get(namespace),
+    )
     this.rendererHost.setListeners({
       onRuntimeChange: (rendererRuntime) => {
         this.kernel.renderer.actions.setRuntime(rendererRuntime)
@@ -401,6 +405,7 @@ export class Chart {
       scheduleDraw: (level) => this.scheduleDraw(level),
       getRenderContext: (paneId) => this.renderer?.getPaneCtxMap()?.get(paneId) ?? null,
       indicator: this.kernel.indicator,
+      indicatorResult: this.kernel.indicatorResult,
       subPaneOps: {
         create: (entry) => this.kernel.actions.createSubPane(entry),
         remove: (paneId) => this.kernel.actions.removeSubPane(paneId),

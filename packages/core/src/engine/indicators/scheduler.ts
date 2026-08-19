@@ -4,7 +4,7 @@
  * 职责：
  * 1. 维护当前图表激活的指标配置
  * 2. 在数据/配置变更时触发 Worker 计算
- * 3. 接收 Worker 结果，组装 RenderState 并写入 StateStore
+ * 3. 接收 Worker 结果，组装 RenderState 并原子写入 Kernel
  * 4. 同步处理 visibleRange 变更（不走 Worker，避免异步延迟）
  *
  * 架构：
@@ -13,9 +13,12 @@
  * - Inline fallback backend（indicatorRuntime.ts）
  */
 
-import type { PluginHost } from '../../foundation/plugin/index'
-import type { BaseIndicatorState } from '../../foundation/plugin/index'
 import type { KLineData } from '../../foundation/types/price'
+import type { PluginHost } from '../../foundation/plugin/index'
+import {
+  createIndicatorResultState,
+  type IndicatorResultStateModule,
+} from '../state/indicatorResultState'
 
 import { resolveStateKey, type IndicatorMetadata } from './indicatorMetadata'
 import { IndicatorRegistry } from './indicatorRegistry'
@@ -70,7 +73,6 @@ import { DEFAULT_WMA_PERIOD } from './state/wmaState'
 import { DEFAULT_ZONES_OB_LOOKBACK } from './state/zonesState'
 import {
   composeRenderStates,
-  composeVisibleSubIndicatorStates,
   computeMainIndicatorPriceRange,
 } from './stateComposer'
 import { isWorkerResponse, PROTOCOL_VERSION } from './workerProtocol'
@@ -80,7 +82,7 @@ import type {
   SerializedRuntimeDescriptor,
 } from './workerProtocol'
 import type { IndicatorWorkerResponse } from './workerProtocol'
-import { createSignal, effect, type ReadonlySignal, type Signal } from '../../foundation/reactivity/signal'
+import { computed, effect, type ReadonlySignal } from '../../foundation/reactivity/signal'
 
 /**
  * 可见范围
@@ -153,7 +155,11 @@ export type {
  * IndicatorScheduler - 主线程 facade
  */
 export class IndicatorScheduler {
-  private pluginHost: PluginHost | null = null
+  private readonly resultState: IndicatorResultStateModule
+  private readonly ownsResultState: boolean
+  private readonly busySignal$: ReadonlySignal<boolean>
+  /** 独立使用 Scheduler 时的显式渲染投影目标。 */
+  private legacyPluginHost: PluginHost | null = null
   private visibleRange: VisibleRange = { start: 0, end: 0 }
   private activeMainIndicators = new Map<string, Record<string, number | boolean | string>>()
 
@@ -162,6 +168,7 @@ export class IndicatorScheduler {
   private configVersion = 0
   private requestId = 0
   private lastAppliedRequestId = 0
+  private activeRequestId = 0
 
   // 当前数据和配置快照
   private currentData: KLineData[] = []
@@ -181,17 +188,11 @@ export class IndicatorScheduler {
   // Inline fallback runtime
   private inlineRuntime: IndicatorRuntime | null = null
 
-  // 缓存的最新结果（用于 visibleRange 变更时同步更新）
-  private latestResult: IndicatorSeriesBundle | null = null
-
   // 重绘回调
   private invalidateCallback: (() => void) | null = null
 
   // Worker 异步结果应用完毕回调（用于串联其他管线，如 Alert）
   private onResultsAppliedCallback: (() => void) | null = null
-
-  /** 调度器繁忙信号（Worker 计算中时为 true，结果应用后恢复 false） */
-  private _busySignal = createSignal(false)
 
   /** rAF 节流的 visible state 更新，避免 onPointerMove 等频繁信号变化触发多次重算 */
   private _pendingVisibleUpdate = false
@@ -203,9 +204,19 @@ export class IndicatorScheduler {
   // 注册表
   private registry: IndicatorRegistry
 
-  constructor(autoSync?: boolean) {
+  constructor(resultStateOrAutoSync?: IndicatorResultStateModule | boolean, autoSync?: boolean) {
+    this.ownsResultState = typeof resultStateOrAutoSync === 'boolean' || resultStateOrAutoSync === undefined
+    this.resultState =
+      typeof resultStateOrAutoSync === 'object' ? resultStateOrAutoSync : createIndicatorResultState()
+    this.busySignal$ = computed(
+      () => this.resultState.readonly.snapshot().attempt.status === 'computing',
+    )
     this.registry =
-      autoSync !== undefined ? new IndicatorRegistry(autoSync) : new IndicatorRegistry()
+      (typeof resultStateOrAutoSync === 'boolean' ? resultStateOrAutoSync : autoSync) !== undefined
+        ? new IndicatorRegistry(
+            typeof resultStateOrAutoSync === 'boolean' ? resultStateOrAutoSync : autoSync,
+          )
+        : new IndicatorRegistry()
     this.configSnapshot = this.buildInitialConfigSnapshot()
     this.initBackend()
   }
@@ -273,14 +284,6 @@ export class IndicatorScheduler {
   }
 
   /**
-   * 设置 PluginHost
-   */
-  setPluginHost(host: PluginHost): void {
-    this.pluginHost = host
-    host.registerService('indicatorScheduler', this)
-  }
-
-  /**
    * 设置重绘回调
    */
   setInvalidateCallback(callback: () => void): void {
@@ -295,16 +298,16 @@ export class IndicatorScheduler {
     this.onResultsAppliedCallback = callback
   }
 
-  /** 调度器繁忙信号 — Worker 计算中为 true，结果应用后恢复 false */
-  get busySignal(): Signal<boolean> {
-    return this._busySignal
+  /** 调度器繁忙信号，由 Kernel 计算状态派生。 */
+  get busySignal(): ReadonlySignal<boolean> {
+    return this.busySignal$
   }
 
   /**
    * 副图增删后通知 scheduler 刷新 active mask
    */
   onSubPaneChanged(): void {
-    if (this.latestResult) this.updateVisibleStatesOnly()
+    if (this.getLatestBundle()) this.updateVisibleStatesOnly()
   }
 
   /**
@@ -327,7 +330,7 @@ export class IndicatorScheduler {
         prevStart = range.start
         prevEnd = range.end
         this.visibleRange = range
-        if (this.latestResult) {
+        if (this.getLatestBundle()) {
           this._scheduleVisibleStateUpdate()
         }
       }
@@ -358,9 +361,10 @@ export class IndicatorScheduler {
     this._pendingVisibleUpdate = false
     this.terminateWorker()
     this.inlineRuntime = null
-    this.latestResult = null
     this.invalidateCallback = null
     this.onResultsAppliedCallback = null
+    this.legacyPluginHost = null
+    if (this.ownsResultState) this.resultState.dispose()
   }
 
   // ============================================================================
@@ -404,7 +408,9 @@ export class IndicatorScheduler {
       this.worker.onmessage = (e) => this.handleWorkerMessage(e.data)
       this.worker.onerror = (err) => {
         console.error('[IndicatorScheduler] Worker error:', err)
-        this.fallbackToInline()
+        const shouldRetry = this.pendingRequest !== null
+        this.failActiveCalculation(`Worker runtime error: ${String(err)}`)
+        this.fallbackToInline(shouldRetry)
       }
       this.worker.postMessage({
         type: 'init',
@@ -428,14 +434,48 @@ export class IndicatorScheduler {
     this.workerReady = true
   }
 
-  private fallbackToInline(): void {
+  private fallbackToInline(retryPendingRequest = false): void {
     console.warn('[IndicatorScheduler] Falling back to inline runtime')
     this.terminateWorker()
     this.initInlineRuntime()
-    // 如果有待处理的请求，用 inline 重新执行
-    if (this.pendingRequest) {
+    this.pendingRequest = null
+    // Worker 失败后重新建立独立的 Inline attempt，旧 attempt 保留 error 记录。
+    if (retryPendingRequest) {
       this.computeWithInline()
     }
+  }
+
+  /** 为一次计算分配请求身份并通知 Kernel 进入 computing。 */
+  private beginCalculation(): number {
+    const requestId = ++this.requestId
+    this.activeRequestId = requestId
+    this.resultState.actions.beginCalculation({
+      requestId,
+      dataVersion: this.dataVersion,
+      configVersion: this.configVersion,
+    })
+    return requestId
+  }
+
+  /** 将当前计算尝试标记为失败，保留最近成功结果。 */
+  private failActiveCalculation(error: unknown): void {
+    this.failCalculation(this.activeRequestId, this.dataVersion, this.configVersion, error)
+  }
+
+  /** 记录指定计算尝试的失败，过期错误不会污染当前状态。 */
+  private failCalculation(
+    requestId: number,
+    dataVersion: number,
+    configVersion: number,
+    error: unknown,
+  ): void {
+    this.resultState.actions.failCalculation({
+      requestId,
+      dataVersion,
+      configVersion,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    this.pendingRequest = null
   }
 
   private terminateWorker(): void {
@@ -489,8 +529,12 @@ export class IndicatorScheduler {
 
       case 'error':
         console.error('[IndicatorScheduler] Worker error:', msg.stage, msg.message)
-        if (this.pendingRequest && msg.requestId === this.pendingRequest.requestId) {
-          this.fallbackToInline()
+        const shouldRetry =
+          this.pendingRequest !== null &&
+          (msg.requestId === undefined || msg.requestId === this.pendingRequest.requestId)
+        if (shouldRetry) {
+          this.failActiveCalculation(msg.message)
+          this.fallbackToInline(true)
         }
         break
 
@@ -511,6 +555,9 @@ export class IndicatorScheduler {
     if (msg.requestId < this.lastAppliedRequestId) {
       return // 丢弃旧结果
     }
+    if (!this.pendingRequest || msg.requestId !== this.pendingRequest.requestId) {
+      return // 非当前计算尝试的结果
+    }
     if (msg.dataVersion !== this.dataVersion || msg.configVersion !== this.configVersion) {
       return // 数据或配置已变更，丢弃旧结果
     }
@@ -521,10 +568,13 @@ export class IndicatorScheduler {
     )
     this.lastAppliedRequestId = msg.requestId
     this.pendingRequest = null
-    this.latestResult = msg.results
 
-    // 组装并写入 states（内部触发 busy=false + 回调）
-    this.applyResults(msg.results)
+    try {
+      // 组装并原子提交 Kernel 状态（内部触发重绘和结果回调）。
+      this.applyResults(msg.results, msg.requestId, msg.dataVersion, msg.configVersion)
+    } catch (error) {
+      this.failCalculation(msg.requestId, msg.dataVersion, msg.configVersion, error)
+    }
   }
 
   // ============================================================================
@@ -539,96 +589,99 @@ export class IndicatorScheduler {
     _indicatorName: string,
   ): void {}
 
-  /** 遍历注册表中的所有指标，通过 applyResult 回调写入 StateStore */
-  private applyResults(bundle: IndicatorSeriesBundle): void {
-    if (!this.pluginHost) return
-
-    const changed = new Set(bundle._changed)
+  /** 将完整 bundle 投影为按 renderer stateKey 索引的不可变状态集合。 */
+  private composeRenderStateMap(bundle: IndicatorSeriesBundle): ReadonlyMap<string, unknown> {
     const timestamp = Date.now()
     const states = composeRenderStates(bundle, this.visibleRange, timestamp, (indicatorId) =>
       this.registry.get(indicatorId),
-    )
+    ) as Record<string, unknown>
+    const result = new Map<string, unknown>()
 
     for (const meta of this.registry.getAll()) {
-      if (!changed.has(meta.name)) continue
-      if (!meta.applyResult) continue
-
-      const state = (states as Record<string, unknown>)[meta.name]
-      if (!state) continue
-
-      this.checkVisibleExtremes(
-        state as { visibleMin: number; visibleMax: number },
-        meta.displayName,
-      )
-
+      const state = states[meta.name]
+      if (state === undefined) continue
       const paneId = this.paneIdOverrides.get(meta.name) ?? meta.defaultPaneId
-
-      meta.applyResult(this.pluginHost, state as BaseIndicatorState, paneId)
+      this.checkVisibleExtremes(state as { visibleMin: number; visibleMax: number }, meta.displayName)
+      result.set(resolveStateKey(meta.stateKey, paneId), state)
     }
+    return result
+  }
 
-    this._busySignal.set(false)
+  /** 将调度器注册为插件服务；指标结果不再写入 PluginHost StateStore。 */
+  setPluginHost(host: PluginHost): void {
+    this.legacyPluginHost = host
+    host.registerService('indicatorScheduler', this)
+  }
+
+  /** 将已提交 Kernel 快照投影给独立 Scheduler 的显式 PluginHost 使用者。 */
+  private projectStandaloneRenderStates(
+    renderStates: ReadonlyMap<string, unknown>,
+    shouldProject: (meta: IndicatorMetadata) => boolean,
+  ): void {
+    if (!this.ownsResultState || !this.legacyPluginHost) return
+    for (const meta of this.registry.getAll()) {
+      if (!shouldProject(meta)) continue
+      if (!meta.applyResult) continue
+      const paneId = this.paneIdOverrides.get(meta.name) ?? meta.defaultPaneId
+      const state = renderStates.get(resolveStateKey(meta.stateKey, paneId))
+      if (state !== undefined) meta.applyResult(this.legacyPluginHost, state, paneId)
+    }
+  }
+
+  /** 提交最新完整计算结果，并在提交后安排下一帧绘制。 */
+  private applyResults(
+    bundle: IndicatorSeriesBundle,
+    requestId: number,
+    dataVersion: number,
+    configVersion: number,
+  ): void {
+    const renderStates = this.composeRenderStateMap(bundle)
+    const committed = this.resultState.actions.commitResults({
+      requestId,
+      dataVersion,
+      configVersion,
+      bundle,
+      renderStates,
+    })
+    if (!committed) return
+    const changed = new Set(bundle._changed)
+    this.projectStandaloneRenderStates(renderStates, (meta) => changed.has(meta.name))
     this.invalidateCallback?.()
     this.onResultsAppliedCallback?.()
   }
 
   /** 重算可见范围极值并回调 applyResult（视口变更时同步更新，不走 Worker） */
   private updateVisibleStatesOnly(): boolean {
-    if (!this.pluginHost || !this.latestResult) return false
-
-    const timestamp = Date.now()
-    let mainStates: Record<string, unknown> | null = null
-    let mainStateUpdated = false
-    const activeMask = this.buildActiveSubIndicatorMask()
-    const subStates = composeVisibleSubIndicatorStates(
-      this.latestResult,
-      this.visibleRange,
-      timestamp,
-      activeMask,
-      (indicatorId) => this.registry.get(indicatorId),
-    ) as Record<string, unknown>
-
-    for (const meta of this.registry.getAll()) {
-      if (!meta.applyResult) continue
-
-      let state: unknown
-      if (meta.category === 'main') {
-        const paneId = this.paneIdOverrides.get(meta.name) ?? meta.defaultPaneId
-        const current = this.pluginHost.getSharedState<
-          BaseIndicatorState & { visibleMin?: number; visibleMax?: number }
-        >(resolveStateKey(meta.stateKey, paneId))
-        const currentValid =
-          current &&
-          Number.isFinite(current.visibleMin) &&
-          Number.isFinite(current.visibleMax) &&
-          current.visibleMin! <= current.visibleMax!
-        if (currentValid) continue
-
-        mainStates ??= composeRenderStates(
-          this.latestResult,
-          this.visibleRange,
-          timestamp,
-          (indicatorId) => this.registry.get(indicatorId),
-        ) as Record<string, unknown>
-        state = mainStates[meta.name]
-      } else {
-        state = subStates[meta.name]
-      }
-      if (state === undefined) continue
-
-      this.checkVisibleExtremes(
-        state as { visibleMin: number; visibleMax: number },
-        meta.displayName,
-      )
-
+    const bundle = this.getLatestBundle()
+    if (!bundle) return false
+    const renderStates = this.composeRenderStateMap(bundle)
+    const committed = this.resultState.readonly.snapshot.peek().committed
+    if (!committed) return false
+    if (!this.resultState.actions.updateProjection({
+      resultVersion: committed.resultVersion,
+      renderStates,
+    })) return false
+    this.projectStandaloneRenderStates(renderStates, (meta) => {
+      if (meta.category !== 'main') return true
       const paneId = this.paneIdOverrides.get(meta.name) ?? meta.defaultPaneId
+      const current = this.legacyPluginHost?.getSharedState<{
+        timestamp: number
+        visibleMin?: number
+        visibleMax?: number
+      }>(resolveStateKey(meta.stateKey, paneId))
+      return (
+        !current ||
+        !Number.isFinite(current.visibleMin) ||
+        !Number.isFinite(current.visibleMax) ||
+        current.visibleMin! > current.visibleMax!
+      )
+    })
+    return true
+  }
 
-      meta.applyResult(this.pluginHost, state as BaseIndicatorState, paneId)
-      if (meta.category === 'main') {
-        mainStateUpdated = true
-      }
-    }
-
-    return mainStateUpdated
+  /** 从 Kernel 读取最近一次成功计算的完整 bundle。 */
+  private getLatestBundle(): IndicatorSeriesBundle | null {
+    return this.resultState.readonly.snapshot.peek().committed?.bundle ?? null
   }
 
   /** 遍历注册表，标记当前可见副图，仅这些指标参与计算 */
@@ -691,7 +744,7 @@ export class IndicatorScheduler {
     this.visibleRange = visibleRange
 
     // 基于缓存的 series 同步更新极值
-    if (this.latestResult) {
+    if (this.getLatestBundle()) {
       const mainStateUpdated = this.updateVisibleStatesOnly()
       if (mainStateUpdated) {
         this.invalidateCallback?.()
@@ -740,9 +793,10 @@ export class IndicatorScheduler {
    * 获取主图指标价格范围
    */
   getMainIndicatorPriceRange(): { min: number; max: number } | null {
-    if (!this.latestResult) return null
+    const bundle = this.getLatestBundle()
+    if (!bundle) return null
     const result = computeMainIndicatorPriceRange(
-      this.latestResult,
+      bundle,
       this.visibleRange,
       new Set(this.activeMainIndicators.keys()),
       (indicatorId) => this.registry.get(indicatorId),
@@ -800,14 +854,13 @@ export class IndicatorScheduler {
   private computeWithWorker(): void {
     if (!this.worker || !this.workerReady) return
 
-    this._busySignal.set(true)
+    const requestId = this.beginCalculation()
 
     console.log(
-      `[IndicatorScheduler] >> Worker compute: requestId=${this.requestId + 1} dataV=${this.dataVersion} configV=${this.configVersion}`,
+      `[IndicatorScheduler] >> Worker compute: requestId=${requestId} dataV=${this.dataVersion} configV=${this.configVersion}`,
     )
-    this.requestId++
     this.pendingRequest = {
-      requestId: this.requestId,
+      requestId,
       dataVersion: this.dataVersion,
       configVersion: this.configVersion,
     }
@@ -830,7 +883,7 @@ export class IndicatorScheduler {
     // 请求计算
     this.worker.postMessage({
       type: 'computeSeries',
-      requestId: this.requestId,
+      requestId,
       dataVersion: this.dataVersion,
       configVersion: this.configVersion,
     })
@@ -845,7 +898,7 @@ export class IndicatorScheduler {
       this.inlineRuntime = new IndicatorRuntime(runtimeDescs)
     }
 
-    this._busySignal.set(true)
+    const requestId = this.beginCalculation()
 
     console.log(
       `[IndicatorScheduler] >> INLINE compute: dataV=${this.dataVersion} configV=${this.configVersion}`,
@@ -856,10 +909,12 @@ export class IndicatorScheduler {
     this.inlineRuntime.setConfig(this.buildActiveConfig(), this.configVersion)
 
     // 同步计算
-    const results = this.inlineRuntime.computeSeries()
-    this.latestResult = results
-
-    // 组装并写入 states（内部触发 busy=false + 回调）
-    this.applyResults(results)
+    try {
+      const results = this.inlineRuntime.computeSeries()
+      // 组装并原子提交 Kernel 状态（内部触发重绘和结果回调）。
+      this.applyResults(results, requestId, this.dataVersion, this.configVersion)
+    } catch (error) {
+      this.failCalculation(requestId, this.dataVersion, this.configVersion, error)
+    }
   }
 }

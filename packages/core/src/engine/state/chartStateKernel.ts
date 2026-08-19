@@ -33,6 +33,10 @@ import {
 } from './indicatorState'
 import { createMarkerState, type MarkerStateModule } from './markerState'
 import { createRendererState, type RendererStateModule } from './rendererState'
+import {
+  createIndicatorResultState,
+  type IndicatorResultStateModule,
+} from './indicatorResultState'
 import { batch, computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
 import { makePluginLayerId } from '../../foundation/plugin/rendererLayerId'
 import type { DrawingObject } from '../../foundation/plugin/index'
@@ -185,6 +189,7 @@ export class ChartStateKernel extends StateKernel {
   readonly dataManager: DataManagerStateModule
   readonly comparison: ComparisonStateModule
   readonly indicator: IndicatorStateModule
+  readonly indicatorResult: IndicatorResultStateModule
   readonly marker: MarkerStateModule
   readonly renderer: RendererStateModule
 
@@ -250,6 +255,7 @@ export class ChartStateKernel extends StateKernel {
 
     // ── Indicator state ──
     this.indicator = createIndicatorState()
+    this.indicatorResult = createIndicatorResultState()
 
     // ── Marker business state ──
     this.marker = createMarkerState()
@@ -363,6 +369,7 @@ export class ChartStateKernel extends StateKernel {
       comparisonLoading: this.comparison.readonly.loading,
       // Indicator
       subPanes: this.indicator.readonly.subPanes,
+      indicatorResult: this.indicatorResult.readonly.snapshot,
       // Marker
       customMarkers: this.marker.readonly.customMarkers,
     }
@@ -671,6 +678,7 @@ export class ChartStateKernel extends StateKernel {
     this.dataManager.dispose()
     this.comparison.dispose()
     this.indicator.dispose()
+    this.indicatorResult.dispose()
     this.marker.dispose()
     this.renderer.dispose()
   }
