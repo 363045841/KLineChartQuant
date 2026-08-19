@@ -154,10 +154,12 @@ export const lightTheme: Theme = {
     macd: {
       dif: 'rgba(69, 112, 249, 1)',
       dea: 'rgba(255, 152, 0, 1)',
-      barUp: '#ff5252',
-      barUpLight: '#fccbcd',
-      barDown: '#22ab94',
-      barDownLight: '#ace5dc',
+      // MACD 柱与蜡烛遵循同一涨跌约定（base=Western：多头=绿、空头=红），
+      // 这样 withAsiaMarketColors 交换后即为亚洲市场「红涨绿跌」。
+      barUp: '#22ab94',
+      barUpLight: '#ace5dc',
+      barDown: '#ff5252',
+      barDownLight: '#fccbcd',
     },
     rsi: {
       rsi1: 'rgba(69, 112, 249, 1)',

@@ -148,10 +148,12 @@ export const darkTheme: Theme = {
     macd: {
       dif: 'rgba(90, 140, 255, 1)',
       dea: 'rgba(255, 170, 50, 1)',
-      barUp: '#ff6b6b',
-      barUpLight: '#ffb3b3',
-      barDown: '#4ecdc4',
-      barDownLight: '#a8e6e1',
+      // MACD 柱与蜡烛遵循同一涨跌约定（base=Western：多头=绿、空头=红），
+      // 这样 withAsiaMarketColors 交换后即为亚洲市场「红涨绿跌」。
+      barUp: '#4ecdc4',
+      barUpLight: '#a8e6e1',
+      barDown: '#ff6b6b',
+      barDownLight: '#ffb3b3',
     },
     rsi: {
       rsi1: 'rgba(90, 140, 255, 1)',

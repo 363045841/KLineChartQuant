@@ -23,6 +23,7 @@ import {
   darkTheme,
   mergeTheme,
   withAsiaMarketColors,
+  resolveThemeColors,
   type Theme,
   type ColorTokens,
   type IndicatorPalette,
@@ -177,6 +178,69 @@ describe('dark theme grid colors', () => {
     expect(darkTheme.colors.gridMajor).toBe('#2A3547')
     expect(darkTheme.colors.gridMinor).toBe('#202A39')
   })
+})
+
+// ---------------------------------------------------------------------------
+// Asia-market (红涨绿跌) colour convention
+// ---------------------------------------------------------------------------
+
+/**
+ * 判断颜色是否为「红」（以 R 分量显著高于 G/B 衡量）。
+ * 主题里 bull/bear 使用的都是低饱和、色相明确的颜色，无需做严格解析。
+ */
+function isReddish(color: string): boolean {
+  const m = /^#([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})/.exec(color)
+  if (!m) return false
+  const r = parseInt(m[1], 16)
+  const g = parseInt(m[2], 16)
+  const b = parseInt(m[3], 16)
+  return r > g && r > b
+}
+
+describe('Asia-market colour convention (红涨绿跌)', () => {
+  it.each([
+    ['light', lightTheme],
+    ['dark', darkTheme],
+  ] as const)('%s: base theme uses Western convention (bull=green, bear=red)', (_name, theme) => {
+    expect(isReddish(theme.colors.candleDownBody)).toBe(true)
+    expect(isReddish(theme.colors.candleUpBody)).toBe(false)
+    expect(isReddish(theme.colors.volumeDown)).toBe(true)
+    expect(isReddish(theme.colors.volumeUp)).toBe(false)
+    // MACD 柱与蜡烛遵循同一涨跌约定：多头（正柱）用绿色，空头（负柱）用红色
+    expect(isReddish(theme.colors.macd.barDown)).toBe(true)
+    expect(isReddish(theme.colors.macd.barUp)).toBe(false)
+  })
+
+  it.each([
+    ['light', lightTheme],
+    ['dark', darkTheme],
+  ] as const)('%s: Asia-market swap yields red-up/green-down everywhere', (_name, theme) => {
+    const asia = withAsiaMarketColors(theme)
+    expect(isReddish(asia.colors.candleUpBody)).toBe(true)
+    expect(isReddish(asia.colors.candleDownBody)).toBe(false)
+    expect(isReddish(asia.colors.volumeUp)).toBe(true)
+    expect(isReddish(asia.colors.volumeDown)).toBe(false)
+    // MACD 正柱（多头）= 红，负柱（空头）= 绿
+    expect(isReddish(asia.colors.macd.barUp)).toBe(true)
+    expect(isReddish(asia.colors.macd.barDown)).toBe(false)
+    expect(isReddish(asia.colors.macd.barUpLight)).toBe(true)
+    expect(isReddish(asia.colors.macd.barDownLight)).toBe(false)
+  })
+
+  it.each(['light', 'dark'] as const)(
+    '%s: resolveThemeColors keeps MACD convention aligned with candles',
+    (themeName) => {
+      const western = resolveThemeColors(themeName, false)
+      expect(isReddish(western.macd.barDown)).toBe(true)
+      expect(isReddish(western.macd.barUp)).toBe(false)
+
+      const asia = resolveThemeColors(themeName, true)
+      expect(isReddish(asia.macd.barUp)).toBe(true)
+      expect(isReddish(asia.macd.barDown)).toBe(false)
+      expect(asia.macd.barUp).toBe(western.macd.barDown)
+      expect(asia.macd.barDown).toBe(western.macd.barUp)
+    },
+  )
 })
 
 // ---------------------------------------------------------------------------
