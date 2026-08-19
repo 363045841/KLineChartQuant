@@ -40,6 +40,10 @@ export const lightTheme: Theme = {
     candleDownWick: '#C2363B',
     candleDojiBorder: '#6E6E6E',
 
+    performancePositive: '#0B7A50',
+    performanceNegative: '#C2363B',
+    performanceNeutral: '#5A5A5A',
+
     volumeUp: '#0F8B5C66', // 40% alpha — paired with candleUp
     volumeDown: '#C2363B66',
     volumeNeutral: '#00000066',

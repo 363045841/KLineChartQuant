@@ -22,10 +22,21 @@ import {
   lightTheme,
   darkTheme,
   mergeTheme,
+  withAsiaMarketColors,
   type Theme,
   type ColorTokens,
   type IndicatorPalette,
 } from '..'
+
+describe('performance color tokens', () => {
+  it('亚洲市场约定交换正负收益颜色并保留中性色', () => {
+    const asiaTheme = withAsiaMarketColors(lightTheme)
+
+    expect(asiaTheme.colors.performancePositive).toBe(lightTheme.colors.performanceNegative)
+    expect(asiaTheme.colors.performanceNegative).toBe(lightTheme.colors.performancePositive)
+    expect(asiaTheme.colors.performanceNeutral).toBe(lightTheme.colors.performanceNeutral)
+  })
+})
 
 // ---------------------------------------------------------------------------
 // Color parsing & contrast helpers (kept inline so tests don't reach into

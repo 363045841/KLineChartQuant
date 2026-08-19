@@ -38,6 +38,10 @@ export const darkTheme: Theme = {
     candleDownWick: '#FF6464',
     candleDojiBorder: '#8A8F98',
 
+    performancePositive: '#22D69B',
+    performanceNegative: '#FF6464',
+    performanceNeutral: '#9AA0A6',
+
     volumeUp: '#22D69B66',
     volumeDown: '#FF646466',
     volumeNeutral: '#FFFFFF66',

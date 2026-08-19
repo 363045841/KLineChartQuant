@@ -288,7 +288,7 @@
   }
 
   .dropdown__option.is-selected {
-    color: var(--klc-color-candle-up-body);
+    color: var(--klc-color-selection-stroke);
     font-weight: 700;
   }
 

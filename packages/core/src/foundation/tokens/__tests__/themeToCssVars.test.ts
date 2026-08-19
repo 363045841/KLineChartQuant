@@ -82,6 +82,11 @@ describe('themeToCssVars — naming', () => {
     expect(vars['--klc-color-candle-up-body']).toBe(lightTheme.colors.candleUpBody)
   })
 
+  it('colors.performancePositive → --klc-color-performance-positive', () => {
+    const vars = themeToCssVars(lightTheme)
+    expect(vars['--klc-color-performance-positive']).toBe(lightTheme.colors.performancePositive)
+  })
+
   it('colors.palette.i1 → --klc-color-palette-i1', () => {
     const vars = themeToCssVars(lightTheme)
     expect(vars['--klc-color-palette-i1']).toBe(lightTheme.colors.palette.i1)

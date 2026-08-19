@@ -1,3 +1,4 @@
+<!-- 区间选择工具栏：编辑时间范围、展示统计信息并触发批量导出。 -->
 <template>
   <CanvasToolbar>
     <input
@@ -14,6 +15,13 @@
       @input="$emit('update:endDate', ($event.target as HTMLInputElement).value)"
     />
     <span class="range-count">共 {{ count }} 条</span>
+    <span
+      class="range-return"
+      :class="`range-return--${returnDirection}`"
+      title="按区间首尾收盘价计算"
+    >
+      {{ formattedReturnRate }}
+    </span>
     <button type="button" class="toolbar-btn" title="批量设置" @click="$emit('batchSetting')">
       批量设置
     </button>
@@ -43,14 +51,17 @@
 </template>
 
 <script setup lang="ts">
+  import { computed } from 'vue'
+
   import CanvasToolbar from './common/CanvasToolbar.vue'
 
-  defineProps<{
+  const props = defineProps<{
     startDate: string
     endDate: string
     startLabel: string
     endLabel: string
     count: number
+    returnRate: number | null
   }>()
 
   defineEmits<{
@@ -60,6 +71,21 @@
     clear: []
     batchSetting: []
   }>()
+
+  /** 将收益率格式化为固定两位、带涨跌符号的百分比。 */
+  const formattedReturnRate = computed(() => {
+    if (props.returnRate === null || !Number.isFinite(props.returnRate)) return '--'
+    const sign = props.returnRate > 0 ? '+' : ''
+    return `${sign}${props.returnRate.toFixed(2)}%`
+  })
+
+  /** 根据收益率方向提供语义颜色。 */
+  const returnDirection = computed(() => {
+    if (props.returnRate === null || !Number.isFinite(props.returnRate) || props.returnRate === 0) {
+      return 'flat'
+    }
+    return props.returnRate > 0 ? 'up' : 'down'
+  })
 </script>
 
 <style scoped>
@@ -108,10 +134,34 @@
     white-space: nowrap;
     user-select: none;
     padding: 0 8px;
-    margin-right: 4px;
     display: flex;
     align-items: center;
     height: 18px;
+  }
+
+  .range-return {
+    display: flex;
+    align-items: center;
+    height: 18px;
+    padding: 0 10px;
+    border-left: 1px solid var(--klc-color-border-button);
     border-right: 1px solid var(--klc-color-border-button);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  .range-return--up {
+    color: var(--klc-color-performance-positive);
+  }
+
+  .range-return--down {
+    color: var(--klc-color-performance-negative);
+  }
+
+  .range-return--flat {
+    color: var(--klc-color-performance-neutral);
   }
 </style>

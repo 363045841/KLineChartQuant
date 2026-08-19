@@ -12,6 +12,9 @@ exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
   --klc-color-candle-down-border: #FF6464;
   --klc-color-candle-down-wick: #FF6464;
   --klc-color-candle-doji-border: #8A8F98;
+  --klc-color-performance-positive: #22D69B;
+  --klc-color-performance-negative: #FF6464;
+  --klc-color-performance-neutral: #9AA0A6;
   --klc-color-volume-up: #22D69B66;
   --klc-color-volume-down: #FF646466;
   --klc-color-volume-neutral: #FFFFFF66;
@@ -191,6 +194,9 @@ Each role is measured against its own surface (default: \`colors.background\`).
 | tooltipText | #E8EAED | tooltipBg | 13.71 | 4.5:1 | ✅ |
 | candleUpBody | #22D69B | background | 9.43 | 3.0:1 | ✅ |
 | candleDownBody | #FF6464 | background | 6.13 | 3.0:1 | ✅ |
+| performancePositive | #22D69B | background | 9.43 | 4.5:1 | ✅ |
+| performanceNegative | #FF6464 | background | 6.13 | 4.5:1 | ✅ |
+| performanceNeutral | #9AA0A6 | background | 6.72 | 4.5:1 | ✅ |
 | candleDojiBorder | #8A8F98 | background | 5.46 | 3.0:1 | ✅ |
 | crosshairLine | #686C72 | background | 3.36 | 3.0:1 | ✅ |
 | selectionStroke | #4A9EFF | background | 6.44 | 3.0:1 | ✅ |
@@ -228,6 +234,9 @@ exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
   --klc-color-candle-down-border: #C2363B;
   --klc-color-candle-down-wick: #C2363B;
   --klc-color-candle-doji-border: #6E6E6E;
+  --klc-color-performance-positive: #0B7A50;
+  --klc-color-performance-negative: #C2363B;
+  --klc-color-performance-neutral: #5A5A5A;
   --klc-color-volume-up: #0F8B5C66;
   --klc-color-volume-down: #C2363B66;
   --klc-color-volume-neutral: #00000066;
@@ -407,6 +416,9 @@ Each role is measured against its own surface (default: \`colors.background\`).
 | tooltipText | #1F1F1F | tooltipBg | 16.48 | 4.5:1 | ✅ |
 | candleUpBody | #0F8B5C | background | 4.13 | 3.0:1 | ✅ |
 | candleDownBody | #C2363B | background | 5.18 | 3.0:1 | ✅ |
+| performancePositive | #0B7A50 | background | 5.14 | 4.5:1 | ✅ |
+| performanceNegative | #C2363B | background | 5.18 | 4.5:1 | ✅ |
+| performanceNeutral | #5A5A5A | background | 6.61 | 4.5:1 | ✅ |
 | candleDojiBorder | #6E6E6E | background | 4.89 | 3.0:1 | ✅ |
 | crosshairLine | #8C8C8C | background | 3.22 | 3.0:1 | ✅ |
 | selectionStroke | #2D7FF9 | background | 3.65 | 3.0:1 | ✅ |

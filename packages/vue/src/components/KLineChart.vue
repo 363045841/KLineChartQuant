@@ -110,6 +110,7 @@
                     :start-label="rangeSelectionStartLabel"
                     :end-label="rangeSelectionEndLabel"
                     :count="rangeSelectionCount"
+                    :return-rate="rangeSelectionReturnRate"
                     @export="exportRangeToCsv"
                     @clear="clearRangeSelection"
                     @batch-setting="showBatchStockDialog = true"
@@ -833,6 +834,7 @@
     rangeSelectionReady,
     rangeSelectionBounds,
     rangeSelectionCount,
+    rangeSelectionReturnRate,
     rangeSelectionStartLabel,
     rangeSelectionEndLabel,
     rangeSelectionOverlayStyle,

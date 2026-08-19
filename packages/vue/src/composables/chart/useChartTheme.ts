@@ -53,13 +53,12 @@ export function useChartTheme(ctrl: Ref<ChartController | null>, initialTheme?: 
 
   const themeCssVars = computed(() => {
     const theme = chartTheme.value === 'dark' ? darkTheme : lightTheme
-    const overrides = (
-      chartSettings.value.colorPresetSettings as ColorPresetSettings | undefined
-    )?.[chartTheme.value]
-    if (overrides && Object.keys(overrides).length > 0) {
-      return themeToCssVars({ ...theme, colors: { ...theme.colors, ...overrides } })
-    }
-    return themeToCssVars(theme)
+    const colors = resolveThemeColors(
+      chartTheme.value,
+      chartSettings.value.isAsiaMarket as boolean | undefined,
+      chartSettings.value.colorPresetSettings as ColorPresetSettings | undefined,
+    )
+    return themeToCssVars({ ...theme, colors })
   })
 
   watch(

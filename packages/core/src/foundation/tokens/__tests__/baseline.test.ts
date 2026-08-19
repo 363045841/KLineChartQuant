@@ -90,6 +90,9 @@ const TRACKED_ROLES: ReadonlyArray<TrackedRole> = [
   // Floor 3:1 (WCAG AA for non-text graphic objects)
   { role: 'candleUpBody', threshold: 3 },
   { role: 'candleDownBody', threshold: 3 },
+  { role: 'performancePositive', threshold: 4.5 },
+  { role: 'performanceNegative', threshold: 4.5 },
+  { role: 'performanceNeutral', threshold: 4.5 },
   { role: 'candleDojiBorder', threshold: 3 },
   { role: 'crosshairLine', threshold: 3 },
   { role: 'selectionStroke', threshold: 3 },

@@ -13,6 +13,9 @@ export type ColorPresetKey = keyof Pick<
   | 'candleDownBody'
   | 'candleDownBorder'
   | 'candleDownWick'
+  | 'performancePositive'
+  | 'performanceNegative'
+  | 'performanceNeutral'
   | 'volumeUp'
   | 'volumeDown'
   | 'axisText'
@@ -70,6 +73,9 @@ export const COLOR_PRESET_ITEMS: readonly ColorPresetItem[] = [
   { key: 'candleDownWick', label: '下跌影线', group: 'candle' },
   { key: 'volumeUp', label: '上涨成交量', group: 'candle' },
   { key: 'volumeDown', label: '下跌成交量', group: 'candle' },
+  { key: 'performancePositive', label: '正收益', group: 'candle' },
+  { key: 'performanceNegative', label: '负收益', group: 'candle' },
+  { key: 'performanceNeutral', label: '持平收益', group: 'candle' },
 
   { key: 'axisText', label: '坐标文字', group: 'axis' },
   { key: 'axisLine', label: '坐标轴线', group: 'axis' },

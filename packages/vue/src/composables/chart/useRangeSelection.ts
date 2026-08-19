@@ -1,3 +1,4 @@
+/** 区间选择状态、统计指标与 CSV 导出逻辑。 */
 import { formatTimestamp } from '@363045841yyt/klinechart-core'
 import type {
   KLineData,
@@ -19,6 +20,12 @@ interface RangeSelectionState {
   startTimestamp: number | null
   endTimestamp: number | null
   isDragging: boolean
+}
+
+/** 根据区间首尾收盘价计算收益率，无法形成有效比率时返回 null。 */
+export function calculateRangeReturnRate(startClose: number, endClose: number): number | null {
+  if (!Number.isFinite(startClose) || !Number.isFinite(endClose) || startClose === 0) return null
+  return ((endClose - startClose) / startClose) * 100
 }
 
 function fmtDate(item: KLineData | undefined): string {
@@ -115,6 +122,17 @@ export function useRangeSelection(options: {
     const bounds = rangeSelectionBounds.value
     if (!bounds) return 0
     return bounds.end - bounds.start + 1
+  })
+
+  /** 按时间正序计算区间首尾收盘价收益率，结果单位为百分比。 */
+  const rangeSelectionReturnRate: ComputedRef<number | null> = computed(() => {
+    const bounds = rangeSelectionBounds.value
+    if (!bounds) return null
+
+    const startClose = data.value[bounds.start]?.close
+    const endClose = data.value[bounds.end]?.close
+    if (startClose === undefined || endClose === undefined) return null
+    return calculateRangeReturnRate(startClose, endClose)
   })
 
   const rangeSelectionOverlayStyle = computed(() => {
@@ -394,6 +412,7 @@ export function useRangeSelection(options: {
     rangeSelectionReady,
     rangeSelectionBounds,
     rangeSelectionCount,
+    rangeSelectionReturnRate,
     rangeSelectionStartLabel,
     rangeSelectionEndLabel,
     rangeSelectionOverlayStyle,

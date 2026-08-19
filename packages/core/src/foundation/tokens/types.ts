@@ -284,6 +284,11 @@ export interface ColorTokens {
   readonly candleDownWick: ColorValue
   readonly candleDojiBorder: ColorValue
 
+  // Performance values shown outside candle rendering
+  readonly performancePositive: ColorValue
+  readonly performanceNegative: ColorValue
+  readonly performanceNeutral: ColorValue
+
   // Volume bars (paired with candle bull/bear)
   readonly volumeUp: ColorValue
   readonly volumeDown: ColorValue
