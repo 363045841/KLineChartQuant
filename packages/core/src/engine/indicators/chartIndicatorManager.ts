@@ -151,6 +151,9 @@ export class ChartIndicatorManager {
 
     // 初始化指标调度器（IndicatorRegistry 构造时自动从全局 registry 同步）
     this.indicatorScheduler = new IndicatorScheduler(deps.indicatorResult)
+    this.indicatorScheduler.setConfigRevisionProvider(() =>
+      deps.indicator.readonly.configRevision.peek(),
+    )
     this.indicatorScheduler.setPluginHost(deps.getPluginHost())
     this.indicatorScheduler.setInvalidateCallback(() => {
       deps.scheduleDraw()

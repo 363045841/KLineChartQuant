@@ -87,11 +87,15 @@ function subInstanceEqual(left: IndicatorInstanceSpec, right: IndicatorInstanceS
 export function createIndicatorState() {
   const { signals, readonly } = createSubState({
     instances: Object.freeze([]) as ReadonlyArray<IndicatorInstanceSpec>,
+    configRevision: 0,
   })
 
   /** 写入不可变实例快照。 */
   const write = (instances: ReadonlyArray<IndicatorInstanceInput>) => {
-    signals.instances.set(Object.freeze(instances.map(snapshotInstance)))
+    batch(() => {
+      signals.instances.set(Object.freeze(instances.map(snapshotInstance)))
+      signals.configRevision.set(signals.configRevision.peek() + 1)
+    })
   }
 
   /** 从统一实例集合派生副图读取接口。 */

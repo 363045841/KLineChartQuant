@@ -59,6 +59,7 @@ describe('indicatorState', () => {
     expect(second).not.toBe(first)
     expect(second[0]?.params).toEqual({ period: 10, color: 'red' })
     expect(first[0]?.params).toEqual({ period: 5 })
+    expect(m.readonly.configRevision()).toBe(2)
   })
 
   it('remove and clear', () => {

@@ -44,9 +44,30 @@ describe('dataState', () => {
     expect(state.readonly.activeSelection()).toBe(barsSelection)
     expect(state.readonly.data()).toHaveLength(1)
     expect(state.readonly.loading()).toBe(true)
+    expect(state.readonly.dataRevision()).toBe(1)
     for (const snapshot of snapshots) {
       expect(snapshot).toEqual({ selection: barsSelection, length: 1, loading: true })
     }
+  })
+
+  it('only advances dataRevision when the active selection or data changes', () => {
+    const state = createDataState()
+    const data = [{ timestamp: 1, open: 1, high: 1, low: 1, close: 1 }]
+    state.actions.applyActiveBufferSnapshot({
+      kind: 'bars', selection: barsSelection, data, loading: true, error: null,
+      timeShareRange: null, timeSharePreClose: null,
+    })
+    state.actions.applyActiveBufferSnapshot({
+      kind: 'bars', selection: barsSelection, data, loading: false, error: null,
+      timeShareRange: null, timeSharePreClose: null,
+    })
+    expect(state.readonly.dataRevision()).toBe(1)
+
+    state.actions.applyActiveBufferSnapshot({
+      kind: 'bars', selection: barsSelection, data: [...data], loading: false, error: null,
+      timeShareRange: null, timeSharePreClose: null,
+    })
+    expect(state.readonly.dataRevision()).toBe(2)
   })
 
   it('reset clears the complete active snapshot', () => {

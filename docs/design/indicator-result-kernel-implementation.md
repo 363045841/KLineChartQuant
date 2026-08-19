@@ -353,10 +353,10 @@ getIndicatorValues(input: {
 
 ### 阶段 B：关联数据和配置 revision
 
-- [ ] 为活动数据快照增加 `dataRevision`。
-- [ ] 为指标实例/配置快照增加 `configRevision`。
-- [ ] Scheduler 使用 Kernel revision 作为结果来源身份。
-- [ ] 增加 `ready/stale` 一致性判断。
+- [x] 为活动数据快照增加 `dataRevision`。
+- [x] 为指标实例/配置快照增加 `configRevision`。
+- [x] Scheduler 使用 Kernel revision 作为结果来源身份。
+- [x] 增加 `ready/stale` 一致性判断。
 
 ### 阶段 C：收紧 Renderer 边界
 

@@ -12,6 +12,7 @@ export interface DataDeps {
 export type ActiveBufferSnapshot =
   | {
       readonly kind: 'empty'
+      readonly dataRevision: number
       readonly selection: null
       readonly data: ReadonlyArray<never>
       readonly loading: false
@@ -21,6 +22,7 @@ export type ActiveBufferSnapshot =
     }
   | {
       readonly kind: 'bars'
+      readonly dataRevision: number
       readonly selection: Extract<SeriesSelection, { kind: 'bars' }>
       readonly data: ReadonlyArray<KLineData>
       readonly loading: boolean
@@ -30,6 +32,7 @@ export type ActiveBufferSnapshot =
     }
   | {
       readonly kind: 'timeShare'
+      readonly dataRevision: number
       readonly selection: Extract<SeriesSelection, { kind: 'timeShare' }>
       readonly data: ReadonlyArray<TimeShareData>
       readonly loading: boolean
@@ -42,6 +45,7 @@ export type ActiveBufferSnapshot =
 function emptyActiveBufferSnapshot(): ActiveBufferSnapshot {
   return Object.freeze({
     kind: 'empty',
+    dataRevision: 0,
     selection: null,
     data: Object.freeze([]),
     loading: false,
@@ -49,6 +53,17 @@ function emptyActiveBufferSnapshot(): ActiveBufferSnapshot {
     timeShareRange: null,
     timeSharePreClose: null,
   })
+}
+
+/** 写入活动数据时由 State 分配 revision，调用方不能伪造。 */
+type ActiveBufferSnapshotInput = Omit<ActiveBufferSnapshot, 'dataRevision'>
+
+/** 在保留判别联合类型的前提下，为外部快照分配 data revision。 */
+function snapshotWithRevision(
+  snapshot: ActiveBufferSnapshotInput,
+  dataRevision: number,
+): ActiveBufferSnapshot {
+  return Object.freeze({ ...snapshot, dataRevision }) as ActiveBufferSnapshot
 }
 
 function snapshotSymbols(symbols: ReadonlyArray<SymbolSpec>): ReadonlyArray<SymbolSpec> {
@@ -69,7 +84,8 @@ export function createDataState(_deps: DataDeps = {}) {
       activeSelection: (s) => s.activeBuffer().selection,
       timeShareRange: (s) => s.activeBuffer().timeShareRange,
       timeSharePreClose: (s) => s.activeBuffer().timeSharePreClose,
-      dataLength: (s) => s.activeBuffer().data.length,
+       dataLength: (s) => s.activeBuffer().data.length,
+       dataRevision: (s) => s.activeBuffer().dataRevision,
     },
   )
 
@@ -86,8 +102,12 @@ export function createDataState(_deps: DataDeps = {}) {
       },
 
       /** 发布完整活动 Buffer 快照，避免缓冲切换中间态。 */
-      applyActiveBufferSnapshot(snapshot: ActiveBufferSnapshot) {
-        batch(() => signals.activeBuffer.set(Object.freeze({ ...snapshot })))
+      applyActiveBufferSnapshot(snapshot: ActiveBufferSnapshotInput) {
+        const previous = readonly.activeBuffer.peek()
+        const dataChanged =
+          previous.selection !== snapshot.selection || previous.data !== snapshot.data
+        const dataRevision = dataChanged ? previous.dataRevision + 1 : previous.dataRevision
+        batch(() => signals.activeBuffer.set(snapshotWithRevision(snapshot, dataRevision)))
       },
 
       reset() {

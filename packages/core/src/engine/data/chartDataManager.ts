@@ -61,7 +61,7 @@ export interface DataDependencies {
   scheduleDraw: (level?: UpdateLevel) => void
   resetInteraction: () => void
   getIndicatorScheduler: () => {
-    update: (data: KLineData[], range: VisibleRange) => boolean
+    update: (data: KLineData[], range: VisibleRange, dataRevision?: number) => boolean
     busySignal: ReadonlySignal<boolean>
   }
   isPointerDown: () => boolean
@@ -501,7 +501,11 @@ export class ChartDataManager {
     }
     if (currentRange) {
       const scheduler = this.deps.getIndicatorScheduler()
-      const indicatorsReady = scheduler.update(bufferData, currentRange)
+      const indicatorsReady = scheduler.update(
+        bufferData,
+        currentRange,
+        this._dataState.readonly.dataRevision.peek(),
+      )
       if (indicatorsReady) {
         this.deps.scheduleDraw()
         this.deps.onDataProcessed?.(bufferData, currentRange)

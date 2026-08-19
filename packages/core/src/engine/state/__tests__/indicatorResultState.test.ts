@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import type { IndicatorSeriesBundle } from '../../indicators/workerProtocol'
-import { createIndicatorResultState } from '../indicatorResultState'
+import { createIndicatorResultState, resolveIndicatorResultAvailability } from '../indicatorResultState'
 
 /** 创建满足状态边界测试的最小结果包。 */
 function bundle(): IndicatorSeriesBundle {
@@ -118,5 +118,16 @@ describe('indicatorResultState', () => {
       status: 'computing',
       requestId: 2,
     })
+  })
+
+  it('reports stale until the committed revisions match the current Kernel state', () => {
+    const state = createIndicatorResultState()
+    state.actions.beginCalculation(input)
+    state.actions.commitResults({ ...input, bundle: bundle(), renderStates: new Map() })
+
+    expect(resolveIndicatorResultAvailability(state.readonly.snapshot.peek(), 7, 3)).toBe('ready')
+    expect(resolveIndicatorResultAvailability(state.readonly.snapshot.peek(), 8, 3)).toBe('stale')
+    state.actions.beginCalculation({ requestId: 2, dataVersion: 8, configVersion: 3 })
+    expect(resolveIndicatorResultAvailability(state.readonly.snapshot.peek(), 8, 3)).toBe('computing')
   })
 })

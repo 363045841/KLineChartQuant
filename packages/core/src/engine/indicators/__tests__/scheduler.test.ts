@@ -968,6 +968,21 @@ describe('EMPTY_RSI_STATE', () => {
 })
 
 describe('IndicatorScheduler failure handling', () => {
+  it('commits Kernel data and config revisions instead of local counters', () => {
+    const resultState = createIndicatorResultState()
+    const scheduler = new IndicatorScheduler(resultState)
+    scheduler.setConfigRevisionProvider(() => 19)
+    registerTestIndicators(scheduler)
+
+    scheduler.update(createTestData(10), { start: 0, end: 10 }, 41)
+
+    expect(resultState.readonly.snapshot.peek().committed).toMatchObject({
+      dataVersion: 41,
+      configVersion: 19,
+    })
+    scheduler.destroy()
+  })
+
   it('records inline failures and does not reset an injected result state on destroy', () => {
     const resultState = createIndicatorResultState()
     const scheduler = new IndicatorScheduler(resultState)

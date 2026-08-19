@@ -166,6 +166,7 @@ export class IndicatorScheduler {
   // 版本控制
   private dataVersion = 0
   private configVersion = 0
+  private getConfigRevision: (() => number) | null = null
   private requestId = 0
   private lastAppliedRequestId = 0
   private activeRequestId = 0
@@ -365,6 +366,12 @@ export class IndicatorScheduler {
     this.onResultsAppliedCallback = null
     this.legacyPluginHost = null
     if (this.ownsResultState) this.resultState.dispose()
+  }
+
+  /** 注入 Kernel 指标配置 revision，作为计算结果的配置来源身份。 */
+  setConfigRevisionProvider(provider: () => number): void {
+    this.getConfigRevision = provider
+    this.configVersion = provider()
   }
 
   // ============================================================================
@@ -723,10 +730,11 @@ export class IndicatorScheduler {
   /**
    * 数据变更时调用
    */
-  update(data: KLineData[], visibleRange: VisibleRange): boolean {
+  update(data: KLineData[], visibleRange: VisibleRange, dataRevision?: number): boolean {
     this.currentData = data
     this.visibleRange = visibleRange
-    this.dataVersion++
+    this.dataVersion = dataRevision ?? this.dataVersion + 1
+    if (this.getConfigRevision) this.configVersion = this.getConfigRevision()
 
     if (this.useWorker && this.worker && this.workerReady) {
       this.computeWithWorker()
@@ -776,7 +784,7 @@ export class IndicatorScheduler {
       ...((this.configSnapshot as any)[configKey] ?? {}),
       ...config,
     }
-    this.configVersion++
+    this.configVersion = this.getConfigRevision?.() ?? this.configVersion + 1
     this.triggerRecompute()
   }
 

@@ -35,6 +35,8 @@ import { createMarkerState, type MarkerStateModule } from './markerState'
 import { createRendererState, type RendererStateModule } from './rendererState'
 import {
   createIndicatorResultState,
+  resolveIndicatorResultAvailability,
+  type IndicatorResultAvailability,
   type IndicatorResultStateModule,
 } from './indicatorResultState'
 import { batch, computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
@@ -205,6 +207,8 @@ export class ChartStateKernel extends StateKernel {
   }>
   /** 分时交易时段槽位数（由当前品种 market 派生，供可见区间与布局共用） */
   readonly sessionSlots$: ReadonlySignal<number>
+  /** 指标结果相对于当前数据和配置快照的可用性。 */
+  readonly indicatorResultAvailability$: ReadonlySignal<IndicatorResultAvailability>
 
   readonly signals: Record<string, ReadonlySignal<unknown>>
   readonly actions: Record<string, (...args: any[]) => void>
@@ -256,6 +260,13 @@ export class ChartStateKernel extends StateKernel {
     // ── Indicator state ──
     this.indicator = createIndicatorState()
     this.indicatorResult = createIndicatorResultState()
+    this.indicatorResultAvailability$ = computed(() =>
+      resolveIndicatorResultAvailability(
+        this.indicatorResult.readonly.snapshot(),
+        this.data.readonly.dataRevision(),
+        this.indicator.readonly.configRevision(),
+      ),
+    )
 
     // ── Marker business state ──
     this.marker = createMarkerState()
@@ -369,7 +380,8 @@ export class ChartStateKernel extends StateKernel {
       comparisonLoading: this.comparison.readonly.loading,
       // Indicator
       subPanes: this.indicator.readonly.subPanes,
-      indicatorResult: this.indicatorResult.readonly.snapshot,
+       indicatorResult: this.indicatorResult.readonly.snapshot,
+       indicatorResultAvailability: this.indicatorResultAvailability$,
       // Marker
       customMarkers: this.marker.readonly.customMarkers,
     }

@@ -34,6 +34,33 @@ export interface IndicatorResultSnapshot {
   readonly committed: CommittedIndicatorResult | null
 }
 
+/** 指标结果相对于当前 Kernel 数据和配置的可用性。 */
+export type IndicatorResultAvailability = 'ready' | 'computing' | 'stale' | 'error'
+
+/** 根据当前数据与配置 revision 判断结果是否可作为当前盘面结果使用。 */
+export function resolveIndicatorResultAvailability(
+  snapshot: IndicatorResultSnapshot,
+  dataRevision: number,
+  configRevision: number,
+): IndicatorResultAvailability {
+  const { attempt, committed } = snapshot
+  if (
+    attempt.status === 'error' &&
+    attempt.dataVersion === dataRevision &&
+    attempt.configVersion === configRevision
+  ) return 'error'
+  if (
+    attempt.status === 'computing' &&
+    attempt.dataVersion === dataRevision &&
+    attempt.configVersion === configRevision
+  ) return 'computing'
+  if (
+    committed?.dataVersion === dataRevision &&
+    committed.configVersion === configRevision
+  ) return 'ready'
+  return 'stale'
+}
+
 /** 创建初始计算尝试。 */
 function emptyAttempt(): IndicatorCalculationAttempt {
   return Object.freeze({
