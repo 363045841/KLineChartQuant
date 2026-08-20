@@ -203,9 +203,7 @@
   import { useTeleportedPopup } from '../composables/useTeleportedPopup'
 
   import AggregationSourceButton from './AggregationSourceButton.vue'
-  import AggregationSourceTabs, {
-    type AggregationSourceTabItem,
-  } from './AggregationSourceTabs.vue'
+  import AggregationSourceTabs, { type AggregationSourceTabItem } from './AggregationSourceTabs.vue'
   import type { SymbolItem } from './SymbolSelector.vue'
 
   const props = withDefaults(
@@ -334,7 +332,9 @@
   function onDocumentClick(e: MouseEvent) {
     const root = rootRef.value
     const popup = popupRef.value
-    if (root && !root.contains(e.target as Node) && !popup?.contains(e.target as Node)) {
+    // Shadow DOM 会将 document 监听器看到的 target 重定向为 Custom Element 宿主。
+    const path = e.composedPath()
+    if (root && !path.includes(root) && (!popup || !path.includes(popup))) {
       showPopup.value = false
       searchQuery.value = ''
     }

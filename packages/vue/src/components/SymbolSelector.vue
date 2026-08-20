@@ -307,7 +307,9 @@
   function onDocumentClick(e: MouseEvent) {
     const chip = chipWrapRef.value
     const popup = popupRef.value
-    if (chip && !chip.contains(e.target as Node) && !popup?.contains(e.target as Node)) {
+    // Shadow DOM 会将 document 监听器看到的 target 重定向为 Custom Element 宿主。
+    const path = e.composedPath()
+    if (chip && !path.includes(chip) && (!popup || !path.includes(popup))) {
       showPopup.value = false
     }
   }

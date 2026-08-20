@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { KLineChartWC, type KLineChartWCProps } from '../src/KLineChartWC'
-import '@363045841yyt/klinechart/web-component'
 
 const SIZES = [
   { w: '95%', h: '95%' },

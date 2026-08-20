@@ -22,6 +22,7 @@ const decoratorTransform = babel({
 
 const root = fileURLToPath(new URL('../../..', import.meta.url))
 const coreSrc = `${root}/packages/core/src`
+const vueRuntime = `${root}/packages/vue/node_modules/vue/dist/vue.esm-bundler.js`
 
 export default defineConfig({
   root: fileURLToPath(new URL('.', import.meta.url)),
@@ -38,6 +39,7 @@ export default defineConfig({
         find: /^@363045841yyt\/klinechart\/web-component$/,
         replacement: `${root}/packages/vue/src/web-component.ts`,
       },
+      { find: /^vue$/, replacement: vueRuntime },
     ],
   },
 })

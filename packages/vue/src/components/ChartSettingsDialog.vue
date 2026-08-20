@@ -416,6 +416,8 @@
 
   /* 扁平化列表项 */
   .settings-item {
+    /* 组件库不能依赖宿主的全局 box-sizing reset，40px 包含垂直内边距。 */
+    box-sizing: border-box;
     display: flex;
     align-items: center;
     justify-content: space-between;

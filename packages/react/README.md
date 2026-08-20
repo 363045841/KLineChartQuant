@@ -64,17 +64,15 @@ npm install @363045841yyt/klinechart-react
 ### Basic Usage
 
 ```tsx
-import { KLineChart } from '@363045841yyt/klinechart-react'
-import type { ChartSettings } from '@363045841yyt/klinechart-core'
+import { KLineChartWC } from '@363045841yyt/klinechart-react'
+import type { SemanticChartConfig } from '@363045841yyt/klinechart-react'
 
 function App() {
-  return (
-    <KLineChart
-      theme="dark"
-      customData={demoData}
-      settings={chartSettings}
-    />
-  )
+  const semanticConfig: SemanticChartConfig = {
+    data: { type: 'kline' },
+  }
+
+  return <KLineChartWC semanticConfig={semanticConfig} zoomLevels={12} />
 }
 ```
 

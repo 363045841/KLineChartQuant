@@ -1,7 +1,7 @@
 {
   "name": "@363045841yyt/klinechart-react",
   "version": "0.0.0",
-  "description": "React bindings for @363045841yyt/klinechart-core. Idiomatic hooks, SSR-safe, tree-shakable.",
+  "description": "React adapter for the @363045841yyt/klinechart Web Component.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -48,6 +48,9 @@
   "peerDependencies": {
     "@363045841yyt/klinechart-core": "workspace:*",
     "react": "^18.0.0 || ^19.0.0"
+  },
+  "dependencies": {
+    "@363045841yyt/klinechart": "workspace:*"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.3",

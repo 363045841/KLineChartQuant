@@ -401,6 +401,9 @@ importers:
 
   packages/react:
     dependencies:
+      '@363045841yyt/klinechart':
+        specifier: workspace:*
+        version: link:../vue
       '@363045841yyt/klinechart-core':
         specifier: workspace:*
         version: link:../core
