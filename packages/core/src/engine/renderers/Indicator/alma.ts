@@ -75,7 +75,7 @@ function createALMARendererPlugin(options: ALMARendererOptions = {}): RendererPl
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<ALMARenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<ALMARenderState>(stateKey)
       if (!state || !state.params.showALMA || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -114,7 +114,10 @@ function createALMARendererPlugin(options: ALMARendererOptions = {}): RendererPl
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<ALMARenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<ALMARenderState>(stateKey)
       return state?.params ?? {}
     },
 

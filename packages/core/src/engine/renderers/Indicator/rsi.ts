@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   RendererPluginWithHost,
   RenderContext,
   PluginHost,
@@ -202,7 +203,7 @@ function createRSIRendererPlugin(options: RSIRendererOptions = {}): RendererPlug
       // 从 StateStore 读取 RSI 状态
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<RSIRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<RSIRenderState>(stateKey)
 
       // 无有效数据时跳过渲染
       if (!state || state.visibleMin > state.visibleMax) {
@@ -319,7 +320,10 @@ function createRSIRendererPlugin(options: RSIRendererOptions = {}): RendererPlug
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<RSIRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<RSIRenderState>(stateKey)
       return state ? { ...state.params } : {}
     },
 
@@ -390,7 +394,7 @@ function getRSITitleInfo(
   _data: KLineData[],
   index: number | null,
   params: Record<string, number | boolean | string>,
-  pluginHost: PluginHost,
+  stateReader: IndicatorRenderStateReader,
   paneId: string,
   colors: ColorTokens,
 ): {
@@ -403,7 +407,7 @@ function getRSITitleInfo(
   const period2 = (params.period2 as number) ?? 12
   const period3 = (params.period3 as number) ?? 24
   const stateKey = createRSIStateKey(paneId)
-  const state = pluginHost.getSharedState<RSIRenderState>(stateKey)
+  const state = stateReader.get<RSIRenderState>(stateKey)
 
   if (!state) return null
 

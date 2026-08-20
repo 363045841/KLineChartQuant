@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   RendererPluginWithHost,
   RenderContext,
   PluginHost,
@@ -16,6 +17,7 @@ import {
   EMPTY_GMMA_STATE,
   GMMA_LONG_PERIODS,
   GMMA_SHORT_PERIODS,
+  createGMMAStateKey,
   type GMMARenderState,
 } from '../../indicators/state/gmmaState'
 import { createFixedRangeRecordVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -92,16 +94,13 @@ function getGMMATitleInfo(
   _data: KLineData[],
   index: number | null,
   _params: Record<string, number | boolean | string>,
-  pluginHost: PluginHost,
+  stateReader: IndicatorRenderStateReader,
   paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
 
-  const stateKey = getGMMAStateKey(pluginHost, paneId)
-  if (!stateKey) return null
-
-  const state = pluginHost?.getSharedState<GMMARenderState>(stateKey)
+  const state = stateReader.get<GMMARenderState>(createGMMAStateKey(paneId))
   if (!state || state.visibleMin > state.visibleMax) return null
 
   const gmmaColors = getGMMAColors(colors)
@@ -192,7 +191,7 @@ export function createGMMARendererPlugin(
       const gmmaColors = getGMMAColors(colors)
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<GMMARenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<GMMARenderState>(stateKey)
 
       if (!state || !state.params.showGMMA || state.visibleMin > state.visibleMax) {
         clearCache()
@@ -270,7 +269,10 @@ export function createGMMARendererPlugin(
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<GMMARenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<GMMARenderState>(stateKey)
       return state?.params ?? {}
     },
 

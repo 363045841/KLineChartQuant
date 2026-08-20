@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   RendererPluginWithHost,
   RenderContext,
   PluginHost,
@@ -69,7 +70,7 @@ function createVolumeProfileRendererPlugin(
       )
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<VolumeProfileRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<VolumeProfileRenderState>(stateKey)
       if (!state) return
       const { bins, poc, vah, val, totalVolume } = state.series
       if (bins.length === 0 || totalVolume <= 0) return
@@ -125,7 +126,10 @@ function createVolumeProfileRendererPlugin(
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<VolumeProfileRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<VolumeProfileRenderState>(stateKey)
       return state?.params ?? {}
     },
     setConfig() {},
@@ -136,13 +140,13 @@ function getVolumeProfileTitleInfo(
   _data: KLineData[],
   index: number | null,
   params: Record<string, number | boolean | string>,
-  host: PluginHost,
+  stateReader: IndicatorRenderStateReader,
   paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
   const bins = (params.bins as number) ?? 24
-  const state = host.getSharedState<VolumeProfileRenderState>(createVolumeProfileStateKey(paneId))
+  const state = stateReader.get<VolumeProfileRenderState>(createVolumeProfileStateKey(paneId))
   const vp = state?.series
 
   const values: Array<{ label: string; value: number; color: string }> = []

@@ -736,6 +736,7 @@ export class ChartRenderer {
     const sharedXAxisLabels: XAxisLabel[] = []
     const sharedYAxisRanges: YAxisRange[] = []
     const sharedXAxisRanges: XAxisRange[] = []
+    const indicatorStateReader = this.deps.getIndicatorManager().createRenderStateReader()
 
     const dataManager = this.deps.getDataManager()
     const mode = this.deps.getActiveMode()
@@ -849,6 +850,7 @@ export class ChartRenderer {
         kLinePositions,
         kLineCenters,
         kBarRects,
+        indicatorStateReader,
         markerManager: this.markerManager,
         crosshairIndex: this.deps.getInteraction().getCrosshairIndex(),
         yAxisCtx: yAxisCtx ?? undefined,
@@ -874,8 +876,8 @@ export class ChartRenderer {
         xAxisRanges: sharedXAxisRanges,
         theme: this.deps.theme$.peek(),
         isAsiaMarket: this.settings.isAsiaMarket as boolean,
-        colorPresetSettings: this.settings.colorPresetSettings,
-        monthKeys: dataManager.getMonthKeys() ?? undefined,
+         colorPresetSettings: this.settings.colorPresetSettings,
+         monthKeys: dataManager.getMonthKeys() ?? undefined,
         dayKeys: dataManager.getDayKeys() ?? undefined,
       }
 

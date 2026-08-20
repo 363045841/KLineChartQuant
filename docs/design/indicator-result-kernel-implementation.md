@@ -27,8 +27,8 @@
 4. Scheduler 开始计算时调用 `beginCalculation()`，计算完成后调用
    `commitResults()`。
 5. Scheduler 不再把 Chart 运行路径中的指标结果直接写入 PluginHost `StateStore`。
-6. `PluginHostImpl` 增加只读 resolver；renderer 继续调用 `getSharedState()`，指标
-   stateKey 命中时实际读取 Kernel 中的 `renderStates`。
+6. `ChartRenderer` 为每帧创建 `IndicatorRenderStateReader`，renderer 通过
+   `RenderContext` 读取绑定快照中的 `renderStates`。
 7. 结果提交后 Scheduler 调用 invalidate callback，由 Chart 安排下一帧绘制。
 8. 可见范围变化只重建 `renderStates`，不重新执行 Worker，也不增加
    `resultVersion`。
@@ -44,8 +44,8 @@ K 线 / 指标配置变化
   -> composeRenderStates
   -> indicatorResult.actions.commitResults
   -> invalidate callback / scheduleDraw
-  -> 下一帧 Renderer 调用 PluginHost.getSharedState
-  -> resolver 从 kernel.indicatorResult.snapshot.renderStates 读取
+  -> 下一帧 Renderer 从 RenderContext.indicatorStateReader 读取
+  -> 当前帧绑定的 kernel.indicatorResult.snapshot.renderStates
 ```
 
 ## 3. 核心设计原则
@@ -239,26 +239,19 @@ kernel.viewport.visibleRange changed
 - Renderer 使用定时器轮询 Scheduler；
 - Renderer 读取 Scheduler 私有字段。
 
-### 7.2 当前兼容读取路径
+### 7.2 已完成的帧读取路径
 
-当前 renderer 仍使用：
-
-```ts
-pluginHost.getSharedState(stateKey)
-```
-
-Chart 安装的 resolver 会优先执行：
+指标 renderer 现在使用：
 
 ```ts
-kernel.indicatorResult.readonly.snapshot.peek().renderStates.get(stateKey)
+context.indicatorStateReader?.get(stateKey)
 ```
 
-未命中时回退到 PluginHost `StateStore`。该设计允许现有几十个 renderer 暂不修改，完成
-事实源切换后再逐步迁移读取接口。
+读取器在帧开始时绑定已提交的 `renderStates` 快照，所有 renderer 在同一帧共享同一版本。
 
 ### 7.3 最终读取路径
 
-PluginHost resolver 是迁移适配层，最终建议 renderer 依赖窄接口：
+renderer 依赖的窄接口为：
 
 ```ts
 interface IndicatorRenderStateReader {
@@ -360,10 +353,10 @@ getIndicatorValues(input: {
 
 ### 阶段 C：收紧 Renderer 边界
 
-- [ ] 为 frame context 增加 `IndicatorRenderStateReader`。
-- [ ] renderer 从 frame 绑定快照读取，不再直接依赖 PluginHost resolver。
-- [ ] 删除 Chart 路径中的指标 StateStore 兼容逻辑。
-- [ ] 保留非指标插件 StateStore。
+- [x] 为 frame context 增加 `IndicatorRenderStateReader`。
+- [x] renderer 从 frame 绑定快照读取，不再直接依赖 PluginHost resolver。
+- [x] 删除 Chart 路径中的指标 StateStore 兼容逻辑。
+- [x] 保留非指标插件 StateStore。
 
 ### 阶段 D：增加稳定查询模型
 
@@ -397,7 +390,7 @@ getIndicatorValues(input: {
 - commit 前 renderer 读取旧 committed 结果；
 - commit 后只在下一帧读取新结果；
 - 同一帧多个 renderer 读取同一 result/projection version；
-- resolver 未命中时仍可读取非指标插件 StateStore；
+- 指标 renderer 不读取 PluginHost，非指标插件仍可读取 StateStore；
 - Chart 路径不再产生指标 StateStore 双写。
 
 ### Agent 查询测试

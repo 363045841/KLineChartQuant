@@ -64,6 +64,10 @@ function createMockPluginHost(state?: BOLLRenderState): PluginHost {
             return undefined
           },
           getAllIndicators: () => [],
+          createRenderStateReader: () => ({
+            get: <T>(key: string): T | undefined =>
+              key === BOLL_STATE_KEY ? (state as T) : undefined,
+          }),
         } as T
       }
       return undefined
@@ -123,6 +127,12 @@ function createMockRenderContext(
     period: 'daily',
     ...overrides,
   } as RenderContext
+}
+
+function createMockIndicatorStateReader(state?: BOLLRenderState) {
+  return {
+    get: vi.fn(<T>(key: string): T | undefined => (key === BOLL_STATE_KEY ? (state as T) : undefined)),
+  }
 }
 
 function createTestBOLLState(overrides: Partial<BOLLRenderState> = {}): BOLLRenderState {
@@ -195,7 +205,9 @@ describe('BOLL renderer draw', () => {
     plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx)
+    const context = createMockRenderContext(ctx, {
+      indicatorStateReader: createMockIndicatorStateReader(state),
+    })
     plugin.draw(context)
 
     expect(ctx.beginPath).not.toHaveBeenCalled()
@@ -208,11 +220,14 @@ describe('BOLL renderer draw', () => {
     plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx)
+    const reader = createMockIndicatorStateReader(state)
+    const context = createMockRenderContext(ctx, { indicatorStateReader: reader })
     plugin.draw(context)
 
     expect(ctx.save).toHaveBeenCalledTimes(1)
     expect(ctx.restore).toHaveBeenCalledTimes(1)
+    expect(reader.get).toHaveBeenCalledWith(BOLL_STATE_KEY)
+    expect(mockHost.getSharedState).not.toHaveBeenCalled()
   })
 
   it('should draw upper line when showUpper is true', () => {
@@ -223,7 +238,9 @@ describe('BOLL renderer draw', () => {
     plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx)
+    const context = createMockRenderContext(ctx, {
+      indicatorStateReader: createMockIndicatorStateReader(state),
+    })
     plugin.draw(context)
 
     // Should have at least one stroke call for the lines
@@ -236,7 +253,9 @@ describe('BOLL renderer draw', () => {
     plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx)
+    const context = createMockRenderContext(ctx, {
+      indicatorStateReader: createMockIndicatorStateReader(state),
+    })
     plugin.draw(context)
 
     // Verify strokeStyle was set (for lines)
@@ -253,7 +272,10 @@ describe('BOLL renderer draw', () => {
     plugin = createBOLLRendererPlugin() as TestableBOLLRenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx, { range: { start: 0, end: 25 } })
+    const context = createMockRenderContext(ctx, {
+      range: { start: 0, end: 25 },
+      indicatorStateReader: createMockIndicatorStateReader(state),
+    })
 
     expect(() => plugin.draw(context)).not.toThrow()
   })

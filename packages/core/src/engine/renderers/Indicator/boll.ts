@@ -133,16 +133,13 @@ const getBOLLTitleInfo: GetTitleInfoFn = (
   _data: KLineData[],
   index: number | null,
   _params: Record<string, number | boolean | string>,
-  pluginHost: PluginHost,
+  stateReader,
   _paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null => {
   if (index === null) return null
 
-  const stateKey = getBOLLStateKey(pluginHost)
-  if (!stateKey) return null
-
-  const state = pluginHost?.getSharedState<BOLLRenderState>(stateKey)
+  const state = stateReader.get<BOLLRenderState>(BOLL_STATE_KEY)
   if (!state || state.visibleMin > state.visibleMax) return null
 
   const bollPoint = state.series[index]
@@ -238,7 +235,7 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<BOLLRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<BOLLRenderState>(stateKey)
       if (!state || state.visibleMin > state.visibleMax || state.series.length === 0) {
         return
       }
@@ -342,7 +339,10 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<BOLLRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<BOLLRenderState>(stateKey)
       return state ? { ...state.params } : {}
     },
 

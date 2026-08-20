@@ -86,7 +86,7 @@ function createSMMARendererPlugin(options: SMMARendererOptions = {}): RendererPl
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<SMMARenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<SMMARenderState>(stateKey)
       if (!state || !state.params.showSMMA || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -127,7 +127,10 @@ function createSMMARendererPlugin(options: SMMARendererOptions = {}): RendererPl
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<SMMARenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<SMMARenderState>(stateKey)
       return state?.params ?? {}
     },
 

@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   RendererPluginWithHost,
   RenderContext,
   PluginHost,
@@ -73,7 +74,7 @@ function createTRIXRendererPlugin(options: TRIXRendererOptions = {}): RendererPl
       const signalColor = colors.palette.i2
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<TRIXRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<TRIXRenderState>(stateKey)
       if (!state || state.visibleMin > state.visibleMax) return
       const { showTRIX, showSignal } = state.params
       if (!showTRIX && !showSignal) return
@@ -139,7 +140,10 @@ function createTRIXRendererPlugin(options: TRIXRendererOptions = {}): RendererPl
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<TRIXRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<TRIXRenderState>(stateKey)
       return state?.params ?? {}
     },
     setConfig() {},
@@ -159,14 +163,14 @@ function getTRIXTitleInfo(
   _data: KLineData[],
   index: number | null,
   params: Record<string, number | boolean | string>,
-  pluginHost: PluginHost,
+  stateReader: IndicatorRenderStateReader,
   paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
   const period = (params.period as number) ?? 15
   const signalPeriod = (params.signalPeriod as number) ?? 9
-  const state = pluginHost.getSharedState<TRIXRenderState>(createTRIXStateKey(paneId))
+  const state = stateReader.get<TRIXRenderState>(createTRIXStateKey(paneId))
   if (!state) return null
 
   const values: Array<{ label: string; value: number; color: string }> = []

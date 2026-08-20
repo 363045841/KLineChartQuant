@@ -4,6 +4,7 @@ import type {
   RendererPlugin,
   RendererPluginWithHost,
   RenderContext,
+  IndicatorRenderStateReader,
 } from '../../foundation/plugin/index'
 import {
   computed,
@@ -253,6 +254,11 @@ export class ChartIndicatorManager {
 
   get indicatorSchedulerAccessor(): IndicatorScheduler {
     return this.indicatorScheduler
+  }
+
+  /** 创建绑定当前指标结果版本的帧级读取器。 */
+  createRenderStateReader(): IndicatorRenderStateReader {
+    return this.indicatorScheduler.createRenderStateReader()
   }
 
   get subPaneManagerAccessor(): SubPaneManager {

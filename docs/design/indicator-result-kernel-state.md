@@ -19,7 +19,9 @@ Scheduler 只持有 Worker、Inline Runtime、请求序号和计算输入等执�
 
 ## 渲染链路
 
-Chart 为 PluginHost 安装只读 resolver。renderer 继续调用 `getSharedState(stateKey)`，但指标 stateKey 命中时从 `kernel.indicatorResult.snapshot.renderStates` 读取。其他插件状态仍回退到 PluginHost StateStore。
+ChartRenderer 在每帧开始时创建 `IndicatorRenderStateReader`，并通过 `RenderContext` 传给
+renderer。renderer 按 `stateKey` 读取当前帧绑定的 `renderStates` 快照。PluginHost
+`StateStore` 只用于非指标插件和独立 Scheduler 的兼容投影。
 
 Kernel 状态提交后由 Scheduler 调用 `scheduleDraw`。Renderer 在下一帧读取结果快照，因此同一帧内的指标渲染使用同一版本。
 

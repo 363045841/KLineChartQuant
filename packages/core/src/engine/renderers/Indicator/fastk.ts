@@ -114,7 +114,7 @@ function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): Renderer
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<FASTKRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<FASTKRenderState>(stateKey)
       if (!state || state.visibleMin > state.visibleMax) {
         clearLineCache()
         return
@@ -174,7 +174,10 @@ function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): Renderer
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<FASTKRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<FASTKRenderState>(stateKey)
       return state?.params ?? {}
     },
 

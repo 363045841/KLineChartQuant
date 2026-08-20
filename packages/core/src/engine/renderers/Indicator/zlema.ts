@@ -80,7 +80,7 @@ function createZLEMARendererPlugin(options: ZLEMARendererOptions = {}): Renderer
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<ZLEMARenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<ZLEMARenderState>(stateKey)
       if (!state || !state.params.showZLEMA || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -119,7 +119,10 @@ function createZLEMARendererPlugin(options: ZLEMARendererOptions = {}): Renderer
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<ZLEMARenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<ZLEMARenderState>(stateKey)
       return state?.params ?? {}
     },
 

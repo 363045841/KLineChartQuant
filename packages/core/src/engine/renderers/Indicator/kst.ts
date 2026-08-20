@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   RendererPluginWithHost,
   RenderContext,
   PluginHost,
@@ -119,7 +120,7 @@ function createKSTRendererPlugin(options: KSTRendererOptions = {}): RendererPlug
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<KSTRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<KSTRenderState>(stateKey)
       if (!state || state.visibleMin > state.visibleMax) {
         clearLineCache()
         return
@@ -213,7 +214,10 @@ function createKSTRendererPlugin(options: KSTRendererOptions = {}): RendererPlug
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<KSTRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<KSTRenderState>(stateKey)
       return state?.params ?? {}
     },
 
@@ -272,7 +276,7 @@ function getKSTTitleInfo(
   _data: KLineData[],
   index: number | null,
   params: Record<string, number | boolean | string>,
-  pluginHost: PluginHost,
+  stateReader: IndicatorRenderStateReader,
   paneId: string,
   colors: ColorTokens,
 ): {
@@ -286,7 +290,7 @@ function getKSTTitleInfo(
   const roc3 = (params.roc3 as number) ?? 20
   const roc4 = (params.roc4 as number) ?? 30
   const signalPeriod = (params.signalPeriod as number) ?? 9
-  const state = pluginHost.getSharedState<KSTRenderState>(createKSTStateKey(paneId))
+  const state = stateReader.get<KSTRenderState>(createKSTStateKey(paneId))
   if (!state) return null
 
   const point = state.series[index]

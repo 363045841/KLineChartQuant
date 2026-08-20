@@ -62,7 +62,7 @@ function createOBVRendererPlugin(options: { paneId?: string } = {}): RendererPlu
       )
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<OBVRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<OBVRenderState>(stateKey)
       if (!state || !state.params.showOBV || state.visibleMin > state.visibleMax) return
 
       const { valueMin, valueMax, series } = state
@@ -106,7 +106,10 @@ function createOBVRendererPlugin(options: { paneId?: string } = {}): RendererPlu
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<OBVRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<OBVRenderState>(stateKey)
       return state?.params ?? {}
     },
     setConfig() {},

@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   RendererPluginWithHost,
   RenderContext,
   PluginHost,
@@ -65,7 +66,7 @@ function createStructureRendererPlugin(options: { paneId?: string } = {}): Rende
       )
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<StructureRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<StructureRenderState>(stateKey)
       if (!state) return
       const params = state.params
       const { swings, events } = state.series
@@ -130,7 +131,10 @@ function createStructureRendererPlugin(options: { paneId?: string } = {}): Rende
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<StructureRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<StructureRenderState>(stateKey)
       return state?.params ?? {}
     },
     setConfig() {},
@@ -141,14 +145,14 @@ function getStructureTitleInfo(
   _data: KLineData[],
   index: number | null,
   params: Record<string, number | boolean | string>,
-  host: PluginHost,
+  stateReader: IndicatorRenderStateReader,
   paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
   const leftWindow = (params.leftWindow as number) ?? 5
   const rightWindow = (params.rightWindow as number) ?? 2
-  const state = host.getSharedState<StructureRenderState>(createStructureStateKey(paneId))
+  const state = stateReader.get<StructureRenderState>(createStructureStateKey(paneId))
 
   const values: Array<{ label: string; value: number; color: string }> = []
   if (state && state.series.swings.length > 0) {

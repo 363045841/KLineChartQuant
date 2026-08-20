@@ -69,7 +69,7 @@ function createDMARendererPlugin(options: DMARendererOptions = {}): RendererPlug
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<DMARenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<DMARenderState>(stateKey)
       if (!state || !state.params.showDMA || state.visibleMin > state.visibleMax) return
 
       // 从稀疏点数组逐点收集 DIF/AMA 折线
@@ -134,7 +134,10 @@ function createDMARendererPlugin(options: DMARendererOptions = {}): RendererPlug
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<DMARenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<DMARenderState>(stateKey)
       return state?.params ?? {}
     },
 
@@ -144,10 +147,10 @@ function createDMARendererPlugin(options: DMARendererOptions = {}): RendererPlug
   }
 }
 
-const getDMATitleInfo: GetTitleInfoFn = (_data, index, _params, pluginHost, paneId, colors) => {
+const getDMATitleInfo: GetTitleInfoFn = (_data, index, _params, stateReader, paneId, colors) => {
   if (index === null) return null
   const key = createDMAStateKey(paneId)
-  const state = pluginHost.getSharedState<DMARenderState>(key)
+  const state = stateReader.get<DMARenderState>(key)
   if (!state) return null
   const p = state.series[index]
   if (!p) return null

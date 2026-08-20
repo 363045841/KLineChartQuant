@@ -80,7 +80,7 @@ function createFibRendererPlugin(options: { paneId?: string } = {}): RendererPlu
       )
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<FibRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<FibRenderState>(stateKey)
       if (!state || !state.params.showLevels || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -136,7 +136,12 @@ function createFibRendererPlugin(options: { paneId?: string } = {}): RendererPlu
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      return pluginHost?.getSharedState<FibRenderState>(stateKey)?.params ?? {}
+      return (
+        pluginHost
+          ?.getService<IndicatorScheduler>('indicatorScheduler')
+          ?.createRenderStateReader()
+          .get<FibRenderState>(stateKey)?.params ?? {}
+      )
     },
     setConfig() {},
   }
@@ -151,11 +156,11 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
   ctx.stroke()
 }
 
-const getFibTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId, colors) => {
+const getFibTitleInfo: GetTitleInfoFn = (_data, index, _params, stateReader, paneId, colors) => {
   if (index === null || index < 0) return null
 
   const stateKey = createFibStateKey(paneId)
-  const state = host?.getSharedState<FibRenderState>(stateKey)
+  const state = stateReader.get<FibRenderState>(stateKey)
   if (!state) return null
 
   const p = state.series[index]

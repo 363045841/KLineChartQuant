@@ -82,7 +82,7 @@ function createFRAMARendererPlugin(options: FRAMARendererOptions = {}): Renderer
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<FRAMARenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<FRAMARenderState>(stateKey)
       if (!state || !state.params.showFRAMA || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -122,7 +122,10 @@ function createFRAMARendererPlugin(options: FRAMARendererOptions = {}): Renderer
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<FRAMARenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<FRAMARenderState>(stateKey)
       return state?.params ?? {}
     },
 

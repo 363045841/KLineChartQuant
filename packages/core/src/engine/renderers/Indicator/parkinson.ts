@@ -64,7 +64,7 @@ function createParkinsonRendererPlugin(options: { paneId?: string } = {}): Rende
       )
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<ParkinsonRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<ParkinsonRenderState>(stateKey)
       if (!state || !state.params.showParkinson || state.visibleMin > state.visibleMax) return
 
       const { valueMin, valueMax, series } = state
@@ -108,7 +108,10 @@ function createParkinsonRendererPlugin(options: { paneId?: string } = {}): Rende
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<ParkinsonRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<ParkinsonRenderState>(stateKey)
       return state?.params ?? {}
     },
     setConfig() {},

@@ -201,7 +201,7 @@ function createDPORendererPlugin(options: DPORendererOptions = {}): RendererPlug
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<DPORenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<DPORenderState>(stateKey)
       if (!state || state.visibleMin > state.visibleMax) {
         clearLineCache()
         return
@@ -269,7 +269,10 @@ function createDPORendererPlugin(options: DPORendererOptions = {}): RendererPlug
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<DPORenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<DPORenderState>(stateKey)
       return state?.params ?? {}
     },
 

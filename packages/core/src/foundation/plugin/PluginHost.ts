@@ -24,8 +24,6 @@ export class PluginHostImpl implements PluginHost {
   private hookSystem: HookSystem
   private configManager: ConfigManager
   private stateStore: StateStore
-  /** 指标结果由 Kernel 托管时的只读状态查询器。 */
-  private sharedStateResolver: ((namespace: string) => unknown) | null = null
   private services = new Map<string, unknown>()
   private isDestroyed = false
   private logger: PluginLogger
@@ -111,13 +109,7 @@ export class PluginHostImpl implements PluginHost {
   }
 
   getSharedState<T extends BaseIndicatorState>(namespace: string): T | undefined {
-    const resolved = this.sharedStateResolver?.(namespace)
-    return (resolved ?? this.stateStore.getState<T>(namespace)) as T | undefined
-  }
-
-  /** 设置 Kernel 托管状态的只读查询器，未命中时回退到插件 StateStore。 */
-  setSharedStateResolver(resolver: ((namespace: string) => unknown) | null): void {
-    this.sharedStateResolver = resolver
+    return this.stateStore.getState<T>(namespace)
   }
 
   clearSharedState(namespace: string): void {
@@ -255,8 +247,6 @@ export class PluginHostImpl implements PluginHost {
     this.configManager.clear()
     this.stateStore.clear()
     this.services.clear()
-    this.sharedStateResolver = null
-
     this.isDestroyed = true
     this.log('info', 'PluginHost destroyed')
   }

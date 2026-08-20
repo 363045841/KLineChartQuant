@@ -69,7 +69,7 @@ function createROCRendererPlugin(options: ROCRendererOptions = {}): RendererPlug
       )
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<ROCRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<ROCRenderState>(stateKey)
       if (!state || !state.params.showROC || state.visibleMin > state.visibleMax) return
 
       const { valueMin, valueMax, series } = state
@@ -128,7 +128,10 @@ function createROCRendererPlugin(options: ROCRendererOptions = {}): RendererPlug
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<ROCRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<ROCRenderState>(stateKey)
       return state?.params ?? {}
     },
     setConfig() {},

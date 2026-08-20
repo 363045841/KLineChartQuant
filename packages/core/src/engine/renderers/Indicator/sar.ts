@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   RendererPluginWithHost,
   RenderContext,
   PluginHost,
@@ -74,7 +75,7 @@ function createSARRendererPlugin(options: SARRendererOptions = {}): RendererPlug
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<SARRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<SARRenderState>(stateKey)
       if (!state || !state.params.showSAR || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -101,7 +102,10 @@ function createSARRendererPlugin(options: SARRendererOptions = {}): RendererPlug
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<SARRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<SARRenderState>(stateKey)
       return state?.params ?? {}
     },
 
@@ -115,12 +119,12 @@ function getSARTitleInfo(
   _data: KLineData[],
   index: number | null,
   params: Record<string, number | boolean | string>,
-  host: PluginHost,
+  stateReader: IndicatorRenderStateReader,
   paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
-  const state = host.getSharedState<SARRenderState>(createSARStateKey(paneId))
+  const state = stateReader.get<SARRenderState>(createSARStateKey(paneId))
   const p = state?.series[index]
   if (!p) return null
 

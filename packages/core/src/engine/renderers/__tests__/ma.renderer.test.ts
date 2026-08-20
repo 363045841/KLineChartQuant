@@ -58,6 +58,9 @@ function createMockPluginHost(state?: MARenderState): PluginHost {
             return undefined
           },
           getAllIndicators: () => [],
+          createRenderStateReader: () => ({
+            get: <T>(key: string): T | undefined => (key === MA_STATE_KEY ? (state as T) : undefined),
+          }),
         } as T
       }
       return undefined
@@ -109,6 +112,12 @@ function createMockRenderContext(
     period: 'daily',
     ...overrides,
   } as RenderContext
+}
+
+function createMockIndicatorStateReader(state?: MARenderState) {
+  return {
+    get: vi.fn(<T>(key: string): T | undefined => (key === MA_STATE_KEY ? (state as T) : undefined)),
+  }
 }
 
 /**
@@ -182,7 +191,9 @@ describe('MA renderer draw', () => {
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx)
+    const context = createMockRenderContext(ctx, {
+      indicatorStateReader: createMockIndicatorStateReader(),
+    })
     plugin.draw(context)
 
     // Should not call any drawing methods
@@ -200,7 +211,9 @@ describe('MA renderer draw', () => {
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx)
+    const context = createMockRenderContext(ctx, {
+      indicatorStateReader: createMockIndicatorStateReader(state),
+    })
     plugin.draw(context)
 
     expect(ctx.beginPath).not.toHaveBeenCalled()
@@ -215,7 +228,9 @@ describe('MA renderer draw', () => {
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx)
+    const context = createMockRenderContext(ctx, {
+      indicatorStateReader: createMockIndicatorStateReader(state),
+    })
     plugin.draw(context)
 
     expect(ctx.beginPath).not.toHaveBeenCalled()
@@ -228,7 +243,9 @@ describe('MA renderer draw', () => {
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx)
+    const context = createMockRenderContext(ctx, {
+      indicatorStateReader: createMockIndicatorStateReader(state),
+    })
     plugin.draw(context)
 
     expect(ctx.save).toHaveBeenCalledTimes(1)
@@ -242,7 +259,10 @@ describe('MA renderer draw', () => {
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx, { scrollLeft: 100 })
+    const context = createMockRenderContext(ctx, {
+      scrollLeft: 100,
+      indicatorStateReader: createMockIndicatorStateReader(state),
+    })
     plugin.draw(context)
 
     expect(ctx.translate).toHaveBeenCalledWith(-100, 0)
@@ -254,7 +274,9 @@ describe('MA renderer draw', () => {
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx)
+    const context = createMockRenderContext(ctx, {
+      indicatorStateReader: createMockIndicatorStateReader(state),
+    })
     plugin.draw(context)
 
     // Check that stroke was called (meaning line properties were set)
@@ -280,6 +302,7 @@ describe('MA renderer draw', () => {
     const context = createMockRenderContext(ctx, {
       range: { start: 0, end: 10 },
       kLineCenters: Array.from({ length: 10 }, (_, i) => i * 10 + 5),
+      indicatorStateReader: createMockIndicatorStateReader(state),
     })
     plugin.draw(context)
 
@@ -303,6 +326,7 @@ describe('MA renderer draw', () => {
     const context = createMockRenderContext(ctx, {
       range: { start: 0, end: 10 },
       kLineCenters: Array.from({ length: 10 }, (_, i) => i * 10 + 5),
+      indicatorStateReader: createMockIndicatorStateReader(state),
     })
     plugin.draw(context)
 
@@ -327,7 +351,9 @@ describe('MA renderer draw', () => {
     plugin = createMARendererPlugin() as TestableMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx)
+    const context = createMockRenderContext(ctx, {
+      indicatorStateReader: createMockIndicatorStateReader(state),
+    })
     plugin.draw(context)
 
     // Should have drawn 5 separate lines (one per period)
@@ -396,10 +422,10 @@ describe('MA renderer stateless design verification', () => {
   })
 
   it('should read fresh state on each draw call', () => {
-    const mockGetSharedState = vi.fn()
+    const reader = createMockIndicatorStateReader(createTestMARenderState())
     const mockHost = {
       setSharedState: vi.fn(),
-      getSharedState: mockGetSharedState,
+      getSharedState: vi.fn(),
       clearByOwner: vi.fn(),
       registerService: vi.fn(),
       getService: vi.fn(<T>(name: string) => {
@@ -418,20 +444,18 @@ describe('MA renderer stateless design verification', () => {
       }),
     } as unknown as PluginHost
 
-    mockGetSharedState.mockReturnValue(createTestMARenderState())
-
     const plugin = createMARendererPlugin()
     plugin.onInstall(mockHost)
 
     const ctx = createMockCanvasContext()
-    const context = createMockRenderContext(ctx)
+    const context = createMockRenderContext(ctx, { indicatorStateReader: reader })
 
     // First draw
     plugin.draw(context)
-    expect(mockGetSharedState).toHaveBeenCalledTimes(1)
+    expect(reader.get).toHaveBeenCalledTimes(1)
 
     // Second draw - should read state again (not cached)
     plugin.draw(context)
-    expect(mockGetSharedState).toHaveBeenCalledTimes(2)
+    expect(reader.get).toHaveBeenCalledTimes(2)
   })
 })

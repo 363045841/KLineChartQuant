@@ -71,7 +71,7 @@ function createHMARendererPlugin(options: HMARendererOptions = {}): RendererPlug
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<HMARenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<HMARenderState>(stateKey)
       if (!state || !state.params.showHMA || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -110,7 +110,10 @@ function createHMARendererPlugin(options: HMARendererOptions = {}): RendererPlug
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<HMARenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<HMARenderState>(stateKey)
       return state?.params ?? {}
     },
 

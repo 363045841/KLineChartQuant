@@ -72,7 +72,7 @@ function createTRIMARendererPlugin(options: TRIMARendererOptions = {}): Renderer
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<TRIMARenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<TRIMARenderState>(stateKey)
       if (!state || !state.params.showTRIMA || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -111,7 +111,10 @@ function createTRIMARendererPlugin(options: TRIMARendererOptions = {}): Renderer
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<TRIMARenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<TRIMARenderState>(stateKey)
       return state?.params ?? {}
     },
 

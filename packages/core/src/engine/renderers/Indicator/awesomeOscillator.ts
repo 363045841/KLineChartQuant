@@ -211,7 +211,7 @@ function createAwesomeOscillatorRendererPlugin(
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<AwesomeOscillatorRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<AwesomeOscillatorRenderState>(stateKey)
       if (!state || state.visibleMin > state.visibleMax) {
         clearLineCache()
         return
@@ -285,7 +285,10 @@ function createAwesomeOscillatorRendererPlugin(
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<AwesomeOscillatorRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<AwesomeOscillatorRenderState>(stateKey)
       return state?.params ?? {}
     },
 

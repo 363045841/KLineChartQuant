@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   RendererPluginWithHost,
   RenderContext,
   PluginHost,
@@ -75,7 +76,7 @@ function createDonchianRendererPlugin(
       )
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<DonchianRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<DonchianRenderState>(stateKey)
       if (!state || state.visibleMin > state.visibleMax) return
       const { showUpper, showMiddle, showLower } = state.params
       if (!showUpper && !showMiddle && !showLower) return
@@ -120,7 +121,10 @@ function createDonchianRendererPlugin(
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<DonchianRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<DonchianRenderState>(stateKey)
       return state?.params ?? {}
     },
     setConfig() {},
@@ -140,12 +144,12 @@ function getDonchianTitleInfo(
   _data: KLineData[],
   index: number | null,
   params: Record<string, number | boolean | string>,
-  host: PluginHost,
+  stateReader: IndicatorRenderStateReader,
   paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
-  const state = host.getSharedState<DonchianRenderState>(createDonchianStateKey(paneId))
+  const state = stateReader.get<DonchianRenderState>(createDonchianStateKey(paneId))
   const p = state?.series[index]
   if (!p) return null
 

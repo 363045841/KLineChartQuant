@@ -68,7 +68,7 @@ function createChaikinVolRendererPlugin(options: { paneId?: string } = {}): Rend
       )
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<ChaikinVolRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<ChaikinVolRenderState>(stateKey)
       if (!state || !state.params.showChaikinVol || state.visibleMin > state.visibleMax) return
 
       const { valueMin, valueMax, series } = state
@@ -126,7 +126,10 @@ function createChaikinVolRendererPlugin(options: { paneId?: string } = {}): Rend
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<ChaikinVolRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<ChaikinVolRenderState>(stateKey)
       return state?.params ?? {}
     },
     setConfig() {},

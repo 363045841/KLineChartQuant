@@ -62,7 +62,7 @@ function createMFIRendererPlugin(options: { paneId?: string } = {}): RendererPlu
       )
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<MFIRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<MFIRenderState>(stateKey)
       if (!state || !state.params.showMFI || state.visibleMin > state.visibleMax) return
 
       const { valueMin, valueMax, series } = state
@@ -125,7 +125,10 @@ function createMFIRendererPlugin(options: { paneId?: string } = {}): RendererPlu
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<MFIRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<MFIRenderState>(stateKey)
       return state?.params ?? {}
     },
     setConfig() {},

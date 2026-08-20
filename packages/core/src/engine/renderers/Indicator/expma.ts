@@ -137,7 +137,7 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
       )
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<EXPMARenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<EXPMARenderState>(stateKey)
 
       if (!state || state.visibleMin > state.visibleMax) {
         clearCache()
@@ -215,7 +215,10 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<EXPMARenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<EXPMARenderState>(stateKey)
       return state ? { ...state.params } : {}
     },
 
@@ -227,16 +230,13 @@ const getEXPMATitleInfo: GetTitleInfoFn = (
   _data: KLineData[],
   index: number | null,
   _params: Record<string, number | boolean | string>,
-  pluginHost: PluginHost,
+  stateReader,
   _paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null => {
   if (index === null) return null
 
-  const stateKey = getEXPMAStateKey(pluginHost)
-  if (!stateKey) return null
-
-  const state = pluginHost?.getSharedState<EXPMARenderState>(stateKey)
+  const state = stateReader.get<EXPMARenderState>(EXPMA_STATE_KEY)
   if (!state || state.visibleMin > state.visibleMax) return null
 
   const expmaPoint = state.series[index]

@@ -71,7 +71,7 @@ function createLSMARendererPlugin(options: LSMARendererOptions = {}): RendererPl
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<LSMARenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<LSMARenderState>(stateKey)
       if (!state || !state.params.showLSMA || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -110,7 +110,10 @@ function createLSMARendererPlugin(options: LSMARendererOptions = {}): RendererPl
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<LSMARenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<LSMARenderState>(stateKey)
       return state?.params ?? {}
     },
 

@@ -21,9 +21,6 @@ export type { TitleInfo, TitleValueItem } from '../indicators/indicatorMetadata'
 function getVolumeTitleInfo(
   data: KLineData[],
   index: number | null,
-  _params: Record<string, number | boolean | string>,
-  _host: PluginHost,
-  _paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
@@ -108,27 +105,20 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
       let titleInfo: TitleInfo | null = null
       const scheduler = pluginHost?.getService<IndicatorScheduler>('indicatorScheduler')
       const meta = scheduler?.getIndicatorMetadata(currentOptions.indicatorId)
-      if (meta?.getTitleInfo && pluginHost) {
+      if (meta?.getTitleInfo && context.indicatorStateReader) {
         titleInfo = meta.getTitleInfo(
           klineData,
           crosshairIndex,
           castParams,
-          pluginHost,
+          context.indicatorStateReader,
           currentOptions.paneId,
           colors,
         )
       }
 
       // fallback: VOLUME 不是注册指标，内联处理
-      if (!titleInfo && pluginHost) {
-        titleInfo = getVolumeTitleInfo(
-          klineData,
-          crosshairIndex,
-          castParams,
-          pluginHost,
-          currentOptions.paneId,
-          colors,
-        )
+      if (!titleInfo) {
+        titleInfo = getVolumeTitleInfo(klineData, crosshairIndex, colors)
       }
 
       if (titleInfo) {

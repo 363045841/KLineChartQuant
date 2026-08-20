@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   RendererPluginWithHost,
   RenderContext,
   PluginHost,
@@ -122,7 +123,7 @@ function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): Renderer
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<STOCHRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<STOCHRenderState>(stateKey)
       if (!state || state.visibleMin > state.visibleMax) {
         clearLineCache()
         return
@@ -228,7 +229,10 @@ function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): Renderer
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<STOCHRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<STOCHRenderState>(stateKey)
       return state?.params ?? {}
     },
 
@@ -299,14 +303,14 @@ function getSTOCHTitleInfo(
   _data: KLineData[],
   index: number | null,
   params: Record<string, number | boolean | string>,
-  pluginHost: PluginHost,
+  stateReader: IndicatorRenderStateReader,
   paneId: string,
   colors: ColorTokens,
 ): {
   name: string
   params: number[]
   values: Array<{ label: string; value: number; color: string }>
-  } | null {
+} | null {
   const n = (params.n as number) ?? 9
   const m = (params.m as number) ?? 3
   const title: {
@@ -316,7 +320,7 @@ function getSTOCHTitleInfo(
   } = { name: '随机指标', params: [n, m], values: [] }
   if (index === null) return title
 
-  const state = pluginHost.getSharedState<STOCHRenderState>(createSTOCHStateKey(paneId))
+  const state = stateReader.get<STOCHRenderState>(createSTOCHStateKey(paneId))
   if (!state) return title
 
   const point = state.series[index]

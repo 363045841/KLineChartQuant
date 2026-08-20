@@ -82,7 +82,7 @@ function createVIDYARendererPlugin(options: VIDYARendererOptions = {}): Renderer
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<VIDYARenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<VIDYARenderState>(stateKey)
       if (!state || !state.params.showVIDYA || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -122,7 +122,10 @@ function createVIDYARendererPlugin(options: VIDYARendererOptions = {}): Renderer
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<VIDYARenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<VIDYARenderState>(stateKey)
       return state?.params ?? {}
     },
 

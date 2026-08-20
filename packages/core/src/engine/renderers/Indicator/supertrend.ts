@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   RendererPluginWithHost,
   RenderContext,
   PluginHost,
@@ -76,7 +77,7 @@ function createSuperTrendRendererPlugin(
       )
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<SuperTrendRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<SuperTrendRenderState>(stateKey)
       if (!state || !state.params.showSuperTrend || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -117,7 +118,10 @@ function createSuperTrendRendererPlugin(
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<SuperTrendRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<SuperTrendRenderState>(stateKey)
       return state?.params ?? {}
     },
     setConfig() {},
@@ -128,12 +132,12 @@ function getSuperTrendTitleInfo(
   _data: KLineData[],
   index: number | null,
   params: Record<string, number | boolean | string>,
-  host: PluginHost,
+  stateReader: IndicatorRenderStateReader,
   paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
-  const state = host.getSharedState<SuperTrendRenderState>(createSuperTrendStateKey(paneId))
+  const state = stateReader.get<SuperTrendRenderState>(createSuperTrendStateKey(paneId))
   const p = state?.series[index]
   if (!p) return null
 

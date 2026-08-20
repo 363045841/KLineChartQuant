@@ -62,7 +62,7 @@ function createCMFRendererPlugin(options: { paneId?: string } = {}): RendererPlu
       )
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<CMFRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<CMFRenderState>(stateKey)
       if (!state || !state.params.showCMF || state.visibleMin > state.visibleMax) return
 
       const { valueMin, valueMax, series } = state
@@ -120,7 +120,10 @@ function createCMFRendererPlugin(options: { paneId?: string } = {}): RendererPlu
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<CMFRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<CMFRenderState>(stateKey)
       return state?.params ?? {}
     },
     setConfig() {},

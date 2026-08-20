@@ -52,6 +52,10 @@ function createMockPluginHost(state?: EXPMARenderState): PluginHost {
             return undefined
           },
           getAllIndicators: () => [],
+          createRenderStateReader: () => ({
+            get: <T>(key: string): T | undefined =>
+              key === EXPMA_STATE_KEY ? (state as T) : undefined,
+          }),
         } as T
       }
       return undefined
@@ -110,6 +114,12 @@ function createMockRenderContext(
     period: 'daily',
     ...overrides,
   } as RenderContext
+}
+
+function createMockIndicatorStateReader(state?: EXPMARenderState) {
+  return {
+    get: vi.fn(<T>(key: string): T | undefined => (key === EXPMA_STATE_KEY ? (state as T) : undefined)),
+  }
 }
 
 function createTestEXPMARenderState(overrides: Partial<EXPMARenderState> = {}): EXPMARenderState {
@@ -179,7 +189,9 @@ describe('EXPMA renderer draw', () => {
     plugin = createEXPMARendererPlugin() as TestableEXPMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx)
+    const context = createMockRenderContext(ctx, {
+      indicatorStateReader: createMockIndicatorStateReader(state),
+    })
     plugin.draw(context)
 
     expect(ctx.beginPath).not.toHaveBeenCalled()
@@ -192,7 +204,9 @@ describe('EXPMA renderer draw', () => {
     plugin = createEXPMARendererPlugin() as TestableEXPMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx)
+    const context = createMockRenderContext(ctx, {
+      indicatorStateReader: createMockIndicatorStateReader(state),
+    })
     plugin.draw(context)
 
     expect(ctx.save).toHaveBeenCalledTimes(1)
@@ -205,12 +219,15 @@ describe('EXPMA renderer draw', () => {
     plugin = createEXPMARendererPlugin() as TestableEXPMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx)
+    const reader = createMockIndicatorStateReader(state)
+    const context = createMockRenderContext(ctx, { indicatorStateReader: reader })
     plugin.draw(context)
 
     // Should have stroke calls for both lines
     expect(ctx.stroke).toHaveBeenCalled()
     expect(ctx.beginPath).toHaveBeenCalled()
+    expect(reader.get).toHaveBeenCalledWith(EXPMA_STATE_KEY)
+    expect(mockHost.getSharedState).not.toHaveBeenCalled()
   })
 
   it('should use correct line styles', () => {
@@ -219,7 +236,9 @@ describe('EXPMA renderer draw', () => {
     plugin = createEXPMARendererPlugin() as TestableEXPMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx)
+    const context = createMockRenderContext(ctx, {
+      indicatorStateReader: createMockIndicatorStateReader(state),
+    })
     plugin.draw(context)
 
     expect(ctx.lineWidth).toBe(1)
@@ -235,7 +254,10 @@ describe('EXPMA renderer draw', () => {
     plugin = createEXPMARendererPlugin() as TestableEXPMARenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx, { range: { start: 0, end: 10 } })
+    const context = createMockRenderContext(ctx, {
+      range: { start: 0, end: 10 },
+      indicatorStateReader: createMockIndicatorStateReader(state),
+    })
     plugin.draw(context)
 
     // EXPMA draws from range.start (0 for dense array)

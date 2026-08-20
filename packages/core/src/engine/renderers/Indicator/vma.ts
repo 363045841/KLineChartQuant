@@ -63,7 +63,7 @@ function createVMARendererPlugin(options: { paneId?: string } = {}): RendererPlu
       )
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<VMARenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<VMARenderState>(stateKey)
       if (!state || !state.params.showVMA || state.visibleMin > state.visibleMax) return
 
       const { valueMin, valueMax, series } = state
@@ -108,7 +108,10 @@ function createVMARendererPlugin(options: { paneId?: string } = {}): RendererPlu
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<VMARenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<VMARenderState>(stateKey)
       return state?.params ?? {}
     },
     setConfig() {},

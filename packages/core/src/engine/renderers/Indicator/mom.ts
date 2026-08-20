@@ -168,7 +168,7 @@ function createMOMRendererPlugin(options: MOMRendererOptions = {}): RendererPlug
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<MOMRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<MOMRenderState>(stateKey)
       if (!state || state.visibleMin > state.visibleMax) {
         clearLineCache()
         return
@@ -249,7 +249,10 @@ function createMOMRendererPlugin(options: MOMRendererOptions = {}): RendererPlug
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<MOMRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<MOMRenderState>(stateKey)
       return state?.params ?? {}
     },
 

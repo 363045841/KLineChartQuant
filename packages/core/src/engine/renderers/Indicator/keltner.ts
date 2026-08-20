@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   RendererPluginWithHost,
   RenderContext,
   PluginHost,
@@ -73,7 +74,7 @@ function createKeltnerRendererPlugin(options: KeltnerRendererOptions = {}): Rend
       )
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<KeltnerRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<KeltnerRenderState>(stateKey)
       if (!state || state.visibleMin > state.visibleMax) return
       const { showUpper, showMiddle, showLower } = state.params
       if (!showUpper && !showMiddle && !showLower) return
@@ -118,7 +119,10 @@ function createKeltnerRendererPlugin(options: KeltnerRendererOptions = {}): Rend
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<KeltnerRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<KeltnerRenderState>(stateKey)
       return state?.params ?? {}
     },
     setConfig() {},
@@ -138,12 +142,12 @@ function getKeltnerTitleInfo(
   _data: KLineData[],
   index: number | null,
   params: Record<string, number | boolean | string>,
-  host: PluginHost,
+  stateReader: IndicatorRenderStateReader,
   paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
-  const state = host.getSharedState<KeltnerRenderState>(createKeltnerStateKey(paneId))
+  const state = stateReader.get<KeltnerRenderState>(createKeltnerStateKey(paneId))
   const p = state?.series[index]
   if (!p) return null
 

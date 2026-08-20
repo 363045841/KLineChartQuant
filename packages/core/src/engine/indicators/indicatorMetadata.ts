@@ -6,7 +6,11 @@
  */
 
 import { KLineChartError } from '../../errors'
-import type { PluginHost, RendererPluginWithHost } from '../../foundation/plugin/index'
+import type {
+  IndicatorRenderStateReader,
+  PluginHost,
+  RendererPluginWithHost,
+} from '../../foundation/plugin/index'
 import type { ColorTokens } from '../../foundation/tokens/index'
 import type { KLineData } from '../../foundation/types/price'
 import type { ChartDataView } from '../state/modeState'
@@ -168,7 +172,7 @@ export type GetTitleInfoFn = (
   data: KLineData[],
   index: number | null,
   params: Record<string, number | boolean | string>,
-  host: PluginHost,
+  stateReader: IndicatorRenderStateReader,
   paneId: string,
   colors: ColorTokens,
 ) => TitleInfo | null

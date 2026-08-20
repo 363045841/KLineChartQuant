@@ -62,7 +62,7 @@ function createZonesRendererPlugin(options: { paneId?: string } = {}): RendererP
       )
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<ZonesRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<ZonesRenderState>(stateKey)
       if (!state) return
       const { showFVG, showOB, showFilledZones } = state.params
       if (!showFVG && !showOB) return
@@ -106,17 +106,22 @@ function createZonesRendererPlugin(options: { paneId?: string } = {}): RendererP
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      return pluginHost?.getSharedState<ZonesRenderState>(stateKey)?.params ?? {}
+      return (
+        pluginHost
+          ?.getService<IndicatorScheduler>('indicatorScheduler')
+          ?.createRenderStateReader()
+          .get<ZonesRenderState>(stateKey)?.params ?? {}
+      )
     },
     setConfig() {},
   }
 }
 
-const getZonesTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId, colors) => {
+const getZonesTitleInfo: GetTitleInfoFn = (_data, index, _params, stateReader, paneId, colors) => {
   if (index === null) return null
 
   const stateKey = createZonesStateKey(paneId)
-  const state = host?.getSharedState<ZonesRenderState>(stateKey)
+  const state = stateReader.get<ZonesRenderState>(stateKey)
   if (!state) return null
 
   const activeZones = state.series.filter(

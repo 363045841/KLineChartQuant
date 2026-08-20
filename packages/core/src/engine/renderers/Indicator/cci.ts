@@ -110,7 +110,7 @@ function createCCIRendererPlugin(options: CCIRendererOptions = {}): RendererPlug
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<CCIRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<CCIRenderState>(stateKey)
       if (!state || state.visibleMin > state.visibleMax) {
         clearLineCache()
         return
@@ -198,7 +198,10 @@ function createCCIRendererPlugin(options: CCIRendererOptions = {}): RendererPlug
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<CCIRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<CCIRenderState>(stateKey)
       return state?.params ?? {}
     },
 

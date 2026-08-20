@@ -213,7 +213,7 @@ function createUltimateOscillatorRendererPlugin(
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<UltimateOscillatorRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<UltimateOscillatorRenderState>(stateKey)
       if (!state || state.visibleMin > state.visibleMax) {
         clearLineCache()
         return
@@ -287,7 +287,10 @@ function createUltimateOscillatorRendererPlugin(
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<UltimateOscillatorRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<UltimateOscillatorRenderState>(stateKey)
       return state?.params ?? {}
     },
 

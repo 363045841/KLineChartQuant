@@ -279,6 +279,12 @@ export interface MarkerManagerLike {
   setCustomMarkerPosition(id: string, x: number, y: number, size: number, shape: string): void
 }
 
+/** 当前帧读取指标渲染投影的只读接口。 */
+export interface IndicatorRenderStateReader {
+  /** 按 renderer state key 读取当前帧已提交的指标状态。 */
+  get<T = unknown>(stateKey: string): T | undefined
+}
+
 export interface RenderContext {
   ctx: CanvasRenderingContext2D
   pane: PaneInfo
@@ -325,6 +331,8 @@ export interface RenderContext {
    * 业务绘制经 drawInstances / drawLines；失败 fail-closed 走 2D。
    */
   sceneRenderer?: import('../../rendering/render/Renderer').Renderer
+  /** 当前帧绑定的指标渲染快照，所有指标 renderer 共用同一版本。 */
+  indicatorStateReader?: IndicatorRenderStateReader
   /** 当前缩放级别（1 ~ zoomLevels） */
   zoomLevel?: number
   /** 总缩放级别数 */

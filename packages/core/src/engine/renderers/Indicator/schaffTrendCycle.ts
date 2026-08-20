@@ -230,7 +230,7 @@ function createSchaffTrendCycleRendererPlugin(
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<SchaffTrendCycleRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<SchaffTrendCycleRenderState>(stateKey)
       if (!state || state.visibleMin > state.visibleMax) {
         clearLineCache()
         return
@@ -319,7 +319,10 @@ function createSchaffTrendCycleRendererPlugin(
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<SchaffTrendCycleRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<SchaffTrendCycleRenderState>(stateKey)
       return state?.params ?? {}
     },
 

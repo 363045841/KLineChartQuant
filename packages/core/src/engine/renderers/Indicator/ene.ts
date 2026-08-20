@@ -173,7 +173,7 @@ export function createENERendererPlugin(): RendererPluginWithHost {
       const stateKey = resolveKey()
       if (!stateKey) return
       // 从 StateStore 读取 ENE 状态
-      const state = pluginHost?.getSharedState<ENERenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<ENERenderState>(stateKey)
 
       // 无有效数据时提前返回
       if (!state || state.visibleMin > state.visibleMax) return
@@ -264,7 +264,10 @@ export function createENERendererPlugin(): RendererPluginWithHost {
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<ENERenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<ENERenderState>(stateKey)
       return state ? { ...state.params } : {}
     },
 
@@ -285,16 +288,13 @@ const getENETitleInfo: GetTitleInfoFn = (
   _data: KLineData[],
   index: number | null,
   _params: Record<string, number | boolean | string>,
-  pluginHost: PluginHost,
+  stateReader,
   _paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null => {
   if (index === null) return null
 
-  const stateKey = getENEStateKey(pluginHost)
-  if (!stateKey) return null
-
-  const state = pluginHost?.getSharedState<ENERenderState>(stateKey)
+  const state = stateReader.get<ENERenderState>(ENE_STATE_KEY)
   if (!state || state.visibleMin > state.visibleMax) return null
 
   const enePoint = state.series[index]

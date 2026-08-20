@@ -3,6 +3,7 @@
  */
 
 import type {
+  IndicatorRenderStateReader,
   RendererPluginWithHost,
   RenderContext,
   PluginHost,
@@ -149,7 +150,7 @@ function createFisherTransformRendererPlugin(
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<FisherTransformRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<FisherTransformRenderState>(stateKey)
       if (!state || state.visibleMin > state.visibleMax) {
         clearLineCache()
         return
@@ -239,7 +240,10 @@ function createFisherTransformRendererPlugin(
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<FisherTransformRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<FisherTransformRenderState>(stateKey)
       return state?.params ?? {}
     },
 
@@ -312,7 +316,7 @@ function getFisherTransformTitleInfo(
   _data: KLineData[],
   index: number | null,
   params: Record<string, number | boolean | string>,
-  pluginHost: PluginHost,
+  stateReader: IndicatorRenderStateReader,
   paneId: string,
   colors: ColorTokens,
 ): {
@@ -322,9 +326,7 @@ function getFisherTransformTitleInfo(
 } | null {
   if (index === null) return null
 
-  const state = pluginHost.getSharedState<FisherTransformRenderState>(
-    createFisherTransformStateKey(paneId),
-  )
+  const state = stateReader.get<FisherTransformRenderState>(createFisherTransformStateKey(paneId))
   if (!state) return null
   const point = state.series[index]
   if (!point) return null

@@ -161,7 +161,7 @@ export function createIndicatorScaleRendererPlugin(
       const { yAxisCtx, pane, dpr } = context
       if (!yAxisCtx || !pluginHost) return
 
-      const state = pluginHost.getSharedState<IndicatorScaleRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<IndicatorScaleRenderState>(stateKey)
       if (!state) return
 
       const effectiveScaleType: ScaleType = pane.yAxis.getScaleType() ?? scaleType

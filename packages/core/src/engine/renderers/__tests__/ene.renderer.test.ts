@@ -57,6 +57,9 @@ function createMockPluginHost(state?: ENERenderState): PluginHost {
             return undefined
           },
           getAllIndicators: () => [],
+          createRenderStateReader: () => ({
+            get: <T>(key: string): T | undefined => (key === ENE_STATE_KEY ? (state as T) : undefined),
+          }),
         } as T
       }
       return undefined
@@ -113,6 +116,12 @@ function createMockRenderContext(
   } as RenderContext
 }
 
+function createMockIndicatorStateReader(state?: ENERenderState) {
+  return {
+    get: vi.fn(<T>(key: string): T | undefined => (key === ENE_STATE_KEY ? (state as T) : undefined)),
+  }
+}
+
 function createTestENERenderState(overrides: Partial<ENERenderState> = {}): ENERenderState {
   return {
     timestamp: Date.now(),
@@ -163,7 +172,9 @@ describe('ENE renderer draw', () => {
     plugin = createENERendererPlugin() as TestableENERenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx)
+    const context = createMockRenderContext(ctx, {
+      indicatorStateReader: createMockIndicatorStateReader(),
+    })
     plugin.draw(context)
 
     expect(ctx.beginPath).not.toHaveBeenCalled()
@@ -179,7 +190,9 @@ describe('ENE renderer draw', () => {
     plugin = createENERendererPlugin() as TestableENERenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx)
+    const context = createMockRenderContext(ctx, {
+      indicatorStateReader: createMockIndicatorStateReader(state),
+    })
     plugin.draw(context)
 
     expect(ctx.beginPath).not.toHaveBeenCalled()
@@ -192,7 +205,9 @@ describe('ENE renderer draw', () => {
     plugin = createENERendererPlugin() as TestableENERenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx)
+    const context = createMockRenderContext(ctx, {
+      indicatorStateReader: createMockIndicatorStateReader(state),
+    })
     plugin.draw(context)
 
     expect(ctx.save).toHaveBeenCalledTimes(1)
@@ -205,7 +220,9 @@ describe('ENE renderer draw', () => {
     plugin = createENERendererPlugin() as TestableENERenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx)
+    const context = createMockRenderContext(ctx, {
+      indicatorStateReader: createMockIndicatorStateReader(state),
+    })
     plugin.draw(context)
 
     expect(ctx.fill).toHaveBeenCalled()
@@ -218,7 +235,9 @@ describe('ENE renderer draw', () => {
     plugin = createENERendererPlugin() as TestableENERenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx)
+    const context = createMockRenderContext(ctx, {
+      indicatorStateReader: createMockIndicatorStateReader(state),
+    })
     plugin.draw(context)
 
     // Should have stroke calls for the three lines
@@ -231,7 +250,9 @@ describe('ENE renderer draw', () => {
     plugin = createENERendererPlugin() as TestableENERenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx)
+    const context = createMockRenderContext(ctx, {
+      indicatorStateReader: createMockIndicatorStateReader(state),
+    })
     plugin.draw(context)
 
     expect(ctx.lineWidth).toBe(1)
@@ -245,7 +266,9 @@ describe('ENE renderer draw', () => {
     plugin = createENERendererPlugin() as TestableENERenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx)
+    const context = createMockRenderContext(ctx, {
+      indicatorStateReader: createMockIndicatorStateReader(state),
+    })
     plugin.draw(context)
 
     // Verify fillStyle was set to band fill color
@@ -262,7 +285,10 @@ describe('ENE renderer draw', () => {
     plugin = createENERendererPlugin() as TestableENERenderer
     plugin.onInstall(mockHost)
 
-    const context = createMockRenderContext(ctx, { range: { start: 0, end: 15 } })
+    const context = createMockRenderContext(ctx, {
+      range: { start: 0, end: 15 },
+      indicatorStateReader: createMockIndicatorStateReader(state),
+    })
 
     expect(() => plugin.draw(context)).not.toThrow()
     expect(ctx.stroke).toHaveBeenCalled()

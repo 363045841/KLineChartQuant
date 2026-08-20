@@ -62,7 +62,7 @@ function createPVTRendererPlugin(options: { paneId?: string } = {}): RendererPlu
       )
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<PVTRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<PVTRenderState>(stateKey)
       if (!state || !state.params.showPVT || state.visibleMin > state.visibleMax) return
 
       const { valueMin, valueMax, series } = state
@@ -106,7 +106,10 @@ function createPVTRendererPlugin(options: { paneId?: string } = {}): RendererPlu
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<PVTRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<PVTRenderState>(stateKey)
       return state?.params ?? {}
     },
     setConfig() {},

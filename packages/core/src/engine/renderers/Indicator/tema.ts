@@ -71,7 +71,7 @@ function createTEMARendererPlugin(options: TEMARendererOptions = {}): RendererPl
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<TEMARenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<TEMARenderState>(stateKey)
       if (!state || !state.params.showTEMA || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -110,7 +110,10 @@ function createTEMARendererPlugin(options: TEMARendererOptions = {}): RendererPl
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<TEMARenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<TEMARenderState>(stateKey)
       return state?.params ?? {}
     },
 

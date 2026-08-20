@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   RendererPluginWithHost,
   PluginHost,
   RenderContext,
@@ -106,16 +107,13 @@ function getMATitleInfo(
   _data: KLineData[],
   index: number | null,
   _params: Record<string, number | boolean | string>,
-  pluginHost: PluginHost,
+  stateReader: IndicatorRenderStateReader,
   _paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
 
-  const stateKey = getMAStateKey(pluginHost)
-  if (!stateKey) return null
-
-  const state = pluginHost?.getSharedState<MARenderState>(stateKey)
+  const state = stateReader.get<MARenderState>(MA_STATE_KEY)
   if (!state || state.visibleMin > state.visibleMax) return null
 
   const maColors: Record<number, string> = {
@@ -225,7 +223,7 @@ export function createMARendererPlugin(): RendererPluginWithHost {
       }
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<MARenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<MARenderState>(stateKey)
 
       if (!state || state.visibleMin > state.visibleMax) {
         clearCache()
@@ -303,7 +301,10 @@ export function createMARendererPlugin(): RendererPluginWithHost {
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<MARenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<MARenderState>(stateKey)
       const config: Record<string, boolean> = {}
       state?.enabledPeriods.forEach((period) => {
         config[`ma${period}`] = true

@@ -107,7 +107,7 @@ function createATRRendererPlugin(options: ATRRendererOptions = {}): RendererPlug
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<ATRRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<ATRRenderState>(stateKey)
       if (!state || !state.params.showATR || state.visibleMin > state.visibleMax) {
         clearCache()
         return
@@ -169,7 +169,10 @@ function createATRRendererPlugin(options: ATRRendererOptions = {}): RendererPlug
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<ATRRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<ATRRenderState>(stateKey)
       return state?.params ?? {}
     },
 

@@ -71,7 +71,7 @@ function createVWMARendererPlugin(options: VWMARendererOptions = {}): RendererPl
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<VWMARenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<VWMARenderState>(stateKey)
       if (!state || !state.params.showVWMA || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -110,7 +110,10 @@ function createVWMARendererPlugin(options: VWMARendererOptions = {}): RendererPl
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<VWMARenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<VWMARenderState>(stateKey)
       return state?.params ?? {}
     },
 

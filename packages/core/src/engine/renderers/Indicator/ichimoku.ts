@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   RendererPluginWithHost,
   RenderContext,
   PluginHost,
@@ -182,7 +183,7 @@ function createIchimokuRendererPlugin(
       )
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<IchimokuRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<IchimokuRenderState>(stateKey)
       if (!state || state.visibleMin > state.visibleMax) return
 
       const { params, series } = state
@@ -205,7 +206,10 @@ function createIchimokuRendererPlugin(
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<IchimokuRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<IchimokuRenderState>(stateKey)
       return state?.params ?? {}
     },
     setConfig() {},
@@ -257,12 +261,12 @@ function getIchimokuTitleInfo(
   _data: KLineData[],
   index: number | null,
   params: Record<string, number | boolean | string>,
-  host: PluginHost,
+  stateReader: IndicatorRenderStateReader,
   paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null {
   if (index === null) return null
-  const state = host.getSharedState<IchimokuRenderState>(createIchimokuStateKey(paneId))
+  const state = stateReader.get<IchimokuRenderState>(createIchimokuStateKey(paneId))
   const p = state?.series[index]
   if (!p) return null
 

@@ -71,7 +71,7 @@ function createDEMARendererPlugin(options: DEMARendererOptions = {}): RendererPl
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<DEMARenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<DEMARenderState>(stateKey)
       if (!state || !state.params.showDEMA || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -110,7 +110,10 @@ function createDEMARendererPlugin(options: DEMARendererOptions = {}): RendererPl
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<DEMARenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<DEMARenderState>(stateKey)
       return state?.params ?? {}
     },
 

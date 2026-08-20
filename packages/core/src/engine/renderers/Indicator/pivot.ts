@@ -66,7 +66,7 @@ function createPivotRendererPlugin(options: { paneId?: string } = {}): RendererP
       )
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<PivotRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<PivotRenderState>(stateKey)
       if (!state || state.visibleMin > state.visibleMax) return
       const p = state.params
       if (!(p.showPP || p.showR1 || p.showR2 || p.showR3 || p.showS1 || p.showS2 || p.showS3))
@@ -112,7 +112,12 @@ function createPivotRendererPlugin(options: { paneId?: string } = {}): RendererP
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      return pluginHost?.getSharedState<PivotRenderState>(stateKey)?.params ?? {}
+      return (
+        pluginHost
+          ?.getService<IndicatorScheduler>('indicatorScheduler')
+          ?.createRenderStateReader()
+          .get<PivotRenderState>(stateKey)?.params ?? {}
+      )
     },
     setConfig() {},
   }
@@ -131,11 +136,11 @@ function drawStep(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
   ctx.stroke()
 }
 
-const getPivotTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId, colors) => {
+const getPivotTitleInfo: GetTitleInfoFn = (_data, index, _params, stateReader, paneId, colors) => {
   if (index === null || index < 0) return null
 
   const stateKey = createPivotStateKey(paneId)
-  const state = host?.getSharedState<PivotRenderState>(stateKey)
+  const state = stateReader.get<PivotRenderState>(stateKey)
   if (!state) return null
 
   const p = state.series[index]

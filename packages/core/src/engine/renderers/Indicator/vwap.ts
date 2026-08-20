@@ -62,7 +62,7 @@ function createVWAPRendererPlugin(options: { paneId?: string } = {}): RendererPl
       )
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<VWAPRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<VWAPRenderState>(stateKey)
       if (!state || !state.params.showVWAP || state.visibleMin > state.visibleMax) return
 
       const { valueMin, valueMax, series } = state
@@ -106,7 +106,10 @@ function createVWAPRendererPlugin(options: { paneId?: string } = {}): RendererPl
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<VWAPRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<VWAPRenderState>(stateKey)
       return state?.params ?? {}
     },
     setConfig() {},

@@ -82,7 +82,7 @@ function createT3RendererPlugin(options: T3RendererOptions = {}): RendererPlugin
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<T3RenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<T3RenderState>(stateKey)
       if (!state || !state.params.showT3 || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -122,7 +122,10 @@ function createT3RendererPlugin(options: T3RendererOptions = {}): RendererPlugin
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<T3RenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<T3RenderState>(stateKey)
       return state?.params ?? {}
     },
 

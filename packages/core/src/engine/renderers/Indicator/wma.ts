@@ -71,7 +71,7 @@ function createWMARendererPlugin(options: WMARendererOptions = {}): RendererPlug
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<WMARenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<WMARenderState>(stateKey)
       if (!state || !state.params.showWMA || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -110,7 +110,10 @@ function createWMARendererPlugin(options: WMARendererOptions = {}): RendererPlug
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<WMARenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<WMARenderState>(stateKey)
       return state?.params ?? {}
     },
 

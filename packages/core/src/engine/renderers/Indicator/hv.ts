@@ -64,7 +64,7 @@ function createHVRendererPlugin(options: { paneId?: string } = {}): RendererPlug
       )
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<HVRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<HVRenderState>(stateKey)
       if (!state || !state.params.showHV || state.visibleMin > state.visibleMax) return
 
       const { valueMin, valueMax, series } = state
@@ -108,7 +108,10 @@ function createHVRendererPlugin(options: { paneId?: string } = {}): RendererPlug
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<HVRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<HVRenderState>(stateKey)
       return state?.params ?? {}
     },
     setConfig() {},

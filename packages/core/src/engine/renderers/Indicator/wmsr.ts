@@ -190,7 +190,7 @@ function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): RendererPl
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<WMSRRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<WMSRRenderState>(stateKey)
       if (!state || state.visibleMin > state.visibleMax) {
         clearLineCache()
         return
@@ -271,7 +271,10 @@ function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): RendererPl
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<WMSRRenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<WMSRRenderState>(stateKey)
       return state?.params ?? {}
     },
 

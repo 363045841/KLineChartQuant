@@ -65,11 +65,11 @@ function createMockScheduler(
 }
 
 /**
- * Create a mock getTitleInfo for MA that reads from shared state
+ * Create a mock getTitleInfo for MA that reads from the frame state reader
  */
 function createMAGetTitleInfo(): GetTitleInfoFn {
-  return (data, index, params, host, paneId): TitleInfo => {
-    const state = host.getSharedState<MARenderState>(MA_STATE_KEY)
+  return (data, index, params, stateReader, paneId): TitleInfo => {
+    const state = stateReader.get<MARenderState>(MA_STATE_KEY)
     if (!state) return null
 
     const ci = index ?? (state.series[5]?.length ?? 100) - 1
@@ -106,7 +106,10 @@ function createSimpleGetTitleInfo(name: string): GetTitleInfoFn {
 /**
  * 创建 mock PluginHost
  */
+let currentIndicatorState: MARenderState | undefined
+
 function createMockPluginHost(state?: MARenderState, scheduler?: IndicatorScheduler): PluginHost {
+  currentIndicatorState = state
   return {
     setSharedState: vi.fn(),
     getSharedState: vi.fn(<T>(key: string): T | undefined => {
@@ -169,6 +172,10 @@ function createMockRenderContext(
     visibleRange: { start: 0, end: 100 },
     crosshair: null,
     crosshairIndex: null,
+    indicatorStateReader: {
+      get: <T>(key: string): T | undefined =>
+        key === MA_STATE_KEY ? (currentIndicatorState as T) : undefined,
+    },
     dpr: 1,
     scrollLeft: 0,
     pane: mockPane,
@@ -421,11 +428,9 @@ describe('MainIndicatorLegend MA data source', () => {
       },
       enabledPeriods: [5],
     })
-    const mockGetSharedState = vi.fn().mockReturnValue(state)
     const scheduler = createMockScheduler({ ma: { getTitleInfo: createMAGetTitleInfo() } }, ['ma'])
     const mockHost = {
       setSharedState: vi.fn(),
-      getSharedState: mockGetSharedState,
       clearByOwner: vi.fn(),
       getService: vi.fn((name: string) => {
         if (name === 'indicatorScheduler') return scheduler
@@ -440,11 +445,16 @@ describe('MainIndicatorLegend MA data source', () => {
     const context = createMockRenderContext(ctx, {
       crosshairIndex: 4,
       range: { start: 0, end: 5 },
+      indicatorStateReader: {
+        get: vi.fn(<T>(key: string): T | undefined =>
+          key === MA_STATE_KEY ? (state as T) : undefined,
+        ),
+      },
     })
     plugin.draw(context)
 
-    // Verify it read from StateStore (via getTitleInfo calling getSharedState)
-    expect(mockGetSharedState).toHaveBeenCalledWith(MA_STATE_KEY)
+    // Verify getTitleInfo reads the frame state reader instead of PluginHost.
+    expect(context.indicatorStateReader?.get).toHaveBeenCalledWith(MA_STATE_KEY)
 
     const fillTextCalls = vi.mocked(ctx.fillText).mock.calls
 

@@ -71,7 +71,7 @@ function createKAMARendererPlugin(options: KAMARendererOptions = {}): RendererPl
 
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<KAMARenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<KAMARenderState>(stateKey)
       if (!state || !state.params.showKAMA || state.visibleMin > state.visibleMax) return
 
       const { series } = state
@@ -110,7 +110,10 @@ function createKAMARendererPlugin(options: KAMARendererOptions = {}): RendererPl
     getConfig() {
       const stateKey = resolveKey()
       if (!stateKey) return {}
-      const state = pluginHost?.getSharedState<KAMARenderState>(stateKey)
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<KAMARenderState>(stateKey)
       return state?.params ?? {}
     },
 

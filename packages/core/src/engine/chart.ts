@@ -265,10 +265,6 @@ export class Chart {
       marketSessions: this.marketSessions,
       scheduleDraw: (level) => this.scheduleDraw(level as UpdateLevel | undefined),
     })
-    this.pluginHost.setSharedStateResolver(
-      (namespace) =>
-        this.kernel.indicatorResult.readonly.snapshot.peek().committed?.renderStates.get(namespace),
-    )
     this.rendererHost.setListeners({
       onRuntimeChange: (rendererRuntime) => {
         this.kernel.renderer.actions.setRuntime(rendererRuntime)
@@ -1112,10 +1108,11 @@ export class Chart {
 
     const indicators: Record<string, number> = {}
     const scheduler = this.getIndicatorScheduler()
+    const indicatorStateReader = scheduler.createRenderStateReader()
     for (const meta of scheduler.getAllIndicators()) {
       const paneId = meta.defaultPaneId === 'main' ? 'main' : meta.defaultPaneId
       const stateKey = resolveStateKey(meta.stateKey, paneId)
-      const state = this.pluginHost.getSharedState<any>(stateKey)
+      const state = indicatorStateReader.get<any>(stateKey)
       if (!state?.series) continue
       const series = state.series
       if (Array.isArray(series)) {

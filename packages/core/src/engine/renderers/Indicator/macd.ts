@@ -1,4 +1,5 @@
 import type {
+  IndicatorRenderStateReader,
   RendererPluginWithHost,
   RenderContext,
   PluginHost,
@@ -150,7 +151,7 @@ function createMACDRendererPlugin(options: MACDRendererOptions = {}): RendererPl
       // 从 StateStore 读取 MACD 状态
       const stateKey = resolveKey()
       if (!stateKey) return
-      const state = pluginHost?.getSharedState<MACDRenderState>(stateKey)
+      const state = context.indicatorStateReader?.get<MACDRenderState>(stateKey)
       if (!state || state.visibleMin > state.visibleMax) return
       if (klineData.length < config.slowPeriod) return
 
@@ -470,7 +471,7 @@ function getMACDTitleInfo(
   _data: KLineData[],
   index: number | null,
   params: Record<string, number | boolean | string>,
-  pluginHost: PluginHost,
+  stateReader: IndicatorRenderStateReader,
   paneId: string,
   colors: ColorTokens,
 ): {
@@ -482,7 +483,7 @@ function getMACDTitleInfo(
   const fastPeriod = (params.fastPeriod as number) ?? 12
   const slowPeriod = (params.slowPeriod as number) ?? 26
   const signalPeriod = (params.signalPeriod as number) ?? 9
-  const state = pluginHost.getSharedState<MACDRenderState>(createMACDStateKey(paneId))
+  const state = stateReader.get<MACDRenderState>(createMACDStateKey(paneId))
   if (!state) return null
 
   const point = state.series[index]

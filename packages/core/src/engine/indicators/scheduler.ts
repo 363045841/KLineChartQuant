@@ -14,7 +14,7 @@
  */
 
 import type { KLineData } from '../../foundation/types/price'
-import type { PluginHost } from '../../foundation/plugin/index'
+import type { IndicatorRenderStateReader, PluginHost } from '../../foundation/plugin/index'
 import {
   createIndicatorResultState,
   type IndicatorResultStateModule,
@@ -618,6 +618,16 @@ export class IndicatorScheduler {
   setPluginHost(host: PluginHost): void {
     this.legacyPluginHost = host
     host.registerService('indicatorScheduler', this)
+  }
+
+  /** 创建绑定当前已提交结果的帧级读取器。 */
+  createRenderStateReader(): IndicatorRenderStateReader {
+    const renderStates = this.resultState.readonly.snapshot.peek().committed?.renderStates
+    return {
+      get<T = unknown>(stateKey: string): T | undefined {
+        return renderStates?.get(stateKey) as T | undefined
+      },
+    }
   }
 
   /** 将已提交 Kernel 快照投影给独立 Scheduler 的显式 PluginHost 使用者。 */

@@ -1,4 +1,4 @@
-import type { PluginHost } from '../../../../foundation/plugin/index'
+import type { IndicatorRenderStateReader } from '../../../../foundation/plugin/index'
 import type { ColorTokens } from '../../../../foundation/tokens/index'
 import type { KLineData } from '../../../../foundation/types/price'
 import type { GetTitleInfoFn, TitleInfo } from '../../../indicators/indicatorMetadata'
@@ -26,14 +26,14 @@ export function createSingleLineTitleInfo(config: SingleLineTitleInfoConfig): Ge
     _data: KLineData[],
     index: number | null,
     _params: Record<string, number | boolean | string>,
-    pluginHost: PluginHost,
+    stateReader: IndicatorRenderStateReader,
     paneId: string,
     colors: ColorTokens,
   ): TitleInfo | null => {
     if (index === null) return null
 
     const stateKey = createStateKey(paneId)
-    const state = pluginHost.getSharedState<SingleSeriesState>(stateKey)
+    const state = stateReader.get<SingleSeriesState>(stateKey)
     if (!state) return null
 
     const val = state.series[index]
