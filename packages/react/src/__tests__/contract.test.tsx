@@ -170,13 +170,14 @@ describe('@363045841yyt/klinechart-react —useChart lifecycle', () => {
 
     render(createElement(Host))
 
-    // After mount, lastHandle is set and we have at least one render with
-    // the initial zoomLevel.
+    // The async mock factory assigns lastHandle before useChart applies its
+    // resolved controller. Wait until the viewport subscriber has rendered
+    // the initial snapshot before publishing the next one.
     await waitFor(() => expect(lastHandle).not.toBeNull())
+    await waitFor(() => expect(renderSpy).toHaveBeenLastCalledWith(1))
     const handle = lastHandle as unknown as MockControllerHandle
 
     const callsBeforeMutation = renderSpy.mock.calls.length
-    expect(renderSpy).toHaveBeenLastCalledWith(1) // initial zoomLevel from mock
 
     act(() => {
       handle.setViewport({
