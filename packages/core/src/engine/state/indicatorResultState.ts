@@ -3,8 +3,11 @@
  * 将当前计算尝试与最近一次成功提交分离，避免失败版本覆盖可绘制结果的来源版本。
  */
 import { createSubState } from '../../foundation/reactivity/signal'
-import type { IndicatorSeriesBundle } from '../indicators/workerProtocol'
-import { immutableMap } from './immutable'
+import type {
+  IndicatorInstanceSeriesResult,
+  IndicatorSeriesBundle,
+} from '../indicators/workerProtocol'
+import { deepFreezeOwned, immutableMap } from './immutable'
 
 /** 指标计算尝试的外部可观察状态。 */
 export type IndicatorCalculationStatus = 'idle' | 'computing' | 'error'
@@ -13,18 +16,22 @@ export type IndicatorCalculationStatus = 'idle' | 'computing' | 'error'
 export interface IndicatorCalculationAttempt {
   readonly status: IndicatorCalculationStatus
   readonly requestId: number
-  readonly dataVersion: number
-  readonly configVersion: number
+  readonly dataRevision: number
+  readonly configRevision: number
   readonly error: string | null
 }
 
 /** 最近一次成功提交的结果。 */
 export interface CommittedIndicatorResult {
-  readonly dataVersion: number
-  readonly configVersion: number
+  readonly dataRevision: number
+  readonly configRevision: number
   readonly resultVersion: number
   readonly projectionVersion: number
   readonly bundle: IndicatorSeriesBundle
+  /** 与 series 下标严格对齐的行情时间轴。 */
+  readonly timestamps: ReadonlyArray<number>
+  /** 按稳定 instanceId 索引的业务结果事实源。 */
+  readonly results: ReadonlyMap<string, IndicatorInstanceSeriesResult>
   readonly renderStates: ReadonlyMap<string, unknown>
 }
 
@@ -46,18 +53,18 @@ export function resolveIndicatorResultAvailability(
   const { attempt, committed } = snapshot
   if (
     attempt.status === 'error' &&
-    attempt.dataVersion === dataRevision &&
-    attempt.configVersion === configRevision
-  ) return 'error'
+    attempt.dataRevision === dataRevision &&
+    attempt.configRevision === configRevision
+  )
+    return 'error'
   if (
     attempt.status === 'computing' &&
-    attempt.dataVersion === dataRevision &&
-    attempt.configVersion === configRevision
-  ) return 'computing'
-  if (
-    committed?.dataVersion === dataRevision &&
-    committed.configVersion === configRevision
-  ) return 'ready'
+    attempt.dataRevision === dataRevision &&
+    attempt.configRevision === configRevision
+  )
+    return 'computing'
+  if (committed?.dataRevision === dataRevision && committed.configRevision === configRevision)
+    return 'ready'
   return 'stale'
 }
 
@@ -66,8 +73,8 @@ function emptyAttempt(): IndicatorCalculationAttempt {
   return Object.freeze({
     status: 'idle' as const,
     requestId: 0,
-    dataVersion: 0,
-    configVersion: 0,
+    dataRevision: 0,
+    configRevision: 0,
     error: null,
   })
 }
@@ -89,12 +96,12 @@ export function createIndicatorResultState() {
   /** 判断提交身份是否仍对应当前计算尝试。 */
   const matchesAttempt = (
     attempt: IndicatorCalculationAttempt,
-    input: { requestId: number; dataVersion: number; configVersion: number },
+    input: { requestId: number; dataRevision: number; configRevision: number },
   ): boolean =>
     attempt.status === 'computing' &&
     attempt.requestId === input.requestId &&
-    attempt.dataVersion === input.dataVersion &&
-    attempt.configVersion === input.configVersion
+    attempt.dataRevision === input.dataRevision &&
+    attempt.configRevision === input.configRevision
 
   return {
     readonly,
@@ -103,8 +110,8 @@ export function createIndicatorResultState() {
       /** 开始一次带身份的计算尝试。 */
       beginCalculation(input: {
         requestId: number
-        dataVersion: number
-        configVersion: number
+        dataRevision: number
+        configRevision: number
       }): void {
         write({
           ...signals.snapshot.peek(),
@@ -115,29 +122,40 @@ export function createIndicatorResultState() {
       /** 校验并原子提交完整结果，返回是否成功生效。 */
       commitResults(input: {
         requestId: number
-        dataVersion: number
-        configVersion: number
+        dataRevision: number
+        configRevision: number
         bundle: IndicatorSeriesBundle
+        timestamps: ReadonlyArray<number>
+        instanceResults: ReadonlyArray<IndicatorInstanceSeriesResult>
         renderStates: ReadonlyMap<string, unknown>
       }): boolean {
         const previous = signals.snapshot.peek()
         if (!matchesAttempt(previous.attempt, input)) return false
         const previousVersion = previous.committed?.resultVersion ?? 0
         const previousProjection = previous.committed?.projectionVersion ?? 0
+        const results = new Map<string, IndicatorInstanceSeriesResult>()
+        for (const result of input.instanceResults) {
+          if (results.has(result.instanceId)) {
+            throw new TypeError(`Duplicate indicator instance result: ${result.instanceId}`)
+          }
+          results.set(result.instanceId, deepFreezeOwned(result))
+        }
         write({
           attempt: Object.freeze({
             status: 'idle' as const,
             requestId: input.requestId,
-            dataVersion: input.dataVersion,
-            configVersion: input.configVersion,
+            dataRevision: input.dataRevision,
+            configRevision: input.configRevision,
             error: null,
           }),
           committed: Object.freeze({
-            dataVersion: input.dataVersion,
-            configVersion: input.configVersion,
+            dataRevision: input.dataRevision,
+            configRevision: input.configRevision,
             resultVersion: previousVersion + 1,
             projectionVersion: previousProjection + 1,
-            bundle: input.bundle,
+            bundle: deepFreezeOwned(input.bundle),
+            timestamps: deepFreezeOwned(input.timestamps),
+            results: immutableMap(results),
             renderStates: immutableMap(input.renderStates),
           }),
         })
@@ -166,8 +184,8 @@ export function createIndicatorResultState() {
       /** 校验并记录本次计算失败，同时保留最近成功结果。 */
       failCalculation(input: {
         requestId: number
-        dataVersion: number
-        configVersion: number
+        dataRevision: number
+        configRevision: number
         error: string
       }): boolean {
         const previous = signals.snapshot.peek()

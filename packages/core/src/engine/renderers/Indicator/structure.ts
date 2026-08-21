@@ -193,6 +193,7 @@ function getStructureTitleInfo(
     compose: createFixedUnitVisibleStateComposer('structure', EMPTY_STRUCTURE_STATE),
   },
   runtime: {
+    outputAlignment: 'aggregate',
     defaultConfig: {
       leftWindow: 5,
       rightWindow: 2,

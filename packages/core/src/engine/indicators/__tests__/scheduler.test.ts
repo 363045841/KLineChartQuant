@@ -968,6 +968,40 @@ describe('EMPTY_RSI_STATE', () => {
 })
 
 describe('IndicatorScheduler failure handling', () => {
+  it('commits independently calculated results for instances of the same indicator', () => {
+    const resultState = createIndicatorResultState()
+    const scheduler = new IndicatorScheduler(resultState)
+    registerTestIndicators(scheduler)
+    scheduler.setIndicatorInstanceProvider(() => [
+      {
+        instanceId: 'macd-a',
+        definitionId: 'macd',
+        paneId: 'pane-a',
+        params: { fastPeriod: 12, slowPeriod: 26, signalPeriod: 9 },
+      },
+      {
+        instanceId: 'macd-b',
+        definitionId: 'macd',
+        paneId: 'pane-b',
+        params: { fastPeriod: 5, slowPeriod: 35, signalPeriod: 5 },
+      },
+    ])
+    const data = createTestData(80)
+
+    scheduler.update(data, { start: 0, end: data.length }, 41)
+
+    const committed = resultState.readonly.snapshot.peek().committed!
+    const first = committed.results.get('macd-a')!
+    const second = committed.results.get('macd-b')!
+    expect(first.params).toMatchObject({ fastPeriod: 12, slowPeriod: 26, signalPeriod: 9 })
+    expect(second.params).toMatchObject({ fastPeriod: 5, slowPeriod: 35, signalPeriod: 5 })
+    expect(first.series).not.toEqual(second.series)
+    expect(first.firstReadyIndex).not.toBeNull()
+    expect(second.firstReadyIndex).not.toBeNull()
+    expect(committed.timestamps).toEqual(data.map((item) => item.timestamp))
+    scheduler.destroy()
+  })
+
   it('commits Kernel data and config revisions instead of local counters', () => {
     const resultState = createIndicatorResultState()
     const scheduler = new IndicatorScheduler(resultState)
@@ -977,8 +1011,8 @@ describe('IndicatorScheduler failure handling', () => {
     scheduler.update(createTestData(10), { start: 0, end: 10 }, 41)
 
     expect(resultState.readonly.snapshot.peek().committed).toMatchObject({
-      dataVersion: 41,
-      configVersion: 19,
+      dataRevision: 41,
+      configRevision: 19,
     })
     scheduler.destroy()
   })

@@ -179,6 +179,7 @@ function getVolumeProfileTitleInfo(
     compose: createVolumeProfileVisibleStateComposer('volumeProfile', EMPTY_VOLUME_PROFILE_STATE),
   },
   runtime: {
+    outputAlignment: 'aggregate',
     defaultConfig: {
       bins: 24,
       lookback: 100,

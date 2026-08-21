@@ -60,7 +60,12 @@ import {
   DEFAULT_MA_PERIODS,
 } from './calculators'
 import type { IndicatorRuntimeDescriptor } from './indicatorMetadata'
-import type { IndicatorConfigSnapshot, IndicatorSeriesBundle } from './workerProtocol'
+import type {
+  IndicatorConfigSnapshot,
+  IndicatorInstanceCalculationInput,
+  IndicatorInstanceSeriesResult,
+  IndicatorSeriesBundle,
+} from './workerProtocol'
 
 export const CALCULATOR_MAP: Record<string, (data: KLineData[], config: any) => unknown> = {
   calcCCIData: (data, c) => calcCCIData(data, c.period),
@@ -132,8 +137,7 @@ export const CALCULATOR_MAP: Record<string, (data: KLineData[], config: any) => 
   calcFRAMAData: (data, c) => calcFRAMAData(data, c.period),
   calcDPOData: (data, c) => calcDPOData(data, c.period),
   calcAwesomeOscillatorData: (data, c) => calcAwesomeOscillatorData(data, c.fast, c.slow),
-  calcUltimateOscillatorData: (data, c) =>
-    calcUltimateOscillatorData(data, c.p1, c.p2, c.p3),
+  calcUltimateOscillatorData: (data, c) => calcUltimateOscillatorData(data, c.p1, c.p2, c.p3),
   calcStochRSIData: (data, c) => calcStochRSIData(data, c.period, c.kPeriod, c.dPeriod),
   calcFisherTransformData: (data, c) => calcFisherTransformData(data, c.period),
   calcSchaffTrendCycleData: (data, c) =>
@@ -227,6 +231,51 @@ export class IndicatorRuntime {
 
   getConfigVersion(): number {
     return this.configVersion
+  }
+
+  /** 查找嵌套序列中第一个有定义值的下标，用于表达 warm-up 边界。 */
+  private findFirstReadyIndex(value: unknown, dataLength: number): number | null {
+    if (Array.isArray(value)) {
+      if (value.length !== dataLength) return null
+      for (let index = 0; index < value.length; index++) {
+        if (value[index] !== undefined && value[index] !== null) return index
+      }
+      return null
+    }
+    if (value !== null && typeof value === 'object') {
+      let first: number | null = null
+      for (const nested of Object.values(value as Record<string, unknown>)) {
+        const index = this.findFirstReadyIndex(nested, dataLength)
+        if (index !== null && (first === null || index < first)) first = index
+      }
+      return first
+    }
+    return null
+  }
+
+  /** 按实例参数独立计算结果，不复用按指标类型保存的配置槽位。 */
+  computeInstanceSeries(
+    instances: ReadonlyArray<IndicatorInstanceCalculationInput>,
+  ): IndicatorInstanceSeriesResult[] {
+    const results: IndicatorInstanceSeriesResult[] = []
+    for (const instance of instances) {
+      const descriptor = this.descriptorMap.get(instance.configKey)
+      if (!descriptor) continue
+      const params = { ...instance.params }
+      const series = descriptor.compute(this.currentData, params)
+      results.push({
+        instanceId: instance.instanceId,
+        definitionId: instance.definitionId,
+        paneId: instance.paneId,
+        params,
+        series,
+        firstReadyIndex:
+          descriptor.outputAlignment === 'aggregate'
+            ? null
+            : this.findFirstReadyIndex(series, this.currentData.length),
+      })
+    }
+    return results
   }
 
   computeSeries(): IndicatorSeriesBundle {

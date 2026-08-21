@@ -26,12 +26,18 @@ describe('indicatorResultAvailability', () => {
     const kernel = createKernel()
     const dataRevision = kernel.data.readonly.dataRevision.peek()
     const configRevision = kernel.indicator.readonly.configRevision.peek()
-    kernel.indicatorResult.actions.beginCalculation({ requestId: 1, dataVersion: dataRevision, configVersion: configRevision })
+    kernel.indicatorResult.actions.beginCalculation({
+      requestId: 1,
+      dataRevision,
+      configRevision,
+    })
     kernel.indicatorResult.actions.commitResults({
       requestId: 1,
-      dataVersion: dataRevision,
-      configVersion: configRevision,
+      dataRevision,
+      configRevision,
       bundle: { _changed: [] } as never,
+      timestamps: [],
+      instanceResults: [],
       renderStates: new Map(),
     })
     expect(kernel.indicatorResultAvailability$()).toBe('ready')

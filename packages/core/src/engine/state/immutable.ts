@@ -53,3 +53,20 @@ export function deepFreezeSnapshot<T>(value: T): T {
   }
   return snapshot(value) as T
 }
+
+/** 递归冻结已转移所有权的 JSON-like 值，避免复制大型计算结果。 */
+export function deepFreezeOwned<T>(value: T): T {
+  const seen = new WeakSet<object>()
+  const freeze = (item: unknown): void => {
+    if (item === null || typeof item !== 'object' || seen.has(item)) return
+    const prototype = Object.getPrototypeOf(item)
+    if (!Array.isArray(item) && prototype !== Object.prototype && prototype !== null) {
+      throw new TypeError('Owned state only supports plain objects and arrays')
+    }
+    seen.add(item)
+    for (const nested of Object.values(item)) freeze(nested)
+    Object.freeze(item)
+  }
+  freeze(value)
+  return value
+}

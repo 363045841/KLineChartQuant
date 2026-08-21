@@ -358,6 +358,17 @@ getIndicatorValues(input: {
 - [x] 删除 Chart 路径中的指标 StateStore 兼容逻辑。
 - [x] 保留非指标插件 StateStore。
 
+### Pre-D：建立指标实例结果池
+
+- [x] 从 `indicatorState.instances` 获取稳定实例身份和参数快照。
+- [x] Worker 与 Inline 按实例参数独立调用既有 calculator。
+- [x] 原子提交 `timestamps`、按 `instanceId` 索引的结果和 revision。
+- [x] 定义 bar/aggregate 输出对齐与 `firstReadyIndex` warm-up 语义。
+- [x] 失败保留最近成功结果，过期提交不覆盖当前 attempt。
+- [x] renderer 继续通过帧级 `IndicatorRenderStateReader` 读取 legacy 投影。
+
+详细决策见 `docs/design/indicator-instance-result-pool.md`。
+
 ### 阶段 D：增加稳定查询模型
 
 - [ ] 建立按 `instanceId` 查询的指标结果接口。

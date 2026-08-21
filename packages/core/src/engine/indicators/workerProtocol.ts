@@ -386,6 +386,26 @@ export interface SerializedRuntimeDescriptor {
   paneIdKey?: string
   defaultConfig: unknown
   computeKey: string
+  outputAlignment?: 'bar' | 'aggregate'
+}
+
+/** 单个指标实例的计算输入，由主线程从 Indicator State 快照生成。 */
+export interface IndicatorInstanceCalculationInput {
+  readonly instanceId: string
+  readonly definitionId: string
+  readonly configKey: string
+  readonly paneId: string
+  readonly params: Readonly<Record<string, unknown>>
+}
+
+/** 单个指标实例的原始计算结果，series 与输入 K 线数组按下标对齐。 */
+export interface IndicatorInstanceSeriesResult {
+  readonly instanceId: string
+  readonly definitionId: string
+  readonly paneId: string
+  readonly params: Readonly<Record<string, unknown>>
+  readonly series: unknown
+  readonly firstReadyIndex: number | null
 }
 
 export interface InitRequest {
@@ -417,6 +437,7 @@ export interface ComputeSeriesRequest {
   requestId: number
   dataVersion: number
   configVersion: number
+  instances: ReadonlyArray<IndicatorInstanceCalculationInput>
 }
 
 export interface DisposeRequest {
@@ -446,6 +467,7 @@ export interface SeriesResultResponse {
   dataVersion: number
   configVersion: number
   results: IndicatorSeriesBundle
+  instanceResults: ReadonlyArray<IndicatorInstanceSeriesResult>
   metrics?: {
     computeMs: number
     dataLength: number
@@ -764,7 +786,7 @@ export interface IndicatorSeriesBundle {
 // 协议版本
 // ============================================================================
 
-export const PROTOCOL_VERSION = 1
+export const PROTOCOL_VERSION = 2
 
 // ============================================================================
 // 类型守卫

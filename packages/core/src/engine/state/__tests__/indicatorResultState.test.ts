@@ -2,14 +2,30 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import type { IndicatorSeriesBundle } from '../../indicators/workerProtocol'
-import { createIndicatorResultState, resolveIndicatorResultAvailability } from '../indicatorResultState'
+import {
+  createIndicatorResultState,
+  resolveIndicatorResultAvailability,
+} from '../indicatorResultState'
 
 /** 创建满足状态边界测试的最小结果包。 */
 function bundle(): IndicatorSeriesBundle {
   return { _changed: ['ma'] } as unknown as IndicatorSeriesBundle
 }
 
-const input = { requestId: 1, dataVersion: 7, configVersion: 3 }
+const input = { requestId: 1, dataRevision: 7, configRevision: 3 }
+const resultPayload = {
+  timestamps: [1000, 2000],
+  instanceResults: [
+    {
+      instanceId: 'macd-a',
+      definitionId: 'macd',
+      paneId: 'pane-a',
+      params: { fastPeriod: 12 },
+      series: [undefined, { dif: 1 }],
+      firstReadyIndex: 1,
+    },
+  ],
+}
 
 describe('indicatorResultState', () => {
   it('atomically publishes attempt and committed result', () => {
@@ -20,23 +36,37 @@ describe('indicatorResultState', () => {
 
     state.actions.beginCalculation(input)
     expect(
-      state.actions.commitResults({ ...input, bundle: bundle(), renderStates }),
+      state.actions.commitResults({ ...input, ...resultPayload, bundle: bundle(), renderStates }),
     ).toBe(true)
 
     const snapshot = state.readonly.snapshot.peek()
     expect(snapshot.attempt.status).toBe('idle')
     expect(snapshot.committed).toMatchObject({
-      dataVersion: 7,
-      configVersion: 3,
+      dataRevision: 7,
+      configRevision: 3,
       resultVersion: 1,
       projectionVersion: 1,
     })
     expect(snapshot.committed?.renderStates.get('indicator:ma:main')).toEqual(
       renderStates.get('indicator:ma:main'),
     )
-    expect(() =>
-      (snapshot.committed?.renderStates as Map<string, unknown>).set('x', {}),
-    ).toThrow(TypeError)
+    expect(() => (snapshot.committed?.renderStates as Map<string, unknown>).set('x', {})).toThrow(
+      TypeError,
+    )
+    expect(snapshot.committed?.timestamps).toEqual([1000, 2000])
+    expect(snapshot.committed?.results.get('macd-a')).toMatchObject({
+      definitionId: 'macd',
+      firstReadyIndex: 1,
+    })
+    expect(() => (snapshot.committed?.timestamps as number[]).push(3000)).toThrow(TypeError)
+    expect(() => snapshot.committed?.bundle._changed.push('boll')).toThrow(TypeError)
+    expect(() => (snapshot.committed?.results as Map<string, unknown>).set('macd-b', {})).toThrow(
+      TypeError,
+    )
+    expect(() => {
+      const params = snapshot.committed?.results.get('macd-a')?.params as Record<string, unknown>
+      params['fastPeriod'] = 5
+    }).toThrow(TypeError)
     expect(listener).toHaveBeenCalledTimes(2)
   })
 
@@ -47,8 +77,9 @@ describe('indicatorResultState', () => {
     expect(
       state.actions.commitResults({
         requestId: 0,
-        dataVersion: input.dataVersion,
-        configVersion: input.configVersion,
+        dataRevision: input.dataRevision,
+        configRevision: input.configRevision,
+        ...resultPayload,
         bundle: bundle(),
         renderStates: new Map(),
       }),
@@ -60,7 +91,12 @@ describe('indicatorResultState', () => {
   it('updates projection without advancing the result version', () => {
     const state = createIndicatorResultState()
     state.actions.beginCalculation(input)
-    state.actions.commitResults({ ...input, bundle: bundle(), renderStates: new Map() })
+    state.actions.commitResults({
+      ...input,
+      ...resultPayload,
+      bundle: bundle(),
+      renderStates: new Map(),
+    })
 
     expect(
       state.actions.updateProjection({
@@ -79,38 +115,48 @@ describe('indicatorResultState', () => {
     const state = createIndicatorResultState()
     const result = bundle()
     state.actions.beginCalculation(input)
-    state.actions.commitResults({ ...input, bundle: result, renderStates: new Map() })
-    state.actions.beginCalculation({ requestId: 2, dataVersion: 8, configVersion: 4 })
+    state.actions.commitResults({
+      ...input,
+      ...resultPayload,
+      bundle: result,
+      renderStates: new Map(),
+    })
+    state.actions.beginCalculation({ requestId: 2, dataRevision: 8, configRevision: 4 })
 
     expect(
       state.actions.failCalculation({
         requestId: 2,
-        dataVersion: 8,
-        configVersion: 4,
+        dataRevision: 8,
+        configRevision: 4,
         error: 'worker unavailable',
       }),
     ).toBe(true)
 
     const snapshot = state.readonly.snapshot.peek()
-    expect(snapshot.attempt).toMatchObject({ status: 'error', dataVersion: 8, configVersion: 4 })
+    expect(snapshot.attempt).toMatchObject({
+      status: 'error',
+      dataRevision: 8,
+      configRevision: 4,
+    })
     expect(snapshot.committed).toMatchObject({
-      dataVersion: 7,
-      configVersion: 3,
+      dataRevision: 7,
+      configRevision: 3,
       resultVersion: 1,
       bundle: result,
     })
+    expect(resolveIndicatorResultAvailability(snapshot, 8, 4)).toBe('error')
   })
 
   it('rejects a stale failure without replacing the current attempt', () => {
     const state = createIndicatorResultState()
-    state.actions.beginCalculation({ requestId: 1, dataVersion: 7, configVersion: 3 })
-    state.actions.beginCalculation({ requestId: 2, dataVersion: 8, configVersion: 4 })
+    state.actions.beginCalculation({ requestId: 1, dataRevision: 7, configRevision: 3 })
+    state.actions.beginCalculation({ requestId: 2, dataRevision: 8, configRevision: 4 })
 
     expect(
       state.actions.failCalculation({
         requestId: 1,
-        dataVersion: 7,
-        configVersion: 3,
+        dataRevision: 7,
+        configRevision: 3,
         error: 'late worker error',
       }),
     ).toBe(false)
@@ -123,11 +169,18 @@ describe('indicatorResultState', () => {
   it('reports stale until the committed revisions match the current Kernel state', () => {
     const state = createIndicatorResultState()
     state.actions.beginCalculation(input)
-    state.actions.commitResults({ ...input, bundle: bundle(), renderStates: new Map() })
+    state.actions.commitResults({
+      ...input,
+      ...resultPayload,
+      bundle: bundle(),
+      renderStates: new Map(),
+    })
 
     expect(resolveIndicatorResultAvailability(state.readonly.snapshot.peek(), 7, 3)).toBe('ready')
     expect(resolveIndicatorResultAvailability(state.readonly.snapshot.peek(), 8, 3)).toBe('stale')
-    state.actions.beginCalculation({ requestId: 2, dataVersion: 8, configVersion: 3 })
-    expect(resolveIndicatorResultAvailability(state.readonly.snapshot.peek(), 8, 3)).toBe('computing')
+    state.actions.beginCalculation({ requestId: 2, dataRevision: 8, configRevision: 3 })
+    expect(resolveIndicatorResultAvailability(state.readonly.snapshot.peek(), 8, 3)).toBe(
+      'computing',
+    )
   })
 })

@@ -174,6 +174,14 @@ export class ChartIndicatorManager {
         .filter((instance) => instance.role === 'sub')
         .map((instance) => instance.paneId),
     )
+    this.indicatorScheduler.setIndicatorInstanceProvider(() =>
+      this.deps.indicator.readonly.instances.peek().map((instance) => ({
+        instanceId: instance.instanceId,
+        definitionId: instance.indicatorId,
+        paneId: instance.paneId,
+        params: instance.params,
+      })),
+    )
 
     // 派生信号
     this._indicatorsComputed = computed<ReadonlyArray<IndicatorInstance>>(() =>

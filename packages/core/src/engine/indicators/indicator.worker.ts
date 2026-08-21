@@ -38,6 +38,7 @@ function handleInit(msg?: { descriptors?: SerializedRuntimeDescriptor[] }): void
     paneIdKey: d.paneIdKey as any,
     defaultConfig: d.defaultConfig,
     computeKey: d.computeKey,
+    outputAlignment: d.outputAlignment,
     compute: createWorkerCompute(d),
   }))
   runtime = new IndicatorRuntime(descriptors)
@@ -61,6 +62,7 @@ function handleAddDescriptor(descriptor: SerializedRuntimeDescriptor): void {
     paneIdKey: descriptor.paneIdKey as any,
     defaultConfig: descriptor.defaultConfig,
     computeKey: descriptor.computeKey,
+    outputAlignment: descriptor.outputAlignment,
     compute: createWorkerCompute(descriptor),
   })
 }
@@ -98,7 +100,12 @@ function handleSetConfig(config: Partial<IndicatorConfigSnapshot>, version: numb
 /**
  * 处理计算 series
  */
-function handleComputeSeries(requestId: number, dataVersion: number, configVersion: number): void {
+function handleComputeSeries(
+  requestId: number,
+  dataVersion: number,
+  configVersion: number,
+  instances: Extract<IndicatorWorkerRequest, { type: 'computeSeries' }>['instances'],
+): void {
   if (!runtime) {
     postResponse({
       type: 'error',
@@ -114,6 +121,7 @@ function handleComputeSeries(requestId: number, dataVersion: number, configVersi
   try {
     console.log(`[IndicatorWorker] computeSeries START reqId=${requestId}`)
     const results = runtime.computeSeries()
+    const instanceResults = runtime.computeInstanceSeries(instances)
     const computeMs = performance.now() - startTime
     console.log(
       `[IndicatorWorker] computeSeries DONE in ${computeMs.toFixed(1)}ms, changed=[${results._changed.join(',')}]`,
@@ -125,6 +133,7 @@ function handleComputeSeries(requestId: number, dataVersion: number, configVersi
       dataVersion,
       configVersion,
       results,
+      instanceResults,
       metrics: {
         computeMs,
         dataLength: 0, // 由调用方填充
@@ -182,7 +191,7 @@ ctx.onmessage = (event: MessageEvent<IndicatorWorkerRequest>) => {
       break
 
     case 'computeSeries':
-      handleComputeSeries(msg.requestId, msg.dataVersion, msg.configVersion)
+      handleComputeSeries(msg.requestId, msg.dataVersion, msg.configVersion, msg.instances)
       break
 
     case 'dispose':

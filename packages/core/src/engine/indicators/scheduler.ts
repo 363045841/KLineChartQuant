@@ -71,13 +71,12 @@ import {
 import { DEFAULT_VWAP_SESSION_GAP_MS } from './state/vwapState'
 import { DEFAULT_WMA_PERIOD } from './state/wmaState'
 import { DEFAULT_ZONES_OB_LOOKBACK } from './state/zonesState'
-import {
-  composeRenderStates,
-  computeMainIndicatorPriceRange,
-} from './stateComposer'
+import { composeRenderStates, computeMainIndicatorPriceRange } from './stateComposer'
 import { isWorkerResponse, PROTOCOL_VERSION } from './workerProtocol'
 import type {
   IndicatorConfigSnapshot,
+  IndicatorInstanceCalculationInput,
+  IndicatorInstanceSeriesResult,
   IndicatorSeriesBundle,
   SerializedRuntimeDescriptor,
 } from './workerProtocol'
@@ -90,6 +89,14 @@ import { computed, effect, type ReadonlySignal } from '../../foundation/reactivi
 interface VisibleRange {
   start: number
   end: number
+}
+
+/** Scheduler 从 Kernel 读取的最小实例快照。 */
+interface IndicatorInstanceCalculationSource {
+  readonly instanceId: string
+  readonly definitionId: string
+  readonly paneId: string
+  readonly params: Readonly<Record<string, unknown>>
 }
 
 // 重新导出配置类型（保持向后兼容）
@@ -201,14 +208,20 @@ export class IndicatorScheduler {
 
   /** 从 Chart 获取活跃副图 paneId 列表的回调 */
   private getActiveSubPaneIds: (() => string[]) | null = null
+  /** 从 Kernel 获取指标实例计算输入的回调。 */
+  private getIndicatorInstances: (() => ReadonlyArray<IndicatorInstanceCalculationSource>) | null =
+    null
 
   // 注册表
   private registry: IndicatorRegistry
 
   constructor(resultStateOrAutoSync?: IndicatorResultStateModule | boolean, autoSync?: boolean) {
-    this.ownsResultState = typeof resultStateOrAutoSync === 'boolean' || resultStateOrAutoSync === undefined
+    this.ownsResultState =
+      typeof resultStateOrAutoSync === 'boolean' || resultStateOrAutoSync === undefined
     this.resultState =
-      typeof resultStateOrAutoSync === 'object' ? resultStateOrAutoSync : createIndicatorResultState()
+      typeof resultStateOrAutoSync === 'object'
+        ? resultStateOrAutoSync
+        : createIndicatorResultState()
     this.busySignal$ = computed(
       () => this.resultState.readonly.snapshot().attempt.status === 'computing',
     )
@@ -249,6 +262,7 @@ export class IndicatorScheduler {
               ? (rt.defaultConfig as () => any)()
               : rt.defaultConfig,
           computeKey: rt.computeKey,
+          outputAlignment: rt.outputAlignment,
         } as SerializedRuntimeDescriptor,
       })
     }
@@ -316,6 +330,13 @@ export class IndicatorScheduler {
    */
   setActiveSubPaneProvider(provider: () => string[]): void {
     this.getActiveSubPaneIds = provider
+  }
+
+  /** 注入指标实例快照，作为实例级计算输入的唯一来源。 */
+  setIndicatorInstanceProvider(
+    provider: () => ReadonlyArray<IndicatorInstanceCalculationSource>,
+  ): void {
+    this.getIndicatorInstances = provider
   }
 
   /**
@@ -458,8 +479,8 @@ export class IndicatorScheduler {
     this.activeRequestId = requestId
     this.resultState.actions.beginCalculation({
       requestId,
-      dataVersion: this.dataVersion,
-      configVersion: this.configVersion,
+      dataRevision: this.dataVersion,
+      configRevision: this.configVersion,
     })
     return requestId
   }
@@ -478,8 +499,8 @@ export class IndicatorScheduler {
   ): void {
     this.resultState.actions.failCalculation({
       requestId,
-      dataVersion,
-      configVersion,
+      dataRevision: dataVersion,
+      configRevision: configVersion,
       error: error instanceof Error ? error.message : String(error),
     })
     this.pendingRequest = null
@@ -522,6 +543,7 @@ export class IndicatorScheduler {
                   ? (rt.defaultConfig as () => any)()
                   : rt.defaultConfig,
               computeKey: rt.computeKey,
+              outputAlignment: rt.outputAlignment,
             } as SerializedRuntimeDescriptor,
           })
         }
@@ -578,7 +600,13 @@ export class IndicatorScheduler {
 
     try {
       // 组装并原子提交 Kernel 状态（内部触发重绘和结果回调）。
-      this.applyResults(msg.results, msg.requestId, msg.dataVersion, msg.configVersion)
+      this.applyResults(
+        msg.results,
+        msg.instanceResults,
+        msg.requestId,
+        msg.dataVersion,
+        msg.configVersion,
+      )
     } catch (error) {
       this.failCalculation(msg.requestId, msg.dataVersion, msg.configVersion, error)
     }
@@ -608,7 +636,10 @@ export class IndicatorScheduler {
       const state = states[meta.name]
       if (state === undefined) continue
       const paneId = this.paneIdOverrides.get(meta.name) ?? meta.defaultPaneId
-      this.checkVisibleExtremes(state as { visibleMin: number; visibleMax: number }, meta.displayName)
+      this.checkVisibleExtremes(
+        state as { visibleMin: number; visibleMax: number },
+        meta.displayName,
+      )
       result.set(resolveStateKey(meta.stateKey, paneId), state)
     }
     return result
@@ -648,6 +679,7 @@ export class IndicatorScheduler {
   /** 提交最新完整计算结果，并在提交后安排下一帧绘制。 */
   private applyResults(
     bundle: IndicatorSeriesBundle,
+    instanceResults: ReadonlyArray<IndicatorInstanceSeriesResult>,
     requestId: number,
     dataVersion: number,
     configVersion: number,
@@ -655,9 +687,11 @@ export class IndicatorScheduler {
     const renderStates = this.composeRenderStateMap(bundle)
     const committed = this.resultState.actions.commitResults({
       requestId,
-      dataVersion,
-      configVersion,
+      dataRevision: dataVersion,
+      configRevision: configVersion,
       bundle,
+      timestamps: this.currentData.map((item) => item.timestamp),
+      instanceResults,
       renderStates,
     })
     if (!committed) return
@@ -674,10 +708,13 @@ export class IndicatorScheduler {
     const renderStates = this.composeRenderStateMap(bundle)
     const committed = this.resultState.readonly.snapshot.peek().committed
     if (!committed) return false
-    if (!this.resultState.actions.updateProjection({
-      resultVersion: committed.resultVersion,
-      renderStates,
-    })) return false
+    if (
+      !this.resultState.actions.updateProjection({
+        resultVersion: committed.resultVersion,
+        renderStates,
+      })
+    )
+      return false
     this.projectStandaloneRenderStates(renderStates, (meta) => {
       if (meta.category !== 'main') return true
       const paneId = this.paneIdOverrides.get(meta.name) ?? meta.defaultPaneId
@@ -731,6 +768,29 @@ export class IndicatorScheduler {
       }
     }
     return cfg as unknown as IndicatorConfigSnapshot
+  }
+
+  /** 合并定义默认参数与实例参数，生成可跨 Worker 传输的计算输入。 */
+  private buildInstanceCalculationInputs(): IndicatorInstanceCalculationInput[] {
+    const instances = this.getIndicatorInstances?.() ?? []
+    const inputs: IndicatorInstanceCalculationInput[] = []
+    for (const instance of instances) {
+      const metadata = this.registry.get(instance.definitionId)
+      const runtime = metadata?.runtime
+      if (!metadata || !runtime) continue
+      const defaults =
+        typeof runtime.defaultConfig === 'function'
+          ? (runtime.defaultConfig as () => Record<string, unknown>)()
+          : (runtime.defaultConfig as Record<string, unknown>)
+      inputs.push({
+        instanceId: instance.instanceId,
+        definitionId: metadata.name,
+        configKey: runtime.configKey ?? metadata.name,
+        paneId: instance.paneId,
+        params: { ...defaults, ...instance.params },
+      })
+    }
+    return inputs
   }
 
   // ============================================================================
@@ -904,6 +964,7 @@ export class IndicatorScheduler {
       requestId,
       dataVersion: this.dataVersion,
       configVersion: this.configVersion,
+      instances: this.buildInstanceCalculationInputs(),
     })
   }
 
@@ -929,8 +990,11 @@ export class IndicatorScheduler {
     // 同步计算
     try {
       const results = this.inlineRuntime.computeSeries()
+      const instanceResults = this.inlineRuntime.computeInstanceSeries(
+        this.buildInstanceCalculationInputs(),
+      )
       // 组装并原子提交 Kernel 状态（内部触发重绘和结果回调）。
-      this.applyResults(results, requestId, this.dataVersion, this.configVersion)
+      this.applyResults(results, instanceResults, requestId, this.dataVersion, this.configVersion)
     } catch (error) {
       this.failCalculation(requestId, this.dataVersion, this.configVersion, error)
     }

@@ -196,6 +196,8 @@ export interface IndicatorRuntimeDescriptor<C = any> {
   compute: (data: KLineData[], config: C) => unknown
   /** Worker 端计算键名，映射到 calculators 模块的导出 */
   computeKey: string
+  /** calculator 输出是否按 K 线下标对齐，默认 bar。 */
+  outputAlignment?: 'bar' | 'aggregate'
 }
 
 /**
