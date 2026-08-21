@@ -4,10 +4,12 @@
  */
 import { createSubState } from '../../foundation/reactivity/signal'
 import type {
-  IndicatorInstanceSeriesResult,
+  IndicatorInstanceCalculationResult,
   IndicatorSeriesBundle,
 } from '../indicators/workerProtocol'
 import { deepFreezeOwned, immutableMap } from './immutable'
+import { ownChartIndicatorResult } from './indicatorResultModel'
+import type { IndicatorSeriesResult } from './indicatorResultModel'
 
 /** 指标计算尝试的外部可观察状态。 */
 export type IndicatorCalculationStatus = 'idle' | 'computing' | 'error'
@@ -31,7 +33,7 @@ export interface CommittedIndicatorResult {
   /** 与 series 下标严格对齐的行情时间轴。 */
   readonly timestamps: ReadonlyArray<number>
   /** 按稳定 instanceId 索引的业务结果事实源。 */
-  readonly results: ReadonlyMap<string, IndicatorInstanceSeriesResult>
+  readonly results: ReadonlyMap<string, IndicatorSeriesResult>
   readonly renderStates: ReadonlyMap<string, unknown>
 }
 
@@ -126,19 +128,19 @@ export function createIndicatorResultState() {
         configRevision: number
         bundle: IndicatorSeriesBundle
         timestamps: ReadonlyArray<number>
-        instanceResults: ReadonlyArray<IndicatorInstanceSeriesResult>
+        instanceResults: ReadonlyArray<IndicatorInstanceCalculationResult>
         renderStates: ReadonlyMap<string, unknown>
       }): boolean {
         const previous = signals.snapshot.peek()
         if (!matchesAttempt(previous.attempt, input)) return false
         const previousVersion = previous.committed?.resultVersion ?? 0
         const previousProjection = previous.committed?.projectionVersion ?? 0
-        const results = new Map<string, IndicatorInstanceSeriesResult>()
+        const results = new Map<string, IndicatorSeriesResult>()
         for (const result of input.instanceResults) {
           if (results.has(result.instanceId)) {
             throw new TypeError(`Duplicate indicator instance result: ${result.instanceId}`)
           }
-          results.set(result.instanceId, deepFreezeOwned(result))
+          results.set(result.instanceId, deepFreezeOwned(ownChartIndicatorResult(result)))
         }
         write({
           attempt: Object.freeze({

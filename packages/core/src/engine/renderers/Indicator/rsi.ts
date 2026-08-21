@@ -12,7 +12,7 @@ import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign
 import { calcRSIData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, RSISchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { RSIRenderState } from '../../indicators/state/rsiState'
 import { createRSIStateKey, EMPTY_RSI_STATE } from '../../indicators/state/rsiState'
 import { createFixedRangeRecordVisibleStateComposer } from '../../indicators/visibleStateComposers'

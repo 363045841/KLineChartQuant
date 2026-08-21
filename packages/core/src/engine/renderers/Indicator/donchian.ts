@@ -15,7 +15,7 @@ import {
   type TitleInfo,
   type GetTitleInfoFn,
 } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, DonchianSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { DonchianRenderState } from '../../indicators/state/donchianState'
 import { createDonchianStateKey, EMPTY_DONCHIAN_STATE } from '../../indicators/state/donchianState'
 import { createBandVisibleStateComposer } from '../../indicators/visibleStateComposers'

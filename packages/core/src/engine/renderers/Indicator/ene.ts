@@ -9,7 +9,7 @@ import type { KLineData } from '../../../foundation/types/price'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
 import { calcENEData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { readIndicatorSeriesEntry, resolveStateKey } from '../../indicators/indicatorMetadata'
 import type {
   IndicatorPriceRangeComputer,
   IndicatorRenderStateComposer,
@@ -17,7 +17,7 @@ import type {
   TitleInfo,
   TitleValueItem,
 } from '../../indicators/indicatorMetadata'
-import type { ENESchedulerConfig, IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import { ENE_STATE_KEY, type ENERenderState } from '../../indicators/state/eneState'
 
 import { getRgbaAlpha, toOpaqueRgba } from './shared/webglBand'
@@ -93,7 +93,7 @@ function getENEStateKey(host: PluginHost | null): string | null {
 }
 
 const computeENEPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
-  const series = bundle.ene.series
+  const { series } = readIndicatorSeriesEntry<Pick<ENERenderState, 'series'>>(bundle, 'ene')
   if (series.length === 0 || range.start >= series.length) {
     return null
   }
@@ -117,11 +117,12 @@ const composeENERenderState: IndicatorRenderStateComposer = (
   range,
   timestamp,
 ): ENERenderState => {
+  const source = readIndicatorSeriesEntry<Pick<ENERenderState, 'series' | 'params'>>(bundle, 'ene')
   const priceRange = computeENEPriceRange(bundle, range) ?? { min: Infinity, max: -Infinity }
   return {
     timestamp,
-    series: bundle.ene.series,
-    params: bundle.ene.params,
+    series: source.series,
+    params: source.params,
     visibleMin: priceRange.min,
     visibleMax: priceRange.max,
   }

@@ -9,7 +9,7 @@ import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign
 import { calcMOMData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, MOMSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { MOMRenderState } from '../../indicators/state/momState'
 import { createMOMStateKey } from '../../indicators/state/momState'
 import { EMPTY_MOM_STATE } from '../../indicators/state/momState'

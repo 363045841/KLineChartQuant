@@ -14,7 +14,7 @@ import {
   type TitleValueItem,
   type GetTitleInfoFn,
 } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, FibSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { FibRenderState } from '../../indicators/state/fibState'
 import { createFibStateKey, EMPTY_FIB_STATE } from '../../indicators/state/fibState'
 import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'

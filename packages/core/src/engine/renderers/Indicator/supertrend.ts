@@ -14,7 +14,7 @@ import {
   type TitleInfo,
   type GetTitleInfoFn,
 } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, SuperTrendSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { SuperTrendRenderState } from '../../indicators/state/supertrendState'
 import {
   createSuperTrendStateKey,

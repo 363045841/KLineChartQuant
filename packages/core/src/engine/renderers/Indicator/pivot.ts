@@ -14,7 +14,7 @@ import {
   type TitleValueItem,
   type GetTitleInfoFn,
 } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, PivotSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { PivotRenderState } from '../../indicators/state/pivotState'
 import { createPivotStateKey, EMPTY_PIVOT_STATE } from '../../indicators/state/pivotState'
 import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'

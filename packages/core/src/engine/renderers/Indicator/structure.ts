@@ -12,7 +12,7 @@ import { calcStructureData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { TitleInfo } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, StructureSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { StructureRenderState } from '../../indicators/state/structureState'
 import {
   createStructureStateKey,

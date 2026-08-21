@@ -9,7 +9,7 @@ import type { KLineData } from '../../../foundation/types/price'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
 import { calcBOLLData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { readIndicatorSeriesEntry, resolveStateKey } from '../../indicators/indicatorMetadata'
 import type {
   IndicatorPriceRangeComputer,
   IndicatorRenderStateComposer,
@@ -17,7 +17,7 @@ import type {
   TitleInfo,
   TitleValueItem,
 } from '../../indicators/indicatorMetadata'
-import type { BOLLSchedulerConfig, IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import { BOLL_STATE_KEY, type BOLLRenderState } from '../../indicators/state/bollState'
 
 import { tryDrawLinesGpu } from '../linesViaRenderer'
@@ -95,7 +95,7 @@ function getBOLLStateKey(host: PluginHost | null): string | null {
 }
 
 const computeBOLLPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
-  const series = bundle.boll.series
+  const { series } = readIndicatorSeriesEntry<Pick<BOLLRenderState, 'series'>>(bundle, 'boll')
   if (series.length === 0 || range.start >= series.length) {
     return null
   }
@@ -119,11 +119,12 @@ const composeBOLLRenderState: IndicatorRenderStateComposer = (
   range,
   timestamp,
 ): BOLLRenderState => {
+  const source = readIndicatorSeriesEntry<Pick<BOLLRenderState, 'series' | 'params'>>(bundle, 'boll')
   const priceRange = computeBOLLPriceRange(bundle, range) ?? { min: Infinity, max: -Infinity }
   return {
     timestamp,
-    series: bundle.boll.series,
-    params: bundle.boll.params,
+    series: source.series,
+    params: source.params,
     visibleMin: priceRange.min,
     visibleMax: priceRange.max,
   }

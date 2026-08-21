@@ -13,7 +13,7 @@ import {
   type TitleValueItem,
   type GetTitleInfoFn,
 } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, ZonesSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { ZonesRenderState } from '../../indicators/state/zonesState'
 import { createZonesStateKey, EMPTY_ZONES_STATE } from '../../indicators/state/zonesState'
 import { createFixedUnitVisibleStateComposer } from '../../indicators/visibleStateComposers'

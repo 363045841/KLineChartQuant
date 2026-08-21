@@ -14,7 +14,7 @@ import {
   type TitleInfo,
   type GetTitleInfoFn,
 } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, SARSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { SARRenderState } from '../../indicators/state/sarState'
 import { createSARStateKey, EMPTY_SAR_STATE } from '../../indicators/state/sarState'
 import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers'

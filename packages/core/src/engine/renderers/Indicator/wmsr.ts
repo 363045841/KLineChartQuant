@@ -9,7 +9,7 @@ import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign
 import { calcWMSRData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, WMSRSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { WMSRRenderState } from '../../indicators/state/wmsrState'
 import { createWMSRStateKey, EMPTY_WMSR_STATE } from '../../indicators/state/wmsrState'
 import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'

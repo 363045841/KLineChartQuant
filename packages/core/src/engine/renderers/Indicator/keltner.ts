@@ -15,7 +15,7 @@ import {
   type TitleInfo,
   type GetTitleInfoFn,
 } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, KeltnerSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { KeltnerRenderState } from '../../indicators/state/keltnerState'
 import { createKeltnerStateKey, EMPTY_KELTNER_STATE } from '../../indicators/state/keltnerState'
 import { createBandVisibleStateComposer } from '../../indicators/visibleStateComposers'

@@ -125,6 +125,11 @@ export interface IndicatorPriceRange {
   max: number
 }
 
+/** 按注册表 configKey 读取由对应指标定义约束的结果项。 */
+export function readIndicatorSeriesEntry<T>(bundle: IndicatorSeriesBundle, configKey: string): T {
+  return bundle[configKey] as T
+}
+
 export type IndicatorPriceRangeComputer = (
   bundle: IndicatorSeriesBundle,
   visibleRange: IndicatorVisibleRange,

@@ -31,7 +31,7 @@ function postResponse(response: IndicatorWorkerResponse): void {
 /**
  * 处理初始化
  */
-function handleInit(msg?: { descriptors?: SerializedRuntimeDescriptor[] }): void {
+function handleInit(msg?: { descriptors?: ReadonlyArray<SerializedRuntimeDescriptor> }): void {
   const serializedDescs = msg?.descriptors ?? []
   const descriptors: IndicatorRuntimeDescriptor[] = serializedDescs.map((d) => ({
     configKey: d.configKey as any,
@@ -85,7 +85,7 @@ function handleSetData(data: KLineData[], version: number): void {
 /**
  * 处理设置配置
  */
-function handleSetConfig(config: Partial<IndicatorConfigSnapshot>, version: number): void {
+function handleSetConfig(config: IndicatorConfigSnapshot, version: number): void {
   if (!runtime) {
     postResponse({
       type: 'error',

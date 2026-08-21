@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import type { IndicatorSeriesBundle } from '../../indicators/workerProtocol'
+import { INDICATOR_RESULT_OWNER } from '../indicatorResultModel'
 import {
   createIndicatorResultState,
   resolveIndicatorResultAvailability,
@@ -55,6 +56,7 @@ describe('indicatorResultState', () => {
     )
     expect(snapshot.committed?.timestamps).toEqual([1000, 2000])
     expect(snapshot.committed?.results.get('macd-a')).toMatchObject({
+      owner: INDICATOR_RESULT_OWNER.CHART,
       definitionId: 'macd',
       firstReadyIndex: 1,
     })

@@ -84,6 +84,9 @@ pane，当前高层 API 返回规范化的 `definitionId`。
 5. 仅当 requestId、dataRevision、configRevision 仍匹配当前 attempt 时提交；过期响应被丢弃。
 6. 失败调用 `failCalculation()`，保留最近成功结果，但当前 availability 变为 `error` 或 `stale`。
 
+Worker 协议只包含动态配置映射和纯计算结果。配置与兼容结果包均按注册表 `configKey` 索引；具体参数和
+series 形状由指标定义约束。结果所属方由主线程提交结果池时附加，不传入 Worker。
+
 `CommittedIndicatorResult` 的关键字段：
 
 - `timestamps`：与 bar 对齐序列下标严格一致的行情时间轴。
@@ -121,6 +124,8 @@ renderer 都只能读取该对象图，禁止原地修改序列或参数。
 4. 为需要可见范围缩放的指标补充或复用 `visibleStateComposers.ts` 中的 composer。
 5. 在 `engine/renderers/Indicator/` 实现绘制；读取帧级 `IndicatorRenderStateReader`，不持有计算缓存。
 6. 覆盖 calculator、registry、runtime/Worker 一致性、Scheduler 提交和 renderer 状态投影测试。
+
+Worker 的 Config、Bundle 和 Snapshot 不枚举指标键，因此新增指标不需要修改 `workerProtocol.ts`。
 
 新增字段或调整序列语义时，同时更新指标结果池设计文档和 D 轮公开查询 DTO 契约，避免外部消费者依赖
 `bundle` 或 `renderStates` 的内部形状。

@@ -16,7 +16,7 @@ import {
   type TitleValueItem,
   type GetTitleInfoFn,
 } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, IchimokuSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { IchimokuRenderState } from '../../indicators/state/ichimokuState'
 import { createIchimokuStateKey, EMPTY_ICHIMOKU_STATE } from '../../indicators/state/ichimokuState'
 import { createIchimokuVisibleStateComposer } from '../../indicators/visibleStateComposers'

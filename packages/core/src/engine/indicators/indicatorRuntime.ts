@@ -61,9 +61,10 @@ import {
 } from './calculators'
 import type { IndicatorRuntimeDescriptor } from './indicatorMetadata'
 import type {
+  IndicatorConfig,
   IndicatorConfigSnapshot,
   IndicatorInstanceCalculationInput,
-  IndicatorInstanceSeriesResult,
+  IndicatorInstanceCalculationResult,
   IndicatorSeriesBundle,
 } from './workerProtocol'
 
@@ -161,7 +162,7 @@ export class IndicatorRuntime {
   private dataVersion = 0
   private configVersion = 0
   private dataDirty = true
-  private configMap = new Map<string, any>()
+  private configMap = new Map<string, IndicatorConfig>()
   private seriesMap = new Map<string, unknown>()
   private dirtyFlags = new Map<string, boolean>()
   private descriptorMap = new Map<string, IndicatorRuntimeDescriptor>()
@@ -176,9 +177,9 @@ export class IndicatorRuntime {
     const configKey = d.configKey ?? 'unknown'
     if (this.descriptorMap.has(configKey)) return
     this.descriptorMap.set(configKey, d)
-    const def =
+    const defaultConfig =
       typeof d.defaultConfig === 'function' ? (d.defaultConfig as () => any)() : d.defaultConfig
-    this.configMap.set(configKey, { ...def })
+    this.configMap.set(configKey, { ...(defaultConfig as IndicatorConfig) })
     this.dirtyFlags.set(configKey, true)
   }
 
@@ -199,7 +200,7 @@ export class IndicatorRuntime {
     return true
   }
 
-  setConfig(config: Partial<IndicatorConfigSnapshot>, version: number): void {
+  setConfig(config: IndicatorConfigSnapshot, version: number): void {
     for (const [key, value] of Object.entries(config)) {
       if (value === undefined) continue
       const desc = this.descriptorMap.get(key)
@@ -207,9 +208,9 @@ export class IndicatorRuntime {
         const current = this.configMap.get(key)
         if (
           !current ||
-          !this.shallowEqual(value as Record<string, unknown>, current as Record<string, unknown>)
+          !this.shallowEqual(value, current)
         ) {
-          this.configMap.set(key, { ...(current ?? {}), ...(value as any) })
+          this.configMap.set(key, { ...(current ?? {}), ...value })
           this.dirtyFlags.set(key, true)
         }
         continue
@@ -256,8 +257,8 @@ export class IndicatorRuntime {
   /** 按实例参数独立计算结果，不复用按指标类型保存的配置槽位。 */
   computeInstanceSeries(
     instances: ReadonlyArray<IndicatorInstanceCalculationInput>,
-  ): IndicatorInstanceSeriesResult[] {
-    const results: IndicatorInstanceSeriesResult[] = []
+  ): IndicatorInstanceCalculationResult[] {
+    const results: IndicatorInstanceCalculationResult[] = []
     for (const instance of instances) {
       const descriptor = this.descriptorMap.get(instance.configKey)
       if (!descriptor) continue
@@ -295,7 +296,7 @@ export class IndicatorRuntime {
       this.dirtyFlags.set(key, false)
     }
 
-    const bundle: Record<string, unknown> = { _changed: changed }
+    const bundle: Record<string, unknown> & { _changed: string[] } = { _changed: changed }
     for (const [configKey] of this.descriptorMap) {
       const raw = this.seriesMap.get(configKey)
       const params = { ...(this.configMap.get(configKey) ?? {}) }
@@ -313,6 +314,6 @@ export class IndicatorRuntime {
       bundle[configKey] = entry
     }
 
-    return bundle as unknown as IndicatorSeriesBundle
+    return bundle
   }
 }

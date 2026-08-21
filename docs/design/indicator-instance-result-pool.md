@@ -6,6 +6,8 @@
 
 `IndicatorSeriesBundle` 按指标定义保存计算结果，适合作为现有 renderer 投影的输入，但无法表达同一定义的多个实例。图表业务状态已经以 `indicatorState.instances` 维护稳定 `instanceId`，Pre-D 将该实例快照接入计算链路，建立后续 Agent 查询使用的事实源。
 
+**行情数据：** 指当前图表活动数据 buffer 中按时间排序的 K 线序列，包括 `timestamp`、`open`、`high`、`low`、`close`、`volume` 及其已有扩展字段。加载、切换、追加或更新这组序列都会形成新的 `dataRevision`；指标结果必须记录其对应的 revision，避免将基于旧行情计算的结果解释为当前行情结果。
+
 ## 决策
 
 一次 Scheduler 计算同时产生两类输出，并通过一次 `commitResults` 原子提交：
@@ -33,6 +35,16 @@ committed = {
 ```
 
 `timestamps[index]` 与实例时间序列的 `series[index]` 对齐。实例结果保存规范化的 `definitionId`、`paneId`、合并默认值后的参数、原始 calculator 输出和 `firstReadyIndex`。
+
+## 结果身份
+
+结果池 value 使用 `owner` 判别所属方。该字段属于主线程结果池模型，不进入 Worker 协议；Worker 只返回纯计算结果，由 `indicatorResultState` 提交时包装为 `chart` 结果。`chart` 结果包含稳定 `instanceId` 和真实 `paneId`，可以参与生成 renderer 投影；`agent` 结果包含内部 `agentResultId`，只供 Agent 查询层读取。两类结果共享指标定义、参数、原始序列和 `firstReadyIndex`，Agent 结果不伪造图表实例或 pane 身份。
+
+Pre-D 计算链路当前只生产 `chart` 结果。D1 查询链路后续生产 `agent` 结果；派生 renderer 投影时仍需确认 `chart` 结果对应当前 `indicatorState.instances`，不能只依赖 `owner` 字段。
+
+## Worker 动态协议
+
+Worker 配置和兼容结果包均按指标注册表的 `configKey` 动态索引。具体参数字段由各指标定义和 renderer 状态约束，Worker 协议不枚举所有指标配置，也不硬编码指标结果键。新增指标只需注册 runtime descriptor 和对应投影逻辑，无需扩展 Worker 的 Config、Bundle 或 Snapshot 联合结构。
 
 `firstReadyIndex` 仅从 `outputAlignment: bar` 且长度等于行情数组长度的序列推导。Structure、Zones 和 Volume Profile 显式声明为 `aggregate`，其内部数组不与 K 线逐项对齐，因此 `firstReadyIndex` 为 `null`。
 

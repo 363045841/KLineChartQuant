@@ -38,7 +38,10 @@ describe('IndicatorRuntime instance results', () => {
       },
     ])
 
-    expect(result?.firstReadyIndex).toBe(2)
+    expect(result).toMatchObject({
+      instanceId: 'bar-a',
+      firstReadyIndex: 2,
+    })
   })
 
   it('does not infer a warm-up boundary from aggregate arrays', () => {

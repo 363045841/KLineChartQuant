@@ -78,9 +78,10 @@ import {
 } from './stateComposer'
 import { isWorkerResponse, PROTOCOL_VERSION } from './workerProtocol'
 import type {
+  IndicatorConfig,
   IndicatorConfigSnapshot,
   IndicatorInstanceCalculationInput,
-  IndicatorInstanceSeriesResult,
+  IndicatorInstanceCalculationResult,
   IndicatorSeriesBundle,
   SerializedRuntimeDescriptor,
 } from './workerProtocol'
@@ -102,65 +103,6 @@ interface IndicatorInstanceCalculationSource {
   readonly paneId: string
   readonly params: Readonly<Record<string, unknown>>
 }
-
-// 重新导出配置类型（保持向后兼容）
-export type {
-  BOLLSchedulerConfig,
-  EXPMASchedulerConfig,
-  ENESchedulerConfig,
-  RSISchedulerConfig,
-  CCISchedulerConfig,
-  STOCHSchedulerConfig,
-  MOMSchedulerConfig,
-  WMSRSchedulerConfig,
-  KSTSchedulerConfig,
-  FASTKSchedulerConfig,
-  MACDSchedulerConfig,
-  ATRSchedulerConfig,
-  WMASchedulerConfig,
-  DEMASchedulerConfig,
-  TEMASchedulerConfig,
-  HMASchedulerConfig,
-  KAMASchedulerConfig,
-  SMMASchedulerConfig,
-  TRIMASchedulerConfig,
-  ZLEMASchedulerConfig,
-  VWMASchedulerConfig,
-  ALMASchedulerConfig,
-  LSMASchedulerConfig,
-  DMASchedulerConfig,
-  GMMASchedulerConfig,
-  SARSchedulerConfig,
-  SuperTrendSchedulerConfig,
-  KeltnerSchedulerConfig,
-  DonchianSchedulerConfig,
-  IchimokuSchedulerConfig,
-  ROCSchedulerConfig,
-  TRIXSchedulerConfig,
-  HVSchedulerConfig,
-  ParkinsonSchedulerConfig,
-  ChaikinVolSchedulerConfig,
-  VMASchedulerConfig,
-  OBVSchedulerConfig,
-  PVTSchedulerConfig,
-  VWAPSchedulerConfig,
-  CMFSchedulerConfig,
-  MFISchedulerConfig,
-  PivotSchedulerConfig,
-  FibSchedulerConfig,
-  StructureSchedulerConfig,
-  ZonesSchedulerConfig,
-  VolumeProfileSchedulerConfig,
-  T3SchedulerConfig,
-  VIDYASchedulerConfig,
-  FRAMASchedulerConfig,
-  DPOSchedulerConfig,
-  AwesomeOscillatorSchedulerConfig,
-  UltimateOscillatorSchedulerConfig,
-  StochRSISchedulerConfig,
-  FisherTransformSchedulerConfig,
-  SchaffTrendCycleSchedulerConfig,
-} from './workerProtocol'
 
 /**
  * IndicatorScheduler - 主线程 facade
@@ -184,7 +126,7 @@ export class IndicatorScheduler {
 
   // 当前数据和配置快照
   private currentData: KLineData[] = []
-  private configSnapshot!: IndicatorConfigSnapshot
+  private configSnapshot!: Record<string, IndicatorConfig>
   private paneIdOverrides = new Map<string, string>()
 
   // Worker 相关
@@ -403,15 +345,19 @@ export class IndicatorScheduler {
   // 初始化
   // ============================================================================
 
-  private buildInitialConfigSnapshot(): IndicatorConfigSnapshot {
-    const config: Record<string, unknown> = {}
+  private buildInitialConfigSnapshot(): Record<string, IndicatorConfig> {
+    const config: Record<string, IndicatorConfig> = {}
     for (const meta of this.registry.getAll()) {
       if (meta.runtime?.defaultConfig) {
         const key = meta.runtime.configKey ?? meta.name
-        config[key] = { ...(meta.runtime.defaultConfig as Record<string, unknown>) }
+        const defaultConfig =
+          typeof meta.runtime.defaultConfig === 'function'
+            ? meta.runtime.defaultConfig()
+            : meta.runtime.defaultConfig
+        config[key] = { ...(defaultConfig as IndicatorConfig) }
       }
     }
-    return config as unknown as IndicatorConfigSnapshot
+    return config
   }
 
   private initBackend(): void {
@@ -697,7 +643,7 @@ export class IndicatorScheduler {
   /** 提交最新完整计算结果，并在提交后安排下一帧绘制。 */
   private applyResults(
     bundle: IndicatorSeriesBundle,
-    instanceResults: ReadonlyArray<IndicatorInstanceSeriesResult>,
+    instanceResults: ReadonlyArray<IndicatorInstanceCalculationResult>,
     requestId: number,
     dataVersion: number,
     configVersion: number,
@@ -772,11 +718,11 @@ export class IndicatorScheduler {
     const activeIds = this.getActiveSubPaneIds?.() ?? []
     if (activeIds.length === 0) return { ...this.configSnapshot }
 
-    const cfg: Record<string, unknown> = { ...this.configSnapshot }
+    const cfg: Record<string, IndicatorConfig> = { ...this.configSnapshot }
     for (const meta of this.registry.getAll()) {
       const paneId = this.paneIdOverrides.get(meta.name) ?? meta.defaultPaneId
       if (!activeIds.includes(paneId) && paneId !== 'main') {
-        const subCfg = { ...(cfg[meta.name] as Record<string, unknown>) }
+        const subCfg = { ...(cfg[meta.name] ?? {}) }
         for (const k of Object.keys(subCfg)) {
           if (k.startsWith('show')) {
             subCfg[k] = false
@@ -785,7 +731,7 @@ export class IndicatorScheduler {
         cfg[meta.name] = subCfg
       }
     }
-    return cfg as unknown as IndicatorConfigSnapshot
+    return cfg
   }
 
   /** 合并定义默认参数与实例参数，生成可跨 Worker 传输的计算输入。 */
@@ -868,8 +814,8 @@ export class IndicatorScheduler {
       this.paneIdOverrides.set(indicatorId, paneId)
     }
     // Merge config
-    ;(this.configSnapshot as any)[configKey] = {
-      ...((this.configSnapshot as any)[configKey] ?? {}),
+    this.configSnapshot[configKey] = {
+      ...(this.configSnapshot[configKey] ?? {}),
       ...config,
     }
     this.configVersion = this.getConfigRevision?.() ?? this.configVersion + 1
