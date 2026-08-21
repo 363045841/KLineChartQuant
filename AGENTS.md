@@ -222,6 +222,7 @@ Never guess at Effect patterns - check the guide first.
 - 注释必须简单明了，直接说明代码是什么或为什么这样实现，尽量使用一句话，避免冗长和重复代码本身的含义
 
 ## SubAgent
+- 除非用户明确要求启动子代理，否则不要启动子代理
 - 最多同时起三个子代理
 
 ## Github CLI
