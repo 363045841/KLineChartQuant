@@ -30,3 +30,9 @@ VOL 没有 calculator runtime，其坐标范围直接由当前可见行情的成
 写入同一份 `renderStates`，并按 `indicatorState.instances` 中每个 VOL 实例的真实 `paneId`
 发布。柱体 renderer 不在绘制期间写入 `PluginHost StateStore`，坐标轴和柱体因此共享同一帧的
 范围事实。
+
+## 刻度格式与范围一致性
+
+副图右轴在无自定义格式化时按显示范围自适应小数位，并把四舍五入后归零的负值规范为正零，
+避免小量级振荡指标（如 MACD）刻度全部显示为 `-0.00`。指标柱体 renderer 复用已提交状态中的
+`valueMin/valueMax`，不再自行叠加 padding，保证柱体与刻度处于同一坐标系。

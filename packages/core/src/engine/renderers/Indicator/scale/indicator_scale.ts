@@ -14,6 +14,7 @@ import {
 } from '../../../../foundation/utils/pixelAlign'
 import { getFont, setCanvasFont } from '../../../../foundation/tokens/fonts'
 import { calculateValueTickPositions, type ScaleType } from '../../../utils/tickPosition'
+import { formatScaleValue, resolveAdaptiveDecimals } from './scaleFormat'
 
 interface IndicatorScaleRenderState extends BaseIndicatorState {
   valueMin: number
@@ -177,6 +178,13 @@ export function createIndicatorScaleRendererPlugin(
         maxPrice: state.valueMax,
       })
 
+      // 无自定义格式化时按显示范围自适应小数位，避免小量级指标刻度全部折叠为 ±0.00。
+      const effectiveDecimals = formatTickLabel
+        ? decimals
+        : resolveAdaptiveDecimals(displayRange, decimals)
+      const formatValue =
+        formatTickLabel ?? ((value: number) => formatScaleValue(value, effectiveDecimals))
+
       drawScaleTicks({
         tickColor: tokenColors.text.secondary,
         ctx: yAxisCtx,
@@ -188,10 +196,10 @@ export function createIndicatorScaleRendererPlugin(
         valueMin: displayRange.minPrice,
         valueMax: displayRange.maxPrice,
         isMain: false,
-        decimals,
+        decimals: effectiveDecimals,
         hideEdgeTicks: false,
         scaleType: effectiveScaleType,
-        formatLabel: formatTickLabel,
+        formatLabel: formatValue,
       })
 
       const crosshair = getCrosshair?.()
@@ -222,7 +230,7 @@ export function createIndicatorScaleRendererPlugin(
           fontSize: 12,
           priceOffset: 0,
           price: displayPrice,
-          formatPrice: formatCrosshairLabel,
+          formatPrice: formatCrosshairLabel ?? formatValue,
         },
         context.theme,
         context.isAsiaMarket,

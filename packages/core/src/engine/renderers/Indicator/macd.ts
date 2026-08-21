@@ -158,14 +158,9 @@ function createMACDRendererPlugin(options: MACDRendererOptions = {}): RendererPl
       const macdData = state.series
       if (!macdData || macdData.length === 0) return
 
-      // 使用 state 中的极值，或回退到计算
-      let valueMin = state.visibleMin
-      let valueMax = state.visibleMax
-
-      // 添加 padding
-      const padding = Math.max(0.05, (valueMax - valueMin) * 0.1)
-      valueMin = valueMin - padding
-      valueMax = valueMax + padding
+      // 柱体直接复用已提交状态中带 padding 的范围，与右轴刻度保持同一坐标系。
+      const valueMin = Number.isFinite(state.valueMin) ? state.valueMin : state.visibleMin
+      const valueMax = Number.isFinite(state.valueMax) ? state.valueMax : state.visibleMax
       const valueRange = valueMax - valueMin || 1
 
       const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
