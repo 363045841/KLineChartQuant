@@ -10,27 +10,32 @@
 
 ## 决策
 
-一次 Scheduler 计算同时产生两类输出，并通过一次 `commitResults` 原子提交：
+`commitResults` 使用 `owner` 判别联合接收两类提交：
 
-- `bundle`：保留按指标定义组织的 legacy 结果，仅供现有 render state 投影使用。
-- `results`：按 `instanceId` 索引的业务结果，每个实例使用自己的参数独立调用既有 calculator。
+- `chart`：原子提交图表实例结果、时间轴、legacy `bundle` 和 `renderStates`。
+- `agent`：向同一结果池写入单个 Agent 结果，不修改图表计算版本或 renderer 投影。
 
 Worker 和 Inline 使用相同的实例计算输入与输出结构。该改动不修改 calculator 算法，也不改变 renderer 从帧级 `IndicatorRenderStateReader` 读取投影的原则。
 
 ## 提交快照
 
-已提交快照包含：
+状态快照将图表渲染提交和共享结果池分开保存，但图表计算仍通过一次 Action 原子更新两者：
 
 ```text
-committed = {
-  dataRevision,
-  configRevision,
-  resultVersion,
-  projectionVersion,
-  timestamps,
-  results: Map<instanceId, instanceResult>,
-  bundle,
-  renderStates
+snapshot = {
+  committed: {
+    dataRevision,
+    configRevision,
+    resultVersion,
+    projectionVersion,
+    bundle,
+    renderStates
+  },
+  pool: {
+    dataRevision,
+    timestamps,
+    results: Map<resultId, chartResult | agentResult>
+  }
 }
 ```
 
@@ -40,7 +45,7 @@ committed = {
 
 结果池 value 使用 `owner` 判别所属方。该字段属于主线程结果池模型，不进入 Worker 协议；Worker 只返回纯计算结果，由 `indicatorResultState` 提交时包装为 `chart` 结果。`chart` 结果包含稳定 `instanceId` 和真实 `paneId`，可以参与生成 renderer 投影；`agent` 结果包含内部 `agentResultId`，只供 Agent 查询层读取。两类结果共享指标定义、参数、原始序列和 `firstReadyIndex`，Agent 结果不伪造图表实例或 pane 身份。
 
-Pre-D 计算链路当前只生产 `chart` 结果。D1 查询链路后续生产 `agent` 结果；派生 renderer 投影时仍需确认 `chart` 结果对应当前 `indicatorState.instances`，不能只依赖 `owner` 字段。
+Pre-D 计算链路生产 `chart` 结果，D1 查询链路生产 `agent` 结果。相同 `dataRevision` 的图表提交保留已有 Agent 结果；较新的行情版本会建立新结果池并淘汰旧 Agent 结果。派生 renderer 投影时仍需确认 `chart` 结果对应当前 `indicatorState.instances`，不能只依赖 `owner` 字段。
 
 ## Worker 动态协议
 
@@ -59,15 +64,15 @@ warm-up 范围为 `[0, firstReadyIndex)`。该范围中的稀疏数组项保持 
 
 ## 不变式
 
-1. 实例身份只来自 `indicatorState.instances`，查询层不得按 pane 或参数猜测归属。
+1. `chart` 实例身份只来自 `indicatorState.instances`，查询层不得按 pane 或参数猜测归属。
 2. 同类型多实例必须使用各自参数产生独立序列。
-3. 时间轴、实例结果、revision 和 resultVersion 必须原子提交。
+3. 图表时间轴、实例结果、revision 和 resultVersion 必须原子提交。
 4. 过期 request 不得覆盖当前 attempt 或 committed 结果。
 5. 失败保留最近成功结果，但 availability 必须为 error 或 stale。
-6. committed 时间轴、实例结果、参数和序列在运行时均不可修改。
+6. 结果池时间轴、实例结果、参数和序列在运行时均不可修改。
 
 计算输出由 Scheduler 在 commit 时向 State 转移所有权并原地递归冻结。这样不会为长历史序列创建第二份完整副本；提交后 Runtime、Scheduler 和调用方均只能读取该对象图。
 
 ## D 轮边界
 
-D 轮只从 `CommittedIndicatorResult.results` 和 `timestamps` 构造受限 DTO。它不读取 `bundle`、`renderStates`、PluginHost 或 Scheduler 私有缓存。
+D 轮只从 `IndicatorResultPoolSnapshot.results` 和 `timestamps` 构造受限 DTO。它不读取 `bundle`、`renderStates`、PluginHost 或 Scheduler 私有缓存。

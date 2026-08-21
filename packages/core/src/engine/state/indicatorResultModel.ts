@@ -16,14 +16,18 @@ export interface IndicatorChartSeriesResult extends IndicatorInstanceCalculation
   readonly owner: typeof INDICATOR_RESULT_OWNER.CHART
 }
 
-/** Agent 自定义计算结果，不包含图表实例和 pane 身份。 */
-export interface IndicatorAgentSeriesResult {
-  readonly owner: typeof INDICATOR_RESULT_OWNER.AGENT
+/** Agent 自定义计算产生的无所属方结果。 */
+export interface IndicatorAgentCalculationResult {
   readonly agentResultId: string
   readonly definitionId: string
   readonly params: IndicatorConfig
   readonly series: unknown
   readonly firstReadyIndex: number | null
+}
+
+/** Agent 自定义计算结果，不包含图表实例和 pane 身份。 */
+export interface IndicatorAgentSeriesResult extends IndicatorAgentCalculationResult {
+  readonly owner: typeof INDICATOR_RESULT_OWNER.AGENT
 }
 
 /** 结果池中可保存的指标计算结果。 */
@@ -34,4 +38,11 @@ export function ownChartIndicatorResult(
   result: IndicatorInstanceCalculationResult,
 ): IndicatorChartSeriesResult {
   return { ...result, owner: INDICATOR_RESULT_OWNER.CHART }
+}
+
+/** 在主线程为 Agent 计算结果附加所属方。 */
+export function ownAgentIndicatorResult(
+  result: IndicatorAgentCalculationResult,
+): IndicatorAgentSeriesResult {
+  return { ...result, owner: INDICATOR_RESULT_OWNER.AGENT }
 }

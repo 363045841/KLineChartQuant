@@ -89,23 +89,30 @@ Renderer 在下一帧主动读取最新快照。这里的主动读取是 frame p
 export interface IndicatorCalculationAttempt {
   readonly status: 'idle' | 'computing' | 'error'
   readonly requestId: number
-  readonly dataVersion: number
-  readonly configVersion: number
+  readonly dataRevision: number
+  readonly configRevision: number
   readonly error: string | null
 }
 
 export interface CommittedIndicatorResult {
-  readonly dataVersion: number
-  readonly configVersion: number
+  readonly dataRevision: number
+  readonly configRevision: number
   readonly resultVersion: number
   readonly projectionVersion: number
   readonly bundle: IndicatorSeriesBundle
   readonly renderStates: ReadonlyMap<string, unknown>
 }
 
+export interface IndicatorResultPoolSnapshot {
+  readonly dataRevision: number
+  readonly timestamps: ReadonlyArray<number>
+  readonly results: ReadonlyMap<string, IndicatorSeriesResult>
+}
+
 export interface IndicatorResultSnapshot {
   readonly attempt: IndicatorCalculationAttempt
   readonly committed: CommittedIndicatorResult | null
+  readonly pool: IndicatorResultPoolSnapshot | null
 }
 ```
 
@@ -113,11 +120,11 @@ export interface IndicatorResultSnapshot {
 
 - `attempt.status === 'computing'`：新计算进行中，`committed` 仍可用于绘制旧结果；
 - `attempt.status === 'error'`：本次计算失败，错误属于 attempt；
-- `committed.dataVersion`：bundle 实际基于的数据版本；
-- `committed.configVersion`：bundle 实际基于的配置版本；
+- `committed.dataRevision`：bundle 实际基于的数据版本；
+- `committed.configRevision`：bundle 实际基于的配置版本；
 - `committed === null`：从未成功计算，renderer 不绘制指标；
 - 新结果成功后，更新 `committed` 并将 attempt 重置为 idle；
-- Agent 只有在 committed 版本与目标数据、配置版本一致时，才把指标标记为 ready。
+- Agent DTO 只从 `pool` 读取，不依赖 `committed` 或 renderer 投影。
 
 如果第一阶段不立即调整类型，至少必须补充独立的
 `committedDataVersion/committedConfigVersion`，不能让错误状态覆盖 bundle 的来源版本。
@@ -133,13 +140,25 @@ beginCalculation(input: {
   configVersion: number
 }): void
 
-commitResults(input: {
-  requestId: number
-  dataVersion: number
-  configVersion: number
-  bundle: IndicatorSeriesBundle
-  renderStates: ReadonlyMap<string, unknown>
-}): boolean
+commitResults(
+  input:
+    | {
+        owner: 'chart'
+        requestId: number
+        dataRevision: number
+        configRevision: number
+        bundle: IndicatorSeriesBundle
+        timestamps: ReadonlyArray<number>
+        instanceResults: ReadonlyArray<IndicatorInstanceCalculationResult>
+        renderStates: ReadonlyMap<string, unknown>
+      }
+    | {
+        owner: 'agent'
+        dataRevision: number
+        timestamps: ReadonlyArray<number>
+        result: IndicatorAgentCalculationResult
+      },
+): boolean
 
 updateProjection(input: {
   resultVersion: number
@@ -156,8 +175,8 @@ failCalculation(input: {
 reset(): void
 ```
 
-`commitResults()` 和 `failCalculation()` 应在 Action 内再次校验当前 attempt 身份。Scheduler
-已经有旧结果丢弃检查，但 Kernel Action 仍应防止未来其他调用方误提交过期结果。
+`chart` 提交和 `failCalculation()` 在 Action 内再次校验当前 attempt 身份。`agent` 提交按
+`dataRevision` 防止旧结果覆盖新结果池，只更新共享结果池，不修改 renderer 投影和图表结果版本。
 
 返回 `boolean` 表示本次提交是否生效。只有生效时才安排重绘或发送完成通知。
 

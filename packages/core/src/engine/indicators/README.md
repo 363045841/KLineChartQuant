@@ -87,10 +87,10 @@ pane，当前高层 API 返回规范化的 `definitionId`。
 Worker 协议只包含动态配置映射和纯计算结果。配置与兼容结果包均按注册表 `configKey` 索引；具体参数和
 series 形状由指标定义约束。结果所属方由主线程提交结果池时附加，不传入 Worker。
 
-`CommittedIndicatorResult` 的关键字段：
+指标结果状态的关键字段：
 
-- `timestamps`：与 bar 对齐序列下标严格一致的行情时间轴。
-- `results`：以 `instanceId` 为键的业务结果事实源。
+- `pool.timestamps`：与 bar 对齐序列下标严格一致的行情时间轴。
+- `pool.results`：图表与 Agent 共享的业务结果事实源。
 - `bundle`：按指标定义组织的兼容结果，仅供 renderer 状态投影使用。
 - `renderStates`：当前可见范围的派生渲染状态，不是业务查询来源。
 - `resultVersion`：成功计算结果版本；可见范围变化不增加该版本。
