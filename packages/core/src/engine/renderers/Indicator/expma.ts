@@ -267,7 +267,7 @@ const getEXPMATitleInfo: GetTitleInfoFn = (
     composeRenderState: composeEXPMARenderState,
   },
   runtime: {
-    defaultConfig: { fastPeriod: 12, slowPeriod: 50 },
+    defaultParams: { fastPeriod: 12, slowPeriod: 50 },
     computeKey: 'calcEXPMAData',
     compute: (data, c) => calcEXPMAData(data, c.fastPeriod, c.slowPeriod),
   },

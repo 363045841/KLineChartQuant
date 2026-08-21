@@ -144,8 +144,9 @@ const getHMATitleInfo = createSingleLineTitleInfo({
   },
   visibleState: { compose: createSparseVisibleStateComposer('hma', EMPTY_HMA_STATE) },
   scale: { indicatorKey: 'hma', label: 'HMA', decimals: 2 },
+  presentation: { defaultOptions: { showHMA: true } },
   runtime: {
-    defaultConfig: { period: 14, showHMA: true },
+    defaultParams: { period: 14 },
     computeKey: 'calcHMAData',
     compute: (data, c) => calcHMAData(data, c.period),
   },

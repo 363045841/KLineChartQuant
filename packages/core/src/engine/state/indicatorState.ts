@@ -83,6 +83,44 @@ function subInstanceEqual(left: IndicatorInstanceSpec, right: IndicatorInstanceS
   )
 }
 
+/** 判断实例集合的 calculator 身份与参数是否一致，展示配置不参与 revision。 */
+function calculationInstancesEqual(
+  left: ReadonlyArray<IndicatorInstanceSpec>,
+  right: ReadonlyArray<IndicatorInstanceSpec>,
+): boolean {
+  if (left.length !== right.length) return false
+  return left.every((previous, index) => {
+    const next = right[index]
+    if (
+      !next ||
+      previous.instanceId !== next.instanceId ||
+      previous.indicatorId !== next.indicatorId ||
+      previous.paneId !== next.paneId
+    ) {
+      return false
+    }
+    const runtime = getRegisteredIndicatorDefinition(previous.indicatorId)?.runtime
+    if (!runtime) {
+      const previousKeys = Object.keys(previous.params)
+      const nextKeys = Object.keys(next.params)
+      return (
+        previousKeys.length === nextKeys.length &&
+        previousKeys.every((name) => Object.is(previous.params[name], next.params[name]))
+      )
+    }
+    const defaultParams =
+      typeof runtime.defaultParams === 'function'
+        ? (runtime.defaultParams as () => Record<string, unknown>)()
+        : (runtime.defaultParams as Record<string, unknown>)
+    return Object.keys(defaultParams).every((name) =>
+      Object.is(
+        previous.params[name] ?? defaultParams[name],
+        next.params[name] ?? defaultParams[name],
+      ),
+    )
+  })
+}
+
 /** 创建指标实例状态，主图和副图共享 instances 这一唯一数据源。 */
 export function createIndicatorState() {
   const { signals, readonly } = createSubState({
@@ -92,9 +130,13 @@ export function createIndicatorState() {
 
   /** 写入不可变实例快照。 */
   const write = (instances: ReadonlyArray<IndicatorInstanceInput>) => {
+    const previous = readonly.instances.peek()
+    const next = Object.freeze(instances.map(snapshotInstance))
     batch(() => {
-      signals.instances.set(Object.freeze(instances.map(snapshotInstance)))
-      signals.configRevision.set(signals.configRevision.peek() + 1)
+      signals.instances.set(next)
+      if (!calculationInstancesEqual(previous, next)) {
+        signals.configRevision.set(signals.configRevision.peek() + 1)
+      }
     })
   }
 

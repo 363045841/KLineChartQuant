@@ -234,8 +234,9 @@ const getFASTKTitleInfo = createSingleLineTitleInfo({
   visibleState: { compose: createFixedRangeSparseVisibleStateComposer('fastk', EMPTY_FASTK_STATE) },
   scaleRendererFactory: createFastkScaleRendererPlugin,
   getTitleInfo: getFASTKTitleInfo,
+  presentation: { defaultOptions: { showFASTK: true } },
   runtime: {
-    defaultConfig: { period: 9, showFASTK: true },
+    defaultParams: { period: 9 },
     computeKey: 'calcFASTKData',
     compute: (data, c) => calcFASTKData(data, c.period),
   },

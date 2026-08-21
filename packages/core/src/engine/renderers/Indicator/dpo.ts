@@ -327,10 +327,11 @@ const getDPOTitleInfo = createSingleLineTitleInfo({
   scaleRendererFactory: createDpoScaleRendererPlugin,
   visibleState: { compose: createPaddedSparseVisibleStateComposer('dpo', EMPTY_DPO_STATE) },
   getTitleInfo: getDPOTitleInfo,
+  presentation: { defaultOptions: { showDPO: true } },
   runtime: {
-    defaultConfig: { period: 20, showDPO: true },
+    defaultParams: { period: 20 },
     computeKey: 'calcDPOData',
-    compute: (data: KLineData[], c: DPORenderState['params']) => calcDPOData(data, c.period),
+    compute: (data: KLineData[], c) => calcDPOData(data, c.period),
   },
 })
 export class DPOIndicatorDefinition {

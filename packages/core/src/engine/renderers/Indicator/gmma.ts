@@ -136,8 +136,9 @@ function getGMMATitleInfo(
     compose: createFixedRangeRecordVisibleStateComposer('gmma', EMPTY_GMMA_STATE),
   },
   scale: { indicatorKey: 'gmma', label: 'GMMA', decimals: 2 },
+  presentation: { defaultOptions: { showGMMA: true } },
   runtime: {
-    defaultConfig: { showGMMA: true },
+    defaultParams: {},
     computeKey: 'calcGMMAData',
     compute: (data) => calcGMMAData(data),
   },

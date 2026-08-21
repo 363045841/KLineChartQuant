@@ -160,6 +160,25 @@ export const SUBPANE_ERROR_CODES: Readonly<Record<SubPaneErrorCodeName, KLineCha
 // SUBPANE_ERROR_CODES 的键名集合，保证键与值一一对应。
 type SubPaneErrorCodeName = 'UNKNOWN_INDICATOR' | 'MISSING_RENDERER_METADATA'
 
+// Agent 指标查询错误码具名常量，供查询层引用，避免散落字符串字面量。
+export const INDICATOR_QUERY_ERROR_CODES: Readonly<
+  Record<IndicatorQueryErrorCodeName, KLineChartErrorCode>
+> = {
+  INVALID_QUERY: 'INVALID_PARAM',
+  INDICATOR_NOT_REGISTERED: 'NOT_REGISTERED',
+  UNSUPPORTED_OUTPUT: 'UNSUPPORTED_CAPABILITY',
+  MARKET_DATA_UNAVAILABLE: 'INVALID_STATE',
+  RESULT_COMMIT_FAILED: 'INVALID_STATE',
+}
+
+// Agent 指标查询错误码的业务名称集合。
+type IndicatorQueryErrorCodeName =
+  | 'INVALID_QUERY'
+  | 'INDICATOR_NOT_REGISTERED'
+  | 'UNSUPPORTED_OUTPUT'
+  | 'MARKET_DATA_UNAVAILABLE'
+  | 'RESULT_COMMIT_FAILED'
+
 /** 便捷构造器：按错误码抛出统一错误。 */
 export function createMarketDataError(
   code: KLineChartErrorCode,

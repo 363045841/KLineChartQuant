@@ -87,6 +87,11 @@ pane，当前高层 API 返回规范化的 `definitionId`。
 Worker 协议只包含动态配置映射和纯计算结果。配置与兼容结果包均按注册表 `configKey` 索引；具体参数和
 series 形状由指标定义约束。结果所属方由主线程提交结果池时附加，不传入 Worker。
 
+指标定义将 calculator 参数放在 `runtime.defaultParams`，将 `show*` 等展示开关放在
+`presentation.defaultOptions`。Chart 和 Agent 共用同一个 `runtime.compute`；展示变更只重建
+`renderStates`，不触发 Worker，也不改变业务结果版本。MA、RSI 等多序列指标始终计算完整结果，
+可见序列由 `presentation.selectSeriesKeys` 在投影阶段选择。
+
 指标结果状态的关键字段：
 
 - `pool.timestamps`：与 bar 对齐序列下标严格一致的行情时间轴。

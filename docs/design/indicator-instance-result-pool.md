@@ -76,3 +76,5 @@ warm-up 范围为 `[0, firstReadyIndex)`。该范围中的稀疏数组项保持 
 ## D 轮边界
 
 D 轮只从 `IndicatorResultPoolSnapshot.results` 和 `timestamps` 构造受限 DTO。它不读取 `bundle`、`renderStates`、PluginHost 或 Scheduler 私有缓存。
+
+D1 MVP 允许 Agent 按指标定义和自定义数字参数发起计算。查询层使用完整活动 K 线调用注册定义的 calculator，将结果以 `owner: agent` 写入同一结果池，再按时间范围和条数上限返回逐 K 线 DTO。该路径不生成 renderer 投影，也不修改图表结果版本。

@@ -131,8 +131,9 @@ const getVWAPTitleInfo = createSingleLineTitleInfo({
   visibleState: { compose: createSparseVisibleStateComposer('vwap', EMPTY_VWAP_STATE) },
   scale: { indicatorKey: 'vwap', label: 'VWAP', decimals: 2 },
   getTitleInfo: getVWAPTitleInfo,
+  presentation: { defaultOptions: { showVWAP: true } },
   runtime: {
-    defaultConfig: { sessionResetGapMs: 0, showVWAP: true },
+    defaultParams: { sessionResetGapMs: 0 },
     computeKey: 'calcVWAPData',
     compute: (data, c) => calcVWAPData(data, c.sessionResetGapMs),
   },

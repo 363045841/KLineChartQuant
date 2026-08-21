@@ -134,8 +134,9 @@ const getVMATitleInfo = createSingleLineTitleInfo({
   scale: { indicatorKey: 'vma', label: 'VMA', decimals: 0 },
   getTitleInfo: getVMATitleInfo,
   visibleState: { compose: createNonNegativeSparseVisibleStateComposer('vma', EMPTY_VMA_STATE) },
+  presentation: { defaultOptions: { showVMA: true } },
   runtime: {
-    defaultConfig: { period: 5, showVMA: true },
+    defaultParams: { period: 5 },
     computeKey: 'calcVMAData',
     compute: (data, c) => calcVMAData(data, c.period),
   },

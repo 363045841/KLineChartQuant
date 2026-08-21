@@ -144,8 +144,9 @@ const getLSMATitleInfo = createSingleLineTitleInfo({
   },
   visibleState: { compose: createSparseVisibleStateComposer('lsma', EMPTY_LSMA_STATE) },
   scale: { indicatorKey: 'lsma', label: 'LSMA', decimals: 2 },
+  presentation: { defaultOptions: { showLSMA: true } },
   runtime: {
-    defaultConfig: { period: 25, showLSMA: true },
+    defaultParams: { period: 25 },
     computeKey: 'calcLSMAData',
     compute: (data, c) => calcLSMAData(data, c.period),
   },

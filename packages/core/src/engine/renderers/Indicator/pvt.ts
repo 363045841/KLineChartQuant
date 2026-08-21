@@ -131,8 +131,9 @@ const getPVTTitleInfo = createSingleLineTitleInfo({
   visibleState: { compose: createSparseVisibleStateComposer('pvt', EMPTY_PVT_STATE) },
   scale: { indicatorKey: 'pvt', label: 'PVT', decimals: 0 },
   getTitleInfo: getPVTTitleInfo,
+  presentation: { defaultOptions: { showPVT: true } },
   runtime: {
-    defaultConfig: { showPVT: true },
+    defaultParams: {},
     computeKey: 'calcPVTData',
     compute: (data, c) => calcPVTData(data),
   },

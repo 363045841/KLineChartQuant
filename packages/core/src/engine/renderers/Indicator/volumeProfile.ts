@@ -178,15 +178,10 @@ function getVolumeProfileTitleInfo(
   visibleState: {
     compose: createVolumeProfileVisibleStateComposer('volumeProfile', EMPTY_VOLUME_PROFILE_STATE),
   },
+  presentation: { defaultOptions: { showPOC: true, showValueArea: true } },
   runtime: {
     outputAlignment: 'aggregate',
-    defaultConfig: {
-      bins: 24,
-      lookback: 100,
-      valueAreaPercent: 70,
-      showPOC: true,
-      showValueArea: true,
-    },
+    defaultParams: { bins: 24, lookback: 100, valueAreaPercent: 70 },
     computeKey: 'calcVolumeProfileData',
     compute: (data, c) => calcVolumeProfileData(data, c.bins, c.lookback, c.valueAreaPercent),
   },

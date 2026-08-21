@@ -144,8 +144,9 @@ const getKAMATitleInfo = createSingleLineTitleInfo({
   },
   visibleState: { compose: createSparseVisibleStateComposer('kama', EMPTY_KAMA_STATE) },
   scale: { indicatorKey: 'kama', label: 'KAMA', decimals: 2 },
+  presentation: { defaultOptions: { showKAMA: true } },
   runtime: {
-    defaultConfig: { period: 10, fastPeriod: 2, slowPeriod: 30, showKAMA: true },
+    defaultParams: { period: 10, fastPeriod: 2, slowPeriod: 30 },
     computeKey: 'calcKAMAData',
     compute: (data, c) => calcKAMAData(data, c.period, c.fastPeriod, c.slowPeriod),
   },

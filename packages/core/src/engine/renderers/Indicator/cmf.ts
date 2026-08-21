@@ -146,8 +146,9 @@ const getCMFTitleInfo = createSingleLineTitleInfo({
   visibleState: { compose: createFixedRangeSparseVisibleStateComposer('cmf', EMPTY_CMF_STATE) },
   scale: { indicatorKey: 'cmf', label: 'CMF', decimals: 4 },
   getTitleInfo: getCMFTitleInfo,
+  presentation: { defaultOptions: { showCMF: true } },
   runtime: {
-    defaultConfig: { period: 20, showCMF: true },
+    defaultParams: { period: 20 },
     computeKey: 'calcCMFData',
     compute: (data, c) => calcCMFData(data, c.period),
   },

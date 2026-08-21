@@ -144,8 +144,9 @@ const getWMATitleInfo = createSingleLineTitleInfo({
   },
   visibleState: { compose: createSparseVisibleStateComposer('wma', EMPTY_WMA_STATE) },
   scale: { indicatorKey: 'wma', label: 'WMA', decimals: 2 },
+  presentation: { defaultOptions: { showWMA: true } },
   runtime: {
-    defaultConfig: { period: 10, showWMA: true },
+    defaultParams: { period: 10 },
     computeKey: 'calcWMAData',
     compute: (data, c) => calcWMAData(data, c.period),
   },

@@ -306,8 +306,9 @@ const getMOMTitleInfo = createSingleLineTitleInfo({
   scaleRendererFactory: createMomScaleRendererPlugin,
   visibleState: { compose: createPaddedSparseVisibleStateComposer('mom', EMPTY_MOM_STATE) },
   getTitleInfo: getMOMTitleInfo,
+  presentation: { defaultOptions: { showMOM: true } },
   runtime: {
-    defaultConfig: { period: 10, showMOM: true },
+    defaultParams: { period: 10 },
     computeKey: 'calcMOMData',
     compute: (data, c) => calcMOMData(data, c.period),
   },

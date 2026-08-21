@@ -148,8 +148,9 @@ const getALMATitleInfo = createSingleLineTitleInfo({
   },
   visibleState: { compose: createSparseVisibleStateComposer('alma', EMPTY_ALMA_STATE) },
   scale: { indicatorKey: 'alma', label: 'ALMA', decimals: 2 },
+  presentation: { defaultOptions: { showALMA: true } },
   runtime: {
-    defaultConfig: { period: 9, offset: 0.85, sigma: 6, showALMA: true },
+    defaultParams: { period: 9, offset: 0.85, sigma: 6 },
     computeKey: 'calcALMAData',
     compute: (data, c) => calcALMAData(data, c.period, c.offset, c.sigma),
   },

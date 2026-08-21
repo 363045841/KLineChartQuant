@@ -144,8 +144,9 @@ const getVWMATitleInfo = createSingleLineTitleInfo({
   },
   visibleState: { compose: createSparseVisibleStateComposer('vwma', EMPTY_VWMA_STATE) },
   scale: { indicatorKey: 'vwma', label: 'VWMA', decimals: 2 },
+  presentation: { defaultOptions: { showVWMA: true } },
   runtime: {
-    defaultConfig: { period: 20, showVWMA: true },
+    defaultParams: { period: 20 },
     computeKey: 'calcVWMAData',
     compute: (data, c) => calcVWMAData(data, c.period),
   },

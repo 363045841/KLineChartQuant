@@ -154,8 +154,9 @@ const getROCTitleInfo = createSingleLineTitleInfo({
   visibleState: { compose: createSparseVisibleStateComposer('roc', EMPTY_ROC_STATE) },
   scale: { indicatorKey: 'roc', label: 'ROC', decimals: 2 },
   getTitleInfo: getROCTitleInfo,
+  presentation: { defaultOptions: { showROC: true } },
   runtime: {
-    defaultConfig: { period: 12, showROC: true },
+    defaultParams: { period: 12 },
     computeKey: 'calcROCData',
     compute: (data, c) => calcROCData(data, c.period),
   },

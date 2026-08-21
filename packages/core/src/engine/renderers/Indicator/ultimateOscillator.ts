@@ -352,16 +352,11 @@ const getUltimateOscillatorTitleInfo = createSingleLineTitleInfo({
     compose: createPaddedSparseVisibleStateComposer('ultimateOscillator', EMPTY_UO_STATE),
   },
   getTitleInfo: getUltimateOscillatorTitleInfo,
+  presentation: { defaultOptions: { showUO: true } },
   runtime: {
-    defaultConfig: {
-      p1: DEFAULT_UO_P1,
-      p2: DEFAULT_UO_P2,
-      p3: DEFAULT_UO_P3,
-      showUO: true,
-    },
+    defaultParams: { p1: DEFAULT_UO_P1, p2: DEFAULT_UO_P2, p3: DEFAULT_UO_P3 },
     computeKey: 'calcUltimateOscillatorData',
-    compute: (data: KLineData[], c: UltimateOscillatorRenderState['params']) =>
-      calcUltimateOscillatorData(data, c.p1, c.p2, c.p3),
+    compute: (data: KLineData[], c) => calcUltimateOscillatorData(data, c.p1, c.p2, c.p3),
   },
 })
 export class UltimateOscillatorIndicatorDefinition {

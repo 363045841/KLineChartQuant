@@ -204,10 +204,10 @@ export class IndicatorScheduler {
         descriptor: {
           configKey: rt.configKey ?? meta.name,
           paneIdKey: rt.paneIdKey,
-          defaultConfig:
-            typeof rt.defaultConfig === 'function'
-              ? (rt.defaultConfig as () => any)()
-              : rt.defaultConfig,
+          defaultParams:
+            typeof rt.defaultParams === 'function'
+              ? (rt.defaultParams as () => any)()
+              : rt.defaultParams,
           computeKey: rt.computeKey,
           outputAlignment: rt.outputAlignment,
         } as SerializedRuntimeDescriptor,
@@ -349,13 +349,16 @@ export class IndicatorScheduler {
   private buildInitialConfigSnapshot(): Record<string, IndicatorConfig> {
     const config: Record<string, IndicatorConfig> = {}
     for (const meta of this.registry.getAll()) {
-      if (meta.runtime?.defaultConfig) {
-        const key = meta.runtime.configKey ?? meta.name
-        const defaultConfig =
-          typeof meta.runtime.defaultConfig === 'function'
-            ? meta.runtime.defaultConfig()
-            : meta.runtime.defaultConfig
-        config[key] = { ...(defaultConfig as IndicatorConfig) }
+      if (meta.runtime?.defaultParams || meta.presentation?.defaultOptions) {
+        const key = meta.runtime?.configKey ?? meta.name
+        const defaultParams =
+          typeof meta.runtime?.defaultParams === 'function'
+            ? meta.runtime.defaultParams()
+            : meta.runtime?.defaultParams
+        config[key] = {
+          ...(defaultParams as IndicatorConfig),
+          ...(meta.presentation?.defaultOptions ?? {}),
+        }
       }
     }
     return config
@@ -489,10 +492,10 @@ export class IndicatorScheduler {
             descriptor: {
               configKey: rt.configKey ?? meta.name,
               paneIdKey: rt.paneIdKey,
-              defaultConfig:
-                typeof rt.defaultConfig === 'function'
-                  ? (rt.defaultConfig as () => any)()
-                  : rt.defaultConfig,
+              defaultParams:
+                typeof rt.defaultParams === 'function'
+                  ? (rt.defaultParams as () => any)()
+                  : rt.defaultParams,
               computeKey: rt.computeKey,
               outputAlignment: rt.outputAlignment,
             } as SerializedRuntimeDescriptor,
@@ -578,7 +581,8 @@ export class IndicatorScheduler {
   /** 将完整 bundle 投影为按 renderer stateKey 索引的不可变状态集合。 */
   private composeRenderStateMap(bundle: IndicatorSeriesBundle): ReadonlyMap<string, unknown> {
     const timestamp = Date.now()
-    const states = composeRenderStates(bundle, this.visibleRange, timestamp, (indicatorId) =>
+    const renderBundle = this.createRenderBundle(bundle)
+    const states = composeRenderStates(renderBundle, this.visibleRange, timestamp, (indicatorId) =>
       this.registry.get(indicatorId),
     ) as Record<string, unknown>
     const result = new Map<string, unknown>()
@@ -608,6 +612,47 @@ export class IndicatorScheduler {
       }
     }
     return result
+  }
+
+  /** 把展示配置合入临时 renderer 投影，不修改业务结果 bundle。 */
+  private createRenderBundle(bundle: IndicatorSeriesBundle): IndicatorSeriesBundle {
+    const renderBundle: Record<string, unknown> = { ...bundle }
+    for (const metadata of this.registry.getAll()) {
+      const configKey = metadata.runtime?.configKey ?? metadata.name
+      const source = bundle[configKey]
+      if (!source || typeof source !== 'object') continue
+      const presentation = metadata.presentation
+      if (!presentation) continue
+      const currentConfig = this.configSnapshot[configKey] ?? {}
+      const options: Record<string, unknown> = { ...presentation.defaultOptions }
+      for (const optionName of Object.keys(presentation.defaultOptions)) {
+        if (currentConfig[optionName] !== undefined) options[optionName] = currentConfig[optionName]
+      }
+
+      const sourceEntry = source as Record<string, unknown>
+      const renderEntry: Record<string, unknown> = {
+        ...sourceEntry,
+        params: { ...((sourceEntry.params as Record<string, unknown>) ?? {}), ...options },
+      }
+      if (presentation.selectSeriesKeys && sourceEntry.series) {
+        const selectedKeys = new Set(
+          presentation.selectSeriesKeys(
+            (sourceEntry.params as Record<string, unknown>) ?? {},
+            options,
+          ),
+        )
+        if (typeof sourceEntry.series === 'object' && !Array.isArray(sourceEntry.series)) {
+          renderEntry.series = Object.fromEntries(
+            Object.entries(sourceEntry.series as Record<string, unknown>).filter(([key]) =>
+              selectedKeys.has(key),
+            ),
+          )
+          renderEntry.enabledPeriods = [...selectedKeys].map(Number).filter(Number.isFinite)
+        }
+      }
+      renderBundle[configKey] = renderEntry
+    }
+    return renderBundle as IndicatorSeriesBundle
   }
 
   /** 将调度器注册为插件服务；指标结果不再写入 PluginHost StateStore。 */
@@ -668,7 +713,7 @@ export class IndicatorScheduler {
   }
 
   /** 重算可见范围极值并回调 applyResult（视口变更时同步更新，不走 Worker） */
-  private updateVisibleStatesOnly(): boolean {
+  private updateVisibleStatesOnly(forceProjection = false): boolean {
     const bundle = this.getLatestBundle()
     if (!bundle) return false
     const renderStates = this.composeRenderStateMap(bundle)
@@ -682,6 +727,7 @@ export class IndicatorScheduler {
     )
       return false
     this.projectStandaloneRenderStates(renderStates, (meta) => {
+      if (forceProjection) return true
       if (meta.category !== 'main') return true
       const paneId = this.paneIdOverrides.get(meta.name) ?? meta.defaultPaneId
       const current = this.legacyPluginHost?.getSharedState<{
@@ -704,36 +750,23 @@ export class IndicatorScheduler {
     return this.resultState.readonly.snapshot.peek().committed?.bundle ?? null
   }
 
-  /** 遍历注册表，标记当前可见副图，仅这些指标参与计算 */
-  private buildActiveSubIndicatorMask(): Record<string, boolean> {
-    const activeIds = this.getActiveSubPaneIds?.() ?? []
-    const mask: Record<string, boolean> = {}
-    for (const meta of this.registry.getAll()) {
-      const paneId = this.paneIdOverrides.get(meta.name) ?? meta.defaultPaneId
-      mask[meta.name] = activeIds.includes(paneId) || !!(meta.allowMainPane && paneId === 'main')
-    }
-    return mask
-  }
-
-  /** 遍历注册表，禁用非活跃副图指标的 show* 字段，后端只算活跃指标 */
+  /** 只提取 calculator 参数，展示配置不进入 Runtime 或 Worker。 */
   private buildActiveConfig(): IndicatorConfigSnapshot {
-    const activeIds = this.getActiveSubPaneIds?.() ?? []
-    if (activeIds.length === 0) return { ...this.configSnapshot }
-
-    const cfg: Record<string, IndicatorConfig> = { ...this.configSnapshot }
-    for (const meta of this.registry.getAll()) {
-      const paneId = this.paneIdOverrides.get(meta.name) ?? meta.defaultPaneId
-      if (!activeIds.includes(paneId) && paneId !== 'main') {
-        const subCfg = { ...(cfg[meta.name] ?? {}) }
-        for (const k of Object.keys(subCfg)) {
-          if (k.startsWith('show')) {
-            subCfg[k] = false
-          }
-        }
-        cfg[meta.name] = subCfg
-      }
+    const calculationConfig: Record<string, IndicatorConfig> = {}
+    for (const metadata of this.registry.getAll()) {
+      const runtime = metadata.runtime
+      if (!runtime) continue
+      const configKey = runtime.configKey ?? metadata.name
+      const defaults =
+        typeof runtime.defaultParams === 'function'
+          ? (runtime.defaultParams as () => Record<string, unknown>)()
+          : (runtime.defaultParams as Record<string, unknown>)
+      const current = this.configSnapshot[configKey] ?? {}
+      calculationConfig[configKey] = Object.fromEntries(
+        Object.keys(defaults).map((name) => [name, current[name] ?? defaults[name]]),
+      )
     }
-    return cfg
+    return calculationConfig
   }
 
   /** 合并定义默认参数与实例参数，生成可跨 Worker 传输的计算输入。 */
@@ -745,15 +778,17 @@ export class IndicatorScheduler {
       const runtime = metadata?.runtime
       if (!metadata || !runtime) continue
       const defaults =
-        typeof runtime.defaultConfig === 'function'
-          ? (runtime.defaultConfig as () => Record<string, unknown>)()
-          : (runtime.defaultConfig as Record<string, unknown>)
+        typeof runtime.defaultParams === 'function'
+          ? (runtime.defaultParams as () => Record<string, unknown>)()
+          : (runtime.defaultParams as Record<string, unknown>)
       inputs.push({
         instanceId: instance.instanceId,
         definitionId: metadata.name,
         configKey: runtime.configKey ?? metadata.name,
         paneId: instance.paneId,
-        params: { ...defaults, ...instance.params },
+        params: Object.fromEntries(
+          Object.keys(defaults).map((name) => [name, instance.params[name] ?? defaults[name]]),
+        ),
       })
     }
     return inputs
@@ -815,13 +850,29 @@ export class IndicatorScheduler {
     if (paneId !== undefined) {
       this.paneIdOverrides.set(indicatorId, paneId)
     }
-    // Merge config
+    const previousConfig = this.configSnapshot[configKey] ?? {}
+    const defaultParams =
+      typeof rt.defaultParams === 'function'
+        ? (rt.defaultParams as () => Record<string, unknown>)()
+        : (rt.defaultParams as Record<string, unknown>)
+    const calculationKeys = new Set(Object.keys(defaultParams))
+    const calculationChanged = Object.entries(config).some(
+      ([name, value]) => calculationKeys.has(name) && !Object.is(previousConfig[name], value),
+    )
+    const presentationChanged = Object.entries(config).some(
+      ([name, value]) => !calculationKeys.has(name) && !Object.is(previousConfig[name], value),
+    )
+    // 配置快照兼容现有 UI 输入，但 Runtime 只读取 defaultParams 声明的字段
     this.configSnapshot[configKey] = {
-      ...(this.configSnapshot[configKey] ?? {}),
+      ...previousConfig,
       ...config,
     }
-    this.configVersion = this.getConfigRevision?.() ?? this.configVersion + 1
-    this.triggerRecompute()
+    if (calculationChanged) {
+      this.configVersion = this.getConfigRevision?.() ?? this.configVersion + 1
+      this.triggerRecompute()
+    } else if (presentationChanged && this.updateVisibleStatesOnly(true)) {
+      this.invalidateCallback?.()
+    }
   }
 
   /**

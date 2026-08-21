@@ -390,10 +390,26 @@ getIndicatorValues(input: {
 
 ### 阶段 D：增加稳定查询模型
 
-- [ ] 建立按 `instanceId` 查询的指标结果接口。
-- [ ] 定义字段名、时间戳、warm-up 和空值语义。
-- [ ] 限制单次查询范围，避免 Agent 拉取无界数组。
+- [x] 建立按指标定义和自定义数字参数计算的 MVP 查询接口。
+- [x] 定义字段名、时间戳、历史数据不足和空值语义。
+- [x] 限制单次查询范围，避免 Agent 拉取无界数组。
 - [ ] ChartController 和 Agent tool 只暴露稳定 DTO。
+
+#### D1 MVP 查询规则
+
+`createIndicatorQuery()` 捕获当前活动 K 线快照，使用完整行情调用指标定义已有的
+`runtime.compute`，通过 `commitResults({ owner: 'agent' })` 写入共享结果池，再按 `from`、`to`
+和 `limit` 转换为逐时间点 DTO。范围参数只限制返回值，不截断 calculator 输入。Chart 与 Agent
+共用 `runtime.defaultParams` 和 `runtime.compute`；`presentation.defaultOptions` 不进入 calculator、
+Worker、业务结果或 Agent DTO。
+
+MVP 只接受有限数字参数和 `outputAlignment: bar` 的结果。标量序列使用 `value` 字段，对象序列
+保留数值字段名，历史数据不足或非有限数值统一输出 `null`。`limit` 默认 500、最大 2000，返回
+指定时间范围内最近的数据点。若计算期间 `dataRevision` 变化，查询重新捕获最新行情；连续变化
+导致无法提交时返回结构化错误，不返回旧结果。
+
+Structure、Zones、Volume Profile 等 `aggregate` 结果没有逐 K 线时间点语义，D1 MVP 明确拒绝，
+后续为其设计独立 DTO，不把聚合数组伪装成 K 线序列。
 
 ## 13. 测试要求
 
@@ -425,10 +441,11 @@ getIndicatorValues(input: {
 
 ### Agent 查询测试
 
-- 数据与指标 revision 一致时返回 ready；
-- 新数据到达但指标未完成时返回 computing 或 stale；
-- 计算失败时返回错误及旧结果版本，不把旧结果标为 ready；
-- 查询按 instanceId 区分相同指标的不同 pane 实例。
+- 自定义数字参数与内部 calculator 配置保持独立；
+- 完整行情参与计算，`from/to/limit` 只截取 DTO；
+- 标量和对象序列转换为稳定字段，缺失值转换为 `null`；
+- 计算期间行情变化时基于最新 `dataRevision` 重新计算；
+- 聚合结果和非法参数返回结构化错误。
 
 ## 14. 完成标准
 

@@ -288,6 +288,7 @@ describe('IndicatorScheduler', () => {
       const visibleRange = { start: 0, end: 100 }
 
       scheduler.update(data, visibleRange)
+      const previousState = getStateFromMockCalls<MARenderState>(mockHost, MA_STATE_KEY)
 
       // Disable some periods
       scheduler.updateIndicatorConfig('ma', {
@@ -306,6 +307,7 @@ describe('IndicatorScheduler', () => {
       expect(state!.enabledPeriods).not.toContain(10)
       expect(state!.enabledPeriods).not.toContain(30)
       expect(state!.enabledPeriods).not.toContain(60)
+      expect(state!.series[5]).toBe(previousState!.series[5])
     })
 
     it('should disable all periods when all flags are false', () => {

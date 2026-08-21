@@ -221,8 +221,9 @@ const getATRTitleInfo = createSingleLineTitleInfo({
   scaleRendererFactory: createAtrScaleRendererPlugin,
   visibleState: { compose: createNonNegativeSparseVisibleStateComposer('atr', EMPTY_ATR_STATE) },
   getTitleInfo: getATRTitleInfo,
+  presentation: { defaultOptions: { showATR: true } },
   runtime: {
-    defaultConfig: { period: 14, showATR: true },
+    defaultParams: { period: 14 },
     computeKey: 'calcATRData',
     compute: (data, c) => calcATRData(data, c.period),
   },

@@ -5,6 +5,7 @@ import {
   type IndicatorInstanceSpec,
 } from '../indicatorState'
 import '../../renderers/subVolume'
+import '../../renderers/Indicator/cci'
 
 describe('indicatorState', () => {
   it('reuses a user sub-pane when a mode requests the same indicator', () => {
@@ -60,6 +61,22 @@ describe('indicatorState', () => {
     expect(second[0]?.params).toEqual({ period: 10, color: 'red' })
     expect(first[0]?.params).toEqual({ period: 5 })
     expect(m.readonly.configRevision()).toBe(2)
+  })
+
+  it('advances configRevision for calculation params but not presentation options', () => {
+    const state = createIndicatorState()
+    state.actions.upsertSub({
+      indicatorId: 'CCI',
+      paneId: 'CCI_0',
+      params: { period: 14, showCCI: true },
+    })
+    const initialRevision = state.readonly.configRevision()
+
+    state.actions.setSubParams('CCI_0', { showCCI: false })
+    expect(state.readonly.configRevision()).toBe(initialRevision)
+
+    state.actions.setSubParams('CCI_0', { period: 20 })
+    expect(state.readonly.configRevision()).toBe(initialRevision + 1)
   })
 
   it('remove and clear', () => {

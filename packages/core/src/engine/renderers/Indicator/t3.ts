@@ -157,11 +157,11 @@ const getT3TitleInfo = createSingleLineTitleInfo({
   },
   visibleState: { compose: createSparseVisibleStateComposer('t3', EMPTY_T3_STATE) },
   scale: { indicatorKey: 't3', label: 'T3', decimals: 2 },
+  presentation: { defaultOptions: { showT3: true } },
   runtime: {
-    defaultConfig: { period: 5, volumeFactor: 0.7, showT3: true },
+    defaultParams: { period: 5, volumeFactor: 0.7 },
     computeKey: 'calcT3Data',
-    compute: (data: KLineData[], c: T3RenderState['params']) =>
-      calcT3Data(data, c.period, c.volumeFactor),
+    compute: (data: KLineData[], c) => calcT3Data(data, c.period, c.volumeFactor),
   },
 })
 export class T3Definition {

@@ -328,8 +328,9 @@ const getWMSRTitleInfo = createSingleLineTitleInfo({
   visibleState: { compose: createFixedRangeSparseVisibleStateComposer('wmsr', EMPTY_WMSR_STATE) },
   scaleRendererFactory: createWmsrScaleRendererPlugin,
   getTitleInfo: getWMSRTitleInfo,
+  presentation: { defaultOptions: { showWMSR: true } },
   runtime: {
-    defaultConfig: { period: 14, showWMSR: true },
+    defaultParams: { period: 14 },
     computeKey: 'calcWMSRData',
     compute: (data, c) => calcWMSRData(data, c.period),
   },

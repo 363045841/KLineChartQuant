@@ -157,11 +157,11 @@ const getVIDYATitleInfo = createSingleLineTitleInfo({
   },
   visibleState: { compose: createSparseVisibleStateComposer('vidya', EMPTY_VIDYA_STATE) },
   scale: { indicatorKey: 'vidya', label: 'VIDYA', decimals: 2 },
+  presentation: { defaultOptions: { showVIDYA: true } },
   runtime: {
-    defaultConfig: { period: 14, cmoPeriod: 9, showVIDYA: true },
+    defaultParams: { period: 14, cmoPeriod: 9 },
     computeKey: 'calcVIDYAData',
-    compute: (data: KLineData[], c: VIDYARenderState['params']) =>
-      calcVIDYAData(data, c.period, c.cmoPeriod),
+    compute: (data: KLineData[], c) => calcVIDYAData(data, c.period, c.cmoPeriod),
   },
 })
 export class VIDYADefinition {

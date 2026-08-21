@@ -187,15 +187,9 @@ function getKeltnerTitleInfo(
   visibleState: {
     compose: createBandVisibleStateComposer('keltner', EMPTY_KELTNER_STATE, 'lower', 'upper'),
   },
+  presentation: { defaultOptions: { showUpper: true, showMiddle: true, showLower: true } },
   runtime: {
-    defaultConfig: {
-      emaPeriod: 20,
-      atrPeriod: 10,
-      multiplier: 2,
-      showUpper: true,
-      showMiddle: true,
-      showLower: true,
-    },
+    defaultParams: { emaPeriod: 20, atrPeriod: 10, multiplier: 2 },
     computeKey: 'calcKeltnerData',
     compute: (data, c) => calcKeltnerData(data, c.emaPeriod, c.atrPeriod, c.multiplier),
   },

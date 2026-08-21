@@ -362,11 +362,11 @@ function getFisherTransformTitleInfo(
     ),
   },
   getTitleInfo: getFisherTransformTitleInfo,
+  presentation: { defaultOptions: { showFisher: true, showSignal: true } },
   runtime: {
-    defaultConfig: { period: 10, showFisher: true, showSignal: true },
+    defaultParams: { period: 10 },
     computeKey: 'calcFisherTransformData',
-    compute: (data: KLineData[], c: FisherTransformRenderState['params']) =>
-      calcFisherTransformData(data, c.period),
+    compute: (data: KLineData[], c) => calcFisherTransformData(data, c.period),
   },
 })
 export class FisherTransformIndicatorDefinition {

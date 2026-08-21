@@ -323,7 +323,7 @@ const getENETitleInfo: GetTitleInfoFn = (
     composeRenderState: composeENERenderState,
   },
   runtime: {
-    defaultConfig: { period: 10, deviation: 11 },
+    defaultParams: { period: 10, deviation: 11 },
     computeKey: 'calcENEData',
     compute: (data, c) => calcENEData(data, c.period, c.deviation),
   },

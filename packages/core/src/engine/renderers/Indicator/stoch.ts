@@ -352,8 +352,9 @@ function getSTOCHTitleInfo(
   },
   scaleRendererFactory: createStochScaleRendererPlugin,
   getTitleInfo: getSTOCHTitleInfo,
+  presentation: { defaultOptions: { showK: true, showD: true, showJ: true } },
   runtime: {
-    defaultConfig: { n: 9, m: 3, showK: true, showD: true, showJ: true },
+    defaultParams: { n: 9, m: 3 },
     computeKey: 'calcSTOCHData',
     compute: (data, c) => calcSTOCHData(data, c.n, c.m),
   },

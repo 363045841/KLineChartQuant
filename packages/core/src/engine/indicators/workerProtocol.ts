@@ -21,7 +21,7 @@ export interface IndicatorSeriesBundle extends Readonly<Record<string, unknown>>
 export interface SerializedRuntimeDescriptor {
   readonly configKey: string
   readonly paneIdKey?: string
-  readonly defaultConfig: unknown
+  readonly defaultParams: unknown
   readonly computeKey: string
   readonly outputAlignment?: 'bar' | 'aggregate'
 }
@@ -128,7 +128,7 @@ export interface ErrorResponse {
 export type IndicatorWorkerResponse = ReadyResponse | SeriesResultResponse | ErrorResponse
 
 /** 当前 Indicator Worker 协议版本。 */
-export const PROTOCOL_VERSION = 3
+export const PROTOCOL_VERSION = 4
 
 /** 判断未知消息是否具有 Worker 响应的基础结构。 */
 export function isWorkerResponse(msg: unknown): msg is IndicatorWorkerResponse {

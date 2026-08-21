@@ -21,7 +21,7 @@ describe('IndicatorRuntime instance results', () => {
     const runtime = new IndicatorRuntime([
       {
         configKey: 'bar-series',
-        defaultConfig: {},
+        defaultParams: {},
         computeKey: 'test-bar-series',
         compute: (data) => data.map((_, index) => (index < 2 ? undefined : index)),
       },
@@ -48,7 +48,7 @@ describe('IndicatorRuntime instance results', () => {
     const runtime = new IndicatorRuntime([
       {
         configKey: 'aggregate',
-        defaultConfig: {},
+        defaultParams: {},
         computeKey: 'test-aggregate',
         outputAlignment: 'aggregate',
         compute: (data) => data.map((_, index) => ({ bin: index })),

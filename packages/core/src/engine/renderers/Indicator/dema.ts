@@ -144,8 +144,9 @@ const getDEMATitleInfo = createSingleLineTitleInfo({
   },
   visibleState: { compose: createSparseVisibleStateComposer('dema', EMPTY_DEMA_STATE) },
   scale: { indicatorKey: 'dema', label: 'DEMA', decimals: 2 },
+  presentation: { defaultOptions: { showDEMA: true } },
   runtime: {
-    defaultConfig: { period: 14, showDEMA: true },
+    defaultParams: { period: 14 },
     computeKey: 'calcDEMAData',
     compute: (data, c) => calcDEMAData(data, c.period),
   },

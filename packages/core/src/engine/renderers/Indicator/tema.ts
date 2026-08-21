@@ -144,8 +144,9 @@ const getTEMATitleInfo = createSingleLineTitleInfo({
   },
   visibleState: { compose: createSparseVisibleStateComposer('tema', EMPTY_TEMA_STATE) },
   scale: { indicatorKey: 'tema', label: 'TEMA', decimals: 2 },
+  presentation: { defaultOptions: { showTEMA: true } },
   runtime: {
-    defaultConfig: { period: 14, showTEMA: true },
+    defaultParams: { period: 14 },
     computeKey: 'calcTEMAData',
     compute: (data, c) => calcTEMAData(data, c.period),
   },

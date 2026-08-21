@@ -131,8 +131,9 @@ const getOBVTitleInfo = createSingleLineTitleInfo({
   visibleState: { compose: createSparseVisibleStateComposer('obv', EMPTY_OBV_STATE) },
   scale: { indicatorKey: 'obv', label: 'OBV', decimals: 0 },
   getTitleInfo: getOBVTitleInfo,
+  presentation: { defaultOptions: { showOBV: true } },
   runtime: {
-    defaultConfig: { showOBV: true },
+    defaultParams: {},
     computeKey: 'calcOBVData',
     compute: (data, c) => calcOBVData(data),
   },

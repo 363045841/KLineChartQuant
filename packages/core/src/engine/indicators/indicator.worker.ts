@@ -36,7 +36,7 @@ function handleInit(msg?: { descriptors?: ReadonlyArray<SerializedRuntimeDescrip
   const descriptors: IndicatorRuntimeDescriptor[] = serializedDescs.map((d) => ({
     configKey: d.configKey as any,
     paneIdKey: d.paneIdKey as any,
-    defaultConfig: d.defaultConfig,
+    defaultParams: d.defaultParams,
     computeKey: d.computeKey,
     outputAlignment: d.outputAlignment,
     compute: createWorkerCompute(d),
@@ -60,7 +60,7 @@ function handleAddDescriptor(descriptor: SerializedRuntimeDescriptor): void {
   runtime.addDescriptor({
     configKey: descriptor.configKey as any,
     paneIdKey: descriptor.paneIdKey as any,
-    defaultConfig: descriptor.defaultConfig,
+    defaultParams: descriptor.defaultParams,
     computeKey: descriptor.computeKey,
     outputAlignment: descriptor.outputAlignment,
     compute: createWorkerCompute(descriptor),

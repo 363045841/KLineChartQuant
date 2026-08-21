@@ -119,7 +119,10 @@ const composeBOLLRenderState: IndicatorRenderStateComposer = (
   range,
   timestamp,
 ): BOLLRenderState => {
-  const source = readIndicatorSeriesEntry<Pick<BOLLRenderState, 'series' | 'params'>>(bundle, 'boll')
+  const source = readIndicatorSeriesEntry<Pick<BOLLRenderState, 'series' | 'params'>>(
+    bundle,
+    'boll',
+  )
   const priceRange = computeBOLLPriceRange(bundle, range) ?? { min: Infinity, max: -Infinity }
   return {
     timestamp,
@@ -168,14 +171,9 @@ const getBOLLTitleInfo: GetTitleInfoFn = (
     computePriceRange: computeBOLLPriceRange,
     composeRenderState: composeBOLLRenderState,
   },
+  presentation: { defaultOptions: { showUpper: true, showMiddle: true, showLower: true } },
   runtime: {
-    defaultConfig: {
-      period: 20,
-      multiplier: 2,
-      showUpper: true,
-      showMiddle: true,
-      showLower: true,
-    },
+    defaultParams: { period: 20, multiplier: 2 },
     computeKey: 'calcBOLLData',
     compute: (data, c) => calcBOLLData(data, c.period, c.multiplier),
   },

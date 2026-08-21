@@ -258,8 +258,9 @@ const getCCITitleInfo = createSingleLineTitleInfo({
   scaleRendererFactory: createCciScaleRendererPlugin,
   visibleState: { compose: createCCIVisibleStateComposer('cci', EMPTY_CCI_STATE) },
   getTitleInfo: getCCITitleInfo,
+  presentation: { defaultOptions: { showCCI: true } },
   runtime: {
-    defaultConfig: { period: 14, showCCI: true },
+    defaultParams: { period: 14 },
     computeKey: 'calcCCIData',
     compute: (data, c) => calcCCIData(data, c.period),
   },

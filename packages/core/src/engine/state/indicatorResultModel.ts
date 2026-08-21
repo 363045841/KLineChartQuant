@@ -1,9 +1,6 @@
 /** 本文件定义主线程指标结果池的所属方模型。 */
 
-import type {
-  IndicatorConfig,
-  IndicatorInstanceCalculationResult,
-} from '../indicators/workerProtocol'
+import type { IndicatorInstanceCalculationResult } from '../indicators/workerProtocol'
 
 /** 指标结果池支持的所属方。 */
 export const INDICATOR_RESULT_OWNER = {
@@ -20,7 +17,7 @@ export interface IndicatorChartSeriesResult extends IndicatorInstanceCalculation
 export interface IndicatorAgentCalculationResult {
   readonly agentResultId: string
   readonly definitionId: string
-  readonly params: IndicatorConfig
+  readonly params: Readonly<Record<string, number>>
   readonly series: unknown
   readonly firstReadyIndex: number | null
 }

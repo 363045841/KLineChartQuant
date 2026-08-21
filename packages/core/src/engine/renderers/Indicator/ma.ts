@@ -163,15 +163,20 @@ function getMATitleInfo(
     computePriceRange: computeMAPriceRange,
     composeRenderState: composeMARenderState,
   },
+  presentation: {
+    defaultOptions: { ma5: true, ma10: true, ma20: true, ma30: true, ma60: true },
+    selectSeriesKeys: (params, options) =>
+      Object.values(params)
+        .filter((period): period is number => typeof period === 'number')
+        .filter((period) => options[`ma${period}` as keyof typeof options])
+        .map(String),
+  },
   runtime: {
-    defaultConfig: { ma5: true, ma10: true, ma20: true, ma30: true, ma60: true },
+    defaultParams: { period1: 5, period2: 10, period3: 20, period4: 30, period5: 60 },
     computeKey: 'calcMAData',
     compute: (data, c) => {
-      const p = [5, 10, 20, 30, 60]
       const r: Record<number, (number | undefined)[]> = {}
-      for (const o of p) {
-        if ((c as any)['ma' + o]) r[o] = calcMAData(data, o)
-      }
+      for (const period of Object.values(c) as number[]) r[period] = calcMAData(data, period)
       return r
     },
   },

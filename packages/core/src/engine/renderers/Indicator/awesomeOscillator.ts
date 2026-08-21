@@ -349,15 +349,11 @@ const getAwesomeOscillatorTitleInfo = createSingleLineTitleInfo({
     compose: createPaddedSparseVisibleStateComposer('awesomeOscillator', EMPTY_AO_STATE),
   },
   getTitleInfo: getAwesomeOscillatorTitleInfo,
+  presentation: { defaultOptions: { showAO: true } },
   runtime: {
-    defaultConfig: {
-      fast: DEFAULT_AO_FAST_PERIOD,
-      slow: DEFAULT_AO_SLOW_PERIOD,
-      showAO: true,
-    },
+    defaultParams: { fast: DEFAULT_AO_FAST_PERIOD, slow: DEFAULT_AO_SLOW_PERIOD },
     computeKey: 'calcAwesomeOscillatorData',
-    compute: (data: KLineData[], c: AwesomeOscillatorRenderState['params']) =>
-      calcAwesomeOscillatorData(data, c.fast, c.slow),
+    compute: (data: KLineData[], c) => calcAwesomeOscillatorData(data, c.fast, c.slow),
   },
 })
 export class AwesomeOscillatorIndicatorDefinition {

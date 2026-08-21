@@ -157,8 +157,9 @@ function getSARTitleInfo(
   visibleState: {
     compose: createValuePointVisibleStateComposer('sar', EMPTY_SAR_STATE, ['value']),
   },
+  presentation: { defaultOptions: { showSAR: true } },
   runtime: {
-    defaultConfig: { step: 0.02, maxStep: 0.2, showSAR: true },
+    defaultParams: { step: 0.02, maxStep: 0.2 },
     computeKey: 'calcSARData',
     compute: (data, c) => calcSARData(data, c.step, c.maxStep),
   },

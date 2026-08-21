@@ -73,18 +73,18 @@ export const CALCULATOR_MAP: Record<string, (data: KLineData[], config: any) => 
   calcMACDData: (data, c) => calcMACDData(data, c.fastPeriod, c.slowPeriod, c.signalPeriod),
   calcMAData: (data, c) => {
     const r: Record<number, (number | undefined)[]> = {}
-    for (const p of DEFAULT_MA_PERIODS) {
-      if ((c as any)['ma' + p]) r[p] = calcMAData(data, p)
+    const periods = Object.values(c).filter(
+      (period): period is number => typeof period === 'number',
+    )
+    for (const period of periods.length > 0 ? periods : DEFAULT_MA_PERIODS) {
+      r[period] = calcMAData(data, period)
     }
     return r
   },
   calcRSIData: (data, c) => {
-    const p = [c.period1, c.period2, c.period3]
-    const s = [c.showRSI1, c.showRSI2, c.showRSI3]
+    const periods = [c.period1, c.period2, c.period3]
     const r: Record<number, (number | undefined)[]> = {}
-    for (let i = 0; i < 3; i++) {
-      if (s[i]) r[p[i]] = calcRSIData(data, p[i])
-    }
+    for (const period of periods) r[period] = calcRSIData(data, period)
     return r
   },
   calcTRIXData: (data, c) => calcTRIXData(data, c.period, c.signalPeriod),
@@ -157,6 +157,26 @@ export function createWorkerCompute(descriptor: {
   )
 }
 
+/** 查找按 K 线对齐的嵌套序列中第一个有效值(非空非 null )下标。 */
+export function findFirstReadyIndex(value: unknown, dataLength: number): number | null {
+  if (Array.isArray(value)) {
+    if (value.length !== dataLength) return null
+    for (let index = 0; index < value.length; index++) {
+      if (value[index] !== undefined && value[index] !== null) return index
+    }
+    return null
+  }
+  if (value !== null && typeof value === 'object') {
+    let first: number | null = null
+    for (const nested of Object.values(value as Record<string, unknown>)) {
+      const index = findFirstReadyIndex(nested, dataLength)
+      if (index !== null && (first === null || index < first)) first = index
+    }
+    return first
+  }
+  return null
+}
+
 export class IndicatorRuntime {
   private currentData: KLineData[] = []
   private dataVersion = 0
@@ -177,9 +197,9 @@ export class IndicatorRuntime {
     const configKey = d.configKey ?? 'unknown'
     if (this.descriptorMap.has(configKey)) return
     this.descriptorMap.set(configKey, d)
-    const defaultConfig =
-      typeof d.defaultConfig === 'function' ? (d.defaultConfig as () => any)() : d.defaultConfig
-    this.configMap.set(configKey, { ...(defaultConfig as IndicatorConfig) })
+    const defaultParams =
+      typeof d.defaultParams === 'function' ? (d.defaultParams as () => any)() : d.defaultParams
+    this.configMap.set(configKey, { ...(defaultParams as IndicatorConfig) })
     this.dirtyFlags.set(configKey, true)
   }
 
@@ -206,10 +226,7 @@ export class IndicatorRuntime {
       const desc = this.descriptorMap.get(key)
       if (desc) {
         const current = this.configMap.get(key)
-        if (
-          !current ||
-          !this.shallowEqual(value, current)
-        ) {
+        if (!current || !this.shallowEqual(value, current)) {
           this.configMap.set(key, { ...(current ?? {}), ...value })
           this.dirtyFlags.set(key, true)
         }
@@ -234,26 +251,6 @@ export class IndicatorRuntime {
     return this.configVersion
   }
 
-  /** 查找嵌套序列中第一个有定义值的下标，用于表达 warm-up 边界。 */
-  private findFirstReadyIndex(value: unknown, dataLength: number): number | null {
-    if (Array.isArray(value)) {
-      if (value.length !== dataLength) return null
-      for (let index = 0; index < value.length; index++) {
-        if (value[index] !== undefined && value[index] !== null) return index
-      }
-      return null
-    }
-    if (value !== null && typeof value === 'object') {
-      let first: number | null = null
-      for (const nested of Object.values(value as Record<string, unknown>)) {
-        const index = this.findFirstReadyIndex(nested, dataLength)
-        if (index !== null && (first === null || index < first)) first = index
-      }
-      return first
-    }
-    return null
-  }
-
   /** 按实例参数独立计算结果，不复用按指标类型保存的配置槽位。 */
   computeInstanceSeries(
     instances: ReadonlyArray<IndicatorInstanceCalculationInput>,
@@ -273,7 +270,7 @@ export class IndicatorRuntime {
         firstReadyIndex:
           descriptor.outputAlignment === 'aggregate'
             ? null
-            : this.findFirstReadyIndex(series, this.currentData.length),
+            : findFirstReadyIndex(series, this.currentData.length),
       })
     }
     return results

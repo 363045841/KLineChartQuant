@@ -324,12 +324,8 @@ function getIchimokuTitleInfo(
       'chikou',
     ]),
   },
-  runtime: {
-    defaultConfig: {
-      tenkanPeriod: 9,
-      kijunPeriod: 26,
-      spanBPeriod: 52,
-      displacement: 26,
+  presentation: {
+    defaultOptions: {
       showTenkan: true,
       showKijun: true,
       showSpanA: true,
@@ -337,6 +333,9 @@ function getIchimokuTitleInfo(
       showCloud: true,
       showChikou: true,
     },
+  },
+  runtime: {
+    defaultParams: { tenkanPeriod: 9, kijunPeriod: 26, spanBPeriod: 52, displacement: 26 },
     computeKey: 'calcIchimokuData',
     compute: (data, c) =>
       calcIchimokuData(data, c.tenkanPeriod, c.kijunPeriod, c.spanBPeriod, c.displacement),

@@ -151,8 +151,9 @@ const getMFITitleInfo = createSingleLineTitleInfo({
   visibleState: { compose: createFixedRangeSparseVisibleStateComposer('mfi', EMPTY_MFI_STATE) },
   scale: { indicatorKey: 'mfi', label: 'MFI', decimals: 2 },
   getTitleInfo: getMFITitleInfo,
+  presentation: { defaultOptions: { showMFI: true } },
   runtime: {
-    defaultConfig: { period: 14, showMFI: true },
+    defaultParams: { period: 14 },
     computeKey: 'calcMFIData',
     compute: (data, c) => calcMFIData(data, c.period),
   },

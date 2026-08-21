@@ -136,8 +136,9 @@ const getParkinsonTitleInfo = createSingleLineTitleInfo({
   visibleState: {
     compose: createNonNegativeSparseVisibleStateComposer('parkinson', EMPTY_PARKINSON_STATE),
   },
+  presentation: { defaultOptions: { showParkinson: true } },
   runtime: {
-    defaultConfig: { period: 20, annualizationFactor: 252, showParkinson: true },
+    defaultParams: { period: 20, annualizationFactor: 252 },
     computeKey: 'calcParkinsonData',
     compute: (data, c) => calcParkinsonData(data, c.period, c.annualizationFactor),
   },

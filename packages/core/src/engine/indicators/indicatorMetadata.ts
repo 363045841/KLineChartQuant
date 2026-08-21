@@ -195,14 +195,24 @@ export interface IndicatorRuntimeDescriptor<C = any> {
   configKey?: string
   /** paneId 在 configSnapshot 中的 key（如 'macdPaneId'），可省略 */
   paneIdKey?: string
-  /** 默认配置值 */
-  defaultConfig: C
+  /** 只影响 calculator 输出的默认参数，不包含 show* 等展示配置。 */
+  defaultParams: C
   /** 计算函数（主线程直接调用，Worker 用 computeKey 桥接） */
   compute: (data: KLineData[], config: C) => unknown
   /** Worker 端计算键名，映射到 calculators 模块的导出 */
   computeKey: string
   /** calculator 输出是否按 K 线下标对齐，默认 bar。 */
   outputAlignment?: 'bar' | 'aggregate'
+}
+
+/** 指标展示配置，不进入 Runtime、Worker 或业务结果池。 */
+export interface IndicatorPresentationDescriptor<O = Readonly<Record<string, unknown>>> {
+  readonly defaultOptions: O
+  /** 从完整计算结果中选择当前需要投影的字段，计算结果本身保持不变。 */
+  readonly selectSeriesKeys?: (
+    params: Readonly<Record<string, unknown>>,
+    options: O,
+  ) => ReadonlyArray<string>
 }
 
 /**
@@ -336,6 +346,9 @@ export interface IndicatorMetadata<T = unknown> {
    * 提供后，IndicatorRuntime 可据此自动调度计算，无需手写展开
    */
   runtime?: IndicatorRuntimeDescriptor
+
+  /** renderer 投影使用的展示配置。 */
+  presentation?: IndicatorPresentationDescriptor
 
   /**
    * 标题信息获取回调（决定 pane 标题栏显示内容）

@@ -198,8 +198,9 @@ const getFibTitleInfo: GetTitleInfoFn = (_data, index, _params, stateReader, pan
   visibleState: {
     compose: createExactRangePointVisibleStateComposer('fib', EMPTY_FIB_STATE, ['low', 'high']),
   },
+  presentation: { defaultOptions: { showLevels: true } },
   runtime: {
-    defaultConfig: { period: 50, showLevels: true },
+    defaultParams: { period: 50 },
     computeKey: 'calcFibData',
     compute: (data, c) => calcFibData(data, c.period),
   },

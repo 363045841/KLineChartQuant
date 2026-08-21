@@ -185,8 +185,9 @@ function getDonchianTitleInfo(
   visibleState: {
     compose: createBandVisibleStateComposer('donchian', EMPTY_DONCHIAN_STATE, 'lower', 'upper'),
   },
+  presentation: { defaultOptions: { showUpper: true, showMiddle: true, showLower: true } },
   runtime: {
-    defaultConfig: { period: 20, showUpper: true, showMiddle: true, showLower: true },
+    defaultParams: { period: 20 },
     computeKey: 'calcDonchianData',
     compute: (data, c) => calcDonchianData(data, c.period),
   },
