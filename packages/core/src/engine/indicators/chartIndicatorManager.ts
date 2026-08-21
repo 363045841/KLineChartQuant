@@ -583,6 +583,13 @@ export class ChartIndicatorManager {
 
   // ========== 高层指标 API ==========
 
+  /**
+   * 添加指标实例；主图返回规范化 definitionId，副图创建独立 instanceId 和 paneId。
+   * @param definitionId 已注册的指标定义标识。
+   * @param role 指标显示位置。
+   * @param params 可选的指标参数覆盖。
+   * @returns 成功时返回可用于后续操作的标识，失败时返回 null。
+   */
   addIndicator(
     definitionId: string,
     role: 'main' | 'sub',
