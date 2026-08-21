@@ -371,10 +371,13 @@ getIndicatorValues(input: {
 
 ### 阶段 D：增加稳定查询模型
 
-- [ ] 建立按 `instanceId` 查询的指标结果接口。
-- [ ] 定义字段名、时间戳、warm-up 和空值语义。
+- [ ] 建立独立指标查询层，支持按指标定义和按 `instanceId` 查询。
+- [ ] 支持未添加指标的无副作用临时计算，并与正式结果复用保持相同返回协议。
+- [ ] 定义字段名、时间戳、warm-up、空值和数据形态语义。
 - [ ] 限制单次查询范围，避免 Agent 拉取无界数组。
-- [ ] ChartController 和 Agent tool 只暴露稳定 DTO。
+- [ ] ChartController 暴露稳定指标查询 DTO，Agent runtime 独立适配且不反向耦合查询层。
+
+详细产品需求见 `docs/design/indicator-query-prd.md`。
 
 ## 13. 测试要求
 

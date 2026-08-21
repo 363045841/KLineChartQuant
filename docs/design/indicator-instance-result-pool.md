@@ -59,3 +59,7 @@ warm-up 范围为 `[0, firstReadyIndex)`。该范围中的稀疏数组项保持 
 ## D 轮边界
 
 D 轮只从 `CommittedIndicatorResult.results` 和 `timestamps` 构造受限 DTO。它不读取 `bundle`、`renderStates`、PluginHost 或 Scheduler 私有缓存。
+
+D 轮不再局限于读取图表中已添加的实例。指标查询层同时支持按指标定义进行无副作用临时计算，并保证
+正式结果复用与临时计算返回相同协议。产品范围、请求和返回模型以
+`docs/design/indicator-query-prd.md` 为准。
