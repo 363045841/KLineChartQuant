@@ -1,16 +1,9 @@
-import type {
-  RendererPluginWithHost,
-  RenderContext,
-  PluginHost,
-  BaseIndicatorState,
-} from '../../foundation/plugin/index'
+import type { RendererPluginWithHost, RenderContext } from '../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import { resolveThemeColors } from '../../foundation/tokens/index'
 import { getKLineTrend } from '../../foundation/types/kLine'
 import type { KLineData, TimeShareData } from '../../foundation/types/price'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../indicators/scheduler'
 
 import { createVolumeScaleRendererPlugin } from './Indicator/scale/volume_scale'
 import { tryDrawRectsGpu } from './rectsViaRenderer'
@@ -20,35 +13,11 @@ interface VolumeRendererOptions {
   paneId?: string
 }
 
-interface VolumeRenderState extends BaseIndicatorState {
-  valueMin: number
-  valueMax: number
-}
-
-function getVolumeStateKey(host: PluginHost | null, paneId: string): string | null {
-  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
-  if (!scheduler) {
-    console.warn('[VolumeRenderer] Scheduler not available via service locator')
-    return null
-  }
-  const meta = scheduler.getIndicatorMetadata('volume')
-  if (!meta) {
-    console.warn("[VolumeRenderer] Indicator metadata for 'volume' not found, skip rendering")
-    return null
-  }
-  return resolveStateKey(meta.stateKey, paneId)
-}
-
 /**
  * 创建副图成交量渲染器插件
  */
 function createVolumeRendererPlugin(options: VolumeRendererOptions = {}): RendererPluginWithHost {
   const { paneId = 'sub' } = options
-  let pluginHost: PluginHost | null = null
-
-  function resolveKey(): string | null {
-    return getVolumeStateKey(pluginHost, paneId)
-  }
 
   return {
     name: `volume_${paneId}`,
@@ -58,14 +27,8 @@ function createVolumeRendererPlugin(options: VolumeRendererOptions = {}): Render
     paneId,
     priority: RENDERER_PRIORITY.MAIN,
 
-    onInstall(host: PluginHost) {
-      pluginHost = host
-    },
-
-    getDeclaredNamespaces() {
-      const key = resolveKey()
-      return key ? [key] : []
-    },
+    // 保留插件生命周期契约；成交量范围已由 Scheduler 投影到帧级状态。
+    onInstall() {},
 
     draw(context: RenderContext) {
       const { ctx, pane, data, range, dpr } = context
@@ -108,18 +71,6 @@ function createVolumeRendererPlugin(options: VolumeRendererOptions = {}): Render
       const displayValueRange = displayMax - displayMin || 1
       const baseY = pane.height - ((0 - displayMin) / displayValueRange) * pane.height
       const alignedBaseY = Math.round(baseY * dpr) / dpr
-
-      const stateKey = resolveKey()
-      if (!stateKey) return
-      pluginHost?.setSharedState<VolumeRenderState>(
-        stateKey,
-        {
-          valueMin,
-          valueMax,
-          timestamp: Date.now(),
-        },
-        `volume_${paneId}`,
-      )
 
       const maxRects = Math.max(1, end - start)
       const upBuf = new Float32Array(maxRects * 4)

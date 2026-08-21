@@ -23,3 +23,10 @@ context.indicatorStateReader?.get<State>(stateKey)
 
 指标 renderer 的绘制、标题和配置读取均已脱离 Kernel resolver。Chart 不再安装指标 resolver；
 PluginHost `StateStore` 仅保留给非指标插件和独立 Scheduler 的兼容投影。
+
+## 可见行情派生状态
+
+VOL 没有 calculator runtime，其坐标范围直接由当前可见行情的成交量派生。该范围仍由 Scheduler
+写入同一份 `renderStates`，并按 `indicatorState.instances` 中每个 VOL 实例的真实 `paneId`
+发布。柱体 renderer 不在绘制期间写入 `PluginHost StateStore`，坐标轴和柱体因此共享同一帧的
+范围事实。

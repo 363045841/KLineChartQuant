@@ -4,6 +4,7 @@
  */
 
 import { KLineChartError } from '../../errors'
+import type { KLineData } from '../../foundation/types/price'
 
 import { getRegisteredIndicatorDefinitions } from './indicatorDefinitionRegistry'
 import type { IndicatorMetadata } from './indicatorMetadata'
@@ -204,6 +205,38 @@ export function composeRenderStates(
   return {
     ...mainStates,
     ...subStates,
+  }
+}
+
+/** 成交量副图的帧级渲染状态。 */
+export interface VolumeRenderState {
+  readonly timestamp: number
+  readonly valueMin: number
+  readonly valueMax: number
+}
+
+/** 根据当前可见 K 线计算成交量坐标轴范围。 */
+export function composeVolumeRenderState(
+  data: ReadonlyArray<KLineData>,
+  visibleRange: VisibleRange,
+  timestamp: number,
+): VolumeRenderState | null {
+  let maxVolume = 0
+  let minVolume = Infinity
+  const end = Math.min(visibleRange.end, data.length)
+  for (let index = visibleRange.start; index < end; index++) {
+    const volume = data[index]?.volume
+    if (volume === undefined || volume === null) continue
+    maxVolume = Math.max(maxVolume, volume)
+    minVolume = Math.min(minVolume, volume)
+  }
+  if (maxVolume === 0 || !Number.isFinite(minVolume)) return null
+
+  const padding = Math.max(0.05, (maxVolume - minVolume) * 0.1)
+  return {
+    timestamp,
+    valueMin: Math.max(0, minVolume - padding),
+    valueMax: maxVolume + padding,
   }
 }
 

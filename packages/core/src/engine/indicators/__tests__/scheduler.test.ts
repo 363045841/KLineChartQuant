@@ -49,7 +49,7 @@ function registerTestIndicators(scheduler: IndicatorScheduler): void {
       displayName: 'Volume',
       category: 'sub' as const,
       indicatorType: 'volume',
-      stateKey: 'indicator:volume:sub_Volume',
+      stateKey: (paneId: string) => `indicator:volume:${paneId}`,
       defaultPaneId: 'sub_Volume',
       rendererFactory: vi.fn() as any,
       getRendererName: ({ paneId }) => `volume_${paneId}`,
@@ -203,6 +203,32 @@ describe('IndicatorScheduler', () => {
       expect(state!.enabledPeriods).toContain(20)
       expect(state!.enabledPeriods).toContain(30)
       expect(state!.enabledPeriods).toContain(60)
+    })
+
+    it('publishes the visible volume range through the frame state reader', () => {
+      const data = createTestData(5)
+      scheduler.setIndicatorInstanceProvider(() => [
+        {
+          instanceId: 'volume-instance',
+          definitionId: 'volume',
+          paneId: 'sub_Volume_dynamic',
+          params: {},
+        },
+      ])
+      scheduler.update(data, { start: 2, end: 5 })
+
+      const state = scheduler
+        .createRenderStateReader()
+        .get<{ valueMin: number; valueMax: number }>('indicator:volume:sub_Volume_dynamic')
+
+      expect(state).toMatchObject({ valueMin: 1_180, valueMax: 1_420 })
+
+      scheduler.updateVisibleRange({ start: 0, end: 2 })
+      const updatedState = scheduler
+        .createRenderStateReader()
+        .get<{ valueMin: number; valueMax: number }>('indicator:volume:sub_Volume_dynamic')
+
+      expect(updatedState).toMatchObject({ valueMin: 990, valueMax: 1_110 })
     })
 
     it('should set correct visibleMin and visibleMax for full range', () => {

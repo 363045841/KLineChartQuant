@@ -71,7 +71,11 @@ import {
 import { DEFAULT_VWAP_SESSION_GAP_MS } from './state/vwapState'
 import { DEFAULT_WMA_PERIOD } from './state/wmaState'
 import { DEFAULT_ZONES_OB_LOOKBACK } from './state/zonesState'
-import { composeRenderStates, computeMainIndicatorPriceRange } from './stateComposer'
+import {
+  composeRenderStates,
+  composeVolumeRenderState,
+  computeMainIndicatorPriceRange,
+} from './stateComposer'
 import { isWorkerResponse, PROTOCOL_VERSION } from './workerProtocol'
 import type {
   IndicatorConfigSnapshot,
@@ -641,6 +645,20 @@ export class IndicatorScheduler {
         meta.displayName,
       )
       result.set(resolveStateKey(meta.stateKey, paneId), state)
+    }
+    const volume = composeVolumeRenderState(this.currentData, this.visibleRange, timestamp)
+    const volumeMetadata = this.registry.get('volume')
+    if (volume && volumeMetadata) {
+      const volumeInstances = (this.getIndicatorInstances?.() ?? []).filter(
+        (instance) => instance.definitionId === volumeMetadata.name,
+      )
+      const paneIds =
+        volumeInstances.length > 0
+          ? new Set(volumeInstances.map((instance) => instance.paneId))
+          : new Set([volumeMetadata.defaultPaneId])
+      for (const paneId of paneIds) {
+        result.set(resolveStateKey(volumeMetadata.stateKey, paneId), volume)
+      }
     }
     return result
   }
