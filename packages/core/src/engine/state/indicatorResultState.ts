@@ -8,15 +8,6 @@ import type {
   IndicatorSeriesBundle,
 } from '../indicators/workerProtocol'
 import { deepFreezeOwned, immutableMap } from './immutable'
-import {
-  INDICATOR_RESULT_OWNER,
-  ownAgentIndicatorResult,
-  ownChartIndicatorResult,
-} from './indicatorResultModel'
-import type {
-  IndicatorAgentCalculationResult,
-  IndicatorSeriesResult,
-} from './indicatorResultModel'
 
 /** 指标计算尝试的外部可观察状态。 */
 export type IndicatorCalculationStatus = 'idle' | 'computing' | 'error'
@@ -40,13 +31,13 @@ export interface CommittedIndicatorResult {
   readonly renderStates: ReadonlyMap<string, unknown>
 }
 
-/** 图表与 Agent 共享的指标结果池快照。 */
+/** 图表渲染使用的指标结果池快照。 */
 export interface IndicatorResultPoolSnapshot {
   readonly dataRevision: number
   /** 与按 K 线对齐的 series 下标严格一致。 */
   readonly timestamps: ReadonlyArray<number>
-  /** 按图表 instanceId 或 Agent resultId 索引的业务结果。 */
-  readonly results: ReadonlyMap<string, IndicatorSeriesResult>
+  /** 按图表实例 ID 索引的计算结果。 */
+  readonly results: ReadonlyMap<string, IndicatorInstanceCalculationResult>
 }
 
 /** 指标结果不可变快照。 */
@@ -58,7 +49,6 @@ export interface IndicatorResultSnapshot {
 
 /** 图表批量计算结果提交参数。 */
 export interface ChartIndicatorResultsCommitInput {
-  readonly owner: typeof INDICATOR_RESULT_OWNER.CHART
   readonly requestId: number
   readonly dataRevision: number
   readonly configRevision: number
@@ -67,19 +57,6 @@ export interface ChartIndicatorResultsCommitInput {
   readonly instanceResults: ReadonlyArray<IndicatorInstanceCalculationResult>
   readonly renderStates: ReadonlyMap<string, unknown>
 }
-
-/** Agent 单项计算结果提交参数。 */
-export interface AgentIndicatorResultCommitInput {
-  readonly owner: typeof INDICATOR_RESULT_OWNER.AGENT
-  readonly dataRevision: number
-  readonly timestamps: ReadonlyArray<number>
-  readonly result: IndicatorAgentCalculationResult
-}
-
-/** 统一的指标计算结果提交参数。 */
-export type IndicatorResultsCommitInput =
-  | ChartIndicatorResultsCommitInput
-  | AgentIndicatorResultCommitInput
 
 /** 指标结果相对于当前 Kernel 数据和配置的可用性。 */
 export type IndicatorResultAvailability = 'ready' | 'computing' | 'stale' | 'error'
@@ -159,55 +136,19 @@ export function createIndicatorResultState() {
         })
       },
 
-      /** 按所属方校验并原子提交图表批量结果或 Agent 单项结果。 */
-      commitResults(input: IndicatorResultsCommitInput): boolean {
+      /** 校验计算身份并原子提交图表计算与渲染结果。 */
+      commitResults(input: ChartIndicatorResultsCommitInput): boolean {
         const previous = signals.snapshot.peek()
-        // Agent 分支：只写共享结果池，不触碰 committed/renderStates，因此不触发重绘
-        if (input.owner === INDICATOR_RESULT_OWNER.AGENT) {
-          // 过期行情版本的 Agent 结果不得覆盖新结果池
-          if (previous.pool && input.dataRevision < previous.pool.dataRevision) return false
-          // 同一行情版本复用已有池内容；版本变更则建立新池，旧 Agent 结果自然淘汰
-          const results =
-            previous.pool?.dataRevision === input.dataRevision
-              ? new Map(previous.pool.results)
-              : new Map<string, IndicatorSeriesResult>()
-          // Agent 结果不得顶替同 ID 的图表实例结果，防止查询身份侵占绘制身份
-          const existing = results.get(input.result.agentResultId)
-          if (existing?.owner === INDICATOR_RESULT_OWNER.CHART) {
-            throw new TypeError(`Duplicate indicator result id: ${input.result.agentResultId}`)
-          }
-          results.set(
-            input.result.agentResultId,
-            deepFreezeOwned(ownAgentIndicatorResult(input.result)),
-          )
-          write({
-            ...previous,
-            pool: Object.freeze({
-              dataRevision: input.dataRevision,
-              timestamps: deepFreezeOwned(input.timestamps),
-              results: immutableMap(results),
-            }),
-          })
-          return true
-        }
-
-        // Chart 分支：校验 attempt 身份，过期 request 与旧行情提交均被丢弃
         if (!matchesAttempt(previous.attempt, input)) return false
         if (previous.pool && previous.pool.dataRevision > input.dataRevision) return false
         const previousVersion = previous.committed?.resultVersion ?? 0
         const previousProjection = previous.committed?.projectionVersion ?? 0
-        const results = new Map<string, IndicatorSeriesResult>()
-        // 同一行情版本时保留已写入的 Agent 结果；新版本则从空池开始重建
-        if (previous.pool?.dataRevision === input.dataRevision) {
-          for (const [resultId, result] of previous.pool.results) {
-            if (result.owner === INDICATOR_RESULT_OWNER.AGENT) results.set(resultId, result)
-          }
-        }
+        const results = new Map<string, IndicatorInstanceCalculationResult>()
         for (const result of input.instanceResults) {
           if (results.has(result.instanceId)) {
             throw new TypeError(`Duplicate indicator result id: ${result.instanceId}`)
           }
-          results.set(result.instanceId, deepFreezeOwned(ownChartIndicatorResult(result)))
+          results.set(result.instanceId, deepFreezeOwned(result))
         }
         // committed（渲染事实）与 pool（业务事实）在一次 Action 内原子发布，
         // 订阅者不会观察到渲染投影与结果池版本错位的中间态

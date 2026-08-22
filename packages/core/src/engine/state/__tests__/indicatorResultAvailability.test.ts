@@ -2,7 +2,6 @@
 import { describe, expect, it } from 'vitest'
 
 import { ChartStateKernel } from '../chartStateKernel'
-import { INDICATOR_RESULT_OWNER } from '../indicatorResultModel'
 
 /** 创建满足状态测试的 Kernel。 */
 function createKernel(): ChartStateKernel {
@@ -33,7 +32,6 @@ describe('indicatorResultAvailability', () => {
       configRevision,
     })
     kernel.indicatorResult.actions.commitResults({
-      owner: INDICATOR_RESULT_OWNER.CHART,
       requestId: 1,
       dataRevision,
       configRevision,

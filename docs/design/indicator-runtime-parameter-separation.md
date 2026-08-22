@@ -15,16 +15,16 @@
 - `runtime.defaultParams`：只包含影响 calculator 输出的参数，发送给 Inline Runtime 和 Worker。
 - `presentation.defaultOptions`：只包含 renderer 展示选项，仅在主线程生成 `renderStates` 时合入。
 
-Chart 和 Agent 均调用同一个 `runtime.compute(data, params)`。Runtime 和 Worker 不接收调用方身份；
-纯计算结果返回主线程后，提交层再根据请求上下文附加 `owner: chart | agent`。
+Chart 和 Agent 均调用同一个 `runtime.compute(data, params)`。Runtime 和 Worker 不接收调用方身份，
+也不决定结果去向；它们只返回纯计算结果。
 
 ```text
 Chart instance / Agent request
   -> runtime.defaultParams + 参数覆盖
   -> runtime.compute
   -> 纯计算结果
-  -> 主线程附加 owner
-  -> 共享结果池
+  -> Chart Scheduler：结果池 + renderer 投影
+  -> Agent Query：紧凑文本
 ```
 
 ## 状态与版本

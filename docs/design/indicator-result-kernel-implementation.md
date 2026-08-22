@@ -141,23 +141,15 @@ beginCalculation(input: {
 }): void
 
 commitResults(
-  input:
-    | {
-        owner: 'chart'
-        requestId: number
-        dataRevision: number
-        configRevision: number
-        bundle: IndicatorSeriesBundle
-        timestamps: ReadonlyArray<number>
-        instanceResults: ReadonlyArray<IndicatorInstanceCalculationResult>
-        renderStates: ReadonlyMap<string, unknown>
-      }
-    | {
-        owner: 'agent'
-        dataRevision: number
-        timestamps: ReadonlyArray<number>
-        result: IndicatorAgentCalculationResult
-      },
+  input: {
+    requestId: number
+    dataRevision: number
+    configRevision: number
+    bundle: IndicatorSeriesBundle
+    timestamps: ReadonlyArray<number>
+    instanceResults: ReadonlyArray<IndicatorInstanceCalculationResult>
+    renderStates: ReadonlyMap<string, unknown>
+  },
 ): boolean
 
 updateProjection(input: {
@@ -175,8 +167,8 @@ failCalculation(input: {
 reset(): void
 ```
 
-`chart` 提交和 `failCalculation()` 在 Action 内再次校验当前 attempt 身份。`agent` 提交按
-`dataRevision` 防止旧结果覆盖新结果池，只更新共享结果池，不修改 renderer 投影和图表结果版本。
+图表提交和 `failCalculation()` 在 Action 内再次校验当前 attempt 身份。结果池只保存图表渲染所需
+结果，不接收 Agent 临时查询结果。
 
 返回 `boolean` 表示本次提交是否生效。只有生效时才安排重绘或发送完成通知。
 
@@ -388,28 +380,26 @@ getIndicatorValues(input: {
 
 详细决策见 `docs/design/indicator-instance-result-pool.md`。
 
-### 阶段 D：增加稳定查询模型
+### 阶段 D：增加 Agent 文本查询
 
 - [x] 建立按指标定义和自定义数字参数计算的 MVP 查询接口。
-- [x] 定义字段名、时间戳、历史数据不足和空值语义。
+- [x] 将计算结果转义为紧凑文本，避免 JSON 直接进入 Agent 上下文。
 - [x] 限制单次查询范围，避免 Agent 拉取无界数组。
-- [ ] ChartController 和 Agent tool 只暴露稳定 DTO。
+- [x] Agent 查询只返回文本，不暴露内部 DTO。
 
 #### D1 MVP 查询规则
 
 `createIndicatorQuery()` 捕获当前活动 K 线快照，使用完整行情调用指标定义已有的
-`runtime.compute`，通过 `commitResults({ owner: 'agent' })` 写入共享结果池，再按 `from`、`to`
-和 `limit` 转换为逐时间点 DTO。范围参数只限制返回值，不截断 calculator 输入。Chart 与 Agent
-共用 `runtime.defaultParams` 和 `runtime.compute`；`presentation.defaultOptions` 不进入 calculator、
-Worker、业务结果或 Agent DTO。
+`runtime.compute`，在确认 `dataRevision` 未变化后直接转义为文本。范围参数只限制文本中的结果数量，
+不截断 calculator 输入。Chart 与 Agent 共用 `runtime.defaultParams` 和 `runtime.compute`；
+`presentation.defaultOptions` 不进入 calculator、Worker、业务结果或 Agent 文本。
 
-MVP 只接受有限数字参数和 `outputAlignment: bar` 的结果。标量序列使用 `value` 字段，对象序列
-保留数值字段名，历史数据不足或非有限数值统一输出 `null`。`limit` 默认 500、最大 2000，返回
-指定时间范围内最近的数据点。若计算期间 `dataRevision` 变化，查询重新捕获最新行情；连续变化
-导致无法提交时返回结构化错误，不返回旧结果。
+MVP 只接受有限数字参数。已注册的专用转义器按 `definitionId` 输出语义化文本；未知输出降级为
+Markdown 表格，字段名只在表头出现一次。`limit` 默认 20、最大 2000，返回指定时间范围内最近的
+结果。若计算期间 `dataRevision` 变化，查询重新捕获最新行情；连续变化时返回错误，不返回旧结果。
 
-Structure、Zones、Volume Profile 等 `aggregate` 结果没有逐 K 线时间点语义，D1 MVP 明确拒绝，
-后续为其设计独立 DTO，不把聚合数组伪装成 K 线序列。
+Structure、Zones、Volume Profile 等非对齐结果由专用转义器读取其已有时间下标或价格区间语义，
+不伪装成逐 K 线 JSON DTO。
 
 ## 13. 测试要求
 

@@ -19,7 +19,6 @@ import {
   createIndicatorResultState,
   type IndicatorResultStateModule,
 } from '../state/indicatorResultState'
-import { INDICATOR_RESULT_OWNER } from '../state/indicatorResultModel'
 
 import { resolveStateKey, type IndicatorMetadata } from './indicatorMetadata'
 import { IndicatorRegistry } from './indicatorRegistry'
@@ -696,7 +695,6 @@ export class IndicatorScheduler {
   ): void {
     const renderStates = this.composeRenderStateMap(bundle)
     const committed = this.resultState.actions.commitResults({
-      owner: INDICATOR_RESULT_OWNER.CHART,
       requestId,
       dataRevision: dataVersion,
       configRevision: configVersion,

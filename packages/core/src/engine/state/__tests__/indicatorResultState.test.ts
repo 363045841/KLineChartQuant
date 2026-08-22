@@ -2,7 +2,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import type { IndicatorSeriesBundle } from '../../indicators/workerProtocol'
-import { INDICATOR_RESULT_OWNER } from '../indicatorResultModel'
 import {
   createIndicatorResultState,
   resolveIndicatorResultAvailability,
@@ -38,7 +37,6 @@ describe('indicatorResultState', () => {
     state.actions.beginCalculation(input)
     expect(
       state.actions.commitResults({
-        owner: INDICATOR_RESULT_OWNER.CHART,
         ...input,
         ...resultPayload,
         bundle: bundle(),
@@ -62,7 +60,6 @@ describe('indicatorResultState', () => {
     )
     expect(snapshot.pool?.timestamps).toEqual([1000, 2000])
     expect(snapshot.pool?.results.get('macd-a')).toMatchObject({
-      owner: INDICATOR_RESULT_OWNER.CHART,
       definitionId: 'macd',
       firstReadyIndex: 1,
     })
@@ -84,7 +81,6 @@ describe('indicatorResultState', () => {
 
     expect(
       state.actions.commitResults({
-        owner: INDICATOR_RESULT_OWNER.CHART,
         requestId: 0,
         dataRevision: input.dataRevision,
         configRevision: input.configRevision,
@@ -101,7 +97,6 @@ describe('indicatorResultState', () => {
     const state = createIndicatorResultState()
     state.actions.beginCalculation(input)
     state.actions.commitResults({
-      owner: INDICATOR_RESULT_OWNER.CHART,
       ...input,
       ...resultPayload,
       bundle: bundle(),
@@ -126,7 +121,6 @@ describe('indicatorResultState', () => {
     const result = bundle()
     state.actions.beginCalculation(input)
     state.actions.commitResults({
-      owner: INDICATOR_RESULT_OWNER.CHART,
       ...input,
       ...resultPayload,
       bundle: result,
@@ -181,7 +175,6 @@ describe('indicatorResultState', () => {
     const state = createIndicatorResultState()
     state.actions.beginCalculation(input)
     state.actions.commitResults({
-      owner: INDICATOR_RESULT_OWNER.CHART,
       ...input,
       ...resultPayload,
       bundle: bundle(),
@@ -194,67 +187,5 @@ describe('indicatorResultState', () => {
     expect(resolveIndicatorResultAvailability(state.readonly.snapshot.peek(), 8, 3)).toBe(
       'computing',
     )
-  })
-
-  it('commits an Agent result without requiring or changing chart rendering state', () => {
-    const state = createIndicatorResultState()
-
-    expect(
-      state.actions.commitResults({
-        owner: INDICATOR_RESULT_OWNER.AGENT,
-        dataRevision: 7,
-        timestamps: [1000, 2000],
-        result: {
-          agentResultId: 'agent-macd-12-26-9',
-          definitionId: 'macd',
-          params: { fastPeriod: 12, slowPeriod: 26, signalPeriod: 9 },
-          series: [undefined, { dif: 1 }],
-          firstReadyIndex: 1,
-        },
-      }),
-    ).toBe(true)
-
-    const snapshot = state.readonly.snapshot.peek()
-    expect(snapshot.committed).toBeNull()
-    expect(snapshot.pool?.results.get('agent-macd-12-26-9')).toMatchObject({
-      owner: INDICATOR_RESULT_OWNER.AGENT,
-      definitionId: 'macd',
-    })
-  })
-
-  it('preserves same-revision Agent results across chart commits and drops older revisions', () => {
-    const state = createIndicatorResultState()
-    state.actions.commitResults({
-      owner: INDICATOR_RESULT_OWNER.AGENT,
-      dataRevision: 7,
-      timestamps: [1000, 2000],
-      result: {
-        agentResultId: 'agent-ma-5',
-        definitionId: 'ma',
-        params: { period: 5 },
-        series: [undefined, 2],
-        firstReadyIndex: 1,
-      },
-    })
-    state.actions.beginCalculation(input)
-    state.actions.commitResults({
-      owner: INDICATOR_RESULT_OWNER.CHART,
-      ...input,
-      ...resultPayload,
-      bundle: bundle(),
-      renderStates: new Map(),
-    })
-    expect(state.readonly.snapshot.peek().pool?.results.has('agent-ma-5')).toBe(true)
-
-    const next = { requestId: 2, dataRevision: 8, configRevision: 3 }
-    state.actions.beginCalculation(next)
-    state.actions.commitResults({
-      owner: INDICATOR_RESULT_OWNER.CHART,
-      ...next,
-      ...resultPayload,
-      bundle: bundle(),
-      renderStates: new Map(),
-    })
-    expect(state.readonly.snapshot.peek().pool?.results.has('agent-ma-5')).toBe(false)
   })
 })
