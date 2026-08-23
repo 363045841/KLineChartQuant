@@ -4,6 +4,7 @@ import {
   resolveSessionSlotPhysicalGrid,
   type MarketSessionConfig,
 } from '../../foundation/utils/timeShareAxisLabels'
+import type { TimeShareRange } from '../../data/provider/types'
 import { calcKBarWidthPx } from '../utils/klineConfig'
 
 export type TimeShareBaselineInput = {
@@ -17,6 +18,11 @@ export function resolveTimeShareBaseline(input: TimeShareBaselineInput): number 
     if (typeof v === 'number' && Number.isFinite(v) && v !== 0) return v
   }
   return null
+}
+
+/** 五日分时全窗口固定使用第一交易日的昨收作为基准。 */
+export function resolveFiveDayTimeShareBaseline(range: TimeShareRange | null | undefined): number | null {
+  return resolveTimeShareBaseline({ preClose: range?.days[0]?.preClose })
 }
 
 export type TimeSharePriceRange = {

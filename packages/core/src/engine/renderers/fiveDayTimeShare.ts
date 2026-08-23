@@ -8,7 +8,7 @@ import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import { resolveThemeColors } from '../../foundation/tokens/index'
 import type { TimeShareData } from '../../foundation/types/price'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry'
-import { resolveTimeShareBaseline } from '../modes/timeShareMath'
+import { resolveFiveDayTimeShareBaseline } from '../modes/timeShareMath'
 import { ChartDataViewId } from '../state/modeState'
 import { drawAreaFill, drawPreCloseLine, drawSegmentLine } from './timeShare'
 
@@ -39,6 +39,7 @@ export function createFiveDayTimeShareRendererPlugin(): RendererPluginWithHost {
         context.colorPresetSettings,
       )
       const { ctx, pane, dpr, range, kLineCenters, scrollLeft } = context
+      const baseline = resolveFiveDayTimeShareBaseline(timeShareRange)
 
       ctx.save()
       ctx.translate(-scrollLeft, 0)
@@ -48,15 +49,11 @@ export function createFiveDayTimeShareRendererPlugin(): RendererPluginWithHost {
 
       for (let dayIndex = 0; dayIndex < geometry.days.length; dayIndex++) {
         const dayGeometry = geometry.days[dayIndex]!
-        const day = timeShareRange.days[dayIndex]
-        if (!day) continue
-
-        const preClose = resolveTimeShareBaseline({ preClose: day.preClose })
-        if (preClose !== null) {
+        if (baseline !== null) {
           drawPreCloseLine(
             ctx,
             [dayGeometry.startX, dayGeometry.endX],
-            pane.yAxis.priceToY(preClose),
+            pane.yAxis.priceToY(baseline),
             dpr,
             colors.timeSharePreClose,
           )
@@ -77,12 +74,12 @@ export function createFiveDayTimeShareRendererPlugin(): RendererPluginWithHost {
         }
         if (xPositions.length < 2) continue
 
-        if (preClose !== null) {
+        if (baseline !== null) {
           drawAreaFill(
             ctx,
             xPositions,
             yPrices,
-            pane.yAxis.priceToY(preClose),
+            pane.yAxis.priceToY(baseline),
             dpr,
             colors.timeShareAreaUp,
             colors.timeShareAreaDown,

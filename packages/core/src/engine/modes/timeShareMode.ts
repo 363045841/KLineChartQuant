@@ -7,6 +7,7 @@ import { ASHARE_MARKET_SESSION } from '../../foundation/utils/timeShareAxisLabel
 import {
   computeTimeShareBarMetrics,
   computeTimeSharePriceRange,
+  resolveFiveDayTimeShareBaseline,
   resolveTimeShareBaseline,
 } from './timeShareMath'
 import type { ChartModeHandler } from './types'
@@ -57,13 +58,10 @@ export class TimeShareMode implements ChartModeHandler {
 
     const end = Math.min(range.end, tsData.length)
     const start = Math.max(0, range.start)
-    // 五日视图使用首个有效价格作为全窗口百分比轴基准；单日仍以昨收为基准。
+    // 五日视图固定使用第一交易日昨收；单日仍以当前昨收为基准。
     const baseline =
       dm.currentPeriod === FIVE_DAY_TIME_SHARE_PERIOD
-        ? (dm
-            .getTimeShareRange()
-            ?.days.flatMap((day) => day.data)
-            .find((point) => Number.isFinite(point.price) && point.price > 0)?.price ?? null)
+        ? resolveFiveDayTimeShareBaseline(dm.getTimeShareRange())
         : resolveTimeShareBaseline({
             preClose: dm.getTimeSharePreClose(),
             firstPrice: tsData[0]?.price,

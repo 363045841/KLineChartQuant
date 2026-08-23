@@ -5,23 +5,30 @@ import { createFiveDayTimeShareRendererPlugin } from '../fiveDayTimeShare'
 
 /** 创建记录 stroke 路径的 Canvas mock。 */
 function createMockCanvasContext() {
-  let path: number[] = []
+  let path: Array<{ x: number; y: number }> = []
+  let lineDash: number[] = []
   const strokedPaths: number[][] = []
+  const dashedPaths: Array<Array<{ x: number; y: number }>> = []
   return {
     save: vi.fn(),
     restore: vi.fn(),
     beginPath: vi.fn(() => {
       path = []
     }),
-    moveTo: vi.fn((x: number) => path.push(x)),
-    lineTo: vi.fn((x: number) => path.push(x)),
-    stroke: vi.fn(() => strokedPaths.push([...path])),
+    moveTo: vi.fn((x: number, y: number) => path.push({ x, y })),
+    lineTo: vi.fn((x: number, y: number) => path.push({ x, y })),
+    stroke: vi.fn(() => {
+      strokedPaths.push(path.map((point) => point.x))
+      if (lineDash.length > 0) dashedPaths.push([...path])
+    }),
     fill: vi.fn(),
     closePath: vi.fn(),
     rect: vi.fn(),
     clip: vi.fn(),
     translate: vi.fn(),
-    setLineDash: vi.fn(),
+    setLineDash: vi.fn((dash: number[]) => {
+      lineDash = dash
+    }),
     createLinearGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
     strokeStyle: '',
     fillStyle: '',
@@ -29,6 +36,7 @@ function createMockCanvasContext() {
     lineJoin: '',
     lineCap: '',
     strokedPaths,
+    dashedPaths,
   }
 }
 
@@ -101,5 +109,15 @@ describe('fiveDayTimeShare renderer', () => {
       ]),
     )
     expect(ctx.strokedPaths.some((path) => path.includes(20) && path.includes(110))).toBe(false)
+    expect(ctx.dashedPaths).toEqual([
+      [
+        { x: 0, y: 190.1 },
+        { x: 100, y: 190.1 },
+      ],
+      [
+        { x: 100, y: 190.1 },
+        { x: 200, y: 190.1 },
+      ],
+    ])
   })
 })

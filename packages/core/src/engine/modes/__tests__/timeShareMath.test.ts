@@ -13,6 +13,7 @@ import {
   computeTimeShareTimeLabelIndices,
   computeTimeShareVisibleRange,
   computeTimeShareXLayout,
+  resolveFiveDayTimeShareBaseline,
   resolveTimeShareSessionSlots,
   resolveTimeShareBaseline,
 } from '../timeShareMath'
@@ -32,6 +33,38 @@ describe('resolveTimeShareBaseline', () => {
     expect(resolveTimeShareBaseline({ preClose: 0, firstPrice: 0 })).toBeNull()
     expect(resolveTimeShareBaseline({})).toBeNull()
     expect(resolveTimeShareBaseline({ preClose: NaN, firstPrice: Infinity })).toBeNull()
+  })
+})
+
+describe('resolveFiveDayTimeShareBaseline', () => {
+  it('uses only the first trading day preClose for the entire window', () => {
+    expect(
+      resolveFiveDayTimeShareBaseline({
+        instrumentId: 'test',
+        timezone: 'Asia/Shanghai',
+        requestedDays: 2,
+        olderData: 'exhausted',
+        days: [
+          { tradingDate: '2026-08-14', preClose: 10, data: [] },
+          { tradingDate: '2026-08-17', preClose: 12, data: [] },
+        ],
+      }),
+    ).toBe(10)
+  })
+
+  it('does not replace a missing first-day preClose with a later day value', () => {
+    expect(
+      resolveFiveDayTimeShareBaseline({
+        instrumentId: 'test',
+        timezone: 'Asia/Shanghai',
+        requestedDays: 2,
+        olderData: 'exhausted',
+        days: [
+          { tradingDate: '2026-08-14', preClose: null, data: [] },
+          { tradingDate: '2026-08-17', preClose: 12, data: [] },
+        ],
+      }),
+    ).toBeNull()
   })
 })
 
