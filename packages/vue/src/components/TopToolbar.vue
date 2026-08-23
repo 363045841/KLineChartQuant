@@ -173,6 +173,7 @@
     if (!capabilities) return undefined
     return [
       ...(capabilities.timeShare ? (['timeshare'] as const) : []),
+      ...(capabilities.timeShareRange?.maxTradingDays >= 5 ? (['5daytimeshare'] as const) : []),
       ...(capabilities.bars?.periods ?? []),
     ]
   })

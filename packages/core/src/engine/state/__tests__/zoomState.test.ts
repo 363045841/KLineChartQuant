@@ -6,7 +6,7 @@ import { createZoomState } from '../zoomState'
 function createState() {
   const minKWidth$ = createSignal(4)
   const maxKWidth$ = createSignal(20)
-  const dataView$ = createSignal<'kline' | 'timeshare' | 'comparison'>('kline')
+  const dataView$ = createSignal<'kline' | 'timeshare' | 'fiveDayTimeShare' | 'comparison'>('kline')
   return { state: createZoomState({ minKWidth$, maxKWidth$, dataView$, zoomLevelCount: 5 }), dataView$ }
 }
 

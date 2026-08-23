@@ -1,5 +1,7 @@
 import {
-  TIME_SHARE_PERIOD,
+  FIVE_DAY_TIME_SHARE_DAYS,
+  FIVE_DAY_TIME_SHARE_PERIOD,
+  isTimeSharePeriod,
   type SymbolSpec,
   type SymbolInfo,
   type CustomDataSource,
@@ -415,6 +417,24 @@ export class ChartDataManager {
     }
   }
 
+  /** 让分时缓冲直接调用 Provider Router 的多日分时接口。 */
+  private async requestTimeShareRange(spec: SymbolSpec, days: number, date?: number) {
+    const result = await sourceRouter.timeShareRange({
+      symbol: spec.symbol,
+      exchange: spec.exchange,
+      assetClass: spec.instrument?.assetClass,
+      preferredSourceId: spec.source,
+      instrument: spec.instrument,
+      days,
+      resolveEndTradingDate: (instrument) => this.resolveTradingDate(instrument, date),
+    })
+    return {
+      range: result.series,
+      sourceId: result.provider.source.id,
+      instrument: result.instrument,
+    }
+  }
+
   /** 将 auto Buffer 迁移到实际 Provider，并同步 Kernel 中的业务选择。 */
   private handleResolvedSource(
     selection: SeriesSelection,
@@ -429,9 +449,9 @@ export class ChartDataManager {
       .map((spec) =>
         sourceIdFromSpec(spec) === AUTO_SOURCE_ID &&
         (selection.kind === 'bars'
-          ? spec.period !== TIME_SHARE_PERIOD &&
+          ? !isTimeSharePeriod(spec.period) &&
             seriesSelectionKey(this.barsSelectionForSpec(spec)) === seriesSelectionKey(selection)
-          : spec.period === TIME_SHARE_PERIOD &&
+          : isTimeSharePeriod(spec.period) &&
             instrumentKeyFromSpec(spec) === selection.instrumentKey)
           ? { ...spec, source: sourceId, instrument }
           : spec,
@@ -442,9 +462,9 @@ export class ChartDataManager {
       current &&
       sourceIdFromSpec(current) === AUTO_SOURCE_ID &&
       (selection.kind === 'bars'
-        ? current.period !== TIME_SHARE_PERIOD &&
+        ? !isTimeSharePeriod(current.period) &&
           seriesSelectionKey(this.barsSelectionForSpec(current)) === seriesSelectionKey(selection)
-        : current.period === TIME_SHARE_PERIOD &&
+        : isTimeSharePeriod(current.period) &&
           instrumentKeyFromSpec(current) === selection.instrumentKey)
     ) {
       this._dmState.actions.setCurrentSpec({ ...current, source: sourceId, instrument })
@@ -716,7 +736,7 @@ export class ChartDataManager {
   // ── Data updates (KLine) ──
 
   updateData(data: KLineData[]): void {
-    if (this.currentPeriod === TIME_SHARE_PERIOD) return
+    if (isTimeSharePeriod(this.currentPeriod)) return
     const buf = this.getActiveDataBuffer()
     if (buf) {
       buf.setInlineData(data)
@@ -789,7 +809,7 @@ export class ChartDataManager {
     if (
       primary &&
       selection.kind === 'bars' &&
-      primary.period !== TIME_SHARE_PERIOD &&
+      !isTimeSharePeriod(primary.period) &&
       seriesSelectionKey(this.barsSelectionForSpec(primary)) === seriesSelectionKey(selection)
     ) {
       return
@@ -923,6 +943,9 @@ export class ChartDataManager {
   private createTimeShareBuffer(selection: TimeShareSelection): TimeShareBuffer {
     const buffer = new TimeShareBufferImpl()
     buffer.setRequestFetch((request, date) => this.requestTimeShare(request, date))
+    buffer.setRangeRequestFetch((request, days, date) =>
+      this.requestTimeShareRange(request, days, date),
+    )
     buffer.setSourceResolvedHandler((sourceId, instrument) => {
       return this.handleResolvedSource(selection, sourceId, instrument, buffer)
     })
@@ -989,7 +1012,7 @@ export class ChartDataManager {
   // ── Main symbol switching ──
 
   setSymbols(specs: ReadonlyArray<SymbolSpec>): void {
-    const selection = specs[0]?.period === TIME_SHARE_PERIOD ? specs.slice(0, 1) : specs
+    const selection = isTimeSharePeriod(specs[0]?.period) ? specs.slice(0, 1) : specs
     this.deps.setSymbols(selection)
 
     if (selection.length === 0) {
@@ -1003,7 +1026,7 @@ export class ChartDataManager {
     const primary = selection[0]!
     this._dmState.actions.setCurrentSpec(primary)
 
-    if (primary.period === TIME_SHARE_PERIOD) {
+    if (isTimeSharePeriod(primary.period)) {
       // Switch to timeshare mode
       // 激活分时 buffer 前保存当前 K 线视图锚点。
       this.saveActiveKLineViewportSnapshot()
@@ -1023,7 +1046,11 @@ export class ChartDataManager {
         this.createTimeShareBuffer(tsSelection),
       )
       this.activateBuffer(tsSelection)
-      tsBuf.load(primary)
+      if (primary.period === FIVE_DAY_TIME_SHARE_PERIOD) {
+        tsBuf.loadRange(primary, FIVE_DAY_TIME_SHARE_DAYS)
+      } else {
+        tsBuf.load(primary)
+      }
       return
     }
 

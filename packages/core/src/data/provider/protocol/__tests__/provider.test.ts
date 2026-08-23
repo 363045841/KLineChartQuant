@@ -195,4 +195,44 @@ describe('createMarketDataProvider', () => {
       data: [expect.objectContaining({ amount: 100 })],
     })
   })
+
+  it('maps a multi-day timeshare range when the instrument supports it', async () => {
+    const rangeInstrument = {
+      ...instrument,
+      capabilities: { ...instrument.capabilities, timeShareRange: { maxTradingDays: 5 } },
+    }
+    const provider = createProvider(
+      fakeTransport({
+        fetchTimeShareRange: async () => ({
+          instrumentId: rangeInstrument.id,
+          timezone: 'Asia/Shanghai',
+          requestedDays: 5,
+          olderData: 'unknown',
+          days: [
+            {
+              tradingDate: '2026-08-05',
+              preClose: 1500,
+              items: [{ timestamp: 1, price: 1501, average: 1500.5 }],
+            },
+          ],
+        }),
+      }),
+    )
+
+    const range = await provider.timeShareRange!.fetch({
+      instrument: rangeInstrument,
+      endTradingDate: '2026-08-05',
+      days: 5,
+    })
+
+    expect(range).toMatchObject({
+      requestedDays: 5,
+      days: [
+        expect.objectContaining({
+          tradingDate: '2026-08-05',
+          data: [expect.objectContaining({ price: 1501 })],
+        }),
+      ],
+    })
+  })
 })

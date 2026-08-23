@@ -44,10 +44,11 @@ function mergeConfig(
 
 /** 源级能力筛选条件。 */
 export interface SourceCapabilityQuery {
-  capability: 'bars' | 'timeShare' | 'depth'
+  capability: 'bars' | 'timeShare' | 'timeShareRange' | 'depth'
   assetClass?: AssetClass
   period?: KLinePeriod
   adjustment?: KLineAdjustment
+  days?: number
 }
 
 /** 判断源级能力是否满足一次请求的候选条件。 */
@@ -60,6 +61,12 @@ function supportsCapability(
     return false
   }
   if (query.capability === 'timeShare') return capabilities.timeShare === true
+  if (query.capability === 'timeShareRange') {
+    return (
+      capabilities.timeShareRange !== undefined &&
+      (query.days === undefined || capabilities.timeShareRange.maxTradingDays >= query.days)
+    )
+  }
   if (query.capability === 'depth') return capabilities.depth === true
   const bars = capabilities.bars
   if (!bars) return false

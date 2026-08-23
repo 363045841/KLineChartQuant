@@ -24,12 +24,19 @@ import type {
   DataBufferLike,
   LoadedTimeRange,
   DataChange,
+  TimeShareRangeResult,
   TimeShareResult,
 } from './dataBufferTypes'
 import { AUTO_SOURCE_ID } from './seriesRepository'
 
 /** 由数据管理层注入的统一 Provider 分时请求。 */
 export type TimeShareRequestFetch = (spec: SymbolSpec, date?: number) => Promise<TimeShareResult>
+/** 由数据管理层注入的统一 Provider 多日分时请求。 */
+export type TimeShareRangeRequestFetch = (
+  spec: SymbolSpec,
+  days: number,
+  date?: number,
+) => Promise<TimeShareRangeResult>
 
 /** 将未知异常转换为可展示的错误信息。 */
 function errorMessage(err: unknown): string {
@@ -112,6 +119,7 @@ export class TimeShareBuffer implements DataBufferLike<TimeShareData> {
   private _loadingSignal: WritableSignal<boolean> = createSignal<boolean>(false)
   private _lastError: WritableSignal<string | null> = createSignal<string | null>(null)
   private _requestFetch: TimeShareRequestFetch | null = null
+  private _rangeRequestFetch: TimeShareRangeRequestFetch | null = null
   private _sourceResolvedHandler:
     ((sourceId: string, instrument: InstrumentDescriptor) => boolean) | null = null
   // 指定查询的历史日期（0 = 当天）
@@ -169,6 +177,11 @@ export class TimeShareBuffer implements DataBufferLike<TimeShareData> {
   /** 设置统一 Provider 分时请求。 */
   setRequestFetch(fetcher: TimeShareRequestFetch | null): void {
     this._requestFetch = fetcher
+  }
+
+  /** 设置统一 Provider 多日分时请求。 */
+  setRangeRequestFetch(fetcher: TimeShareRangeRequestFetch | null): void {
+    this._rangeRequestFetch = fetcher
   }
 
   /** 注册 auto 来源首次成功后的身份迁移回调。 */
@@ -263,6 +276,52 @@ export class TimeShareBuffer implements DataBufferLike<TimeShareData> {
         if (requestSeq === this._requestSeq) {
           this._loadingSignal.set(false)
         }
+      }
+    })()
+  }
+
+  /** 按截止交易日请求多个实际交易日的分时，并原子写入分组快照。 */
+  loadRange(spec: SymbolSpec, days: number): void {
+    if (this._disposed || !Number.isInteger(days) || days < 1) return
+
+    const requestSeq = ++this._requestSeq
+    this.setContent(EMPTY_CONTENT)
+    this._lastError.set(null)
+    this._loadingSignal.set(true)
+
+    void (async () => {
+      try {
+        let result: TimeShareRangeResult | undefined
+        for (let attempt = 1; attempt <= FETCH_TOTAL_ATTEMPTS; attempt++) {
+          try {
+            if (!this._rangeRequestFetch) {
+              throw new Error(`[TimeShareBuffer] range request is not configured`)
+            }
+            result = await this._rangeRequestFetch(spec, days, this._queryDate || undefined)
+            break
+          } catch (err) {
+            if (this._disposed || requestSeq !== this._requestSeq) return
+            if (attempt === FETCH_TOTAL_ATTEMPTS) throw err
+            this._lastError.set(`${errorMessage(err)} Retry ${attempt}/${FETCH_TOTAL_ATTEMPTS}`)
+            await waitForRetry(attempt)
+          }
+        }
+        if (!result || this._disposed || requestSeq !== this._requestSeq) return
+        if (
+          result.sourceId &&
+          result.instrument &&
+          (spec.source === undefined || spec.source === AUTO_SOURCE_ID)
+        ) {
+          if (this._sourceResolvedHandler?.(result.sourceId, result.instrument) === false) return
+        }
+        this._queryDate = 0
+        this.setContent({ kind: 'range', range: copyRange(result.range) })
+        this._lastError.set(null)
+      } catch (err) {
+        if (this._disposed || requestSeq !== this._requestSeq) return
+        this._lastError.set(errorMessage(err))
+      } finally {
+        if (requestSeq === this._requestSeq) this._loadingSignal.set(false)
       }
     })()
   }

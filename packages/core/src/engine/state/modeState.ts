@@ -5,6 +5,7 @@ import { batch, computed, createSubState } from '../../foundation/reactivity/sig
 export const ChartDataViewId = Object.freeze({
   KLine: 'kline',
   TimeShare: 'timeshare',
+  FiveDayTimeShare: 'fiveDayTimeShare',
   Comparison: 'comparison',
 } as const)
 
@@ -23,8 +24,14 @@ export type InteractionCapabilities = Readonly<{
 const DEFAULT_PRIMARY_RENDERERS: PrimaryRendererByView = Object.freeze({
   [ChartDataViewId.KLine]: 'candlestick',
   [ChartDataViewId.TimeShare]: 'line',
+  [ChartDataViewId.FiveDayTimeShare]: 'line',
   [ChartDataViewId.Comparison]: 'line',
 })
+
+/** 判断数据视图是否属于分时视图。 */
+export function isTimeShareDataView(view: string): boolean {
+  return view === ChartDataViewId.TimeShare || view === ChartDataViewId.FiveDayTimeShare
+}
 
 /** 复制并冻结主序列渲染偏好，避免外部原地修改。 */
 function snapshotPrimaryRenderers(
@@ -39,7 +46,7 @@ function resolveEffectivePrimaryRenderer(
   renderer: PrimaryRendererType,
 ): PrimaryRendererType {
   if (
-    (view === ChartDataViewId.TimeShare || view === ChartDataViewId.Comparison) &&
+    (isTimeShareDataView(view) || view === ChartDataViewId.Comparison) &&
     renderer !== 'line' &&
     renderer !== 'area'
   ) {
@@ -60,7 +67,7 @@ export function createModeState() {
     return resolveEffectivePrimaryRenderer(view, sourceReadonly.primaryRendererByView()[view])
   })
   const interactionCapabilities = computed<InteractionCapabilities>(() => {
-    const supportsKLineInteraction = sourceReadonly.dataView() !== ChartDataViewId.TimeShare
+    const supportsKLineInteraction = !isTimeShareDataView(sourceReadonly.dataView())
     return Object.freeze({
       allowPan: supportsKLineInteraction,
       allowZoom: supportsKLineInteraction,
@@ -71,9 +78,9 @@ export function createModeState() {
 
   const setDataView = (view: ChartDataView, lastBarPeriod?: string): void => {
     if (
-      view === ChartDataViewId.TimeShare &&
+      isTimeShareDataView(view) &&
       lastBarPeriod &&
-      lastBarPeriod !== ChartDataViewId.TimeShare
+      !isTimeShareDataView(lastBarPeriod)
     ) {
       signals.lastBarPeriod.set(lastBarPeriod)
     }
@@ -93,7 +100,7 @@ export function createModeState() {
       setDataView,
       setChartMode: setDataView,
       setLastBarPeriod(period: string): void {
-        if (!period || period === ChartDataViewId.TimeShare || signals.lastBarPeriod.peek() === period)
+        if (!period || isTimeShareDataView(period) || signals.lastBarPeriod.peek() === period)
           return
         signals.lastBarPeriod.set(period)
       },

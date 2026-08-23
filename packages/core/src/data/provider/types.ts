@@ -191,6 +191,14 @@ export interface TimeShareRange {
   days: ReadonlyArray<TimeShareDay>
 }
 
+/** 多日分时查询条件。 */
+export interface TimeShareRangeQuery {
+  instrument: InstrumentDescriptor
+  endTradingDate: TradingDate
+  days: number
+  signal?: AbortSignal
+}
+
 /** 品种目录能力。 */
 export interface InstrumentCatalog {
   /** 按关键字和品种类别搜索当前 Provider 的品种目录。 */
@@ -209,6 +217,12 @@ export interface TimeShareDataSource {
   fetch(query: TimeShareQuery): Promise<TimeShareSeries>
 }
 
+/** 多日分时数据能力。 */
+export interface TimeShareRangeDataSource {
+  /** 拉取截止交易日前若干个实际交易日的分时序列。 */
+  fetch(query: TimeShareRangeQuery): Promise<TimeShareRange>
+}
+
 /** 实时深度连接工厂。 */
 export interface DepthDataSource {
   /** 为指定品种创建尚未连接的实时深度数据源。 */
@@ -223,6 +237,7 @@ export interface MarketDataProvider {
   readonly catalog?: InstrumentCatalog
   readonly bars?: BarDataSource
   readonly timeShare?: TimeShareDataSource
+  readonly timeShareRange?: TimeShareRangeDataSource
   readonly depth?: DepthDataSource
 }
 

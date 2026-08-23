@@ -12,6 +12,7 @@ import { createSettingsState, type SettingsStateModule } from './settingsState'
 import {
   ChartDataViewId,
   createModeState,
+  isTimeShareDataView,
   type ChartDataView,
   type ModeStateModule,
 } from './modeState'
@@ -68,7 +69,11 @@ function supportsIndicatorDataView(
   definition: IndicatorMetadata,
   dataView: ChartDataView,
 ): boolean {
-  return definition.dataViews?.includes(dataView) ?? dataView === ChartDataViewId.KLine
+  if (!definition.dataViews) return dataView === ChartDataViewId.KLine
+  return (
+    definition.dataViews.includes(dataView) ||
+    (isTimeShareDataView(dataView) && definition.dataViews.includes(ChartDataViewId.TimeShare))
+  )
 }
 
 /** 在支持当前数据视图时解析指标的 renderer plugin 名称。 */
@@ -411,7 +416,7 @@ export class ChartStateKernel extends StateKernel {
         this.renderer.actions.setRuntime(runtime),
       setDataView: (view: ChartDataView, lastBarPeriod?: string) => {
         const modeInstances: IndicatorInstanceSpec[] =
-          view === ChartDataViewId.TimeShare
+          isTimeShareDataView(view)
             ? [
                 {
                   instanceId: 'mode:timeshare',
@@ -477,7 +482,7 @@ export class ChartStateKernel extends StateKernel {
         )
         const currentSpecs = this.pane.readonly.paneSpecs.peek()
         const nextSpecs =
-          view === ChartDataViewId.TimeShare
+          isTimeShareDataView(view)
             ? !needsSystemTimeShareVolume ||
               currentSpecs.some((pane) => pane.id === 'timeshare_volume')
               ? currentSpecs
@@ -488,7 +493,7 @@ export class ChartStateKernel extends StateKernel {
             : currentSpecs.filter((pane) => pane.id !== 'timeshare_volume')
         const rawRatios = { ...this.pane.readonly.paneRatios.peek() }
         delete rawRatios.timeshare_volume
-        if (view === ChartDataViewId.TimeShare && needsSystemTimeShareVolume) {
+        if (isTimeShareDataView(view) && needsSystemTimeShareVolume) {
           // 分时量默认占主图高度的三分之一，避免仅有主图时平分为 50%。
           rawRatios.timeshare_volume = (rawRatios.main ?? 1) / 3
         }

@@ -81,6 +81,7 @@ function registerTestProvider(provider: MarketDataProvider): void {
 function createTestProvider(options: {
   fetchBars?: MarketDataProvider['bars']
   fetchTimeShare?: NonNullable<MarketDataProvider['timeShare']>['fetch']
+  fetchTimeShareRange?: NonNullable<MarketDataProvider['timeShareRange']>['fetch']
 }): MarketDataProvider {
   return {
     source: {
@@ -90,6 +91,7 @@ function createTestProvider(options: {
         assetClasses: ['stock'],
         bars: { periods: ['daily'], adjustments: ['none'] },
         timeShare: true,
+        ...(options.fetchTimeShareRange ? { timeShareRange: { maxTradingDays: 5 } } : {}),
       },
     },
     async probe() {
@@ -102,6 +104,7 @@ function createTestProvider(options: {
     },
     bars: options.fetchBars,
     timeShare: options.fetchTimeShare ? { fetch: options.fetchTimeShare } : undefined,
+    timeShareRange: options.fetchTimeShareRange ? { fetch: options.fetchTimeShareRange } : undefined,
   }
 }
 
@@ -325,6 +328,63 @@ describe('ChartDataManager incremental load', () => {
 
     await vi.waitFor(() => expect(dataState.readonly.data.peek()).toHaveLength(1))
     expect(scheduleDraw).toHaveBeenCalled()
+  })
+
+  it('loads five-day timeshare through the range Provider and stores the grouped snapshot', async () => {
+    const dataState = createDataState()
+    const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
+    const dataManagerState = createDataManagerState()
+    const fetchTimeShareRange = vi.fn(async () => ({
+      instrumentId: 'test:000001',
+      timezone: 'Asia/Shanghai',
+      requestedDays: 5,
+      olderData: 'unknown' as const,
+      days: [
+        {
+          tradingDate: '2026-08-05' as const,
+          preClose: 9.5,
+          data: [{ timestamp: 1, price: 10, average: 10 }],
+        },
+        {
+          tradingDate: '2026-08-06' as const,
+          preClose: 10,
+          data: [{ timestamp: 2, price: 11, average: 11 }],
+        },
+      ],
+    }))
+    manager = new ChartDataManager(
+      createDependencies(
+        createChartDom(document),
+        (symbols) => {
+          symbols$.set(symbols)
+          dataState.actions.setSymbols(symbols)
+        },
+        symbols$,
+      ),
+      dataState,
+      dataManagerState,
+    )
+    registerTestProvider(createTestProvider({ fetchTimeShareRange }))
+
+    manager.setSymbols([
+      {
+        symbol: '000001',
+        market: 'CN',
+        period: '5daytimeshare',
+        source: 'test',
+        instrument: {
+          ...instrumentFor('000001'),
+          capabilities: { timeShare: true, timeShareRange: { maxTradingDays: 5 } },
+        },
+      },
+    ])
+
+    await vi.waitFor(() => expect(dataState.readonly.timeShareRange.peek()?.days).toHaveLength(2))
+    expect(fetchTimeShareRange).toHaveBeenCalledWith(
+      expect.objectContaining({ endTradingDate: expect.any(String), days: 5 }),
+    )
+    expect(dataState.readonly.data.peek()).toHaveLength(2)
+    expect(dataState.readonly.timeShareRange.peek()?.days[1]?.preClose).toBe(10)
   })
 
   it('keeps custom source data isolated from a Provider with the same label', async () => {
