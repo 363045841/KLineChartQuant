@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   ASHARE_MARKET_SESSION,
@@ -10,6 +10,7 @@ import {
   minuteOfDayToTimestamp,
   resolveMarketSessionSlots,
   resolveSessionSlotPhysicalGrid,
+  resolveTimestampSessionSlot,
   sessionSlotCenterX,
   type MarketSessionConfig,
   type OpenTimeRange,
@@ -117,5 +118,46 @@ describe('minuteOfDayToTimestamp timeZone', () => {
     const base = Date.UTC(2026, 6, 21, 16, 0, 0) // 12:00 EDT
     const ts = minuteOfDayToTimestamp(base, hm(9, 30), 'America/New_York')
     expect(ts).toBe(Date.UTC(2026, 6, 21, 13, 30, 0)) // 09:30 EDT
+  })
+})
+
+describe('resolveTimestampSessionSlot', () => {
+  it('maps timestamps with the market time zone and session boundaries', () => {
+    expect(resolveTimestampSessionSlot(Date.UTC(2026, 6, 21, 1, 30), ASHARE_MARKET_SESSION)).toBe(
+      0,
+    )
+    expect(resolveTimestampSessionSlot(Date.UTC(2026, 6, 21, 3, 30), ASHARE_MARKET_SESSION)).toBe(
+      120,
+    )
+    expect(resolveTimestampSessionSlot(Date.UTC(2026, 6, 21, 7, 0), ASHARE_MARKET_SESSION)).toBe(
+      239,
+    )
+    expect(resolveTimestampSessionSlot(Date.UTC(2026, 6, 21, 13, 30), US_MARKET_SESSION)).toBe(0)
+  })
+
+  it('reuses the Intl formatter for repeated timestamps in one market', () => {
+    const timeZone = 'Pacific/Honolulu'
+    const NativeDateTimeFormat = Intl.DateTimeFormat
+    const formatterSpy = vi
+      .spyOn(Intl, 'DateTimeFormat')
+      .mockImplementation(function DateTimeFormat(locales, options) {
+        return new NativeDateTimeFormat(locales, options)
+      })
+    const config: MarketSessionConfig = {
+      timeZone,
+      sessions: [{ open: hm(9, 30), close: hm(16, 0) }],
+    }
+
+    try {
+      expect(resolveTimestampSessionSlot(Date.UTC(2026, 6, 21, 19, 30), config)).toBe(0)
+      expect(resolveTimestampSessionSlot(Date.UTC(2026, 6, 21, 19, 31), config)).toBe(1)
+
+      const formatterCreations = formatterSpy.mock.calls.filter(
+        ([, options]) => (options as Intl.DateTimeFormatOptions | undefined)?.timeZone === timeZone,
+      )
+      expect(formatterCreations).toHaveLength(1)
+    } finally {
+      formatterSpy.mockRestore()
+    }
   })
 })

@@ -40,6 +40,10 @@ export type SessionSlotPhysicalGrid = {
   offsetPx: number
 }
 
+const MAX_DATE_TIMESTAMP_MS = 8_640_000_000_000_000
+const SESSION_SLOT_FORMATTER_CACHE_LIMIT = 16
+const sessionSlotFormatterCache = new Map<string, Intl.DateTimeFormat>()
+
 function hm(h: number, m: number): number {
   return h * 60 + m
 }
@@ -152,12 +156,9 @@ export function resolveTimestampSessionSlot(
   timestamp: number,
   config: MarketSessionConfig = ASHARE_MARKET_SESSION,
 ): number | null {
-  if (!Number.isFinite(timestamp)) return null
+  if (!Number.isFinite(timestamp) || Math.abs(timestamp) > MAX_DATE_TIMESTAMP_MS) return null
 
-  if (Number.isNaN(new Date(timestamp).getTime())) return null
-
-  const wall = getWallClockInTimeZone(timestamp, config.timeZone)
-  const minuteOfDay = wall.hour * 60 + wall.minute
+  const minuteOfDay = getMinuteOfDayInTimeZone(timestamp, config.timeZone)
   const step = config.slotMinutes && config.slotMinutes > 0 ? config.slotMinutes : 1
   let offset = 0
 
@@ -174,6 +175,36 @@ export function resolveTimestampSessionSlot(
     offset += slotCount
   }
   return null
+}
+
+/** 获取可复用的时区时分 formatter，避免按数据点重复初始化 Intl。 */
+function getSessionSlotFormatter(timeZone: string): Intl.DateTimeFormat {
+  const cached = sessionSlotFormatterCache.get(timeZone)
+  if (cached) return cached
+
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  })
+  if (sessionSlotFormatterCache.size >= SESSION_SLOT_FORMATTER_CACHE_LIMIT) {
+    sessionSlotFormatterCache.clear()
+  }
+  sessionSlotFormatterCache.set(timeZone, formatter)
+  return formatter
+}
+
+/** 仅解析槽位映射所需的交易所墙钟分钟，避免完整日历字段和 Date 分配。 */
+function getMinuteOfDayInTimeZone(timestamp: number, timeZone: string): number {
+  const parts = getSessionSlotFormatter(timeZone).formatToParts(timestamp)
+  let hour = 0
+  let minute = 0
+  for (const part of parts) {
+    if (part.type === 'hour') hour = Number(part.value)
+    else if (part.type === 'minute') minute = Number(part.value)
+  }
+  return hour * 60 + minute
 }
 
 /**
