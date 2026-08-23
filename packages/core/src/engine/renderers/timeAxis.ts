@@ -2,6 +2,8 @@ import type { RendererPlugin, RenderContext } from '../../foundation/plugin/inde
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import { resolveThemeColors } from '../../foundation/tokens/index'
 import type { KLineData } from '../../foundation/types/price'
+import { getFont, setCanvasFont } from '../../foundation/tokens/fonts'
+import { alignToPhysicalPixelCenter, roundToPhysicalPixel } from '../../foundation/utils/pixelAlign'
 import {
   drawTimeAxis,
   drawCrosshairTimeLabel,
@@ -10,6 +12,30 @@ import {
 
 /** 时间轴面板 ID（特殊标识，用于单独渲染） */
 const TIME_AXIS_PANE_ID = Symbol('time-axis')
+
+/** 将领域交易日格式化为五日轴标签。 */
+function formatTradingDateLabel(tradingDate: string): string {
+  return tradingDate.slice(5)
+}
+
+/** 使用共享日几何绘制五日分时日期标签。 */
+function drawFiveDayTimeShareAxis(context: RenderContext, height: number, textColor: string): void {
+  const geometry = context.fiveDayTimeShareGeometry
+  if (!geometry) return
+  const { ctx, scrollLeft, paneWidth, dpr } = context
+  ctx.save()
+  setCanvasFont(ctx, getFont(12))
+  ctx.fillStyle = textColor
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  const textY = alignToPhysicalPixelCenter(height / 2, dpr)
+  for (const day of geometry.days) {
+    const screenX = day.labelX - scrollLeft
+    if (screenX < 0 || screenX > paneWidth) continue
+    ctx.fillText(formatTradingDateLabel(day.tradingDate), roundToPhysicalPixel(screenX, dpr), textY)
+  }
+  ctx.restore()
+}
 
 /**
  * 创建时间轴渲染器插件
@@ -48,35 +74,39 @@ export function createTimeAxisRendererPlugin(options: {
       targetCtx.scale(dpr, dpr)
       targetCtx.clearRect(0, 0, w, h)
 
-      drawTimeAxis(
-        targetCtx,
-        {
-          x: 0,
-          y: 0,
-          width: w,
-          height: h,
-          data: klineData,
-          scrollLeft,
-          kWidth,
-          kGap,
-          startIndex: range.start,
-          endIndex: range.end,
-          dpr,
-          kLineCenters: context.kLineCenters,
-          visibleRange: range,
-          textColor: colors.text.secondary,
-          lineColor: colors.border.dark,
-          drawTopBorder: false,
-          drawBottomBorder: false,
-          period: context.period,
-          marketSession: context.marketSession,
-          monthKeys: context.monthKeys,
-          dayKeys: context.dayKeys,
-        },
-        context.theme,
-        context.isAsiaMarket,
-        context.colorPresetSettings,
-      )
+      if (context.fiveDayTimeShareGeometry) {
+        drawFiveDayTimeShareAxis(context, h, colors.text.secondary)
+      } else {
+        drawTimeAxis(
+          targetCtx,
+          {
+            x: 0,
+            y: 0,
+            width: w,
+            height: h,
+            data: klineData,
+            scrollLeft,
+            kWidth,
+            kGap,
+            startIndex: range.start,
+            endIndex: range.end,
+            dpr,
+            kLineCenters: context.kLineCenters,
+            visibleRange: range,
+            textColor: colors.text.secondary,
+            lineColor: colors.border.dark,
+            drawTopBorder: false,
+            drawBottomBorder: false,
+            period: context.period,
+            marketSession: context.marketSession,
+            monthKeys: context.monthKeys,
+            dayKeys: context.dayKeys,
+          },
+          context.theme,
+          context.isAsiaMarket,
+          context.colorPresetSettings,
+        )
+      }
 
       // 绘制来自 xAxisRanges 的时间范围带（先于标签绘制）
       if (context.xAxisRanges) {

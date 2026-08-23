@@ -693,6 +693,11 @@ export class ChartDataManager {
     return buf?.getPreClose() ?? null
   }
 
+  /** 返回当前多日分时的原子分组快照。 */
+  getTimeShareRange(): import('../../data/provider/types').TimeShareRange | null {
+    return this._dataState.readonly.timeShareRange.peek()
+  }
+
   getComparisonData(): Map<string, KLineData[]> {
     return this._comparisonManager.data
   }

@@ -128,6 +128,7 @@ function resolveIndicatorRenderers(
       instance.source === 'mode' &&
       (instance.indicatorId === 'candle' ||
         instance.indicatorId === 'timeShare' ||
+        instance.indicatorId === ChartDataViewId.FiveDayTimeShare ||
         instance.indicatorId === 'comparisonLine')
     ) {
       add(mainRenderers, instance.indicatorId)
@@ -245,6 +246,7 @@ export class ChartStateKernel extends StateKernel {
     // ── Data state ──
     this.data = createDataState()
     this.dataLength$ = computed(() => this.data.readonly.dataLength())
+    const timeShareDayCount$ = computed(() => this.data.readonly.timeShareRange()?.days.length ?? 0)
 
     // ── Data manager state (coordination layer) ──
     this.dataManager = createDataManagerState()
@@ -283,6 +285,7 @@ export class ChartStateKernel extends StateKernel {
       period$: this.dataManager.readonly.currentPeriod,
       zoomLevel$: this.zoomLevel$,
       sessionSlots$: this.sessionSlots$,
+      timeShareDayCount$,
     })
 
     // ── Pane state（从 initialOptions.panes 初始化，避免 layout 与 kernel 初始不一致）──
@@ -385,8 +388,8 @@ export class ChartStateKernel extends StateKernel {
       comparisonLoading: this.comparison.readonly.loading,
       // Indicator
       subPanes: this.indicator.readonly.subPanes,
-       indicatorResult: this.indicatorResult.readonly.snapshot,
-       indicatorResultAvailability: this.indicatorResultAvailability$,
+      indicatorResult: this.indicatorResult.readonly.snapshot,
+      indicatorResultAvailability: this.indicatorResultAvailability$,
       // Marker
       customMarkers: this.marker.readonly.customMarkers,
     }
@@ -416,11 +419,11 @@ export class ChartStateKernel extends StateKernel {
         this.renderer.actions.setRuntime(runtime),
       setDataView: (view: ChartDataView, lastBarPeriod?: string) => {
         const modeInstances: IndicatorInstanceSpec[] =
-          isTimeShareDataView(view)
+          view === ChartDataViewId.FiveDayTimeShare
             ? [
                 {
-                  instanceId: 'mode:timeshare',
-                  indicatorId: 'timeShare',
+                  instanceId: 'mode:five-day-timeshare',
+                  indicatorId: ChartDataViewId.FiveDayTimeShare,
                   paneId: 'main',
                   role: 'main',
                   ordinal: 0,
@@ -435,43 +438,62 @@ export class ChartStateKernel extends StateKernel {
                   params: {},
                 },
               ]
-            : view === ChartDataViewId.Comparison
+            : isTimeShareDataView(view)
               ? [
                   {
-                    instanceId: 'mode:comparison',
-                    indicatorId: 'comparisonLine',
+                    instanceId: 'mode:timeshare',
+                    indicatorId: 'timeShare',
                     paneId: 'main',
                     role: 'main',
+                    ordinal: 0,
+                    params: {},
+                  },
+                  {
+                    instanceId: 'mode:timeshare-volume',
+                    indicatorId: 'volume',
+                    paneId: 'timeshare_volume',
+                    role: 'sub',
                     ordinal: 0,
                     params: {},
                   },
                 ]
-              : [
-                  {
-                    instanceId: 'mode:candle',
-                    indicatorId: 'candle',
-                    paneId: 'main',
-                    role: 'main',
-                    ordinal: 0,
-                    params: {},
-                  },
-                  {
-                    instanceId: 'mode:extrema-markers',
-                    indicatorId: 'extremaMarkers',
-                    paneId: 'main',
-                    role: 'main',
-                    ordinal: 0,
-                    params: {},
-                  },
-                  {
-                    instanceId: 'mode:last-price-line',
-                    indicatorId: 'lastPriceLine',
-                    paneId: 'main',
-                    role: 'main',
-                    ordinal: 0,
-                    params: {},
-                  },
-                ]
+              : view === ChartDataViewId.Comparison
+                ? [
+                    {
+                      instanceId: 'mode:comparison',
+                      indicatorId: 'comparisonLine',
+                      paneId: 'main',
+                      role: 'main',
+                      ordinal: 0,
+                      params: {},
+                    },
+                  ]
+                : [
+                    {
+                      instanceId: 'mode:candle',
+                      indicatorId: 'candle',
+                      paneId: 'main',
+                      role: 'main',
+                      ordinal: 0,
+                      params: {},
+                    },
+                    {
+                      instanceId: 'mode:extrema-markers',
+                      indicatorId: 'extremaMarkers',
+                      paneId: 'main',
+                      role: 'main',
+                      ordinal: 0,
+                      params: {},
+                    },
+                    {
+                      instanceId: 'mode:last-price-line',
+                      indicatorId: 'lastPriceLine',
+                      paneId: 'main',
+                      role: 'main',
+                      ordinal: 0,
+                      params: {},
+                    },
+                  ]
         // mode 仅声明所需能力；统一实例调度器决定复用用户副图还是创建系统实例。
         const resolvedModeInstances = resolveModeIndicatorInstances(
           modeInstances,
@@ -481,16 +503,15 @@ export class ChartStateKernel extends StateKernel {
           (instance) => instance.role === 'sub' && instance.paneId === 'timeshare_volume',
         )
         const currentSpecs = this.pane.readonly.paneSpecs.peek()
-        const nextSpecs =
-          isTimeShareDataView(view)
-            ? !needsSystemTimeShareVolume ||
-              currentSpecs.some((pane) => pane.id === 'timeshare_volume')
-              ? currentSpecs
-              : [
-                  ...currentSpecs,
-                  { id: 'timeshare_volume', ratio: 1, visible: true, role: 'indicator' as const },
-                ]
-            : currentSpecs.filter((pane) => pane.id !== 'timeshare_volume')
+        const nextSpecs = isTimeShareDataView(view)
+          ? !needsSystemTimeShareVolume ||
+            currentSpecs.some((pane) => pane.id === 'timeshare_volume')
+            ? currentSpecs
+            : [
+                ...currentSpecs,
+                { id: 'timeshare_volume', ratio: 1, visible: true, role: 'indicator' as const },
+              ]
+          : currentSpecs.filter((pane) => pane.id !== 'timeshare_volume')
         const rawRatios = { ...this.pane.readonly.paneRatios.peek() }
         delete rawRatios.timeshare_volume
         if (isTimeShareDataView(view) && needsSystemTimeShareVolume) {

@@ -98,6 +98,8 @@ export type TimeShareXLayoutInput = {
 
 export type TimeShareXLayout = {
   step: number
+  /** 第一个槽位网格的逻辑像素起点。 */
+  offset: number
   centers: number[]
   barWidth: number
   /** 同一物理中心的端点重复数据仅保留最后一根量柱。 */
@@ -127,11 +129,13 @@ export function computeTimeShareXLayout(input: TimeShareXLayoutInput): TimeShare
     lastIndexByCenterPx.set(centerPx, i)
   }
 
-  const barVisible = centerPxValues.map((centerPx, index) => lastIndexByCenterPx.get(centerPx) === index)
+  const barVisible = centerPxValues.map(
+    (centerPx, index) => lastIndexByCenterPx.get(centerPx) === index,
+  )
   const kWidthPx = grid?.unitPx ?? 1
   const barWidth = calcKBarWidthPx(kWidthPx) / dpr
 
-  return { step, centers, barWidth, barVisible, kWidthPx }
+  return { step, offset: (grid?.offsetPx ?? 0) / dpr, centers, barWidth, barVisible, kWidthPx }
 }
 
 export type TimeShareVisibleRangeInput = {
@@ -148,9 +152,10 @@ export type TimeShareVisibleRangeInput = {
  * 两者取整误差会累积，导致窄屏时右侧数据被排除在渲染范围之外。
  * 分时无平移/缩放（scrollLeft 恒为 0），此函数结果恒为 [-1, dataLength]。
  */
-export function computeTimeShareVisibleRange(
-  input: TimeShareVisibleRangeInput,
-): { start: number; end: number } {
+export function computeTimeShareVisibleRange(input: TimeShareVisibleRangeInput): {
+  start: number
+  end: number
+} {
   const { scrollLeft, totalWidth, dataLength, sessionSlots } = input
   if (dataLength <= 0 || sessionSlots <= 0 || totalWidth <= 0) return { start: 0, end: 0 }
   const step = totalWidth / sessionSlots

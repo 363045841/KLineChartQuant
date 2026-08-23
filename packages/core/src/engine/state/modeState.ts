@@ -67,9 +67,10 @@ export function createModeState() {
     return resolveEffectivePrimaryRenderer(view, sourceReadonly.primaryRendererByView()[view])
   })
   const interactionCapabilities = computed<InteractionCapabilities>(() => {
-    const supportsKLineInteraction = !isTimeShareDataView(sourceReadonly.dataView())
+    const dataView = sourceReadonly.dataView()
+    const supportsKLineInteraction = !isTimeShareDataView(dataView)
     return Object.freeze({
-      allowPan: supportsKLineInteraction,
+      allowPan: supportsKLineInteraction || dataView === ChartDataViewId.FiveDayTimeShare,
       allowZoom: supportsKLineInteraction,
       allowVerticalScroll: supportsKLineInteraction,
       allowRightAxisScale: supportsKLineInteraction,
@@ -77,11 +78,7 @@ export function createModeState() {
   })
 
   const setDataView = (view: ChartDataView, lastBarPeriod?: string): void => {
-    if (
-      isTimeShareDataView(view) &&
-      lastBarPeriod &&
-      !isTimeShareDataView(lastBarPeriod)
-    ) {
+    if (isTimeShareDataView(view) && lastBarPeriod && !isTimeShareDataView(lastBarPeriod)) {
       signals.lastBarPeriod.set(lastBarPeriod)
     }
     if (signals.dataView.peek() === view) return

@@ -37,6 +37,21 @@ describe('contentGeometry parity', () => {
     expect(computeContentWidth(narrow)).toBe(1)
   })
 
+  it('five-day timeshare becomes scrollable when physical session slots exceed the viewport', () => {
+    const input = baseInput({
+      period: '5daytimeshare',
+      dataLength: 1000,
+      viewWidth: 500,
+      dpr: 1,
+      timeShareDayCount: 5,
+      sessionSlots: 241,
+    })
+
+    expect(computeLeftLoadBufferWidth(input)).toBe(0)
+    expect(computeContentWidth(input)).toBe(1205)
+    expect(computeMaxScrollLeft(computeContentWidth(input), input.viewWidth)).toBe(705)
+  })
+
   it('kline with data → left buffer = Math.round(viewWidth)', () => {
     const input = baseInput({ dataLength: 100, period: 'daily', viewWidth: 800.4 })
     expect(computeLeftLoadBufferWidth(input)).toBe(Math.round(800.4))

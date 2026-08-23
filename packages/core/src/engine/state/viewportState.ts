@@ -15,6 +15,7 @@ import {
   computeMaxScrollLeft as pureMaxScrollLeft,
 } from './contentGeometry'
 import { deriveKGap } from '../utils/zoom'
+import { FIVE_DAY_TIME_SHARE_PERIOD, isTimeSharePeriod } from '../../controllers/types'
 
 /**
  * 钳制 effective DPR，避免超出 MAX_CANVAS_PIXELS 上限。
@@ -67,7 +68,9 @@ export interface ViewportSignalDeps {
   period$: ReadonlySignal<string>
   zoomLevel$: ReadonlySignal<number>
   /** 分时交易时段槽位数（由当前品种 market 经 MarketSessionRegistry 派生，与渲染器同源） */
-  sessionSlots$: ReadonlySignal<number>
+  sessionSlots$?: ReadonlySignal<number>
+  /** 多日分时快照中的实际交易日数量。 */
+  timeShareDayCount$?: ReadonlySignal<number>
 }
 
 /**
@@ -92,6 +95,8 @@ const NULL_DOM_RETURN: ReturnType<ViewportDomDeps['getDom']> = {
 
 export function createViewportState(signalDeps: ViewportSignalDeps) {
   let _domDeps: ViewportDomDeps | undefined
+  const readTimeShareDayCount = (): number => signalDeps.timeShareDayCount$?.() ?? 0
+  const readSessionSlots = (): number => signalDeps.sessionSlots$?.() ?? 0
 
   const _getDom = () => (_domDeps ? _domDeps.getDom() : NULL_DOM_RETURN)
   const _resizeSharedWebGLSurface = (w: number, h: number, dpr: number) => {
@@ -143,6 +148,8 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
           dpr: 1,
           kWidth: 0,
           kGap: 0,
+          timeShareDayCount: readTimeShareDayCount(),
+          sessionSlots: readSessionSlots(),
         }),
     },
   )
@@ -165,6 +172,8 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
       dpr: readonly.dpr(),
       kWidth: options.kWidth,
       kGap: kGap(),
+      timeShareDayCount: readTimeShareDayCount(),
+      sessionSlots: readSessionSlots(),
     })
   })
   const maxScrollLeft = computed(() => pureMaxScrollLeft(contentWidth(), readonly.viewWidth()))
@@ -206,21 +215,23 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
     // 分时：与 computeTimeShareXLayout 共用 slot 网格，避免 kWidth/kGap 取整误差截断右缘数据；
     // K 线：仍按 kWidth/kGap 物理像素网格计算
     const vr =
-      signalDeps.period$() === 'timeshare'
-        ? computeTimeShareVisibleRange({
-            scrollLeft: vp.scrollLeft,
-            totalWidth: vp.plotWidth,
-            dataLength: signalDeps.dataLength$(),
-            sessionSlots: signalDeps.sessionSlots$(),
-          })
-        : getVisibleRange(
-            vp.scrollLeft,
-            vp.plotWidth,
-            signalDeps.options$().kWidth,
-            kGap(),
-            signalDeps.dataLength$(),
-            vp.dpr,
-          )
+      signalDeps.period$() === FIVE_DAY_TIME_SHARE_PERIOD
+        ? { start: 0, end: signalDeps.dataLength$() }
+        : isTimeSharePeriod(signalDeps.period$())
+          ? computeTimeShareVisibleRange({
+              scrollLeft: vp.scrollLeft,
+              totalWidth: vp.plotWidth,
+              dataLength: signalDeps.dataLength$(),
+              sessionSlots: readSessionSlots(),
+            })
+          : getVisibleRange(
+              vp.scrollLeft,
+              vp.plotWidth,
+              signalDeps.options$().kWidth,
+              kGap(),
+              signalDeps.dataLength$(),
+              vp.dpr,
+            )
     if (
       _cachedRawVisibleRange &&
       _cachedRawVisibleRange.start === vr.start &&
