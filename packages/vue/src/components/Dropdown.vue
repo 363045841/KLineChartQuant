@@ -93,6 +93,7 @@
     triggerRef,
     menuRef,
     4,
+    true,
   )
 
   const triggerStyle = computed(() => {
@@ -249,10 +250,13 @@
 
   .dropdown__menu {
     padding: 4px;
-    border: 1px solid var(--klc-color-border-button);
+    border: 0;
     border-radius: 4px;
     background: var(--klc-color-background);
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+    background: color-mix(in srgb, var(--klc-color-background) 92%, var(--klc-color-foreground));
+    box-shadow:
+      0 2px 4px rgba(0, 0, 0, 0.08),
+      0 6px 12px rgba(0, 0, 0, 0.06);
     box-sizing: border-box;
   }
 
@@ -272,6 +276,7 @@
     text-align: left;
     white-space: nowrap;
     cursor: pointer;
+    transition: background 0.15s ease;
   }
 
   .dropdown--sm .dropdown__option {
@@ -283,7 +288,7 @@
 
   .dropdown__option:hover,
   .dropdown__option:focus-visible {
-    background: var(--klc-color-grid-minor);
+    background: color-mix(in srgb, var(--klc-color-background) 88%, var(--klc-color-foreground));
     outline: 0;
   }
 

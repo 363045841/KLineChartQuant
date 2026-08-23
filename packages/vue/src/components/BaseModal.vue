@@ -110,8 +110,15 @@
   }
 
   .base-modal {
+    --base-modal-surface: color-mix(
+      in srgb,
+      var(--klc-color-background) 96%,
+      var(--klc-color-foreground)
+    );
+
     background: var(--klc-color-background);
-    border: 1px solid var(--klc-color-border-button);
+    background: var(--base-modal-surface);
+    border: 0;
     border-radius: 10px;
     box-shadow: 0 18px 48px rgba(0, 0, 0, 0.15);
     overflow: hidden;
@@ -120,12 +127,12 @@
   }
 
   .base-header {
+    position: relative;
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 14px 18px 14px 20px;
-    background: var(--klc-color-background);
-    border-bottom: 1px solid var(--klc-color-grid-major);
+    background: var(--base-modal-surface);
     flex-shrink: 0;
     gap: 12px;
   }
@@ -158,8 +165,22 @@
     flex-shrink: 0;
   }
 
+  .base-subheader::after,
+  .base-footer::before {
+    position: absolute;
+    right: 20px;
+    left: 20px;
+    height: 1px;
+    background: var(--klc-color-grid-major);
+    content: '';
+  }
+
+  .base-subheader::after {
+    bottom: 0;
+  }
+
   .base-close-btn {
-    background: var(--klc-color-background);
+    background: var(--base-modal-surface);
     border: 1px solid var(--klc-color-border-button);
     border-radius: 8px;
     width: 32px;
@@ -188,17 +209,17 @@
   }
 
   .base-subheader {
+    position: relative;
     flex-shrink: 0;
     padding: 16px 20px;
-    background: var(--klc-color-background);
-    border-bottom: 1px solid var(--klc-color-grid-major);
+    background: var(--base-modal-surface);
   }
 
   .base-body {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    background: var(--klc-color-background);
+    background: var(--base-modal-surface);
   }
 
   .base-body::-webkit-scrollbar {
@@ -206,24 +227,28 @@
   }
 
   .base-body::-webkit-scrollbar-track {
-    background: var(--klc-color-background);
+    background: var(--base-modal-surface);
   }
 
   .base-body::-webkit-scrollbar-thumb {
     background: var(--klc-color-axis-line);
-    border: 2px solid var(--klc-color-background);
+    border: 2px solid var(--base-modal-surface);
     border-radius: 999px;
   }
 
   .base-footer {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: flex-end;
     gap: 8px;
     padding: 12px 20px;
-    background: var(--klc-color-background);
-    border-top: 1px solid var(--klc-color-grid-major);
+    background: var(--base-modal-surface);
     flex-shrink: 0;
+  }
+
+  .base-footer::before {
+    top: 0;
   }
 
   /* ── Overlay transition ── */

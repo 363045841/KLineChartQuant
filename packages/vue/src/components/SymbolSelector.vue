@@ -521,7 +521,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 9px 2px 9px 10px;
+    padding: 9px 10px;
     border: 0;
     background: transparent;
     color: var(--klc-color-foreground);
