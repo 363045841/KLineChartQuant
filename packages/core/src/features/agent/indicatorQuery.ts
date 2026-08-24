@@ -4,5 +4,5 @@ export {
   createIndicatorQuery,
   type IndicatorQuery,
   type IndicatorQueryDependencies,
-  type IndicatorQueryInput,
 } from './indicator/indicatorQuery'
+export type { IndicatorQueryInput } from './types'

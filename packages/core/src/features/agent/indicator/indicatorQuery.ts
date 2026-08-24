@@ -1,10 +1,13 @@
 // 本文件保留既有 Agent 指标查询入参，并将纯计算结果直接转义为紧凑文本。
 
-import { INDICATOR_QUERY_ERROR_CODES, KLineChartError } from '../../../errors'
 import { getRegisteredIndicatorDefinition } from '../../../engine/indicators/indicatorDefinitionRegistry'
+import { INDICATOR_QUERY_ERROR_CODES, KLineChartError } from '../../../errors'
+
+import { createIndicatorTextFormatter, type IndicatorTextFormatter } from './indicatorTextFormatter'
+
 import type { IndicatorMetadata } from '../../../engine/indicators/indicatorMetadata'
 import type { DataStateModule } from '../../../engine/state/dataState'
-import { createIndicatorTextFormatter, type IndicatorTextFormatter } from './indicatorTextFormatter'
+import type { IndicatorQueryInput } from '../types'
 
 // 默认限制文本中返回的结果条目数量。
 const DEFAULT_QUERY_LIMIT = 20
@@ -26,22 +29,13 @@ export interface IndicatorQuery {
   queryIndicator(input: IndicatorQueryInput): Promise<string>
 }
 
-/** Agent 发起一次指标查询所需的参数，保持原有调用契约。 */
-export interface IndicatorQueryInput {
-  readonly definitionId: string
-  readonly params?: Readonly<Record<string, number>>
-  readonly from?: number
-  readonly to?: number
-  readonly limit?: number
-}
-
 /** 校验查询参数并返回规范化输入。 */
 function normalizeInput(input: IndicatorQueryInput): Required<IndicatorQueryInput> {
-  const definitionId = input.definitionId.trim()
-  if (!definitionId) {
+  const definitionId = typeof input?.definitionId === 'string' ? input.definitionId.trim() : ''
+  if (!definitionId || (input.params !== undefined && !isNumericParams(input.params))) {
     throw new KLineChartError(
       INDICATOR_QUERY_ERROR_CODES.INVALID_QUERY,
-      'Indicator definitionId must not be empty',
+      'Indicator query requires a definitionId and a numeric params object',
     )
   }
 
@@ -76,6 +70,10 @@ function normalizeInput(input: IndicatorQueryInput): Required<IndicatorQueryInpu
   }
 
   return { definitionId, params, from, to, limit }
+}
+
+function isNumericParams(value: unknown): value is Readonly<Record<string, number>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 /** 从同一 Runtime 参数模型生成 calculator 配置和 Agent 数字参数快照。 */
@@ -140,6 +138,16 @@ export function createIndicatorQuery(dependencies: IndicatorQueryDependencies): 
           throw new KLineChartError(
             INDICATOR_QUERY_ERROR_CODES.MARKET_DATA_UNAVAILABLE,
             'Indicator query requires active K-line data',
+          )
+        }
+        if (
+          !dataSnapshot.data.some(
+            (item) => item.timestamp >= query.from && item.timestamp <= query.to,
+          )
+        ) {
+          throw new KLineChartError(
+            INDICATOR_QUERY_ERROR_CODES.RANGE_EMPTY,
+            'Indicator query time range contains no active K-line data',
           )
         }
 

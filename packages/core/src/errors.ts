@@ -39,6 +39,12 @@ export type KLineChartErrorCode =
   | 'INVALID_STATE'
   | 'DISPOSED'
   | 'NOT_REGISTERED'
+  // Agent facade and canonical tool boundary
+  | 'INVALID_ARGUMENTS'
+  | 'OUT_OF_RANGE'
+  | 'NO_DATA'
+  | 'INDICATOR_NOT_FOUND'
+  | 'DATA_REVISION_CHANGED'
   // scale (TimeScale / PriceScale construction + setters)
   | 'SCALE_RANGE_INVALID'
   | 'SCALE_HEIGHT_INVALID'
@@ -160,20 +166,31 @@ export const SUBPANE_ERROR_CODES: Readonly<Record<SubPaneErrorCodeName, KLineCha
 // SUBPANE_ERROR_CODES 的键名集合，保证键与值一一对应。
 type SubPaneErrorCodeName = 'UNKNOWN_INDICATOR' | 'MISSING_RENDERER_METADATA'
 
+/** Agent facade errors. Values are append-only public protocol identifiers. */
+export const CHART_AGENT_ERROR_CODES = Object.freeze({
+  INVALID_QUERY: 'INVALID_ARGUMENTS',
+  OUT_OF_RANGE: 'OUT_OF_RANGE',
+  NO_DATA: 'NO_DATA',
+  INDICATOR_NOT_FOUND: 'INDICATOR_NOT_FOUND',
+  DATA_REVISION_CHANGED: 'DATA_REVISION_CHANGED',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>)
+
 // Agent 指标查询错误码具名常量，供查询层引用，避免散落字符串字面量。
 export const INDICATOR_QUERY_ERROR_CODES: Readonly<
   Record<IndicatorQueryErrorCodeName, KLineChartErrorCode>
 > = {
-  INVALID_QUERY: 'INVALID_PARAM',
-  INDICATOR_NOT_REGISTERED: 'NOT_REGISTERED',
+  INVALID_QUERY: CHART_AGENT_ERROR_CODES.INVALID_QUERY,
+  RANGE_EMPTY: CHART_AGENT_ERROR_CODES.OUT_OF_RANGE,
+  INDICATOR_NOT_REGISTERED: CHART_AGENT_ERROR_CODES.INDICATOR_NOT_FOUND,
   UNSUPPORTED_OUTPUT: 'UNSUPPORTED_CAPABILITY',
-  MARKET_DATA_UNAVAILABLE: 'INVALID_STATE',
-  RESULT_COMMIT_FAILED: 'INVALID_STATE',
+  MARKET_DATA_UNAVAILABLE: CHART_AGENT_ERROR_CODES.NO_DATA,
+  RESULT_COMMIT_FAILED: CHART_AGENT_ERROR_CODES.DATA_REVISION_CHANGED,
 }
 
 // Agent 指标查询错误码的业务名称集合。
 type IndicatorQueryErrorCodeName =
   | 'INVALID_QUERY'
+  | 'RANGE_EMPTY'
   | 'INDICATOR_NOT_REGISTERED'
   | 'UNSUPPORTED_OUTPUT'
   | 'MARKET_DATA_UNAVAILABLE'

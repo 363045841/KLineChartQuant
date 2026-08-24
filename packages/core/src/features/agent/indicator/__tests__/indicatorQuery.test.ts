@@ -1,11 +1,14 @@
 // 本文件验证 Agent 指标查询保留原入参，同时只向调用方返回紧凑文本。
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+import { createDataState } from '../../../../engine/state/dataState'
+import { CHART_AGENT_ERROR_CODES } from '../../errors'
+import { createIndicatorQuery } from '../indicatorQuery'
 
 import type { IndicatorMetadata } from '../../../../engine/indicators/indicatorMetadata'
-import { createDataState } from '../../../../engine/state/dataState'
 import type { KLineData } from '../../../../foundation/types/price'
-import { createIndicatorQuery } from '../indicatorQuery'
+import type { IndicatorQueryInput } from '../../types'
 
 const BAR_SELECTION = {
   kind: 'bars' as const,
@@ -181,9 +184,130 @@ BOS 向上 5 @ 1970-01-01 08:00`)
 
     await expect(
       query.queryIndicator({ definitionId: 'average', params: { period: NaN } }),
-    ).rejects.toMatchObject({ code: 'INVALID_PARAM' })
+    ).rejects.toMatchObject({ code: CHART_AGENT_ERROR_CODES.INVALID_QUERY })
     await expect(
       query.queryIndicator({ definitionId: 'average', params: { showAverage: 1 } }),
-    ).rejects.toMatchObject({ code: 'INVALID_PARAM' })
+    ).rejects.toMatchObject({ code: CHART_AGENT_ERROR_CODES.INVALID_QUERY })
+  })
+
+  it.each([
+    ['missing definitionId', {}],
+    ['null params', { definitionId: 'average', params: null }],
+    ['array params', { definitionId: 'average', params: [14] }],
+    ['string params', { definitionId: 'average', params: { period: '14' } }],
+    ['infinite params', { definitionId: 'average', params: { period: Infinity } }],
+    ['NaN from', { definitionId: 'average', from: Number.NaN }],
+    ['infinite to', { definitionId: 'average', to: Infinity }],
+    ['zero limit', { definitionId: 'average', limit: 0 }],
+    ['negative limit', { definitionId: 'average', limit: -1 }],
+    ['fractional limit', { definitionId: 'average', limit: 1.5 }],
+  ])('rejects runtime-invalid input: %s', async (_case, input) => {
+    const dataState = createDataState()
+    publishBars(dataState, createBars(5))
+    const query = createIndicatorQuery({
+      dataState,
+      resolveDefinition: () => createAverageDefinition(),
+    })
+
+    await expect(query.queryIndicator(input as IndicatorQueryInput)).rejects.toMatchObject({
+      code: CHART_AGENT_ERROR_CODES.INVALID_QUERY,
+    })
+  })
+
+  it('preserves the default 20 and hard maximum 2000 limits', async () => {
+    const dataState = createDataState()
+    publishBars(dataState, createBars(2_000))
+    const format = vi.fn(() => 'compact')
+    const query = createIndicatorQuery({
+      dataState,
+      resolveDefinition: () => createAverageDefinition(),
+      textFormatter: { format },
+    })
+
+    await expect(query.queryIndicator({ definitionId: 'average' })).resolves.toBe('compact')
+    expect(format).toHaveBeenLastCalledWith(expect.objectContaining({ limit: 20 }))
+
+    await expect(query.queryIndicator({ definitionId: 'average', limit: 2_000 })).resolves.toBe(
+      'compact',
+    )
+    expect(format).toHaveBeenLastCalledWith(expect.objectContaining({ limit: 2_000 }))
+
+    await expect(
+      query.queryIndicator({ definitionId: 'average', limit: 2_001 }),
+    ).rejects.toMatchObject({ code: CHART_AGENT_ERROR_CODES.INVALID_QUERY })
+  })
+
+  it('returns distinct stable codes for missing data, indicator, and range', async () => {
+    const dataState = createDataState()
+    const query = createIndicatorQuery({
+      dataState,
+      resolveDefinition: (definitionId) =>
+        definitionId === 'average' ? createAverageDefinition() : undefined,
+    })
+
+    await expect(query.queryIndicator({ definitionId: 'average' })).rejects.toMatchObject({
+      code: CHART_AGENT_ERROR_CODES.NO_DATA,
+    })
+
+    publishBars(dataState, createBars(5))
+    await expect(query.queryIndicator({ definitionId: 'missing' })).rejects.toMatchObject({
+      code: CHART_AGENT_ERROR_CODES.INDICATOR_NOT_FOUND,
+    })
+    await expect(
+      query.queryIndicator({ definitionId: 'average', from: 10_000, to: 20_000 }),
+    ).rejects.toMatchObject({ code: CHART_AGENT_ERROR_CODES.OUT_OF_RANGE })
+    await expect(
+      query.queryIndicator({ definitionId: 'average', from: 2_000, to: 1_000 }),
+    ).rejects.toMatchObject({ code: CHART_AGENT_ERROR_CODES.INVALID_QUERY })
+  })
+
+  it('rejects an active time-share series because indicator queries require bars', async () => {
+    const dataState = createDataState()
+    dataState.actions.applyActiveBufferSnapshot({
+      kind: 'timeShare',
+      selection: {
+        kind: 'timeShare',
+        instrumentKey: 'TEST',
+        sourceId: 'test',
+        tradingDate: 'latest',
+      },
+      data: [{ timestamp: 1_000, price: 10, average: 10 }],
+      loading: false,
+      error: null,
+      timeShareRange: null,
+      timeSharePreClose: 9,
+    })
+    const query = createIndicatorQuery({
+      dataState,
+      resolveDefinition: () => createAverageDefinition(),
+    })
+
+    await expect(query.queryIndicator({ definitionId: 'average' })).rejects.toMatchObject({
+      code: CHART_AGENT_ERROR_CODES.NO_DATA,
+    })
+  })
+
+  it('fails with a stable revision code when data changes during both attempts', async () => {
+    const dataState = createDataState()
+    publishBars(dataState, createBars(2))
+    let calculationCount = 0
+    const definition: Pick<IndicatorMetadata, 'name' | 'runtime'> = {
+      name: 'churn',
+      runtime: {
+        defaultParams: {},
+        computeKey: 'testChurn',
+        compute: (data) => {
+          calculationCount++
+          publishBars(dataState, createBars(data.length + 1, calculationCount * 10_000))
+          return data.map((bar) => bar.close)
+        },
+      },
+    }
+    const query = createIndicatorQuery({ dataState, resolveDefinition: () => definition })
+
+    await expect(query.queryIndicator({ definitionId: 'churn' })).rejects.toMatchObject({
+      code: CHART_AGENT_ERROR_CODES.DATA_REVISION_CHANGED,
+    })
+    expect(calculationCount).toBe(2)
   })
 })

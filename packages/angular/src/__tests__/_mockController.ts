@@ -10,6 +10,8 @@
  * symmetric across adapters.
  */
 
+import { createSignal } from '@363045841yyt/klinechart-core/reactivity'
+
 import type {
   AlertController,
   AlertEvent,
@@ -26,7 +28,6 @@ import type {
   SymbolSpec,
   SymbolInfo,
 } from '@363045841yyt/klinechart-core'
-import { createSignal } from '@363045841yyt/klinechart-core/reactivity'
 
 export interface MockControllerHandle {
   controller: ChartController
@@ -90,6 +91,12 @@ export function createMockChartController(
   let disposeCount = 0
 
   const controller: ChartController = {
+    agent: {
+      getContext() {
+        throw new Error('Mock Agent context is not configured')
+      },
+      queryIndicator: () => Promise.resolve(''),
+    },
     viewport,
     data,
     theme,

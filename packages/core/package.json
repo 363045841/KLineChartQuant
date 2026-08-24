@@ -33,6 +33,10 @@
       "types": "./dist/controllers/index.d.ts",
       "import": "./dist/controllers/index.js"
     },
+    "./agent": {
+      "types": "./dist/features/agent/index.d.ts",
+      "import": "./dist/features/agent/index.js"
+    },
     "./market-data": {
       "types": "./dist/data/provider/index.d.ts",
       "import": "./dist/data/provider/index.js"
