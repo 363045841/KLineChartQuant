@@ -63,6 +63,21 @@ export type {
 } from '@363045841yyt/klinechart-core/controllers'
 
 // ---------------------------------------------------------------------------
+// Shared Agent workbench (browser and Electron Renderer)
+// ---------------------------------------------------------------------------
+
+export { default as AgentWorkbenchShell } from './features/agent/AgentWorkbenchShell.vue'
+export { default as AgentWorkspace } from './features/agent/components/AgentWorkspace.vue'
+export * from './features/agent/agent-contracts'
+export {
+  createInitialAgentState,
+  reduceAgentUiEvent,
+  type AgentWorkspaceState,
+} from './features/agent/agent-reducer'
+export { useAgentWorkspace } from './features/agent/use-agent-workspace'
+export type { AgentPanelWidthStorage } from './features/agent/workbench-shell'
+
+// ---------------------------------------------------------------------------
 // Controller factory injection
 //
 // The concrete `createChartController` from packages/core/src/controllers/

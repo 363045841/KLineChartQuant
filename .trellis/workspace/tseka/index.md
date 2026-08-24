@@ -29,7 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
-| 1 | 2026-08-24 | Core Agent Facade | `edd0103`, `a177e51` | `feat/core-agent-facade` |
+| 1 | 2026-08-24 | Shared Agent Workspace UI | `6233551`, `c939570` | `feat/agent-workspace-ui` |
 <!-- @@@/auto:session-history -->
 
 ---

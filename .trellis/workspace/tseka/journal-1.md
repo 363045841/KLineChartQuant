@@ -1,21 +1,21 @@
 # Journal - tseka (Part 1)
 
 > AI development session journal
-> Started: 2026-08-24
+> Started: 2026-08-23
 
 ---
 
 
 
-## Session 1: Core Agent Facade
+## Session 1: Shared Agent Workspace UI
 
 **Date**: 2026-08-24
-**Task**: Core Agent Facade
-**Branch**: `feat/core-agent-facade`
+**Task**: Shared Agent Workspace UI
+**Branch**: `feat/agent-workspace-ui`
 
 ### Summary
 
-Added the stable ChartController.agent context/query facade, bounded compact indicator errors and revisions, public package exports, cross-adapter mocks, and executable contract coverage.
+Merged the upstream v0.10.x baseline, delivered the shared Vue Agent workspace for browser and Electron hosts, added deterministic component and Electron E2E coverage, and documented the Renderer boundary.
 
 ### Main Changes
 
@@ -25,8 +25,8 @@ Added the stable ChartController.agent context/query facade, bounded compact ind
 
 | Hash | Message |
 |------|---------|
-| `edd0103` | (see git log) |
-| `a177e51` | (see git log) |
+| `6233551` | (see git log) |
+| `c939570` | (see git log) |
 
 ### Testing
 

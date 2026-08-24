@@ -17,17 +17,22 @@
       ref="embedContainerRef"
       class="embed-container"
       :class="{ 'is-fullscreen': isFullscreen }"
-      :style="{ width: '95%', height: embedHeight }"
+      :style="{ width: embedWidth, height: embedHeight }"
     >
-      <KlineChart
-        ref="chartRef"
-        :mcp="mcpConfig"
-        :left-axis-width="60"
-        :custom-data="customData"
-        :settings="chartSettings"
-        @update:is-fullscreen="isFullscreen = $event"
-        @theme-change="onThemeChange"
+      <AgentWorkbenchShell
+        :bridge="agentBridge"
+        :panel-width-storage="webPanelWidthStorage"
       >
+        <template #chart>
+          <KlineChart
+            ref="chartRef"
+            :mcp="mcpConfig"
+            :left-axis-width="60"
+            :custom-data="customData"
+            :settings="chartSettings"
+            @update:is-fullscreen="isFullscreen = $event"
+            @theme-change="onThemeChange"
+          >
         <!-- 自定义 Tooltip -->
         <!-- <template #kline-tooltip="{ hoverData, upColor, downColor }">
           <div class="custom-tooltip">
@@ -46,8 +51,8 @@
           </div>
         </template> -->
         <!-- 自定义主图左上角图例，替换默认 Canvas 图例并由调用方组合图例数据。 -->
-        <template #legend="{ index, currentBar, timeshare, indicators, comparisons, colors }">
-          <div class="my-legend">
+            <template #legend="{ index, currentBar, timeshare, indicators, comparisons, colors }">
+              <div class="my-legend">
             <!-- PR #98 为 KLineData[] 添加的自定义字段会展开通过 currentBar 暴露 -->
             <div v-if="currentBar" class="my-legend__row">
               <span :style="{ color: currentBar.color }">
@@ -84,9 +89,11 @@
               {{ comparison.symbol }}{{ comparison.name ? ` ${comparison.name}` : '' }}
               {{ comparison.percent > 0 ? '+' : '' }}{{ comparison.percent.toFixed(2) }}%
             </div>
-          </div>
+              </div>
+            </template>
+          </KlineChart>
         </template>
-      </KlineChart>
+      </AgentWorkbenchShell>
     </div>
 
     <!-- Modal 场景 -->
@@ -111,7 +118,12 @@
 <script setup lang="ts">
   import { ref, computed, provide, inject, type Ref, type InjectionKey } from 'vue'
   import DebugControls from './DebugControls.vue'
-  import { KlineChart } from '../src/index'
+  import {
+    AgentWorkbenchShell,
+    KlineChart,
+    type AgentPanelWidthStorage,
+  } from '../src/index'
+  import { FakeAgentBridge } from '../src/features/agent/testing/fake-agent-bridge'
   import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
   import {
     type KLineData,
@@ -560,6 +572,16 @@
   }
 
   const chartRef = ref<InstanceType<typeof KlineChart> | null>(null)
+  const agentBridge = new FakeAgentBridge()
+  const webPanelWidthStorage: AgentPanelWidthStorage = {
+    load() {
+      const value = window.localStorage.getItem('agent.panelWidth')
+      return value === null ? undefined : Number(value)
+    },
+    save(width) {
+      window.localStorage.setItem('agent.panelWidth', String(width))
+    },
+  }
   const mcpConfig = {
     wsUrl: 'ws://localhost:8081',
     autoReconnect: true,

@@ -1,6 +1,8 @@
 # 贡献新指标：作者模板
 
-本文档定义在当前 stateless + SoA + Worker 指标管线下，**新增一个指标必须修改的 7 个文件 + 1 套测试基础设施**。以 ATR（PR #0 落地的样板指标）为参考。
+本文档定义在当前 stateless + SoA + Worker 指标管线下，**新增一个指标必须修改的文件 + 1 套测试基础设施**。以 ATR（PR #0 落地的样板指标）为参考。
+
+> **架构更新（`@Indicator` 装饰器注册）**：原先的「7 文件清单」第 6 步——手动编辑 `scheduler.ts` 把指标接进调度器——**已被 `@Indicator(...)` 类装饰器取代**。指标现在通过装饰器在模块加载时声明元数据（`IndicatorMetadata`），由 `Chart` 构造时遍历 `getRegisteredIndicatorDefinitions()` 自动 `registerIndicator(...)` 进 `IndicatorScheduler`。`scheduler.ts` 已重构为**完全泛型**：`applyResults` / `updateVisibleStatesOnly` / `buildActiveSubIndicatorMask` / `buildActiveConfig` 全部遍历 `registry.getAll()` 并通过 `meta.applyResult` / `meta.paneIdField` / `meta.category` 驱动，**新增指标时不再需要改 `scheduler.ts`**。详见下表第 6 步。
 
 > 适用范围：per-bar scalar / multi-line / point-array 类指标。**结构类（HH/HL/BOS/FVG/OB 等）走另一条 marker/overlay 路径，见后续 PR 的子系统文档。**
 
@@ -48,11 +50,71 @@
 | 3 | `src/core/indicators/workerProtocol.ts`（**改**） | 加 `XXXSchedulerConfig`；在 `IndicatorConfigSnapshot` 加 `xxx` 字段 + `xxxPaneId`；在 `IndicatorSeriesBundle` 加 `xxx: { series, params }` | 低 |
 | 4 | `src/core/indicators/indicatorRuntime.ts`（**改**） | 加 `cachedXxxSeries` + `dirtyXxxConfig`；`getDefaultConfig` 加默认；`setConfig` 加 shallow-equal 分支；`forceDirty` 加；`computeSeries` 加 ATR-block；两处 bundle 返回加 `xxx` | 中 |
 | 5 | `src/core/indicators/stateComposer.ts`（**改**） | 加 `XXXRenderState` import 和 `EMPTY_XXX_STATE`；在 `VisibleSubIndicatorStates`/`VisibleSubIndicatorMask` 加 `xxx`；加 `calcXXXExtremes(...)`；`composeVisibleSubIndicatorStates` 内组装 state | 中 |
-| 6 | `src/core/indicators/scheduler.ts`（**改**） | 加类型 import；`VisibleSubIndicatorMask` 加 `xxx`；back-compat re-export 加 `XXXSchedulerConfig`；`getDefaultConfig` 加；`applyResults` 内 `if (changed.has('xxx'))` 块；`updateVisibleStatesOnly` 加；`buildActiveSubIndicatorMask` 加；`buildActiveConfig.subKeys` 加 `'xxx'`；加 public 方法 `updateXXXConfig` | 中 |
-| 7 | `src/core/renderers/Indicator/xxx.ts`（**新**） | RendererPlugin，参考 `atr.ts`：WebGL 优先 + Canvas2D 回退，从 `pluginHost.getSharedState<XXXRenderState>(STATE_KEY)` 读，带 cache-key 防 redraw | 中 |
-| 8 | `src/semantic/types.ts`（**改**） | 在 `SubIndicatorParams`（副图）或 `MainIndicatorConfig`（主图叠加）加 `XXX?: {...}` | 低 |
+| 6 | `src/core/renderers/Indicator/xxx.ts`（**新**） | RendererPlugin，参考 `atr.ts`：WebGL 优先 + Canvas2D 回退，从 `pluginHost.getSharedState<XXXRenderState>(STATE_KEY)` 读，带 cache-key 防 redraw。**同文件内**用 `@Indicator({...})` 装饰一个 `class XXXIndicatorDefinition`（`static rendererFactory = createXXXRendererPlugin`）声明元数据 → 取代旧的 `scheduler.ts` 手动注册（见下方「`@Indicator` 装饰器注册」） | 中 |
+| 7 | `src/semantic/types.ts`（**改**） | 在 `SubIndicatorParams`（副图）或 `MainIndicatorConfig`（主图叠加）加 `XXX?: {...}` | 低 |
 
+**`scheduler.ts` 不再需要改**——旧清单第 6 步（手动接进调度器）已由 `@Indicator` 装饰器接管，`IndicatorScheduler` 现已是泛型实现，遍历注册表自动处理 `applyResults` / 可见极值 / active mask / active config。
 **worker 入口 `indicator.worker.ts` 不需要改**——它只 dispatch 到 `IndicatorRuntime.computeSeries()`，新指标自动随 runtime 升级。
+
+> **注意**：步骤 2/3/4/5（`calculators.ts`、`workerProtocol.ts`、`indicatorRuntime.ts`、`stateComposer.ts`）**仍需手动修改**——`@Indicator` 装饰器只负责「注册与渲染分发」，**不负责计算管线与 worker 协议**。指标的纯函数计算、SoA 包装、worker 协议字段、runtime 缓存/脏标记、state 组装这一整条数据链路依旧由作者按上表手工接入。
+
+---
+
+## `@Indicator` 装饰器注册（取代旧 scheduler.ts 手动注册）
+
+在渲染器文件（`src/core/renderers/Indicator/xxx.ts`）末尾，用 `@Indicator({...})` 装饰一个 definition 类，并在该类上挂 `static rendererFactory`。模块加载时装饰器把元数据写入 `indicatorDefinitionRegistry`，`Chart` 构造时调 `getRegisteredIndicatorDefinitions()` 自动注册进 `IndicatorScheduler`。
+
+```ts
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+
+// 副图振荡器（如 ATR）：
+@Indicator({
+    name: 'atr',                 // 指标唯一标识（小写），scheduler/渲染器用它查 metadata
+    displayName: 'ATR',          // 显示名（日志/调试用）
+    category: 'oscillator',      // 'main' | 'sub' | 'oscillator' | 'volume'
+    stateKey: createATRStateKey, // string（主图常量）或 (paneId) => string（副图函数）
+    defaultPaneId: 'sub_ATR',    // 默认 pane
+    paneIdField: 'atrPaneId',    // 可选：configSnapshot 中存放当前 paneId 的字段名（副图需要）
+    applyResult: (host, state, paneId) => {  // 可选：把计算结果写入 StateStore
+        host.setSharedState(createATRStateKey(paneId), state as any, 'indicator_scheduler')
+    },
+})
+class ATRIndicatorDefinition {
+    static rendererFactory = createATRRendererPlugin  // 必填：渲染器工厂（() => RendererPluginWithHost）
+}
+```
+
+主图叠加类指标（如 MA）`stateKey` 用常量、省略 `paneIdField`、`defaultPaneId: 'main'`；可切换到主图的副图指标（如 SAR）额外加 `allowMainPane: true`。
+
+**`@Indicator` 装饰器可用 option 字段（即 `IndicatorDefinitionConfig`）——请勿臆造其它字段：**
+
+| 字段 | 必填 | 说明 |
+|---|---|---|
+| `name` | 是 | 指标唯一标识（小写，如 `'atr'` / `'ma'`） |
+| `displayName` | 是 | 显示名（如 `'ATR'`） |
+| `category` | 是 | `'main' \| 'sub' \| 'oscillator' \| 'volume'` |
+| `stateKey` | 是 | `string` 或 `(paneId: string) => string`，由 `resolveStateKey()` 解析 |
+| `defaultPaneId` | 是 | 默认 pane（主图 `'main'`，副图如 `'sub_ATR'`） |
+| `paneIdField` | 否 | `IndicatorConfigSnapshot` 中当前 paneId 的字段名（如 `'atrPaneId'`） |
+| `allowMainPane` | 否 | 副图指标是否允许切到主图（如 SAR） |
+| `applyResult` | 否 | `(host, state, paneId) => void`，把 state 写入 StateStore |
+
+外加挂在被装饰类上的 `static rendererFactory: () => RendererPluginWithHost`（**必填**，装饰器初始化时校验，缺失会抛错）。
+
+> 渲染器内部不再硬编码 state key：通过 `host.getService<IndicatorScheduler>('indicatorScheduler').getIndicatorMetadata('atr')` 拿到 metadata，再 `resolveStateKey(meta.stateKey, paneId)` 解析——参考 `atr.ts` / `ma.ts` 的 `getXXXStateKey(...)`。
+
+**旧 vs 新——自动化对照：**
+
+| 旧的手动步骤（scheduler.ts 第 6 步） | 现状 |
+|---|---|
+| `registerIndicator(...)` 注册 | **自动**：`Chart` 遍历 `getRegisteredIndicatorDefinitions()` |
+| `applyResults` 内 `if (changed.has('xxx'))` 块 | **自动**：泛型 `applyResults` 遍历 `registry.getAll()` 调 `meta.applyResult` |
+| `updateVisibleStatesOnly` 加分支 | **自动**：泛型遍历注册表 |
+| `buildActiveSubIndicatorMask` 加 `xxx` | **自动**：靠 `meta.paneIdField` / `meta.allowMainPane` |
+| `buildActiveConfig.subKeys` 加 `'xxx'` | **自动**：遍历有 `paneIdField` 的 meta，关闭非活跃 `show*` |
+| public 方法 `updateXXXConfig` | 不再需要（如需运行时改配置，走通用配置入口） |
+| 计算 / worker 协议 / runtime / state 组装（步骤 2-5） | **仍需手动**（装饰器不覆盖数据管线） |
 
 ---
 
@@ -111,15 +173,15 @@ NEW   src/core/indicators/__tests__/__fixtures__/synthetic.ts            55 行
 NEW   src/core/indicators/__tests__/__fixtures__/golden/atr.json          ~40 行
 NEW   src/core/indicators/__tests__/__fixtures__/golden/index.ts          45 行
 NEW   src/core/indicators/__tests__/_propertyAssertions.ts                75 行
-NEW   src/core/renderers/Indicator/atr.ts                                180 行
+NEW   src/core/renderers/Indicator/atr.ts                                180 行  （含末尾 @Indicator 装饰器声明）
 NEW   docs/CONTRIBUTING_INDICATOR.md                                  （本文档）
 EDIT  src/core/indicators/calculators.ts                          + ~85 行
 EDIT  src/core/indicators/workerProtocol.ts                       + 12 行
 EDIT  src/core/indicators/indicatorRuntime.ts                     + 30 行
 EDIT  src/core/indicators/stateComposer.ts                        + 40 行
-EDIT  src/core/indicators/scheduler.ts                            + 35 行
 EDIT  src/semantic/types.ts                                       + 1 行
 EDIT  src/core/indicators/__tests__/scheduler.test.ts             （断言更新 + 1 测试修复）
+# 注：原 `EDIT src/core/indicators/scheduler.ts +35 行` 已被 atr.ts 末尾的 @Indicator 装饰器取代，scheduler 现为泛型实现
 ```
 
 PR 0 完成后，新指标的预估改动量从 ~900 行（含模板/基础设施）降到 ~300-500 行 per indicator（视复杂度）。

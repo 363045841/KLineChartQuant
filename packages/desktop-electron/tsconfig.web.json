@@ -5,7 +5,7 @@
     "outDir": "./out",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "types": ["vue"]
+    "types": ["vue", "vite/client", "unplugin-icons/types/vue"]
   },
   "include": ["src/**/*.ts", "src/**/*.vue", "src/**/*.d.ts"]
 }
