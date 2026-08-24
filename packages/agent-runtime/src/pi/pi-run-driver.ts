@@ -122,7 +122,7 @@ export class PiRunDriver {
     let completedToolCount = 0
     let toolTurns = 0
     let loopLimitReached = false
-    let providerError: string | undefined
+    let providerError: AssistantMessage | undefined
     let aborted = false
     let usage: Usage | undefined
 
@@ -176,8 +176,7 @@ export class PiRunDriver {
       }
       if (event.type === 'message_end' && isAssistant(event.message)) {
         usage = addUsage(usage, event.message.usage)
-        if (event.message.stopReason === 'error')
-          providerError = event.message.errorMessage ?? 'Provider request failed.'
+        if (event.message.stopReason === 'error') providerError = event.message
         if (event.message.stopReason === 'aborted') aborted = true
         if (assistantMessageId && assistantStarted) {
           await emit({
@@ -220,7 +219,9 @@ export class PiRunDriver {
         )
       }
       if (providerError) {
-        throw new AgentRuntimeError('PROVIDER_ERROR', redactString(providerError, this.redaction), {
+        const classified = plan.classifyProviderError?.(providerError)
+        if (classified) throw classified
+        throw new AgentRuntimeError('PROVIDER_ERROR', 'The Provider request failed.', {
           retryable: true,
           recommendedAction: 'Retry the run or select another model.',
         })

@@ -80,9 +80,19 @@ describe('AgentApplicationService', () => {
           connected
             ? { state: 'connected', providerLabel: 'Faux', modelLabel: 'fast' }
             : { state: 'not-configured', providerLabel: 'Faux' },
+        listModels: async () => ({ models: [], refreshedAt: 1 }),
         test: async () => {
           connected = true
-          return { compatible: true, model: 'fast', latencyMs: 1 }
+          return {
+            compatible: true,
+            model: 'fast',
+            latencyMs: 1,
+            stages: [
+              { stage: 'catalog' as const, ok: true, latencyMs: 1 },
+              { stage: 'text' as const, ok: true, latencyMs: 1 },
+              { stage: 'tool' as const, ok: true, latencyMs: 1 },
+            ],
+          }
         },
         deleteCredential: async () => {
           connected = false
@@ -100,7 +110,7 @@ describe('AgentApplicationService', () => {
       events
         .filter((event) => event.type === 'provider.status.changed')
         .map((event) => (event.type === 'provider.status.changed' ? event.status.state : '')),
-    ).toEqual(['connected', 'not-configured'])
+    ).toEqual(['testing', 'connected', 'not-configured'])
   })
 
   it('persists ordered start, stream, and terminal events before publishing them', async () => {

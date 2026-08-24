@@ -144,6 +144,8 @@ export class AgentIpcRouter {
         return this.application.undoTurn(request.payload.runId)
       case 'provider.status':
         return this.application.getProviderStatus()
+      case 'provider.models':
+        return this.application.listProviderModels(request.payload)
       case 'provider.test':
         return this.application.testProvider(request.payload)
       case 'provider.delete':

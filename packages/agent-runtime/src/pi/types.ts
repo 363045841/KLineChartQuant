@@ -1,3 +1,4 @@
+import type { AgentRuntimeError } from '../contracts/errors.js'
 import type {
   AgentRunUiEventInput,
   AgentUsageView,
@@ -7,7 +8,7 @@ import type {
   ToolSafety,
 } from '../contracts/ui.js'
 import type { AgentMessage, StreamFn } from '@earendil-works/pi-agent-core'
-import type { Model, Api } from '@earendil-works/pi-ai'
+import type { Model, Api, AssistantMessage } from '@earendil-works/pi-ai'
 import type { TSchema } from 'typebox'
 
 export interface RuntimeToolResult {
@@ -49,6 +50,7 @@ export interface PiRunPlan {
   tools: readonly RuntimeToolDefinition[]
   model: Model<Api>
   streamFn: StreamFn
+  classifyProviderError?: (message: AssistantMessage) => AgentRuntimeError | undefined
   systemPrompt?: string
   toolTurnLimit?: number
   timeoutMs?: number

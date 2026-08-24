@@ -47,6 +47,9 @@ export function createInitialAgentState(): AgentWorkspaceState {
     provider: {
       state: 'not-configured',
       providerLabel: '302.ai',
+      configured: false,
+      baseUrl: 'https://api.302.ai/v1',
+      compatibility: 'unknown',
     },
     context: {
       symbol: 'BTCUSDT',

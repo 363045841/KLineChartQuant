@@ -84,6 +84,7 @@ test('launches the chart and exercises the complete Agent workspace shell', asyn
         'deleteProviderCredential',
         'deleteSession',
         'getProviderStatus',
+        'listProviderModels',
         'listSessions',
         'openSession',
         'renameSession',
@@ -94,7 +95,7 @@ test('launches the chart and exercises the complete Agent workspace shell', asyn
         'undoTurn',
       ],
     )
-    expect(Object.values(agentApiShape)).toEqual(Array(14).fill('function'))
+    expect(Object.values(agentApiShape)).toEqual(Array(15).fill('function'))
     expect(await page.evaluate(() => 'ipcRenderer' in (window.desktopAPI?.agent ?? {}))).toBe(false)
     expect(
       await page.evaluate(async () => {
@@ -153,6 +154,8 @@ test('launches the chart and exercises the complete Agent workspace shell', asyn
     await settingsInputs.nth(1).fill('e2e-placeholder-key')
     await settingsInputs.nth(2).fill('fast-sota-model')
     await page.locator('.settings-dialog .primary-button').click()
+    await expect(page.locator('.settings-dialog__stages li')).toHaveCount(3)
+    await page.locator('.settings-dialog > header .icon-button').click()
     await expect(page.locator('.settings-dialog')).toBeHidden()
     await expect(textarea).toHaveValue(preservedPrompt)
 
@@ -212,6 +215,8 @@ test('reopens the persisted native Agent session after an app restart', async ({
     await inputs.nth(1).fill('ephemeral-e2e-key')
     await inputs.nth(2).fill('faux-fast')
     await page.locator('.settings-dialog .primary-button').click()
+    await expect(page.locator('.settings-dialog__stages li')).toHaveCount(3)
+    await page.locator('.settings-dialog > header .icon-button').click()
     await expect(page.locator('.settings-dialog')).toBeHidden()
     await textarea.press('Enter')
     await expect(page.locator('.run-summary[data-status="completed"]')).toBeVisible()

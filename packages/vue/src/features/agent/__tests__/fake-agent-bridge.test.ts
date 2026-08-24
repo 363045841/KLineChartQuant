@@ -38,6 +38,19 @@ describe('FakeAgentBridge', () => {
     expect(JSON.stringify(events)).not.toContain('test-secret')
   })
 
+  it('returns bounded non-secret model views', async () => {
+    const bridge = new FakeAgentBridge()
+    const result = await bridge.listProviderModels({
+      baseUrl: 'https://api.302.ai/v1',
+      apiKey: 'test-secret',
+    })
+    expect(result.models.map((model) => model.id)).toEqual([
+      'gemini-3.7-flash-high',
+      'gpt-5.6-luna',
+    ])
+    expect(JSON.stringify(result)).not.toContain('test-secret')
+  })
+
   it('streams a successful read scenario through the normalized event contract', async () => {
     const bridge = new FakeAgentBridge({ stepDelayMs: 10, providerConfigured: true })
     const events: AgentUiEvent[] = []

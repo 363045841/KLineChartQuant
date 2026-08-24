@@ -23,6 +23,10 @@ function api(): AgentApplicationApi {
       state: 'connected',
       providerLabel: 'Faux',
     })),
+    listProviderModels: vi.fn<AgentApplicationApi['listProviderModels']>(async () => ({
+      models: [{ id: 'fast', name: 'Fast', compatibility: 'unknown' }],
+      refreshedAt: 1,
+    })),
     createSession: vi.fn<AgentApplicationApi['createSession']>(async () => ({
       id: 'session-2',
       title: 'New',
@@ -39,6 +43,11 @@ function api(): AgentApplicationApi {
       compatible: true,
       model: input.model,
       latencyMs: 1,
+      stages: [
+        { stage: 'catalog', ok: true, latencyMs: 1 },
+        { stage: 'text', ok: true, latencyMs: 1 },
+        { stage: 'tool', ok: true, latencyMs: 1 },
+      ],
     })),
     deleteProviderCredential: vi.fn<AgentApplicationApi['deleteProviderCredential']>(
       async () => undefined,

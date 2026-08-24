@@ -51,6 +51,11 @@ describe('AgentWorkspace', () => {
     await vi.advanceTimersByTimeAsync(10)
     await flushPromises()
 
+    expect(document.querySelectorAll('.settings-dialog__stages li')).toHaveLength(3)
+    document
+      .querySelector<HTMLButtonElement>('.settings-dialog > header .icon-button')!
+      .click()
+    await flushPromises()
     expect(document.querySelector('.settings-dialog')).toBeNull()
     expect((textarea.element as HTMLTextAreaElement).value).toBe(selectedPrompt)
 
@@ -58,6 +63,27 @@ describe('AgentWorkspace', () => {
     await flushPromises()
     expect(mounted.wrapper.find('.message--user').text()).toContain(selectedPrompt)
     expect((textarea.element as HTMLTextAreaElement).value).toBe('')
+  })
+
+  it('refreshes the Provider catalog and selects a discovered model', async () => {
+    const mounted = await mountWorkspace()
+    await mounted.wrapper.get('button[aria-label="Provider settings"]').trigger('click')
+    const dialog = document.querySelector<HTMLElement>('.settings-dialog')!
+    const inputs = dialog.querySelectorAll<HTMLInputElement>('input')
+    inputs[1]!.value = 'temporary-test-key'
+    inputs[1]!.dispatchEvent(new Event('input', { bubbles: true }))
+    await flushPromises()
+    dialog.querySelector<HTMLButtonElement>('.settings-dialog__refresh')!.click()
+    await flushPromises()
+
+    const options = dialog.querySelectorAll<HTMLOptionElement>('select option')
+    expect([...options].map((option) => option.value)).toEqual([
+      'gemini-3.7-flash-high',
+      'gpt-5.6-luna',
+    ])
+    expect(dialog.querySelector<HTMLSelectElement>('select')!.value).toBe(
+      'gemini-3.7-flash-high',
+    )
   })
 
   it('does not submit on Shift+Enter and retains a pending draft when stopping', async () => {

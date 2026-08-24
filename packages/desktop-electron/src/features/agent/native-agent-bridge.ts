@@ -3,6 +3,8 @@ import type {
   AgentSessionSnapshot,
   AgentSessionView,
   AgentUiEvent,
+  ProviderModelsInput,
+  ProviderModelsResult,
   ProviderStatusView,
   ProviderTestInput,
   ProviderTestResult,
@@ -21,6 +23,9 @@ export class NativeAgentBridgeClient implements AgentBridgeClient {
   }
   getProviderStatus(): Promise<ProviderStatusView> {
     return this.native.getProviderStatus()
+  }
+  listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult> {
+    return this.native.listProviderModels(input)
   }
   createSession(): Promise<AgentSessionView> {
     return this.native.createSession()

@@ -10,7 +10,13 @@ import { AgentRuntimeError } from '../contracts/errors.js'
 
 import type { AgentApplicationServiceOptions } from '../application/types.js'
 import type { RuntimeSupport } from '../application/unavailable-runtime.js'
-import type { ProviderStatusView, ProviderTestInput, ProviderTestResult } from '../contracts/ui.js'
+import type {
+  ProviderModelsInput,
+  ProviderModelsResult,
+  ProviderStatusView,
+  ProviderTestInput,
+  ProviderTestResult,
+} from '../contracts/ui.js'
 import type { PiRunPlan, RuntimeToolDefinition } from '../pi/types.js'
 
 export function createFauxRuntimeSupport(): RuntimeSupport {
@@ -20,13 +26,47 @@ export function createFauxRuntimeSupport(): RuntimeSupport {
   const provider = {
     getStatus(): ProviderStatusView {
       return configured
-        ? { state: 'connected', providerLabel: '302.ai', modelLabel }
-        : { state: 'not-configured', providerLabel: '302.ai' }
+        ? {
+            state: 'connected',
+            providerLabel: '302.ai',
+            configured: true,
+            baseUrl: 'https://api.302.ai/v1',
+            modelId: modelLabel,
+            modelLabel,
+            persistenceMode: 'encrypted',
+            compatibility: 'compatible',
+          }
+        : {
+            state: 'not-configured',
+            providerLabel: '302.ai',
+            configured: false,
+            baseUrl: 'https://api.302.ai/v1',
+            persistenceMode: 'encrypted',
+            compatibility: 'unknown',
+          }
+    },
+    async listModels(_input: ProviderModelsInput): Promise<ProviderModelsResult> {
+      return {
+        models: [
+          { id: modelLabel, name: modelLabel, compatibility: 'compatible', latencyMs: 1 },
+        ],
+        refreshedAt: Date.now(),
+      }
     },
     async test(input: ProviderTestInput): Promise<ProviderTestResult> {
       configured = true
       modelLabel = input.model
-      return { compatible: true, model: input.model, latencyMs: 1 }
+      return {
+        compatible: true,
+        model: input.model,
+        latencyMs: 1,
+        ttftMs: 1,
+        stages: [
+          { stage: 'catalog', ok: true, latencyMs: 1 },
+          { stage: 'text', ok: true, latencyMs: 1, ttftMs: 1 },
+          { stage: 'tool', ok: true, latencyMs: 1 },
+        ],
+      }
     },
     async deleteCredential(): Promise<void> {
       configured = false

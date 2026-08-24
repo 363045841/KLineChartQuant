@@ -150,9 +150,9 @@ describe('RuntimeSessionService', () => {
       schemaVersion: 99,
       updatedAt: 1,
     })
-    await expect(service.open('future')).rejects.toMatchObject<Partial<AgentRuntimeError>>({
+    await expect(service.open('future')).rejects.toMatchObject({
       code: 'SESSION_SCHEMA_UNSUPPORTED',
-    })
+    } satisfies Partial<AgentRuntimeError>)
 
     const corrupt = await repository.create({ id: 'corrupt' })
     await corrupt.setName('Corrupt')
@@ -160,9 +160,9 @@ describe('RuntimeSessionService', () => {
       schemaVersion: 1,
       updatedAt: 'bad',
     })
-    await expect(service.open('corrupt')).rejects.toMatchObject<Partial<AgentRuntimeError>>({
+    await expect(service.open('corrupt')).rejects.toMatchObject({
       code: 'SESSION_CORRUPT',
-    })
+    } satisfies Partial<AgentRuntimeError>)
   })
 
   it('migrates the supported version-zero metadata deterministically', async () => {

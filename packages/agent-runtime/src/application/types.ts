@@ -3,12 +3,13 @@ import type {
   AgentSessionSnapshot,
   AgentSessionView,
   AgentUiEvent,
+  ProviderModelsInput,
+  ProviderModelsResult,
   ProviderStatusView,
   ProviderTestInput,
   ProviderTestResult,
   StartRunInput,
 } from '../contracts/ui.js'
-import type { PiRunDriver } from '../pi/pi-run-driver.js'
 import type { PiRunPlan, PiRunResult } from '../pi/types.js'
 import type { RunPersistenceContext } from '../sessions/types.js'
 
@@ -37,6 +38,7 @@ export interface AgentApplicationServiceOptions {
   createPlan(context: RunPersistenceContext): Promise<PiRunPlan> | PiRunPlan
   provider?: {
     getStatus(): Promise<ProviderStatusView> | ProviderStatusView
+    listModels(input: ProviderModelsInput): Promise<ProviderModelsResult>
     test(input: ProviderTestInput): Promise<ProviderTestResult>
     deleteCredential(): Promise<void>
   }
@@ -57,9 +59,8 @@ export interface AgentApplicationApi {
   retryRun(runId: string): Promise<{ runId: string }>
   confirmTool(confirmationId: string, decision: 'confirmed' | 'rejected'): Promise<void>
   undoTurn(runId: string): Promise<void>
+  listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult>
   testProvider(input: ProviderTestInput): Promise<ProviderTestResult>
   deleteProviderCredential(): Promise<void>
   subscribe(listener: (event: AgentUiEvent) => void): () => void
 }
-
-export type { PiRunDriver }

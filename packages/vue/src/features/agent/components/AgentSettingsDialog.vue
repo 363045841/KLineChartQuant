@@ -36,23 +36,65 @@
             <input
               v-model="apiKey"
               type="password"
-              required
+              :required="!status.configured"
               autocomplete="off"
               :placeholder="text.apiKeyPlaceholder"
             />
           </label>
-          <label>
+          <label class="settings-dialog__model-field">
             <span>{{ text.model }}</span>
-            <input
-              ref="modelInput"
-              v-model="model"
-              type="text"
-              required
-              autocomplete="off"
-              spellcheck="false"
-              :placeholder="text.modelPlaceholder"
-            />
+            <span class="settings-dialog__model-control">
+              <select v-if="models.length" ref="modelInput" v-model="model" required>
+                <option v-for="item in models" :key="item.id" :value="item.id">
+                  {{ item.name }}
+                </option>
+              </select>
+              <input
+                v-else
+                ref="modelInput"
+                v-model="model"
+                type="text"
+                required
+                autocomplete="off"
+                spellcheck="false"
+                :placeholder="text.modelPlaceholder"
+              />
+              <button
+                type="button"
+                class="icon-button settings-dialog__refresh"
+                :title="text.refreshModels"
+                :aria-label="text.refreshModels"
+                :disabled="refreshDisabled"
+                @click="refresh"
+              >
+                <IconRefresh :class="{ spinner: modelsLoading }" aria-hidden="true" />
+              </button>
+            </span>
           </label>
+
+          <p v-if="status.persistenceMode" class="settings-dialog__persistence">
+            <IconLock v-if="status.persistenceMode === 'encrypted'" aria-hidden="true" />
+            <IconAlertTriangle v-else aria-hidden="true" />
+            {{ persistenceLabel }}
+          </p>
+
+          <ol v-if="testResult" class="settings-dialog__stages" :aria-label="text.probeResults">
+            <li v-for="stage in testResult.stages" :key="stage.stage">
+              <IconCircleCheck aria-hidden="true" />
+              <span>{{ stageLabel(stage.stage) }}</span>
+              <strong>{{ stage.latencyMs }} ms</strong>
+            </li>
+          </ol>
+
+          <div v-if="visibleError" class="settings-dialog__error" role="alert">
+            <IconAlertTriangle aria-hidden="true" />
+            <span>
+              <strong>{{ visibleError.message }}</strong>
+              <small v-if="visibleError.recommendedAction">
+                {{ visibleError.recommendedAction }}
+              </small>
+            </span>
+          </div>
 
           <p class="settings-dialog__draft-note">
             <IconNotes aria-hidden="true" />
@@ -67,7 +109,7 @@
 
           <footer>
             <button
-              v-if="status.state === 'connected'"
+              v-if="status.configured || status.state === 'error'"
               type="button"
               class="danger-button"
               @click="$emit('delete')"
@@ -80,7 +122,7 @@
               <button type="button" class="secondary-button" @click="$emit('close')">
                 {{ text.cancel }}
               </button>
-              <button type="submit" class="primary-button" :disabled="status.state === 'testing'">
+              <button type="submit" class="primary-button" :disabled="testDisabled">
                 <IconPlugConnected v-if="status.state !== 'testing'" aria-hidden="true" />
                 <IconLoader2 v-else class="spinner" aria-hidden="true" />
                 {{ text.testConnection }}
@@ -98,32 +140,64 @@
 
   import { getAgentCopy, type AgentLocale } from '../agent-copy'
 
-  import type { ProviderStatusView, ProviderTestInput } from '../agent-contracts'
+  import type {
+    AgentErrorView,
+    ProviderModelView,
+    ProviderModelsInput,
+    ProviderProbeStageResult,
+    ProviderStatusView,
+    ProviderTestInput,
+    ProviderTestResult,
+  } from '../agent-contracts'
 
+  import IconAlertTriangle from '~icons/tabler/alert-triangle'
+  import IconCircleCheck from '~icons/tabler/circle-check'
   import IconLoader2 from '~icons/tabler/loader-2'
+  import IconLock from '~icons/tabler/lock'
   import IconNotes from '~icons/tabler/notes'
   import IconPlugConnected from '~icons/tabler/plug-connected'
+  import IconRefresh from '~icons/tabler/refresh'
   import IconTrash from '~icons/tabler/trash'
   import IconX from '~icons/tabler/x'
 
   const props = defineProps<{
     open: boolean
     status: ProviderStatusView
+    models: ProviderModelView[]
+    modelsLoading: boolean
+    testResult: ProviderTestResult | null
+    operationError: AgentErrorView | null
     locale: AgentLocale
   }>()
   const emit = defineEmits<{
     close: []
     test: [input: ProviderTestInput]
+    refreshModels: [input: ProviderModelsInput]
     delete: []
   }>()
 
   const titleId = 'agent-provider-settings-title'
   const dialog = ref<HTMLElement | null>(null)
-  const modelInput = ref<HTMLInputElement | null>(null)
+  const modelInput = ref<HTMLInputElement | HTMLSelectElement | null>(null)
   const baseUrl = ref('https://api.302.ai/v1')
   const apiKey = ref('')
   const model = ref('')
   const text = computed(() => getAgentCopy(props.locale))
+  const visibleError = computed(() => props.operationError ?? props.status.error)
+  const persistenceLabel = computed(() =>
+    props.status.persistenceMode === 'encrypted'
+      ? text.value.credentialEncrypted
+      : text.value.credentialMemoryOnly,
+  )
+  const refreshDisabled = computed(
+    () =>
+      props.modelsLoading ||
+      !baseUrl.value.trim() ||
+      (!apiKey.value.trim() && !props.status.configured),
+  )
+  const testDisabled = computed(
+    () => props.status.state === 'testing' || props.modelsLoading || !model.value.trim(),
+  )
   const connectionLabel = computed(() => {
     const labels = {
       connected: text.value.connected,
@@ -135,13 +209,34 @@
   })
 
   function submit(): void {
-    emit('test', { baseUrl: baseUrl.value, apiKey: apiKey.value, model: model.value })
+    emit('test', {
+      baseUrl: baseUrl.value,
+      apiKey: apiKey.value || undefined,
+      model: model.value,
+    })
+  }
+
+  function refresh(): void {
+    emit('refreshModels', {
+      baseUrl: baseUrl.value,
+      apiKey: apiKey.value || undefined,
+    })
+  }
+
+  function stageLabel(stage: ProviderProbeStageResult['stage']): string {
+    return {
+      catalog: text.value.probeCatalog,
+      text: text.value.probeText,
+      tool: text.value.probeTool,
+    }[stage]
   }
 
   watch(
     () => props.open,
     async (open) => {
       if (!open) return
+      baseUrl.value = props.status.baseUrl ?? 'https://api.302.ai/v1'
+      model.value = props.status.modelId ?? ''
       await nextTick()
       dialog.value?.focus()
       modelInput.value?.focus()
@@ -152,6 +247,14 @@
     () => props.status.state,
     (state) => {
       if (state === 'connected') apiKey.value = ''
+    },
+  )
+
+  watch(
+    () => props.models,
+    (models) => {
+      if (!models.length) return
+      if (!models.some((item) => item.id === model.value)) model.value = models[0]!.id
     },
   )
 </script>
@@ -209,7 +312,8 @@
     font-size: 11px;
     font-weight: 600;
   }
-  input {
+  input,
+  select {
     width: 100%;
     height: 36px;
     box-sizing: border-box;
@@ -221,7 +325,8 @@
     font: inherit;
     font-size: 12px;
   }
-  input:focus {
+  input:focus,
+  select:focus {
     outline: 2px solid var(--agent-focus, #2483d6);
     outline-offset: 1px;
     border-color: transparent;
@@ -238,6 +343,88 @@
     color: var(--agent-muted, #687480);
     background: transparent;
     cursor: pointer;
+  }
+  .icon-button:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .settings-dialog__model-control {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 36px;
+    gap: 6px;
+  }
+  .settings-dialog__refresh {
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--agent-border-strong, #aab3bd);
+    background: var(--agent-input, #fff);
+  }
+
+  .settings-dialog__persistence {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    margin: 0;
+    color: var(--agent-muted, #687480);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+  .settings-dialog__persistence svg {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+  }
+
+  .settings-dialog__stages {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 9px;
+    border: 1px solid var(--agent-border, #dce1e3);
+    border-radius: 6px;
+    list-style: none;
+    background: var(--agent-card, #fbfcfc);
+  }
+  .settings-dialog__stages li {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px;
+    color: var(--agent-muted, #687480);
+    font-size: 11px;
+  }
+  .settings-dialog__stages svg {
+    color: #1f9d68;
+  }
+  .settings-dialog__stages strong {
+    color: var(--agent-text, #1e2933);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .settings-dialog__error {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr);
+    gap: 7px;
+    padding: 9px;
+    border: 1px solid #d14b4b;
+    border-radius: 6px;
+    color: #a93636;
+    background: var(--agent-danger-bg, #fff1f1);
+    font-size: 11px;
+  }
+  .settings-dialog__error span {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+  }
+  .settings-dialog__error strong,
+  .settings-dialog__error small {
+    overflow-wrap: anywhere;
+    font: inherit;
+  }
+  .settings-dialog__error strong {
+    font-weight: 600;
   }
 
   .settings-dialog__draft-note {

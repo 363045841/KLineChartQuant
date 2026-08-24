@@ -3,17 +3,21 @@ import { fileURLToPath } from 'node:url'
 
 import {
   AgentApplicationService,
-  createUnavailableRuntimeSupport,
+  create302AiRuntimeSupport,
   type RuntimeSupport,
 } from '@363045841yyt/klinechart-agent-runtime'
 import {
   createNodeRuntimeSessions,
   type NodeRuntimeSessions,
 } from '@363045841yyt/klinechart-agent-runtime/node'
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, safeStorage, shell } from 'electron'
 
 import { registerAgentIpc, type RegisteredAgentIpc } from './agent-ipc'
 import { registerIpcHandlers } from './ipc-handlers'
+import {
+  ElectronProviderSettingsStore,
+  ElectronSafeStorageCredentialStore,
+} from './provider-storage'
 
 let mainWindow: BrowserWindow | null = null
 let nodeRuntime: NodeRuntimeSessions | undefined
@@ -64,7 +68,15 @@ app.whenReady().then(async () => {
   const support: RuntimeSupport =
     import.meta.env.MODE === 'e2e'
       ? (await import('@363045841yyt/klinechart-agent-runtime/testing')).createFauxRuntimeSupport()
-      : createUnavailableRuntimeSupport()
+      : create302AiRuntimeSupport({
+          credentials: new ElectronSafeStorageCredentialStore({
+            filePath: join(userData, 'agent-provider-302ai-credential.json'),
+            safeStorage,
+          }),
+          settings: new ElectronProviderSettingsStore(
+            join(userData, 'agent-provider-302ai-settings.json'),
+          ),
+        })
   const application = new AgentApplicationService({
     sessions: nodeRuntime.sessions,
     createPlan: support.createPlan,

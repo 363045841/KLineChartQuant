@@ -43,9 +43,14 @@
     <AgentSettingsDialog
       :open="settingsOpen"
       :status="state.provider"
+      :models="providerModels"
+      :models-loading="providerModelsLoading"
+      :test-result="providerTestResult"
+      :operation-error="providerOperationError"
       :locale="locale"
       @close="settingsOpen = false"
       @test="testProvider"
+      @refresh-models="refreshProviderModels"
       @delete="deleteProvider"
     />
   </section>
@@ -76,6 +81,10 @@
     draft,
     settingsOpen,
     locale,
+    providerModels,
+    providerModelsLoading,
+    providerTestResult,
+    providerOperationError,
     isRunning,
     createSession,
     selectSession,
@@ -88,6 +97,7 @@
     undoTurn,
     setReadOnly,
     testProvider,
+    refreshProviderModels,
     deleteProvider,
   } = useAgentWorkspace(props.bridge)
 

@@ -6,6 +6,7 @@ import Icons from 'unplugin-icons/vite'
 import { defineConfig } from 'vitest/config'
 
 const sourceRoot = fileURLToPath(new URL('./src', import.meta.url))
+const agentRuntime = fileURLToPath(new URL('../agent-runtime/src/index.ts', import.meta.url))
 const agentContracts = fileURLToPath(new URL('../agent-runtime/src/contracts/ui.ts', import.meta.url))
 
 export default defineConfig({
@@ -15,6 +16,10 @@ export default defineConfig({
       {
         find: /^@363045841yyt\/klinechart-agent-runtime\/contracts\/ui$/,
         replacement: agentContracts,
+      },
+      {
+        find: /^@363045841yyt\/klinechart-agent-runtime$/,
+        replacement: agentRuntime,
       },
       { find: /^@\//, replacement: `${sourceRoot}/` },
     ],

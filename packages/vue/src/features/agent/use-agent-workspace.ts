@@ -3,12 +3,44 @@ import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 
 import { createInitialAgentState, reduceAgentUiEvent } from './agent-reducer'
 
-import type { AgentBridgeClient, AgentUiEvent, ProviderTestInput } from './agent-contracts'
+import type {
+  AgentBridgeClient,
+  AgentErrorView,
+  AgentUiEvent,
+  ProviderModelView,
+  ProviderModelsInput,
+  ProviderTestInput,
+  ProviderTestResult,
+} from './agent-contracts'
+
+function operationError(error: unknown): AgentErrorView {
+  if (typeof error === 'object' && error !== null) {
+    const value = error as Record<string, unknown>
+    if (typeof value.code === 'string' && typeof value.message === 'string') {
+      return {
+        code: value.code,
+        message: value.message,
+        retryable: value.retryable === true,
+        recommendedAction:
+          typeof value.recommendedAction === 'string' ? value.recommendedAction : undefined,
+      }
+    }
+  }
+  return {
+    code: 'PROVIDER_ERROR',
+    message: 'The Provider operation failed.',
+    retryable: true,
+  }
+}
 
 export function useAgentWorkspace(bridge: AgentBridgeClient) {
   const state = shallowRef(createInitialAgentState())
   const draft = ref('')
   const settingsOpen = ref(false)
+  const providerModels = ref<ProviderModelView[]>([])
+  const providerModelsLoading = ref(false)
+  const providerTestResult = ref<ProviderTestResult | null>(null)
+  const providerOperationError = ref<AgentErrorView | null>(null)
   const locale = ref<'en' | 'zh-CN'>(
     typeof navigator !== 'undefined' && navigator.language.startsWith('zh') ? 'zh-CN' : 'en',
   )
@@ -155,12 +187,35 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   }
 
   async function testProvider(input: ProviderTestInput): Promise<void> {
-    await bridge.testProvider(input)
-    settingsOpen.value = false
+    providerOperationError.value = null
+    providerTestResult.value = null
+    try {
+      providerTestResult.value = await bridge.testProvider(input)
+    } catch (error) {
+      providerOperationError.value = operationError(error)
+    }
+  }
+
+  async function refreshProviderModels(input: ProviderModelsInput): Promise<void> {
+    providerModelsLoading.value = true
+    providerOperationError.value = null
+    try {
+      providerModels.value = (await bridge.listProviderModels(input)).models
+    } catch (error) {
+      providerOperationError.value = operationError(error)
+    } finally {
+      providerModelsLoading.value = false
+    }
   }
 
   async function deleteProvider(): Promise<void> {
-    await bridge.deleteProviderCredential()
+    try {
+      await bridge.deleteProviderCredential()
+      providerTestResult.value = null
+      providerOperationError.value = null
+    } catch (error) {
+      providerOperationError.value = operationError(error)
+    }
   }
 
   onMounted(initialize)
@@ -171,6 +226,10 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     draft,
     settingsOpen,
     locale,
+    providerModels,
+    providerModelsLoading,
+    providerTestResult,
+    providerOperationError,
     activeSession,
     isRunning,
     providerReady,
@@ -185,6 +244,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     undoTurn,
     setReadOnly,
     testProvider,
+    refreshProviderModels,
     deleteProvider,
   }
 }

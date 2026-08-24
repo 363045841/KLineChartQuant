@@ -3,8 +3,8 @@ import { Value } from 'typebox/value'
 
 import { AgentRuntimeError } from './errors.js'
 
-export const AGENT_IPC_PROTOCOL_VERSION = 1 as const
-export const AGENT_IPC_PAYLOAD_VERSION = 1 as const
+export const AGENT_IPC_PROTOCOL_VERSION = 2 as const
+export const AGENT_IPC_PAYLOAD_VERSION = 2 as const
 export const AGENT_IPC_MAX_PAYLOAD_BYTES = 256 * 1024
 
 const Strict = { additionalProperties: false } as const
@@ -92,11 +92,25 @@ export const AgentIpcRequestSchema = Type.Union([
   Type.Object(
     {
       ...BaseEnvelope,
+      command: Type.Literal('provider.models'),
+      payload: Type.Object(
+        {
+          baseUrl: Type.String({ minLength: 1, maxLength: 2048 }),
+          apiKey: Type.Optional(Type.String({ minLength: 1, maxLength: 8192 })),
+        },
+        Strict,
+      ),
+    },
+    Strict,
+  ),
+  Type.Object(
+    {
+      ...BaseEnvelope,
       command: Type.Literal('provider.test'),
       payload: Type.Object(
         {
           baseUrl: Type.String({ minLength: 1, maxLength: 2048 }),
-          apiKey: Type.String({ minLength: 1, maxLength: 8192 }),
+          apiKey: Type.Optional(Type.String({ minLength: 1, maxLength: 8192 })),
           model: Type.String({ minLength: 1, maxLength: 256 }),
         },
         Strict,

@@ -7,6 +7,7 @@ import {
   createUnavailableRuntimeSupport,
   parseAgentIpcRequest,
   redactValue,
+  type AgentRuntimeErrorCode,
 } from '../index'
 
 function request(overrides: Record<string, unknown> = {}) {
@@ -28,15 +29,17 @@ describe('Agent IPC contracts', () => {
     expect(parseAgentIpcRequest(request(), 1_000).command).toBe('run.start')
   })
 
-  it.each([
+  const malformedEnvelopeCases: Array<[Record<string, unknown>, AgentRuntimeErrorCode]> = [
     [request({ forged: true }), 'INVALID_PAYLOAD'],
-    [request({ protocolVersion: 2 }), 'INVALID_PROTOCOL'],
+    [request({ protocolVersion: 99 }), 'INVALID_PROTOCOL'],
     [request({ deadlineAt: 999 }), 'DEADLINE_EXCEEDED'],
     [
       request({ payload: { sessionId: 'session-1', prompt: 'x', readOnly: true, rawIpc: {} } }),
       'INVALID_PAYLOAD',
     ],
-  ])('rejects malformed envelopes with stable errors', (input, code) => {
+  ]
+
+  it.each(malformedEnvelopeCases)('rejects malformed envelopes with stable errors', (input, code) => {
     expect(() => parseAgentIpcRequest(input, 1_000)).toThrowError(
       expect.objectContaining<Partial<AgentRuntimeError>>({ code }),
     )
@@ -52,11 +55,25 @@ describe('Agent IPC contracts', () => {
   })
 
   it('maps non-JSON values to a stable invalid-payload error', () => {
-    const cyclic = request()
-    cyclic.payload = { ...cyclic.payload, cyclic }
+    const cyclic: Record<string, unknown> = request()
+    cyclic.payload = { cyclic }
     expect(() => parseAgentIpcRequest(cyclic, 1_000)).toThrowError(
       expect.objectContaining<Partial<AgentRuntimeError>>({ code: 'INVALID_PAYLOAD' }),
     )
+  })
+
+  it('accepts a bounded model refresh command without requiring a replacement key', () => {
+    const parsed = parseAgentIpcRequest(
+      request({
+        command: 'provider.models',
+        payload: { baseUrl: 'https://api.302.ai/v1' },
+      }),
+      1_000,
+    )
+    expect(parsed).toMatchObject({
+      command: 'provider.models',
+      payload: { baseUrl: 'https://api.302.ai/v1' },
+    })
   })
 })
 
@@ -90,12 +107,21 @@ describe('production Provider fallback', () => {
     expect(await support.provider.getStatus()).toEqual({
       state: 'not-configured',
       providerLabel: '302.ai',
+      configured: false,
+      baseUrl: 'https://api.302.ai/v1',
+      compatibility: 'unknown',
     })
     await expect(
       support.provider.test({
         baseUrl: 'https://api.302.ai/v1',
         apiKey: 'ephemeral',
         model: 'fast-model',
+      }),
+    ).rejects.toMatchObject({ code: 'PROVIDER_NOT_CONFIGURED' })
+    await expect(
+      support.provider.listModels({
+        baseUrl: 'https://api.302.ai/v1',
+        apiKey: 'ephemeral',
       }),
     ).rejects.toMatchObject({ code: 'PROVIDER_NOT_CONFIGURED' })
     expect(() => support.createPlan(undefined as never)).toThrowError(

@@ -47,9 +47,9 @@ describe('PiRunDriver', () => {
       ]),
     ])
     const events: AgentRunUiEventInput[] = []
-    const result = await new PiRunDriver({ id: () => 'assistant-1' }).run(plan, (event) =>
-      events.push(event),
-    )
+    const result = await new PiRunDriver({ id: () => 'assistant-1' }).run(plan, (event) => {
+      events.push(event)
+    })
 
     expect(result.text).toBe('Visible answer')
     expect(
@@ -95,7 +95,9 @@ describe('PiRunDriver', () => {
       [tool],
     )
     const events: AgentRunUiEventInput[] = []
-    const result = await new PiRunDriver().run(plan, (event) => events.push(event))
+    const result = await new PiRunDriver().run(plan, (event) => {
+      events.push(event)
+    })
 
     expect(execute).toHaveBeenCalledOnce()
     expect(signals[0]).toBeInstanceOf(AbortSignal)
@@ -118,12 +120,10 @@ describe('PiRunDriver', () => {
         errorMessage: 'Bearer abc.def.ghi rejected',
       }),
     ])
-    await expect(new PiRunDriver().run(plan, () => undefined)).rejects.toMatchObject<
-      Partial<AgentRuntimeError>
-    >({
+    await expect(new PiRunDriver().run(plan, () => undefined)).rejects.toMatchObject({
       code: 'PROVIDER_ERROR',
-      message: '[REDACTED] rejected',
-    })
+      message: 'The Provider request failed.',
+    } satisfies Partial<AgentRuntimeError>)
   })
 
   it('aborts an active Pi stream', async () => {
@@ -136,7 +136,9 @@ describe('PiRunDriver', () => {
         driver.abort()
       }
     })
-    await expect(running).rejects.toMatchObject<Partial<AgentRuntimeError>>({ code: 'ABORTED' })
+    await expect(running).rejects.toMatchObject({
+      code: 'ABORTED',
+    } satisfies Partial<AgentRuntimeError>)
   })
 
   it('enforces the configured tool-turn limit', async () => {
@@ -157,19 +159,17 @@ describe('PiRunDriver', () => {
       [tool],
     )
     plan.toolTurnLimit = 1
-    await expect(new PiRunDriver().run(plan, () => undefined)).rejects.toMatchObject<
-      Partial<AgentRuntimeError>
-    >({ code: 'TOOL_LOOP_LIMIT' })
+    await expect(new PiRunDriver().run(plan, () => undefined)).rejects.toMatchObject({
+      code: 'TOOL_LOOP_LIMIT',
+    } satisfies Partial<AgentRuntimeError>)
   })
 
   it('maps a Provider deadline to a distinct stable error', async () => {
     const { plan } = fixture([fauxAssistantMessage('x'.repeat(2_000))])
     plan.timeoutMs = 1
-    await expect(new PiRunDriver().run(plan, () => undefined)).rejects.toMatchObject<
-      Partial<AgentRuntimeError>
-    >({
+    await expect(new PiRunDriver().run(plan, () => undefined)).rejects.toMatchObject({
       code: 'DEADLINE_EXCEEDED',
-    })
+    } satisfies Partial<AgentRuntimeError>)
   })
 
   it('propagates a Provider deadline to an active tool AbortSignal', async () => {
@@ -199,11 +199,9 @@ describe('PiRunDriver', () => {
     )
     plan.timeoutMs = 20
 
-    await expect(new PiRunDriver().run(plan, () => undefined)).rejects.toMatchObject<
-      Partial<AgentRuntimeError>
-    >({
+    await expect(new PiRunDriver().run(plan, () => undefined)).rejects.toMatchObject({
       code: 'DEADLINE_EXCEEDED',
-    })
+    } satisfies Partial<AgentRuntimeError>)
     expect(toolSignalAborted).toBe(true)
   })
 })

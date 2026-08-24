@@ -4,7 +4,9 @@ import { join } from 'node:path'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { createNodeRuntimeSessions, type NodeRuntimeSessions } from '../node'
+import { AGENT_UI_PROTOCOL_VERSION } from '../index'
+
+import type { NodeRuntimeSessions } from '../node'
 
 const [major = 0, minor = 0] = process.versions.node.split('.').map(Number)
 const sqliteSupported = major > 22 || (major === 22 && minor >= 19)
@@ -22,6 +24,7 @@ describeSqlite('Node SQLite runtime sessions', () => {
   })
 
   it('reopens transcript, title, branch, terminal state, and deletion from a real database', async () => {
+    const { createNodeRuntimeSessions } = await import('../node')
     directory = await mkdtemp(join(tmpdir(), 'kq-agent-runtime-'))
     const databasePath = join(directory, 'agent.sqlite')
     let id = 0
@@ -45,7 +48,7 @@ describeSqlite('Node SQLite runtime sessions', () => {
         sessionId: session.id,
         startedAt: 1_000,
         sequence: 1,
-        protocolVersion: 1,
+        protocolVersion: AGENT_UI_PROTOCOL_VERSION,
       },
     })
     await runtime.sessions.finishRun(first, { status: 'completed', endedAt: 1_100 })
@@ -75,6 +78,7 @@ describeSqlite('Node SQLite runtime sessions', () => {
   })
 
   it('does not persist registered secret values in the SQLite bytes', async () => {
+    const { createNodeRuntimeSessions } = await import('../node')
     directory = await mkdtemp(join(tmpdir(), 'kq-agent-runtime-redaction-'))
     const databasePath = join(directory, 'agent.sqlite')
     const secret = 'sqlite-secret-sentinel'

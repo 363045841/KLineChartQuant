@@ -4,6 +4,8 @@ import {
   type AgentRunUiEventInput,
   type AgentUiEvent,
   type ProviderStatusView,
+  type ProviderModelsInput,
+  type ProviderModelsResult,
   type ProviderTestInput,
   type ProviderTestResult,
   type StartRunInput,
@@ -34,6 +36,9 @@ type GlobalAgentUiEventInput = GlobalAgentUiEvent extends infer Event
 const DEFAULT_PROVIDER_STATUS: ProviderStatusView = {
   state: 'not-configured',
   providerLabel: '302.ai',
+  configured: false,
+  baseUrl: 'https://api.302.ai/v1',
+  compatibility: 'unknown',
 }
 
 function isCancelling(active: ActiveRun): boolean {
@@ -164,12 +169,39 @@ export class AgentApplicationService implements AgentApplicationApi {
         'PROVIDER_NOT_CONFIGURED',
         'No Agent Provider adapter is installed.',
       )
-    const result = await this.provider.test(input)
     await this.emitGlobal({
       type: 'provider.status.changed',
-      status: await this.getProviderStatus(),
+      status: {
+        ...(await this.getProviderStatus()),
+        state: 'testing',
+        compatibility: 'testing',
+        error: undefined,
+      },
     })
-    return result
+    try {
+      return await this.provider.test(input)
+    } finally {
+      await this.emitGlobal({
+        type: 'provider.status.changed',
+        status: await this.getProviderStatus(),
+      })
+    }
+  }
+
+  async listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult> {
+    if (!this.provider)
+      throw new AgentRuntimeError(
+        'PROVIDER_NOT_CONFIGURED',
+        'No Agent Provider adapter is installed.',
+      )
+    try {
+      return await this.provider.listModels(input)
+    } finally {
+      await this.emitGlobal({
+        type: 'provider.status.changed',
+        status: await this.getProviderStatus(),
+      })
+    }
   }
 
   async deleteProviderCredential(): Promise<void> {

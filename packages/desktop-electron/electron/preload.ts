@@ -18,6 +18,8 @@ import type {
   AgentSessionView,
   AgentSessionSnapshot,
   AgentUiEvent,
+  ProviderModelsInput,
+  ProviderModelsResult,
   ProviderStatusView,
   ProviderTestInput,
   ProviderTestResult,
@@ -76,6 +78,8 @@ const nativeAgent: AgentBridgeClient = {
     invokeAgent<'session.open', AgentSessionSnapshot>('session.open', { sessionId }),
   getProviderStatus: () =>
     invokeAgent<'provider.status', ProviderStatusView>('provider.status', {}),
+  listProviderModels: (input: ProviderModelsInput) =>
+    invokeAgent<'provider.models', ProviderModelsResult>('provider.models', input),
   createSession: () => invokeAgent<'session.create', AgentSessionView>('session.create', {}),
   renameSession: (sessionId, title) =>
     invokeAgent<'session.rename', void>('session.rename', { sessionId, title }),
