@@ -52,11 +52,10 @@ export function createGridLinesRendererPlugin(): RendererPlugin {
         }
       }
 
-      // 五日分时纵线直接读取帧级日分隔几何，保证与主序列和十字线同源。
+      // 五日分时纵线直接读取帧级日边界几何，保证首尾和日间分隔线均与主序列同源。
       if (context.fiveDayTimeShareGeometry) {
-        for (const day of context.fiveDayTimeShareGeometry.days) {
-          if (day.separatorX === undefined) continue
-          const v = createVerticalLineRect(day.separatorX, 0, pane.height, dpr)
+        for (const x of context.fiveDayTimeShareGeometry.verticalGridLineXs) {
+          const v = createVerticalLineRect(x, 0, pane.height, dpr)
           if (v) ctx.fillRect(v.x, v.y, v.width, v.height)
         }
       } else if (context.period !== 'timeshare') {

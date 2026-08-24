@@ -63,4 +63,19 @@ describe('gridLines mode', () => {
     const verticals = ctx.fillRects.filter((r) => r.width < r.height)
     expect(verticals.length).toBe(0)
   })
+
+  it('draws first-day, day-separator, and last-day boundaries in five-day timeshare mode', () => {
+    const { ctx, context } = buildContext('5daytimeshare')
+    context.fiveDayTimeShareGeometry = {
+      sessionSlots: 240,
+      contentWidth: 800,
+      days: [],
+      verticalGridLineXs: [0, 400, 800],
+    }
+
+    createGridLinesRendererPlugin().draw(context)
+
+    const verticals = ctx.fillRects.filter((r) => r.width < r.height)
+    expect(verticals.map((line) => line.x)).toEqual([0, 400, 800])
+  })
 })

@@ -10,7 +10,7 @@
 
 - 每个点使用 `dayIndex * sessionSlots + intradaySlot` 定位。
 - `intradaySlot` 由当前品种的 `MarketSessionConfig` 解析，缺失时仅在对应交易日内按点序回退。
-- 点中心、量柱矩形、交易日起止位置、分隔线和日期标签锚点共享同一物理像素网格。
+- 点中心、量柱矩形、交易日起止位置、首尾边界、日间分隔线和日期标签锚点共享同一物理像素网格。
 - `RenderContext` 同时携带原子 `timeShareRange` 和帧级 `fiveDayTimeShareGeometry`，renderer 不从扁平点列反推交易日。
 - 十字线继续读取封存的 `kLineCenters`，不维护第二套命中坐标。
 
@@ -22,7 +22,7 @@
 
 五日窗口的昨收虚线、面积和主图百分比轴固定使用第一交易日的 `preClose` 作为统一基准，并以全部五日价格和均价计算对称范围，避免滚动时纵轴跳变或交易日切换时出现不同基准线。后续交易日的 `preClose` 不参与五日视图基准计算。
 
-网格线读取共享几何的 `separatorX`，时间轴读取 `labelX` 和 `tradingDate`。单日 `timeshare` 保持原有 session 时间标签和几何行为。
+网格线读取共享几何的 `verticalGridLineXs`，其中包含首日左边界、日间分隔线和末日右边界；时间轴读取 `labelX` 和 `tradingDate`。单日 `timeshare` 保持原有 session 时间标签和几何行为。
 
 ## 状态投影
 

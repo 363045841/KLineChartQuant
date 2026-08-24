@@ -91,6 +91,11 @@ export function computeFiveDayTimeShareGeometry(
       sessionSlots,
       contentWidth,
       days: Object.freeze(days),
+      verticalGridLineXs: Object.freeze([
+        days[0]!.startX,
+        ...days.slice(1).map((day) => day.startX),
+        days[days.length - 1]!.endX,
+      ]),
     }),
     centers: layout.centers,
     barWidth: layout.barWidth,

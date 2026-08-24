@@ -61,6 +61,11 @@ describe('fiveDayTimeShareGeometry', () => {
       }),
     ])
     expect(frame!.geometry.days[1]!.separatorX).toBe(frame!.geometry.days[1]!.startX)
+    expect(frame!.geometry.verticalGridLineXs).toEqual([
+      frame!.geometry.days[0]!.startX,
+      frame!.geometry.days[1]!.startX,
+      frame!.geometry.days[1]!.endX,
+    ])
     expect(frame!.centers[1]!).toBeLessThan(frame!.geometry.days[1]!.startX)
     expect(frame!.centers[2]!).toBeGreaterThan(frame!.geometry.days[1]!.startX)
   })

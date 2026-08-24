@@ -288,6 +288,8 @@ export interface FiveDayTimeShareGeometry {
   sessionSlots: number
   contentWidth: number
   days: ReadonlyArray<FiveDayTimeShareDayGeometry>
+  /** 首尾交易日边界和日间分隔线的世界坐标。 */
+  verticalGridLineXs: ReadonlyArray<number>
 }
 
 /** 渲染上下文 */
