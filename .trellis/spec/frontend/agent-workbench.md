@@ -13,6 +13,7 @@ The shared boundary is method-level and event-driven:
 
 ```typescript
 interface AgentBridgeClient {
+  openSession(sessionId: string): Promise<AgentSessionSnapshot>
   startRun(input: {
     sessionId: string
     prompt: string
@@ -40,6 +41,9 @@ Hosts render the common shell and supply the chart through its named slot:
 ## 3. Contracts
 
 - `AgentUiEvent.protocolVersion` must equal `AGENT_UI_PROTOCOL_VERSION`.
+- Sequenced events are applied only when `event.sequence > state.lastSequence`.
+  Session snapshots carry `lastSequence`; subscribe and buffer before loading a
+  snapshot so replay and concurrent live events cannot render twice.
 - The reducer in `agent-reducer.ts` is the only projection from normalized
   events to Renderer view state.
 - Shared Agent files must not import Electron, raw `ipcRenderer`, Pi runtime
@@ -47,6 +51,9 @@ Hosts render the common shell and supply the chart through its named slot:
 - Hosts own bridge construction and host storage. The shell owns panel open,
   resize, persistence calls, and compact drawer behavior.
 - Panel width defaults to 420 px and is clamped to 360-640 px.
+- The chart surface owns 16 px vertical gutters and uses the shell background.
+  It may set `--kmap-chart-width/height: 100%`, but must not force every slotted
+  child to 100% height because that consumes the gutter.
 - Compact mode is based on the shell container width below 880 px, not only the
   browser viewport, so embedded Web hosts behave correctly.
 - Closing the panel hides it without unmounting `AgentWorkspace` or cancelling
@@ -58,6 +65,7 @@ Hosts render the common shell and supply the chart through its named slot:
 | ------------------------------------ | --------------------------------------------------- |
 | Event protocol version differs       | Ignore the event and preserve state                 |
 | Event belongs to an inactive run     | Ignore the stale event                              |
+| Event sequence is already applied    | Ignore it and preserve the replay cursor            |
 | Provider is not configured on send   | Open settings and preserve the draft                |
 | Stored width is non-finite or absent | Use the 420 px default                              |
 | Stored width is outside 360-640 px   | Clamp before rendering                              |
@@ -76,11 +84,12 @@ Hosts render the common shell and supply the chart through its named slot:
 ## 6. Tests Required
 
 - Reducer unit tests must assert ordered streaming, confirmation, partial
-  cancellation, retry, undo, and stale-run isolation.
+  cancellation, retry, undo, stale-run isolation, and replay/live deduplication.
 - Component tests must assert draft preservation, Enter/Shift+Enter, Stop,
   read-only mode, confirmation focus, retry, and shell resize/collapse behavior.
 - Electron E2E must use `retries: 0`, verify 360/640 px bounds, exercise compact
-  drawer close/reopen, and assert that chart canvas pixels remain nonblank.
+  drawer close/reopen, assert 16 px chart gutters match the shell background,
+  and assert that chart canvas pixels remain nonblank.
 - Build both the Vue/Web host and Electron Renderer after changing exports,
   slots, bridge signatures, or layout CSS.
 

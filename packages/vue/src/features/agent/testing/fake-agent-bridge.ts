@@ -3,6 +3,7 @@ import {
   AGENT_UI_PROTOCOL_VERSION,
   type AgentBridgeClient,
   type AgentSessionView,
+  type AgentSessionSnapshot,
   type AgentRunUiEventInput,
   type AgentUiEvent,
   type AgentUiEventInput,
@@ -59,6 +60,12 @@ export class FakeAgentBridge implements AgentBridgeClient {
 
   async listSessions(): Promise<AgentSessionView[]> {
     return [...this.sessions]
+  }
+
+  async openSession(sessionId: string): Promise<AgentSessionSnapshot> {
+    const session = this.sessions.find((item) => item.id === sessionId)
+    if (!session) throw new Error(`Unknown fake session: ${sessionId}`)
+    return { session, messages: [], toolCalls: [], runs: [], lastSequence: 0 }
   }
 
   async getProviderStatus(): Promise<ProviderStatusView> {

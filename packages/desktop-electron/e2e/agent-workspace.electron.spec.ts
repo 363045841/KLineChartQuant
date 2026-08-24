@@ -72,9 +72,66 @@ test('launches the chart and exercises the complete Agent workspace shell', asyn
     await page.waitForLoadState('domcontentloaded')
     await setWindowSize(application, 1440, 900)
 
+    const agentApiShape = await page.evaluate(
+      (methodNames) => {
+        const agent = window.desktopAPI?.agent as unknown as Record<string, unknown> | undefined
+        return Object.fromEntries(methodNames.map((name) => [name, typeof agent?.[name]]))
+      },
+      [
+        'cancelRun',
+        'confirmTool',
+        'createSession',
+        'deleteProviderCredential',
+        'deleteSession',
+        'getProviderStatus',
+        'listSessions',
+        'openSession',
+        'renameSession',
+        'retryRun',
+        'startRun',
+        'subscribe',
+        'testProvider',
+        'undoTurn',
+      ],
+    )
+    expect(Object.values(agentApiShape)).toEqual(Array(14).fill('function'))
+    expect(await page.evaluate(() => 'ipcRenderer' in (window.desktopAPI?.agent ?? {}))).toBe(false)
+    expect(
+      await page.evaluate(async () => {
+        try {
+          await window.desktopAPI?.agent.startRun({
+            sessionId: 'not-owned',
+            prompt: 'Inspect',
+            readOnly: true,
+          })
+          return null
+        } catch (error) {
+          return error
+        }
+      }),
+    ).toMatchObject({ code: 'TARGET_MISMATCH', retryable: false })
+
     await expect(page.locator('.chart-surface')).toBeVisible()
     await expect(page.locator('.agent-panel')).toBeVisible()
     await expect(page.locator('.panel-resizer')).toHaveAttribute('aria-valuenow', '420')
+    const chartLayout = await page.evaluate(() => {
+      const shell = document.querySelector<HTMLElement>('.agent-workbench-shell')
+      const surface = document.querySelector<HTMLElement>('.chart-surface')
+      const chart = document.querySelector<HTMLElement>('.chart-wrapper')
+      if (!shell || !surface || !chart) return null
+      const surfaceBounds = surface.getBoundingClientRect()
+      const chartBounds = chart.getBoundingClientRect()
+      return {
+        gutterBackground: getComputedStyle(surface).backgroundColor,
+        shellBackground: getComputedStyle(shell).backgroundColor,
+        topGutter: chartBounds.top - surfaceBounds.top,
+        bottomGutter: surfaceBounds.bottom - chartBounds.bottom,
+      }
+    })
+    expect(chartLayout).not.toBeNull()
+    expect(chartLayout?.gutterBackground).toBe(chartLayout?.shellBackground)
+    expect(chartLayout?.topGutter).toBeCloseTo(16, 0)
+    expect(chartLayout?.bottomGutter).toBeCloseTo(16, 0)
     await page.screenshot({ path: testInfo.outputPath('agent-initial.png') })
     await expectNonBlankCanvas(page)
 
@@ -128,6 +185,47 @@ test('launches the chart and exercises the complete Agent workspace shell', asyn
     await expect(page.locator('.agent-launcher')).toBeVisible()
     await expect(page.locator('.chart-surface')).toBeVisible()
     await expectNonBlankCanvas(page)
+  } finally {
+    await application.close()
+  }
+})
+
+test('reopens the persisted native Agent session after an app restart', async ({
+  browserName: _browserName,
+}, testInfo) => {
+  const profile = testInfo.outputPath('persistent-profile')
+  const prompt = 'Analyze persisted RSI evidence'
+  let application = await electron.launch({
+    args: [mainEntry, `--user-data-dir=${profile}`],
+    env: { ...process.env, NODE_ENV: 'test' },
+  })
+
+  try {
+    let page = await application.firstWindow()
+    await page.waitForLoadState('domcontentloaded')
+    const textarea = page.locator('.composer textarea')
+    await textarea.fill(prompt)
+    await textarea.press('Enter')
+    await expect(page.locator('.settings-dialog')).toBeVisible()
+    const inputs = page.locator('.settings-dialog input')
+    await inputs.nth(0).fill('https://api.302.ai/v1')
+    await inputs.nth(1).fill('ephemeral-e2e-key')
+    await inputs.nth(2).fill('faux-fast')
+    await page.locator('.settings-dialog .primary-button').click()
+    await expect(page.locator('.settings-dialog')).toBeHidden()
+    await textarea.press('Enter')
+    await expect(page.locator('.run-summary[data-status="completed"]')).toBeVisible()
+    await application.close()
+
+    application = await electron.launch({
+      args: [mainEntry, `--user-data-dir=${profile}`],
+      env: { ...process.env, NODE_ENV: 'test' },
+    })
+    page = await application.firstWindow()
+    await page.waitForLoadState('domcontentloaded')
+    await expect(page.locator('.message--user')).toContainText(prompt)
+    await expect(page.locator('.run-summary[data-status="completed"]')).toBeVisible()
+    await expect(page.locator('.tool-card[data-status="succeeded"]')).toBeVisible()
   } finally {
     await application.close()
   }

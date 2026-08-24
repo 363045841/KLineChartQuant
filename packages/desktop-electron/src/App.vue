@@ -11,9 +11,12 @@
   import { AgentWorkbenchShell, KlineChart, type AgentPanelWidthStorage } from '../../vue/src/index'
 
   import { createE2eChartData } from './features/agent/chart-e2e-fixture'
+  import { NativeAgentBridgeClient } from './features/agent/native-agent-bridge'
 
   const PANEL_WIDTH_KEY = 'agent.panelWidth'
-  const bridge = new FakeAgentBridge()
+  const bridge = window.desktopAPI?.agent
+    ? new NativeAgentBridgeClient(window.desktopAPI.agent)
+    : new FakeAgentBridge()
   const e2eChartData = import.meta.env.MODE === 'e2e' ? createE2eChartData() : undefined
 
   const panelWidthStorage: AgentPanelWidthStorage = {

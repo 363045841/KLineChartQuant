@@ -1,5 +1,8 @@
+import type { AgentBridgeClient } from '@363045841yyt/klinechart-agent-runtime/contracts/ui'
+
 /** Desktop platform API bridge injected by preload script. */
 export interface DesktopAPI {
+  agent: AgentBridgeClient
   store: {
     get(key: string): unknown
     set(key: string, value: unknown): void

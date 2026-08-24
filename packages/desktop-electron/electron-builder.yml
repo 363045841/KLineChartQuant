@@ -8,6 +8,12 @@ directories:
 
 files:
   - out/**/*
+  - '!node_modules/@363045841yyt/klinechart-agent-runtime/coverage{,/**/*}'
+  - '!node_modules/@363045841yyt/klinechart-agent-runtime/src{,/**/*}'
+  - '!node_modules/@363045841yyt/klinechart-agent-runtime/dist/testing{,/**/*}'
+  - '!node_modules/@363045841yyt/klinechart-agent-runtime/README.md'
+  - '!node_modules/@363045841yyt/klinechart-agent-runtime/tsconfig*.json'
+  - '!node_modules/@363045841yyt/klinechart-agent-runtime/vitest.config.ts'
 
 win:
   target:

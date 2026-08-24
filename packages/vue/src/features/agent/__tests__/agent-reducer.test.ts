@@ -208,4 +208,26 @@ describe('reduceAgentUiEvent', () => {
     expect(state.run.id).toBe('run-2')
     expect(state.messages).toHaveLength(0)
   })
+
+  it('deduplicates replayed events at or before the applied sequence cursor', () => {
+    const started = event({
+      type: 'run.started',
+      runId: RUN_ID,
+      sessionId: SESSION_ID,
+      startedAt: 10,
+      sequence: 11,
+    })
+    const message = event({
+      type: 'user.message.created',
+      runId: RUN_ID,
+      sessionId: SESSION_ID,
+      sequence: 12,
+      message: { id: 'user-1', role: 'user', content: 'Analyze RSI', createdAt: 11 },
+    })
+    const state = replay([started, message, structuredClone(message)])
+
+    expect(state.messages).toHaveLength(1)
+    expect(state.lastSequence).toBe(12)
+    expect(reduceAgentUiEvent(state, started)).toBe(state)
+  })
 })

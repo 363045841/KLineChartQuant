@@ -11,6 +11,7 @@ import { createCoreSourceAliases } from '../../scripts/core-source-aliases.mjs'
 const coreSrc = fileURLToPath(new URL('../core/src', import.meta.url))
 const repoSrc = fileURLToPath(new URL('../../src', import.meta.url))
 const coreAliases = createCoreSourceAliases(coreSrc)
+const agentContracts = fileURLToPath(new URL('../agent-runtime/src/contracts/ui.ts', import.meta.url))
 
 const vueResolverPlugin = {
   name: 'vue-resolver',
@@ -49,6 +50,13 @@ export default defineConfig({
   },
   resolve: {
     extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json', '.vue'],
-    alias: [...coreAliases, { find: /^@\//, replacement: `${repoSrc}/` }],
+    alias: [
+      ...coreAliases,
+      {
+        find: /^@363045841yyt\/klinechart-agent-runtime\/contracts\/ui$/,
+        replacement: agentContracts,
+      },
+      { find: /^@\//, replacement: `${repoSrc}/` },
+    ],
   },
 })

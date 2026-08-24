@@ -39,3 +39,37 @@ Merged the upstream v0.10.x baseline, delivered the shared Vue Agent workspace f
 ### Next Steps
 
 - None - task complete
+
+
+## Session 2: Native Pi Runtime
+
+**Date**: 2026-08-24
+**Task**: Native Pi Runtime
+**Branch**: `feat/native-pi-runtime-pr`
+
+### Summary
+
+Added the persistent Pi runtime, durable SQLite sessions, typed Electron IPC and preload bridge, replay-safe shared Vue integration, production Faux isolation, chart gutter regression coverage, packaging audits, and runtime/IPC code specs.
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `92a6265` | (see git log) |
+| `6769650` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

@@ -13,6 +13,7 @@ import {
 } from './agent-contracts'
 
 export interface AgentWorkspaceState {
+  lastSequence: number
   sessions: AgentSessionView[]
   activeSessionId: string | null
   messages: AgentMessageView[]
@@ -35,6 +36,7 @@ const IDLE_RUN: AgentRunView = {
 
 export function createInitialAgentState(): AgentWorkspaceState {
   return {
+    lastSequence: 0,
     sessions: [],
     activeSessionId: null,
     messages: [],
@@ -96,12 +98,10 @@ function archiveRun(state: AgentWorkspaceState): AgentRunView[] {
 }
 
 // follow-ignore-next-line complexity
-export function reduceAgentUiEvent(
+function reduceCurrentAgentUiEvent(
   state: AgentWorkspaceState,
   event: AgentUiEvent,
 ): AgentWorkspaceState {
-  if (event.protocolVersion !== AGENT_UI_PROTOCOL_VERSION) return state
-
   if (event.type === 'run.started') {
     return {
       ...state,
@@ -279,6 +279,14 @@ export function reduceAgentUiEvent(
         announcement: `Agent run failed: ${event.error.message}`,
       }
 
+    case 'run.interrupted':
+      return {
+        ...state,
+        run: { ...state.run, status: 'interrupted', endedAt: event.endedAt, error: event.error },
+        error: event.error,
+        announcement: `Agent run interrupted: ${event.error.message}`,
+      }
+
     case 'sessions.changed':
       return { ...state, sessions: event.sessions }
 
@@ -288,4 +296,15 @@ export function reduceAgentUiEvent(
     case 'chart.context.changed':
       return { ...state, context: event.context }
   }
+}
+
+export function reduceAgentUiEvent(
+  state: AgentWorkspaceState,
+  event: AgentUiEvent,
+): AgentWorkspaceState {
+  if (event.protocolVersion !== AGENT_UI_PROTOCOL_VERSION) return state
+  if (event.sequence !== undefined && event.sequence <= state.lastSequence) return state
+
+  const next = reduceCurrentAgentUiEvent(state, event)
+  return event.sequence === undefined ? next : { ...next, lastSequence: event.sequence }
 }

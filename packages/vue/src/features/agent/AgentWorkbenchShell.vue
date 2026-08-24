@@ -189,16 +189,14 @@
   }
 
   .chart-surface {
+    --kmap-chart-height: 100%;
+    --kmap-chart-width: 100%;
+
     min-width: 0;
     min-height: 0;
     position: relative;
     overflow: hidden;
-    background: var(--klc-color-chart-background, #ffffff);
-  }
-
-  .chart-surface > :deep(*) {
-    width: 100%;
-    height: 100%;
+    background: var(--agent-bg);
   }
 
   .agent-panel {

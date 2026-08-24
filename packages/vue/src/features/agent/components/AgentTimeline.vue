@@ -138,7 +138,7 @@
     ].sort((left, right) => left.at - right.at),
   )
   const isTerminal = computed(() =>
-    ['completed', 'failed', 'cancelled', 'partial'].includes(props.run.status),
+    ['completed', 'failed', 'cancelled', 'partial', 'interrupted'].includes(props.run.status),
   )
   const runStatusLabel = computed(
     () => text.value.status[props.run.status as keyof typeof text.value.status],
@@ -151,6 +151,7 @@
         return IconAlertTriangle
       case 'cancelled':
       case 'partial':
+      case 'interrupted':
         return IconBan
       case 'idle':
         return IconClock

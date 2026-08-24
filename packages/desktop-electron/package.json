@@ -13,11 +13,12 @@
     "preview": "electron-vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "electron-vite build --mode e2e && playwright test --config playwright.config.ts",
+    "test:e2e": "pnpm --filter @363045841yyt/klinechart-agent-runtime build && electron-vite build --mode e2e && playwright test --config playwright.config.ts",
     "typecheck": "vue-tsc --build",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
+    "@363045841yyt/klinechart-agent-runtime": "workspace:*",
     "@363045841yyt/klinechart": "workspace:*",
     "@363045841yyt/klinechart-core": "workspace:*"
   },
