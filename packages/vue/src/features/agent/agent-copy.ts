@@ -56,9 +56,6 @@ const copy = {
     probeCatalog: 'Catalog and authentication',
     probeText: 'Minimal text response',
     probeTool: 'Harmless tool call',
-    credentialEncrypted: 'API key is encrypted by the operating system and kept in Main.',
-    credentialMemoryOnly:
-      'Secure storage is unavailable. The API key stays in memory and is forgotten on exit.',
     removeCredential: 'Remove credential',
     cancel: 'Cancel',
     apiKeyPlaceholder: 'Leave blank to use the saved credential',
@@ -139,8 +136,6 @@ const copy = {
     probeCatalog: '模型目录与鉴权',
     probeText: '最小文本回复',
     probeTool: '无副作用工具调用',
-    credentialEncrypted: 'API Key 由操作系统加密并仅在 Main 进程使用。',
-    credentialMemoryOnly: '当前无法安全落盘；API Key 仅保存在内存中，退出后会清除。',
     removeCredential: '删除凭据',
     cancel: '取消',
     apiKeyPlaceholder: '留空则使用已保存的凭据',

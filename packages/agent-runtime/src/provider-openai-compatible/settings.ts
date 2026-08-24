@@ -3,7 +3,6 @@ import { AgentRuntimeError } from '../contracts/errors.js'
 import {
   PROVIDER_SETTINGS_VERSION,
   type OpenAiCompatibleProviderSettings,
-  type ProviderCredentialMetadata,
   type ProviderCredentialStore,
   type ProviderSettingsStore,
 } from './types.js'
@@ -46,12 +45,6 @@ export function parseOpenAiCompatibleProviderSettings(
 export class InMemoryProviderCredentialStore implements ProviderCredentialStore {
   private key: string | undefined
 
-  constructor(
-    private readonly credentialMetadata: ProviderCredentialMetadata = {
-      persistenceMode: 'memory-only',
-    },
-  ) {}
-
   async read(signal?: AbortSignal): Promise<string | undefined> {
     signal?.throwIfAborted()
     return this.key
@@ -65,10 +58,6 @@ export class InMemoryProviderCredentialStore implements ProviderCredentialStore 
   async delete(signal?: AbortSignal): Promise<void> {
     signal?.throwIfAborted()
     this.key = undefined
-  }
-
-  async metadata(): Promise<ProviderCredentialMetadata> {
-    return { ...this.credentialMetadata }
   }
 }
 

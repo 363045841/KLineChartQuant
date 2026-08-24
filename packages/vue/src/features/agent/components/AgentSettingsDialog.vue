@@ -55,12 +55,6 @@
         </span>
       </label>
 
-      <p v-if="status.persistenceMode" class="settings-dialog__persistence">
-        <IconLock v-if="status.persistenceMode === 'encrypted'" aria-hidden="true" />
-        <IconAlertTriangle v-else aria-hidden="true" />
-        {{ persistenceLabel }}
-      </p>
-
       <ol v-if="testResult" class="settings-dialog__stages" :aria-label="text.probeResults">
         <li v-for="stage in testResult.stages" :key="stage.stage">
           <IconCircleCheck aria-hidden="true" />
@@ -141,7 +135,6 @@
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
   import IconCircleCheck from '~icons/tabler/circle-check'
   import IconLoader2 from '~icons/tabler/loader-2'
-  import IconLock from '~icons/tabler/lock'
   import IconNotes from '~icons/tabler/notes'
   import IconPlugConnected from '~icons/tabler/plug-connected'
   import IconRefresh from '~icons/tabler/refresh'
@@ -169,11 +162,6 @@
   const model = ref('')
   const text = computed(() => getAgentCopy(props.locale))
   const visibleError = computed(() => props.operationError ?? props.status.error)
-  const persistenceLabel = computed(() =>
-    props.status.persistenceMode === 'encrypted'
-      ? text.value.credentialEncrypted
-      : text.value.credentialMemoryOnly,
-  )
   const refreshDisabled = computed(
     () =>
       props.modelsLoading ||

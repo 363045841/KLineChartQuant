@@ -62,14 +62,12 @@ export class FakeAgentBridge implements AgentBridgeClient {
           configured: true,
           modelId: 'Scripted Alpha',
           modelLabel: 'Scripted Alpha',
-          persistenceMode: 'encrypted',
           compatibility: 'compatible',
         }
       : {
           state: 'not-configured',
           providerLabel: 'OpenAI-compatible',
           configured: false,
-          persistenceMode: 'encrypted',
           compatibility: 'unknown',
         }
   }
@@ -204,7 +202,6 @@ export class FakeAgentBridge implements AgentBridgeClient {
       baseUrl: input.baseUrl,
       modelId: input.model,
       modelLabel: input.model || 'Scripted Alpha',
-      persistenceMode: 'encrypted',
       compatibility: 'compatible',
     }
     this.emit({ type: 'provider.status.changed', status: this.provider })
@@ -224,7 +221,6 @@ export class FakeAgentBridge implements AgentBridgeClient {
       baseUrl: this.provider.baseUrl,
       modelId: this.provider.modelId,
       modelLabel: this.provider.modelLabel,
-      persistenceMode: this.provider.persistenceMode,
       compatibility: 'unknown',
     }
     this.emit({ type: 'provider.status.changed', status: this.provider })

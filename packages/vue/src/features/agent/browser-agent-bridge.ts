@@ -1,10 +1,13 @@
-// 浏览器内存 Agent bridge：Pi、会话和 Provider 请求全部运行在 Renderer。
+// 浏览器 Agent bridge：Pi、会话和 Provider 请求全部运行在 Renderer。
 import {
   AgentRuntimeError,
-  InMemoryProviderCredentialStore,
-  InMemoryProviderSettingsStore,
   PiRunDriver,
+  PROVIDER_SETTINGS_VERSION,
   createOpenAiCompatibleRuntimeSupport,
+  fetchOpenAiCompatibleModels,
+  normalizeProviderBaseUrl,
+  parseOpenAiCompatibleProviderSettings,
+  providerHttpError,
 } from '@363045841yyt/klinechart-agent-runtime'
 
 import type {
@@ -20,6 +23,62 @@ import type {
   ProviderTestResult,
   StartRunInput,
 } from './agent-contracts'
+import type {
+  ProviderCredentialStore,
+  OpenAiCompatibleProviderSettings,
+  ProviderSettingsStore,
+} from '@363045841yyt/klinechart-agent-runtime'
+
+const PROVIDER_API_KEY_STORAGE_KEY = 'agent.provider.apiKey'
+const PROVIDER_SETTINGS_STORAGE_KEY = 'agent.provider.settings'
+
+// 移除 Pi SDK 的浏览器诊断头，避免不支持这些头的 OpenAI-compatible Provider 拒绝 CORS 预检。
+async function fetchBrowserProvider(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  const headers = new Headers(init?.headers)
+  for (const name of [...headers.keys()]) {
+    if (name.startsWith('x-stainless-')) headers.delete(name)
+  }
+  return fetch(input, { ...init, headers })
+}
+
+class BrowserProviderCredentialStore implements ProviderCredentialStore {
+  async read(signal?: AbortSignal): Promise<string | undefined> {
+    signal?.throwIfAborted()
+    return window.localStorage.getItem(PROVIDER_API_KEY_STORAGE_KEY) ?? undefined
+  }
+
+  async write(apiKey: string, signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted()
+    window.localStorage.setItem(PROVIDER_API_KEY_STORAGE_KEY, apiKey)
+  }
+
+  async delete(signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted()
+    window.localStorage.removeItem(PROVIDER_API_KEY_STORAGE_KEY)
+  }
+}
+
+class BrowserProviderSettingsStore implements ProviderSettingsStore {
+  async read(signal?: AbortSignal): Promise<OpenAiCompatibleProviderSettings | undefined> {
+    signal?.throwIfAborted()
+    const raw = window.localStorage.getItem(PROVIDER_SETTINGS_STORAGE_KEY)
+    if (!raw) return undefined
+    try {
+      return parseOpenAiCompatibleProviderSettings(JSON.parse(raw))
+    } catch {
+      window.localStorage.removeItem(PROVIDER_SETTINGS_STORAGE_KEY)
+      return undefined
+    }
+  }
+
+  async write(settings: OpenAiCompatibleProviderSettings, signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted()
+    window.localStorage.setItem(PROVIDER_SETTINGS_STORAGE_KEY, JSON.stringify(settings))
+  }
+}
 
 interface BrowserSession {
   view: AgentSessionView
@@ -34,16 +93,16 @@ interface ActiveRun {
 
 export class BrowserAgentBridge implements AgentBridgeClient {
   private readonly listeners = new Set<(event: AgentUiEvent) => void>()
-  private readonly credentials = new InMemoryProviderCredentialStore({
-    persistenceMode: 'memory-only',
-  })
-  private readonly settings = new InMemoryProviderSettingsStore()
+  private readonly credentials = new BrowserProviderCredentialStore()
+  private readonly settings = new BrowserProviderSettingsStore()
   private readonly support = createOpenAiCompatibleRuntimeSupport({
     credentials: this.credentials,
     settings: this.settings,
+    fetch: fetchBrowserProvider,
   })
   private readonly sessions = new Map<string, BrowserSession>()
   private readonly activeRuns = new Map<string, ActiveRun>()
+  private readonly runInputs = new Map<string, StartRunInput>()
   private nextSession = 1
   private nextRun = 1
 
@@ -72,7 +131,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   }
 
   listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult> {
-    return this.support.provider.listModels(input)
+    return fetchOpenAiCompatibleModels(input)
   }
 
   async createSession(): Promise<AgentSessionView> {
@@ -92,6 +151,9 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     if (this.activeRuns.size)
       throw new AgentRuntimeError('RUN_ACTIVE', 'Stop the active Agent run first.')
     this.sessions.delete(sessionId)
+    for (const [runId, input] of this.runInputs) {
+      if (input.sessionId === sessionId) this.runInputs.delete(runId)
+    }
     this.emit({ type: 'sessions.changed', sessions: await this.listSessions() })
   }
 
@@ -101,6 +163,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     const startedAt = Date.now()
     const driver = new PiRunDriver()
     this.activeRuns.set(runId, { driver, input })
+    this.runInputs.set(runId, input)
     session.messages.push({
       id: `user-${runId}`,
       role: 'user',
@@ -124,9 +187,9 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   }
 
   async retryRun(runId: string): Promise<{ runId: string }> {
-    const active = this.activeRuns.get(runId)
-    if (!active) throw new AgentRuntimeError('RUN_NOT_ACTIVE', 'The Agent run is unavailable.')
-    return this.startRun(active.input)
+    const input = this.runInputs.get(runId)
+    if (!input) throw new AgentRuntimeError('RUN_NOT_ACTIVE', 'The Agent run is unavailable.')
+    return this.startRun(input)
   }
 
   async confirmTool(): Promise<void> {
@@ -138,7 +201,32 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   }
 
   async testProvider(input: ProviderTestInput): Promise<ProviderTestResult> {
-    const result = await this.support.provider.test(input)
+    const startedAt = Date.now()
+    const { models, refreshedAt } = await fetchOpenAiCompatibleModels(input)
+    const selected = models.find((model) => model.id === input.model)
+    if (!selected) throw providerHttpError(404)
+    const apiKey = input.apiKey?.trim() || (await this.credentials.read())
+    if (!apiKey) {
+      throw new AgentRuntimeError('PROVIDER_NOT_CONFIGURED', 'Enter an API key before testing.')
+    }
+    const testedAt = Date.now()
+    await this.credentials.write(apiKey)
+    await this.settings.write({
+      version: PROVIDER_SETTINGS_VERSION,
+      baseUrl: normalizeProviderBaseUrl(input.baseUrl),
+      modelId: selected.id,
+      modelName: selected.name,
+      compatibility: 'compatible',
+      lastTestedAt: testedAt,
+      lastModelsRefreshAt: refreshedAt,
+    })
+    const latencyMs = Math.max(0, testedAt - startedAt)
+    const result: ProviderTestResult = {
+      compatible: true,
+      model: selected.id,
+      latencyMs,
+      stages: [{ stage: 'catalog', ok: true, latencyMs }],
+    }
     this.emit({ type: 'provider.status.changed', status: await this.getProviderStatus() })
     return result
   }

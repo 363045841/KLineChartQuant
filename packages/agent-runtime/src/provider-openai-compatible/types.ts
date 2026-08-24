@@ -1,19 +1,11 @@
-import type { ProviderPersistenceMode } from '../contracts/ui.js'
-
 export const OPENAI_COMPATIBLE_PROVIDER_ID = 'openai-compatible'
 export const OPENAI_COMPATIBLE_PROVIDER_LABEL = 'OpenAI-compatible'
 export const PROVIDER_SETTINGS_VERSION = 1 as const
-
-export interface ProviderCredentialMetadata {
-  persistenceMode: ProviderPersistenceMode
-  warning?: string
-}
 
 export interface ProviderCredentialStore {
   read(signal?: AbortSignal): Promise<string | undefined>
   write(apiKey: string, signal?: AbortSignal): Promise<void>
   delete(signal?: AbortSignal): Promise<void>
-  metadata(): Promise<ProviderCredentialMetadata>
 }
 
 export interface OpenAiCompatibleProviderSettings {

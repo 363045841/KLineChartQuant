@@ -33,7 +33,6 @@ export function createFauxRuntimeSupport(): RuntimeSupport {
             baseUrl: 'https://api.example.com/v1',
             modelId: modelLabel,
             modelLabel,
-            persistenceMode: 'encrypted',
             compatibility: 'compatible',
           }
         : {
@@ -41,15 +40,12 @@ export function createFauxRuntimeSupport(): RuntimeSupport {
             providerLabel: 'OpenAI-compatible',
             configured: false,
             baseUrl: 'https://api.example.com/v1',
-            persistenceMode: 'encrypted',
             compatibility: 'unknown',
           }
     },
     async listModels(_input: ProviderModelsInput): Promise<ProviderModelsResult> {
       return {
-        models: [
-          { id: modelLabel, name: modelLabel, compatibility: 'compatible', latencyMs: 1 },
-        ],
+        models: [{ id: modelLabel, name: modelLabel, compatibility: 'compatible', latencyMs: 1 }],
         refreshedAt: Date.now(),
       }
     },

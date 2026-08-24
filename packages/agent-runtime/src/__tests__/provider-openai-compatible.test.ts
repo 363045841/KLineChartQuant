@@ -26,7 +26,7 @@ function json(value: unknown, status = 200, headers?: HeadersInit): Response {
 }
 
 function configuredStores() {
-  const credentials = new InMemoryProviderCredentialStore({ persistenceMode: 'encrypted' })
+  const credentials = new InMemoryProviderCredentialStore()
   const settings = new InMemoryProviderSettingsStore()
   return { credentials, settings }
 }
@@ -288,7 +288,6 @@ describe('OpenAI-compatible runtime support', () => {
     expect(status).toMatchObject({
       state: 'connected',
       configured: true,
-      persistenceMode: 'encrypted',
       compatibility: 'compatible',
       modelId: 'frontier-fast',
     })
@@ -403,7 +402,7 @@ describe('OpenAI-compatible runtime support', () => {
   })
 
   it('returns a safe removable error status when persisted settings are corrupt', async () => {
-    const credentials = new InMemoryProviderCredentialStore({ persistenceMode: 'encrypted' })
+    const credentials = new InMemoryProviderCredentialStore()
     await credentials.write(secret)
     const support = createOpenAiCompatibleRuntimeSupport({
       credentials,

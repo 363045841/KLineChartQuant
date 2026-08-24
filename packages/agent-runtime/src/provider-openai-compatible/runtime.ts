@@ -20,7 +20,6 @@ import {
 import type {
   OpenAiCompatibleRuntimeOptions,
   OpenAiCompatibleProviderSettings,
-  ProviderCredentialMetadata,
   ProviderDiagnostic,
 } from './types.js'
 import type { RuntimeSupport } from '../application/unavailable-runtime.js'
@@ -288,9 +287,7 @@ export function createOpenAiCompatibleRuntimeSupport(
   async function getStatus(): Promise<ProviderStatusView> {
     let apiKey: string | undefined
     let settings: OpenAiCompatibleProviderSettings | undefined
-    let metadata: ProviderCredentialMetadata = { persistenceMode: 'memory-only' }
     try {
-      metadata = await options.credentials.metadata()
       apiKey = await options.credentials.read()
       settings = await options.settings.read()
     } catch (error) {
@@ -306,11 +303,9 @@ export function createOpenAiCompatibleRuntimeSupport(
       modelId: settings?.modelId,
       modelLabel: settings?.modelName,
       fingerprint: apiKey ? await fingerprint(apiKey) : undefined,
-      persistenceMode: metadata.persistenceMode,
       compatibility: compatible ? 'compatible' : lastError ? 'incompatible' : 'unknown',
       lastTestedAt: settings?.lastTestedAt,
       lastModelsRefreshAt: lastRefreshAt ?? settings?.lastModelsRefreshAt,
-      warning: metadata.warning,
       error: lastError?.toView(),
     }
   }

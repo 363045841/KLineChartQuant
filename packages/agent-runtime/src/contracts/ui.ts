@@ -102,7 +102,6 @@ export interface ChartContextView {
 }
 
 export type ProviderConnectionState = 'not-configured' | 'testing' | 'connected' | 'error'
-export type ProviderPersistenceMode = 'encrypted' | 'memory-only'
 export type ProviderCompatibility = 'unknown' | 'testing' | 'incompatible' | 'compatible'
 export interface ProviderStatusView {
   state: ProviderConnectionState
@@ -112,11 +111,9 @@ export interface ProviderStatusView {
   modelId?: string
   modelLabel?: string
   fingerprint?: string
-  persistenceMode?: ProviderPersistenceMode
   compatibility?: ProviderCompatibility
   lastTestedAt?: number
   lastModelsRefreshAt?: number
-  warning?: string
   error?: AgentErrorView
 }
 
