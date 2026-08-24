@@ -54,16 +54,13 @@ only in an `e2e` build.
   never cross into Renderer code.
 - Credentials and secret values are Main-only and pass through central
   redaction before events, persistence, logs, and structured errors.
-- The 302.ai credential is accepted only by `provider.models` and
+- The OpenAI-compatible Provider credential is accepted only by `provider.models` and
   `provider.test` request inputs. Renderer receives bounded model/status/test
   views and must never receive or persist the key. A configuration becomes
   runnable only after catalog, text, and exact harmless tool-call probes pass.
-- Live evaluation reads only `KQ_302AI_API_KEY`; a missing variable is a
-  zero-request skip. Quality evidence is exact-ID evidence: the official model
-  catalog marks `gpt-5.6-luna` as a current candidate, while the observed Arena
-  rank 63 belongs only to the exact `gpt-5.6-luna-xhigh` row. Never copy a
-  variant's Arena rank onto the base model or infer 302.ai availability from
-  either source.
+- The Provider has no built-in vendor endpoint. Renderer must submit an explicit
+  HTTP(S) Base URL, and Main uses that normalized URL for model discovery,
+  compatibility probes, and Pi streaming.
 - Production packages exclude runtime source, coverage, tests, and
   `dist/testing`. Electron Main bundles Agent runtime, Pi AI/Core, and the
   SQLite backend; `node:sqlite` remains a system import. Because the bundled
@@ -116,10 +113,8 @@ once at the adapter boundary and returned without raw Provider details.
 - Packaging: unsigned unpack build; assert runtime `dist` and Pi migration exist;
   assert runtime source/tests/coverage/`dist/testing`, Faux imports, and secret
   sentinels are absent.
-- Provider evaluation: deterministic Pareto tests keep exact-ID Arena evidence
-  separate from current model candidates; the opt-in live runner either emits
-  a redacted availability/compatibility/latency report or proves a missing-key
-  zero-request skip.
+- Provider tests use injected fetch implementations and non-routable example
+  endpoints; automated tests never require a vendor account or live API key.
 - Node matrix: a suite skipped for unsupported Node versions must use a
   type-only top-level import and dynamically import `./node` inside the gated
   test. `describe.skip` runs after static module evaluation and cannot protect
@@ -154,13 +149,5 @@ const support: RuntimeSupport =
 Vite removes the test branch from a production Main bundle. The later real
 Provider adapter replaces `createUnavailableRuntimeSupport`, not the E2E path.
 
-Arena evidence follows the same exactness rule. Do not family-match ranks:
-
-```typescript
-// Wrong: invents a rank for the unranked base candidate.
-rank('gpt-5.6-luna') ?? rank('gpt-5.6-luna-xhigh')
-
-// Correct: current-candidate and exact Arena evidence remain separate.
-currentCandidates = [{ modelId: 'gpt-5.6-luna', source: 'official-model-catalog' }]
-arenaPriors = [{ modelId: 'gpt-5.6-luna-xhigh', overallRank: 63 }]
-```
+The settings UI uses the shared `BaseModal`; it does not duplicate overlay,
+focus, transition, or responsive-dialog infrastructure.

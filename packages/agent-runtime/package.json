@@ -37,7 +37,6 @@
     "build": "tsc -p tsconfig.build.json",
     "coverage": "vitest run --coverage",
     "lint:publish": "publint --strict .",
-    "live:302ai": "pnpm build && node scripts/evaluate-302ai.mjs",
     "prepublishOnly": "pnpm build",
     "test": "vitest run"
   },

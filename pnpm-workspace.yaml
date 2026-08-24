@@ -2,10 +2,12 @@ packages:
   - 'packages/*'
   - 'examples/*'
 allowBuilds:
+  '@google/genai': false
   '@parcel/watcher': true
   electron-winstaller: true
   esbuild: true
   lmdb: true
   msgpackr-extract: true
+  protobufjs: false
   sharp: true
   unrs-resolver: true

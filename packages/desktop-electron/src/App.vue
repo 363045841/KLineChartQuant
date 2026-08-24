@@ -7,25 +7,22 @@
 </template>
 
 <script setup lang="ts">
-  import { FakeAgentBridge } from '../../vue/src/features/agent/testing/fake-agent-bridge'
+  import { BrowserAgentBridge } from '../../vue/src/features/agent/browser-agent-bridge'
   import { AgentWorkbenchShell, KlineChart, type AgentPanelWidthStorage } from '../../vue/src/index'
 
   import { createE2eChartData } from './features/agent/chart-e2e-fixture'
-  import { NativeAgentBridgeClient } from './features/agent/native-agent-bridge'
 
   const PANEL_WIDTH_KEY = 'agent.panelWidth'
-  const bridge = window.desktopAPI?.agent
-    ? new NativeAgentBridgeClient(window.desktopAPI.agent)
-    : new FakeAgentBridge()
+  const bridge = new BrowserAgentBridge()
   const e2eChartData = import.meta.env.MODE === 'e2e' ? createE2eChartData() : undefined
 
   const panelWidthStorage: AgentPanelWidthStorage = {
     load() {
-      const width = window.desktopAPI?.store.get(PANEL_WIDTH_KEY)
-      return typeof width === 'number' ? width : undefined
+      const width = Number(window.localStorage.getItem(PANEL_WIDTH_KEY))
+      return Number.isFinite(width) ? width : undefined
     },
     save(width) {
-      window.desktopAPI?.store.set(PANEL_WIDTH_KEY, width)
+      window.localStorage.setItem(PANEL_WIDTH_KEY, String(width))
     },
   }
 </script>

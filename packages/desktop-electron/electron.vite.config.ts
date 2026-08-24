@@ -1,4 +1,3 @@
-import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import vue from '@vitejs/plugin-vue'
@@ -12,46 +11,15 @@ const coreSrc = `${root}/packages/core/src`
 const agentContracts = `${root}/packages/agent-runtime/src/contracts/ui.ts`
 
 const entry = (path: string) => fileURLToPath(new URL(path, import.meta.url))
-const sqliteMigration = entry(
-  '../agent-runtime/node_modules/@earendil-works/pi-session-backend-sqlite-node/dist/sqlite/migrations/001_initial.sql',
-)
-
 export default defineConfig({
   main: {
-    plugins: [
-      externalizeDepsPlugin({
-        exclude: ['@363045841yyt/klinechart-agent-runtime'],
-      }),
-      {
-        name: 'bundle-pi-sqlite-migration',
-        async generateBundle() {
-          this.emitFile({
-            type: 'asset',
-            fileName: 'migrations/001_initial.sql',
-            source: await readFile(sqliteMigration),
-          })
-        },
-      },
-    ],
+    plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
         input: entry('electron/main.ts'),
         external: [
           'electron',
-          'electron-store',
         ],
-      },
-    },
-  },
-  preload: {
-    plugins: [externalizeDepsPlugin()],
-    build: {
-      rollupOptions: {
-        input: entry('electron/preload.ts'),
-        output: {
-          format: 'cjs',
-        },
-        external: ['electron'],
       },
     },
   },

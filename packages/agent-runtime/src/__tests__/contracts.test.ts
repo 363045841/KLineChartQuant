@@ -66,13 +66,13 @@ describe('Agent IPC contracts', () => {
     const parsed = parseAgentIpcRequest(
       request({
         command: 'provider.models',
-        payload: { baseUrl: 'https://api.302.ai/v1' },
+        payload: { baseUrl: 'https://models.example.test/v1' },
       }),
       1_000,
     )
     expect(parsed).toMatchObject({
       command: 'provider.models',
-      payload: { baseUrl: 'https://api.302.ai/v1' },
+      payload: { baseUrl: 'https://models.example.test/v1' },
     })
   })
 })
@@ -106,21 +106,20 @@ describe('production Provider fallback', () => {
 
     expect(await support.provider.getStatus()).toEqual({
       state: 'not-configured',
-      providerLabel: '302.ai',
+      providerLabel: 'OpenAI-compatible',
       configured: false,
-      baseUrl: 'https://api.302.ai/v1',
       compatibility: 'unknown',
     })
     await expect(
       support.provider.test({
-        baseUrl: 'https://api.302.ai/v1',
+        baseUrl: 'https://models.example.test/v1',
         apiKey: 'ephemeral',
         model: 'fast-model',
       }),
     ).rejects.toMatchObject({ code: 'PROVIDER_NOT_CONFIGURED' })
     await expect(
       support.provider.listModels({
-        baseUrl: 'https://api.302.ai/v1',
+        baseUrl: 'https://models.example.test/v1',
         apiKey: 'ephemeral',
       }),
     ).rejects.toMatchObject({ code: 'PROVIDER_NOT_CONFIGURED' })

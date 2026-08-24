@@ -28,9 +28,9 @@ export function createFauxRuntimeSupport(): RuntimeSupport {
       return configured
         ? {
             state: 'connected',
-            providerLabel: '302.ai',
+            providerLabel: 'OpenAI-compatible',
             configured: true,
-            baseUrl: 'https://api.302.ai/v1',
+            baseUrl: 'https://api.example.com/v1',
             modelId: modelLabel,
             modelLabel,
             persistenceMode: 'encrypted',
@@ -38,9 +38,9 @@ export function createFauxRuntimeSupport(): RuntimeSupport {
           }
         : {
             state: 'not-configured',
-            providerLabel: '302.ai',
+            providerLabel: 'OpenAI-compatible',
             configured: false,
-            baseUrl: 'https://api.302.ai/v1',
+            baseUrl: 'https://api.example.com/v1',
             persistenceMode: 'encrypted',
             compatibility: 'unknown',
           }

@@ -1,5 +1,0 @@
-export const AGENT_COMMAND_CHANNEL = 'kq-agent:command'
-export const AGENT_CONNECT_CHANNEL = 'kq-agent:connect'
-export const AGENT_IDENTITY_CHANNEL = 'kq-agent:identity'
-export const AGENT_PORT_CHANNEL = 'kq-agent:port'
-export const AGENT_CHART_ID = 'primary'

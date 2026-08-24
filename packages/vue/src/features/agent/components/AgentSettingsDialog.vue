@@ -1,142 +1,130 @@
 <template>
-  <Teleport to="body">
-    <div v-if="open" class="settings-backdrop" @mousedown.self="$emit('close')">
-      <section
-        ref="dialog"
-        class="settings-dialog"
-        role="dialog"
-        aria-modal="true"
-        :aria-labelledby="titleId"
-        tabindex="-1"
-        @keydown.esc="$emit('close')"
-      >
-        <header>
-          <div>
-            <h2 :id="titleId">{{ text.providerTitle }}</h2>
-            <p>{{ text.providerBody }}</p>
-          </div>
+  <BaseModal
+    :show="open"
+    :title="text.providerTitle"
+    :subtitle="text.providerBody"
+    width="min(92vw, 460px)"
+    max-height="calc(100vh - 36px)"
+    body-padding="16px 20px"
+    footer-align="space-between"
+    @close="$emit('close')"
+  >
+    <form id="agent-provider-settings-form" class="settings-form" @submit.prevent="submit">
+      <label>
+        <span>{{ text.baseUrl }}</span>
+        <input v-model="baseUrl" type="url" required spellcheck="false" />
+      </label>
+      <label>
+        <span>{{ text.apiKey }}</span>
+        <input
+          v-model="apiKey"
+          type="password"
+          :required="!status.configured"
+          autocomplete="off"
+          :placeholder="text.apiKeyPlaceholder"
+        />
+      </label>
+      <label class="settings-dialog__model-field">
+        <span>{{ text.model }}</span>
+        <span class="settings-dialog__model-control">
+          <select v-if="models.length" ref="modelInput" v-model="model" required>
+            <option v-for="item in models" :key="item.id" :value="item.id">
+              {{ item.name }}
+            </option>
+          </select>
+          <input
+            v-else
+            ref="modelInput"
+            v-model="model"
+            type="text"
+            required
+            autocomplete="off"
+            spellcheck="false"
+            :placeholder="text.modelPlaceholder"
+          />
           <button
             type="button"
-            class="icon-button"
-            :title="text.cancel"
-            :aria-label="text.cancel"
-            @click="$emit('close')"
+            class="icon-button settings-dialog__refresh"
+            :title="text.refreshModels"
+            :aria-label="text.refreshModels"
+            :disabled="refreshDisabled"
+            @click="refresh"
           >
-            <IconX aria-hidden="true" />
+            <IconRefresh :class="{ spinner: modelsLoading }" aria-hidden="true" />
           </button>
-        </header>
+        </span>
+      </label>
 
-        <form @submit.prevent="submit">
-          <label>
-            <span>{{ text.baseUrl }}</span>
-            <input v-model="baseUrl" type="url" required spellcheck="false" />
-          </label>
-          <label>
-            <span>{{ text.apiKey }}</span>
-            <input
-              v-model="apiKey"
-              type="password"
-              :required="!status.configured"
-              autocomplete="off"
-              :placeholder="text.apiKeyPlaceholder"
-            />
-          </label>
-          <label class="settings-dialog__model-field">
-            <span>{{ text.model }}</span>
-            <span class="settings-dialog__model-control">
-              <select v-if="models.length" ref="modelInput" v-model="model" required>
-                <option v-for="item in models" :key="item.id" :value="item.id">
-                  {{ item.name }}
-                </option>
-              </select>
-              <input
-                v-else
-                ref="modelInput"
-                v-model="model"
-                type="text"
-                required
-                autocomplete="off"
-                spellcheck="false"
-                :placeholder="text.modelPlaceholder"
-              />
-              <button
-                type="button"
-                class="icon-button settings-dialog__refresh"
-                :title="text.refreshModels"
-                :aria-label="text.refreshModels"
-                :disabled="refreshDisabled"
-                @click="refresh"
-              >
-                <IconRefresh :class="{ spinner: modelsLoading }" aria-hidden="true" />
-              </button>
-            </span>
-          </label>
+      <p v-if="status.persistenceMode" class="settings-dialog__persistence">
+        <IconLock v-if="status.persistenceMode === 'encrypted'" aria-hidden="true" />
+        <IconAlertTriangle v-else aria-hidden="true" />
+        {{ persistenceLabel }}
+      </p>
 
-          <p v-if="status.persistenceMode" class="settings-dialog__persistence">
-            <IconLock v-if="status.persistenceMode === 'encrypted'" aria-hidden="true" />
-            <IconAlertTriangle v-else aria-hidden="true" />
-            {{ persistenceLabel }}
-          </p>
+      <ol v-if="testResult" class="settings-dialog__stages" :aria-label="text.probeResults">
+        <li v-for="stage in testResult.stages" :key="stage.stage">
+          <IconCircleCheck aria-hidden="true" />
+          <span>{{ stageLabel(stage.stage) }}</span>
+          <strong>{{ stage.latencyMs }} ms</strong>
+        </li>
+      </ol>
 
-          <ol v-if="testResult" class="settings-dialog__stages" :aria-label="text.probeResults">
-            <li v-for="stage in testResult.stages" :key="stage.stage">
-              <IconCircleCheck aria-hidden="true" />
-              <span>{{ stageLabel(stage.stage) }}</span>
-              <strong>{{ stage.latencyMs }} ms</strong>
-            </li>
-          </ol>
+      <div v-if="visibleError" class="settings-dialog__error" role="alert">
+        <IconAlertTriangle aria-hidden="true" />
+        <span>
+          <strong>{{ visibleError.message }}</strong>
+          <small v-if="visibleError.recommendedAction">
+            {{ visibleError.recommendedAction }}
+          </small>
+        </span>
+      </div>
 
-          <div v-if="visibleError" class="settings-dialog__error" role="alert">
-            <IconAlertTriangle aria-hidden="true" />
-            <span>
-              <strong>{{ visibleError.message }}</strong>
-              <small v-if="visibleError.recommendedAction">
-                {{ visibleError.recommendedAction }}
-              </small>
-            </span>
-          </div>
+      <p class="settings-dialog__draft-note">
+        <IconNotes aria-hidden="true" />
+        {{ text.providerDraftNotice }}
+      </p>
 
-          <p class="settings-dialog__draft-note">
-            <IconNotes aria-hidden="true" />
-            {{ text.providerDraftNotice }}
-          </p>
+      <div class="settings-dialog__status" :data-state="status.state">
+        <span aria-hidden="true"></span>
+        {{ connectionLabel }}
+        <strong v-if="status.modelLabel">{{ status.modelLabel }}</strong>
+      </div>
+    </form>
 
-          <div class="settings-dialog__status" :data-state="status.state">
-            <span aria-hidden="true"></span>
-            {{ connectionLabel }}
-            <strong v-if="status.modelLabel">{{ status.modelLabel }}</strong>
-          </div>
-
-          <footer>
-            <button
-              v-if="status.configured || status.state === 'error'"
-              type="button"
-              class="danger-button"
-              @click="$emit('delete')"
-            >
-              <IconTrash aria-hidden="true" />
-              {{ text.removeCredential }}
-            </button>
-            <span v-else></span>
-            <div>
-              <button type="button" class="secondary-button" @click="$emit('close')">
-                {{ text.cancel }}
-              </button>
-              <button type="submit" class="primary-button" :disabled="testDisabled">
-                <IconPlugConnected v-if="status.state !== 'testing'" aria-hidden="true" />
-                <IconLoader2 v-else class="spinner" aria-hidden="true" />
-                {{ text.testConnection }}
-              </button>
-            </div>
-          </footer>
-        </form>
-      </section>
-    </div>
-  </Teleport>
+    <template #footer>
+      <button
+        v-if="status.configured || status.state === 'error'"
+        type="button"
+        class="danger-button"
+        @click="$emit('delete')"
+      >
+        <IconTrash aria-hidden="true" />
+        {{ text.removeCredential }}
+      </button>
+      <span v-else />
+      <div class="settings-actions">
+        <button type="button" class="secondary-button" @click="$emit('close')">
+          {{ text.cancel }}
+        </button>
+        <button
+          type="submit"
+          form="agent-provider-settings-form"
+          class="primary-button"
+          :disabled="testDisabled"
+        >
+          <IconPlugConnected v-if="status.state !== 'testing'" aria-hidden="true" />
+          <IconLoader2 v-else class="spinner" aria-hidden="true" />
+          {{ text.testConnection }}
+        </button>
+      </div>
+    </template>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
   import { computed, nextTick, ref, watch } from 'vue'
+
+  import BaseModal from '../../../components/BaseModal.vue'
 
   import { getAgentCopy, type AgentLocale } from '../agent-copy'
 
@@ -158,7 +146,6 @@
   import IconPlugConnected from '~icons/tabler/plug-connected'
   import IconRefresh from '~icons/tabler/refresh'
   import IconTrash from '~icons/tabler/trash'
-  import IconX from '~icons/tabler/x'
 
   const props = defineProps<{
     open: boolean
@@ -176,10 +163,8 @@
     delete: []
   }>()
 
-  const titleId = 'agent-provider-settings-title'
-  const dialog = ref<HTMLElement | null>(null)
   const modelInput = ref<HTMLInputElement | HTMLSelectElement | null>(null)
-  const baseUrl = ref('https://api.302.ai/v1')
+  const baseUrl = ref('')
   const apiKey = ref('')
   const model = ref('')
   const text = computed(() => getAgentCopy(props.locale))
@@ -235,10 +220,9 @@
     () => props.open,
     async (open) => {
       if (!open) return
-      baseUrl.value = props.status.baseUrl ?? 'https://api.302.ai/v1'
+      baseUrl.value = props.status.baseUrl ?? ''
       model.value = props.status.modelId ?? ''
       await nextTick()
-      dialog.value?.focus()
       modelInput.value?.focus()
     },
   )
@@ -260,50 +244,11 @@
 </script>
 
 <style scoped>
-  .settings-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 1000;
+  .settings-form {
     display: grid;
-    place-items: center;
-    padding: 18px;
-    background: rgba(15, 20, 25, 0.44);
-  }
-
-  .settings-dialog {
-    width: min(460px, 100%);
-    max-height: calc(100vh - 36px);
-    overflow: auto;
-    box-sizing: border-box;
-    padding: 16px;
-    border: 1px solid var(--agent-border-strong, #aab3bd);
-    border-radius: 8px;
+    gap: 12px;
     color: var(--agent-text, #1e2933);
-    background: var(--agent-surface, #ffffff);
-    box-shadow: 0 18px 54px rgba(0, 0, 0, 0.22);
     font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  }
-
-  header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-  }
-  h2 {
-    margin: 0;
-    font-size: 16px;
-  }
-  header p {
-    margin: 5px 0 0;
-    color: var(--agent-muted, #687480);
-    font-size: 12px;
-    line-height: 1.45;
-  }
-  form {
-    display: grid;
-    gap: 12px;
-    margin-top: 16px;
   }
   label {
     display: grid;
@@ -462,18 +407,12 @@
     color: var(--agent-text, #1e2933);
   }
 
-  footer {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 8px;
-    padding-top: 4px;
-  }
-  footer > div {
+  .settings-actions {
     display: flex;
     gap: 6px;
   }
-  footer button:not(.icon-button) {
+  .settings-actions button,
+  .danger-button {
     min-height: 32px;
     display: inline-flex;
     align-items: center;

@@ -4,23 +4,24 @@ import { openAICompletionsApi } from '@earendil-works/pi-ai/api/openai-completio
 import { AgentRuntimeError, toAgentRuntimeError } from '../contracts/errors.js'
 
 import {
-  normalize302AiBaseUrl,
+  normalizeProviderBaseUrl,
   parseRetryAfter,
   providerHttpError,
+  redactProviderUrl,
   requestProviderJson,
   sleepWithSignal,
 } from './http.js'
 import {
-  DEFAULT_302AI_BASE_URL,
-  PROVIDER_302AI_ID,
-  PROVIDER_302AI_LABEL,
+  OPENAI_COMPATIBLE_PROVIDER_ID,
+  OPENAI_COMPATIBLE_PROVIDER_LABEL,
   PROVIDER_SETTINGS_VERSION,
 } from './types.js'
 
 import type {
-  Provider302AiRuntimeOptions,
-  Provider302AiSettings,
+  OpenAiCompatibleRuntimeOptions,
+  OpenAiCompatibleProviderSettings,
   ProviderCredentialMetadata,
+  ProviderDiagnostic,
 } from './types.js'
 import type { RuntimeSupport } from '../application/unavailable-runtime.js'
 import type { AgentRuntimeErrorCode } from '../contracts/errors.js'
@@ -40,7 +41,6 @@ const MAX_CATALOG_MODELS = 2_000
 const MAX_MODEL_ID_LENGTH = 256
 const DEFAULT_CONTEXT_WINDOW = 32_768
 const DEFAULT_MAX_TOKENS = 4_096
-const PROBE_FUNCTION = 'kq_compatibility_probe'
 
 interface CatalogModel {
   id: string
@@ -59,7 +59,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function parseCatalog(value: unknown): CatalogModel[] {
   if (!isRecord(value) || !Array.isArray(value.data)) {
-    throw malformed('302.ai returned an invalid model catalog.')
+    throw malformed('The Provider returned an invalid model catalog.')
   }
   const unique = new Map<string, CatalogModel>()
   for (const item of value.data) {
@@ -70,30 +70,20 @@ function parseCatalog(value: unknown): CatalogModel[] {
     unique.set(id, { id, name: rawName.slice(0, MAX_MODEL_ID_LENGTH) || id })
     if (unique.size >= MAX_CATALOG_MODELS) break
   }
-  if (unique.size === 0) throw malformed('302.ai returned an empty model catalog.')
+  if (unique.size === 0) throw malformed('The Provider returned an empty model catalog.')
   return [...unique.values()].sort((left, right) => left.id.localeCompare(right.id))
 }
 
-function malformed(message = '302.ai returned a malformed response.'): AgentRuntimeError {
+function malformed(message = 'The Provider returned a malformed response.'): AgentRuntimeError {
   return new AgentRuntimeError('PROVIDER_MALFORMED_RESPONSE', message, {
     retryable: true,
     recommendedAction: 'Retry the request or select another model.',
   })
 }
 
-function incompatibleTools(): AgentRuntimeError {
-  return new AgentRuntimeError(
-    'PROVIDER_INCOMPATIBLE_TOOLS',
-    'The selected model did not return a compatible tool call.',
-    {
-      recommendedAction: 'Select a model that passes the Agent compatibility test.',
-    },
-  )
-}
-
 function safeProviderError(error: unknown): AgentRuntimeError {
   if (error instanceof AgentRuntimeError) return error
-  return new AgentRuntimeError('PROVIDER_ERROR', 'The 302.ai operation failed.', {
+  return new AgentRuntimeError('PROVIDER_ERROR', 'The Provider operation failed.', {
     retryable: true,
     recommendedAction: 'Retry the operation or test the Provider connection.',
     cause: error,
@@ -117,7 +107,7 @@ function modelFromCatalog(baseUrl: string, model: CatalogModel): Model<'openai-c
     id: model.id,
     name: model.name,
     api: 'openai-completions',
-    provider: PROVIDER_302AI_ID,
+    provider: OPENAI_COMPATIBLE_PROVIDER_ID,
     baseUrl,
     reasoning: false,
     input: ['text'],
@@ -131,37 +121,6 @@ function modelFromCatalog(baseUrl: string, model: CatalogModel): Model<'openai-c
       supportsUsageInStreaming: false,
       maxTokensField: 'max_tokens',
     },
-  }
-}
-
-function textFromCompletion(value: unknown): string {
-  if (!isRecord(value) || !Array.isArray(value.choices)) throw malformed()
-  const choice = value.choices[0]
-  if (!isRecord(choice) || !isRecord(choice.message)) throw malformed()
-  const { content } = choice.message
-  if (typeof content !== 'string' || !content.trim()) throw malformed()
-  return content
-}
-
-function assertProbeToolCall(value: unknown, nonce: string): void {
-  if (!isRecord(value) || !Array.isArray(value.choices)) throw incompatibleTools()
-  const choice = value.choices[0]
-  if (!isRecord(choice) || !isRecord(choice.message) || !Array.isArray(choice.message.tool_calls)) {
-    throw incompatibleTools()
-  }
-  const call = choice.message.tool_calls[0]
-  if (!isRecord(call) || !isRecord(call.function) || call.function.name !== PROBE_FUNCTION) {
-    throw incompatibleTools()
-  }
-  const rawArguments = call.function.arguments
-  let args: unknown
-  try {
-    args = typeof rawArguments === 'string' ? JSON.parse(rawArguments) : rawArguments
-  } catch {
-    throw incompatibleTools()
-  }
-  if (!isRecord(args) || args.nonce !== nonce || Object.keys(args).length !== 1) {
-    throw incompatibleTools()
   }
 }
 
@@ -185,7 +144,7 @@ function classifyStreamError(
   if (/timeout|timed out|deadline/i.test(category)) {
     return streamError(
       'PROVIDER_TIMEOUT',
-      'The 302.ai request timed out.',
+      'The Provider request timed out.',
       true,
       'Retry the request or use a faster model.',
     )
@@ -196,20 +155,22 @@ function classifyStreamError(
   if (observation.networkFailure) {
     return streamError(
       'PROVIDER_UNAVAILABLE',
-      'The app could not reach 302.ai.',
+      'The app could not reach the Provider.',
       true,
       'Check the network connection and retry.',
     )
   }
   return streamError(
     'PROVIDER_ERROR',
-    'The 302.ai request failed.',
+    'The Provider request failed.',
     true,
     'Retry the request or select another model.',
   )
 }
 
-export function create302AiRuntimeSupport(options: Provider302AiRuntimeOptions): RuntimeSupport {
+export function createOpenAiCompatibleRuntimeSupport(
+  options: OpenAiCompatibleRuntimeOptions,
+): RuntimeSupport {
   const fetchImplementation = options.fetch ?? globalThis.fetch
   const now = options.now ?? Date.now
   const sleep = options.sleep ?? sleepWithSignal
@@ -220,7 +181,7 @@ export function create302AiRuntimeSupport(options: Provider302AiRuntimeOptions):
   let lastError: AgentRuntimeError | undefined
   let lastRefreshAt: number | undefined
 
-  const httpOptions = (signal?: AbortSignal) => ({
+  const httpOptions = (signal?: AbortSignal, stage?: ProviderDiagnostic['stage']) => ({
     fetch: fetchImplementation,
     now,
     sleep,
@@ -228,6 +189,8 @@ export function create302AiRuntimeSupport(options: Provider302AiRuntimeOptions):
     maxRetries,
     maxRetryDelayMs,
     signal,
+    stage,
+    diagnostics: options.diagnostics,
   })
 
   async function resolveCredential(draft?: string, signal?: AbortSignal): Promise<string> {
@@ -235,7 +198,7 @@ export function create302AiRuntimeSupport(options: Provider302AiRuntimeOptions):
     if (!value) {
       throw new AgentRuntimeError(
         'PROVIDER_NOT_CONFIGURED',
-        'Configure a 302.ai API credential before using the Agent.',
+        'Configure a Provider API credential before using the Agent.',
         { recommendedAction: 'Open Provider settings and enter an API key.' },
       )
     }
@@ -246,12 +209,12 @@ export function create302AiRuntimeSupport(options: Provider302AiRuntimeOptions):
     input: ProviderModelsInput,
     signal?: AbortSignal,
   ): Promise<{ baseUrl: string; apiKey: string; models: CatalogModel[]; refreshedAt: number }> {
-    const baseUrl = normalize302AiBaseUrl(input.baseUrl || DEFAULT_302AI_BASE_URL)
+    const baseUrl = normalizeProviderBaseUrl(input.baseUrl)
     const apiKey = await resolveCredential(input.apiKey, signal)
     const result = await requestProviderJson(
       `${baseUrl}/models`,
       { headers: { Accept: 'application/json', Authorization: `Bearer ${apiKey}` } },
-      httpOptions(signal),
+      httpOptions(signal, 'catalog'),
     )
     const models = parseCatalog(result.value)
     const refreshedAt = now()
@@ -280,28 +243,6 @@ export function create302AiRuntimeSupport(options: Provider302AiRuntimeOptions):
     }
   }
 
-  async function requestCompletion(
-    baseUrl: string,
-    apiKey: string,
-    body: Record<string, unknown>,
-  ): Promise<unknown> {
-    return (
-      await requestProviderJson(
-        `${baseUrl}/chat/completions`,
-        {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(body),
-        },
-        httpOptions(),
-      )
-    ).value
-  }
-
   async function testProvider(input: ProviderTestInput): Promise<ProviderTestResult> {
     try {
       const catalogStartedAt = now()
@@ -312,54 +253,9 @@ export function create302AiRuntimeSupport(options: Provider302AiRuntimeOptions):
         { stage: 'catalog', ok: true, latencyMs: elapsed(now, catalogStartedAt) },
       ]
 
-      const textStartedAt = now()
-      const textValue = await requestCompletion(refreshed.baseUrl, refreshed.apiKey, {
-        model: selected.id,
-        messages: [{ role: 'user', content: 'Reply with OK.' }],
-        temperature: 0,
-        max_tokens: 8,
-        stream: false,
-      })
-      textFromCompletion(textValue)
-      const textLatency = elapsed(now, textStartedAt)
-      stages.push({ stage: 'text', ok: true, latencyMs: textLatency, ttftMs: textLatency })
-
-      const nonce = globalThis.crypto.randomUUID()
-      const toolStartedAt = now()
-      const toolValue = await requestCompletion(refreshed.baseUrl, refreshed.apiKey, {
-        model: selected.id,
-        messages: [
-          {
-            role: 'user',
-            content: `Call ${PROBE_FUNCTION} once with nonce ${nonce}. Do not answer with text.`,
-          },
-        ],
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: PROBE_FUNCTION,
-              description: 'Verify harmless Agent tool-call compatibility.',
-              parameters: {
-                type: 'object',
-                additionalProperties: false,
-                properties: { nonce: { type: 'string', const: nonce } },
-                required: ['nonce'],
-              },
-            },
-          },
-        ],
-        tool_choice: { type: 'function', function: { name: PROBE_FUNCTION } },
-        temperature: 0,
-        max_tokens: 64,
-        stream: false,
-      })
-      assertProbeToolCall(toolValue, nonce)
-      stages.push({ stage: 'tool', ok: true, latencyMs: elapsed(now, toolStartedAt) })
-
       const previousKey = await options.credentials.read()
       await options.credentials.write(refreshed.apiKey)
-      const settings: Provider302AiSettings = {
+      const settings: OpenAiCompatibleProviderSettings = {
         version: PROVIDER_SETTINGS_VERSION,
         baseUrl: refreshed.baseUrl,
         modelId: selected.id,
@@ -376,12 +272,11 @@ export function create302AiRuntimeSupport(options: Provider302AiRuntimeOptions):
         throw error
       }
       lastError = undefined
-      const latencyMs = stages.reduce((total, stage) => total + stage.latencyMs, 0)
+      const latencyMs = elapsed(now, catalogStartedAt)
       return {
         compatible: true,
         model: selected.id,
         latencyMs,
-        ttftMs: textLatency,
         stages,
       }
     } catch (error) {
@@ -392,7 +287,7 @@ export function create302AiRuntimeSupport(options: Provider302AiRuntimeOptions):
 
   async function getStatus(): Promise<ProviderStatusView> {
     let apiKey: string | undefined
-    let settings: Provider302AiSettings | undefined
+    let settings: OpenAiCompatibleProviderSettings | undefined
     let metadata: ProviderCredentialMetadata = { persistenceMode: 'memory-only' }
     try {
       metadata = await options.credentials.metadata()
@@ -405,9 +300,9 @@ export function create302AiRuntimeSupport(options: Provider302AiRuntimeOptions):
     const compatible = configured && settings?.compatibility === 'compatible'
     return {
       state: lastError ? 'error' : compatible ? 'connected' : 'not-configured',
-      providerLabel: PROVIDER_302AI_LABEL,
+      providerLabel: OPENAI_COMPATIBLE_PROVIDER_LABEL,
       configured,
-      baseUrl: settings?.baseUrl ?? DEFAULT_302AI_BASE_URL,
+      baseUrl: settings?.baseUrl,
       modelId: settings?.modelId,
       modelLabel: settings?.modelName,
       fingerprint: apiKey ? await fingerprint(apiKey) : undefined,
@@ -435,7 +330,7 @@ export function create302AiRuntimeSupport(options: Provider302AiRuntimeOptions):
     if (!apiKey || settings?.compatibility !== 'compatible') {
       throw new AgentRuntimeError(
         'PROVIDER_NOT_CONFIGURED',
-        'Configure an Agent-compatible 302.ai model before starting a run.',
+        'Configure an Agent-compatible model before starting a run.',
         { recommendedAction: 'Open Provider settings and test a model.' },
       )
     }
@@ -444,12 +339,12 @@ export function create302AiRuntimeSupport(options: Provider302AiRuntimeOptions):
       ({ id: settings.modelId, name: settings.modelName } satisfies CatalogModel)
     const model = modelFromCatalog(settings.baseUrl, selected)
     const provider = createProvider({
-      id: PROVIDER_302AI_ID,
-      name: PROVIDER_302AI_LABEL,
+      id: OPENAI_COMPATIBLE_PROVIDER_ID,
+      name: OPENAI_COMPATIBLE_PROVIDER_LABEL,
       baseUrl: settings.baseUrl,
       auth: {
         apiKey: {
-          name: '302.ai API key',
+          name: 'Provider API key',
           resolve: async ({ signal }) => {
             signal.throwIfAborted()
             return { auth: { apiKey }, source: 'Main credential store' }
@@ -463,13 +358,36 @@ export function create302AiRuntimeSupport(options: Provider302AiRuntimeOptions):
     models.setProvider(provider)
     const observation: StreamObservation = { networkFailure: false }
     const trackedFetch: FetchFunction = async (input, init) => {
+      const url = redactProviderUrl(input instanceof URL ? input.toString() : String(input))
+      const method = init?.method?.toUpperCase() ?? 'POST'
+      const startedAt = now()
+      options.diagnostics?.({ phase: 'request', method, url, attempt: 1, stage: 'stream' })
       try {
         const response = await fetchImplementation(input, init)
         observation.status = response.status
         observation.retryAfterMs = parseRetryAfter(response.headers.get('retry-after'), now())
+        options.diagnostics?.({
+          phase: 'response',
+          method,
+          url,
+          attempt: 1,
+          status: response.status,
+          contentType: response.headers.get('content-type') ?? undefined,
+          durationMs: Math.max(0, now() - startedAt),
+          stage: 'stream',
+        })
         return response
       } catch (error) {
         if (!init?.signal?.aborted) observation.networkFailure = true
+        options.diagnostics?.({
+          phase: 'failure',
+          method,
+          url,
+          attempt: 1,
+          durationMs: Math.max(0, now() - startedAt),
+          code: init?.signal?.aborted ? 'ABORTED' : 'PROVIDER_UNAVAILABLE',
+          stage: 'stream',
+        })
         throw error
       }
     }

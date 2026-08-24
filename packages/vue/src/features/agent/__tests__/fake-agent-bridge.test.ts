@@ -8,10 +8,26 @@ describe('FakeAgentBridge', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-08-24T00:00:00Z'))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              data: [
+                { id: 'provider-model-a', name: 'Provider Model A' },
+                { id: 'provider-model-b', name: 'Provider Model B' },
+              ],
+            }),
+            { headers: { 'content-type': 'application/json' } },
+          ),
+      ),
+    )
   })
 
   afterEach(() => {
     vi.useRealTimers()
+    vi.unstubAllGlobals()
   })
 
   it('emits provider setup states without retaining the credential in view data', async () => {
@@ -20,20 +36,20 @@ describe('FakeAgentBridge', () => {
     bridge.subscribe((event) => events.push(event))
 
     const pending = bridge.testProvider({
-      baseUrl: 'https://api.302.ai/v1',
+      baseUrl: 'https://models.example.test/v1',
       apiKey: 'test-secret',
-      model: 'fast-sota-model',
+      model: 'provider-model-a',
     })
     expect(events.at(-1)).toMatchObject({
       type: 'provider.status.changed',
-      status: { state: 'testing', modelLabel: 'fast-sota-model' },
+      status: { state: 'testing', modelLabel: 'provider-model-a' },
     })
 
     await vi.advanceTimersByTimeAsync(10)
-    await expect(pending).resolves.toMatchObject({ compatible: true, model: 'fast-sota-model' })
+    await expect(pending).resolves.toMatchObject({ compatible: true, model: 'provider-model-a' })
     expect(events.at(-1)).toMatchObject({
       type: 'provider.status.changed',
-      status: { state: 'connected', modelLabel: 'fast-sota-model' },
+      status: { state: 'connected', modelLabel: 'provider-model-a' },
     })
     expect(JSON.stringify(events)).not.toContain('test-secret')
   })
@@ -41,13 +57,10 @@ describe('FakeAgentBridge', () => {
   it('returns bounded non-secret model views', async () => {
     const bridge = new FakeAgentBridge()
     const result = await bridge.listProviderModels({
-      baseUrl: 'https://api.302.ai/v1',
+      baseUrl: 'https://models.example.test/v1',
       apiKey: 'test-secret',
     })
-    expect(result.models.map((model) => model.id)).toEqual([
-      'gemini-3.7-flash-high',
-      'gpt-5.6-luna',
-    ])
+    expect(result.models.map((model) => model.id)).toEqual(['provider-model-a', 'provider-model-b'])
     expect(JSON.stringify(result)).not.toContain('test-secret')
   })
 

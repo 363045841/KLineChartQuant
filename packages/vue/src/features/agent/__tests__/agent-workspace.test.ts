@@ -10,12 +10,28 @@ describe('AgentWorkspace', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-08-24T00:00:00Z'))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              data: [
+                { id: 'provider-model-a', name: 'Provider Model A' },
+                { id: 'provider-model-b', name: 'Provider Model B' },
+              ],
+            }),
+            { headers: { 'content-type': 'application/json' } },
+          ),
+      ),
+    )
   })
 
   afterEach(() => {
     wrapper?.unmount()
     wrapper = undefined
     vi.useRealTimers()
+    vi.unstubAllGlobals()
   })
 
   async function mountWorkspace(options: { providerConfigured?: boolean } = {}) {
@@ -37,26 +53,24 @@ describe('AgentWorkspace', () => {
 
     await textarea.trigger('keydown', { key: 'Enter' })
     await flushPromises()
-    expect(document.querySelector('.settings-dialog')).not.toBeNull()
+    expect(document.querySelector('.base-modal')).not.toBeNull()
     expect((textarea.element as HTMLTextAreaElement).value).toBe(selectedPrompt)
 
-    const inputs = [...document.querySelectorAll<HTMLInputElement>('.settings-dialog input')]
-    inputs[0]!.value = 'https://api.302.ai/v1'
+    const inputs = [...document.querySelectorAll<HTMLInputElement>('.settings-form input')]
+    inputs[0]!.value = 'https://models.example.test/v1'
     inputs[0]!.dispatchEvent(new Event('input', { bubbles: true }))
     inputs[1]!.value = 'temporary-test-key'
     inputs[1]!.dispatchEvent(new Event('input', { bubbles: true }))
-    inputs[2]!.value = 'fast-sota-model'
+    inputs[2]!.value = 'provider-model-a'
     inputs[2]!.dispatchEvent(new Event('input', { bubbles: true }))
-    document.querySelector<HTMLFormElement>('.settings-dialog form')!.requestSubmit()
+    document.querySelector<HTMLFormElement>('.settings-form')!.requestSubmit()
     await vi.advanceTimersByTimeAsync(10)
     await flushPromises()
 
-    expect(document.querySelectorAll('.settings-dialog__stages li')).toHaveLength(3)
-    document
-      .querySelector<HTMLButtonElement>('.settings-dialog > header .icon-button')!
-      .click()
+    expect(document.querySelectorAll('.settings-dialog__stages li')).toHaveLength(1)
+    document.querySelector<HTMLButtonElement>('.base-close-btn')!.click()
     await flushPromises()
-    expect(document.querySelector('.settings-dialog')).toBeNull()
+    expect(document.querySelector('.base-modal')).toBeNull()
     expect((textarea.element as HTMLTextAreaElement).value).toBe(selectedPrompt)
 
     await textarea.trigger('keydown', { key: 'Enter' })
@@ -68,8 +82,10 @@ describe('AgentWorkspace', () => {
   it('refreshes the Provider catalog and selects a discovered model', async () => {
     const mounted = await mountWorkspace()
     await mounted.wrapper.get('button[aria-label="Provider settings"]').trigger('click')
-    const dialog = document.querySelector<HTMLElement>('.settings-dialog')!
+    const dialog = document.querySelector<HTMLElement>('.base-modal')!
     const inputs = dialog.querySelectorAll<HTMLInputElement>('input')
+    inputs[0]!.value = 'https://models.example.test/v1'
+    inputs[0]!.dispatchEvent(new Event('input', { bubbles: true }))
     inputs[1]!.value = 'temporary-test-key'
     inputs[1]!.dispatchEvent(new Event('input', { bubbles: true }))
     await flushPromises()
@@ -78,12 +94,10 @@ describe('AgentWorkspace', () => {
 
     const options = dialog.querySelectorAll<HTMLOptionElement>('select option')
     expect([...options].map((option) => option.value)).toEqual([
-      'gemini-3.7-flash-high',
-      'gpt-5.6-luna',
+      'provider-model-a',
+      'provider-model-b',
     ])
-    expect(dialog.querySelector<HTMLSelectElement>('select')!.value).toBe(
-      'gemini-3.7-flash-high',
-    )
+    expect(dialog.querySelector<HTMLSelectElement>('select')!.value).toBe('provider-model-a')
   })
 
   it('does not submit on Shift+Enter and retains a pending draft when stopping', async () => {

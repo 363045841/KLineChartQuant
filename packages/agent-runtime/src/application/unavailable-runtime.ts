@@ -12,9 +12,8 @@ export function createUnavailableRuntimeSupport(): RuntimeSupport {
     provider: {
       getStatus: () => ({
         state: 'not-configured',
-        providerLabel: '302.ai',
+        providerLabel: 'OpenAI-compatible',
         configured: false,
-        baseUrl: 'https://api.302.ai/v1',
         compatibility: 'unknown',
       }),
       listModels: async () => {

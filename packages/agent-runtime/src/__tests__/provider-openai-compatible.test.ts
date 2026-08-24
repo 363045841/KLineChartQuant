@@ -5,17 +5,18 @@ import {
   InMemoryProviderCredentialStore,
   InMemoryProviderSettingsStore,
   PiRunDriver,
-  create302AiRuntimeSupport,
-  normalize302AiBaseUrl,
+  createOpenAiCompatibleRuntimeSupport,
+  normalizeProviderBaseUrl,
   parseRetryAfter,
   requestProviderJson,
-  type Provider302AiSettings,
+  type OpenAiCompatibleProviderSettings,
+  type ProviderDiagnostic,
 } from '../index'
 
 import type { FetchFunction } from '@earendil-works/pi-ai'
 
 const secret = 'temporary-provider-credential'
-const baseUrl = 'https://api.302.ai/v1'
+const baseUrl = 'https://models.example.test/v1'
 
 function json(value: unknown, status = 200, headers?: HeadersInit): Response {
   return new Response(JSON.stringify(value), {
@@ -87,16 +88,16 @@ async function configure(
   })
 }
 
-describe('302.ai Provider HTTP boundary', () => {
+describe('OpenAI-compatible Provider HTTP boundary', () => {
   it('normalizes valid endpoints and rejects credentials, queries, and non-HTTP URLs', () => {
-    expect(normalize302AiBaseUrl('https://api.302.ai/v1///')).toBe(baseUrl)
-    expect(() => normalize302AiBaseUrl('file:///tmp/provider')).toThrowError(
+    expect(normalizeProviderBaseUrl('https://models.example.test/v1///')).toBe(baseUrl)
+    expect(() => normalizeProviderBaseUrl('file:///tmp/provider')).toThrowError(
       expect.objectContaining<Partial<AgentRuntimeError>>({ code: 'INVALID_PAYLOAD' }),
     )
-    expect(() => normalize302AiBaseUrl('https://user:pass@example.test/v1')).toThrowError(
+    expect(() => normalizeProviderBaseUrl('https://user:pass@example.test/v1')).toThrowError(
       expect.objectContaining<Partial<AgentRuntimeError>>({ code: 'INVALID_PAYLOAD' }),
     )
-    expect(() => normalize302AiBaseUrl('https://example.test/v1?key=value')).toThrowError(
+    expect(() => normalizeProviderBaseUrl('https://example.test/v1?key=value')).toThrowError(
       expect.objectContaining<Partial<AgentRuntimeError>>({ code: 'INVALID_PAYLOAD' }),
     )
   })
@@ -117,12 +118,16 @@ describe('302.ai Provider HTTP boundary', () => {
     const response = new Response(secret, { status })
     const fetch = vi.fn(async () => response)
     await expect(
-      requestProviderJson('https://example.test', {}, {
-        fetch,
-        now: () => 0,
-        sleep: async () => undefined,
-        maxRetries: 0,
-      }),
+      requestProviderJson(
+        'https://example.test',
+        {},
+        {
+          fetch,
+          now: () => 0,
+          sleep: async () => undefined,
+          maxRetries: 0,
+        },
+      ),
     ).rejects.toMatchObject({ code })
     expect(response.bodyUsed).toBe(false)
   })
@@ -133,12 +138,16 @@ describe('302.ai Provider HTTP boundary', () => {
       .mockResolvedValueOnce(new Response('', { status: 429, headers: { 'retry-after': '2' } }))
       .mockResolvedValueOnce(json({ ok: true }))
     const sleep = vi.fn(async () => undefined)
-    const result = await requestProviderJson('https://example.test', {}, {
-      fetch,
-      now: () => 1_000,
-      sleep,
-      maxRetries: 1,
-    })
+    const result = await requestProviderJson(
+      'https://example.test',
+      {},
+      {
+        fetch,
+        now: () => 1_000,
+        sleep,
+        maxRetries: 1,
+      },
+    )
     expect(result.value).toEqual({ ok: true })
     expect(sleep).toHaveBeenCalledWith(2_000, undefined)
   })
@@ -149,32 +158,109 @@ describe('302.ai Provider HTTP boundary', () => {
         init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true })
       })
     await expect(
-      requestProviderJson('https://example.test', {}, {
-        fetch: hanging,
-        now: Date.now,
-        sleep: async () => undefined,
-        timeoutMs: 5,
-      }),
+      requestProviderJson(
+        'https://example.test',
+        {},
+        {
+          fetch: hanging,
+          now: Date.now,
+          sleep: async () => undefined,
+          timeoutMs: 5,
+        },
+      ),
     ).rejects.toMatchObject({ code: 'PROVIDER_TIMEOUT' })
 
     await expect(
-      requestProviderJson('https://example.test', {}, {
-        fetch: async () => new Response(`{"secret":"${secret}"`, { status: 200 }),
-        now: Date.now,
-        sleep: async () => undefined,
-      }),
+      requestProviderJson(
+        'https://example.test',
+        {},
+        {
+          fetch: async () => new Response(`{"secret":"${secret}"`, { status: 200 }),
+          now: Date.now,
+          sleep: async () => undefined,
+        },
+      ),
     ).rejects.toMatchObject({
       code: 'PROVIDER_MALFORMED_RESPONSE',
-      message: '302.ai returned malformed JSON.',
+      message: 'The Provider returned malformed JSON.',
     })
+  })
+
+  it('emits redacted request, response, and failure diagnostics', async () => {
+    const diagnostics: ProviderDiagnostic[] = []
+    const record = (diagnostic: ProviderDiagnostic) => diagnostics.push(diagnostic)
+    await requestProviderJson(
+      'https://user:pass@example.test/v1?token=secret#fragment',
+      {},
+      {
+        fetch: async () => json({ ok: true }),
+        now: () => 10,
+        sleep: async () => undefined,
+        diagnostics: record,
+      },
+    )
+    await expect(
+      requestProviderJson(
+        'https://example.test/v1',
+        {},
+        {
+          fetch: async () => new Response('not-json'),
+          now: () => 20,
+          sleep: async () => undefined,
+          diagnostics: record,
+          stage: 'tool',
+        },
+      ),
+    ).rejects.toMatchObject({ code: 'PROVIDER_MALFORMED_RESPONSE' })
+    await expect(
+      requestProviderJson(
+        'https://offline.example.test/v1',
+        {},
+        {
+          fetch: async () => {
+            throw new TypeError('network detail must not be logged')
+          },
+          now: () => 30,
+          sleep: async () => undefined,
+          diagnostics: record,
+        },
+      ),
+    ).rejects.toMatchObject({ code: 'PROVIDER_UNAVAILABLE' })
+
+    expect(diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          phase: 'request',
+          url: 'https://example.test/v1',
+        }),
+        expect.objectContaining({
+          phase: 'response',
+          status: 200,
+          contentType: 'application/json',
+        }),
+        expect.objectContaining({
+          phase: 'failure',
+          code: 'PROVIDER_MALFORMED_RESPONSE',
+          stage: 'tool',
+          responseBodyBytes: 8,
+          responseBodyShape: 'other',
+        }),
+        expect.objectContaining({
+          phase: 'failure',
+          code: 'PROVIDER_UNAVAILABLE',
+        }),
+      ]),
+    )
+    expect(JSON.stringify(diagnostics)).not.toContain('secret')
+    expect(JSON.stringify(diagnostics)).not.toContain('user:pass')
   })
 })
 
-describe('302.ai runtime support', () => {
+describe('OpenAI-compatible runtime support', () => {
   it('discovers models, passes all probes, and persists only the successful configuration', async () => {
     const { credentials, settings } = configuredStores()
     let currentTime = 100
-    const support = create302AiRuntimeSupport({
+    const support = createOpenAiCompatibleRuntimeSupport({
       credentials,
       settings,
       fetch: providerFetch(),
@@ -190,14 +276,10 @@ describe('302.ai runtime support', () => {
     expect(result).toMatchObject({
       compatible: true,
       model: 'frontier-fast',
-      stages: [
-        { stage: 'catalog', ok: true },
-        { stage: 'text', ok: true },
-        { stage: 'tool', ok: true },
-      ],
+      stages: [{ stage: 'catalog', ok: true }],
     })
     expect(await credentials.read()).toBe(secret)
-    expect(await settings.read()).toMatchObject<Partial<Provider302AiSettings>>({
+    expect(await settings.read()).toMatchObject<Partial<OpenAiCompatibleProviderSettings>>({
       baseUrl,
       modelId: 'frontier-fast',
       compatibility: 'compatible',
@@ -214,31 +296,33 @@ describe('302.ai runtime support', () => {
     expect(status.fingerprint).toMatch(/^sha256:[0-9a-f]{12}$/)
   })
 
-  it('does not replace a last-known-good credential when the tool probe fails', async () => {
+  it('tests the selected model through the catalog without sending chat probes', async () => {
     const { credentials, settings } = configuredStores()
     await configure(credentials, settings)
-    const support = create302AiRuntimeSupport({
+    const fetch = providerFetch({ invalidTool: true })
+    const support = createOpenAiCompatibleRuntimeSupport({
       credentials,
       settings,
-      fetch: providerFetch({ invalidTool: true }),
+      fetch,
       sleep: async () => undefined,
     })
 
     await expect(
       support.provider.test({ baseUrl, apiKey: 'replacement-credential', model: 'frontier-fast' }),
-    ).rejects.toMatchObject({ code: 'PROVIDER_INCOMPATIBLE_TOOLS' })
-    expect(await credentials.read()).toBe(secret)
+    ).resolves.toMatchObject({ compatible: true, stages: [{ stage: 'catalog', ok: true }] })
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(String(fetch.mock.calls[0][0])).toBe(`${baseUrl}/models`)
+    expect(await credentials.read()).toBe('replacement-credential')
     expect(await settings.read()).toMatchObject({ modelId: 'frontier-fast' })
     const status = await support.provider.getStatus()
-    expect(status.state).toBe('error')
-    expect(JSON.stringify(status)).not.toContain('replacement-credential')
+    expect(status.state).toBe('connected')
   })
 
   it('deletes only the credential and blocks subsequent runs before network access', async () => {
     const { credentials, settings } = configuredStores()
     await configure(credentials, settings)
     const fetch = providerFetch()
-    const support = create302AiRuntimeSupport({ credentials, settings, fetch })
+    const support = createOpenAiCompatibleRuntimeSupport({ credentials, settings, fetch })
     await support.provider.deleteCredential()
     await expect(
       support.createPlan({
@@ -272,7 +356,7 @@ describe('302.ai runtime support', () => {
       ].join('\n')
       return new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } })
     })
-    const support = create302AiRuntimeSupport({ credentials, settings, fetch })
+    const support = createOpenAiCompatibleRuntimeSupport({ credentials, settings, fetch })
     const plan = await support.createPlan({
       sessionId: 'session-1',
       runId: 'run-1',
@@ -296,7 +380,7 @@ describe('302.ai runtime support', () => {
   it('projects streamed HTTP failures to stable errors without raw bodies', async () => {
     const { credentials, settings } = configuredStores()
     await configure(credentials, settings)
-    const support = create302AiRuntimeSupport({
+    const support = createOpenAiCompatibleRuntimeSupport({
       credentials,
       settings,
       fetch: async () => new Response(secret, { status: 401 }),
@@ -314,14 +398,14 @@ describe('302.ai runtime support', () => {
     })
     await expect(new PiRunDriver().run(plan, () => undefined)).rejects.toMatchObject({
       code: 'PROVIDER_AUTHENTICATION',
-      message: '302.ai rejected the API credential.',
+      message: 'The Provider rejected the API credential.',
     })
   })
 
   it('returns a safe removable error status when persisted settings are corrupt', async () => {
     const credentials = new InMemoryProviderCredentialStore({ persistenceMode: 'encrypted' })
     await credentials.write(secret)
-    const support = create302AiRuntimeSupport({
+    const support = createOpenAiCompatibleRuntimeSupport({
       credentials,
       settings: {
         read: async () => {
@@ -335,7 +419,7 @@ describe('302.ai runtime support', () => {
     expect(status).toMatchObject({
       state: 'error',
       configured: true,
-      error: { code: 'PROVIDER_ERROR', message: 'The 302.ai operation failed.' },
+      error: { code: 'PROVIDER_ERROR', message: 'The Provider operation failed.' },
     })
     expect(JSON.stringify(status)).not.toContain(secret)
   })

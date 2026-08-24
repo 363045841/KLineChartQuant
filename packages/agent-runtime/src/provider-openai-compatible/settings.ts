@@ -2,7 +2,7 @@ import { AgentRuntimeError } from '../contracts/errors.js'
 
 import {
   PROVIDER_SETTINGS_VERSION,
-  type Provider302AiSettings,
+  type OpenAiCompatibleProviderSettings,
   type ProviderCredentialMetadata,
   type ProviderCredentialStore,
   type ProviderSettingsStore,
@@ -12,7 +12,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-export function parseProvider302AiSettings(value: unknown): Provider302AiSettings | undefined {
+export function parseOpenAiCompatibleProviderSettings(
+  value: unknown,
+): OpenAiCompatibleProviderSettings | undefined {
   if (value === undefined) return undefined
   if (
     !isRecord(value) ||
@@ -26,11 +28,9 @@ export function parseProvider302AiSettings(value: unknown): Provider302AiSetting
     typeof value.lastModelsRefreshAt !== 'number' ||
     !Number.isFinite(value.lastModelsRefreshAt)
   ) {
-    throw new AgentRuntimeError(
-      'PROVIDER_ERROR',
-      'The saved Provider settings are invalid.',
-      { recommendedAction: 'Test the Provider connection again.' },
-    )
+    throw new AgentRuntimeError('PROVIDER_ERROR', 'The saved Provider settings are invalid.', {
+      recommendedAction: 'Test the Provider connection again.',
+    })
   }
   return {
     version: PROVIDER_SETTINGS_VERSION,
@@ -73,14 +73,14 @@ export class InMemoryProviderCredentialStore implements ProviderCredentialStore 
 }
 
 export class InMemoryProviderSettingsStore implements ProviderSettingsStore {
-  private value: Provider302AiSettings | undefined
+  private value: OpenAiCompatibleProviderSettings | undefined
 
-  async read(signal?: AbortSignal): Promise<Provider302AiSettings | undefined> {
+  async read(signal?: AbortSignal): Promise<OpenAiCompatibleProviderSettings | undefined> {
     signal?.throwIfAborted()
     return this.value ? structuredClone(this.value) : undefined
   }
 
-  async write(settings: Provider302AiSettings, signal?: AbortSignal): Promise<void> {
+  async write(settings: OpenAiCompatibleProviderSettings, signal?: AbortSignal): Promise<void> {
     signal?.throwIfAborted()
     this.value = structuredClone(settings)
   }

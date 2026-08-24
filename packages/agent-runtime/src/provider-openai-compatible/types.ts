@@ -1,8 +1,7 @@
 import type { ProviderPersistenceMode } from '../contracts/ui.js'
 
-export const PROVIDER_302AI_ID = '302ai'
-export const PROVIDER_302AI_LABEL = '302.ai'
-export const DEFAULT_302AI_BASE_URL = 'https://api.302.ai/v1'
+export const OPENAI_COMPATIBLE_PROVIDER_ID = 'openai-compatible'
+export const OPENAI_COMPATIBLE_PROVIDER_LABEL = 'OpenAI-compatible'
 export const PROVIDER_SETTINGS_VERSION = 1 as const
 
 export interface ProviderCredentialMetadata {
@@ -17,7 +16,7 @@ export interface ProviderCredentialStore {
   metadata(): Promise<ProviderCredentialMetadata>
 }
 
-export interface Provider302AiSettings {
+export interface OpenAiCompatibleProviderSettings {
   version: typeof PROVIDER_SETTINGS_VERSION
   baseUrl: string
   modelId: string
@@ -28,11 +27,25 @@ export interface Provider302AiSettings {
 }
 
 export interface ProviderSettingsStore {
-  read(signal?: AbortSignal): Promise<Provider302AiSettings | undefined>
-  write(settings: Provider302AiSettings, signal?: AbortSignal): Promise<void>
+  read(signal?: AbortSignal): Promise<OpenAiCompatibleProviderSettings | undefined>
+  write(settings: OpenAiCompatibleProviderSettings, signal?: AbortSignal): Promise<void>
 }
 
-export interface Provider302AiRuntimeOptions {
+export interface ProviderDiagnostic {
+  phase: 'request' | 'response' | 'retry' | 'failure' | 'validation'
+  method: string
+  url: string
+  attempt: number
+  status?: number
+  contentType?: string
+  durationMs?: number
+  code?: string
+  stage?: 'catalog' | 'text' | 'tool' | 'stream'
+  responseBodyBytes?: number
+  responseBodyShape?: 'empty' | 'json-like' | 'sse' | 'html' | 'other'
+}
+
+export interface OpenAiCompatibleRuntimeOptions {
   credentials: ProviderCredentialStore
   settings: ProviderSettingsStore
   fetch?: typeof globalThis.fetch
@@ -41,4 +54,5 @@ export interface Provider302AiRuntimeOptions {
   requestTimeoutMs?: number
   maxRetries?: number
   maxRetryDelayMs?: number
+  diagnostics?: (diagnostic: ProviderDiagnostic) => void
 }

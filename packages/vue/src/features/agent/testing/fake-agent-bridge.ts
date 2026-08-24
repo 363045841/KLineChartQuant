@@ -16,6 +16,10 @@ import {
   type StartRunInput,
   type ToolCallView,
 } from '../agent-contracts'
+import {
+  fetchOpenAiCompatibleModels,
+  providerHttpError,
+} from '@363045841yyt/klinechart-agent-runtime'
 
 interface FakeRun {
   id: string
@@ -54,9 +58,8 @@ export class FakeAgentBridge implements AgentBridgeClient {
     this.provider = options.providerConfigured
       ? {
           state: 'connected',
-          providerLabel: '302.ai',
+          providerLabel: 'OpenAI-compatible',
           configured: true,
-          baseUrl: 'https://api.302.ai/v1',
           modelId: 'Scripted Alpha',
           modelLabel: 'Scripted Alpha',
           persistenceMode: 'encrypted',
@@ -64,9 +67,8 @@ export class FakeAgentBridge implements AgentBridgeClient {
         }
       : {
           state: 'not-configured',
-          providerLabel: '302.ai',
+          providerLabel: 'OpenAI-compatible',
           configured: false,
-          baseUrl: 'https://api.302.ai/v1',
           persistenceMode: 'encrypted',
           compatibility: 'unknown',
         }
@@ -86,24 +88,8 @@ export class FakeAgentBridge implements AgentBridgeClient {
     return this.provider
   }
 
-  async listProviderModels(_input: ProviderModelsInput): Promise<ProviderModelsResult> {
-    return {
-      models: [
-        {
-          id: 'gemini-3.7-flash-high',
-          name: 'Gemini 3.7 Flash High',
-          compatibility: 'compatible',
-          latencyMs: 84,
-          ttftMs: 31,
-        },
-        {
-          id: 'gpt-5.6-luna',
-          name: 'GPT-5.6 Luna',
-          compatibility: 'unknown',
-        },
-      ],
-      refreshedAt: Date.now(),
-    }
+  async listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult> {
+    return fetchOpenAiCompatibleModels(input)
   }
 
   async createSession(): Promise<AgentSessionView> {
@@ -207,10 +193,13 @@ export class FakeAgentBridge implements AgentBridgeClient {
       compatibility: 'testing',
     }
     this.emit({ type: 'provider.status.changed', status: this.provider })
+    const startedAt = Date.now()
+    const { models } = await this.listProviderModels(input)
+    if (!models.some((model) => model.id === input.model)) throw providerHttpError(404)
     await new Promise<void>((resolve) => setTimeout(resolve, this.stepDelayMs))
     this.provider = {
       state: 'connected',
-      providerLabel: '302.ai',
+      providerLabel: 'OpenAI-compatible',
       configured: true,
       baseUrl: input.baseUrl,
       modelId: input.model,
@@ -222,20 +211,15 @@ export class FakeAgentBridge implements AgentBridgeClient {
     return {
       compatible: true,
       model: this.provider.modelLabel!,
-      latencyMs: 84,
-      ttftMs: 31,
-      stages: [
-        { stage: 'catalog', ok: true, latencyMs: 8 },
-        { stage: 'text', ok: true, latencyMs: 42, ttftMs: 31 },
-        { stage: 'tool', ok: true, latencyMs: 34 },
-      ],
+      latencyMs: Math.max(0, Date.now() - startedAt),
+      stages: [{ stage: 'catalog', ok: true, latencyMs: Math.max(0, Date.now() - startedAt) }],
     }
   }
 
   async deleteProviderCredential(): Promise<void> {
     this.provider = {
       state: 'not-configured',
-      providerLabel: '302.ai',
+      providerLabel: 'OpenAI-compatible',
       configured: false,
       baseUrl: this.provider.baseUrl,
       modelId: this.provider.modelId,
