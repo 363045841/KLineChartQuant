@@ -27,6 +27,13 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 重中之重:拒绝一切治标不治本的“最小修复”，拒绝架构债，代码可读性强，可维护，不炫技。禁止硬编码字符串。
 不要复杂化问题，特别是架构上。
 
+## PR 作者要求
+
+- 不许在 PR 中使用 /goal 命令
+- 不许一下子写一堆代码，中间不经过 E2E 测试、视觉回归测试
+- 不许长时间自己收敛相当宽泛问题而不交由作者测试
+- 不许在小问题上使用严苛的校验，导致链路难以维护
+
 ## Quick Search
 
 - **MUST USE CodeGraph MCP FIRST**: You can use `codegraph_codegraph_callees, codegraph_codegraph_callers, codegraph_codegraph_explore, codegraph_codegraph_files, codegraph_codegraph_impact, codegraph_codegraph_node, codegraph_codegraph_search, codegraph_codegraph_status` to expolore project, Call analysis.It is a replacement for grep and similar commands.
