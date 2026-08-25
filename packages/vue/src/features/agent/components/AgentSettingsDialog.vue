@@ -1,69 +1,89 @@
 <template>
   <BaseModal
-    :show="open"
+    :show="providerSettings.open"
     :title="text.providerTitle"
-    :subtitle="text.providerBody"
-    width="min(92vw, 460px)"
+    width="min(92vw, 480px)"
     max-height="calc(100vh - 36px)"
-    body-padding="16px 20px"
-    footer-align="space-between"
-    @close="$emit('close')"
+    body-padding="12px 20px 16px"
+    @close="providerSettings.close()"
   >
-    <form id="agent-provider-settings-form" class="settings-form" @submit.prevent="submit">
-      <label>
-        <span>{{ text.baseUrl }}</span>
-        <input v-model="baseUrl" type="url" required spellcheck="false" />
-      </label>
-      <label>
-        <span>{{ text.apiKey }}</span>
-        <input
-          v-model="apiKey"
-          type="password"
-          :required="!status.configured"
-          autocomplete="off"
-          :placeholder="text.apiKeyPlaceholder"
-        />
-      </label>
-      <label class="settings-dialog__model-field">
-        <span>{{ text.model }}</span>
-        <span class="settings-dialog__model-control">
-          <select v-if="models.length" ref="modelInput" v-model="model" required>
-            <option v-for="item in models" :key="item.id" :value="item.id">
-              {{ item.name }}
-            </option>
-          </select>
+    <form
+      id="agent-provider-settings-form"
+      class="provider-form"
+      autocomplete="off"
+      novalidate
+      @submit.prevent="providerSettings.testProvider()"
+    >
+      <div class="provider-form__fields">
+        <label class="provider-field">
+          <span class="provider-field__label">{{ text.baseUrl }}</span>
           <input
-            v-else
-            ref="modelInput"
-            v-model="model"
+            v-model="providerSettings.baseUrl"
             type="text"
-            required
             autocomplete="off"
             spellcheck="false"
-            :placeholder="text.modelPlaceholder"
           />
-          <button
-            type="button"
-            class="icon-button settings-dialog__refresh"
-            :title="text.refreshModels"
-            :aria-label="text.refreshModels"
-            :disabled="refreshDisabled"
-            @click="refresh"
-          >
-            <IconRefresh :class="{ spinner: modelsLoading }" aria-hidden="true" />
-          </button>
-        </span>
-      </label>
+        </label>
+        <label class="provider-field">
+          <span class="provider-field__label">{{ text.apiKey }}</span>
+          <input
+            v-model="providerSettings.apiKey"
+            type="password"
+            autocomplete="new-password"
+            :placeholder="status.configured ? '••••••••' : text.apiKeyPlaceholder"
+          />
+        </label>
+        <label class="provider-field">
+          <span class="provider-field__label">{{ text.model }}</span>
+          <span class="provider-model-control">
+            <select
+              v-if="providerSettings.models.length"
+              ref="modelInput"
+              v-model="providerSettings.model"
+            >
+              <option v-for="item in providerSettings.models" :key="item.id" :value="item.id">
+                {{ item.name }}
+              </option>
+            </select>
+            <input
+              v-else
+              ref="modelInput"
+              v-model="providerSettings.model"
+              type="text"
+              autocomplete="new-password"
+              spellcheck="false"
+              :placeholder="text.modelPlaceholder"
+            />
+            <button
+              type="button"
+              class="provider-refresh-button"
+              :title="text.refreshModels"
+              :aria-label="text.refreshModels"
+              :disabled="!providerSettings.canRefreshModels"
+              @click="providerSettings.refreshModels()"
+            >
+              <IconRefresh
+                :class="{ spinner: providerSettings.modelsLoading }"
+                aria-hidden="true"
+              />
+            </button>
+          </span>
+        </label>
+      </div>
 
-      <ol v-if="testResult" class="settings-dialog__stages" :aria-label="text.probeResults">
-        <li v-for="stage in testResult.stages" :key="stage.stage">
+      <ol
+        v-if="providerSettings.testResult"
+        class="provider-probe-results"
+        :aria-label="text.probeResults"
+      >
+        <li v-for="stage in providerSettings.testResult.stages" :key="stage.stage">
           <IconCircleCheck aria-hidden="true" />
           <span>{{ stageLabel(stage.stage) }}</span>
           <strong>{{ stage.latencyMs }} ms</strong>
         </li>
       </ol>
 
-      <div v-if="visibleError" class="settings-dialog__error" role="alert">
+      <div v-if="visibleError" class="provider-error" role="alert">
         <IconAlertTriangle aria-hidden="true" />
         <span>
           <strong>{{ visibleError.message }}</strong>
@@ -73,42 +93,30 @@
         </span>
       </div>
 
-      <p class="settings-dialog__draft-note">
-        <IconNotes aria-hidden="true" />
-        {{ text.providerDraftNotice }}
-      </p>
-
-      <div class="settings-dialog__status" :data-state="status.state">
-        <span aria-hidden="true"></span>
-        {{ connectionLabel }}
-        <strong v-if="status.modelLabel">{{ status.modelLabel }}</strong>
+      <div v-if="status.modelLabel" class="provider-status" :data-state="status.state">
+        <span class="provider-status__dot" aria-hidden="true"></span>
+        <strong>{{ status.modelLabel }}</strong>
       </div>
     </form>
 
     <template #footer>
-      <button
-        v-if="status.configured || status.state === 'error'"
-        type="button"
-        class="danger-button"
-        @click="$emit('delete')"
-      >
-        <IconTrash aria-hidden="true" />
-        {{ text.removeCredential }}
-      </button>
-      <span v-else />
-      <div class="settings-actions">
-        <button type="button" class="secondary-button" @click="$emit('close')">
-          {{ text.cancel }}
-        </button>
+      <div class="provider-actions">
         <button
           type="submit"
           form="agent-provider-settings-form"
-          class="primary-button"
-          :disabled="testDisabled"
+          class="provider-primary-button"
+          :disabled="!providerSettings.canTest || status.state === 'testing'"
         >
           <IconPlugConnected v-if="status.state !== 'testing'" aria-hidden="true" />
           <IconLoader2 v-else class="spinner" aria-hidden="true" />
           {{ text.testConnection }}
+        </button>
+        <button
+          type="button"
+          class="provider-primary-button"
+          @click="providerSettings.saveProvider()"
+        >
+          {{ text.confirm }}
         </button>
       </div>
     </template>
@@ -121,80 +129,25 @@
   import BaseModal from '../../../components/BaseModal.vue'
 
   import { getAgentCopy, type AgentLocale } from '../agent-copy'
+  import type { AgentProviderSettingsStore } from '../agent-provider-settings-store'
 
-  import type {
-    AgentErrorView,
-    ProviderModelView,
-    ProviderModelsInput,
-    ProviderProbeStageResult,
-    ProviderStatusView,
-    ProviderTestInput,
-    ProviderTestResult,
-  } from '../agent-contracts'
+  import type { ProviderProbeStageResult, ProviderStatusView } from '../agent-contracts'
 
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
   import IconCircleCheck from '~icons/tabler/circle-check'
   import IconLoader2 from '~icons/tabler/loader-2'
-  import IconNotes from '~icons/tabler/notes'
   import IconPlugConnected from '~icons/tabler/plug-connected'
   import IconRefresh from '~icons/tabler/refresh'
-  import IconTrash from '~icons/tabler/trash'
 
   const props = defineProps<{
-    open: boolean
+    providerSettings: AgentProviderSettingsStore
     status: ProviderStatusView
-    models: ProviderModelView[]
-    modelsLoading: boolean
-    testResult: ProviderTestResult | null
-    operationError: AgentErrorView | null
     locale: AgentLocale
-  }>()
-  const emit = defineEmits<{
-    close: []
-    test: [input: ProviderTestInput]
-    refreshModels: [input: ProviderModelsInput]
-    delete: []
   }>()
 
   const modelInput = ref<HTMLInputElement | HTMLSelectElement | null>(null)
-  const baseUrl = ref('')
-  const apiKey = ref('')
-  const model = ref('')
   const text = computed(() => getAgentCopy(props.locale))
-  const visibleError = computed(() => props.operationError ?? props.status.error)
-  const refreshDisabled = computed(
-    () =>
-      props.modelsLoading ||
-      !baseUrl.value.trim() ||
-      (!apiKey.value.trim() && !props.status.configured),
-  )
-  const testDisabled = computed(
-    () => props.status.state === 'testing' || props.modelsLoading || !model.value.trim(),
-  )
-  const connectionLabel = computed(() => {
-    const labels = {
-      connected: text.value.connected,
-      testing: text.value.testing,
-      'not-configured': text.value.notConfigured,
-      error: text.value.connectionError,
-    }
-    return labels[props.status.state]
-  })
-
-  function submit(): void {
-    emit('test', {
-      baseUrl: baseUrl.value,
-      apiKey: apiKey.value || undefined,
-      model: model.value,
-    })
-  }
-
-  function refresh(): void {
-    emit('refreshModels', {
-      baseUrl: baseUrl.value,
-      apiKey: apiKey.value || undefined,
-    })
-  }
+  const visibleError = computed(() => props.providerSettings.operationError ?? props.status.error)
 
   function stageLabel(stage: ProviderProbeStageResult['stage']): string {
     return {
@@ -205,231 +158,224 @@
   }
 
   watch(
-    () => props.open,
+    () => props.providerSettings.open,
     async (open) => {
       if (!open) return
-      baseUrl.value = props.status.baseUrl ?? ''
-      model.value = props.status.modelId ?? ''
       await nextTick()
       modelInput.value?.focus()
-    },
-  )
-
-  watch(
-    () => props.status.state,
-    (state) => {
-      if (state === 'connected') apiKey.value = ''
-    },
-  )
-
-  watch(
-    () => props.models,
-    (models) => {
-      if (!models.length) return
-      if (!models.some((item) => item.id === model.value)) model.value = models[0]!.id
     },
   )
 </script>
 
 <style scoped>
-  .settings-form {
+  .provider-form {
+    display: grid;
+    gap: 14px;
+    color: var(--klc-color-foreground);
+  }
+
+  .provider-form__fields {
     display: grid;
     gap: 12px;
-    color: var(--agent-text, #1e2933);
-    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   }
-  label {
+
+  .provider-field {
     display: grid;
     gap: 5px;
-    color: var(--agent-muted, #687480);
-    font-size: 11px;
-    font-weight: 600;
   }
-  input,
-  select {
+
+  .provider-field__label {
+    color: var(--klc-color-axis-text);
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .provider-field input,
+  .provider-field select {
     width: 100%;
-    height: 36px;
+    height: 34px;
     box-sizing: border-box;
-    padding: 0 9px;
-    border: 1px solid var(--agent-border-strong, #aab3bd);
-    border-radius: 5px;
-    color: var(--agent-text, #1e2933);
-    background: var(--agent-input, #ffffff);
+    padding: 0 10px;
+    border: 1px solid var(--klc-color-border-button);
+    border-radius: 6px;
+    outline: none;
+    color: var(--klc-color-foreground);
+    background: var(--klc-color-background);
     font: inherit;
     font-size: 12px;
-  }
-  input:focus,
-  select:focus {
-    outline: 2px solid var(--agent-focus, #2483d6);
-    outline-offset: 1px;
-    border-color: transparent;
+    transition: border-color 0.15s;
   }
 
-  .icon-button {
-    width: 30px;
-    height: 30px;
-    flex: 0 0 auto;
+  .provider-field input:focus,
+  .provider-field select:focus {
+    border-color: var(--klc-color-axis-text);
+  }
+
+  .provider-field input::placeholder {
+    color: var(--klc-color-axis-text);
+    opacity: 0.55;
+  }
+
+  .provider-model-control {
     display: grid;
-    place-items: center;
-    border: 0;
-    border-radius: 4px;
-    color: var(--agent-muted, #687480);
-    background: transparent;
-    cursor: pointer;
-  }
-  .icon-button:disabled {
-    opacity: 0.45;
-    cursor: default;
+    grid-template-columns: minmax(0, 1fr) 34px;
+    gap: 8px;
   }
 
-  .settings-dialog__model-control {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 36px;
-    gap: 6px;
-  }
-  .settings-dialog__refresh {
-    width: 36px;
-    height: 36px;
-    border: 1px solid var(--agent-border-strong, #aab3bd);
-    background: var(--agent-input, #fff);
-  }
-
-  .settings-dialog__persistence {
-    display: flex;
-    align-items: flex-start;
-    gap: 7px;
-    margin: 0;
-    color: var(--agent-muted, #687480);
-    font-size: 11px;
-    line-height: 1.45;
-  }
-  .settings-dialog__persistence svg {
-    width: 15px;
-    height: 15px;
-    flex: 0 0 auto;
-  }
-
-  .settings-dialog__stages {
-    display: grid;
-    gap: 6px;
-    margin: 0;
-    padding: 9px;
-    border: 1px solid var(--agent-border, #dce1e3);
-    border-radius: 6px;
-    list-style: none;
-    background: var(--agent-card, #fbfcfc);
-  }
-  .settings-dialog__stages li {
-    display: grid;
-    grid-template-columns: 16px minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 6px;
-    color: var(--agent-muted, #687480);
-    font-size: 11px;
-  }
-  .settings-dialog__stages svg {
-    color: #1f9d68;
-  }
-  .settings-dialog__stages strong {
-    color: var(--agent-text, #1e2933);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .settings-dialog__error {
-    display: grid;
-    grid-template-columns: 16px minmax(0, 1fr);
-    gap: 7px;
-    padding: 9px;
-    border: 1px solid #d14b4b;
-    border-radius: 6px;
-    color: #a93636;
-    background: var(--agent-danger-bg, #fff1f1);
-    font-size: 11px;
-  }
-  .settings-dialog__error span {
-    display: grid;
-    gap: 3px;
-    min-width: 0;
-  }
-  .settings-dialog__error strong,
-  .settings-dialog__error small {
-    overflow-wrap: anywhere;
-    font: inherit;
-  }
-  .settings-dialog__error strong {
-    font-weight: 600;
-  }
-
-  .settings-dialog__draft-note {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin: 0;
-    color: var(--agent-muted, #687480);
-    font-size: 11px;
-  }
-
-  .settings-dialog__status {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--agent-muted, #687480);
-    font-size: 11px;
-  }
-  .settings-dialog__status > span {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #9ca3af;
-  }
-  .settings-dialog__status[data-state='connected'] > span {
-    background: #1f9d68;
-  }
-  .settings-dialog__status[data-state='testing'] > span {
-    background: #c58a1a;
-  }
-  .settings-dialog__status[data-state='error'] > span {
-    background: #d14b4b;
-  }
-  .settings-dialog__status strong {
-    color: var(--agent-text, #1e2933);
-  }
-
-  .settings-actions {
-    display: flex;
-    gap: 6px;
-  }
-  .settings-actions button,
-  .danger-button {
-    min-height: 32px;
+  .provider-refresh-button,
+  .provider-primary-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    padding: 0 10px;
-    border: 1px solid var(--agent-border-strong, #aab3bd);
-    border-radius: 5px;
+    border: 1px solid var(--klc-color-border-button);
     font: inherit;
-    font-size: 11px;
     cursor: pointer;
+    transition:
+      background 0.15s,
+      color 0.15s,
+      border-color 0.15s,
+      opacity 0.15s;
   }
-  .secondary-button,
-  .danger-button {
-    color: var(--agent-text, #1e2933);
-    background: var(--agent-input, #fff);
+
+  .provider-refresh-button {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 6px;
+    color: var(--klc-color-axis-text);
+    background: var(--klc-color-background);
   }
-  .danger-button {
-    color: #b43d3d;
+
+  .provider-refresh-button:hover:not(:disabled) {
+    border-color: var(--klc-color-axis-line);
+    color: var(--klc-color-foreground);
+    background: var(--klc-color-tag-bg-hover);
   }
-  .primary-button {
-    border-color: var(--agent-accent, #1769aa) !important;
-    color: white;
-    background: var(--agent-accent, #1769aa);
-  }
-  .primary-button:disabled {
+
+  .provider-refresh-button:disabled,
+  .provider-primary-button:disabled {
     opacity: 0.5;
     cursor: default;
   }
+
+  .provider-probe-results {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--klc-color-grid-major);
+    border-radius: 6px;
+    list-style: none;
+    background: var(--klc-color-background);
+  }
+
+  .provider-probe-results li {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 7px;
+    color: var(--klc-color-axis-text);
+    font-size: 11px;
+  }
+
+  .provider-probe-results svg {
+    color: var(--klc-color-success, #16865c);
+  }
+
+  .provider-probe-results strong {
+    color: var(--klc-color-foreground);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .provider-error {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr);
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--klc-color-danger, #d64545);
+    border-radius: 6px;
+    color: var(--klc-color-danger, #d64545);
+    background: var(--klc-color-background);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .provider-error span {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .provider-error strong,
+  .provider-error small {
+    overflow-wrap: anywhere;
+    font: inherit;
+  }
+
+  .provider-error strong {
+    font-weight: 600;
+  }
+
+  .provider-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    color: var(--klc-color-axis-text);
+    font-size: 11px;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+
+  .provider-status__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--klc-color-axis-line);
+  }
+
+  .provider-status[data-state='connected'] .provider-status__dot {
+    background: var(--klc-color-success, #16865c);
+  }
+
+  .provider-status[data-state='testing'] .provider-status__dot {
+    background: var(--klc-color-warning, #c58a1a);
+  }
+
+  .provider-status[data-state='error'] .provider-status__dot {
+    background: var(--klc-color-danger, #d64545);
+  }
+
+  .provider-status strong {
+    color: var(--klc-color-foreground);
+    font-weight: 500;
+  }
+
+  .provider-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .provider-primary-button {
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: 7px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .provider-primary-button {
+    border-color: var(--klc-color-foreground);
+    color: var(--klc-color-background);
+    background: var(--klc-color-foreground);
+  }
+
+  .provider-primary-button:hover:not(:disabled) {
+    opacity: 0.82;
+  }
+
   .spinner {
     animation: spin 850ms linear infinite;
   }
@@ -441,6 +387,16 @@
   @media (prefers-reduced-motion: reduce) {
     .spinner {
       animation: none;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .provider-status {
+      white-space: normal;
+    }
+
+    .provider-footer-spacer {
+      display: none;
     }
   }
 </style>

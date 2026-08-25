@@ -31,8 +31,9 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 
 - 不许在 PR 中使用 /goal 命令
 - 不许一下子写一堆代码，中间不经过 E2E 测试、视觉回归测试
-- 不许长时间自己收敛相当宽泛问题而不交由作者测试
+- 不许长时间自己收敛相当宽泛问题而不交由作者亲自测试
 - 不许在小问题上使用严苛的校验，导致链路难以维护
+- 不许未经确认就围绕一个你自己 MOCK 的数据进行开发和重构
 
 ## Quick Search
 

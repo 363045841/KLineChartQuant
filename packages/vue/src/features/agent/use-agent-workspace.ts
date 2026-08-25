@@ -2,45 +2,18 @@
 import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 
 import { createInitialAgentState, reduceAgentUiEvent } from './agent-reducer'
+import {
+  createAgentProviderSettingsPinia,
+  useAgentProviderSettingsStore,
+} from './agent-provider-settings-store'
 
-import type {
-  AgentBridgeClient,
-  AgentErrorView,
-  AgentUiEvent,
-  ProviderModelView,
-  ProviderModelsInput,
-  ProviderTestInput,
-  ProviderTestResult,
-} from './agent-contracts'
-
-function operationError(error: unknown): AgentErrorView {
-  if (typeof error === 'object' && error !== null) {
-    const value = error as Record<string, unknown>
-    if (typeof value.code === 'string' && typeof value.message === 'string') {
-      return {
-        code: value.code,
-        message: value.message,
-        retryable: value.retryable === true,
-        recommendedAction:
-          typeof value.recommendedAction === 'string' ? value.recommendedAction : undefined,
-      }
-    }
-  }
-  return {
-    code: 'PROVIDER_ERROR',
-    message: 'The Provider operation failed.',
-    retryable: true,
-  }
-}
+import type { AgentBridgeClient, AgentUiEvent } from './agent-contracts'
 
 export function useAgentWorkspace(bridge: AgentBridgeClient) {
   const state = shallowRef(createInitialAgentState())
   const draft = ref('')
-  const settingsOpen = ref(false)
-  const providerModels = ref<ProviderModelView[]>([])
-  const providerModelsLoading = ref(false)
-  const providerTestResult = ref<ProviderTestResult | null>(null)
-  const providerOperationError = ref<AgentErrorView | null>(null)
+  const providerSettings = useAgentProviderSettingsStore(createAgentProviderSettingsPinia())
+  providerSettings.bindBridge(bridge)
   const locale = ref<'en' | 'zh-CN'>(
     typeof navigator !== 'undefined' && navigator.language.startsWith('zh') ? 'zh-CN' : 'en',
   )
@@ -145,7 +118,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     const prompt = draft.value.trim()
     if (!prompt || isRunning.value) return
     if (!providerReady.value) {
-      settingsOpen.value = true
+      providerSettings.show(state.value.provider)
       return
     }
 
@@ -186,50 +159,14 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     state.value = { ...state.value, context: { ...state.value.context, readOnly } }
   }
 
-  async function testProvider(input: ProviderTestInput): Promise<void> {
-    providerOperationError.value = null
-    providerTestResult.value = null
-    try {
-      providerTestResult.value = await bridge.testProvider(input)
-    } catch (error) {
-      providerOperationError.value = operationError(error)
-    }
-  }
-
-  async function refreshProviderModels(input: ProviderModelsInput): Promise<void> {
-    providerModelsLoading.value = true
-    providerOperationError.value = null
-    try {
-      providerModels.value = (await bridge.listProviderModels(input)).models
-    } catch (error) {
-      providerOperationError.value = operationError(error)
-    } finally {
-      providerModelsLoading.value = false
-    }
-  }
-
-  async function deleteProvider(): Promise<void> {
-    try {
-      await bridge.deleteProviderCredential()
-      providerTestResult.value = null
-      providerOperationError.value = null
-    } catch (error) {
-      providerOperationError.value = operationError(error)
-    }
-  }
-
   onMounted(initialize)
   onUnmounted(() => unsubscribe?.())
 
   return {
     state,
     draft,
-    settingsOpen,
+    providerSettings,
     locale,
-    providerModels,
-    providerModelsLoading,
-    providerTestResult,
-    providerOperationError,
     activeSession,
     isRunning,
     providerReady,
@@ -243,8 +180,5 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     confirmTool,
     undoTurn,
     setReadOnly,
-    testProvider,
-    refreshProviderModels,
-    deleteProvider,
   }
 }

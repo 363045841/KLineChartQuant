@@ -217,6 +217,9 @@ export interface ProviderTestInput {
   apiKey?: string
   model: string
 }
+export interface ProviderSaveInput extends ProviderTestInput {
+  modelName: string
+}
 export interface ProviderModelsInput {
   baseUrl: string
   apiKey?: string
@@ -253,6 +256,7 @@ export interface AgentBridgeClient {
   undoTurn(runId: string): Promise<void>
   listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult>
   testProvider(input: ProviderTestInput): Promise<ProviderTestResult>
+  saveProvider(input: ProviderSaveInput): Promise<void>
   deleteProviderCredential(): Promise<void>
   subscribe(listener: (event: AgentUiEvent) => void): () => void
 }

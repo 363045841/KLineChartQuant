@@ -10,7 +10,7 @@
       @select="selectSession"
       @rename="renameSession"
       @delete="deleteSession"
-      @settings="settingsOpen = true"
+      @settings="providerSettings.show(state.provider)"
       @close="$emit('close')"
       @toggle-locale="toggleLocale"
     />
@@ -41,17 +41,9 @@
     <p class="sr-only" aria-live="polite" aria-atomic="true">{{ liveAnnouncement }}</p>
 
     <AgentSettingsDialog
-      :open="settingsOpen"
+      :provider-settings="providerSettings"
       :status="state.provider"
-      :models="providerModels"
-      :models-loading="providerModelsLoading"
-      :test-result="providerTestResult"
-      :operation-error="providerOperationError"
       :locale="locale"
-      @close="settingsOpen = false"
-      @test="testProvider"
-      @refresh-models="refreshProviderModels"
-      @delete="deleteProvider"
     />
   </section>
 </template>
@@ -79,12 +71,8 @@
   const {
     state,
     draft,
-    settingsOpen,
+    providerSettings,
     locale,
-    providerModels,
-    providerModelsLoading,
-    providerTestResult,
-    providerOperationError,
     isRunning,
     createSession,
     selectSession,
@@ -96,9 +84,6 @@
     confirmTool,
     undoTurn,
     setReadOnly,
-    testProvider,
-    refreshProviderModels,
-    deleteProvider,
   } = useAgentWorkspace(props.bridge)
 
   function toggleLocale(): void {

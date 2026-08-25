@@ -10,6 +10,7 @@ import {
   type ConfirmationView,
   type ProviderModelsInput,
   type ProviderModelsResult,
+  type ProviderSaveInput,
   type ProviderStatusView,
   type ProviderTestInput,
   type ProviderTestResult,
@@ -183,34 +184,29 @@ export class FakeAgentBridge implements AgentBridgeClient {
   }
 
   async testProvider(input: ProviderTestInput): Promise<ProviderTestResult> {
-    this.provider = {
-      ...this.provider,
-      state: 'testing',
-      modelId: input.model,
-      modelLabel: input.model,
-      compatibility: 'testing',
-    }
-    this.emit({ type: 'provider.status.changed', status: this.provider })
     const startedAt = Date.now()
     const { models } = await this.listProviderModels(input)
     if (!models.some((model) => model.id === input.model)) throw providerHttpError(404)
     await new Promise<void>((resolve) => setTimeout(resolve, this.stepDelayMs))
+    return {
+      compatible: true,
+      model: input.model,
+      latencyMs: Math.max(0, Date.now() - startedAt),
+      stages: [{ stage: 'catalog', ok: true, latencyMs: Math.max(0, Date.now() - startedAt) }],
+    }
+  }
+
+  async saveProvider(input: ProviderSaveInput): Promise<void> {
     this.provider = {
       state: 'connected',
       providerLabel: 'OpenAI-compatible',
       configured: true,
       baseUrl: input.baseUrl,
       modelId: input.model,
-      modelLabel: input.model || 'Scripted Alpha',
+      modelLabel: input.modelName,
       compatibility: 'compatible',
     }
     this.emit({ type: 'provider.status.changed', status: this.provider })
-    return {
-      compatible: true,
-      model: this.provider.modelLabel!,
-      latencyMs: Math.max(0, Date.now() - startedAt),
-      stages: [{ stage: 'catalog', ok: true, latencyMs: Math.max(0, Date.now() - startedAt) }],
-    }
   }
 
   async deleteProviderCredential(): Promise<void> {

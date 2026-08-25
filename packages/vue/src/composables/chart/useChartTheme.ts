@@ -64,6 +64,9 @@ export function useChartTheme(ctrl: Ref<ChartController | null>, initialTheme?: 
   watch(
     themeCssVars,
     (vars) => {
+      for (const [name, value] of Object.entries(vars)) {
+        document.body.style.setProperty(name, value)
+      }
       document.body.style.backgroundColor = vars['--klc-color-background'] ?? ''
     },
     { immediate: true },
@@ -81,9 +84,7 @@ export function useChartTheme(ctrl: Ref<ChartController | null>, initialTheme?: 
 
     if (themeSetting === 'auto') {
       // 确保偏好为 auto（即使调用方未先 facade）
-      chartCtrl.updateSettingsFacade(
-        resolveSettings({ ...chartSettings.value, theme: 'auto' }),
-      )
+      chartCtrl.updateSettingsFacade(resolveSettings({ ...chartSettings.value, theme: 'auto' }))
       const mq = window.matchMedia('(prefers-color-scheme: dark)')
       chartCtrl.setSystemTheme(mq.matches ? 'dark' : 'light')
       if (autoThemeMediaQuery !== mq) {
@@ -110,6 +111,9 @@ export function useChartTheme(ctrl: Ref<ChartController | null>, initialTheme?: 
     unsubTheme = null
     autoThemeMediaQuery?.removeEventListener('change', onSystemThemeChange)
     autoThemeMediaQuery = null
+    for (const name of Object.keys(themeCssVars.value)) {
+      document.body.style.removeProperty(name)
+    }
     document.body.style.backgroundColor = ''
   })
 

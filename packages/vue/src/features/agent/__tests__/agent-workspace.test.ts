@@ -56,19 +56,23 @@ describe('AgentWorkspace', () => {
     expect(document.querySelector('.base-modal')).not.toBeNull()
     expect((textarea.element as HTMLTextAreaElement).value).toBe(selectedPrompt)
 
-    const inputs = [...document.querySelectorAll<HTMLInputElement>('.settings-form input')]
+    const inputs = [...document.querySelectorAll<HTMLInputElement>('.provider-form input')]
     inputs[0]!.value = 'https://models.example.test/v1'
     inputs[0]!.dispatchEvent(new Event('input', { bubbles: true }))
     inputs[1]!.value = 'temporary-test-key'
     inputs[1]!.dispatchEvent(new Event('input', { bubbles: true }))
     inputs[2]!.value = 'provider-model-a'
     inputs[2]!.dispatchEvent(new Event('input', { bubbles: true }))
-    document.querySelector<HTMLFormElement>('.settings-form')!.requestSubmit()
+    document.querySelector<HTMLFormElement>('.provider-form')!.requestSubmit()
     await vi.advanceTimersByTimeAsync(10)
     await flushPromises()
 
-    expect(document.querySelectorAll('.settings-dialog__stages li')).toHaveLength(1)
-    document.querySelector<HTMLButtonElement>('.base-close-btn')!.click()
+    expect(document.querySelectorAll('.provider-probe-results li')).toHaveLength(1)
+    const confirmButton = [
+      ...document.querySelectorAll<HTMLButtonElement>('.provider-primary-button'),
+    ].at(-1)!
+    expect(confirmButton.disabled).toBe(false)
+    confirmButton.click()
     await flushPromises()
     expect(document.querySelector('.base-modal')).toBeNull()
     expect((textarea.element as HTMLTextAreaElement).value).toBe(selectedPrompt)
@@ -89,7 +93,7 @@ describe('AgentWorkspace', () => {
     inputs[1]!.value = 'temporary-test-key'
     inputs[1]!.dispatchEvent(new Event('input', { bubbles: true }))
     await flushPromises()
-    dialog.querySelector<HTMLButtonElement>('.settings-dialog__refresh')!.click()
+    dialog.querySelector<HTMLButtonElement>('.provider-refresh-button')!.click()
     await flushPromises()
 
     const options = dialog.querySelectorAll<HTMLOptionElement>('select option')

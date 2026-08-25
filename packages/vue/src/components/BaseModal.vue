@@ -110,14 +110,7 @@
   }
 
   .base-modal {
-    --base-modal-surface: color-mix(
-      in srgb,
-      var(--klc-color-background) 96%,
-      var(--klc-color-foreground)
-    );
-
-    background: var(--klc-color-background);
-    background: var(--base-modal-surface);
+    background: var(--klc-color-background, #ffffff);
     border: 0;
     border-radius: 10px;
     box-shadow: 0 18px 48px rgba(0, 0, 0, 0.15);
@@ -132,7 +125,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 14px 18px 14px 20px;
-    background: var(--base-modal-surface);
+    background: var(--klc-color-background, #ffffff);
     flex-shrink: 0;
     gap: 12px;
   }
@@ -180,7 +173,7 @@
   }
 
   .base-close-btn {
-    background: var(--base-modal-surface);
+    background: var(--klc-color-background, #ffffff);
     border: 1px solid var(--klc-color-border-button);
     border-radius: 8px;
     width: 32px;
@@ -212,14 +205,14 @@
     position: relative;
     flex-shrink: 0;
     padding: 16px 20px;
-    background: var(--base-modal-surface);
+    background: var(--klc-color-background, #ffffff);
   }
 
   .base-body {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    background: var(--base-modal-surface);
+    background: var(--klc-color-background, #ffffff);
   }
 
   .base-body::-webkit-scrollbar {
@@ -227,12 +220,12 @@
   }
 
   .base-body::-webkit-scrollbar-track {
-    background: var(--base-modal-surface);
+    background: var(--klc-color-background, #ffffff);
   }
 
   .base-body::-webkit-scrollbar-thumb {
     background: var(--klc-color-axis-line);
-    border: 2px solid var(--base-modal-surface);
+    border: 2px solid var(--klc-color-background, #ffffff);
     border-radius: 999px;
   }
 
@@ -243,7 +236,7 @@
     justify-content: flex-end;
     gap: 8px;
     padding: 12px 20px;
-    background: var(--base-modal-surface);
+    background: var(--klc-color-background, #ffffff);
     flex-shrink: 0;
   }
 

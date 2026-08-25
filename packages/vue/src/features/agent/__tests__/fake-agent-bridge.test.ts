@@ -30,26 +30,27 @@ describe('FakeAgentBridge', () => {
     vi.unstubAllGlobals()
   })
 
-  it('emits provider setup states without retaining the credential in view data', async () => {
+  it('persists a tested Provider only after confirmation without retaining the credential in view data', async () => {
     const bridge = new FakeAgentBridge({ stepDelayMs: 10 })
     const events: AgentUiEvent[] = []
     bridge.subscribe((event) => events.push(event))
 
-    const pending = bridge.testProvider({
+    const input = {
       baseUrl: 'https://models.example.test/v1',
       apiKey: 'test-secret',
       model: 'provider-model-a',
-    })
-    expect(events.at(-1)).toMatchObject({
-      type: 'provider.status.changed',
-      status: { state: 'testing', modelLabel: 'provider-model-a' },
-    })
+    }
+    const pending = bridge.testProvider(input)
+    expect(events).toHaveLength(0)
 
     await vi.advanceTimersByTimeAsync(10)
     await expect(pending).resolves.toMatchObject({ compatible: true, model: 'provider-model-a' })
+    expect(events).toHaveLength(0)
+
+    await bridge.saveProvider({ ...input, modelName: 'Provider Model A' })
     expect(events.at(-1)).toMatchObject({
       type: 'provider.status.changed',
-      status: { state: 'connected', modelLabel: 'provider-model-a' },
+      status: { state: 'connected', modelLabel: 'Provider Model A' },
     })
     expect(JSON.stringify(events)).not.toContain('test-secret')
   })

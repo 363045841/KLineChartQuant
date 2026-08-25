@@ -18,6 +18,7 @@ import type {
   AgentUiEventInput,
   ProviderModelsInput,
   ProviderModelsResult,
+  ProviderSaveInput,
   ProviderStatusView,
   ProviderTestInput,
   ProviderTestResult,
@@ -130,8 +131,9 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     return await this.support.provider.getStatus()
   }
 
-  listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult> {
-    return fetchOpenAiCompatibleModels(input)
+  async listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult> {
+    const apiKey = input.apiKey?.trim() || (await this.credentials.read())
+    return fetchOpenAiCompatibleModels({ ...input, apiKey })
   }
 
   async createSession(): Promise<AgentSessionView> {
@@ -202,33 +204,46 @@ export class BrowserAgentBridge implements AgentBridgeClient {
 
   async testProvider(input: ProviderTestInput): Promise<ProviderTestResult> {
     const startedAt = Date.now()
-    const { models, refreshedAt } = await fetchOpenAiCompatibleModels(input)
-    const selected = models.find((model) => model.id === input.model)
-    if (!selected) throw providerHttpError(404)
     const apiKey = input.apiKey?.trim() || (await this.credentials.read())
     if (!apiKey) {
       throw new AgentRuntimeError('PROVIDER_NOT_CONFIGURED', 'Enter an API key before testing.')
     }
-    const testedAt = Date.now()
-    await this.credentials.write(apiKey)
-    await this.settings.write({
-      version: PROVIDER_SETTINGS_VERSION,
-      baseUrl: normalizeProviderBaseUrl(input.baseUrl),
-      modelId: selected.id,
-      modelName: selected.name,
-      compatibility: 'compatible',
-      lastTestedAt: testedAt,
-      lastModelsRefreshAt: refreshedAt,
-    })
-    const latencyMs = Math.max(0, testedAt - startedAt)
+    const { models, refreshedAt } = await fetchOpenAiCompatibleModels({ ...input, apiKey })
+    const selected = models.find((model) => model.id === input.model)
+    if (!selected) throw providerHttpError(404)
+    const latencyMs = Math.max(0, Date.now() - startedAt)
     const result: ProviderTestResult = {
       compatible: true,
       model: selected.id,
       latencyMs,
       stages: [{ stage: 'catalog', ok: true, latencyMs }],
     }
-    this.emit({ type: 'provider.status.changed', status: await this.getProviderStatus() })
     return result
+  }
+
+  async saveProvider(input: ProviderSaveInput): Promise<void> {
+    const apiKey = input.apiKey?.trim() || (await this.credentials.read()) || ''
+    const rawBaseUrl = input.baseUrl.trim()
+    let baseUrl = rawBaseUrl
+    if (rawBaseUrl) {
+      try {
+        baseUrl = normalizeProviderBaseUrl(rawBaseUrl)
+      } catch {
+        baseUrl = rawBaseUrl
+      }
+    }
+    if (apiKey) await this.credentials.write(apiKey)
+    const savedAt = Date.now()
+    await this.settings.write({
+      version: PROVIDER_SETTINGS_VERSION,
+      baseUrl,
+      modelId: input.model.trim(),
+      modelName: input.modelName.trim() || input.model.trim(),
+      compatibility: 'compatible',
+      lastTestedAt: savedAt,
+      lastModelsRefreshAt: savedAt,
+    })
+    this.emit({ type: 'provider.status.changed', status: await this.getProviderStatus() })
   }
 
   async deleteProviderCredential(): Promise<void> {
