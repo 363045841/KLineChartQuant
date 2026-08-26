@@ -173,8 +173,8 @@
   }
 
   .base-close-btn {
-    background: var(--klc-color-background, #ffffff);
-    border: 1px solid var(--klc-color-border-button);
+    background: color-mix(in srgb, var(--klc-color-chart-background) 92%, var(--klc-color-foreground));
+    border: 0;
     border-radius: 8px;
     width: 32px;
     height: 32px;
@@ -185,15 +185,13 @@
     color: var(--klc-color-axis-text);
     transition:
       background 0.15s,
-      color 0.15s,
-      border-color 0.15s;
+      color 0.15s;
     padding: 0;
   }
 
   .base-close-btn:hover {
-    background: var(--klc-color-tag-bg-hover);
+    background: color-mix(in srgb, var(--klc-color-chart-background) 86%, var(--klc-color-foreground));
     color: var(--klc-color-foreground);
-    border-color: var(--klc-color-axis-line);
   }
 
   .base-close-btn svg {

@@ -696,21 +696,19 @@
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
-    border: 1px solid transparent;
+    border: 0;
     transition: all 0.15s;
     line-height: 1;
     white-space: nowrap;
   }
 
   .btn-confirm {
-    background: var(--klc-color-foreground);
-    border-color: var(--klc-color-foreground);
+    background: color-mix(in srgb, var(--klc-color-foreground) 80%, var(--klc-color-chart-background));
     color: var(--klc-color-background);
   }
 
   .btn-confirm:hover {
     background: var(--klc-color-foreground);
-    border-color: var(--klc-color-foreground);
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
     transform: translateY(-1px);
   }

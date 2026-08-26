@@ -93,7 +93,7 @@
     triggerRef,
     menuRef,
     4,
-    true,
+    false,
   )
 
   const triggerStyle = computed(() => {
@@ -103,8 +103,9 @@
 
   const menuStyle = computed(() => {
     if (!isOpen.value) return undefined
+    const trigger = triggerRef.value
     return {
-      minWidth: props.minWidth,
+      minWidth: props.minWidth || (trigger ? `${trigger.offsetWidth}px` : undefined),
       zIndex: 1010,
       ...popupStyle.value,
     }
@@ -252,8 +253,7 @@
     padding: 4px;
     border: 0;
     border-radius: 4px;
-    background: var(--klc-color-background);
-    background: color-mix(in srgb, var(--klc-color-background) 92%, var(--klc-color-foreground));
+    background: var(--klc-color-chart-background);
     box-shadow:
       0 2px 4px rgba(0, 0, 0, 0.08),
       0 6px 12px rgba(0, 0, 0, 0.06);
@@ -288,7 +288,7 @@
 
   .dropdown__option:hover,
   .dropdown__option:focus-visible {
-    background: color-mix(in srgb, var(--klc-color-background) 88%, var(--klc-color-foreground));
+    background: var(--klc-color-tag-bg-hover);
     outline: 0;
   }
 
