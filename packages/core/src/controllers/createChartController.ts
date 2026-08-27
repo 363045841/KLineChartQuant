@@ -18,7 +18,6 @@ import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
 import { KLineChartError } from '../errors'
 import {
   createChartAgentController,
-  createChartRevisionTracker,
 } from '../features/agent/chartAgentController'
 import { createIndicatorQuery } from '../features/agent/indicator/indicatorQuery'
 import { ChartBridge } from '../features/mcp/chartBridge'
@@ -477,32 +476,15 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   }
 
   // -------------------------------------------------------------------
-  // Agent facade and controller-level revision
+  // Agent facade
   // -------------------------------------------------------------------
 
-  const chartRevisionTracker = createChartRevisionTracker([
-    chart.kernel.dataManager.readonly.currentSpec,
-    viewport,
-    symbols,
-    settingsSignal,
-    chartModeSignal,
-    indicators,
-    subPanes,
-    drawingTool,
-    drawings,
-    selectedDrawingId,
-    paneRatios,
-    paneLayout,
-    comparisonColors,
-    chart.kernel.marker.readonly.customMarkers,
-  ])
   const agent = createChartAgentController({
     chartId: generateUUID(),
     dataState: chart.kernel.data,
     currentSpec: chart.kernel.dataManager.readonly.currentSpec,
     viewport,
     indicators,
-    chartRevision: chartRevisionTracker.revision,
     indicatorQuery: createIndicatorQuery({ dataState: chart.kernel.data }),
   })
 
@@ -873,7 +855,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   function dispose(): void {
     if (disposed) return
     disposed = true
-    chartRevisionTracker.dispose()
     bridge?.destroy()
     try {
       void chart.destroy()

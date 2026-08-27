@@ -159,15 +159,11 @@ describe('createChartController mount theme', () => {
     await expect(
       first.agent.queryIndicator({ definitionId: 'RSI', params: { period1: 14 }, limit: 3 }),
     ).resolves.toContain('rsi | period1=14')
-    expect(first.agent.getContext().chartRevision).toBe(initial.chartRevision)
-
     first.setTheme('light')
-    const afterTheme = first.agent.getContext()
-    expect(afterTheme.chartRevision).toBeGreaterThan(initial.chartRevision)
 
     first.setData([...data, { ...data[data.length - 1]!, timestamp: 1_860_000 }])
     const afterData = first.agent.getContext()
-    expect(afterData.dataRevision).toBeGreaterThan(afterTheme.dataRevision)
+    expect(afterData.dataRevision).toBeGreaterThan(initial.dataRevision)
 
     first.dispose()
     second.dispose()

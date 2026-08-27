@@ -29,7 +29,6 @@ export interface ChartAgentContextSnapshot {
   readonly dataRange: ChartAgentDataRange
   readonly visibleRange: ChartAgentTimeRange | null
   readonly activeIndicators: ReadonlyArray<ChartAgentActiveIndicator>
-  readonly chartRevision: number
   readonly dataRevision: number
 }
 

@@ -1,5 +1,5 @@
 import { KLineChartError } from '../../errors'
-import { createSignal, type ReadonlySignal } from '../../foundation/reactivity/signal'
+import type { ReadonlySignal } from '../../foundation/reactivity/signal'
 
 import { CHART_AGENT_ERROR_CODES } from './errors'
 
@@ -19,35 +19,7 @@ interface ChartAgentControllerDependencies {
   readonly currentSpec: ReadonlySignal<SymbolSpec | null>
   readonly viewport: ReadonlySignal<ChartViewport>
   readonly indicators: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
-  readonly chartRevision: ReadonlySignal<number>
   readonly indicatorQuery: IndicatorQuery
-}
-
-export interface ChartRevisionTracker {
-  readonly revision: ReadonlySignal<number>
-  dispose(): void
-}
-
-/** Track a controller-level monotonic revision without exposing writable state. */
-export function createChartRevisionTracker(
-  sources: ReadonlyArray<ReadonlySignal<unknown>>,
-): ChartRevisionTracker {
-  const revision = createSignal(0)
-  let disposed = false
-  const subscriptions = [...new Set(sources)].map((source) =>
-    source.subscribe(() => {
-      if (!disposed) revision.set(revision.peek() + 1)
-    }),
-  )
-
-  return {
-    revision,
-    dispose(): void {
-      if (disposed) return
-      disposed = true
-      for (const unsubscribe of subscriptions) unsubscribe()
-    },
-  }
 }
 
 function projectIndicators(
@@ -139,7 +111,6 @@ export function createChartAgentController(
         dataRange: Object.freeze({ ...dataRange, bars: activeBuffer.data.length }),
         visibleRange: resolveVisibleRange(activeBuffer.data, dependencies.viewport.peek()),
         activeIndicators: projectIndicators(dependencies.indicators.peek()),
-        chartRevision: dependencies.chartRevision.peek(),
         dataRevision: activeBuffer.dataRevision,
       })
     },

@@ -32,12 +32,11 @@ numeric `params`, optional inclusive finite `from`/`to`, and optional integer
 
 `ChartAgentContextSnapshot` is a detached, deeply frozen plain object containing
 `chartId`, instrument/source/period metadata, `dataRange`, nullable
-`visibleRange`, numeric `activeIndicators`, `chartRevision`, and `dataRevision`.
+`visibleRange`, numeric `activeIndicators`, and `dataRevision`.
 Unavailable optional metadata is `null`; do not infer timezone or market.
 
-`chartRevision` changes monotonically with Agent-relevant chart state.
 `dataRevision` comes from the active `DataState` snapshot. Context reads and
-indicator queries are read-only and must not advance either revision themselves.
+indicator queries are read-only and must not advance it themselves.
 
 ## 4. Validation & Error Matrix
 
@@ -56,7 +55,7 @@ source of truth.
 ## 5. Good / Base / Bad Cases
 
 - Good: capture `controller.agent.getContext()`, call `queryIndicator()`, and
-  attach the observed revisions to the later tool envelope without parsing the
+  attach the observed data revision to the later tool envelope without parsing the
   returned compact text.
 - Base: omit `limit`; Core returns at most 20 formatted entries while calculating
   against the full series for lookback correctness.
@@ -66,11 +65,11 @@ source of truth.
 ## 6. Tests Required
 
 - Unit: JSON serialization, nested immutability, detached params, range mapping,
-  stable chart identity, monotonic tracker, tracker disposal, and typed no-data.
+  stable chart identity, and typed no-data.
 - Query: runtime-invalid inputs, 20/2000 limits, empty range, missing calculator,
   one successful revision retry, and continuous revision failure.
 - Integration: two real controllers have distinct IDs; custom data and a built-in
-  indicator flow through the facade; read-only query preserves chart revision.
+  indicator flow through the facade; read-only query preserves data revision.
 - Package: Core build and strict publint pass; `./agent` direct Node ESM import
   and bundler type resolution pass; public declarations contain no `DataState`.
 
@@ -96,5 +95,5 @@ const observed = controller.agent.getContext()
 const content = await controller.agent.queryIndicator(input)
 ```
 
-The adapter keeps `content` opaque and records `observed.chartRevision` and
-`observed.dataRevision` in its own typed tool-result envelope.
+The adapter keeps `content` opaque and records `observed.dataRevision` in its
+own typed tool-result envelope.

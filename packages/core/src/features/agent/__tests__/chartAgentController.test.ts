@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { createDataState } from '../../../engine/state/dataState'
 import { createSignal } from '../../../foundation/reactivity/signal'
-import { createChartAgentController, createChartRevisionTracker } from '../chartAgentController'
+import { createChartAgentController } from '../chartAgentController'
 import { CHART_AGENT_ERROR_CODES } from '../errors'
 
 import type { ChartViewport, IndicatorInstance, SymbolSpec } from '../../../controllers/types'
@@ -73,7 +73,6 @@ function createFixture() {
       params: indicatorParams,
     },
   ])
-  const chartRevision = createSignal(7)
   const queryIndicator = vi.fn(async () => 'RSI compact text')
   const controller = createChartAgentController({
     chartId: 'chart-fixture',
@@ -81,12 +80,10 @@ function createFixture() {
     currentSpec,
     viewport,
     indicators,
-    chartRevision,
     indicatorQuery: { queryIndicator },
   })
 
   return {
-    chartRevision,
     controller,
     currentSpec,
     dataState,
@@ -114,7 +111,6 @@ describe('createChartAgentController', () => {
       dataRange: { from: 1_000, to: 4_000, bars: 4 },
       visibleRange: { from: 2_000, to: 4_000 },
       activeIndicators: [{ instanceId: 'rsi-1', definitionId: 'RSI', params: { period: 14 } }],
-      chartRevision: 7,
       dataRevision: 1,
     })
     expect(JSON.parse(JSON.stringify(snapshot))).toEqual(snapshot)
@@ -127,11 +123,9 @@ describe('createChartAgentController', () => {
 
     fixture.currentSpec.set({ symbol: 'ETHUSDT', market: 'crypto' })
     fixture.indicatorParams.period = 9
-    fixture.chartRevision.set(8)
 
     expect(snapshot.symbol).toBe('BTCUSDT')
     expect(snapshot.activeIndicators[0]?.params.period).toBe(14)
-    expect(snapshot.chartRevision).toBe(7)
   })
 
   it('returns a stable chart identity and fresh read-only snapshots', () => {
@@ -142,7 +136,6 @@ describe('createChartAgentController', () => {
 
     expect(first).not.toBe(second)
     expect(first.chartId).toBe(second.chartId)
-    expect(first.chartRevision).toBe(second.chartRevision)
   })
 
   it('throws a typed no-data error for an absent or empty active series', () => {
@@ -166,38 +159,5 @@ describe('createChartAgentController', () => {
     await expect(fixture.controller.queryIndicator(input)).resolves.toBe('RSI compact text')
     expect(fixture.queryIndicator).toHaveBeenCalledOnce()
     expect(fixture.queryIndicator).toHaveBeenCalledWith(input)
-  })
-})
-
-describe('createChartRevisionTracker', () => {
-  it('increments monotonically for tracked changes and ignores reads', () => {
-    const symbol = createSignal('BTCUSDT')
-    const theme = createSignal<'light' | 'dark'>('dark')
-    const tracker = createChartRevisionTracker([symbol, theme])
-
-    expect(tracker.revision.peek()).toBe(0)
-    symbol.peek()
-    theme()
-    expect(tracker.revision.peek()).toBe(0)
-
-    symbol.set('ETHUSDT')
-    const afterSymbol = tracker.revision.peek()
-    theme.set('light')
-
-    expect(afterSymbol).toBeGreaterThan(0)
-    expect(tracker.revision.peek()).toBeGreaterThan(afterSymbol)
-  })
-
-  it('stops observing changes after dispose', () => {
-    const state = createSignal(0)
-    const tracker = createChartRevisionTracker([state])
-    state.set(1)
-    const beforeDispose = tracker.revision.peek()
-
-    tracker.dispose()
-    tracker.dispose()
-    state.set(2)
-
-    expect(tracker.revision.peek()).toBe(beforeDispose)
   })
 })
