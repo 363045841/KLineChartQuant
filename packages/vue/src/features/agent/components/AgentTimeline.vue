@@ -46,7 +46,8 @@
       data-focus="completion"
     >
       <div>
-        <component :is="runStatusIcon" aria-hidden="true" />
+        <LoadingSpinner v-if="isLoading" />
+        <component v-else :is="runStatusIcon" aria-hidden="true" />
         <span>{{ text.runStatus }}</span>
         <strong>{{ runStatusLabel }}</strong>
       </div>
@@ -73,6 +74,7 @@
   import AgentMessageItem from './AgentMessageItem.vue'
   import ConfirmationCard from './ConfirmationCard.vue'
   import ToolCallCard from './ToolCallCard.vue'
+  import LoadingSpinner from '../../../components/LoadingSpinner.vue'
 
   import type {
     AgentErrorView,
@@ -89,7 +91,6 @@
   import IconChartCandle from '~icons/tabler/chart-candle'
   import IconCheck from '~icons/tabler/check'
   import IconClock from '~icons/tabler/clock'
-  import IconLoader2 from '~icons/tabler/loader-2'
 
   type TimelineEntry =
     | { kind: 'message'; id: string; at: number; message: AgentMessageView }
@@ -140,6 +141,7 @@
   const isTerminal = computed(() =>
     ['completed', 'failed', 'cancelled', 'partial', 'interrupted'].includes(props.run.status),
   )
+  const isLoading = computed(() => !isTerminal.value && props.run.status !== 'idle')
   const runStatusLabel = computed(
     () => text.value.status[props.run.status as keyof typeof text.value.status],
   )
@@ -156,7 +158,7 @@
       case 'idle':
         return IconClock
       default:
-        return IconLoader2
+        return IconClock
     }
   })
   const totalTokens = computed(() => {

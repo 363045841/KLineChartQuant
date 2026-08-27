@@ -10,7 +10,7 @@
       @click="togglePopup"
     >
       <span class="symbol-chip__code">{{ displayText }}</span>
-      <span v-if="loading && !retrying" class="symbol-chip__spinner" aria-hidden="true" />
+      <LoadingSpinner v-if="loading && !retrying" class="symbol-chip__spinner" />
       <span
         v-else-if="error || retrying"
         class="symbol-chip__error"
@@ -88,7 +88,7 @@
 
           <div class="symbol-list" role="listbox" aria-label="商品列表">
             <div v-if="searchLoading" class="symbol-list__empty">
-              <span class="symbol-chip__spinner" aria-hidden="true" />
+              <LoadingSpinner class="symbol-chip__spinner" />
               <span>正在搜索</span>
             </div>
             <div v-else-if="filteredSymbols.length === 0" class="symbol-list__empty">
@@ -165,6 +165,7 @@
 
   import AggregationSourceButton from './AggregationSourceButton.vue'
   import AggregationSourceTabs, { type AggregationSourceTabItem } from './AggregationSourceTabs.vue'
+  import LoadingSpinner from './LoadingSpinner.vue'
   import IconTablerAlertTriangle from '~icons/tabler/alert-triangle'
   import IconTablerPlus from '~icons/tabler/plus'
 
@@ -641,20 +642,7 @@
   }
 
   .symbol-chip__spinner {
-    display: inline-block;
-    flex-shrink: 0;
-    width: 12px;
-    height: 12px;
-    border: 2px solid var(--klc-color-axis-text);
-    border-top-color: transparent;
-    border-radius: 50%;
-    animation: symbol-spin 0.6s linear infinite;
-  }
-
-  @keyframes symbol-spin {
-    to {
-      transform: rotate(360deg);
-    }
+    color: var(--klc-color-axis-text);
   }
 
   .symbol-chip__error {
