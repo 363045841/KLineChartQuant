@@ -47,4 +47,11 @@ export interface OpenAiCompatibleRuntimeOptions {
   maxRetries?: number
   maxRetryDelayMs?: number
   diagnostics?: (diagnostic: ProviderDiagnostic) => void
+  tools?: (context: {
+    readonly sessionId: string
+    readonly runId: string
+    readonly turnId: string
+    readonly prompt: string
+    readonly readOnly: boolean
+  }) => readonly import('../pi/types.js').RuntimeToolDefinition[]
 }

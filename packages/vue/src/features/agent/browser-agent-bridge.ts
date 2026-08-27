@@ -3,6 +3,7 @@ import {
   AgentRuntimeError,
   PiRunDriver,
   PROVIDER_SETTINGS_VERSION,
+  createIndicatorQueryTool,
   createOpenAiCompatibleRuntimeSupport,
   fetchOpenAiCompatibleModels,
   normalizeProviderBaseUrl,
@@ -29,6 +30,7 @@ import type {
   OpenAiCompatibleProviderSettings,
   ProviderSettingsStore,
 } from '@363045841yyt/klinechart-agent-runtime'
+import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
 
 const PROVIDER_API_KEY_STORAGE_KEY = 'agent.provider.apiKey'
 const PROVIDER_SETTINGS_STORAGE_KEY = 'agent.provider.settings'
@@ -92,22 +94,31 @@ interface ActiveRun {
   input: StartRunInput
 }
 
+interface BrowserAgentBridgeOptions {
+  readonly getChartAgent?: () => ChartAgentController | null | undefined
+}
+
 export class BrowserAgentBridge implements AgentBridgeClient {
   private readonly listeners = new Set<(event: AgentUiEvent) => void>()
   private readonly credentials = new BrowserProviderCredentialStore()
   private readonly settings = new BrowserProviderSettingsStore()
-  private readonly support = createOpenAiCompatibleRuntimeSupport({
-    credentials: this.credentials,
-    settings: this.settings,
-    fetch: fetchBrowserProvider,
-  })
+  private readonly support
   private readonly sessions = new Map<string, BrowserSession>()
   private readonly activeRuns = new Map<string, ActiveRun>()
   private readonly runInputs = new Map<string, StartRunInput>()
   private nextSession = 1
   private nextRun = 1
 
-  constructor() {
+  constructor(options: BrowserAgentBridgeOptions = {}) {
+    this.support = createOpenAiCompatibleRuntimeSupport({
+      credentials: this.credentials,
+      settings: this.settings,
+      fetch: fetchBrowserProvider,
+      tools: () => {
+        const agent = options.getChartAgent?.()
+        return agent ? [createIndicatorQueryTool(agent)] : []
+      },
+    })
     const session = this.createSessionRecord()
     this.sessions.set(session.view.id, session)
   }

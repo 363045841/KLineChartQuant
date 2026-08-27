@@ -386,6 +386,7 @@ export function createOpenAiCompatibleRuntimeSupport(
         throw error
       }
     }
+    const tools = options.tools?.(context) ?? []
     return {
       sessionId: context.sessionId,
       runId: context.runId,
@@ -393,7 +394,7 @@ export function createOpenAiCompatibleRuntimeSupport(
       prompt: context.prompt,
       readOnly: context.readOnly,
       scope: { symbol: null, period: null, readOnly: context.readOnly },
-      tools: [],
+      tools,
       model,
       streamFn: (streamModel, streamContext, streamOptions) =>
         models.streamSimple(streamModel, streamContext, {
@@ -405,7 +406,9 @@ export function createOpenAiCompatibleRuntimeSupport(
         }),
       classifyProviderError: (message) => classifyStreamError(message, observation),
       systemPrompt:
-        'You are the KLineChartQuant financial analysis Agent. No chart tools are available in this build. Do not claim to have read or changed the chart. Answer only from user-provided text and state limitations clearly.',
+        tools.length > 0
+          ? 'You are the KLineChartQuant financial analysis Agent. Use the supplied chart tools when chart evidence is needed. Do not claim to have changed the chart: the available tools are read-only.'
+          : 'You are the KLineChartQuant financial analysis Agent. No chart tools are available in this build. Do not claim to have read or changed the chart. Answer only from user-provided text and state limitations clearly.',
     }
   }
 

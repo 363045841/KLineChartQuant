@@ -569,7 +569,9 @@
   }
 
   const chartRef = ref<InstanceType<typeof KlineChart> | null>(null)
-  const agentBridge = new BrowserAgentBridge()
+  const agentBridge = new BrowserAgentBridge({
+    getChartAgent: () => chartRef.value?.getController?.()?.agent,
+  })
   const webPanelWidthStorage: AgentPanelWidthStorage = {
     load() {
       const value = window.localStorage.getItem('agent.panelWidth')
