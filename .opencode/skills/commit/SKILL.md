@@ -1,321 +1,62 @@
 ---
 name: commit-message-generator
-description: Generate clear, conventional, and meaningful commit messages following best practices and conventional commit standards
+description: 生成遵循 Conventional Commits 规范的提交信息
 ---
 
-# Commit Message Generator
+# 提交信息生成器
 
-## Purpose
+## 流程
 
-Generate high-quality commit messages that:
-- Follow conventional commit format
-- Clearly describe changes
-- Provide useful context
-- Aid in changelog generation
-- Support semantic versioning
+1. 查看 `git diff` 与 `git status`，弄清改动范围、类型与原因
+2. 按改动性质选类型
+3. 写标题（type(scope): 描述）
+4. 复杂改动补正文
+5. 破坏性改动 / 关联 issue 补脚注
 
-## When to Use
+## 类型
 
-Invoke this skill when:
-- User needs help writing commit messages
-- Reviewing staged changes for commit
-- Creating standardized team commit messages
-- Generating changelog entries
-- Teaching commit message best practices
+| 类型 | 适用 |
+|------|------|
+| `feat` | 新功能 |
+| `fix` | 修复 bug |
+| `docs` | 仅文档 |
+| `style` | 格式、分号等，不影响逻辑 |
+| `refactor` | 重构，非修 bug 非加功能 |
+| `perf` | 性能优化 |
+| `test` | 增改测试 |
+| `build` | 构建系统或依赖 |
+| `ci` | CI 配置 |
+| `chore` | 其他不涉及 src/test 的改动 |
+| `revert` | 回滚 |
 
-## Instructions
+`scope` 可选：模块/组件名，如 `feat(auth):`、`fix(api):`
 
-### Step 1: Analyze the Changes
-
-Examine the git diff to understand:
-1. **Scope of change**: What files/modules affected
-2. **Type of change**: Feature, fix, refactor, docs, etc.
-3. **Impact**: Breaking change or not
-4. **Why**: The reason for the change
-
-### Step 2: Determine Commit Type
-
-Choose the appropriate conventional commit type:
-
-- **feat**: New feature
-- **fix**: Bug fix
-- **docs**: Documentation only
-- **style**: Formatting, missing semicolons, etc.
-- **refactor**: Code change that neither fixes a bug nor adds a feature
-- **perf**: Performance improvement
-- **test**: Adding or updating tests
-- **build**: Changes to build system or dependencies
-- **ci**: CI configuration changes
-- **chore**: Other changes that don't modify src or test files
-- **revert**: Reverting a previous commit
-
-### Step 3: Identify Scope (Optional)
-
-Determine the scope (area of codebase):
-- Component name: `auth`, `api`, `ui`
-- Module name: `parser`, `validator`
-- Feature name: `login`, `checkout`
-
-### Step 4: Write the Subject Line
-
-Create a subject line that:
-- Starts with type and optional scope: `type(scope):`
-- Uses imperative mood: "add" not "added" or "adds"
-- Is no longer than 50-72 characters
-- Does not end with a period
-- Clearly describes WHAT changed
-
-### Step 5: Add Body (if needed)
-
-Include a body for complex changes:
-- Explain WHY the change was made
-- Describe the previous behavior
-- Explain the new behavior
-- Justify your approach
-- Wrap at 72 characters
-
-### Step 6: Add Footer (if needed)
-
-Add footer for:
-- **Breaking changes**: `BREAKING CHANGE: description`
-- **Issue references**: `Closes #123, Fixes #456`
-- **Co-authors**: `Co-authored-by: Name <email>`
-
-## Examples
-
-### Simple Feature Addition
+## 格式
 
 ```
-feat(auth): add password reset functionality
+<type>(<scope>)!: <描述>
 
-Implements password reset via email token. Users can now request
-a password reset link that expires after 1 hour.
+<正文：为什么改、之前行为、之后行为>
 
-- Add /reset-password endpoint
-- Implement email token generation
-- Add reset form UI
-
-Closes #142
+<脚注：BREAKING CHANGE: / Closes #123>
 ```
 
-### Bug Fix
+## 要点
+
+- 标题用祈使语气（"add" 而非 "added"），≤72 字符，结尾无句号
+- 正文解释 WHY 而非 WHAT（WHAT 在 diff 里）
+- 破坏性改动加 `!`：`feat(api)!:`
+- 一次提交只做一件事
+- 提交前确认测试通过
+
+## 示例
 
 ```
-fix(api): resolve null pointer exception in user validation
+feat(auth): add password reset
 
-The validator was not checking for null email values before
-processing, causing crashes when users submitted empty forms.
+feat(api)!: switch to JWT authentication
 
-Previous behavior: Crash on null email
-New behavior: Return validation error message
+fix(api): handle null email in user validation
 
-Fixes #234
+refactor(parser): extract validation to validator module
 ```
-
-### Breaking Change
-
-```
-feat(api)!: change authentication to JWT tokens
-
-BREAKING CHANGE: Session-based auth is replaced with JWT tokens.
-Clients must now include 'Authorization: Bearer <token>' header
-instead of cookie-based sessions.
-
-Migration guide:
-1. Update API client to use Authorization header
-2. Remove session cookie handling
-3. Implement token refresh logic
-
-Closes #567
-```
-
-### Documentation Update
-
-```
-docs(readme): add installation instructions for Windows
-
-Added step-by-step Windows installation guide including:
-- Node.js version requirements
-- Common PATH configuration issues
-- WSL2 setup recommendations
-```
-
-### Refactoring
-
-```
-refactor(parser): extract validation logic to separate module
-
-Improves code organization and testability by moving validation
-rules into dedicated validator module. No functional changes.
-
-- Create validator.ts module
-- Move validation rules from parser.ts
-- Update tests to reflect new structure
-```
-
-## Conventional Commit Format
-
-```
-<type>[(optional scope)][!]: <description>
-
-[optional body]
-
-[optional footer(s)]
-```
-
-### Type + Scope Examples
-
-```
-feat(auth): ...
-fix(api): ...
-docs(readme): ...
-style(button): ...
-refactor(parser): ...
-perf(query): ...
-test(auth): ...
-build(deps): ...
-ci(github): ...
-chore(release): ...
-```
-
-## Subject Line Templates
-
-### Features
-- `feat: add [feature]`
-- `feat(scope): implement [functionality]`
-- `feat: support [capability]`
-- `feat: enable [feature]`
-
-### Fixes
-- `fix: resolve [issue]`
-- `fix(scope): correct [problem]`
-- `fix: prevent [error]`
-- `fix: handle [edge case]`
-
-### Refactoring
-- `refactor: extract [component]`
-- `refactor: simplify [logic]`
-- `refactor: reorganize [structure]`
-- `refactor: rename [element] to [new name]`
-
-### Documentation
-- `docs: add [documentation]`
-- `docs: update [section]`
-- `docs: improve [content]`
-- `docs: fix typo in [location]`
-
-## Best Practices
-
-### Subject Line
-1. **Imperative mood**: "add" not "added" or "adds"
-2. **No period**: at the end
-3. **Length**: 50 characters ideal, 72 max
-4. **Capitalize**: First letter after type
-5. **Specific**: What changed, not how
-
-### Body
-1. **Wrap**: at 72 characters
-2. **Explain WHY**: not what (what is in the diff)
-3. **Context**: Provide background
-4. **Bullet points**: OK for listing changes
-5. **Blank line**: Between subject and body
-
-### General
-1. **Atomic commits**: One logical change per commit
-2. **Test**: Ensure tests pass before committing
-3. **Review**: Read the diff before writing message
-4. **Consistent**: Follow team conventions
-5. **Meaningful**: Help future developers (including you)
-
-## Common Mistakes to Avoid
-
-1. **Vague messages**: ❌ "fix stuff" → ✅ "fix: resolve login timeout issue"
-2. **Past tense**: ❌ "added feature" → ✅ "add feature"
-3. **Too long**: ❌ 100+ character subject lines
-4. **Too generic**: ❌ "update code" → ✅ "refactor(auth): extract validation logic"
-5. **No context**: ❌ "fix bug" → ✅ "fix(api): handle null values in user input"
-
-## Scope Suggestions by Project Type
-
-### Frontend
-- `ui`, `component`, `layout`, `style`, `form`, `nav`, `header`, `footer`
-
-### Backend
-- `api`, `auth`, `db`, `model`, `controller`, `middleware`, `service`
-
-### Full Stack
-- `client`, `server`, `shared`, `config`, `types`, `utils`
-
-### DevOps
-- `ci`, `cd`, `docker`, `k8s`, `deploy`, `monitoring`, `logging`
-
-## Templates for Complex Scenarios
-
-### Multiple Related Changes
-
-```
-feat(api): add user profile management endpoints
-
-Implements CRUD operations for user profiles including:
-- GET /users/:id/profile - Fetch profile
-- PUT /users/:id/profile - Update profile
-- POST /users/:id/profile/avatar - Upload avatar
-- DELETE /users/:id/profile/avatar - Remove avatar
-
-All endpoints include proper authentication and authorization.
-
-Closes #123, #124, #125
-```
-
-### Dependency Update
-
-```
-build(deps): upgrade React from 17.0.2 to 18.2.0
-
-Major version update with breaking changes in:
-- Concurrent rendering API
-- Automatic batching behavior
-- SSR changes
-
-Updated all components to use new createRoot API.
-All tests passing with new version.
-
-BREAKING CHANGE: Requires Node.js >= 14.0.0
-```
-
-### Emergency Hotfix
-
-```
-fix(security): patch XSS vulnerability in comment rendering
-
-SECURITY: User-submitted comments were not properly sanitized,
-allowing script injection attacks.
-
-Solution: Implement DOMPurify sanitization on all user content
-before rendering.
-
-Severity: High
-Affected versions: 1.0.0 - 1.2.3
-Fixed in: 1.2.4
-
-CVE-XXXX-XXXXX
-```
-
-## Output Format
-
-```
-<type>(<scope>): <subject>
-
-<body paragraph 1>
-
-<body paragraph 2>
-
-<footer>
-```
-
-## Related Skills
-
-- `git-workflow-guide`: For overall git workflows
-- `changelog-generator`: For creating changelogs from commits
-- `pr-description-generator`: For pull request descriptions
-- `semantic-versioning`: For version bumping based on commits
