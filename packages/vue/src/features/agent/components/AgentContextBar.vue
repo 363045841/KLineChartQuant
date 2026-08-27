@@ -5,21 +5,22 @@
       <span>{{ context.period ?? text.noPeriod }}</span>
       <span class="context-bar__range">{{ context.visibleRange ?? text.noRange }}</span>
     </div>
-    <label class="context-bar__toggle" :title="text.readOnlyHint">
-      <input
-        type="checkbox"
-        :checked="context.readOnly"
-        @change="$emit('read-only', ($event.target as HTMLInputElement).checked)"
+    <div class="context-bar__toggle" :title="text.readOnlyHint">
+      <ToggleSwitch
+        :model-value="context.readOnly"
+        :aria-label="text.readOnly"
+        size="compact"
+        @update:model-value="$emit('read-only', $event)"
       />
-      <span aria-hidden="true"></span>
       {{ text.readOnly }}
-    </label>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
   import { computed } from 'vue'
 
+  import ToggleSwitch from '../../../components/common/ToggleSwitch.vue'
   import { getAgentCopy, type AgentLocale } from '../agent-copy'
 
   import type { ChartContextView } from '../agent-contracts'
@@ -76,44 +77,5 @@
     align-items: center;
     gap: 5px;
     cursor: pointer;
-  }
-
-  .context-bar__toggle input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .context-bar__toggle span {
-    width: 24px;
-    height: 14px;
-    position: relative;
-    border-radius: 7px;
-    background: var(--agent-border-strong);
-  }
-
-  .context-bar__toggle span::after {
-    content: '';
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: white;
-    transition: transform 120ms ease;
-  }
-
-  .context-bar__toggle input:checked + span {
-    background: var(--agent-accent);
-  }
-
-  .context-bar__toggle input:checked + span::after {
-    transform: translateX(10px);
-  }
-
-  .context-bar__toggle input:focus-visible + span {
-    outline: 2px solid var(--agent-focus);
-    outline-offset: 2px;
   }
 </style>
