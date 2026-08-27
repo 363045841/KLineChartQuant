@@ -280,7 +280,7 @@
   }
 
   .provider-probe-results svg {
-    color: var(--klc-color-success, #16865c);
+    color: var(--klc-color-agent-success);
   }
 
   .provider-probe-results strong {
@@ -294,9 +294,9 @@
     grid-template-columns: 16px minmax(0, 1fr);
     gap: 8px;
     padding: 10px 12px;
-    border: 1px solid var(--klc-color-danger, #d64545);
+    border: 1px solid var(--klc-color-agent-danger-border);
     border-radius: 6px;
-    color: var(--klc-color-danger, #d64545);
+    color: var(--klc-color-agent-danger-text);
     background: var(--klc-color-background);
     font-size: 11px;
     line-height: 1.45;
@@ -337,15 +337,15 @@
   }
 
   .provider-status[data-state='connected'] .provider-status__dot {
-    background: var(--klc-color-success, #16865c);
+    background: var(--klc-color-agent-success);
   }
 
   .provider-status[data-state='testing'] .provider-status__dot {
-    background: var(--klc-color-warning, #c58a1a);
+    background: var(--klc-color-agent-warning);
   }
 
   .provider-status[data-state='error'] .provider-status__dot {
-    background: var(--klc-color-danger, #d64545);
+    background: var(--klc-color-agent-danger);
   }
 
   .provider-status strong {

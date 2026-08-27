@@ -233,19 +233,19 @@
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: #9ca3af;
+    background: var(--klc-color-agent-neutral);
   }
 
   .connection[data-state='connected'] .connection__dot {
-    background: #1f9d68;
+    background: var(--klc-color-agent-success);
   }
 
   .connection[data-state='testing'] .connection__dot {
-    background: #c58a1a;
+    background: var(--klc-color-agent-warning);
   }
 
   .connection[data-state='error'] .connection__dot {
-    background: #d14b4b;
+    background: var(--klc-color-agent-danger);
   }
 
   .agent-header__model,

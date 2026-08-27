@@ -4,6 +4,7 @@
     class="agent-workbench-shell"
     :class="{
       'agent-workbench-shell--resizing': resizing,
+      'agent-workbench-shell--resize-ready': panelResizeReady,
       'agent-workbench-shell--panel-open': panelOpen,
       'agent-workbench-shell--compact': compact,
     }"
@@ -26,22 +27,6 @@
       <span>Agent</span>
     </button>
 
-    <div
-      v-if="panelOpen"
-      class="panel-resizer"
-      role="separator"
-      aria-label="Resize Agent panel"
-      aria-orientation="vertical"
-      :aria-valuemin="MIN_PANEL_WIDTH"
-      :aria-valuemax="MAX_PANEL_WIDTH"
-      :aria-valuenow="panelWidth"
-      tabindex="0"
-      @pointerdown="startResize"
-      @keydown="resizeWithKeyboard"
-    >
-      <span aria-hidden="true"></span>
-    </div>
-
     <button
       v-if="panelOpen"
       type="button"
@@ -51,7 +36,15 @@
       @click="panelOpen = false"
     ></button>
 
-    <aside v-show="panelOpen" class="agent-panel" data-testid="agent-panel">
+    <aside
+      ref="panel"
+      v-show="panelOpen"
+      class="agent-panel"
+      data-testid="agent-panel"
+      @pointerdown="startResize"
+      @pointermove="updateResizeCursor"
+      @pointerleave="panelResizeReady = false"
+    >
       <AgentWorkspace :bridge="bridge" @close="panelOpen = false" />
     </aside>
   </div>
@@ -81,9 +74,11 @@
   )
 
   const shell = ref<HTMLElement | null>(null)
+  const panel = ref<HTMLElement | null>(null)
   const panelOpen = ref(props.initialPanelOpen)
   const panelWidth = ref(DEFAULT_PANEL_WIDTH)
   const resizing = ref(false)
+  const panelResizeReady = ref(false)
   const compact = ref(false)
   let shellObserver: ResizeObserver | undefined
 
@@ -119,24 +114,24 @@
     persistPanelWidth()
   }
 
+  // 判断指针是否位于面板左侧的拖拽命中区。
+  function isPanelResizeTarget(clientX: number): boolean {
+    const bounds = panel.value?.getBoundingClientRect()
+    return Boolean(bounds && clientX - bounds.left <= 8)
+  }
+
+  // 仅在左侧边框附近显示横向拖拽光标。
+  function updateResizeCursor(event: PointerEvent): void {
+    panelResizeReady.value = !compact.value && isPanelResizeTarget(event.clientX)
+  }
+
   function startResize(event: PointerEvent): void {
-    if (compact.value) return
+    if (compact.value || !isPanelResizeTarget(event.clientX)) return
     event.preventDefault()
     resizing.value = true
     document.addEventListener('pointermove', updatePanelFromPointer)
     document.addEventListener('pointerup', stopResize)
     document.addEventListener('pointercancel', stopResize)
-  }
-
-  function resizeWithKeyboard(event: KeyboardEvent): void {
-    const step = event.shiftKey ? 40 : 12
-    if (event.key === 'ArrowLeft') panelWidth.value = clampPanelWidth(panelWidth.value + step)
-    else if (event.key === 'ArrowRight') panelWidth.value = clampPanelWidth(panelWidth.value - step)
-    else if (event.key === 'Home') panelWidth.value = MIN_PANEL_WIDTH
-    else if (event.key === 'End') panelWidth.value = MAX_PANEL_WIDTH
-    else return
-    event.preventDefault()
-    persistPanelWidth()
   }
 
   onMounted(() => {
@@ -166,9 +161,9 @@
 
 <style scoped>
   .agent-workbench-shell {
-    --agent-bg: #f4f6f7;
-    --agent-text: #182126;
-    --agent-focus: #278e86;
+    --agent-bg: var(--klc-color-agent-background);
+    --agent-text: var(--klc-color-agent-text);
+    --agent-focus: var(--klc-color-agent-focus);
 
     width: 100%;
     height: 100%;
@@ -176,9 +171,9 @@
     min-height: 0;
     position: relative;
     display: grid;
-    grid-template-columns: minmax(520px, 1fr) 5px var(--agent-panel-track);
+    grid-template-columns: minmax(520px, 1fr) var(--agent-panel-track);
     overflow: hidden;
-    background: #f4f6f7;
+    background: var(--agent-bg);
   }
 
   .agent-workbench-shell :deep(button),
@@ -196,6 +191,8 @@
     min-height: 0;
     position: relative;
     overflow: hidden;
+    padding: 0 16px;
+    box-sizing: border-box;
     background: var(--agent-bg);
   }
 
@@ -205,39 +202,12 @@
     position: relative;
     z-index: 3;
     overflow: hidden;
-    border-left: 1px solid #cfd6d9;
+    border-left: 1px solid var(--klc-color-agent-border);
     background: var(--agent-bg);
   }
 
-  .panel-resizer {
-    width: 5px;
-    height: 100%;
-    position: relative;
-    z-index: 5;
-    display: grid;
-    place-items: center;
+  .agent-workbench-shell--resize-ready .agent-panel {
     cursor: col-resize;
-    touch-action: none;
-    background: #e3e7e9;
-  }
-
-  .panel-resizer span {
-    width: 1px;
-    height: 38px;
-    background: #9ca8ad;
-  }
-
-  .panel-resizer:hover,
-  .panel-resizer:focus-visible,
-  .agent-workbench-shell--resizing .panel-resizer {
-    outline: none;
-    background: var(--agent-focus);
-  }
-
-  .panel-resizer:hover span,
-  .panel-resizer:focus-visible span,
-  .agent-workbench-shell--resizing .panel-resizer span {
-    background: white;
   }
 
   .agent-launcher {
@@ -250,11 +220,11 @@
     align-items: center;
     gap: 6px;
     padding: 0 10px;
-    border: 1px solid #aeb8bc;
+    border: 1px solid var(--klc-color-agent-launcher-border);
     border-radius: 5px;
     color: var(--agent-text);
-    background: rgba(255, 255, 255, 0.94);
-    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.12);
+    background: var(--klc-color-agent-launcher-background);
+    box-shadow: 0 3px 12px var(--klc-color-agent-panel-shadow);
     font:
       600 12px/1 Inter,
       ui-sans-serif,
@@ -282,17 +252,13 @@
     grid-row: 1;
   }
 
-  .agent-workbench-shell--compact .panel-resizer {
-    display: none;
-  }
-
   .agent-workbench-shell--compact .drawer-backdrop {
     position: absolute;
     inset: 0;
     z-index: 30;
     display: block;
     border: 0;
-    background: rgba(15, 20, 25, 0.35);
+    background: var(--klc-color-agent-backdrop);
   }
 
   .agent-workbench-shell--compact .agent-panel {
@@ -303,34 +269,8 @@
     right: 0;
     bottom: 0;
     z-index: 31;
-    border-left: 1px solid #cfd6d9;
-    box-shadow: -12px 0 32px rgba(0, 0, 0, 0.2);
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .agent-workbench-shell {
-      --agent-bg: #151a1d;
-      --agent-text: #edf2f3;
-      --agent-focus: #48b0a6;
-      background: #151a1d;
-    }
-
-    .agent-panel {
-      border-color: #323c41;
-    }
-
-    .panel-resizer {
-      background: #293136;
-    }
-
-    .panel-resizer span {
-      background: #66747b;
-    }
-
-    .agent-launcher {
-      border-color: #526169;
-      background: rgba(27, 33, 37, 0.94);
-    }
+    border-left: 1px solid var(--klc-color-agent-border);
+    box-shadow: -12px 0 32px var(--klc-color-agent-panel-shadow);
   }
 
   @media (prefers-reduced-motion: reduce) {

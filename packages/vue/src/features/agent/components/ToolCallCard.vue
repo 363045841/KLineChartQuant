@@ -151,13 +151,13 @@
   }
 
   .tool-card[data-status='succeeded'] .tool-card__icon {
-    color: #16885a;
+    color: var(--klc-color-agent-success);
   }
   .tool-card[data-status='failed'] .tool-card__icon {
-    color: #c63f3f;
+    color: var(--klc-color-agent-danger-text);
   }
   .tool-card[data-status='requires-confirmation'] .tool-card__icon {
-    color: #ad7414;
+    color: var(--klc-color-agent-warning-text);
   }
 
   .tool-card__title {

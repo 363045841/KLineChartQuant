@@ -118,7 +118,7 @@
     padding: 0 11px;
     border: 0;
     border-radius: 5px;
-    color: white;
+    color: var(--klc-color-agent-on-accent);
     background: var(--agent-accent);
     font: inherit;
     font-size: 12px;
@@ -136,6 +136,6 @@
   }
 
   .composer__primary--stop {
-    background: #b43d3d;
+    background: var(--klc-color-agent-danger);
   }
 </style>

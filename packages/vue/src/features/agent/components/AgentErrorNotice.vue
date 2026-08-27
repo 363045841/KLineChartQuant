@@ -37,13 +37,13 @@
     align-items: start;
     gap: 8px;
     padding: 10px;
-    border: 1px solid #d56a6a;
+    border: 1px solid var(--klc-color-agent-danger-border);
     border-radius: 6px;
     color: var(--agent-text);
     background: var(--agent-danger-bg);
   }
   .error-notice > svg {
-    color: #c63f3f;
+    color: var(--klc-color-agent-danger-text);
   }
   .error-notice__body {
     min-width: 0;

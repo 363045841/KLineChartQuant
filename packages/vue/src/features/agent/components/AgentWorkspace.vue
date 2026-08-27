@@ -136,22 +136,22 @@
 
 <style scoped>
   .agent-workspace {
-    --agent-bg: #f4f6f7;
-    --agent-surface: #ffffff;
-    --agent-card: #fbfcfc;
-    --agent-input: #ffffff;
-    --agent-hover: #edf1f2;
-    --agent-user-message: #e7f2ef;
-    --agent-border: #dce1e3;
-    --agent-border-strong: #b9c1c5;
-    --agent-text: #182126;
-    --agent-text-soft: #829097;
-    --agent-muted: #607078;
-    --agent-accent: #176f68;
-    --agent-accent-strong: #115b55;
-    --agent-focus: #278e86;
-    --agent-warning-bg: #fff8e8;
-    --agent-danger-bg: #fff1f1;
+    --agent-bg: var(--klc-color-agent-background);
+    --agent-surface: var(--klc-color-agent-surface);
+    --agent-card: var(--klc-color-agent-card);
+    --agent-input: var(--klc-color-agent-input);
+    --agent-hover: var(--klc-color-agent-hover);
+    --agent-user-message: var(--klc-color-agent-user-message);
+    --agent-border: var(--klc-color-agent-border);
+    --agent-border-strong: var(--klc-color-agent-border-strong);
+    --agent-text: var(--klc-color-agent-text);
+    --agent-text-soft: var(--klc-color-agent-text-soft);
+    --agent-muted: var(--klc-color-agent-muted);
+    --agent-accent: var(--klc-color-agent-accent);
+    --agent-accent-strong: var(--klc-color-agent-accent-strong);
+    --agent-focus: var(--klc-color-agent-focus);
+    --agent-warning-bg: var(--klc-color-agent-warning-background);
+    --agent-danger-bg: var(--klc-color-agent-danger-background);
 
     height: 100%;
     min-width: 0;
@@ -185,26 +185,5 @@
     clip: rect(0 0 0 0);
     clip-path: inset(50%);
     white-space: nowrap;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .agent-workspace {
-      --agent-bg: #151a1d;
-      --agent-surface: #1b2125;
-      --agent-card: #20272b;
-      --agent-input: #232b30;
-      --agent-hover: #2a3338;
-      --agent-user-message: #17312e;
-      --agent-border: #323c41;
-      --agent-border-strong: #526169;
-      --agent-text: #edf2f3;
-      --agent-text-soft: #839198;
-      --agent-muted: #a4b0b5;
-      --agent-accent: #2d948a;
-      --agent-accent-strong: #247c74;
-      --agent-focus: #48b0a6;
-      --agent-warning-bg: #302717;
-      --agent-danger-bg: #351d1f;
-    }
   }
 </style>

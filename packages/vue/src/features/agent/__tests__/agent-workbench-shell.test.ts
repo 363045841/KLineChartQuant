@@ -11,7 +11,7 @@ describe('AgentWorkbenchShell', () => {
     vi.restoreAllMocks()
   })
 
-  it('shares chart/panel layout, persists keyboard resizing, and keeps the chart mounted', async () => {
+  it('shares chart/panel layout, resizes from the panel border, and keeps the chart mounted', async () => {
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
       x: 0,
       y: 0,
@@ -35,11 +35,14 @@ describe('AgentWorkbenchShell', () => {
     })
     await flushPromises()
 
-    const resizer = wrapper.get('[role="separator"]')
-    expect(resizer.attributes('aria-valuenow')).toBe('500')
-    await resizer.trigger('keydown', { key: 'End' })
-    expect(resizer.attributes('aria-valuenow')).toBe('640')
-    expect(save).toHaveBeenLastCalledWith(640)
+    const panel = wrapper.get('[data-testid="agent-panel"]')
+    panel.element.dispatchEvent(
+      new MouseEvent('pointerdown', { bubbles: true, cancelable: true, clientX: 0 }),
+    )
+    document.dispatchEvent(new MouseEvent('pointermove', { clientX: 600 }))
+    document.dispatchEvent(new MouseEvent('pointerup'))
+    expect(save).toHaveBeenLastCalledWith(600)
+    expect(wrapper.find('.panel-resizer').exists()).toBe(false)
 
     await wrapper.get('[data-testid="agent-panel-close"]').trigger('click')
     expect(wrapper.get('[data-testid="agent-panel"]').isVisible()).toBe(false)
