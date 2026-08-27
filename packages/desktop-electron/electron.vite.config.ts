@@ -8,6 +8,7 @@ import { createCoreSourceAliases } from '../../scripts/core-source-aliases.mjs'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const coreSrc = `${root}/packages/core/src`
+const agentRuntime = `${root}/packages/agent-runtime/src/index.ts`
 const agentContracts = `${root}/packages/agent-runtime/src/contracts/ui.ts`
 
 const entry = (path: string) => fileURLToPath(new URL(path, import.meta.url))
@@ -50,6 +51,10 @@ export default defineConfig({
     resolve: {
       alias: [
         ...createCoreSourceAliases(coreSrc),
+        {
+          find: /^@363045841yyt\/klinechart-agent-runtime$/,
+          replacement: agentRuntime,
+        },
         {
           find: /^@363045841yyt\/klinechart-agent-runtime\/contracts\/ui$/,
           replacement: agentContracts,
