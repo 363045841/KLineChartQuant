@@ -72,7 +72,7 @@ describe('fiveDayTimeShareGeometry', () => {
 
   it('preserves empty trading-day geometry without shifting flattened indexes', () => {
     const range = createRange(['2026-08-13', '2026-08-14', '2026-08-17'])
-    range.days[1] = { ...range.days[1]!, data: [] }
+    range.days = range.days.map((day, i) => (i === 1 ? { ...day, data: [] } : day))
 
     const frame = computeFiveDayTimeShareGeometry({
       range,
