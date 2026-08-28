@@ -1,3 +1,4 @@
+// OpenAI-compatible Provider 的模型发现、连接验证与 Pi 流式运行计划适配。
 import { createModels, createProvider } from '@earendil-works/pi-ai'
 import { openAICompletionsApi } from '@earendil-works/pi-ai/api/openai-completions.lazy'
 
@@ -41,21 +42,31 @@ const MAX_MODEL_ID_LENGTH = 256
 const DEFAULT_CONTEXT_WINDOW = 32_768
 const DEFAULT_MAX_TOKENS = 4_096
 
+/** 模型目录中经过运行时校验的最小模型描述。 */
 interface CatalogModel {
   id: string
   name: string
 }
 
+/** 流式请求期间收集的网络与 HTTP 响应观察结果。 */
 interface StreamObservation {
   status?: number
   retryAfterMs?: number
   networkFailure: boolean
 }
 
+/** 判断未知值是否为普通对象，供 Provider 响应校验使用。 */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+/**
+ * 校验 Provider `/models` 响应并限制目录规模与字段长度。
+ *
+ * @param value 待解析的未知响应值。
+ * @returns 去重并按 ID 排序的模型目录。
+ * @throws {AgentRuntimeError} 目录结构无效或没有有效模型时抛出。
+ */
 function parseCatalog(value: unknown): CatalogModel[] {
   if (!isRecord(value) || !Array.isArray(value.data)) {
     throw malformed('The Provider returned an invalid model catalog.')
@@ -73,6 +84,7 @@ function parseCatalog(value: unknown): CatalogModel[] {
   return [...unique.values()].sort((left, right) => left.id.localeCompare(right.id))
 }
 
+/** 创建统一的 Provider 响应格式错误。 */
 function malformed(message = 'The Provider returned a malformed response.'): AgentRuntimeError {
   return new AgentRuntimeError('PROVIDER_MALFORMED_RESPONSE', message, {
     retryable: true,
@@ -80,6 +92,7 @@ function malformed(message = 'The Provider returned a malformed response.'): Age
   })
 }
 
+/** 将未知异常转换为不会暴露底层实现细节的 Provider 错误。 */
 function safeProviderError(error: unknown): AgentRuntimeError {
   if (error instanceof AgentRuntimeError) return error
   return new AgentRuntimeError('PROVIDER_ERROR', 'The Provider operation failed.', {
@@ -89,10 +102,17 @@ function safeProviderError(error: unknown): AgentRuntimeError {
   })
 }
 
+/** 计算非负耗时，防御测试时钟或系统时钟回拨。 */
 function elapsed(now: () => number, startedAt: number): number {
   return Math.max(0, now() - startedAt)
 }
 
+/**
+ * 生成 API Key 的短 SHA-256 指纹，供状态界面识别凭据变化。
+ *
+ * @param value 原始 API Key。
+ * @returns 不可逆的短哈希标识，不返回密钥内容。
+ */
 async function fingerprint(value: string): Promise<string> {
   const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
   return `sha256:${[...new Uint8Array(digest)]
@@ -101,6 +121,13 @@ async function fingerprint(value: string): Promise<string> {
     .join('')}`
 }
 
+/**
+ * 将目录模型转换为 Pi OpenAI Completions API 所需的模型描述。
+ *
+ * @param baseUrl 已标准化的 Provider API 根地址。
+ * @param model 已校验的目录模型。
+ * @returns 具备保守兼容能力声明的 Pi 模型。
+ */
 function modelFromCatalog(baseUrl: string, model: CatalogModel): Model<'openai-completions'> {
   return {
     id: model.id,
@@ -123,6 +150,7 @@ function modelFromCatalog(baseUrl: string, model: CatalogModel): Model<'openai-c
   }
 }
 
+/** 创建流式运行期间使用的稳定 Provider 错误。 */
 function streamError(
   code: AgentRuntimeErrorCode,
   message: string,
@@ -132,6 +160,13 @@ function streamError(
   return new AgentRuntimeError(code, message, { retryable, recommendedAction })
 }
 
+/**
+ * 根据 Pi 流式消息及网络观察结果归类 Provider 故障。
+ *
+ * @param message Pi 返回的助手消息。
+ * @param observation 流请求期间采集的 HTTP 状态。
+ * @returns 可供 UI 稳定展示的 Agent 运行时错误。
+ */
 function classifyStreamError(
   message: AssistantMessage,
   observation: StreamObservation,
@@ -167,6 +202,14 @@ function classifyStreamError(
   )
 }
 
+/**
+ * 创建 OpenAI-compatible Provider 的运行时支持对象。
+ *
+ * 支持模型目录拉取、连接验证、状态查询、凭据删除和 Pi 流式运行计划创建。
+ *
+ * @param options 宿主提供的存储、网络、时间和诊断依赖。
+ * @returns Provider API 与运行计划工厂。
+ */
 export function createOpenAiCompatibleRuntimeSupport(
   options: OpenAiCompatibleRuntimeOptions,
 ): RuntimeSupport {
@@ -180,6 +223,7 @@ export function createOpenAiCompatibleRuntimeSupport(
   let lastError: AgentRuntimeError | undefined
   let lastRefreshAt: number | undefined
 
+  /** 构造各阶段共用的 HTTP 运行参数。 */
   const httpOptions = (signal?: AbortSignal, stage?: ProviderDiagnostic['stage']) => ({
     fetch: fetchImplementation,
     now,
@@ -192,6 +236,13 @@ export function createOpenAiCompatibleRuntimeSupport(
     diagnostics: options.diagnostics,
   })
 
+  /**
+   * 优先使用本次输入的 API Key，否则读取已保存凭据。
+   * @param draft 临时输入的 API Key。
+   * @param signal 读取凭据时使用的取消信号。
+   * @returns 非空 API Key。
+   * @throws {AgentRuntimeError} 未配置凭据时抛出。
+   */
   async function resolveCredential(draft?: string, signal?: AbortSignal): Promise<string> {
     const value = draft?.trim() || (await options.credentials.read(signal))
     if (!value) {
@@ -204,6 +255,12 @@ export function createOpenAiCompatibleRuntimeSupport(
     return value
   }
 
+  /**
+   * 拉取并缓存 Provider 模型目录。
+   * @param input 模型目录请求参数。
+   * @param signal 请求和凭据读取的取消信号。
+   * @returns 已标准化地址、凭据、目录及刷新时间。
+   */
   async function fetchCatalog(
     input: ProviderModelsInput,
     signal?: AbortSignal,
@@ -217,11 +274,17 @@ export function createOpenAiCompatibleRuntimeSupport(
     )
     const models = parseCatalog(result.value)
     const refreshedAt = now()
+    // 仅在完整目录通过校验后替换缓存，避免部分响应污染后续运行。
     catalog = models
     lastRefreshAt = refreshedAt
     return { baseUrl, apiKey, models, refreshedAt }
   }
 
+  /**
+   * 返回适配 UI 的模型列表，并记录最近一次查询错误。
+   * @param input 模型目录请求参数。
+   * @returns UI 模型列表及刷新时间。
+   */
   async function listModels(input: ProviderModelsInput): Promise<ProviderModelsResult> {
     try {
       const refreshed = await fetchCatalog(input)
@@ -242,6 +305,11 @@ export function createOpenAiCompatibleRuntimeSupport(
     }
   }
 
+  /**
+   * 验证模型存在性并以凭据、设置两阶段写入保存连接。
+   * @param input Provider 连接测试参数。
+   * @returns 验证阶段及总耗时。
+   */
   async function testProvider(input: ProviderTestInput): Promise<ProviderTestResult> {
     try {
       const catalogStartedAt = now()
@@ -266,6 +334,7 @@ export function createOpenAiCompatibleRuntimeSupport(
       try {
         await options.settings.write(settings)
       } catch (error) {
+        // 设置写入失败时恢复旧凭据，避免留下无法配对的新 Key。
         if (previousKey) await options.credentials.write(previousKey)
         else await options.credentials.delete()
         throw error
@@ -284,6 +353,10 @@ export function createOpenAiCompatibleRuntimeSupport(
     }
   }
 
+  /**
+   * 读取 Provider 当前配置、验证状态与最近错误。
+   * @returns 可直接渲染的 Provider 状态视图。
+   */
   async function getStatus(): Promise<ProviderStatusView> {
     let apiKey: string | undefined
     let settings: OpenAiCompatibleProviderSettings | undefined
@@ -310,11 +383,17 @@ export function createOpenAiCompatibleRuntimeSupport(
     }
   }
 
+  /** 删除 API Key 并清除内存中的最近错误。 */
   async function deleteCredential(): Promise<void> {
     await options.credentials.delete()
     lastError = undefined
   }
 
+  /**
+   * 基于已验证设置构造 Pi 的单次流式运行计划。
+   * @param context 当前 Agent 运行上下文。
+   * @returns 含模型、工具、流函数及错误分类器的运行计划。
+   */
   async function createPlan(
     context: Parameters<RuntimeSupport['createPlan']>[0],
   ): Promise<PiRunPlan> {
@@ -329,6 +408,7 @@ export function createOpenAiCompatibleRuntimeSupport(
         { recommendedAction: 'Open Provider settings and test a model.' },
       )
     }
+    // 目录缓存可为空，使用已验证设置作为离线运行的回退模型描述。
     const selected =
       catalog.find((model) => model.id === settings.modelId) ??
       ({ id: settings.modelId, name: settings.modelName } satisfies CatalogModel)
@@ -352,6 +432,7 @@ export function createOpenAiCompatibleRuntimeSupport(
     const models = createModels()
     models.setProvider(provider)
     const observation: StreamObservation = { networkFailure: false }
+    // 包装 Pi 的 fetch，采集脱敏诊断并保留流式错误分类所需的 HTTP 信息。
     const trackedFetch: FetchFunction = async (input, init) => {
       const url = redactProviderUrl(input instanceof URL ? input.toString() : String(input))
       const method = init?.method?.toUpperCase() ?? 'POST'
@@ -386,6 +467,7 @@ export function createOpenAiCompatibleRuntimeSupport(
         throw error
       }
     }
+    // 工具由宿主按运行上下文提供，运行时本身不持有业务能力。
     const tools = options.tools?.(context) ?? []
     return {
       sessionId: context.sessionId,
