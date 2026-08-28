@@ -16,6 +16,7 @@ import { Chart } from '../engine/chart'
 import { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins'
 import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
 import { KLineChartError } from '../errors'
+import { marketDataProviderRegistry } from '../data/provider/registry'
 import {
   createChartAgentController,
 } from '../features/agent/chartAgentController'
@@ -486,6 +487,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     viewport,
     indicators,
     indicatorQuery: createIndicatorQuery({ dataState: chart.kernel.data }),
+    marketDataProviderRegistry,
   })
 
   let disposed = false

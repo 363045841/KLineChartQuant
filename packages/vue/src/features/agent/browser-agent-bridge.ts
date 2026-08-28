@@ -4,6 +4,7 @@ import {
   PiRunDriver,
   PROVIDER_SETTINGS_VERSION,
   createIndicatorQueryTool,
+  createInstrumentNameQueryTool,
   createOpenAiCompatibleRuntimeSupport,
   fetchOpenAiCompatibleModels,
   normalizeProviderBaseUrl,
@@ -116,7 +117,9 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       fetch: fetchBrowserProvider,
       tools: () => {
         const agent = options.getChartAgent?.()
-        return agent ? [createIndicatorQueryTool(agent)] : []
+        return agent
+          ? [createIndicatorQueryTool(agent), createInstrumentNameQueryTool(agent)]
+          : []
       },
     })
     const session = this.createSessionRecord()

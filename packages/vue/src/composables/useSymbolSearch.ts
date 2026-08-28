@@ -53,7 +53,10 @@ function matchesQuery(item: SearchableSymbol, query: string): boolean {
 }
 
 export function symbolIdentityKey(item: SymbolIdentity): string {
-  if (item.id?.trim()) return `id:${item.id.trim()}`
+  if (item.id?.trim()) {
+    const sourceId = 'sourceId' in item && typeof item.sourceId === 'string' ? item.sourceId.trim() : ''
+    return sourceId ? `instrument:${sourceId}:${item.id.trim()}` : `id:${item.id.trim()}`
+  }
   if (!('symbol' in item) || !('market' in item)) return 'legacy:unknown'
   const params = Object.entries(item.params ?? {}).sort(([left], [right]) =>
     left.localeCompare(right),

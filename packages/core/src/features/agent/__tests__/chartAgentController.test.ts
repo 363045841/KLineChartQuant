@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { createDataState } from '../../../engine/state/dataState'
+import { MarketDataProviderRegistry } from '../../../data/provider/registry'
 import { createSignal } from '../../../foundation/reactivity/signal'
 import { createChartAgentController } from '../chartAgentController'
 import { CHART_AGENT_ERROR_CODES } from '../errors'
@@ -74,6 +75,13 @@ function createFixture() {
     },
   ])
   const queryIndicator = vi.fn(async () => 'RSI compact text')
+  const search = vi.fn(async () => [])
+  const marketDataProviderRegistry = new MarketDataProviderRegistry()
+  marketDataProviderRegistry.register({
+    source: { id: 'fixture', displayName: 'Fixture' },
+    probe: async () => ({ status: 'online', checkedAt: 1 }),
+    catalog: { search },
+  })
   const controller = createChartAgentController({
     chartId: 'chart-fixture',
     dataState,
@@ -81,6 +89,7 @@ function createFixture() {
     viewport,
     indicators,
     indicatorQuery: { queryIndicator },
+    marketDataProviderRegistry,
   })
 
   return {
@@ -90,6 +99,7 @@ function createFixture() {
     indicatorParams,
     indicators,
     queryIndicator,
+    search,
   }
 }
 
@@ -159,5 +169,19 @@ describe('createChartAgentController', () => {
     await expect(fixture.controller.queryIndicator(input)).resolves.toBe('RSI compact text')
     expect(fixture.queryIndicator).toHaveBeenCalledOnce()
     expect(fixture.queryIndicator).toHaveBeenCalledWith(input)
+  })
+
+  it('delegates instrument searches through the shared Provider registry', async () => {
+    const fixture = createFixture()
+    const input = { keyword: '600519', limit: 20, sourceIds: ['fixture'] }
+
+    await expect(fixture.controller.searchInstruments(input)).resolves.toEqual([])
+    expect(fixture.search).toHaveBeenCalledWith({
+      keyword: '600519',
+      limit: 20,
+      sourceIds: undefined,
+      assetClasses: undefined,
+      signal: undefined,
+    })
   })
 })

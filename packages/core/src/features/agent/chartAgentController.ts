@@ -1,5 +1,7 @@
 import { KLineChartError } from '../../errors'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal'
+import { searchInstruments } from '../../data/provider/instrumentSearch'
+import type { MarketDataProviderRegistry } from '../../data/provider/registry'
 
 import { CHART_AGENT_ERROR_CODES } from './errors'
 
@@ -20,6 +22,7 @@ interface ChartAgentControllerDependencies {
   readonly viewport: ReadonlySignal<ChartViewport>
   readonly indicators: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
   readonly indicatorQuery: IndicatorQuery
+  readonly marketDataProviderRegistry: MarketDataProviderRegistry
 }
 
 function projectIndicators(
@@ -117,6 +120,10 @@ export function createChartAgentController(
 
     queryIndicator(input: Parameters<IndicatorQuery['queryIndicator']>[0]): Promise<string> {
       return dependencies.indicatorQuery.queryIndicator(input)
+    },
+
+    searchInstruments(input) {
+      return searchInstruments(dependencies.marketDataProviderRegistry, input)
     },
   }
 }

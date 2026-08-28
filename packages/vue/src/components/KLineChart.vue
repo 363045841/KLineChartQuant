@@ -274,7 +274,10 @@
     type SymbolInfo,
     type CustomDataSource,
   } from '@363045841yyt/klinechart-core/controllers'
-  import type { InstrumentDescriptor } from '@363045841yyt/klinechart-core/market-data'
+  import {
+    searchInstruments,
+    type InstrumentDescriptor,
+  } from '@363045841yyt/klinechart-core/market-data'
   import type { CustomMarkerEntity } from '@363045841yyt/klinechart-core/engine/marker/registry'
   import {
     ref,
@@ -605,22 +608,12 @@
     signal: AbortSignal,
     sources?: ReadonlyArray<string>,
   ): Promise<ReadonlyArray<SymbolItem>> {
-    const sourceNames = sources ?? enabledSourceNames.value
-    const requests = sourceNames.map(async (sourceId) => {
-      const provider = marketDataProviderRegistry.get(sourceId)
-      if (!provider?.catalog) return []
-      return provider.catalog.search({ keyword: query, limit, signal })
+    return searchInstruments(marketDataProviderRegistry, {
+      keyword: query,
+      limit,
+      signal,
+      sourceIds: sources ?? enabledSourceNames.value,
     })
-    const settled = await Promise.allSettled(requests)
-    const results = settled.flatMap((result) => (result.status === 'fulfilled' ? result.value : []))
-    if (results.length === 0 && settled.every((result) => result.status === 'rejected')) {
-      throw new Error('[MarketDataProvider] all enabled source searches failed')
-    }
-    const unique = new Map<string, SymbolItem>()
-    for (const item of results) {
-      if (!unique.has(item.id)) unique.set(item.id, item)
-    }
-    return [...unique.values()].slice(0, limit)
   }
 
   /** 为没有稳定 ID 的旧搜索结果生成确定性身份。 */
