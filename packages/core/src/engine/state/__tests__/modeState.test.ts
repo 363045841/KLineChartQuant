@@ -40,6 +40,18 @@ describe('modeState', () => {
     })
   })
 
+  it('keeps five-day timeshare as a distinct view with timeshare semantics', () => {
+    const m = createModeState()
+
+    m.actions.setDataView('fiveDayTimeShare', 'daily')
+
+    expect(m.readonly.dataView.peek()).toBe('fiveDayTimeShare')
+    expect(m.readonly.lastBarPeriod.peek()).toBe('daily')
+    expect(m.readonly.effectivePrimaryRenderer.peek()).toBe('line')
+    expect(m.readonly.interactionCapabilities.peek().allowPan).toBe(true)
+    expect(m.readonly.interactionCapabilities.peek().allowZoom).toBe(false)
+  })
+
   it('uses a line renderer while retaining K-line interactions in comparison view', () => {
     const m = createModeState()
 
@@ -62,6 +74,7 @@ describe('modeState', () => {
     expect(m.readonly.primaryRendererByView.peek()).toEqual({
       kline: 'ohlc-bar',
       timeshare: 'candlestick',
+      fiveDayTimeShare: 'line',
       comparison: 'line',
     })
     expect(m.readonly.effectivePrimaryRenderer.peek()).toBe('ohlc-bar')
@@ -123,6 +136,27 @@ describe('modeState', () => {
     expect(kernel.pane.readonly.paneRatios.peek().timeshare_volume).toBeCloseTo(0.25)
     expect(kernel.activeRenderers$.peek()).toEqual([
       { name: 'timeShare', layerId: 'plugin:timeShare' },
+    ])
+
+    kernel.actions.setDataView('fiveDayTimeShare')
+
+    expect(kernel.indicator.readonly.instances.peek()).toEqual([
+      {
+        instanceId: 'mode:five-day-timeshare',
+        indicatorId: 'fiveDayTimeShare',
+        paneId: 'main',
+        role: 'main',
+        ordinal: 0,
+        source: 'mode',
+        params: {},
+      },
+      expect.objectContaining({
+        instanceId: 'mode:timeshare-volume',
+        paneId: 'timeshare_volume',
+      }),
+    ])
+    expect(kernel.activeRenderers$.peek()).toEqual([
+      { name: 'fiveDayTimeShare', layerId: 'plugin:fiveDayTimeShare' },
     ])
 
     kernel.actions.setDataView('comparison')

@@ -7,9 +7,11 @@ import { ASHARE_MARKET_SESSION } from '../../foundation/utils/timeShareAxisLabel
 import {
   computeTimeShareBarMetrics,
   computeTimeSharePriceRange,
+  resolveFiveDayTimeShareBaseline,
   resolveTimeShareBaseline,
 } from './timeShareMath'
 import type { ChartModeHandler } from './types'
+import { FIVE_DAY_TIME_SHARE_PERIOD } from '../../controllers/types'
 
 export class TimeShareMode implements ChartModeHandler {
   readonly debugName = 'TimeShare'
@@ -56,11 +58,14 @@ export class TimeShareMode implements ChartModeHandler {
 
     const end = Math.min(range.end, tsData.length)
     const start = Math.max(0, range.start)
-    // 优先昨收；缺失时回退首笔价
-    const baseline = resolveTimeShareBaseline({
-      preClose: dm.getTimeSharePreClose(),
-      firstPrice: tsData[0]?.price,
-    })
+    // 五日视图固定使用第一交易日昨收；单日仍以当前昨收为基准。
+    const baseline =
+      dm.currentPeriod === FIVE_DAY_TIME_SHARE_PERIOD
+        ? resolveFiveDayTimeShareBaseline(dm.getTimeShareRange())
+        : resolveTimeShareBaseline({
+            preClose: dm.getTimeSharePreClose(),
+            firstPrice: tsData[0]?.price,
+          })
     if (baseline === null) return
 
     // scaleType 由 kernel.paneScaleTypes 投影（进入 timeshare 时写 percent）；此处只设会话 basePrice

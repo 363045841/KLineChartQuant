@@ -2,16 +2,24 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { Pane } from '../../layout/pane'
 import { TimeShareMode } from '../timeShareMode'
+import { FIVE_DAY_TIME_SHARE_PERIOD } from '../../../controllers/types'
+import type { TimeShareRange } from '../../../data/provider/types'
 import type { TimeShareData } from '../../../foundation/types/price'
 
 function ts(price: number, i = 0, average = price): TimeShareData {
   return { timestamp: i, price, average, volume: 1, amount: price }
 }
 
-function mockDm(points: TimeShareData[], preClose: number | null = null) {
+function mockDm(
+  points: TimeShareData[],
+  preClose: number | null = null,
+  options?: { currentPeriod?: string; timeShareRange?: TimeShareRange },
+) {
   return {
+    currentPeriod: options?.currentPeriod ?? 'timeshare',
     getTimeShareData: () => points,
     getTimeSharePreClose: () => preClose,
+    getTimeShareRange: () => options?.timeShareRange,
   } as unknown as import('../../data/chartDataManager').ChartDataManager
 }
 
@@ -92,5 +100,33 @@ describe('TimeShareMode', () => {
     // average=11，相对昨收 +10%，加 1% padding 后范围为 +/-11%。
     expect(range.maxPrice).toBeCloseTo(11.1, 6)
     expect(range.minPrice).toBeCloseTo(8.9, 6)
+  })
+
+  it('updatePaneRange fixes the five-day axis to the first day preClose', () => {
+    const mode = new TimeShareMode()
+    const pane = new Pane('main')
+    const setBase = vi.spyOn(pane.yAxis, 'setBasePrice')
+    const firstDay = [ts(10.2, 0), ts(10.4, 1)]
+    const secondDay = [ts(12, 2), ts(12.2, 3)]
+
+    mode.updatePaneRange(
+      pane,
+      { start: 0, end: 4 },
+      mockDm([...firstDay, ...secondDay], null, {
+        currentPeriod: FIVE_DAY_TIME_SHARE_PERIOD,
+        timeShareRange: {
+          instrumentId: 'test',
+          timezone: 'Asia/Shanghai',
+          requestedDays: 2,
+          olderData: 'exhausted',
+          days: [
+            { tradingDate: '2026-08-14', preClose: 10, data: firstDay },
+            { tradingDate: '2026-08-17', preClose: 11, data: secondDay },
+          ],
+        },
+      }),
+    )
+
+    expect(setBase).toHaveBeenCalledWith(10)
   })
 })

@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { Chart } from '../chart'
 import { MarketSessionRegistry } from '../market/marketSessionRegistry'
+import { ChartDataViewId } from '../state/modeState'
+import { FIVE_DAY_TIME_SHARE_PERIOD } from '../../controllers/types'
 import { HK_MARKET_SESSION } from '../../foundation/utils/sessionTimeLabels'
 
 function chartHarness() {
@@ -55,6 +57,18 @@ describe('Chart market validation boundaries', () => {
     Chart.prototype.setCurrentPeriod.call(chart, 'timeshare')
 
     expect((chart as any)._timeShareMode.setMarketSession).toHaveBeenCalledWith(HK_MARKET_SESSION)
+  })
+
+  it('enters the dedicated five-day timeshare view', () => {
+    const chart = chartHarness()
+
+    Chart.prototype.setCurrentPeriod.call(chart, FIVE_DAY_TIME_SHARE_PERIOD)
+
+    expect((chart as any)._timeShareMode.setMarketSession).toHaveBeenCalledWith(HK_MARKET_SESSION)
+    expect((chart as any).setActiveMode).toHaveBeenCalledWith(
+      (chart as any)._timeShareMode,
+      ChartDataViewId.FiveDayTimeShare,
+    )
   })
 
   it('configures HK session when switching to a historical timeshare date', () => {

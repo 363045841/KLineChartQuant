@@ -6,6 +6,8 @@
 
 {{include:_features.md}}
 
+{{include:_architecture.md}}
+
 {{include:_data-sources.md}}
 
 ## 🚀 Quick Start

@@ -1,5 +1,5 @@
 import { batch, createSubState, type ReadonlySignal } from '../../foundation/reactivity/signal'
-import { ChartDataViewId, type ChartDataView } from './modeState'
+import { isTimeShareDataView, type ChartDataView } from './modeState'
 import { zoomLevelToKWidth } from '../utils/zoom'
 
 export interface ZoomDeps {
@@ -32,7 +32,7 @@ export function createZoomState(deps: ZoomDeps) {
     {
       kWidth: (s) => {
         const timeShareWidth = s.timeShareKWidth()
-        if (deps.dataView$() === ChartDataViewId.TimeShare && timeShareWidth !== null)
+        if (isTimeShareDataView(deps.dataView$()) && timeShareWidth !== null)
           return timeShareWidth
         return zoomLevelToKWidth(s.zoomLevel(), readZoomConfig(deps))
       },

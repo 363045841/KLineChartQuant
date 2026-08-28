@@ -13,6 +13,7 @@ import type {
   InstrumentDescriptor,
   InstrumentSearchQuery,
   MarketDataProvider,
+  TimeShareRangeQuery,
   TimeShareQuery,
   TimeShareSeries,
   VolumeUnit,
@@ -104,13 +105,15 @@ export function createMarketDataProvider(
   // 校验请求品种属于本源且声明了对应能力
   function assertCapability(
     instrument: InstrumentDescriptor,
-    capability: 'bars' | 'timeShare',
+    capability: 'bars' | 'timeShare' | 'timeShareRange',
   ): void {
     const supported =
       instrument.sourceId === source.id &&
       (capability === 'bars'
         ? instrument.capabilities.bars !== undefined
-        : instrument.capabilities.timeShare === true)
+        : capability === 'timeShare'
+          ? instrument.capabilities.timeShare === true
+          : instrument.capabilities.timeShareRange !== undefined)
     if (!supported) {
       throw new KLineChartError(
         'UNSUPPORTED_CAPABILITY',
@@ -224,5 +227,45 @@ export function createMarketDataProvider(
         }
       },
     },
+    ...(transport.fetchTimeShareRange
+      ? {
+          timeShareRange: {
+            // 通过 timeshare/range endpoint 拉取多个实际交易日的标准分时。
+            async fetch(query: TimeShareRangeQuery) {
+              assertCapability(query.instrument, 'timeShareRange')
+              const capability = query.instrument.capabilities.timeShareRange
+              if (!capability || query.days > capability.maxTradingDays) {
+                throw new KLineChartError(
+                  'UNSUPPORTED_CAPABILITY',
+                  `[${source.id}] instrument ${query.instrument.id} does not support ${query.days} trading days`,
+                )
+              }
+              const timezone = getInstrumentTimeZone(query.instrument)
+              const result = await transport.fetchTimeShareRange!({
+                sourceId: source.id,
+                instrument: {
+                  id: query.instrument.id,
+                  symbol: query.instrument.symbol,
+                  exchange: query.instrument.exchange,
+                  providerRef: query.instrument.providerRef,
+                },
+                endTradingDate: query.endTradingDate,
+                days: query.days,
+              }, query.signal)
+              return {
+                instrumentId: query.instrument.id,
+                timezone: result.timezone || timezone,
+                requestedDays: result.requestedDays,
+                olderData: result.olderData,
+                days: result.days.map((day) => ({
+                  tradingDate: day.tradingDate,
+                  preClose: day.preClose,
+                  data: day.items.map(mapTimeShare),
+                })),
+              }
+            },
+          },
+        }
+      : {}),
   }
 }
