@@ -8,7 +8,7 @@ import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcVMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, VMASchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { VMARenderState } from '../../indicators/state/vmaState'
 import { createVMAStateKey } from '../../indicators/state/vmaState'
 import { EMPTY_VMA_STATE } from '../../indicators/state/vmaState'
@@ -134,8 +134,9 @@ const getVMATitleInfo = createSingleLineTitleInfo({
   scale: { indicatorKey: 'vma', label: 'VMA', decimals: 0 },
   getTitleInfo: getVMATitleInfo,
   visibleState: { compose: createNonNegativeSparseVisibleStateComposer('vma', EMPTY_VMA_STATE) },
+  presentation: { defaultOptions: { showVMA: true } },
   runtime: {
-    defaultConfig: { period: 5, showVMA: true },
+    defaultParams: { period: 5 },
     computeKey: 'calcVMAData',
     compute: (data, c) => calcVMAData(data, c.period),
   },

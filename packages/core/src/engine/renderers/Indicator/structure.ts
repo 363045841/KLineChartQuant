@@ -12,7 +12,7 @@ import { calcStructureData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { TitleInfo } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, StructureSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { StructureRenderState } from '../../indicators/state/structureState'
 import {
   createStructureStateKey,
@@ -192,17 +192,17 @@ function getStructureTitleInfo(
   visibleState: {
     compose: createFixedUnitVisibleStateComposer('structure', EMPTY_STRUCTURE_STATE),
   },
-  runtime: {
-    outputAlignment: 'aggregate',
-    defaultConfig: {
-      leftWindow: 5,
-      rightWindow: 2,
-      breakoutSource: 'close',
+  presentation: {
+    defaultOptions: {
       showSwingLabels: true,
       showBOS: true,
       showCHOCH: true,
       showProvisional: true,
     },
+  },
+  runtime: {
+    outputAlignment: 'aggregate',
+    defaultParams: { leftWindow: 5, rightWindow: 2, breakoutSource: 'close' as const },
     computeKey: 'calcStructureData',
     compute: (data, c) => calcStructureData(data, c.leftWindow, c.rightWindow, c.breakoutSource),
   },

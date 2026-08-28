@@ -84,21 +84,10 @@
     </div>
 
     <template #footer>
-      <button class="params-btn reset" @click="onReset">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-          <path d="M3 3v5h5" />
-        </svg>
-        重置
-      </button>
+      <button class="params-btn reset" @click="onReset">重置</button>
       <div class="footer-right">
         <button class="params-btn cancel" @click="$emit('close')">取消</button>
-        <button class="params-btn confirm" @click="onConfirm">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M20 6L9 17l-5-5" />
-          </svg>
-          确定
-        </button>
+        <button class="params-btn confirm" @click="onConfirm">确定</button>
       </div>
     </template>
   </BaseModal>
@@ -374,7 +363,7 @@
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
-    border: 1px solid transparent;
+    border: 0;
     transition: all 0.15s ease;
     line-height: 1;
     white-space: nowrap;
@@ -388,33 +377,28 @@
 
   /* 重置 */
   .params-btn.reset {
-    background: transparent;
-    border-color: var(--klc-color-border-button);
+    background: color-mix(in srgb, var(--klc-color-chart-background) 92%, var(--klc-color-foreground));
     color: var(--klc-color-axis-text);
   }
 
   .params-btn.reset:hover {
-    border-color: #f0a020;
     color: #f0a020;
     background: rgba(240, 160, 32, 0.08);
   }
 
   /* 取消 */
   .params-btn.cancel {
-    background: transparent;
-    border-color: var(--klc-color-border-button);
+    background: color-mix(in srgb, var(--klc-color-chart-background) 92%, var(--klc-color-foreground));
     color: var(--klc-color-foreground);
   }
 
   .params-btn.cancel:hover {
-    background: var(--klc-color-grid-minor);
-    border-color: var(--klc-color-axis-line);
+    background: color-mix(in srgb, var(--klc-color-chart-background) 86%, var(--klc-color-foreground));
   }
 
   /* 确定 */
   .params-btn.confirm {
-    background: var(--klc-color-foreground);
-    border-color: var(--klc-color-foreground);
+    background: color-mix(in srgb, var(--klc-color-foreground) 80%, var(--klc-color-chart-background));
     color: var(--klc-color-background);
   }
 

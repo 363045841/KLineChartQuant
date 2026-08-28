@@ -1,8 +1,39 @@
+<!-- TRELLIS:START -->
+# Trellis Instructions
+
+These instructions are for AI assistants working in this project.
+
+This project is managed by Trellis. The working knowledge you need lives under `.trellis/`:
+
+- `.trellis/workflow.md` - development phases, when to create tasks, skill routing
+- `.trellis/spec/` - package- and layer-scoped coding guidelines (read before writing code in a given layer)
+- `.trellis/workspace/` - per-developer journals and session traces
+- `.trellis/tasks/` - active and archived tasks (PRDs, research, jsonl context)
+
+If a Trellis command is available on your platform (e.g. `/trellis:finish-work`, `/trellis:continue`), prefer it over manual steps. Not every platform exposes every command.
+
+If you're using Codex or another agent-capable tool, additional project-scoped helpers may live in:
+- `.agents/skills/` - reusable Trellis skills
+- `.codex/agents/` - optional custom subagents
+
+Managed by Trellis. Edits outside this block are preserved; edits inside may be overwritten by a future `trellis update`.
+
+<!-- TRELLIS:END -->
+
 # KLineChartQuant — Agent Guide
 
 ## 代码要求
 
 重中之重:拒绝一切治标不治本的“最小修复”，拒绝架构债，代码可读性强，可维护，不炫技。禁止硬编码字符串。
+不要复杂化问题，特别是架构上。
+
+## PR 作者要求
+
+- 不许在 PR 中使用 /goal 命令
+- 不许一下子写一堆代码，中间不经过 E2E 测试、视觉回归测试
+- 不许长时间自己收敛相当宽泛问题而不交由作者亲自测试
+- 不许在小问题上使用严苛的校验，导致链路难以维护
+- 不许未经确认就围绕一个你自己 MOCK 的数据进行开发和重构
 
 ## Quick Search
 
@@ -145,6 +176,7 @@ Agent 细节见该仓库 `AGENTS.md`。
 - **`vue-tsc` for type-checking**: not `tsc`. Runs against `tsconfig.app.json`.
 - **Vue SFC composable extraction**: always extract logic into composables (`useXxx`); avoid coupling logic inside `<script setup>` blocks.
 - **Error codes**: `KLineChartError` 的错误码必须从 `packages/core/src/errors.ts` 中的具名常量引用，禁止在业务代码里散落字符串字面量。新增错误码时在 `errors.ts` 追加常量并保持 append-only。
+- **Colors**: 颜色必须收归 `packages/core/src/foundation/tokens` 管理，业务组件仅消费 Token 输出的 CSS 变量，禁止局部硬编码颜色。
 - 不要硬编码字符串
 
 ## Architecture
@@ -222,6 +254,7 @@ Never guess at Effect patterns - check the guide first.
 - 注释必须简单明了，直接说明代码是什么或为什么这样实现，尽量使用一句话，避免冗长和重复代码本身的含义
 
 ## SubAgent
+- 除非用户明确要求启动子代理，否则不要启动子代理
 - 最多同时起三个子代理
 
 ## Github CLI

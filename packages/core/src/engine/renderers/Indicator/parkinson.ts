@@ -8,7 +8,7 @@ import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcParkinsonData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, ParkinsonSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { ParkinsonRenderState } from '../../indicators/state/parkinsonState'
 import { createParkinsonStateKey } from '../../indicators/state/parkinsonState'
 import { EMPTY_PARKINSON_STATE } from '../../indicators/state/parkinsonState'
@@ -136,8 +136,9 @@ const getParkinsonTitleInfo = createSingleLineTitleInfo({
   visibleState: {
     compose: createNonNegativeSparseVisibleStateComposer('parkinson', EMPTY_PARKINSON_STATE),
   },
+  presentation: { defaultOptions: { showParkinson: true } },
   runtime: {
-    defaultConfig: { period: 20, annualizationFactor: 252, showParkinson: true },
+    defaultParams: { period: 20, annualizationFactor: 252 },
     computeKey: 'calcParkinsonData',
     compute: (data, c) => calcParkinsonData(data, c.period, c.annualizationFactor),
   },

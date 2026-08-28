@@ -22,6 +22,7 @@ const decoratorTransform = babel({
 
 const root = fileURLToPath(new URL('../../..', import.meta.url))
 const coreSrc = `${root}/packages/core/src`
+const agentContracts = `${root}/packages/agent-runtime/src/contracts/ui.ts`
 
 export default defineConfig({
   root: fileURLToPath(new URL('.', import.meta.url)),
@@ -49,6 +50,10 @@ export default defineConfig({
       {
         find: /^@363045841yyt\/klinechart-ai-runtime$/,
         replacement: `${root}/packages/ai-runtime/src/browser.ts`,
+      },
+      {
+        find: /^@363045841yyt\/klinechart-agent-runtime\/contracts\/ui$/,
+        replacement: agentContracts,
       },
     ],
   },

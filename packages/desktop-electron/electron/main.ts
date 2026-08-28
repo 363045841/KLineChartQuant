@@ -1,20 +1,19 @@
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { app, BrowserWindow, shell } from 'electron'
 
-import { registerIpcHandlers } from './ipc-handlers'
-
 let mainWindow: BrowserWindow | null = null
+const currentDirectory = dirname(fileURLToPath(import.meta.url))
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
-    minWidth: 800,
+    minWidth: 720,
     minHeight: 600,
     show: false,
     webPreferences: {
-      preload: join(__dirname, '../preload/preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -35,12 +34,11 @@ function createWindow(): void {
   if (process.env.ELECTRON_RENDERER_URL) {
     mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    mainWindow.loadFile(join(currentDirectory, '../renderer/index.html'))
   }
 }
 
 app.whenReady().then(() => {
-  registerIpcHandlers()
   createWindow()
 
   app.on('activate', () => {

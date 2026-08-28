@@ -288,6 +288,7 @@ describe('IndicatorScheduler', () => {
       const visibleRange = { start: 0, end: 100 }
 
       scheduler.update(data, visibleRange)
+      const previousState = getStateFromMockCalls<MARenderState>(mockHost, MA_STATE_KEY)
 
       // Disable some periods
       scheduler.updateIndicatorConfig('ma', {
@@ -306,6 +307,7 @@ describe('IndicatorScheduler', () => {
       expect(state!.enabledPeriods).not.toContain(10)
       expect(state!.enabledPeriods).not.toContain(30)
       expect(state!.enabledPeriods).not.toContain(60)
+      expect(state!.series[5]).toBe(previousState!.series[5])
     })
 
     it('should disable all periods when all flags are false', () => {
@@ -1016,15 +1018,15 @@ describe('IndicatorScheduler failure handling', () => {
 
     scheduler.update(data, { start: 0, end: data.length }, 41)
 
-    const committed = resultState.readonly.snapshot.peek().committed!
-    const first = committed.results.get('macd-a')!
-    const second = committed.results.get('macd-b')!
+    const pool = resultState.readonly.snapshot.peek().pool!
+    const first = pool.results.get('macd-a')!
+    const second = pool.results.get('macd-b')!
     expect(first.params).toMatchObject({ fastPeriod: 12, slowPeriod: 26, signalPeriod: 9 })
     expect(second.params).toMatchObject({ fastPeriod: 5, slowPeriod: 35, signalPeriod: 5 })
     expect(first.series).not.toEqual(second.series)
     expect(first.firstReadyIndex).not.toBeNull()
     expect(second.firstReadyIndex).not.toBeNull()
-    expect(committed.timestamps).toEqual(data.map((item) => item.timestamp))
+    expect(pool.timestamps).toEqual(data.map((item) => item.timestamp))
     scheduler.destroy()
   })
 

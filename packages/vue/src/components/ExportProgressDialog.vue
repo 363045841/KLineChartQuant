@@ -93,9 +93,8 @@
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
-    border: 1px solid transparent;
-    background: var(--klc-color-foreground);
-    border-color: var(--klc-color-foreground);
+    border: 0;
+    background: color-mix(in srgb, var(--klc-color-foreground) 80%, var(--klc-color-chart-background));
     color: var(--klc-color-background);
     transition:
       background 0.15s,
@@ -107,7 +106,6 @@
 
   .export-done-btn:hover {
     background: var(--klc-color-foreground);
-    border-color: var(--klc-color-foreground);
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
     transform: translateY(-1px);
   }

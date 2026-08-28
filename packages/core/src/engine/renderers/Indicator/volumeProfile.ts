@@ -11,7 +11,7 @@ import { calcVolumeProfileData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { TitleInfo } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, VolumeProfileSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { VolumeProfileRenderState } from '../../indicators/state/volumeProfileState'
 import {
   createVolumeProfileStateKey,
@@ -178,15 +178,10 @@ function getVolumeProfileTitleInfo(
   visibleState: {
     compose: createVolumeProfileVisibleStateComposer('volumeProfile', EMPTY_VOLUME_PROFILE_STATE),
   },
+  presentation: { defaultOptions: { showPOC: true, showValueArea: true } },
   runtime: {
     outputAlignment: 'aggregate',
-    defaultConfig: {
-      bins: 24,
-      lookback: 100,
-      valueAreaPercent: 70,
-      showPOC: true,
-      showValueArea: true,
-    },
+    defaultParams: { bins: 24, lookback: 100, valueAreaPercent: 70 },
     computeKey: 'calcVolumeProfileData',
     compute: (data, c) => calcVolumeProfileData(data, c.bins, c.lookback, c.valueAreaPercent),
   },

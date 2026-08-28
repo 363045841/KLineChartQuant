@@ -9,7 +9,7 @@ import type { KLineData } from '../../../foundation/types/price'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
 import { calcEXPMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { readIndicatorSeriesEntry, resolveStateKey } from '../../indicators/indicatorMetadata'
 import type {
   IndicatorPriceRangeComputer,
   IndicatorRenderStateComposer,
@@ -17,7 +17,7 @@ import type {
   TitleInfo,
   TitleValueItem,
 } from '../../indicators/indicatorMetadata'
-import type { EXPMASchedulerConfig, IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import { EXPMA_STATE_KEY, type EXPMARenderState } from '../../indicators/state/expmaState'
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 
@@ -60,7 +60,7 @@ function getEXPMAStateKey(host: PluginHost | null): string | null {
 }
 
 const computeEXPMAPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
-  const series = bundle.expma.series
+  const { series } = readIndicatorSeriesEntry<Pick<EXPMARenderState, 'series'>>(bundle, 'expma')
   if (series.length === 0 || range.start >= series.length) {
     return null
   }
@@ -84,11 +84,15 @@ const composeEXPMARenderState: IndicatorRenderStateComposer = (
   range,
   timestamp,
 ): EXPMARenderState => {
+  const source = readIndicatorSeriesEntry<Pick<EXPMARenderState, 'series' | 'params'>>(
+    bundle,
+    'expma',
+  )
   const priceRange = computeEXPMAPriceRange(bundle, range) ?? { min: Infinity, max: -Infinity }
   return {
     timestamp,
-    series: bundle.expma.series,
-    params: bundle.expma.params,
+    series: source.series,
+    params: source.params,
     visibleMin: priceRange.min,
     visibleMax: priceRange.max,
   }
@@ -263,7 +267,7 @@ const getEXPMATitleInfo: GetTitleInfoFn = (
     composeRenderState: composeEXPMARenderState,
   },
   runtime: {
-    defaultConfig: { fastPeriod: 12, slowPeriod: 50 },
+    defaultParams: { fastPeriod: 12, slowPeriod: 50 },
     computeKey: 'calcEXPMAData',
     compute: (data, c) => calcEXPMAData(data, c.fastPeriod, c.slowPeriod),
   },

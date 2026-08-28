@@ -31,12 +31,12 @@ function postResponse(response: IndicatorWorkerResponse): void {
 /**
  * 处理初始化
  */
-function handleInit(msg?: { descriptors?: SerializedRuntimeDescriptor[] }): void {
+function handleInit(msg?: { descriptors?: ReadonlyArray<SerializedRuntimeDescriptor> }): void {
   const serializedDescs = msg?.descriptors ?? []
   const descriptors: IndicatorRuntimeDescriptor[] = serializedDescs.map((d) => ({
     configKey: d.configKey as any,
     paneIdKey: d.paneIdKey as any,
-    defaultConfig: d.defaultConfig,
+    defaultParams: d.defaultParams,
     computeKey: d.computeKey,
     outputAlignment: d.outputAlignment,
     compute: createWorkerCompute(d),
@@ -60,7 +60,7 @@ function handleAddDescriptor(descriptor: SerializedRuntimeDescriptor): void {
   runtime.addDescriptor({
     configKey: descriptor.configKey as any,
     paneIdKey: descriptor.paneIdKey as any,
-    defaultConfig: descriptor.defaultConfig,
+    defaultParams: descriptor.defaultParams,
     computeKey: descriptor.computeKey,
     outputAlignment: descriptor.outputAlignment,
     compute: createWorkerCompute(descriptor),
@@ -85,7 +85,7 @@ function handleSetData(data: KLineData[], version: number): void {
 /**
  * 处理设置配置
  */
-function handleSetConfig(config: Partial<IndicatorConfigSnapshot>, version: number): void {
+function handleSetConfig(config: IndicatorConfigSnapshot, version: number): void {
   if (!runtime) {
     postResponse({
       type: 'error',
@@ -175,30 +175,37 @@ ctx.onmessage = (event: MessageEvent<IndicatorWorkerRequest>) => {
 
   switch (msg.type) {
     case 'init':
+      // 根据主线程传入的运行时描述符创建本 Worker 的独立计算 Runtime。
       handleInit(msg)
       break
 
     case 'addDescriptor':
+      // 为已初始化 Runtime 补充一个新注册指标，后续计算请求才能解析其 calculator。
       handleAddDescriptor(msg.descriptor)
       break
 
     case 'setData':
+      // 缓存当前完整行情快照及其版本，计算请求只引用该 Worker 内部快照。
       handleSetData(msg.data, msg.dataVersion)
       break
 
     case 'setConfig':
+      // 缓存按 configKey 索引的计算参数快照及其版本，不包含展示配置。
       handleSetConfig(msg.configs, msg.configVersion)
       break
 
     case 'computeSeries':
+      // 使用已缓存的行情和参数执行计算，并将纯计算结果返回主线程。
       handleComputeSeries(msg.requestId, msg.dataVersion, msg.configVersion, msg.instances)
       break
 
     case 'dispose':
+      // 释放 Worker 内部 Runtime 引用，主线程随后负责终止 Worker。
       handleDispose()
       break
 
     default: {
+      // TypeScript 理论上不可达；保留运行时错误响应以防收到越过类型检查的消息。
       const _exhaustiveCheck: never = msg
       postResponse({
         type: 'error',

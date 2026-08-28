@@ -1,5 +1,8 @@
 <template>
-  <label class="toggle-switch" :class="{ 'is-disabled': disabled }">
+  <label
+    class="toggle-switch"
+    :class="{ 'is-compact': size === 'compact', 'is-disabled': disabled }"
+  >
     <input
       type="checkbox"
       :checked="modelValue"
@@ -18,6 +21,7 @@
     modelValue: boolean
     disabled?: boolean
     ariaLabel?: string
+    size?: 'default' | 'compact'
   }>()
 
   const emit = defineEmits<{
@@ -39,6 +43,11 @@
   .toggle-switch.is-disabled {
     cursor: default;
     opacity: 0.55;
+  }
+
+  .toggle-switch.is-compact {
+    width: 28px;
+    height: 16px;
   }
 
   .toggle-switch input {
@@ -72,12 +81,23 @@
     transition: transform 0.15s ease;
   }
 
+  .toggle-switch.is-compact .toggle-switch__thumb {
+    top: 2px;
+    left: 2px;
+    width: 12px;
+    height: 12px;
+  }
+
   .toggle-switch input:checked + .toggle-switch__track {
     background: var(--klc-color-primary, #2962ff);
   }
 
   .toggle-switch input:checked + .toggle-switch__track .toggle-switch__thumb {
     transform: translateX(14px);
+  }
+
+  .toggle-switch.is-compact input:checked + .toggle-switch__track .toggle-switch__thumb {
+    transform: translateX(12px);
   }
 
   .toggle-switch input:focus-visible + .toggle-switch__track {

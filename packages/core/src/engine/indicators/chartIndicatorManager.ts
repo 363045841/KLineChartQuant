@@ -124,8 +124,9 @@ export class ChartIndicatorManager {
       for (const def of getRegisteredIndicatorDefinitions()) {
         if (def.category === 'main') {
           const key = def.name.toUpperCase()
-          ChartIndicatorManager._defaultMainParamsCache[key] = (def.runtime?.defaultConfig ??
-            {}) as Record<string, number | boolean | string>
+          ChartIndicatorManager._defaultMainParamsCache[key] = {
+            ...(def.presentation?.defaultOptions ?? def.runtime?.defaultParams ?? {}),
+          } as Record<string, number | boolean | string>
         }
       }
     }
@@ -557,7 +558,10 @@ export class ChartIndicatorManager {
 
   private getDefaultSubPaneParams(indicatorId: SubIndicatorType): Record<string, unknown> {
     const meta = this.indicatorScheduler.getIndicatorMetadata(indicatorId)
-    return { ...((meta?.runtime?.defaultConfig as Record<string, unknown>) ?? {}) }
+    return {
+      ...((meta?.runtime?.defaultParams as Record<string, unknown>) ?? {}),
+      ...(meta?.presentation?.defaultOptions ?? {}),
+    }
   }
 
   /** 创建副图实例描述，分别生成实例身份、布局身份和显示序号。 */

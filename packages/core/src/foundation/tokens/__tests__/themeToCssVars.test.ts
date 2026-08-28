@@ -92,6 +92,11 @@ describe('themeToCssVars — naming', () => {
     expect(vars['--klc-color-palette-i1']).toBe(lightTheme.colors.palette.i1)
   })
 
+  it('colors.agent.danger → --klc-color-agent-danger', () => {
+    const vars = themeToCssVars(lightTheme)
+    expect(vars['--klc-color-agent-danger']).toBe(lightTheme.colors.agent.danger)
+  })
+
   it('spacing.md → --klc-spacing-md', () => {
     const vars = themeToCssVars(lightTheme)
     expect(vars['--klc-spacing-md']).toBe(lightTheme.spacing.md)

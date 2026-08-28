@@ -8,7 +8,7 @@ import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcHMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, HMASchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { HMARenderState } from '../../indicators/state/hmaState'
 import { createHMAStateKey, EMPTY_HMA_STATE } from '../../indicators/state/hmaState'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -144,8 +144,9 @@ const getHMATitleInfo = createSingleLineTitleInfo({
   },
   visibleState: { compose: createSparseVisibleStateComposer('hma', EMPTY_HMA_STATE) },
   scale: { indicatorKey: 'hma', label: 'HMA', decimals: 2 },
+  presentation: { defaultOptions: { showHMA: true } },
   runtime: {
-    defaultConfig: { period: 14, showHMA: true },
+    defaultParams: { period: 14 },
     computeKey: 'calcHMAData',
     compute: (data, c) => calcHMAData(data, c.period),
   },

@@ -269,6 +269,40 @@ export interface ZonesColors {
   readonly obBearFill: ColorValue
 }
 
+/** Agent 工作台的表面、状态与操作色。 */
+export interface AgentColors {
+  readonly background: ColorValue
+  readonly surface: ColorValue
+  readonly card: ColorValue
+  readonly input: ColorValue
+  readonly hover: ColorValue
+  readonly userMessage: ColorValue
+  readonly border: ColorValue
+  readonly borderStrong: ColorValue
+  readonly text: ColorValue
+  readonly textSoft: ColorValue
+  readonly muted: ColorValue
+  readonly accent: ColorValue
+  readonly accentStrong: ColorValue
+  readonly focus: ColorValue
+  readonly warningBackground: ColorValue
+  readonly warningBorder: ColorValue
+  readonly warningText: ColorValue
+  readonly warningStrong: ColorValue
+  readonly dangerBackground: ColorValue
+  readonly dangerBorder: ColorValue
+  readonly dangerText: ColorValue
+  readonly success: ColorValue
+  readonly warning: ColorValue
+  readonly danger: ColorValue
+  readonly neutral: ColorValue
+  readonly onAccent: ColorValue
+  readonly launcherBorder: ColorValue
+  readonly launcherBackground: ColorValue
+  readonly backdrop: ColorValue
+  readonly panelShadow: ColorValue
+}
+
 export interface ColorTokens {
   // Chart-wide background + foreground
   readonly background: ColorValue
@@ -375,6 +409,7 @@ export interface ColorTokens {
   readonly zones: ZonesColors
   readonly referenceLine: ReferenceLineColors
   readonly wmsrGrid: ColorValue
+  readonly agent: AgentColors
 }
 
 /**

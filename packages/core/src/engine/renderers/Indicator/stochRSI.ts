@@ -353,11 +353,11 @@ function getStochRSITitleInfo(
     ] as const),
   },
   getTitleInfo: getStochRSITitleInfo,
+  presentation: { defaultOptions: { showK: true, showD: true } },
   runtime: {
-    defaultConfig: { period: 14, kPeriod: 3, dPeriod: 3, showK: true, showD: true },
+    defaultParams: { period: 14, kPeriod: 3, dPeriod: 3 },
     computeKey: 'calcStochRSIData',
-    compute: (data: KLineData[], c: StochRSIRenderState['params']) =>
-      calcStochRSIData(data, c.period, c.kPeriod, c.dPeriod),
+    compute: (data: KLineData[], c) => calcStochRSIData(data, c.period, c.kPeriod, c.dPeriod),
   },
 })
 export class StochRSIIndicatorDefinition {

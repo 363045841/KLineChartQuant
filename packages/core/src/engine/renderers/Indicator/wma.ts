@@ -8,7 +8,7 @@ import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcWMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, WMASchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { WMARenderState } from '../../indicators/state/wmaState'
 import { createWMAStateKey, EMPTY_WMA_STATE } from '../../indicators/state/wmaState'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -144,8 +144,9 @@ const getWMATitleInfo = createSingleLineTitleInfo({
   },
   visibleState: { compose: createSparseVisibleStateComposer('wma', EMPTY_WMA_STATE) },
   scale: { indicatorKey: 'wma', label: 'WMA', decimals: 2 },
+  presentation: { defaultOptions: { showWMA: true } },
   runtime: {
-    defaultConfig: { period: 10, showWMA: true },
+    defaultParams: { period: 10 },
     computeKey: 'calcWMAData',
     compute: (data, c) => calcWMAData(data, c.period),
   },

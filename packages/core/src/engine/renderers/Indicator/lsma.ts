@@ -8,7 +8,7 @@ import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcLSMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, WMASchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { LSMARenderState } from '../../indicators/state/lsmaState'
 import { createLSMAStateKey, EMPTY_LSMA_STATE } from '../../indicators/state/lsmaState'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -144,8 +144,9 @@ const getLSMATitleInfo = createSingleLineTitleInfo({
   },
   visibleState: { compose: createSparseVisibleStateComposer('lsma', EMPTY_LSMA_STATE) },
   scale: { indicatorKey: 'lsma', label: 'LSMA', decimals: 2 },
+  presentation: { defaultOptions: { showLSMA: true } },
   runtime: {
-    defaultConfig: { period: 25, showLSMA: true },
+    defaultParams: { period: 25 },
     computeKey: 'calcLSMAData',
     compute: (data, c) => calcLSMAData(data, c.period),
   },

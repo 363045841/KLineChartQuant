@@ -145,8 +145,9 @@ const getTRIMATitleInfo = createSingleLineTitleInfo({
   },
   visibleState: { compose: createSparseVisibleStateComposer('trima', EMPTY_TRIMA_STATE) },
   scale: { indicatorKey: 'trima', label: 'TRIMA', decimals: 2 },
+  presentation: { defaultOptions: { showTRIMA: true } },
   runtime: {
-    defaultConfig: { period: 20, showTRIMA: true },
+    defaultParams: { period: 20 },
     computeKey: 'calcTRIMAData',
     compute: (data, c) => calcTRIMAData(data, c.period),
   },

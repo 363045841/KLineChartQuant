@@ -8,7 +8,7 @@ import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcDEMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, DEMASchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { DEMARenderState } from '../../indicators/state/demaState'
 import { createDEMAStateKey, EMPTY_DEMA_STATE } from '../../indicators/state/demaState'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -144,8 +144,9 @@ const getDEMATitleInfo = createSingleLineTitleInfo({
   },
   visibleState: { compose: createSparseVisibleStateComposer('dema', EMPTY_DEMA_STATE) },
   scale: { indicatorKey: 'dema', label: 'DEMA', decimals: 2 },
+  presentation: { defaultOptions: { showDEMA: true } },
   runtime: {
-    defaultConfig: { period: 14, showDEMA: true },
+    defaultParams: { period: 14 },
     computeKey: 'calcDEMAData',
     compute: (data, c) => calcDEMAData(data, c.period),
   },

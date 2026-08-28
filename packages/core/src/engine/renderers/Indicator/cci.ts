@@ -8,7 +8,7 @@ import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcCCIData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, CCISchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { CCIRenderState } from '../../indicators/state/cciState'
 import { createCCIStateKey, EMPTY_CCI_STATE } from '../../indicators/state/cciState'
 import { createCCIVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -258,8 +258,9 @@ const getCCITitleInfo = createSingleLineTitleInfo({
   scaleRendererFactory: createCciScaleRendererPlugin,
   visibleState: { compose: createCCIVisibleStateComposer('cci', EMPTY_CCI_STATE) },
   getTitleInfo: getCCITitleInfo,
+  presentation: { defaultOptions: { showCCI: true } },
   runtime: {
-    defaultConfig: { period: 14, showCCI: true },
+    defaultParams: { period: 14 },
     computeKey: 'calcCCIData',
     compute: (data, c) => calcCCIData(data, c.period),
   },

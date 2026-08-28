@@ -8,7 +8,7 @@ import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcTEMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, TEMASchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { TEMARenderState } from '../../indicators/state/temaState'
 import { createTEMAStateKey, EMPTY_TEMA_STATE } from '../../indicators/state/temaState'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -144,8 +144,9 @@ const getTEMATitleInfo = createSingleLineTitleInfo({
   },
   visibleState: { compose: createSparseVisibleStateComposer('tema', EMPTY_TEMA_STATE) },
   scale: { indicatorKey: 'tema', label: 'TEMA', decimals: 2 },
+  presentation: { defaultOptions: { showTEMA: true } },
   runtime: {
-    defaultConfig: { period: 14, showTEMA: true },
+    defaultParams: { period: 14 },
     computeKey: 'calcTEMAData',
     compute: (data, c) => calcTEMAData(data, c.period),
   },

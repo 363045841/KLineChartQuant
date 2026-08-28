@@ -13,7 +13,7 @@ import {
   type TitleValueItem,
   type GetTitleInfoFn,
 } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, ZonesSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { ZonesRenderState } from '../../indicators/state/zonesState'
 import { createZonesStateKey, EMPTY_ZONES_STATE } from '../../indicators/state/zonesState'
 import { createFixedUnitVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -168,9 +168,10 @@ const getZonesTitleInfo: GetTitleInfoFn = (_data, index, _params, stateReader, p
   },
   scale: { indicatorKey: 'zones', label: 'Zones', decimals: 2 },
   visibleState: { compose: createFixedUnitVisibleStateComposer('zones', EMPTY_ZONES_STATE) },
+  presentation: { defaultOptions: { showFVG: true, showOB: true, showFilledZones: true } },
   runtime: {
     outputAlignment: 'aggregate',
-    defaultConfig: { showFVG: true, showOB: true, showFilledZones: true, obLookback: 20 },
+    defaultParams: { obLookback: 20 },
     computeKey: 'calcZonesData',
     compute: (data, c) => calcZonesData(data, c.obLookback, 5, 2, 'close'),
   },

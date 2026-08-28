@@ -8,7 +8,7 @@ import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcROCData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, ROCSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { ROCRenderState } from '../../indicators/state/rocState'
 import { createROCStateKey, EMPTY_ROC_STATE } from '../../indicators/state/rocState'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -154,8 +154,9 @@ const getROCTitleInfo = createSingleLineTitleInfo({
   visibleState: { compose: createSparseVisibleStateComposer('roc', EMPTY_ROC_STATE) },
   scale: { indicatorKey: 'roc', label: 'ROC', decimals: 2 },
   getTitleInfo: getROCTitleInfo,
+  presentation: { defaultOptions: { showROC: true } },
   runtime: {
-    defaultConfig: { period: 12, showROC: true },
+    defaultParams: { period: 12 },
     computeKey: 'calcROCData',
     compute: (data, c) => calcROCData(data, c.period),
   },

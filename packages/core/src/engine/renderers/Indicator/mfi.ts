@@ -8,7 +8,7 @@ import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcMFIData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, MFISchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { MFIRenderState } from '../../indicators/state/mfiState'
 import { createMFIStateKey, EMPTY_MFI_STATE } from '../../indicators/state/mfiState'
 import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -151,8 +151,9 @@ const getMFITitleInfo = createSingleLineTitleInfo({
   visibleState: { compose: createFixedRangeSparseVisibleStateComposer('mfi', EMPTY_MFI_STATE) },
   scale: { indicatorKey: 'mfi', label: 'MFI', decimals: 2 },
   getTitleInfo: getMFITitleInfo,
+  presentation: { defaultOptions: { showMFI: true } },
   runtime: {
-    defaultConfig: { period: 14, showMFI: true },
+    defaultParams: { period: 14 },
     computeKey: 'calcMFIData',
     compute: (data, c) => calcMFIData(data, c.period),
   },

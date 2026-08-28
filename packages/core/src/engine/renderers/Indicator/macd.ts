@@ -13,7 +13,7 @@ import type { MACDPoint } from '../../indicators/calculators'
 import { calcMACDData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, MACDSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import { createMACDStateKey, EMPTY_MACD_STATE } from '../../indicators/state/macdState'
 import type { MACDRenderState } from '../../indicators/state/macdState'
 import { createMACDVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -508,15 +508,9 @@ function getMACDTitleInfo(
   scaleRendererFactory: createMacdScaleRendererPlugin,
   visibleState: { compose: createMACDVisibleStateComposer('macd', EMPTY_MACD_STATE) },
   getTitleInfo: getMACDTitleInfo,
+  presentation: { defaultOptions: { showDIF: true, showDEA: true, showBAR: true } },
   runtime: {
-    defaultConfig: {
-      fastPeriod: 12,
-      slowPeriod: 26,
-      signalPeriod: 9,
-      showDIF: true,
-      showDEA: true,
-      showBAR: true,
-    },
+    defaultParams: { fastPeriod: 12, slowPeriod: 26, signalPeriod: 9 },
     computeKey: 'calcMACDData',
     compute: (data, c) => calcMACDData(data, c.fastPeriod, c.slowPeriod, c.signalPeriod),
   },

@@ -8,7 +8,7 @@ import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcATRData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, ATRSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { ATRRenderState } from '../../indicators/state/atrState'
 import { createATRStateKey } from '../../indicators/state/atrState'
 import { EMPTY_ATR_STATE } from '../../indicators/state/atrState'
@@ -221,8 +221,9 @@ const getATRTitleInfo = createSingleLineTitleInfo({
   scaleRendererFactory: createAtrScaleRendererPlugin,
   visibleState: { compose: createNonNegativeSparseVisibleStateComposer('atr', EMPTY_ATR_STATE) },
   getTitleInfo: getATRTitleInfo,
+  presentation: { defaultOptions: { showATR: true } },
   runtime: {
-    defaultConfig: { period: 14, showATR: true },
+    defaultParams: { period: 14 },
     computeKey: 'calcATRData',
     compute: (data, c) => calcATRData(data, c.period),
   },

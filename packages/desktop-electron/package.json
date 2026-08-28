@@ -1,6 +1,6 @@
 {
   "name": "@363045841yyt/klinechart-desktop",
-  "version": "0.10.3",
+  "version": "0.10.4",
   "private": true,
   "description": "Electron desktop shell for @363045841yyt/klinechart",
   "license": "MIT",
@@ -11,20 +11,26 @@
     "build": "electron-vite build && electron-builder",
     "build:unpack": "electron-vite build && electron-builder --dir",
     "preview": "electron-vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "vue-tsc --build",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
+    "@363045841yyt/klinechart-agent-runtime": "workspace:*",
     "@363045841yyt/klinechart": "workspace:*",
     "@363045841yyt/klinechart-core": "workspace:*"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.7",
+    "@vue/test-utils": "^2.4.11",
     "electron": "^42.5.0",
     "electron-builder": "^26.15.3",
-    "electron-store": "^10.1.0",
     "electron-vite": "^5.0.0",
+    "jsdom": "^29.1.1",
     "typescript": "~6.0.3",
     "vite": "^8.1.0",
+    "vitest": "^4.1.10",
     "vue": "^3.5.38"
   }
 }

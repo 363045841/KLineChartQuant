@@ -11,6 +11,7 @@ import type {
   ScaleRendererFactory,
   IndicatorConfigUpdater,
   IndicatorRuntimeDescriptor,
+  IndicatorPresentationDescriptor,
   GetTitleInfoFn,
   IndicatorRendererNameResolver,
   IndicatorAuxiliaryRendererNameResolver,
@@ -43,7 +44,8 @@ export type IndicatorDefinitionConfig<T = unknown> = {
   /** 覆盖默认的副图标题 plugin 命名规则。 */
   getPaneTitleRendererName?: IndicatorAuxiliaryRendererNameResolver
   visibleState?: IndicatorMetadata['visibleState']
-  runtime?: IndicatorRuntimeDescriptor
+  runtime?: IndicatorRuntimeDescriptor<T>
+  presentation?: IndicatorPresentationDescriptor
   getTitleInfo?: GetTitleInfoFn
 }
 
@@ -86,7 +88,7 @@ function removeAliasesFor(name: string): void {
  *   static rendererFactory = createMARendererPlugin
  * }
  */
-export function Indicator(config: IndicatorDefinitionConfig) {
+export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {
   return function <T extends IndicatorDefinitionClass>(
     value: T,
     context: ClassDecoratorContext<T>,

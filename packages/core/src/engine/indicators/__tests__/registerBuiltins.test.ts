@@ -40,6 +40,34 @@ describe('builtin indicator registration', () => {
     expect(getRegisteredIndicatorDefinition('VOL')?.name).toBe('volume')
   })
 
+  it('keeps calculator params and presentation options disjoint', () => {
+    for (const definition of getBuiltinIndicatorDefinitions()) {
+      const runtime = definition.runtime
+      const presentation = definition.presentation
+      if (!runtime) continue
+      const defaultParams =
+        typeof runtime.defaultParams === 'function'
+          ? runtime.defaultParams()
+          : runtime.defaultParams
+      const calculationKeys = new Set(Object.keys(defaultParams as Record<string, unknown>))
+      expect(
+        [...calculationKeys].filter((name) => name.startsWith('show') || /^ma\d+$/.test(name)),
+        definition.name,
+      ).toEqual([])
+      if (!presentation) continue
+      const presentationKeys = Object.keys(presentation.defaultOptions)
+      expect(
+        presentationKeys.filter((name) => calculationKeys.has(name)),
+        definition.name,
+      ).toEqual([])
+    }
+
+    expect(getRegisteredIndicatorDefinition('CCI')).toMatchObject({
+      runtime: { defaultParams: { period: 14 } },
+      presentation: { defaultOptions: { showCCI: true } },
+    })
+  })
+
   it('registers metadata config updaters for stage 4A indicators', () => {
     expect(getRegisteredIndicatorDefinition('RSI')?.updateConfig).toBeTypeOf('function')
     expect(getRegisteredIndicatorDefinition('MACD')?.updateConfig).toBeTypeOf('function')

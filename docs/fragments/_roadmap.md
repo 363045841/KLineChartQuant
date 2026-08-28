@@ -1,5 +1,6 @@
 ## 🗺️ Roadmap
 
+- [x] v0.10: AI-native chart support
 - [x] K-line zoom anchor stability, improved zoom feel
 - [x] Right axis detached from scroll container, completely solving clipping issues
 - [x] Blank area drawing support

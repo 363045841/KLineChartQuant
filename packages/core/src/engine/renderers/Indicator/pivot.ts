@@ -14,7 +14,7 @@ import {
   type TitleValueItem,
   type GetTitleInfoFn,
 } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, PivotSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { PivotRenderState } from '../../indicators/state/pivotState'
 import { createPivotStateKey, EMPTY_PIVOT_STATE } from '../../indicators/state/pivotState'
 import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -212,8 +212,8 @@ const getPivotTitleInfo: GetTitleInfoFn = (_data, index, _params, stateReader, p
       's3',
     ]),
   },
-  runtime: {
-    defaultConfig: {
+  presentation: {
+    defaultOptions: {
       showPP: true,
       showR1: true,
       showR2: true,
@@ -222,6 +222,9 @@ const getPivotTitleInfo: GetTitleInfoFn = (_data, index, _params, stateReader, p
       showS2: true,
       showS3: true,
     },
+  },
+  runtime: {
+    defaultParams: {},
     computeKey: 'calcPivotData',
     compute: (data, c) => calcPivotData(data),
   },

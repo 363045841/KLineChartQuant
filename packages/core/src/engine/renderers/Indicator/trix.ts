@@ -12,7 +12,7 @@ import { calcTRIXData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { TitleInfo } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, TRIXSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { TRIXRenderState } from '../../indicators/state/trixState'
 import { createTRIXStateKey } from '../../indicators/state/trixState'
 import { EMPTY_TRIX_STATE } from '../../indicators/state/trixState'
@@ -202,8 +202,9 @@ function getTRIXTitleInfo(
   scale: { indicatorKey: 'trix', label: 'TRIX', decimals: 6 },
   visibleState: { compose: createDualSparseVisibleStateComposer('trix', EMPTY_TRIX_STATE) },
   getTitleInfo: getTRIXTitleInfo,
+  presentation: { defaultOptions: { showTRIX: true, showSignal: true } },
   runtime: {
-    defaultConfig: { period: 15, signalPeriod: 9, showTRIX: true, showSignal: true },
+    defaultParams: { period: 15, signalPeriod: 9 },
     computeKey: 'calcTRIXData',
     compute: (data, c) => calcTRIXData(data, c.period, c.signalPeriod),
   },

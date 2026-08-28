@@ -14,7 +14,7 @@ import {
   type TitleInfo,
   type GetTitleInfoFn,
 } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, SARSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { SARRenderState } from '../../indicators/state/sarState'
 import { createSARStateKey, EMPTY_SAR_STATE } from '../../indicators/state/sarState'
 import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -157,8 +157,9 @@ function getSARTitleInfo(
   visibleState: {
     compose: createValuePointVisibleStateComposer('sar', EMPTY_SAR_STATE, ['value']),
   },
+  presentation: { defaultOptions: { showSAR: true } },
   runtime: {
-    defaultConfig: { step: 0.02, maxStep: 0.2, showSAR: true },
+    defaultParams: { step: 0.02, maxStep: 0.2 },
     computeKey: 'calcSARData',
     compute: (data, c) => calcSARData(data, c.step, c.maxStep),
   },

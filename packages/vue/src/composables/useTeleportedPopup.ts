@@ -4,6 +4,7 @@ export function useTeleportedPopup(
   triggerRef: Ref<HTMLElement | null>,
   popupRef: Ref<HTMLElement | null>,
   gap = 4,
+  matchTriggerWidth = false,
 ) {
   const popupStyle = ref<Record<string, string>>({})
 
@@ -15,7 +16,7 @@ export function useTeleportedPopup(
 
     let left = rect.left
     if (popup) {
-      const popupWidth = popup.offsetWidth
+      const popupWidth = matchTriggerWidth ? rect.width : popup.offsetWidth
       const viewportWidth = window.innerWidth
       const margin = 8
       if (left + popupWidth > viewportWidth - margin) {
@@ -27,6 +28,7 @@ export function useTeleportedPopup(
       position: 'fixed',
       top: `${rect.bottom + gap}px`,
       left: `${left}px`,
+      ...(matchTriggerWidth ? { width: `${rect.width}px` } : {}),
     }
   }
 

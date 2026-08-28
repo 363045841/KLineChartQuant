@@ -1,0 +1,36 @@
+name: 302.ai Live Provider Evaluation
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '15 19 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Evaluate current fast frontier candidates
+        run: pnpm --filter @363045841yyt/klinechart-agent-runtime live:302ai
+        env:
+          KQ_302AI_API_KEY: ${{ secrets.KQ_302AI_API_KEY }}
+          KQ_302AI_REPORT_PATH: .artifacts/provider-302ai-live.json
+          KQ_LIVE_RUNS: '3'
+          KQ_LIVE_MAX_CANDIDATES: '3'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: provider-302ai-live-report
+          path: .artifacts/provider-302ai-live.json
+          if-no-files-found: error
+          retention-days: 14

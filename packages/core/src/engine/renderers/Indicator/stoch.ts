@@ -11,7 +11,7 @@ import type { KLineData } from '../../../foundation/types/price'
 import { calcSTOCHData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, STOCHSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { STOCHRenderState } from '../../indicators/state/stochState'
 import { createSTOCHStateKey, EMPTY_STOCH_STATE } from '../../indicators/state/stochState'
 import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -352,8 +352,9 @@ function getSTOCHTitleInfo(
   },
   scaleRendererFactory: createStochScaleRendererPlugin,
   getTitleInfo: getSTOCHTitleInfo,
+  presentation: { defaultOptions: { showK: true, showD: true, showJ: true } },
   runtime: {
-    defaultConfig: { n: 9, m: 3, showK: true, showD: true, showJ: true },
+    defaultParams: { n: 9, m: 3 },
     computeKey: 'calcSTOCHData',
     compute: (data, c) => calcSTOCHData(data, c.n, c.m),
   },

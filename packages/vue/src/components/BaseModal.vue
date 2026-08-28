@@ -110,8 +110,8 @@
   }
 
   .base-modal {
-    background: var(--klc-color-background);
-    border: 1px solid var(--klc-color-border-button);
+    background: var(--klc-color-background, #ffffff);
+    border: 0;
     border-radius: 10px;
     box-shadow: 0 18px 48px rgba(0, 0, 0, 0.15);
     overflow: hidden;
@@ -120,12 +120,12 @@
   }
 
   .base-header {
+    position: relative;
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 14px 18px 14px 20px;
-    background: var(--klc-color-background);
-    border-bottom: 1px solid var(--klc-color-grid-major);
+    background: var(--klc-color-background, #ffffff);
     flex-shrink: 0;
     gap: 12px;
   }
@@ -158,9 +158,23 @@
     flex-shrink: 0;
   }
 
+  .base-subheader::after,
+  .base-footer::before {
+    position: absolute;
+    right: 20px;
+    left: 20px;
+    height: 1px;
+    background: var(--klc-color-grid-major);
+    content: '';
+  }
+
+  .base-subheader::after {
+    bottom: 0;
+  }
+
   .base-close-btn {
-    background: var(--klc-color-background);
-    border: 1px solid var(--klc-color-border-button);
+    background: color-mix(in srgb, var(--klc-color-chart-background) 92%, var(--klc-color-foreground));
+    border: 0;
     border-radius: 8px;
     width: 32px;
     height: 32px;
@@ -171,15 +185,13 @@
     color: var(--klc-color-axis-text);
     transition:
       background 0.15s,
-      color 0.15s,
-      border-color 0.15s;
+      color 0.15s;
     padding: 0;
   }
 
   .base-close-btn:hover {
-    background: var(--klc-color-tag-bg-hover);
+    background: color-mix(in srgb, var(--klc-color-chart-background) 86%, var(--klc-color-foreground));
     color: var(--klc-color-foreground);
-    border-color: var(--klc-color-axis-line);
   }
 
   .base-close-btn svg {
@@ -188,17 +200,17 @@
   }
 
   .base-subheader {
+    position: relative;
     flex-shrink: 0;
     padding: 16px 20px;
-    background: var(--klc-color-background);
-    border-bottom: 1px solid var(--klc-color-grid-major);
+    background: var(--klc-color-background, #ffffff);
   }
 
   .base-body {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    background: var(--klc-color-background);
+    background: var(--klc-color-background, #ffffff);
   }
 
   .base-body::-webkit-scrollbar {
@@ -206,24 +218,28 @@
   }
 
   .base-body::-webkit-scrollbar-track {
-    background: var(--klc-color-background);
+    background: var(--klc-color-background, #ffffff);
   }
 
   .base-body::-webkit-scrollbar-thumb {
     background: var(--klc-color-axis-line);
-    border: 2px solid var(--klc-color-background);
+    border: 2px solid var(--klc-color-background, #ffffff);
     border-radius: 999px;
   }
 
   .base-footer {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: flex-end;
     gap: 8px;
     padding: 12px 20px;
-    background: var(--klc-color-background);
-    border-top: 1px solid var(--klc-color-grid-major);
+    background: var(--klc-color-background, #ffffff);
     flex-shrink: 0;
+  }
+
+  .base-footer::before {
+    top: 0;
   }
 
   /* ── Overlay transition ── */

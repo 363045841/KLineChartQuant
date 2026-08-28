@@ -28,8 +28,9 @@
  * error" we can ship.
  */
 
-import type { KLineChartError, KLineChartErrorCode } from './errors'
 import { isKLineChartError } from './errors'
+
+import type { KLineChartError, KLineChartErrorCode } from './errors'
 
 // ---------------------------------------------------------------------------
 // Recovery hints — keyed by KLineChartErrorCode
@@ -50,6 +51,15 @@ const HINTS: Readonly<Record<KLineChartErrorCode, string>> = {
     'This controller was disposed and silently no-ops on further mutations. Create a new instance — disposal is one-way.',
   NOT_REGISTERED:
     'The id was not registered with this controller. Call register() / setBaseBars() / equivalent before the operation that needs it.',
+  INVALID_ARGUMENTS:
+    'Validate the Agent request against the published input contract and retry with finite numeric parameters and valid bounds.',
+  OUT_OF_RANGE:
+    'The requested time range does not overlap the active chart data. Read the current Agent context and choose a range inside dataRange.',
+  NO_DATA: 'Load an active K-line series before reading Agent context or querying an indicator.',
+  INDICATOR_NOT_FOUND:
+    'Use a registered indicator definition that exposes a calculator runtime before retrying the query.',
+  DATA_REVISION_CHANGED:
+    'Market data changed throughout the bounded query attempts. Retry from a fresh context snapshot when the active series stabilizes.',
 
   // Scale (TimeScale + PriceScale)
   SCALE_RANGE_INVALID:

@@ -8,7 +8,7 @@ import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcHVData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, HVSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { HVRenderState } from '../../indicators/state/hvState'
 import { createHVStateKey } from '../../indicators/state/hvState'
 import { EMPTY_HV_STATE } from '../../indicators/state/hvState'
@@ -134,8 +134,9 @@ const getHVTitleInfo = createSingleLineTitleInfo({
   scale: { indicatorKey: 'hv', label: 'HV', decimals: 2 },
   getTitleInfo: getHVTitleInfo,
   visibleState: { compose: createNonNegativeSparseVisibleStateComposer('hv', EMPTY_HV_STATE) },
+  presentation: { defaultOptions: { showHV: true } },
   runtime: {
-    defaultConfig: { period: 20, annualizationFactor: 252, showHV: true },
+    defaultParams: { period: 20, annualizationFactor: 252 },
     computeKey: 'calcHVData',
     compute: (data, c) => calcHVData(data, c.period, c.annualizationFactor),
   },

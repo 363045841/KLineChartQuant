@@ -8,7 +8,7 @@ import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcChaikinVolData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, ChaikinVolSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { ChaikinVolRenderState } from '../../indicators/state/chaikinVolState'
 import {
   createChaikinVolStateKey,
@@ -154,8 +154,9 @@ const getChaikinVolTitleInfo = createSingleLineTitleInfo({
   },
   scale: { indicatorKey: 'chaikinVol', label: 'ChaikinVol', decimals: 2 },
   getTitleInfo: getChaikinVolTitleInfo,
+  presentation: { defaultOptions: { showChaikinVol: true } },
   runtime: {
-    defaultConfig: { emaPeriod: 10, rocPeriod: 10, showChaikinVol: true },
+    defaultParams: { emaPeriod: 10, rocPeriod: 10 },
     computeKey: 'calcChaikinVolData',
     compute: (data, c) => calcChaikinVolData(data, c.emaPeriod, c.rocPeriod),
   },

@@ -153,8 +153,9 @@ const getZLEMATitleInfo = createSingleLineTitleInfo({
   },
   visibleState: { compose: createSparseVisibleStateComposer('zlema', EMPTY_ZLEMA_STATE) },
   scale: { indicatorKey: 'zlema', label: 'ZLEMA', decimals: 2 },
+  presentation: { defaultOptions: { showZLEMA: true } },
   runtime: {
-    defaultConfig: { period: 14, showZLEMA: true },
+    defaultParams: { period: 14 },
     computeKey: 'calcZLEMAData',
     compute: (data, c) => calcZLEMAData(data, c.period),
   },

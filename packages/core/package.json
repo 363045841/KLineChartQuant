@@ -1,6 +1,6 @@
 {
   "name": "@363045841yyt/klinechart-core",
-  "version": "0.10.3",
+  "version": "0.10.4",
   "description": "Headless K-line chart engine + reactive controllers. Zero framework dependencies.",
   "license": "MIT",
   "repository": {
@@ -32,6 +32,10 @@
     "./controllers": {
       "types": "./dist/controllers/index.d.ts",
       "import": "./dist/controllers/index.js"
+    },
+    "./agent": {
+      "types": "./dist/features/agent/index.d.ts",
+      "import": "./dist/features/agent/index.js"
     },
     "./market-data": {
       "types": "./dist/data/provider/index.d.ts",

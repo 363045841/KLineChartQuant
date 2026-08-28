@@ -11,7 +11,7 @@ import type { KLineData } from '../../../foundation/types/price'
 import { calcKSTData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, KSTSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { KSTRenderState } from '../../indicators/state/kstState'
 import { createKSTStateKey } from '../../indicators/state/kstState'
 import { EMPTY_KST_STATE } from '../../indicators/state/kstState'
@@ -324,16 +324,9 @@ function getKSTTitleInfo(
     ] as const),
   },
   getTitleInfo: getKSTTitleInfo,
+  presentation: { defaultOptions: { showKST: true, showSignal: true } },
   runtime: {
-    defaultConfig: {
-      roc1: 10,
-      roc2: 15,
-      roc3: 20,
-      roc4: 30,
-      signalPeriod: 9,
-      showKST: true,
-      showSignal: true,
-    },
+    defaultParams: { roc1: 10, roc2: 15, roc3: 20, roc4: 30, signalPeriod: 9 },
     computeKey: 'calcKSTData',
     compute: (data, c) => calcKSTData(data, c.roc1, c.roc2, c.roc3, c.roc4, c.signalPeriod),
   },

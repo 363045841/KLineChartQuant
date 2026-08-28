@@ -8,7 +8,7 @@ import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcDMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, DMASchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { DMARenderState } from '../../indicators/state/dmaState'
 import { createDMAStateKey, EMPTY_DMA_STATE } from '../../indicators/state/dmaState'
 import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -175,8 +175,9 @@ const getDMATitleInfo: GetTitleInfoFn = (_data, index, _params, stateReader, pan
     compose: createValuePointVisibleStateComposer('dma', EMPTY_DMA_STATE, ['dif', 'ama']),
   },
   scale: { indicatorKey: 'dma', label: 'DMA', decimals: 2 },
+  presentation: { defaultOptions: { showDMA: true } },
   runtime: {
-    defaultConfig: { p1: 10, p2: 50, p3: 10, showDMA: true },
+    defaultParams: { p1: 10, p2: 50, p3: 10 },
     computeKey: 'calcDMAData',
     compute: (data, c) => calcDMAData(data, c.p1, c.p2, c.p3),
   },

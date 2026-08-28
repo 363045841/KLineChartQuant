@@ -12,7 +12,7 @@ import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign
 import { calcRSIData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, RSISchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { RSIRenderState } from '../../indicators/state/rsiState'
 import { createRSIStateKey, EMPTY_RSI_STATE } from '../../indicators/state/rsiState'
 import { createFixedRangeRecordVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -441,23 +441,20 @@ function getRSITitleInfo(
   visibleState: { compose: createFixedRangeRecordVisibleStateComposer('rsi', EMPTY_RSI_STATE) },
   scaleRendererFactory: createRsiScaleRendererPlugin,
   getTitleInfo: getRSITitleInfo,
+  presentation: {
+    defaultOptions: { showRSI1: true, showRSI2: true, showRSI3: true },
+    selectSeriesKeys: (params, options) =>
+      [1, 2, 3]
+        .filter((index) => options[`showRSI${index}` as keyof typeof options])
+        .map((index) => String(params[`period${index}`])),
+  },
   runtime: {
-    defaultConfig: {
-      period1: 6,
-      period2: 12,
-      period3: 24,
-      showRSI1: true,
-      showRSI2: true,
-      showRSI3: true,
-    },
+    defaultParams: { period1: 6, period2: 12, period3: 24 },
     computeKey: 'calcRSIData',
     compute: (data, c) => {
       const p = [c.period1, c.period2, c.period3]
-      const s = [c.showRSI1, c.showRSI2, c.showRSI3]
       const r: Record<number, (number | undefined)[]> = {}
-      for (let i = 0; i < 3; i++) {
-        if (s[i]) r[p[i]] = calcRSIData(data, p[i])
-      }
+      for (const period of p) r[period] = calcRSIData(data, period)
       return r
     },
   },

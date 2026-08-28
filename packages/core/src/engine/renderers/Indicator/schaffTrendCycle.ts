@@ -391,11 +391,11 @@ const getSchaffTrendCycleTitleInfo = createSingleLineTitleInfo({
     ),
   },
   getTitleInfo: getSchaffTrendCycleTitleInfo,
+  presentation: { defaultOptions: { showSTC: true } },
   runtime: {
-    defaultConfig: { fast: 23, slow: 50, cycle: 10, factor: 0.5, showSTC: true },
+    defaultParams: { fast: 23, slow: 50, cycle: 10, factor: 0.5 },
     computeKey: 'calcSchaffTrendCycleData',
-    compute: (data, c: SchaffTrendCycleRenderState['params']) =>
-      calcSchaffTrendCycleData(data, c.fast, c.slow, c.cycle, c.factor),
+    compute: (data, c) => calcSchaffTrendCycleData(data, c.fast, c.slow, c.cycle, c.factor),
   },
 })
 export class SchaffTrendCycleIndicatorDefinition {

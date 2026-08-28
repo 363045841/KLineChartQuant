@@ -1,449 +1,93 @@
 /**
- * Worker 消息协议
- * 定义主线程与 Indicator Worker 之间的所有通信类型
+ * Indicator Worker 消息协议。
+ * Worker 只传输计算所需数据和纯计算结果，不包含结果池所属方等主线程业务身份。
  */
 
 import type { KLineData } from '../../foundation/types/price'
 
-import type {
-  MAFlags,
-  BOLLPoint,
-  EXPMAPoint,
-  DMAPoint,
-  ENEPoint,
-  STOCHPoint,
-  KSTPoint,
-  MACDPoint,
-  SARPoint,
-  SuperTrendPoint,
-  KeltnerPoint,
-  DonchianPoint,
-  IchimokuPoint,
-  PivotPoint,
-  FibPoint,
-  StructureSnapshot,
-  Zone,
-  VolumeProfileResult,
-  StochRSIPoint,
-  FisherPoint,
-} from './calculators'
+/** 单个指标的动态配置，由指标注册描述符定义具体字段。 */
+export type IndicatorConfig = Readonly<Record<string, unknown>>
 
-// ============================================================================
-// 配置类型（从 scheduler.ts 提取，避免循环依赖）
-// ============================================================================
+/** 按注册表 configKey 索引的指标配置快照。 */
+export type IndicatorConfigSnapshot = Readonly<Record<string, IndicatorConfig>>
 
-export interface BOLLSchedulerConfig {
-  period: number
-  multiplier: number
-  showUpper: boolean
-  showMiddle: boolean
-  showLower: boolean
+/** 按注册表 configKey 索引的计算结果包。 */
+export interface IndicatorSeriesBundle extends Readonly<Record<string, unknown>> {
+  /** 本次计算中实际变更的指标 configKey。 */
+  readonly _changed: ReadonlyArray<string>
 }
 
-export interface EXPMASchedulerConfig {
-  fastPeriod: number
-  slowPeriod: number
-}
-
-export interface ENESchedulerConfig {
-  period: number
-  deviation: number
-}
-
-export interface RSISchedulerConfig {
-  period1: number
-  period2: number
-  period3: number
-  showRSI1: boolean
-  showRSI2: boolean
-  showRSI3: boolean
-}
-
-export interface CCISchedulerConfig {
-  period: number
-  showCCI: boolean
-}
-
-export interface STOCHSchedulerConfig {
-  n: number
-  m: number
-  showK: boolean
-  showD: boolean
-  showJ: boolean
-}
-
-export interface MOMSchedulerConfig {
-  period: number
-  showMOM: boolean
-}
-
-export interface WMSRSchedulerConfig {
-  period: number
-  showWMSR: boolean
-}
-
-export interface KSTSchedulerConfig {
-  roc1: number
-  roc2: number
-  roc3: number
-  roc4: number
-  signalPeriod: number
-  showKST: boolean
-  showSignal: boolean
-}
-
-export interface FASTKSchedulerConfig {
-  period: number
-  showFASTK: boolean
-}
-
-export interface MACDSchedulerConfig {
-  fastPeriod: number
-  slowPeriod: number
-  signalPeriod: number
-  showDIF: boolean
-  showDEA: boolean
-  showBAR: boolean
-}
-
-export interface ATRSchedulerConfig {
-  period: number
-  showATR: boolean
-}
-
-export interface WMASchedulerConfig {
-  period: number
-  showWMA: boolean
-}
-
-export interface DEMASchedulerConfig {
-  period: number
-  showDEMA: boolean
-}
-
-export interface TEMASchedulerConfig {
-  period: number
-  showTEMA: boolean
-}
-
-export interface HMASchedulerConfig {
-  period: number
-  showHMA: boolean
-}
-
-export interface KAMASchedulerConfig {
-  period: number
-  fastPeriod: number
-  slowPeriod: number
-  showKAMA: boolean
-}
-
-export interface SMMASchedulerConfig {
-  period: number
-  showSMMA: boolean
-}
-
-export interface TRIMASchedulerConfig {
-  period: number
-  showTRIMA: boolean
-}
-
-export interface ZLEMASchedulerConfig {
-  period: number
-  showZLEMA: boolean
-}
-
-export interface VWMASchedulerConfig {
-  period: number
-  showVWMA: boolean
-}
-
-export interface ALMASchedulerConfig {
-  period: number
-  offset: number
-  sigma: number
-  showALMA: boolean
-}
-
-export interface LSMASchedulerConfig {
-  period: number
-  showLSMA: boolean
-}
-
-export interface DMASchedulerConfig {
-  p1: number
-  p2: number
-  p3: number
-  showDMA: boolean
-}
-
-export interface GMMASchedulerConfig {
-  showGMMA: boolean
-}
-
-export interface SARSchedulerConfig {
-  step: number
-  maxStep: number
-  showSAR: boolean
-}
-
-export interface SuperTrendSchedulerConfig {
-  atrPeriod: number
-  multiplier: number
-  showSuperTrend: boolean
-}
-
-export interface KeltnerSchedulerConfig {
-  emaPeriod: number
-  atrPeriod: number
-  multiplier: number
-  showUpper: boolean
-  showMiddle: boolean
-  showLower: boolean
-}
-
-export interface DonchianSchedulerConfig {
-  period: number
-  showUpper: boolean
-  showMiddle: boolean
-  showLower: boolean
-}
-
-export interface IchimokuSchedulerConfig {
-  tenkanPeriod: number
-  kijunPeriod: number
-  spanBPeriod: number
-  displacement: number
-  showTenkan: boolean
-  showKijun: boolean
-  showSpanA: boolean
-  showSpanB: boolean
-  showCloud: boolean
-  showChikou: boolean
-}
-
-export interface ROCSchedulerConfig {
-  period: number
-  showROC: boolean
-}
-
-export interface TRIXSchedulerConfig {
-  period: number
-  signalPeriod: number
-  showTRIX: boolean
-  showSignal: boolean
-}
-
-export interface HVSchedulerConfig {
-  period: number
-  annualizationFactor: number
-  showHV: boolean
-}
-
-export interface ParkinsonSchedulerConfig {
-  period: number
-  annualizationFactor: number
-  showParkinson: boolean
-}
-
-export interface ChaikinVolSchedulerConfig {
-  emaPeriod: number
-  rocPeriod: number
-  showChaikinVol: boolean
-}
-
-export interface VMASchedulerConfig {
-  period: number
-  showVMA: boolean
-}
-
-export interface OBVSchedulerConfig {
-  showOBV: boolean
-}
-
-export interface PVTSchedulerConfig {
-  showPVT: boolean
-}
-
-export interface VWAPSchedulerConfig {
-  sessionResetGapMs: number
-  showVWAP: boolean
-}
-
-export interface CMFSchedulerConfig {
-  period: number
-  showCMF: boolean
-}
-
-export interface MFISchedulerConfig {
-  period: number
-  showMFI: boolean
-}
-
-export interface PivotSchedulerConfig {
-  showPP: boolean
-  showR1: boolean
-  showR2: boolean
-  showR3: boolean
-  showS1: boolean
-  showS2: boolean
-  showS3: boolean
-}
-
-export interface FibSchedulerConfig {
-  period: number
-  showLevels: boolean
-}
-
-export interface StructureSchedulerConfig {
-  leftWindow: number
-  rightWindow: number
-  breakoutSource: 'close' | 'wick'
-  showSwingLabels: boolean
-  showBOS: boolean
-  showCHOCH: boolean
-  showProvisional: boolean
-}
-
-export interface ZonesSchedulerConfig {
-  showFVG: boolean
-  showOB: boolean
-  showFilledZones: boolean
-  obLookback: number
-}
-
-export interface VolumeProfileSchedulerConfig {
-  bins: number
-  lookback: number
-  valueAreaPercent: number
-  showPOC: boolean
-  showValueArea: boolean
-}
-
-export interface T3SchedulerConfig {
-  period: number
-  volumeFactor: number
-  showT3: boolean
-}
-
-export interface VIDYASchedulerConfig {
-  period: number
-  cmoPeriod: number
-  showVIDYA: boolean
-}
-
-export interface FRAMASchedulerConfig {
-  period: number
-  showFRAMA: boolean
-}
-
-export interface DPOSchedulerConfig {
-  period: number
-  showDPO: boolean
-}
-
-export interface AwesomeOscillatorSchedulerConfig {
-  fast: number
-  slow: number
-  showAO: boolean
-}
-
-export interface UltimateOscillatorSchedulerConfig {
-  p1: number
-  p2: number
-  p3: number
-  showUO: boolean
-}
-
-export interface StochRSISchedulerConfig {
-  period: number
-  kPeriod: number
-  dPeriod: number
-  showK: boolean
-  showD: boolean
-}
-
-export interface FisherTransformSchedulerConfig {
-  period: number
-  showFisher: boolean
-  showSignal: boolean
-}
-
-export interface SchaffTrendCycleSchedulerConfig {
-  fast: number
-  slow: number
-  cycle: number
-  factor: number
-  showSTC: boolean
-}
-
-// ============================================================================
-// Worker 请求类型
-// ============================================================================
-
+/** 可跨 Worker 传输的指标运行时描述符。 */
 export interface SerializedRuntimeDescriptor {
-  configKey: string
-  paneIdKey?: string
-  defaultConfig: unknown
-  computeKey: string
-  outputAlignment?: 'bar' | 'aggregate'
+  readonly configKey: string
+  readonly paneIdKey?: string
+  readonly defaultParams: unknown
+  readonly computeKey: string
+  readonly outputAlignment?: 'bar' | 'aggregate'
 }
 
-/** 单个指标实例的计算输入，由主线程从 Indicator State 快照生成。 */
+/** 单个图表指标实例的计算输入。 */
 export interface IndicatorInstanceCalculationInput {
   readonly instanceId: string
   readonly definitionId: string
   readonly configKey: string
   readonly paneId: string
-  readonly params: Readonly<Record<string, unknown>>
+  readonly params: IndicatorConfig
 }
 
-/** 单个指标实例的原始计算结果，series 与输入 K 线数组按下标对齐。 */
-export interface IndicatorInstanceSeriesResult {
+/** Worker 返回的单个指标实例纯计算结果。 */
+export interface IndicatorInstanceCalculationResult {
   readonly instanceId: string
   readonly definitionId: string
   readonly paneId: string
-  readonly params: Readonly<Record<string, unknown>>
+  readonly params: IndicatorConfig
   readonly series: unknown
   readonly firstReadyIndex: number | null
 }
 
+/** 初始化 Worker。 */
 export interface InitRequest {
-  type: 'init'
-  protocolVersion: number
-  descriptors?: SerializedRuntimeDescriptor[]
+  readonly type: 'init'
+  readonly protocolVersion: number
+  readonly descriptors?: ReadonlyArray<SerializedRuntimeDescriptor>
 }
 
+/** 向 Worker 动态添加指标描述符。 */
 export interface AddDescriptorRequest {
-  type: 'addDescriptor'
-  descriptor: SerializedRuntimeDescriptor
+  readonly type: 'addDescriptor'
+  readonly descriptor: SerializedRuntimeDescriptor
 }
 
+/** 更新 Worker 使用的行情数据。 */
 export interface SetDataRequest {
-  type: 'setData'
-  dataVersion: number
-  format: 'aos' | 'soa'
-  data: KLineData[]
+  readonly type: 'setData'
+  readonly dataVersion: number
+  readonly format: 'aos' | 'soa'
+  readonly data: KLineData[]
 }
 
+/** 更新 Worker 使用的指标配置。 */
 export interface SetConfigRequest {
-  type: 'setConfig'
-  configVersion: number
-  configs: IndicatorConfigSnapshot
+  readonly type: 'setConfig'
+  readonly configVersion: number
+  readonly configs: IndicatorConfigSnapshot
 }
 
+/** 请求 Worker 计算兼容结果包和实例结果。 */
 export interface ComputeSeriesRequest {
-  type: 'computeSeries'
-  requestId: number
-  dataVersion: number
-  configVersion: number
-  instances: ReadonlyArray<IndicatorInstanceCalculationInput>
+  readonly type: 'computeSeries'
+  readonly requestId: number
+  readonly dataVersion: number
+  readonly configVersion: number
+  readonly instances: ReadonlyArray<IndicatorInstanceCalculationInput>
 }
 
+/** 销毁 Worker 运行时。 */
 export interface DisposeRequest {
-  type: 'dispose'
+  readonly type: 'dispose'
 }
 
+/** 主线程发送给 Indicator Worker 的消息。 */
 export type IndicatorWorkerRequest =
   | InitRequest
   | AddDescriptorRequest
@@ -452,349 +96,44 @@ export type IndicatorWorkerRequest =
   | ComputeSeriesRequest
   | DisposeRequest
 
-// ============================================================================
-// Worker 响应类型
-// ============================================================================
-
+/** Worker 初始化完成响应。 */
 export interface ReadyResponse {
-  type: 'ready'
-  protocolVersion: number
+  readonly type: 'ready'
+  readonly protocolVersion: number
 }
 
+/** Worker 指标计算成功响应。 */
 export interface SeriesResultResponse {
-  type: 'seriesResult'
-  requestId: number
-  dataVersion: number
-  configVersion: number
-  results: IndicatorSeriesBundle
-  instanceResults: ReadonlyArray<IndicatorInstanceSeriesResult>
-  metrics?: {
-    computeMs: number
-    dataLength: number
+  readonly type: 'seriesResult'
+  readonly requestId: number
+  readonly dataVersion: number
+  readonly configVersion: number
+  readonly results: IndicatorSeriesBundle
+  readonly instanceResults: ReadonlyArray<IndicatorInstanceCalculationResult>
+  readonly metrics?: {
+    readonly computeMs: number
+    readonly dataLength: number
   }
 }
 
+/** Worker 执行失败响应。 */
 export interface ErrorResponse {
-  type: 'error'
-  requestId?: number
-  stage: 'init' | 'setData' | 'setConfig' | 'computeSeries'
-  message: string
+  readonly type: 'error'
+  readonly requestId?: number
+  readonly stage: 'init' | 'setData' | 'setConfig' | 'computeSeries'
+  readonly message: string
 }
 
+/** Indicator Worker 返回给主线程的消息。 */
 export type IndicatorWorkerResponse = ReadyResponse | SeriesResultResponse | ErrorResponse
 
-// ============================================================================
-// 配置快照（Worker 内部使用）
-// ============================================================================
+/** 当前 Indicator Worker 协议版本。 */
+export const PROTOCOL_VERSION = 4
 
-export interface IndicatorConfigSnapshot {
-  ma: MAFlags
-  boll: BOLLSchedulerConfig
-  expma: EXPMASchedulerConfig
-  ene: ENESchedulerConfig
-  rsi: RSISchedulerConfig
-  cci: CCISchedulerConfig
-  stoch: STOCHSchedulerConfig
-  mom: MOMSchedulerConfig
-  wmsr: WMSRSchedulerConfig
-  kst: KSTSchedulerConfig
-  fastk: FASTKSchedulerConfig
-  macd: MACDSchedulerConfig
-  atr: ATRSchedulerConfig
-  wma: WMASchedulerConfig
-  dema: DEMASchedulerConfig
-  tema: TEMASchedulerConfig
-  hma: HMASchedulerConfig
-  kama: KAMASchedulerConfig
-  smma: SMMASchedulerConfig
-  trima: TRIMASchedulerConfig
-  zlema: ZLEMASchedulerConfig
-  vwma: VWMASchedulerConfig
-  alma: ALMASchedulerConfig
-  lsma: LSMASchedulerConfig
-  dma: DMASchedulerConfig
-  gmma: GMMASchedulerConfig
-  sar: SARSchedulerConfig
-  supertrend: SuperTrendSchedulerConfig
-  keltner: KeltnerSchedulerConfig
-  donchian: DonchianSchedulerConfig
-  ichimoku: IchimokuSchedulerConfig
-  roc: ROCSchedulerConfig
-  trix: TRIXSchedulerConfig
-  hv: HVSchedulerConfig
-  parkinson: ParkinsonSchedulerConfig
-  chaikinVol: ChaikinVolSchedulerConfig
-  vma: VMASchedulerConfig
-  obv: OBVSchedulerConfig
-  pvt: PVTSchedulerConfig
-  vwap: VWAPSchedulerConfig
-  cmf: CMFSchedulerConfig
-  mfi: MFISchedulerConfig
-  pivot: PivotSchedulerConfig
-  fib: FibSchedulerConfig
-  structure: StructureSchedulerConfig
-  zones: ZonesSchedulerConfig
-  volumeProfile: VolumeProfileSchedulerConfig
-  t3: T3SchedulerConfig
-  vidya: VIDYASchedulerConfig
-  frama: FRAMASchedulerConfig
-  dpo: DPOSchedulerConfig
-  awesomeOscillator: AwesomeOscillatorSchedulerConfig
-  ultimateOscillator: UltimateOscillatorSchedulerConfig
-  stochRSI: StochRSISchedulerConfig
-  fisherTransform: FisherTransformSchedulerConfig
-  schaffTrendCycle: SchaffTrendCycleSchedulerConfig
-}
-
-// ============================================================================
-// Series 结果包（Worker 计算输出）
-// ============================================================================
-
-export interface IndicatorSeriesBundle {
-  ma: {
-    series: Record<number, (number | undefined)[]>
-    enabledPeriods: number[]
-  }
-  boll: {
-    series: BOLLPoint[]
-    params: BOLLSchedulerConfig
-  }
-  expma: {
-    series: EXPMAPoint[]
-    params: EXPMASchedulerConfig
-  }
-  ene: {
-    series: ENEPoint[]
-    params: ENESchedulerConfig
-  }
-  rsi: {
-    series: Record<number, (number | undefined)[]>
-    enabledPeriods: number[]
-    params: RSISchedulerConfig
-  }
-  cci: {
-    series: (number | undefined)[]
-    params: CCISchedulerConfig
-  }
-  stoch: {
-    series: STOCHPoint[]
-    params: STOCHSchedulerConfig
-  }
-  mom: {
-    series: (number | undefined)[]
-    params: MOMSchedulerConfig
-  }
-  wmsr: {
-    series: (number | undefined)[]
-    params: WMSRSchedulerConfig
-  }
-  kst: {
-    series: KSTPoint[]
-    params: KSTSchedulerConfig
-  }
-  fastk: {
-    series: (number | undefined)[]
-    params: FASTKSchedulerConfig
-  }
-  macd: {
-    series: MACDPoint[]
-    params: MACDSchedulerConfig
-  }
-  atr: {
-    series: (number | undefined)[]
-    params: ATRSchedulerConfig
-  }
-  wma: {
-    series: (number | undefined)[]
-    params: WMASchedulerConfig
-  }
-  dema: {
-    series: (number | undefined)[]
-    params: DEMASchedulerConfig
-  }
-  tema: {
-    series: (number | undefined)[]
-    params: TEMASchedulerConfig
-  }
-  hma: {
-    series: (number | undefined)[]
-    params: HMASchedulerConfig
-  }
-  kama: {
-    series: (number | undefined)[]
-    params: KAMASchedulerConfig
-  }
-  smma: {
-    series: (number | undefined)[]
-    params: SMMASchedulerConfig
-  }
-  trima: {
-    series: (number | undefined)[]
-    params: TRIMASchedulerConfig
-  }
-  zlema: {
-    series: (number | undefined)[]
-    params: ZLEMASchedulerConfig
-  }
-  vwma: {
-    series: (number | undefined)[]
-    params: VWMASchedulerConfig
-  }
-  alma: {
-    series: (number | undefined)[]
-    params: ALMASchedulerConfig
-  }
-  lsma: {
-    series: (number | undefined)[]
-    params: LSMASchedulerConfig
-  }
-  dma: {
-    series: (DMAPoint | undefined)[]
-    params: DMASchedulerConfig
-  }
-  gmma: {
-    series: Record<number, (number | undefined)[]>
-    enabledPeriods: number[]
-    params: GMMASchedulerConfig
-  }
-  sar: {
-    series: (SARPoint | undefined)[]
-    params: SARSchedulerConfig
-  }
-  supertrend: {
-    series: (SuperTrendPoint | undefined)[]
-    params: SuperTrendSchedulerConfig
-  }
-  keltner: {
-    series: (KeltnerPoint | undefined)[]
-    params: KeltnerSchedulerConfig
-  }
-  donchian: {
-    series: (DonchianPoint | undefined)[]
-    params: DonchianSchedulerConfig
-  }
-  ichimoku: {
-    series: (IchimokuPoint | undefined)[]
-    params: IchimokuSchedulerConfig
-  }
-  roc: {
-    series: (number | undefined)[]
-    params: ROCSchedulerConfig
-  }
-  trix: {
-    series: (number | undefined)[]
-    signalSeries: (number | undefined)[]
-    params: TRIXSchedulerConfig
-  }
-  hv: {
-    series: (number | undefined)[]
-    params: HVSchedulerConfig
-  }
-  parkinson: {
-    series: (number | undefined)[]
-    params: ParkinsonSchedulerConfig
-  }
-  chaikinVol: {
-    series: (number | undefined)[]
-    params: ChaikinVolSchedulerConfig
-  }
-  vma: {
-    series: (number | undefined)[]
-    params: VMASchedulerConfig
-  }
-  obv: {
-    series: (number | undefined)[]
-    params: OBVSchedulerConfig
-  }
-  pvt: {
-    series: (number | undefined)[]
-    params: PVTSchedulerConfig
-  }
-  vwap: {
-    series: (number | undefined)[]
-    params: VWAPSchedulerConfig
-  }
-  cmf: {
-    series: (number | undefined)[]
-    params: CMFSchedulerConfig
-  }
-  mfi: {
-    series: (number | undefined)[]
-    params: MFISchedulerConfig
-  }
-  pivot: {
-    series: (PivotPoint | undefined)[]
-    params: PivotSchedulerConfig
-  }
-  fib: {
-    series: (FibPoint | undefined)[]
-    params: FibSchedulerConfig
-  }
-  structure: {
-    series: StructureSnapshot
-    params: StructureSchedulerConfig
-  }
-  zones: {
-    series: Zone[]
-    params: ZonesSchedulerConfig
-  }
-  volumeProfile: {
-    series: VolumeProfileResult
-    params: VolumeProfileSchedulerConfig
-  }
-  t3: {
-    series: (number | undefined)[]
-    params: T3SchedulerConfig
-  }
-  vidya: {
-    series: (number | undefined)[]
-    params: VIDYASchedulerConfig
-  }
-  frama: {
-    series: (number | undefined)[]
-    params: FRAMASchedulerConfig
-  }
-  dpo: {
-    series: (number | undefined)[]
-    params: DPOSchedulerConfig
-  }
-  awesomeOscillator: {
-    series: (number | undefined)[]
-    params: AwesomeOscillatorSchedulerConfig
-  }
-  ultimateOscillator: {
-    series: (number | undefined)[]
-    params: UltimateOscillatorSchedulerConfig
-  }
-  stochRSI: {
-    series: (StochRSIPoint | undefined)[]
-    params: StochRSISchedulerConfig
-  }
-  fisherTransform: {
-    series: (FisherPoint | undefined)[]
-    params: FisherTransformSchedulerConfig
-  }
-  schaffTrendCycle: {
-    series: (number | undefined)[]
-    params: SchaffTrendCycleSchedulerConfig
-  }
-  /** 本次计算中实际变更的指标列表 */
-  _changed: string[]
-}
-
-// ============================================================================
-// 协议版本
-// ============================================================================
-
-export const PROTOCOL_VERSION = 2
-
-// ============================================================================
-// 类型守卫
-// ============================================================================
-
+/** 判断未知消息是否具有 Worker 响应的基础结构。 */
 export function isWorkerResponse(msg: unknown): msg is IndicatorWorkerResponse {
   if (typeof msg !== 'object' || msg === null) return false
-  const m = msg as Record<string, unknown>
-  if (typeof m.type !== 'string') return false
-  return ['ready', 'seriesResult', 'error'].includes(m.type)
+  const message = msg as Record<string, unknown>
+  if (typeof message.type !== 'string') return false
+  return ['ready', 'seriesResult', 'error'].includes(message.type)
 }

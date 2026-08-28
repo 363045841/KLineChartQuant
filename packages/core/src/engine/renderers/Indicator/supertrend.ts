@@ -14,7 +14,7 @@ import {
   type TitleInfo,
   type GetTitleInfoFn,
 } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, SuperTrendSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { SuperTrendRenderState } from '../../indicators/state/supertrendState'
 import {
   createSuperTrendStateKey,
@@ -170,8 +170,9 @@ function getSuperTrendTitleInfo(
   visibleState: {
     compose: createValuePointVisibleStateComposer('supertrend', EMPTY_SUPERTREND_STATE, ['value']),
   },
+  presentation: { defaultOptions: { showSuperTrend: true } },
   runtime: {
-    defaultConfig: { atrPeriod: 10, multiplier: 3, showSuperTrend: true },
+    defaultParams: { atrPeriod: 10, multiplier: 3 },
     computeKey: 'calcSuperTrendData',
     compute: (data, c) => calcSuperTrendData(data, c.atrPeriod, c.multiplier),
   },

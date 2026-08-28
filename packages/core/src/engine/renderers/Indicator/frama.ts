@@ -157,10 +157,11 @@ const getFRAMATitleInfo = createSingleLineTitleInfo({
   },
   visibleState: { compose: createSparseVisibleStateComposer('frama', EMPTY_FRAMA_STATE) },
   scale: { indicatorKey: 'frama', label: 'FRAMA', decimals: 2 },
+  presentation: { defaultOptions: { showFRAMA: true } },
   runtime: {
-    defaultConfig: { period: 16, showFRAMA: true },
+    defaultParams: { period: 16 },
     computeKey: 'calcFRAMAData',
-    compute: (data: KLineData[], c: FRAMARenderState['params']) => calcFRAMAData(data, c.period),
+    compute: (data: KLineData[], c) => calcFRAMAData(data, c.period),
   },
 })
 export class FRAMADefinition {

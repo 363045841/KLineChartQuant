@@ -161,8 +161,9 @@ const getSMMATitleInfo = createSingleLineTitleInfo({
   },
   visibleState: { compose: createSparseVisibleStateComposer('smma', EMPTY_SMMA_STATE) },
   scale: { indicatorKey: 'smma', label: 'SMMA', decimals: 2 },
+  presentation: { defaultOptions: { showSMMA: true } },
   runtime: {
-    defaultConfig: { period: 14, showSMMA: true },
+    defaultParams: { period: 14 },
     computeKey: 'calcSMMAData',
     compute: (data, c) => calcSMMAData(data, c.period),
   },

@@ -112,6 +112,12 @@ export function createMockChartController(
   }
 
   return {
+    agent: {
+      getContext() {
+        throw new Error('Mock Agent context is not configured')
+      },
+      queryIndicator: () => Promise.resolve(''),
+    },
     viewport,
     data,
     dataLoading: createSignal(false),

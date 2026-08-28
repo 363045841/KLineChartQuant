@@ -89,23 +89,30 @@ Renderer 在下一帧主动读取最新快照。这里的主动读取是 frame p
 export interface IndicatorCalculationAttempt {
   readonly status: 'idle' | 'computing' | 'error'
   readonly requestId: number
-  readonly dataVersion: number
-  readonly configVersion: number
+  readonly dataRevision: number
+  readonly configRevision: number
   readonly error: string | null
 }
 
 export interface CommittedIndicatorResult {
-  readonly dataVersion: number
-  readonly configVersion: number
+  readonly dataRevision: number
+  readonly configRevision: number
   readonly resultVersion: number
   readonly projectionVersion: number
   readonly bundle: IndicatorSeriesBundle
   readonly renderStates: ReadonlyMap<string, unknown>
 }
 
+export interface IndicatorResultPoolSnapshot {
+  readonly dataRevision: number
+  readonly timestamps: ReadonlyArray<number>
+  readonly results: ReadonlyMap<string, IndicatorSeriesResult>
+}
+
 export interface IndicatorResultSnapshot {
   readonly attempt: IndicatorCalculationAttempt
   readonly committed: CommittedIndicatorResult | null
+  readonly pool: IndicatorResultPoolSnapshot | null
 }
 ```
 
@@ -113,11 +120,11 @@ export interface IndicatorResultSnapshot {
 
 - `attempt.status === 'computing'`：新计算进行中，`committed` 仍可用于绘制旧结果；
 - `attempt.status === 'error'`：本次计算失败，错误属于 attempt；
-- `committed.dataVersion`：bundle 实际基于的数据版本；
-- `committed.configVersion`：bundle 实际基于的配置版本；
+- `committed.dataRevision`：bundle 实际基于的数据版本；
+- `committed.configRevision`：bundle 实际基于的配置版本；
 - `committed === null`：从未成功计算，renderer 不绘制指标；
 - 新结果成功后，更新 `committed` 并将 attempt 重置为 idle；
-- Agent 只有在 committed 版本与目标数据、配置版本一致时，才把指标标记为 ready。
+- Agent DTO 只从 `pool` 读取，不依赖 `committed` 或 renderer 投影。
 
 如果第一阶段不立即调整类型，至少必须补充独立的
 `committedDataVersion/committedConfigVersion`，不能让错误状态覆盖 bundle 的来源版本。
@@ -133,13 +140,17 @@ beginCalculation(input: {
   configVersion: number
 }): void
 
-commitResults(input: {
-  requestId: number
-  dataVersion: number
-  configVersion: number
-  bundle: IndicatorSeriesBundle
-  renderStates: ReadonlyMap<string, unknown>
-}): boolean
+commitResults(
+  input: {
+    requestId: number
+    dataRevision: number
+    configRevision: number
+    bundle: IndicatorSeriesBundle
+    timestamps: ReadonlyArray<number>
+    instanceResults: ReadonlyArray<IndicatorInstanceCalculationResult>
+    renderStates: ReadonlyMap<string, unknown>
+  },
+): boolean
 
 updateProjection(input: {
   resultVersion: number
@@ -156,8 +167,8 @@ failCalculation(input: {
 reset(): void
 ```
 
-`commitResults()` 和 `failCalculation()` 应在 Action 内再次校验当前 attempt 身份。Scheduler
-已经有旧结果丢弃检查，但 Kernel Action 仍应防止未来其他调用方误提交过期结果。
+图表提交和 `failCalculation()` 在 Action 内再次校验当前 attempt 身份。结果池只保存图表渲染所需
+结果，不接收 Agent 临时查询结果。
 
 返回 `boolean` 表示本次提交是否生效。只有生效时才安排重绘或发送完成通知。
 
@@ -369,15 +380,26 @@ getIndicatorValues(input: {
 
 详细决策见 `docs/design/indicator-instance-result-pool.md`。
 
-### 阶段 D：增加稳定查询模型
+### 阶段 D：增加 Agent 文本查询
 
-- [ ] 建立独立指标查询层，支持按指标定义和按 `instanceId` 查询。
-- [ ] 支持未添加指标的无副作用临时计算，并与正式结果复用保持相同返回协议。
-- [ ] 定义字段名、时间戳、warm-up、空值和数据形态语义。
-- [ ] 限制单次查询范围，避免 Agent 拉取无界数组。
-- [ ] ChartController 暴露稳定指标查询 DTO，Agent runtime 独立适配且不反向耦合查询层。
+- [x] 建立按指标定义和自定义数字参数计算的 MVP 查询接口。
+- [x] 将计算结果转义为紧凑文本，避免 JSON 直接进入 Agent 上下文。
+- [x] 限制单次查询范围，避免 Agent 拉取无界数组。
+- [x] Agent 查询只返回文本，不暴露内部 DTO。
 
-详细产品需求见 `docs/design/indicator-query-prd.md`。
+#### D1 MVP 查询规则
+
+`createIndicatorQuery()` 捕获当前活动 K 线快照，使用完整行情调用指标定义已有的
+`runtime.compute`，在确认 `dataRevision` 未变化后直接转义为文本。范围参数只限制文本中的结果数量，
+不截断 calculator 输入。Chart 与 Agent 共用 `runtime.defaultParams` 和 `runtime.compute`；
+`presentation.defaultOptions` 不进入 calculator、Worker、业务结果或 Agent 文本。
+
+MVP 只接受有限数字参数。已注册的专用转义器按 `definitionId` 输出语义化文本；未知输出降级为
+Markdown 表格，字段名只在表头出现一次。`limit` 默认 20、最大 2000，返回指定时间范围内最近的
+结果。若计算期间 `dataRevision` 变化，查询重新捕获最新行情；连续变化时返回错误，不返回旧结果。
+
+Structure、Zones、Volume Profile 等非对齐结果由专用转义器读取其已有时间下标或价格区间语义，
+不伪装成逐 K 线 JSON DTO。
 
 ## 13. 测试要求
 
@@ -409,10 +431,11 @@ getIndicatorValues(input: {
 
 ### Agent 查询测试
 
-- 数据与指标 revision 一致时返回 ready；
-- 新数据到达但指标未完成时返回 computing 或 stale；
-- 计算失败时返回错误及旧结果版本，不把旧结果标为 ready；
-- 查询按 instanceId 区分相同指标的不同 pane 实例。
+- 自定义数字参数与内部 calculator 配置保持独立；
+- 完整行情参与计算，`from/to/limit` 只截取 DTO；
+- 标量和对象序列转换为稳定字段，缺失值转换为 `null`；
+- 计算期间行情变化时基于最新 `dataRevision` 重新计算；
+- 聚合结果和非法参数返回结构化错误。
 
 ## 14. 完成标准
 

@@ -8,7 +8,7 @@ import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcOBVData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, OBVSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { OBVRenderState } from '../../indicators/state/obvState'
 import { createOBVStateKey, EMPTY_OBV_STATE } from '../../indicators/state/obvState'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -131,8 +131,9 @@ const getOBVTitleInfo = createSingleLineTitleInfo({
   visibleState: { compose: createSparseVisibleStateComposer('obv', EMPTY_OBV_STATE) },
   scale: { indicatorKey: 'obv', label: 'OBV', decimals: 0 },
   getTitleInfo: getOBVTitleInfo,
+  presentation: { defaultOptions: { showOBV: true } },
   runtime: {
-    defaultConfig: { showOBV: true },
+    defaultParams: {},
     computeKey: 'calcOBVData',
     compute: (data, c) => calcOBVData(data),
   },

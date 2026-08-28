@@ -8,7 +8,7 @@ import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcPVTData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, PVTSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { PVTRenderState } from '../../indicators/state/pvtState'
 import { createPVTStateKey, EMPTY_PVT_STATE } from '../../indicators/state/pvtState'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -131,8 +131,9 @@ const getPVTTitleInfo = createSingleLineTitleInfo({
   visibleState: { compose: createSparseVisibleStateComposer('pvt', EMPTY_PVT_STATE) },
   scale: { indicatorKey: 'pvt', label: 'PVT', decimals: 0 },
   getTitleInfo: getPVTTitleInfo,
+  presentation: { defaultOptions: { showPVT: true } },
   runtime: {
-    defaultConfig: { showPVT: true },
+    defaultParams: {},
     computeKey: 'calcPVTData',
     compute: (data, c) => calcPVTData(data),
   },

@@ -1,6 +1,6 @@
 {
   "name": "@363045841yyt/klinechart",
-  "version": "0.10.3",
+  "version": "0.10.4",
   "description": "Vue 3 bindings for @363045841yyt/klinechart-core. Idiomatic composables, SFC components.",
   "license": "MIT",
   "repository": {
@@ -67,10 +67,12 @@
     }
   ],
   "peerDependencies": {
+    "@363045841yyt/klinechart-agent-runtime": "workspace:^",
     "@363045841yyt/klinechart-core": "workspace:^",
     "vue": "^3.4.0"
   },
   "devDependencies": {
+    "@363045841yyt/klinechart-agent-runtime": "workspace:*",
     "@363045841yyt/klinechart-ai-runtime": "workspace:*",
     "@arethetypeswrong/cli": "^0.18.3",
     "@size-limit/preset-small-lib": "^12.1.0",
@@ -89,5 +91,10 @@
     "vite-plugin-dts": "^5.0.3",
     "vitest": "^4.1.10",
     "vue": "^3.5.41"
+  },
+  "dependencies": {
+    "dompurify": "^3.4.14",
+    "markdown-it": "^15.0.0",
+    "pinia": "^4.0.3"
   }
 }

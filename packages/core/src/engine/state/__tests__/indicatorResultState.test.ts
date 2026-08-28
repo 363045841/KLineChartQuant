@@ -36,7 +36,12 @@ describe('indicatorResultState', () => {
 
     state.actions.beginCalculation(input)
     expect(
-      state.actions.commitResults({ ...input, ...resultPayload, bundle: bundle(), renderStates }),
+      state.actions.commitResults({
+        ...input,
+        ...resultPayload,
+        bundle: bundle(),
+        renderStates,
+      }),
     ).toBe(true)
 
     const snapshot = state.readonly.snapshot.peek()
@@ -53,18 +58,18 @@ describe('indicatorResultState', () => {
     expect(() => (snapshot.committed?.renderStates as Map<string, unknown>).set('x', {})).toThrow(
       TypeError,
     )
-    expect(snapshot.committed?.timestamps).toEqual([1000, 2000])
-    expect(snapshot.committed?.results.get('macd-a')).toMatchObject({
+    expect(snapshot.pool?.timestamps).toEqual([1000, 2000])
+    expect(snapshot.pool?.results.get('macd-a')).toMatchObject({
       definitionId: 'macd',
       firstReadyIndex: 1,
     })
-    expect(() => (snapshot.committed?.timestamps as number[]).push(3000)).toThrow(TypeError)
+    expect(() => (snapshot.pool?.timestamps as number[]).push(3000)).toThrow(TypeError)
     expect(() => snapshot.committed?.bundle._changed.push('boll')).toThrow(TypeError)
-    expect(() => (snapshot.committed?.results as Map<string, unknown>).set('macd-b', {})).toThrow(
+    expect(() => (snapshot.pool?.results as Map<string, unknown>).set('macd-b', {})).toThrow(
       TypeError,
     )
     expect(() => {
-      const params = snapshot.committed?.results.get('macd-a')?.params as Record<string, unknown>
+      const params = snapshot.pool?.results.get('macd-a')?.params as Record<string, unknown>
       params['fastPeriod'] = 5
     }).toThrow(TypeError)
     expect(listener).toHaveBeenCalledTimes(2)

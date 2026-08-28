@@ -9,7 +9,7 @@ import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign
 import { calcWMSRData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, WMSRSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { WMSRRenderState } from '../../indicators/state/wmsrState'
 import { createWMSRStateKey, EMPTY_WMSR_STATE } from '../../indicators/state/wmsrState'
 import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -328,8 +328,9 @@ const getWMSRTitleInfo = createSingleLineTitleInfo({
   visibleState: { compose: createFixedRangeSparseVisibleStateComposer('wmsr', EMPTY_WMSR_STATE) },
   scaleRendererFactory: createWmsrScaleRendererPlugin,
   getTitleInfo: getWMSRTitleInfo,
+  presentation: { defaultOptions: { showWMSR: true } },
   runtime: {
-    defaultConfig: { period: 14, showWMSR: true },
+    defaultParams: { period: 14 },
     computeKey: 'calcWMSRData',
     compute: (data, c) => calcWMSRData(data, c.period),
   },

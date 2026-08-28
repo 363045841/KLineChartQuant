@@ -12,20 +12,18 @@
  *   - Tear down DOM + listeners on dispose().
  */
 
-import { resolveSettings } from '../foundation/config/chartSettings'
 import { Chart } from '../engine/chart'
-import type {
-  ChartOptions,
-  ViewportState as LegacyViewportState,
-  IndicatorInstance as LegacyIndicatorInstance,
-  SubPaneInfo as LegacySubPaneInfo,
-} from '../engine/chartTypes'
 import { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins'
-import type { CustomMarkerEntity } from '../engine/marker/registry'
 import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
 import { KLineChartError } from '../errors'
+import {
+  createChartAgentController,
+} from '../features/agent/chartAgentController'
+import { createIndicatorQuery } from '../features/agent/indicator/indicatorQuery'
 import { ChartBridge } from '../features/mcp/chartBridge'
+import { resolveSettings } from '../foundation/config/chartSettings'
 import { computed, type ReadonlySignal } from '../foundation/reactivity/index'
+import { generateUUID } from '../foundation/utils/uuid'
 import { createDefaultRendererHost, type RendererBackend } from '../rendering/render/index'
 
 import type {
@@ -44,6 +42,13 @@ import type {
   SymbolInfo,
   CustomDataSource,
 } from './types'
+import type {
+  ChartOptions,
+  ViewportState as LegacyViewportState,
+  IndicatorInstance as LegacyIndicatorInstance,
+  SubPaneInfo as LegacySubPaneInfo,
+} from '../engine/chartTypes'
+import type { CustomMarkerEntity } from '../engine/marker/registry'
 
 // ---------------------------------------------------------------------------
 // Defaults
@@ -471,8 +476,17 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   }
 
   // -------------------------------------------------------------------
-  // Apply initial render state + seed data
+  // Agent facade
   // -------------------------------------------------------------------
+
+  const agent = createChartAgentController({
+    chartId: generateUUID(),
+    dataState: chart.kernel.data,
+    currentSpec: chart.kernel.dataManager.readonly.currentSpec,
+    viewport,
+    indicators,
+    indicatorQuery: createIndicatorQuery({ dataState: chart.kernel.data }),
+  })
 
   let disposed = false
 
@@ -889,6 +903,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   }
 
   return {
+    agent,
     viewport,
     data,
     dataLoading,

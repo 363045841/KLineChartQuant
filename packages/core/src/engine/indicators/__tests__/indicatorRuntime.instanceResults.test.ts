@@ -21,7 +21,7 @@ describe('IndicatorRuntime instance results', () => {
     const runtime = new IndicatorRuntime([
       {
         configKey: 'bar-series',
-        defaultConfig: {},
+        defaultParams: {},
         computeKey: 'test-bar-series',
         compute: (data) => data.map((_, index) => (index < 2 ? undefined : index)),
       },
@@ -38,14 +38,17 @@ describe('IndicatorRuntime instance results', () => {
       },
     ])
 
-    expect(result?.firstReadyIndex).toBe(2)
+    expect(result).toMatchObject({
+      instanceId: 'bar-a',
+      firstReadyIndex: 2,
+    })
   })
 
   it('does not infer a warm-up boundary from aggregate arrays', () => {
     const runtime = new IndicatorRuntime([
       {
         configKey: 'aggregate',
-        defaultConfig: {},
+        defaultParams: {},
         computeKey: 'test-aggregate',
         outputAlignment: 'aggregate',
         compute: (data) => data.map((_, index) => ({ bin: index })),

@@ -8,28 +8,19 @@ import { createCoreSourceAliases } from '../../scripts/core-source-aliases.mjs'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const coreSrc = `${root}/packages/core/src`
+const agentRuntime = `${root}/packages/agent-runtime/src/index.ts`
+const agentContracts = `${root}/packages/agent-runtime/src/contracts/ui.ts`
 
 const entry = (path: string) => fileURLToPath(new URL(path, import.meta.url))
-
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
         input: entry('electron/main.ts'),
-        external: ['electron', 'electron-store'],
-      },
-    },
-  },
-  preload: {
-    plugins: [externalizeDepsPlugin()],
-    build: {
-      rollupOptions: {
-        input: entry('electron/preload.ts'),
-        output: {
-          format: 'cjs',
-        },
-        external: ['electron'],
+        external: [
+          'electron',
+        ],
       },
     },
   },
@@ -60,6 +51,14 @@ export default defineConfig({
     resolve: {
       alias: [
         ...createCoreSourceAliases(coreSrc),
+        {
+          find: /^@363045841yyt\/klinechart-agent-runtime$/,
+          replacement: agentRuntime,
+        },
+        {
+          find: /^@363045841yyt\/klinechart-agent-runtime\/contracts\/ui$/,
+          replacement: agentContracts,
+        },
         {
           find: /^@363045841yyt\/klinechart-ai-runtime$/,
           replacement: `${root}/packages/ai-runtime/src/browser.ts`,

@@ -14,7 +14,7 @@ import {
   type TitleValueItem,
   type GetTitleInfoFn,
 } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, FibSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { FibRenderState } from '../../indicators/state/fibState'
 import { createFibStateKey, EMPTY_FIB_STATE } from '../../indicators/state/fibState'
 import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -198,8 +198,9 @@ const getFibTitleInfo: GetTitleInfoFn = (_data, index, _params, stateReader, pan
   visibleState: {
     compose: createExactRangePointVisibleStateComposer('fib', EMPTY_FIB_STATE, ['low', 'high']),
   },
+  presentation: { defaultOptions: { showLevels: true } },
   runtime: {
-    defaultConfig: { period: 50, showLevels: true },
+    defaultParams: { period: 50 },
     computeKey: 'calcFibData',
     compute: (data, c) => calcFibData(data, c.period),
   },

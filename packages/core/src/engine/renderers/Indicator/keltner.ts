@@ -15,7 +15,7 @@ import {
   type TitleInfo,
   type GetTitleInfoFn,
 } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, KeltnerSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { KeltnerRenderState } from '../../indicators/state/keltnerState'
 import { createKeltnerStateKey, EMPTY_KELTNER_STATE } from '../../indicators/state/keltnerState'
 import { createBandVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -187,15 +187,9 @@ function getKeltnerTitleInfo(
   visibleState: {
     compose: createBandVisibleStateComposer('keltner', EMPTY_KELTNER_STATE, 'lower', 'upper'),
   },
+  presentation: { defaultOptions: { showUpper: true, showMiddle: true, showLower: true } },
   runtime: {
-    defaultConfig: {
-      emaPeriod: 20,
-      atrPeriod: 10,
-      multiplier: 2,
-      showUpper: true,
-      showMiddle: true,
-      showLower: true,
-    },
+    defaultParams: { emaPeriod: 20, atrPeriod: 10, multiplier: 2 },
     computeKey: 'calcKeltnerData',
     compute: (data, c) => calcKeltnerData(data, c.emaPeriod, c.atrPeriod, c.multiplier),
   },

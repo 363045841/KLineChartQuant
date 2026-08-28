@@ -8,7 +8,7 @@ import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcFASTKData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, FASTKSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { FASTKRenderState } from '../../indicators/state/fastkState'
 import { createFASTKStateKey, EMPTY_FASTK_STATE } from '../../indicators/state/fastkState'
 import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -234,8 +234,9 @@ const getFASTKTitleInfo = createSingleLineTitleInfo({
   visibleState: { compose: createFixedRangeSparseVisibleStateComposer('fastk', EMPTY_FASTK_STATE) },
   scaleRendererFactory: createFastkScaleRendererPlugin,
   getTitleInfo: getFASTKTitleInfo,
+  presentation: { defaultOptions: { showFASTK: true } },
   runtime: {
-    defaultConfig: { period: 9, showFASTK: true },
+    defaultParams: { period: 9 },
     computeKey: 'calcFASTKData',
     compute: (data, c) => calcFASTKData(data, c.period),
   },

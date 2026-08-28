@@ -1,6 +1,15 @@
 import type { BaseIndicatorState } from '../../../foundation/plugin/index'
 import type { MACDPoint } from '../calculators'
-import type { MACDSchedulerConfig } from '../workerProtocol'
+
+/** MACD renderer 使用的参数快照。 */
+export interface MACDRenderParams {
+  readonly fastPeriod: number
+  readonly slowPeriod: number
+  readonly signalPeriod: number
+  readonly showDIF: boolean
+  readonly showDEA: boolean
+  readonly showBAR: boolean
+}
 
 /**
  * MACD 渲染器状态
@@ -10,7 +19,7 @@ export interface MACDRenderState extends BaseIndicatorState {
   /** MACD 系列数据，与 K 线数据同长度 */
   series: MACDPoint[]
   /** 配置参数 */
-  params: MACDSchedulerConfig
+  params: MACDRenderParams
   /** 可视范围内的最小值 */
   visibleMin: number
   /** 可视范围内的最大值 */

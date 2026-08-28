@@ -17,19 +17,21 @@
       ref="embedContainerRef"
       class="embed-container"
       :class="{ 'is-fullscreen': isFullscreen }"
-      :style="{ width: '95%', height: embedHeight }"
+      :style="{ width: embedWidth, height: embedHeight }"
     >
-      <KlineChart
-        ref="chartRef"
-        :mcp="mcpConfig"
-        :left-axis-width="60"
-        :custom-data="customData"
-        :settings="chartSettings"
-        @update:is-fullscreen="isFullscreen = $event"
-        @theme-change="onThemeChange"
-      >
-        <!-- 自定义 Tooltip -->
-        <!-- <template #kline-tooltip="{ hoverData, upColor, downColor }">
+      <AgentWorkbenchShell :bridge="agentBridge" :panel-width-storage="webPanelWidthStorage">
+        <template #chart>
+          <KlineChart
+            ref="chartRef"
+            :mcp="mcpConfig"
+            :left-axis-width="60"
+            :custom-data="customData"
+            :settings="chartSettings"
+            @update:is-fullscreen="isFullscreen = $event"
+            @theme-change="onThemeChange"
+          >
+            <!-- 自定义 Tooltip -->
+            <!-- <template #kline-tooltip="{ hoverData, upColor, downColor }">
           <div class="custom-tooltip">
             <div class="custom-tooltip__title">
               <span>{{ hoverData.symbol }}</span>
@@ -45,48 +47,54 @@
             </div>
           </div>
         </template> -->
-        <!-- 自定义主图左上角图例，替换默认 Canvas 图例并由调用方组合图例数据。 -->
-        <template #legend="{ index, currentBar, timeshare, indicators, comparisons, colors }">
-          <div class="my-legend">
-            <!-- PR #98 为 KLineData[] 添加的自定义字段会展开通过 currentBar 暴露 -->
-            <div v-if="currentBar" class="my-legend__row">
-              <span :style="{ color: currentBar.color }">
-                O {{ currentBar.open.toFixed(2) }} H {{ currentBar.high.toFixed(2) }} L
-                {{ currentBar.low.toFixed(2) }} C {{ currentBar.close.toFixed(2) }}
-              </span>
-              <span v-if="currentBar.volumeText">Vol {{ currentBar.volumeText }}</span>
-            </div>
+            <!-- 自定义主图左上角图例，替换默认 Canvas 图例并由调用方组合图例数据。 -->
+            <template #legend="{ index, currentBar, timeshare, indicators, comparisons, colors }">
+              <div class="my-legend">
+                <!-- PR #98 为 KLineData[] 添加的自定义字段会展开通过 currentBar 暴露 -->
+                <div v-if="currentBar" class="my-legend__row">
+                  <span :style="{ color: currentBar.color }">
+                    O {{ currentBar.open.toFixed(2) }} H {{ currentBar.high.toFixed(2) }} L
+                    {{ currentBar.low.toFixed(2) }} C {{ currentBar.close.toFixed(2) }}
+                  </span>
+                  <span v-if="currentBar.volumeText">Vol {{ currentBar.volumeText }}</span>
+                </div>
 
-            <div v-if="timeshare" class="my-legend__row">
-              <span :style="{ color: timeshare.changeColor }">
-                现价 {{ timeshare.price.toFixed(2) }} 涨幅 {{ timeshare.changePercent.toFixed(2) }}%
-              </span>
-              <span>成交量 {{ timeshare.volumeText }}</span>
-            </div>
+                <div v-if="timeshare" class="my-legend__row">
+                  <span :style="{ color: timeshare.changeColor }">
+                    现价 {{ timeshare.price.toFixed(2) }} 涨幅
+                    {{ timeshare.changePercent.toFixed(2) }}%
+                  </span>
+                  <span>成交量 {{ timeshare.volumeText }}</span>
+                </div>
 
-            <!-- 主图指标图例 -->
-            <div v-for="indicator in indicators" :key="indicator.name" class="my-legend__row">
-              <span>{{ indicator.name }}</span>
-              <template v-for="value in indicator.values" :key="value.label">
-                <span :style="{ color: value.color }">
-                  {{ value.label }} {{ value.value.toFixed(3) }}
-                </span>
-              </template>
-            </div>
+                <!-- 主图指标图例 -->
+                <div v-for="indicator in indicators" :key="indicator.name" class="my-legend__row">
+                  <span>{{ indicator.name }}</span>
+                  <template v-for="value in indicator.values" :key="value.label">
+                    <span :style="{ color: value.color }">
+                      {{ value.label }} {{ value.value.toFixed(3) }}
+                    </span>
+                  </template>
+                </div>
 
-            <div
-              v-for="comparison in comparisons"
-              :key="comparison.symbol"
-              class="my-legend__row"
-              :style="{ color: comparison.percentColor }"
-            >
-              <span class="my-legend__dot" :style="{ backgroundColor: comparison.color }"></span>
-              {{ comparison.symbol }}{{ comparison.name ? ` ${comparison.name}` : '' }}
-              {{ comparison.percent > 0 ? '+' : '' }}{{ comparison.percent.toFixed(2) }}%
-            </div>
-          </div>
+                <div
+                  v-for="comparison in comparisons"
+                  :key="comparison.symbol"
+                  class="my-legend__row"
+                  :style="{ color: comparison.percentColor }"
+                >
+                  <span
+                    class="my-legend__dot"
+                    :style="{ backgroundColor: comparison.color }"
+                  ></span>
+                  {{ comparison.symbol }}{{ comparison.name ? ` ${comparison.name}` : '' }}
+                  {{ comparison.percent > 0 ? '+' : '' }}{{ comparison.percent.toFixed(2) }}%
+                </div>
+              </div>
+            </template>
+          </KlineChart>
         </template>
-      </KlineChart>
+      </AgentWorkbenchShell>
     </div>
 
     <!-- Modal 场景 -->
@@ -111,7 +119,8 @@
 <script setup lang="ts">
   import { ref, computed, provide, inject, type Ref, type InjectionKey } from 'vue'
   import DebugControls from './DebugControls.vue'
-  import { KlineChart } from '../src/index'
+  import { AgentWorkbenchShell, KlineChart, type AgentPanelWidthStorage } from '../src/index'
+  import { BrowserAgentBridge } from '../src/features/agent/browser-agent-bridge'
   import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
   import {
     type KLineData,
@@ -560,6 +569,18 @@
   }
 
   const chartRef = ref<InstanceType<typeof KlineChart> | null>(null)
+  const agentBridge = new BrowserAgentBridge({
+    getChartAgent: () => chartRef.value?.getController?.()?.agent,
+  })
+  const webPanelWidthStorage: AgentPanelWidthStorage = {
+    load() {
+      const value = window.localStorage.getItem('agent.panelWidth')
+      return value === null ? undefined : Number(value)
+    },
+    save(width) {
+      window.localStorage.setItem('agent.panelWidth', String(width))
+    },
+  }
   const mcpConfig = {
     wsUrl: 'ws://localhost:8081',
     autoReconnect: true,

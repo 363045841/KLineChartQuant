@@ -9,7 +9,7 @@ import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign
 import { calcMOMData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, MOMSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { MOMRenderState } from '../../indicators/state/momState'
 import { createMOMStateKey } from '../../indicators/state/momState'
 import { EMPTY_MOM_STATE } from '../../indicators/state/momState'
@@ -306,8 +306,9 @@ const getMOMTitleInfo = createSingleLineTitleInfo({
   scaleRendererFactory: createMomScaleRendererPlugin,
   visibleState: { compose: createPaddedSparseVisibleStateComposer('mom', EMPTY_MOM_STATE) },
   getTitleInfo: getMOMTitleInfo,
+  presentation: { defaultOptions: { showMOM: true } },
   runtime: {
-    defaultConfig: { period: 10, showMOM: true },
+    defaultParams: { period: 10 },
     computeKey: 'calcMOMData',
     compute: (data, c) => calcMOMData(data, c.period),
   },

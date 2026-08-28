@@ -15,7 +15,7 @@ import {
   type TitleInfo,
   type GetTitleInfoFn,
 } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler, DonchianSchedulerConfig } from '../../indicators/scheduler'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { DonchianRenderState } from '../../indicators/state/donchianState'
 import { createDonchianStateKey, EMPTY_DONCHIAN_STATE } from '../../indicators/state/donchianState'
 import { createBandVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -185,8 +185,9 @@ function getDonchianTitleInfo(
   visibleState: {
     compose: createBandVisibleStateComposer('donchian', EMPTY_DONCHIAN_STATE, 'lower', 'upper'),
   },
+  presentation: { defaultOptions: { showUpper: true, showMiddle: true, showLower: true } },
   runtime: {
-    defaultConfig: { period: 20, showUpper: true, showMiddle: true, showLower: true },
+    defaultParams: { period: 20 },
     computeKey: 'calcDonchianData',
     compute: (data, c) => calcDonchianData(data, c.period),
   },

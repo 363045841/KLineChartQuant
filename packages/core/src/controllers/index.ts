@@ -33,6 +33,14 @@ export type {
   CustomDataSource,
 } from './types'
 export type {
+  ChartAgentActiveIndicator,
+  ChartAgentContextSnapshot,
+  ChartAgentController,
+  ChartAgentDataRange,
+  ChartAgentTimeRange,
+  IndicatorQueryInput,
+} from '../features/agent'
+export type {
   RendererBackend,
   RendererBackendRuntime,
   RendererBackendStatus,

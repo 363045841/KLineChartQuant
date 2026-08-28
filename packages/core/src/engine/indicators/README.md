@@ -84,10 +84,18 @@ pane，当前高层 API 返回规范化的 `definitionId`。
 5. 仅当 requestId、dataRevision、configRevision 仍匹配当前 attempt 时提交；过期响应被丢弃。
 6. 失败调用 `failCalculation()`，保留最近成功结果，但当前 availability 变为 `error` 或 `stale`。
 
-`CommittedIndicatorResult` 的关键字段：
+Worker 协议只包含动态配置映射和纯计算结果。配置与兼容结果包均按注册表 `configKey` 索引；具体参数和
+series 形状由指标定义约束。结果所属方由主线程提交结果池时附加，不传入 Worker。
 
-- `timestamps`：与 bar 对齐序列下标严格一致的行情时间轴。
-- `results`：以 `instanceId` 为键的业务结果事实源。
+指标定义将 calculator 参数放在 `runtime.defaultParams`，将 `show*` 等展示开关放在
+`presentation.defaultOptions`。Chart 和 Agent 共用同一个 `runtime.compute`；展示变更只重建
+`renderStates`，不触发 Worker，也不改变业务结果版本。MA、RSI 等多序列指标始终计算完整结果，
+可见序列由 `presentation.selectSeriesKeys` 在投影阶段选择。
+
+指标结果状态的关键字段：
+
+- `pool.timestamps`：与 bar 对齐序列下标严格一致的行情时间轴。
+- `pool.results`：图表与 Agent 共享的业务结果事实源。
 - `bundle`：按指标定义组织的兼容结果，仅供 renderer 状态投影使用。
 - `renderStates`：当前可见范围的派生渲染状态，不是业务查询来源。
 - `resultVersion`：成功计算结果版本；可见范围变化不增加该版本。
@@ -121,6 +129,8 @@ renderer 都只能读取该对象图，禁止原地修改序列或参数。
 4. 为需要可见范围缩放的指标补充或复用 `visibleStateComposers.ts` 中的 composer。
 5. 在 `engine/renderers/Indicator/` 实现绘制；读取帧级 `IndicatorRenderStateReader`，不持有计算缓存。
 6. 覆盖 calculator、registry、runtime/Worker 一致性、Scheduler 提交和 renderer 状态投影测试。
+
+Worker 的 Config、Bundle 和 Snapshot 不枚举指标键，因此新增指标不需要修改 `workerProtocol.ts`。
 
 新增字段或调整序列语义时，同时更新指标结果池设计文档和 D 轮公开查询 DTO 契约，避免外部消费者依赖
 `bundle` 或 `renderStates` 的内部形状。
