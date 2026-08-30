@@ -54,7 +54,6 @@
     "dev:bnb": "node scripts/dev.mjs -c binance",
     "dev:lan:all": "node scripts/dev.mjs --lan -c all",
     "connecter": "node scripts/start-connecter.mjs",
-    "aktools": "cd .. && cd aktoolshttp && uv run python -m aktools",
     "build": "pnpm build:packages",
     "build:packages": "pnpm --filter @363045841yyt/klinechart-core build && pnpm --filter @363045841yyt/klinechart-ai-runtime build && pnpm --filter @363045841yyt/klinechart-agent-runtime build && pnpm --filter @363045841yyt/klinechart build",
     "build:demo": "vite build --config vite.demo.config.ts",
