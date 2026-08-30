@@ -7,17 +7,21 @@ import {
   useAgentProviderSettingsStore,
 } from './agent-provider-settings-store'
 
-import type { AgentBridgeClient, AgentUiEvent } from './agent-contracts'
+import type { AgentBridgeClient, AgentUiEvent, ChartContextView } from './agent-contracts'
 
 export function useAgentWorkspace(bridge: AgentBridgeClient) {
   const state = shallowRef(createInitialAgentState())
+  // 仅作为跨响应式系统的渲染适配层；权威图表上下文由 bridge 的 Core signal 持有。
+  const chartContext = shallowRef<ChartContextView | null>(bridge.getChartContext())
   const draft = ref('')
+  const readOnly = ref(false)
   const providerSettings = useAgentProviderSettingsStore(createAgentProviderSettingsPinia())
   providerSettings.bindBridge(bridge)
   const locale = ref<'en' | 'zh-CN'>(
     typeof navigator !== 'undefined' && navigator.language.startsWith('zh') ? 'zh-CN' : 'en',
   )
   let unsubscribe: (() => void) | undefined
+  let unsubscribeChartContext: (() => void) | undefined
   let bufferedEvents: AgentUiEvent[] | undefined
 
   const activeSession = computed(() =>
@@ -72,6 +76,9 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     const buffer: AgentUiEvent[] = []
     bufferedEvents = buffer
     unsubscribe = bridge.subscribe(receive)
+unsubscribeChartContext = bridge.subscribeChartContext((context) => {
+      chartContext.value = context
+    })
     try {
       const [sessions, provider] = await Promise.all([
         bridge.listSessions(),
@@ -132,7 +139,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     await bridge.startRun({
       sessionId,
       prompt,
-      readOnly: state.value.context.readOnly,
+      readOnly: readOnly.value,
     })
   }
 
@@ -155,16 +162,21 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     if (state.value.run.id) await bridge.undoTurn(state.value.run.id)
   }
 
-  function setReadOnly(readOnly: boolean): void {
-    state.value = { ...state.value, context: { ...state.value.context, readOnly } }
+  function setReadOnly(value: boolean): void {
+    readOnly.value = value
   }
 
   onMounted(initialize)
-  onUnmounted(() => unsubscribe?.())
+  onUnmounted(() => {
+    unsubscribe?.()
+    unsubscribeChartContext?.()
+  })
 
   return {
     state,
+    chartContext,
     draft,
+    readOnly,
     providerSettings,
     locale,
     activeSession,

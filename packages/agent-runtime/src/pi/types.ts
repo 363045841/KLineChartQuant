@@ -3,7 +3,7 @@ import type { AgentRuntimeError } from '../contracts/errors.js'
 import type {
   AgentRunUiEventInput,
   AgentUsageView,
-  ChartContextView,
+  AgentRunScope,
   EvidenceView,
   ToolProgressView,
   ToolSafety,
@@ -77,7 +77,7 @@ export interface PiRunPlan {
   /** 是否仅允许只读工具。 */
   readOnly: boolean
   /** 当前图表上下文快照。 */
-  scope: Readonly<ChartContextView>
+  scope: Readonly<AgentRunScope>
   /** 作为上下文传递给模型的历史消息。 */
   transcript?: readonly AgentMessage[]
   /** 本次运行允许调用的工具列表。 */

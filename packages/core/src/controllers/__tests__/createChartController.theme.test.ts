@@ -152,7 +152,7 @@ describe('createChartController mount theme', () => {
       symbol: 'AAPL',
       market: 'US',
       exchange: 'NASDAQ',
-      period: 'daily',
+      period: 'kline',
       dataSource: 'chart-custom:fixture',
       dataRange: { from: 60_000, to: 1_800_000, bars: 30 },
     })

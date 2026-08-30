@@ -6,7 +6,7 @@ import { createSignal } from '../../../foundation/reactivity/signal'
 import { createChartAgentController } from '../chartAgentController'
 import { CHART_AGENT_ERROR_CODES } from '../errors'
 
-import type { ChartViewport, IndicatorInstance, SymbolSpec } from '../../../controllers/types'
+import type { IndicatorInstance, SymbolSpec } from '../../../controllers/types'
 import type { KLineData } from '../../../foundation/types/price'
 
 const BAR_SELECTION = {
@@ -52,16 +52,10 @@ function createFixture() {
     adjust: 'none',
     source: 'fixture',
   })
-  const viewport = createSignal<ChartViewport>({
-    zoomLevel: 3,
-    plotWidth: 800,
-    plotHeight: 500,
-    dpr: 2,
-    visibleFrom: 1,
-    visibleTo: 4,
-    kWidth: 8,
-    kGap: 2,
-  })
+  const selectedRange = createSignal<{ from: number; to: number } | null>(null)
+  const chartMode = createSignal<'kline' | 'timeshare' | 'fiveDayTimeShare' | 'comparison'>(
+    'kline',
+  )
   const indicatorParams = { period: 14, showLabel: true, invalid: Number.NaN }
   const indicators = createSignal<ReadonlyArray<IndicatorInstance>>([
     {
@@ -86,7 +80,8 @@ function createFixture() {
     chartId: 'chart-fixture',
     dataState,
     currentSpec,
-    viewport,
+    chartMode,
+    selectedRange,
     indicators,
     indicatorQuery: { queryIndicator },
     marketDataProviderRegistry,
@@ -95,7 +90,9 @@ function createFixture() {
   return {
     controller,
     currentSpec,
+    chartMode,
     dataState,
+    selectedRange,
     indicatorParams,
     indicators,
     queryIndicator,
@@ -114,19 +111,18 @@ describe('createChartAgentController', () => {
       symbol: 'BTCUSDT',
       market: 'crypto',
       exchange: 'BINANCE',
-      period: 'daily',
+      period: 'kline',
       dataSource: 'fixture',
       timezone: null,
       adjustMode: 'none',
       dataRange: { from: 1_000, to: 4_000, bars: 4 },
-      visibleRange: { from: 2_000, to: 4_000 },
+      visibleRange: null,
       activeIndicators: [{ instanceId: 'rsi-1', definitionId: 'RSI', params: { period: 14 } }],
       dataRevision: 1,
     })
     expect(JSON.parse(JSON.stringify(snapshot))).toEqual(snapshot)
     expect(Object.isFrozen(snapshot)).toBe(true)
     expect(Object.isFrozen(snapshot.dataRange)).toBe(true)
-    expect(Object.isFrozen(snapshot.visibleRange)).toBe(true)
     expect(Object.isFrozen(snapshot.activeIndicators)).toBe(true)
     expect(Object.isFrozen(snapshot.activeIndicators[0])).toBe(true)
     expect(Object.isFrozen(snapshot.activeIndicators[0]?.params)).toBe(true)
@@ -146,6 +142,38 @@ describe('createChartAgentController', () => {
 
     expect(first).not.toBe(second)
     expect(first.chartId).toBe(second.chartId)
+  })
+
+  it('projects StateKernel changes through the context signal', () => {
+    const fixture = createFixture()
+    const observed: Array<string | null> = []
+    const unsubscribe = fixture.controller.context.subscribe(() => {
+      observed.push(fixture.controller.context()?.symbol ?? null)
+    })
+
+    fixture.currentSpec.set({ symbol: 'ETHUSDT', market: 'crypto' })
+
+    expect(fixture.controller.context()?.symbol).toBe('ETHUSDT')
+    expect(observed).toEqual(['ETHUSDT'])
+    unsubscribe()
+  })
+
+  it('uses only the StateKernel range-selection for its displayed range', () => {
+    const fixture = createFixture()
+
+    fixture.selectedRange.set({ from: 1_000, to: 3_000 })
+
+    expect(fixture.controller.context()?.visibleRange).toEqual({ from: 1_000, to: 3_000 })
+    fixture.selectedRange.set(null)
+    expect(fixture.controller.context()?.visibleRange).toBeNull()
+  })
+
+  it('uses the StateKernel chart mode without inferring from the data buffer', () => {
+    const fixture = createFixture()
+
+    fixture.chartMode.set('fiveDayTimeShare')
+
+    expect(fixture.controller.context()?.period).toBe('fiveDayTimeShare')
   })
 
   it('throws a typed no-data error for an absent or empty active series', () => {

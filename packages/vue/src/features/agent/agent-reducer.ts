@@ -6,7 +6,6 @@ import {
   type AgentRunView,
   type AgentSessionView,
   type AgentUiEvent,
-  type ChartContextView,
   type ConfirmationView,
   type ProviderStatusView,
   type ToolCallView,
@@ -22,7 +21,6 @@ export interface AgentWorkspaceState {
   run: AgentRunView
   previousRuns: AgentRunView[]
   provider: ProviderStatusView
-  context: ChartContextView
   error: AgentErrorView | null
   canUndoTurn: boolean
   announcement: string
@@ -49,13 +47,6 @@ export function createInitialAgentState(): AgentWorkspaceState {
       providerLabel: 'OpenAI-compatible',
       configured: false,
       compatibility: 'unknown',
-    },
-    context: {
-      symbol: 'BTCUSDT',
-      period: '1h',
-      visibleRange: 'Latest 7 days',
-      selectedBar: null,
-      readOnly: false,
     },
     error: null,
     canUndoTurn: false,
@@ -295,8 +286,6 @@ function reduceCurrentAgentUiEvent(
     case 'provider.status.changed':
       return { ...state, provider: event.status }
 
-    case 'chart.context.changed':
-      return { ...state, context: event.context }
   }
 }
 

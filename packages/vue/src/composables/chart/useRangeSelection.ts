@@ -15,12 +15,7 @@ import {
   getKLineIndexByTimestamp,
   findNearestKLineIndex,
 } from '../../tools/getKLineIndexByTimestamp'
-
-interface RangeSelectionState {
-  startTimestamp: number | null
-  endTimestamp: number | null
-  isDragging: boolean
-}
+import { useControllerSignal } from './useControllerSignal'
 
 /** 根据区间首尾收盘价计算收益率，无法形成有效比率时返回 null。 */
 export function calculateRangeReturnRate(startClose: number, endClose: number): number | null {
@@ -79,11 +74,11 @@ export function useRangeSelection(options: {
   const resizeSide = ref<'left' | 'right' | null>(null)
   const exportingProgress = ref<{ current: number; total: number; label: string } | null>(null)
 
-  const rangeSelection = ref<RangeSelectionState>({
-    startTimestamp: null,
-    endTimestamp: null,
-    isDragging: false,
-  })
+  const rangeSelection = useControllerSignal(
+    controller,
+    (chart) => chart.rangeSelection,
+    () => ({ startTimestamp: null, endTimestamp: null, isDragging: false }),
+  )
 
   const isRangeSelectActive = computed(() => isRangeSelectMode.value)
 
@@ -154,7 +149,7 @@ export function useRangeSelection(options: {
   })
 
   function clearRangeSelection() {
-    rangeSelection.value = { startTimestamp: null, endTimestamp: null, isDragging: false }
+    controller.value?.clearRangeSelection()
     customStartDate.value = ''
     customEndDate.value = ''
   }
@@ -163,7 +158,8 @@ export function useRangeSelection(options: {
     const data = controller.value?.getData() ?? []
     const targetTs = parseDateToTimestamp(val)
     if (targetTs === null || data.length === 0) return
-    rangeSelection.value = { ...rangeSelection.value, startTimestamp: targetTs, isDragging: false }
+    const selection = rangeSelection.value
+    controller.value?.setRangeSelection(targetTs, selection.endTimestamp ?? targetTs)
     if (targetTs < data[0]!.timestamp) {
       controller.value?.ensureDataRange(targetTs)
     }
@@ -173,7 +169,8 @@ export function useRangeSelection(options: {
     const data = controller.value?.getData() ?? []
     const targetTs = parseDateToTimestamp(val)
     if (targetTs === null || data.length === 0) return
-    rangeSelection.value = { ...rangeSelection.value, endTimestamp: targetTs, isDragging: false }
+    const selection = rangeSelection.value
+    controller.value?.setRangeSelection(selection.startTimestamp ?? targetTs, targetTs)
     if (targetTs < data[0]!.timestamp) {
       controller.value?.ensureDataRange(targetTs)
     }
@@ -205,7 +202,7 @@ export function useRangeSelection(options: {
     const ts = data[index]?.timestamp
     if (ts === undefined) return true
 
-    rangeSelection.value = { startTimestamp: ts, endTimestamp: ts, isDragging: true }
+    controller.value?.startRangeSelection(ts)
     customStartDate.value = ''
     customEndDate.value = ''
     container.setPointerCapture?.(e.pointerId)
@@ -220,7 +217,7 @@ export function useRangeSelection(options: {
       const data = controller.value?.getData() ?? []
       const ts = data[index]?.timestamp
       if (ts !== undefined) {
-        rangeSelection.value = { ...rangeSelection.value, endTimestamp: ts }
+        controller.value?.updateRangeSelection(ts)
       }
     }
     e.preventDefault()
@@ -234,16 +231,12 @@ export function useRangeSelection(options: {
       const data = controller.value?.getData() ?? []
       const ts = data[index]?.timestamp
       if (ts !== undefined) {
-        rangeSelection.value = {
-          ...rangeSelection.value,
-          endTimestamp: ts,
-          isDragging: false,
-        }
+        controller.value?.finishRangeSelection(ts)
       } else {
-        rangeSelection.value = { ...rangeSelection.value, isDragging: false }
+        controller.value?.finishRangeSelection()
       }
     } else {
-      rangeSelection.value = { ...rangeSelection.value, isDragging: false }
+      controller.value?.finishRangeSelection()
     }
     container.releasePointerCapture?.(e.pointerId)
     e.preventDefault()
@@ -277,25 +270,17 @@ export function useRangeSelection(options: {
 
     if (resizeSide.value === 'left') {
       if (ts > rangeSelection.value.endTimestamp) {
-        rangeSelection.value = {
-          startTimestamp: rangeSelection.value.endTimestamp,
-          endTimestamp: ts,
-          isDragging: false,
-        }
+        controller.value?.setRangeSelection(rangeSelection.value.endTimestamp, ts)
         resizeSide.value = 'right'
       } else {
-        rangeSelection.value = { ...rangeSelection.value, startTimestamp: ts }
+        controller.value?.setRangeSelection(ts, rangeSelection.value.endTimestamp)
       }
     } else {
       if (ts < rangeSelection.value.startTimestamp) {
-        rangeSelection.value = {
-          startTimestamp: ts,
-          endTimestamp: rangeSelection.value.startTimestamp,
-          isDragging: false,
-        }
+        controller.value?.setRangeSelection(ts, rangeSelection.value.startTimestamp)
         resizeSide.value = 'left'
       } else {
-        rangeSelection.value = { ...rangeSelection.value, endTimestamp: ts }
+        controller.value?.setRangeSelection(rangeSelection.value.startTimestamp, ts)
       }
     }
   }

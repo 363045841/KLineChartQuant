@@ -441,6 +441,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const paneRatios: ReadonlySignal<Readonly<Record<string, number>>> = chart.paneRatios
   const paneLayout: ReadonlySignal<ReadonlyArray<PaneSpec>> = chart.paneLayout
   const interactionState: ReadonlySignal<InteractionSnapshot> = chart.interactionState
+  const selectedRange = chart.selectedRange
+  const rangeSelection = chart.rangeSelection
   const legendTemplateContext = chart.legendTemplateContext
   const symbolCatalog: ReadonlySignal<ReadonlyArray<SymbolInfo>> = chart.symbolCatalog
 
@@ -484,7 +486,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     chartId: generateUUID(),
     dataState: chart.kernel.data,
     currentSpec: chart.kernel.dataManager.readonly.currentSpec,
-    viewport,
+    chartMode: chartModeSignal,
+    selectedRange: chart.selectedRange,
     indicators,
     indicatorQuery: createIndicatorQuery({ dataState: chart.kernel.data }),
     marketDataProviderRegistry,
@@ -503,6 +506,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   function setSymbols(next: ReadonlyArray<SymbolSpec>): void {
     if (disposed) return
+    chart.clearRangeSelection()
     chart.setSymbols(next)
   }
 
@@ -523,11 +527,13 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   function setCurrentSymbol(symbol: string): void {
     if (disposed) return
+    chart.clearRangeSelection()
     chart.setCurrentSymbol(symbol)
   }
 
   function setCurrentPeriod(period: string): void {
     if (disposed) return
+    chart.clearRangeSelection()
     chart.setCurrentPeriod(period)
   }
 
@@ -543,11 +549,13 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   function applyCustomData(source: CustomDataSource): void {
     if (disposed) return
+    chart.clearRangeSelection()
     chart.applyCustomData(source)
   }
 
   function resetToFetcher(spec: SymbolSpec): void {
     if (disposed) return
+    chart.clearRangeSelection()
     chart.resetToFetcher(spec)
   }
 
@@ -557,6 +565,31 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     const loadedTimeRange = buf.loadedTimeRange
     if (!loadedTimeRange || startTs >= loadedTimeRange.earliestTs) return
     buf.ensureRange(startTs, loadedTimeRange.earliestTs)
+  }
+
+  function startRangeSelection(timestamp: number): void {
+    if (disposed) return
+    chart.startRangeSelection(timestamp)
+  }
+
+  function updateRangeSelection(timestamp: number): void {
+    if (disposed) return
+    chart.updateRangeSelection(timestamp)
+  }
+
+  function finishRangeSelection(timestamp?: number): void {
+    if (disposed) return
+    chart.finishRangeSelection(timestamp)
+  }
+
+  function setRangeSelection(startTimestamp: number, endTimestamp: number): void {
+    if (disposed) return
+    chart.setRangeSelection(startTimestamp, endTimestamp)
+  }
+
+  function clearRangeSelection(): void {
+    if (disposed) return
+    chart.clearRangeSelection()
   }
 
   function appendData(next: ReadonlyArray<KLineData>): void {
@@ -924,6 +957,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     paneRatios,
     paneLayout,
     interactionState,
+    selectedRange,
+    rangeSelection,
     legendTemplateContext,
     comparisonColors,
     comparisonLoading,
@@ -941,6 +976,11 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     applyCustomData,
     resetToFetcher,
     ensureDataRange,
+    startRangeSelection,
+    updateRangeSelection,
+    finishRangeSelection,
+    setRangeSelection,
+    clearRangeSelection,
     setData,
     appendData,
     updateData: setData,

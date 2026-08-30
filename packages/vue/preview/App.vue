@@ -29,6 +29,7 @@
             :settings="chartSettings"
             @update:is-fullscreen="isFullscreen = $event"
             @theme-change="onThemeChange"
+            @controller-ready="(controller) => agentBridge.bindChartAgent(controller.agent)"
           >
             <!-- 自定义 Tooltip -->
             <!-- <template #kline-tooltip="{ hoverData, upColor, downColor }">

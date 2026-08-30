@@ -1,7 +1,11 @@
 <template>
   <AgentWorkbenchShell :bridge="bridge" :panel-width-storage="panelWidthStorage">
     <template #chart>
-      <KlineChart ref="chartRef" :custom-data="e2eChartData" />
+      <KlineChart
+        ref="chartRef"
+        :custom-data="e2eChartData"
+        @controller-ready="(controller) => bridge.bindChartAgent(controller.agent)"
+      />
     </template>
   </AgentWorkbenchShell>
 </template>

@@ -100,8 +100,35 @@ interface BrowserAgentBridgeOptions {
   readonly getChartAgent?: () => ChartAgentController | null | undefined
 }
 
+function formatVisibleRange(
+  range: ReturnType<ChartAgentController['getContext']>['visibleRange'],
+): string | null {
+  if (!range) return null
+  const format = new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+  return `${format.format(range.from)} - ${format.format(range.to)}`
+}
+
+function projectChartContext(agent: ChartAgentController | null | undefined) {
+  const context = agent?.context()
+  if (!context) return null
+  return {
+    symbol: context.symbol,
+    period: context.period,
+    visibleRange: formatVisibleRange(context.visibleRange),
+    selectedBar: null,
+  }
+}
+
 export class BrowserAgentBridge implements AgentBridgeClient {
   private readonly listeners = new Set<(event: AgentUiEvent) => void>()
+  private readonly chartContextListeners = new Set<(context: ReturnType<typeof projectChartContext>) => void>()
   private readonly credentials = new BrowserProviderCredentialStore()
   private readonly settings = new BrowserProviderSettingsStore()
   private readonly support
@@ -110,14 +137,18 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   private readonly runInputs = new Map<string, StartRunInput>()
   private nextSession = 1
   private nextRun = 1
+  private readonly getChartAgent: () => ChartAgentController | null | undefined
+  private chartAgent: ChartAgentController | null = null
+  private unsubscribeChartContextSource: (() => void) | undefined
 
   constructor(options: BrowserAgentBridgeOptions = {}) {
+    this.getChartAgent = options.getChartAgent ?? (() => null)
     this.support = createOpenAiCompatibleRuntimeSupport({
       credentials: this.credentials,
       settings: this.settings,
       fetch: fetchBrowserProvider,
       tools: () => {
-        const agent = options.getChartAgent?.()
+        const agent = this.getChartAgent()
         return agent
           ? [createIndicatorQueryTool(agent), createInstrumentNameQueryTool(agent)]
           : []
@@ -125,6 +156,32 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     })
     const session = this.createSessionRecord()
     this.sessions.set(session.view.id, session)
+  }
+
+  getChartContext() {
+    return projectChartContext(this.chartAgent ?? this.getChartAgent())
+  }
+
+  subscribeChartContext(listener: (context: ReturnType<typeof projectChartContext>) => void): () => void {
+    this.bindChartAgent(this.getChartAgent())
+    this.chartContextListeners.add(listener)
+    listener(this.getChartContext())
+    return () => this.chartContextListeners.delete(listener)
+  }
+
+  /** 绑定图表 controller；支持 Agent 面板先于图表完成挂载。 */
+  bindChartAgent(agent: ChartAgentController | null | undefined): void {
+    const next = agent ?? null
+    if (this.chartAgent === next) return
+    this.unsubscribeChartContextSource?.()
+    this.chartAgent = next
+    this.unsubscribeChartContextSource = next?.context.subscribe(() => this.publishChartContext())
+    this.publishChartContext()
+  }
+
+  private publishChartContext(): void {
+    const context = this.getChartContext()
+    for (const listener of this.chartContextListeners) listener(context)
   }
 
   async listSessions(): Promise<AgentSessionView[]> {

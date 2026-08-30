@@ -2,6 +2,7 @@
 import {
   AGENT_UI_PROTOCOL_VERSION,
   type AgentBridgeClient,
+  type ChartContextView,
   type AgentSessionView,
   type AgentSessionSnapshot,
   type AgentRunUiEventInput,
@@ -53,6 +54,12 @@ export class FakeAgentBridge implements AgentBridgeClient {
   private provider: ProviderStatusView
   private nextSessionId = 2
   private nextRunId = 1
+  private readonly chartContext: ChartContextView = {
+    symbol: 'BTCUSDT',
+    period: '1h',
+    visibleRange: 'Latest 7 days',
+    selectedBar: null,
+  }
 
   constructor(options: FakeAgentBridgeOptions = {}) {
     this.stepDelayMs = options.stepDelayMs ?? 90
@@ -71,6 +78,15 @@ export class FakeAgentBridge implements AgentBridgeClient {
           configured: false,
           compatibility: 'unknown',
         }
+  }
+
+  getChartContext(): ChartContextView {
+    return this.chartContext
+  }
+
+  subscribeChartContext(listener: (context: ChartContextView | null) => void): () => void {
+    listener(this.chartContext)
+    return () => {}
   }
 
   async listSessions(): Promise<AgentSessionView[]> {

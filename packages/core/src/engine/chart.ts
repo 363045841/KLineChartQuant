@@ -70,6 +70,7 @@ import { resolveSymbolMarketSession } from './market/resolveSymbolMarketSession'
 import { PaneRenderer } from './paneRenderer'
 import { ChartRenderer, mergeUpdateLevel } from './render/chartRenderer'
 import { ChartStateKernel } from './state/chartStateKernel'
+import type { RangeSelectionState } from './state/interactionState'
 import { ChartDataViewId, isTimeShareDataView, type ChartDataView } from './state/modeState'
 import { ChartViewportManager } from './viewport/chartViewportManager'
 import { ChartZoomController } from './utils/chartZoomController'
@@ -1425,6 +1426,41 @@ export class Chart {
   /** 交互状态信号 */
   get interactionState(): ReadonlySignal<InteractionSnapshot> {
     return this._interactionSnapshot
+  }
+
+  /** 区间选择工具确认的时间范围。 */
+  get selectedRange(): ReadonlySignal<{ from: number; to: number } | null> {
+    return this.kernel.interaction.readonly.selectedRange
+  }
+
+  /** 区间选择工具的完整权威状态。 */
+  get rangeSelection(): ReadonlySignal<RangeSelectionState> {
+    return this.kernel.interaction.readonly.rangeSelection
+  }
+
+  /** 开始区间选择。 */
+  startRangeSelection(timestamp: number): void {
+    this.kernel.interaction.actions.startRangeSelection(timestamp)
+  }
+
+  /** 更新区间选择终点。 */
+  updateRangeSelection(timestamp: number): void {
+    this.kernel.interaction.actions.updateRangeSelection(timestamp)
+  }
+
+  /** 结束区间选择。 */
+  finishRangeSelection(timestamp?: number): void {
+    this.kernel.interaction.actions.finishRangeSelection(timestamp)
+  }
+
+  /** 原子设置已确认的区间边界。 */
+  setRangeSelection(startTimestamp: number, endTimestamp: number): void {
+    this.kernel.interaction.actions.setRangeSelection(startTimestamp, endTimestamp)
+  }
+
+  /** 清除区间选择。 */
+  clearRangeSelection(): void {
+    this.kernel.interaction.actions.clearRangeSelection()
   }
 
   /** 主图左上角图例模板上下文（null 表示无数据） */

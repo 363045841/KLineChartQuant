@@ -421,6 +421,7 @@
     (e: 'themeChange', theme: 'light' | 'dark'): void
     (e: 'kLineLevelChange', level: string): void
     (e: 'kLineAdjustChange', adjust: 'qfq' | 'hfq' | 'splits' | 'none'): void
+    (e: 'controllerReady', controller: ChartController): void
   }>()
 
   // ── Slot Props Types ──
@@ -1759,6 +1760,7 @@
     }
     if (!containerRef.value || !chartMainRef.value) return // 组件已卸载
     controller.value = ctrl
+    emit('controllerReady', ctrl)
 
     // 3) 信号回调（必须在 registerSymbols 之前建立，否则订阅收不到初始通知）
     cleanupChartCallbacks = setupChartCallbacks(ctrl)

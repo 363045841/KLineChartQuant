@@ -101,7 +101,7 @@
     sessions: AgentSessionView[]
     activeSessionId: string | null
     provider: ProviderStatusView
-    context: ChartContextView
+    context: ChartContextView | null
     locale: AgentLocale
   }>()
 
@@ -127,7 +127,7 @@
   })
   const scope = computed(
     () =>
-      `${props.context.symbol ?? text.value.noSymbol} · ${props.context.period ?? text.value.noPeriod}`,
+      `${props.context?.symbol ?? text.value.noSymbol} · ${props.context?.period ?? text.value.noPeriod}`,
   )
 
   function rename(): void {
