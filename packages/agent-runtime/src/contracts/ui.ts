@@ -109,6 +109,8 @@ export interface AgentRunScope extends ChartContextView {
 
 export type ProviderConnectionState = 'not-configured' | 'testing' | 'connected' | 'error'
 export type ProviderCompatibility = 'unknown' | 'testing' | 'incompatible' | 'compatible'
+export const PROVIDER_API_PROTOCOLS = ['openai-completions', 'openai-responses'] as const
+export type ProviderApiProtocol = (typeof PROVIDER_API_PROTOCOLS)[number]
 export interface ProviderStatusView {
   state: ProviderConnectionState
   providerLabel: string
@@ -116,6 +118,7 @@ export interface ProviderStatusView {
   baseUrl?: string
   modelId?: string
   modelLabel?: string
+  protocol?: ProviderApiProtocol
   fingerprint?: string
   compatibility?: ProviderCompatibility
   lastTestedAt?: number
@@ -221,6 +224,7 @@ export interface ProviderTestInput {
   baseUrl: string
   apiKey?: string
   model: string
+  protocol: ProviderApiProtocol
 }
 export interface ProviderSaveInput extends ProviderTestInput {
   modelName: string
@@ -228,6 +232,7 @@ export interface ProviderSaveInput extends ProviderTestInput {
 export interface ProviderModelsInput {
   baseUrl: string
   apiKey?: string
+  protocol: ProviderApiProtocol
 }
 export interface ProviderModelsResult {
   models: ProviderModelView[]

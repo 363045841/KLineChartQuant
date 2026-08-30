@@ -1,11 +1,13 @@
 // OpenAI-compatible Provider 的运行时配置、存储边界与诊断数据契约。
 
 /** OpenAI-compatible Provider 的稳定标识。 */
+import type { ProviderApiProtocol } from '../contracts/ui.js'
+
 export const OPENAI_COMPATIBLE_PROVIDER_ID = 'openai-compatible'
 /** 在 UI 中展示的 Provider 名称。 */
 export const OPENAI_COMPATIBLE_PROVIDER_LABEL = 'OpenAI-compatible'
 /** 已持久化 Provider 设置的当前数据版本。 */
-export const PROVIDER_SETTINGS_VERSION = 1 as const
+export const PROVIDER_SETTINGS_VERSION = 2 as const
 
 /**
  * 定义 Provider API Key 的持久化边界。
@@ -31,7 +33,7 @@ export interface OpenAiCompatibleProviderSettings {
   modelId: string
   /** 用于界面展示的模型名称。 */
   modelName: string
-  /** 当前仅支持 OpenAI-compatible 协议。 */
+  protocol: ProviderApiProtocol
   compatibility: 'compatible'
   /** 最近一次成功验证连接的时间戳。 */
   lastTestedAt: number

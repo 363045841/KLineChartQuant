@@ -1,6 +1,5 @@
 // OpenAI-compatible Provider 的模型发现、连接验证与 Pi 流式运行计划适配。
 import { createModels, createProvider } from '@earendil-works/pi-ai'
-import { openAICompletionsApi } from '@earendil-works/pi-ai/api/openai-completions.lazy'
 
 import { AgentRuntimeError, toAgentRuntimeError } from '../contracts/errors.js'
 
@@ -13,6 +12,10 @@ import {
   sleepWithSignal,
 } from './http.js'
 import {
+  getProviderApiProtocolAdapter,
+  type ProviderStreamObservation,
+} from './protocol.js'
+import {
   OPENAI_COMPATIBLE_PROVIDER_ID,
   OPENAI_COMPATIBLE_PROVIDER_LABEL,
   PROVIDER_SETTINGS_VERSION,
@@ -24,7 +27,6 @@ import type {
   ProviderDiagnostic,
 } from './types.js'
 import type { RuntimeSupport } from '../application/unavailable-runtime.js'
-import type { AgentRuntimeErrorCode } from '../contracts/errors.js'
 import type {
   ProviderModelView,
   ProviderModelsInput,
@@ -35,24 +37,15 @@ import type {
   ProviderTestResult,
 } from '../contracts/ui.js'
 import type { PiRunPlan } from '../pi/types.js'
-import type { AssistantMessage, FetchFunction, Model } from '@earendil-works/pi-ai'
+import type { FetchFunction } from '@earendil-works/pi-ai'
 
 const MAX_CATALOG_MODELS = 2_000
 const MAX_MODEL_ID_LENGTH = 256
-const DEFAULT_CONTEXT_WINDOW = 32_768
-const DEFAULT_MAX_TOKENS = 4_096
 
 /** 模型目录中经过运行时校验的最小模型描述。 */
 interface CatalogModel {
   id: string
   name: string
-}
-
-/** 流式请求期间收集的网络与 HTTP 响应观察结果。 */
-interface StreamObservation {
-  status?: number
-  retryAfterMs?: number
-  networkFailure: boolean
 }
 
 /** 判断未知值是否为普通对象，供 Provider 响应校验使用。 */
@@ -121,95 +114,7 @@ async function fingerprint(value: string): Promise<string> {
     .join('')}`
 }
 
-/**
- * 将目录模型转换为 Pi OpenAI Completions API 所需的模型描述。
- *
- * @param baseUrl 已标准化的 Provider API 根地址。
- * @param model 已校验的目录模型。
- * @returns 具备保守兼容能力声明的 Pi 模型。
- */
-function modelFromCatalog(baseUrl: string, model: CatalogModel): Model<'openai-completions'> {
-  return {
-    id: model.id,
-    name: model.name,
-    api: 'openai-completions',
-    provider: OPENAI_COMPATIBLE_PROVIDER_ID,
-    baseUrl,
-    reasoning: false,
-    input: ['text'],
-    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    contextWindow: DEFAULT_CONTEXT_WINDOW,
-    maxTokens: DEFAULT_MAX_TOKENS,
-    compat: {
-      supportsStore: false,
-      supportsDeveloperRole: false,
-      supportsReasoningEffort: false,
-      supportsUsageInStreaming: false,
-      maxTokensField: 'max_tokens',
-    },
-  }
-}
-
-/** 创建流式运行期间使用的稳定 Provider 错误。 */
-function streamError(
-  code: AgentRuntimeErrorCode,
-  message: string,
-  retryable: boolean,
-  recommendedAction: string,
-): AgentRuntimeError {
-  return new AgentRuntimeError(code, message, { retryable, recommendedAction })
-}
-
-/**
- * 根据 Pi 流式消息及网络观察结果归类 Provider 故障。
- *
- * @param message Pi 返回的助手消息。
- * @param observation 流请求期间采集的 HTTP 状态。
- * @returns 可供 UI 稳定展示的 Agent 运行时错误。
- */
-function classifyStreamError(
-  message: AssistantMessage,
-  observation: StreamObservation,
-): AgentRuntimeError {
-  if (observation.status && observation.status >= 400) {
-    return providerHttpError(observation.status, observation.retryAfterMs)
-  }
-  const category = message.errorMessage ?? ''
-  if (/timeout|timed out|deadline/i.test(category)) {
-    return streamError(
-      'PROVIDER_TIMEOUT',
-      'The Provider request timed out.',
-      true,
-      'Retry the request or use a faster model.',
-    )
-  }
-  if (/json|parse|sse|stream ended|unexpected end|invalid.*response/i.test(category)) {
-    return malformed()
-  }
-  if (observation.networkFailure) {
-    return streamError(
-      'PROVIDER_UNAVAILABLE',
-      'The app could not reach the Provider.',
-      true,
-      'Check the network connection and retry.',
-    )
-  }
-  return streamError(
-    'PROVIDER_ERROR',
-    'The Provider request failed.',
-    true,
-    'Retry the request or select another model.',
-  )
-}
-
-/**
- * 创建 OpenAI-compatible Provider 的运行时支持对象。
- *
- * 支持模型目录拉取、连接验证、状态查询、凭据删除和 Pi 流式运行计划创建。
- *
- * @param options 宿主提供的存储、网络、时间和诊断依赖。
- * @returns Provider API 与运行计划工厂。
- */
+/** 创建 OpenAI-compatible Provider 的运行时支持对象。 */
 export function createOpenAiCompatibleRuntimeSupport(
   options: OpenAiCompatibleRuntimeOptions,
 ): RuntimeSupport {
@@ -293,7 +198,9 @@ export function createOpenAiCompatibleRuntimeSupport(
         id: model.id,
         name: model.name,
         compatibility:
-          settings?.compatibility === 'compatible' && settings.modelId === model.id
+          settings?.compatibility === 'compatible' &&
+          settings.modelId === model.id &&
+          settings.protocol === input.protocol
             ? 'compatible'
             : 'unknown',
       }))
@@ -319,6 +226,24 @@ export function createOpenAiCompatibleRuntimeSupport(
       const stages: ProviderProbeStageResult[] = [
         { stage: 'catalog', ok: true, latencyMs: elapsed(now, catalogStartedAt) },
       ]
+      const adapter = getProviderApiProtocolAdapter(input.protocol)
+      const textStartedAt = now()
+      await adapter.probeText({
+        baseUrl: refreshed.baseUrl,
+        apiKey: refreshed.apiKey,
+        modelId: selected.id,
+        http: httpOptions(undefined, 'text'),
+      })
+      stages.push({ stage: 'text', ok: true, latencyMs: elapsed(now, textStartedAt) })
+      const toolStartedAt = now()
+      await adapter.probeTool({
+        baseUrl: refreshed.baseUrl,
+        apiKey: refreshed.apiKey,
+        modelId: selected.id,
+        nonce: globalThis.crypto.randomUUID(),
+        http: httpOptions(undefined, 'tool'),
+      })
+      stages.push({ stage: 'tool', ok: true, latencyMs: elapsed(now, toolStartedAt) })
 
       const previousKey = await options.credentials.read()
       await options.credentials.write(refreshed.apiKey)
@@ -327,6 +252,7 @@ export function createOpenAiCompatibleRuntimeSupport(
         baseUrl: refreshed.baseUrl,
         modelId: selected.id,
         modelName: selected.name,
+        protocol: adapter.protocol,
         compatibility: 'compatible',
         lastTestedAt: now(),
         lastModelsRefreshAt: refreshed.refreshedAt,
@@ -375,6 +301,7 @@ export function createOpenAiCompatibleRuntimeSupport(
       baseUrl: settings?.baseUrl,
       modelId: settings?.modelId,
       modelLabel: settings?.modelName,
+      protocol: settings?.protocol,
       fingerprint: apiKey ? await fingerprint(apiKey) : undefined,
       compatibility: compatible ? 'compatible' : lastError ? 'incompatible' : 'unknown',
       lastTestedAt: settings?.lastTestedAt,
@@ -412,7 +339,8 @@ export function createOpenAiCompatibleRuntimeSupport(
     const selected =
       catalog.find((model) => model.id === settings.modelId) ??
       ({ id: settings.modelId, name: settings.modelName } satisfies CatalogModel)
-    const model = modelFromCatalog(settings.baseUrl, selected)
+    const adapter = getProviderApiProtocolAdapter(settings.protocol)
+    const model = adapter.createModel(settings.baseUrl, selected)
     const provider = createProvider({
       id: OPENAI_COMPATIBLE_PROVIDER_ID,
       name: OPENAI_COMPATIBLE_PROVIDER_LABEL,
@@ -427,13 +355,16 @@ export function createOpenAiCompatibleRuntimeSupport(
         },
       },
       models: [model],
-      api: openAICompletionsApi(),
+      api: adapter.createApi(),
     })
     const models = createModels()
     models.setProvider(provider)
-    const observation: StreamObservation = { networkFailure: false }
+    const observation: ProviderStreamObservation = { networkFailure: false }
     // 包装 Pi 的 fetch，采集脱敏诊断并保留流式错误分类所需的 HTTP 信息。
     const trackedFetch: FetchFunction = async (input, init) => {
+      observation.status = undefined
+      observation.retryAfterMs = undefined
+      observation.networkFailure = false
       const url = redactProviderUrl(input instanceof URL ? input.toString() : String(input))
       const method = init?.method?.toUpperCase() ?? 'POST'
       const startedAt = now()
@@ -479,14 +410,18 @@ export function createOpenAiCompatibleRuntimeSupport(
       tools,
       model,
       streamFn: (streamModel, streamContext, streamOptions) =>
-        models.streamSimple(streamModel, streamContext, {
-          ...streamOptions,
-          fetch: trackedFetch,
-          timeoutMs,
-          maxRetries,
-          maxRetryDelayMs,
-        }),
-      classifyProviderError: (message) => classifyStreamError(message, observation),
+        models.streamSimple(
+          streamModel,
+          streamContext,
+          adapter.streamOptions({
+            ...streamOptions,
+            fetch: trackedFetch,
+            timeoutMs,
+            maxRetries,
+            maxRetryDelayMs,
+          }),
+        ),
+      classifyProviderError: (message) => adapter.classifyStreamError(message, observation),
       systemPrompt:
         tools.length > 0
           ? 'You are the KLineChartQuant financial analysis Agent. Use the supplied chart tools when chart evidence is needed. Do not claim to have changed the chart: the available tools are read-only.'

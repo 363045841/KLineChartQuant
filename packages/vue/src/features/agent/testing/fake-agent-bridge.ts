@@ -1,5 +1,10 @@
 /** Drive complete UI states deterministically without Provider or chart business logic. */
 import {
+  fetchOpenAiCompatibleModels,
+  providerHttpError,
+} from '@363045841yyt/klinechart-agent-runtime'
+
+import {
   AGENT_UI_PROTOCOL_VERSION,
   type AgentBridgeClient,
   type ChartContextView,
@@ -18,10 +23,6 @@ import {
   type StartRunInput,
   type ToolCallView,
 } from '../agent-contracts'
-import {
-  fetchOpenAiCompatibleModels,
-  providerHttpError,
-} from '@363045841yyt/klinechart-agent-runtime'
 
 interface FakeRun {
   id: string
@@ -70,6 +71,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
           configured: true,
           modelId: 'Scripted Alpha',
           modelLabel: 'Scripted Alpha',
+          protocol: 'openai-completions',
           compatibility: 'compatible',
         }
       : {
@@ -220,6 +222,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
       baseUrl: input.baseUrl,
       modelId: input.model,
       modelLabel: input.modelName,
+      protocol: input.protocol,
       compatibility: 'compatible',
     }
     this.emit({ type: 'provider.status.changed', status: this.provider })
@@ -233,6 +236,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
       baseUrl: this.provider.baseUrl,
       modelId: this.provider.modelId,
       modelLabel: this.provider.modelLabel,
+      protocol: this.provider.protocol,
       compatibility: 'unknown',
     }
     this.emit({ type: 'provider.status.changed', status: this.provider })
