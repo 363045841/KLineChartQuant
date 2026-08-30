@@ -2,7 +2,8 @@
   <article class="tool-card" :data-status="tool.status">
     <header class="tool-card__header">
       <span class="tool-card__icon" aria-hidden="true">
-        <component :is="statusIcon" />
+        <LoadingSpinner v-if="tool.status === 'running'" />
+        <component v-else :is="statusIcon" />
       </span>
       <div class="tool-card__title">
         <strong>{{ tool.label }}</strong>
@@ -74,6 +75,8 @@
 
   import { getAgentCopy, type AgentLocale } from '../agent-copy'
 
+  import LoadingSpinner from '../../../components/LoadingSpinner.vue'
+
   import type { ToolCallView } from '../agent-contracts'
 
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
@@ -82,7 +85,6 @@
   import IconCheck from '~icons/tabler/check'
   import IconClock from '~icons/tabler/clock'
   import IconFocusCentered from '~icons/tabler/focus-centered'
-  import IconLoader2 from '~icons/tabler/loader-2'
   import IconRefresh from '~icons/tabler/refresh'
   import IconRotateClockwise2 from '~icons/tabler/rotate-clockwise-2'
   import IconShieldCheck from '~icons/tabler/shield-check'
@@ -113,7 +115,7 @@
       case 'queued':
         return IconClock
       default:
-        return IconLoader2
+        return IconClock
     }
   })
   const showActions = computed(
