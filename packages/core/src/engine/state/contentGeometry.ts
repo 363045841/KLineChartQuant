@@ -1,3 +1,4 @@
+/** 按数据视图与缩放派生内容几何尺寸（宽度/缓冲）的纯函数。 */
 import { SCROLL_TRAILING_SLOTS } from '../data/scrollCompensator'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
 import { FIVE_DAY_TIME_SHARE_PERIOD, isTimeSharePeriod } from '../../controllers/types'

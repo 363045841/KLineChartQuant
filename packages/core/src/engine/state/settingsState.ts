@@ -1,3 +1,4 @@
+/** 用户偏好设置状态模块：解析、迁移与冻结快照。 */
 import { batch, createSubState } from '../../foundation/reactivity/signal'
 import {
   migrateStoredSettings,

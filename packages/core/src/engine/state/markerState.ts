@@ -1,3 +1,4 @@
+/** 自定义 marker 业务状态模块。 */
 import { batch, createSubState } from '../../foundation/reactivity/signal'
 import type { CustomMarkerEntity } from '../marker/registry'
 import { deepFreezeSnapshot, immutableMap } from './immutable'

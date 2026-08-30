@@ -1,3 +1,4 @@
+/** Chart 业务状态的 composition root：组合全部子状态并暴露派生信号。 */
 import { StateKernel, type SubStateModule } from './stateKernel'
 import { createZoomState, type ZoomStateModule, type ZoomDeps } from './zoomState'
 import { createDataState, type DataStateModule } from './dataState'

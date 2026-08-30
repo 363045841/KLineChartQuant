@@ -1,3 +1,4 @@
+/** 视口状态模块：几何、DPR clamp 与尺寸的单一来源。 */
 import {
   createSubState,
   computed,
