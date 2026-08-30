@@ -489,6 +489,8 @@ export class Chart {
       dataView ?? (mode === this._timeShareMode ? ChartDataViewId.TimeShare : ChartDataViewId.KLine)
     if (prev === mode && this.kernel.mode.readonly.dataView.peek() === nextDataView) return
 
+    if (isTimeShareDataView(nextDataView)) this.kernel.zoom.actions.clearTimeShareKWidth()
+
     prev.onDeactivate(
       {
         enableMainIndicator: (id, p) => this.enableMainIndicator(id, p),
@@ -788,6 +790,7 @@ export class Chart {
 
     if (isTimeShareDataView(dataView)) {
       this.kernel.zoom.actions.setTimeShareKWidth(kWidth)
+      this.kernel.zoom.actions.setTimeShareSlotWidth(kWidth + kGap)
     } else if (zoomLevel !== undefined) {
       this.kernel.zoom.actions.setZoomLevel(zoomLevel)
     }
@@ -1195,7 +1198,7 @@ export class Chart {
       const tsData = this.dataManager.getTimeShareData()
       const vp = this.getViewport()
       if (!vp || vp.plotWidth <= 0) return
-      if (tsData.length > 0) {
+      if (tsData.length > 0 && this.kernel.zoom.readonly.timeShareSlotWidth.peek() === null) {
         const result = this.activeMode.computeKWidth(tsData.length, vp.plotWidth, vp.dpr)
         if (result) {
           this.applyRenderState(result.kWidth, result.kGap)
@@ -1502,9 +1505,7 @@ export class Chart {
       //    后续 scrollLeft 恢复才能正确反推物理像素偏移。
       this.setActiveMode(
         isTimeSharePeriod(primaryPeriod) ? this._timeShareMode : this._kLineMode,
-        primaryPeriod === FIVE_DAY_TIME_SHARE_PERIOD
-          ? ChartDataViewId.FiveDayTimeShare
-          : undefined,
+        primaryPeriod === FIVE_DAY_TIME_SHARE_PERIOD ? ChartDataViewId.FiveDayTimeShare : undefined,
       )
     }
     this.dataManager.setSymbols(specs)

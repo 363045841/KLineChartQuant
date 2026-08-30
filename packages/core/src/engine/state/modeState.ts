@@ -70,8 +70,8 @@ export function createModeState() {
     const dataView = sourceReadonly.dataView()
     const supportsKLineInteraction = !isTimeShareDataView(dataView)
     return Object.freeze({
-      allowPan: supportsKLineInteraction || dataView === ChartDataViewId.FiveDayTimeShare,
-      allowZoom: supportsKLineInteraction,
+      allowPan: true,
+      allowZoom: true,
       allowVerticalScroll: supportsKLineInteraction,
       allowRightAxisScale: supportsKLineInteraction,
     })

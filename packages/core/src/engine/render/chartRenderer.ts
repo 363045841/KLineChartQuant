@@ -667,7 +667,7 @@ export class ChartRenderer {
         const layout = computeTimeShareXLayout({
           arrivedCount: count,
           sessionSlots: resolveMarketSessionSlots(marketSession),
-          totalWidth: vp.plotWidth,
+          totalWidth: this.deps.viewport.readonly.contentWidth.peek(),
           dpr: vp.dpr,
           slotIndices: internalData
             .slice(range.start, range.end)

@@ -72,6 +72,8 @@ export interface ViewportSignalDeps {
   sessionSlots$?: ReadonlySignal<number>
   /** 多日分时快照中的实际交易日数量。 */
   timeShareDayCount$?: ReadonlySignal<number>
+  /** 分时每个交易槽的逻辑宽度；未初始化时按最小物理像素布局。 */
+  timeShareSlotWidth$?: ReadonlySignal<number | null>
 }
 
 /**
@@ -98,6 +100,8 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
   let _domDeps: ViewportDomDeps | undefined
   const readTimeShareDayCount = (): number => signalDeps.timeShareDayCount$?.() ?? 0
   const readSessionSlots = (): number => signalDeps.sessionSlots$?.() ?? 0
+  const readTimeShareSlotWidth = (): number | undefined =>
+    signalDeps.timeShareSlotWidth$?.() ?? undefined
 
   const _getDom = () => (_domDeps ? _domDeps.getDom() : NULL_DOM_RETURN)
   const _resizeSharedWebGLSurface = (w: number, h: number, dpr: number) => {
@@ -151,6 +155,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
           kGap: 0,
           timeShareDayCount: readTimeShareDayCount(),
           sessionSlots: readSessionSlots(),
+          timeShareSlotWidth: readTimeShareSlotWidth(),
         }),
     },
   )
@@ -175,6 +180,7 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
       kGap: kGap(),
       timeShareDayCount: readTimeShareDayCount(),
       sessionSlots: readSessionSlots(),
+      timeShareSlotWidth: readTimeShareSlotWidth(),
     })
   })
   const maxScrollLeft = computed(() => pureMaxScrollLeft(contentWidth(), readonly.viewWidth()))
@@ -221,7 +227,8 @@ export function createViewportState(signalDeps: ViewportSignalDeps) {
         : isTimeSharePeriod(signalDeps.period$())
           ? computeTimeShareVisibleRange({
               scrollLeft: vp.scrollLeft,
-              totalWidth: vp.plotWidth,
+              totalWidth: contentWidth(),
+              viewWidth: vp.plotWidth,
               dataLength: signalDeps.dataLength$(),
               sessionSlots: readSessionSlots(),
             })

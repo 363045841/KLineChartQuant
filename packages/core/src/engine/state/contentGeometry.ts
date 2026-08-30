@@ -14,6 +14,7 @@ export type ContentGeometryInput = {
   kGap: number
   timeShareDayCount?: number
   sessionSlots?: number
+  timeShareSlotWidth?: number
 }
 
 export function computeLeftLoadBufferWidth(input: ContentGeometryInput): number {
@@ -24,16 +25,18 @@ export function computeLeftLoadBufferWidth(input: ContentGeometryInput): number 
 export function computeContentWidth(input: ContentGeometryInput): number {
   if (input.dataLength === 0) return 0
   const left = computeLeftLoadBufferWidth(input)
-  if (input.period === FIVE_DAY_TIME_SHARE_PERIOD) {
-    return computeFiveDayTimeShareContentWidth(
+  if (isTimeSharePeriod(input.period)) {
+    const dayCount =
+      input.period === FIVE_DAY_TIME_SHARE_PERIOD ? (input.timeShareDayCount ?? 0) : 1
+    const minimumWidth = computeFiveDayTimeShareContentWidth(
       input.viewWidth,
-      input.timeShareDayCount ?? 0,
+      dayCount,
       input.sessionSlots ?? 0,
       input.dpr,
     )
-  }
-  if (isTimeSharePeriod(input.period)) {
-    return left + Math.max(input.viewWidth, 1)
+    const dpr = input.dpr > 0 ? input.dpr : 1
+    const slotWidth = Math.max(1 / dpr, input.timeShareSlotWidth ?? 0)
+    return Math.max(minimumWidth, dayCount * (input.sessionSlots ?? 0) * slotWidth)
   }
   const { startXPx, unitPx } = getPhysicalKLineConfig(input.kWidth, input.kGap, input.dpr)
   const dataPlotWidth = (startXPx + (input.dataLength + SCROLL_TRAILING_SLOTS) * unitPx) / input.dpr

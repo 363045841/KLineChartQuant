@@ -33,8 +33,8 @@ describe('modeState', () => {
     expect(m.readonly.lastBarPeriod.peek()).toBe('60min')
     expect(m.readonly.effectivePrimaryRenderer.peek()).toBe('line')
     expect(m.readonly.interactionCapabilities.peek()).toEqual({
-      allowPan: false,
-      allowZoom: false,
+      allowPan: true,
+      allowZoom: true,
       allowVerticalScroll: false,
       allowRightAxisScale: false,
     })
@@ -49,7 +49,7 @@ describe('modeState', () => {
     expect(m.readonly.lastBarPeriod.peek()).toBe('daily')
     expect(m.readonly.effectivePrimaryRenderer.peek()).toBe('line')
     expect(m.readonly.interactionCapabilities.peek().allowPan).toBe(true)
-    expect(m.readonly.interactionCapabilities.peek().allowZoom).toBe(false)
+    expect(m.readonly.interactionCapabilities.peek().allowZoom).toBe(true)
   })
 
   it('uses a line renderer while retaining K-line interactions in comparison view', () => {

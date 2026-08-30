@@ -287,6 +287,7 @@ export class ChartStateKernel extends StateKernel {
       zoomLevel$: this.zoomLevel$,
       sessionSlots$: this.sessionSlots$,
       timeShareDayCount$,
+      timeShareSlotWidth$: this.zoom.readonly.timeShareSlotWidth,
     })
 
     // ── Pane state（从 initialOptions.panes 初始化，避免 layout 与 kernel 初始不一致）──

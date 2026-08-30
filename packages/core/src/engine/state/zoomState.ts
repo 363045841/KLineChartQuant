@@ -29,12 +29,12 @@ export function createZoomState(deps: ZoomDeps) {
     {
       zoomLevel: 1,
       timeShareKWidth: null as number | null,
+      timeShareSlotWidth: null as number | null,
     },
     {
       kWidth: (s) => {
         const timeShareWidth = s.timeShareKWidth()
-        if (isTimeShareDataView(deps.dataView$()) && timeShareWidth !== null)
-          return timeShareWidth
+        if (isTimeShareDataView(deps.dataView$()) && timeShareWidth !== null) return timeShareWidth
         return zoomLevelToKWidth(s.zoomLevel(), readZoomConfig(deps))
       },
     },
@@ -56,8 +56,17 @@ export function createZoomState(deps: ZoomDeps) {
         signals.timeShareKWidth.set(kWidth)
       },
 
+      /** 设置分时每个交易槽的逻辑宽度。 */
+      setTimeShareSlotWidth(width: number) {
+        if (!Number.isFinite(width) || width <= 0) return
+        signals.timeShareSlotWidth.set(width)
+      },
+
       clearTimeShareKWidth() {
-        signals.timeShareKWidth.set(null)
+        batch(() => {
+          signals.timeShareKWidth.set(null)
+          signals.timeShareSlotWidth.set(null)
+        })
       },
     },
 
@@ -65,6 +74,7 @@ export function createZoomState(deps: ZoomDeps) {
       batch(() => {
         signals.zoomLevel.set(1)
         signals.timeShareKWidth.set(null)
+        signals.timeShareSlotWidth.set(null)
       })
     },
   }
