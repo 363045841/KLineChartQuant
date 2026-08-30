@@ -16,9 +16,11 @@ import {
 import type { Renderer } from '../../packages/core/src/rendering/render/Renderer'
 
 type BackendName = 'canvas2d' | 'webgl2' | 'webgpu'
+type IndicatorProfile = 'ma' | 'ichimoku'
 
 type ScenarioOptions = {
   backend: BackendName
+  indicatorProfile: IndicatorProfile
   visiblePoints: number
   width: number
   height: number
@@ -55,6 +57,7 @@ type WebGpuTimer = {
 
 type ScenarioResult = {
   backend: BackendName
+  indicatorProfile: IndicatorProfile
   effectiveBackend: string
   visiblePoints: number
   width: number
@@ -62,8 +65,8 @@ type ScenarioResult = {
   dpr: number
   warmupFrames: number
   sampleFrames: number
-  geometryMs: number
   initializationMs: number
+  cpuFramePreparationMs: number[]
   cpuFrameMs: number[]
   frameIntervalsMs: number[]
   gpuFrameMs: number[]
@@ -101,8 +104,13 @@ declare global {
 
 const app = document.querySelector<HTMLDivElement>('#app')!
 
-/** 使用固定种子生成可重复的 K 线矩形和三条均线。 */
-function createGeometry(visiblePoints: number, width: number, height: number): Geometry {
+/** 使用固定种子生成可重复的 K 线和指定指标几何。 */
+function createGeometry(
+  visiblePoints: number,
+  width: number,
+  height: number,
+  indicatorProfile: IndicatorProfile,
+): Geometry {
   const startedAt = performance.now()
   let state = 0x6d2b79f5
   const random = (): number => {
@@ -116,6 +124,8 @@ function createGeometry(visiblePoints: number, width: number, height: number): G
   const upWicks: number[] = []
   const downWicks: number[] = []
   const closes = new Float64Array(visiblePoints)
+  const highs = new Float64Array(visiblePoints)
+  const lows = new Float64Array(visiblePoints)
   const step = width / visiblePoints
   const bodyWidth = Math.max(0.35, step * 0.68)
   let close = 100
@@ -126,6 +136,8 @@ function createGeometry(visiblePoints: number, width: number, height: number): G
     const high = Math.max(open, close) + random() * 1.8
     const low = Math.min(open, close) - random() * 1.8
     closes[index] = close
+    highs[index] = high
+    lows[index] = low
 
     const x = index * step + (step - bodyWidth) * 0.5
     const priceToY = (price: number): number => height * 0.5 - (price - 100) * 2.4
@@ -169,17 +181,86 @@ function createGeometry(visiblePoints: number, width: number, height: number): G
     color,
   })
 
+  if (indicatorProfile === 'ma') {
+    return {
+      batches: [
+        asBatch(upWicks, '#22c55e'),
+        asBatch(downWicks, '#ef4444'),
+        asBatch(up, '#22c55e'),
+        asBatch(down, '#ef4444'),
+      ],
+      strips: [
+        movingAverage(5, '#f59e0b'),
+        movingAverage(20, '#38bdf8'),
+        movingAverage(60, '#a78bfa'),
+      ],
+      geometryMs: performance.now() - startedAt,
+    }
+  }
+
+  /** 计算 Ichimoku 中线：(指定周期内最高价 + 最低价) / 2。 */
+  const midpoint = (period: number): Array<number | undefined> => {
+    const values: Array<number | undefined> = Array.from({ length: visiblePoints })
+    for (let index = period - 1; index < visiblePoints; index += 1) {
+      let high = -Infinity
+      let low = Infinity
+      for (let offset = index - period + 1; offset <= index; offset += 1) {
+        high = Math.max(high, highs[offset]!)
+        low = Math.min(low, lows[offset]!)
+      }
+      values[index] = (high + low) / 2
+    }
+    return values
+  }
+  const toStrip = (values: Array<number | undefined>, color: string): LineStrip => ({
+    points: values.flatMap((value, index) =>
+      value === undefined
+        ? []
+        : [{ x: index * step + step * 0.5, y: height * 0.5 - (value - 100) * 2.4 }],
+    ),
+    color,
+    width: 1,
+  })
+  const tenkan = midpoint(9)
+  const kijun = midpoint(26)
+  const spanBSource = midpoint(52)
+  const spanA: Array<number | undefined> = Array.from({ length: visiblePoints })
+  const spanB: Array<number | undefined> = Array.from({ length: visiblePoints })
+  const chikou: Array<number | undefined> = Array.from({ length: visiblePoints })
+  const displacement = 26
+  for (let index = 0; index < visiblePoints; index += 1) {
+    const target = index + displacement
+    if (target < visiblePoints && tenkan[index] !== undefined && kijun[index] !== undefined) {
+      spanA[target] = (tenkan[index]! + kijun[index]!) / 2
+      spanB[target] = spanBSource[index]
+    }
+    if (index >= displacement) chikou[index - displacement] = closes[index]
+  }
+  const cloudUp: number[] = []
+  const cloudDown: number[] = []
+  for (let index = 0; index < visiblePoints; index += 1) {
+    if (spanA[index] === undefined || spanB[index] === undefined) continue
+    const top = height * 0.5 - (Math.max(spanA[index]!, spanB[index]!) - 100) * 2.4
+    const bottom = height * 0.5 - (Math.min(spanA[index]!, spanB[index]!) - 100) * 2.4
+    const target = spanA[index]! >= spanB[index]! ? cloudUp : cloudDown
+    target.push(index * step, top, Math.max(step, 0.35), Math.max(0.35, bottom - top))
+  }
+
   return {
     batches: [
       asBatch(upWicks, '#22c55e'),
       asBatch(downWicks, '#ef4444'),
       asBatch(up, '#22c55e'),
       asBatch(down, '#ef4444'),
+      asBatch(cloudUp, '#86efac'),
+      asBatch(cloudDown, '#fca5a5'),
     ],
     strips: [
-      movingAverage(5, '#f59e0b'),
-      movingAverage(20, '#38bdf8'),
-      movingAverage(60, '#a78bfa'),
+      toStrip(tenkan, '#2563eb'),
+      toStrip(kijun, '#dc2626'),
+      toStrip(spanA, '#16a34a'),
+      toStrip(spanB, '#ea580c'),
+      toStrip(chikou, '#7c3aed'),
     ],
     geometryMs: performance.now() - startedAt,
   }
@@ -362,21 +443,20 @@ function jsHeapUsed(): number | null {
 }
 
 /** 执行 Canvas2D 场景并采集 CPU 与真实帧间隔。 */
-async function runCanvasScenario(
-  options: ScenarioOptions,
-  geometry: Geometry,
-): Promise<ScenarioResult> {
+async function runCanvasScenario(options: ScenarioOptions): Promise<ScenarioResult> {
   const initializationStarted = performance.now()
   const canvas = mountCanvas(options.width, options.height, options.dpr)
   const ctx = canvas.getContext('2d', { alpha: true })!
   ctx.scale(options.dpr, options.dpr)
   const canvasContract = createCanvas2DRenderer()
   const initializationMs = performance.now() - initializationStarted
+  const cpuFramePreparationMs: number[] = []
   const cpuFrameMs: number[] = []
   const frameIntervalsMs: number[] = []
+  let drawCallsPerFrame = 0
   let previousTimestamp: number | null = null
 
-  const draw = (): void => {
+  const draw = (geometry: Geometry): void => {
     ctx.clearRect(0, 0, options.width, options.height)
     for (const batch of geometry.batches) {
       ctx.fillStyle = batch.color
@@ -404,10 +484,18 @@ async function runCanvasScenario(
 
   for (let index = 0; index < options.warmupFrames + options.sampleFrames; index += 1) {
     const timestamp = await nextAnimationFrame()
+    const geometry = createGeometry(
+      options.visiblePoints,
+      options.width,
+      options.height,
+      options.indicatorProfile,
+    )
+    drawCallsPerFrame ||= geometry.batches.length + geometry.strips.length
     const startedAt = performance.now()
-    draw()
+    draw(geometry)
     const elapsed = performance.now() - startedAt
     if (index >= options.warmupFrames) {
+      cpuFramePreparationMs.push(geometry.geometryMs)
       cpuFrameMs.push(elapsed)
       if (previousTimestamp !== null) frameIntervalsMs.push(timestamp - previousTimestamp)
     }
@@ -417,6 +505,7 @@ async function runCanvasScenario(
   canvasContract.dispose()
   return {
     backend: options.backend,
+    indicatorProfile: options.indicatorProfile,
     effectiveBackend: canvasContract.caps.name,
     visiblePoints: options.visiblePoints,
     width: options.width,
@@ -424,12 +513,12 @@ async function runCanvasScenario(
     dpr: options.dpr,
     warmupFrames: options.warmupFrames,
     sampleFrames: options.sampleFrames,
-    geometryMs: geometry.geometryMs,
     initializationMs,
+    cpuFramePreparationMs,
     cpuFrameMs,
     frameIntervalsMs,
     gpuFrameMs: [],
-    drawCallsPerFrame: geometry.batches.length + geometry.strips.length,
+    drawCallsPerFrame,
     queueSubmitsPerFrame: null,
     jsHeapUsedBytes: jsHeapUsed(),
     webglRenderer: null,
@@ -439,10 +528,7 @@ async function runCanvasScenario(
 }
 
 /** 执行项目 WebGL 后端场景，并用 EXT_disjoint_timer_query_webgl2 读取 GPU 时间。 */
-async function runWebGlScenario(
-  options: ScenarioOptions,
-  geometry: Geometry,
-): Promise<ScenarioResult> {
+async function runWebGlScenario(options: ScenarioOptions): Promise<ScenarioResult> {
   const initializationStarted = performance.now()
   const canvas = mountCanvas(options.width, options.height, options.dpr)
   const shared = new SharedWebGLSurface(canvas)
@@ -454,12 +540,14 @@ async function runWebGlScenario(
   const timer = gl.getExtension('EXT_disjoint_timer_query_webgl2')
   const linePipeline = renderer.createPipeline({ type: 'line' })
   const initializationMs = performance.now() - initializationStarted
+  const cpuFramePreparationMs: number[] = []
   const cpuFrameMs: number[] = []
   const frameIntervalsMs: number[] = []
   const queries: WebGLQuery[] = []
+  let drawCallsPerFrame = 0
   let previousTimestamp: number | null = null
 
-  const draw = (): void => {
+  const draw = (geometry: Geometry): void => {
     renderer.beginFrame({
       x: 0,
       y: 0,
@@ -478,10 +566,17 @@ async function runWebGlScenario(
 
   for (let index = 0; index < options.warmupFrames + options.sampleFrames; index += 1) {
     const timestamp = await nextAnimationFrame()
+    const geometry = createGeometry(
+      options.visiblePoints,
+      options.width,
+      options.height,
+      options.indicatorProfile,
+    )
+    drawCallsPerFrame ||= geometry.batches.length + geometry.strips.length
     const query = timer ? gl.createQuery() : null
     if (query && timer) gl.beginQuery(timer.TIME_ELAPSED_EXT, query)
     const startedAt = performance.now()
-    draw()
+    draw(geometry)
     const elapsed = performance.now() - startedAt
     if (query && timer) {
       gl.endQuery(timer.TIME_ELAPSED_EXT)
@@ -489,6 +584,7 @@ async function runWebGlScenario(
       else gl.deleteQuery(query)
     }
     if (index >= options.warmupFrames) {
+      cpuFramePreparationMs.push(geometry.geometryMs)
       cpuFrameMs.push(elapsed)
       if (previousTimestamp !== null) frameIntervalsMs.push(timestamp - previousTimestamp)
     }
@@ -519,6 +615,7 @@ async function runWebGlScenario(
   renderer.dispose()
   return {
     backend: options.backend,
+    indicatorProfile: options.indicatorProfile,
     effectiveBackend: renderer.caps.name,
     visiblePoints: options.visiblePoints,
     width: options.width,
@@ -526,12 +623,12 @@ async function runWebGlScenario(
     dpr: options.dpr,
     warmupFrames: options.warmupFrames,
     sampleFrames: options.sampleFrames,
-    geometryMs: geometry.geometryMs,
     initializationMs,
+    cpuFramePreparationMs,
     cpuFrameMs,
     frameIntervalsMs,
     gpuFrameMs,
-    drawCallsPerFrame: geometry.batches.length + geometry.strips.length,
+    drawCallsPerFrame,
     queueSubmitsPerFrame: null,
     jsHeapUsedBytes: jsHeapUsed(),
     webglRenderer,
@@ -541,10 +638,7 @@ async function runWebGlScenario(
 }
 
 /** 执行项目 WebGPU 后端场景，并读取单次 RenderPass 的真实 GPU 时间。 */
-async function runWebGpuScenario(
-  options: ScenarioOptions,
-  geometry: Geometry,
-): Promise<ScenarioResult> {
+async function runWebGpuScenario(options: ScenarioOptions): Promise<ScenarioResult> {
   const initializationStarted = performance.now()
   const canvas = mountCanvas(options.width, options.height, options.dpr)
   const timedGpu = await createTimestampedGpu()
@@ -552,12 +646,14 @@ async function runWebGpuScenario(
   renderer.surface.resize(options.width, options.height, options.dpr)
   const linePipeline = renderer.createPipeline({ type: 'line' })
   const initializationMs = performance.now() - initializationStarted
+  const cpuFramePreparationMs: number[] = []
   const cpuFrameMs: number[] = []
   const frameIntervalsMs: number[] = []
+  let drawCallsPerFrame = 0
   let previousTimestamp: number | null = null
   resetFrameMetrics()
 
-  const draw = (): void => {
+  const draw = (geometry: Geometry): void => {
     renderer.beginFrame({
       x: 0,
       y: 0,
@@ -576,10 +672,18 @@ async function runWebGpuScenario(
 
   for (let index = 0; index < options.warmupFrames + options.sampleFrames; index += 1) {
     const timestamp = await nextAnimationFrame()
+    const geometry = createGeometry(
+      options.visiblePoints,
+      options.width,
+      options.height,
+      options.indicatorProfile,
+    )
+    drawCallsPerFrame ||= geometry.batches.length + geometry.strips.length
     const startedAt = performance.now()
-    draw()
+    draw(geometry)
     const elapsed = performance.now() - startedAt
     if (index >= options.warmupFrames) {
+      cpuFramePreparationMs.push(geometry.geometryMs)
       cpuFrameMs.push(elapsed)
       if (previousTimestamp !== null) frameIntervalsMs.push(timestamp - previousTimestamp)
     }
@@ -595,6 +699,7 @@ async function runWebGpuScenario(
   renderer.dispose()
   return {
     backend: options.backend,
+    indicatorProfile: options.indicatorProfile,
     effectiveBackend: renderer.caps.name,
     visiblePoints: options.visiblePoints,
     width: options.width,
@@ -602,12 +707,12 @@ async function runWebGpuScenario(
     dpr: options.dpr,
     warmupFrames: options.warmupFrames,
     sampleFrames: options.sampleFrames,
-    geometryMs: geometry.geometryMs,
     initializationMs,
+    cpuFramePreparationMs,
     cpuFrameMs,
     frameIntervalsMs,
     gpuFrameMs,
-    drawCallsPerFrame: metrics.drawCallCount,
+    drawCallsPerFrame: metrics.drawCallCount || drawCallsPerFrame,
     queueSubmitsPerFrame: metrics.queueSubmitCount,
     jsHeapUsedBytes: jsHeapUsed(),
     webglRenderer: null,
@@ -618,10 +723,9 @@ async function runWebGpuScenario(
 
 /** 执行单个后端、单个可见点数量的独立场景。 */
 async function runScenario(options: ScenarioOptions): Promise<ScenarioResult> {
-  const geometry = createGeometry(options.visiblePoints, options.width, options.height)
-  if (options.backend === 'canvas2d') return runCanvasScenario(options, geometry)
-  if (options.backend === 'webgl2') return runWebGlScenario(options, geometry)
-  return runWebGpuScenario(options, geometry)
+  if (options.backend === 'canvas2d') return runCanvasScenario(options)
+  if (options.backend === 'webgl2') return runWebGlScenario(options)
+  return runWebGpuScenario(options)
 }
 
 /** 在正式测试前检查浏览器内的 WebGL/WebGPU 设备身份。 */

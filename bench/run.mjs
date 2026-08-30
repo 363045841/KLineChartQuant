@@ -27,6 +27,8 @@ const sampleFrames = Number(process.env.KLINE_BENCH_FRAMES ?? 600)
 const width = Number(process.env.KLINE_BENCH_WIDTH ?? 1180)
 const height = Number(process.env.KLINE_BENCH_HEIGHT ?? 640)
 const dpr = Number(process.env.KLINE_BENCH_DPR ?? 2)
+const droppedFrameMultiplier = 1.5
+const severeJankMultiplier = 2
 
 /** 等待条件成立，超时后抛出带上下文的错误。 */
 async function waitFor(check, timeoutMs, label) {
@@ -191,6 +193,29 @@ function percentile(values, quantile) {
   return sorted[lower] + (sorted[upper] - sorted[lower]) * (index - lower)
 }
 
+/** 计算样本标准差，用于衡量连续帧间隔的离散程度。 */
+function standardDeviation(values) {
+  if (values.length < 2) return null
+  const mean = values.reduce((sum, value) => sum + value, 0) / values.length
+  const variance = values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / (values.length - 1)
+  return Math.sqrt(variance)
+}
+
+/** 统计超过帧预算的最长连续卡顿段。 */
+function longestStreak(values, predicate) {
+  let longest = 0
+  let current = 0
+  for (const value of values) {
+    if (predicate(value)) {
+      current += 1
+      longest = Math.max(longest, current)
+    } else {
+      current = 0
+    }
+  }
+  return longest
+}
+
 /** 汇总单个场景的数组指标。 */
 function summarize(result, resource, refreshIntervalMs) {
   const intervals = result.frameIntervalsMs
@@ -202,19 +227,33 @@ function summarize(result, resource, refreshIntervalMs) {
   const power = resource.gpuSamples
     .map((sample) => sample.powerW)
     .filter((value) => Number.isFinite(value))
+  const framePacingJitter = intervals.map((value) => Math.abs(value - refreshIntervalMs))
+  const droppedFrame = (value) => value > refreshIntervalMs * droppedFrameMultiplier
+  const frameIntervalP99Ms = percentile(intervals, 0.99)
   return {
     ...result,
     summary: {
+      cpuFramePreparationP50Ms: percentile(result.cpuFramePreparationMs, 0.5),
+      cpuFramePreparationP95Ms: percentile(result.cpuFramePreparationMs, 0.95),
       cpuFrameP50Ms: percentile(result.cpuFrameMs, 0.5),
       cpuFrameP95Ms: percentile(result.cpuFrameMs, 0.95),
       gpuFrameP50Ms: percentile(result.gpuFrameMs, 0.5),
       gpuFrameP95Ms: percentile(result.gpuFrameMs, 0.95),
       frameIntervalP50Ms: percentile(intervals, 0.5),
       frameIntervalP95Ms: percentile(intervals, 0.95),
+      frameIntervalP99Ms,
+      frameIntervalStdDevMs: standardDeviation(intervals),
+      framePacingJitterP95Ms: percentile(framePacingJitter, 0.95),
       observedFps: meanInterval ? 1000 / meanInterval : null,
+      onePercentLowFps: frameIntervalP99Ms ? 1000 / frameIntervalP99Ms : null,
       droppedFrameRate: intervals.length
-        ? intervals.filter((value) => value > refreshIntervalMs * 1.5).length / intervals.length
+        ? intervals.filter(droppedFrame).length / intervals.length
         : null,
+      severeJankRate: intervals.length
+        ? intervals.filter((value) => value > refreshIntervalMs * severeJankMultiplier).length /
+          intervals.length
+        : null,
+      longestDroppedFrameStreak: longestStreak(intervals, droppedFrame),
       rendererMainThreadUtilization: resource.mainThreadUtilization,
       gpuUtilizationAverage: gpuUtilization.length
         ? gpuUtilization.reduce((sum, value) => sum + value, 0) / gpuUtilization.length
@@ -235,15 +274,25 @@ function summarize(result, resource, refreshIntervalMs) {
 function toCsv(results) {
   const columns = [
     'backend',
+    'indicatorProfile',
     'visiblePoints',
-    'geometryMs',
+    'cpuFramePreparationP50Ms',
+    'cpuFramePreparationP95Ms',
     'initializationMs',
     'cpuFrameP50Ms',
     'cpuFrameP95Ms',
     'gpuFrameP50Ms',
     'gpuFrameP95Ms',
+    'frameIntervalP50Ms',
+    'frameIntervalP95Ms',
+    'frameIntervalP99Ms',
+    'frameIntervalStdDevMs',
+    'framePacingJitterP95Ms',
     'observedFps',
+    'onePercentLowFps',
     'droppedFrameRate',
+    'severeJankRate',
+    'longestDroppedFrameStreak',
     'rendererMainThreadUtilization',
     'gpuUtilizationAverage',
     'gpuUtilizationP95',
@@ -384,37 +433,50 @@ async function main() {
       throw new Error('Unable to calibrate requestAnimationFrame refresh interval')
     }
     const scenarios = []
-    for (const visiblePoints of visiblePointSets) {
-      for (const backend of ['canvas2d', 'webgl2', 'webgpu']) {
-        const options = {
-          backend,
-          visiblePoints,
-          width,
-          height,
-          dpr,
-          warmupFrames,
-          sampleFrames,
+    for (const indicatorProfile of ['ma', 'ichimoku']) {
+      for (const visiblePoints of visiblePointSets) {
+        for (const backend of ['canvas2d', 'webgl2', 'webgpu']) {
+          const options = {
+            backend,
+            indicatorProfile,
+            visiblePoints,
+            width,
+            height,
+            dpr,
+            warmupFrames,
+            sampleFrames,
+          }
+          const before = await performanceMetrics(page)
+          const resourceStartedAt = Date.now()
+          const startedAt = performance.now()
+          const result = await evaluate(
+            page,
+            `window.renderBench.runScenario(${JSON.stringify(options)})`,
+          )
+          const resourceEndedAt = Date.now()
+          const gpuSamples = gpuSampler.between(resourceStartedAt, resourceEndedAt)
+          const elapsedSeconds = (performance.now() - startedAt) / 1000
+          const after = await performanceMetrics(page)
+          const taskDuration = Math.max(0, (after.TaskDuration ?? 0) - (before.TaskDuration ?? 0))
+          const mainThreadUtilization =
+            elapsedSeconds > 0 ? (taskDuration / elapsedSeconds) * 100 : null
+          scenarios.push(
+            summarize(result, { gpuSamples, mainThreadUtilization }, refreshIntervalMs),
+          )
+          const summary = scenarios.at(-1).summary
+          const severeJankRate =
+            summary.severeJankRate === null
+              ? 'N/A'
+              : `${(summary.severeJankRate * 100).toFixed(2)}%`
+          process.stdout.write(
+            `${indicatorProfile} ${backend} ${visiblePoints}: prepare P50=${summary.cpuFramePreparationP50Ms?.toFixed(3)}ms, ` +
+              `CPU submit P50=${summary.cpuFrameP50Ms?.toFixed(3)}ms, ` +
+              `GPU P50=${summary.gpuFrameP50Ms?.toFixed(3) ?? 'N/A'}ms, ` +
+              `FPS=${summary.observedFps?.toFixed(1)}, ` +
+              `1% low=${summary.onePercentLowFps?.toFixed(1)}, ` +
+              `frame P99=${summary.frameIntervalP99Ms?.toFixed(2)}ms, jank=${severeJankRate}\n`,
+          )
         }
-        const before = await performanceMetrics(page)
-        const resourceStartedAt = Date.now()
-        const startedAt = performance.now()
-        const result = await evaluate(
-          page,
-          `window.renderBench.runScenario(${JSON.stringify(options)})`,
-        )
-        const resourceEndedAt = Date.now()
-        const gpuSamples = gpuSampler.between(resourceStartedAt, resourceEndedAt)
-        const elapsedSeconds = (performance.now() - startedAt) / 1000
-        const after = await performanceMetrics(page)
-        const taskDuration = Math.max(0, (after.TaskDuration ?? 0) - (before.TaskDuration ?? 0))
-        const mainThreadUtilization =
-          elapsedSeconds > 0 ? (taskDuration / elapsedSeconds) * 100 : null
-        scenarios.push(summarize(result, { gpuSamples, mainThreadUtilization }, refreshIntervalMs))
-        process.stdout.write(
-          `${backend} ${visiblePoints}: CPU P50=${scenarios.at(-1).summary.cpuFrameP50Ms?.toFixed(3)}ms, ` +
-            `GPU P50=${scenarios.at(-1).summary.gpuFrameP50Ms?.toFixed(3) ?? 'N/A'}ms, ` +
-            `FPS=${scenarios.at(-1).summary.observedFps?.toFixed(1)}\n`,
-        )
       }
     }
 
@@ -447,7 +509,10 @@ async function main() {
         dpr,
         refreshIntervalMs,
         nominalRefreshRateHz: 1000 / refreshIntervalMs,
-        indicators: ['MA5', 'MA20', 'MA60'],
+        indicatorProfiles: {
+          ma: ['MA5', 'MA20', 'MA60'],
+          ichimoku: ['Tenkan9', 'Kijun26', 'SpanA', 'SpanB52', 'Chikou26', 'Cloud26'],
+        },
         panes: 1,
         webgpuMsaa: 4,
       },
