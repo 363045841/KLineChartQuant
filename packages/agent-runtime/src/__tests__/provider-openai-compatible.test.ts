@@ -7,10 +7,12 @@ import {
   PiRunDriver,
   createOpenAiCompatibleRuntimeSupport,
   normalizeProviderBaseUrl,
+  parseOpenAiCompatibleProviderSettings,
   parseRetryAfter,
   requestProviderJson,
   type OpenAiCompatibleProviderSettings,
   type ProviderDiagnostic,
+  type ProviderApiProtocol,
 } from '../index'
 
 import type { FetchFunction } from '@earendil-works/pi-ai'
@@ -31,19 +33,20 @@ function configuredStores() {
   return { credentials, settings }
 }
 
-function providerFetch(options: { invalidTool?: boolean } = {}): FetchFunction {
+function providerFetch(options: { invalidTool?: boolean; protocol?: ProviderApiProtocol } = {}) {
+  const protocol = options.protocol ?? 'openai-completions'
   return vi.fn(async (input, init) => {
     const url = String(input)
     if (url.endsWith('/models')) {
       return json({ object: 'list', data: [{ id: 'frontier-fast', name: 'Frontier Fast' }] })
     }
     const body = JSON.parse(String(init?.body)) as Record<string, unknown>
-    if (Array.isArray(body.tools)) {
+    if (protocol === 'openai-completions' && url.endsWith('/chat/completions')) {
+      if (!Array.isArray(body.tools)) {
+        return json({ choices: [{ message: { role: 'assistant', content: 'OK' } }] })
+      }
       const tool = body.tools[0] as {
-        function: {
-          name: string
-          parameters: { properties: { nonce: { const: string } } }
-        }
+        function: { name: string; parameters: { properties: { nonce: { const: string } } } }
       }
       return json({
         choices: [
@@ -68,20 +71,109 @@ function providerFetch(options: { invalidTool?: boolean } = {}): FetchFunction {
         ],
       })
     }
-    return json({ choices: [{ message: { role: 'assistant', content: 'OK' } }] })
+    if (protocol === 'openai-responses' && url.endsWith('/responses')) {
+      if (!Array.isArray(body.tools)) {
+        return json({
+          output: [{ type: 'message', content: [{ type: 'output_text', text: 'OK' }] }],
+        })
+      }
+      const tool = body.tools[0] as {
+        name: string
+        parameters: { properties: { nonce: { const: string } } }
+      }
+      return json({
+        output: [
+          {
+            type: 'function_call',
+            name: options.invalidTool ? 'wrong_tool' : tool.name,
+            arguments: JSON.stringify({ nonce: tool.parameters.properties.nonce.const }),
+          },
+        ],
+      })
+    }
+    return new Response('', { status: 404 })
+  })
+}
+
+function streamResponse(protocol: ProviderApiProtocol): Response {
+  const events =
+    protocol === 'openai-completions'
+      ? [
+          {
+            id: 'chat-1',
+            object: 'chat.completion.chunk',
+            created: 1,
+            model: 'frontier-fast',
+            choices: [
+              { index: 0, delta: { role: 'assistant', content: 'Real ' }, finish_reason: null },
+            ],
+          },
+          {
+            id: 'chat-1',
+            object: 'chat.completion.chunk',
+            created: 1,
+            model: 'frontier-fast',
+            choices: [{ index: 0, delta: { content: 'response' }, finish_reason: null }],
+          },
+          {
+            id: 'chat-1',
+            object: 'chat.completion.chunk',
+            created: 1,
+            model: 'frontier-fast',
+            choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
+          },
+        ]
+      : [
+          { type: 'response.created', response: { id: 'response-1' } },
+          {
+            type: 'response.output_item.added',
+            output_index: 0,
+            item: { id: 'message-1', type: 'message', role: 'assistant', content: [] },
+          },
+          { type: 'response.output_text.delta', output_index: 0, delta: 'Real ' },
+          { type: 'response.output_text.delta', output_index: 0, delta: 'response' },
+          {
+            type: 'response.output_item.done',
+            output_index: 0,
+            item: {
+              id: 'message-1',
+              type: 'message',
+              role: 'assistant',
+              content: [{ type: 'output_text', text: 'Real response', annotations: [] }],
+            },
+          },
+          {
+            type: 'response.completed',
+            response: {
+              id: 'response-1',
+              status: 'completed',
+              output: [],
+              usage: { input_tokens: 1, output_tokens: 2, total_tokens: 3 },
+            },
+          },
+        ]
+  const stream = [
+    ...events.map((event) => `data: ${JSON.stringify(event)}\n`),
+    'data: [DONE]\n',
+  ].join('\n')
+  return new Response(stream, {
+    status: 200,
+    headers: { 'content-type': 'text/event-stream' },
   })
 }
 
 async function configure(
   credentials: InMemoryProviderCredentialStore,
   settings: InMemoryProviderSettingsStore,
+  protocol: ProviderApiProtocol = 'openai-completions',
 ): Promise<void> {
   await credentials.write(secret)
   await settings.write({
-    version: 1,
+    version: 2,
     baseUrl,
     modelId: 'frontier-fast',
     modelName: 'Frontier Fast',
+    protocol,
     compatibility: 'compatible',
     lastTestedAt: 10,
     lastModelsRefreshAt: 9,
@@ -257,6 +349,74 @@ describe('OpenAI-compatible Provider HTTP boundary', () => {
 })
 
 describe('OpenAI-compatible runtime support', () => {
+  it.each([
+    ['openai-completions', '/chat/completions'],
+    ['openai-responses', '/responses'],
+  ] as const)(
+    'validates and creates a %s run plan through its protocol adapter',
+    async (protocol, endpoint) => {
+      const { credentials, settings } = configuredStores()
+      const fetch = providerFetch({ protocol })
+      const support = createOpenAiCompatibleRuntimeSupport({
+        credentials,
+        settings,
+        fetch,
+        sleep: async () => undefined,
+      })
+
+      const discovered = await support.provider.listModels({ baseUrl, apiKey: secret, protocol })
+      expect(discovered.models).toHaveLength(1)
+      await expect(
+        support.provider.test({ baseUrl, apiKey: secret, model: 'frontier-fast', protocol }),
+      ).resolves.toMatchObject({
+        compatible: true,
+        stages: [{ stage: 'catalog' }, { stage: 'text' }, { stage: 'tool' }],
+      })
+      const plan = await support.createPlan({
+        sessionId: 'session-1',
+        runId: 'run-1',
+        turnId: 'turn-1',
+        lane: 'main',
+        prompt: 'Hello',
+        readOnly: true,
+        startedAt: 1,
+        userEntryId: 'user-1',
+      })
+
+      expect(plan.model.api).toBe(protocol)
+      expect(await settings.read()).toMatchObject({ version: 2, protocol })
+      expect(fetch.mock.calls.map(([input]) => String(input))).toEqual([
+        `${baseUrl}/models`,
+        `${baseUrl}/models`,
+        `${baseUrl}${endpoint}`,
+        `${baseUrl}${endpoint}`,
+      ])
+    },
+  )
+
+  it('migrates v1 persisted settings to explicit Chat Completions', () => {
+    expect(
+      parseOpenAiCompatibleProviderSettings({
+        version: 1,
+        baseUrl,
+        modelId: 'frontier-fast',
+        modelName: 'Frontier Fast',
+        compatibility: 'compatible',
+        lastTestedAt: 10,
+        lastModelsRefreshAt: 9,
+      }),
+    ).toEqual({
+      version: 2,
+      baseUrl,
+      modelId: 'frontier-fast',
+      modelName: 'Frontier Fast',
+      protocol: 'openai-completions',
+      compatibility: 'compatible',
+      lastTestedAt: 10,
+      lastModelsRefreshAt: 9,
+    })
+  })
+
   it('discovers models, passes all probes, and persists only the successful configuration', async () => {
     const { credentials, settings } = configuredStores()
     let currentTime = 100
@@ -268,20 +428,34 @@ describe('OpenAI-compatible runtime support', () => {
       sleep: async () => undefined,
     })
 
-    const discovered = await support.provider.listModels({ baseUrl, apiKey: secret })
+    const discovered = await support.provider.listModels({
+      baseUrl,
+      apiKey: secret,
+      protocol: 'openai-completions',
+    })
     expect(discovered.models).toEqual([
       { id: 'frontier-fast', name: 'Frontier Fast', compatibility: 'unknown' },
     ])
-    const result = await support.provider.test({ baseUrl, apiKey: secret, model: 'frontier-fast' })
+    const result = await support.provider.test({
+      baseUrl,
+      apiKey: secret,
+      model: 'frontier-fast',
+      protocol: 'openai-completions',
+    })
     expect(result).toMatchObject({
       compatible: true,
       model: 'frontier-fast',
-      stages: [{ stage: 'catalog', ok: true }],
+      stages: [
+        { stage: 'catalog', ok: true },
+        { stage: 'text', ok: true },
+        { stage: 'tool', ok: true },
+      ],
     })
     expect(await credentials.read()).toBe(secret)
     expect(await settings.read()).toMatchObject<Partial<OpenAiCompatibleProviderSettings>>({
       baseUrl,
       modelId: 'frontier-fast',
+      protocol: 'openai-completions',
       compatibility: 'compatible',
     })
     const status = await support.provider.getStatus()
@@ -295,7 +469,7 @@ describe('OpenAI-compatible runtime support', () => {
     expect(status.fingerprint).toMatch(/^sha256:[0-9a-f]{12}$/)
   })
 
-  it('tests the selected model through the catalog without sending chat probes', async () => {
+  it('does not replace a working configuration when a protocol tool probe fails', async () => {
     const { credentials, settings } = configuredStores()
     await configure(credentials, settings)
     const fetch = providerFetch({ invalidTool: true })
@@ -307,14 +481,24 @@ describe('OpenAI-compatible runtime support', () => {
     })
 
     await expect(
-      support.provider.test({ baseUrl, apiKey: 'replacement-credential', model: 'frontier-fast' }),
-    ).resolves.toMatchObject({ compatible: true, stages: [{ stage: 'catalog', ok: true }] })
-    expect(fetch).toHaveBeenCalledTimes(1)
+      support.provider.test({
+        baseUrl,
+        apiKey: 'replacement-credential',
+        model: 'frontier-fast',
+        protocol: 'openai-completions',
+      }),
+    ).rejects.toMatchObject({ code: 'PROVIDER_INCOMPATIBLE_TOOLS' })
+    expect(fetch).toHaveBeenCalledTimes(3)
     expect(String(fetch.mock.calls[0][0])).toBe(`${baseUrl}/models`)
-    expect(await credentials.read()).toBe('replacement-credential')
-    expect(await settings.read()).toMatchObject({ modelId: 'frontier-fast' })
+    expect(String(fetch.mock.calls[1][0])).toBe(`${baseUrl}/chat/completions`)
+    expect(String(fetch.mock.calls[2][0])).toBe(`${baseUrl}/chat/completions`)
+    expect(await credentials.read()).toBe(secret)
+    expect(await settings.read()).toMatchObject({
+      modelId: 'frontier-fast',
+      protocol: 'openai-completions',
+    })
     const status = await support.provider.getStatus()
-    expect(status.state).toBe('connected')
+    expect(status.state).toBe('error')
   })
 
   it('deletes only the credential and blocks subsequent runs before network access', async () => {
@@ -339,51 +523,81 @@ describe('OpenAI-compatible runtime support', () => {
     expect(await settings.read()).toMatchObject({ modelId: 'frontier-fast' })
   })
 
-  it('streams real OpenAI-compatible SSE through Pi with no scripted tools', async () => {
-    const { credentials, settings } = configuredStores()
-    await configure(credentials, settings)
-    const fetch = vi.fn<FetchFunction>(async () => {
-      const stream = [
-        'data: {"id":"chat-1","object":"chat.completion.chunk","created":1,"model":"frontier-fast","choices":[{"index":0,"delta":{"role":"assistant","content":"Real "},"finish_reason":null}]}',
-        '',
-        'data: {"id":"chat-1","object":"chat.completion.chunk","created":1,"model":"frontier-fast","choices":[{"index":0,"delta":{"content":"response"},"finish_reason":null}]}',
-        '',
-        'data: {"id":"chat-1","object":"chat.completion.chunk","created":1,"model":"frontier-fast","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}',
-        '',
-        'data: [DONE]',
-        '',
-      ].join('\n')
-      return new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } })
-    })
-    const support = createOpenAiCompatibleRuntimeSupport({ credentials, settings, fetch })
-    const plan = await support.createPlan({
-      sessionId: 'session-1',
-      runId: 'run-1',
-      turnId: 'turn-1',
-      lane: 'main',
-      prompt: 'Say hello',
-      readOnly: true,
-      startedAt: 1,
-      userEntryId: 'user-1',
-    })
-    const deltas: string[] = []
-    const result = await new PiRunDriver().run(plan, (event) => {
-      if (event.type === 'assistant.text.delta') deltas.push(event.delta)
-    })
-    expect(plan.tools).toEqual([])
-    expect(result.text).toBe('Real response')
-    expect(deltas.join('')).toBe('Real response')
-    expect(fetch).toHaveBeenCalledOnce()
-  })
+  it.each(['openai-completions', 'openai-responses'] as const)(
+    'streams real %s SSE through Pi with no scripted tools',
+    async (protocol) => {
+      const { credentials, settings } = configuredStores()
+      await configure(credentials, settings, protocol)
+      const fetch = vi.fn<FetchFunction>(async () => streamResponse(protocol))
+      const support = createOpenAiCompatibleRuntimeSupport({ credentials, settings, fetch })
+      const plan = await support.createPlan({
+        sessionId: 'session-1',
+        runId: 'run-1',
+        turnId: 'turn-1',
+        lane: 'main',
+        prompt: 'Say hello',
+        readOnly: true,
+        startedAt: 1,
+        userEntryId: 'user-1',
+      })
+      const deltas: string[] = []
+      const result = await new PiRunDriver().run(plan, (event) => {
+        if (event.type === 'assistant.text.delta') deltas.push(event.delta)
+      })
+      expect(plan.tools).toEqual([])
+      expect(result.text).toBe('Real response')
+      expect(deltas.join('')).toBe('Real response')
+      expect(fetch).toHaveBeenCalledOnce()
+      expect(String(fetch.mock.calls[0][0])).toContain(
+        protocol === 'openai-responses' ? '/responses' : '/chat/completions',
+      )
+    },
+  )
 
-  it('projects streamed HTTP failures to stable errors without raw bodies', async () => {
+  it.each(['openai-completions', 'openai-responses'] as const)(
+    'projects %s streamed HTTP failures to stable errors without raw bodies',
+    async (protocol) => {
+      const { credentials, settings } = configuredStores()
+      await configure(credentials, settings, protocol)
+      const support = createOpenAiCompatibleRuntimeSupport({
+        credentials,
+        settings,
+        fetch: async () => new Response(secret, { status: 401 }),
+        maxRetries: 0,
+      })
+      const plan = await support.createPlan({
+        sessionId: 'session-1',
+        runId: 'run-1',
+        turnId: 'turn-1',
+        lane: 'main',
+        prompt: 'Hello',
+        readOnly: true,
+        startedAt: 1,
+        userEntryId: 'user-1',
+      })
+      await expect(new PiRunDriver().run(plan, () => undefined)).rejects.toMatchObject({
+        code: 'PROVIDER_AUTHENTICATION',
+        message: 'The Provider rejected the API credential.',
+      })
+    },
+  )
+
+  it('maps a truncated Responses stream to a stable malformed-response error', async () => {
     const { credentials, settings } = configuredStores()
-    await configure(credentials, settings)
+    await configure(credentials, settings, 'openai-responses')
     const support = createOpenAiCompatibleRuntimeSupport({
       credentials,
       settings,
-      fetch: async () => new Response(secret, { status: 401 }),
-      maxRetries: 0,
+      fetch: async () =>
+        new Response(
+          [
+            'data: {"type":"response.created","response":{"id":"response-1"}}',
+            '',
+            'data: [DONE]',
+            '',
+          ].join('\n'),
+          { headers: { 'content-type': 'text/event-stream' } },
+        ),
     })
     const plan = await support.createPlan({
       sessionId: 'session-1',
@@ -395,9 +609,9 @@ describe('OpenAI-compatible runtime support', () => {
       startedAt: 1,
       userEntryId: 'user-1',
     })
+
     await expect(new PiRunDriver().run(plan, () => undefined)).rejects.toMatchObject({
-      code: 'PROVIDER_AUTHENTICATION',
-      message: 'The Provider rejected the API credential.',
+      code: 'PROVIDER_MALFORMED_RESPONSE',
     })
   })
 

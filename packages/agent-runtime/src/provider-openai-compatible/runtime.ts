@@ -1,5 +1,4 @@
 import { createModels, createProvider } from '@earendil-works/pi-ai'
-import { openAICompletionsApi } from '@earendil-works/pi-ai/api/openai-completions.lazy'
 
 import { AgentRuntimeError, toAgentRuntimeError } from '../contracts/errors.js'
 
@@ -12,6 +11,10 @@ import {
   sleepWithSignal,
 } from './http.js'
 import {
+  getProviderApiProtocolAdapter,
+  type ProviderStreamObservation,
+} from './protocol.js'
+import {
   OPENAI_COMPATIBLE_PROVIDER_ID,
   OPENAI_COMPATIBLE_PROVIDER_LABEL,
   PROVIDER_SETTINGS_VERSION,
@@ -23,7 +26,6 @@ import type {
   ProviderDiagnostic,
 } from './types.js'
 import type { RuntimeSupport } from '../application/unavailable-runtime.js'
-import type { AgentRuntimeErrorCode } from '../contracts/errors.js'
 import type {
   ProviderModelView,
   ProviderModelsInput,
@@ -34,22 +36,14 @@ import type {
   ProviderTestResult,
 } from '../contracts/ui.js'
 import type { PiRunPlan } from '../pi/types.js'
-import type { AssistantMessage, FetchFunction, Model } from '@earendil-works/pi-ai'
+import type { FetchFunction } from '@earendil-works/pi-ai'
 
 const MAX_CATALOG_MODELS = 2_000
 const MAX_MODEL_ID_LENGTH = 256
-const DEFAULT_CONTEXT_WINDOW = 32_768
-const DEFAULT_MAX_TOKENS = 4_096
 
 interface CatalogModel {
   id: string
   name: string
-}
-
-interface StreamObservation {
-  status?: number
-  retryAfterMs?: number
-  networkFailure: boolean
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -99,72 +93,6 @@ async function fingerprint(value: string): Promise<string> {
     .slice(0, 6)
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('')}`
-}
-
-function modelFromCatalog(baseUrl: string, model: CatalogModel): Model<'openai-completions'> {
-  return {
-    id: model.id,
-    name: model.name,
-    api: 'openai-completions',
-    provider: OPENAI_COMPATIBLE_PROVIDER_ID,
-    baseUrl,
-    reasoning: false,
-    input: ['text'],
-    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    contextWindow: DEFAULT_CONTEXT_WINDOW,
-    maxTokens: DEFAULT_MAX_TOKENS,
-    compat: {
-      supportsStore: false,
-      supportsDeveloperRole: false,
-      supportsReasoningEffort: false,
-      supportsUsageInStreaming: false,
-      maxTokensField: 'max_tokens',
-    },
-  }
-}
-
-function streamError(
-  code: AgentRuntimeErrorCode,
-  message: string,
-  retryable: boolean,
-  recommendedAction: string,
-): AgentRuntimeError {
-  return new AgentRuntimeError(code, message, { retryable, recommendedAction })
-}
-
-function classifyStreamError(
-  message: AssistantMessage,
-  observation: StreamObservation,
-): AgentRuntimeError {
-  if (observation.status && observation.status >= 400) {
-    return providerHttpError(observation.status, observation.retryAfterMs)
-  }
-  const category = message.errorMessage ?? ''
-  if (/timeout|timed out|deadline/i.test(category)) {
-    return streamError(
-      'PROVIDER_TIMEOUT',
-      'The Provider request timed out.',
-      true,
-      'Retry the request or use a faster model.',
-    )
-  }
-  if (/json|parse|sse|stream ended|unexpected end|invalid.*response/i.test(category)) {
-    return malformed()
-  }
-  if (observation.networkFailure) {
-    return streamError(
-      'PROVIDER_UNAVAILABLE',
-      'The app could not reach the Provider.',
-      true,
-      'Check the network connection and retry.',
-    )
-  }
-  return streamError(
-    'PROVIDER_ERROR',
-    'The Provider request failed.',
-    true,
-    'Retry the request or select another model.',
-  )
 }
 
 export function createOpenAiCompatibleRuntimeSupport(
@@ -230,7 +158,9 @@ export function createOpenAiCompatibleRuntimeSupport(
         id: model.id,
         name: model.name,
         compatibility:
-          settings?.compatibility === 'compatible' && settings.modelId === model.id
+          settings?.compatibility === 'compatible' &&
+          settings.modelId === model.id &&
+          settings.protocol === input.protocol
             ? 'compatible'
             : 'unknown',
       }))
@@ -251,6 +181,24 @@ export function createOpenAiCompatibleRuntimeSupport(
       const stages: ProviderProbeStageResult[] = [
         { stage: 'catalog', ok: true, latencyMs: elapsed(now, catalogStartedAt) },
       ]
+      const adapter = getProviderApiProtocolAdapter(input.protocol)
+      const textStartedAt = now()
+      await adapter.probeText({
+        baseUrl: refreshed.baseUrl,
+        apiKey: refreshed.apiKey,
+        modelId: selected.id,
+        http: httpOptions(undefined, 'text'),
+      })
+      stages.push({ stage: 'text', ok: true, latencyMs: elapsed(now, textStartedAt) })
+      const toolStartedAt = now()
+      await adapter.probeTool({
+        baseUrl: refreshed.baseUrl,
+        apiKey: refreshed.apiKey,
+        modelId: selected.id,
+        nonce: globalThis.crypto.randomUUID(),
+        http: httpOptions(undefined, 'tool'),
+      })
+      stages.push({ stage: 'tool', ok: true, latencyMs: elapsed(now, toolStartedAt) })
 
       const previousKey = await options.credentials.read()
       await options.credentials.write(refreshed.apiKey)
@@ -259,6 +207,7 @@ export function createOpenAiCompatibleRuntimeSupport(
         baseUrl: refreshed.baseUrl,
         modelId: selected.id,
         modelName: selected.name,
+        protocol: adapter.protocol,
         compatibility: 'compatible',
         lastTestedAt: now(),
         lastModelsRefreshAt: refreshed.refreshedAt,
@@ -302,6 +251,7 @@ export function createOpenAiCompatibleRuntimeSupport(
       baseUrl: settings?.baseUrl,
       modelId: settings?.modelId,
       modelLabel: settings?.modelName,
+      protocol: settings?.protocol,
       fingerprint: apiKey ? await fingerprint(apiKey) : undefined,
       compatibility: compatible ? 'compatible' : lastError ? 'incompatible' : 'unknown',
       lastTestedAt: settings?.lastTestedAt,
@@ -332,7 +282,8 @@ export function createOpenAiCompatibleRuntimeSupport(
     const selected =
       catalog.find((model) => model.id === settings.modelId) ??
       ({ id: settings.modelId, name: settings.modelName } satisfies CatalogModel)
-    const model = modelFromCatalog(settings.baseUrl, selected)
+    const adapter = getProviderApiProtocolAdapter(settings.protocol)
+    const model = adapter.createModel(settings.baseUrl, selected)
     const provider = createProvider({
       id: OPENAI_COMPATIBLE_PROVIDER_ID,
       name: OPENAI_COMPATIBLE_PROVIDER_LABEL,
@@ -347,12 +298,15 @@ export function createOpenAiCompatibleRuntimeSupport(
         },
       },
       models: [model],
-      api: openAICompletionsApi(),
+      api: adapter.createApi(),
     })
     const models = createModels()
     models.setProvider(provider)
-    const observation: StreamObservation = { networkFailure: false }
+    const observation: ProviderStreamObservation = { networkFailure: false }
     const trackedFetch: FetchFunction = async (input, init) => {
+      observation.status = undefined
+      observation.retryAfterMs = undefined
+      observation.networkFailure = false
       const url = redactProviderUrl(input instanceof URL ? input.toString() : String(input))
       const method = init?.method?.toUpperCase() ?? 'POST'
       const startedAt = now()
@@ -397,14 +351,18 @@ export function createOpenAiCompatibleRuntimeSupport(
       tools,
       model,
       streamFn: (streamModel, streamContext, streamOptions) =>
-        models.streamSimple(streamModel, streamContext, {
-          ...streamOptions,
-          fetch: trackedFetch,
-          timeoutMs,
-          maxRetries,
-          maxRetryDelayMs,
-        }),
-      classifyProviderError: (message) => classifyStreamError(message, observation),
+        models.streamSimple(
+          streamModel,
+          streamContext,
+          adapter.streamOptions({
+            ...streamOptions,
+            fetch: trackedFetch,
+            timeoutMs,
+            maxRetries,
+            maxRetryDelayMs,
+          }),
+        ),
+      classifyProviderError: (message) => adapter.classifyStreamError(message, observation),
       systemPrompt:
         tools.length > 0
           ? 'You are the KLineChartQuant financial analysis Agent. Use the supplied chart tools when chart evidence is needed. Do not claim to have changed the chart: the available tools are read-only.'

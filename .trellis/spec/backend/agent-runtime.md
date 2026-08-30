@@ -23,7 +23,7 @@ interface RuntimeSupport {
 
 interface AgentIpcEnvelope {
   protocolVersion: 2
-  payloadVersion: 2
+  payloadVersion: 3
   windowId: string
   chartId: string
   requestId: string
@@ -61,6 +61,11 @@ only in an `e2e` build.
 - The Provider has no built-in vendor endpoint. Renderer must submit an explicit
   HTTP(S) Base URL, and Main uses that normalized URL for model discovery,
   compatibility probes, and Pi streaming.
+- The OpenAI-compatible Provider supports `openai-completions` and
+  `openai-responses` through one protocol adapter boundary. The selected
+  protocol owns Pi API selection, model `api` metadata, endpoint probes, and
+  stream error classification; UI, application service, and `PiRunDriver`
+  remain protocol-agnostic. Version 1 settings migrate to `openai-completions`.
 - Production packages exclude runtime source, coverage, tests, and
   `dist/testing`. Electron Main bundles Agent runtime, Pi AI/Core, and the
   SQLite backend; `node:sqlite` remains a system import. Because the bundled
@@ -115,6 +120,9 @@ once at the adapter boundary and returned without raw Provider details.
   sentinels are absent.
 - Provider tests use injected fetch implementations and non-routable example
   endpoints; automated tests never require a vendor account or live API key.
+- Both OpenAI-compatible protocols cover catalog discovery, their real text and
+  harmless tool-call endpoints, run-plan creation, stream failure mapping, and
+  persisted settings migration.
 - Node matrix: a suite skipped for unsupported Node versions must use a
   type-only top-level import and dynamically import `./node` inside the gated
   test. `describe.skip` runs after static module evaluation and cannot protect

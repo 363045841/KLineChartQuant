@@ -1,6 +1,8 @@
+import type { ProviderApiProtocol } from '../contracts/ui.js'
+
 export const OPENAI_COMPATIBLE_PROVIDER_ID = 'openai-compatible'
 export const OPENAI_COMPATIBLE_PROVIDER_LABEL = 'OpenAI-compatible'
-export const PROVIDER_SETTINGS_VERSION = 1 as const
+export const PROVIDER_SETTINGS_VERSION = 2 as const
 
 export interface ProviderCredentialStore {
   read(signal?: AbortSignal): Promise<string | undefined>
@@ -13,6 +15,7 @@ export interface OpenAiCompatibleProviderSettings {
   baseUrl: string
   modelId: string
   modelName: string
+  protocol: ProviderApiProtocol
   compatibility: 'compatible'
   lastTestedAt: number
   lastModelsRefreshAt: number

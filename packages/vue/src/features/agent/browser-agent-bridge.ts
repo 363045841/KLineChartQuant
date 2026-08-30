@@ -2,13 +2,11 @@
 import {
   AgentRuntimeError,
   PiRunDriver,
-  PROVIDER_SETTINGS_VERSION,
   createIndicatorQueryTool,
   createOpenAiCompatibleRuntimeSupport,
   fetchOpenAiCompatibleModels,
   normalizeProviderBaseUrl,
   parseOpenAiCompatibleProviderSettings,
-  providerHttpError,
 } from '@363045841yyt/klinechart-agent-runtime'
 
 import type {
@@ -70,7 +68,11 @@ class BrowserProviderSettingsStore implements ProviderSettingsStore {
     const raw = window.localStorage.getItem(PROVIDER_SETTINGS_STORAGE_KEY)
     if (!raw) return undefined
     try {
-      return parseOpenAiCompatibleProviderSettings(JSON.parse(raw))
+      const parsed = parseOpenAiCompatibleProviderSettings(JSON.parse(raw))
+      if (parsed && JSON.stringify(parsed) !== raw) {
+        window.localStorage.setItem(PROVIDER_SETTINGS_STORAGE_KEY, JSON.stringify(parsed))
+      }
+      return parsed
     } catch {
       window.localStorage.removeItem(PROVIDER_SETTINGS_STORAGE_KEY)
       return undefined
@@ -214,46 +216,28 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   }
 
   async testProvider(input: ProviderTestInput): Promise<ProviderTestResult> {
-    const startedAt = Date.now()
     const apiKey = input.apiKey?.trim() || (await this.credentials.read())
     if (!apiKey) {
       throw new AgentRuntimeError('PROVIDER_NOT_CONFIGURED', 'Enter an API key before testing.')
     }
-    const { models, refreshedAt } = await fetchOpenAiCompatibleModels({ ...input, apiKey })
-    const selected = models.find((model) => model.id === input.model)
-    if (!selected) throw providerHttpError(404)
-    const latencyMs = Math.max(0, Date.now() - startedAt)
-    const result: ProviderTestResult = {
-      compatible: true,
-      model: selected.id,
-      latencyMs,
-      stages: [{ stage: 'catalog', ok: true, latencyMs }],
-    }
-    return result
+    return await this.support.provider.test({ ...input, apiKey })
   }
 
   async saveProvider(input: ProviderSaveInput): Promise<void> {
-    const apiKey = input.apiKey?.trim() || (await this.credentials.read()) || ''
-    const rawBaseUrl = input.baseUrl.trim()
-    let baseUrl = rawBaseUrl
-    if (rawBaseUrl) {
-      try {
-        baseUrl = normalizeProviderBaseUrl(rawBaseUrl)
-      } catch {
-        baseUrl = rawBaseUrl
-      }
+    const tested = await this.settings.read()
+    const baseUrl = normalizeProviderBaseUrl(input.baseUrl)
+    if (
+      !tested ||
+      tested.baseUrl !== baseUrl ||
+      tested.modelId !== input.model.trim() ||
+      tested.protocol !== input.protocol
+    ) {
+      throw new AgentRuntimeError(
+        'PROVIDER_NOT_CONFIGURED',
+        'Test this Provider configuration before saving it.',
+        { recommendedAction: 'Run the connection test with the current protocol and model.' },
+      )
     }
-    if (apiKey) await this.credentials.write(apiKey)
-    const savedAt = Date.now()
-    await this.settings.write({
-      version: PROVIDER_SETTINGS_VERSION,
-      baseUrl,
-      modelId: input.model.trim(),
-      modelName: input.modelName.trim() || input.model.trim(),
-      compatibility: 'compatible',
-      lastTestedAt: savedAt,
-      lastModelsRefreshAt: savedAt,
-    })
     this.emit({ type: 'provider.status.changed', status: await this.getProviderStatus() })
   }
 

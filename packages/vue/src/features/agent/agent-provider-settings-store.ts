@@ -2,9 +2,12 @@
 import { createPinia, defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
+import { PROVIDER_API_PROTOCOLS } from './agent-contracts'
+
 import type {
   AgentBridgeClient,
   AgentErrorView,
+  ProviderApiProtocol,
   ProviderModelView,
   ProviderStatusView,
   ProviderTestInput,
@@ -42,6 +45,7 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
   const open = ref(false)
   const baseUrl = ref('')
   const apiKey = ref('')
+  const protocol = ref<ProviderApiProtocol>(PROVIDER_API_PROTOCOLS[0])
   const model = ref('')
   const models = ref<ProviderModelView[]>([])
   const modelsLoading = ref(false)
@@ -58,11 +62,19 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     bridge = value
   }
 
+  /** 更新协议草稿并使旧测试结果失效。 */
+  function setProtocol(value: string): void {
+    if (!PROVIDER_API_PROTOCOLS.includes(value as ProviderApiProtocol)) return
+    protocol.value = value as ProviderApiProtocol
+    testResult.value = null
+  }
+
   /** 打开弹窗并从已保存的 Provider 配置创建全新草稿。 */
   function show(status: ProviderStatusView): void {
     open.value = true
     baseUrl.value = status.baseUrl ?? ''
     apiKey.value = ''
+    protocol.value = status.protocol ?? PROVIDER_API_PROTOCOLS[0]
     model.value = status.modelId ?? ''
     models.value = []
     testResult.value = null
@@ -86,6 +98,7 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
       const result = await bridge.listProviderModels({
         baseUrl: baseUrl.value,
         apiKey: apiKey.value || undefined,
+        protocol: protocol.value,
       })
       if (requestId !== refreshRequestId) return
       models.value = result.models
@@ -108,6 +121,7 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
       baseUrl: baseUrl.value,
       apiKey: apiKey.value || undefined,
       model: model.value,
+      protocol: protocol.value,
     }
     try {
       testResult.value = await bridge.testProvider(input)
@@ -127,6 +141,7 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
         apiKey: apiKey.value || undefined,
         model: model.value,
         modelName,
+        protocol: protocol.value,
       })
       close()
     } catch (error) {
@@ -138,6 +153,7 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     open,
     baseUrl,
     apiKey,
+    protocol,
     model,
     models,
     modelsLoading,
@@ -146,6 +162,7 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     canRefreshModels,
     canTest,
     bindBridge,
+    setProtocol,
     show,
     close,
     refreshModels,

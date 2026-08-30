@@ -39,6 +39,7 @@ describe('FakeAgentBridge', () => {
       baseUrl: 'https://models.example.test/v1',
       apiKey: 'test-secret',
       model: 'provider-model-a',
+      protocol: 'openai-completions' as const,
     }
     const pending = bridge.testProvider(input)
     expect(events).toHaveLength(0)
@@ -60,6 +61,7 @@ describe('FakeAgentBridge', () => {
     const result = await bridge.listProviderModels({
       baseUrl: 'https://models.example.test/v1',
       apiKey: 'test-secret',
+      protocol: 'openai-responses',
     })
     expect(result.models.map((model) => model.id)).toEqual(['provider-model-a', 'provider-model-b'])
     expect(JSON.stringify(result)).not.toContain('test-secret')

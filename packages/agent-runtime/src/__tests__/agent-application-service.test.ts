@@ -104,6 +104,7 @@ describe('AgentApplicationService', () => {
       baseUrl: 'https://example.invalid',
       apiKey: 'ephemeral',
       model: 'fast',
+      protocol: 'openai-responses',
     })
     await runtime.deleteProviderCredential()
     expect(
