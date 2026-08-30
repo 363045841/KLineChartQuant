@@ -135,7 +135,8 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     const session = this.requireSession(sessionId)
     return {
       session: session.view,
-      messages: session.messages,
+      // 快照不能暴露内部会话数组，否则 UI reducer 的追加会与存储层写入重复。
+      messages: session.messages.map((message) => ({ ...message })),
       toolCalls: [],
       runs: session.runs,
       lastSequence: 0,

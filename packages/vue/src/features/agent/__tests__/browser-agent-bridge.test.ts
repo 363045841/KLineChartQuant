@@ -56,4 +56,14 @@ describe('BrowserAgentBridge', () => {
       modelId: 'chart-model',
     })
   })
+
+  it('keeps an opened message snapshot isolated from a new run', async () => {
+    const bridge = new BrowserAgentBridge()
+    const [session] = await bridge.listSessions()
+    const snapshot = await bridge.openSession(session!.id)
+
+    await bridge.startRun({ sessionId: session!.id, prompt: 'Analyze RSI', readOnly: true })
+
+    expect(snapshot.messages).toEqual([])
+  })
 })
