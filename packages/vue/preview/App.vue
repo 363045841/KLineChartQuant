@@ -88,7 +88,10 @@
                     class="my-legend__dot"
                     :style="{ backgroundColor: comparison.color }"
                   ></span>
-                  {{ comparison.symbol }}{{ comparison.name ? ` ${comparison.name}` : '' }}
+                  {{ comparison.symbol
+                  }}{{ comparison.name?.trim() && comparison.name.trim() !== comparison.symbol
+                    ? ` ${comparison.name.trim()}`
+                    : '' }}
                   {{ comparison.percent > 0 ? '+' : '' }}{{ comparison.percent.toFixed(2) }}%
                 </div>
               </div>

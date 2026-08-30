@@ -148,7 +148,7 @@
             </div>
           </div>
           <Teleport v-if="tooltipLayerRef" :to="tooltipLayerRef">
-            <template v-if="hoveredKLine && !isMobile">
+            <template v-if="showKLineTooltip">
               <div
                 v-if="slots['kline-tooltip']"
                 class="kline-tooltip-host"
@@ -1214,6 +1214,10 @@
     }
     return null
   })
+  // 对比视图使用左上角百分比图例，不展示单一主品种的 K 线详情 Tooltip。
+  const showKLineTooltip = computed(
+    () => chartMode.value !== 'comparison' && hoveredKLine.value !== null && !isMobile,
+  )
   const hoveredIndex = computed(() => interactionState.value.hoveredIndex)
   const tooltipPos = computed(() => interactionState.value.tooltipPos)
   const effectiveTooltipPos = computed(() => tooltipDragPos.value ?? tooltipPos.value)

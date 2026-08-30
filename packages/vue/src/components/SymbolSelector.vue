@@ -246,7 +246,8 @@
     const cur = currentSymbol.value
     if (cur) {
       const legacy = cur as SymbolItem & { description?: string }
-      return `${cur.symbol} - ${cur.name ?? legacy.description ?? cur.symbol}`
+      const name = cur.name ?? legacy.description ?? cur.symbol
+      return cur.symbol === name ? cur.symbol : `${cur.symbol} - ${name}`
     }
     return props.symbol
   })
