@@ -1,6 +1,7 @@
 // 浏览器 Agent bridge：Pi、会话和 Provider 请求全部运行在 Renderer。
 import {
   AgentRuntimeError,
+  AGENT_UI_PROTOCOL_VERSION,
   PiRunDriver,
   PROVIDER_SETTINGS_VERSION,
   createIndicatorQueryTool,
@@ -353,6 +354,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   }
 
   private emit(event: AgentUiEventInput): void {
-    for (const listener of this.listeners) listener({ ...event, protocolVersion: 2 })
+    for (const listener of this.listeners)
+      listener({ ...event, protocolVersion: AGENT_UI_PROTOCOL_VERSION })
   }
 }

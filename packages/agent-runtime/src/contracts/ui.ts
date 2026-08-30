@@ -1,5 +1,5 @@
 /** Stable Renderer contract. Pi, Provider, and host transport types stop here. */
-export const AGENT_UI_PROTOCOL_VERSION = 2 as const
+export const AGENT_UI_PROTOCOL_VERSION = 3 as const
 
 export type AgentRunStatus =
   | 'idle'
@@ -62,6 +62,8 @@ export interface ToolCallView {
   status: ToolCallStatus
   inputSummary: string
   resultSummary?: string
+  /** 已脱敏的工具结果正文，供 UI 展示。 */
+  resultContent?: string
   error?: AgentErrorView
   progress?: ToolProgressView
   safety: ToolSafety

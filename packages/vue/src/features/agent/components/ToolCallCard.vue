@@ -20,6 +20,9 @@
         <dt>{{ text.result }}</dt>
         <dd>{{ tool.resultSummary }}</dd>
       </div>
+      <div v-if="tool.resultContent" class="tool-card__result-content">
+        <dd>{{ tool.resultContent }}</dd>
+      </div>
     </dl>
 
     <div v-if="tool.progress" class="tool-card__progress">
@@ -208,6 +211,10 @@
     overflow-wrap: anywhere;
     font-size: 12px;
     line-height: 1.42;
+  }
+
+  .tool-card__result-content dd {
+    white-space: pre-wrap;
   }
 
   .tool-card__progress {

@@ -134,6 +134,7 @@ describe('reduceAgentUiEvent', () => {
           safety: 'reversible-write',
           reversible: true,
           resultSummary: 'RSI added to a new pane.',
+          resultContent: 'RSI(14) added to a new pane.',
           undoToken: 'undo-1',
           finishedAt: 120,
         }),
@@ -149,7 +150,11 @@ describe('reduceAgentUiEvent', () => {
     ])
 
     expect(state.run.status).toBe('partial')
-    expect(state.toolCalls[0]).toMatchObject({ status: 'succeeded', undoToken: 'undo-1' })
+    expect(state.toolCalls[0]).toMatchObject({
+      status: 'succeeded',
+      resultContent: 'RSI(14) added to a new pane.',
+      undoToken: 'undo-1',
+    })
     expect(state.canUndoTurn).toBe(true)
   })
 

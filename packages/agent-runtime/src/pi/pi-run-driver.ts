@@ -418,6 +418,7 @@ export class PiRunDriver {
             ...started,
             status: 'succeeded',
             resultSummary: redactString(result?.summary ?? 'Tool completed.', this.redaction),
+            resultContent: redactString(result?.content ?? '', this.redaction),
             evidence: result?.evidence,
             undoToken: result?.undoToken,
             finishedAt,
