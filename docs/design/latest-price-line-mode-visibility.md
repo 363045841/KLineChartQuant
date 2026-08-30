@@ -2,8 +2,9 @@
 
 ## Decision
 
-`lastPriceLine` is a mode-owned main-pane Indicator that declares `dataViews: ['kline']`.
-The K-line mode creates its system instance, while comparison and timeshare modes omit it.
+`lastPriceLine` and `lastPriceLabelRegistrar` are mode-owned main-pane Indicators that declare
+`dataViews: ['kline']`. The K-line mode creates their system instances, while comparison and
+timeshare modes omit them.
 
 ## Rationale
 
@@ -13,9 +14,8 @@ visibility projection as `extremaMarkers`, rather than relying on a draw-time mo
 
 ## Lifecycle
 
-`ChartRenderer` still installs the line layer once. `ChartStateKernel.activeRenderers$` selects
-its visibility from the active mode instances, so switching into comparison hides the existing
-layer and switching back to K-line restores it without recreating renderer resources.
+`ChartIndicatorManager` installs both layers from their Indicator definitions. `ChartStateKernel.activeRenderers$`
+selects their visibility from active mode instances, so comparison never enables either latest-price renderer.
 
 ## Legend
 

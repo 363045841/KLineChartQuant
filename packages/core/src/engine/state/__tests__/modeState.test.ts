@@ -103,6 +103,7 @@ describe('modeState', () => {
       { name: 'candle', layerId: 'plugin:candle' },
       { name: 'extremaMarkers', layerId: 'plugin:extremaMarkers' },
       { name: 'lastPriceLine', layerId: 'plugin:lastPriceLine' },
+      { name: 'lastPriceLabelRegistrar', layerId: 'plugin:lastPriceLabelRegistrar' },
     ])
     expect(Object.isFrozen(kernel.activeRenderers$.peek())).toBe(true)
 
@@ -207,6 +208,7 @@ describe('modeState', () => {
       { name: 'candle', layerId: 'plugin:candle' },
       { name: 'extremaMarkers', layerId: 'plugin:extremaMarkers' },
       { name: 'lastPriceLine', layerId: 'plugin:lastPriceLine' },
+      { name: 'lastPriceLabelRegistrar', layerId: 'plugin:lastPriceLabelRegistrar' },
       { name: 'ma', layerId: 'plugin:ma' },
       { name: 'boll', layerId: 'plugin:boll' },
       { name: 'mainIndicatorLegend', layerId: 'plugin:mainIndicatorLegend' },

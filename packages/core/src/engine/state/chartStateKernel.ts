@@ -495,6 +495,14 @@ export class ChartStateKernel extends StateKernel {
                       ordinal: 0,
                       params: {},
                     },
+                    {
+                      instanceId: 'mode:last-price-label',
+                      indicatorId: 'lastPriceLabelRegistrar',
+                      paneId: 'main',
+                      role: 'main',
+                      ordinal: 0,
+                      params: {},
+                    },
                   ]
         // mode 仅声明所需能力；统一实例调度器决定复用用户副图还是创建系统实例。
         const resolvedModeInstances = resolveModeIndicatorInstances(

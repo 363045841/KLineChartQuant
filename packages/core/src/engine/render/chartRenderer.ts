@@ -54,8 +54,6 @@ import { createCrosshairLayer } from './layers/crosshairLayer'
 import { createCustomMarkersLayer } from './layers/customMarkersLayer'
 import { createExtremaMarkersLayer } from './layers/extremaMarkersLayer'
 import { createGridLinesLayer } from './layers/gridLinesLayer'
-import { createLastPriceLabelLayer } from './layers/lastPriceLabelLayer'
-import { createLastPriceLineLayer } from './layers/lastPriceLineLayer'
 import { createLeftYAxisOverlayLayer, createLeftYAxisStaticLayer } from './layers/leftYAxisLayer'
 import { createMainIndicatorLegendLayer } from './layers/mainIndicatorLegendLayer'
 import { createYAxisOverlayLayer, createYAxisStaticLayer } from './layers/yAxisLayer'
@@ -292,15 +290,7 @@ export class ChartRenderer {
       this.scene.addLayer(layer)
     }
     {
-      const layer = createLastPriceLabelLayer(getCtx('main'))
-      this.scene.addLayer(layer)
-    }
-    {
       const layer = createComparisonLineLayer(getCtx('main'))
-      this.scene.addLayer(layer)
-    }
-    {
-      const layer = createLastPriceLineLayer(getCtx('main'))
       this.scene.addLayer(layer)
     }
     {
