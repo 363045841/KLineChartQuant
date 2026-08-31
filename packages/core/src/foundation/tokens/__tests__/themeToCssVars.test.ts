@@ -77,6 +77,11 @@ describe('themeToCssVars — naming', () => {
     expect(vars['--klc-color-background']).toBe(lightTheme.colors.background)
   })
 
+  it('colors.floatingSurface → --klc-color-floating-surface', () => {
+    const vars = themeToCssVars(lightTheme)
+    expect(vars['--klc-color-floating-surface']).toBe(lightTheme.colors.floatingSurface)
+  })
+
   it('colors.candleUpBody → --klc-color-candle-up-body', () => {
     const vars = themeToCssVars(lightTheme)
     expect(vars['--klc-color-candle-up-body']).toBe(lightTheme.colors.candleUpBody)

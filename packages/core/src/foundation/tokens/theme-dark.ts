@@ -29,6 +29,7 @@ export const darkTheme: Theme = {
     background: '#111827',
     foreground: '#E8EAED',
     chartBackground: '#111827',
+    floatingSurface: '#1B2533',
 
     candleUpBody: '#22D69B',
     candleUpBorder: '#22D69B',

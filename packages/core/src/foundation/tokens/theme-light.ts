@@ -31,6 +31,7 @@ export const lightTheme: Theme = {
     background: '#FAFAFA',
     foreground: '#1F1F1F',
     chartBackground: '#FFFFFF',
+    floatingSurface: '#FFFFFF',
 
     candleUpBody: '#0F8B5C',
     candleUpBorder: '#0F8B5C',

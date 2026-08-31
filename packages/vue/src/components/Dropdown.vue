@@ -253,7 +253,7 @@
     padding: 4px;
     border: 0;
     border-radius: 4px;
-    background: var(--klc-color-chart-background);
+    background: var(--klc-color-floating-surface);
     box-shadow:
       0 2px 4px rgba(0, 0, 0, 0.08),
       0 6px 12px rgba(0, 0, 0, 0.06);

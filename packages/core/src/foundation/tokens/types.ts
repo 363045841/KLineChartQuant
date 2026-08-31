@@ -308,6 +308,8 @@ export interface ColorTokens {
   readonly background: ColorValue
   readonly foreground: ColorValue
   readonly chartBackground: ColorValue
+  // 浮层表面：下拉菜单、弹出菜单等需要与承载表面区分的无边框容器。
+  readonly floatingSurface: ColorValue
 
   // Candle / OHLC bar
   readonly candleUpBody: ColorValue
