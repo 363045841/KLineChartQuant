@@ -15,6 +15,7 @@ import type {
   ChartAgentContextSnapshot,
   ChartAgentController,
   ChartAgentTimeRange,
+  IndicatorQueryInput,
 } from './types'
 import type { IndicatorInstance, SymbolSpec } from '../../controllers/types'
 import type { DataStateModule } from '../../engine/state/dataState'
@@ -33,6 +34,16 @@ interface ChartAgentControllerDependencies {
 const InstrumentLookupToolParameters = Type.Object({
   symbol: Type.String({ minLength: 1 }),
   sourceIds: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
+})
+
+const INDICATOR_QUERY_MAX_LIMIT = 2000
+
+const IndicatorQueryToolParameters = Type.Object({
+  definitionId: Type.String({ minLength: 1 }),
+  params: Type.Optional(Type.Record(Type.String(), Type.Number())),
+  from: Type.Optional(Type.Number()),
+  to: Type.Optional(Type.Number()),
+  limit: Type.Optional(Type.Integer({ minimum: 1, maximum: INDICATOR_QUERY_MAX_LIMIT })),
 })
 
 /** 将图表指标实例投影为可安全暴露给 Agent 的只读快照。 */
@@ -130,8 +141,17 @@ class ChartAgentControllerImpl implements ChartAgentController {
     return snapshot
   }
 
-  /** 查询当前图表数据上的指标值。 */
-  queryIndicator(input: Parameters<IndicatorQuery['queryIndicator']>[0]): Promise<string> {
+  /** 查询当前图表数据上的指标值；前端和 Agent 调用同一领域 API。 */
+  @Tool({
+    name: 'indicators_query',
+    label: 'Query indicator',
+    description:
+      'Calculate a registered chart indicator over the active K-line data and return compact text. Use definitionId, optional numeric calculation params, an optional inclusive timestamp range, and a bounded result limit.',
+    parameters: IndicatorQueryToolParameters,
+    safety: 'read-only',
+    executionMode: 'parallel',
+  })
+  queryIndicator(input: IndicatorQueryInput, _context?: ChartToolExecutionContext): Promise<string> {
     return this.dependencies.indicatorQuery.queryIndicator(input)
   }
 

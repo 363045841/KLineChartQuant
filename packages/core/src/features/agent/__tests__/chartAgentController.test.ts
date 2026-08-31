@@ -194,10 +194,17 @@ describe('createChartAgentController', () => {
   it('delegates indicator queries and preserves compact text verbatim', async () => {
     const fixture = createFixture()
     const input = { definitionId: 'RSI', params: { period: 14 }, limit: 20 }
+    const tool = getRegisteredChartTools().find((item) => item.config.name === 'indicators_query')
 
     await expect(fixture.controller.queryIndicator(input)).resolves.toBe('RSI compact text')
-    expect(fixture.queryIndicator).toHaveBeenCalledOnce()
-    expect(fixture.queryIndicator).toHaveBeenCalledWith(input)
+    await expect(
+      tool?.execute(fixture.controller, input, {
+        signal: new AbortController().signal,
+        progress: () => undefined,
+      }),
+    ).resolves.toBe('RSI compact text')
+    expect(fixture.queryIndicator).toHaveBeenCalledTimes(2)
+    expect(fixture.queryIndicator).toHaveBeenLastCalledWith(input)
   })
 
   it('delegates instrument searches through the shared Provider registry', async () => {

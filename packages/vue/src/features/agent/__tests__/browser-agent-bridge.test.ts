@@ -61,16 +61,16 @@ describe('BrowserAgentBridge', () => {
   it('persists the enabled state of registered Agent tools', async () => {
     const bridge = new BrowserAgentBridge()
 
-    await expect(bridge.listTools()).resolves.toMatchObject([
-      { name: 'instruments_query_name', enabled: true },
-    ])
+    await expect(bridge.listTools()).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: 'instruments_query_name', enabled: true })]),
+    )
     await bridge.setToolEnabled('instruments_query_name', false)
-    await expect(bridge.listTools()).resolves.toMatchObject([
-      { name: 'instruments_query_name', enabled: false },
-    ])
-    await expect(new BrowserAgentBridge().listTools()).resolves.toMatchObject([
-      { name: 'instruments_query_name', enabled: false },
-    ])
+    await expect(bridge.listTools()).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: 'instruments_query_name', enabled: false })]),
+    )
+    await expect(new BrowserAgentBridge().listTools()).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: 'instruments_query_name', enabled: false })]),
+    )
   })
 
   it('requests the Provider model catalog with the supplied credential', async () => {

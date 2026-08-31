@@ -3,7 +3,6 @@ import {
   AgentRuntimeError,
   AGENT_UI_PROTOCOL_VERSION,
   PiRunDriver,
-  createIndicatorQueryTool,
   createOpenAiCompatibleRuntimeSupport,
   fetchOpenAiCompatibleModels,
   normalizeProviderBaseUrl,
@@ -212,7 +211,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
         if (!agent) return []
         const enabledNames = this.enabledToolNames()
         const registeredTools = this.createRegisteredTools(agent, context.readOnly)
-        return [createIndicatorQueryTool(agent), ...registeredTools.filter((tool) => enabledNames.has(tool.name))]
+        return registeredTools.filter((tool) => enabledNames.has(tool.name))
       },
     })
     const session = this.createSessionRecord()
@@ -338,7 +337,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
           })
           context.signal.throwIfAborted()
           return {
-            content: JSON.stringify(value),
+            content: typeof value === 'string' ? value : JSON.stringify(value),
             summary: Array.isArray(value) ? `Returned ${value.length} items.` : 'Tool completed.',
           }
         },
