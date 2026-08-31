@@ -213,20 +213,6 @@
     background: var(--klc-color-background, #ffffff);
   }
 
-  .base-body::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  .base-body::-webkit-scrollbar-track {
-    background: var(--klc-color-background, #ffffff);
-  }
-
-  .base-body::-webkit-scrollbar-thumb {
-    background: var(--klc-color-axis-line);
-    border: 2px solid var(--klc-color-background, #ffffff);
-    border-radius: 999px;
-  }
-
   .base-footer {
     position: relative;
     display: flex;

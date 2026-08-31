@@ -24,6 +24,7 @@ import type { Signal } from '@363045841yyt/klinechart-core/reactivity'
 import { onBeforeUnmount, onScopeDispose, shallowRef, watch, type App, type Ref } from 'vue'
 
 import { KlineChart } from './components/index'
+import './styles/scrollbar.css'
 
 export type {
   ChartController,

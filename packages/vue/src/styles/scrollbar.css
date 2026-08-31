@@ -1,0 +1,41 @@
+/* 统一应用内可滚动区域的滚动条外观。 */
+@supports (scrollbar-color: auto) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--klc-color-axis-text) 72%, transparent) transparent;
+  }
+}
+
+@supports selector(::-webkit-scrollbar) {
+  * {
+    /* 标准属性会覆盖 WebKit 伪元素，必须重置为 auto。 */
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--klc-color-axis-text) 72%, transparent);
+    background-clip: padding-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--klc-color-axis-text);
+  }
+}
