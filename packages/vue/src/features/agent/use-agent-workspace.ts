@@ -125,7 +125,7 @@ unsubscribeChartContext = bridge.subscribeChartContext((context) => {
     const prompt = draft.value.trim()
     if (!prompt || isRunning.value) return
     if (!providerReady.value) {
-      providerSettings.show(state.value.provider)
+      void providerSettings.show(state.value.provider)
       return
     }
 

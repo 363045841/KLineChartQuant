@@ -162,6 +162,39 @@ function reduceCurrentAgentUiEvent(
         })),
       }
 
+    case 'assistant.thinking.started':
+      return {
+        ...state,
+        messages: [
+          ...state.messages,
+          {
+            id: event.messageId,
+            role: 'reasoning',
+            content: '',
+            createdAt: event.createdAt,
+            status: 'streaming',
+          },
+        ],
+      }
+
+    case 'assistant.thinking.delta':
+      return {
+        ...state,
+        messages: updateMessage(state.messages, event.messageId, (message) => ({
+          ...message,
+          content: `${message.content}${event.delta}`,
+        })),
+      }
+
+    case 'assistant.thinking.completed':
+      return {
+        ...state,
+        messages: updateMessage(state.messages, event.messageId, (message) => ({
+          ...message,
+          status: 'complete',
+        })),
+      }
+
     case 'tool.started':
       return {
         ...state,

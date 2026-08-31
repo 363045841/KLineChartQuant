@@ -25,7 +25,7 @@ function tool(overrides: Partial<ToolCallView> = {}): ToolCallView {
   return {
     id: 'tool-1',
     runId: RUN_ID,
-    name: 'indicators.query',
+    name: 'indicators_query',
     label: 'Query RSI',
     status: 'running',
     inputSummary: 'RSI(14), latest 20 bars',
@@ -82,6 +82,42 @@ describe('reduceAgentUiEvent', () => {
       status: 'complete',
     })
     expect(state.run.status).toBe('running')
+  })
+
+  it('replays streamed reasoning into a separate completed message', () => {
+    const state = replay([
+      event({ type: 'run.started', runId: RUN_ID, sessionId: SESSION_ID, startedAt: 10 }),
+      event({
+        type: 'assistant.thinking.started',
+        runId: RUN_ID,
+        sessionId: SESSION_ID,
+        messageId: 'thinking-1',
+        createdAt: 11,
+      }),
+      event({
+        type: 'assistant.thinking.delta',
+        runId: RUN_ID,
+        sessionId: SESSION_ID,
+        messageId: 'thinking-1',
+        delta: 'Inspecting the current trend.',
+      }),
+      event({
+        type: 'assistant.thinking.completed',
+        runId: RUN_ID,
+        sessionId: SESSION_ID,
+        messageId: 'thinking-1',
+      }),
+    ])
+
+    expect(state.messages).toEqual([
+      {
+        id: 'thinking-1',
+        role: 'reasoning',
+        content: 'Inspecting the current trend.',
+        createdAt: 11,
+        status: 'complete',
+      },
+    ])
   })
 
   it('projects structured confirmation and rejection without executing the tool', () => {

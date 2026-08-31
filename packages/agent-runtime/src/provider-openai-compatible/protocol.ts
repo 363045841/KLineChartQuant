@@ -197,7 +197,9 @@ function commonModel<TProtocol extends ProviderApiProtocol>(
     api: protocol,
     provider: OPENAI_COMPATIBLE_PROVIDER_ID,
     baseUrl,
-    reasoning: false,
+    // OpenAI-compatible reasoning models may emit thinking blocks even when no vendor-specific
+    // request parameter is required. Keep the capability enabled so Pi preserves those blocks.
+    reasoning: true,
     input: ['text'],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: DEFAULT_CONTEXT_WINDOW,

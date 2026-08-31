@@ -16,6 +16,7 @@ import {
   type ConfirmationView,
   type ProviderModelsInput,
   type ProviderModelsResult,
+  type ProviderProfileView,
   type ProviderSaveInput,
   type ProviderStatusView,
   type ProviderTestInput,
@@ -53,6 +54,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
     { id: 'session-1', title: 'BTC momentum review', updatedAt: Date.now() },
   ]
   private provider: ProviderStatusView
+  private profiles: ProviderProfileView[] = []
   private nextSessionId = 2
   private nextRunId = 1
   private readonly chartContext: ChartContextView = {
@@ -107,6 +109,26 @@ export class FakeAgentBridge implements AgentBridgeClient {
 
   async listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult> {
     return fetchOpenAiCompatibleModels(input)
+  }
+
+  async listProviderProfiles(): Promise<ProviderProfileView[]> {
+    return [...this.profiles]
+  }
+
+  async selectProviderProfile(profileId: string): Promise<void> {
+    const profile = this.profiles.find((item) => item.id === profileId)
+    if (!profile) throw new Error(`Unknown fake Provider profile: ${profileId}`)
+    this.provider = {
+      state: 'connected',
+      providerLabel: 'OpenAI-compatible',
+      configured: true,
+      baseUrl: profile.baseUrl,
+      modelId: profile.modelId,
+      modelLabel: profile.modelName,
+      protocol: profile.protocol,
+      compatibility: 'compatible',
+    }
+    this.emit({ type: 'provider.status.changed', status: this.provider })
   }
 
   async createSession(): Promise<AgentSessionView> {
@@ -215,6 +237,18 @@ export class FakeAgentBridge implements AgentBridgeClient {
   }
 
   async saveProvider(input: ProviderSaveInput): Promise<void> {
+    const id = input.profileId ?? `provider-${this.profiles.length + 1}`
+    const profile: ProviderProfileView = {
+      id,
+      name: input.profileName || input.modelName,
+      baseUrl: input.baseUrl,
+      modelId: input.model,
+      modelName: input.modelName,
+      protocol: input.protocol,
+    }
+    const existingIndex = this.profiles.findIndex((item) => item.id === id)
+    if (existingIndex >= 0) this.profiles[existingIndex] = profile
+    else this.profiles.push(profile)
     this.provider = {
       state: 'connected',
       providerLabel: 'OpenAI-compatible',
@@ -363,7 +397,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
     return {
       id: `tool-${run.id}`,
       runId: run.id,
-      name: destructive ? 'drawing.clear' : mutation ? 'indicators.add' : 'indicators.query',
+      name: destructive ? 'drawing.clear' : mutation ? 'indicators.add' : 'indicators_query',
       label: destructive ? 'Clear drawings' : mutation ? 'Update chart' : 'Query RSI(14)',
       status: 'running',
       inputSummary: destructive

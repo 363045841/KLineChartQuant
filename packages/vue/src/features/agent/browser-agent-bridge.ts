@@ -9,6 +9,7 @@ import {
   fetchOpenAiCompatibleModels,
   normalizeProviderBaseUrl,
   parseOpenAiCompatibleProviderSettings,
+  PROVIDER_SETTINGS_VERSION,
 } from '@363045841yyt/klinechart-agent-runtime'
 
 import type {
@@ -19,6 +20,7 @@ import type {
   AgentUiEventInput,
   ProviderModelsInput,
   ProviderModelsResult,
+  ProviderProfileView,
   ProviderSaveInput,
   ProviderStatusView,
   ProviderTestInput,
@@ -34,6 +36,14 @@ import type { ChartAgentController } from '@363045841yyt/klinechart-core/control
 
 const PROVIDER_API_KEY_STORAGE_KEY = 'agent.provider.apiKey'
 const PROVIDER_SETTINGS_STORAGE_KEY = 'agent.provider.settings'
+const PROVIDER_PROFILES_STORAGE_KEY = 'agent.provider.profiles'
+
+interface BrowserProviderProfile {
+  id: string
+  name: string
+  apiKey: string
+  settings: OpenAiCompatibleProviderSettings
+}
 
 // 移除 Pi SDK 的浏览器诊断头，避免不支持这些头的 OpenAI-compatible Provider 拒绝 CORS 预检。
 async function fetchBrowserProvider(
@@ -206,6 +216,30 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     return await this.support.provider.getStatus()
   }
 
+  /** 返回已保存的 Provider 档案，不向界面暴露 API Key。 */
+  async listProviderProfiles(): Promise<ProviderProfileView[]> {
+    return (await this.readProfiles()).map(({ id, name, settings }) => ({
+      id,
+      name,
+      baseUrl: settings.baseUrl,
+      modelId: settings.modelId,
+      modelName: settings.modelName,
+      protocol: settings.protocol,
+    }))
+  }
+
+  /** 原子切换当前运行时使用的 Provider 档案。 */
+  async selectProviderProfile(profileId: string): Promise<void> {
+    if (this.activeRuns.size) {
+      throw new AgentRuntimeError('RUN_ACTIVE', 'Stop the active Agent run before switching Provider.')
+    }
+    const profile = (await this.readProfiles()).find((item) => item.id === profileId)
+    if (!profile) throw new AgentRuntimeError('PROVIDER_ERROR', 'The Provider configuration was not found.')
+    await this.credentials.write(profile.apiKey)
+    await this.settings.write(profile.settings)
+    this.emit({ type: 'provider.status.changed', status: await this.getProviderStatus() })
+  }
+
   async listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult> {
     const apiKey = input.apiKey?.trim() || (await this.credentials.read())
     return fetchOpenAiCompatibleModels({ ...input, apiKey })
@@ -286,20 +320,46 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   }
 
   async saveProvider(input: ProviderSaveInput): Promise<void> {
-    const tested = await this.settings.read()
     const baseUrl = normalizeProviderBaseUrl(input.baseUrl)
-    if (
-      !tested ||
-      tested.baseUrl !== baseUrl ||
-      tested.modelId !== input.model.trim() ||
-      tested.protocol !== input.protocol
-    ) {
+    const modelId = input.model.trim()
+    if (!modelId) {
       throw new AgentRuntimeError(
         'PROVIDER_NOT_CONFIGURED',
-        'Test this Provider configuration before saving it.',
-        { recommendedAction: 'Run the connection test with the current protocol and model.' },
+        'Enter a model ID before saving.',
       )
     }
+    const apiKey = input.apiKey?.trim() || (await this.credentials.read())
+    if (!apiKey) throw new AgentRuntimeError('PROVIDER_NOT_CONFIGURED', 'Enter an API key before saving.')
+    const settings: OpenAiCompatibleProviderSettings = {
+      version: PROVIDER_SETTINGS_VERSION,
+      baseUrl,
+      modelId,
+      modelName: input.modelName.trim() || modelId,
+      protocol: input.protocol,
+      compatibility: 'compatible',
+      lastTestedAt: Date.now(),
+      lastModelsRefreshAt: Date.now(),
+    }
+    await this.credentials.write(apiKey)
+    await this.settings.write(settings)
+    const profiles = await this.readProfiles()
+    const existingIndex = input.profileId
+      ? profiles.findIndex((item) => item.id === input.profileId)
+      : profiles.findIndex(
+          (item) =>
+            item.settings.baseUrl === settings.baseUrl &&
+            item.settings.modelId === settings.modelId &&
+            item.settings.protocol === settings.protocol,
+        )
+    const profile: BrowserProviderProfile = {
+      id: existingIndex >= 0 ? profiles[existingIndex]!.id : `provider-${globalThis.crypto.randomUUID()}`,
+      name: input.profileName.trim() || settings.modelName,
+      apiKey,
+      settings,
+    }
+    if (existingIndex >= 0) profiles[existingIndex] = profile
+    else profiles.push(profile)
+    this.writeProfiles(profiles)
     this.emit({ type: 'provider.status.changed', status: await this.getProviderStatus() })
   }
 
@@ -316,6 +376,52 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   private createSessionRecord(): BrowserSession {
     const id = `session-${this.nextSession++}`
     return { view: { id, title: 'New analysis', updatedAt: Date.now() }, messages: [], runs: [] }
+  }
+
+  /** 读取档案集合；首次读取时将旧版单配置迁移为一个档案。 */
+  private async readProfiles(): Promise<BrowserProviderProfile[]> {
+    const raw = window.localStorage.getItem(PROVIDER_PROFILES_STORAGE_KEY)
+    if (raw) {
+      try {
+        const value = JSON.parse(raw)
+        if (Array.isArray(value)) {
+          const profiles = value.filter((item): item is BrowserProviderProfile => {
+            if (typeof item !== 'object' || item === null) return false
+            const profile = item as Record<string, unknown>
+            try {
+              return (
+                typeof profile.id === 'string' &&
+                typeof profile.name === 'string' &&
+                typeof profile.apiKey === 'string' &&
+                Boolean(parseOpenAiCompatibleProviderSettings(profile.settings))
+              )
+            } catch {
+              return false
+            }
+          })
+          if (profiles.length !== value.length) this.writeProfiles(profiles)
+          return profiles
+        }
+      } catch {}
+      window.localStorage.removeItem(PROVIDER_PROFILES_STORAGE_KEY)
+    }
+    const [settings, apiKey] = await Promise.all([this.settings.read(), this.credentials.read()])
+    if (!settings || !apiKey) return []
+    const profiles = [
+      {
+        id: `provider-${globalThis.crypto.randomUUID()}`,
+        name: settings.modelName,
+        apiKey,
+        settings,
+      },
+    ]
+    this.writeProfiles(profiles)
+    return profiles
+  }
+
+  /** 写入完整档案快照，避免配置与对应凭据分离。 */
+  private writeProfiles(profiles: BrowserProviderProfile[]): void {
+    window.localStorage.setItem(PROVIDER_PROFILES_STORAGE_KEY, JSON.stringify(profiles))
   }
 
   private requireSession(sessionId: string): BrowserSession {

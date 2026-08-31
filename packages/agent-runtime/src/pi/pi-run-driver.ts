@@ -177,7 +177,7 @@ export class PiRunDriver {
           plan.systemPrompt ??
           `You are the KLineChartQuant chart analyst. Use only supplied tools. Scope: ${JSON.stringify(plan.scope)}.`,
         model: plan.model,
-        thinkingLevel: 'off',
+        thinkingLevel: 'medium',
         tools,
         messages: [...(plan.transcript ?? [])],
       },
@@ -198,6 +198,7 @@ export class PiRunDriver {
     })
     this.activeAgent = agent
 
+    const thinkingMessageIds = new Map<number, string>()
     // 订阅 Pi 原始事件并按 UI 协议投影；文本和工具数据在离开驱动器前脱敏。
     const unsubscribe = agent.subscribe(async (event) => {
       if (event.type === 'message_start' && isAssistant(event.message)) {
@@ -218,6 +219,40 @@ export class PiRunDriver {
         const delta = redactString(event.assistantMessageEvent.delta, this.redaction)
         assistantText += delta
         await emit({ type: 'assistant.text.delta', messageId: assistantMessageId, delta })
+        return
+      }
+      if (event.type === 'message_update' && event.assistantMessageEvent.type === 'thinking_start') {
+        const messageId = this.id()
+        thinkingMessageIds.set(event.assistantMessageEvent.contentIndex, messageId)
+        await emit({
+          type: 'assistant.thinking.started',
+          messageId,
+          createdAt: this.now(),
+        })
+        return
+      }
+      if (event.type === 'message_update' && event.assistantMessageEvent.type === 'thinking_delta') {
+        const contentIndex = event.assistantMessageEvent.contentIndex
+        let messageId = thinkingMessageIds.get(contentIndex)
+        if (!messageId) {
+          messageId = this.id()
+          thinkingMessageIds.set(contentIndex, messageId)
+          await emit({
+            type: 'assistant.thinking.started',
+            messageId,
+            createdAt: this.now(),
+          })
+        }
+        await emit({
+          type: 'assistant.thinking.delta',
+          messageId,
+          delta: redactString(event.assistantMessageEvent.delta, this.redaction),
+        })
+        return
+      }
+      if (event.type === 'message_update' && event.assistantMessageEvent.type === 'thinking_end') {
+        const messageId = thinkingMessageIds.get(event.assistantMessageEvent.contentIndex)
+        if (messageId) await emit({ type: 'assistant.thinking.completed', messageId })
         return
       }
       if (event.type === 'message_end' && isAssistant(event.message)) {

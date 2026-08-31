@@ -13,8 +13,31 @@
       autocomplete="off"
       novalidate
       @submit.prevent="providerSettings.testProvider()"
-    >
+      >
       <div class="provider-form__fields">
+        <label class="provider-field">
+          <span class="provider-field__label">{{ text.providerProfile }}</span>
+          <span class="provider-profile-control">
+            <select
+              class="provider-profile-select"
+              :value="providerSettings.profileId ?? ''"
+              @change="onProfileChange"
+            >
+              <option v-for="profile in profileOptions" :key="profile.value" :value="profile.value">
+                {{ profile.label }}
+              </option>
+            </select>
+            <button
+              type="button"
+              class="provider-profile-new-button"
+              :title="text.newProviderProfile"
+              :aria-label="text.newProviderProfile"
+              @click="providerSettings.createProfile()"
+            >
+              <IconPlus aria-hidden="true" />
+            </button>
+          </span>
+        </label>
         <label class="provider-field">
           <span class="provider-field__label">{{ text.apiProtocol }}</span>
           <Dropdown
@@ -75,6 +98,10 @@
               />
             </button>
           </span>
+        </label>
+        <label class="provider-field">
+          <span class="provider-field__label">{{ text.providerProfileName }}</span>
+          <input v-model="providerSettings.profileName" type="text" autocomplete="off" />
         </label>
       </div>
 
@@ -149,6 +176,7 @@
   import IconCircleCheck from '~icons/tabler/circle-check'
   import IconLoader2 from '~icons/tabler/loader-2'
   import IconPlugConnected from '~icons/tabler/plug-connected'
+  import IconPlus from '~icons/tabler/plus'
   import IconRefresh from '~icons/tabler/refresh'
 
   const props = defineProps<{
@@ -166,6 +194,10 @@
   const modelOptions = computed(() =>
     props.providerSettings.models.map((model) => ({ value: model.id, label: model.name })),
   )
+  const profileOptions = computed(() => [
+    { value: '', label: text.value.newProviderProfile },
+    ...props.providerSettings.profiles.map((profile) => ({ value: profile.id, label: profile.name })),
+  ])
 
   function stageLabel(stage: ProviderProbeStageResult['stage']): string {
     return {
@@ -181,6 +213,17 @@
       'openai-completions': text.value.openAiCompletions,
       'openai-responses': text.value.openAiResponses,
     }[protocol]
+  }
+
+  /** 选择空值时开始创建新档案，否则切换已保存档案。 */
+  function selectProfile(id: string): void {
+    if (id) void props.providerSettings.selectProfile(id)
+    else props.providerSettings.createProfile()
+  }
+
+  /** 将原生选择框的值转交给档案切换逻辑。 */
+  function onProfileChange(event: Event): void {
+    selectProfile((event.target as HTMLSelectElement).value)
   }
 
   watch(
@@ -277,7 +320,28 @@
     gap: 8px;
   }
 
+  .provider-profile-control {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 34px;
+    gap: 8px;
+  }
+
+  .provider-profile-select {
+    width: 100%;
+    height: 34px;
+    box-sizing: border-box;
+    padding: 0 10px;
+    border-radius: 6px;
+    border: 1px solid var(--klc-color-border-button);
+    outline: none;
+    color: var(--klc-color-foreground);
+    background: var(--klc-color-background);
+    font: inherit;
+    font-size: 12px;
+  }
+
   .provider-refresh-button,
+  .provider-profile-new-button,
   .provider-primary-button {
     display: inline-flex;
     align-items: center;
@@ -293,7 +357,8 @@
       opacity 0.15s;
   }
 
-  .provider-refresh-button {
+  .provider-refresh-button,
+  .provider-profile-new-button {
     width: 34px;
     height: 34px;
     padding: 0;
@@ -302,7 +367,8 @@
     background: var(--klc-color-background);
   }
 
-  .provider-refresh-button:hover:not(:disabled) {
+  .provider-refresh-button:hover:not(:disabled),
+  .provider-profile-new-button:hover:not(:disabled) {
     border-color: var(--klc-color-axis-line);
     color: var(--klc-color-foreground);
     background: var(--klc-color-tag-bg-hover);

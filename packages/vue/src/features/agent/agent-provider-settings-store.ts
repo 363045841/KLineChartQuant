@@ -9,6 +9,7 @@ import type {
   AgentErrorView,
   ProviderApiProtocol,
   ProviderModelView,
+  ProviderProfileView,
   ProviderStatusView,
   ProviderTestInput,
   ProviderTestResult,
@@ -46,6 +47,9 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
   const baseUrl = ref('')
   const apiKey = ref('')
   const protocol = ref<ProviderApiProtocol>(PROVIDER_API_PROTOCOLS[0])
+  const profileId = ref<string>()
+  const profileName = ref('')
+  const profiles = ref<ProviderProfileView[]>([])
   const model = ref('')
   const models = ref<ProviderModelView[]>([])
   const modelsLoading = ref(false)
@@ -69,16 +73,66 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     testResult.value = null
   }
 
+  /** 切换到指定的已保存档案，并用其配置重建表单草稿。 */
+  async function selectProfile(id: string): Promise<void> {
+    if (!bridge || id === profileId.value) return
+    operationError.value = null
+    try {
+      await bridge.selectProviderProfile(id)
+      const [status, nextProfiles] = await Promise.all([
+        bridge.getProviderStatus(),
+        bridge.listProviderProfiles(),
+      ])
+      profileId.value = id
+      profiles.value = nextProfiles
+      profileName.value = nextProfiles.find((item) => item.id === id)?.name ?? ''
+      baseUrl.value = status.baseUrl ?? ''
+      apiKey.value = ''
+      protocol.value = status.protocol ?? PROVIDER_API_PROTOCOLS[0]
+      model.value = status.modelId ?? ''
+      models.value = []
+      testResult.value = null
+    } catch (error) {
+      operationError.value = toOperationError(error)
+    }
+  }
+
+  /** 创建未保存的新档案草稿。 */
+  function createProfile(): void {
+    profileId.value = undefined
+    profileName.value = ''
+    baseUrl.value = ''
+    apiKey.value = ''
+    protocol.value = PROVIDER_API_PROTOCOLS[0]
+    model.value = ''
+    models.value = []
+    testResult.value = null
+    operationError.value = null
+  }
+
   /** 打开弹窗并从已保存的 Provider 配置创建全新草稿。 */
-  function show(status: ProviderStatusView): void {
+  async function show(status: ProviderStatusView): Promise<void> {
     open.value = true
+    operationError.value = null
     baseUrl.value = status.baseUrl ?? ''
     apiKey.value = ''
     protocol.value = status.protocol ?? PROVIDER_API_PROTOCOLS[0]
     model.value = status.modelId ?? ''
+    try {
+      profiles.value = bridge ? await bridge.listProviderProfiles() : []
+    } catch (error) {
+      profiles.value = []
+      operationError.value = toOperationError(error)
+    }
+    profileId.value = profiles.value.find(
+      (item) =>
+        item.baseUrl === status.baseUrl &&
+        item.modelId === status.modelId &&
+        item.protocol === status.protocol,
+    )?.id
+    profileName.value = profiles.value.find((item) => item.id === profileId.value)?.name ?? ''
     models.value = []
     testResult.value = null
-    operationError.value = null
   }
 
   /** 关闭弹窗并立即清除仅应存在于内存中的 API Key 草稿。 */
@@ -142,7 +196,16 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
         model: model.value,
         modelName,
         protocol: protocol.value,
+        profileId: profileId.value,
+        profileName: profileName.value,
       })
+      profiles.value = await bridge.listProviderProfiles()
+      profileId.value = profiles.value.find(
+        (item) =>
+          item.baseUrl === baseUrl.value &&
+          item.modelId === model.value &&
+          item.protocol === protocol.value,
+      )?.id
       close()
     } catch (error) {
       operationError.value = toOperationError(error)
@@ -154,6 +217,9 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     baseUrl,
     apiKey,
     protocol,
+    profileId,
+    profileName,
+    profiles,
     model,
     models,
     modelsLoading,
@@ -163,6 +229,8 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     canTest,
     bindBridge,
     setProtocol,
+    selectProfile,
+    createProfile,
     show,
     close,
     refreshModels,

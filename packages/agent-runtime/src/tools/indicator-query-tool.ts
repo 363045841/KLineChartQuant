@@ -5,7 +5,7 @@ import { Value } from 'typebox/value'
 
 import type { RuntimeToolDefinition } from '../pi/types.js'
 
-const INDICATOR_QUERY_TOOL_NAME = 'indicators.query'
+const INDICATOR_QUERY_TOOL_NAME = 'indicators_query'
 const INDICATOR_QUERY_DEFAULT_LIMIT = 20
 const INDICATOR_QUERY_MAX_LIMIT = 2000
 

@@ -5,7 +5,7 @@ import { Value } from 'typebox/value'
 
 import type { RuntimeToolDefinition } from '../pi/types.js'
 
-const INSTRUMENT_NAME_QUERY_TOOL_NAME = 'instruments.queryName'
+const INSTRUMENT_NAME_QUERY_TOOL_NAME = 'instruments_query_name'
 const INSTRUMENT_NAME_QUERY_LIMIT = 20
 
 /** 宿主向 Agent Runtime 注入的品种目录查询端口，隔离 Core 包依赖。 */

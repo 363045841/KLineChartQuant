@@ -98,12 +98,71 @@ describe('BrowserAgentBridge', () => {
       model: 'chart-model',
       modelName: 'Chart model',
       protocol: 'openai-completions',
+      profileName: 'Provider example',
     })
 
     await expect(bridge.getProviderStatus()).resolves.toMatchObject({
       state: 'connected',
       modelId: 'chart-model',
       protocol: 'openai-completions',
+    })
+  })
+
+  it('persists multiple Provider profiles and switches the active runtime configuration', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input, init) => providerResponse(input, init)),
+    )
+    const bridge = new BrowserAgentBridge()
+    const first = {
+      baseUrl: 'https://provider-one.example/v1',
+      apiKey: 'first-key',
+      model: 'chart-model',
+      protocol: 'openai-completions' as const,
+    }
+    const second = {
+      baseUrl: 'https://provider-two.example/v1',
+      apiKey: 'second-key',
+      model: 'chart-model',
+      protocol: 'openai-completions' as const,
+    }
+
+    await bridge.testProvider(first)
+    await bridge.saveProvider({ ...first, modelName: 'Chart model', profileName: 'Provider one' })
+    await bridge.testProvider(second)
+    await bridge.saveProvider({ ...second, modelName: 'Chart model', profileName: 'Provider two' })
+
+    const profiles = await bridge.listProviderProfiles()
+    expect(profiles).toMatchObject([
+      { name: 'Provider one', baseUrl: first.baseUrl },
+      { name: 'Provider two', baseUrl: second.baseUrl },
+    ])
+    expect(JSON.stringify(profiles)).not.toContain('first-key')
+    expect(JSON.stringify(profiles)).not.toContain('second-key')
+
+    await bridge.selectProviderProfile(profiles[0]!.id)
+    await expect(bridge.getProviderStatus()).resolves.toMatchObject({
+      state: 'connected',
+      baseUrl: first.baseUrl,
+    })
+  })
+
+  it('saves and enables a Provider without a connection test', async () => {
+    const bridge = new BrowserAgentBridge()
+
+    await bridge.saveProvider({
+      baseUrl: 'https://provider.example/v1',
+      apiKey: 'test-key',
+      model: 'chart-model',
+      modelName: 'Chart model',
+      profileName: 'Untested provider',
+      protocol: 'openai-completions',
+    })
+
+    await expect(bridge.getProviderStatus()).resolves.toMatchObject({
+      state: 'connected',
+      baseUrl: 'https://provider.example/v1',
+      modelId: 'chart-model',
     })
   })
 

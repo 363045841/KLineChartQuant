@@ -1,5 +1,5 @@
 /** Stable Renderer contract. Pi, Provider, and host transport types stop here. */
-export const AGENT_UI_PROTOCOL_VERSION = 3 as const
+export const AGENT_UI_PROTOCOL_VERSION = 4 as const
 
 export type AgentRunStatus =
   | 'idle'
@@ -34,7 +34,7 @@ export interface EvidenceView {
 
 export interface AgentMessageView {
   id: string
-  role: 'user' | 'assistant' | 'action'
+  role: 'user' | 'assistant' | 'action' | 'reasoning'
   content: string
   createdAt: number
   status?: AgentMessageStatus
@@ -177,6 +177,13 @@ export type AgentUiEvent =
   | (RunEventEnvelope & { type: 'assistant.text.delta'; messageId: string; delta: string })
   | (RunEventEnvelope & { type: 'assistant.message.completed'; messageId: string })
   | (RunEventEnvelope & { type: 'assistant.message.failed'; messageId: string })
+  | (RunEventEnvelope & {
+      type: 'assistant.thinking.started'
+      messageId: string
+      createdAt: number
+    })
+  | (RunEventEnvelope & { type: 'assistant.thinking.delta'; messageId: string; delta: string })
+  | (RunEventEnvelope & { type: 'assistant.thinking.completed'; messageId: string })
   | (RunEventEnvelope & { type: 'action.summary'; message: AgentMessageView })
   | (RunEventEnvelope & { type: 'tool.started'; call: ToolCallView })
   | (RunEventEnvelope & {
@@ -228,6 +235,16 @@ export interface ProviderTestInput {
 }
 export interface ProviderSaveInput extends ProviderTestInput {
   modelName: string
+  profileId?: string
+  profileName: string
+}
+export interface ProviderProfileView {
+  id: string
+  name: string
+  baseUrl: string
+  modelId: string
+  modelName: string
+  protocol: ProviderApiProtocol
 }
 export interface ProviderModelsInput {
   baseUrl: string
@@ -268,6 +285,8 @@ export interface AgentBridgeClient {
   undoTurn(runId: string): Promise<void>
   listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult>
   testProvider(input: ProviderTestInput): Promise<ProviderTestResult>
+  listProviderProfiles(): Promise<ProviderProfileView[]>
+  selectProviderProfile(profileId: string): Promise<void>
   saveProvider(input: ProviderSaveInput): Promise<void>
   deleteProviderCredential(): Promise<void>
   subscribe(listener: (event: AgentUiEvent) => void): () => void

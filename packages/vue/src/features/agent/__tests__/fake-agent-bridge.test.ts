@@ -48,7 +48,7 @@ describe('FakeAgentBridge', () => {
     await expect(pending).resolves.toMatchObject({ compatible: true, model: 'provider-model-a' })
     expect(events).toHaveLength(0)
 
-    await bridge.saveProvider({ ...input, modelName: 'Provider Model A' })
+    await bridge.saveProvider({ ...input, modelName: 'Provider Model A', profileName: 'Provider A' })
     expect(events.at(-1)).toMatchObject({
       type: 'provider.status.changed',
       status: { state: 'connected', modelLabel: 'Provider Model A' },

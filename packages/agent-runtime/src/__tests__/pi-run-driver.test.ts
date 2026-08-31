@@ -39,7 +39,7 @@ function fixture(
 }
 
 describe('PiRunDriver', () => {
-  it('projects ordered text deltas and usage while suppressing thinking', async () => {
+  it('projects ordered thinking and text deltas with usage', async () => {
     const { plan } = fixture([
       fauxAssistantMessage([
         fauxThinking('private chain'),
@@ -58,7 +58,12 @@ describe('PiRunDriver', () => {
         .map((event) => ('delta' in event ? event.delta : ''))
         .join(''),
     ).toBe('Visible answer')
-    expect(JSON.stringify(events)).not.toContain('private chain')
+    expect(
+      events
+        .filter((event) => event.type === 'assistant.thinking.delta')
+        .map((event) => ('delta' in event ? event.delta : ''))
+        .join(''),
+    ).toBe('private chain')
     expect(result.usage).toMatchObject({
       inputTokens: expect.any(Number),
       outputTokens: expect.any(Number),

@@ -4,7 +4,7 @@
       <IconActivity aria-hidden="true" />
       <span>{{ text.action }}</span>
     </div>
-    <div v-else class="message__role">
+    <div v-if="message.role !== 'action' && message.role !== 'reasoning'" class="message__role">
       <IconUser v-if="message.role === 'user'" aria-hidden="true" />
       <IconSparkles v-else aria-hidden="true" />
       <span>{{ message.role === 'user' ? 'You' : text.agent }}</span>
@@ -14,12 +14,28 @@
         aria-hidden="true"
       />
     </div>
+    <details
+      v-if="message.role === 'reasoning'"
+      class="message__reasoning"
+      :open="message.status === 'streaming'"
+    >
+      <summary>
+        <IconBrain aria-hidden="true" />
+        <span>{{ text.reasoning }}</span>
+        <IconLoader2
+          v-if="message.status === 'streaming'"
+          class="message__spinner"
+          aria-hidden="true"
+        />
+      </summary>
+      <p class="message__content">{{ message.content }}</p>
+    </details>
     <div
       v-if="message.role === 'assistant'"
       class="message__content message__content--markdown"
       v-html="html"
     />
-    <p v-else class="message__content">{{ message.content }}</p>
+    <p v-else-if="message.role !== 'reasoning'" class="message__content">{{ message.content }}</p>
   </article>
 </template>
 
@@ -32,6 +48,7 @@
   import type { AgentMessageView } from '../agent-contracts'
 
   import IconActivity from '~icons/tabler/activity'
+  import IconBrain from '~icons/tabler/brain'
   import IconLoader2 from '~icons/tabler/loader-2'
   import IconSparkles from '~icons/tabler/sparkles'
   import IconUser from '~icons/tabler/user'
@@ -74,6 +91,25 @@
 
   .message--action .message__action {
     margin: 0;
+  }
+
+  .message__reasoning {
+    color: var(--agent-text-soft);
+    font-size: 12px;
+  }
+
+  .message__reasoning summary {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    color: var(--agent-muted);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .message__reasoning > .message__content {
+    margin-top: 6px;
   }
 
   .message__content {
