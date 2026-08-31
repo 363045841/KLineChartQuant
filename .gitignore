@@ -70,3 +70,6 @@ examples/next-app/pnpm-lock.yaml
 
 # Migration script temp files
 .opencode-temp/
+
+# Render benchmark local results
+bench/results/
