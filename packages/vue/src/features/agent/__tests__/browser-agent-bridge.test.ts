@@ -58,6 +58,21 @@ function providerResponse(input: RequestInfo | URL, init?: RequestInit): Respons
 }
 
 describe('BrowserAgentBridge', () => {
+  it('persists the enabled state of registered Agent tools', async () => {
+    const bridge = new BrowserAgentBridge()
+
+    await expect(bridge.listTools()).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: 'instruments_query_name', enabled: true })]),
+    )
+    await bridge.setToolEnabled('instruments_query_name', false)
+    await expect(bridge.listTools()).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: 'instruments_query_name', enabled: false })]),
+    )
+    await expect(new BrowserAgentBridge().listTools()).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: 'instruments_query_name', enabled: false })]),
+    )
+  })
+
   it('requests the Provider model catalog with the supplied credential', async () => {
     const fetchMock = vi.fn(async () => modelsResponse())
     vi.stubGlobal('fetch', fetchMock)
@@ -261,6 +276,7 @@ describe('BrowserAgentBridge', () => {
       getContext: context,
       queryIndicator: () => Promise.resolve(''),
       searchInstruments: () => Promise.resolve([]),
+      lookupInstrumentsBySymbol: () => Promise.resolve([]),
     } as ChartAgentController
     const bridge = new BrowserAgentBridge()
     const received: Array<string | null> = []

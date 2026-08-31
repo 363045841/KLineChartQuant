@@ -360,6 +360,13 @@ export class PiRunDriver {
       execute: async (rawId, input, signal, onUpdate) => {
         if (!signal)
           throw new AgentRuntimeError('INTERNAL_ERROR', 'Pi did not provide a tool AbortSignal.')
+        // 即使 Provider 错误暴露了写工具，只读 Run 仍不能执行它。
+        if (plan.readOnly && definition.safety !== 'read-only') {
+          throw new AgentRuntimeError(
+            'TOOL_NOT_ALLOWED',
+            `Tool '${definition.name}' is not allowed in a read-only run.`,
+          )
+        }
         // 对外 ID 始终包含运行维度，避免 Pi 内部 ID 跨运行重复。
         const toolCallId = publicToolCallId(plan.runId, rawId)
         const result = await definition.execute(input, {

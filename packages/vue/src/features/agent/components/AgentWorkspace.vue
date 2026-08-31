@@ -11,6 +11,7 @@
       @rename="renameSession"
       @delete="deleteSession"
       @settings="providerSettings.show(state.provider)"
+      @tools="providerSettings.showTools()"
       @close="$emit('close')"
       @toggle-locale="toggleLocale"
     />
@@ -50,6 +51,7 @@
       :status="state.provider"
       :locale="locale"
     />
+    <AgentToolsDialog :provider-settings="providerSettings" :locale="locale" />
   </section>
 </template>
 
@@ -63,6 +65,7 @@
   import AgentHeader from './AgentHeader.vue'
   import AgentSettingsDialog from './AgentSettingsDialog.vue'
   import AgentTimeline from './AgentTimeline.vue'
+  import AgentToolsDialog from './AgentToolsDialog.vue'
 
   import type { AgentBridgeClient } from '../agent-contracts'
 

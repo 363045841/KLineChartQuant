@@ -103,6 +103,7 @@ export function createMockChartController(
       },
       queryIndicator: () => Promise.resolve(''),
       searchInstruments: () => Promise.resolve([]),
+      lookupInstrumentsBySymbol: () => Promise.resolve([]),
     },
     viewport,
     data,

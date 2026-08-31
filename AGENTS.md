@@ -159,6 +159,8 @@ Agent 细节见该仓库 `AGENTS.md`。
 - **Error codes**: `KLineChartError` 的错误码必须从 `packages/core/src/errors.ts` 中的具名常量引用，禁止在业务代码里散落字符串字面量。新增错误码时在 `errors.ts` 追加常量并保持 append-only。
 - **Colors**: 颜色必须收归 `packages/core/src/foundation/tokens` 管理，业务组件仅消费 Token 输出的 CSS 变量，禁止局部硬编码颜色。
 - 不要硬编码字符串
+- 禁止编写、保留复杂化的回退逻辑
+- 不许在测试中引入脆弱的 MOCK
 
 ## Architecture
 

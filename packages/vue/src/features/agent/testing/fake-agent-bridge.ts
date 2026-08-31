@@ -22,6 +22,8 @@ import {
   type ProviderTestInput,
   type ProviderTestResult,
   type StartRunInput,
+  type AgentToolView,
+  type AgentToolDebugResult,
   type ToolCallView,
 } from '../agent-contracts'
 
@@ -55,6 +57,14 @@ export class FakeAgentBridge implements AgentBridgeClient {
   ]
   private provider: ProviderStatusView
   private profiles: ProviderProfileView[] = []
+  private tools: AgentToolView[] = [
+    {
+      name: 'instruments_query_name',
+      label: 'Query instrument name',
+      description: 'Look up a security name by its exact symbol.',
+      enabled: true,
+    },
+  ]
   private nextSessionId = 2
   private nextRunId = 1
   private readonly chartContext: ChartContextView = {
@@ -105,6 +115,21 @@ export class FakeAgentBridge implements AgentBridgeClient {
 
   async getProviderStatus(): Promise<ProviderStatusView> {
     return this.provider
+  }
+
+  async listTools(): Promise<AgentToolView[]> {
+    return this.tools.map((tool) => ({ ...tool }))
+  }
+
+  async setToolEnabled(name: string, enabled: boolean): Promise<void> {
+    const tool = this.tools.find((item) => item.name === name)
+    if (!tool) throw new Error(`Unknown fake Agent tool: ${name}`)
+    tool.enabled = enabled
+  }
+
+  async debugTool(name: string, input: unknown): Promise<AgentToolDebugResult> {
+    if (!this.tools.some((tool) => tool.name === name)) throw new Error(`Unknown fake Agent tool: ${name}`)
+    return { content: JSON.stringify({ input }), summary: 'Fake tool completed.' }
   }
 
   async listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult> {

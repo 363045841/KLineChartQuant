@@ -76,6 +76,20 @@ export interface ToolCallView {
   evidence?: EvidenceView
 }
 
+/** 用户可管理的 Agent 工具设置项。 */
+export interface AgentToolView {
+  name: string
+  label: string
+  description: string
+  enabled: boolean
+}
+
+/** 工具管理页手动执行一次工具后的可展示结果。 */
+export interface AgentToolDebugResult {
+  content: string
+  summary: string
+}
+
 export type ConfirmationStatus = 'pending' | 'confirmed' | 'rejected' | 'expired'
 export interface ConfirmationView {
   id: string
@@ -274,6 +288,9 @@ export interface AgentBridgeClient {
   listSessions(): Promise<AgentSessionView[]>
   openSession(sessionId: string): Promise<AgentSessionSnapshot>
   getProviderStatus(): Promise<ProviderStatusView>
+  listTools(): Promise<AgentToolView[]>
+  setToolEnabled(name: string, enabled: boolean): Promise<void>
+  debugTool(name: string, input: unknown): Promise<AgentToolDebugResult>
   createSession(): Promise<AgentSessionView>
   renameSession(sessionId: string, title: string): Promise<void>
   deleteSession(sessionId: string): Promise<void>

@@ -28,6 +28,7 @@ export type AgentRuntimeErrorCode =
   | 'TARGET_MISMATCH'
   | 'TOOL_ERROR'
   | 'TOOL_LOOP_LIMIT'
+  | 'TOOL_NOT_ALLOWED'
 
 export class AgentRuntimeError extends Error {
   readonly code: AgentRuntimeErrorCode

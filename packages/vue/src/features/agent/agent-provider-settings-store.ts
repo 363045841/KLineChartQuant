@@ -8,6 +8,8 @@ import type {
   AgentBridgeClient,
   AgentErrorView,
   ProviderApiProtocol,
+  AgentToolView,
+  AgentToolDebugResult,
   ProviderModelView,
   ProviderProfileView,
   ProviderStatusView,
@@ -44,6 +46,7 @@ export function createAgentProviderSettingsPinia() {
 /** 管理单个 Agent Workspace 的 Provider 设置草稿与请求状态。 */
 export const useAgentProviderSettingsStore = defineStore('agent-provider-settings', () => {
   const open = ref(false)
+  const toolsOpen = ref(false)
   const baseUrl = ref('')
   const apiKey = ref('')
   const protocol = ref<ProviderApiProtocol>(PROVIDER_API_PROTOCOLS[0])
@@ -54,6 +57,11 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
   const modelsLoading = ref(false)
   const testResult = ref<ProviderTestResult | null>(null)
   const operationError = ref<AgentErrorView | null>(null)
+  const tools = ref<AgentToolView[]>([])
+  const toolInputs = ref<Record<string, string>>({})
+  const toolResults = ref<Record<string, AgentToolDebugResult>>({})
+  const toolErrors = ref<Record<string, string>>({})
+  const runningToolName = ref<string | null>(null)
   let bridge: AgentBridgeClient | undefined
   let refreshRequestId = 0
 
@@ -126,7 +134,8 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     protocol.value = status.protocol ?? PROVIDER_API_PROTOCOLS[0]
     model.value = status.modelId ?? ''
     try {
-      profiles.value = bridge ? await bridge.listProviderProfiles() : []
+      const nextProfiles = bridge ? await bridge.listProviderProfiles() : []
+      profiles.value = nextProfiles
     } catch (error) {
       profiles.value = []
       operationError.value = toOperationError(error)
@@ -134,6 +143,67 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     profileName.value = status.profileName ?? ''
     models.value = []
     testResult.value = null
+  }
+
+  /** 打开工具管理弹窗并读取当前持久化的启用状态。 */
+  async function showTools(): Promise<void> {
+    toolsOpen.value = true
+    operationError.value = null
+    try {
+      tools.value = bridge ? await bridge.listTools() : []
+      for (const tool of tools.value) {
+        toolInputs.value[tool.name] ??= '{\n  \n}'
+      }
+    } catch (error) {
+      tools.value = []
+      operationError.value = toOperationError(error)
+    }
+  }
+
+  /** 关闭工具管理弹窗。 */
+  function closeTools(): void {
+    toolsOpen.value = false
+    operationError.value = null
+  }
+
+  /** 保存工具开关后更新弹窗中的当前状态。 */
+  async function setToolEnabled(name: string, enabled: boolean): Promise<void> {
+    if (!bridge) return
+    operationError.value = null
+    try {
+      await bridge.setToolEnabled(name, enabled)
+      tools.value = await bridge.listTools()
+    } catch (error) {
+      operationError.value = toOperationError(error)
+    }
+  }
+
+  /** 更新工具调试 JSON 草稿。 */
+  function setToolInput(name: string, input: string): void {
+    toolInputs.value = { ...toolInputs.value, [name]: input }
+  }
+
+  /** 执行手动工具调试，并保留该工具最近一次结果或错误。 */
+  async function debugTool(name: string): Promise<void> {
+    if (!bridge || runningToolName.value) return
+    let input: unknown
+    try {
+      input = JSON.parse(toolInputs.value[name] ?? '{}')
+    } catch {
+      toolErrors.value = { ...toolErrors.value, [name]: 'Parameters must be valid JSON.' }
+      return
+    }
+
+    runningToolName.value = name
+    toolErrors.value = { ...toolErrors.value, [name]: '' }
+    try {
+      const result = await bridge.debugTool(name, input)
+      toolResults.value = { ...toolResults.value, [name]: result }
+    } catch (error) {
+      toolErrors.value = { ...toolErrors.value, [name]: toOperationError(error).message }
+    } finally {
+      runningToolName.value = null
+    }
   }
 
   /** 关闭弹窗并立即清除仅应存在于内存中的 API Key 草稿。 */
@@ -209,6 +279,7 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
 
   return {
     open,
+    toolsOpen,
     baseUrl,
     apiKey,
     protocol,
@@ -219,6 +290,11 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     modelsLoading,
     testResult,
     operationError,
+    tools,
+    toolInputs,
+    toolResults,
+    toolErrors,
+    runningToolName,
     canRefreshModels,
     canTest,
     bindBridge,
@@ -226,6 +302,11 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     selectProfile,
     createProfile,
     show,
+    showTools,
+    closeTools,
+    setToolEnabled,
+    setToolInput,
+    debugTool,
     close,
     refreshModels,
     testProvider,

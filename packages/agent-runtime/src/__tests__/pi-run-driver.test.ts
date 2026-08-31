@@ -173,6 +173,38 @@ describe('PiRunDriver', () => {
     } satisfies Partial<AgentRuntimeError>)
   })
 
+  it('does not execute a non-read-only tool supplied to a read-only plan', async () => {
+    const execute = vi.fn(async () => ({ content: 'cleared', summary: 'Chart cleared.' }))
+    const tool: RuntimeToolDefinition = {
+      name: 'chart.clear',
+      label: 'Clear chart',
+      description: 'Clear chart drawings',
+      parameters: Type.Object({}),
+      safety: 'destructive',
+      reversible: false,
+      execute,
+    }
+    const { plan } = fixture(
+      [
+        fauxAssistantMessage(
+          fauxToolCall('chart.clear', {}, { id: 'clear-1' }),
+          { stopReason: 'toolUse' },
+        ),
+        fauxAssistantMessage('The requested chart change is not allowed.'),
+      ],
+      [tool],
+    )
+
+    const events: AgentRunUiEventInput[] = []
+    await new PiRunDriver().run(plan, (event) => {
+      events.push(event)
+    })
+    expect(execute).not.toHaveBeenCalled()
+    expect(events.find((event) => event.type === 'tool.finished')).toMatchObject({
+      result: { status: 'failed' },
+    })
+  })
+
   it('maps a Provider deadline to a distinct stable error', async () => {
     const { plan } = fixture([fauxAssistantMessage('x'.repeat(2_000))])
     plan.timeoutMs = 1
