@@ -58,6 +58,43 @@ function providerResponse(input: RequestInfo | URL, init?: RequestInit): Respons
 }
 
 describe('BrowserAgentBridge', () => {
+  it('persists the enabled state of registered Agent tools', async () => {
+    const bridge = new BrowserAgentBridge()
+
+    await expect(bridge.listTools()).resolves.toMatchObject([
+      { name: 'instruments_query_name', enabled: true },
+    ])
+    await bridge.setToolEnabled('instruments_query_name', false)
+    await expect(bridge.listTools()).resolves.toMatchObject([
+      { name: 'instruments_query_name', enabled: false },
+    ])
+    await expect(new BrowserAgentBridge().listTools()).resolves.toMatchObject([
+      { name: 'instruments_query_name', enabled: false },
+    ])
+  })
+
+  it('debugs a registered read-only tool through its chart Agent binding', async () => {
+    const lookupInstrumentsBySymbol = vi.fn().mockResolvedValue([
+      { symbol: '600519', name: '贵州茅台', exchange: 'SH', sourceId: 'gotdx' },
+    ])
+    const bridge = new BrowserAgentBridge({
+      getChartAgent: () => ({ lookupInstrumentsBySymbol }) as unknown as ChartAgentController,
+    })
+
+    await expect(
+      bridge.debugTool('instruments_query_name', { symbol: '600519', sourceIds: ['gotdx'] }),
+    ).resolves.toEqual({
+      content:
+        '{"matches":[{"symbol":"600519","name":"贵州茅台","exchange":"SH","sourceId":"gotdx"}]}',
+      summary: 'Returned 1 exact instrument match.',
+    })
+    expect(lookupInstrumentsBySymbol).toHaveBeenCalledWith({
+      symbol: '600519',
+      sourceIds: ['gotdx'],
+      signal: expect.any(AbortSignal),
+    })
+  })
+
   it('requests the Provider model catalog with the supplied credential', async () => {
     const fetchMock = vi.fn(async () => modelsResponse())
     vi.stubGlobal('fetch', fetchMock)
@@ -261,6 +298,7 @@ describe('BrowserAgentBridge', () => {
       getContext: context,
       queryIndicator: () => Promise.resolve(''),
       searchInstruments: () => Promise.resolve([]),
+      lookupInstrumentsBySymbol: () => Promise.resolve([]),
     } as ChartAgentController
     const bridge = new BrowserAgentBridge()
     const received: Array<string | null> = []

@@ -2,9 +2,11 @@
 import {
   AgentRuntimeError,
   AGENT_UI_PROTOCOL_VERSION,
+  getRegisteredTools,
   PiRunDriver,
+  createRegisteredRuntimeTools,
   createIndicatorQueryTool,
-  createInstrumentNameQueryTool,
+  InstrumentNameQueryTool,
   createOpenAiCompatibleRuntimeSupport,
   fetchOpenAiCompatibleModels,
   normalizeProviderBaseUrl,
@@ -34,6 +36,7 @@ import type {
 import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
 
 const PROVIDER_PROFILES_STORAGE_KEY = 'agent.provider.profiles'
+const ENABLED_TOOLS_STORAGE_KEY = 'agent.enabled-tools'
 
 interface BrowserProviderProfile {
   name: string
@@ -81,6 +84,26 @@ class BrowserProviderProfiles {
 
   updateActive(patch: Partial<Omit<BrowserProviderProfile, 'name' | 'active'>>): void {
     this.write(this.read().map((profile) => (profile.active ? { ...profile, ...patch } : profile)))
+  }
+}
+
+/** 保存用户选择的已启用工具；首次使用时保持所有已注册工具启用。 */
+class BrowserEnabledTools {
+  read(defaultNames: readonly string[]): Set<string> {
+    const raw = window.localStorage.getItem(ENABLED_TOOLS_STORAGE_KEY)
+    if (!raw) return new Set(defaultNames)
+    try {
+      const names = JSON.parse(raw)
+      return Array.isArray(names)
+        ? new Set(names.filter((name): name is string => typeof name === 'string'))
+        : new Set(defaultNames)
+    } catch {
+      return new Set(defaultNames)
+    }
+  }
+
+  write(names: ReadonlySet<string>): void {
+    window.localStorage.setItem(ENABLED_TOOLS_STORAGE_KEY, JSON.stringify([...names]))
   }
 }
 
@@ -164,6 +187,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     (context: ReturnType<typeof projectChartContext>) => void
   >()
   private readonly profiles = new BrowserProviderProfiles()
+  private readonly enabledTools = new BrowserEnabledTools()
   private readonly credentials = new BrowserProviderCredentialStore(this.profiles)
   private readonly settings = new BrowserProviderSettingsStore(this.profiles)
   private readonly support
@@ -182,9 +206,12 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       credentials: this.credentials,
       settings: this.settings,
       fetch: fetchBrowserProvider,
-      tools: () => {
+      tools: (context) => {
         const agent = this.getChartAgent()
-        return agent ? [createIndicatorQueryTool(agent), createInstrumentNameQueryTool(agent)] : []
+        if (!agent) return []
+        const enabledNames = this.enabledToolNames()
+        const registeredTools = this.createRegisteredTools(agent, context.readOnly)
+        return [createIndicatorQueryTool(agent), ...registeredTools.filter((tool) => enabledNames.has(tool.name))]
       },
     })
     const session = this.createSessionRecord()
@@ -239,6 +266,66 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     const status = await this.support.provider.getStatus()
     const profileName = this.profiles.active()?.name
     return profileName ? { ...status, profileName } : status
+  }
+
+  /** 返回可在当前 Browser 宿主中管理的已注册工具。 */
+  async listTools() {
+    const enabledNames = this.enabledToolNames()
+    return getRegisteredTools().map(({ config }) => ({
+      name: config.name,
+      label: config.label,
+      description: config.description,
+      enabled: enabledNames.has(config.name),
+    }))
+  }
+
+  /** 保存用户对已注册工具的启用选择。 */
+  async setToolEnabled(name: string, enabled: boolean): Promise<void> {
+    const registeredNames = new Set(getRegisteredTools().map((tool) => tool.config.name))
+    if (!registeredNames.has(name)) {
+      throw new AgentRuntimeError('INVALID_PAYLOAD', `Unknown Agent tool '${name}'.`)
+    }
+    const enabledNames = this.enabledToolNames()
+    if (enabled) enabledNames.add(name)
+    else enabledNames.delete(name)
+    this.enabledTools.write(enabledNames)
+  }
+
+  /** 手动执行一个已注册的只读工具，复用 Agent 调用的 schema 与宿主绑定。 */
+  async debugTool(name: string, input: unknown) {
+    const agent = this.getChartAgent()
+    if (!agent) {
+      throw new AgentRuntimeError('TARGET_LOST', 'A chart is required to debug this tool.')
+    }
+    const tool = this.createRegisteredTools(agent, true).find((item) => item.name === name)
+    if (!tool) {
+      throw new AgentRuntimeError('INVALID_PAYLOAD', `Unknown or non-read-only Agent tool '${name}'.`)
+    }
+    const result = await tool.execute(input, {
+      runId: `debug:${globalThis.crypto.randomUUID()}`,
+      toolCallId: `debug:${globalThis.crypto.randomUUID()}`,
+      signal: new AbortController().signal,
+      progress: () => undefined,
+    })
+    return { content: result.content, summary: result.summary }
+  }
+
+  /** 读取已注册工具的当前启用集合，并忽略旧版本遗留的未知名称。 */
+  private enabledToolNames(): Set<string> {
+    const registeredNames = getRegisteredTools().map((tool) => tool.config.name)
+    const enabledNames = this.enabledTools.read(registeredNames)
+    return new Set([...enabledNames].filter((name) => registeredNames.includes(name)))
+  }
+
+  /** 为当前图表 Agent 创建已注册工具的运行期定义。 */
+  private createRegisteredTools(agent: ChartAgentController, readOnly: boolean) {
+    return createRegisteredRuntimeTools(readOnly, (tool) => {
+      if (tool.type === InstrumentNameQueryTool) return new InstrumentNameQueryTool(agent)
+      throw new AgentRuntimeError(
+        'INTERNAL_ERROR',
+        `No Browser Agent tool binding exists for '${tool.config.name}'.`,
+      )
+    })
   }
 
   /** 返回已保存的 Provider 配置，不向界面暴露 API Key。 */

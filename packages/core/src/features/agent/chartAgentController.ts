@@ -1,6 +1,6 @@
 import { KLineChartError } from '../../errors'
 import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
-import { searchInstruments } from '../../data/provider/instrumentSearch'
+import { lookupInstrumentsBySymbol, searchInstruments } from '../../data/provider/instrumentSearch'
 import type { MarketDataProviderRegistry } from '../../data/provider/registry'
 
 import { CHART_AGENT_ERROR_CODES } from './errors'
@@ -122,6 +122,10 @@ export function createChartAgentController(
 
     searchInstruments(input) {
       return searchInstruments(dependencies.marketDataProviderRegistry, input)
+    },
+
+    lookupInstrumentsBySymbol(input) {
+      return lookupInstrumentsBySymbol(dependencies.marketDataProviderRegistry, input)
     },
   }
 }

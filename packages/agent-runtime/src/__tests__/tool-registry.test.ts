@@ -1,5 +1,5 @@
 import { Type } from 'typebox'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   AgentRuntimeError,
@@ -10,6 +10,10 @@ import {
 } from '../index'
 
 afterEach(() => {
+  clearRegisteredToolsForTest()
+})
+
+beforeEach(() => {
   clearRegisteredToolsForTest()
 })
 
@@ -110,10 +114,12 @@ describe('@Tool', () => {
     Reflect.set(config, 'label', 'Mutated label')
     Reflect.set(parameters.properties.symbol, 'type', 'number')
     const [tool] = getRegisteredTools()
+    const properties = Reflect.get(tool?.config.parameters ?? {}, 'properties')
+    const symbolSchema = Reflect.get(properties, 'symbol')
 
     expect(tool?.config.label).toBe('Inspect chart')
-    expect(tool?.config.parameters.properties.symbol.type).toBe('string')
-    expect(Reflect.set(tool?.config.parameters.properties.symbol ?? {}, 'type', 'number')).toBe(false)
+    expect(Reflect.get(symbolSchema, 'type')).toBe('string')
+    expect(Reflect.set(symbolSchema, 'type', 'number')).toBe(false)
   })
 
   it('validates Provider input before invoking a tool implementation', async () => {

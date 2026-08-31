@@ -1,9 +1,9 @@
-// 本文件验证证券名称查询工具的精确匹配和取消链路。
+// 本文件验证证券名称查询工具的 Core 调用和结果协议。
 import { describe, expect, it, vi } from 'vitest'
 
-import { createInstrumentNameQueryTool } from '../index'
+import { InstrumentNameQueryTool } from '../index'
 
-describe('createInstrumentNameQueryTool', () => {
+describe('InstrumentNameQueryTool', () => {
   /** 创建运行工具所需的最小上下文。 */
   function createContext() {
     return {
@@ -14,33 +14,22 @@ describe('createInstrumentNameQueryTool', () => {
     }
   }
 
-  it('returns only exact symbol matches and forwards the cancellation signal', async () => {
-    const searchInstruments = vi.fn().mockResolvedValue([
+  it('serializes Core exact matches as JSON and forwards the cancellation signal', async () => {
+    const lookupInstrumentsBySymbol = vi.fn().mockResolvedValue([
       { symbol: '600519', name: '贵州茅台', exchange: 'SH', sourceId: 'gotdx' },
-      { symbol: '600519.HK', name: '贵州茅台', exchange: 'HK', sourceId: 'other' },
     ])
-    const tool = createInstrumentNameQueryTool({ searchInstruments })
+    const tool = new InstrumentNameQueryTool({ lookupInstrumentsBySymbol })
     const context = createContext()
 
     await expect(tool.execute({ symbol: '600519', sourceIds: ['gotdx'] }, context)).resolves.toEqual({
-      content: '600519\t贵州茅台\tSH\tgotdx',
+      content:
+        '{"matches":[{"symbol":"600519","name":"贵州茅台","exchange":"SH","sourceId":"gotdx"}]}',
       summary: 'Returned 1 exact instrument match.',
     })
-    expect(searchInstruments).toHaveBeenCalledWith({
-      keyword: '600519',
-      limit: 20,
+    expect(lookupInstrumentsBySymbol).toHaveBeenCalledWith({
+      symbol: '600519',
       sourceIds: ['gotdx'],
       signal: context.signal,
     })
-  })
-
-  it('rejects malformed model input before calling the host query port', async () => {
-    const searchInstruments = vi.fn()
-    const tool = createInstrumentNameQueryTool({ searchInstruments })
-
-    await expect(tool.execute({ symbol: 600519 }, createContext())).rejects.toMatchObject({
-      code: 'INVALID_PAYLOAD',
-    })
-    expect(searchInstruments).not.toHaveBeenCalled()
   })
 })

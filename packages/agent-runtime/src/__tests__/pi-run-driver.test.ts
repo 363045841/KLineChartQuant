@@ -196,7 +196,9 @@ describe('PiRunDriver', () => {
     )
 
     const events: AgentRunUiEventInput[] = []
-    await new PiRunDriver().run(plan, (event) => events.push(event))
+    await new PiRunDriver().run(plan, (event) => {
+      events.push(event)
+    })
     expect(execute).not.toHaveBeenCalled()
     expect(events.find((event) => event.type === 'tool.finished')).toMatchObject({
       result: { status: 'failed' },
