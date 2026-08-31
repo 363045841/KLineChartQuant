@@ -1,25 +1,3 @@
-<!-- TRELLIS:START -->
-# Trellis Instructions
-
-These instructions are for AI assistants working in this project.
-
-This project is managed by Trellis. The working knowledge you need lives under `.trellis/`:
-
-- `.trellis/workflow.md` - development phases, when to create tasks, skill routing
-- `.trellis/spec/` - package- and layer-scoped coding guidelines (read before writing code in a given layer)
-- `.trellis/workspace/` - per-developer journals and session traces
-- `.trellis/tasks/` - active and archived tasks (PRDs, research, jsonl context)
-
-If a Trellis command is available on your platform (e.g. `/trellis:finish-work`, `/trellis:continue`), prefer it over manual steps. Not every platform exposes every command.
-
-If you're using Codex or another agent-capable tool, additional project-scoped helpers may live in:
-- `.agents/skills/` - reusable Trellis skills
-- `.codex/agents/` - optional custom subagents
-
-Managed by Trellis. Edits outside this block are preserved; edits inside may be overwritten by a future `trellis update`.
-
-<!-- TRELLIS:END -->
-
 # KLineChartQuant — Agent Guide
 
 ## 代码要求
@@ -30,11 +8,13 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 
 ## PR 作者要求
 
+- 不许复杂化问题和架构
 - 不许在 PR 中使用 /goal 命令
 - 不许一下子写一堆代码，中间不经过 E2E 测试、视觉回归测试
-- 不许长时间自己收敛相当宽泛问题而不交由作者亲自测试
+- 不许长时间自己收敛相当宽泛问题而不交由贡献者亲自测试
 - 不许在小问题上使用严苛的校验，导致链路难以维护
 - 不许未经确认就围绕一个你自己 MOCK 的数据进行开发和重构
+- 使用临时文件撰写 PR 说明
 
 ## Quick Search
 
