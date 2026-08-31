@@ -6,6 +6,8 @@
 
 {{include:_features.zh-CN.md}}
 
+{{include:_architecture.zh-CN.md}}
+
 {{include:_data-sources.zh-CN.md}}
 
 ## 🚀 快速开始

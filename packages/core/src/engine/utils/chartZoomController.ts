@@ -3,6 +3,7 @@ import type { ReadonlySignal } from '../../foundation/reactivity/signal'
 import type { OptionsStateModule } from '../state/optionsState'
 import type { ZoomStateModule } from '../state/zoomState'
 import type { ViewportStateModule } from '../state/viewportState'
+import { isTimeSharePeriod } from '../../controllers/types'
 
 export interface ZoomDependencies {
   /** scroll / dpr 几何，读写走 kernel.viewport */
@@ -65,25 +66,24 @@ export class ChartZoomController {
 
   handleWheel(deltaY: number, viewportX: number): void {
     const delta = deltaY > 0 ? -1 : 1
-    const targetLevel = Math.max(
-      1,
-      Math.min(this.zoomLevelCount, this.currentZoomLevel + delta),
-    )
+    const targetLevel = Math.max(1, Math.min(this.zoomLevelCount, this.currentZoomLevel + delta))
     if (targetLevel === this.currentZoomLevel) return
     this.applyZoom(targetLevel, viewportX)
   }
 
   handlePinch(delta: number, centerClientX: number): void {
-    const targetLevel = Math.max(
-      1,
-      Math.min(this.zoomLevelCount, this.currentZoomLevel + delta),
-    )
+    const targetLevel = Math.max(1, Math.min(this.zoomLevelCount, this.currentZoomLevel + delta))
     if (targetLevel === this.currentZoomLevel) return
     this.applyZoom(targetLevel, centerClientX)
   }
 
   private applyZoom(targetLevel: number, anchorViewportX?: number): void {
     if (targetLevel === this.currentZoomLevel) return
+
+    if (isTimeSharePeriod(this.deps.period$.peek())) {
+      this.applyTimeShareZoom(targetLevel, anchorViewportX)
+      return
+    }
 
     const delta = targetLevel - this.currentZoomLevel
     const logicalScrollLeft = this.deps.viewport.readonly.scrollLeftLogical.peek()
@@ -112,6 +112,25 @@ export class ChartZoomController {
 
     this.zoomState.actions.setZoomLevel(result.targetLevel)
     this.deps.viewport.actions.scrollTo(result.newDomScrollLeft)
+    this.deps.onChange?.()
+  }
+
+  /** 缩放分时槽位宽度，并让手势锚点保持在同一世界坐标。 */
+  private applyTimeShareZoom(targetLevel: number, anchorViewportX?: number): void {
+    const dpr = this.deps.viewport.readonly.dpr.peek()
+    const currentWidth = this.zoomState.readonly.timeShareSlotWidth.peek() ?? 1 / dpr
+    const currentWidthPx = Math.max(1, Math.round(currentWidth * dpr))
+    const delta = targetLevel - this.currentZoomLevel
+    const nextWidthPx = Math.max(1, currentWidthPx + delta)
+    if (nextWidthPx === currentWidthPx) return
+
+    const anchor = anchorViewportX ?? 0
+    const scrollLeft = this.deps.viewport.readonly.scrollLeftLogical.peek()
+    const nextScrollLeft = ((scrollLeft + anchor) * nextWidthPx) / currentWidthPx - anchor
+
+    this.zoomState.actions.setZoomLevel(targetLevel)
+    this.zoomState.actions.setTimeShareSlotWidth(nextWidthPx / dpr)
+    this.deps.viewport.actions.scrollTo(nextScrollLeft)
     this.deps.onChange?.()
   }
 }

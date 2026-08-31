@@ -1,3 +1,4 @@
+/** renderer backend 运行时状态模块。 */
 import type { RendererBackendRuntime } from '../../rendering/render/rendererHost'
 import { createSubState } from '../../foundation/reactivity/signal'
 

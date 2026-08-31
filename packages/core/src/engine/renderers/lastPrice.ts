@@ -61,6 +61,19 @@ export function createLastPriceLabelRegistrarPlugin(): RendererPlugin {
   }
 }
 
+@Indicator({
+  name: 'lastPriceLabelRegistrar',
+  displayName: '最新价标签注册',
+  category: 'main',
+  indicatorType: 'other',
+  defaultPaneId: 'main',
+  dataViews: ['kline'],
+  mainPane: { rendererName: 'lastPriceLabelRegistrar' },
+})
+export class LastPriceLabelRegistrarIndicatorDefinition {
+  static rendererFactory = createLastPriceLabelRegistrarPlugin
+}
+
 /**
  * 创建最新价虚线渲染器插件（绘制虚线）
  */

@@ -88,7 +88,8 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
   }
 }
 
-function drawPreCloseLine(
+/** 绘制一个分时片段的昨收虚线。 */
+export function drawPreCloseLine(
   ctx: CanvasRenderingContext2D,
   xPositions: number[],
   y: number,
@@ -111,7 +112,8 @@ function drawPreCloseLine(
   ctx.restore()
 }
 
-function drawAreaFill(
+/** 按片段基准线分别绘制上涨和下跌面积。 */
+export function drawAreaFill(
   ctx: CanvasRenderingContext2D,
   xPositions: number[],
   yPrices: number[],
@@ -191,7 +193,8 @@ function drawAreaFill(
   }
 }
 
-function drawSegmentLine(
+/** 绘制单个交易日内连续的分时折线。 */
+export function drawSegmentLine(
   ctx: CanvasRenderingContext2D,
   xPositions: number[],
   yPositions: number[],

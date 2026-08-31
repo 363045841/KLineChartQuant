@@ -272,6 +272,26 @@ export interface YAxisTick {
   value: number
 }
 
+/** 五日分时中单个交易日的帧级几何。 */
+export interface FiveDayTimeShareDayGeometry {
+  tradingDate: string
+  dataStartIndex: number
+  dataEndIndex: number
+  startX: number
+  endX: number
+  labelX: number
+  separatorX?: number
+}
+
+/** 五日分时共享几何，由帧准备阶段生成并供所有 renderer 消费。 */
+export interface FiveDayTimeShareGeometry {
+  sessionSlots: number
+  contentWidth: number
+  days: ReadonlyArray<FiveDayTimeShareDayGeometry>
+  /** 首尾交易日边界和日间分隔线的世界坐标。 */
+  verticalGridLineXs: ReadonlyArray<number>
+}
+
 /** 渲染上下文 */
 /** MarkerManager 接口（用于 RenderContext） */
 export interface MarkerManagerLike {
@@ -292,7 +312,11 @@ export interface RenderContext {
   /** K线级别，如 'daily'、'5min'、'15min' */
   period: string
   /** 当前图表数据视图。 */
-  dataView?: 'kline' | 'timeshare' | 'comparison'
+  dataView?: 'kline' | 'timeshare' | 'fiveDayTimeShare' | 'comparison'
+  /** 多日分时的原子业务快照。 */
+  timeShareRange?: import('../../data/provider/types').TimeShareRange
+  /** 五日分时的帧级共享几何。 */
+  fiveDayTimeShareGeometry?: FiveDayTimeShareGeometry
   /** 当前图表实例解析后的市场交易时段 */
   marketSession?: import('../utils/sessionTimeLabels').MarketSessionConfig
   comparisonData?: ReadonlyMap<string, ReadonlyArray<KLineData>>

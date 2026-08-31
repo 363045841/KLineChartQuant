@@ -39,11 +39,14 @@ describe('Agent IPC contracts', () => {
     ],
   ]
 
-  it.each(malformedEnvelopeCases)('rejects malformed envelopes with stable errors', (input, code) => {
-    expect(() => parseAgentIpcRequest(input, 1_000)).toThrowError(
-      expect.objectContaining<Partial<AgentRuntimeError>>({ code }),
-    )
-  })
+  it.each(malformedEnvelopeCases)(
+    'rejects malformed envelopes with stable errors',
+    (input, code) => {
+      expect(() => parseAgentIpcRequest(input, 1_000)).toThrowError(
+        expect.objectContaining<Partial<AgentRuntimeError>>({ code }),
+      )
+    },
+  )
 
   it('rejects oversized values before dispatch', () => {
     const input = request({
@@ -66,14 +69,35 @@ describe('Agent IPC contracts', () => {
     const parsed = parseAgentIpcRequest(
       request({
         command: 'provider.models',
-        payload: { baseUrl: 'https://models.example.test/v1' },
+        payload: {
+          baseUrl: 'https://models.example.test/v1',
+          protocol: 'openai-responses',
+        },
       }),
       1_000,
     )
     expect(parsed).toMatchObject({
       command: 'provider.models',
-      payload: { baseUrl: 'https://models.example.test/v1' },
+      payload: {
+        baseUrl: 'https://models.example.test/v1',
+        protocol: 'openai-responses',
+      },
     })
+  })
+
+  it('rejects an unknown Provider API protocol at the IPC boundary', () => {
+    expect(() =>
+      parseAgentIpcRequest(
+        request({
+          command: 'provider.models',
+          payload: {
+            baseUrl: 'https://models.example.test/v1',
+            protocol: 'future-protocol',
+          },
+        }),
+        1_000,
+      ),
+    ).toThrowError(expect.objectContaining<Partial<AgentRuntimeError>>({ code: 'INVALID_PAYLOAD' }))
   })
 })
 
@@ -115,12 +139,14 @@ describe('production Provider fallback', () => {
         baseUrl: 'https://models.example.test/v1',
         apiKey: 'ephemeral',
         model: 'fast-model',
+        protocol: 'openai-completions',
       }),
     ).rejects.toMatchObject({ code: 'PROVIDER_NOT_CONFIGURED' })
     await expect(
       support.provider.listModels({
         baseUrl: 'https://models.example.test/v1',
         apiKey: 'ephemeral',
+        protocol: 'openai-completions',
       }),
     ).rejects.toMatchObject({ code: 'PROVIDER_NOT_CONFIGURED' })
     expect(() => support.createPlan(undefined as never)).toThrowError(

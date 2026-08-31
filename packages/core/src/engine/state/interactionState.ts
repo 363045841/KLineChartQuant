@@ -1,3 +1,4 @@
+/** 交互业务态模块：十字线、悬停、拖拽与区间选择等状态，供 StateKernel 统一持有。 */
 import { createSubState, computed, batch, type ReadonlySignal } from '../../foundation/reactivity/signal'
 import type { MarkerEntity, CustomMarkerEntity } from '../marker/registry'
 
@@ -27,6 +28,12 @@ export interface InteractionDeps {
   scheduleDraw: (level?: unknown) => void
 }
 
+export interface RangeSelectionState {
+  readonly startTimestamp: number | null
+  readonly endTimestamp: number | null
+  readonly isDragging: boolean
+}
+
 /**
  * 交互业务态（kernel）。
  * 帧几何 kLinePositions/centers/kWidth 不在此模块，由 InteractionController 私有持有。
@@ -48,6 +55,11 @@ export function createInteractionState(_deps: InteractionDeps) {
     hoveredMarkerData: null as MarkerEntity | null,
     hoveredCustomMarker: null as CustomMarkerEntity | null,
     hoveredMarkerId: null as string | null,
+    rangeSelection: Object.freeze({
+      startTimestamp: null,
+      endTimestamp: null,
+      isDragging: false,
+    }) as RangeSelectionState,
   })
 
   // ── 带引用缓存的 interactionSnapshot ──
@@ -104,6 +116,14 @@ export function createInteractionState(_deps: InteractionDeps) {
   const mergedReadonly = {
     ...readonly,
     interactionSnapshot: cachedInteractionSnapshot,
+    selectedRange: computed(() => {
+      const selection = readonly.rangeSelection()
+      if (selection.startTimestamp === null || selection.endTimestamp === null) return null
+      return Object.freeze({
+        from: Math.min(selection.startTimestamp, selection.endTimestamp),
+        to: Math.max(selection.startTimestamp, selection.endTimestamp),
+      })
+    }),
   }
 
   return {
@@ -222,6 +242,45 @@ export function createInteractionState(_deps: InteractionDeps) {
         })
       },
 
+      /** 开始区间选择。 */
+      startRangeSelection(timestamp: number) {
+        if (!Number.isFinite(timestamp)) return
+        signals.rangeSelection.set(
+          Object.freeze({ startTimestamp: timestamp, endTimestamp: timestamp, isDragging: true }),
+        )
+      },
+
+      /** 更新区间选择终点。 */
+      updateRangeSelection(timestamp: number) {
+        if (!Number.isFinite(timestamp)) return
+        const current = signals.rangeSelection.peek()
+        if (current.startTimestamp === null) return
+        signals.rangeSelection.set(Object.freeze({ ...current, endTimestamp: timestamp }))
+      },
+
+      /** 结束区间选择。 */
+      finishRangeSelection(timestamp?: number) {
+        const current = signals.rangeSelection.peek()
+        if (current.startTimestamp === null) return
+        const endTimestamp = timestamp !== undefined && Number.isFinite(timestamp) ? timestamp : current.endTimestamp
+        signals.rangeSelection.set(Object.freeze({ ...current, endTimestamp, isDragging: false }))
+      },
+
+      /** 原子设置已确认的区间边界。 */
+      setRangeSelection(startTimestamp: number, endTimestamp: number) {
+        if (!Number.isFinite(startTimestamp) || !Number.isFinite(endTimestamp)) return
+        signals.rangeSelection.set(
+          Object.freeze({ startTimestamp, endTimestamp, isDragging: false }),
+        )
+      },
+
+      /** 清除区间选择。 */
+      clearRangeSelection() {
+        signals.rangeSelection.set(
+          Object.freeze({ startTimestamp: null, endTimestamp: null, isDragging: false }),
+        )
+      },
+
       reset() {
         batch(() => {
           signals.crosshairPos.set(null)
@@ -238,6 +297,9 @@ export function createInteractionState(_deps: InteractionDeps) {
           signals.hoveredMarkerData.set(null)
           signals.hoveredCustomMarker.set(null)
           signals.hoveredMarkerId.set(null)
+          signals.rangeSelection.set(
+            Object.freeze({ startTimestamp: null, endTimestamp: null, isDragging: false }),
+          )
         })
       },
     },
@@ -257,7 +319,10 @@ export function createInteractionState(_deps: InteractionDeps) {
         signals.tooltipAnchorPlacement.set('right-bottom')
         signals.hoveredMarkerData.set(null)
         signals.hoveredCustomMarker.set(null)
-        signals.hoveredMarkerId.set(null)
+          signals.hoveredMarkerId.set(null)
+          signals.rangeSelection.set(
+            Object.freeze({ startTimestamp: null, endTimestamp: null, isDragging: false }),
+          )
       })
     },
   }

@@ -20,14 +20,17 @@ describe('time axis market session', () => {
     } as unknown as CanvasRenderingContext2D
     const context = {
       ctx,
-      data: [{ timestamp: new Date('2026-07-28T09:30:00+08:00').getTime() }],
-      range: { start: 0, end: 1 },
+      data: [
+        { timestamp: new Date('2026-07-28T09:30:00+08:00').getTime() },
+        { timestamp: new Date('2026-07-28T16:00:00+08:00').getTime() },
+      ],
+      range: { start: 0, end: 2 },
       scrollLeft: 0,
       kWidth: 1,
       kGap: 0,
       dpr: 1,
       paneWidth: 330,
-      kLineCenters: [0.5],
+      kLineCenters: [17, 301],
       period: 'timeshare',
       marketSession: HK_MARKET_SESSION,
       theme: 'light',
@@ -38,7 +41,7 @@ describe('time axis market session', () => {
     const labels = fillText.mock.calls.map(([text]) => text)
     expect(labels).toContain('16:00')
     expect(labels).not.toContain('15:00')
-    expect(fillText).toHaveBeenCalledWith('09:30', 0, expect.any(Number))
-    expect(fillText).toHaveBeenCalledWith('16:00', 329, expect.any(Number))
+    expect(fillText).toHaveBeenCalledWith('09:30', 17, expect.any(Number))
+    expect(fillText).toHaveBeenCalledWith('16:00', 301, expect.any(Number))
   })
 })

@@ -1,3 +1,4 @@
+/** 对比序列状态模块：管理对比品种集合与身份键。 */
 import {
   batch,
   computed,

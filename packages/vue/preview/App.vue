@@ -29,6 +29,7 @@
             :settings="chartSettings"
             @update:is-fullscreen="isFullscreen = $event"
             @theme-change="onThemeChange"
+            @controller-ready="(controller) => agentBridge.bindChartAgent(controller.agent)"
           >
             <!-- 自定义 Tooltip -->
             <!-- <template #kline-tooltip="{ hoverData, upColor, downColor }">
@@ -87,7 +88,10 @@
                     class="my-legend__dot"
                     :style="{ backgroundColor: comparison.color }"
                   ></span>
-                  {{ comparison.symbol }}{{ comparison.name ? ` ${comparison.name}` : '' }}
+                  {{ comparison.symbol
+                  }}{{ comparison.name?.trim() && comparison.name.trim() !== comparison.symbol
+                    ? ` ${comparison.name.trim()}`
+                    : '' }}
                   {{ comparison.percent > 0 ? '+' : '' }}{{ comparison.percent.toFixed(2) }}%
                 </div>
               </div>

@@ -25,7 +25,7 @@ interface ActiveRun {
 
 type GlobalAgentUiEvent = Extract<
   AgentUiEvent,
-  { type: 'sessions.changed' | 'provider.status.changed' | 'chart.context.changed' }
+  { type: 'sessions.changed' | 'provider.status.changed' }
 >
 type GlobalAgentUiEventInput = GlobalAgentUiEvent extends infer Event
   ? Event extends GlobalAgentUiEvent

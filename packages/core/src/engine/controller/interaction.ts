@@ -373,8 +373,6 @@ export class InteractionController {
       this.isTouchSession = true
     }
 
-    const container = this.chart.getDom().container
-
     if (this._state.readonly.isDragging.peek()) {
       if (this._state.readonly.dragMode.peek() === 'resize-separator') {
         const deltaY = e.clientY - this.dragStartY
@@ -397,7 +395,11 @@ export class InteractionController {
       }
 
       // 触屏：长按达到阈值后从 pan 切换到 explore
-      if (this.isTouchSession && this._state.readonly.dragMode.peek() === 'pan' && this.exploreMode) {
+      if (
+        this.isTouchSession &&
+        this._state.readonly.dragMode.peek() === 'pan' &&
+        this.exploreMode
+      ) {
         const elapsed = Date.now() - this.touchStartTime
         const dx = Math.abs(e.clientX - this.touchStartX)
         const dy = Math.abs(e.clientY - this.touchStartY)
@@ -415,10 +417,9 @@ export class InteractionController {
       }
 
       if (this._state.readonly.dragMode.peek() === 'pan') {
-        const container = this.chart.getDom().container
         const deltaX = this.dragStartX - e.clientX
         if (this._cachedMaxScrollLeft < 0) {
-          this._cachedMaxScrollLeft = Math.max(0, (container?.scrollWidth ?? 0) - (container?.clientWidth ?? 0))
+          this._cachedMaxScrollLeft = this.chart.kernel.viewport.readonly.maxScrollLeft.peek()
         }
         const clamped = Math.min(Math.max(0, this.scrollStartX + deltaX), this._cachedMaxScrollLeft)
         const dpr = this.chart.getCurrentDpr()
@@ -518,7 +519,10 @@ export class InteractionController {
       this.isTouchSession = true
     }
 
-    if (this._state.readonly.isDragging.peek() && this._state.readonly.dragMode.peek() === 'scale-price') {
+    if (
+      this._state.readonly.isDragging.peek() &&
+      this._state.readonly.dragMode.peek() === 'scale-price'
+    ) {
       const deltaY = e.clientY - this.dragStartY
       if (deltaY !== 0 && this.activePaneIdOnDrag) {
         this.chart.scalePrice(this.activePaneIdOnDrag, deltaY)
@@ -541,7 +545,11 @@ export class InteractionController {
 
   onRightAxisPointerLeave(e: PointerEvent) {
     if (e.isPrimary === false) return
-    if (this._state.readonly.isDragging.peek() && this._state.readonly.dragMode.peek() === 'scale-price') return
+    if (
+      this._state.readonly.isDragging.peek() &&
+      this._state.readonly.dragMode.peek() === 'scale-price'
+    )
+      return
     this._state.actions.setRightAxisHover(null)
   }
 
@@ -695,7 +703,7 @@ export class InteractionController {
       return
     }
 
-if (this.tooltipPositionMode === 'adaptive') {
+    if (this.tooltipPositionMode === 'adaptive') {
       this._state.actions.setHoveredIndex(bar.globalIdx)
       this.updateTooltip(ctx)
       return
@@ -773,8 +781,17 @@ if (this.tooltipPositionMode === 'adaptive') {
    */
   private handleMarkerHit(ctx: HoverContext): boolean {
     const markerManager = this.chart.getMarkerManager()
-    const result = this.markerState.updateHoverFromPoint(ctx.worldX, ctx.mouseX, ctx.mouseY, markerManager)
-    this._state.actions.updateMarkerHover(result.hitMarkerId, result.hitMarkerData, result.hitCustomMarker)
+    const result = this.markerState.updateHoverFromPoint(
+      ctx.worldX,
+      ctx.mouseX,
+      ctx.mouseY,
+      markerManager,
+    )
+    this._state.actions.updateMarkerHover(
+      result.hitMarkerId,
+      result.hitMarkerData,
+      result.hitCustomMarker,
+    )
     if (result.hit) {
       this._state.actions.updateCrosshair(null, null, null)
       this._state.actions.setHoveredIndex(null)
@@ -983,7 +1000,10 @@ if (this.tooltipPositionMode === 'adaptive') {
       mode: this.tooltipPositionMode,
       adaptiveCorner: this.tooltipAdaptiveLock ?? undefined,
     })
-    this._state.actions.updateTooltip(tooltipResult.pos, tooltipResult.anchorPlacement ?? 'right-bottom')
+    this._state.actions.updateTooltip(
+      tooltipResult.pos,
+      tooltipResult.anchorPlacement ?? 'right-bottom',
+    )
   }
 
   /**

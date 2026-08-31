@@ -173,6 +173,14 @@ describe('useSymbolSearch', () => {
     expect(symbolIdentityKey(main)).not.toBe(symbolIdentityKey(extended))
   })
 
+  // 验证不同数据源内相同的品种 ID 不会在聚合搜索结果中相互覆盖。
+  it('includes the source in a standard instrument identity', () => {
+    const first = { ...catalog[0]!, id: 'stock:600519', sourceId: 'first' }
+    const second = { ...catalog[0]!, id: 'stock:600519', sourceId: 'second' }
+
+    expect(symbolIdentityKey(first)).not.toBe(symbolIdentityKey(second))
+  })
+
   // 验证 providerRef 的变化不影响稳定 ID 身份。
   it('uses the stable instrument id as the only identity key', () => {
     const first = { ...catalog[0]!, providerRef: { market: 1 } }

@@ -1,3 +1,4 @@
+/** 绘图状态模块：工具、图元与选中 id 的 SSOT。 */
 import { batch, createSubState } from '../../foundation/reactivity/signal'
 import type { DrawingObject } from '../../foundation/plugin/index'
 import type { DrawingToolId } from '../drawing/toolConfig'

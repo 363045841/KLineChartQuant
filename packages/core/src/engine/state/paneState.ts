@@ -1,3 +1,4 @@
+/** 主图/副图布局与比例状态模块。 */
 import { batch, createSubState } from '../../foundation/reactivity/signal'
 import type { PaneSpec } from '../chartTypes'
 import type { ScaleType } from '../utils/tickPosition'

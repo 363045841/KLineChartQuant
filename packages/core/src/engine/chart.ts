@@ -70,7 +70,8 @@ import { resolveSymbolMarketSession } from './market/resolveSymbolMarketSession'
 import { PaneRenderer } from './paneRenderer'
 import { ChartRenderer, mergeUpdateLevel } from './render/chartRenderer'
 import { ChartStateKernel } from './state/chartStateKernel'
-import { ChartDataViewId } from './state/modeState'
+import type { RangeSelectionState } from './state/interactionState'
+import { ChartDataViewId, isTimeShareDataView, type ChartDataView } from './state/modeState'
 import { ChartViewportManager } from './viewport/chartViewportManager'
 import { ChartZoomController } from './utils/chartZoomController'
 import { getPhysicalKLineConfig } from './utils/klineConfig'
@@ -86,6 +87,8 @@ import type {
 import type { DrawingToolId } from './drawing/toolConfig'
 import type { DrawingInteractionController } from './drawing/interaction'
 import {
+  FIVE_DAY_TIME_SHARE_PERIOD,
+  isTimeSharePeriod,
   TIME_SHARE_PERIOD,
   type SymbolSpec,
   type SymbolInfo,
@@ -474,17 +477,19 @@ export class Chart {
 
   /** 获取当前活跃的模式处理器 */
   get activeMode(): ChartModeHandler {
-    return this.kernel.mode.readonly.dataView.peek() === ChartDataViewId.TimeShare
+    return isTimeShareDataView(this.kernel.mode.readonly.dataView.peek())
       ? this._timeShareMode
       : this._kLineMode
   }
 
   /** 切换模式处理器 */
-  setActiveMode(mode: ChartModeHandler): void {
+  setActiveMode(mode: ChartModeHandler, dataView?: ChartDataView): void {
     const prev = this.activeMode
-    const dataView =
-      mode === this._timeShareMode ? ChartDataViewId.TimeShare : ChartDataViewId.KLine
-    if (prev === mode && this.kernel.mode.readonly.dataView.peek() === dataView) return
+    const nextDataView =
+      dataView ?? (mode === this._timeShareMode ? ChartDataViewId.TimeShare : ChartDataViewId.KLine)
+    if (prev === mode && this.kernel.mode.readonly.dataView.peek() === nextDataView) return
+
+    if (isTimeShareDataView(nextDataView)) this.kernel.zoom.actions.clearTimeShareKWidth()
 
     prev.onDeactivate(
       {
@@ -495,11 +500,11 @@ export class Chart {
       mode,
     )
     this.kernel.actions.setDataView(
-      dataView,
-      dataView === ChartDataViewId.TimeShare ? this.dataManager.currentPeriod : undefined,
+      nextDataView,
+      isTimeShareDataView(nextDataView) ? this.dataManager.currentPeriod : undefined,
     )
 
-    if (dataView === ChartDataViewId.TimeShare) {
+    if (isTimeShareDataView(nextDataView)) {
       const percentMap = new Map(this.kernel.pane.readonly.paneScaleTypes.peek())
       for (const renderer of this.paneRenderers) {
         const pane = renderer.getPane()
@@ -694,7 +699,7 @@ export class Chart {
    */
   private applyPriceScaleSettingToKernel(setting: ScaleType): void {
     const next = this.buildScaleTypesFromSetting(setting)
-    if (this.kernel.mode.readonly.chartMode.peek() === ChartDataViewId.TimeShare) {
+    if (isTimeShareDataView(this.kernel.mode.readonly.chartMode.peek())) {
       return
     }
     if (this.dataManager.getComparisonSpecs().length > 0) {
@@ -778,13 +783,14 @@ export class Chart {
   applyRenderState(kWidth: number, kGap: number, zoomLevel?: number): void {
     void kGap
     const dataView = this.kernel.mode.readonly.dataView.peek()
-    if (dataView !== ChartDataViewId.TimeShare && zoomLevel === undefined) return
+    if (!isTimeShareDataView(dataView) && zoomLevel === undefined) return
 
     const beforeLevel = this.kernel.zoom.readonly.zoomLevel.peek()
     const beforeWidth = this.kernel.zoom.readonly.kWidth.peek()
 
-    if (dataView === ChartDataViewId.TimeShare) {
+    if (isTimeShareDataView(dataView)) {
       this.kernel.zoom.actions.setTimeShareKWidth(kWidth)
+      this.kernel.zoom.actions.setTimeShareSlotWidth(kWidth + kGap)
     } else if (zoomLevel !== undefined) {
       this.kernel.zoom.actions.setZoomLevel(zoomLevel)
     }
@@ -1192,7 +1198,7 @@ export class Chart {
       const tsData = this.dataManager.getTimeShareData()
       const vp = this.getViewport()
       if (!vp || vp.plotWidth <= 0) return
-      if (tsData.length > 0) {
+      if (tsData.length > 0 && this.kernel.zoom.readonly.timeShareSlotWidth.peek() === null) {
         const result = this.activeMode.computeKWidth(tsData.length, vp.plotWidth, vp.dpr)
         if (result) {
           this.applyRenderState(result.kWidth, result.kGap)
@@ -1425,6 +1431,41 @@ export class Chart {
     return this._interactionSnapshot
   }
 
+  /** 区间选择工具确认的时间范围。 */
+  get selectedRange(): ReadonlySignal<{ from: number; to: number } | null> {
+    return this.kernel.interaction.readonly.selectedRange
+  }
+
+  /** 区间选择工具的完整权威状态。 */
+  get rangeSelection(): ReadonlySignal<RangeSelectionState> {
+    return this.kernel.interaction.readonly.rangeSelection
+  }
+
+  /** 开始区间选择。 */
+  startRangeSelection(timestamp: number): void {
+    this.kernel.interaction.actions.startRangeSelection(timestamp)
+  }
+
+  /** 更新区间选择终点。 */
+  updateRangeSelection(timestamp: number): void {
+    this.kernel.interaction.actions.updateRangeSelection(timestamp)
+  }
+
+  /** 结束区间选择。 */
+  finishRangeSelection(timestamp?: number): void {
+    this.kernel.interaction.actions.finishRangeSelection(timestamp)
+  }
+
+  /** 原子设置已确认的区间边界。 */
+  setRangeSelection(startTimestamp: number, endTimestamp: number): void {
+    this.kernel.interaction.actions.setRangeSelection(startTimestamp, endTimestamp)
+  }
+
+  /** 清除区间选择。 */
+  clearRangeSelection(): void {
+    this.kernel.interaction.actions.clearRangeSelection()
+  }
+
   /** 主图左上角图例模板上下文（null 表示无数据） */
   get legendTemplateContext(): ReadonlySignal<LegendTemplateContext | null> {
     return this._legendTemplateContext
@@ -1451,19 +1492,20 @@ export class Chart {
   setSymbols(specs: ReadonlyArray<SymbolSpec>): void {
     const sessions = specs.map((spec) => resolveSymbolMarketSession(spec, this.marketSessions))
     const primaryPeriod = specs[0]?.period
-    if (primaryPeriod === TIME_SHARE_PERIOD) {
+    if (isTimeSharePeriod(primaryPeriod)) {
       this._timeShareMode.setMarketSession(sessions[0]!)
     }
 
     // 品种/周期切换时重置最新 K 线时间戳，确保新数据触发预警
     this._lastAlertTimestamp = null
-    const isComparison = primaryPeriod !== TIME_SHARE_PERIOD && specs.length > 1
+    const isComparison = !isTimeSharePeriod(primaryPeriod) && specs.length > 1
     if (primaryPeriod) {
       // ⚠️ setActiveMode 必须在 dataManager.setSymbols 之前调用，
       //    以确保 kWidth/kGap（从 zoom level 恢复）先写入 _optionsSignal，
       //    后续 scrollLeft 恢复才能正确反推物理像素偏移。
       this.setActiveMode(
-        primaryPeriod === TIME_SHARE_PERIOD ? this._timeShareMode : this._kLineMode,
+        isTimeSharePeriod(primaryPeriod) ? this._timeShareMode : this._kLineMode,
+        primaryPeriod === FIVE_DAY_TIME_SHARE_PERIOD ? ChartDataViewId.FiveDayTimeShare : undefined,
       )
     }
     this.dataManager.setSymbols(specs)
@@ -1475,7 +1517,7 @@ export class Chart {
     }
     // Scroll position 恢复必须放在 setActiveMode + setSymbols 之后，
     // 此时 kWidth/kGap 已由 zoom level 恢复写回，计算不出错。
-    if (primaryPeriod && primaryPeriod !== TIME_SHARE_PERIOD) {
+    if (primaryPeriod && !isTimeSharePeriod(primaryPeriod)) {
       this.dataManager.tryRestoreScrollFromSnapshot()
     }
   }
@@ -1515,17 +1557,23 @@ export class Chart {
 
   private configureModeForSpec(spec: SymbolSpec): void {
     const session = resolveSymbolMarketSession(spec, this.marketSessions)
-    const isTimeShare = spec.period === TIME_SHARE_PERIOD
+    const isTimeShare = isTimeSharePeriod(spec.period)
     if (isTimeShare) this._timeShareMode.setMarketSession(session)
-    this.setActiveMode(isTimeShare ? this._timeShareMode : this._kLineMode)
+    this.setActiveMode(
+      isTimeShare ? this._timeShareMode : this._kLineMode,
+      spec.period === FIVE_DAY_TIME_SHARE_PERIOD ? ChartDataViewId.FiveDayTimeShare : undefined,
+    )
   }
 
   setCurrentPeriod(period: string): void {
-    if (period === TIME_SHARE_PERIOD) this.configureCurrentTimeShareSession()
-    this.setActiveMode(period === TIME_SHARE_PERIOD ? this._timeShareMode : this._kLineMode)
+    if (isTimeSharePeriod(period)) this.configureCurrentTimeShareSession()
+    this.setActiveMode(
+      isTimeSharePeriod(period) ? this._timeShareMode : this._kLineMode,
+      period === FIVE_DAY_TIME_SHARE_PERIOD ? ChartDataViewId.FiveDayTimeShare : undefined,
+    )
     this.dataManager.setCurrentPeriod(period)
-    if (period !== TIME_SHARE_PERIOD) this.dataManager.tryRestoreScrollFromSnapshot()
-    if (period !== TIME_SHARE_PERIOD && this.dataManager.getComparisonSpecs().length > 0) {
+    if (!isTimeSharePeriod(period)) this.dataManager.tryRestoreScrollFromSnapshot()
+    if (!isTimeSharePeriod(period) && this.dataManager.getComparisonSpecs().length > 0) {
       this.kernel.actions.setDataView(ChartDataViewId.Comparison)
       this.applyComparisonScaleType(true)
     }

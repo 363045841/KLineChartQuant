@@ -8,6 +8,7 @@ import type {
   YAxisRange,
   XAxisRange,
   YAxisTick,
+  FiveDayTimeShareGeometry,
 } from '../../foundation/plugin/index'
 import { RendererPluginManager, wrapPaneInfo } from '../../foundation/plugin/index'
 import type { Renderer } from '../../rendering/render/Renderer'
@@ -37,11 +38,13 @@ import {
   resolveTimestampSessionSlot,
 } from '../../foundation/utils/timeShareAxisLabels'
 import { computeTimeShareXLayout } from '../modes/timeShareMath'
+import { computeFiveDayTimeShareGeometry } from '../modes/fiveDayTimeShareGeometry'
 import type { ChartModeHandler } from '../modes/types'
-import type { ChartDataView } from '../state/modeState'
+import { ChartDataViewId, type ChartDataView } from '../state/modeState'
 import { PaneRenderer } from '../paneRenderer'
 import { createTimeAxisRendererPlugin } from '../renderers/timeAxis'
 import { createTimeShareRendererPlugin } from '../renderers/timeShare'
+import { createFiveDayTimeShareRendererPlugin } from '../renderers/fiveDayTimeShare'
 import { calcKBarWidthPx, getPhysicalKLineConfig } from '../utils/klineConfig'
 import { calculateTickCount } from '../utils/tickCount'
 
@@ -51,8 +54,6 @@ import { createCrosshairLayer } from './layers/crosshairLayer'
 import { createCustomMarkersLayer } from './layers/customMarkersLayer'
 import { createExtremaMarkersLayer } from './layers/extremaMarkersLayer'
 import { createGridLinesLayer } from './layers/gridLinesLayer'
-import { createLastPriceLabelLayer } from './layers/lastPriceLabelLayer'
-import { createLastPriceLineLayer } from './layers/lastPriceLineLayer'
 import { createLeftYAxisOverlayLayer, createLeftYAxisStaticLayer } from './layers/leftYAxisLayer'
 import { createMainIndicatorLegendLayer } from './layers/mainIndicatorLegendLayer'
 import { createYAxisOverlayLayer, createYAxisStaticLayer } from './layers/yAxisLayer'
@@ -98,6 +99,8 @@ type FrameContext = {
   zoomLevel: number
   /** 缩放级别总数 */
   zoomLevelCount: number
+  /** 五日分时供所有 renderer 和交互共享的帧级几何。 */
+  fiveDayTimeShareGeometry: FiveDayTimeShareGeometry | null
 }
 
 /** 帧事务输入：合并多次 scheduleDraw 的 level */
@@ -184,6 +187,7 @@ export class ChartRenderer {
     kLineCenters: number[]
     kBarRects: Array<{ x: number; width: number }>
     kWidthPx: number
+    fiveDayTimeShareGeometry: FiveDayTimeShareGeometry | null
   } | null = null
 
   private scene: Scene
@@ -278,15 +282,15 @@ export class ChartRenderer {
       this.scene.addLayer(layer)
     }
     {
-      const layer = createLastPriceLabelLayer(getCtx('main'))
+      const layer = createLayerFromPlugin(
+        createFiveDayTimeShareRendererPlugin(),
+        getCtx('main'),
+        'main',
+      )
       this.scene.addLayer(layer)
     }
     {
       const layer = createComparisonLineLayer(getCtx('main'))
-      this.scene.addLayer(layer)
-    }
-    {
-      const layer = createLastPriceLineLayer(getCtx('main'))
       this.scene.addLayer(layer)
     }
     {
@@ -471,7 +475,16 @@ export class ChartRenderer {
       return
     }
 
-    const { vp, range, kLinePositions, kLineCenters, kBarRects, kWidthPx, useCachedFrame } = frame
+    const {
+      vp,
+      range,
+      kLinePositions,
+      kLineCenters,
+      kBarRects,
+      kWidthPx,
+      useCachedFrame,
+      fiveDayTimeShareGeometry,
+    } = frame
 
     const dataManager = this.deps.getDataManager()
     const mode = this.deps.getActiveMode()
@@ -507,6 +520,7 @@ export class ChartRenderer {
       useCachedFrame,
       level,
       renderData,
+      fiveDayTimeShareGeometry,
     )
 
     this.overlayHadCrosshair = hasCrosshair
@@ -521,6 +535,7 @@ export class ChartRenderer {
       sharedXAxisLabels,
       sharedXAxisRanges,
       renderData,
+      fiveDayTimeShareGeometry,
     )
   }
 
@@ -573,12 +588,14 @@ export class ChartRenderer {
     let kLineCenters: number[]
     let kBarRects: Array<{ x: number; width: number }>
     let kWidthPx: number
+    let fiveDayTimeShareGeometry: FiveDayTimeShareGeometry | null
 
     if (useCachedFrame) {
       kLinePositions = this.cachedDrawFrame!.kLinePositions
       kLineCenters = this.cachedDrawFrame!.kLineCenters
       kBarRects = this.cachedDrawFrame!.kBarRects
       kWidthPx = this.cachedDrawFrame!.kWidthPx
+      fiveDayTimeShareGeometry = this.cachedDrawFrame!.fiveDayTimeShareGeometry
     } else {
       const physConfig = getPhysicalKLineConfig(opt.kWidth, opt.kGap, vp.dpr)
       // bar 宽度取奇数，保证 center 对齐整数像素
@@ -597,8 +614,41 @@ export class ChartRenderer {
         kBarRects[i] = { x: barLeftPx / vp.dpr, width: barWidthPx / vp.dpr }
       }
 
-      // TimeShare：按全天 sessionSlots 划分宽度，已到达点落在时间线上，未到时段右侧留白
-      if (mode.debugName === 'TimeShare') {
+      fiveDayTimeShareGeometry = null
+      const dataView = this.deps.dataView$.peek()
+      // 五日分时：按交易日和 session 槽位生成唯一世界坐标，窄屏时内容宽度允许滚动。
+      if (dataView === ChartDataViewId.FiveDayTimeShare) {
+        const timeShareRange = dataManager.getTimeShareRange()
+        const marketSession =
+          'marketSession' in mode && mode.marketSession
+            ? (mode as { marketSession: typeof ASHARE_MARKET_SESSION }).marketSession
+            : ASHARE_MARKET_SESSION
+        const layout = timeShareRange
+          ? computeFiveDayTimeShareGeometry({
+              range: timeShareRange,
+              marketSession,
+              contentWidth: this.deps.viewport.readonly.contentWidth.peek(),
+              dpr: vp.dpr,
+            })
+          : null
+        if (layout) {
+          kLineCenters = layout.centers
+          kLinePositions = new Array(layout.centers.length)
+          kBarRects = new Array(layout.centers.length)
+          for (let i = 0; i < layout.centers.length; i++) {
+            const centerPx = Math.round(layout.centers[i]! * vp.dpr)
+            kLinePositions[i] = (centerPx - Math.floor(layout.kWidthPx / 2)) / vp.dpr
+            kBarRects[i] = {
+              x: (centerPx - (Math.round(layout.barWidth * vp.dpr) - 1) / 2) / vp.dpr,
+              width: layout.barVisible[i] ? layout.barWidth : 0,
+            }
+          }
+          kWidthPx = layout.kWidthPx
+          fiveDayTimeShareGeometry = layout.geometry
+        } else {
+          kWidthPx = getPhysicalKLineConfig(opt.kWidth, opt.kGap, vp.dpr).kWidthPx
+        }
+      } else if (mode.debugName === 'TimeShare') {
         const count = kLineCenters.length
         const marketSession =
           'marketSession' in mode && mode.marketSession
@@ -607,7 +657,7 @@ export class ChartRenderer {
         const layout = computeTimeShareXLayout({
           arrivedCount: count,
           sessionSlots: resolveMarketSessionSlots(marketSession),
-          totalWidth: vp.plotWidth,
+          totalWidth: this.deps.viewport.readonly.contentWidth.peek(),
           dpr: vp.dpr,
           slotIndices: internalData
             .slice(range.start, range.end)
@@ -641,6 +691,7 @@ export class ChartRenderer {
         kLineCenters,
         kBarRects,
         kWidthPx,
+        fiveDayTimeShareGeometry,
       }
     }
 
@@ -655,6 +706,7 @@ export class ChartRenderer {
       data: internalData,
       zoomLevel: this.deps.zoom.readonly.zoomLevel.peek(),
       zoomLevelCount: this.deps.options.readonly.options.peek().zoomLevelCount,
+      fiveDayTimeShareGeometry,
     }
   }
 
@@ -730,6 +782,7 @@ export class ChartRenderer {
     useCachedFrame: boolean,
     level: UpdateLevel,
     renderData: MarketSeriesData[],
+    fiveDayTimeShareGeometry: FiveDayTimeShareGeometry | null,
   ): { sharedXAxisLabels: XAxisLabel[]; sharedXAxisRanges: XAxisRange[] } {
     // 跨 pane 共享的 Y/X 轴 labels 和 ranges（各 layer 写入，时间轴层读取）
     const sharedYAxisLabels: YAxisLabel[] = []
@@ -836,6 +889,8 @@ export class ChartRenderer {
         data: renderData,
         period: dataManager.currentPeriod,
         dataView: this.deps.dataView$(),
+        timeShareRange: dataManager.getTimeShareRange() ?? undefined,
+        fiveDayTimeShareGeometry: fiveDayTimeShareGeometry ?? undefined,
         comparisonData: dataManager.getComparisonData(),
         comparisonSymbols: dataManager.getComparisonSpecs(),
         comparisonColors: dataManager.getComparisonColors(),
@@ -876,8 +931,8 @@ export class ChartRenderer {
         xAxisRanges: sharedXAxisRanges,
         theme: this.deps.theme$.peek(),
         isAsiaMarket: this.settings.isAsiaMarket as boolean,
-         colorPresetSettings: this.settings.colorPresetSettings,
-         monthKeys: dataManager.getMonthKeys() ?? undefined,
+        colorPresetSettings: this.settings.colorPresetSettings,
+        monthKeys: dataManager.getMonthKeys() ?? undefined,
         dayKeys: dataManager.getDayKeys() ?? undefined,
       }
 
@@ -955,6 +1010,7 @@ export class ChartRenderer {
     sharedXAxisLabels: XAxisLabel[],
     sharedXAxisRanges: XAxisRange[],
     renderData: MarketSeriesData[],
+    fiveDayTimeShareGeometry: FiveDayTimeShareGeometry | null,
   ): void {
     const dom = this.deps.getDom()
     const xAxisCtx = this.xAxisCtx ?? dom.xAxisCanvas.getContext('2d')
@@ -1000,6 +1056,9 @@ export class ChartRenderer {
         period: dataManager.currentPeriod,
         marketSession,
         data: renderData,
+        dataView: this.deps.dataView$.peek(),
+        timeShareRange: dataManager.getTimeShareRange() ?? undefined,
+        fiveDayTimeShareGeometry: fiveDayTimeShareGeometry ?? undefined,
         range,
         scrollLeft: vp.scrollLeft,
         kWidth: opt.kWidth,

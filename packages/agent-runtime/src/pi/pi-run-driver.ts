@@ -1,3 +1,4 @@
+// Pi Agent 驱动器：执行运行计划、投影 UI 事件并隔离敏感内容。
 import { Agent, type AgentEvent, type AgentTool } from '@earendil-works/pi-agent-core'
 
 import { AgentRuntimeError, toAgentRuntimeError } from '../contracts/errors.js'
@@ -17,6 +18,7 @@ const DEFAULT_TOOL_TURN_LIMIT = 8
 const HARD_TOOL_TURN_LIMIT = 12
 const DEFAULT_TIMEOUT_MS = 120_000
 
+/** 判断 Pi 消息是否为助手消息，供事件投影和错误分类使用。 */
 function isAssistant(message: unknown): message is AssistantMessage {
   return (
     typeof message === 'object' &&
@@ -26,6 +28,13 @@ function isAssistant(message: unknown): message is AssistantMessage {
   )
 }
 
+/**
+ * 将 Pi 原始用量转换为 UI 用量视图。
+ * @param usage Pi 返回的令牌与成本用量。
+ * @param startedAt 运行开始时间。
+ * @param now 当前时间。
+ * @returns 聚合后的 UI 用量。
+ */
 function usageView(usage: Usage, startedAt: number, now: number): AgentUsageView {
   return {
     inputTokens: usage.input + usage.cacheRead,
@@ -35,6 +44,12 @@ function usageView(usage: Usage, startedAt: number, now: number): AgentUsageView
   }
 }
 
+/**
+ * 累加两次 Pi 模型用量。
+ * @param total 之前已累积的用量。
+ * @param next 新收到的单次消息用量。
+ * @returns 新的独立累计用量。
+ */
 function addUsage(total: Usage | undefined, next: Usage): Usage {
   if (!total) return structuredClone(next)
   return {
@@ -53,10 +68,21 @@ function addUsage(total: Usage | undefined, next: Usage): Usage {
   }
 }
 
+/**
+ * 将 Pi 内部工具调用 ID 命名空间化，避免跨运行冲突。
+ * @param runId 当前运行 ID。
+ * @param rawId Pi 分配的原始工具调用 ID。
+ * @returns 可公开传递给 UI 的工具调用 ID。
+ */
 function publicToolCallId(runId: string, rawId: string): string {
   return `${encodeURIComponent(runId)}:${encodeURIComponent(rawId)}`
 }
 
+/**
+ * 从 Pi 部分工具结果中提取安全的进度视图。
+ * @param value Pi 提供的未知详情值。
+ * @returns 合法进度；结构不完整时返回 undefined。
+ */
 function safeProgress(value: unknown): ToolProgressView | undefined {
   if (typeof value !== 'object' || value === null || !('progress' in value)) return undefined
   const progress = value.progress
@@ -75,32 +101,50 @@ function safeProgress(value: unknown): ToolProgressView | undefined {
   }
 }
 
+/** Pi 驱动器的可注入运行时依赖。 */
 export interface PiRunDriverOptions {
+  /** 时钟函数，用于测试与事件时间戳。 */
   now?: () => number
+  /** 消息 ID 生成器，用于测试稳定事件。 */
   id?: () => string
+  /** 需要在事件和工具结果中移除的敏感值配置。 */
   redaction?: RedactionOptions
 }
 
+/** 负责串行执行一个 Pi Agent 运行计划的运行驱动器。 */
 export class PiRunDriver {
   private readonly now: () => number
   private readonly id: () => string
   private readonly redaction: RedactionOptions
   private activeAgent: Agent | undefined
 
+  /**
+   * 创建 Pi 驱动器。
+   * @param options 可选的时间、ID 与脱敏依赖。
+   */
   constructor(options: PiRunDriverOptions = {}) {
     this.now = options.now ?? Date.now
     this.id = options.id ?? (() => globalThis.crypto.randomUUID())
     this.redaction = options.redaction ?? {}
   }
 
+  /** 取消当前活动的 Pi Agent 运行；空闲时无操作。 */
   abort(): void {
     this.activeAgent?.abort()
   }
 
+  /** 等待当前活动运行停止；空闲时立即完成。 */
   async waitForIdle(): Promise<void> {
     await this.activeAgent?.waitForIdle()
   }
 
+  /**
+   * 执行运行计划，并把 Pi 事件投影为稳定的 Agent UI 事件。
+   * @param plan 本次运行的模型、工具和超时计划。
+   * @param emit 接收 UI 事件的同步或异步函数。
+   * @returns 助手文本、聚合用量与成功工具数。
+   * @throws {AgentRuntimeError} 并发运行、超时、取消、工具循环或 Provider 失败时抛出。
+   */
   async run(plan: PiRunPlan, emit: PiRunEventSink): Promise<PiRunResult> {
     if (this.activeAgent)
       throw new AgentRuntimeError('RUN_ACTIVE', 'This Pi driver already owns an active run.')
@@ -140,6 +184,7 @@ export class PiRunDriver {
       streamFn: plan.streamFn,
       sessionId: plan.sessionId,
       toolExecution: 'parallel',
+      // 仅含工具调用的助手轮次计入上限，避免模型陷入无终止的工具循环。
       shouldStopAfterTurn: ({ message }) => {
         if (!isAssistant(message) || !message.content.some((block) => block.type === 'toolCall'))
           return false
@@ -153,6 +198,7 @@ export class PiRunDriver {
     })
     this.activeAgent = agent
 
+    // 订阅 Pi 原始事件并按 UI 协议投影；文本和工具数据在离开驱动器前脱敏。
     const unsubscribe = agent.subscribe(async (event) => {
       if (event.type === 'message_start' && isAssistant(event.message)) {
         assistantMessageId = this.id()
@@ -195,6 +241,7 @@ export class PiRunDriver {
     })
 
     let timedOut = false
+    // 统一通过 Pi 的 abort 路径中断，确保 Provider 与工具都能收到取消信号。
     const timeout = setTimeout(() => {
       timedOut = true
       agent.abort()
@@ -250,12 +297,20 @@ export class PiRunDriver {
       }
       throw toAgentRuntimeError(error)
     } finally {
+      // 无论结束原因如何，都释放计时器、订阅和活动运行所有权。
       clearTimeout(timeout)
       unsubscribe()
       this.activeAgent = undefined
     }
   }
 
+  /**
+   * 将宿主工具定义适配为 Pi 所需的 AgentTool。
+   * @param plan 当前运行计划。
+   * @param definition 宿主提供的工具定义。
+   * @param results 收集成功工具结果，供结束事件投影使用。
+   * @returns Pi 可执行的工具对象。
+   */
   private createTool(
     plan: PiRunPlan,
     definition: RuntimeToolDefinition,
@@ -270,6 +325,7 @@ export class PiRunDriver {
       execute: async (rawId, input, signal, onUpdate) => {
         if (!signal)
           throw new AgentRuntimeError('INTERNAL_ERROR', 'Pi did not provide a tool AbortSignal.')
+        // 对外 ID 始终包含运行维度，避免 Pi 内部 ID 跨运行重复。
         const toolCallId = publicToolCallId(plan.runId, rawId)
         const result = await definition.execute(input, {
           runId: plan.runId,
@@ -291,6 +347,16 @@ export class PiRunDriver {
     }
   }
 
+  /**
+   * 将 Pi 工具生命周期事件转换为 Agent UI 工具事件。
+   * @param plan 当前运行计划。
+   * @param event Pi 原始事件。
+   * @param toolsByName 工具名称到定义的索引。
+   * @param toolViews 已发出工具视图的缓存。
+   * @param toolResults 成功工具结果的缓存。
+   * @param emit UI 事件发送函数。
+   * @param completed 成功工具完成时递增计数的回调。
+   */
   private async projectToolEvent(
     plan: PiRunPlan,
     event: AgentEvent,
@@ -304,6 +370,7 @@ export class PiRunDriver {
       const definition = toolsByName.get(event.toolName)
       if (!definition) return
       const id = publicToolCallId(plan.runId, event.toolCallId)
+      // 输入摘要在发往 UI 前脱敏，工具原始参数不会进入事件流。
       const call: ToolCallView = {
         id,
         runId: plan.runId,
@@ -334,6 +401,7 @@ export class PiRunDriver {
       if (!started) return
       const result = toolResults.get(id)
       const finishedAt = this.now()
+      // Pi 结束事件只携带执行状态，成功结果从执行阶段缓存中补齐。
       const view: ToolCallView = event.isError
         ? {
             ...started,
@@ -350,6 +418,7 @@ export class PiRunDriver {
             ...started,
             status: 'succeeded',
             resultSummary: redactString(result?.summary ?? 'Tool completed.', this.redaction),
+            resultContent: redactString(result?.content ?? '', this.redaction),
             evidence: result?.evidence,
             undoToken: result?.undoToken,
             finishedAt,

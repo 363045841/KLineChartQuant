@@ -1,3 +1,7 @@
+/** Agent 查询品种目录的输入。 */
+import type { InstrumentDescriptor } from '../../data/provider/types'
+import type { ReadonlySignal } from '../../foundation/reactivity/signal'
+
 /** Inclusive timestamp range exposed to Agent consumers. */
 export interface ChartAgentTimeRange {
   readonly from: number
@@ -41,8 +45,19 @@ export interface IndicatorQueryInput {
   readonly limit?: number
 }
 
+/** Agent 查询标准品种目录的输入。 */
+export interface InstrumentSearchInput {
+  readonly keyword: string
+  readonly limit: number
+  readonly sourceIds?: ReadonlyArray<string>
+  readonly signal?: AbortSignal
+}
+
 /** Stable Agent-facing facade attached to every ChartController. */
 export interface ChartAgentController {
+  /** 图表状态的只读上下文投影；无有效行情数据时为 null。 */
+  readonly context: ReadonlySignal<ChartAgentContextSnapshot | null>
   getContext(): ChartAgentContextSnapshot
   queryIndicator(input: IndicatorQueryInput): Promise<string>
+  searchInstruments(input: InstrumentSearchInput): Promise<ReadonlyArray<InstrumentDescriptor>>
 }

@@ -87,6 +87,11 @@ describe('AgentWorkspace', () => {
     const mounted = await mountWorkspace()
     await mounted.wrapper.get('button[aria-label="Provider settings"]').trigger('click')
     const dialog = document.querySelector<HTMLElement>('.base-modal')!
+    expect(
+      [...dialog.querySelectorAll<HTMLOptionElement>('.provider-protocol-control option')].map(
+        (option) => option.value,
+      ),
+    ).toEqual(['openai-completions', 'openai-responses'])
     const inputs = dialog.querySelectorAll<HTMLInputElement>('input')
     inputs[0]!.value = 'https://models.example.test/v1'
     inputs[0]!.dispatchEvent(new Event('input', { bubbles: true }))
@@ -96,12 +101,13 @@ describe('AgentWorkspace', () => {
     dialog.querySelector<HTMLButtonElement>('.provider-refresh-button')!.click()
     await flushPromises()
 
-    const options = dialog.querySelectorAll<HTMLOptionElement>('select option')
+    const modelSelect = dialog.querySelector<HTMLSelectElement>('.provider-model-control select')!
+    const options = modelSelect.querySelectorAll<HTMLOptionElement>('option')
     expect([...options].map((option) => option.value)).toEqual([
       'provider-model-a',
       'provider-model-b',
     ])
-    expect(dialog.querySelector<HTMLSelectElement>('select')!.value).toBe('provider-model-a')
+    expect(modelSelect.value).toBe('provider-model-a')
   })
 
   it('does not submit on Shift+Enter and retains a pending draft when stopping', async () => {

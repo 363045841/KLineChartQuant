@@ -1,13 +1,13 @@
 <template>
   <div class="context-bar">
     <div class="context-bar__chips" :aria-label="scopeLabel">
-      <span>{{ context.symbol ?? text.noSymbol }}</span>
-      <span>{{ context.period ?? text.noPeriod }}</span>
-      <span class="context-bar__range">{{ context.visibleRange ?? text.noRange }}</span>
+      <span>{{ context?.symbol ?? text.noSymbol }}</span>
+      <span>{{ context?.period ?? text.noPeriod }}</span>
+      <span v-if="context?.visibleRange" class="context-bar__range">{{ context.visibleRange }}</span>
     </div>
     <div class="context-bar__toggle" :title="text.readOnlyHint">
       <ToggleSwitch
-        :model-value="context.readOnly"
+        :model-value="readOnly"
         :aria-label="text.readOnly"
         size="compact"
         @update:model-value="$emit('read-only', $event)"
@@ -25,13 +25,17 @@
 
   import type { ChartContextView } from '../agent-contracts'
 
-  const props = defineProps<{ context: ChartContextView; locale: AgentLocale }>()
+  const props = defineProps<{
+    context: ChartContextView | null
+    locale: AgentLocale
+    readOnly: boolean
+  }>()
   defineEmits<{ 'read-only': [value: boolean] }>()
 
   const text = computed(() => getAgentCopy(props.locale))
   const scopeLabel = computed(
     () =>
-      `${props.context.symbol ?? text.value.noSymbol}, ${props.context.period ?? text.value.noPeriod}`,
+      `${props.context?.symbol ?? text.value.noSymbol}, ${props.context?.period ?? text.value.noPeriod}`,
   )
 </script>
 
@@ -52,23 +56,21 @@
   .context-bar__chips {
     min-width: 0;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 5px;
-    overflow: hidden;
   }
 
   .context-bar__chips > span {
-    min-width: 0;
+    min-width: max-content;
     padding: 3px 6px;
     border: 1px solid var(--agent-border);
     border-radius: 3px;
-    overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .context-bar__range {
-    flex: 1 1 auto;
+    flex: 0 0 auto;
   }
 
   .context-bar__toggle {

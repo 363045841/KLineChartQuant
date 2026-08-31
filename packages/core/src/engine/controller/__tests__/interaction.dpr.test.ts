@@ -21,6 +21,12 @@ function createMockInteractionState() {
     hoveredMarkerData: writableRef<any>(null),
     hoveredCustomMarker: writableRef<any>(null),
     hoveredMarkerId: writableRef<string | null>(null),
+    rangeSelection: writableRef({
+      startTimestamp: null as number | null,
+      endTimestamp: null as number | null,
+      isDragging: false,
+    }),
+    selectedRange: writableRef<{ from: number; to: number } | null>(null),
   }
 
   return {
@@ -39,6 +45,8 @@ function createMockInteractionState() {
       hoveredMarkerData: signals.hoveredMarkerData,
       hoveredCustomMarker: signals.hoveredCustomMarker,
       hoveredMarkerId: signals.hoveredMarkerId,
+      rangeSelection: signals.rangeSelection,
+      selectedRange: signals.selectedRange,
       interactionSnapshot: {
         peek: () => ({
           crosshairPos: signals.crosshairPos.peek(),
@@ -102,6 +110,25 @@ function createMockInteractionState() {
         signals.hoveredMarkerId.set(id)
         signals.hoveredMarkerData.set(md)
         signals.hoveredCustomMarker.set(cmd)
+      },
+      startRangeSelection(timestamp: number) {
+        signals.rangeSelection.set({ startTimestamp: timestamp, endTimestamp: timestamp, isDragging: true })
+      },
+      updateRangeSelection(timestamp: number) {
+        signals.rangeSelection.set({ ...signals.rangeSelection.peek(), endTimestamp: timestamp })
+      },
+      finishRangeSelection(timestamp?: number) {
+        signals.rangeSelection.set({
+          ...signals.rangeSelection.peek(),
+          endTimestamp: timestamp ?? signals.rangeSelection.peek().endTimestamp,
+          isDragging: false,
+        })
+      },
+      setRangeSelection(startTimestamp: number, endTimestamp: number) {
+        signals.rangeSelection.set({ startTimestamp, endTimestamp, isDragging: false })
+      },
+      clearRangeSelection() {
+        signals.rangeSelection.set({ startTimestamp: null, endTimestamp: null, isDragging: false })
       },
       reset() {
         signals.crosshairPos.set(null)

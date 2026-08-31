@@ -109,7 +109,11 @@ describe('PiRunDriver', () => {
       progress: { label: 'Reading bars', current: 1, total: 2 },
     })
     expect(events.find((event) => event.type === 'tool.finished')).toMatchObject({
-      result: { status: 'succeeded', resultSummary: '20 RSI values returned.' },
+      result: {
+        status: 'succeeded',
+        resultSummary: '20 RSI values returned.',
+        resultContent: '20 rows',
+      },
     })
   })
 

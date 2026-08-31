@@ -5,8 +5,8 @@ import { describe, expect, it } from 'vitest'
 import { symbolSpecIdentityKey } from '../symbolIdentity'
 
 describe('symbolSpecIdentityKey', () => {
-  // 验证稳定 ID 存在时不再依赖旧 market 和 params 字段。
-  it('优先使用统一品种 ID', () => {
+  // 验证稳定 ID 存在时只依赖来源与 ID，不受旧 market 和 params 字段影响。
+  it('优先使用来源范围内的统一品种 ID', () => {
     const first = {
       id: 'gotdx:stock:1:600519',
       symbol: '600519',
@@ -20,7 +20,7 @@ describe('symbolSpecIdentityKey', () => {
       params: { category: 31 },
     }
 
-    expect(symbolSpecIdentityKey(first)).toBe('id:gotdx:stock:1:600519')
+    expect(symbolSpecIdentityKey(first)).toBe('instrument:gotdx:gotdx:stock:1:600519')
     expect(symbolSpecIdentityKey(second)).toBe(symbolSpecIdentityKey(first))
   })
 

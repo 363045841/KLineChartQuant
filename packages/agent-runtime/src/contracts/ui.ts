@@ -1,5 +1,5 @@
 /** Stable Renderer contract. Pi, Provider, and host transport types stop here. */
-export const AGENT_UI_PROTOCOL_VERSION = 2 as const
+export const AGENT_UI_PROTOCOL_VERSION = 3 as const
 
 export type AgentRunStatus =
   | 'idle'
@@ -62,6 +62,8 @@ export interface ToolCallView {
   status: ToolCallStatus
   inputSummary: string
   resultSummary?: string
+  /** 已脱敏的工具结果正文，供 UI 展示。 */
+  resultContent?: string
   error?: AgentErrorView
   progress?: ToolProgressView
   safety: ToolSafety
@@ -98,11 +100,17 @@ export interface ChartContextView {
   period: string | null
   visibleRange?: string | null
   selectedBar?: string | null
+}
+
+/** Agent 单次运行的权限与可见图表范围。 */
+export interface AgentRunScope extends ChartContextView {
   readOnly: boolean
 }
 
 export type ProviderConnectionState = 'not-configured' | 'testing' | 'connected' | 'error'
 export type ProviderCompatibility = 'unknown' | 'testing' | 'incompatible' | 'compatible'
+export const PROVIDER_API_PROTOCOLS = ['openai-completions', 'openai-responses'] as const
+export type ProviderApiProtocol = (typeof PROVIDER_API_PROTOCOLS)[number]
 export interface ProviderStatusView {
   state: ProviderConnectionState
   providerLabel: string
@@ -110,6 +118,7 @@ export interface ProviderStatusView {
   baseUrl?: string
   modelId?: string
   modelLabel?: string
+  protocol?: ProviderApiProtocol
   fingerprint?: string
   compatibility?: ProviderCompatibility
   lastTestedAt?: number
@@ -185,7 +194,6 @@ export type AgentUiEvent =
   | (RunEventEnvelope & { type: 'tool.undone'; toolCallId: string; undoneAt: number })
   | (EventEnvelope & { type: 'sessions.changed'; sessions: AgentSessionView[] })
   | (EventEnvelope & { type: 'provider.status.changed'; status: ProviderStatusView })
-  | (EventEnvelope & { type: 'chart.context.changed'; context: ChartContextView })
 
 export type AgentUiEventInput = AgentUiEvent extends infer Event
   ? Event extends AgentUiEvent
@@ -216,6 +224,7 @@ export interface ProviderTestInput {
   baseUrl: string
   apiKey?: string
   model: string
+  protocol: ProviderApiProtocol
 }
 export interface ProviderSaveInput extends ProviderTestInput {
   modelName: string
@@ -223,6 +232,7 @@ export interface ProviderSaveInput extends ProviderTestInput {
 export interface ProviderModelsInput {
   baseUrl: string
   apiKey?: string
+  protocol: ProviderApiProtocol
 }
 export interface ProviderModelsResult {
   models: ProviderModelView[]
@@ -243,6 +253,8 @@ export interface ProviderTestResult {
 }
 
 export interface AgentBridgeClient {
+  getChartContext(): ChartContextView | null
+  subscribeChartContext(listener: (context: ChartContextView | null) => void): () => void
   listSessions(): Promise<AgentSessionView[]>
   openSession(sessionId: string): Promise<AgentSessionSnapshot>
   getProviderStatus(): Promise<ProviderStatusView>

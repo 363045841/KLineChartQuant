@@ -13,6 +13,7 @@ import {
   computeTimeShareTimeLabelIndices,
   computeTimeShareVisibleRange,
   computeTimeShareXLayout,
+  resolveFiveDayTimeShareBaseline,
   resolveTimeShareSessionSlots,
   resolveTimeShareBaseline,
 } from '../timeShareMath'
@@ -32,6 +33,38 @@ describe('resolveTimeShareBaseline', () => {
     expect(resolveTimeShareBaseline({ preClose: 0, firstPrice: 0 })).toBeNull()
     expect(resolveTimeShareBaseline({})).toBeNull()
     expect(resolveTimeShareBaseline({ preClose: NaN, firstPrice: Infinity })).toBeNull()
+  })
+})
+
+describe('resolveFiveDayTimeShareBaseline', () => {
+  it('uses only the first trading day preClose for the entire window', () => {
+    expect(
+      resolveFiveDayTimeShareBaseline({
+        instrumentId: 'test',
+        timezone: 'Asia/Shanghai',
+        requestedDays: 2,
+        olderData: 'exhausted',
+        days: [
+          { tradingDate: '2026-08-14', preClose: 10, data: [] },
+          { tradingDate: '2026-08-17', preClose: 12, data: [] },
+        ],
+      }),
+    ).toBe(10)
+  })
+
+  it('does not replace a missing first-day preClose with a later day value', () => {
+    expect(
+      resolveFiveDayTimeShareBaseline({
+        instrumentId: 'test',
+        timezone: 'Asia/Shanghai',
+        requestedDays: 2,
+        olderData: 'exhausted',
+        days: [
+          { tradingDate: '2026-08-14', preClose: null, data: [] },
+          { tradingDate: '2026-08-17', preClose: 12, data: [] },
+        ],
+      }),
+    ).toBeNull()
   })
 })
 
@@ -193,6 +226,7 @@ describe('computeTimeShareVisibleRange', () => {
     const r = computeTimeShareVisibleRange({
       scrollLeft: 0,
       totalWidth: 900,
+      viewWidth: 900,
       dataLength: 240,
       sessionSlots: 240,
     })
@@ -201,21 +235,23 @@ describe('computeTimeShareVisibleRange', () => {
   })
 
   it('uses the same step grid as the layout for a scrolled viewport', () => {
-    // step = 480/240 = 2；视口 [120, 480] 覆盖第 60..239 槽
+    // step = 480/240 = 2；视口 [120, 360] 覆盖第 60..179 槽
     const r = computeTimeShareVisibleRange({
       scrollLeft: 120,
       totalWidth: 480,
+      viewWidth: 240,
       dataLength: 240,
       sessionSlots: 240,
     })
     expect(r.start).toBe(59)
-    expect(r.end).toBe(240)
+    expect(r.end).toBe(181)
   })
 
   it('respects per-market session slots (HK 330) without clipping', () => {
     const r = computeTimeShareVisibleRange({
       scrollLeft: 0,
       totalWidth: 990,
+      viewWidth: 990,
       dataLength: 330,
       sessionSlots: 330,
     })
@@ -228,6 +264,7 @@ describe('computeTimeShareVisibleRange', () => {
       computeTimeShareVisibleRange({
         scrollLeft: 0,
         totalWidth: 0,
+        viewWidth: 480,
         dataLength: 240,
         sessionSlots: 240,
       }),
@@ -236,6 +273,7 @@ describe('computeTimeShareVisibleRange', () => {
       computeTimeShareVisibleRange({
         scrollLeft: 0,
         totalWidth: 480,
+        viewWidth: 480,
         dataLength: 0,
         sessionSlots: 240,
       }),

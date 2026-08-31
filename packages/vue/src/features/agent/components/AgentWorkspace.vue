@@ -4,7 +4,7 @@
       :sessions="state.sessions"
       :active-session-id="state.activeSessionId"
       :provider="state.provider"
-      :context="state.context"
+      :context="chartContext"
       :locale="locale"
       @create="createSession"
       @select="selectSession"
@@ -29,7 +29,12 @@
       @undo="undoTurn"
     />
 
-    <AgentContextBar :context="state.context" :locale="locale" @read-only="setReadOnly" />
+    <AgentContextBar
+      :context="chartContext"
+      :locale="locale"
+      :read-only="readOnly"
+      @read-only="setReadOnly"
+    />
     <AgentComposer
       v-model:draft="draft"
       :running="isRunning"
@@ -70,9 +75,11 @@
 
   const {
     state,
+    chartContext,
     draft,
     providerSettings,
     locale,
+    readOnly,
     isRunning,
     createSession,
     selectSession,

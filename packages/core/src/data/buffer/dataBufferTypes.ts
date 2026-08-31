@@ -69,18 +69,29 @@ export interface TimeShareBuffer extends DataBufferLike<TimeShareData> {
   getPreClose(): number | null
   setRange(range: TimeShareRange): void
   setRequestFetch(fn: ((spec: SymbolSpec, date?: number) => Promise<TimeShareResult>) | null): void
+  setRangeRequestFetch(
+    fn: ((spec: SymbolSpec, days: number, date?: number) => Promise<TimeShareRangeResult>) | null,
+  ): void
   setSourceResolvedHandler(
     handler: ((sourceId: string, instrument: InstrumentDescriptor) => boolean) | null,
   ): void
   setQueryDate(date: number): void
   getQueryDate(): number
   load(spec: SymbolSpec): void
+  loadRange(spec: SymbolSpec, days: number): void
 }
 
 /** 分时请求结果：点列与昨收必须作为一个业务快照返回。 */
 export interface TimeShareResult {
   data: ReadonlyArray<TimeShareData>
   preClose: number | null
+  sourceId?: string
+  instrument?: InstrumentDescriptor
+}
+
+/** 多日分时请求结果及 auto source 身份迁移信息。 */
+export interface TimeShareRangeResult {
+  range: TimeShareRange
   sourceId?: string
   instrument?: InstrumentDescriptor
 }

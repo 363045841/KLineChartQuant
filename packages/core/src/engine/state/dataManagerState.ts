@@ -1,3 +1,4 @@
+/** 数据协调层状态：当前 spec、可恢复视口位置与增量加载批次。 */
 import { batch, createSubState } from '../../foundation/reactivity/signal'
 import type { SymbolSpec } from '../../controllers/types'
 

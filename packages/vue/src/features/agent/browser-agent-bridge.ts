@@ -1,14 +1,14 @@
 // 浏览器 Agent bridge：Pi、会话和 Provider 请求全部运行在 Renderer。
 import {
   AgentRuntimeError,
+  AGENT_UI_PROTOCOL_VERSION,
   PiRunDriver,
-  PROVIDER_SETTINGS_VERSION,
   createIndicatorQueryTool,
+  createInstrumentNameQueryTool,
   createOpenAiCompatibleRuntimeSupport,
   fetchOpenAiCompatibleModels,
   normalizeProviderBaseUrl,
   parseOpenAiCompatibleProviderSettings,
-  providerHttpError,
 } from '@363045841yyt/klinechart-agent-runtime'
 
 import type {
@@ -70,7 +70,11 @@ class BrowserProviderSettingsStore implements ProviderSettingsStore {
     const raw = window.localStorage.getItem(PROVIDER_SETTINGS_STORAGE_KEY)
     if (!raw) return undefined
     try {
-      return parseOpenAiCompatibleProviderSettings(JSON.parse(raw))
+      const parsed = parseOpenAiCompatibleProviderSettings(JSON.parse(raw))
+      if (parsed && JSON.stringify(parsed) !== raw) {
+        window.localStorage.setItem(PROVIDER_SETTINGS_STORAGE_KEY, JSON.stringify(parsed))
+      }
+      return parsed
     } catch {
       window.localStorage.removeItem(PROVIDER_SETTINGS_STORAGE_KEY)
       return undefined
@@ -98,8 +102,35 @@ interface BrowserAgentBridgeOptions {
   readonly getChartAgent?: () => ChartAgentController | null | undefined
 }
 
+function formatVisibleRange(
+  range: ReturnType<ChartAgentController['getContext']>['visibleRange'],
+): string | null {
+  if (!range) return null
+  const format = new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+  return `${format.format(range.from)} - ${format.format(range.to)}`
+}
+
+function projectChartContext(agent: ChartAgentController | null | undefined) {
+  const context = agent?.context()
+  if (!context) return null
+  return {
+    symbol: context.symbol,
+    period: context.period,
+    visibleRange: formatVisibleRange(context.visibleRange),
+    selectedBar: null,
+  }
+}
+
 export class BrowserAgentBridge implements AgentBridgeClient {
   private readonly listeners = new Set<(event: AgentUiEvent) => void>()
+  private readonly chartContextListeners = new Set<(context: ReturnType<typeof projectChartContext>) => void>()
   private readonly credentials = new BrowserProviderCredentialStore()
   private readonly settings = new BrowserProviderSettingsStore()
   private readonly support
@@ -108,19 +139,51 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   private readonly runInputs = new Map<string, StartRunInput>()
   private nextSession = 1
   private nextRun = 1
+  private readonly getChartAgent: () => ChartAgentController | null | undefined
+  private chartAgent: ChartAgentController | null = null
+  private unsubscribeChartContextSource: (() => void) | undefined
 
   constructor(options: BrowserAgentBridgeOptions = {}) {
+    this.getChartAgent = options.getChartAgent ?? (() => null)
     this.support = createOpenAiCompatibleRuntimeSupport({
       credentials: this.credentials,
       settings: this.settings,
       fetch: fetchBrowserProvider,
       tools: () => {
-        const agent = options.getChartAgent?.()
-        return agent ? [createIndicatorQueryTool(agent)] : []
+        const agent = this.getChartAgent()
+        return agent
+          ? [createIndicatorQueryTool(agent), createInstrumentNameQueryTool(agent)]
+          : []
       },
     })
     const session = this.createSessionRecord()
     this.sessions.set(session.view.id, session)
+  }
+
+  getChartContext() {
+    return projectChartContext(this.chartAgent ?? this.getChartAgent())
+  }
+
+  subscribeChartContext(listener: (context: ReturnType<typeof projectChartContext>) => void): () => void {
+    this.bindChartAgent(this.getChartAgent())
+    this.chartContextListeners.add(listener)
+    listener(this.getChartContext())
+    return () => this.chartContextListeners.delete(listener)
+  }
+
+  /** 绑定图表 controller；支持 Agent 面板先于图表完成挂载。 */
+  bindChartAgent(agent: ChartAgentController | null | undefined): void {
+    const next = agent ?? null
+    if (this.chartAgent === next) return
+    this.unsubscribeChartContextSource?.()
+    this.chartAgent = next
+    this.unsubscribeChartContextSource = next?.context.subscribe(() => this.publishChartContext())
+    this.publishChartContext()
+  }
+
+  private publishChartContext(): void {
+    const context = this.getChartContext()
+    for (const listener of this.chartContextListeners) listener(context)
   }
 
   async listSessions(): Promise<AgentSessionView[]> {
@@ -131,7 +194,8 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     const session = this.requireSession(sessionId)
     return {
       session: session.view,
-      messages: session.messages,
+      // 快照不能暴露内部会话数组，否则 UI reducer 的追加会与存储层写入重复。
+      messages: session.messages.map((message) => ({ ...message })),
       toolCalls: [],
       runs: session.runs,
       lastSequence: 0,
@@ -214,46 +278,28 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   }
 
   async testProvider(input: ProviderTestInput): Promise<ProviderTestResult> {
-    const startedAt = Date.now()
     const apiKey = input.apiKey?.trim() || (await this.credentials.read())
     if (!apiKey) {
       throw new AgentRuntimeError('PROVIDER_NOT_CONFIGURED', 'Enter an API key before testing.')
     }
-    const { models, refreshedAt } = await fetchOpenAiCompatibleModels({ ...input, apiKey })
-    const selected = models.find((model) => model.id === input.model)
-    if (!selected) throw providerHttpError(404)
-    const latencyMs = Math.max(0, Date.now() - startedAt)
-    const result: ProviderTestResult = {
-      compatible: true,
-      model: selected.id,
-      latencyMs,
-      stages: [{ stage: 'catalog', ok: true, latencyMs }],
-    }
-    return result
+    return await this.support.provider.test({ ...input, apiKey })
   }
 
   async saveProvider(input: ProviderSaveInput): Promise<void> {
-    const apiKey = input.apiKey?.trim() || (await this.credentials.read()) || ''
-    const rawBaseUrl = input.baseUrl.trim()
-    let baseUrl = rawBaseUrl
-    if (rawBaseUrl) {
-      try {
-        baseUrl = normalizeProviderBaseUrl(rawBaseUrl)
-      } catch {
-        baseUrl = rawBaseUrl
-      }
+    const tested = await this.settings.read()
+    const baseUrl = normalizeProviderBaseUrl(input.baseUrl)
+    if (
+      !tested ||
+      tested.baseUrl !== baseUrl ||
+      tested.modelId !== input.model.trim() ||
+      tested.protocol !== input.protocol
+    ) {
+      throw new AgentRuntimeError(
+        'PROVIDER_NOT_CONFIGURED',
+        'Test this Provider configuration before saving it.',
+        { recommendedAction: 'Run the connection test with the current protocol and model.' },
+      )
     }
-    if (apiKey) await this.credentials.write(apiKey)
-    const savedAt = Date.now()
-    await this.settings.write({
-      version: PROVIDER_SETTINGS_VERSION,
-      baseUrl,
-      modelId: input.model.trim(),
-      modelName: input.modelName.trim() || input.model.trim(),
-      compatibility: 'compatible',
-      lastTestedAt: savedAt,
-      lastModelsRefreshAt: savedAt,
-    })
     this.emit({ type: 'provider.status.changed', status: await this.getProviderStatus() })
   }
 
@@ -350,6 +396,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   }
 
   private emit(event: AgentUiEventInput): void {
-    for (const listener of this.listeners) listener({ ...event, protocolVersion: 2 })
+    for (const listener of this.listeners)
+      listener({ ...event, protocolVersion: AGENT_UI_PROTOCOL_VERSION })
   }
 }

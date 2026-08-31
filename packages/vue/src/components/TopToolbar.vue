@@ -6,6 +6,7 @@
     @mousemove="onMouseMove"
     @mouseup="onMouseUp"
     @mouseleave="onMouseUp"
+    @wheel="onWheel"
   >
     <SymbolSelector
       v-if="displaySymbol"
@@ -123,6 +124,16 @@
     el.style.userSelect = ''
   }
 
+  /** 将滚轮增量映射到 scrollLeft，支持鼠标滚轮与触控板横向手势浏览工具栏。 */
+  function onWheel(event: WheelEvent) {
+    if (event.ctrlKey) return
+    const el = toolbarRef.value
+    const delta = event.deltaX || event.deltaY
+    if (!el || delta === 0) return
+    event.preventDefault()
+    el.scrollLeft += delta
+  }
+
   const props = withDefaults(
     defineProps<{
       symbol?: string
@@ -173,6 +184,7 @@
     if (!capabilities) return undefined
     return [
       ...(capabilities.timeShare ? (['timeshare'] as const) : []),
+      ...((capabilities.timeShareRange?.maxTradingDays ?? 0) >= 5 ? (['5daytimeshare'] as const) : []),
       ...(capabilities.bars?.periods ?? []),
     ]
   })

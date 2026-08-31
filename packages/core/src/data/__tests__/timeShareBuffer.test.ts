@@ -89,6 +89,35 @@ describe('TimeShareBuffer', () => {
     buf.dispose()
   })
 
+  it('loads and stores a requested multi-day range atomically', async () => {
+    const buf = new TimeShareBuffer()
+    const fetcher = vi.fn().mockResolvedValue({
+      range: {
+        instrumentId: 'gotdx:stock:1:600519',
+        timezone: 'Asia/Shanghai',
+        requestedDays: 5,
+        olderData: 'unknown',
+        days: [
+          { tradingDate: '2026-08-05', preClose: 9, data: [point(10, 1)] },
+          { tradingDate: '2026-08-06', preClose: 10, data: [point(11, 2)] },
+        ],
+      },
+    })
+    buf.setRangeRequestFetch(fetcher)
+
+    buf.loadRange({ symbol: '000001', market: 'CN', period: '5daytimeshare', source: 'gotdx' }, 5)
+
+    await vi.waitFor(() => expect(buf.getRange()?.days).toHaveLength(2))
+    expect(fetcher).toHaveBeenCalledWith(
+      expect.objectContaining({ period: '5daytimeshare' }),
+      5,
+      undefined,
+    )
+    expect(buf.getRawData()).toEqual([point(10, 1), point(11, 2)])
+    expect(buf.getPreClose()).toBe(10)
+    buf.dispose()
+  })
+
   it('clears previous points when a new load starts (no stale date flash)', async () => {
     const buf = new TimeShareBuffer()
     buf.setInlineData([point(10), point(11)], null)

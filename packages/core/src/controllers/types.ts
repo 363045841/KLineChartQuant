@@ -28,6 +28,15 @@ import type { MarketSessionConfig } from '../foundation/utils/sessionTimeLabels'
 // shapes internally, but adapters depend only on core-defined contracts.
 /** 分时数据在 SymbolSpec.period 中使用的专用周期标识。 */
 export const TIME_SHARE_PERIOD = 'timeshare' as const
+/** 五日分时数据在 SymbolSpec.period 中使用的专用周期标识。 */
+export const FIVE_DAY_TIME_SHARE_PERIOD = '5daytimeshare' as const
+/** 五日分时请求的实际交易日数量。 */
+export const FIVE_DAY_TIME_SHARE_DAYS = 5
+
+/** 判断周期是否属于分时数据视图。 */
+export function isTimeSharePeriod(period: string | undefined): boolean {
+  return period === TIME_SHARE_PERIOD || period === FIVE_DAY_TIME_SHARE_PERIOD
+}
 
 export interface ChartViewport {
   zoomLevel: number
@@ -332,8 +341,8 @@ export interface ChartController extends DrawingChartAdapter {
   readonly rendererRuntime: ReadonlySignal<
     Readonly<import('../rendering/render/rendererHost').RendererBackendRuntime>
   >
-  /** 图表模式 id：kline | timeshare | comparison */
-  readonly chartMode: ReadonlySignal<'kline' | 'timeshare' | 'comparison'>
+  /** 图表模式 id：kline | timeshare | fiveDayTimeShare | comparison */
+  readonly chartMode: ReadonlySignal<'kline' | 'timeshare' | 'fiveDayTimeShare' | 'comparison'>
   /** 最近一次 K 线周期；分时返回操作使用该值。 */
   readonly lastBarPeriod: ReadonlySignal<string>
   readonly indicators: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
@@ -346,6 +355,14 @@ export interface ChartController extends DrawingChartAdapter {
   readonly paneRatios: ReadonlySignal<Readonly<Record<string, number>>>
   readonly paneLayout: ReadonlySignal<ReadonlyArray<PaneSpec>>
   readonly interactionState: ReadonlySignal<InteractionSnapshot>
+  /** 区间选择工具确认的时间范围。 */
+  readonly selectedRange: ReadonlySignal<{ from: number; to: number } | null>
+  /** 区间选择工具的完整权威状态。 */
+  readonly rangeSelection: ReadonlySignal<{
+    startTimestamp: number | null
+    endTimestamp: number | null
+    isDragging: boolean
+  }>
   /**
    * 主图左上角图例模板上下文。
    * Vue `#legend` slot 等外部模板消费；null 表示当前帧无图例数据。
@@ -406,6 +423,16 @@ export interface ChartController extends DrawingChartAdapter {
   handleWheelEvent(e: WheelEvent): void
   handleScrollEvent(): void
   handlePinchZoom(delta: number, centerClientX: number): void
+  /** 开始区间选择。 */
+  startRangeSelection(timestamp: number): void
+  /** 更新区间选择终点。 */
+  updateRangeSelection(timestamp: number): void
+  /** 结束区间选择。 */
+  finishRangeSelection(timestamp?: number): void
+  /** 原子设置已确认的区间边界。 */
+  setRangeSelection(startTimestamp: number, endTimestamp: number): void
+  /** 清除区间选择。 */
+  clearRangeSelection(): void
 
   // ---- Indicators ----
   addIndicator(

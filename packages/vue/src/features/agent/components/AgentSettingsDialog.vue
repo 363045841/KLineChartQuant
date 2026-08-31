@@ -16,6 +16,18 @@
     >
       <div class="provider-form__fields">
         <label class="provider-field">
+          <span class="provider-field__label">{{ text.apiProtocol }}</span>
+          <select
+            :value="providerSettings.protocol"
+            class="provider-protocol-control"
+            @change="onProtocolChange"
+          >
+            <option v-for="protocol in PROVIDER_API_PROTOCOLS" :key="protocol" :value="protocol">
+              {{ protocolLabel(protocol) }}
+            </option>
+          </select>
+        </label>
+        <label class="provider-field">
           <span class="provider-field__label">{{ text.baseUrl }}</span>
           <input
             v-model="providerSettings.baseUrl"
@@ -127,11 +139,15 @@
   import { computed, nextTick, ref, watch } from 'vue'
 
   import BaseModal from '../../../components/BaseModal.vue'
-
+  import {
+    PROVIDER_API_PROTOCOLS,
+    type ProviderApiProtocol,
+    type ProviderProbeStageResult,
+    type ProviderStatusView,
+  } from '../agent-contracts'
   import { getAgentCopy, type AgentLocale } from '../agent-copy'
-  import type { AgentProviderSettingsStore } from '../agent-provider-settings-store'
 
-  import type { ProviderProbeStageResult, ProviderStatusView } from '../agent-contracts'
+  import type { AgentProviderSettingsStore } from '../agent-provider-settings-store'
 
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
   import IconCircleCheck from '~icons/tabler/circle-check'
@@ -155,6 +171,19 @@
       text: text.value.probeText,
       tool: text.value.probeTool,
     }[stage]
+  }
+
+  /** 返回协议选择器的本地化名称。 */
+  function protocolLabel(protocol: ProviderApiProtocol): string {
+    return {
+      'openai-completions': text.value.openAiCompletions,
+      'openai-responses': text.value.openAiResponses,
+    }[protocol]
+  }
+
+  /** 将原生选择事件收敛到 Provider store 的协议草稿。 */
+  function onProtocolChange(event: Event): void {
+    props.providerSettings.setProtocol((event.target as HTMLSelectElement).value)
   }
 
   watch(

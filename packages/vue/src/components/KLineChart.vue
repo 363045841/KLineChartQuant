@@ -148,7 +148,7 @@
             </div>
           </div>
           <Teleport v-if="tooltipLayerRef" :to="tooltipLayerRef">
-            <template v-if="hoveredKLine && !isMobile">
+            <template v-if="showKLineTooltip">
               <div
                 v-if="slots['kline-tooltip']"
                 class="kline-tooltip-host"
@@ -274,7 +274,10 @@
     type SymbolInfo,
     type CustomDataSource,
   } from '@363045841yyt/klinechart-core/controllers'
-  import type { InstrumentDescriptor } from '@363045841yyt/klinechart-core/market-data'
+  import {
+    searchInstruments,
+    type InstrumentDescriptor,
+  } from '@363045841yyt/klinechart-core/market-data'
   import type { CustomMarkerEntity } from '@363045841yyt/klinechart-core/engine/marker/registry'
   import {
     ref,
@@ -418,6 +421,7 @@
     (e: 'themeChange', theme: 'light' | 'dark'): void
     (e: 'kLineLevelChange', level: string): void
     (e: 'kLineAdjustChange', adjust: 'qfq' | 'hfq' | 'splits' | 'none'): void
+    (e: 'controllerReady', controller: ChartController): void
   }>()
 
   // ── Slot Props Types ──
@@ -605,22 +609,12 @@
     signal: AbortSignal,
     sources?: ReadonlyArray<string>,
   ): Promise<ReadonlyArray<SymbolItem>> {
-    const sourceNames = sources ?? enabledSourceNames.value
-    const requests = sourceNames.map(async (sourceId) => {
-      const provider = marketDataProviderRegistry.get(sourceId)
-      if (!provider?.catalog) return []
-      return provider.catalog.search({ keyword: query, limit, signal })
+    return searchInstruments(marketDataProviderRegistry, {
+      keyword: query,
+      limit,
+      signal,
+      sourceIds: sources ?? enabledSourceNames.value,
     })
-    const settled = await Promise.allSettled(requests)
-    const results = settled.flatMap((result) => (result.status === 'fulfilled' ? result.value : []))
-    if (results.length === 0 && settled.every((result) => result.status === 'rejected')) {
-      throw new Error('[MarketDataProvider] all enabled source searches failed')
-    }
-    const unique = new Map<string, SymbolItem>()
-    for (const item of results) {
-      if (!unique.has(item.id)) unique.set(item.id, item)
-    }
-    return [...unique.values()].slice(0, limit)
   }
 
   /** 为没有稳定 ID 的旧搜索结果生成确定性身份。 */
@@ -1220,6 +1214,10 @@
     }
     return null
   })
+  // 对比视图使用左上角百分比图例，不展示单一主品种的 K 线详情 Tooltip。
+  const showKLineTooltip = computed(
+    () => chartMode.value !== 'comparison' && hoveredKLine.value !== null && !isMobile,
+  )
   const hoveredIndex = computed(() => interactionState.value.hoveredIndex)
   const tooltipPos = computed(() => interactionState.value.tooltipPos)
   const effectiveTooltipPos = computed(() => tooltipDragPos.value ?? tooltipPos.value)
@@ -1766,6 +1764,7 @@
     }
     if (!containerRef.value || !chartMainRef.value) return // 组件已卸载
     controller.value = ctrl
+    emit('controllerReady', ctrl)
 
     // 3) 信号回调（必须在 registerSymbols 之前建立，否则订阅收不到初始通知）
     cleanupChartCallbacks = setupChartCallbacks(ctrl)

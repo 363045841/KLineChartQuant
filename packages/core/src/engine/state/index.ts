@@ -1,3 +1,4 @@
+/** State 模块统一导出入口。 */
 export { StateKernel, type SubStateModule } from './stateKernel'
 export {
   ChartStateKernel,

@@ -4,7 +4,7 @@ import { Value } from 'typebox/value'
 import { AgentRuntimeError } from './errors.js'
 
 export const AGENT_IPC_PROTOCOL_VERSION = 2 as const
-export const AGENT_IPC_PAYLOAD_VERSION = 2 as const
+export const AGENT_IPC_PAYLOAD_VERSION = 3 as const
 export const AGENT_IPC_MAX_PAYLOAD_BYTES = 256 * 1024
 
 const Strict = { additionalProperties: false } as const
@@ -21,6 +21,10 @@ const BaseEnvelope = {
 const NoPayload = Type.Object({}, Strict)
 const SessionPayload = Type.Object({ sessionId: Id }, Strict)
 const RunPayload = Type.Object({ runId: Id }, Strict)
+const ProviderApiProtocolSchema = Type.Union([
+  Type.Literal('openai-completions'),
+  Type.Literal('openai-responses'),
+])
 
 export const AgentIpcRequestSchema = Type.Union([
   Type.Object(
@@ -97,6 +101,7 @@ export const AgentIpcRequestSchema = Type.Union([
         {
           baseUrl: Type.String({ minLength: 1, maxLength: 2048 }),
           apiKey: Type.Optional(Type.String({ minLength: 1, maxLength: 8192 })),
+          protocol: ProviderApiProtocolSchema,
         },
         Strict,
       ),
@@ -112,6 +117,7 @@ export const AgentIpcRequestSchema = Type.Union([
           baseUrl: Type.String({ minLength: 1, maxLength: 2048 }),
           apiKey: Type.Optional(Type.String({ minLength: 1, maxLength: 8192 })),
           model: Type.String({ minLength: 1, maxLength: 256 }),
+          protocol: ProviderApiProtocolSchema,
         },
         Strict,
       ),

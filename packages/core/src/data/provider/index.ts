@@ -43,6 +43,8 @@ export type {
   MarketDataSourceConfigPatch,
   SourceCapabilityQuery,
 } from './registry'
+export { searchInstruments } from './instrumentSearch'
+export type { InstrumentSearchRequest } from './instrumentSearch'
 export { SourceRouter, SourceRoutingError, sourceRouter } from './router'
 export type {
   RoutedMarketData,
@@ -77,7 +79,9 @@ export type {
   TimeShareDataSource,
   TimeShareDay,
   TimeShareRangeCapability,
+  TimeShareRangeDataSource,
   TimeShareRange,
+  TimeShareRangeQuery,
   TimeShareQuery,
   TimeShareSeries,
   TradingDate,

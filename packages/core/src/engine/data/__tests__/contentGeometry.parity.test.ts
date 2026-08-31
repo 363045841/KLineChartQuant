@@ -27,14 +27,55 @@ describe('contentGeometry parity', () => {
     expect(computeContentWidth(input)).toBe(0)
   })
 
-  it('timeshare → left buffer 0, content = max(viewWidth, 1) with no left buffer', () => {
-    const input = baseInput({ period: 'timeshare', dataLength: 50, viewWidth: 800 })
+  it('timeshare → left buffer 0 and becomes scrollable when session slots exceed the viewport', () => {
+    const input = baseInput({
+      period: 'timeshare',
+      dataLength: 50,
+      viewWidth: 800,
+      sessionSlots: 240,
+    })
     expect(computeLeftLoadBufferWidth(input)).toBe(0)
     expect(computeContentWidth(input)).toBe(Math.max(800, 1))
 
-    const narrow = baseInput({ period: 'timeshare', dataLength: 10, viewWidth: 0 })
+    const narrow = baseInput({
+      period: 'timeshare',
+      dataLength: 10,
+      viewWidth: 100,
+      dpr: 1,
+      sessionSlots: 240,
+    })
     expect(computeLeftLoadBufferWidth(narrow)).toBe(0)
-    expect(computeContentWidth(narrow)).toBe(1)
+    expect(computeContentWidth(narrow)).toBe(240)
+    expect(computeMaxScrollLeft(computeContentWidth(narrow), narrow.viewWidth)).toBe(140)
+  })
+
+  it('five-day timeshare becomes scrollable when physical session slots exceed the viewport', () => {
+    const input = baseInput({
+      period: '5daytimeshare',
+      dataLength: 1000,
+      viewWidth: 500,
+      dpr: 1,
+      timeShareDayCount: 5,
+      sessionSlots: 241,
+    })
+
+    expect(computeLeftLoadBufferWidth(input)).toBe(0)
+    expect(computeContentWidth(input)).toBe(1205)
+    expect(computeMaxScrollLeft(computeContentWidth(input), input.viewWidth)).toBe(705)
+  })
+
+  it('expands timeshare content width when a zoomed slot exceeds its minimum physical width', () => {
+    const input = baseInput({
+      period: 'timeshare',
+      dataLength: 240,
+      viewWidth: 320,
+      dpr: 1,
+      sessionSlots: 240,
+      timeShareSlotWidth: 3,
+    })
+
+    expect(computeContentWidth(input)).toBe(720)
+    expect(computeMaxScrollLeft(computeContentWidth(input), input.viewWidth)).toBe(400)
   })
 
   it('kline with data → left buffer = Math.round(viewWidth)', () => {

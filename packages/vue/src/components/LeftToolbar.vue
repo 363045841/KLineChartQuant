@@ -424,6 +424,15 @@
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
     box-sizing: border-box;
     user-select: none;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+    scrollbar-width: none;
+  }
+
+  .left-toolbar::-webkit-scrollbar {
+    display: none;
   }
 
   .left-toolbar__group {

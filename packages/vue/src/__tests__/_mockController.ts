@@ -96,6 +96,11 @@ export function createMockChartController(
   const theme = createSignal<'light' | 'dark'>(themePreference)
   const settings = createSignal({ theme: themePreference } as any)
   const paneLayout = createSignal<ReadonlyArray<PaneSpec>>([])
+  const rangeSelection = createSignal({
+    startTimestamp: null as number | null,
+    endTimestamp: null as number | null,
+    isDragging: false,
+  })
   const legendTemplateContext = createSignal(null)
   const rendererConfigCalls: Array<{ name: string; config: Record<string, unknown> }> = []
   const alertController: AlertController = {
@@ -113,10 +118,12 @@ export function createMockChartController(
 
   return {
     agent: {
+      context: createSignal(null),
       getContext() {
         throw new Error('Mock Agent context is not configured')
       },
       queryIndicator: () => Promise.resolve(''),
+      searchInstruments: () => Promise.resolve([]),
     },
     viewport,
     data,
@@ -155,6 +162,8 @@ export function createMockChartController(
       hoveredPaneBoundaryId: null,
       isHoveringRightAxis: false,
     }),
+    selectedRange: createSignal<{ from: number; to: number } | null>(null),
+    rangeSelection,
     legendTemplateContext,
     comparisonColors: createSignal<ReadonlyMap<string, string>>(new Map()),
     comparisonLoading: createSignal(false),
@@ -202,6 +211,20 @@ export function createMockChartController(
     handleWheelEvent: () => {},
     handleScrollEvent: () => {},
     handlePinchZoom: () => {},
+    startRangeSelection: (timestamp) =>
+      rangeSelection.set({ startTimestamp: timestamp, endTimestamp: timestamp, isDragging: true }),
+    updateRangeSelection: (timestamp) =>
+      rangeSelection.set({ ...rangeSelection.peek(), endTimestamp: timestamp }),
+    finishRangeSelection: (timestamp) =>
+      rangeSelection.set({
+        ...rangeSelection.peek(),
+        endTimestamp: timestamp ?? rangeSelection.peek().endTimestamp,
+        isDragging: false,
+      }),
+    setRangeSelection: (startTimestamp, endTimestamp) =>
+      rangeSelection.set({ startTimestamp, endTimestamp, isDragging: false }),
+    clearRangeSelection: () =>
+      rangeSelection.set({ startTimestamp: null, endTimestamp: null, isDragging: false }),
     addIndicator: () => null,
     removeIndicator: () => false,
     updateIndicatorParams: () => false,

@@ -50,6 +50,28 @@ describe('SymbolSelector error hint', () => {
     expect(wrapper.get('button.symbol-chip').attributes('title')).toBe('158017 - 化工ETF易方达')
   })
 
+  it('shows a single value when the symbol and name match', () => {
+    const wrapper = mount(SymbolSelector, {
+      props: {
+        symbol: 'SPX',
+        symbols: [
+          {
+            id: 'tradingview:SP:SPX',
+            sourceId: 'tradingview',
+            symbol: 'SPX',
+            name: 'SPX',
+            assetClass: 'index',
+            exchange: 'SP',
+            sessionId: 'US',
+            capabilities: {},
+          },
+        ],
+      },
+    })
+
+    expect(wrapper.get('button.symbol-chip').attributes('title')).toBe('SPX')
+  })
+
   it('shows retry progress while loading', () => {
     const wrapper = mount(SymbolSelector, {
       props: {
