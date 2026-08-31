@@ -368,7 +368,9 @@
     border-radius: 6px;
   }
 
-  .provider-model-dropdown :deep(.dropdown__value) {
+  .provider-protocol-control :deep(.dropdown__value),
+  .provider-model-dropdown :deep(.dropdown__value),
+  .provider-profile-dropdown :deep(.dropdown__value) {
     font-size: 12px;
     font-weight: 400;
   }
@@ -395,11 +397,6 @@
     box-sizing: border-box;
     padding: 0 10px;
     border-radius: 6px;
-  }
-
-  .provider-profile-dropdown :deep(.dropdown__value) {
-    font-size: 12px;
-    font-weight: 400;
   }
 
   .provider-refresh-button,
