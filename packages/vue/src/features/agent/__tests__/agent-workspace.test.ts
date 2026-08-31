@@ -87,11 +87,14 @@ describe('AgentWorkspace', () => {
     const mounted = await mountWorkspace()
     await mounted.wrapper.get('button[aria-label="Provider settings"]').trigger('click')
     const dialog = document.querySelector<HTMLElement>('.base-modal')!
-    expect(
-      [...dialog.querySelectorAll<HTMLOptionElement>('.provider-protocol-control option')].map(
-        (option) => option.value,
-      ),
-    ).toEqual(['openai-completions', 'openai-responses'])
+    dialog.querySelector<HTMLButtonElement>('.provider-protocol-control .dropdown__trigger')!.click()
+    await flushPromises()
+    expect([...document.querySelectorAll<HTMLButtonElement>('.dropdown__option')].map((option) => option.textContent)).toEqual([
+      'Open AI Response',
+      'Open AI Completions',
+    ])
+    document.querySelector<HTMLButtonElement>('.dropdown__option')!.click()
+    await flushPromises()
     const inputs = dialog.querySelectorAll<HTMLInputElement>('input')
     inputs[0]!.value = 'https://models.example.test/v1'
     inputs[0]!.dispatchEvent(new Event('input', { bubbles: true }))
@@ -101,13 +104,17 @@ describe('AgentWorkspace', () => {
     dialog.querySelector<HTMLButtonElement>('.provider-refresh-button')!.click()
     await flushPromises()
 
-    const modelSelect = dialog.querySelector<HTMLSelectElement>('.provider-model-control select')!
-    const options = modelSelect.querySelectorAll<HTMLOptionElement>('option')
-    expect([...options].map((option) => option.value)).toEqual([
-      'provider-model-a',
-      'provider-model-b',
+    const modelDropdown = dialog.querySelector<HTMLElement>('.provider-model-dropdown')!
+    expect(modelDropdown.textContent).toContain('Provider Model A')
+    modelDropdown.querySelector<HTMLButtonElement>('.dropdown__trigger')!.click()
+    await flushPromises()
+    expect([...document.querySelectorAll<HTMLButtonElement>('.dropdown__option')].map((option) => option.textContent)).toEqual([
+      'Provider Model A',
+      'Provider Model B',
     ])
-    expect(modelSelect.value).toBe('provider-model-a')
+    document.querySelectorAll<HTMLButtonElement>('.dropdown__option')[1]!.click()
+    await flushPromises()
+    expect(modelDropdown.textContent).toContain('Provider Model B')
   })
 
   it('does not submit on Shift+Enter and retains a pending draft when stopping', async () => {

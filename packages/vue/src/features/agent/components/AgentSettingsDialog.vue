@@ -45,15 +45,13 @@
         <label class="provider-field">
           <span class="provider-field__label">{{ text.model }}</span>
           <span class="provider-model-control">
-            <select
+            <Dropdown
               v-if="providerSettings.models.length"
-              ref="modelInput"
-              v-model="providerSettings.model"
-            >
-              <option v-for="item in providerSettings.models" :key="item.id" :value="item.id">
-                {{ item.name }}
-              </option>
-            </select>
+              class="provider-model-dropdown"
+              :model-value="providerSettings.model"
+              :options="modelOptions"
+              @update:model-value="providerSettings.model = $event"
+            />
             <input
               v-else
               ref="modelInput"
@@ -159,11 +157,14 @@
     locale: AgentLocale
   }>()
 
-  const modelInput = ref<HTMLInputElement | HTMLSelectElement | null>(null)
+  const modelInput = ref<HTMLInputElement | null>(null)
   const text = computed(() => getAgentCopy(props.locale))
   const visibleError = computed(() => props.providerSettings.operationError ?? props.status.error)
   const protocolOptions = computed(() =>
     PROVIDER_API_PROTOCOLS.map((protocol) => ({ value: protocol, label: protocolLabel(protocol) })),
+  )
+  const modelOptions = computed(() =>
+    props.providerSettings.models.map((model) => ({ value: model.id, label: model.name })),
   )
 
   function stageLabel(stage: ProviderProbeStageResult['stage']): string {
@@ -251,6 +252,23 @@
     box-sizing: border-box;
     padding: 0 10px;
     border-radius: 6px;
+  }
+
+  .provider-model-dropdown {
+    min-width: 0;
+  }
+
+  .provider-model-dropdown :deep(.dropdown__trigger) {
+    width: 100%;
+    height: 34px;
+    box-sizing: border-box;
+    padding: 0 10px;
+    border-radius: 6px;
+  }
+
+  .provider-model-dropdown :deep(.dropdown__value) {
+    font-size: 12px;
+    font-weight: 400;
   }
 
   .provider-model-control {

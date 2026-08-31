@@ -15,7 +15,7 @@
       @keydown.space.prevent="toggleOpen"
     >
       <span v-if="label" class="dropdown__label">{{ label }}</span>
-      <span class="dropdown__value">{{ selectedOption.label }}</span>
+      <span class="dropdown__value">{{ selectedOption?.label ?? '' }}</span>
       <span class="dropdown__chevron" aria-hidden="true"></span>
     </button>
 
@@ -68,11 +68,13 @@
       options: DropdownOption[]
       size?: 'sm' | 'md'
       minWidth?: string
+      maxHeight?: string
       label?: string
       title?: string
     }>(),
     {
       size: 'md',
+      maxHeight: 'min(320px, calc(100vh - 24px))',
       title: '',
     },
   )
@@ -104,10 +106,12 @@
   const menuStyle = computed(() => {
     if (!isOpen.value) return undefined
     const trigger = triggerRef.value
+    const { maxHeight: availableHeight, ...positionStyle } = popupStyle.value
     return {
+      ...positionStyle,
       minWidth: props.minWidth || (trigger ? `${trigger.offsetWidth}px` : undefined),
+      maxHeight: availableHeight ? `min(${props.maxHeight}, ${availableHeight})` : props.maxHeight,
       zIndex: 1010,
-      ...popupStyle.value,
     }
   })
 
@@ -258,6 +262,7 @@
       0 2px 4px rgba(0, 0, 0, 0.08),
       0 6px 12px rgba(0, 0, 0, 0.06);
     box-sizing: border-box;
+    overflow-y: auto;
   }
 
   .dropdown__option {

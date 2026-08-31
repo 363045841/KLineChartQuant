@@ -60,16 +60,13 @@
       </div>
     </div>
 
-    <select
+    <Dropdown
       class="agent-header__sessions"
-      :value="activeSessionId ?? ''"
+      :model-value="activeSessionId ?? ''"
+      :options="sessionOptions"
       :aria-label="text.agent"
-      @change="$emit('select', ($event.target as HTMLSelectElement).value)"
-    >
-      <option v-for="session in sessions" :key="session.id" :value="session.id">
-        {{ session.title }}
-      </option>
-    </select>
+      @update:model-value="$emit('select', $event)"
+    />
 
     <div class="agent-header__meta">
       <span class="connection" :data-state="provider.state">
@@ -85,6 +82,7 @@
 <script setup lang="ts">
   import { computed } from 'vue'
 
+  import Dropdown from '../../../components/Dropdown.vue'
   import { getAgentCopy, type AgentLocale } from '../agent-copy'
 
   import type { AgentSessionView, ChartContextView, ProviderStatusView } from '../agent-contracts'
@@ -116,6 +114,9 @@
   }>()
 
   const text = computed(() => getAgentCopy(props.locale))
+  const sessionOptions = computed(() =>
+    props.sessions.map((session) => ({ value: session.id, label: session.title })),
+  )
   const connectionLabel = computed(() => {
     const labels = {
       connected: text.value.connected,
@@ -206,15 +207,22 @@
 
   .agent-header__sessions {
     width: 100%;
-    height: 32px;
     min-width: 0;
-    padding: 0 30px 0 9px;
-    border: 1px solid var(--agent-border);
-    border-radius: 4px;
+  }
+
+  .agent-header__sessions :deep(.dropdown__trigger) {
+    width: 100%;
+    height: 32px;
+    padding: 0 9px;
+    border-color: var(--agent-border);
     color: var(--agent-text);
     background: var(--agent-input);
-    font: inherit;
+  }
+
+  .agent-header__sessions :deep(.dropdown__value) {
+    color: var(--agent-text);
     font-size: 12px;
+    font-weight: 400;
   }
 
   .agent-header__meta {
