@@ -4,6 +4,7 @@ import { createDataState } from '../../../engine/state/dataState'
 import { MarketDataProviderRegistry } from '../../../data/provider/registry'
 import { createSignal } from '../../../foundation/reactivity/signal'
 import { createChartAgentController } from '../chartAgentController'
+import { getRegisteredChartTools } from '../chartAgentController'
 import { CHART_AGENT_ERROR_CODES } from '../errors'
 
 import type { IndicatorInstance, SymbolSpec } from '../../../controllers/types'
@@ -210,6 +211,35 @@ describe('createChartAgentController', () => {
       sourceIds: undefined,
       assetClasses: undefined,
       signal: undefined,
+    })
+  })
+
+  it('exposes exact instrument lookup through the same decorated Core method', async () => {
+    const fixture = createFixture()
+    const match = {
+      id: 'stock:600519',
+      sourceId: 'fixture',
+      symbol: '600519',
+      name: '贵州茅台',
+      assetClass: 'stock' as const,
+      exchange: 'SH',
+      capabilities: {},
+    }
+    fixture.search.mockResolvedValue([match])
+    const input = { symbol: '600519', sourceIds: ['fixture'] }
+    const tool = getRegisteredChartTools().find((item) => item.config.name === 'instruments_query_name')
+
+    await expect(fixture.controller.lookupInstrumentsBySymbol(input)).resolves.toEqual([match])
+    await expect(
+      tool?.execute(fixture.controller, input, {
+        signal: new AbortController().signal,
+        progress: () => undefined,
+      }),
+    ).resolves.toEqual([match])
+    expect(fixture.search).toHaveBeenLastCalledWith({
+      keyword: '600519',
+      limit: 100,
+      signal: expect.any(AbortSignal),
     })
   })
 })

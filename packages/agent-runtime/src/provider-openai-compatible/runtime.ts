@@ -2,7 +2,6 @@
 import { createModels, createProvider } from '@earendil-works/pi-ai'
 
 import { AgentRuntimeError, toAgentRuntimeError } from '../contracts/errors.js'
-import { filterRuntimeTools } from '../tools/tool-registry.js'
 
 import {
   normalizeProviderBaseUrl,
@@ -400,7 +399,10 @@ export function createOpenAiCompatibleRuntimeSupport(
       }
     }
     // 工具由宿主按运行上下文提供，运行时本身不持有业务能力。
-    const tools = filterRuntimeTools(options.tools?.(context) ?? [], context.readOnly)
+    const availableTools = options.tools?.(context) ?? []
+    const tools = context.readOnly
+      ? availableTools.filter((tool) => tool.safety === 'read-only')
+      : availableTools
     return {
       sessionId: context.sessionId,
       runId: context.runId,

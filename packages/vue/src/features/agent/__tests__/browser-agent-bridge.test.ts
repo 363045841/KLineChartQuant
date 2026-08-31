@@ -73,28 +73,6 @@ describe('BrowserAgentBridge', () => {
     ])
   })
 
-  it('debugs a registered read-only tool through its chart Agent binding', async () => {
-    const lookupInstrumentsBySymbol = vi.fn().mockResolvedValue([
-      { symbol: '600519', name: '贵州茅台', exchange: 'SH', sourceId: 'gotdx' },
-    ])
-    const bridge = new BrowserAgentBridge({
-      getChartAgent: () => ({ lookupInstrumentsBySymbol }) as unknown as ChartAgentController,
-    })
-
-    await expect(
-      bridge.debugTool('instruments_query_name', { symbol: '600519', sourceIds: ['gotdx'] }),
-    ).resolves.toEqual({
-      content:
-        '{"matches":[{"symbol":"600519","name":"贵州茅台","exchange":"SH","sourceId":"gotdx"}]}',
-      summary: 'Returned 1 exact instrument match.',
-    })
-    expect(lookupInstrumentsBySymbol).toHaveBeenCalledWith({
-      symbol: '600519',
-      sourceIds: ['gotdx'],
-      signal: expect.any(AbortSignal),
-    })
-  })
-
   it('requests the Provider model catalog with the supplied credential', async () => {
     const fetchMock = vi.fn(async () => modelsResponse())
     vi.stubGlobal('fetch', fetchMock)

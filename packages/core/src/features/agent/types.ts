@@ -1,6 +1,7 @@
 /** Agent 查询品种目录的输入。 */
 import type { InstrumentDescriptor } from '../../data/provider/types'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal'
+import type { ChartToolExecutionContext } from './chartToolRegistry'
 
 /** Inclusive timestamp range exposed to Agent consumers. */
 export interface ChartAgentTimeRange {
@@ -67,5 +68,8 @@ export interface ChartAgentController {
   getContext(): ChartAgentContextSnapshot
   queryIndicator(input: IndicatorQueryInput): Promise<string>
   searchInstruments(input: InstrumentSearchInput): Promise<ReadonlyArray<InstrumentDescriptor>>
-  lookupInstrumentsBySymbol(input: InstrumentLookupInput): Promise<ReadonlyArray<InstrumentDescriptor>>
+  lookupInstrumentsBySymbol(
+    input: InstrumentLookupInput,
+    context?: ChartToolExecutionContext,
+  ): Promise<ReadonlyArray<InstrumentDescriptor>>
 }

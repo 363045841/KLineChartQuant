@@ -2,11 +2,8 @@
 import {
   AgentRuntimeError,
   AGENT_UI_PROTOCOL_VERSION,
-  getRegisteredTools,
   PiRunDriver,
-  createRegisteredRuntimeTools,
   createIndicatorQueryTool,
-  InstrumentNameQueryTool,
   createOpenAiCompatibleRuntimeSupport,
   fetchOpenAiCompatibleModels,
   normalizeProviderBaseUrl,
@@ -33,7 +30,11 @@ import type {
   OpenAiCompatibleProviderSettings,
   ProviderSettingsStore,
 } from '@363045841yyt/klinechart-agent-runtime'
-import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
+import {
+  getRegisteredChartTools,
+  type ChartAgentController,
+} from '@363045841yyt/klinechart-core/controllers'
+import type { RuntimeToolDefinition } from '@363045841yyt/klinechart-agent-runtime'
 
 const PROVIDER_PROFILES_STORAGE_KEY = 'agent.provider.profiles'
 const ENABLED_TOOLS_STORAGE_KEY = 'agent.enabled-tools'
@@ -271,7 +272,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   /** 返回可在当前 Browser 宿主中管理的已注册工具。 */
   async listTools() {
     const enabledNames = this.enabledToolNames()
-    return getRegisteredTools().map(({ config }) => ({
+    return getRegisteredChartTools().map(({ config }) => ({
       name: config.name,
       label: config.label,
       description: config.description,
@@ -281,7 +282,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
 
   /** 保存用户对已注册工具的启用选择。 */
   async setToolEnabled(name: string, enabled: boolean): Promise<void> {
-    const registeredNames = new Set(getRegisteredTools().map((tool) => tool.config.name))
+    const registeredNames = new Set(getRegisteredChartTools().map((tool) => tool.config.name))
     if (!registeredNames.has(name)) {
       throw new AgentRuntimeError('INVALID_PAYLOAD', `Unknown Agent tool '${name}'.`)
     }
@@ -312,20 +313,36 @@ export class BrowserAgentBridge implements AgentBridgeClient {
 
   /** 读取已注册工具的当前启用集合，并忽略旧版本遗留的未知名称。 */
   private enabledToolNames(): Set<string> {
-    const registeredNames = getRegisteredTools().map((tool) => tool.config.name)
+    const registeredNames = getRegisteredChartTools().map((tool) => tool.config.name)
     const enabledNames = this.enabledTools.read(registeredNames)
     return new Set([...enabledNames].filter((name) => registeredNames.includes(name)))
   }
 
-  /** 为当前图表 Agent 创建已注册工具的运行期定义。 */
-  private createRegisteredTools(agent: ChartAgentController, readOnly: boolean) {
-    return createRegisteredRuntimeTools(readOnly, (tool) => {
-      if (tool.type === InstrumentNameQueryTool) return new InstrumentNameQueryTool(agent)
-      throw new AgentRuntimeError(
-        'INTERNAL_ERROR',
-        `No Browser Agent tool binding exists for '${tool.config.name}'.`,
-      )
-    })
+  /** 将 Core 注册的图表 API 适配为 Agent Runtime 工具，不复制领域能力。 */
+  private createRegisteredTools(
+    agent: ChartAgentController,
+    readOnly: boolean,
+  ): readonly RuntimeToolDefinition[] {
+    return getRegisteredChartTools()
+      .filter((tool) => !readOnly || tool.config.safety === 'read-only')
+      .map((tool) => ({
+        ...tool.config,
+        reversible: false,
+        summarizeInput: tool.summarizeInput,
+        execute: async (input, context) => {
+          context.signal.throwIfAborted()
+          context.progress({ label: `Running ${tool.config.label}`, current: 1, total: 1 })
+          const value = await tool.execute(agent, input, {
+            signal: context.signal,
+            progress: context.progress,
+          })
+          context.signal.throwIfAborted()
+          return {
+            content: JSON.stringify(value),
+            summary: Array.isArray(value) ? `Returned ${value.length} items.` : 'Tool completed.',
+          }
+        },
+      }))
   }
 
   /** 返回已保存的 Provider 配置，不向界面暴露 API Key。 */

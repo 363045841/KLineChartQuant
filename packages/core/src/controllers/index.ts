@@ -39,7 +39,9 @@ export type {
   ChartAgentDataRange,
   ChartAgentTimeRange,
   IndicatorQueryInput,
+  InstrumentLookupInput,
 } from '../features/agent'
+export { getRegisteredChartTools } from '../features/agent'
 export type {
   RendererBackend,
   RendererBackendRuntime,

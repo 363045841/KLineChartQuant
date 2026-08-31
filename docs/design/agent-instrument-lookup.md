@@ -8,7 +8,7 @@
 
 - `searchInstruments()` 服务前端联想搜索，保留关键词、多候选和调用方指定的 `limit`。
 - `lookupInstrumentsBySymbol()` 统一处理空白与大小写，再过滤为精确代码匹配；保留同代码、不同 `sourceId` 或 `exchange` 的结果。
-- Agent Runtime 只消费该结构化结果并序列化工具协议 JSON，不承担候选筛选或 symbol 比较规则。
+- `@Tool` 直接标注在 `ChartAgentController.lookupInstrumentsBySymbol()`；Agent Runtime 只适配 Core 注册的方法，不承担候选筛选或 symbol 比较规则。
 
 ## 候选获取
 
