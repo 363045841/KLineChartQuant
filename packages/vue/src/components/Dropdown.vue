@@ -136,7 +136,7 @@
     activeDropdownClose = close
     isOpen.value = true
     startPositionSync()
-    document.addEventListener('pointerdown', handleDocumentPointerDown)
+    document.addEventListener('pointerdown', handleDocumentPointerDown, true)
   }
 
   function close() {
@@ -147,7 +147,7 @@
       activeDropdownClose = null
     }
     stopPositionSync()
-    document.removeEventListener('pointerdown', handleDocumentPointerDown)
+    document.removeEventListener('pointerdown', handleDocumentPointerDown, true)
   }
 
   function toggleOpen() {
@@ -166,11 +166,8 @@
   function handleDocumentPointerDown(event: PointerEvent) {
     const root = rootRef.value
     const menu = menuRef.value
-    if (
-      root &&
-      !root.contains(event.target as Node | null) &&
-      !menu?.contains(event.target as Node | null)
-    ) {
+    const path = event.composedPath()
+    if (!path.includes(root) && !path.includes(menu)) {
       close()
     }
   }
