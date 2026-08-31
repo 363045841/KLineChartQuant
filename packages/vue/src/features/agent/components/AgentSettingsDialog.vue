@@ -17,15 +17,12 @@
       <div class="provider-form__fields">
         <label class="provider-field">
           <span class="provider-field__label">{{ text.apiProtocol }}</span>
-          <select
-            :value="providerSettings.protocol"
+          <Dropdown
+            :model-value="providerSettings.protocol"
+            :options="protocolOptions"
             class="provider-protocol-control"
-            @change="onProtocolChange"
-          >
-            <option v-for="protocol in PROVIDER_API_PROTOCOLS" :key="protocol" :value="protocol">
-              {{ protocolLabel(protocol) }}
-            </option>
-          </select>
+            @update:model-value="providerSettings.setProtocol($event)"
+          />
         </label>
         <label class="provider-field">
           <span class="provider-field__label">{{ text.baseUrl }}</span>
@@ -139,6 +136,7 @@
   import { computed, nextTick, ref, watch } from 'vue'
 
   import BaseModal from '../../../components/BaseModal.vue'
+  import Dropdown from '../../../components/Dropdown.vue'
   import {
     PROVIDER_API_PROTOCOLS,
     type ProviderApiProtocol,
@@ -164,6 +162,9 @@
   const modelInput = ref<HTMLInputElement | HTMLSelectElement | null>(null)
   const text = computed(() => getAgentCopy(props.locale))
   const visibleError = computed(() => props.providerSettings.operationError ?? props.status.error)
+  const protocolOptions = computed(() =>
+    PROVIDER_API_PROTOCOLS.map((protocol) => ({ value: protocol, label: protocolLabel(protocol) })),
+  )
 
   function stageLabel(stage: ProviderProbeStageResult['stage']): string {
     return {
@@ -179,11 +180,6 @@
       'openai-completions': text.value.openAiCompletions,
       'openai-responses': text.value.openAiResponses,
     }[protocol]
-  }
-
-  /** 将原生选择事件收敛到 Provider store 的协议草稿。 */
-  function onProtocolChange(event: Event): void {
-    props.providerSettings.setProtocol((event.target as HTMLSelectElement).value)
   }
 
   watch(
@@ -243,6 +239,18 @@
   .provider-field input::placeholder {
     color: var(--klc-color-axis-text);
     opacity: 0.55;
+  }
+
+  .provider-protocol-control {
+    width: 100%;
+  }
+
+  .provider-protocol-control :deep(.dropdown__trigger) {
+    width: 100%;
+    height: 34px;
+    box-sizing: border-box;
+    padding: 0 10px;
+    border-radius: 6px;
   }
 
   .provider-model-control {

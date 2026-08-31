@@ -109,7 +109,7 @@ export interface AgentRunScope extends ChartContextView {
 
 export type ProviderConnectionState = 'not-configured' | 'testing' | 'connected' | 'error'
 export type ProviderCompatibility = 'unknown' | 'testing' | 'incompatible' | 'compatible'
-export const PROVIDER_API_PROTOCOLS = ['openai-completions', 'openai-responses'] as const
+export const PROVIDER_API_PROTOCOLS = ['openai-responses', 'openai-completions'] as const
 export type ProviderApiProtocol = (typeof PROVIDER_API_PROTOCOLS)[number]
 export interface ProviderStatusView {
   state: ProviderConnectionState
