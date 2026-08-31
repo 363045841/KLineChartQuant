@@ -118,6 +118,7 @@ export interface ProviderStatusView {
   baseUrl?: string
   modelId?: string
   modelLabel?: string
+  profileName?: string
   protocol?: ProviderApiProtocol
   fingerprint?: string
   compatibility?: ProviderCompatibility
@@ -235,11 +236,9 @@ export interface ProviderTestInput {
 }
 export interface ProviderSaveInput extends ProviderTestInput {
   modelName: string
-  profileId?: string
   profileName: string
 }
 export interface ProviderProfileView {
-  id: string
   name: string
   baseUrl: string
   modelId: string
@@ -286,7 +285,8 @@ export interface AgentBridgeClient {
   listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult>
   testProvider(input: ProviderTestInput): Promise<ProviderTestResult>
   listProviderProfiles(): Promise<ProviderProfileView[]>
-  selectProviderProfile(profileId: string): Promise<void>
+  createProviderProfile(profileName: string): Promise<void>
+  selectProviderProfile(profileName: string): Promise<void>
   saveProvider(input: ProviderSaveInput): Promise<void>
   deleteProviderCredential(): Promise<void>
   subscribe(listener: (event: AgentUiEvent) => void): () => void

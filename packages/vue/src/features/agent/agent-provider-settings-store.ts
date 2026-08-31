@@ -47,7 +47,6 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
   const baseUrl = ref('')
   const apiKey = ref('')
   const protocol = ref<ProviderApiProtocol>(PROVIDER_API_PROTOCOLS[0])
-  const profileId = ref<string>()
   const profileName = ref('')
   const profiles = ref<ProviderProfileView[]>([])
   const model = ref('')
@@ -73,19 +72,18 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     testResult.value = null
   }
 
-  /** 切换到指定的已保存档案，并用其配置重建表单草稿。 */
-  async function selectProfile(id: string): Promise<void> {
-    if (!bridge || id === profileId.value) return
+  /** 切换到指定名称的已保存配置，并用其内容重建表单草稿。 */
+  async function selectProfile(name: string): Promise<void> {
+    if (!bridge || name === profileName.value) return
     operationError.value = null
     try {
-      await bridge.selectProviderProfile(id)
+      await bridge.selectProviderProfile(name)
       const [status, nextProfiles] = await Promise.all([
         bridge.getProviderStatus(),
         bridge.listProviderProfiles(),
       ])
-      profileId.value = id
       profiles.value = nextProfiles
-      profileName.value = nextProfiles.find((item) => item.id === id)?.name ?? ''
+      profileName.value = name
       baseUrl.value = status.baseUrl ?? ''
       apiKey.value = ''
       protocol.value = status.protocol ?? PROVIDER_API_PROTOCOLS[0]
@@ -97,20 +95,29 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     }
   }
 
-  /** 创建未保存的新档案草稿。 */
-  function createProfile(): void {
-    profileId.value = undefined
-    profileName.value = ''
-    baseUrl.value = ''
-    apiKey.value = ''
-    protocol.value = PROVIDER_API_PROTOCOLS[0]
-    model.value = ''
-    models.value = []
-    testResult.value = null
+  /** 创建并激活一个空配置，再重置其编辑表单。 */
+  async function createProfile(name: string): Promise<boolean> {
+    const normalizedName = name.trim()
+    if (!bridge || !normalizedName) return false
     operationError.value = null
+    try {
+      await bridge.createProviderProfile(normalizedName)
+      profiles.value = await bridge.listProviderProfiles()
+      profileName.value = normalizedName
+      baseUrl.value = ''
+      apiKey.value = ''
+      protocol.value = PROVIDER_API_PROTOCOLS[0]
+      model.value = ''
+      models.value = []
+      testResult.value = null
+      return true
+    } catch (error) {
+      operationError.value = toOperationError(error)
+      return false
+    }
   }
 
-  /** 打开弹窗并从已保存的 Provider 配置创建全新草稿。 */
+  /** 打开弹窗并按当前生效配置名称恢复表单草稿。 */
   async function show(status: ProviderStatusView): Promise<void> {
     open.value = true
     operationError.value = null
@@ -124,13 +131,7 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
       profiles.value = []
       operationError.value = toOperationError(error)
     }
-    profileId.value = profiles.value.find(
-      (item) =>
-        item.baseUrl === status.baseUrl &&
-        item.modelId === status.modelId &&
-        item.protocol === status.protocol,
-    )?.id
-    profileName.value = profiles.value.find((item) => item.id === profileId.value)?.name ?? ''
+    profileName.value = status.profileName ?? ''
     models.value = []
     testResult.value = null
   }
@@ -196,16 +197,10 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
         model: model.value,
         modelName,
         protocol: protocol.value,
-        profileId: profileId.value,
         profileName: profileName.value,
       })
       profiles.value = await bridge.listProviderProfiles()
-      profileId.value = profiles.value.find(
-        (item) =>
-          item.baseUrl === baseUrl.value &&
-          item.modelId === model.value &&
-          item.protocol === protocol.value,
-      )?.id
+      profileName.value = profileName.value.trim()
       close()
     } catch (error) {
       operationError.value = toOperationError(error)
@@ -217,7 +212,6 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     baseUrl,
     apiKey,
     protocol,
-    profileId,
     profileName,
     profiles,
     model,

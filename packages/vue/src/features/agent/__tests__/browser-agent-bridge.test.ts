@@ -127,8 +127,10 @@ describe('BrowserAgentBridge', () => {
       protocol: 'openai-completions' as const,
     }
 
+    await bridge.createProviderProfile('Provider one')
     await bridge.testProvider(first)
     await bridge.saveProvider({ ...first, modelName: 'Chart model', profileName: 'Provider one' })
+    await bridge.createProviderProfile('Provider two')
     await bridge.testProvider(second)
     await bridge.saveProvider({ ...second, modelName: 'Chart model', profileName: 'Provider two' })
 
@@ -140,10 +142,62 @@ describe('BrowserAgentBridge', () => {
     expect(JSON.stringify(profiles)).not.toContain('first-key')
     expect(JSON.stringify(profiles)).not.toContain('second-key')
 
-    await bridge.selectProviderProfile(profiles[0]!.id)
+    await bridge.selectProviderProfile(profiles[0]!.name)
     await expect(bridge.getProviderStatus()).resolves.toMatchObject({
       state: 'connected',
       baseUrl: first.baseUrl,
+    })
+  })
+
+  it('uses the configuration name as its unique key when saving updates', async () => {
+    const bridge = new BrowserAgentBridge()
+    const profileName = 'My provider'
+
+    await bridge.saveProvider({
+      baseUrl: 'https://provider-one.example/v1',
+      apiKey: 'first-key',
+      model: 'first-model',
+      modelName: 'First model',
+      protocol: 'openai-completions',
+      profileName,
+    })
+    await bridge.saveProvider({
+      baseUrl: 'https://provider-two.example/v1',
+      apiKey: 'second-key',
+      model: 'second-model',
+      modelName: 'Second model',
+      protocol: 'openai-completions',
+      profileName,
+    })
+
+    await expect(bridge.listProviderProfiles()).resolves.toEqual([
+      {
+        name: profileName,
+        baseUrl: 'https://provider-two.example/v1',
+        modelId: 'second-model',
+        modelName: 'Second model',
+        protocol: 'openai-completions',
+      },
+    ])
+  })
+
+  it('adds a named configuration to the group before its connection details are saved', async () => {
+    const bridge = new BrowserAgentBridge()
+
+    await bridge.createProviderProfile('New provider')
+
+    await expect(bridge.listProviderProfiles()).resolves.toEqual([
+      {
+        name: 'New provider',
+        baseUrl: '',
+        modelId: '',
+        modelName: '',
+        protocol: 'openai-responses',
+      },
+    ])
+    await expect(bridge.getProviderStatus()).resolves.toMatchObject({
+      profileName: 'New provider',
+      configured: false,
     })
   })
 
@@ -217,30 +271,5 @@ describe('BrowserAgentBridge', () => {
     for (const listener of listeners) listener()
 
     expect(received).toEqual([null, 'BTCUSDT', 'ETHUSDT'])
-  })
-
-  it('rewrites persisted v1 settings with an explicit protocol', async () => {
-    window.localStorage.setItem('agent.provider.apiKey', 'test-key')
-    window.localStorage.setItem(
-      'agent.provider.settings',
-      JSON.stringify({
-        version: 1,
-        baseUrl: 'https://provider.example/v1',
-        modelId: 'chart-model',
-        modelName: 'Chart model',
-        compatibility: 'compatible',
-        lastTestedAt: 10,
-        lastModelsRefreshAt: 9,
-      }),
-    )
-
-    const bridge = new BrowserAgentBridge()
-    await expect(bridge.getProviderStatus()).resolves.toMatchObject({
-      state: 'connected',
-      protocol: 'openai-completions',
-    })
-    expect(
-      JSON.parse(window.localStorage.getItem('agent.provider.settings') ?? '{}'),
-    ).toMatchObject({ version: 2, protocol: 'openai-completions' })
   })
 })

@@ -5,7 +5,7 @@
     width="min(92vw, 480px)"
     max-height="calc(100vh - 36px)"
     body-padding="12px 20px 16px"
-    @close="providerSettings.close()"
+    @close="closeProviderSettings()"
   >
     <form
       id="agent-provider-settings-form"
@@ -13,26 +13,23 @@
       autocomplete="off"
       novalidate
       @submit.prevent="providerSettings.testProvider()"
-      >
+    >
       <div class="provider-form__fields">
         <label class="provider-field">
           <span class="provider-field__label">{{ text.providerProfile }}</span>
           <span class="provider-profile-control">
-            <select
-              class="provider-profile-select"
-              :value="providerSettings.profileId ?? ''"
-              @change="onProfileChange"
-            >
-              <option v-for="profile in profileOptions" :key="profile.value" :value="profile.value">
-                {{ profile.label }}
-              </option>
-            </select>
+            <Dropdown
+              class="provider-profile-dropdown"
+              :model-value="providerSettings.profileName"
+              :options="profileOptions"
+              @update:model-value="selectProfile($event)"
+            />
             <button
               type="button"
               class="provider-profile-new-button"
               :title="text.newProviderProfile"
               :aria-label="text.newProviderProfile"
-              @click="providerSettings.createProfile()"
+              @click="openCreateProfileDialog()"
             >
               <IconPlus aria-hidden="true" />
             </button>
@@ -99,10 +96,6 @@
             </button>
           </span>
         </label>
-        <label class="provider-field">
-          <span class="provider-field__label">{{ text.providerProfileName }}</span>
-          <input v-model="providerSettings.profileName" type="text" autocomplete="off" />
-        </label>
       </div>
 
       <ol
@@ -155,6 +148,37 @@
       </div>
     </template>
   </BaseModal>
+
+  <BaseModal
+    :show="creatingProfile"
+    :title="text.newProviderProfile"
+    width="min(92vw, 360px)"
+    :z-index="1100"
+    @close="closeCreateProfileDialog()"
+  >
+    <form id="agent-provider-profile-form" @submit.prevent="createProfile()">
+      <label class="provider-field">
+        <span class="provider-field__label">{{ text.providerProfileName }}</span>
+        <input ref="profileNameInput" v-model="newProfileName" type="text" autocomplete="off" />
+      </label>
+    </form>
+
+    <template #footer>
+      <div class="provider-actions">
+        <button type="button" class="provider-secondary-button" @click="closeCreateProfileDialog()">
+          {{ text.cancel }}
+        </button>
+        <button
+          type="submit"
+          form="agent-provider-profile-form"
+          class="provider-primary-button"
+          :disabled="!newProfileName.trim()"
+        >
+          {{ text.confirm }}
+        </button>
+      </div>
+    </template>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
@@ -186,6 +210,9 @@
   }>()
 
   const modelInput = ref<HTMLInputElement | null>(null)
+  const profileNameInput = ref<HTMLInputElement | null>(null)
+  const creatingProfile = ref(false)
+  const newProfileName = ref('')
   const text = computed(() => getAgentCopy(props.locale))
   const visibleError = computed(() => props.providerSettings.operationError ?? props.status.error)
   const protocolOptions = computed(() =>
@@ -194,10 +221,21 @@
   const modelOptions = computed(() =>
     props.providerSettings.models.map((model) => ({ value: model.id, label: model.name })),
   )
-  const profileOptions = computed(() => [
-    { value: '', label: text.value.newProviderProfile },
-    ...props.providerSettings.profiles.map((profile) => ({ value: profile.id, label: profile.name })),
-  ])
+  const profileOptions = computed(() => {
+    const profiles = props.providerSettings.profiles.map((profile) => ({
+      value: profile.name,
+      label: profile.name,
+    }))
+    const isNewProfile =
+      props.providerSettings.profileName &&
+      !profiles.some((profile) => profile.value === props.providerSettings.profileName)
+    return isNewProfile
+      ? [
+          { value: props.providerSettings.profileName, label: props.providerSettings.profileName },
+          ...profiles,
+        ]
+      : profiles
+  })
 
   function stageLabel(stage: ProviderProbeStageResult['stage']): string {
     return {
@@ -215,15 +253,36 @@
     }[protocol]
   }
 
-  /** 选择空值时开始创建新档案，否则切换已保存档案。 */
+  /** 切换到选择的已保存配置。 */
   function selectProfile(id: string): void {
     if (id) void props.providerSettings.selectProfile(id)
-    else props.providerSettings.createProfile()
   }
 
-  /** 将原生选择框的值转交给档案切换逻辑。 */
-  function onProfileChange(event: Event): void {
-    selectProfile((event.target as HTMLSelectElement).value)
+  /** 打开配置命名弹窗。 */
+  function openCreateProfileDialog(): void {
+    newProfileName.value = ''
+    creatingProfile.value = true
+    void nextTick(() => profileNameInput.value?.focus())
+  }
+
+  /** 关闭配置命名弹窗并清空临时名称。 */
+  function closeCreateProfileDialog(): void {
+    creatingProfile.value = false
+    newProfileName.value = ''
+  }
+
+  /** 确认名称后创建新的配置草稿。 */
+  function createProfile(): void {
+    if (!newProfileName.value.trim()) return
+    void props.providerSettings.createProfile(newProfileName.value).then((created) => {
+      if (created) closeCreateProfileDialog()
+    })
+  }
+
+  /** 关闭主设置时一并关闭配置命名弹窗。 */
+  function closeProviderSettings(): void {
+    closeCreateProfileDialog()
+    props.providerSettings.close()
   }
 
   watch(
@@ -326,22 +385,26 @@
     gap: 8px;
   }
 
-  .provider-profile-select {
+  .provider-profile-dropdown {
+    min-width: 0;
+  }
+
+  .provider-profile-dropdown :deep(.dropdown__trigger) {
     width: 100%;
     height: 34px;
     box-sizing: border-box;
     padding: 0 10px;
     border-radius: 6px;
-    border: 1px solid var(--klc-color-border-button);
-    outline: none;
-    color: var(--klc-color-foreground);
-    background: var(--klc-color-background);
-    font: inherit;
+  }
+
+  .provider-profile-dropdown :deep(.dropdown__value) {
     font-size: 12px;
+    font-weight: 400;
   }
 
   .provider-refresh-button,
   .provider-profile-new-button,
+  .provider-secondary-button,
   .provider-primary-button {
     display: inline-flex;
     align-items: center;
@@ -378,6 +441,19 @@
   .provider-primary-button:disabled {
     opacity: 0.5;
     cursor: default;
+  }
+
+  .provider-secondary-button {
+    padding: 0 12px;
+    border-radius: 6px;
+    color: var(--klc-color-axis-text);
+    background: var(--klc-color-background);
+  }
+
+  .provider-secondary-button:hover {
+    border-color: var(--klc-color-axis-line);
+    color: var(--klc-color-foreground);
+    background: var(--klc-color-tag-bg-hover);
   }
 
   .provider-probe-results {

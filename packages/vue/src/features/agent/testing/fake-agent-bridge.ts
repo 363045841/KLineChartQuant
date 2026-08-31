@@ -115,9 +115,22 @@ export class FakeAgentBridge implements AgentBridgeClient {
     return [...this.profiles]
   }
 
-  async selectProviderProfile(profileId: string): Promise<void> {
-    const profile = this.profiles.find((item) => item.id === profileId)
-    if (!profile) throw new Error(`Unknown fake Provider profile: ${profileId}`)
+  async createProviderProfile(profileName: string): Promise<void> {
+    if (this.profiles.some((profile) => profile.name === profileName)) {
+      throw new Error(`Duplicate fake Provider profile: ${profileName}`)
+    }
+    this.profiles.push({
+      name: profileName,
+      baseUrl: '',
+      modelId: '',
+      modelName: '',
+      protocol: 'openai-responses',
+    })
+  }
+
+  async selectProviderProfile(profileName: string): Promise<void> {
+    const profile = this.profiles.find((item) => item.name === profileName)
+    if (!profile) throw new Error(`Unknown fake Provider profile: ${profileName}`)
     this.provider = {
       state: 'connected',
       providerLabel: 'OpenAI-compatible',
@@ -125,6 +138,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
       baseUrl: profile.baseUrl,
       modelId: profile.modelId,
       modelLabel: profile.modelName,
+      profileName: profile.name,
       protocol: profile.protocol,
       compatibility: 'compatible',
     }
@@ -237,16 +251,14 @@ export class FakeAgentBridge implements AgentBridgeClient {
   }
 
   async saveProvider(input: ProviderSaveInput): Promise<void> {
-    const id = input.profileId ?? `provider-${this.profiles.length + 1}`
     const profile: ProviderProfileView = {
-      id,
-      name: input.profileName || input.modelName,
+      name: input.profileName,
       baseUrl: input.baseUrl,
       modelId: input.model,
       modelName: input.modelName,
       protocol: input.protocol,
     }
-    const existingIndex = this.profiles.findIndex((item) => item.id === id)
+    const existingIndex = this.profiles.findIndex((item) => item.name === input.profileName)
     if (existingIndex >= 0) this.profiles[existingIndex] = profile
     else this.profiles.push(profile)
     this.provider = {
@@ -256,6 +268,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
       baseUrl: input.baseUrl,
       modelId: input.model,
       modelLabel: input.modelName,
+      profileName: input.profileName,
       protocol: input.protocol,
       compatibility: 'compatible',
     }
