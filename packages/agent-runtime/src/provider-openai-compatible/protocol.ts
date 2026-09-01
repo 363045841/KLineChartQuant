@@ -18,7 +18,9 @@ import type {
 } from '@earendil-works/pi-ai'
 
 const DEFAULT_CONTEXT_WINDOW = 32_768
-const DEFAULT_MAX_TOKENS = 4_096
+// 推理模型在 Responses 协议里 max_output_tokens 是思考与正文的共享总预算；
+// 过低会导致长链思考耗尽预算后被截断，正文一个字都产不出。
+const DEFAULT_MAX_TOKENS = 16_384
 const PROBE_MAX_TOKENS = 32
 const PROBE_TEXT = 'KLC_PROVIDER_OK'
 const PROBE_TOOL_NAME = 'klinechartquant_connection_probe'

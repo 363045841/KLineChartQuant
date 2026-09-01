@@ -177,7 +177,7 @@ export class PiRunDriver {
           plan.systemPrompt ??
           `You are the KLineChartQuant chart analyst. Use only supplied tools. Scope: ${JSON.stringify(plan.scope)}.`,
         model: plan.model,
-        thinkingLevel: 'medium',
+        thinkingLevel: 'low',
         tools,
         messages: [...(plan.transcript ?? [])],
       },
