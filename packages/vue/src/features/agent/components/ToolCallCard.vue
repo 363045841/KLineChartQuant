@@ -1,6 +1,6 @@
 <template>
-  <article class="tool-card" :data-status="tool.status">
-    <header class="tool-card__header">
+  <details class="tool-card" :data-status="tool.status">
+    <summary class="tool-card__header">
       <span class="tool-card__icon" aria-hidden="true">
         <LoadingSpinner v-if="tool.status === 'running'" />
         <component v-else :is="statusIcon" />
@@ -10,7 +10,8 @@
         <span>{{ statusLabel }}</span>
       </div>
       <span class="tool-card__safety">{{ safetyLabel }}</span>
-    </header>
+      <IconChevronRight class="tool-card__toggle" aria-hidden="true" />
+    </summary>
 
     <dl class="tool-card__details">
       <div>
@@ -67,7 +68,7 @@
         {{ text.undo }}
       </button>
     </div>
-  </article>
+  </details>
 </template>
 
 <script setup lang="ts">
@@ -83,6 +84,7 @@
   import IconArrowBackUp from '~icons/tabler/arrow-back-up'
   import IconBan from '~icons/tabler/ban'
   import IconCheck from '~icons/tabler/check'
+  import IconChevronRight from '~icons/tabler/chevron-right'
   import IconClock from '~icons/tabler/clock'
   import IconFocusCentered from '~icons/tabler/focus-centered'
   import IconRefresh from '~icons/tabler/refresh'
@@ -128,8 +130,6 @@
 
 <style scoped>
   .tool-card {
-    display: grid;
-    gap: 9px;
     padding: 10px;
     border: 1px solid var(--agent-border);
     border-radius: 6px;
@@ -137,12 +137,22 @@
     color: var(--agent-text);
   }
 
+  .tool-card[open] > :not(summary) {
+    margin-top: 9px;
+  }
+
   .tool-card__header {
     min-width: 0;
     display: grid;
-    grid-template-columns: 24px minmax(0, 1fr) auto;
+    grid-template-columns: 24px minmax(0, 1fr) auto 16px;
     align-items: center;
     gap: 7px;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .tool-card__header::-webkit-details-marker {
+    display: none;
   }
 
   .tool-card__icon {
@@ -191,6 +201,15 @@
     color: var(--agent-muted);
     font-size: 10px;
     text-align: right;
+  }
+
+  .tool-card__toggle {
+    color: var(--agent-muted);
+    transition: transform 0.15s ease;
+  }
+
+  .tool-card[open] .tool-card__toggle {
+    transform: rotate(90deg);
   }
 
   .tool-card__details {
