@@ -561,6 +561,11 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     chart.resetToFetcher(spec)
   }
 
+  function clearMarketDataCache(): void {
+    if (disposed) return
+    chart.getMarketDataCache().clear()
+  }
+
   function ensureDataRange(startTs: number): void {
     if (disposed) return
     const buf = chart.dataBuffer
@@ -977,6 +982,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     setCurrentPeriod,
     switchToTimeShareForDate,
     applyCustomData,
+    clearMarketDataCache,
     resetToFetcher,
     ensureDataRange,
     startRangeSelection,

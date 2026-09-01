@@ -132,10 +132,10 @@ export const DEFAULT_SETTINGS = [
     label: '行情缓存上限（MiB）',
     type: 'number',
     default: 50,
-    min: 5,
+min: 5,
     max: 512,
     step: 1,
-    group: 'experimental',
+    group: 'datasource',
   },
   {
     key: 'tooltipPosition',

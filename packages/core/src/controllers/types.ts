@@ -402,6 +402,8 @@ export interface ChartController extends DrawingChartAdapter {
   switchToTimeShareForDate(dateYYYYMMDD: number): void
   /** Inject a complete custom data bundle (bypasses fetcher pipeline) */
   applyCustomData(source: CustomDataSource): void
+  /** 清除当前图表实例的行情缓存。 */
+  clearMarketDataCache(): void
   resetToFetcher(spec: SymbolSpec): void
   setData(next: ReadonlyArray<KLineData>): void
   appendData(next: ReadonlyArray<KLineData>): void

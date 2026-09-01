@@ -59,6 +59,7 @@
           @zoom-in="applyZoomToLevel(zoomLevel + 1)"
           @zoom-out="applyZoomToLevel(zoomLevel - 1)"
           @settings-change="handleSettingsChange"
+          @clear-market-data-cache="controller?.clearMarketDataCache()"
           @toggle-aggregation-source="setAggregationSourceEnabled"
           @update-source-endpoint="setAggregationSourceEndpoint"
         />

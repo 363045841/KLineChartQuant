@@ -163,6 +163,7 @@
     :source-endpoints="sourceEndpoints"
     @close="showSettings = false"
     @confirm="handleConfirmSettings"
+    @clear-market-data-cache="emit('clearMarketDataCache')"
     @toggle-aggregation-source="onToggleAggregationSource"
     @update-source-endpoint="onUpdateSourceEndpoint"
   />
@@ -265,6 +266,7 @@
     (e: 'zoomIn'): void
     (e: 'zoomOut'): void
     (e: 'settingsChange', settings: ChartSettings): void
+    (e: 'clearMarketDataCache'): void
     (e: 'toggleAggregationSource', name: string, enabled: boolean): void
     (e: 'updateSourceEndpoint', name: string, patch: Partial<AggregationSourceEndpoint>): void
   }>()
