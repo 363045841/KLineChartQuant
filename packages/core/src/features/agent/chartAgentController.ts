@@ -1,5 +1,5 @@
 // 本文件实现 AI-Native 的 Chart Agent 查询 API。
-import { Type } from 'typebox'
+import { type Static, Type } from 'typebox'
 
 import { KLineChartError } from '../../errors'
 import { lookupInstrumentsBySymbol, searchInstruments } from '../../data/provider/instrumentSearch'
@@ -111,8 +111,10 @@ const BarsQueryToolParameters = Type.Object({
   sourceId: Type.Optional(Type.String({ minLength: 1 })),
   exchange: Type.Optional(Type.String({ minLength: 1 })),
   assetClass: Type.Optional(AssetClassToolParameter),
-  before: Type.Optional(Type.Number()),
+  before: Type.Optional(TradingDateToolParameter),
 })
+
+type BarsQueryToolInput = Static<typeof BarsQueryToolParameters>
 
 const TimeShareQueryToolParameters = Type.Object({
   symbol: Type.String({ minLength: 1 }),
@@ -288,16 +290,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     })
   }
 
-  /** 查询任意品种的一页 K 线；UI 与 Agent 使用同一无状态 API。 */
-  @Tool({
-    name: 'market_bars_query',
-    label: 'Query market bars',
-    description:
-      'Fetch one page of market bars for any symbol without changing the chart. limit must be an integer from 1 to 798. Use before only as an exclusive UTC-millisecond timestamp cursor; omit before for the latest bars. Pagination and retries are handled by the cache.',
-    parameters: BarsQueryToolParameters,
-    safety: 'read-only',
-    executionMode: 'parallel',
-  })
+  /** 查询任意品种的一页 K 线；底层游标始终使用 UTC 毫秒时间戳。 */
   async queryBars(input: BarsQueryInput, context?: ChartToolExecutionContext): Promise<string> {
     this.requireEnabledMarketDataSource(input.sourceId)
     const result = await this.dependencies.marketDataCache.queryBars({
@@ -317,6 +310,26 @@ class ChartAgentControllerImpl implements ChartAgentController {
       series: result.series,
       olderData: result.series.olderData,
     })
+  }
+
+  /** 将 Agent 提供的 YYYY-MM-DD UTC 日期游标转换后委托给底层查询。 */
+  @Tool({
+    name: 'market_bars_query',
+    label: 'Query market bars',
+    description:
+      'Fetch one page of market bars for any symbol without changing the chart. limit must be an integer from 1 to 798. Use before only as an exclusive YYYY-MM-DD UTC date cursor; omit before for the latest bars. Pagination and retries are handled by the cache.',
+    parameters: BarsQueryToolParameters,
+    safety: 'read-only',
+    executionMode: 'parallel',
+  })
+  queryBarsByDate(input: BarsQueryToolInput, context?: ChartToolExecutionContext): Promise<string> {
+    return this.queryBars(
+      {
+        ...input,
+        before: input.before === undefined ? undefined : Date.parse(input.before),
+      },
+      context,
+    )
   }
 
   /** 查询任意品种单个交易日的分时；不读取或修改图表运行时状态。 */

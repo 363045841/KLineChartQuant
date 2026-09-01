@@ -391,6 +391,30 @@ describe('createChartAgentController', () => {
     expect(fixture.controller.getContext().symbol).toBe('BTCUSDT')
   })
 
+  it('converts the registered market bars date cursor to a UTC timestamp', async () => {
+    const fixture = createFixture()
+    const tool = getRegisteredChartTools().find((item) => item.config.name === 'market_bars_query')
+
+    await expect(
+      tool?.execute(
+        fixture.controller,
+        {
+          symbol: 'BTCUSDT',
+          sourceId: 'fixture',
+          period: 'daily',
+          adjustment: 'none',
+          limit: 100,
+          before: '2026-09-01',
+        },
+        { signal: new AbortController().signal, progress: () => undefined },
+      ),
+    ).resolves.toContain('source=fixture')
+
+    expect(fixture.fetchBars).toHaveBeenCalledWith(
+      expect.objectContaining({ before: Date.parse('2026-09-01') }),
+    )
+  })
+
   it('formats market query timestamps with the returned timezone', async () => {
     const fixture = createFixture()
 
