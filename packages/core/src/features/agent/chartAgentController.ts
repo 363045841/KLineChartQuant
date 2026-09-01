@@ -9,6 +9,10 @@ import { computed, type ReadonlySignal } from '../../foundation/reactivity/signa
 
 import { Tool, getRegisteredChartTools, type ChartToolExecutionContext } from './chartToolRegistry'
 import { CHART_AGENT_ERROR_CODES } from './errors'
+import {
+  createMarketDataTextFormatter,
+  type MarketDataTextFormatter,
+} from './marketDataTextFormatter'
 
 import type { IndicatorQuery } from './indicator/indicatorQuery'
 import type {
@@ -25,7 +29,12 @@ import type {
   TimeShareRangeQueryResult,
 } from './types'
 import type { IndicatorInstance, SymbolSpec } from '../../controllers/types'
-import type { AssetClass, KLineAdjustment, KLinePeriod, TradingDate } from '../../data/provider/types'
+import type {
+  AssetClass,
+  KLineAdjustment,
+  KLinePeriod,
+  TradingDate,
+} from '../../data/provider/types'
 import type { DataStateModule } from '../../engine/state/dataState'
 
 interface ChartAgentControllerDependencies {
@@ -38,6 +47,7 @@ interface ChartAgentControllerDependencies {
   readonly indicatorQuery: IndicatorQuery
   readonly marketDataProviderRegistry: MarketDataProviderRegistry
   readonly marketDataCache: MarketDataCache
+  readonly marketDataTextFormatter?: MarketDataTextFormatter
 }
 
 const InstrumentLookupToolParameters = Type.Object({
@@ -46,6 +56,8 @@ const InstrumentLookupToolParameters = Type.Object({
 })
 
 const INDICATOR_QUERY_MAX_LIMIT = 2000
+/** GoTDX V1 /bars 接口单页最大返回条数。 */
+const MARKET_BARS_QUERY_MAX_LIMIT = 798
 const KLINE_PERIOD_VALUES = [
   '1min',
   '5min',
@@ -58,7 +70,12 @@ const KLINE_PERIOD_VALUES = [
   'quarterly',
   'yearly',
 ] as const satisfies ReadonlyArray<KLinePeriod>
-const KLINE_ADJUSTMENT_VALUES = ['qfq', 'hfq', 'splits', 'none'] as const satisfies ReadonlyArray<KLineAdjustment>
+const KLINE_ADJUSTMENT_VALUES = [
+  'qfq',
+  'hfq',
+  'splits',
+  'none',
+] as const satisfies ReadonlyArray<KLineAdjustment>
 const ASSET_CLASS_VALUES = [
   'stock',
   'index',
@@ -90,7 +107,7 @@ const BarsQueryToolParameters = Type.Object({
   symbol: Type.String({ minLength: 1 }),
   period: KLinePeriodToolParameter,
   adjustment: KLineAdjustmentToolParameter,
-  limit: Type.Integer({ minimum: 1 }),
+  limit: Type.Integer({ minimum: 1, maximum: MARKET_BARS_QUERY_MAX_LIMIT }),
   sourceId: Type.Optional(Type.String({ minLength: 1 })),
   exchange: Type.Optional(Type.String({ minLength: 1 })),
   assetClass: Type.Optional(AssetClassToolParameter),
@@ -158,9 +175,12 @@ function requireTimestampRange(data: ReadonlyArray<{ readonly timestamp: number 
 class ChartAgentControllerImpl implements ChartAgentController {
   /** 图表状态的响应式只读上下文投影。 */
   readonly context: ReadonlySignal<ChartAgentContextSnapshot | null>
+  private readonly marketDataTextFormatter: MarketDataTextFormatter
   /** 创建图表 Agent facade，并使用图表共享的行情缓存。 */
   constructor(private readonly dependencies: ChartAgentControllerDependencies) {
     this.context = computed(() => this.createContext())
+    this.marketDataTextFormatter =
+      dependencies.marketDataTextFormatter ?? createMarketDataTextFormatter()
   }
 
   /** 从 StateKernel 派生当前图表的只读上下文。 */
@@ -208,6 +228,24 @@ class ChartAgentControllerImpl implements ChartAgentController {
     return snapshot
   }
 
+  /** 返回当前启用数据源的精确 ID，避免 Agent 根据常见 Provider 名称猜测。 */
+  getAvailableMarketDataSourceIds(): ReadonlyArray<string> {
+    return this.dependencies.marketDataProviderRegistry
+      .getEnabledByPriority()
+      .map((provider) => provider.source.id)
+  }
+
+  /** 校验显式 sourceId，向 Agent 返回可直接修正下一次调用的可用值。 */
+  private requireEnabledMarketDataSource(sourceId: string | undefined): void {
+    if (sourceId === undefined) return
+    const availableSourceIds = this.getAvailableMarketDataSourceIds()
+    if (availableSourceIds.includes(sourceId)) return
+    throw new KLineChartError(
+      CHART_AGENT_ERROR_CODES.INVALID_QUERY,
+      `Unknown or disabled sourceId '${sourceId}'. Available sourceIds: ${availableSourceIds.join(', ') || 'none'}. Omit sourceId to allow automatic routing across every enabled source.`,
+    )
+  }
+
   /** 查询当前图表数据上的指标值；前端和 Agent 调用同一领域 API。 */
   @Tool({
     name: 'indicators_query',
@@ -218,7 +256,10 @@ class ChartAgentControllerImpl implements ChartAgentController {
     safety: 'read-only',
     executionMode: 'parallel',
   })
-  queryIndicator(input: IndicatorQueryInput, _context?: ChartToolExecutionContext): Promise<string> {
+  queryIndicator(
+    input: IndicatorQueryInput,
+    _context?: ChartToolExecutionContext,
+  ): Promise<string> {
     return this.dependencies.indicatorQuery.queryIndicator(input)
   }
 
@@ -251,16 +292,14 @@ class ChartAgentControllerImpl implements ChartAgentController {
   @Tool({
     name: 'market_bars_query',
     label: 'Query market bars',
-description:
-      'Fetch one page of market bars for any symbol without changing the chart. Use limit for the number of bars and optional before as an exclusive timestamp cursor; pagination and retries are handled by the cache.',
+    description:
+      'Fetch one page of market bars for any symbol without changing the chart. limit must be an integer from 1 to 798. Use before only as an exclusive UTC-millisecond timestamp cursor; omit before for the latest bars. Pagination and retries are handled by the cache.',
     parameters: BarsQueryToolParameters,
     safety: 'read-only',
     executionMode: 'parallel',
   })
-  async queryBars(
-    input: BarsQueryInput,
-    context?: ChartToolExecutionContext,
-  ): Promise<BarsQueryResult> {
+  async queryBars(input: BarsQueryInput, context?: ChartToolExecutionContext): Promise<string> {
+    this.requireEnabledMarketDataSource(input.sourceId)
     const result = await this.dependencies.marketDataCache.queryBars({
       sourceId: input.sourceId,
       symbol: input.symbol,
@@ -272,12 +311,12 @@ description:
       before: input.before,
       signal: context?.signal,
     })
-    return {
+    return this.marketDataTextFormatter.formatBars({
       sourceId: result.sourceId,
       instrument: result.instrument,
       series: result.series,
       olderData: result.series.olderData,
-    }
+    })
   }
 
   /** 查询任意品种单个交易日的分时；不读取或修改图表运行时状态。 */
@@ -293,7 +332,8 @@ description:
   async queryTimeShare(
     input: TimeShareQueryInput,
     context?: ChartToolExecutionContext,
-  ): Promise<TimeShareQueryResult> {
+  ): Promise<string> {
+    this.requireEnabledMarketDataSource(input.sourceId)
     const result = await this.dependencies.marketDataCache.queryTimeShare({
       sourceId: input.sourceId,
       symbol: input.symbol,
@@ -302,11 +342,11 @@ description:
       tradingDate: input.tradingDate as TradingDate,
       signal: context?.signal,
     })
-    return {
+    return this.marketDataTextFormatter.formatTimeShare({
       sourceId: result.sourceId,
       instrument: result.instrument,
       series: result.series,
-    }
+    })
   }
 
   /** 查询任意品种多个交易日的分时；不读取或修改图表运行时状态。 */
@@ -322,7 +362,8 @@ description:
   async queryTimeShareRange(
     input: TimeShareRangeQueryInput,
     context?: ChartToolExecutionContext,
-  ): Promise<TimeShareRangeQueryResult> {
+  ): Promise<string> {
+    this.requireEnabledMarketDataSource(input.sourceId)
     const result = await this.dependencies.marketDataCache.queryTimeShareRange({
       sourceId: input.sourceId,
       symbol: input.symbol,
@@ -332,11 +373,11 @@ description:
       days: input.days,
       signal: context?.signal,
     })
-    return {
+    return this.marketDataTextFormatter.formatTimeShareRange({
       sourceId: result.sourceId,
       instrument: result.instrument,
       range: result.range,
-    }
+    })
   }
 }
 

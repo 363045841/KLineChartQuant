@@ -128,19 +128,18 @@ export interface ChartAgentController {
   /** 图表状态的只读上下文投影；无有效行情数据时为 null。 */
   readonly context: ReadonlySignal<ChartAgentContextSnapshot | null>
   getContext(): ChartAgentContextSnapshot
+  /** 返回当前启用数据源的精确 ID，供 Agent 生成合法的 sourceId 参数。 */
+  getAvailableMarketDataSourceIds(): ReadonlyArray<string>
   queryIndicator(input: IndicatorQueryInput): Promise<string>
   searchInstruments(input: InstrumentSearchInput): Promise<ReadonlyArray<InstrumentDescriptor>>
   lookupInstrumentsBySymbol(
     input: InstrumentLookupInput,
     context?: ChartToolExecutionContext,
   ): Promise<ReadonlyArray<InstrumentDescriptor>>
-  queryBars(input: BarsQueryInput, context?: ChartToolExecutionContext): Promise<BarsQueryResult>
-  queryTimeShare(
-    input: TimeShareQueryInput,
-    context?: ChartToolExecutionContext,
-  ): Promise<TimeShareQueryResult>
+  queryBars(input: BarsQueryInput, context?: ChartToolExecutionContext): Promise<string>
+  queryTimeShare(input: TimeShareQueryInput, context?: ChartToolExecutionContext): Promise<string>
   queryTimeShareRange(
     input: TimeShareRangeQueryInput,
     context?: ChartToolExecutionContext,
-  ): Promise<TimeShareRangeQueryResult>
+  ): Promise<string>
 }

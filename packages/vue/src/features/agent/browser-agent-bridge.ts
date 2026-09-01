@@ -322,10 +322,12 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     agent: ChartAgentController,
     readOnly: boolean,
   ): readonly RuntimeToolDefinition[] {
+    const sourceIds = agent.getAvailableMarketDataSourceIds()
     return getRegisteredChartTools()
       .filter((tool) => !readOnly || tool.config.safety === 'read-only')
       .map((tool) => ({
         ...tool.config,
+        description: this.toolDescription(tool.config.name, tool.config.description, sourceIds),
         reversible: false,
         summarizeInput: tool.summarizeInput,
         execute: async (input, context) => {
@@ -342,6 +344,22 @@ export class BrowserAgentBridge implements AgentBridgeClient {
           }
         },
       }))
+  }
+
+  /** 为市场工具追加当前运行时可用的精确数据源 ID。 */
+  private toolDescription(name: string, description: string, sourceIds: ReadonlyArray<string>): string {
+    if (
+      ![
+        'instruments_query_name',
+        'market_bars_query',
+        'market_timeshare_query',
+        'market_timeshare_range_query',
+      ].includes(name)
+    ) {
+      return description
+    }
+    const available = sourceIds.length ? sourceIds.join(', ') : 'none'
+    return `${description} Available runtime sourceIds: ${available}. When providing sourceId or sourceIds, use only these exact values; omit the field to allow automatic routing across every enabled source.`
   }
 
   /** 返回已保存的 Provider 配置，不向界面暴露 API Key。 */
