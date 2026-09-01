@@ -149,6 +149,25 @@ describe('ChartDataManager.getComparisonViewLineRange', () => {
     expect(m.getComparisonViewLineRange({ start: 0, end: 2 })).toEqual({ min: 100, max: 102 })
   })
 
+  it('uses the first comparison bar at or after the visible base date', () => {
+    const m = loadMain({ symbol: 'MAIN', market: 'CN', period: 'daily', source: 'mock' })
+    m.setComparisonData('CMP', [cmpData[0]!, cmpData[2]!])
+
+    expect(m.getComparisonViewLineRange({ start: 1, end: 3 })).toEqual({ min: 101, max: 102 })
+  })
+
+  it('uses binary timestamp lookup when neither series provides dates', () => {
+    const m = makeManager()
+    m.setSymbols([{ symbol: 'MAIN', market: 'CN', period: 'daily', source: 'mock' }])
+    m.setData(mainData.map(({ date: _date, ...item }) => item))
+    m.setComparisonData(
+      'CMP',
+      [cmpData[0]!, cmpData[2]!].map(({ date: _date, ...item }) => item),
+    )
+
+    expect(m.getComparisonViewLineRange({ start: 1, end: 3 })).toEqual({ min: 101, max: 102 })
+  })
+
   it('returns null when the visible window is outside the data', () => {
     const m = loadMain({ symbol: 'MAIN', market: 'CN', period: 'daily', source: 'mock' })
     m.setComparisonData('CMP', cmpData)

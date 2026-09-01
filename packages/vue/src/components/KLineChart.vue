@@ -1550,8 +1550,9 @@
       const loading = ctrl.dataLoading.peek()
       if (loading) {
         symbolStatus.value = 'loading'
-      } else if (symbolStatus.value === 'loading') {
-        symbolStatus.value = 'error'
+      } else {
+        // 历史补页正常完成同样会结束 loading，只有 Core 发布错误时才显示失败状态。
+        symbolStatus.value = ctrl.dataError.peek() ? 'error' : 'ready'
       }
     })
 

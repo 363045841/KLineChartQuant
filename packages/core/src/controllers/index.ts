@@ -106,7 +106,6 @@ export {
 } from '../data'
 export type {
   LoadedTimeRange,
-  BarPageRequest,
   DepthSource,
   DepthDelta,
   DepthSnapshot,

@@ -30,14 +30,19 @@ function createHarness() {
   const repository = new SeriesRepository()
   const createBuffer = vi.fn(() => {
     const buffer = new DataBuffer()
-    buffer.setRequestFetch(null)
     return buffer
   })
+  const loadBuffer = vi.fn((spec: SymbolSpec, _selection: BarsSelection, buffer: DataBuffer) => {
+    buffer.setSymbol(spec)
+  })
+  const loadRange = vi.fn()
   const setLoading = vi.fn()
   const releaseSelection = vi.fn((selection: BarsSelection) => repository.delete(selection))
   const manager = new ComparisonManager(repository, {
     selectionForSpec,
     createBuffer,
+    loadBuffer,
+    loadRange,
     releaseSelection,
     scheduleDraw: vi.fn(),
     getSpecs: () => specs,
@@ -47,6 +52,8 @@ function createHarness() {
     manager,
     repository,
     createBuffer,
+    loadBuffer,
+    loadRange,
     setLoading,
     releaseSelection,
     setSpecs(next: ReadonlyArray<SymbolSpec>) {
@@ -141,6 +148,22 @@ describe('ComparisonManager runtime projection', () => {
     harness.setSpecs([spec])
     expect(harness.manager.setData('A', [])).toBe(true)
     expect(harness.repository.getBars(selectionForSpec(spec))?.getRawData()).toEqual([])
+  })
+
+  it('does not queue another history page while a comparison buffer is loading', () => {
+    const harness = createHarness()
+    const spec = { symbol: 'A', market: 'CN', source: 'custom', period: 'daily' }
+    harness.setSpecs([spec])
+    harness.manager.setData('A', [{ timestamp: 100, open: 1, high: 1, low: 1, close: 1 }])
+    const buffer = harness.repository.getBars(selectionForSpec(spec))!
+    buffer.setLoading(true)
+
+    harness.manager.ensureRange(99)
+
+    expect(harness.loadRange).not.toHaveBeenCalled()
+    buffer.setLoading(false)
+    harness.manager.ensureRange(99)
+    expect(harness.loadRange).toHaveBeenCalledOnce()
   })
 
   it('clearAll releases runtime selections and clears loading', () => {

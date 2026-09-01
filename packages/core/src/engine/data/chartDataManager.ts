@@ -7,15 +7,14 @@ import {
   type CustomDataSource,
 } from '../../controllers/types'
 import { DataBuffer } from '../../data/buffer/dataBuffer'
-import { getPeriodDays } from '../../data/buffer/dataBuffer.effects'
+import { DEFAULT_BAR_PAGE_LIMIT } from '../../data/buffer/marketDataPolicy'
+import { MarketDataCache } from '../../data/buffer/marketDataCache'
 import type {
-  BarPageRequest,
-  BarPageResult,
   KLineBuffer,
   TimeShareBuffer,
   DataChange,
 } from '../../data/buffer/dataBufferTypes'
-import { sourceRouter } from '../../data/provider/router'
+import { marketDataProviderRegistry } from '../../data/provider/registry'
 import type {
   InstrumentDescriptor,
   KLineAdjustment,
@@ -98,6 +97,8 @@ export class ChartDataManager {
   static readonly TRAILING_SLOTS = 30
 
   private readonly _repository = new SeriesRepository()
+  /** 图表与 Agent 共用的实例级行情缓存，负责分页、重试和 Provider 请求。 */
+  readonly marketDataCache = new MarketDataCache(marketDataProviderRegistry)
   private get _activeSelection(): SeriesSelection | null {
     return this._dataState.readonly.activeSelection.peek()
   }
@@ -126,6 +127,9 @@ export class ChartDataManager {
     this._comparisonManager = new ComparisonManager(this._repository, {
       selectionForSpec: (spec) => this.barsSelectionForSpec(spec),
       createBuffer: (_spec, selection) => this.createKLineBuffer(selection),
+      loadBuffer: (spec, selection, buffer) => this.loadBufferSnapshot(spec, selection, buffer),
+loadRange: (spec, selection, buffer, before) =>
+        this.loadBars(selection, buffer, spec, { limit: DEFAULT_BAR_PAGE_LIMIT, before }),
       releaseSelection: (selection) => this.releaseComparisonSelection(selection),
       scheduleDraw: () => this.deps.scheduleDraw(),
       getSpecs: () => this.deps.comparison.readonly.specs.peek(),
@@ -328,49 +332,50 @@ export class ChartDataManager {
 
   private getPrimaryDataBuffer(spec: SymbolSpec): KLineBuffer {
     const selection = this.barsSelectionForSpec(spec)
-    const buf = this._repository.getOrCreateBars(selection, () => this.createKLineBuffer(selection))
-    buf.setRequestFetch((request, page) => this.requestBars(request, page))
-    return buf
+    return this._repository.getOrCreateBars(selection, () => this.createKLineBuffer(selection))
   }
 
-  /** 创建已接入统一 Provider 请求的 K 线 Buffer。 */
+  /** 创建仅接收缓存查询结果的 K 线图表快照。 */
   private createKLineBuffer(selection?: BarsSelection): KLineBuffer {
-    const buffer = new DataBuffer()
-    buffer.setRequestFetch((request, page) => this.requestBars(request, page))
-    if (selection) {
-      buffer.setSourceResolvedHandler((sourceId, instrument) => {
-        return this.handleResolvedSource(selection, sourceId, instrument, buffer)
-      })
-    }
-    return buffer
+    void selection
+    return new DataBuffer()
   }
 
-  /** 让 K 线缓冲直接调用 Provider Router。 */
-  private async requestBars(spec: SymbolSpec, page: BarPageRequest): Promise<BarPageResult> {
+  /** 从共享缓存获取 K 线并写入当前图表快照。 */
+  private async loadBars(
+    selection: BarsSelection,
+    buffer: KLineBuffer,
+    spec: SymbolSpec,
+target: { limit: number; before?: number },
+  ): Promise<void> {
     const period = spec.period ?? DEFAULT_KLINE_PERIOD
     const adjustment = spec.adjust ?? DEFAULT_KLINE_ADJUSTMENT
     if (
       !KLINE_PERIODS.has(period as KLinePeriod) ||
       !KLINE_ADJUSTMENTS.has(adjustment as KLineAdjustment)
     ) {
-      throw new Error(`[MarketDataProvider] invalid bars request for "${spec.symbol}"`)
+      throw new Error(`[MarketDataCache] invalid bars request for "${spec.symbol}"`)
     }
-    const result = await sourceRouter.bars({
-      preferredSourceId: spec.source,
-      instrument: spec.instrument,
-      symbol: spec.symbol,
-      exchange: spec.exchange,
-      assetClass: spec.instrument?.assetClass,
-      period: period as KLinePeriod,
-      adjustment: adjustment as KLineAdjustment,
-      limit: page.limit,
-      ...(page.before === undefined ? {} : { before: page.before }),
-    })
-    return {
-      data: result.series.data,
-      olderData: result.series.olderData,
-      sourceId: result.provider.source.id,
-      instrument: result.instrument,
+    buffer.setLoading(true)
+    try {
+      const result = await this.marketDataCache.queryBars({
+        sourceId: spec.source,
+        instrument: spec.instrument,
+        symbol: spec.symbol,
+        exchange: spec.exchange,
+        assetClass: spec.instrument?.assetClass,
+        period: period as KLinePeriod,
+        adjustment: adjustment as KLineAdjustment,
+        limit: target.limit,
+        ...(target.before === undefined ? {} : { before: target.before }),
+      })
+      if (!this.isActiveSelection(selection) && this._repository.getBars(selection) !== buffer) return
+      if (selection.sourceId === AUTO_SOURCE_ID) {
+        if (!this.handleResolvedSource(selection, result.sourceId, result.instrument, buffer)) return
+      }
+      buffer.mergeData(result.series.data, result.series.olderData)
+    } catch (error) {
+      buffer.setError(error instanceof Error ? error.message : String(error))
     }
   }
 
@@ -399,39 +404,63 @@ export class ChartDataManager {
     return `${values.year}-${values.month}-${values.day}` as TradingDate
   }
 
-  /** 让分时缓冲直接调用 Provider Router。 */
-  private async requestTimeShare(spec: SymbolSpec, date?: number) {
-    const result = await sourceRouter.timeShare({
-      symbol: spec.symbol,
-      exchange: spec.exchange,
-      assetClass: spec.instrument?.assetClass,
-      preferredSourceId: spec.source,
-      instrument: spec.instrument,
-      resolveTradingDate: (instrument) => this.resolveTradingDate(instrument, date),
-    })
-    return {
-      data: result.series.data,
-      preClose: result.series.preClose,
-      sourceId: result.provider.source.id,
-      instrument: result.instrument,
+  /** 从共享缓存获取单日分时并写入当前图表快照。 */
+  private async loadTimeShare(
+    selection: TimeShareSelection,
+    buffer: TimeShareBuffer,
+    spec: SymbolSpec,
+  ): Promise<void> {
+    buffer.setLoading(true)
+    try {
+      const queryDate = buffer.getQueryDate()
+      const tradingDate = queryDate ? this.tradingDateKey(queryDate) : undefined
+      const result = await this.marketDataCache.queryTimeShare({
+        sourceId: spec.source,
+        instrument: spec.instrument,
+        symbol: spec.symbol,
+        exchange: spec.exchange,
+        assetClass: spec.instrument?.assetClass,
+        ...(tradingDate
+          ? { tradingDate }
+          : { resolveTradingDate: (instrument) => this.resolveTradingDate(instrument) }),
+      })
+      if (selection.sourceId === AUTO_SOURCE_ID) {
+        if (!this.handleResolvedSource(selection, result.sourceId, result.instrument, buffer)) return
+      }
+      buffer.setInlineData(result.series.data, result.series.preClose)
+    } catch (error) {
+      buffer.setError(error instanceof Error ? error.message : String(error))
     }
   }
 
-  /** 让分时缓冲直接调用 Provider Router 的多日分时接口。 */
-  private async requestTimeShareRange(spec: SymbolSpec, days: number, date?: number) {
-    const result = await sourceRouter.timeShareRange({
-      symbol: spec.symbol,
-      exchange: spec.exchange,
-      assetClass: spec.instrument?.assetClass,
-      preferredSourceId: spec.source,
-      instrument: spec.instrument,
-      days,
-      resolveEndTradingDate: (instrument) => this.resolveTradingDate(instrument, date),
-    })
-    return {
-      range: result.series,
-      sourceId: result.provider.source.id,
-      instrument: result.instrument,
+  /** 从共享缓存获取多日分时并写入当前图表快照。 */
+  private async loadTimeShareRange(
+    selection: TimeShareSelection,
+    buffer: TimeShareBuffer,
+    spec: SymbolSpec,
+    days: number,
+  ): Promise<void> {
+    buffer.setLoading(true)
+    try {
+      const queryDate = buffer.getQueryDate()
+      const endTradingDate = queryDate ? this.tradingDateKey(queryDate) : undefined
+      const result = await this.marketDataCache.queryTimeShareRange({
+        sourceId: spec.source,
+        instrument: spec.instrument,
+        symbol: spec.symbol,
+        exchange: spec.exchange,
+        assetClass: spec.instrument?.assetClass,
+        ...(endTradingDate
+          ? { endTradingDate }
+          : { resolveEndTradingDate: (instrument) => this.resolveTradingDate(instrument) }),
+        days,
+      })
+      if (selection.sourceId === AUTO_SOURCE_ID) {
+        if (!this.handleResolvedSource(selection, result.sourceId, result.instrument, buffer)) return
+      }
+      buffer.setRange(result.range)
+    } catch (error) {
+      buffer.setError(error instanceof Error ? error.message : String(error))
     }
   }
 
@@ -660,14 +689,14 @@ export class ChartDataManager {
   }
 
   get currentPeriod(): string {
-    return this._dmState.readonly.currentPeriod()
+    return this._dmState.readonly.currentPeriod.peek()
   }
 
   /** Internal KLine data for indicator scheduler (empty in timeshare mode) */
   getInternalData(): KLineData[] {
     const buf = this.getActiveDataBuffer()
     if (buf) return buf.getRawData()
-    const peek = this._dataState.readonly.data()
+    const peek = this._dataState.readonly.data.peek()
     return peek.length > 0 ? (peek as KLineData[]) : []
   }
 
@@ -767,7 +796,7 @@ export class ChartDataManager {
     return buf ? buf.getRawData() : []
   }
 
-  checkVisibleRangeGap(): void {
+checkVisibleRangeGap(): void {
     const buf = this.getActiveDataBuffer()
     if (!buf) return
     const data = buf.getRawData()
@@ -779,32 +808,55 @@ export class ChartDataManager {
     const range = this.getVisibleRangeOrNull()
     if (!rawRange || !range) return
 
-    const MS_PER_DAY = 86_400_000
-    const spec = buf.currentSpec
-    const gapDays = getPeriodDays(spec?.period)
     let firstVisibleTs: number | undefined
+    const needsOlder =
+      rawRange.start < 0 ||
+      (range.start < data.length && (data[range.start]?.timestamp ?? 0) < loadedTimeRange.earliestTs)
 
-    if (rawRange.start < 0) {
-      const earlierThanEarliest = loadedTimeRange.earliestTs - gapDays * MS_PER_DAY
-      buf.ensureRange(earlierThanEarliest, loadedTimeRange.earliestTs)
-      firstVisibleTs = data[0]?.timestamp
-    } else if (range.start < data.length) {
-      firstVisibleTs = data[range.start]?.timestamp
-      if (firstVisibleTs !== undefined && firstVisibleTs < loadedTimeRange.earliestTs) {
-        buf.ensureRange(firstVisibleTs, loadedTimeRange.earliestTs)
+    if (needsOlder && !buf.loading.peek()) {
+      const spec = buf.currentSpec
+      const selection = this._activeSelection
+      if (spec && selection?.kind === 'bars') {
+        void this.loadBars(selection, buf, spec, {
+          limit: DEFAULT_BAR_PAGE_LIMIT,
+          before: loadedTimeRange.earliestTs,
+        })
       }
+      firstVisibleTs = rawRange.start < 0 ? (data[0]?.timestamp ?? undefined) : data[range.start]?.timestamp
     }
 
     if (firstVisibleTs === undefined) return
 
-    this._comparisonManager.ensureRange(firstVisibleTs, loadedTimeRange.earliestTs)
+    this._comparisonManager.ensureRange(firstVisibleTs)
+  }
+
+  /** 请求当前图表缓存覆盖指定左边界；每次向前拉取一页，不按时间范围外推。 */
+  ensureDataRange(startTs: number): void {
+    const buffer = this.getActiveDataBuffer()
+    const selection = this._activeSelection
+    const spec = buffer?.currentSpec
+    const loaded = buffer?.loadedTimeRange
+    if (
+      !buffer ||
+      !selection ||
+      selection.kind !== 'bars' ||
+      !spec ||
+      !loaded ||
+      buffer.loading.peek() ||
+      startTs >= loaded.earliestTs
+    ) {
+      return
+    }
+    void this.loadBars(selection, buffer, spec, {
+      limit: DEFAULT_BAR_PAGE_LIMIT,
+      before: loaded.earliestTs,
+    })
   }
 
   // ── Comparison management ──
 
   private reconcileComparisonBuffers(): void {
-    const primaryBuf = this.getActiveDataBuffer()
-    this._comparisonManager.reconcile(primaryBuf?.loadedTimeRange?.earliestTs)
+    this._comparisonManager.reconcile()
   }
 
   /** 删除不再被 comparison 或当前主品种引用的 Repository 叶子。 */
@@ -878,7 +930,7 @@ export class ChartDataManager {
   private saveActiveKLineViewportSnapshot(): void {
     const kBuf = this.getActiveDataBuffer()
     const rawFromBuf = kBuf?.getRawData() as KLineData[] | undefined
-    const kRaw = rawFromBuf ?? (this._dataState.readonly.data() as KLineData[])
+    const kRaw = rawFromBuf ?? (this._dataState.readonly.data.peek() as KLineData[])
     const dataLen = kRaw?.length ?? 0
     let visibleStart = 0
     if (dataLen > 0) {
@@ -938,23 +990,16 @@ export class ChartDataManager {
   }
 
   /** 将 YYYYMMDD 查询参数转换为 Repository 交易日键。 */
-  private tradingDateKey(date: number): TradingDateKey {
+  private tradingDateKey(date: number): TradingDate {
     const raw = String(date)
     if (!/^\d{8}$/.test(raw)) throw new Error(`[ChartDataManager] invalid trading date "${date}"`)
-    return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`
+    return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}` as TradingDate
   }
 
   /** 创建已接入统一 Provider 请求的分时 Buffer。 */
   private createTimeShareBuffer(selection: TimeShareSelection): TimeShareBuffer {
-    const buffer = new TimeShareBufferImpl()
-    buffer.setRequestFetch((request, date) => this.requestTimeShare(request, date))
-    buffer.setRangeRequestFetch((request, days, date) =>
-      this.requestTimeShareRange(request, days, date),
-    )
-    buffer.setSourceResolvedHandler((sourceId, instrument) => {
-      return this.handleResolvedSource(selection, sourceId, instrument, buffer)
-    })
-    return buffer
+    void selection
+    return new TimeShareBufferImpl()
   }
 
   applyCustomData(source: CustomDataSource): void {
@@ -1052,9 +1097,9 @@ export class ChartDataManager {
       )
       this.activateBuffer(tsSelection)
       if (primary.period === FIVE_DAY_TIME_SHARE_PERIOD) {
-        tsBuf.loadRange(primary, FIVE_DAY_TIME_SHARE_DAYS)
+        void this.loadTimeShareRange(tsSelection, tsBuf, primary, FIVE_DAY_TIME_SHARE_DAYS)
       } else {
-        tsBuf.load(primary)
+        void this.loadTimeShare(tsSelection, tsBuf, primary)
       }
       return
     }
@@ -1092,7 +1137,16 @@ export class ChartDataManager {
       )
     }
 
-    buf.setSymbol(spec)
+buf.setSymbol(spec)
+    void this.loadBars(this.barsSelectionForSpec(spec), buf, spec, {
+      limit: DEFAULT_BAR_PAGE_LIMIT,
+    })
+  }
+
+  /** 初始化一个 Repository K 线快照，并通过共享缓存填充首个窗口。 */
+  private loadBufferSnapshot(spec: SymbolSpec, selection: BarsSelection, buffer: KLineBuffer): void {
+    buffer.setSymbol(spec)
+    void this.loadBars(selection, buffer, spec, { limit: DEFAULT_BAR_PAGE_LIMIT })
   }
 
   /** K 线数据可用后按其视图快照恢复横向位置。 */
@@ -1245,6 +1299,7 @@ export class ChartDataManager {
     this._comparisonManager.clearAll()
     this.unbindActiveBuffer()
     this._repository.dispose()
+    this.marketDataCache.destroy()
     this._loadHint.destroy()
   }
 }
@@ -1253,18 +1308,33 @@ function findComparisonBaselineByDate(
   data: ReadonlyArray<KLineData>,
   date: string,
 ): KLineData | null {
-  for (const item of data) {
-    if (item.date && item.date >= date) return item
-  }
-  return null
+  return findFirstAtOrAfter(data, date, (item) => item.date ?? '')
 }
 
+/** 从时间升序序列中二分定位首个不早于目标时间戳的比较基线。 */
 function findComparisonBaselineByTimestamp(
   data: ReadonlyArray<KLineData>,
   timestamp: number,
 ): KLineData | null {
-  for (const item of data) {
-    if (item.timestamp >= timestamp) return item
+  return findFirstAtOrAfter(data, timestamp, (item) => item.timestamp)
+}
+
+/** 在已按键升序排列的数据中定位首个不小于目标值的元素。 */
+function findFirstAtOrAfter<T, TValue extends string | number>(
+  data: ReadonlyArray<T>,
+  target: TValue,
+  valueOf: (item: T) => TValue,
+): T | null {
+  let low = 0
+  let high = data.length
+  while (low < high) {
+    const middle = low + Math.floor((high - low) / 2)
+    const item = data[middle]
+    if (item && valueOf(item) < target) {
+      low = middle + 1
+    } else {
+      high = middle
+    }
   }
-  return null
+  return data[low] ?? null
 }

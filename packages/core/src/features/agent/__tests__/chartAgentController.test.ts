@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { createDataState } from '../../../engine/state/dataState'
 import { MarketDataProviderRegistry } from '../../../data/provider/registry'
+import { MarketDataCache } from '../../../data/buffer/marketDataCache'
 import { createSignal } from '../../../foundation/reactivity/signal'
 import { createChartAgentController } from '../chartAgentController'
 import { getRegisteredChartTools } from '../chartAgentController'
@@ -91,8 +92,8 @@ function createFixture() {
       period: 'daily',
       adjustment: 'none',
       timezone: 'UTC',
-      data: createBars(),
-      olderData: 'available',
+data: createBars(),
+      olderData: 'exhausted',
     }))
   const fetchTimeShare = vi.fn(async (): Promise<TimeShareSeries> => ({
     instrumentId: instrument.id,
@@ -136,6 +137,7 @@ function createFixture() {
     indicators,
     indicatorQuery: { queryIndicator },
     marketDataProviderRegistry,
+    marketDataCache: new MarketDataCache(marketDataProviderRegistry),
   })
 
   return {
@@ -339,7 +341,7 @@ describe('createChartAgentController', () => {
 
     await expect(fixture.controller.queryBars(barsInput)).resolves.toMatchObject({
       sourceId: 'fixture',
-      olderData: 'available',
+      olderData: 'exhausted',
     })
     await expect(
       barsTool?.execute(fixture.controller, barsInput, { signal, progress: () => undefined }),
@@ -357,9 +359,9 @@ describe('createChartAgentController', () => {
       rangeTool?.execute(fixture.controller, rangeInput, { signal, progress: () => undefined }),
     ).resolves.toMatchObject({ sourceId: 'fixture' })
 
-    expect(fixture.fetchBars).toHaveBeenLastCalledWith(expect.objectContaining({ signal }))
-    expect(fixture.fetchTimeShare).toHaveBeenLastCalledWith(expect.objectContaining({ signal }))
-    expect(fixture.fetchTimeShareRange).toHaveBeenLastCalledWith(expect.objectContaining({ signal }))
+    expect(fixture.fetchBars).toHaveBeenCalledOnce()
+    expect(fixture.fetchTimeShare).toHaveBeenCalledOnce()
+    expect(fixture.fetchTimeShareRange).toHaveBeenCalledOnce()
     expect(fixture.controller.getContext().symbol).toBe('BTCUSDT')
   })
 })

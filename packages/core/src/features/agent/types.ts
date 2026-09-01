@@ -70,7 +70,7 @@ export interface InstrumentLookupInput {
   readonly signal?: AbortSignal
 }
 
-/** 无状态 K 线查询输入；不依赖当前图表选择或视口。 */
+/** 无状态 K 线游标查询输入；拉多少就请求多少，不依赖当前图表选择或视口。 */
 export interface BarsQueryInput {
   readonly symbol: string
   readonly period: KLinePeriod

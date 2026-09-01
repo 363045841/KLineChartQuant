@@ -1052,6 +1052,16 @@ export class Chart {
     return this.dataManager.getData()
   }
 
+  /** 返回图表与 Agent 共用的实例级行情缓存。 */
+  getMarketDataCache(): import('../data/buffer/marketDataCache').MarketDataCache {
+    return this.dataManager.marketDataCache
+  }
+
+  /** 请求当前图表缓存覆盖指定左边界。 */
+  ensureDataRange(startTs: number): void {
+    this.dataManager.ensureDataRange(startTs)
+  }
+
   /** 获取渲染数据源（分时图下为 TimeShareData，K线图为 KLineData） */
   getRenderData(): ReadonlyArray<KLineData | import('../foundation/types/price').TimeShareData> {
     return this.dataManager.getRenderData()

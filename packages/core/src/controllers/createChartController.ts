@@ -491,6 +491,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     indicators,
     indicatorQuery: createIndicatorQuery({ dataState: chart.kernel.data }),
     marketDataProviderRegistry,
+    marketDataCache: chart.getMarketDataCache(),
   })
 
   let disposed = false
@@ -564,7 +565,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     const buf = chart.dataBuffer
     const loadedTimeRange = buf.loadedTimeRange
     if (!loadedTimeRange || startTs >= loadedTimeRange.earliestTs) return
-    buf.ensureRange(startTs, loadedTimeRange.earliestTs)
+    chart.ensureDataRange(startTs)
   }
 
   function startRangeSelection(timestamp: number): void {

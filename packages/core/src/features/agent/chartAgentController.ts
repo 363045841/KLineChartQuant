@@ -4,7 +4,7 @@ import { Type } from 'typebox'
 import { KLineChartError } from '../../errors'
 import { lookupInstrumentsBySymbol, searchInstruments } from '../../data/provider/instrumentSearch'
 import type { MarketDataProviderRegistry } from '../../data/provider/registry'
-import { SourceRouter } from '../../data/provider/router'
+import { MarketDataCache } from '../../data/buffer/marketDataCache'
 import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
 
 import { Tool, getRegisteredChartTools, type ChartToolExecutionContext } from './chartToolRegistry'
@@ -37,6 +37,7 @@ interface ChartAgentControllerDependencies {
   readonly indicators: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
   readonly indicatorQuery: IndicatorQuery
   readonly marketDataProviderRegistry: MarketDataProviderRegistry
+  readonly marketDataCache: MarketDataCache
 }
 
 const InstrumentLookupToolParameters = Type.Object({
@@ -157,12 +158,9 @@ function requireTimestampRange(data: ReadonlyArray<{ readonly timestamp: number 
 class ChartAgentControllerImpl implements ChartAgentController {
   /** 图表状态的响应式只读上下文投影。 */
   readonly context: ReadonlySignal<ChartAgentContextSnapshot | null>
-  private readonly sourceRouter: SourceRouter
-
-  /** 创建图表 Agent facade，并使用同一 Provider Registry 查询行情。 */
+  /** 创建图表 Agent facade，并使用图表共享的行情缓存。 */
   constructor(private readonly dependencies: ChartAgentControllerDependencies) {
     this.context = computed(() => this.createContext())
-    this.sourceRouter = new SourceRouter(dependencies.marketDataProviderRegistry)
   }
 
   /** 从 StateKernel 派生当前图表的只读上下文。 */
@@ -253,8 +251,8 @@ class ChartAgentControllerImpl implements ChartAgentController {
   @Tool({
     name: 'market_bars_query',
     label: 'Query market bars',
-    description:
-      'Fetch one page of market bars for any symbol without changing the chart. Specify period, adjustment, and limit; use before for cursor pagination.',
+description:
+      'Fetch one page of market bars for any symbol without changing the chart. Use limit for the number of bars and optional before as an exclusive timestamp cursor; pagination and retries are handled by the cache.',
     parameters: BarsQueryToolParameters,
     safety: 'read-only',
     executionMode: 'parallel',
@@ -263,8 +261,8 @@ class ChartAgentControllerImpl implements ChartAgentController {
     input: BarsQueryInput,
     context?: ChartToolExecutionContext,
   ): Promise<BarsQueryResult> {
-    const result = await this.sourceRouter.bars({
-      preferredSourceId: input.sourceId,
+    const result = await this.dependencies.marketDataCache.queryBars({
+      sourceId: input.sourceId,
       symbol: input.symbol,
       exchange: input.exchange,
       assetClass: input.assetClass,
@@ -275,7 +273,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
       signal: context?.signal,
     })
     return {
-      sourceId: result.provider.source.id,
+      sourceId: result.sourceId,
       instrument: result.instrument,
       series: result.series,
       olderData: result.series.olderData,
@@ -296,8 +294,8 @@ class ChartAgentControllerImpl implements ChartAgentController {
     input: TimeShareQueryInput,
     context?: ChartToolExecutionContext,
   ): Promise<TimeShareQueryResult> {
-    const result = await this.sourceRouter.timeShare({
-      preferredSourceId: input.sourceId,
+    const result = await this.dependencies.marketDataCache.queryTimeShare({
+      sourceId: input.sourceId,
       symbol: input.symbol,
       exchange: input.exchange,
       assetClass: input.assetClass,
@@ -305,7 +303,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
       signal: context?.signal,
     })
     return {
-      sourceId: result.provider.source.id,
+      sourceId: result.sourceId,
       instrument: result.instrument,
       series: result.series,
     }
@@ -325,8 +323,8 @@ class ChartAgentControllerImpl implements ChartAgentController {
     input: TimeShareRangeQueryInput,
     context?: ChartToolExecutionContext,
   ): Promise<TimeShareRangeQueryResult> {
-    const result = await this.sourceRouter.timeShareRange({
-      preferredSourceId: input.sourceId,
+    const result = await this.dependencies.marketDataCache.queryTimeShareRange({
+      sourceId: input.sourceId,
       symbol: input.symbol,
       exchange: input.exchange,
       assetClass: input.assetClass,
@@ -335,9 +333,9 @@ class ChartAgentControllerImpl implements ChartAgentController {
       signal: context?.signal,
     })
     return {
-      sourceId: result.provider.source.id,
+      sourceId: result.sourceId,
       instrument: result.instrument,
-      range: result.series,
+      range: result.range,
     }
   }
 }

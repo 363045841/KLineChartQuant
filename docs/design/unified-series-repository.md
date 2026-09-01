@@ -84,8 +84,10 @@ Repository 中的同一叶子 Buffer。
 
 统一的是所有权和查找入口，不是叶子数据模型：
 
-- `KLineBuffer` 保存 `KLineData`，负责周期、复权、分页和历史增量加载。
-- `TimeShareBuffer` 保存 `TimeShareData`，负责交易日、昨收和分时范围快照。
+- `KLineBuffer` 保存 `KLineData` 图表快照，负责向图表发布数据变化和时间索引。
+- `TimeShareBuffer` 保存 `TimeShareData` 图表快照，负责交易日、昨收和分时范围投影。
+
+分页、历史覆盖和重试由图表实例级 `MarketDataCache` 负责；Buffer 不执行 Provider 请求。
 
 Repository 对外返回判别联合，禁止使用 `unknown[]` 抹平差异。
 
@@ -132,7 +134,7 @@ Buffer data signal
 触发链如下：
 
 ```text
-Provider/custom source 写入叶子 Buffer
+MarketDataCache/custom source 写入叶子 Buffer
   -> Buffer data signal 更新
   -> ChartDataManager 发布强类型 active snapshot
   -> 指标计算

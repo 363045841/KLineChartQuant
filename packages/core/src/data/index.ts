@@ -3,16 +3,19 @@ export { mockMarketDataProvider } from './provider/sources/mock'
 export { baostockMarketDataProvider } from './provider/sources/baostock'
 export { finshareMarketDataProvider } from './provider/sources/finshare'
 export { DataBuffer } from './buffer/dataBuffer'
-export type { BarPageRequest, LoadedTimeRange, TimeShareRangeResult } from './buffer/dataBufferTypes'
+export type { LoadedTimeRange } from './buffer/dataBufferTypes'
 export { TimeShareBuffer } from './buffer/timeShareBuffer'
 export type { DataBufferLike } from './buffer/dataBufferTypes'
-export {
-  getPeriodDays,
-  fetchKLine,
-  fetchTimeShare,
-  KLineFetchService,
-  TimeShareFetchService,
-} from './buffer/dataBuffer.effects'
+export { MarketDataCache } from './buffer/marketDataCache'
+export type {
+  BarsCacheQuery,
+  BarsCacheResult,
+  TimeShareCacheQuery,
+  TimeShareCacheResult,
+  TimeShareRangeCacheQuery,
+  TimeShareRangeCacheResult,
+} from './buffer/marketDataCache'
+export { getPeriodDays } from './buffer/marketDataPolicy'
 export { BinanceSSESource, DEFAULT_BINANCE_SSE_URL } from './depth/binance'
 export { gotdxMarketDataProvider } from './provider/sources/gotdx'
 export { tradingviewMarketDataProvider } from './provider/sources/tradingview'
