@@ -74,6 +74,32 @@ describe('MarketDataCache', () => {
     expect(repeated.series.data.map((item) => item.timestamp)).toEqual([20, 30])
   })
 
+  it('evicts the least recently used entry when the configured memory limit is exceeded', async () => {
+    const fetch = vi.fn(async () => page([bar(30)]))
+    const { cache, instrument } = createCache(fetch)
+    const ethQuery = {
+      ...query(),
+      symbol: 'ETHUSDT',
+      instrument: { ...instrument, id: 'test:ETHUSDT', symbol: 'ETHUSDT' },
+    }
+    const solQuery = {
+      ...query(),
+      symbol: 'SOLUSDT',
+      instrument: { ...instrument, id: 'test:SOLUSDT', symbol: 'SOLUSDT' },
+    }
+
+    await cache.queryBars(query())
+    await cache.queryBars(ethQuery)
+    cache.setMaxBytes(cache.stats.peek().usedBytes)
+    await cache.queryBars(query())
+    await cache.queryBars(solQuery)
+    await cache.queryBars(query())
+    await cache.queryBars(ethQuery)
+
+    expect(fetch).toHaveBeenCalledTimes(4)
+    expect(cache.stats.peek()).toMatchObject({ maxBytes: expect.any(Number), entryCount: 2 })
+  })
+
   it('requests an older page when the caller supplies a before cursor', async () => {
     const fetch = vi.fn(async (before?: number) =>
       before === undefined

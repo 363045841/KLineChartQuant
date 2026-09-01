@@ -1,6 +1,11 @@
 /** 图表实例级行情内存缓存：按领域请求补齐数据覆盖范围并复用 Provider 请求结果。 */
 import type { KLineData } from '../../controllers/types'
-import { FETCH_TOTAL_ATTEMPTS, retryBackoffMs } from './marketDataPolicy'
+import { createSignal, type ReadonlySignal } from '../../foundation/reactivity/signal'
+import {
+  DEFAULT_MARKET_DATA_CACHE_MAX_BYTES,
+  FETCH_TOTAL_ATTEMPTS,
+  retryBackoffMs,
+} from './marketDataPolicy'
 import { SourceRouter } from '../provider/router'
 import type {
   AssetClass,
@@ -77,6 +82,21 @@ interface CacheEntry {
   series: Omit<BarSeries, 'data' | 'olderData'>
   data: KLineData[]
   olderData: OlderDataStatus
+}
+
+type CacheEntryKind = 'bars' | 'timeShares' | 'timeShareRanges'
+
+interface CacheEntryMetadata {
+  readonly kind: CacheEntryKind
+  readonly key: string
+  readonly bytes: number
+}
+
+/** 图表实例缓存的近似内存统计；字节数基于可序列化数据的保守估算。 */
+export interface MarketDataCacheStats {
+  readonly usedBytes: number
+  readonly maxBytes: number
+  readonly entryCount: number
 }
 
 /** 将单页上游结果规范为时间升序且时间戳唯一的数据，保留同时间戳的最后一条修正值。 */
@@ -167,6 +187,15 @@ function cacheKey(query: {
   ].join(':')
 }
 
+/** 以 JSON 有效载荷的四倍估算对象图占用，涵盖 JS 对象和数组的额外开销。 */
+function estimateBytes(value: unknown): number {
+  try {
+    return Math.max(1_024, JSON.stringify(value).length * 4)
+  } catch {
+    return 1_024
+  }
+}
+
 /** 仅允许一个覆盖请求补齐同一缓存条目，避免并发滚动重复拉取同一页。 */
 export class MarketDataCache {
   private readonly router: SourceRouter
@@ -174,8 +203,19 @@ export class MarketDataCache {
   private readonly timeShares = new Map<string, TimeShareCacheResult>()
   private readonly timeShareRanges = new Map<string, TimeShareRangeCacheResult>()
   private readonly pending = new Map<string, Promise<void>>()
+  private readonly entries = new Map<string, CacheEntryMetadata>()
+  private readonly statsSignal = createSignal<MarketDataCacheStats>({
+    usedBytes: 0,
+    maxBytes: DEFAULT_MARKET_DATA_CACHE_MAX_BYTES,
+    entryCount: 0,
+  })
   private readonly lifecycleAbortController = new AbortController()
+  private usedBytes = 0
+  private maxBytes = DEFAULT_MARKET_DATA_CACHE_MAX_BYTES
   private destroyed = false
+
+  /** 供设置界面观察的缓存近似内存使用量。 */
+  readonly stats: ReadonlySignal<MarketDataCacheStats> = this.statsSignal
 
   /** 创建绑定一个 Provider Registry 的图表实例级缓存。 */
   constructor(registry: MarketDataProviderRegistry) {
@@ -197,6 +237,7 @@ export class MarketDataCache {
     this.throwIfDestroyed()
     const entry = this.bars.get(key)
     if (!entry) throw new Error('[MarketDataCache] query completed without a cache entry')
+    this.touchEntry('bars', key)
 
     const before = query.before
     const data =
@@ -218,7 +259,10 @@ export class MarketDataCache {
     }
     const key = `${cacheKey({ ...query, period: 'daily', adjustment: 'none' })}:${query.tradingDate ?? 'latest'}`
     const cached = this.timeShares.get(key)
-    if (cached) return cached
+    if (cached) {
+      this.touchEntry('timeShares', key)
+      return cached
+    }
     const result = await this.router.timeShare({
       preferredSourceId: query.sourceId,
       instrument: query.instrument,
@@ -236,6 +280,7 @@ export class MarketDataCache {
       series: result.series,
     }
     this.timeShares.set(key, value)
+    this.recordEntry('timeShares', key, estimateBytes(value))
     return value
   }
 
@@ -247,7 +292,10 @@ export class MarketDataCache {
     }
     const key = `${cacheKey({ ...query, period: 'daily', adjustment: 'none' })}:${query.endTradingDate ?? 'latest'}:${query.days}`
     const cached = this.timeShareRanges.get(key)
-    if (cached) return cached
+    if (cached) {
+      this.touchEntry('timeShareRanges', key)
+      return cached
+    }
     const { provider, instrument, series: range } = await this.router.timeShareRange({
       preferredSourceId: query.sourceId,
       instrument: query.instrument,
@@ -266,6 +314,7 @@ export class MarketDataCache {
       range,
     }
     this.timeShareRanges.set(key, value)
+    this.recordEntry('timeShareRanges', key, estimateBytes(value))
     return value
   }
 
@@ -275,6 +324,19 @@ export class MarketDataCache {
     this.timeShares.clear()
     this.timeShareRanges.clear()
     this.pending.clear()
+    this.entries.clear()
+    this.usedBytes = 0
+    this.publishStats()
+  }
+
+  /** 更新缓存上限；降低上限时立即按 LRU 淘汰已缓存条目。 */
+  setMaxBytes(maxBytes: number): void {
+    if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) {
+      throw new TypeError('[MarketDataCache] maxBytes must be a positive safe integer')
+    }
+    this.maxBytes = maxBytes
+    this.evictToLimit()
+    this.publishStats()
   }
 
   /** 销毁图表实例缓存，中止请求并阻止异步响应回写。 */
@@ -325,7 +387,7 @@ export class MarketDataCache {
     const previous = entry?.data ?? []
     const merged = mergeBars(previous, result.series.data)
     const progressed = merged.length > previous.length || previous.length === 0
-    this.bars.set(key, {
+    const value: CacheEntry = {
       sourceId: result.sourceId,
       instrument: result.instrument,
       series: {
@@ -337,7 +399,9 @@ export class MarketDataCache {
       },
       data: merged,
       olderData: result.series.olderData,
-    })
+    }
+    this.bars.set(key, value)
+    this.recordEntry('bars', key, estimateBytes(value))
     if (result.series.data.length === 0 || result.series.olderData === 'exhausted') return
     if (!progressed) {
       throw new Error('[MarketDataCache] Provider cursor page did not advance cached coverage')
@@ -385,6 +449,57 @@ export class MarketDataCache {
   /** 在调用方取消与图表销毁之间合并请求取消信号。 */
   private requestSignal(signal: AbortSignal | undefined): AbortSignal {
     return signal ? AbortSignal.any([signal, this.lifecycleAbortController.signal]) : this.lifecycleAbortController.signal
+  }
+
+  /** 记录或更新条目大小，并在写入后淘汰最久未访问的其他缓存条目。 */
+  private recordEntry(kind: CacheEntryKind, key: string, bytes: number): void {
+    const id = this.entryId(kind, key)
+    const previous = this.entries.get(id)
+    if (previous) {
+      this.usedBytes -= previous.bytes
+      this.entries.delete(id)
+    }
+    this.entries.set(id, { kind, key, bytes })
+    this.usedBytes += bytes
+    this.evictToLimit(id)
+    this.publishStats()
+  }
+
+  /** 将命中的条目移动到 LRU 队尾。 */
+  private touchEntry(kind: CacheEntryKind, key: string): void {
+    const id = this.entryId(kind, key)
+    const entry = this.entries.get(id)
+    if (!entry) return
+    this.entries.delete(id)
+    this.entries.set(id, entry)
+  }
+
+  /** 超出上限时淘汰最久未访问条目；刚写入的单项允许超过上限以保证本次查询可返回。 */
+  private evictToLimit(excludedId?: string): void {
+    while (this.usedBytes > this.maxBytes) {
+      const candidate = [...this.entries.entries()].find(([id]) => id !== excludedId)
+      if (!candidate) return
+      const [id, entry] = candidate
+      this.entries.delete(id)
+      this.usedBytes -= entry.bytes
+      if (entry.kind === 'bars') this.bars.delete(entry.key)
+      else if (entry.kind === 'timeShares') this.timeShares.delete(entry.key)
+      else this.timeShareRanges.delete(entry.key)
+    }
+  }
+
+  /** 构造跨缓存类别唯一的 LRU 条目 ID。 */
+  private entryId(kind: CacheEntryKind, key: string): string {
+    return `${kind}:${key}`
+  }
+
+  /** 发布缓存使用量的不可变快照。 */
+  private publishStats(): void {
+    this.statsSignal.set({
+      usedBytes: this.usedBytes,
+      maxBytes: this.maxBytes,
+      entryCount: this.entries.size,
+    })
   }
 
   /** 防止图表销毁后读取或写入实例级缓存。 */

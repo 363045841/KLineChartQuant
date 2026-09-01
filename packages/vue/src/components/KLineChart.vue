@@ -47,6 +47,7 @@
           :alert-controller="controller"
           :effective-settings="chartSettings"
           :renderer-runtime="rendererRuntime"
+          :market-data-cache-stats="marketDataCacheStats"
           :drawing-tool-id="drawingToolId"
           :is-range-select-mode="isRangeSelectMode"
           :aggregation-sources="aggregationSources"
@@ -738,6 +739,11 @@
     controller,
     (ctrl) => ctrl.symbols,
     () => [],
+  )
+  const marketDataCacheStats = useControllerSignal(
+    controller,
+    (ctrl) => ctrl.marketDataCacheStats,
+    () => ({ usedBytes: 0, maxBytes: 0, entryCount: 0 }),
   )
   const kLineLevel = computed(() => {
     if (chartMode.value === 'timeshare') return 'timeshare'

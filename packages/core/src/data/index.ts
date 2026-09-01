@@ -14,6 +14,7 @@ export type {
   TimeShareCacheResult,
   TimeShareRangeCacheQuery,
   TimeShareRangeCacheResult,
+  MarketDataCacheStats,
 } from './buffer/marketDataCache'
 export { getPeriodDays } from './buffer/marketDataPolicy'
 export { BinanceSSESource, DEFAULT_BINANCE_SSE_URL } from './depth/binance'

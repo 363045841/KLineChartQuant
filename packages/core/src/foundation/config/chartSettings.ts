@@ -5,10 +5,13 @@
 export interface SettingItem {
   key: string
   label: string
-  type: 'boolean' | 'select'
-  default: boolean | string
+  type: 'boolean' | 'select' | 'number'
+  default: boolean | string | number
   group?: string
   options?: { value: string; label: string }[]
+  min?: number
+  max?: number
+  step?: number
 }
 
 /**
@@ -125,6 +128,16 @@ export const DEFAULT_SETTINGS = [
     group: 'experimental',
   },
   {
+    key: 'marketDataCacheMaxMiB',
+    label: '行情缓存上限（MiB）',
+    type: 'number',
+    default: 50,
+    min: 5,
+    max: 512,
+    step: 1,
+    group: 'experimental',
+  },
+  {
     key: 'tooltipPosition',
     label: '数据悬浮框位置',
     type: 'select',
@@ -142,6 +155,8 @@ type _SettingTuple = typeof DEFAULT_SETTINGS
 type _SettingByKey = {
   [Item in _SettingTuple[number] as Item['key']]: Item['type'] extends 'boolean'
     ? boolean
+    : Item['type'] extends 'number'
+      ? number
     : Item extends { type: 'select'; options: ReadonlyArray<{ value: infer V }> }
       ? V
       : string

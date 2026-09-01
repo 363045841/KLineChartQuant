@@ -331,6 +331,10 @@ export interface ChartController extends DrawingChartAdapter {
   readonly dataLoading: ReadonlySignal<boolean>
   /** 主品种最近一次显式拉取失败原因；成功或重置后为 null */
   readonly dataError: ReadonlySignal<string | null>
+  /** 图表实例缓存的近似内存使用量与配置上限。 */
+  readonly marketDataCacheStats: ReadonlySignal<
+    import('../data/buffer/marketDataCache').MarketDataCacheStats
+  >
   readonly symbols: ReadonlySignal<ReadonlyArray<SymbolSpec>>
   readonly theme: ReadonlySignal<'light' | 'dark'>
   /** 用户偏好 settings（kernel.settings resolved 快照） */

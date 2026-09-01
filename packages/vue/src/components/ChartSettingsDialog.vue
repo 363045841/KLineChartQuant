@@ -50,6 +50,31 @@
         </template>
       </CollapsibleSection>
 
+      <CollapsibleSection
+        label="行情缓存"
+        :expanded="expandedSections.cache"
+        @toggle="toggleSection('cache')"
+      >
+        <div class="settings-item">
+          <label for="market-data-cache-max-mib">缓存上限</label>
+          <input
+            id="market-data-cache-max-mib"
+            v-model.number="settings.marketDataCacheMaxMiB"
+            class="cache-limit-input"
+            type="number"
+            min="5"
+            max="512"
+            step="1"
+          />
+          <span class="cache-unit">MiB</span>
+        </div>
+        <div class="settings-item cache-usage">
+          <span>当前用量（估算）</span>
+          <span>{{ cacheUsageText }}</span>
+        </div>
+        <div class="cache-description">超过上限时，自动淘汰最久未使用的行情数据。</div>
+      </CollapsibleSection>
+
       <!-- 聚合源入口：主图设置下方，与颜色配置同为 nav-item -->
       <div class="settings-item nav-item" @click="showAggregationSourceModal = true">
         <span>聚合源管理</span>
@@ -214,6 +239,7 @@
 
 <script setup lang="ts">
   import { normalizeColorPresetSettings } from '@363045841yyt/klinechart-core'
+  import type { MarketDataCacheStats } from '@363045841yyt/klinechart-core'
   import {
     DEFAULT_SETTINGS,
     SETTINGS_STORAGE_KEY,
@@ -239,6 +265,7 @@
       show: boolean
       initialSettings?: ChartSettings
       rendererRuntime?: RendererBackendRuntime | null
+      marketDataCacheStats?: MarketDataCacheStats
       aggregationSources?: ReadonlyArray<
         import('../composables/useAggregationSources').AggregationSourceDefinition
       >
@@ -270,7 +297,7 @@
   )
   const openSourceCredits = getOpenSourceCredits()
 
-  type SettingsSectionId = 'main' | 'style' | 'experimental' | 'opensource'
+  type SettingsSectionId = 'main' | 'style' | 'experimental' | 'cache' | 'opensource'
 
   /** 主图+样式默认展开；实验+开源默认折叠。不持久化，每次打开弹窗重置 */
   function createDefaultExpandedSections(): Record<SettingsSectionId, boolean> {
@@ -278,6 +305,7 @@
       main: true,
       style: true,
       experimental: false,
+      cache: false,
       opensource: false,
     }
   }
@@ -337,6 +365,15 @@
             : runtime.status
     return status ? `当前有效：${runtime.effective}（${status}）` : `当前有效：${runtime.effective}`
   })
+  const cacheUsageText = computed(() => {
+    const stats = props.marketDataCacheStats
+    if (!stats) return '尚未初始化'
+    return `${formatBytes(stats.usedBytes)} / ${formatBytes(stats.maxBytes)}（${stats.entryCount} 项）`
+  })
+
+  function formatBytes(bytes: number): string {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`
+  }
 
   const settings = ref<ChartSettings>(loadSettings())
 
@@ -435,6 +472,39 @@
 
   .settings-item.runtime-hint:hover {
     background: transparent;
+  }
+
+  .cache-limit-input {
+    width: 80px;
+    box-sizing: border-box;
+    border: 1px solid var(--klc-color-border);
+    border-radius: 4px;
+    padding: 4px 6px;
+    color: var(--klc-color-foreground);
+    background: var(--klc-color-chart-background);
+    text-align: right;
+  }
+
+  .cache-unit {
+    margin-left: -10px;
+    color: var(--klc-color-axis-text);
+    font-size: 12px;
+  }
+
+  .settings-item.cache-usage {
+    cursor: default;
+    color: var(--klc-color-axis-text);
+  }
+
+  .settings-item.cache-usage:hover {
+    background: transparent;
+  }
+
+  .cache-description {
+    padding: 0 12px 8px;
+    color: var(--klc-color-axis-text);
+    font-size: 12px;
+    line-height: 1.5;
   }
 
   a.settings-item.credit-item {

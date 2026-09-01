@@ -43,6 +43,7 @@ import {
   resolvePriceScaleTypeSetting,
   type ChartSettings,
 } from '../foundation/config/chartSettings'
+import { resolveMarketDataCacheMaxBytes } from '../data/buffer/marketDataPolicy'
 import {
   createDefaultRendererHostSync,
   type RendererBackend,
@@ -357,6 +358,11 @@ export class Chart {
       },
       this.kernel.data,
       this.kernel.dataManager,
+    )
+    this.dataManager.marketDataCache.setMaxBytes(
+      resolveMarketDataCacheMaxBytes(
+        this.kernel.settings.readonly.settings.peek().marketDataCacheMaxMiB,
+      ),
     )
 
     this.zoomController = new ChartZoomController(
@@ -743,6 +749,11 @@ export class Chart {
     this.kernel.settings.actions.patch(settings)
     const next = this.kernel.settings.readonly.settings.peek()
     this.interaction.onSettingsChanged(prev, next)
+    if (prev.marketDataCacheMaxMiB !== next.marketDataCacheMaxMiB) {
+      this.dataManager.marketDataCache.setMaxBytes(
+        resolveMarketDataCacheMaxBytes(next.marketDataCacheMaxMiB),
+      )
+    }
 
     if (
       prev.mainRightAxisTypeSetting !== next.mainRightAxisTypeSetting &&

@@ -136,6 +136,7 @@ export type {
   TimeShareSeries,
   TradingDate,
   VolumeUnit,
+  MarketDataCacheStats,
 } from '../data'
 
 // Heatmap controller (depth pipeline rendering half)
