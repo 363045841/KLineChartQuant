@@ -8,6 +8,7 @@ import { getRegisteredChartTools } from '../chartAgentController'
 import { CHART_AGENT_ERROR_CODES } from '../errors'
 
 import type { IndicatorInstance, SymbolSpec } from '../../../controllers/types'
+import type { BarSeries, TimeShareRange, TimeShareSeries } from '../../../data/provider/types'
 import type { KLineData } from '../../../foundation/types/price'
 
 const BAR_SELECTION = {
@@ -70,12 +71,61 @@ function createFixture() {
     },
   ])
   const queryIndicator = vi.fn(async () => 'RSI compact text')
-  const search = vi.fn(async () => [])
   const marketDataProviderRegistry = new MarketDataProviderRegistry()
+  const instrument = {
+    id: 'fixture:BTCUSDT',
+    sourceId: 'fixture',
+    symbol: 'BTCUSDT',
+    name: 'Bitcoin',
+    assetClass: 'crypto' as const,
+    exchange: 'BINANCE',
+    capabilities: {
+      bars: { periods: ['daily'] as const, adjustments: ['none'] as const },
+      timeShare: true,
+      timeShareRange: { maxTradingDays: 5 },
+    },
+  }
+  const search = vi.fn(async () => [instrument])
+  const fetchBars = vi.fn(async (): Promise<BarSeries> => ({
+      instrumentId: instrument.id,
+      period: 'daily',
+      adjustment: 'none',
+      timezone: 'UTC',
+      data: createBars(),
+      olderData: 'available',
+    }))
+  const fetchTimeShare = vi.fn(async (): Promise<TimeShareSeries> => ({
+    instrumentId: instrument.id,
+    tradingDate: '2026-09-01' as const,
+    timezone: 'UTC',
+    preClose: 100,
+    data: [],
+  }))
+  const fetchTimeShareRange = vi.fn(async (): Promise<TimeShareRange> => ({
+    instrumentId: instrument.id,
+    timezone: 'UTC',
+    requestedDays: 2,
+    olderData: 'available' as const,
+    days: [],
+  }))
   marketDataProviderRegistry.register({
-    source: { id: 'fixture', displayName: 'Fixture' },
+    source: {
+      id: 'fixture',
+      displayName: 'Fixture',
+      capabilities: {
+        assetClasses: ['crypto'],
+        bars: { periods: ['daily'], adjustments: ['none'] },
+        timeShare: true,
+        timeShareRange: { maxTradingDays: 5 },
+      },
+    },
     probe: async () => ({ status: 'online', checkedAt: 1 }),
-    catalog: { search },
+    catalog: {
+      search,
+    },
+    bars: { fetch: fetchBars },
+    timeShare: { fetch: fetchTimeShare },
+    timeShareRange: { fetch: fetchTimeShareRange },
   })
   const controller = createChartAgentController({
     chartId: 'chart-fixture',
@@ -98,6 +148,9 @@ function createFixture() {
     indicators,
     queryIndicator,
     search,
+    fetchBars,
+    fetchTimeShare,
+    fetchTimeShareRange,
   }
 }
 
@@ -211,7 +264,9 @@ describe('createChartAgentController', () => {
     const fixture = createFixture()
     const input = { keyword: '600519', limit: 20, sourceIds: ['fixture'] }
 
-    await expect(fixture.controller.searchInstruments(input)).resolves.toEqual([])
+    await expect(fixture.controller.searchInstruments(input)).resolves.toEqual([
+      expect.objectContaining({ symbol: 'BTCUSDT' }),
+    ])
     expect(fixture.search).toHaveBeenCalledWith({
       keyword: '600519',
       limit: 20,
@@ -248,5 +303,63 @@ describe('createChartAgentController', () => {
       limit: 100,
       signal: expect.any(AbortSignal),
     })
+  })
+
+  it('queries market data through the same decorated APIs without changing chart state', async () => {
+    const fixture = createFixture()
+    const signal = new AbortController().signal
+    const barsInput = {
+      symbol: 'BTCUSDT',
+      sourceId: 'fixture',
+      exchange: 'BINANCE',
+      assetClass: 'crypto' as const,
+      period: 'daily' as const,
+      adjustment: 'none' as const,
+      limit: 100,
+    }
+    const timeShareInput = {
+      symbol: 'BTCUSDT',
+      sourceId: 'fixture',
+      tradingDate: '2026-09-01' as const,
+    }
+    const rangeInput = {
+      symbol: 'BTCUSDT',
+      sourceId: 'fixture',
+      endTradingDate: '2026-09-01' as const,
+      days: 2,
+    }
+
+    const barsTool = getRegisteredChartTools().find((item) => item.config.name === 'market_bars_query')
+    const timeShareTool = getRegisteredChartTools().find(
+      (item) => item.config.name === 'market_timeshare_query',
+    )
+    const rangeTool = getRegisteredChartTools().find(
+      (item) => item.config.name === 'market_timeshare_range_query',
+    )
+
+    await expect(fixture.controller.queryBars(barsInput)).resolves.toMatchObject({
+      sourceId: 'fixture',
+      olderData: 'available',
+    })
+    await expect(
+      barsTool?.execute(fixture.controller, barsInput, { signal, progress: () => undefined }),
+    ).resolves.toMatchObject({ sourceId: 'fixture' })
+    await expect(fixture.controller.queryTimeShare(timeShareInput)).resolves.toMatchObject({
+      sourceId: 'fixture',
+    })
+    await expect(
+      timeShareTool?.execute(fixture.controller, timeShareInput, { signal, progress: () => undefined }),
+    ).resolves.toMatchObject({ sourceId: 'fixture' })
+    await expect(fixture.controller.queryTimeShareRange(rangeInput)).resolves.toMatchObject({
+      sourceId: 'fixture',
+    })
+    await expect(
+      rangeTool?.execute(fixture.controller, rangeInput, { signal, progress: () => undefined }),
+    ).resolves.toMatchObject({ sourceId: 'fixture' })
+
+    expect(fixture.fetchBars).toHaveBeenLastCalledWith(expect.objectContaining({ signal }))
+    expect(fixture.fetchTimeShare).toHaveBeenLastCalledWith(expect.objectContaining({ signal }))
+    expect(fixture.fetchTimeShareRange).toHaveBeenLastCalledWith(expect.objectContaining({ signal }))
+    expect(fixture.controller.getContext().symbol).toBe('BTCUSDT')
   })
 })

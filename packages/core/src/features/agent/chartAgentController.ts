@@ -4,6 +4,7 @@ import { Type } from 'typebox'
 import { KLineChartError } from '../../errors'
 import { lookupInstrumentsBySymbol, searchInstruments } from '../../data/provider/instrumentSearch'
 import type { MarketDataProviderRegistry } from '../../data/provider/registry'
+import { SourceRouter } from '../../data/provider/router'
 import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
 
 import { Tool, getRegisteredChartTools, type ChartToolExecutionContext } from './chartToolRegistry'
@@ -15,9 +16,16 @@ import type {
   ChartAgentContextSnapshot,
   ChartAgentController,
   ChartAgentTimeRange,
+  BarsQueryInput,
+  BarsQueryResult,
   IndicatorQueryInput,
+  TimeShareQueryInput,
+  TimeShareQueryResult,
+  TimeShareRangeQueryInput,
+  TimeShareRangeQueryResult,
 } from './types'
 import type { IndicatorInstance, SymbolSpec } from '../../controllers/types'
+import type { AssetClass, KLineAdjustment, KLinePeriod, TradingDate } from '../../data/provider/types'
 import type { DataStateModule } from '../../engine/state/dataState'
 
 interface ChartAgentControllerDependencies {
@@ -37,6 +45,37 @@ const InstrumentLookupToolParameters = Type.Object({
 })
 
 const INDICATOR_QUERY_MAX_LIMIT = 2000
+const KLINE_PERIOD_VALUES = [
+  '1min',
+  '5min',
+  '15min',
+  '30min',
+  '60min',
+  'daily',
+  'weekly',
+  'monthly',
+  'quarterly',
+  'yearly',
+] as const satisfies ReadonlyArray<KLinePeriod>
+const KLINE_ADJUSTMENT_VALUES = ['qfq', 'hfq', 'splits', 'none'] as const satisfies ReadonlyArray<KLineAdjustment>
+const ASSET_CLASS_VALUES = [
+  'stock',
+  'index',
+  'fund',
+  'etf',
+  'future',
+  'option',
+  'forex',
+  'crypto',
+  'unknown',
+] as const satisfies ReadonlyArray<AssetClass>
+
+const KLinePeriodToolParameter = Type.Union(KLINE_PERIOD_VALUES.map((value) => Type.Literal(value)))
+const KLineAdjustmentToolParameter = Type.Union(
+  KLINE_ADJUSTMENT_VALUES.map((value) => Type.Literal(value)),
+)
+const AssetClassToolParameter = Type.Union(ASSET_CLASS_VALUES.map((value) => Type.Literal(value)))
+const TradingDateToolParameter = Type.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$' })
 
 const IndicatorQueryToolParameters = Type.Object({
   definitionId: Type.String({ minLength: 1 }),
@@ -44,6 +83,34 @@ const IndicatorQueryToolParameters = Type.Object({
   from: Type.Optional(Type.Number()),
   to: Type.Optional(Type.Number()),
   limit: Type.Optional(Type.Integer({ minimum: 1, maximum: INDICATOR_QUERY_MAX_LIMIT })),
+})
+
+const BarsQueryToolParameters = Type.Object({
+  symbol: Type.String({ minLength: 1 }),
+  period: KLinePeriodToolParameter,
+  adjustment: KLineAdjustmentToolParameter,
+  limit: Type.Integer({ minimum: 1 }),
+  sourceId: Type.Optional(Type.String({ minLength: 1 })),
+  exchange: Type.Optional(Type.String({ minLength: 1 })),
+  assetClass: Type.Optional(AssetClassToolParameter),
+  before: Type.Optional(Type.Number()),
+})
+
+const TimeShareQueryToolParameters = Type.Object({
+  symbol: Type.String({ minLength: 1 }),
+  tradingDate: TradingDateToolParameter,
+  sourceId: Type.Optional(Type.String({ minLength: 1 })),
+  exchange: Type.Optional(Type.String({ minLength: 1 })),
+  assetClass: Type.Optional(AssetClassToolParameter),
+})
+
+const TimeShareRangeQueryToolParameters = Type.Object({
+  symbol: Type.String({ minLength: 1 }),
+  endTradingDate: TradingDateToolParameter,
+  days: Type.Integer({ minimum: 1 }),
+  sourceId: Type.Optional(Type.String({ minLength: 1 })),
+  exchange: Type.Optional(Type.String({ minLength: 1 })),
+  assetClass: Type.Optional(AssetClassToolParameter),
 })
 
 /** 将图表指标实例投影为可安全暴露给 Agent 的只读快照。 */
@@ -88,13 +155,15 @@ function requireTimestampRange(data: ReadonlyArray<{ readonly timestamp: number 
 
 /** 实现 UI 和 Agent 共用的图表查询 API。 */
 class ChartAgentControllerImpl implements ChartAgentController {
-  /** 创建图表 Agent facade，并保留 Core 领域依赖。 */
-  constructor(private readonly dependencies: ChartAgentControllerDependencies) {
-    this.context = computed(() => this.createContext())
-  }
-
   /** 图表状态的响应式只读上下文投影。 */
   readonly context: ReadonlySignal<ChartAgentContextSnapshot | null>
+  private readonly sourceRouter: SourceRouter
+
+  /** 创建图表 Agent facade，并使用同一 Provider Registry 查询行情。 */
+  constructor(private readonly dependencies: ChartAgentControllerDependencies) {
+    this.context = computed(() => this.createContext())
+    this.sourceRouter = new SourceRouter(dependencies.marketDataProviderRegistry)
+  }
 
   /** 从 StateKernel 派生当前图表的只读上下文。 */
   private createContext(): ChartAgentContextSnapshot | null {
@@ -178,6 +247,98 @@ class ChartAgentControllerImpl implements ChartAgentController {
       ...input,
       signal: context?.signal ?? input.signal,
     })
+  }
+
+  /** 查询任意品种的一页 K 线；UI 与 Agent 使用同一无状态 API。 */
+  @Tool({
+    name: 'market_bars_query',
+    label: 'Query market bars',
+    description:
+      'Fetch one page of market bars for any symbol without changing the chart. Specify period, adjustment, and limit; use before for cursor pagination.',
+    parameters: BarsQueryToolParameters,
+    safety: 'read-only',
+    executionMode: 'parallel',
+  })
+  async queryBars(
+    input: BarsQueryInput,
+    context?: ChartToolExecutionContext,
+  ): Promise<BarsQueryResult> {
+    const result = await this.sourceRouter.bars({
+      preferredSourceId: input.sourceId,
+      symbol: input.symbol,
+      exchange: input.exchange,
+      assetClass: input.assetClass,
+      period: input.period,
+      adjustment: input.adjustment,
+      limit: input.limit,
+      before: input.before,
+      signal: context?.signal,
+    })
+    return {
+      sourceId: result.provider.source.id,
+      instrument: result.instrument,
+      series: result.series,
+      olderData: result.series.olderData,
+    }
+  }
+
+  /** 查询任意品种单个交易日的分时；不读取或修改图表运行时状态。 */
+  @Tool({
+    name: 'market_timeshare_query',
+    label: 'Query market time share',
+    description:
+      'Fetch one trading day of intraday time-share data for any symbol without changing the chart.',
+    parameters: TimeShareQueryToolParameters,
+    safety: 'read-only',
+    executionMode: 'parallel',
+  })
+  async queryTimeShare(
+    input: TimeShareQueryInput,
+    context?: ChartToolExecutionContext,
+  ): Promise<TimeShareQueryResult> {
+    const result = await this.sourceRouter.timeShare({
+      preferredSourceId: input.sourceId,
+      symbol: input.symbol,
+      exchange: input.exchange,
+      assetClass: input.assetClass,
+      tradingDate: input.tradingDate as TradingDate,
+      signal: context?.signal,
+    })
+    return {
+      sourceId: result.provider.source.id,
+      instrument: result.instrument,
+      series: result.series,
+    }
+  }
+
+  /** 查询任意品种多个交易日的分时；不读取或修改图表运行时状态。 */
+  @Tool({
+    name: 'market_timeshare_range_query',
+    label: 'Query market time-share range',
+    description:
+      'Fetch multiple trading days of intraday time-share data for any symbol without changing the chart.',
+    parameters: TimeShareRangeQueryToolParameters,
+    safety: 'read-only',
+    executionMode: 'parallel',
+  })
+  async queryTimeShareRange(
+    input: TimeShareRangeQueryInput,
+    context?: ChartToolExecutionContext,
+  ): Promise<TimeShareRangeQueryResult> {
+    const result = await this.sourceRouter.timeShareRange({
+      preferredSourceId: input.sourceId,
+      symbol: input.symbol,
+      exchange: input.exchange,
+      assetClass: input.assetClass,
+      endTradingDate: input.endTradingDate as TradingDate,
+      days: input.days,
+      signal: context?.signal,
+    })
+    return {
+      sourceId: result.provider.source.id,
+      instrument: result.instrument,
+      range: result.series,
+    }
   }
 }
 
