@@ -168,6 +168,19 @@ describe('ChartDataManager.getComparisonViewLineRange', () => {
     expect(m.getComparisonViewLineRange({ start: 1, end: 3 })).toEqual({ min: 101, max: 102 })
   })
 
+  it('checks comparison coverage when the main series already covers the visible range', () => {
+    const m = loadMain({ symbol: 'MAIN', market: 'CN', period: 'daily', source: 'mock' })
+    m.setComparisonData('CMP', [cmpData[1]!, cmpData[2]!])
+    const comparisonManager = (m as unknown as {
+      _comparisonManager: { ensureRange: (firstVisibleTs: number) => void }
+    })._comparisonManager
+    const ensureRange = vi.spyOn(comparisonManager, 'ensureRange')
+
+    m.checkVisibleRangeGap()
+
+    expect(ensureRange).toHaveBeenCalledWith(mainData[0]!.timestamp)
+  })
+
   it('returns null when the visible window is outside the data', () => {
     const m = loadMain({ symbol: 'MAIN', market: 'CN', period: 'daily', source: 'mock' })
     m.setComparisonData('CMP', cmpData)

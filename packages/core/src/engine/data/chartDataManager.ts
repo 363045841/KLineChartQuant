@@ -808,7 +808,8 @@ checkVisibleRangeGap(): void {
     const range = this.getVisibleRangeOrNull()
     if (!rawRange || !range) return
 
-    let firstVisibleTs: number | undefined
+    const firstVisibleTs =
+      rawRange.start < 0 ? data[0]?.timestamp : data[range.start]?.timestamp
     const needsOlder =
       rawRange.start < 0 ||
       (range.start < data.length && (data[range.start]?.timestamp ?? 0) < loadedTimeRange.earliestTs)
@@ -822,9 +823,9 @@ checkVisibleRangeGap(): void {
           before: loadedTimeRange.earliestTs,
         })
       }
-      firstVisibleTs = rawRange.start < 0 ? (data[0]?.timestamp ?? undefined) : data[range.start]?.timestamp
     }
 
+    // 比较序列的历史覆盖独立于主序列，避免主图已覆盖时比较线出现缺口却不加载。
     if (firstVisibleTs === undefined) return
 
     this._comparisonManager.ensureRange(firstVisibleTs)
