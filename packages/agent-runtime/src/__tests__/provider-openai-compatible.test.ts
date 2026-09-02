@@ -394,6 +394,32 @@ describe('OpenAI-compatible runtime support', () => {
     },
   )
 
+  it('injects the current Asia/Shanghai date and time into the system prompt', async () => {
+    const { credentials, settings } = configuredStores()
+    await configure(credentials, settings)
+    const support = createOpenAiCompatibleRuntimeSupport({
+      credentials,
+      settings,
+      fetch: providerFetch(),
+      now: () => 1_700_000_000_000,
+    })
+
+    const plan = await support.createPlan({
+      sessionId: 'session-1',
+      runId: 'run-1',
+      turnId: 'turn-1',
+      lane: 'main',
+      prompt: 'Hello',
+      readOnly: true,
+      startedAt: 1,
+      userEntryId: 'user-1',
+    })
+
+    expect(plan.systemPrompt).toContain(
+      'Current date and time (Asia/Shanghai): 2023-11-15 06:13:20',
+    )
+  })
+
   it('migrates v1 persisted settings to explicit Chat Completions', () => {
     expect(
       parseOpenAiCompatibleProviderSettings({

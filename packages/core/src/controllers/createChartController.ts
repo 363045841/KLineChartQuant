@@ -419,6 +419,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const data = chart.data
   const dataLoading = chart.loading
   const dataError = chart.dataError
+  const marketDataCacheStats = chart.getMarketDataCache().stats
   const symbols = chart.symbols
 
   const indicators = computed(() => chart.indicators().map(mapIndicatorInstance))
@@ -491,6 +492,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     indicators,
     indicatorQuery: createIndicatorQuery({ dataState: chart.kernel.data }),
     marketDataProviderRegistry,
+    marketDataCache: chart.getMarketDataCache(),
   })
 
   let disposed = false
@@ -559,12 +561,17 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     chart.resetToFetcher(spec)
   }
 
+  function clearMarketDataCache(): void {
+    if (disposed) return
+    chart.getMarketDataCache().clear()
+  }
+
   function ensureDataRange(startTs: number): void {
     if (disposed) return
     const buf = chart.dataBuffer
     const loadedTimeRange = buf.loadedTimeRange
     if (!loadedTimeRange || startTs >= loadedTimeRange.earliestTs) return
-    buf.ensureRange(startTs, loadedTimeRange.earliestTs)
+    chart.ensureDataRange(startTs)
   }
 
   function startRangeSelection(timestamp: number): void {
@@ -943,6 +950,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     data,
     dataLoading,
     dataError,
+    marketDataCacheStats,
     symbols,
     theme: themeSignal,
     settings: settingsSignal,
@@ -974,6 +982,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     setCurrentPeriod,
     switchToTimeShareForDate,
     applyCustomData,
+    clearMarketDataCache,
     resetToFetcher,
     ensureDataRange,
     startRangeSelection,

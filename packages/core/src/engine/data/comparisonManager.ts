@@ -15,6 +15,13 @@ type BarsSelection = Extract<SeriesSelection, { kind: 'bars' }>
 export interface ComparisonHooks {
   selectionForSpec(spec: SymbolSpec): BarsSelection
   createBuffer(spec: SymbolSpec, selection: BarsSelection): KLineBuffer
+  loadBuffer(spec: SymbolSpec, selection: BarsSelection, buffer: KLineBuffer): void
+loadRange(
+    spec: SymbolSpec,
+    selection: BarsSelection,
+    buffer: KLineBuffer,
+    before: number,
+  ): void
   releaseSelection(selection: BarsSelection): void
   scheduleDraw(): void
   getSpecs(): ReadonlyArray<SymbolSpec>
@@ -54,7 +61,7 @@ export class ComparisonManager {
   }
 
   /** 按当前比较选择安装或移除订阅，并启动尚未加载的 Buffer。 */
-  reconcile(mainEarliest?: number): void {
+  reconcile(): void {
     const specs = this.hooks.getSpecs()
     const desired = new Map(
       specs.map((spec) => {
@@ -76,7 +83,7 @@ export class ComparisonManager {
         if (mounted) this.removeSubscriptions(key, false)
         this.mountSubscriptions(key, selection, buffer)
       }
-      if (!buffer.currentSpec) buffer.setSymbol(spec, mainEarliest)
+      if (!buffer.currentSpec) this.hooks.loadBuffer(spec, selection, buffer)
     }
 
     this.recomputeLoading()
@@ -111,12 +118,19 @@ export class ComparisonManager {
     return true
   }
 
-  /** 请求所有当前比较序列覆盖主图可见区左缘。 */
-  ensureRange(firstVisibleTs: number, windowEarliestTs: number): void {
+/** 请求所有当前比较序列覆盖主图可见区左缘；每次只向前拉取一页。 */
+  ensureRange(firstVisibleTs: number): void {
     for (const spec of this.hooks.getSpecs()) {
-      this.repository
-        .getBars(this.hooks.selectionForSpec(spec))
-        ?.ensureRange(firstVisibleTs, windowEarliestTs)
+      const selection = this.hooks.selectionForSpec(spec)
+      const buffer = this.repository.getBars(selection)
+      if (
+        buffer &&
+        buffer.loadedTimeRange &&
+        !buffer.loading.peek() &&
+        firstVisibleTs < buffer.loadedTimeRange.earliestTs
+      ) {
+        this.hooks.loadRange(spec, selection, buffer, buffer.loadedTimeRange.earliestTs)
+      }
     }
   }
 

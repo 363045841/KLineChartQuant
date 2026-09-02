@@ -47,6 +47,7 @@
           :alert-controller="controller"
           :effective-settings="chartSettings"
           :renderer-runtime="rendererRuntime"
+          :market-data-cache-stats="marketDataCacheStats"
           :drawing-tool-id="drawingToolId"
           :is-range-select-mode="isRangeSelectMode"
           :aggregation-sources="aggregationSources"
@@ -58,6 +59,7 @@
           @zoom-in="applyZoomToLevel(zoomLevel + 1)"
           @zoom-out="applyZoomToLevel(zoomLevel - 1)"
           @settings-change="handleSettingsChange"
+          @clear-market-data-cache="controller?.clearMarketDataCache()"
           @toggle-aggregation-source="setAggregationSourceEnabled"
           @update-source-endpoint="setAggregationSourceEndpoint"
         />
@@ -738,6 +740,11 @@
     controller,
     (ctrl) => ctrl.symbols,
     () => [],
+  )
+  const marketDataCacheStats = useControllerSignal(
+    controller,
+    (ctrl) => ctrl.marketDataCacheStats,
+    () => ({ usedBytes: 0, maxBytes: 0, entryCount: 0 }),
   )
   const kLineLevel = computed(() => {
     if (chartMode.value === 'timeshare') return 'timeshare'
@@ -1550,8 +1557,9 @@
       const loading = ctrl.dataLoading.peek()
       if (loading) {
         symbolStatus.value = 'loading'
-      } else if (symbolStatus.value === 'loading') {
-        symbolStatus.value = 'error'
+      } else {
+        // 历史补页正常完成同样会结束 loading，只有 Core 发布错误时才显示失败状态。
+        symbolStatus.value = ctrl.dataError.peek() ? 'error' : 'ready'
       }
     })
 

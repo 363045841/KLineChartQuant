@@ -64,6 +64,18 @@ describe('searchInstruments', () => {
     expect(secondSearch).toHaveBeenCalledOnce()
   })
 
+  it('rejects unavailable source IDs with the enabled catalog source IDs needed to retry', async () => {
+    const registry = new MarketDataProviderRegistry()
+    registry.register(createProvider('first', vi.fn()))
+    registry.register(createProvider('second', vi.fn()))
+
+    await expect(
+      searchInstruments(registry, { keyword: '600519', limit: 10, sourceIds: ['akshare'] }),
+    ).rejects.toThrow(
+      'sourceIds akshare are unavailable for instrument lookup. Available sourceIds: first, second. Omit sourceIds to search every enabled source.',
+    )
+  })
+
   it('returns available results when a source search fails', async () => {
     const registry = new MarketDataProviderRegistry()
     registry.register(createProvider('first', vi.fn().mockRejectedValue(new Error('offline'))))

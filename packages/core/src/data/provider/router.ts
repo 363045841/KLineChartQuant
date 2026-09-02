@@ -35,6 +35,7 @@ export interface SourceRouterBarsRequest extends SourceRouterInstrumentIdentity 
   adjustment: KLineAdjustment
   limit: number
   before?: number
+  signal?: AbortSignal
 }
 
 /** 分时流转请求。 */
@@ -43,6 +44,7 @@ export interface SourceRouterTimeShareRequest extends SourceRouterInstrumentIden
   instrument?: InstrumentDescriptor
   tradingDate?: TradingDate
   resolveTradingDate?: (instrument: InstrumentDescriptor) => TradingDate
+  signal?: AbortSignal
 }
 
 /** 多日分时流转请求。 */
@@ -52,6 +54,7 @@ export interface SourceRouterTimeShareRangeRequest extends SourceRouterInstrumen
   endTradingDate?: TradingDate
   resolveEndTradingDate?: (instrument: InstrumentDescriptor) => TradingDate
   days: number
+  signal?: AbortSignal
 }
 
 /** 单次源尝试的结果，用于链耗尽后的诊断。 */
@@ -118,6 +121,7 @@ async function resolveInstrument(
   identity: SourceRouterInstrumentIdentity,
   attached: InstrumentDescriptor | undefined,
   capability: 'bars' | 'timeShare' | 'timeShareRange',
+  signal?: AbortSignal,
 ): Promise<InstrumentDescriptor> {
   if (
     attached?.sourceId === provider.source.id &&
@@ -151,6 +155,7 @@ async function resolveInstrument(
     keyword: identity.symbol,
     limit: 20,
     assetClasses: identity.assetClass ? [identity.assetClass] : undefined,
+    signal,
   })
   const instrument = candidates.find(
     (candidate) =>
@@ -184,9 +189,10 @@ async function resolveInstrument(
 async function discoverCapabilities(
   registry: MarketDataProviderRegistry,
   provider: MarketDataProvider,
+  signal?: AbortSignal,
 ): Promise<void> {
   if (registry.getCapabilities(provider.source.id) !== undefined) return
-  const result = await provider.probe()
+  const result = await provider.probe(signal)
   if (result.capabilities !== undefined) {
     registry.setCapabilities(provider.source.id, result.capabilities)
   }
@@ -200,6 +206,7 @@ export class SourceRouter {
   private async getCandidates(
     query: SourceCapabilityQuery,
     preferredSourceId: string | undefined,
+    signal?: AbortSignal,
   ): Promise<ReadonlyArray<MarketDataProvider>> {
     const enabled = this.registry.getEnabledByPriority()
     const explicitSource =
@@ -210,7 +217,7 @@ export class SourceRouter {
       const provider = enabled.find((candidate) => candidate.source.id === explicitSource)
       if (!provider) return []
       if (this.registry.getCapabilities(provider.source.id) === undefined) {
-        await discoverCapabilities(this.registry, provider)
+        await discoverCapabilities(this.registry, provider, signal)
       }
       return this.registry.getEnabledByCapability(query).includes(provider) ? [provider] : []
     }
@@ -218,7 +225,7 @@ export class SourceRouter {
     await Promise.all(
       enabled
         .filter((provider) => this.registry.getCapabilities(provider.source.id) === undefined)
-        .map((provider) => discoverCapabilities(this.registry, provider).catch(() => undefined)),
+        .map((provider) => discoverCapabilities(this.registry, provider, signal).catch(() => undefined)),
     )
     const filtered = this.registry.getEnabledByCapability(query)
     return filtered
@@ -231,13 +238,16 @@ export class SourceRouter {
     preferredSourceId: string | undefined,
     attached: InstrumentDescriptor | undefined,
     capability: 'bars' | 'timeShare' | 'timeShareRange',
+    signal: AbortSignal | undefined,
     fetch: (provider: MarketDataProvider, instrument: InstrumentDescriptor) => Promise<T>,
   ): Promise<RoutedMarketData<T>> {
     const attempts: SourceRouteAttempt[] = []
-    const candidates = await this.getCandidates(query, preferredSourceId)
+    signal?.throwIfAborted()
+    const candidates = await this.getCandidates(query, preferredSourceId, signal)
     for (const provider of candidates) {
       try {
-        const instrument = await resolveInstrument(provider, identity, attached, capability)
+        signal?.throwIfAborted()
+        const instrument = await resolveInstrument(provider, identity, attached, capability, signal)
         const series = await fetch(provider, instrument)
         return { series, provider, instrument, attempts: [...attempts] }
       } catch (error) {
@@ -263,6 +273,7 @@ export class SourceRouter {
       request.preferredSourceId,
       request.instrument,
       'bars',
+      request.signal,
       async (provider, instrument) => {
         if (!provider.bars) {
           throw new KLineChartError(
@@ -286,6 +297,7 @@ export class SourceRouter {
           adjustment: request.adjustment,
           limit: request.limit,
           before: request.before,
+          signal: request.signal,
         })
       },
     )
@@ -301,6 +313,7 @@ export class SourceRouter {
       request.preferredSourceId,
       request.instrument,
       'timeShare',
+      request.signal,
       async (provider, instrument) => {
         if (!provider.timeShare) {
           throw new KLineChartError(
@@ -315,7 +328,7 @@ export class SourceRouter {
             `[${provider.source.id}] tradingDate is required for timeShare`,
           )
         }
-        return provider.timeShare.fetch({ instrument, tradingDate })
+        return provider.timeShare.fetch({ instrument, tradingDate, signal: request.signal })
       },
     )
   }
@@ -330,6 +343,7 @@ export class SourceRouter {
       request.preferredSourceId,
       request.instrument,
       'timeShareRange',
+      request.signal,
       async (provider, instrument) => {
         if (!provider.timeShareRange) {
           throw new KLineChartError(
@@ -345,7 +359,12 @@ export class SourceRouter {
             `[${provider.source.id}] endTradingDate is required for timeShareRange`,
           )
         }
-        return provider.timeShareRange.fetch({ instrument, endTradingDate, days: request.days })
+        return provider.timeShareRange.fetch({
+          instrument,
+          endTradingDate,
+          days: request.days,
+          signal: request.signal,
+        })
       },
     )
   }

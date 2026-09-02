@@ -191,9 +191,9 @@ flowchart TB
 
 1. 绑定层调用 `controller.setSymbols(spec)` 或注入 `customData`。
 2. `Chart` 通过 `ChartDataManager` 在 `SeriesRepository` 中定位 / 创建对应 Buffer。
-3. `FetchScheduler` 根据可见区缺口向对应 provider 发起请求（HTTP 或 WebSocket）；
-   行情数据从后端流入 Buffer。
-4. Buffer 数据变更经订阅回调更新 StateKernel 的 data 信号，并触发
+3. 图表与 Agent 共用图表实例级 `MarketDataCache`；它根据 latest 或时间范围处理缓存覆盖、
+   Provider cursor 分页、重试与请求去重。
+4. `MarketDataCache` 将结果写入图表 Buffer 快照；Buffer 数据变更经订阅回调更新 StateKernel 的 data 信号，并触发
    `scheduleDraw()`。
 
 ### 4.2 渲染一帧

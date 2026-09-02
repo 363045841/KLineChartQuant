@@ -157,11 +157,13 @@
     :show="showSettings"
     :initial-settings="appliedSettings"
     :renderer-runtime="rendererRuntime"
+    :market-data-cache-stats="marketDataCacheStats"
     :aggregation-sources="aggregationSources"
     :enabled-source-names="enabledSourceNames"
     :source-endpoints="sourceEndpoints"
     @close="showSettings = false"
     @confirm="handleConfirmSettings"
+    @clear-market-data-cache="emit('clearMarketDataCache')"
     @toggle-aggregation-source="onToggleAggregationSource"
     @update-source-endpoint="onUpdateSourceEndpoint"
   />
@@ -174,7 +176,7 @@
 </template>
 
 <script setup lang="ts">
-  import type { ChartController } from '@363045841yyt/klinechart-core'
+  import type { ChartController, MarketDataCacheStats } from '@363045841yyt/klinechart-core'
   import {
     SETTINGS_STORAGE_KEY,
     resolveRuntimeSettings,
@@ -264,6 +266,7 @@
     (e: 'zoomIn'): void
     (e: 'zoomOut'): void
     (e: 'settingsChange', settings: ChartSettings): void
+    (e: 'clearMarketDataCache'): void
     (e: 'toggleAggregationSource', name: string, enabled: boolean): void
     (e: 'updateSourceEndpoint', name: string, patch: Partial<AggregationSourceEndpoint>): void
   }>()
@@ -274,6 +277,7 @@
       alertController?: ChartController | null
       effectiveSettings?: ChartSettings
       rendererRuntime?: RendererBackendRuntime | null
+      marketDataCacheStats?: MarketDataCacheStats
       /** kernel drawingTool 镜像；高亮以它为准 */
       drawingToolId?: string
       /** range-select 本地模式 */

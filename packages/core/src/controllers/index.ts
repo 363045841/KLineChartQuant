@@ -106,7 +106,6 @@ export {
 } from '../data'
 export type {
   LoadedTimeRange,
-  BarPageRequest,
   DepthSource,
   DepthDelta,
   DepthSnapshot,
@@ -137,6 +136,7 @@ export type {
   TimeShareSeries,
   TradingDate,
   VolumeUnit,
+  MarketDataCacheStats,
 } from '../data'
 
 // Heatmap controller (depth pipeline rendering half)

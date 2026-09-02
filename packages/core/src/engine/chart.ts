@@ -43,6 +43,7 @@ import {
   resolvePriceScaleTypeSetting,
   type ChartSettings,
 } from '../foundation/config/chartSettings'
+import { resolveMarketDataCacheMaxBytes } from '../data/buffer/marketDataPolicy'
 import {
   createDefaultRendererHostSync,
   type RendererBackend,
@@ -357,6 +358,11 @@ export class Chart {
       },
       this.kernel.data,
       this.kernel.dataManager,
+    )
+    this.dataManager.marketDataCache.setMaxBytes(
+      resolveMarketDataCacheMaxBytes(
+        this.kernel.settings.readonly.settings.peek().marketDataCacheMaxMiB,
+      ),
     )
 
     this.zoomController = new ChartZoomController(
@@ -743,6 +749,11 @@ export class Chart {
     this.kernel.settings.actions.patch(settings)
     const next = this.kernel.settings.readonly.settings.peek()
     this.interaction.onSettingsChanged(prev, next)
+    if (prev.marketDataCacheMaxMiB !== next.marketDataCacheMaxMiB) {
+      this.dataManager.marketDataCache.setMaxBytes(
+        resolveMarketDataCacheMaxBytes(next.marketDataCacheMaxMiB),
+      )
+    }
 
     if (
       prev.mainRightAxisTypeSetting !== next.mainRightAxisTypeSetting &&
@@ -1050,6 +1061,16 @@ export class Chart {
   /** 获取当前数据源（供 renderers 和 interaction 使用） */
   getData(): KLineData[] {
     return this.dataManager.getData()
+  }
+
+  /** 返回图表与 Agent 共用的实例级行情缓存。 */
+  getMarketDataCache(): import('../data/buffer/marketDataCache').MarketDataCache {
+    return this.dataManager.marketDataCache
+  }
+
+  /** 请求当前图表缓存覆盖指定左边界。 */
+  ensureDataRange(startTs: number): void {
+    this.dataManager.ensureDataRange(startTs)
   }
 
   /** 获取渲染数据源（分时图下为 TimeShareData，K线图为 KLineData） */

@@ -19,8 +19,9 @@ import {
 function fixture(
   responses: Parameters<ReturnType<typeof fauxProvider>['setResponses']>[0],
   tools: RuntimeToolDefinition[] = [],
+  tokensPerSecond = 10_000,
 ) {
-  const faux = fauxProvider({ tokensPerSecond: 10_000, tokenSize: { min: 1, max: 1 } })
+  const faux = fauxProvider({ tokensPerSecond, tokenSize: { min: 1, max: 1 } })
   faux.setResponses(responses)
   const models = createModels()
   models.setProvider(faux.provider)
@@ -206,11 +207,20 @@ describe('PiRunDriver', () => {
   })
 
   it('maps a Provider deadline to a distinct stable error', async () => {
-    const { plan } = fixture([fauxAssistantMessage('x'.repeat(2_000))])
+    const { plan } = fixture([fauxAssistantMessage('x')], [], 1)
     plan.timeoutMs = 1
     await expect(new PiRunDriver().run(plan, () => undefined)).rejects.toMatchObject({
       code: 'DEADLINE_EXCEEDED',
     } satisfies Partial<AgentRuntimeError>)
+  })
+
+  it('refreshes the deadline while the Provider streams output', async () => {
+    const { plan } = fixture([fauxAssistantMessage('x'.repeat(5))], [], 100)
+    plan.timeoutMs = 15
+
+    await expect(new PiRunDriver().run(plan, () => undefined)).resolves.toMatchObject({
+      text: 'xxxxx',
+    })
   })
 
   it('propagates a Provider deadline to an active tool AbortSignal', async () => {

@@ -38,11 +38,25 @@ export async function searchInstruments(
   request: InstrumentSearchRequest,
 ): Promise<ReadonlyArray<InstrumentDescriptor>> {
   const selectedSourceIds = request.sourceIds?.map((sourceId) => sourceId.trim()).filter(Boolean)
-  const selectedSources = selectedSourceIds ? new Set(selectedSourceIds) : undefined
-  const providers = registry
+  const selectedSources = selectedSourceIds?.length ? new Set(selectedSourceIds) : undefined
+  const catalogProviders = registry
     .getEnabledByPriority()
-    .filter((provider) => !selectedSources || selectedSources.has(provider.source.id))
     .filter((provider) => provider.catalog !== undefined)
+  const availableSourceIds = catalogProviders.map((provider) => provider.source.id)
+  if (selectedSources) {
+    const unavailableSourceIds = [...selectedSources].filter(
+      (sourceId) => !availableSourceIds.includes(sourceId),
+    )
+    if (unavailableSourceIds.length > 0) {
+      throw new KLineChartError(
+        'INVALID_PARAM',
+        `[InstrumentSearch] sourceIds ${unavailableSourceIds.join(', ')} are unavailable for instrument lookup. Available sourceIds: ${availableSourceIds.join(', ') || 'none'}. Omit sourceIds to search every enabled source.`,
+      )
+    }
+  }
+  const providers = catalogProviders.filter(
+    (provider) => !selectedSources || selectedSources.has(provider.source.id),
+  )
 
   if (providers.length === 0) return []
 

@@ -16,7 +16,7 @@ import type { AssistantMessage, Usage } from '@earendil-works/pi-ai'
 
 const DEFAULT_TOOL_TURN_LIMIT = 8
 const HARD_TOOL_TURN_LIMIT = 12
-const DEFAULT_TIMEOUT_MS = 120_000
+const DEFAULT_TIMEOUT_MS = 30_000
 
 /** 判断 Pi 消息是否为助手消息，供事件投影和错误分类使用。 */
 function isAssistant(message: unknown): message is AssistantMessage {
@@ -177,7 +177,7 @@ export class PiRunDriver {
           plan.systemPrompt ??
           `You are the KLineChartQuant chart analyst. Use only supplied tools. Scope: ${JSON.stringify(plan.scope)}.`,
         model: plan.model,
-        thinkingLevel: 'medium',
+        thinkingLevel: 'low',
         tools,
         messages: [...(plan.transcript ?? [])],
       },
@@ -198,9 +198,21 @@ export class PiRunDriver {
     })
     this.activeAgent = agent
 
+    let timedOut = false
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    // 运行超时按最近一次 Pi 活动计算，流式输出和工具进度都表明任务仍在推进。
+    const refreshDeadline = () => {
+      if (timeout !== undefined) clearTimeout(timeout)
+      timeout = setTimeout(() => {
+        timedOut = true
+        agent.abort()
+      }, timeoutMs)
+    }
+
     const thinkingMessageIds = new Map<number, string>()
     // 订阅 Pi 原始事件并按 UI 协议投影；文本和工具数据在离开驱动器前脱敏。
     const unsubscribe = agent.subscribe(async (event) => {
+      refreshDeadline()
       if (event.type === 'message_start' && isAssistant(event.message)) {
         assistantMessageId = this.id()
         assistantStarted = false
@@ -275,12 +287,8 @@ export class PiRunDriver {
       })
     })
 
-    let timedOut = false
     // 统一通过 Pi 的 abort 路径中断，确保 Provider 与工具都能收到取消信号。
-    const timeout = setTimeout(() => {
-      timedOut = true
-      agent.abort()
-    }, timeoutMs)
+    refreshDeadline()
 
     try {
       await agent.prompt(plan.prompt)
@@ -333,7 +341,7 @@ export class PiRunDriver {
       throw toAgentRuntimeError(error)
     } finally {
       // 无论结束原因如何，都释放计时器、订阅和活动运行所有权。
-      clearTimeout(timeout)
+      if (timeout !== undefined) clearTimeout(timeout)
       unsubscribe()
       this.activeAgent = undefined
     }

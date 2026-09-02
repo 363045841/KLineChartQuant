@@ -7,8 +7,8 @@
 图表渲染层需要"窗口内有什么数据"，而不应关心数据从哪来、怎么拉、失败了怎么办。数据层把这些问题收敛到一处：
 
 1. 屏蔽多数据源（gotdx / BaoStock / TradingView / Mock）的协议差异。
-2. 提供统一的增量加载与缓存合并，避免滚动时重复拉取。
-3. 统一处理重试、错误、加载状态，供 UI 展示。
+2. 通过图表实例级内存缓存统一增量加载与缓存合并，避免滚动与 Agent 重复拉取。
+3. 在缓存层统一处理分页、重试、错误和加载状态。
 4. 让图表运行时只通过统一 Provider 取数，避免第二套 Fetcher 契约。
 
 ## 结构
@@ -16,7 +16,7 @@
 ```
 data/
 ├── index.ts          # 数据层公共出口：re-export 各子模块，副作用注册内置数据源
-├── buffer/           # 数据缓冲层：K 线/分时的增量加载、缓存合并、加载状态
+├── buffer/           # 行情缓存：覆盖策略、分页、重试与图表快照适配
 ├── depth/            # 深度数据：盘口订单簿（binance SSE + 热力图连接器）
 └── provider/         # 统一行情 Provider 体系：注册表、数据源元数据、wire 协议、各源装配
     ├── registry.ts       # MarketDataProviderRegistry：Provider 注册 + 运行时配置（enabled/baseUrl）
@@ -30,15 +30,14 @@ data/
 
 ### buffer/ — 数据缓冲层
 
-面向图表内部取数的核心。组合 `KLineDataStore`（缓存合并）、`FetchScheduler`（请求串行化）、`TimeKeyIndex`（月/日索引），对外暴露反应式 `data / loading / lastError` 信号。
+面向 UI、图表和 Agent 的统一行情缓存。`MarketDataCache` 以 `limit`/`before` 游标直接提供 K 线分页、重试和 in-flight 去重；`DataBuffer` / `TimeShareBuffer` 只将查询结果投影为图表响应式快照。
 
-- `dataBuffer.ts`：K 线增量缓冲，支持初始加载与向前滚动补拉（`ensureRange`）。
-- `timeShareBuffer.ts`：分时缓冲，按交易日拉取点列并携带昨收元数据。
-- `dataBuffer.effects.ts`：取数 Effect 编排（Service tag、重试退避、初始窗口天数）。
-- `dataBufferTypes.ts`：缓冲层共享契约（`DataBufferLike` / `KLineBuffer` / `TimeShareBuffer`）。
-- `kLineDataStore.ts` / `timeKeyIndex.ts` / `fetchScheduler.ts`：存储合并、时间索引、调度器。
+- `marketDataCache.ts`：统一查询、内存缓存、`limit`/`before` 游标分页、重试与请求去重。
+- `dataBuffer.ts` / `timeShareBuffer.ts`：图表数据、loading 和 error 快照适配。
+- `marketDataPolicy.ts`：页大小、初始窗口和重试退避策略。
+- `kLineDataStore.ts` / `timeKeyIndex.ts`：K 线快照合并与时间轴索引。
 
-K 线与分时缓冲只通过 `setRequestFetch` 取数，由 `chartDataManager` 注入 `SourceRouter`。
+UI、Agent 与 `ChartDataManager` 都通过同一 `MarketDataCache` 取数；缓冲对象不接收 fetcher。
 
 ### depth/ — 深度数据
 

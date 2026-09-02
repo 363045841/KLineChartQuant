@@ -10,7 +10,7 @@ type ReadonlyControllerSignal<T> = {
 /** 订阅 Controller 信号并返回只读 Vue computed，不镜像业务状态。 */
 export function useControllerSignal<T>(
   controllerRef: Ref<ChartController | null>,
-  select: (controller: ChartController) => ReadonlyControllerSignal<T>,
+  select: (controller: ChartController) => ReadonlyControllerSignal<T> | undefined,
   fallback: () => T,
 ): ComputedRef<T> {
   const version = ref(0)
@@ -21,7 +21,12 @@ export function useControllerSignal<T>(
         version.value++
         return
       }
-      const unsubscribe = select(controller).subscribe(() => {
+      const signal = select(controller)
+      if (!signal) {
+        version.value++
+        return
+      }
+      const unsubscribe = signal.subscribe(() => {
         version.value++
       })
       version.value++
@@ -32,6 +37,7 @@ export function useControllerSignal<T>(
   return computed(() => {
     void version.value
     const controller = controllerRef.value
-    return controller ? select(controller).peek() : fallback()
+    const signal = controller ? select(controller) : undefined
+    return signal ? signal.peek() : fallback()
   })
 }

@@ -41,6 +41,8 @@ import type { FetchFunction } from '@earendil-works/pi-ai'
 
 const MAX_CATALOG_MODELS = 2_000
 const MAX_MODEL_ID_LENGTH = 256
+/** Agent 参照行情交易日与盘中的固定时区。 */
+const AGENT_REFERENCE_TIMEZONE = 'Asia/Shanghai'
 
 /** 模型目录中经过运行时校验的最小模型描述。 */
 interface CatalogModel {
@@ -98,6 +100,31 @@ function safeProviderError(error: unknown): AgentRuntimeError {
 /** 计算非负耗时，防御测试时钟或系统时钟回拨。 */
 function elapsed(now: () => number, startedAt: number): number {
   return Math.max(0, now() - startedAt)
+}
+
+/** 将毫秒时间戳格式化为行情时区的可读日期时间，供系统提示词注入。 */
+function formatReferenceTime(timestamp: number): string {
+  const parts = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: AGENT_REFERENCE_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date(timestamp))
+  const values: Record<string, string> = {}
+  for (const part of parts) values[part.type] = part.value
+  return `${values.year}-${values.month}-${values.day} ${values.hour}:${values.minute}:${values.second}`
+}
+
+/** 构造注入当前行情时间参照的系统提示词。 */
+function createSystemPrompt(hasTools: boolean, referenceTime: string): string {
+  const base = `You are the KLineChartQuant financial analysis Agent. Current date and time (${AGENT_REFERENCE_TIMEZONE}): ${referenceTime}.`
+  return hasTools
+    ? `${base} Use the supplied chart tools when chart evidence is needed. Do not claim to have changed the chart: the available tools are read-only.`
+    : `${base} No chart tools are available in this build. Do not claim to have read or changed the chart. Answer only from user-provided text and state limitations clearly.`
 }
 
 /**
@@ -425,10 +452,7 @@ export function createOpenAiCompatibleRuntimeSupport(
           }),
         ),
       classifyProviderError: (message) => adapter.classifyStreamError(message, observation),
-      systemPrompt:
-        tools.length > 0
-          ? 'You are the KLineChartQuant financial analysis Agent. Use the supplied chart tools when chart evidence is needed. Do not claim to have changed the chart: the available tools are read-only.'
-          : 'You are the KLineChartQuant financial analysis Agent. No chart tools are available in this build. Do not claim to have read or changed the chart. Answer only from user-provided text and state limitations clearly.',
+      systemPrompt: createSystemPrompt(tools.length > 0, formatReferenceTime(now())),
     }
   }
 

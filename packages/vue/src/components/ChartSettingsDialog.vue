@@ -50,21 +50,43 @@
         </template>
       </CollapsibleSection>
 
-      <!-- 聚合源入口：主图设置下方，与颜色配置同为 nav-item -->
-      <div class="settings-item nav-item" @click="showAggregationSourceModal = true">
-        <span>聚合源管理</span>
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          width="16"
-          height="16"
-          class="nav-arrow"
-        >
-          <path d="M9 18l6-6-6-6" />
-        </svg>
-      </div>
+<CollapsibleSection
+        label="数据源"
+        :expanded="expandedSections.dataSource"
+        @toggle="toggleSection('dataSource')"
+      >
+        <div class="settings-item">
+          <span>缓存上限</span>
+          <Dropdown
+            :model-value="String(settings.marketDataCacheMaxMiB)"
+            :options="cacheLimitOptions"
+            size="sm"
+            min-width="100px"
+            @update:model-value="settings.marketDataCacheMaxMiB = Number($event)"
+          />
+        </div>
+        <div class="settings-item cache-usage">
+          <span>当前用量</span>
+          <span>{{ cacheUsageText }}</span>
+        </div>
+<div class="cache-actions">
+          <button type="button" class="settings-btn cancel" @click="clearCache">清除缓存</button>
+        </div>
+        <div class="settings-item nav-item" @click="showAggregationSourceModal = true">
+          <span>聚合源管理</span>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            width="16"
+            height="16"
+            class="nav-arrow"
+          >
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </div>
+      </CollapsibleSection>
 
       <CollapsibleSection
         label="样式 / 颜色"
@@ -214,6 +236,7 @@
 
 <script setup lang="ts">
   import { normalizeColorPresetSettings } from '@363045841yyt/klinechart-core'
+  import type { MarketDataCacheStats } from '@363045841yyt/klinechart-core'
   import {
     DEFAULT_SETTINGS,
     SETTINGS_STORAGE_KEY,
@@ -239,6 +262,7 @@
       show: boolean
       initialSettings?: ChartSettings
       rendererRuntime?: RendererBackendRuntime | null
+      marketDataCacheStats?: MarketDataCacheStats
       aggregationSources?: ReadonlyArray<
         import('../composables/useAggregationSources').AggregationSourceDefinition
       >
@@ -255,6 +279,7 @@
   const emit = defineEmits<{
     (e: 'close'): void
     (e: 'confirm', settings: ChartSettings): void
+    (e: 'clearMarketDataCache'): void
     (e: 'toggleAggregationSource', name: string, enabled: boolean): void
     (e: 'updateSourceEndpoint', name: string, patch: Partial<AggregationSourceEndpoint>): void
   }>()
@@ -268,16 +293,21 @@
   const styleSettings = computed(
     () => DEFAULT_SETTINGS.filter((s) => s.group === 'style') as unknown as SettingItem[],
   )
+  const cacheLimitOptions = [50, 100, 150, 200, 500].map((value) => ({
+    value: String(value),
+    label: `${value} MiB`,
+  }))
   const openSourceCredits = getOpenSourceCredits()
 
-  type SettingsSectionId = 'main' | 'style' | 'experimental' | 'opensource'
+  type SettingsSectionId = 'main' | 'style' | 'experimental' | 'dataSource' | 'opensource'
 
-  /** 主图+样式默认展开；实验+开源默认折叠。不持久化，每次打开弹窗重置 */
+/** 所有分组默认收起，每次打开弹窗重置。 */
   function createDefaultExpandedSections(): Record<SettingsSectionId, boolean> {
     return {
-      main: true,
-      style: true,
+      main: false,
+      style: false,
       experimental: false,
+      dataSource: false,
       opensource: false,
     }
   }
@@ -337,6 +367,15 @@
             : runtime.status
     return status ? `当前有效：${runtime.effective}（${status}）` : `当前有效：${runtime.effective}`
   })
+  const cacheUsageText = computed(() => {
+    const stats = props.marketDataCacheStats
+    if (!stats) return '尚未初始化'
+    return `${formatBytes(stats.usedBytes)} / ${formatBytes(stats.maxBytes)}（${stats.entryCount} 项）`
+  })
+
+  function formatBytes(bytes: number): string {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`
+  }
 
   const settings = ref<ChartSettings>(loadSettings())
 
@@ -365,6 +404,10 @@
 
   function confirmSettings() {
     emit('confirm', { ...settings.value })
+  }
+
+  function clearCache() {
+    emit('clearMarketDataCache')
   }
 </script>
 
@@ -436,6 +479,22 @@
   .settings-item.runtime-hint:hover {
     background: transparent;
   }
+
+  .settings-item.cache-usage {
+    cursor: default;
+    color: var(--klc-color-axis-text);
+  }
+
+  .settings-item.cache-usage:hover {
+    background: transparent;
+  }
+
+  .cache-actions {
+    padding: 0 12px 8px;
+    display: flex;
+    justify-content: flex-end;
+  }
+
 
   a.settings-item.credit-item {
     cursor: pointer;

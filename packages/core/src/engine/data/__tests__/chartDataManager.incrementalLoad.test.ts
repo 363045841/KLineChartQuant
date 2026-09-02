@@ -212,18 +212,94 @@ describe('ChartDataManager incremental load', () => {
     await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
     expect(dataState.readonly.loading.peek()).toBe(false)
 
-    manager.dataBuffer.ensureRange(initialStart - 30 * MS_PER_DAY, initialStart)
+    manager.ensureDataRange(initialStart - 30 * MS_PER_DAY)
 
     await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
     await vi.waitFor(() => {
       expect(dataState.readonly.loading.peek()).toBe(false)
       expect(dataManagerState.readonly.pendingIncrementalLoad.peek().count).toBe(0)
     })
-    const hint = document.querySelector<HTMLDivElement>('.klc-incremental-load-hint')
-    expect(hint).not.toBeNull()
-    expect(hint!.style.opacity).toBe('1')
-    expect(hint!.style.left).toBe('800px')
-    expect(hint!.style.background).toContain('--klc-color-selection-fill')
+    expect(fetchCount).toBe(2)
+    expect(manager.getData()[0]?.timestamp).toBe(initialStart - 90 * MS_PER_DAY)
+  })
+
+  it('does not queue duplicate history merges while one page is loading', async () => {
+    const now = Date.now()
+    const initialStart = now - 365 * MS_PER_DAY
+    let fetchCount = 0
+    let resolveOlder!: (value: {
+      instrumentId: string
+      period: 'daily'
+      adjustment: 'none'
+      timezone: string
+      olderData: 'exhausted'
+      data: KLineData[]
+    }) => void
+    registerTestProvider(
+      createTestProvider({
+        fetchBars: {
+          async fetch() {
+            fetchCount++
+            if (fetchCount === 1) {
+              return {
+                instrumentId: 'test:sh.600000',
+                period: 'daily',
+                adjustment: 'none',
+                timezone: 'Asia/Shanghai',
+                olderData: 'available',
+                data: [makeKLine(initialStart), makeKLine(now)],
+              }
+            }
+            return new Promise((resolve) => {
+              resolveOlder = resolve
+            })
+          },
+        },
+      }),
+    )
+    const spec: SymbolSpec = {
+      symbol: 'sh.600000',
+      market: 'CN',
+      period: 'daily',
+      adjust: 'none',
+      source: 'test',
+      instrument: instrumentFor('sh.600000'),
+    }
+    const dataState = createDataState()
+    const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
+    const dataManagerState = createDataManagerState()
+    manager = new ChartDataManager(
+      createDependencies(
+        createChartDom(document),
+        (symbols) => {
+          symbols$.set(symbols)
+          dataState.actions.setSymbols(symbols)
+        },
+        symbols$,
+      ),
+      dataState,
+      dataManagerState,
+    )
+    manager.setSymbols([spec])
+    await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
+
+    let dataEvents = 0
+    const unsubscribe = manager.dataBuffer.data.subscribe(() => dataEvents++)
+    manager.ensureDataRange(initialStart - MS_PER_DAY)
+    manager.ensureDataRange(initialStart - MS_PER_DAY)
+    await vi.waitFor(() => expect(fetchCount).toBe(2))
+    resolveOlder({
+      instrumentId: 'test:sh.600000',
+      period: 'daily',
+      adjustment: 'none',
+      timezone: 'Asia/Shanghai',
+      olderData: 'exhausted',
+      data: [makeKLine(initialStart - 90 * MS_PER_DAY)],
+    })
+    await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
+    unsubscribe()
+
+    expect(dataEvents).toBe(1)
     expect(fetchCount).toBe(2)
   })
 
@@ -328,6 +404,77 @@ describe('ChartDataManager incremental load', () => {
 
     await vi.waitFor(() => expect(dataState.readonly.data.peek()).toHaveLength(1))
     expect(scheduleDraw).toHaveBeenCalled()
+  })
+
+  it('requests and displays a distinct cache entry for each selected timeshare date', async () => {
+    const dataState = createDataState()
+    const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
+    const dataManagerState = createDataManagerState()
+    const fetchTimeShare = vi.fn(async ({ tradingDate }: { tradingDate: string }) => ({
+      instrumentId: 'test:000001',
+      tradingDate: tradingDate as '2026-08-05' | '2026-08-06',
+      timezone: 'Asia/Shanghai',
+      preClose: 9.5,
+      data: [
+        {
+          timestamp: tradingDate === '2026-08-05' ? 1 : 2,
+          price: tradingDate === '2026-08-05' ? 10 : 11,
+          average: tradingDate === '2026-08-05' ? 10 : 11,
+        },
+      ],
+    }))
+    manager = new ChartDataManager(
+      createDependencies(
+        createChartDom(document),
+        (symbols) => {
+          symbols$.set(symbols)
+          dataState.actions.setSymbols(symbols)
+        },
+        symbols$,
+      ),
+      dataState,
+      dataManagerState,
+    )
+    registerTestProvider(
+      createTestProvider({
+        fetchBars: { fetch: async () => ({
+          instrumentId: 'test:000001',
+          period: 'daily',
+          adjustment: 'none',
+          timezone: 'Asia/Shanghai',
+          olderData: 'exhausted',
+          data: [makeKLine(0)],
+        }) },
+        fetchTimeShare,
+      }),
+    )
+    const spec: SymbolSpec = {
+      symbol: '000001',
+      market: 'CN',
+      period: 'daily',
+      source: 'test',
+      instrument: instrumentFor('000001'),
+    }
+    manager.setSymbols([spec])
+    await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
+
+    manager.setTimeShareQueryDate(20260805)
+    manager.setCurrentPeriod('timeshare')
+    await vi.waitFor(() => expect(dataState.readonly.data.peek()[0]?.timestamp).toBe(1))
+
+    manager.setTimeShareQueryDate(20260806)
+    manager.setCurrentPeriod('timeshare')
+    await vi.waitFor(() => expect(dataState.readonly.data.peek()[0]?.timestamp).toBe(2))
+
+    expect(fetchTimeShare).toHaveBeenCalledTimes(2)
+    expect(fetchTimeShare).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ tradingDate: '2026-08-05' }),
+    )
+    expect(fetchTimeShare).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ tradingDate: '2026-08-06' }),
+    )
   })
 
   it('loads five-day timeshare through the range Provider and stores the grouped snapshot', async () => {
