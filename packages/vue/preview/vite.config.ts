@@ -55,6 +55,10 @@ export default defineConfig({
         find: /^@363045841yyt\/klinechart-agent-runtime\/contracts\/ui$/,
         replacement: agentContracts,
       },
+      {
+        find: /^@363045841yyt\/klinechart-agent-runtime$/,
+        replacement: `${root}/packages/agent-runtime/src/index.ts`,
+      },
     ],
   },
 })
