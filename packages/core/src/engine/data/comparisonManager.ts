@@ -20,7 +20,7 @@ loadRange(
     spec: SymbolSpec,
     selection: BarsSelection,
     buffer: KLineBuffer,
-    before: number,
+	beforeTimestamp: number,
   ): void
   releaseSelection(selection: BarsSelection): void
   scheduleDraw(): void

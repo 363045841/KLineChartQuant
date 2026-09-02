@@ -136,13 +136,13 @@ export interface InstrumentSearchQuery {
   signal?: AbortSignal
 }
 
-/** K 线游标分页查询；before 为可选的 UTC 毫秒时间戳排他上界。 */
+/** K 线游标分页查询；beforeTimestamp 为可选的 UTC 毫秒时间戳排他上界。 */
 export interface BarQuery {
   instrument: InstrumentDescriptor
   period: KLinePeriod
   adjustment: KLineAdjustment
   limit: number
-  before?: number
+  beforeTimestamp?: number
   signal?: AbortSignal
 }
 

@@ -24,10 +24,11 @@ const BAR_SELECTION = {
 }
 
 function createBars(): KLineData[] {
-  return ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04'].map((date) => {
-    const timestamp = Date.parse(date)
+  return ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04'].map((date, index) => {
+    const timestamp = Date.parse(date) + (index === 0 ? 25_200_000 : 0)
     return {
       timestamp,
+      date,
       open: timestamp,
       high: timestamp + 1,
       low: timestamp - 1,
@@ -59,6 +60,11 @@ function createFixture() {
     getLogicalIndexAtTimestamp: (timestamp) => {
       const index = bars.findIndex((bar) => bar.timestamp === timestamp)
       return index === -1 ? null : index
+    },
+    findAnchorAtTradingDate: (tradingDate) => {
+      const index = bars.findIndex((bar) => bar.date === tradingDate)
+      const bar = index === -1 ? undefined : bars[index]
+      return bar === undefined ? null : { index, timestamp: bar.timestamp }
     },
     hasPaneId: (paneId) => paneId === 'main',
   })
@@ -199,7 +205,7 @@ describe('createChartAgentController', () => {
       timezone: null,
       adjustMode: 'none',
       dataRange: {
-        from: Date.parse('2026-09-01'),
+          from: Date.parse('2026-09-01') + 25_200_000,
         to: Date.parse('2026-09-04'),
         bars: 4,
       },
@@ -325,16 +331,16 @@ describe('createChartAgentController', () => {
         kind: 'trend-line',
         paneId: 'main',
         anchors: [
-          { time: '2026-09-01', price: 10 },
-          { time: '2026-09-02', price: 12 },
+          { tradingDate: '2026-09-01', price: 10 },
+          { tradingDate: '2026-09-02', price: 12 },
         ],
       },
       { signal, progress: () => undefined },
-    )) as { id: string; anchors: Array<{ time: number; price: number; index?: number }> }
+    )) as { id: string; anchors: Array<{ timestamp: number; price: number; index?: number }> }
 
     expect(created.anchors).toEqual([
-      { time: Date.parse('2026-09-01'), price: 10 },
-      { time: Date.parse('2026-09-02'), price: 12 },
+      { timestamp: Date.parse('2026-09-01') + 25_200_000, price: 10 },
+      { timestamp: Date.parse('2026-09-02'), price: 12 },
     ])
     await expect(
       update.execute(
@@ -343,8 +349,8 @@ describe('createChartAgentController', () => {
           drawingId: created.id,
           patch: {
             anchors: [
-              { time: '2026-09-03', price: 11 },
-              { time: '2026-09-04', price: 13 },
+              { tradingDate: '2026-09-03', price: 11 },
+              { tradingDate: '2026-09-04', price: 13 },
             ],
           },
         },
@@ -353,8 +359,8 @@ describe('createChartAgentController', () => {
     ).resolves.toMatchObject({
       id: created.id,
       anchors: [
-        { time: Date.parse('2026-09-03'), price: 11 },
-        { time: Date.parse('2026-09-04'), price: 13 },
+        { timestamp: Date.parse('2026-09-03'), price: 11 },
+        { timestamp: Date.parse('2026-09-04'), price: 13 },
       ],
     })
     await expect(
@@ -382,7 +388,7 @@ describe('createChartAgentController', () => {
         { kind: 'horizontal-line', paneId: 'main', anchors: [{ price: 9 }] },
         { signal, progress: () => undefined },
       ),
-    ).resolves.toMatchObject({ kind: 'horizontal-line', anchors: [{ time: null, price: 9 }] })
+    ).resolves.toMatchObject({ kind: 'horizontal-line', anchors: [{ timestamp: null, price: 9 }] })
   })
 
   it('delegates instrument searches through the shared Provider registry', async () => {
@@ -492,7 +498,7 @@ describe('createChartAgentController', () => {
     expect(fixture.controller.getContext().symbol).toBe('BTCUSDT')
   })
 
-  it('converts the registered market bars date cursor to a UTC timestamp', async () => {
+  it('passes the registered market bars timestamp cursor through unchanged', async () => {
     const fixture = createFixture()
     const tool = getRegisteredChartTools().find((item) => item.config.name === 'market_bars_query')
 
@@ -505,14 +511,14 @@ describe('createChartAgentController', () => {
           period: 'daily',
           adjustment: 'none',
           limit: 100,
-          before: '2026-09-01',
+          beforeTimestamp: Date.parse('2026-09-01'),
         },
         { signal: new AbortController().signal, progress: () => undefined },
       ),
     ).resolves.toContain('source=fixture')
 
     expect(fixture.fetchBars).toHaveBeenCalledWith(
-      expect.objectContaining({ before: Date.parse('2026-09-01') }),
+      expect.objectContaining({ beforeTimestamp: Date.parse('2026-09-01') }),
     )
   })
 

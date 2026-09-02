@@ -118,7 +118,7 @@ const BarsQueryToolParameters = Type.Object({
   sourceId: Type.Optional(Type.String({ minLength: 1 })),
   exchange: Type.Optional(Type.String({ minLength: 1 })),
   assetClass: Type.Optional(AssetClassToolParameter),
-  before: Type.Optional(TradingDateToolParameter),
+  beforeTimestamp: Type.Optional(Type.Number()),
 })
 
 type BarsQueryToolInput = Static<typeof BarsQueryToolParameters>
@@ -160,7 +160,7 @@ const DRAWING_KIND_VALUES = [
 
 const DrawingKindToolParameter = Type.Union(DRAWING_KIND_VALUES.map((value) => Type.Literal(value)))
 const DrawingAnchorToolParameters = Type.Object({
-  time: Type.Optional(TradingDateToolParameter),
+  tradingDate: Type.Optional(TradingDateToolParameter),
   price: Type.Number(),
 })
 const DrawingStyleToolParameters = Type.Partial(
@@ -239,7 +239,7 @@ function projectDrawing(drawing: DrawingObject): ChartAgentDrawingSnapshot {
     anchors: Object.freeze(
       drawing.anchors.map((anchor) =>
         Object.freeze({
-          time:
+          timestamp:
             typeof anchor.time === 'number' && Number.isFinite(anchor.time) ? anchor.time : null,
           price: anchor.price,
         }),
@@ -249,13 +249,13 @@ function projectDrawing(drawing: DrawingObject): ChartAgentDrawingSnapshot {
   })
 }
 
-/** 将 Agent 提供的 UTC 日期锚点转换为 Core 绘图 API 使用的毫秒时间戳。 */
+/** 将 Agent 提供的交易日锚点转换为 Core 绘图 API 使用的声明式输入。 */
 function parseDrawingAnchors(
   anchors: ReadonlyArray<Static<typeof DrawingAnchorToolParameters>>,
-): ReadonlyArray<{ time?: number; price: number }> {
-  return anchors.map(({ time, price }) => ({
+): ReadonlyArray<{ tradingDate?: TradingDate; price: number }> {
+  return anchors.map(({ tradingDate, price }) => ({
     price,
-    ...(time === undefined ? {} : { time: Date.parse(time) }),
+    ...(tradingDate === undefined ? {} : { tradingDate: tradingDate as TradingDate }),
   }))
 }
 
@@ -413,7 +413,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
       period: input.period,
       adjustment: input.adjustment,
       limit: input.limit,
-      before: input.before,
+      beforeTimestamp: input.beforeTimestamp,
       signal: context?.signal,
     })
     return this.marketDataTextFormatter.formatBars({
@@ -424,21 +424,21 @@ class ChartAgentControllerImpl implements ChartAgentController {
     })
   }
 
-  /** 将 Agent 提供的 YYYY-MM-DD UTC 日期游标转换后委托给底层查询。 */
+  /** 以精确时间戳游标查询一页 K 线。 */
   @Tool({
     name: 'market_bars_query',
     label: 'Query market bars',
     description:
-      'Fetch one page of market bars for any symbol without changing the chart. limit must be an integer from 1 to 798. Use before only as an exclusive YYYY-MM-DD UTC date cursor; omit before for the latest bars. Pagination and retries are handled by the cache.',
+      'Fetch one page of market bars for any symbol without changing the chart. limit must be an integer from 1 to 798. Use beforeTimestamp only as an exclusive Unix-millisecond cursor; omit it for the latest bars. Pagination and retries are handled by the cache.',
     parameters: BarsQueryToolParameters,
     safety: 'read-only',
     executionMode: 'parallel',
   })
-  queryBarsByDate(input: BarsQueryToolInput, context?: ChartToolExecutionContext): Promise<string> {
+  queryBarsByTimestamp(input: BarsQueryToolInput, context?: ChartToolExecutionContext): Promise<string> {
     return this.queryBars(
       {
         ...input,
-        before: input.before === undefined ? undefined : Date.parse(input.before),
+        beforeTimestamp: input.beforeTimestamp,
       },
       context,
     )
@@ -526,7 +526,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     name: 'drawing_create',
     label: 'Create drawing',
     description:
-      'Create a committed chart drawing using a supported kind and an existing paneId. horizontal-line anchors require only price; all other anchors require YYYY-MM-DD UTC date and price.',
+      'Create a committed chart drawing using a supported kind and an existing paneId. horizontal-line anchors require only price; all other anchors require tradingDate in YYYY-MM-DD format and price.',
     parameters: DrawingCreateToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',
@@ -547,7 +547,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     name: 'drawing_update',
     label: 'Update drawing',
     description:
-      'Update a committed chart drawing by id. Supply at least one patch field; horizontal-line anchors require only price, while other anchors require YYYY-MM-DD UTC date and price.',
+      'Update a committed chart drawing by id. Supply at least one patch field; horizontal-line anchors require only price, while other anchors require tradingDate in YYYY-MM-DD format and price.',
     parameters: DrawingUpdateToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',

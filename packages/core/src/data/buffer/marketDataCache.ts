@@ -31,7 +31,7 @@ export interface BarsCacheQuery {
   /** 请求的根数；拉多少就请求多少，不按时间范围外推。 */
   readonly limit: number
   /** 排他上界时间戳；省略表示从数据源最新一根开始。 */
-  readonly before?: number
+  readonly beforeTimestamp?: number
   readonly signal?: AbortSignal
 }
 
@@ -228,8 +228,8 @@ export class MarketDataCache {
     if (!Number.isInteger(query.limit) || query.limit < 1) {
       throw new TypeError('[MarketDataCache] limit must be a positive integer')
     }
-    if (query.before !== undefined && !Number.isFinite(query.before)) {
-      throw new TypeError('[MarketDataCache] before must be a finite timestamp')
+    if (query.beforeTimestamp !== undefined && !Number.isFinite(query.beforeTimestamp)) {
+      throw new TypeError('[MarketDataCache] beforeTimestamp must be a finite timestamp')
     }
 
     const key = cacheKey(query)
@@ -239,11 +239,11 @@ export class MarketDataCache {
     if (!entry) throw new Error('[MarketDataCache] query completed without a cache entry')
     this.touchEntry('bars', key)
 
-    const before = query.before
+    const beforeTimestamp = query.beforeTimestamp
     const data =
-      before === undefined
+      beforeTimestamp === undefined
         ? entry.data.slice(Math.max(0, entry.data.length - query.limit))
-        : entry.data.filter((item) => item.timestamp < before).slice(-query.limit)
+        : entry.data.filter((item) => item.timestamp < beforeTimestamp).slice(-query.limit)
     return {
       sourceId: entry.sourceId,
       instrument: entry.instrument,
@@ -371,10 +371,10 @@ export class MarketDataCache {
     if (!entry || entry.data.length === 0) return false
     // Provider 已声明无更早历史时，任何游标查询都直接返回已有数据。
     if (entry.olderData === 'exhausted') return true
-    if (query.before === undefined) return entry.data.length >= query.limit
+    if (query.beforeTimestamp === undefined) return entry.data.length >= query.limit
     let beforeCount = 0
     for (const item of entry.data) {
-      if (item.timestamp < query.before) beforeCount++
+      if (item.timestamp < query.beforeTimestamp) beforeCount++
     }
     return beforeCount >= query.limit
   }
@@ -427,7 +427,9 @@ export class MarketDataCache {
           period: query.period,
           adjustment: query.adjustment,
           limit: query.limit,
-          ...(query.before === undefined ? {} : { before: query.before }),
+          ...(query.beforeTimestamp === undefined
+            ? {}
+            : { beforeTimestamp: query.beforeTimestamp }),
           signal,
         })
         return {

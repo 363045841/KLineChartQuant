@@ -114,14 +114,14 @@ export interface ProtocolInstrumentSearchResult {
   items: ReadonlyArray<ProtocolInstrumentDescriptor>
 }
 
-// K 线请求：before 为可选的 UTC Unix 毫秒排他游标，不传时返回最新一页
+// K 线请求：beforeTimestamp 为可选的 UTC Unix 毫秒排他游标，不传时返回最新一页
 export interface ProtocolBarRequest {
   sourceId: string
   instrument: ProtocolInstrumentReference
   period: KLinePeriod
   adjustment: KLineAdjustment
   limit: number
-  before?: number
+  beforeTimestamp?: number
 }
 
 // K 线条目

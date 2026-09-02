@@ -88,8 +88,12 @@ export function searchMockInstruments(
 /** 根据统一 BarQuery 生成 MOCK K 线分页结果。 */
 export function fetchMockBars(query: BarQuery): ReadonlyArray<KLineData> {
   if (query.instrument.symbol === MOCK_10000_SYMBOL) return generateTenThousandBars()
-  const end = (query.before ?? Date.now()) - (query.before === undefined ? 0 : 1)
+  const end =
+    (query.beforeTimestamp ?? Date.now()) - (query.beforeTimestamp === undefined ? 0 : 1)
   return generateDateRangeBars(end - query.limit * 2 * 86_400_000, end)
-    .filter((item) => query.before === undefined || item.timestamp < query.before)
+    .filter(
+      (item) =>
+        query.beforeTimestamp === undefined || item.timestamp < query.beforeTimestamp,
+    )
     .slice(-query.limit)
 }

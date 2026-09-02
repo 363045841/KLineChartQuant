@@ -34,7 +34,7 @@ export interface SourceRouterBarsRequest extends SourceRouterInstrumentIdentity 
   period: KLinePeriod
   adjustment: KLineAdjustment
   limit: number
-  before?: number
+  beforeTimestamp?: number
   signal?: AbortSignal
 }
 
@@ -296,7 +296,7 @@ export class SourceRouter {
           period: request.period,
           adjustment: request.adjustment,
           limit: request.limit,
-          before: request.before,
+            beforeTimestamp: request.beforeTimestamp,
           signal: request.signal,
         })
       },

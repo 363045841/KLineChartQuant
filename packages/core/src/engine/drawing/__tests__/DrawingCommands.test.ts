@@ -10,6 +10,7 @@ function createFixture() {
   const document = new DrawingDocument({
     drawingState: createDrawingState(),
     getLogicalIndexAtTimestamp: () => 0,
+    findAnchorAtTradingDate: () => ({ index: 0, timestamp: 1_000 }),
     hasPaneId: (paneId) => paneId === 'main',
   })
   const requestDraw = vi.fn()

@@ -164,11 +164,13 @@ describe('ChartDataManager incremental load', () => {
     const now = Date.now()
     const initialStart = now - 365 * MS_PER_DAY
     let fetchCount = 0
+    let olderPageCursor: number | undefined
     registerTestProvider(
       createTestProvider({
         fetchBars: {
-          async fetch() {
+          async fetch(query) {
             fetchCount++
+            if (fetchCount === 2) olderPageCursor = query.beforeTimestamp
             return {
               instrumentId: 'test:sh.600000',
               period: 'daily',
@@ -220,6 +222,7 @@ describe('ChartDataManager incremental load', () => {
       expect(dataManagerState.readonly.pendingIncrementalLoad.peek().count).toBe(0)
     })
     expect(fetchCount).toBe(2)
+    expect(olderPageCursor).toBe(initialStart)
     expect(manager.getData()[0]?.timestamp).toBe(initialStart - 90 * MS_PER_DAY)
   })
 

@@ -65,12 +65,12 @@ describe('SourceRouter', () => {
     const targetFetch = async ({
       instrument,
       limit,
-      before,
+      beforeTimestamp,
     }: Parameters<NonNullable<MarketDataProvider['bars']>['fetch']>[0]) => {
       expect(instrument.sourceId).toBe('baostock')
       expect(instrument.providerRef).toEqual({ code: 'sh.600519' })
       expect(limit).toBe(500)
-      expect(before).toBe(2)
+      expect(beforeTimestamp).toBe(2)
       return {
         instrumentId: instrument.id,
         period: 'daily' as const,
@@ -94,7 +94,7 @@ describe('SourceRouter', () => {
       period: 'daily',
       adjustment: 'none',
       limit: 500,
-      before: 2,
+      beforeTimestamp: 2,
     })
 
     expect(result.provider.source.id).toBe('baostock')

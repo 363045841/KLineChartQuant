@@ -128,8 +128,11 @@ export class ChartDataManager {
       selectionForSpec: (spec) => this.barsSelectionForSpec(spec),
       createBuffer: (_spec, selection) => this.createKLineBuffer(selection),
       loadBuffer: (spec, selection, buffer) => this.loadBufferSnapshot(spec, selection, buffer),
-loadRange: (spec, selection, buffer, before) =>
-        this.loadBars(selection, buffer, spec, { limit: DEFAULT_BAR_PAGE_LIMIT, before }),
+	loadRange: (spec, selection, buffer, beforeTimestamp) =>
+	        this.loadBars(selection, buffer, spec, {
+	          limit: DEFAULT_BAR_PAGE_LIMIT,
+	          beforeTimestamp,
+	        }),
       releaseSelection: (selection) => this.releaseComparisonSelection(selection),
       scheduleDraw: () => this.deps.scheduleDraw(),
       getSpecs: () => this.deps.comparison.readonly.specs.peek(),
@@ -346,7 +349,7 @@ loadRange: (spec, selection, buffer, before) =>
     selection: BarsSelection,
     buffer: KLineBuffer,
     spec: SymbolSpec,
-target: { limit: number; before?: number },
+	target: { limit: number; beforeTimestamp?: number },
   ): Promise<void> {
     const period = spec.period ?? DEFAULT_KLINE_PERIOD
     const adjustment = spec.adjust ?? DEFAULT_KLINE_ADJUSTMENT
@@ -367,7 +370,9 @@ target: { limit: number; before?: number },
         period: period as KLinePeriod,
         adjustment: adjustment as KLineAdjustment,
         limit: target.limit,
-        ...(target.before === undefined ? {} : { before: target.before }),
+	        ...(target.beforeTimestamp === undefined
+	          ? {}
+	          : { beforeTimestamp: target.beforeTimestamp }),
       })
       if (!this.isActiveSelection(selection) && this._repository.getBars(selection) !== buffer) return
       if (selection.sourceId === AUTO_SOURCE_ID) {
@@ -820,7 +825,7 @@ checkVisibleRangeGap(): void {
       if (spec && selection?.kind === 'bars') {
         void this.loadBars(selection, buf, spec, {
           limit: DEFAULT_BAR_PAGE_LIMIT,
-          before: loadedTimeRange.earliestTs,
+	          beforeTimestamp: loadedTimeRange.earliestTs,
         })
       }
     }
@@ -850,7 +855,7 @@ checkVisibleRangeGap(): void {
     }
     void this.loadBars(selection, buffer, spec, {
       limit: DEFAULT_BAR_PAGE_LIMIT,
-      before: loaded.earliestTs,
+	      beforeTimestamp: loaded.earliestTs,
     })
   }
 

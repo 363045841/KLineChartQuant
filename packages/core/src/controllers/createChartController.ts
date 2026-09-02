@@ -405,6 +405,11 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       const index = chart.getData().findIndex((bar) => bar.timestamp === timestamp)
       return index === -1 ? null : index
     },
+    findAnchorAtTradingDate(tradingDate) {
+      const index = chart.getData().findIndex((bar) => bar.date === tradingDate)
+      const bar = index === -1 ? undefined : chart.getData()[index]
+      return bar === undefined ? null : { index, timestamp: bar.timestamp }
+    },
     hasPaneId(paneId) {
       return chart.getPaneLayoutSpecs().some((pane) => pane.id === paneId)
     },

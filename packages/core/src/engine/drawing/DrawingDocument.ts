@@ -7,13 +7,17 @@ import type {
 } from '../../foundation/plugin'
 import { generateUUID } from '../../foundation/utils/uuid'
 import { DRAWING_ERROR_CODES, KLineChartError } from '../../errors'
+import type { TradingDate } from '../../data/provider/types'
 import type { DrawingStateModule } from '../state/drawingState'
 
 import { PREVIEW_ID } from './DrawingState'
 
 /** 外部命令使用价格锚点；需要水平位置的图元额外提供时间。 */
 export interface DrawingAnchorInput {
-  readonly time?: number
+  /** 交易日锚点，按数据中的 date 字段定位。 */
+  readonly tradingDate?: TradingDate
+  /** 精确时间锚点，按毫秒时间戳定位。 */
+  readonly timestamp?: number
   readonly price: number
 }
 
@@ -43,6 +47,10 @@ export interface UpdateDrawingPatch {
 export interface DrawingDocumentDependencies {
   readonly drawingState: DrawingStateModule
   readonly getLogicalIndexAtTimestamp: (timestamp: number) => number | null
+  readonly findAnchorAtTradingDate: (tradingDate: TradingDate) => {
+    readonly index: number
+    readonly timestamp: number
+  } | null
   readonly hasPaneId: (paneId: string) => boolean
 }
 
@@ -195,28 +203,57 @@ export class DrawingDocument {
       throw new KLineChartError(
         DRAWING_ERROR_CODES.INVALID_ANCHOR,
         'Drawing anchor price must be a finite number.',
-        { details: { time: input.time, price: input.price } },
+        { details: { timestamp: input.timestamp, price: input.price } },
       )
     }
     if (kind === 'horizontal-line') {
       return { id: `anchor-${generateUUID()}`, index: -1, price: input.price }
     }
-    const time = input.time
-    if (time === undefined || !Number.isFinite(time)) {
+    if (input.tradingDate !== undefined && input.timestamp !== undefined) {
       throw new KLineChartError(
         DRAWING_ERROR_CODES.INVALID_ANCHOR,
-        'Drawing anchor time and price must be finite numbers.',
-        { details: { time: input.time, price: input.price } },
+        'Drawing anchor must provide either tradingDate or timestamp, not both.',
+        {
+          details: {
+            tradingDate: input.tradingDate,
+            timestamp: input.timestamp,
+            price: input.price,
+          },
+        },
       )
     }
-    const index = this.dependencies.getLogicalIndexAtTimestamp(time)
+    if (input.tradingDate !== undefined) {
+      const resolved = this.dependencies.findAnchorAtTradingDate(input.tradingDate)
+      if (resolved === null) {
+        throw new KLineChartError(
+          DRAWING_ERROR_CODES.ANCHOR_NOT_FOUND,
+          `No chart data exists for drawing anchor trading date ${input.tradingDate}.`,
+          { details: { tradingDate: input.tradingDate } },
+        )
+      }
+      return {
+        id: `anchor-${generateUUID()}`,
+        index: resolved.index,
+        time: resolved.timestamp,
+        price: input.price,
+      }
+    }
+    const timestamp = input.timestamp
+    if (timestamp === undefined || !Number.isFinite(timestamp)) {
+      throw new KLineChartError(
+        DRAWING_ERROR_CODES.INVALID_ANCHOR,
+        'Drawing anchor timestamp and price must be finite numbers.',
+        { details: { timestamp: input.timestamp, price: input.price } },
+      )
+    }
+    const index = this.dependencies.getLogicalIndexAtTimestamp(timestamp)
     if (index === null) {
       throw new KLineChartError(
         DRAWING_ERROR_CODES.ANCHOR_NOT_FOUND,
-        `No chart data exists for drawing anchor timestamp ${time}.`,
-        { details: { time } },
+        `No chart data exists for drawing anchor timestamp ${timestamp}.`,
+        { details: { timestamp } },
       )
     }
-    return { id: `anchor-${generateUUID()}`, index, time, price: input.price }
+    return { id: `anchor-${generateUUID()}`, index, time: timestamp, price: input.price }
   }
 }

@@ -10,6 +10,8 @@ function createDocument() {
   const document = new DrawingDocument({
     drawingState: state,
     getLogicalIndexAtTimestamp: (timestamp) => (timestamp === 1_000 ? 4 : null),
+    findAnchorAtTradingDate: (tradingDate) =>
+      tradingDate === '2026-04-10' ? { index: 4, timestamp: 1_000 } : null,
     hasPaneId: (paneId) => paneId === 'main',
   })
   return { state, document }
@@ -35,8 +37,8 @@ describe('DrawingDocument', () => {
       kind: 'trend-line',
       paneId: 'main',
       anchors: [
-        { time: 1_000, price: 10 },
-        { time: 1_000, price: 12 },
+        { timestamp: 1_000, price: 10 },
+        { timestamp: 1_000, price: 12 },
       ],
     })
 
@@ -48,22 +50,39 @@ describe('DrawingDocument', () => {
     expect(Object.isFrozen(drawing)).toBe(true)
   })
 
+  it('creates a drawing from trading-date anchors using the stored bar timestamp', () => {
+    const { document } = createDocument()
+    const drawing = document.createDrawing({
+      kind: 'trend-line',
+      paneId: 'main',
+      anchors: [
+        { tradingDate: '2026-04-10', price: 10 },
+        { tradingDate: '2026-04-10', price: 12 },
+      ],
+    })
+
+    expect(drawing.anchors).toMatchObject([
+      { index: 4, time: 1_000, price: 10 },
+      { index: 4, time: 1_000, price: 12 },
+    ])
+  })
+
   it('updates a drawing by id without replacing unrelated drawings', () => {
     const { document } = createDocument()
     const first = document.createDrawing({
       kind: 'trend-line',
       paneId: 'main',
       anchors: [
-        { time: 1_000, price: 10 },
-        { time: 1_000, price: 12 },
+        { timestamp: 1_000, price: 10 },
+        { timestamp: 1_000, price: 12 },
       ],
     })
     const second = document.createDrawing({
       kind: 'ray',
       paneId: 'main',
       anchors: [
-        { time: 1_000, price: 9 },
-        { time: 1_000, price: 11 },
+        { timestamp: 1_000, price: 9 },
+        { timestamp: 1_000, price: 11 },
       ],
     })
 
@@ -80,7 +99,7 @@ describe('DrawingDocument', () => {
       document.createDrawing({
         kind: 'trend-line',
         paneId: 'main',
-        anchors: [{ time: 1_000, price: 10 }],
+        anchors: [{ timestamp: 1_000, price: 10 }],
       }),
     ).toThrow('requires exactly 2 anchors')
     expect(() =>
@@ -88,8 +107,8 @@ describe('DrawingDocument', () => {
         kind: 'trend-line',
         paneId: 'main',
         anchors: [
-          { time: 1_000, price: 10 },
-          { time: 2_000, price: 12 },
+          { timestamp: 1_000, price: 10 },
+          { timestamp: 2_000, price: 12 },
         ],
       }),
     ).toThrow('No chart data exists')
@@ -103,7 +122,7 @@ describe('DrawingDocument', () => {
       document.createDrawing({
         kind: 'horizontal-line',
         paneId: 'unknown',
-        anchors: [{ time: 1_000, price: 10 }],
+        anchors: [{ timestamp: 1_000, price: 10 }],
       }),
     ).toThrow("Unknown drawing pane 'unknown'.")
   })
@@ -113,7 +132,7 @@ describe('DrawingDocument', () => {
     const drawing = document.createDrawing({
       kind: 'horizontal-line',
       paneId: 'main',
-      anchors: [{ time: 1_000, price: 10 }],
+      anchors: [{ timestamp: 1_000, price: 10 }],
     })
     state.actions.setSelectedDrawingId(drawing.id)
 

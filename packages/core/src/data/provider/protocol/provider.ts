@@ -183,7 +183,9 @@ export function createMarketDataProvider(
             period: query.period,
             adjustment: query.adjustment,
             limit: query.limit,
-            ...(query.before === undefined ? {} : { before: query.before }),
+            ...(query.beforeTimestamp === undefined
+              ? {}
+              : { beforeTimestamp: query.beforeTimestamp }),
           },
           query.signal,
         )

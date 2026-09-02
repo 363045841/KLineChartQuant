@@ -155,7 +155,9 @@ export function createHttpMarketDataTransport(
         period: req.period,
         adjustment: req.adjustment,
         limit: req.limit,
-        ...(req.before === undefined ? {} : { before: req.before }),
+        ...(req.beforeTimestamp === undefined
+          ? {}
+          : { beforeTimestamp: req.beforeTimestamp }),
       })
       return request<ProtocolBarSeries>(
         baseUrl(),

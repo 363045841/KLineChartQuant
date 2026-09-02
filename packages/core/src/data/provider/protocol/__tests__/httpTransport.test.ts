@@ -112,7 +112,7 @@ describe('createHttpMarketDataTransport', () => {
       period: 'daily',
       adjustment: 'none',
       limit: 500,
-      before: 2,
+      beforeTimestamp: 2,
     })
 
     expect(result.items).toEqual([])
@@ -123,7 +123,7 @@ describe('createHttpMarketDataTransport', () => {
       sourceId: 'gotdx',
       period: 'daily',
       limit: 500,
-      before: 2,
+      beforeTimestamp: 2,
     })
   })
 

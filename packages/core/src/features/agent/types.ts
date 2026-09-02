@@ -48,7 +48,7 @@ export interface ChartAgentContextSnapshot {
 
 /** Agent 可读取的绘图锚点快照；渲染派生 index 不属于公共协议。 */
 export interface ChartAgentDrawingAnchor {
-  readonly time: number | null
+  readonly timestamp: number | null
   readonly price: number
 }
 
@@ -97,7 +97,7 @@ export interface BarsQueryInput {
   readonly sourceId?: string
   readonly exchange?: string
   readonly assetClass?: AssetClass
-  readonly before?: number
+  readonly beforeTimestamp?: number
 }
 
 /** 单日分时查询输入；交易日必须由调用方显式给出。 */

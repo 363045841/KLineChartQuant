@@ -21,7 +21,9 @@ function page(
   }
 }
 
-function createCache(fetch: (before?: number, signal?: AbortSignal) => Promise<ReturnType<typeof page>>) {
+function createCache(
+  fetch: (beforeTimestamp?: number, signal?: AbortSignal) => Promise<ReturnType<typeof page>>,
+) {
   const registry = new MarketDataProviderRegistry()
   const instrument = {
     id: 'test:BTCUSDT',
@@ -43,12 +45,12 @@ function createCache(fetch: (before?: number, signal?: AbortSignal) => Promise<R
     },
     probe: async () => ({ status: 'online', checkedAt: 1 }),
     catalog: { search: async () => [instrument] },
-    bars: { fetch: ({ before, signal }) => fetch(before, signal) },
+    bars: { fetch: ({ beforeTimestamp, signal }) => fetch(beforeTimestamp, signal) },
   })
   return { cache: new MarketDataCache(registry), instrument }
 }
 
-function query(overrides: { limit?: number; before?: number } = {}) {
+function query(overrides: { limit?: number; beforeTimestamp?: number } = {}) {
   return {
     sourceId: 'test',
     symbol: 'BTCUSDT',
@@ -57,7 +59,9 @@ function query(overrides: { limit?: number; before?: number } = {}) {
     period: 'daily' as const,
     adjustment: 'none' as const,
     limit: overrides.limit ?? 100,
-    ...(overrides.before === undefined ? {} : { before: overrides.before }),
+    ...(overrides.beforeTimestamp === undefined
+      ? {}
+      : { beforeTimestamp: overrides.beforeTimestamp }),
   }
 }
 
@@ -100,16 +104,16 @@ describe('MarketDataCache', () => {
     expect(cache.stats.peek()).toMatchObject({ maxBytes: expect.any(Number), entryCount: 2 })
   })
 
-  it('requests an older page when the caller supplies a before cursor', async () => {
-    const fetch = vi.fn(async (before?: number) =>
-      before === undefined
+  it('requests an older page when the caller supplies a timestamp cursor', async () => {
+    const fetch = vi.fn(async (beforeTimestamp?: number) =>
+      beforeTimestamp === undefined
         ? page([bar(20), bar(30)], 'available')
         : page([bar(10), bar(15)]),
     )
     const { cache } = createCache(fetch)
 
     const latest = await cache.queryBars(query({ limit: 2 }))
-    const older = await cache.queryBars(query({ limit: 2, before: 20 }))
+    const older = await cache.queryBars(query({ limit: 2, beforeTimestamp: 20 }))
 
     expect(fetch).toHaveBeenNthCalledWith(1, undefined, expect.any(AbortSignal))
     expect(fetch).toHaveBeenNthCalledWith(2, 20, expect.any(AbortSignal))
@@ -117,17 +121,17 @@ describe('MarketDataCache', () => {
     expect(older.series.data.map((item) => item.timestamp)).toEqual([10, 15])
   })
 
-  it('serves a before page from cache when enough older bars are already merged', async () => {
-    const fetch = vi.fn(async (before?: number) =>
-      before === undefined
+  it('serves a timestamp-cursor page from cache when enough older bars are already merged', async () => {
+    const fetch = vi.fn(async (beforeTimestamp?: number) =>
+      beforeTimestamp === undefined
         ? page([bar(10), bar(20), bar(30)], 'available')
         : page([bar(5)]),
     )
     const { cache } = createCache(fetch)
 
     await cache.queryBars(query({ limit: 3 }))
-    const fetched = await cache.queryBars(query({ limit: 2, before: 20 }))
-    const cached = await cache.queryBars(query({ limit: 1, before: 10 }))
+    const fetched = await cache.queryBars(query({ limit: 2, beforeTimestamp: 20 }))
+    const cached = await cache.queryBars(query({ limit: 1, beforeTimestamp: 10 }))
 
     expect(fetch).toHaveBeenCalledTimes(2)
     expect(fetched.series.data.map((item) => item.timestamp)).toEqual([5, 10])
@@ -136,15 +140,15 @@ describe('MarketDataCache', () => {
 
   it('merges an unordered overlapping page and preserves the upstream correction', async () => {
     const corrected = { ...bar(20), close: 9 }
-    const fetch = vi.fn(async (before?: number) =>
-      before === undefined
+    const fetch = vi.fn(async (beforeTimestamp?: number) =>
+      beforeTimestamp === undefined
         ? page([bar(30), bar(20)], 'available')
         : page([bar(15), corrected, bar(10)]),
     )
     const { cache } = createCache(fetch)
 
     await cache.queryBars(query({ limit: 2 }))
-    await cache.queryBars(query({ limit: 3, before: 31 }))
+    await cache.queryBars(query({ limit: 3, beforeTimestamp: 31 }))
     const merged = await cache.queryBars(query({ limit: 4 }))
 
     expect(merged.series.data.map((item) => item.timestamp)).toEqual([10, 15, 20, 30])
@@ -208,7 +212,7 @@ describe('MarketDataCache', () => {
   it('rejects a non-advancing cursor page instead of silently duplicating data', async () => {
     const fetch = vi.fn(async () => page([bar(30)], 'available'))
     const { cache } = createCache(fetch)
-    const target = query({ limit: 2, before: 40 })
+    const target = query({ limit: 2, beforeTimestamp: 40 })
 
     await expect(cache.queryBars(target)).resolves.toBeDefined()
     await expect(cache.queryBars(target)).rejects.toThrow('did not advance cached coverage')

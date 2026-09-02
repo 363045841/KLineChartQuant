@@ -39,7 +39,7 @@ describe('Chart Agent @Tool registry', () => {
     await expect(
       create?.execute(
         {},
-        { kind: 'trend-line', paneId: 'main', anchors: [{ time: '2026-09-01' }] },
+        { kind: 'trend-line', paneId: 'main', anchors: [{ tradingDate: '2026-09-01' }] },
         {
           signal: new AbortController().signal,
           progress: () => undefined,
@@ -50,12 +50,12 @@ describe('Chart Agent @Tool registry', () => {
     await expect(
       create?.execute(
         {},
-        { kind: 'horizontal-line', paneId: 'main', anchors: [{ time: 1_000, price: 10 }] },
+        { kind: 'horizontal-line', paneId: 'main', anchors: [{ tradingDate: 1_000, price: 10 }] },
         {
           signal: new AbortController().signal,
           progress: () => undefined,
         },
       ),
-    ).rejects.toThrow('/anchors/0/time: must be string')
+    ).rejects.toThrow('/anchors/0/tradingDate: must be string')
   })
 })
