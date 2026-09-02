@@ -171,6 +171,44 @@ describe('PiRunDriver', () => {
     })
   })
 
+  it('converts a thrown tool error into feedback the model can use', async () => {
+    const tool: RuntimeToolDefinition = {
+      name: 'market_bars_query',
+      label: 'Query market bars',
+      description: 'Query market bars',
+      parameters: Type.Object({}),
+      safety: 'read-only',
+      reversible: false,
+      execute: async () => {
+        throw new Error('Unknown sourceId. Available sourceIds: gotdx, baostock.')
+      },
+    }
+    const { plan } = fixture(
+      [
+        fauxAssistantMessage(fauxToolCall('market_bars_query', {}, { id: 'bars-1' }), {
+          stopReason: 'toolUse',
+        }),
+        fauxAssistantMessage('I will retry with an available source.'),
+      ],
+      [tool],
+    )
+    const events: AgentRunUiEventInput[] = []
+
+    await expect(new PiRunDriver().run(plan, (event) => events.push(event))).resolves.toMatchObject({
+      text: 'I will retry with an available source.',
+      completedToolCount: 0,
+    })
+    expect(events.find((event) => event.type === 'tool.finished')).toMatchObject({
+      result: {
+        status: 'failed',
+        error: {
+          code: 'TOOL_ERROR',
+          message: 'Unknown sourceId. Available sourceIds: gotdx, baostock.',
+        },
+      },
+    })
+  })
+
   it('maps provider failure to a stable error without leaking its secret', async () => {
     const { plan } = fixture([
       fauxAssistantMessage('', {

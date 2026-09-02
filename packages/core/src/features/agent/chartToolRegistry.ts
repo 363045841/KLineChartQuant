@@ -3,7 +3,6 @@ import { type Static, type TSchema } from 'typebox'
 import { Value } from 'typebox/value'
 
 const TOOL_INPUT_ERROR_LIMIT = 5
-const TOOL_INPUT_SUMMARY_MAX_LENGTH = 200
 
 /** 图表工具允许声明的副作用等级。 */
 export type ChartToolSafety = 'read-only' | 'destructive'
@@ -65,7 +64,7 @@ function requireToolInput<TParameters extends TSchema>(
   throw new TypeError(`The tool input is invalid: ${errors.join('; ') || 'Schema validation failed.'}`)
 }
 
-/** 将已校验参数压缩为安全的 UI 调试摘要。 */
+/** 将已校验参数序列化为安全的 UI 调试摘要。 */
 function summarizeToolInput(input: unknown): string {
   let serialized: string
   try {
@@ -73,9 +72,7 @@ function summarizeToolInput(input: unknown): string {
   } catch {
     return '[Unserializable tool input]'
   }
-  return serialized.length <= TOOL_INPUT_SUMMARY_MAX_LENGTH
-    ? serialized
-    : `${serialized.slice(0, TOOL_INPUT_SUMMARY_MAX_LENGTH - 3)}...`
+  return serialized
 }
 
 /**

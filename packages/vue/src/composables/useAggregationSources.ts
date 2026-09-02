@@ -159,6 +159,17 @@ export function applyAggregationSourceBaseUrls(
   }
 }
 
+/** 将聚合源开关同步到 Core 注册表，使搜索、路由与 Agent 使用相同的启用状态。 */
+function applyAggregationSourceEnabled(
+  sources: ReadonlyArray<AggregationSourceDefinition>,
+  enabledNames: ReadonlySet<string>,
+): void {
+  for (const source of sources) {
+    if (!supportsAggregationSourceSearch(source)) continue
+    marketDataProviderRegistry.setConfig(source.name, { enabled: enabledNames.has(source.name) })
+  }
+}
+
 /**
  * 聚合源启用状态 + 地址端口
  * 变更会同步到 localStorage 与 Provider 注册表
@@ -170,6 +181,7 @@ export function useAggregationSources(sources: ReadonlyArray<AggregationSourceDe
 
   // 启动时立刻把已存地址灌进 core，保证首轮搜索/K 线就走用户配置
   applyAggregationSourceBaseUrls(sources, endpoints.value)
+  applyAggregationSourceEnabled(sources, new Set(enabledNames.value))
 
   function setEnabled(name: string, enabled: boolean) {
     const next = new Set(enabledNames.value)
@@ -178,6 +190,7 @@ export function useAggregationSources(sources: ReadonlyArray<AggregationSourceDe
     enabledNames.value = sources
       .filter((source) => next.has(source.name))
       .map((source) => source.name)
+    applyAggregationSourceEnabled(sources, new Set(enabledNames.value))
   }
 
   /**

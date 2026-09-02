@@ -101,6 +101,32 @@ function safeProgress(value: unknown): ToolProgressView | undefined {
   }
 }
 
+/**
+ * 将业务工具的异常转换为模型可据此修正的失败结果。
+ * @param error 工具执行期间抛出的异常。
+ * @returns 标准化的失败结果；取消异常仍由调用方继续抛出。
+ */
+function recoverableToolFailure(error: unknown): RuntimeToolResult {
+  if (error instanceof AgentRuntimeError && error.code === 'ABORTED') throw error
+  const failure =
+    error instanceof AgentRuntimeError
+      ? error.toView()
+      : {
+          code: 'TOOL_ERROR',
+          message:
+            error instanceof Error && error.message
+              ? error.message
+              : 'The chart tool could not complete the request.',
+          retryable: true,
+          recommendedAction: 'Correct the tool input and retry the request.',
+        }
+  return {
+    content: JSON.stringify({ success: false, error: failure, stateChanged: false }),
+    summary: failure.message,
+    failure,
+  }
+}
+
 /** Pi 驱动器的可注入运行时依赖。 */
 export interface PiRunDriverOptions {
   /** 时钟函数，用于测试与事件时间戳。 */
@@ -383,14 +409,19 @@ export class PiRunDriver {
         }
         // 对外 ID 始终包含运行维度，避免 Pi 内部 ID 跨运行重复。
         const toolCallId = publicToolCallId(plan.runId, rawId)
-        const result = await definition.execute(input, {
-          runId: plan.runId,
-          toolCallId,
-          signal,
-          progress: (progress) => {
-            onUpdate?.({ content: [{ type: 'text', text: progress.label }], details: { progress } })
-          },
-        })
+        let result: RuntimeToolResult
+        try {
+          result = await definition.execute(input, {
+            runId: plan.runId,
+            toolCallId,
+            signal,
+            progress: (progress) => {
+              onUpdate?.({ content: [{ type: 'text', text: progress.label }], details: { progress } })
+            },
+          })
+        } catch (error) {
+          result = recoverableToolFailure(error)
+        }
         results.set(toolCallId, result)
         return {
           content: [{ type: 'text', text: redactString(result.content, this.redaction) }],

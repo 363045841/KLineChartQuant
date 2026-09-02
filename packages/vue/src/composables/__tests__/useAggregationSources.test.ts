@@ -138,6 +138,8 @@ describe('useAggregationSources', () => {
         first: 'http://192.168.0.10:18080',
       },
     })
+    expect(marketDataProviderRegistry.getConfig('first')).toMatchObject({ enabled: false })
+    expect(marketDataProviderRegistry.getConfig('second')).toMatchObject({ enabled: true })
   })
 
   it('marks a source offline when it is not a registered provider', async () => {
