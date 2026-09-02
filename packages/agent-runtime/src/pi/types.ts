@@ -2,6 +2,7 @@
 import type { AgentRuntimeError } from '../contracts/errors.js'
 import type {
   AgentRunUiEventInput,
+  AgentErrorView,
   AgentUsageView,
   AgentRunScope,
   EvidenceView,
@@ -24,6 +25,8 @@ export interface RuntimeToolResult {
   undoToken?: string
   /** 工具执行产生的资源用量。 */
   usage?: AgentUsageView
+  /** 业务工具失败时传给模型和 UI 的可修正错误。 */
+  failure?: AgentErrorView
 }
 
 /**

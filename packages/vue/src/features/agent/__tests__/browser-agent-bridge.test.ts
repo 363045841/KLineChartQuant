@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BrowserAgentBridge } from '../browser-agent-bridge'
 
 import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
+import type { RuntimeToolDefinition } from '@363045841yyt/klinechart-agent-runtime'
 
 /** 清理每个测试写入的浏览器全局状态。 */
 afterEach(() => {
@@ -62,14 +63,20 @@ describe('BrowserAgentBridge', () => {
     const bridge = new BrowserAgentBridge()
 
     await expect(bridge.listTools()).resolves.toEqual(
-      expect.arrayContaining([expect.objectContaining({ name: 'instruments_query_name', enabled: true })]),
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'instruments_query_name', enabled: true }),
+      ]),
     )
     await bridge.setToolEnabled('instruments_query_name', false)
     await expect(bridge.listTools()).resolves.toEqual(
-      expect.arrayContaining([expect.objectContaining({ name: 'instruments_query_name', enabled: false })]),
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'instruments_query_name', enabled: false }),
+      ]),
     )
     await expect(new BrowserAgentBridge().listTools()).resolves.toEqual(
-      expect.arrayContaining([expect.objectContaining({ name: 'instruments_query_name', enabled: false })]),
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'instruments_query_name', enabled: false }),
+      ]),
     )
   })
 
@@ -338,5 +345,54 @@ describe('BrowserAgentBridge', () => {
     for (const listener of listeners) listener()
 
     expect(received).toEqual([null, 'BTCUSDT', 'ETHUSDT'])
+  })
+
+  it('executes destructive tools through the manual debug entrypoint', async () => {
+    const drawingCommands = {
+      create: vi.fn(() => ({
+        id: 'drawing-1',
+        kind: 'horizontal-line',
+        paneId: 'main',
+        visible: true,
+        anchors: [{ id: 'anchor-1', index: 0, time: Date.parse('2026-09-02'), price: 9 }],
+        params: {},
+        style: { stroke: '#2962ff', strokeWidth: 1, strokeStyle: 'solid' },
+      })),
+    }
+    const agent = {
+      getAvailableMarketDataSourceIds: () => [],
+      getAvailableDrawingPaneIds: () => ['main'],
+      dependencies: { drawingCommands },
+    } as unknown as ChartAgentController
+    const bridge = new BrowserAgentBridge({ getChartAgent: () => agent })
+
+    await expect(
+      bridge.debugTool('drawing_create', {
+        kind: 'horizontal-line',
+        paneId: 'main',
+        anchors: [{ time: '2026-09-02', price: 9 }],
+      }),
+    ).resolves.toMatchObject({ summary: 'Tool completed.' })
+    expect(drawingCommands.create).toHaveBeenCalledOnce()
+  })
+
+  it('adds the exact runtime pane IDs to the create-drawing tool description', () => {
+    const agent = {
+      getAvailableMarketDataSourceIds: () => [],
+      getAvailableDrawingPaneIds: () => ['main', 'volume'],
+    } as unknown as ChartAgentController
+    const bridge = new BrowserAgentBridge()
+    const createRegisteredTools = (
+      bridge as unknown as {
+        createRegisteredTools(
+          agent: ChartAgentController,
+          readOnly: boolean,
+        ): readonly RuntimeToolDefinition[]
+      }
+    ).createRegisteredTools(agent, false)
+
+    expect(
+      createRegisteredTools.find((tool) => tool.name === 'drawing_create')?.description,
+    ).toContain('Available runtime paneIds: main, volume.')
   })
 })

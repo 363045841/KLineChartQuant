@@ -84,10 +84,17 @@ export type KLineChartErrorCode =
   | 'NOT_OBJECT'
   | 'INVALID_TIMESTAMP'
   | 'MISSING_CONTROLLERS'
+  // drawing document
+  | 'DRAWING_UNKNOWN_PANE'
+  | 'DRAWING_INVALID_ANCHOR_COUNT'
+  | 'DRAWING_ANCHOR_NOT_FOUND'
+  | 'DRAWING_INVALID_ANCHOR'
 
 export interface KLineChartErrorOptions {
   /** Lower-level error this wraps (preserved as the standard `.cause`). */
   cause?: unknown
+  /** 供上层将领域失败转换为可操作反馈的非敏感上下文。 */
+  details?: Readonly<Record<string, unknown>>
 }
 
 /**
@@ -99,6 +106,7 @@ export interface KLineChartErrorOptions {
  */
 export class KLineChartError extends Error {
   readonly code: KLineChartErrorCode
+  readonly details?: Readonly<Record<string, unknown>>
   // 显式声明下层错误引用，ES2022 标准 Error.cause 的稳定访问入口
   // declare 仅作类型声明，避免 useDefineForClassFields 把 cause 覆盖为 undefined
   declare readonly cause?: unknown
@@ -111,6 +119,7 @@ export class KLineChartError extends Error {
       super(message)
     }
     this.code = code
+    this.details = opts?.details
     // `name` defaults to the constructor name in V8; pinning it makes
     // serialized errors (e.g. via JSON.stringify) carry the type tag.
     this.name = 'KLineChartError'
@@ -173,6 +182,14 @@ export const CHART_AGENT_ERROR_CODES = Object.freeze({
   NO_DATA: 'NO_DATA',
   INDICATOR_NOT_FOUND: 'INDICATOR_NOT_FOUND',
   DATA_REVISION_CHANGED: 'DATA_REVISION_CHANGED',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>)
+
+// 绘图文档错误码，供交互层和 Agent 工具层识别可修正的输入失败。
+export const DRAWING_ERROR_CODES = Object.freeze({
+  UNKNOWN_PANE: 'DRAWING_UNKNOWN_PANE',
+  INVALID_ANCHOR_COUNT: 'DRAWING_INVALID_ANCHOR_COUNT',
+  ANCHOR_NOT_FOUND: 'DRAWING_ANCHOR_NOT_FOUND',
+  INVALID_ANCHOR: 'DRAWING_INVALID_ANCHOR',
 } as const satisfies Readonly<Record<string, KLineChartErrorCode>>)
 
 // Agent 指标查询错误码具名常量，供查询层引用，避免散落字符串字面量。

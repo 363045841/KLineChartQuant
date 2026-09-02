@@ -123,6 +123,54 @@ describe('PiRunDriver', () => {
     })
   })
 
+  it('returns a recoverable tool failure to the model while marking the UI call as failed', async () => {
+    const tool: RuntimeToolDefinition = {
+      name: 'drawing.create',
+      label: 'Create drawing',
+      description: 'Create one drawing',
+      parameters: Type.Object({}),
+      safety: 'destructive',
+      reversible: false,
+      execute: async () => ({
+        content: '{"success":false,"stateChanged":false}',
+        summary: 'Unknown drawing pane.',
+        failure: {
+          code: 'UNKNOWN_PANE_ID',
+          message: 'Unknown drawing pane.',
+          retryable: true,
+          recommendedAction: 'Use paneId: main.',
+        },
+      }),
+    }
+    const { plan } = fixture(
+      [
+        fauxAssistantMessage(fauxToolCall('drawing.create', {}, { id: 'drawing-1' }), {
+          stopReason: 'toolUse',
+        }),
+        fauxAssistantMessage('I will retry with the main pane.'),
+      ],
+      [tool],
+    )
+    plan.readOnly = false
+    plan.scope = { ...plan.scope, readOnly: false }
+    const events: AgentRunUiEventInput[] = []
+
+    const result = await new PiRunDriver().run(plan, (event) => {
+      events.push(event)
+    })
+
+    expect(result.completedToolCount).toBe(0)
+    expect(events.find((event) => event.type === 'tool.finished')).toMatchObject({
+      result: {
+        status: 'failed',
+        error: {
+          code: 'UNKNOWN_PANE_ID',
+          recommendedAction: 'Use paneId: main.',
+        },
+      },
+    })
+  })
+
   it('maps provider failure to a stable error without leaking its secret', async () => {
     const { plan } = fixture([
       fauxAssistantMessage('', {
@@ -187,10 +235,9 @@ describe('PiRunDriver', () => {
     }
     const { plan } = fixture(
       [
-        fauxAssistantMessage(
-          fauxToolCall('chart.clear', {}, { id: 'clear-1' }),
-          { stopReason: 'toolUse' },
-        ),
+        fauxAssistantMessage(fauxToolCall('chart.clear', {}, { id: 'clear-1' }), {
+          stopReason: 'toolUse',
+        }),
         fauxAssistantMessage('The requested chart change is not allowed.'),
       ],
       [tool],

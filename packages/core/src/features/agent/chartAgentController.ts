@@ -7,6 +7,7 @@ import type { MarketDataProviderRegistry } from '../../data/provider/registry'
 import { MarketDataCache } from '../../data/buffer/marketDataCache'
 import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
 import type { DrawingDocument } from '../../engine/drawing/DrawingDocument'
+import type { DrawingCommands } from '../../engine/drawing/DrawingCommands'
 import type { DrawingObject } from '../../foundation/plugin'
 
 import { Tool, getRegisteredChartTools, type ChartToolExecutionContext } from './chartToolRegistry'
@@ -51,6 +52,8 @@ interface ChartAgentControllerDependencies {
   readonly marketDataProviderRegistry: MarketDataProviderRegistry
   readonly marketDataCache: MarketDataCache
   readonly drawingDocument: DrawingDocument
+  readonly drawingCommands: DrawingCommands
+  readonly getDrawingPaneIds: () => ReadonlyArray<string>
   readonly marketDataTextFormatter?: MarketDataTextFormatter
 }
 
@@ -157,7 +160,7 @@ const DRAWING_KIND_VALUES = [
 
 const DrawingKindToolParameter = Type.Union(DRAWING_KIND_VALUES.map((value) => Type.Literal(value)))
 const DrawingAnchorToolParameters = Type.Object({
-  time: Type.Number(),
+  time: Type.Optional(TradingDateToolParameter),
   price: Type.Number(),
 })
 const DrawingStyleToolParameters = Type.Partial(
@@ -246,6 +249,16 @@ function projectDrawing(drawing: DrawingObject): ChartAgentDrawingSnapshot {
   })
 }
 
+/** 将 Agent 提供的 UTC 日期锚点转换为 Core 绘图 API 使用的毫秒时间戳。 */
+function parseDrawingAnchors(
+  anchors: ReadonlyArray<Static<typeof DrawingAnchorToolParameters>>,
+): ReadonlyArray<{ time?: number; price: number }> {
+  return anchors.map(({ time, price }) => ({
+    price,
+    ...(time === undefined ? {} : { time: Date.parse(time) }),
+  }))
+}
+
 /** 从当前数据计算含首尾时间戳的完整数据范围。 */
 function requireTimestampRange(data: ReadonlyArray<{ readonly timestamp: number }>): {
   readonly from: number
@@ -329,6 +342,11 @@ class ChartAgentControllerImpl implements ChartAgentController {
     return this.dependencies.marketDataProviderRegistry
       .getEnabledByPriority()
       .map((provider) => provider.source.id)
+  }
+
+  /** 返回当前可用于创建图元的 pane ID。 */
+  getAvailableDrawingPaneIds(): ReadonlyArray<string> {
+    return Object.freeze([...this.dependencies.getDrawingPaneIds()])
   }
 
   /** 校验显式 sourceId，向 Agent 返回可直接修正下一次调用的可用值。 */
@@ -508,7 +526,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     name: 'drawing_create',
     label: 'Create drawing',
     description:
-      'Create a committed chart drawing using a supported kind, an existing paneId, and timestamp-price anchors. The chart resolves rendering indexes from timestamps.',
+      'Create a committed chart drawing using a supported kind and an existing paneId. horizontal-line anchors require only price; all other anchors require YYYY-MM-DD UTC date and price.',
     parameters: DrawingCreateToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',
@@ -516,7 +534,12 @@ class ChartAgentControllerImpl implements ChartAgentController {
   async createDrawing(
     input: Static<typeof DrawingCreateToolParameters>,
   ): Promise<ChartAgentDrawingSnapshot> {
-    return projectDrawing(this.dependencies.drawingDocument.createDrawing(input))
+    return projectDrawing(
+      this.dependencies.drawingCommands.create({
+        ...input,
+        anchors: parseDrawingAnchors(input.anchors),
+      }),
+    )
   }
 
   /** 更新一个图表已确认图元。 */
@@ -524,7 +547,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     name: 'drawing_update',
     label: 'Update drawing',
     description:
-      'Update a committed chart drawing by id. Supply at least one patch field; replacement anchors use timestamp-price coordinates.',
+      'Update a committed chart drawing by id. Supply at least one patch field; horizontal-line anchors require only price, while other anchors require YYYY-MM-DD UTC date and price.',
     parameters: DrawingUpdateToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',
@@ -532,7 +555,14 @@ class ChartAgentControllerImpl implements ChartAgentController {
   async updateDrawing(
     input: Static<typeof DrawingUpdateToolParameters>,
   ): Promise<ChartAgentDrawingSnapshot | null> {
-    const drawing = this.dependencies.drawingDocument.updateDrawing(input.drawingId, input.patch)
+    const patch = input.patch
+    const drawing = this.dependencies.drawingCommands.update(input.drawingId, {
+      ...(patch.anchors === undefined ? {} : { anchors: parseDrawingAnchors(patch.anchors) }),
+      ...(patch.style === undefined ? {} : { style: patch.style }),
+      ...(patch.visible === undefined ? {} : { visible: patch.visible }),
+      ...(patch.locked === undefined ? {} : { locked: patch.locked }),
+      ...(patch.zIndex === undefined ? {} : { zIndex: patch.zIndex }),
+    })
     return drawing ? projectDrawing(drawing) : null
   }
 
@@ -548,7 +578,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
   async deleteDrawing(
     input: Static<typeof DrawingDeleteToolParameters>,
   ): Promise<{ removed: boolean }> {
-    return { removed: this.dependencies.drawingDocument.removeDrawing(input.drawingId) }
+    return { removed: this.dependencies.drawingCommands.remove(input.drawingId) }
   }
 
   /** 清除当前图表的全部已确认图元。 */
@@ -565,7 +595,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     _input: Static<typeof DrawingsClearToolParameters>,
   ): Promise<{ removed: number }> {
     const removed = this.dependencies.drawingDocument.listDrawings().length
-    this.dependencies.drawingDocument.clearDrawings()
+    this.dependencies.drawingCommands.clear()
     return { removed }
   }
 }

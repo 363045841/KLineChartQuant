@@ -16,6 +16,18 @@ function createDocument() {
 }
 
 describe('DrawingDocument', () => {
+  it('creates a horizontal line from price without requiring chart data at an anchor time', () => {
+    const { document } = createDocument()
+
+    const drawing = document.createDrawing({
+      kind: 'horizontal-line',
+      paneId: 'main',
+      anchors: [{ price: 9 }],
+    })
+
+    expect(drawing.anchors).toEqual([expect.objectContaining({ index: -1, price: 9 })])
+  })
+
   it('creates an immutable drawing from time-price anchors', () => {
     const { state, document } = createDocument()
 

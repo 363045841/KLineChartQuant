@@ -233,7 +233,10 @@ export class PiRunDriver {
         await emit({ type: 'assistant.text.delta', messageId: assistantMessageId, delta })
         return
       }
-      if (event.type === 'message_update' && event.assistantMessageEvent.type === 'thinking_start') {
+      if (
+        event.type === 'message_update' &&
+        event.assistantMessageEvent.type === 'thinking_start'
+      ) {
         const messageId = this.id()
         thinkingMessageIds.set(event.assistantMessageEvent.contentIndex, messageId)
         await emit({
@@ -243,7 +246,10 @@ export class PiRunDriver {
         })
         return
       }
-      if (event.type === 'message_update' && event.assistantMessageEvent.type === 'thinking_delta') {
+      if (
+        event.type === 'message_update' &&
+        event.assistantMessageEvent.type === 'thinking_delta'
+      ) {
         const contentIndex = event.assistantMessageEvent.contentIndex
         let messageId = thinkingMessageIds.get(contentIndex)
         if (!messageId) {
@@ -452,13 +458,15 @@ export class PiRunDriver {
       const result = toolResults.get(id)
       const finishedAt = this.now()
       // Pi 结束事件只携带执行状态，成功结果从执行阶段缓存中补齐。
-      const view: ToolCallView = event.isError
+      const failure = result?.failure
+      const failed = event.isError || failure !== undefined
+      const view: ToolCallView = failed
         ? {
             ...started,
             status: 'failed',
             finishedAt,
             durationMs: Math.max(0, finishedAt - (started.startedAt ?? finishedAt)),
-            error: {
+            error: failure ?? {
               code: 'TOOL_ERROR',
               message: 'The chart tool could not complete the request.',
               retryable: true,
@@ -475,7 +483,7 @@ export class PiRunDriver {
             durationMs: Math.max(0, finishedAt - (started.startedAt ?? finishedAt)),
           }
       toolViews.set(id, view)
-      if (!event.isError) completed()
+      if (!failed) completed()
       await emit({ type: 'tool.finished', result: view })
     }
   }

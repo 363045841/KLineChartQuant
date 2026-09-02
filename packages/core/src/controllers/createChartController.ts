@@ -14,6 +14,7 @@
 
 import { Chart } from '../engine/chart'
 import { DrawingDocument } from '../engine/drawing/DrawingDocument'
+import { DrawingCommands } from '../engine/drawing/DrawingCommands'
 import { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins'
 import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
 import { KLineChartError } from '../errors'
@@ -408,6 +409,10 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       return chart.getPaneLayoutSpecs().some((pane) => pane.id === paneId)
     },
   })
+  const drawingCommands = new DrawingCommands({
+    document: drawingDocument,
+    requestDraw: () => chart.scheduleDraw(),
+  })
 
   if (import.meta.env?.MODE !== 'production' && typeof window !== 'undefined') {
     ;(window as any).__chart = chart
@@ -506,6 +511,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     marketDataProviderRegistry,
     marketDataCache: chart.getMarketDataCache(),
     drawingDocument,
+    drawingCommands,
+    getDrawingPaneIds: () => chart.getPaneLayoutSpecs().map((pane) => pane.id),
   })
 
   let disposed = false
@@ -757,35 +764,27 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   function clearDrawings(): void {
     if (disposed) return
-    drawingDocument.clearDrawings()
-    chart.scheduleDraw()
+    drawingCommands.clear()
   }
 
   function createDrawing(input: CreateDrawingInput): DrawingObject {
     if (disposed) throw new Error('Chart controller has been disposed.')
-    const drawing = drawingDocument.createDrawing(input)
-    chart.scheduleDraw()
-    return drawing
+    return drawingCommands.create(input)
   }
 
   function updateDrawing(id: string, patch: UpdateDrawingPatch): DrawingObject | null {
     if (disposed) return null
-    const drawing = drawingDocument.updateDrawing(id, patch)
-    if (drawing) chart.scheduleDraw()
-    return drawing
+    return drawingCommands.update(id, patch)
   }
 
   function removeDrawing(drawingId: string): boolean {
     if (disposed) return false
-    const removed = drawingDocument.removeDrawing(drawingId)
-    if (removed) chart.scheduleDraw()
-    return removed
+    return drawingCommands.remove(drawingId)
   }
 
   function replaceDrawings(drawings: ReadonlyArray<DrawingObject>): void {
     if (disposed) return
-    drawingDocument.replaceDrawings(drawings)
-    chart.scheduleDraw()
+    drawingCommands.replace(drawings)
   }
 
   // ---- DrawingChartAdapter methods ----

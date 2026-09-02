@@ -31,12 +31,14 @@ import type { ReadonlySignal } from '../../foundation/reactivity/signal'
 import { mergePaint } from './DrawingState'
 
 export { DrawingDocument } from './DrawingDocument'
+export { DrawingCommands } from './DrawingCommands'
 export type {
   CreateDrawingInput,
   DrawingAnchorInput as DrawingDocumentAnchorInput,
   DrawingDocumentDependencies,
   UpdateDrawingPatch,
 } from './DrawingDocument'
+export type { DrawingCommandsDependencies } from './DrawingCommands'
 
 export interface DrawingStoreDeps {
   drawings$: ReadonlySignal<ReadonlyArray<DrawingObject>>

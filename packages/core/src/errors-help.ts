@@ -130,6 +130,15 @@ const HINTS: Readonly<Record<KLineChartErrorCode, string>> = {
     'snapshotTakenAt must be an ISO 8601 string parseable by Date.parse. Format it via new Date().toISOString() on the producing side.',
   MISSING_CONTROLLERS:
     'A SerializedChartState requires a controllers object. If you intentionally have no controllers, pass an empty object {}.',
+
+  // Drawing document
+  DRAWING_UNKNOWN_PANE:
+    'Use one of the pane IDs currently present in the chart layout before creating the drawing.',
+  DRAWING_INVALID_ANCHOR_COUNT:
+    'Provide exactly the number of anchors required by the selected drawing kind.',
+  DRAWING_ANCHOR_NOT_FOUND:
+    'Use an anchor date represented by a bar in the currently loaded chart data.',
+  DRAWING_INVALID_ANCHOR: 'Each drawing anchor requires a finite price and a valid timestamp.',
 }
 
 /**

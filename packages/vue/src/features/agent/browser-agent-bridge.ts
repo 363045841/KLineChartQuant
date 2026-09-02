@@ -39,6 +39,93 @@ import type { RuntimeToolDefinition } from '@363045841yyt/klinechart-agent-runti
 const PROVIDER_PROFILES_STORAGE_KEY = 'agent.provider.profiles'
 const ENABLED_TOOLS_STORAGE_KEY = 'agent.enabled-tools'
 
+type DrawingCreateError = Error & {
+  readonly code?: string
+  readonly details?: Readonly<Record<string, unknown>>
+}
+
+interface DrawingCreateFailureDetail {
+  readonly code: string
+  readonly message: string
+  readonly field: string
+  readonly expected: string
+  readonly recovery: string
+}
+
+/** 将可预期的绘图创建失败压缩为 Agent 可据此重试的结果。 */
+function drawingCreateFailure(
+  error: unknown,
+  agent: ChartAgentController,
+): {
+  content: string
+  summary: string
+  failure: { code: string; message: string; retryable: boolean; recommendedAction: string }
+} | null {
+  if (!(error instanceof Error)) return null
+  const drawingError = error as DrawingCreateError
+  const details = drawingError.details
+  let detail: DrawingCreateFailureDetail
+
+  switch (drawingError.code) {
+    case 'DRAWING_UNKNOWN_PANE':
+      detail = {
+        code: 'UNKNOWN_PANE_ID',
+        message: error.message,
+        field: 'paneId',
+        expected: agent.getAvailableDrawingPaneIds().join(', '),
+        recovery: `Use paneId: ${agent.getAvailableDrawingPaneIds().join(', ')}.`,
+      }
+      break
+    case 'DRAWING_INVALID_ANCHOR_COUNT':
+      detail = {
+        code: 'INVALID_ANCHOR_COUNT',
+        message: error.message,
+        field: 'anchors',
+        expected: `${details?.expected} anchors for ${details?.kind}`,
+        recovery: `Use exactly ${details?.expected} anchors for ${details?.kind}.`,
+      }
+      break
+    case 'DRAWING_ANCHOR_NOT_FOUND':
+      detail = {
+        code: 'ANCHOR_DATE_NOT_FOUND',
+        message: error.message,
+        field: 'anchors',
+        expected: 'a date present in the loaded chart data',
+        recovery: 'Replace the anchor date with a date present in the loaded chart data.',
+      }
+      break
+    case 'DRAWING_INVALID_ANCHOR':
+      detail = {
+        code: 'INVALID_ANCHOR_VALUE',
+        message: error.message,
+        field: 'anchors',
+        expected: 'a finite price and a valid UTC date',
+        recovery: 'Use a finite price and a valid UTC date.',
+      }
+      break
+    default:
+      if (!(error instanceof TypeError)) return null
+      detail = {
+        code: 'INVALID_TOOL_INPUT',
+        message: error.message,
+        field: 'input',
+        expected: 'valid drawing_create parameters',
+        recovery: 'Correct the invalid field and retry drawing_create.',
+      }
+  }
+  const failure = {
+    code: detail.code,
+    message: detail.message,
+    retryable: true,
+    recommendedAction: detail.recovery,
+  }
+  return {
+    content: JSON.stringify({ success: false, error: detail, stateChanged: false }),
+    summary: failure.message,
+    failure,
+  }
+}
+
 interface BrowserProviderProfile {
   name: string
   apiKey: string
@@ -293,15 +380,15 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     this.enabledTools.write(enabledNames)
   }
 
-  /** 手动执行一个已注册的只读工具，复用 Agent 调用的 schema 与宿主绑定。 */
+  /** 手动执行一个已注册工具，复用 Agent 调用的 schema 与宿主绑定。 */
   async debugTool(name: string, input: unknown) {
     const agent = this.getChartAgent()
     if (!agent) {
       throw new AgentRuntimeError('TARGET_LOST', 'A chart is required to debug this tool.')
     }
-    const tool = this.createRegisteredTools(agent, true).find((item) => item.name === name)
+    const tool = this.createRegisteredTools(agent, false).find((item) => item.name === name)
     if (!tool) {
-      throw new AgentRuntimeError('INVALID_PAYLOAD', `Unknown or non-read-only Agent tool '${name}'.`)
+      throw new AgentRuntimeError('INVALID_PAYLOAD', `Unknown Agent tool '${name}'.`)
     }
     const result = await tool.execute(input, {
       runId: `debug:${globalThis.crypto.randomUUID()}`,
@@ -325,20 +412,34 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     readOnly: boolean,
   ): readonly RuntimeToolDefinition[] {
     const sourceIds = agent.getAvailableMarketDataSourceIds()
+    const drawingPaneIds = agent.getAvailableDrawingPaneIds()
     return getRegisteredChartTools()
       .filter((tool) => !readOnly || tool.config.safety === 'read-only')
       .map((tool) => ({
         ...tool.config,
-        description: this.toolDescription(tool.config.name, tool.config.description, sourceIds),
+        description: this.toolDescription(
+          tool.config.name,
+          tool.config.description,
+          sourceIds,
+          drawingPaneIds,
+        ),
         reversible: false,
         summarizeInput: tool.summarizeInput,
         execute: async (input, context) => {
           context.signal.throwIfAborted()
           context.progress({ label: `Running ${tool.config.label}`, current: 1, total: 1 })
-          const value = await tool.execute(agent, input, {
-            signal: context.signal,
-            progress: context.progress,
-          })
+          let value: unknown
+          try {
+            value = await tool.execute(agent, input, {
+              signal: context.signal,
+              progress: context.progress,
+            })
+          } catch (error) {
+            if (tool.config.name !== 'drawing_create') throw error
+            const failure = drawingCreateFailure(error, agent)
+            if (!failure) throw error
+            return failure
+          }
           context.signal.throwIfAborted()
           return {
             content: typeof value === 'string' ? value : JSON.stringify(value),
@@ -348,8 +449,17 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       }))
   }
 
-  /** 为市场工具追加当前运行时可用的精确数据源 ID。 */
-  private toolDescription(name: string, description: string, sourceIds: ReadonlyArray<string>): string {
+  /** 为依赖运行时资源的工具追加可用的精确标识。 */
+  private toolDescription(
+    name: string,
+    description: string,
+    sourceIds: ReadonlyArray<string>,
+    drawingPaneIds: ReadonlyArray<string>,
+  ): string {
+    if (name === 'drawing_create') {
+      const available = drawingPaneIds.length ? drawingPaneIds.join(', ') : 'none'
+      return `${description} Available runtime paneIds: ${available}. Use only one of these exact values for paneId.`
+    }
     if (
       ![
         'instruments_query_name',

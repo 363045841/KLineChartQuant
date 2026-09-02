@@ -6,13 +6,14 @@ import type {
   DrawingStyle,
 } from '../../foundation/plugin'
 import { generateUUID } from '../../foundation/utils/uuid'
+import { DRAWING_ERROR_CODES, KLineChartError } from '../../errors'
 import type { DrawingStateModule } from '../state/drawingState'
 
 import { PREVIEW_ID } from './DrawingState'
 
-/** 外部命令使用时间和价格描述锚点，逻辑 index 由文档根据当前数据解析。 */
+/** 外部命令使用价格锚点；需要水平位置的图元额外提供时间。 */
 export interface DrawingAnchorInput {
-  readonly time: number
+  readonly time?: number
   readonly price: number
 }
 
@@ -96,7 +97,11 @@ export class DrawingDocument {
   /** 创建、校验并提交一个已确认图元。 */
   createDrawing(input: CreateDrawingInput): DrawingObject {
     if (!this.dependencies.hasPaneId(input.paneId)) {
-      throw new RangeError(`Unknown drawing pane '${input.paneId}'.`)
+      throw new KLineChartError(
+        DRAWING_ERROR_CODES.UNKNOWN_PANE,
+        `Unknown drawing pane '${input.paneId}'.`,
+        { details: { paneId: input.paneId } },
+      )
     }
     const anchors = this.resolveAnchors(input.kind, input.anchors)
     const drawing: DrawingObject = {
@@ -157,9 +162,13 @@ export class DrawingDocument {
   ): DrawingAnchor[] {
     const required = getRequiredAnchorCount(kind)
     if (inputs.length !== required) {
-      throw new RangeError(`Drawing kind '${kind}' requires exactly ${required} anchors.`)
+      throw new KLineChartError(
+        DRAWING_ERROR_CODES.INVALID_ANCHOR_COUNT,
+        `Drawing kind '${kind}' requires exactly ${required} anchors.`,
+        { details: { kind, expected: required, actual: inputs.length } },
+      )
     }
-    const anchors = inputs.map((input) => this.resolveAnchor(input))
+    const anchors = inputs.map((input) => this.resolveAnchor(kind, input))
     if (kind === 'flat-line') {
       anchors[2] = { ...anchors[2]!, index: anchors[1]!.index, time: anchors[1]!.time }
     }
@@ -180,15 +189,34 @@ export class DrawingDocument {
     }))
   }
 
-  /** 解析单个声明式锚点。 */
-  private resolveAnchor(input: DrawingAnchorInput): DrawingAnchor {
-    if (!Number.isFinite(input.time) || !Number.isFinite(input.price)) {
-      throw new TypeError('Drawing anchor time and price must be finite numbers.')
+  /** 解析单个声明式锚点；水平线仅由价格决定，不依赖 K 线时间。 */
+  private resolveAnchor(kind: DrawingKind, input: DrawingAnchorInput): DrawingAnchor {
+    if (!Number.isFinite(input.price)) {
+      throw new KLineChartError(
+        DRAWING_ERROR_CODES.INVALID_ANCHOR,
+        'Drawing anchor price must be a finite number.',
+        { details: { time: input.time, price: input.price } },
+      )
     }
-    const index = this.dependencies.getLogicalIndexAtTimestamp(input.time)
+    if (kind === 'horizontal-line') {
+      return { id: `anchor-${generateUUID()}`, index: -1, price: input.price }
+    }
+    const time = input.time
+    if (time === undefined || !Number.isFinite(time)) {
+      throw new KLineChartError(
+        DRAWING_ERROR_CODES.INVALID_ANCHOR,
+        'Drawing anchor time and price must be finite numbers.',
+        { details: { time: input.time, price: input.price } },
+      )
+    }
+    const index = this.dependencies.getLogicalIndexAtTimestamp(time)
     if (index === null) {
-      throw new RangeError(`No chart data exists for drawing anchor timestamp ${input.time}.`)
+      throw new KLineChartError(
+        DRAWING_ERROR_CODES.ANCHOR_NOT_FOUND,
+        `No chart data exists for drawing anchor timestamp ${time}.`,
+        { details: { time } },
+      )
     }
-    return { id: `anchor-${generateUUID()}`, index, time: input.time, price: input.price }
+    return { id: `anchor-${generateUUID()}`, index, time, price: input.price }
   }
 }

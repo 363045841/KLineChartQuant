@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { createDataState } from '../../../engine/state/dataState'
 import { createDrawingState } from '../../../engine/state/drawingState'
 import { DrawingDocument } from '../../../engine/drawing/DrawingDocument'
+import { DrawingCommands } from '../../../engine/drawing/DrawingCommands'
 import { MarketDataProviderRegistry } from '../../../data/provider/registry'
 import { MarketDataCache } from '../../../data/buffer/marketDataCache'
 import { createSignal } from '../../../foundation/reactivity/signal'
@@ -23,14 +24,17 @@ const BAR_SELECTION = {
 }
 
 function createBars(): KLineData[] {
-  return [1_000, 2_000, 3_000, 4_000].map((timestamp) => ({
-    timestamp,
-    open: timestamp,
-    high: timestamp + 1,
-    low: timestamp - 1,
-    close: timestamp,
-    volume: 100,
-  }))
+  return ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04'].map((date) => {
+    const timestamp = Date.parse(date)
+    return {
+      timestamp,
+      open: timestamp,
+      high: timestamp + 1,
+      low: timestamp - 1,
+      close: timestamp,
+      volume: 100,
+    }
+  })
 }
 
 function publishBars(dataState: ReturnType<typeof createDataState>, bars = createBars()): void {
@@ -58,6 +62,8 @@ function createFixture() {
     },
     hasPaneId: (paneId) => paneId === 'main',
   })
+  const requestDraw = vi.fn()
+  const drawingCommands = new DrawingCommands({ document: drawingDocument, requestDraw })
 
   const currentSpec = createSignal<SymbolSpec | null>({
     symbol: 'BTCUSDT',
@@ -155,6 +161,8 @@ function createFixture() {
     marketDataProviderRegistry,
     marketDataCache: new MarketDataCache(marketDataProviderRegistry),
     drawingDocument,
+    drawingCommands,
+    getDrawingPaneIds: () => ['main'],
   })
 
   return {
@@ -171,6 +179,7 @@ function createFixture() {
     fetchTimeShare,
     fetchTimeShareRange,
     drawingDocument,
+    requestDraw,
   }
 }
 
@@ -189,7 +198,11 @@ describe('createChartAgentController', () => {
       dataSource: 'fixture',
       timezone: null,
       adjustMode: 'none',
-      dataRange: { from: 1_000, to: 4_000, bars: 4 },
+      dataRange: {
+        from: Date.parse('2026-09-01'),
+        to: Date.parse('2026-09-04'),
+        bars: 4,
+      },
       visibleRange: null,
       activeIndicators: [{ instanceId: 'rsi-1', definitionId: 'RSI', params: { period: 14 } }],
       dataRevision: 1,
@@ -312,24 +325,38 @@ describe('createChartAgentController', () => {
         kind: 'trend-line',
         paneId: 'main',
         anchors: [
-          { time: 1_000, price: 10 },
-          { time: 2_000, price: 12 },
+          { time: '2026-09-01', price: 10 },
+          { time: '2026-09-02', price: 12 },
         ],
       },
       { signal, progress: () => undefined },
     )) as { id: string; anchors: Array<{ time: number; price: number; index?: number }> }
 
     expect(created.anchors).toEqual([
-      { time: 1_000, price: 10 },
-      { time: 2_000, price: 12 },
+      { time: Date.parse('2026-09-01'), price: 10 },
+      { time: Date.parse('2026-09-02'), price: 12 },
     ])
     await expect(
       update.execute(
         fixture.controller,
-        { drawingId: created.id, patch: { style: { strokeWidth: 3 } } },
+        {
+          drawingId: created.id,
+          patch: {
+            anchors: [
+              { time: '2026-09-03', price: 11 },
+              { time: '2026-09-04', price: 13 },
+            ],
+          },
+        },
         { signal, progress: () => undefined },
       ),
-    ).resolves.toMatchObject({ id: created.id, style: { strokeWidth: 3 } })
+    ).resolves.toMatchObject({
+      id: created.id,
+      anchors: [
+        { time: Date.parse('2026-09-03'), price: 11 },
+        { time: Date.parse('2026-09-04'), price: 13 },
+      ],
+    })
     await expect(
       list.execute(fixture.controller, {}, { signal, progress: () => undefined }),
     ).resolves.toEqual([expect.objectContaining({ id: created.id })])
@@ -341,6 +368,21 @@ describe('createChartAgentController', () => {
       ),
     ).resolves.toEqual({ removed: true })
     expect(fixture.drawingDocument.listDrawings()).toEqual([])
+    expect(fixture.requestDraw).toHaveBeenCalledTimes(3)
+  })
+
+  it('creates a horizontal line from a price-only Agent anchor', async () => {
+    const fixture = createFixture()
+    const create = getRegisteredChartTools().find((tool) => tool.config.name === 'drawing_create')!
+    const signal = new AbortController().signal
+
+    await expect(
+      create.execute(
+        fixture.controller,
+        { kind: 'horizontal-line', paneId: 'main', anchors: [{ price: 9 }] },
+        { signal, progress: () => undefined },
+      ),
+    ).resolves.toMatchObject({ kind: 'horizontal-line', anchors: [{ time: null, price: 9 }] })
   })
 
   it('delegates instrument searches through the shared Provider registry', async () => {
@@ -485,7 +527,7 @@ describe('createChartAgentController', () => {
         adjustment: 'none',
         limit: 100,
       }),
-    ).resolves.toMatch(/\| 1970-01-01/)
+    ).resolves.toMatch(/\| 2026-09-01/)
     await expect(
       fixture.controller.queryTimeShare({
         symbol: 'BTCUSDT',
