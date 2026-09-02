@@ -16,6 +16,7 @@ import type {
 import type { InteractionSnapshot } from '../engine/chart'
 import type { PaneSpec } from '../engine/chartTypes'
 import type { DrawingToolId } from '../engine/drawing/toolConfig'
+import type { CreateDrawingInput, UpdateDrawingPatch } from '../engine/drawing/DrawingDocument'
 import type { CustomMarkerEntity } from '../engine/marker/registry'
 import type { ChartAgentController } from '../features/agent/types'
 import type { AlertController } from '../features/alerts/types'
@@ -79,6 +80,7 @@ export interface SubPaneInfo {
 }
 
 export type DrawingObject = PluginDrawingObject
+export type { CreateDrawingInput, UpdateDrawingPatch }
 
 export type IndicatorPaneRole = IndicatorRole
 
@@ -231,10 +233,18 @@ export interface DrawingChartViewport {
 }
 
 export interface DrawingChartAdapter {
-  /** persist full drawing list to the chart engine */
-  setDrawings(drawings: any[]): void
+  /** 原子替换完整绘图文档，仅供受控组件和导入导出使用。 */
+  replaceDrawings(drawings: ReadonlyArray<DrawingObject>): void
   /** read the full drawing list (plugin-level DrawingObject) */
-  getFullDrawings(): any[]
+  getFullDrawings(): ReadonlyArray<DrawingObject>
+  /** 创建一个已确认图元。 */
+  createDrawing(input: CreateDrawingInput): DrawingObject
+  /** 按 id 更新一个已确认图元。 */
+  updateDrawing(id: string, patch: UpdateDrawingPatch): DrawingObject | null
+  /** 移除一个已确认图元。 */
+  removeDrawing(drawingId: string): boolean
+  /** 清除所有已确认图元。 */
+  clearDrawings(): void
   /** highlight a drawing by ID */
   setSelectedDrawingId(id: string | null): void
   /** read selected drawing id from kernel */
@@ -460,7 +470,11 @@ export interface ChartController extends DrawingChartAdapter {
   /** 注册绘图交互会话到 Chart，使工具切换能清会话副作用 */
   registerDrawingSession(session: unknown | null): void
   clearDrawings(): void
-  removeDrawing(drawingId: string): void
+  createDrawing(input: CreateDrawingInput): DrawingObject
+  updateDrawing(id: string, patch: UpdateDrawingPatch): DrawingObject | null
+  removeDrawing(drawingId: string): boolean
+  /** 原子替换完整绘图文档，仅供受控组件和导入导出使用。 */
+  replaceDrawings(drawings: ReadonlyArray<DrawingObject>): void
 
   // ---- Layout ----
   resizeSubPane(paneId: string, deltaY: number): boolean

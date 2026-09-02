@@ -56,7 +56,13 @@ function createMockChart(overrides?: Partial<ChartController>): ChartController 
     getDrawingToolId: vi.fn(() => 'cursor' as const),
     registerDrawingSession: vi.fn(),
     getFullDrawings: vi.fn(() => []),
-    setDrawings: vi.fn(),
+    createDrawing: vi.fn((input) => ({
+      id: 'drawing-1',
+      ...input,
+      style: { stroke: '#2962ff', strokeWidth: 1, ...(input.style ?? {}) },
+    })),
+    updateDrawing: vi.fn(() => null),
+    replaceDrawings: vi.fn(),
     setSelectedDrawingId: vi.fn(),
     getSelectedDrawingId: vi.fn(() => null),
     getViewport: vi.fn(() => null),
@@ -68,13 +74,15 @@ function createMockChart(overrides?: Partial<ChartController>): ChartController 
     yToPrice: vi.fn(() => 0),
     getPaneInfo: vi.fn(() => undefined),
     clearDrawings: vi.fn(),
-    removeDrawing: vi.fn(),
+    removeDrawing: vi.fn(() => false),
     updateCustomMarkers: vi.fn(),
     clearCustomMarkers: vi.fn(),
     updateSettingsFacade: vi.fn(),
     updateOptionsFacade: vi.fn(),
     getZoomLevelCount: vi.fn(() => 10),
-    getData: vi.fn(() => []),
+    getData: vi.fn(() =>
+      Array.from({ length: 50 }, (_, index) => ({ timestamp: index }) as KLineData),
+    ),
     handlePointerEvent: vi.fn(() => false),
     handleWheelEvent: vi.fn(),
     handleScrollEvent: vi.fn(),
@@ -423,35 +431,34 @@ describe('executeTool', () => {
   })
 
   describe('drawing.add', () => {
-    it('calls getFullDrawings + setDrawings with a new drawing appended', () => {
+    it('delegates a timestamp-based drawing command to ChartController', () => {
       const chart = createMockChart()
       const result = executeTool(chart, {
         name: 'drawing.add',
         input: { kind: 'horizontal-line', anchors: [{ barIndex: 0, price: 150 }] },
       })
-      expect(chart.getFullDrawings).toHaveBeenCalledOnce()
-      expect(chart.setDrawings).toHaveBeenCalledOnce()
-      const passed = (chart.setDrawings as any).mock.calls[0][0] as any[]
-      expect(passed.length).toBe(1)
-      expect(passed[0].kind).toBe('horizontal-line')
-      expect(passed[0].anchors).toHaveLength(1)
-      expect(passed[0].anchors[0].index).toBe(0)
-      expect(passed[0].anchors[0].price).toBe(150)
+      expect(chart.createDrawing).toHaveBeenCalledWith({
+        kind: 'horizontal-line',
+        paneId: 'main',
+        anchors: [{ time: 0, price: 150 }],
+        style: undefined,
+      })
       expect(result.success).toBe(true)
       expect((result.data as Record<string, unknown>)?.drawingId).toBeTypeOf('string')
     })
 
-    it('appends to existing drawings', () => {
-      const existing = [{ id: 'existing-1', kind: 'trend-line' }]
-      const chart = createMockChart({ getFullDrawings: vi.fn(() => existing) })
+    it('maps legacy barIndex inputs to chart timestamps', () => {
+      const chart = createMockChart()
       const result = executeTool(chart, {
         name: 'drawing.add',
         input: { kind: 'vertical-line', anchors: [{ barIndex: 20, price: 100 }] },
       })
-      const passed = (chart.setDrawings as any).mock.calls[0][0] as any[]
-      expect(passed.length).toBe(2)
-      expect(passed[0].id).toBe('existing-1')
-      expect(passed[1].kind).toBe('vertical-line')
+      expect(chart.createDrawing).toHaveBeenCalledWith({
+        kind: 'vertical-line',
+        paneId: 'main',
+        anchors: [{ time: 20, price: 100 }],
+        style: undefined,
+      })
       expect(result.success).toBe(true)
     })
 
@@ -468,20 +475,25 @@ describe('executeTool', () => {
           style: { stroke: '#FF5722', strokeWidth: 3 },
         },
       })
-      const passed = (chart.setDrawings as any).mock.calls[0][0] as any[]
-      expect(passed[0].style.stroke).toBe('#FF5722')
-      expect(passed[0].style.strokeWidth).toBe(3)
+      const passed = (chart.createDrawing as any).mock.calls[0][0]
+      expect(passed.style).toEqual({ stroke: '#FF5722', strokeWidth: 3 })
     })
 
     it('provides default style when style omitted', () => {
       const chart = createMockChart()
       executeTool(chart, {
         name: 'drawing.add',
-        input: { kind: 'ray', anchors: [{ barIndex: 5, price: 200 }] },
+        input: {
+          kind: 'ray',
+          anchors: [
+            { barIndex: 5, price: 200 },
+            { barIndex: 6, price: 201 },
+          ],
+        },
       })
-      const passed = (chart.setDrawings as any).mock.calls[0][0] as any[]
-      expect(passed[0].style.stroke).toBe('#2962ff')
-      expect(passed[0].style.strokeWidth).toBe(1)
+      const drawing = (chart.createDrawing as any).mock.results[0].value
+      expect(drawing.style.stroke).toBe('#2962ff')
+      expect(drawing.style.strokeWidth).toBe(1)
     })
   })
 

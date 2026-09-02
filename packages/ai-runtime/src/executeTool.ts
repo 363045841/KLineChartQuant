@@ -141,7 +141,12 @@ export function executeTool(chart: ChartController, call: ToolCall): ToolResult 
     }
 
     case 'data.addComparisonSymbol': {
-      const input = call.input as { symbol: string; market?: string; exchange?: string; source?: string }
+      const input = call.input as {
+        symbol: string
+        market?: string
+        exchange?: string
+        source?: string
+      }
       chart.addComparisonSymbol({
         symbol: input.symbol,
         market: input.market ?? 'CN',
@@ -169,21 +174,17 @@ export function executeTool(chart: ChartController, call: ToolCall): ToolResult 
         anchors: Array<{ barIndex: number; price: number }>
         style?: Record<string, unknown>
       }
-      const existing = chart.getFullDrawings()
-      const newDrawing: Record<string, unknown> = {
-        id: crypto.randomUUID(),
-        kind: input.kind,
+      const anchors = input.anchors.map((anchor) => {
+        const bar = chart.getData()[anchor.barIndex]
+        if (!bar) throw new RangeError(`Unknown drawing barIndex ${anchor.barIndex}.`)
+        return { time: bar.timestamp, price: anchor.price }
+      })
+      const newDrawing = chart.createDrawing({
+        kind: input.kind as Parameters<typeof chart.createDrawing>[0]['kind'],
         paneId: 'main',
-        visible: true,
-        anchors: input.anchors.map((a, i) => ({
-          id: `a-${Date.now()}-${i}`,
-          index: a.barIndex,
-          price: a.price,
-        })),
-        params: {},
-        style: { stroke: '#2962ff', strokeWidth: 1, fillOpacity: 0.1, ...(input.style ?? {}) },
-      }
-      chart.setDrawings([...existing, newDrawing])
+        anchors,
+        style: input.style as Parameters<typeof chart.createDrawing>[0]['style'],
+      })
       return { success: true, data: { drawingId: newDrawing.id } }
     }
 

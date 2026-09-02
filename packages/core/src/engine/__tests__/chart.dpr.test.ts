@@ -632,8 +632,16 @@ describe('Chart pane layout regressions', () => {
     chart.setSelectedDrawingId('d1')
 
     const adapter = {
-      setDrawings: (list: (typeof d1)[]) => chart.setDrawings(list),
+      replaceDrawings: (list: ReadonlyArray<typeof d1>) => chart.setDrawings([...list]),
       getFullDrawings: () => [...chart.kernel.drawing.readonly.drawings.peek()],
+      createDrawing: () => d1,
+      updateDrawing: () => null,
+      removeDrawing: (id: string) => {
+        const removed = chart.kernel.drawing.actions.removeDrawing(id)
+        if (removed) chart.scheduleDraw()
+        return removed
+      },
+      clearDrawings: () => chart.clearDrawings(),
       setSelectedDrawingId: (id: string | null) => chart.setSelectedDrawingId(id),
       getSelectedDrawingId: () => chart.kernel.drawing.readonly.selectedDrawingId.peek(),
       setDrawingToolId: (id: import('../drawing/toolConfig').DrawingToolId) =>

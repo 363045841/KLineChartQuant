@@ -16,7 +16,7 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
   const drawingController = shallowRef<DrawingInteractionController | null>(null)
   /** 镜像 kernel.selectedDrawingId（shallowRef 避免 deep proxy 破坏 Object.is） */
   const selectedDrawingId = shallowRef<string | null>(null)
-  const drawings = shallowRef<DrawingObject[]>([])
+  const drawings = shallowRef<ReadonlyArray<DrawingObject>>([])
   const selectedDrawing = computed(() => {
     const id = selectedDrawingId.value
     if (!id) return null
@@ -33,16 +33,14 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
 
   function onUpdateDrawingStyle(style: Partial<DrawingStyle>) {
     const d = selectedDrawing.value
-    if (!d || !drawingController.value) return
-    drawingController.value.updateDrawingStyle(d.id, style)
-    drawings.value = drawingController.value.getDrawings()
+    if (!d) return
+    ctrl.value?.updateDrawing(d.id, { style })
   }
 
   function onDeleteDrawing() {
     const d = selectedDrawing.value
-    if (!d || !drawingController.value) return
-    drawingController.value.removeDrawing(d.id)
-    drawings.value = drawingController.value.getDrawings()
+    if (!d) return
+    ctrl.value?.removeDrawing(d.id)
   }
 
   function setupDrawing(chartCtrl: ChartController): void {
@@ -50,7 +48,6 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
     chartCtrl.registerDrawingSession(drawingController.value)
     drawingController.value.setCallbacks({
       onDrawingCreated: (drawing) => {
-        drawings.value = [...drawings.value, drawing]
         // selection 写 kernel；UI 由 selectedDrawingId signal 回推
         chartCtrl.setSelectedDrawingId(drawing.id)
       },
@@ -62,9 +59,9 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
 
     // UI 只镜像 kernel 已确认列表；预览/拖拽不进 Vue ref
     unsubDrawings = chartCtrl.drawings.subscribe(() => {
-      drawings.value = chartCtrl.getFullDrawings() as DrawingObject[]
+      drawings.value = chartCtrl.drawings.peek()
     })
-    drawings.value = chartCtrl.getFullDrawings() as DrawingObject[]
+    drawings.value = chartCtrl.drawings.peek()
 
     const syncSelected = () => {
       selectedDrawingId.value = chartCtrl.selectedDrawingId.peek()

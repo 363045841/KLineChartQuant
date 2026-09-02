@@ -9,7 +9,7 @@ import { PreviewRenderer } from './PreviewRenderer'
 import { resolveAnchorFromPointer } from './coordinateUtils'
 import type { DrawingAnchorInput } from './coordinateUtils'
 import type { DrawingToolId } from './toolConfig'
-import { getAnchorCountForTool, getDrawingKind, CHANNEL_KINDS } from './toolConfig'
+import { getAnchorCountForTool, getDrawingKind } from './toolConfig'
 
 // Re-export types so index.ts re-exports work unchanged
 export type { DrawingToolId } from './toolConfig'
@@ -87,7 +87,8 @@ export class DrawingInteractionController {
   }
 
   setDrawings(drawings: DrawingObject[]) {
-    this.drawingState.setDrawings(drawings)
+    this.drawingState.clearSession()
+    this.adapter.replaceDrawings(drawings)
   }
 
   clear() {
@@ -97,15 +98,16 @@ export class DrawingInteractionController {
       this.drawingState.clearDragOverride()
       this.dragHandler.endDrag()
     }
-    this.drawingState.clear()
+    this.drawingState.clearSession()
+    this.adapter.clearDrawings()
   }
 
   updateDrawingStyle(drawingId: string, style: Partial<DrawingStyle>): void {
-    this.drawingState.updateDrawingStyle(drawingId, style)
+    this.adapter.updateDrawing(drawingId, { style })
   }
 
   removeDrawing(drawingId: string): void {
-    this.drawingState.removeDrawing(drawingId)
+    this.adapter.removeDrawing(drawingId)
   }
 
   // ============ 选中状态 ============
@@ -238,28 +240,11 @@ export class DrawingInteractionController {
   private createSingleAnchorDrawing(anchor: DrawingAnchorInput, activeTool: DrawingToolId) {
     this.drawingState.removePreview()
 
-    const drawing: DrawingObject = {
-      id: `drawing-${Date.now()}`,
+    const drawing = this.adapter.createDrawing({
       kind: getDrawingKind(activeTool),
       paneId: 'main',
-      visible: true,
-      anchors: [
-        {
-          id: `${Date.now()}-a`,
-          index: anchor.index,
-          time: anchor.time,
-          price: anchor.price,
-        },
-      ],
-      params: {},
-      style: {
-        stroke: '#2962ff',
-        strokeWidth: 1,
-        strokeStyle: 'solid',
-      },
-    }
-
-    this.drawingState.addOrUpdate(drawing)
+      anchors: [{ time: Number(anchor.time), price: anchor.price }],
+    })
     this.callbacks.onDrawingCreated?.(drawing)
     this.adapter.setDrawingToolId('cursor')
   }
@@ -267,45 +252,11 @@ export class DrawingInteractionController {
   private createMultiAnchorDrawing(anchors: DrawingAnchorInput[], activeTool: DrawingToolId) {
     this.drawingState.removePreview()
 
-    const kind = getDrawingKind(activeTool)
-    const params: Record<string, unknown> = kind === 'regression-channel' ? { sigma: 2 } : {}
-
-    const normalizedAnchors =
-      kind === 'flat-line' && anchors.length >= 3
-        ? [
-            anchors[0]!,
-            anchors[1]!,
-            {
-              index: anchors[1]!.index,
-              time: anchors[1]!.time,
-              price: anchors[2]!.price,
-            },
-          ]
-        : anchors
-
-    const isChannel = CHANNEL_KINDS.includes(kind)
-
-    const drawing: DrawingObject = {
-      id: `drawing-${Date.now()}`,
-      kind,
+    const drawing = this.adapter.createDrawing({
+      kind: getDrawingKind(activeTool),
       paneId: 'main',
-      visible: true,
-      anchors: normalizedAnchors.map((a, i) => ({
-        id: `${Date.now()}-${String.fromCharCode(97 + i)}`,
-        index: a.index,
-        time: a.time,
-        price: a.price,
-      })),
-      params,
-      style: {
-        stroke: '#2962ff',
-        strokeWidth: 1,
-        strokeStyle: 'solid',
-        ...(isChannel ? { fillOpacity: 0.1 } : {}),
-      },
-    }
-
-    this.drawingState.addOrUpdate(drawing)
+      anchors: anchors.map((anchor) => ({ time: Number(anchor.time), price: anchor.price })),
+    })
     this.callbacks.onDrawingCreated?.(drawing)
     this.adapter.setDrawingToolId('cursor')
   }

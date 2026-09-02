@@ -46,6 +46,24 @@ export interface ChartAgentContextSnapshot {
   readonly dataRevision: number
 }
 
+/** Agent 可读取的绘图锚点快照；渲染派生 index 不属于公共协议。 */
+export interface ChartAgentDrawingAnchor {
+  readonly time: number | null
+  readonly price: number
+}
+
+/** Agent 可读取的已确认图元快照。 */
+export interface ChartAgentDrawingSnapshot {
+  readonly id: string
+  readonly kind: string
+  readonly paneId: string
+  readonly visible: boolean
+  readonly locked: boolean
+  readonly zIndex: number | null
+  readonly anchors: ReadonlyArray<ChartAgentDrawingAnchor>
+  readonly style: Readonly<Record<string, string | number | undefined>>
+}
+
 /** Bounded parameters accepted by the compact indicator query. */
 export interface IndicatorQueryInput {
   readonly definitionId: string
@@ -142,4 +160,5 @@ export interface ChartAgentController {
     input: TimeShareRangeQueryInput,
     context?: ChartToolExecutionContext,
   ): Promise<string>
+  listDrawings(): Promise<ReadonlyArray<ChartAgentDrawingSnapshot>>
 }

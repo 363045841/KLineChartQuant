@@ -13,13 +13,12 @@
  */
 
 import { Chart } from '../engine/chart'
+import { DrawingDocument } from '../engine/drawing/DrawingDocument'
 import { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins'
 import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
 import { KLineChartError } from '../errors'
 import { marketDataProviderRegistry } from '../data/provider/registry'
-import {
-  createChartAgentController,
-} from '../features/agent/chartAgentController'
+import { createChartAgentController } from '../features/agent/chartAgentController'
 import { createIndicatorQuery } from '../features/agent/indicator/indicatorQuery'
 import { ChartBridge } from '../features/mcp/chartBridge'
 import { resolveSettings } from '../foundation/config/chartSettings'
@@ -42,6 +41,9 @@ import type {
   SymbolSpec,
   SymbolInfo,
   CustomDataSource,
+  CreateDrawingInput,
+  DrawingObject,
+  UpdateDrawingPatch,
 } from './types'
 import type {
   ChartOptions,
@@ -396,6 +398,16 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     chartOptions,
     { rendererHost, initialSettings, marketSessions: opts.marketSessions },
   )
+  const drawingDocument = new DrawingDocument({
+    drawingState: chart.kernel.drawing,
+    getLogicalIndexAtTimestamp(timestamp) {
+      const index = chart.getData().findIndex((bar) => bar.timestamp === timestamp)
+      return index === -1 ? null : index
+    },
+    hasPaneId(paneId) {
+      return chart.getPaneLayoutSpecs().some((pane) => pane.id === paneId)
+    },
+  })
 
   if (import.meta.env?.MODE !== 'production' && typeof window !== 'undefined') {
     ;(window as any).__chart = chart
@@ -493,6 +505,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     indicatorQuery: createIndicatorQuery({ dataState: chart.kernel.data }),
     marketDataProviderRegistry,
     marketDataCache: chart.getMarketDataCache(),
+    drawingDocument,
   })
 
   let disposed = false
@@ -744,24 +757,42 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   function clearDrawings(): void {
     if (disposed) return
-    chart.clearDrawings()
+    drawingDocument.clearDrawings()
+    chart.scheduleDraw()
   }
 
-  function removeDrawing(drawingId: string): void {
+  function createDrawing(input: CreateDrawingInput): DrawingObject {
+    if (disposed) throw new Error('Chart controller has been disposed.')
+    const drawing = drawingDocument.createDrawing(input)
+    chart.scheduleDraw()
+    return drawing
+  }
+
+  function updateDrawing(id: string, patch: UpdateDrawingPatch): DrawingObject | null {
+    if (disposed) return null
+    const drawing = drawingDocument.updateDrawing(id, patch)
+    if (drawing) chart.scheduleDraw()
+    return drawing
+  }
+
+  function removeDrawing(drawingId: string): boolean {
+    if (disposed) return false
+    const removed = drawingDocument.removeDrawing(drawingId)
+    if (removed) chart.scheduleDraw()
+    return removed
+  }
+
+  function replaceDrawings(drawings: ReadonlyArray<DrawingObject>): void {
     if (disposed) return
-    chart.removeDrawing(drawingId)
+    drawingDocument.replaceDrawings(drawings)
+    chart.scheduleDraw()
   }
 
   // ---- DrawingChartAdapter methods ----
 
-  function setDrawings(drawings: any[]): void {
-    if (disposed) return
-    chart.setDrawings(drawings)
-  }
-
-  function getFullDrawings(): any[] {
+  function getFullDrawings(): ReadonlyArray<DrawingObject> {
     if (disposed) return []
-    return chart.drawings() as any[]
+    return drawingDocument.listDrawings()
   }
 
   function requestDraw(): void {
@@ -1019,8 +1050,10 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     getDrawingToolId,
     registerDrawingSession,
     clearDrawings,
+    createDrawing,
+    updateDrawing,
     removeDrawing,
-    setDrawings,
+    replaceDrawings,
     getFullDrawings,
     requestDraw,
     setSelectedDrawingId,

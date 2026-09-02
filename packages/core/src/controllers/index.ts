@@ -27,6 +27,8 @@ export type {
   DrawingChartAdapter,
   DrawingChartViewport,
   PaneLayoutInfo,
+  CreateDrawingInput,
+  UpdateDrawingPatch,
   SymbolSpec,
   SymbolInfo,
   DataSourceParams,

@@ -1,5 +1,5 @@
 import type { DrawingChartAdapter } from '../../controllers/types'
-import type { DrawingObject, DrawingStyle } from '../../foundation/plugin/index'
+import type { DrawingObject } from '../../foundation/plugin/index'
 
 const PREVIEW_ID = '__preview__'
 
@@ -84,50 +84,11 @@ export class DrawingState {
   /** pointerup：把拖拽结果写入 kernel，清会话覆盖 */
   commitDrag(): void {
     if (!this.dragOverride) return
-    const next = mergePaint(this.committed(), [this.dragOverride])
+    const drawing = this.dragOverride
     this.dragOverride = null
-    this.adapter.setDrawings(next)
-  }
-
-  // ---- Committed writes (kernel) ----
-
-  setDrawings(drawings: DrawingObject[]): void {
-    this.preview = null
-    this.dragOverride = null
-    const committed = drawings.filter((d) => d.id !== PREVIEW_ID)
-    this.clearSelectionIfMissing(committed)
-    this.adapter.setDrawings(committed)
-  }
-
-  replaceDrawings(drawings: DrawingObject[]): void {
-    this.setDrawings(drawings)
-  }
-
-  addOrUpdate(drawing: DrawingObject): void {
-    if (drawing.id === PREVIEW_ID) {
-      this.setPreview(drawing)
-      return
-    }
-    const next = mergePaint(this.committed(), [drawing])
-    this.adapter.setDrawings(next)
-  }
-
-  removeDrawing(drawingId: string): void {
-    if (this.dragOverride?.id === drawingId) this.dragOverride = null
-    if (this.preview?.id === drawingId) this.preview = null
-    const next = this.committed().filter((d) => d.id !== drawingId)
-    this.clearSelectionIfMissing(next)
-    this.adapter.setDrawings(next)
-  }
-
-  updateDrawingStyle(drawingId: string, style: Partial<DrawingStyle>): void {
-    const next = this.committed().map((d) =>
-      d.id === drawingId ? { ...d, style: { ...d.style, ...style } } : d,
-    )
-    if (this.dragOverride?.id === drawingId) {
-      this.dragOverride = { ...this.dragOverride, style: { ...this.dragOverride.style, ...style } }
-    }
-    this.adapter.setDrawings(next)
+    this.adapter.updateDrawing(drawing.id, {
+      anchors: drawing.anchors.map(({ time, price }) => ({ time: Number(time), price })),
+    })
   }
 
   setSelected(drawing: DrawingObject | null): void {
@@ -136,18 +97,9 @@ export class DrawingState {
     this.adapter.setSelectedDrawingId(newId)
   }
 
-  clear(): void {
+  clearSession(): void {
     this.preview = null
     this.dragOverride = null
-    this.adapter.setDrawings([])
-    this.adapter.setSelectedDrawingId(null)
-  }
-
-  private clearSelectionIfMissing(list: DrawingObject[]): void {
-    const selected = this.adapter.getSelectedDrawingId()
-    if (selected && !list.some((d) => d.id === selected)) {
-      this.adapter.setSelectedDrawingId(null)
-    }
   }
 }
 

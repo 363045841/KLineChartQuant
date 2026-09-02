@@ -6,6 +6,8 @@ import { lookupInstrumentsBySymbol, searchInstruments } from '../../data/provide
 import type { MarketDataProviderRegistry } from '../../data/provider/registry'
 import { MarketDataCache } from '../../data/buffer/marketDataCache'
 import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
+import type { DrawingDocument } from '../../engine/drawing/DrawingDocument'
+import type { DrawingObject } from '../../foundation/plugin'
 
 import { Tool, getRegisteredChartTools, type ChartToolExecutionContext } from './chartToolRegistry'
 import { CHART_AGENT_ERROR_CODES } from './errors'
@@ -19,6 +21,7 @@ import type {
   ChartAgentActiveIndicator,
   ChartAgentContextSnapshot,
   ChartAgentController,
+  ChartAgentDrawingSnapshot,
   ChartAgentTimeRange,
   BarsQueryInput,
   BarsQueryResult,
@@ -47,6 +50,7 @@ interface ChartAgentControllerDependencies {
   readonly indicatorQuery: IndicatorQuery
   readonly marketDataProviderRegistry: MarketDataProviderRegistry
   readonly marketDataCache: MarketDataCache
+  readonly drawingDocument: DrawingDocument
   readonly marketDataTextFormatter?: MarketDataTextFormatter
 }
 
@@ -133,6 +137,74 @@ const TimeShareRangeQueryToolParameters = Type.Object({
   assetClass: Type.Optional(AssetClassToolParameter),
 })
 
+const DRAWING_KIND_VALUES = [
+  'trend-line',
+  'ray',
+  'extended-line',
+  'fib-retracement',
+  'rectangle',
+  'arrow',
+  'horizontal-line',
+  'horizontal-ray',
+  'vertical-line',
+  'cross-line',
+  'info-line',
+  'parallel-channel',
+  'regression-channel',
+  'flat-line',
+  'disjoint-channel',
+] as const
+
+const DrawingKindToolParameter = Type.Union(DRAWING_KIND_VALUES.map((value) => Type.Literal(value)))
+const DrawingAnchorToolParameters = Type.Object({
+  time: Type.Number(),
+  price: Type.Number(),
+})
+const DrawingStyleToolParameters = Type.Partial(
+  Type.Object({
+    stroke: Type.String({ minLength: 1 }),
+    strokeWidth: Type.Number({ exclusiveMinimum: 0 }),
+    strokeStyle: Type.Union([
+      Type.Literal('solid'),
+      Type.Literal('dashed'),
+      Type.Literal('dotted'),
+    ]),
+    fill: Type.String({ minLength: 1 }),
+    fillOpacity: Type.Number({ minimum: 0, maximum: 1 }),
+    pointRadius: Type.Number({ exclusiveMinimum: 0 }),
+    textColor: Type.String({ minLength: 1 }),
+    fontSize: Type.Number({ exclusiveMinimum: 0 }),
+  }),
+)
+const DrawingCreateToolParameters = Type.Object({
+  kind: DrawingKindToolParameter,
+  paneId: Type.String({ minLength: 1 }),
+  anchors: Type.Array(DrawingAnchorToolParameters, { minItems: 1, maxItems: 3 }),
+  style: Type.Optional(DrawingStyleToolParameters),
+  visible: Type.Optional(Type.Boolean()),
+  locked: Type.Optional(Type.Boolean()),
+  zIndex: Type.Optional(Type.Number()),
+})
+const DrawingUpdatePatchToolParameters = Type.Object(
+  {
+    anchors: Type.Optional(Type.Array(DrawingAnchorToolParameters, { minItems: 1, maxItems: 3 })),
+    style: Type.Optional(DrawingStyleToolParameters),
+    visible: Type.Optional(Type.Boolean()),
+    locked: Type.Optional(Type.Boolean()),
+    zIndex: Type.Optional(Type.Number()),
+  },
+  { minProperties: 1 },
+)
+const DrawingUpdateToolParameters = Type.Object({
+  drawingId: Type.String({ minLength: 1 }),
+  patch: DrawingUpdatePatchToolParameters,
+})
+const DrawingDeleteToolParameters = Type.Object({
+  drawingId: Type.String({ minLength: 1 }),
+})
+const DrawingsListToolParameters = Type.Object({})
+const DrawingsClearToolParameters = Type.Object({})
+
 /** 将图表指标实例投影为可安全暴露给 Agent 的只读快照。 */
 function projectIndicators(
   indicators: ReadonlyArray<IndicatorInstance>,
@@ -150,6 +222,28 @@ function projectIndicators(
       })
     }),
   )
+}
+
+/** 将内部图元投影为不含渲染派生坐标与会话态的 Agent 快照。 */
+function projectDrawing(drawing: DrawingObject): ChartAgentDrawingSnapshot {
+  return Object.freeze({
+    id: drawing.id,
+    kind: drawing.kind,
+    paneId: drawing.paneId,
+    visible: drawing.visible,
+    locked: drawing.locked ?? false,
+    zIndex: drawing.zIndex ?? null,
+    anchors: Object.freeze(
+      drawing.anchors.map((anchor) =>
+        Object.freeze({
+          time:
+            typeof anchor.time === 'number' && Number.isFinite(anchor.time) ? anchor.time : null,
+          price: anchor.price,
+        }),
+      ),
+    ),
+    style: Object.freeze({ ...drawing.style }),
+  })
 }
 
 /** 从当前数据计算含首尾时间戳的完整数据范围。 */
@@ -391,6 +485,88 @@ class ChartAgentControllerImpl implements ChartAgentController {
       instrument: result.instrument,
       range: result.range,
     })
+  }
+
+  /** 返回当前已确认图元，不暴露内部 index 与会话预览。 */
+  @Tool({
+    name: 'drawings_list',
+    label: 'List drawings',
+    description:
+      'List every committed chart drawing. Anchors use timestamp and price; rendering indexes and interaction previews are not exposed.',
+    parameters: DrawingsListToolParameters,
+    safety: 'read-only',
+    executionMode: 'parallel',
+  })
+  async listDrawings(
+    _input?: Static<typeof DrawingsListToolParameters>,
+  ): Promise<ReadonlyArray<ChartAgentDrawingSnapshot>> {
+    return this.dependencies.drawingDocument.listDrawings().map(projectDrawing)
+  }
+
+  /** 创建一个图表已确认图元。 */
+  @Tool({
+    name: 'drawing_create',
+    label: 'Create drawing',
+    description:
+      'Create a committed chart drawing using a supported kind, an existing paneId, and timestamp-price anchors. The chart resolves rendering indexes from timestamps.',
+    parameters: DrawingCreateToolParameters,
+    safety: 'destructive',
+    executionMode: 'sequential',
+  })
+  async createDrawing(
+    input: Static<typeof DrawingCreateToolParameters>,
+  ): Promise<ChartAgentDrawingSnapshot> {
+    return projectDrawing(this.dependencies.drawingDocument.createDrawing(input))
+  }
+
+  /** 更新一个图表已确认图元。 */
+  @Tool({
+    name: 'drawing_update',
+    label: 'Update drawing',
+    description:
+      'Update a committed chart drawing by id. Supply at least one patch field; replacement anchors use timestamp-price coordinates.',
+    parameters: DrawingUpdateToolParameters,
+    safety: 'destructive',
+    executionMode: 'sequential',
+  })
+  async updateDrawing(
+    input: Static<typeof DrawingUpdateToolParameters>,
+  ): Promise<ChartAgentDrawingSnapshot | null> {
+    const drawing = this.dependencies.drawingDocument.updateDrawing(input.drawingId, input.patch)
+    return drawing ? projectDrawing(drawing) : null
+  }
+
+  /** 删除一个图表已确认图元。 */
+  @Tool({
+    name: 'drawing_delete',
+    label: 'Delete drawing',
+    description: 'Delete one committed chart drawing by id. Returns whether a drawing was removed.',
+    parameters: DrawingDeleteToolParameters,
+    safety: 'destructive',
+    executionMode: 'sequential',
+  })
+  async deleteDrawing(
+    input: Static<typeof DrawingDeleteToolParameters>,
+  ): Promise<{ removed: boolean }> {
+    return { removed: this.dependencies.drawingDocument.removeDrawing(input.drawingId) }
+  }
+
+  /** 清除当前图表的全部已确认图元。 */
+  @Tool({
+    name: 'drawings_clear',
+    label: 'Clear drawings',
+    description:
+      'Delete every committed chart drawing. Interaction previews are not persisted and are unaffected.',
+    parameters: DrawingsClearToolParameters,
+    safety: 'destructive',
+    executionMode: 'sequential',
+  })
+  async clearDrawings(
+    _input: Static<typeof DrawingsClearToolParameters>,
+  ): Promise<{ removed: number }> {
+    const removed = this.dependencies.drawingDocument.listDrawings().length
+    this.dependencies.drawingDocument.clearDrawings()
+    return { removed }
   }
 }
 

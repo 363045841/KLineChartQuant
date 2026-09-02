@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { createDataState } from '../../../engine/state/dataState'
+import { createDrawingState } from '../../../engine/state/drawingState'
+import { DrawingDocument } from '../../../engine/drawing/DrawingDocument'
 import { MarketDataProviderRegistry } from '../../../data/provider/registry'
 import { MarketDataCache } from '../../../data/buffer/marketDataCache'
 import { createSignal } from '../../../foundation/reactivity/signal'
@@ -45,7 +47,17 @@ function publishBars(dataState: ReturnType<typeof createDataState>, bars = creat
 
 function createFixture() {
   const dataState = createDataState()
-  publishBars(dataState)
+  const bars = createBars()
+  publishBars(dataState, bars)
+  const drawingState = createDrawingState()
+  const drawingDocument = new DrawingDocument({
+    drawingState,
+    getLogicalIndexAtTimestamp: (timestamp) => {
+      const index = bars.findIndex((bar) => bar.timestamp === timestamp)
+      return index === -1 ? null : index
+    },
+    hasPaneId: (paneId) => paneId === 'main',
+  })
 
   const currentSpec = createSignal<SymbolSpec | null>({
     symbol: 'BTCUSDT',
@@ -142,6 +154,7 @@ function createFixture() {
     indicatorQuery: { queryIndicator },
     marketDataProviderRegistry,
     marketDataCache: new MarketDataCache(marketDataProviderRegistry),
+    drawingDocument,
   })
 
   return {
@@ -157,6 +170,7 @@ function createFixture() {
     fetchBars,
     fetchTimeShare,
     fetchTimeShareRange,
+    drawingDocument,
   }
 }
 
@@ -284,6 +298,51 @@ describe('createChartAgentController', () => {
     expect(fixture.queryIndicator).toHaveBeenLastCalledWith(input)
   })
 
+  it('executes drawing CRUD through the registered document tools', async () => {
+    const fixture = createFixture()
+    const signal = new AbortController().signal
+    const create = getRegisteredChartTools().find((tool) => tool.config.name === 'drawing_create')!
+    const update = getRegisteredChartTools().find((tool) => tool.config.name === 'drawing_update')!
+    const list = getRegisteredChartTools().find((tool) => tool.config.name === 'drawings_list')!
+    const remove = getRegisteredChartTools().find((tool) => tool.config.name === 'drawing_delete')!
+
+    const created = (await create.execute(
+      fixture.controller,
+      {
+        kind: 'trend-line',
+        paneId: 'main',
+        anchors: [
+          { time: 1_000, price: 10 },
+          { time: 2_000, price: 12 },
+        ],
+      },
+      { signal, progress: () => undefined },
+    )) as { id: string; anchors: Array<{ time: number; price: number; index?: number }> }
+
+    expect(created.anchors).toEqual([
+      { time: 1_000, price: 10 },
+      { time: 2_000, price: 12 },
+    ])
+    await expect(
+      update.execute(
+        fixture.controller,
+        { drawingId: created.id, patch: { style: { strokeWidth: 3 } } },
+        { signal, progress: () => undefined },
+      ),
+    ).resolves.toMatchObject({ id: created.id, style: { strokeWidth: 3 } })
+    await expect(
+      list.execute(fixture.controller, {}, { signal, progress: () => undefined }),
+    ).resolves.toEqual([expect.objectContaining({ id: created.id })])
+    await expect(
+      remove.execute(
+        fixture.controller,
+        { drawingId: created.id },
+        { signal, progress: () => undefined },
+      ),
+    ).resolves.toEqual({ removed: true })
+    expect(fixture.drawingDocument.listDrawings()).toEqual([])
+  })
+
   it('delegates instrument searches through the shared Provider registry', async () => {
     const fixture = createFixture()
     const input = { keyword: '600519', limit: 20, sourceIds: ['fixture'] }
@@ -377,7 +436,7 @@ describe('createChartAgentController', () => {
         signal,
         progress: () => undefined,
       }),
-).resolves.toContain('source=fixture')
+    ).resolves.toContain('source=fixture')
     await expect(fixture.controller.queryTimeShareRange(rangeInput)).resolves.toContain(
       'source=fixture',
     )
