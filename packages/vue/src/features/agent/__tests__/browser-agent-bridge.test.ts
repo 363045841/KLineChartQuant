@@ -245,6 +245,57 @@ describe('BrowserAgentBridge', () => {
     expect(snapshot.messages).toEqual([])
   })
 
+  it('includes completed turns in the next Provider request', async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(
+          [
+            'data: {"id":"chat-1","object":"chat.completion.chunk","created":1,"model":"chart-model","choices":[{"index":0,"delta":{"role":"assistant","content":"第一轮回答"},"finish_reason":null}]}\n',
+            'data: {"id":"chat-1","object":"chat.completion.chunk","created":1,"model":"chart-model","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n',
+            'data: [DONE]\n',
+          ].join('\n'),
+          { headers: { 'Content-Type': 'text/event-stream' } },
+        ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const bridge = new BrowserAgentBridge()
+    await bridge.saveProvider({
+      baseUrl: 'https://provider.example/v1',
+      apiKey: 'test-key',
+      model: 'chart-model',
+      modelName: 'Chart model',
+      protocol: 'openai-completions',
+      profileName: 'Provider example',
+    })
+    const [session] = await bridge.listSessions()
+
+    const waitForCompletion = () =>
+      new Promise<void>((resolve) => {
+        const unsubscribe = bridge.subscribe((event) => {
+          if (event.type !== 'run.completed') return
+          unsubscribe()
+          resolve()
+        })
+      })
+
+    const firstCompleted = waitForCompletion()
+    await bridge.startRun({ sessionId: session!.id, prompt: '第一轮问题', readOnly: true })
+    await firstCompleted
+    const secondCompleted = waitForCompletion()
+    await bridge.startRun({ sessionId: session!.id, prompt: '你刚刚说了什么', readOnly: true })
+    await secondCompleted
+
+    const secondRequest = JSON.parse(String(fetchMock.mock.calls[1]![1]?.body)) as {
+      messages: Array<{ role: string; content: unknown }>
+    }
+    expect(secondRequest.messages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ role: 'user', content: '第一轮问题' }),
+        expect.objectContaining({ role: 'assistant' }),
+      ]),
+    )
+  })
+
   it('subscribes after a chart controller becomes available', () => {
     const listeners = new Set<() => void>()
     let symbol = 'BTCUSDT'

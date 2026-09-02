@@ -3,6 +3,7 @@ import {
   AgentRuntimeError,
   AGENT_UI_PROTOCOL_VERSION,
   PiRunDriver,
+  type PiRunPlan,
   createOpenAiCompatibleRuntimeSupport,
   fetchOpenAiCompatibleModels,
   normalizeProviderBaseUrl,
@@ -144,6 +145,7 @@ interface BrowserSession {
   view: AgentSessionView
   messages: AgentSessionSnapshot['messages']
   runs: AgentSessionSnapshot['runs']
+  transcript: Array<NonNullable<PiRunPlan['transcript']>[number]>
 }
 
 interface ActiveRun {
@@ -443,6 +445,8 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     const driver = new PiRunDriver()
     this.activeRuns.set(runId, { driver, input })
     this.runInputs.set(runId, input)
+    const transcript = [...session.transcript]
+    session.transcript.push({ role: 'user', content: input.prompt, timestamp: startedAt })
     session.messages.push({
       id: `user-${runId}`,
       role: 'user',
@@ -457,7 +461,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       sessionId: input.sessionId,
       message: session.messages.at(-1)!,
     })
-    void this.run(driver, runId, input, session, startedAt)
+    void this.run(driver, runId, input, session, transcript, startedAt)
     return { runId }
   }
 
@@ -542,7 +546,12 @@ export class BrowserAgentBridge implements AgentBridgeClient {
 
   private createSessionRecord(): BrowserSession {
     const id = `session-${this.nextSession++}`
-    return { view: { id, title: 'New analysis', updatedAt: Date.now() }, messages: [], runs: [] }
+    return {
+      view: { id, title: 'New analysis', updatedAt: Date.now() },
+      messages: [],
+      runs: [],
+      transcript: [],
+    }
   }
 
   private requireSession(sessionId: string): BrowserSession {
@@ -557,6 +566,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     runId: string,
     input: StartRunInput,
     session: BrowserSession,
+    transcript: PiRunPlan['transcript'],
     startedAt: number,
   ): Promise<void> {
     try {
@@ -570,10 +580,27 @@ export class BrowserAgentBridge implements AgentBridgeClient {
         startedAt,
         userEntryId: `user-${runId}`,
       })
-      const result = await driver.run(plan, async (event) => {
+      const result = await driver.run({ ...plan, transcript }, async (event) => {
         this.emit({ ...event, runId, sessionId: input.sessionId })
       })
       const endedAt = Date.now()
+      session.transcript.push({
+        role: 'assistant',
+        content: [{ type: 'text', text: result.text }],
+        api: 'openai-responses',
+        provider: 'kq-runtime',
+        model: 'redacted',
+        usage: {
+          input: 0,
+          output: 0,
+          cacheRead: 0,
+          cacheWrite: 0,
+          totalTokens: 0,
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+        },
+        stopReason: 'stop',
+        timestamp: endedAt,
+      })
       session.messages.push({
         id: `assistant-${runId}`,
         role: 'assistant',
