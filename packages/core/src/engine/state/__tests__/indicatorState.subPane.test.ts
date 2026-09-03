@@ -125,7 +125,7 @@ describe('ChartStateKernel sub-pane transactions', () => {
     kernel.pane.readonly.paneSpecs.subscribe(capture)
     kernel.indicator.readonly.subPanes.subscribe(capture)
 
-    kernel.actions.createSubPane('RSI_0', 'RSI', { period1: 6 })
+    kernel.paneManager.actions.create({ paneId: 'RSI_0', indicatorId: 'RSI', params: { period1: 6 } })
 
     expect(snapshots.length).toBeGreaterThan(0)
     expect(snapshots).toEqual(
@@ -136,7 +136,7 @@ describe('ChartStateKernel sub-pane transactions', () => {
 
   it('removes pane layout and sub-pane entry atomically', () => {
     const kernel = createKernel()
-    kernel.actions.createSubPane('RSI_0', 'RSI', { period1: 6 })
+    kernel.paneManager.actions.create({ paneId: 'RSI_0', indicatorId: 'RSI', params: { period1: 6 } })
     const snapshots: Array<{ paneIds: string[]; entryIds: string[] }> = []
     const capture = () => {
       snapshots.push({
@@ -147,8 +147,37 @@ describe('ChartStateKernel sub-pane transactions', () => {
     kernel.pane.readonly.paneSpecs.subscribe(capture)
     kernel.indicator.readonly.subPanes.subscribe(capture)
 
-    kernel.actions.removeSubPane('RSI_0')
+    kernel.paneManager.actions.remove('RSI_0')
 
     expect(snapshots).toEqual(snapshots.map(() => ({ paneIds: ['main'], entryIds: [] })))
+  })
+
+  it('updates layout and indicator content through the pane manager actions', () => {
+    const kernel = createKernel()
+    kernel.paneManager.actions.create({ paneId: 'RSI_0', indicatorId: 'RSI', params: { period1: 6 } })
+
+    expect(kernel.paneManager.actions.update('RSI_0', { visible: false })).toBe(true)
+    expect(kernel.paneManager.actions.updateContent('RSI_0', { period1: 12 })).toBe(true)
+    expect(kernel.pane.readonly.paneSpecs.peek().find((pane) => pane.id === 'RSI_0')?.visible).toBe(
+      false,
+    )
+    expect(kernel.indicator.readonly.subPanes.peek()[0]?.params).toEqual({ period1: 12 })
+  })
+
+  it('moves panes without changing their content ownership', () => {
+    const kernel = createKernel()
+    kernel.paneManager.actions.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
+    kernel.paneManager.actions.create({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })
+
+    expect(kernel.paneManager.actions.move('RSI_0', 1)).toBe(true)
+    expect(kernel.pane.readonly.paneSpecs.peek().map((pane) => pane.id)).toEqual([
+      'main',
+      'RSI_0',
+      'MACD_0',
+    ])
+    expect(kernel.indicator.readonly.subPanes.peek().map((pane) => pane.paneId).sort()).toEqual([
+      'MACD_0',
+      'RSI_0',
+    ])
   })
 })

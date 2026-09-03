@@ -8,6 +8,7 @@ import {
   type ViewportDomDeps,
 } from './viewportState'
 import { createPaneState, type PaneStateModule } from './paneState'
+import { PaneManager } from '../paneManager'
 import { createSystemThemeState, type SystemThemeStateModule } from './themeState'
 import { createSettingsState, type SettingsStateModule } from './settingsState'
 import {
@@ -30,7 +31,6 @@ import {
   createIndicatorState,
   resolveModeIndicatorInstances,
   type IndicatorInstanceSpec,
-  type SubPaneInput,
   type IndicatorStateModule,
 } from './indicatorState'
 import { createMarkerState, type MarkerStateModule } from './markerState'
@@ -189,6 +189,8 @@ export class ChartStateKernel extends StateKernel {
   readonly data: DataStateModule
   readonly viewport: ViewportStateModule
   readonly pane: PaneStateModule
+  /** Pane 领域唯一写入口；布局和副图内容在此原子同步。 */
+  readonly paneManager: PaneManager
   /** 系统主题注入（非用户偏好）；用户偏好在 settings.theme */
   readonly systemTheme: SystemThemeStateModule
   readonly settings: SettingsStateModule
@@ -300,6 +302,7 @@ export class ChartStateKernel extends StateKernel {
       }
       this.pane.actions.commitLayout(initialRatios, initialPanes)
     }
+    this.paneManager = new PaneManager({ pane: this.pane, indicator: this.indicator })
 
     // ── Settings state（用户偏好 SSOT，含 theme light|dark|auto）──
     this.settings = createSettingsState(deps.initialSettings)
@@ -593,111 +596,6 @@ export class ChartStateKernel extends StateKernel {
       replaceMainIndicators: (instances: ReadonlyArray<IndicatorInstanceSpec>) =>
         this.indicator.actions.replaceAllMain(instances),
       clearMainIndicators: () => this.indicator.actions.clearMain(),
-      createSubPane: (
-        entryOrPaneId: SubPaneInput | string,
-        indicatorId?: string,
-        params?: Readonly<Record<string, unknown>>,
-      ) => {
-        const entry: SubPaneInput =
-          typeof entryOrPaneId === 'string'
-            ? { paneId: entryOrPaneId, indicatorId: indicatorId!, params: params ?? {} }
-            : entryOrPaneId
-        const { paneId } = entry
-        if (this.indicator.readonly.subPanes.peek().some((entry) => entry.paneId === paneId)) return
-        const currentSpecs = this.pane.readonly.paneSpecs.peek()
-        const nextSpecs = currentSpecs.some((pane) => pane.id === paneId)
-          ? currentSpecs.map((pane) => ({ ...pane }))
-          : [...currentSpecs, { id: paneId, ratio: 1, visible: true, role: 'indicator' as const }]
-        const visible = nextSpecs.filter((pane) => pane.visible !== false)
-        const pricePanes = visible.filter((pane) => pane.role === 'price')
-        const rawRatios: Record<string, number> = {
-          ...this.pane.readonly.paneRatios.peek(),
-        }
-        if (pricePanes.length === 1) {
-          rawRatios[pricePanes[0]!.id] = 3
-          for (const pane of visible) {
-            if (pane.role === 'indicator') rawRatios[pane.id] = 1
-          }
-        } else {
-          rawRatios[paneId] = 1
-        }
-        const visibleTotal = visible.reduce((sum, pane) => sum + (rawRatios[pane.id] ?? 1), 0) || 1
-        const ratios: Record<string, number> = {}
-        for (const pane of nextSpecs) {
-          ratios[pane.id] =
-            pane.visible === false
-              ? (rawRatios[pane.id] ?? pane.ratio ?? 1)
-              : (rawRatios[pane.id] ?? 1) / visibleTotal
-        }
-        const specs = nextSpecs.map((pane) => ({ ...pane, ratio: ratios[pane.id] }))
-        batch(() => {
-          this.indicator.actions.upsertSub(entry)
-          this.pane.actions.commitLayout(ratios, specs)
-        })
-      },
-      removeSubPane: (paneId: string) => {
-        const instance = this.indicator.readonly.instances
-          .peek()
-          .find((entry) => entry.role === 'sub' && entry.paneId === paneId)
-        if (!instance || instance.source === 'mode') return
-        const specs = this.pane.readonly.paneSpecs.peek().filter((pane) => pane.id !== paneId)
-        const rawRatios = { ...this.pane.readonly.paneRatios.peek() }
-        delete rawRatios[paneId]
-        const visible = specs.filter((pane) => pane.visible !== false)
-        const total = visible.reduce((sum, pane) => sum + (rawRatios[pane.id] ?? 1), 0) || 1
-        const ratios: Record<string, number> = {}
-        for (const pane of specs) {
-          ratios[pane.id] =
-            pane.visible === false
-              ? (rawRatios[pane.id] ?? pane.ratio ?? 1)
-              : (rawRatios[pane.id] ?? 1) / total
-        }
-        const nextSpecs = specs.map((pane) => ({ ...pane, ratio: ratios[pane.id] }))
-        batch(() => {
-          this.indicator.actions.removeSub(paneId)
-          this.pane.actions.commitLayout(ratios, nextSpecs)
-        })
-      },
-      replaceSubPane: (
-        paneId: string,
-        indicatorId: string,
-        params: Readonly<Record<string, unknown>>,
-      ) => {
-        const instance = this.indicator.readonly.instances
-          .peek()
-          .find((entry) => entry.role === 'sub' && entry.paneId === paneId)
-        if (!instance || instance.source === 'mode') return
-        this.indicator.actions.replaceSub({ paneId, indicatorId, params })
-      },
-      updateSubPaneParams: (paneId: string, params: Readonly<Record<string, unknown>>) =>
-        this.indicator.actions.setSubParams(paneId, params),
-      clearSubPanes: () => {
-        const subPaneIds = new Set(
-          this.indicator.readonly.instances
-            .peek()
-            .filter((entry) => entry.role === 'sub' && entry.source !== 'mode')
-            .map((entry) => entry.paneId),
-        )
-        const specs = this.pane.readonly.paneSpecs.peek().filter((pane) => !subPaneIds.has(pane.id))
-        const ratios: Record<string, number> = {}
-        const visible = specs.filter((pane) => pane.visible !== false)
-        const total =
-          visible.reduce(
-            (sum, pane) => sum + (this.pane.readonly.paneRatios.peek()[pane.id] ?? 1),
-            0,
-          ) || 1
-        for (const pane of specs) {
-          const raw = this.pane.readonly.paneRatios.peek()[pane.id] ?? 1
-          ratios[pane.id] = pane.visible === false ? raw : raw / total
-        }
-        batch(() => {
-          this.indicator.actions.clearSub()
-          this.pane.actions.commitLayout(
-            ratios,
-            specs.map((pane) => ({ ...pane, ratio: ratios[pane.id] })),
-          )
-        })
-      },
       // customMarkers 变更须走 Chart.update/clear/registerCustomMarkers：
       // 同步 clearPositionCache + scheduleDraw。勿在此暴露仅写 state 的 flat actions。
     }

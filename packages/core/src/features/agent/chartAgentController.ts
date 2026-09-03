@@ -40,6 +40,8 @@ import type {
   TradingDate,
 } from '../../data/provider/types'
 import type { DataStateModule } from '../../engine/state/dataState'
+import type { PaneManager } from '../../engine/paneManager'
+import type { PaneSpec } from '../../engine/chartTypes'
 
 interface ChartAgentControllerDependencies {
   readonly chartId: string
@@ -54,6 +56,7 @@ interface ChartAgentControllerDependencies {
   readonly drawingDocument: DrawingDocument
   readonly drawingCommands: DrawingCommands
   readonly getDrawingPaneIds: () => ReadonlyArray<string>
+  readonly paneManager: Pick<PaneManager, 'actions' | 'list'>
   readonly marketDataTextFormatter?: MarketDataTextFormatter
 }
 
@@ -207,6 +210,40 @@ const DrawingDeleteToolParameters = Type.Object({
 })
 const DrawingsListToolParameters = Type.Object({})
 const DrawingsClearToolParameters = Type.Object({})
+const PaneParamsToolParameter = Type.Record(Type.String(), Type.Unknown())
+const PanePatchToolParameters = Type.Partial(
+  Type.Object({
+    ratio: Type.Number({ exclusiveMinimum: 0 }),
+    visible: Type.Boolean(),
+    minHeightPx: Type.Number({ exclusiveMinimum: 0 }),
+  }),
+  { minProperties: 1 },
+)
+const PaneCreateToolParameters = Type.Object({
+  paneId: Type.String({ minLength: 1 }),
+  indicatorId: Type.String({ minLength: 1 }),
+  params: PaneParamsToolParameter,
+})
+const PaneUpdateToolParameters = Type.Object({
+  paneId: Type.String({ minLength: 1 }),
+  patch: PanePatchToolParameters,
+})
+const PaneIdToolParameters = Type.Object({ paneId: Type.String({ minLength: 1 }) })
+const PaneMoveToolParameters = Type.Object({
+  paneId: Type.String({ minLength: 1 }),
+  targetIndex: Type.Integer({ minimum: 0 }),
+})
+const PaneReplaceContentToolParameters = Type.Object({
+  paneId: Type.String({ minLength: 1 }),
+  indicatorId: Type.String({ minLength: 1 }),
+  params: PaneParamsToolParameter,
+})
+const PaneUpdateContentToolParameters = Type.Object({
+  paneId: Type.String({ minLength: 1 }),
+  params: PaneParamsToolParameter,
+})
+const PanesListToolParameters = Type.Object({})
+const PanesClearToolParameters = Type.Object({})
 
 /** 将图表指标实例投影为可安全暴露给 Agent 的只读快照。 */
 function projectIndicators(
@@ -347,6 +384,127 @@ class ChartAgentControllerImpl implements ChartAgentController {
   /** 返回当前可用于创建图元的 pane ID。 */
   getAvailableDrawingPaneIds(): ReadonlyArray<string> {
     return Object.freeze([...this.dependencies.getDrawingPaneIds()])
+  }
+
+  /** 返回 Agent 可引用的 pane 布局快照。 */
+  @Tool({
+    name: 'panes_list',
+    label: 'List panes',
+    description:
+      'List the current pane layout and capabilities. Use paneId values from this result when creating drawings or changing a pane.',
+    parameters: PanesListToolParameters,
+    safety: 'read-only',
+    executionMode: 'parallel',
+  })
+  async listPanes(_input?: Static<typeof PanesListToolParameters>): Promise<ReadonlyArray<PaneSpec>> {
+    return Object.freeze(
+      this.dependencies.paneManager.list().map((pane) =>
+        Object.freeze({
+          ...pane,
+          ...(pane.capabilities ? { capabilities: Object.freeze({ ...pane.capabilities }) } : {}),
+        }),
+      ),
+    )
+  }
+
+  /** 创建带副图指标内容的 pane。 */
+  @Tool({
+    name: 'pane_create',
+    label: 'Create pane',
+    description:
+      'Create one indicator pane with a unique paneId, a registered indicatorId, and complete indicator params. Returns false when paneId already exists.',
+    parameters: PaneCreateToolParameters,
+    safety: 'destructive',
+    executionMode: 'sequential',
+  })
+  async createPane(input: Static<typeof PaneCreateToolParameters>): Promise<boolean> {
+    return this.dependencies.paneManager.actions.create(input)
+  }
+
+  /** 更新单个 pane 的布局属性。 */
+  @Tool({
+    name: 'pane_update',
+    label: 'Update pane',
+    description:
+      'Update one pane layout patch. ratio is relative among visible panes; minHeightPx is a positive CSS-pixel constraint.',
+    parameters: PaneUpdateToolParameters,
+    safety: 'destructive',
+    executionMode: 'sequential',
+  })
+  async updatePane(input: Static<typeof PaneUpdateToolParameters>): Promise<boolean> {
+    return this.dependencies.paneManager.actions.update(input.paneId, input.patch)
+  }
+
+  /** 删除一个 pane 及其用户副图内容。 */
+  @Tool({
+    name: 'pane_remove',
+    label: 'Remove pane',
+    description: 'Remove one user pane and its indicator content. System-owned mode panes cannot be removed.',
+    parameters: PaneIdToolParameters,
+    safety: 'destructive',
+    executionMode: 'sequential',
+  })
+  async removePane(input: Static<typeof PaneIdToolParameters>): Promise<boolean> {
+    return this.dependencies.paneManager.actions.remove(input.paneId)
+  }
+
+  /** 调整 pane 的显示顺序。 */
+  @Tool({
+    name: 'pane_move',
+    label: 'Move pane',
+    description: 'Move one pane to a zero-based layout index without changing its indicator content.',
+    parameters: PaneMoveToolParameters,
+    safety: 'destructive',
+    executionMode: 'sequential',
+  })
+  async movePane(input: Static<typeof PaneMoveToolParameters>): Promise<boolean> {
+    return this.dependencies.paneManager.actions.move(input.paneId, input.targetIndex)
+  }
+
+  /** 替换 pane 的副图指标内容。 */
+  @Tool({
+    name: 'pane_replace_content',
+    label: 'Replace pane content',
+    description:
+      'Replace an existing user pane indicator with a registered indicatorId and complete params. The pane layout is preserved.',
+    parameters: PaneReplaceContentToolParameters,
+    safety: 'destructive',
+    executionMode: 'sequential',
+  })
+  async replacePaneContent(
+    input: Static<typeof PaneReplaceContentToolParameters>,
+  ): Promise<boolean> {
+    return this.dependencies.paneManager.actions.replaceContent(
+      input.paneId,
+      input.indicatorId,
+      input.params,
+    )
+  }
+
+  /** 更新 pane 副图指标的完整参数。 */
+  @Tool({
+    name: 'pane_update_content',
+    label: 'Update pane content',
+    description: 'Replace the complete parameter object of one user pane indicator.',
+    parameters: PaneUpdateContentToolParameters,
+    safety: 'destructive',
+    executionMode: 'sequential',
+  })
+  async updatePaneContent(input: Static<typeof PaneUpdateContentToolParameters>): Promise<boolean> {
+    return this.dependencies.paneManager.actions.updateContent(input.paneId, input.params)
+  }
+
+  /** 删除全部用户副图 pane。 */
+  @Tool({
+    name: 'panes_clear',
+    label: 'Clear panes',
+    description: 'Remove every user-created indicator pane and its content. Main and mode-owned panes are retained.',
+    parameters: PanesClearToolParameters,
+    safety: 'destructive',
+    executionMode: 'sequential',
+  })
+  async clearPanes(_input?: Static<typeof PanesClearToolParameters>): Promise<void> {
+    this.dependencies.paneManager.actions.clear()
   }
 
   /** 校验显式 sourceId，向 Agent 返回可直接修正下一次调用的可用值。 */

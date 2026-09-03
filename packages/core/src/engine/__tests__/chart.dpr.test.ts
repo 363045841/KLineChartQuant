@@ -404,13 +404,13 @@ describe('Chart pane layout regressions', () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     chart.resize()
 
-    expect(chart.createSubPane('MACD_0', 'MACD')).toBe(true)
-    expect(chart.createSubPane('RSI_0', 'RSI')).toBe(true)
+    expect(chart.createPane({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })).toBe(true)
+    expect(chart.createPane({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })).toBe(true)
 
     const specs = chart.getPaneLayoutSpecs().filter((pane) => pane.visible !== false)
     expect(specs).toHaveLength(3)
 
-    // 公共读对齐 kernel SSOT（createSubPane 3:1:1 → 0.6:0.2:0.2）
+    // 公共读对齐 kernel SSOT（create pane 3:1:1 → 0.6:0.2:0.2）
     const byId = new Map(specs.map((pane) => [pane.id, pane]))
     expect(byId.get('main')?.ratio ?? 0).toBeCloseTo(0.6, 6)
     expect(byId.get('MACD_0')?.ratio ?? 0).toBeCloseTo(0.2, 6)
@@ -422,8 +422,8 @@ describe('Chart pane layout regressions', () => {
   it('keeps indicator pane heights equal for main+MACD+RSI', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     chart.resize()
-    chart.createSubPane('MACD_0', 'MACD')
-    chart.createSubPane('RSI_0', 'RSI')
+    chart.createPane({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
+    chart.createPane({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })
     chart.resize()
 
     const panes = chart.getPaneRenderers().map((renderer) => renderer.getPane())
@@ -440,8 +440,8 @@ describe('Chart pane layout regressions', () => {
   it('keeps visible ratio sum at 1 after boundary resize', async () => {
     const chart = new Chart(createDom(1000, 800), defaultOptions)
     chart.resize()
-    chart.createSubPane('MACD_0', 'MACD')
-    chart.createSubPane('RSI_0', 'RSI')
+    chart.createPane({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
+    chart.createPane({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })
     chart.resize()
 
     const resized = chart.resizePaneBoundary('MACD_0', 20)
@@ -457,8 +457,8 @@ describe('Chart pane layout regressions', () => {
   it('returns false and keeps layout unchanged for invalid boundary resize input', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     chart.resize()
-    chart.createSubPane('MACD_0', 'MACD')
-    chart.createSubPane('RSI_0', 'RSI')
+    chart.createPane({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
+    chart.createPane({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })
     chart.resize()
 
     const before = chart.getPaneLayoutSpecs()
@@ -483,11 +483,11 @@ describe('Chart pane layout regressions', () => {
     await chart.destroy()
   })
 
-  it('createSubPane seeds scale from settings and projects', async () => {
+  it('createPane seeds scale from settings and projects', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     chart.resize()
     chart.updateSettings({ mainRightAxisTypeSetting: 'log' })
-    expect(chart.createSubPane('MACD_0', 'MACD')).toBe(true)
+    expect(chart.createPane({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })).toBe(true)
     expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('main')).toBe('log')
     expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('MACD_0')).toBe('log')
     const macd = chart
@@ -531,10 +531,10 @@ describe('Chart pane layout regressions', () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     chart.resize()
     expect(chart.enableMainIndicator('MA')).toBe(true)
-    expect(chart.createSubPane('MACD_0', 'MACD')).toBe(true)
-    expect(chart.createSubPane('RSI_0', 'RSI')).toBe(true)
+    expect(chart.createPane({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })).toBe(true)
+    expect(chart.createPane({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })).toBe(true)
     const ratiosBefore = { ...chart.kernel.pane.readonly.paneRatios.peek() }
-    const entriesBefore = chart.getSubPaneEntries().map((e) => ({
+    const entriesBefore = chart.subPanes.peek().map((e) => ({
       paneId: e.paneId,
       indicatorId: e.indicatorId,
     }))
@@ -550,7 +550,7 @@ describe('Chart pane layout regressions', () => {
         .peek()
         .some((instance) => instance.role === 'main' && instance.indicatorId === 'MA'),
     ).toBe(true)
-    expect(chart.getSubPaneEntries()).toEqual(
+    expect(chart.subPanes.peek()).toEqual(
       expect.arrayContaining([
         ...entriesBefore.map((entry) => expect.objectContaining(entry)),
         expect.objectContaining({ paneId: 'timeshare_volume', indicatorId: 'volume' }),
@@ -559,7 +559,7 @@ describe('Chart pane layout regressions', () => {
     expect(chart.kernel.pane.readonly.paneRatios.peek().timeshare_volume).toBeGreaterThan(0)
     chart.setActiveMode(kMode)
 
-    const entriesAfter = chart.getSubPaneEntries().map((e) => ({
+    const entriesAfter = chart.subPanes.peek().map((e) => ({
       paneId: e.paneId,
       indicatorId: e.indicatorId,
     }))
@@ -580,14 +580,14 @@ describe('Chart pane layout regressions', () => {
       ._kLineMode
 
     chart.setActiveMode(tsMode)
-    expect(chart.getSubPaneEntries()).toHaveLength(1)
-    expect(chart.getSubPaneEntries()[0]?.instanceId).toBe(volumePaneId)
+    expect(chart.subPanes.peek()).toHaveLength(1)
+    expect(chart.subPanes.peek()[0]?.instanceId).toBe(volumePaneId)
     expect(
       chart.kernel.pane.readonly.paneSpecs.peek().some((pane) => pane.id === 'timeshare_volume'),
     ).toBe(false)
 
     chart.setActiveMode(kMode)
-    expect(chart.getSubPaneEntries()).toEqual(
+    expect(chart.subPanes.peek()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ instanceId: volumePaneId, indicatorId: 'volume' }),
       ]),
@@ -696,9 +696,9 @@ describe('Chart pane layout regressions', () => {
     await chart.destroy()
   })
 
-  it('normalizes only visible panes in updatePaneLayout', async () => {
+  it('normalizes only visible panes in imported layout', async () => {
     const chart = new Chart(createDom(1000, 800), defaultOptions)
-    chart.updatePaneLayout([
+    chart.importPaneLayout([
       { id: 'main', ratio: 3, visible: true, role: 'price' },
       { id: 'sub_MACD', ratio: 1, visible: true, role: 'indicator' },
       { id: 'sub_RSI', ratio: 100, visible: false, role: 'indicator' },
@@ -709,10 +709,10 @@ describe('Chart pane layout regressions', () => {
     const macd = specs.find((pane) => pane.id === 'sub_MACD')
     const rsi = specs.find((pane) => pane.id === 'sub_RSI')
 
-    // updatePaneLayout is an explicit layout replacement — incoming ratios MUST
+    // 导入布局是显式快照替换，输入比例必须
     // be honoured (3:1 → 0.75:0.25 after visible normalization). Earlier this was
     // weakened to `main > macd` because syncPaneRatiosFromSpecs preserved a stale
-    // prev value for `main`; fixed by clearing paneRatios in updatePaneLayout.
+    // 忽略上一帧 `main` 的 stale ratio。
     expect((main?.ratio ?? 0) + (macd?.ratio ?? 0)).toBeCloseTo(1, 6)
     expect(main?.ratio).toBeCloseTo(0.75, 6)
     expect(macd?.ratio).toBeCloseTo(0.25, 6)

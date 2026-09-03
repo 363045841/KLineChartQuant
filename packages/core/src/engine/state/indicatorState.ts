@@ -21,11 +21,11 @@ export interface IndicatorInstanceSpec {
   readonly params: Readonly<Record<string, unknown>>
 }
 
-/** 写入指标状态时允许由 State 生成缺省实例身份，供旧 API 迁移使用。 */
+/** 写入指标状态时可省略实例身份，供 mode 等内部状态构建使用。 */
 export type IndicatorInstanceInput = Omit<IndicatorInstanceSpec, 'instanceId' | 'ordinal'> &
   Partial<Pick<IndicatorInstanceSpec, 'instanceId' | 'ordinal'>>
 
-/** 副图对 pane 投影使用的兼容结构。 */
+/** 副图投影使用的只读结构。 */
 export interface SubPaneSpec {
   readonly instanceId: string
   readonly paneId: string
@@ -34,7 +34,7 @@ export interface SubPaneSpec {
   readonly params: Readonly<Record<string, unknown>>
 }
 
-/** 旧 pane API 的输入结构；显式 paneId 不再承担实例身份。 */
+/** 副图状态写入输入；PaneManager 负责为用户 pane 生成实例身份。 */
 export type SubPaneInput = Omit<SubPaneSpec, 'instanceId' | 'ordinal'> &
   Partial<Pick<SubPaneSpec, 'instanceId' | 'ordinal'>>
 

@@ -70,6 +70,16 @@ function createFixture() {
   })
   const requestDraw = vi.fn()
   const drawingCommands = new DrawingCommands({ document: drawingDocument, requestDraw })
+  const panes = [{ id: 'main', ratio: 1, visible: true, role: 'price' as const }]
+  const paneActions = {
+    create: vi.fn(() => true),
+    update: vi.fn(() => true),
+    remove: vi.fn(() => true),
+    move: vi.fn(() => true),
+    replaceContent: vi.fn(() => true),
+    updateContent: vi.fn(() => true),
+    clear: vi.fn(),
+  }
 
   const currentSpec = createSignal<SymbolSpec | null>({
     symbol: 'BTCUSDT',
@@ -169,6 +179,7 @@ function createFixture() {
     drawingDocument,
     drawingCommands,
     getDrawingPaneIds: () => ['main'],
+    paneManager: { actions: paneActions, list: () => panes },
   })
 
   return {
@@ -186,6 +197,7 @@ function createFixture() {
     fetchTimeShareRange,
     drawingDocument,
     requestDraw,
+    paneActions,
   }
 }
 
@@ -520,6 +532,53 @@ describe('createChartAgentController', () => {
     expect(fixture.fetchBars).toHaveBeenCalledWith(
       expect.objectContaining({ beforeTimestamp: Date.parse('2026-09-01') }),
     )
+  })
+
+  it('registers pane tools as direct PaneManager action adapters', async () => {
+    const fixture = createFixture()
+    const tool = (name: string) => getRegisteredChartTools().find((item) => item.config.name === name)!
+    const execution = { signal: new AbortController().signal, progress: () => undefined }
+
+    await expect(tool('panes_list').execute(fixture.controller, {}, execution)).resolves.toEqual([
+      { id: 'main', ratio: 1, visible: true, role: 'price' },
+    ])
+    await expect(
+      tool('pane_create').execute(
+        fixture.controller,
+        { paneId: 'rsi', indicatorId: 'RSI', params: { period: 14 } },
+        execution,
+      ),
+    ).resolves.toBe(true)
+    await tool('pane_update').execute(
+      fixture.controller,
+      { paneId: 'rsi', patch: { ratio: 0.25 } },
+      execution,
+    )
+    await tool('pane_move').execute(fixture.controller, { paneId: 'rsi', targetIndex: 1 }, execution)
+    await tool('pane_replace_content').execute(
+      fixture.controller,
+      { paneId: 'rsi', indicatorId: 'MACD', params: { fast: 12 } },
+      execution,
+    )
+    await tool('pane_update_content').execute(
+      fixture.controller,
+      { paneId: 'rsi', params: { fast: 6 } },
+      execution,
+    )
+    await tool('pane_remove').execute(fixture.controller, { paneId: 'rsi' }, execution)
+    await tool('panes_clear').execute(fixture.controller, {}, execution)
+
+    expect(fixture.paneActions.create).toHaveBeenCalledWith({
+      paneId: 'rsi',
+      indicatorId: 'RSI',
+      params: { period: 14 },
+    })
+    expect(fixture.paneActions.update).toHaveBeenCalledWith('rsi', { ratio: 0.25 })
+    expect(fixture.paneActions.move).toHaveBeenCalledWith('rsi', 1)
+    expect(fixture.paneActions.replaceContent).toHaveBeenCalledWith('rsi', 'MACD', { fast: 12 })
+    expect(fixture.paneActions.updateContent).toHaveBeenCalledWith('rsi', { fast: 6 })
+    expect(fixture.paneActions.remove).toHaveBeenCalledWith('rsi')
+    expect(fixture.paneActions.clear).toHaveBeenCalledOnce()
   })
 
   it('formats market query timestamps with the returned timezone', async () => {

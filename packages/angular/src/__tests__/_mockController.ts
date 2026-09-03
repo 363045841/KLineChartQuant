@@ -230,20 +230,26 @@ export function createMockChartController(
     removeDrawing() {
       /* no-op */
     },
-    resizeSubPane() {
+    createPane() {
       return false
     },
-    createSubPane() {
+    updatePane() {
       return false
     },
-    clearSubPanes() {
+    removePane() {
+      return false
+    },
+    movePane() {
+      return false
+    },
+    clearPanes() {
       /* no-op */
     },
-    replaceSubPaneIndicator() {
+    replacePaneContent() {
       return false
     },
-    updatePaneLayout() {
-      /* no-op */
+    updatePaneContent() {
+      return false
     },
     updateCustomMarkers() {
       /* no-op */

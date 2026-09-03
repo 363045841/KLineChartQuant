@@ -144,7 +144,7 @@ export function useIndicatorManager(
 
   function switchSubIndicator(paneId: string, newIndicatorId: SubIndicatorType): void {
     const nextParams = getDefaultParams(newIndicatorId)
-    ctrl.value?.replaceSubPaneIndicator(paneId, newIndicatorId, nextParams)
+    ctrl.value?.replacePaneContent(paneId, newIndicatorId, nextParams)
   }
 
   function handleIndicatorToggle(indicatorId: string, active: boolean) {
@@ -236,15 +236,9 @@ export function useIndicatorManager(
 
     const c = ctrl.value
     if (!c) return
-    c.updatePaneLayout([
-      { id: 'main', ratio: paneRatiosRef.value['main'] ?? 3, visible: true, role: 'price' },
-      ...nextSubPanes.map((pane) => ({
-        id: pane.id,
-        ratio: paneRatiosRef.value[pane.id] ?? 1,
-        visible: true,
-        role: 'indicator' as const,
-      })),
-    ])
+    nextSubPanes.forEach((pane, index) => {
+      c.movePane(pane.id, index + 1)
+    })
   }
 
   return {

@@ -54,8 +54,6 @@ import type { KLineData } from '../foundation/types/price'
 import type { IndicatorScheduler } from './indicators/scheduler'
 import type { CustomMarkerEntity, MarkerManager } from './marker/registry'
 import type { ChartModeHandler } from './modes/types'
-import type { SubIndicatorType } from './renderers/Indicator'
-import type { SubPaneEntry } from './subPaneManager'
 import type { ScaleType } from './utils/tickPosition'
 
 // ===== 普通 imports，按路径字母排序 =====
@@ -412,12 +410,12 @@ export class Chart {
       indicator: this.kernel.indicator,
       indicatorResult: this.kernel.indicatorResult,
       subPaneOps: {
-        create: (entry) => this.kernel.actions.createSubPane(entry),
-        remove: (paneId) => this.kernel.actions.removeSubPane(paneId),
+        create: (entry) => this.kernel.paneManager.createFromIndicator(entry),
+        remove: (paneId) => this.kernel.paneManager.actions.remove(paneId),
         replace: (paneId, indicatorId, params) =>
-          this.kernel.actions.replaceSubPane(paneId, indicatorId, params),
-        setParams: (paneId, params) => this.kernel.actions.updateSubPaneParams(paneId, params),
-        clear: () => this.kernel.actions.clearSubPanes(),
+          this.kernel.paneManager.actions.replaceContent(paneId, indicatorId, params),
+        setParams: (paneId, params) => this.kernel.paneManager.actions.updateContent(paneId, params),
+        clear: () => this.kernel.paneManager.actions.clear(),
       },
       runRendererTransaction: (run) => this.runRuntimeProjection(run),
     })
@@ -881,8 +879,9 @@ export class Chart {
 
     if (partial.panes) {
       const nextPanes = partial.panes.map((pane) => ({ ...pane }))
-      this.kernel.options.actions.patch({ ...partial, panes: nextPanes })
-      this.layoutManager.applyPaneLayoutSpecs(nextPanes)
+      const { panes: _panes, ...optionPatch } = partial
+      this.kernel.options.actions.patch(optionPatch)
+      this.importPaneLayout(nextPanes)
       return
     }
 
@@ -890,29 +889,45 @@ export class Chart {
     this.resize()
   }
 
-  updatePaneLayout(panes: PaneSpec[]): void {
-    this.layoutManager.updatePaneLayout(panes)
+  /** 由受控导入路径替换完整布局，不向普通用户或 Agent 暴露。 */
+  importPaneLayout(panes: ReadonlyArray<PaneSpec>): void {
+    this.kernel.paneManager.replaceLayoutForImport(panes)
     this.ensurePaneScaleTypesFromSettings()
   }
 
-  setPaneDefinitions(defs: PaneSpec[]): void {
-    this.layoutManager.setPaneDefinitions(defs)
+  /** 创建一个绑定副图指标内容的 pane。 */
+  createPane(input: import('./paneManager').CreatePaneInput): boolean {
+    return this.kernel.paneManager.actions.create(input)
   }
 
-  upsertPane(def: PaneSpec): void {
-    this.layoutManager.upsertPane(def)
+  /** 更新单个 pane 的布局字段。 */
+  updatePane(paneId: string, patch: import('./paneManager').PanePatch): boolean {
+    return this.kernel.paneManager.actions.update(paneId, patch)
   }
 
-  removePaneDefinition(paneId: string): void {
-    this.layoutManager.removePaneDefinition(paneId)
+  /** 删除 pane 及其用户副图内容。 */
+  removePane(paneId: string): boolean {
+    return this.kernel.paneManager.actions.remove(paneId)
   }
 
-  bindIndicatorToPane(
-    paneId: string,
-    indicatorId: SubIndicatorType,
-    params?: Record<string, number | boolean | string>,
-  ): void {
-    this.indicatorManager.bindIndicatorToPane(paneId, indicatorId, params)
+  /** 调整 pane 的显示顺序。 */
+  movePane(paneId: string, targetIndex: number): boolean {
+    return this.kernel.paneManager.actions.move(paneId, targetIndex)
+  }
+
+  /** 替换 pane 的副图指标内容。 */
+  replacePaneContent(paneId: string, indicatorId: string, params: Record<string, unknown>): boolean {
+    return this.kernel.paneManager.actions.replaceContent(paneId, indicatorId, params)
+  }
+
+  /** 更新 pane 副图指标的完整参数。 */
+  updatePaneContent(paneId: string, params: Record<string, unknown>): boolean {
+    return this.kernel.paneManager.actions.updateContent(paneId, params)
+  }
+
+  /** 删除全部用户创建的副图 pane。 */
+  clearPanes(): void {
+    this.kernel.paneManager.actions.clear()
   }
 
   /** 更新绘图对象（写 kernel + 重绘）；剥离会话预览 id */
@@ -945,58 +960,8 @@ export class Chart {
     return this.layoutManager.resizePaneBoundary(upperPaneId, deltaY)
   }
 
-  addPane(paneId: string): void {
-    this.layoutManager.addPane(paneId)
-  }
-
-  removePane(paneId: string): void {
-    this.layoutManager.removePane(paneId)
-  }
-
   hasPane(paneId: string): boolean {
     return this.layoutManager.hasPane(paneId)
-  }
-
-  // ========== 副图管理 API ==========
-
-  createSubPane(
-    paneId: string,
-    indicatorId: SubIndicatorType,
-    params?: Record<string, number | boolean | string>,
-  ): boolean {
-    return this.indicatorManager.createSubPane(paneId, indicatorId, params)
-  }
-
-  removeSubPane(paneId: string): void {
-    this.indicatorManager.removeSubPane(paneId)
-  }
-
-  replaceSubPaneIndicator(
-    paneId: string,
-    newIndicatorId: SubIndicatorType,
-    params?: Record<string, number | boolean | string>,
-  ): void {
-    this.indicatorManager.replaceSubPaneIndicator(paneId, newIndicatorId, params)
-  }
-
-  updateSubPaneParams(paneId: string, params: Record<string, unknown>): void {
-    this.indicatorManager.updateSubPaneParams(paneId, params)
-  }
-
-  clearSubPanes(): void {
-    this.indicatorManager.clearSubPanes()
-  }
-
-  getSubPaneIndicators(): SubIndicatorType[] {
-    return this.indicatorManager.getSubPaneIndicators()
-  }
-
-  getSubPaneEntries(): SubPaneEntry[] {
-    return this.indicatorManager.getSubPaneEntries()
-  }
-
-  getSubPaneEntry(paneId: string): SubPaneEntry | undefined {
-    return this.indicatorManager.getSubPaneEntry(paneId)
   }
 
   /**
@@ -1799,18 +1764,6 @@ export class Chart {
 
   reorderIndicators(orderedInstanceIds: string[]): boolean {
     return this.indicatorManager.reorderIndicators(orderedInstanceIds)
-  }
-
-  // ---------- Sub Panes ----------
-
-  /**
-   * 调整子图大小（高层 API）
-   * @param paneId 面板 ID
-   * @param deltaY 垂直偏移量
-   * @returns 是否成功
-   */
-  resizeSubPane(paneId: string, deltaY: number): boolean {
-    return this.resizePaneBoundary(paneId, deltaY)
   }
 
   // ---------- Drawings ----------

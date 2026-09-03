@@ -34,7 +34,7 @@ export interface PaneLayoutDependencies {
  *
  * SSOT: kernel.pane（paneRatios / paneSpecs）。
  * 本地 _internalPaneRatios / _paneSpecs 仅是算法工作副本：
- * - 入站: projectState(kernel snapshot) 或 applyPaneLayoutSpecs
+ * - 入站: projectState(kernel snapshot)
  * - 出站: 每次突变结束必须 commitLayout() → kernel
  * projectState 必须 layoutPanes({ commit: false })，禁止回写抖动。
  * 禁止在未 commit 的中间态对外暴露为业务真相。
@@ -84,18 +84,6 @@ export class ChartPaneLayout {
   private syncRatiosFromKernel(): void {
     const kernelRatios = this.deps.pane.readonly.paneRatios.peek()
     this._internalPaneRatios = new Map(Object.entries(kernelRatios))
-  }
-
-  setInternalPaneRatio(paneId: string, ratio: number): void {
-    this.syncRatiosFromKernel()
-    this._internalPaneRatios.set(paneId, ratio)
-    this.commitLayout()
-  }
-
-  deleteInternalPaneRatio(paneId: string): void {
-    this.syncRatiosFromKernel()
-    this._internalPaneRatios.delete(paneId)
-    this.commitLayout()
   }
 
   private resolvePaneRole(spec: PaneSpec, index: number): PaneRole {
@@ -475,74 +463,6 @@ export class ChartPaneLayout {
     })
     this.deps.pane.actions.commitLayout(ratios, this.buildLayoutSpecsFromWorkingCopy())
     this.deps.afterCommitLayout?.()
-  }
-
-  applyPaneLayoutSpecs(panes: PaneSpec[], options?: { preferIncomingRatios?: boolean }): void {
-    if (options?.preferIncomingRatios) {
-      // 显式替换布局：忽略 kernel 中旧 ratio，完全采用入参
-      this._internalPaneRatios = new Map()
-    } else {
-      this.syncRatiosFromKernel()
-    }
-    this._paneSpecs = panes.map((spec) => ({ ...spec }))
-    this.syncPaneRatiosFromSpecs(this._paneSpecs)
-    // 先提交到 kernel，避免 layoutPanes 开头 sync 读到旧 ratio
-    this.commitLayout()
-    this.initPanes()
-    this.layoutPanes()
-    this.deps.scheduleDraw()
-  }
-
-  updatePaneLayout(panes: PaneSpec[]): void {
-    this.applyPaneLayoutSpecs(panes, { preferIncomingRatios: true })
-  }
-
-  setPaneDefinitions(defs: PaneSpec[]): void {
-    this.syncRatiosFromKernel()
-    this.applyPaneLayoutSpecs(defs)
-  }
-
-  upsertPane(def: PaneSpec): void {
-    this.syncRatiosFromKernel()
-    const idx = this._paneSpecs.findIndex((pane) => pane.id === def.id)
-    if (idx === -1) {
-      this.applyPaneLayoutSpecs([...this._paneSpecs, { ...def }])
-      return
-    }
-
-    const next = [...this._paneSpecs]
-    next[idx] = { ...next[idx], ...def }
-    this.applyPaneLayoutSpecs(next)
-  }
-
-  removePaneDefinition(paneId: string): void {
-    if (!this._paneSpecs.some((pane) => pane.id === paneId)) return
-    this.syncRatiosFromKernel()
-    this._internalPaneRatios.delete(paneId)
-    this.applyPaneLayoutSpecs(this._paneSpecs.filter((pane) => pane.id !== paneId))
-  }
-
-  addPane(paneId: string): void {
-    this.syncRatiosFromKernel()
-    if (this._paneSpecs.some((spec) => spec.id === paneId)) {
-      console.warn(`Pane "${paneId}" already exists`)
-      return
-    }
-
-    const hasPricePane = this._paneSpecs.some(
-      (spec, index) => this.resolvePaneRole(spec, index) === 'price',
-    )
-    const role: PaneRole = hasPricePane ? 'indicator' : 'price'
-    this.applyPaneLayoutSpecs([...this._paneSpecs, { id: paneId, ratio: 1, visible: true, role }])
-  }
-
-  removePane(paneId: string): void {
-    if (!this._paneSpecs.some((spec) => spec.id === paneId)) return
-    this.syncRatiosFromKernel()
-
-    const next = this._paneSpecs.filter((spec) => spec.id !== paneId)
-    this._internalPaneRatios.delete(paneId)
-    this.applyPaneLayoutSpecs(next)
   }
 
   hasPane(paneId: string): boolean {

@@ -15,6 +15,7 @@ import type {
 } from '../data/provider/types'
 import type { InteractionSnapshot } from '../engine/chart'
 import type { PaneSpec } from '../engine/chartTypes'
+import type { CreatePaneInput, PanePatch } from '../engine/paneManager'
 import type { DrawingToolId } from '../engine/drawing/toolConfig'
 import type { CreateDrawingInput, UpdateDrawingPatch } from '../engine/drawing/DrawingDocument'
 import type { CustomMarkerEntity } from '../engine/marker/registry'
@@ -476,16 +477,14 @@ export interface ChartController extends DrawingChartAdapter {
   /** 原子替换完整绘图文档，仅供受控组件和导入导出使用。 */
   replaceDrawings(drawings: ReadonlyArray<DrawingObject>): void
 
-  // ---- Layout ----
-  resizeSubPane(paneId: string, deltaY: number): boolean
-  createSubPane(paneId: string, indicatorId: string, params?: Record<string, unknown>): boolean
-  clearSubPanes(): void
-  replaceSubPaneIndicator(
-    paneId: string,
-    indicatorId: string,
-    params?: Record<string, unknown>,
-  ): boolean
-  updatePaneLayout(panes: PaneSpec[]): void
+  // ---- Pane ----
+  createPane(input: CreatePaneInput): boolean
+  updatePane(paneId: string, patch: PanePatch): boolean
+  removePane(paneId: string): boolean
+  movePane(paneId: string, targetIndex: number): boolean
+  replacePaneContent(paneId: string, indicatorId: string, params: Record<string, unknown>): boolean
+  updatePaneContent(paneId: string, params: Record<string, unknown>): boolean
+  clearPanes(): void
 
   // ---- Drawing / Markers ----
   updateCustomMarkers(markers: ReadonlyArray<CustomMarkerEntity>): void

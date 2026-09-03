@@ -1,4 +1,3 @@
-import { KLineChartError } from '../../errors'
 import type {
   PluginHostImpl,
   RendererPlugin,
@@ -463,79 +462,6 @@ export class ChartIndicatorManager {
     this.deps.indicator.actions.replaceAllMain(instances)
   }
 
-  // ========== 副图管理 API ==========
-
-  bindIndicatorToPane(
-    paneId: string,
-    indicatorId: SubIndicatorType,
-    params?: Record<string, number | boolean | string>,
-  ): void {
-    const definition = this.indicatorScheduler.getIndicatorMetadata(indicatorId)
-    if (!definition) {
-      throw new KLineChartError('NOT_REGISTERED', `[Chart] Unknown indicator: ${indicatorId}`)
-    }
-    this.deps.subPaneOps.create(this.createSubPaneInput(paneId, definition.name, params))
-  }
-
-  createSubPane(
-    paneId: string,
-    indicatorId: SubIndicatorType,
-    params?: Record<string, number | boolean | string>,
-  ): boolean {
-    const definition = this.indicatorScheduler.getIndicatorMetadata(indicatorId)
-    if (!definition) {
-      throw new KLineChartError('NOT_REGISTERED', `[Chart] Unknown indicator: ${indicatorId}`)
-    }
-    const existing = this.deps.indicator.readonly.subPanes
-      .peek()
-      .find((entry) => entry.paneId === paneId)
-    if (existing) {
-      if (
-        existing.indicatorId === definition.name &&
-        !this.subPaneManager.getMountedResources(paneId)
-      ) {
-        this.deps.subPaneOps.replace(paneId, existing.indicatorId, existing.params)
-      }
-      return true
-    }
-    this.deps.subPaneOps.create(this.createSubPaneInput(paneId, definition.name, params))
-    return true
-  }
-
-  removeSubPane(paneId: string): void {
-    this.deps.subPaneOps.remove(paneId)
-  }
-
-  replaceSubPaneIndicator(
-    paneId: string,
-    newIndicatorId: SubIndicatorType,
-    params?: Record<string, number | boolean | string>,
-  ): void {
-    if (!this.indicatorScheduler.getIndicatorMetadata(newIndicatorId)) {
-      throw new KLineChartError('NOT_REGISTERED', `[Chart] Unknown indicator: ${newIndicatorId}`)
-    }
-    this.deps.subPaneOps.replace(
-      paneId,
-      newIndicatorId,
-      params ?? this.getDefaultSubPaneParams(newIndicatorId),
-    )
-  }
-
-  updateSubPaneParams(paneId: string, params: Record<string, unknown>): void {
-    this.deps.subPaneOps.setParams(paneId, params)
-  }
-
-  clearSubPanes(): void {
-    this.deps.subPaneOps.clear()
-  }
-
-  /**
-   * @deprecated 使用 getSubPaneEntries 获取完整信息
-   */
-  getSubPaneIndicators(): SubIndicatorType[] {
-    return this.deps.indicator.readonly.subPanes.peek().map((entry) => entry.indicatorId)
-  }
-
   getSubPaneEntries(): SubPaneEntry[] {
     return this.deps.indicator.readonly.subPanes.peek().map((entry) => ({
       ...entry,
@@ -565,11 +491,11 @@ export class ChartIndicatorManager {
   }
 
   /** 创建副图实例描述，分别生成实例身份、布局身份和显示序号。 */
-  private createSubPaneInput(
+  private createPaneInput(
     paneId: string,
     indicatorId: string,
-    params?: Readonly<Record<string, unknown>>,
-    instanceId = `legacy:${paneId}`,
+    params: Readonly<Record<string, unknown>> | undefined,
+    instanceId: string,
   ): SubPaneInput {
     const ordinal =
       this.deps.indicator.readonly.instances
@@ -612,7 +538,7 @@ export class ChartIndicatorManager {
       const instanceId = generateUUID()
       const paneId = generateUUID()
       this.deps.subPaneOps.create(
-        this.createSubPaneInput(paneId, definition.name, params, instanceId),
+        this.createPaneInput(paneId, definition.name, params, instanceId),
       )
       return instanceId
     }
@@ -629,7 +555,7 @@ export class ChartIndicatorManager {
       .peek()
       .find((entry) => entry.role === 'sub' && entry.instanceId === instanceId)
     if (subPaneEntry) {
-      this.removeSubPane(subPaneEntry.paneId)
+      this.deps.subPaneOps.remove(subPaneEntry.paneId)
       return true
     }
 
@@ -651,7 +577,7 @@ export class ChartIndicatorManager {
       .peek()
       .find((entry) => entry.role === 'sub' && entry.instanceId === instanceId)
     if (subPaneEntry) {
-      this.updateSubPaneParams(subPaneEntry.paneId, params)
+      this.deps.subPaneOps.setParams(subPaneEntry.paneId, params)
       return true
     }
 

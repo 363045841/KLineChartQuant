@@ -177,40 +177,6 @@ describe('ChartIndicatorManager', () => {
       expect(manager.isMainIndicatorActive('MA')).toBe(true)
     })
 
-    it('creates sub-pane business state before projecting runtime resources', () => {
-      expect(manager.createSubPane('RSI_0', 'RSI', { period1: 6 })).toBe(true)
-
-      expect(deps.subPaneOps.create).toHaveBeenCalledTimes(1)
-      expect(deps.useRenderer).toHaveBeenCalled()
-      expect(deps.subPaneOps.create.mock.invocationCallOrder[0]).toBeLessThan(
-        deps.useRenderer.mock.invocationCallOrder[0]!,
-      )
-      expect(manager.getSubPaneEntry('RSI_0')?.params).toEqual({ period1: 6 })
-    })
-
-    it('treats a duplicate pane id as a no-op even when the indicator differs', () => {
-      manager.createSubPane('RSI_0', 'RSI', { period1: 6 })
-      vi.clearAllMocks()
-
-      expect(manager.createSubPane('RSI_0', 'MACD', { fast: 5 })).toBe(true)
-
-      expect(deps.subPaneOps.replace).not.toHaveBeenCalled()
-      expect(manager.getSubPaneEntry('RSI_0')?.indicatorId).toBe('rsi')
-      expect(manager.getSubPaneEntry('RSI_0')?.params).toEqual({ period1: 6 })
-    })
-
-    it('reasserts identical desired state when the initial runtime mount failed', () => {
-      deps.useRenderer.mockImplementationOnce(() => {
-        throw new Error('mount failed')
-      })
-      manager.createSubPane('RSI_0', 'RSI', { period1: 6 })
-      expect(manager.subPaneManagerAccessor.getMountedResources('RSI_0')).toBeUndefined()
-
-      manager.createSubPane('RSI_0', 'RSI', { period1: 6 })
-
-      expect(manager.subPaneManagerAccessor.getMountedResources('RSI_0')).toBeDefined()
-    })
-
     it('projects distinct non-finite main-indicator parameter values', () => {
       manager.enableMainIndicator('MA', { threshold: Number.NaN })
       vi.clearAllMocks()

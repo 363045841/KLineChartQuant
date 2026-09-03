@@ -518,6 +518,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     drawingDocument,
     drawingCommands,
     getDrawingPaneIds: () => chart.getPaneLayoutSpecs().map((pane) => pane.id),
+    paneManager: chart.kernel.paneManager,
   })
 
   let disposed = false
@@ -863,50 +864,43 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     return { paneId: pane.id, top: pane.top, height: pane.height }
   }
 
-  function createSubPane(
+  function createPane(input: import('../engine/paneManager').CreatePaneInput): boolean {
+    if (disposed) return false
+    return chart.createPane(input)
+  }
+
+  function clearPanes(): void {
+    if (disposed) return
+    chart.clearPanes()
+  }
+
+  function replacePaneContent(
     paneId: string,
     indicatorId: string,
-    params?: Record<string, unknown>,
+    params: Record<string, unknown>,
   ): boolean {
     if (disposed) return false
-    return chart.createSubPane(
-      paneId,
-      indicatorId as never,
-      params as Record<string, string | number | boolean> | undefined,
-    )
+    return chart.replacePaneContent(paneId, indicatorId, params)
   }
 
-  function clearSubPanes(): void {
-    if (disposed) return
-    chart.clearSubPanes()
-  }
-
-  function replaceSubPaneIndicator(
-    paneId: string,
-    indicatorId: string,
-    params?: Record<string, unknown>,
-  ): boolean {
+  function updatePaneContent(paneId: string, params: Record<string, unknown>): boolean {
     if (disposed) return false
-    try {
-      chart.replaceSubPaneIndicator(
-        paneId,
-        indicatorId as never,
-        params as Record<string, string | number | boolean>,
-      )
-      return true
-    } catch {
-      return false
-    }
+    return chart.updatePaneContent(paneId, params)
   }
 
-  function updatePaneLayout(panes: PaneSpec[]): void {
-    if (disposed) return
-    chart.updatePaneLayout(panes)
-  }
-
-  function resizeSubPane(paneId: string, deltaY: number): boolean {
+  function updatePane(paneId: string, patch: import('../engine/paneManager').PanePatch): boolean {
     if (disposed) return false
-    return chart.resizeSubPane(paneId, deltaY)
+    return chart.updatePane(paneId, patch)
+  }
+
+  function removePane(paneId: string): boolean {
+    if (disposed) return false
+    return chart.removePane(paneId)
+  }
+
+  function movePane(paneId: string, targetIndex: number): boolean {
+    if (disposed) return false
+    return chart.movePane(paneId, targetIndex)
   }
 
   function updateCustomMarkers(markers: ReadonlyArray<CustomMarkerEntity>): void {
@@ -1070,11 +1064,13 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     priceToY,
     yToPrice,
     getPaneInfo,
-    createSubPane,
-    clearSubPanes,
-    replaceSubPaneIndicator,
-    updatePaneLayout,
-    resizeSubPane,
+    createPane,
+    clearPanes,
+    replacePaneContent,
+    updatePaneContent,
+    updatePane,
+    removePane,
+    movePane,
     updateCustomMarkers,
     clearCustomMarkers,
     updateSettingsFacade,
