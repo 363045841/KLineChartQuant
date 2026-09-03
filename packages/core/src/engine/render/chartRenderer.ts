@@ -29,6 +29,7 @@ import { ChartDataManager } from '../data/chartDataManager'
 import { DrawingStore, type DrawingStoreDeps } from '../drawing'
 import { createDrawingRendererPlugin, createDrawingLabelOverlayPlugin } from '../drawing/plugin'
 import { ChartIndicatorManager } from '../indicators/chartIndicatorManager'
+import { resolveStateKey } from '../indicators/indicatorMetadata'
 import { UpdateLevel } from '../layout/pane'
 import type { VisibleRange } from '../layout/pane'
 import { MarkerManager, type CustomMarkerEntity, type MarkerManagerDeps } from '../marker/registry'
@@ -488,9 +489,9 @@ export class ChartRenderer {
 
     const dataManager = this.deps.getDataManager()
     const mode = this.deps.getActiveMode()
+    const indicatorManager = this.deps.getIndicatorManager()
     if (mode.useIndicatorScheduler) {
       // 获取指标管理器实例（持有 scheduler、状态、reconcile 逻辑）
-      const indicatorManager = this.deps.getIndicatorManager()
       // 将主图指标列表（含参数）同步给 scheduler，使其在本帧预计算价格区间
       indicatorManager.indicatorSchedulerAccessor.setActiveMainIndicators(
         indicatorManager.indicatorInstancesSignalPeek
@@ -789,7 +790,8 @@ export class ChartRenderer {
     const sharedXAxisLabels: XAxisLabel[] = []
     const sharedYAxisRanges: YAxisRange[] = []
     const sharedXAxisRanges: XAxisRange[] = []
-    const indicatorStateReader = this.deps.getIndicatorManager().createRenderStateReader()
+    const indicatorManager = this.deps.getIndicatorManager()
+    const indicatorStateReader = indicatorManager.createRenderStateReader()
 
     const dataManager = this.deps.getDataManager()
     const mode = this.deps.getActiveMode()
@@ -829,9 +831,44 @@ export class ChartRenderer {
           const baseIdx = Math.max(0, range.start)
           pane.yAxis.setBasePrice(internalData[baseIdx]?.close ?? null)
         } else {
-          const indicatorRange =
-            pane.role === 'price' && mode.useIndicatorScheduler ? mainIndicatorRange : null
-          mode.updatePaneRange(pane as any, range, dataManager, indicatorRange)
+          const subPaneEntry = indicatorManager.getSubPaneEntry(pane.id)
+          const subIndicatorState = subPaneEntry
+            ? indicatorStateReader.get<{
+                valueMin?: number
+                valueMax?: number
+                visibleMin?: number
+                visibleMax?: number
+              }>(
+                resolveStateKey(
+                  indicatorManager.indicatorSchedulerAccessor.getIndicatorMetadata(
+                    subPaneEntry.indicatorId,
+                  )?.stateKey ?? '',
+                  pane.id,
+                ),
+              )
+            : undefined
+          const subIndicatorRange =
+            subIndicatorState &&
+            Number.isFinite(subIndicatorState.valueMin ?? subIndicatorState.visibleMin) &&
+            Number.isFinite(subIndicatorState.valueMax ?? subIndicatorState.visibleMax)
+              ? {
+                  min: subIndicatorState.valueMin ?? subIndicatorState.visibleMin!,
+                  max: subIndicatorState.valueMax ?? subIndicatorState.visibleMax!,
+                }
+              : null
+          if (pane.role === 'indicator') {
+            // 副图坐标轴只由对应指标 state 驱动，与 K 线/分时主图模式无关。
+            if (subIndicatorRange) {
+              pane.priceRange = {
+                minPrice: subIndicatorRange.min,
+                maxPrice: subIndicatorRange.max,
+              }
+              pane.yAxis.setRange(pane.priceRange)
+            }
+          } else {
+            const indicatorRange = mode.useIndicatorScheduler ? mainIndicatorRange : null
+            mode.updatePaneRange(pane as any, range, dataManager, indicatorRange)
+          }
         }
 
         if (pane.id === 'main' && this.settings.disableMainPaneVerticalScroll) {

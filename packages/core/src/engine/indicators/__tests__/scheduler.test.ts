@@ -9,6 +9,8 @@ import { ENE_STATE_KEY, EMPTY_ENE_STATE, type ENERenderState } from '../state/en
 import { EXPMA_STATE_KEY, EMPTY_EXPMA_STATE, type EXPMARenderState } from '../state/expmaState'
 import { MA_STATE_KEY, EMPTY_MA_STATE, type MARenderState } from '../state/maState'
 import { createRSIStateKey, EMPTY_RSI_STATE, type RSIRenderState } from '../state/rsiState'
+import { createMACDStateKey, type MACDRenderState } from '../state/macdState'
+import { ChartDataViewId } from '../../state/modeState'
 
 import type { PluginHost } from '@/plugin'
 import type { KLineData } from '@/types/price'
@@ -166,6 +168,38 @@ describe('IndicatorScheduler', () => {
       newScheduler.setPluginHost(mockHost)
       // Should not throw
       expect(() => newScheduler.recompute()).not.toThrow()
+    })
+  })
+
+  describe('timeshare projection', () => {
+    it('declares 1min-backed timeshare support for MACD, KDJ, RSI and BOLL', () => {
+      const expectedViews = [
+        ChartDataViewId.KLine,
+        ChartDataViewId.TimeShare,
+        ChartDataViewId.FiveDayTimeShare,
+      ]
+      for (const indicatorId of ['macd', 'stoch', 'rsi', 'boll']) {
+        expect(getBuiltinTestIndicator(indicatorId).dataViews).toEqual(expectedViews)
+      }
+    })
+
+    it('projects 1min MACD results onto matching timeshare minutes', () => {
+      const minuteBars = createTestData(60)
+      const displayTimestamps = [minuteBars[30]!.timestamp, minuteBars[32]!.timestamp]
+
+      scheduler.updateWithDisplayTimestamps(
+        minuteBars,
+        { start: 0, end: displayTimestamps.length },
+        1,
+        displayTimestamps,
+      )
+
+      const state = scheduler
+        .createRenderStateReader()
+        .get<MACDRenderState>(createMACDStateKey('sub_MACD'))
+      expect(state?.series).toHaveLength(displayTimestamps.length)
+      expect(state?.series[0]).toBeDefined()
+      expect(state?.series[1]).toBeDefined()
     })
   })
 

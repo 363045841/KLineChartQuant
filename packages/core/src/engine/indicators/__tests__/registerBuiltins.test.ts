@@ -11,7 +11,7 @@ describe('builtin indicator registration', () => {
   it('loads all builtin indicator definitions through decorators', () => {
     const definitions = getBuiltinIndicatorDefinitions()
 
-    expect(definitions).toHaveLength(58)
+    expect(definitions).toHaveLength(59)
     expect(definitions.map((definition) => definition.name)).toEqual(
       expect.arrayContaining([
         'ma',
@@ -30,6 +30,8 @@ describe('builtin indicator registration', () => {
         'stochRSI',
         'fisherTransform',
         'schaffTrendCycle',
+        'timeShare',
+        'fiveDayTimeShare',
       ]),
     )
   })

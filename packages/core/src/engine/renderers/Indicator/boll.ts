@@ -18,7 +18,9 @@ import type {
   TitleValueItem,
 } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
-import { BOLL_STATE_KEY, type BOLLRenderState } from '../../indicators/state/bollState'
+import type { BOLLRenderState } from '../../indicators/state/bollState'
+import { ChartDataViewId } from '../../state/modeState'
+import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys'
 
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 
@@ -30,6 +32,10 @@ interface PriceData {
   upper: number
   middle: number
   lower: number
+}
+
+interface BOLLRendererOptions {
+  paneId?: string
 }
 
 /**
@@ -80,7 +86,7 @@ function buildPriceCacheKey(
   return `${range.start}|${range.end}|${dataLength}|${lastTimestamp}|${period}`
 }
 
-function getBOLLStateKey(host: PluginHost | null): string | null {
+function getBOLLStateKey(host: PluginHost | null, paneId: string): string | null {
   const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
   if (!scheduler) {
     console.warn('[BOLLRenderer] Scheduler not available via service locator')
@@ -91,7 +97,7 @@ function getBOLLStateKey(host: PluginHost | null): string | null {
     console.warn("[BOLLRenderer] Indicator metadata for 'boll' not found, skip rendering")
     return null
   }
-  return resolveStateKey(meta.stateKey)
+  return resolveStateKey(meta.stateKey, paneId)
 }
 
 const computeBOLLPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
@@ -138,12 +144,12 @@ const getBOLLTitleInfo: GetTitleInfoFn = (
   index: number | null,
   _params: Record<string, number | boolean | string>,
   stateReader,
-  _paneId: string,
+  paneId: string,
   colors: ColorTokens,
 ): TitleInfo | null => {
   if (index === null) return null
 
-  const state = stateReader.get<BOLLRenderState>(BOLL_STATE_KEY)
+  const state = stateReader.get<BOLLRenderState>(createIndicatorStateKey('boll', paneId))
   if (!state || state.visibleMin > state.visibleMax) return null
 
   const bollPoint = state.series[index]
@@ -164,6 +170,10 @@ const getBOLLTitleInfo: GetTitleInfoFn = (
   category: 'main',
   indicatorType: 'channel',
   defaultPaneId: 'main',
+  stateKey: (paneId) => createIndicatorStateKey('boll', paneId),
+  dataViews: [ChartDataViewId.KLine, ChartDataViewId.TimeShare, ChartDataViewId.FiveDayTimeShare],
+  scale: { indicatorKey: 'boll', label: 'BOLL', decimals: 2 },
+  getRendererName: ({ paneId }) => (paneId === 'main' ? 'boll' : `boll_${paneId}`),
   mainPane: {
     rendererName: 'boll',
     toActiveConfig: (params, active) =>
@@ -183,7 +193,10 @@ export class BOLLDefinition {
   static rendererFactory = createBOLLRendererPlugin
 }
 
-export function createBOLLRendererPlugin(): RendererPluginWithHost {
+export function createBOLLRendererPlugin(
+  options: BOLLRendererOptions = {},
+): RendererPluginWithHost {
+  const { paneId = 'main' } = options
   let pluginHost: PluginHost | null = null
 
   // 对象池：复用 {x,y} 对象，消除每帧 GC 压力
@@ -203,15 +216,15 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
   }
 
   function resolveKey(): string | null {
-    return getBOLLStateKey(pluginHost)
+    return getBOLLStateKey(pluginHost, paneId)
   }
 
   return {
-    name: 'boll',
+    name: paneId === 'main' ? 'boll' : `boll_${paneId}`,
     version: '2.2.0',
     description: '布林带渲染器（无缓存优化）',
     debugName: 'BOLL布林带',
-    paneId: 'main',
+    paneId,
     priority: RENDERER_PRIORITY.INDICATOR,
 
     onInstall(host: PluginHost): void {

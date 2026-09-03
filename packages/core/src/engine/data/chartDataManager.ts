@@ -63,6 +63,12 @@ export interface DataDependencies {
   resetInteraction: () => void
   getIndicatorScheduler: () => {
     update: (data: KLineData[], range: VisibleRange, dataRevision?: number) => boolean
+    updateWithDisplayTimestamps?: (
+      data: KLineData[],
+      range: VisibleRange,
+      dataRevision?: number,
+      displayTimestamps?: readonly number[] | null,
+    ) => boolean
     busySignal: ReadonlySignal<boolean>
   }
   isPointerDown: () => boolean
@@ -95,6 +101,7 @@ type TimeShareSelection = Extract<SeriesSelection, { kind: 'timeShare' }>
 
 export class ChartDataManager {
   static readonly TRAILING_SLOTS = 30
+  static readonly TIME_SHARE_INDICATOR_BAR_LIMIT = 1_500
 
   private readonly _repository = new SeriesRepository()
   /** 图表与 Agent 共用的实例级行情缓存，负责分页、重试和 Provider 请求。 */
@@ -109,6 +116,7 @@ export class ChartDataManager {
   private _loadingUnsub: (() => void) | null = null
   private _errorUnsub: (() => void) | null = null
   private _lastDataChange: DataChange<KLineData> | DataChange<TimeShareData> | null = null
+  private _timeShareIndicatorRequestId = 0
 
   private _scrollCompensator: ScrollCompensator
   private _comparisonManager: ComparisonManager
@@ -616,8 +624,40 @@ export class ChartDataManager {
     this._dmState.actions.setRangeInitialized(true)
     this.deps.resetInteraction()
     this.deps.onTimeShareDataReady(data.length)
-    // 分时模式不经过 indicator scheduler，数据就绪后必须直接请求首帧绘制。
+    void this.updateTimeShareIndicators(data)
     this.deps.scheduleDraw()
+  }
+
+  /** 分时指标使用 1min K 线计算，再投影到分时坐标，避免伪造 OHLC。 */
+  private async updateTimeShareIndicators(data: TimeShareData[]): Promise<void> {
+    const spec = this._dmState.readonly.currentSpec.peek()
+    const range = this.getVisibleRangeOrNull()
+    if (!spec || !range || data.length === 0) return
+    const requestId = ++this._timeShareIndicatorRequestId
+    try {
+      const result = await this.marketDataCache.queryBars({
+        sourceId: spec.source,
+        instrument: spec.instrument,
+        symbol: spec.symbol,
+        exchange: spec.exchange,
+        assetClass: spec.instrument?.assetClass,
+        period: '1min',
+        adjustment: (spec.adjust ?? DEFAULT_KLINE_ADJUSTMENT) as KLineAdjustment,
+        limit: ChartDataManager.TIME_SHARE_INDICATOR_BAR_LIMIT,
+      })
+      if (requestId !== this._timeShareIndicatorRequestId) return
+      const updateWithDisplayTimestamps = this.deps.getIndicatorScheduler().updateWithDisplayTimestamps
+      if (!updateWithDisplayTimestamps) return
+      const indicatorsReady = updateWithDisplayTimestamps(
+        [...result.series.data],
+        range,
+        this._dataState.readonly.dataRevision.peek(),
+        data.map((item) => item.timestamp),
+      )
+      if (indicatorsReady) this.deps.scheduleDraw()
+    } catch {
+      // 1min K 线不可用时保持分时主图与 VOL 正常工作。
+    }
   }
 
   // ── Internal helpers ──

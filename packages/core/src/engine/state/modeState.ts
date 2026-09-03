@@ -10,6 +10,8 @@ export const ChartDataViewId = Object.freeze({
 } as const)
 
 export type ChartDataView = (typeof ChartDataViewId)[keyof typeof ChartDataViewId]
+/** 用户指标与 pane 布局的隔离工作区。五日分时复用分时工作区。 */
+export type ChartWorkspaceId = 'kline' | 'timeshare'
 export type ChartModeId = ChartDataView
 export type PrimaryRendererType = 'candlestick' | 'ohlc-bar' | 'line' | 'area'
 export type PrimaryRendererByView = Readonly<Record<ChartDataView, PrimaryRendererType>>
@@ -31,6 +33,11 @@ const DEFAULT_PRIMARY_RENDERERS: PrimaryRendererByView = Object.freeze({
 /** 判断数据视图是否属于分时视图。 */
 export function isTimeShareDataView(view: string): boolean {
   return view === ChartDataViewId.TimeShare || view === ChartDataViewId.FiveDayTimeShare
+}
+
+/** 将运行时数据视图归并到用户配置工作区。 */
+export function resolveChartWorkspaceId(view: ChartDataView): ChartWorkspaceId {
+  return isTimeShareDataView(view) ? 'timeshare' : 'kline'
 }
 
 /** 复制并冻结主序列渲染偏好，避免外部原地修改。 */

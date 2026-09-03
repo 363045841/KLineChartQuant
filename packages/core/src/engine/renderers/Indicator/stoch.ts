@@ -15,6 +15,7 @@ import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { STOCHRenderState } from '../../indicators/state/stochState'
 import { createSTOCHStateKey, EMPTY_STOCH_STATE } from '../../indicators/state/stochState'
 import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers'
+import { ChartDataViewId } from '../../state/modeState'
 
 import { createStochScaleRendererPlugin } from './scale/stoch_scale'
 import { createDashedLineRenderer } from './shared/dashedLines'
@@ -343,6 +344,7 @@ function getSTOCHTitleInfo(
   category: 'oscillator',
   indicatorType: 'momentum',
   defaultPaneId: 'sub_STOCH',
+  dataViews: [ChartDataViewId.KLine, ChartDataViewId.TimeShare, ChartDataViewId.FiveDayTimeShare],
   visibleState: {
     compose: createPaddedPointVisibleStateComposer('stoch', EMPTY_STOCH_STATE, [
       'k',

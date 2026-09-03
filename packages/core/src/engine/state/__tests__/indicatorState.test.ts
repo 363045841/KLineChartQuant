@@ -1,46 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import {
-  createIndicatorState,
-  resolveModeIndicatorInstances,
-  type IndicatorInstanceSpec,
-} from '../indicatorState'
+import { createIndicatorState, type IndicatorInstanceSpec } from '../indicatorState'
 import '../../renderers/subVolume'
 import '../../renderers/Indicator/cci'
 
 describe('indicatorState', () => {
-  it('reuses a user sub-pane when a mode requests the same indicator', () => {
-    const requested: IndicatorInstanceSpec[] = [
-      {
-        instanceId: 'mode:timeshare',
-        indicatorId: 'timeShare',
-        paneId: 'main',
-        role: 'main',
-        ordinal: 0,
-        params: {},
-      },
-      {
-        instanceId: 'mode:timeshare-volume',
-        indicatorId: 'volume',
-        paneId: 'timeshare_volume',
-        role: 'sub',
-        ordinal: 0,
-        params: {},
-      },
-    ]
-    const current: IndicatorInstanceSpec[] = [
-      {
-        instanceId: 'user:volume',
-        indicatorId: 'VOL',
-        paneId: 'VOL_0',
-        role: 'sub',
-        ordinal: 0,
-        params: {},
-      },
-    ]
-
-    expect(resolveModeIndicatorInstances(requested, current)).toEqual([requested[0]])
-  })
-
   it('upsert adds and merges params immutably', () => {
     const m = createIndicatorState()
     m.actions.upsertMain('MA', { period: 5 })

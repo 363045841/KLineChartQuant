@@ -5,6 +5,7 @@ import type {
   RenderContext,
 } from '../foundation/plugin/index'
 import type { IndicatorScheduler } from './indicators/scheduler'
+import { resolveStateKey } from './indicators/indicatorMetadata'
 import { findIndicator } from './renderers/Indicator/indicatorCatalog'
 import { createSubIndicatorRenderer } from './renderers/Indicator'
 import { createIndicatorScaleRendererPlugin } from './renderers/Indicator/scale/indicator_scale'
@@ -14,6 +15,7 @@ import { makePluginLayerId } from '../foundation/plugin/rendererLayerId'
 
 export interface SubPaneResources {
   readonly paneId: string
+  readonly indicatorId: string
   readonly rendererName: string
   readonly scaleRendererName: string
   readonly paneTitleRendererName: string
@@ -77,6 +79,7 @@ function stableConfig(value: unknown): string {
 function toResources(entry: ProjectedSubPaneEntry): SubPaneResources {
   return {
     paneId: entry.paneId,
+    indicatorId: entry.indicatorId,
     rendererName: entry.rendererName,
     scaleRendererName: entry.scaleRendererName,
     paneTitleRendererName: entry.paneTitleRendererName,
@@ -233,6 +236,7 @@ export class SubPaneManager {
             indicatorKey: definition.scale.indicatorKey ?? definition.name,
             label: definition.scale.label ?? definition.displayName,
             decimals: definition.scale.decimals,
+            stateKey: resolveStateKey(definition.stateKey, entry.paneId),
           })
         : null
     if (!plugin) return
@@ -272,6 +276,10 @@ export class SubPaneManager {
     ctx.removeRenderer(entry.scaleRendererName)
     if (!preserveTitle) {
       ctx.removeRenderer(entry.paneTitleRendererName)
+    }
+    const definition = ctx.getIndicatorScheduler().getIndicatorMetadata(entry.indicatorId)
+    if (definition?.category === 'main') {
+      definition.updateConfig?.(ctx.getIndicatorScheduler(), {}, 'main')
     }
   }
 

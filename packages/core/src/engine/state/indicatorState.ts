@@ -1,5 +1,6 @@
 // 统一管理主图与副图指标实例的状态模块。
 import { batch, computed, createSubState } from '../../foundation/reactivity/signal'
+import type { ChartWorkspaceId } from './modeState'
 import { deepFreezeSnapshot } from './immutable'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
 
@@ -37,25 +38,6 @@ export interface SubPaneSpec {
 /** 副图状态写入输入；PaneManager 负责为用户 pane 生成实例身份。 */
 export type SubPaneInput = Omit<SubPaneSpec, 'instanceId' | 'ordinal'> &
   Partial<Pick<SubPaneSpec, 'instanceId' | 'ordinal'>>
-
-/** 解析 mode 请求的实例，优先复用可提供相同能力的用户副图。 */
-export function resolveModeIndicatorInstances(
-  requested: ReadonlyArray<IndicatorInstanceInput>,
-  current: ReadonlyArray<IndicatorInstanceSpec>,
-): ReadonlyArray<IndicatorInstanceInput> {
-  const canonicalIndicatorId = (indicatorId: string): string =>
-    getRegisteredIndicatorDefinition(indicatorId)?.name.toLowerCase() ?? indicatorId.toLowerCase()
-  const userSubIndicatorIds = new Set(
-    current
-      .filter((instance) => instance.role === 'sub' && instance.source !== 'mode')
-      .map((instance) => canonicalIndicatorId(instance.indicatorId)),
-  )
-  return requested.filter(
-    (instance) =>
-      instance.role !== 'sub' ||
-      !userSubIndicatorIds.has(canonicalIndicatorId(instance.indicatorId)),
-  )
-}
 
 /** 冻结统一指标实例，隔离调用方对参数对象的修改。 */
 function snapshotInstance(entry: IndicatorInstanceInput): IndicatorInstanceSpec {
@@ -124,6 +106,11 @@ function calculationInstancesEqual(
 /** 创建指标实例状态，主图和副图共享 instances 这一唯一数据源。 */
 export function createIndicatorState() {
   const { signals, readonly } = createSubState({
+    activeWorkspace: 'kline' as ChartWorkspaceId,
+    workspaces: Object.freeze({
+      kline: Object.freeze([]) as ReadonlyArray<IndicatorInstanceSpec>,
+      timeshare: Object.freeze([]) as ReadonlyArray<IndicatorInstanceSpec>,
+    }) as Readonly<Record<ChartWorkspaceId, ReadonlyArray<IndicatorInstanceSpec>>>,
     instances: Object.freeze([]) as ReadonlyArray<IndicatorInstanceSpec>,
     configRevision: 0,
   })
@@ -134,6 +121,8 @@ export function createIndicatorState() {
     const next = Object.freeze(instances.map(snapshotInstance))
     batch(() => {
       signals.instances.set(next)
+      const workspaceId = readonly.activeWorkspace.peek()
+      signals.workspaces.set(Object.freeze({ ...readonly.workspaces.peek(), [workspaceId]: next }))
       if (!calculationInstancesEqual(previous, next)) {
         signals.configRevision.set(signals.configRevision.peek() + 1)
       }
@@ -198,6 +187,16 @@ export function createIndicatorState() {
   return {
     readonly: { ...readonly, subPanes },
     actions: {
+      /** 切换视图工作区；实例、参数和排序均不跨工作区同步。 */
+      setActiveWorkspace(workspaceId: ChartWorkspaceId) {
+        if (signals.activeWorkspace.peek() === workspaceId) return
+        const next = readonly.workspaces.peek()[workspaceId]
+        batch(() => {
+          signals.activeWorkspace.set(workspaceId)
+          signals.instances.set(next)
+          signals.configRevision.set(signals.configRevision.peek() + 1)
+        })
+      },
       /** 按 indicatorId 写入或合并主图实例参数。 */
       upsertMain(id: string, params: Record<string, number | boolean | string>) {
         upsertMain(id, params)
@@ -244,9 +243,8 @@ export function createIndicatorState() {
       replaceModeInstances(instances: ReadonlyArray<IndicatorInstanceInput>) {
         const current = readonly.instances.peek()
         const userInstances = current.filter((instance) => instance.source !== 'mode')
-        const resolvedModeInstances = resolveModeIndicatorInstances(instances, current)
         write([
-          ...resolvedModeInstances.map((entry) => ({ ...entry, source: 'mode' as const })),
+          ...instances.map((entry) => ({ ...entry, source: 'mode' as const })),
           ...userInstances,
         ])
       },
@@ -306,6 +304,13 @@ export function createIndicatorState() {
     },
     dispose() {
       batch(() => {
+        signals.activeWorkspace.set('kline')
+        signals.workspaces.set(
+          Object.freeze({
+            kline: Object.freeze([]) as ReadonlyArray<IndicatorInstanceSpec>,
+            timeshare: Object.freeze([]) as ReadonlyArray<IndicatorInstanceSpec>,
+          }),
+        )
         signals.instances.set(Object.freeze([]))
       })
     },

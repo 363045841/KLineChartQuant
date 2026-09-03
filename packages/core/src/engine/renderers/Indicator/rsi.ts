@@ -16,6 +16,7 @@ import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { RSIRenderState } from '../../indicators/state/rsiState'
 import { createRSIStateKey, EMPTY_RSI_STATE } from '../../indicators/state/rsiState'
 import { createFixedRangeRecordVisibleStateComposer } from '../../indicators/visibleStateComposers'
+import { ChartDataViewId } from '../../state/modeState'
 
 import { createRsiScaleRendererPlugin } from './scale/rsi_scale'
 import { tryDrawLinesGpu } from '../linesViaRenderer'
@@ -438,6 +439,7 @@ function getRSITitleInfo(
   category: 'oscillator',
   indicatorType: 'momentum',
   defaultPaneId: 'sub_RSI',
+  dataViews: [ChartDataViewId.KLine, ChartDataViewId.TimeShare, ChartDataViewId.FiveDayTimeShare],
   visibleState: { compose: createFixedRangeRecordVisibleStateComposer('rsi', EMPTY_RSI_STATE) },
   scaleRendererFactory: createRsiScaleRendererPlugin,
   getTitleInfo: getRSITitleInfo,

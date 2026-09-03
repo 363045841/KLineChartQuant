@@ -527,7 +527,7 @@ describe('Chart pane layout regressions', () => {
     await chart.destroy()
   })
 
-  it('timeshare switching adds a system volume pane and restores user panes on exit', async () => {
+  it('timeshare switching preserves independent indicator workspaces and layouts', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     chart.resize()
     expect(chart.enableMainIndicator('MA')).toBe(true)
@@ -545,18 +545,15 @@ describe('Chart pane layout regressions', () => {
     const kMode = (chart as unknown as { _kLineMode: import('../modes/types').ChartModeHandler })
       ._kLineMode
     chart.setActiveMode(tsMode)
-    expect(
-      chart.kernel.indicator.readonly.instances
-        .peek()
-        .some((instance) => instance.role === 'main' && instance.indicatorId === 'MA'),
-    ).toBe(true)
-    expect(chart.subPanes.peek()).toEqual(
-      expect.arrayContaining([
-        ...entriesBefore.map((entry) => expect.objectContaining(entry)),
-        expect.objectContaining({ paneId: 'timeshare_volume', indicatorId: 'volume' }),
-      ]),
+    expect(chart.subPanes.peek()).toEqual([])
+    expect(chart.createPane({ paneId: 'TS_RSI_0', indicatorId: 'RSI', params: { period: 7 } })).toBe(
+      true,
     )
-    expect(chart.kernel.pane.readonly.paneRatios.peek().timeshare_volume).toBeGreaterThan(0)
+    const timeShareEntries = chart.subPanes.peek().map((e) => ({
+      paneId: e.paneId,
+      indicatorId: e.indicatorId,
+    }))
+    expect(timeShareEntries).toEqual([{ paneId: 'TS_RSI_0', indicatorId: 'RSI' }])
     chart.setActiveMode(kMode)
 
     const entriesAfter = chart.subPanes.peek().map((e) => ({
@@ -565,10 +562,14 @@ describe('Chart pane layout regressions', () => {
     }))
     expect(entriesAfter).toEqual(entriesBefore)
     expect(chart.kernel.pane.readonly.paneRatios.peek()).toEqual(ratiosBefore)
+    chart.setActiveMode(tsMode)
+    expect(chart.subPanes.peek().map((e) => ({ paneId: e.paneId, indicatorId: e.indicatorId }))).toEqual(
+      timeShareEntries,
+    )
     await chart.destroy()
   })
 
-  it('timeshare switching reuses an existing user volume pane', async () => {
+  it('timeshare does not reuse a K-line volume pane', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     chart.resize()
     const volumePaneId = chart.addIndicator('VOL', 'sub')
@@ -580,16 +581,20 @@ describe('Chart pane layout regressions', () => {
       ._kLineMode
 
     chart.setActiveMode(tsMode)
-    expect(chart.subPanes.peek()).toHaveLength(1)
-    expect(chart.subPanes.peek()[0]?.instanceId).toBe(volumePaneId)
-    expect(
-      chart.kernel.pane.readonly.paneSpecs.peek().some((pane) => pane.id === 'timeshare_volume'),
-    ).toBe(false)
+    expect(chart.subPanes.peek()).toEqual([])
+    const timeShareVolumePaneId = chart.addIndicator('VOL', 'sub')
+    expect(timeShareVolumePaneId).not.toBeNull()
 
     chart.setActiveMode(kMode)
     expect(chart.subPanes.peek()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ instanceId: volumePaneId, indicatorId: 'volume' }),
+      ]),
+    )
+    chart.setActiveMode(tsMode)
+    expect(chart.subPanes.peek()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ instanceId: timeShareVolumePaneId, indicatorId: 'volume' }),
       ]),
     )
     await chart.destroy()

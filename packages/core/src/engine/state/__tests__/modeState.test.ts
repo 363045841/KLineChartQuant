@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { loadBuiltinIndicators } from '../../indicators/registerBuiltins'
 import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry'
 import { ChartStateKernel } from '../chartStateKernel'
-import { createModeState } from '../modeState'
+import { ChartDataViewId, createModeState } from '../modeState'
 
 describe('modeState', () => {
   it('defaults to kline', () => {
@@ -83,7 +83,8 @@ describe('modeState', () => {
     expect(m.readonly.effectivePrimaryRenderer.peek()).toBe('line')
   })
 
-  it('publishes the data-view primary plugin through the kernel active renderer set', () => {
+  it('publishes the data-view primary plugin through the kernel active renderer set', async () => {
+    await loadBuiltinIndicators()
     const kernel = new ChartStateKernel({
       initialOptions: {
         minKWidth: 1,
@@ -119,22 +120,7 @@ describe('modeState', () => {
         source: 'mode',
         params: {},
       },
-      {
-        instanceId: 'mode:timeshare-volume',
-        indicatorId: 'volume',
-        paneId: 'timeshare_volume',
-        role: 'sub',
-        ordinal: 0,
-        source: 'mode',
-        params: {},
-      },
     ])
-    expect(kernel.pane.readonly.paneSpecs.peek()).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: 'timeshare_volume', role: 'indicator' }),
-      ]),
-    )
-    expect(kernel.pane.readonly.paneRatios.peek().timeshare_volume).toBeCloseTo(0.25)
     expect(kernel.activeRenderers$.peek()).toEqual([
       { name: 'timeShare', layerId: 'plugin:timeShare' },
     ])
@@ -151,10 +137,6 @@ describe('modeState', () => {
         source: 'mode',
         params: {},
       },
-      expect.objectContaining({
-        instanceId: 'mode:timeshare-volume',
-        paneId: 'timeshare_volume',
-      }),
     ])
     expect(kernel.activeRenderers$.peek()).toEqual([
       { name: 'fiveDayTimeShare', layerId: 'plugin:fiveDayTimeShare' },
@@ -178,7 +160,7 @@ describe('modeState', () => {
     ])
   })
 
-  it('includes only indicators supported by the active data view', async () => {
+  it('uses an independent indicator workspace for timeshare', async () => {
     await loadBuiltinIndicators()
     expect(
       getRegisteredIndicatorDefinition('RSI')?.getRendererName({
@@ -221,9 +203,13 @@ describe('modeState', () => {
 
     expect(kernel.activeRenderers$.peek()).toEqual([
       { name: 'timeShare', layerId: 'plugin:timeShare' },
-      { name: 'volume_timeshare_volume', layerId: 'plugin:volume_timeshare_volume' },
-      { name: 'volumeScale_timeshare_volume', layerId: 'plugin:volumeScale_timeshare_volume' },
-      { name: 'paneTitle_timeshare_volume', layerId: 'plugin:paneTitle_timeshare_volume' },
     ])
+    expect(kernel.pane.readonly.paneSpecs.peek()).toEqual([
+      { id: 'main', ratio: 1, visible: true, role: 'price' },
+    ])
+
+    kernel.actions.setDataView(ChartDataViewId.KLine)
+
+    expect(kernel.activeRenderers$.peek()).toContainEqual({ name: 'boll', layerId: 'plugin:boll' })
   })
 })

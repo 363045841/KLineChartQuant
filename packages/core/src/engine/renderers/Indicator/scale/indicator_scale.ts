@@ -17,8 +17,10 @@ import { calculateValueTickPositions, type ScaleType } from '../../../utils/tick
 import { formatScaleValue, resolveAdaptiveDecimals } from './scaleFormat'
 
 interface IndicatorScaleRenderState extends BaseIndicatorState {
-  valueMin: number
-  valueMax: number
+  valueMin?: number
+  valueMax?: number
+  visibleMin?: number
+  visibleMax?: number
 }
 
 // Canvas 状态缓存，避免读取 ctx 属性（读取会触发颜色序列化，很慢）
@@ -50,6 +52,8 @@ export interface IndicatorScaleRendererOptions {
   getCrosshair?: () => { y: number; price: number; activePaneId: string | null } | null
   formatTickLabel?: (value: number) => string
   formatCrosshairLabel?: (value: number) => string
+  /** 指标 state key；主图指标投影为副图时可覆盖默认 pane key。 */
+  stateKey?: string
 }
 
 export interface DrawScaleTicksOptions {
@@ -142,7 +146,7 @@ export function createIndicatorScaleRendererPlugin(
     formatTickLabel,
     formatCrosshairLabel,
   } = options
-  const stateKey = createIndicatorStateKey(indicatorKey, paneId)
+  const stateKey = options.stateKey ?? createIndicatorStateKey(indicatorKey, paneId)
   let pluginHost: PluginHost | null = null
 
   return {
@@ -165,6 +169,16 @@ export function createIndicatorScaleRendererPlugin(
       const state = context.indicatorStateReader?.get<IndicatorScaleRenderState>(stateKey)
       if (!state) return
 
+      const valueMin = state.valueMin ?? state.visibleMin
+      const valueMax = state.valueMax ?? state.visibleMax
+      if (
+        typeof valueMin !== 'number' ||
+        typeof valueMax !== 'number' ||
+        !Number.isFinite(valueMin) ||
+        !Number.isFinite(valueMax)
+      )
+        return
+
       const effectiveScaleType: ScaleType = pane.yAxis.getScaleType() ?? scaleType
       const effectiveAxisWidth = yAxisCtx.canvas ? yAxisCtx.canvas.width / dpr : axisWidth
       const tokenColors = resolveThemeColors(
@@ -174,8 +188,8 @@ export function createIndicatorScaleRendererPlugin(
       )
 
       const displayRange = pane.yAxis.getDisplayRange({
-        minPrice: state.valueMin,
-        maxPrice: state.valueMax,
+        minPrice: valueMin,
+        maxPrice: valueMax,
       })
 
       // 无自定义格式化时按显示范围自适应小数位，避免小量级指标刻度全部折叠为 ±0.00。

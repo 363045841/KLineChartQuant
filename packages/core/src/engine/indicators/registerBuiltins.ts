@@ -9,6 +9,7 @@ export async function loadBuiltinIndicators(): Promise<void> {
   const modules = await Promise.all([
     import('../renderers/subVolume'),
     import('../renderers/timeShare'),
+    import('../renderers/fiveDayTimeShare'),
     import('../renderers/Indicator/atr'),
     import('../renderers/Indicator/boll'),
     import('../renderers/Indicator/cci'),

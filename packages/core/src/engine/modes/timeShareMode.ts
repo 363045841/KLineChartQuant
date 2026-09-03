@@ -94,7 +94,7 @@ export class TimeShareMode implements ChartModeHandler {
     },
     _prev: ChartModeHandler | null,
   ): void {
-    // 分时主序列与成交量 Pane 由 ChartStateKernel.setDataView 原子写入。
+    // 分时主序列实例与分时布局由 ChartStateKernel.setDataView 原子激活。
   }
 
   onDeactivate(
@@ -108,6 +108,6 @@ export class TimeShareMode implements ChartModeHandler {
     },
     _next: ChartModeHandler | null,
   ): void {
-    // 分时系统实例由 ChartStateKernel.setDataView 在退出时移除。
+    // 离开分时由 ChartStateKernel.setDataView 切换回 K 线工作区，分时实例与布局原样保留。
   }
 }

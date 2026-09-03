@@ -17,6 +17,7 @@ import type { IndicatorScheduler } from '../../indicators/scheduler'
 import { createMACDStateKey, EMPTY_MACD_STATE } from '../../indicators/state/macdState'
 import type { MACDRenderState } from '../../indicators/state/macdState'
 import { createMACDVisibleStateComposer } from '../../indicators/visibleStateComposers'
+import { ChartDataViewId } from '../../state/modeState'
 
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 import { tryDrawRectsGpu } from '../rectsViaRenderer'
@@ -505,6 +506,7 @@ function getMACDTitleInfo(
   category: 'oscillator',
   indicatorType: 'momentum',
   defaultPaneId: 'sub_MACD',
+  dataViews: [ChartDataViewId.KLine, ChartDataViewId.TimeShare, ChartDataViewId.FiveDayTimeShare],
   scaleRendererFactory: createMacdScaleRendererPlugin,
   visibleState: { compose: createMACDVisibleStateComposer('macd', EMPTY_MACD_STATE) },
   getTitleInfo: getMACDTitleInfo,

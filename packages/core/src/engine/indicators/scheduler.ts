@@ -104,6 +104,55 @@ interface IndicatorInstanceCalculationSource {
   readonly params: Readonly<Record<string, unknown>>
 }
 
+/** 将辅助 K 线的结果按分钟时间戳投影到分时展示序列。 */
+function projectSeriesByTimestamp<T>(
+  series: readonly T[],
+  sourceTimestamps: readonly number[],
+  displayTimestamps: readonly number[],
+): Array<T | undefined> {
+  const sourceIndexByMinute = new Map<number, number>()
+  for (let index = 0; index < sourceTimestamps.length; index++) {
+    sourceIndexByMinute.set(Math.floor(sourceTimestamps[index]! / 60_000), index)
+  }
+  return displayTimestamps.map((timestamp) => {
+    const sourceIndex = sourceIndexByMinute.get(Math.floor(timestamp / 60_000))
+    return sourceIndex === undefined ? undefined : series[sourceIndex]
+  })
+}
+
+/** 投影 bundle 中各指标的 series，保留参数及非序列结果。 */
+function projectBundleByTimestamp(
+  bundle: IndicatorSeriesBundle,
+  sourceTimestamps: readonly number[],
+  displayTimestamps: readonly number[] | null,
+): IndicatorSeriesBundle {
+  if (!displayTimestamps) return bundle
+  const projected: Record<string, unknown> = { ...bundle }
+  for (const [key, entry] of Object.entries(bundle)) {
+    if (!entry || typeof entry !== 'object' || key === '_changed') continue
+    const value = entry as { series?: unknown }
+    if (Array.isArray(value.series)) {
+      projected[key] = {
+        ...value,
+        series: projectSeriesByTimestamp(value.series, sourceTimestamps, displayTimestamps),
+      }
+      continue
+    }
+    if (value.series && typeof value.series === 'object') {
+      const series = Object.fromEntries(
+        Object.entries(value.series as Record<string, unknown>).map(([seriesKey, seriesValue]) => [
+          seriesKey,
+          Array.isArray(seriesValue)
+            ? projectSeriesByTimestamp(seriesValue, sourceTimestamps, displayTimestamps)
+            : seriesValue,
+        ]),
+      )
+      projected[key] = { ...value, series }
+    }
+  }
+  return projected as IndicatorSeriesBundle
+}
+
 /**
  * IndicatorScheduler - 主线程 facade
  */
@@ -126,6 +175,8 @@ export class IndicatorScheduler {
 
   // 当前数据和配置快照
   private currentData: KLineData[] = []
+  /** 非空时，计算结果需投影到该展示序列的时间戳。 */
+  private displayTimestamps: readonly number[] | null = null
   private configSnapshot!: Record<string, IndicatorConfig>
   private paneIdOverrides = new Map<string, string>()
 
@@ -693,13 +744,18 @@ export class IndicatorScheduler {
     dataVersion: number,
     configVersion: number,
   ): void {
-    const renderStates = this.composeRenderStateMap(bundle)
+    const projectedBundle = projectBundleByTimestamp(
+      bundle,
+      this.currentData.map((item) => item.timestamp),
+      this.displayTimestamps,
+    )
+    const renderStates = this.composeRenderStateMap(projectedBundle)
     const committed = this.resultState.actions.commitResults({
       requestId,
       dataRevision: dataVersion,
       configRevision: configVersion,
-      bundle,
-      timestamps: this.currentData.map((item) => item.timestamp),
+      bundle: projectedBundle,
+      timestamps: this.displayTimestamps ?? this.currentData.map((item) => item.timestamp),
       instanceResults,
       renderStates,
     })
@@ -800,7 +856,18 @@ export class IndicatorScheduler {
    * 数据变更时调用
    */
   update(data: KLineData[], visibleRange: VisibleRange, dataRevision?: number): boolean {
+    return this.updateWithDisplayTimestamps(data, visibleRange, dataRevision)
+  }
+
+  /** 使用 K 线计算，并可投影结果至另一条展示序列。 */
+  updateWithDisplayTimestamps(
+    data: KLineData[],
+    visibleRange: VisibleRange,
+    dataRevision?: number,
+    displayTimestamps: readonly number[] | null = null,
+  ): boolean {
     this.currentData = data
+    this.displayTimestamps = displayTimestamps
     this.visibleRange = visibleRange
     this.dataVersion = dataRevision ?? this.dataVersion + 1
     if (this.getConfigRevision) this.configVersion = this.getConfigRevision()
