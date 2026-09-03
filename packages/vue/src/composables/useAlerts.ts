@@ -4,13 +4,15 @@ import type {
   AlertRule,
   ChartController,
 } from '@363045841yyt/klinechart-core'
-import { ref, toRef, watch, onScopeDispose, type Ref, type MaybeRefOrGetter } from 'vue'
+import { computed, ref, shallowRef, toRef, watch, onScopeDispose, type MaybeRefOrGetter } from 'vue'
 
 export function useAlerts(controllerSource: MaybeRefOrGetter<ChartController | null>) {
   const controller = toRef(controllerSource)
 
-  const rules = ref<ReadonlyArray<AlertRule>>([]) as Ref<ReadonlyArray<AlertRule>>
-  const events = ref<ReadonlyArray<AlertEvent>>([]) as Ref<ReadonlyArray<AlertEvent>>
+  const rules = shallowRef<ReadonlyArray<AlertRule>>([])
+  const events = shallowRef<ReadonlyArray<AlertEvent>>([])
+  const readonlyRules = computed(() => rules.value)
+  const readonlyEvents = computed(() => events.value)
   const unreadCount = ref(0)
   let prevEventCount = 0
 
@@ -63,8 +65,8 @@ export function useAlerts(controllerSource: MaybeRefOrGetter<ChartController | n
   onScopeDispose(disconnect)
 
   return {
-    rules,
-    events,
+    rules: readonlyRules,
+    events: readonlyEvents,
     unreadCount,
     resetUnread,
     addRule,

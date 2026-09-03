@@ -13,34 +13,18 @@ import {
 import { resolveSettings, type ChartSettings } from '@363045841yyt/klinechart-core/config'
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import type { Ref } from 'vue'
-import { ref, shallowRef, computed, watch, onUnmounted } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
+
+import { useControllerSignal } from './useControllerSignal'
 
 export function useChartTheme(ctrl: Ref<ChartController | null>, initialTheme?: 'light' | 'dark') {
   /** 镜像 kernel effectiveTheme（shallowRef 避免 deep proxy） */
-  const chartTheme = shallowRef<'light' | 'dark'>(initialTheme ?? 'light')
-  const chartSettings = ref<ChartSettings>({})
-
-  let unsubTheme: (() => void) | null = null
-
-  function syncThemeFromController() {
-    const c = ctrl.value
-    if (!c) return
-    chartTheme.value = c.theme.peek()
-  }
-
-  watch(
+  const chartTheme = useControllerSignal(
     ctrl,
-    (c) => {
-      unsubTheme?.()
-      unsubTheme = null
-      if (!c) return
-      syncThemeFromController()
-      unsubTheme = c.theme.subscribe(() => {
-        chartTheme.value = c.theme.peek()
-      })
-    },
-    { immediate: true },
+    (controller) => controller.theme,
+    () => initialTheme ?? 'light',
   )
+  const chartSettings = ref<ChartSettings>({})
 
   const tooltipColors = computed(() => {
     const isAsiaMarket = chartSettings.value.isAsiaMarket ?? false
@@ -107,8 +91,6 @@ export function useChartTheme(ctrl: Ref<ChartController | null>, initialTheme?: 
   }
 
   onUnmounted(() => {
-    unsubTheme?.()
-    unsubTheme = null
     autoThemeMediaQuery?.removeEventListener('change', onSystemThemeChange)
     autoThemeMediaQuery = null
     for (const name of Object.keys(themeCssVars.value)) {

@@ -17,6 +17,8 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
   /** 镜像 kernel.selectedDrawingId（shallowRef 避免 deep proxy 破坏 Object.is） */
   const selectedDrawingId = shallowRef<string | null>(null)
   const drawings = shallowRef<ReadonlyArray<DrawingObject>>([])
+  const readonlySelectedDrawingId = computed(() => selectedDrawingId.value)
+  const readonlyDrawings = computed(() => drawings.value)
   const selectedDrawing = computed(() => {
     const id = selectedDrawingId.value
     if (!id) return null
@@ -79,9 +81,9 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
 
   return {
     drawingController,
-    selectedDrawingId,
+    selectedDrawingId: readonlySelectedDrawingId,
     selectedDrawing,
-    drawings,
+    drawings: readonlyDrawings,
     handleSelectTool,
     onUpdateDrawingStyle,
     onDeleteDrawing,

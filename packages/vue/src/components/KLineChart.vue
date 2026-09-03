@@ -1570,7 +1570,6 @@
 
     const unsubscribeTheme = ctrl.theme.subscribe(() => {
       const newTheme = ctrl.theme.peek()
-      chartTheme.value = newTheme
       emit('themeChange', newTheme)
     })
 

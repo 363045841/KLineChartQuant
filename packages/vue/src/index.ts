@@ -2,7 +2,7 @@
  * @363045841yyt/klinechart — public API surface.
  *
  * Vue 3 bindings for @363045841yyt/klinechart-core. Bridges core signals to Vue's
- * reactivity via `shallowRef` + `effect` so each adapter owns its own
+ * reactivity via `shallowRef` subscriptions so each adapter owns its own
  * reactivity boundary — no proxy wrapping of immutable signal values.
  *
  * Backward-compatibility contract: `KMapPlugin.install(app)` MUST exist
@@ -20,8 +20,15 @@ import type {
   KLineData,
 } from '@363045841yyt/klinechart-core'
 import { createIndicatorSelectorController } from '@363045841yyt/klinechart-core'
-import type { Signal } from '@363045841yyt/klinechart-core/reactivity'
-import { onBeforeUnmount, onScopeDispose, shallowRef, watch, type App, type Ref } from 'vue'
+import {
+  onBeforeUnmount,
+  onScopeDispose,
+  shallowRef,
+  watch,
+  type App,
+  type ComputedRef,
+  type Ref,
+} from 'vue'
 
 import { KlineChart } from './components/index'
 import './styles/scrollbar.css'
@@ -198,18 +205,12 @@ export function useChart(
  * Bridge the Chart's indicators signal into a Vue shallowRef.
  */
 export function useIndicators(controller: ChartController): {
-  indicators: Ref<ReadonlyArray<IndicatorInstance>>
+  indicators: ComputedRef<ReadonlyArray<IndicatorInstance>>
   add: ChartController['addIndicator']
   remove: ChartController['removeIndicator']
   updateParams: ChartController['updateIndicatorParams']
 } {
-  const indicators = shallowRef(controller.indicators.peek()) as Ref<
-    ReadonlyArray<IndicatorInstance>
-  >
-  const unsub = controller.indicators.subscribe(() => {
-    indicators.value = controller.indicators.peek()
-  })
-  onScopeDispose(unsub)
+  const indicators = coreSignalToVueRef(controller.indicators)
 
   return {
     indicators,
@@ -223,42 +224,25 @@ export function useIndicators(controller: ChartController): {
  * Bridge the Chart's interactionState signal into a Vue shallowRef.
  * 仅当 snapshot 引用变化时更新（kernel 侧已做字段级短路与引用缓存）。
  */
-export function useInteractionState(controller: ChartController): Ref<InteractionSnapshot> {
-  const state = shallowRef(controller.interactionState.peek()) as Ref<InteractionSnapshot>
-  const unsub = controller.interactionState.subscribe(() => {
-    const next = controller.interactionState.peek()
-    if (state.value === next) return
-    state.value = next
-  })
-  onScopeDispose(unsub)
-  return state
+export function useInteractionState(controller: ChartController): ComputedRef<InteractionSnapshot> {
+  return coreSignalToVueRef(controller.interactionState)
 }
 
 /**
  * Bridge the Chart's paneRatios signal into a Vue shallowRef.
  */
-export function usePaneRatios(controller: ChartController): Ref<Readonly<Record<string, number>>> {
-  const ratios = shallowRef(controller.paneRatios.peek()) as Ref<Readonly<Record<string, number>>>
-  const unsub = controller.paneRatios.subscribe(() => {
-    ratios.value = controller.paneRatios.peek()
-  })
-  onScopeDispose(unsub)
-  return ratios
+export function usePaneRatios(
+  controller: ChartController,
+): ComputedRef<Readonly<Record<string, number>>> {
+  return coreSignalToVueRef(controller.paneRatios)
 }
 
 /**
  * Bridge the Chart's viewport signal into a Vue shallowRef.
  * 引用相等则跳过，配合 viewport 侧缓存减少滚动抖动更新。
  */
-export function useViewport(controller: ChartController): Ref<ChartViewport> {
-  const vp = shallowRef(controller.viewport.peek()) as Ref<ChartViewport>
-  const unsub = controller.viewport.subscribe(() => {
-    const next = controller.viewport.peek()
-    if (vp.value === next) return
-    vp.value = next
-  })
-  onScopeDispose(unsub)
-  return vp
+export function useViewport(controller: ChartController): ComputedRef<ChartViewport> {
+  return coreSignalToVueRef(controller.viewport)
 }
 
 // ---------------------------------------------------------------------------
@@ -274,10 +258,10 @@ export function useViewport(controller: ChartController): Ref<ChartViewport> {
  */
 export function useIndicatorSelector(controller: ChartController): {
   catalog: ReadonlyArray<IndicatorDefinition>
-  filteredMain: Ref<ReadonlyArray<IndicatorDefinition>>
-  filteredSub: Ref<ReadonlyArray<IndicatorDefinition>>
-  menuOpen: Ref<boolean>
-  searchQuery: Ref<string>
+  filteredMain: ComputedRef<ReadonlyArray<IndicatorDefinition>>
+  filteredSub: ComputedRef<ReadonlyArray<IndicatorDefinition>>
+  menuOpen: ComputedRef<boolean>
+  searchQuery: ComputedRef<string>
   add: (definitionId: string) => string | null
   remove: (instanceId: string) => boolean
   openMenu: () => void

@@ -1,8 +1,8 @@
-import type { Signal } from '@363045841yyt/klinechart-core/reactivity'
-import { shallowRef, onScopeDispose, type Ref } from 'vue'
+import type { ReadonlySignal } from '@363045841yyt/klinechart-core/reactivity'
+import { computed, shallowRef, onScopeDispose, type ComputedRef } from 'vue'
 
 /**
- * Bridge a core Signal<T> into a Vue Ref<T> backed by `shallowRef`.
+ * Bridge a core ReadonlySignal<T> into a read-only Vue ref backed by `shallowRef`.
  *
  * We use `shallowRef` (not `ref`) because:
  *   - core signal values are treated as immutable; deep proxying is wasteful
@@ -14,11 +14,11 @@ import { shallowRef, onScopeDispose, type Ref } from 'vue'
  * `effectScope`. Calling it outside any scope still returns a working ref —
  * the caller is then responsible for unsubscribing.
  */
-export function coreSignalToVueRef<T>(signal: Signal<T>): Ref<T> {
-  const ref = shallowRef(signal.peek()) as Ref<T>
+export function coreSignalToVueRef<T>(signal: ReadonlySignal<T>): ComputedRef<T> {
+  const snapshot = shallowRef(signal.peek())
   const unsub = signal.subscribe(() => {
-    ref.value = signal.peek()
+    snapshot.value = signal.peek()
   })
   onScopeDispose(unsub)
-  return ref
+  return computed(() => snapshot.value)
 }

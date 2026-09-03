@@ -1,6 +1,6 @@
 /** 将 Core ReadonlySignal 接入 Vue 响应式系统。 */
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
-import { computed, ref, watch, type ComputedRef, type Ref } from 'vue'
+import { computed, shallowRef, watch, type ComputedRef, type Ref } from 'vue'
 
 type ReadonlyControllerSignal<T> = {
   peek(): T
@@ -13,31 +13,26 @@ export function useControllerSignal<T>(
   select: (controller: ChartController) => ReadonlyControllerSignal<T> | undefined,
   fallback: () => T,
 ): ComputedRef<T> {
-  const version = ref(0)
+  const snapshot = shallowRef<T>(fallback())
   watch(
     controllerRef,
     (controller, _previous, onCleanup) => {
       if (!controller) {
-        version.value++
+        snapshot.value = fallback()
         return
       }
       const signal = select(controller)
       if (!signal) {
-        version.value++
+        snapshot.value = fallback()
         return
       }
+      snapshot.value = signal.peek()
       const unsubscribe = signal.subscribe(() => {
-        version.value++
+        snapshot.value = signal.peek()
       })
-      version.value++
       onCleanup(unsubscribe)
     },
     { immediate: true },
   )
-  return computed(() => {
-    void version.value
-    const controller = controllerRef.value
-    const signal = controller ? select(controller) : undefined
-    return signal ? signal.peek() : fallback()
-  })
+  return computed(() => snapshot.value)
 }
