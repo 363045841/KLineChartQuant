@@ -228,6 +228,7 @@ describe('createChartAgentController', () => {
     expect(snapshot).toEqual({
       chartId: 'chart-fixture',
       symbol: 'BTCUSDT',
+      symbolName: null,
       market: 'crypto',
       exchange: 'BINANCE',
       period: 'kline',

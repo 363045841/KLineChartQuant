@@ -401,6 +401,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     const dataRange = requireTimestampRange(activeBuffer.data)
     const selection = activeBuffer.selection
     const symbol = spec?.instrument?.symbol ?? spec?.symbol ?? null
+    const symbolName = spec?.instrument?.name ?? null
     const market = spec?.market ?? null
     const exchange = spec?.instrument?.exchange ?? spec?.exchange ?? null
     const dataSource = selection.sourceId || spec?.source || spec?.instrument?.sourceId || null
@@ -412,6 +413,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     return Object.freeze({
       chartId: this.dependencies.chartId,
       symbol,
+      symbolName,
       market,
       exchange,
       period,

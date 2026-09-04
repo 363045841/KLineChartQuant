@@ -4,7 +4,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BrowserAgentBridge } from '../browser-agent-bridge'
 
 import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
-import type { RuntimeToolDefinition } from '@363045841yyt/klinechart-agent-runtime'
+import type {
+  AgentChartSymbolContextItem,
+  RuntimeToolDefinition,
+} from '@363045841yyt/klinechart-agent-runtime'
 
 /** 清理每个测试写入的浏览器全局状态。 */
 afterEach(() => {
@@ -310,6 +313,7 @@ describe('BrowserAgentBridge', () => {
       () => ({
         chartId: 'chart-1',
         symbol,
+        symbolName: null,
         market: 'crypto',
         exchange: 'BINANCE',
         period: '1h',
@@ -339,7 +343,12 @@ describe('BrowserAgentBridge', () => {
     const bridge = new BrowserAgentBridge()
     const received: Array<string | null> = []
 
-    bridge.subscribeChartContext((value) => received.push(value?.symbol ?? null))
+    bridge.subscribeContextItems((items) => {
+      const symbol = items.find(
+        (item): item is AgentChartSymbolContextItem => item.kind === 'chart-symbol',
+      )
+      received.push(symbol?.value.symbol ?? null)
+    })
     bridge.bindChartAgent(agent)
     symbol = 'ETHUSDT'
     for (const listener of listeners) listener()

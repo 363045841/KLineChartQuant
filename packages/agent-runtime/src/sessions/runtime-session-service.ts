@@ -279,6 +279,7 @@ export class RuntimeSessionService {
       lane,
       prompt,
       readOnly: input.readOnly,
+      ...(input.context ? { context: input.context } : {}),
       userEntryId,
       startedAt: input.startedAt,
     }
@@ -308,6 +309,7 @@ export class RuntimeSessionService {
       lane,
       prompt: original.prompt,
       readOnly: original.readOnly,
+      ...(original.context ? { context: original.context } : {}),
       userEntryId,
       startedAt: input.startedAt,
       retryOfRunId: input.originalRunId,

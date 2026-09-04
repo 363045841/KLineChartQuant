@@ -420,6 +420,40 @@ describe('OpenAI-compatible runtime support', () => {
     )
   })
 
+  it('injects the frozen UI context and avoids redundant chart discovery tools', async () => {
+    const { credentials, settings } = configuredStores()
+    await configure(credentials, settings)
+    const support = createOpenAiCompatibleRuntimeSupport({
+      credentials,
+      settings,
+      fetch: providerFetch(),
+    })
+
+    const plan = await support.createPlan({
+      sessionId: 'session-1',
+      runId: 'run-1',
+      turnId: 'turn-1',
+      lane: 'main',
+      prompt: 'Analyze this range.',
+      readOnly: true,
+      context: {
+        items: [
+          { kind: 'chart-symbol', value: { symbol: 'BTCUSDT', name: 'Bitcoin / Tether' } },
+          {
+            kind: 'selected-time-range',
+            value: { from: 1_700_000_000_000, to: 1_700_086_400_000 },
+          },
+        ],
+      },
+      startedAt: 1,
+      userEntryId: 'user-1',
+    })
+
+    expect(plan.systemPrompt).toContain('"kind":"chart-symbol"')
+    expect(plan.systemPrompt).toContain('"kind":"selected-time-range"')
+    expect(plan.systemPrompt).toContain('Do not use tools to rediscover the current symbol')
+  })
+
   it('migrates v1 persisted settings to explicit Chat Completions', () => {
     expect(
       parseOpenAiCompatibleProviderSettings({

@@ -1,4 +1,4 @@
-import type { AgentUiEvent, AgentUiEventInput } from '../contracts/ui.js'
+import type { AgentRunContext, AgentUiEvent, AgentUiEventInput } from '../contracts/ui.js'
 
 export const KQ_SESSION_SCHEMA_VERSION = 1 as const
 export const KQ_CUSTOM_ENTRY = {
@@ -22,6 +22,7 @@ export interface KqRunStartedEntry {
   lane: string
   prompt: string
   readOnly: boolean
+  context?: AgentRunContext
   userEntryId: string
   startedAt: number
   retryOfRunId?: string
@@ -45,6 +46,7 @@ export interface BeginRunInput {
   turnId: string
   prompt: string
   readOnly: boolean
+  context?: AgentRunContext
   startedAt: number
 }
 
@@ -63,6 +65,7 @@ export interface RunPersistenceContext {
   lane: string
   prompt: string
   readOnly: boolean
+  context?: AgentRunContext
   userEntryId: string
   startedAt: number
   retryOfRunId?: string

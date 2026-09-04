@@ -7,12 +7,12 @@ import {
   useAgentProviderSettingsStore,
 } from './agent-provider-settings-store'
 
-import type { AgentBridgeClient, AgentUiEvent, ChartContextView } from './agent-contracts'
+import type { AgentBridgeClient, AgentContextItem, AgentUiEvent } from './agent-contracts'
 
 export function useAgentWorkspace(bridge: AgentBridgeClient) {
   const state = shallowRef(createInitialAgentState())
-  // 仅作为跨响应式系统的渲染适配层；权威图表上下文由 bridge 的 Core signal 持有。
-  const chartContext = shallowRef<ChartContextView | null>(bridge.getChartContext())
+  // UI 与模型请求共享 Bridge 从 Core 投影的同一份上下文项。
+  const contextItems = shallowRef<ReadonlyArray<AgentContextItem>>(bridge.getContextItems())
   const draft = ref('')
   const readOnly = ref(false)
   const providerSettings = useAgentProviderSettingsStore(createAgentProviderSettingsPinia())
@@ -21,7 +21,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     typeof navigator !== 'undefined' && navigator.language.startsWith('zh') ? 'zh-CN' : 'en',
   )
   let unsubscribe: (() => void) | undefined
-  let unsubscribeChartContext: (() => void) | undefined
+  let unsubscribeContextItems: (() => void) | undefined
   let bufferedEvents: AgentUiEvent[] | undefined
 
   const activeSession = computed(() =>
@@ -76,8 +76,8 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     const buffer: AgentUiEvent[] = []
     bufferedEvents = buffer
     unsubscribe = bridge.subscribe(receive)
-unsubscribeChartContext = bridge.subscribeChartContext((context) => {
-      chartContext.value = context
+    unsubscribeContextItems = bridge.subscribeContextItems((items) => {
+      contextItems.value = items
     })
     try {
       const [sessions, provider] = await Promise.all([
@@ -169,12 +169,12 @@ unsubscribeChartContext = bridge.subscribeChartContext((context) => {
   onMounted(initialize)
   onUnmounted(() => {
     unsubscribe?.()
-    unsubscribeChartContext?.()
+    unsubscribeContextItems?.()
   })
 
   return {
     state,
-    chartContext,
+    contextItems,
     draft,
     readOnly,
     providerSettings,

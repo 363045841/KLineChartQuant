@@ -11,10 +11,7 @@ import {
   requestProviderJson,
   sleepWithSignal,
 } from './http.js'
-import {
-  getProviderApiProtocolAdapter,
-  type ProviderStreamObservation,
-} from './protocol.js'
+import { getProviderApiProtocolAdapter, type ProviderStreamObservation } from './protocol.js'
 import {
   OPENAI_COMPATIBLE_PROVIDER_ID,
   OPENAI_COMPATIBLE_PROVIDER_LABEL,
@@ -35,6 +32,7 @@ import type {
   ProviderStatusView,
   ProviderTestInput,
   ProviderTestResult,
+  AgentRunContext,
 } from '../contracts/ui.js'
 import type { PiRunPlan } from '../pi/types.js'
 import type { FetchFunction } from '@earendil-works/pi-ai'
@@ -120,11 +118,18 @@ function formatReferenceTime(timestamp: number): string {
 }
 
 /** 构造注入当前行情时间参照的系统提示词。 */
-function createSystemPrompt(hasTools: boolean, referenceTime: string): string {
+function createSystemPrompt(
+  hasTools: boolean,
+  referenceTime: string,
+  context?: AgentRunContext,
+): string {
   const base = `You are the KLineChartQuant financial analysis Agent. Current date and time (${AGENT_REFERENCE_TIMEZONE}): ${referenceTime}.`
+  const chartContext = context?.items.length
+    ? ` Current chart context: ${JSON.stringify(context.items)}. This is authoritative UI context. Do not use tools to rediscover the current symbol or selected time range; use tools only for chart evidence not included here.`
+    : ''
   return hasTools
-    ? `${base} Use the supplied chart tools when chart evidence is needed. Do not claim to have changed the chart: the available tools are read-only.`
-    : `${base} No chart tools are available in this build. Do not claim to have read or changed the chart. Answer only from user-provided text and state limitations clearly.`
+    ? `${base}${chartContext} Use the supplied chart tools when chart evidence is needed. Do not claim to have changed the chart: the available tools are read-only.`
+    : `${base}${chartContext} No chart tools are available in this build. Do not claim to have read or changed the chart. Answer only from user-provided text and state limitations clearly.`
 }
 
 /**
@@ -452,7 +457,11 @@ export function createOpenAiCompatibleRuntimeSupport(
           }),
         ),
       classifyProviderError: (message) => adapter.classifyStreamError(message, observation),
-      systemPrompt: createSystemPrompt(tools.length > 0, formatReferenceTime(now())),
+      systemPrompt: createSystemPrompt(
+        tools.length > 0,
+        formatReferenceTime(now()),
+        context.context,
+      ),
     }
   }
 

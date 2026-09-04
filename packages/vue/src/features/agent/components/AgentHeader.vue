@@ -48,12 +48,7 @@
         >
           <IconSettings aria-hidden="true" />
         </button>
-        <button
-          type="button"
-          :title="text.tools"
-          :aria-label="text.tools"
-          @click="$emit('tools')"
-        >
+        <button type="button" :title="text.tools" :aria-label="text.tools" @click="$emit('tools')">
           <IconTools aria-hidden="true" />
         </button>
         <button
@@ -93,7 +88,12 @@
   import Dropdown from '../../../components/Dropdown.vue'
   import { getAgentCopy, type AgentLocale } from '../agent-copy'
 
-  import type { AgentSessionView, ChartContextView, ProviderStatusView } from '../agent-contracts'
+  import type {
+    AgentChartSymbolContextItem,
+    AgentContextItem,
+    AgentSessionView,
+    ProviderStatusView,
+  } from '../agent-contracts'
 
   import IconLanguage from '~icons/tabler/language'
   import IconPanelRightClose from '~icons/tabler/layout-sidebar-right-collapse'
@@ -108,7 +108,7 @@
     sessions: AgentSessionView[]
     activeSessionId: string | null
     provider: ProviderStatusView
-    context: ChartContextView | null
+    contextItems: ReadonlyArray<AgentContextItem>
     locale: AgentLocale
   }>()
 
@@ -136,10 +136,12 @@
     }
     return labels[props.provider.state]
   })
-  const scope = computed(
-    () =>
-      `${props.context?.symbol ?? text.value.noSymbol} · ${props.context?.period ?? text.value.noPeriod}`,
+  const symbolContext = computed(() =>
+    props.contextItems.find(
+      (item): item is AgentChartSymbolContextItem => item.kind === 'chart-symbol',
+    ),
   )
+  const scope = computed(() => symbolContext.value?.value.symbol ?? text.value.noSymbol)
 
   function rename(): void {
     const session = props.sessions.find((item) => item.id === props.activeSessionId)
