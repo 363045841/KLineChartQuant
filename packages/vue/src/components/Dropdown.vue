@@ -167,7 +167,7 @@
     const root = rootRef.value
     const menu = menuRef.value
     const path = event.composedPath()
-    if (!path.includes(root) && !path.includes(menu)) {
+    if ((!root || !path.includes(root)) && (!menu || !path.includes(menu))) {
       close()
     }
   }

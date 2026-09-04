@@ -105,8 +105,8 @@ export function useIndicatorManager(
   ): Record<string, number | boolean | string> {
     if (indicatorId === 'VOLUME') return {}
     const meta = getRegisteredIndicatorDefinition(indicatorId)
-    if (meta?.runtime?.defaultConfig) {
-      return { ...meta.runtime.defaultConfig } as Record<string, number | boolean | string>
+    if (meta?.runtime?.defaultParams) {
+      return { ...meta.runtime.defaultParams } as Record<string, number | boolean | string>
     }
     return {}
   }

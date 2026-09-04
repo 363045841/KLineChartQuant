@@ -45,7 +45,6 @@ export function hasSubPaneRendererMetadata(
   if (definition.category === 'main' || definition.allowMainPane) return false
   try {
     return Boolean(
-      definition.rendererFactory &&
       definition.getScaleRendererName({ paneId, indicatorId }) &&
       definition.getPaneTitleRendererName({ paneId, indicatorId }),
     )
@@ -195,11 +194,11 @@ export class SubPaneManager {
     const scaleRendererName = definition.getScaleRendererName({
       paneId: spec.paneId,
       indicatorId: spec.indicatorId,
-    })
+    })!
     const paneTitleRendererName = definition.getPaneTitleRendererName({
       paneId: spec.paneId,
       indicatorId: spec.indicatorId,
-    })
+    })!
     return {
       ...spec,
       params: { ...spec.params },
