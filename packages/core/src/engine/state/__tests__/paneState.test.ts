@@ -70,4 +70,32 @@ describe('paneState', () => {
     expect(m.readonly.paneScaleTypes.peek().get('main')).toBe('log')
     expect(m.readonly.paneScaleTypes.peek().has('RSI')).toBe(false)
   })
+
+  it('restores independent layouts for kline and timeshare workspaces', () => {
+    const m = createPaneState()
+    m.actions.restoreWorkspaces({
+      kline: {
+        instances: [],
+        paneRatios: { main: 0.75, RSI_0: 0.25 },
+        paneSpecs: [
+          { id: 'main', ratio: 0.75, role: 'price' },
+          { id: 'RSI_0', ratio: 0.25, role: 'indicator' },
+        ],
+        paneScaleTypes: { main: 'log' },
+      },
+      timeshare: {
+        instances: [],
+        paneRatios: { main: 1 },
+        paneSpecs: [{ id: 'main', ratio: 1, role: 'price' }],
+        paneScaleTypes: { main: 'percent' },
+      },
+    })
+
+    expect(m.readonly.paneSpecs.peek().map((spec) => spec.id)).toEqual(['main', 'RSI_0'])
+    expect(m.readonly.paneScaleTypes.peek().get('main')).toBe('log')
+
+    m.actions.setActiveWorkspace('timeshare')
+    expect(m.readonly.paneSpecs.peek()).toEqual([{ id: 'main', ratio: 1, role: 'price' }])
+    expect(m.readonly.paneScaleTypes.peek().get('main')).toBe('percent')
+  })
 })

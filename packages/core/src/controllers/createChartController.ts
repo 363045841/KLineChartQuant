@@ -22,6 +22,10 @@ import { marketDataProviderRegistry } from '../data/provider/registry'
 import { createChartAgentController } from '../features/agent/chartAgentController'
 import { createIndicatorQuery } from '../features/agent/indicator/indicatorQuery'
 import { ChartBridge } from '../features/mcp/chartBridge'
+import {
+  createViewWorkspacePersistence,
+  loadStoredViewWorkspaces,
+} from './viewWorkspacePersistence'
 import { resolveSettings } from '../foundation/config/chartSettings'
 import { computed, type ReadonlySignal } from '../foundation/reactivity/index'
 import { generateUUID } from '../foundation/utils/uuid'
@@ -339,6 +343,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   }
 
   await loadBuiltinIndicators()
+  const initialViewWorkspaces = loadStoredViewWorkspaces()
 
   const hasExistingDom = !!(opts.canvasLayer && opts.rightAxisLayer && opts.xAxisCanvas)
   const mounted = hasExistingDom
@@ -397,7 +402,15 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       xAxisCanvas: mounted.xAxisCanvas,
     },
     chartOptions,
-    { rendererHost, initialSettings, marketSessions: opts.marketSessions },
+    {
+      rendererHost,
+      initialSettings,
+      initialViewWorkspaces: initialViewWorkspaces ?? undefined,
+      marketSessions: opts.marketSessions,
+    },
+  )
+  chart.setViewWorkspacePersistence(
+    createViewWorkspacePersistence(() => chart.kernel.snapshotViewWorkspaces()),
   )
   const drawingDocument = new DrawingDocument({
     drawingState: chart.kernel.drawing,

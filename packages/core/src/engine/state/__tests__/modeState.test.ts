@@ -160,6 +160,56 @@ describe('modeState', () => {
     ])
   })
 
+  it('restores and snapshots independent view workspaces without mode instances', async () => {
+    await loadBuiltinIndicators()
+    const initialViewWorkspaces = {
+      kline: {
+        instances: [
+          {
+            instanceId: 'main:BOLL',
+            indicatorId: 'BOLL',
+            paneId: 'main',
+            role: 'main' as const,
+            ordinal: 0,
+            params: { period: 20 },
+          },
+        ],
+        paneRatios: { main: 1 },
+        paneSpecs: [{ id: 'main', ratio: 1, visible: true, role: 'price' as const }],
+        paneScaleTypes: { main: 'log' as const },
+      },
+      timeshare: {
+        instances: [],
+        paneRatios: { main: 0.75, RSI_0: 0.25 },
+        paneSpecs: [
+          { id: 'main', ratio: 0.75, visible: true, role: 'price' as const },
+          { id: 'RSI_0', ratio: 0.25, visible: true, role: 'indicator' as const },
+        ],
+        paneScaleTypes: { main: 'percent' as const },
+      },
+    }
+    const kernel = new ChartStateKernel({
+      initialOptions: {
+        minKWidth: 1,
+        maxKWidth: 50,
+        zoomLevelCount: 20,
+        bottomAxisHeight: 24,
+        rightAxisWidth: 0,
+        leftAxisWidth: 0,
+        yPaddingPx: 20,
+        panes: [{ id: 'main', ratio: 1, visible: true, role: 'price' }],
+      },
+      initialZoomLevel: 3,
+      initialViewWorkspaces,
+      scheduleDraw: () => undefined,
+    })
+
+    expect(kernel.snapshotViewWorkspaces()).toEqual(initialViewWorkspaces)
+    kernel.actions.setDataView(ChartDataViewId.TimeShare)
+    expect(kernel.pane.readonly.paneSpecs.peek().map((pane) => pane.id)).toEqual(['main', 'RSI_0'])
+    expect(kernel.snapshotViewWorkspaces()).toEqual(initialViewWorkspaces)
+  })
+
   it('uses an independent indicator workspace for timeshare', async () => {
     await loadBuiltinIndicators()
     expect(

@@ -4,6 +4,46 @@ import '../../renderers/subVolume'
 import '../../renderers/Indicator/cci'
 
 describe('indicatorState', () => {
+  it('restores independent user indicators for kline and timeshare workspaces', () => {
+    const m = createIndicatorState()
+    m.actions.restoreWorkspaces({
+      kline: {
+        instances: [
+          {
+            instanceId: 'main:BOLL',
+            indicatorId: 'BOLL',
+            paneId: 'main',
+            role: 'main',
+            ordinal: 0,
+            params: { period: 20 },
+          },
+        ],
+        paneRatios: { main: 1 },
+        paneSpecs: [{ id: 'main', ratio: 1, role: 'price' }],
+        paneScaleTypes: {},
+      },
+      timeshare: {
+        instances: [
+          {
+            instanceId: 'main:MA',
+            indicatorId: 'MA',
+            paneId: 'main',
+            role: 'main',
+            ordinal: 0,
+            params: { period: 5 },
+          },
+        ],
+        paneRatios: { main: 1 },
+        paneSpecs: [{ id: 'main', ratio: 1, role: 'price' }],
+        paneScaleTypes: {},
+      },
+    })
+
+    expect(m.readonly.instances.peek().map((instance) => instance.indicatorId)).toEqual(['BOLL'])
+    m.actions.setActiveWorkspace('timeshare')
+    expect(m.readonly.instances.peek().map((instance) => instance.indicatorId)).toEqual(['MA'])
+  })
+
   it('upsert adds and merges params immutably', () => {
     const m = createIndicatorState()
     m.actions.upsertMain('MA', { period: 5 })

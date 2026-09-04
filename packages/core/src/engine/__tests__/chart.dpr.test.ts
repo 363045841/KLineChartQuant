@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
+import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
 
 import { Chart, type ChartDom, type ChartOptions } from '@/core/chart'
 
@@ -144,6 +145,45 @@ describe('Chart DPR pipeline', () => {
     })
     HTMLCanvasElement.prototype.getContext = originalGetContext
     vi.restoreAllMocks()
+  })
+
+  it('mounts renderer layers for restored sub-pane indicators', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions, {
+      initialViewWorkspaces: {
+        kline: {
+          instances: [
+            {
+              instanceId: 'user:rsi-0',
+              indicatorId: 'RSI',
+              paneId: 'RSI_0',
+              role: 'sub',
+              ordinal: 0,
+              params: {},
+            },
+          ],
+          paneRatios: { main: 0.75, RSI_0: 0.25 },
+          paneSpecs: [
+            { id: 'main', ratio: 0.75, role: 'price' },
+            { id: 'RSI_0', ratio: 0.25, role: 'indicator' },
+          ],
+          paneScaleTypes: {},
+        },
+        timeshare: {
+          instances: [],
+          paneRatios: { main: 1 },
+          paneSpecs: [{ id: 'main', ratio: 1, role: 'price' }],
+          paneScaleTypes: {},
+        },
+      },
+    })
+
+    const rsiRendererName = getRegisteredIndicatorDefinition('RSI')?.rendererFactory({
+      paneId: 'RSI_0',
+      indicatorId: 'RSI',
+    }).name
+    expect(rsiRendererName).toBeDefined()
+    expect(chart.getRenderer(rsiRendererName!)).toBeDefined()
+    await chart.destroy()
   })
 
   it('falls back to default observe when device-pixel-content-box observe fails', async () => {
@@ -546,9 +586,9 @@ describe('Chart pane layout regressions', () => {
       ._kLineMode
     chart.setActiveMode(tsMode)
     expect(chart.subPanes.peek()).toEqual([])
-    expect(chart.createPane({ paneId: 'TS_RSI_0', indicatorId: 'RSI', params: { period: 7 } })).toBe(
-      true,
-    )
+    expect(
+      chart.createPane({ paneId: 'TS_RSI_0', indicatorId: 'RSI', params: { period: 7 } }),
+    ).toBe(true)
     const timeShareEntries = chart.subPanes.peek().map((e) => ({
       paneId: e.paneId,
       indicatorId: e.indicatorId,
@@ -563,9 +603,9 @@ describe('Chart pane layout regressions', () => {
     expect(entriesAfter).toEqual(entriesBefore)
     expect(chart.kernel.pane.readonly.paneRatios.peek()).toEqual(ratiosBefore)
     chart.setActiveMode(tsMode)
-    expect(chart.subPanes.peek().map((e) => ({ paneId: e.paneId, indicatorId: e.indicatorId }))).toEqual(
-      timeShareEntries,
-    )
+    expect(
+      chart.subPanes.peek().map((e) => ({ paneId: e.paneId, indicatorId: e.indicatorId })),
+    ).toEqual(timeShareEntries)
     await chart.destroy()
   })
 

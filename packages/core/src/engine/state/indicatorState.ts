@@ -3,6 +3,7 @@ import { batch, computed, createSubState } from '../../foundation/reactivity/sig
 import type { ChartWorkspaceId } from './modeState'
 import { deepFreezeSnapshot } from './immutable'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
+import type { ViewWorkspacesSnapshot } from './viewWorkspace'
 
 /** 指标实例所在的图表区域。 */
 export type IndicatorInstanceRole = 'main' | 'sub'
@@ -194,6 +195,19 @@ export function createIndicatorState() {
         batch(() => {
           signals.activeWorkspace.set(workspaceId)
           signals.instances.set(next)
+          signals.configRevision.set(signals.configRevision.peek() + 1)
+        })
+      },
+      /** 用已校验的持久快照恢复两个工作区的用户指标。 */
+      restoreWorkspaces(workspaces: ViewWorkspacesSnapshot) {
+        const next = Object.freeze({
+          kline: Object.freeze(workspaces.kline.instances.map(snapshotInstance)),
+          timeshare: Object.freeze(workspaces.timeshare.instances.map(snapshotInstance)),
+        })
+        const activeInstances = next[readonly.activeWorkspace.peek()]
+        batch(() => {
+          signals.workspaces.set(next)
+          signals.instances.set(activeInstances)
           signals.configRevision.set(signals.configRevision.peek() + 1)
         })
       },

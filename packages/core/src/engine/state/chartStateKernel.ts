@@ -56,6 +56,7 @@ import type { IndicatorMetadata } from '../indicators/indicatorMetadata'
 import type { MarketSessionRegistry } from '../market/marketSessionRegistry'
 import { resolveSymbolMarketSession } from '../market/resolveSymbolMarketSession'
 import { resolveMarketSessionSlots } from '../../foundation/utils/sessionTimeLabels'
+import type { ViewWorkspacesSnapshot } from './viewWorkspace'
 import '../renderers/extremaMarkers'
 import '../renderers/lastPrice'
 
@@ -176,6 +177,8 @@ export interface ChartStateKernelDeps {
   initialZoomLevel: number
   initialSettings?: Partial<ChartSettings>
   initialRendererRuntime?: RendererBackendRuntime
+  /** 已校验的用户视图工作区快照；系统 mode 实例不参与恢复。 */
+  initialViewWorkspaces?: ViewWorkspacesSnapshot
   /** 各市场分时交易时段注册表（分时几何 / 槽位共用）；未注入时分时槽位退化为 0 */
   marketSessions?: MarketSessionRegistry
   scheduleDraw: (level?: unknown) => void
@@ -301,6 +304,12 @@ export class ChartStateKernel extends StateKernel {
       this.pane.actions.commitLayout(initialRatios, initialPanes)
     }
     this.paneManager = new PaneManager({ pane: this.pane, indicator: this.indicator })
+    if (deps.initialViewWorkspaces) {
+      batch(() => {
+        this.indicator.actions.restoreWorkspaces(deps.initialViewWorkspaces!)
+        this.pane.actions.restoreWorkspaces(deps.initialViewWorkspaces!)
+      })
+    }
 
     // ── Settings state（用户偏好 SSOT，含 theme light|dark|auto）──
     this.settings = createSettingsState(deps.initialSettings)
@@ -434,8 +443,8 @@ export class ChartStateKernel extends StateKernel {
                   params: {},
                 },
               ]
-              : isTimeShareDataView(view)
-                ? [
+            : isTimeShareDataView(view)
+              ? [
                   {
                     instanceId: 'mode:timeshare',
                     indicatorId: 'timeShare',
@@ -495,10 +504,9 @@ export class ChartStateKernel extends StateKernel {
           this.indicator.actions.setActiveWorkspace(workspaceId)
           this.pane.actions.setActiveWorkspace(workspaceId)
           if (this.pane.readonly.paneSpecs.peek().length === 0) {
-            this.pane.actions.commitLayout(
-              { main: 1 },
-              [{ id: 'main', ratio: 1, visible: true, role: 'price' }],
-            )
+            this.pane.actions.commitLayout({ main: 1 }, [
+              { id: 'main', ratio: 1, visible: true, role: 'price' },
+            ])
           }
           this.indicator.actions.replaceModeInstances(modeInstances)
         })
@@ -559,6 +567,30 @@ export class ChartStateKernel extends StateKernel {
 
   initViewport(): void {
     this.viewport.actions.init()
+  }
+
+  /** 返回两个视图工作区的用户配置快照，排除由 mode 管理的系统实例。 */
+  snapshotViewWorkspaces(): ViewWorkspacesSnapshot {
+    const indicatorWorkspaces = this.indicator.readonly.workspaces.peek()
+    const paneWorkspaces = this.pane.readonly.workspaces.peek()
+    const snapshot = (workspaceId: 'kline' | 'timeshare') => {
+      const pane = paneWorkspaces[workspaceId]
+      return {
+        instances: indicatorWorkspaces[workspaceId]
+          .filter((instance) => instance.source !== 'mode')
+          .map(({ source: _source, params, ...instance }) => ({
+            ...instance,
+            params: { ...params },
+          })),
+        paneRatios: { ...pane.paneRatios },
+        paneSpecs: pane.paneSpecs.map((spec) => ({
+          ...spec,
+          ...(spec.capabilities ? { capabilities: { ...spec.capabilities } } : {}),
+        })),
+        paneScaleTypes: Object.fromEntries(pane.paneScaleTypes),
+      }
+    }
+    return { kline: snapshot('kline'), timeshare: snapshot('timeshare') }
   }
 
   dispose(): void {

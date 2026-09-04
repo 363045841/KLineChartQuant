@@ -98,6 +98,7 @@ describe('ChartIndicatorManager', () => {
   beforeEach(() => {
     deps = createMockDeps()
     manager = new ChartIndicatorManager(deps)
+    manager.start()
     vi.clearAllMocks()
   })
 
@@ -154,6 +155,13 @@ describe('ChartIndicatorManager', () => {
   })
 
   describe('state-driven projection', () => {
+    it('starts runtime projection only once', () => {
+      manager.start()
+      manager.enableMainIndicator('MA')
+
+      expect(deps.useRenderer).toHaveBeenCalledTimes(2)
+    })
+
     it('separates sub-indicator instance identity from pane identity and capability', () => {
       const instanceId = manager.addIndicator('VOL', 'sub')
       expect(instanceId).not.toBeNull()

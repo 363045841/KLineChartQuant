@@ -69,6 +69,7 @@ import { resolveSymbolMarketSession } from './market/resolveSymbolMarketSession'
 import { PaneRenderer } from './paneRenderer'
 import { ChartRenderer, mergeUpdateLevel } from './render/chartRenderer'
 import { ChartStateKernel } from './state/chartStateKernel'
+import type { ViewWorkspacePersistence, ViewWorkspacesSnapshot } from './state/viewWorkspace'
 import type { RangeSelectionState } from './state/interactionState'
 import { ChartDataViewId, isTimeShareDataView, type ChartDataView } from './state/modeState'
 import { ChartViewportManager } from './viewport/chartViewportManager'
@@ -173,6 +174,8 @@ export class Chart {
 
   /** 滚动成交量窗口（惰性初始化） */
   private _volumeLookbacks: VolumeLookbacks | null = null
+  /** 仅由 controller 注入的工作区持久化适配器。 */
+  private workspacePersistence: ViewWorkspacePersistence | null = null
 
   /**
    * 启用主图指标
@@ -184,15 +187,20 @@ export class Chart {
     indicatorId: string,
     params?: Record<string, number | boolean | string>,
   ): boolean {
-    return this.indicatorManager.enableMainIndicator(indicatorId, params)
+    const enabled = this.indicatorManager.enableMainIndicator(indicatorId, params)
+    if (enabled) this.scheduleWorkspacePersistence()
+    return enabled
   }
 
   disableMainIndicator(indicatorId: string): boolean {
-    return this.indicatorManager.disableMainIndicator(indicatorId)
+    const disabled = this.indicatorManager.disableMainIndicator(indicatorId)
+    if (disabled) this.scheduleWorkspacePersistence()
+    return disabled
   }
 
   toggleMainIndicator(indicatorId: string, enabled: boolean): void {
     this.indicatorManager.toggleMainIndicator(indicatorId, enabled)
+    this.scheduleWorkspacePersistence()
   }
 
   getActiveMainIndicators(): string[] {
@@ -208,6 +216,7 @@ export class Chart {
     params: Record<string, number | boolean | string>,
   ): void {
     this.indicatorManager.updateMainIndicatorParams(indicatorId, params)
+    this.scheduleWorkspacePersistence()
   }
 
   getMainIndicatorParams(indicatorId: string): Record<string, number | boolean | string> | null {
@@ -216,6 +225,7 @@ export class Chart {
 
   clearMainIndicators(): void {
     this.indicatorManager.clearMainIndicators()
+    this.scheduleWorkspacePersistence()
   }
 
   /**
@@ -223,6 +233,7 @@ export class Chart {
    */
   setActiveMainIndicators(indicators: string[]): void {
     this.indicatorManager.setActiveMainIndicators(indicators)
+    this.scheduleWorkspacePersistence()
   }
 
   /**
@@ -236,6 +247,7 @@ export class Chart {
     runtime?: {
       rendererHost?: RendererHost
       initialSettings?: Partial<ChartSettings>
+      initialViewWorkspaces?: ViewWorkspacesSnapshot
       marketSessions?: Readonly<
         Record<string, import('../foundation/utils/sessionTimeLabels').MarketSessionConfig>
       >
@@ -264,6 +276,7 @@ export class Chart {
       initialZoomLevel,
       initialSettings: runtime?.initialSettings,
       initialRendererRuntime: this.rendererHost.runtime,
+      initialViewWorkspaces: runtime?.initialViewWorkspaces,
       marketSessions: this.marketSessions,
       scheduleDraw: (level) => this.scheduleDraw(level as UpdateLevel | undefined),
     })
@@ -317,7 +330,10 @@ export class Chart {
         this.rendererPluginManager.notifyResize(paneId, wrapPaneInfo(pane)),
       scheduleDraw: (level) => this.scheduleDraw(level),
       pane: this.kernel.pane,
-      afterCommitLayout: () => this.ensurePaneScaleTypesFromSettings(),
+      afterCommitLayout: () => {
+        this.ensurePaneScaleTypesFromSettings()
+        this.scheduleWorkspacePersistence()
+      },
     })
 
     this.alertController = createAlertController()
@@ -378,63 +394,7 @@ export class Chart {
       this.kernel.zoom,
     )
 
-    this.indicatorManager = new ChartIndicatorManager({
-      getOption: () => {
-        const o = this.kernel.options.readonly.options.peek()
-        return {
-          ...o,
-          kWidth: this.kernel.zoom.readonly.kWidth(),
-          kGap: this.kernel.viewport.readonly.kGap(),
-        }
-      },
-      getPluginHost: () => this.pluginHost,
-      getRenderer: (name) => this.getRenderer(name),
-      useRenderer: (plugin, config) => this.useRenderer(plugin, config),
-      removeRenderer: (name) => this.removeRenderer(name),
-      updateRendererConfig: (name, config) => this.updateRendererConfig(name, config),
-      getLayer: (id) => this.renderer?.getScene()?.getLayer(id) ?? null,
-      paneRatios$: this.kernel.pane.readonly.paneRatios as ReadonlySignal<
-        Readonly<Record<string, number>>
-      >,
-      paneSpecs$: this.kernel.pane.readonly.paneSpecs,
-      projectPaneLayout: (specs, ratios) => {
-        this.layoutManager.projectState(specs, ratios)
-        this.ensurePaneScaleTypesFromSettings()
-      },
-      getLastVisibleRange: () => this.dataManager.getCurrentVisibleRange() ?? { start: 0, end: 0 },
-      getCrosshairPos: () => this.interaction.crosshairPos,
-      getCrosshairPrice: () => this.interaction.crosshairPrice,
-      getActivePaneId: () => this.interaction.activePaneId,
-      scheduleDraw: (level) => this.scheduleDraw(level),
-      getRenderContext: (paneId) => this.renderer?.getPaneCtxMap()?.get(paneId) ?? null,
-      indicator: this.kernel.indicator,
-      indicatorResult: this.kernel.indicatorResult,
-      subPaneOps: {
-        create: (entry) => this.kernel.paneManager.createFromIndicator(entry),
-        remove: (paneId) => this.kernel.paneManager.actions.remove(paneId),
-        replace: (paneId, indicatorId, params) =>
-          this.kernel.paneManager.actions.replaceContent(paneId, indicatorId, params),
-        setParams: (paneId, params) => this.kernel.paneManager.actions.updateContent(paneId, params),
-        clear: () => this.kernel.paneManager.actions.clear(),
-      },
-      runRendererTransaction: (run) => this.runRuntimeProjection(run),
-    })
-
-    // Worker 异步结果就绪后串联 Alert 管线
-    this.indicatorManager.indicatorSchedulerAccessor.setOnResultsApplied(() => {
-      const data = this.dataManager.getInternalData()
-      this.evaluateAlerts(data, this.dataManager.getCurrentVisibleRange() ?? { start: 0, end: 0 })
-    })
-
-    // 绑定 visibleRange 信号 — 替代 prepareFrameData 中的手动 updateVisibleRange
-    this.indicatorManager.indicatorSchedulerAccessor.setVisibleRangeSignal(
-      this.kernel.viewport.readonly.visibleRange as unknown as ReadonlySignal<{
-        start: number
-        end: number
-      } | null>,
-    )
-
-    // 初始化渲染器
+    // 先创建 Scene，确保恢复的指标首次 projection 能直接挂载 Layer。
     this.renderer = new ChartRenderer({
       getDom: () => this.dom,
       getOption: () => {
@@ -469,14 +429,89 @@ export class Chart {
     })
     this.renderer.registerDrawingPlugins()
     this.renderer.initCoreRenderers()
+
+    this.indicatorManager = new ChartIndicatorManager({
+      getOption: () => {
+        const o = this.kernel.options.readonly.options.peek()
+        return {
+          ...o,
+          kWidth: this.kernel.zoom.readonly.kWidth(),
+          kGap: this.kernel.viewport.readonly.kGap(),
+        }
+      },
+      getPluginHost: () => this.pluginHost,
+      getRenderer: (name) => this.getRenderer(name),
+      useRenderer: (plugin, config) => this.useRenderer(plugin, config),
+      removeRenderer: (name) => this.removeRenderer(name),
+      updateRendererConfig: (name, config) => this.updateRendererConfig(name, config),
+      getLayer: (id) => this.renderer.getScene().getLayer(id) ?? null,
+      paneRatios$: this.kernel.pane.readonly.paneRatios as ReadonlySignal<
+        Readonly<Record<string, number>>
+      >,
+      paneSpecs$: this.kernel.pane.readonly.paneSpecs,
+      projectPaneLayout: (specs, ratios) => {
+        this.layoutManager.projectState(specs, ratios)
+        this.ensurePaneScaleTypesFromSettings()
+      },
+      getLastVisibleRange: () => this.dataManager.getCurrentVisibleRange() ?? { start: 0, end: 0 },
+      getCrosshairPos: () => this.interaction.crosshairPos,
+      getCrosshairPrice: () => this.interaction.crosshairPrice,
+      getActivePaneId: () => this.interaction.activePaneId,
+      scheduleDraw: (level) => this.scheduleDraw(level),
+      getRenderContext: (paneId) => this.renderer.getPaneCtxMap().get(paneId) ?? null,
+      indicator: this.kernel.indicator,
+      indicatorResult: this.kernel.indicatorResult,
+      subPaneOps: {
+        create: (entry) => this.kernel.paneManager.createFromIndicator(entry),
+        remove: (paneId) => this.kernel.paneManager.actions.remove(paneId),
+        replace: (paneId, indicatorId, params) =>
+          this.kernel.paneManager.actions.replaceContent(paneId, indicatorId, params),
+        setParams: (paneId, params) =>
+          this.kernel.paneManager.actions.updateContent(paneId, params),
+        clear: () => this.kernel.paneManager.actions.clear(),
+      },
+      runRendererTransaction: (run) => this.runRuntimeProjection(run),
+    })
+
+    // Worker 异步结果就绪后串联 Alert 管线
+    this.indicatorManager.indicatorSchedulerAccessor.setOnResultsApplied(() => {
+      const data = this.dataManager.getInternalData()
+      this.evaluateAlerts(data, this.dataManager.getCurrentVisibleRange() ?? { start: 0, end: 0 })
+    })
+
+    // 绑定 visibleRange 信号 — 替代 prepareFrameData 中的手动 updateVisibleRange
+    this.indicatorManager.indicatorSchedulerAccessor.setVisibleRangeSignal(
+      this.kernel.viewport.readonly.visibleRange as unknown as ReadonlySignal<{
+        start: number
+        end: number
+      } | null>,
+    )
+    this.startRuntime()
+  }
+
+  /** 在所有运行时依赖就绪后，统一将 kernel 状态投影为可绘制图表。 */
+  private startRuntime(): void {
+    this.indicatorManager.start()
     this.viewportManager.init()
     this.ensurePaneScaleTypesFromSettings()
     this.installActiveRendererProjection()
+    this.scheduleDraw()
   }
 
   getViewport(): Viewport | null {
     if (this.kernel.viewport.readonly.viewWidth.peek() === 0) return null
     return this.kernel.viewport.readonly.viewport.peek()
+  }
+
+  /** 由 controller 在构造完成后注入浏览器工作区持久化。 */
+  setViewWorkspacePersistence(persistence: ViewWorkspacePersistence): void {
+    this.workspacePersistence?.dispose()
+    this.workspacePersistence = persistence
+  }
+
+  /** 调度用户工作区快照持久化。 */
+  private scheduleWorkspacePersistence(): void {
+    this.workspacePersistence?.schedule()
   }
 
   /** 获取当前活跃的模式处理器 */
@@ -893,41 +928,59 @@ export class Chart {
   importPaneLayout(panes: ReadonlyArray<PaneSpec>): void {
     this.kernel.paneManager.replaceLayoutForImport(panes)
     this.ensurePaneScaleTypesFromSettings()
+    this.scheduleWorkspacePersistence()
   }
 
   /** 创建一个绑定副图指标内容的 pane。 */
   createPane(input: import('./paneManager').CreatePaneInput): boolean {
-    return this.kernel.paneManager.actions.create(input)
+    const created = this.kernel.paneManager.actions.create(input)
+    if (created) this.scheduleWorkspacePersistence()
+    return created
   }
 
   /** 更新单个 pane 的布局字段。 */
   updatePane(paneId: string, patch: import('./paneManager').PanePatch): boolean {
-    return this.kernel.paneManager.actions.update(paneId, patch)
+    const updated = this.kernel.paneManager.actions.update(paneId, patch)
+    if (updated) this.scheduleWorkspacePersistence()
+    return updated
   }
 
   /** 删除 pane 及其用户副图内容。 */
   removePane(paneId: string): boolean {
-    return this.kernel.paneManager.actions.remove(paneId)
+    const removed = this.kernel.paneManager.actions.remove(paneId)
+    if (removed) this.scheduleWorkspacePersistence()
+    return removed
   }
 
   /** 调整 pane 的显示顺序。 */
   movePane(paneId: string, targetIndex: number): boolean {
-    return this.kernel.paneManager.actions.move(paneId, targetIndex)
+    const moved = this.kernel.paneManager.actions.move(paneId, targetIndex)
+    if (moved) this.scheduleWorkspacePersistence()
+    return moved
   }
 
   /** 替换 pane 的副图指标内容。 */
-  replacePaneContent(paneId: string, indicatorId: string, params: Record<string, unknown>): boolean {
-    return this.kernel.paneManager.actions.replaceContent(paneId, indicatorId, params)
+  replacePaneContent(
+    paneId: string,
+    indicatorId: string,
+    params: Record<string, unknown>,
+  ): boolean {
+    const replaced = this.kernel.paneManager.actions.replaceContent(paneId, indicatorId, params)
+    if (replaced) this.scheduleWorkspacePersistence()
+    return replaced
   }
 
   /** 更新 pane 副图指标的完整参数。 */
   updatePaneContent(paneId: string, params: Record<string, unknown>): boolean {
-    return this.kernel.paneManager.actions.updateContent(paneId, params)
+    const updated = this.kernel.paneManager.actions.updateContent(paneId, params)
+    if (updated) this.scheduleWorkspacePersistence()
+    return updated
   }
 
   /** 删除全部用户创建的副图 pane。 */
   clearPanes(): void {
     this.kernel.paneManager.actions.clear()
+    this.scheduleWorkspacePersistence()
   }
 
   /** 更新绘图对象（写 kernel + 重绘）；剥离会话预览 id */
@@ -1296,6 +1349,8 @@ export class Chart {
 
   /** 销毁图表实例 */
   async destroy() {
+    this.workspacePersistence?.dispose()
+    this.workspacePersistence = null
     this.disposeActiveRendererProjection?.()
     this.disposeActiveRendererProjection = null
     this.indicatorManager.destroy()
@@ -1751,15 +1806,21 @@ export class Chart {
     role: 'main' | 'sub',
     params?: Record<string, unknown>,
   ): string | null {
-    return this.indicatorManager.addIndicator(definitionId, role, params)
+    const instanceId = this.indicatorManager.addIndicator(definitionId, role, params)
+    if (instanceId) this.scheduleWorkspacePersistence()
+    return instanceId
   }
 
   removeIndicator(instanceId: string): boolean {
-    return this.indicatorManager.removeIndicator(instanceId)
+    const removed = this.indicatorManager.removeIndicator(instanceId)
+    if (removed) this.scheduleWorkspacePersistence()
+    return removed
   }
 
   updateIndicatorParams(instanceId: string, params: Record<string, unknown>): boolean {
-    return this.indicatorManager.updateIndicatorParams(instanceId, params)
+    const updated = this.indicatorManager.updateIndicatorParams(instanceId, params)
+    if (updated) this.scheduleWorkspacePersistence()
+    return updated
   }
 
   reorderIndicators(orderedInstanceIds: string[]): boolean {

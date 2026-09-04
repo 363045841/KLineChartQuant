@@ -4,6 +4,7 @@ import type { PaneSpec } from '../chartTypes'
 import type { ScaleType } from '../utils/tickPosition'
 import type { ChartWorkspaceId } from './modeState'
 import { immutableMap } from './immutable'
+import type { ViewWorkspacesSnapshot } from './viewWorkspace'
 
 function copyRatios(ratios: Readonly<Record<string, number>>): Record<string, number> {
   return { ...ratios }
@@ -94,6 +95,28 @@ export function createPaneState() {
           signals.paneScaleTypes.set(next.paneScaleTypes)
         })
       },
+      /** 用已校验的持久快照恢复两个工作区的布局与坐标轴类型。 */
+      restoreWorkspaces(workspaces: ViewWorkspacesSnapshot): void {
+        const next = Object.freeze({
+          kline: snapshotWorkspace(
+            workspaces.kline.paneRatios,
+            workspaces.kline.paneSpecs,
+            new Map(Object.entries(workspaces.kline.paneScaleTypes)),
+          ),
+          timeshare: snapshotWorkspace(
+            workspaces.timeshare.paneRatios,
+            workspaces.timeshare.paneSpecs,
+            new Map(Object.entries(workspaces.timeshare.paneScaleTypes)),
+          ),
+        })
+        const active = next[readonly.activeWorkspace.peek()]
+        batch(() => {
+          signals.workspaces.set(next)
+          signals.paneRatios.set(active.paneRatios)
+          signals.paneSpecs.set(active.paneSpecs)
+          signals.paneScaleTypes.set(active.paneScaleTypes)
+        })
+      },
       setPaneRatios(ratios: Record<string, number>): void {
         const current = currentWorkspace()
         writeActive(snapshotWorkspace(ratios, current.paneSpecs, current.paneScaleTypes))
@@ -133,7 +156,9 @@ export function createPaneState() {
     dispose(): void {
       batch(() => {
         signals.activeWorkspace.set('kline')
-        signals.workspaces.set(Object.freeze({ kline: EMPTY_WORKSPACE, timeshare: EMPTY_WORKSPACE }))
+        signals.workspaces.set(
+          Object.freeze({ kline: EMPTY_WORKSPACE, timeshare: EMPTY_WORKSPACE }),
+        )
         signals.paneRatios.set(EMPTY_WORKSPACE.paneRatios)
         signals.paneSpecs.set(EMPTY_WORKSPACE.paneSpecs)
         signals.paneScaleTypes.set(EMPTY_WORKSPACE.paneScaleTypes)

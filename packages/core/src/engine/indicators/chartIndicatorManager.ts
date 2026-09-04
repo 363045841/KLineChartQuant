@@ -227,36 +227,42 @@ export class ChartIndicatorManager {
         console.log('[Chart] subPanes signal changed:', subPanes)
       })
     }
+  }
 
-    this.projectedPaneSpecs = this.deps.paneSpecs$.peek()
-    this.projectedPaneRatios = this.deps.paneRatios$.peek()
-    this.disposeProjection = effect(() => {
-      const paneSpecs = this.deps.paneSpecs$()
-      const paneRatios = this.deps.paneRatios$()
-      const instances = this.deps.indicator.readonly.instances()
-      const subPanes: SubPaneSpec[] = instances
-        .filter((instance) => instance.role === 'sub')
-        .map((instance) => ({
-          instanceId: instance.instanceId,
-          paneId: instance.paneId,
-          indicatorId: instance.indicatorId,
-          ordinal: instance.ordinal,
-          params: instance.params,
-        }))
-      this.deps.runRendererTransaction(() => {
-        let paneChanged = false
-        if (paneSpecs !== this.projectedPaneSpecs || paneRatios !== this.projectedPaneRatios) {
-          this.deps.projectPaneLayout(paneSpecs, paneRatios)
-          this.projectedPaneSpecs = paneSpecs
-          this.projectedPaneRatios = paneRatios
-          paneChanged = true
-        }
-        const mainChanged = this.reconcileMainIndicators(
-          instances.filter((instance) => instance.source !== 'mode'),
-        )
-        const subChanged = this.subPaneManager.reconcile(this.subPaneCtx, subPanes)
-        if (paneChanged || mainChanged || subChanged) this.deps.scheduleDraw()
-      })
+  /** 在 Scene 与 layout 就绪后投影当前完整状态，并订阅后续变更。 */
+  start(): void {
+    if (this.disposeProjection) return
+    this.syncRuntimeFromState()
+    this.disposeProjection = effect(() => this.syncRuntimeFromState())
+  }
+
+  /** 将 kernel 当前快照投影为 pane、renderer 与指标调度器运行时状态。 */
+  private syncRuntimeFromState(): void {
+    const paneSpecs = this.deps.paneSpecs$()
+    const paneRatios = this.deps.paneRatios$()
+    const instances = this.deps.indicator.readonly.instances()
+    const subPanes: SubPaneSpec[] = instances
+      .filter((instance) => instance.role === 'sub')
+      .map((instance) => ({
+        instanceId: instance.instanceId,
+        paneId: instance.paneId,
+        indicatorId: instance.indicatorId,
+        ordinal: instance.ordinal,
+        params: instance.params,
+      }))
+    this.deps.runRendererTransaction(() => {
+      let paneChanged = false
+      if (paneSpecs !== this.projectedPaneSpecs || paneRatios !== this.projectedPaneRatios) {
+        this.deps.projectPaneLayout(paneSpecs, paneRatios)
+        this.projectedPaneSpecs = paneSpecs
+        this.projectedPaneRatios = paneRatios
+        paneChanged = true
+      }
+      const mainChanged = this.reconcileMainIndicators(
+        instances.filter((instance) => instance.source !== 'mode'),
+      )
+      const subChanged = this.subPaneManager.reconcile(this.subPaneCtx, subPanes)
+      if (paneChanged || mainChanged || subChanged) this.deps.scheduleDraw()
     })
   }
 
@@ -537,9 +543,7 @@ export class ChartIndicatorManager {
       if (!definition) return null
       const instanceId = generateUUID()
       const paneId = generateUUID()
-      this.deps.subPaneOps.create(
-        this.createPaneInput(paneId, definition.name, params, instanceId),
-      )
+      this.deps.subPaneOps.create(this.createPaneInput(paneId, definition.name, params, instanceId))
       return instanceId
     }
   }
