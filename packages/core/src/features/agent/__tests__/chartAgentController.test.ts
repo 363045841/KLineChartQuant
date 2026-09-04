@@ -180,6 +180,7 @@ function createFixture() {
     drawingCommands,
     getDrawingPaneIds: () => ['main'],
     paneManager: { actions: paneActions, list: () => panes },
+    isSubPaneRendererAvailable: (indicatorId) => indicatorId === 'RSI' || indicatorId === 'MACD',
   })
 
   return {
@@ -217,7 +218,7 @@ describe('createChartAgentController', () => {
       timezone: null,
       adjustMode: 'none',
       dataRange: {
-          from: Date.parse('2026-09-01') + 25_200_000,
+        from: Date.parse('2026-09-01') + 25_200_000,
         to: Date.parse('2026-09-04'),
         bars: 4,
       },
@@ -536,7 +537,8 @@ describe('createChartAgentController', () => {
 
   it('registers pane tools as direct PaneManager action adapters', async () => {
     const fixture = createFixture()
-    const tool = (name: string) => getRegisteredChartTools().find((item) => item.config.name === name)!
+    const tool = (name: string) =>
+      getRegisteredChartTools().find((item) => item.config.name === name)!
     const execution = { signal: new AbortController().signal, progress: () => undefined }
 
     await expect(tool('panes_list').execute(fixture.controller, {}, execution)).resolves.toEqual([
@@ -554,7 +556,11 @@ describe('createChartAgentController', () => {
       { paneId: 'rsi', patch: { ratio: 0.25 } },
       execution,
     )
-    await tool('pane_move').execute(fixture.controller, { paneId: 'rsi', targetIndex: 1 }, execution)
+    await tool('pane_move').execute(
+      fixture.controller,
+      { paneId: 'rsi', targetIndex: 1 },
+      execution,
+    )
     await tool('pane_replace_content').execute(
       fixture.controller,
       { paneId: 'rsi', indicatorId: 'MACD', params: { fast: 12 } },
@@ -579,6 +585,31 @@ describe('createChartAgentController', () => {
     expect(fixture.paneActions.updateContent).toHaveBeenCalledWith('rsi', { fast: 6 })
     expect(fixture.paneActions.remove).toHaveBeenCalledWith('rsi')
     expect(fixture.paneActions.clear).toHaveBeenCalledOnce()
+  })
+
+  it('rejects pane content without a valid sub-pane renderer before mutating state', async () => {
+    const fixture = createFixture()
+    const tool = (name: string) =>
+      getRegisteredChartTools().find((item) => item.config.name === name)!
+    const execution = { signal: new AbortController().signal, progress: () => undefined }
+
+    await expect(
+      tool('pane_create').execute(
+        fixture.controller,
+        { paneId: 'invalid-pane', indicatorId: 'EMPTY', params: {} },
+        execution,
+      ),
+    ).resolves.toBe(false)
+    await expect(
+      tool('pane_replace_content').execute(
+        fixture.controller,
+        { paneId: 'rsi', indicatorId: 'EMPTY', params: {} },
+        execution,
+      ),
+    ).resolves.toBe(false)
+
+    expect(fixture.paneActions.create).not.toHaveBeenCalled()
+    expect(fixture.paneActions.replaceContent).not.toHaveBeenCalled()
   })
 
   it('formats market query timestamps with the returned timezone', async () => {

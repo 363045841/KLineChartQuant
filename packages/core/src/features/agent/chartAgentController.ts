@@ -57,6 +57,7 @@ interface ChartAgentControllerDependencies {
   readonly drawingCommands: DrawingCommands
   readonly getDrawingPaneIds: () => ReadonlyArray<string>
   readonly paneManager: Pick<PaneManager, 'actions' | 'list'>
+  readonly isSubPaneRendererAvailable: (indicatorId: string, paneId: string) => boolean
   readonly marketDataTextFormatter?: MarketDataTextFormatter
 }
 
@@ -396,7 +397,9 @@ class ChartAgentControllerImpl implements ChartAgentController {
     safety: 'read-only',
     executionMode: 'parallel',
   })
-  async listPanes(_input?: Static<typeof PanesListToolParameters>): Promise<ReadonlyArray<PaneSpec>> {
+  async listPanes(
+    _input?: Static<typeof PanesListToolParameters>,
+  ): Promise<ReadonlyArray<PaneSpec>> {
     return Object.freeze(
       this.dependencies.paneManager.list().map((pane) =>
         Object.freeze({
@@ -412,12 +415,13 @@ class ChartAgentControllerImpl implements ChartAgentController {
     name: 'pane_create',
     label: 'Create pane',
     description:
-      'Create one indicator pane with a unique paneId, a registered indicatorId, and complete indicator params. Returns false when paneId already exists.',
+      'Create one indicator pane with a unique paneId, complete indicator params, and a registered sub-pane indicator that has renderers. Returns false when paneId exists or the indicator cannot render in a sub-pane.',
     parameters: PaneCreateToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',
   })
   async createPane(input: Static<typeof PaneCreateToolParameters>): Promise<boolean> {
+    if (!this.dependencies.isSubPaneRendererAvailable(input.indicatorId, input.paneId)) return false
     return this.dependencies.paneManager.actions.create(input)
   }
 
@@ -439,7 +443,8 @@ class ChartAgentControllerImpl implements ChartAgentController {
   @Tool({
     name: 'pane_remove',
     label: 'Remove pane',
-    description: 'Remove one user pane and its indicator content. System-owned mode panes cannot be removed.',
+    description:
+      'Remove one user pane and its indicator content. System-owned mode panes cannot be removed.',
     parameters: PaneIdToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',
@@ -452,7 +457,8 @@ class ChartAgentControllerImpl implements ChartAgentController {
   @Tool({
     name: 'pane_move',
     label: 'Move pane',
-    description: 'Move one pane to a zero-based layout index without changing its indicator content.',
+    description:
+      'Move one pane to a zero-based layout index without changing its indicator content.',
     parameters: PaneMoveToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',
@@ -466,7 +472,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     name: 'pane_replace_content',
     label: 'Replace pane content',
     description:
-      'Replace an existing user pane indicator with a registered indicatorId and complete params. The pane layout is preserved.',
+      'Replace an existing user pane indicator with a registered sub-pane indicator that has renderers and complete params. The pane layout is preserved; returns false when the indicator cannot render in a sub-pane.',
     parameters: PaneReplaceContentToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',
@@ -474,6 +480,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
   async replacePaneContent(
     input: Static<typeof PaneReplaceContentToolParameters>,
   ): Promise<boolean> {
+    if (!this.dependencies.isSubPaneRendererAvailable(input.indicatorId, input.paneId)) return false
     return this.dependencies.paneManager.actions.replaceContent(
       input.paneId,
       input.indicatorId,
@@ -498,7 +505,8 @@ class ChartAgentControllerImpl implements ChartAgentController {
   @Tool({
     name: 'panes_clear',
     label: 'Clear panes',
-    description: 'Remove every user-created indicator pane and its content. Main and mode-owned panes are retained.',
+    description:
+      'Remove every user-created indicator pane and its content. Main and mode-owned panes are retained.',
     parameters: PanesClearToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',
@@ -592,7 +600,10 @@ class ChartAgentControllerImpl implements ChartAgentController {
     safety: 'read-only',
     executionMode: 'parallel',
   })
-  queryBarsByTimestamp(input: BarsQueryToolInput, context?: ChartToolExecutionContext): Promise<string> {
+  queryBarsByTimestamp(
+    input: BarsQueryToolInput,
+    context?: ChartToolExecutionContext,
+  ): Promise<string> {
     return this.queryBars(
       {
         ...input,

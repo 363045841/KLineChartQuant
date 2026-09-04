@@ -20,6 +20,7 @@ import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
 import { KLineChartError } from '../errors'
 import { marketDataProviderRegistry } from '../data/provider/registry'
 import { createChartAgentController } from '../features/agent/chartAgentController'
+import { hasSubPaneRendererMetadata } from '../engine/subPaneManager'
 import { createIndicatorQuery } from '../features/agent/indicator/indicatorQuery'
 import { ChartBridge } from '../features/mcp/chartBridge'
 import {
@@ -532,6 +533,10 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     drawingCommands,
     getDrawingPaneIds: () => chart.getPaneLayoutSpecs().map((pane) => pane.id),
     paneManager: chart.kernel.paneManager,
+    isSubPaneRendererAvailable: (indicatorId, paneId) => {
+      const definition = chart.getIndicatorScheduler().getIndicatorMetadata(indicatorId)
+      return definition !== undefined && hasSubPaneRendererMetadata(definition, paneId, indicatorId)
+    },
   })
 
   let disposed = false

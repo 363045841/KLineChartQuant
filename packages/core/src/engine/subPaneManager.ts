@@ -36,6 +36,24 @@ export interface SubPaneEntry extends SubPaneSpec {
 type ProjectedSubPaneEntry = SubPaneSpec & SubPaneResources
 type MountedSubPaneResources = SubPaneResources & { readonly projectionKey: string }
 
+/** 判断指标定义是否拥有副图投影所需的完整 renderer 元数据。 */
+export function hasSubPaneRendererMetadata(
+  definition: import('./indicators/indicatorMetadata').IndicatorMetadata,
+  paneId: string,
+  indicatorId: string,
+): boolean {
+  if (definition.category === 'main' || definition.allowMainPane) return false
+  try {
+    return Boolean(
+      definition.rendererFactory &&
+      definition.getScaleRendererName({ paneId, indicatorId }) &&
+      definition.getPaneTitleRendererName({ paneId, indicatorId }),
+    )
+  } catch {
+    return false
+  }
+}
+
 export interface SubPaneContext {
   getIndicatorScheduler: () => IndicatorScheduler
   getRenderer: <T extends RendererPlugin = RendererPlugin>(name: string) => T | undefined
@@ -162,6 +180,12 @@ export class SubPaneManager {
         `[SubPaneManager] Unknown indicator: ${spec.indicatorId}`,
       )
     }
+    if (!hasSubPaneRendererMetadata(definition, spec.paneId, spec.indicatorId)) {
+      throw new KLineChartError(
+        SUBPANE_ERROR_CODES.MISSING_RENDERER_METADATA,
+        `[SubPaneManager] Indicator "${spec.indicatorId}" is missing required sub-pane renderer metadata`,
+      )
+    }
     const renderer = createSubIndicatorRenderer({
       paneId: spec.paneId,
       indicatorId: spec.indicatorId,
@@ -176,12 +200,6 @@ export class SubPaneManager {
       paneId: spec.paneId,
       indicatorId: spec.indicatorId,
     })
-    if (!scaleRendererName || !paneTitleRendererName) {
-      throw new KLineChartError(
-        SUBPANE_ERROR_CODES.MISSING_RENDERER_METADATA,
-        `[SubPaneManager] Indicator "${spec.indicatorId}" is missing required sub-pane renderer metadata`,
-      )
-    }
     return {
       ...spec,
       params: { ...spec.params },
