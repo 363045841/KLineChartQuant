@@ -80,6 +80,13 @@ function createFixture() {
     updateContent: vi.fn(() => true),
     clear: vi.fn(),
   }
+  const mainIndicators = [{ indicatorId: 'MA', params: { ma5: true } }]
+  const mainIndicatorActions = {
+    create: vi.fn(() => true),
+    update: vi.fn(() => true),
+    remove: vi.fn(() => true),
+    clear: vi.fn(),
+  }
 
   const currentSpec = createSignal<SymbolSpec | null>({
     symbol: 'BTCUSDT',
@@ -180,6 +187,15 @@ function createFixture() {
     drawingCommands,
     getDrawingPaneIds: () => ['main'],
     paneManager: { actions: paneActions, list: () => panes },
+    mainIndicators: { actions: mainIndicatorActions, list: () => mainIndicators },
+    getIndicatorMetadata: (indicatorId) =>
+      indicatorId === 'RSI'
+        ? {
+            name: 'RSI',
+            displayName: 'RSI',
+            runtime: { defaultParams: { period1: 6, period2: 12, period3: 24 } },
+          }
+        : undefined,
     isSubPaneRendererAvailable: (indicatorId) => indicatorId === 'RSI' || indicatorId === 'MACD',
   })
 
@@ -199,6 +215,7 @@ function createFixture() {
     drawingDocument,
     requestDraw,
     paneActions,
+    mainIndicatorActions,
   }
 }
 
@@ -585,6 +602,78 @@ describe('createChartAgentController', () => {
     expect(fixture.paneActions.updateContent).toHaveBeenCalledWith('rsi', { fast: 6 })
     expect(fixture.paneActions.remove).toHaveBeenCalledWith('rsi')
     expect(fixture.paneActions.clear).toHaveBeenCalledOnce()
+  })
+
+  it('registers main indicator CRUD tools through the normalized domain interface', async () => {
+    const fixture = createFixture()
+    const tool = (name: string) =>
+      getRegisteredChartTools().find((item) => item.config.name === name)!
+    const execution = { signal: new AbortController().signal, progress: () => undefined }
+
+    await expect(
+      tool('main_indicators_list').execute(fixture.controller, {}, execution),
+    ).resolves.toEqual([{ indicatorId: 'MA', params: { ma5: true } }])
+    await expect(
+      tool('main_indicator_create').execute(
+        fixture.controller,
+        { indicatorId: 'MA', params: { ma5: true } },
+        execution,
+      ),
+    ).resolves.toBe(true)
+    await expect(
+      tool('main_indicator_update').execute(
+        fixture.controller,
+        { indicatorId: 'MA', params: { ma5: false } },
+        execution,
+      ),
+    ).resolves.toBe(true)
+    await expect(
+      tool('main_indicator_remove').execute(fixture.controller, { indicatorId: 'MA' }, execution),
+    ).resolves.toBe(true)
+    await tool('main_indicators_clear').execute(fixture.controller, {}, execution)
+
+    expect(fixture.mainIndicatorActions.create).toHaveBeenCalledWith({
+      indicatorId: 'MA',
+      params: { ma5: true },
+    })
+    expect(fixture.mainIndicatorActions.update).toHaveBeenCalledWith({
+      indicatorId: 'MA',
+      params: { ma5: false },
+    })
+    expect(fixture.mainIndicatorActions.remove).toHaveBeenCalledWith({ indicatorId: 'MA' })
+    expect(fixture.mainIndicatorActions.clear).toHaveBeenCalledOnce()
+  })
+
+  it('exposes registered indicator parameter schemas before pane mutations', async () => {
+    const fixture = createFixture()
+    const tool = getRegisteredChartTools().find(
+      (item) => item.config.name === 'indicator_describe',
+    )!
+
+    await expect(
+      tool.execute(
+        fixture.controller,
+        { indicatorId: 'RSI' },
+        { signal: new AbortController().signal, progress: () => undefined },
+      ),
+    ).resolves.toEqual({
+      indicatorId: 'RSI',
+      label: 'RSI',
+      params: [
+        { key: 'period1', type: 'number', default: 6 },
+        { key: 'period2', type: 'number', default: 12 },
+        { key: 'period3', type: 'number', default: 24 },
+      ],
+    })
+    await expect(
+      tool.execute(
+        fixture.controller,
+        { indicatorId: 'UNKNOWN' },
+        { signal: new AbortController().signal, progress: () => undefined },
+      ),
+    ).resolves.toBe(
+      "Indicator 'UNKNOWN' is not registered. Choose a registered indicatorId before creating or updating a pane.",
+    )
   })
 
   it('rejects pane content without a valid sub-pane renderer before mutating state', async () => {

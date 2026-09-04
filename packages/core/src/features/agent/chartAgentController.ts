@@ -42,6 +42,8 @@ import type {
 import type { DataStateModule } from '../../engine/state/dataState'
 import type { PaneManager } from '../../engine/paneManager'
 import type { PaneSpec } from '../../engine/chartTypes'
+import type { IndicatorMetadata } from '../../engine/indicators/indicatorMetadata'
+import type { MainIndicatorManager } from '../../engine/indicators/chartIndicatorManager'
 
 interface ChartAgentControllerDependencies {
   readonly chartId: string
@@ -57,7 +59,11 @@ interface ChartAgentControllerDependencies {
   readonly drawingCommands: DrawingCommands
   readonly getDrawingPaneIds: () => ReadonlyArray<string>
   readonly paneManager: Pick<PaneManager, 'actions' | 'list'>
+  readonly mainIndicators: Pick<MainIndicatorManager, 'actions' | 'list'>
   readonly isSubPaneRendererAvailable: (indicatorId: string, paneId: string) => boolean
+  readonly getIndicatorMetadata: (
+    indicatorId: string,
+  ) => Pick<IndicatorMetadata, 'name' | 'displayName' | 'runtime'> | undefined
   readonly marketDataTextFormatter?: MarketDataTextFormatter
 }
 
@@ -212,6 +218,10 @@ const DrawingDeleteToolParameters = Type.Object({
 const DrawingsListToolParameters = Type.Object({})
 const DrawingsClearToolParameters = Type.Object({})
 const PaneParamsToolParameter = Type.Record(Type.String(), Type.Unknown())
+const MainIndicatorParamsToolParameter = Type.Record(
+  Type.String(),
+  Type.Union([Type.Number(), Type.String(), Type.Boolean()]),
+)
 const PanePatchToolParameters = Type.Partial(
   Type.Object({
     ratio: Type.Number({ exclusiveMinimum: 0 }),
@@ -245,6 +255,58 @@ const PaneUpdateContentToolParameters = Type.Object({
 })
 const PanesListToolParameters = Type.Object({})
 const PanesClearToolParameters = Type.Object({})
+const MainIndicatorCreateToolParameters = Type.Object({
+  indicatorId: Type.String({ minLength: 1 }),
+  params: Type.Optional(MainIndicatorParamsToolParameter),
+})
+const MainIndicatorUpdateToolParameters = Type.Object({
+  indicatorId: Type.String({ minLength: 1 }),
+  params: Type.Record(Type.String(), Type.Union([Type.Number(), Type.String(), Type.Boolean()]), {
+    minProperties: 1,
+  }),
+})
+const MainIndicatorRemoveToolParameters = Type.Object({
+  indicatorId: Type.String({ minLength: 1 }),
+})
+const MainIndicatorsListToolParameters = Type.Object({})
+const MainIndicatorsClearToolParameters = Type.Object({})
+const IndicatorDescribeToolParameters = Type.Object({
+  indicatorId: Type.String({ minLength: 1 }),
+})
+
+type IndicatorParameterSchema = {
+  readonly key: string
+  readonly type: 'number' | 'string' | 'boolean' | 'unknown'
+  readonly default: number | string | boolean | null
+}
+
+/** 将 runtime 默认参数投影为 Agent 可直接调用的参数 schema。 */
+function describeIndicatorParams(
+  defaultParams: Record<string, unknown> | (() => Record<string, unknown>) | undefined,
+): ReadonlyArray<IndicatorParameterSchema> {
+  const defaults = typeof defaultParams === 'function' ? defaultParams() : (defaultParams ?? {})
+  return Object.freeze(
+    Object.entries(defaults).map(([key, value]) => {
+      let type: IndicatorParameterSchema['type'] = 'unknown'
+      let defaultValue: IndicatorParameterSchema['default'] = null
+      if (typeof value === 'number') {
+        type = 'number'
+        defaultValue = value
+      } else if (typeof value === 'string') {
+        type = 'string'
+        defaultValue = value
+      } else if (typeof value === 'boolean') {
+        type = 'boolean'
+        defaultValue = value
+      }
+      return Object.freeze({
+        key,
+        type,
+        default: defaultValue,
+      })
+    }),
+  )
+}
 
 /** 将图表指标实例投影为可安全暴露给 Agent 的只读快照。 */
 function projectIndicators(
@@ -410,12 +472,119 @@ class ChartAgentControllerImpl implements ChartAgentController {
     )
   }
 
+  /** 返回主图指标的 Agent 可引用快照。 */
+  @Tool({
+    name: 'main_indicators_list',
+    label: 'List main indicators',
+    description: 'List active main-pane indicators and their complete parameter objects.',
+    parameters: MainIndicatorsListToolParameters,
+    safety: 'read-only',
+    executionMode: 'parallel',
+  })
+  async listMainIndicators(
+    _input?: Static<typeof MainIndicatorsListToolParameters>,
+  ): Promise<ReturnType<MainIndicatorManager['list']>> {
+    return this.dependencies.mainIndicators.list()
+  }
+
+  /** 创建一个主图指标。 */
+  @Tool({
+    name: 'main_indicator_create',
+    label: 'Create main indicator',
+    description:
+      'Create one registered main-pane indicator. Call indicator_describe first to obtain parameter defaults and types. Returns false when the indicator is unsupported or already active.',
+    parameters: MainIndicatorCreateToolParameters,
+    safety: 'destructive',
+    executionMode: 'sequential',
+  })
+  async createMainIndicator(
+    input: Static<typeof MainIndicatorCreateToolParameters>,
+  ): Promise<boolean> {
+    return this.dependencies.mainIndicators.actions.create(input)
+  }
+
+  /** 完整更新一个已启用主图指标的参数。 */
+  @Tool({
+    name: 'main_indicator_update',
+    label: 'Update main indicator',
+    description:
+      'Replace the complete parameter object of one active main-pane indicator. Call indicator_describe first to obtain the exact parameter schema. Returns false when the indicator is not active.',
+    parameters: MainIndicatorUpdateToolParameters,
+    safety: 'destructive',
+    executionMode: 'sequential',
+  })
+  async updateMainIndicator(
+    input: Static<typeof MainIndicatorUpdateToolParameters>,
+  ): Promise<boolean> {
+    return this.dependencies.mainIndicators.actions.update(input)
+  }
+
+  /** 删除一个主图指标。 */
+  @Tool({
+    name: 'main_indicator_remove',
+    label: 'Remove main indicator',
+    description:
+      'Remove one active main-pane indicator. Returns false when the indicator is not active.',
+    parameters: MainIndicatorRemoveToolParameters,
+    safety: 'destructive',
+    executionMode: 'sequential',
+  })
+  async removeMainIndicator(
+    input: Static<typeof MainIndicatorRemoveToolParameters>,
+  ): Promise<boolean> {
+    return this.dependencies.mainIndicators.actions.remove(input)
+  }
+
+  /** 删除全部主图指标。 */
+  @Tool({
+    name: 'main_indicators_clear',
+    label: 'Clear main indicators',
+    description: 'Remove every active main-pane indicator.',
+    parameters: MainIndicatorsClearToolParameters,
+    safety: 'destructive',
+    executionMode: 'sequential',
+  })
+  async clearMainIndicators(
+    _input?: Static<typeof MainIndicatorsClearToolParameters>,
+  ): Promise<void> {
+    this.dependencies.mainIndicators.actions.clear()
+  }
+
+  /** 返回指标完整参数 schema，供 Agent 在修改 pane 前查询。 */
+  @Tool({
+    name: 'indicator_describe',
+    label: 'Describe indicator',
+    description:
+      'Return the canonical indicatorId and complete parameter schema for a registered indicator. Call before pane_create, pane_replace_content, or pane_update_content so params include every required key with correctly typed values. Returns a clear message when the indicator is not registered.',
+    parameters: IndicatorDescribeToolParameters,
+    safety: 'read-only',
+    executionMode: 'parallel',
+  })
+  async describeIndicator(input: Static<typeof IndicatorDescribeToolParameters>): Promise<
+    | {
+        readonly indicatorId: string
+        readonly label: string
+        readonly params: ReadonlyArray<IndicatorParameterSchema>
+      }
+    | string
+  > {
+    const definition = this.dependencies.getIndicatorMetadata(input.indicatorId)
+    if (!definition) {
+      return `Indicator '${input.indicatorId}' is not registered. Choose a registered indicatorId before creating or updating a pane.`
+    }
+    return Object.freeze({
+      indicatorId: definition.name,
+      label: definition.displayName,
+      params: describeIndicatorParams(definition.runtime?.defaultParams),
+    })
+  }
+
   /** 创建带副图指标内容的 pane。 */
   @Tool({
     name: 'pane_create',
     label: 'Create pane',
     description:
-      'Create one indicator pane with a unique paneId, complete indicator params, and a registered sub-pane indicator that has renderers. Returns false when paneId exists or the indicator cannot render in a sub-pane.',
+      'Create one indicator pane with a unique paneId, complete indicator params, and a registered sub-pane indicator that has renderers. Call indicator_describe first to obtain the exact params schema. Returns false when paneId exists or the indicator cannot render in a sub-pane.',
     parameters: PaneCreateToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',
@@ -472,7 +641,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     name: 'pane_replace_content',
     label: 'Replace pane content',
     description:
-      'Replace an existing user pane indicator with a registered sub-pane indicator that has renderers and complete params. The pane layout is preserved; returns false when the indicator cannot render in a sub-pane.',
+      'Replace an existing user pane indicator with a registered sub-pane indicator that has renderers and complete params. Call indicator_describe first to obtain the exact params schema. The pane layout is preserved; returns false when the indicator cannot render in a sub-pane.',
     parameters: PaneReplaceContentToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',

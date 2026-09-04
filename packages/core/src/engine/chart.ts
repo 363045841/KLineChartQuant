@@ -58,7 +58,10 @@ import type { ScaleType } from './utils/tickPosition'
 
 // ===== 普通 imports，按路径字母排序 =====
 import { ChartDataManager } from './data/chartDataManager'
-import { ChartIndicatorManager } from './indicators/chartIndicatorManager'
+import {
+  ChartIndicatorManager,
+  type MainIndicatorManager,
+} from './indicators/chartIndicatorManager'
 import { resolveStateKey } from './indicators/indicatorMetadata'
 import { ChartPaneLayout } from './layout/chartPaneLayout'
 import { UpdateLevel, type VisibleRange } from './layout/pane'
@@ -143,6 +146,8 @@ export class Chart {
 
   /** 指标管理器 */
   private indicatorManager: ChartIndicatorManager
+  /** 主图指标 CRUD 领域入口；写操作同时调度工作区持久化。 */
+  readonly mainIndicators: MainIndicatorManager
 
   /** 渲染器 */
   private renderer: ChartRenderer
@@ -196,44 +201,6 @@ export class Chart {
     const disabled = this.indicatorManager.disableMainIndicator(indicatorId)
     if (disabled) this.scheduleWorkspacePersistence()
     return disabled
-  }
-
-  toggleMainIndicator(indicatorId: string, enabled: boolean): void {
-    this.indicatorManager.toggleMainIndicator(indicatorId, enabled)
-    this.scheduleWorkspacePersistence()
-  }
-
-  getActiveMainIndicators(): string[] {
-    return this.indicatorManager.getActiveMainIndicators()
-  }
-
-  isMainIndicatorActive(indicatorId: string): boolean {
-    return this.indicatorManager.isMainIndicatorActive(indicatorId)
-  }
-
-  updateMainIndicatorParams(
-    indicatorId: string,
-    params: Record<string, number | boolean | string>,
-  ): void {
-    this.indicatorManager.updateMainIndicatorParams(indicatorId, params)
-    this.scheduleWorkspacePersistence()
-  }
-
-  getMainIndicatorParams(indicatorId: string): Record<string, number | boolean | string> | null {
-    return this.indicatorManager.getMainIndicatorParams(indicatorId)
-  }
-
-  clearMainIndicators(): void {
-    this.indicatorManager.clearMainIndicators()
-    this.scheduleWorkspacePersistence()
-  }
-
-  /**
-   * @deprecated 使用 enableMainIndicator/disableMainIndicator 替代
-   */
-  setActiveMainIndicators(indicators: string[]): void {
-    this.indicatorManager.setActiveMainIndicators(indicators)
-    this.scheduleWorkspacePersistence()
   }
 
   /**
@@ -472,6 +439,30 @@ export class Chart {
       },
       runRendererTransaction: (run) => this.runRuntimeProjection(run),
     })
+    this.mainIndicators = {
+      list: () => this.indicatorManager.mainIndicators.list(),
+      actions: {
+        create: (input) => {
+          const created = this.indicatorManager.mainIndicators.actions.create(input)
+          if (created) this.scheduleWorkspacePersistence()
+          return created
+        },
+        update: (input) => {
+          const updated = this.indicatorManager.mainIndicators.actions.update(input)
+          if (updated) this.scheduleWorkspacePersistence()
+          return updated
+        },
+        remove: (input) => {
+          const removed = this.indicatorManager.mainIndicators.actions.remove(input)
+          if (removed) this.scheduleWorkspacePersistence()
+          return removed
+        },
+        clear: () => {
+          this.indicatorManager.mainIndicators.actions.clear()
+          this.scheduleWorkspacePersistence()
+        },
+      },
+    }
 
     // Worker 异步结果就绪后串联 Alert 管线
     this.indicatorManager.indicatorSchedulerAccessor.setOnResultsApplied(() => {
