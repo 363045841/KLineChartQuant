@@ -25,6 +25,7 @@ import type {
   ProviderTestResult,
   StartRunInput,
   AgentContextItem,
+  AgentContextUpdateItem,
   AgentRunContext,
 } from './agent-contracts'
 import type {
@@ -36,6 +37,7 @@ import {
   getRegisteredChartTools,
   type ChartAgentController,
 } from '@363045841yyt/klinechart-core/controllers'
+import { formatTradingDateCompact } from '@363045841yyt/klinechart-core'
 import type { RuntimeToolDefinition } from '@363045841yyt/klinechart-agent-runtime'
 
 const PROVIDER_PROFILES_STORAGE_KEY = 'agent.provider.profiles'
@@ -235,6 +237,8 @@ interface BrowserSession {
   messages: AgentSessionSnapshot['messages']
   runs: AgentSessionSnapshot['runs']
   transcript: Array<NonNullable<PiRunPlan['transcript']>[number]>
+  injectedContextItems: ReadonlyArray<AgentContextItem>
+  hasInjectedReferenceTime: boolean
 }
 
 interface ActiveRun {
@@ -259,12 +263,50 @@ function projectContextItems(
       value: { symbol: context.symbol, name: context.symbolName },
     })
   }
-  if (context.visibleRange) {
-    items.push({ kind: 'selected-time-range', value: { ...context.visibleRange } })
+  if (context.visibleRange && context.timezone) {
+    items.push({
+      kind: 'selected-time-range',
+      value: {
+        from: formatTradingDateCompact(context.visibleRange.from, context.timezone),
+        to: formatTradingDateCompact(context.visibleRange.to, context.timezone),
+      },
+    })
   }
   return Object.freeze(
     items.map((item) => Object.freeze({ ...item, value: Object.freeze(item.value) })),
   )
+}
+
+/** 比较可序列化上下文值，避免因每次投影产生的新对象重复标记 updated。 */
+function hasSameContextValue(left: AgentContextItem, right: AgentContextItem): boolean {
+  return left.kind === right.kind && JSON.stringify(left.value) === JSON.stringify(right.value)
+}
+
+/** 生成本轮显式上下文状态，并将当前快照记为下轮比较基线。 */
+function createRunContext(
+  session: BrowserSession,
+  items: ReadonlyArray<AgentContextItem>,
+  startedAt: number,
+): AgentRunContext {
+  const previousByKind = new Map(session.injectedContextItems.map((item) => [item.kind, item]))
+  const updates: AgentContextUpdateItem[] = items.map((item) => {
+    const previous = previousByKind.get(item.kind)
+    return previous && hasSameContextValue(previous, item)
+      ? { kind: item.kind, status: 'unchanged' }
+      : { ...item, status: 'updated' }
+  })
+  for (const previous of session.injectedContextItems) {
+    if (!items.some((item) => item.kind === previous.kind)) {
+      updates.push({ kind: previous.kind, status: 'removed' })
+    }
+  }
+  const context: AgentRunContext = {
+    ...(session.hasInjectedReferenceTime ? {} : { referenceTime: startedAt }),
+    items: Object.freeze(updates.map((item) => Object.freeze(item))),
+  }
+  session.injectedContextItems = items
+  session.hasInjectedReferenceTime = true
+  return Object.freeze(context)
 }
 
 export class BrowserAgentBridge implements AgentBridgeClient {
@@ -550,12 +592,11 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     const driver = new PiRunDriver()
     const runInput: StartRunInput = {
       ...input,
-      context: Object.freeze({ items: this.getContextItems() }) satisfies AgentRunContext,
+      context: input.context ?? createRunContext(session, this.getContextItems(), startedAt),
     }
     this.activeRuns.set(runId, { driver, input: runInput })
     this.runInputs.set(runId, runInput)
     const transcript = [...session.transcript]
-    session.transcript.push({ role: 'user', content: input.prompt, timestamp: startedAt })
     session.messages.push({
       id: `user-${runId}`,
       role: 'user',
@@ -581,7 +622,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   async retryRun(runId: string): Promise<{ runId: string }> {
     const input = this.runInputs.get(runId)
     if (!input) throw new AgentRuntimeError('RUN_NOT_ACTIVE', 'The Agent run is unavailable.')
-    return this.startRun(input)
+    return this.startRun({ ...input, context: Object.freeze({ items: [] }) })
   }
 
   async confirmTool(): Promise<void> {
@@ -660,6 +701,8 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       messages: [],
       runs: [],
       transcript: [],
+      injectedContextItems: [],
+      hasInjectedReferenceTime: false,
     }
   }
 
@@ -690,6 +733,14 @@ export class BrowserAgentBridge implements AgentBridgeClient {
         startedAt,
         userEntryId: `user-${runId}`,
       })
+      if (plan.runtimeContext) {
+        session.transcript.push({
+          role: 'user',
+          content: plan.runtimeContext,
+          timestamp: startedAt,
+        })
+      }
+      session.transcript.push({ role: 'user', content: input.prompt, timestamp: startedAt })
       const result = await driver.run({ ...plan, transcript }, async (event) => {
         this.emit({ ...event, runId, sessionId: input.sessionId })
       })

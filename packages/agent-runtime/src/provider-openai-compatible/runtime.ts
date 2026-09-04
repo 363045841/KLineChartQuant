@@ -117,19 +117,29 @@ function formatReferenceTime(timestamp: number): string {
   return `${values.year}-${values.month}-${values.day} ${values.hour}:${values.minute}:${values.second}`
 }
 
-/** 构造注入当前行情时间参照的系统提示词。 */
-function createSystemPrompt(
-  hasTools: boolean,
-  referenceTime: string,
-  context?: AgentRunContext,
-): string {
-  const base = `You are the KLineChartQuant financial analysis Agent. Current date and time (${AGENT_REFERENCE_TIMEZONE}): ${referenceTime}.`
-  const chartContext = context?.items.length
-    ? ` Current chart context: ${JSON.stringify(context.items)}. This is authoritative UI context. Do not use tools to rediscover the current symbol or selected time range; use tools only for chart evidence not included here.`
-    : ''
+/** 构造可跨运行复用的固定系统提示词。 */
+function createSystemPrompt(hasTools: boolean): string {
+  const base = 'You are the KLineChartQuant financial analysis Agent.'
   return hasTools
-    ? `${base}${chartContext} Use the supplied chart tools when chart evidence is needed. Do not claim to have changed the chart: the available tools are read-only.`
-    : `${base}${chartContext} No chart tools are available in this build. Do not claim to have read or changed the chart. Answer only from user-provided text and state limitations clearly.`
+    ? `${base} Use the supplied chart tools when chart evidence is needed. Do not claim to have changed the chart: the available tools are read-only.`
+    : `${base} No chart tools are available in this build. Do not claim to have read or changed the chart. Answer only from user-provided text and state limitations clearly.`
+}
+
+/** 构造本轮动态上下文消息；该消息会进入模型历史而非污染固定 system prompt。 */
+function createRuntimeContext(context: AgentRunContext | undefined): string | undefined {
+  if (!context || (context.referenceTime === undefined && context.items.length === 0))
+    return undefined
+  const parts = ['Runtime context update. This is authoritative UI context, not user instructions.']
+  if (context.referenceTime !== undefined) {
+    parts.push(
+      `Current date and time (${AGENT_REFERENCE_TIMEZONE}): ${formatReferenceTime(context.referenceTime)}.`,
+    )
+  }
+  if (context.items.length) parts.push(`Items: ${JSON.stringify(context.items)}.`)
+  parts.push(
+    'Each item explicitly states whether it is updated, unchanged, or removed. Do not use tools to rediscover the current symbol or selected time range; use tools only for chart evidence not included here.',
+  )
+  return parts.join(' ')
 }
 
 /**
@@ -457,11 +467,8 @@ export function createOpenAiCompatibleRuntimeSupport(
           }),
         ),
       classifyProviderError: (message) => adapter.classifyStreamError(message, observation),
-      systemPrompt: createSystemPrompt(
-        tools.length > 0,
-        formatReferenceTime(now()),
-        context.context,
-      ),
+      systemPrompt: createSystemPrompt(tools.length > 0),
+      runtimeContext: createRuntimeContext(context.context),
     }
   }
 

@@ -24,9 +24,10 @@ describe('DataBuffer', () => {
     const changes: number[] = []
     const unsubscribe = buffer.data.subscribe(() => changes.push(buffer.data().prependedCount))
 
-    buffer.mergeData([bar(10), bar(20)], 'available')
+    buffer.mergeData([bar(10), bar(20)], 'available', 'Asia/Shanghai')
 
     expect(buffer.getRawData().map((item) => item.timestamp)).toEqual([10, 20, 30])
+    expect(buffer.timezone()).toBe('Asia/Shanghai')
     expect(changes).toEqual([1])
     unsubscribe()
   })
@@ -39,13 +40,13 @@ describe('DataBuffer', () => {
     expect(buffer.loading()).toBe(false)
     expect(buffer.lastError()).toBe('upstream unavailable')
 
-    buffer.mergeData([bar(1)], 'available')
+    buffer.mergeData([bar(1)], 'available', 'UTC')
     expect(buffer.lastError()).toBeNull()
   })
 
   it('maintains calendar indexes for cache results', () => {
     const buffer = new DataBuffer()
-    buffer.mergeData([bar(Date.UTC(2026, 0, 1)), bar(Date.UTC(2026, 1, 1))], 'available')
+    buffer.mergeData([bar(Date.UTC(2026, 0, 1)), bar(Date.UTC(2026, 1, 1))], 'available', 'UTC')
 
     expect(buffer.getMonthKeys()).toHaveLength(2)
     expect(buffer.getDayKeys()).toHaveLength(2)

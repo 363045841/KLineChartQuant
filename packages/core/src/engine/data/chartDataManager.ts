@@ -9,11 +9,7 @@ import {
 import { DataBuffer } from '../../data/buffer/dataBuffer'
 import { DEFAULT_BAR_PAGE_LIMIT } from '../../data/buffer/marketDataPolicy'
 import { MarketDataCache } from '../../data/buffer/marketDataCache'
-import type {
-  KLineBuffer,
-  TimeShareBuffer,
-  DataChange,
-} from '../../data/buffer/dataBufferTypes'
+import type { KLineBuffer, TimeShareBuffer, DataChange } from '../../data/buffer/dataBufferTypes'
 import { marketDataProviderRegistry } from '../../data/provider/registry'
 import type {
   InstrumentDescriptor,
@@ -39,6 +35,7 @@ import type { KLineData, TimeShareData } from '../../foundation/types/price'
 import type { ChartDom } from '../chartTypes'
 import type { VisibleRange, UpdateLevel } from '../layout/pane'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
+import { formatTradingDate } from '../../foundation/utils/dateFormat'
 import type { DataStateModule } from '../state/dataState'
 import type { DataManagerStateModule, ViewportSnapshot } from '../state/dataManagerState'
 import type { ViewportStateModule } from '../state/viewportState'
@@ -136,11 +133,11 @@ export class ChartDataManager {
       selectionForSpec: (spec) => this.barsSelectionForSpec(spec),
       createBuffer: (_spec, selection) => this.createKLineBuffer(selection),
       loadBuffer: (spec, selection, buffer) => this.loadBufferSnapshot(spec, selection, buffer),
-	loadRange: (spec, selection, buffer, beforeTimestamp) =>
-	        this.loadBars(selection, buffer, spec, {
-	          limit: DEFAULT_BAR_PAGE_LIMIT,
-	          beforeTimestamp,
-	        }),
+      loadRange: (spec, selection, buffer, beforeTimestamp) =>
+        this.loadBars(selection, buffer, spec, {
+          limit: DEFAULT_BAR_PAGE_LIMIT,
+          beforeTimestamp,
+        }),
       releaseSelection: (selection) => this.releaseComparisonSelection(selection),
       scheduleDraw: () => this.deps.scheduleDraw(),
       getSpecs: () => this.deps.comparison.readonly.specs.peek(),
@@ -254,6 +251,7 @@ export class ChartDataManager {
       data: [],
       loading: false,
       error: null,
+      timezone: null,
       timeShareRange: null,
       timeSharePreClose: null,
     })
@@ -287,6 +285,7 @@ export class ChartDataManager {
           : (this._dataState.readonly.data.peek() as ReadonlyArray<KLineData>),
         loading: buffer.loading.peek(),
         error: buffer.lastError.peek(),
+        timezone: buffer.timezone.peek(),
         timeShareRange: null,
         timeSharePreClose: null,
       })
@@ -300,6 +299,7 @@ export class ChartDataManager {
           : (this._dataState.readonly.data.peek() as ReadonlyArray<TimeShareData>),
         loading: buffer.loading.peek(),
         error: buffer.lastError.peek(),
+        timezone: buffer.range.peek()?.timezone ?? null,
         timeShareRange: buffer.range.peek(),
         timeSharePreClose: buffer.getPreClose(),
       })
@@ -357,7 +357,7 @@ export class ChartDataManager {
     selection: BarsSelection,
     buffer: KLineBuffer,
     spec: SymbolSpec,
-	target: { limit: number; beforeTimestamp?: number },
+    target: { limit: number; beforeTimestamp?: number },
   ): Promise<void> {
     const period = spec.period ?? DEFAULT_KLINE_PERIOD
     const adjustment = spec.adjust ?? DEFAULT_KLINE_ADJUSTMENT
@@ -378,15 +378,17 @@ export class ChartDataManager {
         period: period as KLinePeriod,
         adjustment: adjustment as KLineAdjustment,
         limit: target.limit,
-	        ...(target.beforeTimestamp === undefined
-	          ? {}
-	          : { beforeTimestamp: target.beforeTimestamp }),
+        ...(target.beforeTimestamp === undefined
+          ? {}
+          : { beforeTimestamp: target.beforeTimestamp }),
       })
-      if (!this.isActiveSelection(selection) && this._repository.getBars(selection) !== buffer) return
+      if (!this.isActiveSelection(selection) && this._repository.getBars(selection) !== buffer)
+        return
       if (selection.sourceId === AUTO_SOURCE_ID) {
-        if (!this.handleResolvedSource(selection, result.sourceId, result.instrument, buffer)) return
+        if (!this.handleResolvedSource(selection, result.sourceId, result.instrument, buffer))
+          return
       }
-      buffer.mergeData(result.series.data, result.series.olderData)
+      buffer.mergeData(result.series.data, result.series.olderData, result.series.timezone)
     } catch (error) {
       buffer.setError(error instanceof Error ? error.message : String(error))
     }
@@ -404,17 +406,7 @@ export class ChartDataManager {
       throw new Error(`[MarketDataProvider] sessionId is required for "${instrument.id}" timeshare`)
     }
     const timeZone = PROVIDER_MARKET_SESSIONS.getRequired(instrument.sessionId).timeZone
-    const values = Object.fromEntries(
-      new Intl.DateTimeFormat('en-US', {
-        timeZone,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      })
-        .formatToParts(new Date())
-        .map((part) => [part.type, part.value]),
-    )
-    return `${values.year}-${values.month}-${values.day}` as TradingDate
+    return formatTradingDate(Date.now(), timeZone) as TradingDate
   }
 
   /** 从共享缓存获取单日分时并写入当前图表快照。 */
@@ -438,7 +430,8 @@ export class ChartDataManager {
           : { resolveTradingDate: (instrument) => this.resolveTradingDate(instrument) }),
       })
       if (selection.sourceId === AUTO_SOURCE_ID) {
-        if (!this.handleResolvedSource(selection, result.sourceId, result.instrument, buffer)) return
+        if (!this.handleResolvedSource(selection, result.sourceId, result.instrument, buffer))
+          return
       }
       buffer.setInlineData(result.series.data, result.series.preClose)
     } catch (error) {
@@ -469,7 +462,8 @@ export class ChartDataManager {
         days,
       })
       if (selection.sourceId === AUTO_SOURCE_ID) {
-        if (!this.handleResolvedSource(selection, result.sourceId, result.instrument, buffer)) return
+        if (!this.handleResolvedSource(selection, result.sourceId, result.instrument, buffer))
+          return
       }
       buffer.setRange(result.range)
     } catch (error) {
@@ -646,7 +640,8 @@ export class ChartDataManager {
         limit: ChartDataManager.TIME_SHARE_INDICATOR_BAR_LIMIT,
       })
       if (requestId !== this._timeShareIndicatorRequestId) return
-      const updateWithDisplayTimestamps = this.deps.getIndicatorScheduler().updateWithDisplayTimestamps
+      const updateWithDisplayTimestamps =
+        this.deps.getIndicatorScheduler().updateWithDisplayTimestamps
       if (!updateWithDisplayTimestamps) return
       const indicatorsReady = updateWithDisplayTimestamps(
         [...result.series.data],
@@ -841,7 +836,7 @@ export class ChartDataManager {
     return buf ? buf.getRawData() : []
   }
 
-checkVisibleRangeGap(): void {
+  checkVisibleRangeGap(): void {
     const buf = this.getActiveDataBuffer()
     if (!buf) return
     const data = buf.getRawData()
@@ -853,11 +848,11 @@ checkVisibleRangeGap(): void {
     const range = this.getVisibleRangeOrNull()
     if (!rawRange || !range) return
 
-    const firstVisibleTs =
-      rawRange.start < 0 ? data[0]?.timestamp : data[range.start]?.timestamp
+    const firstVisibleTs = rawRange.start < 0 ? data[0]?.timestamp : data[range.start]?.timestamp
     const needsOlder =
       rawRange.start < 0 ||
-      (range.start < data.length && (data[range.start]?.timestamp ?? 0) < loadedTimeRange.earliestTs)
+      (range.start < data.length &&
+        (data[range.start]?.timestamp ?? 0) < loadedTimeRange.earliestTs)
 
     if (needsOlder && !buf.loading.peek()) {
       const spec = buf.currentSpec
@@ -865,7 +860,7 @@ checkVisibleRangeGap(): void {
       if (spec && selection?.kind === 'bars') {
         void this.loadBars(selection, buf, spec, {
           limit: DEFAULT_BAR_PAGE_LIMIT,
-	          beforeTimestamp: loadedTimeRange.earliestTs,
+          beforeTimestamp: loadedTimeRange.earliestTs,
         })
       }
     }
@@ -895,7 +890,7 @@ checkVisibleRangeGap(): void {
     }
     void this.loadBars(selection, buffer, spec, {
       limit: DEFAULT_BAR_PAGE_LIMIT,
-	      beforeTimestamp: loaded.earliestTs,
+      beforeTimestamp: loaded.earliestTs,
     })
   }
 
@@ -1183,14 +1178,18 @@ checkVisibleRangeGap(): void {
       )
     }
 
-buf.setSymbol(spec)
+    buf.setSymbol(spec)
     void this.loadBars(this.barsSelectionForSpec(spec), buf, spec, {
       limit: DEFAULT_BAR_PAGE_LIMIT,
     })
   }
 
   /** 初始化一个 Repository K 线快照，并通过共享缓存填充首个窗口。 */
-  private loadBufferSnapshot(spec: SymbolSpec, selection: BarsSelection, buffer: KLineBuffer): void {
+  private loadBufferSnapshot(
+    spec: SymbolSpec,
+    selection: BarsSelection,
+    buffer: KLineBuffer,
+  ): void {
     buffer.setSymbol(spec)
     void this.loadBars(selection, buffer, spec, { limit: DEFAULT_BAR_PAGE_LIMIT })
   }

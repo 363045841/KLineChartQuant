@@ -6,6 +6,8 @@ import { lookupInstrumentsBySymbol, searchInstruments } from '../../data/provide
 import type { MarketDataProviderRegistry } from '../../data/provider/registry'
 import { MarketDataCache } from '../../data/buffer/marketDataCache'
 import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
+import { parseTradingDate } from '../../foundation/utils/dateFormat'
+import { MarketSessionRegistry } from '../../engine/market/marketSessionRegistry'
 import type { DrawingDocument } from '../../engine/drawing/DrawingDocument'
 import type { DrawingCommands } from '../../engine/drawing/DrawingCommands'
 import type { DrawingObject } from '../../foundation/plugin'
@@ -42,8 +44,6 @@ import type {
 import type { DataStateModule } from '../../engine/state/dataState'
 import type { PaneManager } from '../../engine/paneManager'
 import type { PaneSpec } from '../../engine/chartTypes'
-import type { IndicatorMetadata } from '../../engine/indicators/indicatorMetadata'
-import type { MainIndicatorManager } from '../../engine/indicators/chartIndicatorManager'
 
 interface ChartAgentControllerDependencies {
   readonly chartId: string
@@ -59,11 +59,7 @@ interface ChartAgentControllerDependencies {
   readonly drawingCommands: DrawingCommands
   readonly getDrawingPaneIds: () => ReadonlyArray<string>
   readonly paneManager: Pick<PaneManager, 'actions' | 'list'>
-  readonly mainIndicators: Pick<MainIndicatorManager, 'actions' | 'list'>
   readonly isSubPaneRendererAvailable: (indicatorId: string, paneId: string) => boolean
-  readonly getIndicatorMetadata: (
-    indicatorId: string,
-  ) => Pick<IndicatorMetadata, 'name' | 'displayName' | 'runtime'> | undefined
   readonly marketDataTextFormatter?: MarketDataTextFormatter
 }
 
@@ -115,10 +111,12 @@ const TradingDateToolParameter = Type.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$'
 const IndicatorQueryToolParameters = Type.Object({
   definitionId: Type.String({ minLength: 1 }),
   params: Type.Optional(Type.Record(Type.String(), Type.Number())),
-  from: Type.Optional(Type.Number()),
-  to: Type.Optional(Type.Number()),
+  fromDate: Type.Optional(TradingDateToolParameter),
+  toDate: Type.Optional(TradingDateToolParameter),
   limit: Type.Optional(Type.Integer({ minimum: 1, maximum: INDICATOR_QUERY_MAX_LIMIT })),
 })
+
+type IndicatorQueryToolInput = Static<typeof IndicatorQueryToolParameters>
 
 const BarsQueryToolParameters = Type.Object({
   symbol: Type.String({ minLength: 1 }),
@@ -128,7 +126,7 @@ const BarsQueryToolParameters = Type.Object({
   sourceId: Type.Optional(Type.String({ minLength: 1 })),
   exchange: Type.Optional(Type.String({ minLength: 1 })),
   assetClass: Type.Optional(AssetClassToolParameter),
-  beforeTimestamp: Type.Optional(Type.Number()),
+  beforeDate: Type.Optional(TradingDateToolParameter),
 })
 
 type BarsQueryToolInput = Static<typeof BarsQueryToolParameters>
@@ -218,10 +216,6 @@ const DrawingDeleteToolParameters = Type.Object({
 const DrawingsListToolParameters = Type.Object({})
 const DrawingsClearToolParameters = Type.Object({})
 const PaneParamsToolParameter = Type.Record(Type.String(), Type.Unknown())
-const MainIndicatorParamsToolParameter = Type.Record(
-  Type.String(),
-  Type.Union([Type.Number(), Type.String(), Type.Boolean()]),
-)
 const PanePatchToolParameters = Type.Partial(
   Type.Object({
     ratio: Type.Number({ exclusiveMinimum: 0 }),
@@ -255,58 +249,6 @@ const PaneUpdateContentToolParameters = Type.Object({
 })
 const PanesListToolParameters = Type.Object({})
 const PanesClearToolParameters = Type.Object({})
-const MainIndicatorCreateToolParameters = Type.Object({
-  indicatorId: Type.String({ minLength: 1 }),
-  params: Type.Optional(MainIndicatorParamsToolParameter),
-})
-const MainIndicatorUpdateToolParameters = Type.Object({
-  indicatorId: Type.String({ minLength: 1 }),
-  params: Type.Record(Type.String(), Type.Union([Type.Number(), Type.String(), Type.Boolean()]), {
-    minProperties: 1,
-  }),
-})
-const MainIndicatorRemoveToolParameters = Type.Object({
-  indicatorId: Type.String({ minLength: 1 }),
-})
-const MainIndicatorsListToolParameters = Type.Object({})
-const MainIndicatorsClearToolParameters = Type.Object({})
-const IndicatorDescribeToolParameters = Type.Object({
-  indicatorId: Type.String({ minLength: 1 }),
-})
-
-type IndicatorParameterSchema = {
-  readonly key: string
-  readonly type: 'number' | 'string' | 'boolean' | 'unknown'
-  readonly default: number | string | boolean | null
-}
-
-/** 将 runtime 默认参数投影为 Agent 可直接调用的参数 schema。 */
-function describeIndicatorParams(
-  defaultParams: Record<string, unknown> | (() => Record<string, unknown>) | undefined,
-): ReadonlyArray<IndicatorParameterSchema> {
-  const defaults = typeof defaultParams === 'function' ? defaultParams() : (defaultParams ?? {})
-  return Object.freeze(
-    Object.entries(defaults).map(([key, value]) => {
-      let type: IndicatorParameterSchema['type'] = 'unknown'
-      let defaultValue: IndicatorParameterSchema['default'] = null
-      if (typeof value === 'number') {
-        type = 'number'
-        defaultValue = value
-      } else if (typeof value === 'string') {
-        type = 'string'
-        defaultValue = value
-      } else if (typeof value === 'boolean') {
-        type = 'boolean'
-        defaultValue = value
-      }
-      return Object.freeze({
-        key,
-        type,
-        default: defaultValue,
-      })
-    }),
-  )
-}
 
 /** 将图表指标实例投影为可安全暴露给 Agent 的只读快照。 */
 function projectIndicators(
@@ -407,8 +349,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     const dataSource = selection.sourceId || spec?.source || spec?.instrument?.sourceId || null
     const period = this.dependencies.chartMode()
     const adjustMode = selection.kind === 'bars' ? selection.adjustment : (spec?.adjust ?? null)
-    const timezone =
-      activeBuffer.kind === 'timeShare' ? (activeBuffer.timeShareRange?.timezone ?? null) : null
+    const timezone = activeBuffer.timezone
 
     return Object.freeze({
       chartId: this.dependencies.chartId,
@@ -474,119 +415,12 @@ class ChartAgentControllerImpl implements ChartAgentController {
     )
   }
 
-  /** 返回主图指标的 Agent 可引用快照。 */
-  @Tool({
-    name: 'main_indicators_list',
-    label: 'List main indicators',
-    description: 'List active main-pane indicators and their complete parameter objects.',
-    parameters: MainIndicatorsListToolParameters,
-    safety: 'read-only',
-    executionMode: 'parallel',
-  })
-  async listMainIndicators(
-    _input?: Static<typeof MainIndicatorsListToolParameters>,
-  ): Promise<ReturnType<MainIndicatorManager['list']>> {
-    return this.dependencies.mainIndicators.list()
-  }
-
-  /** 创建一个主图指标。 */
-  @Tool({
-    name: 'main_indicator_create',
-    label: 'Create main indicator',
-    description:
-      'Create one registered main-pane indicator. Call indicator_describe first to obtain parameter defaults and types. Returns false when the indicator is unsupported or already active.',
-    parameters: MainIndicatorCreateToolParameters,
-    safety: 'destructive',
-    executionMode: 'sequential',
-  })
-  async createMainIndicator(
-    input: Static<typeof MainIndicatorCreateToolParameters>,
-  ): Promise<boolean> {
-    return this.dependencies.mainIndicators.actions.create(input)
-  }
-
-  /** 完整更新一个已启用主图指标的参数。 */
-  @Tool({
-    name: 'main_indicator_update',
-    label: 'Update main indicator',
-    description:
-      'Replace the complete parameter object of one active main-pane indicator. Call indicator_describe first to obtain the exact parameter schema. Returns false when the indicator is not active.',
-    parameters: MainIndicatorUpdateToolParameters,
-    safety: 'destructive',
-    executionMode: 'sequential',
-  })
-  async updateMainIndicator(
-    input: Static<typeof MainIndicatorUpdateToolParameters>,
-  ): Promise<boolean> {
-    return this.dependencies.mainIndicators.actions.update(input)
-  }
-
-  /** 删除一个主图指标。 */
-  @Tool({
-    name: 'main_indicator_remove',
-    label: 'Remove main indicator',
-    description:
-      'Remove one active main-pane indicator. Returns false when the indicator is not active.',
-    parameters: MainIndicatorRemoveToolParameters,
-    safety: 'destructive',
-    executionMode: 'sequential',
-  })
-  async removeMainIndicator(
-    input: Static<typeof MainIndicatorRemoveToolParameters>,
-  ): Promise<boolean> {
-    return this.dependencies.mainIndicators.actions.remove(input)
-  }
-
-  /** 删除全部主图指标。 */
-  @Tool({
-    name: 'main_indicators_clear',
-    label: 'Clear main indicators',
-    description: 'Remove every active main-pane indicator.',
-    parameters: MainIndicatorsClearToolParameters,
-    safety: 'destructive',
-    executionMode: 'sequential',
-  })
-  async clearMainIndicators(
-    _input?: Static<typeof MainIndicatorsClearToolParameters>,
-  ): Promise<void> {
-    this.dependencies.mainIndicators.actions.clear()
-  }
-
-  /** 返回指标完整参数 schema，供 Agent 在修改 pane 前查询。 */
-  @Tool({
-    name: 'indicator_describe',
-    label: 'Describe indicator',
-    description:
-      'Return the canonical indicatorId and complete parameter schema for a registered indicator. Call before pane_create, pane_replace_content, or pane_update_content so params include every required key with correctly typed values. Returns a clear message when the indicator is not registered.',
-    parameters: IndicatorDescribeToolParameters,
-    safety: 'read-only',
-    executionMode: 'parallel',
-  })
-  async describeIndicator(input: Static<typeof IndicatorDescribeToolParameters>): Promise<
-    | {
-        readonly indicatorId: string
-        readonly label: string
-        readonly params: ReadonlyArray<IndicatorParameterSchema>
-      }
-    | string
-  > {
-    const definition = this.dependencies.getIndicatorMetadata(input.indicatorId)
-    if (!definition) {
-      return `Indicator '${input.indicatorId}' is not registered. Choose a registered indicatorId before creating or updating a pane.`
-    }
-    return Object.freeze({
-      indicatorId: definition.name,
-      label: definition.displayName,
-      params: describeIndicatorParams(definition.runtime?.defaultParams),
-    })
-  }
-
   /** 创建带副图指标内容的 pane。 */
   @Tool({
     name: 'pane_create',
     label: 'Create pane',
     description:
-      'Create one indicator pane with a unique paneId, complete indicator params, and a registered sub-pane indicator that has renderers. Call indicator_describe first to obtain the exact params schema. Returns false when paneId exists or the indicator cannot render in a sub-pane.',
+      'Create one indicator pane with a unique paneId, complete indicator params, and a registered sub-pane indicator that has renderers. Returns false when paneId exists or the indicator cannot render in a sub-pane.',
     parameters: PaneCreateToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',
@@ -643,7 +477,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     name: 'pane_replace_content',
     label: 'Replace pane content',
     description:
-      'Replace an existing user pane indicator with a registered sub-pane indicator that has renderers and complete params. Call indicator_describe first to obtain the exact params schema. The pane layout is preserved; returns false when the indicator cannot render in a sub-pane.',
+      'Replace an existing user pane indicator with a registered sub-pane indicator that has renderers and complete params. The pane layout is preserved; returns false when the indicator cannot render in a sub-pane.',
     parameters: PaneReplaceContentToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',
@@ -698,20 +532,42 @@ class ChartAgentControllerImpl implements ChartAgentController {
   }
 
   /** 查询当前图表数据上的指标值；前端和 Agent 调用同一领域 API。 */
+  queryIndicator(input: IndicatorQueryInput): Promise<string> {
+    return this.dependencies.indicatorQuery.queryIndicator(input)
+  }
+
+  /** 将交易日区间参数转换为时间戳后查询指标；Agent 经 @Tool 注册表调用。 */
   @Tool({
     name: 'indicators_query',
     label: 'Query indicator',
     description:
-      'Calculate a registered chart indicator over the active K-line data and return compact text. Use definitionId, optional numeric calculation params, an optional inclusive timestamp range, and a bounded result limit.',
+      'Calculate a registered chart indicator over the active K-line data and return compact text. Use definitionId, optional numeric calculation params, an optional inclusive trading-date range (fromDate/toDate in YYYY-MM-DD), and a bounded result limit.',
     parameters: IndicatorQueryToolParameters,
     safety: 'read-only',
     executionMode: 'parallel',
   })
-  queryIndicator(
-    input: IndicatorQueryInput,
+  queryIndicatorByTradingDate(
+    input: IndicatorQueryToolInput,
     _context?: ChartToolExecutionContext,
   ): Promise<string> {
-    return this.dependencies.indicatorQuery.queryIndicator(input)
+    const timezone = this.dependencies.dataState.readonly.activeBuffer().timezone
+    if (timezone === null && (input.fromDate !== undefined || input.toDate !== undefined)) {
+      throw new KLineChartError(
+        CHART_AGENT_ERROR_CODES.INVALID_QUERY,
+        'Cannot interpret fromDate/toDate because the active data has no timezone; omit the dates or query a timezone-backed series.',
+      )
+    }
+    return this.queryIndicator({
+      definitionId: input.definitionId,
+      ...(input.params === undefined ? {} : { params: input.params }),
+      ...(input.limit === undefined ? {} : { limit: input.limit }),
+      ...(input.fromDate !== undefined && timezone !== null
+        ? { from: parseTradingDate(input.fromDate, timezone) }
+        : {}),
+      ...(input.toDate !== undefined && timezone !== null
+        ? { to: parseTradingDate(input.toDate, timezone, 'end') }
+        : {}),
+    })
   }
 
   /** 执行面向前端联想搜索的模糊品种查询。 */
@@ -761,27 +617,61 @@ class ChartAgentControllerImpl implements ChartAgentController {
     })
   }
 
-  /** 以精确时间戳游标查询一页 K 线。 */
+  /** 以交易日排他上界查询一页 K 线；底层游标始终使用 UTC 毫秒时间戳。 */
   @Tool({
     name: 'market_bars_query',
     label: 'Query market bars',
     description:
-      'Fetch one page of market bars for any symbol without changing the chart. limit must be an integer from 1 to 798. Use beforeTimestamp only as an exclusive Unix-millisecond cursor; omit it for the latest bars. Pagination and retries are handled by the cache.',
+      'Fetch one page of market bars for any symbol without changing the chart. limit must be an integer from 1 to 798. Use beforeDate as an optional exclusive YYYY-MM-DD trading-date upper bound in the instrument timezone; omit it for the latest bars. Pagination and retries are handled by the cache.',
     parameters: BarsQueryToolParameters,
     safety: 'read-only',
     executionMode: 'parallel',
   })
-  queryBarsByTimestamp(
+  async queryBarsByTradingDate(
     input: BarsQueryToolInput,
     context?: ChartToolExecutionContext,
   ): Promise<string> {
+    const beforeTimestamp =
+      input.beforeDate === undefined
+        ? undefined
+        : await this.resolveBarsCursorTimestamp(input, context?.signal)
     return this.queryBars(
       {
-        ...input,
-        beforeTimestamp: input.beforeTimestamp,
+        symbol: input.symbol,
+        period: input.period,
+        adjustment: input.adjustment,
+        limit: input.limit,
+        ...(input.sourceId === undefined ? {} : { sourceId: input.sourceId }),
+        ...(input.exchange === undefined ? {} : { exchange: input.exchange }),
+        ...(input.assetClass === undefined ? {} : { assetClass: input.assetClass }),
+        ...(beforeTimestamp === undefined ? {} : { beforeTimestamp }),
       },
       context,
     )
+  }
+
+  /** 解析品种会话时区，将 Agent 提供的交易日转换为排他时间戳游标。 */
+  private async resolveBarsCursorTimestamp(
+    input: BarsQueryToolInput,
+    signal: AbortSignal | undefined,
+  ): Promise<number> {
+    const matches = await lookupInstrumentsBySymbol(this.dependencies.marketDataProviderRegistry, {
+      symbol: input.symbol,
+      ...(input.sourceId === undefined ? {} : { sourceIds: [input.sourceId] }),
+      signal,
+    })
+    const instrument = matches.find((item) => item.sessionId) ?? matches[0]
+    if (!instrument?.sessionId) {
+      throw new KLineChartError(
+        CHART_AGENT_ERROR_CODES.INVALID_QUERY,
+        `Cannot resolve a trading-date cursor for "${input.symbol}" because the instrument session timezone is unknown. Omit beforeDate or use a date already visible in tool results.`,
+      )
+    }
+    const provider = this.dependencies.marketDataProviderRegistry.getRequired(instrument.sourceId)
+    const timeZone = new MarketSessionRegistry(provider.source.marketSessions).getRequired(
+      instrument.sessionId,
+    ).timeZone
+    return parseTradingDate(input.beforeDate!, timeZone)
   }
 
   /** 查询任意品种单个交易日的分时；不读取或修改图表运行时状态。 */

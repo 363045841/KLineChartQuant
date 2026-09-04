@@ -4,7 +4,11 @@ export * from './features/mcp'
 export * from './features/agent'
 export { VERSION } from './version'
 export * from './foundation/tokens'
-export { formatTimestamp } from './foundation/utils/dateFormat'
+export {
+  formatTimestamp,
+  formatTradingDate,
+  formatTradingDateCompact,
+} from './foundation/utils/dateFormat'
 export { generateUUID } from './foundation/utils/uuid'
 export type { ChartSettings } from './foundation/config/chartSettings'
 

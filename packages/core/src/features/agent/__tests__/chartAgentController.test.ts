@@ -45,6 +45,7 @@ function publishBars(dataState: ReturnType<typeof createDataState>, bars = creat
     data: bars,
     loading: false,
     error: null,
+    timezone: 'Asia/Shanghai',
     timeShareRange: null,
     timeSharePreClose: null,
   })
@@ -80,13 +81,6 @@ function createFixture() {
     updateContent: vi.fn(() => true),
     clear: vi.fn(),
   }
-  const mainIndicators = [{ indicatorId: 'MA', params: { ma5: true } }]
-  const mainIndicatorActions = {
-    create: vi.fn(() => true),
-    update: vi.fn(() => true),
-    remove: vi.fn(() => true),
-    clear: vi.fn(),
-  }
 
   const currentSpec = createSignal<SymbolSpec | null>({
     symbol: 'BTCUSDT',
@@ -119,6 +113,7 @@ function createFixture() {
     name: 'Bitcoin',
     assetClass: 'crypto' as const,
     exchange: 'BINANCE',
+    sessionId: 'CN',
     capabilities: {
       bars: { periods: ['daily'] as const, adjustments: ['none'] as const },
       timeShare: true,
@@ -187,15 +182,6 @@ function createFixture() {
     drawingCommands,
     getDrawingPaneIds: () => ['main'],
     paneManager: { actions: paneActions, list: () => panes },
-    mainIndicators: { actions: mainIndicatorActions, list: () => mainIndicators },
-    getIndicatorMetadata: (indicatorId) =>
-      indicatorId === 'RSI'
-        ? {
-            name: 'RSI',
-            displayName: 'RSI',
-            runtime: { defaultParams: { period1: 6, period2: 12, period3: 24 } },
-          }
-        : undefined,
     isSubPaneRendererAvailable: (indicatorId) => indicatorId === 'RSI' || indicatorId === 'MACD',
   })
 
@@ -215,7 +201,6 @@ function createFixture() {
     drawingDocument,
     requestDraw,
     paneActions,
-    mainIndicatorActions,
   }
 }
 
@@ -233,7 +218,7 @@ describe('createChartAgentController', () => {
       exchange: 'BINANCE',
       period: 'kline',
       dataSource: 'fixture',
-      timezone: null,
+      timezone: 'Asia/Shanghai',
       adjustMode: 'none',
       dataRange: {
         from: Date.parse('2026-09-01') + 25_200_000,
@@ -346,6 +331,29 @@ describe('createChartAgentController', () => {
     ).resolves.toBe('RSI compact text')
     expect(fixture.queryIndicator).toHaveBeenCalledTimes(2)
     expect(fixture.queryIndicator).toHaveBeenLastCalledWith(input)
+  })
+
+  it('converts indicator trading-date bounds into the active data timezone', async () => {
+    const fixture = createFixture()
+    const tool = getRegisteredChartTools().find((item) => item.config.name === 'indicators_query')
+
+    await tool?.execute(
+      fixture.controller,
+      {
+        definitionId: 'RSI',
+        params: { period: 14 },
+        fromDate: '2026-09-01',
+        toDate: '2026-09-02',
+      },
+      { signal: new AbortController().signal, progress: () => undefined },
+    )
+
+    expect(fixture.queryIndicator).toHaveBeenCalledWith({
+      definitionId: 'RSI',
+      params: { period: 14 },
+      from: Date.parse('2026-08-31T16:00:00Z'),
+      to: Date.parse('2026-09-02T15:59:59.999Z'),
+    })
   })
 
   it('executes drawing CRUD through the registered document tools', async () => {
@@ -529,7 +537,7 @@ describe('createChartAgentController', () => {
     expect(fixture.controller.getContext().symbol).toBe('BTCUSDT')
   })
 
-  it('passes the registered market bars timestamp cursor through unchanged', async () => {
+  it('converts the registered market bars beforeDate into a timezone-aware timestamp cursor', async () => {
     const fixture = createFixture()
     const tool = getRegisteredChartTools().find((item) => item.config.name === 'market_bars_query')
 
@@ -542,14 +550,14 @@ describe('createChartAgentController', () => {
           period: 'daily',
           adjustment: 'none',
           limit: 100,
-          beforeTimestamp: Date.parse('2026-09-01'),
+          beforeDate: '2026-09-01',
         },
         { signal: new AbortController().signal, progress: () => undefined },
       ),
     ).resolves.toContain('source=fixture')
 
     expect(fixture.fetchBars).toHaveBeenCalledWith(
-      expect.objectContaining({ beforeTimestamp: Date.parse('2026-09-01') }),
+      expect.objectContaining({ beforeTimestamp: Date.parse('2026-08-31T16:00:00Z') }),
     )
   })
 
@@ -603,78 +611,6 @@ describe('createChartAgentController', () => {
     expect(fixture.paneActions.updateContent).toHaveBeenCalledWith('rsi', { fast: 6 })
     expect(fixture.paneActions.remove).toHaveBeenCalledWith('rsi')
     expect(fixture.paneActions.clear).toHaveBeenCalledOnce()
-  })
-
-  it('registers main indicator CRUD tools through the normalized domain interface', async () => {
-    const fixture = createFixture()
-    const tool = (name: string) =>
-      getRegisteredChartTools().find((item) => item.config.name === name)!
-    const execution = { signal: new AbortController().signal, progress: () => undefined }
-
-    await expect(
-      tool('main_indicators_list').execute(fixture.controller, {}, execution),
-    ).resolves.toEqual([{ indicatorId: 'MA', params: { ma5: true } }])
-    await expect(
-      tool('main_indicator_create').execute(
-        fixture.controller,
-        { indicatorId: 'MA', params: { ma5: true } },
-        execution,
-      ),
-    ).resolves.toBe(true)
-    await expect(
-      tool('main_indicator_update').execute(
-        fixture.controller,
-        { indicatorId: 'MA', params: { ma5: false } },
-        execution,
-      ),
-    ).resolves.toBe(true)
-    await expect(
-      tool('main_indicator_remove').execute(fixture.controller, { indicatorId: 'MA' }, execution),
-    ).resolves.toBe(true)
-    await tool('main_indicators_clear').execute(fixture.controller, {}, execution)
-
-    expect(fixture.mainIndicatorActions.create).toHaveBeenCalledWith({
-      indicatorId: 'MA',
-      params: { ma5: true },
-    })
-    expect(fixture.mainIndicatorActions.update).toHaveBeenCalledWith({
-      indicatorId: 'MA',
-      params: { ma5: false },
-    })
-    expect(fixture.mainIndicatorActions.remove).toHaveBeenCalledWith({ indicatorId: 'MA' })
-    expect(fixture.mainIndicatorActions.clear).toHaveBeenCalledOnce()
-  })
-
-  it('exposes registered indicator parameter schemas before pane mutations', async () => {
-    const fixture = createFixture()
-    const tool = getRegisteredChartTools().find(
-      (item) => item.config.name === 'indicator_describe',
-    )!
-
-    await expect(
-      tool.execute(
-        fixture.controller,
-        { indicatorId: 'RSI' },
-        { signal: new AbortController().signal, progress: () => undefined },
-      ),
-    ).resolves.toEqual({
-      indicatorId: 'RSI',
-      label: 'RSI',
-      params: [
-        { key: 'period1', type: 'number', default: 6 },
-        { key: 'period2', type: 'number', default: 12 },
-        { key: 'period3', type: 'number', default: 24 },
-      ],
-    })
-    await expect(
-      tool.execute(
-        fixture.controller,
-        { indicatorId: 'UNKNOWN' },
-        { signal: new AbortController().signal, progress: () => undefined },
-      ),
-    ).resolves.toBe(
-      "Indicator 'UNKNOWN' is not registered. Choose a registered indicatorId before creating or updating a pane.",
-    )
   })
 
   it('rejects pane content without a valid sub-pane renderer before mutating state', async () => {

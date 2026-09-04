@@ -16,7 +16,8 @@ import type { AssistantMessage, Usage } from '@earendil-works/pi-ai'
 
 const DEFAULT_TOOL_TURN_LIMIT = 20
 const HARD_TOOL_TURN_LIMIT = 20
-const DEFAULT_TIMEOUT_MS = 30_000
+// 单次 Agent 运行的总超时，放宽至 2 分钟以容纳复杂工具调用与长输出。
+const DEFAULT_TIMEOUT_MS = 120_000
 
 /** 判断 Pi 消息是否为助手消息，供事件投影和错误分类使用。 */
 function isAssistant(message: unknown): message is AssistantMessage {
@@ -205,7 +206,12 @@ export class PiRunDriver {
         model: plan.model,
         thinkingLevel: 'low',
         tools,
-        messages: [...(plan.transcript ?? [])],
+        messages: [
+          ...(plan.transcript ?? []),
+          ...(plan.runtimeContext
+            ? [{ role: 'user' as const, content: plan.runtimeContext, timestamp: this.now() }]
+            : []),
+        ],
       },
       streamFn: plan.streamFn,
       sessionId: plan.sessionId,
@@ -416,7 +422,10 @@ export class PiRunDriver {
             toolCallId,
             signal,
             progress: (progress) => {
-              onUpdate?.({ content: [{ type: 'text', text: progress.label }], details: { progress } })
+              onUpdate?.({
+                content: [{ type: 'text', text: progress.label }],
+                details: { progress },
+              })
             },
           })
         } catch (error) {

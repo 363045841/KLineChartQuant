@@ -1,6 +1,10 @@
 /** K 线图表快照适配器：接收缓存查询结果并发布数据、加载与错误状态。 */
 import type { KLineData, SymbolSpec } from '../../controllers/types'
-import { createSignal, type ReadonlySignal, type WritableSignal } from '../../foundation/reactivity/signal'
+import {
+  createSignal,
+  type ReadonlySignal,
+  type WritableSignal,
+} from '../../foundation/reactivity/signal'
 import type { OlderDataStatus } from '../provider/types'
 
 import type { DataChange, KLineBuffer, LoadedTimeRange } from './dataBufferTypes'
@@ -13,6 +17,7 @@ export class DataBuffer implements KLineBuffer {
   private readonly keyIndex = new TimeKeyIndex()
   private readonly loadingSignal: WritableSignal<boolean> = createSignal(false)
   private readonly errorSignal: WritableSignal<string | null> = createSignal<string | null>(null)
+  private readonly timezoneSignal: WritableSignal<string | null> = createSignal<string | null>(null)
   private current: SymbolSpec | null = null
   private disposed = false
 
@@ -29,6 +34,11 @@ export class DataBuffer implements KLineBuffer {
   /** 返回最近一次缓存查询错误。 */
   get lastError(): ReadonlySignal<string | null> {
     return this.errorSignal
+  }
+
+  /** 返回当前 K 线序列的 Provider 时区。 */
+  get timezone(): ReadonlySignal<string | null> {
+    return this.timezoneSignal
   }
 
   /** 返回当前图表选择的品种描述。 */
@@ -64,6 +74,7 @@ export class DataBuffer implements KLineBuffer {
     this.keyIndex.reset()
     this.errorSignal.set(null)
     this.loadingSignal.set(false)
+    this.timezoneSignal.set(null)
   }
 
   /** 仅更新选择元数据，不触发请求或清空已有快照。 */
@@ -76,15 +87,17 @@ export class DataBuffer implements KLineBuffer {
     if (this.disposed) return
     this.store.setInlineData([...data])
     this.keyIndex.recompute(this.store.getRawData())
+    this.timezoneSignal.set(null)
     this.errorSignal.set(null)
     this.loadingSignal.set(false)
   }
 
   /** 合并缓存层返回的分页结果并发布增量变更。 */
-  mergeData(data: ReadonlyArray<KLineData>, _olderData: OlderDataStatus): void {
+  mergeData(data: ReadonlyArray<KLineData>, _olderData: OlderDataStatus, timezone: string): void {
     if (this.disposed) return
     this.store.merge(data)
     this.keyIndex.recompute(this.store.getRawData())
+    this.timezoneSignal.set(timezone)
     this.errorSignal.set(null)
     this.loadingSignal.set(false)
   }
@@ -110,5 +123,6 @@ export class DataBuffer implements KLineBuffer {
     this.keyIndex.reset()
     this.loadingSignal.set(false)
     this.errorSignal.set(null)
+    this.timezoneSignal.set(null)
   }
 }

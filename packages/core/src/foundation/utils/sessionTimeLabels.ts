@@ -279,7 +279,7 @@ function getCalendarPartsInTimeZone(
  * 将某时区墙钟 (y-m-d + minuteOfDay) 转为 UTC epoch。
  * 用迭代修正 UTC 猜测，覆盖 DST。
  */
-function zonedWallTimeToUtc(
+export function zonedWallTimeToUtc(
   year: number,
   month: number,
   day: number,
@@ -294,8 +294,7 @@ function zonedWallTimeToUtc(
     const wall = getWallClockInTimeZone(utc, timeZone)
     const desiredMin = hour * 60 + minute
     const actualMin = wall.hour * 60 + wall.minute
-    const dayDelta =
-      Date.UTC(year, month - 1, day) - Date.UTC(wall.year, wall.month - 1, wall.day)
+    const dayDelta = Date.UTC(year, month - 1, day) - Date.UTC(wall.year, wall.month - 1, wall.day)
     const minDelta = desiredMin - actualMin + dayDelta / 60_000
     if (minDelta === 0) break
     utc += minDelta * 60_000
