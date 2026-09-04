@@ -8,20 +8,24 @@
     <div v-if="providerSettings.tools.length" class="agent-tools">
       <section v-for="tool in providerSettings.tools" :key="tool.name" class="agent-tool">
         <label class="agent-tool__toggle">
-          <input type="checkbox" :checked="tool.enabled" @change="setToolEnabled(tool.name, $event)" />
+          <input
+            type="checkbox"
+            :checked="tool.enabled"
+            @change="setToolEnabled(tool.name, $event)"
+          />
           <span>
             <strong>{{ tool.label }}</strong>
             <small>{{ tool.description }}</small>
           </span>
         </label>
-        <label class="agent-tool__parameters">
-          <span>{{ text.toolParameters }}</span>
+        <details class="agent-tool__parameters">
+          <summary>{{ text.toolParameters }}</summary>
           <textarea
             :value="providerSettings.toolInputs[tool.name] ?? '{}'"
             spellcheck="false"
             @input="setToolInput(tool.name, $event)"
           />
-        </label>
+        </details>
         <button
           type="button"
           class="agent-tool__run"
@@ -123,6 +127,10 @@
     font-size: 11px;
   }
 
+  .agent-tool__parameters summary {
+    cursor: pointer;
+  }
+
   .agent-tool__parameters textarea,
   .agent-tool__result {
     box-sizing: border-box;
@@ -134,7 +142,11 @@
     border-radius: 4px;
     color: var(--klc-color-foreground);
     background: var(--klc-color-background);
-    font: 11px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace;
+    font:
+      11px/1.4 ui-monospace,
+      SFMono-Regular,
+      Consolas,
+      monospace;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
