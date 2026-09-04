@@ -2,6 +2,7 @@ import type {
   ChartController,
   ChartViewport,
   KLineData,
+  PaneSpec,
 } from '@363045841yyt/klinechart-core/controllers'
 import { computed, ref, type Ref } from 'vue'
 
@@ -34,6 +35,11 @@ export function useChartState(controller: Ref<ChartController | null>) {
     (chart) => chart.paneRatios,
     () => ({}),
   )
+  const paneLayout = useControllerSignal<ReadonlyArray<PaneSpec>>(
+    controller,
+    (chart) => chart.paneLayout,
+    () => [],
+  )
   const zoomLevel = computed(() => viewport.value.zoomLevel)
   const comparisonColorsMap = ref<Map<string, string>>(new Map())
   const comparisonLoading = ref(false)
@@ -46,6 +52,7 @@ export function useChartState(controller: Ref<ChartController | null>) {
     data,
     zoomLevel,
     paneRatios,
+    paneLayout,
     comparisonColorsMap,
     comparisonLoading,
     isRangeSelectMode,

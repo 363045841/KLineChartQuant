@@ -10,6 +10,7 @@ import type { KLineData } from '../../foundation/types/price'
 import type { TitleInfo } from '../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../indicators/scheduler'
 import { getFont, setCanvasFont } from '../../foundation/tokens/fonts'
+import { PANE_HEADER_INSET_PX } from '../chartTypes'
 
 import type { SubIndicatorType } from './Indicator'
 
@@ -88,7 +89,7 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
       if (pane.id !== currentOptions.paneId || !overlayCtx) return
 
       const fontSize = 12
-      const x = 12
+      const x = PANE_HEADER_INSET_PX
       const y = currentOptions.yOffset ?? fontSize
       const gap = 8
 

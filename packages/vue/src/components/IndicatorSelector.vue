@@ -2,18 +2,18 @@
   <div class="indicator-selector">
     <BaseModal
       :show="menuOpen"
-      title="添加指标"
+      :title="modalTitle"
       subtitle=""
       width="90vw"
       max-width="860px"
       max-height="85vh"
       transition-variant="compact"
       footer-align="space-between"
-      @close="controller.closeMenu()"
+      @close="closeMenu"
     >
       <template #header>
         <div class="header-title">
-          <span class="title-text">添加指标</span>
+          <span class="title-text">{{ modalTitle }}</span>
           <span class="title-sub">{{ catalogLen }} 个可用指标</span>
         </div>
       </template>
@@ -101,7 +101,7 @@
         <div class="footer-info">
           <span class="info-text">已激活 {{ activeCount }} 个指标</span>
         </div>
-        <button class="btn btn-confirm" @click="controller.closeMenu()">确认</button>
+        <button class="btn btn-confirm" @click="closeMenu">确认</button>
       </template>
     </BaseModal>
 
@@ -157,12 +157,15 @@
   const props = defineProps<{
     activeIndicators?: string[]
     indicatorParams?: Record<string, Record<string, unknown>>
+    replacePaneId?: string | null
   }>()
 
   const emit = defineEmits<{
     toggle: [indicatorId: string, active: boolean]
     updateParams: [indicatorId: string, params: Record<string, number>]
     reorderSubIndicators: [orderedIndicatorIds: string[]]
+    replace: [paneId: string, indicatorId: string]
+    close: []
   }>()
 
   function toIndicatorDefinitions(source: Indicator[]): IndicatorDefinition[] {
@@ -229,6 +232,12 @@
 
   /** 按当前视图组织搜索后的指标，所有分组始终保持展开。 */
   const indicatorGroups = computed<IndicatorGroup[]>(() => {
+    if (props.replacePaneId) {
+      return filteredSub.value.length > 0
+        ? [{ key: 'sub', label: '副图指标', items: filteredSub.value }]
+        : []
+    }
+
     if (indicatorView.value === 'position') {
       return [
         { key: 'main', label: '主图指标', items: filteredMain.value },
@@ -269,6 +278,7 @@
   })
 
   const activeCount = computed(() => props.activeIndicators?.length ?? 0)
+  const modalTitle = computed(() => (props.replacePaneId ? '更换指标' : '添加指标'))
 
   function isActive(indicatorId: string): boolean {
     return props.activeIndicators?.includes(indicatorId) ?? false
@@ -287,6 +297,13 @@
 
   /** 切换指标启用状态。 */
   function toggleIndicator(indicatorId: string) {
+    if (props.replacePaneId) {
+      const indicator = findIndicator(indicatorId)
+      if (!indicator || indicator.pane !== 'sub') return
+      emit('replace', props.replacePaneId, indicatorId)
+      closeMenu()
+      return
+    }
     if (isActive(indicatorId)) {
       removeIndicator(indicatorId)
     } else {
@@ -303,6 +320,12 @@
   function showDescription(indicatorId: string) {
     descriptionIndicatorId.value = indicatorId
     descriptionVisible.value = true
+  }
+
+  /** 关闭选择器，并通知父组件清除一次性的 Pane 替换目标。 */
+  function closeMenu() {
+    controller.closeMenu()
+    emit('close')
   }
 
   function getParamValues(indicatorId: string): Record<string, number> {
@@ -335,7 +358,7 @@
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape' && controller.menuOpen.peek()) {
-      controller.closeMenu()
+      closeMenu()
     }
   }
 
@@ -349,7 +372,7 @@
 
   defineExpose({
     openMenu: () => controller.openMenu(),
-    closeMenu: () => controller.closeMenu(),
+    closeMenu,
     toggleMenu: () => controller.toggleMenu(),
   })
 </script>
@@ -703,7 +726,11 @@
   }
 
   .btn-confirm {
-    background: color-mix(in srgb, var(--klc-color-foreground) 80%, var(--klc-color-chart-background));
+    background: color-mix(
+      in srgb,
+      var(--klc-color-foreground) 80%,
+      var(--klc-color-chart-background)
+    );
     color: var(--klc-color-background);
   }
 

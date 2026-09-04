@@ -215,18 +215,6 @@ export class ChartIndicatorManager {
             (paneOrder.get(right.paneId) ?? Number.MAX_SAFE_INTEGER),
         )
     })
-
-    // dev: 主副图状态变更日志
-    if ((import.meta as any).env?.MODE !== 'production') {
-      this._indicatorsComputed.subscribe(() => {
-        const instances = this._indicatorsComputed.peek()
-        console.log('[Chart] indicators signal changed:', instances)
-      })
-      this._subPanesComputed.subscribe(() => {
-        const subPanes = this._subPanesComputed.peek()
-        console.log('[Chart] subPanes signal changed:', subPanes)
-      })
-    }
   }
 
   /** 在 Scene 与 layout 就绪后投影当前完整状态，并订阅后续变更。 */

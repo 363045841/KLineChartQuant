@@ -133,18 +133,26 @@ export function useIndicatorManager(
   }
 
   function removeSubPane(paneId: string): void {
-    ctrl.value?.removeIndicator(paneId)
+    ctrl.value?.removePane(paneId)
   }
 
   function clearAllSubPanes(): void {
     for (const pane of subPanes.value) {
-      ctrl.value?.removeIndicator(pane.id)
+      ctrl.value?.removePane(pane.id)
     }
   }
 
   function switchSubIndicator(paneId: string, newIndicatorId: SubIndicatorType): void {
     const nextParams = getDefaultParams(newIndicatorId)
     ctrl.value?.replacePaneContent(paneId, newIndicatorId, nextParams)
+  }
+
+  /** 在副图序列中移动一个 Pane；主图始终固定在第 0 位。 */
+  function moveSubPane(paneId: string, direction: 'up' | 'down'): void {
+    const index = subPanes.value.findIndex((pane) => pane.id === paneId)
+    const target = direction === 'up' ? index - 1 : index + 1
+    if (index < 0 || target < 0 || target >= subPanes.value.length) return
+    ctrl.value?.movePane(paneId, target + 1)
   }
 
   function handleIndicatorToggle(indicatorId: string, active: boolean) {
@@ -177,7 +185,7 @@ export function useIndicatorManager(
       } else {
         const panesToRemove = subPanes.value.filter((p) => p.indicatorId === indicatorId)
         panesToRemove.forEach((pane) => {
-          c.removeIndicator(pane.id)
+          c.removePane(pane.id)
         })
       }
     }
@@ -255,6 +263,7 @@ export function useIndicatorManager(
     removeSubPane,
     clearAllSubPanes,
     switchSubIndicator,
+    moveSubPane,
     handleIndicatorToggle,
     handleUpdateParams,
     handleReorderSubIndicators,

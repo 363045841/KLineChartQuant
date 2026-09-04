@@ -104,6 +104,14 @@
                   <slot name="legend" v-bind="legendTemplateContext" />
                 </div>
 
+                <PaneHeaderOverlay
+                  :panes="paneHeaderItems"
+                  @close="removeSubPane"
+                  @replace="openPaneIndicatorReplacement"
+                  @move-up="movePaneUp"
+                  @move-down="movePaneDown"
+                />
+
                 <CanvasToolbarStack>
                   <RangeSelectionExport
                     v-if="rangeSelectionReady"
@@ -249,9 +257,12 @@
       ref="indicatorSelectorRef"
       :active-indicators="activeIndicators"
       :indicator-params="indicatorParams"
+      :replace-pane-id="replacementPaneId"
       @toggle="handleIndicatorToggle"
       @update-params="handleUpdateParams"
       @reorder-sub-indicators="handleReorderSubIndicators"
+      @replace="replacePaneIndicator"
+      @close="replacementPaneId = null"
     />
   </div>
 </template>
@@ -275,6 +286,7 @@
     type SymbolSpec,
     type SymbolInfo,
     type CustomDataSource,
+    PANE_HEADER_INSET_PX,
   } from '@363045841yyt/klinechart-core/controllers'
   import {
     searchInstruments,
@@ -333,6 +345,7 @@
   import IndicatorSelector from './IndicatorSelector.vue'
   import LeftToolbar from './LeftToolbar.vue'
   import MarkerTooltip from './MarkerTooltip.vue'
+  import PaneHeaderOverlay from './PaneHeaderOverlay.vue'
   import RangeSelectionExport from './RangeSelectionExport.vue'
   import TopToolbar, { type SymbolItem } from './TopToolbar.vue'
   import WatchlistPanel from './WatchlistPanel.vue'
@@ -690,6 +703,7 @@
 
   // ── DOM Template Refs ──
   const containerRef = ref<HTMLDivElement | null>(null)
+  const canvasLayerRef = ref<HTMLDivElement | null>(null)
   const chartMainRef = ref<HTMLDivElement | null>(null)
   const chartWrapperRef = ref<HTMLDivElement | null>(null)
   const tooltipLayerRef = ref<HTMLDivElement | null>(null)
@@ -780,6 +794,7 @@
 
   const showBatchStockDialog = ref(false)
   const batchSymbols = ref<string[]>([])
+  const replacementPaneId = ref<string | null>(null)
 
   const chartState = useChartState(controller)
   const {
@@ -788,6 +803,7 @@
     data,
     zoomLevel,
     paneRatios,
+    paneLayout,
     comparisonColorsMap,
     comparisonLoading,
     isRangeSelectMode,
@@ -811,10 +827,59 @@
     removeSubPane,
     clearAllSubPanes,
     switchSubIndicator,
+    moveSubPane,
     handleIndicatorToggle,
     handleUpdateParams,
     handleReorderSubIndicators,
   } = useIndicatorManager(controller, paneRatios)
+
+  /** 读取 Core 的真实 Pane 几何，确保 Header 与最小高度、取整后的布局一致。 */
+  const paneHeaderItems = computed(() => {
+    // Pane 重排或 viewport 尺寸变化后，Canvas 会同步更新 DOM 尺寸与位置。
+    void paneLayout.value
+    void viewport.value
+    const canvasLayer = canvasLayerRef.value
+    if (!canvasLayer) return []
+
+    return subPanes.value.flatMap((pane, index) => {
+      const canvas = Array.from(
+        canvasLayer.querySelectorAll<HTMLCanvasElement>('canvas.main-canvas.sub'),
+      ).find((element) => element.id === `${pane.id}-main`)
+      if (!canvas) return []
+      return [
+        {
+          id: pane.id,
+          top: canvas.offsetTop + PANE_HEADER_INSET_PX,
+          anchorLeft: canvas.offsetLeft + canvas.offsetWidth - PANE_HEADER_INSET_PX,
+          canMoveUp: index > 0,
+          canMoveDown: index < subPanes.value.length - 1,
+        },
+      ]
+    })
+  })
+
+  /** 打开指标选择器，并将下一次选择限定为替换指定副图 Pane。 */
+  function openPaneIndicatorReplacement(paneId: string): void {
+    replacementPaneId.value = paneId
+    indicatorSelectorRef.value?.openMenu()
+  }
+
+  /** 使用选择器中选定的副图指标原子替换 Pane 内容，保留 Pane 身份和尺寸。 */
+  function replacePaneIndicator(paneId: string, indicatorId: string): void {
+    switchSubIndicator(
+      paneId,
+      indicatorId as import('@363045841yyt/klinechart-core/controllers').SubIndicatorType,
+    )
+    replacementPaneId.value = null
+  }
+
+  function movePaneUp(paneId: string): void {
+    moveSubPane(paneId, 'up')
+  }
+
+  function movePaneDown(paneId: string): void {
+    moveSubPane(paneId, 'down')
+  }
 
   const {
     drawingController,

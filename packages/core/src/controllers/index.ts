@@ -52,6 +52,7 @@ export type {
 
 export { createChartController } from './createChartController'
 export { createIndicatorSelectorController } from './createIndicatorSelectorController'
+export { PANE_HEADER_INSET_PX } from '../engine/chartTypes'
 
 // -- Engine sub-path re-exports (Phase 9: facade for Vue adapter) --
 
