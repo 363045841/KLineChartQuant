@@ -24,6 +24,8 @@ import type {
   ProviderTestInput,
   ProviderTestResult,
   StartRunInput,
+  AgentContextItem,
+  AgentRunContext,
 } from './agent-contracts'
 import type {
   ProviderCredentialStore,
@@ -244,36 +246,31 @@ interface BrowserAgentBridgeOptions {
   readonly getChartAgent?: () => ChartAgentController | null | undefined
 }
 
-function formatVisibleRange(
-  range: ReturnType<ChartAgentController['getContext']>['visibleRange'],
-): string | null {
-  if (!range) return null
-  const format = new Intl.DateTimeFormat('en-CA', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
-  return `${format.format(range.from)} - ${format.format(range.to)}`
-}
-
-function projectChartContext(agent: ChartAgentController | null | undefined) {
+/** 从 Core 快照投影 UI 与模型共享的最小上下文。 */
+function projectContextItems(
+  agent: ChartAgentController | null | undefined,
+): ReadonlyArray<AgentContextItem> {
   const context = agent?.context()
-  if (!context) return null
-  return {
-    symbol: context.symbol,
-    period: context.period,
-    visibleRange: formatVisibleRange(context.visibleRange),
-    selectedBar: null,
+  if (!context) return Object.freeze([])
+  const items: AgentContextItem[] = []
+  if (context.symbol) {
+    items.push({
+      kind: 'chart-symbol',
+      value: { symbol: context.symbol, name: context.symbolName },
+    })
   }
+  if (context.visibleRange) {
+    items.push({ kind: 'selected-time-range', value: { ...context.visibleRange } })
+  }
+  return Object.freeze(
+    items.map((item) => Object.freeze({ ...item, value: Object.freeze(item.value) })),
+  )
 }
 
 export class BrowserAgentBridge implements AgentBridgeClient {
   private readonly listeners = new Set<(event: AgentUiEvent) => void>()
-  private readonly chartContextListeners = new Set<
-    (context: ReturnType<typeof projectChartContext>) => void
+  private readonly contextItemsListeners = new Set<
+    (items: ReadonlyArray<AgentContextItem>) => void
   >()
   private readonly profiles = new BrowserProviderProfiles()
   private readonly enabledTools = new BrowserEnabledTools()
@@ -307,17 +304,15 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     this.sessions.set(session.view.id, session)
   }
 
-  getChartContext() {
-    return projectChartContext(this.chartAgent ?? this.getChartAgent())
+  getContextItems(): ReadonlyArray<AgentContextItem> {
+    return projectContextItems(this.chartAgent ?? this.getChartAgent())
   }
 
-  subscribeChartContext(
-    listener: (context: ReturnType<typeof projectChartContext>) => void,
-  ): () => void {
+  subscribeContextItems(listener: (items: ReadonlyArray<AgentContextItem>) => void): () => void {
     this.bindChartAgent(this.getChartAgent())
-    this.chartContextListeners.add(listener)
-    listener(this.getChartContext())
-    return () => this.chartContextListeners.delete(listener)
+    this.contextItemsListeners.add(listener)
+    listener(this.getContextItems())
+    return () => this.contextItemsListeners.delete(listener)
   }
 
   /** 绑定图表 controller；支持 Agent 面板先于图表完成挂载。 */
@@ -326,13 +321,13 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     if (this.chartAgent === next) return
     this.unsubscribeChartContextSource?.()
     this.chartAgent = next
-    this.unsubscribeChartContextSource = next?.context.subscribe(() => this.publishChartContext())
-    this.publishChartContext()
+    this.unsubscribeChartContextSource = next?.context.subscribe(() => this.publishContextItems())
+    this.publishContextItems()
   }
 
-  private publishChartContext(): void {
-    const context = this.getChartContext()
-    for (const listener of this.chartContextListeners) listener(context)
+  private publishContextItems(): void {
+    const items = this.getContextItems()
+    for (const listener of this.contextItemsListeners) listener(items)
   }
 
   async listSessions(): Promise<AgentSessionView[]> {
@@ -553,8 +548,12 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     const runId = `run-${this.nextRun++}`
     const startedAt = Date.now()
     const driver = new PiRunDriver()
-    this.activeRuns.set(runId, { driver, input })
-    this.runInputs.set(runId, input)
+    const runInput: StartRunInput = {
+      ...input,
+      context: Object.freeze({ items: this.getContextItems() }) satisfies AgentRunContext,
+    }
+    this.activeRuns.set(runId, { driver, input: runInput })
+    this.runInputs.set(runId, runInput)
     const transcript = [...session.transcript]
     session.transcript.push({ role: 'user', content: input.prompt, timestamp: startedAt })
     session.messages.push({
@@ -571,7 +570,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       sessionId: input.sessionId,
       message: session.messages.at(-1)!,
     })
-    void this.run(driver, runId, input, session, transcript, startedAt)
+    void this.run(driver, runId, runInput, session, transcript, startedAt)
     return { runId }
   }
 
@@ -687,6 +686,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
         lane: 'main',
         prompt: input.prompt,
         readOnly: input.readOnly,
+        context: input.context,
         startedAt,
         userEntryId: `user-${runId}`,
       })

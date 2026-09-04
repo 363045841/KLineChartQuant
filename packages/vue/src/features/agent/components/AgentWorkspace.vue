@@ -4,7 +4,7 @@
       :sessions="state.sessions"
       :active-session-id="state.activeSessionId"
       :provider="state.provider"
-      :context="chartContext"
+      :context-items="contextItems"
       :locale="locale"
       @create="createSession"
       @select="selectSession"
@@ -31,7 +31,7 @@
     />
 
     <AgentContextBar
-      :context="chartContext"
+      :context-items="contextItems"
       :locale="locale"
       :read-only="readOnly"
       @read-only="setReadOnly"
@@ -78,7 +78,7 @@
 
   const {
     state,
-    chartContext,
+    contextItems,
     draft,
     providerSettings,
     locale,

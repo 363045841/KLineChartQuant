@@ -7,7 +7,7 @@ import {
 import {
   AGENT_UI_PROTOCOL_VERSION,
   type AgentBridgeClient,
-  type ChartContextView,
+  type AgentContextItem,
   type AgentSessionView,
   type AgentSessionSnapshot,
   type AgentRunUiEventInput,
@@ -67,12 +67,9 @@ export class FakeAgentBridge implements AgentBridgeClient {
   ]
   private nextSessionId = 2
   private nextRunId = 1
-  private readonly chartContext: ChartContextView = {
-    symbol: 'BTCUSDT',
-    period: '1h',
-    visibleRange: 'Latest 7 days',
-    selectedBar: null,
-  }
+  private readonly contextItems: ReadonlyArray<AgentContextItem> = [
+    { kind: 'chart-symbol', value: { symbol: 'BTCUSDT', name: 'Bitcoin / Tether' } },
+  ]
 
   constructor(options: FakeAgentBridgeOptions = {}) {
     this.stepDelayMs = options.stepDelayMs ?? 90
@@ -94,12 +91,12 @@ export class FakeAgentBridge implements AgentBridgeClient {
         }
   }
 
-  getChartContext(): ChartContextView {
-    return this.chartContext
+  getContextItems(): ReadonlyArray<AgentContextItem> {
+    return this.contextItems
   }
 
-  subscribeChartContext(listener: (context: ChartContextView | null) => void): () => void {
-    listener(this.chartContext)
+  subscribeContextItems(listener: (items: ReadonlyArray<AgentContextItem>) => void): () => void {
+    listener(this.contextItems)
     return () => {}
   }
 
@@ -128,7 +125,8 @@ export class FakeAgentBridge implements AgentBridgeClient {
   }
 
   async debugTool(name: string, input: unknown): Promise<AgentToolDebugResult> {
-    if (!this.tools.some((tool) => tool.name === name)) throw new Error(`Unknown fake Agent tool: ${name}`)
+    if (!this.tools.some((tool) => tool.name === name))
+      throw new Error(`Unknown fake Agent tool: ${name}`)
     return { content: JSON.stringify({ input }), summary: 'Fake tool completed.' }
   }
 

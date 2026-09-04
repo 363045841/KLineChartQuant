@@ -1,7 +1,7 @@
 // OpenAI-compatible Provider 的运行时配置、存储边界与诊断数据契约。
 
 /** OpenAI-compatible Provider 的稳定标识。 */
-import type { ProviderApiProtocol } from '../contracts/ui.js'
+import type { AgentRunContext, ProviderApiProtocol } from '../contracts/ui.js'
 
 export const OPENAI_COMPATIBLE_PROVIDER_ID = 'openai-compatible'
 /** 在 UI 中展示的 Provider 名称。 */
@@ -102,5 +102,6 @@ export interface OpenAiCompatibleRuntimeOptions {
     readonly turnId: string
     readonly prompt: string
     readonly readOnly: boolean
+    readonly context?: AgentRunContext
   }) => readonly import('../pi/types.js').RuntimeToolDefinition[]
 }

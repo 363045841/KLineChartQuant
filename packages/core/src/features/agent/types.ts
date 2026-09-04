@@ -34,6 +34,7 @@ export interface ChartAgentActiveIndicator {
 export interface ChartAgentContextSnapshot {
   readonly chartId: string
   readonly symbol: string | null
+  readonly symbolName: string | null
   readonly market: string | null
   readonly exchange: string | null
   readonly period: string | null

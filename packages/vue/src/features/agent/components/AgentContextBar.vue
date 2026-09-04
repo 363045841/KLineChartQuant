@@ -1,9 +1,13 @@
 <template>
   <div class="context-bar">
     <div class="context-bar__chips" :aria-label="scopeLabel">
-      <span>{{ context?.symbol ?? text.noSymbol }}</span>
-      <span>{{ context?.period ?? text.noPeriod }}</span>
-      <span v-if="context?.visibleRange" class="context-bar__range">{{ context.visibleRange }}</span>
+      <span v-if="symbolContext"
+        >{{ symbolContext.value.symbol
+        }}{{ symbolContext.value.name ? ` (${symbolContext.value.name})` : '' }}</span
+      >
+      <span v-if="rangeContext" class="context-bar__range">{{
+        formatRange(rangeContext.value)
+      }}</span>
     </div>
     <div class="context-bar__toggle" :title="text.readOnlyHint">
       <ToggleSwitch
@@ -23,20 +27,43 @@
   import ToggleSwitch from '../../../components/common/ToggleSwitch.vue'
   import { getAgentCopy, type AgentLocale } from '../agent-copy'
 
-  import type { ChartContextView } from '../agent-contracts'
+  import type {
+    AgentChartSymbolContextItem,
+    AgentContextItem,
+    AgentSelectedTimeRangeContextItem,
+  } from '../agent-contracts'
 
   const props = defineProps<{
-    context: ChartContextView | null
+    contextItems: ReadonlyArray<AgentContextItem>
     locale: AgentLocale
     readOnly: boolean
   }>()
   defineEmits<{ 'read-only': [value: boolean] }>()
 
   const text = computed(() => getAgentCopy(props.locale))
-  const scopeLabel = computed(
-    () =>
-      `${props.context?.symbol ?? text.value.noSymbol}, ${props.context?.period ?? text.value.noPeriod}`,
+  const symbolContext = computed(() =>
+    props.contextItems.find(
+      (item): item is AgentChartSymbolContextItem => item.kind === 'chart-symbol',
+    ),
   )
+  const rangeContext = computed(() =>
+    props.contextItems.find(
+      (item): item is AgentSelectedTimeRangeContextItem => item.kind === 'selected-time-range',
+    ),
+  )
+  const scopeLabel = computed(() => symbolContext.value?.value.symbol ?? text.value.noSymbol)
+
+  function formatRange(range: AgentSelectedTimeRangeContextItem['value']): string {
+    const format = new Intl.DateTimeFormat('en-CA', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
+    return `${format.format(range.from)} - ${format.format(range.to)}`
+  }
 </script>
 
 <style scoped>

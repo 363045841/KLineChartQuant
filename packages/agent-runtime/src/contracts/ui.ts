@@ -116,6 +116,53 @@ export interface ChartContextView {
   selectedBar?: string | null
 }
 
+/** 可安全跨 UI、Bridge 与 Provider 传递的上下文对象。 */
+export interface AgentContextObject {
+  readonly [key: string]: AgentContextValue
+}
+
+/** 可安全跨 UI、Bridge 与 Provider 传递的上下文值。 */
+export type AgentContextValue =
+  null | boolean | number | string | ReadonlyArray<AgentContextValue> | AgentContextObject
+
+/** 单个运行上下文；kind 用于让模型和运行时识别上下文语义。 */
+export interface AgentContextItem<
+  TKind extends string = string,
+  TValue extends AgentContextValue = AgentContextValue,
+> {
+  readonly kind: TKind
+  readonly value: TValue
+}
+
+/** 当前图表品种的最小身份上下文。 */
+export interface AgentChartSymbolContextValue extends AgentContextObject {
+  readonly symbol: string
+  readonly name: string | null
+}
+
+/** 当前图表品种的上下文项。 */
+export type AgentChartSymbolContextItem = AgentContextItem<
+  'chart-symbol',
+  AgentChartSymbolContextValue
+>
+
+/** 用户已确认的图表区间选择。 */
+export interface AgentSelectedTimeRangeContextValue extends AgentContextObject {
+  readonly from: number
+  readonly to: number
+}
+
+/** 用户已确认的图表区间选择上下文项。 */
+export type AgentSelectedTimeRangeContextItem = AgentContextItem<
+  'selected-time-range',
+  AgentSelectedTimeRangeContextValue
+>
+
+/** 一次 Agent 运行冻结的界面上下文快照。 */
+export interface AgentRunContext {
+  readonly items: ReadonlyArray<AgentContextItem>
+}
+
 /** Agent 单次运行的权限与可见图表范围。 */
 export interface AgentRunScope extends ChartContextView {
   readOnly: boolean
@@ -241,6 +288,7 @@ export interface StartRunInput {
   sessionId: string
   prompt: string
   readOnly: boolean
+  context?: AgentRunContext
 }
 export interface ProviderTestInput {
   baseUrl: string
@@ -283,8 +331,8 @@ export interface ProviderTestResult {
 }
 
 export interface AgentBridgeClient {
-  getChartContext(): ChartContextView | null
-  subscribeChartContext(listener: (context: ChartContextView | null) => void): () => void
+  getContextItems(): ReadonlyArray<AgentContextItem>
+  subscribeContextItems(listener: (items: ReadonlyArray<AgentContextItem>) => void): () => void
   listSessions(): Promise<AgentSessionView[]>
   openSession(sessionId: string): Promise<AgentSessionSnapshot>
   getProviderStatus(): Promise<ProviderStatusView>
