@@ -14,8 +14,8 @@ import type {
 import type { AgentUsageView, ToolCallView, ToolProgressView } from '../contracts/ui.js'
 import type { AssistantMessage, Usage } from '@earendil-works/pi-ai'
 
-const DEFAULT_TOOL_TURN_LIMIT = 8
-const HARD_TOOL_TURN_LIMIT = 12
+const DEFAULT_TOOL_TURN_LIMIT = 20
+const HARD_TOOL_TURN_LIMIT = 20
 const DEFAULT_TIMEOUT_MS = 30_000
 
 /** 判断 Pi 消息是否为助手消息，供事件投影和错误分类使用。 */
