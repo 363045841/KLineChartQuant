@@ -28,9 +28,13 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22.12
+          node-version: 22.14.0
           cache: pnpm
           registry-url: 'https://registry.npmjs.org'
+
+      # npm trusted publishing requires npm >= 11.5.1 and exchanges the GitHub OIDC token at publish time.
+      - name: Install npm for trusted publishing
+        run: npm install --global npm@11.5.1
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -42,16 +46,9 @@ jobs:
         run: pnpm --filter @363045841yyt/klinechart-core --filter @363045841yyt/klinechart build
 
       - name: Publish to npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-
-          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
-            echo "❌ 错误：缺少 NPM_TOKEN secret"
-            exit 1
-          fi
 
           # 根据 tag 名判断 npm dist-tag
           # 用 bash glob 而非 grep，避免 GH Actions 环境中 regex 差异导致匹配失败
@@ -69,10 +66,7 @@ jobs:
           if [ -d "packages/core" ]; then
             echo "====== 开始发布 Core 包 ======"
             cd packages/core
-            npm publish --provenance --access public --tag "$NPM_TAG"
-            # Explicitly set dist-tag as a fallback — the --tag flag can
-            # sometimes be silently ignored by npm in certain environments.
-            npm dist-tag add "@363045841yyt/klinechart-core@$(node -p "require('./package.json').version")" "$NPM_TAG"
+            npm publish --access public --tag "$NPM_TAG"
             cd "$GITHUB_WORKSPACE"
           else
             echo "❌ 错误：未找到 packages/core 目录！"
@@ -91,10 +85,7 @@ jobs:
             # prevent auto-install of klinechart-core.
             sed -i "s/workspace:\^/^${TAG}/g" package.json
             sed -i "s/workspace:\*/${TAG}/g" package.json
-            npm publish --provenance --access public --tag "$NPM_TAG"
-            # Explicitly set dist-tag as a fallback — the --tag flag can
-            # sometimes be silently ignored by npm in certain environments.
-            npm dist-tag add "@363045841yyt/klinechart@$(node -p "require('./package.json').version")" "$NPM_TAG"
+            npm publish --access public --tag "$NPM_TAG"
             mv package.json.bak package.json
             trap - EXIT
             cd "$GITHUB_WORKSPACE"
