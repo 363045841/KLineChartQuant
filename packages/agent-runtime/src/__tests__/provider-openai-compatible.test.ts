@@ -394,7 +394,7 @@ describe('OpenAI-compatible runtime support', () => {
     },
   )
 
-  it('keeps the system prompt static when no runtime context is supplied', async () => {
+  it('injects the current Asia/Shanghai date and time into the system prompt', async () => {
     const { credentials, settings } = configuredStores()
     await configure(credentials, settings)
     const support = createOpenAiCompatibleRuntimeSupport({
@@ -415,8 +415,9 @@ describe('OpenAI-compatible runtime support', () => {
       userEntryId: 'user-1',
     })
 
-    expect(plan.systemPrompt).not.toContain('Current date and time')
-    expect(plan.runtimeContext).toBeUndefined()
+    expect(plan.systemPrompt).toContain(
+      'Current date and time (Asia/Shanghai): 2023-11-15 06:13:20',
+    )
   })
 
   it('injects the frozen UI context and avoids redundant chart discovery tools', async () => {
@@ -436,17 +437,11 @@ describe('OpenAI-compatible runtime support', () => {
       prompt: 'Analyze this range.',
       readOnly: true,
       context: {
-        referenceTime: 1_700_000_000_000,
         items: [
-          {
-            kind: 'chart-symbol',
-            status: 'updated',
-            value: { symbol: 'BTCUSDT', name: 'Bitcoin / Tether' },
-          },
+          { kind: 'chart-symbol', value: { symbol: 'BTCUSDT', name: 'Bitcoin / Tether' } },
           {
             kind: 'selected-time-range',
-            status: 'updated',
-            value: { from: '20231115', to: '20231116' },
+            value: { from: 1_700_000_000_000, to: 1_700_086_400_000 },
           },
         ],
       },
@@ -454,13 +449,9 @@ describe('OpenAI-compatible runtime support', () => {
       userEntryId: 'user-1',
     })
 
-    expect(plan.systemPrompt).not.toContain('"kind":"chart-symbol"')
-    expect(plan.runtimeContext).toContain(
-      'Current date and time (Asia/Shanghai): 2023-11-15 06:13:20',
-    )
-    expect(plan.runtimeContext).toContain('"kind":"chart-symbol"')
-    expect(plan.runtimeContext).toContain('"status":"updated"')
-    expect(plan.runtimeContext).toContain('Do not use tools to rediscover the current symbol')
+    expect(plan.systemPrompt).toContain('"kind":"chart-symbol"')
+    expect(plan.systemPrompt).toContain('"kind":"selected-time-range"')
+    expect(plan.systemPrompt).toContain('Do not use tools to rediscover the current symbol')
   })
 
   it('migrates v1 persisted settings to explicit Chat Completions', () => {

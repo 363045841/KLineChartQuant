@@ -45,7 +45,6 @@ function publishBars(dataState: ReturnType<typeof createDataState>, bars = creat
     data: bars,
     loading: false,
     error: null,
-    timezone: 'Asia/Shanghai',
     timeShareRange: null,
     timeSharePreClose: null,
   })
@@ -113,7 +112,6 @@ function createFixture() {
     name: 'Bitcoin',
     assetClass: 'crypto' as const,
     exchange: 'BINANCE',
-    sessionId: 'CN',
     capabilities: {
       bars: { periods: ['daily'] as const, adjustments: ['none'] as const },
       timeShare: true,
@@ -218,7 +216,7 @@ describe('createChartAgentController', () => {
       exchange: 'BINANCE',
       period: 'kline',
       dataSource: 'fixture',
-      timezone: 'Asia/Shanghai',
+      timezone: null,
       adjustMode: 'none',
       dataRange: {
         from: Date.parse('2026-09-01') + 25_200_000,
@@ -331,29 +329,6 @@ describe('createChartAgentController', () => {
     ).resolves.toBe('RSI compact text')
     expect(fixture.queryIndicator).toHaveBeenCalledTimes(2)
     expect(fixture.queryIndicator).toHaveBeenLastCalledWith(input)
-  })
-
-  it('converts indicator trading-date bounds into the active data timezone', async () => {
-    const fixture = createFixture()
-    const tool = getRegisteredChartTools().find((item) => item.config.name === 'indicators_query')
-
-    await tool?.execute(
-      fixture.controller,
-      {
-        definitionId: 'RSI',
-        params: { period: 14 },
-        fromDate: '2026-09-01',
-        toDate: '2026-09-02',
-      },
-      { signal: new AbortController().signal, progress: () => undefined },
-    )
-
-    expect(fixture.queryIndicator).toHaveBeenCalledWith({
-      definitionId: 'RSI',
-      params: { period: 14 },
-      from: Date.parse('2026-08-31T16:00:00Z'),
-      to: Date.parse('2026-09-02T15:59:59.999Z'),
-    })
   })
 
   it('executes drawing CRUD through the registered document tools', async () => {
@@ -537,7 +512,7 @@ describe('createChartAgentController', () => {
     expect(fixture.controller.getContext().symbol).toBe('BTCUSDT')
   })
 
-  it('converts the registered market bars beforeDate into a timezone-aware timestamp cursor', async () => {
+  it('passes the registered market bars timestamp cursor through unchanged', async () => {
     const fixture = createFixture()
     const tool = getRegisteredChartTools().find((item) => item.config.name === 'market_bars_query')
 
@@ -550,14 +525,14 @@ describe('createChartAgentController', () => {
           period: 'daily',
           adjustment: 'none',
           limit: 100,
-          beforeDate: '2026-09-01',
+          beforeTimestamp: Date.parse('2026-09-01'),
         },
         { signal: new AbortController().signal, progress: () => undefined },
       ),
     ).resolves.toContain('source=fixture')
 
     expect(fixture.fetchBars).toHaveBeenCalledWith(
-      expect.objectContaining({ beforeTimestamp: Date.parse('2026-08-31T16:00:00Z') }),
+      expect.objectContaining({ beforeTimestamp: Date.parse('2026-09-01') }),
     )
   })
 

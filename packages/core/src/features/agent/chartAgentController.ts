@@ -6,8 +6,6 @@ import { lookupInstrumentsBySymbol, searchInstruments } from '../../data/provide
 import type { MarketDataProviderRegistry } from '../../data/provider/registry'
 import { MarketDataCache } from '../../data/buffer/marketDataCache'
 import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
-import { parseTradingDate } from '../../foundation/utils/dateFormat'
-import { MarketSessionRegistry } from '../../engine/market/marketSessionRegistry'
 import type { DrawingDocument } from '../../engine/drawing/DrawingDocument'
 import type { DrawingCommands } from '../../engine/drawing/DrawingCommands'
 import type { DrawingObject } from '../../foundation/plugin'
@@ -111,12 +109,10 @@ const TradingDateToolParameter = Type.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$'
 const IndicatorQueryToolParameters = Type.Object({
   definitionId: Type.String({ minLength: 1 }),
   params: Type.Optional(Type.Record(Type.String(), Type.Number())),
-  fromDate: Type.Optional(TradingDateToolParameter),
-  toDate: Type.Optional(TradingDateToolParameter),
+  from: Type.Optional(Type.Number()),
+  to: Type.Optional(Type.Number()),
   limit: Type.Optional(Type.Integer({ minimum: 1, maximum: INDICATOR_QUERY_MAX_LIMIT })),
 })
-
-type IndicatorQueryToolInput = Static<typeof IndicatorQueryToolParameters>
 
 const BarsQueryToolParameters = Type.Object({
   symbol: Type.String({ minLength: 1 }),
@@ -126,7 +122,7 @@ const BarsQueryToolParameters = Type.Object({
   sourceId: Type.Optional(Type.String({ minLength: 1 })),
   exchange: Type.Optional(Type.String({ minLength: 1 })),
   assetClass: Type.Optional(AssetClassToolParameter),
-  beforeDate: Type.Optional(TradingDateToolParameter),
+  beforeTimestamp: Type.Optional(Type.Number()),
 })
 
 type BarsQueryToolInput = Static<typeof BarsQueryToolParameters>
@@ -349,7 +345,8 @@ class ChartAgentControllerImpl implements ChartAgentController {
     const dataSource = selection.sourceId || spec?.source || spec?.instrument?.sourceId || null
     const period = this.dependencies.chartMode()
     const adjustMode = selection.kind === 'bars' ? selection.adjustment : (spec?.adjust ?? null)
-    const timezone = activeBuffer.timezone
+    const timezone =
+      activeBuffer.kind === 'timeShare' ? (activeBuffer.timeShareRange?.timezone ?? null) : null
 
     return Object.freeze({
       chartId: this.dependencies.chartId,
@@ -532,42 +529,20 @@ class ChartAgentControllerImpl implements ChartAgentController {
   }
 
   /** 查询当前图表数据上的指标值；前端和 Agent 调用同一领域 API。 */
-  queryIndicator(input: IndicatorQueryInput): Promise<string> {
-    return this.dependencies.indicatorQuery.queryIndicator(input)
-  }
-
-  /** 将交易日区间参数转换为时间戳后查询指标；Agent 经 @Tool 注册表调用。 */
   @Tool({
     name: 'indicators_query',
     label: 'Query indicator',
     description:
-      'Calculate a registered chart indicator over the active K-line data and return compact text. Use definitionId, optional numeric calculation params, an optional inclusive trading-date range (fromDate/toDate in YYYY-MM-DD), and a bounded result limit.',
+      'Calculate a registered chart indicator over the active K-line data and return compact text. Use definitionId, optional numeric calculation params, an optional inclusive timestamp range, and a bounded result limit.',
     parameters: IndicatorQueryToolParameters,
     safety: 'read-only',
     executionMode: 'parallel',
   })
-  queryIndicatorByTradingDate(
-    input: IndicatorQueryToolInput,
+  queryIndicator(
+    input: IndicatorQueryInput,
     _context?: ChartToolExecutionContext,
   ): Promise<string> {
-    const timezone = this.dependencies.dataState.readonly.activeBuffer().timezone
-    if (timezone === null && (input.fromDate !== undefined || input.toDate !== undefined)) {
-      throw new KLineChartError(
-        CHART_AGENT_ERROR_CODES.INVALID_QUERY,
-        'Cannot interpret fromDate/toDate because the active data has no timezone; omit the dates or query a timezone-backed series.',
-      )
-    }
-    return this.queryIndicator({
-      definitionId: input.definitionId,
-      ...(input.params === undefined ? {} : { params: input.params }),
-      ...(input.limit === undefined ? {} : { limit: input.limit }),
-      ...(input.fromDate !== undefined && timezone !== null
-        ? { from: parseTradingDate(input.fromDate, timezone) }
-        : {}),
-      ...(input.toDate !== undefined && timezone !== null
-        ? { to: parseTradingDate(input.toDate, timezone, 'end') }
-        : {}),
-    })
+    return this.dependencies.indicatorQuery.queryIndicator(input)
   }
 
   /** 执行面向前端联想搜索的模糊品种查询。 */
@@ -617,61 +592,27 @@ class ChartAgentControllerImpl implements ChartAgentController {
     })
   }
 
-  /** 以交易日排他上界查询一页 K 线；底层游标始终使用 UTC 毫秒时间戳。 */
+  /** 以精确时间戳游标查询一页 K 线。 */
   @Tool({
     name: 'market_bars_query',
     label: 'Query market bars',
     description:
-      'Fetch one page of market bars for any symbol without changing the chart. limit must be an integer from 1 to 798. Use beforeDate as an optional exclusive YYYY-MM-DD trading-date upper bound in the instrument timezone; omit it for the latest bars. Pagination and retries are handled by the cache.',
+      'Fetch one page of market bars for any symbol without changing the chart. limit must be an integer from 1 to 798. Use beforeTimestamp only as an exclusive Unix-millisecond cursor; omit it for the latest bars. Pagination and retries are handled by the cache.',
     parameters: BarsQueryToolParameters,
     safety: 'read-only',
     executionMode: 'parallel',
   })
-  async queryBarsByTradingDate(
+  queryBarsByTimestamp(
     input: BarsQueryToolInput,
     context?: ChartToolExecutionContext,
   ): Promise<string> {
-    const beforeTimestamp =
-      input.beforeDate === undefined
-        ? undefined
-        : await this.resolveBarsCursorTimestamp(input, context?.signal)
     return this.queryBars(
       {
-        symbol: input.symbol,
-        period: input.period,
-        adjustment: input.adjustment,
-        limit: input.limit,
-        ...(input.sourceId === undefined ? {} : { sourceId: input.sourceId }),
-        ...(input.exchange === undefined ? {} : { exchange: input.exchange }),
-        ...(input.assetClass === undefined ? {} : { assetClass: input.assetClass }),
-        ...(beforeTimestamp === undefined ? {} : { beforeTimestamp }),
+        ...input,
+        beforeTimestamp: input.beforeTimestamp,
       },
       context,
     )
-  }
-
-  /** 解析品种会话时区，将 Agent 提供的交易日转换为排他时间戳游标。 */
-  private async resolveBarsCursorTimestamp(
-    input: BarsQueryToolInput,
-    signal: AbortSignal | undefined,
-  ): Promise<number> {
-    const matches = await lookupInstrumentsBySymbol(this.dependencies.marketDataProviderRegistry, {
-      symbol: input.symbol,
-      ...(input.sourceId === undefined ? {} : { sourceIds: [input.sourceId] }),
-      signal,
-    })
-    const instrument = matches.find((item) => item.sessionId) ?? matches[0]
-    if (!instrument?.sessionId) {
-      throw new KLineChartError(
-        CHART_AGENT_ERROR_CODES.INVALID_QUERY,
-        `Cannot resolve a trading-date cursor for "${input.symbol}" because the instrument session timezone is unknown. Omit beforeDate or use a date already visible in tool results.`,
-      )
-    }
-    const provider = this.dependencies.marketDataProviderRegistry.getRequired(instrument.sourceId)
-    const timeZone = new MarketSessionRegistry(provider.source.marketSessions).getRequired(
-      instrument.sessionId,
-    ).timeZone
-    return parseTradingDate(input.beforeDate!, timeZone)
   }
 
   /** 查询任意品种单个交易日的分时；不读取或修改图表运行时状态。 */

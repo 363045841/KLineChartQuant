@@ -318,7 +318,7 @@ describe('BrowserAgentBridge', () => {
         exchange: 'BINANCE',
         period: '1h',
         dataSource: 'fixture',
-        timezone: 'Asia/Shanghai',
+        timezone: null,
         adjustMode: null,
         dataRange: { from: 1, to: 2, bars: 2 },
         visibleRange: { from: 1, to: 2 },
@@ -350,10 +350,6 @@ describe('BrowserAgentBridge', () => {
       received.push(symbol?.value.symbol ?? null)
     })
     bridge.bindChartAgent(agent)
-    expect(bridge.getContextItems()).toContainEqual({
-      kind: 'selected-time-range',
-      value: { from: '19700101', to: '19700101' },
-    })
     symbol = 'ETHUSDT'
     for (const listener of listeners) listener()
 

@@ -22,7 +22,7 @@
 - `classifyProviderError`：将 Pi 流式失败映射为稳定的 `AgentRuntimeError`。
 - `toolTurnLimit` 与 `timeoutMs`：工具循环和总运行期限约束。
 
-默认最多允许 20 个工具轮次，硬上限为 20；默认总超时为 120 秒。超过限制时，驱动器会取消 Pi 运行并返回 `TOOL_LOOP_LIMIT` 或 `DEADLINE_EXCEEDED`。
+默认最多允许 8 个工具轮次，硬上限为 12；默认总超时为 120 秒。超过限制时，驱动器会取消 Pi 运行并返回 `TOOL_LOOP_LIMIT` 或 `DEADLINE_EXCEEDED`。
 
 ## 工具适配与事件
 
