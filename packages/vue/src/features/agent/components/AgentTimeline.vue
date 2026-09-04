@@ -1,5 +1,5 @@
 <template>
-  <main ref="scroller" class="timeline" aria-label="Agent timeline">
+  <main ref="scroller" class="timeline" aria-label="Agent timeline" @scroll.passive="updateAutoScroll">
     <section v-if="entries.length === 0" class="empty-state">
       <IconChartCandle aria-hidden="true" />
       <h2>{{ text.emptyTitle }}</h2>
@@ -115,6 +115,8 @@
   }>()
 
   const scroller = ref<HTMLElement | null>(null)
+  const AUTO_SCROLL_THRESHOLD_PX = 48
+  let shouldAutoScroll = true
   const text = computed(() => getAgentCopy(props.locale))
   const prompts = computed(() => [
     text.value.promptTrend,
@@ -172,6 +174,22 @@
     return props.confirmations.find((item) => item.toolCallId === toolCallId)
   }
 
+  // 用户离开底部后保留当前阅读位置，直到主动滚回消息末尾。
+  function updateAutoScroll(): void {
+    const element = scroller.value
+    if (!element) return
+    shouldAutoScroll =
+      element.scrollHeight - element.scrollTop - element.clientHeight <= AUTO_SCROLL_THRESHOLD_PX
+  }
+
+  // 仅在用户正在跟随最新消息时推进视图，避免流式输出打断历史阅读。
+  function scrollToLatest(): void {
+    if (!shouldAutoScroll) return
+    const element = scroller.value
+    if (!element) return
+    element.scrollTop = element.scrollHeight
+  }
+
   watch(
     () => [
       props.messages.length,
@@ -181,7 +199,7 @@
     ],
     async () => {
       await nextTick()
-      scroller.value?.scrollTo({ top: scroller.value.scrollHeight, behavior: 'smooth' })
+      scrollToLatest()
     },
   )
 </script>
