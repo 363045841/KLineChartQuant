@@ -236,6 +236,8 @@ describe('modeState', () => {
     kernel.indicator.actions.upsertMain('BOLL', {})
     kernel.indicator.actions.upsertSub({ paneId: 'sub_RSI', indicatorId: 'RSI', params: {} })
 
+    expect(kernel.visibleMainIndicatorIds$.peek()).toEqual(['ma', 'boll'])
+
     expect(kernel.activeRenderers$.peek()).toEqual([
       { name: 'candle', layerId: 'plugin:candle' },
       { name: 'extremaMarkers', layerId: 'plugin:extremaMarkers' },
@@ -254,6 +256,7 @@ describe('modeState', () => {
     expect(kernel.activeRenderers$.peek()).toEqual([
       { name: 'timeShare', layerId: 'plugin:timeShare' },
     ])
+    expect(kernel.visibleMainIndicatorIds$.peek()).toEqual([])
     expect(kernel.pane.readonly.paneSpecs.peek()).toEqual([
       { id: 'main', ratio: 1, visible: true, role: 'price' },
     ])

@@ -211,6 +211,8 @@ export class ChartStateKernel extends StateKernel {
   readonly effectiveTheme$: ReadonlySignal<'light' | 'dark'>
   /** 当前图表状态要求启用的受管 renderer layer。 */
   readonly activeRenderers$: ReadonlySignal<ReadonlyArray<ActiveRendererDescriptor>>
+  /** 当前数据视图中应显示在主图图例的用户指标 ID。 */
+  readonly visibleMainIndicatorIds$: ReadonlySignal<ReadonlyArray<string>>
   readonly optionsForViewport$: ReadonlySignal<{
     bottomAxisHeight: number
     kWidth: number
@@ -336,6 +338,18 @@ export class ChartStateKernel extends StateKernel {
         ).values(),
       ])
     })
+    this.visibleMainIndicatorIds$ = computed(() => {
+      const dataView = this.mode.readonly.dataView()
+      const ids = new Set<string>()
+      for (const instance of this.indicator.readonly.instances()) {
+        if (instance.role !== 'main' || instance.source === 'mode') continue
+        const definition = getRegisteredIndicatorDefinition(instance.indicatorId)
+        if (definition && supportsIndicatorDataView(definition, dataView)) {
+          ids.add(definition.name)
+        }
+      }
+      return Object.freeze([...ids])
+    })
 
     // ── Drawing state ──
     this.drawing = createDrawingState()
@@ -386,6 +400,7 @@ export class ChartStateKernel extends StateKernel {
       effectivePrimaryRenderer: this.mode.readonly.effectivePrimaryRenderer,
       interactionCapabilities: this.mode.readonly.interactionCapabilities,
       activeRenderers: this.activeRenderers$,
+      visibleMainIndicatorIds: this.visibleMainIndicatorIds$,
       // Pane scale types
       paneScaleTypes: this.pane.readonly.paneScaleTypes,
       // Drawing

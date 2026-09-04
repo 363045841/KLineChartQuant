@@ -567,6 +567,30 @@ describe('Chart pane layout regressions', () => {
     await chart.destroy()
   })
 
+  it('clears stale canvases and cached geometry when switching data views', async () => {
+    const chart = new Chart(createDom(1000, 600), defaultOptions)
+    const renderer = (
+      chart as unknown as {
+        renderer: { clearAllCanvases: () => void; clearCachedFrame: () => void }
+      }
+    ).renderer
+    const clearCanvases = vi.spyOn(renderer, 'clearAllCanvases')
+    const clearCachedFrame = vi.spyOn(renderer, 'clearCachedFrame')
+    ;(
+      chart as unknown as { _legendTemplateContext: { set: (value: unknown) => void } }
+    )._legendTemplateContext.set({ stale: true })
+    const tsMode = (
+      chart as unknown as { _timeShareMode: import('../modes/types').ChartModeHandler }
+    )._timeShareMode
+
+    chart.setActiveMode(tsMode)
+
+    expect(clearCanvases).toHaveBeenCalledOnce()
+    expect(clearCachedFrame).toHaveBeenCalledOnce()
+    expect(chart.legendTemplateContext.peek()).toBeNull()
+    await chart.destroy()
+  })
+
   it('timeshare switching preserves independent indicator workspaces and layouts', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     chart.resize()

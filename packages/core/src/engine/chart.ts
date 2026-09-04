@@ -542,6 +542,11 @@ export class Chart {
       nextDataView,
       isTimeShareDataView(nextDataView) ? this.dataManager.currentPeriod : undefined,
     )
+    // 数据视图切换前的各 Layer 已使用旧数据绘制；先清屏并废弃几何缓存，避免等待新视图数据时残留。
+    this.renderer.clearCachedFrame()
+    this.renderer.clearAllCanvases()
+    // #legend 插槽消费独立的 Vue DOM 上下文，不随 canvas 清屏；切换时必须同步清除旧图例。
+    this._legendTemplateContext.set(null)
 
     if (isTimeShareDataView(nextDataView)) {
       const percentMap = new Map(this.kernel.pane.readonly.paneScaleTypes.peek())
@@ -1298,6 +1303,10 @@ export class Chart {
       const desiredLayerIds = new Set(
         this.kernel.activeRenderers$().map((descriptor) => descriptor.layerId),
       )
+      // 视图切换时投影一次可见指标，图例逐帧仅消费该快照，不重复判断 dataViews。
+      this.updateRendererConfig('mainIndicatorLegend', {
+        visibleIndicatorIds: this.kernel.visibleMainIndicatorIds$(),
+      })
       const scene = this.renderer?.getScene()
       let changed = false
 

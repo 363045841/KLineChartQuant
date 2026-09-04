@@ -468,11 +468,9 @@ export class ChartRenderer {
   private drawWithFrame(level: UpdateLevel, frame: FrameContext | null): void {
     this.markerManager.clear()
 
-    // frame 为空（无数据或首帧），清理画布后跳过绘制
+    // 当前视图无可绘制数据时必须清空所有 canvas，不能保留前一视图的像素。
     if (!frame) {
-      const dataManager = this.deps.getDataManager()
-      if (dataManager.getInternalData().length === 0 && dataManager.getTimeShareData().length === 0)
-        this.clearAllCanvases()
+      this.clearAllCanvases()
       return
     }
 

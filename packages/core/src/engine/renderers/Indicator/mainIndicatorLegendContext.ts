@@ -80,6 +80,8 @@ export interface BuildLegendTemplateContextInput {
   context: RenderContext
   host: PluginHost | null
   yPaddingPx: number
+  /** 由视图状态投影的可见主图指标；null 表示兼容独立图例实例。 */
+  visibleIndicatorIds?: ReadonlySet<string> | null
 }
 
 export function formatVolumeShort(v: number): string {
@@ -97,7 +99,7 @@ export function formatAmountShort(v: number): string {
 export function buildLegendTemplateContext(
   input: BuildLegendTemplateContextInput,
 ): LegendTemplateContext | null {
-  const { context, host, yPaddingPx } = input
+  const { context, host, yPaddingPx, visibleIndicatorIds } = input
   const klineData = context.data as KLineData[]
   if (!klineData.length) return null
 
@@ -176,6 +178,7 @@ export function buildLegendTemplateContext(
     klineData,
     targetIndex,
     colors,
+    visibleIndicatorIds,
   )
   const comparisons = collectComparisonRows(context, klineData, targetIndex, range, colors)
 
@@ -204,6 +207,7 @@ function collectIndicatorRows(
   klineData: KLineData[],
   targetIndex: number,
   colors: ReturnType<typeof resolveThemeColors>,
+  visibleIndicatorIds: ReadonlySet<string> | null | undefined,
 ): LegendIndicatorRow[] {
   if (!host || !stateReader || typeof host.getService !== 'function') return []
   const scheduler = host.getService<IndicatorScheduler>('indicatorScheduler')
@@ -211,6 +215,9 @@ function collectIndicatorRows(
 
   const rows: LegendIndicatorRow[] = []
   for (const meta of scheduler.getMainIndicators()) {
+    if (visibleIndicatorIds !== null && visibleIndicatorIds !== undefined) {
+      if (!visibleIndicatorIds.has(meta.name)) continue
+    }
     if (!meta.getTitleInfo) continue
     if (!scheduler.isMainIndicatorActive(meta.name)) continue
     const params = scheduler.getMainIndicatorParams(meta.name) ?? {}

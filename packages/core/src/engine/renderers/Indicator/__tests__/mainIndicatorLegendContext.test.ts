@@ -70,6 +70,46 @@ describe('buildLegendTemplateContext timeshare baseline', () => {
   )
 })
 
+describe('buildLegendTemplateContext indicator rows', () => {
+  it('uses the view-projected indicator IDs instead of evaluating view support while drawing', () => {
+    const scheduler = {
+      getMainIndicators: () => [
+        {
+          name: 'ma',
+          getTitleInfo: () => ({ name: 'MA', values: [] }),
+        },
+        {
+          name: 'boll',
+          getTitleInfo: () => ({ name: 'BOLL', values: [] }),
+        },
+      ],
+      isMainIndicatorActive: () => true,
+      getMainIndicatorParams: () => ({}),
+    }
+    const context = {
+      data: [{ timestamp: 1, open: 10, high: 11, low: 9, close: 10 }],
+      period: 'timeshare',
+      range: { start: 0, end: 1 },
+      paneWidth: 800,
+      theme: 'light',
+      isAsiaMarket: true,
+      indicatorStateReader: {},
+    } as unknown as RenderContext
+    const host = {
+      getService: () => scheduler,
+    }
+
+    const result = buildLegendTemplateContext({
+      context,
+      host: host as never,
+      yPaddingPx: 0,
+      visibleIndicatorIds: new Set(['ma']),
+    })
+
+    expect(result?.indicators).toEqual([{ name: 'MA', values: [] }])
+  })
+})
+
 describe('buildLegendTemplateContext comparison rows', () => {
   const mainData: KLineData[] = [
     { timestamp: 1000, date: '2025-01-01', open: 10, high: 11, low: 9, close: 10 },

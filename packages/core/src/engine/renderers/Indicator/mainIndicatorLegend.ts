@@ -35,6 +35,8 @@ interface MainIndicatorLegendConfig {
   yPaddingPx: number
   /** canvas 默认绘制；external 仅发布上下文 */
   renderMode: LegendRenderMode
+  /** 当前数据视图允许在图例显示的主图指标。 */
+  visibleIndicatorIds: ReadonlyArray<string> | null
 }
 
 export type MainIndicatorLegendOptions = {
@@ -55,10 +57,12 @@ export function createMainIndicatorLegendRendererPlugin(
   const config: MainIndicatorLegendConfig = {
     yPaddingPx: options.yPaddingPx,
     renderMode: 'canvas',
+    visibleIndicatorIds: null,
   }
   const onContext = options.onContext
 
   let pluginHost: PluginHost | null = null
+  let visibleIndicatorIdSet: ReadonlySet<string> | null = null
 
   return {
     name: 'mainIndicatorLegend',
@@ -83,6 +87,7 @@ export function createMainIndicatorLegendRendererPlugin(
         context,
         host: pluginHost,
         yPaddingPx: config.yPaddingPx,
+        visibleIndicatorIds: visibleIndicatorIdSet,
       })
       onContext?.(legend)
 
@@ -96,6 +101,7 @@ export function createMainIndicatorLegendRendererPlugin(
       return {
         yPaddingPx: config.yPaddingPx,
         renderMode: config.renderMode,
+        visibleIndicatorIds: config.visibleIndicatorIds,
       }
     },
 
@@ -105,6 +111,12 @@ export function createMainIndicatorLegendRendererPlugin(
       }
       if (newConfig.renderMode === 'canvas' || newConfig.renderMode === 'external') {
         config.renderMode = newConfig.renderMode
+      }
+      if (Array.isArray(newConfig.visibleIndicatorIds)) {
+        config.visibleIndicatorIds = Object.freeze(
+          newConfig.visibleIndicatorIds.filter((id): id is string => typeof id === 'string'),
+        )
+        visibleIndicatorIdSet = new Set(config.visibleIndicatorIds)
       }
     },
   }
