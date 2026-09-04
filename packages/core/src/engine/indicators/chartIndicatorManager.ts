@@ -63,43 +63,6 @@ export interface SubPaneOps {
   clear: () => void
 }
 
-/** 主图指标参数。 */
-export type MainIndicatorParams = Readonly<Record<string, number | boolean | string>>
-
-/** 主图指标的只读快照。 */
-export interface MainIndicatorSpec {
-  readonly indicatorId: string
-  readonly params: MainIndicatorParams
-}
-
-/** 创建主图指标的领域输入。 */
-export interface MainIndicatorCreateInput {
-  readonly indicatorId: string
-  readonly params?: MainIndicatorParams
-}
-
-/** 更新主图指标参数的领域输入。 */
-export interface MainIndicatorUpdateInput {
-  readonly indicatorId: string
-  readonly params: MainIndicatorParams
-}
-
-/** 删除主图指标的领域输入。 */
-export interface MainIndicatorRemoveInput {
-  readonly indicatorId: string
-}
-
-/** 主图指标的标准 CRUD 领域边界。 */
-export interface MainIndicatorManager {
-  list(): ReadonlyArray<MainIndicatorSpec>
-  readonly actions: {
-    create(input: MainIndicatorCreateInput): boolean
-    update(input: MainIndicatorUpdateInput): boolean
-    remove(input: MainIndicatorRemoveInput): boolean
-    clear(): void
-  }
-}
-
 export interface IndicatorDependencies {
   getOption: () => ResolvedChartOptions
   getPluginHost: () => PluginHostImpl
@@ -316,67 +279,11 @@ export class ChartIndicatorManager {
     return this._subPanesComputed
   }
 
-  /** 主图指标的标准 CRUD 领域入口。 */
-  readonly mainIndicators: MainIndicatorManager = {
-    list: () => this.listMainIndicators(),
-    actions: {
-      create: (input) => this.createMainIndicator(input),
-      update: (input) => this.updateMainIndicator(input),
-      remove: (input) => this.removeMainIndicator(input),
-      clear: () => this.clearMainIndicators(),
-    },
-  }
-
   /** 从统一实例集合读取指定主图指标。 */
   private getMainIndicatorInstance(indicatorId: string): IndicatorInstanceSpec | undefined {
     return this.deps.indicator.readonly.instances
       .peek()
       .find((instance) => instance.role === 'main' && instance.indicatorId === indicatorId)
-  }
-
-  /** 返回主图指标的独立快照，避免泄漏可写内部状态。 */
-  private listMainIndicators(): ReadonlyArray<MainIndicatorSpec> {
-    return Object.freeze(
-      this.deps.indicator.readonly.instances
-        .peek()
-        .filter((instance) => instance.role === 'main')
-        .map((instance) =>
-          Object.freeze({
-            indicatorId: instance.indicatorId,
-            params: Object.freeze({ ...instance.params }) as MainIndicatorParams,
-          }),
-        ),
-    )
-  }
-
-  /** 创建未存在的主图指标，并合并该指标默认参数。 */
-  private createMainIndicator(input: MainIndicatorCreateInput): boolean {
-    const id = input.indicatorId.toUpperCase()
-    if (
-      !ChartIndicatorManager.ENABLE_MAIN_INDICATORS.includes(id) ||
-      this.getMainIndicatorInstance(id)
-    ) {
-      return false
-    }
-    const defaults = ChartIndicatorManager.DEFAULT_MAIN_PARAMS[id] ?? {}
-    this.deps.indicator.actions.upsertMain(id, { ...defaults, ...input.params })
-    return true
-  }
-
-  /** 完整替换已存在主图指标的参数。 */
-  private updateMainIndicator(input: MainIndicatorUpdateInput): boolean {
-    const id = input.indicatorId.toUpperCase()
-    if (!this.getMainIndicatorInstance(id)) return false
-    this.deps.indicator.actions.setMainParams(id, input.params)
-    return true
-  }
-
-  /** 删除已存在的主图指标。 */
-  private removeMainIndicator(input: MainIndicatorRemoveInput): boolean {
-    const id = input.indicatorId.toUpperCase()
-    if (!this.getMainIndicatorInstance(id)) return false
-    this.deps.indicator.actions.removeMain(id)
-    return true
   }
 
   // ========== 主图指标 API ==========
@@ -407,14 +314,46 @@ export class ChartIndicatorManager {
   }
 
   disableMainIndicator(indicatorId: string): boolean {
-    return this.mainIndicators.actions.remove({ indicatorId })
+    const id = indicatorId.toUpperCase()
+    if (!this.getMainIndicatorInstance(id)) return false
+
+    this.deps.indicator.actions.removeMain(id)
+    return true
+  }
+
+  toggleMainIndicator(indicatorId: string, enabled: boolean): void {
+    if (enabled) {
+      this.enableMainIndicator(indicatorId)
+    } else {
+      this.disableMainIndicator(indicatorId)
+    }
+  }
+
+  getActiveMainIndicators(): string[] {
+    return this.deps.indicator.readonly.instances
+      .peek()
+      .filter((instance) => instance.role === 'main')
+      .map((instance) => instance.indicatorId)
+  }
+
+  isMainIndicatorActive(indicatorId: string): boolean {
+    return Boolean(this.getMainIndicatorInstance(indicatorId.toUpperCase()))
   }
 
   updateMainIndicatorParams(
     indicatorId: string,
     params: Record<string, number | boolean | string>,
   ): void {
-    this.mainIndicators.actions.update({ indicatorId, params })
+    const id = indicatorId.toUpperCase()
+    if (!this.getMainIndicatorInstance(id)) return
+
+    this.deps.indicator.actions.setMainParams(id, params)
+  }
+
+  getMainIndicatorParams(indicatorId: string): Record<string, number | boolean | string> | null {
+    const params = this.getMainIndicatorInstance(indicatorId.toUpperCase())?.params as
+      Readonly<Record<string, number | boolean | string>> | undefined
+    return params ? { ...params } : null
   }
 
   clearMainIndicators(): void {
@@ -491,6 +430,30 @@ export class ChartIndicatorManager {
     if (config !== null) {
       definition.updateConfig(this.indicatorScheduler, config, 'main')
     }
+  }
+
+  /**
+   * @deprecated 使用 enableMainIndicator/disableMainIndicator 替代
+   * 状态一次 replaceAllMain，再做 renderer side effects，避免逐条中间态。
+   */
+  setActiveMainIndicators(indicators: string[]): void {
+    const newIds = indicators
+      .map((i) => i.toUpperCase())
+      .filter((id) => ChartIndicatorManager.ENABLE_MAIN_INDICATORS.includes(id))
+    const instances: IndicatorInstanceSpec[] = newIds.map((id) => {
+      const existing = this.getMainIndicatorInstance(id)
+      return {
+        instanceId: `main:${id}`,
+        indicatorId: id,
+        paneId: 'main',
+        role: 'main',
+        ordinal: 0,
+        params: existing
+          ? { ...existing.params }
+          : { ...(ChartIndicatorManager.DEFAULT_MAIN_PARAMS[id] ?? {}) },
+      }
+    })
+    this.deps.indicator.actions.replaceAllMain(instances)
   }
 
   getSubPaneEntries(): SubPaneEntry[] {

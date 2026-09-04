@@ -1,12 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import {
-  findMonthBoundaries,
-  findDayBoundaries,
-  formatTradingDate,
-  formatTradingDateCompact,
-  parseTradingDate,
-} from '../dateFormat'
+import { findMonthBoundaries, findDayBoundaries } from '../dateFormat'
 
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n))
@@ -44,39 +38,6 @@ function computeDayKeys(data: Array<{ timestamp: number } | undefined>): Int32Ar
   }
   return keys
 }
-
-describe('trading date formatting', () => {
-  it('formats a timestamp in the supplied market timezone', () => {
-    const timestamp = Date.UTC(2026, 0, 1, 16, 30)
-
-    expect(formatTradingDate(timestamp, 'Asia/Shanghai')).toBe('2026-01-02')
-    expect(formatTradingDateCompact(timestamp, 'America/New_York')).toBe('20260101')
-  })
-})
-
-describe('trading date parsing', () => {
-  it('converts YYYY-MM-DD to the start and end of the local trading day', () => {
-    const start = parseTradingDate('2026-09-01', 'Asia/Shanghai')
-    expect(new Date(start).toISOString()).toBe('2026-08-31T16:00:00.000Z')
-    expect(parseTradingDate('2026-09-01', 'Asia/Shanghai', 'end')).toBe(start + 86_400_000 - 1)
-  })
-
-  it('accepts the compact YYYYMMDD form', () => {
-    expect(parseTradingDate('20260901', 'Asia/Shanghai')).toBe(Date.parse('2026-08-31T16:00:00Z'))
-  })
-
-  it('rejects malformed trading dates', () => {
-    expect(() => parseTradingDate('2026-9-1', 'Asia/Shanghai')).toThrow()
-    expect(() => parseTradingDate('', 'Asia/Shanghai')).toThrow()
-  })
-
-  it('accounts for daylight-saving boundaries', () => {
-    const start = parseTradingDate('2026-03-08', 'America/New_York')
-    const end = parseTradingDate('2026-03-08', 'America/New_York', 'end')
-    expect(start).toBe(Date.parse('2026-03-08T05:00:00Z'))
-    expect(end).toBe(start + 23 * 3_600_000 - 1)
-  })
-})
 
 describe('findMonthBoundaries', () => {
   it('returns empty for empty data', () => {

@@ -3,11 +3,6 @@
  * 统一管理项目中所有日期相关的格式化逻辑
  */
 
-import { zonedWallTimeToUtc } from './sessionTimeLabels'
-
-const TRADING_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/
-const COMPACT_TRADING_DATE_PATTERN = /^(\d{4})(\d{2})(\d{2})$/
-
 // ========== 模块级复用的 Intl.DateTimeFormat 实例 ==========
 // Intl.DateTimeFormat 构造极其昂贵（~36ms），必须复用
 const YMD_FORMATTER = new Intl.DateTimeFormat('zh-CN', {
@@ -180,47 +175,6 @@ export function formatTimestamp(
     else if (p.type === 'minute') min = p.value
   }
   return showTime ? `${y}-${m}-${d} ${h}:${min}` : `${y}-${m}-${d}`
-}
-
-/** 将 UTC 时间戳转换为指定行情时区的 YYYY-MM-DD 交易日。 */
-export function formatTradingDate(timestamp: number, timeZone: string): string {
-  return formatTimestamp(timestamp, { timeZone, showTime: false })
-}
-
-/** 将 UTC 时间戳转换为指定行情时区的 YYYYMMDD 交易日。 */
-export function formatTradingDateCompact(timestamp: number, timeZone: string): string {
-  return formatTradingDate(timestamp, timeZone).replaceAll('-', '')
-}
-
-/**
- * 将 YYYY-MM-DD 或 YYYYMMDD 交易日转换为指定行情时区当天边界的 UTC 毫秒。
- * edge='start' 返回当天 00:00 墙钟，edge='end' 返回当天最后一毫秒；跨 DST 正确。
- */
-export function parseTradingDate(
-  tradingDate: string,
-  timeZone: string,
-  edge: 'start' | 'end' = 'start',
-): number {
-  const match =
-    tradingDate.match(TRADING_DATE_PATTERN) ?? tradingDate.match(COMPACT_TRADING_DATE_PATTERN)
-  if (!match) {
-    throw new RangeError(`[parseTradingDate] invalid trading date "${tradingDate}"`)
-  }
-  const year = Number(match[1])
-  const month = Number(match[2])
-  const day = Number(match[3])
-  const start = zonedWallTimeToUtc(year, month, day, 0, timeZone)
-  if (edge === 'start') return start
-  const next = new Date(Date.UTC(year, month - 1, day + 1))
-  return (
-    zonedWallTimeToUtc(
-      next.getUTCFullYear(),
-      next.getUTCMonth() + 1,
-      next.getUTCDate(),
-      0,
-      timeZone,
-    ) - 1
-  )
 }
 
 /**

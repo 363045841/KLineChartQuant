@@ -29,8 +29,6 @@ export interface DataBufferLike<T = KLineData | TimeShareData> {
 
 export interface KLineBuffer extends DataBufferLike<KLineData> {
   readonly currentSpec: SymbolSpec | null
-  /** 当前 K 线序列的 Provider 时区。 */
-  readonly timezone: ReadonlySignal<string | null>
   getRawData(): KLineData[]
   setInlineData(data: ReadonlyArray<KLineData>): void
   /** 缓存查询开始时发布加载状态。 */
@@ -38,7 +36,7 @@ export interface KLineBuffer extends DataBufferLike<KLineData> {
   /** 缓存查询失败时发布错误状态。 */
   setError(error: string | null): void
   /** 合并缓存查询结果并保留前置插入信息。 */
-  mergeData(data: ReadonlyArray<KLineData>, olderData: OlderDataStatus, timezone: string): void
+  mergeData(data: ReadonlyArray<KLineData>, olderData: OlderDataStatus): void
   getMonthKeys(): Int32Array | null
   getDayKeys(): Int32Array | null
   setSymbol(spec: SymbolSpec): void

@@ -18,7 +18,6 @@ export type ActiveBufferSnapshot =
       readonly data: ReadonlyArray<never>
       readonly loading: false
       readonly error: null
-      readonly timezone: null
       readonly timeShareRange: null
       readonly timeSharePreClose: null
     }
@@ -29,7 +28,6 @@ export type ActiveBufferSnapshot =
       readonly data: ReadonlyArray<KLineData>
       readonly loading: boolean
       readonly error: string | null
-      readonly timezone: string | null
       readonly timeShareRange: null
       readonly timeSharePreClose: null
     }
@@ -40,7 +38,6 @@ export type ActiveBufferSnapshot =
       readonly data: ReadonlyArray<TimeShareData>
       readonly loading: boolean
       readonly error: string | null
-      readonly timezone: string | null
       readonly timeShareRange: TimeShareRange | null
       readonly timeSharePreClose: number | null
     }
@@ -54,7 +51,6 @@ function emptyActiveBufferSnapshot(): ActiveBufferSnapshot {
     data: Object.freeze([]),
     loading: false,
     error: null,
-    timezone: null,
     timeShareRange: null,
     timeSharePreClose: null,
   })
@@ -86,12 +82,11 @@ export function createDataState(_deps: DataDeps = {}) {
       data: (s) => s.activeBuffer().data,
       loading: (s) => s.activeBuffer().loading,
       error: (s) => s.activeBuffer().error,
-      timezone: (s) => s.activeBuffer().timezone,
       activeSelection: (s) => s.activeBuffer().selection,
       timeShareRange: (s) => s.activeBuffer().timeShareRange,
       timeSharePreClose: (s) => s.activeBuffer().timeSharePreClose,
-      dataLength: (s) => s.activeBuffer().data.length,
-      dataRevision: (s) => s.activeBuffer().dataRevision,
+       dataLength: (s) => s.activeBuffer().data.length,
+       dataRevision: (s) => s.activeBuffer().dataRevision,
     },
   )
 

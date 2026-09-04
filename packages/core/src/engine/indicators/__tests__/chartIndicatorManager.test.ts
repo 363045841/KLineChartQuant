@@ -102,30 +102,6 @@ describe('ChartIndicatorManager', () => {
     vi.clearAllMocks()
   })
 
-  describe('mainIndicators CRUD contract', () => {
-    it('creates, lists, updates, removes, and clears through one normalized interface', () => {
-      expect(manager.mainIndicators.actions.create({ indicatorId: 'MA' })).toBe(true)
-      expect(manager.mainIndicators.actions.create({ indicatorId: 'MA' })).toBe(false)
-      expect(manager.mainIndicators.list()).toEqual([
-        {
-          indicatorId: 'MA',
-          params: { ma5: true, ma10: true, ma20: true, ma30: true, ma60: true },
-        },
-      ])
-
-      expect(
-        manager.mainIndicators.actions.update({ indicatorId: 'MA', params: { ma5: false } }),
-      ).toBe(true)
-      expect(manager.mainIndicators.actions.update({ indicatorId: 'BOLL', params: {} })).toBe(false)
-      expect(manager.mainIndicators.actions.remove({ indicatorId: 'MA' })).toBe(true)
-      expect(manager.mainIndicators.actions.remove({ indicatorId: 'MA' })).toBe(false)
-
-      manager.mainIndicators.actions.create({ indicatorId: 'MA' })
-      manager.mainIndicators.actions.clear()
-      expect(manager.mainIndicators.list()).toEqual([])
-    })
-  })
-
   describe('updateMainIndicatorParams', () => {
     it('should call renderer setConfig with merged params', () => {
       manager.enableMainIndicator('MA')
@@ -150,13 +126,8 @@ describe('ChartIndicatorManager', () => {
 
       manager.updateMainIndicatorParams('MA', { ma5: false })
 
-      expect(manager.mainIndicators.list()[0]?.params).toEqual({
-        ma5: false,
-        ma10: true,
-        ma20: true,
-        ma30: true,
-        ma60: true,
-      })
+      const params = manager.getMainIndicatorParams('MA')
+      expect(params).toEqual({ ma5: false, ma10: true, ma20: true, ma30: true, ma60: true })
     })
 
     it('should schedule a redraw after params update', () => {
@@ -172,19 +143,14 @@ describe('ChartIndicatorManager', () => {
       manager.updateMainIndicatorParams('MA', { ma5: false })
 
       expect(deps.scheduleDraw).not.toHaveBeenCalled()
-      expect(manager.mainIndicators.list()).toEqual([])
+      expect(manager.getMainIndicatorParams('MA')).toBeNull()
     })
 
-    it('mainIndicators.list returns detached frozen snapshots', () => {
+    it('getMainIndicatorParams returns a copy', () => {
       manager.enableMainIndicator('MA')
-      const snapshot = manager.mainIndicators.list()[0]!
-      const params = snapshot.params
-      expect(Object.isFrozen(snapshot)).toBe(true)
-      expect(Object.isFrozen(params)).toBe(true)
-      expect(() => {
-        ;(params as Record<string, number | boolean | string>).ma5 = false
-      }).toThrow()
-      expect(manager.mainIndicators.list()[0]?.params.ma5).toBe(true)
+      const params = manager.getMainIndicatorParams('MA')!
+      params.ma5 = false
+      expect(manager.getMainIndicatorParams('MA')?.ma5).toBe(true)
     })
   })
 
@@ -216,7 +182,7 @@ describe('ChartIndicatorManager', () => {
       expect(manager.enableMainIndicator('MA')).toBe(true)
 
       expect(deps.useRenderer).toHaveBeenCalledTimes(2)
-      expect(manager.mainIndicators.list().some((item) => item.indicatorId === 'MA')).toBe(true)
+      expect(manager.isMainIndicatorActive('MA')).toBe(true)
     })
 
     it('projects distinct non-finite main-indicator parameter values', () => {
