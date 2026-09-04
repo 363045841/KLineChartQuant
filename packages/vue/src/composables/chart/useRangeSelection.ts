@@ -373,7 +373,7 @@ export function useRangeSelection(options: {
             period,
             adjustment,
             limit: 500,
-            before: endTs + 86_400_000,
+            beforeTimestamp: endTs + 86_400_000,
           })
           for (const item of result.series.data) {
             if (item.timestamp >= startTs && item.timestamp <= endTs) allItems.push(item)
