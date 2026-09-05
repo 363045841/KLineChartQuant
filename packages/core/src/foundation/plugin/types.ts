@@ -400,8 +400,13 @@ export interface RenderContext {
   dayKeys?: Int32Array
 }
 
+/** 锚点语义：普通点、价格水平线或时间垂线。 */
+export type DrawingAnchorType = 'point' | 'horizontal' | 'vertical'
+
+/** 图元持久化锚点。所有新图元必须显式声明 type。 */
 export type PersistedDrawingAnchor = {
   id: string
+  type?: DrawingAnchorType
   time?: number | string
   price: number
 }
@@ -465,6 +470,18 @@ export type ResolvedDrawingObject<TParams = Record<string, unknown>> = Omit<
 }
 
 export type ScreenPoint = { x: number; y: number }
+
+/** 水平锚点的屏幕投影，只具有 Y 坐标。 */
+export type ScreenHorizontalAnchor = { type: 'horizontal'; y: number }
+
+/** 垂直锚点的屏幕投影，只具有 X 坐标。 */
+export type ScreenVerticalAnchor = { type: 'vertical'; x: number }
+
+/** 锚点的屏幕投影，按锚点语义保留缺失的坐标轴。 */
+export type ScreenDrawingAnchor =
+  | ({ type: 'point' } & ScreenPoint)
+  | ScreenHorizontalAnchor
+  | ScreenVerticalAnchor
 
 export type PointPrimitive = {
   kind: 'point'

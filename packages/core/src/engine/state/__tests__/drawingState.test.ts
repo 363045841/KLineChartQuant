@@ -33,7 +33,7 @@ describe('drawingState', () => {
     const list = [
       mk('a', {
         style: { stroke: '#f00' },
-        anchors: [{ id: 'p1', index: 0, price: 10 }],
+        anchors: [{ id: 'p1', type: 'point', time: 1_000, price: 10 }],
       }),
     ]
     state.actions.setDrawings(list)
@@ -44,8 +44,27 @@ describe('drawingState', () => {
     expect(Object.isFrozen(stored.style)).toBe(true)
     expect(Object.isFrozen(stored.anchors)).toBe(true)
     expect(() => {
-      ;(stored.anchors as { index: number }[])[0]!.index = 99
+      ;(stored.anchors as { price: number }[])[0]!.price = 99
     }).toThrow()
+  })
+
+  it('preserves the axis semantics of stored anchors', () => {
+    const state = createDrawingState()
+    state.actions.setDrawings([
+      mk('horizontal', {
+        kind: 'horizontal-line',
+        anchors: [{ id: 'h', type: 'horizontal', price: 10 }],
+      }),
+      mk('vertical', {
+        kind: 'vertical-line',
+        anchors: [{ id: 'v', type: 'vertical', time: 1_000, price: 0 }],
+      }),
+    ])
+
+    expect(state.readonly.drawings.peek().map((drawing) => drawing.anchors[0]!.type)).toEqual([
+      'horizontal',
+      'vertical',
+    ])
   })
 
   it('tracks selected drawing ids and removes ids absent from a replacement snapshot', () => {

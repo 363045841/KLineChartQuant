@@ -13,7 +13,7 @@ import type { DrawingStateModule } from '../state/drawingState'
 
 import { PREVIEW_ID } from './DrawingState'
 
-/** 外部命令使用价格锚点；需要水平位置的图元额外提供时间。 */
+/** 外部命令按图元需要提供价格和/或时间。 */
 export interface DrawingAnchorCommandInput {
   /** 交易日锚点，按数据中的 date 字段定位。 */
   readonly tradingDate?: TradingDate
@@ -174,15 +174,16 @@ export class DrawingDocument {
   commitDrawingDrag(id: string, anchors: ReadonlyArray<PersistedDrawingAnchor>): DrawingObject | null {
     const drawing = this.getDrawing(id)
     if (!drawing || anchors.length !== getRequiredAnchorCount(drawing.kind)) return null
-    if (
-      anchors.some(
-        (anchor) =>
-          !Number.isFinite(anchor.price) ||
-          (drawing.kind !== 'horizontal-line' && !Number.isFinite(Number(anchor.time))),
-      )
-    ) {
-      return null
-    }
+    const valid = anchors.every((anchor) => {
+      if (drawing.kind === 'horizontal-line') {
+        return anchor.type === 'horizontal' && Number.isFinite(anchor.price)
+      }
+      if (drawing.kind === 'vertical-line') {
+        return anchor.type === 'vertical' && Number.isFinite(Number(anchor.time))
+      }
+      return anchor.type !== 'horizontal' && anchor.type !== 'vertical' && Number.isFinite(anchor.price) && Number.isFinite(Number(anchor.time))
+    })
+    if (!valid) return null
     return this.dependencies.drawingState.actions.updateDrawing(id, { anchors: [...anchors] })
   }
 
@@ -288,29 +289,30 @@ export class DrawingDocument {
     }))
   }
 
-  /** 解析单个声明式锚点；水平线仅由价格决定，不依赖 K 线时间。 */
+  /** 解析单个声明式锚点，按图元种类持久化所需坐标轴。 */
   private resolveAnchor(kind: DrawingKind, input: DrawingAnchorCommandInput): PersistedDrawingAnchor {
-    if (!Number.isFinite(input.price)) {
+    if (kind === 'horizontal-line') {
+      if (!Number.isFinite(input.price)) {
+        throw new KLineChartError(
+          DRAWING_ERROR_CODES.INVALID_ANCHOR,
+          'Horizontal drawing anchor price must be a finite number.',
+          { details: { price: input.price } },
+        )
+      }
+      return { id: `anchor-${generateUUID()}`, type: 'horizontal', price: input.price! }
+    }
+    if (kind === 'vertical-line' && !Number.isFinite(input.price)) {
       throw new KLineChartError(
         DRAWING_ERROR_CODES.INVALID_ANCHOR,
-        'Drawing anchor price must be a finite number.',
-        { details: { timestamp: input.timestamp, price: input.price } },
+        'Vertical drawing anchor price must be a finite number.',
+        { details: { price: input.price } },
       )
-    }
-    if (kind === 'horizontal-line') {
-      return { id: `anchor-${generateUUID()}`, price: input.price }
     }
     if (input.tradingDate !== undefined && input.timestamp !== undefined) {
       throw new KLineChartError(
         DRAWING_ERROR_CODES.INVALID_ANCHOR,
         'Drawing anchor must provide either tradingDate or timestamp, not both.',
-        {
-          details: {
-            tradingDate: input.tradingDate,
-            timestamp: input.timestamp,
-            price: input.price,
-          },
-        },
+        { details: { tradingDate: input.tradingDate, timestamp: input.timestamp, price: input.price } },
       )
     }
     if (input.tradingDate !== undefined) {
@@ -322,17 +324,15 @@ export class DrawingDocument {
           { details: { tradingDate: input.tradingDate } },
         )
       }
-      return {
-        id: `anchor-${generateUUID()}`,
-        time: resolved.timestamp,
-        price: input.price,
-      }
+      return kind === 'vertical-line'
+        ? { id: `anchor-${generateUUID()}`, type: 'vertical', time: resolved.timestamp, price: input.price }
+        : this.createPointAnchor(resolved.timestamp, input.price)
     }
     const timestamp = input.timestamp
     if (timestamp === undefined || !Number.isFinite(timestamp)) {
       throw new KLineChartError(
         DRAWING_ERROR_CODES.INVALID_ANCHOR,
-        'Drawing anchor timestamp and price must be finite numbers.',
+        'Drawing anchor timestamp must be a finite number.',
         { details: { timestamp: input.timestamp, price: input.price } },
       )
     }
@@ -343,6 +343,20 @@ export class DrawingDocument {
         { details: { timestamp } },
       )
     }
-    return { id: `anchor-${generateUUID()}`, time: timestamp, price: input.price }
+    return kind === 'vertical-line'
+      ? { id: `anchor-${generateUUID()}`, type: 'vertical', time: timestamp, price: input.price }
+      : this.createPointAnchor(timestamp, input.price)
+  }
+
+  /** 校验并创建同时包含时间与价格的普通锚点。 */
+  private createPointAnchor(timestamp: number, price: number): PersistedDrawingAnchor {
+    if (!Number.isFinite(price)) {
+      throw new KLineChartError(
+        DRAWING_ERROR_CODES.INVALID_ANCHOR,
+        'Drawing point anchor price must be a finite number.',
+        { details: { timestamp, price } },
+      )
+    }
+    return { id: `anchor-${generateUUID()}`, type: 'point', time: timestamp, price }
   }
 }

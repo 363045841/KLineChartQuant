@@ -9,11 +9,7 @@ function snapshotDrawings(drawings: ReadonlyArray<DrawingObject>): ReadonlyArray
     drawings.map((drawing) =>
       deepFreezeSnapshot({
         ...drawing,
-        anchors: drawing.anchors.map((anchor) => ({
-          id: anchor.id,
-          ...(anchor.time === undefined ? {} : { time: anchor.time }),
-          price: anchor.price,
-        })),
+        anchors: drawing.anchors.map((anchor) => ({ ...anchor })),
       }) as DrawingObject,
     ),
   )

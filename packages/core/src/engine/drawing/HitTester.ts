@@ -1,7 +1,7 @@
 import type { DrawingChartAdapter } from '../../controllers/types'
 import type { DrawingObject } from '../../foundation/plugin/index'
 
-import { anchorToScreen, pointToSegmentDistanceSq } from './coordinateUtils'
+import { anchorToScreen, isScreenPoint, pointToSegmentDistanceSq } from './coordinateUtils'
 import { computeLinearRegression } from './linearRegression'
 import { getExtendMode } from './toolConfig'
 
@@ -66,7 +66,7 @@ export class HitTester {
 
       for (let i = 0; i < drawing.anchors.length; i++) {
         const screen = anchorToScreen(drawing.anchors[i]!, drawing.paneId, adapter)
-        if (!screen) continue
+        if (!screen || !isScreenPoint(screen)) continue
         const dx = mouseX - screen.x
         const dy = mouseY - screen.y
         if (dx * dx + dy * dy <= ANCHOR_HIT_RADIUS_SQ) {
@@ -119,12 +119,16 @@ export class HitTester {
 
       switch (drawing.kind) {
         case 'horizontal-line':
+          if (screen.type !== 'horizontal') return []
           return [{ a: { x: 0, y: screen.y }, b: { x: right, y: screen.y } }]
         case 'horizontal-ray':
+          if (!isScreenPoint(screen)) return []
           return [{ a: screen, b: { x: right, y: screen.y } }]
         case 'vertical-line':
+          if (screen.type !== 'vertical') return []
           return [{ a: { x: screen.x, y: 0 }, b: { x: screen.x, y: bottom } }]
         case 'cross-line':
+          if (!isScreenPoint(screen)) return []
           return [
             { a: { x: 0, y: screen.y }, b: { x: right, y: screen.y } },
             { a: { x: screen.x, y: 0 }, b: { x: screen.x, y: bottom } },
@@ -137,10 +141,8 @@ export class HitTester {
     // Multi-anchor drawings (2+)
     const points = drawing.anchors
       .map((anchor) => anchorToScreen(anchor, drawing.paneId, adapter))
-      .filter(Boolean) as {
-      x: number
-      y: number
-    }[]
+      .filter((anchor): anchor is NonNullable<typeof anchor> => anchor !== null)
+      .filter(isScreenPoint)
     if (points.length < 2) return []
 
     const segments: LineSegment[] = []
@@ -200,8 +202,8 @@ export class HitTester {
       const dx = b.x - a.x
       const dy = b.y - a.y
 
-      let start = a
-      let end = b
+      let start: { x: number; y: number } = a
+      let end: { x: number; y: number } = b
 
       const extend = getExtendMode(drawing.kind)
       const maxLen = Math.max(viewport.plotWidth, viewport.plotHeight) * 4
@@ -217,7 +219,7 @@ export class HitTester {
     } else if (points.length >= 3) {
       switch (drawing.kind) {
         case 'parallel-channel': {
-          const [p1, p2, p3] = points as [
+          const [p1, p2, p3] = points as unknown as [
             { x: number; y: number },
             { x: number; y: number },
             { x: number; y: number },
@@ -229,7 +231,7 @@ export class HitTester {
           break
         }
         case 'flat-line': {
-          const [p1, p2, p3] = points as [
+          const [p1, p2, p3] = points as unknown as [
             { x: number; y: number },
             { x: number; y: number },
             { x: number; y: number },
@@ -240,7 +242,7 @@ export class HitTester {
           break
         }
         case 'disjoint-channel': {
-          const [p1, p2, p3] = points as [
+          const [p1, p2, p3] = points as unknown as [
             { x: number; y: number },
             { x: number; y: number },
             { x: number; y: number },
@@ -334,17 +336,23 @@ export class HitTester {
     )
 
     const segments: LineSegment[] = []
-    if (middleStart && middleEnd) segments.push({ a: middleStart, b: middleEnd })
-    if (upperStart && upperEnd) segments.push({ a: upperStart, b: upperEnd })
-    if (lowerStart && lowerEnd) segments.push({ a: lowerStart, b: lowerEnd })
+    if (isScreenPoint(middleStart) && isScreenPoint(middleEnd)) {
+      segments.push({ a: middleStart, b: middleEnd })
+    }
+    if (isScreenPoint(upperStart) && isScreenPoint(upperEnd)) {
+      segments.push({ a: upperStart, b: upperEnd })
+    }
+    if (isScreenPoint(lowerStart) && isScreenPoint(lowerEnd)) {
+      segments.push({ a: lowerStart, b: lowerEnd })
+    }
 
     const endpoints: RegressionChannelGeometry['endpoints'] = []
-    if (middleStart) endpoints.push({ point: middleStart, anchorIndex: 0 })
-    if (middleEnd) endpoints.push({ point: middleEnd, anchorIndex: 1 })
-    if (upperStart) endpoints.push({ point: upperStart, anchorIndex: 0 })
-    if (upperEnd) endpoints.push({ point: upperEnd, anchorIndex: 1 })
-    if (lowerStart) endpoints.push({ point: lowerStart, anchorIndex: 0 })
-    if (lowerEnd) endpoints.push({ point: lowerEnd, anchorIndex: 1 })
+    if (isScreenPoint(middleStart)) endpoints.push({ point: middleStart, anchorIndex: 0 })
+    if (isScreenPoint(middleEnd)) endpoints.push({ point: middleEnd, anchorIndex: 1 })
+    if (isScreenPoint(upperStart)) endpoints.push({ point: upperStart, anchorIndex: 0 })
+    if (isScreenPoint(upperEnd)) endpoints.push({ point: upperEnd, anchorIndex: 1 })
+    if (isScreenPoint(lowerStart)) endpoints.push({ point: lowerStart, anchorIndex: 0 })
+    if (isScreenPoint(lowerEnd)) endpoints.push({ point: lowerEnd, anchorIndex: 1 })
 
     const geometry: RegressionChannelGeometry = { segments, endpoints }
     cache?.set(drawing.id, geometry)

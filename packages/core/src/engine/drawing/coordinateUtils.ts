@@ -1,5 +1,9 @@
 import type { DrawingChartAdapter } from '../../controllers/types'
-import type { PersistedDrawingAnchor } from '../../foundation/plugin/index'
+import type {
+  PersistedDrawingAnchor,
+  ScreenDrawingAnchor,
+  ScreenPoint,
+} from '../../foundation/plugin/index'
 
 // ---- Types ----
 
@@ -21,29 +25,39 @@ export interface DrawingPointerAnchor extends InteractionDrawingAnchor {
 // ---- Coordinate conversion ----
 
 /**
- * 将图元锚点的时间坐标转换为指定 Pane 内的屏幕坐标（px）。
+ * 将图元锚点转换为指定 Pane 内的屏幕坐标（px）。
  *
  * 计算过程：
  * 1. 通过 adapter 将锚点时间戳解析为当前逻辑索引
  * 2. 通过本帧已封存的中心点取得 X（分时与 K 线共用同一映射）
  * 3. 通过 adapter.priceToY 按锚点所属 Pane 将价格转为局部 Y
  *
- * @returns {x, y} 屏幕坐标（px），时间戳无法解析或视图未就绪时返回 null
+ * @returns 按锚点类型返回点、水平或垂直投影；时间戳无法解析或视图未就绪时返回 null
  */
 export function anchorToScreen(
   anchor: PersistedDrawingAnchor,
   paneId: string,
   adapter: DrawingChartAdapter,
-): { x: number; y: number } | null {
-  const timestamp = typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
-  // horizontal-line 仅由价格定义，没有时间锚点；端点保持在视口外以避免显示控制点。
-  if (timestamp === undefined || !Number.isFinite(timestamp)) {
-    return { x: -adapter.getKWidthKGap().kWidth, y: adapter.priceToY(paneId, anchor.price) }
+): ScreenDrawingAnchor | null {
+  if (anchor.type === 'horizontal') {
+    return { type: 'horizontal', y: adapter.priceToY(paneId, anchor.price) }
   }
-  const index = adapter.getLogicalIndexAtTimestamp(timestamp)
+
+  const timestamp = typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
+  if (!Number.isFinite(timestamp)) return null
+  const index = adapter.getLogicalIndexAtTimestamp(timestamp as number)
   if (index === null) return null
   const x = adapter.getScreenXAtLogicalIndex(index)
-  return x === null ? null : { x, y: adapter.priceToY(paneId, anchor.price) }
+  if (x === null) return null
+  if (anchor.type === 'vertical') return { type: 'vertical', x }
+  return { type: 'point', x, y: adapter.priceToY(paneId, anchor.price) }
+}
+
+/** 判断投影是否为同时具有 X/Y 的普通点。 */
+export function isScreenPoint(
+  anchor: ScreenDrawingAnchor | null,
+): anchor is { type: 'point' } & ScreenPoint {
+  return anchor?.type === 'point'
 }
 
 /**

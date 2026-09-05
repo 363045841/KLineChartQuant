@@ -1,7 +1,7 @@
 import type { DrawingChartAdapter } from '../../controllers/types'
 import type { DrawingObject, PersistedDrawingAnchor } from '../../foundation/plugin/index'
 
-import { anchorToScreen, resolveDrawingPointer, screenToAnchor } from './coordinateUtils'
+import { anchorToScreen, isScreenPoint, resolveDrawingPointer, screenToAnchor } from './coordinateUtils'
 
 // ---- Types ----
 
@@ -86,13 +86,30 @@ export class DragHandler {
     } else {
       // Dragging the entire line — offset all anchors by mouse delta
       if (!pointer || pointer.paneId !== drawing.paneId) return null
+      if (drawing.kind === 'horizontal-line') {
+        updatedAnchors[0] = {
+          ...updatedAnchors[0]!,
+          type: 'horizontal',
+          time: undefined,
+          price: pointer.price,
+        }
+        return { ...drawing, anchors: updatedAnchors }
+      }
+      if (drawing.kind === 'vertical-line') {
+        updatedAnchors[0] = {
+          ...updatedAnchors[0]!,
+          type: 'vertical',
+          time: pointer.time,
+        }
+        return { ...drawing, anchors: updatedAnchors }
+      }
       const dx = pointer.x - this.dragState.startMouse.x
       const dy = pointer.y - this.dragState.startMouse.y
 
       for (let i = 0; i < drawing.anchors.length; i++) {
         const snap = this.dragState.snapshot[i]!
         const snapScreen = anchorToScreen(snap, drawing.paneId, adapter)
-        if (!snapScreen) continue
+        if (!snapScreen || !isScreenPoint(snapScreen)) continue
 
         const targetX = snapScreen.x + dx
         const targetY = snapScreen.y + dy

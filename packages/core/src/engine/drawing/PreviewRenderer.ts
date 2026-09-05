@@ -61,7 +61,13 @@ export class PreviewRenderer {
       kind: getDrawingKind(activeTool),
       paneId,
       visible: true,
-      anchors: [{ id: `${PREVIEW_ID}-a`, time: anchor.time, price: anchor.price }],
+      anchors: [
+        activeTool === 'h-line'
+          ? { id: `${PREVIEW_ID}-a`, type: 'horizontal', price: anchor.price }
+          : activeTool === 'v-line'
+            ? { id: `${PREVIEW_ID}-a`, type: 'vertical', time: anchor.time!, price: anchor.price }
+            : { id: `${PREVIEW_ID}-a`, type: 'point', time: anchor.time, price: anchor.price },
+      ],
       params: {},
       style: {
         stroke: '#2962ff',

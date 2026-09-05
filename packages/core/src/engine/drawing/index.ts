@@ -499,24 +499,26 @@ export function createSingleAnchorLineDefinition(kind: DrawingKind): DrawingDefi
     compute(drawing, context) {
       const [anchor] = drawing.anchors
       if (!anchor) return { primitives: [] }
-      const point = context.toScreen(anchor)
       const bottom = context.pane.height
       const right = context.viewport.plotWidth
 
       if (kind === 'horizontal-line') {
+        if (anchor.type === 'vertical') return { primitives: [] }
+        const y = context.pane.yAxis.priceToY(anchor.price)
         return {
           primitives: [
             {
               kind: 'line',
-              a: { x: 0, y: point.y },
-              b: { x: right, y: point.y },
+              a: { x: 0, y },
+              b: { x: right, y },
               showEndpoints: false,
               style: drawing.style,
             },
-            { kind: 'point', point, style: drawing.style },
           ],
         }
       }
+
+      const point = context.toScreen(anchor)
 
       if (kind === 'horizontal-ray') {
         return {
@@ -534,6 +536,7 @@ export function createSingleAnchorLineDefinition(kind: DrawingKind): DrawingDefi
       }
 
       if (kind === 'vertical-line') {
+        if (anchor.type === 'horizontal') return { primitives: [] }
         return {
           primitives: [
             {
@@ -543,7 +546,6 @@ export function createSingleAnchorLineDefinition(kind: DrawingKind): DrawingDefi
               showEndpoints: false,
               style: drawing.style,
             },
-            { kind: 'point', point, style: drawing.style },
           ],
         }
       }

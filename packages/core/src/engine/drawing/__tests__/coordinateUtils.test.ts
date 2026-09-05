@@ -26,7 +26,17 @@ describe('drawing coordinate utilities', () => {
   it('uses sealed frame centers instead of K-line spacing for a time-share anchor', () => {
     const point = anchorToScreen({ id: 'anchor', time: 1_000, price: 20 }, 'sub', createAdapter())
 
-    expect(point).toEqual({ x: 137, y: 30 })
+    expect(point).toEqual({ type: 'point', x: 137, y: 30 })
+  })
+
+  it('projects a horizontal anchor to Y only', () => {
+    const anchor = anchorToScreen(
+      { id: 'anchor', type: 'horizontal', price: 20 },
+      'sub',
+      createAdapter(),
+    )
+
+    expect(anchor).toEqual({ type: 'horizontal', y: 30 })
   })
 
   it('resolves the pointer to the hit sub-pane and local Y coordinate', () => {
