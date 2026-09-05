@@ -29,6 +29,14 @@ function createAdapter(drawings: ReadonlyArray<DrawingObject>) {
     getFullDrawings: () => drawings,
     getSelectedDrawingIds: () => selectedIds,
     setSelectedDrawingIds,
+    getDrawingData: () => [{ timestamp: 1 }],
+    getViewport: () => ({ scrollLeft: 0, plotWidth: 100, plotHeight: 100 }),
+    getPaneAtY: () => ({ paneId: 'main', top: 0, height: 100 }),
+    getPaneInfo: () => ({ paneId: 'main', top: 0, height: 100 }),
+    getLogicalIndexAtX: () => 0,
+    getDrawingTimestampAtLogicalIndex: () => 1,
+    getDrawingWorkspaceId: () => 'kline' as const,
+    yToPrice: (_paneId: string, y: number) => y,
   } as unknown as DrawingChartAdapter
   return { adapter, setSelectedDrawingIds }
 }

@@ -71,7 +71,12 @@ import { ChartRenderer, mergeUpdateLevel } from './render/chartRenderer'
 import { ChartStateKernel } from './state/chartStateKernel'
 import type { ViewWorkspacePersistence, ViewWorkspacesSnapshot } from './state/viewWorkspace'
 import type { RangeSelectionState } from './state/interactionState'
-import { ChartDataViewId, isTimeShareDataView, type ChartDataView } from './state/modeState'
+import {
+  ChartDataViewId,
+  isTimeShareDataView,
+  resolveChartWorkspaceId,
+  type ChartDataView,
+} from './state/modeState'
 import { ChartViewportManager } from './viewport/chartViewportManager'
 import { ChartZoomController } from './utils/chartZoomController'
 import { getPhysicalKLineConfig } from './utils/klineConfig'
@@ -421,7 +426,7 @@ export class Chart {
       settings$: this.kernel.settings.readonly.settings,
       customMarkers$: this.kernel.marker.readonly.customMarkers,
       drawings$: this.kernel.drawing.readonly.drawings,
-       selectedDrawingIds$: this.kernel.drawing.readonly.selectedDrawingIds,
+      selectedDrawingIds$: this.kernel.drawing.readonly.selectedDrawingIds,
       getOverlay: () => this.drawingSession?.getPaintOverlay() ?? [],
       onLegendContext: (ctx) => {
         this._legendTemplateContext.set(ctx)
@@ -1100,6 +1105,11 @@ export class Chart {
     return this.dataManager.getRenderData()
   }
 
+  /** 返回绘图锚点解析使用的当前活动点列。 */
+  getDrawingData(): ReadonlyArray<{ timestamp: number }> {
+    return this.dataManager.getRenderData()
+  }
+
   /** K线原始数据（分时模式下为空） */
   getInternalData(): KLineData[] {
     return this.dataManager.getInternalData()
@@ -1210,19 +1220,30 @@ export class Chart {
     return this.dataManager.getTimestampAtLogicalIndex(index)
   }
 
+  /** 返回当前活动绘制点列中逻辑索引对应的时间戳。 */
+  getDrawingTimestampAtLogicalIndex(index: number): number | null {
+    if (!Number.isInteger(index) || index < 0) return null
+    return this.dataManager.getRenderData()[index]?.timestamp ?? null
+  }
+
   /** 通过活动数据序列解析时间戳的当前逻辑索引。 */
   getLogicalIndexAtTimestamp(timestamp: number): number | null {
     return this.dataManager.getLogicalIndexAtTimestamp(timestamp)
   }
 
-  /** 根据视口内 X 坐标反查逻辑索引（允许超出最后一根 K 线） */
-  getLogicalIndexAtX(mouseX: number): number | null {
-    return this.dataManager.getLogicalIndexAtX(mouseX)
+  /** 返回当前数据视图对应的绘图工作区。 */
+  getDrawingWorkspaceId(): import('../foundation/plugin').DrawingWorkspaceId {
+    return resolveChartWorkspaceId(this.kernel.mode.readonly.dataView.peek())
   }
 
-  /** 根据视口内 X 坐标反查数据索引（用于绘图落点） */
-  getDataIndexAtX(mouseX: number): number | null {
-    return this.dataManager.getDataIndexAtX(mouseX)
+  /** 根据视口内 X 坐标反查逻辑索引（允许超出最后一根 K 线） */
+  getLogicalIndexAtX(mouseX: number): number | null {
+    return this.interaction.getLogicalIndexAtScreenX(mouseX)
+  }
+
+  /** 根据本帧已封存的中心点读取逻辑索引对应的视口内 X 坐标。 */
+  getScreenXAtLogicalIndex(index: number): number | null {
+    return this.interaction.getScreenXAtLogicalIndex(index)
   }
 
   /** 获取内容总宽度（用于外部 scroll-content 撑开 scrollWidth） */

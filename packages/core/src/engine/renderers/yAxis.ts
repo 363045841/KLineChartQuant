@@ -71,7 +71,6 @@ export function createYAxisStaticRendererPlugin(options: YAxisOptions): Renderer
           targetCtx.fillText(format(displayValue), textX, tick.y)
         }
       }
-
     },
   }
 }
@@ -111,7 +110,7 @@ export function createYAxisOverlayRendererPlugin(options: YAxisOptions): Rendere
       const isPercent = axisDisplay === 'percent' && pane.role === 'price'
 
       // 绘图范围带在绘图 overlay 阶段注册，必须在同一 overlay 层绘制。
-      if (context.yAxisRanges && pane.role === 'price') {
+      if (pane.role === 'price') {
         for (const range of context.yAxisRanges) {
           const topY = range.topY + pane.top
           const bandHeight = range.bottomY - range.topY
@@ -125,7 +124,7 @@ export function createYAxisOverlayRendererPlugin(options: YAxisOptions): Rendere
       }
 
       // 绘制来自 yAxisLabels 的标签（最新价格、极值点、绘图锚点等）
-      if (context.yAxisLabels && pane.role === 'price') {
+      if (pane.role === 'price') {
         for (const label of context.yAxisLabels) {
           if (label.price == null || !Number.isFinite(label.price)) continue
           const isLastPrice = label.type === 'lastPrice'

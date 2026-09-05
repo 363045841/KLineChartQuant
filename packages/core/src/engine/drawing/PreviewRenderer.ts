@@ -1,4 +1,4 @@
-import type { DrawingObject } from '../../foundation/plugin/index'
+import type { DrawingObject, DrawingWorkspaceId } from '../../foundation/plugin/index'
 
 import { PREVIEW_ID } from './DrawingState'
 import type { DrawingAnchorInput } from './coordinateUtils'
@@ -24,6 +24,8 @@ export class PreviewRenderer {
     activeTool: DrawingToolId,
     pendingAnchors: DrawingAnchorInput[],
     currentAnchor: DrawingAnchorInput,
+    paneId: string,
+    workspaceId: DrawingWorkspaceId,
   ): DrawingObject | null {
     const isSingle = SINGLE_ANCHOR_TOOLS.includes(activeTool as any)
     const isDouble = DOUBLE_ANCHOR_TOOLS.includes(activeTool as any)
@@ -32,31 +34,34 @@ export class PreviewRenderer {
     if (!isSingle && !isDouble && !isTriple) return null
 
     if (isSingle) {
-      return this.buildSingleAnchorPreview(activeTool, currentAnchor)
+      return { ...this.buildSingleAnchorPreview(activeTool, currentAnchor, paneId), workspaceId }
     }
 
     if (isDouble) {
       if (pendingAnchors.length < 1) return null
-      return this.buildDoubleAnchorPreview(activeTool, pendingAnchors[0]!, currentAnchor)
+      return {
+        ...this.buildDoubleAnchorPreview(activeTool, pendingAnchors[0]!, currentAnchor, paneId),
+        workspaceId,
+      }
     }
 
     // Triple anchor tools
-    return this.buildTripleAnchorPreview(activeTool, pendingAnchors, currentAnchor)
+    const preview = this.buildTripleAnchorPreview(activeTool, pendingAnchors, currentAnchor, paneId)
+    return preview ? { ...preview, workspaceId } : null
   }
 
   /** 单锚点工具预览：虚线样式 */
   private buildSingleAnchorPreview(
     activeTool: DrawingToolId,
     anchor: DrawingAnchorInput,
+    paneId: string,
   ): DrawingObject {
     return {
       id: PREVIEW_ID,
       kind: getDrawingKind(activeTool),
-      paneId: 'main',
+      paneId,
       visible: true,
-      anchors: [
-        { id: `${PREVIEW_ID}-a`, time: anchor.time, price: anchor.price },
-      ],
+      anchors: [{ id: `${PREVIEW_ID}-a`, time: anchor.time, price: anchor.price }],
       params: {},
       style: {
         stroke: '#2962ff',
@@ -71,11 +76,12 @@ export class PreviewRenderer {
     activeTool: DrawingToolId,
     first: DrawingAnchorInput,
     second: DrawingAnchorInput,
+    paneId: string,
   ): DrawingObject {
     return {
       id: PREVIEW_ID,
       kind: getDrawingKind(activeTool),
-      paneId: 'main',
+      paneId,
       visible: true,
       anchors: [
         { id: `${PREVIEW_ID}-a`, time: first.time, price: first.price },
@@ -101,6 +107,7 @@ export class PreviewRenderer {
     activeTool: DrawingToolId,
     pendingAnchors: DrawingAnchorInput[],
     currentAnchor: DrawingAnchorInput,
+    paneId: string,
   ): DrawingObject | null {
     if (pendingAnchors.length === 0) return null
 
@@ -110,7 +117,7 @@ export class PreviewRenderer {
       return {
         id: PREVIEW_ID,
         kind: 'trend-line',
-        paneId: 'main',
+        paneId,
         visible: true,
         anchors: [
           {
@@ -152,7 +159,7 @@ export class PreviewRenderer {
     return {
       id: PREVIEW_ID,
       kind: getDrawingKind(activeTool),
-      paneId: 'main',
+      paneId,
       visible: true,
       anchors: [
         {

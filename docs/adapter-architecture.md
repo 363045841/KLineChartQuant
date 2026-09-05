@@ -134,19 +134,33 @@ Key design choices:
 
 ```typescript
 interface DrawingChartAdapter {
-  setDrawings(drawings: any[]): void
-  setSelectedDrawingId(id: string | null): void
+  replaceDrawings(drawings: DrawingObject[]): void
+  getFullDrawings(): DrawingObject[]
+  createDrawing(input: CreateDrawingInput): DrawingObject
+  updateDrawing(id: string, patch: UpdateDrawingPatch): DrawingObject | null
+  removeDrawing(drawingId: string): boolean
+  removeBatch(ids: string[]): boolean
+  clearDrawings(): void
+  setSelectedDrawingIds(ids: string[]): void
+  getSelectedDrawingIds(): string[]
   getViewport(): DrawingChartViewport | null
   getKWidthKGap(): { kWidth: number; kGap: number }
   getCurrentDpr(): number
   getData(): ReadonlyArray<KLineData>
+  getDrawingData(): ReadonlyArray<{ timestamp: number }>
   getLogicalIndexAtX(mouseX: number): number | null
-  getTimestampAtLogicalIndex(index: number): number | null
+  getScreenXAtLogicalIndex(index: number): number | null
+  getDrawingTimestampAtLogicalIndex(index: number): number | null
+  getLogicalIndexAtTimestamp(timestamp: number): number | null
+  getDrawingWorkspaceId(): DrawingWorkspaceId
   priceToY(paneId: string, price: number): number
   yToPrice(paneId: string, y: number): number
-  getPaneInfo(paneId: string): PaneInfo | undefined
+  getPaneInfo(paneId: string): PaneLayoutInfo | undefined
+  getPaneAtY(y: number): PaneLayoutInfo | undefined
 }
 ```
+
+`getTimestampAtLogicalIndex` 已从绘图 adapter 移出，仅作为 `ChartController` 的公开查询保留（供双击切换分时等 UI 操作使用）；绘图坐标解析统一走 `getDrawingTimestampAtLogicalIndex`。
 
 ### 3.6 Lifecycle
 

@@ -4,6 +4,7 @@ import type {
   DrawingKind,
   DrawingObject,
   DrawingStyle,
+  DrawingWorkspaceId,
 } from '../../foundation/plugin'
 import { generateUUID } from '../../foundation/utils/uuid'
 import { DRAWING_ERROR_CODES, KLineChartError } from '../../errors'
@@ -73,6 +74,7 @@ export interface DrawingDocumentDependencies {
     readonly timestamp: number
   } | null
   readonly hasPaneId: (paneId: string) => boolean
+  readonly getWorkspaceId: () => DrawingWorkspaceId
 }
 
 const DEFAULT_DRAWING_STYLE: Readonly<DrawingStyle> = {
@@ -137,6 +139,7 @@ export class DrawingDocument {
       id: `drawing-${generateUUID()}`,
       kind: input.kind,
       paneId: input.paneId,
+      workspaceId: this.dependencies.getWorkspaceId(),
       visible: input.visible ?? true,
       ...(input.locked === undefined ? {} : { locked: input.locked }),
       ...(input.zIndex === undefined ? {} : { zIndex: input.zIndex }),
@@ -188,7 +191,9 @@ export class DrawingDocument {
     const drawings = this.getDrawingsByIds(ids)
     if (drawings.length === 0) return Object.freeze([])
     return Object.freeze(
-      DRAWING_STYLE_KEYS.filter((key) => drawings.every((drawing) => drawing.style[key] !== undefined)),
+      DRAWING_STYLE_KEYS.filter((key) =>
+        drawings.every((drawing) => drawing.style[key] !== undefined),
+      ),
     )
   }
 

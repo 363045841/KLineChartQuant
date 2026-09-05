@@ -1,53 +1,49 @@
 import type { DrawingChartAdapter } from '../../controllers/types'
 import type { DrawingAnchor } from '../../foundation/plugin/index'
-import { getPhysicalKLineConfig } from '../utils/klineConfig'
 
 // ---- Types ----
 
-/** 原始锚点输入（逻辑坐标：K线索引 + 价格） */
+/** 原始锚点输入（逻辑坐标：时间戳 + 价格） */
 export interface DrawingAnchorInput {
-  /** K线柱逻辑索引（可以是小数，表示在两柱之间） */
-  index: number
   /** 对应的时间戳（ms） */
   time?: number
   /** 价格 */
   price: number
 }
 
+/** 指针命中 Pane 后解析出的完整绘图锚点。 */
+export interface DrawingPointerAnchor extends DrawingAnchorInput {
+  paneId: string
+  x: number
+  y: number
+}
+
 // ---- Coordinate conversion ----
 
 /**
- * 将图元锚点的时间坐标转换为屏幕坐标（px）。
+ * 将图元锚点的时间坐标转换为指定 Pane 内的屏幕坐标（px）。
  *
  * 计算过程：
  * 1. 通过 adapter 将锚点时间戳解析为当前逻辑索引
- * 2. 通过 getPhysicalKLineConfig 获取 K 线柱的起始像素位置和单柱像素宽度
- * 3. 减去 viewport.scrollLeft 得到相对视口的 X
- * 4. 通过 adapter.priceToY 将价格转为 Y
+ * 2. 通过本帧已封存的中心点取得 X（分时与 K 线共用同一映射）
+ * 3. 通过 adapter.priceToY 按锚点所属 Pane 将价格转为局部 Y
  *
- * @returns {x, y} 屏幕坐标（px），viewport 不可用时返回 null
+ * @returns {x, y} 屏幕坐标（px），时间戳无法解析或视图未就绪时返回 null
  */
 export function anchorToScreen(
   anchor: DrawingAnchor,
+  paneId: string,
   adapter: DrawingChartAdapter,
 ): { x: number; y: number } | null {
-  const viewport = adapter.getViewport()
-  if (!viewport) return null
-
-  const { kWidth, kGap } = adapter.getKWidthKGap()
-  const dpr = adapter.getCurrentDpr()
-  const { startXPx, unitPx } = getPhysicalKLineConfig(kWidth, kGap, dpr)
   const timestamp = typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
   // horizontal-line 仅由价格定义，没有时间锚点；端点保持在视口外以避免显示控制点。
   if (timestamp === undefined || !Number.isFinite(timestamp)) {
-    return { x: -kWidth, y: adapter.priceToY('main', anchor.price) }
+    return { x: -adapter.getKWidthKGap().kWidth, y: adapter.priceToY(paneId, anchor.price) }
   }
   const index = adapter.getLogicalIndexAtTimestamp(timestamp)
   if (index === null) return null
-
-  const x = (startXPx + index * unitPx + (unitPx - 1) / 2) / dpr - viewport.scrollLeft
-  const y = adapter.priceToY('main', anchor.price)
-  return { x, y }
+  const x = adapter.getScreenXAtLogicalIndex(index)
+  return x === null ? null : { x, y: adapter.priceToY(paneId, anchor.price) }
 }
 
 /**
@@ -59,25 +55,25 @@ export function anchorToScreen(
  */
 export function screenToAnchor(
   screenX: number,
-  screenY: number,
+  paneY: number,
+  paneId: string,
   adapter: DrawingChartAdapter,
 ): DrawingAnchorInput | null {
-  const data = adapter.getData()
+  const data = adapter.getDrawingData()
   const viewport = adapter.getViewport()
   if (!viewport || data.length === 0) return null
 
   const logicalIndex = adapter.getLogicalIndexAtX(screenX)
   if (logicalIndex === null) return null
 
-  const paneInfo = adapter.getPaneInfo('main')
+  const paneInfo = adapter.getPaneInfo(paneId)
   if (!paneInfo) return null
 
-  const timestamp = adapter.getTimestampAtLogicalIndex(logicalIndex) ?? undefined
+  const timestamp = adapter.getDrawingTimestampAtLogicalIndex(logicalIndex) ?? undefined
 
   return {
-    index: logicalIndex,
     time: timestamp ?? undefined,
-    price: adapter.yToPrice('main', screenY - paneInfo.top),
+    price: adapter.yToPrice(paneId, paneY),
   }
 }
 
@@ -91,12 +87,12 @@ export function screenToAnchor(
  *
  * @returns DrawingAnchorInput，超出范围或数据不可用时返回 null
  */
-export function resolveAnchorFromPointer(
+export function resolveDrawingPointer(
   e: PointerEvent,
   container: HTMLElement,
   adapter: DrawingChartAdapter,
-): DrawingAnchorInput | null {
-  const data = adapter.getData()
+): DrawingPointerAnchor | null {
+  const data = adapter.getDrawingData()
   const viewport = adapter.getViewport()
   if (!viewport || data.length === 0) return null
 
@@ -107,19 +103,11 @@ export function resolveAnchorFromPointer(
     return null
   }
 
-  const paneInfo = adapter.getPaneInfo('main')
-  if (!paneInfo) return null
-  if (mouseY < paneInfo.top || mouseY > paneInfo.top + paneInfo.height) return null
-
-  const logicalIndex = adapter.getLogicalIndexAtX(mouseX)
-  if (logicalIndex === null) return null
-  const timestamp = adapter.getTimestampAtLogicalIndex(logicalIndex) ?? undefined
-
-  return {
-    index: logicalIndex,
-    time: timestamp ?? undefined,
-    price: adapter.yToPrice('main', mouseY - paneInfo.top),
-  }
+  const pane = adapter.getPaneAtY(mouseY)
+  if (!pane) return null
+  const y = mouseY - pane.top
+  const anchor = screenToAnchor(mouseX, y, pane.paneId, adapter)
+  return anchor ? { ...anchor, paneId: pane.paneId, x: mouseX, y } : null
 }
 
 // ---- Geometry ----

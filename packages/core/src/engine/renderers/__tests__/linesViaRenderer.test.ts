@@ -185,6 +185,7 @@ describe('compositeSceneRenderer hybrid DOM', () => {
     compositeSceneRenderer({
       ctx: {} as CanvasRenderingContext2D,
       pane: { top: 0, height: 100 },
+      viewport: { plotWidth: 200 },
       paneWidth: 200,
       dpr: 1,
       sceneRenderer: webgpu,
@@ -194,6 +195,7 @@ describe('compositeSceneRenderer hybrid DOM', () => {
     compositeSceneRenderer({
       ctx: {} as CanvasRenderingContext2D,
       pane: { top: 0, height: 100 },
+      viewport: { plotWidth: 200 },
       paneWidth: 200,
       dpr: 1,
       sceneRenderer: webgl,
@@ -219,6 +221,7 @@ describe('tryDrawFilledBandGpu alpha on hybrid DOM', () => {
       {
         ctx: {} as CanvasRenderingContext2D,
         pane: { top: 0, height: 100 },
+        viewport: { plotWidth: 200 },
         paneWidth: 200,
         dpr: 1,
         sceneRenderer: r,
@@ -246,6 +249,7 @@ describe('tryDrawFilledBandGpu alpha on hybrid DOM', () => {
       {
         ctx: {} as CanvasRenderingContext2D,
         pane: { top: 0, height: 100 },
+        viewport: { plotWidth: 200 },
         paneWidth: 200,
         dpr: 1,
         sceneRenderer: r,

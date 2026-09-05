@@ -44,7 +44,6 @@ export function createLastPriceLabelRegistrarPlugin(): RendererPlugin {
       const info = getLastPriceInfo(context)
       if (!info) return
 
-      if (!context.yAxisLabels) context.yAxisLabels = []
       context.yAxisLabels.push({
         price: info.price,
         y: info.y,

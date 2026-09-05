@@ -940,7 +940,8 @@ export class ChartRenderer {
         kLinePositions,
         kLineCenters,
         kBarRects,
-        getLogicalIndexAtTimestamp: (timestamp) => dataManager.getLogicalIndexAtTimestamp(timestamp),
+        getLogicalIndexAtTimestamp: (timestamp) =>
+          dataManager.getLogicalIndexAtTimestamp(timestamp),
         indicatorStateReader,
         markerManager: this.markerManager,
         crosshairIndex: this.deps.getInteraction().getCrosshairIndex(),
@@ -978,8 +979,8 @@ export class ChartRenderer {
         this.drawingDefinitions,
         context,
       )
-      context.yAxisLabels?.push(...context.drawingProjection.yAxisLabels)
-      context.yAxisRanges?.push(...context.drawingProjection.yAxisRanges)
+      context.yAxisLabels.push(...context.drawingProjection.yAxisLabels)
+      context.yAxisRanges.push(...context.drawingProjection.yAxisRanges)
       sharedXAxisLabels.push(...context.drawingProjection.xAxisLabels)
       sharedXAxisRanges.push(...context.drawingProjection.xAxisRanges)
 
@@ -1104,6 +1105,8 @@ export class ChartRenderer {
         marketSession,
         data: renderData,
         dataView: this.deps.dataView$.peek(),
+        getLogicalIndexAtTimestamp: (timestamp) =>
+          dataManager.getLogicalIndexAtTimestamp(timestamp),
         timeShareRange: dataManager.getTimeShareRange() ?? undefined,
         fiveDayTimeShareGeometry: fiveDayTimeShareGeometry ?? undefined,
         range,
@@ -1123,6 +1126,7 @@ export class ChartRenderer {
         },
         yAxisLabels: [],
         xAxisLabels: sharedXAxisLabels,
+        yAxisRanges: [],
         xAxisRanges: sharedXAxisRanges,
         theme: this.deps.theme$.peek(),
         isAsiaMarket: this.settings.isAsiaMarket as boolean,

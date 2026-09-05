@@ -1,5 +1,6 @@
 import type {
   DrawingObject,
+  DrawingWorkspaceId,
   DrawingKind,
   DrawingDefinition,
   DrawingComputeContext,
@@ -67,9 +68,14 @@ export class DrawingStore {
     return this.paintList()
   }
 
-  getVisibleByPane(paneId: string): DrawingObject[] {
+  getVisibleByPane(paneId: string, workspaceId: DrawingWorkspaceId): DrawingObject[] {
     return this.paintList()
-      .filter((drawing) => drawing.visible && drawing.paneId === paneId)
+      .filter(
+        (drawing) =>
+          drawing.visible &&
+          drawing.paneId === paneId &&
+          (drawing.workspaceId ?? 'kline') === workspaceId,
+      )
       .slice()
       .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
   }

@@ -1,10 +1,7 @@
 /** 绘图主层：只消费帧投影并绘制 primitive。 */
 import type { RendererPlugin, RenderContext, DrawingPrimitive } from '../../foundation/plugin/index'
 
-import {
-  createDefaultPrimitiveRendererSet,
-  type PrimitiveRendererSet,
-} from '.'
+import { createDefaultPrimitiveRendererSet, type PrimitiveRendererSet } from '.'
 
 /** 将已投影 primitive 绘制到当前 Pane。 */
 function renderPrimitives(
@@ -40,11 +37,7 @@ export function createDrawingRendererPlugin(options: {
     draw(context: RenderContext) {
       const projection = context.drawingProjection
       if (!projection || projection.primitives.length === 0) return
-      const viewport = context.viewport ?? {
-        scrollLeft: context.scrollLeft,
-        plotWidth: context.paneWidth,
-        plotHeight: context.pane.height,
-      }
+      const viewport = context.viewport
       renderPrimitives(
         context.ctx,
         projection.primitives,

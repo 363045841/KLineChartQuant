@@ -67,6 +67,7 @@ function createFixture() {
       return bar === undefined ? null : { index, timestamp: bar.timestamp }
     },
     hasPaneId: (paneId) => paneId === 'main',
+    getWorkspaceId: () => 'kline',
   })
   const requestDraw = vi.fn()
   const drawingCommands = new DrawingCommands({ document: drawingDocument, requestDraw })

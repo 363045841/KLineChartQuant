@@ -21,6 +21,14 @@ function createContext(): RenderContext {
       { timestamp: 2_000, open: 2, high: 3, low: 1, close: 2 },
     ],
     period: 'daily',
+    dataView: 'kline',
+    getLogicalIndexAtTimestamp: (timestamp) => {
+      const matches = context.data.reduce<number[]>((indices, item, index) => {
+        if ((item as { timestamp?: number }).timestamp === timestamp) indices.push(index)
+        return indices
+      }, [])
+      return matches.length === 1 ? matches[0]! : null
+    },
     range: { start: 0, end: 2 },
     scrollLeft: 0,
     kWidth: 6,
@@ -31,13 +39,10 @@ function createContext(): RenderContext {
     kLineCenters: [10, 30],
     kBarRects: [],
     viewport: { scrollLeft: 0, plotWidth: 100, plotHeight: 100 },
-  }
-  context.getLogicalIndexAtTimestamp = (timestamp) => {
-    const matches = context.data.reduce<number[]>((indices, item, index) => {
-      if ((item as { timestamp?: number }).timestamp === timestamp) indices.push(index)
-      return indices
-    }, [])
-    return matches.length === 1 ? matches[0]! : null
+    yAxisLabels: [],
+    yAxisRanges: [],
+    xAxisLabels: [],
+    xAxisRanges: [],
   }
   return context
 }
@@ -70,8 +75,8 @@ describe('projectDrawingsForFrame', () => {
     expect(projection.yAxisLabels).toHaveLength(2)
     expect(projection.yAxisRanges).toHaveLength(1)
     expect(projection.xAxisLabels).toHaveLength(2)
-    expect(context.yAxisLabels).toBeUndefined()
-    expect(context.yAxisRanges).toBeUndefined()
+    expect(context.yAxisLabels).toHaveLength(0)
+    expect(context.yAxisRanges).toHaveLength(0)
   })
 
   it('re-resolves timestamp anchors after older data prepends and ignores the stale index', () => {

@@ -503,6 +503,40 @@ export class InteractionController {
     }
   }
 
+  /** 根据本帧已封存的中心点读取逻辑索引对应的视口内 X 坐标。 */
+  getScreenXAtLogicalIndex(index: number): number | null {
+    const centers = this.frameCenters
+    const range = this.frameVisibleRange
+    const viewport = this.chart.getViewport()
+    if (!centers || !range || !viewport) return null
+
+    const center = centers[index - range.start]
+    return Number.isFinite(center) ? center - viewport.scrollLeft : null
+  }
+
+  /** 根据本帧已封存的中心点查找最接近视口内 X 坐标的逻辑索引。 */
+  getLogicalIndexAtScreenX(screenX: number): number | null {
+    const centers = this.frameCenters
+    const range = this.frameVisibleRange
+    const viewport = this.chart.getViewport()
+    if (!centers || centers.length === 0 || !range || !viewport) return null
+
+    const worldX = screenX + viewport.scrollLeft
+    let low = 0
+    let high = centers.length
+    while (low < high) {
+      const middle = (low + high) >> 1
+      if (centers[middle]! < worldX) low = middle + 1
+      else high = middle
+    }
+
+    if (low === 0) return range.start
+    if (low === centers.length) return range.start + centers.length - 1
+    const previous = centers[low - 1]!
+    const current = centers[low]!
+    return range.start + (worldX - previous <= current - worldX ? low - 1 : low)
+  }
+
   onRightAxisPointerDown(e: PointerEvent) {
     if (e.isPrimary === false) return
     this.isTouchSession = e.pointerType === 'touch'

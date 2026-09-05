@@ -112,7 +112,11 @@ function createMockInteractionState() {
         signals.hoveredCustomMarker.set(cmd)
       },
       startRangeSelection(timestamp: number) {
-        signals.rangeSelection.set({ startTimestamp: timestamp, endTimestamp: timestamp, isDragging: true })
+        signals.rangeSelection.set({
+          startTimestamp: timestamp,
+          endTimestamp: timestamp,
+          isDragging: true,
+        })
       },
       updateRangeSelection(timestamp: number) {
         signals.rangeSelection.set({ ...signals.rangeSelection.peek(), endTimestamp: timestamp })
@@ -303,7 +307,10 @@ describe('InteractionController DPR consumption', () => {
 
   it('uses current DPR in kWidthLogical = kWidthPx / dpr path', () => {
     const chartDpr1 = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 160 })
-    const interactionDpr1 = new InteractionController(chartDpr1 as never, createMockInteractionState())
+    const interactionDpr1 = new InteractionController(
+      chartDpr1 as never,
+      createMockInteractionState(),
+    )
     interactionDpr1.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
 
     interactionDpr1.onPointerMove({ clientX: 8, clientY: 40, isPrimary: true } as PointerEvent)
@@ -311,7 +318,10 @@ describe('InteractionController DPR consumption', () => {
     expect(interactionDpr1.crosshairIndex).toBe(0)
 
     const chartDpr2 = createChartStub({ dpr: 2, plotWidth: 300, plotHeight: 160 })
-    const interactionDpr2 = new InteractionController(chartDpr2 as never, createMockInteractionState())
+    const interactionDpr2 = new InteractionController(
+      chartDpr2 as never,
+      createMockInteractionState(),
+    )
     interactionDpr2.setKLinePositions([0, 10], { start: 0, end: 2 }, 10)
 
     interactionDpr2.onPointerMove({ clientX: 8, clientY: 40, isPrimary: true } as PointerEvent)
@@ -502,5 +512,16 @@ describe('InteractionController hover snapshot', () => {
     interaction.flushPendingHover()
 
     expect(interaction.getInteractionSnapshot().hoveredCustomMarker).toBeNull()
+  })
+
+  it('maps drawing coordinates through sealed frame centers', () => {
+    const chart = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 200 })
+    const interaction = new InteractionController(chart as never, createMockInteractionState())
+
+    interaction.setKLinePositions([0, 30, 130], { start: 20, end: 23 }, 10, [8, 37, 137])
+
+    expect(interaction.getScreenXAtLogicalIndex(22)).toBe(137)
+    expect(interaction.getLogicalIndexAtScreenX(121)).toBe(22)
+    expect(interaction.getLogicalIndexAtScreenX(20)).toBe(20)
   })
 })

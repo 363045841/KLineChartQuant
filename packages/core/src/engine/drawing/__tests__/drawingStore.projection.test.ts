@@ -30,7 +30,14 @@ describe('DrawingStore projection', () => {
 
     expect(store.getAll().map((d) => d.id)).toEqual(['a', 'b'])
     expect(store.getSelectedIds()).toEqual(['a'])
-    expect(store.getVisibleByPane('main').map((d) => d.id)).toEqual(['a'])
+    expect(store.getVisibleByPane('main', 'kline').map((d) => d.id)).toEqual(['a'])
+
+    state.actions.setDrawings([
+      { ...mk('kline'), workspaceId: 'kline' },
+      { ...mk('timeshare'), workspaceId: 'timeshare' },
+    ])
+    expect(store.getVisibleByPane('main', 'kline').map((d) => d.id)).toEqual(['kline'])
+    expect(store.getVisibleByPane('main', 'timeshare').map((d) => d.id)).toEqual(['timeshare'])
 
     state.actions.setDrawings([mk('c')])
     expect(store.getAll().map((d) => d.id)).toEqual(['c'])

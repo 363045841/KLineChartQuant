@@ -27,7 +27,10 @@ import type { CustomMarkerEntity } from '../engine/marker/registry'
 import type { ChartAgentController } from '../features/agent/types'
 import type { AlertController } from '../features/alerts/types'
 import type { ChartSettings } from '../foundation/config/chartSettings'
-import type { DrawingAnchor, DrawingObject as PluginDrawingObject } from '../foundation/plugin/index'
+import type {
+  DrawingAnchor,
+  DrawingObject as PluginDrawingObject,
+} from '../foundation/plugin/index'
 import type { ReadonlySignal, Signal } from '../foundation/reactivity/index'
 import type { MarketSessionConfig } from '../foundation/utils/sessionTimeLabels'
 
@@ -278,20 +281,28 @@ export interface DrawingChartAdapter {
   getKWidthKGap(): { kWidth: number; kGap: number }
   /** device pixel ratio */
   getCurrentDpr(): number
-  /** raw K-line data */
+  /** K 线数据，仅供依赖 OHLC 的绘图定义计算。 */
   getData(): ReadonlyArray<KLineData>
+  /** 当前绘制数据点，仅用于绘图坐标解析。 */
+  getDrawingData(): ReadonlyArray<{ timestamp: number }>
   /** screen-x → logical bar index */
   getLogicalIndexAtX(mouseX: number): number | null
-  /** logical index → unix timestamp (ms) */
-  getTimestampAtLogicalIndex(index: number): number | null
+  /** logical bar index → current-frame screen x */
+  getScreenXAtLogicalIndex(index: number): number | null
+  /** 逻辑索引对应当前绘制数据点的时间戳（ms）。 */
+  getDrawingTimestampAtLogicalIndex(index: number): number | null
   /** unix timestamp (ms) → current logical index */
   getLogicalIndexAtTimestamp(timestamp: number): number | null
+  /** 当前绘图所属的数据工作区。 */
+  getDrawingWorkspaceId(): import('../foundation/plugin').DrawingWorkspaceId
   /** price → Y within the given pane */
   priceToY(paneId: string, price: number): number
   /** Y within the given pane → price */
   yToPrice(paneId: string, y: number): number
   /** read-only pane metadata by pane ID */
   getPaneInfo(paneId: string): PaneLayoutInfo | undefined
+  /** 根据图表局部 Y 坐标查找所属 Pane。 */
+  getPaneAtY(y: number): PaneLayoutInfo | undefined
 }
 
 // ---------------------------------------------------------------------------
@@ -435,6 +446,8 @@ export interface ChartController extends DrawingChartAdapter {
   appendData(next: ReadonlyArray<KLineData>): void
   updateData(next: ReadonlyArray<KLineData>): void
   getData(): ReadonlyArray<KLineData>
+  /** 返回 K 线逻辑索引对应的时间戳，供双击切换分时等 UI 操作使用。 */
+  getTimestampAtLogicalIndex(index: number): number | null
   getZoomLevelCount(): number
   /** Request data for dates earlier than the currently loaded window */
   ensureDataRange(startTs: number): void

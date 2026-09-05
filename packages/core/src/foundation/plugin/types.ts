@@ -317,7 +317,7 @@ export interface RenderContext {
   /** K线级别，如 'daily'、'5min'、'15min' */
   period: string
   /** 当前图表数据视图。 */
-  dataView?: 'kline' | 'timeshare' | 'fiveDayTimeShare' | 'comparison'
+  dataView: 'kline' | 'timeshare' | 'fiveDayTimeShare' | 'comparison'
   /** 多日分时的原子业务快照。 */
   timeShareRange?: import('../../data/provider/types').TimeShareRange
   /** 五日分时的帧级共享几何。 */
@@ -343,7 +343,7 @@ export interface RenderContext {
   /** 每根K线对应柱的X/宽度（物理像素对齐后，逻辑像素），供柱状图使用 */
   kBarRects: Array<{ x: number; width: number }>
   /** 由活动数据 Buffer 提供的唯一时间戳到逻辑索引解析。 */
-  getLogicalIndexAtTimestamp?: (timestamp: number) => number | null
+  getLogicalIndexAtTimestamp: (timestamp: number) => number | null
   /** 绘图系统预先生成的当前 Pane 帧投影。 */
   drawingProjection?: DrawingFrameProjection
   markerManager?: MarkerManagerLike
@@ -370,7 +370,7 @@ export interface RenderContext {
   zoomLevel?: number
   /** 总缩放级别数 */
   zoomLevelCount?: number
-  viewport?: {
+  viewport: {
     scrollLeft: number
     plotWidth: number
     plotHeight: number
@@ -378,13 +378,13 @@ export interface RenderContext {
   /** 用户设置配置（渲染器只读） */
   settings?: import('../config/chartSettings').ChartSettings
   /** 需要在Y轴上绘制的标签列表（由各类标记渲染器填充） */
-  yAxisLabels?: YAxisLabel[]
+  yAxisLabels: YAxisLabel[]
   /** 需要在X轴上绘制的标签列表（由各类标记渲染器填充） */
-  xAxisLabels?: XAxisLabel[]
+  xAxisLabels: XAxisLabel[]
   /** 需要在Y轴上绘制的范围带列表（由绘图渲染器填充，先于标签绘制） */
-  yAxisRanges?: YAxisRange[]
+  yAxisRanges: YAxisRange[]
   /** 需要在X轴上绘制的范围带列表（由绘图渲染器填充，先于标签绘制） */
-  xAxisRanges?: XAxisRange[]
+  xAxisRanges: XAxisRange[]
   /** 当前主题 */
   theme: 'light' | 'dark'
   /** 亚洲市场惯例（红涨绿跌）；为 true 时自动交换所有 bull/bear 颜色 */
@@ -438,10 +438,15 @@ export type DrawingStyle = {
   fontSize?: number
 }
 
+/** 绘图所属的数据工作区。 */
+export type DrawingWorkspaceId = 'kline' | 'timeshare'
+
 export type DrawingObject<TParams = Record<string, unknown>> = {
   id: string
   kind: DrawingKind
   paneId: string
+  /** 未标记的历史图元按 K 线工作区处理。 */
+  workspaceId?: DrawingWorkspaceId
   visible: boolean
   locked?: boolean
   zIndex?: number

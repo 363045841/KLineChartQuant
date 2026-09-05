@@ -13,6 +13,7 @@ function createDocument() {
     findAnchorAtTradingDate: (tradingDate) =>
       tradingDate === '2026-04-10' ? { timestamp: 1_000 } : null,
     hasPaneId: (paneId) => paneId === 'main',
+    getWorkspaceId: () => 'kline',
   })
   return { state, document }
 }
@@ -46,6 +47,7 @@ describe('DrawingDocument', () => {
       { time: 1_000, price: 10 },
       { time: 1_000, price: 12 },
     ])
+    expect(drawing.workspaceId).toBe('kline')
     expect(state.readonly.drawings.peek()).toEqual([drawing])
     expect(Object.isFrozen(drawing)).toBe(true)
   })
@@ -166,7 +168,10 @@ describe('DrawingDocument', () => {
 
     expect(document.getBatchStyleKeys(['a', 'b'])).toEqual(['stroke'])
     expect(document.updateBatch(['a', 'b'], { style: { strokeWidth: 3 } })).toEqual([])
-    expect(document.listDrawings().map((drawing) => drawing.style.strokeWidth)).toEqual([1, undefined])
+    expect(document.listDrawings().map((drawing) => drawing.style.strokeWidth)).toEqual([
+      1,
+      undefined,
+    ])
 
     expect(document.updateBatch(['a', 'b'], { style: { stroke: '#0f0' } })).toHaveLength(2)
     expect(document.listDrawings().map((drawing) => drawing.style.stroke)).toEqual(['#0f0', '#0f0'])

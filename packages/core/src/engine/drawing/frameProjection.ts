@@ -9,6 +9,7 @@ import type {
   ScreenPoint,
 } from '../../foundation/plugin'
 import type { KLineData } from '../../foundation/types/price'
+import { resolveChartWorkspaceId } from '../state/modeState'
 
 import { DrawingDefinitionRegistry, DrawingStore } from './index'
 
@@ -24,15 +25,13 @@ type MutableDrawingFrameProjection = {
 function createToScreen(context: RenderContext): (anchor: ResolvedDrawingAnchor) => ScreenPoint {
   const { pane, range, kLineCenters, scrollLeft, kWidth } = context
   const centerStep =
-    kLineCenters.length >= 2
-      ? kLineCenters[1]! - kLineCenters[0]!
-      : context.kWidth + context.kGap
+    kLineCenters.length >= 2 ? kLineCenters[1]! - kLineCenters[0]! : context.kWidth + context.kGap
   return (anchor) => {
     if (!Number.isFinite(anchor.index) || anchor.index < 0) {
       return { x: -kWidth, y: pane.yAxis.priceToY(anchor.price) }
     }
     const relativeIndex = anchor.index - range.start
-    const center = kLineCenters[relativeIndex] ?? (kLineCenters[0]! + relativeIndex * centerStep)
+    const center = kLineCenters[relativeIndex] ?? kLineCenters[0]! + relativeIndex * centerStep
     return { x: center - scrollLeft, y: pane.yAxis.priceToY(anchor.price) }
   }
 }
@@ -70,7 +69,10 @@ function applySelectedStyle(
   const stroke = baseStyle.stroke
   const strokeWidth = (baseStyle.strokeWidth ?? 1) + 1
   if (primitive.kind === 'point') {
-    return { ...primitive, style: { ...primitive.style, stroke, pointRadius: (baseStyle.pointRadius ?? 4) + 2 } }
+    return {
+      ...primitive,
+      style: { ...primitive.style, stroke, pointRadius: (baseStyle.pointRadius ?? 4) + 2 },
+    }
   }
   if (primitive.kind === 'line' || primitive.kind === 'arrow') {
     return { ...primitive, style: { ...primitive.style, stroke, strokeWidth } }
@@ -105,9 +107,13 @@ function projectAxisDecorations(
         style: { bgColor: color, borderColor: color, textColor: '#ffffff' },
       })
     }
-    const timestamp =
-      typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
-    if (timestamp !== undefined && Number.isFinite(timestamp) && point.x >= -context.kWidth && point.x <= context.paneWidth + context.kWidth) {
+    const timestamp = typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
+    if (
+      timestamp !== undefined &&
+      Number.isFinite(timestamp) &&
+      point.x >= -context.kWidth &&
+      point.x <= context.paneWidth + context.kWidth
+    ) {
       output.xAxisLabels.push({
         timestamp,
         x: point.x + context.scrollLeft,
@@ -128,8 +134,10 @@ function projectAxisDecorations(
       opacity: 0.15,
     })
   }
-  const left = toScreen({ id: '', index: Math.min(...indices), price: minPrice }).x + context.scrollLeft
-  const right = toScreen({ id: '', index: Math.max(...indices), price: maxPrice }).x + context.scrollLeft
+  const left =
+    toScreen({ id: '', index: Math.min(...indices), price: minPrice }).x + context.scrollLeft
+  const right =
+    toScreen({ id: '', index: Math.max(...indices), price: maxPrice }).x + context.scrollLeft
   if (left !== right) output.xAxisRanges.push({ leftX: left, rightX: right, color, opacity: 0.15 })
 }
 
@@ -148,10 +156,11 @@ export function projectDrawingsForFrame(
   }
   const selectedIds = new Set(store.getSelectedIds())
   const seriesData = context.data as KLineData[]
-  // 锚点索引只能由活动 Buffer 的时间索引解析，缺失解析器时 fail-closed。
-  const getLogicalIndexAtTimestamp = context.getLogicalIndexAtTimestamp ?? (() => null)
+  // 锚点索引由活动 Buffer 的时间索引解析，RenderContext 已保证解析器存在。
+  const getLogicalIndexAtTimestamp = context.getLogicalIndexAtTimestamp
   const toScreen = createToScreen(context)
-  for (const storedDrawing of store.getVisibleByPane(context.pane.id)) {
+  const workspaceId = resolveChartWorkspaceId(context.dataView)
+  for (const storedDrawing of store.getVisibleByPane(context.pane.id, workspaceId)) {
     const drawing = resolveDrawingForFrame(storedDrawing, getLogicalIndexAtTimestamp)
     if (!hasResolvableTimeAnchors(drawing)) continue
     const geometry = definitions.compute(drawing, {
@@ -166,7 +175,7 @@ export function projectDrawingsForFrame(
       kGap: context.kGap,
       dpr: context.dpr,
       paneWidth: context.paneWidth,
-      viewport: context.viewport ?? { scrollLeft: context.scrollLeft, plotWidth: context.paneWidth, plotHeight: context.pane.height },
+      viewport: context.viewport,
       toScreen,
     })
     if (!geometry) continue

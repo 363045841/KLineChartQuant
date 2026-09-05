@@ -12,6 +12,7 @@ function createFixture() {
     getLogicalIndexAtTimestamp: () => 0,
     findAnchorAtTradingDate: () => ({ timestamp: 1_000 }),
     hasPaneId: (paneId) => paneId === 'main',
+    getWorkspaceId: () => 'kline',
   })
   const requestDraw = vi.fn()
   return { commands: new DrawingCommands({ document, requestDraw }), requestDraw }

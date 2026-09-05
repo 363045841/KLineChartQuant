@@ -427,6 +427,9 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     hasPaneId(paneId) {
       return chart.getPaneLayoutSpecs().some((pane) => pane.id === paneId)
     },
+    getWorkspaceId() {
+      return chart.getDrawingWorkspaceId()
+    },
   })
   const drawingCommands = new DrawingCommands({
     document: drawingDocument,
@@ -884,14 +887,34 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     return chart.getLogicalIndexAtX(mouseX)
   }
 
+  function getScreenXAtLogicalIndex(index: number): number | null {
+    if (disposed) return null
+    return chart.getScreenXAtLogicalIndex(index)
+  }
+
   function getTimestampAtLogicalIndex(index: number): number | null {
     if (disposed) return null
     return chart.getTimestampAtLogicalIndex(index)
   }
 
+  function getDrawingData(): ReadonlyArray<{ timestamp: number }> {
+    if (disposed) return []
+    return chart.getDrawingData()
+  }
+
+  function getDrawingTimestampAtLogicalIndex(index: number): number | null {
+    if (disposed) return null
+    return chart.getDrawingTimestampAtLogicalIndex(index)
+  }
+
   function getLogicalIndexAtTimestamp(timestamp: number): number | null {
     if (disposed) return null
     return chart.getLogicalIndexAtTimestamp(timestamp)
+  }
+
+  function getDrawingWorkspaceId(): import('../foundation/plugin').DrawingWorkspaceId {
+    if (disposed) return 'kline'
+    return chart.getDrawingWorkspaceId()
   }
 
   function priceToY(paneId: string, price: number): number {
@@ -912,6 +935,15 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     const pane = renderer?.getPane()
     if (!pane) return undefined
     return { paneId: pane.id, top: pane.top, height: pane.height }
+  }
+
+  function getPaneAtY(y: number): PaneLayoutInfo | undefined {
+    if (disposed) return undefined
+    const renderer = chart
+      .getPaneRenderers()
+      .find((item) => y >= item.getPane().top && y <= item.getPane().top + item.getPane().height)
+    const pane = renderer?.getPane()
+    return pane ? { paneId: pane.id, top: pane.top, height: pane.height } : undefined
   }
 
   function createPane(input: import('../engine/paneManager').CreatePaneInput): boolean {
@@ -1114,11 +1146,16 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     getKWidthKGap,
     getCurrentDpr,
     getLogicalIndexAtX,
+    getScreenXAtLogicalIndex,
     getTimestampAtLogicalIndex,
+    getDrawingData,
+    getDrawingTimestampAtLogicalIndex,
     getLogicalIndexAtTimestamp,
+    getDrawingWorkspaceId,
     priceToY,
     yToPrice,
     getPaneInfo,
+    getPaneAtY,
     createPane,
     clearPanes,
     replacePaneContent,

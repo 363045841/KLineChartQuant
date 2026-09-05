@@ -63,7 +63,7 @@ export class HitTester {
       }
 
       for (let i = 0; i < drawing.anchors.length; i++) {
-        const screen = anchorToScreen(drawing.anchors[i]!, adapter)
+        const screen = anchorToScreen(drawing.anchors[i]!, drawing.paneId, adapter)
         if (!screen) continue
         const dist = Math.hypot(mouseX - screen.x, mouseY - screen.y)
         if (dist <= ANCHOR_HIT_RADIUS) {
@@ -106,10 +106,10 @@ export class HitTester {
 
     // Single-anchor drawings (horizontal-line, horizontal-ray, vertical-line, cross-line)
     if (drawing.anchors.length === 1) {
-      const screen = anchorToScreen(drawing.anchors[0]!, adapter)
+      const screen = anchorToScreen(drawing.anchors[0]!, drawing.paneId, adapter)
       if (!screen) return []
 
-      const paneInfo = adapter.getPaneInfo('main')
+      const paneInfo = adapter.getPaneInfo(drawing.paneId)
       if (!paneInfo) return []
 
       const right = viewport.plotWidth
@@ -133,7 +133,9 @@ export class HitTester {
     }
 
     // Multi-anchor drawings (2+)
-    const points = drawing.anchors.map((a) => anchorToScreen(a, adapter)).filter(Boolean) as {
+    const points = drawing.anchors
+      .map((anchor) => anchorToScreen(anchor, drawing.paneId, adapter))
+      .filter(Boolean) as {
       x: number
       y: number
     }[]
@@ -298,22 +300,34 @@ export class HitTester {
     const firstValue = regression.intercept
     const lastValue = regression.intercept + regression.slope * (slice.length - 1)
 
-    const middleStart = anchorToScreen({ id: '', time: firstTimestamp, price: firstValue }, adapter)
-    const middleEnd = anchorToScreen({ id: '', time: secondTimestamp, price: lastValue }, adapter)
+    const middleStart = anchorToScreen(
+      { id: '', time: firstTimestamp, price: firstValue },
+      drawing.paneId,
+      adapter,
+    )
+    const middleEnd = anchorToScreen(
+      { id: '', time: secondTimestamp, price: lastValue },
+      drawing.paneId,
+      adapter,
+    )
     const upperStart = anchorToScreen(
       { id: '', time: firstTimestamp, price: firstValue + offset },
+      drawing.paneId,
       adapter,
     )
     const upperEnd = anchorToScreen(
       { id: '', time: secondTimestamp, price: lastValue + offset },
+      drawing.paneId,
       adapter,
     )
     const lowerStart = anchorToScreen(
       { id: '', time: firstTimestamp, price: firstValue - offset },
+      drawing.paneId,
       adapter,
     )
     const lowerEnd = anchorToScreen(
       { id: '', time: secondTimestamp, price: lastValue - offset },
+      drawing.paneId,
       adapter,
     )
 

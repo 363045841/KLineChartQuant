@@ -127,7 +127,7 @@ export function createCandleRenderer(): RendererPlugin {
           const region = {
             x: 0,
             y: pane.top,
-            width: context.viewport?.plotWidth ?? context.paneWidth,
+            width: context.viewport.plotWidth,
             height: pane.height,
             dpr,
           }

@@ -109,18 +109,16 @@ export function createTimeAxisRendererPlugin(options: {
       }
 
       // 绘制来自 xAxisRanges 的时间范围带（先于标签绘制）
-      if (context.xAxisRanges) {
-        for (const range of context.xAxisRanges) {
-          const screenLeftX = range.leftX - scrollLeft
-          const screenRightX = range.rightX - scrollLeft
-          const bandWidth = screenRightX - screenLeftX
-          if (bandWidth <= 0) continue
-          targetCtx.save()
-          targetCtx.globalAlpha = range.opacity
-          targetCtx.fillStyle = range.color
-          targetCtx.fillRect(screenLeftX, 0, bandWidth, h)
-          targetCtx.restore()
-        }
+      for (const range of context.xAxisRanges) {
+        const screenLeftX = range.leftX - scrollLeft
+        const screenRightX = range.rightX - scrollLeft
+        const bandWidth = screenRightX - screenLeftX
+        if (bandWidth <= 0) continue
+        targetCtx.save()
+        targetCtx.globalAlpha = range.opacity
+        targetCtx.fillStyle = range.color
+        targetCtx.fillRect(screenLeftX, 0, bandWidth, h)
+        targetCtx.restore()
       }
 
       // 绘制十字线时间标签
@@ -151,32 +149,30 @@ export function createTimeAxisRendererPlugin(options: {
       }
 
       // 绘制来自 xAxisLabels 的标签（极值点、绘图锚点等）
-      if (context.xAxisLabels) {
-        for (const label of context.xAxisLabels) {
-          // 将世界坐标X转换为屏幕坐标
-          const screenX = label.x - scrollLeft
+      for (const label of context.xAxisLabels) {
+        // 将世界坐标X转换为屏幕坐标
+        const screenX = label.x - scrollLeft
 
-          // 检查是否在可视范围内
-          if (screenX >= 0 && screenX <= w) {
-            drawAxisTimeLabel(
-              targetCtx,
-              {
-                x: 0,
-                y: 0,
-                width: w,
-                height: h,
-                labelX: screenX,
-                timestamp: label.timestamp,
-                dpr,
-                fontSize: 12,
-                bgColor: label.style?.bgColor,
-                textColor: label.style?.textColor,
-              },
-              context.theme,
-              context.isAsiaMarket,
-              context.colorPresetSettings,
-            )
-          }
+        // 检查是否在可视范围内
+        if (screenX >= 0 && screenX <= w) {
+          drawAxisTimeLabel(
+            targetCtx,
+            {
+              x: 0,
+              y: 0,
+              width: w,
+              height: h,
+              labelX: screenX,
+              timestamp: label.timestamp,
+              dpr,
+              fontSize: 12,
+              bgColor: label.style?.bgColor,
+              textColor: label.style?.textColor,
+            },
+            context.theme,
+            context.isAsiaMarket,
+            context.colorPresetSettings,
+          )
         }
       }
     },
