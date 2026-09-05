@@ -1,10 +1,10 @@
 import type { DrawingChartAdapter } from '../../controllers/types'
-import type { DrawingAnchor } from '../../foundation/plugin/index'
+import type { PersistedDrawingAnchor } from '../../foundation/plugin/index'
 
 // ---- Types ----
 
 /** 原始锚点输入（逻辑坐标：时间戳 + 价格） */
-export interface DrawingAnchorInput {
+export interface InteractionDrawingAnchor {
   /** 对应的时间戳（ms） */
   time?: number
   /** 价格 */
@@ -12,7 +12,7 @@ export interface DrawingAnchorInput {
 }
 
 /** 指针命中 Pane 后解析出的完整绘图锚点。 */
-export interface DrawingPointerAnchor extends DrawingAnchorInput {
+export interface DrawingPointerAnchor extends InteractionDrawingAnchor {
   paneId: string
   x: number
   y: number
@@ -31,7 +31,7 @@ export interface DrawingPointerAnchor extends DrawingAnchorInput {
  * @returns {x, y} 屏幕坐标（px），时间戳无法解析或视图未就绪时返回 null
  */
 export function anchorToScreen(
-  anchor: DrawingAnchor,
+  anchor: PersistedDrawingAnchor,
   paneId: string,
   adapter: DrawingChartAdapter,
 ): { x: number; y: number } | null {
@@ -51,14 +51,14 @@ export function anchorToScreen(
  *
  * 用于拖拽整线时的屏幕偏移量回算。
  *
- * @returns DrawingAnchorInput，viewport 不可用或索引不在数据范围内时返回 null
+ * @returns InteractionDrawingAnchor，viewport 不可用或索引不在数据范围内时返回 null
  */
 export function screenToAnchor(
   screenX: number,
   paneY: number,
   paneId: string,
   adapter: DrawingChartAdapter,
-): DrawingAnchorInput | null {
+): InteractionDrawingAnchor | null {
   const data = adapter.getDrawingData()
   const viewport = adapter.getViewport()
   if (!viewport || data.length === 0) return null
@@ -85,7 +85,7 @@ export function screenToAnchor(
  * - 鼠标不在 main pane 范围内 → null
  * - 鼠标位置无对应 K 线索引 → null
  *
- * @returns DrawingAnchorInput，超出范围或数据不可用时返回 null
+ * @returns InteractionDrawingAnchor，超出范围或数据不可用时返回 null
  */
 export function resolveDrawingPointer(
   e: PointerEvent,
@@ -113,10 +113,10 @@ export function resolveDrawingPointer(
 // ---- Geometry ----
 
 /**
- * 计算点 P 到线段 AB 的最短距离。
+ * 计算点 P 到线段 AB 的最短距离平方。
  * 投影点在 AB 线段外时取最近端点距离。
  */
-export function pointToSegmentDist(
+export function pointToSegmentDistanceSq(
   px: number,
   py: number,
   a: { x: number; y: number },
@@ -125,9 +125,13 @@ export function pointToSegmentDist(
   const dx = b.x - a.x
   const dy = b.y - a.y
   const lenSq = dx * dx + dy * dy
-  if (lenSq === 0) return Math.hypot(px - a.x, py - a.y)
+  const pointDx = px - a.x
+  const pointDy = py - a.y
+  if (lenSq === 0) return pointDx * pointDx + pointDy * pointDy
 
-  let t = ((px - a.x) * dx + (py - a.y) * dy) / lenSq
+  let t = (pointDx * dx + pointDy * dy) / lenSq
   t = Math.max(0, Math.min(1, t))
-  return Math.hypot(px - (a.x + t * dx), py - (a.y + t * dy))
+  const nearestDx = px - (a.x + t * dx)
+  const nearestDy = py - (a.y + t * dy)
+  return nearestDx * nearestDx + nearestDy * nearestDy
 }

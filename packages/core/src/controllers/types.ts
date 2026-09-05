@@ -28,26 +28,21 @@ import type { ChartAgentController } from '../features/agent/types'
 import type { AlertController } from '../features/alerts/types'
 import type { ChartSettings } from '../foundation/config/chartSettings'
 import type {
-  DrawingAnchor,
+  PersistedDrawingAnchor,
   DrawingObject as PluginDrawingObject,
 } from '../foundation/plugin/index'
 import type { ReadonlySignal, Signal } from '../foundation/reactivity/index'
+import type { ChartDataView } from '../foundation/types/chartView'
+export {
+  FIVE_DAY_TIME_SHARE_DAYS,
+  FIVE_DAY_TIME_SHARE_PERIOD,
+  isTimeSharePeriod,
+  TIME_SHARE_PERIOD,
+} from '../foundation/types/chartPeriod'
 import type { MarketSessionConfig } from '../foundation/utils/sessionTimeLabels'
 
 // Controller-owned public surface. Legacy engine types may mirror these
 // shapes internally, but adapters depend only on core-defined contracts.
-/** 分时数据在 SymbolSpec.period 中使用的专用周期标识。 */
-export const TIME_SHARE_PERIOD = 'timeshare' as const
-/** 五日分时数据在 SymbolSpec.period 中使用的专用周期标识。 */
-export const FIVE_DAY_TIME_SHARE_PERIOD = '5daytimeshare' as const
-/** 五日分时请求的实际交易日数量。 */
-export const FIVE_DAY_TIME_SHARE_DAYS = 5
-
-/** 判断周期是否属于分时数据视图。 */
-export function isTimeSharePeriod(period: string | undefined): boolean {
-  return period === TIME_SHARE_PERIOD || period === FIVE_DAY_TIME_SHARE_PERIOD
-}
-
 export interface ChartViewport {
   zoomLevel: number
   plotWidth: number
@@ -251,7 +246,7 @@ export interface DrawingChartAdapter {
   /** 按 id 更新一个已确认图元。 */
   updateDrawing(id: string, patch: UpdateDrawingPatch): DrawingObject | null
   /** 提交交互层拖拽后的已解析锚点。 */
-  commitDrawingDrag(id: string, anchors: ReadonlyArray<DrawingAnchor>): DrawingObject | null
+  commitDrawingDrag(id: string, anchors: ReadonlyArray<PersistedDrawingAnchor>): DrawingObject | null
   /** 原子更新一批图元的公共属性。 */
   updateBatch(ids: ReadonlyArray<string>, patch: BatchDrawingPatch): ReadonlyArray<DrawingObject>
   /** 返回一批图元共同拥有的样式字段。 */
@@ -383,7 +378,7 @@ export interface ChartController extends DrawingChartAdapter {
     Readonly<import('../rendering/render/rendererHost').RendererBackendRuntime>
   >
   /** 图表模式 id：kline | timeshare | fiveDayTimeShare | comparison */
-  readonly chartMode: ReadonlySignal<'kline' | 'timeshare' | 'fiveDayTimeShare' | 'comparison'>
+  readonly chartMode: ReadonlySignal<ChartDataView>
   /** 最近一次 K 线周期；分时返回操作使用该值。 */
   readonly lastBarPeriod: ReadonlySignal<string>
   readonly indicators: ReadonlySignal<ReadonlyArray<IndicatorInstance>>

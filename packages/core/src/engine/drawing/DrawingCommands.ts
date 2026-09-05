@@ -1,5 +1,5 @@
 /** 已确认图元的唯一写命令入口，统一提交状态与请求重绘。 */
-import type { DrawingAnchor, DrawingObject } from '../../foundation/plugin'
+import type { PersistedDrawingAnchor, DrawingObject } from '../../foundation/plugin'
 
 import type {
   BatchDrawingPatch,
@@ -33,7 +33,7 @@ export class DrawingCommands {
   }
 
   /** 提交交互层拖拽后的已解析锚点。 */
-  commitDrag(id: string, anchors: ReadonlyArray<DrawingAnchor>): DrawingObject | null {
+  commitDrag(id: string, anchors: ReadonlyArray<PersistedDrawingAnchor>): DrawingObject | null {
     const drawing = this.dependencies.document.commitDrawingDrag(id, anchors)
     if (drawing) this.dependencies.requestDraw()
     return drawing

@@ -2,7 +2,7 @@
 import { batch, createSubState } from '../../foundation/reactivity/signal'
 import type { PaneSpec } from '../chartTypes'
 import type { ScaleType } from '../utils/tickPosition'
-import type { ChartWorkspaceId } from './modeState'
+import { ChartWorkspaceId } from '../../foundation/types/chartView'
 import { immutableMap } from './immutable'
 import type { ViewWorkspacesSnapshot } from './viewWorkspace'
 
@@ -55,7 +55,7 @@ function snapshotWorkspace(
 /** 当前工作区的派生接口保持既有消费方不变。 */
 export function createPaneState() {
   const { signals, readonly } = createSubState({
-    activeWorkspace: 'kline' as ChartWorkspaceId,
+    activeWorkspace: ChartWorkspaceId.KLine as ChartWorkspaceId,
     workspaces: Object.freeze({
       kline: EMPTY_WORKSPACE,
       timeshare: EMPTY_WORKSPACE,
@@ -155,7 +155,7 @@ export function createPaneState() {
     },
     dispose(): void {
       batch(() => {
-        signals.activeWorkspace.set('kline')
+        signals.activeWorkspace.set(ChartWorkspaceId.KLine)
         signals.workspaces.set(
           Object.freeze({ kline: EMPTY_WORKSPACE, timeshare: EMPTY_WORKSPACE }),
         )

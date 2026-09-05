@@ -3,6 +3,8 @@
  * Setting 是用户偏好；paneScaleTypes 与 effective display 由模式覆盖后供运行时读取。
  */
 
+import { isTimeSharePeriod } from '../types/chartPeriod'
+
 /** 主图右轴类型偏好，同时决定坐标怎么算、右轴标签怎么显示 */
 export type RightAxisTypeSetting = 'none' | 'linear' | 'log' | 'percent'
 
@@ -55,7 +57,7 @@ export function resolveEffectiveAxisDisplay(
   side: 'left' | 'right',
   input: EffectiveAxisDisplayInput,
 ): AxisDisplaySetting {
-  if (input.period === 'timeshare') return side === 'left' ? 'percent' : 'price'
+  if (isTimeSharePeriod(input.period)) return side === 'left' ? 'percent' : 'price'
   const rightDisplay = resolveRightAxisDisplayFromType(input.rightTypeSetting)
   if (input.comparisonActive && side === 'right') {
     return rightDisplay === 'none' ? 'none' : 'percent'

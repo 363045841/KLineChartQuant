@@ -1,5 +1,6 @@
 import type { DrawingChartAdapter } from '../../controllers/types'
 import type { DrawingObject, DrawingStyle } from '../../foundation/plugin/index'
+import { ChartWorkspaceId } from '../../foundation/types/chartView'
 
 import { AnchorCollector } from './AnchorCollector'
 import { DragHandler } from './DragHandler'
@@ -7,13 +8,13 @@ import { DrawingState, PREVIEW_ID } from './DrawingState'
 import { HitTester } from './HitTester'
 import { PreviewRenderer } from './PreviewRenderer'
 import { resolveDrawingPointer } from './coordinateUtils'
-import type { DrawingAnchorInput, DrawingPointerAnchor } from './coordinateUtils'
+import type { InteractionDrawingAnchor, DrawingPointerAnchor } from './coordinateUtils'
 import type { DrawingToolId } from './toolConfig'
 import { getAnchorCountForTool, getDrawingKind } from './toolConfig'
 
 // Re-export types so index.ts re-exports work unchanged
 export type { DrawingToolId } from './toolConfig'
-export type { DrawingAnchorInput } from './coordinateUtils'
+export type { InteractionDrawingAnchor } from './coordinateUtils'
 
 export interface DrawingInteractionCallbacks {
   onDrawingCreated?: (drawing: DrawingObject) => void
@@ -235,7 +236,7 @@ export class DrawingInteractionController {
         .filter(
           (drawing) =>
             drawing.paneId === pointer.paneId &&
-            (drawing.workspaceId ?? 'kline') === this.adapter.getDrawingWorkspaceId(),
+            (drawing.workspaceId ?? ChartWorkspaceId.KLine) === this.adapter.getDrawingWorkspaceId(),
         ),
       this.adapter,
     )
@@ -289,7 +290,7 @@ export class DrawingInteractionController {
   }
 
   private createMultiAnchorDrawing(
-    anchors: DrawingAnchorInput[],
+    anchors: InteractionDrawingAnchor[],
     activeTool: DrawingToolId,
     paneId: string,
   ) {

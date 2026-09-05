@@ -807,7 +807,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   function commitDrawingDrag(
     id: string,
-    anchors: ReadonlyArray<import('../foundation/plugin').DrawingAnchor>,
+    anchors: ReadonlyArray<import('../foundation/plugin').PersistedDrawingAnchor>,
   ): DrawingObject | null {
     if (disposed) return null
     return drawingCommands.commitDrag(id, anchors)

@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { InteractionController } from '@/core/controller/interaction'
 import type { KLineData } from '@/types/price'
 import { writableRef } from '../../../foundation/reactivity/signal'
+import { ChartDataViewId, type ChartDataView } from '../../../foundation/types/chartView'
 
 function createMockInteractionState() {
   const signals = {
@@ -170,6 +171,7 @@ function createChartStub(args: {
     setHover: (id: string | null) => void
     hitTestCustomMarker: (x: number, y: number) => any
   }
+  dataView?: ChartDataView
 }) {
   const container = document.createElement('div') as HTMLDivElement
   Object.defineProperty(container, 'scrollLeft', { configurable: true, writable: true, value: 0 })
@@ -269,6 +271,11 @@ function createChartStub(args: {
           settings: { peek: () => ({}) },
         },
       },
+      mode: {
+        readonly: {
+          dataView: { peek: () => args.dataView ?? ChartDataViewId.KLine },
+        },
+      },
     },
     getMarkerManager: () => markerManager,
     getPaneRenderers: () => paneRenderers,
@@ -330,7 +337,12 @@ describe('InteractionController DPR consumption', () => {
   })
 
   it('uses sealed centers to select and snap the timeshare crosshair', () => {
-    const chart = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 160 })
+    const chart = createChartStub({
+      dpr: 1,
+      plotWidth: 300,
+      plotHeight: 160,
+      dataView: ChartDataViewId.TimeShare,
+    })
     const interaction = new InteractionController(chart as never, createMockInteractionState())
 
     // 分时 slot 间距可与 K 线物理宽度不同，不能从 position + width/2 推导中心。

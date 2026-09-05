@@ -13,6 +13,7 @@ import type {
   ArrowPrimitive,
 } from '../../foundation/plugin/index'
 import type { KLineData } from '../../foundation/types/price'
+import { ChartWorkspaceId } from '../../foundation/types/chartView'
 
 export type {
   DrawingObject,
@@ -35,7 +36,7 @@ export { DrawingDocument } from './DrawingDocument'
 export { DrawingCommands } from './DrawingCommands'
 export type {
   CreateDrawingInput,
-  DrawingAnchorInput as DrawingDocumentAnchorInput,
+  DrawingAnchorCommandInput,
   DrawingDocumentDependencies,
   UpdateDrawingPatch,
 } from './DrawingDocument'
@@ -74,7 +75,7 @@ export class DrawingStore {
         (drawing) =>
           drawing.visible &&
           drawing.paneId === paneId &&
-          (drawing.workspaceId ?? 'kline') === workspaceId,
+          (drawing.workspaceId ?? ChartWorkspaceId.KLine) === workspaceId,
       )
       .slice()
       .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
@@ -861,4 +862,4 @@ export function registerDefaultDrawingDefinitions(registry: DrawingDefinitionReg
 
 // 导出交互控制器
 export { DrawingInteractionController } from './interaction'
-export type { DrawingToolId, DrawingAnchorInput, DrawingInteractionCallbacks } from './interaction'
+export type { DrawingToolId, InteractionDrawingAnchor, DrawingInteractionCallbacks } from './interaction'

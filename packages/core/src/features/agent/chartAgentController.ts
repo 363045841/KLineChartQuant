@@ -6,6 +6,7 @@ import { lookupInstrumentsBySymbol, searchInstruments } from '../../data/provide
 import type { MarketDataProviderRegistry } from '../../data/provider/registry'
 import { MarketDataCache } from '../../data/buffer/marketDataCache'
 import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
+import type { ChartDataView } from '../../foundation/types/chartView'
 import type { DrawingDocument } from '../../engine/drawing/DrawingDocument'
 import type { DrawingCommands } from '../../engine/drawing/DrawingCommands'
 import type { DrawingObject } from '../../foundation/plugin'
@@ -48,7 +49,7 @@ interface ChartAgentControllerDependencies {
   readonly chartId: string
   readonly dataState: DataStateModule
   readonly currentSpec: ReadonlySignal<SymbolSpec | null>
-  readonly chartMode: ReadonlySignal<'kline' | 'timeshare' | 'fiveDayTimeShare' | 'comparison'>
+  readonly chartMode: ReadonlySignal<ChartDataView>
   readonly selectedRange: ReadonlySignal<ChartAgentTimeRange | null>
   readonly indicators: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
   readonly indicatorQuery: IndicatorQuery

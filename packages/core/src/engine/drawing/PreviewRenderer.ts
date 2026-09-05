@@ -1,7 +1,7 @@
 import type { DrawingObject, DrawingWorkspaceId } from '../../foundation/plugin/index'
 
 import { PREVIEW_ID } from './DrawingState'
-import type { DrawingAnchorInput } from './coordinateUtils'
+import type { InteractionDrawingAnchor } from './coordinateUtils'
 import type { DrawingToolId } from './toolConfig'
 import {
   SINGLE_ANCHOR_TOOLS,
@@ -22,8 +22,8 @@ export class PreviewRenderer {
    */
   buildPreview(
     activeTool: DrawingToolId,
-    pendingAnchors: DrawingAnchorInput[],
-    currentAnchor: DrawingAnchorInput,
+    pendingAnchors: InteractionDrawingAnchor[],
+    currentAnchor: InteractionDrawingAnchor,
     paneId: string,
     workspaceId: DrawingWorkspaceId,
   ): DrawingObject | null {
@@ -53,7 +53,7 @@ export class PreviewRenderer {
   /** 单锚点工具预览：虚线样式 */
   private buildSingleAnchorPreview(
     activeTool: DrawingToolId,
-    anchor: DrawingAnchorInput,
+    anchor: InteractionDrawingAnchor,
     paneId: string,
   ): DrawingObject {
     return {
@@ -74,8 +74,8 @@ export class PreviewRenderer {
   /** 双锚点工具预览：两个锚点之间的虚线，回归通道附带填充区域 */
   private buildDoubleAnchorPreview(
     activeTool: DrawingToolId,
-    first: DrawingAnchorInput,
-    second: DrawingAnchorInput,
+    first: InteractionDrawingAnchor,
+    second: InteractionDrawingAnchor,
     paneId: string,
   ): DrawingObject {
     return {
@@ -105,8 +105,8 @@ export class PreviewRenderer {
    */
   private buildTripleAnchorPreview(
     activeTool: DrawingToolId,
-    pendingAnchors: DrawingAnchorInput[],
-    currentAnchor: DrawingAnchorInput,
+    pendingAnchors: InteractionDrawingAnchor[],
+    currentAnchor: InteractionDrawingAnchor,
     paneId: string,
   ): DrawingObject | null {
     if (pendingAnchors.length === 0) return null

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { RenderContext } from '../../../../foundation/plugin'
 import type { SymbolSpec } from '../../../../controllers/types'
 import type { KLineData, TimeShareData } from '../../../../foundation/types/price'
+import { ChartDataViewId } from '../../../../foundation/types/chartView'
 import { symbolSpecIdentityKey } from '../../../data/symbolIdentity'
 import { buildLegendTemplateContext } from '../mainIndicatorLegendContext'
 
@@ -15,6 +16,7 @@ describe('buildLegendTemplateContext timeshare baseline', () => {
     const context = {
       data: [{ ...point(1, 10), volume: 12_345 }],
       period: 'timeshare',
+      dataView: ChartDataViewId.TimeShare,
       range: { start: 0, end: 1 },
       crosshairIndex: 0,
       paneWidth: 800,
@@ -33,6 +35,7 @@ describe('buildLegendTemplateContext timeshare baseline', () => {
     const context = {
       data: [{ timestamp: 1, price: 3812.11, average: 3812.11, amount: 6_972_838_100 }],
       period: 'timeshare',
+      dataView: ChartDataViewId.TimeShare,
       range: { start: 0, end: 1 },
       crosshairIndex: 0,
       paneWidth: 800,
@@ -55,6 +58,7 @@ describe('buildLegendTemplateContext timeshare baseline', () => {
       const context = {
         data: [point(1, 10), point(2, 11)],
         period: 'timeshare',
+        dataView: ChartDataViewId.TimeShare,
         range: { start: 0, end: 2 },
         crosshairIndex: 1,
         paneWidth: 800,
@@ -89,6 +93,7 @@ describe('buildLegendTemplateContext indicator rows', () => {
     const context = {
       data: [{ timestamp: 1, open: 10, high: 11, low: 9, close: 10 }],
       period: 'timeshare',
+      dataView: ChartDataViewId.TimeShare,
       range: { start: 0, end: 1 },
       paneWidth: 800,
       theme: 'light',

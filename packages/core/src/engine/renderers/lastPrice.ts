@@ -2,6 +2,7 @@ import type { RendererPlugin, RenderContext } from '../../foundation/plugin/inde
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import { resolveThemeColors } from '../../foundation/tokens/index'
 import type { KLineData } from '../../foundation/types/price'
+import { ChartDataViewId } from '../../foundation/types/chartView'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry'
 
 function getLastPriceInfo(context: RenderContext) {
@@ -35,7 +36,7 @@ export function createLastPriceLabelRegistrarPlugin(): RendererPlugin {
     priority: RENDERER_PRIORITY.LAST_PRICE_LABEL,
 
     draw(context: RenderContext) {
-      if (context.period === 'timeshare') return
+      if (context.dataView !== ChartDataViewId.KLine) return
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
@@ -64,7 +65,7 @@ export function createLastPriceLabelRegistrarPlugin(): RendererPlugin {
   category: 'main',
   indicatorType: 'other',
   defaultPaneId: 'main',
-  dataViews: ['kline'],
+  dataViews: [ChartDataViewId.KLine],
   mainPane: { rendererName: 'lastPriceLabelRegistrar' },
 })
 export class LastPriceLabelRegistrarIndicatorDefinition {
@@ -85,7 +86,7 @@ export function createLastPriceLineRendererPlugin(): RendererPlugin {
     priority: RENDERER_PRIORITY.LAST_PRICE_LABEL,
 
     draw(context: RenderContext) {
-      if (context.period === 'timeshare') return
+      if (context.dataView !== ChartDataViewId.KLine) return
       const { overlayCtx, scrollLeft, dpr, paneWidth } = context
       const ctx = overlayCtx
       if (!ctx) return
@@ -127,7 +128,7 @@ export function createLastPriceLineRendererPlugin(): RendererPlugin {
   category: 'main',
   indicatorType: 'other',
   defaultPaneId: 'main',
-  dataViews: ['kline'],
+  dataViews: [ChartDataViewId.KLine],
   mainPane: { rendererName: 'lastPriceLine' },
 })
 export class LastPriceLineIndicatorDefinition {

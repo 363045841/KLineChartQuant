@@ -3,6 +3,7 @@
  */
 
 import type { KLineData } from '../types/price'
+import type { ChartDataView, ChartWorkspaceId } from '../types/chartView'
 
 /** 插件生命周期状态 */
 export enum PluginState {
@@ -317,7 +318,7 @@ export interface RenderContext {
   /** K线级别，如 'daily'、'5min'、'15min' */
   period: string
   /** 当前图表数据视图。 */
-  dataView: 'kline' | 'timeshare' | 'fiveDayTimeShare' | 'comparison'
+  dataView: ChartDataView
   /** 多日分时的原子业务快照。 */
   timeShareRange?: import('../../data/provider/types').TimeShareRange
   /** 五日分时的帧级共享几何。 */
@@ -399,14 +400,14 @@ export interface RenderContext {
   dayKeys?: Int32Array
 }
 
-export type DrawingAnchor = {
+export type PersistedDrawingAnchor = {
   id: string
   time?: number | string
   price: number
 }
 
 /** 当前帧或交互会话使用的锚点坐标；逻辑索引不得进入绘图持久化快照。 */
-export type ResolvedDrawingAnchor = DrawingAnchor & {
+export type ResolvedDrawingAnchor = PersistedDrawingAnchor & {
   index: number
 }
 
@@ -439,7 +440,7 @@ export type DrawingStyle = {
 }
 
 /** 绘图所属的数据工作区。 */
-export type DrawingWorkspaceId = 'kline' | 'timeshare'
+export type DrawingWorkspaceId = ChartWorkspaceId
 
 export type DrawingObject<TParams = Record<string, unknown>> = {
   id: string
@@ -450,7 +451,7 @@ export type DrawingObject<TParams = Record<string, unknown>> = {
   visible: boolean
   locked?: boolean
   zIndex?: number
-  anchors: DrawingAnchor[]
+  anchors: PersistedDrawingAnchor[]
   params: TParams
   style: DrawingStyle
 }

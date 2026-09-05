@@ -11,6 +11,7 @@ import { PinchTracker } from './pinchTracker'
 import { computeTooltipPosition, type TooltipPositionMode } from './tooltipPosition'
 import { isOnRightHalf } from '../../foundation/utils/viewportSide'
 import type { InteractionStateModule } from '../state/interactionState'
+import { isTimeShareDataView } from '../../foundation/types/chartView'
 
 interface PointerLocation {
   mouseX: number
@@ -732,7 +733,7 @@ export class InteractionController {
 
     this.positionCrosshair(ctx, bar)
 
-    if (this.chart.currentPeriod === 'timeshare') {
+    if (isTimeShareDataView(this.chart.kernel.mode.readonly.dataView.peek())) {
       this.handleTimeshareHover(ctx, bar)
       return
     }

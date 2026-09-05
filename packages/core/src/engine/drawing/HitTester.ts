@@ -1,7 +1,7 @@
 import type { DrawingChartAdapter } from '../../controllers/types'
 import type { DrawingObject } from '../../foundation/plugin/index'
 
-import { anchorToScreen, pointToSegmentDist } from './coordinateUtils'
+import { anchorToScreen, pointToSegmentDistanceSq } from './coordinateUtils'
 import { computeLinearRegression } from './linearRegression'
 import { getExtendMode } from './toolConfig'
 
@@ -27,8 +27,10 @@ export interface RegressionChannelGeometry {
 
 /** 锚点点击命中半径（px） */
 const ANCHOR_HIT_RADIUS = 8
+const ANCHOR_HIT_RADIUS_SQ = ANCHOR_HIT_RADIUS * ANCHOR_HIT_RADIUS
 /** 线段点击命中半径（px） */
 const LINE_HIT_RADIUS = 6
+const LINE_HIT_RADIUS_SQ = LINE_HIT_RADIUS * LINE_HIT_RADIUS
 
 /**
  * Hit detection — test mouse position against drawing anchors and line segments.
@@ -65,8 +67,9 @@ export class HitTester {
       for (let i = 0; i < drawing.anchors.length; i++) {
         const screen = anchorToScreen(drawing.anchors[i]!, drawing.paneId, adapter)
         if (!screen) continue
-        const dist = Math.hypot(mouseX - screen.x, mouseY - screen.y)
-        if (dist <= ANCHOR_HIT_RADIUS) {
+        const dx = mouseX - screen.x
+        const dy = mouseY - screen.y
+        if (dx * dx + dy * dy <= ANCHOR_HIT_RADIUS_SQ) {
           return { drawing, anchorIndex: i }
         }
       }
@@ -76,8 +79,7 @@ export class HitTester {
     for (const drawing of visibleDrawings) {
       const segments = this.getDrawingLineSegments(drawing, adapter, regressionGeometryCache)
       for (const seg of segments) {
-        const dist = pointToSegmentDist(mouseX, mouseY, seg.a, seg.b)
-        if (dist <= LINE_HIT_RADIUS) {
+        if (pointToSegmentDistanceSq(mouseX, mouseY, seg.a, seg.b) <= LINE_HIT_RADIUS_SQ) {
           return { drawing }
         }
       }
@@ -364,8 +366,9 @@ export class HitTester {
     if (!geometry) return null
 
     for (const endpoint of geometry.endpoints) {
-      const dist = Math.hypot(mouseX - endpoint.point.x, mouseY - endpoint.point.y)
-      if (dist <= ANCHOR_HIT_RADIUS) {
+      const dx = mouseX - endpoint.point.x
+      const dy = mouseY - endpoint.point.y
+      if (dx * dx + dy * dy <= ANCHOR_HIT_RADIUS_SQ) {
         return { drawing, anchorIndex: endpoint.anchorIndex }
       }
     }

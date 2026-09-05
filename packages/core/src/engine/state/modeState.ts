@@ -1,17 +1,18 @@
 /** 图表数据视图、主序列渲染偏好及运行时能力状态。 */
 import { batch, computed, createSubState } from '../../foundation/reactivity/signal'
+export {
+  ChartDataViewId,
+  ChartWorkspaceId,
+  isTimeShareDataView,
+  resolveChartWorkspaceId,
+  type ChartDataView,
+} from '../../foundation/types/chartView'
+import {
+  ChartDataViewId,
+  isTimeShareDataView,
+  type ChartDataView,
+} from '../../foundation/types/chartView'
 
-/** 图表数据视图的运行时标识。 */
-export const ChartDataViewId = Object.freeze({
-  KLine: 'kline',
-  TimeShare: 'timeshare',
-  FiveDayTimeShare: 'fiveDayTimeShare',
-  Comparison: 'comparison',
-} as const)
-
-export type ChartDataView = (typeof ChartDataViewId)[keyof typeof ChartDataViewId]
-/** 用户指标与 pane 布局的隔离工作区。五日分时复用分时工作区。 */
-export type ChartWorkspaceId = 'kline' | 'timeshare'
 export type ChartModeId = ChartDataView
 export type PrimaryRendererType = 'candlestick' | 'ohlc-bar' | 'line' | 'area'
 export type PrimaryRendererByView = Readonly<Record<ChartDataView, PrimaryRendererType>>
@@ -29,16 +30,6 @@ const DEFAULT_PRIMARY_RENDERERS: PrimaryRendererByView = Object.freeze({
   [ChartDataViewId.FiveDayTimeShare]: 'line',
   [ChartDataViewId.Comparison]: 'line',
 })
-
-/** 判断数据视图是否属于分时视图。 */
-export function isTimeShareDataView(view: string): boolean {
-  return view === ChartDataViewId.TimeShare || view === ChartDataViewId.FiveDayTimeShare
-}
-
-/** 将运行时数据视图归并到用户配置工作区。 */
-export function resolveChartWorkspaceId(view: ChartDataView): ChartWorkspaceId {
-  return isTimeShareDataView(view) ? 'timeshare' : 'kline'
-}
 
 /** 复制并冻结主序列渲染偏好，避免外部原地修改。 */
 function snapshotPrimaryRenderers(

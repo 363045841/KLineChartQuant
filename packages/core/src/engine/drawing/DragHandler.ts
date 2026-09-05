@@ -1,5 +1,5 @@
 import type { DrawingChartAdapter } from '../../controllers/types'
-import type { DrawingObject, DrawingAnchor } from '../../foundation/plugin/index'
+import type { DrawingObject, PersistedDrawingAnchor } from '../../foundation/plugin/index'
 
 import { anchorToScreen, resolveDrawingPointer, screenToAnchor } from './coordinateUtils'
 
@@ -8,7 +8,7 @@ import { anchorToScreen, resolveDrawingPointer, screenToAnchor } from './coordin
 export interface DragState {
   drawingId: string
   anchorIndex?: number
-  snapshot: DrawingAnchor[]
+  snapshot: PersistedDrawingAnchor[]
   startMouse: { x: number; y: number }
 }
 

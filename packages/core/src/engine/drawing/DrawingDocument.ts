@@ -1,6 +1,6 @@
 /** 绘图文档领域服务：为用户交互与 Agent 提供统一的已确认图元 CRUD。 */
 import type {
-  DrawingAnchor,
+  PersistedDrawingAnchor,
   DrawingKind,
   DrawingObject,
   DrawingStyle,
@@ -14,7 +14,7 @@ import type { DrawingStateModule } from '../state/drawingState'
 import { PREVIEW_ID } from './DrawingState'
 
 /** 外部命令使用价格锚点；需要水平位置的图元额外提供时间。 */
-export interface DrawingAnchorInput {
+export interface DrawingAnchorCommandInput {
   /** 交易日锚点，按数据中的 date 字段定位。 */
   readonly tradingDate?: TradingDate
   /** 精确时间锚点，按毫秒时间戳定位。 */
@@ -26,7 +26,7 @@ export interface DrawingAnchorInput {
 export interface CreateDrawingInput {
   readonly kind: DrawingKind
   readonly paneId: string
-  readonly anchors: ReadonlyArray<DrawingAnchorInput>
+  readonly anchors: ReadonlyArray<DrawingAnchorCommandInput>
   readonly style?: Partial<DrawingStyle>
   readonly params?: Readonly<Record<string, unknown>>
   readonly visible?: boolean
@@ -36,7 +36,7 @@ export interface CreateDrawingInput {
 
 /** 更新已确认图元的声明式 patch。 */
 export interface UpdateDrawingPatch {
-  readonly anchors?: ReadonlyArray<DrawingAnchorInput>
+  readonly anchors?: ReadonlyArray<DrawingAnchorCommandInput>
   readonly style?: Partial<DrawingStyle>
   readonly params?: Readonly<Record<string, unknown>>
   readonly visible?: boolean
@@ -171,7 +171,7 @@ export class DrawingDocument {
   }
 
   /** 提交交互层已解析的拖拽锚点，不再转换为外部声明式输入。 */
-  commitDrawingDrag(id: string, anchors: ReadonlyArray<DrawingAnchor>): DrawingObject | null {
+  commitDrawingDrag(id: string, anchors: ReadonlyArray<PersistedDrawingAnchor>): DrawingObject | null {
     const drawing = this.getDrawing(id)
     if (!drawing || anchors.length !== getRequiredAnchorCount(drawing.kind)) return null
     if (
@@ -246,8 +246,8 @@ export class DrawingDocument {
   /** 校验锚点数量并持久化时间坐标与价格。 */
   private resolveAnchors(
     kind: DrawingKind,
-    inputs: ReadonlyArray<DrawingAnchorInput>,
-  ): DrawingAnchor[] {
+    inputs: ReadonlyArray<DrawingAnchorCommandInput>,
+  ): PersistedDrawingAnchor[] {
     const required = getRequiredAnchorCount(kind)
     if (inputs.length !== required) {
       throw new KLineChartError(
@@ -277,8 +277,8 @@ export class DrawingDocument {
   /** 更新锚点时保留已有锚点 id，避免交互引用失效。 */
   private resolveAnchorsForUpdate(
     id: string,
-    inputs: ReadonlyArray<DrawingAnchorInput>,
-  ): DrawingAnchor[] {
+    inputs: ReadonlyArray<DrawingAnchorCommandInput>,
+  ): PersistedDrawingAnchor[] {
     const drawing = this.getDrawing(id)
     if (!drawing) return []
     const anchors = this.resolveAnchors(drawing.kind, inputs)
@@ -289,7 +289,7 @@ export class DrawingDocument {
   }
 
   /** 解析单个声明式锚点；水平线仅由价格决定，不依赖 K 线时间。 */
-  private resolveAnchor(kind: DrawingKind, input: DrawingAnchorInput): DrawingAnchor {
+  private resolveAnchor(kind: DrawingKind, input: DrawingAnchorCommandInput): PersistedDrawingAnchor {
     if (!Number.isFinite(input.price)) {
       throw new KLineChartError(
         DRAWING_ERROR_CODES.INVALID_ANCHOR,

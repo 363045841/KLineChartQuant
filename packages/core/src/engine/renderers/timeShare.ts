@@ -7,6 +7,7 @@ import type {
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import { resolveThemeColors } from '../../foundation/tokens/index'
 import type { TimeShareData } from '../../foundation/types/price'
+import { ChartDataViewId } from '../../foundation/types/chartView'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry'
 import { resolveTimeShareBaseline } from '../modes/timeShareMath'
 
@@ -23,7 +24,7 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
 
     draw(context: RenderContext) {
       const { ctx, pane, data, range, dpr, kLineCenters, scrollLeft, settings } = context
-      if (context.period !== 'timeshare') return
+      if (context.dataView !== ChartDataViewId.TimeShare) return
       const tsData = data as TimeShareData[]
       if (!tsData.length) return
 
@@ -227,7 +228,7 @@ export function drawSegmentLine(
   category: 'main',
   indicatorType: 'other',
   defaultPaneId: 'main',
-  dataViews: ['timeshare'],
+  dataViews: [ChartDataViewId.TimeShare],
   mainPane: { rendererName: 'timeShare' },
 })
 export class TimeShareIndicatorDefinition {

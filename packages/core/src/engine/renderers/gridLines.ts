@@ -4,6 +4,7 @@ import { resolveThemeColors } from '../../foundation/tokens/index'
 import type { KLineData } from '../../foundation/types/price'
 import { findMonthBoundaries } from '../../foundation/utils/dateFormat'
 import { createHorizontalLineRect, createVerticalLineRect } from '../../foundation/utils/pixelAlign'
+import { isTimeShareDataView } from '../../foundation/types/chartView'
 
 /**
  * 创建网格线渲染器插件
@@ -58,7 +59,7 @@ export function createGridLinesRendererPlugin(): RendererPlugin {
           const v = createVerticalLineRect(x, 0, pane.height, dpr)
           if (v) ctx.fillRect(v.x, v.y, v.width, v.height)
         }
-      } else if (context.period !== 'timeshare') {
+      } else if (!isTimeShareDataView(context.dataView)) {
         const boundaries = findMonthBoundaries(klineData, context.monthKeys)
 
         for (const idx of boundaries) {

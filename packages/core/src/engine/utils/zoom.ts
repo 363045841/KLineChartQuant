@@ -1,4 +1,5 @@
 import { getPhysicalKLineConfig } from './klineConfig'
+import { isTimeSharePeriod } from '../../foundation/types/chartPeriod'
 
 /**
  * 缩放计算纯函数
@@ -62,7 +63,7 @@ export interface DeriveKGapInput {
  */
 export function deriveKGap(input: DeriveKGapInput): number {
   const dpr = input.dpr > 0 ? input.dpr : 1
-  if (input.period === 'timeshare') {
+  if (isTimeSharePeriod(input.period)) {
     return 1 / dpr
   }
   return kGapFromKWidth(input.kWidth, dpr)

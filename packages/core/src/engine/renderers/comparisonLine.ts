@@ -2,6 +2,7 @@ import type { RendererPlugin, RenderContext } from '../../foundation/plugin/inde
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import { resolveThemeColors } from '../../foundation/tokens/index'
 import type { KLineData } from '../../foundation/types/price'
+import { ChartDataViewId } from '../../foundation/types/chartView'
 import { symbolSpecIdentityKey } from '../data/symbolIdentity'
 
 export function createComparisonLineRenderer(): RendererPlugin {
@@ -14,7 +15,7 @@ export function createComparisonLineRenderer(): RendererPlugin {
     priority: RENDERER_PRIORITY.MAIN + 2,
 
     draw(context: RenderContext) {
-      if (context.dataView !== 'comparison') return
+      if (context.dataView !== ChartDataViewId.Comparison) return
       const mainData = context.data as KLineData[]
       const comparisonSymbols = context.comparisonSymbols ?? []
       if (comparisonSymbols.length === 0 || mainData.length === 0) return
