@@ -17,8 +17,14 @@ export interface InteractionDrawingAnchor {
   price: number
 }
 
+/** 由屏幕坐标反解析出的逻辑锚点(时间戳 + 价格)，time 已确定为时间戳；解析失败整体返回 null，不会进入该类型。 */
+export interface ResolvedInteractionAnchor extends InteractionDrawingAnchor {
+  /** 对应的时间戳（ms），必填。 */
+  time: number
+}
+
 /** 指针命中 Pane 后解析出的完整绘图锚点。 */
-export interface DrawingPointerAnchor extends InteractionDrawingAnchor {
+export interface DrawingPointerAnchor extends ResolvedInteractionAnchor {
   paneId: string
   x: number
   y: number
@@ -72,14 +78,14 @@ export function isScreenPoint(
  *
  * 用于拖拽整线时的屏幕偏移量回算。
  *
- * @returns InteractionDrawingAnchor，viewport 不可用或无法解析时间轴槽位时返回 null
+ * @returns ResolvedInteractionAnchor，viewport 不可用或无法解析时间轴槽位时返回 null
  */
 export function screenToAnchor(
   screenX: number,
   paneY: number,
   paneId: string,
   adapter: DrawingChartAdapter,
-): InteractionDrawingAnchor | null {
+): ResolvedInteractionAnchor | null {
   const data = adapter.getDrawingData()
   const viewport = adapter.getViewport()
   if (!viewport || data.length === 0) return null
@@ -109,7 +115,7 @@ export function screenToAnchor(
  * - 鼠标不在 main pane 范围内 → null
  * - 鼠标位置无对应时间轴槽位 → null
  *
- * @returns InteractionDrawingAnchor，超出范围或数据不可用时返回 null
+ * @returns DrawingPointerAnchor，超出范围或数据不可用时返回 null
  */
 export function resolveDrawingPointer(
   e: PointerEvent,

@@ -8,7 +8,7 @@ import { DrawingState, PREVIEW_ID } from './DrawingState'
 import { HitTester } from './HitTester'
 import { PreviewRenderer } from './PreviewRenderer'
 import { resolveDrawingPointer } from './coordinateUtils'
-import type { InteractionDrawingAnchor, DrawingPointerAnchor } from './coordinateUtils'
+import type { ResolvedInteractionAnchor, DrawingPointerAnchor } from './coordinateUtils'
 import type { DrawingToolId } from './toolConfig'
 import { getAnchorCountForTool, getDrawingKind } from './toolConfig'
 
@@ -285,7 +285,7 @@ export class DrawingInteractionController {
       paneId: anchor.paneId,
       anchors: [
         {
-          timestamp: Number(anchor.time),
+          timestamp: anchor.time,
           futureOffset: anchor.futureOffset,
           price: anchor.price,
         },
@@ -296,7 +296,7 @@ export class DrawingInteractionController {
   }
 
   private createMultiAnchorDrawing(
-    anchors: InteractionDrawingAnchor[],
+    anchors: ResolvedInteractionAnchor[],
     activeTool: DrawingToolId,
     paneId: string,
   ) {
@@ -306,7 +306,7 @@ export class DrawingInteractionController {
       kind: getDrawingKind(activeTool),
       paneId,
       anchors: anchors.map((anchor) => ({
-        timestamp: Number(anchor.time),
+        timestamp: anchor.time,
         futureOffset: anchor.futureOffset,
         price: anchor.price,
       })),

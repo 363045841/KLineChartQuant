@@ -1,4 +1,4 @@
-import type { InteractionDrawingAnchor } from './coordinateUtils'
+import type { ResolvedInteractionAnchor } from './coordinateUtils'
 import type { DrawingToolId } from './toolConfig'
 import { getAnchorCountForTool } from './toolConfig'
 
@@ -7,7 +7,7 @@ import { getAnchorCountForTool } from './toolConfig'
  * Single-anchor tools are not managed here — they create immediately on first click.
  */
 export class AnchorCollector {
-  pendingAnchors: InteractionDrawingAnchor[] = []
+  pendingAnchors: ResolvedInteractionAnchor[] = []
 
   /** Returns true when the tool uses multiple anchors (2 or 3). */
   isMultiAnchorTool(toolId: DrawingToolId): boolean {
@@ -30,7 +30,7 @@ export class AnchorCollector {
    * @returns the full anchor list if the required count is reached (caller should create drawing),
    *          or null if still accumulating.
    */
-  addAnchor(anchor: InteractionDrawingAnchor, toolId: DrawingToolId): InteractionDrawingAnchor[] | null {
+  addAnchor(anchor: ResolvedInteractionAnchor, toolId: DrawingToolId): ResolvedInteractionAnchor[] | null {
     const required = this.getRequiredCount(toolId)
     if (required === null) return null
 
@@ -46,7 +46,7 @@ export class AnchorCollector {
   }
 
   /** Peek at the first pending anchor without modifying state. */
-  getFirst(): InteractionDrawingAnchor | undefined {
+  getFirst(): ResolvedInteractionAnchor | undefined {
     return this.pendingAnchors[0]
   }
 
