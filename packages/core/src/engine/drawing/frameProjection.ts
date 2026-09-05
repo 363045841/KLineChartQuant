@@ -94,11 +94,11 @@ function projectAxisDecorations(
   anchors: ReadonlyArray<ResolvedDrawingAnchor>,
   style: DrawingStyle,
   context: RenderContext,
+  toScreen: (anchor: ResolvedDrawingAnchor) => ScreenPoint,
   output: MutableDrawingFrameProjection,
 ): void {
   if (context.pane.role !== 'price') return
   const color = style.stroke ?? '#2962ff'
-  const toScreen = createToScreen(context)
   const valid = anchors.filter(
     (anchor) =>
       Number.isFinite(anchor.index) &&
@@ -164,6 +164,7 @@ export function projectDrawingsForFrame(
   }
   const selectedIds = new Set(store.getSelectedIds())
   const seriesData = context.data as KLineData[]
+  const visibleData = seriesData.slice(context.range.start, context.range.end)
   // 锚点索引由活动 Buffer 的时间索引解析，RenderContext 已保证解析器存在。
   const getLogicalIndexAtTimestamp = context.getLogicalIndexAtTimestamp
   const toScreen = createToScreen(context)
@@ -173,7 +174,7 @@ export function projectDrawingsForFrame(
     if (!hasResolvableTimeAnchors(drawing)) continue
     const geometry = definitions.compute(drawing, {
       pane: context.pane,
-      visibleData: seriesData.slice(context.range.start, context.range.end),
+      visibleData,
       seriesData,
       range: context.range,
       kLinePositions: context.kLinePositions,
@@ -198,6 +199,7 @@ export function projectDrawingsForFrame(
         [...drawing.anchors, ...(geometry.computedAnchors ?? [])],
         drawing.style,
         context,
+        toScreen,
         output,
       )
     }
