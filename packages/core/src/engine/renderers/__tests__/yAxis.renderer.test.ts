@@ -183,7 +183,6 @@ describe('yAxis renderer', () => {
           type: 'lastPrice',
           y: 50,
           price: 101,
-          dataIndex: 0,
           style: { borderColor: '#f00', bgColor: '#fff', textColor: '#000' },
         },
       ],

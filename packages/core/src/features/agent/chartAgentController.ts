@@ -22,6 +22,7 @@ import type {
   ChartAgentActiveIndicator,
   ChartAgentContextSnapshot,
   ChartAgentController,
+  ChartAgentDrawingSelection,
   ChartAgentDrawingSnapshot,
   ChartAgentTimeRange,
   BarsQueryInput,
@@ -55,6 +56,8 @@ interface ChartAgentControllerDependencies {
   readonly marketDataCache: MarketDataCache
   readonly drawingDocument: DrawingDocument
   readonly drawingCommands: DrawingCommands
+  readonly drawings: ReadonlySignal<ReadonlyArray<DrawingObject>>
+  readonly selectedDrawingIds: ReadonlySignal<ReadonlyArray<string>>
   readonly getDrawingPaneIds: () => ReadonlyArray<string>
   readonly paneManager: Pick<PaneManager, 'actions' | 'list'>
   readonly isSubPaneRendererAvailable: (indicatorId: string, paneId: string) => boolean
@@ -287,6 +290,26 @@ function projectDrawing(drawing: DrawingObject): ChartAgentDrawingSnapshot {
   })
 }
 
+/** 将当前选中 id 按选择顺序投影为 Agent 可读取的图元快照。 */
+function projectDrawingSelection(
+  drawings: ReadonlyArray<DrawingObject>,
+  selectedIds: ReadonlyArray<string>,
+): ChartAgentDrawingSelection | null {
+  if (selectedIds.length === 0) return null
+
+  const drawingsById = new Map(drawings.map((drawing) => [drawing.id, drawing]))
+  const selectedDrawings = selectedIds
+    .map((id) => drawingsById.get(id))
+    .filter((drawing): drawing is DrawingObject => drawing !== undefined)
+    .map(projectDrawing)
+  if (selectedDrawings.length === 0) return null
+
+  return Object.freeze({
+    selectedIds: Object.freeze(selectedDrawings.map((drawing) => drawing.id)),
+    drawings: Object.freeze(selectedDrawings),
+  })
+}
+
 /** 将 Agent 提供的交易日锚点转换为 Core 绘图 API 使用的声明式输入。 */
 function parseDrawingAnchors(
   anchors: ReadonlyArray<Static<typeof DrawingAnchorToolParameters>>,
@@ -347,6 +370,10 @@ class ChartAgentControllerImpl implements ChartAgentController {
     const adjustMode = selection.kind === 'bars' ? selection.adjustment : (spec?.adjust ?? null)
     const timezone =
       activeBuffer.kind === 'timeShare' ? (activeBuffer.timeShareRange?.timezone ?? null) : null
+    const drawingSelection = projectDrawingSelection(
+      this.dependencies.drawings(),
+      this.dependencies.selectedDrawingIds(),
+    )
 
     return Object.freeze({
       chartId: this.dependencies.chartId,
@@ -361,6 +388,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
       dataRange: Object.freeze({ ...dataRange, bars: activeBuffer.data.length }),
       visibleRange: this.dependencies.selectedRange(),
       activeIndicators: projectIndicators(this.dependencies.indicators()),
+      drawingSelection,
       dataRevision: activeBuffer.dataRevision,
     })
   }

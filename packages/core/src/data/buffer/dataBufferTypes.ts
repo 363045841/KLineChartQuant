@@ -30,6 +30,8 @@ export interface DataBufferLike<T = KLineData | TimeShareData> {
 export interface KLineBuffer extends DataBufferLike<KLineData> {
   readonly currentSpec: SymbolSpec | null
   getRawData(): KLineData[]
+  /** 按唯一时间戳解析当前快照中的逻辑索引；不存在或重复时返回 null。 */
+  getLogicalIndexAtTimestamp(timestamp: number): number | null
   setInlineData(data: ReadonlyArray<KLineData>): void
   /** 缓存查询开始时发布加载状态。 */
   setLoading(loading: boolean): void
@@ -46,6 +48,8 @@ export interface KLineBuffer extends DataBufferLike<KLineData> {
 export interface TimeShareBuffer extends DataBufferLike<TimeShareData> {
   readonly range: ReadonlySignal<TimeShareRange | null>
   getRawData(): TimeShareData[]
+  /** 按唯一时间戳解析当前快照中的逻辑索引；不存在或重复时返回 null。 */
+  getLogicalIndexAtTimestamp(timestamp: number): number | null
   setInlineData(data: ReadonlyArray<TimeShareData>, preClose: number | null): void
   getRange(): TimeShareRange | null
   getPreClose(): number | null

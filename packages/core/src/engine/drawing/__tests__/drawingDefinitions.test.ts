@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import type { DrawingComputeContext, DrawingObject } from '../../../foundation/plugin/index'
+import type { DrawingComputeContext, ResolvedDrawingObject } from '../../../foundation/plugin/index'
 import {
   createArrowDefinition,
   createFibRetracementDefinition,
@@ -28,7 +28,7 @@ function context(): DrawingComputeContext {
   }
 }
 
-function drawing(kind: DrawingObject['kind']): DrawingObject {
+function drawing(kind: ResolvedDrawingObject['kind']): ResolvedDrawingObject {
   return {
     id: 'test',
     kind,

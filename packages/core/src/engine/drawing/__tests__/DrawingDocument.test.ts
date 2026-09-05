@@ -11,7 +11,7 @@ function createDocument() {
     drawingState: state,
     getLogicalIndexAtTimestamp: (timestamp) => (timestamp === 1_000 ? 4 : null),
     findAnchorAtTradingDate: (tradingDate) =>
-      tradingDate === '2026-04-10' ? { index: 4, timestamp: 1_000 } : null,
+      tradingDate === '2026-04-10' ? { timestamp: 1_000 } : null,
     hasPaneId: (paneId) => paneId === 'main',
   })
   return { state, document }
@@ -27,7 +27,7 @@ describe('DrawingDocument', () => {
       anchors: [{ price: 9 }],
     })
 
-    expect(drawing.anchors).toEqual([expect.objectContaining({ index: -1, price: 9 })])
+    expect(drawing.anchors).toEqual([expect.objectContaining({ price: 9 })])
   })
 
   it('creates an immutable drawing from time-price anchors', () => {
@@ -43,8 +43,8 @@ describe('DrawingDocument', () => {
     })
 
     expect(drawing.anchors).toMatchObject([
-      { index: 4, time: 1_000, price: 10 },
-      { index: 4, time: 1_000, price: 12 },
+      { time: 1_000, price: 10 },
+      { time: 1_000, price: 12 },
     ])
     expect(state.readonly.drawings.peek()).toEqual([drawing])
     expect(Object.isFrozen(drawing)).toBe(true)
@@ -62,8 +62,8 @@ describe('DrawingDocument', () => {
     })
 
     expect(drawing.anchors).toMatchObject([
-      { index: 4, time: 1_000, price: 10 },
-      { index: 4, time: 1_000, price: 12 },
+      { time: 1_000, price: 10 },
+      { time: 1_000, price: 12 },
     ])
   })
 
@@ -134,11 +134,73 @@ describe('DrawingDocument', () => {
       paneId: 'main',
       anchors: [{ timestamp: 1_000, price: 10 }],
     })
-    state.actions.setSelectedDrawingId(drawing.id)
+    state.actions.setSelectedDrawingIds([drawing.id])
 
     expect(document.removeDrawing(drawing.id)).toBe(true)
     expect(document.listDrawings()).toEqual([])
-    expect(state.readonly.selectedDrawingId.peek()).toBeNull()
+    expect(state.readonly.selectedDrawingIds.peek()).toEqual([])
+  })
+
+  it('updates a batch only when every requested style field is shared', () => {
+    const { document } = createDocument()
+    document.replaceDrawings([
+      {
+        id: 'a',
+        kind: 'horizontal-line',
+        paneId: 'main',
+        visible: true,
+        anchors: [],
+        params: {},
+        style: { stroke: '#2962ff', strokeWidth: 1 },
+      },
+      {
+        id: 'b',
+        kind: 'horizontal-line',
+        paneId: 'main',
+        visible: true,
+        anchors: [],
+        params: {},
+        style: { stroke: '#f00' },
+      },
+    ])
+
+    expect(document.getBatchStyleKeys(['a', 'b'])).toEqual(['stroke'])
+    expect(document.updateBatch(['a', 'b'], { style: { strokeWidth: 3 } })).toEqual([])
+    expect(document.listDrawings().map((drawing) => drawing.style.strokeWidth)).toEqual([1, undefined])
+
+    expect(document.updateBatch(['a', 'b'], { style: { stroke: '#0f0' } })).toHaveLength(2)
+    expect(document.listDrawings().map((drawing) => drawing.style.stroke)).toEqual(['#0f0', '#0f0'])
+  })
+
+  it('removes a batch and clears every removed id from the selection', () => {
+    const { state, document } = createDocument()
+    const first = document.createDrawing({
+      kind: 'horizontal-line',
+      paneId: 'main',
+      anchors: [{ price: 10 }],
+    })
+    const second = document.createDrawing({
+      kind: 'horizontal-line',
+      paneId: 'main',
+      anchors: [{ price: 11 }],
+    })
+    state.actions.setSelectedDrawingIds([first.id, second.id])
+
+    expect(document.removeBatch([first.id, second.id])).toBe(true)
+    expect(document.listDrawings()).toEqual([])
+    expect(state.readonly.selectedDrawingIds.peek()).toEqual([])
+  })
+
+  it('commits resolved drag anchors without converting them through the external input model', () => {
+    const { document } = createDocument()
+    const drawing = document.createDrawing({
+      kind: 'horizontal-line',
+      paneId: 'main',
+      anchors: [{ price: 10 }],
+    })
+    const anchors = [{ ...drawing.anchors[0]!, price: 11 }]
+
+    expect(document.commitDrawingDrag(drawing.id, anchors)?.anchors).toEqual(anchors)
   })
 
   it('does not persist session preview objects through document replacement', () => {

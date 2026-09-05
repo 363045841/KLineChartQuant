@@ -21,20 +21,20 @@ describe('DrawingStore projection', () => {
   it('reads drawings and selection from injected signals', () => {
     const state = createDrawingState()
     state.actions.setDrawings([mk('a'), mk('b', 'sub')])
-    state.actions.setSelectedDrawingId('a')
+    state.actions.setSelectedDrawingIds(['a'])
 
     const store = new DrawingStore({
       drawings$: state.readonly.drawings,
-      selectedDrawingId$: state.readonly.selectedDrawingId,
+      selectedDrawingIds$: state.readonly.selectedDrawingIds,
     })
 
     expect(store.getAll().map((d) => d.id)).toEqual(['a', 'b'])
-    expect(store.getSelectedId()).toBe('a')
+    expect(store.getSelectedIds()).toEqual(['a'])
     expect(store.getVisibleByPane('main').map((d) => d.id)).toEqual(['a'])
 
     state.actions.setDrawings([mk('c')])
     expect(store.getAll().map((d) => d.id)).toEqual(['c'])
-    expect(store.getSelectedId()).toBeNull()
+    expect(store.getSelectedIds()).toEqual([])
   })
 
   it('merges session overlay for paint without changing kernel signal', () => {
@@ -44,7 +44,7 @@ describe('DrawingStore projection', () => {
 
     const store = new DrawingStore({
       drawings$: state.readonly.drawings,
-      selectedDrawingId$: state.readonly.selectedDrawingId,
+      selectedDrawingIds$: state.readonly.selectedDrawingIds,
       getOverlay: () => overlay,
     })
 

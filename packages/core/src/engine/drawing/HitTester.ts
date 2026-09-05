@@ -274,8 +274,14 @@ export class HitTester {
       return null
     }
 
-    const firstIndex = Math.round(drawing.anchors[0]!.index)
-    const secondIndex = Math.round(drawing.anchors[1]!.index)
+    const firstTimestamp = Number(drawing.anchors[0]!.time)
+    const secondTimestamp = Number(drawing.anchors[1]!.time)
+    const firstIndex = adapter.getLogicalIndexAtTimestamp(firstTimestamp)
+    const secondIndex = adapter.getLogicalIndexAtTimestamp(secondTimestamp)
+    if (firstIndex === null || secondIndex === null) {
+      cache?.set(drawing.id, null)
+      return null
+    }
     const clampedFirst = Math.min(Math.max(firstIndex, 0), data.length - 1)
     const clampedSecond = Math.min(Math.max(secondIndex, 0), data.length - 1)
     const startIndex = Math.min(clampedFirst, clampedSecond)
@@ -292,22 +298,22 @@ export class HitTester {
     const firstValue = regression.intercept
     const lastValue = regression.intercept + regression.slope * (slice.length - 1)
 
-    const middleStart = anchorToScreen({ id: '', index: firstIndex, price: firstValue }, adapter)
-    const middleEnd = anchorToScreen({ id: '', index: secondIndex, price: lastValue }, adapter)
+    const middleStart = anchorToScreen({ id: '', time: firstTimestamp, price: firstValue }, adapter)
+    const middleEnd = anchorToScreen({ id: '', time: secondTimestamp, price: lastValue }, adapter)
     const upperStart = anchorToScreen(
-      { id: '', index: firstIndex, price: firstValue + offset },
+      { id: '', time: firstTimestamp, price: firstValue + offset },
       adapter,
     )
     const upperEnd = anchorToScreen(
-      { id: '', index: secondIndex, price: lastValue + offset },
+      { id: '', time: secondTimestamp, price: lastValue + offset },
       adapter,
     )
     const lowerStart = anchorToScreen(
-      { id: '', index: firstIndex, price: firstValue - offset },
+      { id: '', time: firstTimestamp, price: firstValue - offset },
       adapter,
     )
     const lowerEnd = anchorToScreen(
-      { id: '', index: secondIndex, price: lastValue - offset },
+      { id: '', time: secondTimestamp, price: lastValue - offset },
       adapter,
     )
 

@@ -44,6 +44,8 @@ export interface ChartAgentContextSnapshot {
   readonly dataRange: ChartAgentDataRange
   readonly visibleRange: ChartAgentTimeRange | null
   readonly activeIndicators: ReadonlyArray<ChartAgentActiveIndicator>
+  /** 当前选中图元；无选择时为 null。 */
+  readonly drawingSelection: ChartAgentDrawingSelection | null
   readonly dataRevision: number
 }
 
@@ -63,6 +65,12 @@ export interface ChartAgentDrawingSnapshot {
   readonly zIndex: number | null
   readonly anchors: ReadonlyArray<ChartAgentDrawingAnchor>
   readonly style: Readonly<Record<string, string | number | undefined>>
+}
+
+/** Agent 可读取的当前绘图选择。 */
+export interface ChartAgentDrawingSelection {
+  readonly selectedIds: ReadonlyArray<string>
+  readonly drawings: ReadonlyArray<ChartAgentDrawingSnapshot>
 }
 
 /** Bounded parameters accepted by the compact indicator query. */

@@ -17,12 +17,17 @@ import type { InteractionSnapshot } from '../engine/chart'
 import type { PaneSpec } from '../engine/chartTypes'
 import type { CreatePaneInput, PanePatch } from '../engine/paneManager'
 import type { DrawingToolId } from '../engine/drawing/toolConfig'
-import type { CreateDrawingInput, UpdateDrawingPatch } from '../engine/drawing/DrawingDocument'
+import type {
+  BatchDrawingPatch,
+  CreateDrawingInput,
+  DrawingStyleKey,
+  UpdateDrawingPatch,
+} from '../engine/drawing/DrawingDocument'
 import type { CustomMarkerEntity } from '../engine/marker/registry'
 import type { ChartAgentController } from '../features/agent/types'
 import type { AlertController } from '../features/alerts/types'
 import type { ChartSettings } from '../foundation/config/chartSettings'
-import type { DrawingObject as PluginDrawingObject } from '../foundation/plugin/index'
+import type { DrawingAnchor, DrawingObject as PluginDrawingObject } from '../foundation/plugin/index'
 import type { ReadonlySignal, Signal } from '../foundation/reactivity/index'
 import type { MarketSessionConfig } from '../foundation/utils/sessionTimeLabels'
 
@@ -81,7 +86,7 @@ export interface SubPaneInfo {
 }
 
 export type DrawingObject = PluginDrawingObject
-export type { CreateDrawingInput, UpdateDrawingPatch }
+export type { BatchDrawingPatch, CreateDrawingInput, DrawingStyleKey, UpdateDrawingPatch }
 
 export type IndicatorPaneRole = IndicatorRole
 
@@ -242,14 +247,22 @@ export interface DrawingChartAdapter {
   createDrawing(input: CreateDrawingInput): DrawingObject
   /** 按 id 更新一个已确认图元。 */
   updateDrawing(id: string, patch: UpdateDrawingPatch): DrawingObject | null
+  /** 提交交互层拖拽后的已解析锚点。 */
+  commitDrawingDrag(id: string, anchors: ReadonlyArray<DrawingAnchor>): DrawingObject | null
+  /** 原子更新一批图元的公共属性。 */
+  updateBatch(ids: ReadonlyArray<string>, patch: BatchDrawingPatch): ReadonlyArray<DrawingObject>
+  /** 返回一批图元共同拥有的样式字段。 */
+  getBatchStyleKeys(ids: ReadonlyArray<string>): ReadonlyArray<DrawingStyleKey>
   /** 移除一个已确认图元。 */
   removeDrawing(drawingId: string): boolean
+  /** 原子移除一批图元。 */
+  removeBatch(ids: ReadonlyArray<string>): boolean
   /** 清除所有已确认图元。 */
   clearDrawings(): void
-  /** highlight a drawing by ID */
-  setSelectedDrawingId(id: string | null): void
-  /** read selected drawing id from kernel */
-  getSelectedDrawingId(): string | null
+  /** 设置当前选中图元集合。 */
+  setSelectedDrawingIds(ids: ReadonlyArray<string>): void
+  /** 读取当前选中图元集合。 */
+  getSelectedDrawingIds(): ReadonlyArray<string>
   /** write drawing tool id via Chart (kernel SSOT + session side effects) */
   setDrawingToolId(toolId: import('../engine/drawing/toolConfig').DrawingToolId): void
   /** read current drawing tool id from kernel */
@@ -271,6 +284,8 @@ export interface DrawingChartAdapter {
   getLogicalIndexAtX(mouseX: number): number | null
   /** logical index → unix timestamp (ms) */
   getTimestampAtLogicalIndex(index: number): number | null
+  /** unix timestamp (ms) → current logical index */
+  getLogicalIndexAtTimestamp(timestamp: number): number | null
   /** price → Y within the given pane */
   priceToY(paneId: string, price: number): number
   /** Y within the given pane → price */
@@ -365,8 +380,8 @@ export interface ChartController extends DrawingChartAdapter {
   /** 当前绘图工具（DrawingToolId，默认 cursor） */
   readonly drawingTool: ReadonlySignal<import('../engine/drawing/toolConfig').DrawingToolId>
   readonly drawings: ReadonlySignal<ReadonlyArray<DrawingObject>>
-  /** 当前选中绘图 id（kernel.drawing SSOT） */
-  readonly selectedDrawingId: ReadonlySignal<string | null>
+  /** 当前选中绘图 id 集合（kernel.drawing SSOT） */
+  readonly selectedDrawingIds: ReadonlySignal<ReadonlyArray<string>>
   readonly paneRatios: ReadonlySignal<Readonly<Record<string, number>>>
   readonly paneLayout: ReadonlySignal<ReadonlyArray<PaneSpec>>
   readonly interactionState: ReadonlySignal<InteractionSnapshot>
@@ -473,7 +488,10 @@ export interface ChartController extends DrawingChartAdapter {
   clearDrawings(): void
   createDrawing(input: CreateDrawingInput): DrawingObject
   updateDrawing(id: string, patch: UpdateDrawingPatch): DrawingObject | null
+  updateBatch(ids: ReadonlyArray<string>, patch: BatchDrawingPatch): ReadonlyArray<DrawingObject>
+  getBatchStyleKeys(ids: ReadonlyArray<string>): ReadonlyArray<DrawingStyleKey>
   removeDrawing(drawingId: string): boolean
+  removeBatch(ids: ReadonlyArray<string>): boolean
   /** 原子替换完整绘图文档，仅供受控组件和导入导出使用。 */
   replaceDrawings(drawings: ReadonlyArray<DrawingObject>): void
 

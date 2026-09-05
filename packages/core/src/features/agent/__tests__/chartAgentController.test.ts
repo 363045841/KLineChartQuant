@@ -178,6 +178,8 @@ function createFixture() {
     marketDataCache: new MarketDataCache(marketDataProviderRegistry),
     drawingDocument,
     drawingCommands,
+    drawings: drawingState.readonly.drawings,
+    selectedDrawingIds: drawingState.readonly.selectedDrawingIds,
     getDrawingPaneIds: () => ['main'],
     paneManager: { actions: paneActions, list: () => panes },
     isSubPaneRendererAvailable: (indicatorId) => indicatorId === 'RSI' || indicatorId === 'MACD',
@@ -197,6 +199,7 @@ function createFixture() {
     fetchTimeShare,
     fetchTimeShareRange,
     drawingDocument,
+    drawingState,
     requestDraw,
     paneActions,
   }
@@ -225,6 +228,7 @@ describe('createChartAgentController', () => {
       },
       visibleRange: null,
       activeIndicators: [{ instanceId: 'rsi-1', definitionId: 'RSI', params: { period: 14 } }],
+      drawingSelection: null,
       dataRevision: 1,
     })
     expect(JSON.parse(JSON.stringify(snapshot))).toEqual(snapshot)
@@ -249,6 +253,39 @@ describe('createChartAgentController', () => {
 
     expect(first).not.toBe(second)
     expect(first.chartId).toBe(second.chartId)
+  })
+
+  it('projects every selected drawing into the Agent context in selection order', () => {
+    const fixture = createFixture()
+    fixture.drawingState.actions.setDrawings([
+      {
+        id: 'line-a',
+        kind: 'horizontal-line',
+        paneId: 'main',
+        visible: true,
+        anchors: [{ id: 'a', price: 100 }],
+        params: {},
+        style: { stroke: '#2962ff' },
+      },
+      {
+        id: 'line-b',
+        kind: 'horizontal-line',
+        paneId: 'main',
+        visible: true,
+        anchors: [{ id: 'b', price: 101 }],
+        params: {},
+        style: { stroke: '#f00', strokeWidth: 2 },
+      },
+    ])
+    fixture.drawingState.actions.setSelectedDrawingIds(['line-b', 'line-a'])
+
+    expect(fixture.controller.getContext().drawingSelection).toEqual({
+      selectedIds: ['line-b', 'line-a'],
+      drawings: [
+        expect.objectContaining({ id: 'line-b', style: { stroke: '#f00', strokeWidth: 2 } }),
+        expect.objectContaining({ id: 'line-a', style: { stroke: '#2962ff' } }),
+      ],
+    })
   })
 
   it('rejects an unavailable market-data source ID with enabled IDs needed to retry', async () => {

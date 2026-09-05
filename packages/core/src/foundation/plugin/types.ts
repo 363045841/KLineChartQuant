@@ -209,8 +209,6 @@ export function wrapPaneInfo(pane: {
 
 /** Y轴标签（价格标签） */
 export interface YAxisLabel {
-  /** 关联的数据索引 */
-  dataIndex: number
   /** 价格值 */
   price: number
   /** 标签在轴上的Y坐标（世界坐标，相对pane） */
@@ -227,8 +225,6 @@ export interface YAxisLabel {
 
 /** X轴标签（时间标签） */
 export interface XAxisLabel {
-  /** 关联的数据索引 */
-  dataIndex: number
   /** 时间戳（毫秒） */
   timestamp: number
   /** 标签在轴上的X坐标（世界坐标，未减去scrollLeft） */
@@ -262,6 +258,15 @@ export interface XAxisRange {
   color: string
   /** 填充不透明度 */
   opacity: number
+}
+
+/** 单个 Pane 内绘图在当前帧的纯投影结果。 */
+export interface DrawingFrameProjection {
+  primitives: ReadonlyArray<DrawingPrimitive>
+  yAxisLabels: ReadonlyArray<YAxisLabel>
+  yAxisRanges: ReadonlyArray<YAxisRange>
+  xAxisLabels: ReadonlyArray<XAxisLabel>
+  xAxisRanges: ReadonlyArray<XAxisRange>
 }
 
 /** Y轴刻度（位置+值），由 RenderContext 构建时预计算，所有 Y 轴渲染器共用 */
@@ -337,6 +342,10 @@ export interface RenderContext {
   kLineCenters: number[]
   /** 每根K线对应柱的X/宽度（物理像素对齐后，逻辑像素），供柱状图使用 */
   kBarRects: Array<{ x: number; width: number }>
+  /** 由活动数据 Buffer 提供的唯一时间戳到逻辑索引解析。 */
+  getLogicalIndexAtTimestamp?: (timestamp: number) => number | null
+  /** 绘图系统预先生成的当前 Pane 帧投影。 */
+  drawingProjection?: DrawingFrameProjection
   markerManager?: MarkerManagerLike
   /** 十字线指向的 K 线索引（无十字线时为 null） */
   crosshairIndex?: number | null
@@ -392,9 +401,13 @@ export interface RenderContext {
 
 export type DrawingAnchor = {
   id: string
-  index: number
   time?: number | string
   price: number
+}
+
+/** 当前帧或交互会话使用的锚点坐标；逻辑索引不得进入绘图持久化快照。 */
+export type ResolvedDrawingAnchor = DrawingAnchor & {
+  index: number
 }
 
 export type DrawingKind =
@@ -435,6 +448,14 @@ export type DrawingObject<TParams = Record<string, unknown>> = {
   anchors: DrawingAnchor[]
   params: TParams
   style: DrawingStyle
+}
+
+/** 当前数据帧已按时间戳解析逻辑索引的绘图对象。 */
+export type ResolvedDrawingObject<TParams = Record<string, unknown>> = Omit<
+  DrawingObject<TParams>,
+  'anchors'
+> & {
+  anchors: ResolvedDrawingAnchor[]
 }
 
 export type ScreenPoint = { x: number; y: number }
@@ -489,7 +510,7 @@ export type DrawingGeometry = {
   primitives: DrawingPrimitive[]
   bounds?: { left: number; top: number; right: number; bottom: number }
   meta?: Record<string, unknown>
-  computedAnchors?: DrawingAnchor[]
+  computedAnchors?: ResolvedDrawingAnchor[]
 }
 
 export type DrawingComputeContext = {
@@ -509,14 +530,14 @@ export type DrawingComputeContext = {
     plotWidth: number
     plotHeight: number
   }
-  toScreen(anchor: DrawingAnchor): ScreenPoint
+  toScreen(anchor: ResolvedDrawingAnchor): ScreenPoint
 }
 
 export interface DrawingDefinition<TParams = Record<string, unknown>> {
   kind: DrawingKind
   minAnchors: number
   maxAnchors: number
-  compute(drawing: DrawingObject<TParams>, context: DrawingComputeContext): DrawingGeometry
+  compute(drawing: ResolvedDrawingObject<TParams>, context: DrawingComputeContext): DrawingGeometry
 }
 
 /** 全局 Pane ID（渲染到所有 pane） */

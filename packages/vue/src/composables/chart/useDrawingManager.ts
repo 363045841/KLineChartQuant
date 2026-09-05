@@ -1,5 +1,5 @@
 /**
- * Manages drawing interaction state (selected drawing, drawings list),
+ * Manages drawing interaction state (selected drawings, drawings list),
  * tool activation, style updates, and deletion.
  * Provides setupDrawing() to initialize DrawingInteractionController
  * with lifecycle callbacks that sync back to Vue refs.
@@ -14,15 +14,18 @@ import { computed, shallowRef, onUnmounted, type Ref } from 'vue'
 
 export function useDrawingManager(ctrl: Ref<ChartController | null>) {
   const drawingController = shallowRef<DrawingInteractionController | null>(null)
-  /** 镜像 kernel.selectedDrawingId（shallowRef 避免 deep proxy 破坏 Object.is） */
-  const selectedDrawingId = shallowRef<string | null>(null)
+  /** 镜像 kernel.selectedDrawingIds（shallowRef 避免 deep proxy 破坏 Object.is）。 */
+  const selectedDrawingIds = shallowRef<ReadonlyArray<string>>([])
   const drawings = shallowRef<ReadonlyArray<DrawingObject>>([])
-  const readonlySelectedDrawingId = computed(() => selectedDrawingId.value)
+  const readonlySelectedDrawingIds = computed(() => selectedDrawingIds.value)
   const readonlyDrawings = computed(() => drawings.value)
-  const selectedDrawing = computed(() => {
-    const id = selectedDrawingId.value
-    if (!id) return null
-    return drawings.value.find((d) => d.id === id) ?? null
+  const selectedDrawings = computed(() => {
+    const selectedIds = new Set(selectedDrawingIds.value)
+    return drawings.value.filter((drawing) => selectedIds.has(drawing.id))
+  })
+  const selectedDrawingStyleKeys = computed(() => {
+    drawings.value
+    return ctrl.value?.getBatchStyleKeys(selectedDrawingIds.value) ?? []
   })
 
   let unsubDrawings: (() => void) | null = null
@@ -34,15 +37,15 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
   }
 
   function onUpdateDrawingStyle(style: Partial<DrawingStyle>) {
-    const d = selectedDrawing.value
-    if (!d) return
-    ctrl.value?.updateDrawing(d.id, { style })
+    const ids = selectedDrawingIds.value
+    if (ids.length === 0) return
+    ctrl.value?.updateBatch(ids, { style })
   }
 
   function onDeleteDrawing() {
-    const d = selectedDrawing.value
-    if (!d) return
-    ctrl.value?.removeDrawing(d.id)
+    const ids = selectedDrawingIds.value
+    if (ids.length === 0) return
+    ctrl.value?.removeBatch(ids)
   }
 
   function setupDrawing(chartCtrl: ChartController): void {
@@ -50,12 +53,12 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
     chartCtrl.registerDrawingSession(drawingController.value)
     drawingController.value.setCallbacks({
       onDrawingCreated: (drawing) => {
-        // selection 写 kernel；UI 由 selectedDrawingId signal 回推
-        chartCtrl.setSelectedDrawingId(drawing.id)
+        // selection 写 kernel；UI 由 selectedDrawingIds signal 回推
+        chartCtrl.setSelectedDrawingIds([drawing.id])
       },
       onToolChange: () => {},
-      onDrawingSelected: (drawing) => {
-        chartCtrl.setSelectedDrawingId(drawing?.id ?? null)
+      onDrawingSelected: (drawings) => {
+        chartCtrl.setSelectedDrawingIds(drawings.map((drawing) => drawing.id))
       },
     })
 
@@ -66,9 +69,9 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
     drawings.value = chartCtrl.drawings.peek()
 
     const syncSelected = () => {
-      selectedDrawingId.value = chartCtrl.selectedDrawingId.peek()
+      selectedDrawingIds.value = chartCtrl.selectedDrawingIds.peek()
     }
-    unsubSelected = chartCtrl.selectedDrawingId.subscribe(syncSelected)
+    unsubSelected = chartCtrl.selectedDrawingIds.subscribe(syncSelected)
     syncSelected()
   }
 
@@ -81,8 +84,9 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
 
   return {
     drawingController,
-    selectedDrawingId: readonlySelectedDrawingId,
-    selectedDrawing,
+    selectedDrawingIds: readonlySelectedDrawingIds,
+    selectedDrawings,
+    selectedDrawingStyleKeys,
     drawings: readonlyDrawings,
     handleSelectTool,
     onUpdateDrawingStyle,

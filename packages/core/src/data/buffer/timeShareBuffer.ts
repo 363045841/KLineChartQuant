@@ -10,6 +10,7 @@ import type { TimeShareData } from '../../foundation/types/price'
 import type { TimeShareRange } from '../provider/types'
 
 import type { DataChange, DataBufferLike, LoadedTimeRange, TimeShareBuffer as TimeShareBufferType } from './dataBufferTypes'
+import { UniqueTimestampIndex } from './uniqueTimestampIndex'
 
 type Content =
   | { readonly kind: 'empty' }
@@ -61,6 +62,7 @@ export class TimeShareBuffer implements TimeShareBufferType, DataBufferLike<Time
   private readonly errorSignal: WritableSignal<string | null> = createSignal<string | null>(null)
   private queryDate = 0
   private disposed = false
+  private readonly timestampIndex = new UniqueTimestampIndex()
 
   /** 返回数据变化快照。 */
   get data(): ReadonlySignal<DataChange<TimeShareData>> {
@@ -93,6 +95,11 @@ export class TimeShareBuffer implements TimeShareBufferType, DataBufferLike<Time
     return [...this.flatData.peek()]
   }
 
+  /** 按唯一时间戳查找当前分时快照的逻辑索引。 */
+  getLogicalIndexAtTimestamp(timestamp: number): number | null {
+    return this.timestampIndex.get(timestamp)
+  }
+
   /** 返回多日分时快照。 */
   getRange(): TimeShareRange | null {
     return this.rangeSignal.peek()
@@ -106,7 +113,11 @@ export class TimeShareBuffer implements TimeShareBufferType, DataBufferLike<Time
   /** 写入缓存层返回的多日分时快照。 */
   setRange(range: TimeShareRange): void {
     if (this.disposed) return
-    batch(() => this.content.set({ kind: 'range', range: copyRange(range) }))
+    const copiedRange = copyRange(range)
+    batch(() => {
+      this.content.set({ kind: 'range', range: copiedRange })
+      this.timestampIndex.rebuild(copiedRange.days.flatMap((day) => day.data))
+    })
     this.errorSignal.set(null)
     this.loadingSignal.set(false)
   }
@@ -115,8 +126,10 @@ export class TimeShareBuffer implements TimeShareBufferType, DataBufferLike<Time
   setInlineData(data: ReadonlyArray<TimeShareData>, preClose: number | null): void {
     if (this.disposed) return
     if (preClose !== null && (!Number.isFinite(preClose) || preClose <= 0)) return
+    const copiedData = Object.freeze(data.map(copyPoint))
     batch(() => {
-      this.content.set({ kind: 'inline', data: Object.freeze(data.map(copyPoint)), preClose })
+      this.content.set({ kind: 'inline', data: copiedData, preClose })
+      this.timestampIndex.rebuild(copiedData)
     })
     this.errorSignal.set(null)
     this.loadingSignal.set(false)
@@ -149,6 +162,7 @@ export class TimeShareBuffer implements TimeShareBufferType, DataBufferLike<Time
   dispose(): void {
     this.disposed = true
     this.content.set(EMPTY_CONTENT)
+    this.timestampIndex.rebuild([])
     this.loadingSignal.set(false)
     this.errorSignal.set(null)
   }

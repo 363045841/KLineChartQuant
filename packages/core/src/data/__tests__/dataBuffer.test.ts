@@ -31,6 +31,24 @@ describe('DataBuffer', () => {
     unsubscribe()
   })
 
+  it('resolves logical indexes from its current timestamp index after prepending data', () => {
+    const buffer = new DataBuffer()
+    buffer.setInlineData([bar(20), bar(30)])
+
+    buffer.mergeData([bar(10)], 'available')
+
+    expect(buffer.getLogicalIndexAtTimestamp(20)).toBe(1)
+    expect(buffer.getLogicalIndexAtTimestamp(30)).toBe(2)
+    expect(buffer.getLogicalIndexAtTimestamp(99)).toBeNull()
+  })
+
+  it('rejects ambiguous inline timestamps instead of choosing an arbitrary index', () => {
+    const buffer = new DataBuffer()
+    buffer.setInlineData([bar(20), bar(20)])
+
+    expect(buffer.getLogicalIndexAtTimestamp(20)).toBeNull()
+  })
+
   it('publishes cache query loading and error state', () => {
     const buffer = new DataBuffer()
     buffer.setLoading(true)

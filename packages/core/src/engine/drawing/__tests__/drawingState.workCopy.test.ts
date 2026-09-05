@@ -17,20 +17,20 @@ function mk(id: string): DrawingObject {
 
 function mockAdapter(
   initial: DrawingObject[] = [],
-  initialSelected: string | null = null,
+  initialSelected: string[] = [],
 ): DrawingChartAdapter & {
   kernelList: DrawingObject[]
   replaceDrawings: ReturnType<typeof vi.fn>
   updateDrawing: ReturnType<typeof vi.fn>
   requestDraw: ReturnType<typeof vi.fn>
 } {
-  let selected: string | null = initialSelected
+  let selected = [...initialSelected]
   let kernelList = [...initial]
   const replaceDrawings = vi.fn((list: DrawingObject[]) => {
     kernelList = list.filter((d) => d.id !== PREVIEW_ID).map((d) => ({ ...d }))
   })
   const updateDrawing = vi.fn(
-    (id: string, patch: { anchors?: Array<{ time: number; price: number }> }) => {
+    (id: string, patch: { anchors?: Array<{ timestamp?: number; price: number }> }) => {
       const index = kernelList.findIndex((drawing) => drawing.id === id)
       if (index === -1 || !patch.anchors) return null
       const current = kernelList[index]!
@@ -38,7 +38,6 @@ function mockAdapter(
         ...current,
         anchors: patch.anchors.map((anchor, anchorIndex) => ({
           id: current.anchors[anchorIndex]?.id ?? `p-${anchorIndex}`,
-          index: anchor.time,
           ...anchor,
         })),
       }
@@ -55,13 +54,14 @@ function mockAdapter(
     replaceDrawings,
     createDrawing: vi.fn(() => mk('created')),
     updateDrawing,
+    commitDrawingDrag: vi.fn(),
     removeDrawing: vi.fn(() => false),
     clearDrawings: vi.fn(),
     getFullDrawings: vi.fn(() => kernelList),
-    setSelectedDrawingId: vi.fn((id: string | null) => {
-      selected = id
+    setSelectedDrawingIds: vi.fn((ids: ReadonlyArray<string>) => {
+      selected = [...ids]
     }),
-    getSelectedDrawingId: vi.fn(() => selected),
+    getSelectedDrawingIds: vi.fn(() => selected),
     setDrawingToolId: vi.fn(),
     getDrawingToolId: vi.fn(() => 'cursor'),
     requestDraw,
@@ -71,6 +71,7 @@ function mockAdapter(
     getData: vi.fn(() => []),
     getLogicalIndexAtX: vi.fn(() => null),
     getTimestampAtLogicalIndex: vi.fn(() => null),
+    getLogicalIndexAtTimestamp: vi.fn(() => null),
     priceToY: vi.fn(() => 0),
     yToPrice: vi.fn(() => 0),
     getPaneInfo: vi.fn(() => undefined),
@@ -99,26 +100,24 @@ describe('DrawingState session SSOT', () => {
     expect(adapter.getFullDrawings()).toHaveLength(1)
   })
 
-  it('setSelected only writes adapter; getSelectedId reads adapter', () => {
+  it('setSelected only writes adapter; getSelectedDrawings reads adapter', () => {
     const adapter = mockAdapter([mk('a')])
     const state = new DrawingState(adapter)
-    state.setSelected(mk('a'))
-    expect(adapter.setSelectedDrawingId).toHaveBeenCalledWith('a')
-    expect(state.getSelectedId()).toBe('a')
+    state.setSelected([mk('a')])
+    expect(adapter.setSelectedDrawingIds).toHaveBeenCalledWith(['a'])
+    expect(state.getSelectedDrawings().map((drawing) => drawing.id)).toEqual(['a'])
   })
 
-  it('setDragOverride does not write kernel; commitDrag delegates an anchor patch once', () => {
+  it('setDragOverride does not write kernel; commitDrag delegates resolved anchors once', () => {
     const adapter = mockAdapter([mk('a')])
     const state = new DrawingState(adapter)
-    adapter.updateDrawing.mockClear()
-    const moved = { ...mk('a'), anchors: [{ id: 'p', index: 1, time: 1, price: 99 }] }
+    adapter.commitDrawingDrag.mockClear()
+    const moved = { ...mk('a'), anchors: [{ id: 'p', time: 1, price: 99 }] }
     state.setDragOverride(moved)
-    expect(adapter.updateDrawing).not.toHaveBeenCalled()
+    expect(adapter.commitDrawingDrag).not.toHaveBeenCalled()
     expect(adapter.requestDraw).toHaveBeenCalled()
     state.commitDrag()
-    expect(adapter.updateDrawing).toHaveBeenCalledWith('a', {
-      anchors: [{ time: 1, price: 99 }],
-    })
+    expect(adapter.commitDrawingDrag).toHaveBeenCalledWith('a', moved.anchors)
     expect(state.getPaintOverlay()).toEqual([])
   })
 

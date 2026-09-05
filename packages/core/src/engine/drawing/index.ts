@@ -42,7 +42,7 @@ export type { DrawingCommandsDependencies } from './DrawingCommands'
 
 export interface DrawingStoreDeps {
   drawings$: ReadonlySignal<ReadonlyArray<DrawingObject>>
-  selectedDrawingId$: ReadonlySignal<string | null>
+  selectedDrawingIds$: ReadonlySignal<ReadonlyArray<string>>
   /** 会话层覆盖（拖拽/预览）；缺省为空 */
   getOverlay?: () => ReadonlyArray<DrawingObject>
 }
@@ -53,8 +53,8 @@ export interface DrawingStoreDeps {
 export class DrawingStore {
   constructor(private readonly deps: DrawingStoreDeps) {}
 
-  getSelectedId(): string | null {
-    return this.deps.selectedDrawingId$.peek()
+  getSelectedIds(): ReadonlyArray<string> {
+    return this.deps.selectedDrawingIds$.peek()
   }
 
   private paintList(): DrawingObject[] {
@@ -86,7 +86,10 @@ export class DrawingDefinitionRegistry {
     return this.definitions.get(kind)
   }
 
-  compute(drawing: DrawingObject, context: DrawingComputeContext): DrawingGeometry | null {
+  compute(
+    drawing: import('../../foundation/plugin').ResolvedDrawingObject,
+    context: DrawingComputeContext,
+  ): DrawingGeometry | null {
     const definition = this.get(drawing.kind)
     if (!definition) return null
     return definition.compute(drawing, context)
@@ -220,7 +223,10 @@ function extendLineToViewport(
   return clipLineToRect(start.x, start.y, end.x, end.y, viewportClip)
 }
 
-function getAnchorDataIndex(anchor: DrawingObject['anchors'][number], data: KLineData[]): number {
+function getAnchorDataIndex(
+  anchor: import('../../foundation/plugin').ResolvedDrawingAnchor,
+  data: KLineData[],
+): number {
   if (!Number.isFinite(anchor.index)) return -1
   const index = Math.round(anchor.index)
   if (index < 0 || index >= data.length) return -1
@@ -261,18 +267,32 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
       ctx.lineTo(clipped.b.x + align, clipped.b.y + align)
       ctx.stroke()
 
-      // 绘制端点（使用原始锚点位置，不是裁剪后的位置）
+      // 绘制端点（使用原始锚点位置，不是裁剪后的位置）；屏幕外锚点只保留被裁剪的线段。
       if (primitive.showEndpoints !== false) {
         const pointRadius = primitive.style?.pointRadius ?? 4
         ctx.fillStyle = primitive.style?.stroke ?? '#2962ff'
 
-        ctx.beginPath()
-        ctx.arc(primitive.a.x, primitive.a.y, Math.max(pointRadius, 1 / dpr), 0, Math.PI * 2)
-        ctx.fill()
+        if (
+          primitive.a.x >= viewportClip.left &&
+          primitive.a.x <= viewportClip.right &&
+          primitive.a.y >= viewportClip.top &&
+          primitive.a.y <= viewportClip.bottom
+        ) {
+          ctx.beginPath()
+          ctx.arc(primitive.a.x, primitive.a.y, Math.max(pointRadius, 1 / dpr), 0, Math.PI * 2)
+          ctx.fill()
+        }
 
-        ctx.beginPath()
-        ctx.arc(primitive.b.x, primitive.b.y, Math.max(pointRadius, 1 / dpr), 0, Math.PI * 2)
-        ctx.fill()
+        if (
+          primitive.b.x >= viewportClip.left &&
+          primitive.b.x <= viewportClip.right &&
+          primitive.b.y >= viewportClip.top &&
+          primitive.b.y <= viewportClip.bottom
+        ) {
+          ctx.beginPath()
+          ctx.arc(primitive.b.x, primitive.b.y, Math.max(pointRadius, 1 / dpr), 0, Math.PI * 2)
+          ctx.fill()
+        }
       }
 
       ctx.restore()

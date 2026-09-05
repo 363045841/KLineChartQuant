@@ -70,18 +70,16 @@ export class DragHandler {
       if (!newAnchor) return null
       const idx = this.dragState.anchorIndex
 
-      updatedAnchors[idx] = {
-        ...updatedAnchors[idx]!,
-        index: newAnchor.index,
-        time: newAnchor.time,
-        price: newAnchor.price,
+        updatedAnchors[idx] = {
+          ...updatedAnchors[idx]!,
+          time: newAnchor.time,
+          price: newAnchor.price,
       }
 
       // flat-line: third anchor's index/time follows the second
       if (drawing.kind === 'flat-line' && idx === 1 && updatedAnchors.length >= 3) {
         updatedAnchors[2] = {
           ...updatedAnchors[2]!,
-          index: newAnchor.index,
           time: newAnchor.time,
         }
       }
@@ -104,7 +102,6 @@ export class DragHandler {
         if (newFromScreen) {
           updatedAnchors[i] = {
             ...updatedAnchors[i]!,
-            index: newFromScreen.index,
             time: newFromScreen.time,
             price: newFromScreen.price,
           }

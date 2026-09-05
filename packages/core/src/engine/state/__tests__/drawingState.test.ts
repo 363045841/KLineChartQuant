@@ -48,32 +48,32 @@ describe('drawingState', () => {
     }).toThrow()
   })
 
-  it('tracks selectedDrawingId and clears when drawing removed via setDrawings', () => {
+  it('tracks selected drawing ids and removes ids absent from a replacement snapshot', () => {
     const state = createDrawingState()
     state.actions.setDrawings([mk('a'), mk('b')])
-    state.actions.setSelectedDrawingId('a')
-    expect(state.readonly.selectedDrawingId.peek()).toBe('a')
+    state.actions.setSelectedDrawingIds(['a', 'b', 'a', 'missing'])
+    expect(state.readonly.selectedDrawingIds.peek()).toEqual(['a', 'b'])
 
     state.actions.setDrawings([mk('b')])
-    expect(state.readonly.selectedDrawingId.peek()).toBeNull()
+    expect(state.readonly.selectedDrawingIds.peek()).toEqual(['b'])
   })
 
-  it('setSelectedDrawingId no-ops when unchanged', () => {
+  it('setSelectedDrawingIds no-ops when unchanged', () => {
     const state = createDrawingState()
     state.actions.setDrawings([mk('a')])
     const listener = vi.fn()
-    state.readonly.selectedDrawingId.subscribe(listener)
-    state.actions.setSelectedDrawingId('a')
-    state.actions.setSelectedDrawingId('a')
+    state.readonly.selectedDrawingIds.subscribe(listener)
+    state.actions.setSelectedDrawingIds(['a'])
+    state.actions.setSelectedDrawingIds(['a'])
     expect(listener).toHaveBeenCalledTimes(1)
   })
 
   it('clearDrawings clears selection', () => {
     const state = createDrawingState()
     state.actions.setDrawings([mk('a')])
-    state.actions.setSelectedDrawingId('a')
+    state.actions.setSelectedDrawingIds(['a'])
     state.actions.clearDrawings()
     expect(state.readonly.drawings.peek()).toEqual([])
-    expect(state.readonly.selectedDrawingId.peek()).toBeNull()
+    expect(state.readonly.selectedDrawingIds.peek()).toEqual([])
   })
 })

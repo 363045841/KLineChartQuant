@@ -26,8 +26,14 @@ import type {
 } from '../chartTypes'
 import { InteractionController } from '../controller/interaction'
 import { ChartDataManager } from '../data/chartDataManager'
-import { DrawingStore, type DrawingStoreDeps } from '../drawing'
-import { createDrawingRendererPlugin, createDrawingLabelOverlayPlugin } from '../drawing/plugin'
+import {
+  DrawingDefinitionRegistry,
+  DrawingStore,
+  registerDefaultDrawingDefinitions,
+  type DrawingStoreDeps,
+} from '../drawing'
+import { projectDrawingsForFrame } from '../drawing/frameProjection'
+import { createDrawingRendererPlugin } from '../drawing/plugin'
 import { ChartIndicatorManager } from '../indicators/chartIndicatorManager'
 import { resolveStateKey } from '../indicators/indicatorMetadata'
 import { UpdateLevel } from '../layout/pane'
@@ -152,7 +158,7 @@ export interface RendererDependencies {
   settings$: ReadonlySignal<ChartSettings>
   customMarkers$: MarkerManagerDeps['customMarkers$']
   drawings$: DrawingStoreDeps['drawings$']
-  selectedDrawingId$: DrawingStoreDeps['selectedDrawingId$']
+  selectedDrawingIds$: DrawingStoreDeps['selectedDrawingIds$']
   getOverlay?: DrawingStoreDeps['getOverlay']
   /** 主图图例上下文发布（canvas / external 均触发；draw 内回调） */
   onLegendContext?: (
@@ -178,6 +184,7 @@ export class ChartRenderer {
 
   readonly markerManager: MarkerManager
   readonly drawingStore: DrawingStore
+  private readonly drawingDefinitions = new DrawingDefinitionRegistry()
   private overlayHadCrosshair = false
   private xAxisCtx: CanvasRenderingContext2D | null = null
 
@@ -204,9 +211,10 @@ export class ChartRenderer {
     this.markerManager = new MarkerManager({ customMarkers$: deps.customMarkers$ })
     this.drawingStore = new DrawingStore({
       drawings$: deps.drawings$,
-      selectedDrawingId$: deps.selectedDrawingId$,
+      selectedDrawingIds$: deps.selectedDrawingIds$,
       getOverlay: deps.getOverlay,
     })
+    registerDefaultDrawingDefinitions(this.drawingDefinitions)
     this.scene = createScene()
     this.frameTx = createFrameTransaction<FrameDrawInput, FrameDrawSnapshot>({
       initialInput: { level: UpdateLevel.All },
@@ -368,13 +376,7 @@ export class ChartRenderer {
     const getCtxForCurrentPane = () => this.paneCtxMap.get(this.currentPaneId) ?? null
 
     {
-      const plugin = createDrawingRendererPlugin({ store: this.drawingStore })
-      this.deps.getRendererPluginManager().register(plugin)
-      const layer = createLayerFromPlugin(plugin, getCtxForCurrentPane, 'global')
-      this.scene.addLayer(layer)
-    }
-    {
-      const plugin = createDrawingLabelOverlayPlugin({ store: this.drawingStore })
+      const plugin = createDrawingRendererPlugin({})
       this.deps.getRendererPluginManager().register(plugin)
       const layer = createLayerFromPlugin(plugin, getCtxForCurrentPane, 'global')
       this.scene.addLayer(layer)
@@ -783,10 +785,8 @@ export class ChartRenderer {
     renderData: MarketSeriesData[],
     fiveDayTimeShareGeometry: FiveDayTimeShareGeometry | null,
   ): { sharedXAxisLabels: XAxisLabel[]; sharedXAxisRanges: XAxisRange[] } {
-    // 跨 pane 共享的 Y/X 轴 labels 和 ranges（各 layer 写入，时间轴层读取）
-    const sharedYAxisLabels: YAxisLabel[] = []
+    // X 轴由多个 Pane 共享；Y 轴装饰必须保持 Pane 隔离。
     const sharedXAxisLabels: XAxisLabel[] = []
-    const sharedYAxisRanges: YAxisRange[] = []
     const sharedXAxisRanges: XAxisRange[] = []
     const indicatorManager = this.deps.getIndicatorManager()
     const indicatorStateReader = indicatorManager.createRenderStateReader()
@@ -940,6 +940,7 @@ export class ChartRenderer {
         kLinePositions,
         kLineCenters,
         kBarRects,
+        getLogicalIndexAtTimestamp: (timestamp) => dataManager.getLogicalIndexAtTimestamp(timestamp),
         indicatorStateReader,
         markerManager: this.markerManager,
         crosshairIndex: this.deps.getInteraction().getCrosshairIndex(),
@@ -960,9 +961,9 @@ export class ChartRenderer {
           preClose:
             dataManager.getTimeSharePreClose() ?? (this.settings.preClose as number | undefined),
         },
-        yAxisLabels: sharedYAxisLabels,
+        yAxisLabels: [],
         xAxisLabels: sharedXAxisLabels,
-        yAxisRanges: sharedYAxisRanges,
+        yAxisRanges: [],
         xAxisRanges: sharedXAxisRanges,
         theme: this.deps.theme$.peek(),
         isAsiaMarket: this.settings.isAsiaMarket as boolean,
@@ -970,6 +971,17 @@ export class ChartRenderer {
         monthKeys: dataManager.getMonthKeys() ?? undefined,
         dayKeys: dataManager.getDayKeys() ?? undefined,
       }
+
+      // 在任一 layer 绘制前一次性投影，后续 renderer 只读本 Pane 的结果。
+      context.drawingProjection = projectDrawingsForFrame(
+        this.drawingStore,
+        this.drawingDefinitions,
+        context,
+      )
+      context.yAxisLabels?.push(...context.drawingProjection.yAxisLabels)
+      context.yAxisRanges?.push(...context.drawingProjection.yAxisRanges)
+      sharedXAxisLabels.push(...context.drawingProjection.xAxisLabels)
+      sharedXAxisRanges.push(...context.drawingProjection.xAxisRanges)
 
       // 计算本 pane 的 Y 轴刻度（等分 + yToPrice 映射）
       {

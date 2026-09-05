@@ -18,7 +18,6 @@ function getLastPriceInfo(context: RenderContext) {
   return {
     price: last.close,
     y: Math.round(pane.yAxis.priceToY(last.close)),
-    dataIndex: klineData.length - 1,
   }
 }
 
@@ -47,7 +46,6 @@ export function createLastPriceLabelRegistrarPlugin(): RendererPlugin {
 
       if (!context.yAxisLabels) context.yAxisLabels = []
       context.yAxisLabels.push({
-        dataIndex: info.dataIndex,
         price: info.price,
         y: info.y,
         type: 'lastPrice',

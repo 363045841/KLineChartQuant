@@ -18,7 +18,7 @@ export type { DrawingAnchorInput } from './coordinateUtils'
 export interface DrawingInteractionCallbacks {
   onDrawingCreated?: (drawing: DrawingObject) => void
   onToolChange?: (toolId: DrawingToolId) => void
-  onDrawingSelected?: (drawing: DrawingObject | null) => void
+  onDrawingSelected?: (drawings: ReadonlyArray<DrawingObject>) => void
 }
 
 /**
@@ -72,7 +72,7 @@ export class DrawingInteractionController {
       this.drawingState.clearDragOverride()
       this.dragHandler.endDrag()
     }
-    this.setSelected(null)
+    this.setSelected([])
     this.callbacks.onToolChange?.(toolId)
   }
 
@@ -106,14 +106,24 @@ export class DrawingInteractionController {
     this.adapter.updateDrawing(drawingId, { style })
   }
 
+  /** 原子更新一批图元的公共属性。 */
+  updateBatch(ids: ReadonlyArray<string>, patch: { style?: Partial<DrawingStyle> }): void {
+    this.adapter.updateBatch(ids, patch)
+  }
+
   removeDrawing(drawingId: string): void {
     this.adapter.removeDrawing(drawingId)
   }
 
+  /** 原子移除一批图元。 */
+  removeBatch(ids: ReadonlyArray<string>): void {
+    this.adapter.removeBatch(ids)
+  }
+
   // ============ 选中状态 ============
 
-  getSelectedDrawing(): DrawingObject | null {
-    return this.drawingState.getSelected()
+  getSelectedDrawings(): DrawingObject[] {
+    return this.drawingState.getSelectedDrawings()
   }
 
   // ============ 事件处理 ============
@@ -217,11 +227,16 @@ export class DrawingInteractionController {
       this.adapter,
     )
     if (!hit) {
-      this.setSelected(null)
+      if (!e.ctrlKey) this.setSelected([])
       return false
     }
 
-    this.setSelected(hit.drawing)
+    if (e.ctrlKey) {
+      this.toggleSelected(hit.drawing)
+      return true
+    }
+
+    this.setSelected([hit.drawing])
 
     this.dragHandler.startDrag(
       hit.drawing,
@@ -232,9 +247,20 @@ export class DrawingInteractionController {
     return true
   }
 
-  private setSelected(drawing: DrawingObject | null) {
-    this.drawingState.setSelected(drawing)
-    this.callbacks.onDrawingSelected?.(drawing)
+  private setSelected(drawings: ReadonlyArray<DrawingObject>) {
+    this.drawingState.setSelected(drawings)
+    this.callbacks.onDrawingSelected?.(this.drawingState.getSelectedDrawings())
+  }
+
+  /** Ctrl 点击将命中图元加入或移出当前选择，不启动拖拽。 */
+  private toggleSelected(drawing: DrawingObject): void {
+    const selectedDrawings = this.drawingState.getSelectedDrawings()
+    const isSelected = selectedDrawings.some((selected) => selected.id === drawing.id)
+    this.setSelected(
+      isSelected
+        ? selectedDrawings.filter((selected) => selected.id !== drawing.id)
+        : [...selectedDrawings, drawing],
+    )
   }
 
   private createSingleAnchorDrawing(anchor: DrawingAnchorInput, activeTool: DrawingToolId) {

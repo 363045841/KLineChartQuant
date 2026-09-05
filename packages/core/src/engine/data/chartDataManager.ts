@@ -1316,6 +1316,16 @@ buf.setSymbol(spec)
     return data[index]?.timestamp ?? null
   }
 
+  /** 通过当前活动数据 Buffer 的唯一时间索引解析逻辑坐标。 */
+  getLogicalIndexAtTimestamp(timestamp: number): number | null {
+    if (!Number.isFinite(timestamp)) return null
+    return (
+      this.getActiveDataBuffer()?.getLogicalIndexAtTimestamp(timestamp) ??
+      this.getActiveTimeShareBuffer()?.getLogicalIndexAtTimestamp(timestamp) ??
+      null
+    )
+  }
+
   getLogicalIndexAtX(mouseX: number): number | null {
     if (this.deps.viewport.readonly.viewWidth.peek() === 0) return null
     const vp = this.deps.viewport.readonly.viewport.peek()

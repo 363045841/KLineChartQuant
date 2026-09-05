@@ -72,7 +72,7 @@ export function createMockChartController(
 
   const drawingTool = createSignal('cursor' as DrawingToolId)
   const drawings = createSignal<ReadonlyArray<DrawingObject>>([])
-  const selectedDrawingId = createSignal<string | null>(null)
+  const selectedDrawingIds = createSignal<ReadonlyArray<string>>([])
   const paneRatios = createSignal<Readonly<Record<string, number>>>({})
   const paneLayout = createSignal<ReadonlyArray<PaneSpec>>([])
   const rangeSelection = createSignal({
@@ -124,7 +124,7 @@ export function createMockChartController(
     subPanes: createSignal<ReadonlyArray<SubPaneInfo>>([]),
     drawingTool,
     drawings,
-    selectedDrawingId,
+    selectedDrawingIds,
     paneRatios,
     paneLayout,
     dataLoading: createSignal(false),
@@ -312,11 +312,23 @@ export function createMockChartController(
     getFullDrawings() {
       return []
     },
-    getSelectedDrawingId() {
-      return selectedDrawingId()
+    commitDrawingDrag() {
+      return null
     },
-    setSelectedDrawingId(id) {
-      selectedDrawingId.set(id)
+    updateBatch() {
+      return []
+    },
+    getBatchStyleKeys() {
+      return []
+    },
+    removeBatch() {
+      return false
+    },
+    getSelectedDrawingIds() {
+      return selectedDrawingIds()
+    },
+    setSelectedDrawingIds(ids) {
+      selectedDrawingIds.set(ids)
     },
     getViewport() {
       return null

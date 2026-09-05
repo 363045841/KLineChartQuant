@@ -1,7 +1,12 @@
 /** 已确认图元的唯一写命令入口，统一提交状态与请求重绘。 */
-import type { DrawingObject } from '../../foundation/plugin'
+import type { DrawingAnchor, DrawingObject } from '../../foundation/plugin'
 
-import type { CreateDrawingInput, DrawingDocument, UpdateDrawingPatch } from './DrawingDocument'
+import type {
+  BatchDrawingPatch,
+  CreateDrawingInput,
+  DrawingDocument,
+  UpdateDrawingPatch,
+} from './DrawingDocument'
 
 /** 绘图命令运行所需的领域文档和渲染失效能力。 */
 export interface DrawingCommandsDependencies {
@@ -27,9 +32,30 @@ export class DrawingCommands {
     return drawing
   }
 
+  /** 提交交互层拖拽后的已解析锚点。 */
+  commitDrag(id: string, anchors: ReadonlyArray<DrawingAnchor>): DrawingObject | null {
+    const drawing = this.dependencies.document.commitDrawingDrag(id, anchors)
+    if (drawing) this.dependencies.requestDraw()
+    return drawing
+  }
+
+  /** 原子更新一批图元的公共属性。 */
+  updateBatch(ids: ReadonlyArray<string>, patch: BatchDrawingPatch): ReadonlyArray<DrawingObject> {
+    const drawings = this.dependencies.document.updateBatch(ids, patch)
+    if (drawings.length > 0) this.dependencies.requestDraw()
+    return drawings
+  }
+
   /** 删除存在的图元；无匹配图元时不请求重绘。 */
   remove(id: string): boolean {
     const removed = this.dependencies.document.removeDrawing(id)
+    if (removed) this.dependencies.requestDraw()
+    return removed
+  }
+
+  /** 原子删除一批图元。 */
+  removeBatch(ids: ReadonlyArray<string>): boolean {
+    const removed = this.dependencies.document.removeBatch(ids)
     if (removed) this.dependencies.requestDraw()
     return removed
   }

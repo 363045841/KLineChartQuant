@@ -55,7 +55,7 @@ export class PreviewRenderer {
       paneId: 'main',
       visible: true,
       anchors: [
-        { id: `${PREVIEW_ID}-a`, index: anchor.index, time: anchor.time, price: anchor.price },
+        { id: `${PREVIEW_ID}-a`, time: anchor.time, price: anchor.price },
       ],
       params: {},
       style: {
@@ -78,8 +78,8 @@ export class PreviewRenderer {
       paneId: 'main',
       visible: true,
       anchors: [
-        { id: `${PREVIEW_ID}-a`, index: first.index, time: first.time, price: first.price },
-        { id: `${PREVIEW_ID}-b`, index: second.index, time: second.time, price: second.price },
+        { id: `${PREVIEW_ID}-a`, time: first.time, price: first.price },
+        { id: `${PREVIEW_ID}-b`, time: second.time, price: second.price },
       ],
       params: activeTool === 'regression-channel' ? { sigma: 2 } : {},
       style: {
@@ -115,13 +115,11 @@ export class PreviewRenderer {
         anchors: [
           {
             id: `${PREVIEW_ID}-a`,
-            index: pendingAnchors[0]!.index,
             time: pendingAnchors[0]!.time,
             price: pendingAnchors[0]!.price,
           },
           {
             id: `${PREVIEW_ID}-b`,
-            index: currentAnchor.index,
             time: currentAnchor.time,
             price: currentAnchor.price,
           },
@@ -140,13 +138,11 @@ export class PreviewRenderer {
       activeTool === 'flat-line'
         ? {
             id: `${PREVIEW_ID}-c`,
-            index: pendingAnchors[1]!.index,
             time: pendingAnchors[1]!.time,
             price: currentAnchor.price,
           }
         : {
             id: `${PREVIEW_ID}-c`,
-            index: currentAnchor.index,
             time: currentAnchor.time,
             price: currentAnchor.price,
           }
@@ -161,13 +157,11 @@ export class PreviewRenderer {
       anchors: [
         {
           id: `${PREVIEW_ID}-a`,
-          index: pendingAnchors[0]!.index,
           time: pendingAnchors[0]!.time,
           price: pendingAnchors[0]!.price,
         },
         {
           id: `${PREVIEW_ID}-b`,
-          index: pendingAnchors[1]!.index,
           time: pendingAnchors[1]!.time,
           price: pendingAnchors[1]!.price,
         },

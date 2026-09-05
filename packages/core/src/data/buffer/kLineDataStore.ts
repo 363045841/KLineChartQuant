@@ -7,6 +7,7 @@ import {
 } from '../../foundation/reactivity/signal'
 
 import type { LoadedTimeRange, DataChange } from './dataBufferTypes'
+import { UniqueTimestampIndex } from './uniqueTimestampIndex'
 
 export interface MergeResult {
   readonly prependedCount: number
@@ -31,6 +32,7 @@ export class KLineDataStore {
   private _data: KLineData[] = []
   private _dataSignal: WritableSignal<DataChange<KLineData>>
   private _loadedTimeRange: LoadedTimeRange | null = null
+  private readonly timestampIndex = new UniqueTimestampIndex()
 
   /** 创建空数据存储和初始变更信号。 */
   constructor() {
@@ -51,6 +53,11 @@ export class KLineDataStore {
     return this._data
   }
 
+  /** 按唯一时间戳查找当前数据快照的逻辑索引。 */
+  getLogicalIndexAtTimestamp(timestamp: number): number | null {
+    return this.timestampIndex.get(timestamp)
+  }
+
   /** 合并新数据并发布包含前置插入数量的变更快照。 */
   merge(incoming: ReadonlyArray<KLineData>): MergeResult {
     if (incoming.length === 0) return { prependedCount: 0, advancedEarliest: false }
@@ -68,6 +75,7 @@ export class KLineDataStore {
     }
 
     this._data = merged
+    this.timestampIndex.rebuild(this._data)
     this._updateWindow()
     this._dataSignal.set({ data: [...merged], prependedCount })
 
@@ -77,6 +85,7 @@ export class KLineDataStore {
   /** 以静态内联数据整体替换当前缓存。 */
   setInlineData(data: KLineData[]): void {
     this._data = [...data]
+    this.timestampIndex.rebuild(this._data)
     this._dataSignal.set({ data: [...data], prependedCount: 0 })
     this._loadedTimeRange =
       data.length > 0
@@ -87,6 +96,7 @@ export class KLineDataStore {
   /** 清空缓存、加载窗口和数据变更快照。 */
   reset(): void {
     this._data = []
+    this.timestampIndex.rebuild(this._data)
     this._loadedTimeRange = null
     this._dataSignal.set({ data: [], prependedCount: 0 })
   }

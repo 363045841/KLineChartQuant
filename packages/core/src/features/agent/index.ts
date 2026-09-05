@@ -5,6 +5,8 @@ export type {
   ChartAgentContextSnapshot,
   ChartAgentController,
   ChartAgentDataRange,
+  ChartAgentDrawingSelection,
+  ChartAgentDrawingSnapshot,
   ChartAgentTimeRange,
   IndicatorQueryInput,
   InstrumentLookupInput,

@@ -421,7 +421,7 @@ export class Chart {
       settings$: this.kernel.settings.readonly.settings,
       customMarkers$: this.kernel.marker.readonly.customMarkers,
       drawings$: this.kernel.drawing.readonly.drawings,
-      selectedDrawingId$: this.kernel.drawing.readonly.selectedDrawingId,
+       selectedDrawingIds$: this.kernel.drawing.readonly.selectedDrawingIds,
       getOverlay: () => this.drawingSession?.getPaintOverlay() ?? [],
       onLegendContext: (ctx) => {
         this._legendTemplateContext.set(ctx)
@@ -995,16 +995,15 @@ export class Chart {
     this.scheduleDraw()
   }
 
-  /** 更新选中的绘图 ID */
-  setSelectedDrawingId(id: string | null): void {
-    if (this.kernel.drawing.readonly.selectedDrawingId.peek() === id) return
-    this.kernel.drawing.actions.setSelectedDrawingId(id)
+  /** 更新选中的绘图集合。 */
+  setSelectedDrawingIds(ids: ReadonlyArray<string>): void {
+    this.kernel.drawing.actions.setSelectedDrawingIds(ids)
     this.scheduleDraw()
   }
 
   /**
    * 获取 DrawingStore（只读投影 kernel.drawing）。
-   * @remarks 禁止经 store 写入；变更请用 setDrawings / setSelectedDrawingId。
+   * @remarks 禁止经 store 写入；变更请用 setDrawings / setSelectedDrawingIds。
    */
   getDrawingStore() {
     return this.renderer.getDrawingStore()
@@ -1209,6 +1208,11 @@ export class Chart {
 
   getTimestampAtLogicalIndex(index: number): number | null {
     return this.dataManager.getTimestampAtLogicalIndex(index)
+  }
+
+  /** 通过活动数据序列解析时间戳的当前逻辑索引。 */
+  getLogicalIndexAtTimestamp(timestamp: number): number | null {
+    return this.dataManager.getLogicalIndexAtTimestamp(timestamp)
   }
 
   /** 根据视口内 X 坐标反查逻辑索引（允许超出最后一根 K 线） */
@@ -1452,6 +1456,11 @@ export class Chart {
   /** 当前绘图工具信号（DrawingToolId，默认 cursor） */
   get drawingTool(): ReadonlySignal<DrawingToolId> {
     return this.kernel.drawing.readonly.drawingTool
+  }
+
+  /** 当前选中的绘图 id 集合。 */
+  get selectedDrawingIds(): ReadonlySignal<ReadonlyArray<string>> {
+    return this.kernel.drawing.readonly.selectedDrawingIds
   }
 
   /** 注册/注销绘图交互会话，使 setDrawingTool 能清会话副作用 */

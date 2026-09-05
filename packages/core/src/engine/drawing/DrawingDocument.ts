@@ -43,12 +43,33 @@ export interface UpdateDrawingPatch {
   readonly zIndex?: number
 }
 
+/** 可同时应用到多个图元的公共属性。 */
+export interface BatchDrawingPatch {
+  readonly style?: Partial<DrawingStyle>
+  readonly visible?: boolean
+  readonly locked?: boolean
+  readonly zIndex?: number
+}
+
+/** DrawingStyle 的字段名。 */
+export type DrawingStyleKey = keyof DrawingStyle
+
+const DRAWING_STYLE_KEYS: ReadonlyArray<DrawingStyleKey> = [
+  'stroke',
+  'strokeWidth',
+  'strokeStyle',
+  'fill',
+  'fillOpacity',
+  'pointRadius',
+  'textColor',
+  'fontSize',
+]
+
 /** 绘图文档解析锚点坐标所需的最小数据访问能力。 */
 export interface DrawingDocumentDependencies {
   readonly drawingState: DrawingStateModule
   readonly getLogicalIndexAtTimestamp: (timestamp: number) => number | null
   readonly findAnchorAtTradingDate: (tradingDate: TradingDate) => {
-    readonly index: number
     readonly timestamp: number
   } | null
   readonly hasPaneId: (paneId: string) => boolean
@@ -146,9 +167,63 @@ export class DrawingDocument {
     })
   }
 
+  /** 提交交互层已解析的拖拽锚点，不再转换为外部声明式输入。 */
+  commitDrawingDrag(id: string, anchors: ReadonlyArray<DrawingAnchor>): DrawingObject | null {
+    const drawing = this.getDrawing(id)
+    if (!drawing || anchors.length !== getRequiredAnchorCount(drawing.kind)) return null
+    if (
+      anchors.some(
+        (anchor) =>
+          !Number.isFinite(anchor.price) ||
+          (drawing.kind !== 'horizontal-line' && !Number.isFinite(Number(anchor.time))),
+      )
+    ) {
+      return null
+    }
+    return this.dependencies.drawingState.actions.updateDrawing(id, { anchors: [...anchors] })
+  }
+
+  /** 返回一批图元共同拥有的样式字段。 */
+  getBatchStyleKeys(ids: ReadonlyArray<string>): ReadonlyArray<DrawingStyleKey> {
+    const drawings = this.getDrawingsByIds(ids)
+    if (drawings.length === 0) return Object.freeze([])
+    return Object.freeze(
+      DRAWING_STYLE_KEYS.filter((key) => drawings.every((drawing) => drawing.style[key] !== undefined)),
+    )
+  }
+
+  /** 原子更新多个图元的公共属性；目标或样式字段不合法时不写入。 */
+  updateBatch(ids: ReadonlyArray<string>, patch: BatchDrawingPatch): ReadonlyArray<DrawingObject> {
+    const drawings = this.getDrawingsByIds(ids)
+    if (drawings.length === 0) return Object.freeze([])
+
+    const style = patch.style
+    const supportedStyleKeys = new Set(this.getBatchStyleKeys(ids))
+    if (
+      style !== undefined &&
+      Object.keys(style).some((key) => !supportedStyleKeys.has(key as DrawingStyleKey))
+    ) {
+      return Object.freeze([])
+    }
+
+    return this.dependencies.drawingState.actions.updateDrawings(
+      drawings.map((drawing) => drawing.id),
+      patch,
+    )
+  }
+
   /** 移除指定图元。 */
   removeDrawing(id: string): boolean {
     return this.dependencies.drawingState.actions.removeDrawing(id)
+  }
+
+  /** 原子移除一批图元；任一 id 不存在时不写入。 */
+  removeBatch(ids: ReadonlyArray<string>): boolean {
+    const drawings = this.getDrawingsByIds(ids)
+    if (drawings.length === 0) return false
+    return this.dependencies.drawingState.actions.removeDrawings(
+      drawings.map((drawing) => drawing.id),
+    )
   }
 
   /** 清除所有已确认图元。 */
@@ -163,7 +238,7 @@ export class DrawingDocument {
     )
   }
 
-  /** 校验锚点数量并将时间坐标转换为当前数据序列 index。 */
+  /** 校验锚点数量并持久化时间坐标与价格。 */
   private resolveAnchors(
     kind: DrawingKind,
     inputs: ReadonlyArray<DrawingAnchorInput>,
@@ -178,9 +253,20 @@ export class DrawingDocument {
     }
     const anchors = inputs.map((input) => this.resolveAnchor(kind, input))
     if (kind === 'flat-line') {
-      anchors[2] = { ...anchors[2]!, index: anchors[1]!.index, time: anchors[1]!.time }
+      anchors[2] = { ...anchors[2]!, time: anchors[1]!.time }
     }
     return anchors
+  }
+
+  /** 按输入顺序读取唯一图元；任一 id 不存在时返回空数组。 */
+  private getDrawingsByIds(ids: ReadonlyArray<string>): ReadonlyArray<DrawingObject> {
+    const uniqueIds = [...new Set(ids)]
+    if (uniqueIds.length === 0) return Object.freeze([])
+    const drawingsById = new Map(this.listDrawings().map((drawing) => [drawing.id, drawing]))
+    const drawings = uniqueIds.map((id) => drawingsById.get(id))
+    return drawings.some((drawing) => drawing === undefined)
+      ? Object.freeze([])
+      : (drawings as ReadonlyArray<DrawingObject>)
   }
 
   /** 更新锚点时保留已有锚点 id，避免交互引用失效。 */
@@ -207,7 +293,7 @@ export class DrawingDocument {
       )
     }
     if (kind === 'horizontal-line') {
-      return { id: `anchor-${generateUUID()}`, index: -1, price: input.price }
+      return { id: `anchor-${generateUUID()}`, price: input.price }
     }
     if (input.tradingDate !== undefined && input.timestamp !== undefined) {
       throw new KLineChartError(
@@ -233,7 +319,6 @@ export class DrawingDocument {
       }
       return {
         id: `anchor-${generateUUID()}`,
-        index: resolved.index,
         time: resolved.timestamp,
         price: input.price,
       }
@@ -246,14 +331,13 @@ export class DrawingDocument {
         { details: { timestamp: input.timestamp, price: input.price } },
       )
     }
-    const index = this.dependencies.getLogicalIndexAtTimestamp(timestamp)
-    if (index === null) {
+    if (this.dependencies.getLogicalIndexAtTimestamp(timestamp) === null) {
       throw new KLineChartError(
         DRAWING_ERROR_CODES.ANCHOR_NOT_FOUND,
         `No chart data exists for drawing anchor timestamp ${timestamp}.`,
         { details: { timestamp } },
       )
     }
-    return { id: `anchor-${generateUUID()}`, index, time: timestamp, price: input.price }
+    return { id: `anchor-${generateUUID()}`, time: timestamp, price: input.price }
   }
 }

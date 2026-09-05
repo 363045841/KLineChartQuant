@@ -17,11 +17,11 @@ export interface DrawingAnchorInput {
 // ---- Coordinate conversion ----
 
 /**
- * 将图元锚点的逻辑坐标（index + price）转换为屏幕坐标（px）。
+ * 将图元锚点的时间坐标转换为屏幕坐标（px）。
  *
  * 计算过程：
- * 1. 通过 getPhysicalKLineConfig 获取 K 线柱的起始像素位置和单柱像素宽度
- * 2. anchor.index × unitPx 得到距起始位置的偏移
+ * 1. 通过 adapter 将锚点时间戳解析为当前逻辑索引
+ * 2. 通过 getPhysicalKLineConfig 获取 K 线柱的起始像素位置和单柱像素宽度
  * 3. 减去 viewport.scrollLeft 得到相对视口的 X
  * 4. 通过 adapter.priceToY 将价格转为 Y
  *
@@ -37,9 +37,15 @@ export function anchorToScreen(
   const { kWidth, kGap } = adapter.getKWidthKGap()
   const dpr = adapter.getCurrentDpr()
   const { startXPx, unitPx } = getPhysicalKLineConfig(kWidth, kGap, dpr)
-  if (!Number.isFinite(anchor.index)) return null
+  const timestamp = typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
+  // horizontal-line 仅由价格定义，没有时间锚点；端点保持在视口外以避免显示控制点。
+  if (timestamp === undefined || !Number.isFinite(timestamp)) {
+    return { x: -kWidth, y: adapter.priceToY('main', anchor.price) }
+  }
+  const index = adapter.getLogicalIndexAtTimestamp(timestamp)
+  if (index === null) return null
 
-  const x = (startXPx + anchor.index * unitPx + (unitPx - 1) / 2) / dpr - viewport.scrollLeft
+  const x = (startXPx + index * unitPx + (unitPx - 1) / 2) / dpr - viewport.scrollLeft
   const y = adapter.priceToY('main', anchor.price)
   return { x, y }
 }

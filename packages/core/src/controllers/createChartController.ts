@@ -47,8 +47,10 @@ import type {
   SymbolSpec,
   SymbolInfo,
   CustomDataSource,
+  BatchDrawingPatch,
   CreateDrawingInput,
   DrawingObject,
+  DrawingStyleKey,
   UpdateDrawingPatch,
 } from './types'
 import type {
@@ -416,13 +418,11 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const drawingDocument = new DrawingDocument({
     drawingState: chart.kernel.drawing,
     getLogicalIndexAtTimestamp(timestamp) {
-      const index = chart.getData().findIndex((bar) => bar.timestamp === timestamp)
-      return index === -1 ? null : index
+      return chart.getLogicalIndexAtTimestamp(timestamp)
     },
     findAnchorAtTradingDate(tradingDate) {
-      const index = chart.getData().findIndex((bar) => bar.date === tradingDate)
-      const bar = index === -1 ? undefined : chart.getData()[index]
-      return bar === undefined ? null : { index, timestamp: bar.timestamp }
+      const bar = chart.getData().find((item) => item.date === tradingDate)
+      return bar === undefined ? null : { timestamp: bar.timestamp }
     },
     hasPaneId(paneId) {
       return chart.getPaneLayoutSpecs().some((pane) => pane.id === paneId)
@@ -473,8 +473,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const lastBarPeriodSignal = chart.kernel.mode.readonly.lastBarPeriod
   const drawingTool = chart.drawingTool
   const drawings = chart.drawings
-  const selectedDrawingId: ReadonlySignal<string | null> =
-    chart.kernel.drawing.readonly.selectedDrawingId
+  const selectedDrawingIds: ReadonlySignal<ReadonlyArray<string>> = chart.selectedDrawingIds
   const paneRatios: ReadonlySignal<Readonly<Record<string, number>>> = chart.paneRatios
   const paneLayout: ReadonlySignal<ReadonlyArray<PaneSpec>> = chart.paneLayout
   const interactionState: ReadonlySignal<InteractionSnapshot> = chart.interactionState
@@ -531,6 +530,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     marketDataCache: chart.getMarketDataCache(),
     drawingDocument,
     drawingCommands,
+    drawings: chart.drawings,
+    selectedDrawingIds: chart.selectedDrawingIds,
     getDrawingPaneIds: () => chart.getPaneLayoutSpecs().map((pane) => pane.id),
     paneManager: chart.kernel.paneManager,
     isSubPaneRendererAvailable: (indicatorId, paneId) => {
@@ -801,9 +802,35 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     return drawingCommands.update(id, patch)
   }
 
+  function commitDrawingDrag(
+    id: string,
+    anchors: ReadonlyArray<import('../foundation/plugin').DrawingAnchor>,
+  ): DrawingObject | null {
+    if (disposed) return null
+    return drawingCommands.commitDrag(id, anchors)
+  }
+
+  function updateBatch(
+    ids: ReadonlyArray<string>,
+    patch: BatchDrawingPatch,
+  ): ReadonlyArray<DrawingObject> {
+    if (disposed) return []
+    return drawingCommands.updateBatch(ids, patch)
+  }
+
+  function getBatchStyleKeys(ids: ReadonlyArray<string>): ReadonlyArray<DrawingStyleKey> {
+    if (disposed) return []
+    return drawingDocument.getBatchStyleKeys(ids)
+  }
+
   function removeDrawing(drawingId: string): boolean {
     if (disposed) return false
     return drawingCommands.remove(drawingId)
+  }
+
+  function removeBatch(ids: ReadonlyArray<string>): boolean {
+    if (disposed) return false
+    return drawingCommands.removeBatch(ids)
   }
 
   function replaceDrawings(drawings: ReadonlyArray<DrawingObject>): void {
@@ -823,14 +850,14 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     chart.scheduleDraw()
   }
 
-  function setSelectedDrawingId(id: string | null): void {
+  function setSelectedDrawingIds(ids: ReadonlyArray<string>): void {
     if (disposed) return
-    chart.setSelectedDrawingId(id)
+    chart.setSelectedDrawingIds(ids)
   }
 
-  function getSelectedDrawingId(): string | null {
-    if (disposed) return null
-    return chart.kernel.drawing.readonly.selectedDrawingId.peek()
+  function getSelectedDrawingIds(): ReadonlyArray<string> {
+    if (disposed) return []
+    return chart.selectedDrawingIds.peek()
   }
 
   function getViewport(): { scrollLeft: number; plotWidth: number; plotHeight: number } | null {
@@ -860,6 +887,11 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   function getTimestampAtLogicalIndex(index: number): number | null {
     if (disposed) return null
     return chart.getTimestampAtLogicalIndex(index)
+  }
+
+  function getLogicalIndexAtTimestamp(timestamp: number): number | null {
+    if (disposed) return null
+    return chart.getLogicalIndexAtTimestamp(timestamp)
   }
 
   function priceToY(paneId: string, price: number): number {
@@ -1008,7 +1040,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     subPanes,
     drawingTool,
     drawings,
-    selectedDrawingId,
+    selectedDrawingIds,
     paneRatios,
     paneLayout,
     interactionState,
@@ -1068,17 +1100,22 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     clearDrawings,
     createDrawing,
     updateDrawing,
+    commitDrawingDrag,
+    updateBatch,
+    getBatchStyleKeys,
     removeDrawing,
+    removeBatch,
     replaceDrawings,
     getFullDrawings,
     requestDraw,
-    setSelectedDrawingId,
-    getSelectedDrawingId,
+    setSelectedDrawingIds,
+    getSelectedDrawingIds,
     getViewport,
     getKWidthKGap,
     getCurrentDpr,
     getLogicalIndexAtX,
     getTimestampAtLogicalIndex,
+    getLogicalIndexAtTimestamp,
     priceToY,
     yToPrice,
     getPaneInfo,

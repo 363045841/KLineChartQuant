@@ -262,6 +262,28 @@ function projectContextItems(
   if (context.visibleRange) {
     items.push({ kind: 'selected-time-range', value: { ...context.visibleRange } })
   }
+  if (context.drawingSelection) {
+    items.push({
+      kind: 'drawing-selection',
+      value: {
+        selectedIds: [...context.drawingSelection.selectedIds],
+        drawings: context.drawingSelection.drawings.map((drawing) => ({
+          id: drawing.id,
+          kind: drawing.kind,
+          paneId: drawing.paneId,
+          visible: drawing.visible,
+          locked: drawing.locked,
+          zIndex: drawing.zIndex,
+          anchors: drawing.anchors.map((anchor) => ({ ...anchor })),
+          style: Object.fromEntries(
+            Object.entries(drawing.style).filter(
+              (entry): entry is [string, string | number] => entry[1] !== undefined,
+            ),
+          ),
+        })),
+      },
+    })
+  }
   return Object.freeze(
     items.map((item) => Object.freeze({ ...item, value: Object.freeze(item.value) })),
   )

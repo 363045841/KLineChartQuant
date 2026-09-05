@@ -372,13 +372,13 @@ describe('Chart DPR pipeline', () => {
     expect(store.getAll().map((d) => d.id)).toEqual(['d1'])
     expect(scheduleDrawSpy).toHaveBeenCalled()
 
-    chart.setSelectedDrawingId('d1')
-    expect(store.getSelectedId()).toBe('d1')
+    chart.setSelectedDrawingIds(['d1'])
+    expect(store.getSelectedIds()).toEqual(['d1'])
 
     scheduleDrawSpy.mockClear()
     chart.setDrawings([])
     expect(store.getAll()).toEqual([])
-    expect(store.getSelectedId()).toBeNull()
+    expect(store.getSelectedIds()).toEqual([])
     expect(scheduleDrawSpy).toHaveBeenCalled()
 
     await chart.destroy()
@@ -677,10 +677,10 @@ describe('Chart pane layout regressions', () => {
     }
     const d2 = { ...d1, id: 'd2' }
     chart.setDrawings([d1, d2])
-    chart.setSelectedDrawingId('d1')
+    chart.setSelectedDrawingIds(['d1'])
     chart.removeDrawing('d1')
     expect(chart.kernel.drawing.readonly.drawings.peek().map((d) => d.id)).toEqual(['d2'])
-    expect(chart.kernel.drawing.readonly.selectedDrawingId.peek()).toBeNull()
+    expect(chart.kernel.drawing.readonly.selectedDrawingIds.peek()).toEqual([])
     await chart.destroy()
   })
 
@@ -698,21 +698,22 @@ describe('Chart pane layout regressions', () => {
     }
     const d2 = { ...d1, id: 'd2' }
     chart.setDrawings([d1, d2])
-    chart.setSelectedDrawingId('d1')
+    chart.setSelectedDrawingIds(['d1'])
 
     const adapter = {
       replaceDrawings: (list: ReadonlyArray<typeof d1>) => chart.setDrawings([...list]),
       getFullDrawings: () => [...chart.kernel.drawing.readonly.drawings.peek()],
       createDrawing: () => d1,
       updateDrawing: () => null,
+      commitDrawingDrag: () => null,
       removeDrawing: (id: string) => {
         const removed = chart.kernel.drawing.actions.removeDrawing(id)
         if (removed) chart.scheduleDraw()
         return removed
       },
       clearDrawings: () => chart.clearDrawings(),
-      setSelectedDrawingId: (id: string | null) => chart.setSelectedDrawingId(id),
-      getSelectedDrawingId: () => chart.kernel.drawing.readonly.selectedDrawingId.peek(),
+      setSelectedDrawingIds: (ids: ReadonlyArray<string>) => chart.setSelectedDrawingIds(ids),
+      getSelectedDrawingIds: () => chart.kernel.drawing.readonly.selectedDrawingIds.peek(),
       setDrawingToolId: (id: import('../drawing/toolConfig').DrawingToolId) =>
         chart.setDrawingTool(id),
       getDrawingToolId: () => chart.kernel.drawing.readonly.drawingTool.peek(),
@@ -729,10 +730,10 @@ describe('Chart pane layout regressions', () => {
     }
     const session = new DrawingInteractionController(adapter)
     chart.registerDrawingSession(session)
-    chart.setSelectedDrawingId('d1')
+    chart.setSelectedDrawingIds(['d1'])
     chart.removeDrawing('d1')
     expect(chart.kernel.drawing.readonly.drawings.peek().map((d) => d.id)).toEqual(['d2'])
-    expect(chart.kernel.drawing.readonly.selectedDrawingId.peek()).toBeNull()
+    expect(chart.kernel.drawing.readonly.selectedDrawingIds.peek()).toEqual([])
     chart.registerDrawingSession(null)
     await chart.destroy()
   })
