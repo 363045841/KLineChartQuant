@@ -219,7 +219,7 @@ export class InteractionController {
     const { mouseX, mouseY } = location
     const scrollLeft = this.chart.kernel.viewport.readonly.scrollLeftLogical.peek()
 
-    const markerManager = this.chart.getMarkerManager()
+    const markerManager = this.chart.markers.getManager()
     const worldX = scrollLeft + mouseX
     const hitMarker = markerManager.hitTest(worldX, mouseY, 3)
 
@@ -381,7 +381,7 @@ export class InteractionController {
       if (this._state.readonly.dragMode.peek() === 'resize-separator') {
         const deltaY = e.clientY - this.dragStartY
         if (deltaY !== 0 && this.activeSeparatorUpperPaneId) {
-          const resized = this.chart.resizePaneBoundary(this.activeSeparatorUpperPaneId, deltaY)
+          const resized = this.chart.panes.resizeBoundary(this.activeSeparatorUpperPaneId, deltaY)
           if (resized) {
             this.dragStartY = e.clientY
           }
@@ -696,7 +696,7 @@ export class InteractionController {
     this._state.actions.updateCrosshair(null, null, null)
     this._state.actions.updateHover(null, null)
     this._state.actions.updateMarkerHover(null, null, null)
-    this.markerState.clearAll(this.chart.getMarkerManager())
+    this.markerState.clearAll(this.chart.markers.getManager())
   }
 
   private clearSeparatorState() {
@@ -836,7 +836,7 @@ export class InteractionController {
    * 若指针悬浮在 marker 上，清除十字线状态并返回 true。
    */
   private handleMarkerHit(ctx: HoverContext): boolean {
-    const markerManager = this.chart.getMarkerManager()
+    const markerManager = this.chart.markers.getManager()
     const result = this.markerState.updateHoverFromPoint(
       ctx.worldX,
       ctx.mouseX,

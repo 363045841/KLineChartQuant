@@ -277,7 +277,7 @@ function createChartStub(args: {
         },
       },
     },
-    getMarkerManager: () => markerManager,
+    markers: { getManager: () => markerManager },
     getPaneRenderers: () => paneRenderers,
     getData: () => data,
     getRenderData: () => data,
@@ -288,7 +288,7 @@ function createChartStub(args: {
     zoomAt: () => undefined,
     resetPriceOffset: () => undefined,
     resetPriceTransform: () => undefined,
-    resizePaneBoundary: () => false,
+    panes: { resizeBoundary: () => false },
     scalePrice: () => undefined,
   }
 

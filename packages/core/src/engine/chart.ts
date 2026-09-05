@@ -58,6 +58,12 @@ import type { ScaleType } from './utils/tickPosition'
 
 // ===== 普通 imports，按路径字母排序 =====
 import { ChartDataManager } from './data/chartDataManager'
+import { ChartDrawingFacade } from './facade/chartDrawingFacade'
+import { ChartIndicatorFacade } from './facade/chartIndicatorFacade'
+import { ChartMarkerFacade } from './facade/chartMarkerFacade'
+import { ChartPaneFacade } from './facade/chartPaneFacade'
+import { ChartThemeFacade } from './facade/chartThemeFacade'
+import { ChartZoomFacade } from './facade/chartZoomFacade'
 import { ChartIndicatorManager } from './indicators/chartIndicatorManager'
 import { resolveStateKey } from './indicators/indicatorMetadata'
 import { ChartPaneLayout } from './layout/chartPaneLayout'
@@ -146,6 +152,24 @@ export class Chart {
   /** 缩放控制器 */
   private zoomController: ChartZoomController
 
+  /** 主题领域公开 API。 */
+  readonly theme: ChartThemeFacade
+
+  /** 缩放领域公开 API。 */
+  readonly zoom: ChartZoomFacade
+
+  /** 绘图领域公开 API。 */
+  readonly drawing: ChartDrawingFacade
+
+  /** 标记领域公开 API。 */
+  readonly markers: ChartMarkerFacade
+
+  /** Pane 领域公开 API。 */
+  readonly panes: ChartPaneFacade
+
+  /** 指标领域公开 API。 */
+  readonly indicators: ChartIndicatorFacade
+
   /** 指标管理器 */
   private indicatorManager: ChartIndicatorManager
 
@@ -181,65 +205,6 @@ export class Chart {
   private _volumeLookbacks: VolumeLookbacks | null = null
   /** 仅由 controller 注入的工作区持久化适配器。 */
   private workspacePersistence: ViewWorkspacePersistence | null = null
-
-  /**
-   * 启用主图指标
-   * @param indicatorId 指标ID
-   * @param params 可选的指标参数
-   * @returns 是否成功启用
-   */
-  enableMainIndicator(
-    indicatorId: string,
-    params?: Record<string, number | boolean | string>,
-  ): boolean {
-    const enabled = this.indicatorManager.enableMainIndicator(indicatorId, params)
-    if (enabled) this.scheduleWorkspacePersistence()
-    return enabled
-  }
-
-  disableMainIndicator(indicatorId: string): boolean {
-    const disabled = this.indicatorManager.disableMainIndicator(indicatorId)
-    if (disabled) this.scheduleWorkspacePersistence()
-    return disabled
-  }
-
-  toggleMainIndicator(indicatorId: string, enabled: boolean): void {
-    this.indicatorManager.toggleMainIndicator(indicatorId, enabled)
-    this.scheduleWorkspacePersistence()
-  }
-
-  getActiveMainIndicators(): string[] {
-    return this.indicatorManager.getActiveMainIndicators()
-  }
-
-  isMainIndicatorActive(indicatorId: string): boolean {
-    return this.indicatorManager.isMainIndicatorActive(indicatorId)
-  }
-
-  updateMainIndicatorParams(
-    indicatorId: string,
-    params: Record<string, number | boolean | string>,
-  ): void {
-    this.indicatorManager.updateMainIndicatorParams(indicatorId, params)
-    this.scheduleWorkspacePersistence()
-  }
-
-  getMainIndicatorParams(indicatorId: string): Record<string, number | boolean | string> | null {
-    return this.indicatorManager.getMainIndicatorParams(indicatorId)
-  }
-
-  clearMainIndicators(): void {
-    this.indicatorManager.clearMainIndicators()
-    this.scheduleWorkspacePersistence()
-  }
-
-  /**
-   * @deprecated 使用 enableMainIndicator/disableMainIndicator 替代
-   */
-  setActiveMainIndicators(indicators: string[]): void {
-    this.indicatorManager.setActiveMainIndicators(indicators)
-    this.scheduleWorkspacePersistence()
-  }
 
   /**
    * 创建图表实例
@@ -340,6 +305,12 @@ export class Chart {
         this.scheduleWorkspacePersistence()
       },
     })
+    this.panes = new ChartPaneFacade({
+      kernel: this.kernel,
+      layoutManager: this.layoutManager,
+      ensureScaleTypes: () => this.ensurePaneScaleTypesFromSettings(),
+      schedulePersistence: () => this.scheduleWorkspacePersistence(),
+    })
 
     this.alertController = createAlertController()
 
@@ -398,6 +369,14 @@ export class Chart {
       },
       this.kernel.zoom,
     )
+    this.theme = new ChartThemeFacade({
+      kernel: this.kernel,
+      scheduleDraw: () => this.scheduleDraw(),
+    })
+    this.zoom = new ChartZoomFacade({
+      kernel: this.kernel,
+      controller: this.zoomController,
+    })
 
     // 先创建 Scene，确保恢复的指标首次 projection 能直接挂载 Layer。
     this.renderer = new ChartRenderer({
@@ -434,6 +413,18 @@ export class Chart {
     })
     this.renderer.registerDrawingPlugins()
     this.renderer.initCoreRenderers()
+    this.drawing = new ChartDrawingFacade({
+      kernel: this.kernel,
+      dataManager: this.dataManager,
+      renderer: this.renderer,
+      getSession: () => this.drawingSession,
+      scheduleDraw: () => this.scheduleDraw(),
+    })
+    this.markers = new ChartMarkerFacade({
+      kernel: this.kernel,
+      renderer: this.renderer,
+      scheduleDraw: () => this.scheduleDraw(),
+    })
 
     this.indicatorManager = new ChartIndicatorManager({
       getOption: () => {
@@ -476,6 +467,10 @@ export class Chart {
         clear: () => this.kernel.paneManager.actions.clear(),
       },
       runRendererTransaction: (run) => this.runRuntimeProjection(run),
+    })
+    this.indicators = new ChartIndicatorFacade({
+      manager: this.indicatorManager,
+      schedulePersistence: () => this.scheduleWorkspacePersistence(),
     })
 
     // Worker 异步结果就绪后串联 Alert 管线
@@ -537,8 +532,8 @@ export class Chart {
 
     prev.onDeactivate(
       {
-        enableMainIndicator: (id, p) => this.enableMainIndicator(id, p),
-        disableMainIndicator: (id) => this.disableMainIndicator(id),
+        enableMainIndicator: (id, p) => this.indicators.enableMain(id, p),
+        disableMainIndicator: (id) => this.indicators.disableMain(id),
         dataManager: this.dataManager,
       },
       mode,
@@ -572,8 +567,8 @@ export class Chart {
 
     mode.onActivate(
       {
-        enableMainIndicator: (id, p) => this.enableMainIndicator(id, p),
-        disableMainIndicator: (id) => this.disableMainIndicator(id),
+        enableMainIndicator: (id, p) => this.indicators.enableMain(id, p),
+        disableMainIndicator: (id) => this.indicators.disableMain(id),
         dataManager: this.dataManager,
         currentPeriod: this.dataManager.currentPeriod,
       },
@@ -859,40 +854,9 @@ export class Chart {
     this.scheduleDraw()
   }
 
-  /** 获取总缩放级别数 */
-  getZoomLevelCount(): number {
-    return this.kernel.options.readonly.options.peek().zoomLevelCount
-  }
-
   /** 获取所有 PaneRenderer */
   getPaneRenderers(): PaneRenderer[] {
     return this.paneRenderers
-  }
-
-  /** 获取 MarkerManager（供 InteractionController 使用） */
-  getMarkerManager(): MarkerManager {
-    return this.renderer.getMarkerManager()
-  }
-
-  /** 更新自定义标记（写 kernel + 清帧缓存 + 重绘） */
-  updateCustomMarkers(markers: CustomMarkerEntity[]): void {
-    this.kernel.marker.actions.setCustomMarkers(markers)
-    this.renderer.getMarkerManager().clearPositionCache()
-    this.scheduleDraw()
-  }
-
-  /** 注册或覆盖单个自定义标记 */
-  registerCustomMarker(marker: CustomMarkerEntity): void {
-    this.kernel.marker.actions.registerCustomMarker(marker)
-    this.renderer.getMarkerManager().clearPositionCache()
-    this.scheduleDraw()
-  }
-
-  /** 清除自定义标记 */
-  clearCustomMarkers(): void {
-    this.kernel.marker.actions.clearCustomMarkers()
-    this.renderer.getMarkerManager().clearPositionCache()
-    this.scheduleDraw()
   }
 
   /** 获取 ChartDom（供 InteractionController 使用） */
@@ -926,104 +890,12 @@ export class Chart {
       const nextPanes = partial.panes.map((pane) => ({ ...pane }))
       const { panes: _panes, ...optionPatch } = partial
       this.kernel.options.actions.patch(optionPatch)
-      this.importPaneLayout(nextPanes)
+      this.panes.importLayout(nextPanes)
       return
     }
 
     this.kernel.options.actions.patch(partial)
     this.resize()
-  }
-
-  /** 由受控导入路径替换完整布局，不向普通用户或 Agent 暴露。 */
-  importPaneLayout(panes: ReadonlyArray<PaneSpec>): void {
-    this.kernel.paneManager.replaceLayoutForImport(panes)
-    this.ensurePaneScaleTypesFromSettings()
-    this.scheduleWorkspacePersistence()
-  }
-
-  /** 创建一个绑定副图指标内容的 pane。 */
-  createPane(input: import('./paneManager').CreatePaneInput): boolean {
-    const created = this.kernel.paneManager.actions.create(input)
-    if (created) this.scheduleWorkspacePersistence()
-    return created
-  }
-
-  /** 更新单个 pane 的布局字段。 */
-  updatePane(paneId: string, patch: import('./paneManager').PanePatch): boolean {
-    const updated = this.kernel.paneManager.actions.update(paneId, patch)
-    if (updated) this.scheduleWorkspacePersistence()
-    return updated
-  }
-
-  /** 删除 pane 及其用户副图内容。 */
-  removePane(paneId: string): boolean {
-    const removed = this.kernel.paneManager.actions.remove(paneId)
-    if (removed) this.scheduleWorkspacePersistence()
-    return removed
-  }
-
-  /** 调整 pane 的显示顺序。 */
-  movePane(paneId: string, targetIndex: number): boolean {
-    const moved = this.kernel.paneManager.actions.move(paneId, targetIndex)
-    if (moved) this.scheduleWorkspacePersistence()
-    return moved
-  }
-
-  /** 替换 pane 的副图指标内容。 */
-  replacePaneContent(
-    paneId: string,
-    indicatorId: string,
-    params: Record<string, unknown>,
-  ): boolean {
-    const replaced = this.kernel.paneManager.actions.replaceContent(paneId, indicatorId, params)
-    if (replaced) this.scheduleWorkspacePersistence()
-    return replaced
-  }
-
-  /** 更新 pane 副图指标的完整参数。 */
-  updatePaneContent(paneId: string, params: Record<string, unknown>): boolean {
-    const updated = this.kernel.paneManager.actions.updateContent(paneId, params)
-    if (updated) this.scheduleWorkspacePersistence()
-    return updated
-  }
-
-  /** 删除全部用户创建的副图 pane。 */
-  clearPanes(): void {
-    this.kernel.paneManager.actions.clear()
-    this.scheduleWorkspacePersistence()
-  }
-
-  /** 更新绘图对象（写 kernel + 重绘）；剥离会话预览 id */
-  setDrawings(drawings: import('../foundation/plugin').DrawingObject[]): void {
-    const committed = drawings.filter((d) => d.id !== '__preview__')
-    this.kernel.drawing.actions.setDrawings(committed)
-    this.scheduleDraw()
-  }
-
-  /** 更新选中的绘图集合。 */
-  setSelectedDrawingIds(ids: ReadonlyArray<string>): void {
-    this.kernel.drawing.actions.setSelectedDrawingIds(ids)
-    this.scheduleDraw()
-  }
-
-  /**
-   * 获取 DrawingStore（只读投影 kernel.drawing）。
-   * @remarks 禁止经 store 写入；变更请用 setDrawings / setSelectedDrawingIds。
-   */
-  getDrawingStore() {
-    return this.renderer.getDrawingStore()
-  }
-
-  getPaneLayoutSpecs(): PaneSpec[] {
-    return this.layoutManager.getPaneLayoutSpecs()
-  }
-
-  resizePaneBoundary(upperPaneId: string, deltaY: number): boolean {
-    return this.layoutManager.resizePaneBoundary(upperPaneId, deltaY)
-  }
-
-  hasPane(paneId: string): boolean {
-    return this.layoutManager.hasPane(paneId)
   }
 
   /**
@@ -1102,11 +974,6 @@ export class Chart {
 
   /** 获取渲染数据源（分时图下为 TimeShareData，K线图为 KLineData） */
   getRenderData(): ReadonlyArray<KLineData | import('../foundation/types/price').TimeShareData> {
-    return this.dataManager.getRenderData()
-  }
-
-  /** 返回绘图锚点解析使用的当前活动点列。 */
-  getDrawingData(): ReadonlyArray<{ timestamp: number }> {
     return this.dataManager.getRenderData()
   }
 
@@ -1220,20 +1087,9 @@ export class Chart {
     return this.dataManager.getTimestampAtLogicalIndex(index)
   }
 
-  /** 返回当前活动绘制点列中逻辑索引对应的时间戳。 */
-  getDrawingTimestampAtLogicalIndex(index: number): number | null {
-    if (!Number.isInteger(index) || index < 0) return null
-    return this.dataManager.getRenderData()[index]?.timestamp ?? null
-  }
-
   /** 通过活动数据序列解析时间戳的当前逻辑索引。 */
   getLogicalIndexAtTimestamp(timestamp: number): number | null {
     return this.dataManager.getLogicalIndexAtTimestamp(timestamp)
-  }
-
-  /** 返回当前数据视图对应的绘图工作区。 */
-  getDrawingWorkspaceId(): import('../foundation/plugin').DrawingWorkspaceId {
-    return resolveChartWorkspaceId(this.kernel.mode.readonly.dataView.peek())
   }
 
   /** 根据视口内 X 坐标反查逻辑索引（允许超出最后一根 K 线） */
@@ -1459,42 +1315,12 @@ export class Chart {
     return this.kernel.comparison.readonly.loading
   }
 
-  /** 生效主题信号（settings.theme + systemTheme 推导） */
-  get theme(): ReadonlySignal<'light' | 'dark'> {
-    return this.kernel.effectiveTheme$
-  }
-
-  /** 指标实例列表信号（派生信号，自动随主/副图状态更新） */
-  get indicators(): Computed<ReadonlyArray<IndicatorInstance>> {
-    return this.indicatorManager.indicatorsComputed
-  }
-
-  /** 子图信息信号（派生信号，自动随副图条目/比例更新） */
-  get subPanes(): Computed<ReadonlyArray<SubPaneInfo>> {
-    return this.indicatorManager.subPanesComputed
-  }
-
-  /** 当前绘图工具信号（DrawingToolId，默认 cursor） */
-  get drawingTool(): ReadonlySignal<DrawingToolId> {
-    return this.kernel.drawing.readonly.drawingTool
-  }
-
-  /** 当前选中的绘图 id 集合。 */
-  get selectedDrawingIds(): ReadonlySignal<ReadonlyArray<string>> {
-    return this.kernel.drawing.readonly.selectedDrawingIds
-  }
-
   /** 注册/注销绘图交互会话，使 setDrawingTool 能清会话副作用 */
   registerDrawingSession(session: DrawingInteractionController | null): void {
     this.drawingSession = session
     if (session) {
       session.applyToolSession(this.kernel.drawing.readonly.drawingTool.peek())
     }
-  }
-
-  /** 绘图对象列表信号 */
-  get drawings(): ReadonlySignal<ReadonlyArray<import('../foundation/plugin').DrawingObject>> {
-    return this.kernel.drawing.readonly.drawings
   }
 
   /** 面板比例信号 */
@@ -1681,53 +1507,6 @@ export class Chart {
     this.dataManager.resetToFetcher(spec)
   }
 
-  // ---------- Theme ----------
-
-  /**
-   * 设置主题偏好 light|dark（写 settings.theme）
-   */
-  setTheme(theme: 'light' | 'dark'): void {
-    this.kernel.settings.actions.patch({ theme })
-    this.scheduleDraw()
-  }
-
-  /**
-   * 注入系统主题（仅 settings.theme === auto 时影响 effectiveTheme）
-   */
-  setSystemTheme(theme: 'light' | 'dark'): void {
-    this.kernel.systemTheme.actions.setSystemTheme(theme)
-    if (this.kernel.settings.readonly.settings.peek().theme === 'auto') {
-      this.scheduleDraw()
-    }
-  }
-
-  // ---------- Zoom ----------
-
-  /**
-   * 缩放到指定级别（高层 API）
-   * 计算并应用新的 render state，更新 viewport signal
-   */
-  zoomToLevel(level: number, anchorX?: number): void {
-    if (!this.kernel.mode.readonly.interactionCapabilities.peek().allowZoom) return
-    this.zoomController.zoomToLevel(level, anchorX)
-  }
-
-  /**
-   * 放大（高层 API）
-   */
-  zoomIn(anchorX?: number): void {
-    if (!this.kernel.mode.readonly.interactionCapabilities.peek().allowZoom) return
-    this.zoomController.zoomIn(anchorX)
-  }
-
-  /**
-   * 缩小（高层 API）
-   */
-  zoomOut(anchorX?: number): void {
-    if (!this.kernel.mode.readonly.interactionCapabilities.peek().allowZoom) return
-    this.zoomController.zoomOut(anchorX)
-  }
-
   // ---------- Interaction (Zero-config unified entry) ----------
 
   /**
@@ -1829,74 +1608,6 @@ export class Chart {
   handlePinchZoom(delta: number, centerClientX: number): void {
     if (!this.kernel.mode.readonly.interactionCapabilities.peek().allowZoom) return
     this.zoomController.handlePinch(delta, centerClientX)
-  }
-
-  // ---------- Indicators (Explicit role) ----------
-
-  /**
-   * 添加指标（高层 API，显式指定 role）
-   * @param definitionId 指标定义 ID（如 'MA', 'MACD'）
-   * @param role 'main' 主图指标 或 'sub' 副图指标
-   * @param params 指标参数
-   * @returns 实例 ID（成功）或 null（失败）
-   */
-  addIndicator(
-    definitionId: string,
-    role: 'main' | 'sub',
-    params?: Record<string, unknown>,
-  ): string | null {
-    const instanceId = this.indicatorManager.addIndicator(definitionId, role, params)
-    if (instanceId) this.scheduleWorkspacePersistence()
-    return instanceId
-  }
-
-  removeIndicator(instanceId: string): boolean {
-    const removed = this.indicatorManager.removeIndicator(instanceId)
-    if (removed) this.scheduleWorkspacePersistence()
-    return removed
-  }
-
-  updateIndicatorParams(instanceId: string, params: Record<string, unknown>): boolean {
-    const updated = this.indicatorManager.updateIndicatorParams(instanceId, params)
-    if (updated) this.scheduleWorkspacePersistence()
-    return updated
-  }
-
-  reorderIndicators(orderedInstanceIds: string[]): boolean {
-    return this.indicatorManager.reorderIndicators(orderedInstanceIds)
-  }
-
-  // ---------- Drawings ----------
-
-  /**
-   * 设置当前绘图工具（高层 API）—— 业务态只写 kernel，再清会话副作用
-   * @param tool DrawingToolId；传 null 时视为 cursor（兼容旧 API）
-   */
-  setDrawingTool(tool: DrawingToolId | null): void {
-    const toolId: DrawingToolId = tool ?? 'cursor'
-    this.kernel.drawing.actions.setDrawingTool(toolId)
-    this.drawingSession?.applyToolSession(toolId)
-    this.scheduleDraw()
-  }
-
-  /**
-   * 移除绘图（高层 API）—— 优先会话工作副本，否则只写 kernel
-   * @param drawingId 绘图 ID
-   */
-  removeDrawing(drawingId: string): void {
-    if (this.drawingSession) {
-      this.drawingSession.removeDrawing(drawingId)
-      return
-    }
-    const next = this.kernel.drawing.readonly.drawings.peek().filter((d) => d.id !== drawingId)
-    this.setDrawings([...next])
-  }
-
-  /**
-   * 清除所有绘图（高层 API）
-   */
-  clearDrawings(): void {
-    this.setDrawings([])
   }
 
   // ---------- Settings ----------

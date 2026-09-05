@@ -318,7 +318,7 @@ describe('Chart DPR pipeline', () => {
 
   it('routes custom markers through kernel and clears position cache', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
-    const manager = chart.getMarkerManager()
+    const manager = chart.markers.getManager()
     const scheduleDrawSpy = vi.spyOn(chart, 'scheduleDraw')
     const clearCacheSpy = vi.spyOn(manager, 'clearPositionCache')
 
@@ -329,7 +329,7 @@ describe('Chart DPR pipeline', () => {
       shape: 'circle' as const,
     }
 
-    chart.updateCustomMarkers([marker])
+    chart.markers.update([marker])
     expect(manager.getCustomMarkers().map((m) => m.id)).toEqual(['m1'])
     expect(clearCacheSpy).toHaveBeenCalled()
     expect(scheduleDrawSpy).toHaveBeenCalled()
@@ -339,14 +339,14 @@ describe('Chart DPR pipeline', () => {
 
     clearCacheSpy.mockClear()
     scheduleDrawSpy.mockClear()
-    chart.clearCustomMarkers()
+    chart.markers.clear()
     expect(manager.getCustomMarkers()).toEqual([])
     expect(clearCacheSpy).toHaveBeenCalledTimes(1)
     expect(scheduleDrawSpy).toHaveBeenCalled()
     expect(manager.hitTestCustomMarker(10, 20)).toBeNull()
 
     clearCacheSpy.mockClear()
-    chart.registerCustomMarker({ ...marker, id: 'm2', shape: 'flag' })
+    chart.markers.register({ ...marker, id: 'm2', shape: 'flag' })
     expect(manager.getCustomMarkers().map((m) => m.id)).toEqual(['m2'])
     expect(clearCacheSpy).toHaveBeenCalledTimes(1)
 
@@ -355,7 +355,7 @@ describe('Chart DPR pipeline', () => {
 
   it('routes drawings through kernel for store projection', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
-    const store = chart.getDrawingStore()
+    const store = chart.drawing.getStore()
     const scheduleDrawSpy = vi.spyOn(chart, 'scheduleDraw')
     const drawing = {
       id: 'd1',
@@ -367,16 +367,16 @@ describe('Chart DPR pipeline', () => {
       style: { stroke: '#2962ff' },
     }
 
-    chart.setDrawings([drawing])
-    expect(chart.drawings.peek().map((d) => d.id)).toEqual(['d1'])
+    chart.drawing.setDrawings([drawing])
+    expect(chart.drawing.drawings.peek().map((d) => d.id)).toEqual(['d1'])
     expect(store.getAll().map((d) => d.id)).toEqual(['d1'])
     expect(scheduleDrawSpy).toHaveBeenCalled()
 
-    chart.setSelectedDrawingIds(['d1'])
+    chart.drawing.setSelectedIds(['d1'])
     expect(store.getSelectedIds()).toEqual(['d1'])
 
     scheduleDrawSpy.mockClear()
-    chart.setDrawings([])
+    chart.drawing.setDrawings([])
     expect(store.getAll()).toEqual([])
     expect(store.getSelectedIds()).toEqual([])
     expect(scheduleDrawSpy).toHaveBeenCalled()
@@ -444,10 +444,10 @@ describe('Chart pane layout regressions', () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     chart.resize()
 
-    expect(chart.createPane({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })).toBe(true)
-    expect(chart.createPane({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })).toBe(true)
+    expect(chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })).toBe(true)
+    expect(chart.panes.create({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })).toBe(true)
 
-    const specs = chart.getPaneLayoutSpecs().filter((pane) => pane.visible !== false)
+    const specs = chart.panes.getLayoutSpecs().filter((pane) => pane.visible !== false)
     expect(specs).toHaveLength(3)
 
     // 公共读对齐 kernel SSOT（create pane 3:1:1 → 0.6:0.2:0.2）
@@ -462,8 +462,8 @@ describe('Chart pane layout regressions', () => {
   it('keeps indicator pane heights equal for main+MACD+RSI', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     chart.resize()
-    chart.createPane({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
-    chart.createPane({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })
+    chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
+    chart.panes.create({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })
     chart.resize()
 
     const panes = chart.getPaneRenderers().map((renderer) => renderer.getPane())
@@ -480,14 +480,14 @@ describe('Chart pane layout regressions', () => {
   it('keeps visible ratio sum at 1 after boundary resize', async () => {
     const chart = new Chart(createDom(1000, 800), defaultOptions)
     chart.resize()
-    chart.createPane({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
-    chart.createPane({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })
+    chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
+    chart.panes.create({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })
     chart.resize()
 
-    const resized = chart.resizePaneBoundary('MACD_0', 20)
+    const resized = chart.panes.resizeBoundary('MACD_0', 20)
     expect(resized).toBe(true)
 
-    const visible = chart.getPaneLayoutSpecs().filter((pane) => pane.visible !== false)
+    const visible = chart.panes.getLayoutSpecs().filter((pane) => pane.visible !== false)
     const sum = visible.reduce((acc, pane) => acc + pane.ratio, 0)
     expect(sum).toBeCloseTo(1, 6)
 
@@ -497,14 +497,14 @@ describe('Chart pane layout regressions', () => {
   it('returns false and keeps layout unchanged for invalid boundary resize input', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     chart.resize()
-    chart.createPane({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
-    chart.createPane({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })
+    chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })
+    chart.panes.create({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })
     chart.resize()
 
-    const before = chart.getPaneLayoutSpecs()
-    const invalidId = chart.resizePaneBoundary('missing-pane-id', 20)
-    const zeroDelta = chart.resizePaneBoundary('main', 0)
-    const after = chart.getPaneLayoutSpecs()
+    const before = chart.panes.getLayoutSpecs()
+    const invalidId = chart.panes.resizeBoundary('missing-pane-id', 20)
+    const zeroDelta = chart.panes.resizeBoundary('main', 0)
+    const after = chart.panes.getLayoutSpecs()
 
     expect(invalidId).toBe(false)
     expect(zeroDelta).toBe(false)
@@ -527,7 +527,7 @@ describe('Chart pane layout regressions', () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     chart.resize()
     chart.updateSettings({ mainRightAxisTypeSetting: 'log' })
-    expect(chart.createPane({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })).toBe(true)
+    expect(chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })).toBe(true)
     expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('main')).toBe('log')
     expect(chart.kernel.pane.readonly.paneScaleTypes.peek().get('MACD_0')).toBe('log')
     const macd = chart
@@ -594,11 +594,11 @@ describe('Chart pane layout regressions', () => {
   it('timeshare switching preserves independent indicator workspaces and layouts', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     chart.resize()
-    expect(chart.enableMainIndicator('MA')).toBe(true)
-    expect(chart.createPane({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })).toBe(true)
-    expect(chart.createPane({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })).toBe(true)
+    expect(chart.indicators.enableMain('MA')).toBe(true)
+    expect(chart.panes.create({ paneId: 'MACD_0', indicatorId: 'MACD', params: {} })).toBe(true)
+    expect(chart.panes.create({ paneId: 'RSI_0', indicatorId: 'RSI', params: {} })).toBe(true)
     const ratiosBefore = { ...chart.kernel.pane.readonly.paneRatios.peek() }
-    const entriesBefore = chart.subPanes.peek().map((e) => ({
+    const entriesBefore = chart.indicators.subPanes.peek().map((e) => ({
       paneId: e.paneId,
       indicatorId: e.indicatorId,
     }))
@@ -609,18 +609,18 @@ describe('Chart pane layout regressions', () => {
     const kMode = (chart as unknown as { _kLineMode: import('../modes/types').ChartModeHandler })
       ._kLineMode
     chart.setActiveMode(tsMode)
-    expect(chart.subPanes.peek()).toEqual([])
+    expect(chart.indicators.subPanes.peek()).toEqual([])
     expect(
-      chart.createPane({ paneId: 'TS_RSI_0', indicatorId: 'RSI', params: { period: 7 } }),
+      chart.panes.create({ paneId: 'TS_RSI_0', indicatorId: 'RSI', params: { period: 7 } }),
     ).toBe(true)
-    const timeShareEntries = chart.subPanes.peek().map((e) => ({
+    const timeShareEntries = chart.indicators.subPanes.peek().map((e) => ({
       paneId: e.paneId,
       indicatorId: e.indicatorId,
     }))
     expect(timeShareEntries).toEqual([{ paneId: 'TS_RSI_0', indicatorId: 'RSI' }])
     chart.setActiveMode(kMode)
 
-    const entriesAfter = chart.subPanes.peek().map((e) => ({
+    const entriesAfter = chart.indicators.subPanes.peek().map((e) => ({
       paneId: e.paneId,
       indicatorId: e.indicatorId,
     }))
@@ -628,7 +628,7 @@ describe('Chart pane layout regressions', () => {
     expect(chart.kernel.pane.readonly.paneRatios.peek()).toEqual(ratiosBefore)
     chart.setActiveMode(tsMode)
     expect(
-      chart.subPanes.peek().map((e) => ({ paneId: e.paneId, indicatorId: e.indicatorId })),
+      chart.indicators.subPanes.peek().map((e) => ({ paneId: e.paneId, indicatorId: e.indicatorId })),
     ).toEqual(timeShareEntries)
     await chart.destroy()
   })
@@ -636,7 +636,7 @@ describe('Chart pane layout regressions', () => {
   it('timeshare does not reuse a K-line volume pane', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     chart.resize()
-    const volumePaneId = chart.addIndicator('VOL', 'sub')
+    const volumePaneId = chart.indicators.add('VOL', 'sub')
     expect(volumePaneId).not.toBeNull()
     const tsMode = (
       chart as unknown as { _timeShareMode: import('../modes/types').ChartModeHandler }
@@ -645,18 +645,18 @@ describe('Chart pane layout regressions', () => {
       ._kLineMode
 
     chart.setActiveMode(tsMode)
-    expect(chart.subPanes.peek()).toEqual([])
-    const timeShareVolumePaneId = chart.addIndicator('VOL', 'sub')
+    expect(chart.indicators.subPanes.peek()).toEqual([])
+    const timeShareVolumePaneId = chart.indicators.add('VOL', 'sub')
     expect(timeShareVolumePaneId).not.toBeNull()
 
     chart.setActiveMode(kMode)
-    expect(chart.subPanes.peek()).toEqual(
+    expect(chart.indicators.subPanes.peek()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ instanceId: volumePaneId, indicatorId: 'volume' }),
       ]),
     )
     chart.setActiveMode(tsMode)
-    expect(chart.subPanes.peek()).toEqual(
+    expect(chart.indicators.subPanes.peek()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ instanceId: timeShareVolumePaneId, indicatorId: 'volume' }),
       ]),
@@ -676,9 +676,9 @@ describe('Chart pane layout regressions', () => {
       style: { stroke: '#f00' },
     }
     const d2 = { ...d1, id: 'd2' }
-    chart.setDrawings([d1, d2])
-    chart.setSelectedDrawingIds(['d1'])
-    chart.removeDrawing('d1')
+    chart.drawing.setDrawings([d1, d2])
+    chart.drawing.setSelectedIds(['d1'])
+    chart.drawing.remove('d1')
     expect(chart.kernel.drawing.readonly.drawings.peek().map((d) => d.id)).toEqual(['d2'])
     expect(chart.kernel.drawing.readonly.selectedDrawingIds.peek()).toEqual([])
     await chart.destroy()
@@ -697,11 +697,11 @@ describe('Chart pane layout regressions', () => {
       style: { stroke: '#f00' },
     }
     const d2 = { ...d1, id: 'd2' }
-    chart.setDrawings([d1, d2])
-    chart.setSelectedDrawingIds(['d1'])
+    chart.drawing.setDrawings([d1, d2])
+    chart.drawing.setSelectedIds(['d1'])
 
     const adapter = {
-      replaceDrawings: (list: ReadonlyArray<typeof d1>) => chart.setDrawings([...list]),
+      replaceDrawings: (list: ReadonlyArray<typeof d1>) => chart.drawing.setDrawings([...list]),
       getFullDrawings: () => [...chart.kernel.drawing.readonly.drawings.peek()],
       createDrawing: () => d1,
       updateDrawing: () => null,
@@ -711,11 +711,11 @@ describe('Chart pane layout regressions', () => {
         if (removed) chart.scheduleDraw()
         return removed
       },
-      clearDrawings: () => chart.clearDrawings(),
-      setSelectedDrawingIds: (ids: ReadonlyArray<string>) => chart.setSelectedDrawingIds(ids),
+      clearDrawings: () => chart.drawing.clear(),
+      setSelectedDrawingIds: (ids: ReadonlyArray<string>) => chart.drawing.setSelectedIds(ids),
       getSelectedDrawingIds: () => chart.kernel.drawing.readonly.selectedDrawingIds.peek(),
       setDrawingToolId: (id: import('../drawing/toolConfig').DrawingToolId) =>
-        chart.setDrawingTool(id),
+        chart.drawing.setTool(id),
       getDrawingToolId: () => chart.kernel.drawing.readonly.drawingTool.peek(),
       requestDraw: () => chart.scheduleDraw(),
       getViewport: () => null,
@@ -730,8 +730,8 @@ describe('Chart pane layout regressions', () => {
     }
     const session = new DrawingInteractionController(adapter)
     chart.registerDrawingSession(session)
-    chart.setSelectedDrawingIds(['d1'])
-    chart.removeDrawing('d1')
+    chart.drawing.setSelectedIds(['d1'])
+    chart.drawing.remove('d1')
     expect(chart.kernel.drawing.readonly.drawings.peek().map((d) => d.id)).toEqual(['d2'])
     expect(chart.kernel.drawing.readonly.selectedDrawingIds.peek()).toEqual([])
     chart.registerDrawingSession(null)
@@ -740,9 +740,9 @@ describe('Chart pane layout regressions', () => {
   it('setDrawingTool writes DrawingToolId to kernel', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     expect(chart.kernel.drawing.readonly.drawingTool.peek()).toBe('cursor')
-    chart.setDrawingTool('trend-line')
+    chart.drawing.setTool('trend-line')
     expect(chart.kernel.drawing.readonly.drawingTool.peek()).toBe('trend-line')
-    chart.setDrawingTool(null)
+    chart.drawing.setTool(null)
     expect(chart.kernel.drawing.readonly.drawingTool.peek()).toBe('cursor')
     await chart.destroy()
   })
@@ -768,13 +768,13 @@ describe('Chart pane layout regressions', () => {
 
   it('normalizes only visible panes in imported layout', async () => {
     const chart = new Chart(createDom(1000, 800), defaultOptions)
-    chart.importPaneLayout([
+    chart.panes.importLayout([
       { id: 'main', ratio: 3, visible: true, role: 'price' },
       { id: 'sub_MACD', ratio: 1, visible: true, role: 'indicator' },
       { id: 'sub_RSI', ratio: 100, visible: false, role: 'indicator' },
     ])
 
-    const specs = chart.getPaneLayoutSpecs()
+    const specs = chart.panes.getLayoutSpecs()
     const main = specs.find((pane) => pane.id === 'main')
     const macd = specs.find((pane) => pane.id === 'sub_MACD')
     const rsi = specs.find((pane) => pane.id === 'sub_RSI')

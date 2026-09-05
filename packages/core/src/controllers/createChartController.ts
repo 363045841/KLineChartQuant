@@ -425,10 +425,10 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       return bar === undefined ? null : { timestamp: bar.timestamp }
     },
     hasPaneId(paneId) {
-      return chart.getPaneLayoutSpecs().some((pane) => pane.id === paneId)
+      return chart.panes.getLayoutSpecs().some((pane) => pane.id === paneId)
     },
     getWorkspaceId() {
-      return chart.getDrawingWorkspaceId()
+      return chart.drawing.getWorkspaceId()
     },
   })
   const drawingCommands = new DrawingCommands({
@@ -461,22 +461,22 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const marketDataCacheStats = chart.getMarketDataCache().stats
   const symbols = chart.symbols
 
-  const indicators = computed(() => chart.indicators().map(mapIndicatorInstance))
-  const subPanes = computed(() => chart.subPanes().map(mapSubPaneInfo))
+  const indicators = computed(() => chart.indicators.instances().map(mapIndicatorInstance))
+  const subPanes = computed(() => chart.indicators.subPanes().map(mapSubPaneInfo))
 
   // comparisonColors/comparisonLoading — not yet migrated to kernel state
   const comparisonColors = chart.comparisonColors
   const comparisonLoading = chart.comparisonLoading
 
   // 优先走 Chart facade；kernel 仅用于尚无 facade 的字段
-  const themeSignal: ReadonlySignal<'light' | 'dark'> = chart.theme
+  const themeSignal: ReadonlySignal<'light' | 'dark'> = chart.theme.effective
   const settingsSignal = chart.kernel.settings.readonly.settings
   const rendererRuntimeSignal = chart.kernel.renderer.readonly.runtime
   const chartModeSignal = chart.kernel.mode.readonly.chartMode
   const lastBarPeriodSignal = chart.kernel.mode.readonly.lastBarPeriod
-  const drawingTool = chart.drawingTool
-  const drawings = chart.drawings
-  const selectedDrawingIds: ReadonlySignal<ReadonlyArray<string>> = chart.selectedDrawingIds
+  const drawingTool = chart.drawing.tool
+  const drawings = chart.drawing.drawings
+  const selectedDrawingIds: ReadonlySignal<ReadonlyArray<string>> = chart.drawing.selectedIds
   const paneRatios: ReadonlySignal<Readonly<Record<string, number>>> = chart.paneRatios
   const paneLayout: ReadonlySignal<ReadonlyArray<PaneSpec>> = chart.paneLayout
   const interactionState: ReadonlySignal<InteractionSnapshot> = chart.interactionState
@@ -511,7 +511,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   // Apply mount theme preference (settings default may be dark — always honor explicit opts.theme)
   if (opts.theme) {
     try {
-      chart.setTheme(opts.theme)
+      chart.theme.set(opts.theme)
     } catch {
       /* tolerate first-paint racing */
     }
@@ -533,9 +533,9 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     marketDataCache: chart.getMarketDataCache(),
     drawingDocument,
     drawingCommands,
-    drawings: chart.drawings,
-    selectedDrawingIds: chart.selectedDrawingIds,
-    getDrawingPaneIds: () => chart.getPaneLayoutSpecs().map((pane) => pane.id),
+    drawings: chart.drawing.drawings,
+    selectedDrawingIds: chart.drawing.selectedIds,
+    getDrawingPaneIds: () => chart.panes.getLayoutSpecs().map((pane) => pane.id),
     paneManager: chart.kernel.paneManager,
     isSubPaneRendererAvailable: (indicatorId, paneId) => {
       const definition = chart.getIndicatorScheduler().getIndicatorMetadata(indicatorId)
@@ -661,32 +661,32 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   function getZoomLevelCount(): number {
     if (disposed) return 0
-    return chart.getZoomLevelCount()
+    return chart.zoom.getLevelCount()
   }
 
   function setTheme(nextTheme: 'light' | 'dark'): void {
     if (disposed) return
-    chart.setTheme(nextTheme)
+    chart.theme.set(nextTheme)
   }
 
   function setSystemTheme(nextTheme: 'light' | 'dark'): void {
     if (disposed) return
-    chart.setSystemTheme(nextTheme)
+    chart.theme.setSystem(nextTheme)
   }
 
   function zoomToLevel(level: number, anchorX?: number): void {
     if (disposed) return
-    chart.zoomToLevel(level, anchorX)
+    chart.zoom.toLevel(level, anchorX)
   }
 
   function zoomIn(anchorX?: number): void {
     if (disposed) return
-    chart.zoomIn(anchorX)
+    chart.zoom.in(anchorX)
   }
 
   function zoomOut(anchorX?: number): void {
     if (disposed) return
-    chart.zoomOut(anchorX)
+    chart.zoom.out(anchorX)
   }
 
   function handlePointerEvent(
@@ -718,17 +718,17 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     params?: Record<string, unknown>,
   ): string | null {
     if (disposed) return null
-    return chart.addIndicator(definitionId, role, params)
+    return chart.indicators.add(definitionId, role, params)
   }
 
   function removeIndicator(instanceId: string): boolean {
     if (disposed) return false
-    return chart.removeIndicator(instanceId)
+    return chart.indicators.remove(instanceId)
   }
 
   function updateIndicatorParams(instanceId: string, params: Record<string, unknown>): boolean {
     if (disposed) return false
-    return chart.updateIndicatorParams(instanceId, params)
+    return chart.indicators.updateParams(instanceId, params)
   }
 
   function updateRendererConfig(name: string, config: Record<string, unknown>): void {
@@ -763,24 +763,24 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   function getIndicatorTitle(instanceId: string): string | undefined {
     if (disposed) return undefined
-    const instances = chart.indicators.peek()
+    const instances = chart.indicators.instances.peek()
     const match = instances.find((inst) => inst.id === instanceId)
     return match?.label
   }
 
   function setDrawingTool(tool: import('../engine/drawing/toolConfig').DrawingToolId | null): void {
     if (disposed) return
-    chart.setDrawingTool(tool)
+    chart.drawing.setTool(tool)
   }
 
   function setDrawingToolId(toolId: import('../engine/drawing/toolConfig').DrawingToolId): void {
     if (disposed) return
-    chart.setDrawingTool(toolId)
+    chart.drawing.setTool(toolId)
   }
 
   function getDrawingToolId(): import('../engine/drawing/toolConfig').DrawingToolId {
     if (disposed) return 'cursor'
-    return chart.kernel.drawing.readonly.drawingTool.peek()
+    return chart.drawing.tool.peek()
   }
 
   function registerDrawingSession(session: unknown | null): void {
@@ -855,12 +855,12 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   function setSelectedDrawingIds(ids: ReadonlyArray<string>): void {
     if (disposed) return
-    chart.setSelectedDrawingIds(ids)
+    chart.drawing.setSelectedIds(ids)
   }
 
   function getSelectedDrawingIds(): ReadonlyArray<string> {
     if (disposed) return []
-    return chart.selectedDrawingIds.peek()
+    return chart.drawing.selectedIds.peek()
   }
 
   function getViewport(): { scrollLeft: number; plotWidth: number; plotHeight: number } | null {
@@ -899,12 +899,12 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   function getDrawingData(): ReadonlyArray<{ timestamp: number }> {
     if (disposed) return []
-    return chart.getDrawingData()
+    return chart.drawing.getData()
   }
 
   function getDrawingTimestampAtLogicalIndex(index: number): number | null {
     if (disposed) return null
-    return chart.getDrawingTimestampAtLogicalIndex(index)
+    return chart.drawing.getTimestampAtLogicalIndex(index)
   }
 
   function getLogicalIndexAtTimestamp(timestamp: number): number | null {
@@ -914,7 +914,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   function getDrawingWorkspaceId(): import('../foundation/plugin').DrawingWorkspaceId {
     if (disposed) return 'kline'
-    return chart.getDrawingWorkspaceId()
+    return chart.drawing.getWorkspaceId()
   }
 
   function priceToY(paneId: string, price: number): number {
@@ -948,12 +948,12 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   function createPane(input: import('../engine/paneManager').CreatePaneInput): boolean {
     if (disposed) return false
-    return chart.createPane(input)
+    return chart.panes.create(input)
   }
 
   function clearPanes(): void {
     if (disposed) return
-    chart.clearPanes()
+    chart.panes.clear()
   }
 
   function replacePaneContent(
@@ -962,37 +962,37 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     params: Record<string, unknown>,
   ): boolean {
     if (disposed) return false
-    return chart.replacePaneContent(paneId, indicatorId, params)
+    return chart.panes.replaceContent(paneId, indicatorId, params)
   }
 
   function updatePaneContent(paneId: string, params: Record<string, unknown>): boolean {
     if (disposed) return false
-    return chart.updatePaneContent(paneId, params)
+    return chart.panes.updateContent(paneId, params)
   }
 
   function updatePane(paneId: string, patch: import('../engine/paneManager').PanePatch): boolean {
     if (disposed) return false
-    return chart.updatePane(paneId, patch)
+    return chart.panes.update(paneId, patch)
   }
 
   function removePane(paneId: string): boolean {
     if (disposed) return false
-    return chart.removePane(paneId)
+    return chart.panes.remove(paneId)
   }
 
   function movePane(paneId: string, targetIndex: number): boolean {
     if (disposed) return false
-    return chart.movePane(paneId, targetIndex)
+    return chart.panes.move(paneId, targetIndex)
   }
 
   function updateCustomMarkers(markers: ReadonlyArray<CustomMarkerEntity>): void {
     if (disposed) return
-    chart.updateCustomMarkers([...markers])
+    chart.markers.update([...markers])
   }
 
   function clearCustomMarkers(): void {
     if (disposed) return
-    chart.clearCustomMarkers()
+    chart.markers.clear()
   }
 
   function updateSettingsFacade(settings: Record<string, unknown>): void {
