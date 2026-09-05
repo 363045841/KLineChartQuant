@@ -148,8 +148,10 @@ export type AgentChartSymbolContextItem = AgentContextItem<
 
 /** 用户已确认的图表区间选择。 */
 export interface AgentSelectedTimeRangeContextValue extends AgentContextObject {
-  readonly from: number
-  readonly to: number
+  /** 按品种时区格式化的起始日期时间。 */
+  readonly from: string
+  /** 按品种时区格式化的结束日期时间。 */
+  readonly to: string
 }
 
 /** 用户已确认的图表区间选择上下文项。 */

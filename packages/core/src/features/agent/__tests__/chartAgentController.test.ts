@@ -38,13 +38,18 @@ function createBars(): KLineData[] {
   })
 }
 
-function publishBars(dataState: ReturnType<typeof createDataState>, bars = createBars()): void {
+function publishBars(
+  dataState: ReturnType<typeof createDataState>,
+  bars = createBars(),
+  timezone: string | null = null,
+): void {
   dataState.actions.applyActiveBufferSnapshot({
     kind: 'bars',
     selection: BAR_SELECTION,
     data: bars,
     loading: false,
     error: null,
+    timezone,
     timeShareRange: null,
     timeSharePreClose: null,
   })
@@ -247,6 +252,14 @@ describe('createChartAgentController', () => {
 
     expect(snapshot.symbol).toBe('BTCUSDT')
     expect(snapshot.activeIndicators[0]?.params.period).toBe(14)
+  })
+
+  it('projects the server-provided K-line timezone', () => {
+    const fixture = createFixture()
+
+    publishBars(fixture.dataState, createBars(), 'America/New_York')
+
+    expect(fixture.controller.getContext().timezone).toBe('America/New_York')
   })
 
   it('returns a stable chart identity and fresh read-only snapshots', () => {

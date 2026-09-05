@@ -14,6 +14,7 @@ export class DataBuffer implements KLineBuffer {
   private readonly loadingSignal: WritableSignal<boolean> = createSignal(false)
   private readonly errorSignal: WritableSignal<string | null> = createSignal<string | null>(null)
   private current: SymbolSpec | null = null
+  private currentTimezone: string | null = null
   private disposed = false
 
   /** 返回数据变化快照。 */
@@ -34,6 +35,11 @@ export class DataBuffer implements KLineBuffer {
   /** 返回当前图表选择的品种描述。 */
   get currentSpec(): SymbolSpec | null {
     return this.current
+  }
+
+  /** 返回服务端声明的当前 K 线序列时区。 */
+  get timezone(): string | null {
+    return this.currentTimezone
   }
 
   /** 返回当前快照覆盖的时间范围。 */
@@ -65,6 +71,7 @@ export class DataBuffer implements KLineBuffer {
   setSymbol(spec: SymbolSpec): void {
     if (this.disposed) return
     this.current = spec
+    this.currentTimezone = null
     this.store.reset()
     this.keyIndex.reset()
     this.errorSignal.set(null)
@@ -79,6 +86,7 @@ export class DataBuffer implements KLineBuffer {
   /** 写入调用方提供的完整静态数据。 */
   setInlineData(data: ReadonlyArray<KLineData>): void {
     if (this.disposed) return
+    this.currentTimezone = null
     this.store.setInlineData([...data])
     this.keyIndex.recompute(this.store.getRawData())
     this.errorSignal.set(null)
@@ -86,8 +94,9 @@ export class DataBuffer implements KLineBuffer {
   }
 
   /** 合并缓存层返回的分页结果并发布增量变更。 */
-  mergeData(data: ReadonlyArray<KLineData>, _olderData: OlderDataStatus): void {
+  mergeData(data: ReadonlyArray<KLineData>, _olderData: OlderDataStatus, timezone: string): void {
     if (this.disposed) return
+    this.currentTimezone = timezone
     this.store.merge(data)
     this.keyIndex.recompute(this.store.getRawData())
     this.errorSignal.set(null)
@@ -111,6 +120,7 @@ export class DataBuffer implements KLineBuffer {
   dispose(): void {
     this.disposed = true
     this.current = null
+    this.currentTimezone = null
     this.store.reset()
     this.keyIndex.reset()
     this.loadingSignal.set(false)

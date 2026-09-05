@@ -38,6 +38,7 @@ function publishBars(dataState: ReturnType<typeof createDataState>, data: KLineD
     data,
     loading: false,
     error: null,
+    timezone: 'UTC',
     timeShareRange: null,
     timeSharePreClose: null,
   })

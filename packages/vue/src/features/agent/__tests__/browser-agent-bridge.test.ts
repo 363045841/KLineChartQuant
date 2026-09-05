@@ -357,6 +357,39 @@ describe('BrowserAgentBridge', () => {
     expect(received).toEqual([null, 'BTCUSDT', 'ETHUSDT'])
   })
 
+  it('projects selected ranges as dates in the instrument timezone', () => {
+    const context = Object.assign(
+      () => ({
+        chartId: 'chart-1',
+        symbol: 'BTCUSDT',
+        symbolName: null,
+        market: 'crypto',
+        exchange: 'BINANCE',
+        period: '1h',
+        dataSource: 'fixture',
+        timezone: 'America/New_York',
+        adjustMode: null,
+        dataRange: { from: 1, to: 2, bars: 2 },
+        visibleRange: {
+          from: Date.parse('2026-09-02T01:30:00Z'),
+          to: Date.parse('2026-09-02T02:45:00Z'),
+        },
+        activeIndicators: [],
+        drawingSelection: null,
+        dataRevision: 1,
+      }),
+      { peek: () => context(), subscribe: () => () => {} },
+    )
+    const bridge = new BrowserAgentBridge()
+
+    bridge.bindChartAgent({ context } as unknown as ChartAgentController)
+
+    expect(bridge.getContextItems()).toContainEqual({
+      kind: 'selected-time-range',
+      value: { from: '2026-09-01 21:30', to: '2026-09-01 22:45' },
+    })
+  })
+
   it('projects selected drawings as one drawing-selection context item', () => {
     const context = Object.assign(
       () => ({

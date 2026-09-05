@@ -374,8 +374,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     const dataSource = selection.sourceId || spec?.source || spec?.instrument?.sourceId || null
     const period = this.dependencies.chartMode()
     const adjustMode = selection.kind === 'bars' ? selection.adjustment : (spec?.adjust ?? null)
-    const timezone =
-      activeBuffer.kind === 'timeShare' ? (activeBuffer.timeShareRange?.timezone ?? null) : null
+    const timezone = activeBuffer.timezone
     const drawingSelection = projectDrawingSelection(
       this.dependencies.drawings(),
       this.dependencies.selectedDrawingIds(),

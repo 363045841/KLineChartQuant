@@ -5,9 +5,9 @@
         >{{ symbolContext.value.symbol
         }}{{ symbolContext.value.name ? ` (${symbolContext.value.name})` : '' }}</span
       >
-      <span v-if="rangeContext" class="context-bar__range">{{
-        formatRange(rangeContext.value)
-      }}</span>
+      <span v-if="rangeContext" class="context-bar__range"
+        >{{ rangeContext.value.from }} - {{ rangeContext.value.to }}</span
+      >
     </div>
     <div class="context-bar__toggle" :title="text.readOnlyHint">
       <ToggleSwitch
@@ -53,17 +53,6 @@
   )
   const scopeLabel = computed(() => symbolContext.value?.value.symbol ?? text.value.noSymbol)
 
-  function formatRange(range: AgentSelectedTimeRangeContextItem['value']): string {
-    const format = new Intl.DateTimeFormat('en-CA', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    })
-    return `${format.format(range.from)} - ${format.format(range.to)}`
-  }
 </script>
 
 <style scoped>

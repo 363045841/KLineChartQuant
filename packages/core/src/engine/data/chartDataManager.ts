@@ -250,6 +250,7 @@ export class ChartDataManager {
       data: [],
       loading: false,
       error: null,
+      timezone: null,
       timeShareRange: null,
       timeSharePreClose: null,
     })
@@ -283,6 +284,7 @@ export class ChartDataManager {
           : (this._dataState.readonly.data.peek() as ReadonlyArray<KLineData>),
         loading: buffer.loading.peek(),
         error: buffer.lastError.peek(),
+        timezone: buffer.timezone,
         timeShareRange: null,
         timeSharePreClose: null,
       })
@@ -296,6 +298,7 @@ export class ChartDataManager {
           : (this._dataState.readonly.data.peek() as ReadonlyArray<TimeShareData>),
         loading: buffer.loading.peek(),
         error: buffer.lastError.peek(),
+        timezone: buffer.range.peek()?.timezone ?? null,
         timeShareRange: buffer.range.peek(),
         timeSharePreClose: buffer.getPreClose(),
       })
@@ -384,7 +387,7 @@ export class ChartDataManager {
         if (!this.handleResolvedSource(selection, result.sourceId, result.instrument, buffer))
           return
       }
-      buffer.mergeData(result.series.data, result.series.olderData)
+      buffer.mergeData(result.series.data, result.series.olderData, result.series.timezone)
     } catch (error) {
       buffer.setError(error instanceof Error ? error.message : String(error))
     }
