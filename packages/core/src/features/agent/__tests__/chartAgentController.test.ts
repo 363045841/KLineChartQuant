@@ -182,8 +182,11 @@ function createFixture() {
     drawings: drawingState.readonly.drawings,
     selectedDrawingIds: drawingState.readonly.selectedDrawingIds,
     getDrawingPaneIds: () => ['main'],
+    resolveSubPaneIndicatorId: (indicatorId) =>
+      ({ RSI: 'rsi', MACD: 'macd', VOL: 'volume' })[indicatorId] ?? null,
     paneManager: { actions: paneActions, list: () => panes },
-    isSubPaneRendererAvailable: (indicatorId) => indicatorId === 'RSI' || indicatorId === 'MACD',
+    isSubPaneRendererAvailable: (indicatorId) =>
+      indicatorId === 'rsi' || indicatorId === 'macd' || indicatorId === 'volume',
   })
 
   return {
@@ -602,7 +605,7 @@ describe('createChartAgentController', () => {
     )
     await tool('pane_replace_content').execute(
       fixture.controller,
-      { paneId: 'rsi', indicatorId: 'MACD', params: { fast: 12 } },
+      { paneId: 'rsi', indicatorId: 'VOL', params: {} },
       execution,
     )
     await tool('pane_update_content').execute(
@@ -615,12 +618,12 @@ describe('createChartAgentController', () => {
 
     expect(fixture.paneActions.create).toHaveBeenCalledWith({
       paneId: 'rsi',
-      indicatorId: 'RSI',
+      indicatorId: 'rsi',
       params: { period: 14 },
     })
     expect(fixture.paneActions.update).toHaveBeenCalledWith('rsi', { ratio: 0.25 })
     expect(fixture.paneActions.move).toHaveBeenCalledWith('rsi', 1)
-    expect(fixture.paneActions.replaceContent).toHaveBeenCalledWith('rsi', 'MACD', { fast: 12 })
+    expect(fixture.paneActions.replaceContent).toHaveBeenCalledWith('rsi', 'volume', {})
     expect(fixture.paneActions.updateContent).toHaveBeenCalledWith('rsi', { fast: 6 })
     expect(fixture.paneActions.remove).toHaveBeenCalledWith('rsi')
     expect(fixture.paneActions.clear).toHaveBeenCalledOnce()

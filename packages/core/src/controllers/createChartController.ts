@@ -537,6 +537,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     selectedDrawingIds: chart.drawing.selectedIds,
     getDrawingPaneIds: () => chart.panes.getLayoutSpecs().map((pane) => pane.id),
     paneManager: chart.kernel.paneManager,
+    resolveSubPaneIndicatorId: (indicatorId) =>
+      chart.getIndicatorScheduler().getIndicatorMetadata(indicatorId)?.name ?? null,
     isSubPaneRendererAvailable: (indicatorId, paneId) => {
       const definition = chart.getIndicatorScheduler().getIndicatorMetadata(indicatorId)
       return definition !== undefined && hasSubPaneRendererMetadata(definition, paneId, indicatorId)
@@ -962,7 +964,9 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     params: Record<string, unknown>,
   ): boolean {
     if (disposed) return false
-    return chart.panes.replaceContent(paneId, indicatorId, params)
+    const definition = chart.getIndicatorScheduler().getIndicatorMetadata(indicatorId)
+    if (!definition || !hasSubPaneRendererMetadata(definition, paneId, definition.name)) return false
+    return chart.panes.replaceContent(paneId, definition.name, params)
   }
 
   function updatePaneContent(paneId: string, params: Record<string, unknown>): boolean {

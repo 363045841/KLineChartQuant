@@ -118,6 +118,26 @@ describe('createChartController mount theme', () => {
     container.remove()
   })
 
+  it('normalizes a VOL alias when replacing sub-pane content', async () => {
+    const container = document.createElement('div')
+    Object.defineProperty(container, 'clientWidth', { value: 800, configurable: true })
+    Object.defineProperty(container, 'clientHeight', { value: 600, configurable: true })
+    document.body.appendChild(container)
+
+    const ctrl = await createChartController({ container })
+    const instanceId = ctrl.addIndicator('RSI', 'sub')
+    const paneId = ctrl.subPanes.peek().find((pane) => pane.instanceId === instanceId)?.paneId
+
+    expect(paneId).toBeDefined()
+    expect(ctrl.replacePaneContent(paneId!, 'VOL', {})).toBe(true)
+    expect(ctrl.subPanes.peek()).toContainEqual(
+      expect.objectContaining({ paneId, indicatorId: 'volume' }),
+    )
+
+    ctrl.dispose()
+    container.remove()
+  })
+
   it('exposes isolated Agent facades backed by live controller state', async () => {
     const firstContainer = document.createElement('div')
     const secondContainer = document.createElement('div')

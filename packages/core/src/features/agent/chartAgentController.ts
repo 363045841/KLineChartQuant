@@ -64,6 +64,8 @@ interface ChartAgentControllerDependencies {
   readonly selectedDrawingIds: ReadonlySignal<ReadonlyArray<string>>
   readonly getDrawingPaneIds: () => ReadonlyArray<string>
   readonly paneManager: Pick<PaneManager, 'actions' | 'list'>
+  /** 将 UI 或 Agent 传入的指标别名解析为注册表中的规范 ID。 */
+  readonly resolveSubPaneIndicatorId: (indicatorId: string) => string | null
   readonly isSubPaneRendererAvailable: (indicatorId: string, paneId: string) => boolean
   readonly marketDataTextFormatter?: MarketDataTextFormatter
 }
@@ -455,8 +457,10 @@ class ChartAgentControllerImpl implements ChartAgentController {
     executionMode: 'sequential',
   })
   async createPane(input: Static<typeof PaneCreateToolParameters>): Promise<boolean> {
-    if (!this.dependencies.isSubPaneRendererAvailable(input.indicatorId, input.paneId)) return false
-    return this.dependencies.paneManager.actions.create(input)
+    const indicatorId = this.dependencies.resolveSubPaneIndicatorId(input.indicatorId)
+    if (!indicatorId || !this.dependencies.isSubPaneRendererAvailable(indicatorId, input.paneId))
+      return false
+    return this.dependencies.paneManager.actions.create({ ...input, indicatorId })
   }
 
   /** 更新单个 pane 的布局属性。 */
@@ -514,10 +518,12 @@ class ChartAgentControllerImpl implements ChartAgentController {
   async replacePaneContent(
     input: Static<typeof PaneReplaceContentToolParameters>,
   ): Promise<boolean> {
-    if (!this.dependencies.isSubPaneRendererAvailable(input.indicatorId, input.paneId)) return false
+    const indicatorId = this.dependencies.resolveSubPaneIndicatorId(input.indicatorId)
+    if (!indicatorId || !this.dependencies.isSubPaneRendererAvailable(indicatorId, input.paneId))
+      return false
     return this.dependencies.paneManager.actions.replaceContent(
       input.paneId,
-      input.indicatorId,
+      indicatorId,
       input.params,
     )
   }
