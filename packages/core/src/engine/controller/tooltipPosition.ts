@@ -1,3 +1,5 @@
+// Tooltip 定位策略
+
 import { isOnRightHalf } from '../../foundation/utils/viewportSide'
 
 export type TooltipPositionMode = 'crosshair' | 'adaptive'
@@ -13,6 +15,7 @@ export interface TooltipPositionInput {
   useAnchorPositioning: boolean
   mode: TooltipPositionMode
   adaptiveCorner?: 'top-left' | 'top-right'
+  crosshairX?: number
 }
 
 export interface TooltipPositionOutput {
@@ -22,15 +25,26 @@ export interface TooltipPositionOutput {
 
 const PADDING = 12
 
+/** 根据鼠标、十字线与视口尺寸计算 tooltip 的显示位置。 */
 export function computeTooltipPosition(input: TooltipPositionInput): TooltipPositionOutput {
   if (input.mode === 'adaptive') {
     const tooltipW = input.tooltipSize.width
-    const onRight = input.adaptiveCorner
-      ? input.adaptiveCorner === 'top-left'
-      : isOnRightHalf(input.mouseX, input.viewWidth)
+    const preferredCorner =
+      input.adaptiveCorner ??
+      (isOnRightHalf(input.mouseX, input.viewWidth) ? 'top-left' : 'top-right')
+    const preferredX =
+      preferredCorner === 'top-left'
+        ? PADDING
+        : Math.max(PADDING, input.viewWidth - tooltipW - PADDING)
+    const crosshairX = input.crosshairX ?? input.mouseX
+    const overlapsCrosshair = crosshairX >= preferredX && crosshairX <= preferredX + tooltipW
     return {
       pos: {
-        x: onRight ? PADDING : Math.max(PADDING, input.viewWidth - tooltipW - PADDING),
+        x: overlapsCrosshair
+          ? preferredCorner === 'top-left'
+            ? Math.max(PADDING, input.viewWidth - tooltipW - PADDING)
+            : PADDING
+          : preferredX,
         y: PADDING,
       },
     }

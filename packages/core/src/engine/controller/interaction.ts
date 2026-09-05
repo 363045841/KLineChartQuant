@@ -999,6 +999,7 @@ export class InteractionController {
       useAnchorPositioning: this.useTooltipAnchorPositioning,
       mode: this.tooltipPositionMode,
       adaptiveCorner: this.tooltipAdaptiveLock ?? undefined,
+      crosshairX: this.crosshairPos?.x,
     })
     this._state.actions.updateTooltip(
       tooltipResult.pos,
