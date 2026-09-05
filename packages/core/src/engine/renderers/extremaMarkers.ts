@@ -3,6 +3,7 @@ import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../foundation/plugin/index
 import { Indicator } from '../indicators/indicatorDefinitionRegistry'
 import { resolveThemeColors } from '../../foundation/tokens/index'
 import type { KLineData } from '../../foundation/types/price'
+import { ChartDataViewId } from '../../foundation/types/chartView'
 import {
   roundToPhysicalPixel,
   alignToPhysicalPixelCenter,
@@ -115,7 +116,7 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
     priority: RENDERER_PRIORITY.OVERLAY,
 
     draw(context: RenderContext) {
-      if (context.period === 'timeshare') return
+      if (context.dataView !== ChartDataViewId.KLine) return
       const {
         overlayCtx,
         pane,
@@ -271,7 +272,7 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
   category: 'main',
   indicatorType: 'other',
   defaultPaneId: 'main',
-  dataViews: ['kline'],
+  dataViews: [ChartDataViewId.KLine],
   mainPane: { rendererName: 'extremaMarkers' },
 })
 export class ExtremaMarkersIndicatorDefinition {

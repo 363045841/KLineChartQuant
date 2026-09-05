@@ -1,17 +1,18 @@
 <template>
   <CanvasToolbar>
-    <div class="color-item" title="颜色">
-      <span class="color-swatch" :style="{ background: drawing.style.stroke ?? '#2962ff' }"></span>
+    <div v-if="canEdit('stroke')" class="color-item" title="颜色">
+      <span class="color-swatch" :style="{ background: style.stroke ?? '#2962ff' }"></span>
       <input
         type="color"
         class="color-input"
-        :value="drawing.style.stroke ?? '#2962ff'"
+        :value="style.stroke ?? '#2962ff'"
         @input="onColorChange(($event.target as HTMLInputElement).value)"
       />
     </div>
 
     <Dropdown
-      :model-value="String(drawing.style.strokeWidth ?? 1)"
+      v-if="canEdit('strokeWidth')"
+      :model-value="String(style.strokeWidth ?? 1)"
       :options="widthOptions"
       size="sm"
       title="线宽"
@@ -19,12 +20,15 @@
     />
 
     <Dropdown
-      :model-value="drawing.style.strokeStyle ?? 'solid'"
+      v-if="canEdit('strokeStyle')"
+      :model-value="style.strokeStyle ?? 'solid'"
       :options="styleOptions"
       size="sm"
       title="线型"
       @update:model-value="onLineStyleChange($event as 'solid' | 'dashed' | 'dotted')"
     />
+
+    <span v-if="drawings.length > 1" class="selection-count">已选 {{ drawings.length }}</span>
 
     <button
       type="button"
@@ -51,8 +55,8 @@
 </template>
 
 <script setup lang="ts">
-  import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
-  import { onMounted, onUnmounted } from 'vue'
+   import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
+   import { computed, onMounted, onUnmounted } from 'vue'
 
   import Dropdown from './Dropdown.vue'
   import CanvasToolbar from './common/CanvasToolbar.vue'
@@ -70,9 +74,10 @@
     { label: '点线', value: 'dotted' },
   ]
 
-  const props = defineProps<{
-    drawing: DrawingObject
-  }>()
+   const props = defineProps<{
+     drawings: ReadonlyArray<DrawingObject>
+     editableStyleKeys: ReadonlyArray<keyof DrawingStyle>
+   }>()
 
   const emit = defineEmits<{
     (e: 'updateStyle', style: Partial<DrawingStyle>): void
@@ -86,8 +91,15 @@
     }
   }
 
-  onMounted(() => document.addEventListener('keydown', onKeyDown))
-  onUnmounted(() => document.removeEventListener('keydown', onKeyDown))
+   onMounted(() => document.addEventListener('keydown', onKeyDown))
+   onUnmounted(() => document.removeEventListener('keydown', onKeyDown))
+
+   /** 批量编辑展示首个图元的当前值；写入仅限 Core 确认的字段交集。 */
+   const style = computed(() => props.drawings[0]?.style ?? {})
+
+   function canEdit(key: keyof DrawingStyle): boolean {
+     return props.editableStyleKeys.includes(key)
+   }
 
   function onColorChange(color: string) {
     emit('updateStyle', { stroke: color })
@@ -128,12 +140,19 @@
     pointer-events: none;
   }
 
-  .color-input {
+   .color-input {
     position: absolute;
     inset: 0;
     opacity: 0;
     cursor: pointer;
     width: 100%;
     height: 100%;
-  }
+   }
+
+   .selection-count {
+     padding: 0 4px;
+     color: var(--klc-color-text-secondary);
+     font-size: 12px;
+     white-space: nowrap;
+   }
 </style>

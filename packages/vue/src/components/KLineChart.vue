@@ -126,8 +126,9 @@
                     @batch-setting="showBatchStockDialog = true"
                   />
                   <DrawingStyleToolbar
-                    v-if="selectedDrawing"
-                    :drawing="selectedDrawing"
+                    v-if="selectedDrawings.length > 0"
+                    :drawings="selectedDrawings"
+                    :editable-style-keys="selectedDrawingStyleKeys"
                     @update-style="onUpdateDrawingStyle"
                     @delete="onDeleteDrawing"
                   />
@@ -883,8 +884,8 @@
 
   const {
     drawingController,
-    selectedDrawingId,
-    selectedDrawing,
+    selectedDrawings,
+    selectedDrawingStyleKeys,
     drawings,
     handleSelectTool: handleDrawingToolSelect,
     onUpdateDrawingStyle,
@@ -1372,7 +1373,7 @@
     if (toolId === 'range-select') {
       isRangeSelectMode.value = true
       controller.value?.setDrawingToolId('cursor')
-      controller.value?.setSelectedDrawingId(null)
+      controller.value?.setSelectedDrawingIds([])
       return
     }
 

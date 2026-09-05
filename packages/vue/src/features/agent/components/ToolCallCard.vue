@@ -25,6 +25,13 @@
       <div v-if="tool.resultContent" class="tool-card__result-content">
         <dd>{{ tool.resultContent }}</dd>
       </div>
+      <div v-if="tool.error" class="tool-card__error" role="alert">
+        <dt>{{ tool.error.code }}</dt>
+        <dd>{{ tool.error.message }}</dd>
+        <dd v-if="tool.error.recommendedAction" class="tool-card__recommended-action">
+          {{ text.recommended }}: {{ tool.error.recommendedAction }}
+        </dd>
+      </div>
     </dl>
 
     <div v-if="tool.progress" class="tool-card__progress">
@@ -50,14 +57,6 @@
       <button v-if="tool.canLocate" type="button" @click="$emit('locate', tool.id)">
         <IconFocusCentered aria-hidden="true" />
         {{ text.locate }}
-      </button>
-      <button
-        v-if="tool.status === 'failed' && tool.error?.retryable"
-        type="button"
-        @click="$emit('retry')"
-      >
-        <IconRefresh aria-hidden="true" />
-        {{ text.retry }}
       </button>
       <button
         v-if="tool.status === 'succeeded' && tool.undoToken"
@@ -87,12 +86,11 @@
   import IconChevronRight from '~icons/tabler/chevron-right'
   import IconClock from '~icons/tabler/clock'
   import IconFocusCentered from '~icons/tabler/focus-centered'
-  import IconRefresh from '~icons/tabler/refresh'
   import IconRotateClockwise2 from '~icons/tabler/rotate-clockwise-2'
   import IconShieldCheck from '~icons/tabler/shield-check'
 
   const props = defineProps<{ tool: ToolCallView; locale: AgentLocale }>()
-  defineEmits<{ locate: [toolCallId: string]; retry: []; undo: [] }>()
+  defineEmits<{ locate: [toolCallId: string]; undo: [] }>()
 
   const text = computed(() => getAgentCopy(props.locale))
   const statusLabel = computed(
@@ -123,7 +121,6 @@
   const showActions = computed(
     () =>
       Boolean(props.tool.canLocate) ||
-      Boolean(props.tool.status === 'failed' && props.tool.error?.retryable) ||
       Boolean(props.tool.status === 'succeeded' && props.tool.undoToken),
   )
 </script>
@@ -236,6 +233,23 @@
 
   .tool-card__result-content dd {
     white-space: pre-wrap;
+  }
+
+  .tool-card__error {
+    padding: 7px;
+    border: 1px solid var(--klc-color-agent-danger-border);
+    border-radius: 4px;
+    color: var(--klc-color-agent-danger-text);
+    background: var(--agent-danger-bg);
+  }
+
+  .tool-card__error dt {
+    color: inherit;
+    font-weight: 600;
+  }
+
+  .tool-card__recommended-action {
+    color: var(--agent-muted);
   }
 
   .tool-card__progress {

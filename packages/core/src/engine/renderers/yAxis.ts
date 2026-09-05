@@ -23,7 +23,7 @@ function resolveRightAxisDisplay(context: RenderContext) {
 }
 
 /**
- * Y 轴静态层：刻度 + 价格范围带，画到 yAxisCtx（main 级刷新）
+ * Y 轴静态层：刻度，画到 yAxisCtx（main 级刷新）
  */
 export function createYAxisStaticRendererPlugin(options: YAxisOptions): RendererPlugin {
   return {
@@ -71,26 +71,12 @@ export function createYAxisStaticRendererPlugin(options: YAxisOptions): Renderer
           targetCtx.fillText(format(displayValue), textX, tick.y)
         }
       }
-
-      // 价格范围带（先于标签，使标签覆盖在范围带之上）
-      if (context.yAxisRanges && pane.role === 'price') {
-        for (const range of context.yAxisRanges) {
-          const topY = range.topY + pane.top
-          const bandHeight = range.bottomY - range.topY
-          if (bandHeight <= 0) continue
-          targetCtx.save()
-          targetCtx.globalAlpha = range.opacity
-          targetCtx.fillStyle = range.color
-          targetCtx.fillRect(0, topY, axisWidth, bandHeight)
-          targetCtx.restore()
-        }
-      }
     },
   }
 }
 
 /**
- * Y 轴动态层：yAxisLabels + 十字线价签，画到 yAxisOverlayCtx（overlay 级刷新）
+ * Y 轴动态层：价格范围带、yAxisLabels 与十字线价签，画到 yAxisOverlayCtx（overlay 级刷新）
  */
 export function createYAxisOverlayRendererPlugin(options: YAxisOptions): RendererPlugin {
   return {
@@ -123,8 +109,22 @@ export function createYAxisOverlayRendererPlugin(options: YAxisOptions): Rendere
       const displayRange = pane.yAxis.getDisplayRange(pane.priceRange)
       const isPercent = axisDisplay === 'percent' && pane.role === 'price'
 
+      // 绘图范围带在绘图 overlay 阶段注册，必须在同一 overlay 层绘制。
+      if (pane.role === 'price') {
+        for (const range of context.yAxisRanges) {
+          const topY = range.topY + pane.top
+          const bandHeight = range.bottomY - range.topY
+          if (bandHeight <= 0) continue
+          targetCtx.save()
+          targetCtx.globalAlpha = range.opacity
+          targetCtx.fillStyle = range.color
+          targetCtx.fillRect(0, topY, axisWidth, bandHeight)
+          targetCtx.restore()
+        }
+      }
+
       // 绘制来自 yAxisLabels 的标签（最新价格、极值点、绘图锚点等）
-      if (context.yAxisLabels && pane.role === 'price') {
+      if (pane.role === 'price') {
         for (const label of context.yAxisLabels) {
           if (label.price == null || !Number.isFinite(label.price)) continue
           const isLastPrice = label.type === 'lastPrice'

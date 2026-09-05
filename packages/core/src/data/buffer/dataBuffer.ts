@@ -46,6 +46,11 @@ export class DataBuffer implements KLineBuffer {
     return this.store.getRawData()
   }
 
+  /** 通过 Buffer 的唯一时间索引解析逻辑坐标。 */
+  getLogicalIndexAtTimestamp(timestamp: number): number | null {
+    return this.store.getLogicalIndexAtTimestamp(timestamp)
+  }
+
   /** 返回月份索引，供时间轴快速定位。 */
   getMonthKeys(): Int32Array | null {
     return this.keyIndex.monthKeys

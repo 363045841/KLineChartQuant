@@ -67,6 +67,7 @@ function createFixture() {
       return bar === undefined ? null : { index, timestamp: bar.timestamp }
     },
     hasPaneId: (paneId) => paneId === 'main',
+    getWorkspaceId: () => 'kline',
   })
   const requestDraw = vi.fn()
   const drawingCommands = new DrawingCommands({ document: drawingDocument, requestDraw })
@@ -178,9 +179,14 @@ function createFixture() {
     marketDataCache: new MarketDataCache(marketDataProviderRegistry),
     drawingDocument,
     drawingCommands,
+    drawings: drawingState.readonly.drawings,
+    selectedDrawingIds: drawingState.readonly.selectedDrawingIds,
     getDrawingPaneIds: () => ['main'],
+    resolveSubPaneIndicatorId: (indicatorId) =>
+      ({ RSI: 'rsi', MACD: 'macd', VOL: 'volume' })[indicatorId] ?? null,
     paneManager: { actions: paneActions, list: () => panes },
-    isSubPaneRendererAvailable: (indicatorId) => indicatorId === 'RSI' || indicatorId === 'MACD',
+    isSubPaneRendererAvailable: (indicatorId) =>
+      indicatorId === 'rsi' || indicatorId === 'macd' || indicatorId === 'volume',
   })
 
   return {
@@ -197,6 +203,7 @@ function createFixture() {
     fetchTimeShare,
     fetchTimeShareRange,
     drawingDocument,
+    drawingState,
     requestDraw,
     paneActions,
   }
@@ -225,6 +232,7 @@ describe('createChartAgentController', () => {
       },
       visibleRange: null,
       activeIndicators: [{ instanceId: 'rsi-1', definitionId: 'RSI', params: { period: 14 } }],
+      drawingSelection: null,
       dataRevision: 1,
     })
     expect(JSON.parse(JSON.stringify(snapshot))).toEqual(snapshot)
@@ -249,6 +257,39 @@ describe('createChartAgentController', () => {
 
     expect(first).not.toBe(second)
     expect(first.chartId).toBe(second.chartId)
+  })
+
+  it('projects every selected drawing into the Agent context in selection order', () => {
+    const fixture = createFixture()
+    fixture.drawingState.actions.setDrawings([
+      {
+        id: 'line-a',
+        kind: 'horizontal-line',
+        paneId: 'main',
+        visible: true,
+        anchors: [{ id: 'a', price: 100 }],
+        params: {},
+        style: { stroke: '#2962ff' },
+      },
+      {
+        id: 'line-b',
+        kind: 'horizontal-line',
+        paneId: 'main',
+        visible: true,
+        anchors: [{ id: 'b', price: 101 }],
+        params: {},
+        style: { stroke: '#f00', strokeWidth: 2 },
+      },
+    ])
+    fixture.drawingState.actions.setSelectedDrawingIds(['line-b', 'line-a'])
+
+    expect(fixture.controller.getContext().drawingSelection).toEqual({
+      selectedIds: ['line-b', 'line-a'],
+      drawings: [
+        expect.objectContaining({ id: 'line-b', style: { stroke: '#f00', strokeWidth: 2 } }),
+        expect.objectContaining({ id: 'line-a', style: { stroke: '#2962ff' } }),
+      ],
+    })
   })
 
   it('rejects an unavailable market-data source ID with enabled IDs needed to retry', async () => {
@@ -564,7 +605,7 @@ describe('createChartAgentController', () => {
     )
     await tool('pane_replace_content').execute(
       fixture.controller,
-      { paneId: 'rsi', indicatorId: 'MACD', params: { fast: 12 } },
+      { paneId: 'rsi', indicatorId: 'VOL', params: {} },
       execution,
     )
     await tool('pane_update_content').execute(
@@ -577,12 +618,12 @@ describe('createChartAgentController', () => {
 
     expect(fixture.paneActions.create).toHaveBeenCalledWith({
       paneId: 'rsi',
-      indicatorId: 'RSI',
+      indicatorId: 'rsi',
       params: { period: 14 },
     })
     expect(fixture.paneActions.update).toHaveBeenCalledWith('rsi', { ratio: 0.25 })
     expect(fixture.paneActions.move).toHaveBeenCalledWith('rsi', 1)
-    expect(fixture.paneActions.replaceContent).toHaveBeenCalledWith('rsi', 'MACD', { fast: 12 })
+    expect(fixture.paneActions.replaceContent).toHaveBeenCalledWith('rsi', 'volume', {})
     expect(fixture.paneActions.updateContent).toHaveBeenCalledWith('rsi', { fast: 6 })
     expect(fixture.paneActions.remove).toHaveBeenCalledWith('rsi')
     expect(fixture.paneActions.clear).toHaveBeenCalledOnce()

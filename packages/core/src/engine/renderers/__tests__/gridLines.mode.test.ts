@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import type { RenderContext } from '../../../foundation/plugin/types'
+import { ChartDataViewId, type ChartDataView } from '../../../foundation/types/chartView'
 import { createGridLinesRendererPlugin } from '../gridLines'
 
 function createMockCtx() {
@@ -25,7 +26,10 @@ const CROSS_MONTH_DATA = [
   { timestamp: new Date('2026-02-03T09:30:00+08:00').getTime() },
 ]
 
-function buildContext(period: string): { ctx: ReturnType<typeof createMockCtx>; context: RenderContext } {
+function buildContext(dataView: ChartDataView): {
+  ctx: ReturnType<typeof createMockCtx>
+  context: RenderContext
+} {
   const ctx = createMockCtx()
   return {
     ctx,
@@ -40,7 +44,8 @@ function buildContext(period: string): { ctx: ReturnType<typeof createMockCtx>; 
       kLinePositions: [0, 10, 20],
       kLineCenters: [1, 11, 21],
       pane: { top: 0, height: 400 },
-      period,
+      period: 'daily',
+      dataView,
       theme: 'light',
       isAsiaMarket: true,
       colorPresetSettings: {},
@@ -50,7 +55,7 @@ function buildContext(period: string): { ctx: ReturnType<typeof createMockCtx>; 
 
 describe('gridLines mode', () => {
   it('draws vertical month boundary lines in kline mode', () => {
-    const { ctx, context } = buildContext('daily')
+    const { ctx, context } = buildContext(ChartDataViewId.KLine)
     createGridLinesRendererPlugin().draw(context)
     const verticals = ctx.fillRects.filter((r) => r.width < r.height)
     expect(verticals.length).toBeGreaterThan(0)
@@ -58,14 +63,14 @@ describe('gridLines mode', () => {
   })
 
   it('does not draw vertical month boundary lines in timeshare mode', () => {
-    const { ctx, context } = buildContext('timeshare')
+    const { ctx, context } = buildContext(ChartDataViewId.TimeShare)
     createGridLinesRendererPlugin().draw(context)
     const verticals = ctx.fillRects.filter((r) => r.width < r.height)
     expect(verticals.length).toBe(0)
   })
 
   it('draws first-day, day-separator, and last-day boundaries in five-day timeshare mode', () => {
-    const { ctx, context } = buildContext('5daytimeshare')
+    const { ctx, context } = buildContext(ChartDataViewId.FiveDayTimeShare)
     context.fiveDayTimeShareGeometry = {
       sessionSlots: 240,
       contentWidth: 800,

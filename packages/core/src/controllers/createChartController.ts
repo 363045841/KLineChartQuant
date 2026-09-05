@@ -47,8 +47,10 @@ import type {
   SymbolSpec,
   SymbolInfo,
   CustomDataSource,
+  BatchDrawingPatch,
   CreateDrawingInput,
   DrawingObject,
+  DrawingStyleKey,
   UpdateDrawingPatch,
 } from './types'
 import type {
@@ -416,16 +418,17 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const drawingDocument = new DrawingDocument({
     drawingState: chart.kernel.drawing,
     getLogicalIndexAtTimestamp(timestamp) {
-      const index = chart.getData().findIndex((bar) => bar.timestamp === timestamp)
-      return index === -1 ? null : index
+      return chart.getLogicalIndexAtTimestamp(timestamp)
     },
     findAnchorAtTradingDate(tradingDate) {
-      const index = chart.getData().findIndex((bar) => bar.date === tradingDate)
-      const bar = index === -1 ? undefined : chart.getData()[index]
-      return bar === undefined ? null : { index, timestamp: bar.timestamp }
+      const bar = chart.getData().find((item) => item.date === tradingDate)
+      return bar === undefined ? null : { timestamp: bar.timestamp }
     },
     hasPaneId(paneId) {
-      return chart.getPaneLayoutSpecs().some((pane) => pane.id === paneId)
+      return chart.panes.getLayoutSpecs().some((pane) => pane.id === paneId)
+    },
+    getWorkspaceId() {
+      return chart.drawing.getWorkspaceId()
     },
   })
   const drawingCommands = new DrawingCommands({
@@ -458,23 +461,22 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const marketDataCacheStats = chart.getMarketDataCache().stats
   const symbols = chart.symbols
 
-  const indicators = computed(() => chart.indicators().map(mapIndicatorInstance))
-  const subPanes = computed(() => chart.subPanes().map(mapSubPaneInfo))
+  const indicators = computed(() => chart.indicators.instances().map(mapIndicatorInstance))
+  const subPanes = computed(() => chart.indicators.subPanes().map(mapSubPaneInfo))
 
   // comparisonColors/comparisonLoading — not yet migrated to kernel state
   const comparisonColors = chart.comparisonColors
   const comparisonLoading = chart.comparisonLoading
 
   // 优先走 Chart facade；kernel 仅用于尚无 facade 的字段
-  const themeSignal: ReadonlySignal<'light' | 'dark'> = chart.theme
+  const themeSignal: ReadonlySignal<'light' | 'dark'> = chart.theme.effective
   const settingsSignal = chart.kernel.settings.readonly.settings
   const rendererRuntimeSignal = chart.kernel.renderer.readonly.runtime
   const chartModeSignal = chart.kernel.mode.readonly.chartMode
   const lastBarPeriodSignal = chart.kernel.mode.readonly.lastBarPeriod
-  const drawingTool = chart.drawingTool
-  const drawings = chart.drawings
-  const selectedDrawingId: ReadonlySignal<string | null> =
-    chart.kernel.drawing.readonly.selectedDrawingId
+  const drawingTool = chart.drawing.tool
+  const drawings = chart.drawing.drawings
+  const selectedDrawingIds: ReadonlySignal<ReadonlyArray<string>> = chart.drawing.selectedIds
   const paneRatios: ReadonlySignal<Readonly<Record<string, number>>> = chart.paneRatios
   const paneLayout: ReadonlySignal<ReadonlyArray<PaneSpec>> = chart.paneLayout
   const interactionState: ReadonlySignal<InteractionSnapshot> = chart.interactionState
@@ -509,7 +511,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   // Apply mount theme preference (settings default may be dark — always honor explicit opts.theme)
   if (opts.theme) {
     try {
-      chart.setTheme(opts.theme)
+      chart.theme.set(opts.theme)
     } catch {
       /* tolerate first-paint racing */
     }
@@ -531,8 +533,12 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     marketDataCache: chart.getMarketDataCache(),
     drawingDocument,
     drawingCommands,
-    getDrawingPaneIds: () => chart.getPaneLayoutSpecs().map((pane) => pane.id),
+    drawings: chart.drawing.drawings,
+    selectedDrawingIds: chart.drawing.selectedIds,
+    getDrawingPaneIds: () => chart.panes.getLayoutSpecs().map((pane) => pane.id),
     paneManager: chart.kernel.paneManager,
+    resolveSubPaneIndicatorId: (indicatorId) =>
+      chart.getIndicatorScheduler().getIndicatorMetadata(indicatorId)?.name ?? null,
     isSubPaneRendererAvailable: (indicatorId, paneId) => {
       const definition = chart.getIndicatorScheduler().getIndicatorMetadata(indicatorId)
       return definition !== undefined && hasSubPaneRendererMetadata(definition, paneId, indicatorId)
@@ -657,32 +663,32 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   function getZoomLevelCount(): number {
     if (disposed) return 0
-    return chart.getZoomLevelCount()
+    return chart.zoom.getLevelCount()
   }
 
   function setTheme(nextTheme: 'light' | 'dark'): void {
     if (disposed) return
-    chart.setTheme(nextTheme)
+    chart.theme.set(nextTheme)
   }
 
   function setSystemTheme(nextTheme: 'light' | 'dark'): void {
     if (disposed) return
-    chart.setSystemTheme(nextTheme)
+    chart.theme.setSystem(nextTheme)
   }
 
   function zoomToLevel(level: number, anchorX?: number): void {
     if (disposed) return
-    chart.zoomToLevel(level, anchorX)
+    chart.zoom.toLevel(level, anchorX)
   }
 
   function zoomIn(anchorX?: number): void {
     if (disposed) return
-    chart.zoomIn(anchorX)
+    chart.zoom.in(anchorX)
   }
 
   function zoomOut(anchorX?: number): void {
     if (disposed) return
-    chart.zoomOut(anchorX)
+    chart.zoom.out(anchorX)
   }
 
   function handlePointerEvent(
@@ -714,17 +720,17 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     params?: Record<string, unknown>,
   ): string | null {
     if (disposed) return null
-    return chart.addIndicator(definitionId, role, params)
+    return chart.indicators.add(definitionId, role, params)
   }
 
   function removeIndicator(instanceId: string): boolean {
     if (disposed) return false
-    return chart.removeIndicator(instanceId)
+    return chart.indicators.remove(instanceId)
   }
 
   function updateIndicatorParams(instanceId: string, params: Record<string, unknown>): boolean {
     if (disposed) return false
-    return chart.updateIndicatorParams(instanceId, params)
+    return chart.indicators.updateParams(instanceId, params)
   }
 
   function updateRendererConfig(name: string, config: Record<string, unknown>): void {
@@ -759,24 +765,24 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   function getIndicatorTitle(instanceId: string): string | undefined {
     if (disposed) return undefined
-    const instances = chart.indicators.peek()
+    const instances = chart.indicators.instances.peek()
     const match = instances.find((inst) => inst.id === instanceId)
     return match?.label
   }
 
   function setDrawingTool(tool: import('../engine/drawing/toolConfig').DrawingToolId | null): void {
     if (disposed) return
-    chart.setDrawingTool(tool)
+    chart.drawing.setTool(tool)
   }
 
   function setDrawingToolId(toolId: import('../engine/drawing/toolConfig').DrawingToolId): void {
     if (disposed) return
-    chart.setDrawingTool(toolId)
+    chart.drawing.setTool(toolId)
   }
 
   function getDrawingToolId(): import('../engine/drawing/toolConfig').DrawingToolId {
     if (disposed) return 'cursor'
-    return chart.kernel.drawing.readonly.drawingTool.peek()
+    return chart.drawing.tool.peek()
   }
 
   function registerDrawingSession(session: unknown | null): void {
@@ -801,9 +807,35 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     return drawingCommands.update(id, patch)
   }
 
+  function commitDrawingDrag(
+    id: string,
+    anchors: ReadonlyArray<import('../foundation/plugin').PersistedDrawingAnchor>,
+  ): DrawingObject | null {
+    if (disposed) return null
+    return drawingCommands.commitDrag(id, anchors)
+  }
+
+  function updateBatch(
+    ids: ReadonlyArray<string>,
+    patch: BatchDrawingPatch,
+  ): ReadonlyArray<DrawingObject> {
+    if (disposed) return []
+    return drawingCommands.updateBatch(ids, patch)
+  }
+
+  function getBatchStyleKeys(ids: ReadonlyArray<string>): ReadonlyArray<DrawingStyleKey> {
+    if (disposed) return []
+    return drawingDocument.getBatchStyleKeys(ids)
+  }
+
   function removeDrawing(drawingId: string): boolean {
     if (disposed) return false
     return drawingCommands.remove(drawingId)
+  }
+
+  function removeBatch(ids: ReadonlyArray<string>): boolean {
+    if (disposed) return false
+    return drawingCommands.removeBatch(ids)
   }
 
   function replaceDrawings(drawings: ReadonlyArray<DrawingObject>): void {
@@ -823,14 +855,14 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     chart.scheduleDraw()
   }
 
-  function setSelectedDrawingId(id: string | null): void {
+  function setSelectedDrawingIds(ids: ReadonlyArray<string>): void {
     if (disposed) return
-    chart.setSelectedDrawingId(id)
+    chart.drawing.setSelectedIds(ids)
   }
 
-  function getSelectedDrawingId(): string | null {
-    if (disposed) return null
-    return chart.kernel.drawing.readonly.selectedDrawingId.peek()
+  function getSelectedDrawingIds(): ReadonlyArray<string> {
+    if (disposed) return []
+    return chart.drawing.selectedIds.peek()
   }
 
   function getViewport(): { scrollLeft: number; plotWidth: number; plotHeight: number } | null {
@@ -857,9 +889,34 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     return chart.getLogicalIndexAtX(mouseX)
   }
 
+  function getScreenXAtLogicalIndex(index: number): number | null {
+    if (disposed) return null
+    return chart.getScreenXAtLogicalIndex(index)
+  }
+
   function getTimestampAtLogicalIndex(index: number): number | null {
     if (disposed) return null
     return chart.getTimestampAtLogicalIndex(index)
+  }
+
+  function getDrawingData(): ReadonlyArray<{ timestamp: number }> {
+    if (disposed) return []
+    return chart.drawing.getData()
+  }
+
+  function getDrawingTimestampAtLogicalIndex(index: number): number | null {
+    if (disposed) return null
+    return chart.drawing.getTimestampAtLogicalIndex(index)
+  }
+
+  function getLogicalIndexAtTimestamp(timestamp: number): number | null {
+    if (disposed) return null
+    return chart.getLogicalIndexAtTimestamp(timestamp)
+  }
+
+  function getDrawingWorkspaceId(): import('../foundation/plugin').DrawingWorkspaceId {
+    if (disposed) return 'kline'
+    return chart.drawing.getWorkspaceId()
   }
 
   function priceToY(paneId: string, price: number): number {
@@ -882,14 +939,23 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     return { paneId: pane.id, top: pane.top, height: pane.height }
   }
 
+  function getPaneAtY(y: number): PaneLayoutInfo | undefined {
+    if (disposed) return undefined
+    const renderer = chart
+      .getPaneRenderers()
+      .find((item) => y >= item.getPane().top && y <= item.getPane().top + item.getPane().height)
+    const pane = renderer?.getPane()
+    return pane ? { paneId: pane.id, top: pane.top, height: pane.height } : undefined
+  }
+
   function createPane(input: import('../engine/paneManager').CreatePaneInput): boolean {
     if (disposed) return false
-    return chart.createPane(input)
+    return chart.panes.create(input)
   }
 
   function clearPanes(): void {
     if (disposed) return
-    chart.clearPanes()
+    chart.panes.clear()
   }
 
   function replacePaneContent(
@@ -898,37 +964,39 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     params: Record<string, unknown>,
   ): boolean {
     if (disposed) return false
-    return chart.replacePaneContent(paneId, indicatorId, params)
+    const definition = chart.getIndicatorScheduler().getIndicatorMetadata(indicatorId)
+    if (!definition || !hasSubPaneRendererMetadata(definition, paneId, definition.name)) return false
+    return chart.panes.replaceContent(paneId, definition.name, params)
   }
 
   function updatePaneContent(paneId: string, params: Record<string, unknown>): boolean {
     if (disposed) return false
-    return chart.updatePaneContent(paneId, params)
+    return chart.panes.updateContent(paneId, params)
   }
 
   function updatePane(paneId: string, patch: import('../engine/paneManager').PanePatch): boolean {
     if (disposed) return false
-    return chart.updatePane(paneId, patch)
+    return chart.panes.update(paneId, patch)
   }
 
   function removePane(paneId: string): boolean {
     if (disposed) return false
-    return chart.removePane(paneId)
+    return chart.panes.remove(paneId)
   }
 
   function movePane(paneId: string, targetIndex: number): boolean {
     if (disposed) return false
-    return chart.movePane(paneId, targetIndex)
+    return chart.panes.move(paneId, targetIndex)
   }
 
   function updateCustomMarkers(markers: ReadonlyArray<CustomMarkerEntity>): void {
     if (disposed) return
-    chart.updateCustomMarkers([...markers])
+    chart.markers.update([...markers])
   }
 
   function clearCustomMarkers(): void {
     if (disposed) return
-    chart.clearCustomMarkers()
+    chart.markers.clear()
   }
 
   function updateSettingsFacade(settings: Record<string, unknown>): void {
@@ -1008,7 +1076,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     subPanes,
     drawingTool,
     drawings,
-    selectedDrawingId,
+    selectedDrawingIds,
     paneRatios,
     paneLayout,
     interactionState,
@@ -1068,20 +1136,30 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     clearDrawings,
     createDrawing,
     updateDrawing,
+    commitDrawingDrag,
+    updateBatch,
+    getBatchStyleKeys,
     removeDrawing,
+    removeBatch,
     replaceDrawings,
     getFullDrawings,
     requestDraw,
-    setSelectedDrawingId,
-    getSelectedDrawingId,
+    setSelectedDrawingIds,
+    getSelectedDrawingIds,
     getViewport,
     getKWidthKGap,
     getCurrentDpr,
     getLogicalIndexAtX,
+    getScreenXAtLogicalIndex,
     getTimestampAtLogicalIndex,
+    getDrawingData,
+    getDrawingTimestampAtLogicalIndex,
+    getLogicalIndexAtTimestamp,
+    getDrawingWorkspaceId,
     priceToY,
     yToPrice,
     getPaneInfo,
+    getPaneAtY,
     createPane,
     clearPanes,
     replacePaneContent,

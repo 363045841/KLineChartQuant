@@ -1,0 +1,13 @@
+# 统一行尾为 LF：仓库与工作区均使用 LF，避免 Windows 下 CRLF 转换不一致
+* text=auto eol=lf
+
+# 二进制文件不做行尾转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary

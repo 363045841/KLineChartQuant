@@ -1,5 +1,6 @@
 import type {
   DrawingObject,
+  DrawingWorkspaceId,
   DrawingKind,
   DrawingDefinition,
   DrawingComputeContext,
@@ -12,6 +13,7 @@ import type {
   ArrowPrimitive,
 } from '../../foundation/plugin/index'
 import type { KLineData } from '../../foundation/types/price'
+import { ChartWorkspaceId } from '../../foundation/types/chartView'
 
 export type {
   DrawingObject,
@@ -34,7 +36,7 @@ export { DrawingDocument } from './DrawingDocument'
 export { DrawingCommands } from './DrawingCommands'
 export type {
   CreateDrawingInput,
-  DrawingAnchorInput as DrawingDocumentAnchorInput,
+  DrawingAnchorCommandInput,
   DrawingDocumentDependencies,
   UpdateDrawingPatch,
 } from './DrawingDocument'
@@ -42,7 +44,7 @@ export type { DrawingCommandsDependencies } from './DrawingCommands'
 
 export interface DrawingStoreDeps {
   drawings$: ReadonlySignal<ReadonlyArray<DrawingObject>>
-  selectedDrawingId$: ReadonlySignal<string | null>
+  selectedDrawingIds$: ReadonlySignal<ReadonlyArray<string>>
   /** 会话层覆盖（拖拽/预览）；缺省为空 */
   getOverlay?: () => ReadonlyArray<DrawingObject>
 }
@@ -53,8 +55,8 @@ export interface DrawingStoreDeps {
 export class DrawingStore {
   constructor(private readonly deps: DrawingStoreDeps) {}
 
-  getSelectedId(): string | null {
-    return this.deps.selectedDrawingId$.peek()
+  getSelectedIds(): ReadonlyArray<string> {
+    return this.deps.selectedDrawingIds$.peek()
   }
 
   private paintList(): DrawingObject[] {
@@ -67,9 +69,14 @@ export class DrawingStore {
     return this.paintList()
   }
 
-  getVisibleByPane(paneId: string): DrawingObject[] {
+  getVisibleByPane(paneId: string, workspaceId: DrawingWorkspaceId): DrawingObject[] {
     return this.paintList()
-      .filter((drawing) => drawing.visible && drawing.paneId === paneId)
+      .filter(
+        (drawing) =>
+          drawing.visible &&
+          drawing.paneId === paneId &&
+          (drawing.workspaceId ?? ChartWorkspaceId.KLine) === workspaceId,
+      )
       .slice()
       .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
   }
@@ -86,7 +93,10 @@ export class DrawingDefinitionRegistry {
     return this.definitions.get(kind)
   }
 
-  compute(drawing: DrawingObject, context: DrawingComputeContext): DrawingGeometry | null {
+  compute(
+    drawing: import('../../foundation/plugin').ResolvedDrawingObject,
+    context: DrawingComputeContext,
+  ): DrawingGeometry | null {
     const definition = this.get(drawing.kind)
     if (!definition) return null
     return definition.compute(drawing, context)
@@ -220,7 +230,10 @@ function extendLineToViewport(
   return clipLineToRect(start.x, start.y, end.x, end.y, viewportClip)
 }
 
-function getAnchorDataIndex(anchor: DrawingObject['anchors'][number], data: KLineData[]): number {
+function getAnchorDataIndex(
+  anchor: import('../../foundation/plugin').ResolvedDrawingAnchor,
+  data: KLineData[],
+): number {
   if (!Number.isFinite(anchor.index)) return -1
   const index = Math.round(anchor.index)
   if (index < 0 || index >= data.length) return -1
@@ -261,18 +274,32 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
       ctx.lineTo(clipped.b.x + align, clipped.b.y + align)
       ctx.stroke()
 
-      // 绘制端点（使用原始锚点位置，不是裁剪后的位置）
+      // 绘制端点（使用原始锚点位置，不是裁剪后的位置）；屏幕外锚点只保留被裁剪的线段。
       if (primitive.showEndpoints !== false) {
         const pointRadius = primitive.style?.pointRadius ?? 4
         ctx.fillStyle = primitive.style?.stroke ?? '#2962ff'
 
-        ctx.beginPath()
-        ctx.arc(primitive.a.x, primitive.a.y, Math.max(pointRadius, 1 / dpr), 0, Math.PI * 2)
-        ctx.fill()
+        if (
+          primitive.a.x >= viewportClip.left &&
+          primitive.a.x <= viewportClip.right &&
+          primitive.a.y >= viewportClip.top &&
+          primitive.a.y <= viewportClip.bottom
+        ) {
+          ctx.beginPath()
+          ctx.arc(primitive.a.x, primitive.a.y, Math.max(pointRadius, 1 / dpr), 0, Math.PI * 2)
+          ctx.fill()
+        }
 
-        ctx.beginPath()
-        ctx.arc(primitive.b.x, primitive.b.y, Math.max(pointRadius, 1 / dpr), 0, Math.PI * 2)
-        ctx.fill()
+        if (
+          primitive.b.x >= viewportClip.left &&
+          primitive.b.x <= viewportClip.right &&
+          primitive.b.y >= viewportClip.top &&
+          primitive.b.y <= viewportClip.bottom
+        ) {
+          ctx.beginPath()
+          ctx.arc(primitive.b.x, primitive.b.y, Math.max(pointRadius, 1 / dpr), 0, Math.PI * 2)
+          ctx.fill()
+        }
       }
 
       ctx.restore()
@@ -472,24 +499,26 @@ export function createSingleAnchorLineDefinition(kind: DrawingKind): DrawingDefi
     compute(drawing, context) {
       const [anchor] = drawing.anchors
       if (!anchor) return { primitives: [] }
-      const point = context.toScreen(anchor)
       const bottom = context.pane.height
       const right = context.viewport.plotWidth
 
       if (kind === 'horizontal-line') {
+        if (anchor.type === 'vertical') return { primitives: [] }
+        const y = context.pane.yAxis.priceToY(anchor.price)
         return {
           primitives: [
             {
               kind: 'line',
-              a: { x: 0, y: point.y },
-              b: { x: right, y: point.y },
+              a: { x: 0, y },
+              b: { x: right, y },
               showEndpoints: false,
               style: drawing.style,
             },
-            { kind: 'point', point, style: drawing.style },
           ],
         }
       }
+
+      const point = context.toScreen(anchor)
 
       if (kind === 'horizontal-ray') {
         return {
@@ -507,6 +536,7 @@ export function createSingleAnchorLineDefinition(kind: DrawingKind): DrawingDefi
       }
 
       if (kind === 'vertical-line') {
+        if (anchor.type === 'horizontal') return { primitives: [] }
         return {
           primitives: [
             {
@@ -516,7 +546,6 @@ export function createSingleAnchorLineDefinition(kind: DrawingKind): DrawingDefi
               showEndpoints: false,
               style: drawing.style,
             },
-            { kind: 'point', point, style: drawing.style },
           ],
         }
       }
@@ -835,4 +864,4 @@ export function registerDefaultDrawingDefinitions(registry: DrawingDefinitionReg
 
 // 导出交互控制器
 export { DrawingInteractionController } from './interaction'
-export type { DrawingToolId, DrawingAnchorInput, DrawingInteractionCallbacks } from './interaction'
+export type { DrawingToolId, InteractionDrawingAnchor, DrawingInteractionCallbacks } from './interaction'

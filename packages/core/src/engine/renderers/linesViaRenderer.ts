@@ -67,7 +67,7 @@ export function shouldCompositeSceneRenderer(renderer: Renderer): boolean {
 export function compositeSceneRenderer(context: {
   ctx: CanvasRenderingContext2D
   pane: { top: number; height: number }
-  viewport?: { plotWidth: number }
+  viewport: { plotWidth: number }
   paneWidth: number
   dpr: number
   sceneRenderer?: Renderer
@@ -79,7 +79,7 @@ export function compositeSceneRenderer(context: {
     {
       x: 0,
       y: context.pane.top,
-      width: context.viewport?.plotWidth ?? context.paneWidth,
+      width: context.viewport.plotWidth,
       height: context.pane.height,
       dpr: context.dpr,
     },
@@ -213,7 +213,7 @@ export function tryDrawFilledBandGpu(
         {
           x: 0,
           y: context.pane.top,
-          width: context.viewport?.plotWidth ?? context.paneWidth,
+          width: context.viewport.plotWidth,
           height: context.pane.height,
           dpr: context.dpr,
         },

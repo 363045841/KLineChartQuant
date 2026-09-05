@@ -158,6 +158,36 @@ export type AgentSelectedTimeRangeContextItem = AgentContextItem<
   AgentSelectedTimeRangeContextValue
 >
 
+/** Agent 可引用的一个已选中绘图锚点。 */
+export interface AgentDrawingSelectionAnchor extends AgentContextObject {
+  readonly timestamp: number | null
+  readonly price: number
+}
+
+/** Agent 可引用的一个已选中绘图。 */
+export interface AgentDrawingSelectionDrawing extends AgentContextObject {
+  readonly id: string
+  readonly kind: string
+  readonly paneId: string
+  readonly visible: boolean
+  readonly locked: boolean
+  readonly zIndex: number | null
+  readonly anchors: ReadonlyArray<AgentDrawingSelectionAnchor>
+  readonly style: Readonly<Record<string, string | number>>
+}
+
+/** 用户当前选择的全部绘图。 */
+export interface AgentDrawingSelectionContextValue extends AgentContextObject {
+  readonly selectedIds: ReadonlyArray<string>
+  readonly drawings: ReadonlyArray<AgentDrawingSelectionDrawing>
+}
+
+/** 用户当前选择的绘图上下文项。 */
+export type AgentDrawingSelectionContextItem = AgentContextItem<
+  'drawing-selection',
+  AgentDrawingSelectionContextValue
+>
+
 /** 一次 Agent 运行冻结的界面上下文快照。 */
 export interface AgentRunContext {
   readonly items: ReadonlyArray<AgentContextItem>

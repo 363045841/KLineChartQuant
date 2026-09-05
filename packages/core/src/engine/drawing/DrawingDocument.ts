@@ -1,9 +1,10 @@
 /** 绘图文档领域服务：为用户交互与 Agent 提供统一的已确认图元 CRUD。 */
 import type {
-  DrawingAnchor,
+  PersistedDrawingAnchor,
   DrawingKind,
   DrawingObject,
   DrawingStyle,
+  DrawingWorkspaceId,
 } from '../../foundation/plugin'
 import { generateUUID } from '../../foundation/utils/uuid'
 import { DRAWING_ERROR_CODES, KLineChartError } from '../../errors'
@@ -12,20 +13,36 @@ import type { DrawingStateModule } from '../state/drawingState'
 
 import { PREVIEW_ID } from './DrawingState'
 
-/** 外部命令使用价格锚点；需要水平位置的图元额外提供时间。 */
-export interface DrawingAnchorInput {
-  /** 交易日锚点，按数据中的 date 字段定位。 */
-  readonly tradingDate?: TradingDate
-  /** 精确时间锚点，按毫秒时间戳定位。 */
-  readonly timestamp?: number
-  readonly price: number
-}
+/** 外部命令按图元需要提供价格和一种明确的时间轴定位方式。 */
+export type DrawingAnchorCommandInput =
+  | {
+      /** 交易日锚点，按数据中的 date 字段定位。 */
+      readonly tradingDate: TradingDate
+      readonly timestamp?: never
+      readonly futureOffset?: never
+      readonly price: number
+    }
+  | {
+      /** 精确时间锚点，按毫秒时间戳定位。 */
+      readonly timestamp: number
+      readonly tradingDate?: never
+      /** 基准 K 线之后的未来时间轴槽位数。 */
+      readonly futureOffset?: number
+      readonly price: number
+    }
+  | {
+      /** 水平图元只使用价格坐标。 */
+      readonly tradingDate?: never
+      readonly timestamp?: never
+      readonly futureOffset?: never
+      readonly price: number
+    }
 
 /** 创建已确认图元所需的声明式输入。 */
 export interface CreateDrawingInput {
   readonly kind: DrawingKind
   readonly paneId: string
-  readonly anchors: ReadonlyArray<DrawingAnchorInput>
+  readonly anchors: ReadonlyArray<DrawingAnchorCommandInput>
   readonly style?: Partial<DrawingStyle>
   readonly params?: Readonly<Record<string, unknown>>
   readonly visible?: boolean
@@ -35,7 +52,7 @@ export interface CreateDrawingInput {
 
 /** 更新已确认图元的声明式 patch。 */
 export interface UpdateDrawingPatch {
-  readonly anchors?: ReadonlyArray<DrawingAnchorInput>
+  readonly anchors?: ReadonlyArray<DrawingAnchorCommandInput>
   readonly style?: Partial<DrawingStyle>
   readonly params?: Readonly<Record<string, unknown>>
   readonly visible?: boolean
@@ -43,15 +60,37 @@ export interface UpdateDrawingPatch {
   readonly zIndex?: number
 }
 
+/** 可同时应用到多个图元的公共属性。 */
+export interface BatchDrawingPatch {
+  readonly style?: Partial<DrawingStyle>
+  readonly visible?: boolean
+  readonly locked?: boolean
+  readonly zIndex?: number
+}
+
+/** DrawingStyle 的字段名。 */
+export type DrawingStyleKey = keyof DrawingStyle
+
+const DRAWING_STYLE_KEYS: ReadonlyArray<DrawingStyleKey> = [
+  'stroke',
+  'strokeWidth',
+  'strokeStyle',
+  'fill',
+  'fillOpacity',
+  'pointRadius',
+  'textColor',
+  'fontSize',
+]
+
 /** 绘图文档解析锚点坐标所需的最小数据访问能力。 */
 export interface DrawingDocumentDependencies {
   readonly drawingState: DrawingStateModule
   readonly getLogicalIndexAtTimestamp: (timestamp: number) => number | null
   readonly findAnchorAtTradingDate: (tradingDate: TradingDate) => {
-    readonly index: number
     readonly timestamp: number
   } | null
   readonly hasPaneId: (paneId: string) => boolean
+  readonly getWorkspaceId: () => DrawingWorkspaceId
 }
 
 const DEFAULT_DRAWING_STYLE: Readonly<DrawingStyle> = {
@@ -116,6 +155,7 @@ export class DrawingDocument {
       id: `drawing-${generateUUID()}`,
       kind: input.kind,
       paneId: input.paneId,
+      workspaceId: this.dependencies.getWorkspaceId(),
       visible: input.visible ?? true,
       ...(input.locked === undefined ? {} : { locked: input.locked }),
       ...(input.zIndex === undefined ? {} : { zIndex: input.zIndex }),
@@ -146,9 +186,79 @@ export class DrawingDocument {
     })
   }
 
+  /** 提交交互层已解析的拖拽锚点，不再转换为外部声明式输入。 */
+  commitDrawingDrag(id: string, anchors: ReadonlyArray<PersistedDrawingAnchor>): DrawingObject | null {
+    const drawing = this.getDrawing(id)
+    if (!drawing || anchors.length !== getRequiredAnchorCount(drawing.kind)) return null
+    const valid = anchors.every((anchor) => {
+      const hasValidFutureOffset =
+        anchor.futureOffset === undefined ||
+        (Number.isInteger(anchor.futureOffset) && anchor.futureOffset > 0)
+      if (!hasValidFutureOffset) return false
+      if (drawing.kind === 'horizontal-line') {
+        return (
+          anchor.type === 'horizontal' &&
+          anchor.futureOffset === undefined &&
+          Number.isFinite(anchor.price)
+        )
+      }
+      if (drawing.kind === 'vertical-line') {
+        return anchor.type === 'vertical' && Number.isFinite(Number(anchor.time))
+      }
+      return (
+        anchor.type !== 'horizontal' &&
+        anchor.type !== 'vertical' &&
+        Number.isFinite(anchor.price) &&
+        Number.isFinite(Number(anchor.time))
+      )
+    })
+    if (!valid) return null
+    return this.dependencies.drawingState.actions.updateDrawing(id, { anchors: [...anchors] })
+  }
+
+  /** 返回一批图元共同拥有的样式字段。 */
+  getBatchStyleKeys(ids: ReadonlyArray<string>): ReadonlyArray<DrawingStyleKey> {
+    const drawings = this.getDrawingsByIds(ids)
+    if (drawings.length === 0) return Object.freeze([])
+    return Object.freeze(
+      DRAWING_STYLE_KEYS.filter((key) =>
+        drawings.every((drawing) => drawing.style[key] !== undefined),
+      ),
+    )
+  }
+
+  /** 原子更新多个图元的公共属性；目标或样式字段不合法时不写入。 */
+  updateBatch(ids: ReadonlyArray<string>, patch: BatchDrawingPatch): ReadonlyArray<DrawingObject> {
+    const drawings = this.getDrawingsByIds(ids)
+    if (drawings.length === 0) return Object.freeze([])
+
+    const style = patch.style
+    const supportedStyleKeys = new Set(this.getBatchStyleKeys(ids))
+    if (
+      style !== undefined &&
+      Object.keys(style).some((key) => !supportedStyleKeys.has(key as DrawingStyleKey))
+    ) {
+      return Object.freeze([])
+    }
+
+    return this.dependencies.drawingState.actions.updateDrawings(
+      drawings.map((drawing) => drawing.id),
+      patch,
+    )
+  }
+
   /** 移除指定图元。 */
   removeDrawing(id: string): boolean {
     return this.dependencies.drawingState.actions.removeDrawing(id)
+  }
+
+  /** 原子移除一批图元；任一 id 不存在时不写入。 */
+  removeBatch(ids: ReadonlyArray<string>): boolean {
+    const drawings = this.getDrawingsByIds(ids)
+    if (drawings.length === 0) return false
+    return this.dependencies.drawingState.actions.removeDrawings(
+      drawings.map((drawing) => drawing.id),
+    )
   }
 
   /** 清除所有已确认图元。 */
@@ -163,11 +273,11 @@ export class DrawingDocument {
     )
   }
 
-  /** 校验锚点数量并将时间坐标转换为当前数据序列 index。 */
+  /** 校验锚点数量并持久化时间坐标与价格。 */
   private resolveAnchors(
     kind: DrawingKind,
-    inputs: ReadonlyArray<DrawingAnchorInput>,
-  ): DrawingAnchor[] {
+    inputs: ReadonlyArray<DrawingAnchorCommandInput>,
+  ): PersistedDrawingAnchor[] {
     const required = getRequiredAnchorCount(kind)
     if (inputs.length !== required) {
       throw new KLineChartError(
@@ -178,16 +288,31 @@ export class DrawingDocument {
     }
     const anchors = inputs.map((input) => this.resolveAnchor(kind, input))
     if (kind === 'flat-line') {
-      anchors[2] = { ...anchors[2]!, index: anchors[1]!.index, time: anchors[1]!.time }
+      anchors[2] = {
+        ...anchors[2]!,
+        time: anchors[1]!.time,
+        futureOffset: anchors[1]!.futureOffset,
+      }
     }
     return anchors
+  }
+
+  /** 按输入顺序读取唯一图元；任一 id 不存在时返回空数组。 */
+  private getDrawingsByIds(ids: ReadonlyArray<string>): ReadonlyArray<DrawingObject> {
+    const uniqueIds = [...new Set(ids)]
+    if (uniqueIds.length === 0) return Object.freeze([])
+    const drawingsById = new Map(this.listDrawings().map((drawing) => [drawing.id, drawing]))
+    const drawings = uniqueIds.map((id) => drawingsById.get(id))
+    return drawings.some((drawing) => drawing === undefined)
+      ? Object.freeze([])
+      : (drawings as ReadonlyArray<DrawingObject>)
   }
 
   /** 更新锚点时保留已有锚点 id，避免交互引用失效。 */
   private resolveAnchorsForUpdate(
     id: string,
-    inputs: ReadonlyArray<DrawingAnchorInput>,
-  ): DrawingAnchor[] {
+    inputs: ReadonlyArray<DrawingAnchorCommandInput>,
+  ): PersistedDrawingAnchor[] {
     const drawing = this.getDrawing(id)
     if (!drawing) return []
     const anchors = this.resolveAnchors(drawing.kind, inputs)
@@ -197,29 +322,30 @@ export class DrawingDocument {
     }))
   }
 
-  /** 解析单个声明式锚点；水平线仅由价格决定，不依赖 K 线时间。 */
-  private resolveAnchor(kind: DrawingKind, input: DrawingAnchorInput): DrawingAnchor {
-    if (!Number.isFinite(input.price)) {
-      throw new KLineChartError(
-        DRAWING_ERROR_CODES.INVALID_ANCHOR,
-        'Drawing anchor price must be a finite number.',
-        { details: { timestamp: input.timestamp, price: input.price } },
-      )
-    }
+  /** 解析单个声明式锚点，按图元种类持久化所需坐标轴。 */
+  private resolveAnchor(kind: DrawingKind, input: DrawingAnchorCommandInput): PersistedDrawingAnchor {
     if (kind === 'horizontal-line') {
-      return { id: `anchor-${generateUUID()}`, index: -1, price: input.price }
+      if (input.futureOffset !== undefined) {
+        throw new KLineChartError(
+          DRAWING_ERROR_CODES.INVALID_ANCHOR,
+          'Horizontal drawing anchors cannot use a future offset.',
+          { details: { futureOffset: input.futureOffset } },
+        )
+      }
+      if (!Number.isFinite(input.price)) {
+        throw new KLineChartError(
+          DRAWING_ERROR_CODES.INVALID_ANCHOR,
+          'Horizontal drawing anchor price must be a finite number.',
+          { details: { price: input.price } },
+        )
+      }
+      return { id: `anchor-${generateUUID()}`, type: 'horizontal', price: input.price! }
     }
-    if (input.tradingDate !== undefined && input.timestamp !== undefined) {
+    if (kind === 'vertical-line' && !Number.isFinite(input.price)) {
       throw new KLineChartError(
         DRAWING_ERROR_CODES.INVALID_ANCHOR,
-        'Drawing anchor must provide either tradingDate or timestamp, not both.',
-        {
-          details: {
-            tradingDate: input.tradingDate,
-            timestamp: input.timestamp,
-            price: input.price,
-          },
-        },
+        'Vertical drawing anchor price must be a finite number.',
+        { details: { price: input.price } },
       )
     }
     if (input.tradingDate !== undefined) {
@@ -231,29 +357,57 @@ export class DrawingDocument {
           { details: { tradingDate: input.tradingDate } },
         )
       }
-      return {
-        id: `anchor-${generateUUID()}`,
-        index: resolved.index,
-        time: resolved.timestamp,
-        price: input.price,
-      }
+      return kind === 'vertical-line'
+        ? { id: `anchor-${generateUUID()}`, type: 'vertical', time: resolved.timestamp, price: input.price }
+        : this.createPointAnchor(resolved.timestamp, undefined, input.price)
     }
     const timestamp = input.timestamp
-    if (timestamp === undefined || !Number.isFinite(timestamp)) {
+    if (typeof timestamp !== 'number' || !Number.isFinite(timestamp)) {
       throw new KLineChartError(
         DRAWING_ERROR_CODES.INVALID_ANCHOR,
-        'Drawing anchor timestamp and price must be finite numbers.',
+        'Drawing anchor timestamp must be a finite number.',
         { details: { timestamp: input.timestamp, price: input.price } },
       )
     }
-    const index = this.dependencies.getLogicalIndexAtTimestamp(timestamp)
-    if (index === null) {
+    if (this.dependencies.getLogicalIndexAtTimestamp(timestamp) === null) {
       throw new KLineChartError(
         DRAWING_ERROR_CODES.ANCHOR_NOT_FOUND,
         `No chart data exists for drawing anchor timestamp ${timestamp}.`,
         { details: { timestamp } },
       )
     }
-    return { id: `anchor-${generateUUID()}`, index, time: timestamp, price: input.price }
+    const futureOffset = input.futureOffset
+    if (futureOffset !== undefined && (!Number.isInteger(futureOffset) || futureOffset <= 0)) {
+      throw new KLineChartError(
+        DRAWING_ERROR_CODES.INVALID_ANCHOR,
+        'Drawing anchor future offset must be a positive integer.',
+        { details: { timestamp, futureOffset, price: input.price } },
+      )
+    }
+    return kind === 'vertical-line'
+      ? {
+          id: `anchor-${generateUUID()}`,
+          type: 'vertical',
+          time: timestamp,
+          futureOffset,
+          price: input.price,
+        }
+      : this.createPointAnchor(timestamp, futureOffset, input.price)
+  }
+
+  /** 校验并创建同时包含时间与价格的普通锚点。 */
+  private createPointAnchor(
+    timestamp: number,
+    futureOffset: number | undefined,
+    price: number,
+  ): PersistedDrawingAnchor {
+    if (!Number.isFinite(price)) {
+      throw new KLineChartError(
+        DRAWING_ERROR_CODES.INVALID_ANCHOR,
+        'Drawing point anchor price must be a finite number.',
+        { details: { timestamp, price } },
+      )
+    }
+    return { id: `anchor-${generateUUID()}`, type: 'point', time: timestamp, futureOffset, price }
   }
 }

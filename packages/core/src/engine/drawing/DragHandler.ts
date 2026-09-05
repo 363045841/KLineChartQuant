@@ -1,14 +1,14 @@
 import type { DrawingChartAdapter } from '../../controllers/types'
-import type { DrawingObject, DrawingAnchor } from '../../foundation/plugin/index'
+import type { DrawingObject, PersistedDrawingAnchor } from '../../foundation/plugin/index'
 
-import { resolveAnchorFromPointer, anchorToScreen, screenToAnchor } from './coordinateUtils'
+import { anchorToScreen, isScreenPoint, resolveDrawingPointer, screenToAnchor } from './coordinateUtils'
 
 // ---- Types ----
 
 export interface DragState {
   drawingId: string
   anchorIndex?: number
-  snapshot: DrawingAnchor[]
+  snapshot: PersistedDrawingAnchor[]
   startMouse: { x: number; y: number }
 }
 
@@ -62,50 +62,67 @@ export class DragHandler {
   ): DrawingObject | null {
     if (!this.dragState) return null
 
-    const newAnchor = resolveAnchorFromPointer(e, container, adapter)
+    const pointer = resolveDrawingPointer(e, container, adapter)
     const updatedAnchors = [...drawing.anchors]
 
     if (this.dragState.anchorIndex !== undefined) {
       // Dragging a single anchor point
-      if (!newAnchor) return null
+      if (!pointer || pointer.paneId !== drawing.paneId) return null
       const idx = this.dragState.anchorIndex
 
       updatedAnchors[idx] = {
         ...updatedAnchors[idx]!,
-        index: newAnchor.index,
-        time: newAnchor.time,
-        price: newAnchor.price,
+        time: pointer.time,
+        futureOffset: pointer.futureOffset,
+        price: pointer.price,
       }
 
       // flat-line: third anchor's index/time follows the second
       if (drawing.kind === 'flat-line' && idx === 1 && updatedAnchors.length >= 3) {
         updatedAnchors[2] = {
           ...updatedAnchors[2]!,
-          index: newAnchor.index,
-          time: newAnchor.time,
+          time: pointer.time,
+          futureOffset: pointer.futureOffset,
         }
       }
     } else {
       // Dragging the entire line — offset all anchors by mouse delta
-      const rect = container.getBoundingClientRect()
-      const mouseX = e.clientX - rect.left
-      const mouseY = e.clientY - rect.top
-      const dx = mouseX - this.dragState.startMouse.x
-      const dy = mouseY - this.dragState.startMouse.y
+      if (!pointer || pointer.paneId !== drawing.paneId) return null
+      if (drawing.kind === 'horizontal-line') {
+        updatedAnchors[0] = {
+          ...updatedAnchors[0]!,
+          type: 'horizontal',
+          time: undefined,
+          futureOffset: undefined,
+          price: pointer.price,
+        }
+        return { ...drawing, anchors: updatedAnchors }
+      }
+      if (drawing.kind === 'vertical-line') {
+        updatedAnchors[0] = {
+          ...updatedAnchors[0]!,
+          type: 'vertical',
+          time: pointer.time,
+          futureOffset: pointer.futureOffset,
+        }
+        return { ...drawing, anchors: updatedAnchors }
+      }
+      const dx = pointer.x - this.dragState.startMouse.x
+      const dy = pointer.y - this.dragState.startMouse.y
 
       for (let i = 0; i < drawing.anchors.length; i++) {
         const snap = this.dragState.snapshot[i]!
-        const snapScreen = anchorToScreen(snap, adapter)
-        if (!snapScreen) continue
+        const snapScreen = anchorToScreen(snap, drawing.paneId, adapter)
+        if (!snapScreen || !isScreenPoint(snapScreen)) continue
 
         const targetX = snapScreen.x + dx
         const targetY = snapScreen.y + dy
-        const newFromScreen = screenToAnchor(targetX, targetY, adapter)
+        const newFromScreen = screenToAnchor(targetX, targetY, drawing.paneId, adapter)
         if (newFromScreen) {
           updatedAnchors[i] = {
             ...updatedAnchors[i]!,
-            index: newFromScreen.index,
             time: newFromScreen.time,
+            futureOffset: newFromScreen.futureOffset,
             price: newFromScreen.price,
           }
         }

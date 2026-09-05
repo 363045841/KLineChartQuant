@@ -3,6 +3,7 @@ import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import { resolveThemeColors } from '../../foundation/tokens/index'
 import { getKLineTrend } from '../../foundation/types/kLine'
 import type { KLineData, TimeShareData } from '../../foundation/types/price'
+import { ChartDataViewId } from '../../foundation/types/chartView'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry'
 
 import { createVolumeScaleRendererPlugin } from './Indicator/scale/volume_scale'
@@ -211,7 +212,7 @@ function judgeVolumeColor(
   category: 'volume',
   indicatorType: 'volume',
   defaultPaneId: 'sub',
-  dataViews: ['kline', 'timeshare'],
+  dataViews: [ChartDataViewId.KLine, ChartDataViewId.TimeShare],
   scaleRendererFactory: createVolumeScaleRendererPlugin,
 })
 export class VolumeIndicatorDefinition {

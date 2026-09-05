@@ -3,6 +3,7 @@ import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import { resolveThemeColors, type VolumePriceColors } from '../../foundation/tokens/index'
 import { getKLineTrend, type kLineTrend } from '../../foundation/types/kLine'
 import type { KLineData } from '../../foundation/types/price'
+import { ChartDataViewId } from '../../foundation/types/chartView'
 import { VolumePriceRelation } from '../../foundation/types/volumePrice'
 import {
   analyzeVolumePriceRelationBatch,
@@ -78,7 +79,7 @@ export function createCandleRenderer(): RendererPlugin {
 
     draw(context: RenderContext) {
       // 比较模式只展示各品种的涨跌幅折线。
-      if (context.dataView === 'comparison') return
+      if (context.dataView === ChartDataViewId.Comparison) return
       const {
         ctx,
         pane,
@@ -127,7 +128,7 @@ export function createCandleRenderer(): RendererPlugin {
           const region = {
             x: 0,
             y: pane.top,
-            width: context.viewport?.plotWidth ?? context.paneWidth,
+            width: context.viewport.plotWidth,
             height: pane.height,
             dpr,
           }

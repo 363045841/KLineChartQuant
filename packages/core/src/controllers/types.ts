@@ -17,29 +17,32 @@ import type { InteractionSnapshot } from '../engine/chart'
 import type { PaneSpec } from '../engine/chartTypes'
 import type { CreatePaneInput, PanePatch } from '../engine/paneManager'
 import type { DrawingToolId } from '../engine/drawing/toolConfig'
-import type { CreateDrawingInput, UpdateDrawingPatch } from '../engine/drawing/DrawingDocument'
+import type {
+  BatchDrawingPatch,
+  CreateDrawingInput,
+  DrawingStyleKey,
+  UpdateDrawingPatch,
+} from '../engine/drawing/DrawingDocument'
 import type { CustomMarkerEntity } from '../engine/marker/registry'
 import type { ChartAgentController } from '../features/agent/types'
 import type { AlertController } from '../features/alerts/types'
 import type { ChartSettings } from '../foundation/config/chartSettings'
-import type { DrawingObject as PluginDrawingObject } from '../foundation/plugin/index'
+import type {
+  PersistedDrawingAnchor,
+  DrawingObject as PluginDrawingObject,
+} from '../foundation/plugin/index'
 import type { ReadonlySignal, Signal } from '../foundation/reactivity/index'
+import type { ChartDataView } from '../foundation/types/chartView'
+export {
+  FIVE_DAY_TIME_SHARE_DAYS,
+  FIVE_DAY_TIME_SHARE_PERIOD,
+  isTimeSharePeriod,
+  TIME_SHARE_PERIOD,
+} from '../foundation/types/chartPeriod'
 import type { MarketSessionConfig } from '../foundation/utils/sessionTimeLabels'
 
 // Controller-owned public surface. Legacy engine types may mirror these
 // shapes internally, but adapters depend only on core-defined contracts.
-/** 分时数据在 SymbolSpec.period 中使用的专用周期标识。 */
-export const TIME_SHARE_PERIOD = 'timeshare' as const
-/** 五日分时数据在 SymbolSpec.period 中使用的专用周期标识。 */
-export const FIVE_DAY_TIME_SHARE_PERIOD = '5daytimeshare' as const
-/** 五日分时请求的实际交易日数量。 */
-export const FIVE_DAY_TIME_SHARE_DAYS = 5
-
-/** 判断周期是否属于分时数据视图。 */
-export function isTimeSharePeriod(period: string | undefined): boolean {
-  return period === TIME_SHARE_PERIOD || period === FIVE_DAY_TIME_SHARE_PERIOD
-}
-
 export interface ChartViewport {
   zoomLevel: number
   plotWidth: number
@@ -81,7 +84,7 @@ export interface SubPaneInfo {
 }
 
 export type DrawingObject = PluginDrawingObject
-export type { CreateDrawingInput, UpdateDrawingPatch }
+export type { BatchDrawingPatch, CreateDrawingInput, DrawingStyleKey, UpdateDrawingPatch }
 
 export type IndicatorPaneRole = IndicatorRole
 
@@ -242,14 +245,22 @@ export interface DrawingChartAdapter {
   createDrawing(input: CreateDrawingInput): DrawingObject
   /** 按 id 更新一个已确认图元。 */
   updateDrawing(id: string, patch: UpdateDrawingPatch): DrawingObject | null
+  /** 提交交互层拖拽后的已解析锚点。 */
+  commitDrawingDrag(id: string, anchors: ReadonlyArray<PersistedDrawingAnchor>): DrawingObject | null
+  /** 原子更新一批图元的公共属性。 */
+  updateBatch(ids: ReadonlyArray<string>, patch: BatchDrawingPatch): ReadonlyArray<DrawingObject>
+  /** 返回一批图元共同拥有的样式字段。 */
+  getBatchStyleKeys(ids: ReadonlyArray<string>): ReadonlyArray<DrawingStyleKey>
   /** 移除一个已确认图元。 */
   removeDrawing(drawingId: string): boolean
+  /** 原子移除一批图元。 */
+  removeBatch(ids: ReadonlyArray<string>): boolean
   /** 清除所有已确认图元。 */
   clearDrawings(): void
-  /** highlight a drawing by ID */
-  setSelectedDrawingId(id: string | null): void
-  /** read selected drawing id from kernel */
-  getSelectedDrawingId(): string | null
+  /** 设置当前选中图元集合。 */
+  setSelectedDrawingIds(ids: ReadonlyArray<string>): void
+  /** 读取当前选中图元集合。 */
+  getSelectedDrawingIds(): ReadonlyArray<string>
   /** write drawing tool id via Chart (kernel SSOT + session side effects) */
   setDrawingToolId(toolId: import('../engine/drawing/toolConfig').DrawingToolId): void
   /** read current drawing tool id from kernel */
@@ -265,18 +276,28 @@ export interface DrawingChartAdapter {
   getKWidthKGap(): { kWidth: number; kGap: number }
   /** device pixel ratio */
   getCurrentDpr(): number
-  /** raw K-line data */
+  /** K 线数据，仅供依赖 OHLC 的绘图定义计算。 */
   getData(): ReadonlyArray<KLineData>
+  /** 当前绘制数据点，仅用于绘图坐标解析。 */
+  getDrawingData(): ReadonlyArray<{ timestamp: number }>
   /** screen-x → logical bar index */
   getLogicalIndexAtX(mouseX: number): number | null
-  /** logical index → unix timestamp (ms) */
-  getTimestampAtLogicalIndex(index: number): number | null
+  /** logical bar index → current-frame screen x */
+  getScreenXAtLogicalIndex(index: number): number | null
+  /** 逻辑索引对应当前绘制数据点的时间戳（ms）。 */
+  getDrawingTimestampAtLogicalIndex(index: number): number | null
+  /** unix timestamp (ms) → current logical index */
+  getLogicalIndexAtTimestamp(timestamp: number): number | null
+  /** 当前绘图所属的数据工作区。 */
+  getDrawingWorkspaceId(): import('../foundation/plugin').DrawingWorkspaceId
   /** price → Y within the given pane */
   priceToY(paneId: string, price: number): number
   /** Y within the given pane → price */
   yToPrice(paneId: string, y: number): number
   /** read-only pane metadata by pane ID */
   getPaneInfo(paneId: string): PaneLayoutInfo | undefined
+  /** 根据图表局部 Y 坐标查找所属 Pane。 */
+  getPaneAtY(y: number): PaneLayoutInfo | undefined
 }
 
 // ---------------------------------------------------------------------------
@@ -357,7 +378,7 @@ export interface ChartController extends DrawingChartAdapter {
     Readonly<import('../rendering/render/rendererHost').RendererBackendRuntime>
   >
   /** 图表模式 id：kline | timeshare | fiveDayTimeShare | comparison */
-  readonly chartMode: ReadonlySignal<'kline' | 'timeshare' | 'fiveDayTimeShare' | 'comparison'>
+  readonly chartMode: ReadonlySignal<ChartDataView>
   /** 最近一次 K 线周期；分时返回操作使用该值。 */
   readonly lastBarPeriod: ReadonlySignal<string>
   readonly indicators: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
@@ -365,8 +386,8 @@ export interface ChartController extends DrawingChartAdapter {
   /** 当前绘图工具（DrawingToolId，默认 cursor） */
   readonly drawingTool: ReadonlySignal<import('../engine/drawing/toolConfig').DrawingToolId>
   readonly drawings: ReadonlySignal<ReadonlyArray<DrawingObject>>
-  /** 当前选中绘图 id（kernel.drawing SSOT） */
-  readonly selectedDrawingId: ReadonlySignal<string | null>
+  /** 当前选中绘图 id 集合（kernel.drawing SSOT） */
+  readonly selectedDrawingIds: ReadonlySignal<ReadonlyArray<string>>
   readonly paneRatios: ReadonlySignal<Readonly<Record<string, number>>>
   readonly paneLayout: ReadonlySignal<ReadonlyArray<PaneSpec>>
   readonly interactionState: ReadonlySignal<InteractionSnapshot>
@@ -420,6 +441,8 @@ export interface ChartController extends DrawingChartAdapter {
   appendData(next: ReadonlyArray<KLineData>): void
   updateData(next: ReadonlyArray<KLineData>): void
   getData(): ReadonlyArray<KLineData>
+  /** 返回 K 线逻辑索引对应的时间戳，供双击切换分时等 UI 操作使用。 */
+  getTimestampAtLogicalIndex(index: number): number | null
   getZoomLevelCount(): number
   /** Request data for dates earlier than the currently loaded window */
   ensureDataRange(startTs: number): void
@@ -473,7 +496,10 @@ export interface ChartController extends DrawingChartAdapter {
   clearDrawings(): void
   createDrawing(input: CreateDrawingInput): DrawingObject
   updateDrawing(id: string, patch: UpdateDrawingPatch): DrawingObject | null
+  updateBatch(ids: ReadonlyArray<string>, patch: BatchDrawingPatch): ReadonlyArray<DrawingObject>
+  getBatchStyleKeys(ids: ReadonlyArray<string>): ReadonlyArray<DrawingStyleKey>
   removeDrawing(drawingId: string): boolean
+  removeBatch(ids: ReadonlyArray<string>): boolean
   /** 原子替换完整绘图文档，仅供受控组件和导入导出使用。 */
   replaceDrawings(drawings: ReadonlyArray<DrawingObject>): void
 

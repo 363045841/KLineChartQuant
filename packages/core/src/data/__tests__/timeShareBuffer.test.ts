@@ -33,6 +33,15 @@ describe('TimeShareBuffer', () => {
     expect(buffer.getPreClose()).toBe(10)
   })
 
+  it('resolves unique point timestamps and rejects duplicates', () => {
+    const buffer = new TimeShareBuffer()
+    buffer.setInlineData([point(1), point(2), point(2)], 9.5)
+
+    expect(buffer.getLogicalIndexAtTimestamp(1)).toBe(0)
+    expect(buffer.getLogicalIndexAtTimestamp(2)).toBeNull()
+    expect(buffer.getLogicalIndexAtTimestamp(3)).toBeNull()
+  })
+
   it('publishes query loading and errors without owning a fetcher', () => {
     const buffer = new TimeShareBuffer()
     buffer.setLoading(true)

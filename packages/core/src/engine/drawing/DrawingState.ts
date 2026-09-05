@@ -48,14 +48,11 @@ export class DrawingState {
     return this.preview !== null
   }
 
-  getSelected(): DrawingObject | null {
-    const id = this.getSelectedId()
-    if (!id) return null
-    return this.getById(id) ?? null
-  }
-
-  getSelectedId(): string | null {
-    return this.adapter.getSelectedDrawingId()
+  getSelectedDrawings(): DrawingObject[] {
+    return this.adapter
+      .getSelectedDrawingIds()
+      .map((id) => this.getById(id))
+      .filter((drawing): drawing is DrawingObject => drawing !== undefined)
   }
 
   // ---- Session (no kernel write) ----
@@ -86,15 +83,11 @@ export class DrawingState {
     if (!this.dragOverride) return
     const drawing = this.dragOverride
     this.dragOverride = null
-    this.adapter.updateDrawing(drawing.id, {
-      anchors: drawing.anchors.map(({ time, price }) => ({ time: Number(time), price })),
-    })
+    this.adapter.commitDrawingDrag(drawing.id, drawing.anchors)
   }
 
-  setSelected(drawing: DrawingObject | null): void {
-    const newId = drawing?.id ?? null
-    if (this.adapter.getSelectedDrawingId() === newId) return
-    this.adapter.setSelectedDrawingId(newId)
+  setSelected(drawings: ReadonlyArray<DrawingObject>): void {
+    this.adapter.setSelectedDrawingIds(drawings.map((drawing) => drawing.id))
   }
 
   clearSession(): void {

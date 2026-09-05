@@ -10,8 +10,9 @@ function createFixture() {
   const document = new DrawingDocument({
     drawingState: createDrawingState(),
     getLogicalIndexAtTimestamp: () => 0,
-    findAnchorAtTradingDate: () => ({ index: 0, timestamp: 1_000 }),
+    findAnchorAtTradingDate: () => ({ timestamp: 1_000 }),
     hasPaneId: (paneId) => paneId === 'main',
+    getWorkspaceId: () => 'kline',
   })
   const requestDraw = vi.fn()
   return { commands: new DrawingCommands({ document, requestDraw }), requestDraw }
@@ -27,18 +28,21 @@ describe('DrawingCommands', () => {
     })
 
     commands.update(drawing.id, { style: { strokeWidth: 2 } })
-    commands.remove(drawing.id)
+    commands.updateBatch([drawing.id], { style: { stroke: '#f00' } })
+    commands.removeBatch([drawing.id])
     commands.clear()
     commands.replace([])
 
-    expect(requestDraw).toHaveBeenCalledTimes(5)
+    expect(requestDraw).toHaveBeenCalledTimes(6)
   })
 
   it('does not request a draw when update or remove changes nothing', () => {
     const { commands, requestDraw } = createFixture()
 
     expect(commands.update('missing', { visible: false })).toBeNull()
+    expect(commands.updateBatch(['missing'], { visible: false })).toEqual([])
     expect(commands.remove('missing')).toBe(false)
+    expect(commands.removeBatch(['missing'])).toBe(false)
     expect(requestDraw).not.toHaveBeenCalled()
   })
 })

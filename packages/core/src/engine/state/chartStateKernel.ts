@@ -19,6 +19,7 @@ import {
   type ChartDataView,
   type ModeStateModule,
 } from './modeState'
+import { ChartWorkspaceId } from '../../foundation/types/chartView'
 import { createDrawingState, type DrawingStateModule } from './drawingState'
 import {
   createInteractionState,
@@ -406,7 +407,7 @@ export class ChartStateKernel extends StateKernel {
       // Drawing
       drawingTool: this.drawing.readonly.drawingTool,
       drawings: this.drawing.readonly.drawings,
-      selectedDrawingId: this.drawing.readonly.selectedDrawingId,
+       selectedDrawingIds: this.drawing.readonly.selectedDrawingIds,
       // Interaction
       interactionSnapshot: this.interaction.readonly.interactionSnapshot,
       crosshairIndex: this.interaction.readonly.crosshairIndex,
@@ -588,7 +589,7 @@ export class ChartStateKernel extends StateKernel {
   snapshotViewWorkspaces(): ViewWorkspacesSnapshot {
     const indicatorWorkspaces = this.indicator.readonly.workspaces.peek()
     const paneWorkspaces = this.pane.readonly.workspaces.peek()
-    const snapshot = (workspaceId: 'kline' | 'timeshare') => {
+    const snapshot = (workspaceId: ChartWorkspaceId) => {
       const pane = paneWorkspaces[workspaceId]
       return {
         instances: indicatorWorkspaces[workspaceId]
@@ -605,7 +606,10 @@ export class ChartStateKernel extends StateKernel {
         paneScaleTypes: Object.fromEntries(pane.paneScaleTypes),
       }
     }
-    return { kline: snapshot('kline'), timeshare: snapshot('timeshare') }
+    return {
+      [ChartWorkspaceId.KLine]: snapshot(ChartWorkspaceId.KLine),
+      [ChartWorkspaceId.TimeShare]: snapshot(ChartWorkspaceId.TimeShare),
+    }
   }
 
   dispose(): void {

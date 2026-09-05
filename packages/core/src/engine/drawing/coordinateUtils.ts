@@ -1,47 +1,76 @@
 import type { DrawingChartAdapter } from '../../controllers/types'
-import type { DrawingAnchor } from '../../foundation/plugin/index'
-import { getPhysicalKLineConfig } from '../utils/klineConfig'
+import type {
+  PersistedDrawingAnchor,
+  ScreenDrawingAnchor,
+  ScreenPoint,
+} from '../../foundation/plugin/index'
 
 // ---- Types ----
 
-/** 原始锚点输入（逻辑坐标：K线索引 + 价格） */
-export interface DrawingAnchorInput {
-  /** K线柱逻辑索引（可以是小数，表示在两柱之间） */
-  index: number
-  /** 对应的时间戳（ms） */
+/** 原始锚点输入（逻辑坐标：时间戳 + 价格） */
+export interface InteractionDrawingAnchor {
+  /** 对应的时间戳（ms）；未来槽位时为创建时最后一根 K 线的时间。 */
   time?: number
+  /** 基准 K 线之后的未来时间轴槽位数。 */
+  futureOffset?: number
   /** 价格 */
   price: number
+}
+
+/** 由屏幕坐标反解析出的逻辑锚点(时间戳 + 价格)，time 已确定为时间戳；解析失败整体返回 null，不会进入该类型。 */
+export interface ResolvedInteractionAnchor extends InteractionDrawingAnchor {
+  /** 对应的时间戳（ms），必填。 */
+  time: number
+}
+
+/** 指针命中 Pane 后解析出的完整绘图锚点。 */
+export interface DrawingPointerAnchor extends ResolvedInteractionAnchor {
+  paneId: string
+  x: number
+  y: number
 }
 
 // ---- Coordinate conversion ----
 
 /**
- * 将图元锚点的逻辑坐标（index + price）转换为屏幕坐标（px）。
+ * 将图元锚点转换为指定 Pane 内的屏幕坐标（px）。
  *
  * 计算过程：
- * 1. 通过 getPhysicalKLineConfig 获取 K 线柱的起始像素位置和单柱像素宽度
- * 2. anchor.index × unitPx 得到距起始位置的偏移
- * 3. 减去 viewport.scrollLeft 得到相对视口的 X
- * 4. 通过 adapter.priceToY 将价格转为 Y
+ * 1. 通过 adapter 将锚点时间戳解析为当前逻辑索引
+ * 2. 通过本帧已封存的中心点取得 X（分时与 K 线共用同一映射）
+ * 3. 通过 adapter.priceToY 按锚点所属 Pane 将价格转为局部 Y
  *
- * @returns {x, y} 屏幕坐标（px），viewport 不可用时返回 null
+ * @returns 按锚点类型返回点、水平或垂直投影；时间戳无法解析或视图未就绪时返回 null
  */
 export function anchorToScreen(
-  anchor: DrawingAnchor,
+  anchor: PersistedDrawingAnchor,
+  paneId: string,
   adapter: DrawingChartAdapter,
-): { x: number; y: number } | null {
-  const viewport = adapter.getViewport()
-  if (!viewport) return null
+): ScreenDrawingAnchor | null {
+  if (anchor.type === 'horizontal') {
+    return { type: 'horizontal', y: adapter.priceToY(paneId, anchor.price) }
+  }
 
-  const { kWidth, kGap } = adapter.getKWidthKGap()
-  const dpr = adapter.getCurrentDpr()
-  const { startXPx, unitPx } = getPhysicalKLineConfig(kWidth, kGap, dpr)
-  if (!Number.isFinite(anchor.index)) return null
+  const timestamp = typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
+  if (!Number.isFinite(timestamp)) return null
+  const baseIndex = adapter.getLogicalIndexAtTimestamp(timestamp as number)
+  if (baseIndex === null) return null
+  const futureOffset = anchor.futureOffset
+  if (futureOffset !== undefined && (!Number.isInteger(futureOffset) || futureOffset <= 0)) {
+    return null
+  }
+  const index = baseIndex + (futureOffset ?? 0)
+  const x = adapter.getScreenXAtLogicalIndex(index)
+  if (x === null) return null
+  if (anchor.type === 'vertical') return { type: 'vertical', x }
+  return { type: 'point', x, y: adapter.priceToY(paneId, anchor.price) }
+}
 
-  const x = (startXPx + anchor.index * unitPx + (unitPx - 1) / 2) / dpr - viewport.scrollLeft
-  const y = adapter.priceToY('main', anchor.price)
-  return { x, y }
+/** 判断投影是否为同时具有 X/Y 的普通点。 */
+export function isScreenPoint(
+  anchor: ScreenDrawingAnchor | null,
+): anchor is { type: 'point' } & ScreenPoint {
+  return anchor?.type === 'point'
 }
 
 /**
@@ -49,29 +78,32 @@ export function anchorToScreen(
  *
  * 用于拖拽整线时的屏幕偏移量回算。
  *
- * @returns DrawingAnchorInput，viewport 不可用或索引不在数据范围内时返回 null
+ * @returns ResolvedInteractionAnchor，viewport 不可用或无法解析时间轴槽位时返回 null
  */
 export function screenToAnchor(
   screenX: number,
-  screenY: number,
+  paneY: number,
+  paneId: string,
   adapter: DrawingChartAdapter,
-): DrawingAnchorInput | null {
-  const data = adapter.getData()
+): ResolvedInteractionAnchor | null {
+  const data = adapter.getDrawingData()
   const viewport = adapter.getViewport()
   if (!viewport || data.length === 0) return null
 
   const logicalIndex = adapter.getLogicalIndexAtX(screenX)
   if (logicalIndex === null) return null
 
-  const paneInfo = adapter.getPaneInfo('main')
+  const paneInfo = adapter.getPaneInfo(paneId)
   if (!paneInfo) return null
 
-  const timestamp = adapter.getTimestampAtLogicalIndex(logicalIndex) ?? undefined
+  const lastIndex = data.length - 1
+  const timestamp = adapter.getDrawingTimestampAtLogicalIndex(Math.min(logicalIndex, lastIndex))
+  if (timestamp === null) return null
 
   return {
-    index: logicalIndex,
-    time: timestamp ?? undefined,
-    price: adapter.yToPrice('main', screenY - paneInfo.top),
+    time: timestamp,
+    ...(logicalIndex > lastIndex ? { futureOffset: logicalIndex - lastIndex } : {}),
+    price: adapter.yToPrice(paneId, paneY),
   }
 }
 
@@ -81,16 +113,16 @@ export function screenToAnchor(
  * 边界检测：
  * - 鼠标超出 viewport.plotWidth / plotHeight → null
  * - 鼠标不在 main pane 范围内 → null
- * - 鼠标位置无对应 K 线索引 → null
+ * - 鼠标位置无对应时间轴槽位 → null
  *
- * @returns DrawingAnchorInput，超出范围或数据不可用时返回 null
+ * @returns DrawingPointerAnchor，超出范围或数据不可用时返回 null
  */
-export function resolveAnchorFromPointer(
+export function resolveDrawingPointer(
   e: PointerEvent,
   container: HTMLElement,
   adapter: DrawingChartAdapter,
-): DrawingAnchorInput | null {
-  const data = adapter.getData()
+): DrawingPointerAnchor | null {
+  const data = adapter.getDrawingData()
   const viewport = adapter.getViewport()
   if (!viewport || data.length === 0) return null
 
@@ -101,28 +133,20 @@ export function resolveAnchorFromPointer(
     return null
   }
 
-  const paneInfo = adapter.getPaneInfo('main')
-  if (!paneInfo) return null
-  if (mouseY < paneInfo.top || mouseY > paneInfo.top + paneInfo.height) return null
-
-  const logicalIndex = adapter.getLogicalIndexAtX(mouseX)
-  if (logicalIndex === null) return null
-  const timestamp = adapter.getTimestampAtLogicalIndex(logicalIndex) ?? undefined
-
-  return {
-    index: logicalIndex,
-    time: timestamp ?? undefined,
-    price: adapter.yToPrice('main', mouseY - paneInfo.top),
-  }
+  const pane = adapter.getPaneAtY(mouseY)
+  if (!pane) return null
+  const y = mouseY - pane.top
+  const anchor = screenToAnchor(mouseX, y, pane.paneId, adapter)
+  return anchor ? { ...anchor, paneId: pane.paneId, x: mouseX, y } : null
 }
 
 // ---- Geometry ----
 
 /**
- * 计算点 P 到线段 AB 的最短距离。
+ * 计算点 P 到线段 AB 的最短距离平方。
  * 投影点在 AB 线段外时取最近端点距离。
  */
-export function pointToSegmentDist(
+export function pointToSegmentDistanceSq(
   px: number,
   py: number,
   a: { x: number; y: number },
@@ -131,9 +155,13 @@ export function pointToSegmentDist(
   const dx = b.x - a.x
   const dy = b.y - a.y
   const lenSq = dx * dx + dy * dy
-  if (lenSq === 0) return Math.hypot(px - a.x, py - a.y)
+  const pointDx = px - a.x
+  const pointDy = py - a.y
+  if (lenSq === 0) return pointDx * pointDx + pointDy * pointDy
 
-  let t = ((px - a.x) * dx + (py - a.y) * dy) / lenSq
+  let t = (pointDx * dx + pointDy * dy) / lenSq
   t = Math.max(0, Math.min(1, t))
-  return Math.hypot(px - (a.x + t * dx), py - (a.y + t * dy))
+  const nearestDx = px - (a.x + t * dx)
+  const nearestDy = py - (a.y + t * dy)
+  return nearestDx * nearestDx + nearestDy * nearestDy
 }

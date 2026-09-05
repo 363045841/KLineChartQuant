@@ -1,5 +1,6 @@
 import aiRuntimePkg from '../../../ai-runtime/package.json'
 import mcpPkg from '../../../ai-runtime/node_modules/@modelcontextprotocol/sdk/package.json'
+import piAiPkg from '../../../agent-runtime/node_modules/@earendil-works/pi-ai/package.json'
 import wsPkg from '../../../ai-runtime/node_modules/ws/package.json'
 import corePkg from '../../../core/package.json'
 import ajvPkg from '../../../core/node_modules/ajv/package.json'
@@ -29,6 +30,7 @@ export const OPEN_SOURCE_WHITELIST = [
   { name: 'effect', section: 'third-party' },
   { name: 'ajv', section: 'third-party' },
   { name: '@modelcontextprotocol/sdk', section: 'third-party' },
+  { name: '@earendil-works/pi-ai', section: 'third-party' },
   { name: 'ws', section: 'third-party' },
   { name: 'vue', section: 'third-party' },
 ] as const
@@ -53,6 +55,7 @@ const PACKAGE_META: Record<WhitelistName, PackageMeta> = {
   effect: effectPkg,
   ajv: ajvPkg,
   '@modelcontextprotocol/sdk': mcpPkg,
+  '@earendil-works/pi-ai': piAiPkg,
   ws: wsPkg,
   vue: vueLibPkg,
 }

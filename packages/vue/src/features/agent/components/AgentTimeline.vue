@@ -24,7 +24,6 @@
           :tool="entry.tool"
           :locale="locale"
           @locate="$emit('locate', $event)"
-          @retry="$emit('retry')"
           @undo="$emit('undo')"
         />
         <ConfirmationCard

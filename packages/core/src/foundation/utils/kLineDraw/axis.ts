@@ -3,6 +3,7 @@ import { getFont, setCanvasFont } from '../../tokens/fonts'
 import { resolveThemeColors } from '../../tokens'
 import type { ColorPresetSettings } from '../../tokens'
 import type { KLineData } from '../../types/price'
+import { isTimeSharePeriod } from '../../types/chartPeriod'
 import {
   formatYMDShanghai,
   formatTimeLabel,
@@ -159,7 +160,7 @@ export function drawCrosshairTimeLabel(
     period,
   } = opts
 
-  const text = period === 'timeshare' ? formatTimeLabel(timestamp) : formatYMDShanghai(timestamp)
+  const text = isTimeSharePeriod(period) ? formatTimeLabel(timestamp) : formatYMDShanghai(timestamp)
 
   ctx.save()
   setCanvasFont(ctx, getFont(fontSize))
@@ -363,7 +364,7 @@ export function drawTimeAxis(
   const regularFont = getFont(fontSize)
   const boldFont = getFont(fontSize, { bold: true })
 
-  const isTimeShare = opts.period === 'timeshare'
+  const isTimeShare = isTimeSharePeriod(opts.period)
   const isMinuteData = !isTimeShare && opts.period.includes('min')
   const showOnlyYear = !isMinuteData && !isTimeShare && opts.period !== 'daily'
 

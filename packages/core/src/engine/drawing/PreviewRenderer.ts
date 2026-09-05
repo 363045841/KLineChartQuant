@@ -1,7 +1,7 @@
-import type { DrawingObject } from '../../foundation/plugin/index'
+import type { DrawingObject, DrawingWorkspaceId } from '../../foundation/plugin/index'
 
 import { PREVIEW_ID } from './DrawingState'
-import type { DrawingAnchorInput } from './coordinateUtils'
+import type { InteractionDrawingAnchor } from './coordinateUtils'
 import type { DrawingToolId } from './toolConfig'
 import {
   SINGLE_ANCHOR_TOOLS,
@@ -22,8 +22,10 @@ export class PreviewRenderer {
    */
   buildPreview(
     activeTool: DrawingToolId,
-    pendingAnchors: DrawingAnchorInput[],
-    currentAnchor: DrawingAnchorInput,
+    pendingAnchors: InteractionDrawingAnchor[],
+    currentAnchor: InteractionDrawingAnchor,
+    paneId: string,
+    workspaceId: DrawingWorkspaceId,
   ): DrawingObject | null {
     const isSingle = SINGLE_ANCHOR_TOOLS.includes(activeTool as any)
     const isDouble = DOUBLE_ANCHOR_TOOLS.includes(activeTool as any)
@@ -32,30 +34,51 @@ export class PreviewRenderer {
     if (!isSingle && !isDouble && !isTriple) return null
 
     if (isSingle) {
-      return this.buildSingleAnchorPreview(activeTool, currentAnchor)
+      return { ...this.buildSingleAnchorPreview(activeTool, currentAnchor, paneId), workspaceId }
     }
 
     if (isDouble) {
       if (pendingAnchors.length < 1) return null
-      return this.buildDoubleAnchorPreview(activeTool, pendingAnchors[0]!, currentAnchor)
+      return {
+        ...this.buildDoubleAnchorPreview(activeTool, pendingAnchors[0]!, currentAnchor, paneId),
+        workspaceId,
+      }
     }
 
     // Triple anchor tools
-    return this.buildTripleAnchorPreview(activeTool, pendingAnchors, currentAnchor)
+    const preview = this.buildTripleAnchorPreview(activeTool, pendingAnchors, currentAnchor, paneId)
+    return preview ? { ...preview, workspaceId } : null
   }
 
   /** 单锚点工具预览：虚线样式 */
   private buildSingleAnchorPreview(
     activeTool: DrawingToolId,
-    anchor: DrawingAnchorInput,
+    anchor: InteractionDrawingAnchor,
+    paneId: string,
   ): DrawingObject {
     return {
       id: PREVIEW_ID,
       kind: getDrawingKind(activeTool),
-      paneId: 'main',
+      paneId,
       visible: true,
       anchors: [
-        { id: `${PREVIEW_ID}-a`, index: anchor.index, time: anchor.time, price: anchor.price },
+        activeTool === 'h-line'
+          ? { id: `${PREVIEW_ID}-a`, type: 'horizontal', price: anchor.price }
+          : activeTool === 'v-line'
+            ? {
+                id: `${PREVIEW_ID}-a`,
+                type: 'vertical',
+                time: anchor.time!,
+                futureOffset: anchor.futureOffset,
+                price: anchor.price,
+              }
+            : {
+                id: `${PREVIEW_ID}-a`,
+                type: 'point',
+                time: anchor.time,
+                futureOffset: anchor.futureOffset,
+                price: anchor.price,
+              },
       ],
       params: {},
       style: {
@@ -69,17 +92,28 @@ export class PreviewRenderer {
   /** 双锚点工具预览：两个锚点之间的虚线，回归通道附带填充区域 */
   private buildDoubleAnchorPreview(
     activeTool: DrawingToolId,
-    first: DrawingAnchorInput,
-    second: DrawingAnchorInput,
+    first: InteractionDrawingAnchor,
+    second: InteractionDrawingAnchor,
+    paneId: string,
   ): DrawingObject {
     return {
       id: PREVIEW_ID,
       kind: getDrawingKind(activeTool),
-      paneId: 'main',
+      paneId,
       visible: true,
       anchors: [
-        { id: `${PREVIEW_ID}-a`, index: first.index, time: first.time, price: first.price },
-        { id: `${PREVIEW_ID}-b`, index: second.index, time: second.time, price: second.price },
+        {
+          id: `${PREVIEW_ID}-a`,
+          time: first.time,
+          futureOffset: first.futureOffset,
+          price: first.price,
+        },
+        {
+          id: `${PREVIEW_ID}-b`,
+          time: second.time,
+          futureOffset: second.futureOffset,
+          price: second.price,
+        },
       ],
       params: activeTool === 'regression-channel' ? { sigma: 2 } : {},
       style: {
@@ -99,8 +133,9 @@ export class PreviewRenderer {
    */
   private buildTripleAnchorPreview(
     activeTool: DrawingToolId,
-    pendingAnchors: DrawingAnchorInput[],
-    currentAnchor: DrawingAnchorInput,
+    pendingAnchors: InteractionDrawingAnchor[],
+    currentAnchor: InteractionDrawingAnchor,
+    paneId: string,
   ): DrawingObject | null {
     if (pendingAnchors.length === 0) return null
 
@@ -110,19 +145,19 @@ export class PreviewRenderer {
       return {
         id: PREVIEW_ID,
         kind: 'trend-line',
-        paneId: 'main',
+        paneId,
         visible: true,
         anchors: [
           {
             id: `${PREVIEW_ID}-a`,
-            index: pendingAnchors[0]!.index,
             time: pendingAnchors[0]!.time,
+            futureOffset: pendingAnchors[0]!.futureOffset,
             price: pendingAnchors[0]!.price,
           },
           {
             id: `${PREVIEW_ID}-b`,
-            index: currentAnchor.index,
             time: currentAnchor.time,
+            futureOffset: currentAnchor.futureOffset,
             price: currentAnchor.price,
           },
         ],
@@ -140,14 +175,14 @@ export class PreviewRenderer {
       activeTool === 'flat-line'
         ? {
             id: `${PREVIEW_ID}-c`,
-            index: pendingAnchors[1]!.index,
             time: pendingAnchors[1]!.time,
+            futureOffset: pendingAnchors[1]!.futureOffset,
             price: currentAnchor.price,
           }
         : {
             id: `${PREVIEW_ID}-c`,
-            index: currentAnchor.index,
             time: currentAnchor.time,
+            futureOffset: currentAnchor.futureOffset,
             price: currentAnchor.price,
           }
 
@@ -156,19 +191,19 @@ export class PreviewRenderer {
     return {
       id: PREVIEW_ID,
       kind: getDrawingKind(activeTool),
-      paneId: 'main',
+      paneId,
       visible: true,
       anchors: [
         {
           id: `${PREVIEW_ID}-a`,
-          index: pendingAnchors[0]!.index,
           time: pendingAnchors[0]!.time,
+          futureOffset: pendingAnchors[0]!.futureOffset,
           price: pendingAnchors[0]!.price,
         },
         {
           id: `${PREVIEW_ID}-b`,
-          index: pendingAnchors[1]!.index,
           time: pendingAnchors[1]!.time,
+          futureOffset: pendingAnchors[1]!.futureOffset,
           price: pendingAnchors[1]!.price,
         },
         thirdAnchor,

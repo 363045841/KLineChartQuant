@@ -5,6 +5,7 @@ import { createTimeShareRendererPlugin } from '../timeShare'
 
 import type { RenderContext } from '@/plugin'
 import type { TimeShareData } from '@/types/price'
+import { ChartDataViewId } from '../../../foundation/types/chartView'
 
 function createMockCanvasContext() {
   const strokeLineWidths: number[] = []
@@ -64,7 +65,8 @@ function createContext(ctx: CanvasRenderingContext2D, data: TimeShareData[]): Re
     dpr: 1,
     scrollLeft: 0,
     paneWidth: 800,
-    period: 'timeshare',
+      period: 'timeshare',
+      dataView: ChartDataViewId.TimeShare,
     theme: 'light',
     isAsiaMarket: true,
     settings: { preClose: 10 },

@@ -3,6 +3,7 @@
  */
 
 import type { KLineData } from '../types/price'
+import type { ChartDataView, ChartWorkspaceId } from '../types/chartView'
 
 /** 插件生命周期状态 */
 export enum PluginState {
@@ -209,8 +210,6 @@ export function wrapPaneInfo(pane: {
 
 /** Y轴标签（价格标签） */
 export interface YAxisLabel {
-  /** 关联的数据索引 */
-  dataIndex: number
   /** 价格值 */
   price: number
   /** 标签在轴上的Y坐标（世界坐标，相对pane） */
@@ -227,8 +226,6 @@ export interface YAxisLabel {
 
 /** X轴标签（时间标签） */
 export interface XAxisLabel {
-  /** 关联的数据索引 */
-  dataIndex: number
   /** 时间戳（毫秒） */
   timestamp: number
   /** 标签在轴上的X坐标（世界坐标，未减去scrollLeft） */
@@ -262,6 +259,15 @@ export interface XAxisRange {
   color: string
   /** 填充不透明度 */
   opacity: number
+}
+
+/** 单个 Pane 内绘图在当前帧的纯投影结果。 */
+export interface DrawingFrameProjection {
+  primitives: ReadonlyArray<DrawingPrimitive>
+  yAxisLabels: ReadonlyArray<YAxisLabel>
+  yAxisRanges: ReadonlyArray<YAxisRange>
+  xAxisLabels: ReadonlyArray<XAxisLabel>
+  xAxisRanges: ReadonlyArray<XAxisRange>
 }
 
 /** Y轴刻度（位置+值），由 RenderContext 构建时预计算，所有 Y 轴渲染器共用 */
@@ -312,7 +318,7 @@ export interface RenderContext {
   /** K线级别，如 'daily'、'5min'、'15min' */
   period: string
   /** 当前图表数据视图。 */
-  dataView?: 'kline' | 'timeshare' | 'fiveDayTimeShare' | 'comparison'
+  dataView: ChartDataView
   /** 多日分时的原子业务快照。 */
   timeShareRange?: import('../../data/provider/types').TimeShareRange
   /** 五日分时的帧级共享几何。 */
@@ -337,6 +343,10 @@ export interface RenderContext {
   kLineCenters: number[]
   /** 每根K线对应柱的X/宽度（物理像素对齐后，逻辑像素），供柱状图使用 */
   kBarRects: Array<{ x: number; width: number }>
+  /** 由活动数据 Buffer 提供的唯一时间戳到逻辑索引解析。 */
+  getLogicalIndexAtTimestamp: (timestamp: number) => number | null
+  /** 绘图系统预先生成的当前 Pane 帧投影。 */
+  drawingProjection?: DrawingFrameProjection
   markerManager?: MarkerManagerLike
   /** 十字线指向的 K 线索引（无十字线时为 null） */
   crosshairIndex?: number | null
@@ -361,7 +371,7 @@ export interface RenderContext {
   zoomLevel?: number
   /** 总缩放级别数 */
   zoomLevelCount?: number
-  viewport?: {
+  viewport: {
     scrollLeft: number
     plotWidth: number
     plotHeight: number
@@ -369,13 +379,13 @@ export interface RenderContext {
   /** 用户设置配置（渲染器只读） */
   settings?: import('../config/chartSettings').ChartSettings
   /** 需要在Y轴上绘制的标签列表（由各类标记渲染器填充） */
-  yAxisLabels?: YAxisLabel[]
+  yAxisLabels: YAxisLabel[]
   /** 需要在X轴上绘制的标签列表（由各类标记渲染器填充） */
-  xAxisLabels?: XAxisLabel[]
+  xAxisLabels: XAxisLabel[]
   /** 需要在Y轴上绘制的范围带列表（由绘图渲染器填充，先于标签绘制） */
-  yAxisRanges?: YAxisRange[]
+  yAxisRanges: YAxisRange[]
   /** 需要在X轴上绘制的范围带列表（由绘图渲染器填充，先于标签绘制） */
-  xAxisRanges?: XAxisRange[]
+  xAxisRanges: XAxisRange[]
   /** 当前主题 */
   theme: 'light' | 'dark'
   /** 亚洲市场惯例（红涨绿跌）；为 true 时自动交换所有 bull/bear 颜色 */
@@ -390,11 +400,27 @@ export interface RenderContext {
   dayKeys?: Int32Array
 }
 
-export type DrawingAnchor = {
+/** 锚点语义：普通点、价格水平线或时间垂线。 */
+export type DrawingAnchorType = 'point' | 'horizontal' | 'vertical'
+
+/** 图元持久化锚点。所有新图元必须显式声明 type。 */
+export type PersistedDrawingAnchor = {
   id: string
-  index: number
+  type?: DrawingAnchorType
+  /**
+   * 数据锚点的时间；futureOffset 存在时表示创建时最后一根 K 线的时间。
+   */
   time?: number | string
+  /**
+   * 基准 K 线之后的未来时间轴槽位数。只用于未来锚点，必须为正整数。
+   */
+  futureOffset?: number
   price: number
+}
+
+/** 当前帧或交互会话使用的锚点坐标；逻辑索引不得进入绘图持久化快照。 */
+export type ResolvedDrawingAnchor = PersistedDrawingAnchor & {
+  index: number
 }
 
 export type DrawingKind =
@@ -425,19 +451,44 @@ export type DrawingStyle = {
   fontSize?: number
 }
 
+/** 绘图所属的数据工作区。 */
+export type DrawingWorkspaceId = ChartWorkspaceId
+
 export type DrawingObject<TParams = Record<string, unknown>> = {
   id: string
   kind: DrawingKind
   paneId: string
+  /** 未标记的历史图元按 K 线工作区处理。 */
+  workspaceId?: DrawingWorkspaceId
   visible: boolean
   locked?: boolean
   zIndex?: number
-  anchors: DrawingAnchor[]
+  anchors: PersistedDrawingAnchor[]
   params: TParams
   style: DrawingStyle
 }
 
+/** 当前数据帧已按时间戳解析逻辑索引的绘图对象。 */
+export type ResolvedDrawingObject<TParams = Record<string, unknown>> = Omit<
+  DrawingObject<TParams>,
+  'anchors'
+> & {
+  anchors: ResolvedDrawingAnchor[]
+}
+
 export type ScreenPoint = { x: number; y: number }
+
+/** 水平锚点的屏幕投影，只具有 Y 坐标。 */
+export type ScreenHorizontalAnchor = { type: 'horizontal'; y: number }
+
+/** 垂直锚点的屏幕投影，只具有 X 坐标。 */
+export type ScreenVerticalAnchor = { type: 'vertical'; x: number }
+
+/** 锚点的屏幕投影，按锚点语义保留缺失的坐标轴。 */
+export type ScreenDrawingAnchor =
+  | ({ type: 'point' } & ScreenPoint)
+  | ScreenHorizontalAnchor
+  | ScreenVerticalAnchor
 
 export type PointPrimitive = {
   kind: 'point'
@@ -489,7 +540,7 @@ export type DrawingGeometry = {
   primitives: DrawingPrimitive[]
   bounds?: { left: number; top: number; right: number; bottom: number }
   meta?: Record<string, unknown>
-  computedAnchors?: DrawingAnchor[]
+  computedAnchors?: ResolvedDrawingAnchor[]
 }
 
 export type DrawingComputeContext = {
@@ -509,14 +560,14 @@ export type DrawingComputeContext = {
     plotWidth: number
     plotHeight: number
   }
-  toScreen(anchor: DrawingAnchor): ScreenPoint
+  toScreen(anchor: ResolvedDrawingAnchor): ScreenPoint
 }
 
 export interface DrawingDefinition<TParams = Record<string, unknown>> {
   kind: DrawingKind
   minAnchors: number
   maxAnchors: number
-  compute(drawing: DrawingObject<TParams>, context: DrawingComputeContext): DrawingGeometry
+  compute(drawing: ResolvedDrawingObject<TParams>, context: DrawingComputeContext): DrawingGeometry
 }
 
 /** 全局 Pane ID（渲染到所有 pane） */

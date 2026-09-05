@@ -34,6 +34,8 @@ describe('time axis market session', () => {
       period: 'timeshare',
       marketSession: HK_MARKET_SESSION,
       theme: 'light',
+      xAxisLabels: [],
+      xAxisRanges: [],
     } as unknown as RenderContext
 
     createTimeAxisRendererPlugin({ height: 24 }).draw(context)

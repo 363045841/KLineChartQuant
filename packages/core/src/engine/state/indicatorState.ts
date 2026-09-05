@@ -1,6 +1,6 @@
 // 统一管理主图与副图指标实例的状态模块。
 import { batch, computed, createSubState } from '../../foundation/reactivity/signal'
-import type { ChartWorkspaceId } from './modeState'
+import { ChartWorkspaceId } from '../../foundation/types/chartView'
 import { deepFreezeSnapshot } from './immutable'
 import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
 import type { ViewWorkspacesSnapshot } from './viewWorkspace'
@@ -107,7 +107,7 @@ function calculationInstancesEqual(
 /** 创建指标实例状态，主图和副图共享 instances 这一唯一数据源。 */
 export function createIndicatorState() {
   const { signals, readonly } = createSubState({
-    activeWorkspace: 'kline' as ChartWorkspaceId,
+    activeWorkspace: ChartWorkspaceId.KLine as ChartWorkspaceId,
     workspaces: Object.freeze({
       kline: Object.freeze([]) as ReadonlyArray<IndicatorInstanceSpec>,
       timeshare: Object.freeze([]) as ReadonlyArray<IndicatorInstanceSpec>,
@@ -318,7 +318,7 @@ export function createIndicatorState() {
     },
     dispose() {
       batch(() => {
-        signals.activeWorkspace.set('kline')
+        signals.activeWorkspace.set(ChartWorkspaceId.KLine)
         signals.workspaces.set(
           Object.freeze({
             kline: Object.freeze([]) as ReadonlyArray<IndicatorInstanceSpec>,

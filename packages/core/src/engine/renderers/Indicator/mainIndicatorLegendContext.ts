@@ -1,6 +1,7 @@
 import type { PluginHost, RenderContext } from '../../../foundation/plugin/index'
 import { resolveThemeColors } from '../../../foundation/tokens/index'
 import type { KLineData, TimeShareData } from '../../../foundation/types/price'
+import { ChartDataViewId, isTimeShareDataView } from '../../../foundation/types/chartView'
 import { symbolSpecIdentityKey } from '../../data/symbolIdentity'
 import type { TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
@@ -129,7 +130,7 @@ export function buildLegendTemplateContext(
   }
 
   let timeshare: LegendTimeshareRow | null = null
-  if (context.period === 'timeshare') {
+  if (isTimeShareDataView(context.dataView)) {
     const tsData = context.data as TimeShareData[]
     const rawPreClose = context.settings?.preClose as number | undefined
     const preClose =
@@ -159,7 +160,7 @@ export function buildLegendTemplateContext(
   }
 
   let currentBar: LegendCurrentBar | null = null
-  if (hasCrosshair && context.dataView !== 'comparison') {
+  if (hasCrosshair && context.dataView !== ChartDataViewId.Comparison) {
     const k = klineData[targetIndex]
     if (k && typeof k.close === 'number') {
       const isUp = k.close >= k.open

@@ -6,7 +6,11 @@ import { lookupInstrumentsBySymbol, searchInstruments } from '../../data/provide
 import type { MarketDataProviderRegistry } from '../../data/provider/registry'
 import { MarketDataCache } from '../../data/buffer/marketDataCache'
 import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
-import type { DrawingDocument } from '../../engine/drawing/DrawingDocument'
+import type { ChartDataView } from '../../foundation/types/chartView'
+import type {
+  DrawingAnchorCommandInput,
+  DrawingDocument,
+} from '../../engine/drawing/DrawingDocument'
 import type { DrawingCommands } from '../../engine/drawing/DrawingCommands'
 import type { DrawingObject } from '../../foundation/plugin'
 
@@ -22,6 +26,7 @@ import type {
   ChartAgentActiveIndicator,
   ChartAgentContextSnapshot,
   ChartAgentController,
+  ChartAgentDrawingSelection,
   ChartAgentDrawingSnapshot,
   ChartAgentTimeRange,
   BarsQueryInput,
@@ -47,7 +52,7 @@ interface ChartAgentControllerDependencies {
   readonly chartId: string
   readonly dataState: DataStateModule
   readonly currentSpec: ReadonlySignal<SymbolSpec | null>
-  readonly chartMode: ReadonlySignal<'kline' | 'timeshare' | 'fiveDayTimeShare' | 'comparison'>
+  readonly chartMode: ReadonlySignal<ChartDataView>
   readonly selectedRange: ReadonlySignal<ChartAgentTimeRange | null>
   readonly indicators: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
   readonly indicatorQuery: IndicatorQuery
@@ -55,8 +60,12 @@ interface ChartAgentControllerDependencies {
   readonly marketDataCache: MarketDataCache
   readonly drawingDocument: DrawingDocument
   readonly drawingCommands: DrawingCommands
+  readonly drawings: ReadonlySignal<ReadonlyArray<DrawingObject>>
+  readonly selectedDrawingIds: ReadonlySignal<ReadonlyArray<string>>
   readonly getDrawingPaneIds: () => ReadonlyArray<string>
   readonly paneManager: Pick<PaneManager, 'actions' | 'list'>
+  /** 将 UI 或 Agent 传入的指标别名解析为注册表中的规范 ID。 */
+  readonly resolveSubPaneIndicatorId: (indicatorId: string) => string | null
   readonly isSubPaneRendererAvailable: (indicatorId: string, paneId: string) => boolean
   readonly marketDataTextFormatter?: MarketDataTextFormatter
 }
@@ -287,14 +296,34 @@ function projectDrawing(drawing: DrawingObject): ChartAgentDrawingSnapshot {
   })
 }
 
+/** 将当前选中 id 按选择顺序投影为 Agent 可读取的图元快照。 */
+function projectDrawingSelection(
+  drawings: ReadonlyArray<DrawingObject>,
+  selectedIds: ReadonlyArray<string>,
+): ChartAgentDrawingSelection | null {
+  if (selectedIds.length === 0) return null
+
+  const drawingsById = new Map(drawings.map((drawing) => [drawing.id, drawing]))
+  const selectedDrawings = selectedIds
+    .map((id) => drawingsById.get(id))
+    .filter((drawing): drawing is DrawingObject => drawing !== undefined)
+    .map(projectDrawing)
+  if (selectedDrawings.length === 0) return null
+
+  return Object.freeze({
+    selectedIds: Object.freeze(selectedDrawings.map((drawing) => drawing.id)),
+    drawings: Object.freeze(selectedDrawings),
+  })
+}
+
 /** 将 Agent 提供的交易日锚点转换为 Core 绘图 API 使用的声明式输入。 */
 function parseDrawingAnchors(
   anchors: ReadonlyArray<Static<typeof DrawingAnchorToolParameters>>,
-): ReadonlyArray<{ tradingDate?: TradingDate; price: number }> {
-  return anchors.map(({ tradingDate, price }) => ({
-    price,
-    ...(tradingDate === undefined ? {} : { tradingDate: tradingDate as TradingDate }),
-  }))
+): ReadonlyArray<DrawingAnchorCommandInput> {
+  return anchors.map(({ tradingDate, price }) => {
+    if (tradingDate === undefined) return { price }
+    return { tradingDate: tradingDate as TradingDate, price }
+  })
 }
 
 /** 从当前数据计算含首尾时间戳的完整数据范围。 */
@@ -347,6 +376,10 @@ class ChartAgentControllerImpl implements ChartAgentController {
     const adjustMode = selection.kind === 'bars' ? selection.adjustment : (spec?.adjust ?? null)
     const timezone =
       activeBuffer.kind === 'timeShare' ? (activeBuffer.timeShareRange?.timezone ?? null) : null
+    const drawingSelection = projectDrawingSelection(
+      this.dependencies.drawings(),
+      this.dependencies.selectedDrawingIds(),
+    )
 
     return Object.freeze({
       chartId: this.dependencies.chartId,
@@ -361,6 +394,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
       dataRange: Object.freeze({ ...dataRange, bars: activeBuffer.data.length }),
       visibleRange: this.dependencies.selectedRange(),
       activeIndicators: projectIndicators(this.dependencies.indicators()),
+      drawingSelection,
       dataRevision: activeBuffer.dataRevision,
     })
   }
@@ -423,8 +457,10 @@ class ChartAgentControllerImpl implements ChartAgentController {
     executionMode: 'sequential',
   })
   async createPane(input: Static<typeof PaneCreateToolParameters>): Promise<boolean> {
-    if (!this.dependencies.isSubPaneRendererAvailable(input.indicatorId, input.paneId)) return false
-    return this.dependencies.paneManager.actions.create(input)
+    const indicatorId = this.dependencies.resolveSubPaneIndicatorId(input.indicatorId)
+    if (!indicatorId || !this.dependencies.isSubPaneRendererAvailable(indicatorId, input.paneId))
+      return false
+    return this.dependencies.paneManager.actions.create({ ...input, indicatorId })
   }
 
   /** 更新单个 pane 的布局属性。 */
@@ -482,10 +518,12 @@ class ChartAgentControllerImpl implements ChartAgentController {
   async replacePaneContent(
     input: Static<typeof PaneReplaceContentToolParameters>,
   ): Promise<boolean> {
-    if (!this.dependencies.isSubPaneRendererAvailable(input.indicatorId, input.paneId)) return false
+    const indicatorId = this.dependencies.resolveSubPaneIndicatorId(input.indicatorId)
+    if (!indicatorId || !this.dependencies.isSubPaneRendererAvailable(indicatorId, input.paneId))
+      return false
     return this.dependencies.paneManager.actions.replaceContent(
       input.paneId,
-      input.indicatorId,
+      indicatorId,
       input.params,
     )
   }

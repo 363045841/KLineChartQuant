@@ -1,24 +1,25 @@
 import type { DrawingChartAdapter } from '../../controllers/types'
 import type { DrawingObject, DrawingStyle } from '../../foundation/plugin/index'
+import { ChartWorkspaceId } from '../../foundation/types/chartView'
 
 import { AnchorCollector } from './AnchorCollector'
 import { DragHandler } from './DragHandler'
 import { DrawingState, PREVIEW_ID } from './DrawingState'
 import { HitTester } from './HitTester'
 import { PreviewRenderer } from './PreviewRenderer'
-import { resolveAnchorFromPointer } from './coordinateUtils'
-import type { DrawingAnchorInput } from './coordinateUtils'
+import { resolveDrawingPointer } from './coordinateUtils'
+import type { ResolvedInteractionAnchor, DrawingPointerAnchor } from './coordinateUtils'
 import type { DrawingToolId } from './toolConfig'
 import { getAnchorCountForTool, getDrawingKind } from './toolConfig'
 
 // Re-export types so index.ts re-exports work unchanged
 export type { DrawingToolId } from './toolConfig'
-export type { DrawingAnchorInput } from './coordinateUtils'
+export type { InteractionDrawingAnchor } from './coordinateUtils'
 
 export interface DrawingInteractionCallbacks {
   onDrawingCreated?: (drawing: DrawingObject) => void
   onToolChange?: (toolId: DrawingToolId) => void
-  onDrawingSelected?: (drawing: DrawingObject | null) => void
+  onDrawingSelected?: (drawings: ReadonlyArray<DrawingObject>) => void
 }
 
 /**
@@ -35,6 +36,7 @@ export class DrawingInteractionController {
   private previewRenderer: PreviewRenderer
   private hitTester: HitTester
   private dragHandler: DragHandler
+  private pendingPaneId: string | null = null
 
   constructor(adapter: DrawingChartAdapter) {
     this.adapter = adapter
@@ -67,12 +69,13 @@ export class DrawingInteractionController {
    */
   applyToolSession(toolId: DrawingToolId): void {
     this.anchorCollector.reset()
+    this.pendingPaneId = null
     this.drawingState.removePreview()
     if (this.dragHandler.isDragging()) {
       this.drawingState.clearDragOverride()
       this.dragHandler.endDrag()
     }
-    this.setSelected(null)
+    this.setSelected([])
     this.callbacks.onToolChange?.(toolId)
   }
 
@@ -93,6 +96,7 @@ export class DrawingInteractionController {
 
   clear() {
     this.anchorCollector.reset()
+    this.pendingPaneId = null
     this.drawingState.removePreview()
     if (this.dragHandler.isDragging()) {
       this.drawingState.clearDragOverride()
@@ -106,14 +110,24 @@ export class DrawingInteractionController {
     this.adapter.updateDrawing(drawingId, { style })
   }
 
+  /** 原子更新一批图元的公共属性。 */
+  updateBatch(ids: ReadonlyArray<string>, patch: { style?: Partial<DrawingStyle> }): void {
+    this.adapter.updateBatch(ids, patch)
+  }
+
   removeDrawing(drawingId: string): void {
     this.adapter.removeDrawing(drawingId)
   }
 
+  /** 原子移除一批图元。 */
+  removeBatch(ids: ReadonlyArray<string>): void {
+    this.adapter.removeBatch(ids)
+  }
+
   // ============ 选中状态 ============
 
-  getSelectedDrawing(): DrawingObject | null {
-    return this.drawingState.getSelected()
+  getSelectedDrawings(): DrawingObject[] {
+    return this.drawingState.getSelectedDrawings()
   }
 
   // ============ 事件处理 ============
@@ -138,8 +152,8 @@ export class DrawingInteractionController {
 
     const activeTool = this.getActiveTool()
     if (activeTool !== 'cursor') {
-      const anchor = resolveAnchorFromPointer(e, container, this.adapter)
-      if (!anchor) {
+      const pointer = resolveDrawingPointer(e, container, this.adapter)
+      if (!pointer || (this.pendingPaneId !== null && pointer.paneId !== this.pendingPaneId)) {
         this.drawingState.removePreview()
         return false
       }
@@ -147,7 +161,9 @@ export class DrawingInteractionController {
       const preview = this.previewRenderer.buildPreview(
         activeTool,
         this.anchorCollector.pendingAnchors,
-        anchor,
+        pointer,
+        pointer.paneId,
+        this.adapter.getDrawingWorkspaceId(),
       )
       if (!preview) {
         this.drawingState.removePreview()
@@ -171,20 +187,23 @@ export class DrawingInteractionController {
       return this.handleCursorDown(e, container)
     }
 
-    const anchor = resolveAnchorFromPointer(e, container, this.adapter)
-    if (!anchor) return false
+    const pointer = resolveDrawingPointer(e, container, this.adapter)
+    if (!pointer || (this.pendingPaneId !== null && pointer.paneId !== this.pendingPaneId))
+      return false
 
     const anchorCount = getAnchorCountForTool(activeTool)
 
     if (anchorCount === 1) {
-      this.createSingleAnchorDrawing(anchor, activeTool)
+      this.createSingleAnchorDrawing(pointer, activeTool)
       return true
     }
 
     if (anchorCount === 2 || anchorCount === 3) {
-      const result = this.anchorCollector.addAnchor(anchor, activeTool)
+      if (this.pendingPaneId === null) this.pendingPaneId = pointer.paneId
+      const result = this.anchorCollector.addAnchor(pointer, activeTool)
       if (result) {
-        this.createMultiAnchorDrawing(result, activeTool)
+        this.createMultiAnchorDrawing(result, activeTool, pointer.paneId)
+        this.pendingPaneId = null
       }
       return true
     }
@@ -206,56 +225,91 @@ export class DrawingInteractionController {
   // ============ 私有方法 ============
 
   private handleCursorDown(e: PointerEvent, container: HTMLElement): boolean {
-    const rect = container.getBoundingClientRect()
-    const mouseX = e.clientX - rect.left
-    const mouseY = e.clientY - rect.top
+    const pointer = resolveDrawingPointer(e, container, this.adapter)
+    if (!pointer) return false
 
     const hit = this.hitTester.hitTest(
-      mouseX,
-      mouseY,
-      this.drawingState.getNonPreview(),
+      pointer.x,
+      pointer.y,
+      this.drawingState
+        .getNonPreview()
+        .filter(
+          (drawing) =>
+            drawing.paneId === pointer.paneId &&
+            (drawing.workspaceId ?? ChartWorkspaceId.KLine) === this.adapter.getDrawingWorkspaceId(),
+        ),
       this.adapter,
     )
     if (!hit) {
-      this.setSelected(null)
+      if (!e.ctrlKey) this.setSelected([])
       return false
     }
 
-    this.setSelected(hit.drawing)
+    if (e.ctrlKey) {
+      this.toggleSelected(hit.drawing)
+      return true
+    }
+
+    this.setSelected([hit.drawing])
 
     this.dragHandler.startDrag(
       hit.drawing,
       'anchorIndex' in hit ? hit.anchorIndex : undefined,
-      mouseX,
-      mouseY,
+      pointer.x,
+      pointer.y,
     )
     return true
   }
 
-  private setSelected(drawing: DrawingObject | null) {
-    this.drawingState.setSelected(drawing)
-    this.callbacks.onDrawingSelected?.(drawing)
+  private setSelected(drawings: ReadonlyArray<DrawingObject>) {
+    this.drawingState.setSelected(drawings)
+    this.callbacks.onDrawingSelected?.(this.drawingState.getSelectedDrawings())
   }
 
-  private createSingleAnchorDrawing(anchor: DrawingAnchorInput, activeTool: DrawingToolId) {
+  /** Ctrl 点击将命中图元加入或移出当前选择，不启动拖拽。 */
+  private toggleSelected(drawing: DrawingObject): void {
+    const selectedDrawings = this.drawingState.getSelectedDrawings()
+    const isSelected = selectedDrawings.some((selected) => selected.id === drawing.id)
+    this.setSelected(
+      isSelected
+        ? selectedDrawings.filter((selected) => selected.id !== drawing.id)
+        : [...selectedDrawings, drawing],
+    )
+  }
+
+  private createSingleAnchorDrawing(anchor: DrawingPointerAnchor, activeTool: DrawingToolId) {
     this.drawingState.removePreview()
 
     const drawing = this.adapter.createDrawing({
       kind: getDrawingKind(activeTool),
-      paneId: 'main',
-      anchors: [{ timestamp: Number(anchor.time), price: anchor.price }],
+      paneId: anchor.paneId,
+      anchors: [
+        {
+          timestamp: anchor.time,
+          futureOffset: anchor.futureOffset,
+          price: anchor.price,
+        },
+      ],
     })
     this.callbacks.onDrawingCreated?.(drawing)
     this.adapter.setDrawingToolId('cursor')
   }
 
-  private createMultiAnchorDrawing(anchors: DrawingAnchorInput[], activeTool: DrawingToolId) {
+  private createMultiAnchorDrawing(
+    anchors: ResolvedInteractionAnchor[],
+    activeTool: DrawingToolId,
+    paneId: string,
+  ) {
     this.drawingState.removePreview()
 
     const drawing = this.adapter.createDrawing({
       kind: getDrawingKind(activeTool),
-      paneId: 'main',
-      anchors: anchors.map((anchor) => ({ timestamp: Number(anchor.time), price: anchor.price })),
+      paneId,
+      anchors: anchors.map((anchor) => ({
+        timestamp: anchor.time,
+        futureOffset: anchor.futureOffset,
+        price: anchor.price,
+      })),
     })
     this.callbacks.onDrawingCreated?.(drawing)
     this.adapter.setDrawingToolId('cursor')

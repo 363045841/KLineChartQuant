@@ -323,6 +323,7 @@ describe('BrowserAgentBridge', () => {
         dataRange: { from: 1, to: 2, bars: 2 },
         visibleRange: { from: 1, to: 2 },
         activeIndicators: [],
+        drawingSelection: null,
         dataRevision: 1,
       }),
       {
@@ -354,6 +355,67 @@ describe('BrowserAgentBridge', () => {
     for (const listener of listeners) listener()
 
     expect(received).toEqual([null, 'BTCUSDT', 'ETHUSDT'])
+  })
+
+  it('projects selected drawings as one drawing-selection context item', () => {
+    const context = Object.assign(
+      () => ({
+        chartId: 'chart-1',
+        symbol: 'BTCUSDT',
+        symbolName: null,
+        market: 'crypto',
+        exchange: 'BINANCE',
+        period: 'kline',
+        dataSource: 'fixture',
+        timezone: null,
+        adjustMode: null,
+        dataRange: { from: 1, to: 2, bars: 2 },
+        visibleRange: null,
+        activeIndicators: [],
+        drawingSelection: {
+          selectedIds: ['line-1', 'line-2'],
+          drawings: [
+            {
+              id: 'line-1',
+              kind: 'trend-line',
+              paneId: 'main',
+              visible: true,
+              locked: false,
+              zIndex: null,
+              anchors: [{ timestamp: 1, price: 10 }],
+              style: { stroke: '#2962ff', fill: undefined },
+            },
+            {
+              id: 'line-2',
+              kind: 'horizontal-line',
+              paneId: 'main',
+              visible: true,
+              locked: true,
+              zIndex: 2,
+              anchors: [{ timestamp: null, price: 11 }],
+              style: { stroke: '#f00' },
+            },
+          ],
+        },
+        dataRevision: 1,
+      }),
+      { peek: () => context(), subscribe: () => () => {} },
+    )
+    const agent = { context } as unknown as ChartAgentController
+    const bridge = new BrowserAgentBridge()
+
+    bridge.bindChartAgent(agent)
+
+    expect(bridge.getContextItems()).toContainEqual({
+      kind: 'drawing-selection',
+      value: {
+        selectedIds: ['line-1', 'line-2'],
+        drawings: [
+          expect.objectContaining({ id: 'line-1', style: { stroke: '#2962ff' } }),
+          expect.objectContaining({ id: 'line-2', style: { stroke: '#f00' } }),
+        ],
+      },
+    })
   })
 
   it('executes destructive tools through the manual debug entrypoint', async () => {
