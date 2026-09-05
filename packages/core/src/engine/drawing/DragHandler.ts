@@ -73,6 +73,7 @@ export class DragHandler {
       updatedAnchors[idx] = {
         ...updatedAnchors[idx]!,
         time: pointer.time,
+        futureOffset: pointer.futureOffset,
         price: pointer.price,
       }
 
@@ -81,6 +82,7 @@ export class DragHandler {
         updatedAnchors[2] = {
           ...updatedAnchors[2]!,
           time: pointer.time,
+          futureOffset: pointer.futureOffset,
         }
       }
     } else {
@@ -91,6 +93,7 @@ export class DragHandler {
           ...updatedAnchors[0]!,
           type: 'horizontal',
           time: undefined,
+          futureOffset: undefined,
           price: pointer.price,
         }
         return { ...drawing, anchors: updatedAnchors }
@@ -100,6 +103,7 @@ export class DragHandler {
           ...updatedAnchors[0]!,
           type: 'vertical',
           time: pointer.time,
+          futureOffset: pointer.futureOffset,
         }
         return { ...drawing, anchors: updatedAnchors }
       }
@@ -118,6 +122,7 @@ export class DragHandler {
           updatedAnchors[i] = {
             ...updatedAnchors[i]!,
             time: newFromScreen.time,
+            futureOffset: newFromScreen.futureOffset,
             price: newFromScreen.price,
           }
         }

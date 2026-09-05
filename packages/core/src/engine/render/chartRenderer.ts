@@ -463,7 +463,13 @@ export class ChartRenderer {
   private sealFrameGeometry(frame: FrameContext): void {
     this.deps
       .getInteraction()
-      .setKLinePositions(frame.kLinePositions, frame.range, frame.kWidthPx, frame.kLineCenters)
+      .setKLinePositions(
+        frame.kLinePositions,
+        frame.range,
+        frame.kWidthPx,
+        frame.kLineCenters,
+        this.deps.getOption().kWidth + this.deps.getOption().kGap,
+      )
   }
 
   /** 将 prepareFrameData 的帧几何按 level 画到 canvas，含所有 pane 的 main/overlay/yAxis 及时间轴 */

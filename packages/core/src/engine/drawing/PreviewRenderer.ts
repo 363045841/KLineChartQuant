@@ -65,8 +65,20 @@ export class PreviewRenderer {
         activeTool === 'h-line'
           ? { id: `${PREVIEW_ID}-a`, type: 'horizontal', price: anchor.price }
           : activeTool === 'v-line'
-            ? { id: `${PREVIEW_ID}-a`, type: 'vertical', time: anchor.time!, price: anchor.price }
-            : { id: `${PREVIEW_ID}-a`, type: 'point', time: anchor.time, price: anchor.price },
+            ? {
+                id: `${PREVIEW_ID}-a`,
+                type: 'vertical',
+                time: anchor.time!,
+                futureOffset: anchor.futureOffset,
+                price: anchor.price,
+              }
+            : {
+                id: `${PREVIEW_ID}-a`,
+                type: 'point',
+                time: anchor.time,
+                futureOffset: anchor.futureOffset,
+                price: anchor.price,
+              },
       ],
       params: {},
       style: {
@@ -90,8 +102,18 @@ export class PreviewRenderer {
       paneId,
       visible: true,
       anchors: [
-        { id: `${PREVIEW_ID}-a`, time: first.time, price: first.price },
-        { id: `${PREVIEW_ID}-b`, time: second.time, price: second.price },
+        {
+          id: `${PREVIEW_ID}-a`,
+          time: first.time,
+          futureOffset: first.futureOffset,
+          price: first.price,
+        },
+        {
+          id: `${PREVIEW_ID}-b`,
+          time: second.time,
+          futureOffset: second.futureOffset,
+          price: second.price,
+        },
       ],
       params: activeTool === 'regression-channel' ? { sigma: 2 } : {},
       style: {
@@ -129,11 +151,13 @@ export class PreviewRenderer {
           {
             id: `${PREVIEW_ID}-a`,
             time: pendingAnchors[0]!.time,
+            futureOffset: pendingAnchors[0]!.futureOffset,
             price: pendingAnchors[0]!.price,
           },
           {
             id: `${PREVIEW_ID}-b`,
             time: currentAnchor.time,
+            futureOffset: currentAnchor.futureOffset,
             price: currentAnchor.price,
           },
         ],
@@ -152,11 +176,13 @@ export class PreviewRenderer {
         ? {
             id: `${PREVIEW_ID}-c`,
             time: pendingAnchors[1]!.time,
+            futureOffset: pendingAnchors[1]!.futureOffset,
             price: currentAnchor.price,
           }
         : {
             id: `${PREVIEW_ID}-c`,
             time: currentAnchor.time,
+            futureOffset: currentAnchor.futureOffset,
             price: currentAnchor.price,
           }
 
@@ -171,11 +197,13 @@ export class PreviewRenderer {
         {
           id: `${PREVIEW_ID}-a`,
           time: pendingAnchors[0]!.time,
+          futureOffset: pendingAnchors[0]!.futureOffset,
           price: pendingAnchors[0]!.price,
         },
         {
           id: `${PREVIEW_ID}-b`,
           time: pendingAnchors[1]!.time,
+          futureOffset: pendingAnchors[1]!.futureOffset,
           price: pendingAnchors[1]!.price,
         },
         thirdAnchor,

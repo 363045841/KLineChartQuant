@@ -179,4 +179,32 @@ describe('projectDrawingsForFrame', () => {
     expect(projection.xAxisLabels.map((label) => label.timestamp)).toEqual([1_000])
     expect(projection.yAxisLabels.map((label) => label.price)).toEqual([10])
   })
+
+  it('projects a future-slot anchor from its creation-time base bar', () => {
+    const drawing: DrawingObject = {
+      id: 'future-trend',
+      kind: 'trend-line',
+      paneId: 'main',
+      visible: true,
+      anchors: [
+        { id: 'a', time: 1_000, price: 10 },
+        { id: 'b', time: 1_000, futureOffset: 2, price: 20 },
+      ],
+      params: {},
+      style: { stroke: '#2962ff' },
+    }
+    const store = new DrawingStore({
+      drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
+      selectedDrawingIds$: createSignal<ReadonlyArray<string>>(['future-trend']),
+    })
+    const definitions = new DrawingDefinitionRegistry()
+    registerDefaultDrawingDefinitions(definitions)
+
+    const projection = projectDrawingsForFrame(store, definitions, createContext())
+
+    expect(projection.primitives.find((primitive) => primitive.kind === 'line')).toMatchObject({
+      a: { x: 10 },
+      b: { x: 50 },
+    })
+  })
 })

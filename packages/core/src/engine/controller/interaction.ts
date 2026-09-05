@@ -12,6 +12,7 @@ import { computeTooltipPosition, type TooltipPositionMode } from './tooltipPosit
 import { isOnRightHalf } from '../../foundation/utils/viewportSide'
 import type { InteractionStateModule } from '../state/interactionState'
 import { isTimeShareDataView } from '../../foundation/types/chartView'
+import { logicalIndexToScreenX } from '../viewport/logicalIndexToScreenX'
 
 interface PointerLocation {
   mouseX: number
@@ -90,6 +91,8 @@ export class InteractionController {
   private framePositions: number[] | null = null
   private frameCenters: number[] | null = null
   private frameKWidthPx: number | null = null
+  /** 帧内单中心点时的逻辑槽位步长。 */
+  private frameFallbackCenterStep: number | null = null
   /** 与 framePositions 同代的可见区间（已 clamp start>=0，与 calcKLinePositions 一致） */
   private frameVisibleRange: { start: number; end: number } | null = null
   private markerState = new MarkerInteractionState()
@@ -481,20 +484,24 @@ export class InteractionController {
     visibleRange: { start: number; end: number } | null,
     kWidthPx?: number,
     centers?: number[] | null,
+    fallbackCenterStep?: number,
   ) {
     const nextWidth = kWidthPx ?? null
     const nextCenters = centers ?? null
     const nextRange = visibleRange
+    const nextFallbackCenterStep = fallbackCenterStep ?? null
     const unchanged =
       this.framePositions === positions &&
       this.frameCenters === nextCenters &&
       this.frameKWidthPx === nextWidth &&
+      this.frameFallbackCenterStep === nextFallbackCenterStep &&
       this.frameVisibleRange?.start === nextRange?.start &&
       this.frameVisibleRange?.end === nextRange?.end
 
     this.framePositions = positions
     this.frameCenters = nextCenters
     this.frameKWidthPx = nextWidth
+    this.frameFallbackCenterStep = nextFallbackCenterStep
     this.frameVisibleRange = nextRange
 
     // 几何变化时标记 hover 待刷新；由 flushPendingHover 与 paint 同帧完成
@@ -511,8 +518,13 @@ export class InteractionController {
     const viewport = this.chart.getViewport()
     if (!centers || !range || !viewport) return null
 
-    const center = centers[index - range.start]
-    return Number.isFinite(center) ? center - viewport.scrollLeft : null
+    return logicalIndexToScreenX({
+      index,
+      visibleRange: range,
+      centers,
+      scrollLeft: viewport.scrollLeft,
+      fallbackStep: this.frameFallbackCenterStep ?? 0,
+    })
   }
 
   /** 根据本帧已封存的中心点查找最接近视口内 X 坐标的逻辑索引。 */
@@ -532,7 +544,16 @@ export class InteractionController {
     }
 
     if (low === 0) return range.start
-    if (low === centers.length) return range.start + centers.length - 1
+    if (low === centers.length) {
+      const step =
+        centers.length >= 2
+          ? centers[centers.length - 1]! - centers[centers.length - 2]!
+          : (this.frameFallbackCenterStep ?? (this.frameKWidthPx ?? 0) / viewport.dpr)
+      if (!step || !Number.isFinite(step)) return null
+      const lastIndex = range.end - 1
+      const lastCenter = centers[centers.length - 1]!
+      return lastIndex + Math.max(1, Math.ceil((worldX - lastCenter) / step))
+    }
     const previous = centers[low - 1]!
     const current = centers[low]!
     return range.start + (worldX - previous <= current - worldX ? low - 1 : low)

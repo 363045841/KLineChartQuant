@@ -2,15 +2,15 @@
 
 ## 决策
 
-已确认绘图的锚点只持久化 `id`、`time` 和 `price`。`time` 是图元绑定数据序列的时间戳；`price` 是 Pane 价格坐标。`index` 不得写入 `DrawingAnchor`、导入导出快照、`drawingState` 或轴标签。
+已确认绘图的锚点持久化 `id`、`time`、`futureOffset` 和 `price`。常规锚点的 `time` 是图元绑定数据序列的时间戳；`price` 是 Pane 价格坐标。右侧留白中的锚点以创建时最后一根 K 线的 `time` 加正整数 `futureOffset` 表示。`index` 不得写入 `DrawingAnchor`、导入导出快照、`drawingState` 或轴标签。
 
 ## 帧内投影
 
-每帧由活动 `DataBuffer` 的 `getLogicalIndexAtTimestamp()` 将时间戳解析为当前逻辑索引。该索引仅存在于 `ResolvedDrawingAnchor`，用于从本帧的 `kLineCenters` 取得 X 坐标。
+每帧由活动 `DataBuffer` 的 `getLogicalIndexAtTimestamp()` 将基准时间解析为当前逻辑索引。常规锚点直接使用该索引；未来槽位锚点再加上 `futureOffset`。该索引仅存在于 `ResolvedDrawingAnchor`，用于从本帧的 `kLineCenters` 取得 X 坐标。
 
-历史数据 prepend 后，时间戳会自然解析到新的逻辑索引。时间戳不存在或重复时解析失败，图元不复用旧位置。已解析但位于可见区间外的锚点按当前帧几何投影到屏幕外，使 Canvas 裁剪线段；端点图元与轴装饰仅为可见锚点注册，绝不以视口边缘作为替代位置。
+历史数据 prepend 后，基准时间会自然解析到新的逻辑索引。新数据追加时，未来槽位锚点会保留在创建时指定的时间轴槽位，并在对应 K 线出现后自然对齐该 K 线。时间戳不存在或重复时解析失败，图元不复用旧位置。已解析但位于可见区间外的锚点按当前帧几何投影到屏幕外，使 Canvas 裁剪线段；端点图元与轴装饰仅为可见锚点注册，绝不以视口边缘作为替代位置。
 
-`kLineCenters` 是当前帧唯一的 X 坐标来源。K 线、单日分时与五日分时分别可使用等距、交易时段槽位和跨日槽位布局，但绘图交互不重新推导任何布局公式。指针 X 到逻辑索引、逻辑索引到 X 均经 `InteractionController` 已封存的中心点映射，保证午间休市和缺失分钟与画面一致。
+`kLineCenters` 是当前帧唯一的 X 坐标来源。K 线、单日分时与五日分时分别可使用等距、交易时段槽位和跨日槽位布局，但绘图交互不重新推导任何布局公式。`logicalIndexToScreenX()` 是渲染、命中与拖拽共用的逻辑索引到 X 投影；可见范围左、右侧分别按首、末中心点的槽位步长外推。指针 X 到逻辑索引、逻辑索引到 X 均经 `InteractionController` 已封存的中心点映射，保证午间休市和缺失分钟与画面一致。
 
 ## Pane 与工作区
 

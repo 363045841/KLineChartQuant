@@ -533,6 +533,8 @@ describe('InteractionController hover snapshot', () => {
     interaction.setKLinePositions([0, 30, 130], { start: 20, end: 23 }, 10, [8, 37, 137])
 
     expect(interaction.getScreenXAtLogicalIndex(22)).toBe(137)
+    expect(interaction.getScreenXAtLogicalIndex(23)).toBe(237)
+    expect(interaction.getLogicalIndexAtScreenX(138)).toBe(23)
     expect(interaction.getLogicalIndexAtScreenX(121)).toBe(22)
     expect(interaction.getLogicalIndexAtScreenX(20)).toBe(20)
   })

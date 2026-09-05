@@ -71,4 +71,28 @@ describe('DrawingInteractionController selection', () => {
     expect(setSelectedDrawingIds).toHaveBeenLastCalledWith(['first'])
     expect(internal.dragHandler.startDrag).not.toHaveBeenCalled()
   })
+
+  it('passes the future-slot offset through when creating a drawing in the right blank area', () => {
+    const createdDrawing = createDrawing('future-line')
+    const createDrawingCommand = vi.fn(() => createdDrawing)
+    const adapter = {
+      ...createAdapter([]).adapter,
+      getDrawingToolId: () => 'v-line' as const,
+      getLogicalIndexAtX: () => 3,
+      getDrawingTimestampAtLogicalIndex: () => 1,
+      createDrawing: createDrawingCommand,
+      setDrawingToolId: vi.fn(),
+    } as unknown as DrawingChartAdapter
+    const controller = new DrawingInteractionController(adapter)
+    const container = {
+      getBoundingClientRect: () => ({ left: 0, top: 0 }),
+    } as HTMLElement
+
+    expect(controller.onPointerDown(pointerDown(false), container)).toBe(true)
+    expect(createDrawingCommand).toHaveBeenCalledWith({
+      kind: 'vertical-line',
+      paneId: 'main',
+      anchors: [{ timestamp: 1, futureOffset: 3, price: 10 }],
+    })
+  })
 })

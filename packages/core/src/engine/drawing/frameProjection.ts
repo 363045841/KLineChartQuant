@@ -10,6 +10,7 @@ import type {
 } from '../../foundation/plugin'
 import type { KLineData } from '../../foundation/types/price'
 import { resolveChartWorkspaceId } from '../state/modeState'
+import { logicalIndexToScreenX } from '../viewport/logicalIndexToScreenX'
 
 import { DrawingDefinitionRegistry, DrawingStore } from './index'
 
@@ -24,15 +25,18 @@ type MutableDrawingFrameProjection = {
 /** 基于当前帧中心点解析锚点屏幕坐标，分时与 K 线共用同一映射。 */
 function createToScreen(context: RenderContext): (anchor: ResolvedDrawingAnchor) => ScreenPoint {
   const { pane, range, kLineCenters, scrollLeft, kWidth } = context
-  const centerStep =
-    kLineCenters.length >= 2 ? kLineCenters[1]! - kLineCenters[0]! : context.kWidth + context.kGap
   return (anchor) => {
     if (!Number.isFinite(anchor.index) || anchor.index < 0) {
       return { x: -kWidth, y: pane.yAxis.priceToY(anchor.price) }
     }
-    const relativeIndex = anchor.index - range.start
-    const center = kLineCenters[relativeIndex] ?? kLineCenters[0]! + relativeIndex * centerStep
-    return { x: center - scrollLeft, y: pane.yAxis.priceToY(anchor.price) }
+    const x = logicalIndexToScreenX({
+      index: anchor.index,
+      visibleRange: range,
+      centers: kLineCenters,
+      scrollLeft,
+      fallbackStep: context.kWidth + context.kGap,
+    })
+    return { x: x ?? -kWidth, y: pane.yAxis.priceToY(anchor.price) }
   }
 }
 
@@ -54,9 +58,13 @@ function resolveDrawingForFrame(
     anchors: drawing.anchors.map((anchor) => {
       const timestamp = typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
       if (timestamp === undefined || !Number.isFinite(timestamp)) return { ...anchor, index: -1 }
-      const index = getLogicalIndexAtTimestamp(timestamp)
+      const baseIndex = getLogicalIndexAtTimestamp(timestamp)
+      const futureOffset = anchor.futureOffset
+      if (futureOffset !== undefined && (!Number.isInteger(futureOffset) || futureOffset <= 0)) {
+        return { ...anchor, index: -1 }
+      }
       // 时间锚点未落入当前数据时不可复用旧 index，否则会投影到错误的 bar。
-      return { ...anchor, index: index ?? -1 }
+      return { ...anchor, index: baseIndex === null ? -1 : baseIndex + (futureOffset ?? 0) }
     }),
   }
 }

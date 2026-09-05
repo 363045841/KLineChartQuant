@@ -13,14 +13,30 @@ import type { DrawingStateModule } from '../state/drawingState'
 
 import { PREVIEW_ID } from './DrawingState'
 
-/** 外部命令按图元需要提供价格和/或时间。 */
-export interface DrawingAnchorCommandInput {
-  /** 交易日锚点，按数据中的 date 字段定位。 */
-  readonly tradingDate?: TradingDate
-  /** 精确时间锚点，按毫秒时间戳定位。 */
-  readonly timestamp?: number
-  readonly price: number
-}
+/** 外部命令按图元需要提供价格和一种明确的时间轴定位方式。 */
+export type DrawingAnchorCommandInput =
+  | {
+      /** 交易日锚点，按数据中的 date 字段定位。 */
+      readonly tradingDate: TradingDate
+      readonly timestamp?: never
+      readonly futureOffset?: never
+      readonly price: number
+    }
+  | {
+      /** 精确时间锚点，按毫秒时间戳定位。 */
+      readonly timestamp: number
+      readonly tradingDate?: never
+      /** 基准 K 线之后的未来时间轴槽位数。 */
+      readonly futureOffset?: number
+      readonly price: number
+    }
+  | {
+      /** 水平图元只使用价格坐标。 */
+      readonly tradingDate?: never
+      readonly timestamp?: never
+      readonly futureOffset?: never
+      readonly price: number
+    }
 
 /** 创建已确认图元所需的声明式输入。 */
 export interface CreateDrawingInput {
@@ -175,13 +191,26 @@ export class DrawingDocument {
     const drawing = this.getDrawing(id)
     if (!drawing || anchors.length !== getRequiredAnchorCount(drawing.kind)) return null
     const valid = anchors.every((anchor) => {
+      const hasValidFutureOffset =
+        anchor.futureOffset === undefined ||
+        (Number.isInteger(anchor.futureOffset) && anchor.futureOffset > 0)
+      if (!hasValidFutureOffset) return false
       if (drawing.kind === 'horizontal-line') {
-        return anchor.type === 'horizontal' && Number.isFinite(anchor.price)
+        return (
+          anchor.type === 'horizontal' &&
+          anchor.futureOffset === undefined &&
+          Number.isFinite(anchor.price)
+        )
       }
       if (drawing.kind === 'vertical-line') {
         return anchor.type === 'vertical' && Number.isFinite(Number(anchor.time))
       }
-      return anchor.type !== 'horizontal' && anchor.type !== 'vertical' && Number.isFinite(anchor.price) && Number.isFinite(Number(anchor.time))
+      return (
+        anchor.type !== 'horizontal' &&
+        anchor.type !== 'vertical' &&
+        Number.isFinite(anchor.price) &&
+        Number.isFinite(Number(anchor.time))
+      )
     })
     if (!valid) return null
     return this.dependencies.drawingState.actions.updateDrawing(id, { anchors: [...anchors] })
@@ -259,7 +288,11 @@ export class DrawingDocument {
     }
     const anchors = inputs.map((input) => this.resolveAnchor(kind, input))
     if (kind === 'flat-line') {
-      anchors[2] = { ...anchors[2]!, time: anchors[1]!.time }
+      anchors[2] = {
+        ...anchors[2]!,
+        time: anchors[1]!.time,
+        futureOffset: anchors[1]!.futureOffset,
+      }
     }
     return anchors
   }
@@ -292,6 +325,13 @@ export class DrawingDocument {
   /** 解析单个声明式锚点，按图元种类持久化所需坐标轴。 */
   private resolveAnchor(kind: DrawingKind, input: DrawingAnchorCommandInput): PersistedDrawingAnchor {
     if (kind === 'horizontal-line') {
+      if (input.futureOffset !== undefined) {
+        throw new KLineChartError(
+          DRAWING_ERROR_CODES.INVALID_ANCHOR,
+          'Horizontal drawing anchors cannot use a future offset.',
+          { details: { futureOffset: input.futureOffset } },
+        )
+      }
       if (!Number.isFinite(input.price)) {
         throw new KLineChartError(
           DRAWING_ERROR_CODES.INVALID_ANCHOR,
@@ -308,13 +348,6 @@ export class DrawingDocument {
         { details: { price: input.price } },
       )
     }
-    if (input.tradingDate !== undefined && input.timestamp !== undefined) {
-      throw new KLineChartError(
-        DRAWING_ERROR_CODES.INVALID_ANCHOR,
-        'Drawing anchor must provide either tradingDate or timestamp, not both.',
-        { details: { tradingDate: input.tradingDate, timestamp: input.timestamp, price: input.price } },
-      )
-    }
     if (input.tradingDate !== undefined) {
       const resolved = this.dependencies.findAnchorAtTradingDate(input.tradingDate)
       if (resolved === null) {
@@ -326,10 +359,10 @@ export class DrawingDocument {
       }
       return kind === 'vertical-line'
         ? { id: `anchor-${generateUUID()}`, type: 'vertical', time: resolved.timestamp, price: input.price }
-        : this.createPointAnchor(resolved.timestamp, input.price)
+        : this.createPointAnchor(resolved.timestamp, undefined, input.price)
     }
     const timestamp = input.timestamp
-    if (timestamp === undefined || !Number.isFinite(timestamp)) {
+    if (typeof timestamp !== 'number' || !Number.isFinite(timestamp)) {
       throw new KLineChartError(
         DRAWING_ERROR_CODES.INVALID_ANCHOR,
         'Drawing anchor timestamp must be a finite number.',
@@ -343,13 +376,31 @@ export class DrawingDocument {
         { details: { timestamp } },
       )
     }
+    const futureOffset = input.futureOffset
+    if (futureOffset !== undefined && (!Number.isInteger(futureOffset) || futureOffset <= 0)) {
+      throw new KLineChartError(
+        DRAWING_ERROR_CODES.INVALID_ANCHOR,
+        'Drawing anchor future offset must be a positive integer.',
+        { details: { timestamp, futureOffset, price: input.price } },
+      )
+    }
     return kind === 'vertical-line'
-      ? { id: `anchor-${generateUUID()}`, type: 'vertical', time: timestamp, price: input.price }
-      : this.createPointAnchor(timestamp, input.price)
+      ? {
+          id: `anchor-${generateUUID()}`,
+          type: 'vertical',
+          time: timestamp,
+          futureOffset,
+          price: input.price,
+        }
+      : this.createPointAnchor(timestamp, futureOffset, input.price)
   }
 
   /** 校验并创建同时包含时间与价格的普通锚点。 */
-  private createPointAnchor(timestamp: number, price: number): PersistedDrawingAnchor {
+  private createPointAnchor(
+    timestamp: number,
+    futureOffset: number | undefined,
+    price: number,
+  ): PersistedDrawingAnchor {
     if (!Number.isFinite(price)) {
       throw new KLineChartError(
         DRAWING_ERROR_CODES.INVALID_ANCHOR,
@@ -357,6 +408,6 @@ export class DrawingDocument {
         { details: { timestamp, price } },
       )
     }
-    return { id: `anchor-${generateUUID()}`, type: 'point', time: timestamp, price }
+    return { id: `anchor-${generateUUID()}`, type: 'point', time: timestamp, futureOffset, price }
   }
 }

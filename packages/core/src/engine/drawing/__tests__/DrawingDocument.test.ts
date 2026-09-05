@@ -52,6 +52,21 @@ describe('DrawingDocument', () => {
     expect(Object.isFrozen(drawing)).toBe(true)
   })
 
+  it('persists a future-slot anchor from its existing base bar', () => {
+    const { document } = createDocument()
+
+    const drawing = document.createDrawing({
+      kind: 'trend-line',
+      paneId: 'main',
+      anchors: [
+        { timestamp: 1_000, price: 10 },
+        { timestamp: 1_000, futureOffset: 3, price: 12 },
+      ],
+    })
+
+    expect(drawing.anchors[1]).toMatchObject({ time: 1_000, futureOffset: 3, price: 12 })
+  })
+
   it('creates a drawing from trading-date anchors using the stored bar timestamp', () => {
     const { document } = createDocument()
     const drawing = document.createDrawing({
@@ -114,6 +129,16 @@ describe('DrawingDocument', () => {
         ],
       }),
     ).toThrow('No chart data exists')
+    expect(() =>
+      document.createDrawing({
+        kind: 'trend-line',
+        paneId: 'main',
+        anchors: [
+          { timestamp: 1_000, futureOffset: 0, price: 10 },
+          { timestamp: 1_000, price: 12 },
+        ],
+      }),
+    ).toThrow('future offset must be a positive integer')
     expect(document.listDrawings()).toEqual([])
   })
 

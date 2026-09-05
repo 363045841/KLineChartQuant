@@ -2,7 +2,12 @@
 import { describe, expect, it } from 'vitest'
 
 import type { DrawingChartAdapter } from '../../../controllers/types'
-import { anchorToScreen, pointToSegmentDistanceSq, resolveDrawingPointer } from '../coordinateUtils'
+import {
+  anchorToScreen,
+  pointToSegmentDistanceSq,
+  resolveDrawingPointer,
+  screenToAnchor,
+} from '../coordinateUtils'
 
 /** 创建覆盖副图与分时坐标路径的最小 adapter。 */
 function createAdapter(): DrawingChartAdapter {
@@ -53,6 +58,27 @@ describe('drawing coordinate utilities', () => {
       x: 80,
       y: 30,
     })
+  })
+
+  it('stores a right-side blank-area anchor as an offset from the last bar', () => {
+    const adapter = {
+      ...createAdapter(),
+      getLogicalIndexAtX: () => 3,
+      getScreenXAtLogicalIndex: (index: number) => 137 + index * 10,
+    } as DrawingChartAdapter
+
+    expect(screenToAnchor(170, 30, 'sub', adapter)).toEqual({
+      time: 1_000,
+      futureOffset: 3,
+      price: 130,
+    })
+    expect(
+      anchorToScreen(
+        { id: 'future-anchor', time: 1_000, futureOffset: 3, price: 20 },
+        'sub',
+        adapter,
+      ),
+    ).toEqual({ type: 'point', x: 167, y: 30 })
   })
 
   it('returns squared distance for projected and degenerate line segments', () => {

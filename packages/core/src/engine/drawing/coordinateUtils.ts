@@ -9,8 +9,10 @@ import type {
 
 /** 原始锚点输入（逻辑坐标：时间戳 + 价格） */
 export interface InteractionDrawingAnchor {
-  /** 对应的时间戳（ms） */
+  /** 对应的时间戳（ms）；未来槽位时为创建时最后一根 K 线的时间。 */
   time?: number
+  /** 基准 K 线之后的未来时间轴槽位数。 */
+  futureOffset?: number
   /** 价格 */
   price: number
 }
@@ -45,8 +47,13 @@ export function anchorToScreen(
 
   const timestamp = typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
   if (!Number.isFinite(timestamp)) return null
-  const index = adapter.getLogicalIndexAtTimestamp(timestamp as number)
-  if (index === null) return null
+  const baseIndex = adapter.getLogicalIndexAtTimestamp(timestamp as number)
+  if (baseIndex === null) return null
+  const futureOffset = anchor.futureOffset
+  if (futureOffset !== undefined && (!Number.isInteger(futureOffset) || futureOffset <= 0)) {
+    return null
+  }
+  const index = baseIndex + (futureOffset ?? 0)
   const x = adapter.getScreenXAtLogicalIndex(index)
   if (x === null) return null
   if (anchor.type === 'vertical') return { type: 'vertical', x }
@@ -65,7 +72,7 @@ export function isScreenPoint(
  *
  * 用于拖拽整线时的屏幕偏移量回算。
  *
- * @returns InteractionDrawingAnchor，viewport 不可用或索引不在数据范围内时返回 null
+ * @returns InteractionDrawingAnchor，viewport 不可用或无法解析时间轴槽位时返回 null
  */
 export function screenToAnchor(
   screenX: number,
@@ -83,10 +90,13 @@ export function screenToAnchor(
   const paneInfo = adapter.getPaneInfo(paneId)
   if (!paneInfo) return null
 
-  const timestamp = adapter.getDrawingTimestampAtLogicalIndex(logicalIndex) ?? undefined
+  const lastIndex = data.length - 1
+  const timestamp = adapter.getDrawingTimestampAtLogicalIndex(Math.min(logicalIndex, lastIndex))
+  if (timestamp === null) return null
 
   return {
-    time: timestamp ?? undefined,
+    time: timestamp,
+    ...(logicalIndex > lastIndex ? { futureOffset: logicalIndex - lastIndex } : {}),
     price: adapter.yToPrice(paneId, paneY),
   }
 }
@@ -97,7 +107,7 @@ export function screenToAnchor(
  * 边界检测：
  * - 鼠标超出 viewport.plotWidth / plotHeight → null
  * - 鼠标不在 main pane 范围内 → null
- * - 鼠标位置无对应 K 线索引 → null
+ * - 鼠标位置无对应时间轴槽位 → null
  *
  * @returns InteractionDrawingAnchor，超出范围或数据不可用时返回 null
  */

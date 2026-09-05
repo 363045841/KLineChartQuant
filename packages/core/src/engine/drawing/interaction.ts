@@ -283,7 +283,13 @@ export class DrawingInteractionController {
     const drawing = this.adapter.createDrawing({
       kind: getDrawingKind(activeTool),
       paneId: anchor.paneId,
-      anchors: [{ timestamp: Number(anchor.time), price: anchor.price }],
+      anchors: [
+        {
+          timestamp: Number(anchor.time),
+          futureOffset: anchor.futureOffset,
+          price: anchor.price,
+        },
+      ],
     })
     this.callbacks.onDrawingCreated?.(drawing)
     this.adapter.setDrawingToolId('cursor')
@@ -299,7 +305,11 @@ export class DrawingInteractionController {
     const drawing = this.adapter.createDrawing({
       kind: getDrawingKind(activeTool),
       paneId,
-      anchors: anchors.map((anchor) => ({ timestamp: Number(anchor.time), price: anchor.price })),
+      anchors: anchors.map((anchor) => ({
+        timestamp: Number(anchor.time),
+        futureOffset: anchor.futureOffset,
+        price: anchor.price,
+      })),
     })
     this.callbacks.onDrawingCreated?.(drawing)
     this.adapter.setDrawingToolId('cursor')

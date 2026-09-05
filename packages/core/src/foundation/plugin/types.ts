@@ -407,7 +407,14 @@ export type DrawingAnchorType = 'point' | 'horizontal' | 'vertical'
 export type PersistedDrawingAnchor = {
   id: string
   type?: DrawingAnchorType
+  /**
+   * 数据锚点的时间；futureOffset 存在时表示创建时最后一根 K 线的时间。
+   */
   time?: number | string
+  /**
+   * 基准 K 线之后的未来时间轴槽位数。只用于未来锚点，必须为正整数。
+   */
+  futureOffset?: number
   price: number
 }
 

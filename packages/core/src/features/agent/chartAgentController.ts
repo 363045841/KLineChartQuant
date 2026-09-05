@@ -7,7 +7,10 @@ import type { MarketDataProviderRegistry } from '../../data/provider/registry'
 import { MarketDataCache } from '../../data/buffer/marketDataCache'
 import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
 import type { ChartDataView } from '../../foundation/types/chartView'
-import type { DrawingDocument } from '../../engine/drawing/DrawingDocument'
+import type {
+  DrawingAnchorCommandInput,
+  DrawingDocument,
+} from '../../engine/drawing/DrawingDocument'
 import type { DrawingCommands } from '../../engine/drawing/DrawingCommands'
 import type { DrawingObject } from '../../foundation/plugin'
 
@@ -314,11 +317,11 @@ function projectDrawingSelection(
 /** 将 Agent 提供的交易日锚点转换为 Core 绘图 API 使用的声明式输入。 */
 function parseDrawingAnchors(
   anchors: ReadonlyArray<Static<typeof DrawingAnchorToolParameters>>,
-): ReadonlyArray<{ tradingDate?: TradingDate; price: number }> {
-  return anchors.map(({ tradingDate, price }) => ({
-    price,
-    ...(tradingDate === undefined ? {} : { tradingDate: tradingDate as TradingDate }),
-  }))
+): ReadonlyArray<DrawingAnchorCommandInput> {
+  return anchors.map(({ tradingDate, price }) => {
+    if (tradingDate === undefined) return { price }
+    return { tradingDate: tradingDate as TradingDate, price }
+  })
 }
 
 /** 从当前数据计算含首尾时间戳的完整数据范围。 */
