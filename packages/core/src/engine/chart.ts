@@ -1590,14 +1590,11 @@ export class Chart {
 
   /**
    * 滚动事件处理（高层 API）
-   * 更新缓存的 scrollLeft 并触发交互 controller
+   * 将 DOM 滚动位置原子写入 viewport，再触发交互清理与整帧重绘。
    */
   handleScrollEvent(): void {
-    this.interaction.onScroll({
-      scheduleDraw: !this.indicatorManager.indicatorSchedulerAccessor.busySignal.peek(),
-    })
-    // viewportState is now computed() — auto-updates when scrollLeft or
-    // visibleRange change. No manual signal push needed anymore.
+    this.kernel.viewport.actions.syncFromDomScroll()
+    this.interaction.onScroll()
   }
 
   /**

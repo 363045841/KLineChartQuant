@@ -12,6 +12,11 @@ export function roundToPhysicalPixel(value: number, dpr: number, theme?: 'light'
   return Math.round(value * dpr) / dpr
 }
 
+/** 将世界 X 坐标按当前滚动量投影并对齐到屏幕物理像素。 */
+export function worldXToScreenX(worldX: number, scrollLeft: number, dpr: number): number {
+  return Math.round((worldX - scrollLeft) * dpr) / dpr
+}
+
 /**
  * 将逻辑坐标对齐到物理像素中心（用于 1px 线条）
  * @param value - 逻辑坐标值

@@ -2,6 +2,7 @@
 
 import { CandleWebGLSurface, LineWebGLSurface } from '../../../engine/renderers/webgl/candleSurface'
 import { SharedWebGLSurface } from '../../../engine/renderers/webgl/sharedWebGLSurface'
+import { worldXToScreenX } from '../../../foundation/utils/pixelAlign'
 
 import type {
   Renderer,
@@ -62,6 +63,32 @@ export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurf
   const bufferMeta = new WeakMap<object, BufferRecord>()
   const pipelineMeta = new WeakMap<object, PipelineRecord>()
   let currentRegion: SurfaceRegion | null = null
+  let rectScreenScratch = new Float32Array(0)
+
+  /** 在 CPU 双精度空间完成世界坐标投影，避免低精度 GPU 对大坐标相减产生量化。 */
+  function projectRectsToScreen(
+    rects: Float32Array,
+    rectCount: number,
+    scrollLeft: number,
+    dpr: number,
+  ): Float32Array {
+    const floatCount = rectCount * 4
+    if (rectScreenScratch.length < floatCount) {
+      rectScreenScratch = new Float32Array(floatCount)
+    }
+    for (let index = 0; index < rectCount; index++) {
+      const offset = index * 4
+      const worldLeft = rects[offset]!
+      const worldRight = worldLeft + rects[offset + 2]!
+      const screenLeft = worldXToScreenX(worldLeft, scrollLeft, dpr)
+      const screenRight = worldXToScreenX(worldRight, scrollLeft, dpr)
+      rectScreenScratch[offset] = screenLeft
+      rectScreenScratch[offset + 1] = rects[offset + 1]!
+      rectScreenScratch[offset + 2] = Math.max(1 / dpr, screenRight - screenLeft)
+      rectScreenScratch[offset + 3] = rects[offset + 3]!
+    }
+    return rectScreenScratch.subarray(0, floatCount)
+  }
 
   function disposeSurfaces(): void {
     if (candleSurface) {
@@ -172,7 +199,9 @@ export function createWebGLRenderer(surface: SurfaceBackend, gl: SharedWebGLSurf
 
       // candle 路径 fail-closed：无 surface 则 false，由业务层 2D 兜底
       if (!candleSurface) return false
-      return candleSurface.drawRectBuffer(floats, rectCount, color, scrollLeft)
+      const dpr = currentRegion?.dpr ?? 1
+      const screenRects = projectRectsToScreen(floats, rectCount, scrollLeft, dpr)
+      return candleSurface.drawRectBuffer(screenRects, rectCount, color, 0)
     },
 
     drawLines(params: DrawLinesParams): boolean {

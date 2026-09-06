@@ -304,6 +304,29 @@ describe('Chart DPR pipeline', () => {
     await chart.destroy()
   })
 
+  it('publishes each DOM scroll position before scheduling its frame', async () => {
+    const dom = createDom(1000, 600)
+    const chart = new Chart(dom, defaultOptions)
+    const data = Array.from({ length: 200 }, (_, index) => ({
+      timestamp: index,
+      open: 10,
+      high: 11,
+      low: 9,
+      close: 10,
+    }))
+    chart.setData(data)
+    const scheduleDrawSpy = vi.spyOn(chart, 'scheduleDraw').mockImplementation(() => {})
+
+    dom.container.scrollLeft = 900
+    chart.handleScrollEvent()
+
+    expect(chart.kernel.viewport.readonly.scrollLeft.peek()).toBe(900)
+    expect(chart.getViewport()?.scrollLeft).toBe(-100)
+    expect(scheduleDrawSpy).toHaveBeenCalledTimes(1)
+
+    await chart.destroy()
+  })
+
   it('does not schedule redraw for identical render state', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     const scheduleDrawSpy = vi.spyOn(chart, 'scheduleDraw')

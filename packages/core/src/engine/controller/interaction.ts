@@ -523,6 +523,7 @@ export class InteractionController {
       visibleRange: range,
       centers,
       scrollLeft: viewport.scrollLeft,
+      dpr: viewport.dpr,
       fallbackStep: this.frameFallbackCenterStep ?? 0,
     })
   }
