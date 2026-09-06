@@ -18,6 +18,7 @@ export type ActiveBufferSnapshot =
       readonly data: ReadonlyArray<never>
       readonly loading: false
       readonly error: null
+      readonly timezone: null
       readonly timeShareRange: null
       readonly timeSharePreClose: null
     }
@@ -28,6 +29,8 @@ export type ActiveBufferSnapshot =
       readonly data: ReadonlyArray<KLineData>
       readonly loading: boolean
       readonly error: string | null
+      /** K 线服务端返回的时区。 */
+      readonly timezone: string | null
       readonly timeShareRange: null
       readonly timeSharePreClose: null
     }
@@ -38,6 +41,8 @@ export type ActiveBufferSnapshot =
       readonly data: ReadonlyArray<TimeShareData>
       readonly loading: boolean
       readonly error: string | null
+      /** 分时服务端返回的时区。 */
+      readonly timezone: string | null
       readonly timeShareRange: TimeShareRange | null
       readonly timeSharePreClose: number | null
     }
@@ -51,6 +56,7 @@ function emptyActiveBufferSnapshot(): ActiveBufferSnapshot {
     data: Object.freeze([]),
     loading: false,
     error: null,
+    timezone: null,
     timeShareRange: null,
     timeSharePreClose: null,
   })

@@ -57,6 +57,7 @@ docs/TradingView级别像素对齐技术.md
 # Agents
 .agents/
 .worktrees/
+.trellis/
 
 # Next.js examples
 examples/next-app/.next/

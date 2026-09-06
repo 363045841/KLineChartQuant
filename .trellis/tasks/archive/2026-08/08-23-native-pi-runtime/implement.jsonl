@@ -1,3 +1,0 @@
-{"file":".trellis/tasks/08-23-kq-agent-workbench-p0/design.md","reason":"Defines package ownership, Main/Renderer boundaries, IPC shape, persistence, and dependency order for the parent P0."}
-{"file":".trellis/spec/backend/core-agent-facade.md","reason":"Defines the only supported Core context/query boundary consumed by runtime and later tools."}
-{"file":".trellis/tasks/08-23-kq-agent-workbench-p0/prd.md","reason":"Defines the cross-child shared Web/Electron UI contract and runtime requirements supplied by PR #124."}

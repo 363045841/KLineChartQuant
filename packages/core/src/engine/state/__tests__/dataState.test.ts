@@ -37,6 +37,7 @@ describe('dataState', () => {
       data: [{ timestamp: 1, open: 1, high: 1, low: 1, close: 1 }],
       loading: true,
       error: null,
+      timezone: 'UTC',
       timeShareRange: null,
       timeSharePreClose: null,
     })
@@ -54,17 +55,17 @@ describe('dataState', () => {
     const state = createDataState()
     const data = [{ timestamp: 1, open: 1, high: 1, low: 1, close: 1 }]
     state.actions.applyActiveBufferSnapshot({
-      kind: 'bars', selection: barsSelection, data, loading: true, error: null,
+      kind: 'bars', selection: barsSelection, data, loading: true, error: null, timezone: 'UTC',
       timeShareRange: null, timeSharePreClose: null,
     })
     state.actions.applyActiveBufferSnapshot({
-      kind: 'bars', selection: barsSelection, data, loading: false, error: null,
+      kind: 'bars', selection: barsSelection, data, loading: false, error: null, timezone: 'UTC',
       timeShareRange: null, timeSharePreClose: null,
     })
     expect(state.readonly.dataRevision()).toBe(1)
 
     state.actions.applyActiveBufferSnapshot({
-      kind: 'bars', selection: barsSelection, data: [...data], loading: false, error: null,
+      kind: 'bars', selection: barsSelection, data: [...data], loading: false, error: null, timezone: 'UTC',
       timeShareRange: null, timeSharePreClose: null,
     })
     expect(state.readonly.dataRevision()).toBe(2)
@@ -78,6 +79,7 @@ describe('dataState', () => {
       data: [],
       loading: true,
       error: 'failed',
+      timezone: 'UTC',
       timeShareRange: null,
       timeSharePreClose: null,
     })
@@ -112,6 +114,7 @@ describe('dataState', () => {
       data: [{ timestamp: 1, price: 10, average: 10 }],
       loading: false,
       error: null,
+      timezone: range.timezone,
       timeShareRange: range,
       timeSharePreClose: 10,
     })

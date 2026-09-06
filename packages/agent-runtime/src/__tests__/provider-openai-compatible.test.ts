@@ -441,7 +441,7 @@ describe('OpenAI-compatible runtime support', () => {
           { kind: 'chart-symbol', value: { symbol: 'BTCUSDT', name: 'Bitcoin / Tether' } },
           {
             kind: 'selected-time-range',
-            value: { from: 1_700_000_000_000, to: 1_700_086_400_000 },
+            value: { from: '2023-11-15 06:13', to: '2023-11-16 06:13' },
           },
         ],
       },

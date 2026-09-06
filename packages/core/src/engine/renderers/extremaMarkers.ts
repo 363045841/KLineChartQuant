@@ -8,6 +8,7 @@ import {
   roundToPhysicalPixel,
   alignToPhysicalPixelCenter,
   createHorizontalLineRect,
+  worldXToScreenX,
 } from '../../foundation/utils/pixelAlign'
 import { isOnRightHalf } from '../../foundation/utils/viewportSide'
 import { getFont, setCanvasFont } from '../../foundation/tokens/fonts'
@@ -190,14 +191,14 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
         }
       }
 
-      const getCenterX = (i: number) => {
+      const getScreenCenterX = (i: number) => {
         const localIdx = i - range.start
         if (localIdx < 0 || localIdx >= kLineCenters.length) return NaN
-        return kLineCenters[localIdx]!
+        return worldXToScreenX(kLineCenters[localIdx]!, scrollLeft, dpr)
       }
 
-      const inViewport = (cx: number) =>
-        Number.isFinite(cx) && cx >= scrollLeft && cx <= scrollLeft + paneWidth
+      const inViewport = (screenX: number) =>
+        Number.isFinite(screenX) && screenX >= 0 && screenX <= paneWidth
 
       // 首选全局极值（center 在视口内），否则 fallback 到严格范围极值，防止标记被吞
       const pickExtreme = (
@@ -205,12 +206,16 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
         globalVal: number,
         strictIdx: number,
         strictVal: number,
-      ): { idx: number; val: number; cx: number } | null => {
-        const globalCx = getCenterX(globalIdx)
-        if (inViewport(globalCx)) return { idx: globalIdx, val: globalVal, cx: globalCx }
+      ): { idx: number; val: number; screenX: number } | null => {
+        const globalScreenX = getScreenCenterX(globalIdx)
+        if (inViewport(globalScreenX)) {
+          return { idx: globalIdx, val: globalVal, screenX: globalScreenX }
+        }
         if (hasStrict) {
-          const strictCx = getCenterX(strictIdx)
-          if (inViewport(strictCx)) return { idx: strictIdx, val: strictVal, cx: strictCx }
+          const strictScreenX = getScreenCenterX(strictIdx)
+          if (inViewport(strictScreenX)) {
+            return { idx: strictIdx, val: strictVal, screenX: strictScreenX }
+          }
         }
         return null
       }
@@ -222,17 +227,13 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
       const kStep = kWidth + kGap
 
       if (maxResult) {
-        const distToEdge = Math.min(
-          maxResult.cx - scrollLeft,
-          scrollLeft + paneWidth - maxResult.cx,
-        )
+        const distToEdge = Math.min(maxResult.screenX, paneWidth - maxResult.screenX)
         const maxMarker = createMarkerData(
-          maxResult.cx,
+          maxResult.screenX,
           pane.yAxis.priceToY(maxResult.val),
           maxResult.val,
           dpr,
           paneWidth,
-          scrollLeft,
           ctx,
           distToEdge < kStep,
         )
@@ -240,17 +241,13 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
       }
 
       if (minResult) {
-        const distToEdge = Math.min(
-          minResult.cx - scrollLeft,
-          scrollLeft + paneWidth - minResult.cx,
-        )
+        const distToEdge = Math.min(minResult.screenX, paneWidth - minResult.screenX)
         const minMarker = createMarkerData(
-          minResult.cx,
+          minResult.screenX,
           pane.yAxis.priceToY(minResult.val),
           minResult.val,
           dpr,
           paneWidth,
-          scrollLeft,
           ctx,
           distToEdge < kStep,
         )
@@ -258,10 +255,7 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
       }
 
       // 批量绘制所有 markers
-      ctx.save()
-      ctx.translate(-scrollLeft, 0)
       drawAllMarkers(ctx, markers, dpr, colors.text.weak, colors.text.primary)
-      ctx.restore()
     },
   }
 }
@@ -288,7 +282,6 @@ function createMarkerData(
   price: number,
   dpr: number,
   paneWidth: number,
-  scrollLeft: number,
   ctx: CanvasRenderingContext2D,
   isBoundary: boolean = false,
 ): MarkerData | null {
@@ -296,8 +289,7 @@ function createMarkerData(
   const textWidth = measureTextWidth(ctx, text)
 
   const lineLength = isBoundary ? LINE_LENGTH * 2 : LINE_LENGTH
-  const screenX = x - scrollLeft
-  const drawLeft = isOnRightHalf(screenX, paneWidth)
+  const drawLeft = isOnRightHalf(x, paneWidth)
 
   let lineStartX = x
   let lineEndX = drawLeft ? x - lineLength : x + lineLength

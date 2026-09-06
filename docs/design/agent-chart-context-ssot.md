@@ -4,6 +4,8 @@
 
 图表上下文的唯一权威来源是 Core StateKernel。`ChartAgentController.context` 以只读 signal 形式投影当前标的、周期、时间范围和指标；没有有效行情数据时值为 `null`。
 
+服务端 `BarSeries` 和 `TimeShareRange` 返回的 `timezone` 随活动数据快照原子写入 StateKernel。Browser bridge 使用该时区通过 `formatTimestamp` 将选中区间转换为日期字符串后注入 Agent；不得改按浏览器本地时区或市场默认时区格式化。
+
 区间选择工具确认的范围写入 `interactionState.selectedRange`。Agent 上下文仅使用该范围；未选择时不提供范围，保证导出数据、Agent 展示和 Agent 查询使用同一份选择结果。
 
 ## 边界

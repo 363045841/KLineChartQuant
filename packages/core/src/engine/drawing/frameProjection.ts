@@ -34,6 +34,7 @@ function createToScreen(context: RenderContext): (anchor: ResolvedDrawingAnchor)
       visibleRange: range,
       centers: kLineCenters,
       scrollLeft,
+      dpr: context.dpr,
       fallbackStep: context.kWidth + context.kGap,
     })
     return { x: x ?? -kWidth, y: pane.yAxis.priceToY(anchor.price) }

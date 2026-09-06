@@ -36,6 +36,7 @@ import {
   getRegisteredChartTools,
   type ChartAgentController,
 } from '@363045841yyt/klinechart-core/controllers'
+import { formatTimestamp } from '@363045841yyt/klinechart-core'
 import type { RuntimeToolDefinition } from '@363045841yyt/klinechart-agent-runtime'
 
 const PROVIDER_PROFILES_STORAGE_KEY = 'agent.provider.profiles'
@@ -260,7 +261,14 @@ function projectContextItems(
     })
   }
   if (context.visibleRange) {
-    items.push({ kind: 'selected-time-range', value: { ...context.visibleRange } })
+    const formatOptions = { timeZone: context.timezone ?? undefined, showTime: true }
+    items.push({
+      kind: 'selected-time-range',
+      value: {
+        from: formatTimestamp(context.visibleRange.from, formatOptions),
+        to: formatTimestamp(context.visibleRange.to, formatOptions),
+      },
+    })
   }
   if (context.drawingSelection) {
     items.push({

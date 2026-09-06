@@ -62,7 +62,7 @@ type MsaaTargets = {
 }
 
 const RECT_VERTEX_SHADER_SOURCE = `#version 300 es
-precision mediump float;
+precision highp float;
 
 in vec2 a_unit;
 in vec4 a_rect;
@@ -86,7 +86,7 @@ void main() {
 }`
 
 const LINE_VERTEX_SHADER_SOURCE = `#version 300 es
-precision mediump float;
+precision highp float;
 
 in vec2 a_position;
 

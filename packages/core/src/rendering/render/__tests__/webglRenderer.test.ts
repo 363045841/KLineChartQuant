@@ -231,6 +231,29 @@ describe('createWebGLRenderer', () => {
       expect(args[3]).toBe(0)
     })
 
+    it('projects large world coordinates before uploading them to WebGL', () => {
+      const { renderer } = makeRenderer()
+      renderer.beginFrame({ x: 0, y: 0, width: 800, height: 600, dpr: 1.25 })
+      const pipeline = renderer.createPipeline({ type: 'candle' })
+      const instances = renderer.createBuffer('instance', 16)
+      renderer.writeBuffer(instances, new Float32Array([10000.8, 12, 4, 20]))
+
+      renderer.drawInstances({
+        pipeline,
+        vertices: renderer.createBuffer('vertex', 48),
+        instances,
+        instanceCount: 1,
+        vertexCount: 6,
+        uniforms: { color: '#ff0000', scrollLeft: 9980.6 },
+      })
+
+      const [rects, count, color, scrollLeft] = mocks.mockDrawRectBuffer.mock.calls[0]!
+      expect(Array.from(rects)).toEqual([20, 12, 4, 20])
+      expect(count).toBe(1)
+      expect(color).toBe('#ff0000')
+      expect(scrollLeft).toBe(0)
+    })
+
     it('returns true without GPU when instanceCount is zero', () => {
       const { renderer } = makeRenderer()
       renderer.beginFrame({ x: 0, y: 0, width: 100, height: 100, dpr: 1 })
