@@ -118,10 +118,8 @@ const TradingDateToolParameter = Type.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$'
 const IndicatorQueryToolParameters = Type.Object({
   definitionId: Type.String({ minLength: 1 }),
   params: Type.Optional(Type.Record(Type.String(), Type.Number())),
-  from: Type.Optional(Type.Number()),
-  to: Type.Optional(Type.Number()),
   limit: Type.Optional(Type.Integer({ minimum: 1, maximum: INDICATOR_QUERY_MAX_LIMIT })),
-})
+}, { additionalProperties: false })
 
 const BarsQueryToolParameters = Type.Object({
   symbol: Type.String({ minLength: 1 }),
@@ -131,8 +129,7 @@ const BarsQueryToolParameters = Type.Object({
   sourceId: Type.Optional(Type.String({ minLength: 1 })),
   exchange: Type.Optional(Type.String({ minLength: 1 })),
   assetClass: Type.Optional(AssetClassToolParameter),
-  beforeTimestamp: Type.Optional(Type.Number()),
-})
+}, { additionalProperties: false })
 
 type BarsQueryToolInput = Static<typeof BarsQueryToolParameters>
 
@@ -570,7 +567,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     name: 'indicators_query',
     label: 'Query indicator',
     description:
-      'Calculate a registered chart indicator over the active K-line data and return compact text. Use definitionId, optional numeric calculation params, an optional inclusive timestamp range, and a bounded result limit.',
+      'Calculate a registered chart indicator over all active K-line data and return compact text. Use definitionId, optional numeric calculation params, and a bounded result limit.',
     parameters: IndicatorQueryToolParameters,
     safety: 'read-only',
     executionMode: 'parallel',
@@ -579,7 +576,11 @@ class ChartAgentControllerImpl implements ChartAgentController {
     input: IndicatorQueryInput,
     _context?: ChartToolExecutionContext,
   ): Promise<string> {
-    return this.dependencies.indicatorQuery.queryIndicator(input)
+    return this.dependencies.indicatorQuery.queryIndicator({
+      definitionId: input.definitionId,
+      params: input.params,
+      limit: input.limit,
+    })
   }
 
   /** 执行面向前端联想搜索的模糊品种查询。 */
@@ -607,7 +608,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     })
   }
 
-  /** 查询任意品种的一页 K 线；底层游标始终使用 UTC 毫秒时间戳。 */
+  /** 查询任意品种的最新一页 K 线。 */
   async queryBars(input: BarsQueryInput, context?: ChartToolExecutionContext): Promise<string> {
     this.requireEnabledMarketDataSource(input.sourceId)
     const result = await this.dependencies.marketDataCache.queryBars({
@@ -618,7 +619,6 @@ class ChartAgentControllerImpl implements ChartAgentController {
       period: input.period,
       adjustment: input.adjustment,
       limit: input.limit,
-      beforeTimestamp: input.beforeTimestamp,
       signal: context?.signal,
     })
     return this.marketDataTextFormatter.formatBars({
@@ -629,27 +629,21 @@ class ChartAgentControllerImpl implements ChartAgentController {
     })
   }
 
-  /** 以精确时间戳游标查询一页 K 线。 */
+  /** 查询任意品种的最新一页 K 线。 */
   @Tool({
     name: 'market_bars_query',
     label: 'Query market bars',
     description:
-      'Fetch one page of market bars for any symbol without changing the chart. limit must be an integer from 1 to 798. Use beforeTimestamp only as an exclusive Unix-millisecond cursor; omit it for the latest bars. Pagination and retries are handled by the cache.',
+      'Fetch the latest page of market bars for any symbol without changing the chart. limit must be an integer from 1 to 798. Pagination and retries are handled by the cache.',
     parameters: BarsQueryToolParameters,
     safety: 'read-only',
     executionMode: 'parallel',
   })
-  queryBarsByTimestamp(
+  queryLatestBars(
     input: BarsQueryToolInput,
     context?: ChartToolExecutionContext,
   ): Promise<string> {
-    return this.queryBars(
-      {
-        ...input,
-        beforeTimestamp: input.beforeTimestamp,
-      },
-      context,
-    )
+    return this.queryBars(input, context)
   }
 
   /** 查询任意品种单个交易日的分时；不读取或修改图表运行时状态。 */

@@ -1,4 +1,4 @@
-// 本文件保留既有 Agent 指标查询入参，并将纯计算结果直接转义为紧凑文本。
+// 本文件执行指标计算，并将纯计算结果直接转义为紧凑文本。
 
 import { getRegisteredIndicatorDefinition } from '../../../engine/indicators/indicatorDefinitionRegistry'
 import { INDICATOR_QUERY_ERROR_CODES, KLineChartError } from '../../../errors'
@@ -7,7 +7,7 @@ import { createIndicatorTextFormatter, type IndicatorTextFormatter } from './ind
 
 import type { IndicatorMetadata } from '../../../engine/indicators/indicatorMetadata'
 import type { DataStateModule } from '../../../engine/state/dataState'
-import type { IndicatorQueryInput } from '../types'
+import type { IndicatorQueryInput as AgentIndicatorQueryInput } from '../types'
 
 // 默认限制文本中返回的结果条目数量。
 const DEFAULT_QUERY_LIMIT = 20
@@ -15,6 +15,13 @@ const DEFAULT_QUERY_LIMIT = 20
 const MAX_QUERY_LIMIT = 2000
 // 行情在计算期间变化时最多重试一次，避免持续更新导致查询长期占用主线程。
 const MAX_DATA_REVISION_ATTEMPTS = 2
+
+/** 指标计算的内部输入，可按时间范围筛选结果；不作为 Agent 工具契约暴露。 */
+type IndicatorCalculationQueryInput = AgentIndicatorQueryInput & {
+  readonly from?: number
+  readonly to?: number
+}
+
 /** 查询服务依赖，允许测试或宿主替换指标定义解析器和文本转义器。 */
 export interface IndicatorQueryDependencies {
   readonly dataState: DataStateModule
@@ -26,11 +33,13 @@ export interface IndicatorQueryDependencies {
 
 /** 调用既有指标计算链路并返回紧凑文本。 */
 export interface IndicatorQuery {
-  queryIndicator(input: IndicatorQueryInput): Promise<string>
+  queryIndicator(input: IndicatorCalculationQueryInput): Promise<string>
 }
 
 /** 校验查询参数并返回规范化输入。 */
-function normalizeInput(input: IndicatorQueryInput): Required<IndicatorQueryInput> {
+function normalizeInput(
+  input: IndicatorCalculationQueryInput,
+): Required<IndicatorCalculationQueryInput> {
   const definitionId = typeof input?.definitionId === 'string' ? input.definitionId.trim() : ''
   if (!definitionId || (input.params !== undefined && !isNumericParams(input.params))) {
     throw new KLineChartError(
@@ -117,7 +126,7 @@ export function createIndicatorQuery(dependencies: IndicatorQueryDependencies): 
 
   return {
     /** 使用完整活动行情计算指标，并将纯计算结果直接转义为文本。 */
-    async queryIndicator(input: IndicatorQueryInput): Promise<string> {
+    async queryIndicator(input: IndicatorCalculationQueryInput): Promise<string> {
       const query = normalizeInput(input)
       const definition = resolveDefinition(query.definitionId)
       const runtime = definition?.runtime

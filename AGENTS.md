@@ -228,6 +228,9 @@ Never guess at Effect patterns - check the guide first.
 - **Do not reuse GPU instance buffers across draw calls in the same frame**. `packages/core/src/engine/renderers/rectsViaRenderer.ts` used to cache instance buffers by slot per renderer. Because `drawRectBatchesViaRenderer` reset the slot counter to 0 on every call, the main pane candle batches and the MACD sub-pane batches shared the same GPU buffers within a single frame. MACD wrote later and overwrote the candle instance data, causing the left-side K-line bodies to disappear. The fix is to create and destroy an instance buffer per batch; only cache the pipeline and unit vertex buffer. See also `packages/core/src/rendering/render/createWebGPURenderer.ts` for the WebGPU backend details.
 - **GPU rendering backend 必须以物理像素处理坐标，而非逻辑像素**.
 
+## Agent
+- @Tool 注册的工具,不应该让Agent直接传入时间戳
+
 ## Comment Style
 
 - 涉及核心 Core 引擎改动的，都需要附加设计决策文档，放在 @docs\design 中

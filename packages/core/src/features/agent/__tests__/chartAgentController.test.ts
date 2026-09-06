@@ -385,6 +385,21 @@ describe('createChartAgentController', () => {
     expect(fixture.queryIndicator).toHaveBeenLastCalledWith(input)
   })
 
+  it('rejects timestamp ranges from the registered indicator tool', async () => {
+    const fixture = createFixture()
+    const tool = getRegisteredChartTools().find((item) => item.config.name === 'indicators_query')
+
+    await expect(
+      tool?.execute(
+        fixture.controller,
+        { definitionId: 'RSI', from: Date.parse('2026-09-01') },
+        { signal: new AbortController().signal, progress: () => undefined },
+      ),
+    ).rejects.toThrow('must not have additional properties')
+
+    expect(fixture.queryIndicator).not.toHaveBeenCalled()
+  })
+
   it('executes drawing CRUD through the registered document tools', async () => {
     const fixture = createFixture()
     const signal = new AbortController().signal
@@ -566,7 +581,7 @@ describe('createChartAgentController', () => {
     expect(fixture.controller.getContext().symbol).toBe('BTCUSDT')
   })
 
-  it('passes the registered market bars timestamp cursor through unchanged', async () => {
+  it('rejects timestamp cursors from the registered market bars tool', async () => {
     const fixture = createFixture()
     const tool = getRegisteredChartTools().find((item) => item.config.name === 'market_bars_query')
 
@@ -583,11 +598,9 @@ describe('createChartAgentController', () => {
         },
         { signal: new AbortController().signal, progress: () => undefined },
       ),
-    ).resolves.toContain('source=fixture')
+    ).rejects.toThrow('must not have additional properties')
 
-    expect(fixture.fetchBars).toHaveBeenCalledWith(
-      expect.objectContaining({ beforeTimestamp: Date.parse('2026-09-01') }),
-    )
+    expect(fixture.fetchBars).not.toHaveBeenCalled()
   })
 
   it('registers pane tools as direct PaneManager action adapters', async () => {
