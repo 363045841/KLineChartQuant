@@ -815,6 +815,16 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     return drawingCommands.commitDrag(id, anchors)
   }
 
+  function commitDrawingDrags(
+    updates: ReadonlyArray<{
+      id: string
+      anchors: ReadonlyArray<import('../foundation/plugin').PersistedDrawingAnchor>
+    }>,
+  ): ReadonlyArray<DrawingObject> {
+    if (disposed) return []
+    return drawingCommands.commitDrags(updates)
+  }
+
   function updateBatch(
     ids: ReadonlyArray<string>,
     patch: BatchDrawingPatch,
@@ -1137,7 +1147,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     clearDrawings,
     createDrawing,
     updateDrawing,
-    commitDrawingDrag,
+     commitDrawingDrag,
+     commitDrawingDrags,
     updateBatch,
     getBatchStyleKeys,
     removeDrawing,

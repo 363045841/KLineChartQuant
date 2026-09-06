@@ -9,7 +9,7 @@ const PREVIEW_ID = '__preview__'
  */
 export class DrawingState {
   private preview: DrawingObject | null = null
-  private dragOverride: DrawingObject | null = null
+  private dragOverrides: DrawingObject[] = []
 
   constructor(private adapter: DrawingChartAdapter) {}
 
@@ -23,7 +23,7 @@ export class DrawingState {
   /** 渲染用：拖拽覆盖 + 预览（顺序：override 先，preview 后） */
   getPaintOverlay(): DrawingObject[] {
     const out: DrawingObject[] = []
-    if (this.dragOverride) out.push(this.dragOverride)
+    out.push(...this.dragOverrides)
     if (this.preview) out.push(this.preview)
     return out
   }
@@ -35,11 +35,12 @@ export class DrawingState {
 
   /** 命中检测用：已确认 + 拖拽覆盖，不含预览 */
   getNonPreview(): DrawingObject[] {
-    return mergePaint(this.committed(), this.dragOverride ? [this.dragOverride] : [])
+    return mergePaint(this.committed(), this.dragOverrides)
   }
 
   getById(id: string): DrawingObject | undefined {
-    if (this.dragOverride?.id === id) return this.dragOverride
+    const dragOverride = this.dragOverrides.find((drawing) => drawing.id === id)
+    if (dragOverride) return dragOverride
     if (this.preview?.id === id) return this.preview
     return this.committed().find((d) => d.id === id)
   }
@@ -69,21 +70,36 @@ export class DrawingState {
   }
 
   setDragOverride(drawing: DrawingObject): void {
-    this.dragOverride = drawing
+    this.setDragOverrides([drawing])
+  }
+
+  /** 写入整组拖拽覆盖，用于多选图元的同帧临时投影。 */
+  setDragOverrides(drawings: ReadonlyArray<DrawingObject>): void {
+    this.dragOverrides = [...drawings]
     this.adapter.requestDraw?.()
   }
 
   clearDragOverride(): void {
-    if (!this.dragOverride) return
-    this.dragOverride = null
+    if (this.dragOverrides.length === 0) return
+    this.dragOverrides = []
   }
 
   /** pointerup：把拖拽结果写入 kernel，清会话覆盖 */
   commitDrag(): void {
-    if (!this.dragOverride) return
-    const drawing = this.dragOverride
-    this.dragOverride = null
-    this.adapter.commitDrawingDrag(drawing.id, drawing.anchors)
+    this.commitDrags()
+  }
+
+  /** 将整组拖拽结果原子写入 kernel，再清理会话覆盖。 */
+  commitDrags(): void {
+    if (this.dragOverrides.length === 0) return
+    const updates = this.dragOverrides.map((drawing) => ({ id: drawing.id, anchors: drawing.anchors }))
+    this.dragOverrides = []
+    if (updates.length === 1) {
+      const update = updates[0]!
+      this.adapter.commitDrawingDrag(update.id, update.anchors)
+      return
+    }
+    this.adapter.commitDrawingDrags(updates)
   }
 
   setSelected(drawings: ReadonlyArray<DrawingObject>): void {
@@ -92,7 +108,7 @@ export class DrawingState {
 
   clearSession(): void {
     this.preview = null
-    this.dragOverride = null
+    this.dragOverrides = []
   }
 }
 

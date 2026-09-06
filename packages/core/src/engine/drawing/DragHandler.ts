@@ -6,9 +6,8 @@ import { anchorToScreen, isScreenPoint, resolveDrawingPointer, screenToAnchor } 
 // ---- Types ----
 
 export interface DragState {
-  drawingId: string
+  drawings: DrawingObject[]
   anchorIndex?: number
-  snapshot: PersistedDrawingAnchor[]
   startMouse: { x: number; y: number }
 }
 
@@ -24,9 +23,14 @@ export class DragHandler {
     return this.dragState !== null
   }
 
-  /** 拖拽中的图元 ID */
+  /** 拖拽中的主图元 ID。 */
   getDraggingDrawingId(): string | null {
-    return this.dragState?.drawingId ?? null
+    return this.dragState?.drawings[0]?.id ?? null
+  }
+
+  /** 拖拽中的全部图元 ID。 */
+  getDraggingDrawingIds(): ReadonlyArray<string> {
+    return this.dragState?.drawings.map((drawing) => drawing.id) ?? []
   }
 
   /**
@@ -37,99 +41,83 @@ export class DragHandler {
    * @param mouseY 起始鼠标 Y（屏幕 px）
    */
   startDrag(
-    drawing: DrawingObject,
+    drawings: ReadonlyArray<DrawingObject>,
     anchorIndex: number | undefined,
     mouseX: number,
     mouseY: number,
   ): void {
+    if (drawings.length === 0) return
     this.dragState = {
-      drawingId: drawing.id,
+      drawings: drawings.map((drawing) => ({
+        ...drawing,
+        anchors: drawing.anchors.map((anchor) => ({ ...anchor })),
+      })),
       anchorIndex,
-      snapshot: drawing.anchors.map((a) => ({ ...a })),
       startMouse: { x: mouseX, y: mouseY },
     }
   }
 
   /**
-   * Handle drag-move for the given drawing, mutating its anchors.
-   * @returns a new DrawingObject reference with updated anchors, or null if drag state is stale.
+   * 基于拖拽快照生成整组图元的临时覆盖，不修改已确认状态。
    */
   handleDragMove(
-    drawing: DrawingObject,
     e: PointerEvent,
     container: HTMLElement,
     adapter: DrawingChartAdapter,
-  ): DrawingObject | null {
+  ): DrawingObject[] | null {
     if (!this.dragState) return null
 
     const pointer = resolveDrawingPointer(e, container, adapter)
-    const updatedAnchors = [...drawing.anchors]
-
+    const primary = this.dragState.drawings[0]
+    if (!pointer || !primary || pointer.paneId !== primary.paneId) return null
     if (this.dragState.anchorIndex !== undefined) {
-      // Dragging a single anchor point
-      if (!pointer || pointer.paneId !== drawing.paneId) return null
-      const idx = this.dragState.anchorIndex
+      return [this.moveAnchor(primary, pointer)]
+    }
+    const dx = pointer.x - this.dragState.startMouse.x
+    const dy = pointer.y - this.dragState.startMouse.y
+    return this.dragState.drawings.map((drawing) => this.moveDrawing(drawing, dx, dy, adapter))
+  }
 
-      updatedAnchors[idx] = {
-        ...updatedAnchors[idx]!,
-        time: pointer.time,
-        futureOffset: pointer.futureOffset,
-        price: pointer.price,
-      }
+  /** 移动单个锚点，保持多选之外的图元不受影响。 */
+  private moveAnchor(drawing: DrawingObject, pointer: NonNullable<ReturnType<typeof resolveDrawingPointer>>): DrawingObject {
+    const anchors = drawing.anchors.map((anchor) => ({ ...anchor }))
+    const index = this.dragState?.anchorIndex
+    if (index === undefined) return drawing
+    anchors[index] = { ...anchors[index]!, time: pointer.time, futureOffset: pointer.futureOffset, price: pointer.price }
+    if (drawing.kind === 'flat-line' && index === 1 && anchors.length >= 3) {
+      anchors[2] = { ...anchors[2]!, time: pointer.time, futureOffset: pointer.futureOffset }
+    }
+    return { ...drawing, anchors }
+  }
 
-      // flat-line: third anchor's index/time follows the second
-      if (drawing.kind === 'flat-line' && idx === 1 && updatedAnchors.length >= 3) {
-        updatedAnchors[2] = {
-          ...updatedAnchors[2]!,
-          time: pointer.time,
-          futureOffset: pointer.futureOffset,
-        }
+  /** 对一个图元的全部锚点应用同一屏幕位移。 */
+  private moveDrawing(
+    drawing: DrawingObject,
+    dx: number,
+    dy: number,
+    adapter: DrawingChartAdapter,
+  ): DrawingObject {
+    const anchors = drawing.anchors.map((anchor) => ({ ...anchor }))
+    for (let index = 0; index < anchors.length; index++) {
+      const anchor = anchors[index]!
+      const screen = anchorToScreen(anchor, drawing.paneId, adapter)
+      if (!screen) continue
+      if (screen.type === 'horizontal') {
+        anchors[index] = { ...anchor, type: 'horizontal', price: adapter.yToPrice(drawing.paneId, screen.y + dy) }
+        continue
       }
-    } else {
-      // Dragging the entire line — offset all anchors by mouse delta
-      if (!pointer || pointer.paneId !== drawing.paneId) return null
-      if (drawing.kind === 'horizontal-line') {
-        updatedAnchors[0] = {
-          ...updatedAnchors[0]!,
-          type: 'horizontal',
-          time: undefined,
-          futureOffset: undefined,
-          price: pointer.price,
-        }
-        return { ...drawing, anchors: updatedAnchors }
+      if (screen.type === 'vertical') {
+        const resolved = screenToAnchor(screen.x + dx, 0, drawing.paneId, adapter)
+        if (resolved) anchors[index] = { ...anchor, type: 'vertical', time: resolved.time, futureOffset: resolved.futureOffset }
+        continue
       }
-      if (drawing.kind === 'vertical-line') {
-        updatedAnchors[0] = {
-          ...updatedAnchors[0]!,
-          type: 'vertical',
-          time: pointer.time,
-          futureOffset: pointer.futureOffset,
-        }
-        return { ...drawing, anchors: updatedAnchors }
-      }
-      const dx = pointer.x - this.dragState.startMouse.x
-      const dy = pointer.y - this.dragState.startMouse.y
-
-      for (let i = 0; i < drawing.anchors.length; i++) {
-        const snap = this.dragState.snapshot[i]!
-        const snapScreen = anchorToScreen(snap, drawing.paneId, adapter)
-        if (!snapScreen || !isScreenPoint(snapScreen)) continue
-
-        const targetX = snapScreen.x + dx
-        const targetY = snapScreen.y + dy
-        const newFromScreen = screenToAnchor(targetX, targetY, drawing.paneId, adapter)
-        if (newFromScreen) {
-          updatedAnchors[i] = {
-            ...updatedAnchors[i]!,
-            time: newFromScreen.time,
-            futureOffset: newFromScreen.futureOffset,
-            price: newFromScreen.price,
-          }
-        }
+      if (!isScreenPoint(screen)) continue
+      const resolved = screenToAnchor(screen.x + dx, screen.y + dy, drawing.paneId, adapter)
+      if (resolved) {
+        anchors[index] = { ...anchor, time: resolved.time, futureOffset: resolved.futureOffset, price: resolved.price }
       }
     }
-
-    return { ...drawing, anchors: updatedAnchors }
+    return { ...drawing, anchors }
   }
 
   /** 结束拖拽，清空状态 */

@@ -9,10 +9,15 @@ import type {
   ScreenPoint,
 } from '../../foundation/plugin'
 import type { KLineData } from '../../foundation/types/price'
+import { resolveThemeColors } from '../../foundation/tokens'
 import { resolveChartWorkspaceId } from '../state/modeState'
 import { logicalIndexToScreenX } from '../viewport/logicalIndexToScreenX'
 
 import { DrawingDefinitionRegistry, DrawingStore } from './index'
+import {
+  createSelectionMarqueePrimitives,
+  type DrawingSelectionMarquee,
+} from './selectionMarquee'
 
 type MutableDrawingFrameProjection = {
   primitives: DrawingPrimitive[]
@@ -183,6 +188,7 @@ export function projectDrawingsForFrame(
   store: DrawingStore,
   definitions: DrawingDefinitionRegistry,
   context: RenderContext,
+  selectionMarquee: DrawingSelectionMarquee | null = null,
 ): DrawingFrameProjection {
   const output: MutableDrawingFrameProjection = {
     primitives: [],
@@ -232,6 +238,14 @@ export function projectDrawingsForFrame(
         output,
       )
     }
+  }
+  if (selectionMarquee?.paneId === context.pane.id) {
+    output.primitives.push(
+      ...createSelectionMarqueePrimitives(
+        selectionMarquee,
+        resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings),
+      ),
+    )
   }
   return output
 }

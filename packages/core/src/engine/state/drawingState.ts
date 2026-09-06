@@ -46,7 +46,7 @@ export function createDrawingState() {
         signals.drawingTool.set(tool)
       },
 
-      setDrawings(drawings: ReadonlyArray<DrawingObject>) {
+      setDrawings(drawings: ReadonlyArray<DrawingObject>): ReadonlyArray<DrawingObject> {
         const next = snapshotDrawings(drawings)
         const selected = snapshotSelectedDrawingIds(signals.selectedDrawingIds.peek(), next)
         batch(() => {
@@ -55,6 +55,7 @@ export function createDrawingState() {
             signals.selectedDrawingIds.set(selected)
           }
         })
+        return next
       },
 
       /** 新增或替换指定 id 的已确认图元，并返回是否发生变更。 */

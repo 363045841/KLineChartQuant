@@ -46,6 +46,15 @@ export class DrawingCommands {
     return drawing
   }
 
+  /** 原子提交一组交互层拖拽后的已解析锚点。 */
+  commitDrags(
+    updates: ReadonlyArray<{ id: string; anchors: ReadonlyArray<PersistedDrawingAnchor> }>,
+  ): ReadonlyArray<DrawingObject> {
+    const drawings = this.dependencies.document.commitDrawingDrags(updates)
+    if (drawings.length > 0) this.dependencies.requestDraw()
+    return drawings
+  }
+
   /** 原子更新一批图元的公共属性。 */
   updateBatch(ids: ReadonlyArray<string>, patch: BatchDrawingPatch): ReadonlyArray<DrawingObject> {
     const drawings = this.dependencies.document.updateBatch(ids, patch)

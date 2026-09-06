@@ -250,6 +250,10 @@ export interface DrawingChartAdapter {
     id: string,
     anchors: ReadonlyArray<PersistedDrawingAnchor>,
   ): DrawingObject | null
+  /** 原子提交一组交互层拖拽后的已解析锚点。 */
+  commitDrawingDrags(
+    updates: ReadonlyArray<{ id: string; anchors: ReadonlyArray<PersistedDrawingAnchor> }>,
+  ): ReadonlyArray<DrawingObject>
   /** 原子更新一批图元的公共属性。 */
   updateBatch(ids: ReadonlyArray<string>, patch: BatchDrawingPatch): ReadonlyArray<DrawingObject>
   /** 返回一批图元共同拥有的样式字段。 */

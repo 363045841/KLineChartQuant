@@ -208,6 +208,7 @@
   import IconTablerMinus from '~icons/tabler/minus'
   import IconTablerPointer from '~icons/tabler/pointer'
   import IconTablerSeparator from '~icons/tabler/separator'
+  import IconTablerSelect from '~icons/tabler/select'
   import IconTablerSettings from '~icons/tabler/settings'
   import IconTablerShape from '~icons/tabler/shape'
   import IconTablerZoomIn from '~icons/tabler/zoom-in'
@@ -222,6 +223,7 @@
 
   const primaryTools: ToolDef[] = [
     { id: 'cursor', title: '光标', icon: IconTablerPointer },
+    { id: 'box-select', title: '框选', icon: IconTablerSelect },
     {
       id: 'lines',
       title: '线条',

@@ -34,6 +34,7 @@ import {
 } from '../drawing'
 import { projectDrawingsForFrame } from '../drawing/frameProjection'
 import { createDrawingRendererPlugin } from '../drawing/plugin'
+import type { DrawingSelectionMarquee } from '../drawing/selectionMarquee'
 import { ChartIndicatorManager } from '../indicators/chartIndicatorManager'
 import { resolveStateKey } from '../indicators/indicatorMetadata'
 import { UpdateLevel } from '../layout/pane'
@@ -160,6 +161,8 @@ export interface RendererDependencies {
   drawings$: DrawingStoreDeps['drawings$']
   selectedDrawingIds$: DrawingStoreDeps['selectedDrawingIds$']
   getOverlay?: DrawingStoreDeps['getOverlay']
+  /** 绘图交互会话中的临时框选，不进入持久化图元列表。 */
+  getSelectionMarquee?: () => DrawingSelectionMarquee | null
   /** 主图图例上下文发布（canvas / external 均触发；draw 内回调） */
   onLegendContext?: (
     ctx: import('../renderers/Indicator/mainIndicatorLegendContext').LegendTemplateContext | null,
@@ -984,6 +987,7 @@ export class ChartRenderer {
         this.drawingStore,
         this.drawingDefinitions,
         context,
+        this.deps.getSelectionMarquee?.() ?? null,
       )
       context.yAxisLabels.push(...context.drawingProjection.yAxisLabels)
       context.yAxisRanges.push(...context.drawingProjection.yAxisRanges)

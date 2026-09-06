@@ -407,6 +407,7 @@ export class Chart {
       drawings$: this.kernel.drawing.readonly.drawings,
       selectedDrawingIds$: this.kernel.drawing.readonly.selectedDrawingIds,
       getOverlay: () => this.drawingSession?.getPaintOverlay() ?? [],
+      getSelectionMarquee: () => this.drawingSession?.getSelectionMarquee() ?? null,
       onLegendContext: (ctx) => {
         this._legendTemplateContext.set(ctx)
       },

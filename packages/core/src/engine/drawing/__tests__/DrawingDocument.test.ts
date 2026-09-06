@@ -171,6 +171,44 @@ describe('DrawingDocument', () => {
     expect(state.readonly.selectedDrawingIds.peek()).toEqual([])
   })
 
+  it('commits multiple drag updates atomically', () => {
+    const { document } = createDocument()
+    const first = document.createDrawing({
+      kind: 'trend-line',
+      paneId: 'main',
+      anchors: [
+        { timestamp: 1_000, price: 10 },
+        { timestamp: 1_000, price: 12 },
+      ],
+    })
+    const second = document.createDrawing({
+      kind: 'trend-line',
+      paneId: 'main',
+      anchors: [
+        { timestamp: 1_000, price: 20 },
+        { timestamp: 1_000, price: 22 },
+      ],
+    })
+    const before = document.listDrawings()
+
+    expect(
+      document.commitDrawingDrags([
+        { id: first.id, anchors: first.anchors.map((anchor) => ({ ...anchor, price: 11 })) },
+        { id: second.id, anchors: [{ ...second.anchors[0]!, price: 21 }] },
+      ]),
+    ).toEqual([])
+    expect(document.listDrawings()).toEqual(before)
+
+    expect(
+      document.commitDrawingDrags([
+        { id: first.id, anchors: first.anchors.map((anchor) => ({ ...anchor, price: 11 })) },
+        { id: second.id, anchors: second.anchors.map((anchor) => ({ ...anchor, price: 21 })) },
+      ]).map((drawing) => drawing.id),
+    ).toEqual([first.id, second.id])
+    expect(document.getDrawing(first.id)?.anchors[0]?.price).toBe(11)
+    expect(document.getDrawing(second.id)?.anchors[0]?.price).toBe(21)
+  })
+
   it('updates a batch only when every requested style field is shared', () => {
     const { document } = createDocument()
     document.replaceDrawings([

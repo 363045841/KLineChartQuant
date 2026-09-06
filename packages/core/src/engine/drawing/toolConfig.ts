@@ -9,6 +9,7 @@ import type { DrawingKind } from '../../foundation/plugin/index'
  */
 export type DrawingToolId =
   | 'cursor'
+  | 'box-select'
   | 'trend-line'
   | 'ray'
   | 'h-line'
@@ -71,6 +72,8 @@ export function getDrawingKind(toolId: DrawingToolId): DrawingKind {
   switch (toolId) {
     case 'cursor':
       throw new KLineChartError('INVALID_PARAM', 'cursor is not a drawing kind')
+    case 'box-select':
+      throw new KLineChartError('INVALID_PARAM', 'box-select is not a drawing kind')
     case 'h-line':
       return 'horizontal-line'
     case 'h-ray':

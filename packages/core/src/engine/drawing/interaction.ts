@@ -5,7 +5,14 @@ import { ChartWorkspaceId } from '../../foundation/types/chartView'
 import { AnchorCollector } from './AnchorCollector'
 import { DragHandler } from './DragHandler'
 import { DrawingState, PREVIEW_ID } from './DrawingState'
+import { clearDrawingSelection, toggleDrawingSelection } from './DrawingSelection'
 import { HitTester } from './HitTester'
+import type { HitResult } from './HitTester'
+import {
+  drawingIntersectsSelectionMarquee,
+  hasSelectionMarqueeArea,
+  type DrawingSelectionMarquee,
+} from './selectionMarquee'
 import { PreviewRenderer } from './PreviewRenderer'
 import { resolveDrawingPointer } from './coordinateUtils'
 import type { ResolvedInteractionAnchor, DrawingPointerAnchor } from './coordinateUtils'
@@ -33,6 +40,12 @@ export interface DrawingLineLabelTarget {
   readonly text: string
 }
 
+/** 指针会话的唯一状态：框选和拖拽互斥，禁止通过多个可空字段推导行为。 */
+type DrawingPointerSession =
+  | { kind: 'idle' }
+  | { kind: 'marquee'; marquee: DrawingSelectionMarquee }
+  | { kind: 'drag' }
+
 /**
  * 绘图交互控制器 —— 精简事件路由，组合子模块。
  *
@@ -48,6 +61,7 @@ export class DrawingInteractionController {
   private hitTester: HitTester
   private dragHandler: DragHandler
   private pendingPaneId: string | null = null
+  private pointerSession: DrawingPointerSession = { kind: 'idle' }
 
   constructor(adapter: DrawingChartAdapter) {
     this.adapter = adapter
@@ -61,6 +75,11 @@ export class DrawingInteractionController {
   /** 渲染合成用：拖拽覆盖 + 预览 */
   getPaintOverlay(): DrawingObject[] {
     return this.drawingState.getPaintOverlay()
+  }
+
+  /** 返回当前框选会话，供渲染期投影为临时 primitive。 */
+  getSelectionMarquee(): DrawingSelectionMarquee | null {
+    return this.pointerSession.kind === 'marquee' ? this.pointerSession.marquee : null
   }
 
   // ============ 配置 ============
@@ -81,11 +100,8 @@ export class DrawingInteractionController {
   applyToolSession(toolId: DrawingToolId): void {
     this.anchorCollector.reset()
     this.pendingPaneId = null
+    this.resetPointerSession()
     this.drawingState.removePreview()
-    if (this.dragHandler.isDragging()) {
-      this.drawingState.clearDragOverride()
-      this.dragHandler.endDrag()
-    }
     this.setSelected([])
     this.callbacks.onToolChange?.(toolId)
   }
@@ -108,11 +124,8 @@ export class DrawingInteractionController {
   clear() {
     this.anchorCollector.reset()
     this.pendingPaneId = null
+    this.resetPointerSession()
     this.drawingState.removePreview()
-    if (this.dragHandler.isDragging()) {
-      this.drawingState.clearDragOverride()
-      this.dragHandler.endDrag()
-    }
     this.drawingState.clearSession()
     this.adapter.clearDrawings()
   }
@@ -167,20 +180,11 @@ export class DrawingInteractionController {
    * @returns true 表示事件已消费，需要重绘
    */
   onPointerMove(e: PointerEvent, container: HTMLElement): boolean {
-    if (this.dragHandler.isDragging()) {
-      const drawing = this.drawingState.getById(this.dragHandler.getDraggingDrawingId() ?? '')
-      if (!drawing) {
-        this.drawingState.clearDragOverride()
-        this.dragHandler.endDrag()
-        return false
-      }
-      const updated = this.dragHandler.handleDragMove(drawing, e, container, this.adapter)
-      if (!updated) return false
-      this.drawingState.setDragOverride(updated)
-      return true
-    }
+    if (this.pointerSession.kind === 'drag') return this.handleDragMove(e, container)
+    if (this.pointerSession.kind === 'marquee') return this.handleSelectionMarqueeMove(e, container)
 
     const activeTool = this.getActiveTool()
+    if (activeTool === 'box-select') return false
     if (activeTool !== 'cursor') {
       const pointer = resolveDrawingPointer(e, container, this.adapter)
       if (!pointer || (this.pendingPaneId !== null && pointer.paneId !== this.pendingPaneId)) {
@@ -217,6 +221,10 @@ export class DrawingInteractionController {
       return this.handleCursorDown(e, container)
     }
 
+    if (activeTool === 'box-select') {
+      return this.handleBoxSelectDown(e, container)
+    }
+
     const pointer = resolveDrawingPointer(e, container, this.adapter)
     if (!pointer || (this.pendingPaneId !== null && pointer.paneId !== this.pendingPaneId))
       return false
@@ -246,8 +254,15 @@ export class DrawingInteractionController {
    * @returns true 表示事件已消费
    */
   onPointerUp(_e: PointerEvent, _container: HTMLElement): boolean {
-    if (!this.dragHandler.isDragging()) return false
-    this.drawingState.commitDrag()
+    const session = this.pointerSession
+    this.pointerSession = { kind: 'idle' }
+    if (session.kind === 'marquee') {
+      this.adapter.requestDraw?.()
+      this.commitSelectionMarquee(session.marquee)
+      return true
+    }
+    if (session.kind !== 'drag') return false
+    this.drawingState.commitDrags()
     this.dragHandler.endDrag()
     return true
   }
@@ -255,9 +270,45 @@ export class DrawingInteractionController {
   // ============ 私有方法 ============
 
   private handleCursorDown(e: PointerEvent, container: HTMLElement): boolean {
-    const pointer = resolveDrawingPointer(e, container, this.adapter)
-    if (!pointer) return false
+    const result = this.findDrawingHit(e, container)
+    if (!result) {
+      if (!e.ctrlKey) this.clearSelection()
+      return false
+    }
+    const { pointer, hit } = result
 
+    if (e.ctrlKey) {
+      this.toggleSelected([hit.drawing])
+      return true
+    }
+
+    const selectedDrawings = this.drawingState.getSelectedDrawings()
+    const isSelected = selectedDrawings.some((drawing) => drawing.id === hit.drawing.id)
+    const dragTargets = isSelected ? selectedDrawings : [hit.drawing]
+    if (!isSelected) this.setSelected(dragTargets)
+
+    this.startDrag(pointer, hit, dragTargets)
+    return true
+  }
+
+  /** 框选工具优先拖拽已选图元，其他位置才进入框选会话。 */
+  private handleBoxSelectDown(e: PointerEvent, container: HTMLElement): boolean {
+    const result = this.findDrawingHit(e, container)
+    if (result && this.adapter.getSelectedDrawingIds().includes(result.hit.drawing.id)) {
+      const selectedDrawings = this.drawingState.getSelectedDrawings()
+      this.startDrag(result.pointer, result.hit, selectedDrawings)
+      return true
+    }
+    return this.startSelectionMarquee(e, container)
+  }
+
+  /** 查找当前 Pane 和工作区内被指针命中的图元。 */
+  private findDrawingHit(
+    e: PointerEvent,
+    container: HTMLElement,
+  ): { pointer: DrawingPointerAnchor; hit: HitResult } | null {
+    const pointer = resolveDrawingPointer(e, container, this.adapter)
+    if (!pointer) return null
     const hit = this.hitTester.hitTest(
       pointer.x,
       pointer.y,
@@ -266,45 +317,126 @@ export class DrawingInteractionController {
         .filter(
           (drawing) =>
             drawing.paneId === pointer.paneId &&
-            (drawing.workspaceId ?? ChartWorkspaceId.KLine) ===
-              this.adapter.getDrawingWorkspaceId(),
+            (drawing.workspaceId ?? ChartWorkspaceId.KLine) === this.adapter.getDrawingWorkspaceId(),
         ),
       this.adapter,
     )
-    if (!hit) {
-      if (!e.ctrlKey) this.setSelected([])
-      return false
-    }
+    return hit ? { pointer, hit } : null
+  }
 
-    if (e.ctrlKey) {
-      this.toggleSelected(hit.drawing)
-      return true
-    }
-
-    this.setSelected([hit.drawing])
-
+  /** 进入拖拽会话；锚点命中只拖动命中图元，主体命中拖动整个选择组。 */
+  private startDrag(
+    pointer: DrawingPointerAnchor,
+    hit: HitResult,
+    selectedDrawings: ReadonlyArray<DrawingObject>,
+  ): void {
+    const isAnchorHit = 'anchorIndex' in hit
     this.dragHandler.startDrag(
-      hit.drawing,
-      'anchorIndex' in hit ? hit.anchorIndex : undefined,
+      isAnchorHit ? [hit.drawing] : selectedDrawings,
+      isAnchorHit ? hit.anchorIndex : undefined,
       pointer.x,
       pointer.y,
     )
+    this.pointerSession = { kind: 'drag' }
+  }
+
+  /** 开始框选，坐标只在按下所在 Pane 内解释。 */
+  private startSelectionMarquee(e: PointerEvent, container: HTMLElement): boolean {
+    const pointer = resolveDrawingPointer(e, container, this.adapter)
+    if (!pointer) return false
+    this.pointerSession = {
+      kind: 'marquee',
+      marquee: {
+        paneId: pointer.paneId,
+        start: { x: pointer.x, y: pointer.y },
+        end: { x: pointer.x, y: pointer.y },
+      },
+    }
+    this.adapter.requestDraw?.()
+    return true
+  }
+
+  /** 更新框选末端；跨 Pane 时保持起始 Pane 的框选范围。 */
+  private handleSelectionMarqueeMove(e: PointerEvent, container: HTMLElement): boolean {
+    if (this.pointerSession.kind !== 'marquee') return false
+    const marquee = this.pointerSession.marquee
+    const pointer = resolveDrawingPointer(e, container, this.adapter)
+    if (pointer?.paneId === marquee.paneId) {
+      marquee.end = { x: pointer.x, y: pointer.y }
+      this.adapter.requestDraw?.()
+    }
+    return true
+  }
+
+  /** 提交框选命中的图元，按 Ctrl 多选规则切换其选中状态。 */
+  private commitSelectionMarquee(marquee: DrawingSelectionMarquee): void {
+    if (!hasSelectionMarqueeArea(marquee)) {
+      this.clearSelection()
+      return
+    }
+
+    const candidates = this.drawingState
+      .getNonPreview()
+      .filter(
+        (drawing) =>
+          drawing.visible &&
+          drawing.paneId === marquee.paneId &&
+          (drawing.workspaceId ?? ChartWorkspaceId.KLine) === this.adapter.getDrawingWorkspaceId(),
+      )
+      .filter((drawing) =>
+        drawingIntersectsSelectionMarquee(drawing, marquee, this.hitTester, this.adapter),
+      )
+    if (candidates.length === 0) return
+
+    this.toggleSelected(candidates)
+  }
+
+  /** 取消当前指针会话并清理其临时渲染覆盖。 */
+  private resetPointerSession(): void {
+    const session = this.pointerSession
+    this.pointerSession = { kind: 'idle' }
+    if (session.kind === 'drag') {
+      this.drawingState.clearDragOverride()
+      this.dragHandler.endDrag()
+    }
+    this.adapter.requestDraw?.()
+  }
+
+  /** 更新拖拽会话的整组临时覆盖。 */
+  private handleDragMove(e: PointerEvent, container: HTMLElement): boolean {
+    const draggingIds = this.dragHandler.getDraggingDrawingIds()
+    if (draggingIds.some((id) => this.drawingState.getById(id) === undefined)) {
+      this.resetPointerSession()
+      return false
+    }
+    const updated = this.dragHandler.handleDragMove(e, container, this.adapter)
+    if (!updated) return false
+    this.drawingState.setDragOverrides(updated)
     return true
   }
 
   private setSelected(drawings: ReadonlyArray<DrawingObject>) {
-    this.drawingState.setSelected(drawings)
+    this.setSelectedIds(drawings.map((drawing) => drawing.id))
+  }
+
+  /** 将选中 ID 写回唯一状态，并通知交互宿主。 */
+  private setSelectedIds(ids: ReadonlyArray<string>): void {
+    this.adapter.setSelectedDrawingIds(ids)
     this.callbacks.onDrawingSelected?.(this.drawingState.getSelectedDrawings())
   }
 
-  /** Ctrl 点击将命中图元加入或移出当前选择，不启动拖拽。 */
-  private toggleSelected(drawing: DrawingObject): void {
-    const selectedDrawings = this.drawingState.getSelectedDrawings()
-    const isSelected = selectedDrawings.some((selected) => selected.id === drawing.id)
-    this.setSelected(
-      isSelected
-        ? selectedDrawings.filter((selected) => selected.id !== drawing.id)
-        : [...selectedDrawings, drawing],
+  /** 清空当前选择；光标和框选的空白点击共用此入口。 */
+  private clearSelection(): void {
+    this.setSelectedIds(clearDrawingSelection())
+  }
+
+  /** 按 Ctrl 语义批量切换图元；同一图元不会重复处理。 */
+  private toggleSelected(drawings: ReadonlyArray<DrawingObject>): void {
+    this.setSelectedIds(
+      toggleDrawingSelection(
+        this.adapter.getSelectedDrawingIds(),
+        drawings.map((drawing) => drawing.id),
+      ),
     )
   }
 

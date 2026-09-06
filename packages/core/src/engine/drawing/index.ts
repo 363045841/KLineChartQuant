@@ -34,6 +34,7 @@ import { mergePaint } from './DrawingState'
 
 export { DrawingDocument } from './DrawingDocument'
 export { DrawingCommands } from './DrawingCommands'
+export { clearDrawingSelection, toggleDrawingSelection } from './DrawingSelection'
 export type {
   CreateDrawingInput,
   DrawingAnchorCommandInput,

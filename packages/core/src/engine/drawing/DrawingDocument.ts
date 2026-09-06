@@ -206,9 +206,38 @@ export class DrawingDocument {
     id: string,
     anchors: ReadonlyArray<PersistedDrawingAnchor>,
   ): DrawingObject | null {
-    const drawing = this.getDrawing(id)
-    if (!drawing || anchors.length !== getRequiredAnchorCount(drawing.kind)) return null
-    const valid = anchors.every((anchor) => {
+    return this.commitDrawingDrags([{ id, anchors }])[0] ?? null
+  }
+
+  /** 原子提交一组交互层拖拽后的已解析锚点。 */
+  commitDrawingDrags(
+    updates: ReadonlyArray<{ id: string; anchors: ReadonlyArray<PersistedDrawingAnchor> }>,
+  ): ReadonlyArray<DrawingObject> {
+    const ids = updates.map((update) => update.id)
+    if (ids.length === 0 || new Set(ids).size !== ids.length) return Object.freeze([])
+    const drawings = this.getDrawingsByIds(ids)
+    if (drawings.length !== updates.length) return Object.freeze([])
+
+    const updatedById = new Map<string, DrawingObject>()
+    for (const update of updates) {
+      const drawing = drawings.find((item) => item.id === update.id)
+      if (!drawing || !this.hasValidDragAnchors(drawing, update.anchors)) return Object.freeze([])
+      updatedById.set(drawing.id, { ...drawing, anchors: [...update.anchors] })
+    }
+
+    const snapshot = this.dependencies.drawingState.actions.setDrawings(
+      this.listDrawings().map((drawing) => updatedById.get(drawing.id) ?? drawing),
+    )
+    return Object.freeze(ids.map((id) => snapshot.find((drawing) => drawing.id === id)!))
+  }
+
+  /** 校验拖拽提交的锚点是否仍符合原图元的坐标语义。 */
+  private hasValidDragAnchors(
+    drawing: DrawingObject,
+    anchors: ReadonlyArray<PersistedDrawingAnchor>,
+  ): boolean {
+    if (anchors.length !== getRequiredAnchorCount(drawing.kind)) return false
+    return anchors.every((anchor) => {
       const hasValidFutureOffset =
         anchor.futureOffset === undefined ||
         (Number.isInteger(anchor.futureOffset) && anchor.futureOffset > 0)
@@ -230,8 +259,6 @@ export class DrawingDocument {
         Number.isFinite(Number(anchor.time))
       )
     })
-    if (!valid) return null
-    return this.updateDrawing({ ...drawing, anchors: [...anchors] })
   }
 
   /** 返回一批图元共同拥有的样式字段。 */
