@@ -236,6 +236,7 @@ describe('createChartAgentController', () => {
         bars: 4,
       },
       visibleRange: null,
+      selectedKLineBars: null,
       activeIndicators: [{ instanceId: 'rsi-1', definitionId: 'RSI', params: { period: 14 } }],
       drawingSelection: null,
       dataRevision: 1,
@@ -260,6 +261,26 @@ describe('createChartAgentController', () => {
     publishBars(fixture.dataState, createBars(), 'America/New_York')
 
     expect(fixture.controller.getContext().timezone).toBe('America/New_York')
+  })
+
+  it('formats every loaded K-line in the selected range with the market-bars formatter', () => {
+    const fixture = createFixture()
+    publishBars(fixture.dataState, createBars(), 'UTC')
+    fixture.selectedRange.set({
+      from: Date.parse('2026-09-02'),
+      to: Date.parse('2026-09-03'),
+    })
+
+    const selectedKLineBars = fixture.controller.getContext().selectedKLineBars
+
+    expect(selectedKLineBars).toContain(
+      'market bars | symbol=BTCUSDT | source=fixture | timezone=UTC | period=daily | adjustment=none | olderData=-',
+    )
+    expect(selectedKLineBars).toContain('| time | open | high | low | close | volume |')
+    expect(selectedKLineBars).toContain('| 2026-09-02 00:00 |')
+    expect(selectedKLineBars).toContain('| 2026-09-03 00:00 |')
+    expect(selectedKLineBars).not.toContain('| 2026-09-01 07:00 |')
+    expect(selectedKLineBars).not.toContain('| 2026-09-04 00:00 |')
   })
 
   it('returns a stable chart identity and fresh read-only snapshots', () => {

@@ -270,6 +270,12 @@ function projectContextItems(
       },
     })
   }
+  if (context.selectedKLineBars) {
+    items.push({
+      kind: 'selected-kline-bars',
+      value: { content: context.selectedKLineBars },
+    })
+  }
   if (context.drawingSelection) {
     items.push({
       kind: 'drawing-selection',

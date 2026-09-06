@@ -374,6 +374,8 @@ describe('BrowserAgentBridge', () => {
           from: Date.parse('2026-09-02T01:30:00Z'),
           to: Date.parse('2026-09-02T02:45:00Z'),
         },
+        selectedKLineBars:
+          'market bars | symbol=BTCUSDT\n\n| time | open | high | low | close | volume |',
         activeIndicators: [],
         drawingSelection: null,
         dataRevision: 1,
@@ -387,6 +389,12 @@ describe('BrowserAgentBridge', () => {
     expect(bridge.getContextItems()).toContainEqual({
       kind: 'selected-time-range',
       value: { from: '2026-09-01 21:30', to: '2026-09-01 22:45' },
+    })
+    expect(bridge.getContextItems()).toContainEqual({
+      kind: 'selected-kline-bars',
+      value: {
+        content: 'market bars | symbol=BTCUSDT\n\n| time | open | high | low | close | volume |',
+      },
     })
   })
 

@@ -30,6 +30,7 @@
       @undo="undoTurn"
     />
 
+    <AgentContextInjectionCard :context-items="contextItems" :locale="locale" />
     <AgentContextBar
       :context-items="contextItems"
       :locale="locale"
@@ -62,6 +63,7 @@
 
   import AgentComposer from './AgentComposer.vue'
   import AgentContextBar from './AgentContextBar.vue'
+  import AgentContextInjectionCard from './AgentContextInjectionCard.vue'
   import AgentHeader from './AgentHeader.vue'
   import AgentSettingsDialog from './AgentSettingsDialog.vue'
   import AgentTimeline from './AgentTimeline.vue'
@@ -166,7 +168,7 @@
     height: 100%;
     min-width: 0;
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-rows: auto minmax(0, 1fr) auto auto auto;
     overflow: hidden;
     color: var(--agent-text);
     background: var(--agent-bg);

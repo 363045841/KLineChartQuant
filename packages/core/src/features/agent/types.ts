@@ -43,6 +43,8 @@ export interface ChartAgentContextSnapshot {
   readonly adjustMode: string | null
   readonly dataRange: ChartAgentDataRange
   readonly visibleRange: ChartAgentTimeRange | null
+  /** 当前选定时间范围内已加载 K 线的 formatter 文本；无范围或非 K 线视图时为 null。 */
+  readonly selectedKLineBars: string | null
   readonly activeIndicators: ReadonlyArray<ChartAgentActiveIndicator>
   /** 当前选中图元；无选择时为 null。 */
   readonly drawingSelection: ChartAgentDrawingSelection | null

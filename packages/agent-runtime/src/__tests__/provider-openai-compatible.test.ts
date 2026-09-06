@@ -443,6 +443,13 @@ describe('OpenAI-compatible runtime support', () => {
             kind: 'selected-time-range',
             value: { from: '2023-11-15 06:13', to: '2023-11-16 06:13' },
           },
+          {
+            kind: 'selected-kline-bars',
+            value: {
+              content:
+                'market bars | symbol=BTCUSDT\n\n| time | open | high | low | close | volume |',
+            },
+          },
         ],
       },
       startedAt: 1,
@@ -452,6 +459,10 @@ describe('OpenAI-compatible runtime support', () => {
     expect(plan.systemPrompt).toContain('"kind":"chart-symbol"')
     expect(plan.systemPrompt).toContain('"kind":"selected-time-range"')
     expect(plan.systemPrompt).toContain('Do not use tools to rediscover the current symbol')
+    expect(plan.systemPrompt).toContain(
+      'The selected-kline-bars context contains the complete OHLCV data',
+    )
+    expect(plan.systemPrompt).toContain('do not call market_bars_query for that range')
   })
 
   it('migrates v1 persisted settings to explicit Chat Completions', () => {

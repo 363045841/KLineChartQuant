@@ -388,6 +388,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     const period = this.dependencies.chartMode()
     const adjustMode = selection.kind === 'bars' ? selection.adjustment : (spec?.adjust ?? null)
     const timezone = activeBuffer.timezone
+    const visibleRange = this.dependencies.selectedRange()
     const drawingSelection = projectDrawingSelection(
       this.dependencies.drawings(),
       this.dependencies.selectedDrawingIds(),
@@ -404,10 +405,33 @@ class ChartAgentControllerImpl implements ChartAgentController {
       timezone,
       adjustMode,
       dataRange: Object.freeze({ ...dataRange, bars: activeBuffer.data.length }),
-      visibleRange: this.dependencies.selectedRange(),
+      visibleRange,
+      selectedKLineBars: this.formatSelectedKLineBars(activeBuffer, symbol, visibleRange),
       activeIndicators: projectIndicators(this.dependencies.indicators()),
       drawingSelection,
       dataRevision: activeBuffer.dataRevision,
+    })
+  }
+
+  /** 使用查询工具相同的 formatter 投影当前选定范围内的已加载 K 线。 */
+  private formatSelectedKLineBars(
+    activeBuffer: ReturnType<DataStateModule['readonly']['activeBuffer']>,
+    symbol: string | null,
+    visibleRange: ChartAgentTimeRange | null,
+  ): string | null {
+    if (activeBuffer.kind !== 'bars' || !symbol || !visibleRange) return null
+    const data = activeBuffer.data.filter(
+      (item) => item.timestamp >= visibleRange.from && item.timestamp <= visibleRange.to,
+    )
+    if (data.length === 0) return null
+    return this.marketDataTextFormatter.formatChartBars({
+      sourceId: activeBuffer.selection.sourceId,
+      symbol,
+      period: activeBuffer.selection.period,
+      adjustment: activeBuffer.selection.adjustment,
+      timezone: activeBuffer.timezone,
+      data,
+      olderData: null,
     })
   }
 

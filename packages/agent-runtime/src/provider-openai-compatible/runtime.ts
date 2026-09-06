@@ -124,12 +124,16 @@ function createSystemPrompt(
   context?: AgentRunContext,
 ): string {
   const base = `You are the KLineChartQuant financial analysis Agent. Current date and time (${AGENT_REFERENCE_TIMEZONE}): ${referenceTime}.`
+  const hasSelectedKLineBars = context?.items.some((item) => item.kind === 'selected-kline-bars')
   const chartContext = context?.items.length
     ? ` Current chart context: ${JSON.stringify(context.items)}. This is authoritative UI context. Do not use tools to rediscover the current symbol or selected time range; use tools only for chart evidence not included here.`
     : ''
+  const selectedKLineBarsInstruction = hasSelectedKLineBars
+    ? ' The selected-kline-bars context contains the complete OHLCV data for the selected time range, formatted exactly as Query market bars. Analyze it directly and do not call market_bars_query for that range.'
+    : ''
   return hasTools
-    ? `${base}${chartContext} Use the supplied chart tools when chart evidence is needed. Do not claim to have changed the chart: the available tools are read-only.`
-    : `${base}${chartContext} No chart tools are available in this build. Do not claim to have read or changed the chart. Answer only from user-provided text and state limitations clearly.`
+    ? `${base}${chartContext}${selectedKLineBarsInstruction} Use the supplied chart tools when chart evidence is needed. Do not claim to have changed the chart: the available tools are read-only.`
+    : `${base}${chartContext}${selectedKLineBarsInstruction} No chart tools are available in this build. Do not claim to have read or changed the chart. Answer only from user-provided text and state limitations clearly.`
 }
 
 /**
