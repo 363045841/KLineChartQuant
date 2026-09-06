@@ -6,8 +6,6 @@
  */
 import {
   DrawingInteractionController,
-  withDrawingAreaLabel,
-  withDrawingLineLabel,
   type ChartController,
   type DrawingToolId,
 } from '@363045841yyt/klinechart-core/controllers'
@@ -43,7 +41,7 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
     ctrl.value?.updateBatch(ids, { style })
   }
 
-  /** 原子写入指定线段文本；空值会从持久化参数中移除。 */
+  /** 原子替换指定图元的完整文本模型快照。 */
   function updateDrawingLabel(
     drawingId: string,
     targetKind: 'line' | 'area',
@@ -52,12 +50,15 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
   ) {
     const drawing = drawings.value.find((item) => item.id === drawingId)
     if (!drawing) return
-    ctrl.value?.updateDrawing(drawingId, {
-      params:
-        targetKind === 'line'
-          ? withDrawingLineLabel(drawing, targetIndex, label)
-          : withDrawingAreaLabel(drawing, targetIndex, label),
-    })
+    const labels = {
+      line: { ...(drawing.labels?.line ?? {}) },
+      area: { ...(drawing.labels?.area ?? {}) },
+    }
+    const target = targetKind === 'line' ? labels.line : labels.area
+    const key = String(targetIndex)
+    if (label.trim() === '') delete target[key]
+    else target[key] = label
+    ctrl.value?.updateDrawing({ ...drawing, labels })
   }
 
   function onDeleteDrawing() {

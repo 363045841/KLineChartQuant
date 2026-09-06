@@ -27,7 +27,7 @@ describe('DrawingCommands', () => {
       anchors: [{ price: 9 }],
     })
 
-    commands.update(drawing.id, { style: { strokeWidth: 2 } })
+    commands.update({ ...drawing, style: { ...drawing.style, strokeWidth: 2 } })
     commands.updateBatch([drawing.id], { style: { stroke: '#f00' } })
     commands.removeBatch([drawing.id])
     commands.clear()
@@ -39,7 +39,18 @@ describe('DrawingCommands', () => {
   it('does not request a draw when update or remove changes nothing', () => {
     const { commands, requestDraw } = createFixture()
 
-    expect(commands.update('missing', { visible: false })).toBeNull()
+    expect(
+      commands.update({
+        id: 'missing',
+        kind: 'horizontal-line',
+        paneId: 'main',
+        visible: false,
+        anchors: [],
+        labels: { line: {}, area: {} },
+        params: {},
+        style: {},
+      }),
+    ).toBeNull()
     expect(commands.updateBatch(['missing'], { visible: false })).toEqual([])
     expect(commands.remove('missing')).toBe(false)
     expect(commands.removeBatch(['missing'])).toBe(false)

@@ -2,8 +2,6 @@ import type { DrawingChartAdapter } from '../../controllers/types'
 import type { DrawingObject } from '../../foundation/plugin/index'
 
 import { anchorToScreen, isScreenPoint, pointToSegmentDistanceSq } from './coordinateUtils'
-import { getDrawingLineLabel } from './lineLabels'
-import { getDrawingAreaLabel } from './lineLabels'
 import { computeLinearRegression } from './linearRegression'
 import { getExtendMode } from './toolConfig'
 
@@ -309,7 +307,7 @@ export class HitTester {
           x,
           y: y + (adapter.getPaneInfo(drawing.paneId)?.top ?? 0),
           rotation,
-          text: getDrawingLineLabel(drawing, lineIndex) ?? '',
+          text: drawing.labels?.line[String(lineIndex)] ?? '',
         }
       }
     }
@@ -355,7 +353,7 @@ export class HitTester {
         x,
         y: y + (adapter.getPaneInfo(drawing.paneId)?.top ?? 0),
         rotation: 0,
-        text: getDrawingAreaLabel(drawing, 0) ?? '',
+        text: drawing.labels?.area['0'] ?? '',
       }
     }
     return null

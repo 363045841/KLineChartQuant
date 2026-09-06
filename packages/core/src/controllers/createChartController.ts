@@ -802,9 +802,9 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     return drawingCommands.create(input)
   }
 
-  function updateDrawing(id: string, patch: UpdateDrawingPatch): DrawingObject | null {
+  function updateDrawing(drawing: DrawingObject): DrawingObject | null {
     if (disposed) return null
-    return drawingCommands.update(id, patch)
+    return drawingCommands.update(drawing)
   }
 
   function commitDrawingDrag(
@@ -965,7 +965,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   ): boolean {
     if (disposed) return false
     const definition = chart.getIndicatorScheduler().getIndicatorMetadata(indicatorId)
-    if (!definition || !hasSubPaneRendererMetadata(definition, paneId, definition.name)) return false
+    if (!definition || !hasSubPaneRendererMetadata(definition, paneId, definition.name))
+      return false
     return chart.panes.replaceContent(paneId, definition.name, params)
   }
 

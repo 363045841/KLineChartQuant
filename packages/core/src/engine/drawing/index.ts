@@ -919,9 +919,3 @@ export type {
   DrawingInteractionCallbacks,
   DrawingLineLabelTarget,
 } from './interaction'
-export {
-  getDrawingAreaLabel,
-  getDrawingLineLabel,
-  withDrawingAreaLabel,
-  withDrawingLineLabel,
-} from './lineLabels'

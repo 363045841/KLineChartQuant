@@ -13,7 +13,6 @@ import { resolveChartWorkspaceId } from '../state/modeState'
 import { logicalIndexToScreenX } from '../viewport/logicalIndexToScreenX'
 
 import { DrawingDefinitionRegistry, DrawingStore } from './index'
-import { getDrawingAreaLabel, getDrawingLineLabel } from './lineLabels'
 
 type MutableDrawingFrameProjection = {
   primitives: DrawingPrimitive[]
@@ -99,8 +98,10 @@ function attachLineLabels(
   let lineIndex = 0
   return primitives.map((primitive) => {
     if (primitive.kind !== 'line' && primitive.kind !== 'arrow') return primitive
-    const label = getDrawingLineLabel(drawing, lineIndex++)
-    return label === null ? primitive : { ...primitive, text: { text: label, baseline: 'bottom' } }
+    const label = drawing.labels?.line[String(lineIndex++)]
+    return label === undefined
+      ? primitive
+      : { ...primitive, text: { text: label, baseline: 'bottom' } }
   })
 }
 
@@ -112,8 +113,8 @@ function attachAreaLabels(
   let areaIndex = 0
   return primitives.map((primitive) => {
     if (primitive.kind !== 'area') return primitive
-    const label = getDrawingAreaLabel(drawing, areaIndex++)
-    return label === null ? primitive : { ...primitive, text: { text: label } }
+    const label = drawing.labels?.area[String(areaIndex++)]
+    return label === undefined ? primitive : { ...primitive, text: { text: label } }
   })
 }
 

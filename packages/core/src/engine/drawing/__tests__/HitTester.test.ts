@@ -52,7 +52,7 @@ describe('HitTester', () => {
         { id: 'a', type: 'point', time: 1_000, price: 40 },
         { id: 'b', type: 'point', time: 2_000, price: 140 },
       ],
-      params: { lineLabels: { 3: '50% text' } },
+      labels: { line: { 3: '50% text' }, area: {} },
       style: {},
     }
 
@@ -101,7 +101,7 @@ describe('HitTester', () => {
         { id: 'a', type: 'point', time: 1_000, price: 40 },
         { id: 'b', type: 'point', time: 2_000, price: 140 },
       ],
-      params: { areaLabels: { 0: '区域文本' } },
+      labels: { line: {}, area: { 0: '区域文本' } },
       style: {},
     }
 

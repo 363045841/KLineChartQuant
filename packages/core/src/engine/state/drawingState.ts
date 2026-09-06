@@ -6,11 +6,12 @@ import { deepFreezeSnapshot } from './immutable'
 
 function snapshotDrawings(drawings: ReadonlyArray<DrawingObject>): ReadonlyArray<DrawingObject> {
   return Object.freeze(
-    drawings.map((drawing) =>
-      deepFreezeSnapshot({
-        ...drawing,
-        anchors: drawing.anchors.map((anchor) => ({ ...anchor })),
-      }) as DrawingObject,
+    drawings.map(
+      (drawing) =>
+        deepFreezeSnapshot({
+          ...drawing,
+          anchors: drawing.anchors.map((anchor) => ({ ...anchor })),
+        }) as DrawingObject,
     ),
   )
 }
@@ -67,33 +68,13 @@ export function createDrawingState() {
         return true
       },
 
-      /** 按 id 更新图元的领域字段，并返回更新后的不可变快照。 */
-      updateDrawing(
-        id: string,
-        patch: {
-          readonly anchors?: DrawingObject['anchors']
-          readonly style?: Partial<DrawingStyle>
-          readonly visible?: boolean
-          readonly locked?: boolean
-          readonly zIndex?: number
-          readonly params?: DrawingObject['params']
-        },
-      ): DrawingObject | null {
+      /** 以完整模型快照替换指定图元，并返回更新后的不可变快照。 */
+      updateDrawing(id: string, drawing: DrawingObject): DrawingObject | null {
         const current = signals.drawings.peek()
         const index = current.findIndex((drawing) => drawing.id === id)
         if (index === -1) return null
-        const drawing = current[index]!
-        const nextDrawing: DrawingObject = {
-          ...drawing,
-          ...(patch.anchors === undefined ? {} : { anchors: patch.anchors }),
-          ...(patch.style === undefined ? {} : { style: { ...drawing.style, ...patch.style } }),
-          ...(patch.visible === undefined ? {} : { visible: patch.visible }),
-          ...(patch.locked === undefined ? {} : { locked: patch.locked }),
-          ...(patch.zIndex === undefined ? {} : { zIndex: patch.zIndex }),
-          ...(patch.params === undefined ? {} : { params: patch.params }),
-        }
         const next = [...current]
-        next[index] = nextDrawing
+        next[index] = drawing
         const snapshot = snapshotDrawings(next)
         signals.drawings.set(snapshot)
         return snapshot[index]!

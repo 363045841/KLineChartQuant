@@ -417,6 +417,7 @@ describe('createChartAgentController', () => {
           { tradingDate: '2026-09-01', price: 10 },
           { tradingDate: '2026-09-02', price: 12 },
         ],
+        labels: { line: { 0: '初始趋势' }, area: {} },
       },
       { signal, progress: () => undefined },
     )) as { id: string; anchors: Array<{ timestamp: number; price: number; index?: number }> }
@@ -425,12 +426,14 @@ describe('createChartAgentController', () => {
       { timestamp: Date.parse('2026-09-01') + 25_200_000, price: 10 },
       { timestamp: Date.parse('2026-09-02'), price: 12 },
     ])
+    expect(created).toMatchObject({ labels: { line: { 0: '初始趋势' }, area: {} } })
     await expect(
       update.execute(
         fixture.controller,
         {
           drawingId: created.id,
           patch: {
+            labels: { line: { 0: '更新趋势' }, area: {} },
             anchors: [
               { tradingDate: '2026-09-03', price: 11 },
               { tradingDate: '2026-09-04', price: 13 },
@@ -445,6 +448,7 @@ describe('createChartAgentController', () => {
         { timestamp: Date.parse('2026-09-03'), price: 11 },
         { timestamp: Date.parse('2026-09-04'), price: 13 },
       ],
+      labels: { line: { 0: '更新趋势' }, area: {} },
     })
     await expect(
       list.execute(fixture.controller, {}, { signal, progress: () => undefined }),

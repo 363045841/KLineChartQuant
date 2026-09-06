@@ -2,6 +2,7 @@
 import type {
   PersistedDrawingAnchor,
   DrawingKind,
+  DrawingLabels,
   DrawingObject,
   DrawingStyle,
   DrawingWorkspaceId,
@@ -45,6 +46,7 @@ export interface CreateDrawingInput {
   readonly anchors: ReadonlyArray<DrawingAnchorCommandInput>
   readonly style?: Partial<DrawingStyle>
   readonly params?: Readonly<Record<string, unknown>>
+  readonly labels?: DrawingLabels
   readonly visible?: boolean
   readonly locked?: boolean
   readonly zIndex?: number
@@ -55,6 +57,7 @@ export interface UpdateDrawingPatch {
   readonly anchors?: ReadonlyArray<DrawingAnchorCommandInput>
   readonly style?: Partial<DrawingStyle>
   readonly params?: Readonly<Record<string, unknown>>
+  readonly labels?: DrawingLabels
   readonly visible?: boolean
   readonly locked?: boolean
   readonly zIndex?: number
@@ -162,6 +165,7 @@ export class DrawingDocument {
       anchors,
       params:
         input.params ?? (input.kind === 'regression-channel' ? { sigma: 2 } : Object.freeze({})),
+      labels: input.labels ?? { line: {}, area: {} },
       style: {
         ...DEFAULT_DRAWING_STYLE,
         ...(isChannel(input.kind) ? { fillOpacity: 0.1 } : {}),
@@ -172,14 +176,25 @@ export class DrawingDocument {
     return this.getDrawing(drawing.id)!
   }
 
-  /** 按 id 更新一个已确认图元，并返回最新快照。 */
-  updateDrawing(id: string, patch: UpdateDrawingPatch): DrawingObject | null {
+  /** 以完整模型快照替换一个已确认图元。 */
+  updateDrawing(drawing: DrawingObject): DrawingObject | null {
+    const current = this.getDrawing(drawing.id)
+    if (!current || drawing.kind !== current.kind || drawing.paneId !== current.paneId) return null
+    return this.dependencies.drawingState.actions.updateDrawing(drawing.id, drawing)
+  }
+
+  /** 将外部声明式 patch 转换为完整模型快照后提交。 */
+  updateDrawingFromInput(id: string, patch: UpdateDrawingPatch): DrawingObject | null {
+    const current = this.getDrawing(id)
+    if (!current) return null
     const anchors =
       patch.anchors === undefined ? undefined : this.resolveAnchorsForUpdate(id, patch.anchors)
-    return this.dependencies.drawingState.actions.updateDrawing(id, {
+    return this.updateDrawing({
+      ...current,
       ...(anchors === undefined ? {} : { anchors }),
-      ...(patch.style === undefined ? {} : { style: patch.style }),
+      ...(patch.style === undefined ? {} : { style: { ...current.style, ...patch.style } }),
       ...(patch.params === undefined ? {} : { params: patch.params }),
+      ...(patch.labels === undefined ? {} : { labels: patch.labels }),
       ...(patch.visible === undefined ? {} : { visible: patch.visible }),
       ...(patch.locked === undefined ? {} : { locked: patch.locked }),
       ...(patch.zIndex === undefined ? {} : { zIndex: patch.zIndex }),
@@ -187,7 +202,10 @@ export class DrawingDocument {
   }
 
   /** 提交交互层已解析的拖拽锚点，不再转换为外部声明式输入。 */
-  commitDrawingDrag(id: string, anchors: ReadonlyArray<PersistedDrawingAnchor>): DrawingObject | null {
+  commitDrawingDrag(
+    id: string,
+    anchors: ReadonlyArray<PersistedDrawingAnchor>,
+  ): DrawingObject | null {
     const drawing = this.getDrawing(id)
     if (!drawing || anchors.length !== getRequiredAnchorCount(drawing.kind)) return null
     const valid = anchors.every((anchor) => {
@@ -213,7 +231,7 @@ export class DrawingDocument {
       )
     })
     if (!valid) return null
-    return this.dependencies.drawingState.actions.updateDrawing(id, { anchors: [...anchors] })
+    return this.updateDrawing({ ...drawing, anchors: [...anchors] })
   }
 
   /** 返回一批图元共同拥有的样式字段。 */
@@ -323,7 +341,10 @@ export class DrawingDocument {
   }
 
   /** 解析单个声明式锚点，按图元种类持久化所需坐标轴。 */
-  private resolveAnchor(kind: DrawingKind, input: DrawingAnchorCommandInput): PersistedDrawingAnchor {
+  private resolveAnchor(
+    kind: DrawingKind,
+    input: DrawingAnchorCommandInput,
+  ): PersistedDrawingAnchor {
     if (kind === 'horizontal-line') {
       if (input.futureOffset !== undefined) {
         throw new KLineChartError(
@@ -358,7 +379,12 @@ export class DrawingDocument {
         )
       }
       return kind === 'vertical-line'
-        ? { id: `anchor-${generateUUID()}`, type: 'vertical', time: resolved.timestamp, price: input.price }
+        ? {
+            id: `anchor-${generateUUID()}`,
+            type: 'vertical',
+            time: resolved.timestamp,
+            price: input.price,
+          }
         : this.createPointAnchor(resolved.timestamp, undefined, input.price)
     }
     const timestamp = input.timestamp

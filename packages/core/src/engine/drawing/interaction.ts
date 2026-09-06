@@ -118,7 +118,8 @@ export class DrawingInteractionController {
   }
 
   updateDrawingStyle(drawingId: string, style: Partial<DrawingStyle>): void {
-    this.adapter.updateDrawing(drawingId, { style })
+    const drawing = this.adapter.getFullDrawings().find((item) => item.id === drawingId)
+    if (drawing) this.adapter.updateDrawing({ ...drawing, style: { ...drawing.style, ...style } })
   }
 
   /** 原子更新一批图元的公共属性。 */

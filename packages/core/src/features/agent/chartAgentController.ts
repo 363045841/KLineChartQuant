@@ -115,21 +115,27 @@ const KLineAdjustmentToolParameter = Type.Union(
 const AssetClassToolParameter = Type.Union(ASSET_CLASS_VALUES.map((value) => Type.Literal(value)))
 const TradingDateToolParameter = Type.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$' })
 
-const IndicatorQueryToolParameters = Type.Object({
-  definitionId: Type.String({ minLength: 1 }),
-  params: Type.Optional(Type.Record(Type.String(), Type.Number())),
-  limit: Type.Optional(Type.Integer({ minimum: 1, maximum: INDICATOR_QUERY_MAX_LIMIT })),
-}, { additionalProperties: false })
+const IndicatorQueryToolParameters = Type.Object(
+  {
+    definitionId: Type.String({ minLength: 1 }),
+    params: Type.Optional(Type.Record(Type.String(), Type.Number())),
+    limit: Type.Optional(Type.Integer({ minimum: 1, maximum: INDICATOR_QUERY_MAX_LIMIT })),
+  },
+  { additionalProperties: false },
+)
 
-const BarsQueryToolParameters = Type.Object({
-  symbol: Type.String({ minLength: 1 }),
-  period: KLinePeriodToolParameter,
-  adjustment: KLineAdjustmentToolParameter,
-  limit: Type.Integer({ minimum: 1, maximum: MARKET_BARS_QUERY_MAX_LIMIT }),
-  sourceId: Type.Optional(Type.String({ minLength: 1 })),
-  exchange: Type.Optional(Type.String({ minLength: 1 })),
-  assetClass: Type.Optional(AssetClassToolParameter),
-}, { additionalProperties: false })
+const BarsQueryToolParameters = Type.Object(
+  {
+    symbol: Type.String({ minLength: 1 }),
+    period: KLinePeriodToolParameter,
+    adjustment: KLineAdjustmentToolParameter,
+    limit: Type.Integer({ minimum: 1, maximum: MARKET_BARS_QUERY_MAX_LIMIT }),
+    sourceId: Type.Optional(Type.String({ minLength: 1 })),
+    exchange: Type.Optional(Type.String({ minLength: 1 })),
+    assetClass: Type.Optional(AssetClassToolParameter),
+  },
+  { additionalProperties: false },
+)
 
 type BarsQueryToolInput = Static<typeof BarsQueryToolParameters>
 
@@ -189,11 +195,16 @@ const DrawingStyleToolParameters = Type.Partial(
     fontSize: Type.Number({ exclusiveMinimum: 0 }),
   }),
 )
+const DrawingLabelsToolParameters = Type.Object({
+  line: Type.Record(Type.String({ pattern: '^\\d+$' }), Type.String()),
+  area: Type.Record(Type.String({ pattern: '^\\d+$' }), Type.String()),
+})
 const DrawingCreateToolParameters = Type.Object({
   kind: DrawingKindToolParameter,
   paneId: Type.String({ minLength: 1 }),
   anchors: Type.Array(DrawingAnchorToolParameters, { minItems: 1, maxItems: 3 }),
   style: Type.Optional(DrawingStyleToolParameters),
+  labels: Type.Optional(DrawingLabelsToolParameters),
   visible: Type.Optional(Type.Boolean()),
   locked: Type.Optional(Type.Boolean()),
   zIndex: Type.Optional(Type.Number()),
@@ -202,6 +213,7 @@ const DrawingUpdatePatchToolParameters = Type.Object(
   {
     anchors: Type.Optional(Type.Array(DrawingAnchorToolParameters, { minItems: 1, maxItems: 3 })),
     style: Type.Optional(DrawingStyleToolParameters),
+    labels: Type.Optional(DrawingLabelsToolParameters),
     visible: Type.Optional(Type.Boolean()),
     locked: Type.Optional(Type.Boolean()),
     zIndex: Type.Optional(Type.Number()),
@@ -290,6 +302,10 @@ function projectDrawing(drawing: DrawingObject): ChartAgentDrawingSnapshot {
       ),
     ),
     style: Object.freeze({ ...drawing.style }),
+    labels: Object.freeze({
+      line: Object.freeze({ ...(drawing.labels?.line ?? {}) }),
+      area: Object.freeze({ ...(drawing.labels?.area ?? {}) }),
+    }),
   })
 }
 
@@ -639,10 +655,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     safety: 'read-only',
     executionMode: 'parallel',
   })
-  queryLatestBars(
-    input: BarsQueryToolInput,
-    context?: ChartToolExecutionContext,
-  ): Promise<string> {
+  queryLatestBars(input: BarsQueryToolInput, context?: ChartToolExecutionContext): Promise<string> {
     return this.queryBars(input, context)
   }
 
@@ -728,7 +741,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     name: 'drawing_create',
     label: 'Create drawing',
     description:
-      'Create a committed chart drawing using a supported kind and an existing paneId. horizontal-line anchors require only price; all other anchors require tradingDate in YYYY-MM-DD format and price.',
+      'Create a committed chart drawing using a supported kind and an existing paneId. labels is the complete text model keyed by rendered line or area index. horizontal-line anchors require only price; all other anchors require tradingDate in YYYY-MM-DD format and price.',
     parameters: DrawingCreateToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',
@@ -749,7 +762,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     name: 'drawing_update',
     label: 'Update drawing',
     description:
-      'Update a committed chart drawing by id. Supply at least one patch field; horizontal-line anchors require only price, while other anchors require tradingDate in YYYY-MM-DD format and price.',
+      'Update a committed chart drawing by id. labels replaces the complete text model; obtain it from drawings_list before changing it. Supply at least one patch field; horizontal-line anchors require only price, while other anchors require tradingDate in YYYY-MM-DD format and price.',
     parameters: DrawingUpdateToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',
@@ -758,9 +771,23 @@ class ChartAgentControllerImpl implements ChartAgentController {
     input: Static<typeof DrawingUpdateToolParameters>,
   ): Promise<ChartAgentDrawingSnapshot | null> {
     const patch = input.patch
-    const drawing = this.dependencies.drawingCommands.update(input.drawingId, {
-      ...(patch.anchors === undefined ? {} : { anchors: parseDrawingAnchors(patch.anchors) }),
+    const current = this.dependencies.drawingDocument.getDrawing(input.drawingId)
+    if (!current) return null
+    if (patch.anchors === undefined) {
+      const drawing = this.dependencies.drawingCommands.update({
+        ...current,
+        ...(patch.style === undefined ? {} : { style: { ...current.style, ...patch.style } }),
+        ...(patch.labels === undefined ? {} : { labels: patch.labels }),
+        ...(patch.visible === undefined ? {} : { visible: patch.visible }),
+        ...(patch.locked === undefined ? {} : { locked: patch.locked }),
+        ...(patch.zIndex === undefined ? {} : { zIndex: patch.zIndex }),
+      })
+      return drawing ? projectDrawing(drawing) : null
+    }
+    const drawing = this.dependencies.drawingCommands.updateFromInput(input.drawingId, {
+      anchors: parseDrawingAnchors(patch.anchors),
       ...(patch.style === undefined ? {} : { style: patch.style }),
+      ...(patch.labels === undefined ? {} : { labels: patch.labels }),
       ...(patch.visible === undefined ? {} : { visible: patch.visible }),
       ...(patch.locked === undefined ? {} : { locked: patch.locked }),
       ...(patch.zIndex === undefined ? {} : { zIndex: patch.zIndex }),

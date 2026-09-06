@@ -89,7 +89,7 @@ describe('projectDrawingsForFrame', () => {
         { id: 'a', time: 1_000, price: 10 },
         { id: 'b', time: 2_000, price: 20 },
       ],
-      params: { lineLabels: { 0: '趋势' } },
+      labels: { line: { 0: '趋势' }, area: {} },
       style: { stroke: '#2962ff' },
     }
     const store = new DrawingStore({
@@ -119,7 +119,7 @@ describe('projectDrawingsForFrame', () => {
         { id: 'a', time: 1_000, price: 10 },
         { id: 'b', time: 2_000, price: 20 },
       ],
-      params: { lineLabels: { 0: '箭头' } },
+      labels: { line: { 0: '箭头' }, area: {} },
       style: { stroke: '#2962ff' },
     }
     const store = new DrawingStore({

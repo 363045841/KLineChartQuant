@@ -440,11 +440,6 @@ export type DrawingKind =
   | 'flat-line'
   | 'disjoint-channel'
 
-/** 判断内置绘图是否包含可承载附属文字的点、线或面积图元。 */
-export function supportsDrawingLabel(kind: DrawingKind): boolean {
-  return kind !== 'arrow'
-}
-
 export type DrawingStyle = {
   stroke?: string
   strokeWidth?: number
@@ -454,6 +449,12 @@ export type DrawingStyle = {
   pointRadius?: number
   textColor?: string
   fontSize?: number
+}
+
+/** 绘图附属文本；键为图元定义输出的线段或填充区域序号。 */
+export type DrawingLabels = {
+  line: Record<string, string>
+  area: Record<string, string>
 }
 
 /** 绘图所属的数据工作区。 */
@@ -469,6 +470,8 @@ export type DrawingObject<TParams = Record<string, unknown>> = {
   locked?: boolean
   zIndex?: number
   anchors: PersistedDrawingAnchor[]
+  /** 用户输入的附属文本；几何位置和方向始终在渲染期推导。 */
+  labels?: DrawingLabels
   params: TParams
   style: DrawingStyle
 }
