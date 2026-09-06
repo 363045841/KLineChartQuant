@@ -43,6 +43,8 @@ export interface ChartAgentContextSnapshot {
   readonly adjustMode: string | null
   readonly dataRange: ChartAgentDataRange
   readonly visibleRange: ChartAgentTimeRange | null
+  /** 当前选定时间范围内已加载 K 线的 formatter 文本；无范围或非 K 线视图时为 null。 */
+  readonly selectedKLineBars: string | null
   readonly activeIndicators: ReadonlyArray<ChartAgentActiveIndicator>
   /** 当前选中图元；无选择时为 null。 */
   readonly drawingSelection: ChartAgentDrawingSelection | null
@@ -55,6 +57,12 @@ export interface ChartAgentDrawingAnchor {
   readonly price: number
 }
 
+/** Agent 可读写的绘图附属文本完整快照。 */
+export interface ChartAgentDrawingLabels {
+  readonly line: Readonly<Record<string, string>>
+  readonly area: Readonly<Record<string, string>>
+}
+
 /** Agent 可读取的已确认图元快照。 */
 export interface ChartAgentDrawingSnapshot {
   readonly id: string
@@ -65,6 +73,7 @@ export interface ChartAgentDrawingSnapshot {
   readonly zIndex: number | null
   readonly anchors: ReadonlyArray<ChartAgentDrawingAnchor>
   readonly style: Readonly<Record<string, string | number | undefined>>
+  readonly labels: ChartAgentDrawingLabels
 }
 
 /** Agent 可读取的当前绘图选择。 */
@@ -77,8 +86,6 @@ export interface ChartAgentDrawingSelection {
 export interface IndicatorQueryInput {
   readonly definitionId: string
   readonly params?: Readonly<Record<string, number>>
-  readonly from?: number
-  readonly to?: number
   readonly limit?: number
 }
 
@@ -97,7 +104,7 @@ export interface InstrumentLookupInput {
   readonly signal?: AbortSignal
 }
 
-/** 无状态 K 线游标查询输入；拉多少就请求多少，不依赖当前图表选择或视口。 */
+/** 无状态最新 K 线查询输入；拉多少就请求多少，不依赖当前图表选择或视口。 */
 export interface BarsQueryInput {
   readonly symbol: string
   readonly period: KLinePeriod
@@ -106,7 +113,6 @@ export interface BarsQueryInput {
   readonly sourceId?: string
   readonly exchange?: string
   readonly assetClass?: AssetClass
-  readonly beforeTimestamp?: number
 }
 
 /** 单日分时查询输入；交易日必须由调用方显式给出。 */

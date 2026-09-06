@@ -25,9 +25,16 @@ export class DrawingCommands {
     return drawing
   }
 
-  /** 更新存在的图元；无匹配图元时不请求重绘。 */
-  update(id: string, patch: UpdateDrawingPatch): DrawingObject | null {
-    const drawing = this.dependencies.document.updateDrawing(id, patch)
+  /** 以完整模型快照更新存在的图元；无匹配图元时不请求重绘。 */
+  update(drawing: DrawingObject): DrawingObject | null {
+    const updated = this.dependencies.document.updateDrawing(drawing)
+    if (updated) this.dependencies.requestDraw()
+    return updated
+  }
+
+  /** 解析声明式输入后更新图元；仅供 Agent 等外部协议适配层使用。 */
+  updateFromInput(id: string, patch: UpdateDrawingPatch): DrawingObject | null {
+    const drawing = this.dependencies.document.updateDrawingFromInput(id, patch)
     if (drawing) this.dependencies.requestDraw()
     return drawing
   }

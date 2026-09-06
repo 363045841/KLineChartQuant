@@ -249,6 +249,8 @@ function formatSigned(value: number, digits = 2): string {
 import { computeLinearRegression } from './linearRegression'
 export { computeLinearRegression }
 
+const LINE_TEXT_GAP_PX = 6
+
 export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
   return {
     point(ctx, primitive, dpr) {
@@ -258,6 +260,13 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
       ctx.beginPath()
       ctx.arc(primitive.point.x, primitive.point.y, Math.max(radius, 1 / dpr), 0, Math.PI * 2)
       ctx.fill()
+      if (primitive.text) {
+        ctx.fillStyle = primitive.style?.textColor ?? primitive.style?.stroke ?? '#2962ff'
+        ctx.font = `${primitive.style?.fontSize ?? 12}px sans-serif`
+        ctx.textAlign = primitive.text.align ?? 'center'
+        ctx.textBaseline = primitive.text.baseline ?? 'middle'
+        ctx.fillText(primitive.text.text, primitive.point.x, primitive.point.y)
+      }
       ctx.restore()
     },
 
@@ -273,6 +282,28 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
       ctx.moveTo(clipped.a.x + align, clipped.a.y + align)
       ctx.lineTo(clipped.b.x + align, clipped.b.y + align)
       ctx.stroke()
+
+      if (primitive.text) {
+        // 标签固定在两枚原始锚点之间，不随延长线或视口裁剪漂移。
+        const centerX = (primitive.a.x + primitive.b.x) / 2
+        const centerY = (primitive.a.y + primitive.b.y) / 2
+        let rotation = Math.atan2(primitive.b.y - primitive.a.y, primitive.b.x - primitive.a.x)
+        // 文字与线平行，但始终保持正向可读。
+        if (rotation > Math.PI / 2) rotation -= Math.PI
+        if (rotation <= -Math.PI / 2) rotation += Math.PI
+        // 文本沿线的上侧法线偏移，避免字形覆盖直线。
+        const textX = centerX + Math.sin(rotation) * LINE_TEXT_GAP_PX
+        const textY = centerY - Math.cos(rotation) * LINE_TEXT_GAP_PX
+        ctx.save()
+        ctx.fillStyle = primitive.style?.textColor ?? primitive.style?.stroke ?? '#2962ff'
+        ctx.font = `${primitive.style?.fontSize ?? 12}px sans-serif`
+        ctx.textAlign = primitive.text.align ?? 'center'
+        ctx.textBaseline = primitive.text.baseline ?? 'middle'
+        ctx.translate(textX, textY)
+        ctx.rotate(rotation)
+        ctx.fillText(primitive.text.text, 0, 0)
+        ctx.restore()
+      }
 
       // 绘制端点（使用原始锚点位置，不是裁剪后的位置）；屏幕外锚点只保留被裁剪的线段。
       if (primitive.showEndpoints !== false) {
@@ -319,6 +350,21 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
         ctx.closePath()
       }
       ctx.fill()
+      if (primitive.text) {
+        const xs = primitive.points.map((point) => point.x)
+        const ys = primitive.points.map((point) => point.y)
+        // 文字在填充后绘制，始终位于填充带上层。
+        ctx.globalAlpha = 1
+        ctx.fillStyle = primitive.style?.textColor ?? primitive.style?.stroke ?? '#2962ff'
+        ctx.font = `${primitive.style?.fontSize ?? 12}px sans-serif`
+        ctx.textAlign = primitive.text.align ?? 'center'
+        ctx.textBaseline = primitive.text.baseline ?? 'middle'
+        ctx.fillText(
+          primitive.text.text,
+          (Math.min(...xs) + Math.max(...xs)) / 2,
+          (Math.min(...ys) + Math.max(...ys)) / 2,
+        )
+      }
       ctx.restore()
     },
 
@@ -328,13 +374,7 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
       ctx.font = `${primitive.style?.fontSize ?? 12}px sans-serif`
       ctx.textAlign = primitive.align ?? 'left'
       ctx.textBaseline = primitive.baseline ?? 'bottom'
-      if (primitive.rotation !== undefined) {
-        ctx.translate(primitive.point.x, primitive.point.y)
-        ctx.rotate(primitive.rotation)
-        ctx.fillText(primitive.text, 0, 0)
-      } else {
-        ctx.fillText(primitive.text, primitive.point.x, primitive.point.y)
-      }
+      ctx.fillText(primitive.text, primitive.point.x, primitive.point.y)
       ctx.restore()
     },
 
@@ -370,6 +410,24 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
       ctx.lineTo(right.x, right.y)
       ctx.closePath()
       ctx.fill()
+      if (primitive.text) {
+        const centerX = (primitive.start.x + primitive.end.x) / 2
+        const centerY = (primitive.start.y + primitive.end.y) / 2
+        let rotation = angle
+        if (rotation > Math.PI / 2) rotation -= Math.PI
+        if (rotation <= -Math.PI / 2) rotation += Math.PI
+        const textX = centerX + Math.sin(rotation) * LINE_TEXT_GAP_PX
+        const textY = centerY - Math.cos(rotation) * LINE_TEXT_GAP_PX
+        ctx.fillStyle = primitive.style?.textColor ?? primitive.style?.stroke ?? '#2962ff'
+        ctx.font = `${primitive.style?.fontSize ?? 12}px sans-serif`
+        ctx.textAlign = primitive.text.align ?? 'center'
+        ctx.textBaseline = primitive.text.baseline ?? 'middle'
+        ctx.save()
+        ctx.translate(textX, textY)
+        ctx.rotate(rotation)
+        ctx.fillText(primitive.text.text, 0, 0)
+        ctx.restore()
+      }
       ctx.restore()
     },
   }
@@ -594,16 +652,7 @@ export function createInfoLineDefinition(): DrawingDefinition {
 
       return {
         primitives: [
-          { kind: 'line', a, b, style: drawing.style },
-          {
-            kind: 'text',
-            point: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
-            text,
-            align: 'center',
-            baseline: 'bottom',
-            rotation: Math.atan2(b.y - a.y, b.x - a.x),
-            style: drawing.style,
-          },
+          { kind: 'line', a, b, text: { text, baseline: 'bottom' }, style: drawing.style },
         ],
         meta: { delta, percent, bars, angle },
       }
@@ -864,4 +913,9 @@ export function registerDefaultDrawingDefinitions(registry: DrawingDefinitionReg
 
 // 导出交互控制器
 export { DrawingInteractionController } from './interaction'
-export type { DrawingToolId, InteractionDrawingAnchor, DrawingInteractionCallbacks } from './interaction'
+export type {
+  DrawingToolId,
+  InteractionDrawingAnchor,
+  DrawingInteractionCallbacks,
+  DrawingLineLabelTarget,
+} from './interaction'

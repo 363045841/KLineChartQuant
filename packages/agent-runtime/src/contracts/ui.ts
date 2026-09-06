@@ -160,6 +160,17 @@ export type AgentSelectedTimeRangeContextItem = AgentContextItem<
   AgentSelectedTimeRangeContextValue
 >
 
+/** 当前选定时间范围内的完整 K 线 formatter 文本。 */
+export interface AgentSelectedKLineBarsContextValue extends AgentContextObject {
+  readonly content: string
+}
+
+/** 用户选择时间范围时一并提供的 K 线行情上下文项。 */
+export type AgentSelectedKLineBarsContextItem = AgentContextItem<
+  'selected-kline-bars',
+  AgentSelectedKLineBarsContextValue
+>
+
 /** Agent 可引用的一个已选中绘图锚点。 */
 export interface AgentDrawingSelectionAnchor extends AgentContextObject {
   readonly timestamp: number | null
@@ -213,6 +224,7 @@ export interface ProviderStatusView {
   modelLabel?: string
   profileName?: string
   protocol?: ProviderApiProtocol
+  headers?: Record<string, string>
   fingerprint?: string
   compatibility?: ProviderCompatibility
   lastTestedAt?: number
@@ -325,6 +337,7 @@ export interface StartRunInput {
 export interface ProviderTestInput {
   baseUrl: string
   apiKey?: string
+  headers?: Record<string, string>
   model: string
   protocol: ProviderApiProtocol
 }
@@ -342,6 +355,7 @@ export interface ProviderProfileView {
 export interface ProviderModelsInput {
   baseUrl: string
   apiKey?: string
+  headers?: Record<string, string>
   protocol: ProviderApiProtocol
 }
 export interface ProviderModelsResult {

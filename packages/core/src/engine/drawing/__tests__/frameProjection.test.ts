@@ -79,6 +79,61 @@ describe('projectDrawingsForFrame', () => {
     expect(context.yAxisRanges).toHaveLength(0)
   })
 
+  it('attaches a persisted line label to its matching line primitive', () => {
+    const drawing: DrawingObject = {
+      id: 'labeled-trend',
+      kind: 'trend-line',
+      paneId: 'main',
+      visible: true,
+      anchors: [
+        { id: 'a', time: 1_000, price: 10 },
+        { id: 'b', time: 2_000, price: 20 },
+      ],
+      labels: { line: { 0: '趋势' }, area: {} },
+      style: { stroke: '#2962ff' },
+    }
+    const store = new DrawingStore({
+      drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
+      selectedDrawingIds$: createSignal<ReadonlyArray<string>>([]),
+    })
+    const definitions = new DrawingDefinitionRegistry()
+    registerDefaultDrawingDefinitions(definitions)
+
+    const projection = projectDrawingsForFrame(store, definitions, createContext())
+
+    expect(projection.primitives).toEqual([
+      expect.objectContaining({
+        kind: 'line',
+        text: expect.objectContaining({ text: '趋势' }),
+      }),
+    ])
+  })
+
+  it('attaches an arrow label to its arrow primitive', () => {
+    const drawing: DrawingObject = {
+      id: 'labeled-arrow',
+      kind: 'arrow',
+      paneId: 'main',
+      visible: true,
+      anchors: [
+        { id: 'a', time: 1_000, price: 10 },
+        { id: 'b', time: 2_000, price: 20 },
+      ],
+      labels: { line: { 0: '箭头' }, area: {} },
+      style: { stroke: '#2962ff' },
+    }
+    const store = new DrawingStore({
+      drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
+      selectedDrawingIds$: createSignal<ReadonlyArray<string>>([]),
+    })
+    const definitions = new DrawingDefinitionRegistry()
+    registerDefaultDrawingDefinitions(definitions)
+
+    expect(projectDrawingsForFrame(store, definitions, createContext()).primitives).toEqual([
+      expect.objectContaining({ kind: 'arrow', text: expect.objectContaining({ text: '箭头' }) }),
+    ])
+  })
+
   it('re-resolves timestamp anchors after older data prepends and ignores the stale index', () => {
     const drawing: DrawingObject = {
       id: 'trend',

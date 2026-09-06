@@ -451,6 +451,12 @@ export type DrawingStyle = {
   fontSize?: number
 }
 
+/** 绘图附属文本；键为图元定义输出的线段或填充区域序号。 */
+export type DrawingLabels = {
+  line: Record<string, string>
+  area: Record<string, string>
+}
+
 /** 绘图所属的数据工作区。 */
 export type DrawingWorkspaceId = ChartWorkspaceId
 
@@ -464,6 +470,8 @@ export type DrawingObject<TParams = Record<string, unknown>> = {
   locked?: boolean
   zIndex?: number
   anchors: PersistedDrawingAnchor[]
+  /** 用户输入的附属文本；几何位置和方向始终在渲染期推导。 */
+  labels?: DrawingLabels
   params: TParams
   style: DrawingStyle
 }
@@ -478,6 +486,13 @@ export type ResolvedDrawingObject<TParams = Record<string, unknown>> = Omit<
 
 export type ScreenPoint = { x: number; y: number }
 
+/** 图元附属文字；位置由所属图元的几何中心决定。 */
+export type PrimitiveTextAttachment = {
+  text: string
+  align?: 'left' | 'center' | 'right'
+  baseline?: 'top' | 'middle' | 'bottom'
+}
+
 /** 水平锚点的屏幕投影，只具有 Y 坐标。 */
 export type ScreenHorizontalAnchor = { type: 'horizontal'; y: number }
 
@@ -486,14 +501,13 @@ export type ScreenVerticalAnchor = { type: 'vertical'; x: number }
 
 /** 锚点的屏幕投影，按锚点语义保留缺失的坐标轴。 */
 export type ScreenDrawingAnchor =
-  | ({ type: 'point' } & ScreenPoint)
-  | ScreenHorizontalAnchor
-  | ScreenVerticalAnchor
+  ({ type: 'point' } & ScreenPoint) | ScreenHorizontalAnchor | ScreenVerticalAnchor
 
 export type PointPrimitive = {
   kind: 'point'
   point: ScreenPoint
   role?: 'anchor' | 'handle' | 'marker' | 'center'
+  text?: PrimitiveTextAttachment
   style?: DrawingStyle
 }
 
@@ -503,6 +517,7 @@ export type LinePrimitive = {
   b: ScreenPoint
   extend?: 'none' | 'left' | 'right' | 'both'
   showEndpoints?: boolean
+  text?: PrimitiveTextAttachment
   style?: DrawingStyle
 }
 
@@ -510,6 +525,7 @@ export type AreaPrimitive = {
   kind: 'area'
   points: ScreenPoint[]
   closed: boolean
+  text?: PrimitiveTextAttachment
   style?: DrawingStyle
 }
 
@@ -519,7 +535,6 @@ export type TextPrimitive = {
   text: string
   align?: 'left' | 'center' | 'right'
   baseline?: 'top' | 'middle' | 'bottom'
-  rotation?: number
   style?: DrawingStyle
 }
 
@@ -530,6 +545,7 @@ export type ArrowPrimitive = {
   end: ScreenPoint
   headLength?: number
   headAngle?: number
+  text?: PrimitiveTextAttachment
   style?: DrawingStyle
 }
 

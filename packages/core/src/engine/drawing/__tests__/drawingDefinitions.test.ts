@@ -6,6 +6,7 @@ import type { DrawingComputeContext, ResolvedDrawingObject } from '../../../foun
 import {
   createArrowDefinition,
   createFibRetracementDefinition,
+  createInfoLineDefinition,
   createRectangleDefinition,
 } from '../index'
 import { getAnchorCountForTool, getDrawingKind } from '../toolConfig'
@@ -70,6 +71,14 @@ describe('new drawing tools', () => {
     const geometry = createArrowDefinition().compute(drawing('arrow'), context())
     expect(geometry.primitives).toEqual([
       expect.objectContaining({ kind: 'arrow', start: { x: 20, y: 100 }, end: { x: 120, y: 160 } }),
+    ])
+  })
+
+  it('attaches info-line text to its line for slope-derived rendering', () => {
+    const geometry = createInfoLineDefinition().compute(drawing('info-line'), context())
+
+    expect(geometry.primitives).toEqual([
+      expect.objectContaining({ kind: 'line', text: expect.objectContaining({ text: expect.any(String) }) }),
     ])
   })
 })

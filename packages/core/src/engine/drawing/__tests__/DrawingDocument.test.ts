@@ -103,7 +103,10 @@ describe('DrawingDocument', () => {
       ],
     })
 
-    const updated = document.updateDrawing(first.id, { style: { strokeWidth: 3 } })
+    const updated = document.updateDrawing({
+      ...first,
+      style: { ...first.style, strokeWidth: 3 },
+    })
 
     expect(updated?.style.strokeWidth).toBe(3)
     expect(document.listDrawings().map((drawing) => drawing.id)).toEqual([first.id, second.id])

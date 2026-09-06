@@ -270,6 +270,12 @@ function projectContextItems(
       },
     })
   }
+  if (context.selectedKLineBars) {
+    items.push({
+      kind: 'selected-kline-bars',
+      value: { content: context.selectedKLineBars },
+    })
+  }
   if (context.drawingSelection) {
     items.push({
       kind: 'drawing-selection',
@@ -650,6 +656,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     const settings: OpenAiCompatibleProviderSettings = {
       version: PROVIDER_SETTINGS_VERSION,
       baseUrl,
+      headers: input.headers ?? {},
       modelId,
       modelName: input.modelName.trim() || modelId,
       protocol: input.protocol,

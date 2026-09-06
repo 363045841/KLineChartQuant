@@ -90,6 +90,34 @@ function applySelectedStyle(
   return primitive
 }
 
+/** 将持久化文本附加到对应线段；位置和方向由渲染器按当前几何计算。 */
+function attachLineLabels(
+  drawing: ResolvedDrawingObject,
+  primitives: ReadonlyArray<DrawingPrimitive>,
+): DrawingPrimitive[] {
+  let lineIndex = 0
+  return primitives.map((primitive) => {
+    if (primitive.kind !== 'line' && primitive.kind !== 'arrow') return primitive
+    const label = drawing.labels?.line[String(lineIndex++)]
+    return label === undefined
+      ? primitive
+      : { ...primitive, text: { text: label, baseline: 'bottom' } }
+  })
+}
+
+/** 将持久化文本附加到对应填充区域；文字在填充完成后由区域渲染器绘制。 */
+function attachAreaLabels(
+  drawing: ResolvedDrawingObject,
+  primitives: ReadonlyArray<DrawingPrimitive>,
+): DrawingPrimitive[] {
+  let areaIndex = 0
+  return primitives.map((primitive) => {
+    if (primitive.kind !== 'area') return primitive
+    const label = drawing.labels?.area[String(areaIndex++)]
+    return label === undefined ? primitive : { ...primitive, text: { text: label } }
+  })
+}
+
 /** 将一个选中图元的锚点投影为坐标轴标签和范围带。 */
 function projectAxisDecorations(
   anchors: ReadonlyArray<ResolvedDrawingAnchor>,
@@ -190,11 +218,11 @@ export function projectDrawingsForFrame(
     })
     if (!geometry) continue
     const isSelected = selectedIds.has(drawing.id)
-    output.primitives.push(
-      ...(isSelected
-        ? geometry.primitives.map((primitive) => applySelectedStyle(primitive, drawing.style))
-        : geometry.primitives),
-    )
+    const primitives = attachAreaLabels(drawing, attachLineLabels(drawing, geometry.primitives))
+    const styledPrimitives = isSelected
+      ? primitives.map((primitive) => applySelectedStyle(primitive, drawing.style))
+      : primitives
+    output.primitives.push(...styledPrimitives)
     if (isSelected) {
       projectAxisDecorations(
         [...drawing.anchors, ...(geometry.computedAnchors ?? [])],

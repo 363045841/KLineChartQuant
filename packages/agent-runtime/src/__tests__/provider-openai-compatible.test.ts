@@ -169,8 +169,9 @@ async function configure(
 ): Promise<void> {
   await credentials.write(secret)
   await settings.write({
-    version: 2,
+    version: 3,
     baseUrl,
+    headers: {},
     modelId: 'frontier-fast',
     modelName: 'Frontier Fast',
     protocol,
@@ -384,7 +385,7 @@ describe('OpenAI-compatible runtime support', () => {
       })
 
       expect(plan.model.api).toBe(protocol)
-      expect(await settings.read()).toMatchObject({ version: 2, protocol })
+      expect(await settings.read()).toMatchObject({ version: 3, protocol })
       expect(fetch.mock.calls.map(([input]) => String(input))).toEqual([
         `${baseUrl}/models`,
         `${baseUrl}/models`,
@@ -393,6 +394,44 @@ describe('OpenAI-compatible runtime support', () => {
       ])
     },
   )
+
+  it('sends configured headers during connection tests and streamed runs', async () => {
+    const { credentials, settings } = configuredStores()
+    const probeFetch = providerFetch()
+    const fetch = vi.fn<FetchFunction>(async (input, init) => {
+      const body = String(init?.body)
+      return body.includes('"stream":true')
+        ? streamResponse('openai-completions')
+        : probeFetch(input, init)
+    })
+    const support = createOpenAiCompatibleRuntimeSupport({ credentials, settings, fetch })
+    const headers = { 'HTTP-Referer': 'https://example.com', 'X-OpenRouter-Title': 'KMap' }
+
+    await support.provider.test({
+      baseUrl,
+      apiKey: secret,
+      headers,
+      model: 'frontier-fast',
+      protocol: 'openai-completions',
+    })
+    const plan = await support.createPlan({
+      sessionId: 'session-1',
+      runId: 'run-1',
+      turnId: 'turn-1',
+      lane: 'main',
+      prompt: 'Hello',
+      readOnly: true,
+      startedAt: 1,
+      userEntryId: 'user-1',
+    })
+    await new PiRunDriver().run(plan, () => undefined)
+
+    for (const [, init] of fetch.mock.calls) {
+      const requestHeaders = new Headers(init?.headers)
+      expect(requestHeaders.get('HTTP-Referer')).toBe(headers['HTTP-Referer'])
+      expect(requestHeaders.get('X-OpenRouter-Title')).toBe(headers['X-OpenRouter-Title'])
+    }
+  })
 
   it('injects the current Asia/Shanghai date and time into the system prompt', async () => {
     const { credentials, settings } = configuredStores()
@@ -443,6 +482,13 @@ describe('OpenAI-compatible runtime support', () => {
             kind: 'selected-time-range',
             value: { from: '2023-11-15 06:13', to: '2023-11-16 06:13' },
           },
+          {
+            kind: 'selected-kline-bars',
+            value: {
+              content:
+                'market bars | symbol=BTCUSDT\n\n| time | open | high | low | close | volume |',
+            },
+          },
         ],
       },
       startedAt: 1,
@@ -452,6 +498,10 @@ describe('OpenAI-compatible runtime support', () => {
     expect(plan.systemPrompt).toContain('"kind":"chart-symbol"')
     expect(plan.systemPrompt).toContain('"kind":"selected-time-range"')
     expect(plan.systemPrompt).toContain('Do not use tools to rediscover the current symbol')
+    expect(plan.systemPrompt).toContain(
+      'The selected-kline-bars context contains the complete OHLCV data',
+    )
+    expect(plan.systemPrompt).toContain('do not call market_bars_query for that range')
   })
 
   it('migrates v1 persisted settings to explicit Chat Completions', () => {
@@ -466,8 +516,9 @@ describe('OpenAI-compatible runtime support', () => {
         lastModelsRefreshAt: 9,
       }),
     ).toEqual({
-      version: 2,
+      version: 3,
       baseUrl,
+      headers: {},
       modelId: 'frontier-fast',
       modelName: 'Frontier Fast',
       protocol: 'openai-completions',

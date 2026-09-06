@@ -31,6 +31,21 @@ const ANCHOR_HIT_RADIUS_SQ = ANCHOR_HIT_RADIUS * ANCHOR_HIT_RADIUS
 /** 线段点击命中半径（px） */
 const LINE_HIT_RADIUS = 6
 const LINE_HIT_RADIUS_SQ = LINE_HIT_RADIUS * LINE_HIT_RADIUS
+/** 线段中心文本热点半径（px）。 */
+const LINE_LABEL_TARGET_RADIUS = 18
+const LINE_LABEL_TARGET_RADIUS_SQ = LINE_LABEL_TARGET_RADIUS * LINE_LABEL_TARGET_RADIUS
+
+/** 线段中心文本编辑热点。 */
+export interface LineLabelTarget {
+  readonly drawingId: string
+  readonly targetKind: 'line' | 'area'
+  readonly lineIndex: number
+  readonly x: number
+  readonly y: number
+  /** 文字沿线段方向旋转的可读角度（弧度）。 */
+  readonly rotation: number
+  readonly text: string
+}
 
 /**
  * Hit detection — test mouse position against drawing anchors and line segments.
@@ -261,6 +276,104 @@ export class HitTester {
     }
 
     return segments
+  }
+
+  /** 查找鼠标命中的线段中心区域，供宿主显示文本添加或编辑提示。 */
+  findLineLabelTarget(
+    mouseX: number,
+    mouseY: number,
+    drawings: ReadonlyArray<DrawingObject>,
+    adapter: DrawingChartAdapter,
+  ): LineLabelTarget | null {
+    let closest: LineLabelTarget | null = null
+    let closestDistanceSq = LINE_LABEL_TARGET_RADIUS_SQ
+    for (const drawing of drawings) {
+      const segments = this.getDrawingLabelSegments(drawing, adapter)
+      for (const [lineIndex, segment] of segments.entries()) {
+        const x = (segment.a.x + segment.b.x) / 2
+        const y = (segment.a.y + segment.b.y) / 2
+        const dx = mouseX - x
+        const dy = mouseY - y
+        const distanceSq = dx * dx + dy * dy
+        if (distanceSq > closestDistanceSq) continue
+        closestDistanceSq = distanceSq
+        let rotation = Math.atan2(segment.b.y - segment.a.y, segment.b.x - segment.a.x)
+        if (rotation > Math.PI / 2) rotation -= Math.PI
+        if (rotation <= -Math.PI / 2) rotation += Math.PI
+        closest = {
+          drawingId: drawing.id,
+          targetKind: 'line',
+          lineIndex,
+          x,
+          y: y + (adapter.getPaneInfo(drawing.paneId)?.top ?? 0),
+          rotation,
+          text: drawing.labels?.line[String(lineIndex)] ?? '',
+        }
+      }
+    }
+    return closest
+  }
+
+  /** 查找填充图元的中心文本热点。 */
+  findAreaLabelTarget(
+    mouseX: number,
+    mouseY: number,
+    drawings: ReadonlyArray<DrawingObject>,
+    adapter: DrawingChartAdapter,
+  ): LineLabelTarget | null {
+    for (const drawing of drawings) {
+      if (
+        ![
+          'rectangle',
+          'parallel-channel',
+          'regression-channel',
+          'flat-line',
+          'disjoint-channel',
+        ].includes(drawing.kind)
+      )
+        continue
+      const segments = this.getDrawingLineSegments(drawing, adapter)
+      if (segments.length === 0) continue
+      const points = segments.flatMap((segment) => [segment.a, segment.b])
+      const x =
+        (Math.min(...points.map((point) => point.x)) +
+          Math.max(...points.map((point) => point.x))) /
+        2
+      const y =
+        (Math.min(...points.map((point) => point.y)) +
+          Math.max(...points.map((point) => point.y))) /
+        2
+      const dx = mouseX - x
+      const dy = mouseY - y
+      if (dx * dx + dy * dy > LINE_LABEL_TARGET_RADIUS_SQ) continue
+      return {
+        drawingId: drawing.id,
+        targetKind: 'area',
+        lineIndex: 0,
+        x,
+        y: y + (adapter.getPaneInfo(drawing.paneId)?.top ?? 0),
+        rotation: 0,
+        text: drawing.labels?.area['0'] ?? '',
+      }
+    }
+    return null
+  }
+
+  /** 返回文本热点对应的线段；射线和延长线始终使用原始两锚点之间的线段。 */
+  private getDrawingLabelSegments(
+    drawing: DrawingObject,
+    adapter: DrawingChartAdapter,
+  ): LineSegment[] {
+    if (
+      (drawing.kind === 'ray' || drawing.kind === 'extended-line') &&
+      drawing.anchors.length === 2
+    ) {
+      const [first, second] = drawing.anchors
+      const a = first ? anchorToScreen(first, drawing.paneId, adapter) : null
+      const b = second ? anchorToScreen(second, drawing.paneId, adapter) : null
+      return isScreenPoint(a) && isScreenPoint(b) ? [{ a, b }] : []
+    }
+    return this.getDrawingLineSegments(drawing, adapter)
   }
 
   /**

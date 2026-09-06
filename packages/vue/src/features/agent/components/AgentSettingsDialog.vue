@@ -63,6 +63,15 @@
           />
         </label>
         <label class="provider-field">
+          <span class="provider-field__label">{{ text.additionalHeaders }}</span>
+          <textarea
+            v-model="providerSettings.headers"
+            rows="4"
+            spellcheck="false"
+            :placeholder="text.additionalHeadersPlaceholder"
+          />
+        </label>
+        <label class="provider-field">
           <span class="provider-field__label">{{ text.model }}</span>
           <span class="provider-model-control">
             <Dropdown
@@ -319,6 +328,7 @@
   }
 
   .provider-field input,
+  .provider-field textarea,
   .provider-field select {
     width: 100%;
     height: 34px;
@@ -335,6 +345,7 @@
   }
 
   .provider-field input:focus,
+  .provider-field textarea:focus,
   .provider-field select:focus {
     border-color: var(--klc-color-axis-text);
   }
@@ -342,6 +353,14 @@
   .provider-field input::placeholder {
     color: var(--klc-color-axis-text);
     opacity: 0.55;
+  }
+
+  .provider-field textarea {
+    min-height: 76px;
+    padding: 8px 10px;
+    resize: vertical;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    line-height: 1.4;
   }
 
   .provider-protocol-control {

@@ -236,6 +236,7 @@ describe('createChartAgentController', () => {
         bars: 4,
       },
       visibleRange: null,
+      selectedKLineBars: null,
       activeIndicators: [{ instanceId: 'rsi-1', definitionId: 'RSI', params: { period: 14 } }],
       drawingSelection: null,
       dataRevision: 1,
@@ -260,6 +261,26 @@ describe('createChartAgentController', () => {
     publishBars(fixture.dataState, createBars(), 'America/New_York')
 
     expect(fixture.controller.getContext().timezone).toBe('America/New_York')
+  })
+
+  it('formats every loaded K-line in the selected range with the market-bars formatter', () => {
+    const fixture = createFixture()
+    publishBars(fixture.dataState, createBars(), 'UTC')
+    fixture.selectedRange.set({
+      from: Date.parse('2026-09-02'),
+      to: Date.parse('2026-09-03'),
+    })
+
+    const selectedKLineBars = fixture.controller.getContext().selectedKLineBars
+
+    expect(selectedKLineBars).toContain(
+      'market bars | symbol=BTCUSDT | source=fixture | timezone=UTC | period=daily | adjustment=none | olderData=-',
+    )
+    expect(selectedKLineBars).toContain('| time | open | high | low | close | volume |')
+    expect(selectedKLineBars).toContain('| 2026-09-02 00:00 |')
+    expect(selectedKLineBars).toContain('| 2026-09-03 00:00 |')
+    expect(selectedKLineBars).not.toContain('| 2026-09-01 07:00 |')
+    expect(selectedKLineBars).not.toContain('| 2026-09-04 00:00 |')
   })
 
   it('returns a stable chart identity and fresh read-only snapshots', () => {
@@ -385,6 +406,21 @@ describe('createChartAgentController', () => {
     expect(fixture.queryIndicator).toHaveBeenLastCalledWith(input)
   })
 
+  it('rejects timestamp ranges from the registered indicator tool', async () => {
+    const fixture = createFixture()
+    const tool = getRegisteredChartTools().find((item) => item.config.name === 'indicators_query')
+
+    await expect(
+      tool?.execute(
+        fixture.controller,
+        { definitionId: 'RSI', from: Date.parse('2026-09-01') },
+        { signal: new AbortController().signal, progress: () => undefined },
+      ),
+    ).rejects.toThrow('must not have additional properties')
+
+    expect(fixture.queryIndicator).not.toHaveBeenCalled()
+  })
+
   it('executes drawing CRUD through the registered document tools', async () => {
     const fixture = createFixture()
     const signal = new AbortController().signal
@@ -402,6 +438,7 @@ describe('createChartAgentController', () => {
           { tradingDate: '2026-09-01', price: 10 },
           { tradingDate: '2026-09-02', price: 12 },
         ],
+        labels: { line: { 0: '初始趋势' }, area: {} },
       },
       { signal, progress: () => undefined },
     )) as { id: string; anchors: Array<{ timestamp: number; price: number; index?: number }> }
@@ -410,12 +447,14 @@ describe('createChartAgentController', () => {
       { timestamp: Date.parse('2026-09-01') + 25_200_000, price: 10 },
       { timestamp: Date.parse('2026-09-02'), price: 12 },
     ])
+    expect(created).toMatchObject({ labels: { line: { 0: '初始趋势' }, area: {} } })
     await expect(
       update.execute(
         fixture.controller,
         {
           drawingId: created.id,
           patch: {
+            labels: { line: { 0: '更新趋势' }, area: {} },
             anchors: [
               { tradingDate: '2026-09-03', price: 11 },
               { tradingDate: '2026-09-04', price: 13 },
@@ -430,6 +469,7 @@ describe('createChartAgentController', () => {
         { timestamp: Date.parse('2026-09-03'), price: 11 },
         { timestamp: Date.parse('2026-09-04'), price: 13 },
       ],
+      labels: { line: { 0: '更新趋势' }, area: {} },
     })
     await expect(
       list.execute(fixture.controller, {}, { signal, progress: () => undefined }),
@@ -566,7 +606,7 @@ describe('createChartAgentController', () => {
     expect(fixture.controller.getContext().symbol).toBe('BTCUSDT')
   })
 
-  it('passes the registered market bars timestamp cursor through unchanged', async () => {
+  it('rejects timestamp cursors from the registered market bars tool', async () => {
     const fixture = createFixture()
     const tool = getRegisteredChartTools().find((item) => item.config.name === 'market_bars_query')
 
@@ -583,11 +623,9 @@ describe('createChartAgentController', () => {
         },
         { signal: new AbortController().signal, progress: () => undefined },
       ),
-    ).resolves.toContain('source=fixture')
+    ).rejects.toThrow('must not have additional properties')
 
-    expect(fixture.fetchBars).toHaveBeenCalledWith(
-      expect.objectContaining({ beforeTimestamp: Date.parse('2026-09-01') }),
-    )
+    expect(fixture.fetchBars).not.toHaveBeenCalled()
   })
 
   it('registers pane tools as direct PaneManager action adapters', async () => {

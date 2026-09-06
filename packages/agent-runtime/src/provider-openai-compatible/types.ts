@@ -7,7 +7,7 @@ export const OPENAI_COMPATIBLE_PROVIDER_ID = 'openai-compatible'
 /** 在 UI 中展示的 Provider 名称。 */
 export const OPENAI_COMPATIBLE_PROVIDER_LABEL = 'OpenAI-compatible'
 /** 已持久化 Provider 设置的当前数据版本。 */
-export const PROVIDER_SETTINGS_VERSION = 2 as const
+export const PROVIDER_SETTINGS_VERSION = 3 as const
 
 /**
  * 定义 Provider API Key 的持久化边界。
@@ -29,6 +29,8 @@ export interface OpenAiCompatibleProviderSettings {
   version: typeof PROVIDER_SETTINGS_VERSION
   /** 不含末尾斜杠的 Provider API 根地址。 */
   baseUrl: string
+  /** 每个 Provider 请求都会附带的非鉴权请求头。 */
+  headers: Record<string, string>
   /** 已验证的模型 ID。 */
   modelId: string
   /** 用于界面展示的模型名称。 */

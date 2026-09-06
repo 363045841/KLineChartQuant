@@ -55,8 +55,8 @@
 </template>
 
 <script setup lang="ts">
-   import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
-   import { computed, onMounted, onUnmounted } from 'vue'
+  import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
+  import { computed, onMounted, onUnmounted } from 'vue'
 
   import Dropdown from './Dropdown.vue'
   import CanvasToolbar from './common/CanvasToolbar.vue'
@@ -74,10 +74,10 @@
     { label: '点线', value: 'dotted' },
   ]
 
-   const props = defineProps<{
-     drawings: ReadonlyArray<DrawingObject>
-     editableStyleKeys: ReadonlyArray<keyof DrawingStyle>
-   }>()
+  const props = defineProps<{
+    drawings: ReadonlyArray<DrawingObject>
+    editableStyleKeys: ReadonlyArray<keyof DrawingStyle>
+  }>()
 
   const emit = defineEmits<{
     (e: 'updateStyle', style: Partial<DrawingStyle>): void
@@ -85,21 +85,21 @@
   }>()
 
   function onKeyDown(e: KeyboardEvent) {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
     if (e.key === 'Delete') {
       e.preventDefault()
       emit('delete')
     }
   }
 
-   onMounted(() => document.addEventListener('keydown', onKeyDown))
-   onUnmounted(() => document.removeEventListener('keydown', onKeyDown))
+  onMounted(() => document.addEventListener('keydown', onKeyDown))
+  onUnmounted(() => document.removeEventListener('keydown', onKeyDown))
 
-   /** 批量编辑展示首个图元的当前值；写入仅限 Core 确认的字段交集。 */
-   const style = computed(() => props.drawings[0]?.style ?? {})
-
-   function canEdit(key: keyof DrawingStyle): boolean {
-     return props.editableStyleKeys.includes(key)
-   }
+  /** 批量编辑展示首个图元的当前值；写入仅限 Core 确认的字段交集。 */
+  const style = computed(() => props.drawings[0]?.style ?? {})
+  function canEdit(key: keyof DrawingStyle): boolean {
+    return props.editableStyleKeys.includes(key)
+  }
 
   function onColorChange(color: string) {
     emit('updateStyle', { stroke: color })
@@ -140,19 +140,19 @@
     pointer-events: none;
   }
 
-   .color-input {
+  .color-input {
     position: absolute;
     inset: 0;
     opacity: 0;
     cursor: pointer;
     width: 100%;
     height: 100%;
-   }
+  }
 
-   .selection-count {
-     padding: 0 4px;
-     color: var(--klc-color-text-secondary);
-     font-size: 12px;
-     white-space: nowrap;
-   }
+  .selection-count {
+    padding: 0 4px;
+    color: var(--klc-color-text-secondary);
+    font-size: 12px;
+    white-space: nowrap;
+  }
 </style>

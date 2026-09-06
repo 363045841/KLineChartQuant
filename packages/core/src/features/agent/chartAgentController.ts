@@ -115,24 +115,27 @@ const KLineAdjustmentToolParameter = Type.Union(
 const AssetClassToolParameter = Type.Union(ASSET_CLASS_VALUES.map((value) => Type.Literal(value)))
 const TradingDateToolParameter = Type.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$' })
 
-const IndicatorQueryToolParameters = Type.Object({
-  definitionId: Type.String({ minLength: 1 }),
-  params: Type.Optional(Type.Record(Type.String(), Type.Number())),
-  from: Type.Optional(Type.Number()),
-  to: Type.Optional(Type.Number()),
-  limit: Type.Optional(Type.Integer({ minimum: 1, maximum: INDICATOR_QUERY_MAX_LIMIT })),
-})
+const IndicatorQueryToolParameters = Type.Object(
+  {
+    definitionId: Type.String({ minLength: 1 }),
+    params: Type.Optional(Type.Record(Type.String(), Type.Number())),
+    limit: Type.Optional(Type.Integer({ minimum: 1, maximum: INDICATOR_QUERY_MAX_LIMIT })),
+  },
+  { additionalProperties: false },
+)
 
-const BarsQueryToolParameters = Type.Object({
-  symbol: Type.String({ minLength: 1 }),
-  period: KLinePeriodToolParameter,
-  adjustment: KLineAdjustmentToolParameter,
-  limit: Type.Integer({ minimum: 1, maximum: MARKET_BARS_QUERY_MAX_LIMIT }),
-  sourceId: Type.Optional(Type.String({ minLength: 1 })),
-  exchange: Type.Optional(Type.String({ minLength: 1 })),
-  assetClass: Type.Optional(AssetClassToolParameter),
-  beforeTimestamp: Type.Optional(Type.Number()),
-})
+const BarsQueryToolParameters = Type.Object(
+  {
+    symbol: Type.String({ minLength: 1 }),
+    period: KLinePeriodToolParameter,
+    adjustment: KLineAdjustmentToolParameter,
+    limit: Type.Integer({ minimum: 1, maximum: MARKET_BARS_QUERY_MAX_LIMIT }),
+    sourceId: Type.Optional(Type.String({ minLength: 1 })),
+    exchange: Type.Optional(Type.String({ minLength: 1 })),
+    assetClass: Type.Optional(AssetClassToolParameter),
+  },
+  { additionalProperties: false },
+)
 
 type BarsQueryToolInput = Static<typeof BarsQueryToolParameters>
 
@@ -192,11 +195,16 @@ const DrawingStyleToolParameters = Type.Partial(
     fontSize: Type.Number({ exclusiveMinimum: 0 }),
   }),
 )
+const DrawingLabelsToolParameters = Type.Object({
+  line: Type.Record(Type.String({ pattern: '^\\d+$' }), Type.String()),
+  area: Type.Record(Type.String({ pattern: '^\\d+$' }), Type.String()),
+})
 const DrawingCreateToolParameters = Type.Object({
   kind: DrawingKindToolParameter,
   paneId: Type.String({ minLength: 1 }),
   anchors: Type.Array(DrawingAnchorToolParameters, { minItems: 1, maxItems: 3 }),
   style: Type.Optional(DrawingStyleToolParameters),
+  labels: Type.Optional(DrawingLabelsToolParameters),
   visible: Type.Optional(Type.Boolean()),
   locked: Type.Optional(Type.Boolean()),
   zIndex: Type.Optional(Type.Number()),
@@ -205,6 +213,7 @@ const DrawingUpdatePatchToolParameters = Type.Object(
   {
     anchors: Type.Optional(Type.Array(DrawingAnchorToolParameters, { minItems: 1, maxItems: 3 })),
     style: Type.Optional(DrawingStyleToolParameters),
+    labels: Type.Optional(DrawingLabelsToolParameters),
     visible: Type.Optional(Type.Boolean()),
     locked: Type.Optional(Type.Boolean()),
     zIndex: Type.Optional(Type.Number()),
@@ -293,6 +302,10 @@ function projectDrawing(drawing: DrawingObject): ChartAgentDrawingSnapshot {
       ),
     ),
     style: Object.freeze({ ...drawing.style }),
+    labels: Object.freeze({
+      line: Object.freeze({ ...(drawing.labels?.line ?? {}) }),
+      area: Object.freeze({ ...(drawing.labels?.area ?? {}) }),
+    }),
   })
 }
 
@@ -375,6 +388,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     const period = this.dependencies.chartMode()
     const adjustMode = selection.kind === 'bars' ? selection.adjustment : (spec?.adjust ?? null)
     const timezone = activeBuffer.timezone
+    const visibleRange = this.dependencies.selectedRange()
     const drawingSelection = projectDrawingSelection(
       this.dependencies.drawings(),
       this.dependencies.selectedDrawingIds(),
@@ -391,10 +405,33 @@ class ChartAgentControllerImpl implements ChartAgentController {
       timezone,
       adjustMode,
       dataRange: Object.freeze({ ...dataRange, bars: activeBuffer.data.length }),
-      visibleRange: this.dependencies.selectedRange(),
+      visibleRange,
+      selectedKLineBars: this.formatSelectedKLineBars(activeBuffer, symbol, visibleRange),
       activeIndicators: projectIndicators(this.dependencies.indicators()),
       drawingSelection,
       dataRevision: activeBuffer.dataRevision,
+    })
+  }
+
+  /** 使用查询工具相同的 formatter 投影当前选定范围内的已加载 K 线。 */
+  private formatSelectedKLineBars(
+    activeBuffer: ReturnType<DataStateModule['readonly']['activeBuffer']>,
+    symbol: string | null,
+    visibleRange: ChartAgentTimeRange | null,
+  ): string | null {
+    if (activeBuffer.kind !== 'bars' || !symbol || !visibleRange) return null
+    const data = activeBuffer.data.filter(
+      (item) => item.timestamp >= visibleRange.from && item.timestamp <= visibleRange.to,
+    )
+    if (data.length === 0) return null
+    return this.marketDataTextFormatter.formatChartBars({
+      sourceId: activeBuffer.selection.sourceId,
+      symbol,
+      period: activeBuffer.selection.period,
+      adjustment: activeBuffer.selection.adjustment,
+      timezone: activeBuffer.timezone,
+      data,
+      olderData: null,
     })
   }
 
@@ -570,7 +607,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     name: 'indicators_query',
     label: 'Query indicator',
     description:
-      'Calculate a registered chart indicator over the active K-line data and return compact text. Use definitionId, optional numeric calculation params, an optional inclusive timestamp range, and a bounded result limit.',
+      'Calculate a registered chart indicator over all active K-line data and return compact text. Use definitionId, optional numeric calculation params, and a bounded result limit.',
     parameters: IndicatorQueryToolParameters,
     safety: 'read-only',
     executionMode: 'parallel',
@@ -579,7 +616,11 @@ class ChartAgentControllerImpl implements ChartAgentController {
     input: IndicatorQueryInput,
     _context?: ChartToolExecutionContext,
   ): Promise<string> {
-    return this.dependencies.indicatorQuery.queryIndicator(input)
+    return this.dependencies.indicatorQuery.queryIndicator({
+      definitionId: input.definitionId,
+      params: input.params,
+      limit: input.limit,
+    })
   }
 
   /** 执行面向前端联想搜索的模糊品种查询。 */
@@ -607,7 +648,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     })
   }
 
-  /** 查询任意品种的一页 K 线；底层游标始终使用 UTC 毫秒时间戳。 */
+  /** 查询任意品种的最新一页 K 线。 */
   async queryBars(input: BarsQueryInput, context?: ChartToolExecutionContext): Promise<string> {
     this.requireEnabledMarketDataSource(input.sourceId)
     const result = await this.dependencies.marketDataCache.queryBars({
@@ -618,7 +659,6 @@ class ChartAgentControllerImpl implements ChartAgentController {
       period: input.period,
       adjustment: input.adjustment,
       limit: input.limit,
-      beforeTimestamp: input.beforeTimestamp,
       signal: context?.signal,
     })
     return this.marketDataTextFormatter.formatBars({
@@ -629,27 +669,18 @@ class ChartAgentControllerImpl implements ChartAgentController {
     })
   }
 
-  /** 以精确时间戳游标查询一页 K 线。 */
+  /** 查询任意品种的最新一页 K 线。 */
   @Tool({
     name: 'market_bars_query',
     label: 'Query market bars',
     description:
-      'Fetch one page of market bars for any symbol without changing the chart. limit must be an integer from 1 to 798. Use beforeTimestamp only as an exclusive Unix-millisecond cursor; omit it for the latest bars. Pagination and retries are handled by the cache.',
+      'Fetch the latest page of market bars for any symbol without changing the chart. limit must be an integer from 1 to 798. Pagination and retries are handled by the cache.',
     parameters: BarsQueryToolParameters,
     safety: 'read-only',
     executionMode: 'parallel',
   })
-  queryBarsByTimestamp(
-    input: BarsQueryToolInput,
-    context?: ChartToolExecutionContext,
-  ): Promise<string> {
-    return this.queryBars(
-      {
-        ...input,
-        beforeTimestamp: input.beforeTimestamp,
-      },
-      context,
-    )
+  queryLatestBars(input: BarsQueryToolInput, context?: ChartToolExecutionContext): Promise<string> {
+    return this.queryBars(input, context)
   }
 
   /** 查询任意品种单个交易日的分时；不读取或修改图表运行时状态。 */
@@ -734,7 +765,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     name: 'drawing_create',
     label: 'Create drawing',
     description:
-      'Create a committed chart drawing using a supported kind and an existing paneId. horizontal-line anchors require only price; all other anchors require tradingDate in YYYY-MM-DD format and price.',
+      'Create a committed chart drawing using a supported kind and an existing paneId. labels is the complete text model keyed by rendered line or area index. horizontal-line anchors require only price; all other anchors require tradingDate in YYYY-MM-DD format and price.',
     parameters: DrawingCreateToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',
@@ -755,7 +786,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     name: 'drawing_update',
     label: 'Update drawing',
     description:
-      'Update a committed chart drawing by id. Supply at least one patch field; horizontal-line anchors require only price, while other anchors require tradingDate in YYYY-MM-DD format and price.',
+      'Update a committed chart drawing by id. labels replaces the complete text model; obtain it from drawings_list before changing it. Supply at least one patch field; horizontal-line anchors require only price, while other anchors require tradingDate in YYYY-MM-DD format and price.',
     parameters: DrawingUpdateToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',
@@ -764,9 +795,23 @@ class ChartAgentControllerImpl implements ChartAgentController {
     input: Static<typeof DrawingUpdateToolParameters>,
   ): Promise<ChartAgentDrawingSnapshot | null> {
     const patch = input.patch
-    const drawing = this.dependencies.drawingCommands.update(input.drawingId, {
-      ...(patch.anchors === undefined ? {} : { anchors: parseDrawingAnchors(patch.anchors) }),
+    const current = this.dependencies.drawingDocument.getDrawing(input.drawingId)
+    if (!current) return null
+    if (patch.anchors === undefined) {
+      const drawing = this.dependencies.drawingCommands.update({
+        ...current,
+        ...(patch.style === undefined ? {} : { style: { ...current.style, ...patch.style } }),
+        ...(patch.labels === undefined ? {} : { labels: patch.labels }),
+        ...(patch.visible === undefined ? {} : { visible: patch.visible }),
+        ...(patch.locked === undefined ? {} : { locked: patch.locked }),
+        ...(patch.zIndex === undefined ? {} : { zIndex: patch.zIndex }),
+      })
+      return drawing ? projectDrawing(drawing) : null
+    }
+    const drawing = this.dependencies.drawingCommands.updateFromInput(input.drawingId, {
+      anchors: parseDrawingAnchors(patch.anchors),
       ...(patch.style === undefined ? {} : { style: patch.style }),
+      ...(patch.labels === undefined ? {} : { labels: patch.labels }),
       ...(patch.visible === undefined ? {} : { visible: patch.visible }),
       ...(patch.locked === undefined ? {} : { locked: patch.locked }),
       ...(patch.zIndex === undefined ? {} : { zIndex: patch.zIndex }),

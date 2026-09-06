@@ -154,4 +154,4 @@ export type {
 
 // Drawing
 export { DrawingInteractionController } from '../engine/drawing'
-export type { DrawingToolId } from '../engine/drawing'
+export type { DrawingLineLabelTarget, DrawingToolId } from '../engine/drawing'

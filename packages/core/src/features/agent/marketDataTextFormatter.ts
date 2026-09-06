@@ -2,6 +2,7 @@
 import { formatTimestamp } from '../../foundation/utils/dateFormat'
 
 import type { KLineData, TimeShareData } from '../../foundation/types/price'
+import type { KLineAdjustment, KLinePeriod, OlderDataStatus } from '../../data/provider/types'
 import type { BarsQueryResult, TimeShareQueryResult, TimeShareRangeQueryResult } from './types'
 
 const EMPTY_RESULT_TEXT = '无可用数据'
@@ -10,8 +11,20 @@ const TABLE_SEPARATOR = '---'
 /** 市场查询文本转义服务。 */
 export interface MarketDataTextFormatter {
   formatBars(result: BarsQueryResult): string
+  formatChartBars(input: ChartBarsTextFormatInput): string
   formatTimeShare(result: TimeShareQueryResult): string
   formatTimeShareRange(result: TimeShareRangeQueryResult): string
+}
+
+/** 当前图表 K 线投影为 Agent 文本时所需的最小行情元数据。 */
+export interface ChartBarsTextFormatInput {
+  readonly sourceId: string
+  readonly symbol: string
+  readonly period: KLinePeriod
+  readonly adjustment: KLineAdjustment
+  readonly timezone: string | null
+  readonly data: ReadonlyArray<KLineData>
+  readonly olderData: OlderDataStatus | null
 }
 
 /** 转义表格单元格，缺失或非有限数值统一使用占位符。 */
@@ -38,12 +51,12 @@ function createMarkdownTable(
 /** 构造只含品种、来源和时区的紧凑行情标题。 */
 function createTitle(
   kind: string,
-  result: Pick<BarsQueryResult, 'sourceId' | 'instrument'>,
-  timeZone: string,
+  result: { readonly sourceId: string; readonly symbol: string },
+  timeZone: string | null,
   details: ReadonlyArray<readonly [string, unknown]> = [],
 ): string {
   const metadata: Array<readonly [string, unknown]> = [
-    ['symbol', result.instrument.symbol],
+    ['symbol', result.symbol],
     ['source', result.sourceId],
     ['timezone', timeZone],
     ...details,
@@ -52,14 +65,14 @@ function createTitle(
 }
 
 /** 按行情时区格式化数据点时间。 */
-function formatTime(timestamp: number, timeZone: string): string {
-  return formatTimestamp(timestamp, { timeZone, showTime: true })
+function formatTime(timestamp: number, timeZone: string | null): string {
+  return formatTimestamp(timestamp, { timeZone: timeZone ?? undefined, showTime: true })
 }
 
 /** 将 K 线数据映射为 OHLCV 表格行。 */
 function createBarRows(
   data: ReadonlyArray<KLineData>,
-  timeZone: string,
+  timeZone: string | null,
 ): ReadonlyArray<ReadonlyArray<unknown>> {
   return data.map((item) => [
     formatTime(item.timestamp, timeZone),
@@ -95,32 +108,54 @@ function createTimeShareTable(data: ReadonlyArray<TimeShareData>, timeZone: stri
   return createMarkdownTable(columns, rows)
 }
 
+/** 将工具查询结果和当前图表快照统一渲染为相同的 K 线文本格式。 */
+function formatBarsText(input: ChartBarsTextFormatInput): string {
+  return [
+    createTitle('market bars', input, input.timezone, [
+      ['period', input.period],
+      ['adjustment', input.adjustment],
+      ['olderData', input.olderData],
+    ]),
+    createMarkdownTable(
+      ['time', 'open', 'high', 'low', 'close', 'volume'],
+      createBarRows(input.data, input.timezone),
+    ),
+  ].join('\n\n')
+}
+
 /** 创建市场查询结果 formatter。 */
 export function createMarketDataTextFormatter(): MarketDataTextFormatter {
   return {
     /** 将 K 线结果转为紧凑 OHLCV 表格。 */
     formatBars(result: BarsQueryResult): string {
       const { series } = result
-      return [
-        createTitle('market bars', result, series.timezone, [
-          ['period', series.period],
-          ['adjustment', series.adjustment],
-          ['olderData', result.olderData],
-        ]),
-        createMarkdownTable(
-          ['time', 'open', 'high', 'low', 'close', 'volume'],
-          createBarRows(series.data, series.timezone),
-        ),
-      ].join('\n\n')
+      return formatBarsText({
+        sourceId: result.sourceId,
+        symbol: result.instrument.symbol,
+        period: series.period,
+        adjustment: series.adjustment,
+        timezone: series.timezone,
+        data: series.data,
+        olderData: result.olderData,
+      })
+    },
+    /** 将当前图表中已加载的 K 线转为与查询工具一致的文本格式。 */
+    formatChartBars(input: ChartBarsTextFormatInput): string {
+      return formatBarsText(input)
     },
     /** 将单日分时结果转为紧凑价格表格。 */
     formatTimeShare(result: TimeShareQueryResult): string {
       const { series } = result
       return [
-        createTitle('market time share', result, series.timezone, [
-          ['tradingDate', series.tradingDate],
-          ['preClose', series.preClose],
-        ]),
+        createTitle(
+          'market time share',
+          { sourceId: result.sourceId, symbol: result.instrument.symbol },
+          series.timezone,
+          [
+            ['tradingDate', series.tradingDate],
+            ['preClose', series.preClose],
+          ],
+        ),
         createTimeShareTable(series.data, series.timezone),
       ].join('\n\n')
     },
@@ -129,10 +164,15 @@ export function createMarketDataTextFormatter(): MarketDataTextFormatter {
       const { range } = result
       const data = range.days.flatMap((day) => day.data)
       return [
-        createTitle('market time-share range', result, range.timezone, [
-          ['requestedDays', range.requestedDays],
-          ['olderData', range.olderData],
-        ]),
+        createTitle(
+          'market time-share range',
+          { sourceId: result.sourceId, symbol: result.instrument.symbol },
+          range.timezone,
+          [
+            ['requestedDays', range.requestedDays],
+            ['olderData', range.olderData],
+          ],
+        ),
         createTimeShareTable(data, range.timezone),
       ].join('\n\n')
     },

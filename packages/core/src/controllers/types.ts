@@ -243,10 +243,13 @@ export interface DrawingChartAdapter {
   getFullDrawings(): ReadonlyArray<DrawingObject>
   /** 创建一个已确认图元。 */
   createDrawing(input: CreateDrawingInput): DrawingObject
-  /** 按 id 更新一个已确认图元。 */
-  updateDrawing(id: string, patch: UpdateDrawingPatch): DrawingObject | null
+  /** 以完整模型快照更新一个已确认图元。 */
+  updateDrawing(drawing: DrawingObject): DrawingObject | null
   /** 提交交互层拖拽后的已解析锚点。 */
-  commitDrawingDrag(id: string, anchors: ReadonlyArray<PersistedDrawingAnchor>): DrawingObject | null
+  commitDrawingDrag(
+    id: string,
+    anchors: ReadonlyArray<PersistedDrawingAnchor>,
+  ): DrawingObject | null
   /** 原子更新一批图元的公共属性。 */
   updateBatch(ids: ReadonlyArray<string>, patch: BatchDrawingPatch): ReadonlyArray<DrawingObject>
   /** 返回一批图元共同拥有的样式字段。 */
@@ -495,7 +498,7 @@ export interface ChartController extends DrawingChartAdapter {
   registerDrawingSession(session: unknown | null): void
   clearDrawings(): void
   createDrawing(input: CreateDrawingInput): DrawingObject
-  updateDrawing(id: string, patch: UpdateDrawingPatch): DrawingObject | null
+  updateDrawing(drawing: DrawingObject): DrawingObject | null
   updateBatch(ids: ReadonlyArray<string>, patch: BatchDrawingPatch): ReadonlyArray<DrawingObject>
   getBatchStyleKeys(ids: ReadonlyArray<string>): ReadonlyArray<DrawingStyleKey>
   removeDrawing(drawingId: string): boolean
