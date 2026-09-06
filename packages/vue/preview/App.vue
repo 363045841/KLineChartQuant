@@ -705,7 +705,7 @@
 <style>
   .app-container {
     width: 100%;
-    height: 100vh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -730,7 +730,7 @@
     margin: 0;
     border-radius: 0;
     width: 100vw !important;
-    height: 100vh !important;
+    height: 100dvh !important;
     background: #fff;
   }
 
