@@ -440,6 +440,11 @@ export type DrawingKind =
   | 'flat-line'
   | 'disjoint-channel'
 
+/** 判断内置绘图是否包含可承载附属文字的点、线或面积图元。 */
+export function supportsDrawingLabel(kind: DrawingKind): boolean {
+  return kind !== 'arrow'
+}
+
 export type DrawingStyle = {
   stroke?: string
   strokeWidth?: number
@@ -478,6 +483,13 @@ export type ResolvedDrawingObject<TParams = Record<string, unknown>> = Omit<
 
 export type ScreenPoint = { x: number; y: number }
 
+/** 图元附属文字；位置由所属图元的几何中心决定。 */
+export type PrimitiveTextAttachment = {
+  text: string
+  align?: 'left' | 'center' | 'right'
+  baseline?: 'top' | 'middle' | 'bottom'
+}
+
 /** 水平锚点的屏幕投影，只具有 Y 坐标。 */
 export type ScreenHorizontalAnchor = { type: 'horizontal'; y: number }
 
@@ -486,14 +498,13 @@ export type ScreenVerticalAnchor = { type: 'vertical'; x: number }
 
 /** 锚点的屏幕投影，按锚点语义保留缺失的坐标轴。 */
 export type ScreenDrawingAnchor =
-  | ({ type: 'point' } & ScreenPoint)
-  | ScreenHorizontalAnchor
-  | ScreenVerticalAnchor
+  ({ type: 'point' } & ScreenPoint) | ScreenHorizontalAnchor | ScreenVerticalAnchor
 
 export type PointPrimitive = {
   kind: 'point'
   point: ScreenPoint
   role?: 'anchor' | 'handle' | 'marker' | 'center'
+  text?: PrimitiveTextAttachment
   style?: DrawingStyle
 }
 
@@ -503,6 +514,7 @@ export type LinePrimitive = {
   b: ScreenPoint
   extend?: 'none' | 'left' | 'right' | 'both'
   showEndpoints?: boolean
+  text?: PrimitiveTextAttachment
   style?: DrawingStyle
 }
 
@@ -510,6 +522,7 @@ export type AreaPrimitive = {
   kind: 'area'
   points: ScreenPoint[]
   closed: boolean
+  text?: PrimitiveTextAttachment
   style?: DrawingStyle
 }
 
@@ -519,7 +532,6 @@ export type TextPrimitive = {
   text: string
   align?: 'left' | 'center' | 'right'
   baseline?: 'top' | 'middle' | 'bottom'
-  rotation?: number
   style?: DrawingStyle
 }
 
@@ -530,6 +542,7 @@ export type ArrowPrimitive = {
   end: ScreenPoint
   headLength?: number
   headAngle?: number
+  text?: PrimitiveTextAttachment
   style?: DrawingStyle
 }
 

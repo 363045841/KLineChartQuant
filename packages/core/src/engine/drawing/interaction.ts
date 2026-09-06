@@ -22,6 +22,17 @@ export interface DrawingInteractionCallbacks {
   onDrawingSelected?: (drawings: ReadonlyArray<DrawingObject>) => void
 }
 
+/** 命中线段中心后供宿主渲染就地文本编辑器的几何快照。 */
+export interface DrawingLineLabelTarget {
+  readonly drawingId: string
+  readonly targetKind: 'line' | 'area'
+  readonly lineIndex: number
+  readonly x: number
+  readonly y: number
+  readonly rotation: number
+  readonly text: string
+}
+
 /**
  * 绘图交互控制器 —— 精简事件路由，组合子模块。
  *
@@ -130,6 +141,24 @@ export class DrawingInteractionController {
     return this.drawingState.getSelectedDrawings()
   }
 
+  /** 查找指针命中的线段中心文本区域；只在光标模式且非拖拽时可编辑。 */
+  getLineLabelTarget(e: PointerEvent, container: HTMLElement): DrawingLineLabelTarget | null {
+    if (this.getActiveTool() !== 'cursor' || this.dragHandler.isDragging()) return null
+    const pointer = resolveDrawingPointer(e, container, this.adapter)
+    if (!pointer) return null
+    const drawings = this.drawingState
+      .getNonPreview()
+      .filter(
+        (drawing) =>
+          drawing.paneId === pointer.paneId &&
+          (drawing.workspaceId ?? ChartWorkspaceId.KLine) === this.adapter.getDrawingWorkspaceId(),
+      )
+    return (
+      this.hitTester.findLineLabelTarget(pointer.x, pointer.y, drawings, this.adapter) ??
+      this.hitTester.findAreaLabelTarget(pointer.x, pointer.y, drawings, this.adapter)
+    )
+  }
+
   // ============ 事件处理 ============
 
   /**
@@ -236,7 +265,8 @@ export class DrawingInteractionController {
         .filter(
           (drawing) =>
             drawing.paneId === pointer.paneId &&
-            (drawing.workspaceId ?? ChartWorkspaceId.KLine) === this.adapter.getDrawingWorkspaceId(),
+            (drawing.workspaceId ?? ChartWorkspaceId.KLine) ===
+              this.adapter.getDrawingWorkspaceId(),
         ),
       this.adapter,
     )

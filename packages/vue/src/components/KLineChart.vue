@@ -133,6 +133,39 @@
                     @delete="onDeleteDrawing"
                   />
                 </CanvasToolbarStack>
+                <div
+                  v-if="lineLabelTarget"
+                  class="drawing-line-label-editor"
+                  :style="{
+                    left: `${lineLabelTarget.x}px`,
+                    top: `${lineLabelTarget.y}px`,
+                    '--drawing-line-label-rotation': `${lineLabelTarget.rotation}rad`,
+                  }"
+                  @pointerdown.stop
+                  @pointermove.stop
+                  @pointerup.stop
+                >
+                  <button
+                    v-if="!isEditingLineLabel"
+                    type="button"
+                    class="drawing-line-label-editor__prompt"
+                    @click.stop="openLineLabelEditor"
+                  >
+                    {{ lineLabelTarget.text || '+ 添加文本' }}
+                  </button>
+                  <input
+                    v-else
+                    ref="lineLabelInput"
+                    v-model="lineLabelDraft"
+                    class="drawing-line-label-editor__input"
+                    type="text"
+                    maxlength="200"
+                    aria-label="线段文本"
+                    @blur="saveLineLabel"
+                    @keydown.enter.prevent="saveLineLabel"
+                    @keydown.escape.prevent="cancelLineLabelEditor"
+                  />
+                </div>
               </div>
               <div
                 v-if="rangeSelectionOverlayStyle"
@@ -282,6 +315,7 @@
     marketDataProviderRegistry,
     type ChartController,
     type ChartMountOptions,
+    type DrawingLineLabelTarget,
     type InteractionSnapshot,
     type LegendTemplateContext,
     type SymbolSpec,
@@ -889,9 +923,35 @@
     drawings,
     handleSelectTool: handleDrawingToolSelect,
     onUpdateDrawingStyle,
+    updateDrawingLabel,
     onDeleteDrawing,
     setupDrawing,
   } = useDrawingManager(controller)
+  const lineLabelTarget = shallowRef<DrawingLineLabelTarget | null>(null)
+  const lineLabelInput = ref<HTMLInputElement | null>(null)
+  const lineLabelDraft = ref('')
+  const isEditingLineLabel = ref(false)
+
+  /** 打开命中线段中心的就地文本编辑器。 */
+  function openLineLabelEditor(): void {
+    if (!lineLabelTarget.value) return
+    lineLabelDraft.value = lineLabelTarget.value.text
+    isEditingLineLabel.value = true
+    void nextTick(() => lineLabelInput.value?.focus())
+  }
+
+  /** 提交当前线段文本，并恢复透明提示态。 */
+  function saveLineLabel(): void {
+    const target = lineLabelTarget.value
+    if (!target || !isEditingLineLabel.value) return
+    updateDrawingLabel(target.drawingId, target.targetKind, target.lineIndex, lineLabelDraft.value)
+    isEditingLineLabel.value = false
+  }
+
+  /** 放弃当前文本草稿，不修改绘图模型。 */
+  function cancelLineLabelEditor(): void {
+    isEditingLineLabel.value = false
+  }
 
   const {
     rangeSelection,
@@ -1404,6 +1464,9 @@
         x: e.clientX - rect.left,
         y: e.clientY - rect.top,
       }
+      if (!isEditingLineLabel.value) {
+        lineLabelTarget.value = drawingController.value?.getLineLabelTarget(e, container) ?? null
+      }
     }
     controller.value?.handlePointerEvent(e, {
       onPointerMove: (event, container) => {
@@ -1438,6 +1501,7 @@
     if (tooltipLayerRef.value && related && tooltipLayerRef.value.contains(related)) {
       return
     }
+    if (!isEditingLineLabel.value) lineLabelTarget.value = null
     controller.value?.handlePointerEvent(e)
   }
 
@@ -2042,6 +2106,41 @@
     -webkit-user-select: none;
     user-select: none;
     touch-action: none;
+  }
+
+  .drawing-line-label-editor {
+    position: absolute;
+    z-index: 21;
+    pointer-events: auto;
+    transform: translate(-50%, -50%);
+    transform-origin: center;
+  }
+
+  .drawing-line-label-editor__prompt {
+    padding: 2px 6px;
+    border: 1px dashed color-mix(in srgb, var(--chart-border) 65%, transparent);
+    border-radius: 3px;
+    color: color-mix(in srgb, var(--chart-text-secondary) 72%, transparent);
+    background: color-mix(in srgb, var(--chart-bg) 52%, transparent);
+    cursor: text;
+    font: 12px/1.3 inherit;
+    white-space: nowrap;
+    transform: rotate(var(--drawing-line-label-rotation));
+  }
+
+  .drawing-line-label-editor__input {
+    width: 140px;
+    padding: 3px 6px;
+    border: 0;
+    border-radius: 3px;
+    color: var(--chart-text);
+    background: color-mix(
+      in srgb,
+      color-mix(in srgb, var(--klc-color-chart-background) 84%, var(--klc-color-foreground)) 96%,
+      transparent
+    );
+    font: 12px/1.3 inherit;
+    outline: none;
   }
 
   .chart-container::-webkit-scrollbar {

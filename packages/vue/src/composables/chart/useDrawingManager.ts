@@ -6,10 +6,12 @@
  */
 import {
   DrawingInteractionController,
+  withDrawingAreaLabel,
+  withDrawingLineLabel,
   type ChartController,
   type DrawingToolId,
 } from '@363045841yyt/klinechart-core/controllers'
-import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
+import { type DrawingObject, type DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
 import { computed, shallowRef, onUnmounted, type Ref } from 'vue'
 
 export function useDrawingManager(ctrl: Ref<ChartController | null>) {
@@ -27,7 +29,6 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
     drawings.value
     return ctrl.value?.getBatchStyleKeys(selectedDrawingIds.value) ?? []
   })
-
   let unsubDrawings: (() => void) | null = null
   let unsubSelected: (() => void) | null = null
 
@@ -40,6 +41,23 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
     const ids = selectedDrawingIds.value
     if (ids.length === 0) return
     ctrl.value?.updateBatch(ids, { style })
+  }
+
+  /** 原子写入指定线段文本；空值会从持久化参数中移除。 */
+  function updateDrawingLabel(
+    drawingId: string,
+    targetKind: 'line' | 'area',
+    targetIndex: number,
+    label: string,
+  ) {
+    const drawing = drawings.value.find((item) => item.id === drawingId)
+    if (!drawing) return
+    ctrl.value?.updateDrawing(drawingId, {
+      params:
+        targetKind === 'line'
+          ? withDrawingLineLabel(drawing, targetIndex, label)
+          : withDrawingAreaLabel(drawing, targetIndex, label),
+    })
   }
 
   function onDeleteDrawing() {
@@ -90,6 +108,7 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
     drawings: readonlyDrawings,
     handleSelectTool,
     onUpdateDrawingStyle,
+    updateDrawingLabel,
     onDeleteDrawing,
     setupDrawing,
   }

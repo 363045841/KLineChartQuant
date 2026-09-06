@@ -153,5 +153,9 @@ export type {
 } from '../components/orderBookHeatmap'
 
 // Drawing
-export { DrawingInteractionController } from '../engine/drawing'
-export type { DrawingToolId } from '../engine/drawing'
+export {
+  DrawingInteractionController,
+  withDrawingAreaLabel,
+  withDrawingLineLabel,
+} from '../engine/drawing'
+export type { DrawingLineLabelTarget, DrawingToolId } from '../engine/drawing'
