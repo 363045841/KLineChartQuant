@@ -41,29 +41,17 @@ import {
 // ---------------------------------------------------------------------------
 
 function probeWebGpu(): boolean {
-  const nav = (globalThis as { navigator?: unknown }).navigator
-  if (typeof nav !== 'object' || nav === null) return false
-  return 'gpu' in (nav as object)
+  return typeof navigator !== 'undefined' && 'gpu' in navigator
 }
 
 function probeWebGl2(): boolean {
-  const doc = (globalThis as { document?: { createElement?: (s: string) => unknown } }).document
-  if (typeof doc?.createElement !== 'function') return false
-  const canvas = doc.createElement('canvas') as {
-    getContext?: (id: string) => unknown
-  }
-  if (typeof canvas.getContext !== 'function') return false
-  return canvas.getContext('webgl2') !== null
+  if (typeof document === 'undefined') return false
+  return document.createElement('canvas').getContext('webgl2') !== null
 }
 
 function probeCanvas2d(): boolean {
-  const doc = (globalThis as { document?: { createElement?: (s: string) => unknown } }).document
-  if (typeof doc?.createElement !== 'function') return false
-  const canvas = doc.createElement('canvas') as {
-    getContext?: (id: string) => unknown
-  }
-  if (typeof canvas.getContext !== 'function') return false
-  return canvas.getContext('2d') !== null
+  if (typeof document === 'undefined') return false
+  return document.createElement('canvas').getContext('2d') !== null
 }
 
 // ---------------------------------------------------------------------------

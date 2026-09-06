@@ -126,8 +126,7 @@ export function selectBackend<T = unknown>(opts: SelectBackendOptions<T>): Backe
   const detectedTier = detection.tier
   const minimum = opts.minimum ?? 'none'
 
-  // Validate the minimum is a known tier; reject 'none' as a minimum
-  // because a 'none' floor is meaningless — nothing can be below it.
+  // Validate the minimum is a known tier; 'none' is the default floor.
   if (!(minimum in RENDERER_TIER_RANK)) {
     throw new KLineChartError(
       'INVALID_PARAM',
