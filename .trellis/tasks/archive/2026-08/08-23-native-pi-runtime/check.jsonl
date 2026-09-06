@@ -1,3 +1,0 @@
-{"file":".trellis/tasks/08-23-native-pi-runtime/prd.md","reason":"Primary acceptance contract for Pi lifecycle, sessions, event mapping, cancellation, retry, IPC, privacy, and deterministic integration."}
-{"file":".trellis/tasks/08-23-kq-agent-workbench-p0/prd.md","reason":"Cross-child R2/R6/R7 requirements and final P0 invariants that this runtime slice must preserve."}
-{"file":".trellis/tasks/08-23-kq-agent-workbench-p0/design.md","reason":"Checks that native IPC remains behind the shared bridge and does not fork the Web/Electron component tree."}
