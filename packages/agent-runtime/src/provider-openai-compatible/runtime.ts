@@ -37,6 +37,18 @@ import type {
 import type { PiRunPlan } from '../pi/types.js'
 import type { FetchFunction } from '@earendil-works/pi-ai'
 
+/** 合并 Provider 附加请求头，保留运行时生成的鉴权和协议头优先级。 */
+function createProviderFetch(
+  fetchImplementation: typeof globalThis.fetch,
+  headers: Record<string, string>,
+): typeof globalThis.fetch {
+  return (input, init) => {
+    const mergedHeaders = new Headers(headers)
+    new Headers(init?.headers).forEach((value, name) => mergedHeaders.set(name, value))
+    return fetchImplementation(input, { ...init, headers: mergedHeaders })
+  }
+}
+
 const MAX_CATALOG_MODELS = 2_000
 const MAX_MODEL_ID_LENGTH = 256
 /** Agent 参照行情交易日与盘中的固定时区。 */
@@ -165,8 +177,12 @@ export function createOpenAiCompatibleRuntimeSupport(
   let lastRefreshAt: number | undefined
 
   /** 构造各阶段共用的 HTTP 运行参数。 */
-  const httpOptions = (signal?: AbortSignal, stage?: ProviderDiagnostic['stage']) => ({
-    fetch: fetchImplementation,
+  const httpOptions = (
+    headers: Record<string, string> = {},
+    signal?: AbortSignal,
+    stage?: ProviderDiagnostic['stage'],
+  ) => ({
+    fetch: createProviderFetch(fetchImplementation, headers),
     now,
     sleep,
     timeoutMs,
@@ -211,7 +227,7 @@ export function createOpenAiCompatibleRuntimeSupport(
     const result = await requestProviderJson(
       `${baseUrl}/models`,
       { headers: { Accept: 'application/json', Authorization: `Bearer ${apiKey}` } },
-      httpOptions(signal, 'catalog'),
+      httpOptions(input.headers, signal, 'catalog'),
     )
     const models = parseCatalog(result.value)
     const refreshedAt = now()
@@ -268,7 +284,7 @@ export function createOpenAiCompatibleRuntimeSupport(
         baseUrl: refreshed.baseUrl,
         apiKey: refreshed.apiKey,
         modelId: selected.id,
-        http: httpOptions(undefined, 'text'),
+        http: httpOptions(input.headers, undefined, 'text'),
       })
       stages.push({ stage: 'text', ok: true, latencyMs: elapsed(now, textStartedAt) })
       const toolStartedAt = now()
@@ -277,7 +293,7 @@ export function createOpenAiCompatibleRuntimeSupport(
         apiKey: refreshed.apiKey,
         modelId: selected.id,
         nonce: globalThis.crypto.randomUUID(),
-        http: httpOptions(undefined, 'tool'),
+        http: httpOptions(input.headers, undefined, 'tool'),
       })
       stages.push({ stage: 'tool', ok: true, latencyMs: elapsed(now, toolStartedAt) })
 
@@ -286,6 +302,7 @@ export function createOpenAiCompatibleRuntimeSupport(
       const settings: OpenAiCompatibleProviderSettings = {
         version: PROVIDER_SETTINGS_VERSION,
         baseUrl: refreshed.baseUrl,
+        headers: input.headers ?? {},
         modelId: selected.id,
         modelName: selected.name,
         protocol: adapter.protocol,
@@ -338,6 +355,7 @@ export function createOpenAiCompatibleRuntimeSupport(
       modelId: settings?.modelId,
       modelLabel: settings?.modelName,
       protocol: settings?.protocol,
+      headers: settings?.headers,
       fingerprint: apiKey ? await fingerprint(apiKey) : undefined,
       compatibility: compatible ? 'compatible' : lastError ? 'incompatible' : 'unknown',
       lastTestedAt: settings?.lastTestedAt,
@@ -396,6 +414,7 @@ export function createOpenAiCompatibleRuntimeSupport(
     const models = createModels()
     models.setProvider(provider)
     const observation: ProviderStreamObservation = { networkFailure: false }
+    const providerFetch = createProviderFetch(fetchImplementation, settings.headers)
     // 包装 Pi 的 fetch，采集脱敏诊断并保留流式错误分类所需的 HTTP 信息。
     const trackedFetch: FetchFunction = async (input, init) => {
       observation.status = undefined
@@ -406,7 +425,7 @@ export function createOpenAiCompatibleRuntimeSupport(
       const startedAt = now()
       options.diagnostics?.({ phase: 'request', method, url, attempt: 1, stage: 'stream' })
       try {
-        const response = await fetchImplementation(input, init)
+        const response = await providerFetch(input, init)
         observation.status = response.status
         observation.retryAfterMs = parseRetryAfter(response.headers.get('retry-after'), now())
         options.diagnostics?.({

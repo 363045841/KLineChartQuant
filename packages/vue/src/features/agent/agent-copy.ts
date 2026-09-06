@@ -67,6 +67,9 @@ const copy = {
     openAiResponses: 'Open AI Response',
     baseUrl: 'Base URL',
     apiKey: 'API key',
+    additionalHeaders: 'Additional headers (JSON)',
+    additionalHeadersPlaceholder:
+      '{\n  "HTTP-Referer": "https://example.com",\n  "X-OpenRouter-Title": "My app"\n}',
     model: 'Model ID',
     testConnection: 'Test connection',
     refreshModels: 'Refresh model list',
@@ -163,6 +166,9 @@ const copy = {
     openAiResponses: 'Open AI Response',
     baseUrl: 'Base URL',
     apiKey: 'API key',
+    additionalHeaders: '附加请求头（JSON）',
+    additionalHeadersPlaceholder:
+      '{\n  "HTTP-Referer": "https://example.com",\n  "X-OpenRouter-Title": "我的应用"\n}',
     model: '模型 ID',
     testConnection: '测试连接',
     refreshModels: '刷新模型列表',

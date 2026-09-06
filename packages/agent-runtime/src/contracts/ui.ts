@@ -224,6 +224,7 @@ export interface ProviderStatusView {
   modelLabel?: string
   profileName?: string
   protocol?: ProviderApiProtocol
+  headers?: Record<string, string>
   fingerprint?: string
   compatibility?: ProviderCompatibility
   lastTestedAt?: number
@@ -336,6 +337,7 @@ export interface StartRunInput {
 export interface ProviderTestInput {
   baseUrl: string
   apiKey?: string
+  headers?: Record<string, string>
   model: string
   protocol: ProviderApiProtocol
 }
@@ -353,6 +355,7 @@ export interface ProviderProfileView {
 export interface ProviderModelsInput {
   baseUrl: string
   apiKey?: string
+  headers?: Record<string, string>
   protocol: ProviderApiProtocol
 }
 export interface ProviderModelsResult {

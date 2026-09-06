@@ -49,6 +49,7 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
   const toolsOpen = ref(false)
   const baseUrl = ref('')
   const apiKey = ref('')
+  const headers = ref('{}')
   const protocol = ref<ProviderApiProtocol>(PROVIDER_API_PROTOCOLS[0])
   const profileName = ref('')
   const profiles = ref<ProviderProfileView[]>([])
@@ -94,6 +95,7 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
       profileName.value = name
       baseUrl.value = status.baseUrl ?? ''
       apiKey.value = ''
+      headers.value = JSON.stringify(status.headers ?? {}, null, 2)
       protocol.value = status.protocol ?? PROVIDER_API_PROTOCOLS[0]
       model.value = status.modelId ?? ''
       models.value = []
@@ -114,6 +116,7 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
       profileName.value = normalizedName
       baseUrl.value = ''
       apiKey.value = ''
+      headers.value = '{}'
       protocol.value = PROVIDER_API_PROTOCOLS[0]
       model.value = ''
       models.value = []
@@ -131,6 +134,7 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     operationError.value = null
     baseUrl.value = status.baseUrl ?? ''
     apiKey.value = ''
+    headers.value = JSON.stringify(status.headers ?? {}, null, 2)
     protocol.value = status.protocol ?? PROVIDER_API_PROTOCOLS[0]
     model.value = status.modelId ?? ''
     try {
@@ -220,9 +224,12 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     modelsLoading.value = true
     operationError.value = null
     try {
+      const customHeaders = parseHeaders()
+      if (!customHeaders) return
       const result = await bridge.listProviderModels({
         baseUrl: baseUrl.value,
         apiKey: apiKey.value || undefined,
+        headers: customHeaders,
         protocol: protocol.value,
       })
       if (requestId !== refreshRequestId) return
@@ -242,9 +249,12 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     if (!bridge || modelsLoading.value) return
     operationError.value = null
     testResult.value = null
+    const customHeaders = parseHeaders()
+    if (!customHeaders) return
     const input: ProviderTestInput = {
       baseUrl: baseUrl.value,
       apiKey: apiKey.value || undefined,
+      headers: customHeaders,
       model: model.value,
       protocol: protocol.value,
     }
@@ -261,9 +271,12 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     const modelName = models.value.find((item) => item.id === model.value)?.name ?? model.value
     operationError.value = null
     try {
+      const customHeaders = parseHeaders()
+      if (!customHeaders) return
       await bridge.saveProvider({
         baseUrl: baseUrl.value,
         apiKey: apiKey.value || undefined,
+        headers: customHeaders,
         model: model.value,
         modelName,
         protocol: protocol.value,
@@ -277,11 +290,47 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     }
   }
 
+  /** 解析附加请求头 JSON，并阻止覆盖运行时管理的协议头。 */
+  function parseHeaders(): Record<string, string> | undefined {
+    let value: unknown
+    try {
+      value = JSON.parse(headers.value)
+    } catch {
+      operationError.value = {
+        code: 'INVALID_PAYLOAD',
+        message: 'Additional headers must be a JSON object with string values.',
+        retryable: false,
+      }
+      return undefined
+    }
+    if (
+      typeof value !== 'object' ||
+      value === null ||
+      Array.isArray(value) ||
+      Object.entries(value).some(
+        ([name, header]) =>
+          !name.trim() ||
+          typeof header !== 'string' ||
+          ['accept', 'authorization', 'content-type'].includes(name.toLowerCase()),
+      )
+    ) {
+      operationError.value = {
+        code: 'INVALID_PAYLOAD',
+        message:
+          'Additional headers must have string values and cannot override authentication or protocol headers.',
+        retryable: false,
+      }
+      return undefined
+    }
+    return value as Record<string, string>
+  }
+
   return {
     open,
     toolsOpen,
     baseUrl,
     apiKey,
+    headers,
     protocol,
     profileName,
     profiles,

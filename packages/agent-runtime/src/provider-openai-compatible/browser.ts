@@ -25,6 +25,7 @@ export async function fetchOpenAiCompatibleModels(
   const apiKey = input.apiKey?.trim()
   const response = await fetchImplementation(`${baseUrl}/models`, {
     headers: {
+      ...input.headers,
       Accept: 'application/json',
       ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
     },

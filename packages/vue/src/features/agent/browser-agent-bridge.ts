@@ -656,6 +656,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     const settings: OpenAiCompatibleProviderSettings = {
       version: PROVIDER_SETTINGS_VERSION,
       baseUrl,
+      headers: input.headers ?? {},
       modelId,
       modelName: input.modelName.trim() || modelId,
       protocol: input.protocol,
