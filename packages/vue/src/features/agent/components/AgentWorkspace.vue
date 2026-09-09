@@ -20,6 +20,7 @@
       :tool-calls="state.toolCalls"
       :confirmations="state.confirmations"
       :run="state.run"
+      :runs="[...state.previousRuns, state.run]"
       :error="state.error"
       :can-undo="state.canUndoTurn"
       :locale="locale"
@@ -39,9 +40,12 @@
     <AgentComposer
       v-model:draft="draft"
       :running="isRunning"
+      :provider="state.provider"
+      :usage="state.run.usage"
       :locale="locale"
       @send="send"
       @stop="stop"
+      @reasoning-effort="setReasoningEffort"
     />
 
     <p class="sr-only" aria-live="polite" aria-atomic="true">{{ liveAnnouncement }}</p>
@@ -93,6 +97,7 @@
     confirmTool,
     undoTurn,
     setReadOnly,
+    setReasoningEffort,
   } = useAgentWorkspace(props.bridge)
 
   function toggleLocale(): void {

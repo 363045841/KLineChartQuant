@@ -2,8 +2,9 @@
   <section class="error-notice" role="alert" tabindex="-1" data-focus="error">
     <IconAlertTriangle aria-hidden="true" />
     <div class="error-notice__body">
-      <strong>{{ error.code }}</strong>
+      <strong>{{ error.providerCode ?? error.code }}</strong>
       <p>{{ error.message }}</p>
+      <p v-if="error.raw" class="error-notice__raw">{{ error.raw }}</p>
       <span v-if="error.recommendedAction">
         {{ text.recommended }}: {{ error.recommendedAction }}
       </span>
@@ -59,6 +60,11 @@
     overflow-wrap: anywhere;
     font-size: 12px;
     line-height: 1.4;
+  }
+  .error-notice__raw {
+    color: var(--agent-muted);
+    font-size: 11px;
+    line-height: 1.3;
   }
   span {
     color: var(--agent-muted);

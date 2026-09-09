@@ -36,7 +36,7 @@ class ControlledDriver implements RunDriver {
     this.events.push(event)
     await this.emit(event)
   }
-  complete(result: PiRunResult = { text: 'done', completedToolCount: 0 }): void {
+  complete(result: PiRunResult = { text: 'done', completedToolCount: 0, citations: [] }): void {
     this.resolve(result)
   }
 }
@@ -135,11 +135,20 @@ describe('AgentApplicationService', () => {
       messageId: 'assistant-1',
       delta: 'Neutral',
     })
-    await drivers[0]!.push({ type: 'assistant.message.completed', messageId: 'assistant-1' })
+    const citations = [
+      {
+        id: 'web:tool-1:1',
+        title: 'Market report',
+        url: 'https://example.com/report',
+        snippet: 'Volatility increased.',
+      },
+    ]
+    await drivers[0]!.push({ type: 'assistant.message.completed', messageId: 'assistant-1', citations })
     drivers[0]!.complete({
-      text: 'Neutral',
-      completedToolCount: 0,
-      usage: { inputTokens: 4, outputTokens: 2 },
+        text: 'Neutral',
+        completedToolCount: 0,
+        citations,
+        usage: { inputTokens: 4, outputTokens: 2 },
     })
     await tick()
 
@@ -153,6 +162,7 @@ describe('AgentApplicationService', () => {
     ])
     const snapshot = await service.openSession(session.id)
     expect(snapshot.messages.map((message) => message.content)).toEqual(['Inspect RSI', 'Neutral'])
+    expect(snapshot.messages[1]?.citations).toEqual(citations)
     expect(snapshot.runs.find((run) => run.id === runId)?.status).toBe('completed')
     expect(snapshot.lastSequence).toBeGreaterThan(0)
   })

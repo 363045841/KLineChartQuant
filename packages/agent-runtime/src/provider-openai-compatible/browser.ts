@@ -1,13 +1,9 @@
 // 浏览器端 OpenAI-compatible 模型目录请求，避免由宿主进程代发。
 import { AgentRuntimeError } from '../contracts/errors.js'
-import { normalizeProviderBaseUrl, providerHttpError } from './http.js'
+import { normalizeProviderBaseUrl, parseProviderErrorDetails, providerHttpError } from './http.js'
+import { parseProviderModelCatalog, providerModelView } from './model-catalog.js'
 
 import type { ProviderModelsInput, ProviderModelsResult } from '../contracts/ui.js'
-
-/** 判断未知值是否为普通对象，供响应载荷校验使用。 */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
 
 /**
  * 直接请求 Provider 模型目录并转换为稳定的 UI 模型视图。
@@ -30,26 +26,20 @@ export async function fetchOpenAiCompatibleModels(
       ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
     },
   })
-  if (!response.ok) throw providerHttpError(response.status)
+  if (!response.ok) {
+    throw providerHttpError(
+      response.status,
+      undefined,
+      parseProviderErrorDetails(await response.text()),
+    )
+  }
   const payload = (await response.json().catch(() => undefined)) as unknown
-  if (!isRecord(payload) || !Array.isArray(payload.data)) {
+  try {
+    return { models: parseProviderModelCatalog(payload).map(providerModelView), refreshedAt: Date.now() }
+  } catch {
     throw new AgentRuntimeError(
       'PROVIDER_MALFORMED_RESPONSE',
       'The Provider returned an invalid model catalog.',
     )
   }
-  // 丢弃无效条目，避免不完整的第三方目录污染模型选择器。
-  const models = payload.data.flatMap((item) => {
-    if (!isRecord(item) || typeof item.id !== 'string' || !item.id.trim()) return []
-    const id = item.id.trim()
-    const name = typeof item.name === 'string' && item.name.trim() ? item.name.trim() : id
-    return [{ id, name, compatibility: 'unknown' as const }]
-  })
-  if (models.length === 0) {
-    throw new AgentRuntimeError(
-      'PROVIDER_MALFORMED_RESPONSE',
-      'The Provider returned an empty model catalog.',
-    )
-  }
-  return { models, refreshedAt: Date.now() }
 }

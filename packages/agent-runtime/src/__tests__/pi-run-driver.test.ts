@@ -77,7 +77,18 @@ describe('PiRunDriver', () => {
       async (_input: unknown, context: Parameters<RuntimeToolDefinition['execute']>[1]) => {
         signals.push(context.signal)
         context.progress({ label: 'Reading bars', current: 1, total: 2 })
-        return { content: '20 rows', summary: '20 RSI values returned.' }
+        return {
+          content: '20 rows',
+          summary: '20 RSI values returned.',
+          citations: [
+            {
+              id: 'web:run-1:provider-call-1:1',
+              title: 'Source',
+              url: 'https://example.com',
+              snippet: 'Source snippet',
+            },
+          ],
+        }
       },
     )
     const tool: RuntimeToolDefinition = {
@@ -108,6 +119,14 @@ describe('PiRunDriver', () => {
     expect(execute).toHaveBeenCalledOnce()
     expect(signals[0]).toBeInstanceOf(AbortSignal)
     expect(result.completedToolCount).toBe(1)
+    expect(result.citations).toEqual([
+      {
+        id: 'web:run-1:provider-call-1:1',
+        title: 'Source',
+        url: 'https://example.com',
+        snippet: 'Source snippet',
+      },
+    ])
     expect(events.find((event) => event.type === 'tool.started')).toMatchObject({
       call: { id: 'run-1:provider-call-1', status: 'running' },
     })
@@ -120,6 +139,9 @@ describe('PiRunDriver', () => {
         resultSummary: '20 RSI values returned.',
         resultContent: '20 rows',
       },
+    })
+    expect(events.find((event) => event.type === 'assistant.message.completed')).toMatchObject({
+      citations: result.citations,
     })
   })
 
@@ -194,7 +216,11 @@ describe('PiRunDriver', () => {
     )
     const events: AgentRunUiEventInput[] = []
 
-    await expect(new PiRunDriver().run(plan, (event) => events.push(event))).resolves.toMatchObject({
+    await expect(
+      new PiRunDriver().run(plan, (event) => {
+        events.push(event)
+      }),
+    ).resolves.toMatchObject({
       text: 'I will retry with an available source.',
       completedToolCount: 0,
     })

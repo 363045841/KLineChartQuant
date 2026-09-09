@@ -1,6 +1,24 @@
 <template>
   <div ref="rootRef" class="dropdown" :class="[`dropdown--${size}`, { 'is-open': isOpen }]">
+    <input
+      v-if="searchable"
+      ref="triggerRef"
+      class="dropdown__search-input"
+      type="text"
+      :title="title"
+      :style="triggerStyle"
+      :value="modelValue"
+      :placeholder="placeholder"
+      aria-haspopup="listbox"
+      :aria-expanded="isOpen"
+      @focus="open"
+      @input="updateSearchValue"
+      @keydown.escape.stop="close"
+      @keydown.down.prevent="open"
+      @keydown.enter.prevent="open"
+    />
     <button
+      v-else
       ref="triggerRef"
       type="button"
       class="dropdown__trigger"
@@ -71,11 +89,15 @@
       maxHeight?: string
       label?: string
       title?: string
+      searchable?: boolean
+      placeholder?: string
     }>(),
     {
       size: 'md',
       maxHeight: 'min(320px, calc(100vh - 24px))',
       title: '',
+      searchable: false,
+      placeholder: '',
     },
   )
 
@@ -124,6 +146,14 @@
   const selectedOption = computed(() => {
     return props.options.find((option) => option.value === selectedValue.value) ?? props.options[0]
   })
+
+  /** 更新可搜索触发器的文本并展开选项菜单。 */
+  function updateSearchValue(event: Event): void {
+    const target = event.target
+    if (!(target instanceof HTMLInputElement)) return
+    emit('update:modelValue', target.value)
+    open()
+  }
 
   function open() {
     if (activeDropdownId !== dropdownId && activeDropdownClose) {
@@ -197,6 +227,22 @@
       border-color 0.15s ease;
   }
 
+  .dropdown__search-input {
+    box-sizing: border-box;
+    width: 100%;
+    height: 28px;
+    padding: 0 8px;
+    border: 1px solid var(--klc-color-border-button);
+    border-radius: 4px;
+    outline: 0;
+    color: var(--klc-color-foreground);
+    background: var(--klc-color-background);
+    font: inherit;
+    transition:
+      background 0.15s ease,
+      border-color 0.15s ease;
+  }
+
   .dropdown--md .dropdown__trigger {
     height: 28px;
   }
@@ -207,9 +253,16 @@
     gap: 4px;
   }
 
+  .dropdown--sm .dropdown__search-input {
+    height: 24px;
+    padding: 0 6px;
+  }
+
   .dropdown__trigger:hover,
   .dropdown__trigger:focus-visible,
-  .dropdown.is-open .dropdown__trigger {
+  .dropdown__search-input:focus,
+  .dropdown.is-open .dropdown__trigger,
+  .dropdown.is-open .dropdown__search-input {
     border-color: var(--klc-color-axis-text);
     background: var(--klc-color-grid-minor);
     outline: 0;

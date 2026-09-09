@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { createExaWebSearchProvider } from '../search/exa.js'
 import { createWebSearchTool } from '../search/web-search-tool.js'
-import { RuntimeToolRegistry } from '../tools/runtime-tool-registry.js'
+import { RuntimeToolCatalog } from '../tools/runtime-tool-registry.js'
 
 describe('web search', () => {
   it('maps an Exa response to standard sources', async () => {
@@ -74,23 +74,39 @@ describe('web search', () => {
     )
     expect(result).toMatchObject({
       summary: 'Found 1 web results.',
-      content: JSON.stringify({
-        sources: [{ title: 'Result', url: 'https://example.com', snippet: 'Snippet' }],
-      }),
+      citations: [
+        {
+          id: 'web:tool-1:1',
+          title: 'Result',
+          url: 'https://example.com',
+          snippet: 'Snippet',
+        },
+      ],
+    })
+    expect(JSON.parse(result.content)).toMatchObject({
+      sources: [{ id: 'web:tool-1:1', title: 'Result' }],
+      citationExamples: ['[[cite:web:tool-1:1]]'],
     })
   })
 
-  it('keeps tool metadata discoverable when the current host cannot execute it', () => {
-    const registry = new RuntimeToolRegistry<{ enabled: boolean }>()
+  it('reports when a registered tool cannot be enabled', () => {
+    const registry = new RuntimeToolCatalog<{ enabled: boolean }>()
     registry.register({
       name: 'web_search',
       label: 'Web search',
       description: 'Search the web.',
-      create: ({ enabled }) => (enabled ? createWebSearchTool({ search: async () => [] }) : undefined),
+      check: ({ enabled }) => (enabled ? undefined : 'Configure Web search first.'),
+      create: () => createWebSearchTool({ search: async () => [] }),
     })
 
-    expect(registry.list()).toEqual([
-      { name: 'web_search', label: 'Web search', description: 'Search the web.' },
+    expect(registry.list({ enabled: false })).toEqual([
+      {
+        name: 'web_search',
+        label: 'Web search',
+        description: 'Search the web.',
+        available: false,
+        unavailableReason: 'Configure Web search first.',
+      },
     ])
     expect(registry.resolve({ enabled: false })).toEqual([])
   })

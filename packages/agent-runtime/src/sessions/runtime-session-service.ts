@@ -165,6 +165,9 @@ function replaySnapshot(session: AgentSessionView, events: AgentUiEvent[]): Agen
         messages.set(event.messageId, {
           ...message,
           status: event.type === 'assistant.message.completed' ? 'complete' : 'failed',
+          ...(event.type === 'assistant.message.completed' && event.citations?.length
+            ? { citations: event.citations }
+            : {}),
         })
     }
     if (event.type === 'tool.started') tools.set(event.call.id, event.call)

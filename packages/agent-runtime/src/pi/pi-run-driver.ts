@@ -11,7 +11,7 @@ import type {
   RuntimeToolDefinition,
   RuntimeToolResult,
 } from './types.js'
-import type { AgentUsageView, ToolCallView, ToolProgressView } from '../contracts/ui.js'
+import type { AgentUsageView, SourceCitation, ToolCallView, ToolProgressView } from '../contracts/ui.js'
 import type { AssistantMessage, Usage } from '@earendil-works/pi-ai'
 
 const DEFAULT_TOOL_TURN_LIMIT = 8
@@ -186,6 +186,7 @@ export class PiRunDriver {
     const toolsByName = new Map(plan.tools.map((tool) => [tool.name, tool]))
     const toolViews = new Map<string, ToolCallView>()
     const toolResults = new Map<string, RuntimeToolResult>()
+    const citations = new Map<string, SourceCitation>()
     let assistantMessageId: string | undefined
     let assistantStarted = false
     let assistantText = ''
@@ -195,15 +196,18 @@ export class PiRunDriver {
     let providerError: AssistantMessage | undefined
     let aborted = false
     let usage: Usage | undefined
+    let latestUsage: Usage | undefined
 
-    const tools = plan.tools.map((definition) => this.createTool(plan, definition, toolResults))
+    const tools = plan.tools.map((definition) =>
+      this.createTool(plan, definition, toolResults, citations),
+    )
     const agent = new Agent({
       initialState: {
         systemPrompt:
           plan.systemPrompt ??
           `You are the KLineChartQuant chart analyst. Use only supplied tools. Scope: ${JSON.stringify(plan.scope)}.`,
         model: plan.model,
-        thinkingLevel: 'low',
+        thinkingLevel: plan.reasoningEffort === 'none' ? 'off' : plan.reasoningEffort ?? 'low',
         tools,
         messages: [...(plan.transcript ?? [])],
       },
@@ -301,6 +305,7 @@ export class PiRunDriver {
       }
       if (event.type === 'message_end' && isAssistant(event.message)) {
         usage = addUsage(usage, event.message.usage)
+        latestUsage = event.message.usage
         if (event.message.stopReason === 'error') providerError = event.message
         if (event.message.stopReason === 'aborted') aborted = true
         if (assistantMessageId && assistantStarted) {
@@ -310,6 +315,7 @@ export class PiRunDriver {
                 ? 'assistant.message.failed'
                 : 'assistant.message.completed',
             messageId: assistantMessageId,
+            ...(citations.size ? { citations: [...citations.values()] } : {}),
           })
         }
         return
@@ -353,8 +359,15 @@ export class PiRunDriver {
       }
       return {
         text: assistantText,
-        usage: usage ? usageView(usage, startedAt, this.now()) : undefined,
+        usage: usage
+          ? {
+              ...usageView(usage, startedAt, this.now()),
+              contextTokens: latestUsage ? latestUsage.input + latestUsage.cacheRead : undefined,
+              contextWindow: plan.contextWindow ?? plan.model.contextWindow,
+            }
+          : undefined,
         completedToolCount,
+        citations: [...citations.values()],
       }
     } catch (error) {
       if (timedOut) {
@@ -390,6 +403,7 @@ export class PiRunDriver {
     plan: PiRunPlan,
     definition: RuntimeToolDefinition,
     results: Map<string, RuntimeToolResult>,
+    citations: Map<string, SourceCitation>,
   ): AgentTool {
     return {
       name: definition.name,
@@ -422,6 +436,7 @@ export class PiRunDriver {
         } catch (error) {
           result = recoverableToolFailure(error)
         }
+        for (const citation of result.citations ?? []) citations.set(citation.id, citation)
         results.set(toolCallId, result)
         return {
           content: [{ type: 'text', text: redactString(result.content, this.redaction) }],

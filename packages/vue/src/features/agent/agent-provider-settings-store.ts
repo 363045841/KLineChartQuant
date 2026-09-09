@@ -25,6 +25,8 @@ function toOperationError(error: unknown): AgentErrorView {
       return {
         code: value.code,
         message: value.message,
+        providerCode: typeof value.providerCode === 'string' ? value.providerCode : undefined,
+        raw: typeof value.raw === 'string' ? value.raw : undefined,
         retryable: value.retryable === true,
         recommendedAction:
           typeof value.recommendedAction === 'string' ? value.recommendedAction : undefined,
@@ -264,7 +266,8 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
   /** 保存当前 Provider 草稿，并由 bridge 持久化到浏览器存储。 */
   async function saveProvider(): Promise<void> {
     if (!bridge) return
-    const modelName = models.value.find((item) => item.id === model.value)?.name ?? model.value
+    const selectedModel = models.value.find((item) => item.id === model.value)
+    const modelName = selectedModel?.name ?? model.value
     operationError.value = null
     try {
       const customHeaders = parseHeaders()
@@ -276,6 +279,9 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
         headers: customHeaders,
         model: model.value,
         modelName,
+        contextWindow: selectedModel?.contextWindow,
+        maxOutputTokens: selectedModel?.maxOutputTokens,
+        reasoningEfforts: selectedModel?.reasoningEfforts,
         protocol: protocol.value,
         profileName: profileName.value,
       })

@@ -32,17 +32,27 @@ export type AgentRuntimeErrorCode =
 
 export class AgentRuntimeError extends Error {
   readonly code: AgentRuntimeErrorCode
+  readonly providerCode?: string
+  readonly raw?: string
   readonly retryable: boolean
   readonly recommendedAction?: string
 
   constructor(
     code: AgentRuntimeErrorCode,
     message: string,
-    options: { retryable?: boolean; recommendedAction?: string; cause?: unknown } = {},
+    options: {
+      retryable?: boolean
+      recommendedAction?: string
+      providerCode?: string
+      raw?: string
+      cause?: unknown
+    } = {},
   ) {
     super(message, options.cause === undefined ? undefined : { cause: options.cause })
     this.name = 'AgentRuntimeError'
     this.code = code
+    this.providerCode = options.providerCode
+    this.raw = options.raw
     this.retryable = options.retryable ?? false
     this.recommendedAction = options.recommendedAction
   }
@@ -52,7 +62,11 @@ export class AgentRuntimeError extends Error {
       code: this.code,
       message: this.message,
       retryable: this.retryable,
-      recommendedAction: this.recommendedAction,
+      ...(this.providerCode === undefined ? {} : { providerCode: this.providerCode }),
+      ...(this.raw === undefined ? {} : { raw: this.raw }),
+      ...(this.recommendedAction === undefined
+        ? {}
+        : { recommendedAction: this.recommendedAction }),
     }
   }
 }

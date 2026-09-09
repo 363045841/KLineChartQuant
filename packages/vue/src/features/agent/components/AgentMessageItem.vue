@@ -34,6 +34,7 @@
       v-if="message.role === 'assistant'"
       class="message__content message__content--markdown"
       v-html="html"
+      @click="openCitation"
     />
     <p v-else-if="message.role !== 'reasoning'" class="message__content">{{ message.content }}</p>
   </article>
@@ -55,7 +56,24 @@
 
   const props = defineProps<{ message: AgentMessageView; locale: AgentLocale }>()
   const text = computed(() => getAgentCopy(props.locale))
-  const html = computed(() => renderAgentMarkdown(props.message.content))
+  const html = computed(() => renderAgentMarkdown(props.message.content, props.message.citations))
+
+  /** 打开当前消息中已验证来源的原始页面。 */
+  function openCitation(event: MouseEvent): void {
+    const target = event.target
+    if (!(target instanceof Element)) return
+    const id = target.closest<HTMLButtonElement>('[data-agent-citation-id]')?.dataset.agentCitationId
+    const citation = props.message.citations?.find((item) => item.id === id)
+    if (!citation) return
+    try {
+      const url = new URL(citation.url)
+      if (url.protocol === 'http:' || url.protocol === 'https:') {
+        window.open(url.href, '_blank', 'noopener,noreferrer')
+      }
+    } catch {
+      // 结构化来源不合法时不执行外链跳转。
+    }
+  }
 </script>
 
 <style scoped>
@@ -170,6 +188,25 @@
 
   .message__content--markdown :deep(a) {
     color: var(--agent-accent);
+  }
+
+  .message__content--markdown :deep(.agent-citation) {
+    display: inline-flex;
+    align-items: center;
+    min-height: 18px;
+    margin: 0 2px;
+    padding: 0 4px;
+    border: 1px solid var(--agent-border);
+    border-radius: 3px;
+    color: var(--agent-accent);
+    background: var(--agent-card);
+    font: inherit;
+    font-size: 0.85em;
+    cursor: pointer;
+  }
+
+  .message__content--markdown :deep(.agent-citation:hover) {
+    border-color: var(--agent-accent);
   }
 
   .message__content--markdown :deep(code) {

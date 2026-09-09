@@ -30,6 +30,13 @@ export interface ProviderHttpObservation {
   networkFailure: boolean
 }
 
+/** Provider 失败响应中可安全展示的原始错误字段。 */
+export interface ProviderErrorDetails {
+  message?: string
+  code?: string
+  raw?: string
+}
+
 /** 单次请求成功后返回的 JSON 值及请求观察结果。 */
 interface RequestResult {
   value: unknown
@@ -42,8 +49,10 @@ function stableError(
   message: string,
   retryable: boolean,
   recommendedAction: string,
+  providerCode?: string,
+  raw?: string,
 ): AgentRuntimeError {
-  return new AgentRuntimeError(code, message, { retryable, recommendedAction })
+  return new AgentRuntimeError(code, message, { retryable, recommendedAction, providerCode, raw })
 }
 
 /**
@@ -96,54 +105,98 @@ export function parseRetryAfter(value: string | null, now = Date.now()): number 
  * @param retryAfterMs 服务端建议的重试等待时间。
  * @returns 面向调用方的分类错误。
  */
-export function providerHttpError(status: number, retryAfterMs?: number): AgentRuntimeError {
+export function providerHttpError(
+  status: number,
+  retryAfterMs?: number,
+  details?: ProviderErrorDetails,
+): AgentRuntimeError {
+  const providerCode = details?.code ?? String(status)
   switch (status) {
     case 401:
       return stableError(
         'PROVIDER_AUTHENTICATION',
-        'The Provider rejected the API credential.',
+        details?.message ?? 'The Provider rejected the API credential.',
         false,
         'Check the API key and test the connection again.',
+        providerCode,
+        details?.raw,
       )
     case 403:
       return stableError(
         'PROVIDER_PERMISSION',
-        'The Provider denied access to this resource.',
+        details?.message ?? 'The Provider denied access to this resource.',
         false,
         'Check the credential permissions or account access.',
+        providerCode,
+        details?.raw,
       )
     case 404:
       return stableError(
         'PROVIDER_MODEL_NOT_FOUND',
-        'The selected Provider model is unavailable.',
+        details?.message ?? 'The selected Provider model is unavailable.',
         false,
         'Refresh the model list and select another model.',
+        providerCode,
+        details?.raw,
       )
     case 429: {
       const wait =
         retryAfterMs === undefined ? '' : ` Retry after ${Math.ceil(retryAfterMs / 1_000)} seconds.`
       return stableError(
         'PROVIDER_RATE_LIMITED',
-        `The Provider rate-limited the request.${wait}`,
+        details?.message ?? `The Provider rate-limited the request.${wait}`,
         true,
         'Wait for the retry window or select another model.',
+        providerCode,
+        details?.raw,
       )
     }
     default:
       if (status >= 500) {
         return stableError(
           'PROVIDER_UNAVAILABLE',
-          'The Provider is temporarily unavailable.',
+          details?.message ?? 'The Provider is temporarily unavailable.',
           true,
           'Retry later or select another model.',
+          providerCode,
+          details?.raw,
         )
       }
       return stableError(
         'PROVIDER_ERROR',
-        'The Provider request was rejected.',
+        details?.message ?? 'The Provider request was rejected.',
         false,
         'Review the Provider configuration and retry.',
+        providerCode,
+        details?.raw,
       )
+  }
+}
+
+/** 从 OpenAI-compatible 错误响应中读取原始 message、code 和 metadata.raw。 */
+export function parseProviderErrorDetails(body: string): ProviderErrorDetails | undefined {
+  try {
+    const value = JSON.parse(body) as unknown
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined
+    const error = (value as Record<string, unknown>).error
+    if (typeof error !== 'object' || error === null || Array.isArray(error)) return undefined
+    const fields = error as Record<string, unknown>
+    const message = typeof fields.message === 'string' ? fields.message : undefined
+    const code =
+      typeof fields.code === 'string' || typeof fields.code === 'number'
+        ? String(fields.code)
+        : undefined
+    let raw: string | undefined
+    const metadata = fields.metadata
+    if (typeof metadata === 'object' && metadata !== null && !Array.isArray(metadata)) {
+      const m = metadata as Record<string, unknown>
+      if (typeof m.raw === 'string') raw = m.raw
+    }
+    return message === undefined && code === undefined && raw === undefined
+      ? undefined
+      : { message, code, raw }
+  } catch {
+    return undefined
   }
 }
 
@@ -314,7 +367,8 @@ export async function requestProviderJson(
           await options.sleep(retryDelay, options.signal)
           continue
         }
-        throw providerHttpError(response.status, observation.retryAfterMs)
+        const details = parseProviderErrorDetails(await response.text())
+        throw providerHttpError(response.status, observation.retryAfterMs, details)
       }
       let body = ''
       try {

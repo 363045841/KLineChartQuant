@@ -1,5 +1,5 @@
 /** Stable Renderer contract. Pi, Provider, and host transport types stop here. */
-export const AGENT_UI_PROTOCOL_VERSION = 4 as const
+export const AGENT_UI_PROTOCOL_VERSION = 5 as const
 
 export type AgentRunStatus =
   | 'idle'
@@ -23,6 +23,24 @@ export type ToolCallStatus =
   | 'undone'
 export type ToolSafety = 'read-only' | 'reversible-write' | 'destructive'
 
+/** Agent 正文中引用来源的稳定标记边界。 */
+export const AGENT_CITATION_MARKER_PREFIX = '[[cite:'
+export const AGENT_CITATION_MARKER_SUFFIX = ']]'
+
+/** 将来源 ID 编码为 Agent 正文可识别的引用标记。 */
+export function formatAgentCitation(id: string): string {
+  return `${AGENT_CITATION_MARKER_PREFIX}${id}${AGENT_CITATION_MARKER_SUFFIX}`
+}
+
+/** 可由 Agent 正文引用的外部来源。 */
+export interface SourceCitation {
+  readonly id: string
+  readonly title: string
+  readonly url: string
+  readonly snippet: string
+  readonly publishedAt?: string
+}
+
 export interface EvidenceView {
   symbol?: string
   period?: string
@@ -39,6 +57,7 @@ export interface AgentMessageView {
   createdAt: number
   status?: AgentMessageStatus
   evidence?: EvidenceView
+  citations?: readonly SourceCitation[]
 }
 
 export interface ToolProgressView {
@@ -50,6 +69,8 @@ export interface ToolProgressView {
 export interface AgentErrorView {
   code: string
   message: string
+  providerCode?: string
+  raw?: string
   retryable: boolean
   recommendedAction?: string
 }
@@ -82,6 +103,10 @@ export interface AgentToolView {
   label: string
   description: string
   enabled: boolean
+  /** 工具的当前配置是否允许启用。 */
+  available?: boolean
+  /** 工具不可启用时向用户展示的原因。 */
+  unavailableReason?: string
 }
 
 /** 工具管理页手动执行一次工具后的可展示结果。 */
@@ -105,6 +130,10 @@ export interface ConfirmationView {
 export interface AgentUsageView {
   inputTokens?: number
   outputTokens?: number
+  /** 最后一次模型请求实际占用的输入上下文 token。 */
+  contextTokens?: number
+  /** 当前模型可用的上下文窗口。 */
+  contextWindow?: number
   costUsd?: number
   durationMs?: number
 }
@@ -215,6 +244,8 @@ export type ProviderConnectionState = 'not-configured' | 'testing' | 'connected'
 export type ProviderCompatibility = 'unknown' | 'testing' | 'incompatible' | 'compatible'
 export const PROVIDER_API_PROTOCOLS = ['openai-responses', 'openai-completions'] as const
 export type ProviderApiProtocol = (typeof PROVIDER_API_PROTOCOLS)[number]
+export const PROVIDER_REASONING_EFFORTS = ['high', 'medium', 'low', 'none'] as const
+export type ProviderReasoningEffort = (typeof PROVIDER_REASONING_EFFORTS)[number]
 export interface ProviderStatusView {
   state: ProviderConnectionState
   providerLabel: string
@@ -229,6 +260,10 @@ export interface ProviderStatusView {
   compatibility?: ProviderCompatibility
   lastTestedAt?: number
   lastModelsRefreshAt?: number
+  contextWindow?: number
+  maxOutputTokens?: number
+  reasoningEfforts?: readonly ProviderReasoningEffort[]
+  reasoningEffort?: ProviderReasoningEffort
   error?: AgentErrorView
 }
 
@@ -238,6 +273,10 @@ export interface ProviderModelView {
   compatibility: Exclude<ProviderCompatibility, 'testing'>
   latencyMs?: number
   ttftMs?: number
+  contextWindow?: number
+  maxOutputTokens?: number
+  reasoningEfforts?: readonly ProviderReasoningEffort[]
+  defaultReasoningEffort?: ProviderReasoningEffort
 }
 
 export interface AgentSessionView {
@@ -281,7 +320,11 @@ export type AgentUiEvent =
       createdAt: number
     })
   | (RunEventEnvelope & { type: 'assistant.text.delta'; messageId: string; delta: string })
-  | (RunEventEnvelope & { type: 'assistant.message.completed'; messageId: string })
+  | (RunEventEnvelope & {
+      type: 'assistant.message.completed'
+      messageId: string
+      citations?: readonly SourceCitation[]
+    })
   | (RunEventEnvelope & { type: 'assistant.message.failed'; messageId: string })
   | (RunEventEnvelope & {
       type: 'assistant.thinking.started'
@@ -345,6 +388,10 @@ export interface ProviderSaveInput extends ProviderTestInput {
   modelName: string
   profileName: string
   exaApiKey?: string
+  reasoningEffort?: ProviderReasoningEffort
+  contextWindow?: number
+  maxOutputTokens?: number
+  reasoningEfforts?: readonly ProviderReasoningEffort[]
 }
 export interface ProviderProfileView {
   name: string
@@ -352,6 +399,10 @@ export interface ProviderProfileView {
   modelId: string
   modelName: string
   protocol: ProviderApiProtocol
+  contextWindow?: number
+  maxOutputTokens?: number
+  reasoningEfforts?: readonly ProviderReasoningEffort[]
+  reasoningEffort?: ProviderReasoningEffort
 }
 export interface ProviderModelsInput {
   baseUrl: string
@@ -400,6 +451,7 @@ export interface AgentBridgeClient {
   createProviderProfile(profileName: string): Promise<void>
   selectProviderProfile(profileName: string): Promise<void>
   saveProvider(input: ProviderSaveInput): Promise<void>
+  setProviderReasoningEffort(effort: ProviderReasoningEffort | undefined): Promise<void>
   deleteProviderCredential(): Promise<void>
   subscribe(listener: (event: AgentUiEvent) => void): () => void
 }

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   AgentRuntimeError,
+  DEFAULT_PROVIDER_CONTEXT_WINDOW,
   InMemoryProviderCredentialStore,
   InMemoryProviderSettingsStore,
   PiRunDriver,
@@ -169,11 +170,14 @@ async function configure(
 ): Promise<void> {
   await credentials.write(secret)
   await settings.write({
-    version: 3,
+    version: 4,
     baseUrl,
     headers: {},
     modelId: 'frontier-fast',
     modelName: 'Frontier Fast',
+    contextWindow: 32_768,
+    maxOutputTokens: 16_384,
+    reasoningEfforts: [],
     protocol,
     compatibility: 'compatible',
     lastTestedAt: 10,
@@ -207,8 +211,17 @@ describe('OpenAI-compatible Provider HTTP boundary', () => {
     [404, 'PROVIDER_MODEL_NOT_FOUND'],
     [429, 'PROVIDER_RATE_LIMITED'],
     [503, 'PROVIDER_UNAVAILABLE'],
-  ])('maps HTTP %i to %s without consuming the response body', async (status, code) => {
-    const response = new Response(secret, { status })
+  ])('maps HTTP %i to %s and preserves the Provider error fields', async (status, code) => {
+    const response = json(
+      {
+        error: {
+          message: 'Provider returned error',
+          code: status,
+          metadata: { raw: 'temporarily rate-limited upstream', ignored: secret },
+        },
+      },
+      status,
+    )
     const fetch = vi.fn(async () => response)
     await expect(
       requestProviderJson(
@@ -221,8 +234,13 @@ describe('OpenAI-compatible Provider HTTP boundary', () => {
           maxRetries: 0,
         },
       ),
-    ).rejects.toMatchObject({ code })
-    expect(response.bodyUsed).toBe(false)
+    ).rejects.toMatchObject({
+      code,
+      message: 'Provider returned error',
+      providerCode: String(status),
+      raw: 'temporarily rate-limited upstream',
+    })
+    expect(response.bodyUsed).toBe(true)
   })
 
   it('respects Retry-After before a bounded retry', async () => {
@@ -385,7 +403,13 @@ describe('OpenAI-compatible runtime support', () => {
       })
 
       expect(plan.model.api).toBe(protocol)
-      expect(await settings.read()).toMatchObject({ version: 3, protocol })
+      expect(plan.model.contextWindow).toBe(DEFAULT_PROVIDER_CONTEXT_WINDOW)
+      const savedSettings = await settings.read()
+      expect(savedSettings).toMatchObject({
+        version: 4,
+        protocol,
+      })
+      expect(savedSettings).not.toHaveProperty('contextWindow')
       expect(fetch.mock.calls.map(([input]) => String(input))).toEqual([
         `${baseUrl}/models`,
         `${baseUrl}/models`,
@@ -504,8 +528,8 @@ describe('OpenAI-compatible runtime support', () => {
     expect(plan.systemPrompt).toContain('do not call market_bars_query for that range')
   })
 
-  it('migrates v1 persisted settings to explicit Chat Completions', () => {
-    expect(
+  it('rejects persisted settings without verified model capabilities', () => {
+    expect(() =>
       parseOpenAiCompatibleProviderSettings({
         version: 1,
         baseUrl,
@@ -515,17 +539,7 @@ describe('OpenAI-compatible runtime support', () => {
         lastTestedAt: 10,
         lastModelsRefreshAt: 9,
       }),
-    ).toEqual({
-      version: 3,
-      baseUrl,
-      headers: {},
-      modelId: 'frontier-fast',
-      modelName: 'Frontier Fast',
-      protocol: 'openai-completions',
-      compatibility: 'compatible',
-      lastTestedAt: 10,
-      lastModelsRefreshAt: 9,
-    })
+    ).toThrow('The saved Provider settings are invalid.')
   })
 
   it('discovers models, passes all probes, and persists only the successful configuration', async () => {
@@ -666,14 +680,24 @@ describe('OpenAI-compatible runtime support', () => {
   )
 
   it.each(['openai-completions', 'openai-responses'] as const)(
-    'projects %s streamed HTTP failures to stable errors without raw bodies',
+    'projects %s streamed HTTP failures with Provider error fields',
     async (protocol) => {
       const { credentials, settings } = configuredStores()
       await configure(credentials, settings, protocol)
       const support = createOpenAiCompatibleRuntimeSupport({
         credentials,
         settings,
-        fetch: async () => new Response(secret, { status: 401 }),
+        fetch: async () =>
+          json(
+            {
+              error: {
+                message: 'Provider returned error',
+                code: 'invalid_api_key',
+                metadata: { raw: 'Invalid API key provided' },
+              },
+            },
+            401,
+          ),
         maxRetries: 0,
       })
       const plan = await support.createPlan({
@@ -688,7 +712,9 @@ describe('OpenAI-compatible runtime support', () => {
       })
       await expect(new PiRunDriver().run(plan, () => undefined)).rejects.toMatchObject({
         code: 'PROVIDER_AUTHENTICATION',
-        message: 'The Provider rejected the API credential.',
+        message: 'Provider returned error',
+        providerCode: 'invalid_api_key',
+        raw: 'Invalid API key provided',
       })
     },
   )

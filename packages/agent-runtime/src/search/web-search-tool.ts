@@ -2,7 +2,8 @@
 import { Type, type Static } from 'typebox'
 
 import type { RuntimeToolDefinition } from '../pi/types.js'
-import type { WebSearchProvider, WebSearchSource } from './types.js'
+import { formatWebSearchResult } from './web-search-formatter.js'
+import type { WebSearchProvider } from './types.js'
 
 export const WEB_SEARCH_TOOL_NAME = 'web_search'
 export const WEB_SEARCH_TOOL_METADATA = {
@@ -21,11 +22,6 @@ const WebSearchParameters = Type.Object({
 })
 
 type WebSearchInput = Static<typeof WebSearchParameters>
-
-/** 将来源列表编码为模型可引用的工具结果。 */
-function serializeSources(sources: readonly WebSearchSource[]): string {
-  return JSON.stringify({ sources })
-}
 
 /** 创建由指定供应商执行的标准只读网络搜索工具。 */
 export function createWebSearchTool(provider: WebSearchProvider): RuntimeToolDefinition {
@@ -46,8 +42,10 @@ export function createWebSearchTool(provider: WebSearchProvider): RuntimeToolDef
           { signal: context.signal },
         )
         context.signal.throwIfAborted()
+        const result = formatWebSearchResult(sources, context.toolCallId)
         return {
-          content: serializeSources(sources),
+          content: result.content,
+          citations: result.citations,
           summary: sources.length ? `Found ${sources.length} web results.` : 'No web results found.',
         }
       } catch {
