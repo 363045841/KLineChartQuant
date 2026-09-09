@@ -14,152 +14,176 @@
       novalidate
       @submit.prevent="providerSettings.testProvider()"
     >
-      <section class="agent-settings-section">
-        <h3>{{ text.providerSettings }}</h3>
-        <div class="provider-form__fields">
-          <label class="provider-field">
-          <span class="provider-field__label">{{ text.providerProfile }}</span>
-          <span class="provider-profile-control">
-            <Dropdown
-              class="provider-profile-dropdown"
-              :model-value="providerSettings.profileName"
-              :options="profileOptions"
-              @update:model-value="selectProfile($event)"
-            />
-            <button
-              type="button"
-              class="provider-profile-new-button"
-              :title="text.newProviderProfile"
-              :aria-label="text.newProviderProfile"
-              @click="openCreateProfileDialog()"
-            >
-              <IconPlus aria-hidden="true" />
-            </button>
-          </span>
-          </label>
-          <label class="provider-field">
-          <span class="provider-field__label">{{ text.apiProtocol }}</span>
-          <Dropdown
-            :model-value="providerSettings.protocol"
-            :options="protocolOptions"
-            class="provider-protocol-control"
-            @update:model-value="providerSettings.setProtocol($event)"
-          />
-          </label>
-          <label class="provider-field">
-          <span class="provider-field__label">{{ text.baseUrl }}</span>
-          <input
-            v-model="providerSettings.baseUrl"
-            type="text"
-            autocomplete="off"
-            spellcheck="false"
-          />
-          </label>
-          <label class="provider-field">
-          <span class="provider-field__label">{{ text.apiKey }}</span>
-          <input
-            v-model="providerSettings.apiKey"
-            type="password"
-            autocomplete="new-password"
-            :placeholder="status.configured ? '••••••••' : text.apiKeyPlaceholder"
-          />
-          </label>
-          <label class="provider-field">
-          <span class="provider-field__label">{{ text.exaApiKey }}</span>
-          <input
-            v-model="providerSettings.exaApiKey"
-            type="password"
-            autocomplete="new-password"
-            :placeholder="text.exaApiKeyPlaceholder"
-          />
-          </label>
-          <label class="provider-field">
-          <span class="provider-field__label">{{ text.additionalHeaders }}</span>
-          <textarea
-            v-model="providerSettings.headers"
-            rows="4"
-            spellcheck="false"
-            :placeholder="text.additionalHeadersPlaceholder"
-          />
-        </label>
-        <label class="provider-field">
-          <span class="provider-field__label">{{ text.model }}</span>
-          <span class="provider-model-control">
-            <Dropdown
-              v-if="providerSettings.models.length"
-              class="provider-model-dropdown"
-              :model-value="providerSettings.model"
-              :options="modelOptions"
-              @update:model-value="providerSettings.model = $event"
-            />
-            <input
-              v-else
-              ref="modelInput"
-              v-model="providerSettings.model"
-              type="text"
-              autocomplete="new-password"
-              spellcheck="false"
-              :placeholder="text.modelPlaceholder"
-            />
-            <button
-              type="button"
-              class="provider-refresh-button"
-              :title="text.refreshModels"
-              :aria-label="text.refreshModels"
-              :disabled="!providerSettings.canRefreshModels"
-              @click="providerSettings.refreshModels()"
-            >
-              <IconRefresh
-                :class="{ spinner: providerSettings.modelsLoading }"
-                aria-hidden="true"
-              />
-            </button>
-          </span>
-          </label>
-        </div>
-      </section>
-
-      <section class="agent-settings-section">
-        <h3>{{ text.tools }}</h3>
-        <div v-if="providerSettings.tools.length" class="agent-tools">
-          <section v-for="tool in providerSettings.tools" :key="tool.name" class="agent-tool">
-            <label class="agent-tool__toggle">
-              <input
-                type="checkbox"
-                :checked="tool.enabled"
-                @change="setToolEnabled(tool.name, $event)"
-              />
-              <span>
-                <strong>{{ tool.label }}</strong>
-                <small>{{ tool.description }}</small>
+      <div class="agent-settings-body">
+        <CollapsibleSection
+          :label="text.providerSettings"
+          :expanded="expandedSections.provider"
+          @toggle="toggleSection('provider')"
+        >
+          <div class="agent-settings-section__body provider-form__fields">
+            <label class="provider-field">
+              <span class="provider-field__label">{{ text.providerProfile }}</span>
+              <span class="provider-profile-control">
+                <Dropdown
+                  class="provider-profile-dropdown"
+                  :model-value="providerSettings.profileName"
+                  :options="profileOptions"
+                  @update:model-value="selectProfile($event)"
+                />
+                <button
+                  type="button"
+                  class="provider-profile-new-button"
+                  :title="text.newProviderProfile"
+                  :aria-label="text.newProviderProfile"
+                  @click="openCreateProfileDialog()"
+                >
+                  <IconPlus aria-hidden="true" />
+                </button>
               </span>
             </label>
-            <details class="agent-tool__parameters">
-              <summary>{{ text.toolParameters }}</summary>
-              <textarea
-                :value="providerSettings.toolInputs[tool.name] ?? '{}'"
-                spellcheck="false"
-                @input="setToolInput(tool.name, $event)"
+            <label class="provider-field">
+              <span class="provider-field__label">{{ text.apiProtocol }}</span>
+              <Dropdown
+                :model-value="providerSettings.protocol"
+                :options="protocolOptions"
+                class="provider-protocol-control"
+                @update:model-value="providerSettings.setProtocol($event)"
               />
-            </details>
-            <button
-              type="button"
-              class="agent-tool__run"
-              :disabled="!tool.enabled || providerSettings.runningToolName !== null"
-              @click="providerSettings.debugTool(tool.name)"
-            >
-              {{ providerSettings.runningToolName === tool.name ? text.toolRunning : text.toolRun }}
-            </button>
-            <p v-if="providerSettings.toolErrors[tool.name]" class="agent-tool__error" role="alert">
-              {{ providerSettings.toolErrors[tool.name] }}
-            </p>
-            <pre v-if="providerSettings.toolResults[tool.name]" class="agent-tool__result">{{
-              providerSettings.toolResults[tool.name].content
-            }}</pre>
-          </section>
-        </div>
-        <p v-else class="agent-tools__empty">{{ text.noTools }}</p>
-      </section>
+            </label>
+            <label class="provider-field">
+              <span class="provider-field__label">{{ text.baseUrl }}</span>
+              <input
+                v-model="providerSettings.baseUrl"
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </label>
+            <label class="provider-field">
+              <span class="provider-field__label">{{ text.apiKey }}</span>
+              <input
+                v-model="providerSettings.apiKey"
+                type="password"
+                autocomplete="new-password"
+                :placeholder="status.configured ? '••••••••' : text.apiKeyPlaceholder"
+              />
+            </label>
+            <label class="provider-field">
+              <span class="provider-field__label">{{ text.additionalHeaders }}</span>
+              <textarea
+                v-model="providerSettings.headers"
+                rows="4"
+                spellcheck="false"
+                :placeholder="text.additionalHeadersPlaceholder"
+              />
+            </label>
+            <label class="provider-field">
+              <span class="provider-field__label">{{ text.model }}</span>
+              <span class="provider-model-control">
+                <Dropdown
+                  v-if="providerSettings.models.length"
+                  class="provider-model-dropdown"
+                  :model-value="providerSettings.model"
+                  :options="modelOptions"
+                  @update:model-value="providerSettings.model = $event"
+                />
+                <input
+                  v-else
+                  v-model="providerSettings.model"
+                  type="text"
+                  autocomplete="new-password"
+                  spellcheck="false"
+                  :placeholder="text.modelPlaceholder"
+                />
+                <button
+                  type="button"
+                  class="provider-refresh-button"
+                  :title="text.refreshModels"
+                  :aria-label="text.refreshModels"
+                  :disabled="!providerSettings.canRefreshModels"
+                  @click="providerSettings.refreshModels()"
+                >
+                  <IconRefresh
+                    :class="{ spinner: providerSettings.modelsLoading }"
+                    aria-hidden="true"
+                  />
+                </button>
+              </span>
+            </label>
+          </div>
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          :label="text.externalServices"
+          :expanded="expandedSections.externalServices"
+          @toggle="toggleSection('externalServices')"
+        >
+          <div class="agent-settings-section__body provider-form__fields">
+            <label class="provider-field">
+              <span class="provider-field__label">{{ text.exaApiKey }}</span>
+              <input
+                v-model="providerSettings.exaApiKey"
+                type="password"
+                autocomplete="new-password"
+                :placeholder="text.exaApiKeyPlaceholder"
+              />
+            </label>
+          </div>
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          :label="text.tools"
+          :expanded="expandedSections.tools"
+          @toggle="toggleSection('tools')"
+        >
+          <div class="agent-settings-section__body">
+            <div v-if="providerSettings.tools.length" class="agent-tools">
+              <section v-for="tool in providerSettings.tools" :key="tool.name" class="agent-tool">
+                <label class="agent-tool__toggle">
+                  <input
+                    type="checkbox"
+                    :checked="tool.enabled"
+                    @change="setToolEnabled(tool.name, $event)"
+                  />
+                  <span>
+                    <strong>{{ tool.label }}</strong>
+                    <small>{{ tool.description }}</small>
+                  </span>
+                </label>
+                <details class="agent-tool__parameters">
+                  <summary>{{ text.toolParameters }}</summary>
+                  <textarea
+                    :value="providerSettings.toolInputs[tool.name] ?? '{}'"
+                    spellcheck="false"
+                    @input="setToolInput(tool.name, $event)"
+                  />
+                </details>
+                <button
+                  type="button"
+                  class="agent-tool__run"
+                  :disabled="!tool.enabled || providerSettings.runningToolName !== null"
+                  @click="providerSettings.debugTool(tool.name)"
+                >
+                  {{
+                    providerSettings.runningToolName === tool.name ? text.toolRunning : text.toolRun
+                  }}
+                </button>
+                <p
+                  v-if="providerSettings.toolErrors[tool.name]"
+                  class="agent-tool__error"
+                  role="alert"
+                >
+                  {{ providerSettings.toolErrors[tool.name] }}
+                </p>
+                <pre v-if="providerSettings.toolResults[tool.name]" class="agent-tool__result">{{
+                  providerSettings.toolResults[tool.name].content
+                }}</pre>
+              </section>
+            </div>
+            <p v-else class="agent-tools__empty">{{ text.noTools }}</p>
+          </div>
+        </CollapsibleSection>
+      </div>
 
       <ol
         v-if="providerSettings.testResult"
@@ -249,6 +273,7 @@
 
   import BaseModal from '../../../components/BaseModal.vue'
   import Dropdown from '../../../components/Dropdown.vue'
+  import CollapsibleSection from '../../../components/common/CollapsibleSection.vue'
   import {
     PROVIDER_API_PROTOCOLS,
     type ProviderApiProtocol,
@@ -272,10 +297,21 @@
     locale: AgentLocale
   }>()
 
-  const modelInput = ref<HTMLInputElement | null>(null)
   const profileNameInput = ref<HTMLInputElement | null>(null)
   const creatingProfile = ref(false)
   const newProfileName = ref('')
+  type SettingsSectionId = 'provider' | 'externalServices' | 'tools'
+
+  /** 创建每次打开设置面板时使用的默认折叠状态。 */
+  function createDefaultExpandedSections(): Record<SettingsSectionId, boolean> {
+    return {
+      provider: false,
+      externalServices: false,
+      tools: false,
+    }
+  }
+
+  const expandedSections = ref(createDefaultExpandedSections())
   const text = computed(() => getAgentCopy(props.locale))
   const visibleError = computed(() => props.providerSettings.operationError ?? props.status.error)
   const protocolOptions = computed(() =>
@@ -299,6 +335,14 @@
         ]
       : profiles
   })
+
+  /** 切换指定设置分组的展开状态。 */
+  function toggleSection(id: SettingsSectionId): void {
+    expandedSections.value = {
+      ...expandedSections.value,
+      [id]: !expandedSections.value[id],
+    }
+  }
 
   function stageLabel(stage: ProviderProbeStageResult['stage']): string {
     return {
@@ -364,10 +408,9 @@
 
   watch(
     () => props.providerSettings.open,
-    async (open) => {
+    (open) => {
       if (!open) return
-      await nextTick()
-      modelInput.value?.focus()
+      expandedSections.value = createDefaultExpandedSections()
     },
   )
 </script>
@@ -384,19 +427,13 @@
     gap: 12px;
   }
 
-  .agent-settings-section {
-    display: grid;
-    gap: 10px;
-    padding: 12px;
-    border: 1px solid var(--klc-color-grid-major);
-    border-radius: 6px;
+  .agent-settings-body {
+    display: flex;
+    flex-direction: column;
   }
 
-  .agent-settings-section h3 {
-    margin: 0;
-    color: var(--klc-color-foreground);
-    font-size: 12px;
-    font-weight: 600;
+  .agent-settings-section__body {
+    padding: 4px 12px 12px;
   }
 
   .agent-tools {
