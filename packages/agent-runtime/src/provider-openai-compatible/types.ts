@@ -12,6 +12,8 @@ export const OPENAI_COMPATIBLE_PROVIDER_ID = 'openai-compatible'
 export const OPENAI_COMPATIBLE_PROVIDER_LABEL = 'OpenAI-compatible'
 /** 已持久化 Provider 设置的当前数据版本。 */
 export const PROVIDER_SETTINGS_VERSION = 4 as const
+/** Provider 未声明模型容量时使用的上下文窗口回退值。 */
+export const DEFAULT_PROVIDER_CONTEXT_WINDOW = 1_000_000
 
 /**
  * 定义 Provider API Key 的持久化边界。
@@ -39,8 +41,8 @@ export interface OpenAiCompatibleProviderSettings {
   modelId: string
   /** 用于界面展示的模型名称。 */
   modelName: string
-  /** 已验证模型的上下文窗口。 */
-  contextWindow: number
+  /** 已验证模型的上下文窗口；Provider 未声明时由运行时应用回退值。 */
+  contextWindow?: number
   /** 已验证模型单次可生成的最大 token 数。 */
   maxOutputTokens: number
   /** 模型支持的思考强度；不支持时为空数组。 */

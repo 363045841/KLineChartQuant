@@ -718,13 +718,14 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       testedSettings.baseUrl === baseUrl
         ? testedSettings
         : undefined
+    const contextWindow = input.contextWindow ?? reusableCapabilities?.contextWindow
     const settings: OpenAiCompatibleProviderSettings = {
       version: PROVIDER_SETTINGS_VERSION,
       baseUrl,
       headers: input.headers ?? {},
       modelId,
       modelName: input.modelName.trim() || modelId,
-      contextWindow: input.contextWindow ?? reusableCapabilities?.contextWindow ?? 32_768,
+      ...(contextWindow === undefined ? {} : { contextWindow }),
       maxOutputTokens: input.maxOutputTokens ?? reusableCapabilities?.maxOutputTokens ?? 16_384,
       reasoningEfforts: input.reasoningEfforts ?? reusableCapabilities?.reasoningEfforts ?? [],
       reasoningEffort: input.reasoningEffort ?? reusableCapabilities?.reasoningEffort,

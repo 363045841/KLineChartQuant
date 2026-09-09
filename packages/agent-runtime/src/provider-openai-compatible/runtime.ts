@@ -282,7 +282,9 @@ export function createOpenAiCompatibleRuntimeSupport(
         headers: input.headers ?? {},
         modelId: selected.id,
         modelName: selected.name,
-        contextWindow: selected.contextWindow ?? 32_768,
+        ...(selected.contextWindow === undefined
+          ? {}
+          : { contextWindow: selected.contextWindow }),
         maxOutputTokens: selected.maxOutputTokens ?? 16_384,
         reasoningEfforts: selected.reasoningEfforts,
         reasoningEffort: selected.defaultReasoningEffort,

@@ -218,12 +218,15 @@ describe('BrowserAgentBridge', () => {
         modelId: 'second-model',
         modelName: 'Second model',
         protocol: 'openai-completions',
-        contextWindow: 32768,
         maxOutputTokens: 16384,
         reasoningEffort: undefined,
         reasoningEfforts: [],
       },
     ])
+    const storedProfiles = JSON.parse(window.localStorage.getItem('agent.provider.profiles')!) as Array<{
+      settings: Record<string, unknown>
+    }>
+    expect(storedProfiles[0]!.settings).not.toHaveProperty('contextWindow')
   })
 
   it('adds a named configuration to the group before its connection details are saved', async () => {

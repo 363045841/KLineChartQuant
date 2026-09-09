@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   AgentRuntimeError,
+  DEFAULT_PROVIDER_CONTEXT_WINDOW,
   InMemoryProviderCredentialStore,
   InMemoryProviderSettingsStore,
   PiRunDriver,
@@ -402,7 +403,13 @@ describe('OpenAI-compatible runtime support', () => {
       })
 
       expect(plan.model.api).toBe(protocol)
-      expect(await settings.read()).toMatchObject({ version: 4, protocol })
+      expect(plan.model.contextWindow).toBe(DEFAULT_PROVIDER_CONTEXT_WINDOW)
+      const savedSettings = await settings.read()
+      expect(savedSettings).toMatchObject({
+        version: 4,
+        protocol,
+      })
+      expect(savedSettings).not.toHaveProperty('contextWindow')
       expect(fetch.mock.calls.map(([input]) => String(input))).toEqual([
         `${baseUrl}/models`,
         `${baseUrl}/models`,

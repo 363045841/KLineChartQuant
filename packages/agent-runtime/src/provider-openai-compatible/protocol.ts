@@ -5,7 +5,11 @@ import { openAIResponsesApi } from '@earendil-works/pi-ai/api/openai-responses.l
 import { AgentRuntimeError } from '../contracts/errors.js'
 
 import { providerHttpError, requestProviderJson } from './http.js'
-import { OPENAI_COMPATIBLE_PROVIDER_ID, type ProviderDiagnostic } from './types.js'
+import {
+  DEFAULT_PROVIDER_CONTEXT_WINDOW,
+  OPENAI_COMPATIBLE_PROVIDER_ID,
+  type ProviderDiagnostic,
+} from './types.js'
 
 import type { ProviderErrorDetails, ProviderHttpOptions } from './http.js'
 import type { AgentRuntimeErrorCode } from '../contracts/errors.js'
@@ -17,7 +21,6 @@ import type {
   SimpleStreamOptions,
 } from '@earendil-works/pi-ai'
 
-const DEFAULT_CONTEXT_WINDOW = 32_768
 // 推理模型在 Responses 协议里 max_output_tokens 是思考与正文的共享总预算；
 // 过低会导致长链思考耗尽预算后被截断，正文一个字都产不出。
 // Agent 单次推理默认可生成的最大 token 数。
@@ -213,7 +216,7 @@ function commonModel<TProtocol extends ProviderApiProtocol>(
     reasoning: true,
     input: ['text'],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    contextWindow: model.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
+    contextWindow: model.contextWindow ?? DEFAULT_PROVIDER_CONTEXT_WINDOW,
     maxTokens: model.maxOutputTokens ?? DEFAULT_MAX_TOKENS,
   }
 }

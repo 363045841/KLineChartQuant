@@ -37,9 +37,10 @@ export function parseOpenAiCompatibleProviderSettings(
     typeof value.baseUrl !== 'string' ||
     typeof value.modelId !== 'string' ||
     typeof value.modelName !== 'string' ||
-    typeof value.contextWindow !== 'number' ||
-    !Number.isSafeInteger(value.contextWindow) ||
-    value.contextWindow <= 0 ||
+    (value.contextWindow !== undefined &&
+      (typeof value.contextWindow !== 'number' ||
+        !Number.isSafeInteger(value.contextWindow) ||
+        value.contextWindow <= 0)) ||
     typeof value.maxOutputTokens !== 'number' ||
     !Number.isSafeInteger(value.maxOutputTokens) ||
     value.maxOutputTokens <= 0 ||
@@ -70,7 +71,7 @@ export function parseOpenAiCompatibleProviderSettings(
     headers: value.headers ? ({ ...value.headers } as Record<string, string>) : {},
     modelId: value.modelId,
     modelName: value.modelName,
-    contextWindow: value.contextWindow,
+    ...(typeof value.contextWindow === 'number' ? { contextWindow: value.contextWindow } : {}),
     maxOutputTokens: value.maxOutputTokens,
     reasoningEfforts: [...value.reasoningEfforts] as ProviderReasoningEffort[],
     reasoningEffort: value.reasoningEffort as ProviderReasoningEffort | undefined,
