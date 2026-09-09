@@ -218,6 +218,10 @@ describe('BrowserAgentBridge', () => {
         modelId: 'second-model',
         modelName: 'Second model',
         protocol: 'openai-completions',
+        contextWindow: 32768,
+        maxOutputTokens: 16384,
+        reasoningEffort: undefined,
+        reasoningEfforts: [],
       },
     ])
   })
