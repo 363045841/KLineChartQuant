@@ -1,6 +1,6 @@
 // 浏览器端 OpenAI-compatible 模型目录请求，避免由宿主进程代发。
 import { AgentRuntimeError } from '../contracts/errors.js'
-import { normalizeProviderBaseUrl, providerHttpError } from './http.js'
+import { normalizeProviderBaseUrl, parseProviderErrorDetails, providerHttpError } from './http.js'
 
 import type { ProviderModelsInput, ProviderModelsResult } from '../contracts/ui.js'
 
@@ -30,7 +30,13 @@ export async function fetchOpenAiCompatibleModels(
       ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
     },
   })
-  if (!response.ok) throw providerHttpError(response.status)
+  if (!response.ok) {
+    throw providerHttpError(
+      response.status,
+      undefined,
+      parseProviderErrorDetails(await response.text()),
+    )
+  }
   const payload = (await response.json().catch(() => undefined)) as unknown
   if (!isRecord(payload) || !Array.isArray(payload.data)) {
     throw new AgentRuntimeError(

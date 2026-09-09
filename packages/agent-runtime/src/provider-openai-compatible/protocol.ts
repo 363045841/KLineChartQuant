@@ -7,7 +7,7 @@ import { AgentRuntimeError } from '../contracts/errors.js'
 import { providerHttpError, requestProviderJson } from './http.js'
 import { OPENAI_COMPATIBLE_PROVIDER_ID, type ProviderDiagnostic } from './types.js'
 
-import type { ProviderHttpOptions } from './http.js'
+import type { ProviderErrorDetails, ProviderHttpOptions } from './http.js'
 import type { AgentRuntimeErrorCode } from '../contracts/errors.js'
 import type { ProviderApiProtocol } from '../contracts/ui.js'
 import type {
@@ -33,6 +33,7 @@ export interface ProviderCatalogModel {
 export interface ProviderStreamObservation {
   status?: number
   retryAfterMs?: number
+  error?: ProviderErrorDetails
   networkFailure: boolean
 }
 
@@ -159,7 +160,7 @@ function classifyStreamError(
   malformedPattern: RegExp,
 ): AgentRuntimeError {
   if (observation.status && observation.status >= 400) {
-    return providerHttpError(observation.status, observation.retryAfterMs)
+    return providerHttpError(observation.status, observation.retryAfterMs, observation.error)
   }
   const category = message.errorMessage ?? ''
   if (/timeout|timed out|deadline/i.test(category)) {

@@ -207,8 +207,17 @@ describe('OpenAI-compatible Provider HTTP boundary', () => {
     [404, 'PROVIDER_MODEL_NOT_FOUND'],
     [429, 'PROVIDER_RATE_LIMITED'],
     [503, 'PROVIDER_UNAVAILABLE'],
-  ])('maps HTTP %i to %s without consuming the response body', async (status, code) => {
-    const response = new Response(secret, { status })
+  ])('maps HTTP %i to %s and preserves the Provider error fields', async (status, code) => {
+    const response = json(
+      {
+        error: {
+          message: 'Provider returned error',
+          code: status,
+          metadata: { raw: 'temporarily rate-limited upstream', ignored: secret },
+        },
+      },
+      status,
+    )
     const fetch = vi.fn(async () => response)
     await expect(
       requestProviderJson(
@@ -221,8 +230,13 @@ describe('OpenAI-compatible Provider HTTP boundary', () => {
           maxRetries: 0,
         },
       ),
-    ).rejects.toMatchObject({ code })
-    expect(response.bodyUsed).toBe(false)
+    ).rejects.toMatchObject({
+      code,
+      message: 'Provider returned error',
+      providerCode: String(status),
+      raw: 'temporarily rate-limited upstream',
+    })
+    expect(response.bodyUsed).toBe(true)
   })
 
   it('respects Retry-After before a bounded retry', async () => {
@@ -666,14 +680,24 @@ describe('OpenAI-compatible runtime support', () => {
   )
 
   it.each(['openai-completions', 'openai-responses'] as const)(
-    'projects %s streamed HTTP failures to stable errors without raw bodies',
+    'projects %s streamed HTTP failures with Provider error fields',
     async (protocol) => {
       const { credentials, settings } = configuredStores()
       await configure(credentials, settings, protocol)
       const support = createOpenAiCompatibleRuntimeSupport({
         credentials,
         settings,
-        fetch: async () => new Response(secret, { status: 401 }),
+        fetch: async () =>
+          json(
+            {
+              error: {
+                message: 'Provider returned error',
+                code: 'invalid_api_key',
+                metadata: { raw: 'Invalid API key provided' },
+              },
+            },
+            401,
+          ),
         maxRetries: 0,
       })
       const plan = await support.createPlan({
@@ -688,7 +712,9 @@ describe('OpenAI-compatible runtime support', () => {
       })
       await expect(new PiRunDriver().run(plan, () => undefined)).rejects.toMatchObject({
         code: 'PROVIDER_AUTHENTICATION',
-        message: 'The Provider rejected the API credential.',
+        message: 'Provider returned error',
+        providerCode: 'invalid_api_key',
+        raw: 'Invalid API key provided',
       })
     },
   )

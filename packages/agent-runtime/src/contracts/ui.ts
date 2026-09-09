@@ -69,6 +69,8 @@ export interface ToolProgressView {
 export interface AgentErrorView {
   code: string
   message: string
+  providerCode?: string
+  raw?: string
   retryable: boolean
   recommendedAction?: string
 }

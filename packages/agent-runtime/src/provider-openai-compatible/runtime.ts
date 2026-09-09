@@ -5,6 +5,7 @@ import { AgentRuntimeError, toAgentRuntimeError } from '../contracts/errors.js'
 
 import {
   normalizeProviderBaseUrl,
+  parseProviderErrorDetails,
   parseRetryAfter,
   providerHttpError,
   redactProviderUrl,
@@ -432,6 +433,9 @@ export function createOpenAiCompatibleRuntimeSupport(
         const response = await providerFetch(input, init)
         observation.status = response.status
         observation.retryAfterMs = parseRetryAfter(response.headers.get('retry-after'), now())
+        if (response.status >= 400) {
+          observation.error = parseProviderErrorDetails(await response.clone().text())
+        }
         options.diagnostics?.({
           phase: 'response',
           method,

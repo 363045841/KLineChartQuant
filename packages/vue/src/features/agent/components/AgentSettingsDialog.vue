@@ -205,6 +205,8 @@
         <IconAlertTriangle aria-hidden="true" />
         <span>
           <strong>{{ visibleError.message }}</strong>
+          <small v-if="visibleError.providerCode">{{ visibleError.providerCode }}</small>
+          <small v-if="visibleError.raw" class="provider-error__raw">{{ visibleError.raw }}</small>
           <small v-if="visibleError.recommendedAction">
             {{ visibleError.recommendedAction }}
           </small>

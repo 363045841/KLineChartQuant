@@ -25,6 +25,8 @@ function toOperationError(error: unknown): AgentErrorView {
       return {
         code: value.code,
         message: value.message,
+        providerCode: typeof value.providerCode === 'string' ? value.providerCode : undefined,
+        raw: typeof value.raw === 'string' ? value.raw : undefined,
         retryable: value.retryable === true,
         recommendedAction:
           typeof value.recommendedAction === 'string' ? value.recommendedAction : undefined,
