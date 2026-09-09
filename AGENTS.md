@@ -18,8 +18,8 @@
 
 ## Quick Search
 
-- **MUST USE CodeGraph MCP FIRST**: You can use `codegraph_codegraph_callees, codegraph_codegraph_callers, codegraph_codegraph_explore, codegraph_codegraph_files, codegraph_codegraph_impact, codegraph_codegraph_node, codegraph_codegraph_search, codegraph_codegraph_status` to expolore project, Call analysis.It is a replacement for grep and similar commands.
-When you launch a sub-agent, use codegraph MCP when prompted to explore the code in the sub-agent prompt
+- 修改或理解代码前，优先使用 CodeGraph MCP 的 `codegraph_codegraph_explore` 分析调用链和影响范围；未索引内容再使用 grep/read。
+- 启动子代理探索代码时，也要求其优先使用 CodeGraph MCP。
 
 ## Committing
 
@@ -29,19 +29,19 @@ When you launch a sub-agent, use codegraph MCP when prompted to explore the code
 
 ## Monorepo
 
-pnpm workspace at `packages/*`. Published packages:
+pnpm workspace at `packages/*`。发布包：
 
-| Package | Dir | Published as |
-|---------|------|-------------|
-| Core engine | `packages/core/` | `@363045841yyt/klinechart-core` |
-| Vue bindings | `packages/vue/` | `@363045841yyt/klinechart` |
-| React bindings | `packages/react/` | `@363045841yyt/klinechart-react` |
-| Angular bindings | `packages/angular/` | `@363045841yyt/klinechart-angular` |
-| UI schema | `packages/ui-schema/` | `@363045841yyt/klinechart-ui-schema` |
+| 目录 | 发布包 |
+|------|--------|
+| `packages/core` | `@363045841yyt/klinechart-core` |
+| `packages/vue` | `@363045841yyt/klinechart` |
+| `packages/react` | `@363045841yyt/klinechart-react` |
+| `packages/angular` | `@363045841yyt/klinechart-angular` |
+| `packages/ui-schema` | `@363045841yyt/klinechart-ui-schema` |
 
-**Build order matters**: `pnpm build:packages` (core → vue). Each framework package depends on core via `workspace:*`.
+框架包通过 `workspace:*` 依赖 core；发布构建使用 `pnpm build:packages`（core → vue）。
 
-Node: `^20.19.0 \|\| >=22.12.0`. pnpm 11.x.
+Node `^20.19.0 || >=22.12.0`，pnpm 11.x。
 
 ## README Generation
 
@@ -51,101 +51,21 @@ All READMEs are generated from `docs/fragments/` (reusable Markdown snippets) + 
 
 | Command | What |
 |---------|------|
-| `pnpm setup` | Clone data-source backends (`GoTDX-Connecter`, `Baostock-Tradingview-Connecter`) into the sibling directory; then `pnpm dev -c all` works out of the box |
-| `pnpm dev` | Vite dev server; `-c <names>` also starts selected connecters (e.g. `pnpm dev -c all`; aliases `tdx/g/b/bnb/all`) |
-| `pnpm dev:lan` | Same, `--lan` (dev server bound to `0.0.0.0`) |
-| `pnpm build` | `vue-tsc --build` + `vite build` (uses `run-p`) |
-| `pnpm build:packages` | `pnpm --filter @363045841yyt/klinechart-core build && pnpm --filter @363045841yyt/klinechart build` |
-| `pnpm build:demo` | `vite build --config vite.demo.config.ts` |
-| `pnpm type-check` | `vue-tsc --build` (not `tsc`) |
-| `pnpm test:unit` | `vitest` (root tests only — excludes `packages/`) |
-| `pnpm test:packages` | `pnpm -r test` (fans out per-package `vitest run`) |
-| `pnpm size:packages` | `pnpm -r --workspace-concurrency=4 size` (warn-only in CI) |
-| `pnpm lint:publish` | `pnpm -r --workspace-concurrency=4 lint:publish` (warn-only) |
-| `pnpm lint:types` | `pnpm -r --workspace-concurrency=4 lint:types` (warn-only) |
-| `pnpm docs:generate` | Generate all READMEs from fragments + templates |
-| `pnpm docs:check`    | Verify READMEs are up-to-date (exit 1 if stale) |
-| `pnpm format` | `prettier --write --experimental-cli src/` |
+| `pnpm build:packages` | 发布包构建（core → vue） |
+| `pnpm type-check` | 使用 `vue-tsc --build`，不要使用 `tsc` |
+| `pnpm test:unit` | root 测试 |
+| `pnpm test:packages` | 所有 workspace 包测试 |
+| `pnpm docs:generate` / `pnpm docs:check` | 生成 / 校验 README |
 
 ## 数据源
 
-本地开发所需的行情后端，均与本仓库**同级目录**，不在 monorepo 内。
-
-| 仓库 | 路径 | 默认端口 | 作用 |
-|------|------|----------|------|
-| **Baostock-Tradingview-Connecter** | 同级 `Baostock-Tradingview-Connecter/`（原 `stockbao`） | `8000` | BaoStock FastAPI：A 股日/分钟 K 线、TradingView 全球品种 |
-| **GoTDX-Connecter** | 同级 `GoTDX-Connecter/`（原 `KlineChartQuantGo`） | `8080` / `8081` | Go 多数据源代理：gotdx + 加密所 |
-
-统一启动命令——先安装数据源后端（`pnpm setup` 幂等：目录已存在则跳过），再用 `pnpm dev` 带 `-c` 参数同时启动前端与选定的数据源后端：
-
-```bash
-pnpm dev                      # 仅前端（Vite 开发服务器）
-pnpm dev -c all               # 前端 + 全部后端（gotdx + binance + baostock）
-pnpm dev -c gotdx baostock    # 前端 + 指定的后端
-pnpm dev -c tdx               # 支持别名（tdx / g / b / bnb / all）
-pnpm dev -c all --lan         # 同上，前端绑定 0.0.0.0（局域网可访问）
-```
-
-常用简写命令：
-
-```bash
-pnpm dev:all                  # 前端 + 全部后端
-pnpm dev:g                    # 前端 + gotdx 通达信
-pnpm dev:b                    # 前端 + BaoStock / TradingView
-pnpm dev:bnb                  # 前端 + 币安深度
-pnpm dev:lan:all              # 前端（0.0.0.0）+ 全部后端
-```
-
-仅启动后端（不带前端）：
-
-```bash
-pnpm connecter                # 全部后端
-pnpm connecter gotdx          # gotdx 通达信（:8080）
-pnpm connecter baostock       # BaoStock / TradingView（:8000）
-```
-
-### Baostock-Tradingview-Connecter
-
-```bash
-pnpm connecter baostock
-# starts FastAPI at http://localhost:8000
-# requires `Baostock-Tradingview-Connecter/` alongside this repo; uses `uv run python ./server.py`
-```
-
-Vite 开发代理：`/api/stock` → `:8000`。
-
-### GoTDX-Connecter
-
-提供 **gotdx（通达信）** 与 **加密所（币安）** 行情。
-
-| 服务 | 包路径 | 默认端口 | 作用 |
-|------|--------|----------|------|
-| tdx-api | `services/tdx-api` | `8080` | 通达信 gotdx：股票/期货/MAC K 线、分笔、列表等 |
-| binance-api | `services/binance-api` | `8081` | 币安 L2 订单簿 + SSE 深度流 |
-
-本前端对接：
-
-- gotdx → `packages/core/src/data/provider/sources/gotdx.ts`（默认 base `http://127.0.0.1:8080`，可用 `VITE_GOTDX_API_BASE_URL`）
-- binance → `packages/core/src/data/depth/binance.ts`（`:8081`）
-- Vite 开发代理：`/api/public` → `:8080`（见 `pnpm dev`）
-
-本地启动（在本仓库根目录 `pnpm connecter tdx`，或在 `GoTDX-Connecter` 根目录）：
-
-```bash
-go run . tdx       # 或 go run ./services/tdx-api
-go run . binance   # 或 go run ./services/binance-api
-```
-
-Agent 细节见该仓库 `AGENTS.md`。
+本地行情后端位于本仓库同级目录：`GoTDX-Connecter`（gotdx、Binance）和 `Baostock-Tradingview-Connecter`（BaoStock、TradingView）。涉及后端时先阅读对应仓库的 `AGENTS.md`；使用 `pnpm setup` 安装，`pnpm dev -c <name>` 或 `pnpm connecter <name>` 启动。
 
 ## Testing
 
-- **Root tests** (`pnpm test:unit`): legacy suite in `packages/core/src/__tests__/` (jsdom). These are **REQUIRED** in CI.
-- **Package tests** (`pnpm test:packages`): each package's own vitest run. **REQUIRED** in CI.
-- Per-package vitest configs use `jsdom` for React/Vue, `node` for core/Angular.
-- Packages are **excluded** from root vitest config — always use `pnpm -r test` for cross-package testing.
-- **Integration tests** (`*.integration.test.ts`) are excluded from all vitest runs.
-- **TZ=Asia/Shanghai**: date-format tests assume CST (UTC+8). CI pins this; local runs on non-CST machines may fail around year boundaries.
+- Root 测试使用 `pnpm test:unit`；packages 被其排除，跨包测试使用 `pnpm test:packages`。
+- `*.integration.test.ts` 不会被默认测试收集。
+- 日期测试依赖 `TZ=Asia/Shanghai`；本地跨年失败时先设置该环境变量。
 
 ## Code Conventions
 
@@ -193,26 +113,11 @@ Agent 细节见该仓库 `AGENTS.md`。
 
 Best practice: @packages/core/src/engine/state/viewportState.ts @packages/core/src/engine/state/stateKernel.ts 
 
-## CI
-
-- `library-ci.yml` runs on every push/PR to main. Two jobs: `test` (REQUIRED) and `build` (WARN-ONLY).
-- `deploy.yml` builds Vue preview (`packages/vue/preview/`) and deploys to GitHub Pages on push to main.
-- `release.yml` publishes to npm on `v*` tag push (core → vue, with `workspace:^` → `^` sed substitution).
-- Warn-only gates (`size:packages`, `lint:publish`, `lint:types`, `pnpm -r build`) must be promoted to required before first npm publish (see `docs/CI_GATES.md`).
-
 <!-- effect-solutions:start -->
 
 ## Effect Best Practices
 
-**IMPORTANT:** Always consult effect-solutions before writing Effect code.
-
-1. Run `effect-solutions list` to see available guides
-2. Run `effect-solutions show <topic>...` for relevant patterns (supports multiple topics)
-3. Search `~/.local/share/effect-solutions/effect` for real implementations
-
-Topics: quick-start, project-setup, tsconfig, basics, services-and-layers, data-modeling, error-handling, config, testing, cli.
-
-Never guess at Effect patterns - check the guide first.
+编写 Effect 代码前必须查阅 `effect-solutions` 的相关指南，不得猜测模式。
 
 <!-- effect-solutions:end -->
 
@@ -222,11 +127,6 @@ Never guess at Effect patterns - check the guide first.
 - **Rendering docs SSOT**: `docs/rendering-pipeline.md` only. Do not revive deleted architecture/plugin rendering docs.
 - **Viewport too large** may trigger `MAX_CANVAS_PIXELS` (`clampDpr` in viewportState), causing DPR to be actively downgraded.
 - **Web component build**: `pnpm build:wc` in packages/vue (cross-env BUILD_TARGET=web-component).
-
-## Lessons Learned
-
-- **Do not reuse GPU instance buffers across draw calls in the same frame**. `packages/core/src/engine/renderers/rectsViaRenderer.ts` used to cache instance buffers by slot per renderer. Because `drawRectBatchesViaRenderer` reset the slot counter to 0 on every call, the main pane candle batches and the MACD sub-pane batches shared the same GPU buffers within a single frame. MACD wrote later and overwrote the candle instance data, causing the left-side K-line bodies to disappear. The fix is to create and destroy an instance buffer per batch; only cache the pipeline and unit vertex buffer. See also `packages/core/src/rendering/render/createWebGPURenderer.ts` for the WebGPU backend details.
-- **GPU rendering backend 必须以物理像素处理坐标，而非逻辑像素**.
 
 ## Agent
 - @Tool 注册的工具,不应该让Agent直接传入时间戳
