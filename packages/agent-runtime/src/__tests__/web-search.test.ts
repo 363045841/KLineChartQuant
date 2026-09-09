@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { createExaWebSearchProvider } from '../search/exa.js'
 import { createWebSearchTool } from '../search/web-search-tool.js'
-import { RuntimeToolRegistry } from '../tools/runtime-tool-registry.js'
+import { RuntimeToolCatalog } from '../tools/runtime-tool-registry.js'
 
 describe('web search', () => {
   it('maps an Exa response to standard sources', async () => {
@@ -89,17 +89,24 @@ describe('web search', () => {
     })
   })
 
-  it('keeps tool metadata discoverable when the current host cannot execute it', () => {
-    const registry = new RuntimeToolRegistry<{ enabled: boolean }>()
+  it('reports when a registered tool cannot be enabled', () => {
+    const registry = new RuntimeToolCatalog<{ enabled: boolean }>()
     registry.register({
       name: 'web_search',
       label: 'Web search',
       description: 'Search the web.',
-      create: ({ enabled }) => (enabled ? createWebSearchTool({ search: async () => [] }) : undefined),
+      check: ({ enabled }) => (enabled ? undefined : 'Configure Web search first.'),
+      create: () => createWebSearchTool({ search: async () => [] }),
     })
 
-    expect(registry.list()).toEqual([
-      { name: 'web_search', label: 'Web search', description: 'Search the web.' },
+    expect(registry.list({ enabled: false })).toEqual([
+      {
+        name: 'web_search',
+        label: 'Web search',
+        description: 'Search the web.',
+        available: false,
+        unavailableReason: 'Configure Web search first.',
+      },
     ])
     expect(registry.resolve({ enabled: false })).toEqual([])
   })

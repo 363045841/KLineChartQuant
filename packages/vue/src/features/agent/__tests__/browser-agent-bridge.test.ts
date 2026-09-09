@@ -83,12 +83,20 @@ describe('BrowserAgentBridge', () => {
     )
   })
 
-  it('lists web search before an Exa key is configured', async () => {
+  it('marks web search unavailable before an Exa key is configured', async () => {
     const bridge = new BrowserAgentBridge()
 
     await expect(bridge.listTools()).resolves.toContainEqual(
-      expect.objectContaining({ name: 'web_search' }),
+      expect.objectContaining({
+        name: 'web_search',
+        enabled: false,
+        available: false,
+        unavailableReason: 'Enter an Exa API key to enable Web search.',
+      }),
     )
+    await expect(bridge.setToolEnabled('web_search', true)).rejects.toMatchObject({
+      code: 'TOOL_NOT_ALLOWED',
+    })
   })
 
   it('requests the Provider model catalog with the supplied credential', async () => {
@@ -276,7 +284,7 @@ describe('BrowserAgentBridge', () => {
     })
 
     await expect(bridge.listTools()).resolves.toContainEqual(
-      expect.objectContaining({ name: 'web_search', enabled: true }),
+      expect.objectContaining({ name: 'web_search', enabled: true, available: true }),
     )
     await expect(bridge.debugTool('web_search', { query: 'KLineChart' })).resolves.toMatchObject({
       summary: 'Found 1 web results.',
@@ -536,14 +544,14 @@ describe('BrowserAgentBridge', () => {
     const bridge = new BrowserAgentBridge({ getChartAgent: () => agent })
     const resolveTools = (
       bridge as unknown as {
-        toolRegistry: {
+        toolCatalog: {
           resolve(context: {
             agent: ChartAgentController
             readOnly: boolean
           }): readonly RuntimeToolDefinition[]
         }
       }
-    ).toolRegistry.resolve({ agent, readOnly: false })
+    ).toolCatalog.resolve({ agent, readOnly: false })
 
     expect(
       resolveTools.find((tool) => tool.name === 'drawing_create')?.description,
