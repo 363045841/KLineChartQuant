@@ -24,4 +24,20 @@ describe('renderAgentMarkdown', () => {
     expect(html).not.toContain('<script>')
     expect(html).not.toContain('href="javascript:')
   })
+
+  /** 验证只有消息实际持有的来源才能生成引用按钮。 */
+  it('renders verified citation markers as source buttons', () => {
+    const html = renderAgentMarkdown('The market is volatile. [[cite:web:tool-1:1]]', [
+      {
+        id: 'web:tool-1:1',
+        title: 'Market report',
+        url: 'https://example.com/report',
+        snippet: 'Volatility increased.',
+      },
+    ])
+
+    expect(html).toContain('data-agent-citation-id="web:tool-1:1"')
+    expect(html).toContain('>[1]</button>')
+    expect(renderAgentMarkdown('[[cite:web:unknown:1]]')).toContain('[[cite:web:unknown:1]]')
+  })
 })

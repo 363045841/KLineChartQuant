@@ -793,6 +793,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
         role: 'assistant',
         content: result.text,
         createdAt: endedAt,
+        ...(result.citations.length ? { citations: result.citations } : {}),
       })
       this.finish(session, runId, 'completed', endedAt)
       this.emit({

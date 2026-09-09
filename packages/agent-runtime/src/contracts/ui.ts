@@ -23,6 +23,24 @@ export type ToolCallStatus =
   | 'undone'
 export type ToolSafety = 'read-only' | 'reversible-write' | 'destructive'
 
+/** Agent 正文中引用来源的稳定标记边界。 */
+export const AGENT_CITATION_MARKER_PREFIX = '[[cite:'
+export const AGENT_CITATION_MARKER_SUFFIX = ']]'
+
+/** 将来源 ID 编码为 Agent 正文可识别的引用标记。 */
+export function formatAgentCitation(id: string): string {
+  return `${AGENT_CITATION_MARKER_PREFIX}${id}${AGENT_CITATION_MARKER_SUFFIX}`
+}
+
+/** 可由 Agent 正文引用的外部来源。 */
+export interface SourceCitation {
+  readonly id: string
+  readonly title: string
+  readonly url: string
+  readonly snippet: string
+  readonly publishedAt?: string
+}
+
 export interface EvidenceView {
   symbol?: string
   period?: string
@@ -39,6 +57,7 @@ export interface AgentMessageView {
   createdAt: number
   status?: AgentMessageStatus
   evidence?: EvidenceView
+  citations?: readonly SourceCitation[]
 }
 
 export interface ToolProgressView {
@@ -281,7 +300,11 @@ export type AgentUiEvent =
       createdAt: number
     })
   | (RunEventEnvelope & { type: 'assistant.text.delta'; messageId: string; delta: string })
-  | (RunEventEnvelope & { type: 'assistant.message.completed'; messageId: string })
+  | (RunEventEnvelope & {
+      type: 'assistant.message.completed'
+      messageId: string
+      citations?: readonly SourceCitation[]
+    })
   | (RunEventEnvelope & { type: 'assistant.message.failed'; messageId: string })
   | (RunEventEnvelope & {
       type: 'assistant.thinking.started'

@@ -6,6 +6,7 @@ import type {
   AgentUsageView,
   AgentRunScope,
   EvidenceView,
+  SourceCitation,
   ToolProgressView,
   ToolSafety,
 } from '../contracts/ui.js'
@@ -21,6 +22,8 @@ export interface RuntimeToolResult {
   summary: string
   /** 支撑结果的图表证据。 */
   evidence?: EvidenceView
+  /** 可由最终 assistant 正文引用的外部来源。 */
+  citations?: readonly SourceCitation[]
   /** 可逆工具操作对应的撤销令牌。 */
   undoToken?: string
   /** 工具执行产生的资源用量。 */
@@ -107,6 +110,8 @@ export interface PiRunResult {
   usage?: AgentUsageView
   /** 成功完成的工具调用数量。 */
   completedToolCount: number
+  /** 本次运行中成功工具返回的可引用来源。 */
+  citations: readonly SourceCitation[]
 }
 
 /** 接收投影后 Agent UI 事件的同步或异步函数。 */

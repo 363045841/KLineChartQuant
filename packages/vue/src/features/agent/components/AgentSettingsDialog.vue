@@ -110,6 +110,10 @@
                 </button>
               </span>
             </label>
+            <div v-if="status.modelLabel" class="provider-status" :data-state="status.state">
+              <span class="provider-status__dot" aria-hidden="true"></span>
+              <strong>{{ status.modelLabel }}</strong>
+            </div>
           </div>
         </CollapsibleSection>
 
@@ -205,11 +209,6 @@
             {{ visibleError.recommendedAction }}
           </small>
         </span>
-      </div>
-
-      <div v-if="status.modelLabel" class="provider-status" :data-state="status.state">
-        <span class="provider-status__dot" aria-hidden="true"></span>
-        <strong>{{ status.modelLabel }}</strong>
       </div>
     </form>
 

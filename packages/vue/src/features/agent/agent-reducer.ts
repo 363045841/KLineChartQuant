@@ -150,6 +150,7 @@ function reduceCurrentAgentUiEvent(
         messages: updateMessage(state.messages, event.messageId, (message) => ({
           ...message,
           status: 'complete',
+          ...(event.citations?.length ? { citations: event.citations } : {}),
         })),
       }
 

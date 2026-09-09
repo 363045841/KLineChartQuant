@@ -11,7 +11,7 @@ import type {
   RuntimeToolDefinition,
   RuntimeToolResult,
 } from './types.js'
-import type { AgentUsageView, ToolCallView, ToolProgressView } from '../contracts/ui.js'
+import type { AgentUsageView, SourceCitation, ToolCallView, ToolProgressView } from '../contracts/ui.js'
 import type { AssistantMessage, Usage } from '@earendil-works/pi-ai'
 
 const DEFAULT_TOOL_TURN_LIMIT = 8
@@ -186,6 +186,7 @@ export class PiRunDriver {
     const toolsByName = new Map(plan.tools.map((tool) => [tool.name, tool]))
     const toolViews = new Map<string, ToolCallView>()
     const toolResults = new Map<string, RuntimeToolResult>()
+    const citations = new Map<string, SourceCitation>()
     let assistantMessageId: string | undefined
     let assistantStarted = false
     let assistantText = ''
@@ -196,7 +197,9 @@ export class PiRunDriver {
     let aborted = false
     let usage: Usage | undefined
 
-    const tools = plan.tools.map((definition) => this.createTool(plan, definition, toolResults))
+    const tools = plan.tools.map((definition) =>
+      this.createTool(plan, definition, toolResults, citations),
+    )
     const agent = new Agent({
       initialState: {
         systemPrompt:
@@ -310,6 +313,7 @@ export class PiRunDriver {
                 ? 'assistant.message.failed'
                 : 'assistant.message.completed',
             messageId: assistantMessageId,
+            ...(citations.size ? { citations: [...citations.values()] } : {}),
           })
         }
         return
@@ -355,6 +359,7 @@ export class PiRunDriver {
         text: assistantText,
         usage: usage ? usageView(usage, startedAt, this.now()) : undefined,
         completedToolCount,
+        citations: [...citations.values()],
       }
     } catch (error) {
       if (timedOut) {
@@ -390,6 +395,7 @@ export class PiRunDriver {
     plan: PiRunPlan,
     definition: RuntimeToolDefinition,
     results: Map<string, RuntimeToolResult>,
+    citations: Map<string, SourceCitation>,
   ): AgentTool {
     return {
       name: definition.name,
@@ -422,6 +428,7 @@ export class PiRunDriver {
         } catch (error) {
           result = recoverableToolFailure(error)
         }
+        for (const citation of result.citations ?? []) citations.set(citation.id, citation)
         results.set(toolCallId, result)
         return {
           content: [{ type: 'text', text: redactString(result.content, this.redaction) }],

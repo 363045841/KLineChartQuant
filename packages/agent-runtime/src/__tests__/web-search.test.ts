@@ -74,9 +74,18 @@ describe('web search', () => {
     )
     expect(result).toMatchObject({
       summary: 'Found 1 web results.',
-      content: JSON.stringify({
-        sources: [{ title: 'Result', url: 'https://example.com', snippet: 'Snippet' }],
-      }),
+      citations: [
+        {
+          id: 'web:tool-1:1',
+          title: 'Result',
+          url: 'https://example.com',
+          snippet: 'Snippet',
+        },
+      ],
+    })
+    expect(JSON.parse(result.content)).toMatchObject({
+      sources: [{ id: 'web:tool-1:1', title: 'Result' }],
+      citationExamples: ['[[cite:web:tool-1:1]]'],
     })
   })
 

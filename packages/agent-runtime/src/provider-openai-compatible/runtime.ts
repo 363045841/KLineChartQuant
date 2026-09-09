@@ -132,6 +132,7 @@ function formatReferenceTime(timestamp: number): string {
 /** 构造注入当前行情时间参照的系统提示词。 */
 function createSystemPrompt(
   hasTools: boolean,
+  hasWebSearch: boolean,
   referenceTime: string,
   context?: AgentRunContext,
 ): string {
@@ -143,8 +144,11 @@ function createSystemPrompt(
   const selectedKLineBarsInstruction = hasSelectedKLineBars
     ? ' The selected-kline-bars context contains the complete OHLCV data for the selected time range, formatted exactly as Query market bars. Analyze it directly and do not call market_bars_query for that range.'
     : ''
+  const citationInstruction = hasWebSearch
+    ? ' When using web_search evidence, cite each supporting claim immediately after the claim. Copy a citation marker exactly from the citationExamples returned by web_search. For example, if web_search returns [[cite:web:run-1:call-1:1]], write: The company reported rising costs. [[cite:web:run-1:call-1:1]]'
+    : ''
   return hasTools
-    ? `${base}${chartContext}${selectedKLineBarsInstruction} Use the supplied chart tools when chart evidence is needed. Do not claim to have changed the chart: the available tools are read-only.`
+    ? `${base}${chartContext}${selectedKLineBarsInstruction}${citationInstruction} Use the supplied chart tools when chart evidence is needed. Do not claim to have changed the chart: the available tools are read-only.`
     : `${base}${chartContext}${selectedKLineBarsInstruction} No chart tools are available in this build. Do not claim to have read or changed the chart. Answer only from user-provided text and state limitations clearly.`
 }
 
@@ -482,6 +486,7 @@ export function createOpenAiCompatibleRuntimeSupport(
       classifyProviderError: (message) => adapter.classifyStreamError(message, observation),
       systemPrompt: createSystemPrompt(
         tools.length > 0,
+        tools.some((tool) => tool.name === 'web_search'),
         formatReferenceTime(now()),
         context.context,
       ),
