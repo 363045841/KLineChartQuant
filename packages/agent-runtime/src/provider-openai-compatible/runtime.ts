@@ -14,6 +14,11 @@ import {
 } from './http.js'
 import { getProviderApiProtocolAdapter, type ProviderStreamObservation } from './protocol.js'
 import {
+  parseProviderModelCatalog,
+  providerModelView,
+  type ProviderCatalogModel,
+} from './model-catalog.js'
+import {
   OPENAI_COMPATIBLE_PROVIDER_ID,
   OPENAI_COMPATIBLE_PROVIDER_LABEL,
   PROVIDER_SETTINGS_VERSION,
@@ -50,45 +55,8 @@ function createProviderFetch(
   }
 }
 
-const MAX_CATALOG_MODELS = 2_000
-const MAX_MODEL_ID_LENGTH = 256
 /** Agent 参照行情交易日与盘中的固定时区。 */
 const AGENT_REFERENCE_TIMEZONE = 'Asia/Shanghai'
-
-/** 模型目录中经过运行时校验的最小模型描述。 */
-interface CatalogModel {
-  id: string
-  name: string
-}
-
-/** 判断未知值是否为普通对象，供 Provider 响应校验使用。 */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-/**
- * 校验 Provider `/models` 响应并限制目录规模与字段长度。
- *
- * @param value 待解析的未知响应值。
- * @returns 去重并按 ID 排序的模型目录。
- * @throws {AgentRuntimeError} 目录结构无效或没有有效模型时抛出。
- */
-function parseCatalog(value: unknown): CatalogModel[] {
-  if (!isRecord(value) || !Array.isArray(value.data)) {
-    throw malformed('The Provider returned an invalid model catalog.')
-  }
-  const unique = new Map<string, CatalogModel>()
-  for (const item of value.data) {
-    if (!isRecord(item) || typeof item.id !== 'string') continue
-    const id = item.id.trim()
-    if (!id || id.length > MAX_MODEL_ID_LENGTH) continue
-    const rawName = typeof item.name === 'string' ? item.name.trim() : ''
-    unique.set(id, { id, name: rawName.slice(0, MAX_MODEL_ID_LENGTH) || id })
-    if (unique.size >= MAX_CATALOG_MODELS) break
-  }
-  if (unique.size === 0) throw malformed('The Provider returned an empty model catalog.')
-  return [...unique.values()].sort((left, right) => left.id.localeCompare(right.id))
-}
 
 /** 创建统一的 Provider 响应格式错误。 */
 function malformed(message = 'The Provider returned a malformed response.'): AgentRuntimeError {
@@ -177,7 +145,7 @@ export function createOpenAiCompatibleRuntimeSupport(
   const timeoutMs = options.requestTimeoutMs ?? 30_000
   const maxRetries = options.maxRetries ?? 2
   const maxRetryDelayMs = options.maxRetryDelayMs ?? 60_000
-  let catalog: CatalogModel[] = []
+  let catalog: ProviderCatalogModel[] = []
   let lastError: AgentRuntimeError | undefined
   let lastRefreshAt: number | undefined
 
@@ -226,7 +194,7 @@ export function createOpenAiCompatibleRuntimeSupport(
   async function fetchCatalog(
     input: ProviderModelsInput,
     signal?: AbortSignal,
-  ): Promise<{ baseUrl: string; apiKey: string; models: CatalogModel[]; refreshedAt: number }> {
+  ): Promise<{ baseUrl: string; apiKey: string; models: ProviderCatalogModel[]; refreshedAt: number }> {
     const baseUrl = normalizeProviderBaseUrl(input.baseUrl)
     const apiKey = await resolveCredential(input.apiKey, signal)
     const result = await requestProviderJson(
@@ -234,7 +202,12 @@ export function createOpenAiCompatibleRuntimeSupport(
       { headers: { Accept: 'application/json', Authorization: `Bearer ${apiKey}` } },
       httpOptions(input.headers, signal, 'catalog'),
     )
-    const models = parseCatalog(result.value)
+    let models: ProviderCatalogModel[]
+    try {
+      models = parseProviderModelCatalog(result.value)
+    } catch {
+      throw malformed('The Provider returned an invalid model catalog.')
+    }
     const refreshedAt = now()
     // 仅在完整目录通过校验后替换缓存，避免部分响应污染后续运行。
     catalog = models
@@ -252,8 +225,7 @@ export function createOpenAiCompatibleRuntimeSupport(
       const refreshed = await fetchCatalog(input)
       const settings = await options.settings.read()
       const models: ProviderModelView[] = refreshed.models.map((model) => ({
-        id: model.id,
-        name: model.name,
+        ...providerModelView(model),
         compatibility:
           settings?.compatibility === 'compatible' &&
           settings.modelId === model.id &&
@@ -310,6 +282,10 @@ export function createOpenAiCompatibleRuntimeSupport(
         headers: input.headers ?? {},
         modelId: selected.id,
         modelName: selected.name,
+        contextWindow: selected.contextWindow ?? 32_768,
+        maxOutputTokens: selected.maxOutputTokens ?? 16_384,
+        reasoningEfforts: selected.reasoningEfforts,
+        reasoningEffort: selected.defaultReasoningEffort,
         protocol: adapter.protocol,
         compatibility: 'compatible',
         lastTestedAt: now(),
@@ -361,6 +337,10 @@ export function createOpenAiCompatibleRuntimeSupport(
       modelLabel: settings?.modelName,
       protocol: settings?.protocol,
       headers: settings?.headers,
+      contextWindow: settings?.contextWindow,
+      maxOutputTokens: settings?.maxOutputTokens,
+      reasoningEfforts: settings?.reasoningEfforts,
+      reasoningEffort: settings?.reasoningEffort,
       fingerprint: apiKey ? await fingerprint(apiKey) : undefined,
       compatibility: compatible ? 'compatible' : lastError ? 'incompatible' : 'unknown',
       lastTestedAt: settings?.lastTestedAt,
@@ -397,7 +377,14 @@ export function createOpenAiCompatibleRuntimeSupport(
     // 目录缓存可为空，使用已验证设置作为离线运行的回退模型描述。
     const selected =
       catalog.find((model) => model.id === settings.modelId) ??
-      ({ id: settings.modelId, name: settings.modelName } satisfies CatalogModel)
+      ({
+        id: settings.modelId,
+        name: settings.modelName,
+        contextWindow: settings.contextWindow,
+        maxOutputTokens: settings.maxOutputTokens,
+        reasoningEfforts: settings.reasoningEfforts,
+        defaultReasoningEffort: settings.reasoningEffort,
+      } satisfies ProviderCatalogModel)
     const adapter = getProviderApiProtocolAdapter(settings.protocol)
     const model = adapter.createModel(settings.baseUrl, selected)
     const provider = createProvider({
@@ -475,6 +462,7 @@ export function createOpenAiCompatibleRuntimeSupport(
       scope: { symbol: null, period: null, readOnly: context.readOnly },
       tools,
       model,
+      reasoningEffort: settings.reasoningEffort,
       streamFn: (streamModel, streamContext, streamOptions) =>
         models.streamSimple(
           streamModel,
@@ -494,6 +482,7 @@ export function createOpenAiCompatibleRuntimeSupport(
         formatReferenceTime(now()),
         context.context,
       ),
+      contextWindow: settings.contextWindow,
     }
   }
 

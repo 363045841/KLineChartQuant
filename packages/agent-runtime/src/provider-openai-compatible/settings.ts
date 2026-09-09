@@ -10,8 +10,9 @@ import {
 
 /** 判断未知值是否为普通对象，供持久化数据的运行时校验使用。 */
 import type { ProviderApiProtocol } from '../contracts/ui.js'
+import { PROVIDER_REASONING_EFFORTS, type ProviderReasoningEffort } from '../contracts/ui.js'
 
-const LEGACY_PROVIDER_SETTINGS_VERSIONS = [1, 2] as const
+const LEGACY_PROVIDER_SETTINGS_VERSIONS = [1, 2, 3] as const
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -32,10 +33,23 @@ export function parseOpenAiCompatibleProviderSettings(
   if (
     !isRecord(value) ||
     (value.version !== PROVIDER_SETTINGS_VERSION &&
-      !LEGACY_PROVIDER_SETTINGS_VERSIONS.includes(value.version as 1 | 2)) ||
+      !LEGACY_PROVIDER_SETTINGS_VERSIONS.includes(value.version as 1 | 2 | 3)) ||
     typeof value.baseUrl !== 'string' ||
     typeof value.modelId !== 'string' ||
     typeof value.modelName !== 'string' ||
+    typeof value.contextWindow !== 'number' ||
+    !Number.isSafeInteger(value.contextWindow) ||
+    value.contextWindow <= 0 ||
+    typeof value.maxOutputTokens !== 'number' ||
+    !Number.isSafeInteger(value.maxOutputTokens) ||
+    value.maxOutputTokens <= 0 ||
+    !Array.isArray(value.reasoningEfforts) ||
+    value.reasoningEfforts.some(
+      (effort) => !PROVIDER_REASONING_EFFORTS.includes(effort as ProviderReasoningEffort),
+    ) ||
+    (value.reasoningEffort !== undefined &&
+      (!PROVIDER_REASONING_EFFORTS.includes(value.reasoningEffort as ProviderReasoningEffort) ||
+        !value.reasoningEfforts.includes(value.reasoningEffort))) ||
     value.compatibility !== 'compatible' ||
     typeof value.lastTestedAt !== 'number' ||
     !Number.isFinite(value.lastTestedAt) ||
@@ -56,6 +70,10 @@ export function parseOpenAiCompatibleProviderSettings(
     headers: value.headers ? ({ ...value.headers } as Record<string, string>) : {},
     modelId: value.modelId,
     modelName: value.modelName,
+    contextWindow: value.contextWindow,
+    maxOutputTokens: value.maxOutputTokens,
+    reasoningEfforts: [...value.reasoningEfforts] as ProviderReasoningEffort[],
+    reasoningEffort: value.reasoningEffort as ProviderReasoningEffort | undefined,
     protocol,
     compatibility: value.compatibility,
     lastTestedAt: value.lastTestedAt,

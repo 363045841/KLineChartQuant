@@ -9,6 +9,7 @@ import type {
   SourceCitation,
   ToolProgressView,
   ToolSafety,
+  ProviderReasoningEffort,
 } from '../contracts/ui.js'
 import type { AgentMessage, StreamFn } from '@earendil-works/pi-agent-core'
 import type { Model, Api, AssistantMessage } from '@earendil-works/pi-ai'
@@ -90,6 +91,10 @@ export interface PiRunPlan {
   tools: readonly RuntimeToolDefinition[]
   /** Pi 使用的模型描述。 */
   model: Model<Api>
+  /** 当前模型的上下文窗口，用于回传实际上下文占用。 */
+  contextWindow?: number
+  /** 当前请求使用的模型思考强度。 */
+  reasoningEffort?: ProviderReasoningEffort
   /** 宿主提供的模型流式调用函数。 */
   streamFn: StreamFn
   /** 将 Pi 流式错误归类为运行时错误的可选函数。 */

@@ -111,24 +111,6 @@
         </CollapsibleSection>
 
         <CollapsibleSection
-          :label="text.externalServices"
-          :expanded="expandedSections.externalServices"
-          @toggle="toggleSection('externalServices')"
-        >
-          <div class="agent-settings-section__body provider-form__fields">
-            <label class="provider-field">
-              <span class="provider-field__label">{{ text.exaApiKey }}</span>
-              <input
-                v-model="providerSettings.exaApiKey"
-                type="password"
-                autocomplete="new-password"
-                :placeholder="text.exaApiKeyPlaceholder"
-              />
-            </label>
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection
           :label="text.tools"
           :expanded="expandedSections.tools"
           @toggle="toggleSection('tools')"
@@ -140,12 +122,25 @@
                   <input
                     type="checkbox"
                     :checked="tool.enabled"
+                    :disabled="tool.available === false"
                     @change="setToolEnabled(tool.name, $event)"
                   />
                   <span>
                     <strong>{{ tool.label }}</strong>
                     <small>{{ tool.description }}</small>
                   </span>
+                </label>
+                <p v-if="tool.unavailableReason" class="agent-tool__unavailable">
+                  {{ tool.unavailableReason }}
+                </p>
+                <label v-if="tool.name === 'web_search'" class="provider-field">
+                  <span class="provider-field__label">{{ text.exaApiKey }}</span>
+                  <input
+                    v-model="providerSettings.exaApiKey"
+                    type="password"
+                    autocomplete="new-password"
+                    :placeholder="tool.available ? '••••••••' : text.exaApiKeyPlaceholder"
+                  />
                 </label>
                 <details class="agent-tool__parameters">
                   <summary>{{ text.toolParameters }}</summary>
@@ -158,7 +153,9 @@
                 <button
                   type="button"
                   class="agent-tool__run"
-                  :disabled="!tool.enabled || providerSettings.runningToolName !== null"
+                  :disabled="
+                    !tool.enabled || tool.available === false || providerSettings.runningToolName !== null
+                  "
                   @click="providerSettings.debugTool(tool.name)"
                 >
                   {{
@@ -294,13 +291,12 @@
   const profileNameInput = ref<HTMLInputElement | null>(null)
   const creatingProfile = ref(false)
   const newProfileName = ref('')
-  type SettingsSectionId = 'provider' | 'externalServices' | 'tools'
+  type SettingsSectionId = 'provider' | 'tools'
 
   /** 创建每次打开设置面板时使用的默认折叠状态。 */
   function createDefaultExpandedSections(): Record<SettingsSectionId, boolean> {
     return {
       provider: false,
-      externalServices: false,
       tools: false,
     }
   }
@@ -315,7 +311,12 @@
     const query = props.providerSettings.model.trim().toLowerCase()
     return props.providerSettings.models
       .filter((model) => !query || `${model.id} ${model.name}`.toLowerCase().includes(query))
-      .map((model) => ({ value: model.id, label: model.name }))
+      .map((model) => ({
+        value: model.id,
+        label: model.contextWindow
+          ? `${model.name} · ${(model.contextWindow / 10_000).toFixed(1)} 万上下文`
+          : model.name,
+      }))
   })
   const profileOptions = computed(() => {
     const profiles = props.providerSettings.profiles.map((profile) => ({
@@ -527,6 +528,12 @@
   .agent-tool__error {
     margin: 0;
     color: var(--klc-color-agent-error);
+    font-size: 11px;
+  }
+
+  .agent-tool__unavailable {
+    margin: 0;
+    color: var(--klc-color-axis-text);
     font-size: 11px;
   }
 

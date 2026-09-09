@@ -19,6 +19,7 @@ import {
   type ProviderProfileView,
   type ProviderSaveInput,
   type ProviderStatusView,
+  type ProviderReasoningEffort,
   type ProviderTestInput,
   type ProviderTestResult,
   type StartRunInput,
@@ -295,6 +296,11 @@ export class FakeAgentBridge implements AgentBridgeClient {
       protocol: input.protocol,
       compatibility: 'compatible',
     }
+    this.emit({ type: 'provider.status.changed', status: this.provider })
+  }
+
+  async setProviderReasoningEffort(effort: ProviderReasoningEffort | undefined): Promise<void> {
+    this.provider = { ...this.provider, reasoningEffort: effort }
     this.emit({ type: 'provider.status.changed', status: this.provider })
   }
 

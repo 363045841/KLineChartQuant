@@ -1,13 +1,17 @@
 // OpenAI-compatible Provider 的运行时配置、存储边界与诊断数据契约。
 
 /** OpenAI-compatible Provider 的稳定标识。 */
-import type { AgentRunContext, ProviderApiProtocol } from '../contracts/ui.js'
+import type {
+  AgentRunContext,
+  ProviderApiProtocol,
+  ProviderReasoningEffort,
+} from '../contracts/ui.js'
 
 export const OPENAI_COMPATIBLE_PROVIDER_ID = 'openai-compatible'
 /** 在 UI 中展示的 Provider 名称。 */
 export const OPENAI_COMPATIBLE_PROVIDER_LABEL = 'OpenAI-compatible'
 /** 已持久化 Provider 设置的当前数据版本。 */
-export const PROVIDER_SETTINGS_VERSION = 3 as const
+export const PROVIDER_SETTINGS_VERSION = 4 as const
 
 /**
  * 定义 Provider API Key 的持久化边界。
@@ -35,6 +39,14 @@ export interface OpenAiCompatibleProviderSettings {
   modelId: string
   /** 用于界面展示的模型名称。 */
   modelName: string
+  /** 已验证模型的上下文窗口。 */
+  contextWindow: number
+  /** 已验证模型单次可生成的最大 token 数。 */
+  maxOutputTokens: number
+  /** 模型支持的思考强度；不支持时为空数组。 */
+  reasoningEfforts: readonly ProviderReasoningEffort[]
+  /** 当前 Profile 选择的思考强度。 */
+  reasoningEffort?: ProviderReasoningEffort
   protocol: ProviderApiProtocol
   compatibility: 'compatible'
   /** 最近一次成功验证连接的时间戳。 */

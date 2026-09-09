@@ -196,6 +196,7 @@ export class PiRunDriver {
     let providerError: AssistantMessage | undefined
     let aborted = false
     let usage: Usage | undefined
+    let latestUsage: Usage | undefined
 
     const tools = plan.tools.map((definition) =>
       this.createTool(plan, definition, toolResults, citations),
@@ -206,7 +207,7 @@ export class PiRunDriver {
           plan.systemPrompt ??
           `You are the KLineChartQuant chart analyst. Use only supplied tools. Scope: ${JSON.stringify(plan.scope)}.`,
         model: plan.model,
-        thinkingLevel: 'low',
+        thinkingLevel: plan.reasoningEffort === 'none' ? 'off' : plan.reasoningEffort ?? 'low',
         tools,
         messages: [...(plan.transcript ?? [])],
       },
@@ -304,6 +305,7 @@ export class PiRunDriver {
       }
       if (event.type === 'message_end' && isAssistant(event.message)) {
         usage = addUsage(usage, event.message.usage)
+        latestUsage = event.message.usage
         if (event.message.stopReason === 'error') providerError = event.message
         if (event.message.stopReason === 'aborted') aborted = true
         if (assistantMessageId && assistantStarted) {
@@ -357,7 +359,13 @@ export class PiRunDriver {
       }
       return {
         text: assistantText,
-        usage: usage ? usageView(usage, startedAt, this.now()) : undefined,
+        usage: usage
+          ? {
+              ...usageView(usage, startedAt, this.now()),
+              contextTokens: latestUsage ? latestUsage.input + latestUsage.cacheRead : undefined,
+              contextWindow: plan.contextWindow ?? plan.model.contextWindow,
+            }
+          : undefined,
         completedToolCount,
         citations: [...citations.values()],
       }

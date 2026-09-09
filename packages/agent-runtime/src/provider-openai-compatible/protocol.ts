@@ -9,7 +9,7 @@ import { OPENAI_COMPATIBLE_PROVIDER_ID, type ProviderDiagnostic } from './types.
 
 import type { ProviderErrorDetails, ProviderHttpOptions } from './http.js'
 import type { AgentRuntimeErrorCode } from '../contracts/errors.js'
-import type { ProviderApiProtocol } from '../contracts/ui.js'
+import type { ProviderApiProtocol, ProviderReasoningEffort } from '../contracts/ui.js'
 import type {
   AssistantMessage,
   Model,
@@ -20,14 +20,22 @@ import type {
 const DEFAULT_CONTEXT_WINDOW = 32_768
 // 推理模型在 Responses 协议里 max_output_tokens 是思考与正文的共享总预算；
 // 过低会导致长链思考耗尽预算后被截断，正文一个字都产不出。
+// Agent 单次推理默认可生成的最大 token 数。
 const DEFAULT_MAX_TOKENS = 16_384
+// Provider 连接探针使用的最小生成 token 预算。
 const PROBE_MAX_TOKENS = 32
+// 文本连接探针要求模型返回的固定标识。
 const PROBE_TEXT = 'KLC_PROVIDER_OK'
+// 工具连接探针调用的无副作用函数名称。
 const PROBE_TOOL_NAME = 'klinechartquant_connection_probe'
 
 export interface ProviderCatalogModel {
   id: string
   name: string
+  contextWindow?: number
+  maxOutputTokens?: number
+  reasoningEfforts?: readonly ProviderReasoningEffort[]
+  defaultReasoningEffort?: ProviderReasoningEffort
 }
 
 export interface ProviderStreamObservation {
@@ -205,8 +213,8 @@ function commonModel<TProtocol extends ProviderApiProtocol>(
     reasoning: true,
     input: ['text'],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    contextWindow: DEFAULT_CONTEXT_WINDOW,
-    maxTokens: DEFAULT_MAX_TOKENS,
+    contextWindow: model.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
+    maxTokens: model.maxOutputTokens ?? DEFAULT_MAX_TOKENS,
   }
 }
 
@@ -219,7 +227,7 @@ const completionsAdapter: ProviderApiProtocolAdapter = {
       compat: {
         supportsStore: false,
         supportsDeveloperRole: false,
-        supportsReasoningEffort: false,
+        supportsReasoningEffort: (model.reasoningEfforts?.length ?? 0) > 0,
         supportsUsageInStreaming: false,
         maxTokensField: 'max_tokens',
       },
@@ -301,6 +309,7 @@ const responsesAdapter: ProviderApiProtocolAdapter = {
         supportsDeveloperRole: false,
         supportsLongCacheRetention: false,
         supportsStrictMode: false,
+        supportsReasoningEffort: (model.reasoningEfforts?.length ?? 0) > 0,
       },
     }
   },

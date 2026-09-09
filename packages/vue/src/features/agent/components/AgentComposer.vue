@@ -9,8 +9,22 @@
       @keydown="onKeydown"
     ></textarea>
     <div class="composer__footer">
-      <span v-if="running" class="composer__notice">{{ text.steeringDisabled }}</span>
-      <span v-else></span>
+      <div class="composer__meta">
+        <label v-if="provider.reasoningEfforts?.length" class="composer__reasoning">
+          <span>{{ text.reasoning }}</span>
+          <select
+            :value="provider.reasoningEffort ?? provider.reasoningEfforts[0]"
+            :disabled="running"
+            @change="$emit('reasoning-effort', ($event.target as HTMLSelectElement).value)"
+          >
+            <option v-for="effort in provider.reasoningEfforts" :key="effort" :value="effort">
+              {{ effort }}
+            </option>
+          </select>
+        </label>
+        <span v-if="contextUsage" class="composer__notice">{{ contextUsage }}</span>
+        <span v-else-if="running" class="composer__notice">{{ text.steeringDisabled }}</span>
+      </div>
       <button
         v-if="running"
         type="button"
@@ -38,18 +52,32 @@
   import { computed } from 'vue'
 
   import { getAgentCopy, type AgentLocale } from '../agent-copy'
+  import type { AgentUsageView, ProviderStatusView } from '../agent-contracts'
 
   import IconArrowUp from '~icons/tabler/arrow-up'
   import IconPlayerStopFilled from '~icons/tabler/player-stop-filled'
 
-  const props = defineProps<{ draft: string; running: boolean; locale: AgentLocale }>()
+  const props = defineProps<{
+    draft: string
+    running: boolean
+    locale: AgentLocale
+    provider: ProviderStatusView
+    usage?: AgentUsageView
+  }>()
   const emit = defineEmits<{
     'update:draft': [value: string]
     send: []
     stop: []
+    'reasoning-effort': [value: string]
   }>()
 
   const text = computed(() => getAgentCopy(props.locale))
+  const contextUsage = computed(() => {
+    const used = props.usage?.contextTokens
+    const window = props.usage?.contextWindow ?? props.provider.contextWindow
+    if (used === undefined || !window) return ''
+    return `${used.toLocaleString()} / ${window.toLocaleString()} tokens (${Math.round((used / window) * 100)}%)`
+  })
 
   function onKeydown(event: KeyboardEvent): void {
     if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return
@@ -106,6 +134,28 @@
     color: var(--agent-muted);
     font-size: 11px;
     line-height: 1.3;
+  }
+  .composer__meta {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .composer__reasoning {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--agent-muted);
+    font-size: 11px;
+  }
+  .composer__reasoning select {
+    max-width: 88px;
+    padding: 2px 4px;
+    border: 1px solid var(--agent-border-strong);
+    border-radius: 4px;
+    color: var(--agent-text);
+    background: var(--agent-input);
+    font: inherit;
   }
 
   .composer__primary {

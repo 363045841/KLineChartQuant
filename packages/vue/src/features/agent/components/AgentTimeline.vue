@@ -19,7 +19,7 @@
 
     <template v-for="entry in entries" :key="entry.id">
       <AgentMessageItem v-if="entry.kind === 'message'" :message="entry.message" :locale="locale" />
-      <template v-else>
+      <template v-else-if="entry.kind === 'tool'">
         <ToolCallCard
           :tool="entry.tool"
           :locale="locale"
@@ -33,6 +33,12 @@
           @decide="$emit('confirm', confirmationFor(entry.tool.id)!.id, $event)"
         />
       </template>
+      <section v-if="entry.kind === 'run'" class="turn-usage">
+        <span>{{ text.usage }}</span>
+        <span>{{ entry.run.usage!.inputTokens ?? 0 }} in</span>
+        <span>{{ entry.run.usage!.outputTokens ?? 0 }} out</span>
+        <strong>{{ turnTokens(entry.run) }} {{ text.tokens }}</strong>
+      </section>
     </template>
 
     <AgentErrorNotice v-if="error" :error="error" :locale="locale" @retry="$emit('retry')" />
@@ -94,12 +100,14 @@
   type TimelineEntry =
     | { kind: 'message'; id: string; at: number; message: AgentMessageView }
     | { kind: 'tool'; id: string; at: number; tool: ToolCallView }
+    | { kind: 'run'; id: string; at: number; run: AgentRunView }
 
   const props = defineProps<{
     messages: AgentMessageView[]
     toolCalls: ToolCallView[]
     confirmations: ConfirmationView[]
     run: AgentRunView
+    runs: AgentRunView[]
     error: AgentErrorView | null
     canUndo: boolean
     locale: AgentLocale
@@ -137,6 +145,9 @@
         at: tool.startedAt ?? Number.MAX_SAFE_INTEGER,
         tool,
       })),
+      ...props.runs
+        .filter((run) => run.id && run.usage && run.endedAt)
+        .map((run) => ({ kind: 'run' as const, id: `run-${run.id}`, at: run.endedAt!, run })),
     ].sort((left, right) => left.at - right.at),
   )
   const isTerminal = computed(() =>
@@ -168,6 +179,11 @@
     if (inputTokens === undefined && outputTokens === undefined) return null
     return (inputTokens ?? 0) + (outputTokens ?? 0)
   })
+
+  /** 返回单轮模型输入与输出的累计 token。 */
+  function turnTokens(run: AgentRunView): number {
+    return (run.usage?.inputTokens ?? 0) + (run.usage?.outputTokens ?? 0)
+  }
 
   function confirmationFor(toolCallId: string): ConfirmationView | undefined {
     return props.confirmations.find((item) => item.toolCallId === toolCallId)
@@ -281,6 +297,21 @@
     border-top: 1px solid var(--agent-border);
     color: var(--agent-muted);
     font-size: 10px;
+  }
+  .turn-usage {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 9px;
+    margin-top: -6px;
+    padding: 7px 9px;
+    border: 1px solid var(--agent-border);
+    border-radius: 5px;
+    color: var(--agent-muted);
+    background: var(--agent-surface);
+    font-size: 10px;
+  }
+  .turn-usage strong {
+    color: var(--agent-text);
   }
   .run-summary > div:first-child {
     display: flex;

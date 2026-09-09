@@ -7,7 +7,12 @@ import {
   useAgentProviderSettingsStore,
 } from './agent-provider-settings-store'
 
-import type { AgentBridgeClient, AgentContextItem, AgentUiEvent } from './agent-contracts'
+import type {
+  AgentBridgeClient,
+  AgentContextItem,
+  AgentUiEvent,
+  ProviderReasoningEffort,
+} from './agent-contracts'
 
 export function useAgentWorkspace(bridge: AgentBridgeClient) {
   const state = shallowRef(createInitialAgentState())
@@ -166,6 +171,15 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     readOnly.value = value
   }
 
+  /** 保存当前 Profile 的思考强度。 */
+  async function setReasoningEffort(value: string): Promise<void> {
+    const efforts = state.value.provider.reasoningEfforts ?? []
+    const effort = efforts.includes(value as ProviderReasoningEffort)
+      ? (value as ProviderReasoningEffort)
+      : undefined
+    await bridge.setProviderReasoningEffort(effort)
+  }
+
   onMounted(initialize)
   onUnmounted(() => {
     unsubscribe?.()
@@ -192,5 +206,6 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     confirmTool,
     undoTurn,
     setReadOnly,
+    setReasoningEffort,
   }
 }

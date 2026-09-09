@@ -169,11 +169,14 @@ async function configure(
 ): Promise<void> {
   await credentials.write(secret)
   await settings.write({
-    version: 3,
+    version: 4,
     baseUrl,
     headers: {},
     modelId: 'frontier-fast',
     modelName: 'Frontier Fast',
+    contextWindow: 32_768,
+    maxOutputTokens: 16_384,
+    reasoningEfforts: [],
     protocol,
     compatibility: 'compatible',
     lastTestedAt: 10,
@@ -399,7 +402,7 @@ describe('OpenAI-compatible runtime support', () => {
       })
 
       expect(plan.model.api).toBe(protocol)
-      expect(await settings.read()).toMatchObject({ version: 3, protocol })
+      expect(await settings.read()).toMatchObject({ version: 4, protocol })
       expect(fetch.mock.calls.map(([input]) => String(input))).toEqual([
         `${baseUrl}/models`,
         `${baseUrl}/models`,
@@ -518,8 +521,8 @@ describe('OpenAI-compatible runtime support', () => {
     expect(plan.systemPrompt).toContain('do not call market_bars_query for that range')
   })
 
-  it('migrates v1 persisted settings to explicit Chat Completions', () => {
-    expect(
+  it('rejects persisted settings without verified model capabilities', () => {
+    expect(() =>
       parseOpenAiCompatibleProviderSettings({
         version: 1,
         baseUrl,
@@ -529,17 +532,7 @@ describe('OpenAI-compatible runtime support', () => {
         lastTestedAt: 10,
         lastModelsRefreshAt: 9,
       }),
-    ).toEqual({
-      version: 3,
-      baseUrl,
-      headers: {},
-      modelId: 'frontier-fast',
-      modelName: 'Frontier Fast',
-      protocol: 'openai-completions',
-      compatibility: 'compatible',
-      lastTestedAt: 10,
-      lastModelsRefreshAt: 9,
-    })
+    ).toThrow('The saved Provider settings are invalid.')
   })
 
   it('discovers models, passes all probes, and persists only the successful configuration', async () => {
