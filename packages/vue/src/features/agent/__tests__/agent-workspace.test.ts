@@ -83,7 +83,7 @@ describe('AgentWorkspace', () => {
     expect((textarea.element as HTMLTextAreaElement).value).toBe('')
   })
 
-  it('refreshes the Provider catalog and selects a discovered model', async () => {
+  it('refreshes the Provider catalog and filters its suggestions while retaining manual entry', async () => {
     const mounted = await mountWorkspace()
     await mounted.wrapper.get('button[aria-label="Agent settings"]').trigger('click')
     const dialog = document.querySelector<HTMLElement>('.base-modal')!
@@ -104,17 +104,28 @@ describe('AgentWorkspace', () => {
     dialog.querySelector<HTMLButtonElement>('.provider-refresh-button')!.click()
     await flushPromises()
 
-    const modelDropdown = dialog.querySelector<HTMLElement>('.provider-model-dropdown')!
-    expect(modelDropdown.textContent).toContain('Provider Model A')
-    modelDropdown.querySelector<HTMLButtonElement>('.dropdown__trigger')!.click()
+    const modelInput = dialog.querySelector<HTMLInputElement>('.provider-model-dropdown input')!
+    modelInput.dispatchEvent(new FocusEvent('focus'))
+    await flushPromises()
+    modelInput.value = ''
+    modelInput.dispatchEvent(new Event('input', { bubbles: true }))
     await flushPromises()
     expect([...document.querySelectorAll<HTMLButtonElement>('.dropdown__option')].map((option) => option.textContent)).toEqual([
       'Provider Model A',
       'Provider Model B',
     ])
-    document.querySelectorAll<HTMLButtonElement>('.dropdown__option')[1]!.click()
+
+    modelInput.value = 'provider-model-b'
+    modelInput.dispatchEvent(new Event('input', { bubbles: true }))
     await flushPromises()
-    expect(modelDropdown.textContent).toContain('Provider Model B')
+    expect([...document.querySelectorAll<HTMLButtonElement>('.dropdown__option')].map((option) => option.textContent)).toEqual([
+      'Provider Model B',
+    ])
+    expect(modelInput.value).toBe('provider-model-b')
+
+    await document.querySelector<HTMLButtonElement>('.dropdown__option')!.click()
+    await flushPromises()
+    expect(modelInput.value).toBe('provider-model-b')
   })
 
   it('does not submit on Shift+Enter and retains a pending draft when stopping', async () => {

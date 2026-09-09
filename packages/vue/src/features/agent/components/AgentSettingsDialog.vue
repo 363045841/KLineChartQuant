@@ -81,19 +81,12 @@
               <span class="provider-field__label">{{ text.model }}</span>
               <span class="provider-model-control">
                 <Dropdown
-                  v-if="providerSettings.models.length"
                   class="provider-model-dropdown"
+                  searchable
                   :model-value="providerSettings.model"
-                  :options="modelOptions"
-                  @update:model-value="providerSettings.model = $event"
-                />
-                <input
-                  v-else
-                  v-model="providerSettings.model"
-                  type="text"
-                  autocomplete="new-password"
-                  spellcheck="false"
+                  :options="filteredModelOptions"
                   :placeholder="text.modelPlaceholder"
+                  @update:model-value="providerSettings.model = $event"
                 />
                 <button
                   type="button"
@@ -318,9 +311,12 @@
   const protocolOptions = computed(() =>
     PROVIDER_API_PROTOCOLS.map((protocol) => ({ value: protocol, label: protocolLabel(protocol) })),
   )
-  const modelOptions = computed(() =>
-    props.providerSettings.models.map((model) => ({ value: model.id, label: model.name })),
-  )
+  const filteredModelOptions = computed(() => {
+    const query = props.providerSettings.model.trim().toLowerCase()
+    return props.providerSettings.models
+      .filter((model) => !query || `${model.id} ${model.name}`.toLowerCase().includes(query))
+      .map((model) => ({ value: model.id, label: model.name }))
+  })
   const profileOptions = computed(() => {
     const profiles = props.providerSettings.profiles.map((profile) => ({
       value: profile.name,
@@ -589,6 +585,10 @@
     width: 100%;
   }
 
+  .provider-model-dropdown {
+    width: 100%;
+  }
+
   .provider-protocol-control :deep(.dropdown__trigger) {
     width: 100%;
     height: 34px;
@@ -597,20 +597,14 @@
     border-radius: 6px;
   }
 
-  .provider-model-dropdown {
-    min-width: 0;
-  }
-
-  .provider-model-dropdown :deep(.dropdown__trigger) {
-    width: 100%;
+  .provider-model-dropdown :deep(.dropdown__search-input) {
     height: 34px;
-    box-sizing: border-box;
     padding: 0 10px;
     border-radius: 6px;
+    font-size: 12px;
   }
 
   .provider-protocol-control :deep(.dropdown__value),
-  .provider-model-dropdown :deep(.dropdown__value),
   .provider-profile-dropdown :deep(.dropdown__value) {
     font-size: 12px;
     font-weight: 400;
