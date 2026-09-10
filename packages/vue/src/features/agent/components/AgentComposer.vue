@@ -10,19 +10,21 @@
         @input="$emit('update:draft', ($event.target as HTMLTextAreaElement).value)"
         @keydown="onKeydown"
       ></textarea>
-      <div class="composer__meta">
-        <label v-if="provider.reasoningEfforts?.length" class="composer__reasoning">
-          <span>{{ text.reasoning }}</span>
-          <select
-            :value="provider.reasoningEffort ?? provider.reasoningEfforts[0]"
-            :disabled="running"
-            @change="$emit('reasoning-effort', ($event.target as HTMLSelectElement).value)"
-          >
-            <option v-for="effort in provider.reasoningEfforts" :key="effort" :value="effort">
-              {{ effort }}
-            </option>
-          </select>
-        </label>
+      <div class="composer__footer">
+        <div class="composer__meta">
+          <label v-if="provider.reasoningEfforts?.length" class="composer__reasoning">
+            <span>{{ text.reasoning }}</span>
+            <select
+              :value="provider.reasoningEffort ?? provider.reasoningEfforts[0]"
+              :disabled="running"
+              @change="$emit('reasoning-effort', ($event.target as HTMLSelectElement).value)"
+            >
+              <option v-for="effort in provider.reasoningEfforts" :key="effort" :value="effort">
+                {{ effort }}
+              </option>
+            </select>
+          </label>
+        </div>
         <span
           v-if="contextUsage"
           class="composer__notice"
@@ -36,30 +38,30 @@
           ></span>
         </span>
         <span v-else-if="running" class="composer__notice">{{ text.steeringDisabled }}</span>
+        <button
+          v-if="running"
+          type="button"
+          class="composer__primary composer__primary--stop"
+          :title="text.stop"
+          :aria-label="text.stop"
+          @click="$emit('stop')"
+        >
+          <span class="composer__primary-background" aria-hidden="true"></span>
+          <IconPlayerStopFilled aria-hidden="true" />
+        </button>
+        <button
+          v-else
+          type="button"
+          class="composer__primary"
+          :disabled="!draft.trim()"
+          :title="text.send"
+          :aria-label="text.send"
+          @click="$emit('send')"
+        >
+          <span class="composer__primary-background" aria-hidden="true"></span>
+          <IconArrowUp aria-hidden="true" />
+        </button>
       </div>
-      <button
-        v-if="running"
-        type="button"
-        class="composer__primary composer__primary--stop"
-        :title="text.stop"
-        :aria-label="text.stop"
-        @click="$emit('stop')"
-      >
-        <span class="composer__primary-background" aria-hidden="true"></span>
-        <IconPlayerStopFilled aria-hidden="true" />
-      </button>
-      <button
-        v-else
-        type="button"
-        class="composer__primary"
-        :disabled="!draft.trim()"
-        :title="text.send"
-        :aria-label="text.send"
-        @click="$emit('send')"
-      >
-        <span class="composer__primary-background" aria-hidden="true"></span>
-        <IconArrowUp aria-hidden="true" />
-      </button>
     </div>
   </div>
 </template>
@@ -147,6 +149,16 @@
     outline: none;
   }
 
+  .composer__footer {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    left: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
   .composer__notice {
     min-width: 0;
     display: inline-flex;
@@ -179,10 +191,7 @@
 
   .composer__meta {
     min-width: 0;
-    position: absolute;
-    right: 40px;
-    bottom: 8px;
-    left: 12px;
+    flex: 1 1 auto;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -207,9 +216,7 @@
   .composer__primary {
     width: 24px;
     height: 24px;
-    position: absolute;
-    right: 8px;
-    bottom: 8px;
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;

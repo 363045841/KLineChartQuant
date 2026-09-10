@@ -3,7 +3,6 @@
     <AgentHeader
       :sessions="state.sessions"
       :active-session-id="state.activeSessionId"
-      :provider="state.provider"
       :locale="locale"
       @create="createSession"
       @select="selectSession"

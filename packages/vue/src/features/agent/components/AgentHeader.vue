@@ -68,13 +68,6 @@
       @update:model-value="$emit('select', $event)"
     />
 
-    <div class="agent-header__meta">
-      <span class="connection" :data-state="provider.state">
-        <span class="connection__dot" aria-hidden="true"></span>
-        {{ connectionLabel }}
-      </span>
-      <span class="agent-header__model">{{ provider.modelLabel ?? text.noModel }}</span>
-    </div>
   </header>
 </template>
 
@@ -84,10 +77,7 @@
   import Dropdown from '../../../components/Dropdown.vue'
   import { getAgentCopy, type AgentLocale } from '../agent-copy'
 
-  import type {
-    AgentSessionView,
-    ProviderStatusView,
-  } from '../agent-contracts'
+  import type { AgentSessionView } from '../agent-contracts'
 
   import IconLanguage from '~icons/tabler/language'
   import IconPanelRightClose from '~icons/tabler/layout-sidebar-right-collapse'
@@ -100,7 +90,6 @@
   const props = defineProps<{
     sessions: AgentSessionView[]
     activeSessionId: string | null
-    provider: ProviderStatusView
     locale: AgentLocale
   }>()
 
@@ -118,15 +107,6 @@
   const sessionOptions = computed(() =>
     props.sessions.map((session) => ({ value: session.id, label: session.title })),
   )
-  const connectionLabel = computed(() => {
-    const labels = {
-      connected: text.value.connected,
-      testing: text.value.testing,
-      'not-configured': text.value.notConfigured,
-      error: text.value.connectionError,
-    }
-    return labels[props.provider.state]
-  })
   function rename(): void {
     const session = props.sessions.find((item) => item.id === props.activeSessionId)
     const title = window.prompt(text.value.sessionNamePrompt, session?.title ?? '')
@@ -149,9 +129,7 @@
 
   .agent-header__top,
   .agent-header__identity,
-  .agent-header__actions,
-  .agent-header__meta,
-  .connection {
+  .agent-header__actions {
     display: flex;
     align-items: center;
   }
@@ -219,48 +197,6 @@
     color: var(--agent-text);
     font-size: 12px;
     font-weight: 400;
-  }
-
-  .agent-header__meta {
-    min-width: 0;
-    gap: 7px;
-    color: var(--agent-muted);
-    font-size: 11px;
-  }
-
-  .connection {
-    flex: 0 0 auto;
-    gap: 5px;
-  }
-
-  .connection__dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--klc-color-agent-neutral);
-  }
-
-  .connection[data-state='connected'] .connection__dot {
-    background: var(--klc-color-agent-success);
-  }
-
-  .connection[data-state='testing'] .connection__dot {
-    background: var(--klc-color-agent-warning);
-  }
-
-  .connection[data-state='error'] .connection__dot {
-    background: var(--klc-color-agent-danger);
-  }
-
-  .agent-header__model {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .agent-header__model {
-    flex: 1 1 auto;
   }
 
 </style>
