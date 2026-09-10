@@ -74,7 +74,6 @@
         {{ connectionLabel }}
       </span>
       <span class="agent-header__model">{{ provider.modelLabel ?? text.noModel }}</span>
-      <span class="agent-header__scope">{{ scope }}</span>
     </div>
   </header>
 </template>
@@ -86,8 +85,6 @@
   import { getAgentCopy, type AgentLocale } from '../agent-copy'
 
   import type {
-    AgentChartSymbolContextItem,
-    AgentContextItem,
     AgentSessionView,
     ProviderStatusView,
   } from '../agent-contracts'
@@ -104,7 +101,6 @@
     sessions: AgentSessionView[]
     activeSessionId: string | null
     provider: ProviderStatusView
-    contextItems: ReadonlyArray<AgentContextItem>
     locale: AgentLocale
   }>()
 
@@ -131,13 +127,6 @@
     }
     return labels[props.provider.state]
   })
-  const symbolContext = computed(() =>
-    props.contextItems.find(
-      (item): item is AgentChartSymbolContextItem => item.kind === 'chart-symbol',
-    ),
-  )
-  const scope = computed(() => symbolContext.value?.value.symbol ?? text.value.noSymbol)
-
   function rename(): void {
     const session = props.sessions.find((item) => item.id === props.activeSessionId)
     const title = window.prompt(text.value.sessionNamePrompt, session?.title ?? '')
@@ -263,8 +252,7 @@
     background: var(--klc-color-agent-danger);
   }
 
-  .agent-header__model,
-  .agent-header__scope {
+  .agent-header__model {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -275,8 +263,4 @@
     flex: 1 1 auto;
   }
 
-  .agent-header__scope {
-    flex: 0 1 auto;
-    color: var(--agent-text-soft);
-  }
 </style>

@@ -4,7 +4,6 @@
       :sessions="state.sessions"
       :active-session-id="state.activeSessionId"
       :provider="state.provider"
-      :context-items="contextItems"
       :locale="locale"
       @create="createSession"
       @select="selectSession"

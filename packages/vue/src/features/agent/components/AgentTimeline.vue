@@ -33,40 +33,40 @@
           @decide="$emit('confirm', confirmationFor(entry.tool.id)!.id, $event)"
         />
       </template>
-      <section v-if="entry.kind === 'run'" class="turn-usage">
-        <span>{{ text.usage }}</span>
-        <span>{{ entry.run.usage!.inputTokens ?? 0 }} in</span>
-        <span>{{ entry.run.usage!.outputTokens ?? 0 }} out</span>
-        <strong>{{ turnTokens(entry.run) }} {{ text.tokens }}</strong>
+      <section
+        v-if="
+          entry.kind === 'run' &&
+          (entry.run.usage ||
+            (entry.run.id === run.id && (isLoading || canUndo)))
+        "
+        class="run-status"
+        :data-status="entry.run.status"
+        :tabindex="entry.run.id === run.id && isTerminal ? -1 : undefined"
+        :data-focus="entry.run.id === run.id ? 'completion' : undefined"
+      >
+        <div v-if="entry.run.usage" class="run-status__usage">
+          <span>{{ text.input }} {{ entry.run.usage.inputTokens ?? 0 }}</span>
+          <span>{{ text.output }} {{ entry.run.usage.outputTokens ?? 0 }}</span>
+          <strong>{{ text.total }} {{ turnTokens(entry.run) }} {{ text.tokens }}</strong>
+        </div>
+        <span
+          v-if="entry.run.id === run.id && isLoading"
+          class="run-status__indicator"
+        >
+          <LoadingSpinner />
+        </span>
+        <button
+          v-if="entry.run.id === run.id && canUndo"
+          type="button"
+          @click="$emit('undo')"
+        >
+          <IconArrowBackUp aria-hidden="true" />
+          {{ text.undo }}
+        </button>
       </section>
     </template>
 
     <AgentErrorNotice v-if="error" :error="error" :locale="locale" @retry="$emit('retry')" />
-
-    <section
-      v-if="run.status !== 'idle'"
-      class="run-summary"
-      :data-status="run.status"
-      :tabindex="isTerminal ? -1 : undefined"
-      data-focus="completion"
-    >
-      <div>
-        <LoadingSpinner v-if="isLoading" />
-        <component v-else :is="runStatusIcon" aria-hidden="true" />
-        <span>{{ text.runStatus }}</span>
-        <strong>{{ runStatusLabel }}</strong>
-      </div>
-      <div v-if="run.usage" class="run-summary__usage">
-        <span>{{ text.usage }}</span>
-        <span v-if="totalTokens !== null">{{ totalTokens }} {{ text.tokens }}</span>
-        <span v-if="run.usage.durationMs !== undefined">{{ run.usage.durationMs }} ms</span>
-        <span v-if="run.usage.costUsd !== undefined">${{ run.usage.costUsd.toFixed(4) }}</span>
-      </div>
-      <button v-if="canUndo" type="button" @click="$emit('undo')">
-        <IconArrowBackUp aria-hidden="true" />
-        {{ text.undo }}
-      </button>
-    </section>
   </main>
 </template>
 
@@ -89,13 +89,9 @@
     ToolCallView,
   } from '../agent-contracts'
 
-  import IconAlertTriangle from '~icons/tabler/alert-triangle'
   import IconArrowBackUp from '~icons/tabler/arrow-back-up'
   import IconArrowUpRight from '~icons/tabler/arrow-up-right'
-  import IconBan from '~icons/tabler/ban'
   import IconChartCandle from '~icons/tabler/chart-candle'
-  import IconCheck from '~icons/tabler/check'
-  import IconClock from '~icons/tabler/clock'
 
   type TimelineEntry =
     | { kind: 'message'; id: string; at: number; message: AgentMessageView }
@@ -146,40 +142,23 @@
         tool,
       })),
       ...props.runs
-        .filter((run) => run.id && run.usage && run.endedAt)
-        .map((run) => ({ kind: 'run' as const, id: `run-${run.id}`, at: run.endedAt!, run })),
+        .filter(
+          (run) =>
+            run.id &&
+            (run.usage || (run.id === props.run.id && props.run.status !== 'idle')),
+        )
+        .map((run) => ({
+          kind: 'run' as const,
+          id: `run-${run.id}`,
+          at: run.endedAt ?? Number.MAX_SAFE_INTEGER,
+          run,
+        })),
     ].sort((left, right) => left.at - right.at),
   )
   const isTerminal = computed(() =>
     ['completed', 'failed', 'cancelled', 'partial', 'interrupted'].includes(props.run.status),
   )
   const isLoading = computed(() => !isTerminal.value && props.run.status !== 'idle')
-  const runStatusLabel = computed(
-    () => text.value.status[props.run.status as keyof typeof text.value.status],
-  )
-  const runStatusIcon = computed(() => {
-    switch (props.run.status) {
-      case 'completed':
-        return IconCheck
-      case 'failed':
-        return IconAlertTriangle
-      case 'cancelled':
-      case 'partial':
-      case 'interrupted':
-        return IconBan
-      case 'idle':
-        return IconClock
-      default:
-        return IconClock
-    }
-  })
-  const totalTokens = computed(() => {
-    if (!props.run.usage) return null
-    const { inputTokens, outputTokens } = props.run.usage
-    if (inputTokens === undefined && outputTokens === undefined) return null
-    return (inputTokens ?? 0) + (outputTokens ?? 0)
-  })
-
   /** 返回单轮模型输入与输出的累计 token。 */
   function turnTokens(run: AgentRunView): number {
     return (run.usage?.inputTokens ?? 0) + (run.usage?.outputTokens ?? 0)
@@ -289,17 +268,9 @@
     overflow-wrap: anywhere;
   }
 
-  .run-summary {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 7px 10px;
-    padding-top: 10px;
-    border-top: 1px solid var(--agent-border);
-    color: var(--agent-muted);
-    font-size: 10px;
-  }
-  .turn-usage {
+  .run-status {
     display: flex;
+    align-items: center;
     flex-wrap: wrap;
     gap: 4px 9px;
     margin-top: -6px;
@@ -310,25 +281,23 @@
     background: var(--agent-surface);
     font-size: 10px;
   }
-  .turn-usage strong {
-    color: var(--agent-text);
-  }
-  .run-summary > div:first-child {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-  }
-  .run-summary strong {
-    color: var(--agent-text);
-    font-size: 11px;
-  }
-  .run-summary__usage {
-    grid-column: 1 / -1;
+  .run-status__usage {
+    min-width: 0;
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 4px 9px;
   }
-  .run-summary button {
+  .run-status__usage strong {
+    color: var(--agent-text);
+  }
+  .run-status__indicator {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    color: var(--agent-accent);
+  }
+  .run-status button {
     min-height: 27px;
     display: inline-flex;
     align-items: center;
