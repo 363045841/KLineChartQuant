@@ -39,10 +39,14 @@
       v-model:draft="draft"
       :running="isRunning"
       :provider="state.provider"
+      :models="models"
+      :models-loading="modelsLoading"
       :usage="state.run.usage"
       :locale="locale"
       @send="send"
       @stop="stop"
+      @model="setModel"
+      @models-open="loadModels"
       @reasoning-effort="setReasoningEffort"
     />
 
@@ -84,6 +88,8 @@
     providerSettings,
     locale,
     readOnly,
+    models,
+    modelsLoading,
     isRunning,
     createSession,
     selectSession,
@@ -95,6 +101,8 @@
     confirmTool,
     undoTurn,
     setReadOnly,
+    setModel,
+    loadModels,
     setReasoningEffort,
   } = useAgentWorkspace(props.bridge)
 

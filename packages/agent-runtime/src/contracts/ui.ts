@@ -384,14 +384,13 @@ export interface ProviderTestInput {
   model: string
   protocol: ProviderApiProtocol
 }
-export interface ProviderSaveInput extends ProviderTestInput {
-  modelName: string
+export interface ProviderSaveInput {
+  baseUrl: string
+  apiKey?: string
+  headers?: Record<string, string>
+  protocol: ProviderApiProtocol
   profileName: string
   exaApiKey?: string
-  reasoningEffort?: ProviderReasoningEffort
-  contextWindow?: number
-  maxOutputTokens?: number
-  reasoningEfforts?: readonly ProviderReasoningEffort[]
 }
 export interface ProviderProfileView {
   name: string
@@ -445,7 +444,8 @@ export interface AgentBridgeClient {
   retryRun(runId: string): Promise<{ runId: string }>
   confirmTool(confirmationId: string, decision: 'confirmed' | 'rejected'): Promise<void>
   undoTurn(runId: string): Promise<void>
-  listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult>
+  listProviderModels(): Promise<ProviderModelsResult>
+  setProviderModel(model: ProviderModelView): Promise<void>
   testProvider(input: ProviderTestInput): Promise<ProviderTestResult>
   listProviderProfiles(): Promise<ProviderProfileView[]>
   createProviderProfile(profileName: string): Promise<void>

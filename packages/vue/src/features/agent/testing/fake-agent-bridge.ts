@@ -1,8 +1,5 @@
 /** Drive complete UI states deterministically without Provider or chart business logic. */
-import {
-  fetchOpenAiCompatibleModels,
-  providerHttpError,
-} from '@363045841yyt/klinechart-agent-runtime'
+import { fetchOpenAiCompatibleModels } from '@363045841yyt/klinechart-agent-runtime'
 
 import {
   AGENT_UI_PROTOCOL_VERSION,
@@ -14,8 +11,8 @@ import {
   type AgentUiEvent,
   type AgentUiEventInput,
   type ConfirmationView,
-  type ProviderModelsInput,
   type ProviderModelsResult,
+  type ProviderModelView,
   type ProviderProfileView,
   type ProviderSaveInput,
   type ProviderStatusView,
@@ -131,8 +128,26 @@ export class FakeAgentBridge implements AgentBridgeClient {
     return { content: JSON.stringify({ input }), summary: 'Fake tool completed.' }
   }
 
-  async listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult> {
-    return fetchOpenAiCompatibleModels(input)
+  async listProviderModels(): Promise<ProviderModelsResult> {
+    return fetchOpenAiCompatibleModels({
+      baseUrl: this.provider.baseUrl ?? 'https://models.example.test/v1',
+      apiKey: 'test-key',
+      protocol: this.provider.protocol ?? 'openai-responses',
+    })
+  }
+
+  async setProviderModel(model: ProviderModelView): Promise<void> {
+    this.provider = {
+      ...this.provider,
+      state: 'connected',
+      modelId: model.id,
+      modelLabel: model.name,
+      contextWindow: model.contextWindow,
+      maxOutputTokens: model.maxOutputTokens,
+      reasoningEfforts: model.reasoningEfforts,
+      reasoningEffort: model.defaultReasoningEffort,
+    }
+    this.emit({ type: 'provider.status.changed', status: this.provider })
   }
 
   async listProviderProfiles(): Promise<ProviderProfileView[]> {
@@ -261,42 +276,38 @@ export class FakeAgentBridge implements AgentBridgeClient {
     this.emitRun(run, { type: 'tool.undone', toolCallId: run.tool.id, undoneAt: Date.now() })
   }
 
-  async testProvider(input: ProviderTestInput): Promise<ProviderTestResult> {
-    const startedAt = Date.now()
-    const { models } = await this.listProviderModels(input)
-    if (!models.some((model) => model.id === input.model)) throw providerHttpError(404)
-    await new Promise<void>((resolve) => setTimeout(resolve, this.stepDelayMs))
-    return {
-      compatible: true,
-      model: input.model,
-      latencyMs: Math.max(0, Date.now() - startedAt),
-      stages: [{ stage: 'catalog', ok: true, latencyMs: Math.max(0, Date.now() - startedAt) }],
-    }
-  }
-
   async saveProvider(input: ProviderSaveInput): Promise<void> {
     const profile: ProviderProfileView = {
       name: input.profileName,
       baseUrl: input.baseUrl,
-      modelId: input.model,
-      modelName: input.modelName,
+      modelId: '',
+      modelName: '',
       protocol: input.protocol,
     }
     const existingIndex = this.profiles.findIndex((item) => item.name === input.profileName)
     if (existingIndex >= 0) this.profiles[existingIndex] = profile
     else this.profiles.push(profile)
     this.provider = {
-      state: 'connected',
+      state: 'not-configured',
       providerLabel: 'OpenAI-compatible',
       configured: true,
       baseUrl: input.baseUrl,
-      modelId: input.model,
-      modelLabel: input.modelName,
+      modelId: undefined,
+      modelLabel: undefined,
       profileName: input.profileName,
       protocol: input.protocol,
-      compatibility: 'compatible',
+      compatibility: 'unknown',
     }
     this.emit({ type: 'provider.status.changed', status: this.provider })
+  }
+
+  async testProvider(input: ProviderTestInput): Promise<ProviderTestResult> {
+    return {
+      compatible: true,
+      model: input.model,
+      latencyMs: 0,
+      stages: [],
+    }
   }
 
   async setProviderReasoningEffort(effort: ProviderReasoningEffort | undefined): Promise<void> {

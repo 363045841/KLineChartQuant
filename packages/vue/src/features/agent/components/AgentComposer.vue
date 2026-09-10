@@ -12,18 +12,31 @@
       ></textarea>
       <div class="composer__footer">
         <div class="composer__meta">
-          <label v-if="provider.reasoningEfforts?.length" class="composer__reasoning">
-            <span>{{ text.reasoning }}</span>
-            <select
-              :value="provider.reasoningEffort ?? provider.reasoningEfforts[0]"
-              :disabled="running"
-              @change="$emit('reasoning-effort', ($event.target as HTMLSelectElement).value)"
-            >
-              <option v-for="effort in provider.reasoningEfforts" :key="effort" :value="effort">
-                {{ effort }}
-              </option>
-            </select>
-          </label>
+          <Dropdown
+            class="composer__model"
+            searchable
+            allow-empty
+            size="sm"
+            :model-value="provider.modelId"
+            :options="modelOptions"
+            :placeholder="modelsLoading ? text.loadingModels : text.modelPlaceholder"
+            :title="text.model"
+            :disabled="running || !provider.configured"
+            @open="$emit('models-open')"
+            @update:model-value="$emit('model', $event)"
+          />
+          <Dropdown
+            v-if="provider.reasoningEfforts?.length"
+            class="composer__reasoning"
+            allow-empty
+            size="sm"
+            :model-value="provider.reasoningEffort"
+            :options="reasoningOptions"
+            :placeholder="text.reasoning"
+            :title="text.reasoning"
+            :disabled="running"
+            @update:model-value="$emit('reasoning-effort', $event)"
+          />
         </div>
         <span
           v-if="contextUsage"
@@ -69,8 +82,9 @@
 <script setup lang="ts">
   import { computed } from 'vue'
 
+  import Dropdown from '../../../components/Dropdown.vue'
   import { getAgentCopy, type AgentLocale } from '../agent-copy'
-  import type { AgentUsageView, ProviderStatusView } from '../agent-contracts'
+  import type { AgentUsageView, ProviderModelView, ProviderStatusView } from '../agent-contracts'
 
   import IconArrowUp from '~icons/tabler/arrow-up'
   import IconPlayerStopFilled from '~icons/tabler/player-stop-filled'
@@ -80,16 +94,26 @@
     running: boolean
     locale: AgentLocale
     provider: ProviderStatusView
+    models: readonly ProviderModelView[]
+    modelsLoading: boolean
     usage?: AgentUsageView
   }>()
   const emit = defineEmits<{
     'update:draft': [value: string]
     send: []
     stop: []
+    model: [value: string]
+    'models-open': []
     'reasoning-effort': [value: string]
   }>()
 
   const text = computed(() => getAgentCopy(props.locale))
+  const modelOptions = computed(() =>
+    props.models.map((model) => ({ value: model.id, label: model.name })),
+  )
+  const reasoningOptions = computed(() =>
+    (props.provider.reasoningEfforts ?? []).map((effort) => ({ value: effort, label: effort })),
+  )
   const contextUsage = computed(() => {
     const used = props.usage?.contextTokens
     const window = props.usage?.contextWindow ?? props.provider.contextWindow
@@ -138,7 +162,9 @@
     font: inherit;
     font-size: 13px;
     line-height: 1.5;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    transition:
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
   }
 
   .composer__textarea::placeholder {
@@ -196,21 +222,24 @@
     align-items: center;
     gap: 8px;
   }
+  .composer__model,
   .composer__reasoning {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    color: var(--agent-muted);
-    font-size: 11px;
+    min-width: 0;
   }
-  .composer__reasoning select {
-    max-width: 88px;
-    padding: 2px 4px;
-    border: 1px solid var(--agent-border-strong);
-    border-radius: 4px;
+
+  .composer__model :deep(.dropdown__trigger),
+  .composer__reasoning :deep(.dropdown__trigger) {
+    max-width: 148px;
+    border-color: var(--agent-border-strong);
     color: var(--agent-text);
     background: var(--agent-input);
-    font: inherit;
+  }
+
+  .composer__model :deep(.dropdown__value),
+  .composer__reasoning :deep(.dropdown__value) {
+    color: var(--agent-text);
+    font-size: 11px;
+    font-weight: 400;
   }
 
   .composer__primary {

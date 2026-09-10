@@ -1,6 +1,6 @@
 /** 管理 Agent Provider 设置弹窗的临时表单状态与异步操作。 */
 import { createPinia, defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 
 import { PROVIDER_API_PROTOCOLS } from './agent-contracts'
 
@@ -10,11 +10,8 @@ import type {
   ProviderApiProtocol,
   AgentToolView,
   AgentToolDebugResult,
-  ProviderModelView,
   ProviderProfileView,
   ProviderStatusView,
-  ProviderTestInput,
-  ProviderTestResult,
 } from './agent-contracts'
 
 /** 将 bridge 错误收敛为 UI 可直接展示的错误视图。 */
@@ -55,10 +52,6 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
   const protocol = ref<ProviderApiProtocol>(PROVIDER_API_PROTOCOLS[0])
   const profileName = ref('')
   const profiles = ref<ProviderProfileView[]>([])
-  const model = ref('')
-  const models = ref<ProviderModelView[]>([])
-  const modelsLoading = ref(false)
-  const testResult = ref<ProviderTestResult | null>(null)
   const operationError = ref<AgentErrorView | null>(null)
   const tools = ref<AgentToolView[]>([])
   const toolInputs = ref<Record<string, string>>({})
@@ -66,10 +59,6 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
   const toolErrors = ref<Record<string, string>>({})
   const runningToolName = ref<string | null>(null)
   let bridge: AgentBridgeClient | undefined
-  let refreshRequestId = 0
-
-  const canRefreshModels = computed(() => !modelsLoading.value)
-  const canTest = computed(() => !modelsLoading.value)
 
   /** 绑定当前 Workspace 的 bridge，供 store 操作调用。 */
   function bindBridge(value: AgentBridgeClient): void {
@@ -80,7 +69,6 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
   function setProtocol(value: string): void {
     if (!PROVIDER_API_PROTOCOLS.includes(value as ProviderApiProtocol)) return
     protocol.value = value as ProviderApiProtocol
-    testResult.value = null
   }
 
   /** 切换到指定名称的已保存配置，并用其内容重建表单草稿。 */
@@ -100,9 +88,6 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
       exaApiKey.value = ''
       headers.value = JSON.stringify(status.headers ?? {}, null, 2)
       protocol.value = status.protocol ?? PROVIDER_API_PROTOCOLS[0]
-      model.value = status.modelId ?? ''
-      models.value = []
-      testResult.value = null
     } catch (error) {
       operationError.value = toOperationError(error)
     }
@@ -122,9 +107,6 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
       exaApiKey.value = ''
       headers.value = '{}'
       protocol.value = PROVIDER_API_PROTOCOLS[0]
-      model.value = ''
-      models.value = []
-      testResult.value = null
       return true
     } catch (error) {
       operationError.value = toOperationError(error)
@@ -141,7 +123,6 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     exaApiKey.value = ''
     headers.value = JSON.stringify(status.headers ?? {}, null, 2)
     protocol.value = status.protocol ?? PROVIDER_API_PROTOCOLS[0]
-    model.value = status.modelId ?? ''
     try {
       const [nextProfiles, nextTools] = await Promise.all([
         bridge ? bridge.listProviderProfiles() : [],
@@ -155,8 +136,6 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
       operationError.value = toOperationError(error)
     }
     profileName.value = status.profileName ?? ''
-    models.value = []
-    testResult.value = null
   }
 
   /** 用当前注册工具刷新面板状态并初始化调试参数。 */
@@ -215,59 +194,9 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     operationError.value = null
   }
 
-  /** 刷新当前端点的模型目录，忽略较早请求的迟到响应。 */
-  async function refreshModels(): Promise<void> {
-    if (!bridge || modelsLoading.value) return
-    const requestId = ++refreshRequestId
-    modelsLoading.value = true
-    operationError.value = null
-    try {
-      const customHeaders = parseHeaders()
-      if (!customHeaders) return
-      const result = await bridge.listProviderModels({
-        baseUrl: baseUrl.value,
-        apiKey: apiKey.value || undefined,
-        headers: customHeaders,
-        protocol: protocol.value,
-      })
-      if (requestId !== refreshRequestId) return
-      models.value = result.models
-      if (!models.value.some((item) => item.id === model.value)) {
-        model.value = models.value[0]?.id ?? ''
-      }
-    } catch (error) {
-      if (requestId === refreshRequestId) operationError.value = toOperationError(error)
-    } finally {
-      if (requestId === refreshRequestId) modelsLoading.value = false
-    }
-  }
-
-  /** 测试当前草稿并保留结果供用户参考。 */
-  async function testProvider(): Promise<void> {
-    if (!bridge || modelsLoading.value) return
-    operationError.value = null
-    testResult.value = null
-    const customHeaders = parseHeaders()
-    if (!customHeaders) return
-    const input: ProviderTestInput = {
-      baseUrl: baseUrl.value,
-      apiKey: apiKey.value || undefined,
-      headers: customHeaders,
-      model: model.value,
-      protocol: protocol.value,
-    }
-    try {
-      testResult.value = await bridge.testProvider(input)
-    } catch (error) {
-      operationError.value = toOperationError(error)
-    }
-  }
-
   /** 保存当前 Provider 草稿，并由 bridge 持久化到浏览器存储。 */
   async function saveProvider(): Promise<void> {
     if (!bridge) return
-    const selectedModel = models.value.find((item) => item.id === model.value)
-    const modelName = selectedModel?.name ?? model.value
     operationError.value = null
     try {
       const customHeaders = parseHeaders()
@@ -277,11 +206,6 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
         apiKey: apiKey.value || undefined,
         exaApiKey: exaApiKey.value || undefined,
         headers: customHeaders,
-        model: model.value,
-        modelName,
-        contextWindow: selectedModel?.contextWindow,
-        maxOutputTokens: selectedModel?.maxOutputTokens,
-        reasoningEfforts: selectedModel?.reasoningEfforts,
         protocol: protocol.value,
         profileName: profileName.value,
       })
@@ -337,18 +261,12 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     protocol,
     profileName,
     profiles,
-    model,
-    models,
-    modelsLoading,
-    testResult,
     operationError,
     tools,
     toolInputs,
     toolResults,
     toolErrors,
     runningToolName,
-    canRefreshModels,
-    canTest,
     bindBridge,
     setProtocol,
     selectProfile,
@@ -358,8 +276,6 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     setToolInput,
     debugTool,
     close,
-    refreshModels,
-    testProvider,
     saveProvider,
   }
 })

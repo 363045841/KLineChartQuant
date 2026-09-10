@@ -1,24 +1,6 @@
 <template>
   <div ref="rootRef" class="dropdown" :class="[`dropdown--${size}`, { 'is-open': isOpen }]">
-    <input
-      v-if="searchable"
-      ref="triggerRef"
-      class="dropdown__search-input"
-      type="text"
-      :title="title"
-      :style="triggerStyle"
-      :value="modelValue"
-      :placeholder="placeholder"
-      aria-haspopup="listbox"
-      :aria-expanded="isOpen"
-      @focus="open"
-      @input="updateSearchValue"
-      @keydown.escape.stop="close"
-      @keydown.down.prevent="open"
-      @keydown.enter.prevent="open"
-    />
     <button
-      v-else
       ref="triggerRef"
       type="button"
       class="dropdown__trigger"
@@ -26,6 +8,7 @@
       :style="triggerStyle"
       aria-haspopup="listbox"
       :aria-expanded="isOpen"
+      :disabled="disabled"
       @click="toggleOpen"
       @keydown.escape.stop="close"
       @keydown.down.prevent="open"
@@ -33,7 +16,7 @@
       @keydown.space.prevent="toggleOpen"
     >
       <span v-if="label" class="dropdown__label">{{ label }}</span>
-      <span class="dropdown__value">{{ selectedOption?.label ?? '' }}</span>
+      <span class="dropdown__value">{{ selectedOption?.label ?? placeholder }}</span>
       <span class="dropdown__chevron" aria-hidden="true"></span>
     </button>
 
@@ -46,8 +29,17 @@
         role="listbox"
         tabindex="-1"
       >
+        <input
+          v-if="searchable"
+          ref="searchRef"
+          class="dropdown__search-input"
+          type="search"
+          :placeholder="placeholder"
+          @input="searchQuery = ($event.target as HTMLInputElement).value"
+          @keydown.escape.stop="close"
+        />
         <button
-          v-for="option in options"
+          v-for="option in filteredOptions"
           :key="option.value"
           type="button"
           class="dropdown__option"
@@ -70,7 +62,7 @@
 </script>
 
 <script setup lang="ts">
-  import { computed, onBeforeUnmount, ref } from 'vue'
+  import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 
   import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
   import { useTeleportedPopup } from '../composables/useTeleportedPopup'
@@ -91,6 +83,8 @@
       title?: string
       searchable?: boolean
       placeholder?: string
+      allowEmpty?: boolean
+      disabled?: boolean
     }>(),
     {
       size: 'md',
@@ -98,17 +92,22 @@
       title: '',
       searchable: false,
       placeholder: '',
+      allowEmpty: false,
+      disabled: false,
     },
   )
 
   const emit = defineEmits<{
     (e: 'update:modelValue', level: string): void
+    (e: 'open'): void
   }>()
 
   const rootRef = ref<HTMLElement | null>(null)
   const triggerRef = ref<HTMLElement | null>(null)
   const menuRef = ref<HTMLElement | null>(null)
+  const searchRef = ref<HTMLInputElement | null>(null)
   const isOpen = ref(false)
+  const searchQuery = ref('')
   const dropdownId = ++dropdownIdSeed
 
   const teleportTarget = useFullscreenTeleportTarget()
@@ -140,20 +139,21 @@
   const selectedValue = computed(() => {
     const val = props.modelValue?.trim()
     const found = val && props.options.some((option) => option.value === val)
-    return found ? val : (props.options[0]?.value ?? '')
+    return found || props.allowEmpty ? (val ?? '') : (props.options[0]?.value ?? '')
   })
 
   const selectedOption = computed(() => {
-    return props.options.find((option) => option.value === selectedValue.value) ?? props.options[0]
+    return (
+      props.options.find((option) => option.value === selectedValue.value) ??
+      (props.allowEmpty ? undefined : props.options[0])
+    )
   })
 
-  /** 更新可搜索触发器的文本并展开选项菜单。 */
-  function updateSearchValue(event: Event): void {
-    const target = event.target
-    if (!(target instanceof HTMLInputElement)) return
-    emit('update:modelValue', target.value)
-    open()
-  }
+  const filteredOptions = computed(() => {
+    const query = searchQuery.value.trim().toLowerCase()
+    if (!query) return props.options
+    return props.options.filter((option) => option.label.toLowerCase().includes(query))
+  })
 
   function open() {
     if (activeDropdownId !== dropdownId && activeDropdownClose) {
@@ -165,13 +165,16 @@
     activeDropdownId = dropdownId
     activeDropdownClose = close
     isOpen.value = true
+    emit('open')
     startPositionSync()
     document.addEventListener('pointerdown', handleDocumentPointerDown, true)
+    if (props.searchable) void nextTick(() => searchRef.value?.focus())
   }
 
   function close() {
     if (!isOpen.value) return
     isOpen.value = false
+    searchQuery.value = ''
     if (activeDropdownId === dropdownId) {
       activeDropdownId = 0
       activeDropdownClose = null
@@ -230,8 +233,9 @@
   .dropdown__search-input {
     box-sizing: border-box;
     width: 100%;
-    height: 28px;
-    padding: 0 8px;
+    height: 30px;
+    margin-bottom: 4px;
+    padding: 0 7px;
     border: 1px solid var(--klc-color-border-button);
     border-radius: 4px;
     outline: 0;
@@ -253,19 +257,18 @@
     gap: 4px;
   }
 
-  .dropdown--sm .dropdown__search-input {
-    height: 24px;
-    padding: 0 6px;
-  }
-
   .dropdown__trigger:hover,
   .dropdown__trigger:focus-visible,
-  .dropdown__search-input:focus,
   .dropdown.is-open .dropdown__trigger,
-  .dropdown.is-open .dropdown__search-input {
+  .dropdown__search-input:focus {
     border-color: var(--klc-color-axis-text);
     background: var(--klc-color-grid-minor);
     outline: 0;
+  }
+
+  .dropdown__trigger:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
   }
 
   .dropdown__label {

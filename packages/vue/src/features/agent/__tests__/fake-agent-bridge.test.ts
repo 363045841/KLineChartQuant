@@ -48,21 +48,28 @@ describe('FakeAgentBridge', () => {
     await expect(pending).resolves.toMatchObject({ compatible: true, model: 'provider-model-a' })
     expect(events).toHaveLength(0)
 
-    await bridge.saveProvider({ ...input, modelName: 'Provider Model A', profileName: 'Provider A' })
+    await bridge.saveProvider({
+      baseUrl: input.baseUrl,
+      apiKey: input.apiKey,
+      protocol: input.protocol,
+      profileName: 'Provider A',
+    })
     expect(events.at(-1)).toMatchObject({
       type: 'provider.status.changed',
-      status: { state: 'connected', modelLabel: 'Provider Model A' },
+      status: { state: 'not-configured' },
     })
     expect(JSON.stringify(events)).not.toContain('test-secret')
   })
 
   it('returns bounded non-secret model views', async () => {
     const bridge = new FakeAgentBridge()
-    const result = await bridge.listProviderModels({
+    await bridge.saveProvider({
       baseUrl: 'https://models.example.test/v1',
       apiKey: 'test-secret',
       protocol: 'openai-responses',
+      profileName: 'Provider A',
     })
+    const result = await bridge.listProviderModels()
     expect(result.models.map((model) => model.id)).toEqual(['provider-model-a', 'provider-model-b'])
     expect(JSON.stringify(result)).not.toContain('test-secret')
   })

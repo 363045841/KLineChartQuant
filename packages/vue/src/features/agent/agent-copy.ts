@@ -77,6 +77,7 @@ const copy = {
     additionalHeadersPlaceholder:
       '{\n  "HTTP-Referer": "https://example.com",\n  "X-OpenRouter-Title": "My app"\n}',
     model: 'Model ID',
+    loadingModels: 'Loading models...',
     testConnection: 'Test connection',
     refreshModels: 'Refresh model list',
     probeResults: 'Compatibility test results',
@@ -84,7 +85,7 @@ const copy = {
     probeText: 'Minimal text response',
     probeTool: 'Harmless tool call',
     apiKeyPlaceholder: 'Leave blank to use the saved credential',
-    modelPlaceholder: 'Enter a model ID',
+    modelPlaceholder: 'Select a model',
     providerDraftNotice: 'Your current draft will be preserved.',
     sessionNamePrompt: 'Session name',
     deleteSessionConfirm: 'Delete this session?',
@@ -181,6 +182,7 @@ const copy = {
     additionalHeadersPlaceholder:
       '{\n  "HTTP-Referer": "https://example.com",\n  "X-OpenRouter-Title": "我的应用"\n}',
     model: '模型 ID',
+    loadingModels: '正在加载模型...',
     testConnection: '测试连接',
     refreshModels: '刷新模型列表',
     probeResults: '兼容性测试结果',
@@ -188,7 +190,7 @@ const copy = {
     probeText: '最小文本回复',
     probeTool: '无副作用工具调用',
     apiKeyPlaceholder: '留空则使用已保存的凭据',
-    modelPlaceholder: '输入模型 ID',
+    modelPlaceholder: '选择模型',
     providerDraftNotice: '当前草稿会保留。',
     sessionNamePrompt: '会话名称',
     deleteSessionConfirm: '删除这个会话？',

@@ -12,7 +12,7 @@
       class="provider-form"
       autocomplete="off"
       novalidate
-      @submit.prevent="providerSettings.testProvider()"
+      @submit.prevent="providerSettings.saveProvider()"
     >
       <div class="agent-settings-body">
         <CollapsibleSection
@@ -77,36 +77,6 @@
                 :placeholder="text.additionalHeadersPlaceholder"
               />
             </label>
-            <label class="provider-field">
-              <span class="provider-field__label">{{ text.model }}</span>
-              <span class="provider-model-control">
-                <Dropdown
-                  class="provider-model-dropdown"
-                  searchable
-                  :model-value="providerSettings.model"
-                  :options="filteredModelOptions"
-                  :placeholder="text.modelPlaceholder"
-                  @update:model-value="providerSettings.model = $event"
-                />
-                <button
-                  type="button"
-                  class="provider-refresh-button"
-                  :title="text.refreshModels"
-                  :aria-label="text.refreshModels"
-                  :disabled="!providerSettings.canRefreshModels"
-                  @click="providerSettings.refreshModels()"
-                >
-                  <IconRefresh
-                    :class="{ spinner: providerSettings.modelsLoading }"
-                    aria-hidden="true"
-                  />
-                </button>
-              </span>
-            </label>
-            <div v-if="status.modelLabel" class="provider-status" :data-state="status.state">
-              <span class="provider-status__dot" aria-hidden="true"></span>
-              <strong>{{ status.modelLabel }}</strong>
-            </div>
           </div>
         </CollapsibleSection>
 
@@ -154,7 +124,9 @@
                   type="button"
                   class="agent-tool__run"
                   :disabled="
-                    !tool.enabled || tool.available === false || providerSettings.runningToolName !== null
+                    !tool.enabled ||
+                    tool.available === false ||
+                    providerSettings.runningToolName !== null
                   "
                   @click="providerSettings.debugTool(tool.name)"
                 >
@@ -179,18 +151,6 @@
         </CollapsibleSection>
       </div>
 
-      <ol
-        v-if="providerSettings.testResult"
-        class="provider-probe-results"
-        :aria-label="text.probeResults"
-      >
-        <li v-for="stage in providerSettings.testResult.stages" :key="stage.stage">
-          <IconCircleCheck aria-hidden="true" />
-          <span>{{ stageLabel(stage.stage) }}</span>
-          <strong>{{ stage.latencyMs }} ms</strong>
-        </li>
-      </ol>
-
       <div v-if="visibleError" class="provider-error" role="alert">
         <IconAlertTriangle aria-hidden="true" />
         <span>
@@ -206,21 +166,7 @@
 
     <template #footer>
       <div class="provider-actions">
-        <button
-          type="submit"
-          form="agent-provider-settings-form"
-          class="provider-primary-button"
-          :disabled="!providerSettings.canTest || status.state === 'testing'"
-        >
-          <IconPlugConnected v-if="status.state !== 'testing'" aria-hidden="true" />
-          <IconLoader2 v-else class="spinner" aria-hidden="true" />
-          {{ text.testConnection }}
-        </button>
-        <button
-          type="button"
-          class="provider-primary-button"
-          @click="providerSettings.saveProvider()"
-        >
+        <button type="submit" form="agent-provider-settings-form" class="provider-primary-button">
           {{ text.confirm }}
         </button>
       </div>
@@ -268,7 +214,6 @@
   import {
     PROVIDER_API_PROTOCOLS,
     type ProviderApiProtocol,
-    type ProviderProbeStageResult,
     type ProviderStatusView,
   } from '../agent-contracts'
   import { getAgentCopy, type AgentLocale } from '../agent-copy'
@@ -276,11 +221,7 @@
   import type { AgentProviderSettingsStore } from '../agent-provider-settings-store'
 
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
-  import IconCircleCheck from '~icons/tabler/circle-check'
-  import IconLoader2 from '~icons/tabler/loader-2'
-  import IconPlugConnected from '~icons/tabler/plug-connected'
   import IconPlus from '~icons/tabler/plus'
-  import IconRefresh from '~icons/tabler/refresh'
 
   const props = defineProps<{
     providerSettings: AgentProviderSettingsStore
@@ -307,17 +248,6 @@
   const protocolOptions = computed(() =>
     PROVIDER_API_PROTOCOLS.map((protocol) => ({ value: protocol, label: protocolLabel(protocol) })),
   )
-  const filteredModelOptions = computed(() => {
-    const query = props.providerSettings.model.trim().toLowerCase()
-    return props.providerSettings.models
-      .filter((model) => !query || `${model.id} ${model.name}`.toLowerCase().includes(query))
-      .map((model) => ({
-        value: model.id,
-        label: model.contextWindow
-          ? `${model.name} · ${(model.contextWindow / 10_000).toFixed(1)} 万上下文`
-          : model.name,
-      }))
-  })
   const profileOptions = computed(() => {
     const profiles = props.providerSettings.profiles.map((profile) => ({
       value: profile.name,
@@ -340,14 +270,6 @@
       ...expandedSections.value,
       [id]: !expandedSections.value[id],
     }
-  }
-
-  function stageLabel(stage: ProviderProbeStageResult['stage']): string {
-    return {
-      catalog: text.value.probeCatalog,
-      text: text.value.probeText,
-      tool: text.value.probeTool,
-    }[stage]
   }
 
   /** 返回协议选择器的本地化名称。 */
@@ -604,23 +526,10 @@
     border-radius: 6px;
   }
 
-  .provider-model-dropdown :deep(.dropdown__search-input) {
-    height: 34px;
-    padding: 0 10px;
-    border-radius: 6px;
-    font-size: 12px;
-  }
-
   .provider-protocol-control :deep(.dropdown__value),
   .provider-profile-dropdown :deep(.dropdown__value) {
     font-size: 12px;
     font-weight: 400;
-  }
-
-  .provider-model-control {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 34px;
-    gap: 8px;
   }
 
   .provider-profile-control {
@@ -641,7 +550,6 @@
     border-radius: 6px;
   }
 
-  .provider-refresh-button,
   .provider-profile-new-button,
   .provider-secondary-button,
   .provider-primary-button {
@@ -659,7 +567,6 @@
       opacity 0.15s;
   }
 
-  .provider-refresh-button,
   .provider-profile-new-button {
     width: 34px;
     height: 34px;
@@ -669,14 +576,12 @@
     background: var(--klc-color-background);
   }
 
-  .provider-refresh-button:hover:not(:disabled),
   .provider-profile-new-button:hover:not(:disabled) {
     border-color: var(--klc-color-axis-line);
     color: var(--klc-color-foreground);
     background: var(--klc-color-tag-bg-hover);
   }
 
-  .provider-refresh-button:disabled,
   .provider-primary-button:disabled {
     opacity: 0.5;
     cursor: default;
@@ -693,36 +598,6 @@
     border-color: var(--klc-color-axis-line);
     color: var(--klc-color-foreground);
     background: var(--klc-color-tag-bg-hover);
-  }
-
-  .provider-probe-results {
-    display: grid;
-    gap: 6px;
-    margin: 0;
-    padding: 10px 12px;
-    border: 1px solid var(--klc-color-grid-major);
-    border-radius: 6px;
-    list-style: none;
-    background: var(--klc-color-background);
-  }
-
-  .provider-probe-results li {
-    display: grid;
-    grid-template-columns: 16px minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 7px;
-    color: var(--klc-color-axis-text);
-    font-size: 11px;
-  }
-
-  .provider-probe-results svg {
-    color: var(--klc-color-agent-success);
-  }
-
-  .provider-probe-results strong {
-    color: var(--klc-color-foreground);
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
   }
 
   .provider-error {
@@ -754,41 +629,6 @@
     font-weight: 600;
   }
 
-  .provider-status {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin: 0;
-    color: var(--klc-color-axis-text);
-    font-size: 11px;
-    line-height: 1.4;
-    white-space: nowrap;
-  }
-
-  .provider-status__dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--klc-color-axis-line);
-  }
-
-  .provider-status[data-state='connected'] .provider-status__dot {
-    background: var(--klc-color-agent-success);
-  }
-
-  .provider-status[data-state='testing'] .provider-status__dot {
-    background: var(--klc-color-agent-warning);
-  }
-
-  .provider-status[data-state='error'] .provider-status__dot {
-    background: var(--klc-color-agent-danger);
-  }
-
-  .provider-status strong {
-    color: var(--klc-color-foreground);
-    font-weight: 500;
-  }
-
   .provider-actions {
     display: flex;
     gap: 8px;
@@ -810,29 +650,5 @@
 
   .provider-primary-button:hover:not(:disabled) {
     opacity: 0.82;
-  }
-
-  .spinner {
-    animation: spin 850ms linear infinite;
-  }
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .spinner {
-      animation: none;
-    }
-  }
-
-  @media (max-width: 480px) {
-    .provider-status {
-      white-space: normal;
-    }
-
-    .provider-footer-spacer {
-      display: none;
-    }
   }
 </style>

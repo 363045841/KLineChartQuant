@@ -103,14 +103,16 @@ describe('BrowserAgentBridge', () => {
     const fetchMock = vi.fn(async () => modelsResponse())
     vi.stubGlobal('fetch', fetchMock)
     const bridge = new BrowserAgentBridge()
+    await bridge.saveProvider({
+      baseUrl: 'https://provider.example/v1',
+      apiKey: 'test-key',
+      protocol: 'openai-completions',
+      profileName: 'Provider example',
+    })
 
-    await expect(
-      bridge.listProviderModels({
-        baseUrl: 'https://provider.example/v1',
-        apiKey: 'test-key',
-        protocol: 'openai-completions',
-      }),
-    ).resolves.toMatchObject({ models: [{ id: 'chart-model', name: 'Chart model' }] })
+    await expect(bridge.listProviderModels()).resolves.toMatchObject({
+      models: [{ id: 'chart-model', name: 'Chart model' }],
+    })
 
     expect(fetchMock).toHaveBeenCalledWith('https://provider.example/v1/models', {
       headers: { Accept: 'application/json', Authorization: 'Bearer test-key' },
@@ -136,8 +138,6 @@ describe('BrowserAgentBridge', () => {
     await bridge.saveProvider({
       baseUrl: 'https://provider.example/v1',
       apiKey: 'test-key',
-      model: 'chart-model',
-      modelName: 'Chart model',
       protocol: 'openai-completions',
       profileName: 'Provider example',
     })
@@ -170,10 +170,20 @@ describe('BrowserAgentBridge', () => {
 
     await bridge.createProviderProfile('Provider one')
     await bridge.testProvider(first)
-    await bridge.saveProvider({ ...first, modelName: 'Chart model', profileName: 'Provider one' })
+    await bridge.saveProvider({
+      baseUrl: first.baseUrl,
+      apiKey: first.apiKey,
+      protocol: first.protocol,
+      profileName: 'Provider one',
+    })
     await bridge.createProviderProfile('Provider two')
     await bridge.testProvider(second)
-    await bridge.saveProvider({ ...second, modelName: 'Chart model', profileName: 'Provider two' })
+    await bridge.saveProvider({
+      baseUrl: second.baseUrl,
+      apiKey: second.apiKey,
+      protocol: second.protocol,
+      profileName: 'Provider two',
+    })
 
     const profiles = await bridge.listProviderProfiles()
     expect(profiles).toMatchObject([
@@ -197,16 +207,12 @@ describe('BrowserAgentBridge', () => {
     await bridge.saveProvider({
       baseUrl: 'https://provider-one.example/v1',
       apiKey: 'first-key',
-      model: 'first-model',
-      modelName: 'First model',
       protocol: 'openai-completions',
       profileName,
     })
     await bridge.saveProvider({
       baseUrl: 'https://provider-two.example/v1',
       apiKey: 'second-key',
-      model: 'second-model',
-      modelName: 'Second model',
       protocol: 'openai-completions',
       profileName,
     })
@@ -223,7 +229,9 @@ describe('BrowserAgentBridge', () => {
         reasoningEfforts: [],
       },
     ])
-    const storedProfiles = JSON.parse(window.localStorage.getItem('agent.provider.profiles')!) as Array<{
+    const storedProfiles = JSON.parse(
+      window.localStorage.getItem('agent.provider.profiles')!,
+    ) as Array<{
       settings: Record<string, unknown>
     }>
     expect(storedProfiles[0]!.settings).not.toHaveProperty('contextWindow')
@@ -255,8 +263,6 @@ describe('BrowserAgentBridge', () => {
     await bridge.saveProvider({
       baseUrl: 'https://provider.example/v1',
       apiKey: 'test-key',
-      model: 'chart-model',
-      modelName: 'Chart model',
       profileName: 'Untested provider',
       protocol: 'openai-completions',
     })
@@ -269,13 +275,16 @@ describe('BrowserAgentBridge', () => {
   })
 
   it('persists the Exa key locally and exposes the web search tool', async () => {
-    const fetchMock = vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          results: [{ title: 'Search result', url: 'https://example.com', text: 'Result snippet' }],
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      ),
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            results: [
+              { title: 'Search result', url: 'https://example.com', text: 'Result snippet' },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
     )
     vi.stubGlobal('fetch', fetchMock)
     const bridge = new BrowserAgentBridge()
@@ -284,8 +293,6 @@ describe('BrowserAgentBridge', () => {
       baseUrl: 'https://provider.example/v1',
       apiKey: 'model-key',
       exaApiKey: 'exa-key',
-      model: 'chart-model',
-      modelName: 'Chart model',
       profileName: 'Provider example',
       protocol: 'openai-completions',
     })
@@ -327,8 +334,6 @@ describe('BrowserAgentBridge', () => {
     await bridge.saveProvider({
       baseUrl: 'https://provider.example/v1',
       apiKey: 'test-key',
-      model: 'chart-model',
-      modelName: 'Chart model',
       protocol: 'openai-completions',
       profileName: 'Provider example',
     })
@@ -560,8 +565,8 @@ describe('BrowserAgentBridge', () => {
       }
     ).toolCatalog.resolve({ agent, readOnly: false })
 
-    expect(
-      resolveTools.find((tool) => tool.name === 'drawing_create')?.description,
-    ).toContain('Available runtime paneIds: main, volume.')
+    expect(resolveTools.find((tool) => tool.name === 'drawing_create')?.description).toContain(
+      'Available runtime paneIds: main, volume.',
+    )
   })
 })

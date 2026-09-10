@@ -1,5 +1,5 @@
 /** Connect the stable bridge, event reducer, and Vue interaction state. */
-import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
+import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 
 import { createInitialAgentState, reduceAgentUiEvent } from './agent-reducer'
 import {
@@ -11,6 +11,7 @@ import type {
   AgentBridgeClient,
   AgentContextItem,
   AgentUiEvent,
+  ProviderModelView,
   ProviderReasoningEffort,
 } from './agent-contracts'
 
@@ -20,6 +21,8 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   const contextItems = shallowRef<ReadonlyArray<AgentContextItem>>(bridge.getContextItems())
   const draft = ref('')
   const readOnly = ref(false)
+  const models = shallowRef<readonly ProviderModelView[]>([])
+  const modelsLoading = ref(false)
   const providerSettings = useAgentProviderSettingsStore(createAgentProviderSettingsPinia())
   providerSettings.bindBridge(bridge)
   const locale = ref<'en' | 'zh-CN'>(
@@ -33,7 +36,9 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     state.value.sessions.find((session) => session.id === state.value.activeSessionId),
   )
   const isRunning = computed(() => ['running', 'cancelling'].includes(state.value.run.status))
-  const providerReady = computed(() => state.value.provider.state === 'connected')
+  const providerReady = computed(
+    () => state.value.provider.state === 'connected' && Boolean(state.value.provider.modelId),
+  )
 
   function project(event: AgentUiEvent): void {
     state.value = reduceAgentUiEvent(state.value, event)
@@ -171,6 +176,26 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     readOnly.value = value
   }
 
+  /** 加载当前 Provider 的模型目录，配置变更时丢弃旧目录。 */
+  async function loadModels(): Promise<void> {
+    if (!state.value.provider.configured || modelsLoading.value) return
+    modelsLoading.value = true
+    try {
+      models.value = (await bridge.listProviderModels()).models
+    } catch {
+      models.value = []
+    } finally {
+      modelsLoading.value = false
+    }
+  }
+
+  /** 保存 Composer 中选择的模型，使后续运行使用其能力配置。 */
+  async function setModel(id: string): Promise<void> {
+    if (isRunning.value) return
+    const model = models.value.find((item) => item.id === id)
+    if (model) await bridge.setProviderModel(model)
+  }
+
   /** 保存当前 Profile 的思考强度。 */
   async function setReasoningEffort(value: string): Promise<void> {
     const efforts = state.value.provider.reasoningEfforts ?? []
@@ -181,6 +206,15 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   }
 
   onMounted(initialize)
+  watch(
+    () => [
+      state.value.provider.profileName,
+      state.value.provider.baseUrl,
+      state.value.provider.protocol,
+    ],
+    () => void loadModels(),
+    { immediate: true },
+  )
   onUnmounted(() => {
     unsubscribe?.()
     unsubscribeContextItems?.()
@@ -191,6 +225,8 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     contextItems,
     draft,
     readOnly,
+    models,
+    modelsLoading,
     providerSettings,
     locale,
     activeSession,
@@ -206,6 +242,8 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     confirmTool,
     undoTurn,
     setReadOnly,
+    loadModels,
+    setModel,
     setReasoningEffort,
   }
 }
