@@ -12,7 +12,6 @@ import {
   type AgentUiEventInput,
   type ConfirmationView,
   type ProviderModelsResult,
-  type ProviderModelsInput,
   type ProviderModelView,
   type ProviderModelPoolEntry,
   type ProviderProfileView,
@@ -142,7 +141,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
     return { content: JSON.stringify({ input }), summary: 'Fake tool completed.' }
   }
 
-  async listProviderModelCatalog(_input?: ProviderModelsInput): Promise<ProviderModelsResult> {
+  async listProviderModelCatalog(): Promise<ProviderModelsResult> {
     return fetchOpenAiCompatibleModels({
       baseUrl: this.provider.baseUrl ?? 'https://models.example.test/v1',
       apiKey: 'test-key',

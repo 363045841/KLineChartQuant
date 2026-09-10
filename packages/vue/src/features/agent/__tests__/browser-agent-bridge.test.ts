@@ -119,25 +119,6 @@ describe('BrowserAgentBridge', () => {
     })
   })
 
-  it('requests the Provider model catalog from an unsaved configuration draft', async () => {
-    const fetchMock = vi.fn(async () => modelsResponse())
-    vi.stubGlobal('fetch', fetchMock)
-    const bridge = new BrowserAgentBridge()
-    await bridge.createProviderProfile('Provider example')
-
-    await expect(
-      bridge.listProviderModelCatalog({
-        baseUrl: 'https://provider.example/v1',
-        apiKey: 'draft-key',
-        protocol: 'openai-completions',
-      }),
-    ).resolves.toMatchObject({ models: [{ id: 'chart-model', name: 'Chart model' }] })
-
-    expect(fetchMock).toHaveBeenCalledWith('https://provider.example/v1/models', {
-      headers: { Accept: 'application/json', Authorization: 'Bearer draft-key' },
-    })
-  })
-
   it('persists a completed Provider connection before a model is selected', async () => {
     const bridge = new BrowserAgentBridge()
     await bridge.createProviderProfile('Provider example')
@@ -156,6 +137,32 @@ describe('BrowserAgentBridge', () => {
       baseUrl: 'https://provider.example/v1',
       profileName: 'Provider example',
     })
+  })
+
+  it('clears the Profile model state when its connection identity changes', async () => {
+    const bridge = new BrowserAgentBridge()
+    await bridge.saveProvider({
+      baseUrl: 'https://provider-one.example/v1',
+      apiKey: 'test-key',
+      protocol: 'openai-completions',
+      profileName: 'Provider example',
+    })
+    await bridge.saveProviderModelPool([
+      { id: 'chart-model', name: 'Chart model', compatibility: 'compatible' },
+    ])
+    await bridge.setProviderModel('chart-model')
+
+    await bridge.saveProvider({
+      baseUrl: 'https://provider-two.example/v1',
+      apiKey: 'test-key',
+      protocol: 'openai-completions',
+      profileName: 'Provider example',
+    })
+
+    await expect(bridge.listProviderModelPool()).resolves.toEqual([])
+    const status = await bridge.getProviderStatus()
+    expect(status).toMatchObject({ state: 'not-configured' })
+    expect(status).not.toHaveProperty('modelId')
   })
 
   it('saves a successfully tested Provider and reports a connected status', async () => {

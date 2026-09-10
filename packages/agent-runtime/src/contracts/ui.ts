@@ -449,7 +449,7 @@ export interface AgentBridgeClient {
   retryRun(runId: string): Promise<{ runId: string }>
   confirmTool(confirmationId: string, decision: 'confirmed' | 'rejected'): Promise<void>
   undoTurn(runId: string): Promise<void>
-  listProviderModelCatalog(input?: ProviderModelsInput): Promise<ProviderModelsResult>
+  listProviderModelCatalog(): Promise<ProviderModelsResult>
   listProviderModelPool(): Promise<ProviderModelPoolEntry[]>
   saveProviderModelPool(models: readonly ProviderModelView[]): Promise<void>
   setProviderModel(modelId: string): Promise<void>

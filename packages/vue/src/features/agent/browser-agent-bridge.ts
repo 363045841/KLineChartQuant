@@ -21,7 +21,6 @@ import type {
   AgentUiEvent,
   AgentUiEventInput,
   ProviderModelsResult,
-  ProviderModelsInput,
   ProviderModelPoolEntry,
   ProviderModelView,
   ProviderProfileView,
@@ -672,19 +671,17 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     this.emit({ type: 'provider.status.changed', status: await this.getProviderStatus() })
   }
 
-  /** 使用草稿或当前已保存连接拉取 Provider 模型目录。 */
-  async listProviderModelCatalog(input?: ProviderModelsInput): Promise<ProviderModelsResult> {
+  /** 使用当前已保存的 Provider 连接拉取模型目录。 */
+  async listProviderModelCatalog(): Promise<ProviderModelsResult> {
     const profile = this.profiles.active()
-    const savedConnection = profile && getProfileConnection(profile)
-    const connection = input
-      ? {
-          baseUrl: normalizeProviderBaseUrl(input.baseUrl),
-          headers: input.headers ?? {},
-          protocol: input.protocol,
-        }
-      : savedConnection
-    const apiKey = input?.apiKey?.trim() || (await this.credentials.read())
-    return fetchOpenAiCompatibleModels({ ...connection!, apiKey })
+    const connection = profile && getProfileConnection(profile)
+    if (!connection) {
+      throw new AgentRuntimeError(
+        'PROVIDER_NOT_CONFIGURED',
+        'The active Provider has no saved connection.',
+      )
+    }
+    return fetchOpenAiCompatibleModels({ ...connection, apiKey: await this.credentials.read() })
   }
 
   /** 返回当前 Profile 在统一模型池中可用的模型。 */
@@ -833,10 +830,13 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       protocol: input.protocol,
     }
     const previousConnection = previousProfile && getProfileConnection(previousProfile)
+    const connectionChanged =
+      previousConnection !== undefined &&
+      (previousConnection.baseUrl !== connection.baseUrl ||
+        previousConnection.protocol !== connection.protocol)
     const settings =
-      previousConnection?.baseUrl === connection.baseUrl &&
-      previousConnection.protocol === connection.protocol &&
-      previousProfile.settings &&
+      !connectionChanged &&
+      previousProfile?.settings &&
       this.modelPool
         .read()
         .some(
@@ -852,6 +852,9 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       settings,
       connection,
       active: true,
+    }
+    if (connectionChanged) {
+      this.modelPool.write(this.modelPool.read().filter((model) => model.provider !== profileName))
     }
     this.profiles.write(
       (existingIndex >= 0

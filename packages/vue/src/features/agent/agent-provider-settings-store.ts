@@ -64,6 +64,7 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
   const modelsLoading = ref(false)
   let bridge: AgentBridgeClient | undefined
   let modelCatalogRequestGeneration = 0
+  let savedConnectionIdentity = ''
 
   /** 使当前模型目录请求失效，避免旧 Profile 的结果覆盖新配置。 */
   function invalidateModelCatalogRequest(): void {
@@ -82,6 +83,22 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     protocol.value = value as ProviderApiProtocol
   }
 
+  /** 返回会影响远端模型目录有效性的连接标识。 */
+  function connectionIdentity(): string {
+    return `${protocol.value}\n${baseUrl.value.trim()}`
+  }
+
+  /** 将当前状态投影为设置表单草稿。 */
+  function applyProfileStatus(status: ProviderStatusView): void {
+    profileName.value = status.profileName ?? ''
+    baseUrl.value = status.baseUrl ?? ''
+    apiKey.value = ''
+    exaApiKey.value = ''
+    headers.value = JSON.stringify(status.headers ?? {}, null, 2)
+    protocol.value = status.protocol ?? PROVIDER_API_PROTOCOLS[0]
+    savedConnectionIdentity = connectionIdentity()
+  }
+
   /** 切换到指定名称的已保存配置，并用其内容重建表单草稿。 */
   async function selectProfile(name: string): Promise<void> {
     if (!bridge || name === profileName.value) return
@@ -94,14 +111,9 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
         bridge.listProviderProfiles(),
       ])
       profiles.value = nextProfiles
-      profileName.value = name
-      baseUrl.value = status.baseUrl ?? ''
-      apiKey.value = ''
-      exaApiKey.value = ''
-      headers.value = JSON.stringify(status.headers ?? {}, null, 2)
-      protocol.value = status.protocol ?? PROVIDER_API_PROTOCOLS[0]
+      applyProfileStatus(status)
+      modelCatalog.value = []
       await loadModelPool()
-      await loadModelCatalog()
     } catch (error) {
       operationError.value = toOperationError(error)
     }
@@ -122,6 +134,7 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
       exaApiKey.value = ''
       headers.value = '{}'
       protocol.value = PROVIDER_API_PROTOCOLS[0]
+      savedConnectionIdentity = ''
       modelCatalog.value = []
       modelPool.value = []
       return true
@@ -131,15 +144,12 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     }
   }
 
-  /** 打开 Agent 设置并加载当前 Provider 草稿与工具状态。 */
+  /** 打开 Agent 设置并读取当前 Profile、模型池和工具状态。 */
   async function show(status: ProviderStatusView): Promise<void> {
     open.value = true
     operationError.value = null
-    baseUrl.value = status.baseUrl ?? ''
-    apiKey.value = ''
-    exaApiKey.value = ''
-    headers.value = JSON.stringify(status.headers ?? {}, null, 2)
-    protocol.value = status.protocol ?? PROVIDER_API_PROTOCOLS[0]
+    applyProfileStatus(status)
+    modelCatalog.value = []
     try {
       const [nextProfiles, nextTools] = await Promise.all([
         bridge ? bridge.listProviderProfiles() : [],
@@ -148,13 +158,11 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
       profiles.value = nextProfiles
       setTools(nextTools)
       await loadModelPool()
-      if (status.configured) await loadModelCatalog()
     } catch (error) {
       profiles.value = []
       tools.value = []
       operationError.value = toOperationError(error)
     }
-    profileName.value = status.profileName ?? ''
   }
 
   /** 加载当前 Provider 已保存的模型池。 */
@@ -163,10 +171,9 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     modelPool.value = await bridge.listProviderModelPool()
   }
 
-  /** 从当前 Provider 刷新可加入模型池的远端模型目录。 */
-  async function loadModelCatalog(): Promise<void> {
+  /** 显式刷新当前已保存 Provider 的远端模型目录。 */
+  async function refreshModelCatalog(): Promise<void> {
     if (!bridge || modelsLoading.value) return
-    if (!(await saveProviderDraft())) return
     const requestGeneration = ++modelCatalogRequestGeneration
     modelsLoading.value = true
     operationError.value = null
@@ -186,14 +193,17 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     }
   }
 
-  /** 将目录中的单个模型加入当前 Provider 的模型池。 */
-  async function addModelToPool(modelId: string): Promise<void> {
+  /** 更新目录模型在当前 Provider 模型池中的成员状态。 */
+  async function setModelPoolMembership(modelId: string, enabled: boolean): Promise<void> {
     if (!bridge) return
     const model = modelCatalog.value.find((item) => item.id === modelId)
-    if (!model || modelPool.value.some((item) => item.id === model.id)) return
+    const included = modelPool.value.some((item) => item.id === modelId)
+    if (!model || included === enabled) return
     operationError.value = null
     try {
-      await bridge.saveProviderModelPool([...modelPool.value, model])
+      await bridge.saveProviderModelPool(
+        enabled ? [...modelPool.value, model] : modelPool.value.filter((item) => item.id !== modelId),
+      )
       await loadModelPool()
     } catch (error) {
       operationError.value = toOperationError(error)
@@ -257,13 +267,13 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     operationError.value = null
   }
 
-  /** 保存当前 Provider 草稿，并由 bridge 持久化到浏览器存储。 */
+  /** 保存当前 Provider 连接后关闭设置弹窗。 */
   async function saveProvider(): Promise<void> {
-    if (await saveProviderDraft()) close()
+    if (await persistConnection()) close()
   }
 
-  /** 在表单字段完成编辑后持久化完整的 Provider 草稿。 */
-  async function saveProviderDraft(): Promise<boolean> {
+  /** 持久化当前 Profile 连接；不触发模型目录或模型池读取。 */
+  async function persistConnection(): Promise<boolean> {
     if (!bridge) return false
     if (!profileName.value.trim() || !baseUrl.value.trim()) return false
     operationError.value = null
@@ -280,8 +290,13 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
       })
       profiles.value = await bridge.listProviderProfiles()
       profileName.value = profileName.value.trim()
-      modelCatalog.value = []
-      await loadModelPool()
+      const nextIdentity = connectionIdentity()
+      if (savedConnectionIdentity && savedConnectionIdentity !== nextIdentity) {
+        invalidateModelCatalogRequest()
+        modelCatalog.value = []
+        modelPool.value = []
+      }
+      savedConnectionIdentity = nextIdentity
       return true
     } catch (error) {
       operationError.value = toOperationError(error)
@@ -347,9 +362,9 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     selectProfile,
     createProfile,
     show,
-    loadModelCatalog,
-    saveProviderDraft,
-    addModelToPool,
+    refreshModelCatalog,
+    persistConnection,
+    setModelPoolMembership,
     setToolEnabled,
     setToolInput,
     debugTool,

@@ -74,7 +74,7 @@
                   :model-value="providerSettings.protocol"
                   :options="protocolOptions"
                   class="provider-protocol-control"
-                  @update:model-value="providerSettings.setProtocol($event)"
+                  @update:model-value="updateProtocol($event)"
                 />
               </label>
               <label class="provider-field">
@@ -84,7 +84,7 @@
                   type="text"
                   autocomplete="off"
                   spellcheck="false"
-                  @blur="providerSettings.saveProviderDraft()"
+                  @blur="providerSettings.persistConnection()"
                 />
               </label>
               <label class="provider-field">
@@ -94,7 +94,7 @@
                   type="password"
                   autocomplete="new-password"
                   :placeholder="status.configured ? '••••••••' : text.apiKeyPlaceholder"
-                  @blur="providerSettings.saveProviderDraft()"
+                  @blur="providerSettings.persistConnection()"
                 />
               </label>
               <label class="provider-field">
@@ -104,7 +104,7 @@
                   rows="4"
                   spellcheck="false"
                   :placeholder="text.additionalHeadersPlaceholder"
-                  @blur="providerSettings.saveProviderDraft()"
+                  @blur="providerSettings.persistConnection()"
                 />
               </label>
             </section>
@@ -123,8 +123,8 @@
                   class="agent-tool__run provider-settings-models__refresh"
                   :title="text.refreshModels"
                   :aria-label="text.refreshModels"
-                  :disabled="providerSettings.modelsLoading || !providerSettings.profileName"
-                  @click="providerSettings.loadModelCatalog()"
+                  :disabled="providerSettings.modelsLoading || !canRefreshModels"
+                  @click="providerSettings.refreshModelCatalog()"
                 >
                   <IconRefresh aria-hidden="true" />
                 </button>
@@ -139,15 +139,17 @@
                   class="provider-settings-model"
                 >
                   <span>{{ model.name }}</span>
-                  <button
-                    type="button"
-                    :disabled="modelPoolIds.has(model.id)"
-                    :title="text.modelPool"
-                    :aria-label="text.modelPool"
-                    @click="providerSettings.addModelToPool(model.id)"
-                  >
-                    <IconPlus aria-hidden="true" />
-                  </button>
+                  <div class="provider-settings-model__actions">
+                    <small v-if="model.contextWindow">{{
+                      formatContextWindow(model.contextWindow)
+                    }}</small>
+                    <ToggleSwitch
+                      :model-value="modelPoolIds.has(model.id)"
+                      :aria-label="text.modelPool"
+                      size="compact"
+                      @update:model-value="setModelPoolMembership(model.id, $event)"
+                    />
+                  </div>
                 </div>
               </div>
               <p v-else class="agent-tools__empty">{{ text.noModelsInPool }}</p>
@@ -279,6 +281,7 @@
 
   import BaseModal from '../../../components/BaseModal.vue'
   import Dropdown from '../../../components/Dropdown.vue'
+  import ToggleSwitch from '../../../components/common/ToggleSwitch.vue'
   import {
     PROVIDER_API_PROTOCOLS,
     type ProviderApiProtocol,
@@ -333,6 +336,9 @@
       model.name.toLowerCase().includes(query),
     )
   })
+  const canRefreshModels = computed(() =>
+    Boolean(props.providerSettings.profileName && props.providerSettings.baseUrl.trim()),
+  )
 
   /** 返回协议选择器的本地化名称。 */
   function protocolLabel(protocol: ProviderApiProtocol): string {
@@ -340,6 +346,32 @@
       'openai-completions': text.value.openAiCompletions,
       'openai-responses': text.value.openAiResponses,
     }[protocol]
+  }
+
+  /** 更新协议并立即保存连接，避免协议草稿与已保存连接不一致。 */
+  function updateProtocol(value: string): void {
+    props.providerSettings.setProtocol(value)
+    void props.providerSettings.persistConnection()
+  }
+
+  /** 将模型声明的上下文窗口格式化为紧凑标签。 */
+  function formatContextWindow(value: number): string {
+    if (props.locale === 'zh-CN') {
+      const tenThousands = value / 10_000
+      const window = value >= 10_000 ? tenThousands.toFixed(1).replace(/\.0$/, '') : String(value)
+      return `${window} 万`
+    }
+    const thousands = value / 1_000
+    const window =
+      value >= 1_000
+        ? `${Number.isInteger(thousands) ? thousands : thousands.toFixed(1)}K`
+        : String(value)
+    return `${text.value.contextWindow} ${window}`
+  }
+
+  /** 更新模型是否属于当前 Provider 的模型池。 */
+  function setModelPoolMembership(modelId: string, enabled: boolean): void {
+    void props.providerSettings.setModelPoolMembership(modelId, enabled)
   }
 
   /** 将复选框事件转换为持久化的工具启用设置。 */
@@ -468,8 +500,8 @@
   }
 
   .provider-settings-profiles {
-    display: grid;
-    align-content: start;
+    display: flex;
+    flex-direction: column;
     gap: 2px;
     padding: 8px;
     border-right: 1px solid var(--klc-color-grid-major);
@@ -579,30 +611,17 @@
     white-space: nowrap;
   }
 
-  .provider-settings-model button {
-    width: 24px;
-    height: 24px;
+  .provider-settings-model__actions {
     flex: 0 0 auto;
-    display: grid;
-    place-items: center;
-    padding: 0;
-    border: 0;
-    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .provider-settings-model__actions small {
     color: var(--klc-color-axis-text);
-    background: transparent;
-    cursor: pointer;
-  }
-
-  .provider-settings-model button:hover:not(:disabled),
-  .provider-settings-model button:focus-visible {
-    color: var(--klc-color-selection-stroke);
-    background: var(--klc-color-tag-bg-hover);
-    outline: 0;
-  }
-
-  .provider-settings-model button:disabled {
-    opacity: 0.35;
-    cursor: default;
+    font-size: 11px;
+    white-space: nowrap;
   }
 
   .agent-tools {
@@ -828,6 +847,7 @@
   }
 
   .provider-profile-new-button {
+    margin-top: auto;
     width: 100%;
     height: 28px;
     box-sizing: border-box;
@@ -920,6 +940,7 @@
     }
 
     .provider-settings-profiles {
+      display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       border-right: 0;
       border-bottom: 1px solid var(--klc-color-grid-major);
