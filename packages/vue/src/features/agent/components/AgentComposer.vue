@@ -14,7 +14,6 @@
         <div class="composer__meta">
           <Dropdown
             class="composer__model"
-            searchable
             allow-empty
             size="sm"
             :model-value="provider.modelId"

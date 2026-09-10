@@ -29,17 +29,8 @@
         role="listbox"
         tabindex="-1"
       >
-        <input
-          v-if="searchable"
-          ref="searchRef"
-          class="dropdown__search-input"
-          type="search"
-          :placeholder="placeholder"
-          @input="searchQuery = ($event.target as HTMLInputElement).value"
-          @keydown.escape.stop="close"
-        />
         <button
-          v-for="option in filteredOptions"
+          v-for="option in options"
           :key="option.value"
           type="button"
           class="dropdown__option"
@@ -62,7 +53,7 @@
 </script>
 
 <script setup lang="ts">
-  import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
+  import { computed, onBeforeUnmount, ref } from 'vue'
 
   import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
   import { useTeleportedPopup } from '../composables/useTeleportedPopup'
@@ -81,7 +72,6 @@
       maxHeight?: string
       label?: string
       title?: string
-      searchable?: boolean
       placeholder?: string
       allowEmpty?: boolean
       disabled?: boolean
@@ -90,7 +80,6 @@
       size: 'md',
       maxHeight: 'min(320px, calc(100vh - 24px))',
       title: '',
-      searchable: false,
       placeholder: '',
       allowEmpty: false,
       disabled: false,
@@ -105,9 +94,7 @@
   const rootRef = ref<HTMLElement | null>(null)
   const triggerRef = ref<HTMLElement | null>(null)
   const menuRef = ref<HTMLElement | null>(null)
-  const searchRef = ref<HTMLInputElement | null>(null)
   const isOpen = ref(false)
-  const searchQuery = ref('')
   const dropdownId = ++dropdownIdSeed
 
   const teleportTarget = useFullscreenTeleportTarget()
@@ -149,12 +136,6 @@
     )
   })
 
-  const filteredOptions = computed(() => {
-    const query = searchQuery.value.trim().toLowerCase()
-    if (!query) return props.options
-    return props.options.filter((option) => option.label.toLowerCase().includes(query))
-  })
-
   function open() {
     if (activeDropdownId !== dropdownId && activeDropdownClose) {
       activeDropdownClose()
@@ -168,13 +149,11 @@
     emit('open')
     startPositionSync()
     document.addEventListener('pointerdown', handleDocumentPointerDown, true)
-    if (props.searchable) void nextTick(() => searchRef.value?.focus())
   }
 
   function close() {
     if (!isOpen.value) return
     isOpen.value = false
-    searchQuery.value = ''
     if (activeDropdownId === dropdownId) {
       activeDropdownId = 0
       activeDropdownClose = null
@@ -231,23 +210,6 @@
       box-shadow 0.2s ease;
   }
 
-  .dropdown__search-input {
-    box-sizing: border-box;
-    width: 100%;
-    height: 30px;
-    margin-bottom: 4px;
-    padding: 0 7px;
-    border: 1px solid var(--klc-color-border-button);
-    border-radius: 4px;
-    outline: 0;
-    color: var(--klc-color-foreground);
-    background: var(--klc-color-background);
-    font: inherit;
-    transition:
-      background 0.15s ease,
-      border-color 0.15s ease;
-  }
-
   .dropdown--md .dropdown__trigger {
     height: 28px;
   }
@@ -271,12 +233,6 @@
       --dropdown-trigger-focus-shadow,
       0 0 0 2px color-mix(in srgb, var(--klc-color-selection-stroke) 24%, transparent)
     );
-    outline: 0;
-  }
-
-  .dropdown__search-input:focus {
-    border-color: var(--klc-color-axis-text);
-    background: var(--klc-color-grid-minor);
     outline: 0;
   }
 

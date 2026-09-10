@@ -72,10 +72,6 @@ describe('AgentWorkspace', () => {
     const modelTrigger = mounted.wrapper.get('.composer__model .dropdown__trigger')
     await modelTrigger.trigger('click')
     await flushPromises()
-    const modelSearch = document.querySelector<HTMLInputElement>('.dropdown__search-input')!
-    modelSearch.value = 'provider-model-a'
-    modelSearch.dispatchEvent(new Event('input', { bubbles: true }))
-    await flushPromises()
     await document.querySelector<HTMLButtonElement>('.dropdown__option')!.click()
     await flushPromises()
 
@@ -85,7 +81,7 @@ describe('AgentWorkspace', () => {
     expect((textarea.element as HTMLTextAreaElement).value).toBe('')
   })
 
-  it('filters models from the Composer dropdown', async () => {
+  it('selects models from the Composer dropdown', async () => {
     const mounted = await mountWorkspace()
     await mounted.wrapper.get('button[aria-label="Agent settings"]').trigger('click')
     const dialog = document.querySelector<HTMLElement>('.base-modal')!
@@ -107,16 +103,7 @@ describe('AgentWorkspace', () => {
       ),
     ).toEqual(['Provider Model A', 'Provider Model B'])
 
-    const modelSearch = document.querySelector<HTMLInputElement>('.dropdown__search-input')!
-    modelSearch.value = 'provider-model-b'
-    modelSearch.dispatchEvent(new Event('input', { bubbles: true }))
-    await flushPromises()
-    expect(
-      [...document.querySelectorAll<HTMLButtonElement>('.dropdown__option')].map(
-        (option) => option.textContent,
-      ),
-    ).toEqual(['Provider Model B'])
-    await document.querySelector<HTMLButtonElement>('.dropdown__option')!.click()
+    await document.querySelectorAll<HTMLButtonElement>('.dropdown__option')[1]!.click()
     await flushPromises()
     expect(mounted.wrapper.get('.composer__model .dropdown__value').text()).toBe('Provider Model B')
   })
