@@ -38,7 +38,6 @@
     align-items: start;
     gap: 8px;
     padding: 10px;
-    border: 1px solid var(--klc-color-agent-danger-border);
     border-radius: 6px;
     color: var(--agent-text);
     background: var(--agent-danger-bg);
