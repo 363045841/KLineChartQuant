@@ -61,21 +61,19 @@ describe('AgentWorkspace', () => {
     inputs[0]!.dispatchEvent(new Event('input', { bubbles: true }))
     inputs[1]!.value = 'temporary-test-key'
     inputs[1]!.dispatchEvent(new Event('input', { bubbles: true }))
-    inputs[2]!.value = 'provider-model-a'
-    inputs[2]!.dispatchEvent(new Event('input', { bubbles: true }))
     document.querySelector<HTMLFormElement>('.provider-form')!.requestSubmit()
-    await vi.advanceTimersByTimeAsync(10)
     await flushPromises()
+    const catalog = await mounted.bridge.listProviderModelCatalog()
+    await mounted.bridge.saveProviderModelPool(catalog.models)
 
-    expect(document.querySelectorAll('.provider-probe-results li')).toHaveLength(1)
-    const confirmButton = [
-      ...document.querySelectorAll<HTMLButtonElement>('.provider-primary-button'),
-    ].at(-1)!
-    expect(confirmButton.disabled).toBe(false)
-    confirmButton.click()
-    await flushPromises()
     expect(document.querySelector('.base-modal')).toBeNull()
     expect((textarea.element as HTMLTextAreaElement).value).toBe(selectedPrompt)
+
+    const modelTrigger = mounted.wrapper.get('.composer__model .dropdown__trigger')
+    await modelTrigger.trigger('click')
+    await flushPromises()
+    await document.querySelector<HTMLButtonElement>('.dropdown__option')!.click()
+    await flushPromises()
 
     await textarea.trigger('keydown', { key: 'Enter' })
     await flushPromises()
@@ -83,49 +81,31 @@ describe('AgentWorkspace', () => {
     expect((textarea.element as HTMLTextAreaElement).value).toBe('')
   })
 
-  it('refreshes the Provider catalog and filters its suggestions while retaining manual entry', async () => {
+  it('selects models from the Composer dropdown', async () => {
     const mounted = await mountWorkspace()
     await mounted.wrapper.get('button[aria-label="Agent settings"]').trigger('click')
     const dialog = document.querySelector<HTMLElement>('.base-modal')!
-    dialog.querySelector<HTMLButtonElement>('.provider-protocol-control .dropdown__trigger')!.click()
-    await flushPromises()
-    expect([...document.querySelectorAll<HTMLButtonElement>('.dropdown__option')].map((option) => option.textContent)).toEqual([
-      'Open AI Response',
-      'Open AI Completions',
-    ])
-    document.querySelector<HTMLButtonElement>('.dropdown__option')!.click()
-    await flushPromises()
     const inputs = dialog.querySelectorAll<HTMLInputElement>('input')
     inputs[0]!.value = 'https://models.example.test/v1'
     inputs[0]!.dispatchEvent(new Event('input', { bubbles: true }))
     inputs[1]!.value = 'temporary-test-key'
     inputs[1]!.dispatchEvent(new Event('input', { bubbles: true }))
+    dialog.querySelector<HTMLFormElement>('.provider-form')!.requestSubmit()
     await flushPromises()
-    dialog.querySelector<HTMLButtonElement>('.provider-refresh-button')!.click()
-    await flushPromises()
+    const catalog = await mounted.bridge.listProviderModelCatalog()
+    await mounted.bridge.saveProviderModelPool(catalog.models)
 
-    const modelInput = dialog.querySelector<HTMLInputElement>('.provider-model-dropdown input')!
-    modelInput.dispatchEvent(new FocusEvent('focus'))
+    await mounted.wrapper.get('.composer__model .dropdown__trigger').trigger('click')
     await flushPromises()
-    modelInput.value = ''
-    modelInput.dispatchEvent(new Event('input', { bubbles: true }))
-    await flushPromises()
-    expect([...document.querySelectorAll<HTMLButtonElement>('.dropdown__option')].map((option) => option.textContent)).toEqual([
-      'Provider Model A',
-      'Provider Model B',
-    ])
+    expect(
+      [...document.querySelectorAll<HTMLButtonElement>('.dropdown__option')].map(
+        (option) => option.textContent,
+      ),
+    ).toEqual(['Provider Model A', 'Provider Model B'])
 
-    modelInput.value = 'provider-model-b'
-    modelInput.dispatchEvent(new Event('input', { bubbles: true }))
+    await document.querySelectorAll<HTMLButtonElement>('.dropdown__option')[1]!.click()
     await flushPromises()
-    expect([...document.querySelectorAll<HTMLButtonElement>('.dropdown__option')].map((option) => option.textContent)).toEqual([
-      'Provider Model B',
-    ])
-    expect(modelInput.value).toBe('provider-model-b')
-
-    await document.querySelector<HTMLButtonElement>('.dropdown__option')!.click()
-    await flushPromises()
-    expect(modelInput.value).toBe('provider-model-b')
+    expect(mounted.wrapper.get('.composer__model .dropdown__value').text()).toBe('Provider Model B')
   })
 
   it('does not submit on Shift+Enter and retains a pending draft when stopping', async () => {

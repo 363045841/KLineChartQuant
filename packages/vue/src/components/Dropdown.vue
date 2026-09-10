@@ -1,24 +1,6 @@
 <template>
   <div ref="rootRef" class="dropdown" :class="[`dropdown--${size}`, { 'is-open': isOpen }]">
-    <input
-      v-if="searchable"
-      ref="triggerRef"
-      class="dropdown__search-input"
-      type="text"
-      :title="title"
-      :style="triggerStyle"
-      :value="modelValue"
-      :placeholder="placeholder"
-      aria-haspopup="listbox"
-      :aria-expanded="isOpen"
-      @focus="open"
-      @input="updateSearchValue"
-      @keydown.escape.stop="close"
-      @keydown.down.prevent="open"
-      @keydown.enter.prevent="open"
-    />
     <button
-      v-else
       ref="triggerRef"
       type="button"
       class="dropdown__trigger"
@@ -26,6 +8,7 @@
       :style="triggerStyle"
       aria-haspopup="listbox"
       :aria-expanded="isOpen"
+      :disabled="disabled"
       @click="toggleOpen"
       @keydown.escape.stop="close"
       @keydown.down.prevent="open"
@@ -33,7 +16,7 @@
       @keydown.space.prevent="toggleOpen"
     >
       <span v-if="label" class="dropdown__label">{{ label }}</span>
-      <span class="dropdown__value">{{ selectedOption?.label ?? '' }}</span>
+      <span class="dropdown__value">{{ selectedOption?.label ?? placeholder }}</span>
       <span class="dropdown__chevron" aria-hidden="true"></span>
     </button>
 
@@ -89,20 +72,23 @@
       maxHeight?: string
       label?: string
       title?: string
-      searchable?: boolean
       placeholder?: string
+      allowEmpty?: boolean
+      disabled?: boolean
     }>(),
     {
       size: 'md',
       maxHeight: 'min(320px, calc(100vh - 24px))',
       title: '',
-      searchable: false,
       placeholder: '',
+      allowEmpty: false,
+      disabled: false,
     },
   )
 
   const emit = defineEmits<{
     (e: 'update:modelValue', level: string): void
+    (e: 'open'): void
   }>()
 
   const rootRef = ref<HTMLElement | null>(null)
@@ -140,20 +126,15 @@
   const selectedValue = computed(() => {
     const val = props.modelValue?.trim()
     const found = val && props.options.some((option) => option.value === val)
-    return found ? val : (props.options[0]?.value ?? '')
+    return found || props.allowEmpty ? (val ?? '') : (props.options[0]?.value ?? '')
   })
 
   const selectedOption = computed(() => {
-    return props.options.find((option) => option.value === selectedValue.value) ?? props.options[0]
+    return (
+      props.options.find((option) => option.value === selectedValue.value) ??
+      (props.allowEmpty ? undefined : props.options[0])
+    )
   })
-
-  /** 更新可搜索触发器的文本并展开选项菜单。 */
-  function updateSearchValue(event: Event): void {
-    const target = event.target
-    if (!(target instanceof HTMLInputElement)) return
-    emit('update:modelValue', target.value)
-    open()
-  }
 
   function open() {
     if (activeDropdownId !== dropdownId && activeDropdownClose) {
@@ -165,6 +146,7 @@
     activeDropdownId = dropdownId
     activeDropdownClose = close
     isOpen.value = true
+    emit('open')
     startPositionSync()
     document.addEventListener('pointerdown', handleDocumentPointerDown, true)
   }
@@ -216,31 +198,16 @@
     align-items: center;
     gap: 6px;
     padding: 0 8px;
-    border: 1px solid var(--klc-color-border-button);
-    border-radius: 4px;
-    background: var(--klc-color-background);
-    color: var(--klc-color-foreground);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: var(--dropdown-trigger-background, var(--klc-color-grid-minor));
+    color: var(--dropdown-trigger-color, var(--klc-color-foreground));
     font: inherit;
     cursor: pointer;
     transition:
-      background 0.15s ease,
-      border-color 0.15s ease;
-  }
-
-  .dropdown__search-input {
-    box-sizing: border-box;
-    width: 100%;
-    height: 28px;
-    padding: 0 8px;
-    border: 1px solid var(--klc-color-border-button);
-    border-radius: 4px;
-    outline: 0;
-    color: var(--klc-color-foreground);
-    background: var(--klc-color-background);
-    font: inherit;
-    transition:
-      background 0.15s ease,
-      border-color 0.15s ease;
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
   }
 
   .dropdown--md .dropdown__trigger {
@@ -253,19 +220,25 @@
     gap: 4px;
   }
 
-  .dropdown--sm .dropdown__search-input {
-    height: 24px;
-    padding: 0 6px;
+  .dropdown__trigger:hover:not(:disabled),
+  .dropdown.is-open .dropdown__trigger {
+    border-color: var(--dropdown-trigger-active-border, var(--klc-color-border-button));
+    background: var(--dropdown-trigger-active-background, var(--klc-color-background));
   }
 
-  .dropdown__trigger:hover,
-  .dropdown__trigger:focus-visible,
-  .dropdown__search-input:focus,
-  .dropdown.is-open .dropdown__trigger,
-  .dropdown.is-open .dropdown__search-input {
-    border-color: var(--klc-color-axis-text);
-    background: var(--klc-color-grid-minor);
+  .dropdown__trigger:focus-visible {
+    border-color: var(--dropdown-trigger-focus-border, var(--klc-color-selection-stroke));
+    background: var(--dropdown-trigger-focus-background, var(--klc-color-background));
+    box-shadow: var(
+      --dropdown-trigger-focus-shadow,
+      0 0 0 2px color-mix(in srgb, var(--klc-color-selection-stroke) 24%, transparent)
+    );
     outline: 0;
+  }
+
+  .dropdown__trigger:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
   }
 
   .dropdown__label {
@@ -277,11 +250,14 @@
 
   .dropdown__value {
     flex: 1 1 auto;
-    color: var(--klc-color-foreground);
+    min-width: 0;
+    overflow: hidden;
+    color: var(--dropdown-trigger-color, var(--klc-color-foreground));
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 500;
     line-height: 1;
     text-align: left;
+    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
@@ -295,7 +271,7 @@
     height: 0;
     border-left: 4px solid transparent;
     border-right: 4px solid transparent;
-    border-top: 5px solid var(--klc-color-axis-text);
+    border-top: 5px solid var(--dropdown-trigger-chevron, var(--klc-color-axis-text));
     transition: transform 0.15s ease;
   }
 
