@@ -31,13 +31,7 @@
       </nav>
     </template>
 
-    <form
-      id="agent-provider-settings-form"
-      class="provider-form"
-      autocomplete="off"
-      novalidate
-      @submit.prevent="providerSettings.saveProvider()"
-    >
+    <div class="provider-form">
       <div class="agent-settings-body">
         <section v-if="activeTab === 'provider'" class="provider-settings-layout" role="tabpanel">
           <aside class="provider-settings-profiles">
@@ -233,15 +227,7 @@
           </small>
         </span>
       </div>
-    </form>
-
-    <template #footer>
-      <div class="provider-actions">
-        <button type="submit" form="agent-provider-settings-form" class="provider-primary-button">
-          {{ text.confirm }}
-        </button>
-      </div>
-    </template>
+    </div>
   </BaseModal>
 
   <BaseModal

@@ -168,8 +168,7 @@
     flex-shrink: 0;
   }
 
-  .base-subheader::after,
-  .base-footer::before {
+  .base-subheader::after {
     position: absolute;
     right: 20px;
     left: 20px;
@@ -249,10 +248,6 @@
     padding: 12px 20px;
     background: var(--klc-color-background, #ffffff);
     flex-shrink: 0;
-  }
-
-  .base-footer::before {
-    top: 0;
   }
 
   /* ── Overlay transition ── */
