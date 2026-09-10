@@ -562,13 +562,17 @@
     height: 28px;
     flex: 1 1 auto;
     padding: 0 8px;
-    border: 1px solid var(--klc-color-border-button);
-    border-radius: 5px;
+    border: 1px solid transparent;
+    border-radius: 8px;
     outline: none;
     color: var(--klc-color-foreground);
-    background: var(--klc-color-background);
+    background: var(--klc-color-grid-minor);
     font: inherit;
     font-size: 11px;
+    transition:
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
   }
 
   .provider-settings-models__list {
@@ -745,23 +749,31 @@
     height: 34px;
     box-sizing: border-box;
     padding: 0 10px;
-    border: 1px solid var(--klc-color-border-button);
-    border-radius: 6px;
+    border: 1px solid transparent;
+    border-radius: 8px;
     outline: none;
     color: var(--klc-color-foreground);
-    background: var(--klc-color-background);
+    background: var(--klc-color-grid-minor);
     font: inherit;
     font-size: 12px;
-    transition: border-color 0.15s;
+    transition:
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
   }
 
-  .provider-field input:focus,
-  .provider-field textarea:focus,
-  .provider-field select:focus {
-    border-color: var(--klc-color-axis-text);
+  .provider-field input:disabled,
+  .provider-field textarea:disabled,
+  .provider-field select:disabled,
+  .provider-settings-models__header input:disabled {
+    color: var(--klc-color-axis-text);
+    background: transparent;
+    cursor: not-allowed;
   }
 
-  .provider-field input::placeholder {
+  .provider-field input::placeholder,
+  .provider-field textarea::placeholder,
+  .provider-settings-models__header input::placeholder {
     color: var(--klc-color-axis-text);
     opacity: 0.55;
   }
