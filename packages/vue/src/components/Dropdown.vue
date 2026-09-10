@@ -219,15 +219,16 @@
     align-items: center;
     gap: 6px;
     padding: 0 8px;
-    border: 1px solid var(--klc-color-border-button);
-    border-radius: 4px;
-    background: var(--klc-color-background);
-    color: var(--klc-color-foreground);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: var(--dropdown-trigger-background, var(--klc-color-grid-minor));
+    color: var(--dropdown-trigger-color, var(--klc-color-foreground));
     font: inherit;
     cursor: pointer;
     transition:
-      background 0.15s ease,
-      border-color 0.15s ease;
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
   }
 
   .dropdown__search-input {
@@ -257,9 +258,22 @@
     gap: 4px;
   }
 
-  .dropdown__trigger:hover,
-  .dropdown__trigger:focus-visible,
-  .dropdown.is-open .dropdown__trigger,
+  .dropdown__trigger:hover:not(:disabled),
+  .dropdown.is-open .dropdown__trigger {
+    border-color: var(--dropdown-trigger-active-border, var(--klc-color-border-button));
+    background: var(--dropdown-trigger-active-background, var(--klc-color-background));
+  }
+
+  .dropdown__trigger:focus-visible {
+    border-color: var(--dropdown-trigger-focus-border, var(--klc-color-selection-stroke));
+    background: var(--dropdown-trigger-focus-background, var(--klc-color-background));
+    box-shadow: var(
+      --dropdown-trigger-focus-shadow,
+      0 0 0 2px color-mix(in srgb, var(--klc-color-selection-stroke) 24%, transparent)
+    );
+    outline: 0;
+  }
+
   .dropdown__search-input:focus {
     border-color: var(--klc-color-axis-text);
     background: var(--klc-color-grid-minor);
@@ -280,11 +294,14 @@
 
   .dropdown__value {
     flex: 1 1 auto;
-    color: var(--klc-color-foreground);
+    min-width: 0;
+    overflow: hidden;
+    color: var(--dropdown-trigger-color, var(--klc-color-foreground));
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 500;
     line-height: 1;
     text-align: left;
+    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
@@ -298,7 +315,7 @@
     height: 0;
     border-left: 4px solid transparent;
     border-right: 4px solid transparent;
-    border-top: 5px solid var(--klc-color-axis-text);
+    border-top: 5px solid var(--dropdown-trigger-chevron, var(--klc-color-axis-text));
     transition: transform 0.15s ease;
   }
 

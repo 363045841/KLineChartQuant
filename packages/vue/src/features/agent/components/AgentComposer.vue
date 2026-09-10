@@ -225,21 +225,40 @@
   .composer__model,
   .composer__reasoning {
     min-width: 0;
+    --dropdown-trigger-background: var(--agent-hover);
+    --dropdown-trigger-color: var(--agent-text);
+    --dropdown-trigger-chevron: var(--agent-muted);
+    --dropdown-trigger-active-border: var(--agent-border-strong);
+    --dropdown-trigger-active-background: var(--agent-input);
+    --dropdown-trigger-focus-border: var(--agent-accent);
+    --dropdown-trigger-focus-background: var(--agent-input);
+    --dropdown-trigger-focus-shadow: 0 0 0 2px
+      color-mix(in srgb, var(--agent-accent) 24%, transparent);
   }
 
   .composer__model :deep(.dropdown__trigger),
   .composer__reasoning :deep(.dropdown__trigger) {
-    max-width: 148px;
-    border-color: var(--agent-border-strong);
-    color: var(--agent-text);
-    background: var(--agent-input);
+    max-width: 160px;
+    height: 26px;
+    gap: 5px;
+    padding: 0 9px;
   }
 
   .composer__model :deep(.dropdown__value),
   .composer__reasoning :deep(.dropdown__value) {
+    min-width: 0;
+    overflow: hidden;
     color: var(--agent-text);
     font-size: 11px;
     font-weight: 400;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .composer__model :deep(.dropdown__trigger:disabled),
+  .composer__reasoning :deep(.dropdown__trigger:disabled) {
+    color: var(--agent-text-soft);
+    background: transparent;
   }
 
   .composer__primary {

@@ -67,7 +67,6 @@
       :aria-label="text.agent"
       @update:model-value="$emit('select', $event)"
     />
-
   </header>
 </template>
 
@@ -182,15 +181,21 @@
   .agent-header__sessions {
     width: 100%;
     min-width: 0;
+    --dropdown-trigger-background: var(--agent-input);
+    --dropdown-trigger-color: var(--agent-text);
+    --dropdown-trigger-chevron: var(--agent-muted);
+    --dropdown-trigger-active-border: var(--agent-border-strong);
+    --dropdown-trigger-active-background: var(--agent-hover);
+    --dropdown-trigger-focus-border: var(--agent-accent);
+    --dropdown-trigger-focus-background: var(--agent-hover);
+    --dropdown-trigger-focus-shadow: 0 0 0 2px
+      color-mix(in srgb, var(--agent-accent) 24%, transparent);
   }
 
   .agent-header__sessions :deep(.dropdown__trigger) {
     width: 100%;
     height: 32px;
     padding: 0 9px;
-    border-color: var(--agent-border);
-    color: var(--agent-text);
-    background: var(--agent-input);
   }
 
   .agent-header__sessions :deep(.dropdown__value) {
@@ -198,5 +203,4 @@
     font-size: 12px;
     font-weight: 400;
   }
-
 </style>

@@ -787,7 +787,6 @@
     height: 34px;
     box-sizing: border-box;
     padding: 0 10px;
-    border-radius: 6px;
   }
 
   .provider-protocol-control :deep(.dropdown__value),
@@ -811,7 +810,6 @@
     height: 34px;
     box-sizing: border-box;
     padding: 0 10px;
-    border-radius: 6px;
   }
 
   .provider-profile-new-button,
