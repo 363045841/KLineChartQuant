@@ -12,7 +12,9 @@ import {
   type AgentUiEventInput,
   type ConfirmationView,
   type ProviderModelsResult,
+  type ProviderModelsInput,
   type ProviderModelView,
+  type ProviderModelPoolEntry,
   type ProviderProfileView,
   type ProviderSaveInput,
   type ProviderStatusView,
@@ -49,6 +51,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
   private readonly listeners = new Set<(event: AgentUiEvent) => void>()
   private readonly runs = new Map<string, FakeRun>()
   private readonly confirmations = new Map<string, PendingConfirmation>()
+  private modelPool: ProviderModelPoolEntry[] = []
   private readonly stepDelayMs: number
   private sessions: AgentSessionView[] = [
     { id: 'session-1', title: 'BTC momentum review', updatedAt: Date.now() },
@@ -78,6 +81,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
           configured: true,
           modelId: 'Scripted Alpha',
           modelLabel: 'Scripted Alpha',
+          profileName: 'Fake Provider',
           protocol: 'openai-completions',
           compatibility: 'compatible',
         }
@@ -87,6 +91,16 @@ export class FakeAgentBridge implements AgentBridgeClient {
           configured: false,
           compatibility: 'unknown',
         }
+    if (options.providerConfigured) {
+      this.modelPool = [
+        {
+          provider: 'Fake Provider',
+          id: 'Scripted Alpha',
+          name: 'Scripted Alpha',
+          compatibility: 'compatible',
+        },
+      ]
+    }
   }
 
   getContextItems(): ReadonlyArray<AgentContextItem> {
@@ -128,7 +142,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
     return { content: JSON.stringify({ input }), summary: 'Fake tool completed.' }
   }
 
-  async listProviderModels(): Promise<ProviderModelsResult> {
+  async listProviderModelCatalog(_input?: ProviderModelsInput): Promise<ProviderModelsResult> {
     return fetchOpenAiCompatibleModels({
       baseUrl: this.provider.baseUrl ?? 'https://models.example.test/v1',
       apiKey: 'test-key',
@@ -136,7 +150,25 @@ export class FakeAgentBridge implements AgentBridgeClient {
     })
   }
 
-  async setProviderModel(model: ProviderModelView): Promise<void> {
+  async listProviderModelPool(): Promise<ProviderModelPoolEntry[]> {
+    return this.modelPool.filter((model) => model.provider === this.provider.profileName)
+  }
+
+  async saveProviderModelPool(models: readonly ProviderModelView[]): Promise<void> {
+    const provider = this.provider.profileName
+    if (!provider) return
+    this.modelPool = [
+      ...this.modelPool.filter((model) => model.provider !== provider),
+      ...models.map((model) => ({ ...model, provider })),
+    ]
+    this.emit({ type: 'provider.status.changed', status: this.provider })
+  }
+
+  async setProviderModel(modelId: string): Promise<void> {
+    const model = this.modelPool.find(
+      (item) => item.provider === this.provider.profileName && item.id === modelId,
+    )
+    if (!model) return
     this.provider = {
       ...this.provider,
       state: 'connected',

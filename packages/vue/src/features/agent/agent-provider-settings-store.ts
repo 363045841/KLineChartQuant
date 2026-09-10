@@ -10,6 +10,7 @@ import type {
   ProviderApiProtocol,
   AgentToolView,
   AgentToolDebugResult,
+  ProviderModelView,
   ProviderProfileView,
   ProviderStatusView,
 } from './agent-contracts'
@@ -58,7 +59,17 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
   const toolResults = ref<Record<string, AgentToolDebugResult>>({})
   const toolErrors = ref<Record<string, string>>({})
   const runningToolName = ref<string | null>(null)
+  const modelCatalog = ref<ProviderModelView[]>([])
+  const modelPool = ref<ProviderModelView[]>([])
+  const modelsLoading = ref(false)
   let bridge: AgentBridgeClient | undefined
+  let modelCatalogRequestGeneration = 0
+
+  /** 使当前模型目录请求失效，避免旧 Profile 的结果覆盖新配置。 */
+  function invalidateModelCatalogRequest(): void {
+    modelCatalogRequestGeneration += 1
+    modelsLoading.value = false
+  }
 
   /** 绑定当前 Workspace 的 bridge，供 store 操作调用。 */
   function bindBridge(value: AgentBridgeClient): void {
@@ -74,6 +85,7 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
   /** 切换到指定名称的已保存配置，并用其内容重建表单草稿。 */
   async function selectProfile(name: string): Promise<void> {
     if (!bridge || name === profileName.value) return
+    invalidateModelCatalogRequest()
     operationError.value = null
     try {
       await bridge.selectProviderProfile(name)
@@ -88,6 +100,8 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
       exaApiKey.value = ''
       headers.value = JSON.stringify(status.headers ?? {}, null, 2)
       protocol.value = status.protocol ?? PROVIDER_API_PROTOCOLS[0]
+      await loadModelPool()
+      await loadModelCatalog()
     } catch (error) {
       operationError.value = toOperationError(error)
     }
@@ -97,6 +111,7 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
   async function createProfile(name: string): Promise<boolean> {
     const normalizedName = name.trim()
     if (!bridge || !normalizedName) return false
+    invalidateModelCatalogRequest()
     operationError.value = null
     try {
       await bridge.createProviderProfile(normalizedName)
@@ -107,6 +122,8 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
       exaApiKey.value = ''
       headers.value = '{}'
       protocol.value = PROVIDER_API_PROTOCOLS[0]
+      modelCatalog.value = []
+      modelPool.value = []
       return true
     } catch (error) {
       operationError.value = toOperationError(error)
@@ -130,12 +147,57 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
       ])
       profiles.value = nextProfiles
       setTools(nextTools)
+      await loadModelPool()
+      if (status.configured) await loadModelCatalog()
     } catch (error) {
       profiles.value = []
       tools.value = []
       operationError.value = toOperationError(error)
     }
     profileName.value = status.profileName ?? ''
+  }
+
+  /** 加载当前 Provider 已保存的模型池。 */
+  async function loadModelPool(): Promise<void> {
+    if (!bridge) return
+    modelPool.value = await bridge.listProviderModelPool()
+  }
+
+  /** 从当前 Provider 刷新可加入模型池的远端模型目录。 */
+  async function loadModelCatalog(): Promise<void> {
+    if (!bridge || modelsLoading.value) return
+    if (!(await saveProviderDraft())) return
+    const requestGeneration = ++modelCatalogRequestGeneration
+    modelsLoading.value = true
+    operationError.value = null
+    try {
+      const [catalog, pool] = await Promise.all([
+        bridge.listProviderModelCatalog(),
+        bridge.listProviderModelPool(),
+      ])
+      if (requestGeneration !== modelCatalogRequestGeneration) return
+      modelCatalog.value = catalog.models
+      modelPool.value = pool
+    } catch (error) {
+      if (requestGeneration === modelCatalogRequestGeneration)
+        operationError.value = toOperationError(error)
+    } finally {
+      if (requestGeneration === modelCatalogRequestGeneration) modelsLoading.value = false
+    }
+  }
+
+  /** 将目录中的单个模型加入当前 Provider 的模型池。 */
+  async function addModelToPool(modelId: string): Promise<void> {
+    if (!bridge) return
+    const model = modelCatalog.value.find((item) => item.id === modelId)
+    if (!model || modelPool.value.some((item) => item.id === model.id)) return
+    operationError.value = null
+    try {
+      await bridge.saveProviderModelPool([...modelPool.value, model])
+      await loadModelPool()
+    } catch (error) {
+      operationError.value = toOperationError(error)
+    }
   }
 
   /** 用当前注册工具刷新面板状态并初始化调试参数。 */
@@ -188,6 +250,7 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
 
   /** 关闭弹窗并立即清除仅应存在于内存中的 API Key 草稿。 */
   function close(): void {
+    invalidateModelCatalogRequest()
     open.value = false
     apiKey.value = ''
     exaApiKey.value = ''
@@ -196,11 +259,17 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
 
   /** 保存当前 Provider 草稿，并由 bridge 持久化到浏览器存储。 */
   async function saveProvider(): Promise<void> {
-    if (!bridge) return
+    if (await saveProviderDraft()) close()
+  }
+
+  /** 在表单字段完成编辑后持久化完整的 Provider 草稿。 */
+  async function saveProviderDraft(): Promise<boolean> {
+    if (!bridge) return false
+    if (!profileName.value.trim() || !baseUrl.value.trim()) return false
     operationError.value = null
     try {
       const customHeaders = parseHeaders()
-      if (!customHeaders) return
+      if (!customHeaders) return false
       await bridge.saveProvider({
         baseUrl: baseUrl.value,
         apiKey: apiKey.value || undefined,
@@ -211,9 +280,12 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
       })
       profiles.value = await bridge.listProviderProfiles()
       profileName.value = profileName.value.trim()
-      close()
+      modelCatalog.value = []
+      await loadModelPool()
+      return true
     } catch (error) {
       operationError.value = toOperationError(error)
+      return false
     }
   }
 
@@ -267,11 +339,17 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     toolResults,
     toolErrors,
     runningToolName,
+    modelCatalog,
+    modelPool,
+    modelsLoading,
     bindBridge,
     setProtocol,
     selectProfile,
     createProfile,
     show,
+    loadModelCatalog,
+    saveProviderDraft,
+    addModelToPool,
     setToolEnabled,
     setToolInput,
     debugTool,

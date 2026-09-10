@@ -30,7 +30,15 @@
               <slot name="subheader" />
             </div>
 
-            <div class="base-body" :style="{ padding: bodyPadding }">
+            <div v-if="$slots.tabs" class="base-tabs">
+              <slot name="tabs" />
+            </div>
+
+            <div
+              class="base-body"
+              :class="{ 'base-body--scrollable': bodyScrollable }"
+              :style="{ padding: bodyPadding }"
+            >
               <slot />
             </div>
 
@@ -60,6 +68,7 @@
       maxHeight?: string
       overlayPadding?: string
       bodyPadding?: string
+      bodyScrollable?: boolean
       footerAlign?: 'flex-end' | 'center' | 'flex-start' | 'space-between'
       closeOnOverlay?: boolean
       showClose?: boolean
@@ -74,6 +83,7 @@
       maxHeight: 'min(600px, calc(100vh - 48px))',
       overlayPadding: '24px',
       bodyPadding: '16px 20px',
+      bodyScrollable: true,
       footerAlign: 'flex-end',
       closeOnOverlay: true,
       showClose: true,
@@ -173,7 +183,11 @@
   }
 
   .base-close-btn {
-    background: color-mix(in srgb, var(--klc-color-chart-background) 92%, var(--klc-color-foreground));
+    background: color-mix(
+      in srgb,
+      var(--klc-color-chart-background) 92%,
+      var(--klc-color-foreground)
+    );
     border: 0;
     border-radius: 8px;
     width: 32px;
@@ -190,7 +204,11 @@
   }
 
   .base-close-btn:hover {
-    background: color-mix(in srgb, var(--klc-color-chart-background) 86%, var(--klc-color-foreground));
+    background: color-mix(
+      in srgb,
+      var(--klc-color-chart-background) 86%,
+      var(--klc-color-foreground)
+    );
     color: var(--klc-color-foreground);
   }
 
@@ -206,11 +224,20 @@
     background: var(--klc-color-background, #ffffff);
   }
 
+  .base-tabs {
+    flex-shrink: 0;
+    background: var(--klc-color-background, #ffffff);
+  }
+
   .base-body {
     flex: 1;
     min-height: 0;
-    overflow-y: auto;
+    overflow: hidden;
     background: var(--klc-color-background, #ffffff);
+  }
+
+  .base-body--scrollable {
+    overflow-y: auto;
   }
 
   .base-footer {

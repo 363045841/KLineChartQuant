@@ -69,7 +69,7 @@ describe('FakeAgentBridge', () => {
       protocol: 'openai-responses',
       profileName: 'Provider A',
     })
-    const result = await bridge.listProviderModels()
+    const result = await bridge.listProviderModelCatalog()
     expect(result.models.map((model) => model.id)).toEqual(['provider-model-a', 'provider-model-b'])
     expect(JSON.stringify(result)).not.toContain('test-secret')
   })

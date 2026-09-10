@@ -31,6 +31,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
   let unsubscribe: (() => void) | undefined
   let unsubscribeContextItems: (() => void) | undefined
   let bufferedEvents: AgentUiEvent[] | undefined
+  let modelLoadGeneration = 0
 
   const activeSession = computed(() =>
     state.value.sessions.find((session) => session.id === state.value.activeSessionId),
@@ -176,24 +177,25 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     readOnly.value = value
   }
 
-  /** 加载当前 Provider 的模型目录，配置变更时丢弃旧目录。 */
+  /** 加载当前 Provider 在统一模型池中已加入的模型。 */
   async function loadModels(): Promise<void> {
-    if (!state.value.provider.configured || modelsLoading.value) return
+    if (!state.value.provider.configured) return
+    const generation = ++modelLoadGeneration
     modelsLoading.value = true
     try {
-      models.value = (await bridge.listProviderModels()).models
+      const nextModels = await bridge.listProviderModelPool()
+      if (generation === modelLoadGeneration) models.value = nextModels
     } catch {
-      models.value = []
+      if (generation === modelLoadGeneration) models.value = []
     } finally {
-      modelsLoading.value = false
+      if (generation === modelLoadGeneration) modelsLoading.value = false
     }
   }
 
   /** 保存 Composer 中选择的模型，使后续运行使用其能力配置。 */
   async function setModel(id: string): Promise<void> {
     if (isRunning.value) return
-    const model = models.value.find((item) => item.id === id)
-    if (model) await bridge.setProviderModel(model)
+    if (models.value.some((item) => item.id === id)) await bridge.setProviderModel(id)
   }
 
   /** 保存当前 Profile 的思考强度。 */
@@ -207,11 +209,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
 
   onMounted(initialize)
   watch(
-    () => [
-      state.value.provider.profileName,
-      state.value.provider.baseUrl,
-      state.value.provider.protocol,
-    ],
+    () => state.value.provider,
     () => void loadModels(),
     { immediate: true },
   )

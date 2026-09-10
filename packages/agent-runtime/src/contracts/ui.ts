@@ -279,6 +279,11 @@ export interface ProviderModelView {
   defaultReasoningEffort?: ProviderReasoningEffort
 }
 
+/** 用户加入模型池的模型记录；provider 对应 Provider Profile 名称。 */
+export interface ProviderModelPoolEntry extends ProviderModelView {
+  provider: string
+}
+
 export interface AgentSessionView {
   id: string
   title: string
@@ -444,8 +449,10 @@ export interface AgentBridgeClient {
   retryRun(runId: string): Promise<{ runId: string }>
   confirmTool(confirmationId: string, decision: 'confirmed' | 'rejected'): Promise<void>
   undoTurn(runId: string): Promise<void>
-  listProviderModels(): Promise<ProviderModelsResult>
-  setProviderModel(model: ProviderModelView): Promise<void>
+  listProviderModelCatalog(input?: ProviderModelsInput): Promise<ProviderModelsResult>
+  listProviderModelPool(): Promise<ProviderModelPoolEntry[]>
+  saveProviderModelPool(models: readonly ProviderModelView[]): Promise<void>
+  setProviderModel(modelId: string): Promise<void>
   testProvider(input: ProviderTestInput): Promise<ProviderTestResult>
   listProviderProfiles(): Promise<ProviderProfileView[]>
   createProviderProfile(profileName: string): Promise<void>

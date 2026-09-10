@@ -21,6 +21,8 @@ import type {
   AgentUiEvent,
   AgentUiEventInput,
   ProviderModelsResult,
+  ProviderModelsInput,
+  ProviderModelPoolEntry,
   ProviderModelView,
   ProviderProfileView,
   ProviderSaveInput,
@@ -46,6 +48,7 @@ import { formatTimestamp } from '@363045841yyt/klinechart-core'
 import type { RuntimeToolDefinition } from '@363045841yyt/klinechart-agent-runtime'
 
 const PROVIDER_PROFILES_STORAGE_KEY = 'agent.provider.profiles'
+const PROVIDER_MODEL_POOL_STORAGE_KEY = 'agent.provider.model-pool'
 const ENABLED_TOOLS_STORAGE_KEY = 'agent.enabled-tools'
 
 type DrawingCreateError = Error & {
@@ -215,6 +218,24 @@ class BrowserProviderProfiles {
   }
 }
 
+/** 保存跨 Provider Profile 的扁平模型池。 */
+class BrowserProviderModelPool {
+  read(): ProviderModelPoolEntry[] {
+    const raw = window.localStorage.getItem(PROVIDER_MODEL_POOL_STORAGE_KEY)
+    if (!raw) return []
+    try {
+      const models = JSON.parse(raw)
+      return Array.isArray(models) ? (models as ProviderModelPoolEntry[]) : []
+    } catch {
+      return []
+    }
+  }
+
+  write(models: readonly ProviderModelPoolEntry[]): void {
+    window.localStorage.setItem(PROVIDER_MODEL_POOL_STORAGE_KEY, JSON.stringify(models))
+  }
+}
+
 /** 保存用户选择的已启用工具；首次使用时保持所有已注册工具启用。 */
 class BrowserEnabledTools {
   read(defaultNames: readonly string[]): Set<string> {
@@ -342,6 +363,7 @@ function projectContextItems(
 
 export class BrowserAgentBridge implements AgentBridgeClient {
   private readonly listeners = new Set<(event: AgentUiEvent) => void>()
+  private readonly modelPool = new BrowserProviderModelPool()
   private readonly contextItemsListeners = new Set<
     (items: ReadonlyArray<AgentContextItem>) => void
   >()
@@ -650,21 +672,52 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     this.emit({ type: 'provider.status.changed', status: await this.getProviderStatus() })
   }
 
-  async listProviderModels(): Promise<ProviderModelsResult> {
+  /** 使用草稿或当前已保存连接拉取 Provider 模型目录。 */
+  async listProviderModelCatalog(input?: ProviderModelsInput): Promise<ProviderModelsResult> {
     const profile = this.profiles.active()
-    const connection = profile && getProfileConnection(profile)
-    if (!connection)
-      throw new AgentRuntimeError('PROVIDER_NOT_CONFIGURED', 'Configure a Provider first.')
-    return fetchOpenAiCompatibleModels({ ...connection, apiKey: await this.credentials.read() })
+    const savedConnection = profile && getProfileConnection(profile)
+    const connection = input
+      ? {
+          baseUrl: normalizeProviderBaseUrl(input.baseUrl),
+          headers: input.headers ?? {},
+          protocol: input.protocol,
+        }
+      : savedConnection
+    const apiKey = input?.apiKey?.trim() || (await this.credentials.read())
+    return fetchOpenAiCompatibleModels({ ...connection!, apiKey })
   }
 
-  /** 选择当前 Profile 的模型，并同步该模型声明的能力。 */
-  async setProviderModel(model: ProviderModelView): Promise<void> {
+  /** 返回当前 Profile 在统一模型池中可用的模型。 */
+  async listProviderModelPool(): Promise<ProviderModelPoolEntry[]> {
+    const profile = this.profiles.active()
+    return profile ? this.modelPool.read().filter((model) => model.provider === profile.name) : []
+  }
+
+  /** 用当前 Profile 的远端目录选择结果替换其模型池。 */
+  async saveProviderModelPool(models: readonly ProviderModelView[]): Promise<void> {
+    const profile = this.profiles.active()
+    if (!profile) return
+    const selected = models.map((model) => ({ ...model, provider: profile.name }))
+    this.modelPool.write([
+      ...this.modelPool.read().filter((model) => model.provider !== profile.name),
+      ...selected,
+    ])
+    if (profile.settings && !selected.some((model) => model.id === profile.settings?.modelId)) {
+      this.profiles.updateActive({ settings: undefined })
+    }
+    this.emit({ type: 'provider.status.changed', status: await this.getProviderStatus() })
+  }
+
+  /** 选择当前 Profile 模型池中的模型，并同步该模型声明的能力。 */
+  async setProviderModel(modelId: string): Promise<void> {
     const profile = this.profiles.active()
     const connection = profile && getProfileConnection(profile)
-    if (!profile || !connection) {
-      throw new AgentRuntimeError('PROVIDER_NOT_CONFIGURED', 'Configure a Provider first.')
-    }
+    if (!profile || !connection) return
+    const model = this.modelPool
+      .read()
+      .find((item) => item.provider === profile.name && item.id === modelId)
+    if (!model)
+      throw new AgentRuntimeError('PROVIDER_ERROR', 'The model is not in this Provider model pool.')
     const settings: OpenAiCompatibleProviderSettings = {
       version: PROVIDER_SETTINGS_VERSION,
       ...connection,
@@ -771,9 +824,6 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       )
     }
     const baseUrl = normalizeProviderBaseUrl(input.baseUrl)
-    const apiKey = input.apiKey?.trim() || (await this.credentials.read())
-    if (!apiKey)
-      throw new AgentRuntimeError('PROVIDER_NOT_CONFIGURED', 'Enter an API key before saving.')
     const profiles = this.profiles.read()
     const existingIndex = profiles.findIndex((item) => item.name === profileName)
     const previousProfile = profiles[existingIndex]
@@ -785,12 +835,19 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     const previousConnection = previousProfile && getProfileConnection(previousProfile)
     const settings =
       previousConnection?.baseUrl === connection.baseUrl &&
-      previousConnection.protocol === connection.protocol
+      previousConnection.protocol === connection.protocol &&
+      previousProfile.settings &&
+      this.modelPool
+        .read()
+        .some(
+          (model) =>
+            model.provider === profileName && model.id === previousProfile.settings?.modelId,
+        )
         ? previousProfile?.settings
         : undefined
     const profile: BrowserProviderProfile = {
       name: profileName,
-      apiKey,
+      apiKey: input.apiKey?.trim() || (await this.credentials.read()) || '',
       exaApiKey: input.exaApiKey?.trim() || profiles[existingIndex]?.exaApiKey,
       settings,
       connection,
@@ -809,8 +866,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   async setProviderReasoningEffort(effort: ProviderReasoningEffort | undefined): Promise<void> {
     const active = this.profiles.active()
     const settings = active?.settings
-    if (!settings)
-      throw new AgentRuntimeError('PROVIDER_NOT_CONFIGURED', 'Configure a Provider first.')
+    if (!settings) return
     if (effort && !settings.reasoningEfforts.includes(effort)) {
       throw new AgentRuntimeError(
         'PROVIDER_ERROR',

@@ -2,11 +2,35 @@
   <BaseModal
     :show="providerSettings.open"
     :title="text.agentSettings"
-    width="min(92vw, 480px)"
+    width="min(92vw, 760px)"
     max-height="calc(100vh - 36px)"
     body-padding="12px 20px 16px"
+    :body-scrollable="false"
     @close="closeProviderSettings()"
   >
+    <template #tabs>
+      <nav class="agent-settings-tabs" role="tablist" :aria-label="text.agentSettings">
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="activeTab === 'provider'"
+          :class="{ 'is-active': activeTab === 'provider' }"
+          @click="activeTab = 'provider'"
+        >
+          {{ text.providerSettings }}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="activeTab === 'tools'"
+          :class="{ 'is-active': activeTab === 'tools' }"
+          @click="activeTab = 'tools'"
+        >
+          {{ text.tools }}
+        </button>
+      </nav>
+    </template>
+
     <form
       id="agent-provider-settings-form"
       class="provider-form"
@@ -15,140 +39,185 @@
       @submit.prevent="providerSettings.saveProvider()"
     >
       <div class="agent-settings-body">
-        <CollapsibleSection
-          :label="text.providerSettings"
-          :expanded="expandedSections.provider"
-          @toggle="toggleSection('provider')"
-        >
-          <div class="agent-settings-section__body provider-form__fields">
-            <label class="provider-field">
-              <span class="provider-field__label">{{ text.providerProfile }}</span>
-              <span class="provider-profile-control">
+        <section v-if="activeTab === 'provider'" class="provider-settings-layout" role="tabpanel">
+          <aside class="provider-settings-profiles">
+            <div class="provider-settings-profiles__header">
+              <span>{{ text.providerProfile }}</span>
+            </div>
+            <button
+              v-for="profile in profileOptions"
+              :key="profile.value"
+              type="button"
+              class="provider-settings-profile"
+              :class="{ 'is-active': profile.value === providerSettings.profileName }"
+              @click="selectProfile(profile.value)"
+            >
+              {{ profile.label }}
+            </button>
+            <button
+              type="button"
+              class="provider-profile-new-button"
+              :title="text.addModel"
+              :aria-label="text.addModel"
+              @click="openCreateProfileDialog()"
+            >
+              <IconPlus aria-hidden="true" />
+              <span>{{ text.addModel }}</span>
+            </button>
+          </aside>
+
+          <div class="provider-settings-detail">
+            <section class="provider-settings-connection provider-form__fields">
+              <label class="provider-field">
+                <span class="provider-field__label">{{ text.apiProtocol }}</span>
                 <Dropdown
-                  class="provider-profile-dropdown"
-                  :model-value="providerSettings.profileName"
-                  :options="profileOptions"
-                  @update:model-value="selectProfile($event)"
+                  :model-value="providerSettings.protocol"
+                  :options="protocolOptions"
+                  class="provider-protocol-control"
+                  @update:model-value="providerSettings.setProtocol($event)"
+                />
+              </label>
+              <label class="provider-field">
+                <span class="provider-field__label">{{ text.baseUrl }}</span>
+                <input
+                  v-model="providerSettings.baseUrl"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  @blur="providerSettings.saveProviderDraft()"
+                />
+              </label>
+              <label class="provider-field">
+                <span class="provider-field__label">{{ text.apiKey }}</span>
+                <input
+                  v-model="providerSettings.apiKey"
+                  type="password"
+                  autocomplete="new-password"
+                  :placeholder="status.configured ? '••••••••' : text.apiKeyPlaceholder"
+                  @blur="providerSettings.saveProviderDraft()"
+                />
+              </label>
+              <label class="provider-field">
+                <span class="provider-field__label">{{ text.additionalHeaders }}</span>
+                <textarea
+                  v-model="providerSettings.headers"
+                  rows="4"
+                  spellcheck="false"
+                  :placeholder="text.additionalHeadersPlaceholder"
+                  @blur="providerSettings.saveProviderDraft()"
+                />
+              </label>
+            </section>
+
+            <section class="provider-settings-models">
+              <div class="provider-settings-models__header">
+                <span>{{ text.modelList }}</span>
+                <input
+                  v-model="modelSearch"
+                  type="search"
+                  :placeholder="text.modelSearchPlaceholder"
+                  :disabled="providerSettings.modelsLoading"
                 />
                 <button
                   type="button"
-                  class="provider-profile-new-button"
-                  :title="text.newProviderProfile"
-                  :aria-label="text.newProviderProfile"
-                  @click="openCreateProfileDialog()"
+                  class="agent-tool__run provider-settings-models__refresh"
+                  :title="text.refreshModels"
+                  :aria-label="text.refreshModels"
+                  :disabled="providerSettings.modelsLoading || !providerSettings.profileName"
+                  @click="providerSettings.loadModelCatalog()"
                 >
-                  <IconPlus aria-hidden="true" />
+                  <IconRefresh aria-hidden="true" />
                 </button>
-              </span>
-            </label>
-            <label class="provider-field">
-              <span class="provider-field__label">{{ text.apiProtocol }}</span>
-              <Dropdown
-                :model-value="providerSettings.protocol"
-                :options="protocolOptions"
-                class="provider-protocol-control"
-                @update:model-value="providerSettings.setProtocol($event)"
-              />
-            </label>
-            <label class="provider-field">
-              <span class="provider-field__label">{{ text.baseUrl }}</span>
-              <input
-                v-model="providerSettings.baseUrl"
-                type="text"
-                autocomplete="off"
-                spellcheck="false"
-              />
-            </label>
-            <label class="provider-field">
-              <span class="provider-field__label">{{ text.apiKey }}</span>
-              <input
-                v-model="providerSettings.apiKey"
-                type="password"
-                autocomplete="new-password"
-                :placeholder="status.configured ? '••••••••' : text.apiKeyPlaceholder"
-              />
-            </label>
-            <label class="provider-field">
-              <span class="provider-field__label">{{ text.additionalHeaders }}</span>
-              <textarea
-                v-model="providerSettings.headers"
-                rows="4"
-                spellcheck="false"
-                :placeholder="text.additionalHeadersPlaceholder"
-              />
-            </label>
+              </div>
+              <div
+                v-if="providerSettings.modelCatalog.length"
+                class="provider-settings-models__list"
+              >
+                <div
+                  v-for="model in filteredModels"
+                  :key="model.id"
+                  class="provider-settings-model"
+                >
+                  <span>{{ model.name }}</span>
+                  <button
+                    type="button"
+                    :disabled="modelPoolIds.has(model.id)"
+                    :title="text.modelPool"
+                    :aria-label="text.modelPool"
+                    @click="providerSettings.addModelToPool(model.id)"
+                  >
+                    <IconPlus aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+              <p v-else class="agent-tools__empty">{{ text.noModelsInPool }}</p>
+            </section>
           </div>
-        </CollapsibleSection>
+        </section>
 
-        <CollapsibleSection
-          :label="text.tools"
-          :expanded="expandedSections.tools"
-          @toggle="toggleSection('tools')"
-        >
-          <div class="agent-settings-section__body">
-            <div v-if="providerSettings.tools.length" class="agent-tools">
-              <section v-for="tool in providerSettings.tools" :key="tool.name" class="agent-tool">
-                <label class="agent-tool__toggle">
-                  <input
-                    type="checkbox"
-                    :checked="tool.enabled"
-                    :disabled="tool.available === false"
-                    @change="setToolEnabled(tool.name, $event)"
-                  />
-                  <span>
-                    <strong>{{ tool.label }}</strong>
-                    <small>{{ tool.description }}</small>
-                  </span>
-                </label>
-                <p v-if="tool.unavailableReason" class="agent-tool__unavailable">
-                  {{ tool.unavailableReason }}
-                </p>
-                <label v-if="tool.name === 'web_search'" class="provider-field">
-                  <span class="provider-field__label">{{ text.exaApiKey }}</span>
-                  <input
-                    v-model="providerSettings.exaApiKey"
-                    type="password"
-                    autocomplete="new-password"
-                    :placeholder="tool.available ? '••••••••' : text.exaApiKeyPlaceholder"
-                  />
-                </label>
-                <details class="agent-tool__parameters">
-                  <summary>{{ text.toolParameters }}</summary>
-                  <textarea
-                    :value="providerSettings.toolInputs[tool.name] ?? '{}'"
-                    spellcheck="false"
-                    @input="setToolInput(tool.name, $event)"
-                  />
-                </details>
-                <button
-                  type="button"
-                  class="agent-tool__run"
-                  :disabled="
-                    !tool.enabled ||
-                    tool.available === false ||
-                    providerSettings.runningToolName !== null
-                  "
-                  @click="providerSettings.debugTool(tool.name)"
-                >
-                  {{
-                    providerSettings.runningToolName === tool.name ? text.toolRunning : text.toolRun
-                  }}
-                </button>
-                <p
-                  v-if="providerSettings.toolErrors[tool.name]"
-                  class="agent-tool__error"
-                  role="alert"
-                >
-                  {{ providerSettings.toolErrors[tool.name] }}
-                </p>
-                <pre v-if="providerSettings.toolResults[tool.name]" class="agent-tool__result">{{
-                  providerSettings.toolResults[tool.name].content
-                }}</pre>
-              </section>
-            </div>
-            <p v-else class="agent-tools__empty">{{ text.noTools }}</p>
+        <section v-else class="agent-settings-tools" role="tabpanel">
+          <div v-if="providerSettings.tools.length" class="agent-tools">
+            <section v-for="tool in providerSettings.tools" :key="tool.name" class="agent-tool">
+              <label class="agent-tool__toggle">
+                <input
+                  type="checkbox"
+                  :checked="tool.enabled"
+                  :disabled="tool.available === false"
+                  @change="setToolEnabled(tool.name, $event)"
+                />
+                <span>
+                  <strong>{{ tool.label }}</strong>
+                  <small>{{ tool.description }}</small>
+                </span>
+              </label>
+              <p v-if="tool.unavailableReason" class="agent-tool__unavailable">
+                {{ tool.unavailableReason }}
+              </p>
+              <label v-if="tool.name === 'web_search'" class="provider-field">
+                <span class="provider-field__label">{{ text.exaApiKey }}</span>
+                <input
+                  v-model="providerSettings.exaApiKey"
+                  type="password"
+                  autocomplete="new-password"
+                  :placeholder="tool.available ? '••••••••' : text.exaApiKeyPlaceholder"
+                />
+              </label>
+              <details class="agent-tool__parameters">
+                <summary>{{ text.toolParameters }}</summary>
+                <textarea
+                  :value="providerSettings.toolInputs[tool.name] ?? '{}'"
+                  spellcheck="false"
+                  @input="setToolInput(tool.name, $event)"
+                />
+              </details>
+              <button
+                type="button"
+                class="agent-tool__run"
+                :disabled="
+                  !tool.enabled ||
+                  tool.available === false ||
+                  providerSettings.runningToolName !== null
+                "
+                @click="providerSettings.debugTool(tool.name)"
+              >
+                {{
+                  providerSettings.runningToolName === tool.name ? text.toolRunning : text.toolRun
+                }}
+              </button>
+              <p
+                v-if="providerSettings.toolErrors[tool.name]"
+                class="agent-tool__error"
+                role="alert"
+              >
+                {{ providerSettings.toolErrors[tool.name] }}
+              </p>
+              <pre v-if="providerSettings.toolResults[tool.name]" class="agent-tool__result">{{
+                providerSettings.toolResults[tool.name].content
+              }}</pre>
+            </section>
           </div>
-        </CollapsibleSection>
+          <p v-else class="agent-tools__empty">{{ text.noTools }}</p>
+        </section>
       </div>
 
       <div v-if="visibleError" class="provider-error" role="alert">
@@ -210,7 +279,6 @@
 
   import BaseModal from '../../../components/BaseModal.vue'
   import Dropdown from '../../../components/Dropdown.vue'
-  import CollapsibleSection from '../../../components/common/CollapsibleSection.vue'
   import {
     PROVIDER_API_PROTOCOLS,
     type ProviderApiProtocol,
@@ -222,6 +290,7 @@
 
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
   import IconPlus from '~icons/tabler/plus'
+  import IconRefresh from '~icons/tabler/refresh'
 
   const props = defineProps<{
     providerSettings: AgentProviderSettingsStore
@@ -232,18 +301,9 @@
   const profileNameInput = ref<HTMLInputElement | null>(null)
   const creatingProfile = ref(false)
   const newProfileName = ref('')
-  type SettingsSectionId = 'provider' | 'tools'
-
-  /** 创建每次打开设置面板时使用的默认折叠状态。 */
-  function createDefaultExpandedSections(): Record<SettingsSectionId, boolean> {
-    return {
-      provider: false,
-      tools: false,
-    }
-  }
-
-  const expandedSections = ref(createDefaultExpandedSections())
+  const activeTab = ref<'provider' | 'tools'>('provider')
   const text = computed(() => getAgentCopy(props.locale))
+  const modelSearch = ref('')
   const visibleError = computed(() => props.providerSettings.operationError ?? props.status.error)
   const protocolOptions = computed(() =>
     PROVIDER_API_PROTOCOLS.map((protocol) => ({ value: protocol, label: protocolLabel(protocol) })),
@@ -263,14 +323,16 @@
         ]
       : profiles
   })
-
-  /** 切换指定设置分组的展开状态。 */
-  function toggleSection(id: SettingsSectionId): void {
-    expandedSections.value = {
-      ...expandedSections.value,
-      [id]: !expandedSections.value[id],
-    }
-  }
+  const modelPoolIds = computed(
+    () => new Set(props.providerSettings.modelPool.map((model) => model.id)),
+  )
+  const filteredModels = computed(() => {
+    const query = modelSearch.value.trim().toLowerCase()
+    if (!query) return props.providerSettings.modelCatalog
+    return props.providerSettings.modelCatalog.filter((model) =>
+      model.name.toLowerCase().includes(query),
+    )
+  })
 
   /** 返回协议选择器的本地化名称。 */
   function protocolLabel(protocol: ProviderApiProtocol): string {
@@ -330,14 +392,17 @@
     () => props.providerSettings.open,
     (open) => {
       if (!open) return
-      expandedSections.value = createDefaultExpandedSections()
+      activeTab.value = 'provider'
     },
   )
 </script>
 
 <style scoped>
   .provider-form {
-    display: grid;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
     gap: 14px;
     color: var(--klc-color-foreground);
   }
@@ -348,12 +413,196 @@
   }
 
   .agent-settings-body {
+    min-height: 0;
+    flex: 1 1 auto;
     display: flex;
     flex-direction: column;
+    overflow-y: auto;
   }
 
-  .agent-settings-section__body {
-    padding: 4px 12px 12px;
+  .agent-settings-tabs {
+    display: flex;
+    gap: 2px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--klc-color-grid-major);
+    background: var(--klc-color-background);
+  }
+
+  .agent-settings-tabs button {
+    padding: 8px 10px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    color: var(--klc-color-axis-text);
+    background: transparent;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .agent-settings-tabs button:hover,
+  .agent-settings-tabs button:focus-visible {
+    color: var(--klc-color-foreground);
+    outline: 0;
+  }
+
+  .agent-settings-tabs button.is-active {
+    border-bottom-color: var(--klc-color-selection-stroke);
+    color: var(--klc-color-foreground);
+    font-weight: 600;
+  }
+
+  .agent-settings-tools {
+    max-height: min(560px, calc(100vh - 230px));
+    overflow-y: auto;
+  }
+
+  .provider-settings-layout {
+    width: 100%;
+    max-width: 760px;
+    min-height: 420px;
+    display: grid;
+    grid-template-columns: 144px minmax(0, 1fr);
+    border: 1px solid var(--klc-color-grid-major);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .provider-settings-profiles {
+    display: grid;
+    align-content: start;
+    gap: 2px;
+    padding: 8px;
+    border-right: 1px solid var(--klc-color-grid-major);
+    background: var(--klc-color-grid-minor);
+  }
+
+  .provider-settings-profiles__header,
+  .provider-settings-models__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--klc-color-axis-text);
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .provider-settings-profiles__header {
+    justify-content: space-between;
+    padding: 0 4px 6px;
+  }
+
+  .provider-settings-profile {
+    min-width: 0;
+    padding: 7px 8px;
+    border: 0;
+    border-radius: 5px;
+    color: var(--klc-color-foreground);
+    background: transparent;
+    font: inherit;
+    font-size: 12px;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .provider-settings-profile:hover,
+  .provider-settings-profile:focus-visible {
+    background: var(--klc-color-tag-bg-hover);
+    outline: 0;
+  }
+
+  .provider-settings-profile.is-active {
+    background: var(--klc-color-background);
+    font-weight: 600;
+  }
+
+  .provider-settings-detail {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    min-width: 0;
+  }
+
+  .provider-settings-connection {
+    padding: 12px;
+    border-bottom: 1px solid var(--klc-color-grid-major);
+  }
+
+  .provider-settings-models {
+    width: 100%;
+    max-width: 760px;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .provider-settings-models__header input {
+    min-width: 0;
+    height: 28px;
+    flex: 1 1 auto;
+    padding: 0 8px;
+    border: 1px solid var(--klc-color-border-button);
+    border-radius: 5px;
+    outline: none;
+    color: var(--klc-color-foreground);
+    background: var(--klc-color-background);
+    font: inherit;
+    font-size: 11px;
+  }
+
+  .provider-settings-models__list {
+    max-height: 240px;
+    min-height: 0;
+    display: grid;
+    align-content: start;
+    overflow-y: auto;
+  }
+
+  .provider-settings-model {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 6px 4px 6px 8px;
+    border-bottom: 1px solid var(--klc-color-grid-minor);
+    color: var(--klc-color-foreground);
+    font-size: 12px;
+  }
+
+  .provider-settings-model span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .provider-settings-model button {
+    width: 24px;
+    height: 24px;
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    color: var(--klc-color-axis-text);
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .provider-settings-model button:hover:not(:disabled),
+  .provider-settings-model button:focus-visible {
+    color: var(--klc-color-selection-stroke);
+    background: var(--klc-color-tag-bg-hover);
+    outline: 0;
+  }
+
+  .provider-settings-model button:disabled {
+    opacity: 0.35;
+    cursor: default;
   }
 
   .agent-tools {
@@ -445,6 +694,16 @@
   .agent-tool__run:disabled {
     opacity: 0.5;
     cursor: default;
+  }
+
+  .provider-settings-models__refresh {
+    width: 28px;
+    height: 28px;
+    box-sizing: border-box;
+    display: grid;
+    place-items: center;
+    padding: 5px;
+    border-radius: 6px;
   }
 
   .agent-tool__error {
@@ -559,6 +818,7 @@
     gap: 6px;
     border: 1px solid var(--klc-color-border-button);
     font: inherit;
+    font-size: 12px;
     cursor: pointer;
     transition:
       background 0.15s,
@@ -568,9 +828,11 @@
   }
 
   .provider-profile-new-button {
-    width: 34px;
-    height: 34px;
-    padding: 0;
+    width: 100%;
+    height: 28px;
+    box-sizing: border-box;
+    padding: 0 8px;
+    border: 0;
     border-radius: 6px;
     color: var(--klc-color-axis-text);
     background: var(--klc-color-background);
@@ -650,5 +912,29 @@
 
   .provider-primary-button:hover:not(:disabled) {
     opacity: 0.82;
+  }
+
+  @media (max-width: 640px) {
+    .provider-settings-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .provider-settings-profiles {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      border-right: 0;
+      border-bottom: 1px solid var(--klc-color-grid-major);
+    }
+
+    .provider-settings-profiles__header {
+      grid-column: 1 / -1;
+    }
+
+    .provider-settings-models__header {
+      flex-wrap: wrap;
+    }
+
+    .provider-settings-models__header input {
+      min-width: 120px;
+    }
   }
 </style>

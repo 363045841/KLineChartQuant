@@ -110,12 +110,51 @@ describe('BrowserAgentBridge', () => {
       profileName: 'Provider example',
     })
 
-    await expect(bridge.listProviderModels()).resolves.toMatchObject({
+    await expect(bridge.listProviderModelCatalog()).resolves.toMatchObject({
       models: [{ id: 'chart-model', name: 'Chart model' }],
     })
 
     expect(fetchMock).toHaveBeenCalledWith('https://provider.example/v1/models', {
       headers: { Accept: 'application/json', Authorization: 'Bearer test-key' },
+    })
+  })
+
+  it('requests the Provider model catalog from an unsaved configuration draft', async () => {
+    const fetchMock = vi.fn(async () => modelsResponse())
+    vi.stubGlobal('fetch', fetchMock)
+    const bridge = new BrowserAgentBridge()
+    await bridge.createProviderProfile('Provider example')
+
+    await expect(
+      bridge.listProviderModelCatalog({
+        baseUrl: 'https://provider.example/v1',
+        apiKey: 'draft-key',
+        protocol: 'openai-completions',
+      }),
+    ).resolves.toMatchObject({ models: [{ id: 'chart-model', name: 'Chart model' }] })
+
+    expect(fetchMock).toHaveBeenCalledWith('https://provider.example/v1/models', {
+      headers: { Accept: 'application/json', Authorization: 'Bearer draft-key' },
+    })
+  })
+
+  it('persists a completed Provider connection before a model is selected', async () => {
+    const bridge = new BrowserAgentBridge()
+    await bridge.createProviderProfile('Provider example')
+
+    await expect(
+      bridge.saveProvider({
+        baseUrl: 'https://provider.example/v1',
+        apiKey: 'draft-key',
+        protocol: 'openai-completions',
+        profileName: 'Provider example',
+      }),
+    ).resolves.toBeUndefined()
+
+    await expect(bridge.getProviderStatus()).resolves.toMatchObject({
+      configured: true,
+      baseUrl: 'https://provider.example/v1',
+      profileName: 'Provider example',
     })
   })
 
@@ -141,6 +180,9 @@ describe('BrowserAgentBridge', () => {
       protocol: 'openai-completions',
       profileName: 'Provider example',
     })
+    const catalog = await bridge.listProviderModelCatalog()
+    await bridge.saveProviderModelPool(catalog.models)
+    await bridge.setProviderModel('chart-model')
 
     await expect(bridge.getProviderStatus()).resolves.toMatchObject({
       state: 'connected',
@@ -176,6 +218,10 @@ describe('BrowserAgentBridge', () => {
       protocol: first.protocol,
       profileName: 'Provider one',
     })
+    await bridge.saveProviderModelPool([
+      { id: 'chart-model', name: 'Chart model', compatibility: 'compatible' },
+    ])
+    await bridge.setProviderModel('chart-model')
     await bridge.createProviderProfile('Provider two')
     await bridge.testProvider(second)
     await bridge.saveProvider({
@@ -184,6 +230,10 @@ describe('BrowserAgentBridge', () => {
       protocol: second.protocol,
       profileName: 'Provider two',
     })
+    await bridge.saveProviderModelPool([
+      { id: 'chart-model', name: 'Chart model', compatibility: 'compatible' },
+    ])
+    await bridge.setProviderModel('chart-model')
 
     const profiles = await bridge.listProviderProfiles()
     expect(profiles).toMatchObject([
@@ -221,20 +271,21 @@ describe('BrowserAgentBridge', () => {
       {
         name: profileName,
         baseUrl: 'https://provider-two.example/v1',
-        modelId: 'second-model',
-        modelName: 'Second model',
+        modelId: '',
+        modelName: '',
         protocol: 'openai-completions',
-        maxOutputTokens: 16384,
+        contextWindow: undefined,
+        maxOutputTokens: undefined,
         reasoningEffort: undefined,
-        reasoningEfforts: [],
+        reasoningEfforts: undefined,
       },
     ])
     const storedProfiles = JSON.parse(
       window.localStorage.getItem('agent.provider.profiles')!,
     ) as Array<{
-      settings: Record<string, unknown>
+      settings?: Record<string, unknown>
     }>
-    expect(storedProfiles[0]!.settings).not.toHaveProperty('contextWindow')
+    expect(storedProfiles[0]!.settings).toBeUndefined()
   })
 
   it('adds a named configuration to the group before its connection details are saved', async () => {
@@ -268,9 +319,8 @@ describe('BrowserAgentBridge', () => {
     })
 
     await expect(bridge.getProviderStatus()).resolves.toMatchObject({
-      state: 'connected',
+      state: 'not-configured',
       baseUrl: 'https://provider.example/v1',
-      modelId: 'chart-model',
     })
   })
 
@@ -296,7 +346,6 @@ describe('BrowserAgentBridge', () => {
       profileName: 'Provider example',
       protocol: 'openai-completions',
     })
-
     await expect(bridge.listTools()).resolves.toContainEqual(
       expect.objectContaining({ name: 'web_search', enabled: true, available: true }),
     )
@@ -337,6 +386,10 @@ describe('BrowserAgentBridge', () => {
       protocol: 'openai-completions',
       profileName: 'Provider example',
     })
+    await bridge.saveProviderModelPool([
+      { id: 'chart-model', name: 'Chart model', compatibility: 'compatible' },
+    ])
+    await bridge.setProviderModel('chart-model')
     const [session] = await bridge.listSessions()
 
     const waitForCompletion = () =>
