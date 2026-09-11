@@ -4,6 +4,7 @@ import { createDataState } from '../../../engine/state/dataState'
 import { createDrawingState } from '../../../engine/state/drawingState'
 import { DrawingDocument } from '../../../engine/drawing/DrawingDocument'
 import { DrawingCommands } from '../../../engine/drawing/DrawingCommands'
+import { ComparisonCommands } from '../../../engine/data/comparisonCommands'
 import { MarketDataProviderRegistry } from '../../../data/provider/registry'
 import { MarketDataCache } from '../../../data/buffer/marketDataCache'
 import { createSignal } from '../../../foundation/reactivity/signal'
@@ -173,6 +174,14 @@ function createFixture() {
     timeShare: { fetch: fetchTimeShare },
     timeShareRange: { fetch: fetchTimeShareRange },
   })
+  const comparisonCommands = new ComparisonCommands({
+    getSymbols: () => [],
+    commitSymbols: () => {},
+    setComparisonViewActive: () => {},
+    validateSpec: () => {},
+    getColor: () => undefined,
+    scheduleDraw: () => {},
+  })
   const controller = createChartAgentController({
     chartId: 'chart-fixture',
     dataState,
@@ -191,6 +200,7 @@ function createFixture() {
     resolveSubPaneIndicatorId: (indicatorId) =>
       ({ RSI: 'rsi', MACD: 'macd', VOL: 'volume' })[indicatorId] ?? null,
     paneManager: { actions: paneActions, list: () => panes },
+    comparisonCommands,
     isSubPaneRendererAvailable: (indicatorId) =>
       indicatorId === 'rsi' || indicatorId === 'macd' || indicatorId === 'volume',
   })

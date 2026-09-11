@@ -58,6 +58,7 @@ import type { ScaleType } from './utils/tickPosition'
 
 // ===== 普通 imports，按路径字母排序 =====
 import { ChartDataManager } from './data/chartDataManager'
+import { ComparisonCommands } from './data/comparisonCommands'
 import { ChartDrawingFacade } from './facade/chartDrawingFacade'
 import { ChartIndicatorFacade } from './facade/chartIndicatorFacade'
 import { ChartMarkerFacade } from './facade/chartMarkerFacade'
@@ -169,6 +170,9 @@ export class Chart {
 
   /** Pane 领域公开 API。 */
   readonly panes: ChartPaneFacade
+
+  /** 对比品种领域唯一写原语。 */
+  readonly comparisonCommands: ComparisonCommands
 
   /** 指标领域公开 API。 */
   readonly indicators: ChartIndicatorFacade
@@ -359,6 +363,27 @@ export class Chart {
         this.kernel.settings.readonly.settings.peek().marketDataCacheMaxMiB,
       ),
     )
+
+    // 对比品种唯一写原语；UI 与 Agent 共用同一实例。
+    this.comparisonCommands = new ComparisonCommands({
+      getSymbols: () => this.kernel.data.readonly.symbols.peek(),
+      commitSymbols: (symbols) => this.kernel.actions.setSymbols(symbols),
+      setComparisonViewActive: (active) => {
+        if (active) {
+          this.setActiveMode(this._kLineMode)
+          this.kernel.actions.setDataView(ChartDataViewId.Comparison)
+          this.applyComparisonScaleType(true)
+          return
+        }
+        this.applyComparisonScaleType(false)
+        this.setActiveMode(this._kLineMode)
+      },
+      validateSpec: (spec) => {
+        resolveSymbolMarketSession(spec, this.marketSessions)
+      },
+      getColor: (identity) => this.kernel.comparison.readonly.colors.peek().get(identity),
+      scheduleDraw: () => this.scheduleDraw(),
+    })
 
     this.zoomController = new ChartZoomController(
       {
@@ -1429,23 +1454,14 @@ export class Chart {
     }
   }
 
+  /** 新增对比品种；选择、视图切换与重绘由 comparisonCommands 统一处理。 */
   addComparisonSymbol(spec: SymbolSpec): void {
-    resolveSymbolMarketSession(spec, this.marketSessions)
-    const hadComparisons = this.dataManager.getComparisonSpecs().length > 0
-    this.dataManager.addComparisonSymbol(spec)
-    if (!hadComparisons && this.dataManager.getComparisonSpecs().length > 0) {
-      this.setActiveMode(this._kLineMode)
-      this.kernel.actions.setDataView(ChartDataViewId.Comparison)
-      this.applyComparisonScaleType(true)
-    }
+    this.comparisonCommands.create(spec)
   }
 
+  /** 按 identity 或品种代码移除对比品种。 */
   removeComparisonSymbol(symbol: string): void {
-    this.dataManager.removeComparisonSymbol(symbol)
-    if (this.dataManager.getComparisonSpecs().length === 0) {
-      this.applyComparisonScaleType(false)
-      this.setActiveMode(this._kLineMode)
-    }
+    this.comparisonCommands.remove({ identity: symbol })
   }
 
   setComparisonData(symbol: string, data: KLineData[]): void {

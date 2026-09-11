@@ -13,9 +13,16 @@ import type {
   DrawingDocument,
 } from '../../engine/drawing/DrawingDocument'
 import type { DrawingCommands } from '../../engine/drawing/DrawingCommands'
+// 副作用导入：加载对比原语模块以执行其 @Tool 注册。
+import '../../engine/data/comparisonCommands'
+import type { ComparisonCommands } from '../../engine/data/comparisonCommands'
 import type { DrawingObject } from '../../foundation/plugin'
 
-import { Tool, getRegisteredChartTools, type ChartToolExecutionContext } from './chartToolRegistry'
+import {
+  Tool,
+  getRegisteredChartTools,
+  type ChartToolExecutionContext,
+} from '../../foundation/agent/chartToolRegistry'
 import { CHART_AGENT_ERROR_CODES } from './errors'
 import {
   createMarketDataTextFormatter,
@@ -65,6 +72,8 @@ interface ChartAgentControllerDependencies {
   readonly selectedDrawingIds: ReadonlySignal<ReadonlyArray<string>>
   readonly getDrawingPaneIds: () => ReadonlyArray<string>
   readonly paneManager: Pick<PaneManager, 'actions' | 'list'>
+  /** 对比品种唯一写原语；其 @Tool 方法即为 Agent 工具。 */
+  readonly comparisonCommands: ComparisonCommands
   /** 将 UI 或 Agent 传入的指标别名解析为注册表中的规范 ID。 */
   readonly resolveSubPaneIndicatorId: (indicatorId: string) => string | null
   readonly isSubPaneRendererAvailable: (indicatorId: string, paneId: string) => boolean
@@ -386,6 +395,11 @@ class ChartAgentControllerImpl implements ChartAgentController {
     this.context = computed(() => this.createContext())
     this.marketDataTextFormatter =
       dependencies.marketDataTextFormatter ?? createMarketDataTextFormatter()
+  }
+
+  /** 已注册 @Tool 方法、但不属于本 facade 的原语宿主。 */
+  get toolHosts(): ReadonlyArray<object> {
+    return [this.dependencies.comparisonCommands]
   }
 
   /** 从 StateKernel 派生当前图表的只读上下文。 */

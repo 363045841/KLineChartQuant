@@ -10,7 +10,7 @@ import type {
   TimeShareSeries,
 } from '../../data/provider/types'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal'
-import type { ChartToolExecutionContext } from './chartToolRegistry'
+import type { ChartToolExecutionContext } from '../../foundation/agent/chartToolRegistry'
 
 /** Inclusive timestamp range exposed to Agent consumers. */
 export interface ChartAgentTimeRange {
@@ -160,6 +160,8 @@ export interface TimeShareRangeQueryResult extends MarketDataQueryMeta {
 export interface ChartAgentController {
   /** 图表状态的只读上下文投影；无有效行情数据时为 null。 */
   readonly context: ReadonlySignal<ChartAgentContextSnapshot | null>
+  /** 已注册 @Tool 方法、但不属于本 facade 的原语宿主；Agent runtime 据此解析执行目标。 */
+  readonly toolHosts: ReadonlyArray<object>
   getContext(): ChartAgentContextSnapshot
   /** 返回当前可创建图元的 pane ID，供 Agent 修正绘图请求。 */
   getAvailableDrawingPaneIds(): ReadonlyArray<string>

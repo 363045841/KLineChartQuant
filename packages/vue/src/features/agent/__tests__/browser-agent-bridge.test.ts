@@ -594,6 +594,7 @@ describe('BrowserAgentBridge', () => {
     const agent = {
       getAvailableMarketDataSourceIds: () => [],
       getAvailableDrawingPaneIds: () => ['main'],
+      toolHosts: [],
       dependencies: { drawingCommands },
     } as unknown as ChartAgentController
     const bridge = new BrowserAgentBridge({ getChartAgent: () => agent })
@@ -612,6 +613,7 @@ describe('BrowserAgentBridge', () => {
     const agent = {
       getAvailableMarketDataSourceIds: () => [],
       getAvailableDrawingPaneIds: () => ['main', 'volume'],
+      toolHosts: [],
     } as unknown as ChartAgentController
     const bridge = new BrowserAgentBridge({ getChartAgent: () => agent })
     const resolveTools = (

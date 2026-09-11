@@ -551,6 +551,14 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     return this.profiles.active()?.exaApiKey?.trim() || undefined
   }
 
+  /** 解析工具执行目标：优先匹配已注册 @Tool 的原语宿主，否则回退到 Agent facade。 */
+  private chartToolTarget(tool: RegisteredChartTool, agent: ChartAgentController): object {
+    const host = agent.toolHosts.find(
+      (candidate) => typeof (candidate as Record<string, unknown>)[tool.config.name] === 'function',
+    )
+    return host ?? agent
+  }
+
   /** 将单个 Core 图表 API 适配为 Agent Runtime 工具，不复制领域能力。 */
   private createRegisteredTool(
     tool: RegisteredChartTool,
@@ -558,6 +566,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   ): RuntimeToolDefinition {
     const sourceIds = agent.getAvailableMarketDataSourceIds()
     const drawingPaneIds = agent.getAvailableDrawingPaneIds()
+    const target = this.chartToolTarget(tool, agent)
     return {
       ...tool.config,
       description: this.toolDescription(
@@ -573,7 +582,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
         context.progress({ label: `Running ${tool.config.label}`, current: 1, total: 1 })
         let value: unknown
         try {
-          value = await tool.execute(agent, input, {
+          value = await tool.execute(target, input, {
             signal: context.signal,
             progress: context.progress,
           })
@@ -602,6 +611,10 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     if (name === 'drawing_create') {
       const available = drawingPaneIds.length ? drawingPaneIds.join(', ') : 'none'
       return `${description} Available runtime paneIds: ${available}. Use only one of these exact values for paneId.`
+    }
+    if (name === 'comparison_create') {
+      const available = sourceIds.length ? sourceIds.join(', ') : 'none'
+      return `${description} Available runtime sourceIds: ${available}. Set source to one of these exact values when the compared instrument comes from a specific source; omit it to reuse the primary symbol's source.`
     }
     if (
       ![

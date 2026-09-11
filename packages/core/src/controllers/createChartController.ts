@@ -537,6 +537,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     selectedDrawingIds: chart.drawing.selectedIds,
     getDrawingPaneIds: () => chart.panes.getLayoutSpecs().map((pane) => pane.id),
     paneManager: chart.kernel.paneManager,
+    comparisonCommands: chart.comparisonCommands,
     resolveSubPaneIndicatorId: (indicatorId) =>
       chart.getIndicatorScheduler().getIndicatorMetadata(indicatorId)?.name ?? null,
     isSubPaneRendererAvailable: (indicatorId, paneId) => {

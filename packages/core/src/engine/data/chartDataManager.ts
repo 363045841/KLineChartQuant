@@ -924,20 +924,6 @@ export class ChartDataManager {
     this._repository.delete(selection)
   }
 
-  addComparisonSymbol(spec: SymbolSpec): void {
-    const primary = this._dataState.readonly.symbols.peek()[0]
-    if (
-      !primary ||
-      this.deps.comparison.readonly.specs
-        .peek()
-        .some((item) => symbolSpecIdentityKey(item) === symbolSpecIdentityKey(spec))
-    )
-      return
-    this.deps.setSymbols([primary, ...this.deps.comparison.readonly.specs.peek(), spec])
-    // 立即重绘，让主图右轴切到百分比轴、K 线切换为折线（不依赖比较数据加载）
-    this.deps.scheduleDraw()
-  }
-
   setComparisonData(symbol: string, data: KLineData[]): void {
     const primary = this._dataState.readonly.symbols.peek()[0]
     if (!primary) return
@@ -949,18 +935,6 @@ export class ChartDataManager {
       ])
     }
     this._comparisonManager.setData(symbol, data)
-  }
-
-  removeComparisonSymbol(identity: string): void {
-    const primary = this._dataState.readonly.symbols.peek()[0]
-    const matches = (spec: SymbolSpec) =>
-      symbolSpecIdentityKey(spec) === identity || spec.symbol === identity
-    if (!primary || !this.deps.comparison.readonly.specs.peek().some(matches)) return
-    this.deps.setSymbols([
-      primary,
-      ...this.deps.comparison.readonly.specs.peek().filter((spec) => !matches(spec)),
-    ])
-    this.deps.scheduleDraw()
   }
 
   // ── Symbol / Period ──

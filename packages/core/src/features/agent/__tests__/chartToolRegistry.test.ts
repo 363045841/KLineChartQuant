@@ -58,4 +58,19 @@ describe('Chart Agent @Tool registry', () => {
       ),
     ).rejects.toThrow('/anchors/0/tradingDate: must be string')
   })
+
+  it('registers comparison CRUD with matching safety levels', () => {
+    const tools = getRegisteredChartTools()
+
+    expect(tools.find((tool) => tool.config.name === 'comparisons_list')?.config).toMatchObject({
+      safety: 'read-only',
+      executionMode: 'parallel',
+    })
+    for (const name of ['comparison_create', 'comparison_remove', 'comparisons_clear']) {
+      expect(tools.find((tool) => tool.config.name === name)?.config).toMatchObject({
+        safety: 'destructive',
+        executionMode: 'sequential',
+      })
+    }
+  })
 })

@@ -1,4 +1,4 @@
-// 本文件注册可由 UI 与 Agent 共同调用的 Chart Agent 方法，并提供统一参数校验。
+// 本文件注册可由 UI 与 Agent 共同调用的 Core 领域方法，并提供统一参数校验。
 import { type Static, type TSchema } from 'typebox'
 import { Value } from 'typebox/value'
 
@@ -13,7 +13,7 @@ export interface ChartToolExecutionContext {
   progress(update: { readonly label: string; readonly current?: number; readonly total?: number }): void
 }
 
-/** 直接标注在 Core 图表 API 上的静态工具元数据。 */
+/** 直接标注在 Core 领域 API 上的静态工具元数据。 */
 export interface ChartToolConfig<TParameters extends TSchema = TSchema> {
   readonly name: string
   readonly label: string
@@ -23,7 +23,7 @@ export interface ChartToolConfig<TParameters extends TSchema = TSchema> {
   readonly executionMode?: 'parallel' | 'sequential'
 }
 
-/** 已注册的图表方法及其统一执行入口。 */
+/** 已注册的领域方法及其统一执行入口。 */
 export interface RegisteredChartTool {
   readonly config: ChartToolConfig
   execute(target: object, input: unknown, context: ChartToolExecutionContext): Promise<unknown>
@@ -76,8 +76,9 @@ function summarizeToolInput(input: unknown): string {
 }
 
 /**
- * 标准方法装饰器：注册 Core 图表 API，UI 与 Agent 通过同一方法调用业务能力。
+ * 标准方法装饰器：注册 Core 领域 API，UI 与 Agent 通过同一方法调用业务能力。
  * 方法的第二个可选参数只承载取消和进度等执行控制，不属于领域输入。
+ * 领域方法可同步或异步返回，注册表统一以 Promise 暴露执行结果。
  */
 export function Tool<TParameters extends TSchema>(config: ChartToolConfig<TParameters>) {
   return function <T extends object>(
@@ -85,7 +86,7 @@ export function Tool<TParameters extends TSchema>(config: ChartToolConfig<TParam
       this: T,
       input: Static<TParameters>,
       context?: ChartToolExecutionContext,
-    ) => Promise<unknown>,
+    ) => unknown | Promise<unknown>,
     context: ClassMethodDecoratorContext<T>,
   ) {
     if (context.private || context.static || typeof context.name !== 'string') {
@@ -110,7 +111,7 @@ export function Tool<TParameters extends TSchema>(config: ChartToolConfig<TParam
   }
 }
 
-/** 返回已标注的 Core 图表能力，供宿主适配为 Agent Runtime 工具。 */
+/** 返回已标注的 Core 领域能力，供宿主适配为 Agent Runtime 工具。 */
 export function getRegisteredChartTools(): readonly RegisteredChartTool[] {
   return [...registeredChartTools.values()]
 }
