@@ -84,10 +84,10 @@
     </div>
 
     <template #footer>
-      <button class="params-btn reset" @click="onReset">重置</button>
+      <BaseButton @click="onReset">重置</BaseButton>
       <div class="footer-right">
-        <button class="params-btn cancel" @click="$emit('close')">取消</button>
-        <button class="params-btn confirm" @click="onConfirm">确定</button>
+        <BaseButton @click="$emit('close')">取消</BaseButton>
+        <BaseButton @click="onConfirm">确定</BaseButton>
       </div>
     </template>
   </BaseModal>
@@ -96,6 +96,7 @@
 <script setup lang="ts">
   import { ref, watch } from 'vue'
 
+  import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
 
   interface ParamConfig {
@@ -349,65 +350,6 @@
   .footer-right {
     display: flex;
     gap: 8px;
-  }
-
-  .params-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    min-width: 68px;
-    height: 34px;
-    padding: 0 16px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    border: 0;
-    transition: all 0.15s ease;
-    line-height: 1;
-    white-space: nowrap;
-  }
-
-  .params-btn svg {
-    width: 13px;
-    height: 13px;
-    flex-shrink: 0;
-  }
-
-  /* 重置 */
-  .params-btn.reset {
-    background: color-mix(in srgb, var(--klc-color-chart-background) 92%, var(--klc-color-foreground));
-    color: var(--klc-color-axis-text);
-  }
-
-  .params-btn.reset:hover {
-    color: #f0a020;
-    background: rgba(240, 160, 32, 0.08);
-  }
-
-  /* 取消 */
-  .params-btn.cancel {
-    background: color-mix(in srgb, var(--klc-color-chart-background) 92%, var(--klc-color-foreground));
-    color: var(--klc-color-foreground);
-  }
-
-  .params-btn.cancel:hover {
-    background: color-mix(in srgb, var(--klc-color-chart-background) 86%, var(--klc-color-foreground));
-  }
-
-  /* 确定 */
-  .params-btn.confirm {
-    background: color-mix(in srgb, var(--klc-color-foreground) 80%, var(--klc-color-chart-background));
-    color: var(--klc-color-background);
-  }
-
-  .params-btn.confirm:hover {
-    opacity: 0.9;
-  }
-
-  .params-btn.confirm:active {
-    opacity: 0.8;
   }
 
   /* ── 动画 ── */

@@ -14,13 +14,12 @@
       </div>
     </template>
 
+    <template #tabs>
+      <BaseTabs v-model="activeSection" :tabs="settingsTabs" aria-label="图表设置" />
+    </template>
+
     <div class="settings-body">
-      <CollapsibleSection
-        v-if="mainSettings.length > 0"
-        label="主图设置"
-        :expanded="expandedSections.main"
-        @toggle="toggleSection('main')"
-      >
+      <template v-if="activeSection === 'main'">
         <template v-for="item in mainSettings" :key="item.key">
           <div class="settings-item">
             <span>{{ item.label }}</span>
@@ -48,13 +47,9 @@
             <span>{{ runtimeHint }}</span>
           </div>
         </template>
-      </CollapsibleSection>
+      </template>
 
-      <CollapsibleSection
-        label="数据源"
-        :expanded="expandedSections.dataSource"
-        @toggle="toggleSection('dataSource')"
-      >
+      <template v-else-if="activeSection === 'dataSource'">
         <div class="settings-item">
           <span>缓存上限</span>
           <Dropdown
@@ -94,13 +89,9 @@
             <path d="M9 18l6-6-6-6" />
           </svg>
         </div>
-      </CollapsibleSection>
+      </template>
 
-      <CollapsibleSection
-        label="样式 / 颜色"
-        :expanded="expandedSections.style"
-        @toggle="toggleSection('style')"
-      >
+      <template v-else-if="activeSection === 'style'">
         <template v-for="item in styleSettings" :key="item.key">
           <div class="settings-item">
             <span>{{ item.label }}</span>
@@ -136,14 +127,9 @@
             <path d="M9 18l6-6-6-6" />
           </svg>
         </div>
-      </CollapsibleSection>
+      </template>
 
-      <CollapsibleSection
-        v-if="experimentalSettings.length > 0"
-        label="实验性 / 调试设置"
-        :expanded="expandedSections.experimental"
-        @toggle="toggleSection('experimental')"
-      >
+      <template v-else-if="activeSection === 'experimental'">
         <template v-for="item in experimentalSettings" :key="item.key">
           <div class="settings-item experimental">
             <span>{{ item.label }}</span>
@@ -165,13 +151,9 @@
             </template>
           </div>
         </template>
-      </CollapsibleSection>
+      </template>
 
-      <CollapsibleSection
-        label="开源致谢"
-        :expanded="expandedSections.opensource"
-        @toggle="toggleSection('opensource')"
-      >
+      <template v-else-if="activeSection === 'opensource'">
         <template v-for="section in openSourceCredits" :key="section.id">
           <div class="settings-subsection-label">{{ section.title }}</div>
           <a
@@ -187,14 +169,14 @@
             <span class="credit-meta">{{ credit.version }} · {{ credit.license }}</span>
           </a>
         </template>
-      </CollapsibleSection>
+      </template>
     </div>
 
     <template #footer>
-      <button class="settings-btn reset" @click="resetSettings">重置</button>
+      <BaseButton @click="resetSettings">重置</BaseButton>
       <div class="footer-right">
-        <button class="settings-btn cancel" @click="closeSettings">取消</button>
-        <button class="settings-btn confirm" @click="confirmSettings">确定</button>
+        <BaseButton @click="closeSettings">取消</BaseButton>
+        <BaseButton @click="confirmSettings">确定</BaseButton>
       </div>
     </template>
   </BaseModal>
@@ -223,20 +205,7 @@
     @close="showColorPresetModal = false"
   >
     <template #tabs>
-      <nav class="theme-tabs" role="tablist" aria-label="颜色主题">
-        <button
-          v-for="option in colorThemeOptions"
-          :key="option.value"
-          type="button"
-          role="tab"
-          class="theme-tab"
-          :class="{ 'is-active': colorPresetTheme === option.value }"
-          :aria-selected="colorPresetTheme === option.value"
-          @click="colorPresetTheme = option.value"
-        >
-          {{ option.label }}
-        </button>
-      </nav>
+      <BaseTabs v-model="colorPresetTheme" :tabs="colorThemeOptions" aria-label="颜色主题" />
     </template>
     <ColorPresetPanel
       ref="colorPresetPanelRef"
@@ -245,16 +214,8 @@
       @update:color-preset-settings="settings = { ...settings, colorPresetSettings: $event }"
     />
     <template #footer>
-      <button
-        type="button"
-        class="settings-btn reset"
-        @click="colorPresetPanelRef?.resetCurrentThemeColors()"
-      >
-        重置颜色
-      </button>
-      <button type="button" class="settings-btn confirm" @click="showColorPresetModal = false">
-        确认
-      </button>
+      <BaseButton @click="colorPresetPanelRef?.resetCurrentThemeColors()"> 重置颜色 </BaseButton>
+      <BaseButton @click="showColorPresetModal = false">确认</BaseButton>
     </template>
   </BaseModal>
 </template>
@@ -276,9 +237,10 @@
   import { getOpenSourceCredits } from '../credits/openSourceCredits'
 
   import AggregationSourceDialog from './AggregationSourceDialog.vue'
+  import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
+  import BaseTabs from './BaseTabs.vue'
   import ColorPresetPanel from './ColorPresetPanel.vue'
-  import CollapsibleSection from './common/CollapsibleSection.vue'
   import Dropdown from './Dropdown.vue'
   import ToggleSwitch from './common/ToggleSwitch.vue'
 
@@ -328,32 +290,27 @@
 
   type SettingsSectionId = 'main' | 'style' | 'experimental' | 'dataSource' | 'opensource'
 
-  /** 所有分组默认收起，每次打开弹窗重置。 */
-  function createDefaultExpandedSections(): Record<SettingsSectionId, boolean> {
-    return {
-      main: false,
-      style: false,
-      experimental: false,
-      dataSource: false,
-      opensource: false,
+  /** 按分组可用性构建 tab 列表，空分组不出现在 tab 中。 */
+  const settingsTabs = computed<ReadonlyArray<{ id: SettingsSectionId; label: string }>>(() => {
+    const tabs: { id: SettingsSectionId; label: string }[] = []
+    if (mainSettings.value.length > 0) tabs.push({ id: 'main', label: '主图设置' })
+    tabs.push({ id: 'dataSource', label: '数据源' })
+    tabs.push({ id: 'style', label: '样式 / 颜色' })
+    if (experimentalSettings.value.length > 0) {
+      tabs.push({ id: 'experimental', label: '实验性 / 调试设置' })
     }
-  }
+    tabs.push({ id: 'opensource', label: '开源致谢' })
+    return tabs
+  })
 
-  const expandedSections = ref(createDefaultExpandedSections())
+  const activeSection = ref<SettingsSectionId>('main')
   const showAggregationSourceModal = ref(false)
   const showColorPresetModal = ref(false)
   const colorPresetTheme = ref<ColorPresetThemeName>('light')
-  const colorThemeOptions: readonly { value: ColorPresetThemeName; label: string }[] = [
-    { value: 'light', label: '浅色' },
-    { value: 'dark', label: '深色' },
+  const colorThemeOptions: readonly { id: ColorPresetThemeName; label: string }[] = [
+    { id: 'light', label: '浅色' },
+    { id: 'dark', label: '深色' },
   ]
-
-  function toggleSection(id: SettingsSectionId) {
-    expandedSections.value = {
-      ...expandedSections.value,
-      [id]: !expandedSections.value[id],
-    }
-  }
 
   function onToggleAggregationSource(name: string, enabled: boolean) {
     emit('toggleAggregationSource', name, enabled)
@@ -416,7 +373,7 @@
     (val) => {
       if (val) {
         settings.value = props.initialSettings ? { ...props.initialSettings } : loadSettings()
-        expandedSections.value = createDefaultExpandedSections()
+        activeSection.value = settingsTabs.value[0]?.id ?? 'dataSource'
       }
     },
   )
@@ -611,112 +568,6 @@
     justify-content: flex-end;
   }
 
-  .settings-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    min-width: 68px;
-    height: 34px;
-    padding: 0 16px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    border: 0;
-    transition: all 0.15s ease;
-    line-height: 1;
-    white-space: nowrap;
-  }
-
-  .settings-btn svg {
-    width: 13px;
-    height: 13px;
-    flex-shrink: 0;
-  }
-
-  .settings-btn.reset {
-    background: color-mix(
-      in srgb,
-      var(--klc-color-chart-background) 92%,
-      var(--klc-color-foreground)
-    );
-    color: var(--klc-color-axis-text);
-  }
-
-  .settings-btn.reset:hover {
-    color: #f0a020;
-    background: rgba(240, 160, 32, 0.08);
-  }
-
-  .settings-btn.cancel {
-    background: color-mix(
-      in srgb,
-      var(--klc-color-chart-background) 92%,
-      var(--klc-color-foreground)
-    );
-    color: var(--klc-color-foreground);
-  }
-
-  .settings-btn.cancel:hover {
-    background: color-mix(
-      in srgb,
-      var(--klc-color-chart-background) 86%,
-      var(--klc-color-foreground)
-    );
-  }
-
-  .settings-btn.confirm {
-    background: color-mix(
-      in srgb,
-      var(--klc-color-foreground) 80%,
-      var(--klc-color-chart-background)
-    );
-    color: var(--klc-color-background);
-  }
-
-  .settings-btn.confirm:hover {
-    opacity: 0.9;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  }
-
-  .settings-btn.confirm:active {
-    transform: scale(0.98);
-  }
-
-  .theme-tabs {
-    display: flex;
-    gap: 2px;
-    padding: 0 20px;
-    border-bottom: 1px solid var(--klc-color-agent-border);
-  }
-
-  .theme-tab {
-    padding: 8px 10px;
-    border: 0;
-    border-bottom: 2px solid transparent;
-    color: var(--klc-color-agent-muted);
-    background: transparent;
-    font: inherit;
-    font-size: 12px;
-    cursor: pointer;
-    transition:
-      border-color 0.18s ease,
-      color 0.18s ease;
-  }
-
-  .theme-tab:hover,
-  .theme-tab:focus-visible {
-    color: var(--klc-color-agent-text);
-    outline: 0;
-  }
-
-  .theme-tab.is-active {
-    border-bottom-color: var(--klc-color-agent-accent);
-    color: var(--klc-color-agent-text);
-    font-weight: 600;
-  }
-
   @media (max-width: 480px) {
     .settings-item {
       gap: 8px;
@@ -728,7 +579,7 @@
       width: 100%;
     }
 
-    .settings-btn {
+    .base-button {
       width: 100%;
     }
   }

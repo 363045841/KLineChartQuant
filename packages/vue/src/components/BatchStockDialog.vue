@@ -8,8 +8,8 @@
       spellcheck="false"
     />
     <template #footer>
-      <button class="batch-btn batch-btn--cancel" @click="emit('close')">取消</button>
-      <button class="batch-btn batch-btn--confirm" @click="onApply">应用</button>
+      <BaseButton @click="emit('close')">取消</BaseButton>
+      <BaseButton @click="onApply">应用</BaseButton>
     </template>
   </BaseModal>
 </template>
@@ -17,6 +17,7 @@
 <script setup lang="ts">
   import { ref, computed } from 'vue'
 
+  import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
 
   const props = defineProps<{
@@ -73,52 +74,5 @@
   .batch-textarea::placeholder {
     color: var(--klc-color-axis-text);
     opacity: 0.5;
-  }
-
-  .batch-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 68px;
-    height: 32px;
-    padding: 0 14px;
-    border-radius: 7px;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    border: 0;
-    transition:
-      background 0.15s,
-      color 0.15s,
-      box-shadow 0.15s,
-      transform 0.15s;
-    line-height: 1;
-    white-space: nowrap;
-  }
-
-  .batch-btn--cancel {
-    background: color-mix(in srgb, var(--klc-color-chart-background) 92%, var(--klc-color-foreground));
-    color: var(--klc-color-axis-text);
-  }
-
-  .batch-btn--cancel:hover {
-    background: color-mix(in srgb, var(--klc-color-chart-background) 86%, var(--klc-color-foreground));
-    color: var(--klc-color-foreground);
-  }
-
-  .batch-btn--confirm {
-    background: color-mix(in srgb, var(--klc-color-foreground) 80%, var(--klc-color-chart-background));
-    color: var(--klc-color-background);
-  }
-
-  .batch-btn--confirm:hover {
-    background: var(--klc-color-foreground);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
-    transform: translateY(-1px);
-  }
-
-  .batch-btn--confirm:active {
-    transform: translateY(0);
-    box-shadow: none;
   }
 </style>

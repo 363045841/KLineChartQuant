@@ -120,7 +120,7 @@
   }
 
   .base-modal {
-    background: var(--klc-color-agent-surface);
+    background: var(--klc-color-ui-surface);
     border: 0;
     border-radius: 10px;
     box-shadow: 0 18px 48px rgba(0, 0, 0, 0.15);

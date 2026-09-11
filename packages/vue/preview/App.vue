@@ -5,7 +5,6 @@
       :depth-demo-active="useDepthDemo"
       :depth-status-text="depthStatusText"
       :depth-status-class="depthStatusClass"
-      :theme="currentTheme"
       @open-modal="showModal = true"
       @toggle-embed-size="toggleEmbedSize"
       @toggle-custom-data="onToggleCustomData"

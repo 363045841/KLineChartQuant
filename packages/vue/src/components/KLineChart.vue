@@ -2029,12 +2029,12 @@
     --kmap-height: var(--kmap-chart-height, 100%);
     --kmap-width: var(--kmap-chart-width, 100%);
 
-    --chart-bg: var(--klc-color-chart-background);
-    --chart-bg-secondary: var(--klc-color-chart-background);
-    --chart-border: var(--klc-color-border-chart);
-    --chart-border-active: #1890ff;
-    --chart-text: var(--klc-color-foreground);
-    --chart-text-secondary: var(--klc-color-axis-text);
+    --chart-bg: var(--klc-color-ui-background);
+    --chart-bg-secondary: var(--klc-color-ui-background);
+    --chart-border: var(--klc-color-ui-border);
+    --chart-border-active: var(--klc-color-ui-accent);
+    --chart-text: var(--klc-color-ui-text);
+    --chart-text-secondary: var(--klc-color-ui-muted);
 
     display: flex;
     align-items: stretch;
@@ -2167,7 +2167,7 @@
     color: var(--chart-text);
     background: color-mix(
       in srgb,
-      color-mix(in srgb, var(--klc-color-chart-background) 84%, var(--klc-color-foreground)) 96%,
+      color-mix(in srgb, var(--klc-color-ui-background) 84%, var(--klc-color-ui-text)) 96%,
       transparent
     );
     font: 12px/1.3 inherit;
@@ -2192,7 +2192,7 @@
   .drawing-label-position-toolbar__button:hover,
   .drawing-label-position-toolbar__button.is-active {
     color: var(--chart-text);
-    background: var(--klc-color-grid-minor);
+    background: var(--klc-color-ui-hover);
   }
 
   .chart-container::-webkit-scrollbar {
@@ -2243,13 +2243,13 @@
     top: 0;
     z-index: 25;
     box-sizing: border-box;
-    border: 1px solid rgba(24, 144, 255, 0.75);
-    background: rgba(24, 144, 255, 0.14);
+    border: 1px solid color-mix(in srgb, var(--klc-color-ui-accent) 75%, transparent);
+    background: color-mix(in srgb, var(--klc-color-ui-accent) 14%, transparent);
     pointer-events: none;
   }
 
   .range-selection-overlay.is-dragging {
-    background: rgba(24, 144, 255, 0.2);
+    background: color-mix(in srgb, var(--klc-color-ui-accent) 20%, transparent);
   }
 
   .range-selection-handle {
@@ -2276,7 +2276,7 @@
     pointer-events: none;
     font-size: 12px;
     line-height: 18px;
-    color: var(--klc-color-foreground, #111);
+    color: var(--klc-color-ui-text, #111);
   }
 
   .canvas-layer {

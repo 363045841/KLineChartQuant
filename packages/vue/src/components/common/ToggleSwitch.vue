@@ -89,7 +89,7 @@
   }
 
   .toggle-switch input:checked + .toggle-switch__track {
-    background: var(--klc-color-primary, #2962ff);
+    background: var(--klc-color-ui-accent);
   }
 
   .toggle-switch input:checked + .toggle-switch__track .toggle-switch__thumb {

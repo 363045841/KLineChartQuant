@@ -43,7 +43,7 @@
     background: var(--agent-danger-bg);
   }
   .error-notice > svg {
-    color: var(--klc-color-agent-danger-text);
+    color: var(--klc-color-ui-danger-text);
   }
   .error-notice__body {
     min-width: 0;

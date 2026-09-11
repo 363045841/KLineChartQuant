@@ -184,7 +184,9 @@
     if (!capabilities) return undefined
     return [
       ...(capabilities.timeShare ? (['timeshare'] as const) : []),
-      ...((capabilities.timeShareRange?.maxTradingDays ?? 0) >= 5 ? (['5daytimeshare'] as const) : []),
+      ...((capabilities.timeShareRange?.maxTradingDays ?? 0) >= 5
+        ? (['5daytimeshare'] as const)
+        : []),
       ...(capabilities.bars?.periods ?? []),
     ]
   })
@@ -220,9 +222,9 @@
     align-items: center;
     gap: 6px;
     padding: 0 8px;
-    border: 1px solid var(--klc-color-border-chart);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 3px;
-    background: var(--klc-color-background);
+    background: var(--klc-color-ui-surface);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
     box-sizing: border-box;
     user-select: none;
@@ -245,10 +247,10 @@
     gap: 4px;
     padding: 0 12px;
     margin-left: auto;
-    border: 1px solid var(--klc-color-border-button);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 4px;
-    background: var(--klc-color-background);
-    color: var(--klc-color-foreground);
+    background: var(--klc-color-ui-surface);
+    color: var(--klc-color-ui-text);
     font: inherit;
     font-size: 13px;
     cursor: pointer;
@@ -259,8 +261,8 @@
   }
 
   .back-button:hover {
-    border-color: var(--klc-color-axis-text);
-    background: var(--klc-color-grid-minor);
+    border-color: var(--klc-color-ui-muted);
+    background: var(--klc-color-ui-hover);
   }
 
   @media (max-width: 768px), (max-height: 640px) {

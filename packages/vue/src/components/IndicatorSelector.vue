@@ -107,7 +107,7 @@
         <div class="footer-info">
           <span class="info-text">已激活 {{ activeCount }} 个指标</span>
         </div>
-        <button class="btn btn-confirm" @click="closeMenu">确认</button>
+        <BaseButton @click="closeMenu">确认</BaseButton>
       </template>
     </BaseModal>
 
@@ -157,6 +157,7 @@
 
   import { coreSignalToVueRef } from '../utils/signalBridge'
 
+  import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
   import IndicatorParams from './IndicatorParams.vue'
 
@@ -431,7 +432,7 @@
     padding: 2px;
     border: 1px solid var(--klc-color-border-button);
     border-radius: 6px;
-    background: var(--klc-color-agent-input);
+    background: var(--klc-color-ui-input);
   }
 
   .view-tabs__thumb {
@@ -441,7 +442,7 @@
     left: 2px;
     width: calc((100% - 4px) / 3);
     border-radius: 4px;
-    background: var(--klc-color-agent-background);
+    background: var(--klc-color-ui-background);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     transform: translateX(calc(var(--view-tab-index) * 100%));
     transition: transform 0.2s ease;
@@ -486,12 +487,12 @@
     padding: 8px 14px;
     border: 1px solid var(--klc-color-border-button);
     border-radius: 6px;
-    background: var(--klc-color-agent-input);
+    background: var(--klc-color-ui-input);
     transition: all 0.2s ease;
   }
 
   .search-box:focus-within {
-    background: var(--klc-color-agent-input);
+    background: var(--klc-color-ui-input);
     border-color: var(--klc-color-foreground);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-foreground) 8%, transparent);
   }
@@ -631,7 +632,7 @@
     padding: 0;
     border: 1px solid var(--klc-color-border-chart);
     border-radius: 6px;
-    background: var(--klc-color-agent-input);
+    background: var(--klc-color-ui-input);
     cursor: pointer;
     transition: all 0.15s ease;
     text-align: left;
@@ -661,7 +662,7 @@
 
   .indicator-card:hover:not(.disabled) {
     border-color: var(--klc-color-foreground);
-    background: var(--klc-color-agent-input);
+    background: var(--klc-color-ui-input);
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   }
@@ -739,39 +740,6 @@
   .footer-info {
     font-size: 12px;
     color: var(--klc-color-axis-text);
-  }
-
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    min-width: 68px;
-    height: 34px;
-    padding: 0 16px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    border: 0;
-    transition: all 0.15s;
-    line-height: 1;
-    white-space: nowrap;
-  }
-
-  .btn-confirm {
-    background: color-mix(
-      in srgb,
-      var(--klc-color-foreground) 80%,
-      var(--klc-color-chart-background)
-    );
-    color: var(--klc-color-background);
-  }
-
-  .btn-confirm:hover {
-    background: var(--klc-color-foreground);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
-    transform: translateY(-1px);
   }
 
   /* ── 响应式 ── */

@@ -9,36 +9,7 @@
     @close="closeProviderSettings()"
   >
     <template #tabs>
-      <nav
-        ref="tabsRef"
-        class="agent-settings-tabs"
-        role="tablist"
-        :aria-label="text.agentSettings"
-      >
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="activeTab === 'provider'"
-          :class="{ 'is-active': activeTab === 'provider' }"
-          @click="activeTab = 'provider'"
-        >
-          {{ text.providerSettings }}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="activeTab === 'tools'"
-          :class="{ 'is-active': activeTab === 'tools' }"
-          @click="activeTab = 'tools'"
-        >
-          {{ text.tools }}
-        </button>
-        <span
-          class="agent-settings-tabs__indicator"
-          aria-hidden="true"
-          :style="tabIndicatorStyle"
-        ></span>
-      </nav>
+      <BaseTabs v-model="activeTab" :tabs="agentTabs" :aria-label="text.agentSettings" />
     </template>
 
     <div class="provider-form">
@@ -255,19 +226,14 @@
     </form>
 
     <template #footer>
-      <div class="provider-actions">
-        <button type="button" class="provider-secondary-button" @click="closeCreateProfileDialog()">
-          {{ text.cancel }}
-        </button>
-        <button
-          type="submit"
-          form="agent-provider-profile-form"
-          class="provider-primary-button"
-          :disabled="!newProfileName.trim()"
-        >
-          {{ text.confirm }}
-        </button>
-      </div>
+      <BaseButton @click="closeCreateProfileDialog()">{{ text.cancel }}</BaseButton>
+      <BaseButton
+        type="submit"
+        form="agent-provider-profile-form"
+        :disabled="!newProfileName.trim()"
+      >
+        {{ text.confirm }}
+      </BaseButton>
     </template>
   </BaseModal>
 </template>
@@ -275,7 +241,9 @@
 <script setup lang="ts">
   import { computed, nextTick, ref, watch } from 'vue'
 
+  import BaseButton from '../../../components/BaseButton.vue'
   import BaseModal from '../../../components/BaseModal.vue'
+  import BaseTabs from '../../../components/BaseTabs.vue'
   import Dropdown from '../../../components/Dropdown.vue'
   import ToggleSwitch from '../../../components/common/ToggleSwitch.vue'
   import {
@@ -301,9 +269,11 @@
   const creatingProfile = ref(false)
   const newProfileName = ref('')
   const activeTab = ref<'provider' | 'tools'>('provider')
-  const tabsRef = ref<HTMLElement | null>(null)
-  const tabIndicatorStyle = ref<{ left: string; width: string }>({ left: '0px', width: '0px' })
   const text = computed(() => getAgentCopy(props.locale))
+  const agentTabs = computed<ReadonlyArray<{ id: 'provider' | 'tools'; label: string }>>(() => [
+    { id: 'provider', label: text.value.providerSettings },
+    { id: 'tools', label: text.value.tools },
+  ])
   const modelSearch = ref('')
   const visibleError = computed(() => props.providerSettings.operationError ?? props.status.error)
   const protocolOptions = computed(() =>
@@ -418,23 +388,11 @@
     props.providerSettings.close()
   }
 
-  /** 同步 tab 下划线指示器到当前激活项的位置与宽度。 */
-  function syncTabIndicator(): void {
-    const active = tabsRef.value?.querySelector<HTMLElement>('button.is-active')
-    if (!active) return
-    tabIndicatorStyle.value = { left: `${active.offsetLeft}px`, width: `${active.offsetWidth}px` }
-  }
-
-  watch(activeTab, () => {
-    void nextTick(syncTabIndicator)
-  })
-
   watch(
     () => props.providerSettings.open,
     (open) => {
       if (!open) return
       activeTab.value = 'provider'
-      void nextTick(syncTabIndicator)
     },
   )
 </script>
@@ -462,53 +420,6 @@
     overflow-y: auto;
   }
 
-  .agent-settings-tabs {
-    position: relative;
-    display: flex;
-    gap: 2px;
-    padding: 0 20px;
-    border-bottom: 1px solid var(--klc-color-agent-border);
-  }
-
-  .agent-settings-tabs button {
-    padding: 8px 10px;
-    border: 0;
-    border-bottom: 2px solid transparent;
-    color: var(--klc-color-axis-text);
-    background: transparent;
-    font: inherit;
-    font-size: 12px;
-    cursor: pointer;
-  }
-
-  .agent-settings-tabs button:hover,
-  .agent-settings-tabs button:focus-visible {
-    color: var(--klc-color-foreground);
-    outline: 0;
-  }
-
-  .agent-settings-tabs button.is-active {
-    color: var(--klc-color-agent-text);
-    font-weight: 600;
-  }
-
-  .agent-settings-tabs__indicator {
-    position: absolute;
-    bottom: 0;
-    height: 2px;
-    border-radius: 1px;
-    background: var(--klc-color-agent-accent);
-    transition:
-      left 0.2s ease,
-      width 0.2s ease;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .agent-settings-tabs__indicator {
-      transition: none;
-    }
-  }
-
   .agent-settings-tools {
     max-height: min(560px, calc(100vh - 230px));
     overflow-y: auto;
@@ -520,7 +431,7 @@
     min-height: 420px;
     display: grid;
     grid-template-columns: 144px minmax(0, 1fr);
-    border: 1px solid var(--klc-color-agent-border);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 8px;
     overflow: hidden;
   }
@@ -530,7 +441,7 @@
     flex-direction: column;
     gap: 2px;
     padding: 8px;
-    border-right: 1px solid var(--klc-color-agent-border);
+    border-right: 1px solid var(--klc-color-ui-border);
   }
 
   .provider-settings-profiles__header,
@@ -538,7 +449,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    color: var(--klc-color-agent-muted);
+    color: var(--klc-color-ui-muted);
     font-size: 11px;
     font-weight: 500;
   }
@@ -553,7 +464,7 @@
     padding: 7px 10px;
     border: 0;
     border-radius: 5px;
-    color: var(--klc-color-agent-muted);
+    color: var(--klc-color-ui-muted);
     background: transparent;
     font: inherit;
     font-size: 12px;
@@ -568,20 +479,20 @@
   }
 
   .provider-settings-profile:hover {
-    color: var(--klc-color-agent-text);
-    background: var(--klc-color-agent-hover);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-hover);
   }
 
   .provider-settings-profile:focus-visible {
-    color: var(--klc-color-agent-text);
-    background: var(--klc-color-agent-hover);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-agent-accent) 24%, transparent);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-hover);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 24%, transparent);
     outline: 0;
   }
 
   .provider-settings-profile.is-active {
-    color: var(--klc-color-agent-text);
-    background: var(--klc-color-agent-hover);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-hover);
     font-weight: 600;
   }
 
@@ -593,7 +504,7 @@
 
   .provider-settings-connection {
     padding: 12px;
-    border-bottom: 1px solid var(--klc-color-agent-border);
+    border-bottom: 1px solid var(--klc-color-ui-border);
   }
 
   .provider-settings-models {
@@ -611,11 +522,11 @@
     height: 28px;
     flex: 1 1 auto;
     padding: 0 8px;
-    border: 1px solid var(--klc-color-agent-border);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 8px;
     outline: none;
-    color: var(--klc-color-agent-text);
-    background: var(--klc-color-agent-input);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-input);
     font: inherit;
     font-size: 11px;
     transition:
@@ -639,7 +550,7 @@
     justify-content: space-between;
     gap: 10px;
     padding: 6px 4px 6px 8px;
-    border-bottom: 1px solid var(--klc-color-agent-border);
+    border-bottom: 1px solid var(--klc-color-ui-border);
     color: var(--klc-color-foreground);
     font-size: 12px;
   }
@@ -672,7 +583,7 @@
     display: grid;
     gap: 10px;
     padding: 10px 12px;
-    border: 1px solid var(--klc-color-agent-border);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 6px;
   }
 
@@ -724,10 +635,10 @@
     min-height: 74px;
     margin: 0;
     padding: 8px;
-    border: 1px solid var(--klc-color-agent-border);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 4px;
-    color: var(--klc-color-agent-text);
-    background: var(--klc-color-agent-input);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-input);
     font:
       11px/1.4 ui-monospace,
       SFMono-Regular,
@@ -740,10 +651,10 @@
   .agent-tool__run {
     justify-self: start;
     padding: 5px 10px;
-    border: 1px solid var(--klc-color-agent-border);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 4px;
-    color: var(--klc-color-agent-text);
-    background: var(--klc-color-agent-input);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-input);
     cursor: pointer;
     font: inherit;
     font-size: 11px;
@@ -766,7 +677,7 @@
 
   .agent-tool__error {
     margin: 0;
-    color: var(--klc-color-agent-error);
+    color: var(--klc-color-ui-danger-text);
     font-size: 11px;
   }
 
@@ -786,7 +697,7 @@
   }
 
   .provider-field__label {
-    color: var(--klc-color-agent-muted);
+    color: var(--klc-color-ui-muted);
     font-size: 11px;
     font-weight: 500;
   }
@@ -798,11 +709,11 @@
     height: 34px;
     box-sizing: border-box;
     padding: 0 10px;
-    border: 1px solid var(--klc-color-agent-border);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 8px;
     outline: none;
-    color: var(--klc-color-agent-text);
-    background: var(--klc-color-agent-input);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-input);
     font: inherit;
     font-size: 12px;
     transition:
@@ -815,7 +726,7 @@
   .provider-field textarea:disabled,
   .provider-field select:disabled,
   .provider-settings-models__header input:disabled {
-    color: var(--klc-color-agent-muted);
+    color: var(--klc-color-ui-muted);
     background: transparent;
     cursor: not-allowed;
   }
@@ -823,7 +734,7 @@
   .provider-field input::placeholder,
   .provider-field textarea::placeholder,
   .provider-settings-models__header input::placeholder {
-    color: var(--klc-color-agent-text-soft);
+    color: var(--klc-color-ui-text-soft);
     opacity: 0.55;
   }
 
@@ -837,15 +748,15 @@
 
   .provider-protocol-control {
     width: 100%;
-    --dropdown-trigger-background: var(--klc-color-agent-input);
-    --dropdown-trigger-color: var(--klc-color-agent-text);
-    --dropdown-trigger-chevron: var(--klc-color-agent-muted);
-    --dropdown-trigger-active-border: var(--klc-color-agent-border-strong);
-    --dropdown-trigger-active-background: var(--klc-color-agent-hover);
-    --dropdown-trigger-focus-border: var(--klc-color-agent-accent);
-    --dropdown-trigger-focus-background: var(--klc-color-agent-hover);
+    --dropdown-trigger-background: var(--klc-color-ui-input);
+    --dropdown-trigger-color: var(--klc-color-ui-text);
+    --dropdown-trigger-chevron: var(--klc-color-ui-muted);
+    --dropdown-trigger-active-border: var(--klc-color-ui-border-strong);
+    --dropdown-trigger-active-background: var(--klc-color-ui-hover);
+    --dropdown-trigger-focus-border: var(--klc-color-ui-accent);
+    --dropdown-trigger-focus-background: var(--klc-color-ui-hover);
     --dropdown-trigger-focus-shadow: 0 0 0 2px
-      color-mix(in srgb, var(--klc-color-agent-accent) 24%, transparent);
+      color-mix(in srgb, var(--klc-color-ui-accent) 24%, transparent);
   }
 
   .provider-model-dropdown {
@@ -882,14 +793,12 @@
     padding: 0 10px;
   }
 
-  .provider-profile-new-button,
-  .provider-secondary-button,
-  .provider-primary-button {
+  .provider-profile-new-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    border: 1px solid var(--klc-color-agent-border);
+    border: 1px solid var(--klc-color-ui-border);
     font: inherit;
     font-size: 12px;
     cursor: pointer;
@@ -908,32 +817,14 @@
     padding: 0 8px;
     border: 0;
     border-radius: 6px;
-    color: var(--klc-color-agent-text);
-    background: var(--klc-color-agent-input);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-input);
   }
 
   .provider-profile-new-button:hover:not(:disabled) {
-    border-color: var(--klc-color-agent-border-strong);
-    color: var(--klc-color-agent-text);
-    background: var(--klc-color-agent-hover);
-  }
-
-  .provider-primary-button:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-
-  .provider-secondary-button {
-    padding: 0 12px;
-    border-radius: 6px;
-    color: var(--klc-color-agent-text);
-    background: var(--klc-color-agent-input);
-  }
-
-  .provider-secondary-button:hover {
-    border-color: var(--klc-color-agent-border-strong);
-    color: var(--klc-color-agent-text);
-    background: var(--klc-color-agent-hover);
+    border-color: var(--klc-color-ui-border-strong);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-hover);
   }
 
   .provider-error {
@@ -941,9 +832,9 @@
     grid-template-columns: 16px minmax(0, 1fr);
     gap: 8px;
     padding: 10px 12px;
-    border: 1px solid var(--klc-color-agent-border);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 6px;
-    color: var(--klc-color-agent-danger-text);
+    color: var(--klc-color-ui-danger-text);
     font-size: 11px;
     line-height: 1.45;
   }
@@ -964,29 +855,6 @@
     font-weight: 600;
   }
 
-  .provider-actions {
-    display: flex;
-    gap: 8px;
-  }
-
-  .provider-primary-button {
-    min-height: 32px;
-    padding: 0 12px;
-    border-radius: 7px;
-    font-size: 12px;
-    white-space: nowrap;
-  }
-
-  .provider-primary-button {
-    border-color: var(--klc-color-agent-border);
-    color: var(--klc-color-agent-text);
-    background: var(--klc-color-agent-input);
-  }
-
-  .provider-primary-button:hover:not(:disabled) {
-    opacity: 0.82;
-  }
-
   @media (max-width: 640px) {
     .provider-settings-layout {
       grid-template-columns: 1fr;
@@ -996,7 +864,7 @@
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       border-right: 0;
-      border-bottom: 1px solid var(--klc-color-agent-border);
+      border-bottom: 1px solid var(--klc-color-ui-border);
     }
 
     .provider-settings-profiles__header {

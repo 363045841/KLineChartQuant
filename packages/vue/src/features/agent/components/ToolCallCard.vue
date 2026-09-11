@@ -164,13 +164,13 @@
   }
 
   .tool-card[data-status='succeeded'] .tool-card__icon {
-    color: var(--klc-color-agent-success);
+    color: var(--klc-color-ui-success);
   }
   .tool-card[data-status='failed'] .tool-card__icon {
-    color: var(--klc-color-agent-danger-text);
+    color: var(--klc-color-ui-danger-text);
   }
   .tool-card[data-status='requires-confirmation'] .tool-card__icon {
-    color: var(--klc-color-agent-warning-text);
+    color: var(--klc-color-ui-warning-text);
   }
 
   .tool-card__title {
@@ -239,7 +239,7 @@
   .tool-card__error {
     padding: 7px;
     border-radius: var(--tool-card-radius);
-    color: var(--klc-color-agent-danger-text);
+    color: var(--klc-color-ui-danger-text);
     background: var(--agent-danger-bg);
   }
 

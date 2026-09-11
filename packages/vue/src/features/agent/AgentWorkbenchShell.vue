@@ -161,9 +161,9 @@
 
 <style scoped>
   .agent-workbench-shell {
-    --agent-bg: var(--klc-color-agent-background);
-    --agent-text: var(--klc-color-agent-text);
-    --agent-focus: var(--klc-color-agent-focus);
+    --agent-bg: var(--klc-color-ui-background);
+    --agent-text: var(--klc-color-ui-text);
+    --agent-focus: var(--klc-color-ui-focus);
 
     width: 100%;
     height: 100%;
@@ -202,7 +202,7 @@
     position: relative;
     z-index: 3;
     overflow: hidden;
-    border-left: 1px solid var(--klc-color-agent-border);
+    border-left: 1px solid var(--klc-color-ui-border);
     background: var(--agent-bg);
   }
 
@@ -220,7 +220,7 @@
     align-items: center;
     gap: 6px;
     padding: 0 10px;
-    border: 1px solid var(--klc-color-agent-border);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 5px;
     color: var(--agent-text);
     background: var(--klc-color-agent-launcher-background);
@@ -269,7 +269,7 @@
     right: 0;
     bottom: 0;
     z-index: 31;
-    border-left: 1px solid var(--klc-color-agent-border);
+    border-left: 1px solid var(--klc-color-ui-border);
     box-shadow: -12px 0 32px var(--klc-color-agent-panel-shadow);
   }
 
