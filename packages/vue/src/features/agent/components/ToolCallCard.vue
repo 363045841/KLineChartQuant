@@ -127,9 +127,10 @@
 
 <style scoped>
   .tool-card {
+    --tool-card-radius: 6px;
     padding: 10px;
     border: 1px solid var(--agent-border);
-    border-radius: 6px;
+    border-radius: var(--tool-card-radius);
     background: var(--agent-card);
     color: var(--agent-text);
   }
@@ -237,8 +238,7 @@
 
   .tool-card__error {
     padding: 7px;
-    border: 1px solid var(--klc-color-agent-danger-border);
-    border-radius: 4px;
+    border-radius: var(--tool-card-radius);
     color: var(--klc-color-agent-danger-text);
     background: var(--agent-danger-bg);
   }
@@ -292,7 +292,7 @@
     align-items: center;
     gap: 5px;
     padding: 0 8px;
-    border: 1px solid var(--agent-border-strong);
+    border: 1px solid var(--agent-border);
     border-radius: 4px;
     color: var(--agent-text);
     background: var(--agent-input);

@@ -9,7 +9,12 @@
     @close="closeProviderSettings()"
   >
     <template #tabs>
-      <nav class="agent-settings-tabs" role="tablist" :aria-label="text.agentSettings">
+      <nav
+        ref="tabsRef"
+        class="agent-settings-tabs"
+        role="tablist"
+        :aria-label="text.agentSettings"
+      >
         <button
           type="button"
           role="tab"
@@ -28,6 +33,11 @@
         >
           {{ text.tools }}
         </button>
+        <span
+          class="agent-settings-tabs__indicator"
+          aria-hidden="true"
+          :style="tabIndicatorStyle"
+        ></span>
       </nav>
     </template>
 
@@ -291,6 +301,8 @@
   const creatingProfile = ref(false)
   const newProfileName = ref('')
   const activeTab = ref<'provider' | 'tools'>('provider')
+  const tabsRef = ref<HTMLElement | null>(null)
+  const tabIndicatorStyle = ref<{ left: string; width: string }>({ left: '0px', width: '0px' })
   const text = computed(() => getAgentCopy(props.locale))
   const modelSearch = ref('')
   const visibleError = computed(() => props.providerSettings.operationError ?? props.status.error)
@@ -406,11 +418,23 @@
     props.providerSettings.close()
   }
 
+  /** 同步 tab 下划线指示器到当前激活项的位置与宽度。 */
+  function syncTabIndicator(): void {
+    const active = tabsRef.value?.querySelector<HTMLElement>('button.is-active')
+    if (!active) return
+    tabIndicatorStyle.value = { left: `${active.offsetLeft}px`, width: `${active.offsetWidth}px` }
+  }
+
+  watch(activeTab, () => {
+    void nextTick(syncTabIndicator)
+  })
+
   watch(
     () => props.providerSettings.open,
     (open) => {
       if (!open) return
       activeTab.value = 'provider'
+      void nextTick(syncTabIndicator)
     },
   )
 </script>
@@ -439,11 +463,11 @@
   }
 
   .agent-settings-tabs {
+    position: relative;
     display: flex;
     gap: 2px;
     padding: 0 20px;
-    border-bottom: 1px solid var(--klc-color-grid-major);
-    background: var(--klc-color-background);
+    border-bottom: 1px solid var(--klc-color-agent-border);
   }
 
   .agent-settings-tabs button {
@@ -464,9 +488,25 @@
   }
 
   .agent-settings-tabs button.is-active {
-    border-bottom-color: var(--klc-color-selection-stroke);
-    color: var(--klc-color-foreground);
+    color: var(--klc-color-agent-text);
     font-weight: 600;
+  }
+
+  .agent-settings-tabs__indicator {
+    position: absolute;
+    bottom: 0;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--klc-color-agent-accent);
+    transition:
+      left 0.2s ease,
+      width 0.2s ease;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .agent-settings-tabs__indicator {
+      transition: none;
+    }
   }
 
   .agent-settings-tools {
@@ -480,7 +520,7 @@
     min-height: 420px;
     display: grid;
     grid-template-columns: 144px minmax(0, 1fr);
-    border: 1px solid var(--klc-color-grid-major);
+    border: 1px solid var(--klc-color-agent-border);
     border-radius: 8px;
     overflow: hidden;
   }
@@ -490,8 +530,7 @@
     flex-direction: column;
     gap: 2px;
     padding: 8px;
-    border-right: 1px solid var(--klc-color-grid-major);
-    background: var(--klc-color-grid-minor);
+    border-right: 1px solid var(--klc-color-agent-border);
   }
 
   .provider-settings-profiles__header,
@@ -499,7 +538,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-agent-muted);
     font-size: 11px;
     font-weight: 500;
   }
@@ -511,10 +550,10 @@
 
   .provider-settings-profile {
     min-width: 0;
-    padding: 7px 8px;
+    padding: 7px 10px;
     border: 0;
     border-radius: 5px;
-    color: var(--klc-color-foreground);
+    color: var(--klc-color-agent-muted);
     background: transparent;
     font: inherit;
     font-size: 12px;
@@ -523,16 +562,26 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     cursor: pointer;
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease;
   }
 
-  .provider-settings-profile:hover,
+  .provider-settings-profile:hover {
+    color: var(--klc-color-agent-text);
+    background: var(--klc-color-agent-hover);
+  }
+
   .provider-settings-profile:focus-visible {
-    background: var(--klc-color-tag-bg-hover);
+    color: var(--klc-color-agent-text);
+    background: var(--klc-color-agent-hover);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-agent-accent) 24%, transparent);
     outline: 0;
   }
 
   .provider-settings-profile.is-active {
-    background: var(--klc-color-background);
+    color: var(--klc-color-agent-text);
+    background: var(--klc-color-agent-hover);
     font-weight: 600;
   }
 
@@ -544,7 +593,7 @@
 
   .provider-settings-connection {
     padding: 12px;
-    border-bottom: 1px solid var(--klc-color-grid-major);
+    border-bottom: 1px solid var(--klc-color-agent-border);
   }
 
   .provider-settings-models {
@@ -562,11 +611,11 @@
     height: 28px;
     flex: 1 1 auto;
     padding: 0 8px;
-    border: 1px solid transparent;
+    border: 1px solid var(--klc-color-agent-border);
     border-radius: 8px;
     outline: none;
-    color: var(--klc-color-foreground);
-    background: var(--klc-color-grid-minor);
+    color: var(--klc-color-agent-text);
+    background: var(--klc-color-agent-input);
     font: inherit;
     font-size: 11px;
     transition:
@@ -590,7 +639,7 @@
     justify-content: space-between;
     gap: 10px;
     padding: 6px 4px 6px 8px;
-    border-bottom: 1px solid var(--klc-color-grid-minor);
+    border-bottom: 1px solid var(--klc-color-agent-border);
     color: var(--klc-color-foreground);
     font-size: 12px;
   }
@@ -623,7 +672,7 @@
     display: grid;
     gap: 10px;
     padding: 10px 12px;
-    border: 1px solid var(--klc-color-grid-major);
+    border: 1px solid var(--klc-color-agent-border);
     border-radius: 6px;
   }
 
@@ -675,10 +724,10 @@
     min-height: 74px;
     margin: 0;
     padding: 8px;
-    border: 1px solid var(--klc-color-border-button);
+    border: 1px solid var(--klc-color-agent-border);
     border-radius: 4px;
-    color: var(--klc-color-foreground);
-    background: var(--klc-color-background);
+    color: var(--klc-color-agent-text);
+    background: var(--klc-color-agent-input);
     font:
       11px/1.4 ui-monospace,
       SFMono-Regular,
@@ -691,10 +740,10 @@
   .agent-tool__run {
     justify-self: start;
     padding: 5px 10px;
-    border: 1px solid var(--klc-color-border-button);
+    border: 1px solid var(--klc-color-agent-border);
     border-radius: 4px;
-    color: var(--klc-color-foreground);
-    background: var(--klc-color-background);
+    color: var(--klc-color-agent-text);
+    background: var(--klc-color-agent-input);
     cursor: pointer;
     font: inherit;
     font-size: 11px;
@@ -737,7 +786,7 @@
   }
 
   .provider-field__label {
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-agent-muted);
     font-size: 11px;
     font-weight: 500;
   }
@@ -749,11 +798,11 @@
     height: 34px;
     box-sizing: border-box;
     padding: 0 10px;
-    border: 1px solid transparent;
+    border: 1px solid var(--klc-color-agent-border);
     border-radius: 8px;
     outline: none;
-    color: var(--klc-color-foreground);
-    background: var(--klc-color-grid-minor);
+    color: var(--klc-color-agent-text);
+    background: var(--klc-color-agent-input);
     font: inherit;
     font-size: 12px;
     transition:
@@ -766,7 +815,7 @@
   .provider-field textarea:disabled,
   .provider-field select:disabled,
   .provider-settings-models__header input:disabled {
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-agent-muted);
     background: transparent;
     cursor: not-allowed;
   }
@@ -774,7 +823,7 @@
   .provider-field input::placeholder,
   .provider-field textarea::placeholder,
   .provider-settings-models__header input::placeholder {
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-agent-text-soft);
     opacity: 0.55;
   }
 
@@ -788,6 +837,15 @@
 
   .provider-protocol-control {
     width: 100%;
+    --dropdown-trigger-background: var(--klc-color-agent-input);
+    --dropdown-trigger-color: var(--klc-color-agent-text);
+    --dropdown-trigger-chevron: var(--klc-color-agent-muted);
+    --dropdown-trigger-active-border: var(--klc-color-agent-border-strong);
+    --dropdown-trigger-active-background: var(--klc-color-agent-hover);
+    --dropdown-trigger-focus-border: var(--klc-color-agent-accent);
+    --dropdown-trigger-focus-background: var(--klc-color-agent-hover);
+    --dropdown-trigger-focus-shadow: 0 0 0 2px
+      color-mix(in srgb, var(--klc-color-agent-accent) 24%, transparent);
   }
 
   .provider-model-dropdown {
@@ -831,7 +889,7 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    border: 1px solid var(--klc-color-border-button);
+    border: 1px solid var(--klc-color-agent-border);
     font: inherit;
     font-size: 12px;
     cursor: pointer;
@@ -850,14 +908,14 @@
     padding: 0 8px;
     border: 0;
     border-radius: 6px;
-    color: var(--klc-color-axis-text);
-    background: var(--klc-color-background);
+    color: var(--klc-color-agent-text);
+    background: var(--klc-color-agent-input);
   }
 
   .provider-profile-new-button:hover:not(:disabled) {
-    border-color: var(--klc-color-axis-line);
-    color: var(--klc-color-foreground);
-    background: var(--klc-color-tag-bg-hover);
+    border-color: var(--klc-color-agent-border-strong);
+    color: var(--klc-color-agent-text);
+    background: var(--klc-color-agent-hover);
   }
 
   .provider-primary-button:disabled {
@@ -868,14 +926,14 @@
   .provider-secondary-button {
     padding: 0 12px;
     border-radius: 6px;
-    color: var(--klc-color-axis-text);
-    background: var(--klc-color-background);
+    color: var(--klc-color-agent-text);
+    background: var(--klc-color-agent-input);
   }
 
   .provider-secondary-button:hover {
-    border-color: var(--klc-color-axis-line);
-    color: var(--klc-color-foreground);
-    background: var(--klc-color-tag-bg-hover);
+    border-color: var(--klc-color-agent-border-strong);
+    color: var(--klc-color-agent-text);
+    background: var(--klc-color-agent-hover);
   }
 
   .provider-error {
@@ -883,10 +941,9 @@
     grid-template-columns: 16px minmax(0, 1fr);
     gap: 8px;
     padding: 10px 12px;
-    border: 1px solid var(--klc-color-agent-danger-border);
+    border: 1px solid var(--klc-color-agent-border);
     border-radius: 6px;
     color: var(--klc-color-agent-danger-text);
-    background: var(--klc-color-background);
     font-size: 11px;
     line-height: 1.45;
   }
@@ -921,9 +978,9 @@
   }
 
   .provider-primary-button {
-    border-color: var(--klc-color-foreground);
-    color: var(--klc-color-background);
-    background: var(--klc-color-foreground);
+    border-color: var(--klc-color-agent-border);
+    color: var(--klc-color-agent-text);
+    background: var(--klc-color-agent-input);
   }
 
   .provider-primary-button:hover:not(:disabled) {
@@ -939,7 +996,7 @@
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       border-right: 0;
-      border-bottom: 1px solid var(--klc-color-grid-major);
+      border-bottom: 1px solid var(--klc-color-agent-border);
     }
 
     .provider-settings-profiles__header {

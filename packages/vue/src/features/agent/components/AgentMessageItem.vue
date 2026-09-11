@@ -231,7 +231,7 @@
 
   .message__content--markdown :deep(blockquote) {
     padding-left: 10px;
-    border-left: 3px solid var(--agent-border-strong);
+    border-left: 3px solid var(--agent-border);
     color: var(--agent-text-soft);
   }
 

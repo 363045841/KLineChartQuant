@@ -75,7 +75,7 @@
     align-items: center;
     gap: 5px;
     padding: 0 8px;
-    border: 1px solid var(--agent-border-strong);
+    border: 1px solid var(--agent-border);
     border-radius: 4px;
     color: var(--agent-text);
     background: var(--agent-input);

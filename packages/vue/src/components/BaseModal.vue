@@ -120,7 +120,7 @@
   }
 
   .base-modal {
-    background: var(--klc-color-background, #ffffff);
+    background: var(--klc-color-agent-surface);
     border: 0;
     border-radius: 10px;
     box-shadow: 0 18px 48px rgba(0, 0, 0, 0.15);
@@ -135,7 +135,6 @@
     justify-content: space-between;
     align-items: center;
     padding: 14px 18px 14px 20px;
-    background: var(--klc-color-background, #ffffff);
     flex-shrink: 0;
     gap: 12px;
   }
@@ -220,19 +219,16 @@
     position: relative;
     flex-shrink: 0;
     padding: 16px 20px;
-    background: var(--klc-color-background, #ffffff);
   }
 
   .base-tabs {
     flex-shrink: 0;
-    background: var(--klc-color-background, #ffffff);
   }
 
   .base-body {
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    background: var(--klc-color-background, #ffffff);
   }
 
   .base-body--scrollable {
@@ -246,7 +242,6 @@
     justify-content: flex-end;
     gap: 8px;
     padding: 12px 20px;
-    background: var(--klc-color-background, #ffffff);
     flex-shrink: 0;
   }
 

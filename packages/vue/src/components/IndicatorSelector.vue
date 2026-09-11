@@ -30,7 +30,13 @@
               @input="controller.setSearchQuery(($event.target as HTMLInputElement).value)"
             />
           </div>
-          <div class="view-tabs" role="tablist" aria-label="指标视图">
+          <div
+            class="view-tabs"
+            role="tablist"
+            aria-label="指标视图"
+            :style="{ '--view-tab-index': activeViewIndex }"
+          >
+            <span class="view-tabs__thumb" aria-hidden="true"></span>
             <button
               v-for="option in viewOptions"
               :key="option.value"
@@ -230,6 +236,14 @@
     { value: 'type', label: '按类型' },
   ]
 
+  /** 当前视图在 viewOptions 中的下标，供 view-tabs 滑块定位。 */
+  const activeViewIndex = computed(() =>
+    Math.max(
+      0,
+      viewOptions.findIndex((option) => option.value === indicatorView.value),
+    ),
+  )
+
   /** 按当前视图组织搜索后的指标，所有分组始终保持展开。 */
   const indicatorGroups = computed<IndicatorGroup[]>(() => {
     if (props.replacePaneId) {
@@ -410,16 +424,38 @@
   }
 
   .view-tabs {
+    position: relative;
     display: grid;
     grid-template-columns: repeat(3, minmax(64px, 1fr));
     flex: 0 0 auto;
     padding: 2px;
     border: 1px solid var(--klc-color-border-button);
     border-radius: 6px;
-    background: var(--klc-color-grid-minor);
+    background: var(--klc-color-agent-input);
+  }
+
+  .view-tabs__thumb {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    left: 2px;
+    width: calc((100% - 4px) / 3);
+    border-radius: 4px;
+    background: var(--klc-color-agent-background);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    transform: translateX(calc(var(--view-tab-index) * 100%));
+    transition: transform 0.2s ease;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .view-tabs__thumb {
+      transition: none;
+    }
   }
 
   .view-tab {
+    position: relative;
+    z-index: 1;
     height: 30px;
     padding: 0 12px;
     border: 0;
@@ -436,10 +472,8 @@
   }
 
   .view-tab.active {
-    background: var(--klc-color-background);
     color: var(--klc-color-foreground);
     font-weight: 600;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   }
 
   /* ── 搜索 ── */
@@ -452,12 +486,12 @@
     padding: 8px 14px;
     border: 1px solid var(--klc-color-border-button);
     border-radius: 6px;
-    background: var(--klc-color-background);
+    background: var(--klc-color-agent-input);
     transition: all 0.2s ease;
   }
 
   .search-box:focus-within {
-    background: var(--klc-color-background);
+    background: var(--klc-color-agent-input);
     border-color: var(--klc-color-foreground);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-foreground) 8%, transparent);
   }
@@ -597,7 +631,7 @@
     padding: 0;
     border: 1px solid var(--klc-color-border-chart);
     border-radius: 6px;
-    background: var(--klc-color-background);
+    background: var(--klc-color-agent-input);
     cursor: pointer;
     transition: all 0.15s ease;
     text-align: left;
@@ -627,7 +661,7 @@
 
   .indicator-card:hover:not(.disabled) {
     border-color: var(--klc-color-foreground);
-    background: var(--klc-color-background);
+    background: var(--klc-color-agent-input);
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   }

@@ -220,7 +220,7 @@
     align-items: center;
     gap: 6px;
     padding: 0 10px;
-    border: 1px solid var(--klc-color-agent-launcher-border);
+    border: 1px solid var(--klc-color-agent-border);
     border-radius: 5px;
     color: var(--agent-text);
     background: var(--klc-color-agent-launcher-background);

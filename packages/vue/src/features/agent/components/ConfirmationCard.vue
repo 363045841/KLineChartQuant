@@ -59,7 +59,7 @@
     display: grid;
     gap: 9px;
     padding: 11px;
-    border: 1px solid var(--klc-color-agent-warning-border);
+    border: 1px solid var(--klc-color-agent-border);
     border-radius: 6px;
     background: var(--agent-warning-bg);
     color: var(--agent-text);
@@ -124,7 +124,7 @@
     align-items: center;
     gap: 5px;
     padding: 0 10px;
-    border: 1px solid var(--agent-border-strong);
+    border: 1px solid var(--agent-border);
     border-radius: 4px;
     font: inherit;
     font-size: 11px;
@@ -135,7 +135,7 @@
     background: var(--agent-input);
   }
   .confirmation__confirm {
-    border-color: var(--klc-color-agent-warning-strong);
+    border-color: var(--klc-color-agent-border);
     color: var(--klc-color-agent-on-accent);
     background: var(--klc-color-agent-warning-strong);
   }

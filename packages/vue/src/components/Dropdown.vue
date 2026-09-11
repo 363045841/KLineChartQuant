@@ -198,7 +198,7 @@
     align-items: center;
     gap: 6px;
     padding: 0 8px;
-    border: 1px solid transparent;
+    border: 1px solid var(--dropdown-trigger-border, var(--klc-color-agent-border));
     border-radius: 8px;
     background: var(--dropdown-trigger-background, var(--klc-color-grid-minor));
     color: var(--dropdown-trigger-color, var(--klc-color-foreground));
@@ -222,16 +222,16 @@
 
   .dropdown__trigger:hover:not(:disabled),
   .dropdown.is-open .dropdown__trigger {
-    border-color: var(--dropdown-trigger-active-border, var(--klc-color-border-button));
-    background: var(--dropdown-trigger-active-background, var(--klc-color-background));
+    border-color: var(--dropdown-trigger-active-border, var(--klc-color-agent-border-strong));
+    background: var(--dropdown-trigger-active-background, var(--klc-color-agent-hover));
   }
 
   .dropdown__trigger:focus-visible {
-    border-color: var(--dropdown-trigger-focus-border, var(--klc-color-selection-stroke));
-    background: var(--dropdown-trigger-focus-background, var(--klc-color-background));
+    border-color: var(--dropdown-trigger-focus-border, var(--klc-color-agent-accent));
+    background: var(--dropdown-trigger-focus-background, var(--klc-color-agent-hover));
     box-shadow: var(
       --dropdown-trigger-focus-shadow,
-      0 0 0 2px color-mix(in srgb, var(--klc-color-selection-stroke) 24%, transparent)
+      0 0 0 2px color-mix(in srgb, var(--klc-color-agent-accent) 24%, transparent)
     );
     outline: 0;
   }
@@ -282,8 +282,8 @@
   .dropdown__menu {
     padding: 4px;
     border: 0;
-    border-radius: 4px;
-    background: var(--klc-color-floating-surface);
+    border-radius: 8px;
+    background: var(--klc-color-agent-input);
     box-shadow:
       0 2px 4px rgba(0, 0, 0, 0.08),
       0 6px 12px rgba(0, 0, 0, 0.06);

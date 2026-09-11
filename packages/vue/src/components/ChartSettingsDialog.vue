@@ -50,7 +50,7 @@
         </template>
       </CollapsibleSection>
 
-<CollapsibleSection
+      <CollapsibleSection
         label="数据源"
         :expanded="expandedSections.dataSource"
         @toggle="toggleSection('dataSource')"
@@ -67,10 +67,18 @@
         </div>
         <div class="settings-item cache-usage">
           <span>当前用量</span>
-          <span>{{ cacheUsageText }}</span>
-        </div>
-<div class="cache-actions">
-          <button type="button" class="settings-btn cancel" @click="clearCache">清除缓存</button>
+          <span class="cache-usage__value">
+            {{ cacheUsageText }}
+            <button
+              type="button"
+              class="cache-clear-btn"
+              title="清除缓存"
+              aria-label="清除缓存"
+              @click="clearCache"
+            >
+              <IconTablerTrash aria-hidden="true" />
+            </button>
+          </span>
         </div>
         <div class="settings-item nav-item" @click="showAggregationSourceModal = true">
           <span>聚合源管理</span>
@@ -214,9 +222,26 @@
     footer-align="space-between"
     @close="showColorPresetModal = false"
   >
+    <template #tabs>
+      <nav class="theme-tabs" role="tablist" aria-label="颜色主题">
+        <button
+          v-for="option in colorThemeOptions"
+          :key="option.value"
+          type="button"
+          role="tab"
+          class="theme-tab"
+          :class="{ 'is-active': colorPresetTheme === option.value }"
+          :aria-selected="colorPresetTheme === option.value"
+          @click="colorPresetTheme = option.value"
+        >
+          {{ option.label }}
+        </button>
+      </nav>
+    </template>
     <ColorPresetPanel
       ref="colorPresetPanelRef"
       :color-preset-settings="settings.colorPresetSettings"
+      :editing-theme="colorPresetTheme"
       @update:color-preset-settings="settings = { ...settings, colorPresetSettings: $event }"
     />
     <template #footer>
@@ -236,7 +261,7 @@
 
 <script setup lang="ts">
   import { normalizeColorPresetSettings } from '@363045841yyt/klinechart-core'
-  import type { MarketDataCacheStats } from '@363045841yyt/klinechart-core'
+  import type { ColorPresetThemeName, MarketDataCacheStats } from '@363045841yyt/klinechart-core'
   import {
     DEFAULT_SETTINGS,
     SETTINGS_STORAGE_KEY,
@@ -256,6 +281,8 @@
   import CollapsibleSection from './common/CollapsibleSection.vue'
   import Dropdown from './Dropdown.vue'
   import ToggleSwitch from './common/ToggleSwitch.vue'
+
+  import IconTablerTrash from '~icons/tabler/trash'
 
   const props = withDefaults(
     defineProps<{
@@ -301,7 +328,7 @@
 
   type SettingsSectionId = 'main' | 'style' | 'experimental' | 'dataSource' | 'opensource'
 
-/** 所有分组默认收起，每次打开弹窗重置。 */
+  /** 所有分组默认收起，每次打开弹窗重置。 */
   function createDefaultExpandedSections(): Record<SettingsSectionId, boolean> {
     return {
       main: false,
@@ -315,6 +342,11 @@
   const expandedSections = ref(createDefaultExpandedSections())
   const showAggregationSourceModal = ref(false)
   const showColorPresetModal = ref(false)
+  const colorPresetTheme = ref<ColorPresetThemeName>('light')
+  const colorThemeOptions: readonly { value: ColorPresetThemeName; label: string }[] = [
+    { value: 'light', label: '浅色' },
+    { value: 'dark', label: '深色' },
+  ]
 
   function toggleSection(id: SettingsSectionId) {
     expandedSections.value = {
@@ -489,12 +521,33 @@
     background: transparent;
   }
 
-  .cache-actions {
-    padding: 0 12px 8px;
-    display: flex;
-    justify-content: flex-end;
+  .cache-usage__value {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
   }
 
+  .cache-clear-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    color: var(--klc-color-axis-text);
+    background: none;
+    cursor: pointer;
+    transition: color 0.15s ease;
+  }
+
+  .cache-clear-btn:hover {
+    color: var(--klc-color-foreground);
+  }
+
+  .cache-clear-btn svg {
+    width: 16px;
+    height: 16px;
+  }
 
   a.settings-item.credit-item {
     cursor: pointer;
@@ -583,7 +636,11 @@
   }
 
   .settings-btn.reset {
-    background: color-mix(in srgb, var(--klc-color-chart-background) 92%, var(--klc-color-foreground));
+    background: color-mix(
+      in srgb,
+      var(--klc-color-chart-background) 92%,
+      var(--klc-color-foreground)
+    );
     color: var(--klc-color-axis-text);
   }
 
@@ -593,16 +650,28 @@
   }
 
   .settings-btn.cancel {
-    background: color-mix(in srgb, var(--klc-color-chart-background) 92%, var(--klc-color-foreground));
+    background: color-mix(
+      in srgb,
+      var(--klc-color-chart-background) 92%,
+      var(--klc-color-foreground)
+    );
     color: var(--klc-color-foreground);
   }
 
   .settings-btn.cancel:hover {
-    background: color-mix(in srgb, var(--klc-color-chart-background) 86%, var(--klc-color-foreground));
+    background: color-mix(
+      in srgb,
+      var(--klc-color-chart-background) 86%,
+      var(--klc-color-foreground)
+    );
   }
 
   .settings-btn.confirm {
-    background: color-mix(in srgb, var(--klc-color-foreground) 80%, var(--klc-color-chart-background));
+    background: color-mix(
+      in srgb,
+      var(--klc-color-foreground) 80%,
+      var(--klc-color-chart-background)
+    );
     color: var(--klc-color-background);
   }
 
@@ -613,6 +682,39 @@
 
   .settings-btn.confirm:active {
     transform: scale(0.98);
+  }
+
+  .theme-tabs {
+    display: flex;
+    gap: 2px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--klc-color-agent-border);
+  }
+
+  .theme-tab {
+    padding: 8px 10px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    color: var(--klc-color-agent-muted);
+    background: transparent;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    transition:
+      border-color 0.18s ease,
+      color 0.18s ease;
+  }
+
+  .theme-tab:hover,
+  .theme-tab:focus-visible {
+    color: var(--klc-color-agent-text);
+    outline: 0;
+  }
+
+  .theme-tab.is-active {
+    border-bottom-color: var(--klc-color-agent-accent);
+    color: var(--klc-color-agent-text);
+    font-weight: 600;
   }
 
   @media (max-width: 480px) {
