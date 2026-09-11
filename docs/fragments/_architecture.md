@@ -2,8 +2,8 @@
 
 KLineChartQuant is a pnpm monorepo. The framework-agnostic core engine exposes a unified
 `ChartController` (readonly signals + commands); Vue / React / Angular bindings only handle
-mounting, event forwarding, and reactivity bridging. AI Agents drive the chart directly
-through MCP over a WebSocket bridge.
+mounting, event forwarding, and reactivity bridging. The AI Agent drives the chart through the
+same `@Tool` primitives as the UI, sharing one state source instead of a bridge.
 
 ```mermaid
 flowchart TB
@@ -12,8 +12,8 @@ flowchart TB
         VuePkg["@363045841yyt/klinechart<br/>Vue 3 components · useChart"]
         ReactPkg["@363045841yyt/klinechart-react<br/>KLineChartWC (wraps Vue-built Web Component)"]
         AngularPkg["@363045841yyt/klinechart-angular"]
-        Agent["AI Agent / MCP Client"]
-        AiRt["@363045841yyt/klinechart-ai-runtime"]
+        Agent["AI Agent"]
+        AgentRt["@363045841yyt/klinechart-agent-runtime"]
     end
 
     subgraph core["Core Engine @363045841yyt/klinechart-core"]
@@ -37,11 +37,11 @@ flowchart TB
     UI --> ReactPkg
     UI --> AngularPkg
     VuePkg -->|"Web Component"| ReactPkg
-    Agent --> AiRt
+    Agent --> AgentRt
     VuePkg --> Ctl
     ReactPkg --> Ctl
     AngularPkg --> Ctl
-    AiRt -->|WebSocket / MCP| Ctl
+    AgentRt -->|"@Tool primitives (same path as UI)"| Ctl
     Ctl --> Chart
     Chart --> Kernel
     Chart --> Data
@@ -68,7 +68,7 @@ flowchart TB
   indicators, markers and drawing tools plug in as Scene Layers.
 - **React via Web Component** — `@363045841yyt/klinechart-react`'s `KLineChartWC` renders the
   `<kline-chart>` Custom Element bundled from the Vue package (`@363045841yyt/klinechart/web-component`).
-- **MCP / Agent** — `@363045841yyt/klinechart-ai-runtime` bridges AI tool calls to the
-  controller over WebSocket.
+- **Agent Native** — `@363045841yyt/klinechart-agent-runtime` orchestrates the Agent, which
+  invokes the core's `@Tool`-registered primitives—the same entry points the UI uses.
 
 See [docs/architecture.md]({{root}}docs/architecture.md) for the full architecture document.

@@ -1,6 +1,6 @@
 # 系统架构
 
-> 更新日期：2026-08-24 | 适用范围：整个 monorepo（`packages/*`）与外部行情后端
+> 更新日期：2026-09-12 | 适用范围：整个 monorepo（`packages/*`）与外部行情后端
 
 本文描述 KLineChartQuant 的整体架构：包边界、核心引擎的分层、运行时数据流，
 以及外部行情后端的接入方式。渲染主链路的细节以
@@ -10,8 +10,8 @@
 
 KLineChartQuant 是一个 pnpm workspace monorepo。核心引擎（`packages/core`）不依赖任何
 UI 框架，通过统一的 `ChartController` 对外暴露只读信号（ReadonlySignal）与命令方法；
-Vue / React / Angular 绑定层只负责容器挂载、输入事件转发与响应式桥接。AI Agent 通过
-MCP（Model Context Protocol）经 WebSocket 桥接直接驱动图表，是项目的一等公民。
+Vue / React / Angular 绑定层只负责容器挂载、输入事件转发与响应式桥接。AI Agent 通过与 UI
+相同的 `@Tool` 原语直接驱动图表，共享同一状态源，是项目的一等公民。
 
 React 绑定（`@363045841yyt/klinechart-react`）的 `KLineChartWC` 直接封装由 Vue 包打包的
 `<kline-chart>` Web Component（`@363045841yyt/klinechart/web-component`），因此 React 的
@@ -24,8 +24,8 @@ flowchart TB
         VuePkg["@363045841yyt/klinechart<br/>Vue 3 组件 + useChart"]
         ReactPkg["@363045841yyt/klinechart-react<br/>KLineChartWC（Vue Web Component 封装）"]
         AngularPkg["@363045841yyt/klinechart-angular"]
-        Agent["AI Agent / MCP 客户端"]
-        AiRt["@363045841yyt/klinechart-ai-runtime"]
+        Agent["AI Agent"]
+        AgentRt["@363045841yyt/klinechart-agent-runtime"]
     end
 
     subgraph core["核心引擎 @363045841yyt/klinechart-core"]
@@ -49,11 +49,11 @@ flowchart TB
     UI --> ReactPkg
     UI --> AngularPkg
     VuePkg -->|"Web Component 接入"| ReactPkg
-    Agent --> AiRt
+    Agent --> AgentRt
     VuePkg --> Ctl
     ReactPkg --> Ctl
     AngularPkg --> Ctl
-    AiRt -->|WebSocket / MCP| Ctl
+    AgentRt -->|"@Tool 原语（与 UI 同路径）"| Ctl
     Ctl --> Chart
     Chart --> Kernel
     Chart --> Data
@@ -77,7 +77,7 @@ flowchart TB
 | 层 | 负责 | 不负责 |
 |---|---|---|
 | 框架绑定（Framework bindings） | 容器挂载、输入事件转发、信号桥接、组件生命周期 | 业务状态与绘制细节 |
-| `ChartController` | 统一命令面、只读信号投影、MCP bridge | 引擎内部实现 |
+| `ChartController` | 统一命令面、只读信号投影、`@Tool` 原语 | 引擎内部实现 |
 | `Chart` | 依赖组装、绘制调度、交互路由、主题/数据协调 | 单帧绘制细节 |
 | `StateKernel` | 业务状态单一事实源（readonly signals + actions） | DOM 监听与绘制副作用 |
 | 数据层 | 统一序列仓库、增量缓冲、拉取调度、数据源路由 | 图表状态 |
@@ -94,7 +94,8 @@ flowchart TB
 | React bindings | `packages/react` | React 绑定：`KLineChartWC` 经 Vue 打包的 `<kline-chart>` Web Component 接入 | `@363045841yyt/klinechart-react` |
 | Angular bindings | `packages/angular` | Angular 绑定 | `@363045841yyt/klinechart-angular` |
 | UI schema | `packages/ui-schema` | JSON → 图表配置的语义映射 | `@363045841yyt/klinechart-ui-schema` |
-| AI runtime | `packages/ai-runtime` | MCP 服务端 + AI 工具定义（可选） | `@363045841yyt/klinechart-ai-runtime` |
+| Agent runtime | `packages/agent-runtime` | 框架无关的 Agent 运行时（Pi 编排 + 宿主契约） | `@363045841yyt/klinechart-agent-runtime` |
+| AI runtime (deprecated) | `packages/ai-runtime` | 已废弃的旧 MCP 插件，保留向后兼容 | `@363045841yyt/klinechart-ai-runtime` |
 | Desktop Electron | `packages/desktop-electron` | 本地桌面应用（不发布） | — |
 
 依赖方向：各绑定包通过 `workspace:*` 依赖 core；core 不依赖任何框架。
@@ -115,7 +116,8 @@ flowchart TB
   indicators、theme、paneLayout、interactionState 等）。
 - 暴露命令方法（`setData`、`setSymbols`、`zoomToLevel`、`addIndicator`、
   `setDrawingTool`、`handlePointerEvent` 等），全部委托给 `Chart` 门面。
-- 可选创建 `ChartBridge`，把 MCP WebSocket 消息路由到命令方法（Agent 控制入口）。
+- 通过 `@Tool` 装饰的领域方法注册 Agent 工具（`getRegisteredChartTools()`），与命令方法同源，
+  无独立桥接层。
 
 ### 3.2 Chart（引擎门面）
 
@@ -210,12 +212,13 @@ flowchart TB
 `handleWheelEvent` / `handlePinchZoom`，交互控制器更新内核状态并触发 Overlay
 级别的增量重绘（十字线不重画静态主层）。
 
-### 4.4 Agent / MCP
+### 4.4 Agent 原生
 
-1. `@363045841yyt/klinechart-ai-runtime` 提供 MCP 服务端与 `executeTool` 工具定义。
-2. `ChartBridge`（core）建立 WebSocket 连接，把 MCP 工具调用映射到
-   `ChartController` 命令（缩放、增删指标、切换主题等）。
-3. 绑定层把 `mcp.onToolCall` 桥接到 `executeTool(ctrl, call)`。
+1. Core 以 `@Tool` 装饰领域方法，`getRegisteredChartTools()` 暴露统一工具契约
+   （参数 schema、safety 等级与执行器）。
+2. `@363045841yyt/klinechart-agent-runtime` 在应用内（浏览器 / Electron）编排 Agent，
+   直接调用这些原语，与 UI 走同一条链路。
+3. Agent 与用户共享 StateKernel 状态，无桥接层、无状态副本。
 
 ## 5. 外部数据源
 

@@ -2,8 +2,8 @@
 
 KLineChartQuant 是一个 pnpm monorepo。核心引擎不依赖任何 UI 框架，通过统一的
 `ChartController`（只读信号 + 命令方法）对外暴露能力；Vue / React / Angular 绑定层只负责
-挂载、事件转发与响应式桥接。AI Agent 通过 MCP（Model Context Protocol）经 WebSocket 桥接
-直接驱动图表。
+挂载、事件转发与响应式桥接。AI Agent 通过与 UI 相同的 `@Tool` 原语直接驱动图表，
+共享同一状态源，而非桥接层。
 
 ```mermaid
 flowchart TB
@@ -12,8 +12,8 @@ flowchart TB
         VuePkg["@363045841yyt/klinechart<br/>Vue 3 组件 + useChart"]
         ReactPkg["@363045841yyt/klinechart-react<br/>KLineChartWC（Vue Web Component 封装）"]
         AngularPkg["@363045841yyt/klinechart-angular"]
-        Agent["AI Agent / MCP 客户端"]
-        AiRt["@363045841yyt/klinechart-ai-runtime"]
+        Agent["AI Agent"]
+        AgentRt["@363045841yyt/klinechart-agent-runtime"]
     end
 
     subgraph core["核心引擎 @363045841yyt/klinechart-core"]
@@ -37,11 +37,11 @@ flowchart TB
     UI --> ReactPkg
     UI --> AngularPkg
     VuePkg -->|"Web Component 接入"| ReactPkg
-    Agent --> AiRt
+    Agent --> AgentRt
     VuePkg --> Ctl
     ReactPkg --> Ctl
     AngularPkg --> Ctl
-    AiRt -->|WebSocket / MCP| Ctl
+    AgentRt -->|"@Tool 原语（与 UI 同路径）"| Ctl
     Ctl --> Chart
     Chart --> Kernel
     Chart --> Data
@@ -68,7 +68,7 @@ flowchart TB
   指标、标记、画图以 Scene Layer 形式接入。
 - **React 经 Web Component 接入** — `@363045841yyt/klinechart-react` 的 `KLineChartWC` 渲染由
   Vue 包打包的 `<kline-chart>` 自定义元素（`@363045841yyt/klinechart/web-component`）。
-- **MCP / Agent** — `@363045841yyt/klinechart-ai-runtime` 将 AI 工具调用经
-  WebSocket 桥接到控制器。
+- **Agent 原生** — `@363045841yyt/klinechart-agent-runtime` 编排 Agent，直接调用核心
+  `@Tool` 注册的原语——与 UI 使用同一入口。
 
 完整架构文档见 [docs/architecture.md]({{root}}docs/architecture.md)。
