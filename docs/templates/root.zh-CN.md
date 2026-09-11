@@ -18,7 +18,7 @@
 
 {{include:_usage-vue.zh-CN.md}}
 
-{{include:_mcp.zh-CN.md}}
+{{include:_agent-runtime.zh-CN.md}}
 
 {{include:_docs.zh-CN.md}}
 

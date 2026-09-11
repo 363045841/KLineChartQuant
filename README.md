@@ -51,7 +51,7 @@ KLineChartQuant treats the Agent as a first-class citizen of the chart, equal in
 
 ## ✨ Core Features
 
-- **Agent First / MCP Native** - Supports AI Agent direct control of charts via the [Model Context Protocol](https://modelcontextprotocol.io). Built-in WebSocket-bridged MCP server enables any MCP client (Inspector, Claude Desktop, Cursor, etc.) to zoom, pan, add/remove indicators, and change theme in real time
+- **Agent Native** - The chart core exposes its capabilities as `@Tool`-decorated domain primitives, and the Agent calls the same primitives as the UI. Tools are a subset of actions: one shared state, one execution path, no bridge layer
 - **Crisp Rendering** - Full-chain ResizeObserver driven, physical pixel alignment, K-lines, wicks, and lines are sharp and clear on all DPR screens
 - **Plugin Architecture** - Renderer plugin-based design, supporting dynamic registration, configuration, and lifecycle management
 - **Custom Markers** - Supports semantic configuration of custom markers and custom information
@@ -69,8 +69,8 @@ KLineChartQuant treats the Agent as a first-class citizen of the chart, equal in
 
 KLineChartQuant is a pnpm monorepo. The framework-agnostic core engine exposes a unified
 `ChartController` (readonly signals + commands); Vue / React / Angular bindings only handle
-mounting, event forwarding, and reactivity bridging. AI Agents drive the chart directly
-through MCP over a WebSocket bridge.
+mounting, event forwarding, and reactivity bridging. The AI Agent drives the chart through the
+same `@Tool` primitives as the UI, sharing one state source instead of a bridge.
 
 ```mermaid
 flowchart TB
@@ -79,8 +79,8 @@ flowchart TB
         VuePkg["@363045841yyt/klinechart<br/>Vue 3 components · useChart"]
         ReactPkg["@363045841yyt/klinechart-react<br/>KLineChartWC (wraps Vue-built Web Component)"]
         AngularPkg["@363045841yyt/klinechart-angular"]
-        Agent["AI Agent / MCP Client"]
-        AiRt["@363045841yyt/klinechart-ai-runtime"]
+        Agent["AI Agent"]
+        AgentRt["@363045841yyt/klinechart-agent-runtime"]
     end
 
     subgraph core["Core Engine @363045841yyt/klinechart-core"]
@@ -104,11 +104,11 @@ flowchart TB
     UI --> ReactPkg
     UI --> AngularPkg
     VuePkg -->|"Web Component"| ReactPkg
-    Agent --> AiRt
+    Agent --> AgentRt
     VuePkg --> Ctl
     ReactPkg --> Ctl
     AngularPkg --> Ctl
-    AiRt -->|WebSocket / MCP| Ctl
+    AgentRt -->|"@Tool primitives (same path as UI)"| Ctl
     Ctl --> Chart
     Chart --> Kernel
     Chart --> Data
@@ -135,8 +135,8 @@ flowchart TB
   indicators, markers and drawing tools plug in as Scene Layers.
 - **React via Web Component** — `@363045841yyt/klinechart-react`'s `KLineChartWC` renders the
   `<kline-chart>` Custom Element bundled from the Vue package (`@363045841yyt/klinechart/web-component`).
-- **MCP / Agent** — `@363045841yyt/klinechart-ai-runtime` bridges AI tool calls to the
-  controller over WebSocket.
+- **Agent Native** — `@363045841yyt/klinechart-agent-runtime` orchestrates the Agent, which
+  invokes the core's `@Tool`-registered primitives—the same entry points the UI uses.
 
 See [docs/architecture.md](docs/architecture.md) for the full architecture document.
 
@@ -381,52 +381,15 @@ Providing `#legend` fully replaces the default Canvas legend. The slot scope is 
 ```
 
 
-### 4. (Optional) Enable MCP / AI Agent Control
+### 4. (Optional) Add AI Agent Control
 
-```bash
-npm install @363045841yyt/klinechart-ai-runtime
+The chart core exposes its domain capabilities as `@Tool` primitives. Both the UI and the Agent call them through the same path:
+
+```ts
+import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controllers'
 ```
 
-```vue
-<template>
-  <div class="app-container">
-    <KlineChart ref="chartRef" :mcp="mcpConfig" />
-  </div>
-</template>
-
-<script setup lang="ts">
-  import { ref } from 'vue'
-  import { KlineChart } from '@363045841yyt/klinechart'
-  import { executeTool } from '@363045841yyt/klinechart-ai-runtime'
-
-  const chartRef = ref<InstanceType<typeof KlineChart> | null>(null)
-
-  const mcpConfig = {
-    wsUrl: 'ws://localhost:8080',
-    autoReconnect: true,
-    onToolCall: (call) => {
-      const ctrl = chartRef.value?.getController?.()
-      if (!ctrl) return { success: false, error: 'Controller not ready' }
-      return executeTool(ctrl, call)
-    },
-  }
-</script>
-
-<style>
-  .app-container {
-    height: 80vh;
-  }
-</style>
-```
-
-Then start the MCP server:
-
-```bash
-cd packages/ai-runtime
-pnpm inspect
-```
-
-Connect via MCP Inspector and call `chart.zoomToLevel`, `indicators.add`, etc.
+`getRegisteredChartTools()` returns every tool with its parameter schema, safety level, and unified executor. Hand them to `@363045841yyt/klinechart-agent-runtime`, which orchestrates the Agent inside your app (browser or Electron) against a Provider profile — no MCP bridge, no side-channel state. See [agent-runtime](packages/agent-runtime/README.md).
 
 
 ## 📖 More Documentation
@@ -453,7 +416,7 @@ Connect via MCP Inspector and call `chart.zoomToLevel`, `indicators.add`, etc.
 | initialZoomLevel | `number` | 3 | Initial zoom level (1 ~ zoomLevels) |
 | customData | `CustomDataSource` | — | Inline data bundle: `{ symbol?, period?, data, comparisons? }`. Bypasses the fetcher pipeline entirely. See example above |
 | teleportContainer | `string \| HTMLElement` | — | Teleport target for dropdowns/modals (CSS selector or element). Defaults to internal `.chart-wrapper` |
-| mcp | `McpConfig` | — | MCP/AI runtime bridge config: `{ wsUrl?, autoReconnect?, onToolCall? }`. See [@363045841yyt/klinechart-ai-runtime](packages/ai-runtime/README.md) |
+| mcp | `McpConfig` | — | Deprecated legacy MCP bridge. Use the native Agent runtime (`@Tool` primitives) instead |
 
 
 ## 🗺️ Roadmap
@@ -480,7 +443,8 @@ Connect via MCP Inspector and call `chart.zoomToLevel`, `indicators.add`, etc.
 | `@363045841yyt/klinechart` | Vue 3 bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart) |
 | `@363045841yyt/klinechart-react` | React bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-react) |
 | `@363045841yyt/klinechart-angular` | Angular bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-angular) |
-| `@363045841yyt/klinechart-ai-runtime` | MCP server + AI tool schemas (optional) | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-ai-runtime) |
+| `@363045841yyt/klinechart-agent-runtime` | Framework-neutral Agent runtime (Pi orchestration + host contracts) | — |
+| `@363045841yyt/klinechart-ai-runtime` | Deprecated: legacy MCP addon, superseded by `agent-runtime` | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-ai-runtime) |
 
 
 ## 🚀 What's New

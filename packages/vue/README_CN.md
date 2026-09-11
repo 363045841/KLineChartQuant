@@ -51,7 +51,7 @@ KLineChartQuant 将 Agent 视为图表的一等公民，与用户等权。它不
 
 ## ✨ 核心特性
 
-- **Agent 优先 / MCP 原生** - 支持 AI Agent 直接控制图表，通过 [Model Context Protocol](https://modelcontextprotocol.io) 协议接入。内置 WebSocket 桥接 MCP 服务器，任何 MCP 客户端（Inspector、Claude Desktop、Cursor 等）均可实时缩放、平移、增删指标、切换主题
+- **Agent 原生** - 图表核心以 `@Tool` 装饰的领域原语对外暴露能力，Agent 与 UI 调用同一套原语。工具是 Action 的子集：共享同一状态、同一条执行链路，无桥接层
 - **渲染清晰** - 全链路 ResizeObserver 驱动，物理像素对齐，各 DPR 屏幕下 K 线、影线、线条均锐利清晰
 - **插件架构** - 渲染器插件化设计，支持动态注册、配置和生命周期管理
 - **自定义标记** - 支持语义化配置自定义标记和自定义信息
@@ -396,7 +396,7 @@ createApp(App).mount('#app')
 | initialZoomLevel | `number` | 3 | 初始缩放级别（1 ~ zoomLevels） |
 | customData | `CustomDataSource` | — | 内联数据包：`{ symbol?, period?, data, comparisons? }`。完全绕过数据请求器，直接使用传入的数据渲染 |
 | teleportContainer | `string \| HTMLElement` | — | 下拉/弹窗的 Teleport 目标容器（CSS 选择器或元素）。默认渲染到内部 `.chart-wrapper` |
-| mcp | `McpConfig` | — | MCP/AI runtime 桥接配置：`{ wsUrl?, autoReconnect?, onToolCall? }`。详见 [@363045841yyt/klinechart-ai-runtime](../../packages/ai-runtime/README.md) |
+| mcp | `McpConfig` | — | 已废弃的旧 MCP 桥接。请改用原生 Agent 运行时（`@Tool` 原语） |
 
 
 ## 🗺️ Roadmap

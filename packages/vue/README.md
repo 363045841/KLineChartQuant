@@ -51,7 +51,7 @@ KLineChartQuant treats the Agent as a first-class citizen of the chart, equal in
 
 ## ✨ Core Features
 
-- **Agent First / MCP Native** - Supports AI Agent direct control of charts via the [Model Context Protocol](https://modelcontextprotocol.io). Built-in WebSocket-bridged MCP server enables any MCP client (Inspector, Claude Desktop, Cursor, etc.) to zoom, pan, add/remove indicators, and change theme in real time
+- **Agent Native** - The chart core exposes its capabilities as `@Tool`-decorated domain primitives, and the Agent calls the same primitives as the UI. Tools are a subset of actions: one shared state, one execution path, no bridge layer
 - **Crisp Rendering** - Full-chain ResizeObserver driven, physical pixel alignment, K-lines, wicks, and lines are sharp and clear on all DPR screens
 - **Plugin Architecture** - Renderer plugin-based design, supporting dynamic registration, configuration, and lifecycle management
 - **Custom Markers** - Supports semantic configuration of custom markers and custom information
@@ -396,7 +396,7 @@ Positioning and drag stay owned by the chart: with `tooltipPosition === 'adaptiv
 | initialZoomLevel | `number` | 3 | Initial zoom level (1 ~ zoomLevels) |
 | customData | `CustomDataSource` | — | Inline data bundle: `{ symbol?, period?, data, comparisons? }`. Bypasses the fetcher pipeline entirely. See example above |
 | teleportContainer | `string \| HTMLElement` | — | Teleport target for dropdowns/modals (CSS selector or element). Defaults to internal `.chart-wrapper` |
-| mcp | `McpConfig` | — | MCP/AI runtime bridge config: `{ wsUrl?, autoReconnect?, onToolCall? }`. See [@363045841yyt/klinechart-ai-runtime](../../packages/ai-runtime/README.md) |
+| mcp | `McpConfig` | — | Deprecated legacy MCP bridge. Use the native Agent runtime (`@Tool` primitives) instead |
 
 
 ## 🗺️ Roadmap

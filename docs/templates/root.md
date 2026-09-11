@@ -18,7 +18,7 @@
 
 {{include:_usage-vue.md}}
 
-{{include:_mcp.md}}
+{{include:_agent-runtime.md}}
 
 {{include:_docs.md}}
 

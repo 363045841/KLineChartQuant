@@ -51,7 +51,7 @@ KLineChartQuant 将 Agent 视为图表的一等公民，与用户等权。它不
 
 ## ✨ 核心特性
 
-- **Agent 优先 / MCP 原生** - 支持 AI Agent 直接控制图表，通过 [Model Context Protocol](https://modelcontextprotocol.io) 协议接入。内置 WebSocket 桥接 MCP 服务器，任何 MCP 客户端（Inspector、Claude Desktop、Cursor 等）均可实时缩放、平移、增删指标、切换主题
+- **Agent 原生** - 图表核心以 `@Tool` 装饰的领域原语对外暴露能力，Agent 与 UI 调用同一套原语。工具是 Action 的子集：共享同一状态、同一条执行链路，无桥接层
 - **渲染清晰** - 全链路 ResizeObserver 驱动，物理像素对齐，各 DPR 屏幕下 K 线、影线、线条均锐利清晰
 - **插件架构** - 渲染器插件化设计，支持动态注册、配置和生命周期管理
 - **自定义标记** - 支持语义化配置自定义标记和自定义信息
@@ -69,8 +69,8 @@ KLineChartQuant 将 Agent 视为图表的一等公民，与用户等权。它不
 
 KLineChartQuant 是一个 pnpm monorepo。核心引擎不依赖任何 UI 框架，通过统一的
 `ChartController`（只读信号 + 命令方法）对外暴露能力；Vue / React / Angular 绑定层只负责
-挂载、事件转发与响应式桥接。AI Agent 通过 MCP（Model Context Protocol）经 WebSocket 桥接
-直接驱动图表。
+挂载、事件转发与响应式桥接。AI Agent 通过与 UI 相同的 `@Tool` 原语直接驱动图表，
+共享同一状态源，而非桥接层。
 
 ```mermaid
 flowchart TB
@@ -79,8 +79,8 @@ flowchart TB
         VuePkg["@363045841yyt/klinechart<br/>Vue 3 组件 + useChart"]
         ReactPkg["@363045841yyt/klinechart-react<br/>KLineChartWC（Vue Web Component 封装）"]
         AngularPkg["@363045841yyt/klinechart-angular"]
-        Agent["AI Agent / MCP 客户端"]
-        AiRt["@363045841yyt/klinechart-ai-runtime"]
+        Agent["AI Agent"]
+        AgentRt["@363045841yyt/klinechart-agent-runtime"]
     end
 
     subgraph core["核心引擎 @363045841yyt/klinechart-core"]
@@ -104,11 +104,11 @@ flowchart TB
     UI --> ReactPkg
     UI --> AngularPkg
     VuePkg -->|"Web Component 接入"| ReactPkg
-    Agent --> AiRt
+    Agent --> AgentRt
     VuePkg --> Ctl
     ReactPkg --> Ctl
     AngularPkg --> Ctl
-    AiRt -->|WebSocket / MCP| Ctl
+    AgentRt -->|"@Tool 原语（与 UI 同路径）"| Ctl
     Ctl --> Chart
     Chart --> Kernel
     Chart --> Data
@@ -135,8 +135,8 @@ flowchart TB
   指标、标记、画图以 Scene Layer 形式接入。
 - **React 经 Web Component 接入** — `@363045841yyt/klinechart-react` 的 `KLineChartWC` 渲染由
   Vue 包打包的 `<kline-chart>` 自定义元素（`@363045841yyt/klinechart/web-component`）。
-- **MCP / Agent** — `@363045841yyt/klinechart-ai-runtime` 将 AI 工具调用经
-  WebSocket 桥接到控制器。
+- **Agent 原生** — `@363045841yyt/klinechart-agent-runtime` 编排 Agent，直接调用核心
+  `@Tool` 注册的原语——与 UI 使用同一入口。
 
 完整架构文档见 [docs/architecture.md](docs/architecture.md)。
 
@@ -381,52 +381,15 @@ createApp(App).mount('#app')
 ```
 
 
-### 4.（可选）启用 MCP / AI Agent 控制
+### 4.（可选）启用 AI Agent 控制
 
-```bash
-npm install @363045841yyt/klinechart-ai-runtime
+图表核心以 `@Tool` 原语对外暴露领域能力，UI 与 Agent 通过同一条路径调用：
+
+```ts
+import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controllers'
 ```
 
-```vue
-<template>
-  <div class="app-container">
-    <KlineChart ref="chartRef" :mcp="mcpConfig" />
-  </div>
-</template>
-
-<script setup lang="ts">
-  import { ref } from 'vue'
-  import { KlineChart } from '@363045841yyt/klinechart'
-  import { executeTool } from '@363045841yyt/klinechart-ai-runtime'
-
-  const chartRef = ref<InstanceType<typeof KlineChart> | null>(null)
-
-  const mcpConfig = {
-    wsUrl: 'ws://localhost:8080',
-    autoReconnect: true,
-    onToolCall: (call) => {
-      const ctrl = chartRef.value?.getController?.()
-      if (!ctrl) return { success: false, error: 'Controller not ready' }
-      return executeTool(ctrl, call)
-    },
-  }
-</script>
-
-<style>
-  .app-container {
-    height: 80vh;
-  }
-</style>
-```
-
-然后启动 MCP 服务端：
-
-```bash
-cd packages/ai-runtime
-pnpm inspect
-```
-
-通过 MCP Inspector 连接后即可调用 `chart.zoomToLevel`、`indicators.add` 等工具。
+`getRegisteredChartTools()` 返回每个工具的参数 schema、safety 等级与统一执行器。将它们交给 `@363045841yyt/klinechart-agent-runtime`，即可在应用内（浏览器或 Electron）基于 Provider profile 编排 Agent——无 MCP 桥接，无旁路状态副本。详见 [agent-runtime](packages/agent-runtime/README.md)。
 
 
 ## 📖 更多文档
@@ -453,7 +416,7 @@ pnpm inspect
 | initialZoomLevel | `number` | 3 | 初始缩放级别（1 ~ zoomLevels） |
 | customData | `CustomDataSource` | — | 内联数据包：`{ symbol?, period?, data, comparisons? }`。完全绕过数据请求器，直接使用传入的数据渲染 |
 | teleportContainer | `string \| HTMLElement` | — | 下拉/弹窗的 Teleport 目标容器（CSS 选择器或元素）。默认渲染到内部 `.chart-wrapper` |
-| mcp | `McpConfig` | — | MCP/AI runtime 桥接配置：`{ wsUrl?, autoReconnect?, onToolCall? }`。详见 [@363045841yyt/klinechart-ai-runtime](packages/ai-runtime/README.md) |
+| mcp | `McpConfig` | — | 已废弃的旧 MCP 桥接。请改用原生 Agent 运行时（`@Tool` 原语） |
 
 
 ## 🗺️ Roadmap
@@ -480,7 +443,8 @@ pnpm inspect
 | `@363045841yyt/klinechart` | Vue 3 绑定 | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart) |
 | `@363045841yyt/klinechart-react` | React 绑定 | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-react) |
 | `@363045841yyt/klinechart-angular` | Angular 绑定 | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-angular) |
-| `@363045841yyt/klinechart-ai-runtime` | MCP 服务端 + AI 工具定义（可选） | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-ai-runtime) |
+| `@363045841yyt/klinechart-agent-runtime` | 框架无关的 Agent 运行时（Pi 编排 + 宿主契约） | — |
+| `@363045841yyt/klinechart-ai-runtime` | 已废弃：旧 MCP 插件，请改用 `agent-runtime` | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-ai-runtime) |
 
 
 ## 🚀 What's New
