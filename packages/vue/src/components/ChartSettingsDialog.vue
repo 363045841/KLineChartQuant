@@ -518,17 +518,12 @@
     background: var(--klc-color-tag-bg-hover);
   }
 
-  a.settings-item.credit-item:hover .credit-name {
-    color: #3b82f6;
-  }
-
   .credit-name {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 12px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    transition: color 0.15s ease;
   }
 
   .credit-meta {
