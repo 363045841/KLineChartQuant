@@ -277,6 +277,7 @@ export const darkTheme: Theme = {
       neutral: '#839198',
       onAccent: '#FFFFFF',
       secondaryButtonText: '#9AA0A6',
+      controlBackground: '#2A3338',
     },
     agent: {
       userMessage: '#17312E',

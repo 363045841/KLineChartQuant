@@ -431,7 +431,7 @@
     padding: 7px 10px;
     border: 1px solid var(--klc-color-border-button);
     border-radius: 6px;
-    background: var(--klc-color-background);
+    background: var(--klc-color-ui-control-background);
     color: var(--klc-color-foreground);
     font-size: 13px;
     outline: none;

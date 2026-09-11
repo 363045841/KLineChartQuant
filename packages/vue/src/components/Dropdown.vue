@@ -200,7 +200,7 @@
     padding: 0 8px;
     border: 1px solid var(--dropdown-trigger-border, var(--klc-color-ui-border));
     border-radius: 8px;
-    background: var(--dropdown-trigger-background, var(--klc-color-grid-minor));
+    background: var(--dropdown-trigger-background, var(--klc-color-ui-control-background));
     color: var(--dropdown-trigger-color, var(--klc-color-foreground));
     font: inherit;
     cursor: pointer;

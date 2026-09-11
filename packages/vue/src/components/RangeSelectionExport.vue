@@ -94,7 +94,7 @@
     font-size: 12px;
     white-space: nowrap;
     border: none;
-    background: transparent;
+    background: var(--klc-color-ui-control-background);
     outline: none;
     padding: 0 8px;
     width: auto;

@@ -284,7 +284,7 @@
     border: 1px solid var(--klc-color-border-button);
     border-radius: 6px;
     overflow: hidden;
-    background: var(--klc-color-background);
+    background: var(--klc-color-ui-control-background);
     transition: border-color 0.15s ease;
   }
 

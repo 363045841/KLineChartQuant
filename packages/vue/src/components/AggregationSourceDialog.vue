@@ -364,7 +364,7 @@
     padding: 0 10px;
     border: 1px solid var(--klc-color-border-button);
     border-radius: 6px;
-    background: var(--klc-color-background);
+    background: var(--klc-color-ui-control-background);
     color: var(--klc-color-foreground);
     font: inherit;
     font-size: 12px;

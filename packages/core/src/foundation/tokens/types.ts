@@ -298,6 +298,8 @@ export interface UiColors {
   readonly onAccent: ColorValue
   /** 非确认（次级）按钮的文字色，如取消、重置。 */
   readonly secondaryButtonText: ColorValue
+  /** 交互控件（chip、trigger 等）的默认底色。 */
+  readonly controlBackground: ColorValue
 }
 
 /** Agent 专属颜色：对话气泡、启动器、遮罩与面板阴影。 */

@@ -487,12 +487,12 @@
     padding: 8px 14px;
     border: 1px solid var(--klc-color-border-button);
     border-radius: 6px;
-    background: var(--klc-color-ui-input);
+    background: var(--klc-color-ui-control-background);
     transition: all 0.2s ease;
   }
 
   .search-box:focus-within {
-    background: var(--klc-color-ui-input);
+    background: var(--klc-color-ui-control-background);
     border-color: var(--klc-color-foreground);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-foreground) 8%, transparent);
   }

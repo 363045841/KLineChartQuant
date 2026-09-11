@@ -283,6 +283,7 @@ export const lightTheme: Theme = {
       neutral: '#9CA3AF',
       onAccent: '#FFFFFF',
       secondaryButtonText: '#5A5A5A',
+      controlBackground: '#EDF1F2',
     },
     agent: {
       userMessage: '#E7F2EF',

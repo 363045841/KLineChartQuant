@@ -2164,12 +2164,8 @@
     padding: 3px 6px;
     border: 0;
     border-radius: 3px;
-    color: var(--chart-text);
-    background: color-mix(
-      in srgb,
-      color-mix(in srgb, var(--klc-color-ui-background) 84%, var(--klc-color-ui-text)) 96%,
-      transparent
-    );
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-control-background);
     font: 12px/1.3 inherit;
     outline: none;
   }

@@ -56,7 +56,7 @@
     padding: 10px 12px;
     border: 1px solid var(--klc-color-border-button);
     border-radius: 6px;
-    background: var(--klc-color-background);
+    background: var(--klc-color-ui-control-background);
     color: var(--klc-color-foreground);
     font-size: 13px;
     font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
