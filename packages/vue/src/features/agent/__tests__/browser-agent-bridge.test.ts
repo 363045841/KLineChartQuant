@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { BrowserAgentBridge } from '../browser-agent-bridge'
 
+import { createTestChartAgent } from './_testChartAgent'
+
 import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
 import type {
   AgentChartSymbolContextItem,
@@ -333,7 +335,7 @@ describe('BrowserAgentBridge', () => {
 
   it('persists the Exa key locally and exposes the web search tool', async () => {
     const fetchMock = vi.fn(
-      async () =>
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
         new Response(
           JSON.stringify({
             results: [
@@ -443,6 +445,7 @@ describe('BrowserAgentBridge', () => {
         dataRange: { from: 1, to: 2, bars: 2 },
         visibleRange: { from: 1, to: 2 },
         activeIndicators: [],
+        selectedKLineBars: null,
         drawingSelection: null,
         dataRevision: 1,
       }),
@@ -454,13 +457,7 @@ describe('BrowserAgentBridge', () => {
         },
       },
     )
-    const agent = {
-      context,
-      getContext: context,
-      queryIndicator: () => Promise.resolve(''),
-      searchInstruments: () => Promise.resolve([]),
-      lookupInstrumentsBySymbol: () => Promise.resolve([]),
-    } as ChartAgentController
+    const agent = createTestChartAgent({ context, getContext: context })
     const bridge = new BrowserAgentBridge()
     const received: Array<string | null> = []
 
@@ -504,7 +501,7 @@ describe('BrowserAgentBridge', () => {
     )
     const bridge = new BrowserAgentBridge()
 
-    bridge.bindChartAgent({ context } as unknown as ChartAgentController)
+    bridge.bindChartAgent(createTestChartAgent({ context }))
 
     expect(bridge.getContextItems()).toContainEqual({
       kind: 'selected-time-range',
@@ -533,6 +530,7 @@ describe('BrowserAgentBridge', () => {
         dataRange: { from: 1, to: 2, bars: 2 },
         visibleRange: null,
         activeIndicators: [],
+        selectedKLineBars: null,
         drawingSelection: {
           selectedIds: ['line-1', 'line-2'],
           drawings: [
@@ -545,6 +543,7 @@ describe('BrowserAgentBridge', () => {
               zIndex: null,
               anchors: [{ timestamp: 1, price: 10 }],
               style: { stroke: '#2962ff', fill: undefined },
+              labels: { line: {}, area: {} },
             },
             {
               id: 'line-2',
@@ -555,6 +554,7 @@ describe('BrowserAgentBridge', () => {
               zIndex: 2,
               anchors: [{ timestamp: null, price: 11 }],
               style: { stroke: '#f00' },
+              labels: { line: {}, area: {} },
             },
           ],
         },
@@ -562,7 +562,7 @@ describe('BrowserAgentBridge', () => {
       }),
       { peek: () => context(), subscribe: () => () => {} },
     )
-    const agent = { context } as unknown as ChartAgentController
+    const agent = createTestChartAgent({ context })
     const bridge = new BrowserAgentBridge()
 
     bridge.bindChartAgent(agent)
@@ -591,12 +591,11 @@ describe('BrowserAgentBridge', () => {
         style: { stroke: '#2962ff', strokeWidth: 1, strokeStyle: 'solid' },
       })),
     }
-    const agent = {
+    const agent = createTestChartAgent({
       getAvailableMarketDataSourceIds: () => [],
       getAvailableDrawingPaneIds: () => ['main'],
-      toolHosts: [],
       dependencies: { drawingCommands },
-    } as unknown as ChartAgentController
+    })
     const bridge = new BrowserAgentBridge({ getChartAgent: () => agent })
 
     await expect(
@@ -610,11 +609,10 @@ describe('BrowserAgentBridge', () => {
   })
 
   it('adds the exact runtime pane IDs to the create-drawing tool description', () => {
-    const agent = {
+    const agent = createTestChartAgent({
       getAvailableMarketDataSourceIds: () => [],
       getAvailableDrawingPaneIds: () => ['main', 'volume'],
-      toolHosts: [],
-    } as unknown as ChartAgentController
+    })
     const bridge = new BrowserAgentBridge({ getChartAgent: () => agent })
     const resolveTools = (
       bridge as unknown as {
