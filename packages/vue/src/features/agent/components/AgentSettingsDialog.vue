@@ -93,16 +93,16 @@
                   :placeholder="text.modelSearchPlaceholder"
                   :disabled="providerSettings.modelsLoading"
                 />
-                <button
-                  type="button"
-                  class="agent-tool__run provider-settings-models__refresh"
+                <BaseButton
+                  size="sm"
+                  class="provider-settings-models__refresh"
                   :title="text.refreshModels"
                   :aria-label="text.refreshModels"
                   :disabled="providerSettings.modelsLoading || !canRefreshModels"
                   @click="providerSettings.refreshModelCatalog()"
                 >
                   <IconRefresh aria-hidden="true" />
-                </button>
+                </BaseButton>
               </div>
               <div
                 v-if="providerSettings.modelCatalog.length"
@@ -135,18 +135,18 @@
         <section v-else class="agent-settings-tools" role="tabpanel">
           <div v-if="providerSettings.tools.length" class="agent-tools">
             <section v-for="tool in providerSettings.tools" :key="tool.name" class="agent-tool">
-              <label class="agent-tool__toggle">
-                <input
-                  type="checkbox"
-                  :checked="tool.enabled"
-                  :disabled="tool.available === false"
-                  @change="setToolEnabled(tool.name, $event)"
-                />
+              <div class="agent-tool__toggle">
                 <span>
                   <strong>{{ tool.label }}</strong>
                   <small>{{ tool.description }}</small>
                 </span>
-              </label>
+                <ToggleSwitch
+                  :model-value="tool.enabled"
+                  :disabled="tool.available === false"
+                  :aria-label="tool.label"
+                  @update:model-value="setToolEnabled(tool.name, $event)"
+                />
+              </div>
               <p v-if="tool.unavailableReason" class="agent-tool__unavailable">
                 {{ tool.unavailableReason }}
               </p>
@@ -167,8 +167,8 @@
                   @input="setToolInput(tool.name, $event)"
                 />
               </details>
-              <button
-                type="button"
+              <BaseButton
+                size="sm"
                 class="agent-tool__run"
                 :disabled="
                   !tool.enabled ||
@@ -180,7 +180,7 @@
                 {{
                   providerSettings.runningToolName === tool.name ? text.toolRunning : text.toolRun
                 }}
-              </button>
+              </BaseButton>
               <p
                 v-if="providerSettings.toolErrors[tool.name]"
                 class="agent-tool__error"
@@ -342,11 +342,9 @@
     void props.providerSettings.setModelPoolMembership(modelId, enabled)
   }
 
-  /** 将复选框事件转换为持久化的工具启用设置。 */
-  function setToolEnabled(name: string, event: Event): void {
-    const target = event.target
-    if (!(target instanceof HTMLInputElement)) return
-    void props.providerSettings.setToolEnabled(name, target.checked)
+  /** 更新工具启用状态。 */
+  function setToolEnabled(name: string, enabled: boolean): void {
+    void props.providerSettings.setToolEnabled(name, enabled)
   }
 
   /** 保存当前工具的 JSON 参数草稿。 */
@@ -589,14 +587,9 @@
 
   .agent-tool__toggle {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: start;
     gap: 8px;
-    cursor: pointer;
-  }
-
-  .agent-tool__toggle input {
-    margin: 3px 0 0;
   }
 
   .agent-tool__toggle span {
@@ -650,29 +643,18 @@
 
   .agent-tool__run {
     justify-self: start;
-    padding: 5px 10px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 4px;
-    color: var(--klc-color-ui-text);
-    background: var(--klc-color-ui-input);
-    cursor: pointer;
-    font: inherit;
-    font-size: 11px;
-  }
-
-  .agent-tool__run:disabled {
-    opacity: 0.5;
-    cursor: default;
+    font-size: 12px;
   }
 
   .provider-settings-models__refresh {
     width: 28px;
     height: 28px;
-    box-sizing: border-box;
-    display: grid;
-    place-items: center;
-    padding: 5px;
-    border-radius: 6px;
+    padding: 0;
+  }
+
+  .provider-settings-models__refresh svg {
+    width: 16px;
+    height: 16px;
   }
 
   .agent-tool__error {
