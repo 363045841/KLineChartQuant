@@ -64,7 +64,7 @@ describe('AgentWorkspace', () => {
     document.querySelector<HTMLFormElement>('.provider-form')!.requestSubmit()
     await flushPromises()
     const catalog = await mounted.bridge.listProviderModelCatalog()
-    await mounted.bridge.saveProviderModelPool(catalog.models)
+    for (const model of catalog.models) await mounted.bridge.addProviderModelPoolModel(model)
 
     expect(document.querySelector('.base-modal')).toBeNull()
     expect((textarea.element as HTMLTextAreaElement).value).toBe(selectedPrompt)
@@ -93,7 +93,7 @@ describe('AgentWorkspace', () => {
     dialog.querySelector<HTMLFormElement>('.provider-form')!.requestSubmit()
     await flushPromises()
     const catalog = await mounted.bridge.listProviderModelCatalog()
-    await mounted.bridge.saveProviderModelPool(catalog.models)
+    for (const model of catalog.models) await mounted.bridge.addProviderModelPoolModel(model)
 
     await mounted.wrapper.get('.composer__model .dropdown__trigger').trigger('click')
     await flushPromises()

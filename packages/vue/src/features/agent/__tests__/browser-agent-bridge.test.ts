@@ -149,9 +149,11 @@ describe('BrowserAgentBridge', () => {
       protocol: 'openai-completions',
       profileName: 'Provider example',
     })
-    await bridge.saveProviderModelPool([
-      { id: 'chart-model', name: 'Chart model', compatibility: 'compatible' },
-    ])
+    await bridge.addProviderModelPoolModel({
+      id: 'chart-model',
+      name: 'Chart model',
+      compatibility: 'compatible',
+    })
     await bridge.setProviderModel('chart-model')
 
     await bridge.saveProvider({
@@ -190,7 +192,7 @@ describe('BrowserAgentBridge', () => {
       profileName: 'Provider example',
     })
     const catalog = await bridge.listProviderModelCatalog()
-    await bridge.saveProviderModelPool(catalog.models)
+    for (const model of catalog.models) await bridge.addProviderModelPoolModel(model)
     await bridge.setProviderModel('chart-model')
 
     await expect(bridge.getProviderStatus()).resolves.toMatchObject({
@@ -227,9 +229,11 @@ describe('BrowserAgentBridge', () => {
       protocol: first.protocol,
       profileName: 'Provider one',
     })
-    await bridge.saveProviderModelPool([
-      { id: 'chart-model', name: 'Chart model', compatibility: 'compatible' },
-    ])
+    await bridge.addProviderModelPoolModel({
+      id: 'chart-model',
+      name: 'Chart model',
+      compatibility: 'compatible',
+    })
     await bridge.setProviderModel('chart-model')
     await bridge.createProviderProfile('Provider two')
     await bridge.testProvider(second)
@@ -239,9 +243,11 @@ describe('BrowserAgentBridge', () => {
       protocol: second.protocol,
       profileName: 'Provider two',
     })
-    await bridge.saveProviderModelPool([
-      { id: 'chart-model', name: 'Chart model', compatibility: 'compatible' },
-    ])
+    await bridge.addProviderModelPoolModel({
+      id: 'chart-model',
+      name: 'Chart model',
+      compatibility: 'compatible',
+    })
     await bridge.setProviderModel('chart-model')
 
     const profiles = await bridge.listProviderProfiles()
@@ -315,6 +321,81 @@ describe('BrowserAgentBridge', () => {
       profileName: 'New provider',
       configured: false,
     })
+  })
+
+  it('renames a saved Provider configuration and keeps its model pool', async () => {
+    const bridge = new BrowserAgentBridge()
+    await bridge.saveProvider({
+      baseUrl: 'https://provider.example/v1',
+      apiKey: 'test-key',
+      protocol: 'openai-completions',
+      profileName: 'Provider one',
+    })
+    await bridge.addProviderModelPoolModel({
+      id: 'chart-model',
+      name: 'Chart model',
+      compatibility: 'compatible',
+    })
+
+    await bridge.renameProviderProfile('Provider one', 'Provider renamed')
+
+    await expect(bridge.listProviderProfiles()).resolves.toMatchObject([
+      { name: 'Provider renamed' },
+    ])
+    await expect(bridge.getProviderStatus()).resolves.toMatchObject({
+      profileName: 'Provider renamed',
+    })
+    await expect(bridge.listProviderModelPool()).resolves.toEqual([
+      expect.objectContaining({ provider: 'Provider renamed', id: 'chart-model' }),
+    ])
+  })
+
+  it('falls back to a remaining configuration when the active one is deleted', async () => {
+    const bridge = new BrowserAgentBridge()
+    await bridge.createProviderProfile('Provider one')
+    await bridge.saveProvider({
+      baseUrl: 'https://provider.example/v1',
+      apiKey: 'test-key',
+      protocol: 'openai-completions',
+      profileName: 'Provider one',
+    })
+    await bridge.addProviderModelPoolModel({
+      id: 'chart-model',
+      name: 'Chart model',
+      compatibility: 'compatible',
+    })
+    await bridge.createProviderProfile('Provider two')
+
+    await bridge.deleteProviderProfile('Provider two')
+
+    await expect(bridge.listProviderProfiles()).resolves.toMatchObject([{ name: 'Provider one' }])
+    await expect(bridge.getProviderStatus()).resolves.toMatchObject({
+      profileName: 'Provider one',
+    })
+    await expect(bridge.listProviderModelPool()).resolves.toEqual([
+      expect.objectContaining({ provider: 'Provider one', id: 'chart-model' }),
+    ])
+  })
+
+  it('removes a pooled model and clears the selection when it was active', async () => {
+    const bridge = new BrowserAgentBridge()
+    await bridge.saveProvider({
+      baseUrl: 'https://provider.example/v1',
+      apiKey: 'test-key',
+      protocol: 'openai-completions',
+      profileName: 'Provider example',
+    })
+    await bridge.addProviderModelPoolModel({
+      id: 'chart-model',
+      name: 'Chart model',
+      compatibility: 'compatible',
+    })
+    await bridge.setProviderModel('chart-model')
+
+    const pool = await bridge.removeProviderModelPoolModel('chart-model')
+
+    expect(pool).toEqual([])
+    await expect(bridge.getProviderStatus()).resolves.toMatchObject({ state: 'not-configured' })
   })
 
   it('saves and enables a Provider without a connection test', async () => {
@@ -395,9 +476,11 @@ describe('BrowserAgentBridge', () => {
       protocol: 'openai-completions',
       profileName: 'Provider example',
     })
-    await bridge.saveProviderModelPool([
-      { id: 'chart-model', name: 'Chart model', compatibility: 'compatible' },
-    ])
+    await bridge.addProviderModelPoolModel({
+      id: 'chart-model',
+      name: 'Chart model',
+      compatibility: 'compatible',
+    })
     await bridge.setProviderModel('chart-model')
     const [session] = await bridge.listSessions()
 

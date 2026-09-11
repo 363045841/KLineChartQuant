@@ -19,16 +19,43 @@
             <div class="provider-settings-profiles__header">
               <span>{{ text.providerProfile }}</span>
             </div>
-            <button
+            <div
               v-for="profile in profileOptions"
               :key="profile.value"
-              type="button"
               class="provider-settings-profile"
               :class="{ 'is-active': profile.value === providerSettings.profileName }"
-              @click="selectProfile(profile.value)"
             >
-              {{ profile.label }}
-            </button>
+              <button
+                type="button"
+                class="provider-settings-profile__select"
+                @click="selectProfile(profile.value)"
+              >
+                {{ profile.label }}
+              </button>
+              <span
+                v-if="persistedProfileNames.has(profile.value)"
+                class="provider-settings-profile__actions"
+              >
+                <button
+                  type="button"
+                  class="provider-settings-profile__action"
+                  :title="text.renameProviderProfile"
+                  :aria-label="text.renameProviderProfile"
+                  @click.stop="openRenameProfileDialog(profile.value)"
+                >
+                  <IconPencil aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  class="provider-settings-profile__action provider-settings-profile__action--danger"
+                  :title="text.deleteProviderProfile"
+                  :aria-label="text.deleteProviderProfile"
+                  @click.stop="removeProfile(profile.value)"
+                >
+                  <IconTrash aria-hidden="true" />
+                </button>
+              </span>
+            </div>
             <button
               type="button"
               class="provider-profile-new-button"
@@ -212,25 +239,28 @@
   </BaseModal>
 
   <BaseModal
-    :show="creatingProfile"
-    :title="text.newProviderProfile"
+    :show="profileNameDialog !== null"
+    :title="profileNameDialogTitle"
     width="min(92vw, 360px)"
     :z-index="1100"
-    @close="closeCreateProfileDialog()"
+    @close="closeProfileNameDialog()"
   >
-    <form id="agent-provider-profile-form" @submit.prevent="createProfile()">
+    <form id="agent-provider-profile-form" @submit.prevent="submitProfileName()">
       <label class="provider-field">
         <span class="provider-field__label">{{ text.providerProfileName }}</span>
-        <input ref="profileNameInput" v-model="newProfileName" type="text" autocomplete="off" />
+        <input ref="profileNameInput" v-model="profileNameDraft" type="text" autocomplete="off" />
       </label>
+      <p v-if="profileNameDialogError" class="provider-profile-error" role="alert">
+        {{ profileNameDialogError }}
+      </p>
     </form>
 
     <template #footer>
-      <BaseButton @click="closeCreateProfileDialog()">{{ text.cancel }}</BaseButton>
+      <BaseButton @click="closeProfileNameDialog()">{{ text.cancel }}</BaseButton>
       <BaseButton
         type="submit"
         form="agent-provider-profile-form"
-        :disabled="!newProfileName.trim()"
+        :disabled="!profileNameDraft.trim()"
       >
         {{ text.confirm }}
       </BaseButton>
@@ -256,8 +286,10 @@
   import type { AgentProviderSettingsStore } from '../agent-provider-settings-store'
 
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
+  import IconPencil from '~icons/tabler/pencil'
   import IconPlus from '~icons/tabler/plus'
   import IconRefresh from '~icons/tabler/refresh'
+  import IconTrash from '~icons/tabler/trash'
 
   const props = defineProps<{
     providerSettings: AgentProviderSettingsStore
@@ -266,16 +298,28 @@
   }>()
 
   const profileNameInput = ref<HTMLInputElement | null>(null)
-  const creatingProfile = ref(false)
-  const newProfileName = ref('')
+  const profileNameDialog = ref<'create' | 'rename' | null>(null)
+  const profileNameDraft = ref('')
+  const renamingProfile = ref('')
   const activeTab = ref<'provider' | 'tools'>('provider')
   const text = computed(() => getAgentCopy(props.locale))
   const agentTabs = computed<ReadonlyArray<{ id: 'provider' | 'tools'; label: string }>>(() => [
     { id: 'provider', label: text.value.providerSettings },
     { id: 'tools', label: text.value.tools },
   ])
+  const profileNameDialogTitle = computed(() =>
+    profileNameDialog.value === 'rename'
+      ? text.value.renameProviderProfile
+      : text.value.newProviderProfile,
+  )
+  const persistedProfileNames = computed(
+    () => new Set(props.providerSettings.profiles.map((profile) => profile.name)),
+  )
   const modelSearch = ref('')
   const visibleError = computed(() => props.providerSettings.operationError ?? props.status.error)
+  const profileNameDialogError = computed(() =>
+    props.providerSettings.profileNameError ? text.value.providerProfileNameDuplicated : '',
+  )
   const protocolOptions = computed(() =>
     PROVIDER_API_PROTOCOLS.map((protocol) => ({ value: protocol, label: protocolLabel(protocol) })),
   )
@@ -359,30 +403,57 @@
     if (id) void props.providerSettings.selectProfile(id)
   }
 
-  /** 打开配置命名弹窗。 */
+  /** 打开新建配置命名弹窗。 */
   function openCreateProfileDialog(): void {
-    newProfileName.value = ''
-    creatingProfile.value = true
+    profileNameDraft.value = ''
+    renamingProfile.value = ''
+    props.providerSettings.clearProfileNameError()
+    profileNameDialog.value = 'create'
     void nextTick(() => profileNameInput.value?.focus())
   }
 
-  /** 关闭配置命名弹窗并清空临时名称。 */
-  function closeCreateProfileDialog(): void {
-    creatingProfile.value = false
-    newProfileName.value = ''
+  /** 打开重命名弹窗并预填当前名称。 */
+  function openRenameProfileDialog(name: string): void {
+    profileNameDraft.value = name
+    renamingProfile.value = name
+    props.providerSettings.clearProfileNameError()
+    profileNameDialog.value = 'rename'
+    void nextTick(() => {
+      profileNameInput.value?.focus()
+      profileNameInput.value?.select()
+    })
   }
 
-  /** 确认名称后创建新的配置草稿。 */
-  function createProfile(): void {
-    if (!newProfileName.value.trim()) return
-    void props.providerSettings.createProfile(newProfileName.value).then((created) => {
-      if (created) closeCreateProfileDialog()
+  /** 关闭配置命名弹窗并清空临时名称。 */
+  function closeProfileNameDialog(): void {
+    profileNameDialog.value = null
+    profileNameDraft.value = ''
+    renamingProfile.value = ''
+    props.providerSettings.clearProfileNameError()
+  }
+
+  /** 确认名称后创建新配置或重命名现有配置。 */
+  function submitProfileName(): void {
+    const draft = profileNameDraft.value.trim()
+    if (!draft || profileNameDialog.value === null) return
+    const operation =
+      profileNameDialog.value === 'rename'
+        ? props.providerSettings.renameProfile(renamingProfile.value, draft)
+        : props.providerSettings.createProfile(draft)
+    void operation.then((succeeded) => {
+      if (succeeded) closeProfileNameDialog()
     })
+  }
+
+  /** 确认后删除指定配置。 */
+  function removeProfile(name: string): void {
+    if (!window.confirm(text.value.deleteProviderProfileConfirm)) return
+    void props.providerSettings.deleteProfile(name)
   }
 
   /** 关闭主设置时一并关闭配置命名弹窗。 */
   function closeProviderSettings(): void {
-    closeCreateProfileDialog()
+    closeProfileNameDialog()
     props.providerSettings.close()
   }
 
@@ -459,10 +530,35 @@
 
   .provider-settings-profile {
     min-width: 0;
+    display: flex;
+    align-items: center;
+    border-radius: 5px;
+    color: var(--klc-color-ui-muted);
+    background: transparent;
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .provider-settings-profile:hover,
+  .provider-settings-profile:focus-within {
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-hover);
+  }
+
+  .provider-settings-profile.is-active {
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-hover);
+    font-weight: 600;
+  }
+
+  .provider-settings-profile__select {
+    min-width: 0;
+    flex: 1 1 auto;
     padding: 7px 10px;
     border: 0;
     border-radius: 5px;
-    color: var(--klc-color-ui-muted);
+    color: inherit;
     background: transparent;
     font: inherit;
     font-size: 12px;
@@ -471,27 +567,57 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     cursor: pointer;
-    transition:
-      background-color 0.15s ease,
-      color 0.15s ease;
   }
 
-  .provider-settings-profile:hover {
-    color: var(--klc-color-ui-text);
-    background: var(--klc-color-ui-hover);
-  }
-
-  .provider-settings-profile:focus-visible {
-    color: var(--klc-color-ui-text);
-    background: var(--klc-color-ui-hover);
+  .provider-settings-profile__select:focus-visible {
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 24%, transparent);
     outline: 0;
   }
 
-  .provider-settings-profile.is-active {
+  .provider-settings-profile__actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding-right: 4px;
+    visibility: hidden;
+  }
+
+  .provider-settings-profile:hover .provider-settings-profile__actions,
+  .provider-settings-profile:focus-within .provider-settings-profile__actions {
+    visibility: visible;
+  }
+
+  .provider-settings-profile__action {
+    width: 20px;
+    height: 20px;
+    display: inline-grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    color: var(--klc-color-ui-muted);
+    background: transparent;
+    cursor: pointer;
+    transition:
+      color 0.15s ease,
+      background-color 0.15s ease;
+  }
+
+  .provider-settings-profile__action svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .provider-settings-profile__action:hover,
+  .provider-settings-profile__action:focus-visible {
     color: var(--klc-color-ui-text);
-    background: var(--klc-color-ui-hover);
-    font-weight: 600;
+    background: var(--klc-color-ui-border);
+    outline: 0;
+  }
+
+  .provider-settings-profile__action--danger:hover,
+  .provider-settings-profile__action--danger:focus-visible {
+    color: var(--klc-color-ui-danger-text);
   }
 
   .provider-settings-detail {
@@ -835,6 +961,14 @@
 
   .provider-error strong {
     font-weight: 600;
+  }
+
+  .provider-profile-error {
+    margin: 8px 0 0;
+    color: var(--klc-color-ui-danger-text);
+    font-size: 11px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
   }
 
   @media (max-width: 640px) {

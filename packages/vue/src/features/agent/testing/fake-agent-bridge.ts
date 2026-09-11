@@ -1,6 +1,8 @@
 /** Drive complete UI states deterministically without Provider or chart business logic. */
 import { fetchOpenAiCompatibleModels } from '@363045841yyt/klinechart-agent-runtime'
 
+import { ProviderModelPool } from '../provider-model-pool'
+
 import {
   AGENT_UI_PROTOCOL_VERSION,
   type AgentBridgeClient,
@@ -50,7 +52,13 @@ export class FakeAgentBridge implements AgentBridgeClient {
   private readonly listeners = new Set<(event: AgentUiEvent) => void>()
   private readonly runs = new Map<string, FakeRun>()
   private readonly confirmations = new Map<string, PendingConfirmation>()
-  private modelPool: ProviderModelPoolEntry[] = []
+  private modelEntries: ProviderModelPoolEntry[] = []
+  private readonly modelPool = new ProviderModelPool(
+    () => this.modelEntries,
+    (models) => {
+      this.modelEntries = [...models]
+    },
+  )
   private readonly stepDelayMs: number
   private sessions: AgentSessionView[] = [
     { id: 'session-1', title: 'BTC momentum review', updatedAt: Date.now() },
@@ -91,7 +99,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
           compatibility: 'unknown',
         }
     if (options.providerConfigured) {
-      this.modelPool = [
+      this.modelEntries = [
         {
           provider: 'Fake Provider',
           id: 'Scripted Alpha',
@@ -150,23 +158,39 @@ export class FakeAgentBridge implements AgentBridgeClient {
   }
 
   async listProviderModelPool(): Promise<ProviderModelPoolEntry[]> {
-    return this.modelPool.filter((model) => model.provider === this.provider.profileName)
+    const provider = this.provider.profileName
+    return provider ? this.modelPool.list(provider) : []
   }
 
-  async saveProviderModelPool(models: readonly ProviderModelView[]): Promise<void> {
+  async addProviderModelPoolModel(model: ProviderModelView): Promise<ProviderModelPoolEntry[]> {
     const provider = this.provider.profileName
-    if (!provider) return
-    this.modelPool = [
-      ...this.modelPool.filter((model) => model.provider !== provider),
-      ...models.map((model) => ({ ...model, provider })),
-    ]
+    if (!provider) return []
+    this.modelPool.add(provider, model)
     this.emit({ type: 'provider.status.changed', status: this.provider })
+    return this.modelPool.list(provider)
+  }
+
+  async removeProviderModelPoolModel(modelId: string): Promise<ProviderModelPoolEntry[]> {
+    const provider = this.provider.profileName
+    if (!provider) return []
+    this.modelPool.remove(provider, modelId)
+    if (this.provider.modelId === modelId) {
+      this.provider = {
+        ...this.provider,
+        state: 'not-configured',
+        modelId: undefined,
+        modelLabel: undefined,
+      }
+    }
+    this.emit({ type: 'provider.status.changed', status: this.provider })
+    return this.modelPool.list(provider)
   }
 
   async setProviderModel(modelId: string): Promise<void> {
-    const model = this.modelPool.find(
-      (item) => item.provider === this.provider.profileName && item.id === modelId,
-    )
+    const provider = this.provider.profileName
+    const model = provider
+      ? this.modelPool.list(provider).find((item) => item.id === modelId)
+      : undefined
     if (!model) return
     this.provider = {
       ...this.provider,
@@ -196,6 +220,37 @@ export class FakeAgentBridge implements AgentBridgeClient {
       modelName: '',
       protocol: 'openai-responses',
     })
+  }
+
+  async renameProviderProfile(profileName: string, nextProfileName: string): Promise<void> {
+    const nextName = nextProfileName.trim()
+    const profile = this.profiles.find((item) => item.name === profileName)
+    if (!profile) throw new Error(`Unknown fake Provider profile: ${profileName}`)
+    if (this.profiles.some((item) => item.name === nextName)) {
+      throw new Error(`Duplicate fake Provider profile: ${nextName}`)
+    }
+    profile.name = nextName
+    this.modelPool.renameGroup(profileName, nextName)
+    if (this.provider.profileName === profileName) {
+      this.provider = { ...this.provider, profileName: nextName }
+    }
+    this.emit({ type: 'provider.status.changed', status: this.provider })
+  }
+
+  async deleteProviderProfile(profileName: string): Promise<void> {
+    const index = this.profiles.findIndex((item) => item.name === profileName)
+    if (index < 0) throw new Error(`Unknown fake Provider profile: ${profileName}`)
+    this.profiles.splice(index, 1)
+    this.modelPool.removeGroup(profileName)
+    if (this.provider.profileName === profileName) {
+      this.provider = {
+        state: 'not-configured',
+        providerLabel: 'OpenAI-compatible',
+        configured: false,
+        compatibility: 'unknown',
+      }
+    }
+    this.emit({ type: 'provider.status.changed', status: this.provider })
   }
 
   async selectProviderProfile(profileName: string): Promise<void> {
