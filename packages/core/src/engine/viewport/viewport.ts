@@ -64,12 +64,14 @@ export function computeMaxScrollLeftWithVisibleData(
 ): number {
   if (totalDataCount === 0) return contentMaxScrollLeft
 
-  const { kWidthPx, unitPx, startXPx } = getPhysicalKLineConfig(kWidth, kGap, dpr)
-  // 保留最后一根 K 线的至少一个物理像素，尾部空槽仍可正常显示。
-  const lastVisibleDataScrollLeft =
-    leftLoadBufferWidth +
-    (startXPx + (totalDataCount - 1) * unitPx + kWidthPx - 1) / dpr
-  return Math.min(contentMaxScrollLeft, lastVisibleDataScrollLeft)
+  const { unitPx, startXPx } = getPhysicalKLineConfig(kWidth, kGap, dpr)
+  const rawMax =
+    leftLoadBufferWidth + (startXPx + (totalDataCount - 1) * unitPx) / dpr
+  const maxScrollRaw = Math.min(contentMaxScrollLeft, rawMax)
+  // 向下吸附到 K 线网格边界，确保 scrollLeft 对齐物理像素网格
+  const maxScrollPx = (maxScrollRaw - leftLoadBufferWidth) * dpr - startXPx
+  const maxN = Math.floor(maxScrollPx / unitPx)
+  return Math.max(0, leftLoadBufferWidth + (startXPx + maxN * unitPx) / dpr)
 }
 
 /**
