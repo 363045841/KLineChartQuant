@@ -529,6 +529,7 @@
   }
 
   .provider-settings-profile {
+    position: relative;
     min-width: 0;
     display: flex;
     align-items: center;
@@ -567,6 +568,14 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     cursor: pointer;
+    transition: padding-right 0.15s ease;
+  }
+
+  .provider-settings-profile:has(.provider-settings-profile__actions):hover
+    .provider-settings-profile__select,
+  .provider-settings-profile:has(.provider-settings-profile__actions):focus-within
+    .provider-settings-profile__select {
+    padding-right: 52px;
   }
 
   .provider-settings-profile__select:focus-visible {
@@ -575,10 +584,15 @@
   }
 
   .provider-settings-profile__actions {
+    position: absolute;
+    top: 50%;
+    right: 4px;
     display: flex;
     align-items: center;
     gap: 2px;
-    padding-right: 4px;
+    padding-left: 6px;
+    background: var(--klc-color-ui-hover);
+    transform: translateY(-50%);
     visibility: hidden;
   }
 

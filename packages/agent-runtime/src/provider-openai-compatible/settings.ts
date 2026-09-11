@@ -12,8 +12,6 @@ import {
 import type { ProviderApiProtocol } from '../contracts/ui.js'
 import { PROVIDER_REASONING_EFFORTS, type ProviderReasoningEffort } from '../contracts/ui.js'
 
-const LEGACY_PROVIDER_SETTINGS_VERSIONS = [1, 2, 3] as const
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -32,8 +30,7 @@ export function parseOpenAiCompatibleProviderSettings(
   const protocol = providerProtocolFromSettings(value)
   if (
     !isRecord(value) ||
-    (value.version !== PROVIDER_SETTINGS_VERSION &&
-      !LEGACY_PROVIDER_SETTINGS_VERSIONS.includes(value.version as 1 | 2 | 3)) ||
+    value.version !== PROVIDER_SETTINGS_VERSION ||
     typeof value.baseUrl !== 'string' ||
     typeof value.modelId !== 'string' ||
     typeof value.modelName !== 'string' ||
@@ -82,17 +79,16 @@ export function parseOpenAiCompatibleProviderSettings(
   }
 }
 
-/** 用于测试或非持久化宿主的 API Key 内存存储。 */
-// v1 只有 Chat Completions；读取时原位升级为显式协议，避免旧配置失效。
+/** 从持久化设置中读取校验通过的 API 协议。 */
 function providerProtocolFromSettings(value: unknown): ProviderApiProtocol | undefined {
   if (!isRecord(value)) return undefined
-  if (value.version === 1) return 'openai-completions'
   if (value.protocol === 'openai-completions' || value.protocol === 'openai-responses') {
     return value.protocol
   }
   return undefined
 }
 
+/** 用于测试或非持久化宿主的 API Key 内存存储。 */
 export class InMemoryProviderCredentialStore implements ProviderCredentialStore {
   private key: string | undefined
 

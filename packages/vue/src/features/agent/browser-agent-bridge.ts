@@ -154,20 +154,6 @@ interface BrowserProviderConnection {
   protocol: ProviderApiProtocol
 }
 
-/** 读取 Profile 连接配置，并兼容已保存的旧版 Profile。 */
-function getProfileConnection(
-  profile: BrowserProviderProfile,
-): BrowserProviderConnection | undefined {
-  if (profile.connection) return profile.connection
-  const settings = profile.settings
-  if (!settings) return undefined
-  return {
-    baseUrl: settings.baseUrl,
-    headers: settings.headers,
-    protocol: settings.protocol,
-  }
-}
-
 /** Browser 宿主解析运行时工具所需的最小上下文。 */
 interface BrowserToolContext {
   readonly agent: ChartAgentController | null | undefined
@@ -323,7 +309,14 @@ class BrowserProviderSettingsStore implements ProviderSettingsStore {
 
   async write(settings: OpenAiCompatibleProviderSettings, signal?: AbortSignal): Promise<void> {
     signal?.throwIfAborted()
-    this.profiles.updateActive({ settings })
+    this.profiles.updateActive({
+      settings,
+      connection: {
+        baseUrl: settings.baseUrl,
+        headers: settings.headers,
+        protocol: settings.protocol,
+      },
+    })
   }
 }
 
@@ -487,7 +480,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     const status = await this.support.provider.getStatus()
     const profile = this.profiles.active()
     if (!profile) return status
-    const connection = getProfileConnection(profile)
+    const connection = profile.connection
     if (!connection) return { ...status, profileName: profile.name }
     if (profile.settings) return { ...status, profileName: profile.name }
     return {
@@ -678,7 +671,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   /** 返回已保存的 Provider 配置，不向界面暴露 API Key。 */
   async listProviderProfiles(): Promise<ProviderProfileView[]> {
     return this.profiles.read().map((profile) => {
-      const connection = getProfileConnection(profile)
+      const connection = profile.connection
       const settings = profile.settings
       return {
         name: profile.name,
@@ -771,7 +764,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   /** 使用当前已保存的 Provider 连接拉取模型目录。 */
   async listProviderModelCatalog(): Promise<ProviderModelsResult> {
     const profile = this.profiles.active()
-    const connection = profile && getProfileConnection(profile)
+    const connection = profile?.connection
     if (!connection) {
       throw new AgentRuntimeError(
         'PROVIDER_NOT_CONFIGURED',
@@ -810,7 +803,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   /** 选择当前 Profile 模型池中的模型，并同步该模型声明的能力。 */
   async setProviderModel(modelId: string): Promise<void> {
     const profile = this.profiles.active()
-    const connection = profile && getProfileConnection(profile)
+    const connection = profile?.connection
     if (!profile || !connection) return
     const model = this.modelPool.list(profile.name).find((item) => item.id === modelId)
     if (!model)
@@ -928,7 +921,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       headers: input.headers ?? {},
       protocol: input.protocol,
     }
-    const previousConnection = previousProfile && getProfileConnection(previousProfile)
+    const previousConnection = previousProfile?.connection
     const connectionChanged =
       previousConnection !== undefined &&
       (previousConnection.baseUrl !== connection.baseUrl ||
