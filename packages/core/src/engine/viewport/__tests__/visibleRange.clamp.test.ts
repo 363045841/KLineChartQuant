@@ -32,7 +32,7 @@ describe('computeMaxScrollLeftWithVisibleData', () => {
     const maxScrollLeft = computeMaxScrollLeftWithVisibleData(1_000, 0, 8, 2, 10, 1)
     const range = getVisibleRange(maxScrollLeft, 1, 8, 2, 10, 1)
 
-    expect(maxScrollLeft).toBe(89)
+    expect(maxScrollLeft).toBe(83)
     expect(range.start).toBeLessThan(10)
   })
 
