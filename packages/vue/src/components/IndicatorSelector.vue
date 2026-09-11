@@ -34,7 +34,10 @@
             class="view-tabs"
             role="tablist"
             aria-label="指标视图"
-            :style="{ '--view-tab-index': activeViewIndex }"
+            :style="{
+              '--view-tab-index': activeViewIndex,
+              '--view-tab-count': viewOptions.length,
+            }"
           >
             <span class="view-tabs__thumb" aria-hidden="true"></span>
             <button
@@ -427,23 +430,21 @@
   .view-tabs {
     position: relative;
     display: grid;
-    grid-template-columns: repeat(3, minmax(64px, 1fr));
+    grid-template-columns: repeat(var(--view-tab-count), minmax(64px, 1fr));
     flex: 0 0 auto;
-    padding: 2px;
-    border: 1px solid var(--klc-color-border-button);
-    border-radius: 6px;
-    background: var(--klc-color-ui-input);
+    border: 1px solid var(--klc-color-ui-border);
+    border-radius: 8px;
+    background: var(--klc-color-ui-hover);
+    overflow: hidden;
   }
 
   .view-tabs__thumb {
     position: absolute;
-    top: 2px;
-    bottom: 2px;
-    left: 2px;
-    width: calc((100% - 4px) / 3);
-    border-radius: 4px;
-    background: var(--klc-color-ui-background);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: calc(100% / var(--view-tab-count));
+    background: var(--klc-color-ui-accent);
     transform: translateX(calc(var(--view-tab-index) * 100%));
     transition: transform 0.2s ease;
   }
@@ -457,23 +458,24 @@
   .view-tab {
     position: relative;
     z-index: 1;
-    height: 30px;
+    height: 32px;
     padding: 0 12px;
     border: 0;
-    border-radius: 4px;
     background: transparent;
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
     font-size: 12px;
+    font-weight: 500;
     cursor: pointer;
     white-space: nowrap;
+    transition: color 0.15s ease;
   }
 
   .view-tab:hover {
-    color: var(--klc-color-foreground);
+    color: var(--klc-color-ui-text);
   }
 
   .view-tab.active {
-    color: var(--klc-color-foreground);
+    color: var(--klc-color-ui-on-accent);
     font-weight: 600;
   }
 
@@ -483,36 +485,33 @@
     flex: 1;
     min-width: 0;
     align-items: center;
-    gap: 10px;
-    padding: 8px 14px;
-    border: 1px solid var(--klc-color-border-button);
-    border-radius: 6px;
+    gap: 8px;
+    height: 34px;
+    padding: 0 12px;
+    border: 1px solid var(--klc-color-ui-border);
+    border-radius: 8px;
     background: var(--klc-color-ui-control-background);
-    transition: all 0.2s ease;
-  }
-
-  .search-box:focus-within {
-    background: var(--klc-color-ui-control-background);
-    border-color: var(--klc-color-foreground);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-foreground) 8%, transparent);
   }
 
   .search-icon {
     flex-shrink: 0;
-    color: var(--klc-color-axis-text);
+    width: 15px;
+    height: 15px;
+    color: var(--klc-color-ui-muted);
   }
 
   .search-input {
     flex: 1;
     border: none;
     background: transparent;
+    font: inherit;
     font-size: 13px;
-    color: var(--klc-color-foreground);
+    color: var(--klc-color-ui-text);
     outline: none;
   }
 
   .search-input::placeholder {
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
   }
 
   /* ── 无匹配 ── */
@@ -656,20 +655,17 @@
   .card-select:focus-visible,
   .card-action-btn:focus-visible,
   .view-tab:focus-visible {
-    outline: 2px solid var(--klc-color-foreground);
+    outline: 2px solid var(--klc-color-ui-text);
     outline-offset: -2px;
   }
 
-  .indicator-card:hover:not(.disabled) {
-    border-color: var(--klc-color-foreground);
-    background: var(--klc-color-ui-input);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  .indicator-card.active {
+    border-color: var(--klc-color-ui-accent);
+    background: color-mix(in srgb, var(--klc-color-ui-accent) 12%, var(--klc-color-ui-input));
   }
 
-  .indicator-card.active {
-    border-color: var(--klc-color-foreground);
-    background: var(--klc-color-tag-bg-hover);
+  .indicator-card.active .card-label {
+    color: var(--klc-color-ui-accent);
   }
 
   .card-header {
