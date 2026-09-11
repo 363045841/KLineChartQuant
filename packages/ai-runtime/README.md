@@ -1,5 +1,10 @@
 # @363045841yyt/klinechart-ai-runtime
 
+> **Deprecated.** This package is no longer maintained. Agent runtime has moved to
+> [`@363045841yyt/klinechart-agent-runtime`](../../packages/agent-runtime), and
+> chart-native agent tools now register through core's `@Tool` registry. This package
+> remains only for backward compatibility and will be removed in a future release.
+
 MCP (Model Context Protocol) server and AI tool schemas for
 [@363045841yyt/klinechart-core](../../packages/core)
 ([npm](https://www.npmjs.com/package/@363045841yyt/klinechart-core))
