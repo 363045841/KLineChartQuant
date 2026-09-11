@@ -110,7 +110,12 @@
         <div class="footer-info">
           <span class="info-text">已激活 {{ activeCount }} 个指标</span>
         </div>
-        <BaseButton @click="closeMenu">确认</BaseButton>
+        <div class="footer-actions">
+          <BaseButton v-if="!replacePaneId" :disabled="activeCount === 0" @click="clearAll">
+            清除
+          </BaseButton>
+          <BaseButton @click="closeMenu">确认</BaseButton>
+        </div>
       </template>
     </BaseModal>
 
@@ -311,6 +316,13 @@
 
   function removeIndicator(indicatorId: string) {
     emit('toggle', indicatorId, false)
+  }
+
+  /** 清除全部已选指标。 */
+  function clearAll() {
+    for (const indicatorId of [...(props.activeIndicators ?? [])]) {
+      emit('toggle', indicatorId, false)
+    }
   }
 
   /** 切换指标启用状态。 */
@@ -735,7 +747,12 @@
   /* ── 底部 ── */
   .footer-info {
     font-size: 12px;
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
+  }
+
+  .footer-actions {
+    display: flex;
+    gap: 8px;
   }
 
   /* ── 响应式 ── */
