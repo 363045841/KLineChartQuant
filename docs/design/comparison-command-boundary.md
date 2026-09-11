@@ -12,7 +12,7 @@
 
 `@Tool` 直接标注在原语方法上：`comparisons_list`、`comparison_create`、`comparison_remove`、`comparisons_clear`。`Chart.comparisonCommands` 是唯一实例，`ChartController` 与 Agent 共用。
 
-Agent runtime 通过 `ChartAgentController.toolHosts` 找到原语实例作为工具执行目标；bridge 按工具名在宿主上查找方法，找不到时回退到 Agent facade。`Tool` 注册表迁到 `foundation/agent/chartToolRegistry`，使 engine 原语与 agent facade 都能安全引用，避免 engine 反向依赖 features。
+Agent runtime 通过 `ChartAgentController.toolHosts` 找到原语实例作为工具执行目标。`@Tool` 在装饰时自动记录真实方法名与函数引用，bridge 据此按函数身份认领宿主，未命中原语宿主时回退到 Agent facade，不再按工具名查找方法。`Tool` 注册表迁到 `foundation/agent/chartToolRegistry`，使 engine 原语与 agent facade 都能安全引用，避免 engine 反向依赖 features。
 
 ## Consequences
 

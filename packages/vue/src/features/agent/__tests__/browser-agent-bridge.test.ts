@@ -608,6 +608,25 @@ describe('BrowserAgentBridge', () => {
     expect(drawingCommands.create).toHaveBeenCalledOnce()
   })
 
+  it('routes a chart tool to the primitive host that owns it, falling back to the facade', () => {
+    const primitiveHost = { create: () => true }
+    const agent = createTestChartAgent({ toolHosts: [primitiveHost] })
+    const bridge = new BrowserAgentBridge({ getChartAgent: () => agent })
+    const resolveTarget = (
+      bridge as unknown as {
+        chartToolTarget(
+          tool: { owns(host: object): boolean },
+          agent: ChartAgentController,
+        ): object
+      }
+    ).chartToolTarget.bind(bridge)
+
+    // 原语工具由其真实方法宿主识别，而非按工具名匹配。
+    expect(resolveTarget({ owns: (host) => host === primitiveHost }, agent)).toBe(primitiveHost)
+    // 未命中原语宿主时归属 Agent facade 自身工具。
+    expect(resolveTarget({ owns: () => false }, agent)).toBe(agent)
+  })
+
   it('adds the exact runtime pane IDs to the create-drawing tool description', () => {
     const agent = createTestChartAgent({
       getAvailableMarketDataSourceIds: () => [],

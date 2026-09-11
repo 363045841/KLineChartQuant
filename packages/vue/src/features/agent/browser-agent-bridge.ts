@@ -551,11 +551,9 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     return this.profiles.active()?.exaApiKey?.trim() || undefined
   }
 
-  /** 解析工具执行目标：优先匹配已注册 @Tool 的原语宿主，否则回退到 Agent facade。 */
+  /** 解析工具执行目标：命中原语宿主则用宿主，否则归属 Agent facade 自身工具。 */
   private chartToolTarget(tool: RegisteredChartTool, agent: ChartAgentController): object {
-    const host = agent.toolHosts.find(
-      (candidate) => typeof (candidate as Record<string, unknown>)[tool.config.name] === 'function',
-    )
+    const host = agent.toolHosts.find((candidate) => tool.owns(candidate))
     return host ?? agent
   }
 

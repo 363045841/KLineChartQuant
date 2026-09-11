@@ -26,6 +26,10 @@ export interface ChartToolConfig<TParameters extends TSchema = TSchema> {
 /** 已注册的领域方法及其统一执行入口。 */
 export interface RegisteredChartTool {
   readonly config: ChartToolConfig
+  /** 装饰时自动记录的真实方法名；工具名面向 Agent，方法名面向宿主调用。 */
+  readonly methodName: string
+  /** 宿主是否拥有此工具；按方法函数身份判定，避免同名方法误配。 */
+  owns(host: object): boolean
   execute(target: object, input: unknown, context: ChartToolExecutionContext): Promise<unknown>
   summarizeInput(input: unknown): string
 }
@@ -95,12 +99,18 @@ export function Tool<TParameters extends TSchema>(config: ChartToolConfig<TParam
     if (registeredChartTools.has(config.name)) {
       throw new TypeError(`[Tool] '${config.name}' is already registered.`)
     }
+    // 装饰时记录真实方法名与函数引用，供调用方精确解析宿主并调用。
+    const methodName = context.name
     const registeredConfig = Object.freeze({
       ...config,
       parameters: deepFreeze(Value.Clone(config.parameters)),
     })
     registeredChartTools.set(config.name, {
       config: registeredConfig,
+      methodName,
+      owns(host) {
+        return (host as Record<string, unknown>)[methodName] === value
+      },
       async execute(target, input, execution) {
         return value.call(target as T, requireToolInput(registeredConfig.parameters, input), execution)
       },
