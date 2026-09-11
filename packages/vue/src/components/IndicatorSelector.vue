@@ -3,7 +3,7 @@
     <BaseModal
       :show="menuOpen"
       :title="modalTitle"
-      subtitle=""
+      :subtitle="`${catalogLen} 个可用指标`"
       width="90vw"
       max-width="860px"
       max-height="85vh"
@@ -11,13 +11,6 @@
       footer-align="space-between"
       @close="closeMenu"
     >
-      <template #header>
-        <div class="header-title">
-          <span class="title-text">{{ modalTitle }}</span>
-          <span class="title-sub">{{ catalogLen }} 个可用指标</span>
-        </div>
-      </template>
-
       <template #subheader>
         <div class="selector-toolbar">
           <div class="search-box">
@@ -30,28 +23,7 @@
               @input="controller.setSearchQuery(($event.target as HTMLInputElement).value)"
             />
           </div>
-          <div
-            class="view-tabs"
-            role="tablist"
-            aria-label="指标视图"
-            :style="{
-              '--view-tab-index': activeViewIndex,
-              '--view-tab-count': viewOptions.length,
-            }"
-          >
-            <span class="view-tabs__thumb" aria-hidden="true"></span>
-            <button
-              v-for="option in viewOptions"
-              :key="option.value"
-              class="view-tab"
-              :class="{ active: indicatorView === option.value }"
-              role="tab"
-              :aria-selected="indicatorView === option.value"
-              @click="indicatorView = option.value"
-            >
-              {{ option.label }}
-            </button>
-          </div>
+          <SegmentedTabs v-model="indicatorView" :tabs="viewOptions" aria-label="指标视图" />
         </div>
       </template>
 
@@ -168,6 +140,7 @@
   import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
   import IndicatorParams from './IndicatorParams.vue'
+  import SegmentedTabs from './SegmentedTabs.vue'
 
   const props = defineProps<{
     activeIndicators?: string[]
@@ -244,14 +217,6 @@
     { value: 'compact', label: '简洁' },
     { value: 'type', label: '按类型' },
   ]
-
-  /** 当前视图在 viewOptions 中的下标，供 view-tabs 滑块定位。 */
-  const activeViewIndex = computed(() =>
-    Math.max(
-      0,
-      viewOptions.findIndex((option) => option.value === indicatorView.value),
-    ),
-  )
 
   /** 按当前视图组织搜索后的指标，所有分组始终保持展开。 */
   const indicatorGroups = computed<IndicatorGroup[]>(() => {
@@ -412,83 +377,10 @@
     display: none;
   }
 
-  /* ── 头部 ── */
-  .header-title {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .title-text {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--klc-color-foreground);
-    line-height: 1.3;
-  }
-
-  .title-sub {
-    font-size: 12px;
-    color: var(--klc-color-axis-text);
-    font-weight: 400;
-    line-height: 1.3;
-  }
-
   .selector-toolbar {
     display: flex;
     align-items: center;
     gap: 12px;
-  }
-
-  .view-tabs {
-    position: relative;
-    display: grid;
-    grid-template-columns: repeat(var(--view-tab-count), minmax(64px, 1fr));
-    flex: 0 0 auto;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 8px;
-    background: var(--klc-color-ui-hover);
-    overflow: hidden;
-  }
-
-  .view-tabs__thumb {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: calc(100% / var(--view-tab-count));
-    background: var(--klc-color-ui-accent);
-    transform: translateX(calc(var(--view-tab-index) * 100%));
-    transition: transform 0.2s ease;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .view-tabs__thumb {
-      transition: none;
-    }
-  }
-
-  .view-tab {
-    position: relative;
-    z-index: 1;
-    height: 32px;
-    padding: 0 12px;
-    border: 0;
-    background: transparent;
-    color: var(--klc-color-ui-muted);
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: color 0.15s ease;
-  }
-
-  .view-tab:hover {
-    color: var(--klc-color-ui-text);
-  }
-
-  .view-tab.active {
-    color: var(--klc-color-ui-on-accent);
-    font-weight: 600;
   }
 
   /* ── 搜索 ── */
@@ -665,8 +557,7 @@
   }
 
   .card-select:focus-visible,
-  .card-action-btn:focus-visible,
-  .view-tab:focus-visible {
+  .card-action-btn:focus-visible {
     outline: 2px solid var(--klc-color-ui-text);
     outline-offset: -2px;
   }
@@ -763,7 +654,7 @@
       gap: 8px;
     }
 
-    .view-tabs {
+    .selector-toolbar :deep(.segmented-tabs) {
       width: 100%;
     }
 

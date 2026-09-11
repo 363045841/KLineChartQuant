@@ -8,20 +8,14 @@
     @close="handleClose"
   >
     <template #header-extra>
-      <div class="alert-tabs">
-        <button
-          v-for="tab in tabs"
-          :key="tab.key"
-          class="alert-tab"
-          :class="{ active: activeTab === tab.key }"
-          @click="activeTab = tab.key"
-        >
+      <SegmentedTabs v-model="activeTab" :tabs="tabs" aria-label="预警视图">
+        <template #tab="{ tab }">
           {{ tab.label }}
-          <span v-if="tab.key === 'history' && unreadCount > 0" class="alert-tab-badge">{{
-            unreadCount > 99 ? '99+' : unreadCount
-          }}</span>
-        </button>
-      </div>
+          <span v-if="tab.value === 'history' && unreadCount > 0" class="alert-tab-badge">
+            {{ unreadCount > 99 ? '99+' : unreadCount }}
+          </span>
+        </template>
+      </SegmentedTabs>
     </template>
 
     <!-- Rules Tab -->
@@ -220,6 +214,7 @@
 
   import { useAlerts } from '../../composables/useAlerts'
   import BaseModal from '../BaseModal.vue'
+  import SegmentedTabs from '../SegmentedTabs.vue'
   import ToggleSwitch from '../common/ToggleSwitch.vue'
 
   import AlertRuleForm from './AlertRuleForm.vue'
@@ -234,8 +229,8 @@
   }>()
 
   const tabs = [
-    { key: 'rules' as const, label: '规则' },
-    { key: 'history' as const, label: '历史' },
+    { value: 'rules' as const, label: '规则' },
+    { value: 'history' as const, label: '历史' },
   ]
   const activeTab = ref<'rules' | 'history'>('rules')
 
@@ -363,44 +358,8 @@
 
 <style scoped>
   /* ══════════════════════════════════════════
-   Tabs
+   Tab Badge
 ══════════════════════════════════════════ */
-  .alert-tabs {
-    display: flex;
-    gap: 4px;
-  }
-
-  .alert-tab {
-    position: relative;
-    padding: 5px 14px;
-    border: 1px solid transparent;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--klc-color-axis-text);
-    font-size: 12px;
-    font-weight: 500;
-    letter-spacing: 0.02em;
-    cursor: pointer;
-    transition:
-      background 0.15s,
-      color 0.15s,
-      border-color 0.15s,
-      box-shadow 0.15s;
-  }
-
-  .alert-tab:hover:not(.active) {
-    background: var(--klc-color-tag-bg-hover);
-    color: var(--klc-color-foreground);
-    border-color: var(--klc-color-border-button);
-  }
-
-  .alert-tab.active {
-    background: var(--klc-color-foreground);
-    color: var(--klc-color-background);
-    border-color: var(--klc-color-foreground);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
-  }
-
   .alert-tab-badge {
     position: absolute;
     top: -5px;
@@ -408,14 +367,14 @@
     min-width: 15px;
     height: 15px;
     padding: 0 3px;
-    background: #ef4444;
-    color: #fff;
+    background: var(--klc-color-ui-danger);
+    color: var(--klc-color-ui-on-accent);
     font-size: 9px;
     font-weight: 700;
     line-height: 15px;
     text-align: center;
     border-radius: 999px;
-    box-shadow: 0 0 0 2px var(--klc-color-background);
+    box-shadow: 0 0 0 2px var(--klc-color-ui-surface);
     pointer-events: none;
   }
 
@@ -516,7 +475,7 @@
     align-items: center;
     gap: 8px;
     padding: 40px 0 36px;
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
   }
 
   .alert-empty-icon-wrap {
@@ -526,7 +485,7 @@
     align-items: center;
     justify-content: center;
     border-radius: 14px;
-    background: var(--klc-color-tag-bg-hover);
+    background: var(--klc-color-ui-hover);
     margin-bottom: 4px;
   }
 
@@ -539,13 +498,13 @@
   .alert-empty-title {
     font-size: 13px;
     font-weight: 600;
-    color: var(--klc-color-foreground);
+    color: var(--klc-color-ui-text);
     opacity: 0.7;
   }
 
   .alert-empty-hint {
     font-size: 11px;
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
     opacity: 0.55;
   }
 

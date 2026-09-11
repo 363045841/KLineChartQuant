@@ -2,18 +2,13 @@
   <!-- 主弹窗 -->
   <BaseModal
     :show="show"
+    title="图表设置"
+    subtitle="个性化配置"
     width="min(92vw, 460px)"
     max-height="min(720px, calc(100vh - 48px))"
     footer-align="space-between"
     @close="closeSettings"
   >
-    <template #header>
-      <div class="header-left">
-        <span class="settings-title">图表设置</span>
-        <span class="settings-subtitle">个性化配置</span>
-      </div>
-    </template>
-
     <template #tabs>
       <BaseTabs v-model="activeSection" :tabs="settingsTabs" aria-label="图表设置" />
     </template>
@@ -401,27 +396,6 @@
 </script>
 
 <style scoped>
-  .header-left {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-  }
-
-  .settings-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--klc-color-foreground);
-    line-height: 1.3;
-  }
-
-  .settings-subtitle {
-    font-size: 12px;
-    color: var(--klc-color-axis-text);
-    line-height: 1.3;
-    font-weight: 400;
-  }
-
   .settings-body {
     display: flex;
     flex-direction: column;

@@ -9,10 +9,12 @@
       >
         <Transition :name="modalTransitionName">
           <div class="base-modal" :style="modalStyle" @click.stop>
-            <div v-if="$slots.header || title" class="base-header">
+            <div v-if="$slots.header || $slots.title || title" class="base-header">
               <slot name="header">
                 <div class="base-header-left">
-                  <span class="base-title">{{ title }}</span>
+                  <span class="base-title"
+                    ><slot name="title">{{ title }}</slot></span
+                  >
                   <span v-if="subtitle" class="base-subtitle">{{ subtitle }}</span>
                 </div>
               </slot>
@@ -151,6 +153,7 @@
     font-weight: 600;
     color: var(--klc-color-ui-text);
     line-height: 1.35;
+    white-space: nowrap;
   }
 
   .base-subtitle {
