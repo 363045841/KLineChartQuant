@@ -285,7 +285,6 @@
 
 <script setup lang="ts">
   import {
-    SETTINGS_STORAGE_KEY,
     migrateStoredSettings,
     resolveRuntimeSettings,
     resolveSettings,
@@ -615,12 +614,7 @@
   function onAddOverlaySymbol(item: SymbolItem) {
     const ctrl = controller.value
     if (!ctrl) return
-    const current = ctrl.symbols.peek()
-    const currentKeys = current.map(symbolIdentityKey)
-    if (currentKeys.includes(symbolIdentityKey(item))) return
     try {
-      ctrl.registerSymbols([toLegacySymbolInfo(item)])
-      forcePercentAxis()
       ctrl.addComparisonSymbol(toSymbolSpec(item))
     } catch (error) {
       symbolStatus.value = 'error'
@@ -714,21 +708,6 @@
       toSymbolSpec(currentSymbolItem.value),
       ...overlaySymbolItems.value.map(toSymbolSpec),
     ])
-  }
-
-  function forcePercentAxis() {
-    if (chartSettings.value.axisType === 'percent') return
-    const nextSettings = migrateStoredSettings({
-      ...chartSettings.value,
-      axisType: 'percent',
-    })
-    chartSettings.value = nextSettings
-    controller.value?.updateSettingsFacade(resolveSettings(nextSettings))
-    try {
-      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(nextSettings))
-    } catch {
-      /* quota exceeded */
-    }
   }
 
   // ── DOM Template Refs ──

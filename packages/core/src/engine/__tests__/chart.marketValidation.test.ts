@@ -16,6 +16,12 @@ function chartHarness() {
     commitSymbols: vi.fn(),
     setComparisonViewActive: vi.fn(),
     validateSpec: (spec) => resolveSymbolMarketSession(spec, marketSessions),
+    registerSpec: vi.fn(),
+    resolveInstrument: async () => ({
+      instrument: null,
+      searchedSourceIds: [],
+      foundElsewhereSourceIds: [],
+    }),
     getColor: () => undefined,
     scheduleDraw: vi.fn(),
   })

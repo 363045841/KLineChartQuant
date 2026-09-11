@@ -179,6 +179,12 @@ function createFixture() {
     commitSymbols: () => {},
     setComparisonViewActive: () => {},
     validateSpec: () => {},
+    registerSpec: () => {},
+    resolveInstrument: async () => ({
+      instrument: null,
+      searchedSourceIds: [],
+      foundElsewhereSourceIds: [],
+    }),
     getColor: () => undefined,
     scheduleDraw: () => {},
   })
