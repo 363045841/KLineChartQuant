@@ -4,6 +4,8 @@
 
 {{include:_hero.zh-CN.md}}
 
+{{include:_agent-native.zh-CN.md}}
+
 {{include:_features.zh-CN.md}}
 
 {{include:_architecture.zh-CN.md}}

@@ -4,6 +4,8 @@
 
 {{include:_hero.md}}
 
+{{include:_agent-native.md}}
+
 {{include:_features.md}}
 
 ## 🚀 Quick Start
