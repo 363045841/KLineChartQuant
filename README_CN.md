@@ -21,23 +21,14 @@
 轻量级金融 K 线图表库，专注量化交易场景。**Agent 是一等公民** — 支持 AI Agent 直接控制图表操作，提供 TradingView 级别的交互体验。
 
 <div align="center">
-  <img src="https://files.seeusercontent.com/2026/08/16/wSf5/pasted-image-1786887199397.webp" width="400" style="border-radius: 12px; margin: 8px;" />
-  <img src="https://files.seeusercontent.com/2026/08/30/2nMx/pasted-image-1788101144380.webp" width="400" style="border-radius: 12px; margin: 8px;" />
+  <img src="https://files.seeusercontent.com/2026/09/11/8qhO/c13205e.png" width="400" style="border-radius: 12px; margin: 8px;" />
+  <img src="https://files.seeusercontent.com/2026/09/11/r3bV/1b3b978.png" width="400" style="border-radius: 12px; margin: 8px;" />
   <br/>
-  <img src="https://files.seeusercontent.com/2026/08/30/Xbg0/pasted-image-1788102147905.webp" width="400" style="border-radius: 12px; margin: 8px;" />
-  <img src="https://files.seeusercontent.com/2026/08/30/eq2E/pasted-image-1788102254318.webp" width="400" style="border-radius: 12px; margin: 8px;" />
+  <img src="https://files.seeusercontent.com/2026/09/11/7Fkg/b602f74.png" width="400" style="border-radius: 12px; margin: 8px;" />
+  <img src="https://files.seeusercontent.com/2026/09/11/4Yxu/11e2d91.jpg" width="400" style="border-radius: 12px; margin: 8px;" />
   <br/>
-  <div style="display: flex; align-items: flex-start; justify-content: center; gap: 8px;">
-    <div style="display: flex; flex-direction: column; gap: 8px;">
-      <img src="https://files.seeusercontent.com/2026/06/18/Uab4/pasted-image-1781798801155.webp" width="400" style="border-radius: 12px;" />
-      <img src="https://files.seeusercontent.com/2026/06/18/Hcq8/QQ20260619000024.jpg" width="400" style="border-radius: 12px;" />
-    </div>
-  </div>
-  <br/>
-  <img src="https://files.seeusercontent.com/2026/08/30/7qBr/pasted-image-1788102379488.webp" width="400" style="border-radius: 12px; margin: 8px;" />
-  <img src="https://files.seeusercontent.com/2026/06/20/0flS/1YHDQQB321JZ5QW.png" width="400" style="border-radius: 12px; margin: 8px;" />
-  <br/>
-  <img src="https://files.seeusercontent.com/2026/09/07/W2vc/pasted-image-1788795785458.webp" width="400" style="border-radius: 12px; margin: 8px;" />
+  <img src="https://files.seeusercontent.com/2026/09/11/Wv2q/e549295.png" width="400" style="border-radius: 12px; margin: 8px;" />
+  <img src="https://files.seeusercontent.com/2026/09/11/udP5/Agent.png" width="400" style="border-radius: 12px; margin: 8px;" />
 </div>
 
 
@@ -131,6 +122,51 @@ flowchart TB
   WebSocket 桥接到控制器。
 
 完整架构文档见 [docs/architecture.md](docs/architecture.md)。
+
+
+## ⚡ 性能
+
+本项目自研了一套渲染引擎，可将渲染原语直接提交到 Canvas、WebGL 或 WebGPU 渲染，一套代码即可无缝切换渲染引擎。以下数据来自 [`bench/`](bench/README.md) 的可复现基准（`node bench/run.mjs`）。默认配置：无头 Chrome，1180 × 640 视口，DPR 2，4× MSAA，预热 120 帧、采集 600 帧。帧率由 `requestAnimationFrame` 观测，受显示器刷新率上限约束（此处 200 Hz）；Canvas2D 无页面级 GPU 计时接口，GPU 时间保留为空。
+
+### WebGPU 命令提交
+
+7 个命令缓冲通过一次 `queue.submit` 集中提交与 7 次拆分提交对比：
+
+| 提交方式 | P50 (ms) |
+| --- | --- |
+| 一次 `queue.submit`（合并） | 0.002 |
+| 七次 `queue.submit`（拆分） | 0.011 |
+| 加速比 | **5.50×** |
+
+### MA5 / MA20 / MA60（简单指标）
+
+| 可见 K 线 | 后端 | 准备 P50 (ms) | CPU 提交 P50 (ms) | GPU P50 (ms) | 帧率 | 1% Low | 帧间隔 P99 (ms) | 卡顿率 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1,000 | Canvas2D | 0.200 | 0.300 | N/A | 200.0 | 192.3 | 5.20 | 0.00% |
+| 1,000 | WebGL2 | 0.400 | 0.700 | 0.338 | 200.0 | 192.3 | 5.20 | 0.00% |
+| 1,000 | WebGPU | 0.400 | 1.300 | 0.009 | 199.7 | 192.3 | 5.20 | 0.17% |
+| 5,000 | Canvas2D | 0.600 | 1.100 | N/A | 106.9 | 65.8 | 15.20 | 24.50% |
+| 5,000 | WebGL2 | 1.200 | 1.700 | 0.178 | 200.0 | 192.3 | 5.20 | 0.00% |
+| 5,000 | WebGPU | 1.000 | 1.800 | 0.040 | 200.0 | 192.3 | 5.20 | 0.00% |
+| 10,000 | Canvas2D | 1.100 | 1.900 | N/A | 97.2 | 65.8 | 15.20 | 30.67% |
+| 10,000 | WebGL2 | 1.400 | 1.700 | 0.252 | 198.0 | 190.6 | 5.25 | 0.17% |
+| 10,000 | WebGPU | 1.200 | 1.900 | 0.041 | 199.3 | 192.3 | 5.20 | 0.00% |
+
+### Ichimoku（复杂渲染工况）
+
+| 可见 K 线 | 后端 | 准备 P50 (ms) | CPU 提交 P50 (ms) | GPU P50 (ms) | 帧率 | 1% Low | 帧间隔 P99 (ms) | 卡顿率 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1,000 | Canvas2D | 0.700 | 0.400 | N/A | 163.3 | 98.0 | 10.20 | 5.67% |
+| 1,000 | WebGL2 | 1.900 | 0.700 | 0.339 | 200.0 | 192.3 | 5.20 | 0.00% |
+| 1,000 | WebGPU | 1.500 | 0.900 | 0.014 | 199.3 | 192.3 | 5.20 | 0.00% |
+| 5,000 | Canvas2D | 3.400 | 1.700 | N/A | 67.8 | 49.5 | 20.20 | 94.17% |
+| 5,000 | WebGL2 | 3.500 | 1.400 | 0.227 | 188.4 | 99.0 | 10.10 | 2.17% |
+| 5,000 | WebGPU | 3.500 | 1.500 | 0.054 | 178.6 | 99.0 | 10.10 | 2.50% |
+| 10,000 | Canvas2D | 6.700 | 2.900 | N/A | 60.4 | 48.8 | 20.50 | 100.00% |
+| 10,000 | WebGL2 | 6.500 | 2.400 | 0.885 | 101.4 | 66.2 | 15.10 | 30.33% |
+| 10,000 | WebGPU | 6.800 | 2.700 | 0.158 | 94.9 | 66.2 | 15.10 | 36.17% |
+
+> **说明**：Ichimoku 场景下的掉帧（jank）并非渲染引擎导致，瓶颈在 CPU 层，后续会进行优化。
 
 
 ## 📡 数据源
@@ -414,8 +450,8 @@ pnpm inspect
 - [x] 右轴缩放
 - [x] 最新价线与右轴标签样式优化
 - [x] 面图元工具及渲染
-- [ ] 更多高级绘图工具
-- [ ] 支持分钟、多日、月、年 K 线显示
+- [x] 更多高级绘图工具
+- [x] 支持分钟、多日、月、年 K 线显示
 - [ ] 支持将绘制的图形转换为量化代码
 
 
@@ -432,6 +468,8 @@ pnpm inspect
 
 ## 🚀 What's New
 
+- **v0.11** 引入 AI Agent 运行时（agent-runtime 与 AI runtime，支持 OpenAI 协议与浏览器内对话，Web/Electron 共享 Agent 工作区）及 @tool 注册基础设施与绘图 Agent 工具。绘图工具支持子图与分时绘制、workspace 隔离、多选批量编辑、空白区域锚点、单行内联文本编辑、框选成组拖拽与标签位置配置；同时新增五日分时、分时指标原生支持与持久化视图工作区，并完成 WebGL 可见画布直绘等性能优化。
+- **v0.10** 以统一 MarketDataProvider 重构数据层，新增多日分时、图表与 Agent 共享的统一指标查询管线、Fibonacci/矩形/箭头标注工具，并将对比模式升格为独立图表模式。Vue/React/Angular 绑定对齐统一 Provider 契约，同时修复多项渲染与状态一致性问题。
 - **v0.9.0** 自研 Core 层响应式模型迁移，时序问题消除
 - **v0.9.0** 单路径 Scene 渲染器 + WebGPU 后端（混合 DOM Canvas，无 compositeTo）、FrameTransaction 响应式、设备丢失恢复、自动降级 WebGPU → WebGL → Canvas2D
 - **v0.8** 支持商品比较，支持多数据源聚合
