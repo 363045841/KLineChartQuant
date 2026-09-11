@@ -8,6 +8,8 @@
 
 {{include:_architecture.md}}
 
+{{include:_performance.md}}
+
 {{include:_data-sources.md}}
 
 ## 🚀 Quick Start

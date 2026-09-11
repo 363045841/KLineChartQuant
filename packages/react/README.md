@@ -21,23 +21,14 @@ English | [简体中文](README_CN.md)
 A lightweight financial K-line charting library focused on quantitative trading scenarios. **Agent is a first-class citizen** — supports AI Agent direct control of chart operations, providing TradingView-level interaction experience.
 
 <div align="center">
-  <img src="https://files.seeusercontent.com/2026/08/16/wSf5/pasted-image-1786887199397.webp" width="400" style="border-radius: 12px; margin: 8px;" />
-  <img src="https://files.seeusercontent.com/2026/08/30/2nMx/pasted-image-1788101144380.webp" width="400" style="border-radius: 12px; margin: 8px;" />
+  <img src="https://files.seeusercontent.com/2026/09/11/8qhO/c13205e.png" width="400" style="border-radius: 12px; margin: 8px;" />
+  <img src="https://files.seeusercontent.com/2026/09/11/r3bV/1b3b978.png" width="400" style="border-radius: 12px; margin: 8px;" />
   <br/>
-  <img src="https://files.seeusercontent.com/2026/08/30/Xbg0/pasted-image-1788102147905.webp" width="400" style="border-radius: 12px; margin: 8px;" />
-  <img src="https://files.seeusercontent.com/2026/08/30/eq2E/pasted-image-1788102254318.webp" width="400" style="border-radius: 12px; margin: 8px;" />
+  <img src="https://files.seeusercontent.com/2026/09/11/7Fkg/b602f74.png" width="400" style="border-radius: 12px; margin: 8px;" />
+  <img src="https://files.seeusercontent.com/2026/09/11/4Yxu/11e2d91.jpg" width="400" style="border-radius: 12px; margin: 8px;" />
   <br/>
-  <div style="display: flex; align-items: flex-start; justify-content: center; gap: 8px;">
-    <div style="display: flex; flex-direction: column; gap: 8px;">
-      <img src="https://files.seeusercontent.com/2026/06/18/Uab4/pasted-image-1781798801155.webp" width="400" style="border-radius: 12px;" />
-      <img src="https://files.seeusercontent.com/2026/06/18/Hcq8/QQ20260619000024.jpg" width="400" style="border-radius: 12px;" />
-    </div>
-  </div>
-  <br/>
-  <img src="https://files.seeusercontent.com/2026/08/30/7qBr/pasted-image-1788102379488.webp" width="400" style="border-radius: 12px; margin: 8px;" />
-  <img src="https://files.seeusercontent.com/2026/06/20/0flS/1YHDQQB321JZ5QW.png" width="400" style="border-radius: 12px; margin: 8px;" />
-  <br/>
-  <img src="https://files.seeusercontent.com/2026/09/07/W2vc/pasted-image-1788795785458.webp" width="400" style="border-radius: 12px; margin: 8px;" />
+  <img src="https://files.seeusercontent.com/2026/09/11/Wv2q/e549295.png" width="400" style="border-radius: 12px; margin: 8px;" />
+  <img src="https://files.seeusercontent.com/2026/09/11/udP5/Agent.png" width="400" style="border-radius: 12px; margin: 8px;" />
 </div>
 
 
@@ -96,8 +87,8 @@ For full setup including the data backend, see the [root README]../../README.md)
 - [x] Right axis zoom
 - [x] Latest price line and right axis label style optimization
 - [x] Area primitive tools and rendering
-- [ ] More advanced drawing tools
-- [ ] Support for minute, multi-day, monthly, and yearly K-line display
+- [x] More advanced drawing tools
+- [x] Support for minute, multi-day, monthly, and yearly K-line display
 - [ ] Support convert the drawing to quant code
 
 

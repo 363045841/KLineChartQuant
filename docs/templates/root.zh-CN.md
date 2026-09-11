@@ -8,6 +8,8 @@
 
 {{include:_architecture.zh-CN.md}}
 
+{{include:_performance.zh-CN.md}}
+
 {{include:_data-sources.zh-CN.md}}
 
 ## 🚀 快速开始

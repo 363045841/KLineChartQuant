@@ -9,6 +9,6 @@
 - [x] Right axis zoom
 - [x] Latest price line and right axis label style optimization
 - [x] Area primitive tools and rendering
-- [ ] More advanced drawing tools
-- [ ] Support for minute, multi-day, monthly, and yearly K-line display
+- [x] More advanced drawing tools
+- [x] Support for minute, multi-day, monthly, and yearly K-line display
 - [ ] Support convert the drawing to quant code
