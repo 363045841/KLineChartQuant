@@ -9,26 +9,7 @@
     @close="closeProviderSettings()"
   >
     <template #tabs>
-      <nav class="agent-settings-tabs" role="tablist" :aria-label="text.agentSettings">
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="activeTab === 'provider'"
-          :class="{ 'is-active': activeTab === 'provider' }"
-          @click="activeTab = 'provider'"
-        >
-          {{ text.providerSettings }}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="activeTab === 'tools'"
-          :class="{ 'is-active': activeTab === 'tools' }"
-          @click="activeTab = 'tools'"
-        >
-          {{ text.tools }}
-        </button>
-      </nav>
+      <BaseTabs v-model="activeTab" :tabs="agentTabs" :aria-label="text.agentSettings" />
     </template>
 
     <div class="provider-form">
@@ -38,16 +19,43 @@
             <div class="provider-settings-profiles__header">
               <span>{{ text.providerProfile }}</span>
             </div>
-            <button
+            <div
               v-for="profile in profileOptions"
               :key="profile.value"
-              type="button"
               class="provider-settings-profile"
               :class="{ 'is-active': profile.value === providerSettings.profileName }"
-              @click="selectProfile(profile.value)"
             >
-              {{ profile.label }}
-            </button>
+              <button
+                type="button"
+                class="provider-settings-profile__select"
+                @click="selectProfile(profile.value)"
+              >
+                {{ profile.label }}
+              </button>
+              <span
+                v-if="persistedProfileNames.has(profile.value)"
+                class="provider-settings-profile__actions"
+              >
+                <button
+                  type="button"
+                  class="provider-settings-profile__action"
+                  :title="text.renameProviderProfile"
+                  :aria-label="text.renameProviderProfile"
+                  @click.stop="openRenameProfileDialog(profile.value)"
+                >
+                  <IconPencil aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  class="provider-settings-profile__action provider-settings-profile__action--danger"
+                  :title="text.deleteProviderProfile"
+                  :aria-label="text.deleteProviderProfile"
+                  @click.stop="removeProfile(profile.value)"
+                >
+                  <IconTrash aria-hidden="true" />
+                </button>
+              </span>
+            </div>
             <button
               type="button"
               class="provider-profile-new-button"
@@ -112,16 +120,16 @@
                   :placeholder="text.modelSearchPlaceholder"
                   :disabled="providerSettings.modelsLoading"
                 />
-                <button
-                  type="button"
-                  class="agent-tool__run provider-settings-models__refresh"
+                <BaseButton
+                  size="sm"
+                  class="provider-settings-models__refresh"
                   :title="text.refreshModels"
                   :aria-label="text.refreshModels"
                   :disabled="providerSettings.modelsLoading || !canRefreshModels"
                   @click="providerSettings.refreshModelCatalog()"
                 >
                   <IconRefresh aria-hidden="true" />
-                </button>
+                </BaseButton>
               </div>
               <div
                 v-if="providerSettings.modelCatalog.length"
@@ -154,18 +162,18 @@
         <section v-else class="agent-settings-tools" role="tabpanel">
           <div v-if="providerSettings.tools.length" class="agent-tools">
             <section v-for="tool in providerSettings.tools" :key="tool.name" class="agent-tool">
-              <label class="agent-tool__toggle">
-                <input
-                  type="checkbox"
-                  :checked="tool.enabled"
-                  :disabled="tool.available === false"
-                  @change="setToolEnabled(tool.name, $event)"
-                />
+              <div class="agent-tool__toggle">
                 <span>
                   <strong>{{ tool.label }}</strong>
                   <small>{{ tool.description }}</small>
                 </span>
-              </label>
+                <ToggleSwitch
+                  :model-value="tool.enabled"
+                  :disabled="tool.available === false"
+                  :aria-label="tool.label"
+                  @update:model-value="setToolEnabled(tool.name, $event)"
+                />
+              </div>
               <p v-if="tool.unavailableReason" class="agent-tool__unavailable">
                 {{ tool.unavailableReason }}
               </p>
@@ -186,8 +194,8 @@
                   @input="setToolInput(tool.name, $event)"
                 />
               </details>
-              <button
-                type="button"
+              <BaseButton
+                size="sm"
                 class="agent-tool__run"
                 :disabled="
                   !tool.enabled ||
@@ -199,7 +207,7 @@
                 {{
                   providerSettings.runningToolName === tool.name ? text.toolRunning : text.toolRun
                 }}
-              </button>
+              </BaseButton>
               <p
                 v-if="providerSettings.toolErrors[tool.name]"
                 class="agent-tool__error"
@@ -231,33 +239,31 @@
   </BaseModal>
 
   <BaseModal
-    :show="creatingProfile"
-    :title="text.newProviderProfile"
+    :show="profileNameDialog !== null"
+    :title="profileNameDialogTitle"
     width="min(92vw, 360px)"
     :z-index="1100"
-    @close="closeCreateProfileDialog()"
+    @close="closeProfileNameDialog()"
   >
-    <form id="agent-provider-profile-form" @submit.prevent="createProfile()">
+    <form id="agent-provider-profile-form" @submit.prevent="submitProfileName()">
       <label class="provider-field">
         <span class="provider-field__label">{{ text.providerProfileName }}</span>
-        <input ref="profileNameInput" v-model="newProfileName" type="text" autocomplete="off" />
+        <input ref="profileNameInput" v-model="profileNameDraft" type="text" autocomplete="off" />
       </label>
+      <p v-if="profileNameDialogError" class="provider-profile-error" role="alert">
+        {{ profileNameDialogError }}
+      </p>
     </form>
 
     <template #footer>
-      <div class="provider-actions">
-        <button type="button" class="provider-secondary-button" @click="closeCreateProfileDialog()">
-          {{ text.cancel }}
-        </button>
-        <button
-          type="submit"
-          form="agent-provider-profile-form"
-          class="provider-primary-button"
-          :disabled="!newProfileName.trim()"
-        >
-          {{ text.confirm }}
-        </button>
-      </div>
+      <BaseButton @click="closeProfileNameDialog()">{{ text.cancel }}</BaseButton>
+      <BaseButton
+        type="submit"
+        form="agent-provider-profile-form"
+        :disabled="!profileNameDraft.trim()"
+      >
+        {{ text.confirm }}
+      </BaseButton>
     </template>
   </BaseModal>
 </template>
@@ -265,7 +271,9 @@
 <script setup lang="ts">
   import { computed, nextTick, ref, watch } from 'vue'
 
+  import BaseButton from '../../../components/BaseButton.vue'
   import BaseModal from '../../../components/BaseModal.vue'
+  import BaseTabs from '../../../components/BaseTabs.vue'
   import Dropdown from '../../../components/Dropdown.vue'
   import ToggleSwitch from '../../../components/common/ToggleSwitch.vue'
   import {
@@ -278,8 +286,10 @@
   import type { AgentProviderSettingsStore } from '../agent-provider-settings-store'
 
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
+  import IconPencil from '~icons/tabler/pencil'
   import IconPlus from '~icons/tabler/plus'
   import IconRefresh from '~icons/tabler/refresh'
+  import IconTrash from '~icons/tabler/trash'
 
   const props = defineProps<{
     providerSettings: AgentProviderSettingsStore
@@ -288,12 +298,28 @@
   }>()
 
   const profileNameInput = ref<HTMLInputElement | null>(null)
-  const creatingProfile = ref(false)
-  const newProfileName = ref('')
+  const profileNameDialog = ref<'create' | 'rename' | null>(null)
+  const profileNameDraft = ref('')
+  const renamingProfile = ref('')
   const activeTab = ref<'provider' | 'tools'>('provider')
   const text = computed(() => getAgentCopy(props.locale))
+  const agentTabs = computed<ReadonlyArray<{ id: 'provider' | 'tools'; label: string }>>(() => [
+    { id: 'provider', label: text.value.providerSettings },
+    { id: 'tools', label: text.value.tools },
+  ])
+  const profileNameDialogTitle = computed(() =>
+    profileNameDialog.value === 'rename'
+      ? text.value.renameProviderProfile
+      : text.value.newProviderProfile,
+  )
+  const persistedProfileNames = computed(
+    () => new Set(props.providerSettings.profiles.map((profile) => profile.name)),
+  )
   const modelSearch = ref('')
   const visibleError = computed(() => props.providerSettings.operationError ?? props.status.error)
+  const profileNameDialogError = computed(() =>
+    props.providerSettings.profileNameError ? text.value.providerProfileNameDuplicated : '',
+  )
   const protocolOptions = computed(() =>
     PROVIDER_API_PROTOCOLS.map((protocol) => ({ value: protocol, label: protocolLabel(protocol) })),
   )
@@ -360,11 +386,9 @@
     void props.providerSettings.setModelPoolMembership(modelId, enabled)
   }
 
-  /** 将复选框事件转换为持久化的工具启用设置。 */
-  function setToolEnabled(name: string, event: Event): void {
-    const target = event.target
-    if (!(target instanceof HTMLInputElement)) return
-    void props.providerSettings.setToolEnabled(name, target.checked)
+  /** 更新工具启用状态。 */
+  function setToolEnabled(name: string, enabled: boolean): void {
+    void props.providerSettings.setToolEnabled(name, enabled)
   }
 
   /** 保存当前工具的 JSON 参数草稿。 */
@@ -379,30 +403,57 @@
     if (id) void props.providerSettings.selectProfile(id)
   }
 
-  /** 打开配置命名弹窗。 */
+  /** 打开新建配置命名弹窗。 */
   function openCreateProfileDialog(): void {
-    newProfileName.value = ''
-    creatingProfile.value = true
+    profileNameDraft.value = ''
+    renamingProfile.value = ''
+    props.providerSettings.clearProfileNameError()
+    profileNameDialog.value = 'create'
     void nextTick(() => profileNameInput.value?.focus())
   }
 
-  /** 关闭配置命名弹窗并清空临时名称。 */
-  function closeCreateProfileDialog(): void {
-    creatingProfile.value = false
-    newProfileName.value = ''
+  /** 打开重命名弹窗并预填当前名称。 */
+  function openRenameProfileDialog(name: string): void {
+    profileNameDraft.value = name
+    renamingProfile.value = name
+    props.providerSettings.clearProfileNameError()
+    profileNameDialog.value = 'rename'
+    void nextTick(() => {
+      profileNameInput.value?.focus()
+      profileNameInput.value?.select()
+    })
   }
 
-  /** 确认名称后创建新的配置草稿。 */
-  function createProfile(): void {
-    if (!newProfileName.value.trim()) return
-    void props.providerSettings.createProfile(newProfileName.value).then((created) => {
-      if (created) closeCreateProfileDialog()
+  /** 关闭配置命名弹窗并清空临时名称。 */
+  function closeProfileNameDialog(): void {
+    profileNameDialog.value = null
+    profileNameDraft.value = ''
+    renamingProfile.value = ''
+    props.providerSettings.clearProfileNameError()
+  }
+
+  /** 确认名称后创建新配置或重命名现有配置。 */
+  function submitProfileName(): void {
+    const draft = profileNameDraft.value.trim()
+    if (!draft || profileNameDialog.value === null) return
+    const operation =
+      profileNameDialog.value === 'rename'
+        ? props.providerSettings.renameProfile(renamingProfile.value, draft)
+        : props.providerSettings.createProfile(draft)
+    void operation.then((succeeded) => {
+      if (succeeded) closeProfileNameDialog()
     })
+  }
+
+  /** 确认后删除指定配置。 */
+  function removeProfile(name: string): void {
+    if (!window.confirm(text.value.deleteProviderProfileConfirm)) return
+    void props.providerSettings.deleteProfile(name)
   }
 
   /** 关闭主设置时一并关闭配置命名弹窗。 */
   function closeProviderSettings(): void {
-    closeCreateProfileDialog()
+    closeProfileNameDialog()
     props.providerSettings.close()
   }
 
@@ -438,37 +489,6 @@
     overflow-y: auto;
   }
 
-  .agent-settings-tabs {
-    display: flex;
-    gap: 2px;
-    padding: 0 20px;
-    border-bottom: 1px solid var(--klc-color-grid-major);
-    background: var(--klc-color-background);
-  }
-
-  .agent-settings-tabs button {
-    padding: 8px 10px;
-    border: 0;
-    border-bottom: 2px solid transparent;
-    color: var(--klc-color-axis-text);
-    background: transparent;
-    font: inherit;
-    font-size: 12px;
-    cursor: pointer;
-  }
-
-  .agent-settings-tabs button:hover,
-  .agent-settings-tabs button:focus-visible {
-    color: var(--klc-color-foreground);
-    outline: 0;
-  }
-
-  .agent-settings-tabs button.is-active {
-    border-bottom-color: var(--klc-color-selection-stroke);
-    color: var(--klc-color-foreground);
-    font-weight: 600;
-  }
-
   .agent-settings-tools {
     max-height: min(560px, calc(100vh - 230px));
     overflow-y: auto;
@@ -480,7 +500,7 @@
     min-height: 420px;
     display: grid;
     grid-template-columns: 144px minmax(0, 1fr);
-    border: 1px solid var(--klc-color-grid-major);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 8px;
     overflow: hidden;
   }
@@ -490,8 +510,7 @@
     flex-direction: column;
     gap: 2px;
     padding: 8px;
-    border-right: 1px solid var(--klc-color-grid-major);
-    background: var(--klc-color-grid-minor);
+    border-right: 1px solid var(--klc-color-ui-border);
   }
 
   .provider-settings-profiles__header,
@@ -499,7 +518,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
     font-size: 11px;
     font-weight: 500;
   }
@@ -510,11 +529,37 @@
   }
 
   .provider-settings-profile {
+    position: relative;
     min-width: 0;
-    padding: 7px 8px;
+    display: flex;
+    align-items: center;
+    border-radius: 5px;
+    color: var(--klc-color-ui-muted);
+    background: transparent;
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .provider-settings-profile:hover,
+  .provider-settings-profile:focus-within {
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-hover);
+  }
+
+  .provider-settings-profile.is-active {
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-hover);
+    font-weight: 600;
+  }
+
+  .provider-settings-profile__select {
+    min-width: 0;
+    flex: 1 1 auto;
+    padding: 7px 10px;
     border: 0;
     border-radius: 5px;
-    color: var(--klc-color-foreground);
+    color: inherit;
     background: transparent;
     font: inherit;
     font-size: 12px;
@@ -523,17 +568,70 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     cursor: pointer;
+    transition: padding-right 0.15s ease;
   }
 
-  .provider-settings-profile:hover,
-  .provider-settings-profile:focus-visible {
-    background: var(--klc-color-tag-bg-hover);
+  .provider-settings-profile:has(.provider-settings-profile__actions):hover
+    .provider-settings-profile__select,
+  .provider-settings-profile:has(.provider-settings-profile__actions):focus-within
+    .provider-settings-profile__select {
+    padding-right: 52px;
+  }
+
+  .provider-settings-profile__select:focus-visible {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 24%, transparent);
     outline: 0;
   }
 
-  .provider-settings-profile.is-active {
-    background: var(--klc-color-background);
-    font-weight: 600;
+  .provider-settings-profile__actions {
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding-left: 6px;
+    background: var(--klc-color-ui-hover);
+    transform: translateY(-50%);
+    visibility: hidden;
+  }
+
+  .provider-settings-profile:hover .provider-settings-profile__actions,
+  .provider-settings-profile:focus-within .provider-settings-profile__actions {
+    visibility: visible;
+  }
+
+  .provider-settings-profile__action {
+    width: 20px;
+    height: 20px;
+    display: inline-grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    color: var(--klc-color-ui-muted);
+    background: transparent;
+    cursor: pointer;
+    transition:
+      color 0.15s ease,
+      background-color 0.15s ease;
+  }
+
+  .provider-settings-profile__action svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .provider-settings-profile__action:hover,
+  .provider-settings-profile__action:focus-visible {
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-border);
+    outline: 0;
+  }
+
+  .provider-settings-profile__action--danger:hover,
+  .provider-settings-profile__action--danger:focus-visible {
+    color: var(--klc-color-ui-danger-text);
   }
 
   .provider-settings-detail {
@@ -544,7 +642,7 @@
 
   .provider-settings-connection {
     padding: 12px;
-    border-bottom: 1px solid var(--klc-color-grid-major);
+    border-bottom: 1px solid var(--klc-color-ui-border);
   }
 
   .provider-settings-models {
@@ -562,11 +660,11 @@
     height: 28px;
     flex: 1 1 auto;
     padding: 0 8px;
-    border: 1px solid transparent;
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 8px;
     outline: none;
-    color: var(--klc-color-foreground);
-    background: var(--klc-color-grid-minor);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-input);
     font: inherit;
     font-size: 11px;
     transition:
@@ -590,7 +688,7 @@
     justify-content: space-between;
     gap: 10px;
     padding: 6px 4px 6px 8px;
-    border-bottom: 1px solid var(--klc-color-grid-minor);
+    border-bottom: 1px solid var(--klc-color-ui-border);
     color: var(--klc-color-foreground);
     font-size: 12px;
   }
@@ -623,20 +721,15 @@
     display: grid;
     gap: 10px;
     padding: 10px 12px;
-    border: 1px solid var(--klc-color-grid-major);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 6px;
   }
 
   .agent-tool__toggle {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: start;
     gap: 8px;
-    cursor: pointer;
-  }
-
-  .agent-tool__toggle input {
-    margin: 3px 0 0;
   }
 
   .agent-tool__toggle span {
@@ -675,10 +768,10 @@
     min-height: 74px;
     margin: 0;
     padding: 8px;
-    border: 1px solid var(--klc-color-border-button);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 4px;
-    color: var(--klc-color-foreground);
-    background: var(--klc-color-background);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-input);
     font:
       11px/1.4 ui-monospace,
       SFMono-Regular,
@@ -690,34 +783,23 @@
 
   .agent-tool__run {
     justify-self: start;
-    padding: 5px 10px;
-    border: 1px solid var(--klc-color-border-button);
-    border-radius: 4px;
-    color: var(--klc-color-foreground);
-    background: var(--klc-color-background);
-    cursor: pointer;
-    font: inherit;
-    font-size: 11px;
-  }
-
-  .agent-tool__run:disabled {
-    opacity: 0.5;
-    cursor: default;
+    font-size: 12px;
   }
 
   .provider-settings-models__refresh {
     width: 28px;
     height: 28px;
-    box-sizing: border-box;
-    display: grid;
-    place-items: center;
-    padding: 5px;
-    border-radius: 6px;
+    padding: 0;
+  }
+
+  .provider-settings-models__refresh svg {
+    width: 16px;
+    height: 16px;
   }
 
   .agent-tool__error {
     margin: 0;
-    color: var(--klc-color-agent-error);
+    color: var(--klc-color-ui-danger-text);
     font-size: 11px;
   }
 
@@ -737,7 +819,7 @@
   }
 
   .provider-field__label {
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
     font-size: 11px;
     font-weight: 500;
   }
@@ -749,11 +831,11 @@
     height: 34px;
     box-sizing: border-box;
     padding: 0 10px;
-    border: 1px solid transparent;
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 8px;
     outline: none;
-    color: var(--klc-color-foreground);
-    background: var(--klc-color-grid-minor);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-input);
     font: inherit;
     font-size: 12px;
     transition:
@@ -766,7 +848,7 @@
   .provider-field textarea:disabled,
   .provider-field select:disabled,
   .provider-settings-models__header input:disabled {
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
     background: transparent;
     cursor: not-allowed;
   }
@@ -774,7 +856,7 @@
   .provider-field input::placeholder,
   .provider-field textarea::placeholder,
   .provider-settings-models__header input::placeholder {
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-text-soft);
     opacity: 0.55;
   }
 
@@ -788,6 +870,15 @@
 
   .provider-protocol-control {
     width: 100%;
+    --dropdown-trigger-background: var(--klc-color-ui-input);
+    --dropdown-trigger-color: var(--klc-color-ui-text);
+    --dropdown-trigger-chevron: var(--klc-color-ui-muted);
+    --dropdown-trigger-active-border: var(--klc-color-ui-border-strong);
+    --dropdown-trigger-active-background: var(--klc-color-ui-hover);
+    --dropdown-trigger-focus-border: var(--klc-color-ui-accent);
+    --dropdown-trigger-focus-background: var(--klc-color-ui-hover);
+    --dropdown-trigger-focus-shadow: 0 0 0 2px
+      color-mix(in srgb, var(--klc-color-ui-accent) 24%, transparent);
   }
 
   .provider-model-dropdown {
@@ -824,14 +915,12 @@
     padding: 0 10px;
   }
 
-  .provider-profile-new-button,
-  .provider-secondary-button,
-  .provider-primary-button {
+  .provider-profile-new-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    border: 1px solid var(--klc-color-border-button);
+    border: 1px solid var(--klc-color-ui-border);
     font: inherit;
     font-size: 12px;
     cursor: pointer;
@@ -850,32 +939,14 @@
     padding: 0 8px;
     border: 0;
     border-radius: 6px;
-    color: var(--klc-color-axis-text);
-    background: var(--klc-color-background);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-input);
   }
 
   .provider-profile-new-button:hover:not(:disabled) {
-    border-color: var(--klc-color-axis-line);
-    color: var(--klc-color-foreground);
-    background: var(--klc-color-tag-bg-hover);
-  }
-
-  .provider-primary-button:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-
-  .provider-secondary-button {
-    padding: 0 12px;
-    border-radius: 6px;
-    color: var(--klc-color-axis-text);
-    background: var(--klc-color-background);
-  }
-
-  .provider-secondary-button:hover {
-    border-color: var(--klc-color-axis-line);
-    color: var(--klc-color-foreground);
-    background: var(--klc-color-tag-bg-hover);
+    border-color: var(--klc-color-ui-border-strong);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-hover);
   }
 
   .provider-error {
@@ -883,10 +954,9 @@
     grid-template-columns: 16px minmax(0, 1fr);
     gap: 8px;
     padding: 10px 12px;
-    border: 1px solid var(--klc-color-agent-danger-border);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 6px;
-    color: var(--klc-color-agent-danger-text);
-    background: var(--klc-color-background);
+    color: var(--klc-color-ui-danger-text);
     font-size: 11px;
     line-height: 1.45;
   }
@@ -907,27 +977,12 @@
     font-weight: 600;
   }
 
-  .provider-actions {
-    display: flex;
-    gap: 8px;
-  }
-
-  .provider-primary-button {
-    min-height: 32px;
-    padding: 0 12px;
-    border-radius: 7px;
-    font-size: 12px;
-    white-space: nowrap;
-  }
-
-  .provider-primary-button {
-    border-color: var(--klc-color-foreground);
-    color: var(--klc-color-background);
-    background: var(--klc-color-foreground);
-  }
-
-  .provider-primary-button:hover:not(:disabled) {
-    opacity: 0.82;
+  .provider-profile-error {
+    margin: 8px 0 0;
+    color: var(--klc-color-ui-danger-text);
+    font-size: 11px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
   }
 
   @media (max-width: 640px) {
@@ -939,7 +994,7 @@
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       border-right: 0;
-      border-bottom: 1px solid var(--klc-color-grid-major);
+      border-bottom: 1px solid var(--klc-color-ui-border);
     }
 
     .provider-settings-profiles__header {

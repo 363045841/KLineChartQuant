@@ -38,13 +38,12 @@
     align-items: start;
     gap: 8px;
     padding: 10px;
-    border: 1px solid var(--klc-color-agent-danger-border);
     border-radius: 6px;
     color: var(--agent-text);
     background: var(--agent-danger-bg);
   }
   .error-notice > svg {
-    color: var(--klc-color-agent-danger-text);
+    color: var(--klc-color-ui-danger-text);
   }
   .error-notice__body {
     min-width: 0;
@@ -76,7 +75,7 @@
     align-items: center;
     gap: 5px;
     padding: 0 8px;
-    border: 1px solid var(--agent-border-strong);
+    border: 1px solid var(--agent-border);
     border-radius: 4px;
     color: var(--agent-text);
     background: var(--agent-input);

@@ -424,9 +424,9 @@
     align-items: center;
     gap: 6px;
     padding: 8px 5px;
-    border: 1px solid var(--klc-color-border-chart);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 3px;
-    background: var(--klc-color-background);
+    background: var(--klc-color-ui-surface);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
     box-sizing: border-box;
     user-select: none;
@@ -443,7 +443,7 @@
   .left-toolbar__divider {
     width: 18px;
     height: 1px;
-    background: var(--klc-color-border-chart);
+    background: var(--klc-color-ui-border);
   }
 
   /* --- 工具按钮 --- */
@@ -455,7 +455,7 @@
     border: 1px solid transparent;
     border-radius: 3px;
     background: transparent;
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
     cursor: pointer;
     display: inline-flex;
     align-items: center;
@@ -467,20 +467,20 @@
   }
 
   .left-toolbar__button:hover {
-    border-color: var(--klc-color-axis-line);
-    background: var(--klc-color-tag-bg-hover);
-    color: var(--klc-color-foreground);
+    border-color: var(--klc-color-ui-border);
+    background: var(--klc-color-ui-hover);
+    color: var(--klc-color-ui-text);
   }
 
   .left-toolbar__button.active {
-    border-color: var(--klc-color-border-chart);
-    background: var(--klc-color-grid-major);
-    color: var(--klc-color-foreground);
+    border-color: var(--klc-color-ui-border);
+    background: var(--klc-color-ui-hover);
+    color: var(--klc-color-ui-text);
   }
 
   .left-toolbar__button:focus-visible {
     outline: none;
-    border-color: var(--klc-color-axis-text);
+    border-color: var(--klc-color-ui-muted);
   }
 
   .tool-icon {
@@ -536,10 +536,10 @@
     gap: 4px;
     padding: 0 5px;
     height: 40px;
-    background: var(--klc-color-background);
+    background: var(--klc-color-ui-surface);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    border: 1px solid var(--klc-color-border-chart);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 3px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
     box-sizing: border-box;
@@ -575,8 +575,8 @@
     min-width: 14px;
     height: 14px;
     padding: 0 3px;
-    background: #ef4444;
-    color: #fff;
+    background: var(--klc-color-ui-danger);
+    color: var(--klc-color-ui-on-accent);
     font:
       10px / 1 system-ui,
       sans-serif;

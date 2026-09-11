@@ -1,3 +1,7 @@
+/**
+ * @deprecated 本包已废弃，不再维护。Agent 运行时请使用 `@363045841yyt/klinechart-agent-runtime`，
+ * 图表原生 Agent 工具通过 core 的 `@Tool` 注册表提供。
+ */
 export type * from './types'
 
 export {

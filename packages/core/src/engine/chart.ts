@@ -44,6 +44,9 @@ import {
   type ChartSettings,
 } from '../foundation/config/chartSettings'
 import { resolveMarketDataCacheMaxBytes } from '../data/buffer/marketDataPolicy'
+import { AUTO_SOURCE_ID } from '../data/buffer/seriesRepository'
+import { lookupInstrumentsBySymbol } from '../data/provider/instrumentSearch'
+import { marketDataProviderRegistry } from '../data/provider/registry'
 import {
   createDefaultRendererHostSync,
   type RendererBackend,
@@ -58,6 +61,8 @@ import type { ScaleType } from './utils/tickPosition'
 
 // ===== 普通 imports，按路径字母排序 =====
 import { ChartDataManager } from './data/chartDataManager'
+import { ComparisonCommands } from './data/comparisonCommands'
+import { symbolInfoFromSpec } from './data/symbolInfo'
 import { ChartDrawingFacade } from './facade/chartDrawingFacade'
 import { ChartIndicatorFacade } from './facade/chartIndicatorFacade'
 import { ChartMarkerFacade } from './facade/chartMarkerFacade'
@@ -169,6 +174,9 @@ export class Chart {
 
   /** Pane 领域公开 API。 */
   readonly panes: ChartPaneFacade
+
+  /** 对比品种领域唯一写原语。 */
+  readonly comparisonCommands: ComparisonCommands
 
   /** 指标领域公开 API。 */
   readonly indicators: ChartIndicatorFacade
@@ -359,6 +367,61 @@ export class Chart {
         this.kernel.settings.readonly.settings.peek().marketDataCacheMaxMiB,
       ),
     )
+
+    // 对比品种唯一写原语；UI 与 Agent 共用同一实例。
+    this.comparisonCommands = new ComparisonCommands({
+      getSymbols: () => this.kernel.data.readonly.symbols.peek(),
+      commitSymbols: (symbols) => this.kernel.actions.setSymbols(symbols),
+      setComparisonViewActive: (active) => {
+        if (active) {
+          this.setActiveMode(this._kLineMode)
+          this.kernel.actions.setDataView(ChartDataViewId.Comparison)
+          this.applyComparisonScaleType(true)
+          return
+        }
+        this.applyComparisonScaleType(false)
+        this.setActiveMode(this._kLineMode)
+      },
+      validateSpec: (spec) => {
+        resolveSymbolMarketSession(spec, this.marketSessions)
+      },
+      registerSpec: (spec) => this.dataManager.registerSymbols([symbolInfoFromSpec(spec)]),
+      resolveInstrument: async ({ symbol, source }) => {
+        // 具体源才限定查询范围，auto/缺省时允许跨全部已启用数据源解析。
+        const restrictedSourceIds = source && source !== AUTO_SOURCE_ID ? [source] : undefined
+        const matches = await lookupInstrumentsBySymbol(marketDataProviderRegistry, {
+          symbol,
+          sourceIds: restrictedSourceIds,
+        })
+        const enabledSourceIds = marketDataProviderRegistry
+          .getEnabled()
+          .map((provider) => provider.source.id)
+        const [first] = matches
+        if (first) {
+          return {
+            instrument: first,
+            searchedSourceIds: restrictedSourceIds ?? enabledSourceIds,
+            foundElsewhereSourceIds: [],
+          }
+        }
+        if (!restrictedSourceIds) {
+          return {
+            instrument: null,
+            searchedSourceIds: enabledSourceIds,
+            foundElsewhereSourceIds: [],
+          }
+        }
+        // 限定源未命中：跨全部已启用源再查一次，用于提示 Agent 换源重试。
+        const elsewhere = await lookupInstrumentsBySymbol(marketDataProviderRegistry, { symbol })
+        return {
+          instrument: null,
+          searchedSourceIds: restrictedSourceIds,
+          foundElsewhereSourceIds: [...new Set(elsewhere.map((item) => item.sourceId))],
+        }
+      },
+      getColor: (identity) => this.kernel.comparison.readonly.colors.peek().get(identity),
+      scheduleDraw: () => this.scheduleDraw(),
+    })
 
     this.zoomController = new ChartZoomController(
       {
@@ -1429,23 +1492,14 @@ export class Chart {
     }
   }
 
+  /** 新增对比品种；品种登记、选择、视图切换与重绘由 comparisonCommands 统一处理。 */
   addComparisonSymbol(spec: SymbolSpec): void {
-    resolveSymbolMarketSession(spec, this.marketSessions)
-    const hadComparisons = this.dataManager.getComparisonSpecs().length > 0
-    this.dataManager.addComparisonSymbol(spec)
-    if (!hadComparisons && this.dataManager.getComparisonSpecs().length > 0) {
-      this.setActiveMode(this._kLineMode)
-      this.kernel.actions.setDataView(ChartDataViewId.Comparison)
-      this.applyComparisonScaleType(true)
-    }
+    this.comparisonCommands.add(spec)
   }
 
+  /** 按 identity 或品种代码移除对比品种。 */
   removeComparisonSymbol(symbol: string): void {
-    this.dataManager.removeComparisonSymbol(symbol)
-    if (this.dataManager.getComparisonSpecs().length === 0) {
-      this.applyComparisonScaleType(false)
-      this.setActiveMode(this._kLineMode)
-    }
+    this.comparisonCommands.remove({ identity: symbol })
   }
 
   setComparisonData(symbol: string, data: KLineData[]): void {

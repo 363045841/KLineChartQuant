@@ -123,11 +123,11 @@
   }
 
   .source-tabs__tab:hover {
-    color: var(--klc-color-primary, #1677ff);
+    color: var(--klc-color-ui-accent);
   }
 
   .source-tabs__tab.is-active {
-    color: var(--klc-color-primary, #1677ff);
+    color: var(--klc-color-ui-accent);
     font-weight: 500;
   }
 
@@ -140,6 +140,6 @@
     bottom: 0;
     height: 2px;
     border-radius: 1px 1px 0 0;
-    background: var(--klc-color-primary, #1677ff);
+    background: var(--klc-color-ui-accent);
   }
 </style>

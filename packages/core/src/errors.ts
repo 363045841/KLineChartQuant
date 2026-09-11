@@ -45,6 +45,9 @@ export type KLineChartErrorCode =
   | 'NO_DATA'
   | 'INDICATOR_NOT_FOUND'
   | 'DATA_REVISION_CHANGED'
+  // comparison commands (UI 与 Agent 共用的对比写原语)
+  | 'COMPARISON_NO_PRIMARY'
+  | 'COMPARISON_DUPLICATE'
   // scale (TimeScale / PriceScale construction + setters)
   | 'SCALE_RANGE_INVALID'
   | 'SCALE_HEIGHT_INVALID'
@@ -165,6 +168,13 @@ export const ERROR_CODES: Readonly<Record<FetchErrorCodeName, KLineChartErrorCod
 // ERROR_CODES 的键名集合，保证键与值一一对应。
 type FetchErrorCodeName =
   'FETCH_FAILED' | 'FETCH_ABORTED' | 'UNSUPPORTED_CAPABILITY' | 'INSTRUMENT_NOT_FOUND'
+
+// 对比写原语错误码，供 Agent 工具层返回可据以自纠正的失败原因。
+export const COMPARISON_ERROR_CODES = Object.freeze({
+  NO_PRIMARY: 'COMPARISON_NO_PRIMARY',
+  DUPLICATE: 'COMPARISON_DUPLICATE',
+  INSTRUMENT_NOT_FOUND: ERROR_CODES.INSTRUMENT_NOT_FOUND,
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>)
 
 // 副图/渲染器投影错误码具名常量，供引擎层引用，避免散落字符串字面量。
 export const SUBPANE_ERROR_CODES: Readonly<Record<SubPaneErrorCodeName, KLineChartErrorCode>> = {

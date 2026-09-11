@@ -59,7 +59,7 @@
     display: grid;
     gap: 9px;
     padding: 11px;
-    border: 1px solid var(--klc-color-agent-warning-border);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 6px;
     background: var(--agent-warning-bg);
     color: var(--agent-text);
@@ -72,7 +72,7 @@
   }
   header > svg {
     flex: 0 0 auto;
-    color: var(--klc-color-agent-warning-text);
+    color: var(--klc-color-ui-warning-text);
   }
   header div {
     min-width: 0;
@@ -124,7 +124,7 @@
     align-items: center;
     gap: 5px;
     padding: 0 10px;
-    border: 1px solid var(--agent-border-strong);
+    border: 1px solid var(--agent-border);
     border-radius: 4px;
     font: inherit;
     font-size: 11px;
@@ -135,9 +135,9 @@
     background: var(--agent-input);
   }
   .confirmation__confirm {
-    border-color: var(--klc-color-agent-warning-strong);
-    color: var(--klc-color-agent-on-accent);
-    background: var(--klc-color-agent-warning-strong);
+    border-color: var(--klc-color-ui-border);
+    color: var(--klc-color-ui-on-accent);
+    background: var(--klc-color-ui-warning-strong);
   }
   .confirmation__resolved {
     color: var(--agent-muted);

@@ -27,6 +27,8 @@ export function createComparisonLineRenderer(): RendererPlugin {
       const mainBase = baseItem.close
       const baseDate = baseItem.date ?? ''
 
+      const mainPoints = buildMainLinePoints(context, mainData)
+
       const colors = resolveThemeColors(
         context.theme,
         context.isAsiaMarket,
@@ -39,7 +41,7 @@ export function createComparisonLineRenderer(): RendererPlugin {
       ctx.lineWidth = Math.max(1, 1.5 / context.dpr)
 
       // 主商品折线：percent 轴下 priceToY(close) 即主商品自身涨跌幅
-      strokeStrip(ctx, buildMainLinePoints(context, mainData), colors.palette.i1)
+      strokeStrip(ctx, mainPoints, colors.palette.i1)
 
       const comparisonData = context.comparisonData
       if (comparisonData?.size) {

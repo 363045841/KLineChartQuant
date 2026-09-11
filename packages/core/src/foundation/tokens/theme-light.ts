@@ -256,13 +256,12 @@ export const lightTheme: Theme = {
       neutral: 'rgba(0, 0, 0, 0.3)',
     },
     wmsrGrid: 'rgba(0, 0, 0, 0.1)',
-    agent: {
+    ui: {
       background: '#F4F6F7',
       surface: '#FFFFFF',
       card: '#FBFCFC',
       input: '#FFFFFF',
       hover: '#EDF1F2',
-      userMessage: '#E7F2EF',
       border: '#DCE1E3',
       borderStrong: '#B9C1C5',
       text: '#182126',
@@ -283,6 +282,11 @@ export const lightTheme: Theme = {
       danger: '#D14B4B',
       neutral: '#9CA3AF',
       onAccent: '#FFFFFF',
+      secondaryButtonText: '#5A5A5A',
+      controlBackground: '#EDF1F2',
+    },
+    agent: {
+      userMessage: '#E7F2EF',
       launcherBorder: '#AEB8BC',
       launcherBackground: 'rgba(255, 255, 255, 0.94)',
       backdrop: 'rgba(15, 20, 25, 0.35)',

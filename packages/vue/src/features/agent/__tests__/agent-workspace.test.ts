@@ -44,6 +44,28 @@ describe('AgentWorkspace', () => {
     return { bridge, wrapper }
   }
 
+  /** 通过“新建 Provider 配置”弹窗创建并激活一个 Profile。 */
+  async function createProfile(name: string): Promise<void> {
+    document.querySelector<HTMLButtonElement>('.provider-profile-new-button')!.click()
+    await flushPromises()
+    const nameInput = document.querySelector<HTMLInputElement>('#agent-provider-profile-form input')!
+    nameInput.value = name
+    nameInput.dispatchEvent(new Event('input', { bubbles: true }))
+    document.querySelector<HTMLFormElement>('#agent-provider-profile-form')!.requestSubmit()
+    await flushPromises()
+  }
+
+  /** 填写 Provider 连接字段并 blur，触发草稿自动持久化。 */
+  async function fillConnection(baseUrl: string, apiKey: string): Promise<void> {
+    const inputs = [...document.querySelectorAll<HTMLInputElement>('.provider-form input')]
+    inputs[0]!.value = baseUrl
+    inputs[0]!.dispatchEvent(new Event('input', { bubbles: true }))
+    inputs[1]!.value = apiKey
+    inputs[1]!.dispatchEvent(new Event('input', { bubbles: true }))
+    inputs[1]!.dispatchEvent(new Event('blur'))
+    await flushPromises()
+  }
+
   it('preserves a selected prompt while provider setup completes', async () => {
     const mounted = await mountWorkspace()
     const prompt = mounted.wrapper.find('.empty-state__prompts button')
@@ -56,16 +78,13 @@ describe('AgentWorkspace', () => {
     expect(document.querySelector('.base-modal')).not.toBeNull()
     expect((textarea.element as HTMLTextAreaElement).value).toBe(selectedPrompt)
 
-    const inputs = [...document.querySelectorAll<HTMLInputElement>('.provider-form input')]
-    inputs[0]!.value = 'https://models.example.test/v1'
-    inputs[0]!.dispatchEvent(new Event('input', { bubbles: true }))
-    inputs[1]!.value = 'temporary-test-key'
-    inputs[1]!.dispatchEvent(new Event('input', { bubbles: true }))
-    document.querySelector<HTMLFormElement>('.provider-form')!.requestSubmit()
-    await flushPromises()
+    await createProfile('Fake Provider')
+    await fillConnection('https://models.example.test/v1', 'temporary-test-key')
     const catalog = await mounted.bridge.listProviderModelCatalog()
-    await mounted.bridge.saveProviderModelPool(catalog.models)
+    for (const model of catalog.models) await mounted.bridge.addProviderModelPoolModel(model)
 
+    document.querySelector<HTMLButtonElement>('.base-close-btn')!.click()
+    await flushPromises()
     expect(document.querySelector('.base-modal')).toBeNull()
     expect((textarea.element as HTMLTextAreaElement).value).toBe(selectedPrompt)
 
@@ -84,16 +103,15 @@ describe('AgentWorkspace', () => {
   it('selects models from the Composer dropdown', async () => {
     const mounted = await mountWorkspace()
     await mounted.wrapper.get('button[aria-label="Agent settings"]').trigger('click')
-    const dialog = document.querySelector<HTMLElement>('.base-modal')!
-    const inputs = dialog.querySelectorAll<HTMLInputElement>('input')
-    inputs[0]!.value = 'https://models.example.test/v1'
-    inputs[0]!.dispatchEvent(new Event('input', { bubbles: true }))
-    inputs[1]!.value = 'temporary-test-key'
-    inputs[1]!.dispatchEvent(new Event('input', { bubbles: true }))
-    dialog.querySelector<HTMLFormElement>('.provider-form')!.requestSubmit()
     await flushPromises()
+
+    await createProfile('Fake Provider')
+    await fillConnection('https://models.example.test/v1', 'temporary-test-key')
     const catalog = await mounted.bridge.listProviderModelCatalog()
-    await mounted.bridge.saveProviderModelPool(catalog.models)
+    for (const model of catalog.models) await mounted.bridge.addProviderModelPoolModel(model)
+
+    document.querySelector<HTMLButtonElement>('.base-close-btn')!.click()
+    await flushPromises()
 
     await mounted.wrapper.get('.composer__model .dropdown__trigger').trigger('click')
     await flushPromises()
@@ -123,7 +141,7 @@ describe('AgentWorkspace', () => {
     await mounted.wrapper.get('.composer__primary--stop').trigger('click')
     await flushPromises()
 
-    expect(mounted.wrapper.get('.run-summary').attributes('data-status')).toBe('cancelled')
+    expect(mounted.wrapper.find('.composer__primary--stop').exists()).toBe(false)
     expect((textarea.element as HTMLTextAreaElement).value).toBe('Keep this follow-up draft')
   })
 

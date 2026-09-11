@@ -156,22 +156,22 @@
 
 <style scoped>
   .agent-workspace {
-    --agent-bg: var(--klc-color-agent-background);
-    --agent-surface: var(--klc-color-agent-surface);
-    --agent-card: var(--klc-color-agent-card);
-    --agent-input: var(--klc-color-agent-input);
-    --agent-hover: var(--klc-color-agent-hover);
+    --agent-bg: var(--klc-color-ui-background);
+    --agent-surface: var(--klc-color-ui-surface);
+    --agent-card: var(--klc-color-ui-card);
+    --agent-input: var(--klc-color-ui-input);
+    --agent-hover: var(--klc-color-ui-hover);
     --agent-user-message: var(--klc-color-agent-user-message);
-    --agent-border: var(--klc-color-agent-border);
-    --agent-border-strong: var(--klc-color-agent-border-strong);
-    --agent-text: var(--klc-color-agent-text);
-    --agent-text-soft: var(--klc-color-agent-text-soft);
-    --agent-muted: var(--klc-color-agent-muted);
-    --agent-accent: var(--klc-color-agent-accent);
-    --agent-accent-strong: var(--klc-color-agent-accent-strong);
-    --agent-focus: var(--klc-color-agent-focus);
-    --agent-warning-bg: var(--klc-color-agent-warning-background);
-    --agent-danger-bg: var(--klc-color-agent-danger-background);
+    --agent-border: var(--klc-color-ui-border);
+    --agent-border-strong: var(--klc-color-ui-border-strong);
+    --agent-text: var(--klc-color-ui-text);
+    --agent-text-soft: var(--klc-color-ui-text-soft);
+    --agent-muted: var(--klc-color-ui-muted);
+    --agent-accent: var(--klc-color-ui-accent);
+    --agent-accent-strong: var(--klc-color-ui-accent-strong);
+    --agent-focus: var(--klc-color-ui-focus);
+    --agent-warning-bg: var(--klc-color-ui-warning-background);
+    --agent-danger-bg: var(--klc-color-ui-danger-background);
 
     height: 100%;
     min-width: 0;

@@ -10,10 +10,10 @@
     align-items: center;
     gap: 4px;
     padding: 4px;
-    background: color-mix(in srgb, var(--klc-color-background) 92%, transparent);
+    background: color-mix(in srgb, var(--klc-color-ui-surface) 92%, transparent);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--klc-color-border-button);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 8px;
     box-shadow:
       0 2px 8px rgba(0, 0, 0, 0.08),
@@ -39,7 +39,7 @@
     border: none;
     border-radius: 4px;
     background: transparent;
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
     font-size: 12px;
     cursor: pointer;
     white-space: nowrap;
@@ -49,8 +49,8 @@
   }
 
   .canvas-toolbar :deep(.toolbar-btn:hover) {
-    background: var(--klc-color-grid-minor);
-    color: var(--klc-color-foreground);
+    background: var(--klc-color-ui-hover);
+    color: var(--klc-color-ui-text);
   }
 
   .canvas-toolbar :deep(.toolbar-btn--delete) {
@@ -59,8 +59,8 @@
   }
 
   .canvas-toolbar :deep(.toolbar-btn--delete:hover) {
-    color: #dc2626;
-    background: color-mix(in srgb, #dc2626 10%, transparent);
+    color: var(--klc-color-ui-danger);
+    background: color-mix(in srgb, var(--klc-color-ui-danger) 10%, transparent);
   }
 
   .canvas-toolbar :deep(.delete-icon) {

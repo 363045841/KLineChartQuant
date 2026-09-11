@@ -14,17 +14,15 @@
   >
     <template #header-extra>
       <button
+        type="button"
         class="toggle-desc-btn"
         :class="{ active: showDescription }"
         title="显示/隐藏说明"
+        aria-label="显示或隐藏参数说明"
+        :aria-pressed="showDescription"
         @click="showDescription = !showDescription"
       >
-        <svg viewBox="0 0 1024 1024">
-          <path
-            d="M512 97.52381c228.912762 0 414.47619 185.563429 414.47619 414.47619s-185.563429 414.47619-414.47619 414.47619S97.52381 740.912762 97.52381 512 283.087238 97.52381 512 97.52381z m0 73.142857C323.486476 170.666667 170.666667 323.486476 170.666667 512s152.81981 341.333333 341.333333 341.333333 341.333333-152.81981 341.333333-341.333333S700.513524 170.666667 512 170.666667z m36.571429 268.190476v292.571428h-73.142858V438.857143h73.142858z m0-121.904762v73.142857h-73.142858v-73.142857h73.142858z"
-            fill="currentColor"
-          />
-        </svg>
+        <IconTablerInfoCircle aria-hidden="true" />
       </button>
     </template>
 
@@ -50,11 +48,13 @@
           </label>
           <div class="input-wrapper">
             <button
+              type="button"
               class="stepper-btn"
+              aria-label="减少"
               :disabled="param.min !== undefined && (localValues[param.key] ?? 0) <= param.min"
               @click="step(param, -1)"
             >
-              −
+              <IconTablerMinus aria-hidden="true" />
             </button>
             <input
               v-if="param.type === 'number'"
@@ -67,11 +67,13 @@
               @input="onInput(param.key, $event)"
             />
             <button
+              type="button"
               class="stepper-btn"
+              aria-label="增加"
               :disabled="param.max !== undefined && (localValues[param.key] ?? 0) >= param.max"
               @click="step(param, 1)"
             >
-              +
+              <IconTablerPlus aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -84,10 +86,10 @@
     </div>
 
     <template #footer>
-      <button class="params-btn reset" @click="onReset">重置</button>
+      <BaseButton @click="onReset">重置</BaseButton>
       <div class="footer-right">
-        <button class="params-btn cancel" @click="$emit('close')">取消</button>
-        <button class="params-btn confirm" @click="onConfirm">确定</button>
+        <BaseButton @click="$emit('close')">取消</BaseButton>
+        <BaseButton @click="onConfirm">确定</BaseButton>
       </div>
     </template>
   </BaseModal>
@@ -96,6 +98,11 @@
 <script setup lang="ts">
   import { ref, watch } from 'vue'
 
+  import IconTablerInfoCircle from '~icons/tabler/info-circle'
+  import IconTablerMinus from '~icons/tabler/minus'
+  import IconTablerPlus from '~icons/tabler/plus'
+
+  import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
 
   interface ParamConfig {
@@ -172,8 +179,8 @@
   /* ── 指标描述 ── */
   .indicator-description {
     padding: 8px 12px;
-    background: var(--klc-color-grid-minor);
-    border-radius: 4px;
+    background: var(--klc-color-ui-control-background);
+    border-radius: 6px;
     margin-bottom: 12px;
   }
 
@@ -181,7 +188,7 @@
     margin: 0;
     font-size: 12px;
     line-height: 1.5;
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
   }
 
   /* ── 体部 ── */
@@ -193,15 +200,14 @@
 
   .param-item {
     padding: 8px 12px;
-    border-radius: 6px;
+    border-radius: 8px;
     background: transparent;
     border: 1px solid transparent;
     transition: background 0.15s ease;
   }
 
-  .param-item:hover,
   .param-item:has(.param-input:focus) {
-    background: var(--klc-color-grid-minor);
+    background: var(--klc-color-ui-hover);
   }
 
   .param-item.has-desc {
@@ -224,55 +230,54 @@
   .param-label-text {
     font-size: 13px;
     font-weight: 500;
-    color: var(--klc-color-foreground);
+    color: var(--klc-color-ui-text);
   }
 
   .param-range {
     font-size: 11px;
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
   }
 
   /* ── 参数描述 ── */
   .param-description {
     margin-top: 6px;
     padding-top: 6px;
-    border-top: 1px dashed var(--klc-color-border-button);
+    border-top: 1px dashed var(--klc-color-ui-border);
     font-size: 11px;
     line-height: 1.4;
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
   }
 
   /* ── 描述切换按钮 ── */
   .toggle-desc-btn {
-    background: transparent;
-    border: 1px solid var(--klc-color-border-button);
-    border-radius: 6px;
-    width: 32px;
-    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    color: var(--klc-color-axis-text);
-    transition: all 0.15s ease;
+    width: 32px;
+    height: 32px;
     padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: var(--klc-color-ui-hover);
+    color: var(--klc-color-ui-muted);
+    cursor: pointer;
+    transition:
+      background 0.15s ease,
+      color 0.15s ease;
   }
 
   .toggle-desc-btn:hover {
-    background: var(--klc-color-grid-minor);
-    color: var(--klc-color-foreground);
-    border-color: var(--klc-color-axis-line);
+    background: var(--klc-color-ui-border);
+    color: var(--klc-color-ui-text);
   }
 
   .toggle-desc-btn.active {
-    background: var(--klc-color-grid-minor);
-    border-color: var(--klc-color-axis-line);
-    color: var(--klc-color-foreground);
+    color: var(--klc-color-ui-accent);
   }
 
   .toggle-desc-btn svg {
-    width: 14px;
-    height: 14px;
+    width: 15px;
+    height: 15px;
   }
 
   /* ── 步进输入框 ── */
@@ -280,43 +285,49 @@
     display: flex;
     align-items: stretch;
     height: 30px;
-    border: 1px solid var(--klc-color-border-button);
-    border-radius: 6px;
+    border: 1px solid var(--klc-color-ui-border);
+    border-radius: 8px;
     overflow: hidden;
-    background: var(--klc-color-background);
-    transition: border-color 0.15s ease;
+    background: var(--klc-color-ui-control-background);
+    transition:
+      border-color 0.15s ease,
+      box-shadow 0.15s ease;
   }
 
   .input-wrapper:focus-within {
-    border-color: var(--klc-color-axis-text);
+    border-color: var(--klc-color-ui-accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 24%, transparent);
   }
 
   .stepper-btn {
-    width: 28px;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    font-size: 15px;
-    font-weight: 400;
-    color: var(--klc-color-axis-text);
     display: flex;
     align-items: center;
     justify-content: center;
+    width: 28px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--klc-color-ui-muted);
+    cursor: pointer;
+    flex-shrink: 0;
     transition:
       background 0.15s,
       color 0.15s;
-    flex-shrink: 0;
-    line-height: 1;
   }
 
   .stepper-btn:hover:not(:disabled) {
-    background: var(--klc-color-grid-minor);
-    color: var(--klc-color-foreground);
+    background: var(--klc-color-ui-hover);
+    color: var(--klc-color-ui-text);
   }
 
   .stepper-btn:disabled {
-    color: var(--klc-color-axis-line);
+    color: var(--klc-color-ui-border);
     cursor: not-allowed;
+  }
+
+  .stepper-btn svg {
+    width: 14px;
+    height: 14px;
   }
 
   .param-input {
@@ -325,12 +336,12 @@
     min-width: 60px;
     padding: 0 8px;
     border: none;
-    border-left: 1px solid var(--klc-color-border-button);
-    border-right: 1px solid var(--klc-color-border-button);
+    border-left: 1px solid var(--klc-color-ui-border);
+    border-right: 1px solid var(--klc-color-ui-border);
     font-size: 13px;
     font-weight: 600;
     text-align: center;
-    color: var(--klc-color-foreground);
+    color: var(--klc-color-ui-text);
     background: transparent;
     -moz-appearance: textfield;
     appearance: textfield;
@@ -349,65 +360,6 @@
   .footer-right {
     display: flex;
     gap: 8px;
-  }
-
-  .params-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    min-width: 68px;
-    height: 34px;
-    padding: 0 16px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    border: 0;
-    transition: all 0.15s ease;
-    line-height: 1;
-    white-space: nowrap;
-  }
-
-  .params-btn svg {
-    width: 13px;
-    height: 13px;
-    flex-shrink: 0;
-  }
-
-  /* 重置 */
-  .params-btn.reset {
-    background: color-mix(in srgb, var(--klc-color-chart-background) 92%, var(--klc-color-foreground));
-    color: var(--klc-color-axis-text);
-  }
-
-  .params-btn.reset:hover {
-    color: #f0a020;
-    background: rgba(240, 160, 32, 0.08);
-  }
-
-  /* 取消 */
-  .params-btn.cancel {
-    background: color-mix(in srgb, var(--klc-color-chart-background) 92%, var(--klc-color-foreground));
-    color: var(--klc-color-foreground);
-  }
-
-  .params-btn.cancel:hover {
-    background: color-mix(in srgb, var(--klc-color-chart-background) 86%, var(--klc-color-foreground));
-  }
-
-  /* 确定 */
-  .params-btn.confirm {
-    background: color-mix(in srgb, var(--klc-color-foreground) 80%, var(--klc-color-chart-background));
-    color: var(--klc-color-background);
-  }
-
-  .params-btn.confirm:hover {
-    opacity: 0.9;
-  }
-
-  .params-btn.confirm:active {
-    opacity: 0.8;
   }
 
   /* ── 动画 ── */

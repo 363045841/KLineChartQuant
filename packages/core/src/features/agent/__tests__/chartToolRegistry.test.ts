@@ -1,6 +1,8 @@
 // 本文件验证 Core 图表 API 的 @Tool 注册与参数校验边界。
 import { describe, expect, it } from 'vitest'
 
+import type { SymbolSpec } from '../../../controllers/types'
+import { ComparisonCommands } from '../../../engine/data/comparisonCommands'
 import { getRegisteredChartTools } from '../chartAgentController'
 
 describe('Chart Agent @Tool registry', () => {
@@ -57,5 +59,70 @@ describe('Chart Agent @Tool registry', () => {
         },
       ),
     ).rejects.toThrow('/anchors/0/tradingDate: must be string')
+  })
+
+  it('registers comparison CRUD with matching safety levels', () => {
+    const tools = getRegisteredChartTools()
+
+    expect(tools.find((tool) => tool.config.name === 'comparisons_list')?.config).toMatchObject({
+      safety: 'read-only',
+      executionMode: 'parallel',
+    })
+    for (const name of ['comparison_create', 'comparison_remove', 'comparisons_clear']) {
+      expect(tools.find((tool) => tool.config.name === name)?.config).toMatchObject({
+        safety: 'destructive',
+        executionMode: 'sequential',
+      })
+    }
+  })
+
+  it('auto-records the real method name and owns its primitive host', async () => {
+    const tools = getRegisteredChartTools()
+    const create = tools.find((tool) => tool.config.name === 'comparison_create')!
+
+    // 工具名面向 Agent，方法名由装饰器自动记录，用于精确定位宿主。
+    expect(create.methodName).toBe('create')
+    expect(create.config.name).not.toBe(create.methodName)
+
+    let symbols: SymbolSpec[] = [
+      { symbol: 'MAIN', market: 'CN', exchange: 'SSE', source: 'mock', period: 'daily' },
+    ]
+    const comparison = new ComparisonCommands({
+      getSymbols: () => symbols,
+      commitSymbols: (next) => {
+        symbols = [...next]
+      },
+      setComparisonViewActive: () => undefined,
+      validateSpec: () => undefined,
+      registerSpec: () => undefined,
+      resolveInstrument: async ({ symbol }) => ({
+        instrument: {
+          id: symbol,
+          sourceId: 'mock',
+          symbol,
+          name: symbol,
+          assetClass: 'stock',
+          exchange: 'SSE',
+          sessionId: 'CN',
+          capabilities: {},
+        },
+        searchedSourceIds: ['mock'],
+        foundElsewhereSourceIds: [],
+      }),
+      getColor: () => undefined,
+      scheduleDraw: () => undefined,
+    })
+
+    expect(create.owns(comparison)).toBe(true)
+    expect(create.owns({})).toBe(false)
+
+    await expect(
+      create.execute(
+        comparison,
+        { symbol: '511090' },
+        { signal: new AbortController().signal, progress: () => undefined },
+      ),
+    ).resolves.toBe('Added comparison symbol "511090".')
+    expect(symbols.map((spec) => spec.symbol)).toEqual(['MAIN', '511090'])
   })
 })

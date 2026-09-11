@@ -269,14 +269,13 @@ export interface ZonesColors {
   readonly obBearFill: ColorValue
 }
 
-/** Agent 工作台的表面、状态与操作色。 */
-export interface AgentColors {
+/** 通用 UI 颜色：表面、输入、边框、文字与状态色，框架与业务组件共用。 */
+export interface UiColors {
   readonly background: ColorValue
   readonly surface: ColorValue
   readonly card: ColorValue
   readonly input: ColorValue
   readonly hover: ColorValue
-  readonly userMessage: ColorValue
   readonly border: ColorValue
   readonly borderStrong: ColorValue
   readonly text: ColorValue
@@ -297,6 +296,15 @@ export interface AgentColors {
   readonly danger: ColorValue
   readonly neutral: ColorValue
   readonly onAccent: ColorValue
+  /** 非确认（次级）按钮的文字色，如取消、重置。 */
+  readonly secondaryButtonText: ColorValue
+  /** 交互控件（chip、trigger 等）的默认底色。 */
+  readonly controlBackground: ColorValue
+}
+
+/** Agent 专属颜色：对话气泡、启动器、遮罩与面板阴影。 */
+export interface AgentColors {
+  readonly userMessage: ColorValue
   readonly launcherBorder: ColorValue
   readonly launcherBackground: ColorValue
   readonly backdrop: ColorValue
@@ -411,6 +419,7 @@ export interface ColorTokens {
   readonly zones: ZonesColors
   readonly referenceLine: ReferenceLineColors
   readonly wmsrGrid: ColorValue
+  readonly ui: UiColors
   readonly agent: AgentColors
 }
 

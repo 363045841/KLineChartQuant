@@ -9,10 +9,12 @@
       >
         <Transition :name="modalTransitionName">
           <div class="base-modal" :style="modalStyle" @click.stop>
-            <div v-if="$slots.header || title" class="base-header">
+            <div v-if="$slots.header || $slots.title || title" class="base-header">
               <slot name="header">
                 <div class="base-header-left">
-                  <span class="base-title">{{ title }}</span>
+                  <span class="base-title"
+                    ><slot name="title">{{ title }}</slot></span
+                  >
                   <span v-if="subtitle" class="base-subtitle">{{ subtitle }}</span>
                 </div>
               </slot>
@@ -120,7 +122,7 @@
   }
 
   .base-modal {
-    background: var(--klc-color-background, #ffffff);
+    background: var(--klc-color-ui-surface);
     border: 0;
     border-radius: 10px;
     box-shadow: 0 18px 48px rgba(0, 0, 0, 0.15);
@@ -135,7 +137,6 @@
     justify-content: space-between;
     align-items: center;
     padding: 14px 18px 14px 20px;
-    background: var(--klc-color-background, #ffffff);
     flex-shrink: 0;
     gap: 12px;
   }
@@ -150,13 +151,14 @@
   .base-title {
     font-size: 15px;
     font-weight: 600;
-    color: var(--klc-color-foreground);
+    color: var(--klc-color-ui-text);
     line-height: 1.35;
+    white-space: nowrap;
   }
 
   .base-subtitle {
     font-size: 11px;
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
     line-height: 1.3;
     white-space: nowrap;
   }
@@ -168,25 +170,8 @@
     flex-shrink: 0;
   }
 
-  .base-subheader::after {
-    position: absolute;
-    right: 20px;
-    left: 20px;
-    height: 1px;
-    background: var(--klc-color-grid-major);
-    content: '';
-  }
-
-  .base-subheader::after {
-    bottom: 0;
-  }
-
   .base-close-btn {
-    background: color-mix(
-      in srgb,
-      var(--klc-color-chart-background) 92%,
-      var(--klc-color-foreground)
-    );
+    background: var(--klc-color-ui-hover);
     border: 0;
     border-radius: 8px;
     width: 32px;
@@ -195,7 +180,7 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
     transition:
       background 0.15s,
       color 0.15s;
@@ -203,12 +188,8 @@
   }
 
   .base-close-btn:hover {
-    background: color-mix(
-      in srgb,
-      var(--klc-color-chart-background) 86%,
-      var(--klc-color-foreground)
-    );
-    color: var(--klc-color-foreground);
+    background: var(--klc-color-ui-border);
+    color: var(--klc-color-ui-text);
   }
 
   .base-close-btn svg {
@@ -217,22 +198,18 @@
   }
 
   .base-subheader {
-    position: relative;
     flex-shrink: 0;
     padding: 16px 20px;
-    background: var(--klc-color-background, #ffffff);
   }
 
   .base-tabs {
     flex-shrink: 0;
-    background: var(--klc-color-background, #ffffff);
   }
 
   .base-body {
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    background: var(--klc-color-background, #ffffff);
   }
 
   .base-body--scrollable {
@@ -246,7 +223,6 @@
     justify-content: flex-end;
     gap: 8px;
     padding: 12px 20px;
-    background: var(--klc-color-background, #ffffff);
     flex-shrink: 0;
   }
 

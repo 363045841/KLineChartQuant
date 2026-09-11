@@ -90,9 +90,9 @@
     display: flex;
     transform: translateX(-100%);
     overflow: hidden;
-    border: 1px solid var(--klc-color-border-chart);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 6px;
-    background: var(--klc-color-background);
+    background: var(--klc-color-ui-surface);
     opacity: 0;
     pointer-events: auto;
     transition: opacity 120ms ease;
@@ -110,14 +110,14 @@
     padding: 2px;
     border: 0;
     place-items: center;
-    color: var(--klc-color-foreground);
+    color: var(--klc-color-ui-text);
     background: transparent;
     cursor: pointer;
   }
 
   .pane-close-control__button:hover,
   .pane-close-control__button:focus-visible {
-    background: color-mix(in srgb, var(--klc-color-foreground) 8%, transparent);
+    background: color-mix(in srgb, var(--klc-color-ui-text) 8%, transparent);
     outline: none;
   }
 
@@ -131,7 +131,7 @@
   }
 
   .pane-close-control__button + .pane-close-control__button {
-    border-left: 1px solid var(--klc-color-border-chart);
+    border-left: 1px solid var(--klc-color-ui-border);
   }
 
   .pane-close-control__button :deep(svg) {

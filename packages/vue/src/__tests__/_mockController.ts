@@ -1,12 +1,10 @@
 /**
- * Mock ChartController for Vue adapter tests.
+ * Vue 适配层测试用的 ChartController 替身。
  *
- * Mirrors the framework-agnostic signal-bearing shape from
- * @363045841yyt/klinechart-core without spinning up the real Chart engine.
- *
- * To keep this test file runnable from the repo root vitest (which does not
- * alias @363045841yyt/klinechart-core), we inline a tiny `Signal` implementation
- * that is shape-compatible with `packages/core/src/reactivity/signal.ts`.
+ * 只声明 KLineChart SFC 与测试实际消费的成员，并以 `Partial<ChartController>`
+ * 约束各成员签名：core 接口新增成员不会再强制补桩，仅当组件真正读取某成员时才需补。
+ * 内联 mini-signal 与 `packages/core/src/foundation/reactivity/signal.ts` 形状兼容，
+ * 使测试可在不启动渲染引擎的前提下驱动信号变化。
  */
 
 import type {
@@ -17,7 +15,6 @@ import type {
   ChartMountOptions,
   ChartViewport,
   DrawingObject,
-  IndicatorDefinition,
   IndicatorInstance,
   InteractionSnapshot,
   KLineData,
@@ -29,8 +26,7 @@ import type {
 import type { Signal } from '@363045841yyt/klinechart-core/reactivity'
 
 // ---------------------------------------------------------------------------
-// Inline mini-signal �?Object.is-equality, sync notify. Drop-in compatible
-// with `@363045841yyt/klinechart-core/reactivity` for shape-only test purposes.
+// 内联 mini-signal：Object.is 相等性短路、同步通知，仅用于测试替身。
 // ---------------------------------------------------------------------------
 
 type TestSignal<T> = Signal<T> & { subscriberCount: () => number }
@@ -94,7 +90,7 @@ export function createMockChartController(
   const data = createSignal<ReadonlyArray<KLineData>>(opts.data ?? [])
   const themePreference = opts.theme ?? 'light'
   const theme = createSignal<'light' | 'dark'>(themePreference)
-  const settings = createSignal({ theme: themePreference } as any)
+  const settings = createSignal({ theme: themePreference } as Record<string, unknown>)
   const paneLayout = createSignal<ReadonlyArray<PaneSpec>>([])
   const rangeSelection = createSignal({
     startTimestamp: null as number | null,
@@ -116,16 +112,7 @@ export function createMockChartController(
     dispose: () => {},
   }
 
-  return {
-    agent: {
-      context: createSignal(null),
-      getContext() {
-        throw new Error('Mock Agent context is not configured')
-      },
-      queryIndicator: () => Promise.resolve(''),
-      searchInstruments: () => Promise.resolve([]),
-      lookupInstrumentsBySymbol: () => Promise.resolve([]),
-    },
+  const controller: Partial<ChartController> = {
     viewport,
     data,
     dataLoading: createSignal(false),
@@ -237,7 +224,7 @@ export function createMockChartController(
     getDrawingToolId: () => 'cursor' as const,
     registerDrawingSession: () => {},
     clearDrawings: () => {},
-    createDrawing: () => ({}) as any,
+    createDrawing: () => ({}) as DrawingObject,
     updateDrawing: () => null,
     commitDrawingDrag: () => null,
     updateBatch: () => [],
@@ -278,6 +265,10 @@ export function createMockChartController(
     dispose: () => {
       disposeCalls += 1
     },
+  }
+
+  return {
+    ...(controller as ChartController),
     disposeCalls: () => disposeCalls,
     setThemeCalls: () => setThemeCalls,
     rendererConfigCalls: () => rendererConfigCalls,

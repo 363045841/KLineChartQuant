@@ -129,8 +129,12 @@ describe('ChartDataManager.getComparisonViewLineRange', () => {
   })
 
   it('falls back to main close extremes when comparison data is not loaded yet', () => {
-    const m = loadMain({ symbol: 'MAIN', market: 'CN', period: 'daily', source: 'mock' })
-    m.addComparisonSymbol({ symbol: 'CMP', market: 'CN', period: 'daily', source: 'mock' })
+    const m = makeManager()
+    m.setSymbols([
+      { symbol: 'MAIN', market: 'CN', period: 'daily', source: 'mock' },
+      { symbol: 'CMP', market: 'CN', period: 'daily', source: 'mock' },
+    ])
+    m.setData(mainData)
     // 仅主商品 close（100/102/101），不含 high(113)/low(88)
     expect(m.getComparisonViewLineRange({ start: 0, end: 3 })).toEqual({ min: 100, max: 102 })
   })

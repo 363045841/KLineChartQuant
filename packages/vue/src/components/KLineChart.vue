@@ -285,7 +285,6 @@
 
 <script setup lang="ts">
   import {
-    SETTINGS_STORAGE_KEY,
     migrateStoredSettings,
     resolveRuntimeSettings,
     resolveSettings,
@@ -615,12 +614,7 @@
   function onAddOverlaySymbol(item: SymbolItem) {
     const ctrl = controller.value
     if (!ctrl) return
-    const current = ctrl.symbols.peek()
-    const currentKeys = current.map(symbolIdentityKey)
-    if (currentKeys.includes(symbolIdentityKey(item))) return
     try {
-      ctrl.registerSymbols([toLegacySymbolInfo(item)])
-      forcePercentAxis()
       ctrl.addComparisonSymbol(toSymbolSpec(item))
     } catch (error) {
       symbolStatus.value = 'error'
@@ -714,21 +708,6 @@
       toSymbolSpec(currentSymbolItem.value),
       ...overlaySymbolItems.value.map(toSymbolSpec),
     ])
-  }
-
-  function forcePercentAxis() {
-    if (chartSettings.value.axisType === 'percent') return
-    const nextSettings = migrateStoredSettings({
-      ...chartSettings.value,
-      axisType: 'percent',
-    })
-    chartSettings.value = nextSettings
-    controller.value?.updateSettingsFacade(resolveSettings(nextSettings))
-    try {
-      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(nextSettings))
-    } catch {
-      /* quota exceeded */
-    }
   }
 
   // ── DOM Template Refs ──
@@ -2050,12 +2029,12 @@
     --kmap-height: var(--kmap-chart-height, 100%);
     --kmap-width: var(--kmap-chart-width, 100%);
 
-    --chart-bg: var(--klc-color-chart-background);
-    --chart-bg-secondary: var(--klc-color-chart-background);
-    --chart-border: var(--klc-color-border-chart);
-    --chart-border-active: #1890ff;
-    --chart-text: var(--klc-color-foreground);
-    --chart-text-secondary: var(--klc-color-axis-text);
+    --chart-bg: var(--klc-color-ui-background);
+    --chart-bg-secondary: var(--klc-color-ui-background);
+    --chart-border: var(--klc-color-ui-border);
+    --chart-border-active: var(--klc-color-ui-accent);
+    --chart-text: var(--klc-color-ui-text);
+    --chart-text-secondary: var(--klc-color-ui-muted);
 
     display: flex;
     align-items: stretch;
@@ -2185,12 +2164,8 @@
     padding: 3px 6px;
     border: 0;
     border-radius: 3px;
-    color: var(--chart-text);
-    background: color-mix(
-      in srgb,
-      color-mix(in srgb, var(--klc-color-chart-background) 84%, var(--klc-color-foreground)) 96%,
-      transparent
-    );
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-control-background);
     font: 12px/1.3 inherit;
     outline: none;
   }
@@ -2213,7 +2188,7 @@
   .drawing-label-position-toolbar__button:hover,
   .drawing-label-position-toolbar__button.is-active {
     color: var(--chart-text);
-    background: var(--klc-color-grid-minor);
+    background: var(--klc-color-ui-hover);
   }
 
   .chart-container::-webkit-scrollbar {
@@ -2264,13 +2239,13 @@
     top: 0;
     z-index: 25;
     box-sizing: border-box;
-    border: 1px solid rgba(24, 144, 255, 0.75);
-    background: rgba(24, 144, 255, 0.14);
+    border: 1px solid color-mix(in srgb, var(--klc-color-ui-accent) 75%, transparent);
+    background: color-mix(in srgb, var(--klc-color-ui-accent) 14%, transparent);
     pointer-events: none;
   }
 
   .range-selection-overlay.is-dragging {
-    background: rgba(24, 144, 255, 0.2);
+    background: color-mix(in srgb, var(--klc-color-ui-accent) 20%, transparent);
   }
 
   .range-selection-handle {
@@ -2297,7 +2272,7 @@
     pointer-events: none;
     font-size: 12px;
     line-height: 18px;
-    color: var(--klc-color-foreground, #111);
+    color: var(--klc-color-ui-text, #111);
   }
 
   .canvas-layer {

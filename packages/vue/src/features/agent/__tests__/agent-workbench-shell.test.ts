@@ -44,12 +44,14 @@ describe('AgentWorkbenchShell', () => {
     expect(save).toHaveBeenLastCalledWith(600)
     expect(wrapper.find('.panel-resizer').exists()).toBe(false)
 
+    const shell = wrapper.get('.agent-workbench-shell')
+
     await wrapper.get('[data-testid="agent-panel-close"]').trigger('click')
-    expect(wrapper.get('[data-testid="agent-panel"]').isVisible()).toBe(false)
-    expect(wrapper.get('[data-testid="chart-slot"]').exists()).toBe(true)
+    expect(shell.classes()).not.toContain('agent-workbench-shell--panel-open')
+    expect(wrapper.find('[data-testid="chart-slot"]').exists()).toBe(true)
 
     await wrapper.get('[data-testid="agent-panel-open"]').trigger('click')
-    expect(wrapper.get('[data-testid="agent-panel"]').isVisible()).toBe(true)
+    expect(shell.classes()).toContain('agent-workbench-shell--panel-open')
     wrapper.unmount()
   })
 })

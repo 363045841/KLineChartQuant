@@ -12,6 +12,8 @@ export type {
   Theme,
   ThemeOverride,
   ColorTokens,
+  UiColors,
+  AgentColors,
   SpacingTokens,
   TypographyTokens,
   MotionTokens,

@@ -61,14 +61,6 @@ export class ChartViewportManager {
       const widthChanged = cssWidth !== prevWidth
       const heightChanged = cssHeight !== prevHeight
       const dprChanged = preciseDpr !== prevDpr
-      if ((import.meta as any).env?.MODE !== 'production') {
-        console.log(
-          `[Chart] resize observer: ` +
-            `size ${prevWidth}x${prevHeight} -> ${cssWidth}x${cssHeight} ` +
-            `dpr ${prevDpr} -> ${preciseDpr} ` +
-            `changed: ${widthChanged || heightChanged ? 'size' : ''}${widthChanged || (heightChanged && dprChanged) ? '+' : ''}${dprChanged ? 'dpr' : ''}`,
-        )
-      }
       if (widthChanged || heightChanged || dprChanged) {
         this.deps.onResizeCompleted()
       }

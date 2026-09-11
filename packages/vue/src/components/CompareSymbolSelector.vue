@@ -14,180 +14,131 @@
       <span v-if="comparisonLoading" class="compare-chip__spinner" />
       <span v-if="selected.length > 0" class="compare-chip__badge">{{ selected.length }}</span>
     </button>
-    <Teleport :to="teleportTarget">
-      <Transition name="symbol-popover">
-        <div
-          v-if="showPopup"
-          ref="popupRef"
-          class="compare-popover"
-          :style="popupStyle"
-          role="dialog"
-          aria-label="比较商品"
-        >
-          <AggregationSourceTabs
-            v-if="sourceTabs.length > 0"
-            v-model="activeSourceTab"
-            :tabs="sourceTabs"
-          />
-          <div class="compare-search">
-            <span class="compare-search__icon" aria-hidden="true">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.6" />
-                <line
-                  x1="10.5"
-                  y1="10.5"
-                  x2="14.5"
-                  y2="14.5"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
-                />
-              </svg>
-            </span>
-            <input
-              ref="searchInputRef"
-              v-model="searchQuery"
-              class="compare-search__input"
-              type="text"
-              placeholder="搜索代码或名称…"
-              autocomplete="off"
-              spellcheck="false"
-              aria-label="搜索比较商品"
-            />
-            <button
-              v-if="searchQuery"
-              type="button"
-              class="compare-search__clear"
-              aria-label="清空搜索"
-              @click="clearSearch"
+    <SymbolPopover
+      v-model:search="searchQuery"
+      :show="showPopup"
+      :anchor="rootRef"
+      dialog-label="比较商品"
+      search-placeholder="搜索代码或名称…"
+      search-aria-label="搜索比较商品"
+      @close="closePopup"
+      @manage-sources="emit('manageSources')"
+    >
+      <template #tabs>
+        <AggregationSourceTabs
+          v-if="sourceTabs.length > 0"
+          v-model="activeSourceTab"
+          :tabs="sourceTabs"
+        />
+      </template>
+      <template #body>
+        <div v-if="selected.length > 0" class="compare-selected">
+          <div class="compare-selected__header">
+            <span class="compare-selected__title">已添加商品</span>
+          </div>
+          <div class="compare-selected__list">
+            <div
+              v-for="item in displayItems"
+              :key="symbolIdentityKey(item)"
+              class="compare-selected__item"
             >
-              <svg
-                class="delete-icon"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
+              <span
+                class="compare-selected__color"
+                :style="{ background: comparisonColors?.get(symbolIdentityKey(item)) ?? '#888' }"
+              />
+              <span class="compare-selected__code">{{ item.symbol }}</span>
+              <span class="compare-selected__desc">{{ item.name }}</span>
+              <button
+                type="button"
+                class="compare-selected__remove"
+                :aria-label="'移除 ' + item.symbol"
+                @click="removeSymbol(item)"
               >
-                <path d="M3 6h18" />
-                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-              </svg>
-            </button>
-            <AggregationSourceButton @click="emit('manageSources')" />
-          </div>
-
-          <div v-if="selected.length > 0" class="compare-selected">
-            <div class="compare-selected__header">
-              <span class="compare-selected__title">已添加商品</span>
-            </div>
-            <div class="compare-selected__list">
-              <div
-                v-for="item in displayItems"
-                :key="symbolIdentityKey(item)"
-                class="compare-selected__item"
-              >
-                <span
-                  class="compare-selected__color"
-                  :style="{ background: comparisonColors?.get(symbolIdentityKey(item)) ?? '#888' }"
-                />
-                <span class="compare-selected__code">{{ item.symbol }}</span>
-                <span class="compare-selected__desc">{{ item.name }}</span>
-                <button
-                  type="button"
-                  class="compare-selected__remove"
-                  :aria-label="'移除 ' + item.symbol"
-                  @click="removeSymbol(item)"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="12"
-                    height="12"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path d="M18 6L6 18" />
-                    <path d="M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div class="compare-list" role="listbox" aria-label="商品列表">
-            <div v-if="searchLoading" class="compare-list__empty">
-              <span class="compare-chip__spinner" aria-hidden="true" />
-              <span>正在搜索</span>
-            </div>
-            <div v-else-if="comparisonSymbols.length === 0" class="compare-list__empty">
-              <svg
-                width="32"
-                height="32"
-                viewBox="0 0 32 32"
-                fill="none"
-                style="margin-bottom: 8px; opacity: 0.35"
-              >
-                <circle cx="13" cy="13" r="10" stroke="currentColor" stroke-width="2" />
-                <line
-                  x1="21"
-                  y1="21"
-                  x2="29"
-                  y2="29"
+                <svg
+                  viewBox="0 0 24 24"
+                  width="12"
+                  height="12"
+                  fill="none"
                   stroke="currentColor"
                   stroke-width="2"
                   stroke-linecap="round"
-                />
-              </svg>
-              <span>{{ searchError ? '搜索失败' : '未找到相关商品' }}</span>
+                  stroke-linejoin="round"
+                >
+                  <path d="M18 6L6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-            <button
-              v-for="item in comparisonSymbols"
-              :key="symbolIdentityKey(item)"
-              type="button"
-              class="compare-list__item"
-              :class="{ 'is-selected': isSelected(item) }"
-              role="option"
-              :aria-selected="isSelected(item)"
-              @click="toggleSymbol(item)"
-            >
-              <span class="compare-list__left">
-                <span class="compare-list__code">{{ item.symbol }}</span>
-                <span class="compare-list__desc">{{ item.name }}</span>
-              </span>
-              <span class="compare-list__right">
-                <span class="compare-list__exchange">{{ formatSymbolMeta(item) }}</span>
-                <span v-if="isSelected(item)" class="compare-list__check" aria-hidden="true">
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="16"
-                    height="16"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </span>
-              </span>
-            </button>
           </div>
         </div>
-      </Transition>
-    </Teleport>
+
+        <div class="compare-list" role="listbox" aria-label="商品列表">
+          <div v-if="searchLoading" class="compare-list__empty">
+            <span class="compare-chip__spinner" aria-hidden="true" />
+            <span>正在搜索</span>
+          </div>
+          <div v-else-if="comparisonSymbols.length === 0" class="compare-list__empty">
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 32 32"
+              fill="none"
+              style="margin-bottom: 8px; opacity: 0.35"
+            >
+              <circle cx="13" cy="13" r="10" stroke="currentColor" stroke-width="2" />
+              <line
+                x1="21"
+                y1="21"
+                x2="29"
+                y2="29"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+            </svg>
+            <span>{{ searchError ? '搜索失败' : '未找到相关商品' }}</span>
+          </div>
+          <button
+            v-for="item in comparisonSymbols"
+            :key="symbolIdentityKey(item)"
+            type="button"
+            class="compare-list__item"
+            :class="{ 'is-selected': isSelected(item) }"
+            role="option"
+            :aria-selected="isSelected(item)"
+            @click="toggleSymbol(item)"
+          >
+            <span class="compare-list__left">
+              <span class="compare-list__code">{{ item.symbol }}</span>
+              <span class="compare-list__desc">{{ item.name }}</span>
+            </span>
+            <span class="compare-list__right">
+              <span class="compare-list__exchange">{{ formatSymbolMeta(item) }}</span>
+              <span v-if="isSelected(item)" class="compare-list__check" aria-hidden="true">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </span>
+            </span>
+          </button>
+        </div>
+      </template>
+    </SymbolPopover>
   </div>
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+  import { ref, computed, watch } from 'vue'
 
-  import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
   import {
     symbolIdentityKey,
     uniqueSymbolsByIdentity,
@@ -200,10 +151,9 @@
     type AggregationSourceDefinition,
   } from '../composables/useAggregationSources'
   import { useAggregationSourceTab } from '../composables/useAggregationSourceTab'
-  import { useTeleportedPopup } from '../composables/useTeleportedPopup'
 
-  import AggregationSourceButton from './AggregationSourceButton.vue'
   import AggregationSourceTabs, { type AggregationSourceTabItem } from './AggregationSourceTabs.vue'
+  import SymbolPopover from './SymbolPopover.vue'
   import type { SymbolItem } from './SymbolSelector.vue'
 
   const props = withDefaults(
@@ -234,9 +184,7 @@
   const showPopup = ref(false)
   const searchQuery = ref('')
   const activeSourceTab = useAggregationSourceTab()
-  const searchInputRef = ref<HTMLInputElement | null>(null)
   const rootRef = ref<HTMLElement | null>(null)
-  const popupRef = ref<HTMLElement | null>(null)
 
   const sourceTabs = computed<AggregationSourceTabItem[]>(() => {
     const enabled = props.enabledSourceNames
@@ -250,14 +198,6 @@
       ...searchable.map((source) => ({ key: source.name, label: source.displayName })),
     ]
   })
-
-  const teleportTarget = useFullscreenTeleportTarget()
-
-  const { popupStyle, startPositionSync, stopPositionSync } = useTeleportedPopup(
-    rootRef,
-    popupRef,
-    8,
-  )
 
   const selectedSet = computed(() => new Set(props.selected ?? []))
 
@@ -305,43 +245,19 @@
 
   function togglePopup() {
     showPopup.value = !showPopup.value
-    if (showPopup.value) {
-      nextTick(() => searchInputRef.value?.focus())
-    }
   }
 
-  watch(showPopup, (val) => {
-    if (val) {
-      startPositionSync()
-    } else {
-      stopPositionSync()
-    }
-  })
+  /** 关闭弹层并清空搜索 */
+  function closePopup() {
+    showPopup.value = false
+    searchQuery.value = ''
+  }
 
   watch(sourceTabs, (tabs) => {
     if (!tabs.some((tab) => tab.key === activeSourceTab.value)) {
       activeSourceTab.value = 'all'
     }
   })
-
-  function clearSearch() {
-    searchQuery.value = ''
-    searchInputRef.value?.focus()
-  }
-
-  function onDocumentClick(e: MouseEvent) {
-    const root = rootRef.value
-    const popup = popupRef.value
-    // Shadow DOM 会将 document 监听器看到的 target 重定向为 Custom Element 宿主。
-    const path = e.composedPath()
-    if (root && !path.includes(root) && (!popup || !path.includes(popup))) {
-      showPopup.value = false
-      searchQuery.value = ''
-    }
-  }
-
-  onMounted(() => document.addEventListener('mousedown', onDocumentClick))
-  onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentClick))
 </script>
 
 <style scoped>
@@ -351,43 +267,45 @@
     flex: 0 0 auto;
   }
 
+  /* 触发器样式与 Dropdown 的 .dropdown__trigger 保持一致（同尺寸、同边框/背景/交互态）。 */
   .compare-chip {
-    height: 28px;
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
     gap: 6px;
-    padding: 0 10px;
-    border: 1px solid var(--klc-color-border-button);
-    border-radius: 4px;
-    background: var(--klc-color-background);
-    color: var(--klc-color-foreground);
+    height: 28px;
+    padding: 0 8px;
+    border: 1px solid var(--klc-color-ui-border);
+    border-radius: 8px;
+    background: var(--klc-color-ui-control-background);
+    color: var(--klc-color-ui-text);
     font: inherit;
     cursor: pointer;
     transition:
-      background 0.15s ease,
-      border-color 0.15s ease,
-      color 0.15s ease;
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
   }
 
   .compare-chip:hover,
   .compare-chip.is-open {
-    border-color: var(--klc-color-axis-text);
-    background: var(--klc-color-grid-minor);
+    border-color: var(--klc-color-ui-border-strong);
+    background: var(--klc-color-ui-hover);
+  }
+
+  .compare-chip:focus-visible {
+    border-color: var(--klc-color-ui-accent);
+    background: var(--klc-color-ui-hover);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 24%, transparent);
+    outline: 0;
   }
 
   .compare-chip__icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: var(--klc-color-foreground);
-    color: var(--klc-color-background);
-    font-size: 13px;
-    font-weight: 700;
+    color: var(--klc-color-ui-muted);
+    font-size: 14px;
+    font-weight: 600;
     line-height: 1;
   }
 
@@ -402,11 +320,12 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 16px;
+    min-width: 16px;
     height: 16px;
-    border-radius: 8px;
-    background: var(--klc-color-axis-text);
-    color: var(--klc-color-background);
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--klc-color-ui-accent);
+    color: var(--klc-color-ui-on-accent);
     font-size: 10px;
     font-weight: 600;
     line-height: 1;
@@ -416,7 +335,7 @@
     display: inline-block;
     width: 12px;
     height: 12px;
-    border: 2px solid var(--klc-color-axis-text);
+    border: 2px solid var(--klc-color-ui-muted);
     border-top-color: transparent;
     border-radius: 50%;
     animation: compare-spin 0.6s linear infinite;
@@ -428,100 +347,12 @@
     }
   }
 
-  .compare-popover {
-    z-index: 110;
-    width: min(360px, calc(100vw - 24px));
-    padding: 14px;
-    border: 1px solid var(--klc-color-border-button);
-    border-radius: 3px;
-    background: var(--klc-color-background);
-    color: var(--klc-color-foreground);
-
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .compare-search {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 0 10px;
-    height: 32px;
-    border: 1px solid var(--klc-color-border-button);
-    border-radius: 8px;
-    background: var(--klc-color-background);
-    transition:
-      border-color 0.15s ease,
-      box-shadow 0.15s ease;
-  }
-
-  .compare-search:focus-within {
-    border-color: var(--klc-color-axis-text);
-  }
-
-  .compare-search__icon {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    color: var(--klc-color-axis-text);
-  }
-
-  .compare-search__input {
-    flex: 1 1 0;
-    min-width: 0;
-    border: none;
-    outline: none;
-    background: transparent;
-    color: var(--klc-color-foreground);
-    font: inherit;
-    font-size: 13px;
-    line-height: 1;
-  }
-
-  .compare-search__input::placeholder {
-    color: var(--klc-color-axis-text);
-    opacity: 0.7;
-  }
-
-  .compare-search__clear {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    border: 1px solid transparent;
-    border-radius: 4px;
-    background: transparent;
-    color: var(--klc-color-axis-text);
-    cursor: pointer;
-    transition:
-      border-color 0.15s ease,
-      background 0.15s ease,
-      color 0.15s ease;
-  }
-
-  .compare-search__clear:hover {
-    border-color: var(--klc-color-axis-line);
-    background: var(--klc-color-grid-minor);
-    color: var(--klc-color-foreground);
-  }
-
-  .compare-search__clear .delete-icon {
-    width: 14px;
-    height: 14px;
-  }
-
   .compare-selected {
     display: flex;
     flex-direction: column;
     gap: 8px;
     padding-bottom: 10px;
-    border-bottom: 1px solid var(--klc-color-border-chart);
+    border-bottom: 1px solid var(--klc-color-ui-border);
   }
 
   .compare-selected__header {
@@ -533,7 +364,7 @@
   .compare-selected__title {
     font-size: 12px;
     font-weight: 600;
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
   }
 
   .compare-selected__list {
@@ -547,9 +378,9 @@
     align-items: center;
     gap: 6px;
     padding: 4px 8px;
-    border: 1px solid var(--klc-color-border-button);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 6px;
-    background: var(--klc-color-grid-minor);
+    background: var(--klc-color-ui-hover);
     font-size: 12px;
     line-height: 1.3;
   }
@@ -564,11 +395,11 @@
 
   .compare-selected__code {
     font-weight: 600;
-    color: var(--klc-color-foreground);
+    color: var(--klc-color-ui-text);
   }
 
   .compare-selected__desc {
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
     font-size: 11px;
     max-width: 100px;
     overflow: hidden;
@@ -586,7 +417,7 @@
     border: none;
     border-radius: 50%;
     background: transparent;
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
     cursor: pointer;
     transition:
       background 0.12s ease,
@@ -595,8 +426,8 @@
   }
 
   .compare-selected__remove:hover {
-    background: color-mix(in srgb, var(--klc-color-alert-active) 16%, transparent);
-    color: var(--klc-color-alert-active);
+    background: color-mix(in srgb, var(--klc-color-ui-accent) 16%, transparent);
+    color: var(--klc-color-ui-accent);
   }
 
   .compare-list {
@@ -613,7 +444,7 @@
   }
 
   .compare-list::-webkit-scrollbar-thumb {
-    background: var(--klc-color-border-button);
+    background: var(--klc-color-ui-border);
     border-radius: 999px;
   }
 
@@ -623,7 +454,7 @@
     align-items: center;
     justify-content: center;
     padding: 28px 0;
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
     font-size: 13px;
     text-align: center;
     gap: 2px;
@@ -639,7 +470,7 @@
     border: none;
     border-radius: 7px;
     background: transparent;
-    color: var(--klc-color-foreground);
+    color: var(--klc-color-ui-text);
     font: inherit;
     cursor: pointer;
     text-align: left;
@@ -648,7 +479,7 @@
   }
 
   .compare-list__item:hover {
-    background: var(--klc-color-grid-minor);
+    background: var(--klc-color-ui-hover);
   }
 
   .compare-list__left {
@@ -664,7 +495,7 @@
     font-weight: 700;
     line-height: 1.2;
     letter-spacing: 0.01em;
-    color: var(--klc-color-foreground);
+    color: var(--klc-color-ui-text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -674,7 +505,7 @@
     font-size: 11px;
     font-weight: 400;
     line-height: 1.2;
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -691,8 +522,8 @@
     flex: 0 0 auto;
     padding: 2px 7px;
     border-radius: 4px;
-    background: var(--klc-color-grid-major);
-    color: var(--klc-color-axis-text);
+    background: var(--klc-color-ui-hover);
+    color: var(--klc-color-ui-muted);
     font-size: 10px;
     font-weight: 600;
     line-height: 1.4;
@@ -705,33 +536,15 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: var(--klc-color-alert-active);
+    color: var(--klc-color-ui-accent);
     flex-shrink: 0;
-  }
-
-  .symbol-popover-enter-active,
-  .symbol-popover-leave-active {
-    transition:
-      opacity 0.15s ease,
-      transform 0.15s ease;
-  }
-
-  .symbol-popover-enter-from,
-  .symbol-popover-leave-to {
-    opacity: 0;
-    transform: translateY(-4px);
   }
 
   @media (max-width: 768px), (max-height: 640px) {
     .compare-chip {
       height: 26px;
-      padding: 0 8px;
-    }
-
-    .compare-popover {
-      width: min(330px, calc(100vw - 16px));
-      padding: 12px;
-      gap: 8px;
+      gap: 4px;
+      padding: 0 6px;
     }
 
     .compare-list {

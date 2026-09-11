@@ -270,7 +270,7 @@
     padding: 0;
     border: 0;
     border-radius: 50%;
-    color: var(--klc-color-agent-on-accent);
+    color: var(--klc-color-ui-on-accent);
     background: transparent;
     box-sizing: border-box;
     font: inherit;
@@ -307,10 +307,10 @@
   }
 
   .composer__primary--stop .composer__primary-background {
-    background-color: var(--klc-color-agent-danger);
+    background-color: var(--klc-color-ui-danger);
   }
 
   .composer__primary--stop:hover:not(:disabled) .composer__primary-background {
-    background-color: var(--klc-color-agent-danger);
+    background-color: var(--klc-color-ui-danger);
   }
 </style>

@@ -38,7 +38,6 @@
 
     <aside
       ref="panel"
-      v-show="panelOpen"
       class="agent-panel"
       data-testid="agent-panel"
       @pointerdown="startResize"
@@ -161,17 +160,15 @@
 
 <style scoped>
   .agent-workbench-shell {
-    --agent-bg: var(--klc-color-agent-background);
-    --agent-text: var(--klc-color-agent-text);
-    --agent-focus: var(--klc-color-agent-focus);
+    --agent-bg: var(--klc-color-ui-background);
+    --agent-text: var(--klc-color-ui-text);
+    --agent-focus: var(--klc-color-ui-focus);
 
     width: 100%;
     height: 100%;
     min-width: 0;
     min-height: 0;
     position: relative;
-    display: grid;
-    grid-template-columns: minmax(520px, 1fr) var(--agent-panel-track);
     overflow: hidden;
     background: var(--agent-bg);
   }
@@ -189,39 +186,67 @@
 
     min-width: 0;
     min-height: 0;
+    height: 100%;
     position: relative;
     overflow: hidden;
     padding: 0 16px;
     box-sizing: border-box;
     background: var(--agent-bg);
+    margin-right: var(--agent-panel-track, 0px);
+    transition: margin-right 0.28s ease;
   }
 
   .agent-panel {
-    min-width: 0;
+    width: var(--agent-panel-width);
     min-height: 0;
-    position: relative;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
     z-index: 3;
     overflow: hidden;
-    border-left: 1px solid var(--klc-color-agent-border);
+    border-left: 1px solid var(--klc-color-ui-border);
     background: var(--agent-bg);
+    visibility: hidden;
+    transform: translateX(100%);
+    transition:
+      transform 0.28s ease,
+      visibility 0s linear 0.28s;
+  }
+
+  .agent-workbench-shell--panel-open .agent-panel {
+    visibility: visible;
+    transform: translateX(0);
+    transition:
+      transform 0.28s ease,
+      visibility 0s;
   }
 
   .agent-workbench-shell--resize-ready .agent-panel {
     cursor: col-resize;
   }
 
+  /* 右下角 1/4 圆启动器：圆心贴合屏幕右下角，弧面朝向左上。 */
   .agent-launcher {
-    min-height: 34px;
+    --agent-launcher-size: 56px;
+
+    width: var(--agent-launcher-size);
+    height: var(--agent-launcher-size);
     position: absolute;
-    top: 10px;
-    right: 10px;
+    right: 0;
+    bottom: 0;
     z-index: 20;
-    display: inline-flex;
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 6px;
-    padding: 0 10px;
-    border: 1px solid var(--klc-color-agent-launcher-border);
-    border-radius: 5px;
+    justify-content: center;
+    gap: 0;
+    /* 1/4 圆质心位于圆心 4R/3π 处，相对方形盒中心偏移 (1/2 - 4/3π)R = 0.0756R；
+       padding 取 2 倍偏移量，使图标对准 1/4 圆质心（水平垂直居中）。 */
+    padding: calc(var(--agent-launcher-size) * 0.1512) 0 0 calc(var(--agent-launcher-size) * 0.1512);
+    border: 1px solid var(--klc-color-ui-border);
+    border-top-left-radius: 100% 100%;
+    box-sizing: border-box;
     color: var(--agent-text);
     background: var(--klc-color-agent-launcher-background);
     box-shadow: 0 3px 12px var(--klc-color-agent-panel-shadow);
@@ -231,6 +256,40 @@
       system-ui,
       sans-serif;
     cursor: pointer;
+    transition:
+      width 0.2s ease,
+      height 0.2s ease,
+      padding 0.2s ease;
+  }
+
+  .agent-launcher:hover {
+    --agent-launcher-size: 112px;
+  }
+
+  .agent-launcher svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* 默认只显示图标，hover 时文字在图标下方平滑展开。 */
+  .agent-launcher span {
+    max-height: 0;
+    margin-top: 0;
+    opacity: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    /* 行高大于字号，避免 overflow 裁掉 g 等字母的下伸部。 */
+    line-height: 1.3;
+    transition:
+      max-height 0.2s ease,
+      margin-top 0.2s ease,
+      opacity 0.2s ease;
+  }
+
+  .agent-launcher:hover span {
+    max-height: 20px;
+    margin-top: 6px;
+    opacity: 1;
   }
 
   .drawer-backdrop {
@@ -243,13 +302,9 @@
     user-select: none !important;
   }
 
-  .agent-workbench-shell--compact {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .agent-workbench-shell--compact .chart-surface {
-    grid-column: 1;
-    grid-row: 1;
+    margin-right: 0;
+    transition: none;
   }
 
   .agent-workbench-shell--compact .drawer-backdrop {
@@ -264,12 +319,7 @@
   .agent-workbench-shell--compact .agent-panel {
     width: min(var(--agent-panel-width), calc(100% - 28px));
     min-width: min(360px, calc(100% - 28px));
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
     z-index: 31;
-    border-left: 1px solid var(--klc-color-agent-border);
     box-shadow: -12px 0 32px var(--klc-color-agent-panel-shadow);
   }
 

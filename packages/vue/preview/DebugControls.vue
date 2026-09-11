@@ -1,5 +1,5 @@
 <template>
-  <div class="debug-controls" :data-theme="theme">
+  <div class="debug-controls">
     <div class="debug-left">
       <button @click="$emit('open-modal')" title="打开 Modal">
         <svg
@@ -121,7 +121,6 @@
     depthDemoActive: boolean
     depthStatusText: string
     depthStatusClass: string
-    theme: 'light' | 'dark'
   }>()
 
   const version = `Vue@${VERSION}-Core@${CORE_VERSION}`
@@ -135,11 +134,12 @@
 </script>
 
 <style scoped>
+  /* 统一消费 theme tokens（useChartTheme 写入 document.body），自动跟随 light/dark。 */
   .debug-controls {
     position: relative;
     padding: 8px 16px;
-    background: #f5f5f5;
-    border-bottom: 1px solid #e8e8e8;
+    background: var(--klc-color-ui-surface);
+    border-bottom: 1px solid var(--klc-color-ui-border);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -160,24 +160,29 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid #d9d9d9;
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 6px;
-    background: #fff;
-    color: #333;
+    background: var(--klc-color-ui-input);
+    color: var(--klc-color-ui-secondary-button-text);
     text-decoration: none;
+    transition:
+      background 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease;
   }
 
   .debug-link:hover {
-    color: #1890ff;
-    border-color: #1890ff;
+    color: var(--klc-color-ui-text);
+    border-color: var(--klc-color-ui-border-strong);
+    background: var(--klc-color-ui-hover);
   }
 
   .version-badge {
     padding: 2px 8px;
     border-radius: 12px;
-    border: 1px solid #d9d9d9;
-    background: #fff;
-    color: #666;
+    border: 1px solid var(--klc-color-ui-border);
+    background: var(--klc-color-ui-input);
+    color: var(--klc-color-ui-muted);
     font-size: 12px;
     font-family: monospace;
   }
@@ -186,18 +191,24 @@
     width: 32px;
     height: 32px;
     padding: 0;
-    border: 1px solid #d9d9d9;
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 6px;
-    background: #fff;
+    background: var(--klc-color-ui-input);
+    color: var(--klc-color-ui-secondary-button-text);
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    transition:
+      background 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease;
   }
 
   .debug-controls button:hover {
-    border-color: #1890ff;
-    color: #1890ff;
+    border-color: var(--klc-color-ui-border-strong);
+    background: var(--klc-color-ui-hover);
+    color: var(--klc-color-ui-text);
   }
 
   .debug-icon {
@@ -206,9 +217,9 @@
   }
 
   .debug-controls button.is-active {
-    background: #e6f7ff;
-    border-color: #1890ff;
-    color: #1890ff;
+    background: color-mix(in srgb, var(--klc-color-ui-accent) 16%, transparent);
+    border-color: var(--klc-color-ui-accent);
+    color: var(--klc-color-ui-accent);
   }
 
   .depth-status-badge {
@@ -221,15 +232,15 @@
   }
 
   .depth-status-badge.depth-awaiting {
-    background: #fffbe6;
-    border-color: #ffe58f;
-    color: #ad8b00;
+    background: var(--klc-color-ui-warning-background);
+    border-color: var(--klc-color-ui-warning-border);
+    color: var(--klc-color-ui-warning-text);
   }
 
   .depth-status-badge.depth-connected {
-    background: #f6ffed;
-    border-color: #b7eb8f;
-    color: #389e0d;
+    background: color-mix(in srgb, var(--klc-color-ui-success) 14%, transparent);
+    border-color: color-mix(in srgb, var(--klc-color-ui-success) 50%, transparent);
+    color: var(--klc-color-ui-success);
   }
 
   @media (max-width: 640px) {
@@ -256,56 +267,5 @@
       white-space: nowrap;
       flex-shrink: 1;
     }
-  }
-
-  .debug-controls[data-theme='dark'] {
-    background: #1f2937;
-    border-color: #374151;
-  }
-
-  .debug-controls[data-theme='dark'] .debug-link {
-    background: #374151;
-    border-color: #4b5563;
-    color: #d1d5db;
-  }
-
-  .debug-controls[data-theme='dark'] .debug-link:hover {
-    border-color: #60a5fa;
-    color: #60a5fa;
-  }
-
-  .debug-controls[data-theme='dark'] button {
-    background: #374151;
-    border-color: #4b5563;
-    color: #d1d5db;
-  }
-
-  .debug-controls[data-theme='dark'] button:hover {
-    border-color: #60a5fa;
-    color: #60a5fa;
-  }
-
-  .debug-controls[data-theme='dark'] button.is-active {
-    background: #1e3a5f;
-    border-color: #60a5fa;
-    color: #60a5fa;
-  }
-
-  .debug-controls[data-theme='dark'] .depth-status-badge.depth-awaiting {
-    background: #2b1d0b;
-    border-color: #5c3a0e;
-    color: #e8b839;
-  }
-
-  .debug-controls[data-theme='dark'] .depth-status-badge.depth-connected {
-    background: #0b2b1a;
-    border-color: #0e5c2e;
-    color: #52c41a;
-  }
-
-  .debug-controls[data-theme='dark'] .version-badge {
-    color: #9ca3af;
-    background: #374151;
-    border-color: #4b5563;
   }
 </style>

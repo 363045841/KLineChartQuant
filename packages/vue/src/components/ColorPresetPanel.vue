@@ -1,18 +1,5 @@
 <template>
   <div class="color-preset-container">
-    <div class="theme-tabs" role="tablist" aria-label="颜色主题">
-      <button
-        v-for="option in themeOptions"
-        :key="option.value"
-        type="button"
-        class="theme-tab"
-        :class="{ active: editingTheme === option.value }"
-        @click="editingTheme = option.value"
-      >
-        {{ option.label }}
-      </button>
-    </div>
-
     <!-- 颜色分组列表 -->
     <template v-for="group in colorPresetGroups" :key="group.group">
       <div class="color-group-label">{{ group.label }}</div>
@@ -41,20 +28,16 @@
     type ColorPresetThemeName,
     type ColorPresetSettings,
   } from '@363045841yyt/klinechart-core'
-  import { ref, computed } from 'vue'
+  import { computed } from 'vue'
 
   const props = defineProps<{
     colorPresetSettings: ColorPresetSettings | undefined
+    editingTheme: ColorPresetThemeName
   }>()
 
   const emit = defineEmits<{
     (e: 'update:colorPresetSettings', value: ColorPresetSettings): void
   }>()
-
-  const themeOptions: readonly { value: ColorPresetThemeName; label: string }[] = [
-    { value: 'light', label: '浅色' },
-    { value: 'dark', label: '深色' },
-  ]
 
   const colorGroupLabels = {
     canvas: '画布',
@@ -73,8 +56,6 @@
       .filter((group) => group.items.length > 0)
   })
 
-  const editingTheme = ref<ColorPresetThemeName>('light')
-
   function getThemeDefaultColor(themeName: ColorPresetThemeName, key: ColorPresetKey): string {
     const theme = themeName === 'dark' ? darkTheme : lightTheme
     return theme.colors[key]
@@ -82,15 +63,15 @@
 
   function getColorValue(key: ColorPresetKey): string {
     const colorSettings = normalizeColorPresetSettings(props.colorPresetSettings)
-    return colorSettings[editingTheme.value]?.[key] ?? getThemeDefaultColor(editingTheme.value, key)
+    return colorSettings[props.editingTheme]?.[key] ?? getThemeDefaultColor(props.editingTheme, key)
   }
 
   function setColorValue(key: ColorPresetKey, value: string): void {
     const colorSettings = normalizeColorPresetSettings(props.colorPresetSettings)
     emit('update:colorPresetSettings', {
       ...colorSettings,
-      [editingTheme.value]: {
-        ...colorSettings[editingTheme.value],
+      [props.editingTheme]: {
+        ...colorSettings[props.editingTheme],
         [key]: value,
       },
     })
@@ -99,7 +80,7 @@
   function resetCurrentThemeColors(): void {
     const colorSettings = normalizeColorPresetSettings(props.colorPresetSettings)
     const nextColorSettings = { ...colorSettings }
-    delete nextColorSettings[editingTheme.value]
+    delete nextColorSettings[props.editingTheme]
     emit('update:colorPresetSettings', nextColorSettings)
   }
 
@@ -109,40 +90,6 @@
 <style scoped>
   .color-preset-container {
     padding: 4px 0;
-  }
-
-  .theme-tabs {
-    display: flex;
-    gap: 4px;
-    padding: 4px;
-    margin-bottom: 12px;
-    border: 1px solid var(--klc-color-border-button);
-    border-radius: 8px;
-    background: var(--klc-color-grid-minor);
-  }
-
-  .theme-tab {
-    flex: 1;
-    height: 28px;
-    border: none;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--klc-color-axis-text);
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.18s ease;
-    white-space: nowrap;
-  }
-
-  .theme-tab:not(.active):hover {
-    color: var(--klc-color-foreground);
-    background: color-mix(in srgb, var(--klc-color-background) 60%, transparent);
-  }
-
-  .theme-tab.active {
-    color: var(--klc-color-foreground);
-    font-weight: 600;
   }
 
   /* ── 分组标签 ── */

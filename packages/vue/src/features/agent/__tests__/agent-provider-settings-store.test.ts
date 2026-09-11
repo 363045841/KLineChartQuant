@@ -48,4 +48,19 @@ describe('AgentProviderSettingsStore', () => {
     await store.setModelPoolMembership('provider-model-a', false)
     expect(store.modelPool).toEqual([])
   })
+
+  it('renames and deletes saved Provider profiles through the store', async () => {
+    const bridge = new FakeAgentBridge()
+    await bridge.createProviderProfile('Provider A')
+    await bridge.createProviderProfile('Provider B')
+    const store = useAgentProviderSettingsStore()
+    store.bindBridge(bridge)
+    await store.show(await bridge.getProviderStatus())
+
+    await expect(store.renameProfile('Provider A', 'Provider A2')).resolves.toBe(true)
+    expect(store.profiles.map((profile) => profile.name)).toEqual(['Provider A2', 'Provider B'])
+
+    await expect(store.deleteProfile('Provider A2')).resolves.toBe(true)
+    expect(store.profiles.map((profile) => profile.name)).toEqual(['Provider B'])
+  })
 })

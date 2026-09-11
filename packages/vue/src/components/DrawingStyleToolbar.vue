@@ -128,7 +128,7 @@
   }
 
   .color-item:hover {
-    background: var(--klc-color-grid-minor);
+    background: var(--klc-color-ui-hover);
   }
 
   .color-swatch {
@@ -151,7 +151,7 @@
 
   .selection-count {
     padding: 0 4px;
-    color: var(--klc-color-text-secondary);
+    color: var(--klc-color-ui-text-soft);
     font-size: 12px;
     white-space: nowrap;
   }

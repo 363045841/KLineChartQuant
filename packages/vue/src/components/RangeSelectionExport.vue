@@ -90,11 +90,11 @@
 
 <style scoped>
   .range-input {
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
     font-size: 12px;
     white-space: nowrap;
     border: none;
-    background: transparent;
+    background: var(--klc-color-ui-control-background);
     outline: none;
     padding: 0 8px;
     width: auto;
@@ -111,25 +111,25 @@
   }
 
   .range-input::placeholder {
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
     opacity: 0.6;
   }
 
   .range-input:hover,
   .range-input:focus {
-    background: var(--klc-color-grid-minor);
-    color: var(--klc-color-foreground);
+    background: var(--klc-color-ui-hover);
+    color: var(--klc-color-ui-text);
   }
 
   .range-sep {
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
     font-size: 12px;
     opacity: 0.6;
     user-select: none;
   }
 
   .range-count {
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
     font-size: 12px;
     white-space: nowrap;
     user-select: none;
@@ -144,8 +144,8 @@
     align-items: center;
     height: 18px;
     padding: 0 10px;
-    border-left: 1px solid var(--klc-color-border-button);
-    border-right: 1px solid var(--klc-color-border-button);
+    border-left: 1px solid var(--klc-color-ui-border);
+    border-right: 1px solid var(--klc-color-ui-border);
     font-size: 12px;
     font-variant-numeric: tabular-nums;
     font-weight: 600;

@@ -2,25 +2,19 @@
   <!-- 主弹窗 -->
   <BaseModal
     :show="show"
+    title="图表设置"
+    subtitle="个性化配置"
     width="min(92vw, 460px)"
     max-height="min(720px, calc(100vh - 48px))"
     footer-align="space-between"
     @close="closeSettings"
   >
-    <template #header>
-      <div class="header-left">
-        <span class="settings-title">图表设置</span>
-        <span class="settings-subtitle">个性化配置</span>
-      </div>
+    <template #tabs>
+      <BaseTabs v-model="activeSection" :tabs="settingsTabs" aria-label="图表设置" />
     </template>
 
     <div class="settings-body">
-      <CollapsibleSection
-        v-if="mainSettings.length > 0"
-        label="主图设置"
-        :expanded="expandedSections.main"
-        @toggle="toggleSection('main')"
-      >
+      <template v-if="activeSection === 'main'">
         <template v-for="item in mainSettings" :key="item.key">
           <div class="settings-item">
             <span>{{ item.label }}</span>
@@ -48,13 +42,9 @@
             <span>{{ runtimeHint }}</span>
           </div>
         </template>
-      </CollapsibleSection>
+      </template>
 
-<CollapsibleSection
-        label="数据源"
-        :expanded="expandedSections.dataSource"
-        @toggle="toggleSection('dataSource')"
-      >
+      <template v-else-if="activeSection === 'dataSource'">
         <div class="settings-item">
           <span>缓存上限</span>
           <Dropdown
@@ -67,10 +57,18 @@
         </div>
         <div class="settings-item cache-usage">
           <span>当前用量</span>
-          <span>{{ cacheUsageText }}</span>
-        </div>
-<div class="cache-actions">
-          <button type="button" class="settings-btn cancel" @click="clearCache">清除缓存</button>
+          <span class="cache-usage__value">
+            {{ cacheUsageText }}
+            <button
+              type="button"
+              class="cache-clear-btn"
+              title="清除缓存"
+              aria-label="清除缓存"
+              @click="clearCache"
+            >
+              <IconTablerTrash aria-hidden="true" />
+            </button>
+          </span>
         </div>
         <div class="settings-item nav-item" @click="showAggregationSourceModal = true">
           <span>聚合源管理</span>
@@ -86,13 +84,9 @@
             <path d="M9 18l6-6-6-6" />
           </svg>
         </div>
-      </CollapsibleSection>
+      </template>
 
-      <CollapsibleSection
-        label="样式 / 颜色"
-        :expanded="expandedSections.style"
-        @toggle="toggleSection('style')"
-      >
+      <template v-else-if="activeSection === 'style'">
         <template v-for="item in styleSettings" :key="item.key">
           <div class="settings-item">
             <span>{{ item.label }}</span>
@@ -128,14 +122,9 @@
             <path d="M9 18l6-6-6-6" />
           </svg>
         </div>
-      </CollapsibleSection>
+      </template>
 
-      <CollapsibleSection
-        v-if="experimentalSettings.length > 0"
-        label="实验性 / 调试设置"
-        :expanded="expandedSections.experimental"
-        @toggle="toggleSection('experimental')"
-      >
+      <template v-else-if="activeSection === 'experimental'">
         <template v-for="item in experimentalSettings" :key="item.key">
           <div class="settings-item experimental">
             <span>{{ item.label }}</span>
@@ -157,13 +146,9 @@
             </template>
           </div>
         </template>
-      </CollapsibleSection>
+      </template>
 
-      <CollapsibleSection
-        label="开源致谢"
-        :expanded="expandedSections.opensource"
-        @toggle="toggleSection('opensource')"
-      >
+      <template v-else-if="activeSection === 'opensource'">
         <template v-for="section in openSourceCredits" :key="section.id">
           <div class="settings-subsection-label">{{ section.title }}</div>
           <a
@@ -179,14 +164,14 @@
             <span class="credit-meta">{{ credit.version }} · {{ credit.license }}</span>
           </a>
         </template>
-      </CollapsibleSection>
+      </template>
     </div>
 
     <template #footer>
-      <button class="settings-btn reset" @click="resetSettings">重置</button>
+      <BaseButton @click="resetSettings">重置</BaseButton>
       <div class="footer-right">
-        <button class="settings-btn cancel" @click="closeSettings">取消</button>
-        <button class="settings-btn confirm" @click="confirmSettings">确定</button>
+        <BaseButton @click="closeSettings">取消</BaseButton>
+        <BaseButton @click="confirmSettings">确定</BaseButton>
       </div>
     </template>
   </BaseModal>
@@ -214,29 +199,25 @@
     footer-align="space-between"
     @close="showColorPresetModal = false"
   >
+    <template #tabs>
+      <BaseTabs v-model="colorPresetTheme" :tabs="colorThemeOptions" aria-label="颜色主题" />
+    </template>
     <ColorPresetPanel
       ref="colorPresetPanelRef"
       :color-preset-settings="settings.colorPresetSettings"
+      :editing-theme="colorPresetTheme"
       @update:color-preset-settings="settings = { ...settings, colorPresetSettings: $event }"
     />
     <template #footer>
-      <button
-        type="button"
-        class="settings-btn reset"
-        @click="colorPresetPanelRef?.resetCurrentThemeColors()"
-      >
-        重置颜色
-      </button>
-      <button type="button" class="settings-btn confirm" @click="showColorPresetModal = false">
-        确认
-      </button>
+      <BaseButton @click="colorPresetPanelRef?.resetCurrentThemeColors()"> 重置颜色 </BaseButton>
+      <BaseButton @click="showColorPresetModal = false">确认</BaseButton>
     </template>
   </BaseModal>
 </template>
 
 <script setup lang="ts">
   import { normalizeColorPresetSettings } from '@363045841yyt/klinechart-core'
-  import type { MarketDataCacheStats } from '@363045841yyt/klinechart-core'
+  import type { ColorPresetThemeName, MarketDataCacheStats } from '@363045841yyt/klinechart-core'
   import {
     DEFAULT_SETTINGS,
     SETTINGS_STORAGE_KEY,
@@ -251,11 +232,14 @@
   import { getOpenSourceCredits } from '../credits/openSourceCredits'
 
   import AggregationSourceDialog from './AggregationSourceDialog.vue'
+  import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
+  import BaseTabs from './BaseTabs.vue'
   import ColorPresetPanel from './ColorPresetPanel.vue'
-  import CollapsibleSection from './common/CollapsibleSection.vue'
   import Dropdown from './Dropdown.vue'
   import ToggleSwitch from './common/ToggleSwitch.vue'
+
+  import IconTablerTrash from '~icons/tabler/trash'
 
   const props = withDefaults(
     defineProps<{
@@ -301,27 +285,27 @@
 
   type SettingsSectionId = 'main' | 'style' | 'experimental' | 'dataSource' | 'opensource'
 
-/** 所有分组默认收起，每次打开弹窗重置。 */
-  function createDefaultExpandedSections(): Record<SettingsSectionId, boolean> {
-    return {
-      main: false,
-      style: false,
-      experimental: false,
-      dataSource: false,
-      opensource: false,
+  /** 按分组可用性构建 tab 列表，空分组不出现在 tab 中。 */
+  const settingsTabs = computed<ReadonlyArray<{ id: SettingsSectionId; label: string }>>(() => {
+    const tabs: { id: SettingsSectionId; label: string }[] = []
+    if (mainSettings.value.length > 0) tabs.push({ id: 'main', label: '主图设置' })
+    tabs.push({ id: 'dataSource', label: '数据源' })
+    tabs.push({ id: 'style', label: '样式 / 颜色' })
+    if (experimentalSettings.value.length > 0) {
+      tabs.push({ id: 'experimental', label: '实验性 / 调试设置' })
     }
-  }
+    tabs.push({ id: 'opensource', label: '开源致谢' })
+    return tabs
+  })
 
-  const expandedSections = ref(createDefaultExpandedSections())
+  const activeSection = ref<SettingsSectionId>('main')
   const showAggregationSourceModal = ref(false)
   const showColorPresetModal = ref(false)
-
-  function toggleSection(id: SettingsSectionId) {
-    expandedSections.value = {
-      ...expandedSections.value,
-      [id]: !expandedSections.value[id],
-    }
-  }
+  const colorPresetTheme = ref<ColorPresetThemeName>('light')
+  const colorThemeOptions: readonly { id: ColorPresetThemeName; label: string }[] = [
+    { id: 'light', label: '浅色' },
+    { id: 'dark', label: '深色' },
+  ]
 
   function onToggleAggregationSource(name: string, enabled: boolean) {
     emit('toggleAggregationSource', name, enabled)
@@ -384,7 +368,7 @@
     (val) => {
       if (val) {
         settings.value = props.initialSettings ? { ...props.initialSettings } : loadSettings()
-        expandedSections.value = createDefaultExpandedSections()
+        activeSection.value = settingsTabs.value[0]?.id ?? 'dataSource'
       }
     },
   )
@@ -412,27 +396,6 @@
 </script>
 
 <style scoped>
-  .header-left {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-  }
-
-  .settings-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--klc-color-foreground);
-    line-height: 1.3;
-  }
-
-  .settings-subtitle {
-    font-size: 12px;
-    color: var(--klc-color-axis-text);
-    line-height: 1.3;
-    font-weight: 400;
-  }
-
   .settings-body {
     display: flex;
     flex-direction: column;
@@ -489,12 +452,33 @@
     background: transparent;
   }
 
-  .cache-actions {
-    padding: 0 12px 8px;
-    display: flex;
-    justify-content: flex-end;
+  .cache-usage__value {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
   }
 
+  .cache-clear-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    color: var(--klc-color-axis-text);
+    background: none;
+    cursor: pointer;
+    transition: color 0.15s ease;
+  }
+
+  .cache-clear-btn:hover {
+    color: var(--klc-color-foreground);
+  }
+
+  .cache-clear-btn svg {
+    width: 16px;
+    height: 16px;
+  }
 
   a.settings-item.credit-item {
     cursor: pointer;
@@ -508,17 +492,12 @@
     background: var(--klc-color-tag-bg-hover);
   }
 
-  a.settings-item.credit-item:hover .credit-name {
-    color: #3b82f6;
-  }
-
   .credit-name {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 12px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    transition: color 0.15s ease;
   }
 
   .credit-meta {
@@ -558,63 +537,6 @@
     justify-content: flex-end;
   }
 
-  .settings-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    min-width: 68px;
-    height: 34px;
-    padding: 0 16px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    border: 0;
-    transition: all 0.15s ease;
-    line-height: 1;
-    white-space: nowrap;
-  }
-
-  .settings-btn svg {
-    width: 13px;
-    height: 13px;
-    flex-shrink: 0;
-  }
-
-  .settings-btn.reset {
-    background: color-mix(in srgb, var(--klc-color-chart-background) 92%, var(--klc-color-foreground));
-    color: var(--klc-color-axis-text);
-  }
-
-  .settings-btn.reset:hover {
-    color: #f0a020;
-    background: rgba(240, 160, 32, 0.08);
-  }
-
-  .settings-btn.cancel {
-    background: color-mix(in srgb, var(--klc-color-chart-background) 92%, var(--klc-color-foreground));
-    color: var(--klc-color-foreground);
-  }
-
-  .settings-btn.cancel:hover {
-    background: color-mix(in srgb, var(--klc-color-chart-background) 86%, var(--klc-color-foreground));
-  }
-
-  .settings-btn.confirm {
-    background: color-mix(in srgb, var(--klc-color-foreground) 80%, var(--klc-color-chart-background));
-    color: var(--klc-color-background);
-  }
-
-  .settings-btn.confirm:hover {
-    opacity: 0.9;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  }
-
-  .settings-btn.confirm:active {
-    transform: scale(0.98);
-  }
-
   @media (max-width: 480px) {
     .settings-item {
       gap: 8px;
@@ -626,7 +548,7 @@
       width: 100%;
     }
 
-    .settings-btn {
+    .base-button {
       width: 100%;
     }
   }

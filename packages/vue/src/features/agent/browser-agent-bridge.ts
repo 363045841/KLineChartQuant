@@ -34,6 +34,7 @@ import type {
   ProviderReasoningEffort,
   ProviderApiProtocol,
 } from './agent-contracts'
+import { ProviderModelPool } from './provider-model-pool'
 import type {
   ProviderCredentialStore,
   OpenAiCompatibleProviderSettings,
@@ -153,20 +154,6 @@ interface BrowserProviderConnection {
   protocol: ProviderApiProtocol
 }
 
-/** 读取 Profile 连接配置，并兼容已保存的旧版 Profile。 */
-function getProfileConnection(
-  profile: BrowserProviderProfile,
-): BrowserProviderConnection | undefined {
-  if (profile.connection) return profile.connection
-  const settings = profile.settings
-  if (!settings) return undefined
-  return {
-    baseUrl: settings.baseUrl,
-    headers: settings.headers,
-    protocol: settings.protocol,
-  }
-}
-
 /** Browser 宿主解析运行时工具所需的最小上下文。 */
 interface BrowserToolContext {
   readonly agent: ChartAgentController | null | undefined
@@ -187,9 +174,60 @@ async function fetchBrowserProvider(
   return fetch(input, { ...init, headers })
 }
 
-/** 管理浏览器端唯一的 Provider 配置数组。 */
+/** 管理浏览器端唯一的 Provider 配置数组；内存优先，写入时同步持久化。 */
 class BrowserProviderProfiles {
+  private cache: BrowserProviderProfile[] | undefined
+
   read(): BrowserProviderProfile[] {
+    return this.models().map((profile) => ({ ...profile }))
+  }
+
+  write(profiles: BrowserProviderProfile[]): void {
+    this.cache = profiles.map((profile) => ({ ...profile }))
+    window.localStorage.setItem(PROVIDER_PROFILES_STORAGE_KEY, JSON.stringify(this.cache))
+  }
+
+  active(): BrowserProviderProfile | undefined {
+    return this.models().find((profile) => profile.active)
+  }
+
+  select(name: string): void {
+    this.write(this.models().map((profile) => ({ ...profile, active: profile.name === name })))
+  }
+
+  /** 重命名配置，保持其激活状态与其余配置不变。 */
+  rename(previousName: string, nextName: string): void {
+    this.write(
+      this.models().map((profile) =>
+        profile.name === previousName ? { ...profile, name: nextName } : profile,
+      ),
+    )
+  }
+
+  /** 移除配置；若移除的是激活配置，则将剩余配置中的第一个设为激活。 */
+  remove(name: string): void {
+    const remaining = this.models().filter((profile) => profile.name !== name)
+    const keepsActive = remaining.some((profile) => profile.active)
+    this.write(
+      keepsActive
+        ? remaining
+        : remaining.map((profile, index) => ({ ...profile, active: index === 0 })),
+    )
+  }
+
+  updateActive(patch: Partial<Omit<BrowserProviderProfile, 'name' | 'active'>>): void {
+    this.write(
+      this.models().map((profile) => (profile.active ? { ...profile, ...patch } : profile)),
+    )
+  }
+
+  /** 惰性载入持久化的配置数组，之后作为唯一内存真相源。 */
+  private models(): readonly BrowserProviderProfile[] {
+    this.cache ??= this.load()
+    return this.cache
+  }
+
+  private load(): BrowserProviderProfile[] {
     const raw = window.localStorage.getItem(PROVIDER_PROFILES_STORAGE_KEY)
     if (!raw) return []
     try {
@@ -199,45 +237,36 @@ class BrowserProviderProfiles {
       return []
     }
   }
+}
 
-  write(profiles: BrowserProviderProfile[]): void {
-    window.localStorage.setItem(PROVIDER_PROFILES_STORAGE_KEY, JSON.stringify(profiles))
-  }
-
-  active(): BrowserProviderProfile | undefined {
-    return this.read().find((profile) => profile.active)
-  }
-
-  select(name: string): void {
-    this.write(this.read().map((profile) => ({ ...profile, active: profile.name === name })))
-  }
-
-  updateActive(patch: Partial<Omit<BrowserProviderProfile, 'name' | 'active'>>): void {
-    this.write(this.read().map((profile) => (profile.active ? { ...profile, ...patch } : profile)))
+/** 读取跨 Provider Profile 的扁平模型池。 */
+function readStoredModelPool(): ProviderModelPoolEntry[] {
+  const raw = window.localStorage.getItem(PROVIDER_MODEL_POOL_STORAGE_KEY)
+  if (!raw) return []
+  try {
+    const models = JSON.parse(raw)
+    return Array.isArray(models) ? (models as ProviderModelPoolEntry[]) : []
+  } catch {
+    return []
   }
 }
 
-/** 保存跨 Provider Profile 的扁平模型池。 */
-class BrowserProviderModelPool {
-  read(): ProviderModelPoolEntry[] {
-    const raw = window.localStorage.getItem(PROVIDER_MODEL_POOL_STORAGE_KEY)
-    if (!raw) return []
-    try {
-      const models = JSON.parse(raw)
-      return Array.isArray(models) ? (models as ProviderModelPoolEntry[]) : []
-    } catch {
-      return []
-    }
-  }
-
-  write(models: readonly ProviderModelPoolEntry[]): void {
-    window.localStorage.setItem(PROVIDER_MODEL_POOL_STORAGE_KEY, JSON.stringify(models))
-  }
-}
-
-/** 保存用户选择的已启用工具；首次使用时保持所有已注册工具启用。 */
+/** 保存用户选择的已启用工具；首次使用时保持所有已注册工具启用，内存缓存避免重复读盘。 */
 class BrowserEnabledTools {
+  private cache: Set<string> | undefined
+
   read(defaultNames: readonly string[]): Set<string> {
+    this.cache ??= this.parse(defaultNames)
+    return new Set(this.cache)
+  }
+
+  write(names: ReadonlySet<string>): void {
+    this.cache = new Set(names)
+    window.localStorage.setItem(ENABLED_TOOLS_STORAGE_KEY, JSON.stringify([...this.cache]))
+  }
+
+  /** 解析持久化的工具名称；缺失或损坏时回退到全部注册名。 */
+  private parse(defaultNames: readonly string[]): Set<string> {
     const raw = window.localStorage.getItem(ENABLED_TOOLS_STORAGE_KEY)
     if (!raw) return new Set(defaultNames)
     try {
@@ -248,10 +277,6 @@ class BrowserEnabledTools {
     } catch {
       return new Set(defaultNames)
     }
-  }
-
-  write(names: ReadonlySet<string>): void {
-    window.localStorage.setItem(ENABLED_TOOLS_STORAGE_KEY, JSON.stringify([...names]))
   }
 }
 
@@ -284,7 +309,14 @@ class BrowserProviderSettingsStore implements ProviderSettingsStore {
 
   async write(settings: OpenAiCompatibleProviderSettings, signal?: AbortSignal): Promise<void> {
     signal?.throwIfAborted()
-    this.profiles.updateActive({ settings })
+    this.profiles.updateActive({
+      settings,
+      connection: {
+        baseUrl: settings.baseUrl,
+        headers: settings.headers,
+        protocol: settings.protocol,
+      },
+    })
   }
 }
 
@@ -362,7 +394,9 @@ function projectContextItems(
 
 export class BrowserAgentBridge implements AgentBridgeClient {
   private readonly listeners = new Set<(event: AgentUiEvent) => void>()
-  private readonly modelPool = new BrowserProviderModelPool()
+  private readonly modelPool = new ProviderModelPool(readStoredModelPool, (models) => {
+    window.localStorage.setItem(PROVIDER_MODEL_POOL_STORAGE_KEY, JSON.stringify(models))
+  })
   private readonly contextItemsListeners = new Set<
     (items: ReadonlyArray<AgentContextItem>) => void
   >()
@@ -374,7 +408,8 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   private readonly support
   private readonly sessions = new Map<string, BrowserSession>()
   private readonly activeRuns = new Map<string, ActiveRun>()
-  private readonly runInputs = new Map<string, StartRunInput>()
+  // 每个会话只保留最近一次运行的输入用于重试，随运行次数不会增长，会话删除时清除。
+  private readonly sessionRunInputs = new Map<string, StartRunInput>()
   private nextSession = 1
   private nextRun = 1
   private readonly getChartAgent: () => ChartAgentController | null | undefined
@@ -445,7 +480,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     const status = await this.support.provider.getStatus()
     const profile = this.profiles.active()
     if (!profile) return status
-    const connection = getProfileConnection(profile)
+    const connection = profile.connection
     if (!connection) return { ...status, profileName: profile.name }
     if (profile.settings) return { ...status, profileName: profile.name }
     return {
@@ -458,6 +493,11 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       profileName: profile.name,
       compatibility: 'unknown',
     }
+  }
+
+  /** 读取最新 Provider 状态并广播，供设置面板与状态栏同步。 */
+  private async emitProviderStatus(): Promise<void> {
+    this.emit({ type: 'provider.status.changed', status: await this.getProviderStatus() })
   }
 
   /** 返回当前 Browser 宿主中可管理的图表与网络工具。 */
@@ -551,6 +591,12 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     return this.profiles.active()?.exaApiKey?.trim() || undefined
   }
 
+  /** 解析工具执行目标：命中原语宿主则用宿主，否则归属 Agent facade 自身工具。 */
+  private chartToolTarget(tool: RegisteredChartTool, agent: ChartAgentController): object {
+    const host = agent.toolHosts.find((candidate) => tool.owns(candidate))
+    return host ?? agent
+  }
+
   /** 将单个 Core 图表 API 适配为 Agent Runtime 工具，不复制领域能力。 */
   private createRegisteredTool(
     tool: RegisteredChartTool,
@@ -558,6 +604,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   ): RuntimeToolDefinition {
     const sourceIds = agent.getAvailableMarketDataSourceIds()
     const drawingPaneIds = agent.getAvailableDrawingPaneIds()
+    const target = this.chartToolTarget(tool, agent)
     return {
       ...tool.config,
       description: this.toolDescription(
@@ -573,7 +620,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
         context.progress({ label: `Running ${tool.config.label}`, current: 1, total: 1 })
         let value: unknown
         try {
-          value = await tool.execute(agent, input, {
+          value = await tool.execute(target, input, {
             signal: context.signal,
             progress: context.progress,
           })
@@ -603,6 +650,10 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       const available = drawingPaneIds.length ? drawingPaneIds.join(', ') : 'none'
       return `${description} Available runtime paneIds: ${available}. Use only one of these exact values for paneId.`
     }
+    if (name === 'comparison_create') {
+      const available = sourceIds.length ? sourceIds.join(', ') : 'none'
+      return `${description} Available runtime sourceIds: ${available}. Set source to one of these exact values when the compared instrument comes from a specific source; omit it to reuse the primary symbol's source.`
+    }
     if (
       ![
         'instruments_query_name',
@@ -620,7 +671,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   /** 返回已保存的 Provider 配置，不向界面暴露 API Key。 */
   async listProviderProfiles(): Promise<ProviderProfileView[]> {
     return this.profiles.read().map((profile) => {
-      const connection = getProfileConnection(profile)
+      const connection = profile.connection
       const settings = profile.settings
       return {
         name: profile.name,
@@ -653,7 +704,46 @@ export class BrowserAgentBridge implements AgentBridgeClient {
         active: true,
       },
     ])
-    this.emit({ type: 'provider.status.changed', status: await this.getProviderStatus() })
+    await this.emitProviderStatus()
+  }
+
+  /** 重命名已保存配置，并同步其模型池分组。 */
+  async renameProviderProfile(profileName: string, nextProfileName: string): Promise<void> {
+    const nextName = nextProfileName.trim()
+    if (!profileName || !nextName) {
+      throw new AgentRuntimeError('PROVIDER_ERROR', 'The Provider configuration name is required.')
+    }
+    const profiles = this.profiles.read()
+    if (!profiles.some((profile) => profile.name === profileName)) {
+      throw new AgentRuntimeError('PROVIDER_ERROR', 'The Provider configuration was not found.')
+    }
+    if (nextName === profileName) return
+    if (profiles.some((profile) => profile.name === nextName)) {
+      throw new AgentRuntimeError(
+        'PROVIDER_ERROR',
+        'The Provider configuration name is already in use.',
+      )
+    }
+    this.profiles.rename(profileName, nextName)
+    this.modelPool.renameGroup(profileName, nextName)
+    await this.emitProviderStatus()
+  }
+
+  /** 删除已保存配置及其模型池；删除激活配置前必须停止运行。 */
+  async deleteProviderProfile(profileName: string): Promise<void> {
+    const profile = this.profiles.read().find((item) => item.name === profileName)
+    if (!profile) {
+      throw new AgentRuntimeError('PROVIDER_ERROR', 'The Provider configuration was not found.')
+    }
+    if (profile.active && this.activeRuns.size) {
+      throw new AgentRuntimeError(
+        'RUN_ACTIVE',
+        'Stop the active Agent run before deleting Provider.',
+      )
+    }
+    this.profiles.remove(profileName)
+    this.modelPool.removeGroup(profileName)
+    await this.emitProviderStatus()
   }
 
   /** 原子切换当前运行时使用的 Provider 配置。 */
@@ -668,13 +758,13 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     if (!profile)
       throw new AgentRuntimeError('PROVIDER_ERROR', 'The Provider configuration was not found.')
     this.profiles.select(profile.name)
-    this.emit({ type: 'provider.status.changed', status: await this.getProviderStatus() })
+    await this.emitProviderStatus()
   }
 
   /** 使用当前已保存的 Provider 连接拉取模型目录。 */
   async listProviderModelCatalog(): Promise<ProviderModelsResult> {
     const profile = this.profiles.active()
-    const connection = profile && getProfileConnection(profile)
+    const connection = profile?.connection
     if (!connection) {
       throw new AgentRuntimeError(
         'PROVIDER_NOT_CONFIGURED',
@@ -687,32 +777,35 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   /** 返回当前 Profile 在统一模型池中可用的模型。 */
   async listProviderModelPool(): Promise<ProviderModelPoolEntry[]> {
     const profile = this.profiles.active()
-    return profile ? this.modelPool.read().filter((model) => model.provider === profile.name) : []
+    return profile ? this.modelPool.list(profile.name) : []
   }
 
-  /** 用当前 Profile 的远端目录选择结果替换其模型池。 */
-  async saveProviderModelPool(models: readonly ProviderModelView[]): Promise<void> {
+  /** 将远端目录模型加入当前 Profile 的模型池，并返回更新后的模型池。 */
+  async addProviderModelPoolModel(model: ProviderModelView): Promise<ProviderModelPoolEntry[]> {
     const profile = this.profiles.active()
-    if (!profile) return
-    const selected = models.map((model) => ({ ...model, provider: profile.name }))
-    this.modelPool.write([
-      ...this.modelPool.read().filter((model) => model.provider !== profile.name),
-      ...selected,
-    ])
-    if (profile.settings && !selected.some((model) => model.id === profile.settings?.modelId)) {
+    if (!profile) return []
+    this.modelPool.add(profile.name, model)
+    return this.modelPool.list(profile.name)
+  }
+
+  /** 从当前 Profile 模型池移除模型；若移除的是已选模型则同时清除选择。 */
+  async removeProviderModelPoolModel(modelId: string): Promise<ProviderModelPoolEntry[]> {
+    const profile = this.profiles.active()
+    if (!profile) return []
+    this.modelPool.remove(profile.name, modelId)
+    if (profile.settings?.modelId === modelId) {
       this.profiles.updateActive({ settings: undefined })
     }
-    this.emit({ type: 'provider.status.changed', status: await this.getProviderStatus() })
+    await this.emitProviderStatus()
+    return this.modelPool.list(profile.name)
   }
 
   /** 选择当前 Profile 模型池中的模型，并同步该模型声明的能力。 */
   async setProviderModel(modelId: string): Promise<void> {
     const profile = this.profiles.active()
-    const connection = profile && getProfileConnection(profile)
+    const connection = profile?.connection
     if (!profile || !connection) return
-    const model = this.modelPool
-      .read()
-      .find((item) => item.provider === profile.name && item.id === modelId)
+    const model = this.modelPool.list(profile.name).find((item) => item.id === modelId)
     if (!model)
       throw new AgentRuntimeError('PROVIDER_ERROR', 'The model is not in this Provider model pool.')
     const settings: OpenAiCompatibleProviderSettings = {
@@ -729,7 +822,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       lastModelsRefreshAt: Date.now(),
     }
     this.profiles.updateActive({ settings, connection })
-    this.emit({ type: 'provider.status.changed', status: await this.getProviderStatus() })
+    await this.emitProviderStatus()
   }
 
   async createSession(): Promise<AgentSessionView> {
@@ -749,9 +842,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     if (this.activeRuns.size)
       throw new AgentRuntimeError('RUN_ACTIVE', 'Stop the active Agent run first.')
     this.sessions.delete(sessionId)
-    for (const [runId, input] of this.runInputs) {
-      if (input.sessionId === sessionId) this.runInputs.delete(runId)
-    }
+    this.sessionRunInputs.delete(sessionId)
     this.emit({ type: 'sessions.changed', sessions: await this.listSessions() })
   }
 
@@ -765,7 +856,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       context: Object.freeze({ items: this.getContextItems() }) satisfies AgentRunContext,
     }
     this.activeRuns.set(runId, { driver, input: runInput })
-    this.runInputs.set(runId, runInput)
+    this.sessionRunInputs.set(input.sessionId, runInput)
     const transcript = [...session.transcript]
     session.transcript.push({ role: 'user', content: input.prompt, timestamp: startedAt })
     session.messages.push({
@@ -791,7 +882,8 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   }
 
   async retryRun(runId: string): Promise<{ runId: string }> {
-    const input = this.runInputs.get(runId)
+    const session = this.sessionOfRun(runId)
+    const input = session ? this.sessionRunInputs.get(session.view.id) : undefined
     if (!input) throw new AgentRuntimeError('RUN_NOT_ACTIVE', 'The Agent run is unavailable.')
     return this.startRun(input)
   }
@@ -829,21 +921,17 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       headers: input.headers ?? {},
       protocol: input.protocol,
     }
-    const previousConnection = previousProfile && getProfileConnection(previousProfile)
+    const previousConnection = previousProfile?.connection
     const connectionChanged =
       previousConnection !== undefined &&
       (previousConnection.baseUrl !== connection.baseUrl ||
         previousConnection.protocol !== connection.protocol)
+    const pool = this.modelPool.list(profileName)
     const settings =
       !connectionChanged &&
       previousProfile?.settings &&
-      this.modelPool
-        .read()
-        .some(
-          (model) =>
-            model.provider === profileName && model.id === previousProfile.settings?.modelId,
-        )
-        ? previousProfile?.settings
+      pool.some((model) => model.id === previousProfile.settings?.modelId)
+        ? previousProfile.settings
         : undefined
     const profile: BrowserProviderProfile = {
       name: profileName,
@@ -854,7 +942,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       active: true,
     }
     if (connectionChanged) {
-      this.modelPool.write(this.modelPool.read().filter((model) => model.provider !== profileName))
+      this.modelPool.removeGroup(profileName)
     }
     this.profiles.write(
       (existingIndex >= 0
@@ -862,7 +950,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
         : [...profiles, profile]
       ).map((item) => ({ ...item, active: item.name === profileName })),
     )
-    this.emit({ type: 'provider.status.changed', status: await this.getProviderStatus() })
+    await this.emitProviderStatus()
   }
 
   /** 更新当前 Profile 的思考强度并保持已验证模型能力不变。 */
@@ -877,12 +965,12 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       )
     }
     this.profiles.updateActive({ settings: { ...settings, reasoningEffort: effort } })
-    this.emit({ type: 'provider.status.changed', status: await this.getProviderStatus() })
+    await this.emitProviderStatus()
   }
 
   async deleteProviderCredential(): Promise<void> {
     await this.support.provider.deleteCredential()
-    this.emit({ type: 'provider.status.changed', status: await this.getProviderStatus() })
+    await this.emitProviderStatus()
   }
 
   subscribe(listener: (event: AgentUiEvent) => void): () => void {
@@ -905,6 +993,14 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     if (!session)
       throw new AgentRuntimeError('SESSION_NOT_FOUND', 'The Agent session was not found.')
     return session
+  }
+
+  /** 按 runId 反查所属会话，供重试恢复该会话最近一次运行的输入。 */
+  private sessionOfRun(runId: string): BrowserSession | undefined {
+    for (const session of this.sessions.values()) {
+      if (session.runs.some((run) => run.id === runId)) return session
+    }
+    return undefined
   }
 
   private async run(

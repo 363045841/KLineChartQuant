@@ -1,7 +1,8 @@
 {
   "name": "@363045841yyt/klinechart-ai-runtime",
   "version": "0.1.3",
-  "description": "AI Native runtime for @363045841yyt/klinechart — MCP tool schemas, controller describe() output, chart state serialization.",
+  "description": "[Deprecated] MCP tool schemas, controller describe() output, chart state serialization for @363045841yyt/klinechart. Use @363045841yyt/klinechart-agent-runtime instead.",
+  "deprecated": "Use @363045841yyt/klinechart-agent-runtime instead. This package is no longer maintained and will be removed in a future release.",
   "keywords": [
     "kline",
     "candlestick",

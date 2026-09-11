@@ -250,13 +250,12 @@ export const darkTheme: Theme = {
       neutral: 'rgba(255, 255, 255, 0.3)',
     },
     wmsrGrid: 'rgba(255, 255, 255, 0.1)',
-    agent: {
+    ui: {
       background: '#151A1D',
       surface: '#1B2125',
       card: '#20272B',
       input: '#232B30',
       hover: '#2A3338',
-      userMessage: '#17312E',
       border: '#323C41',
       borderStrong: '#526169',
       text: '#EDF2F3',
@@ -277,6 +276,11 @@ export const darkTheme: Theme = {
       danger: '#FF7373',
       neutral: '#839198',
       onAccent: '#FFFFFF',
+      secondaryButtonText: '#9AA0A6',
+      controlBackground: '#2A3338',
+    },
+    agent: {
+      userMessage: '#17312E',
       launcherBorder: '#526169',
       launcherBackground: 'rgba(27, 33, 37, 0.94)',
       backdrop: 'rgba(15, 20, 25, 0.35)',

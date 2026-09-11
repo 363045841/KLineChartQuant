@@ -3,7 +3,7 @@
     <BaseModal
       :show="menuOpen"
       :title="modalTitle"
-      subtitle=""
+      :subtitle="`${catalogLen} 个可用指标`"
       width="90vw"
       max-width="860px"
       max-height="85vh"
@@ -11,13 +11,6 @@
       footer-align="space-between"
       @close="closeMenu"
     >
-      <template #header>
-        <div class="header-title">
-          <span class="title-text">{{ modalTitle }}</span>
-          <span class="title-sub">{{ catalogLen }} 个可用指标</span>
-        </div>
-      </template>
-
       <template #subheader>
         <div class="selector-toolbar">
           <div class="search-box">
@@ -30,19 +23,7 @@
               @input="controller.setSearchQuery(($event.target as HTMLInputElement).value)"
             />
           </div>
-          <div class="view-tabs" role="tablist" aria-label="指标视图">
-            <button
-              v-for="option in viewOptions"
-              :key="option.value"
-              class="view-tab"
-              :class="{ active: indicatorView === option.value }"
-              role="tab"
-              :aria-selected="indicatorView === option.value"
-              @click="indicatorView = option.value"
-            >
-              {{ option.label }}
-            </button>
-          </div>
+          <SegmentedTabs v-model="indicatorView" :tabs="viewOptions" aria-label="指标视图" />
         </div>
       </template>
 
@@ -101,7 +82,12 @@
         <div class="footer-info">
           <span class="info-text">已激活 {{ activeCount }} 个指标</span>
         </div>
-        <button class="btn btn-confirm" @click="closeMenu">确认</button>
+        <div class="footer-actions">
+          <BaseButton v-if="!replacePaneId" :disabled="activeCount === 0" @click="clearAll">
+            清除
+          </BaseButton>
+          <BaseButton @click="closeMenu">确认</BaseButton>
+        </div>
       </template>
     </BaseModal>
 
@@ -151,8 +137,10 @@
 
   import { coreSignalToVueRef } from '../utils/signalBridge'
 
+  import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
   import IndicatorParams from './IndicatorParams.vue'
+  import SegmentedTabs from './SegmentedTabs.vue'
 
   const props = defineProps<{
     activeIndicators?: string[]
@@ -295,6 +283,13 @@
     emit('toggle', indicatorId, false)
   }
 
+  /** 清除全部已选指标。 */
+  function clearAll() {
+    for (const indicatorId of [...(props.activeIndicators ?? [])]) {
+      emit('toggle', indicatorId, false)
+    }
+  }
+
   /** 切换指标启用状态。 */
   function toggleIndicator(indicatorId: string) {
     if (props.replacePaneId) {
@@ -382,64 +377,10 @@
     display: none;
   }
 
-  /* ── 头部 ── */
-  .header-title {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .title-text {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--klc-color-foreground);
-    line-height: 1.3;
-  }
-
-  .title-sub {
-    font-size: 12px;
-    color: var(--klc-color-axis-text);
-    font-weight: 400;
-    line-height: 1.3;
-  }
-
   .selector-toolbar {
     display: flex;
     align-items: center;
     gap: 12px;
-  }
-
-  .view-tabs {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(64px, 1fr));
-    flex: 0 0 auto;
-    padding: 2px;
-    border: 1px solid var(--klc-color-border-button);
-    border-radius: 6px;
-    background: var(--klc-color-grid-minor);
-  }
-
-  .view-tab {
-    height: 30px;
-    padding: 0 12px;
-    border: 0;
-    border-radius: 4px;
-    background: transparent;
-    color: var(--klc-color-axis-text);
-    font-size: 12px;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-
-  .view-tab:hover {
-    color: var(--klc-color-foreground);
-  }
-
-  .view-tab.active {
-    background: var(--klc-color-background);
-    color: var(--klc-color-foreground);
-    font-weight: 600;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   }
 
   /* ── 搜索 ── */
@@ -448,36 +389,33 @@
     flex: 1;
     min-width: 0;
     align-items: center;
-    gap: 10px;
-    padding: 8px 14px;
-    border: 1px solid var(--klc-color-border-button);
-    border-radius: 6px;
-    background: var(--klc-color-background);
-    transition: all 0.2s ease;
-  }
-
-  .search-box:focus-within {
-    background: var(--klc-color-background);
-    border-color: var(--klc-color-foreground);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-foreground) 8%, transparent);
+    gap: 8px;
+    height: 34px;
+    padding: 0 12px;
+    border: 1px solid var(--klc-color-ui-border);
+    border-radius: 8px;
+    background: var(--klc-color-ui-control-background);
   }
 
   .search-icon {
     flex-shrink: 0;
-    color: var(--klc-color-axis-text);
+    width: 15px;
+    height: 15px;
+    color: var(--klc-color-ui-muted);
   }
 
   .search-input {
     flex: 1;
     border: none;
     background: transparent;
+    font: inherit;
     font-size: 13px;
-    color: var(--klc-color-foreground);
+    color: var(--klc-color-ui-text);
     outline: none;
   }
 
   .search-input::placeholder {
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
   }
 
   /* ── 无匹配 ── */
@@ -597,7 +535,7 @@
     padding: 0;
     border: 1px solid var(--klc-color-border-chart);
     border-radius: 6px;
-    background: var(--klc-color-background);
+    background: var(--klc-color-ui-input);
     cursor: pointer;
     transition: all 0.15s ease;
     text-align: left;
@@ -619,22 +557,18 @@
   }
 
   .card-select:focus-visible,
-  .card-action-btn:focus-visible,
-  .view-tab:focus-visible {
-    outline: 2px solid var(--klc-color-foreground);
+  .card-action-btn:focus-visible {
+    outline: 2px solid var(--klc-color-ui-text);
     outline-offset: -2px;
   }
 
-  .indicator-card:hover:not(.disabled) {
-    border-color: var(--klc-color-foreground);
-    background: var(--klc-color-background);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  .indicator-card.active {
+    border-color: var(--klc-color-ui-accent);
+    background: color-mix(in srgb, var(--klc-color-ui-accent) 12%, var(--klc-color-ui-input));
   }
 
-  .indicator-card.active {
-    border-color: var(--klc-color-foreground);
-    background: var(--klc-color-tag-bg-hover);
+  .indicator-card.active .card-label {
+    color: var(--klc-color-ui-accent);
   }
 
   .card-header {
@@ -704,40 +638,12 @@
   /* ── 底部 ── */
   .footer-info {
     font-size: 12px;
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
   }
 
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    min-width: 68px;
-    height: 34px;
-    padding: 0 16px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    border: 0;
-    transition: all 0.15s;
-    line-height: 1;
-    white-space: nowrap;
-  }
-
-  .btn-confirm {
-    background: color-mix(
-      in srgb,
-      var(--klc-color-foreground) 80%,
-      var(--klc-color-chart-background)
-    );
-    color: var(--klc-color-background);
-  }
-
-  .btn-confirm:hover {
-    background: var(--klc-color-foreground);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
-    transform: translateY(-1px);
+  .footer-actions {
+    display: flex;
+    gap: 8px;
   }
 
   /* ── 响应式 ── */
@@ -748,7 +654,7 @@
       gap: 8px;
     }
 
-    .view-tabs {
+    .selector-toolbar :deep(.segmented-tabs) {
       width: 100%;
     }
 

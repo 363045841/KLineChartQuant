@@ -54,6 +54,7 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
   const profileName = ref('')
   const profiles = ref<ProviderProfileView[]>([])
   const operationError = ref<AgentErrorView | null>(null)
+  const profileNameError = ref<AgentErrorView | null>(null)
   const tools = ref<AgentToolView[]>([])
   const toolInputs = ref<Record<string, string>>({})
   const toolResults = ref<Record<string, AgentToolDebugResult>>({})
@@ -124,7 +125,7 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     const normalizedName = name.trim()
     if (!bridge || !normalizedName) return false
     invalidateModelCatalogRequest()
-    operationError.value = null
+    profileNameError.value = null
     try {
       await bridge.createProviderProfile(normalizedName)
       profiles.value = await bridge.listProviderProfiles()
@@ -139,9 +140,53 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
       modelPool.value = []
       return true
     } catch (error) {
+      profileNameError.value = toOperationError(error)
+      return false
+    }
+  }
+
+  /** 重命名已保存配置，并保持激活配置的表单与模型池一致。 */
+  async function renameProfile(name: string, nextProfileName: string): Promise<boolean> {
+    const nextName = nextProfileName.trim()
+    if (!bridge || !name || !nextName || name === nextName) return false
+    profileNameError.value = null
+    try {
+      await bridge.renameProviderProfile(name, nextName)
+      profiles.value = await bridge.listProviderProfiles()
+      if (profileName.value === name) {
+        profileName.value = nextName
+        await loadModelPool()
+      }
+      return true
+    } catch (error) {
+      profileNameError.value = toOperationError(error)
+      return false
+    }
+  }
+
+  /** 删除已保存配置，并在删除激活配置后重建表单与模型池。 */
+  async function deleteProfile(name: string): Promise<boolean> {
+    if (!bridge || !name) return false
+    const deletingActive = profileName.value === name
+    operationError.value = null
+    try {
+      await bridge.deleteProviderProfile(name)
+      profiles.value = await bridge.listProviderProfiles()
+      if (deletingActive) {
+        applyProfileStatus(await bridge.getProviderStatus())
+        modelCatalog.value = []
+      }
+      await loadModelPool()
+      return true
+    } catch (error) {
       operationError.value = toOperationError(error)
       return false
     }
+  }
+
+  /** 清除配置命名弹窗内的校验错误。 */
+  function clearProfileNameError(): void {
+    profileNameError.value = null
   }
 
   /** 打开 Agent 设置并读取当前 Profile、模型池和工具状态。 */
@@ -178,13 +223,9 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     modelsLoading.value = true
     operationError.value = null
     try {
-      const [catalog, pool] = await Promise.all([
-        bridge.listProviderModelCatalog(),
-        bridge.listProviderModelPool(),
-      ])
+      const catalog = await bridge.listProviderModelCatalog()
       if (requestGeneration !== modelCatalogRequestGeneration) return
       modelCatalog.value = catalog.models
-      modelPool.value = pool
     } catch (error) {
       if (requestGeneration === modelCatalogRequestGeneration)
         operationError.value = toOperationError(error)
@@ -201,10 +242,9 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     if (!model || included === enabled) return
     operationError.value = null
     try {
-      await bridge.saveProviderModelPool(
-        enabled ? [...modelPool.value, model] : modelPool.value.filter((item) => item.id !== modelId),
-      )
-      await loadModelPool()
+      modelPool.value = enabled
+        ? await bridge.addProviderModelPoolModel(model)
+        : await bridge.removeProviderModelPoolModel(modelId)
     } catch (error) {
       operationError.value = toOperationError(error)
     }
@@ -349,6 +389,7 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     profileName,
     profiles,
     operationError,
+    profileNameError,
     tools,
     toolInputs,
     toolResults,
@@ -361,6 +402,9 @@ export const useAgentProviderSettingsStore = defineStore('agent-provider-setting
     setProtocol,
     selectProfile,
     createProfile,
+    renameProfile,
+    deleteProfile,
+    clearProfileNameError,
     show,
     refreshModelCatalog,
     persistConnection,

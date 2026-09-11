@@ -451,11 +451,14 @@ export interface AgentBridgeClient {
   undoTurn(runId: string): Promise<void>
   listProviderModelCatalog(): Promise<ProviderModelsResult>
   listProviderModelPool(): Promise<ProviderModelPoolEntry[]>
-  saveProviderModelPool(models: readonly ProviderModelView[]): Promise<void>
+  addProviderModelPoolModel(model: ProviderModelView): Promise<ProviderModelPoolEntry[]>
+  removeProviderModelPoolModel(modelId: string): Promise<ProviderModelPoolEntry[]>
   setProviderModel(modelId: string): Promise<void>
   testProvider(input: ProviderTestInput): Promise<ProviderTestResult>
   listProviderProfiles(): Promise<ProviderProfileView[]>
   createProviderProfile(profileName: string): Promise<void>
+  renameProviderProfile(profileName: string, nextProfileName: string): Promise<void>
+  deleteProviderProfile(profileName: string): Promise<void>
   selectProviderProfile(profileName: string): Promise<void>
   saveProvider(input: ProviderSaveInput): Promise<void>
   setProviderReasoningEffort(effort: ProviderReasoningEffort | undefined): Promise<void>

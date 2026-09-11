@@ -76,10 +76,10 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--klc-color-border-chart);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 3px;
-    background: var(--klc-color-background);
-    color: var(--klc-color-foreground);
+    background: var(--klc-color-ui-surface);
+    color: var(--klc-color-ui-text);
     overflow: hidden;
     transition: flex-basis 0.15s ease;
   }
@@ -93,7 +93,7 @@
     height: 40px;
     flex: 0 0 auto;
     padding: 0 10px;
-    border-bottom: 1px solid var(--klc-color-border-chart);
+    border-bottom: 1px solid var(--klc-color-ui-border);
     font-size: 13px;
     font-weight: 600;
   }
@@ -116,14 +116,14 @@
     border: 1px solid transparent;
     border-radius: 4px;
     background: transparent;
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
     cursor: pointer;
   }
 
   .watchlist-panel__toggle:hover {
-    border-color: var(--klc-color-border-button);
-    background: var(--klc-color-grid-minor);
-    color: var(--klc-color-foreground);
+    border-color: var(--klc-color-ui-border);
+    background: var(--klc-color-ui-hover);
+    color: var(--klc-color-ui-text);
   }
 
   .watchlist-panel__toggle svg {
@@ -132,7 +132,7 @@
   }
 
   .watchlist-panel__count {
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
     font-size: 11px;
     font-weight: 500;
   }
@@ -158,7 +158,7 @@
     align-items: center;
     justify-content: center;
     padding: 20px 10px;
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
     font-size: 12px;
   }
 
@@ -173,12 +173,12 @@
     display: flex;
     align-items: center;
     min-width: 0;
-    border-bottom: 1px solid var(--klc-color-grid-minor);
+    border-bottom: 1px solid var(--klc-color-ui-border);
   }
 
   .watchlist-panel__item:hover,
   .watchlist-panel__item.is-active {
-    background: var(--klc-color-grid-minor);
+    background: var(--klc-color-ui-hover);
   }
 
   .watchlist-panel__select {
@@ -207,7 +207,7 @@
   .watchlist-panel__name,
   .watchlist-panel__meta {
     overflow: hidden;
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
     font-size: 11px;
     line-height: 1.2;
     text-overflow: ellipsis;
@@ -237,13 +237,13 @@
     border: 1px solid transparent;
     border-radius: 4px;
     background: transparent;
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
     cursor: pointer;
   }
 
   .watchlist-panel__remove:hover {
-    border-color: var(--klc-color-border-button);
-    color: var(--klc-color-foreground);
+    border-color: var(--klc-color-ui-border);
+    color: var(--klc-color-ui-text);
   }
 
   .watchlist-panel__remove svg {

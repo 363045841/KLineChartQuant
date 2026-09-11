@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { BrowserAgentBridge } from '../browser-agent-bridge'
 
+import { createTestChartAgent } from './_testChartAgent'
+
 import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
 import type {
   AgentChartSymbolContextItem,
@@ -147,9 +149,11 @@ describe('BrowserAgentBridge', () => {
       protocol: 'openai-completions',
       profileName: 'Provider example',
     })
-    await bridge.saveProviderModelPool([
-      { id: 'chart-model', name: 'Chart model', compatibility: 'compatible' },
-    ])
+    await bridge.addProviderModelPoolModel({
+      id: 'chart-model',
+      name: 'Chart model',
+      compatibility: 'compatible',
+    })
     await bridge.setProviderModel('chart-model')
 
     await bridge.saveProvider({
@@ -188,7 +192,7 @@ describe('BrowserAgentBridge', () => {
       profileName: 'Provider example',
     })
     const catalog = await bridge.listProviderModelCatalog()
-    await bridge.saveProviderModelPool(catalog.models)
+    for (const model of catalog.models) await bridge.addProviderModelPoolModel(model)
     await bridge.setProviderModel('chart-model')
 
     await expect(bridge.getProviderStatus()).resolves.toMatchObject({
@@ -225,9 +229,11 @@ describe('BrowserAgentBridge', () => {
       protocol: first.protocol,
       profileName: 'Provider one',
     })
-    await bridge.saveProviderModelPool([
-      { id: 'chart-model', name: 'Chart model', compatibility: 'compatible' },
-    ])
+    await bridge.addProviderModelPoolModel({
+      id: 'chart-model',
+      name: 'Chart model',
+      compatibility: 'compatible',
+    })
     await bridge.setProviderModel('chart-model')
     await bridge.createProviderProfile('Provider two')
     await bridge.testProvider(second)
@@ -237,9 +243,11 @@ describe('BrowserAgentBridge', () => {
       protocol: second.protocol,
       profileName: 'Provider two',
     })
-    await bridge.saveProviderModelPool([
-      { id: 'chart-model', name: 'Chart model', compatibility: 'compatible' },
-    ])
+    await bridge.addProviderModelPoolModel({
+      id: 'chart-model',
+      name: 'Chart model',
+      compatibility: 'compatible',
+    })
     await bridge.setProviderModel('chart-model')
 
     const profiles = await bridge.listProviderProfiles()
@@ -315,6 +323,81 @@ describe('BrowserAgentBridge', () => {
     })
   })
 
+  it('renames a saved Provider configuration and keeps its model pool', async () => {
+    const bridge = new BrowserAgentBridge()
+    await bridge.saveProvider({
+      baseUrl: 'https://provider.example/v1',
+      apiKey: 'test-key',
+      protocol: 'openai-completions',
+      profileName: 'Provider one',
+    })
+    await bridge.addProviderModelPoolModel({
+      id: 'chart-model',
+      name: 'Chart model',
+      compatibility: 'compatible',
+    })
+
+    await bridge.renameProviderProfile('Provider one', 'Provider renamed')
+
+    await expect(bridge.listProviderProfiles()).resolves.toMatchObject([
+      { name: 'Provider renamed' },
+    ])
+    await expect(bridge.getProviderStatus()).resolves.toMatchObject({
+      profileName: 'Provider renamed',
+    })
+    await expect(bridge.listProviderModelPool()).resolves.toEqual([
+      expect.objectContaining({ provider: 'Provider renamed', id: 'chart-model' }),
+    ])
+  })
+
+  it('falls back to a remaining configuration when the active one is deleted', async () => {
+    const bridge = new BrowserAgentBridge()
+    await bridge.createProviderProfile('Provider one')
+    await bridge.saveProvider({
+      baseUrl: 'https://provider.example/v1',
+      apiKey: 'test-key',
+      protocol: 'openai-completions',
+      profileName: 'Provider one',
+    })
+    await bridge.addProviderModelPoolModel({
+      id: 'chart-model',
+      name: 'Chart model',
+      compatibility: 'compatible',
+    })
+    await bridge.createProviderProfile('Provider two')
+
+    await bridge.deleteProviderProfile('Provider two')
+
+    await expect(bridge.listProviderProfiles()).resolves.toMatchObject([{ name: 'Provider one' }])
+    await expect(bridge.getProviderStatus()).resolves.toMatchObject({
+      profileName: 'Provider one',
+    })
+    await expect(bridge.listProviderModelPool()).resolves.toEqual([
+      expect.objectContaining({ provider: 'Provider one', id: 'chart-model' }),
+    ])
+  })
+
+  it('removes a pooled model and clears the selection when it was active', async () => {
+    const bridge = new BrowserAgentBridge()
+    await bridge.saveProvider({
+      baseUrl: 'https://provider.example/v1',
+      apiKey: 'test-key',
+      protocol: 'openai-completions',
+      profileName: 'Provider example',
+    })
+    await bridge.addProviderModelPoolModel({
+      id: 'chart-model',
+      name: 'Chart model',
+      compatibility: 'compatible',
+    })
+    await bridge.setProviderModel('chart-model')
+
+    const pool = await bridge.removeProviderModelPoolModel('chart-model')
+
+    expect(pool).toEqual([])
+    await expect(bridge.getProviderStatus()).resolves.toMatchObject({ state: 'not-configured' })
+  })
+
   it('saves and enables a Provider without a connection test', async () => {
     const bridge = new BrowserAgentBridge()
 
@@ -333,7 +416,7 @@ describe('BrowserAgentBridge', () => {
 
   it('persists the Exa key locally and exposes the web search tool', async () => {
     const fetchMock = vi.fn(
-      async () =>
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
         new Response(
           JSON.stringify({
             results: [
@@ -393,9 +476,11 @@ describe('BrowserAgentBridge', () => {
       protocol: 'openai-completions',
       profileName: 'Provider example',
     })
-    await bridge.saveProviderModelPool([
-      { id: 'chart-model', name: 'Chart model', compatibility: 'compatible' },
-    ])
+    await bridge.addProviderModelPoolModel({
+      id: 'chart-model',
+      name: 'Chart model',
+      compatibility: 'compatible',
+    })
     await bridge.setProviderModel('chart-model')
     const [session] = await bridge.listSessions()
 
@@ -443,6 +528,7 @@ describe('BrowserAgentBridge', () => {
         dataRange: { from: 1, to: 2, bars: 2 },
         visibleRange: { from: 1, to: 2 },
         activeIndicators: [],
+        selectedKLineBars: null,
         drawingSelection: null,
         dataRevision: 1,
       }),
@@ -454,13 +540,7 @@ describe('BrowserAgentBridge', () => {
         },
       },
     )
-    const agent = {
-      context,
-      getContext: context,
-      queryIndicator: () => Promise.resolve(''),
-      searchInstruments: () => Promise.resolve([]),
-      lookupInstrumentsBySymbol: () => Promise.resolve([]),
-    } as ChartAgentController
+    const agent = createTestChartAgent({ context, getContext: context })
     const bridge = new BrowserAgentBridge()
     const received: Array<string | null> = []
 
@@ -504,7 +584,7 @@ describe('BrowserAgentBridge', () => {
     )
     const bridge = new BrowserAgentBridge()
 
-    bridge.bindChartAgent({ context } as unknown as ChartAgentController)
+    bridge.bindChartAgent(createTestChartAgent({ context }))
 
     expect(bridge.getContextItems()).toContainEqual({
       kind: 'selected-time-range',
@@ -533,6 +613,7 @@ describe('BrowserAgentBridge', () => {
         dataRange: { from: 1, to: 2, bars: 2 },
         visibleRange: null,
         activeIndicators: [],
+        selectedKLineBars: null,
         drawingSelection: {
           selectedIds: ['line-1', 'line-2'],
           drawings: [
@@ -545,6 +626,7 @@ describe('BrowserAgentBridge', () => {
               zIndex: null,
               anchors: [{ timestamp: 1, price: 10 }],
               style: { stroke: '#2962ff', fill: undefined },
+              labels: { line: {}, area: {} },
             },
             {
               id: 'line-2',
@@ -555,6 +637,7 @@ describe('BrowserAgentBridge', () => {
               zIndex: 2,
               anchors: [{ timestamp: null, price: 11 }],
               style: { stroke: '#f00' },
+              labels: { line: {}, area: {} },
             },
           ],
         },
@@ -562,7 +645,7 @@ describe('BrowserAgentBridge', () => {
       }),
       { peek: () => context(), subscribe: () => () => {} },
     )
-    const agent = { context } as unknown as ChartAgentController
+    const agent = createTestChartAgent({ context })
     const bridge = new BrowserAgentBridge()
 
     bridge.bindChartAgent(agent)
@@ -591,11 +674,11 @@ describe('BrowserAgentBridge', () => {
         style: { stroke: '#2962ff', strokeWidth: 1, strokeStyle: 'solid' },
       })),
     }
-    const agent = {
+    const agent = createTestChartAgent({
       getAvailableMarketDataSourceIds: () => [],
       getAvailableDrawingPaneIds: () => ['main'],
       dependencies: { drawingCommands },
-    } as unknown as ChartAgentController
+    })
     const bridge = new BrowserAgentBridge({ getChartAgent: () => agent })
 
     await expect(
@@ -608,11 +691,30 @@ describe('BrowserAgentBridge', () => {
     expect(drawingCommands.create).toHaveBeenCalledOnce()
   })
 
+  it('routes a chart tool to the primitive host that owns it, falling back to the facade', () => {
+    const primitiveHost = { create: () => true }
+    const agent = createTestChartAgent({ toolHosts: [primitiveHost] })
+    const bridge = new BrowserAgentBridge({ getChartAgent: () => agent })
+    const resolveTarget = (
+      bridge as unknown as {
+        chartToolTarget(
+          tool: { owns(host: object): boolean },
+          agent: ChartAgentController,
+        ): object
+      }
+    ).chartToolTarget.bind(bridge)
+
+    // 原语工具由其真实方法宿主识别，而非按工具名匹配。
+    expect(resolveTarget({ owns: (host) => host === primitiveHost }, agent)).toBe(primitiveHost)
+    // 未命中原语宿主时归属 Agent facade 自身工具。
+    expect(resolveTarget({ owns: () => false }, agent)).toBe(agent)
+  })
+
   it('adds the exact runtime pane IDs to the create-drawing tool description', () => {
-    const agent = {
+    const agent = createTestChartAgent({
       getAvailableMarketDataSourceIds: () => [],
       getAvailableDrawingPaneIds: () => ['main', 'volume'],
-    } as unknown as ChartAgentController
+    })
     const bridge = new BrowserAgentBridge({ getChartAgent: () => agent })
     const resolveTools = (
       bridge as unknown as {
