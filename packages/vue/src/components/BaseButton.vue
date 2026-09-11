@@ -1,6 +1,6 @@
-<!-- 共享按钮：Modal footer 与通用操作按钮，统一消费 agent tokens，避免各 dialog 复制按钮样式。 -->
+<!-- 共享按钮：Modal footer 与通用操作按钮，统一消费 ui tokens，避免各 dialog 复制按钮样式。 -->
 <template>
-  <button class="base-button" :type="type" :disabled="disabled">
+  <button class="base-button" :class="`base-button--${size}`" :type="type" :disabled="disabled">
     <slot />
   </button>
 </template>
@@ -10,11 +10,14 @@
     defineProps<{
       /** 原生 button type。 */
       type?: 'button' | 'submit' | 'reset'
+      /** 按钮尺寸：md 用于 Modal footer，sm 用于工具栏等紧凑场景。 */
+      size?: 'md' | 'sm'
       /** 禁用态。 */
       disabled?: boolean
     }>(),
     {
       type: 'button',
+      size: 'md',
       disabled: false,
     },
   )
@@ -43,6 +46,13 @@
       color 0.15s ease,
       border-color 0.15s ease,
       opacity 0.15s ease;
+  }
+
+  .base-button--sm {
+    min-width: 0;
+    height: var(--base-button-height, 28px);
+    padding: 0 10px;
+    border-radius: 8px;
   }
 
   .base-button:hover:not(:disabled) {

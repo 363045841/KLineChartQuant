@@ -50,16 +50,17 @@
       :supported-adjustments="supportedAdjustments"
       @update:model-value="emit('kLineAdjustChange', $event)"
     />
-    <button
+    <BaseButton
       v-if="showBackButton"
-      type="button"
       class="back-button"
+      size="sm"
       title="返回"
       aria-label="返回"
       @click="emit('back')"
     >
-      ← 返回
-    </button>
+      <IconTablerArrowLeft class="back-button__icon" aria-hidden="true" />
+      返回
+    </BaseButton>
     <AggregationSourceDialog
       :show="showSourceDialog"
       :sources="aggregationSources"
@@ -79,7 +80,10 @@
   import type { AggregationSourceEndpoint } from '../composables/useAggregationSources'
   import type { SymbolSearchFn } from '../composables/useSymbolSearch'
 
+  import IconTablerArrowLeft from '~icons/tabler/arrow-left'
+
   import AggregationSourceDialog from './AggregationSourceDialog.vue'
+  import BaseButton from './BaseButton.vue'
   import CompareSymbolSelector from './CompareSymbolSelector.vue'
   import KLineAdjustmentDropdown, { type KLineAdjustment } from './KLineAdjustmentDropdown.vue'
   import KLineLevelDropdown, { type KLineLevel } from './KLineLevelDropdown.vue'
@@ -239,36 +243,18 @@
   }
 
   .back-button {
-    height: 28px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     flex: 0 0 auto;
-    gap: 4px;
-    padding: 0 12px;
     margin-left: auto;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 4px;
-    background: var(--klc-color-ui-surface);
-    color: var(--klc-color-ui-text);
-    font: inherit;
-    font-size: 13px;
-    cursor: pointer;
-    transition:
-      background 0.15s ease,
-      border-color 0.15s ease,
-      color 0.15s ease;
   }
 
-  .back-button:hover {
-    border-color: var(--klc-color-ui-muted);
-    background: var(--klc-color-ui-hover);
+  .back-button__icon {
+    width: 15px;
+    height: 15px;
   }
 
   @media (max-width: 768px), (max-height: 640px) {
     .back-button {
-      height: 26px;
-      font-size: 12px;
+      --base-button-height: 26px;
     }
   }
 </style>
