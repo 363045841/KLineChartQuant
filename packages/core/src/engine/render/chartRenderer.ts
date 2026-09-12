@@ -55,6 +55,7 @@ import { createTimeShareRendererPlugin } from '../renderers/timeShare'
 import { createFiveDayTimeShareRendererPlugin } from '../renderers/fiveDayTimeShare'
 import { calcKBarWidthPx, getPhysicalKLineConfig } from '../utils/klineConfig'
 import { calculateTickCount } from '../utils/tickCount'
+import { resolveComparisonBaseIndex } from '../utils/comparisonBaseline'
 
 import { createCandleLayer } from './layers/candleLayer'
 import { createComparisonLineLayer } from './layers/comparisonLineLayer'
@@ -819,9 +820,9 @@ export class ChartRenderer {
         const comparisonActive = dataManager.getComparisonSpecs().length > 0
 
         if (pane.id === 'main' && comparisonActive) {
-          // 比较视图：y 轴范围 = 可见区折线（主商品 close + 比较商品等价价）极值，
+          // 比较视图：y 轴范围 = 可见区各比较商品等价价极值，
           // 随滚动/缩放逐帧重算，缩放与平移的 clamp 上下限同步跟随折线
-          const lineRange = dataManager.getComparisonViewLineRange(range)
+          const lineRange = dataManager.getComparisonViewLineRange(range, kLineCenters, vp.scrollLeft)
           if (lineRange) {
             const linePriceRange = { maxPrice: lineRange.max, minPrice: lineRange.min }
             pane.priceRange = linePriceRange
@@ -830,8 +831,8 @@ export class ChartRenderer {
             mode.updatePaneRange(pane as any, range, dataManager, null)
           }
           // 绕过 Pane.updateRange 时需手动补齐 percent 基准价；
-          // 比较视图的 renderData 是对比集合首个序列，基准价随之为其首个可见 close。
-          const baseIdx = Math.max(0, range.start)
+          // 基准与折线一致，锚定内容区内首根完全可见的 bar。
+          const baseIdx = resolveComparisonBaseIndex(range, kLineCenters, vp.scrollLeft)
           const baseItem = renderData[baseIdx]
           pane.yAxis.setBasePrice(baseItem && 'close' in baseItem ? baseItem.close : null)
         } else {

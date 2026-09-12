@@ -128,34 +128,40 @@ describe('ChartDataManager.getComparisonViewLineRange', () => {
     return m
   }
 
+  /** 以 scrollLeft=0、中心从 0 递增的几何调用，基准索引即 range.start。 */
+  function lineRange(m: ChartDataManager, range: { start: number; end: number }) {
+    const centers = Array.from({ length: Math.max(0, range.end - range.start) }, (_, i) => i * 10)
+    return m.getComparisonViewLineRange(range, centers, 0)
+  }
+
   it('returns null when no comparison symbols exist', () => {
     const m = loadKlineOnly()
-    expect(m.getComparisonViewLineRange({ start: 0, end: 3 })).toBeNull()
+    expect(lineRange(m, { start: 0, end: 3 })).toBeNull()
   })
 
   it('returns null when the reference series has no loaded data', () => {
     const m = makeManager()
     m.setComparisonData('CMP', [])
-    expect(m.getComparisonViewLineRange({ start: 0, end: 3 })).toBeNull()
+    expect(lineRange(m, { start: 0, end: 3 })).toBeNull()
   })
 
   it('includes comparison equivalent prices and ignores raw high/low', () => {
     const m = loadWithReference()
     // 参考 MAIN 基准 100 → cmp 基准 50，等价价 100/102/104；MAIN 自身 100/102/101
-    expect(m.getComparisonViewLineRange({ start: 0, end: 3 })).toEqual({ min: 100, max: 104 })
+    expect(lineRange(m, { start: 0, end: 3 })).toEqual({ min: 100, max: 104 })
   })
 
   it('respects the visible range window', () => {
     const m = loadWithReference()
     // 只看前两根：MAIN 100/102，cmp 等价 100/102
-    expect(m.getComparisonViewLineRange({ start: 0, end: 2 })).toEqual({ min: 100, max: 102 })
+    expect(lineRange(m, { start: 0, end: 2 })).toEqual({ min: 100, max: 102 })
   })
 
   it('uses the first comparison bar at or after the visible base date', () => {
     const m = loadWithReference()
     m.setComparisonData('CMP', [cmpData[0]!, cmpData[2]!])
 
-    expect(m.getComparisonViewLineRange({ start: 1, end: 3 })).toEqual({ min: 101, max: 102 })
+    expect(lineRange(m, { start: 1, end: 3 })).toEqual({ min: 101, max: 102 })
   })
 
   it('uses binary timestamp lookup when neither series provides dates', () => {
@@ -169,7 +175,16 @@ describe('ChartDataManager.getComparisonViewLineRange', () => {
       [cmpData[0]!, cmpData[2]!].map(({ date: _date, ...item }) => item),
     )
 
-    expect(m.getComparisonViewLineRange({ start: 1, end: 3 })).toEqual({ min: 101, max: 102 })
+    expect(lineRange(m, { start: 1, end: 3 })).toEqual({ min: 101, max: 102 })
+  })
+
+  it('anchors the baseline on the first fully visible bar when the left bar is scrolled off', () => {
+    const m = loadWithReference()
+    // range.start=1 的 bar 中心 x=-5 落在屏外 → 基准取索引 2：MAIN[2]=101，cmp 基准 52
+    // 折线从基准起算：bar2 MAIN 101 → 0%，CMP 52 → 0% → 范围 {101,101}
+    const range = { start: 1, end: 3 }
+    const centers = [-5, 5]
+    expect(m.getComparisonViewLineRange(range, centers, 0)).toEqual({ min: 101, max: 101 })
   })
 
   it('checks comparison coverage when the reference series already covers the visible range', () => {
@@ -188,7 +203,7 @@ describe('ChartDataManager.getComparisonViewLineRange', () => {
   it('returns null when the visible window is outside the data', () => {
     const m = loadKlineOnly()
     m.setComparisonData('CMP', cmpData)
-    expect(m.getComparisonViewLineRange({ start: 10, end: 20 })).toBeNull()
+    expect(lineRange(m, { start: 10, end: 20 })).toBeNull()
   })
 
   it('uses the first comparison series as the axis reference without a kline primary', () => {

@@ -95,12 +95,34 @@ function mockCtx() {
 describe('buildComparisonLinePoints', () => {
   it('converts comparison percent change to main-base equivalent price', () => {
     const byDate = new Map(cmpData.map((d) => [d.date!, d]))
-    const points = buildComparisonLinePoints(makeContext(), mainData, byDate, 50, 100)
+    const points = buildComparisonLinePoints(makeContext(), mainData, byDate, 50, 100, 0)
     expect(points).toEqual([
       { x: 0, y: 100 },
       { x: 10, y: 102 },
       { x: 20, y: 104 },
     ])
+  })
+
+  it('starts the line at the baseline index, skipping bars left of it', () => {
+    const byDate = new Map(cmpData.map((d) => [d.date!, d]))
+    const points = buildComparisonLinePoints(makeContext(), mainData, byDate, 51, 102, 1)
+    expect(points).toEqual([
+      { x: 10, y: 102 },
+      { x: 20, y: 104 },
+    ])
+  })
+})
+
+describe('createComparisonLineRenderer.draw baseline', () => {
+  it('anchors the baseline on the first bar whose center is inside the content area', () => {
+    const ctx = mockCtx()
+    // 首根中心 x=-5 落在屏外 → 基准取索引 1：MAIN[1].close=102，cmp 基准 51
+    createComparisonLineRenderer().draw(
+      makeContext({ ctx, scrollLeft: 5, kLineCenters: [-5, 5, 15] }),
+    )
+    // 从基准索引 1 起画：bar1 cmp 51 → 0% → 102；bar2 cmp 52 → +1/51 → 104
+    expect(ctx.moveTo).toHaveBeenCalledWith(5, 102)
+    expect(ctx.lineTo).toHaveBeenCalledWith(15, 104)
   })
 })
 

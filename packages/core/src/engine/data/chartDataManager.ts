@@ -35,6 +35,7 @@ import type { KLineData, TimeShareData } from '../../foundation/types/price'
 import type { ChartDom } from '../chartTypes'
 import type { VisibleRange, UpdateLevel } from '../layout/pane'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
+import { resolveComparisonBaseIndex } from '../utils/comparisonBaseline'
 import type { DataStateModule } from '../state/dataState'
 import type { DataManagerStateModule, ViewportSnapshot } from '../state/dataManagerState'
 import type { ViewportStateModule } from '../state/viewportState'
@@ -1236,21 +1237,29 @@ export class ChartDataManager {
   // ── Comparison view line range ──
 
   /**
-   * 比较视图下可见区折线（主商品 close + 各比较商品等价价）的极值范围。
+   * 比较视图下可见区折线（各比较商品等价价）的极值范围。
    * 用作主图 y 轴范围及缩放/平移 clamp 上下限；返回 null 表示当前不可用。
+   *
+   * @param range 当前可见区间
+   * @param kLineCenters 本帧各 bar 的世界坐标中心 x（与 range 对齐）
+   * @param scrollLeft 本帧横向滚动量，用于与渲染器共用同一基准索引
    */
-  getComparisonViewLineRange(range: VisibleRange): { min: number; max: number } | null {
+  getComparisonViewLineRange(
+    range: VisibleRange,
+    kLineCenters: ReadonlyArray<number>,
+    scrollLeft: number,
+  ): { min: number; max: number } | null {
     const comparisonSpecs = this.deps.comparison.readonly.specs.peek()
     if (comparisonSpecs.length === 0) return null
     // 参考序列是对比集合首个品种，仅决定横轴与百分比基准价。
     const internalData = this.getComparisonReferenceData()
     if (internalData.length === 0) return null
-    const baseIndex = Math.max(0, range.start)
+    const baseIndex = resolveComparisonBaseIndex(range, kLineCenters, scrollLeft)
     const baseItem = internalData[baseIndex]
     if (!baseItem || !Number.isFinite(baseItem.close) || baseItem.close <= 0) return null
     const mainBase = baseItem.close
     const baseDate = baseItem.date ?? ''
-    const startIdx = Math.max(0, range.start)
+    const startIdx = Math.max(baseIndex, range.start)
 
     let min = Number.POSITIVE_INFINITY
     let max = Number.NEGATIVE_INFINITY

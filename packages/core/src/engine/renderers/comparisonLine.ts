@@ -5,6 +5,7 @@ import { resolveThemeColors } from '../../foundation/tokens/index'
 import type { KLineData } from '../../foundation/types/price'
 import { ChartDataViewId } from '../../foundation/types/chartView'
 import { symbolSpecIdentityKey } from '../data/symbolIdentity'
+import { resolveComparisonBaseIndex } from '../utils/comparisonBaseline'
 
 export function createComparisonLineRenderer(): RendererPlugin {
   return {
@@ -23,7 +24,11 @@ export function createComparisonLineRenderer(): RendererPlugin {
       if (comparisonSymbols.length === 0 || referenceData.length === 0) return
       if (context.pane.id !== 'main') return
 
-      const baseIndex = Math.max(0, context.range.start)
+      const baseIndex = resolveComparisonBaseIndex(
+        context.range,
+        context.kLineCenters,
+        context.scrollLeft,
+      )
       const baseItem = referenceData[baseIndex]
       if (!baseItem || !Number.isFinite(baseItem.close) || baseItem.close <= 0) return
       const basePrice = baseItem.close
@@ -61,7 +66,14 @@ export function createComparisonLineRenderer(): RendererPlugin {
 
           strokeStrip(
             ctx,
-            buildComparisonLinePoints(context, referenceData, byDate, baseline.close, basePrice),
+            buildComparisonLinePoints(
+              context,
+              referenceData,
+              byDate,
+              baseline.close,
+              basePrice,
+              baseIndex,
+            ),
             comparisonColors?.get(identity) ?? colors.palette.i2,
           )
         }
@@ -79,9 +91,11 @@ export function buildComparisonLinePoints(
   byDate: ReadonlyMap<string, KLineData>,
   baselineClose: number,
   basePrice: number,
+  baseIndex: number,
 ): Array<{ x: number; y: number }> {
   const points: Array<{ x: number; y: number }> = []
-  for (let i = context.range.start; i < context.range.end && i < referenceData.length; i++) {
+  const start = Math.max(baseIndex, context.range.start)
+  for (let i = start; i < context.range.end && i < referenceData.length; i++) {
     const referenceItem = referenceData[i]
     const x = context.kLineCenters[i - context.range.start]
     if (!referenceItem || x === undefined) {
