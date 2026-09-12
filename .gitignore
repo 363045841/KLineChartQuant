@@ -75,3 +75,7 @@ examples/next-app/pnpm-lock.yaml
 
 # Render benchmark local results
 bench/results/
+
+# PDF export output (scripts/code-to-pdf.mjs, scripts/docs-to-pdf.mjs)
+.code-pdf/
+.docs-pdf/
