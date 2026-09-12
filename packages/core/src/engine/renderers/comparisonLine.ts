@@ -5,7 +5,7 @@ import { resolveThemeColors } from '../../foundation/tokens/index'
 import type { KLineData } from '../../foundation/types/price'
 import { ChartDataViewId } from '../../foundation/types/chartView'
 import { symbolSpecIdentityKey } from '../data/symbolIdentity'
-import { resolveComparisonBaseIndex } from '../utils/comparisonBaseline'
+import { findFirstVisibleBarIndex } from '../utils/visibleBarIndex'
 
 export function createComparisonLineRenderer(): RendererPlugin {
   return {
@@ -24,7 +24,7 @@ export function createComparisonLineRenderer(): RendererPlugin {
       if (comparisonSymbols.length === 0 || referenceData.length === 0) return
       if (context.pane.id !== 'main') return
 
-      const baseIndex = resolveComparisonBaseIndex(
+      const baseIndex = findFirstVisibleBarIndex(
         context.range,
         context.kLineCenters,
         context.scrollLeft,

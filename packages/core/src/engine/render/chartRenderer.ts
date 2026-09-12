@@ -55,7 +55,7 @@ import { createTimeShareRendererPlugin } from '../renderers/timeShare'
 import { createFiveDayTimeShareRendererPlugin } from '../renderers/fiveDayTimeShare'
 import { calcKBarWidthPx, getPhysicalKLineConfig } from '../utils/klineConfig'
 import { calculateTickCount } from '../utils/tickCount'
-import { resolveComparisonBaseIndex } from '../utils/comparisonBaseline'
+import { findFirstVisibleBarIndex } from '../utils/visibleBarIndex'
 
 import { createCandleLayer } from './layers/candleLayer'
 import { createComparisonLineLayer } from './layers/comparisonLineLayer'
@@ -832,7 +832,7 @@ export class ChartRenderer {
           }
           // 绕过 Pane.updateRange 时需手动补齐 percent 基准价；
           // 基准与折线一致，锚定内容区内首根完全可见的 bar。
-          const baseIdx = resolveComparisonBaseIndex(range, kLineCenters, vp.scrollLeft)
+          const baseIdx = findFirstVisibleBarIndex(range, kLineCenters, vp.scrollLeft)
           const baseItem = renderData[baseIdx]
           pane.yAxis.setBasePrice(baseItem && 'close' in baseItem ? baseItem.close : null)
         } else {

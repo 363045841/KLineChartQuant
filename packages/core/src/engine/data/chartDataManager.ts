@@ -35,7 +35,7 @@ import type { KLineData, TimeShareData } from '../../foundation/types/price'
 import type { ChartDom } from '../chartTypes'
 import type { VisibleRange, UpdateLevel } from '../layout/pane'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
-import { resolveComparisonBaseIndex } from '../utils/comparisonBaseline'
+import { findFirstVisibleBarIndex } from '../utils/visibleBarIndex'
 import type { DataStateModule } from '../state/dataState'
 import type { DataManagerStateModule, ViewportSnapshot } from '../state/dataManagerState'
 import type { ViewportStateModule } from '../state/viewportState'
@@ -1254,7 +1254,7 @@ export class ChartDataManager {
     // 参考序列是对比集合首个品种，仅决定横轴与百分比基准价。
     const internalData = this.getComparisonReferenceData()
     if (internalData.length === 0) return null
-    const baseIndex = resolveComparisonBaseIndex(range, kLineCenters, scrollLeft)
+    const baseIndex = findFirstVisibleBarIndex(range, kLineCenters, scrollLeft)
     const baseItem = internalData[baseIndex]
     if (!baseItem || !Number.isFinite(baseItem.close) || baseItem.close <= 0) return null
     const mainBase = baseItem.close

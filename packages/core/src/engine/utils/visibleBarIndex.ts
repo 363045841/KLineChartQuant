@@ -1,18 +1,17 @@
-// 比较视图基准索引：选取内容区内首根完全可见的 bar，供折线渲染与 y 轴范围共用。
+// 可见 bar 索引工具：在可见区间内定位首根完全落在内容区内的 bar。
 
 /**
- * 计算比较视图公共基准点的数据索引。
+ * 查找可见区间内首根中心落在内容区内的 bar 的数据索引。
  *
  * 可见区间左右各扩 1 根，range.start 对应的 bar 中心可能落在内容区左缘之外（屏幕外），
- * 直接以它为基准会导致所有曲线的公共起点不可见，因此从 range.start 起向后选取
- * 首个中心屏幕 x >= 0 的 bar。
+ * 因此从 range.start 起向后选取首个中心屏幕 x >= 0 的 bar。
  *
  * @param range 当前可见区间（clamped，start >= 0）
  * @param kLineCenters 可见区间内各 bar 的世界坐标中心 x（索引 i 对应 range.start + i）
  * @param scrollLeft 当前横向滚动量（逻辑像素）
- * @returns 基准数据索引；全部落在屏外或越界时回退到 range.start
+ * @returns 首个可见 bar 的数据索引；全部落在屏外或越界时回退到 range.start
  */
-export function resolveComparisonBaseIndex(
+export function findFirstVisibleBarIndex(
   range: { start: number; end: number },
   kLineCenters: ReadonlyArray<number>,
   scrollLeft: number,
