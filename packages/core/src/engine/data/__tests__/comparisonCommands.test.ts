@@ -37,16 +37,18 @@ function createHarness(initial: ReadonlyArray<SymbolSpec>) {
   const registerSpec = vi.fn()
   const resolveInstrument = vi.fn(
     async (query: { symbol: string }): Promise<ComparisonInstrumentResolution> => ({
-      instrument: {
-        id: `${query.symbol}-ID`,
-        sourceId: 'mock',
-        symbol: query.symbol,
-        name: `${query.symbol} 名称`,
-        assetClass: 'stock',
-        exchange: 'SSE',
-        sessionId: 'CN',
-        capabilities: {},
-      },
+      candidates: [
+        {
+          id: `${query.symbol}-ID`,
+          sourceId: 'mock',
+          symbol: query.symbol,
+          name: `${query.symbol} 名称`,
+          assetClass: 'stock',
+          exchange: 'SSE',
+          sessionId: 'CN',
+          capabilities: {},
+        },
+      ],
       searchedSourceIds: ['mock'],
       foundElsewhereSourceIds: [],
     }),
@@ -91,7 +93,11 @@ describe('ComparisonCommands', () => {
   it('resolves the comparison instrument and applies its routing fields', async () => {
     const harness = createHarness([PRIMARY])
 
-    await harness.commands.create({ symbol: 'CMP' })
+    await expect(harness.commands.create({ symbol: 'CMP' })).resolves.toEqual({
+      status: 'added',
+      symbol: 'CMP',
+      name: 'CMP 名称',
+    })
 
     expect(harness.resolveInstrument).toHaveBeenCalledWith({ symbol: 'CMP', source: 'mock' })
     const comparison = harness.symbols()[1]
@@ -105,7 +111,7 @@ describe('ComparisonCommands', () => {
   it('throws a not-found error carrying the searched sources when the symbol cannot be resolved', async () => {
     const harness = createHarness([PRIMARY])
     harness.resolveInstrument.mockResolvedValueOnce({
-      instrument: null,
+      candidates: [],
       searchedSourceIds: ['mock'],
       foundElsewhereSourceIds: [],
     })
@@ -120,7 +126,7 @@ describe('ComparisonCommands', () => {
   it('points at the other source when the symbol exists outside the searched source', async () => {
     const harness = createHarness([PRIMARY])
     harness.resolveInstrument.mockResolvedValueOnce({
-      instrument: null,
+      candidates: [],
       searchedSourceIds: ['mock'],
       foundElsewhereSourceIds: ['alt'],
     })
@@ -128,6 +134,123 @@ describe('ComparisonCommands', () => {
     await expect(harness.commands.create({ symbol: 'CMP' })).rejects.toMatchObject({
       message: expect.stringContaining('It exists in: alt.'),
     })
+  })
+
+  it('returns an ambiguous result without writing when one code matches several instruments', async () => {
+    const harness = createHarness([PRIMARY])
+    harness.resolveInstrument.mockResolvedValueOnce({
+      candidates: [
+        {
+          id: 'stock:0:000012',
+          sourceId: 'gotdx',
+          symbol: '000012',
+          name: '南玻A',
+          assetClass: 'stock',
+          exchange: 'SZ',
+          capabilities: {},
+        },
+        {
+          id: 'index:0:000012',
+          sourceId: 'gotdx',
+          symbol: '000012',
+          name: '国债指数',
+          assetClass: 'index',
+          exchange: 'SH',
+          capabilities: {},
+        },
+      ],
+      searchedSourceIds: ['gotdx'],
+      foundElsewhereSourceIds: [],
+    })
+
+    await expect(harness.commands.create({ symbol: '000012', source: 'gotdx' })).resolves.toEqual({
+      status: 'ambiguous',
+      message: expect.stringContaining('ask_user'),
+      candidates: [
+        {
+          id: 'stock:0:000012',
+          sourceId: 'gotdx',
+          symbol: '000012',
+          name: '南玻A',
+          exchange: 'SZ',
+          assetClass: 'stock',
+        },
+        {
+          id: 'index:0:000012',
+          sourceId: 'gotdx',
+          symbol: '000012',
+          name: '国债指数',
+          exchange: 'SH',
+          assetClass: 'index',
+        },
+      ],
+    })
+    expect(harness.commitSymbols).not.toHaveBeenCalled()
+  })
+
+  it('adds the single candidate narrowed by assetClass without leaking the filter into the spec', async () => {
+    const harness = createHarness([PRIMARY])
+    harness.resolveInstrument.mockResolvedValueOnce({
+      candidates: [
+        {
+          id: 'stock:0:000012',
+          sourceId: 'gotdx',
+          symbol: '000012',
+          name: '南玻A',
+          assetClass: 'stock',
+          exchange: 'SZ',
+          capabilities: {},
+        },
+        {
+          id: 'index:0:000012',
+          sourceId: 'gotdx',
+          symbol: '000012',
+          name: '国债指数',
+          assetClass: 'index',
+          exchange: 'SH',
+          sessionId: 'CN',
+          capabilities: {},
+        },
+      ],
+      searchedSourceIds: ['gotdx'],
+      foundElsewhereSourceIds: [],
+    })
+
+    await expect(
+      harness.commands.create({ symbol: '000012', source: 'gotdx', assetClass: 'index' }),
+    ).resolves.toMatchObject({ status: 'added', name: '国债指数' })
+
+    const comparison = harness.symbols()[1]
+    expect(comparison?.id).toBe('index:0:000012')
+    expect(comparison?.exchange).toBe('SH')
+    expect(comparison).not.toHaveProperty('assetClass')
+  })
+
+  it('lists the actual candidate combinations when user filters exclude every match', async () => {
+    const harness = createHarness([PRIMARY])
+    harness.resolveInstrument.mockResolvedValueOnce({
+      candidates: [
+        {
+          id: 'stock:0:000012',
+          sourceId: 'gotdx',
+          symbol: '000012',
+          name: '南玻A',
+          assetClass: 'stock',
+          exchange: 'SZ',
+          capabilities: {},
+        },
+      ],
+      searchedSourceIds: ['gotdx'],
+      foundElsewhereSourceIds: [],
+    })
+
+    await expect(
+      harness.commands.create({ symbol: '000012', source: 'gotdx', assetClass: 'index' }),
+    ).rejects.toMatchObject({
+      code: 'INSTRUMENT_NOT_FOUND',
+      message: expect.stringContaining('stock@SZ "南玻A"'),
+    })
+    expect(harness.commitSymbols).not.toHaveBeenCalled()
   })
 
   it('throws a duplicate error without writing symbols', async () => {

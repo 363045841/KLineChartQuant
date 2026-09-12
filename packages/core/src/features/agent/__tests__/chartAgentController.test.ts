@@ -181,7 +181,7 @@ function createFixture() {
     validateSpec: () => {},
     registerSpec: () => {},
     resolveInstrument: async () => ({
-      instrument: null,
+      candidates: [],
       searchedSourceIds: [],
       foundElsewhereSourceIds: [],
     }),
@@ -543,7 +543,7 @@ describe('createChartAgentController', () => {
         { drawingId: created.id, patch: { style: { stroke: '#0F8B5C' } } },
         execution,
       ),
-    ).rejects.toThrow('must be equal to constant')
+    ).rejects.toThrow('must be equal to one of the allowed values')
     await expect(
       create.execute(
         fixture.controller,
@@ -555,7 +555,7 @@ describe('createChartAgentController', () => {
         },
         execution,
       ),
-    ).rejects.toThrow('must be equal to constant')
+    ).rejects.toThrow('must be equal to one of the allowed values')
     expect(fixture.drawingDocument.listDrawings()).toHaveLength(1)
     expect(fixture.requestDraw).toHaveBeenCalledOnce()
   })

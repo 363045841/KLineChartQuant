@@ -96,16 +96,18 @@ describe('Chart Agent @Tool registry', () => {
       validateSpec: () => undefined,
       registerSpec: () => undefined,
       resolveInstrument: async ({ symbol }) => ({
-        instrument: {
-          id: symbol,
-          sourceId: 'mock',
-          symbol,
-          name: symbol,
-          assetClass: 'stock',
-          exchange: 'SSE',
-          sessionId: 'CN',
-          capabilities: {},
-        },
+        candidates: [
+          {
+            id: symbol,
+            sourceId: 'mock',
+            symbol,
+            name: symbol,
+            assetClass: 'stock',
+            exchange: 'SSE',
+            sessionId: 'CN',
+            capabilities: {},
+          },
+        ],
         searchedSourceIds: ['mock'],
         foundElsewhereSourceIds: [],
       }),
@@ -122,7 +124,7 @@ describe('Chart Agent @Tool registry', () => {
         { symbol: '511090' },
         { signal: new AbortController().signal, progress: () => undefined },
       ),
-    ).resolves.toBe('Added comparison symbol "511090".')
+    ).resolves.toEqual({ status: 'added', symbol: '511090', name: '511090' })
     expect(symbols.map((spec) => spec.symbol)).toEqual(['MAIN', '511090'])
   })
 })
