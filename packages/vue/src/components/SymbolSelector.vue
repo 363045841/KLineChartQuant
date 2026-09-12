@@ -32,10 +32,13 @@
       @manage-sources="emit('manageSources')"
     >
       <template #tabs>
-        <AggregationSourceTabs
+        <BaseTabs
           v-if="sourceTabs.length > 0"
           v-model="activeSourceTab"
           :tabs="sourceTabs"
+          size="compact"
+          draggable
+          aria-label="聚合源"
         />
       </template>
       <template #body>
@@ -113,7 +116,7 @@
   } from '../composables/useAggregationSources'
   import { useAggregationSourceTab } from '../composables/useAggregationSourceTab'
 
-  import AggregationSourceTabs, { type AggregationSourceTabItem } from './AggregationSourceTabs.vue'
+  import BaseTabs from './BaseTabs.vue'
   import LoadingSpinner from './LoadingSpinner.vue'
   import SymbolPopover from './SymbolPopover.vue'
   import IconTablerAlertTriangle from '~icons/tabler/alert-triangle'
@@ -159,7 +162,7 @@
   const chipWrapRef = ref<HTMLElement | null>(null)
 
   /** 全部 + 已启用且可搜索的源；mock 沉底 */
-  const sourceTabs = computed<AggregationSourceTabItem[]>(() => {
+  const sourceTabs = computed<Array<{ id: string; label: string }>>(() => {
     const enabled = props.enabledSourceNames
     const searchable = props.aggregationSources
       .filter((source) => enabled.has(source.name) && supportsAggregationSourceSearch(source))
@@ -167,8 +170,8 @@
       .sort((a, b) => Number(isMockSourceName(a.name)) - Number(isMockSourceName(b.name)))
     if (searchable.length === 0) return []
     return [
-      { key: 'all', label: '全部' },
-      ...searchable.map((source) => ({ key: source.name, label: source.displayName })),
+      { id: 'all', label: '全部' },
+      ...searchable.map((source) => ({ id: source.name, label: source.displayName })),
     ]
   })
 
@@ -217,7 +220,7 @@
 
   // 启用列表变化时，若当前 Tab 已不存在则回到全部
   watch(sourceTabs, (tabs) => {
-    if (!tabs.some((tab) => tab.key === activeSourceTab.value)) {
+    if (!tabs.some((tab) => tab.id === activeSourceTab.value)) {
       activeSourceTab.value = 'all'
     }
   })

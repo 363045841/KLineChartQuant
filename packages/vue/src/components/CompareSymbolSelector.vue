@@ -25,10 +25,13 @@
       @manage-sources="emit('manageSources')"
     >
       <template #tabs>
-        <AggregationSourceTabs
+        <BaseTabs
           v-if="sourceTabs.length > 0"
           v-model="activeSourceTab"
           :tabs="sourceTabs"
+          size="compact"
+          draggable
+          aria-label="聚合源"
         />
       </template>
       <template #body>
@@ -152,7 +155,7 @@
   } from '../composables/useAggregationSources'
   import { useAggregationSourceTab } from '../composables/useAggregationSourceTab'
 
-  import AggregationSourceTabs, { type AggregationSourceTabItem } from './AggregationSourceTabs.vue'
+  import BaseTabs from './BaseTabs.vue'
   import SymbolPopover from './SymbolPopover.vue'
   import type { SymbolItem } from './SymbolSelector.vue'
 
@@ -186,7 +189,7 @@
   const activeSourceTab = useAggregationSourceTab()
   const rootRef = ref<HTMLElement | null>(null)
 
-  const sourceTabs = computed<AggregationSourceTabItem[]>(() => {
+  const sourceTabs = computed<Array<{ id: string; label: string }>>(() => {
     const enabled = props.enabledSourceNames
     const searchable = props.aggregationSources
       .filter((source) => enabled.has(source.name) && supportsAggregationSourceSearch(source))
@@ -194,8 +197,8 @@
       .sort((a, b) => Number(isMockSourceName(a.name)) - Number(isMockSourceName(b.name)))
     if (searchable.length === 0) return []
     return [
-      { key: 'all', label: '全部' },
-      ...searchable.map((source) => ({ key: source.name, label: source.displayName })),
+      { id: 'all', label: '全部' },
+      ...searchable.map((source) => ({ id: source.name, label: source.displayName })),
     ]
   })
 
@@ -254,7 +257,7 @@
   }
 
   watch(sourceTabs, (tabs) => {
-    if (!tabs.some((tab) => tab.key === activeSourceTab.value)) {
+    if (!tabs.some((tab) => tab.id === activeSourceTab.value)) {
       activeSourceTab.value = 'all'
     }
   })
