@@ -1,7 +1,5 @@
-import {
-  SharedWebGLSurface,
-  type WebGLRegion,
-} from './sharedWebGLSurface'
+import { SharedWebGLSurface, type WebGLRegion } from './sharedWebGLSurface'
+import { buildWideLineGeometry } from '../../../rendering/render/wideLineGeometry'
 
 type Rect = {
   x: number
@@ -114,8 +112,6 @@ void main() {
 }`
 
 const UNIT_QUAD = new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1])
-
-const MITER_DOT_MIN = 0.5
 
 export class CandleWebGLSurface {
   private shared: SharedWebGLSurface
@@ -307,7 +303,8 @@ export class CandleWebGLSurface {
     gl.bindVertexArray(null)
 
     gl.enable(gl.BLEND)
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+    // alpha 通道独立混合：颜色走预乘语义（SRC_ALPHA），alpha 不重复乘源 alpha。
+    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
 
     return {
       program,
@@ -482,18 +479,20 @@ export class LineWebGLSurface {
   }
 
   private getLineGeometry(line: LineStrip): { vertices: Float32Array; vertexCount: number } | null {
-    const halfWidth = line.width / 2
+    const width = line.width
     let widthMap = this.geoCache.get(line.points)
     if (widthMap) {
-      const cached = widthMap.get(halfWidth)
+      const cached = widthMap.get(width)
       if (cached) return cached
     } else {
       widthMap = new Map()
       this.geoCache.set(line.points, widthMap)
     }
 
-    const geometry = buildJoinedPolylineGeometry(line.points, halfWidth)
-    if (geometry) widthMap.set(halfWidth, geometry)
+    const vertices = buildWideLineGeometry(line.points, width)
+    if (!vertices) return null
+    const geometry = { vertices, vertexCount: vertices.length / 2 }
+    widthMap.set(width, geometry)
     return geometry
   }
 
@@ -632,7 +631,8 @@ export class LineWebGLSurface {
     gl.bindVertexArray(null)
 
     gl.enable(gl.BLEND)
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+    // alpha 通道独立混合：颜色走预乘语义（SRC_ALPHA），alpha 不重复乘源 alpha。
+    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
 
     return {
       basic: {
@@ -653,138 +653,6 @@ function nextBufferFloatCapacity(required: number): number {
     capacity <<= 1
   }
   return capacity
-}
-
-interface PolylineNormal {
-  nx: number
-  ny: number
-  valid: boolean
-}
-
-function buildJoinedPolylineGeometry(points: Array<{ x: number; y: number }>, halfWidth: number) {
-  if (points.length < 2) return null
-
-  // 使用固定结构数组，避免动态对象分配
-  const normals: PolylineNormal[] = new Array(points.length - 1)
-  let validSegmentCount = 0
-
-  // 第一遍：计算所有法线（用 sqrt 替代 hypot，缓存逆长度）
-  for (let i = 0; i < points.length - 1; i++) {
-    const start = points[i]!
-    const end = points[i + 1]!
-    const dx = end.x - start.x
-    const dy = end.y - start.y
-    const lenSq = dx * dx + dy * dy
-    if (lenSq <= 0) {
-      normals[i] = { nx: 0, ny: 0, valid: false }
-      continue
-    }
-    const invLen = 1 / Math.sqrt(lenSq)
-    normals[i] = { nx: -dy * invLen, ny: dx * invLen, valid: true }
-    validSegmentCount++
-  }
-
-  if (validSegmentCount === 0) return null
-
-  // 预分配顶点数组：每对有效相邻点生成12个float（6个顶点 * 2个坐标）
-  const maxVerticesFloats = (points.length - 1) * 12
-  const vertices = new Float32Array(maxVerticesFloats)
-  let vertexWriteIndex = 0
-
-  // 计算 miter 并直接写入顶点
-  for (let i = 0; i < points.length - 1; i++) {
-    const curr = points[i]!
-    const next = points[i + 1]!
-
-    const prevNormal = i > 0 ? normals[i - 1] : null
-    const currNormal = normals[i]!
-
-    if (!currNormal.valid) continue
-    if (!prevNormal && !currNormal.valid) continue
-
-    // 计算 curr 点的 miter 法线
-    let miterNX = 0
-    let miterNY = 0
-    if (prevNormal?.valid && currNormal.valid) {
-      miterNX = prevNormal.nx + currNormal.nx
-      miterNY = prevNormal.ny + currNormal.ny
-      const miterLenSq = miterNX * miterNX + miterNY * miterNY
-      if (miterLenSq > 1e-12) {
-        const invMiter = 1 / Math.sqrt(miterLenSq)
-        miterNX *= invMiter
-        miterNY *= invMiter
-        const dot = miterNX * currNormal.nx + miterNY * currNormal.ny
-        const scale = 1 / Math.max(MITER_DOT_MIN, Math.abs(dot))
-        miterNX *= scale
-        miterNY *= scale
-      } else {
-        miterNX = currNormal.nx
-        miterNY = currNormal.ny
-      }
-    } else if (currNormal.valid) {
-      miterNX = currNormal.nx
-      miterNY = currNormal.ny
-    } else if (prevNormal?.valid) {
-      miterNX = prevNormal.nx
-      miterNY = prevNormal.ny
-    } else {
-      continue
-    }
-
-    // 计算 next 点的法线（用于下一对点）
-    let nextMiterNX = currNormal.nx
-    let nextMiterNY = currNormal.ny
-    const nextNormal = i < points.length - 2 ? normals[i + 1] : null
-    if (nextNormal?.valid && currNormal.valid) {
-      nextMiterNX = currNormal.nx + nextNormal.nx
-      nextMiterNY = currNormal.ny + nextNormal.ny
-      const miterLenSq = nextMiterNX * nextMiterNX + nextMiterNY * nextMiterNY
-      if (miterLenSq > 1e-12) {
-        const invMiter = 1 / Math.sqrt(miterLenSq)
-        nextMiterNX *= invMiter
-        nextMiterNY *= invMiter
-        const dot = nextMiterNX * nextNormal.nx + nextMiterNY * nextNormal.ny
-        const scale = 1 / Math.max(MITER_DOT_MIN, Math.abs(dot))
-        nextMiterNX *= scale
-        nextMiterNY *= scale
-      } else {
-        nextMiterNX = currNormal.nx
-        nextMiterNY = currNormal.ny
-      }
-    }
-
-    // 计算四个角点
-    const leftAX = curr.x + miterNX * halfWidth
-    const leftAY = curr.y + miterNY * halfWidth
-    const rightAX = curr.x - miterNX * halfWidth
-    const rightAY = curr.y - miterNY * halfWidth
-    const leftBX = next.x + nextMiterNX * halfWidth
-    const leftBY = next.y + nextMiterNY * halfWidth
-    const rightBX = next.x - nextMiterNX * halfWidth
-    const rightBY = next.y - nextMiterNY * halfWidth
-
-    // 写入两个三角形（6个顶点）
-    vertices[vertexWriteIndex++] = leftAX
-    vertices[vertexWriteIndex++] = leftAY
-    vertices[vertexWriteIndex++] = rightAX
-    vertices[vertexWriteIndex++] = rightAY
-    vertices[vertexWriteIndex++] = leftBX
-    vertices[vertexWriteIndex++] = leftBY
-    vertices[vertexWriteIndex++] = leftBX
-    vertices[vertexWriteIndex++] = leftBY
-    vertices[vertexWriteIndex++] = rightAX
-    vertices[vertexWriteIndex++] = rightAY
-    vertices[vertexWriteIndex++] = rightBX
-    vertices[vertexWriteIndex++] = rightBY
-  }
-
-  if (vertexWriteIndex === 0) return null
-
-  return {
-    vertices:
-      vertexWriteIndex === maxVerticesFloats ? vertices : vertices.subarray(0, vertexWriteIndex),
-    vertexCount: vertexWriteIndex / 2,
-  }
 }
 
 function createShader(

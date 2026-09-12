@@ -78,9 +78,9 @@ export class SharedWebGLSurface {
     if (this.canvas.height !== nextHeight) {
       this.canvas.height = nextHeight
     }
-    // 物理 buffer 使用 DPR，CSS 尺寸保持逻辑像素，避免可见 WebGL canvas 被浏览器缩放。
-    this.canvas.style.width = `${width}px`
-    this.canvas.style.height = `${height}px`
+    // CSS 尺寸由物理 buffer 反算，避免非整数 DPR 下浏览器二次缩放引入重采样模糊。
+    this.canvas.style.width = `${nextWidth / dpr}px`
+    this.canvas.style.height = `${nextHeight / dpr}px`
   }
 
   getPhysicalRegion(region: WebGLRegion): PhysicalRegion | null {

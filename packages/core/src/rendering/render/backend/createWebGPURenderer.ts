@@ -15,6 +15,7 @@ import { createWebGPUSurfaceBackend, type WebGPUSurfaceBackend } from './createW
 import { createFrameMetrics } from '../frameMetrics'
 import { prepareLineStripForPhysicalPixels } from '../physicalLine'
 import { toPhysicalRegion } from '../physicalRegion'
+import { buildWideLineGeometry } from '../wideLineGeometry'
 import { createWebGPUResourceTable } from '../webgpuResourceTable'
 import {
   GPU_BUFFER_COPY_DST,
@@ -163,42 +164,6 @@ function parseColor(value: unknown): readonly [number, number, number, number] |
   }
   if (!rgba || rgba.some((component) => !Number.isFinite(component))) return null
   return [rgba[0] * rgba[3], rgba[1] * rgba[3], rgba[2] * rgba[3], rgba[3]]
-}
-
-function buildWideLine(strip: DrawLineStrip): Float32Array | null {
-  const width = strip.width ?? 1
-  if (strip.points.length < 2 || width <= 0) return null
-  const output = new Float32Array((strip.points.length - 1) * 12)
-  let offset = 0
-  for (let index = 0; index < strip.points.length - 1; index++) {
-    const start = strip.points[index]!
-    const end = strip.points[index + 1]!
-    const dx = end.x - start.x
-    const dy = end.y - start.y
-    const length = Math.sqrt(dx * dx + dy * dy)
-    if (length <= 0) continue
-    const nx = (-dy / length) * width * 0.5
-    const ny = (dx / length) * width * 0.5
-    output.set(
-      [
-        start.x + nx,
-        start.y + ny,
-        start.x - nx,
-        start.y - ny,
-        end.x + nx,
-        end.y + ny,
-        end.x + nx,
-        end.y + ny,
-        start.x - nx,
-        start.y - ny,
-        end.x - nx,
-        end.y - ny,
-      ],
-      offset,
-    )
-    offset += 12
-  }
-  return offset === 0 ? null : output.subarray(0, offset)
 }
 
 function linePoints(strip: DrawLineStrip): Float32Array {
@@ -643,7 +608,9 @@ export async function createWebGPURenderer(
               scrollLeft,
             )
             const wide = (physicalStrip.width ?? 1) * currentRegion.dpr > 1
-            const values = wide ? buildWideLine(physicalStrip) : linePoints(physicalStrip)
+            const values = wide
+              ? buildWideLineGeometry(physicalStrip.points, physicalStrip.width ?? 1)
+              : linePoints(physicalStrip)
             if (!values) return false
             // 帧内序号作 key：同顺序跨帧复用；revision 未变则不 upload
             const key = `strip/${stripSeq++}`
