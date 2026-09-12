@@ -22,6 +22,8 @@ import {
   type ProviderReasoningEffort,
   type ProviderTestInput,
   type ProviderTestResult,
+  type QuestionAnswerView,
+  type QuestionView,
   type StartRunInput,
   type AgentToolView,
   type AgentToolDebugResult,
@@ -52,6 +54,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
   private readonly listeners = new Set<(event: AgentUiEvent) => void>()
   private readonly runs = new Map<string, FakeRun>()
   private readonly confirmations = new Map<string, PendingConfirmation>()
+  private readonly questions = new Map<string, string>()
   private modelEntries: ProviderModelPoolEntry[] = []
   private readonly modelPool = new ProviderModelPool(
     () => this.modelEntries,
@@ -362,6 +365,37 @@ export class FakeAgentBridge implements AgentBridgeClient {
     this.emitRun(run, { type: 'tool.undone', toolCallId: run.tool.id, undoneAt: Date.now() })
   }
 
+  async answerQuestion(questionId: string, answer: QuestionAnswerView): Promise<void> {
+    const runId = this.questions.get(questionId)
+    if (runId === undefined) return
+    this.questions.delete(questionId)
+    const run = this.runs.get(runId)
+    if (!run?.tool) return
+    const selected = answer.selectedLabels.join(', ') || answer.note || ''
+    this.emitRun(run, {
+      type: 'tool.question.resolved',
+      questionId,
+      status: 'answered',
+      answer,
+    })
+    this.emitRun(run, {
+      type: 'tool.finished',
+      result: {
+        ...run.tool,
+        status: 'succeeded',
+        resultSummary: `User answered: ${selected}.`,
+        resultContent: JSON.stringify({
+          status: 'answered',
+          selected: answer.selectedLabels,
+          ...(answer.note ? { note: answer.note } : {}),
+        }),
+        finishedAt: Date.now(),
+        durationMs: 182,
+      },
+    })
+    this.finishRun(run, `Received your choice "${selected}" and continued the run with it.`)
+  }
+
   async saveProvider(input: ProviderSaveInput): Promise<void> {
     const profile: ProviderProfileView = {
       name: input.profileName,
@@ -443,6 +477,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
     })
 
     const destructive = /clear|delete all/i.test(run.prompt)
+    const ambiguous = /ambiguous/i.test(run.prompt)
     const mutation = !run.readOnly && /add|switch|dark|move|clear|delete/i.test(run.prompt)
     const failing = /fail|error|unavailable/i.test(run.prompt)
     const tool = this.createTool(run, mutation, destructive)
@@ -468,6 +503,23 @@ export class FakeAgentBridge implements AgentBridgeClient {
       }
       this.confirmations.set(request.id, { runId: run.id, request })
       this.schedule(run, 4, { type: 'tool.confirmation.required', request })
+      return
+    }
+
+    if (ambiguous) {
+      const request: QuestionView = {
+        id: `question-${run.id}`,
+        toolCallId: tool.id,
+        prompt: '代码 000012 对应多个标的，要添加哪一个作为对比？',
+        options: [
+          { label: '南玻A', description: 'gotdx · stock · SZ' },
+          { label: '国债指数', description: 'gotdx · index · SH' },
+        ],
+        multiSelect: false,
+        status: 'pending',
+      }
+      this.questions.set(request.id, run.id)
+      this.schedule(run, 4, { type: 'tool.question.required', request })
       return
     }
 

@@ -18,7 +18,7 @@ function chartHarness() {
     validateSpec: (spec) => resolveSymbolMarketSession(spec, marketSessions),
     registerSpec: vi.fn(),
     resolveInstrument: async () => ({
-      instrument: null,
+      candidates: [],
       searchedSourceIds: [],
       foundElsewhereSourceIds: [],
     }),

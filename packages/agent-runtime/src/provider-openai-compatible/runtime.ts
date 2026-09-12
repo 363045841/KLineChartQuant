@@ -116,8 +116,11 @@ function createSystemPrompt(
   const citationInstruction = hasWebSearch
     ? ' When using web_search evidence, cite each supporting claim immediately after the claim. Copy a citation marker exactly from the citationExamples returned by web_search. For example, if web_search returns [[cite:web:run-1:call-1:1]], write: The company reported rising costs. [[cite:web:run-1:call-1:1]]'
     : ''
+  const ambiguityInstruction = hasTools
+    ? ' When a tool result reports { "status": "ambiguous" }, never guess: call ask_user with one option per returned candidate, wait for the user to choose, then retry the original tool with the chosen candidate\'s routing fields.'
+    : ''
   return hasTools
-    ? `${base}${chartContext}${selectedKLineBarsInstruction}${citationInstruction} Use the supplied chart tools when chart evidence is needed. Do not claim to have changed the chart: the available tools are read-only.`
+    ? `${base}${chartContext}${selectedKLineBarsInstruction}${citationInstruction} Use the supplied chart tools when chart evidence is needed. Do not claim to have changed the chart: the available tools are read-only.${ambiguityInstruction}`
     : `${base}${chartContext}${selectedKLineBarsInstruction} No chart tools are available in this build. Do not claim to have read or changed the chart. Answer only from user-provided text and state limitations clearly.`
 }
 

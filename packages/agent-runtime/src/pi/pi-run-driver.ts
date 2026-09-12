@@ -16,7 +16,8 @@ import type { AssistantMessage, Usage } from '@earendil-works/pi-ai'
 
 const DEFAULT_TOOL_TURN_LIMIT = 8
 const HARD_TOOL_TURN_LIMIT = 12
-const DEFAULT_TIMEOUT_MS = 30_000
+// Run deadline 是无活动计时：任何 Pi 事件或工具 progress 心跳都会重置；等待用户回答由 ask_user 心跳维持。
+const DEFAULT_TIMEOUT_MS = 10 * 60_000
 
 /** 判断 Pi 消息是否为助手消息，供事件投影和错误分类使用。 */
 function isAssistant(message: unknown): message is AssistantMessage {
@@ -198,8 +199,38 @@ export class PiRunDriver {
     let usage: Usage | undefined
     let latestUsage: Usage | undefined
 
+    let timedOut = false
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    // 等待用户输入的工具执行深度；>0 期间 deadline 停表。
+    let userWaitDepth = 0
+    // 运行超时按最近一次 Pi 活动计算，流式输出和工具进度都表明任务仍在推进。
+    const refreshDeadline = () => {
+      if (userWaitDepth > 0) return
+      if (timeout !== undefined) clearTimeout(timeout)
+      timeout = setTimeout(() => {
+        timedOut = true
+        agent.abort()
+      }, timeoutMs)
+    }
+    /** 进入等待用户输入的工具：停表，人类答复耗时不计入无活动 deadline。 */
+    const pauseDeadline = () => {
+      userWaitDepth += 1
+      if (timeout !== undefined) {
+        clearTimeout(timeout)
+        timeout = undefined
+      }
+    }
+    /** 离开等待用户输入的工具：恢复计满一个完整窗口。 */
+    const resumeDeadline = () => {
+      userWaitDepth -= 1
+      if (userWaitDepth === 0) refreshDeadline()
+    }
+
     const tools = plan.tools.map((definition) =>
-      this.createTool(plan, definition, toolResults, citations),
+      this.createTool(plan, definition, toolResults, citations, {
+        pause: pauseDeadline,
+        resume: resumeDeadline,
+      }),
     )
     const agent = new Agent({
       initialState: {
@@ -227,17 +258,6 @@ export class PiRunDriver {
       },
     })
     this.activeAgent = agent
-
-    let timedOut = false
-    let timeout: ReturnType<typeof setTimeout> | undefined
-    // 运行超时按最近一次 Pi 活动计算，流式输出和工具进度都表明任务仍在推进。
-    const refreshDeadline = () => {
-      if (timeout !== undefined) clearTimeout(timeout)
-      timeout = setTimeout(() => {
-        timedOut = true
-        agent.abort()
-      }, timeoutMs)
-    }
 
     const thinkingMessageIds = new Map<number, string>()
     // 订阅 Pi 原始事件并按 UI 协议投影；文本和工具数据在离开驱动器前脱敏。
@@ -397,6 +417,7 @@ export class PiRunDriver {
    * @param plan 当前运行计划。
    * @param definition 宿主提供的工具定义。
    * @param results 收集成功工具结果，供结束事件投影使用。
+   * @param deadline 运行 deadline 的停表/恢复控制。
    * @returns Pi 可执行的工具对象。
    */
   private createTool(
@@ -404,6 +425,7 @@ export class PiRunDriver {
     definition: RuntimeToolDefinition,
     results: Map<string, RuntimeToolResult>,
     citations: Map<string, SourceCitation>,
+    deadline: { pause(): void; resume(): void },
   ): AgentTool {
     return {
       name: definition.name,
@@ -423,6 +445,8 @@ export class PiRunDriver {
         }
         // 对外 ID 始终包含运行维度，避免 Pi 内部 ID 跨运行重复。
         const toolCallId = publicToolCallId(plan.runId, rawId)
+        const waitsForUser = definition.waitsForUserInput === true
+        if (waitsForUser) deadline.pause()
         let result: RuntimeToolResult
         try {
           result = await definition.execute(input, {
@@ -435,6 +459,8 @@ export class PiRunDriver {
           })
         } catch (error) {
           result = recoverableToolFailure(error)
+        } finally {
+          if (waitsForUser) deadline.resume()
         }
         for (const citation of result.citations ?? []) citations.set(citation.id, citation)
         results.set(toolCallId, result)

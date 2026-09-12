@@ -396,25 +396,18 @@ export class Chart {
         const enabledSourceIds = marketDataProviderRegistry
           .getEnabled()
           .map((provider) => provider.source.id)
-        const [first] = matches
-        if (first) {
+        // 候选不做挑选：歧义裁决属于 ComparisonCommands 的领域策略。
+        if (matches.length > 0 || !restrictedSourceIds) {
           return {
-            instrument: first,
+            candidates: matches,
             searchedSourceIds: restrictedSourceIds ?? enabledSourceIds,
-            foundElsewhereSourceIds: [],
-          }
-        }
-        if (!restrictedSourceIds) {
-          return {
-            instrument: null,
-            searchedSourceIds: enabledSourceIds,
             foundElsewhereSourceIds: [],
           }
         }
         // 限定源未命中：跨全部已启用源再查一次，用于提示 Agent 换源重试。
         const elsewhere = await lookupInstrumentsBySymbol(marketDataProviderRegistry, { symbol })
         return {
-          instrument: null,
+          candidates: [],
           searchedSourceIds: restrictedSourceIds,
           foundElsewhereSourceIds: [...new Set(elsewhere.map((item) => item.sourceId))],
         }

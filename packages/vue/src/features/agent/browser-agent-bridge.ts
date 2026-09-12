@@ -4,6 +4,9 @@ import {
   AGENT_UI_PROTOCOL_VERSION,
   PiRunDriver,
   type PiRunPlan,
+  createAskUserTool,
+  ASK_USER_TOOL_METADATA,
+  type AskUserRequest,
   createExaWebSearchProvider,
   createOpenAiCompatibleRuntimeSupport,
   createWebSearchTool,
@@ -33,6 +36,8 @@ import type {
   AgentRunContext,
   ProviderReasoningEffort,
   ProviderApiProtocol,
+  QuestionAnswerView,
+  QuestionView,
 } from './agent-contracts'
 import { ProviderModelPool } from './provider-model-pool'
 import type {
@@ -332,6 +337,13 @@ interface ActiveRun {
   input: StartRunInput
 }
 
+/** 一次挂起等待用户答复的提问；signal 中止路径由发起方自行收尾。 */
+interface PendingQuestion {
+  runId: string
+  sessionId: string
+  resolve(answer: QuestionAnswerView): void
+}
+
 interface BrowserAgentBridgeOptions {
   readonly getChartAgent?: () => ChartAgentController | null | undefined
 }
@@ -408,10 +420,12 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   private readonly support
   private readonly sessions = new Map<string, BrowserSession>()
   private readonly activeRuns = new Map<string, ActiveRun>()
+  private readonly pendingQuestions = new Map<string, PendingQuestion>()
   // 每个会话只保留最近一次运行的输入用于重试，随运行次数不会增长，会话删除时清除。
   private readonly sessionRunInputs = new Map<string, StartRunInput>()
   private nextSession = 1
   private nextRun = 1
+  private nextQuestion = 1
   private readonly getChartAgent: () => ChartAgentController | null | undefined
   private chartAgent: ChartAgentController | null = null
   private unsubscribeChartContextSource: (() => void) | undefined
@@ -576,6 +590,69 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       check: () =>
         this.webSearchApiKey() ? undefined : 'Enter an Exa API key to enable Web search.',
       create: () => this.createWebSearchTool(),
+    })
+    this.toolCatalog.register({
+      ...ASK_USER_TOOL_METADATA,
+      create: () => createAskUserTool({ request: (request, context) => this.requestQuestion(request, context) }),
+    })
+  }
+
+  /**
+   * 渲染一次提问并挂起等待用户答复。
+   * @param request 提问内容与选项。
+   * @param context 提问所属运行、工具调用与取消信号。
+   * @returns 用户答复；signal 中止时以 ABORTED 拒绝。
+   */
+  private requestQuestion(
+    request: AskUserRequest,
+    context: { runId: string; toolCallId: string; signal: AbortSignal },
+  ): Promise<QuestionAnswerView> {
+    const run = this.activeRuns.get(context.runId)
+    if (!run) {
+      return Promise.reject(
+        new AgentRuntimeError('RUN_NOT_ACTIVE', 'Ask question requires an active Agent run.'),
+      )
+    }
+    const sessionId = run.input.sessionId
+    const id = `question-${this.nextQuestion++}`
+    return new Promise<QuestionAnswerView>((resolve, reject) => {
+      const settle = () => {
+        this.pendingQuestions.delete(id)
+        context.signal.removeEventListener('abort', onAbort)
+      }
+      const onAbort = () => {
+        settle()
+        this.emit({
+          type: 'tool.question.resolved',
+          runId: context.runId,
+          sessionId,
+          questionId: id,
+          status: 'cancelled',
+        })
+        reject(new AgentRuntimeError('ABORTED', 'The Agent run ended while waiting for the answer.'))
+      }
+      context.signal.addEventListener('abort', onAbort, { once: true })
+      this.pendingQuestions.set(id, {
+        runId: context.runId,
+        sessionId,
+        resolve: (answer) => {
+          settle()
+          resolve(answer)
+        },
+      })
+      this.emit({
+        type: 'tool.question.required',
+        runId: context.runId,
+        sessionId,
+        request: {
+          id,
+          toolCallId: context.toolCallId,
+          prompt: request.prompt,
+          options: request.options,
+          multiSelect: request.multiSelect,
+          status: 'pending',
+        } satisfies QuestionView,
+      })
     })
   }
 
@@ -890,6 +967,21 @@ export class BrowserAgentBridge implements AgentBridgeClient {
 
   async confirmTool(): Promise<void> {
     throw new AgentRuntimeError('RUN_NOT_ACTIVE', 'No tool confirmation is pending.')
+  }
+
+  /** 把用户的回答投递给挂起中的提问，使 ask_user 工具继续执行；未知问题直接忽略。 */
+  async answerQuestion(questionId: string, answer: QuestionAnswerView): Promise<void> {
+    const pending = this.pendingQuestions.get(questionId)
+    if (!pending) return
+    this.emit({
+      type: 'tool.question.resolved',
+      runId: pending.runId,
+      sessionId: pending.sessionId,
+      questionId,
+      status: 'answered',
+      answer,
+    })
+    pending.resolve(answer)
   }
 
   async undoTurn(): Promise<void> {

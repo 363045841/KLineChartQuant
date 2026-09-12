@@ -17,6 +17,7 @@
       :messages="state.messages"
       :tool-calls="state.toolCalls"
       :confirmations="state.confirmations"
+      :questions="state.questions"
       :run="state.run"
       :runs="[...state.previousRuns, state.run]"
       :error="state.error"
@@ -24,6 +25,7 @@
       :locale="locale"
       @prompt="draft = $event"
       @confirm="confirmTool"
+      @answer="answerQuestion"
       @retry="retry"
       @undo="undoTurn"
     />
@@ -99,6 +101,7 @@
     stop,
     retry,
     confirmTool,
+    answerQuestion,
     undoTurn,
     setReadOnly,
     setModel,
@@ -130,6 +133,13 @@
     () => state.value.confirmations.at(-1)?.status,
     (status) => {
       if (status === 'pending') focusTarget('[data-focus="confirmation"] button')
+    },
+  )
+
+  watch(
+    () => state.value.questions.at(-1)?.status,
+    (status) => {
+      if (status === 'pending') focusTarget('[data-focus="question"] button')
     },
   )
 

@@ -96,6 +96,7 @@ All READMEs are generated from `docs/fragments/` (reusable Markdown snippets) + 
 - **Layer roles**: background / primary / indicator / component / drawing / overlay; UpdateLevel Main|Overlay|All for dual-canvas incremental paint.
 - **StateKernel** is the single source of truth for chart business state (sub-state modules include options, zoom, data, dataManager, comparison, indicator, subPane, marker, viewport, pane, settings, mode, drawing, interaction, systemTheme). Preference theme is `settings.theme` (`light|dark|auto`); **effective** theme is `computed` from preference + `systemTheme` (exposed as flat `signals.theme`). Each sub-state module exposes `readonly` (ReadonlySignal bag) + semantic `actions`. WritableSignal bag (`signals`) is never part of the public return — all mutations flow through actions. Derived state lives in computed(); DOM side-effects in effect(). See `docs/state-kernel-migration-plan.md`.
 - **Core Native Agent Tools** Agent 和用户等权,用户UI调用的入口就是Agent工具的入口,Agent就是用户,用户就是Agent.
+- ai-runtime是废弃包,不用维护,现在的实现都在agent-runtime中
 
 ### StateKernel Reactive Kernel Design Principles
 

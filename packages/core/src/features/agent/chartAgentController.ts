@@ -46,8 +46,8 @@ import type {
   TimeShareRangeQueryResult,
 } from './types'
 import type { IndicatorInstance, SymbolSpec } from '../../controllers/types'
+import { ASSET_CLASS_VALUES } from '../../data/provider/types'
 import type {
-  AssetClass,
   KLineAdjustment,
   KLinePeriod,
   TradingDate,
@@ -106,23 +106,11 @@ const KLINE_ADJUSTMENT_VALUES = [
   'splits',
   'none',
 ] as const satisfies ReadonlyArray<KLineAdjustment>
-const ASSET_CLASS_VALUES = [
-  'stock',
-  'index',
-  'fund',
-  'etf',
-  'future',
-  'option',
-  'forex',
-  'crypto',
-  'unknown',
-] as const satisfies ReadonlyArray<AssetClass>
 
-const KLinePeriodToolParameter = Type.Union(KLINE_PERIOD_VALUES.map((value) => Type.Literal(value)))
-const KLineAdjustmentToolParameter = Type.Union(
-  KLINE_ADJUSTMENT_VALUES.map((value) => Type.Literal(value)),
-)
-const AssetClassToolParameter = Type.Union(ASSET_CLASS_VALUES.map((value) => Type.Literal(value)))
+// Type.Enum 保留 as const 数组的字面量联合推断；Type.Union(values.map(...)) 在 typebox 1.x 下推断为 never。
+const KLinePeriodToolParameter = Type.Enum(KLINE_PERIOD_VALUES)
+const KLineAdjustmentToolParameter = Type.Enum(KLINE_ADJUSTMENT_VALUES)
+const AssetClassToolParameter = Type.Enum(ASSET_CLASS_VALUES)
 const TradingDateToolParameter = Type.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$' })
 
 const IndicatorQueryToolParameters = Type.Object(
@@ -184,10 +172,8 @@ const DRAWING_KIND_VALUES = [
   'disjoint-channel',
 ] as const
 
-const DrawingKindToolParameter = Type.Union(DRAWING_KIND_VALUES.map((value) => Type.Literal(value)))
-const AgentDrawingColorToolParameter = Type.Union(
-  AGENT_DRAWING_COLOR_VALUES.map((value) => Type.Literal(value)),
-)
+const DrawingKindToolParameter = Type.Enum(DRAWING_KIND_VALUES)
+const AgentDrawingColorToolParameter = Type.Enum(AGENT_DRAWING_COLOR_VALUES)
 const DrawingAnchorToolParameters = Type.Object({
   tradingDate: Type.Optional(TradingDateToolParameter),
   price: Type.Number(),

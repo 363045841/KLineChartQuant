@@ -8,8 +8,19 @@ import type { MarketSessionConfig } from '../../foundation/utils/sessionTimeLabe
 import type { DepthSource } from '../depth/depthTypes'
 
 /** 前端可识别的品种类别；unknown 用于尚未完成语义归一化的数据源品种。 */
-export type AssetClass =
-  'stock' | 'index' | 'fund' | 'etf' | 'future' | 'option' | 'forex' | 'crypto' | 'unknown'
+export const ASSET_CLASS_VALUES = [
+  'stock',
+  'index',
+  'fund',
+  'etf',
+  'future',
+  'option',
+  'forex',
+  'crypto',
+  'unknown',
+] as const
+
+export type AssetClass = (typeof ASSET_CLASS_VALUES)[number]
 
 /** 图表当前支持的标准 K 线周期。 */
 export type KLinePeriod =

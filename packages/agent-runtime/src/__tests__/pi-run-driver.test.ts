@@ -366,4 +366,38 @@ describe('PiRunDriver', () => {
     } satisfies Partial<AgentRuntimeError>)
     expect(toolSignalAborted).toBe(true)
   })
+
+  it('suspends the deadline while a tool waits for user input', async () => {
+    const tool: RuntimeToolDefinition = {
+      name: 'ask_user',
+      label: 'Ask question',
+      description: 'Wait for the user answer',
+      parameters: Type.Object({}),
+      safety: 'read-only',
+      reversible: false,
+      waitsForUserInput: true,
+      execute: () =>
+        new Promise((resolve) => {
+          setTimeout(
+            () => resolve({ content: '{"status":"answered"}', summary: 'User selected: A.' }),
+            80,
+          )
+        }),
+    }
+    const { plan } = fixture(
+      [
+        fauxAssistantMessage(
+          fauxToolCall('ask_user', {}, { id: 'ask-1' }),
+          { stopReason: 'toolUse' },
+        ),
+        fauxAssistantMessage('Added the index.'),
+      ],
+      [tool],
+    )
+    plan.timeoutMs = 20
+
+    await expect(new PiRunDriver().run(plan, () => undefined)).resolves.toMatchObject({
+      text: 'Added the index.',
+    })
+  })
 })

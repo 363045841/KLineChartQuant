@@ -8,6 +8,7 @@ import {
   type AgentUiEvent,
   type ConfirmationView,
   type ProviderStatusView,
+  type QuestionView,
   type ToolCallView,
 } from './agent-contracts'
 
@@ -18,6 +19,7 @@ export interface AgentWorkspaceState {
   messages: AgentMessageView[]
   toolCalls: ToolCallView[]
   confirmations: ConfirmationView[]
+  questions: QuestionView[]
   run: AgentRunView
   previousRuns: AgentRunView[]
   provider: ProviderStatusView
@@ -40,6 +42,7 @@ export function createInitialAgentState(): AgentWorkspaceState {
     messages: [],
     toolCalls: [],
     confirmations: [],
+    questions: [],
     run: IDLE_RUN,
     previousRuns: [],
     provider: {
@@ -236,6 +239,27 @@ function reduceCurrentAgentUiEvent(
           status: event.decision === 'confirmed' ? 'running' : 'rejected',
         })),
         announcement: event.decision === 'confirmed' ? 'Action confirmed.' : 'Action rejected.',
+      }
+    }
+
+    case 'tool.question.required':
+      return {
+        ...state,
+        questions: [...state.questions, event.request],
+        announcement: 'Agent asked a question.',
+      }
+
+    case 'tool.question.resolved': {
+      const question = state.questions.find((item) => item.id === event.questionId)
+      if (!question) return state
+      return {
+        ...state,
+        questions: state.questions.map((item) =>
+          item.id === event.questionId
+            ? { ...item, status: event.status, ...(event.answer ? { answer: event.answer } : {}) }
+            : item,
+        ),
+        announcement: event.status === 'answered' ? 'Question answered.' : 'Question cancelled.',
       }
     }
 
