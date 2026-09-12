@@ -13,16 +13,13 @@
     >
       <template #subheader>
         <div class="selector-toolbar">
-          <div class="search-box">
-            <IconTablerSearch class="search-icon" aria-hidden="true" />
-            <input
-              :value="searchQuery"
-              type="text"
-              class="search-input"
-              placeholder="搜索指标名称..."
-              @input="controller.setSearchQuery(($event.target as HTMLInputElement).value)"
-            />
-          </div>
+          <SearchField
+            class="selector-search"
+            :model-value="searchQuery"
+            placeholder="搜索指标名称..."
+            aria-label="搜索指标"
+            @update:model-value="controller.setSearchQuery"
+          />
           <SegmentedTabs v-model="indicatorView" :tabs="viewOptions" aria-label="指标视图" />
         </div>
       </template>
@@ -141,6 +138,7 @@
   import BaseModal from './BaseModal.vue'
   import IndicatorParams from './IndicatorParams.vue'
   import SegmentedTabs from './SegmentedTabs.vue'
+  import SearchField from './common/SearchField.vue'
 
   const props = defineProps<{
     activeIndicators?: string[]
@@ -383,41 +381,6 @@
     gap: 12px;
   }
 
-  /* ── 搜索 ── */
-  .search-box {
-    display: flex;
-    flex: 1;
-    min-width: 0;
-    align-items: center;
-    gap: 8px;
-    height: 34px;
-    padding: 0 12px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 8px;
-    background: var(--klc-color-ui-control-background);
-  }
-
-  .search-icon {
-    flex-shrink: 0;
-    width: 15px;
-    height: 15px;
-    color: var(--klc-color-ui-muted);
-  }
-
-  .search-input {
-    flex: 1;
-    border: none;
-    background: transparent;
-    font: inherit;
-    font-size: 13px;
-    color: var(--klc-color-ui-text);
-    outline: none;
-  }
-
-  .search-input::placeholder {
-    color: var(--klc-color-ui-muted);
-  }
-
   /* ── 无匹配 ── */
   .no-results {
     display: flex;
@@ -652,6 +615,11 @@
       align-items: stretch;
       flex-direction: column;
       gap: 8px;
+    }
+
+    /* 纵向排列时不再横向占位，保持固定高度不被 flex 拉伸 */
+    .selector-search {
+      flex: none;
     }
 
     .selector-toolbar :deep(.segmented-tabs) {

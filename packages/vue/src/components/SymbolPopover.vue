@@ -15,51 +15,12 @@
       >
         <slot name="tabs" />
         <div class="symbol-popover__search">
-          <span class="symbol-popover__search-icon" aria-hidden="true">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-              <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.6" />
-              <line
-                x1="10.5"
-                y1="10.5"
-                x2="14.5"
-                y2="14.5"
-                stroke="currentColor"
-                stroke-width="1.6"
-                stroke-linecap="round"
-              />
-            </svg>
-          </span>
-          <input
-            ref="inputRef"
+          <SearchField
+            ref="searchFieldRef"
             v-model="search"
-            class="symbol-popover__input"
-            type="text"
             :placeholder="searchPlaceholder"
-            autocomplete="off"
-            spellcheck="false"
             :aria-label="searchAriaLabel"
           />
-          <button
-            v-if="search"
-            type="button"
-            class="symbol-popover__clear"
-            aria-label="清空搜索"
-            @click="clearSearch"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M3 6h18" />
-              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-            </svg>
-          </button>
           <AggregationSourceButton @click="emit('manageSources')" />
         </div>
         <slot name="body" />
@@ -69,12 +30,14 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+  import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
+  import { useClickOutside } from '../composables/useClickOutside'
   import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
   import { useTeleportedPopup } from '../composables/useTeleportedPopup'
 
   import AggregationSourceButton from './AggregationSourceButton.vue'
+  import SearchField from './common/SearchField.vue'
 
   const props = withDefaults(
     defineProps<{
@@ -103,7 +66,7 @@
   }>()
 
   const panelRef = ref<HTMLElement | null>(null)
-  const inputRef = ref<HTMLInputElement | null>(null)
+  const searchFieldRef = ref<InstanceType<typeof SearchField> | null>(null)
   const teleportTarget = useFullscreenTeleportTarget()
 
   const { popupStyle, startPositionSync, stopPositionSync } = useTeleportedPopup(
@@ -112,37 +75,27 @@
     8,
   )
 
-  /** 清空搜索并回焦输入框 */
-  function clearSearch() {
-    search.value = ''
-    inputRef.value?.focus()
-  }
-
   /** 展开时同步定位并聚焦搜索框，收起时停止监听 */
   watch(
     () => props.show,
     (open) => {
       if (open) {
         startPositionSync()
-        nextTick(() => inputRef.value?.focus())
+        nextTick(() => searchFieldRef.value?.focus())
       } else {
         stopPositionSync()
       }
     },
   )
 
-  /** 点击弹层与触发元素之外时请求关闭 */
-  function onDocumentPointerDown(event: MouseEvent) {
-    if (!props.show) return
-    const path = event.composedPath()
-    if (props.anchor && path.includes(props.anchor)) return
-    if (panelRef.value && path.includes(panelRef.value)) return
-    emit('close')
-  }
+  // 点击弹层与触发元素之外时请求关闭
+  useClickOutside(
+    () => [props.anchor, panelRef.value],
+    () => emit('close'),
+    { enabled: () => props.show },
+  )
 
-  onMounted(() => document.addEventListener('mousedown', onDocumentPointerDown))
   onBeforeUnmount(() => {
-    document.removeEventListener('mousedown', onDocumentPointerDown)
     stopPositionSync()
   })
 </script>
@@ -163,69 +116,9 @@
   }
 
   .symbol-popover__search {
-    position: relative;
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 0 10px;
-    height: 32px;
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 8px;
-    background: var(--klc-color-ui-control-background);
-  }
-
-  .symbol-popover__search-icon {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    color: var(--klc-color-ui-muted);
-  }
-
-  .symbol-popover__input {
-    flex: 1 1 0;
-    min-width: 0;
-    border: none;
-    outline: none;
-    background: transparent;
-    color: var(--klc-color-ui-text);
-    font: inherit;
-    font-size: 13px;
-    line-height: 1;
-  }
-
-  .symbol-popover__input::placeholder {
-    color: var(--klc-color-ui-muted);
-    opacity: 0.7;
-  }
-
-  .symbol-popover__clear {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    border: 1px solid transparent;
-    border-radius: 4px;
-    background: transparent;
-    color: var(--klc-color-ui-muted);
-    cursor: pointer;
-    transition:
-      border-color 0.15s ease,
-      background 0.15s ease,
-      color 0.15s ease;
-  }
-
-  .symbol-popover__clear:hover {
-    border-color: var(--klc-color-ui-border);
-    background: var(--klc-color-ui-hover);
-    color: var(--klc-color-ui-text);
-  }
-
-  .symbol-popover__clear svg {
-    width: 14px;
-    height: 14px;
   }
 
   .symbol-popover-enter-active,

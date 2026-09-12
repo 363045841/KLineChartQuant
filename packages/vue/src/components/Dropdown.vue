@@ -55,6 +55,7 @@
 <script setup lang="ts">
   import { computed, onBeforeUnmount, ref } from 'vue'
 
+  import { useClickOutside } from '../composables/useClickOutside'
   import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
   import { useTeleportedPopup } from '../composables/useTeleportedPopup'
 
@@ -106,6 +107,13 @@
     false,
   )
 
+  // 点击触发器与菜单之外时关闭
+  useClickOutside(
+    () => [rootRef.value, menuRef.value],
+    () => close(),
+    { enabled: () => isOpen.value },
+  )
+
   const triggerStyle = computed(() => {
     if (props.minWidth) return { minWidth: props.minWidth }
     return {}
@@ -148,7 +156,6 @@
     isOpen.value = true
     emit('open')
     startPositionSync()
-    document.addEventListener('pointerdown', handleDocumentPointerDown, true)
   }
 
   function close() {
@@ -159,7 +166,6 @@
       activeDropdownClose = null
     }
     stopPositionSync()
-    document.removeEventListener('pointerdown', handleDocumentPointerDown, true)
   }
 
   function toggleOpen() {
@@ -173,15 +179,6 @@
   function selectOption(value: string) {
     emit('update:modelValue', value)
     close()
-  }
-
-  function handleDocumentPointerDown(event: PointerEvent) {
-    const root = rootRef.value
-    const menu = menuRef.value
-    const path = event.composedPath()
-    if ((!root || !path.includes(root)) && (!menu || !path.includes(menu))) {
-      close()
-    }
   }
 
   onBeforeUnmount(close)
