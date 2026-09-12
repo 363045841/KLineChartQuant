@@ -37,6 +37,7 @@ function createHarness() {
   })
   const loadRange = vi.fn()
   const setLoading = vi.fn()
+  const setReferenceLength = vi.fn()
   const releaseSelection = vi.fn((selection: BarsSelection) => repository.delete(selection))
   const manager = new ComparisonManager(repository, {
     selectionForSpec,
@@ -47,6 +48,7 @@ function createHarness() {
     scheduleDraw: vi.fn(),
     getSpecs: () => specs,
     setLoading,
+    setReferenceLength,
   })
   return {
     manager,
@@ -55,6 +57,7 @@ function createHarness() {
     loadBuffer,
     loadRange,
     setLoading,
+    setReferenceLength,
     releaseSelection,
     setSpecs(next: ReadonlyArray<SymbolSpec>) {
       specs = next
@@ -84,6 +87,26 @@ describe('ComparisonManager runtime projection', () => {
 
     expect(harness.createBuffer).toHaveBeenCalledTimes(1)
     expect(harness.repository.getBars(selectionForSpec(spec))).toBeDefined()
+  })
+
+  it('publishes the reference series bar count and resets it when comparisons are gone', () => {
+    const harness = createHarness()
+    const first = { symbol: 'A', market: 'CN', source: 'custom', period: 'daily' }
+    const second = { symbol: 'B', market: 'CN', source: 'custom', period: 'daily' }
+    harness.setSpecs([first, second])
+    harness.manager.reconcile()
+    harness.setReferenceLength.mockClear()
+
+    harness.manager.setData('A', [{ timestamp: 1, open: 1, high: 1, low: 1, close: 1 }])
+    harness.manager.setData('B', [
+      { timestamp: 1, open: 1, high: 1, low: 1, close: 1 },
+      { timestamp: 2, open: 1, high: 1, low: 1, close: 1 },
+    ])
+    expect(harness.setReferenceLength).toHaveBeenLastCalledWith(1)
+
+    harness.setSpecs([])
+    harness.manager.reconcile()
+    expect(harness.setReferenceLength).toHaveBeenLastCalledWith(0)
   })
 
   it('does not reset a shared leaf when comparison request metadata differs', () => {

@@ -111,7 +111,7 @@ function createTestProvider(options: {
 function createDependencies(
   dom: ChartDom,
   setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => void,
-  symbols$: ReturnType<typeof createSignal<ReadonlyArray<SymbolSpec>>>,
+  _symbols$: ReturnType<typeof createSignal<ReadonlyArray<SymbolSpec>>>,
   scheduleDraw: () => void = () => {},
 ): DataDependencies {
   return {
@@ -120,7 +120,7 @@ function createDependencies(
     setZoomLevel: () => {},
     getDom: () => dom,
     viewport: createMockViewport(),
-    comparison: createComparisonState({ symbols$ }),
+    comparison: createComparisonState(),
     scheduleDraw,
     resetInteraction: () => {},
     getIndicatorScheduler: () => ({

@@ -578,9 +578,15 @@
     try {
       applyInstrumentCapabilities(item)
       ctrl.registerSymbols([toLegacySymbolInfo(item)])
-      const current = ctrl.symbols.peek() ?? []
-      const comparisonSpecs = current.slice(1)
-      ctrl.setSymbols([toSymbolSpec(item), ...comparisonSpecs])
+      // 对比视图没有主品种：切换主品种时，把对比集合中原来由 UI 推入的主品种条目替换为新品种。
+      const oldKey = currentSymbolItem.value ? symbolIdentityKey(currentSymbolItem.value) : null
+      const specs = ctrl.comparisonSpecs.peek()
+      if (oldKey && specs.some((spec) => symbolIdentityKey(spec) === oldKey)) {
+        ctrl.setComparisonSpecs(
+          specs.map((spec) => (symbolIdentityKey(spec) === oldKey ? toSymbolSpec(item) : spec)),
+        )
+      }
+      ctrl.setSymbols([toSymbolSpec(item)])
     } catch (error) {
       symbolStatus.value = 'error'
       symbolErrorMessage.value = formatUnsupportedSymbolMessage(item, error)
@@ -615,7 +621,12 @@
     const ctrl = controller.value
     if (!ctrl) return
     try {
-      ctrl.addComparisonSymbol(toSymbolSpec(item))
+      const primary = currentSymbolItem.value ? toSymbolSpec(currentSymbolItem.value) : null
+      // 比较视图不设主品种；首个对比时由 UI 把当前 kline 主品种作为普通序列推入，保证主折线可见。
+      if (primary && ctrl.comparisonSpecs.peek().length === 0) {
+        ctrl.addComparisonSymbol(primary)
+      }
+      ctrl.addComparisonSymbol(toSymbolSpec(item), primary)
     } catch (error) {
       symbolStatus.value = 'error'
       symbolErrorMessage.value = formatUnsupportedSymbolMessage(item, error)
@@ -704,10 +715,11 @@
 
   function syncSymbolsToController() {
     if (!currentSymbolItem.value) return
-    controller.value?.setSymbols([
-      toSymbolSpec(currentSymbolItem.value),
-      ...overlaySymbolItems.value.map(toSymbolSpec),
-    ])
+    const ctrl = controller.value
+    if (!ctrl) return
+    // 主品种与对比集合解耦：分别写入，周期/复权变化时对比集合用最新周期重建。
+    ctrl.setSymbols([toSymbolSpec(currentSymbolItem.value)])
+    ctrl.setComparisonSpecs(overlaySymbolItems.value.map(toSymbolSpec))
   }
 
   // ── DOM Template Refs ──
@@ -1765,8 +1777,10 @@
             capabilities: {},
           }
       if (primary.adjust) kLineAdjust.value = primary.adjust as 'qfq' | 'hfq' | 'splits' | 'none'
+    })
 
-      const comparisonSpecs = specs.slice(1)
+    const unsubscribeComparisonSpecs = ctrl.comparisonSpecs.subscribe(() => {
+      const comparisonSpecs = ctrl.comparisonSpecs.peek()
       overlaySymbols.value = comparisonSpecs.map(symbolIdentityKey)
       overlaySymbolItems.value = comparisonSpecs.map((s) => {
         const info = ctrl.symbolCatalog
@@ -1805,6 +1819,7 @@
       unsubscribeRendererRuntime()
       unsubscribeComparisonColors()
       unsubscribeComparisonLoading()
+      unsubscribeComparisonSpecs()
       unsubscribeSymbolCatalog()
       unsubscribeSymbols()
     }
@@ -1885,7 +1900,9 @@
     if (props.customData) {
       ctrl.applyCustomData(props.customData)
     } else if (props.symbols !== undefined) {
-      ctrl.setSymbols(props.symbols)
+      // 受控 symbols = [主品种, ...对比品种]；对比集合独立写入，首项作为普通序列推入保证可比对。
+      ctrl.setSymbols(props.symbols.length > 0 ? [props.symbols[0]!] : [])
+      ctrl.setComparisonSpecs(props.symbols.length > 1 ? props.symbols : [])
     }
 
     if (props.customMarkers !== undefined) {

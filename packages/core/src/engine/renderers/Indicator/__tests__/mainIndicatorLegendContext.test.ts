@@ -171,8 +171,6 @@ describe('buildLegendTemplateContext comparison rows', () => {
       paneWidth: 800,
       theme: 'light',
       isAsiaMarket: true,
-      primarySymbol: '600000',
-      primarySymbolName: '三六零',
       comparisonSymbols: [spec],
       comparisonData: new Map([[identity, comparisonDataFor(spec)]]),
       comparisonColors: new Map([[identity, '#123456']]),
@@ -181,15 +179,8 @@ describe('buildLegendTemplateContext comparison rows', () => {
     const result = buildLegendTemplateContext({ context, host: null, yPaddingPx: 0 })
 
     expect(result?.currentBar).toBeNull()
-    // 主品种首行（close 10 → 11，+10%）+ 比较品种行
+    // 对比视图没有主品种行，仅列出比较品种
     expect(result?.comparisons).toEqual([
-      {
-        symbol: '600000',
-        name: '三六零',
-        percent: 10,
-        color: '#0072B2',
-        percentColor: result?.colors?.up,
-      },
       {
         symbol: spec.symbol,
         ...(spec.instrument?.name ? { name: spec.instrument.name } : {}),
@@ -200,7 +191,7 @@ describe('buildLegendTemplateContext comparison rows', () => {
     ])
   })
 
-  it('shows the main symbol row even when comparison data is not loaded', () => {
+  it('has no main symbol row when comparison data is not loaded', () => {
     const spec: SymbolSpec = { id: 'SH.600000', symbol: '600000', market: 'SH', period: 'daily' }
     const context = {
       data: mainData,
@@ -209,8 +200,6 @@ describe('buildLegendTemplateContext comparison rows', () => {
       paneWidth: 800,
       theme: 'light',
       isAsiaMarket: true,
-      primarySymbol: 'MAIN',
-      primarySymbolName: '主品种',
       comparisonSymbols: [spec],
       comparisonData: new Map([[symbolSpecIdentityKey(spec), []]]),
       comparisonColors: new Map([[symbolSpecIdentityKey(spec), '#123456']]),
@@ -218,15 +207,6 @@ describe('buildLegendTemplateContext comparison rows', () => {
 
     const result = buildLegendTemplateContext({ context, host: null, yPaddingPx: 0 })
 
-    // 主品种 targetIndex=1 close=11，base close=10 → +10%
-    expect(result?.comparisons).toEqual([
-      {
-        symbol: 'MAIN',
-        name: '主品种',
-        percent: 10,
-        color: '#0072B2',
-        percentColor: result?.colors?.up,
-      },
-    ])
+    expect(result?.comparisons).toEqual([])
   })
 })

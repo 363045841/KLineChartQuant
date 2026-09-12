@@ -26,6 +26,8 @@ loadRange(
   scheduleDraw(): void
   getSpecs(): ReadonlyArray<SymbolSpec>
   setLoading(loading: boolean): void
+  /** 发布对比参考序列（specs[0]）的已加载 bar 数。 */
+  setReferenceLength(length: number): void
 }
 
 type BufferSubscriptions = {
@@ -87,12 +89,14 @@ export class ComparisonManager {
     }
 
     this.recomputeLoading()
+    this.recomputeReferenceLength()
   }
 
   /** 清理全部运行时订阅；Buffer 生命周期仍由 Repository 负责。 */
   clearAll(): void {
     for (const key of [...this.subscriptions.keys()]) this.removeSubscriptions(key, true)
     this.hooks.setLoading(false)
+    this.hooks.setReferenceLength(0)
   }
 
   /** 向已选择的比较序列写入内联数据。 */
@@ -115,6 +119,7 @@ export class ComparisonManager {
       this.mountSubscriptions(key, selection, buffer)
     }
     buffer.setInlineData(data)
+    this.recomputeReferenceLength()
     return true
   }
 
@@ -136,7 +141,10 @@ export class ComparisonManager {
 
   /** 订阅单个比较 Buffer 的数据与加载状态。 */
   private mountSubscriptions(key: string, selection: BarsSelection, buffer: KLineBuffer): void {
-    const data = buffer.data.subscribe(() => this.hooks.scheduleDraw())
+    const data = buffer.data.subscribe(() => {
+      this.recomputeReferenceLength()
+      this.hooks.scheduleDraw()
+    })
     const loading = buffer.loading.subscribe(() => this.recomputeLoading())
     this.subscriptions.set(key, { data, loading, selection, buffer })
   }
@@ -159,5 +167,16 @@ export class ComparisonManager {
           this.repository.getBars(this.hooks.selectionForSpec(spec))?.loading.peek() === true,
       )
     this.hooks.setLoading(anyLoading)
+  }
+
+  /** 参考序列取 specs[0]，其 bar 数在无主品种时驱动视口数据长度。 */
+  private recomputeReferenceLength(): void {
+    const reference = this.hooks.getSpecs()[0]
+    if (!reference) {
+      this.hooks.setReferenceLength(0)
+      return
+    }
+    const buffer = this.repository.getBars(this.hooks.selectionForSpec(reference))
+    this.hooks.setReferenceLength(buffer ? buffer.getRawData().length : 0)
   }
 }

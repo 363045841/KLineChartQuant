@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest'
-import { createSignal } from '../../../foundation/reactivity/signal'
 import type { SymbolSpec } from '../../../controllers/types'
 import { symbolSpecIdentityKey } from '../../data/symbolIdentity'
 import { ChartStateKernel } from '../chartStateKernel'
@@ -23,51 +22,27 @@ describe('comparisonState', () => {
     expect(m.readonly.colors().has('B')).toBe(false)
   })
 
-  it('dispose resets colors and loading atomically', () => {
+  it('stores immutable comparison specs and derives active from their count', () => {
     const m = createComparisonState()
-    m.actions.setColors(new Map([['A', '#fff']]))
-    m.actions.setLoading(true)
-    const snaps: Array<{ size: number; loading: boolean }> = []
-    m.readonly.colors.subscribe(() => {
-      snaps.push({ size: m.readonly.colors.peek().size, loading: m.readonly.loading.peek() })
-    })
-    m.readonly.loading.subscribe(() => {
-      snaps.push({ size: m.readonly.colors.peek().size, loading: m.readonly.loading.peek() })
-    })
-    m.dispose()
-    expect(m.readonly.colors().size).toBe(0)
-    expect(m.readonly.loading()).toBe(false)
-    for (const s of snaps) {
-      expect(s).toEqual({ size: 0, loading: false })
-    }
-  })
+    expect(m.readonly.active()).toBe(false)
 
-  it('derives immutable comparison specs from the symbols signal', () => {
-    const symbols = createSignal<ReadonlyArray<SymbolSpec>>([
-      { symbol: 'MAIN', market: 'CN', period: 'daily' },
-      { symbol: 'CMP', market: 'CN', period: 'weekly' },
-    ])
-    const m = createComparisonState({ symbols$: symbols })
+    const specs: SymbolSpec[] = [{ symbol: 'CMP', market: 'CN', period: 'weekly' }]
+    m.actions.setSpecs(specs)
 
-    const specs = m.readonly.specs.peek()
-    expect(specs).toEqual([{ symbol: 'CMP', market: 'CN', period: 'weekly' }])
-    expect(Object.isFrozen(specs)).toBe(true)
-    expect(Object.isFrozen(specs[0])).toBe(true)
+    const stored = m.readonly.specs.peek()
+    expect(stored).toEqual(specs)
+    expect(Object.isFrozen(stored)).toBe(true)
+    expect(Object.isFrozen(stored[0])).toBe(true)
+    expect(m.readonly.active()).toBe(true)
 
-    symbols.set([{ symbol: 'NEXT', market: 'CN', period: 'daily' }])
-    expect(m.readonly.specs.peek()).toEqual([])
-  })
-
-  it('has no action that can write comparison specs directly', () => {
-    const m = createComparisonState()
-    expect('setSpecs' in m.actions).toBe(false)
-    expect('replaceSpecs' in m.actions).toBe(false)
+    m.actions.setSpecs([])
+    expect(m.readonly.active()).toBe(false)
   })
 })
 
 describe('ChartStateKernel comparison selection transaction', () => {
-  it('publishes symbols, derived specs, and colors without an intermediate snapshot', () => {
-    const kernel = new ChartStateKernel({
+  function createKernel(): ChartStateKernel {
+    return new ChartStateKernel({
       initialOptions: {
         minKWidth: 3,
         maxKWidth: 20,
@@ -81,30 +56,52 @@ describe('ChartStateKernel comparison selection transaction', () => {
       initialZoomLevel: 0,
       scheduleDraw: () => {},
     })
-    const snapshots: Array<{ symbols: string[]; specs: string[]; colors: string[] }> = []
+  }
+
+  it('publishes comparison specs and colors without an intermediate snapshot', () => {
+    const kernel = createKernel()
+    const snapshots: Array<{ specs: string[]; colors: string[] }> = []
     const capture = () => {
       snapshots.push({
-        symbols: kernel.data.readonly.symbols.peek().map((spec) => spec.symbol),
         specs: kernel.comparison.readonly.specs.peek().map((spec) => spec.symbol),
         colors: [...kernel.comparison.readonly.colors.peek().keys()],
       })
     }
-    kernel.data.readonly.symbols.subscribe(capture)
     kernel.comparison.readonly.specs.subscribe(capture)
     kernel.comparison.readonly.colors.subscribe(capture)
+
+    kernel.actions.setComparisonSpecs([{ symbol: 'CMP', market: 'CN', period: 'daily' }])
+
+    expect(snapshots.length).toBeGreaterThan(0)
+    expect(snapshots).toEqual(
+      snapshots.map(() => ({
+        specs: ['CMP'],
+        colors: [symbolSpecIdentityKey({ symbol: 'CMP', market: 'CN' })],
+      })),
+    )
+  })
+
+  it('setSymbols no longer writes comparison specs', () => {
+    const kernel = createKernel()
 
     kernel.actions.setSymbols([
       { symbol: 'MAIN', market: 'CN', period: 'daily' },
       { symbol: 'CMP', market: 'CN', period: 'daily' },
     ])
 
-    expect(snapshots.length).toBeGreaterThan(0)
-    expect(snapshots).toEqual(
-      snapshots.map(() => ({
-        symbols: ['MAIN', 'CMP'],
-        specs: ['CMP'],
-        colors: [symbolSpecIdentityKey({ symbol: 'CMP', market: 'CN' })],
-      })),
-    )
+    expect(kernel.data.readonly.symbols.peek().map((spec) => spec.symbol)).toEqual([
+      'MAIN',
+      'CMP',
+    ])
+    expect(kernel.comparison.readonly.specs.peek()).toEqual([])
+  })
+
+  it('uses the comparison reference length for the viewport when comparison is active', () => {
+    const kernel = createKernel()
+
+    kernel.actions.setComparisonSpecs([{ symbol: 'CMP', market: 'CN', period: 'daily' }])
+    kernel.comparison.actions.setReferenceLength(42)
+
+    expect(kernel.dataLength$()).toBe(42)
   })
 })

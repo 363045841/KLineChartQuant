@@ -141,6 +141,7 @@ export class ChartDataManager {
       scheduleDraw: () => this.deps.scheduleDraw(),
       getSpecs: () => this.deps.comparison.readonly.specs.peek(),
       setLoading: (loading) => this.deps.comparison.actions.setLoading(loading),
+      setReferenceLength: (length) => this.deps.comparison.actions.setReferenceLength(length),
     })
     this._comparisonSpecsUnsub = this.deps.comparison.readonly.specs.subscribe(() => {
       this.reconcileComparisonBuffers()
@@ -750,7 +751,22 @@ export class ChartDataManager {
   }
 
   getRenderData(): ReadonlyArray<KLineData | TimeShareData> {
+    // 比较视图只认对比集合：首个序列同时是横轴与百分比的参考序列，与 kline 主品种无关。
+    if (this.deps.comparison.readonly.specs.peek().length > 0) {
+      return this.getComparisonReferenceData()
+    }
     return this._dataState.readonly.data.peek()
+  }
+
+  /**
+   * 对比视图的横轴参考序列数据：取对比集合首个品种的已加载 Buffer。
+   * 参考序列仅决定时间轴与百分比基准价，不是“主品种”。
+   */
+  getComparisonReferenceData(): KLineData[] {
+    const reference = this.deps.comparison.readonly.specs.peek()[0]
+    if (!reference) return []
+    const buffer = this._repository.getBars(this.barsSelectionForSpec(reference))
+    return buffer ? buffer.getRawData() : []
   }
 
   getMonthKeys(): Int32Array | null {
@@ -925,14 +941,13 @@ export class ChartDataManager {
   }
 
   setComparisonData(symbol: string, data: KLineData[]): void {
-    const primary = this._dataState.readonly.symbols.peek()[0]
-    if (!primary) return
-    if (!this.deps.comparison.readonly.specs.peek().some((spec) => spec.symbol === symbol)) {
-      this.deps.setSymbols([
-        primary,
-        ...this.deps.comparison.readonly.specs.peek(),
-        { symbol, market: primary.market, period: DEFAULT_KLINE_PERIOD },
-      ])
+    const specs = this.deps.comparison.readonly.specs.peek()
+    if (!specs.some((spec) => spec.symbol === symbol)) {
+      // 未登记的对比品种按当前主品种 market 兜底，写回对比状态而非 kline symbols。
+      const market = this._dataState.readonly.symbols.peek()[0]?.market ?? ''
+      const next = [...specs, { symbol, market, period: DEFAULT_KLINE_PERIOD }]
+      this.deps.comparison.actions.setSpecs(next)
+      this.deps.comparison.actions.syncColors(next)
     }
     this._comparisonManager.setData(symbol, data)
   }
@@ -945,8 +960,7 @@ export class ChartDataManager {
     this._dmState.actions.setCurrentSpec({ ...current, symbol })
     const specs = this._dataState.readonly.symbols.peek()
     if (specs.length > 0) {
-      const updated = [{ ...specs[0], symbol }, ...specs.slice(1)] as SymbolSpec[]
-      this.deps.setSymbols(updated)
+      this.deps.setSymbols([{ ...specs[0], symbol }])
     }
   }
 
@@ -999,7 +1013,7 @@ export class ChartDataManager {
     const current = this._dmState.readonly.currentSpec.peek()
     if (!current) return
     const next = { ...current, period }
-    this.setSymbols([next, ...this.deps.comparison.readonly.specs.peek()])
+    this.setSymbols([next])
   }
 
   /**
@@ -1062,7 +1076,9 @@ export class ChartDataManager {
       buffer.setInlineData(source.comparisons![comparisonSpec.symbol]!.map((item) => ({ ...item })))
     }
 
-    this.setSymbols([spec, ...comparisonSpecs])
+    this.setSymbols([spec])
+    this.deps.comparison.actions.setSpecs(comparisonSpecs)
+    this.deps.comparison.actions.syncColors(comparisonSpecs)
 
     const symbolCode = spec.symbol
     if (symbolCode) {
@@ -1080,7 +1096,7 @@ export class ChartDataManager {
 
   resetToFetcher(spec: SymbolSpec): void {
     this._dmState.actions.setRangeInitialized(false)
-    this.setSymbols([spec, ...this.deps.comparison.readonly.specs.peek()])
+    this.setSymbols([spec])
   }
 
   // ── Main symbol switching ──
@@ -1226,8 +1242,8 @@ export class ChartDataManager {
   getComparisonViewLineRange(range: VisibleRange): { min: number; max: number } | null {
     const comparisonSpecs = this.deps.comparison.readonly.specs.peek()
     if (comparisonSpecs.length === 0) return null
-    const buf = this.getActiveDataBuffer()
-    const internalData = buf ? buf.getRawData() : []
+    // 参考序列是对比集合首个品种，仅决定横轴与百分比基准价。
+    const internalData = this.getComparisonReferenceData()
     if (internalData.length === 0) return null
     const baseIndex = Math.max(0, range.start)
     const baseItem = internalData[baseIndex]
@@ -1239,16 +1255,7 @@ export class ChartDataManager {
     let min = Number.POSITIVE_INFINITY
     let max = Number.NEGATIVE_INFINITY
 
-    // 主商品折线：close（蜡烛已隐藏，不使用 high/low）
-    for (let i = startIdx; i < range.end && i < internalData.length; i++) {
-      const close = internalData[i]?.close
-      if (Number.isFinite(close)) {
-        if (close < min) min = close
-        if (close > max) max = close
-      }
-    }
-
-    // 比较商品折线：相对自身基准的涨跌幅折算为主商品基准上的等价价
+    // 对比商品折线：相对自身基准的涨跌幅折算为参考序列基准上的等价价
     for (const spec of comparisonSpecs) {
       const data = this._comparisonManager.data.get(symbolSpecIdentityKey(spec))
       if (!data?.length) continue

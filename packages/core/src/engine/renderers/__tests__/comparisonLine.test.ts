@@ -3,7 +3,6 @@ import { describe, it, expect, vi } from 'vitest'
 import type { RenderContext } from '../../../foundation/plugin/index'
 import type { KLineData } from '../../../foundation/types/price'
 import {
-  buildMainLinePoints,
   buildComparisonLinePoints,
   strokeStrip,
   createComparisonLineRenderer,
@@ -93,23 +92,6 @@ function mockCtx() {
   } as unknown as CanvasRenderingContext2D
 }
 
-describe('buildMainLinePoints', () => {
-  it('maps each close through priceToY on main data', () => {
-    const points = buildMainLinePoints(makeContext(), mainData)
-    expect(points).toEqual([
-      { x: 0, y: 100 },
-      { x: 10, y: 102 },
-      { x: 20, y: 101 },
-    ])
-  })
-
-  it('marks missing bars with NaN y so the path breaks', () => {
-    const broken = [mainData[0]!, { ...mainData[1]!, close: Number.NaN }, mainData[2]!]
-    const points = buildMainLinePoints(makeContext(), broken)
-    expect(points[1]!.y).toBeNaN()
-  })
-})
-
 describe('buildComparisonLinePoints', () => {
   it('converts comparison percent change to main-base equivalent price', () => {
     const byDate = new Map(cmpData.map((d) => [d.date!, d]))
@@ -145,15 +127,15 @@ describe('strokeStrip', () => {
 })
 
 describe('createComparisonLineRenderer.draw', () => {
-  it('draws the main symbol line plus comparison lines in comparison view', () => {
+  it('draws one line per comparison symbol, with no privileged main line', () => {
     const ctx = mockCtx()
     const renderer = createComparisonLineRenderer()
     renderer.draw(makeContext({ ctx }))
     expect(ctx.save).toHaveBeenCalledTimes(1)
-    // 主商品 1 条 + 比较商品 1 条
-    expect(ctx.stroke).toHaveBeenCalledTimes(2)
-    expect(ctx.moveTo).toHaveBeenCalledTimes(2)
-    expect(ctx.lineTo).toHaveBeenCalledTimes(4)
+    // 仅比较商品 1 条折线
+    expect(ctx.stroke).toHaveBeenCalledTimes(1)
+    expect(ctx.moveTo).toHaveBeenCalledTimes(1)
+    expect(ctx.lineTo).toHaveBeenCalledTimes(2)
   })
 
   it('does not draw when no comparison symbols are present', () => {
@@ -175,7 +157,6 @@ describe('createComparisonLineRenderer.draw', () => {
     const ctx = mockCtx()
     const renderer = createComparisonLineRenderer()
     renderer.draw(makeContext({ ctx, comparisonData: new Map() }))
-    // 比较商品无数据仍画主商品折线
-    expect(ctx.stroke).toHaveBeenCalledTimes(1)
+    expect(ctx.stroke).not.toHaveBeenCalled()
   })
 })

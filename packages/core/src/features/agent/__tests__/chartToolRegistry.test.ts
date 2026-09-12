@@ -84,13 +84,11 @@ describe('Chart Agent @Tool registry', () => {
     expect(create.methodName).toBe('create')
     expect(create.config.name).not.toBe(create.methodName)
 
-    let symbols: SymbolSpec[] = [
-      { symbol: 'MAIN', market: 'CN', exchange: 'SSE', source: 'mock', period: 'daily' },
-    ]
+    let specs: SymbolSpec[] = []
     const comparison = new ComparisonCommands({
-      getSymbols: () => symbols,
-      commitSymbols: (next) => {
-        symbols = [...next]
+      getSpecs: () => specs,
+      setSpecs: (next) => {
+        specs = [...next]
       },
       setComparisonViewActive: () => undefined,
       validateSpec: () => undefined,
@@ -125,6 +123,6 @@ describe('Chart Agent @Tool registry', () => {
         { signal: new AbortController().signal, progress: () => undefined },
       ),
     ).resolves.toEqual({ status: 'added', symbol: '511090', name: '511090' })
-    expect(symbols.map((spec) => spec.symbol)).toEqual(['MAIN', '511090'])
+    expect(specs.map((spec) => spec.symbol)).toEqual(['511090'])
   })
 })

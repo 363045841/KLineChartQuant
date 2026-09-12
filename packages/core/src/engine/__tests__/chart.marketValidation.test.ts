@@ -12,8 +12,8 @@ function chartHarness() {
   const timeShareMode = { setMarketSession: vi.fn() }
   const marketSessions = new MarketSessionRegistry()
   const comparisonCommands = new ComparisonCommands({
-    getSymbols: () => [{ symbol: '01810', market: 'HK', period: 'daily' }],
-    commitSymbols: vi.fn(),
+    getSpecs: () => [],
+    setSpecs: vi.fn(),
     setComparisonViewActive: vi.fn(),
     validateSpec: (spec) => resolveSymbolMarketSession(spec, marketSessions),
     registerSpec: vi.fn(),

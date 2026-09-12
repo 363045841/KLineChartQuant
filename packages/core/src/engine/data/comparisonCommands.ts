@@ -15,6 +15,20 @@ import { symbolSpecIdentityKey } from './symbolIdentity'
 // Type.Enum 保留 as const 数组的字面量联合推断；Type.Union(values.map(...)) 在 typebox 1.x 下推断为 never。
 const AssetClassToolParameter = Type.Enum(ASSET_CLASS_VALUES)
 
+const ComparisonPrimaryToolParameters = Type.Object(
+  {
+    symbol: Type.Optional(Type.String({ minLength: 1 })),
+    market: Type.Optional(Type.String({ minLength: 1 })),
+    exchange: Type.Optional(Type.String({ minLength: 1 })),
+    source: Type.Optional(Type.String({ minLength: 1 })),
+    period: Type.Optional(Type.String({ minLength: 1 })),
+    adjust: Type.Optional(Type.String({ minLength: 1 })),
+    startDate: Type.Optional(Type.String({ minLength: 1 })),
+    endDate: Type.Optional(Type.String({ minLength: 1 })),
+  },
+  { additionalProperties: false },
+)
+
 const ComparisonCreateToolParameters = Type.Object(
   {
     symbol: Type.String({ minLength: 1 }),
@@ -24,6 +38,8 @@ const ComparisonCreateToolParameters = Type.Object(
     assetClass: Type.Optional(AssetClassToolParameter),
     period: Type.Optional(Type.String({ minLength: 1 })),
     adjust: Type.Optional(Type.String({ minLength: 1 })),
+    /** 图表主品种；只用于补齐缺省路由字段，缺省时不阻断写入。 */
+    primary: Type.Optional(ComparisonPrimaryToolParameters),
   },
   { additionalProperties: false },
 )
@@ -36,16 +52,19 @@ const ComparisonRemoveToolParameters = Type.Object(
 const ComparisonsListToolParameters = Type.Object({})
 const ComparisonsClearToolParameters = Type.Object({})
 
+/** 主品种输入：显式传入的路由字段，仅用于补齐缺省值。 */
+export type ComparisonPrimaryInput = Static<typeof ComparisonPrimaryToolParameters>
 export type ComparisonCreateInput = Static<typeof ComparisonCreateToolParameters>
 export type ComparisonRemoveInput = Static<typeof ComparisonRemoveToolParameters>
 
 /**
  * 对比新增输入：Agent 只给窄字段，UI 可给完整 SymbolSpec。
- * 未提供的路由字段由主品种补齐，已提供的品种信息原样保留。
+ * 未提供的路由字段由调用方显式传入的主品种补齐，已提供的品种信息原样保留。
  * assetClass 只参与歧义消解，不进入品种 spec。
  */
-export type ComparisonAddInput = Omit<ComparisonCreateInput, 'assetClass'> &
+export type ComparisonAddInput = Omit<ComparisonCreateInput, 'assetClass' | 'primary'> &
   Partial<Pick<SymbolSpec, 'id' | 'instrument' | 'params' | 'startDate' | 'endDate' | 'incremental'>>
+
 
 /** 按代码解析品种的输入；source 省略时跨源查询。 */
 export interface ComparisonInstrumentQuery {
@@ -91,10 +110,10 @@ export interface ComparisonSnapshot {
 
 /** 对比命令运行所需的领域能力，不依赖 DOM 或 renderer。 */
 export interface ComparisonCommandsDependencies {
-  /** 当前完整 symbols 快照（primary + comparison）。 */
-  getSymbols(): ReadonlyArray<SymbolSpec>
-  /** 原子写回 symbols 选择；实现负责同步对比颜色。 */
-  commitSymbols(next: ReadonlyArray<SymbolSpec>): void
+  /** 当前对比品种快照。 */
+  getSpecs(): ReadonlyArray<SymbolSpec>
+  /** 原子写回对比品种选择；实现负责同步对比颜色。 */
+  setSpecs(next: ReadonlyArray<SymbolSpec>): void
   /** 进入或退出比较视图（mode + 主图 percent 刻度副作用）。 */
   setComparisonViewActive(active: boolean): void
   /** 校验品种市场会话；未知 market 抛领域错误。 */
@@ -112,7 +131,7 @@ export interface ComparisonCommandsDependencies {
 /** 对比品种的统一写原语契约。 */
 export interface ComparisonCommandsApi {
   list(): ReadonlyArray<ComparisonSnapshot>
-  add(input: ComparisonAddInput): boolean
+  add(input: ComparisonAddInput, primary?: ComparisonPrimaryInput | null): boolean
   create(input: ComparisonCreateInput): Promise<ComparisonCreateResult>
   remove(input: ComparisonRemoveInput): boolean
   clear(): number
@@ -120,8 +139,8 @@ export interface ComparisonCommandsApi {
 
 /**
  * 对比品种 CRUD 的唯一写入口：UI 与 Agent 调用同一实例。
- * 新增同时负责品种目录登记与完整 spec 保留，调用方不再手工补状态。
- * 选择仍写入 symbols 尾部，comparisonState 派生 specs 与颜色，不产生第二份业务状态。
+ * 对比品种写入 comparisonState.specs（唯一 SSOT），主品种由调用方显式传入，
+ * 不再从 kline 状态隐式读取，因此无主品种时工具链同样可用。
  */
 export class ComparisonCommands implements ComparisonCommandsApi {
   constructor(private readonly dependencies: ComparisonCommandsDependencies) {}
@@ -152,42 +171,38 @@ export class ComparisonCommands implements ComparisonCommandsApi {
     name: 'comparison_create',
     label: 'Add comparison symbol',
     description:
-      'Add one comparison symbol to the main chart. symbol is required and is resolved against the active market-data sources so the real exchange, id, and params are used; source, exchange, and assetClass restrict which instrument the code may resolve to. period and adjust default to the primary symbol when omitted. When several distinct instruments match, nothing is added and the result is { status: "ambiguous", candidates: [...] }: ask the user to choose with the ask_user tool, then retry with the chosen candidate\'s source, exchange, and assetClass. Never pick a candidate yourself. Fails with an actionable reason when the chart has no primary symbol, the symbol cannot be resolved, or it is already compared; an unknown market is rejected.',
+      'Add one comparison symbol to the main chart. symbol is required and is resolved against the active market-data sources so the real exchange, id, and params are used; source, exchange, and assetClass restrict which instrument the code may resolve to. primary is the chart main symbol; its source, period, and adjust only fill omitted fields and never override the resolved instrument. When several distinct instruments match, nothing is added and the result is { status: "ambiguous", candidates: [...] }: ask the user to choose with the ask_user tool, then retry with the chosen candidate\'s source, exchange, and assetClass. Never pick a candidate yourself. Fails with an actionable reason only when the symbol cannot be resolved or is already compared; an unknown market is rejected.',
     parameters: ComparisonCreateToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',
   })
   async create(input: ComparisonCreateInput): Promise<ComparisonCreateResult> {
-    const primary = this.primarySpec()
-    if (!primary) throw noPrimaryComparisonError()
+    const { assetClass, primary, ...specInput } = input
     const resolution = await this.dependencies.resolveInstrument({
       symbol: input.symbol,
-      source: input.source ?? primary.source,
+      source: input.source ?? primary?.source,
     })
-    const { assetClass, ...specInput } = input
     const matches = filterInstrumentCandidates(resolution.candidates, assetClass, input.exchange)
     if (matches.length === 0) {
       throw instrumentNotFoundError(input.symbol, resolution, resolution.candidates.length > 0)
     }
     if (matches.length > 1) return ambiguousComparisonResult(input.symbol, matches)
     const instrument = matches[0]
-    const spec = this.resolveSpec(specInput, primary, instrument)
-    if (!this.write(primary, spec)) throw duplicateComparisonError(input.symbol)
+    const spec = this.resolveSpec(specInput, primary ?? null, instrument)
+    if (!this.write(spec)) throw duplicateComparisonError(input.symbol)
     return Object.freeze({ status: 'added' as const, symbol: spec.symbol, name: instrument.name })
   }
 
   /**
    * 程序化新增入口：接受完整 SymbolSpec，保留 instrument/params/id 等品种信息。
-   * 缺省路由字段由主品种补齐；重复品种（identity 或 symbol 命中）返回 false。
+   * 缺省路由字段由调用方显式传入的主品种补齐；重复品种（identity 或 symbol 命中）返回 false。
    */
-  add(input: ComparisonAddInput): boolean {
-    const primary = this.primarySpec()
-    if (!primary) return false
-    return this.write(primary, this.resolveSpec(input, primary, input.instrument ?? null))
+  add(input: ComparisonAddInput, primary?: ComparisonPrimaryInput | null): boolean {
+    return this.write(this.resolveSpec(input, primary ?? null, input.instrument ?? null))
   }
 
-  /** 去重 → 校验 → 登记 → 原子写回 symbols → 切视图 → 重绘；重复返回 false。 */
-  private write(primary: SymbolSpec, spec: SymbolSpec): boolean {
+  /** 去重 → 校验 → 登记 → 原子写回对比 specs → 切视图 → 重绘；重复返回 false。 */
+  private write(spec: SymbolSpec): boolean {
     const identity = symbolSpecIdentityKey(spec)
     const specs = this.comparisonSpecs()
     if (
@@ -199,7 +214,7 @@ export class ComparisonCommands implements ComparisonCommandsApi {
     }
     this.dependencies.validateSpec(spec)
     this.dependencies.registerSpec(spec)
-    this.dependencies.commitSymbols([primary, ...specs, spec])
+    this.dependencies.setSpecs([...specs, spec])
     if (specs.length === 0) this.dependencies.setComparisonViewActive(true)
     this.dependencies.scheduleDraw()
     return true
@@ -216,14 +231,12 @@ export class ComparisonCommands implements ComparisonCommandsApi {
     executionMode: 'sequential',
   })
   remove(input: ComparisonRemoveInput): boolean {
-    const primary = this.primarySpec()
-    if (!primary) return false
     const specs = this.comparisonSpecs()
     const matches = (spec: SymbolSpec) =>
       symbolSpecIdentityKey(spec) === input.identity || spec.symbol === input.identity
     if (!specs.some(matches)) return false
     const remaining = specs.filter((spec) => !matches(spec))
-    this.dependencies.commitSymbols([primary, ...remaining])
+    this.dependencies.setSpecs(remaining)
     if (remaining.length === 0) this.dependencies.setComparisonViewActive(false)
     this.dependencies.scheduleDraw()
     return true
@@ -240,40 +253,34 @@ export class ComparisonCommands implements ComparisonCommandsApi {
     executionMode: 'sequential',
   })
   clear(): number {
-    const primary = this.primarySpec()
     const specs = this.comparisonSpecs()
-    if (!primary || specs.length === 0) return 0
-    this.dependencies.commitSymbols([primary])
+    if (specs.length === 0) return 0
+    this.dependencies.setSpecs([])
     this.dependencies.setComparisonViewActive(false)
     this.dependencies.scheduleDraw()
     return specs.length
   }
 
-  /** 主品种始终是 symbols 的第一项。 */
-  private primarySpec(): SymbolSpec | null {
-    return this.dependencies.getSymbols()[0] ?? null
-  }
-
-  /** 对比品种是 symbols 中主品种之后的全部项。 */
+  /** 对比品种当前快照（已冻结副本）。 */
   private comparisonSpecs(): SymbolSpec[] {
-    return this.dependencies.getSymbols().slice(1)
+    return this.dependencies.getSpecs().map((spec) => ({ ...spec }))
   }
 
-  /** 用主品种补齐缺省字段；解析到完整 instrument 时以其为准补全路由字段。 */
+  /** 用调用方显式传入的主品种补齐缺省字段；解析到完整 instrument 时以其为准。 */
   private resolveSpec(
     input: ComparisonAddInput,
-    primary: SymbolSpec,
+    primary: ComparisonPrimaryInput | null,
     instrument: InstrumentDescriptor | null,
   ): SymbolSpec {
     const base: SymbolSpec = {
       ...input,
-      market: input.market ?? primary.market,
-      exchange: input.exchange ?? primary.exchange,
-      source: input.source ?? primary.source,
-      period: input.period ?? primary.period,
-      adjust: input.adjust ?? primary.adjust,
-      startDate: input.startDate ?? primary.startDate,
-      endDate: input.endDate ?? primary.endDate,
+      market: input.market ?? primary?.market ?? '',
+      exchange: input.exchange ?? primary?.exchange,
+      source: input.source ?? primary?.source,
+      period: input.period ?? primary?.period,
+      adjust: input.adjust ?? primary?.adjust,
+      startDate: input.startDate ?? primary?.startDate,
+      endDate: input.endDate ?? primary?.endDate,
     }
     if (!instrument) return base
     return {
@@ -286,14 +293,6 @@ export class ComparisonCommands implements ComparisonCommandsApi {
       source: base.source ?? instrument.sourceId,
     }
   }
-}
-
-/** 缺少主品种时抛出，提示先加载主品种。 */
-function noPrimaryComparisonError(): KLineChartError {
-  return new KLineChartError(
-    COMPARISON_ERROR_CODES.NO_PRIMARY,
-    'The chart has no primary symbol loaded, so a comparison symbol cannot be added. Load a primary symbol first.',
-  )
 }
 
 /** 对比品种已在列表中时抛出。 */

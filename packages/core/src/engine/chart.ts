@@ -370,8 +370,8 @@ export class Chart {
 
     // 对比品种唯一写原语；UI 与 Agent 共用同一实例。
     this.comparisonCommands = new ComparisonCommands({
-      getSymbols: () => this.kernel.data.readonly.symbols.peek(),
-      commitSymbols: (symbols) => this.kernel.actions.setSymbols(symbols),
+      getSpecs: () => this.kernel.comparison.readonly.specs.peek(),
+      setSpecs: (specs) => this.kernel.actions.setComparisonSpecs(specs),
       setComparisonViewActive: (active) => {
         if (active) {
           this.setActiveMode(this._kLineMode)
@@ -1372,6 +1372,11 @@ export class Chart {
     return this.kernel.comparison.readonly.loading
   }
 
+  /** 对比品种集合信号（唯一业务状态） */
+  get comparisonSpecs(): ReadonlySignal<ReadonlyArray<SymbolSpec>> {
+    return this.kernel.comparison.readonly.specs
+  }
+
   /** 注册/注销绘图交互会话，使 setDrawingTool 能清会话副作用 */
   registerDrawingSession(session: DrawingInteractionController | null): void {
     this.drawingSession = session
@@ -1452,16 +1457,21 @@ export class Chart {
     this.dataManager.checkVisibleRangeGap()
   }
 
+  /**
+   * 设置 kline 主品种/周期。对比集合独立于主品种，由 setComparisonSpecs 管理。
+   * 兼容旧入参 [primary, ...comparisons]：仅首项作为 kline 主品种，其余项不再隐式写入对比集合。
+   */
   setSymbols(specs: ReadonlyArray<SymbolSpec>): void {
-    const sessions = specs.map((spec) => resolveSymbolMarketSession(spec, this.marketSessions))
-    const primaryPeriod = specs[0]?.period
-    if (isTimeSharePeriod(primaryPeriod)) {
-      this._timeShareMode.setMarketSession(sessions[0]!)
+    const primary = specs[0]
+    const primaryPeriod = primary?.period
+    if (primary && isTimeSharePeriod(primaryPeriod)) {
+      this._timeShareMode.setMarketSession(
+        resolveSymbolMarketSession(primary, this.marketSessions),
+      )
     }
 
     // 品种/周期切换时重置最新 K 线时间戳，确保新数据触发预警
     this._lastAlertTimestamp = null
-    const isComparison = !isTimeSharePeriod(primaryPeriod) && specs.length > 1
     if (primaryPeriod) {
       // ⚠️ setActiveMode 必须在 dataManager.setSymbols 之前调用，
       //    以确保 kWidth/kGap（从 zoom level 恢复）先写入 _optionsSignal，
@@ -1471,13 +1481,8 @@ export class Chart {
         primaryPeriod === FIVE_DAY_TIME_SHARE_PERIOD ? ChartDataViewId.FiveDayTimeShare : undefined,
       )
     }
-    this.dataManager.setSymbols(specs)
-    if (isComparison) {
-      this.kernel.actions.setDataView(ChartDataViewId.Comparison)
-      this.applyComparisonScaleType(true)
-    } else {
-      this.applyComparisonScaleType(false)
-    }
+    this.dataManager.setSymbols(primary ? [primary] : [])
+    this.syncViewForComparison()
     // Scroll position 恢复必须放在 setActiveMode + setSymbols 之后，
     // 此时 kWidth/kGap 已由 zoom level 恢复写回，计算不出错。
     if (primaryPeriod && !isTimeSharePeriod(primaryPeriod)) {
@@ -1485,9 +1490,41 @@ export class Chart {
     }
   }
 
-  /** 新增对比品种；品种登记、选择、视图切换与重绘由 comparisonCommands 统一处理。 */
-  addComparisonSymbol(spec: SymbolSpec): void {
-    this.comparisonCommands.add(spec)
+  /**
+   * 直接设置对比集合（对比视图唯一 SSOT），与 kline 主品种完全解耦。
+   * 集合非空时进入比较视图，清空时回到 K 线视图；主品种要出现在比较视图需由调用方显式加入集合。
+   */
+  setComparisonSpecs(specs: ReadonlyArray<SymbolSpec>): void {
+    this.kernel.actions.setComparisonSpecs(specs)
+    this.syncViewForComparison()
+  }
+
+  /** 依据对比集合与主品种周期同步数据视图与 percent 刻度。 */
+  private syncViewForComparison(): void {
+    const comparisonActive = this.kernel.comparison.readonly.specs.peek().length > 0
+    const primaryPeriod = this.dataManager.symbols.peek()[0]?.period
+    if (comparisonActive && !isTimeSharePeriod(primaryPeriod)) {
+      this.setActiveMode(this._kLineMode)
+      this.kernel.actions.setDataView(ChartDataViewId.Comparison)
+      this.applyComparisonScaleType(true)
+      return
+    }
+    this.applyComparisonScaleType(false)
+    // 对比集合清空后退出比较视图；分时视图保持自身 mode。
+    if (
+      !isTimeSharePeriod(primaryPeriod) &&
+      this.kernel.mode.readonly.dataView.peek() === ChartDataViewId.Comparison
+    ) {
+      this.setActiveMode(this._kLineMode)
+    }
+  }
+
+  /**
+   * 新增对比品种；品种登记、选择、视图切换与重绘由 comparisonCommands 统一处理。
+   * primary 为调用方显式传入的图表主品种，仅用于补齐缺省路由字段。
+   */
+  addComparisonSymbol(spec: SymbolSpec, primary?: SymbolSpec | null): void {
+    this.comparisonCommands.add(spec, primary ?? null)
   }
 
   /** 按 identity 或品种代码移除对比品种。 */

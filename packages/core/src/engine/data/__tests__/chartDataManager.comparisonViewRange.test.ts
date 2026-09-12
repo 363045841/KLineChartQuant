@@ -54,7 +54,6 @@ function createMockViewport(): ViewportStateModule {
 function createDependencies(
   dom: ChartDom,
   setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => void,
-  symbols$: ReturnType<typeof createSignal<ReadonlyArray<SymbolSpec>>>,
 ): DataDependencies {
   return {
     getOption: () => ({ kWidth: 8, kGap: 2 }),
@@ -62,7 +61,7 @@ function createDependencies(
     setZoomLevel: () => {},
     getDom: () => dom,
     viewport: createMockViewport(),
-    comparison: createComparisonState({ symbols$ }),
+    comparison: createComparisonState(),
     scheduleDraw: () => {},
     resetInteraction: () => {},
     getIndicatorScheduler: () => ({
@@ -93,7 +92,6 @@ describe('ChartDataManager.getComparisonViewLineRange', () => {
 
   function makeManager(): ChartDataManager {
     const dataState = createDataState()
-    const symbols$ = createSignal<ReadonlyArray<SymbolSpec>>([])
     const dataManagerState = createDataManagerState()
     const container = document.querySelector<HTMLDivElement>('#container')!
     const scrollContent = document.querySelector<HTMLDivElement>('#scroll-content')!
@@ -104,10 +102,8 @@ describe('ChartDataManager.getComparisonViewLineRange', () => {
       createDependencies(
         { container, scrollContent, canvasLayer, rightAxisLayer, xAxisCanvas },
         (symbols) => {
-          symbols$.set(symbols)
           dataState.actions.setSymbols(symbols)
         },
-        symbols$,
       ),
       dataState,
       dataManagerState,
@@ -116,45 +112,47 @@ describe('ChartDataManager.getComparisonViewLineRange', () => {
     return m
   }
 
-  function loadMain(primary: SymbolSpec): ChartDataManager {
+  /** 仅加载 kline 主品种；对比集合为空。 */
+  function loadKlineOnly(): ChartDataManager {
     const m = makeManager()
-    m.setSymbols([primary])
+    m.setSymbols([{ symbol: 'MAIN', market: 'CN', period: 'daily', source: 'mock' }])
     m.setData(mainData)
     return m
   }
 
+  /** 对比集合 = [MAIN, CMP]，首序列 MAIN 充当参考序列，主品种需由调用方显式加入集合。 */
+  function loadWithReference(): ChartDataManager {
+    const m = loadKlineOnly()
+    m.setComparisonData('MAIN', mainData)
+    m.setComparisonData('CMP', cmpData)
+    return m
+  }
+
   it('returns null when no comparison symbols exist', () => {
-    const m = loadMain({ symbol: 'MAIN', market: 'CN', period: 'daily', source: 'mock' })
+    const m = loadKlineOnly()
     expect(m.getComparisonViewLineRange({ start: 0, end: 3 })).toBeNull()
   })
 
-  it('falls back to main close extremes when comparison data is not loaded yet', () => {
+  it('returns null when the reference series has no loaded data', () => {
     const m = makeManager()
-    m.setSymbols([
-      { symbol: 'MAIN', market: 'CN', period: 'daily', source: 'mock' },
-      { symbol: 'CMP', market: 'CN', period: 'daily', source: 'mock' },
-    ])
-    m.setData(mainData)
-    // 仅主商品 close（100/102/101），不含 high(113)/low(88)
-    expect(m.getComparisonViewLineRange({ start: 0, end: 3 })).toEqual({ min: 100, max: 102 })
+    m.setComparisonData('CMP', [])
+    expect(m.getComparisonViewLineRange({ start: 0, end: 3 })).toBeNull()
   })
 
-  it('includes comparison equivalent prices and ignores main high/low', () => {
-    const m = loadMain({ symbol: 'MAIN', market: 'CN', period: 'daily', source: 'mock' })
-    m.setComparisonData('CMP', cmpData)
-    // cmp 基准 50 → 等价价 100/102/104；主商品 close 100/102/101
+  it('includes comparison equivalent prices and ignores raw high/low', () => {
+    const m = loadWithReference()
+    // 参考 MAIN 基准 100 → cmp 基准 50，等价价 100/102/104；MAIN 自身 100/102/101
     expect(m.getComparisonViewLineRange({ start: 0, end: 3 })).toEqual({ min: 100, max: 104 })
   })
 
   it('respects the visible range window', () => {
-    const m = loadMain({ symbol: 'MAIN', market: 'CN', period: 'daily', source: 'mock' })
-    m.setComparisonData('CMP', cmpData)
-    // 只看前两根：主 100/102，cmp 等价 100/102
+    const m = loadWithReference()
+    // 只看前两根：MAIN 100/102，cmp 等价 100/102
     expect(m.getComparisonViewLineRange({ start: 0, end: 2 })).toEqual({ min: 100, max: 102 })
   })
 
   it('uses the first comparison bar at or after the visible base date', () => {
-    const m = loadMain({ symbol: 'MAIN', market: 'CN', period: 'daily', source: 'mock' })
+    const m = loadWithReference()
     m.setComparisonData('CMP', [cmpData[0]!, cmpData[2]!])
 
     expect(m.getComparisonViewLineRange({ start: 1, end: 3 })).toEqual({ min: 101, max: 102 })
@@ -163,7 +161,9 @@ describe('ChartDataManager.getComparisonViewLineRange', () => {
   it('uses binary timestamp lookup when neither series provides dates', () => {
     const m = makeManager()
     m.setSymbols([{ symbol: 'MAIN', market: 'CN', period: 'daily', source: 'mock' }])
-    m.setData(mainData.map(({ date: _date, ...item }) => item))
+    const noDateMain = mainData.map(({ date: _date, ...item }) => item)
+    m.setData(noDateMain)
+    m.setComparisonData('MAIN', noDateMain)
     m.setComparisonData(
       'CMP',
       [cmpData[0]!, cmpData[2]!].map(({ date: _date, ...item }) => item),
@@ -172,8 +172,8 @@ describe('ChartDataManager.getComparisonViewLineRange', () => {
     expect(m.getComparisonViewLineRange({ start: 1, end: 3 })).toEqual({ min: 101, max: 102 })
   })
 
-  it('checks comparison coverage when the main series already covers the visible range', () => {
-    const m = loadMain({ symbol: 'MAIN', market: 'CN', period: 'daily', source: 'mock' })
+  it('checks comparison coverage when the reference series already covers the visible range', () => {
+    const m = loadKlineOnly()
     m.setComparisonData('CMP', [cmpData[1]!, cmpData[2]!])
     const comparisonManager = (m as unknown as {
       _comparisonManager: { ensureRange: (firstVisibleTs: number) => void }
@@ -186,8 +186,15 @@ describe('ChartDataManager.getComparisonViewLineRange', () => {
   })
 
   it('returns null when the visible window is outside the data', () => {
-    const m = loadMain({ symbol: 'MAIN', market: 'CN', period: 'daily', source: 'mock' })
+    const m = loadKlineOnly()
     m.setComparisonData('CMP', cmpData)
     expect(m.getComparisonViewLineRange({ start: 10, end: 20 })).toBeNull()
+  })
+
+  it('uses the first comparison series as the axis reference without a kline primary', () => {
+    const m = makeManager()
+    m.setComparisonData('CMP', cmpData)
+
+    expect(m.getRenderData()).toEqual(cmpData)
   })
 })

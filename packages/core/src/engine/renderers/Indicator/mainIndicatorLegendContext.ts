@@ -254,31 +254,14 @@ function collectComparisonRows(
   const baseItem = klineData[baseIndex]
   if (!baseItem || !Number.isFinite(baseItem.close) || baseItem.close <= 0) return []
 
-  const rows: LegendComparisonRow[] = []
-
-  // 比较视图：主品种作为首行（色块颜色与主商品折线一致）
-  const mainItem = klineData[targetIndex]
-  if (mainItem && Number.isFinite(mainItem.close)) {
-    const percent = ((mainItem.close - baseItem.close) / baseItem.close) * 100
-    rows.push({
-      symbol: context.primarySymbol ?? mainItem.symbol ?? '',
-      ...(context.primarySymbolName ? { name: context.primarySymbolName } : {}),
-      percent,
-      color: colors.palette.i1,
-      percentColor:
-        percent > 0
-          ? colors.candleUpBody
-          : percent < 0
-            ? colors.candleDownBody
-            : colors.text.primary,
-    })
-  }
-
   const comparisonData = context.comparisonData
-  if (!comparisonData?.size) return rows
+  if (!comparisonData?.size) return []
 
+  // 对比视图没有“主品种”，所有序列平等列出。
+  const rows: LegendComparisonRow[] = []
   const comparisonColors = context.comparisonColors
   const baseDate = baseItem.date ?? ''
+  const targetBar = klineData[targetIndex]
 
   for (const spec of comparisonSymbols) {
     const identity = symbolSpecIdentityKey(spec)
@@ -295,7 +278,7 @@ function collectComparisonRows(
       byDate.set(item.date ?? String(item.timestamp), item)
     }
 
-    const key = mainItem?.date ?? String(mainItem?.timestamp ?? '')
+    const key = targetBar?.date ?? String(targetBar?.timestamp ?? '')
     const cmpItem = byDate.get(key)
     if (!cmpItem || !Number.isFinite(cmpItem.close)) continue
 

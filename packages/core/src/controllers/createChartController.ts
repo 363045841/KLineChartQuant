@@ -363,6 +363,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   // comparisonColors/comparisonLoading — not yet migrated to kernel state
   const comparisonColors = chart.comparisonColors
   const comparisonLoading = chart.comparisonLoading
+  const comparisonSpecs = chart.comparisonSpecs
 
   // 优先走 Chart facade；kernel 仅用于尚无 facade 的字段
   const themeSignal: ReadonlySignal<'light' | 'dark'> = chart.theme.effective
@@ -399,9 +400,10 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     }
   }
 
-  // Apply initial symbols
+  // Apply initial symbols: 首项为 kline 主品种，其余作为对比集合显式写入（含主品种，比较视图平等展示）。
   if (opts.symbols && opts.symbols.length > 0) {
-    chart.setSymbols(opts.symbols)
+    chart.setSymbols([opts.symbols[0]!])
+    if (opts.symbols.length > 1) chart.setComparisonSpecs(opts.symbols)
   }
 
   // Apply mount theme preference (settings default may be dark — always honor explicit opts.theme)
@@ -459,9 +461,14 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     chart.setSymbols(next)
   }
 
-  function addComparisonSymbol(spec: SymbolSpec): void {
+  function setComparisonSpecs(next: ReadonlyArray<SymbolSpec>): void {
     if (disposed) return
-    chart.addComparisonSymbol(spec)
+    chart.setComparisonSpecs(next)
+  }
+
+  function addComparisonSymbol(spec: SymbolSpec, primary?: SymbolSpec | null): void {
+    if (disposed) return
+    chart.addComparisonSymbol(spec, primary ?? null)
   }
 
   function removeComparisonSymbol(symbol: string): void {
@@ -993,11 +1000,13 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     legendTemplateContext,
     comparisonColors,
     comparisonLoading,
+    comparisonSpecs,
     symbolCatalog,
     catalog: allIndicatorDefinitions(),
     alertController: chart.alertController,
     setSymbols,
     registerSymbols,
+    setComparisonSpecs,
     addComparisonSymbol,
     removeComparisonSymbol,
     setComparisonData,

@@ -729,7 +729,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     }
     if (name === 'comparison_create') {
       const available = sourceIds.length ? sourceIds.join(', ') : 'none'
-      return `${description} Available runtime sourceIds: ${available}. Set source to one of these exact values when the compared instrument comes from a specific source; omit it to reuse the primary symbol's source.`
+      return `${description} Available runtime sourceIds: ${available}. Set source to one of these exact values when the compared instrument comes from a specific source; omit it to resolve the code across every enabled source. Pass the chart main symbol in primary only to fill omitted routing fields; it never overrides the resolved instrument.`
     }
     if (
       ![

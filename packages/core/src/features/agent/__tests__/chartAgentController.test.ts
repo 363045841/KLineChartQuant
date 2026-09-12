@@ -175,8 +175,8 @@ function createFixture() {
     timeShareRange: { fetch: fetchTimeShareRange },
   })
   const comparisonCommands = new ComparisonCommands({
-    getSymbols: () => [],
-    commitSymbols: () => {},
+    getSpecs: () => [],
+    setSpecs: () => {},
     setComparisonViewActive: () => {},
     validateSpec: () => {},
     registerSpec: () => {},

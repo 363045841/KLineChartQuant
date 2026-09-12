@@ -26,10 +26,10 @@ const COMPARISON: SymbolSpec = {
   adjust: 'none',
 }
 
-function createHarness(initial: ReadonlyArray<SymbolSpec>) {
-  let symbols = initial.map((spec) => ({ ...spec }))
-  const commitSymbols = vi.fn((next: ReadonlyArray<SymbolSpec>) => {
-    symbols = next.map((spec) => ({ ...spec }))
+function createHarness(initialComparisons: ReadonlyArray<SymbolSpec> = []) {
+  let specs = initialComparisons.map((spec) => ({ ...spec }))
+  const setSpecs = vi.fn((next: ReadonlyArray<SymbolSpec>) => {
+    specs = next.map((spec) => ({ ...spec }))
   })
   const setComparisonViewActive = vi.fn()
   const scheduleDraw = vi.fn()
@@ -55,8 +55,8 @@ function createHarness(initial: ReadonlyArray<SymbolSpec>) {
   )
   const colors = new Map<string, string>()
   const dependencies: ComparisonCommandsDependencies = {
-    getSymbols: () => symbols,
-    commitSymbols,
+    getSpecs: () => specs,
+    setSpecs,
     setComparisonViewActive,
     validateSpec,
     registerSpec,
@@ -66,41 +66,42 @@ function createHarness(initial: ReadonlyArray<SymbolSpec>) {
   }
   return {
     commands: new ComparisonCommands(dependencies),
-    commitSymbols,
+    setSpecs,
     setComparisonViewActive,
     scheduleDraw,
     validateSpec,
     registerSpec,
     resolveInstrument,
     colors,
-    symbols: () => symbols,
+    specs: () => specs,
   }
 }
 
 describe('ComparisonCommands', () => {
-  it('creates a comparison, activates the comparison view, and schedules one draw', async () => {
-    const harness = createHarness([PRIMARY])
+  it('creates a comparison without a primary symbol and activates the comparison view', async () => {
+    const harness = createHarness()
 
     await harness.commands.create({ symbol: 'CMP' })
 
     expect(harness.validateSpec).toHaveBeenCalledOnce()
-    expect(harness.commitSymbols).toHaveBeenCalledOnce()
-    expect(harness.symbols().map((spec) => spec.symbol)).toEqual(['MAIN', 'CMP'])
+    expect(harness.specs().map((spec) => spec.symbol)).toEqual(['CMP'])
     expect(harness.setComparisonViewActive).toHaveBeenCalledWith(true)
     expect(harness.scheduleDraw).toHaveBeenCalledOnce()
   })
 
   it('resolves the comparison instrument and applies its routing fields', async () => {
-    const harness = createHarness([PRIMARY])
+    const harness = createHarness()
 
-    await expect(harness.commands.create({ symbol: 'CMP' })).resolves.toEqual({
+    await expect(
+      harness.commands.create({ symbol: 'CMP', primary: { source: 'mock' } }),
+    ).resolves.toEqual({
       status: 'added',
       symbol: 'CMP',
       name: 'CMP 名称',
     })
 
     expect(harness.resolveInstrument).toHaveBeenCalledWith({ symbol: 'CMP', source: 'mock' })
-    const comparison = harness.symbols()[1]
+    const comparison = harness.specs()[0]
     expect(comparison?.id).toBe('CMP-ID')
     expect(comparison?.exchange).toBe('SSE')
     expect(comparison?.market).toBe('CN')
@@ -108,8 +109,31 @@ describe('ComparisonCommands', () => {
     expect(comparison?.instrument?.exchange).toBe('SSE')
   })
 
+  it('does not inherit the primary exchange when the instrument resolves to another exchange', async () => {
+    const harness = createHarness()
+    harness.resolveInstrument.mockResolvedValueOnce({
+      candidates: [
+        {
+          id: 'CMP-ID',
+          sourceId: 'mock',
+          symbol: 'CMP',
+          name: 'CMP 名称',
+          assetClass: 'stock',
+          exchange: 'SH',
+          capabilities: {},
+        },
+      ],
+      searchedSourceIds: ['mock'],
+      foundElsewhereSourceIds: [],
+    })
+
+    await harness.commands.create({ symbol: 'CMP', primary: { ...PRIMARY, exchange: 'SZ' } })
+
+    expect(harness.specs()[0]?.exchange).toBe('SH')
+  })
+
   it('throws a not-found error carrying the searched sources when the symbol cannot be resolved', async () => {
-    const harness = createHarness([PRIMARY])
+    const harness = createHarness()
     harness.resolveInstrument.mockResolvedValueOnce({
       candidates: [],
       searchedSourceIds: ['mock'],
@@ -120,11 +144,11 @@ describe('ComparisonCommands', () => {
       code: 'INSTRUMENT_NOT_FOUND',
       message: expect.stringContaining('No instrument matched symbol "UNKNOWN". Searched mock.'),
     })
-    expect(harness.commitSymbols).not.toHaveBeenCalled()
+    expect(harness.setSpecs).not.toHaveBeenCalled()
   })
 
   it('points at the other source when the symbol exists outside the searched source', async () => {
-    const harness = createHarness([PRIMARY])
+    const harness = createHarness()
     harness.resolveInstrument.mockResolvedValueOnce({
       candidates: [],
       searchedSourceIds: ['mock'],
@@ -137,7 +161,7 @@ describe('ComparisonCommands', () => {
   })
 
   it('returns an ambiguous result without writing when one code matches several instruments', async () => {
-    const harness = createHarness([PRIMARY])
+    const harness = createHarness()
     harness.resolveInstrument.mockResolvedValueOnce({
       candidates: [
         {
@@ -185,11 +209,11 @@ describe('ComparisonCommands', () => {
         },
       ],
     })
-    expect(harness.commitSymbols).not.toHaveBeenCalled()
+    expect(harness.setSpecs).not.toHaveBeenCalled()
   })
 
   it('adds the single candidate narrowed by assetClass without leaking the filter into the spec', async () => {
-    const harness = createHarness([PRIMARY])
+    const harness = createHarness()
     harness.resolveInstrument.mockResolvedValueOnce({
       candidates: [
         {
@@ -220,14 +244,14 @@ describe('ComparisonCommands', () => {
       harness.commands.create({ symbol: '000012', source: 'gotdx', assetClass: 'index' }),
     ).resolves.toMatchObject({ status: 'added', name: '国债指数' })
 
-    const comparison = harness.symbols()[1]
+    const comparison = harness.specs()[0]
     expect(comparison?.id).toBe('index:0:000012')
     expect(comparison?.exchange).toBe('SH')
     expect(comparison).not.toHaveProperty('assetClass')
   })
 
   it('lists the actual candidate combinations when user filters exclude every match', async () => {
-    const harness = createHarness([PRIMARY])
+    const harness = createHarness()
     harness.resolveInstrument.mockResolvedValueOnce({
       candidates: [
         {
@@ -250,31 +274,32 @@ describe('ComparisonCommands', () => {
       code: 'INSTRUMENT_NOT_FOUND',
       message: expect.stringContaining('stock@SZ "南玻A"'),
     })
-    expect(harness.commitSymbols).not.toHaveBeenCalled()
+    expect(harness.setSpecs).not.toHaveBeenCalled()
   })
 
-  it('throws a duplicate error without writing symbols', async () => {
-    const harness = createHarness([PRIMARY, COMPARISON])
+  it('throws a duplicate error without writing specs', async () => {
+    const harness = createHarness([COMPARISON])
 
     await expect(harness.commands.create({ symbol: 'CMP' })).rejects.toMatchObject({
       code: 'COMPARISON_DUPLICATE',
     })
-    expect(harness.commitSymbols).not.toHaveBeenCalled()
+    expect(harness.setSpecs).not.toHaveBeenCalled()
   })
 
-  it('registers the comparison before committing symbols', async () => {
-    const harness = createHarness([PRIMARY])
+  it('registers the comparison before committing specs', async () => {
+    const harness = createHarness()
 
     await harness.commands.create({ symbol: 'CMP' })
 
     expect(harness.registerSpec).toHaveBeenCalledOnce()
     expect(harness.registerSpec.mock.invocationCallOrder[0]).toBeLessThan(
-      harness.commitSymbols.mock.invocationCallOrder[0],
+      harness.setSpecs.mock.invocationCallOrder[0],
     )
   })
 
-  it('preserves the full spec passed to add and fills only missing fields', () => {
-    const harness = createHarness([{ ...PRIMARY, id: 'PRIMARY-ID', startDate: '2020-01-01' }])
+  it('preserves the full spec passed to add and fills only missing fields from the primary', () => {
+    const primary: SymbolSpec = { ...PRIMARY, id: 'PRIMARY-ID', startDate: '2020-01-01' }
+    const harness = createHarness()
     const rich: SymbolSpec = {
       id: 'CMP-ID',
       instrument: {
@@ -292,27 +317,27 @@ describe('ComparisonCommands', () => {
       period: 'weekly',
     }
 
-    expect(harness.commands.add(rich)).toBe(true)
-    expect(harness.symbols()[1]).toEqual({
+    expect(harness.commands.add(rich, primary)).toBe(true)
+    expect(harness.specs()[0]).toEqual({
       ...rich,
       exchange: 'SSE',
       source: 'mock',
       adjust: 'none',
       startDate: '2020-01-01',
     })
-    expect(harness.symbols()[1]?.id).toBe('CMP-ID')
-    expect(harness.symbols()[1]?.params).toEqual({ code: 'CMP' })
+    expect(harness.specs()[0]?.id).toBe('CMP-ID')
+    expect(harness.specs()[0]?.params).toEqual({ code: 'CMP' })
   })
 
   it('rejects a comparison whose symbol already exists under another identity', () => {
-    const harness = createHarness([PRIMARY, { ...COMPARISON, id: 'CMP-ID' }])
+    const harness = createHarness([{ ...COMPARISON, id: 'CMP-ID' }])
 
     expect(harness.commands.add({ symbol: 'CMP', market: 'CN', exchange: 'SSE' })).toBe(false)
-    expect(harness.commitSymbols).not.toHaveBeenCalled()
+    expect(harness.setSpecs).not.toHaveBeenCalled()
   })
 
-  it('validates the spec before committing symbols', () => {
-    const harness = createHarness([PRIMARY])
+  it('validates the spec before committing specs', () => {
+    const harness = createHarness()
     harness.validateSpec.mockImplementation(() => {
       throw new Error('Market session is not registered: FUTURES')
     })
@@ -320,59 +345,50 @@ describe('ComparisonCommands', () => {
     expect(() => harness.commands.add({ symbol: 'CMP', market: 'FUTURES' })).toThrow(
       'Market session is not registered: FUTURES',
     )
-    expect(harness.commitSymbols).not.toHaveBeenCalled()
-  })
-
-  it('throws a no-primary error without a primary symbol', async () => {
-    const harness = createHarness([])
-
-    await expect(harness.commands.create({ symbol: 'CMP' })).rejects.toMatchObject({
-      code: 'COMPARISON_NO_PRIMARY',
-    })
-    expect(harness.commitSymbols).not.toHaveBeenCalled()
+    expect(harness.setSpecs).not.toHaveBeenCalled()
   })
 
   it('keeps the comparison view while other comparisons remain', () => {
-    const harness = createHarness([PRIMARY, COMPARISON, { ...COMPARISON, symbol: 'SECOND' }])
+    const harness = createHarness([COMPARISON, { ...COMPARISON, symbol: 'SECOND' }])
 
     expect(harness.commands.remove({ identity: 'CMP' })).toBe(true)
-    expect(harness.symbols().map((spec) => spec.symbol)).toEqual(['MAIN', 'SECOND'])
+    expect(harness.specs().map((spec) => spec.symbol)).toEqual(['SECOND'])
     expect(harness.setComparisonViewActive).not.toHaveBeenCalled()
   })
 
   it('removes the last comparison and leaves the comparison view', () => {
-    const harness = createHarness([PRIMARY, COMPARISON])
+    const harness = createHarness([COMPARISON])
 
     expect(harness.commands.remove({ identity: symbolSpecIdentityKey(COMPARISON) })).toBe(true)
-    expect(harness.symbols().map((spec) => spec.symbol)).toEqual(['MAIN'])
+    expect(harness.specs()).toEqual([])
     expect(harness.setComparisonViewActive).toHaveBeenCalledWith(false)
     expect(harness.scheduleDraw).toHaveBeenCalledOnce()
   })
 
   it('ignores an unknown removal target', () => {
-    const harness = createHarness([PRIMARY, COMPARISON])
+    const harness = createHarness([COMPARISON])
 
     expect(harness.commands.remove({ identity: 'missing' })).toBe(false)
-    expect(harness.commitSymbols).not.toHaveBeenCalled()
+    expect(harness.setSpecs).not.toHaveBeenCalled()
   })
 
   it('clears every comparison and reports the removed count', () => {
-    const harness = createHarness([PRIMARY, COMPARISON, { ...COMPARISON, symbol: 'SECOND' }])
+    const harness = createHarness([COMPARISON, { ...COMPARISON, symbol: 'SECOND' }])
 
     expect(harness.commands.clear()).toBe(2)
-    expect(harness.symbols().map((spec) => spec.symbol)).toEqual(['MAIN'])
+    expect(harness.specs()).toEqual([])
     expect(harness.setComparisonViewActive).toHaveBeenCalledWith(false)
   })
 
   it('does not clear when no comparison exists', () => {
-    const harness = createHarness([PRIMARY])
+    const harness = createHarness()
 
     expect(harness.commands.clear()).toBe(0)
-    expect(harness.commitSymbols).not.toHaveBeenCalled()
+    expect(harness.setSpecs).not.toHaveBeenCalled()
   })
 
   it('lists identities, specs, and assigned colors', () => {
-    const harness = createHarness([PRIMARY, COMPARISON])
+    const harness = createHarness([COMPARISON])
     harness.colors.set(symbolSpecIdentityKey(COMPARISON), '#f59e0b')
 
     expect(harness.commands.list()).toEqual([

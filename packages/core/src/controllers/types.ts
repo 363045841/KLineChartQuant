@@ -415,6 +415,8 @@ export interface ChartController extends DrawingChartAdapter {
   >
   readonly comparisonColors: ReadonlySignal<ReadonlyMap<string, string>>
   readonly comparisonLoading: ReadonlySignal<boolean>
+  /** 当前对比品种集合（唯一业务状态）。 */
+  readonly comparisonSpecs: ReadonlySignal<ReadonlyArray<SymbolSpec>>
 
   /** Registered symbol catalog — adapters use for picker UI */
   readonly symbolCatalog: ReadonlySignal<ReadonlyArray<SymbolInfo>>
@@ -426,10 +428,13 @@ export interface ChartController extends DrawingChartAdapter {
   readonly alertController: AlertController
 
   // ---- Data ----
+  /** 设置 kline 主品种/周期；对比集合独立，由 setComparisonSpecs 管理。 */
   setSymbols(next: ReadonlyArray<SymbolSpec>): void
   /** Register symbols into the available symbol catalog for UI pickers */
   registerSymbols(symbols: ReadonlyArray<SymbolInfo>): void
-  addComparisonSymbol(spec: SymbolSpec): void
+  /** 直接设置对比集合（对比视图唯一 SSOT），与 kline 主品种解耦。 */
+  setComparisonSpecs(next: ReadonlyArray<SymbolSpec>): void
+  addComparisonSymbol(spec: SymbolSpec, primary?: SymbolSpec | null): void
   removeComparisonSymbol(symbol: string): void
   /** Inject comparison product data directly (bypasses fetcher) */
   setComparisonData(symbol: string, data: ReadonlyArray<KLineData>): void

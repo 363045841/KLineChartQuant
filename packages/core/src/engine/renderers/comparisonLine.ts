@@ -1,3 +1,4 @@
+// 比较视图折线渲染器：把对比集合每个品种相对自身基准的涨跌幅折算到参考序列基准价后绘制。
 import type { RendererPlugin, RenderContext } from '../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import { resolveThemeColors } from '../../foundation/tokens/index'
@@ -9,25 +10,24 @@ export function createComparisonLineRenderer(): RendererPlugin {
   return {
     name: 'comparisonLine',
     version: '1.0.0',
-    description: '比较视图折线渲染器（主商品 + 比较商品百分比折线）',
+    description: '比较视图折线渲染器（对比集合百分比折线）',
     debugName: '比较折线',
     paneId: 'main',
     priority: RENDERER_PRIORITY.MAIN + 2,
 
     draw(context: RenderContext) {
       if (context.dataView !== ChartDataViewId.Comparison) return
-      const mainData = context.data as KLineData[]
+      // context.data 是对比集合首个序列，仅作为横轴与百分比基准的参考序列，不单独绘制。
+      const referenceData = context.data as KLineData[]
       const comparisonSymbols = context.comparisonSymbols ?? []
-      if (comparisonSymbols.length === 0 || mainData.length === 0) return
+      if (comparisonSymbols.length === 0 || referenceData.length === 0) return
       if (context.pane.id !== 'main') return
 
       const baseIndex = Math.max(0, context.range.start)
-      const baseItem = mainData[baseIndex]
+      const baseItem = referenceData[baseIndex]
       if (!baseItem || !Number.isFinite(baseItem.close) || baseItem.close <= 0) return
-      const mainBase = baseItem.close
+      const basePrice = baseItem.close
       const baseDate = baseItem.date ?? ''
-
-      const mainPoints = buildMainLinePoints(context, mainData)
 
       const colors = resolveThemeColors(
         context.theme,
@@ -39,9 +39,6 @@ export function createComparisonLineRenderer(): RendererPlugin {
       ctx.save()
       ctx.translate(-context.scrollLeft, 0)
       ctx.lineWidth = Math.max(1, 1.5 / context.dpr)
-
-      // 主商品折线：percent 轴下 priceToY(close) 即主商品自身涨跌幅
-      strokeStrip(ctx, mainPoints, colors.palette.i1)
 
       const comparisonData = context.comparisonData
       if (comparisonData?.size) {
@@ -64,7 +61,7 @@ export function createComparisonLineRenderer(): RendererPlugin {
 
           strokeStrip(
             ctx,
-            buildComparisonLinePoints(context, mainData, byDate, baseline.close, mainBase),
+            buildComparisonLinePoints(context, referenceData, byDate, baseline.close, basePrice),
             comparisonColors?.get(identity) ?? colors.palette.i2,
           )
         }
@@ -75,48 +72,30 @@ export function createComparisonLineRenderer(): RendererPlugin {
   }
 }
 
-/** 主商品折线点集：直接以 close 映射 y（percent 轴下即自身涨跌幅） */
-export function buildMainLinePoints(
-  context: RenderContext,
-  mainData: ReadonlyArray<KLineData>,
-): Array<{ x: number; y: number }> {
-  const points: Array<{ x: number; y: number }> = []
-  for (let i = context.range.start; i < context.range.end && i < mainData.length; i++) {
-    const item = mainData[i]
-    const x = context.kLineCenters[i - context.range.start]
-    if (!item || x === undefined || !Number.isFinite(item.close)) {
-      points.push({ x: x ?? 0, y: Number.NaN })
-      continue
-    }
-    points.push({ x, y: context.pane.yAxis.priceToY(item.close) })
-  }
-  return points
-}
-
-/** 比较商品折线点集：相对自身基准的涨跌幅折算为等价价格后映射 y */
+/** 比较商品折线点集：相对自身基准的涨跌幅折算为参考序列基准上的等价价格后映射 y */
 export function buildComparisonLinePoints(
   context: RenderContext,
-  mainData: ReadonlyArray<KLineData>,
+  referenceData: ReadonlyArray<KLineData>,
   byDate: ReadonlyMap<string, KLineData>,
   baselineClose: number,
-  mainBase: number,
+  basePrice: number,
 ): Array<{ x: number; y: number }> {
   const points: Array<{ x: number; y: number }> = []
-  for (let i = context.range.start; i < context.range.end && i < mainData.length; i++) {
-    const mainItem = mainData[i]
+  for (let i = context.range.start; i < context.range.end && i < referenceData.length; i++) {
+    const referenceItem = referenceData[i]
     const x = context.kLineCenters[i - context.range.start]
-    if (!mainItem || x === undefined) {
+    if (!referenceItem || x === undefined) {
       points.push({ x: x ?? 0, y: Number.NaN })
       continue
     }
-    const key = mainItem.date ?? String(mainItem.timestamp)
+    const key = referenceItem.date ?? String(referenceItem.timestamp)
     const item = byDate.get(key)
     if (!item || !Number.isFinite(item.close)) {
       points.push({ x, y: Number.NaN })
       continue
     }
     const pct = ((item.close - baselineClose) / baselineClose) * 100
-    const equivalentPrice = mainBase * (1 + pct / 100)
+    const equivalentPrice = basePrice * (1 + pct / 100)
     const y = context.pane.yAxis.priceToY(equivalentPrice)
     points.push({ x, y })
   }

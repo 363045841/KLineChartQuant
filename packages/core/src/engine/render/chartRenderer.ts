@@ -829,10 +829,11 @@ export class ChartRenderer {
           } else {
             mode.updatePaneRange(pane as any, range, dataManager, null)
           }
-          // 绕过 Pane.updateRange 时需手动补齐 percent 基准价
-          const internalData = dataManager.getInternalData()
+          // 绕过 Pane.updateRange 时需手动补齐 percent 基准价；
+          // 比较视图的 renderData 是对比集合首个序列，基准价随之为其首个可见 close。
           const baseIdx = Math.max(0, range.start)
-          pane.yAxis.setBasePrice(internalData[baseIdx]?.close ?? null)
+          const baseItem = renderData[baseIdx]
+          pane.yAxis.setBasePrice(baseItem && 'close' in baseItem ? baseItem.close : null)
         } else {
           const subPaneEntry = indicatorManager.getSubPaneEntry(pane.id)
           const subIndicatorState = subPaneEntry
@@ -933,8 +934,6 @@ export class ChartRenderer {
         comparisonData: dataManager.getComparisonData(),
         comparisonSymbols: dataManager.getComparisonSpecs(),
         comparisonColors: dataManager.getComparisonColors(),
-        primarySymbol: dataManager.symbols.peek()[0]?.symbol,
-        primarySymbolName: dataManager.symbols.peek()[0]?.instrument?.name,
         range,
         scrollLeft: vp.scrollLeft,
         kWidth: opt.kWidth,

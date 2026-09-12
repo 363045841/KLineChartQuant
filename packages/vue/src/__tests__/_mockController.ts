@@ -155,6 +155,7 @@ export function createMockChartController(
     legendTemplateContext,
     comparisonColors: createSignal<ReadonlyMap<string, string>>(new Map()),
     comparisonLoading: createSignal(false),
+    comparisonSpecs: createSignal<ReadonlyArray<SymbolSpec>>([]),
     symbolCatalog: createSignal([] as ReadonlyArray<SymbolInfo>),
     catalog: [],
 
@@ -165,6 +166,7 @@ export function createMockChartController(
     getZoomLevelCount: () => 10,
     setSymbols: () => {},
     registerSymbols: () => {},
+    setComparisonSpecs: () => {},
     addComparisonSymbol: () => {},
     removeComparisonSymbol: () => {},
     setComparisonData: () => {},

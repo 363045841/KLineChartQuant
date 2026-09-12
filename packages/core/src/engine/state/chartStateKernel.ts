@@ -252,7 +252,17 @@ export class ChartStateKernel extends StateKernel {
 
     // ── Data state ──
     this.data = createDataState()
-    this.dataLength$ = computed(() => this.data.readonly.dataLength())
+
+    // ── Comparison state（对比品种独立 SSOT，不派生自 kline 主品种）──
+    this.comparison = createComparisonState()
+
+    // 比较视图激活时，视口数据长度由对比参考序列长度决定；否则由 kline 主品种决定。
+    this.dataLength$ = computed(() => {
+      if (this.comparison.readonly.specs().length > 0) {
+        return this.comparison.readonly.referenceLength()
+      }
+      return this.data.readonly.dataLength()
+    })
     const timeShareDayCount$ = computed(() => this.data.readonly.timeShareRange()?.days.length ?? 0)
 
     // ── Data manager state (coordination layer) ──
@@ -267,9 +277,6 @@ export class ChartStateKernel extends StateKernel {
         return 0
       }
     })
-
-    // ── Comparison state ──
-    this.comparison = createComparisonState({ symbols$: this.data.readonly.symbols })
 
     // ── Indicator state ──
     this.indicator = createIndicatorState()
@@ -414,6 +421,8 @@ export class ChartStateKernel extends StateKernel {
       // Comparison
       comparisonColors: this.comparison.readonly.colors,
       comparisonLoading: this.comparison.readonly.loading,
+      comparisonSpecs: this.comparison.readonly.specs,
+      comparisonActive: this.comparison.readonly.active,
       // Indicator
       subPanes: this.indicator.readonly.subPanes,
       indicatorResult: this.indicatorResult.readonly.snapshot,
@@ -429,9 +438,13 @@ export class ChartStateKernel extends StateKernel {
       clearTimeShareKWidth: () => this.zoom.actions.clearTimeShareKWidth(),
       setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => {
         const snapshot = symbols.map((symbol) => ({ ...symbol }))
+        this.data.actions.setSymbols(snapshot)
+      },
+      setComparisonSpecs: (specs: ReadonlyArray<SymbolSpec>) => {
+        const snapshot = specs.map((spec) => ({ ...spec }))
         batch(() => {
-          this.data.actions.setSymbols(snapshot)
-          this.comparison.actions.syncColors(snapshot.slice(1))
+          this.comparison.actions.setSpecs(snapshot)
+          this.comparison.actions.syncColors(snapshot)
         })
       },
       setSymbolCatalog: (catalog: ReadonlyArray<SymbolInfo>) =>
