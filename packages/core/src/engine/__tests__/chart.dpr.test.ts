@@ -675,13 +675,13 @@ describe('Chart pane layout regressions', () => {
     chart.setActiveMode(kMode)
     expect(chart.indicators.subPanes.peek()).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ instanceId: volumePaneId, indicatorId: 'volume' }),
+        expect.objectContaining({ instanceId: volumePaneId, indicatorId: 'VOL' }),
       ]),
     )
     chart.setActiveMode(tsMode)
     expect(chart.indicators.subPanes.peek()).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ instanceId: timeShareVolumePaneId, indicatorId: 'volume' }),
+        expect.objectContaining({ instanceId: timeShareVolumePaneId, indicatorId: 'VOL' }),
       ]),
     )
     await chart.destroy()

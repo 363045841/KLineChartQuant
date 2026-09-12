@@ -182,6 +182,16 @@ export function getRegisteredIndicatorDefinition(name: string): IndicatorMetadat
   return indicatorDefinitions.get(canonicalName)
 }
 
+/**
+ * 将指标的 name / displayName / 别名解析为对外规范 ID（即 displayName）。
+ *
+ * 规范 ID 是 Core、UI、Agent 共用的唯一指标身份；内部 name 仅用于 state key、
+ * renderer 命名与计算配置，不再作为对外标识。未注册时返回 undefined。
+ */
+export function resolveIndicatorDefinitionId(nameOrAlias: string): string | undefined {
+  return getRegisteredIndicatorDefinition(nameOrAlias)?.displayName
+}
+
 export function clearRegisteredIndicatorDefinitionsForTest(): void {
   indicatorDefinitions.clear()
   indicatorDefinitionAliases.clear()

@@ -2,7 +2,10 @@
 import { batch, computed, createSubState } from '../../foundation/reactivity/signal'
 import { ChartWorkspaceId } from '../../foundation/types/chartView'
 import { deepFreezeSnapshot } from './immutable'
-import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
+import {
+  getRegisteredIndicatorDefinition,
+  resolveIndicatorDefinitionId,
+} from '../indicators/indicatorDefinitionRegistry'
 import type { ViewWorkspacesSnapshot } from './viewWorkspace'
 
 /** 指标实例所在的图表区域。 */
@@ -163,14 +166,13 @@ export function createIndicatorState() {
 
   /** 写入或更新主图实例，新实例始终位于副图实例之前。 */
   const upsertMain = (id: string, params: Record<string, number | boolean | string>) => {
-    const indicatorId = id.toUpperCase()
     const prev = readonly.instances.peek()
-    const index = findMainIndex(prev, indicatorId)
+    const index = findMainIndex(prev, id)
     const existing = index < 0 ? undefined : prev[index]
     const next = [...prev]
     const entry = snapshotInstance({
-      instanceId: `main:${indicatorId}`,
-      indicatorId,
+      instanceId: `main:${id}`,
+      indicatorId: id,
       paneId: 'main',
       role: 'main',
       ordinal: 0,
@@ -200,9 +202,20 @@ export function createIndicatorState() {
       },
       /** 用已校验的持久快照恢复两个工作区的用户指标。 */
       restoreWorkspaces(workspaces: ViewWorkspacesSnapshot) {
+        // 快照可能来自规范 ID 之前的版本；恢复时统一解析为展示名
+        const normalizeInstanceId = (entry: IndicatorInstanceInput): IndicatorInstanceInput => ({
+          ...entry,
+          indicatorId: resolveIndicatorDefinitionId(entry.indicatorId) ?? entry.indicatorId,
+        })
         const next = Object.freeze({
-          kline: Object.freeze(workspaces.kline.instances.map(snapshotInstance)),
-          timeshare: Object.freeze(workspaces.timeshare.instances.map(snapshotInstance)),
+          kline: Object.freeze(
+            workspaces.kline.instances.map((entry) => snapshotInstance(normalizeInstanceId(entry))),
+          ),
+          timeshare: Object.freeze(
+            workspaces.timeshare.instances.map((entry) =>
+              snapshotInstance(normalizeInstanceId(entry)),
+            ),
+          ),
         })
         const activeInstances = next[readonly.activeWorkspace.peek()]
         batch(() => {
@@ -217,22 +230,20 @@ export function createIndicatorState() {
       },
       /** 按 indicatorId 删除主图实例。 */
       removeMain(id: string) {
-        const indicatorId = id.toUpperCase()
         const prev = readonly.instances.peek()
-        if (findMainIndex(prev, indicatorId) < 0) return
+        if (findMainIndex(prev, id) < 0) return
         write(
           prev.filter(
             (instance) =>
               instance.source === 'mode' ||
-              !(instance.role === 'main' && instance.indicatorId === indicatorId),
+              !(instance.role === 'main' && instance.indicatorId === id),
           ),
         )
       },
       /** 仅更新已存在主图实例的参数。 */
       setMainParams(id: string, params: Record<string, number | boolean | string>) {
-        const indicatorId = id.toUpperCase()
-        if (findMainIndex(readonly.instances.peek(), indicatorId) < 0) return
-        upsertMain(indicatorId, params)
+        if (findMainIndex(readonly.instances.peek(), id) < 0) return
+        upsertMain(id, params)
       },
       /** 整体替换主图实例，保留副图实例。 */
       replaceAllMain(instances: ReadonlyArray<IndicatorInstanceSpec>) {

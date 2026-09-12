@@ -121,9 +121,8 @@
   import {
     createIndicatorSelectorController,
     type IndicatorDefinition,
-    allIndicators,
+    allIndicatorDefinitions,
     findIndicator,
-    type Indicator,
     loadBuiltinIndicators,
     isBuiltinIndicatorsLoaded,
   } from '@363045841yyt/klinechart-core/controllers'
@@ -154,28 +153,6 @@
     close: []
   }>()
 
-  function toIndicatorDefinitions(source: Indicator[]): IndicatorDefinition[] {
-    return source.map((i) => ({
-      id: i.id,
-      label: i.label,
-      name: i.name,
-      description: i.description,
-      role: i.pane,
-      indicatorType: i.indicatorType,
-      indicatorTypeLabel: i.indicatorTypeLabel,
-      indicatorTypeOrder: i.indicatorTypeOrder,
-      params: (i.params ?? []).map((p) => ({
-        key: p.key,
-        label: p.label,
-        type: p.type,
-        default: p.default ?? (p.type === 'number' ? 0 : ''),
-        min: p.min,
-        max: p.max,
-        step: p.step,
-      })),
-    }))
-  }
-
   const controller = createIndicatorSelectorController()
 
   const menuOpen = coreSignalToVueRef(controller.menuOpen)
@@ -194,7 +171,7 @@
     if (!isBuiltinIndicatorsLoaded()) {
       await loadBuiltinIndicators()
     }
-    controller.catalog.set(toIndicatorDefinitions(allIndicators()))
+    controller.catalog.set(allIndicatorDefinitions())
   })
 
   const paramsVisible = ref(false)

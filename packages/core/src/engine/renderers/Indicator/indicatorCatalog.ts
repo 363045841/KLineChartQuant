@@ -1,4 +1,7 @@
-import { getRegisteredIndicatorDefinitions } from '../../indicators/indicatorDefinitionRegistry'
+import {
+  getRegisteredIndicatorDefinition,
+  getRegisteredIndicatorDefinitions,
+} from '../../indicators/indicatorDefinitionRegistry'
 import {
   getBuiltinIndicatorTypeLabel,
   getBuiltinIndicatorTypeOrder,
@@ -1341,7 +1344,7 @@ function rebuildIfStale(): Indicator[] {
         const key = normalizeId(def.name)
         const ui = uiMeta[key]
         return {
-          id: def.displayName.toUpperCase(),
+          id: def.displayName,
           label: def.displayName,
           name: ui?.name ?? def.displayName,
           pane: (def.category === 'main' || def.allowMainPane
@@ -1371,7 +1374,15 @@ export function allIndicators(): Indicator[] {
 
 export function findIndicator(id: string): Indicator | undefined {
   const norm = normalizeId(id)
-  return rebuildIfStale().find((i) => normalizeId(i.id) === norm || normalizeId(i.label) === norm)
+  const direct = rebuildIfStale().find(
+    (i) => normalizeId(i.id) === norm || normalizeId(i.label) === norm,
+  )
+  if (direct) return direct
+  // 兼容内部 name / 别名输入：先解析为规范展示名再匹配
+  const canonicalId = getRegisteredIndicatorDefinition(id)?.displayName
+  if (!canonicalId) return undefined
+  const canonical = normalizeId(canonicalId)
+  return rebuildIfStale().find((i) => normalizeId(i.id) === canonical)
 }
 
 export function isSubIndicatorId(id: string): boolean {

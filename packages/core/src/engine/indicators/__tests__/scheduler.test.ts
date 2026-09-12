@@ -244,7 +244,7 @@ describe('IndicatorScheduler', () => {
       scheduler.setIndicatorInstanceProvider(() => [
         {
           instanceId: 'volume-instance',
-          definitionId: 'volume',
+          definitionId: 'Volume',
           paneId: 'sub_Volume_dynamic',
           params: {},
         },

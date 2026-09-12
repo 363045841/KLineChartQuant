@@ -31,6 +31,7 @@ import { resolveSettings } from '../foundation/config/chartSettings'
 import { computed, type ReadonlySignal } from '../foundation/reactivity/index'
 import { generateUUID } from '../foundation/utils/uuid'
 import { createDefaultRendererHost, type RendererBackend } from '../rendering/render/index'
+import { allIndicatorDefinitions } from './indicatorDefinitionCatalog'
 
 import type {
   ChartController,
@@ -40,7 +41,6 @@ import type {
   IndicatorInstance,
   InteractionSnapshot,
   DrawingControllerCallbacks,
-  IndicatorDefinition,
   KLineData,
   PaneLayoutInfo,
   PaneSpec,
@@ -93,110 +93,6 @@ const INITIAL_INTERACTION: InteractionSnapshot = {
   hoveredPaneBoundaryId: null,
   isHoveringRightAxis: false,
 }
-
-// ---------------------------------------------------------------------------
-// Indicator catalog (mirrors renderer ids registered in the engine)
-// ---------------------------------------------------------------------------
-
-const DEFAULT_INDICATOR_CATALOG: ReadonlyArray<IndicatorDefinition> = [
-  {
-    id: 'MA',
-    label: 'MA',
-    name: '移动平均线',
-    role: 'main',
-    indicatorType: 'moving-average',
-    params: [],
-  },
-  { id: 'BOLL', label: 'BOLL', name: '布林带', role: 'main', indicatorType: 'channel', params: [] },
-  {
-    id: 'EXPMA',
-    label: 'EXPMA',
-    name: '指数平均线',
-    role: 'main',
-    indicatorType: 'moving-average',
-    params: [],
-  },
-  { id: 'ENE', label: 'ENE', name: '轨道线', role: 'main', indicatorType: 'channel', params: [] },
-  { id: 'SAR', label: 'SAR', name: '抛物线', role: 'main', indicatorType: 'trend', params: [] },
-  {
-    id: 'SUPERTREND',
-    label: 'SuperTrend',
-    name: '超级趋势',
-    role: 'main',
-    indicatorType: 'trend',
-    params: [],
-  },
-  {
-    id: 'STRUCTURE',
-    label: 'Structure',
-    name: 'SMC 结构',
-    role: 'main',
-    indicatorType: 'structure',
-    params: [],
-  },
-  {
-    id: 'ZONES',
-    label: 'Zones',
-    name: 'SMC 区域',
-    role: 'main',
-    indicatorType: 'structure',
-    params: [],
-  },
-  { id: 'VOLUME', label: 'VOL', name: '成交量', role: 'sub', indicatorType: 'volume', params: [] },
-  { id: 'MACD', label: 'MACD', name: 'MACD', role: 'sub', indicatorType: 'momentum', params: [] },
-  { id: 'RSI', label: 'RSI', name: '相对强弱', role: 'sub', indicatorType: 'momentum', params: [] },
-  { id: 'CCI', label: 'CCI', name: '顺势指标', role: 'sub', indicatorType: 'momentum', params: [] },
-  {
-    id: 'KDJ',
-    label: 'KDJ',
-    name: 'KDJ',
-    role: 'sub',
-    indicatorType: 'momentum',
-    params: [],
-  },
-  { id: 'MOM', label: 'MOM', name: '动量', role: 'sub', indicatorType: 'momentum', params: [] },
-  {
-    id: 'WMSR',
-    label: 'WMSR',
-    name: '威廉指标',
-    role: 'sub',
-    indicatorType: 'momentum',
-    params: [],
-  },
-  {
-    id: 'KST',
-    label: 'KST',
-    name: 'KST 振荡器',
-    role: 'sub',
-    indicatorType: 'momentum',
-    params: [],
-  },
-  {
-    id: 'FASTK',
-    label: 'FASTK',
-    name: '快速 K',
-    role: 'sub',
-    indicatorType: 'momentum',
-    params: [],
-  },
-  { id: 'OBV', label: 'OBV', name: '能量潮', role: 'sub', indicatorType: 'volume', params: [] },
-  {
-    id: 'VWAP',
-    label: 'VWAP',
-    name: '成交量加权均价',
-    role: 'sub',
-    indicatorType: 'volume',
-    params: [],
-  },
-  {
-    id: 'VOLUME_PROFILE',
-    label: 'VP',
-    name: '成交量分布',
-    role: 'sub',
-    indicatorType: 'volume',
-    params: [],
-  },
-]
 
 // ---------------------------------------------------------------------------
 // DOM scaffolding
@@ -539,7 +435,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     paneManager: chart.kernel.paneManager,
     comparisonCommands: chart.comparisonCommands,
     resolveSubPaneIndicatorId: (indicatorId) =>
-      chart.getIndicatorScheduler().getIndicatorMetadata(indicatorId)?.name ?? null,
+      chart.getIndicatorScheduler().getIndicatorMetadata(indicatorId)?.displayName ?? null,
     isSubPaneRendererAvailable: (indicatorId, paneId) => {
       const definition = chart.getIndicatorScheduler().getIndicatorMetadata(indicatorId)
       return definition !== undefined && hasSubPaneRendererMetadata(definition, paneId, indicatorId)
@@ -976,9 +872,9 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   ): boolean {
     if (disposed) return false
     const definition = chart.getIndicatorScheduler().getIndicatorMetadata(indicatorId)
-    if (!definition || !hasSubPaneRendererMetadata(definition, paneId, definition.name))
+    if (!definition || !hasSubPaneRendererMetadata(definition, paneId, definition.displayName))
       return false
-    return chart.panes.replaceContent(paneId, definition.name, params)
+    return chart.panes.replaceContent(paneId, definition.displayName, params)
   }
 
   function updatePaneContent(paneId: string, params: Record<string, unknown>): boolean {
@@ -1098,7 +994,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     comparisonColors,
     comparisonLoading,
     symbolCatalog,
-    catalog: DEFAULT_INDICATOR_CATALOG,
+    catalog: allIndicatorDefinitions(),
     alertController: chart.alertController,
     setSymbols,
     registerSymbols,

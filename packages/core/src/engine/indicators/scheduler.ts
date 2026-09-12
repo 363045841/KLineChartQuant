@@ -609,7 +609,7 @@ export class IndicatorScheduler {
     const volumeMetadata = this.registry.get('volume')
     if (volume && volumeMetadata) {
       const volumeInstances = (this.getIndicatorInstances?.() ?? []).filter(
-        (instance) => instance.definitionId === volumeMetadata.name,
+        (instance) => instance.definitionId === volumeMetadata.displayName,
       )
       const paneIds =
         volumeInstances.length > 0

@@ -169,7 +169,7 @@ describe('ChartIndicatorManager', () => {
       const entry = manager.getSubPaneEntries()[0]!
       expect(entry.instanceId).toBe(instanceId)
       expect(entry.instanceId).not.toBe(entry.paneId)
-      expect(entry.indicatorId).toBe('volume')
+      expect(entry.indicatorId).toBe('VOL')
       expect(entry.ordinal).toBe(0)
 
       expect(manager.updateIndicatorParams(instanceId!, { opacity: 0.5 })).toBe(true)

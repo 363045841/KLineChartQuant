@@ -27,7 +27,10 @@ import type { SubIndicatorType } from '../renderers/Indicator'
 import { createMainIndicatorLegendRendererPlugin } from '../renderers/Indicator/mainIndicatorLegend'
 import { SubPaneManager, type SubPaneEntry, type SubPaneContext } from '../subPaneManager'
 
-import { getRegisteredIndicatorDefinitions } from './indicatorDefinitionRegistry'
+import {
+  getRegisteredIndicatorDefinitions,
+  resolveIndicatorDefinitionId,
+} from './indicatorDefinitionRegistry'
 import { IndicatorScheduler } from './scheduler'
 import { makePluginLayerId } from '../../foundation/plugin/rendererLayerId'
 import { generateUUID } from '../../foundation/utils/uuid'
@@ -122,7 +125,7 @@ export class ChartIndicatorManager {
       ChartIndicatorManager._defaultMainParamsCache = {}
       for (const def of getRegisteredIndicatorDefinitions()) {
         if (def.category === 'main') {
-          const key = def.name.toUpperCase()
+          const key = def.displayName
           ChartIndicatorManager._defaultMainParamsCache[key] = {
             ...(def.presentation?.defaultOptions ?? def.runtime?.defaultParams ?? {}),
           } as Record<string, number | boolean | string>
@@ -139,7 +142,7 @@ export class ChartIndicatorManager {
     if (ChartIndicatorManager._enableMainIndicatorsCache === null) {
       ChartIndicatorManager._enableMainIndicatorsCache = getRegisteredIndicatorDefinitions()
         .filter((d) => d.category === 'main')
-        .map((d) => d.name.toUpperCase())
+        .map((d) => d.displayName)
     }
     return ChartIndicatorManager._enableMainIndicatorsCache
   }
@@ -292,8 +295,8 @@ export class ChartIndicatorManager {
     indicatorId: string,
     params?: Record<string, number | boolean | string>,
   ): boolean {
-    const id = indicatorId.toUpperCase()
-    if (!ChartIndicatorManager.ENABLE_MAIN_INDICATORS.includes(id)) {
+    const id = resolveIndicatorDefinitionId(indicatorId)
+    if (!id || !ChartIndicatorManager.ENABLE_MAIN_INDICATORS.includes(id)) {
       console.warn(`[Chart] 未知的主图指标: ${indicatorId}`)
       return false
     }
@@ -314,8 +317,8 @@ export class ChartIndicatorManager {
   }
 
   disableMainIndicator(indicatorId: string): boolean {
-    const id = indicatorId.toUpperCase()
-    if (!this.getMainIndicatorInstance(id)) return false
+    const id = resolveIndicatorDefinitionId(indicatorId)
+    if (!id || !this.getMainIndicatorInstance(id)) return false
 
     this.deps.indicator.actions.removeMain(id)
     return true
@@ -337,22 +340,25 @@ export class ChartIndicatorManager {
   }
 
   isMainIndicatorActive(indicatorId: string): boolean {
-    return Boolean(this.getMainIndicatorInstance(indicatorId.toUpperCase()))
+    const id = resolveIndicatorDefinitionId(indicatorId)
+    return id !== undefined && Boolean(this.getMainIndicatorInstance(id))
   }
 
   updateMainIndicatorParams(
     indicatorId: string,
     params: Record<string, number | boolean | string>,
   ): void {
-    const id = indicatorId.toUpperCase()
-    if (!this.getMainIndicatorInstance(id)) return
+    const id = resolveIndicatorDefinitionId(indicatorId)
+    if (!id || !this.getMainIndicatorInstance(id)) return
 
     this.deps.indicator.actions.setMainParams(id, params)
   }
 
   getMainIndicatorParams(indicatorId: string): Record<string, number | boolean | string> | null {
-    const params = this.getMainIndicatorInstance(indicatorId.toUpperCase())?.params as
-      Readonly<Record<string, number | boolean | string>> | undefined
+    const id = resolveIndicatorDefinitionId(indicatorId)
+    const params = (id ? this.getMainIndicatorInstance(id)?.params : undefined) as
+      | Readonly<Record<string, number | boolean | string>>
+      | undefined
     return params ? { ...params } : null
   }
 
@@ -438,8 +444,11 @@ export class ChartIndicatorManager {
    */
   setActiveMainIndicators(indicators: string[]): void {
     const newIds = indicators
-      .map((i) => i.toUpperCase())
-      .filter((id) => ChartIndicatorManager.ENABLE_MAIN_INDICATORS.includes(id))
+      .map((indicatorId) => resolveIndicatorDefinitionId(indicatorId))
+      .filter(
+        (id): id is string =>
+          id !== undefined && ChartIndicatorManager.ENABLE_MAIN_INDICATORS.includes(id),
+      )
     const instances: IndicatorInstanceSpec[] = newIds.map((id) => {
       const existing = this.getMainIndicatorInstance(id)
       return {
@@ -525,22 +534,24 @@ export class ChartIndicatorManager {
         params as Record<string, number | boolean | string>,
       )
       if (!success) return null
-      return definitionId.toUpperCase()
+      return resolveIndicatorDefinitionId(definitionId) ?? definitionId
     } else {
       const definition = this.indicatorScheduler.getIndicatorMetadata(definitionId)
       if (!definition) return null
       const instanceId = generateUUID()
       const paneId = generateUUID()
-      this.deps.subPaneOps.create(this.createPaneInput(paneId, definition.name, params, instanceId))
+      this.deps.subPaneOps.create(
+        this.createPaneInput(paneId, definition.displayName, params, instanceId),
+      )
       return instanceId
     }
   }
 
   removeIndicator(instanceId: string): boolean {
-    const id = instanceId.toUpperCase()
+    const mainId = resolveIndicatorDefinitionId(instanceId)
 
-    if (this.getMainIndicatorInstance(id)) {
-      return this.disableMainIndicator(instanceId)
+    if (mainId && this.getMainIndicatorInstance(mainId)) {
+      return this.disableMainIndicator(mainId)
     }
 
     const subPaneEntry = this.deps.indicator.readonly.instances
@@ -555,11 +566,11 @@ export class ChartIndicatorManager {
   }
 
   updateIndicatorParams(instanceId: string, params: Record<string, unknown>): boolean {
-    const id = instanceId.toUpperCase()
+    const mainId = resolveIndicatorDefinitionId(instanceId)
 
-    if (this.getMainIndicatorInstance(id)) {
+    if (mainId && this.getMainIndicatorInstance(mainId)) {
       this.updateMainIndicatorParams(
-        instanceId,
+        mainId,
         params as Record<string, number | boolean | string>,
       )
       return true

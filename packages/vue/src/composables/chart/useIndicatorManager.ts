@@ -166,7 +166,7 @@ export function useIndicatorManager(
       if (active && !existingIndicator) {
         c.addIndicator(indicatorId, 'main', indicatorParams.value[indicatorId])
       } else if (!active && existingIndicator) {
-        c.removeIndicator(indicatorId.toUpperCase())
+        c.removeIndicator(indicatorId)
       }
       return
     }

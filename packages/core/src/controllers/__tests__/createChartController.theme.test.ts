@@ -131,7 +131,7 @@ describe('createChartController mount theme', () => {
     expect(paneId).toBeDefined()
     expect(ctrl.replacePaneContent(paneId!, 'VOL', {})).toBe(true)
     expect(ctrl.subPanes.peek()).toContainEqual(
-      expect.objectContaining({ paneId, indicatorId: 'volume' }),
+      expect.objectContaining({ paneId, indicatorId: 'VOL' }),
     )
 
     ctrl.dispose()
