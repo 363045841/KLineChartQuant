@@ -2054,6 +2054,9 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+    /* 图表内部存在高 z-index 的叠加层，隔离为独立层叠上下文，
+       避免它们越过自选股面板滑出动画（后者靠 DOM 顺序天然在上层）。 */
+    isolation: isolate;
   }
 
   .chart-stage {
@@ -2311,7 +2314,7 @@
     }
 
     .watchlist-panel {
-      flex: 0 0 132px;
+      --watchlist-panel-expanded-width: 132px;
     }
   }
 </style>

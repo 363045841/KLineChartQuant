@@ -1,51 +1,62 @@
 <!-- 自选股侧栏，展示并切换用户收藏的品种。 -->
 <template>
-  <aside class="watchlist-panel" :class="{ 'is-collapsed': isCollapsed }" aria-label="自选股">
-    <div class="watchlist-panel__header">
-      <div class="watchlist-panel__title">
-        <span>自选股</span>
-        <span class="watchlist-panel__count">{{ items.length }}</span>
+  <aside
+    class="watchlist-panel"
+    :class="{ 'is-collapsed': isCollapsed, 'is-animating': isAnimating }"
+    aria-label="自选股"
+  >
+    <div
+      class="watchlist-panel__surface"
+      :aria-hidden="isCollapsed"
+      :inert="isCollapsed"
+      @transitionend="onSurfaceTransitionEnd"
+    >
+      <div class="watchlist-panel__header">
+        <div class="watchlist-panel__title">
+          <span>自选股</span>
+          <span class="watchlist-panel__count">{{ items.length }}</span>
+        </div>
       </div>
-      <button
-        type="button"
-        class="watchlist-panel__toggle"
-        :title="isCollapsed ? '展开自选股' : '收起自选股'"
-        :aria-label="isCollapsed ? '展开自选股' : '收起自选股'"
-        @click="isCollapsed = !isCollapsed"
-      >
-        <IconTablerChevronLeft v-if="!isCollapsed" aria-hidden="true" />
-        <IconTablerChevronRight v-else aria-hidden="true" />
-      </button>
-    </div>
-    <div v-if="!isCollapsed && items.length === 0" class="watchlist-panel__empty">暂无自选股</div>
-    <div v-else-if="!isCollapsed" class="watchlist-panel__list">
-      <div
-        v-for="item in items"
-        :key="symbolIdentityKey(item)"
-        class="watchlist-panel__item"
-        :class="{ 'is-active': symbolIdentityKey(item) === activeKey }"
-      >
-        <button
-          type="button"
-          class="watchlist-panel__select"
-          :title="`${item.symbol} - ${item.name}`"
-          @click="emit('select', item)"
+      <div v-if="items.length === 0" class="watchlist-panel__empty">暂无自选股</div>
+      <div v-else class="watchlist-panel__list">
+        <div
+          v-for="item in items"
+          :key="symbolIdentityKey(item)"
+          class="watchlist-panel__item"
+          :class="{ 'is-active': symbolIdentityKey(item) === activeKey }"
         >
-          <span class="watchlist-panel__symbol">{{ item.symbol }}</span>
-          <span class="watchlist-panel__name">{{ item.name }}</span>
-          <span class="watchlist-panel__meta">{{ item.exchange }}</span>
-        </button>
-        <button
-          type="button"
-          class="watchlist-panel__remove"
-          title="移除自选"
-          aria-label="移除自选"
-          @click="emit('remove', item)"
-        >
-          <IconTablerX aria-hidden="true" />
-        </button>
+          <button
+            type="button"
+            class="watchlist-panel__select"
+            :title="`${item.symbol} - ${item.name}`"
+            @click="emit('select', item)"
+          >
+            <span class="watchlist-panel__symbol">{{ item.symbol }}</span>
+            <span class="watchlist-panel__name">{{ item.name }}</span>
+            <span class="watchlist-panel__meta">{{ item.exchange }}</span>
+          </button>
+          <button
+            type="button"
+            class="watchlist-panel__remove"
+            title="移除自选"
+            aria-label="移除自选"
+            @click="emit('remove', item)"
+          >
+            <IconTablerX aria-hidden="true" />
+          </button>
+        </div>
       </div>
     </div>
+    <button
+      type="button"
+      class="watchlist-panel__toggle"
+      :title="isCollapsed ? '展开自选股' : '收起自选股'"
+      :aria-label="isCollapsed ? '展开自选股' : '收起自选股'"
+      @click="toggleCollapsed"
+    >
+      <IconTablerChevronLeft v-if="!isCollapsed" aria-hidden="true" />
+      <IconTablerChevronRight v-else aria-hidden="true" />
+    </button>
   </aside>
 </template>
 
@@ -68,24 +79,72 @@
   }>()
 
   const isCollapsed = ref(false)
+  // 动画期间临时放开 overflow 与堆叠，避免内容 surface 被 40px 轨道裁切。
+  const isAnimating = ref(false)
+
+  /** 切换折叠：轨道宽度瞬间到位，内容 surface 仅做 transform 滑出/滑入。 */
+  function toggleCollapsed(): void {
+    isCollapsed.value = !isCollapsed.value
+    isAnimating.value = true
+  }
+
+  /** surface 的 transform 过渡结束后恢复静态裁剪，防止越界绘制。 */
+  function onSurfaceTransitionEnd(event: TransitionEvent): void {
+    if (event.target !== event.currentTarget || event.propertyName !== 'transform') return
+    isAnimating.value = false
+  }
 </script>
 
 <style scoped>
+  .watchlist-panel,
+  .watchlist-panel__surface {
+    box-sizing: border-box;
+  }
+
+  /* 折叠轨道宽度瞬间到位；内容位移全部交给 compositor，避免逐帧触发图表 resize。 */
   .watchlist-panel {
-    flex: 0 0 208px;
+    --watchlist-panel-expanded-width: 208px;
+    --watchlist-panel-collapsed-width: 40px;
+
+    position: relative;
+    flex: 0 0 var(--watchlist-panel-expanded-width);
     min-width: 0;
+    overflow: hidden;
+  }
+
+  /* 收起后仅剩 40px 轨道可见，由轨道自身提供边框与底色。 */
+  .watchlist-panel.is-collapsed {
+    flex: 0 0 var(--watchlist-panel-collapsed-width);
+    border: 1px solid var(--klc-color-ui-border);
+    border-radius: 3px;
+    background: var(--klc-color-ui-surface);
+  }
+
+  /* 动画期间 surface 比 40px 轨道宽，临时放开裁剪；层叠交由 DOM 顺序决定，不抬高 z-index。 */
+  .watchlist-panel.is-animating {
+    overflow: visible;
+  }
+
+  .watchlist-panel__surface {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
     display: flex;
     flex-direction: column;
+    width: var(--watchlist-panel-expanded-width);
     border: 1px solid var(--klc-color-ui-border);
     border-radius: 3px;
     background: var(--klc-color-ui-surface);
     color: var(--klc-color-ui-text);
     overflow: hidden;
-    transition: flex-basis 0.15s ease;
+    transition: transform 0.15s ease;
+    will-change: transform;
   }
 
-  .watchlist-panel.is-collapsed {
-    flex-basis: 40px;
+  .watchlist-panel.is-collapsed .watchlist-panel__surface {
+    transform: translateX(100%);
   }
 
   .watchlist-panel__header {
@@ -98,14 +157,11 @@
     font-weight: 600;
   }
 
-  .watchlist-panel.is-collapsed .watchlist-panel__header {
-    border-bottom: 0;
-  }
-
   .watchlist-panel__toggle {
     position: absolute;
-    top: 50%;
+    top: 20px;
     right: 5px;
+    z-index: 2;
     transform: translateY(-50%);
     display: inline-flex;
     align-items: center;
@@ -146,10 +202,6 @@
     align-items: center;
     gap: 6px;
     white-space: nowrap;
-  }
-
-  .watchlist-panel.is-collapsed .watchlist-panel__title {
-    visibility: hidden;
   }
 
   .watchlist-panel__empty {
@@ -249,11 +301,5 @@
   .watchlist-panel__remove svg {
     width: 15px;
     height: 15px;
-  }
-
-  @media (max-width: 768px), (max-height: 640px) {
-    .watchlist-panel {
-      flex-basis: 152px;
-    }
   }
 </style>
