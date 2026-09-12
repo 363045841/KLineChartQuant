@@ -13,6 +13,7 @@ import type {
   AgentUiEvent,
   ProviderModelView,
   ProviderReasoningEffort,
+  QuestionAnswerView,
 } from './agent-contracts'
 
 export function useAgentWorkspace(bridge: AgentBridgeClient) {
@@ -70,6 +71,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
         messages: snapshot.messages,
         toolCalls: snapshot.toolCalls,
         confirmations: [],
+        questions: [],
         run: currentRun,
         previousRuns: snapshot.runs.slice(0, -1),
         error: currentRun.error ?? null,
@@ -169,6 +171,13 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     await bridge.confirmTool(confirmationId, decision)
   }
 
+  async function answerQuestion(
+    questionId: string,
+    answer: QuestionAnswerView,
+  ): Promise<void> {
+    await bridge.answerQuestion(questionId, answer)
+  }
+
   async function undoTurn(): Promise<void> {
     if (state.value.run.id) await bridge.undoTurn(state.value.run.id)
   }
@@ -238,6 +247,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     stop,
     retry,
     confirmTool,
+    answerQuestion,
     undoTurn,
     setReadOnly,
     loadModels,

@@ -1,3 +1,4 @@
+import { Type } from 'typebox'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -526,6 +527,42 @@ describe('OpenAI-compatible runtime support', () => {
       'The selected-kline-bars context contains the complete OHLCV data',
     )
     expect(plan.systemPrompt).toContain('do not call market_bars_query for that range')
+  })
+
+  it('requires ask_user for ambiguous tool results when tools are available', async () => {
+    const { credentials, settings } = configuredStores()
+    await configure(credentials, settings)
+    const support = createOpenAiCompatibleRuntimeSupport({
+      credentials,
+      settings,
+      fetch: providerFetch(),
+      tools: () => [
+        {
+          name: 'dummy',
+          label: 'Dummy',
+          description: 'Dummy tool',
+          parameters: Type.Object({}),
+          safety: 'read-only',
+          reversible: false,
+          execute: async () => ({ content: '{}', summary: 'done' }),
+        },
+      ],
+    })
+
+    const plan = await support.createPlan({
+      sessionId: 'session-1',
+      runId: 'run-1',
+      turnId: 'turn-1',
+      lane: 'main',
+      prompt: 'Add 000012 as comparison',
+      readOnly: false,
+      startedAt: 1,
+      userEntryId: 'user-1',
+    })
+
+    expect(plan.tools.map((tool) => tool.name)).toContain('dummy')
+    expect(plan.systemPrompt).toContain('never guess: call ask_user')
+    expect(plan.systemPrompt).toContain('wait for the user to choose')
   })
 
   it('rejects persisted settings without verified model capabilities', () => {

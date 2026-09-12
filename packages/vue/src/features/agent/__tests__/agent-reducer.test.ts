@@ -152,6 +152,42 @@ describe('reduceAgentUiEvent', () => {
     expect(state.toolCalls[0]?.status).toBe('rejected')
   })
 
+  it('projects ask_user questions with their answer and cancellation', () => {
+    const state = replay([
+      event({ type: 'run.started', runId: RUN_ID, sessionId: SESSION_ID, startedAt: 10 }),
+      event({
+        type: 'tool.question.required',
+        runId: RUN_ID,
+        sessionId: SESSION_ID,
+        request: {
+          id: 'question-1',
+          toolCallId: 'tool-1',
+          prompt: 'Which 000012 do you mean?',
+          options: [
+            { label: '南玻A', description: 'stock @ SZ' },
+            { label: '国债指数', description: 'index @ SH' },
+          ],
+          multiSelect: false,
+          status: 'pending',
+        },
+      }),
+      event({
+        type: 'tool.question.resolved',
+        runId: RUN_ID,
+        sessionId: SESSION_ID,
+        questionId: 'question-1',
+        status: 'answered',
+        answer: { selectedLabels: ['国债指数'] },
+      }),
+    ])
+
+    expect(state.questions).toHaveLength(1)
+    expect(state.questions[0]).toMatchObject({
+      status: 'answered',
+      answer: { selectedLabels: ['国债指数'] },
+    })
+  })
+
   it('keeps completed mutations visible when cancellation is partial', () => {
     const state = replay([
       event({ type: 'run.started', runId: RUN_ID, sessionId: SESSION_ID, startedAt: 10 }),

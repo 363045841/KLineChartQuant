@@ -32,6 +32,12 @@
           :locale="locale"
           @decide="$emit('confirm', confirmationFor(entry.tool.id)!.id, $event)"
         />
+        <QuestionCard
+          v-if="questionFor(entry.tool.id)"
+          :question="questionFor(entry.tool.id)!"
+          :locale="locale"
+          @answer="$emit('answer', questionFor(entry.tool.id)!.id, $event)"
+        />
       </template>
       <section
         v-if="
@@ -78,6 +84,7 @@
   import AgentErrorNotice from './AgentErrorNotice.vue'
   import AgentMessageItem from './AgentMessageItem.vue'
   import ConfirmationCard from './ConfirmationCard.vue'
+  import QuestionCard from './QuestionCard.vue'
   import ToolCallCard from './ToolCallCard.vue'
   import LoadingSpinner from '../../../components/LoadingSpinner.vue'
 
@@ -86,6 +93,8 @@
     AgentMessageView,
     AgentRunView,
     ConfirmationView,
+    QuestionAnswerView,
+    QuestionView,
     ToolCallView,
   } from '../agent-contracts'
 
@@ -102,6 +111,7 @@
     messages: AgentMessageView[]
     toolCalls: ToolCallView[]
     confirmations: ConfirmationView[]
+    questions: QuestionView[]
     run: AgentRunView
     runs: AgentRunView[]
     error: AgentErrorView | null
@@ -112,6 +122,7 @@
   defineEmits<{
     prompt: [prompt: string]
     confirm: [confirmationId: string, decision: 'confirmed' | 'rejected']
+    answer: [questionId: string, answer: QuestionAnswerView]
     retry: []
     undo: []
     locate: [toolCallId: string]
@@ -168,6 +179,10 @@
     return props.confirmations.find((item) => item.toolCallId === toolCallId)
   }
 
+  function questionFor(toolCallId: string): QuestionView | undefined {
+    return props.questions.find((item) => item.toolCallId === toolCallId)
+  }
+
   // 用户离开底部后保留当前阅读位置，直到主动滚回消息末尾。
   function updateAutoScroll(): void {
     const element = scroller.value
@@ -189,6 +204,7 @@
       props.messages.length,
       props.toolCalls.length,
       props.confirmations.length,
+      props.questions.length,
       props.run.status,
     ],
     async () => {

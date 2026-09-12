@@ -52,6 +52,8 @@ export interface RuntimeToolDefinition<TParameters extends TSchema = TSchema> {
   reversible: boolean
   /** 同一轮中工具调用的执行策略。 */
   executionMode?: 'parallel' | 'sequential'
+  /** 执行时间完全取决于用户输入的等待型工具；执行期间 Run 的无活动 deadline 停表。 */
+  waitsForUserInput?: boolean
   /** 将已验证输入压缩为可展示摘要的函数。 */
   summarizeInput?: (input: unknown) => string
   /**

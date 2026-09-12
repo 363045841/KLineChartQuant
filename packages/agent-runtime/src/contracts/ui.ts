@@ -1,5 +1,5 @@
 /** Stable Renderer contract. Pi, Provider, and host transport types stop here. */
-export const AGENT_UI_PROTOCOL_VERSION = 5 as const
+export const AGENT_UI_PROTOCOL_VERSION = 6 as const
 
 export type AgentRunStatus =
   | 'idle'
@@ -125,6 +125,29 @@ export interface ConfirmationView {
   reversible: boolean
   expiresAt: number
   status: ConfirmationStatus
+}
+
+/** Ask Question 卡片的一个可选项；label 同时是回传给模型的选择值。 */
+export interface QuestionOptionView {
+  readonly label: string
+  readonly description?: string
+}
+
+/** 用户对一次提问的答复：选中的 label 集合与可选的自由文本。 */
+export interface QuestionAnswerView {
+  readonly selectedLabels: readonly string[]
+  readonly note?: string
+}
+
+export type QuestionStatus = 'pending' | 'answered' | 'cancelled'
+export interface QuestionView {
+  id: string
+  toolCallId: string
+  prompt: string
+  options: readonly QuestionOptionView[]
+  multiSelect: boolean
+  status: QuestionStatus
+  answer?: QuestionAnswerView
 }
 
 export interface AgentUsageView {
@@ -351,6 +374,13 @@ export type AgentUiEvent =
       confirmationId: string
       decision: 'confirmed' | 'rejected'
     })
+  | (RunEventEnvelope & { type: 'tool.question.required'; request: QuestionView })
+  | (RunEventEnvelope & {
+      type: 'tool.question.resolved'
+      questionId: string
+      status: 'answered' | 'cancelled'
+      answer?: QuestionAnswerView
+    })
   | (RunEventEnvelope & { type: 'tool.finished'; result: ToolCallView })
   | (RunEventEnvelope & { type: 'tool.undone'; toolCallId: string; undoneAt: number })
   | (EventEnvelope & { type: 'sessions.changed'; sessions: AgentSessionView[] })
@@ -448,6 +478,7 @@ export interface AgentBridgeClient {
   cancelRun(runId: string): Promise<void>
   retryRun(runId: string): Promise<{ runId: string }>
   confirmTool(confirmationId: string, decision: 'confirmed' | 'rejected'): Promise<void>
+  answerQuestion(questionId: string, answer: QuestionAnswerView): Promise<void>
   undoTurn(runId: string): Promise<void>
   listProviderModelCatalog(): Promise<ProviderModelsResult>
   listProviderModelPool(): Promise<ProviderModelPoolEntry[]>
