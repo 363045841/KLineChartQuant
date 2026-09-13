@@ -56,6 +56,16 @@
       </button>
     </div>
 
+    <Dropdown
+      v-if="templates.length > 0"
+      label="模板"
+      :model-value="''"
+      :options="templateOptions"
+      size="sm"
+      title="模板"
+      @update:model-value="onTemplatePick(String($event))"
+    />
+
     <button
       v-if="drawings.length === 1"
       type="button"
@@ -171,6 +181,8 @@
     drawings: ReadonlyArray<DrawingObject>
     editableStyleKeys: ReadonlyArray<keyof DrawingStyle>
     lineLabelPosition?: DrawingLabelPosition
+    /** 当前 kind 可用的模板名（父层按 tool 过滤后传入）。 */
+    templates?: ReadonlyArray<string>
   }>()
 
   const emit = defineEmits<{
@@ -181,7 +193,21 @@
     (e: 'copy'): void
     (e: 'updateLineLabelPosition', position: DrawingLabelPosition): void
     (e: 'openSettings', drawingId: string): void
+    (e: 'applyTemplate', name: string): void
+    (e: 'saveTemplate'): void
   }>()
+
+  const SAVE_SENTINEL = '__save__'
+
+  const templateOptions = computed(() => [
+    ...props.templates?.map((name) => ({ label: name, value: name })) ?? [],
+    { label: '＋保存为模板', value: SAVE_SENTINEL },
+  ])
+
+  function onTemplatePick(value: string) {
+    if (value === SAVE_SENTINEL) emit('saveTemplate')
+    else if (value) emit('applyTemplate', value)
+  }
 
   function onKeyDown(e: KeyboardEvent) {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
