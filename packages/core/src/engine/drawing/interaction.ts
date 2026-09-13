@@ -289,9 +289,11 @@ export class DrawingInteractionController {
 
   /**
    * 解析当前指针事件的磁吸配置。
+   * Shift 按住时不吸附——与宿主 Shift 锁角互斥，锁角改写后的坐标不得再被磁吸改写；
    * Ctrl/Meta 按住时临时升级为 strong（含 off 档，与壳侧基准一致）；off 且无修饰键时不吸附。
    */
   private resolveMagnetOptions(e: PointerEvent): ResolveDrawingPointerOptions | undefined {
+    if (e.shiftKey) return undefined
     const mode: ActiveMagnetMode | 'off' =
       e.ctrlKey || e.metaKey ? 'strong' : this.magnetMode
     return mode === 'off' ? undefined : { magnet: { mode } }

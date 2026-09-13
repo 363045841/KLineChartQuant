@@ -52,8 +52,18 @@ function createAdapter(tool: 'h-ray' | 'cursor') {
 }
 
 /** 构造指定坐标与修饰键的指针按下事件。 */
-function pointerDown(x: number, y: number, ctrlKey = false): PointerEvent {
-  return { clientX: x, clientY: y, ctrlKey, metaKey: false } as PointerEvent
+function pointerDown(
+  x: number,
+  y: number,
+  modifiers: { ctrlKey?: boolean; shiftKey?: boolean } = {},
+): PointerEvent {
+  return {
+    clientX: x,
+    clientY: y,
+    ctrlKey: modifiers.ctrlKey ?? false,
+    shiftKey: modifiers.shiftKey ?? false,
+    metaKey: false,
+  } as PointerEvent
 }
 
 const CONTAINER = {
@@ -101,8 +111,25 @@ describe('DrawingInteractionController magnet', () => {
     controller.setMagnetMode('off')
 
     // off 档 + Ctrl：距 open 1px，strong 半径内 → 收敛 100（与壳侧基准一致，Ctrl 覆盖 off）。
-    expect(controller.onPointerDown(pointerDown(12, 101, true), CONTAINER)).toBe(true)
+    expect(controller.onPointerDown(pointerDown(12, 101, { ctrlKey: true }), CONTAINER)).toBe(true)
     expect(createDrawing.mock.calls[0]![0].anchors[0]).toMatchObject({ price: 100 })
+  })
+
+  it('Shift 按住时不吸附（与宿主锁角互斥）', () => {
+    const { adapter, createDrawing } = createAdapter('h-ray')
+    const controller = new DrawingInteractionController(adapter)
+    controller.setMagnetMode('strong')
+
+    // strong 档 + Shift：距 open 1px 但不吸附 → 价格保持 99（锁角优先于磁吸）。
+    expect(controller.onPointerDown(pointerDown(12, 101, { shiftKey: true }), CONTAINER)).toBe(true)
+    expect(createDrawing.mock.calls[0]![0].anchors[0]).toMatchObject({ price: 99 })
+
+    // Ctrl + Shift 同按：Shift 优先，Ctrl 升级被抑制。
+    createDrawing.mockClear()
+    expect(
+      controller.onPointerDown(pointerDown(12, 101, { ctrlKey: true, shiftKey: true }), CONTAINER),
+    ).toBe(true)
+    expect(createDrawing.mock.calls[0]![0].anchors[0]).toMatchObject({ price: 99 })
   })
 
   it('off 档且无修饰键时不吸附', () => {
