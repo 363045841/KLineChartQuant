@@ -468,14 +468,19 @@ export class DrawingInteractionController {
     this.adapter.requestDraw?.()
   }
 
-  /** 更新拖拽会话的整组临时覆盖。 */
+  /** 更新拖拽会话的整组临时覆盖；磁吸配置与绘制路径同源（Shift 互斥、Ctrl 取反），仅锚点拖拽生效。 */
   private handleDragMove(e: PointerEvent, container: HTMLElement): boolean {
     const draggingIds = this.dragHandler.getDraggingDrawingIds()
     if (draggingIds.some((id) => this.drawingState.getById(id) === undefined)) {
       this.resetPointerSession()
       return false
     }
-    const updated = this.dragHandler.handleDragMove(e, container, this.adapter)
+    const updated = this.dragHandler.handleDragMove(
+      e,
+      container,
+      this.adapter,
+      this.resolveMagnetOptions(e),
+    )
     if (!updated) return false
     this.drawingState.setDragOverrides(updated)
     return true

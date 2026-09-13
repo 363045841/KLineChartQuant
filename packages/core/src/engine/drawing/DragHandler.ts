@@ -2,6 +2,7 @@ import type { DrawingChartAdapter } from '../../controllers/types'
 import type { DrawingObject, PersistedDrawingAnchor } from '../../foundation/plugin/index'
 
 import { anchorToScreen, isScreenPoint, resolveDrawingPointer, screenToAnchor } from './coordinateUtils'
+import type { ResolveDrawingPointerOptions } from './coordinateUtils'
 
 // ---- Types ----
 
@@ -59,15 +60,20 @@ export class DragHandler {
 
   /**
    * 基于拖拽快照生成整组图元的临时覆盖，不修改已确认状态。
+   * options.magnet 仅在锚点拖拽分支生效：被拖锚点绝对跟随指针，磁吸随指针落点
+   * 收敛到 OHLC（修饰键语义由调用方 resolveMagnetOptions 统一分发）；
+   * 整线拖拽是位移增量语义，全体锚点平移，无单一落点基准，不吸附。
    */
   handleDragMove(
     e: PointerEvent,
     container: HTMLElement,
     adapter: DrawingChartAdapter,
+    options?: ResolveDrawingPointerOptions,
   ): DrawingObject[] | null {
     if (!this.dragState) return null
 
-    const pointer = resolveDrawingPointer(e, container, adapter)
+    const magnet = this.dragState.anchorIndex !== undefined ? options?.magnet : undefined
+    const pointer = resolveDrawingPointer(e, container, adapter, magnet ? { magnet } : undefined)
     const primary = this.dragState.drawings[0]
     if (!pointer || !primary || pointer.paneId !== primary.paneId) return null
     if (this.dragState.anchorIndex !== undefined) {

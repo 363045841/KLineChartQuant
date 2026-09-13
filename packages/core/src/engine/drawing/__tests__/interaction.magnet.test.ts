@@ -23,19 +23,22 @@ const BAR_TIMESTAMPS = [500, 1000, 1500]
 /**
  * 构造覆盖磁吸路径的最小 adapter。
  * 坐标约定：Bar i 占 [i*10, i*10+10)，中心在 x=i*10+5；getLogicalIndexAtX = floor(x/10)。
+ * drawings 参数供编辑路径（锚点拖拽）用例注入已确认图元。
  */
-function createAdapter(tool: 'h-ray' | 'cursor') {
+function createAdapter(tool: 'h-ray' | 'cursor', drawings: DrawingObject[] = []) {
   const createDrawing = vi.fn(
     (input: { anchors: Array<{ price: number }> }) =>
       ({ id: 'created', anchors: input.anchors }) as unknown as DrawingObject,
   )
+  const commitDrawingDrag = vi.fn()
   const adapter = {
     getDrawingToolId: () => tool,
-    getFullDrawings: () => [] as DrawingObject[],
+    getFullDrawings: () => drawings,
     getSelectedDrawingIds: () => [] as string[],
     setSelectedDrawingIds: vi.fn(),
     createDrawing,
     setDrawingToolId: vi.fn(),
+    commitDrawingDrag,
     getDrawingData: () => OHLC_BARS,
     getData: () => OHLC_BARS,
     getViewport: () => ({ scrollLeft: 0, plotWidth: 100, plotHeight: 200 }),
@@ -44,11 +47,12 @@ function createAdapter(tool: 'h-ray' | 'cursor') {
     getLogicalIndexAtX: (x: number) => Math.floor(x / 10),
     getScreenXAtLogicalIndex: (index: number) => index * 10 + 5,
     getDrawingTimestampAtLogicalIndex: (index: number) => BAR_TIMESTAMPS[index] ?? null,
+    getLogicalIndexAtTimestamp: (timestamp: number) => BAR_TIMESTAMPS.indexOf(timestamp),
     getDrawingWorkspaceId: () => 'kline' as const,
     priceToY,
     yToPrice,
   } as unknown as DrawingChartAdapter
-  return { adapter, createDrawing }
+  return { adapter, createDrawing, commitDrawingDrag }
 }
 
 /** 构造指定坐标与修饰键的指针按下事件。 */
@@ -183,5 +187,48 @@ describe('DrawingInteractionController magnet', () => {
     const pointer = pointerDown(12, 101)
     expect(controller.onPointerDown(pointer, CONTAINER)).toBe(false)
     expect(adapter.setSelectedDrawingIds).toHaveBeenLastCalledWith([])
+  })
+
+  it('编辑路径：锚点拖拽随磁吸收敛（修饰键与绘制路径同源）', () => {
+    const drawing = {
+      id: 'd1',
+      kind: 'trend-line',
+      paneId: 'main',
+      visible: true,
+      anchors: [{ id: 'a0', type: 'point', time: 1000, price: 110 }],
+    } as DrawingObject
+    const { adapter, commitDrawingDrag } = createAdapter('cursor', [drawing])
+    const controller = new DrawingInteractionController(adapter)
+    controller.setMagnetMode('strong')
+
+    // 按下锚点 (15, 88)：距锚点屏幕位置 (15, 90) 2px，命中锚点并开拖。
+    expect(controller.onPointerDown(pointerDown(15, 88), CONTAINER)).toBe(true)
+    // 移动到 (12, 83)：strong 磁吸 → 锚点收敛到 high（价格 120，时间 1000）。
+    expect(controller.onPointerMove(pointerDown(12, 83), CONTAINER)).toBe(true)
+    controller.onPointerUp(pointerDown(12, 83), CONTAINER)
+    expect(commitDrawingDrag).toHaveBeenCalledWith('d1', [
+      expect.objectContaining({ time: 1000, price: 120 }),
+    ])
+  })
+
+  it('编辑路径：Shift 按住时锚点拖拽不吸附（互斥与绘制路径同源）', () => {
+    const drawing = {
+      id: 'd1',
+      kind: 'trend-line',
+      paneId: 'main',
+      visible: true,
+      anchors: [{ id: 'a0', type: 'point', time: 1000, price: 110 }],
+    } as DrawingObject
+    const { adapter, commitDrawingDrag } = createAdapter('cursor', [drawing])
+    const controller = new DrawingInteractionController(adapter)
+    controller.setMagnetMode('strong')
+
+    controller.onPointerDown(pointerDown(15, 88), CONTAINER)
+    // Shift 按住拖动：互斥不吸附 → 锚点保持指针原始落点（价格 117）。
+    controller.onPointerMove(pointerDown(12, 83, { shiftKey: true }), CONTAINER)
+    controller.onPointerUp(pointerDown(12, 83), CONTAINER)
+    expect(commitDrawingDrag).toHaveBeenCalledWith('d1', [
+      expect.objectContaining({ time: 1000, price: 117 }),
+    ])
   })
 })

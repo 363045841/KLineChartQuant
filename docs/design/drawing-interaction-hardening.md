@@ -25,8 +25,10 @@ nexus-shell 在壳层（ChartPointerBridge）验证了磁吸、锁定、Shift �
 ### 接入点
 
 - `magnetSnapper.ts`：纯函数 `snapPointerToOhlc(mouseX, mouseY, pane, adapter, config)`，输入输出均为容器局部坐标。
-- `resolveDrawingPointer` 增加第 4 可选参数 `options.magnet`，吸附发生在 `screenToAnchor` 之前（改写局部 x/y）。**不传即不吸附**——cursor 命中（findDrawingHit）、框选（startSelectionMarquee / handleSelectionMarqueeMove / commitSelectionMarquee）、线段标签（getLineLabelTarget）、拖拽（DragHandler）路径一律不传，保证点选命中与框选范围不随吸附漂移。
-- `DrawingInteractionController`：`setMagnetMode('off'|'weak'|'strong')` / `getMagnetMode()`，仅在 `onPointerDown` 绘制分支与 `onPointerMove` 预览分支传入磁吸配置。
+- `resolveDrawingPointer` 增加第 4 可选参数 `options.magnet`，吸附发生在 `screenToAnchor` 之前（改写局部 x/y）。**不传即不吸附**——cursor 命中（findDrawingHit）、框选（startSelectionMarquee / handleSelectionMarqueeMove / commitSelectionMarquee）、线段标签（getLineLabelTarget）路径一律不传，保证点选命中与框选范围不随吸附漂移。
+- `DrawingInteractionController`：`setMagnetMode('off'|'weak'|'strong')` / `getMagnetMode()`，在 `onPointerDown` 绘制分支、`onPointerMove` 预览分支与拖拽分支（`handleDragMove`）传入磁吸配置——三条路径共用 `resolveMagnetOptions(e)` 单点分发修饰键语义。
+- **编辑路径（2026-09-14 补齐）**：点锚点拖拽（HitTester 以 anchorIndex 命中开拖）时被拖锚点绝对跟随指针，磁吸随指针落点收敛到 OHLC（`DragHandler.handleDragMove` 第 4 可选参数，仅 anchorIndex 分支生效）；整线拖拽是位移增量语义（全体锚点平移），无单一落点基准，不吸附——水平线/垂直线整线拖拽的吸附属后续任务（需先定义 delta→snap 语义）。
+- 为何 cursor 命中与框选绝不传磁吸：拖拽会话内 `findDrawingHit` 只发生在按下瞬间，但按下命中必须用原始坐标，否则磁吸开着时锚点会"吸走"点选判定。
 
 ### 为何不进 StateKernel
 
@@ -54,5 +56,5 @@ nexus-shell 在壳层（ChartPointerBridge）验证了磁吸、锁定、Shift �
 
 ## 测试与验收
 
-- 单测：`magnetSnapper.test.ts`（档位/半径边界/夹取/pane 偏移）、`interaction.magnet.test.ts`（锚点收敛/Ctrl 升级/cursor 路径不受影响）、`interaction.locked.test.ts`（三重强制）、`interaction.hitTestAt.test.ts`、`toolConfig.exports.test.ts`、DrawingDocument fill 用例、selection Shift 用例。
+- 单测：`magnetSnapper.test.ts`（档位/半径边界/夹取/pane 偏移）、`interaction.magnet.test.ts`（锚点收敛/Ctrl 取反三态/Shift 互斥/cursor 路径不受影响/锚点拖拽编辑路径）、`dragHandler.magnet.test.ts`（锚点拖拽吸附/整线拖拽不受磁吸影响）、`interaction.locked.test.ts`（三重强制）、`interaction.hitTestAt.test.ts`、`toolConfig.exports.test.ts`、DrawingDocument fill 用例、selection Shift 用例。
 - 行为回归：nexus-shell 探针 `probe-drawing.mjs` 39/39（壳侧磁吸仍在生效，证明引擎改动零回归）。
