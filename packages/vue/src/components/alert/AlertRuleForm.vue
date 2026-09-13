@@ -34,13 +34,32 @@
         <div class="rule-form-params-row">
           <div class="rule-form-field rule-form-field--grow">
             <label class="rule-form-label">触发价格</label>
-            <input
-              v-model.number="pf.price"
-              class="rule-form-input"
-              type="number"
-              step="0.01"
-              placeholder="0.00"
-            />
+            <div class="rule-form-stepper">
+              <button
+                type="button"
+                class="rule-form-stepper-btn"
+                aria-label="减少"
+                :disabled="!canStep(pf.price, 0.01, -1)"
+                @click="pf.price = stepped(pf.price, 0.01, -1)"
+              >
+                <IconTablerMinus aria-hidden="true" />
+              </button>
+              <input
+                v-model.number="pf.price"
+                class="rule-form-input"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+              />
+              <button
+                type="button"
+                class="rule-form-stepper-btn"
+                aria-label="增加"
+                @click="pf.price = stepped(pf.price, 0.01, 1)"
+              >
+                <IconTablerPlus aria-hidden="true" />
+              </button>
+            </div>
           </div>
           <div class="rule-form-field">
             <label class="rule-form-label">方向</label>
@@ -52,6 +71,7 @@
                 :class="{ active: pf.direction === d.value }"
                 @click="pf.direction = d.value"
               >
+                <component :is="d.icon" class="rule-form-direction-icon" aria-hidden="true" />
                 {{ d.label }}
               </button>
             </div>
@@ -63,24 +83,62 @@
         <div class="rule-form-params-row">
           <div class="rule-form-field rule-form-field--grow">
             <label class="rule-form-label">最小值</label>
-            <input
-              v-model.number="pf.min"
-              class="rule-form-input"
-              type="number"
-              step="0.01"
-              placeholder="0.00"
-            />
+            <div class="rule-form-stepper">
+              <button
+                type="button"
+                class="rule-form-stepper-btn"
+                aria-label="减少"
+                :disabled="!canStep(pf.min, 0.01, -1)"
+                @click="pf.min = stepped(pf.min, 0.01, -1)"
+              >
+                <IconTablerMinus aria-hidden="true" />
+              </button>
+              <input
+                v-model.number="pf.min"
+                class="rule-form-input"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+              />
+              <button
+                type="button"
+                class="rule-form-stepper-btn"
+                aria-label="增加"
+                @click="pf.min = stepped(pf.min, 0.01, 1)"
+              >
+                <IconTablerPlus aria-hidden="true" />
+              </button>
+            </div>
           </div>
           <span class="rule-form-range-sep">—</span>
           <div class="rule-form-field rule-form-field--grow">
             <label class="rule-form-label">最大值</label>
-            <input
-              v-model.number="pf.max"
-              class="rule-form-input"
-              type="number"
-              step="0.01"
-              placeholder="0.00"
-            />
+            <div class="rule-form-stepper">
+              <button
+                type="button"
+                class="rule-form-stepper-btn"
+                aria-label="减少"
+                :disabled="!canStep(pf.max, 0.01, -1)"
+                @click="pf.max = stepped(pf.max, 0.01, -1)"
+              >
+                <IconTablerMinus aria-hidden="true" />
+              </button>
+              <input
+                v-model.number="pf.max"
+                class="rule-form-input"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+              />
+              <button
+                type="button"
+                class="rule-form-stepper-btn"
+                aria-label="增加"
+                @click="pf.max = stepped(pf.max, 0.01, 1)"
+              >
+                <IconTablerPlus aria-hidden="true" />
+              </button>
+            </div>
           </div>
         </div>
       </template>
@@ -93,13 +151,32 @@
           </div>
           <div class="rule-form-field rule-form-field--grow">
             <label class="rule-form-label">阈值</label>
-            <input
-              v-model.number="pf.threshold"
-              class="rule-form-input"
-              type="number"
-              step="0.01"
-              placeholder="0.00"
-            />
+            <div class="rule-form-stepper">
+              <button
+                type="button"
+                class="rule-form-stepper-btn"
+                aria-label="减少"
+                :disabled="!canStep(pf.threshold, 0.01, -1)"
+                @click="pf.threshold = stepped(pf.threshold, 0.01, -1)"
+              >
+                <IconTablerMinus aria-hidden="true" />
+              </button>
+              <input
+                v-model.number="pf.threshold"
+                class="rule-form-input"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+              />
+              <button
+                type="button"
+                class="rule-form-stepper-btn"
+                aria-label="增加"
+                @click="pf.threshold = stepped(pf.threshold, 0.01, 1)"
+              >
+                <IconTablerPlus aria-hidden="true" />
+              </button>
+            </div>
           </div>
         </div>
         <div class="rule-form-field">
@@ -112,6 +189,7 @@
               :class="{ active: pf.direction === d.value }"
               @click="pf.direction = d.value"
             >
+              <component :is="d.icon" class="rule-form-direction-icon" aria-hidden="true" />
               {{ d.label }}
             </button>
           </div>
@@ -134,6 +212,7 @@
                 :class="{ active: pf.direction === d.value }"
                 @click="pf.direction = d.value"
               >
+                <component :is="d.icon" class="rule-form-direction-icon" aria-hidden="true" />
                 {{ d.label }}
               </button>
             </div>
@@ -149,30 +228,68 @@
         <div class="rule-form-params-row">
           <div class="rule-form-field rule-form-field--grow">
             <label class="rule-form-label">倍数</label>
-            <div class="rule-form-input-suffix-wrap">
-              <input
-                v-model.number="pf.multipleOfAvg"
-                class="rule-form-input"
-                type="number"
-                step="0.1"
-                min="1"
-                placeholder="2.0"
-              />
-              <span class="rule-form-input-suffix">×</span>
+            <div class="rule-form-stepper">
+              <button
+                type="button"
+                class="rule-form-stepper-btn"
+                aria-label="减少"
+                :disabled="!canStep(pf.multipleOfAvg, 0.1, -1, 1)"
+                @click="pf.multipleOfAvg = stepped(pf.multipleOfAvg, 0.1, -1, 1)"
+              >
+                <IconTablerMinus aria-hidden="true" />
+              </button>
+              <div class="rule-form-stepper-field">
+                <input
+                  v-model.number="pf.multipleOfAvg"
+                  class="rule-form-input"
+                  type="number"
+                  step="0.1"
+                  min="1"
+                  placeholder="2.0"
+                />
+                <span class="rule-form-input-suffix">×</span>
+              </div>
+              <button
+                type="button"
+                class="rule-form-stepper-btn"
+                aria-label="增加"
+                @click="pf.multipleOfAvg = stepped(pf.multipleOfAvg, 0.1, 1, 1)"
+              >
+                <IconTablerPlus aria-hidden="true" />
+              </button>
             </div>
           </div>
           <div class="rule-form-field rule-form-field--grow">
             <label class="rule-form-label">回溯 K 线数</label>
-            <div class="rule-form-input-suffix-wrap">
-              <input
-                v-model.number="pf.lookbackBars"
-                class="rule-form-input"
-                type="number"
-                step="1"
-                min="1"
-                placeholder="20"
-              />
-              <span class="rule-form-input-suffix">根</span>
+            <div class="rule-form-stepper">
+              <button
+                type="button"
+                class="rule-form-stepper-btn"
+                aria-label="减少"
+                :disabled="!canStep(pf.lookbackBars, 1, -1, 1)"
+                @click="pf.lookbackBars = stepped(pf.lookbackBars, 1, -1, 1)"
+              >
+                <IconTablerMinus aria-hidden="true" />
+              </button>
+              <div class="rule-form-stepper-field">
+                <input
+                  v-model.number="pf.lookbackBars"
+                  class="rule-form-input"
+                  type="number"
+                  step="1"
+                  min="1"
+                  placeholder="20"
+                />
+                <span class="rule-form-input-suffix">根</span>
+              </div>
+              <button
+                type="button"
+                class="rule-form-stepper-btn"
+                aria-label="增加"
+                @click="pf.lookbackBars = stepped(pf.lookbackBars, 1, 1, 1)"
+              >
+                <IconTablerPlus aria-hidden="true" />
+              </button>
             </div>
           </div>
         </div>
@@ -196,16 +313,35 @@
           <span class="rule-form-advanced-label">冷却时间</span>
           <span class="rule-form-advanced-hint">同一规则再次触发的最短间隔</span>
         </div>
-        <div class="rule-form-input-suffix-wrap rule-form-cooldown-wrap">
-          <input
-            v-model.number="draftCooldown"
-            class="rule-form-input rule-form-input--cooldown"
-            type="number"
-            step="1000"
-            min="0"
-            placeholder="0"
-          />
-          <span class="rule-form-input-suffix">ms</span>
+        <div class="rule-form-stepper rule-form-stepper--cooldown">
+          <button
+            type="button"
+            class="rule-form-stepper-btn"
+            aria-label="减少"
+            :disabled="!canStep(draftCooldown, 1000, -1, 0)"
+            @click="draftCooldown = stepped(draftCooldown, 1000, -1, 0)"
+          >
+            <IconTablerMinus aria-hidden="true" />
+          </button>
+          <div class="rule-form-stepper-field">
+            <input
+              v-model.number="draftCooldown"
+              class="rule-form-input"
+              type="number"
+              step="1000"
+              min="0"
+              placeholder="0"
+            />
+            <span class="rule-form-input-suffix">ms</span>
+          </div>
+          <button
+            type="button"
+            class="rule-form-stepper-btn"
+            aria-label="增加"
+            @click="draftCooldown = stepped(draftCooldown, 1000, 1, 0)"
+          >
+            <IconTablerPlus aria-hidden="true" />
+          </button>
         </div>
       </div>
     </div>
@@ -230,15 +366,22 @@
 </template>
 
 <script setup lang="ts">
+  import { ref, computed, reactive } from 'vue'
+
+  import ToggleSwitch from '../common/ToggleSwitch.vue'
+
   import type {
     AlertPredicate,
     AlertRule,
     CrossDirection,
     IndicatorCrossPairDirection,
   } from '@363045841yyt/klinechart-core'
-  import { ref, computed, reactive } from 'vue'
 
-  import ToggleSwitch from '../common/ToggleSwitch.vue'
+  import IconTablerArrowDown from '~icons/tabler/arrow-down'
+  import IconTablerArrowUp from '~icons/tabler/arrow-up'
+  import IconTablerArrowsUpDown from '~icons/tabler/arrows-up-down'
+  import IconTablerMinus from '~icons/tabler/minus'
+  import IconTablerPlus from '~icons/tabler/plus'
 
   const props = defineProps<{ rule?: AlertRule }>()
 
@@ -281,15 +424,15 @@
   ]
 
   const crossDirections = [
-    { value: 'up' as const, label: '↑ 上穿' },
-    { value: 'down' as const, label: '↓ 下穿' },
-    { value: 'any' as const, label: '↕ 穿越' },
+    { value: 'up' as const, label: '上穿', icon: IconTablerArrowUp },
+    { value: 'down' as const, label: '下穿', icon: IconTablerArrowDown },
+    { value: 'any' as const, label: '穿越', icon: IconTablerArrowsUpDown },
   ]
 
   const pairDirections = [
-    { value: 'a-above-b' as const, label: '↑ 上穿' },
-    { value: 'a-below-b' as const, label: '↓ 下穿' },
-    { value: 'any' as const, label: '↕ 交叉' },
+    { value: 'a-above-b' as const, label: '上穿', icon: IconTablerArrowUp },
+    { value: 'a-below-b' as const, label: '下穿', icon: IconTablerArrowDown },
+    { value: 'any' as const, label: '交叉', icon: IconTablerArrowsUpDown },
   ]
 
   const draftName = ref(props.rule?.name ?? '')
@@ -335,6 +478,48 @@
       ? props.rule.predicate.lookbackBars
       : 20) as number,
   })
+
+  /**
+   * 按步长增减数值，并在 [min, max] 内钳制，规避浮点误差。
+   * @param current 当前值，空值按 0 处理
+   * @param step 步长
+   * @param direction 1 增加，-1 减少
+   * @param min 下界（默认无界）
+   * @param max 上界（默认无界）
+   * @returns 步进后的数值
+   */
+  function stepped(
+    current: number,
+    step: number,
+    direction: 1 | -1,
+    min = -Infinity,
+    max = Infinity,
+  ): number {
+    const base = Number.isFinite(current) ? current : 0
+    const next = Math.min(max, Math.max(min, base + direction * step))
+    return parseFloat(next.toFixed(10))
+  }
+
+  /**
+   * 判断当前值在该方向是否仍可步进，用于按钮禁用态。
+   * @param current 当前值
+   * @param step 步长
+   * @param direction 1 增加，-1 减少
+   * @param min 下界（默认无界）
+   * @param max 上界（默认无界）
+   * @returns 可步进返回 true
+   */
+  function canStep(
+    current: number,
+    step: number,
+    direction: 1 | -1,
+    min = -Infinity,
+    max = Infinity,
+  ): boolean {
+    const base = Number.isFinite(current) ? current : 0
+    const next = base + direction * step
+    return next >= min && next <= max
+  }
 
   const isValid = computed(() => draftName.value.trim().length > 0)
 
@@ -394,9 +579,9 @@
     flex-direction: column;
     gap: 12px;
     padding: 14px;
-    border: 1px solid var(--klc-color-border-button);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 10px;
-    background: var(--klc-color-grid-minor);
+    background: var(--klc-color-ui-card);
     margin-bottom: 10px;
   }
 
@@ -417,10 +602,8 @@
   .rule-form-label {
     font-size: 10px;
     font-weight: 700;
-    color: var(--klc-color-axis-text);
-    text-transform: uppercase;
+    color: var(--klc-color-ui-muted);
     letter-spacing: 0.06em;
-    opacity: 0.8;
   }
 
   /* ══════════════════════════════════════════
@@ -429,10 +612,10 @@
   .rule-form-input {
     width: 100%;
     padding: 7px 10px;
-    border: 1px solid var(--klc-color-border-button);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 6px;
-    background: var(--klc-color-ui-control-background);
-    color: var(--klc-color-foreground);
+    background: var(--klc-color-ui-input);
+    color: var(--klc-color-ui-text);
     font-size: 13px;
     outline: none;
     box-sizing: border-box;
@@ -443,35 +626,123 @@
   }
 
   .rule-form-input::placeholder {
-    color: var(--klc-color-axis-text);
-    opacity: 0.4;
+    color: var(--klc-color-ui-muted);
+    opacity: 0.7;
   }
 
   .rule-form-input:focus {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+    border-color: var(--klc-color-ui-accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 24%, transparent);
   }
 
-  /* suffix wrapper */
-  .rule-form-input-suffix-wrap {
-    position: relative;
+  /* 隐藏原生 number 步进器，改由自定义 stepper 提供加减 */
+  .rule-form-input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  .rule-form-input[type='number']::-webkit-inner-spin-button,
+  .rule-form-input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  /* ══════════════════════════════════════════
+   Number Stepper
+══════════════════════════════════════════ */
+  .rule-form-stepper {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid var(--klc-color-ui-border);
+    border-radius: 6px;
+    background: var(--klc-color-ui-input);
+    overflow: hidden;
+    box-sizing: border-box;
+    transition:
+      border-color 0.15s,
+      box-shadow 0.15s;
+  }
+
+  .rule-form-stepper:focus-within {
+    border-color: var(--klc-color-ui-accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-ui-accent) 24%, transparent);
+  }
+
+  .rule-form-stepper-btn {
     display: flex;
     align-items: center;
+    justify-content: center;
+    width: 28px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--klc-color-ui-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition:
+      background 0.15s,
+      color 0.15s;
   }
 
-  .rule-form-input-suffix-wrap .rule-form-input {
-    padding-right: 28px;
+  .rule-form-stepper-btn:hover:not(:disabled) {
+    background: var(--klc-color-ui-hover);
+    color: var(--klc-color-ui-text);
+  }
+
+  .rule-form-stepper-btn:disabled {
+    color: var(--klc-color-ui-border);
+    cursor: not-allowed;
+  }
+
+  .rule-form-stepper-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .rule-form-stepper-field {
+    position: relative;
+    display: flex;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .rule-form-stepper .rule-form-input {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    padding: 7px 10px;
+    border: none;
+    border-left: 1px solid var(--klc-color-ui-border);
+    border-right: 1px solid var(--klc-color-ui-border);
+    border-radius: 0;
+    background: transparent;
+    text-align: center;
+  }
+
+  .rule-form-stepper .rule-form-input:focus {
+    border-color: var(--klc-color-ui-border);
+    box-shadow: none;
+  }
+
+  .rule-form-stepper-field .rule-form-input {
+    padding-right: 26px;
   }
 
   .rule-form-input-suffix {
     position: absolute;
     right: 9px;
+    top: 50%;
+    transform: translateY(-50%);
     font-size: 11px;
     font-weight: 600;
-    color: var(--klc-color-axis-text);
-    opacity: 0.55;
+    color: var(--klc-color-ui-muted);
     pointer-events: none;
     user-select: none;
+  }
+
+  .rule-form-stepper--cooldown {
+    width: 132px;
+    flex-shrink: 0;
   }
 
   /* ══════════════════════════════════════════
@@ -488,32 +759,30 @@
     align-items: center;
     gap: 6px;
     padding: 7px 10px;
-    border: 1px solid var(--klc-color-border-button);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 6px;
-    background: var(--klc-color-background);
-    color: var(--klc-color-axis-text);
+    background: var(--klc-color-ui-background);
+    color: var(--klc-color-ui-muted);
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
     transition:
       background 0.15s,
       color 0.15s,
-      border-color 0.15s,
-      box-shadow 0.15s;
+      border-color 0.15s;
     text-align: left;
   }
 
   .rule-form-kind:hover:not(.active) {
-    border-color: var(--klc-color-axis-line);
-    color: var(--klc-color-foreground);
-    background: var(--klc-color-tag-bg-hover);
+    border-color: var(--klc-color-ui-border-strong);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-hover);
   }
 
   .rule-form-kind.active {
-    background: var(--klc-color-foreground);
-    color: var(--klc-color-background);
-    border-color: var(--klc-color-foreground);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+    background: var(--klc-color-ui-accent);
+    color: var(--klc-color-ui-on-accent);
+    border-color: var(--klc-color-ui-accent);
   }
 
   .rule-form-kind-icon {
@@ -538,9 +807,9 @@
     flex-direction: column;
     gap: 8px;
     padding: 10px 12px;
-    border: 1px solid var(--klc-color-border-button);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 8px;
-    background: var(--klc-color-background);
+    background: var(--klc-color-ui-background);
   }
 
   .rule-form-params-row {
@@ -556,8 +825,7 @@
 
   .rule-form-range-sep {
     padding-bottom: 9px;
-    color: var(--klc-color-axis-text);
-    opacity: 0.4;
+    color: var(--klc-color-ui-muted);
     font-size: 14px;
     flex-shrink: 0;
   }
@@ -571,11 +839,14 @@
   }
 
   .rule-form-direction {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     padding: 6px 10px;
-    border: 1px solid var(--klc-color-border-button);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 6px;
-    background: transparent;
-    color: var(--klc-color-axis-text);
+    background: var(--klc-color-ui-input);
+    color: var(--klc-color-ui-muted);
     font-size: 11px;
     font-weight: 500;
     cursor: pointer;
@@ -586,24 +857,31 @@
       border-color 0.15s;
   }
 
+  .rule-form-direction-icon {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+  }
+
   .rule-form-direction:hover:not(.active) {
-    border-color: var(--klc-color-axis-line);
-    color: var(--klc-color-foreground);
+    border-color: var(--klc-color-ui-border-strong);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-hover);
   }
 
   .rule-form-direction.active {
-    background: var(--klc-color-foreground);
-    color: var(--klc-color-background);
-    border-color: var(--klc-color-foreground);
+    background: var(--klc-color-ui-accent);
+    color: var(--klc-color-ui-on-accent);
+    border-color: var(--klc-color-ui-accent);
   }
 
   /* ══════════════════════════════════════════
    Advanced Options
 ══════════════════════════════════════════ */
   .rule-form-advanced {
-    border: 1px solid var(--klc-color-border-button);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 8px;
-    background: var(--klc-color-background);
+    background: var(--klc-color-ui-background);
     overflow: hidden;
   }
 
@@ -617,8 +895,7 @@
 
   .rule-form-advanced-divider {
     height: 1px;
-    background: var(--klc-color-border-button);
-    opacity: 0.6;
+    background: var(--klc-color-ui-border);
   }
 
   .rule-form-advanced-info {
@@ -631,23 +908,12 @@
   .rule-form-advanced-label {
     font-size: 12px;
     font-weight: 600;
-    color: var(--klc-color-foreground);
+    color: var(--klc-color-ui-text);
   }
 
   .rule-form-advanced-hint {
     font-size: 10px;
-    color: var(--klc-color-axis-text);
-    opacity: 0.6;
-  }
-
-  .rule-form-cooldown-wrap {
-    flex-shrink: 0;
-  }
-
-  .rule-form-input--cooldown {
-    width: 88px;
-    text-align: right;
-    padding-right: 30px;
+    color: var(--klc-color-ui-muted);
   }
 
   /* ══════════════════════════════════════════
@@ -673,8 +939,7 @@
       background 0.15s,
       color 0.15s,
       border-color 0.15s,
-      opacity 0.15s,
-      box-shadow 0.15s;
+      opacity 0.15s;
   }
 
   .rule-form-btn-icon {
@@ -684,32 +949,30 @@
   }
 
   .rule-form-btn--cancel {
-    border: 1px solid var(--klc-color-border-button);
-    background: transparent;
-    color: var(--klc-color-axis-text);
+    border: 1px solid var(--klc-color-ui-border);
+    background: var(--klc-color-ui-input);
+    color: var(--klc-color-ui-secondary-button-text);
   }
 
   .rule-form-btn--cancel:hover {
-    border-color: var(--klc-color-axis-line);
-    color: var(--klc-color-foreground);
-    background: var(--klc-color-tag-bg-hover);
+    border-color: var(--klc-color-ui-border-strong);
+    color: var(--klc-color-ui-text);
+    background: var(--klc-color-ui-hover);
   }
 
   .rule-form-btn--save {
-    border: 1px solid var(--klc-color-foreground);
-    background: var(--klc-color-foreground);
-    color: var(--klc-color-background);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--klc-color-ui-accent);
+    background: var(--klc-color-ui-accent);
+    color: var(--klc-color-ui-on-accent);
   }
 
   .rule-form-btn--save:hover:not(:disabled) {
-    opacity: 0.85;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    border-color: var(--klc-color-ui-accent-strong);
+    background: var(--klc-color-ui-accent-strong);
   }
 
   .rule-form-btn--save:disabled {
-    opacity: 0.35;
+    opacity: 0.4;
     cursor: not-allowed;
-    box-shadow: none;
   }
 </style>

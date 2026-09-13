@@ -413,10 +413,10 @@
     gap: 6px;
     width: 100%;
     padding: 9px 14px;
-    border: 1.5px dashed var(--klc-color-border-button);
+    border: 1.5px dashed var(--klc-color-ui-border);
     border-radius: 8px;
     background: transparent;
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
@@ -428,9 +428,9 @@
   }
 
   .alert-add-btn:hover {
-    border-color: var(--klc-color-foreground);
-    color: var(--klc-color-foreground);
-    background: var(--klc-color-tag-bg-hover);
+    border-color: var(--klc-color-ui-accent);
+    color: var(--klc-color-ui-accent);
+    background: color-mix(in srgb, var(--klc-color-ui-accent) 10%, transparent);
   }
 
   .alert-add-btn:active {
@@ -519,18 +519,18 @@
 
   .rule-item {
     padding: 10px 12px 8px;
-    border: 1px solid var(--klc-color-border-button);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: 8px;
-    background: var(--klc-color-background);
+    background: var(--klc-color-ui-card);
     transition:
       opacity 0.2s,
       border-color 0.15s,
-      box-shadow 0.15s;
+      background 0.15s;
   }
 
   .rule-item:hover {
-    border-color: var(--klc-color-axis-line);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border-color: var(--klc-color-ui-border-strong);
+    background: var(--klc-color-ui-hover);
   }
 
   .rule-item.disabled {
@@ -577,17 +577,17 @@
   }
 
   .rule-item-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 26px;
     height: 26px;
     padding: 0;
     border: 1px solid transparent;
     border-radius: 5px;
     background: transparent;
-    color: var(--klc-color-axis-text);
+    color: var(--klc-color-ui-muted);
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     transition:
       background 0.15s,
       color 0.15s,
@@ -600,15 +600,13 @@
   }
 
   .rule-item-btn:hover {
-    background: var(--klc-color-tag-bg-hover);
-    color: var(--klc-color-foreground);
-    border-color: var(--klc-color-border-button);
+    background: var(--klc-color-ui-border);
+    color: var(--klc-color-ui-text);
   }
 
   .rule-item-btn--danger:hover {
-    color: #dc2626;
-    border-color: rgba(220, 38, 38, 0.4);
-    background: rgba(220, 38, 38, 0.06);
+    background: color-mix(in srgb, var(--klc-color-ui-danger) 20%, transparent);
+    color: var(--klc-color-ui-danger-text);
   }
 
   /* ── Meta Tags ── */
@@ -624,6 +622,7 @@
     align-items: center;
     gap: 3px;
     padding: 2px 7px;
+    border: 1px solid transparent;
     border-radius: 4px;
     font-size: 10px;
     font-weight: 500;
@@ -631,9 +630,9 @@
   }
 
   .rule-meta-tag--oneshot {
-    background: rgba(245, 158, 11, 0.1);
-    border: 1px solid rgba(245, 158, 11, 0.3);
-    color: #d97706;
+    border-color: var(--klc-color-ui-warning-border);
+    background: var(--klc-color-ui-warning-background);
+    color: var(--klc-color-ui-warning-text);
   }
 
   .rule-meta-tag--cooldown {
