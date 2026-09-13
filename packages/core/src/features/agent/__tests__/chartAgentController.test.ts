@@ -14,7 +14,13 @@ import { getRegisteredChartTools } from '../chartAgentController'
 import { CHART_AGENT_ERROR_CODES } from '../errors'
 
 import type { IndicatorInstance, SymbolSpec } from '../../../controllers/types'
-import type { BarSeries, TimeShareRange, TimeShareSeries } from '../../../data/provider/types'
+import type {
+  BarSeries,
+  InstrumentDescriptor,
+  InstrumentSearchQuery,
+  TimeShareRange,
+  TimeShareSeries,
+} from '../../../data/provider/types'
 import type { KLineData } from '../../../foundation/types/price'
 
 const BAR_SELECTION = {
@@ -126,7 +132,9 @@ function createFixture() {
       timeShareRange: { maxTradingDays: 5 },
     },
   }
-  const search = vi.fn(async () => [instrument])
+  const search = vi.fn<
+    (query: InstrumentSearchQuery) => Promise<ReadonlyArray<InstrumentDescriptor>>
+  >(async () => [instrument])
   const fetchBars = vi.fn(async (): Promise<BarSeries> => ({
     instrumentId: instrument.id,
     period: 'daily',
@@ -593,13 +601,15 @@ describe('createChartAgentController', () => {
       (item) => item.config.name === 'instruments_query_name',
     )
 
-    await expect(fixture.controller.lookupInstrumentsBySymbol(input)).resolves.toEqual([match])
+    const direct = await fixture.controller.lookupInstrumentsBySymbol(input)
+    expect(direct).toContain('instrument lookup | symbol=600519 | matches=1')
+    expect(direct).toContain('| stock:600519 | fixture | 600519 | 贵州茅台 | stock | SH | {} |')
     await expect(
       tool?.execute(fixture.controller, input, {
         signal: new AbortController().signal,
         progress: () => undefined,
       }),
-    ).resolves.toEqual([match])
+    ).resolves.toEqual(direct)
     expect(fixture.search).toHaveBeenLastCalledWith({
       keyword: '600519',
       limit: 100,

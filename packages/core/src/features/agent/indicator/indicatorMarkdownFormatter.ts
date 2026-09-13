@@ -1,12 +1,10 @@
 // 本文件将未注册专用转义器的指标结果转义为紧凑 Markdown 表格。
 
 import { formatTimestamp } from '../../../foundation/utils/dateFormat'
+import { createMarkdownTable } from '../markdownTable'
+
 import type { IndicatorTextFormatContext } from './indicatorTextFormatter'
 
-// 空结果的统一文本，避免向 Agent 输出空表格。
-const EMPTY_RESULT_TEXT = '无可用数据'
-// Markdown 表格的表头分隔符。
-const TABLE_SEPARATOR = '---'
 // Agent 文本中统一使用的格式化日期列名。
 const DATE_COLUMN = 'date'
 // 无字段名结果的默认列名。
@@ -125,24 +123,17 @@ function isAlignedSeriesObject(
   )
 }
 
-/** 生成 Markdown 表格，字段名只写入表头一次。 */
-function createMarkdownTable(rows: ReadonlyArray<MarkdownRow>): string {
-  if (rows.length === 0) return EMPTY_RESULT_TEXT
+/** 从对象行派生列名并渲染 Markdown 表格。 */
+function renderRowTable(rows: ReadonlyArray<MarkdownRow>): string {
   const columnSet = new Set<string>()
   for (const row of rows) {
     for (const column of Object.keys(row)) columnSet.add(column)
   }
   const columns = [...columnSet]
-  if (columns.length === 0) return EMPTY_RESULT_TEXT
-  const header = `| ${columns.join(' | ')} |`
-  const separator = `| ${columns.map(() => TABLE_SEPARATOR).join(' | ')} |`
-  const body = rows.map((row) => {
-    const cells = columns.map((column) =>
-      (row[column] ?? '-').replaceAll('|', '\\|').replace(/[\r\n]+/g, ' '),
-    )
-    return `| ${cells.join(' | ')} |`
-  })
-  return [header, separator, ...body].join('\n')
+  return createMarkdownTable(
+    columns,
+    rows.map((row) => columns.map((column) => row[column])),
+  )
 }
 
 /** 构造指标标题，参数只出现一次以降低文本体积。 */
@@ -186,5 +177,5 @@ export function formatIndicatorMarkdown(context: IndicatorTextFormatContext): st
   } else {
     rows = [createRow(series)]
   }
-  return `${createTitle(context)}\n\n${createMarkdownTable(rows)}`
+  return `${createTitle(context)}\n\n${renderRowTable(rows)}`
 }

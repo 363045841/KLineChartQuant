@@ -1,17 +1,22 @@
 // 本文件将市场查询的领域结果转义为紧凑 Markdown 表格，降低 Agent 上下文 token 消耗。
 import { formatTimestamp } from '../../foundation/utils/dateFormat'
 
-import type { KLineData, TimeShareData } from '../../foundation/types/price'
-import type { KLineAdjustment, KLinePeriod, OlderDataStatus } from '../../data/provider/types'
-import type { BarsQueryResult, TimeShareQueryResult, TimeShareRangeQueryResult } from './types'
+import { createMarkdownTable, escapeMarkdownCell } from './markdownTable'
 
-const EMPTY_RESULT_TEXT = '无可用数据'
-const TABLE_SEPARATOR = '---'
+import type { KLineData, TimeShareData } from '../../foundation/types/price'
+import type {
+  InstrumentDescriptor,
+  KLineAdjustment,
+  KLinePeriod,
+  OlderDataStatus,
+} from '../../data/provider/types'
+import type { BarsQueryResult, TimeShareQueryResult, TimeShareRangeQueryResult } from './types'
 
 /** 市场查询文本转义服务。 */
 export interface MarketDataTextFormatter {
   formatBars(result: BarsQueryResult): string
   formatChartBars(input: ChartBarsTextFormatInput): string
+  formatInstrumentLookup(input: InstrumentLookupTextFormatInput): string
   formatTimeShare(result: TimeShareQueryResult): string
   formatTimeShareRange(result: TimeShareRangeQueryResult): string
 }
@@ -27,25 +32,10 @@ export interface ChartBarsTextFormatInput {
   readonly olderData: OlderDataStatus | null
 }
 
-/** 转义表格单元格，缺失或非有限数值统一使用占位符。 */
-function formatCell(value: unknown): string {
-  if (value === null || value === undefined) return '-'
-  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : '-'
-  return String(value)
-    .replaceAll('|', '\\|')
-    .replace(/[\r\n]+/g, ' ')
-}
-
-/** 生成字段名仅出现一次的紧凑 Markdown 表格。 */
-function createMarkdownTable(
-  columns: ReadonlyArray<string>,
-  rows: ReadonlyArray<ReadonlyArray<unknown>>,
-): string {
-  if (rows.length === 0) return EMPTY_RESULT_TEXT
-  const header = `| ${columns.join(' | ')} |`
-  const separator = `| ${columns.map(() => TABLE_SEPARATOR).join(' | ')} |`
-  const body = rows.map((row) => `| ${row.map(formatCell).join(' | ')} |`)
-  return [header, separator, ...body].join('\n')
+/** 精确品种查询投影为 Agent 文本时的输入。 */
+export interface InstrumentLookupTextFormatInput {
+  readonly symbol: string
+  readonly instruments: ReadonlyArray<InstrumentDescriptor>
 }
 
 /** 构造只含品种、来源和时区的紧凑行情标题。 */
@@ -61,7 +51,7 @@ function createTitle(
     ['timezone', timeZone],
     ...details,
   ]
-  return `${kind} | ${metadata.map(([key, value]) => `${key}=${formatCell(value)}`).join(' | ')}`
+  return `${kind} | ${metadata.map(([key, value]) => `${key}=${escapeMarkdownCell(value)}`).join(' | ')}`
 }
 
 /** 按行情时区格式化数据点时间。 */
@@ -108,6 +98,49 @@ function createTimeShareTable(data: ReadonlyArray<TimeShareData>, timeZone: stri
   return createMarkdownTable(columns, rows)
 }
 
+/** 将品种的全部字段展开为点号路径列，嵌套对象递归、数组以 JSON 保留完整内容。 */
+function flattenInstrumentFields(instrument: InstrumentDescriptor): Record<string, string> {
+  const fields: Record<string, string> = {}
+  const walk = (value: unknown, key: string): void => {
+    if (value === null || value === undefined) {
+      fields[key] = '-'
+      return
+    }
+    if (Array.isArray(value)) {
+      fields[key] = JSON.stringify(value)
+      return
+    }
+    if (typeof value === 'object') {
+      const entries = Object.entries(value)
+      if (entries.length === 0) {
+        fields[key] = '{}'
+        return
+      }
+      for (const [childKey, childValue] of entries) {
+        walk(childValue, key ? `${key}.${childKey}` : childKey)
+      }
+      return
+    }
+    fields[key] = String(value)
+  }
+  for (const [key, value] of Object.entries(instrument)) walk(value, key)
+  return fields
+}
+
+/** 按各行首次出现的顺序收集动态列名。 */
+function collectColumnNames(rows: ReadonlyArray<Record<string, string>>): ReadonlyArray<string> {
+  const columns: string[] = []
+  const seen = new Set<string>()
+  for (const row of rows) {
+    for (const key of Object.keys(row)) {
+      if (seen.has(key)) continue
+      seen.add(key)
+      columns.push(key)
+    }
+  }
+  return columns
+}
+
 /** 将工具查询结果和当前图表快照统一渲染为相同的 K 线文本格式。 */
 function formatBarsText(input: ChartBarsTextFormatInput): string {
   return [
@@ -142,6 +175,17 @@ export function createMarketDataTextFormatter(): MarketDataTextFormatter {
     /** 将当前图表中已加载的 K 线转为与查询工具一致的文本格式。 */
     formatChartBars(input: ChartBarsTextFormatInput): string {
       return formatBarsText(input)
+    },
+    /** 将精确品种查询的全部匹配转为动态列的 Markdown 表格。 */
+    formatInstrumentLookup(input: InstrumentLookupTextFormatInput): string {
+      const rows = input.instruments.map(flattenInstrumentFields)
+      const columns = collectColumnNames(rows)
+      const title = `instrument lookup | symbol=${escapeMarkdownCell(input.symbol)} | matches=${input.instruments.length}`
+      const table = createMarkdownTable(
+        columns,
+        rows.map((row) => columns.map((column) => row[column])),
+      )
+      return [title, table].join('\n\n')
     },
     /** 将单日分时结果转为紧凑价格表格。 */
     formatTimeShare(result: TimeShareQueryResult): string {

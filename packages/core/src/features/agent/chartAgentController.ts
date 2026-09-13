@@ -47,11 +47,7 @@ import type {
 } from './types'
 import type { IndicatorInstance, SymbolSpec } from '../../controllers/types'
 import { ASSET_CLASS_VALUES } from '../../data/provider/types'
-import type {
-  KLineAdjustment,
-  KLinePeriod,
-  TradingDate,
-} from '../../data/provider/types'
+import type { KLineAdjustment, KLinePeriod, TradingDate } from '../../data/provider/types'
 import type { DataStateModule } from '../../engine/state/dataState'
 import type { PaneManager } from '../../engine/paneManager'
 import type { PaneSpec } from '../../engine/chartTypes'
@@ -644,23 +640,30 @@ class ChartAgentControllerImpl implements ChartAgentController {
     return searchInstruments(this.dependencies.marketDataProviderRegistry, input)
   }
 
-  /** 按证券代码精确查询标准品种；前端和 Agent 调用同一领域 API。 */
+  /** 按证券代码精确查询标准品种，输出全部匹配的 Markdown 表格；前端和 Agent 调用同一领域 API。 */
   @Tool({
     name: 'instruments_query_name',
     label: 'Query instrument name',
     description:
-      'Look up security names by an exact symbol through the active market-data sources. Optionally restrict the lookup to sourceIds. Return every exact match with its source and exchange; never infer a name from a partial match.',
+      "Look up security names by an exact symbol through the active market-data sources. Optionally restrict the lookup to sourceIds. Returns a Markdown table of every exact match with all instrument fields; never infer a name from a partial match. When the table contains more than one row, do not pick a candidate yourself: call ask_user with one option per row, where value is that row's id, label is its name, and description lists its source, exchange, and assetClass; wait for the user to choose before continuing.",
     parameters: InstrumentLookupToolParameters,
     safety: 'read-only',
     executionMode: 'parallel',
   })
-  lookupInstrumentsBySymbol(
+  async lookupInstrumentsBySymbol(
     input: Parameters<typeof lookupInstrumentsBySymbol>[1],
     context?: ChartToolExecutionContext,
-  ) {
-    return lookupInstrumentsBySymbol(this.dependencies.marketDataProviderRegistry, {
-      ...input,
-      signal: context?.signal ?? input.signal,
+  ): Promise<string> {
+    const instruments = await lookupInstrumentsBySymbol(
+      this.dependencies.marketDataProviderRegistry,
+      {
+        ...input,
+        signal: context?.signal ?? input.signal,
+      },
+    )
+    return this.marketDataTextFormatter.formatInstrumentLookup({
+      symbol: input.symbol,
+      instruments,
     })
   }
 

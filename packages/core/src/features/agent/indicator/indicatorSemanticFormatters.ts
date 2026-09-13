@@ -1,6 +1,8 @@
 // 本文件为已知指标结果提供比通用表格更紧凑的语义化文本转义器。
 
 import { formatTimestamp } from '../../../foundation/utils/dateFormat'
+import { MARKDOWN_EMPTY_TEXT } from '../markdownTable'
+
 import type { IndicatorResultFormatter, IndicatorTextFormatContext } from './indicatorTextFormatter'
 
 const INDICATOR_DEFINITION_ID = {
@@ -9,9 +11,6 @@ const INDICATOR_DEFINITION_ID = {
   VOLUME_PROFILE: 'volumeProfile',
 } as const
 
-
-// 计算结果为空或结构不符合预期时的统一输出。
-const EMPTY_RESULT_TEXT = '无可用数据'
 // 结构趋势和事件方向为 up 时的展示文案。
 const UP_DIRECTION = '向上'
 // 结构趋势和事件方向为 down 时的展示文案。
@@ -71,7 +70,7 @@ function selectRecentItems(
 
 /** 转义市场结构结果。 */
 function formatStructure(context: IndicatorTextFormatContext): string {
-  if (!isRecord(context.series)) return EMPTY_RESULT_TEXT
+  if (!isRecord(context.series)) return MARKDOWN_EMPTY_TEXT
   const trend = readString(context.series, 'trend')
   const trendText = trend === 'up' ? UP_DIRECTION : trend === 'down' ? DOWN_DIRECTION : RANGE_TREND
   const events = Array.isArray(context.series.events)
@@ -87,15 +86,15 @@ function formatStructure(context: IndicatorTextFormatContext): string {
   return [
     `Structure`,
     `趋势：${trendText}`,
-    ...(eventText.length ? eventText : [EMPTY_RESULT_TEXT]),
+    ...(eventText.length ? eventText : [MARKDOWN_EMPTY_TEXT]),
   ].join('\n')
 }
 
 /** 转义价格区间结果。 */
 function formatZones(context: IndicatorTextFormatContext): string {
-  if (!Array.isArray(context.series)) return EMPTY_RESULT_TEXT
+  if (!Array.isArray(context.series)) return MARKDOWN_EMPTY_TEXT
   const zones = selectRecentItems(context.series, context, 'startIndex')
-  if (zones.length === 0) return `Zones\n${EMPTY_RESULT_TEXT}`
+  if (zones.length === 0) return `Zones\n${MARKDOWN_EMPTY_TEXT}`
   const lines = zones.map((zone) => {
     const kind = readString(zone, 'kind') ?? '-'
     const low = readNumber(zone, 'low')
@@ -110,7 +109,7 @@ function formatZones(context: IndicatorTextFormatContext): string {
 
 /** 转义成交量分布结果。 */
 function formatVolumeProfile(context: IndicatorTextFormatContext): string {
-  if (!isRecord(context.series)) return EMPTY_RESULT_TEXT
+  if (!isRecord(context.series)) return MARKDOWN_EMPTY_TEXT
   const poc = readNumber(context.series, 'poc')
   const valueAreaHigh = readNumber(context.series, 'vah')
   const valueAreaLow = readNumber(context.series, 'val')

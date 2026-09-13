@@ -33,7 +33,7 @@ export function createTestChartAgent(
     getAvailableMarketDataSourceIds: () => [],
     queryIndicator: () => Promise.resolve(''),
     searchInstruments: () => Promise.resolve([]),
-    lookupInstrumentsBySymbol: () => Promise.resolve([]),
+    lookupInstrumentsBySymbol: () => Promise.resolve(''),
     queryBars: () => Promise.resolve(''),
     queryTimeShare: () => Promise.resolve(''),
     queryTimeShareRange: () => Promise.resolve(''),

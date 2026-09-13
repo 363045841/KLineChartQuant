@@ -172,7 +172,7 @@ export interface ChartAgentController {
   lookupInstrumentsBySymbol(
     input: InstrumentLookupInput,
     context?: ChartToolExecutionContext,
-  ): Promise<ReadonlyArray<InstrumentDescriptor>>
+  ): Promise<string>
   queryBars(input: BarsQueryInput, context?: ChartToolExecutionContext): Promise<string>
   queryTimeShare(input: TimeShareQueryInput, context?: ChartToolExecutionContext): Promise<string>
   queryTimeShareRange(
