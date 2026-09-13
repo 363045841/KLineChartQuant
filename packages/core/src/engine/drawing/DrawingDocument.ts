@@ -285,9 +285,14 @@ export class DrawingDocument {
   getBatchStyleKeys(ids: ReadonlyArray<string>): ReadonlyArray<DrawingStyleKey> {
     const drawings = this.getDrawingsByIds(ids)
     if (drawings.length === 0) return Object.freeze([])
+    // 通道类的填充能力由 kind 固有（渲染端必有 area 图元，fill 缺省时从 stroke 派生），
+    // 因此全通道类集合的 fill 总是可批量修改，不依赖 style 上是否显式存在该键。
+    const fillSupported = drawings.every((drawing) => isChannel(drawing.kind))
     return Object.freeze(
-      DRAWING_STYLE_KEYS.filter((key) =>
-        drawings.every((drawing) => drawing.style[key] !== undefined),
+      DRAWING_STYLE_KEYS.filter(
+        (key) =>
+          (key === 'fill' && fillSupported) ||
+          drawings.every((drawing) => drawing.style[key] !== undefined),
       ),
     )
   }

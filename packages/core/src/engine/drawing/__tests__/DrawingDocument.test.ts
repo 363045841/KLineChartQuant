@@ -303,6 +303,52 @@ describe('DrawingDocument', () => {
     expect(document.listDrawings().map((drawing) => drawing.style.stroke)).toEqual(['#0f0', '#0f0'])
   })
 
+  it('treats fill as batch-modifiable only for all-channel selections', () => {
+    const { document } = createDocument()
+    document.replaceDrawings([
+      {
+        id: 'rect',
+        kind: 'rectangle',
+        paneId: 'main',
+        visible: true,
+        anchors: [],
+        params: {},
+        style: { stroke: '#2962ff', strokeWidth: 1, fillOpacity: 0.1 },
+      },
+      {
+        id: 'line',
+        kind: 'trend-line',
+        paneId: 'main',
+        visible: true,
+        anchors: [],
+        params: {},
+        style: { stroke: '#f00', strokeWidth: 1 },
+      },
+      {
+        id: 'channel',
+        kind: 'parallel-channel',
+        paneId: 'main',
+        visible: true,
+        anchors: [],
+        params: {},
+        style: { stroke: '#0f0', strokeWidth: 1, fillOpacity: 0.1 },
+      },
+    ])
+
+    // 全通道类集合：fill 可批量修改，style 上无需显式存在该键。
+    expect(document.getBatchStyleKeys(['rect', 'channel'])).toContain('fill')
+    expect(document.updateBatch(['rect', 'channel'], { style: { fill: '#ff0' } })).toHaveLength(2)
+    expect(document.listDrawings().map((drawing) => drawing.style.fill)).toEqual([
+      '#ff0',
+      undefined,
+      '#ff0',
+    ])
+
+    // 通道类与线类混合集合：线类渲染端不消费 fill，维持交集守卫拒绝。
+    expect(document.getBatchStyleKeys(['rect', 'line'])).not.toContain('fill')
+    expect(document.updateBatch(['rect', 'line'], { style: { fill: '#fff' } })).toEqual([])
+  })
+
   it('removes a batch and clears every removed id from the selection', () => {
     const { state, document } = createDocument()
     const first = document.createDrawing({
