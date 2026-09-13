@@ -19,7 +19,12 @@ import {
 } from './selectionMarquee'
 import { PreviewRenderer } from './PreviewRenderer'
 import { resolveDrawingPointer } from './coordinateUtils'
-import type { ResolvedInteractionAnchor, DrawingPointerAnchor } from './coordinateUtils'
+import type {
+  ResolvedInteractionAnchor,
+  DrawingPointerAnchor,
+  ResolveDrawingPointerOptions,
+} from './coordinateUtils'
+import type { ActiveMagnetMode, MagnetMode } from './magnetSnapper'
 import type { DrawingToolId } from './toolConfig'
 import { getAnchorCountForTool, getDrawingKind } from './toolConfig'
 
@@ -57,6 +62,8 @@ export class DrawingInteractionController {
   private dragHandler: DragHandler
   private pendingPaneId: string | null = null
   private pointerSession: DrawingPointerSession = { kind: 'idle' }
+  /** 磁吸档位（会话级交互配置，不进 StateKernel；见 docs/design 引擎绘图硬化文档）。 */
+  private magnetMode: MagnetMode = 'off'
 
   constructor(adapter: DrawingChartAdapter) {
     this.adapter = adapter
@@ -96,6 +103,19 @@ export class DrawingInteractionController {
 
   setTool(toolId: DrawingToolId) {
     this.adapter.setDrawingToolId(toolId)
+  }
+
+  /**
+   * 设置磁吸档位（off/weak/strong），仅影响绘图模式的锚点落点与预览路径。
+   * cursor 命中、框选、标签路径不受磁吸影响。
+   */
+  setMagnetMode(mode: MagnetMode): void {
+    this.magnetMode = mode
+  }
+
+  /** 读取当前磁吸档位。 */
+  getMagnetMode(): MagnetMode {
+    return this.magnetMode
   }
 
   // ============ 图元 CRUD ============
@@ -174,7 +194,12 @@ export class DrawingInteractionController {
     const activeTool = this.getActiveTool()
     if (activeTool === 'box-select') return false
     if (activeTool !== 'cursor') {
-      const pointer = resolveDrawingPointer(e, container, this.adapter)
+      const pointer = resolveDrawingPointer(
+        e,
+        container,
+        this.adapter,
+        this.resolveMagnetOptions(e),
+      )
       if (!pointer || (this.pendingPaneId !== null && pointer.paneId !== this.pendingPaneId)) {
         this.drawingState.removePreview()
         return false
@@ -213,7 +238,12 @@ export class DrawingInteractionController {
       return this.handleBoxSelectDown(e, container)
     }
 
-    const pointer = resolveDrawingPointer(e, container, this.adapter)
+    const pointer = resolveDrawingPointer(
+      e,
+      container,
+      this.adapter,
+      this.resolveMagnetOptions(e),
+    )
     if (!pointer || (this.pendingPaneId !== null && pointer.paneId !== this.pendingPaneId))
       return false
 
@@ -256,6 +286,16 @@ export class DrawingInteractionController {
   }
 
   // ============ 私有方法 ============
+
+  /**
+   * 解析当前指针事件的磁吸配置。
+   * Ctrl/Meta 按住时临时升级为 strong（含 off 档，与壳侧基准一致）；off 且无修饰键时不吸附。
+   */
+  private resolveMagnetOptions(e: PointerEvent): ResolveDrawingPointerOptions | undefined {
+    const mode: ActiveMagnetMode | 'off' =
+      e.ctrlKey || e.metaKey ? 'strong' : this.magnetMode
+    return mode === 'off' ? undefined : { magnet: { mode } }
+  }
 
   private handleCursorDown(e: PointerEvent, container: HTMLElement): boolean {
     const result = this.findDrawingHit(e, container)

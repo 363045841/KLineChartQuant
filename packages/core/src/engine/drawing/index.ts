@@ -976,3 +976,16 @@ export function registerDefaultDrawingDefinitions(registry: DrawingDefinitionReg
 // 导出交互控制器
 export { DrawingInteractionController } from './interaction'
 export type { DrawingToolId, InteractionDrawingAnchor, DrawingLineLabelTarget } from './interaction'
+
+// 导出磁吸模块（setMagnetMode 的档位类型与吸附纯函数）
+export {
+  snapPointerToOhlc,
+  MAGNET_RADIUS_WEAK,
+  MAGNET_RADIUS_STRONG,
+} from './magnetSnapper'
+export type {
+  MagnetMode,
+  ActiveMagnetMode,
+  MagnetSnapConfig,
+  SnappedPoint,
+} from './magnetSnapper'
