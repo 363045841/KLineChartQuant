@@ -14,8 +14,6 @@ import type {
 import type { AgentUsageView, SourceCitation, ToolCallView, ToolProgressView } from '../contracts/ui.js'
 import type { AssistantMessage, Usage } from '@earendil-works/pi-ai'
 
-const DEFAULT_TOOL_TURN_LIMIT = 8
-const HARD_TOOL_TURN_LIMIT = 12
 // Run deadline 是无活动计时：任何 Pi 事件或工具 progress 心跳都会重置；等待用户回答由 ask_user 心跳维持。
 const DEFAULT_TIMEOUT_MS = 10 * 60_000
 
@@ -170,15 +168,11 @@ export class PiRunDriver {
    * @param plan 本次运行的模型、工具和超时计划。
    * @param emit 接收 UI 事件的同步或异步函数。
    * @returns 助手文本、聚合用量与成功工具数。
-   * @throws {AgentRuntimeError} 并发运行、超时、取消、工具循环或 Provider 失败时抛出。
+   * @throws {AgentRuntimeError} 并发运行、超时、取消或 Provider 失败时抛出。
    */
   async run(plan: PiRunPlan, emit: PiRunEventSink): Promise<PiRunResult> {
     if (this.activeAgent)
       throw new AgentRuntimeError('RUN_ACTIVE', 'This Pi driver already owns an active run.')
-    const limit = plan.toolTurnLimit ?? DEFAULT_TOOL_TURN_LIMIT
-    if (!Number.isInteger(limit) || limit < 1 || limit > HARD_TOOL_TURN_LIMIT) {
-      throw new RangeError(`toolTurnLimit must be between 1 and ${HARD_TOOL_TURN_LIMIT}`)
-    }
     const timeoutMs = plan.timeoutMs ?? DEFAULT_TIMEOUT_MS
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0)
       throw new RangeError('timeoutMs must be positive')
@@ -192,8 +186,6 @@ export class PiRunDriver {
     let assistantStarted = false
     let assistantText = ''
     let completedToolCount = 0
-    let toolTurns = 0
-    let loopLimitReached = false
     let providerError: AssistantMessage | undefined
     let aborted = false
     let usage: Usage | undefined
@@ -245,17 +237,6 @@ export class PiRunDriver {
       streamFn: plan.streamFn,
       sessionId: plan.sessionId,
       toolExecution: 'parallel',
-      // 仅含工具调用的助手轮次计入上限，避免模型陷入无终止的工具循环。
-      shouldStopAfterTurn: ({ message }) => {
-        if (!isAssistant(message) || !message.content.some((block) => block.type === 'toolCall'))
-          return false
-        toolTurns += 1
-        if (toolTurns >= limit) {
-          loopLimitReached = true
-          return true
-        }
-        return false
-      },
     })
     this.activeAgent = agent
 
@@ -355,16 +336,6 @@ export class PiRunDriver {
           retryable: true,
           recommendedAction: 'Retry with a narrower request.',
         })
-      }
-      if (loopLimitReached) {
-        throw new AgentRuntimeError(
-          'TOOL_LOOP_LIMIT',
-          `The Agent stopped after ${limit} tool turns.`,
-          {
-            retryable: true,
-            recommendedAction: 'Refine the request and retry.',
-          },
-        )
       }
       if (providerError) {
         const classified = plan.classifyProviderError?.(providerError)

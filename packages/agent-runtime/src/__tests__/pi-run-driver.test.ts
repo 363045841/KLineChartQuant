@@ -263,29 +263,6 @@ describe('PiRunDriver', () => {
     } satisfies Partial<AgentRuntimeError>)
   })
 
-  it('enforces the configured tool-turn limit', async () => {
-    const tool: RuntimeToolDefinition = {
-      name: 'loop',
-      label: 'Loop',
-      description: 'Loop',
-      parameters: Type.Object({}),
-      safety: 'read-only',
-      reversible: false,
-      execute: async () => ({ content: 'continue', summary: 'continued' }),
-    }
-    const { plan } = fixture(
-      [
-        fauxAssistantMessage(fauxToolCall('loop', {}, { id: 'one' }), { stopReason: 'toolUse' }),
-        fauxAssistantMessage(fauxToolCall('loop', {}, { id: 'two' }), { stopReason: 'toolUse' }),
-      ],
-      [tool],
-    )
-    plan.toolTurnLimit = 1
-    await expect(new PiRunDriver().run(plan, () => undefined)).rejects.toMatchObject({
-      code: 'TOOL_LOOP_LIMIT',
-    } satisfies Partial<AgentRuntimeError>)
-  })
-
   it('does not execute a non-read-only tool supplied to a read-only plan', async () => {
     const execute = vi.fn(async () => ({ content: 'cleared', summary: 'Chart cleared.' }))
     const tool: RuntimeToolDefinition = {

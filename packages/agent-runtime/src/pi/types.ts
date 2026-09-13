@@ -103,8 +103,6 @@ export interface PiRunPlan {
   classifyProviderError?: (message: AssistantMessage) => AgentRuntimeError | undefined
   /** 覆盖默认行为的系统提示词。 */
   systemPrompt?: string
-  /** 单次运行允许的最大工具调用轮数。 */
-  toolTurnLimit?: number
   /** 单次运行的总超时时间。 */
   timeoutMs?: number
 }
