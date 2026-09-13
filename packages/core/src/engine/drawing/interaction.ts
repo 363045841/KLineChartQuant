@@ -347,18 +347,42 @@ export class DrawingInteractionController {
     const hit = this.hitTester.hitTest(
       pointer.x,
       pointer.y,
-      this.drawingState
-        .getNonPreview()
-        .filter(
-          (drawing) =>
-            !drawing.locked &&
-            drawing.paneId === pointer.paneId &&
-            (drawing.workspaceId ?? ChartWorkspaceId.KLine) ===
-              this.adapter.getDrawingWorkspaceId(),
-        ),
+      this.getHitCandidates(pointer.paneId),
       this.adapter,
     )
     return hit ? { pointer, hit } : null
+  }
+
+  /**
+   * 公开命中查询：返回容器局部坐标 (x, y) 处的图元，供橡皮擦、对象树 hover 等宿主交互使用。
+   * 过滤口径与光标点选一致（当前 Pane + 当前工作区 + 可见性由 HitTester 处理 + 排除锁定图元）。
+   * @param x 容器局部 X 坐标（px）
+   * @param y 容器局部 Y 坐标（px）
+   * @returns 命中的图元；未命中或 Pane 不可解析时返回 null
+   */
+  hitTestAt(x: number, y: number): DrawingObject | null {
+    const pane = this.adapter.getPaneAtY(y)
+    if (!pane) return null
+    const hit = this.hitTester.hitTest(
+      x,
+      y - pane.top,
+      this.getHitCandidates(pane.paneId),
+      this.adapter,
+    )
+    return hit ? hit.drawing : null
+  }
+
+  /** 汇总当前 Pane 与工作区内可被指针命中的候选图元（排除锁定与预览）。 */
+  private getHitCandidates(paneId: string): DrawingObject[] {
+    return this.drawingState
+      .getNonPreview()
+      .filter(
+        (drawing) =>
+          !drawing.locked &&
+          drawing.paneId === paneId &&
+          (drawing.workspaceId ?? ChartWorkspaceId.KLine) ===
+            this.adapter.getDrawingWorkspaceId(),
+      )
   }
 
   /** 进入拖拽会话；锚点命中只拖动命中图元，主体命中拖动整个选择组。 */
