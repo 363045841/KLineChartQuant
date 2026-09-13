@@ -4,9 +4,9 @@
  * server route); when absent, a localStorage default keeps the feature usable.
  * Tool identity is the drawing `kind`; adapters may namespace it for persistence.
  */
-import { ref, type Ref } from 'vue'
 
 import type { DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
+import { type Ref, ref } from 'vue'
 
 export interface DrawingTemplateRecord {
   name: string
@@ -45,7 +45,9 @@ function createLocalStorageStore(): DrawingTemplateStore {
       for (const [tool, templates] of Object.entries(all)) {
         for (const name of Object.keys(templates)) items.push({ name, tool })
       }
-      return items.sort((left, right) => left.tool.localeCompare(right.tool) || left.name.localeCompare(right.name))
+      return items.sort(
+        (left, right) => left.tool.localeCompare(right.tool) || left.name.localeCompare(right.name),
+      )
     },
     async load(tool, name) {
       return readAll()[tool]?.[name] ?? null

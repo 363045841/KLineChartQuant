@@ -57,7 +57,7 @@
     </div>
 
     <Dropdown
-      v-if="templates.length > 0"
+      v-if="(templates?.length ?? 0) > 0"
       label="模板"
       :model-value="''"
       :options="templateOptions"
@@ -200,7 +200,7 @@
   const SAVE_SENTINEL = '__save__'
 
   const templateOptions = computed(() => [
-    ...props.templates?.map((name) => ({ label: name, value: name })) ?? [],
+    ...(props.templates?.map((name) => ({ label: name, value: name })) ?? []),
     { label: '＋保存为模板', value: SAVE_SENTINEL },
   ])
 
