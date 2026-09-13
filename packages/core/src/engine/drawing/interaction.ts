@@ -298,14 +298,16 @@ export class DrawingInteractionController {
   }
 
   private handleCursorDown(e: PointerEvent, container: HTMLElement): boolean {
+    // Shift 与 Ctrl 同语义：按住时点击切换选中，空白处不清空选择。
+    const isMultiSelect = e.ctrlKey || e.shiftKey
     const result = this.findDrawingHit(e, container)
     if (!result) {
-      if (!e.ctrlKey) this.clearSelection()
+      if (!isMultiSelect) this.clearSelection()
       return false
     }
     const { pointer, hit } = result
 
-    if (e.ctrlKey) {
+    if (isMultiSelect) {
       this.toggleSelected([hit.drawing])
       return true
     }
