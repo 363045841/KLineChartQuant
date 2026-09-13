@@ -416,7 +416,6 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 | initialZoomLevel | `number` | 3 | 初始缩放级别（1 ~ zoomLevels） |
 | customData | `CustomDataSource` | — | 内联数据包：`{ symbol?, period?, data, comparisons? }`。完全绕过数据请求器，直接使用传入的数据渲染 |
 | teleportContainer | `string \| HTMLElement` | — | 下拉/弹窗的 Teleport 目标容器（CSS 选择器或元素）。默认渲染到内部 `.chart-wrapper` |
-| mcp | `McpConfig` | — | 已废弃的旧 MCP 桥接。请改用原生 Agent 运行时（`@Tool` 原语） |
 
 
 ## 🗺️ Roadmap
@@ -444,7 +443,6 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 | `@363045841yyt/klinechart-react` | React 绑定 | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-react) |
 | `@363045841yyt/klinechart-angular` | Angular 绑定 | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-angular) |
 | `@363045841yyt/klinechart-agent-runtime` | 框架无关的 Agent 运行时（Pi 编排 + 宿主契约） | — |
-| `@363045841yyt/klinechart-ai-runtime` | 已废弃：旧 MCP 插件，请改用 `agent-runtime` | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-ai-runtime) |
 
 
 ## 🚀 What's New

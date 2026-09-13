@@ -245,9 +245,6 @@ importers:
       '@363045841yyt/klinechart':
         specifier: workspace:*
         version: link:../../packages/vue
-      '@363045841yyt/klinechart-ai-runtime':
-        specifier: workspace:*
-        version: link:../../packages/ai-runtime
       '@363045841yyt/klinechart-core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -289,31 +286,6 @@ importers:
       publint:
         specifier: ^0.3.21
         version: 0.3.21
-      typescript:
-        specifier: ~6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.0)(@types/node@25.9.4)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@8.2.1(@types/node@25.9.4)(esbuild@0.28.1)(jiti@2.7.0)(less@4.2.2)(sass@1.85.0)(terser@5.48.0)(tsx@4.23.12)(yaml@2.9.0))
-
-  packages/ai-runtime:
-    dependencies:
-      '@363045841yyt/klinechart-core':
-        specifier: workspace:*
-        version: link:../core
-      '@modelcontextprotocol/sdk':
-        specifier: ^1.30.0
-        version: 1.30.0(supports-color@10.2.2)(zod@4.4.3)
-      effect:
-        specifier: ^3.22.1
-        version: 3.22.1
-      ws:
-        specifier: ^8.21.3
-        version: 8.21.3
-    devDependencies:
-      '@types/ws':
-        specifier: ^8
-        version: 8.18.1
       typescript:
         specifier: ~6.0.3
         version: 6.0.3
@@ -536,9 +508,6 @@ importers:
       '@363045841yyt/klinechart-agent-runtime':
         specifier: workspace:*
         version: link:../agent-runtime
-      '@363045841yyt/klinechart-ai-runtime':
-        specifier: workspace:*
-        version: link:../ai-runtime
       '@arethetypeswrong/cli':
         specifier: ^0.18.3
         version: 0.18.3
@@ -13454,6 +13423,7 @@ snapshots:
   '@hono/node-server@1.19.14(hono@4.12.25)':
     dependencies:
       hono: 4.12.25
+    optional: true
 
   '@humanfs/core@0.19.2':
     dependencies:
@@ -13970,6 +13940,7 @@ snapshots:
       zod-to-json-schema: 3.25.2(zod@4.4.3)
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   '@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.4':
     optional: true
@@ -16424,6 +16395,7 @@ snapshots:
     dependencies:
       mime-types: 3.0.2
       negotiator: 1.1.0
+    optional: true
 
   acorn-import-attributes@1.9.5(acorn@8.17.0):
     dependencies:
@@ -16459,6 +16431,7 @@ snapshots:
   ajv-formats@3.0.1(ajv@8.20.0):
     optionalDependencies:
       ajv: 8.20.0
+    optional: true
 
   ajv-keywords@5.1.0(ajv@8.20.0):
     dependencies:
@@ -16862,6 +16835,7 @@ snapshots:
       type-is: 2.1.0
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   bonjour-service@1.4.2:
     dependencies:
@@ -17229,11 +17203,13 @@ snapshots:
     dependencies:
       safe-buffer: 5.2.1
 
-  content-disposition@1.1.0: {}
+  content-disposition@1.1.0:
+    optional: true
 
   content-type@1.0.5: {}
 
-  content-type@2.1.0: {}
+  content-type@2.1.0:
+    optional: true
 
   convert-source-map@1.9.0: {}
 
@@ -17247,7 +17223,8 @@ snapshots:
 
   cookie-signature@1.0.7: {}
 
-  cookie-signature@1.2.2: {}
+  cookie-signature@1.2.2:
+    optional: true
 
   cookie@0.7.2: {}
 
@@ -17275,6 +17252,7 @@ snapshots:
     dependencies:
       object-assign: 4.1.1
       vary: 1.1.2
+    optional: true
 
   cosmiconfig@9.0.2(typescript@5.6.3):
     dependencies:
@@ -18243,11 +18221,13 @@ snapshots:
 
   events@3.3.0: {}
 
-  eventsource-parser@3.1.0: {}
+  eventsource-parser@3.1.0:
+    optional: true
 
   eventsource@3.0.7:
     dependencies:
       eventsource-parser: 3.1.0
+    optional: true
 
   execa@8.0.1:
     dependencies:
@@ -18271,6 +18251,7 @@ snapshots:
     dependencies:
       express: 5.2.1(supports-color@10.2.2)
       ip-address: 10.2.0
+    optional: true
 
   express@4.22.2(supports-color@10.2.2):
     dependencies:
@@ -18340,6 +18321,7 @@ snapshots:
       vary: 1.1.2
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   exsolve@1.0.8: {}
 
@@ -18445,6 +18427,7 @@ snapshots:
       statuses: 2.0.2
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   find-cache-dir@4.0.0:
     dependencies:
@@ -18800,7 +18783,8 @@ snapshots:
 
   highlight.js@10.7.3: {}
 
-  hono@4.12.25: {}
+  hono@4.12.25:
+    optional: true
 
   hookable@5.5.3: {}
 
@@ -19131,7 +19115,8 @@ snapshots:
 
   is-potential-custom-element-name@1.0.1: {}
 
-  is-promise@4.0.0: {}
+  is-promise@4.0.0:
+    optional: true
 
   is-reference@1.2.1:
     dependencies:
@@ -19258,7 +19243,8 @@ snapshots:
 
   jiti@2.7.0: {}
 
-  jose@6.2.3: {}
+  jose@6.2.3:
+    optional: true
 
   js-beautify@1.15.4:
     dependencies:
@@ -19327,7 +19313,8 @@ snapshots:
 
   json-schema-traverse@1.0.0: {}
 
-  json-schema-typed@8.0.2: {}
+  json-schema-typed@8.0.2:
+    optional: true
 
   json-stable-stringify-without-jsonify@1.0.1: {}
 
@@ -19752,7 +19739,8 @@ snapshots:
 
   media-typer@0.3.0: {}
 
-  media-typer@1.1.1: {}
+  media-typer@1.1.1:
+    optional: true
 
   memfs@4.57.8(tslib@2.8.1):
     dependencies:
@@ -19775,7 +19763,8 @@ snapshots:
 
   merge-descriptors@1.0.3: {}
 
-  merge-descriptors@2.0.0: {}
+  merge-descriptors@2.0.0:
+    optional: true
 
   merge-stream@2.0.0: {}
 
@@ -19971,6 +19960,7 @@ snapshots:
   negotiator@1.1.0:
     dependencies:
       content-type: 2.1.0
+    optional: true
 
   neo-async@2.6.2: {}
 
@@ -20783,7 +20773,8 @@ snapshots:
 
   path-to-regexp@0.1.13: {}
 
-  path-to-regexp@8.4.2: {}
+  path-to-regexp@8.4.2:
+    optional: true
 
   path-type@6.0.0: {}
 
@@ -20827,7 +20818,8 @@ snapshots:
     optionalDependencies:
       '@napi-rs/nice': 1.1.1
 
-  pkce-challenge@5.0.1: {}
+  pkce-challenge@5.0.1:
+    optional: true
 
   pkg-dir@7.0.0:
     dependencies:
@@ -21581,6 +21573,7 @@ snapshots:
       http-errors: 2.0.1
       iconv-lite: 0.7.2
       unpipe: 1.0.0
+    optional: true
 
   rc9@3.0.1:
     dependencies:
@@ -21909,6 +21902,7 @@ snapshots:
       path-to-regexp: 8.4.2
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   run-applescript@7.1.0: {}
 
@@ -22753,6 +22747,7 @@ snapshots:
       content-type: 2.1.0
       media-typer: 1.1.1
       mime-types: 3.0.2
+    optional: true
 
   type-level-regexp@0.1.17: {}
 
@@ -23949,6 +23944,7 @@ snapshots:
   zod-to-json-schema@3.25.2(zod@4.4.3):
     dependencies:
       zod: 4.4.3
+    optional: true
 
   zod-validation-error@4.0.2(zod@4.4.3):
     dependencies:

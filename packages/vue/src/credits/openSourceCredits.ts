@@ -1,7 +1,4 @@
-import aiRuntimePkg from '../../../ai-runtime/package.json'
-import mcpPkg from '../../../ai-runtime/node_modules/@modelcontextprotocol/sdk/package.json'
 import piAiPkg from '../../../agent-runtime/node_modules/@earendil-works/pi-ai/package.json'
-import wsPkg from '../../../ai-runtime/node_modules/ws/package.json'
 import corePkg from '../../../core/package.json'
 import ajvPkg from '../../../core/node_modules/ajv/package.json'
 import effectPkg from '../../../core/node_modules/effect/package.json'
@@ -26,12 +23,9 @@ export interface CreditSection {
 export const OPEN_SOURCE_WHITELIST = [
   { name: '@363045841yyt/klinechart', section: 'workspace' },
   { name: '@363045841yyt/klinechart-core', section: 'workspace' },
-  { name: '@363045841yyt/klinechart-ai-runtime', section: 'workspace' },
   { name: 'effect', section: 'third-party' },
   { name: 'ajv', section: 'third-party' },
-  { name: '@modelcontextprotocol/sdk', section: 'third-party' },
   { name: '@earendil-works/pi-ai', section: 'third-party' },
-  { name: 'ws', section: 'third-party' },
   { name: 'vue', section: 'third-party' },
 ] as const
 
@@ -44,19 +38,16 @@ interface PackageMeta {
   homepage?: string
 }
 
-/** 本 monorepo 默认仓库（ai-runtime 等未写 repository 时回退） */
+/** 本 monorepo 默认仓库（包未写 repository 时回退） */
 const MONOREPO_GITHUB = 'https://github.com/363045841/KLineChartQuant'
 
 /** 白名单包 → package.json（构建时内联元数据） */
 const PACKAGE_META: Record<WhitelistName, PackageMeta> = {
   '@363045841yyt/klinechart': vuePkg,
   '@363045841yyt/klinechart-core': corePkg,
-  '@363045841yyt/klinechart-ai-runtime': aiRuntimePkg,
   effect: effectPkg,
   ajv: ajvPkg,
-  '@modelcontextprotocol/sdk': mcpPkg,
   '@earendil-works/pi-ai': piAiPkg,
-  ws: wsPkg,
   vue: vueLibPkg,
 }
 

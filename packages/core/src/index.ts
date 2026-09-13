@@ -1,6 +1,5 @@
 export * from './foundation/reactivity'
 export * from './controllers'
-export * from './features/mcp'
 export * from './features/agent'
 export { VERSION } from './version'
 export * from './foundation/tokens'

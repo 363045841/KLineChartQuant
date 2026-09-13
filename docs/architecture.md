@@ -95,7 +95,6 @@ flowchart TB
 | Angular bindings | `packages/angular` | Angular 绑定 | `@363045841yyt/klinechart-angular` |
 | UI schema | `packages/ui-schema` | JSON → 图表配置的语义映射 | `@363045841yyt/klinechart-ui-schema` |
 | Agent runtime | `packages/agent-runtime` | 框架无关的 Agent 运行时（Pi 编排 + 宿主契约） | `@363045841yyt/klinechart-agent-runtime` |
-| AI runtime (deprecated) | `packages/ai-runtime` | 已废弃的旧 MCP 插件，保留向后兼容 | `@363045841yyt/klinechart-ai-runtime` |
 | Desktop Electron | `packages/desktop-electron` | 本地桌面应用（不发布） | — |
 
 依赖方向：各绑定包通过 `workspace:*` 依赖 core；core 不依赖任何框架。

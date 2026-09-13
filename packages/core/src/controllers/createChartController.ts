@@ -22,7 +22,6 @@ import { marketDataProviderRegistry } from '../data/provider/registry'
 import { createChartAgentController } from '../features/agent/chartAgentController'
 import { hasSubPaneRendererMetadata } from '../engine/subPaneManager'
 import { createIndicatorQuery } from '../features/agent/indicator/indicatorQuery'
-import { ChartBridge } from '../features/mcp/chartBridge'
 import {
   createViewWorkspacePersistence,
   loadStoredViewWorkspaces,
@@ -927,7 +926,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   function dispose(): void {
     if (disposed) return
     disposed = true
-    bridge?.destroy()
     try {
       void chart.destroy()
     } catch {
@@ -938,40 +936,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     } catch {
       /* best-effort */
     }
-  }
-
-  // ---------------------------------------------------------------------------
-  // MCP bridge (optional)
-  // ---------------------------------------------------------------------------
-
-  let bridge: ChartBridge | null = null
-  if (opts.mcp) {
-    const mcp = opts.mcp
-    const wsUrl = mcp.wsUrl ?? 'ws://localhost:8081'
-    console.info(`[MCP] Creating bridge, wsUrl=${wsUrl}`)
-    bridge = new ChartBridge({
-      wsUrl,
-      onToolCall:
-        mcp.onToolCall ??
-        (() => ({
-          success: false,
-          error:
-            'No onToolCall handler provided. Import executeTool from @363045841yyt/klinechart-ai-runtime and pass it via mcp.onToolCall.',
-        })),
-      autoReconnect: mcp.autoReconnect,
-    })
-    bridge.on('connected', () => {
-      console.info(`[MCP] Bridge connected, sessionId=${bridge!.sessionId}`)
-    })
-    bridge.on('error', (err) => {
-      console.error(`[MCP] Bridge error: ${(err as Error).message}`)
-    })
-    bridge.on('disconnected', () => {
-      console.warn(`[MCP] Bridge disconnected`)
-    })
-    bridge.connect().catch((err) => {
-      console.error(`[MCP] Bridge connect failed: ${(err as Error).message}`)
-    })
   }
 
   return {

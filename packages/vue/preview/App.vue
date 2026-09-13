@@ -22,7 +22,6 @@
         <template #chart>
           <KlineChart
             ref="chartRef"
-            :mcp="mcpConfig"
             :left-axis-width="60"
             :custom-data="customData"
             :settings="chartSettings"
@@ -84,7 +83,6 @@
     DepthConnector,
     createHeatmapController,
   } from '@363045841yyt/klinechart-core/controllers'
-  import { executeTool } from '@363045841yyt/klinechart-ai-runtime'
   import { formatTimestamp } from '@363045841yyt/klinechart-core'
 
   /** 硬编码演示数据：主品种 CUSTOM.DEMO（15 根日 K） */
@@ -536,16 +534,6 @@
       window.localStorage.setItem('agent.panelWidth', String(width))
     },
   }
-  const mcpConfig = {
-    wsUrl: 'ws://localhost:8081',
-    autoReconnect: true,
-    onToolCall: (call: { name: string; input: Record<string, unknown> }) => {
-      const ctrl = chartRef.value?.getController?.()
-      if (!ctrl) return { success: false, error: 'Controller not ready yet' }
-      return executeTool(ctrl, call)
-    },
-  }
-
   const showModal = ref(false)
 
   const sizeIndex = ref(0)

@@ -416,7 +416,6 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 | initialZoomLevel | `number` | 3 | Initial zoom level (1 ~ zoomLevels) |
 | customData | `CustomDataSource` | — | Inline data bundle: `{ symbol?, period?, data, comparisons? }`. Bypasses the fetcher pipeline entirely. See example above |
 | teleportContainer | `string \| HTMLElement` | — | Teleport target for dropdowns/modals (CSS selector or element). Defaults to internal `.chart-wrapper` |
-| mcp | `McpConfig` | — | Deprecated legacy MCP bridge. Use the native Agent runtime (`@Tool` primitives) instead |
 
 
 ## 🗺️ Roadmap
@@ -444,7 +443,6 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 | `@363045841yyt/klinechart-react` | React bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-react) |
 | `@363045841yyt/klinechart-angular` | Angular bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-angular) |
 | `@363045841yyt/klinechart-agent-runtime` | Framework-neutral Agent runtime (Pi orchestration + host contracts) | — |
-| `@363045841yyt/klinechart-ai-runtime` | Deprecated: legacy MCP addon, superseded by `agent-runtime` | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-ai-runtime) |
 
 
 ## 🚀 What's New

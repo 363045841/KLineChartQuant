@@ -4,8 +4,7 @@
     "packages/core/src/index.ts",
     "packages/vue/src/index.ts",
     "packages/react/src/index.ts",
-    "packages/angular/src/index.ts",
-    "packages/ai-runtime/scripts/test-mcp.ts"
+    "packages/angular/src/index.ts"
   ],
   "ignorePatterns": [
     "**/dist/**",

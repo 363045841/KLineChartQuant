@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 
-import aiRuntimePkg from '../../../ai-runtime/package.json'
 import corePkg from '../../../core/package.json'
 import vuePkg from '../../package.json'
 import {
@@ -51,7 +50,6 @@ describe('getOpenSourceCredits', () => {
 
     expect(byName['@363045841yyt/klinechart']?.version).toBe(vuePkg.version)
     expect(byName['@363045841yyt/klinechart-core']?.version).toBe(corePkg.version)
-    expect(byName['@363045841yyt/klinechart-ai-runtime']?.version).toBe(aiRuntimePkg.version)
     expect(byName['@363045841yyt/klinechart']?.license).toBe(vuePkg.license)
   })
 

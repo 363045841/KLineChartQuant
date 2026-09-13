@@ -396,7 +396,6 @@ Positioning and drag stay owned by the chart: with `tooltipPosition === 'adaptiv
 | initialZoomLevel | `number` | 3 | Initial zoom level (1 ~ zoomLevels) |
 | customData | `CustomDataSource` | — | Inline data bundle: `{ symbol?, period?, data, comparisons? }`. Bypasses the fetcher pipeline entirely. See example above |
 | teleportContainer | `string \| HTMLElement` | — | Teleport target for dropdowns/modals (CSS selector or element). Defaults to internal `.chart-wrapper` |
-| mcp | `McpConfig` | — | Deprecated legacy MCP bridge. Use the native Agent runtime (`@Tool` primitives) instead |
 
 
 ## 🗺️ Roadmap

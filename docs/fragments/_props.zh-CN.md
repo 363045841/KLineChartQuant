@@ -17,4 +17,3 @@
 | initialZoomLevel | `number` | 3 | 初始缩放级别（1 ~ zoomLevels） |
 | customData | `CustomDataSource` | — | 内联数据包：`{ symbol?, period?, data, comparisons? }`。完全绕过数据请求器，直接使用传入的数据渲染 |
 | teleportContainer | `string \| HTMLElement` | — | 下拉/弹窗的 Teleport 目标容器（CSS 选择器或元素）。默认渲染到内部 `.chart-wrapper` |
-| mcp | `McpConfig` | — | 已废弃的旧 MCP 桥接。请改用原生 Agent 运行时（`@Tool` 原语） |

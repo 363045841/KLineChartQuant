@@ -124,7 +124,6 @@ For full setup including the data backend, see the [root README]../../README.md)
 | `@363045841yyt/klinechart-react` | React bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-react) |
 | `@363045841yyt/klinechart-angular` | Angular bindings | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-angular) |
 | `@363045841yyt/klinechart-agent-runtime` | Framework-neutral Agent runtime (Pi orchestration + host contracts) | — |
-| `@363045841yyt/klinechart-ai-runtime` | Deprecated: legacy MCP addon, superseded by `agent-runtime` | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-ai-runtime) |
 
 
 ## 📄 License

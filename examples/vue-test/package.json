@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "@363045841yyt/klinechart": "workspace:*",
-    "@363045841yyt/klinechart-ai-runtime": "workspace:*",
     "@363045841yyt/klinechart-core": "workspace:*",
     "vue": "^3.5.0"
   },

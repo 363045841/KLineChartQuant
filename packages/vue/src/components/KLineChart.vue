@@ -429,18 +429,6 @@
 
       /** 用户自定义数据源（传入后 bypass fetcher，使用此数据） */
       customData?: CustomDataSource
-
-      /** MCP / AI runtime bridge 配置。传入后自动连接 MCP WebSocket server */
-      mcp?: {
-        wsUrl?: string
-        onToolCall?: (call: {
-          name: string
-          input: Record<string, unknown>
-        }) =>
-          | Promise<{ success: boolean; error?: string; data?: unknown }>
-          | { success: boolean; error?: string; data?: unknown }
-        autoReconnect?: boolean
-      }
     }>(),
     {
       yPaddingPx: 20,
@@ -1657,7 +1645,6 @@
       minKWidth: props.minKWidth,
       maxKWidth: props.maxKWidth,
       settings: props.settings,
-      mcp: props.mcp,
     })
     return ctrl
   }

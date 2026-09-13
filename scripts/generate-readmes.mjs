@@ -27,7 +27,6 @@ const CONFIG = {
   'packages/vue/README_CN.md':      { template: 'vue.zh-CN.md',   root: '../../' },
   'packages/core/README.md':        { template: 'core.md',        root: '../../' },
   'packages/core/README.zh-CN.md':  { template: 'core.zh-CN.md',  root: '../../' },
-  'packages/ai-runtime/README.md':  { template: 'ai-runtime.md',  root: '../../' },
   'packages/react/README.md':       { template: 'react.md',       root: '../../' },
   'packages/angular/README.md':     { template: 'angular.md',     root: '../../' },
 }
