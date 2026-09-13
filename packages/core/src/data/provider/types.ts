@@ -22,6 +22,14 @@ export const ASSET_CLASS_VALUES = [
 
 export type AssetClass = (typeof ASSET_CLASS_VALUES)[number]
 
+/** 已完成语义归一化的品种类别；排除 unknown，可作为筛选或歧义消解条件。 */
+export type KnownAssetClass = Exclude<AssetClass, 'unknown'>
+
+/** unknown 只表示数据源尚未归一化，不允许作为筛选条件参与匹配。 */
+export const KNOWN_ASSET_CLASS_VALUES: readonly KnownAssetClass[] = ASSET_CLASS_VALUES.filter(
+  (value): value is KnownAssetClass => value !== 'unknown',
+)
+
 /** 图表当前支持的标准 K 线周期。 */
 export type KLinePeriod =
   | '1min'

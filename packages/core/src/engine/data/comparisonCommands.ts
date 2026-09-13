@@ -4,7 +4,7 @@ import { type Static, Type } from 'typebox'
 import type { SymbolSpec } from '../../controllers/types'
 import { COMPARISON_ERROR_CODES, KLineChartError } from '../../errors'
 import {
-  ASSET_CLASS_VALUES,
+  KNOWN_ASSET_CLASS_VALUES,
   type AssetClass,
   type InstrumentDescriptor,
 } from '../../data/provider/types'
@@ -13,7 +13,8 @@ import { Tool } from '../../foundation/agent/chartToolRegistry'
 import { symbolSpecIdentityKey } from './symbolIdentity'
 
 // Type.Enum 保留 as const 数组的字面量联合推断；Type.Union(values.map(...)) 在 typebox 1.x 下推断为 never。
-const AssetClassToolParameter = Type.Enum(ASSET_CLASS_VALUES)
+// unknown 只描述数据源未归一化状态，禁止作为歧义消解筛选条件。
+const AssetClassToolParameter = Type.Enum(KNOWN_ASSET_CLASS_VALUES)
 
 const ComparisonPrimaryToolParameters = Type.Object(
   {
@@ -171,7 +172,7 @@ export class ComparisonCommands implements ComparisonCommandsApi {
     name: 'comparison_create',
     label: 'Add comparison symbol',
     description:
-      'Add one comparison symbol to the main chart. symbol is required and is resolved against the active market-data sources so the real exchange, id, and params are used; source, exchange, and assetClass restrict which instrument the code may resolve to. primary is the chart main symbol; its source, period, and adjust only fill omitted fields and never override the resolved instrument. When several distinct instruments match, nothing is added and the result is { status: "ambiguous", candidates: [...] }: ask the user to choose with the ask_user tool, then retry with the chosen candidate\'s source, exchange, and assetClass. Never pick a candidate yourself. Fails with an actionable reason only when the symbol cannot be resolved or is already compared; an unknown market is rejected.',
+      'Add one comparison symbol to the main chart. symbol is required and is resolved against the active market-data sources so the real exchange, id, and params are used; source, exchange, and assetClass restrict which instrument the code may resolve to; assetClass only accepts a known class, never unknown. primary is the chart main symbol; its source, period, and adjust only fill omitted fields and never override the resolved instrument. When several distinct instruments match, nothing is added and the result is { status: "ambiguous", candidates: [...] }: ask the user to choose with the ask_user tool, then retry with the chosen candidate\'s source and exchange (add assetClass only when its class is not unknown). Never pick a candidate yourself. Fails with an actionable reason only when the symbol cannot be resolved or is already compared; an unknown market is rejected.',
     parameters: ComparisonCreateToolParameters,
     safety: 'destructive',
     executionMode: 'sequential',
@@ -351,7 +352,7 @@ function ambiguousComparisonResult(
 ): ComparisonCreateResult {
   return Object.freeze({
     status: 'ambiguous' as const,
-    message: `Symbol "${symbol}" matched ${matches.length} instruments, so none was added. Use the ask_user tool to let the user choose one candidate, then retry comparison_create with that candidate's source, exchange, and assetClass.`,
+    message: `Symbol "${symbol}" matched ${matches.length} instruments, so none was added. Use the ask_user tool to let the user choose one candidate, then retry comparison_create with that candidate's source and exchange (add assetClass only when its class is not unknown).`,
     candidates: Object.freeze(
       matches.map((item) =>
         Object.freeze({

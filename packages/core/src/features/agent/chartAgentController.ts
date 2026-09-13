@@ -46,7 +46,7 @@ import type {
   TimeShareRangeQueryResult,
 } from './types'
 import type { IndicatorInstance, SymbolSpec } from '../../controllers/types'
-import { ASSET_CLASS_VALUES } from '../../data/provider/types'
+import { KNOWN_ASSET_CLASS_VALUES } from '../../data/provider/types'
 import type { KLineAdjustment, KLinePeriod, TradingDate } from '../../data/provider/types'
 import type { DataStateModule } from '../../engine/state/dataState'
 import type { PaneManager } from '../../engine/paneManager'
@@ -106,7 +106,8 @@ const KLINE_ADJUSTMENT_VALUES = [
 // Type.Enum 保留 as const 数组的字面量联合推断；Type.Union(values.map(...)) 在 typebox 1.x 下推断为 never。
 const KLinePeriodToolParameter = Type.Enum(KLINE_PERIOD_VALUES)
 const KLineAdjustmentToolParameter = Type.Enum(KLINE_ADJUSTMENT_VALUES)
-const AssetClassToolParameter = Type.Enum(ASSET_CLASS_VALUES)
+// unknown 只描述数据源未归一化状态，禁止作为工具输入的路由筛选条件。
+const AssetClassToolParameter = Type.Enum(KNOWN_ASSET_CLASS_VALUES)
 const TradingDateToolParameter = Type.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$' })
 
 const IndicatorQueryToolParameters = Type.Object(

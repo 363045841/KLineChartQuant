@@ -76,6 +76,20 @@ describe('Chart Agent @Tool registry', () => {
     }
   })
 
+  it('rejects unknown assetClass as a comparison routing filter', async () => {
+    const create = getRegisteredChartTools().find(
+      (tool) => tool.config.name === 'comparison_create',
+    )!
+
+    await expect(
+      create.execute(
+        {},
+        { symbol: '000012', assetClass: 'unknown' },
+        { signal: new AbortController().signal, progress: () => undefined },
+      ),
+    ).rejects.toThrow('/assetClass')
+  })
+
   it('auto-records the real method name and owns its primitive host', async () => {
     const tools = getRegisteredChartTools()
     const create = tools.find((tool) => tool.config.name === 'comparison_create')!
