@@ -9,7 +9,7 @@ export const ASK_USER_TOOL_METADATA = {
   name: ASK_USER_TOOL_NAME,
   label: 'Ask question',
   description:
-    'Ask the user a clarifying question in the Agent panel and wait for the answer before continuing. This is required whenever a tool result reports status "ambiguous": turn every candidate into one option (label = instrument name, description = its source, exchange, and assetClass routing fields). Never answer on the user\'s behalf and never retry with a guessed candidate.',
+    'Ask the user a clarifying question in the Agent panel and wait for the answer before continuing. This is required whenever a tool result reports status "ambiguous": turn every candidate into one option, where value is the candidate\'s unique routing identifier (for example its id, or source + exchange + assetClass), label is its display name, and description explains its source, exchange, and assetClass routing fields. Every value must be unique; labels may repeat. Never answer on the user\'s behalf and never retry with a guessed candidate.',
 } as const
 
 const AskUserParameters = Type.Object(
@@ -19,6 +19,7 @@ const AskUserParameters = Type.Object(
     options: Type.Array(
       Type.Object(
         {
+          value: Type.String({ minLength: 1, maxLength: 200 }),
           label: Type.String({ minLength: 1, maxLength: 200 }),
           description: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
         },
@@ -32,7 +33,7 @@ const AskUserParameters = Type.Object(
 
 type AskUserInput = Static<typeof AskUserParameters>
 
-/** 一次待展示的提问；label 同时是回传给模型的选择值。 */
+/** 一次待展示的提问；option.value 同时是回传给模型的选择值。 */
 export interface AskUserRequest {
   readonly prompt: string
   readonly options: readonly QuestionOptionView[]
@@ -77,11 +78,11 @@ export function createAskUserTool(host: AskUserHost): RuntimeToolDefinition {
       return {
         content: JSON.stringify({
           status: 'answered',
-          selected: answer.selectedLabels,
+          selected: answer.selectedValues,
           ...(answer.note ? { note: answer.note } : {}),
         }),
-        summary: answer.selectedLabels.length
-          ? `User selected: ${answer.selectedLabels.join(', ')}.`
+        summary: answer.selectedValues.length
+          ? `User selected: ${answer.selectedValues.join(', ')}.`
           : 'User answered with free text.',
       }
     },

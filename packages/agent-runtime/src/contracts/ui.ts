@@ -127,15 +127,18 @@ export interface ConfirmationView {
   status: ConfirmationStatus
 }
 
-/** Ask Question 卡片的一个可选项；label 同时是回传给模型的选择值。 */
+/** Ask Question 卡片的一个可选项。 */
 export interface QuestionOptionView {
+  /** 机器可读的唯一值；作为答复回传给模型，必须在同一提问内唯一。 */
+  readonly value: string
+  /** 展示文本；允许与其他选项重复。 */
   readonly label: string
   readonly description?: string
 }
 
-/** 用户对一次提问的答复：选中的 label 集合与可选的自由文本。 */
+/** 用户对一次提问的答复：选中的 option value 集合与可选的自由文本。 */
 export interface QuestionAnswerView {
-  readonly selectedLabels: readonly string[]
+  readonly selectedValues: readonly string[]
   readonly note?: string
 }
 

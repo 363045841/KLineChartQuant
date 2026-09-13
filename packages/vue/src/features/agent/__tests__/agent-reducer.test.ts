@@ -164,8 +164,8 @@ describe('reduceAgentUiEvent', () => {
           toolCallId: 'tool-1',
           prompt: 'Which 000012 do you mean?',
           options: [
-            { label: '南玻A', description: 'stock @ SZ' },
-            { label: '国债指数', description: 'index @ SH' },
+            { value: 'stock:000012', label: '南玻A', description: 'stock @ SZ' },
+            { value: 'index:000012', label: '国债指数', description: 'index @ SH' },
           ],
           multiSelect: false,
           status: 'pending',
@@ -177,14 +177,14 @@ describe('reduceAgentUiEvent', () => {
         sessionId: SESSION_ID,
         questionId: 'question-1',
         status: 'answered',
-        answer: { selectedLabels: ['国债指数'] },
+        answer: { selectedValues: ['index:000012'] },
       }),
     ])
 
     expect(state.questions).toHaveLength(1)
     expect(state.questions[0]).toMatchObject({
       status: 'answered',
-      answer: { selectedLabels: ['国债指数'] },
+      answer: { selectedValues: ['index:000012'] },
     })
   })
 

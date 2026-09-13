@@ -371,7 +371,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
     this.questions.delete(questionId)
     const run = this.runs.get(runId)
     if (!run?.tool) return
-    const selected = answer.selectedLabels.join(', ') || answer.note || ''
+    const selected = answer.selectedValues.join(', ') || answer.note || ''
     this.emitRun(run, {
       type: 'tool.question.resolved',
       questionId,
@@ -386,7 +386,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
         resultSummary: `User answered: ${selected}.`,
         resultContent: JSON.stringify({
           status: 'answered',
-          selected: answer.selectedLabels,
+          selected: answer.selectedValues,
           ...(answer.note ? { note: answer.note } : {}),
         }),
         finishedAt: Date.now(),
@@ -512,8 +512,8 @@ export class FakeAgentBridge implements AgentBridgeClient {
         toolCallId: tool.id,
         prompt: '代码 000012 对应多个标的，要添加哪一个作为对比？',
         options: [
-          { label: '南玻A', description: 'gotdx · stock · SZ' },
-          { label: '国债指数', description: 'gotdx · index · SH' },
+          { value: 'stock:000012', label: '南玻A', description: 'gotdx · stock · SZ' },
+          { value: 'index:000012', label: '国债指数', description: 'gotdx · index · SH' },
         ],
         multiSelect: false,
         status: 'pending',

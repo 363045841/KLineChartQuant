@@ -21,12 +21,12 @@
       >
         <button
           v-for="(option, index) in question.options"
-          :key="option.label"
+          :key="option.value"
           type="button"
           class="question__option"
           :role="question.multiSelect ? 'checkbox' : 'radio'"
-          :aria-checked="isSelected(option.label)"
-          @click="toggle(option.label)"
+          :aria-checked="isSelected(option.value)"
+          @click="toggle(option.value)"
         >
           <span class="question__index">{{ index + 1 }}</span>
           <span class="question__mark" aria-hidden="true"></span>
@@ -74,39 +74,42 @@
   const props = defineProps<{ question: QuestionView; locale: AgentLocale }>()
   const emit = defineEmits<{ answer: [answer: QuestionAnswerView] }>()
 
-  const selectedLabels = ref<string[]>([])
+  const selectedValues = ref<string[]>([])
   const note = ref('')
 
   const text = computed(() => getAgentCopy(props.locale))
-  const canSubmit = computed(
-    () => selectedLabels.value.length > 0 || note.value.trim().length > 0,
-  )
+  const canSubmit = computed(() => selectedValues.value.length > 0 || note.value.trim().length > 0)
+  /** 按 value 反查展示文本；value 可能不在当前选项中时回退为原值。 */
+  const optionLabel = (value: string): string =>
+    props.question.options.find((option) => option.value === value)?.label ?? value
   const answeredSummary = computed(() => {
     const answer = props.question.answer
     if (!answer) return ''
-    return [answer.selectedLabels.join(', '), answer.note].filter(Boolean).join(' · ')
+    return [answer.selectedValues.map(optionLabel).join(', '), answer.note]
+      .filter(Boolean)
+      .join(' · ')
   })
 
-  function isSelected(label: string): boolean {
-    return selectedLabels.value.includes(label)
+  function isSelected(value: string): boolean {
+    return selectedValues.value.includes(value)
   }
 
   /** 单选直接替换选中项并支持再次点击取消；多选切换命中项。 */
-  function toggle(label: string): void {
+  function toggle(value: string): void {
     if (props.question.multiSelect) {
-      selectedLabels.value = isSelected(label)
-        ? selectedLabels.value.filter((item) => item !== label)
-        : [...selectedLabels.value, label]
+      selectedValues.value = isSelected(value)
+        ? selectedValues.value.filter((item) => item !== value)
+        : [...selectedValues.value, value]
       return
     }
-    selectedLabels.value = isSelected(label) ? [] : [label]
+    selectedValues.value = isSelected(value) ? [] : [value]
   }
 
   function submit(): void {
     if (!canSubmit.value) return
     const trimmedNote = note.value.trim()
     emit('answer', {
-      selectedLabels: [...selectedLabels.value],
+      selectedValues: [...selectedValues.value],
       ...(trimmedNote ? { note: trimmedNote } : {}),
     })
   }
