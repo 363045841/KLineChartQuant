@@ -312,25 +312,30 @@ export class DrawingInteractionController {
 
     const selectedDrawings = this.drawingState.getSelectedDrawings()
     const isSelected = selectedDrawings.some((drawing) => drawing.id === hit.drawing.id)
-    const dragTargets = isSelected ? selectedDrawings : [hit.drawing]
+    // 连带拖拽只携带未锁定的图元；锁定的图元即使保持选中也不可拖。
+    const dragTargets = isSelected
+      ? selectedDrawings.filter((drawing) => !drawing.locked)
+      : [hit.drawing]
     if (!isSelected) this.setSelected(dragTargets)
 
     this.startDrag(pointer, hit, dragTargets)
     return true
   }
 
-  /** 框选工具优先拖拽已选图元，其他位置才进入框选会话。 */
+  /** 框选工具优先拖拽已选图元，其他位置才进入框选会话；锁定的图元不参与组拖拽。 */
   private handleBoxSelectDown(e: PointerEvent, container: HTMLElement): boolean {
     const result = this.findDrawingHit(e, container)
     if (result && this.adapter.getSelectedDrawingIds().includes(result.hit.drawing.id)) {
-      const selectedDrawings = this.drawingState.getSelectedDrawings()
+      const selectedDrawings = this.drawingState
+        .getSelectedDrawings()
+        .filter((drawing) => !drawing.locked)
       this.startDrag(result.pointer, result.hit, selectedDrawings)
       return true
     }
     return this.startSelectionMarquee(e, container)
   }
 
-  /** 查找当前 Pane 和工作区内被指针命中的图元。 */
+  /** 查找当前 Pane 和工作区内被指针命中的图元；锁定的图元不可点选。 */
   private findDrawingHit(
     e: PointerEvent,
     container: HTMLElement,
@@ -344,6 +349,7 @@ export class DrawingInteractionController {
         .getNonPreview()
         .filter(
           (drawing) =>
+            !drawing.locked &&
             drawing.paneId === pointer.paneId &&
             (drawing.workspaceId ?? ChartWorkspaceId.KLine) ===
               this.adapter.getDrawingWorkspaceId(),
@@ -409,6 +415,7 @@ export class DrawingInteractionController {
       .filter(
         (drawing) =>
           drawing.visible &&
+          !drawing.locked &&
           drawing.paneId === marquee.paneId &&
           (drawing.workspaceId ?? ChartWorkspaceId.KLine) === this.adapter.getDrawingWorkspaceId(),
       )
