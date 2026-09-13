@@ -105,14 +105,34 @@ describe('DrawingInteractionController magnet', () => {
     expect(createDrawing.mock.calls[0]![0].anchors[0]).toMatchObject({ price: 100 })
   })
 
-  it('Ctrl 按住时临时升级为 strong（含 off 档）', () => {
+  it('Ctrl 取反：off 档临时开启为 strong 吸附（TV 语义）', () => {
     const { adapter, createDrawing } = createAdapter('h-ray')
     const controller = new DrawingInteractionController(adapter)
     controller.setMagnetMode('off')
 
-    // off 档 + Ctrl：距 open 1px，strong 半径内 → 收敛 100（与壳侧基准一致，Ctrl 覆盖 off）。
+    // off 档 + Ctrl：距 open 1px，strong 半径内 → 收敛 100（临时开启取 strong）。
     expect(controller.onPointerDown(pointerDown(12, 101, { ctrlKey: true }), CONTAINER)).toBe(true)
     expect(createDrawing.mock.calls[0]![0].anchors[0]).toMatchObject({ price: 100 })
+  })
+
+  it('Ctrl 取反：weak 档临时关闭不吸附', () => {
+    const { adapter, createDrawing } = createAdapter('h-ray')
+    const controller = new DrawingInteractionController(adapter)
+    controller.setMagnetMode('weak')
+
+    // weak 档 + Ctrl：距 high 3px 本应吸附，取反为关闭 → 价格保持 117。
+    expect(controller.onPointerDown(pointerDown(12, 83, { ctrlKey: true }), CONTAINER)).toBe(true)
+    expect(createDrawing.mock.calls[0]![0].anchors[0]).toMatchObject({ price: 117 })
+  })
+
+  it('Ctrl 取反：strong 档临时关闭不吸附', () => {
+    const { adapter, createDrawing } = createAdapter('h-ray')
+    const controller = new DrawingInteractionController(adapter)
+    controller.setMagnetMode('strong')
+
+    // strong 档 + Ctrl：距 open 1px 本应吸附，取反为关闭 → 价格保持 99。
+    expect(controller.onPointerDown(pointerDown(12, 101, { ctrlKey: true }), CONTAINER)).toBe(true)
+    expect(createDrawing.mock.calls[0]![0].anchors[0]).toMatchObject({ price: 99 })
   })
 
   it('Shift 按住时不吸附（与宿主锁角互斥）', () => {
@@ -124,7 +144,7 @@ describe('DrawingInteractionController magnet', () => {
     expect(controller.onPointerDown(pointerDown(12, 101, { shiftKey: true }), CONTAINER)).toBe(true)
     expect(createDrawing.mock.calls[0]![0].anchors[0]).toMatchObject({ price: 99 })
 
-    // Ctrl + Shift 同按：Shift 优先，Ctrl 升级被抑制。
+    // Ctrl + Shift 同按：Shift 优先，Ctrl 取反同样被抑制。
     createDrawing.mockClear()
     expect(
       controller.onPointerDown(pointerDown(12, 101, { ctrlKey: true, shiftKey: true }), CONTAINER),

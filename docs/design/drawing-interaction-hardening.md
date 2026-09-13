@@ -18,8 +18,8 @@ nexus-shell 在壳层（ChartPointerBridge）验证了磁吸、锁定、Shift �
 
 - **X 吸附与 Y 是否命中无关**：只要 `getScreenXAtLogicalIndex(barIndex)` 非 null，X 即改写为 Bar 中心。这是壳侧已验证行为（对最终锚点影响：同一 Bar 内点击解析出同一时间戳，仅在 Bar 边界半个 Bar 宽内有差异）。
 - **候选遍历顺序** `[high, low, open, close]`，距离用 `<=` 比较——与壳侧一致，同距离时后遍历者胜出。
-- **修饰键**：Ctrl/Meta 按住时档位覆盖为 strong（含偏好 off 时——壳侧行为如此，绘图模式下 Ctrl 无其他占用）。
-- **Shift 互斥**（2026-09-14 壳迁移时补齐）：Shift 按住时磁吸一律不生效——宿主的 Shift 锁角会先改写坐标，若引擎再吸附会造成双重改写；单锚点工具按 Shift 也不吸附，Shift 作为约束修饰键优先于 Ctrl 升级。
+- **修饰键（Ctrl/Meta 取反，TV 官方语义，2026-09-14 修正）**：磁吸 off 时按住 Ctrl/Command 临时开启（取 strong——TV 对磁吸开的定义即吸附 OHLC 四值）；磁吸开启（weak/strong）时按住临时关闭。对齐 TV 官方 Magnet Mode 文档（"temporarily turn on/off by holding CTRL/Command"）；此前为壳侧旧基准"一律强制 strong"，后半段与官方相反，已修正。绘图模式下 Ctrl 无其他占用，无冲突。
+- **Shift 互斥**（2026-09-14 壳迁移时补齐）：Shift 按住时磁吸一律不生效——宿主的 Shift 锁角会先改写坐标，若引擎再吸附会造成双重改写；单锚点工具按 Shift 也不吸附，Shift 作为约束修饰键优先于 Ctrl 取反。
 - **完全无吸附点**（Bar 中心不可解析且 Y 无命中）时 `snapPointerToOhlc` 返回 null，调用方使用原始坐标。
 
 ### 接入点

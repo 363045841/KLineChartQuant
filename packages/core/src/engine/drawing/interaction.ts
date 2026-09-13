@@ -24,7 +24,7 @@ import type {
   DrawingPointerAnchor,
   ResolveDrawingPointerOptions,
 } from './coordinateUtils'
-import type { ActiveMagnetMode, MagnetMode } from './magnetSnapper'
+import type { MagnetMode } from './magnetSnapper'
 import type { DrawingToolId } from './toolConfig'
 import { getAnchorCountForTool, getDrawingKind } from './toolConfig'
 
@@ -290,13 +290,15 @@ export class DrawingInteractionController {
   /**
    * 解析当前指针事件的磁吸配置。
    * Shift 按住时不吸附——与宿主 Shift 锁角互斥，锁角改写后的坐标不得再被磁吸改写；
-   * Ctrl/Meta 按住时临时升级为 strong（含 off 档，与壳侧基准一致）；off 且无修饰键时不吸附。
+   * Ctrl/Meta 按住时取反磁吸（TV 官方 Magnet Mode 语义）：off 临时开启（取 strong，
+   * TV 对磁吸开的定义即吸附 OHLC 四值），weak/strong 临时关闭；无修饰键按当前档位执行。
    */
   private resolveMagnetOptions(e: PointerEvent): ResolveDrawingPointerOptions | undefined {
     if (e.shiftKey) return undefined
-    const mode: ActiveMagnetMode | 'off' =
-      e.ctrlKey || e.metaKey ? 'strong' : this.magnetMode
-    return mode === 'off' ? undefined : { magnet: { mode } }
+    if (e.ctrlKey || e.metaKey) {
+      return this.magnetMode === 'off' ? { magnet: { mode: 'strong' } } : undefined
+    }
+    return this.magnetMode === 'off' ? undefined : { magnet: { mode: this.magnetMode } }
   }
 
   private handleCursorDown(e: PointerEvent, container: HTMLElement): boolean {
