@@ -8,6 +8,7 @@ import type {
   DrawingWorkspaceId,
 } from '../../foundation/plugin'
 import { generateUUID } from '../../foundation/utils/uuid'
+import { DEFAULT_DRAWING_STROKE } from '../../foundation/tokens'
 import { DRAWING_ERROR_CODES, KLineChartError } from '../../errors'
 import type { TradingDate } from '../../data/provider/types'
 import type { DrawingStateModule } from '../state/drawingState'
@@ -97,7 +98,7 @@ export interface DrawingDocumentDependencies {
 }
 
 const DEFAULT_DRAWING_STYLE: Readonly<DrawingStyle> = {
-  stroke: '#2962ff',
+  stroke: DEFAULT_DRAWING_STROKE,
   strokeWidth: 1,
   strokeStyle: 'solid',
 }
@@ -107,7 +108,10 @@ function normalizeDrawingLabels(labels: DrawingLabels): DrawingLabels {
   const normalizeText = (text: string) => text.replace(/\r\n?|\n/g, '\\n')
   const normalizeGroup = (group: DrawingLabels['line']) =>
     Object.fromEntries(
-      Object.entries(group).map(([key, label]) => [key, { ...label, text: normalizeText(label.text) }]),
+      Object.entries(group).map(([key, label]) => [
+        key,
+        { ...label, text: normalizeText(label.text) },
+      ]),
     )
   return {
     line: normalizeGroup(labels.line),
@@ -157,7 +161,7 @@ export class DrawingDocument {
     return this.listDrawings().find((drawing) => drawing.id === id) ?? null
   }
 
-  /** 创建、校验并提交一个已确认图元。 */
+  /** 创建、校验并提交一个已确认图元，同时将其设为唯一选中。 */
   createDrawing(input: CreateDrawingInput): DrawingObject {
     if (!this.dependencies.hasPaneId(input.paneId)) {
       throw new KLineChartError(
@@ -185,7 +189,7 @@ export class DrawingDocument {
         ...input.style,
       },
     }
-    this.dependencies.drawingState.actions.upsertDrawing(drawing)
+    this.dependencies.drawingState.actions.addDrawingAndSelect(drawing)
     return this.getDrawing(drawing.id)!
   }
 

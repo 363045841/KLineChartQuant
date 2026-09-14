@@ -1,6 +1,7 @@
 /** 将当前 Pane 的绘图一次性投影为图元和轴装饰数据。 */
 import type {
   DrawingFrameProjection,
+  DrawingKind,
   DrawingPrimitive,
   ResolvedDrawingAnchor,
   ResolvedDrawingObject,
@@ -9,7 +10,7 @@ import type {
   ScreenPoint,
 } from '../../foundation/plugin'
 import type { KLineData } from '../../foundation/types/price'
-import { resolveThemeColors } from '../../foundation/tokens'
+import { DEFAULT_DRAWING_STROKE, resolveThemeColors } from '../../foundation/tokens'
 import { resolveChartWorkspaceId } from '../state/modeState'
 import { logicalIndexToScreenX } from '../viewport/logicalIndexToScreenX'
 
@@ -125,16 +126,58 @@ function attachAreaLabels(
   })
 }
 
+/** 水平类图元只有价格语义：锚点只投影价格轴标签。 */
+const PRICE_LABEL_ONLY_KINDS: ReadonlySet<DrawingKind> = new Set([
+  'horizontal-line',
+  'horizontal-ray',
+])
+
+/** 垂直类图元只有时间语义：锚点只投影时间轴标签。 */
+const TIME_LABEL_ONLY_KINDS: ReadonlySet<DrawingKind> = new Set(['vertical-line'])
+
 /** 将一个选中图元的锚点投影为坐标轴标签和范围带。 */
 function projectAxisDecorations(
+  kind: DrawingKind,
   anchors: ReadonlyArray<ResolvedDrawingAnchor>,
   style: DrawingStyle,
+  labelTextColor: string,
   context: RenderContext,
   toScreen: (anchor: ResolvedDrawingAnchor) => ScreenPoint,
   output: MutableDrawingFrameProjection,
 ): void {
   if (context.pane.role !== 'price') return
-  const color = style.stroke ?? '#2962ff'
+  const color = style.stroke ?? DEFAULT_DRAWING_STROKE
+  const priceLabelOnly = PRICE_LABEL_ONLY_KINDS.has(kind)
+  const timeLabelOnly = TIME_LABEL_ONLY_KINDS.has(kind)
+  for (const anchor of anchors) {
+    if (!Number.isFinite(anchor.price)) continue
+    // 水平类图元横贯整个视口，价格轴标签不依赖锚点时间是否在可视范围内。
+    const indexVisible =
+      Number.isFinite(anchor.index) &&
+      anchor.index >= context.range.start &&
+      anchor.index < context.range.end
+    const timestamp = typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
+    const wantsPrice = !timeLabelOnly && (priceLabelOnly || indexVisible)
+    const wantsTime =
+      !priceLabelOnly && indexVisible && timestamp !== undefined && Number.isFinite(timestamp)
+    if (!wantsPrice && !wantsTime) continue
+
+    const point = toScreen(anchor)
+    if (wantsPrice && point.y >= 0 && point.y <= context.pane.height) {
+      output.yAxisLabels.push({
+        price: anchor.price,
+        y: point.y,
+        style: { bgColor: color, borderColor: color, textColor: labelTextColor },
+      })
+    }
+    if (wantsTime && point.x >= -context.kWidth && point.x <= context.paneWidth + context.kWidth) {
+      output.xAxisLabels.push({
+        timestamp: timestamp!,
+        x: point.x + context.scrollLeft,
+        style: { bgColor: color, textColor: labelTextColor },
+      })
+    }
+  }
   const valid = anchors.filter(
     (anchor) =>
       Number.isFinite(anchor.index) &&
@@ -142,29 +185,6 @@ function projectAxisDecorations(
       anchor.index < context.range.end &&
       Number.isFinite(anchor.price),
   )
-  for (const anchor of valid) {
-    const point = toScreen(anchor)
-    if (point.y >= 0 && point.y <= context.pane.height) {
-      output.yAxisLabels.push({
-        price: anchor.price,
-        y: point.y,
-        style: { bgColor: color, borderColor: color, textColor: '#ffffff' },
-      })
-    }
-    const timestamp = typeof anchor.time === 'string' ? Date.parse(anchor.time) : anchor.time
-    if (
-      timestamp !== undefined &&
-      Number.isFinite(timestamp) &&
-      point.x >= -context.kWidth &&
-      point.x <= context.paneWidth + context.kWidth
-    ) {
-      output.xAxisLabels.push({
-        timestamp,
-        x: point.x + context.scrollLeft,
-        style: { bgColor: color, textColor: '#ffffff' },
-      })
-    }
-  }
   if (valid.length < 2) return
   const prices = valid.map((anchor) => anchor.price)
   const indices = valid.map((anchor) => anchor.index)
@@ -206,6 +226,11 @@ export function projectDrawingsForFrame(
   const getLogicalIndexAtTimestamp = context.getLogicalIndexAtTimestamp
   const toScreen = createToScreen(context)
   const workspaceId = resolveChartWorkspaceId(context.dataView)
+  const themeColors = resolveThemeColors(
+    context.theme,
+    context.isAsiaMarket,
+    context.colorPresetSettings,
+  )
   for (const storedDrawing of store.getVisibleByPane(context.pane.id, workspaceId)) {
     const drawing = resolveDrawingForFrame(storedDrawing, getLogicalIndexAtTimestamp)
     if (!hasResolvableTimeAnchors(drawing)) continue
@@ -233,8 +258,10 @@ export function projectDrawingsForFrame(
     output.primitives.push(...styledPrimitives)
     if (isSelected) {
       projectAxisDecorations(
+        drawing.kind,
         [...drawing.anchors, ...(geometry.computedAnchors ?? [])],
         drawing.style,
+        themeColors.label.text,
         context,
         toScreen,
         output,
@@ -242,12 +269,7 @@ export function projectDrawingsForFrame(
     }
   }
   if (selectionMarquee?.paneId === context.pane.id) {
-    output.primitives.push(
-      ...createSelectionMarqueePrimitives(
-        selectionMarquee,
-        resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings),
-      ),
-    )
+    output.primitives.push(...createSelectionMarqueePrimitives(selectionMarquee, themeColors))
   }
   return output
 }

@@ -31,6 +31,24 @@ describe('DrawingDocument', () => {
     expect(drawing.anchors).toEqual([expect.objectContaining({ price: 9 })])
   })
 
+  it('selects the new drawing and drops the previous selection', () => {
+    const { state, document } = createDocument()
+
+    const first = document.createDrawing({
+      kind: 'horizontal-line',
+      paneId: 'main',
+      anchors: [{ price: 9 }],
+    })
+    expect(state.readonly.selectedDrawingIds.peek()).toEqual([first.id])
+
+    const second = document.createDrawing({
+      kind: 'horizontal-line',
+      paneId: 'main',
+      anchors: [{ price: 10 }],
+    })
+    expect(state.readonly.selectedDrawingIds.peek()).toEqual([second.id])
+  })
+
   it('creates an immutable drawing from time-price anchors', () => {
     const { state, document } = createDocument()
 

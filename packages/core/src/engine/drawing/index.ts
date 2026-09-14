@@ -14,6 +14,7 @@ import type {
 } from '../../foundation/plugin/index'
 import type { KLineData } from '../../foundation/types/price'
 import { ChartWorkspaceId } from '../../foundation/types/chartView'
+import { DEFAULT_DRAWING_STROKE } from '../../foundation/tokens'
 
 export type {
   DrawingObject,
@@ -118,7 +119,7 @@ export type PrimitiveRendererSet = {
 }
 
 function applyLineStyle(ctx: CanvasRenderingContext2D, style?: DrawingStyle): void {
-  ctx.strokeStyle = style?.stroke ?? '#2962ff'
+  ctx.strokeStyle = style?.stroke ?? DEFAULT_DRAWING_STROKE
   ctx.lineWidth = style?.strokeWidth ?? 1
   if (style?.strokeStyle === 'dashed') {
     ctx.setLineDash([6, 4])
@@ -132,7 +133,7 @@ function applyLineStyle(ctx: CanvasRenderingContext2D, style?: DrawingStyle): vo
 }
 
 function applyFillStyle(ctx: CanvasRenderingContext2D, style?: DrawingStyle): void {
-  ctx.fillStyle = style?.fill ?? style?.stroke ?? '#2962ff'
+  ctx.fillStyle = style?.fill ?? style?.stroke ?? DEFAULT_DRAWING_STROKE
   ctx.globalAlpha = style?.fillOpacity ?? 1
 }
 
@@ -304,12 +305,13 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
     point(ctx, primitive, dpr) {
       const radius = primitive.style?.pointRadius ?? 4
       ctx.save()
-      ctx.fillStyle = primitive.style?.fill ?? primitive.style?.stroke ?? '#2962ff'
+      ctx.fillStyle = primitive.style?.fill ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
       ctx.beginPath()
       ctx.arc(primitive.point.x, primitive.point.y, Math.max(radius, 1 / dpr), 0, Math.PI * 2)
       ctx.fill()
       if (primitive.text) {
-        ctx.fillStyle = primitive.style?.textColor ?? primitive.style?.stroke ?? '#2962ff'
+        ctx.fillStyle =
+          primitive.style?.textColor ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
         ctx.font = `${primitive.style?.fontSize ?? 12}px sans-serif`
         const align = primitive.text.align ?? 'center'
         ctx.textAlign = align
@@ -342,27 +344,21 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
         // 标签基于原始锚点，不随延长线或视口裁剪漂移。
         const textLayout = getLineTextLayout(primitive.a, primitive.b, primitive.text.position)
         ctx.save()
-        ctx.fillStyle = primitive.style?.textColor ?? primitive.style?.stroke ?? '#2962ff'
+        ctx.fillStyle =
+          primitive.style?.textColor ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
         ctx.font = `${primitive.style?.fontSize ?? 12}px sans-serif`
         ctx.textAlign = primitive.text.align ?? textLayout.align
         const baseline = primitive.text.baseline ?? 'middle'
         ctx.translate(textLayout.x, textLayout.y)
         ctx.rotate(textLayout.rotation)
-        drawMultilineText(
-          ctx,
-          primitive.text.text,
-          0,
-          0,
-          primitive.style?.fontSize ?? 12,
-          baseline,
-        )
+        drawMultilineText(ctx, primitive.text.text, 0, 0, primitive.style?.fontSize ?? 12, baseline)
         ctx.restore()
       }
 
       // 绘制端点（使用原始锚点位置，不是裁剪后的位置）；屏幕外锚点只保留被裁剪的线段。
       if (primitive.showEndpoints !== false) {
         const pointRadius = primitive.style?.pointRadius ?? 4
-        ctx.fillStyle = primitive.style?.stroke ?? '#2962ff'
+        ctx.fillStyle = primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
 
         if (
           primitive.a.x >= viewportClip.left &&
@@ -409,7 +405,8 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
         const ys = primitive.points.map((point) => point.y)
         // 文字在填充后绘制，始终位于填充带上层。
         ctx.globalAlpha = 1
-        ctx.fillStyle = primitive.style?.textColor ?? primitive.style?.stroke ?? '#2962ff'
+        ctx.fillStyle =
+          primitive.style?.textColor ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
         ctx.font = `${primitive.style?.fontSize ?? 12}px sans-serif`
         ctx.textAlign = primitive.text.align ?? 'center'
         const x = (Math.min(...xs) + Math.max(...xs)) / 2
@@ -428,7 +425,8 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
 
     text(ctx, primitive) {
       ctx.save()
-      ctx.fillStyle = primitive.style?.textColor ?? primitive.style?.stroke ?? '#2962ff'
+      ctx.fillStyle =
+        primitive.style?.textColor ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
       ctx.font = `${primitive.style?.fontSize ?? 12}px sans-serif`
       const align = primitive.align ?? 'left'
       ctx.textAlign = align
@@ -468,7 +466,7 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
       ctx.lineTo(primitive.end.x + align, primitive.end.y + align)
       ctx.stroke()
 
-      ctx.fillStyle = primitive.style?.fill ?? primitive.style?.stroke ?? '#2962ff'
+      ctx.fillStyle = primitive.style?.fill ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
       ctx.beginPath()
       ctx.moveTo(primitive.end.x, primitive.end.y)
       ctx.lineTo(left.x, left.y)
@@ -481,21 +479,15 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
           primitive.end,
           primitive.text.position,
         )
-        ctx.fillStyle = primitive.style?.textColor ?? primitive.style?.stroke ?? '#2962ff'
+        ctx.fillStyle =
+          primitive.style?.textColor ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
         ctx.font = `${primitive.style?.fontSize ?? 12}px sans-serif`
         ctx.textAlign = primitive.text.align ?? textLayout.align
         const baseline = primitive.text.baseline ?? 'middle'
         ctx.save()
         ctx.translate(textLayout.x, textLayout.y)
         ctx.rotate(textLayout.rotation)
-        drawMultilineText(
-          ctx,
-          primitive.text.text,
-          0,
-          0,
-          primitive.style?.fontSize ?? 12,
-          baseline,
-        )
+        drawMultilineText(ctx, primitive.text.text, 0, 0, primitive.style?.fontSize ?? 12, baseline)
         ctx.restore()
       }
       ctx.restore()
@@ -983,9 +975,4 @@ export function registerDefaultDrawingDefinitions(registry: DrawingDefinitionReg
 
 // 导出交互控制器
 export { DrawingInteractionController } from './interaction'
-export type {
-  DrawingToolId,
-  InteractionDrawingAnchor,
-  DrawingInteractionCallbacks,
-  DrawingLineLabelTarget,
-} from './interaction'
+export type { DrawingToolId, InteractionDrawingAnchor, DrawingLineLabelTarget } from './interaction'

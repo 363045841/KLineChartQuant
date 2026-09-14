@@ -1,11 +1,14 @@
 <template>
   <CanvasToolbar>
     <div v-if="canEdit('stroke')" class="color-item" title="颜色">
-      <span class="color-swatch" :style="{ background: style.stroke ?? '#2962ff' }"></span>
+      <span
+        class="color-swatch"
+        :style="{ background: style.stroke ?? DEFAULT_DRAWING_STROKE }"
+      ></span>
       <input
         type="color"
         class="color-input"
-        :value="style.stroke ?? '#2962ff'"
+        :value="style.stroke ?? DEFAULT_DRAWING_STROKE"
         @input="onColorChange(($event.target as HTMLInputElement).value)"
       />
     </div>
@@ -56,6 +59,7 @@
 
 <script setup lang="ts">
   import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
+  import { DEFAULT_DRAWING_STROKE } from '@363045841yyt/klinechart-core'
   import { computed, onMounted, onUnmounted } from 'vue'
 
   import Dropdown from './Dropdown.vue'

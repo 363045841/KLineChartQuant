@@ -48,6 +48,7 @@ export { lightTheme } from './theme-light'
 export { darkTheme } from './theme-dark'
 export { withAsiaMarketColors, resolveThemeColors } from './theme-china'
 export { mergeTheme } from './mergeTheme'
+export { DEFAULT_DRAWING_STROKE } from './drawingColors'
 export {
   COLOR_PRESET_ITEMS,
   COLOR_PRESET_STORAGE_KEY,

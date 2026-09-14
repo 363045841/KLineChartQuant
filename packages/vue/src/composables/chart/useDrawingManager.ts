@@ -75,16 +75,6 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
   function setupDrawing(chartCtrl: ChartController): void {
     drawingController.value = new DrawingInteractionController(chartCtrl)
     chartCtrl.registerDrawingSession(drawingController.value)
-    drawingController.value.setCallbacks({
-      onDrawingCreated: (drawing) => {
-        // selection 写 kernel；UI 由 selectedDrawingIds signal 回推
-        chartCtrl.setSelectedDrawingIds([drawing.id])
-      },
-      onToolChange: () => {},
-      onDrawingSelected: (drawings) => {
-        chartCtrl.setSelectedDrawingIds(drawings.map((drawing) => drawing.id))
-      },
-    })
 
     // UI 只镜像 kernel 已确认列表；预览/拖拽不进 Vue ref
     unsubDrawings = chartCtrl.drawings.subscribe(() => {

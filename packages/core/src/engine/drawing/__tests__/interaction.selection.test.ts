@@ -209,4 +209,30 @@ describe('DrawingInteractionController selection', () => {
       anchors: [{ timestamp: 1, futureOffset: 3, price: 10 }],
     })
   })
+
+  it('resets the tool before creating so the new selection is not cleared', () => {
+    const createdDrawing = createDrawing('created')
+    const calls: string[] = []
+    const adapter = {
+      ...createAdapter([]).adapter,
+      getDrawingToolId: () => 'v-line' as const,
+      getLogicalIndexAtX: () => 3,
+      getDrawingTimestampAtLogicalIndex: () => 1,
+      createDrawing: vi.fn(() => {
+        calls.push('createDrawing')
+        return createdDrawing
+      }),
+      setDrawingToolId: vi.fn(() => {
+        calls.push('setDrawingToolId')
+      }),
+    } as unknown as DrawingChartAdapter
+    const controller = new DrawingInteractionController(adapter)
+    const container = {
+      getBoundingClientRect: () => ({ left: 0, top: 0 }),
+    } as HTMLElement
+
+    expect(controller.onPointerDown(pointerDown(false), container)).toBe(true)
+    // 切换工具会清空选中，必须发生在创建（原子选中新图元）之前。
+    expect(calls).toEqual(['setDrawingToolId', 'createDrawing'])
+  })
 })

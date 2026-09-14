@@ -66,6 +66,7 @@ All READMEs are generated from `docs/fragments/` (reusable Markdown snippets) + 
 - Root 测试使用 `pnpm test:unit`；packages 被其排除，跨包测试使用 `pnpm test:packages`。
 - `*.integration.test.ts` 不会被默认测试收集。
 - 日期测试依赖 `TZ=Asia/Shanghai`；本地跨年失败时先设置该环境变量。
+- 测试用例禁止重复抄写同一套构造/夹具；可复用的 setup 必须抽成 helper 或表驱动（`it.each`），用例内只声明差异。
 
 ## Code Conventions
 

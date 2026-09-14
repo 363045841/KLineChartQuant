@@ -58,15 +58,14 @@ export function createDrawingState() {
         return next
       },
 
-      /** 新增或替换指定 id 的已确认图元，并返回是否发生变更。 */
-      upsertDrawing(drawing: DrawingObject): boolean {
-        const current = signals.drawings.peek()
-        const index = current.findIndex((item) => item.id === drawing.id)
-        const next = [...current]
-        if (index === -1) next.push(drawing)
-        else next[index] = drawing
-        signals.drawings.set(snapshotDrawings(next))
-        return true
+      /** 新增图元并在同一次通知内将其设为唯一选中，创建与选中不可分割。 */
+      addDrawingAndSelect(drawing: DrawingObject): void {
+        const next = snapshotDrawings([...signals.drawings.peek(), drawing])
+        const selected = snapshotSelectedDrawingIds([drawing.id], next)
+        batch(() => {
+          signals.drawings.set(next)
+          signals.selectedDrawingIds.set(selected)
+        })
       },
 
       /** 以完整模型快照替换指定图元，并返回更新后的不可变快照。 */

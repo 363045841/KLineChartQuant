@@ -1381,7 +1381,7 @@ export class Chart {
   registerDrawingSession(session: DrawingInteractionController | null): void {
     this.drawingSession = session
     if (session) {
-      session.applyToolSession(this.kernel.drawing.readonly.drawingTool.peek())
+      session.applyToolSession()
     }
   }
 

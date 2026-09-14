@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { createSignal } from '../../../foundation/reactivity/signal'
-import type { DrawingObject, RenderContext } from '../../../foundation/plugin'
+import type { DrawingKind, DrawingObject, RenderContext } from '../../../foundation/plugin'
 import { DrawingDefinitionRegistry, DrawingStore, registerDefaultDrawingDefinitions } from '..'
 import { projectDrawingsForFrame } from '../frameProjection'
 
@@ -267,4 +267,64 @@ describe('projectDrawingsForFrame', () => {
       b: { x: 50 },
     })
   })
+
+  /** 用单个已选中图元跑一次帧投影，断言其轴标签语义。 */
+  function projectSingleAnchor(kind: DrawingKind, anchors: DrawingObject['anchors']) {
+    const drawing: DrawingObject = {
+      id: 'subject',
+      kind,
+      paneId: 'main',
+      visible: true,
+      anchors,
+      params: {},
+      style: { stroke: '#2962ff' },
+    }
+    const store = new DrawingStore({
+      drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
+      selectedDrawingIds$: createSignal<ReadonlyArray<string>>([drawing.id]),
+    })
+    const definitions = new DrawingDefinitionRegistry()
+    registerDefaultDrawingDefinitions(definitions)
+    return projectDrawingsForFrame(store, definitions, createContext())
+  }
+
+  const singleAnchorLabelCases: ReadonlyArray<{
+    label: string
+    kind: DrawingKind
+    anchors: DrawingObject['anchors']
+    yAxisPrices: ReadonlyArray<number>
+    xAxisTimestamps: ReadonlyArray<number>
+  }> = [
+    {
+      label: 'horizontal line',
+      kind: 'horizontal-line',
+      // 无时间锚点：index 为 -1，价格轴标签仍须投影。
+      anchors: [{ id: 'a', type: 'horizontal', price: 30 }],
+      yAxisPrices: [30],
+      xAxisTimestamps: [],
+    },
+    {
+      label: 'horizontal ray',
+      kind: 'horizontal-ray',
+      anchors: [{ id: 'a', type: 'point', time: 1_000, price: 25 }],
+      yAxisPrices: [25],
+      xAxisTimestamps: [],
+    },
+    {
+      label: 'vertical line',
+      kind: 'vertical-line',
+      anchors: [{ id: 'a', type: 'vertical', time: 1_000, price: 40 }],
+      yAxisPrices: [],
+      xAxisTimestamps: [1_000],
+    },
+  ]
+
+  it.each(singleAnchorLabelCases)(
+    'projects only the required axis label for a $label',
+    ({ kind, anchors, yAxisPrices, xAxisTimestamps }) => {
+      const projection = projectSingleAnchor(kind, anchors)
+      expect(projection.yAxisLabels.map((label) => label.price)).toEqual(yAxisPrices)
+      expect(projection.xAxisLabels.map((label) => label.timestamp)).toEqual(xAxisTimestamps)
+    },
+  )
 })

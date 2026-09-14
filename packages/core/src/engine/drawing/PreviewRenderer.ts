@@ -1,4 +1,5 @@
 import type { DrawingObject, DrawingWorkspaceId } from '../../foundation/plugin/index'
+import { DEFAULT_DRAWING_STROKE } from '../../foundation/tokens'
 
 import { PREVIEW_ID } from './DrawingState'
 import type { InteractionDrawingAnchor } from './coordinateUtils'
@@ -82,7 +83,7 @@ export class PreviewRenderer {
       ],
       params: {},
       style: {
-        stroke: '#2962ff',
+        stroke: DEFAULT_DRAWING_STROKE,
         strokeWidth: 1,
         strokeStyle: 'dashed',
       },
@@ -117,7 +118,7 @@ export class PreviewRenderer {
       ],
       params: activeTool === 'regression-channel' ? { sigma: 2 } : {},
       style: {
-        stroke: '#2962ff',
+        stroke: DEFAULT_DRAWING_STROKE,
         strokeWidth: 1,
         strokeStyle: 'dashed',
         ...(activeTool === 'regression-channel' ? { fillOpacity: 0.1 } : {}),
@@ -163,7 +164,7 @@ export class PreviewRenderer {
         ],
         params: {},
         style: {
-          stroke: '#2962ff',
+          stroke: DEFAULT_DRAWING_STROKE,
           strokeWidth: 1,
           strokeStyle: 'dashed',
         },
@@ -210,7 +211,7 @@ export class PreviewRenderer {
       ],
       params: {},
       style: {
-        stroke: '#2962ff',
+        stroke: DEFAULT_DRAWING_STROKE,
         strokeWidth: 1,
         strokeStyle: 'dashed',
         ...(isChannel ? { fillOpacity: 0.1 } : {}),

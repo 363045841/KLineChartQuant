@@ -75,7 +75,7 @@ export class ChartDrawingFacade {
   setTool(tool: DrawingToolId | null): void {
     const toolId = tool ?? 'cursor'
     this.deps.kernel.drawing.actions.setDrawingTool(toolId)
-    this.deps.getSession()?.applyToolSession(toolId)
+    this.deps.getSession()?.applyToolSession()
     this.deps.scheduleDraw()
   }
 
