@@ -18,6 +18,7 @@
 
 import { describe, it, expect } from 'vitest'
 
+import { isKLineChartError } from '../../../errors'
 import {
   detectRendererTier,
   detectRendererTierOrThrow,
@@ -25,8 +26,7 @@ import {
   isTierAtLeast,
   RENDERER_TIER_RANK,
   type RendererTier,
-} from '..'
-import { isKLineChartError } from '../../../errors'
+} from '../rendererCapability'
 
 // Helpers — return preset probe maps for each scenario.
 const TRUE = (): boolean => true

@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { resolveSettings, type ChartSettings } from '../../../foundation/config/chartSettings'
+import { normalizeSettings, type ChartSettings } from '../../../foundation/config/chartSettings'
 import { createSettingsState } from '../settingsState'
 
 describe('settingsState', () => {
   it('starts as fully resolved defaults', () => {
     const s = createSettingsState()
-    const resolved = resolveSettings({})
+    const resolved = normalizeSettings({})
     expect(s.readonly.settings.peek().showGridLines).toBe(resolved.showGridLines)
     expect(s.readonly.settings.peek().mainRightAxisTypeSetting).toBe(
       resolved.mainRightAxisTypeSetting,
@@ -54,7 +54,7 @@ describe('settingsState', () => {
   })
 
   it('preserves extension keys like preClose through resolve/patch', () => {
-    expect(resolveSettings({ preClose: 12.34 }).preClose).toBe(12.34)
+    expect(normalizeSettings({ preClose: 12.34 }).preClose).toBe(12.34)
     const s = createSettingsState({ preClose: 12.34 })
     expect(s.readonly.settings.peek().preClose).toBe(12.34)
     s.actions.patch({ showGridLines: false })

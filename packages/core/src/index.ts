@@ -23,6 +23,7 @@ export * from './features/input'
 export * from './scale'
 export * from './rendering/scheduler'
 export type * from './rendering/render'
+export * from './foundation/utils/rendererCapability'
 export * from './rendering/renderer-tier'
 
 // ── Batch 3: Scene abstraction (depends on render) ────────────────────────

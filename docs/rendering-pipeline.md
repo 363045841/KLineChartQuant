@@ -563,15 +563,20 @@ WebGPU `device.lost` 回调进入 `RendererHost.handleDeviceLost()`：
 
 ### 14.1 `renderer-tier`
 
-`rendering/renderer-tier` 同步探测：
+能力探测已下移到 `foundation/utils/rendererCapability`（`detectRendererTier` 等），同步探测：
 
 ```text
 webgpu > webgl2 > canvas2d > none
 ```
 
-并能从调用方 registry 中选择 factory。RendererHost 当前有自己的实际创建与降级链，且 backend
-命名为 `webgpu | webgl | canvas`。在统一命名、runtime 和失败语义前，不能把两套选择结果同时
-作为状态来源。
+探测结果只用于推导 `settings.rendererBackend` 的**初始偏好默认**（映射 `webgl2 → webgl`、
+`canvas2d → canvas`、`none → webgl`，见 `docs/design/renderer-backend-default-detection.md`），
+不作为 runtime 状态源。`rendering/renderer-tier` 仅保留 `selectBackend`（从调用方 registry
+选择 factory），尚未接入 RendererHost。
+
+RendererHost 有自己的实际创建与降级链，backend 命名为 `webgpu | webgl | canvas`，其
+`runtime.effective` 是生效后端的唯一来源。在统一命名、runtime 和失败语义前，不能把两套选择结果
+同时作为状态来源。
 
 ### 14.2 `scheduler`
 
@@ -628,6 +633,7 @@ WebGPUResourceTable 的局部 buffer 复用不等于 RetainedScene 已接入。
 - `rendering/scene/__tests__`
 - `rendering/render/__tests__`
 - `rendering/renderer-tier/__tests__`
+- `foundation/utils/__tests__/rendererCapability.test.ts`
 - `rendering/scheduler/__tests__`
 - `engine/renderers/__tests__`
 - `engine/__tests__/renderSinglePath.test.ts`

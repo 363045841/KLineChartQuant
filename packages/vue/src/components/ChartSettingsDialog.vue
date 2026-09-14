@@ -216,12 +216,11 @@
 </template>
 
 <script setup lang="ts">
-  import { normalizeColorPresetSettings } from '@363045841yyt/klinechart-core'
   import type { ColorPresetThemeName, MarketDataCacheStats } from '@363045841yyt/klinechart-core'
   import {
     DEFAULT_SETTINGS,
-    SETTINGS_STORAGE_KEY,
-    migrateStoredSettings,
+    resolveSettingDefault,
+    resolveSettings,
     type ChartSettings,
     type SettingItem,
   } from '@363045841yyt/klinechart-core/config'
@@ -318,24 +317,7 @@
   const colorPresetPanelRef = ref<InstanceType<typeof ColorPresetPanel> | null>(null)
 
   function loadSettings(): ChartSettings {
-    try {
-      const saved = localStorage.getItem(SETTINGS_STORAGE_KEY)
-      if (saved) {
-        const parsed = migrateStoredSettings(JSON.parse(saved) as Record<string, unknown>)
-        const result: ChartSettings = {}
-        DEFAULT_SETTINGS.forEach((item) => {
-          ;(result as Record<string, unknown>)[item.key] = parsed[item.key] ?? item.default
-        })
-        result.colorPresetSettings = normalizeColorPresetSettings(parsed.colorPresetSettings)
-        return result
-      }
-    } catch {}
-    const defaults: ChartSettings = {}
-    DEFAULT_SETTINGS.forEach((item) => {
-      ;(defaults as Record<string, unknown>)[item.key] = item.default
-    })
-    defaults.colorPresetSettings = {}
-    return defaults
+    return resolveSettings()
   }
 
   const runtimeHint = computed(() => {
@@ -380,7 +362,7 @@
   function resetSettings() {
     const defaults: ChartSettings = {}
     DEFAULT_SETTINGS.forEach((item) => {
-      ;(defaults as Record<string, unknown>)[item.key] = item.default
+      ;(defaults as Record<string, unknown>)[item.key] = resolveSettingDefault(item.default)
     })
     defaults.colorPresetSettings = {}
     settings.value = defaults

@@ -1,18 +1,10 @@
 /**
- * @klinechart-quant/core/renderer-tier — pre-mount renderer tier detection.
+ * @klinechart-quant/core/renderer-tier — 渲染后端选择：从调用方 registry 中挑选一个 factory。
  *
- * Used by the `Renderer` factory to pick the highest backend the host
- * environment supports (WebGPU → WebGL2 → Canvas2D → none).
- *
- * See `./detectRendererTier.ts` for design notes.
+ * 能力探测（`detectRendererTier` 等）已下移到 `foundation/utils/rendererCapability`，
+ * 由设置解析用于推导 `rendererBackend` 的初始偏好默认，不再作为 runtime 状态源。
  */
 
-export {
-  detectRendererTier,
-  detectRendererTierOrThrow,
-  compareRendererTier,
-  isTierAtLeast,
-} from './detectRendererTier'
 export {
   selectBackend,
   selectBackendOrThrow,
@@ -21,10 +13,3 @@ export {
   type BackendSelection,
   type SelectBackendOptions,
 } from './selectBackend'
-export {
-  RENDERER_TIER_RANK,
-  type RendererTier,
-  type RendererTierResult,
-  type RendererTierProbes,
-  type DetectRendererTierOptions,
-} from './types'

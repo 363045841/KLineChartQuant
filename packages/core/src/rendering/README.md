@@ -36,12 +36,12 @@ render/             Renderer 绘制原语与 Surface 生命周期
 
 ## 目录结构
 
-| 目录             | 职责                                                      | 主链路状态                     |
-| ---------------- | --------------------------------------------------------- | ------------------------------ |
-| `scene/`         | 定义 Scene/Layer，按 pane 和 role 过滤并按 z 顺序绘制     | 已接入                         |
-| `render/`        | 定义 Renderer/SurfaceBackend，提供三个后端及 RendererHost | 已接入                         |
-| `renderer-tier/` | 同步检测环境能力，并从注册表选择可用 backend factory      | 独立能力，未接入 RendererHost  |
-| `scheduler/`     | 按优先级、截止时间和队列上限调度帧内任务                  | 独立能力，未接入 ChartRenderer |
+| 目录             | 职责                                                                                     | 主链路状态                     |
+| ---------------- | ---------------------------------------------------------------------------------------- | ------------------------------ |
+| `scene/`         | 定义 Scene/Layer，按 pane 和 role 过滤并按 z 顺序绘制                                    | 已接入                         |
+| `render/`        | 定义 Renderer/SurfaceBackend，提供三个后端及 RendererHost                                | 已接入                         |
+| `renderer-tier/` | 从注册表选择可用 backend factory（能力探测已移到 `foundation/utils/rendererCapability`） | 独立能力，未接入 RendererHost  |
+| `scheduler/`     | 按优先级、截止时间和队列上限调度帧内任务                                                 | 独立能力，未接入 ChartRenderer |
 
 `scene/retainedScene.ts` 提供按 key/revision 保存图元节点的 retained 数据结构。目前它没有接入
 主绘制链路；当前 Scene 仍在每帧调用可见 Layer 的 `paint`。
@@ -146,17 +146,19 @@ Scene 不负责调用 `beginFrame/endFrame`，这个帧边界必须由 ChartRend
 
 ### renderer-tier
 
-`renderer-tier` 把渲染能力定义为：
+渲染能力定义为：
 
 ```text
 webgpu > webgl2 > canvas2d > none
 ```
 
-`detectRendererTier()` 只进行同步预检；WebGPU 检测不会调用异步 `requestAdapter()`，真正创建
-后端时仍可能失败。`selectBackend()` 则在检测上限内，从调用方注册的 factories 中选择最高
-可用实现，并支持 `minimum` 能力下限。
+能力探测 `detectRendererTier()` 已下移到 `foundation/utils/rendererCapability`，只进行同步预检；
+WebGPU 检测不会调用异步 `requestAdapter()`，真正创建后端时仍可能失败。其结果是
+`settings.rendererBackend` 的初始偏好默认来源（见 `docs/design/renderer-backend-default-detection.md`），
+不是 runtime 状态。
 
-该模块目前没有参与 `RendererHost` 的实际降级流程，而且 tier 名称
+本目录只保留 `selectBackend()`：在检测上限内从调用方注册的 factories 中选择最高可用实现，并支持
+`minimum` 能力下限。它目前没有参与 `RendererHost` 的实际降级流程，而且 tier 名称
 `webgpu/webgl2/canvas2d` 与 Host 的 backend 名称 `webgpu/webgl/canvas` 不完全相同。接入前
 需要先统一模型，不能并行维护两套后端选择状态。
 
@@ -192,7 +194,7 @@ ChartRenderer 未使用它。
 
 - `scene/__tests__`：Layer 注册、排序、过滤、Plugin 桥接和 retained 数据结构。
 - `render/__tests__`：Renderer 契约、Host 降级、三个后端、Surface、物理像素转换和帧指标。
-- `renderer-tier/__tests__`：能力探测和 backend factory 选择。
+- `renderer-tier/__tests__`：backend factory 选择。能力探测测试位于 `foundation/utils/__tests__/rendererCapability.test.ts`。
 - `scheduler/__tests__`：优先级、合并、deadline 和队列限制。
 
 运行 core package 测试：

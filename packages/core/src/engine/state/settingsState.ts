@@ -2,7 +2,7 @@
 import { batch, createSubState } from '../../foundation/reactivity/signal'
 import {
   migrateStoredSettings,
-  resolveSettings,
+  normalizeSettings,
   type ChartSettings,
 } from '../../foundation/config/chartSettings'
 import { deepFreezeSnapshot } from './immutable'
@@ -13,7 +13,7 @@ function normalizePartial(partial?: Partial<ChartSettings>): Partial<ChartSettin
 }
 
 function snapshotSettings(partial?: Partial<ChartSettings>): Readonly<ChartSettings> {
-  return deepFreezeSnapshot(resolveSettings(normalizePartial(partial))) as Readonly<ChartSettings>
+  return deepFreezeSnapshot(normalizeSettings(normalizePartial(partial))) as Readonly<ChartSettings>
 }
 
 function settingsEqual(a: Readonly<ChartSettings>, b: Readonly<ChartSettings>): boolean {

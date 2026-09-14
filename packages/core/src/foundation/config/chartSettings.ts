@@ -6,7 +6,8 @@ export interface SettingItem {
   key: string
   label: string
   type: 'boolean' | 'select' | 'number'
-  default: boolean | string | number
+  /** 默认值；可为函数以惰性求值（如 rendererBackend 由能力探测提供）。 */
+  default: boolean | string | number | (() => boolean | string | number)
   group?: string
   options?: { value: string; label: string }[]
   min?: number
@@ -45,6 +46,41 @@ export function getDeviceType(): 'mobile' | 'tablet' | 'desktop' {
   if (hasTouch && isTabletScreen) return 'tablet'
 
   return 'desktop'
+}
+
+/** 渲染后端设置值。 */
+type RendererBackendSetting = 'webgpu' | 'webgl' | 'canvas'
+
+/**
+ * 把能力探测层级映射为 rendererBackend 设置值。
+ * webgl2 归一到 webgl；canvas2d 归一到 canvas；none（SSR / 无 DOM）沿用 webgl 默认。
+ *
+ * @param tier - detectRendererTier 的探测结果
+ * @returns rendererBackend 设置值
+ */
+export function mapRendererTierToBackend(tier: RendererTier): RendererBackendSetting {
+  if (tier === 'webgpu') return 'webgpu'
+  if (tier === 'canvas2d') return 'canvas'
+  return 'webgl'
+}
+
+/** 探测结果的进程级缓存，保证 rendererBackend 默认值只探测一次。 */
+let cachedRendererBackendDefault: RendererBackendSetting | null = null
+
+/** rendererBackend 默认值：首次调用做一次能力探测并缓存结果。 */
+function defaultRendererBackend(): RendererBackendSetting {
+  cachedRendererBackendDefault ??= mapRendererTierToBackend(detectRendererTier().tier)
+  return cachedRendererBackendDefault
+}
+
+/**
+ * 解析 SettingItem 的默认值；为函数时调用取返回值。
+ *
+ * @param value - SettingItem.default
+ * @returns 解析后的默认值
+ */
+export function resolveSettingDefault(value: SettingItem['default']): boolean | string | number {
+  return typeof value === 'function' ? value() : value
 }
 
 /** 默认设置配置 */
@@ -100,7 +136,7 @@ export const DEFAULT_SETTINGS = [
     key: 'rendererBackend',
     label: '渲染后端',
     type: 'select',
-    default: 'webgl',
+    default: defaultRendererBackend,
     group: 'main',
     options: [
       { value: 'webgl', label: 'WebGL' },
@@ -132,7 +168,7 @@ export const DEFAULT_SETTINGS = [
     label: '行情缓存上限（MiB）',
     type: 'number',
     default: 50,
-min: 5,
+    min: 5,
     max: 512,
     step: 1,
     group: 'datasource',
@@ -157,9 +193,9 @@ type _SettingByKey = {
     ? boolean
     : Item['type'] extends 'number'
       ? number
-    : Item extends { type: 'select'; options: ReadonlyArray<{ value: infer V }> }
-      ? V
-      : string
+      : Item extends { type: 'select'; options: ReadonlyArray<{ value: infer V }> }
+        ? V
+        : string
 }
 
 /** 图表设置类型（从 DEFAULT_SETTINGS 自动推导，同时兼容扩展） */
@@ -169,30 +205,34 @@ export type ChartSettings = {
     colorPresetSettings?: ColorPresetSettings
   }
 
-/** 将 Partial 可选偏好设置与 DEFAULT_SETTINGS 默认值合并，返回全量 ChartSettings
- *
- * @param partial - 偏好的部分设置（通常是组件 prop 传入）
- * @returns 合并后的 ChartSettings 对象
- */
+/** DEFAULT_SETTINGS 已覆盖的 key 及单独归一化的 colorPresetSettings，其余视为扩展字段保留。 */
 const KNOWN_SETTING_KEYS = new Set<string>([
   ...DEFAULT_SETTINGS.map((item) => item.key),
   'colorPresetSettings',
 ])
 
-export function resolveSettings(partial?: Partial<ChartSettings>): ChartSettings {
+/**
+ * 归一化设置：迁移旧字段、用 DEFAULT_SETTINGS 补齐缺失 key、保留业务扩展字段。
+ * 不做分层合并，输入缺什么就回默认值；分层取值由 resolveSettings 负责。
+ *
+ * @param partial - 设置片段
+ * @returns 补齐后的完整 ChartSettings
+ */
+export function normalizeSettings(partial?: Partial<ChartSettings>): ChartSettings {
   const source = partial ? migrateStoredSettings(partial as Record<string, unknown>) : undefined
   // 用 Partial<_SettingByKey> 而非 ChartSettings 避免交叉类型索引赋值报错
   const result: Partial<_SettingByKey> = {}
   DEFAULT_SETTINGS.forEach((item) => {
     // 未在 partial 中指定的 key 回退到 DEFAULT_SETTINGS 的默认值
     // 用 ?? 而非 ||，确保显式传入 false / '' 不会被默认值覆盖
-    ;(result as Record<string, unknown>)[item.key] = source?.[item.key] ?? item.default
+    ;(result as Record<string, unknown>)[item.key] =
+      source?.[item.key] ?? resolveSettingDefault(item.default)
   })
   // colorPresetSettings 不在 DEFAULT_SETTINGS 中，需单独归一化
   ;(result as ChartSettings).colorPresetSettings = normalizeColorPresetSettings(
     source?.colorPresetSettings,
   )
-  // 保留扩展字段（如 preClose），避免业务元数据被 resolve 清掉
+  // 保留扩展字段（如 preClose），避免业务元数据被归一化清掉
   if (source) {
     for (const [key, value] of Object.entries(source)) {
       if (KNOWN_SETTING_KEYS.has(key)) continue
@@ -244,30 +284,39 @@ export function loadStoredSettings(
 }
 
 /**
- * 解析运行时设置的权威源。
+ * 解析生效设置，逐 key 取值优先级：显式覆盖 > 存量偏好 > DEFAULT_SETTINGS 默认值。
  *
  * @remarks
- * - 传入 settings prop（含空对象）时：prop 为唯一权威源，未写 key 走 DEFAULT_SETTINGS，
- *   不合并 localStorage 幽灵字段（避免注释掉 prop 字段后仍被持久配置顶回）
- * - 未传 settings prop 时：localStorage + 默认值
+ * - overrides 为组件 settings prop：仅其显式声明的 key 覆盖存量，未声明的 key 回落到存量。
+ * - stored 省略时读取 localStorage 存量；需要纯默认解析（如内核内部状态归一化）时传 {}。
+ * - 缺失 key 一律由 DEFAULT_SETTINGS 补齐，返回值始终是完整设置。
  *
- * @param propSettings - 组件 settings prop；undefined 表示未传
- * @param stored - 已读取的持久设置；省略时由 loadStoredSettings 读取
+ * @param overrides - 显式覆盖项（组件 settings prop）
+ * @param stored - 存量偏好；省略时由 loadStoredSettings 读取
+ * @returns 分层合并后的完整 ChartSettings
  */
-export function resolveRuntimeSettings(
-  propSettings?: Partial<ChartSettings>,
-  stored?: Partial<ChartSettings> | null,
+export function resolveSettings(
+  overrides?: Partial<ChartSettings> | null,
+  stored: Partial<ChartSettings> | null = loadStoredSettings(),
 ): ChartSettings {
-  if (propSettings !== undefined) {
-    return resolveSettings(propSettings)
+  // 逐 key 合并：overrides 显式声明的 key 覆盖存量，undefined 视为未声明
+  const merged: Record<string, unknown> = { ...(stored ?? {}) }
+  if (overrides) {
+    for (const [key, value] of Object.entries(overrides)) {
+      if (value === undefined) continue
+      merged[key] = value
+    }
   }
-  return resolveSettings(stored ?? loadStoredSettings() ?? undefined)
+  // 迁移、默认值补齐与扩展字段保留统一交给 normalizeSettings
+  return normalizeSettings(merged as Partial<ChartSettings>)
 }
 
 import {
   type ColorPresetSettings,
   normalizeColorPresetSettings,
 } from '../tokens/colorPresetSettings'
+import { detectRendererTier, type RendererTier } from '../utils/rendererCapability'
+
 import { migrateAxisSettings } from './axisSettings'
 
 export {

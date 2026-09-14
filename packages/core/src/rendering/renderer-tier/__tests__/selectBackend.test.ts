@@ -20,7 +20,7 @@ import { describe, it, expect } from 'vitest'
 
 import { selectBackend, selectBackendOrThrow, type BackendRegistry } from '..'
 import { isKLineChartError } from '../../../errors'
-import type { RendererTierResult } from '../types'
+import type { RendererTierResult } from '../../../foundation/utils/rendererCapability'
 
 const ALWAYS = (): boolean => true
 const NEVER = (): boolean => false

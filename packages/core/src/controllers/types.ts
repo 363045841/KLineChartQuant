@@ -345,7 +345,7 @@ export interface ChartMountOptions {
   minKWidth?: number
   maxKWidth?: number
 
-  // Initial chart settings (partial, merged with DEFAULT_SETTINGS)
+  // Initial chart settings (overrides > stored preferences > DEFAULT_SETTINGS)
   settings?: Partial<ChartSettings>
 }
 

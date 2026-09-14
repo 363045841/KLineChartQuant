@@ -33,7 +33,6 @@
       />
       <div ref="chartStageRef" class="chart-stage">
         <LeftToolbar
-          ref="toolbarRef"
           :is-fullscreen="effectiveIsFullscreen"
           :alert-controller="controller"
           :effective-settings="chartSettings"
@@ -284,12 +283,7 @@
 </template>
 
 <script setup lang="ts">
-  import {
-    migrateStoredSettings,
-    resolveRuntimeSettings,
-    resolveSettings,
-    type ChartSettings,
-  } from '@363045841yyt/klinechart-core/config'
+  import { resolveSettings, type ChartSettings } from '@363045841yyt/klinechart-core/config'
   import type {
     CanvasLegendOptions,
     RendererBackendRuntime,
@@ -419,8 +413,8 @@
       timezone?: string
 
       /**
-       * 图表设置。传入后作为权威源：未写 key 走默认值，不合并 localStorage 幽灵字段。
-       * 未传时才从 localStorage 恢复用户偏好。
+       * 图表设置。逐 key 覆盖：显式声明的 key 优先，未声明的回落到 localStorage 存量，
+       * 最后用默认值补齐。未传时等价于 localStorage 存量 + 默认值。
        */
       settings?: Partial<ChartSettings>
 
@@ -718,7 +712,6 @@
   const chartWrapperRef = ref<HTMLDivElement | null>(null)
   const tooltipLayerRef = ref<HTMLDivElement | null>(null)
   const tooltipContentRef = ref<HTMLDivElement | null>(null)
-  const toolbarRef = ref<InstanceType<typeof LeftToolbar> | null>(null)
   const indicatorSelectorRef = ref<InstanceType<typeof IndicatorSelector> | null>(null)
   const leftAxisLayerRef = ref<HTMLDivElement | null>(null)
   provideFullscreenTeleportTarget(chartWrapperRef)
@@ -776,8 +769,8 @@
   })
   const isIntraday = computed(() => kLineLevel.value.includes('min'))
 
-  // 有 settings prop 时 setup 阶段即解析，避免子组件先读 localStorage 造成闪色
-  const _initialResolved = resolveRuntimeSettings(props.settings)
+  // setup 阶段即分层解析 settings，避免子组件先读 localStorage 造成闪色
+  const _initialResolved = resolveSettings(props.settings)
   const _initialTheme: 'light' | 'dark' = (() => {
     const theme = _initialResolved.theme as string
     if (theme === 'auto') {
@@ -1813,13 +1806,8 @@
   }
 
   function applyInitialSettings(ctrl: ChartController): void {
-    // settings prop 权威：不合并 toolbar/localStorage 幽灵字段
-    // 未传 prop 时才用工具栏当前值（通常来自 localStorage）
-    const storedOrToolbar =
-      props.settings === undefined
-        ? migrateStoredSettings((toolbarRef.value?.getSettings() ?? {}) as Record<string, unknown>)
-        : null
-    const resolved = resolveRuntimeSettings(props.settings, storedOrToolbar)
+    // 分层解析：settings prop 显式 key > localStorage 存量 > 默认值
+    const resolved = resolveSettings(props.settings)
     chartSettings.value = resolved
     ctrl.updateSettingsFacade(resolved)
     applyThemeFromSettings(resolved.theme as string)
@@ -2014,7 +2002,7 @@
     },
   )
 
-  // 受控设置：外部 settings 变化时整体替换（prop 权威，不与当前态/LS 浅合并）
+  // 受控设置：外部 settings 变化时重新分层解析（prop 显式 key > 存量 > 默认）
   watch(
     () => props.settings,
     (next) => {

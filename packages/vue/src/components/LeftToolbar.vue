@@ -179,7 +179,7 @@
   import type { ChartController, MarketDataCacheStats } from '@363045841yyt/klinechart-core'
   import {
     SETTINGS_STORAGE_KEY,
-    resolveRuntimeSettings,
+    resolveSettings,
     type ChartSettings,
   } from '@363045841yyt/klinechart-core/config'
   import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
@@ -311,7 +311,7 @@
   })
 
   function loadSettings(): ChartSettings {
-    return resolveRuntimeSettings(undefined)
+    return resolveSettings()
   }
 
   function saveSettings(settings: ChartSettings) {
@@ -381,14 +381,6 @@
   function onUpdateSourceEndpoint(name: string, patch: Partial<AggregationSourceEndpoint>) {
     emit('updateSourceEndpoint', name, patch)
   }
-
-  function getCurrentSettings(): ChartSettings {
-    return { ...appliedSettings.value }
-  }
-
-  defineExpose({
-    getSettings: getCurrentSettings,
-  })
 
   function handleConfirmSettings(draft: ChartSettings) {
     appliedSettings.value = { ...draft }
