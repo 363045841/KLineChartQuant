@@ -12,7 +12,7 @@
  * (millions of deltas fast-folded).
  */
 
-import { describe, bench } from 'vitest'
+import { describe, test } from 'vitest'
 
 import { createOrderBookState } from '../components/orderBookHeatmap/createOrderBookState'
 import type { OrderBookDelta } from '../components/orderBookHeatmap/types'
@@ -44,26 +44,31 @@ const deltas10k = makeDeltas(10_000)
 const deltas100k = makeDeltas(100_000)
 
 describe('OrderBookState — applyDelta hot path', () => {
-  bench('10k deltas', () => {
-    const book = createOrderBookState({ tickSize: TICK })
-    for (const d of deltas10k) book.applyDelta(d)
-  })
-
-  bench('100k deltas', () => {
-    const book = createOrderBookState({ tickSize: TICK })
-    for (const d of deltas100k) book.applyDelta(d)
+  test('compares 10k and 100k delta streams', async ({ bench }) => {
+    await bench.compare(
+      bench('10k deltas', () => {
+        const book = createOrderBookState({ tickSize: TICK })
+        for (const d of deltas10k) book.applyDelta(d)
+      }),
+      bench('100k deltas', () => {
+        const book = createOrderBookState({ tickSize: TICK })
+        for (const d of deltas100k) book.applyDelta(d)
+      }),
+    )
   })
 })
 
 describe('OrderBookState — snapshot at 500-level book', () => {
-  // Build the book to ~500 levels per side, then time the snapshot.
-  const preFilled = createOrderBookState({ tickSize: TICK })
-  for (let i = 0; i < 500; i++) {
-    preFilled.applyDelta({ side: 'bid', price: 100 - i * TICK, size: 1 + i * 0.1, timestamp: i })
-    preFilled.applyDelta({ side: 'ask', price: 100 + i * TICK, size: 1 + i * 0.1, timestamp: i })
-  }
+  test('measures snapshot cost at a 500-level book', async ({ bench }) => {
+    // Build the book to ~500 levels per side, then time the snapshot.
+    const preFilled = createOrderBookState({ tickSize: TICK })
+    for (let i = 0; i < 500; i++) {
+      preFilled.applyDelta({ side: 'bid', price: 100 - i * TICK, size: 1 + i * 0.1, timestamp: i })
+      preFilled.applyDelta({ side: 'ask', price: 100 + i * TICK, size: 1 + i * 0.1, timestamp: i })
+    }
 
-  bench('snapshot()', () => {
-    preFilled.snapshot()
+    await bench('snapshot()', () => {
+      preFilled.snapshot()
+    }).run()
   })
 })

@@ -10,7 +10,7 @@
  * becomes the regression alarm for the CPU fallback.
  */
 
-import { describe, bench } from 'vitest'
+import { describe, test } from 'vitest'
 
 import { binBarToBuckets } from '../components/volumeProfile/binning'
 
@@ -37,31 +37,32 @@ const bars10k = makeBars(10_000)
 const bars100k = makeBars(100_000)
 
 describe('Volume Profile binning', () => {
-  bench('typical-price | 10k bars × 100 buckets', () => {
-    const buckets = new Float64Array(BIN_COUNT)
-    for (const bar of bars10k) {
-      binBarToBuckets(bar, buckets, BIN_MIN, BIN_SIZE, BIN_COUNT, 'typical-price')
-    }
-  })
-
-  bench('typical-price | 100k bars × 100 buckets', () => {
-    const buckets = new Float64Array(BIN_COUNT)
-    for (const bar of bars100k) {
-      binBarToBuckets(bar, buckets, BIN_MIN, BIN_SIZE, BIN_COUNT, 'typical-price')
-    }
-  })
-
-  bench('proportional  | 10k bars × 100 buckets', () => {
-    const buckets = new Float64Array(BIN_COUNT)
-    for (const bar of bars10k) {
-      binBarToBuckets(bar, buckets, BIN_MIN, BIN_SIZE, BIN_COUNT, 'proportional')
-    }
-  })
-
-  bench('proportional  | 100k bars × 100 buckets', () => {
-    const buckets = new Float64Array(BIN_COUNT)
-    for (const bar of bars100k) {
-      binBarToBuckets(bar, buckets, BIN_MIN, BIN_SIZE, BIN_COUNT, 'proportional')
-    }
+  test('compares binning modes across input sizes', async ({ bench }) => {
+    await bench.compare(
+      bench('typical-price | 10k bars × 100 buckets', () => {
+        const buckets = new Float64Array(BIN_COUNT)
+        for (const bar of bars10k) {
+          binBarToBuckets(bar, buckets, BIN_MIN, BIN_SIZE, BIN_COUNT, 'typical-price')
+        }
+      }),
+      bench('typical-price | 100k bars × 100 buckets', () => {
+        const buckets = new Float64Array(BIN_COUNT)
+        for (const bar of bars100k) {
+          binBarToBuckets(bar, buckets, BIN_MIN, BIN_SIZE, BIN_COUNT, 'typical-price')
+        }
+      }),
+      bench('proportional  | 10k bars × 100 buckets', () => {
+        const buckets = new Float64Array(BIN_COUNT)
+        for (const bar of bars10k) {
+          binBarToBuckets(bar, buckets, BIN_MIN, BIN_SIZE, BIN_COUNT, 'proportional')
+        }
+      }),
+      bench('proportional  | 100k bars × 100 buckets', () => {
+        const buckets = new Float64Array(BIN_COUNT)
+        for (const bar of bars100k) {
+          binBarToBuckets(bar, buckets, BIN_MIN, BIN_SIZE, BIN_COUNT, 'proportional')
+        }
+      }),
+    )
   })
 })

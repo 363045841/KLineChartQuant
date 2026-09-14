@@ -20,7 +20,7 @@
  * end-to-end frame budget.
  */
 
-import { bench, describe } from 'vitest'
+import { describe, test } from 'vitest'
 
 // MA family (b-9)
 import { computeALMA } from '../features/indicators/alma'
@@ -96,55 +96,53 @@ const ohlc100k = buildOhlcWithOpen(100_000)
 // ---------------------------------------------------------------------------
 
 describe('MA family @ 10k bars (close-only)', () => {
-  bench('ALMA (period=21)', () => {
-    computeALMA(close10k, { period: 21 })
-  })
-
-  bench('T3 (period=21, volumeFactor=0.7)', () => {
-    computeT3(close10k, { period: 21, volumeFactor: 0.7 })
-  })
-
-  bench('ZLEMA (period=21)', () => {
-    computeZLEMA(close10k, { period: 21 })
-  })
-
-  bench('LSMA (period=21)', () => {
-    computeLSMA(close10k, { period: 21 })
-  })
-
-  bench('VIDYA (period=21, cmoPeriod=9)', () => {
-    computeVIDYA(close10k, { period: 21, cmoPeriod: 9 })
-  })
-
-  bench('FRAMA (period=16)', () => {
-    // FRAMA requires `period` even and >= 4
-    computeFRAMA(close10k, { period: 16 })
+  test('compares moving-average throughput', async ({ bench }) => {
+    await bench.compare(
+      bench('ALMA (period=21)', () => {
+        computeALMA(close10k, { period: 21 })
+      }),
+      bench('T3 (period=21, volumeFactor=0.7)', () => {
+        computeT3(close10k, { period: 21, volumeFactor: 0.7 })
+      }),
+      bench('ZLEMA (period=21)', () => {
+        computeZLEMA(close10k, { period: 21 })
+      }),
+      bench('LSMA (period=21)', () => {
+        computeLSMA(close10k, { period: 21 })
+      }),
+      bench('VIDYA (period=21, cmoPeriod=9)', () => {
+        computeVIDYA(close10k, { period: 21, cmoPeriod: 9 })
+      }),
+      bench('FRAMA (period=16)', () => {
+        // FRAMA requires `period` even and >= 4
+        computeFRAMA(close10k, { period: 16 })
+      }),
+    )
   })
 })
 
 describe('MA family @ 100k bars (close-only)', () => {
-  bench('ALMA (period=21)', () => {
-    computeALMA(close100k, { period: 21 })
-  })
-
-  bench('T3 (period=21, volumeFactor=0.7)', () => {
-    computeT3(close100k, { period: 21, volumeFactor: 0.7 })
-  })
-
-  bench('ZLEMA (period=21)', () => {
-    computeZLEMA(close100k, { period: 21 })
-  })
-
-  bench('LSMA (period=21)', () => {
-    computeLSMA(close100k, { period: 21 })
-  })
-
-  bench('VIDYA (period=21, cmoPeriod=9)', () => {
-    computeVIDYA(close100k, { period: 21, cmoPeriod: 9 })
-  })
-
-  bench('FRAMA (period=16)', () => {
-    computeFRAMA(close100k, { period: 16 })
+  test('compares moving-average throughput', async ({ bench }) => {
+    await bench.compare(
+      bench('ALMA (period=21)', () => {
+        computeALMA(close100k, { period: 21 })
+      }),
+      bench('T3 (period=21, volumeFactor=0.7)', () => {
+        computeT3(close100k, { period: 21, volumeFactor: 0.7 })
+      }),
+      bench('ZLEMA (period=21)', () => {
+        computeZLEMA(close100k, { period: 21 })
+      }),
+      bench('LSMA (period=21)', () => {
+        computeLSMA(close100k, { period: 21 })
+      }),
+      bench('VIDYA (period=21, cmoPeriod=9)', () => {
+        computeVIDYA(close100k, { period: 21, cmoPeriod: 9 })
+      }),
+      bench('FRAMA (period=16)', () => {
+        computeFRAMA(close100k, { period: 16 })
+      }),
+    )
   })
 })
 
@@ -153,63 +151,61 @@ describe('MA family @ 100k bars (close-only)', () => {
 // ---------------------------------------------------------------------------
 
 describe('Oscillators @ 10k bars', () => {
-  bench('StochRSI (period=14, kPeriod=3, dPeriod=3)', () => {
-    computeStochRSI(close10k, { period: 14, kPeriod: 3, dPeriod: 3 })
-  })
-
-  bench('Awesome Oscillator (fast=5, slow=34)', () => {
-    computeAwesomeOscillator(hl10k, { fast: 5, slow: 34 })
-  })
-
-  bench('Ultimate Oscillator (p1=7, p2=14, p3=28)', () => {
-    computeUltimateOscillator(ohlc10k, { p1: 7, p2: 14, p3: 28 })
-  })
-
-  bench('DPO (period=20)', () => {
-    computeDPO(close10k, { period: 20 })
-  })
-
-  bench('Fisher Transform (period=10)', () => {
-    computeFisherTransform(hl10k, { period: 10 })
-  })
-
-  bench('Schaff Trend Cycle (fast=23, slow=50, cycle=10)', () => {
-    computeSchaffTrendCycle(close10k, {
-      fast: 23,
-      slow: 50,
-      cycle: 10,
-      factor: 0.5,
-    })
+  test('compares oscillator throughput', async ({ bench }) => {
+    await bench.compare(
+      bench('StochRSI (period=14, kPeriod=3, dPeriod=3)', () => {
+        computeStochRSI(close10k, { period: 14, kPeriod: 3, dPeriod: 3 })
+      }),
+      bench('Awesome Oscillator (fast=5, slow=34)', () => {
+        computeAwesomeOscillator(hl10k, { fast: 5, slow: 34 })
+      }),
+      bench('Ultimate Oscillator (p1=7, p2=14, p3=28)', () => {
+        computeUltimateOscillator(ohlc10k, { p1: 7, p2: 14, p3: 28 })
+      }),
+      bench('DPO (period=20)', () => {
+        computeDPO(close10k, { period: 20 })
+      }),
+      bench('Fisher Transform (period=10)', () => {
+        computeFisherTransform(hl10k, { period: 10 })
+      }),
+      bench('Schaff Trend Cycle (fast=23, slow=50, cycle=10)', () => {
+        computeSchaffTrendCycle(close10k, {
+          fast: 23,
+          slow: 50,
+          cycle: 10,
+          factor: 0.5,
+        })
+      }),
+    )
   })
 })
 
 describe('Oscillators @ 100k bars', () => {
-  bench('StochRSI (period=14, kPeriod=3, dPeriod=3)', () => {
-    computeStochRSI(close100k, { period: 14, kPeriod: 3, dPeriod: 3 })
-  })
-
-  bench('Awesome Oscillator (fast=5, slow=34)', () => {
-    computeAwesomeOscillator(hl100k, { fast: 5, slow: 34 })
-  })
-
-  bench('Ultimate Oscillator (p1=7, p2=14, p3=28)', () => {
-    computeUltimateOscillator(ohlc100k, { p1: 7, p2: 14, p3: 28 })
-  })
-
-  bench('DPO (period=20)', () => {
-    computeDPO(close100k, { period: 20 })
-  })
-
-  bench('Fisher Transform (period=10)', () => {
-    computeFisherTransform(hl100k, { period: 10 })
-  })
-
-  bench('Schaff Trend Cycle (fast=23, slow=50, cycle=10)', () => {
-    computeSchaffTrendCycle(close100k, {
-      fast: 23,
-      slow: 50,
-      cycle: 10,
-      factor: 0.5,
-    })
+  test('compares oscillator throughput', async ({ bench }) => {
+    await bench.compare(
+      bench('StochRSI (period=14, kPeriod=3, dPeriod=3)', () => {
+        computeStochRSI(close100k, { period: 14, kPeriod: 3, dPeriod: 3 })
+      }),
+      bench('Awesome Oscillator (fast=5, slow=34)', () => {
+        computeAwesomeOscillator(hl100k, { fast: 5, slow: 34 })
+      }),
+      bench('Ultimate Oscillator (p1=7, p2=14, p3=28)', () => {
+        computeUltimateOscillator(ohlc100k, { p1: 7, p2: 14, p3: 28 })
+      }),
+      bench('DPO (period=20)', () => {
+        computeDPO(close100k, { period: 20 })
+      }),
+      bench('Fisher Transform (period=10)', () => {
+        computeFisherTransform(hl100k, { period: 10 })
+      }),
+      bench('Schaff Trend Cycle (fast=23, slow=50, cycle=10)', () => {
+        computeSchaffTrendCycle(close100k, {
+          fast: 23,
+          slow: 50,
+          cycle: 10,
+          factor: 0.5,
+        })
+      }),
+    )
   })
 })
