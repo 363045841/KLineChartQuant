@@ -2,8 +2,8 @@
 
 import { describe, expect, it, vi } from 'vitest'
 
-import { createWebGLSurfaceBackend } from '../createWebGLSurfaceBackend'
-import type { SurfaceBackend, SurfaceRegion } from '../index'
+import { createWebGLSurfaceBackend, type WebGLSurfaceBackend } from '../createWebGLSurfaceBackend'
+import type { SurfaceRegion } from '../index'
 
 function createMockSharedWebGLSurface() {
   let canvasWidth = 1
@@ -37,7 +37,7 @@ function createMockSharedWebGLSurface() {
 type MockSurface = ReturnType<typeof createMockSharedWebGLSurface>
 
 describe('WebGL SurfaceBackend adapter', () => {
-  function makeBackend(): { backend: SurfaceBackend; mock: MockSurface } {
+  function makeBackend(): { backend: WebGLSurfaceBackend; mock: MockSurface } {
     const mock = createMockSharedWebGLSurface()
     const backend = createWebGLSurfaceBackend(mock as any)
     return { backend, mock }
@@ -51,7 +51,7 @@ describe('WebGL SurfaceBackend adapter', () => {
 
   it('exposes the shared canvas for direct DOM composition', () => {
     const { backend, mock } = makeBackend()
-    expect((backend as { canvas: HTMLCanvasElement }).canvas).toBe(mock.getCanvas())
+    expect(backend.canvas).toBe(mock.getCanvas())
   })
 
   it('resize delegates to the underlying surface', () => {

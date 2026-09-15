@@ -18,6 +18,7 @@ export {
   createDefaultRendererHost,
   createDefaultRendererHostSync,
 } from './createDefaultRendererHost'
+export type { WebGLSurfaceBackend } from './createWebGLSurfaceBackend'
 export { createWebGLSurfaceBackend } from './createWebGLSurfaceBackend'
 export type { FrameMetricsSnapshot } from './frameMetrics'
 export {
@@ -46,4 +47,10 @@ export type {
   RendererHostListeners,
 } from './rendererHost'
 export { createRendererHost, createRendererHostFromRenderer } from './rendererHost'
-export type { CompositeOptions, SurfaceBackend, SurfaceRegion } from './SurfaceBackend'
+export type {
+  CompositeOptions,
+  SurfaceBackend,
+  SurfaceRegion,
+  VisibleSurface,
+} from './SurfaceBackend'
+export { getVisibleCanvas, isVisibleSurface } from './SurfaceBackend'

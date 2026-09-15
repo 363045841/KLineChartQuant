@@ -1,10 +1,9 @@
 /** WebGPU canvas 表面后端，负责物理 buffer 尺寸与 region 生命周期。 */
 
-import type { CompositeOptions, SurfaceBackend, SurfaceRegion } from '../SurfaceBackend'
+import type { CompositeOptions, SurfaceRegion, VisibleSurface } from '../SurfaceBackend'
 import { GPU_TEXTURE_RENDER_ATTACHMENT } from '../webgpuGlobals'
 
-export type WebGPUSurfaceBackend = SurfaceBackend & {
-  readonly canvas: HTMLCanvasElement
+export type WebGPUSurfaceBackend = VisibleSurface & {
   readonly device: GPUDevice
   readonly format: GPUTextureFormat
   getBoundRegion(): SurfaceRegion | null

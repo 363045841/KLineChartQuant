@@ -56,6 +56,7 @@ import {
 import type { KLineData } from '../foundation/types/price'
 import {
   createDefaultRendererHostSync,
+  getVisibleCanvas,
   type RendererBackend,
   type RendererHost,
 } from '../rendering/render/index'
@@ -1273,8 +1274,7 @@ export class Chart {
       return
     }
 
-    const surface = this.rendererHost.renderer.surface as { canvas?: HTMLCanvasElement }
-    const canvas = surface.canvas
+    const canvas = getVisibleCanvas(this.rendererHost.renderer.surface)
     if (!canvas) return
 
     canvas.classList.add('gpu-scene-canvas')

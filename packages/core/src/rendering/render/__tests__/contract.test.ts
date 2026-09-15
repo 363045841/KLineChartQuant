@@ -13,6 +13,7 @@
 
 import { describe, expect, it } from 'vitest'
 
+import { createCanvas2DRenderer } from '../backend/createCanvas2DRenderer'
 import type {
   BufferHandle,
   ComputePipelineHandle,
@@ -21,7 +22,9 @@ import type {
   RendererCapabilities,
   SurfaceBackend,
   SurfaceRegion,
+  VisibleSurface,
 } from '../index'
+import { getVisibleCanvas } from '../index'
 
 // --- SurfaceBackend conformance ---
 
@@ -77,6 +80,27 @@ describe('SurfaceBackend contract', () => {
     expect(s.bindRegion({ x: 0, y: 0, width: 0, height: 100, dpr: 1 })).toBe(false)
     expect(s.bindRegion({ x: 0, y: 0, width: 100, height: 0, dpr: 1 })).toBe(false)
     expect(s.bindRegion({ x: 0, y: 0, width: 100, height: 100, dpr: 2 })).toBe(true)
+  })
+})
+
+// --- VisibleSurface capability ---
+
+function makeMockVisibleSurface(canvas: HTMLCanvasElement): VisibleSurface {
+  return { ...makeMockSurface(), canvas }
+}
+
+describe('getVisibleCanvas', () => {
+  it('returns the canvas when the surface exposes one', () => {
+    const canvas = {} as HTMLCanvasElement
+    expect(getVisibleCanvas(makeMockVisibleSurface(canvas))).toBe(canvas)
+  })
+
+  it('returns null for a surface without a visible canvas', () => {
+    expect(getVisibleCanvas(makeMockSurface())).toBeNull()
+  })
+
+  it('returns null for the Canvas2D backend surface', () => {
+    expect(getVisibleCanvas(createCanvas2DRenderer().surface)).toBeNull()
   })
 })
 
