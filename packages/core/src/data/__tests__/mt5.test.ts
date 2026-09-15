@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { mt5MarketDataProvider } from '../provider/sources/mt5'
 import { marketDataProviderRegistry } from '../provider/registry'
+import type { InstrumentDescriptor } from '../provider/types'
 
 const fetchMock = vi.fn<typeof fetch>()
 
@@ -13,7 +14,7 @@ function jsonResponse(value: unknown, status = 200): Response {
   })
 }
 
-const instrument = {
+const instrument: InstrumentDescriptor = {
   id: 'mt5:XAUUSD',
   sourceId: 'mt5',
   symbol: 'XAUUSD',
