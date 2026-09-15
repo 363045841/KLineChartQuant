@@ -3,9 +3,9 @@
  */
 
 import type {
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
+  RenderContext,
+  RendererPluginWithHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
 import { resolveThemeColors } from '../../../foundation/tokens/index'

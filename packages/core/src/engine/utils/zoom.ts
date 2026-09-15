@@ -1,5 +1,5 @@
-import { getPhysicalKLineConfig } from './klineConfig'
 import { isTimeSharePeriod } from '../../foundation/types/chartPeriod'
+import { getPhysicalKLineConfig } from './klineConfig'
 
 /**
  * 缩放计算纯函数

@@ -1,21 +1,20 @@
 import type {
   IndicatorRenderStateReader,
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
+  RenderContext,
+  RendererPluginWithHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
 import type { ColorTokens } from '../../../foundation/tokens/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { calcTRIXData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { TitleInfo } from '../../indicators/indicatorMetadata'
+import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { TRIXRenderState } from '../../indicators/state/trixState'
-import { createTRIXStateKey } from '../../indicators/state/trixState'
-import { EMPTY_TRIX_STATE } from '../../indicators/state/trixState'
+import { createTRIXStateKey, EMPTY_TRIX_STATE } from '../../indicators/state/trixState'
 import { createDualSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 

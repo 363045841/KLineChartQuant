@@ -9,60 +9,73 @@
  *
  * 不是绘制管线的一部分。绘制由 ChartRenderer 完成，Chart 仅负责代理调用并维护 runtimeProjection（批量投影）屏障。
  */
+
+import {
+  type CustomDataSource,
+  FIVE_DAY_TIME_SHARE_PERIOD,
+  isTimeSharePeriod,
+  type SymbolInfo,
+  type SymbolSpec,
+  TIME_SHARE_PERIOD,
+} from '../controllers/types'
+import { resolveMarketDataCacheMaxBytes } from '../data/buffer/marketDataPolicy'
+import { AUTO_SOURCE_ID } from '../data/buffer/seriesRepository'
+import { lookupInstrumentsBySymbol } from '../data/provider/instrumentSearch'
+import { marketDataProviderRegistry } from '../data/provider/registry'
 import { createAlertController } from '../features/alerts/index'
 import {
   createVolumeLookbacks,
   pushToVolumeLookbacks,
   type VolumeLookbacks,
 } from '../features/alerts/rollingVolume'
+import type { AlertController, MarketSnapshot } from '../features/alerts/types'
+
+import {
+  buildPaneScaleTypesFromSetting,
+  type ChartSettings,
+  resolvePriceScaleTypeSetting,
+} from '../foundation/config/chartSettings'
 import {
   createPluginHost,
-  RendererPluginManager,
-  wrapPaneInfo,
   type PluginHostImpl,
   type RendererPlugin,
+  RendererPluginManager,
   type RendererPluginWithHost,
+  wrapPaneInfo,
 } from '../foundation/plugin/index'
 import { makePluginLayerId } from '../foundation/plugin/rendererLayerId'
-import { createLayerFromPlugin } from '../rendering/scene/createLayerFromPlugin'
 import {
+  type Computed,
   computed,
   createSignal,
   effect,
-  type Computed,
   type ReadonlySignal,
   type Signal,
   type WritableSignal,
 } from '../foundation/reactivity/signal'
-import type { LegendTemplateContext } from './renderers/Indicator/mainIndicatorLegendContext'
-
-import { InteractionController, type InteractionSnapshot } from './controller/interaction'
-
-import {
-  buildPaneScaleTypesFromSetting,
-  resolvePriceScaleTypeSetting,
-  type ChartSettings,
-} from '../foundation/config/chartSettings'
-import { resolveMarketDataCacheMaxBytes } from '../data/buffer/marketDataPolicy'
-import { AUTO_SOURCE_ID } from '../data/buffer/seriesRepository'
-import { lookupInstrumentsBySymbol } from '../data/provider/instrumentSearch'
-import { marketDataProviderRegistry } from '../data/provider/registry'
+import type { KLineData } from '../foundation/types/price'
 import {
   createDefaultRendererHostSync,
   type RendererBackend,
   type RendererHost,
 } from '../rendering/render/index'
-import type { KLineData } from '../foundation/types/price'
-
-import type { IndicatorScheduler } from './indicators/scheduler'
-import type { CustomMarkerEntity, MarkerManager } from './marker/registry'
-import type { ChartModeHandler } from './modes/types'
-import type { ScaleType } from './utils/tickPosition'
-
+import { createLayerFromPlugin } from '../rendering/scene/createLayerFromPlugin'
+import type {
+  ChartDom,
+  ChartOptions,
+  IndicatorInstance,
+  PaneSpec,
+  SubPaneInfo,
+  Viewport,
+  ViewportState,
+} from './chartTypes'
+import { InteractionController, type InteractionSnapshot } from './controller/interaction'
 // ===== 普通 imports，按路径字母排序 =====
 import { ChartDataManager } from './data/chartDataManager'
 import { ComparisonCommands } from './data/comparisonCommands'
 import { symbolInfoFromSpec } from './data/symbolInfo'
+import type { DrawingInteractionController } from './drawing/interaction'
+import type { DrawingToolId } from './drawing/toolConfig'
 import { ChartDrawingFacade } from './facade/chartDrawingFacade'
 import { ChartIndicatorFacade } from './facade/chartIndicatorFacade'
 import { ChartMarkerFacade } from './facade/chartMarkerFacade'
@@ -71,52 +84,33 @@ import { ChartThemeFacade } from './facade/chartThemeFacade'
 import { ChartZoomFacade } from './facade/chartZoomFacade'
 import { ChartIndicatorManager } from './indicators/chartIndicatorManager'
 import { resolveStateKey } from './indicators/indicatorMetadata'
+import type { IndicatorScheduler } from './indicators/scheduler'
 import { ChartPaneLayout } from './layout/chartPaneLayout'
 import { UpdateLevel, type VisibleRange } from './layout/pane'
-import { KLineMode } from './modes/kLineMode'
-import { TimeShareMode } from './modes/timeShareMode'
+import type { CustomMarkerEntity, MarkerManager } from './marker/registry'
 import { MarketSessionRegistry } from './market/marketSessionRegistry'
 import { resolveSymbolMarketSession } from './market/resolveSymbolMarketSession'
+import { KLineMode } from './modes/kLineMode'
+import { TimeShareMode } from './modes/timeShareMode'
+import type { ChartModeHandler } from './modes/types'
 import { PaneRenderer } from './paneRenderer'
 import { ChartRenderer, mergeUpdateLevel } from './render/chartRenderer'
+import type { LegendTemplateContext } from './renderers/Indicator/mainIndicatorLegendContext'
 import { ChartStateKernel } from './state/chartStateKernel'
-import type { ViewWorkspacePersistence, ViewWorkspacesSnapshot } from './state/viewWorkspace'
 import type { RangeSelectionState } from './state/interactionState'
 import {
+  type ChartDataView,
   ChartDataViewId,
   isTimeShareDataView,
   resolveChartWorkspaceId,
-  type ChartDataView,
 } from './state/modeState'
-import { ChartViewportManager } from './viewport/chartViewportManager'
-import { ViewportScrollBridge } from './viewport/viewportScrollBridge'
+import type { ViewWorkspacePersistence, ViewWorkspacesSnapshot } from './state/viewWorkspace'
 import { ChartZoomController } from './utils/chartZoomController'
 import { getPhysicalKLineConfig } from './utils/klineConfig'
-import type {
-  ChartDom,
-  PaneSpec,
-  ChartOptions,
-  Viewport,
-  ViewportState,
-  IndicatorInstance,
-  SubPaneInfo,
-} from './chartTypes'
-import type { DrawingToolId } from './drawing/toolConfig'
-import type { DrawingInteractionController } from './drawing/interaction'
-import {
-  FIVE_DAY_TIME_SHARE_PERIOD,
-  isTimeSharePeriod,
-  TIME_SHARE_PERIOD,
-  type SymbolSpec,
-  type SymbolInfo,
-  type CustomDataSource,
-} from '../controllers/types'
-import type { AlertController, MarketSnapshot } from '../features/alerts/types'
+import type { ScaleType } from './utils/tickPosition'
+import { ChartViewportManager } from './viewport/chartViewportManager'
+import { ViewportScrollBridge } from './viewport/viewportScrollBridge'
 
-export type { InteractionSnapshot }
-
-// ===== 重新导出 =====
-export { getPhysicalKLineConfig }
 export type {
   ChartDom,
   ChartOptions,
@@ -129,6 +123,9 @@ export type {
   Viewport,
   ViewportState,
 } from './chartTypes'
+export type { InteractionSnapshot }
+// ===== 重新导出 =====
+export { getPhysicalKLineConfig }
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'>
 
@@ -459,7 +456,8 @@ export class Chart {
       zoom: this.kernel.zoom,
       options: this.kernel.options,
       viewport: this.kernel.viewport,
-      commitViewportScroll: (targetScrollLeft) => this.viewportScrollBridge.commit(targetScrollLeft),
+      commitViewportScroll: (targetScrollLeft) =>
+        this.viewportScrollBridge.commit(targetScrollLeft),
       getDataManager: () => this.dataManager,
       getIndicatorManager: () => this.indicatorManager,
       getActiveMode: () => this.activeMode,
@@ -1465,9 +1463,7 @@ export class Chart {
     const primary = specs[0]
     const primaryPeriod = primary?.period
     if (primary && isTimeSharePeriod(primaryPeriod)) {
-      this._timeShareMode.setMarketSession(
-        resolveSymbolMarketSession(primary, this.marketSessions),
-      )
+      this._timeShareMode.setMarketSession(resolveSymbolMarketSession(primary, this.marketSessions))
     }
 
     // 品种/周期切换时重置最新 K 线时间戳，确保新数据触发预警

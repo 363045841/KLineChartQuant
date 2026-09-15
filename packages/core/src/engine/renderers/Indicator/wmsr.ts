@@ -1,7 +1,7 @@
 import type {
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
+  RenderContext,
+  RendererPluginWithHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
 import { resolveThemeColors } from '../../../foundation/tokens/index'
@@ -13,10 +13,9 @@ import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { WMSRRenderState } from '../../indicators/state/wmsrState'
 import { createWMSRStateKey, EMPTY_WMSR_STATE } from '../../indicators/state/wmsrState'
 import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
-
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 import { createWmsrScaleRendererPlugin } from './scale/wmsr_scale'
 import { createSingleLineTitleInfo } from './shared/titleInfo'
-import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 type LinePoint = { x: number; y: number }
 

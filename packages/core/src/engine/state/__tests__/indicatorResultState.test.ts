@@ -55,7 +55,7 @@ describe('indicatorResultState', () => {
     expect(snapshot.committed?.renderStates.get('indicator:ma:main')).toEqual(
       renderStates.get('indicator:ma:main'),
     )
-    expect(() => (snapshot.committed?.renderStates as Map<string, unknown>).set('x', {})).toThrow(
+    expect(() => (snapshot.committed!.renderStates as Map<string, unknown>).set('x', {})).toThrow(
       TypeError,
     )
     expect(snapshot.pool?.timestamps).toEqual([1000, 2000])
@@ -63,9 +63,9 @@ describe('indicatorResultState', () => {
       definitionId: 'macd',
       firstReadyIndex: 1,
     })
-    expect(() => (snapshot.pool?.timestamps as number[]).push(3000)).toThrow(TypeError)
+    expect(() => (snapshot.pool!.timestamps as number[]).push(3000)).toThrow(TypeError)
     expect(() => snapshot.committed?.bundle._changed.push('boll')).toThrow(TypeError)
-    expect(() => (snapshot.pool?.results as Map<string, unknown>).set('macd-b', {})).toThrow(
+    expect(() => (snapshot.pool!.results as Map<string, unknown>).set('macd-b', {})).toThrow(
       TypeError,
     )
     expect(() => {

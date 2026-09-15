@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeAll } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { getRegisteredIndicatorDefinition } from '../indicatorDefinitionRegistry'
 import { getBuiltinIndicatorDefinitions, loadBuiltinIndicators } from '../registerBuiltins'

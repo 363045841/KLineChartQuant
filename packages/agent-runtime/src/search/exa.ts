@@ -15,7 +15,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /** 将 Exa 单条响应转换为运行时来源；缺少标题或地址的结果不具备引用价值。 */
 function toSource(value: unknown): WebSearchSource | undefined {
-  if (!isRecord(value) || typeof value.title !== 'string' || typeof value.url !== 'string') return undefined
+  if (!isRecord(value) || typeof value.title !== 'string' || typeof value.url !== 'string')
+    return undefined
   return {
     title: value.title,
     url: value.url,
@@ -25,7 +26,9 @@ function toSource(value: unknown): WebSearchSource | undefined {
 }
 
 /** 创建使用 Exa Search API 的网络搜索供应商。 */
-export function createExaWebSearchProvider(options: ExaWebSearchProviderOptions): WebSearchProvider {
+export function createExaWebSearchProvider(
+  options: ExaWebSearchProviderOptions,
+): WebSearchProvider {
   const fetchImplementation = options.fetch ?? globalThis.fetch
 
   return {

@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest'
-
-import type { RenderContext } from '../../../../foundation/plugin'
 import type { SymbolSpec } from '../../../../controllers/types'
-import type { KLineData, TimeShareData } from '../../../../foundation/types/price'
+import type { RenderContext } from '../../../../foundation/plugin'
 import { ChartDataViewId } from '../../../../foundation/types/chartView'
+import type { KLineData, TimeShareData } from '../../../../foundation/types/price'
 import { symbolSpecIdentityKey } from '../../../data/symbolIdentity'
 import { buildLegendTemplateContext } from '../mainIndicatorLegendContext'
 

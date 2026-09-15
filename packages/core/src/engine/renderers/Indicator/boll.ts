@@ -1,26 +1,26 @@
 import type {
-  RendererPluginWithHost,
   PluginHost,
   RenderContext,
+  RendererPluginWithHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors, type ColorTokens } from '../../../foundation/tokens/index'
+import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys'
+import { type ColorTokens, resolveThemeColors } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
 import { calcBOLLData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { readIndicatorSeriesEntry, resolveStateKey } from '../../indicators/indicatorMetadata'
 import type {
+  GetTitleInfoFn,
   IndicatorPriceRangeComputer,
   IndicatorRenderStateComposer,
-  GetTitleInfoFn,
   TitleInfo,
   TitleValueItem,
 } from '../../indicators/indicatorMetadata'
+import { readIndicatorSeriesEntry, resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { BOLLRenderState } from '../../indicators/state/bollState'
 import { ChartDataViewId } from '../../state/modeState'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys'
 
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 

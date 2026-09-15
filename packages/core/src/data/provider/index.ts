@@ -1,12 +1,7 @@
 /** 统一行情领域模型公共入口。 */
 
-export {
-  DEFAULT_V1_BASE_URL,
-  V1_PROTOCOL_NAME,
-  V1_PROTOCOL_VERSION,
-  createHttpMarketDataTransport,
-  createMarketDataProvider,
-} from './protocol'
+export type { InstrumentLookupRequest, InstrumentSearchRequest } from './instrumentSearch'
+export { lookupInstrumentsBySymbol, searchInstruments } from './instrumentSearch'
 export type {
   HttpTransportOptions,
   MarketDataProviderOptions,
@@ -16,8 +11,8 @@ export type {
   ProtocolBarSeries,
   ProtocolBaseUrl,
   ProtocolEnvelope,
-  ProtocolErrorEnvelope,
   ProtocolErrorCode,
+  ProtocolErrorEnvelope,
   ProtocolHistoryCoverage,
   ProtocolInstrumentCapabilities,
   ProtocolInstrumentDescriptor,
@@ -25,27 +20,31 @@ export type {
   ProtocolInstrumentSearchRequest,
   ProtocolInstrumentSearchResult,
   ProtocolKLineItem,
-  ProtocolSourceProbe,
   ProtocolSourceCapabilities,
+  ProtocolSourceProbe,
   ProtocolSourceRejectionCode,
-  ProtocolTimeShareItem,
   ProtocolTimeShareDay,
+  ProtocolTimeShareItem,
   ProtocolTimeShareRangeCapability,
   ProtocolTimeShareRangeRequest,
   ProtocolTimeShareRangeSeries,
   ProtocolTimeShareRequest,
   ProtocolTimeShareSeries,
 } from './protocol'
-export { SOURCE_REJECTION_CODES } from './protocol'
-export { MarketDataProviderRegistry, marketDataProviderRegistry } from './registry'
+export {
+  createHttpMarketDataTransport,
+  createMarketDataProvider,
+  DEFAULT_V1_BASE_URL,
+  SOURCE_REJECTION_CODES,
+  V1_PROTOCOL_NAME,
+  V1_PROTOCOL_VERSION,
+} from './protocol'
 export type {
   MarketDataSourceConfig,
   MarketDataSourceConfigPatch,
   SourceCapabilityQuery,
 } from './registry'
-export { lookupInstrumentsBySymbol, searchInstruments } from './instrumentSearch'
-export type { InstrumentLookupRequest, InstrumentSearchRequest } from './instrumentSearch'
-export { SourceRouter, SourceRoutingError, sourceRouter } from './router'
+export { MarketDataProviderRegistry, marketDataProviderRegistry } from './registry'
 export type {
   RoutedMarketData,
   SourceRouteAttempt,
@@ -53,8 +52,9 @@ export type {
   SourceRouterInstrumentIdentity,
   SourceRouterTimeShareRequest,
 } from './router'
-export { dataSourceRegistry } from './sourceRegistry'
+export { SourceRouter, SourceRoutingError, sourceRouter } from './router'
 export type { DataSourceRegistration } from './sourceRegistry'
+export { dataSourceRegistry } from './sourceRegistry'
 export type {
   AssetClass,
   BarCapability,
@@ -74,15 +74,15 @@ export type {
   MarketDataProvider,
   MarketDataSourceStatus,
   ProviderRef,
-  SourceProbeResult,
   SourceCapabilities,
+  SourceProbeResult,
   TimeShareDataSource,
   TimeShareDay,
+  TimeShareQuery,
+  TimeShareRange,
   TimeShareRangeCapability,
   TimeShareRangeDataSource,
-  TimeShareRange,
   TimeShareRangeQuery,
-  TimeShareQuery,
   TimeShareSeries,
   TradingDate,
   VolumeUnit,

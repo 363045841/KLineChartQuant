@@ -1,24 +1,22 @@
 import type {
   IndicatorRenderStateReader,
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
+  RenderContext,
+  RendererPluginWithHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
 import type { ColorTokens } from '../../../foundation/tokens/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { calcKSTData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { KSTRenderState } from '../../indicators/state/kstState'
-import { createKSTStateKey } from '../../indicators/state/kstState'
-import { EMPTY_KST_STATE } from '../../indicators/state/kstState'
+import { createKSTStateKey, EMPTY_KST_STATE } from '../../indicators/state/kstState'
 import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers'
-
-import { createKstScaleRendererPlugin } from './scale/kst_scale'
 import { tryDrawLinesGpu } from '../linesViaRenderer'
+import { createKstScaleRendererPlugin } from './scale/kst_scale'
 
 type LinePoint = { x: number; y: number }
 

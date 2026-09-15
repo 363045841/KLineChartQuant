@@ -1,5 +1,8 @@
 /** WebGPU 后端实现，管理 GPU 资源、帧内批绘制和 compute dispatch。 */
 
+import { createFrameMetrics } from '../frameMetrics'
+import { prepareLineStripForPhysicalPixels } from '../physicalLine'
+import { toPhysicalRegion } from '../physicalRegion'
 import type {
   BufferHandle,
   BufferUsage,
@@ -11,12 +14,6 @@ import type {
   PipelineHandle,
   Renderer,
 } from '../Renderer'
-import { createWebGPUSurfaceBackend, type WebGPUSurfaceBackend } from './createWebGPUSurfaceBackend'
-import { createFrameMetrics } from '../frameMetrics'
-import { prepareLineStripForPhysicalPixels } from '../physicalLine'
-import { toPhysicalRegion } from '../physicalRegion'
-import { buildWideLineGeometry } from '../wideLineGeometry'
-import { createWebGPUResourceTable } from '../webgpuResourceTable'
 import {
   GPU_BUFFER_COPY_DST,
   GPU_BUFFER_INDEX,
@@ -25,6 +22,9 @@ import {
   GPU_BUFFER_VERTEX,
   GPU_TEXTURE_RENDER_ATTACHMENT,
 } from '../webgpuGlobals'
+import { createWebGPUResourceTable } from '../webgpuResourceTable'
+import { buildWideLineGeometry } from '../wideLineGeometry'
+import { createWebGPUSurfaceBackend, type WebGPUSurfaceBackend } from './createWebGPUSurfaceBackend'
 
 type PipelineType = 'candle' | 'line' | 'fill'
 

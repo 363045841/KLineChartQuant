@@ -16,10 +16,9 @@
  *   9. dispose() makes everything a no-op.
  */
 
-import { describe, it, expect } from 'vitest'
-
-import { createShortcutRegistry, parseCombo, canonicalCombo, type KeyboardEventLike } from '..'
+import { describe, expect, it } from 'vitest'
 import { isKLineChartError } from '../../../errors'
+import { canonicalCombo, createShortcutRegistry, type KeyboardEventLike, parseCombo } from '..'
 
 function evt(over: Partial<KeyboardEventLike>): KeyboardEventLike {
   return {

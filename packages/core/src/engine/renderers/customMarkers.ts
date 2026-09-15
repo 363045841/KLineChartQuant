@@ -1,10 +1,10 @@
+import { drawLabel, drawShape, hitTestShape } from '../../features/semantic/drawShape'
 import type {
-  RendererPlugin,
-  RenderContext,
   MarkerManagerLike,
+  RenderContext,
+  RendererPlugin,
 } from '../../foundation/plugin/index'
-import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../foundation/plugin/index'
-import { drawShape, drawLabel, hitTestShape } from '../../features/semantic/drawShape'
+import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import type { KLineData } from '../../foundation/types/price'
 import { roundToPhysicalPixel } from '../../foundation/utils/pixelAlign'
 import type { CustomMarkerEntity, CustomMarkerShape } from '../marker/registry'

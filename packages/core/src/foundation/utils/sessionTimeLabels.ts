@@ -294,8 +294,7 @@ function zonedWallTimeToUtc(
     const wall = getWallClockInTimeZone(utc, timeZone)
     const desiredMin = hour * 60 + minute
     const actualMin = wall.hour * 60 + wall.minute
-    const dayDelta =
-      Date.UTC(year, month - 1, day) - Date.UTC(wall.year, wall.month - 1, wall.day)
+    const dayDelta = Date.UTC(year, month - 1, day) - Date.UTC(wall.year, wall.month - 1, wall.day)
     const minDelta = desiredMin - actualMin + dayDelta / 60_000
     if (minDelta === 0) break
     utc += minDelta * 60_000

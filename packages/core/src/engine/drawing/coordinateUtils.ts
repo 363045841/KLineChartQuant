@@ -9,9 +9,8 @@ import type {
   ScreenDrawingAnchor,
   ScreenPoint,
 } from '../../foundation/plugin/index'
-
-import { snapPointerToOhlc } from './magnetSnapper'
 import type { MagnetSnapConfig } from './magnetSnapper'
+import { snapPointerToOhlc } from './magnetSnapper'
 
 // ---- Types ----
 

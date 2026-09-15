@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import type { RenderContext } from '../../../foundation/plugin/index'
 import type { Renderer } from '../../../rendering/render/Renderer'

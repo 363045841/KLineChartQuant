@@ -1,19 +1,20 @@
 // Pi Agent 运行计划、工具适配和 UI 事件投影的数据契约。
+
+import type { AgentMessage, StreamFn } from '@earendil-works/pi-agent-core'
+import type { Api, AssistantMessage, Model } from '@earendil-works/pi-ai'
+import type { TSchema } from 'typebox'
 import type { AgentRuntimeError } from '../contracts/errors.js'
 import type {
-  AgentRunUiEventInput,
   AgentErrorView,
-  AgentUsageView,
   AgentRunScope,
+  AgentRunUiEventInput,
+  AgentUsageView,
   EvidenceView,
+  ProviderReasoningEffort,
   SourceCitation,
   ToolProgressView,
   ToolSafety,
-  ProviderReasoningEffort,
 } from '../contracts/ui.js'
-import type { AgentMessage, StreamFn } from '@earendil-works/pi-agent-core'
-import type { Model, Api, AssistantMessage } from '@earendil-works/pi-ai'
-import type { TSchema } from 'typebox'
 
 /** 图表工具执行完成后返回给 Pi 与 UI 的标准结果。 */
 export interface RuntimeToolResult {

@@ -1,7 +1,7 @@
 import type {
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
+  RenderContext,
+  RendererPluginWithHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
 import { resolveThemeColors } from '../../../foundation/tokens/index'
@@ -10,8 +10,10 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { ParkinsonRenderState } from '../../indicators/state/parkinsonState'
-import { createParkinsonStateKey } from '../../indicators/state/parkinsonState'
-import { EMPTY_PARKINSON_STATE } from '../../indicators/state/parkinsonState'
+import {
+  createParkinsonStateKey,
+  EMPTY_PARKINSON_STATE,
+} from '../../indicators/state/parkinsonState'
 import { createNonNegativeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 

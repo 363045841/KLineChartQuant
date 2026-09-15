@@ -11,7 +11,7 @@
  *     covered by dedicated tests below.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { findPOCIndex } from '../poc'
 import { computeValueArea } from '../valueArea'

@@ -19,7 +19,7 @@
  * Each WCAG AA against the background (>= 3:1 for non-text).
  */
 
-import { spacing, typography, motion } from './theme-base'
+import { motion, spacing, typography } from './theme-base'
 import type { Theme } from './types'
 
 export const lightTheme: Theme = {

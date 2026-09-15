@@ -1,11 +1,10 @@
-import type { MarkerEntity, CustomMarkerEntity, MarkerManager } from '../marker/registry'
+import type { CustomMarkerEntity, MarkerEntity, MarkerManager } from '../marker/registry'
 
 /** Marker交互状态 v2 — 精简为仅含回调注册与 hitTest 逻辑。状态层面已合并入 interactionState。 */
 export class MarkerInteractionState {
   private onMarkerHoverCallback?: (marker: MarkerEntity | null) => void
   private onMarkerClickCallback?: (marker: MarkerEntity) => void
   private onCustomMarkerHoverCallback?: (marker: CustomMarkerEntity | null) => void
-  private onCustomMarkerClickCallback?: (marker: CustomMarkerEntity) => void
 
   setOnMarkerHover(callback: (marker: MarkerEntity | null) => void) {
     this.onMarkerHoverCallback = callback
@@ -17,10 +16,6 @@ export class MarkerInteractionState {
 
   setOnCustomMarkerHover(callback: (marker: CustomMarkerEntity | null) => void) {
     this.onCustomMarkerHoverCallback = callback
-  }
-
-  setOnCustomMarkerClick(callback: (marker: CustomMarkerEntity) => void) {
-    this.onCustomMarkerClickCallback = callback
   }
 
   get onMarkerHover(): ((marker: MarkerEntity | null) => void) | undefined {
@@ -41,11 +36,21 @@ export class MarkerInteractionState {
     mouseX: number,
     mouseY: number,
     markerManager: MarkerManager,
-  ): { hit: boolean; hitMarkerId: string | null; hitMarkerData: MarkerEntity | null; hitCustomMarker: CustomMarkerEntity | null } {
+  ): {
+    hit: boolean
+    hitMarkerId: string | null
+    hitMarkerData: MarkerEntity | null
+    hitCustomMarker: CustomMarkerEntity | null
+  } {
     const hitMarker = markerManager.hitTest(worldX, mouseY, 3)
     if (hitMarker) {
       this.onMarkerHoverCallback?.(hitMarker)
-      return { hit: true, hitMarkerId: hitMarker.id, hitMarkerData: hitMarker, hitCustomMarker: null }
+      return {
+        hit: true,
+        hitMarkerId: hitMarker.id,
+        hitMarkerData: hitMarker,
+        hitCustomMarker: null,
+      }
     }
 
     const hitCustomMarker = markerManager.hitTestCustomMarker(mouseX, mouseY)

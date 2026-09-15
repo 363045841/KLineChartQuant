@@ -2,12 +2,12 @@
 import { type Static, Type } from 'typebox'
 
 import type { SymbolSpec } from '../../controllers/types'
-import { COMPARISON_ERROR_CODES, KLineChartError } from '../../errors'
 import {
-  KNOWN_ASSET_CLASS_VALUES,
   type AssetClass,
   type InstrumentDescriptor,
+  KNOWN_ASSET_CLASS_VALUES,
 } from '../../data/provider/types'
+import { COMPARISON_ERROR_CODES, KLineChartError } from '../../errors'
 import { Tool } from '../../foundation/agent/chartToolRegistry'
 
 import { symbolSpecIdentityKey } from './symbolIdentity'
@@ -64,8 +64,9 @@ export type ComparisonRemoveInput = Static<typeof ComparisonRemoveToolParameters
  * assetClass 只参与歧义消解，不进入品种 spec。
  */
 export type ComparisonAddInput = Omit<ComparisonCreateInput, 'assetClass' | 'primary'> &
-  Partial<Pick<SymbolSpec, 'id' | 'instrument' | 'params' | 'startDate' | 'endDate' | 'incremental'>>
-
+  Partial<
+    Pick<SymbolSpec, 'id' | 'instrument' | 'params' | 'startDate' | 'endDate' | 'incremental'>
+  >
 
 /** 按代码解析品种的输入；source 省略时跨源查询。 */
 export interface ComparisonInstrumentQuery {
@@ -207,9 +208,7 @@ export class ComparisonCommands implements ComparisonCommandsApi {
     const identity = symbolSpecIdentityKey(spec)
     const specs = this.comparisonSpecs()
     if (
-      specs.some(
-        (item) => symbolSpecIdentityKey(item) === identity || item.symbol === spec.symbol,
-      )
+      specs.some((item) => symbolSpecIdentityKey(item) === identity || item.symbol === spec.symbol)
     ) {
       return false
     }

@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-
-import { loadBuiltinIndicators } from '../../indicators/registerBuiltins'
 import { getRegisteredIndicatorDefinition } from '../../indicators/indicatorDefinitionRegistry'
+import { loadBuiltinIndicators } from '../../indicators/registerBuiltins'
 import { ChartStateKernel } from '../chartStateKernel'
 import { ChartDataViewId, createModeState } from '../modeState'
 

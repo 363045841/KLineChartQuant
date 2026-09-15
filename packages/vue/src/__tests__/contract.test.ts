@@ -7,13 +7,13 @@
 
 import type { ChartController, ChartMountOptions } from '@363045841yyt/klinechart-core'
 import { mount } from '@vue/test-utils'
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick, ref, shallowRef } from 'vue'
 
 import KLineTooltip from '../components/KLineTooltip.vue'
+import type { KlineTooltipSlotProps, MarkerTooltipSlotProps } from '../index'
 import * as VueAdapter from '../index'
 import { coreSignalToVueRef } from '../index'
-import type { KlineTooltipSlotProps, MarkerTooltipSlotProps } from '../index'
 
 import { createMockChartController, createTestSignal } from './_mockController'
 

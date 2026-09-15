@@ -1,7 +1,7 @@
 import type { PluginHost, RenderContext } from '../../../foundation/plugin/index'
 import { resolveThemeColors } from '../../../foundation/tokens/index'
-import type { KLineData, TimeShareData } from '../../../foundation/types/price'
 import { ChartDataViewId, isTimeShareDataView } from '../../../foundation/types/chartView'
+import type { KLineData, TimeShareData } from '../../../foundation/types/price'
 import { symbolSpecIdentityKey } from '../../data/symbolIdentity'
 import type { TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../../indicators/scheduler'

@@ -319,6 +319,11 @@ import { detectRendererTier, type RendererTier } from '../utils/rendererCapabili
 
 import { migrateAxisSettings } from './axisSettings'
 
+export type {
+  AxisDisplaySetting,
+  PriceScaleTypeSetting,
+  RightAxisTypeSetting,
+} from './axisSettings'
 export {
   buildPaneScaleTypesFromSetting,
   migrateAxisSettings,
@@ -327,9 +332,4 @@ export {
   resolvePriceScaleTypeSetting,
   resolveRightAxisDisplayFromType,
   resolveRightAxisTypeSetting,
-} from './axisSettings'
-export type {
-  AxisDisplaySetting,
-  PriceScaleTypeSetting,
-  RightAxisTypeSetting,
 } from './axisSettings'

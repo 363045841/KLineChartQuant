@@ -79,13 +79,15 @@ describe('DrawingInteractionController selection', () => {
     const first = createDrawingObject({ id: 'first' })
     const second = createDrawingObject({ id: 'second' })
     const third = createDrawingObject({ id: 'third' })
-    const { adapter, setSelectedDrawingIds } = createSelectionAdapter(
-      [first, second, third],
-      { tool: 'box-select' },
-    )
+    const { adapter, setSelectedDrawingIds } = createSelectionAdapter([first, second, third], {
+      tool: 'box-select',
+    })
     const controller = new DrawingInteractionController(adapter)
     const internal = controller as unknown as {
-      hitTester: { hitTest: ReturnType<typeof vi.fn>; getDrawingLineSegments: ReturnType<typeof vi.fn> }
+      hitTester: {
+        hitTest: ReturnType<typeof vi.fn>
+        getDrawingLineSegments: ReturnType<typeof vi.fn>
+      }
     }
     internal.hitTester = {
       hitTest: vi.fn(() => null),
@@ -106,7 +108,9 @@ describe('DrawingInteractionController selection', () => {
 
   it('clears the current selection when box-select clicks blank space', () => {
     const drawing = createDrawingObject({ id: 'selected' })
-    const { adapter, setSelectedDrawingIds } = createSelectionAdapter([drawing], { tool: 'box-select' })
+    const { adapter, setSelectedDrawingIds } = createSelectionAdapter([drawing], {
+      tool: 'box-select',
+    })
     const controller = new DrawingInteractionController(adapter)
     const container = CONTAINER
     adapter.setSelectedDrawingIds([drawing.id])
@@ -121,8 +125,14 @@ describe('DrawingInteractionController selection', () => {
     const second = createDrawingObject({ id: 'second' })
     const { adapter } = createSelectionAdapter([first, second])
     const controller = new DrawingInteractionController(adapter)
-    const movedFirst = { ...first, anchors: [{ id: 'first-anchor', type: 'horizontal' as const, price: 11 }] }
-    const movedSecond = { ...second, anchors: [{ id: 'second-anchor', type: 'horizontal' as const, price: 21 }] }
+    const movedFirst = {
+      ...first,
+      anchors: [{ id: 'first-anchor', type: 'horizontal' as const, price: 11 }],
+    }
+    const movedSecond = {
+      ...second,
+      anchors: [{ id: 'second-anchor', type: 'horizontal' as const, price: 21 }],
+    }
     const startDrag = vi.fn()
     const internal = controller as unknown as {
       hitTester: { hitTest: ReturnType<typeof vi.fn> }

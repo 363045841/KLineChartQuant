@@ -1,10 +1,11 @@
 /** 用户偏好设置状态模块：解析、迁移与冻结快照。 */
-import { batch, createSubState } from '../../foundation/reactivity/signal'
+
 import {
+  type ChartSettings,
   migrateStoredSettings,
   normalizeSettings,
-  type ChartSettings,
 } from '../../foundation/config/chartSettings'
+import { batch, createSubState } from '../../foundation/reactivity/signal'
 import { deepFreezeSnapshot } from './immutable'
 
 function normalizePartial(partial?: Partial<ChartSettings>): Partial<ChartSettings> {

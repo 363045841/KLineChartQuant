@@ -3,37 +3,39 @@ import type { DrawingObject, DrawingStyle } from '../../foundation/plugin/index'
 import { ChartWorkspaceId } from '../../foundation/types/chartView'
 
 import { AnchorCollector } from './AnchorCollector'
-import { DragHandler } from './DragHandler'
-import { DrawingState, PREVIEW_ID } from './DrawingState'
-import { clearDrawingSelection, toggleDrawingSelection } from './DrawingSelection'
-import { HitTester } from './HitTester'
-import type { HitResult, LineLabelTarget } from './HitTester'
-import {
-  drawingIntersectsSelectionMarquee,
-  hasSelectionMarqueeArea,
-  type DrawingSelectionMarquee,
-} from './selectionMarquee'
-import { PreviewRenderer } from './PreviewRenderer'
-import { resolveDrawingPointer } from './coordinateUtils'
 import type {
-  ResolvedInteractionAnchor,
   DrawingPointerAnchor,
   ResolveDrawingPointerOptions,
+  ResolvedInteractionAnchor,
 } from './coordinateUtils'
+import { resolveDrawingPointer } from './coordinateUtils'
+import { DragHandler } from './DragHandler'
+import { clearDrawingSelection, toggleDrawingSelection } from './DrawingSelection'
+import { DrawingState, PREVIEW_ID } from './DrawingState'
+import type { HitResult, LineLabelTarget } from './HitTester'
+import { HitTester } from './HitTester'
 import type { MagnetMode } from './magnetSnapper'
+import { PreviewRenderer } from './PreviewRenderer'
+import {
+  type DrawingSelectionMarquee,
+  drawingIntersectsSelectionMarquee,
+  hasSelectionMarqueeArea,
+} from './selectionMarquee'
 import type { DrawingToolId } from './toolConfig'
 import { getAnchorCountForTool, getDrawingKind } from './toolConfig'
 
+export type { InteractionDrawingAnchor } from './coordinateUtils'
 // Re-export types so index.ts re-exports work unchanged
 export type { DrawingToolId } from './toolConfig'
-export type { InteractionDrawingAnchor } from './coordinateUtils'
 
 /** 命中标签后供宿主渲染就地编辑器的几何快照；与 HitTester 的命中结果同一类型。 */
 export type DrawingLineLabelTarget = LineLabelTarget
 
 /** 指针会话的唯一状态：框选和拖拽互斥，禁止通过多个可空字段推导行为。 */
 type DrawingPointerSession =
-  { kind: 'idle' } | { kind: 'marquee'; marquee: DrawingSelectionMarquee } | { kind: 'drag' }
+  | { kind: 'idle' }
+  | { kind: 'marquee'; marquee: DrawingSelectionMarquee }
+  | { kind: 'drag' }
 
 /**
  * 绘图交互控制器 —— 精简事件路由，组合子模块。
@@ -222,12 +224,7 @@ export class DrawingInteractionController {
       return this.handleBoxSelectDown(e, container)
     }
 
-    const pointer = resolveDrawingPointer(
-      e,
-      container,
-      this.adapter,
-      this.resolveMagnetOptions(e),
-    )
+    const pointer = resolveDrawingPointer(e, container, this.adapter, this.resolveMagnetOptions(e))
     if (!pointer || (this.pendingPaneId !== null && pointer.paneId !== this.pendingPaneId))
       return false
 
@@ -368,8 +365,7 @@ export class DrawingInteractionController {
         (drawing) =>
           !drawing.locked &&
           drawing.paneId === paneId &&
-          (drawing.workspaceId ?? ChartWorkspaceId.KLine) ===
-            this.adapter.getDrawingWorkspaceId(),
+          (drawing.workspaceId ?? ChartWorkspaceId.KLine) === this.adapter.getDrawingWorkspaceId(),
       )
   }
 

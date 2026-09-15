@@ -2,14 +2,14 @@
  * Type-only test for the StateKernel readonly boundary.
  * Doesn't run at runtime — `pnpm type-check` enforces these constraints.
  */
-import { describe, it, expect } from 'vitest'
-import {
-  createSubState,
-  computed,
-  writableRef,
-  type ReadonlySignal,
-} from '../foundation/reactivity/signal'
+import { describe, expect, it } from 'vitest'
 import { createViewportState } from '../engine/state/viewportState'
+import {
+  computed,
+  createSubState,
+  type ReadonlySignal,
+  writableRef,
+} from '../foundation/reactivity/signal'
 
 describe('StateKernel type constraints (compile-time)', () => {
   it('ReadonlySignal<T> has no .set property', () => {

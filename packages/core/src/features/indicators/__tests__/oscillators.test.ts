@@ -7,7 +7,7 @@
  *   - OHLC bars : UO
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { computeAwesomeOscillator } from '../awesomeOscillator'
 import { computeDPO } from '../dpo'

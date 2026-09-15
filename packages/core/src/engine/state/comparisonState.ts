@@ -1,6 +1,7 @@
 // 对比序列状态模块：对比品种集合是唯一业务 SSOT，颜色与加载状态随其管理。
-import { batch, createSubState } from '../../foundation/reactivity/signal'
+
 import type { SymbolSpec } from '../../controllers/types'
+import { batch, createSubState } from '../../foundation/reactivity/signal'
 import { symbolSpecIdentityKey } from '../data/symbolIdentity'
 import { immutableMap } from './immutable'
 

@@ -29,17 +29,19 @@ function positiveInteger(value: unknown): number | undefined {
 }
 
 /** 解析模型声明的思考强度。 */
-function reasoningCapabilities(value: unknown): Pick<
-  ProviderCatalogModel,
-  'reasoningEfforts' | 'defaultReasoningEffort'
-> {
+function reasoningCapabilities(
+  value: unknown,
+): Pick<ProviderCatalogModel, 'reasoningEfforts' | 'defaultReasoningEffort'> {
   if (!isRecord(value) || !Array.isArray(value.supported_efforts)) {
     return { reasoningEfforts: [] }
   }
   const supportedEfforts = value.supported_efforts
-  const reasoningEfforts = PROVIDER_REASONING_EFFORTS.filter((effort) => supportedEfforts.includes(effort))
+  const reasoningEfforts = PROVIDER_REASONING_EFFORTS.filter((effort) =>
+    supportedEfforts.includes(effort),
+  )
   const defaultReasoningEffort =
-    typeof value.default_effort === 'string' && reasoningEfforts.includes(value.default_effort as ProviderReasoningEffort)
+    typeof value.default_effort === 'string' &&
+    reasoningEfforts.includes(value.default_effort as ProviderReasoningEffort)
       ? (value.default_effort as ProviderReasoningEffort)
       : undefined
   return { reasoningEfforts, defaultReasoningEffort }

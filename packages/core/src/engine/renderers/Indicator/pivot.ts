@@ -1,18 +1,18 @@
 import type {
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
+  RenderContext,
+  RendererPluginWithHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
 import type { ColorTokens } from '../../../foundation/tokens/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcPivotData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import {
+  type GetTitleInfoFn,
   resolveStateKey,
   type TitleInfo,
   type TitleValueItem,
-  type GetTitleInfoFn,
 } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { PivotRenderState } from '../../indicators/state/pivotState'

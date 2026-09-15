@@ -1,24 +1,24 @@
-import { alignToPhysicalPixelCenter, roundToPhysicalPixel } from '../pixelAlign'
-import { getFont, setCanvasFont } from '../../tokens/fonts'
-import { resolveThemeColors } from '../../tokens'
 import type { ColorPresetSettings } from '../../tokens'
-import type { KLineData } from '../../types/price'
+import { resolveThemeColors } from '../../tokens'
+import { getFont, setCanvasFont } from '../../tokens/fonts'
 import { isTimeSharePeriod } from '../../types/chartPeriod'
+import type { KLineData } from '../../types/price'
 import {
-  formatYMDShanghai,
-  formatTimeLabel,
-  formatMonthOrYear,
-  formatDay,
-  findMonthBoundaries,
   findDayBoundaries,
+  findMonthBoundaries,
+  formatDay,
+  formatMonthOrYear,
+  formatTimeLabel,
+  formatYMDShanghai,
 } from '../dateFormat'
+import { alignToPhysicalPixelCenter, roundToPhysicalPixel } from '../pixelAlign'
 import { priceToY, yToPrice } from '../priceToY'
 import {
   ASHARE_MARKET_SESSION,
   computeTimeShareTimeLabels,
+  type MarketSessionConfig,
   minuteOfDayToTimestamp,
   resolveTimestampSessionSlot,
-  type MarketSessionConfig,
 } from '../timeShareAxisLabels'
 
 const textWidthCache = new Map<string, number>()

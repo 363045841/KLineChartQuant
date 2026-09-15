@@ -12,14 +12,9 @@
  * ```
  */
 
-import type { HeatmapController, HeatmapControllerConfig } from '../../components/orderBookHeatmap'
+import type { HeatmapController } from '../../components/orderBookHeatmap'
 
-import type { DepthSource, DepthDelta, DepthSnapshot } from './depthTypes'
-
-export interface DepthConnectorOptions {
-  /** Initial config passed to each controller created by addController */
-  defaultConfig?: Partial<HeatmapControllerConfig>
-}
+import type { DepthDelta, DepthSnapshot, DepthSource } from './depthTypes'
 
 /**
  * Wires a real-time DepthSource to HeatmapController instances.
@@ -34,10 +29,7 @@ export class DepthConnector {
   private unsubError: (() => void) | null = null
   private started = false
 
-  constructor(
-    private readonly source: DepthSource,
-    private readonly options?: DepthConnectorOptions,
-  ) {}
+  constructor(private readonly source: DepthSource) {}
 
   /**
    * Add a controller to receive deltas from the source.

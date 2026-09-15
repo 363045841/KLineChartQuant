@@ -1,7 +1,7 @@
 // OpenAI-compatible Provider 的 HTTP 请求、超时、重试与脱敏诊断工具。
-import { AgentRuntimeError } from '../contracts/errors.js'
 
 import type { AgentRuntimeErrorCode } from '../contracts/errors.js'
+import { AgentRuntimeError } from '../contracts/errors.js'
 import type { ProviderDiagnostic } from './types.js'
 
 const DEFAULT_TIMEOUT_MS = 30_000

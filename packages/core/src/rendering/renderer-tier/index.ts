@@ -6,10 +6,10 @@
  */
 
 export {
-  selectBackend,
-  selectBackendOrThrow,
   type BackendFactory,
   type BackendRegistry,
   type BackendSelection,
   type SelectBackendOptions,
+  selectBackend,
+  selectBackendOrThrow,
 } from './selectBackend'

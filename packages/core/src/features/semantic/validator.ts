@@ -4,11 +4,11 @@
  */
 
 import type {
-  SemanticChartConfig,
   DataConfig,
-  ValidationResult,
-  SecurityResult,
   MarkerStyle,
+  SecurityResult,
+  SemanticChartConfig,
+  ValidationResult,
 } from './types'
 
 // ============ 常量定义 ============

@@ -1,14 +1,12 @@
 // 本文件验证 Agent 指标查询保留原入参，同时只向调用方返回紧凑文本。
 
 import { describe, expect, it, vi } from 'vitest'
-
-import { createDataState } from '../../../../engine/state/dataState'
-import { CHART_AGENT_ERROR_CODES } from '../../errors'
-import { createIndicatorQuery } from '../indicatorQuery'
-
 import type { IndicatorMetadata } from '../../../../engine/indicators/indicatorMetadata'
+import { createDataState } from '../../../../engine/state/dataState'
 import type { KLineData } from '../../../../foundation/types/price'
+import { CHART_AGENT_ERROR_CODES } from '../../errors'
 import type { IndicatorQueryInput } from '../../types'
+import { createIndicatorQuery } from '../indicatorQuery'
 
 const BAR_SELECTION = {
   kind: 'bars' as const,

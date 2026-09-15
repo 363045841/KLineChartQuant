@@ -1,6 +1,7 @@
 /** 绘图状态模块：工具、图元与选中图元集合的 SSOT。 */
-import { batch, createSubState } from '../../foundation/reactivity/signal'
+
 import type { DrawingObject, DrawingStyle } from '../../foundation/plugin/index'
+import { batch, createSubState } from '../../foundation/reactivity/signal'
 import type { DrawingToolId } from '../drawing/toolConfig'
 import { deepFreezeSnapshot } from './immutable'
 

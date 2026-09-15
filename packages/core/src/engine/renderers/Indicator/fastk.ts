@@ -1,7 +1,7 @@
 import type {
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
+  RenderContext,
+  RendererPluginWithHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
 import { resolveThemeColors } from '../../../foundation/tokens/index'
@@ -12,11 +12,10 @@ import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { FASTKRenderState } from '../../indicators/state/fastkState'
 import { createFASTKStateKey, EMPTY_FASTK_STATE } from '../../indicators/state/fastkState'
 import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
-
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 import { createFastkScaleRendererPlugin } from './scale/fastk_scale'
 import { createDashedLineRenderer } from './shared/dashedLines'
 import { createSingleLineTitleInfo } from './shared/titleInfo'
-import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 type LinePoint = { x: number; y: number }
 

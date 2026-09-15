@@ -1,16 +1,16 @@
 import type {
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
+  RenderContext,
+  RendererPluginWithHost,
 } from '../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
-import { resolveThemeColors } from '../../foundation/tokens/index'
+import { getFont, setCanvasFont } from '../../foundation/tokens/fonts'
 import type { ColorTokens } from '../../foundation/tokens/index'
+import { resolveThemeColors } from '../../foundation/tokens/index'
 import type { KLineData } from '../../foundation/types/price'
+import { PANE_HEADER_INSET_PX } from '../chartTypes'
 import type { TitleInfo } from '../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../indicators/scheduler'
-import { getFont, setCanvasFont } from '../../foundation/tokens/fonts'
-import { PANE_HEADER_INSET_PX } from '../chartTypes'
 
 import type { SubIndicatorType } from './Indicator'
 

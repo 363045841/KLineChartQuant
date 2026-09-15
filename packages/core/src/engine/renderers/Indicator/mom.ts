@@ -1,7 +1,7 @@
 import type {
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
+  RenderContext,
+  RendererPluginWithHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
 import { resolveThemeColors } from '../../../foundation/tokens/index'
@@ -11,13 +11,11 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { MOMRenderState } from '../../indicators/state/momState'
-import { createMOMStateKey } from '../../indicators/state/momState'
-import { EMPTY_MOM_STATE } from '../../indicators/state/momState'
+import { createMOMStateKey, EMPTY_MOM_STATE } from '../../indicators/state/momState'
 import { createPaddedSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
-
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 import { createMomScaleRendererPlugin } from './scale/mom_scale'
 import { createSingleLineTitleInfo } from './shared/titleInfo'
-import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 type LinePoint = { x: number; y: number }
 

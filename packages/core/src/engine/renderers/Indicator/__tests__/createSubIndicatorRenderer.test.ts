@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeAll } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 import type { RendererPluginWithHost } from '../../../../foundation/plugin'
 import type { IndicatorMetadata } from '../../../indicators/indicatorMetadata'

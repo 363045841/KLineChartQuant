@@ -52,8 +52,9 @@ describe('createIndicatorTextFormatter', () => {
   it('normalizes all line ending variants inside Markdown table cells', () => {
     const formatter = createIndicatorTextFormatter()
 
-    expect(formatter.format(createContext({ note: 'first\rsecond\r\nthird\nfourth' })))
-      .toBe(`unknown
+    expect(
+      formatter.format(createContext({ note: 'first\rsecond\r\nthird\nfourth' })),
+    ).toBe(`unknown
 
 | note |
 | --- |

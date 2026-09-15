@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { JSDOM } from 'jsdom'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { KLineData, SymbolSpec } from '../../../controllers/types'
 import { marketDataProviderRegistry } from '../../../data/provider/registry'
@@ -104,7 +104,9 @@ function createTestProvider(options: {
     },
     bars: options.fetchBars,
     timeShare: options.fetchTimeShare ? { fetch: options.fetchTimeShare } : undefined,
-    timeShareRange: options.fetchTimeShareRange ? { fetch: options.fetchTimeShareRange } : undefined,
+    timeShareRange: options.fetchTimeShareRange
+      ? { fetch: options.fetchTimeShareRange }
+      : undefined,
   }
 }
 
@@ -440,14 +442,16 @@ describe('ChartDataManager incremental load', () => {
     )
     registerTestProvider(
       createTestProvider({
-        fetchBars: { fetch: async () => ({
-          instrumentId: 'test:000001',
-          period: 'daily',
-          adjustment: 'none',
-          timezone: 'Asia/Shanghai',
-          olderData: 'exhausted',
-          data: [makeKLine(0)],
-        }) },
+        fetchBars: {
+          fetch: async () => ({
+            instrumentId: 'test:000001',
+            period: 'daily',
+            adjustment: 'none',
+            timezone: 'Asia/Shanghai',
+            olderData: 'exhausted',
+            data: [makeKLine(0)],
+          }),
+        },
         fetchTimeShare,
       }),
     )

@@ -4,7 +4,7 @@ import type {
   AlertRule,
   ChartController,
 } from '@363045841yyt/klinechart-core'
-import { computed, ref, shallowRef, toRef, watch, onScopeDispose, type MaybeRefOrGetter } from 'vue'
+import { computed, type MaybeRefOrGetter, onScopeDispose, ref, shallowRef, toRef, watch } from 'vue'
 
 export function useAlerts(controllerSource: MaybeRefOrGetter<ChartController | null>) {
   const controller = toRef(controllerSource)

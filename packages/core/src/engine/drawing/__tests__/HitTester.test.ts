@@ -111,9 +111,7 @@ describe('HitTester', () => {
       style: {},
     }
 
-    expect(
-      new HitTester().findLabelTarget(120, 90, [drawing], createLineAdapter()),
-    ).toMatchObject({
+    expect(new HitTester().findLabelTarget(120, 90, [drawing], createLineAdapter())).toMatchObject({
       drawingId: 'rectangle',
       targetKind: 'area',
       lineIndex: 0,
@@ -142,9 +140,7 @@ describe('HitTester', () => {
     }
 
     // 指针落在底边文字锚点上，区域中心（距 4px）也在热点半径内：line 优先。
-    expect(
-      new HitTester().findLabelTarget(120, 94, [drawing], createLineAdapter()),
-    ).toMatchObject({
+    expect(new HitTester().findLabelTarget(120, 94, [drawing], createLineAdapter())).toMatchObject({
       drawingId: 'flat-rectangle',
       targetKind: 'line',
       lineIndex: 2,

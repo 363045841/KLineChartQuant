@@ -1,7 +1,7 @@
 import type {
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
+  RenderContext,
+  RendererPluginWithHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
 import { resolveThemeColors } from '../../../foundation/tokens/index'
@@ -12,10 +12,9 @@ import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { CCIRenderState } from '../../indicators/state/cciState'
 import { createCCIStateKey, EMPTY_CCI_STATE } from '../../indicators/state/cciState'
 import { createCCIVisibleStateComposer } from '../../indicators/visibleStateComposers'
-
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 import { createCciScaleRendererPlugin } from './scale/cci_scale'
 import { createSingleLineTitleInfo } from './shared/titleInfo'
-import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 type LinePoint = { x: number; y: number }
 

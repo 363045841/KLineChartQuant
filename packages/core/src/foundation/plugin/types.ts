@@ -2,8 +2,8 @@
  * 插件系统核心类型定义
  */
 
-import type { KLineData } from '../types/price'
 import type { ChartDataView, ChartWorkspaceId } from '../types/chartView'
+import type { KLineData } from '../types/price'
 
 /** 插件生命周期状态 */
 export enum PluginState {
@@ -507,7 +507,9 @@ export type ScreenVerticalAnchor = { type: 'vertical'; x: number }
 
 /** 锚点的屏幕投影，按锚点语义保留缺失的坐标轴。 */
 export type ScreenDrawingAnchor =
-  ({ type: 'point' } & ScreenPoint) | ScreenHorizontalAnchor | ScreenVerticalAnchor
+  | ({ type: 'point' } & ScreenPoint)
+  | ScreenHorizontalAnchor
+  | ScreenVerticalAnchor
 
 export type PointPrimitive = {
   kind: 'point'
@@ -556,7 +558,11 @@ export type ArrowPrimitive = {
 }
 
 export type DrawingPrimitive =
-  PointPrimitive | LinePrimitive | AreaPrimitive | TextPrimitive | ArrowPrimitive
+  | PointPrimitive
+  | LinePrimitive
+  | AreaPrimitive
+  | TextPrimitive
+  | ArrowPrimitive
 
 export type DrawingGeometry = {
   primitives: DrawingPrimitive[]

@@ -1,13 +1,11 @@
 // 本文件执行指标计算，并将纯计算结果直接转义为紧凑文本。
 
 import { getRegisteredIndicatorDefinition } from '../../../engine/indicators/indicatorDefinitionRegistry'
-import { INDICATOR_QUERY_ERROR_CODES, KLineChartError } from '../../../errors'
-
-import { createIndicatorTextFormatter, type IndicatorTextFormatter } from './indicatorTextFormatter'
-
 import type { IndicatorMetadata } from '../../../engine/indicators/indicatorMetadata'
 import type { DataStateModule } from '../../../engine/state/dataState'
+import { INDICATOR_QUERY_ERROR_CODES, KLineChartError } from '../../../errors'
 import type { IndicatorQueryInput as AgentIndicatorQueryInput } from '../types'
+import { createIndicatorTextFormatter, type IndicatorTextFormatter } from './indicatorTextFormatter'
 
 // 默认限制文本中返回的结果条目数量。
 const DEFAULT_QUERY_LIMIT = 20

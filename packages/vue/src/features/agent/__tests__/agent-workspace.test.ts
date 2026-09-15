@@ -48,7 +48,9 @@ describe('AgentWorkspace', () => {
   async function createProfile(name: string): Promise<void> {
     document.querySelector<HTMLButtonElement>('.provider-profile-new-button')!.click()
     await flushPromises()
-    const nameInput = document.querySelector<HTMLInputElement>('#agent-provider-profile-form input')!
+    const nameInput = document.querySelector<HTMLInputElement>(
+      '#agent-provider-profile-form input',
+    )!
     nameInput.value = name
     nameInput.dispatchEvent(new Event('input', { bubbles: true }))
     document.querySelector<HTMLFormElement>('#agent-provider-profile-form')!.requestSubmit()

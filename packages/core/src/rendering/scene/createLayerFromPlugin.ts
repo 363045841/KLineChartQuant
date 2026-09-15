@@ -1,10 +1,9 @@
 /** 将旧式 RendererPlugin 适配为由 Scene 调度的 Layer。 */
 
+import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
-import type { RendererPlugin, RenderContext } from '../../foundation/plugin/index'
-
-import type { Layer, LayerRole, PaintContext, PaneRole } from './types'
 import { makePluginLayerId } from '../../foundation/plugin/rendererLayerId'
+import type { Layer, LayerRole, PaintContext, PaneRole } from './types'
 
 export function createLayerFromPlugin(
   plugin: RendererPlugin,

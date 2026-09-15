@@ -1,12 +1,10 @@
 // @ts-nocheck - Test file with intentional type relaxations for mocking
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-
-import { createEXPMARendererPlugin } from '../Indicator/expma'
-
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { EXPMA_STATE_KEY, type EXPMARenderState } from '@/core/indicators/state/expmaState'
 import type { Pane } from '@/core/layout/pane'
 import type { PluginHost, RenderContext, RendererPluginWithHost } from '@/plugin'
 import type { KLineData } from '@/types/price'
+import { createEXPMARendererPlugin } from '../Indicator/expma'
 
 // Type helper for tests
 interface TestableEXPMARenderer extends RendererPluginWithHost {
@@ -118,7 +116,9 @@ function createMockRenderContext(
 
 function createMockIndicatorStateReader(state?: EXPMARenderState) {
   return {
-    get: vi.fn(<T>(key: string): T | undefined => (key === EXPMA_STATE_KEY ? (state as T) : undefined)),
+    get: vi.fn(<T>(key: string): T | undefined =>
+      key === EXPMA_STATE_KEY ? (state as T) : undefined,
+    ),
   }
 }
 

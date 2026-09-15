@@ -1,10 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-
+import type { RenderContext } from '../../../foundation/plugin'
 import {
   createVolumeScaleRendererPlugin,
   formatVolumeScaleLabel,
 } from '../Indicator/scale/volume_scale'
-import type { RenderContext } from '../../../foundation/plugin'
 
 describe('formatVolumeScaleLabel', () => {
   it('keeps small timeshare volumes in their original unit', () => {

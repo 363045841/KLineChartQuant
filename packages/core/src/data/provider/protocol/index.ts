@@ -1,17 +1,17 @@
 // 行情协议公共入口：导出契约类型、HTTP 实现与通用 Provider 装配器
-export { DEFAULT_V1_BASE_URL, createHttpMarketDataTransport } from './httpTransport'
+
 export type { HttpTransportOptions, ProtocolBaseUrl } from './httpTransport'
-export { createMarketDataProvider } from './provider'
+export { createHttpMarketDataTransport, DEFAULT_V1_BASE_URL } from './httpTransport'
 export type { MarketDataProviderOptions } from './provider'
-export { V1_PROTOCOL_NAME, V1_PROTOCOL_VERSION } from './types'
+export { createMarketDataProvider } from './provider'
 export type {
   MarketDataTransport,
   ProtocolBarCapability,
   ProtocolBarRequest,
   ProtocolBarSeries,
   ProtocolEnvelope,
-  ProtocolErrorEnvelope,
   ProtocolErrorCode,
+  ProtocolErrorEnvelope,
   ProtocolHistoryCoverage,
   ProtocolInstrumentCapabilities,
   ProtocolInstrumentDescriptor,
@@ -19,15 +19,15 @@ export type {
   ProtocolInstrumentSearchRequest,
   ProtocolInstrumentSearchResult,
   ProtocolKLineItem,
-  ProtocolSourceProbe,
   ProtocolSourceCapabilities,
+  ProtocolSourceProbe,
   ProtocolSourceRejectionCode,
-  ProtocolTimeShareItem,
   ProtocolTimeShareDay,
+  ProtocolTimeShareItem,
   ProtocolTimeShareRangeCapability,
   ProtocolTimeShareRangeRequest,
   ProtocolTimeShareRangeSeries,
   ProtocolTimeShareRequest,
   ProtocolTimeShareSeries,
 } from './types'
-export { SOURCE_REJECTION_CODES } from './types'
+export { SOURCE_REJECTION_CODES, V1_PROTOCOL_NAME, V1_PROTOCOL_VERSION } from './types'

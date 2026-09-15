@@ -4,13 +4,13 @@
 
 import type {
   IndicatorRenderStateReader,
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
+  RenderContext,
+  RendererPluginWithHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
 import type { ColorTokens } from '../../../foundation/tokens/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { calcStochRSIData } from '../../indicators/calculators/stochRSI'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'

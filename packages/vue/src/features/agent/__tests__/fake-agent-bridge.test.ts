@@ -1,8 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-
-import { FakeAgentBridge } from '../testing/fake-agent-bridge'
-
 import type { AgentUiEvent } from '../agent-contracts'
+import { FakeAgentBridge } from '../testing/fake-agent-bridge'
 
 describe('FakeAgentBridge', () => {
   beforeEach(() => {

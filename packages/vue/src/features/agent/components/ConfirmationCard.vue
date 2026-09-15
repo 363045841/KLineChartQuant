@@ -40,14 +40,11 @@
 
 <script setup lang="ts">
   import { computed } from 'vue'
-
-  import { getAgentCopy, type AgentLocale } from '../agent-copy'
-
-  import type { ConfirmationView } from '../agent-contracts'
-
   import IconCheck from '~icons/tabler/check'
   import IconShieldExclamation from '~icons/tabler/shield-exclamation'
   import IconX from '~icons/tabler/x'
+  import type { ConfirmationView } from '../agent-contracts'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy'
 
   const props = defineProps<{ confirmation: ConfirmationView; locale: AgentLocale }>()
   defineEmits<{ decide: [decision: 'confirmed' | 'rejected'] }>()

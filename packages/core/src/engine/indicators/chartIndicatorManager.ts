@@ -1,39 +1,38 @@
 import type {
+  IndicatorRenderStateReader,
   PluginHostImpl,
+  RenderContext,
   RendererPlugin,
   RendererPluginWithHost,
-  RenderContext,
-  IndicatorRenderStateReader,
 } from '../../foundation/plugin/index'
+import { makePluginLayerId } from '../../foundation/plugin/rendererLayerId'
 import {
+  type Computed,
   computed,
   effect,
   type ReadonlySignal,
-  type Computed,
 } from '../../foundation/reactivity/signal'
+import type { KLineData } from '../../foundation/types/price'
+import { generateUUID } from '../../foundation/utils/uuid'
+import type { Layer } from '../../rendering/scene/types'
+import type { ChartOptions, IndicatorInstance, PaneSpec, SubPaneInfo } from '../chartTypes'
+import type { VisibleRange } from '../layout/pane'
+import { UpdateLevel } from '../layout/pane'
+import type { SubIndicatorType } from '../renderers/Indicator'
+import { createMainIndicatorLegendRendererPlugin } from '../renderers/Indicator/mainIndicatorLegend'
+import type { IndicatorResultStateModule } from '../state/indicatorResultState'
 import type {
   IndicatorInstanceSpec,
   IndicatorStateModule,
   SubPaneInput,
   SubPaneSpec,
 } from '../state/indicatorState'
-import type { IndicatorResultStateModule } from '../state/indicatorResultState'
-import type { Layer } from '../../rendering/scene/types'
-import type { KLineData } from '../../foundation/types/price'
-import type { IndicatorInstance, SubPaneInfo, PaneSpec, ChartOptions } from '../chartTypes'
-import type { VisibleRange } from '../layout/pane'
-import { UpdateLevel } from '../layout/pane'
-import type { SubIndicatorType } from '../renderers/Indicator'
-import { createMainIndicatorLegendRendererPlugin } from '../renderers/Indicator/mainIndicatorLegend'
-import { SubPaneManager, type SubPaneEntry, type SubPaneContext } from '../subPaneManager'
-
+import { type SubPaneContext, type SubPaneEntry, SubPaneManager } from '../subPaneManager'
 import {
   getRegisteredIndicatorDefinitions,
   resolveIndicatorDefinitionId,
 } from './indicatorDefinitionRegistry'
 import { IndicatorScheduler } from './scheduler'
-import { makePluginLayerId } from '../../foundation/plugin/rendererLayerId'
-import { generateUUID } from '../../foundation/utils/uuid'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kWidth: number
@@ -170,13 +169,6 @@ export class ChartIndicatorManager {
       getIndicatorScheduler: () => this.indicatorScheduler,
     }
 
-    // 注册副图活跃列表提供者
-    this.indicatorScheduler.setActiveSubPaneProvider(() =>
-      this.deps.indicator.readonly.instances
-        .peek()
-        .filter((instance) => instance.role === 'sub')
-        .map((instance) => instance.paneId),
-    )
     this.indicatorScheduler.setIndicatorInstanceProvider(() =>
       this.deps.indicator.readonly.instances.peek().map((instance) => ({
         instanceId: instance.instanceId,
@@ -569,10 +561,7 @@ export class ChartIndicatorManager {
     const mainId = resolveIndicatorDefinitionId(instanceId)
 
     if (mainId && this.getMainIndicatorInstance(mainId)) {
-      this.updateMainIndicatorParams(
-        mainId,
-        params as Record<string, number | boolean | string>,
-      )
+      this.updateMainIndicatorParams(mainId, params as Record<string, number | boolean | string>)
       return true
     }
 

@@ -1,12 +1,12 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { calcROCData } from '../calculators'
 
 import {
-  empty,
   constantPrice,
-  pureUptrend,
+  empty,
   pureDowntrend,
+  pureUptrend,
   sideways,
 } from './__fixtures__/synthetic'
 

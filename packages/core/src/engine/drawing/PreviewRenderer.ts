@@ -1,15 +1,14 @@
 import type { DrawingObject, DrawingWorkspaceId } from '../../foundation/plugin/index'
 import { DEFAULT_DRAWING_STROKE } from '../../foundation/tokens'
-
-import { PREVIEW_ID } from './DrawingState'
 import type { InteractionDrawingAnchor } from './coordinateUtils'
+import { PREVIEW_ID } from './DrawingState'
 import type { DrawingToolId } from './toolConfig'
 import {
-  SINGLE_ANCHOR_TOOLS,
-  DOUBLE_ANCHOR_TOOLS,
-  TRIPLE_ANCHOR_TOOLS,
-  getDrawingKind,
   CHANNEL_KINDS,
+  DOUBLE_ANCHOR_TOOLS,
+  getDrawingKind,
+  SINGLE_ANCHOR_TOOLS,
+  TRIPLE_ANCHOR_TOOLS,
 } from './toolConfig'
 
 /**

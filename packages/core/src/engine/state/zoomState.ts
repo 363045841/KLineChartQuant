@@ -1,7 +1,7 @@
 /** 缩放状态模块：缩放级别到 kWidth 的派生与 clamp。 */
 import { batch, createSubState, type ReadonlySignal } from '../../foundation/reactivity/signal'
-import { isTimeShareDataView, type ChartDataView } from './modeState'
 import { zoomLevelToKWidth } from '../utils/zoom'
+import { type ChartDataView, isTimeShareDataView } from './modeState'
 
 export interface ZoomDeps {
   minKWidth$: ReadonlySignal<number>

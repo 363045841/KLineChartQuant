@@ -1,9 +1,6 @@
 {
   "extends": "@vue/tsconfig/tsconfig.dom.json",
-  "include": [
-    "packages/**/*.ts",
-    "packages/**/*.vue"
-  ],
+  "include": ["packages/**/*.ts", "packages/**/*.vue"],
   "exclude": [
     "**/__tests__/**",
     "**/__bench__/**",
@@ -25,12 +22,7 @@
       "@/utils/*": ["./packages/core/src/foundation/utils/*"],
       "@/*": ["./packages/core/src/*"]
     },
-    "plugins": [
-      { "name": "@effect/language-service/tsconfig-plugin" }
-    ],
-    "types": [
-      "vite/client",
-      "unplugin-icons/types/vue"
-    ]
+    "plugins": [{ "name": "@effect/language-service/tsconfig-plugin" }],
+    "types": ["vite/client", "unplugin-icons/types/vue"]
   }
 }

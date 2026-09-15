@@ -1,7 +1,7 @@
 import type {
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
+  RenderContext,
+  RendererPluginWithHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
 import { resolveThemeColors } from '../../../foundation/tokens/index'
@@ -10,13 +10,11 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { ATRRenderState } from '../../indicators/state/atrState'
-import { createATRStateKey } from '../../indicators/state/atrState'
-import { EMPTY_ATR_STATE } from '../../indicators/state/atrState'
+import { createATRStateKey, EMPTY_ATR_STATE } from '../../indicators/state/atrState'
 import { createNonNegativeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
-
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 import { createAtrScaleRendererPlugin } from './scale/atr_scale'
 import { createSingleLineTitleInfo } from './shared/titleInfo'
-import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 type LinePoint = { x: number; y: number }
 

@@ -1,4 +1,4 @@
-import type { SpacingTokens, TypographyTokens, MotionTokens } from './types'
+import type { MotionTokens, SpacingTokens, TypographyTokens } from './types'
 
 export const spacing: SpacingTokens = {
   none: '0',

@@ -1,8 +1,7 @@
 /** 验证绘图帧投影在绘制前一次性产出图元和轴装饰。 */
 import { describe, expect, it } from 'vitest'
-
-import { createSignal } from '../../../foundation/reactivity/signal'
 import type { DrawingKind, DrawingObject, RenderContext } from '../../../foundation/plugin'
+import { createSignal } from '../../../foundation/reactivity/signal'
 import { DrawingDefinitionRegistry, DrawingStore, registerDefaultDrawingDefinitions } from '..'
 import { projectDrawingsForFrame } from '../frameProjection'
 import { createDrawingObject } from './helpers/drawingTestKit'

@@ -24,7 +24,9 @@ describe('DrawingInteractionController locked drawings', () => {
   it('locked 图元不被框选选中', () => {
     const locked = createDrawingObject({ id: 'locked', locked: true })
     const free = createDrawingObject({ id: 'free' })
-    const { adapter, setSelectedDrawingIds } = createSelectionAdapter([locked, free], { tool: 'box-select' })
+    const { adapter, setSelectedDrawingIds } = createSelectionAdapter([locked, free], {
+      tool: 'box-select',
+    })
     const controller = new DrawingInteractionController(adapter)
     const getDrawingLineSegments = vi.fn(() => [{ a: { x: 12, y: 12 }, b: { x: 28, y: 28 } }])
     ;(controller as unknown as { hitTester: unknown }).hitTester = {

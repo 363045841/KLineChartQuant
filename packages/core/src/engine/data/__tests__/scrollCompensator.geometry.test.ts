@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest'
-
-import { getPhysicalKLineConfig } from '../../utils/klineConfig'
 import {
   computeContentWidth,
   computeLeftLoadBufferWidth,
   computeMaxScrollLeft,
 } from '../../state/contentGeometry'
 import type { ViewportStateModule } from '../../state/viewportState'
+import { getPhysicalKLineConfig } from '../../utils/klineConfig'
 import { ScrollCompensator, type ScrollDeps } from '../scrollCompensator'
 
 function makeViewportModule(options: {
@@ -54,13 +53,15 @@ function makeViewportModule(options: {
   }
 }
 
-function makeDeps(options: {
-  scrollLeft?: number
-  leftBuffer?: number
-  contentWidth?: number
-  viewWidth?: number
-  dataLength?: number
-} = {}): { deps: ScrollDeps; getScrollLeft: () => number } {
+function makeDeps(
+  options: {
+    scrollLeft?: number
+    leftBuffer?: number
+    contentWidth?: number
+    viewWidth?: number
+    dataLength?: number
+  } = {},
+): { deps: ScrollDeps; getScrollLeft: () => number } {
   const viewWidth = options.viewWidth ?? 800
   const dataLength = options.dataLength ?? 100
   const kWidth = 8

@@ -1,12 +1,12 @@
 import type {
   IndicatorRenderStateReader,
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
+  RenderContext,
+  RendererPluginWithHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
 import type { ColorTokens } from '../../../foundation/tokens/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
 import { calcRSIData } from '../../indicators/calculators'
@@ -17,9 +17,8 @@ import type { RSIRenderState } from '../../indicators/state/rsiState'
 import { createRSIStateKey, EMPTY_RSI_STATE } from '../../indicators/state/rsiState'
 import { createFixedRangeRecordVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { ChartDataViewId } from '../../state/modeState'
-
-import { createRsiScaleRendererPlugin } from './scale/rsi_scale'
 import { tryDrawLinesGpu } from '../linesViaRenderer'
+import { createRsiScaleRendererPlugin } from './scale/rsi_scale'
 
 type LinePoint = { x: number; y: number }
 

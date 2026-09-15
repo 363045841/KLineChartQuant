@@ -1,9 +1,9 @@
 // 比较视图折线渲染器：把对比集合每个品种相对自身基准的涨跌幅折算到参考序列基准价后绘制。
-import type { RendererPlugin, RenderContext } from '../../foundation/plugin/index'
+import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import { resolveThemeColors } from '../../foundation/tokens/index'
-import type { KLineData } from '../../foundation/types/price'
 import { ChartDataViewId } from '../../foundation/types/chartView'
+import type { KLineData } from '../../foundation/types/price'
 import { symbolSpecIdentityKey } from '../data/symbolIdentity'
 import { findFirstVisibleBarIndex } from '../utils/visibleBarIndex'
 

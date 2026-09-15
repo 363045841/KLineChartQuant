@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { createIndicatorState, type IndicatorInstanceSpec } from '../indicatorState'
 import '../../renderers/subVolume'
 import '../../renderers/Indicator/cci'

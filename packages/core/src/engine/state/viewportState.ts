@@ -1,26 +1,27 @@
 /** 视口状态模块：几何、DPR clamp 与尺寸的单一来源。 */
+
+import { FIVE_DAY_TIME_SHARE_PERIOD, isTimeSharePeriod } from '../../controllers/types'
 import {
-  createSubState,
-  computed,
   batch,
+  computed,
+  createSubState,
   effect,
   type ReadonlySignal,
 } from '../../foundation/reactivity/signal'
 import type { Viewport, ViewportState } from '../chartTypes'
 import type { VisibleRange } from '../layout/pane'
+import { computeTimeShareVisibleRange } from '../modes/timeShareMath'
+import { deriveKGap } from '../utils/zoom'
 import {
   clampVisibleRange,
   computeMaxScrollLeftWithVisibleData,
   getVisibleRange,
 } from '../viewport/viewport'
-import { computeTimeShareVisibleRange } from '../modes/timeShareMath'
 import {
-  computeLeftLoadBufferWidth as pureLeftBuffer,
   computeContentWidth as pureContentWidth,
+  computeLeftLoadBufferWidth as pureLeftBuffer,
   computeMaxScrollLeft as pureMaxScrollLeft,
 } from './contentGeometry'
-import { deriveKGap } from '../utils/zoom'
-import { FIVE_DAY_TIME_SHARE_PERIOD, isTimeSharePeriod } from '../../controllers/types'
 
 /**
  * 钳制 effective DPR，避免超出 MAX_CANVAS_PIXELS 上限。

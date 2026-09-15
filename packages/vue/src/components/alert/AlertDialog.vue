@@ -206,16 +206,16 @@
 <script setup lang="ts">
   import type {
     AlertEvent,
-    AlertRule,
     AlertPredicate,
+    AlertRule,
     ChartController,
   } from '@363045841yyt/klinechart-core'
   import { ref, watch } from 'vue'
 
   import { useAlerts } from '../../composables/useAlerts'
   import BaseModal from '../BaseModal.vue'
-  import SegmentedTabs from '../SegmentedTabs.vue'
   import ToggleSwitch from '../common/ToggleSwitch.vue'
+  import SegmentedTabs from '../SegmentedTabs.vue'
 
   import AlertRuleForm from './AlertRuleForm.vue'
 

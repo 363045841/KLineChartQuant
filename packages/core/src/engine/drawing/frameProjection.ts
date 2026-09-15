@@ -3,14 +3,14 @@ import type {
   DrawingFrameProjection,
   DrawingKind,
   DrawingPrimitive,
-  ResolvedDrawingAnchor,
-  ResolvedDrawingObject,
   DrawingStyle,
   RenderContext,
+  ResolvedDrawingAnchor,
+  ResolvedDrawingObject,
   ScreenPoint,
 } from '../../foundation/plugin'
-import type { KLineData } from '../../foundation/types/price'
 import { DEFAULT_DRAWING_STROKE, resolveThemeColors } from '../../foundation/tokens'
+import type { KLineData } from '../../foundation/types/price'
 import { resolveChartWorkspaceId } from '../state/modeState'
 import { logicalIndexToScreenX } from '../viewport/logicalIndexToScreenX'
 

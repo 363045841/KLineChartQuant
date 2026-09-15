@@ -1,14 +1,14 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
-  createSignal,
-  writableRef,
-  computed,
-  effect,
   batch,
+  computed,
+  createSignal,
   createSubState,
+  effect,
   type ReadonlySignal,
   type WritableSignal,
+  writableRef,
 } from '../foundation/reactivity/signal'
 
 describe('ReadonlySignal type boundary', () => {

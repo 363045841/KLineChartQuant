@@ -13,9 +13,9 @@
  *   7. toCssDeclarationBlock produces parseable CSS.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import { lightTheme, darkTheme, mergeTheme } from '..'
+import { darkTheme, lightTheme, mergeTheme } from '..'
 import { camelToKebab, themeToCssVars, toCssDeclarationBlock } from '../themeToCssVars'
 
 describe('camelToKebab', () => {

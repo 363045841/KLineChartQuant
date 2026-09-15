@@ -1,15 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-
-import { createYAxisRendererPlugin, createYAxisOverlayRendererPlugin } from '@/core/renderers/yAxis'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createLeftYAxisStaticRendererPlugin } from '@/core/renderers/leftYAxis'
-import type { RenderContext, PaneInfo, YAxisTick } from '@/plugin'
+import { createYAxisOverlayRendererPlugin, createYAxisRendererPlugin } from '@/core/renderers/yAxis'
+import type { PaneInfo, RenderContext, YAxisTick } from '@/plugin'
 
 vi.mock('@/utils/kLineDraw/axis', () => ({
   drawCrosshairPriceLabel: vi.fn(),
   drawAxisPriceLabel: vi.fn(),
 }))
 
-import { drawCrosshairPriceLabel, drawAxisPriceLabel } from '@/utils/kLineDraw/axis'
+import { drawAxisPriceLabel, drawCrosshairPriceLabel } from '@/utils/kLineDraw/axis'
 
 function createPane(overrides: Partial<PaneInfo> = {}): PaneInfo {
   return {

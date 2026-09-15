@@ -1,7 +1,7 @@
 import type {
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
+  RenderContext,
+  RendererPluginWithHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
 import { resolveThemeColors } from '../../../foundation/tokens/index'
@@ -10,8 +10,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { VMARenderState } from '../../indicators/state/vmaState'
-import { createVMAStateKey } from '../../indicators/state/vmaState'
-import { EMPTY_VMA_STATE } from '../../indicators/state/vmaState'
+import { createVMAStateKey, EMPTY_VMA_STATE } from '../../indicators/state/vmaState'
 import { createNonNegativeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { tryDrawLinesGpu } from '../linesViaRenderer'
 

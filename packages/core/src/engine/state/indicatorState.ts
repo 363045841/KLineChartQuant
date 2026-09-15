@@ -1,11 +1,11 @@
 // 统一管理主图与副图指标实例的状态模块。
 import { batch, computed, createSubState } from '../../foundation/reactivity/signal'
 import { ChartWorkspaceId } from '../../foundation/types/chartView'
-import { deepFreezeSnapshot } from './immutable'
 import {
   getRegisteredIndicatorDefinition,
   resolveIndicatorDefinitionId,
 } from '../indicators/indicatorDefinitionRegistry'
+import { deepFreezeSnapshot } from './immutable'
 import type { ViewWorkspacesSnapshot } from './viewWorkspace'
 
 /** 指标实例所在的图表区域。 */

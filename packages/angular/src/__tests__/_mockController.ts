@@ -6,14 +6,13 @@
  * 成员不会再强制改动本文件；仅在运行时读取的字段缺失时才会暴露问题。
  */
 
-import { createSignal } from '@363045841yyt/klinechart-core/reactivity'
-
 import type {
   ChartController,
   ChartViewport,
   IndicatorInstance,
   InteractionSnapshot,
 } from '@363045841yyt/klinechart-core'
+import { createSignal } from '@363045841yyt/klinechart-core/reactivity'
 
 export interface MockControllerHandle {
   controller: ChartController

@@ -3,7 +3,7 @@ import type {
   KLineData,
   PaneSpec,
 } from '@363045841yyt/klinechart-core/controllers'
-import { ref, type Ref } from 'vue'
+import { type Ref, ref } from 'vue'
 
 import { useControllerSignal, useControllerSignalValue } from './useControllerSignal'
 

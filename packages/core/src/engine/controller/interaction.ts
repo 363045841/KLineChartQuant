@@ -1,18 +1,17 @@
 // 交互控制中心
 
 import type { ChartSettings } from '../../foundation/config/chartSettings'
+import { isTimeShareDataView } from '../../foundation/types/chartView'
 import type { KLineData } from '../../foundation/types/price'
+import { isOnRightHalf } from '../../foundation/utils/viewportSide'
 import type { Chart } from '../chart'
 import { UpdateLevel } from '../layout/pane'
-import type { MarkerEntity, CustomMarkerEntity } from '../marker/registry'
-
+import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry'
+import type { InteractionStateModule } from '../state/interactionState'
+import { logicalIndexToScreenX } from '../viewport/logicalIndexToScreenX'
 import { MarkerInteractionState } from './markerInteraction'
 import { PinchTracker } from './pinchTracker'
 import { computeTooltipPosition, type TooltipPositionMode } from './tooltipPosition'
-import { isOnRightHalf } from '../../foundation/utils/viewportSide'
-import type { InteractionStateModule } from '../state/interactionState'
-import { isTimeShareDataView } from '../../foundation/types/chartView'
-import { logicalIndexToScreenX } from '../viewport/logicalIndexToScreenX'
 
 interface PointerLocation {
   mouseX: number
@@ -636,10 +635,6 @@ export class InteractionController {
 
   setOnCustomMarkerHover(callback: (marker: CustomMarkerEntity | null) => void) {
     this.markerState.setOnCustomMarkerHover(callback)
-  }
-
-  setOnCustomMarkerClick(callback: (marker: CustomMarkerEntity) => void) {
-    this.markerState.setOnCustomMarkerClick(callback)
   }
 
   /** 命中可拖拽分隔线（返回上方 paneId） */

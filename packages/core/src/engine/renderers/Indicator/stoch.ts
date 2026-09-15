@@ -1,12 +1,12 @@
 import type {
   IndicatorRenderStateReader,
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
+  RenderContext,
+  RendererPluginWithHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
 import type { ColorTokens } from '../../../foundation/tokens/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { calcSTOCHData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
@@ -16,10 +16,9 @@ import type { STOCHRenderState } from '../../indicators/state/stochState'
 import { createSTOCHStateKey, EMPTY_STOCH_STATE } from '../../indicators/state/stochState'
 import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { ChartDataViewId } from '../../state/modeState'
-
+import { tryDrawLinesGpu } from '../linesViaRenderer'
 import { createStochScaleRendererPlugin } from './scale/stoch_scale'
 import { createDashedLineRenderer } from './shared/dashedLines'
-import { tryDrawLinesGpu } from '../linesViaRenderer'
 
 type LinePoint = { x: number; y: number }
 

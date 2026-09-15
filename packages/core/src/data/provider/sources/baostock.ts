@@ -7,7 +7,8 @@ const BAOSTOCK = dataSourceRegistry.baostock
 
 /** V1 HTTP Transport：运行时从注册表读取 baseUrl，支持面板动态覆盖。 */
 const v1Transport = createHttpMarketDataTransport({
-  baseUrl: () => marketDataProviderRegistry.getConfig('baostock').baseUrl ?? BAOSTOCK.defaultBaseUrl,
+  baseUrl: () =>
+    marketDataProviderRegistry.getConfig('baostock').baseUrl ?? BAOSTOCK.defaultBaseUrl,
   sourceLabel: 'baostock',
 })
 

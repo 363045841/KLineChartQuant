@@ -4,10 +4,10 @@ import { describe, expect, it, vi } from 'vitest'
 import type { SymbolSpec } from '../../../controllers/types'
 import { DataBuffer } from '../../../data/buffer/dataBuffer'
 import {
-  SeriesRepository,
   instrumentKeyFromSpec,
-  sourceIdFromSpec,
+  SeriesRepository,
   type SeriesSelection,
+  sourceIdFromSpec,
 } from '../../../data/buffer/seriesRepository'
 import { ComparisonManager } from '../comparisonManager'
 

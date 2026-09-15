@@ -1,4 +1,4 @@
-import { ref, nextTick, type Ref } from 'vue'
+import { nextTick, type Ref, ref } from 'vue'
 
 export function useTeleportedPopup(
   triggerRef: Ref<HTMLElement | null>,
@@ -31,9 +31,7 @@ export function useTeleportedPopup(
     }
 
     const renderedHeight = Math.min(popupHeight, availableHeight)
-    const top = opensUpward
-      ? Math.max(margin, rect.top - gap - renderedHeight)
-      : rect.bottom + gap
+    const top = opensUpward ? Math.max(margin, rect.top - gap - renderedHeight) : rect.bottom + gap
 
     popupStyle.value = {
       position: 'fixed',

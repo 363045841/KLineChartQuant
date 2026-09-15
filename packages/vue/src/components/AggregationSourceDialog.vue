@@ -87,12 +87,12 @@
   import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
   import {
+    type AggregationSourceDefinition,
+    type AggregationSourceEndpoint,
+    type AggregationSourceStatus,
+    isMockSourceName,
     parseProviderEndpoint,
     probeAggregationSource,
-    isMockSourceName,
-    type AggregationSourceEndpoint,
-    type AggregationSourceDefinition,
-    type AggregationSourceStatus,
     supportsAggregationSourceSearch,
   } from '../composables/useAggregationSources'
 

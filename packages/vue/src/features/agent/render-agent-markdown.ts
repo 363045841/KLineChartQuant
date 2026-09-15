@@ -48,8 +48,8 @@ markdown.inline.ruler.before('text', 'agent_citation', (state, silent) => {
 
 markdown.renderer.rules.agent_citation = (tokens, index) => {
   const { citation, number } = tokens[index]!.meta as CitationToken
-  const escape = markdown.utils.escapeHtml
-  return `<button type="button" class="agent-citation" data-agent-citation-id="${escape(citation.id)}" title="${escape(citation.title)}" aria-label="Source ${escape(citation.title)}">[${number}]</button>`
+  const escapeHtml = markdown.utils.escapeHtml
+  return `<button type="button" class="agent-citation" data-agent-citation-id="${escapeHtml(citation.id)}" title="${escapeHtml(citation.title)}" aria-label="Source ${escapeHtml(citation.title)}">[${number}]</button>`
 }
 
 /** 将 Agent Markdown 与已验证来源解析并清洗为安全 HTML。 */
@@ -58,8 +58,11 @@ export function renderAgentMarkdown(
   citations: readonly SourceCitation[] = [],
 ): string {
   const citationNumbers = new Map(citations.map((citation, index) => [citation.id, index + 1]))
-  return DOMPurify.sanitize(markdown.render(content, {
-    citations: new Map(citations.map((citation) => [citation.id, citation])),
-    citationNumbers,
-  } satisfies AgentMarkdownEnvironment), { USE_PROFILES: { html: true } })
+  return DOMPurify.sanitize(
+    markdown.render(content, {
+      citations: new Map(citations.map((citation) => [citation.id, citation])),
+      citationNumbers,
+    } satisfies AgentMarkdownEnvironment),
+    { USE_PROFILES: { html: true } },
+  )
 }

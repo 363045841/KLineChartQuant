@@ -1,12 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-
+import { FIVE_DAY_TIME_SHARE_PERIOD } from '../../controllers/types'
+import { HK_MARKET_SESSION } from '../../foundation/utils/sessionTimeLabels'
 import { Chart } from '../chart'
 import { ComparisonCommands } from '../data/comparisonCommands'
 import { MarketSessionRegistry } from '../market/marketSessionRegistry'
 import { resolveSymbolMarketSession } from '../market/resolveSymbolMarketSession'
 import { ChartDataViewId } from '../state/modeState'
-import { FIVE_DAY_TIME_SHARE_PERIOD } from '../../controllers/types'
-import { HK_MARKET_SESSION } from '../../foundation/utils/sessionTimeLabels'
 
 function chartHarness() {
   const timeShareMode = { setMarketSession: vi.fn() }

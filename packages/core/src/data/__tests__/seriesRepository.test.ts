@@ -3,10 +3,10 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { DataBuffer } from '../buffer/dataBuffer'
 import {
-  SeriesRepository,
   instrumentKeyFromSpec,
-  sourceIdFromSpec,
+  SeriesRepository,
   type SeriesSelection,
+  sourceIdFromSpec,
 } from '../buffer/seriesRepository'
 import { TimeShareBuffer } from '../buffer/timeShareBuffer'
 

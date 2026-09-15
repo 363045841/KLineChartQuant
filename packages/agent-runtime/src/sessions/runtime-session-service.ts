@@ -1,24 +1,3 @@
-import { AgentRuntimeError } from '../contracts/errors.js'
-import {
-  AGENT_UI_PROTOCOL_VERSION,
-  type AgentSessionSnapshot,
-  type AgentSessionView,
-  type AgentUiEvent,
-} from '../contracts/ui.js'
-import { redactString, redactValue, type RedactionOptions } from '../security/redaction.js'
-
-import {
-  KQ_CUSTOM_ENTRY,
-  KQ_SESSION_SCHEMA_VERSION,
-  type BeginRunInput,
-  type KqRunStartedEntry,
-  type KqRunTerminalEntry,
-  type KqSessionMetadataEntry,
-  type PersistEventInput,
-  type RetryRunInput,
-  type RunPersistenceContext,
-} from './types.js'
-
 import type {
   AgentMessage,
   CustomEntry,
@@ -29,6 +8,25 @@ import type {
   SessionRepo,
   SessionTree,
 } from '@earendil-works/pi-agent-core'
+import { AgentRuntimeError } from '../contracts/errors.js'
+import {
+  AGENT_UI_PROTOCOL_VERSION,
+  type AgentSessionSnapshot,
+  type AgentSessionView,
+  type AgentUiEvent,
+} from '../contracts/ui.js'
+import { type RedactionOptions, redactString, redactValue } from '../security/redaction.js'
+import {
+  type BeginRunInput,
+  KQ_CUSTOM_ENTRY,
+  KQ_SESSION_SCHEMA_VERSION,
+  type KqRunStartedEntry,
+  type KqRunTerminalEntry,
+  type KqSessionMetadataEntry,
+  type PersistEventInput,
+  type RetryRunInput,
+  type RunPersistenceContext,
+} from './types.js'
 
 type AnySessionRepo = SessionRepo<SessionMetadata, SessionCreateOptions, never>
 

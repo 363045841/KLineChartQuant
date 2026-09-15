@@ -125,7 +125,11 @@ describe('ChartStateKernel sub-pane transactions', () => {
     kernel.pane.readonly.paneSpecs.subscribe(capture)
     kernel.indicator.readonly.subPanes.subscribe(capture)
 
-    kernel.paneManager.actions.create({ paneId: 'RSI_0', indicatorId: 'RSI', params: { period1: 6 } })
+    kernel.paneManager.actions.create({
+      paneId: 'RSI_0',
+      indicatorId: 'RSI',
+      params: { period1: 6 },
+    })
 
     expect(snapshots.length).toBeGreaterThan(0)
     expect(snapshots).toEqual(
@@ -136,7 +140,11 @@ describe('ChartStateKernel sub-pane transactions', () => {
 
   it('removes pane layout and sub-pane entry atomically', () => {
     const kernel = createKernel()
-    kernel.paneManager.actions.create({ paneId: 'RSI_0', indicatorId: 'RSI', params: { period1: 6 } })
+    kernel.paneManager.actions.create({
+      paneId: 'RSI_0',
+      indicatorId: 'RSI',
+      params: { period1: 6 },
+    })
     const snapshots: Array<{ paneIds: string[]; entryIds: string[] }> = []
     const capture = () => {
       snapshots.push({
@@ -154,7 +162,11 @@ describe('ChartStateKernel sub-pane transactions', () => {
 
   it('updates layout and indicator content through the pane manager actions', () => {
     const kernel = createKernel()
-    kernel.paneManager.actions.create({ paneId: 'RSI_0', indicatorId: 'RSI', params: { period1: 6 } })
+    kernel.paneManager.actions.create({
+      paneId: 'RSI_0',
+      indicatorId: 'RSI',
+      params: { period1: 6 },
+    })
 
     expect(kernel.paneManager.actions.update('RSI_0', { visible: false })).toBe(true)
     expect(kernel.paneManager.actions.updateContent('RSI_0', { period1: 12 })).toBe(true)
@@ -175,9 +187,11 @@ describe('ChartStateKernel sub-pane transactions', () => {
       'RSI_0',
       'MACD_0',
     ])
-    expect(kernel.indicator.readonly.subPanes.peek().map((pane) => pane.paneId).sort()).toEqual([
-      'MACD_0',
-      'RSI_0',
-    ])
+    expect(
+      kernel.indicator.readonly.subPanes
+        .peek()
+        .map((pane) => pane.paneId)
+        .sort(),
+    ).toEqual(['MACD_0', 'RSI_0'])
   })
 })

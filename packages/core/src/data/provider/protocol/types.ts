@@ -12,11 +12,11 @@ import type {
   MarketDataErrorCode,
   OlderDataStatus,
   ProviderRef,
+  SourceCapabilities,
   TimeShareRangeCapability,
   TradingDate,
   VolumeUnit,
 } from '../types'
-import type { SourceCapabilities } from '../types'
 
 // 协议名称
 export const V1_PROTOCOL_NAME = 'market-data-v1' as const

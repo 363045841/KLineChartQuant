@@ -13,14 +13,13 @@
  * resampled bars and returns one number per bar.
  */
 
-export type {
-  BaseBar,
-  ResampledBar,
-  MtfSeriesDefinition,
-  ActiveMtfSeries,
-  MtfController,
-} from './types'
-
-export { resampleBars } from './resampleBars'
 export { alignToBaseIndex } from './alignToBaseIndex'
-export { createMtfController, type CreateMtfControllerInit } from './createMtfController'
+export { type CreateMtfControllerInit, createMtfController } from './createMtfController'
+export { resampleBars } from './resampleBars'
+export type {
+  ActiveMtfSeries,
+  BaseBar,
+  MtfController,
+  MtfSeriesDefinition,
+  ResampledBar,
+} from './types'

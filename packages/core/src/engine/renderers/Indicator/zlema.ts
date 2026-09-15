@@ -3,9 +3,9 @@
  * 完整骨架与 wma.ts 一致：优先走 WebGL 线段绘制，失败回退 Canvas2D
  */
 import type {
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
+  RenderContext,
+  RendererPluginWithHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
 import { resolveThemeColors } from '../../../foundation/tokens/index'

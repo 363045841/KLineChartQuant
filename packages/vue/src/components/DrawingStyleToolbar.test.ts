@@ -1,10 +1,9 @@
 /** 绘图工具栏锁定/解锁按钮行为测试。 */
-import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
-
-import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
 
 import type { DrawingObject } from '@363045841yyt/klinechart-core/plugin'
+import { mount } from '@vue/test-utils'
+import { describe, expect, it } from 'vitest'
+import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
 
 /** 构造带锁定状态的最小图元；locked 缺省表示未锁定。 */
 function createDrawing(id: string, locked?: boolean): DrawingObject {

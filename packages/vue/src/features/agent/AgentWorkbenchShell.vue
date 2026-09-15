@@ -51,13 +51,11 @@
 
 <script setup lang="ts">
   import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-
-  import AgentWorkspace from './components/AgentWorkspace.vue'
+  import IconSparkles from '~icons/tabler/sparkles'
 
   import type { AgentBridgeClient } from './agent-contracts'
+  import AgentWorkspace from './components/AgentWorkspace.vue'
   import type { AgentPanelWidthStorage } from './workbench-shell'
-
-  import IconSparkles from '~icons/tabler/sparkles'
 
   const MIN_PANEL_WIDTH = 360
   const MAX_PANEL_WIDTH = 640

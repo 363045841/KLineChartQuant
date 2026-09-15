@@ -1,10 +1,10 @@
-import type { RendererPlugin, RenderContext } from '../../foundation/plugin/index'
-import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../foundation/plugin/index'
+import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index'
+import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import { resolveThemeColors } from '../../foundation/tokens/index'
+import { isTimeShareDataView } from '../../foundation/types/chartView'
 import type { KLineData } from '../../foundation/types/price'
 import { findMonthBoundaries } from '../../foundation/utils/dateFormat'
 import { createHorizontalLineRect, createVerticalLineRect } from '../../foundation/utils/pixelAlign'
-import { isTimeShareDataView } from '../../foundation/types/chartView'
 
 /**
  * 创建网格线渲染器插件

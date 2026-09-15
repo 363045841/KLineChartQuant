@@ -51,6 +51,8 @@ All READMEs are generated from `docs/fragments/` (reusable Markdown snippets) + 
 
 | Command | What |
 |---------|------|
+| `pnpm lint` | Biome 检查（`biome check .`，含 lint + format + import 排序）；`pnpm lint:fix` 自动修复 |
+| `pnpm format` | Biome 格式化（`biome format --write .`） |
 | `pnpm build:packages` | 发布包构建（core → vue） |
 | `pnpm type-check` | 使用 `vue-tsc --noEmit -p <tsconfig>` 逐个检查，不要使用 `tsc` |
 | `pnpm test:unit` | root 测试 |
@@ -70,7 +72,7 @@ All READMEs are generated from `docs/fragments/` (reusable Markdown snippets) + 
 
 ## Code Conventions
 
-- **Formatter**: Prettier (`semi: false`, `singleQuote: true`, `printWidth: 100`). VSCode auto-formats on save.
+- **Formatter / Linter**: Biome（配置见根目录 `biome.json`）；`semi: false`、`singleQuote: true`、`printWidth: 100`、LF、尾逗号 `all`。VSCode / Zed 保存时自动格式化。
 - **Decorator transform**: Babel (`@babel/plugin-proposal-decorators` with `version: '2023-11'`). Not native TC39 decorators.
 - **Vue bindings signal bridge**: `shallowRef` (not `ref`) — core signal values are immutable; deep proxying breaks `Object.is` referential equality.
 - **Controller factory injection**: Vue package uses `__setControllerFactory(createChartController)` at import time. Tests override via `__setControllerFactory(null/mock)` in setup.

@@ -1,8 +1,8 @@
 import type { KLineData } from '../types/price'
 import {
-  VolumePriceRelation,
-  type VolumePriceConfig,
   DEFAULT_VOLUME_PRICE_CONFIG,
+  type VolumePriceConfig,
+  VolumePriceRelation,
 } from '../types/volumePrice'
 
 // 重新导出默认配置，方便外部使用

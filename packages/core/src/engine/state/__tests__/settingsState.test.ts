@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { normalizeSettings, type ChartSettings } from '../../../foundation/config/chartSettings'
+import { type ChartSettings, normalizeSettings } from '../../../foundation/config/chartSettings'
 import { createSettingsState } from '../settingsState'
 
 describe('settingsState', () => {

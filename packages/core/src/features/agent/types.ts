@@ -9,8 +9,8 @@ import type {
   TimeShareRange,
   TimeShareSeries,
 } from '../../data/provider/types'
-import type { ReadonlySignal } from '../../foundation/reactivity/signal'
 import type { ChartToolExecutionContext } from '../../foundation/agent/chartToolRegistry'
+import type { ReadonlySignal } from '../../foundation/reactivity/signal'
 
 /** Inclusive timestamp range exposed to Agent consumers. */
 export interface ChartAgentTimeRange {

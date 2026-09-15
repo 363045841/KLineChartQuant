@@ -1,5 +1,5 @@
-import type { ReadonlySignal } from '../../foundation/reactivity/signal'
 import { hitTestShape } from '../../features/semantic/drawShape'
+import type { ReadonlySignal } from '../../foundation/reactivity/signal'
 
 /**
  * 标记类型

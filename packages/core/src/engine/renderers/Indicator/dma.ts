@@ -1,13 +1,13 @@
 import type {
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
+  RenderContext,
+  RendererPluginWithHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
 import { resolveThemeColors } from '../../../foundation/tokens/index'
 import { calcDMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
+import { type GetTitleInfoFn, resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { DMARenderState } from '../../indicators/state/dmaState'
 import { createDMAStateKey, EMPTY_DMA_STATE } from '../../indicators/state/dmaState'

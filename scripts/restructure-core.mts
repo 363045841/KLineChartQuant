@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+
 /**
  * Restructure packages/core/src — 24 flat groups → 8 logical layers.
  *
@@ -12,9 +13,9 @@
  *   5. Update src/index.ts barrel export
  */
 
-import { Project } from 'ts-morph'
 import fs from 'node:fs'
 import path from 'node:path'
+import { Project } from 'ts-morph'
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
@@ -257,7 +258,12 @@ async function main() {
       // Resolve the export specifier manually (ts-morph can't do it for exports)
       const sourceDir = path.dirname(sf.getFilePath())
       const absTarget = path.resolve(sourceDir, specifier)
-      const candidates = [absTarget, `${absTarget}.ts`, `${absTarget}/index.ts`, `${absTarget}.d.ts`]
+      const candidates = [
+        absTarget,
+        `${absTarget}.ts`,
+        `${absTarget}/index.ts`,
+        `${absTarget}.d.ts`,
+      ]
       let resolvedRel: string | undefined
       for (const c of candidates) {
         if (fs.existsSync(c)) {

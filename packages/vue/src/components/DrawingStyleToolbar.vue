@@ -70,15 +70,13 @@
 </template>
 
 <script setup lang="ts">
-  import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
   import { DEFAULT_DRAWING_STROKE } from '@363045841yyt/klinechart-core'
+  import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
   import { computed, onMounted, onUnmounted } from 'vue'
-
-  import Dropdown from './Dropdown.vue'
-  import CanvasToolbar from './common/CanvasToolbar.vue'
-
   import IconTablerLock from '~icons/tabler/lock'
   import IconTablerLockOpen from '~icons/tabler/lock-open'
+  import CanvasToolbar from './common/CanvasToolbar.vue'
+  import Dropdown from './Dropdown.vue'
 
   const widthOptions = [
     { label: '1px', value: '1' },

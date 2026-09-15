@@ -7,8 +7,8 @@ import type { ChartDataManager } from '../data/chartDataManager'
 import type { DrawingInteractionController } from '../drawing/interaction'
 import type { DrawingToolId } from '../drawing/toolConfig'
 import type { ChartRenderer } from '../render/chartRenderer'
-import { resolveChartWorkspaceId } from '../state/modeState'
 import type { ChartStateKernel } from '../state/chartStateKernel'
+import { resolveChartWorkspaceId } from '../state/modeState'
 
 /** Drawing Facade 所需依赖。 */
 export interface ChartDrawingFacadeDependencies {
@@ -40,7 +40,9 @@ export class ChartDrawingFacade {
 
   /** 写入已确认图元并剥离会话预览。 */
   setDrawings(drawings: DrawingObject[]): void {
-    this.deps.kernel.drawing.actions.setDrawings(drawings.filter((drawing) => drawing.id !== '__preview__'))
+    this.deps.kernel.drawing.actions.setDrawings(
+      drawings.filter((drawing) => drawing.id !== '__preview__'),
+    )
     this.deps.scheduleDraw()
   }
 
@@ -86,7 +88,9 @@ export class ChartDrawingFacade {
       session.removeDrawing(drawingId)
       return
     }
-    this.setDrawings(this.deps.kernel.drawing.readonly.drawings.peek().filter((d) => d.id !== drawingId))
+    this.setDrawings(
+      this.deps.kernel.drawing.readonly.drawings.peek().filter((d) => d.id !== drawingId),
+    )
   }
 
   /** 清除全部已确认图元。 */

@@ -1,17 +1,17 @@
 import { KLineChartError, SUBPANE_ERROR_CODES } from '../errors'
 import type {
+  RenderContext,
   RendererPlugin,
   RendererPluginWithHost,
-  RenderContext,
 } from '../foundation/plugin/index'
-import type { IndicatorScheduler } from './indicators/scheduler'
+import { makePluginLayerId } from '../foundation/plugin/rendererLayerId'
 import { resolveStateKey } from './indicators/indicatorMetadata'
-import { findIndicator } from './renderers/Indicator/indicatorCatalog'
+import type { IndicatorScheduler } from './indicators/scheduler'
 import { createSubIndicatorRenderer } from './renderers/Indicator'
+import { findIndicator } from './renderers/Indicator/indicatorCatalog'
 import { createIndicatorScaleRendererPlugin } from './renderers/Indicator/scale/indicator_scale'
 import { createPaneTitleRendererPlugin } from './renderers/paneTitle'
 import type { SubPaneSpec } from './state/indicatorState'
-import { makePluginLayerId } from '../foundation/plugin/rendererLayerId'
 
 export interface SubPaneResources {
   readonly paneId: string
@@ -46,7 +46,7 @@ export function hasSubPaneRendererMetadata(
   try {
     return Boolean(
       definition.getScaleRendererName({ paneId, indicatorId }) &&
-      definition.getPaneTitleRendererName({ paneId, indicatorId }),
+        definition.getPaneTitleRendererName({ paneId, indicatorId }),
     )
   } catch {
     return false

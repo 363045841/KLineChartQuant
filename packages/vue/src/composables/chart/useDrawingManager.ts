@@ -5,8 +5,8 @@
  * with lifecycle callbacks that sync back to Vue refs.
  */
 import {
-  DrawingInteractionController,
   type ChartController,
+  DrawingInteractionController,
   type DrawingToolId,
 } from '@363045841yyt/klinechart-core/controllers'
 import {
@@ -14,7 +14,7 @@ import {
   type DrawingObject,
   type DrawingStyle,
 } from '@363045841yyt/klinechart-core/plugin'
-import { computed, shallowRef, onUnmounted, type Ref } from 'vue'
+import { computed, onUnmounted, type Ref, shallowRef } from 'vue'
 
 export function useDrawingManager(ctrl: Ref<ChartController | null>) {
   const drawingController = shallowRef<DrawingInteractionController | null>(null)

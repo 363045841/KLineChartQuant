@@ -1,13 +1,13 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import {
-  toLog,
-  fromLog,
-  logFormulaForPriceRange,
-  convertPriceRangeToLog,
   convertPriceRangeFromLog,
-  logFormulasAreSame,
+  convertPriceRangeToLog,
+  fromLog,
   type LogFormula,
+  logFormulaForPriceRange,
+  logFormulasAreSame,
+  toLog,
 } from '../logFormula'
 
 describe('logFormula', () => {

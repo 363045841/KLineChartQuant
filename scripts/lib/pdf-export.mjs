@@ -5,10 +5,10 @@
  * 供 code-to-pdf / docs-to-pdf 复用，避免重复实现收集、渲染与切页逻辑。
  */
 
+import { execFileSync, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { execFileSync, spawnSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
 import MarkdownIt from 'markdown-it'
 import { PDFDocument } from 'pdf-lib'
@@ -72,9 +72,21 @@ const MAX_FILE_BYTES = 2 * 1024 * 1024
 /** Chrome/Edge 的可执行文件候选路径，按优先级排列。 */
 const BROWSER_CANDIDATES = [
   path.join(process.env.ProgramFiles ?? '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
-  path.join(process.env['ProgramFiles(x86)'] ?? '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+  path.join(
+    process.env['ProgramFiles(x86)'] ?? '',
+    'Google',
+    'Chrome',
+    'Application',
+    'chrome.exe',
+  ),
   path.join(process.env.ProgramFiles ?? '', 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
-  path.join(process.env['ProgramFiles(x86)'] ?? '', 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+  path.join(
+    process.env['ProgramFiles(x86)'] ?? '',
+    'Microsoft',
+    'Edge',
+    'Application',
+    'msedge.exe',
+  ),
 ]
 
 const markdown = new MarkdownIt({ html: true, linkify: true })
@@ -137,7 +149,8 @@ function buildText(sections) {
 function buildHtml(sections, format) {
   const body = sections
     .map(({ rel, content }) => {
-      const isMarkdown = format === 'markdown' && MARKDOWN_EXTENSIONS.has(path.extname(rel).toLowerCase())
+      const isMarkdown =
+        format === 'markdown' && MARKDOWN_EXTENSIONS.has(path.extname(rel).toLowerCase())
       const rendered = isMarkdown ? markdown.render(content) : `<pre>${escapeHtml(content)}</pre>`
       return `<section class="doc"><div class="doc-path">${escapeHtml(rel)}</div>${rendered}</section>`
     })

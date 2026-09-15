@@ -1,9 +1,8 @@
 // paneTitle 渲染器的标题状态读取调用方测试。
 import { describe, expect, it, vi } from 'vitest'
-
-import { createPaneTitleRendererPlugin } from '../paneTitle'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
 import type { PluginHost, RenderContext } from '../../../foundation/plugin'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
+import { createPaneTitleRendererPlugin } from '../paneTitle'
 
 /** 创建可记录绘制操作的 Canvas 上下文。 */
 function createCanvasContext(): CanvasRenderingContext2D {

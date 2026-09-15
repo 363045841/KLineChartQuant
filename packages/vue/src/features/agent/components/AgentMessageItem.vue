@@ -42,17 +42,14 @@
 
 <script setup lang="ts">
   import { computed } from 'vue'
-
-  import { getAgentCopy, type AgentLocale } from '../agent-copy'
-  import { renderAgentMarkdown } from '../render-agent-markdown'
-
-  import type { AgentMessageView } from '../agent-contracts'
-
   import IconActivity from '~icons/tabler/activity'
   import IconBrain from '~icons/tabler/brain'
   import IconLoader2 from '~icons/tabler/loader-2'
   import IconSparkles from '~icons/tabler/sparkles'
   import IconUser from '~icons/tabler/user'
+  import type { AgentMessageView } from '../agent-contracts'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy'
+  import { renderAgentMarkdown } from '../render-agent-markdown'
 
   const props = defineProps<{ message: AgentMessageView; locale: AgentLocale }>()
   const text = computed(() => getAgentCopy(props.locale))
@@ -62,7 +59,8 @@
   function openCitation(event: MouseEvent): void {
     const target = event.target
     if (!(target instanceof Element)) return
-    const id = target.closest<HTMLButtonElement>('[data-agent-citation-id]')?.dataset.agentCitationId
+    const id = target.closest<HTMLButtonElement>('[data-agent-citation-id]')?.dataset
+      .agentCitationId
     const citation = props.message.citations?.find((item) => item.id === id)
     if (!citation) return
     try {

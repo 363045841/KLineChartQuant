@@ -1,13 +1,13 @@
 import type {
-  RendererPlugin,
-  RenderContext,
-  RendererPluginWithHost,
   PluginHost,
+  RenderContext,
+  RendererPlugin,
+  RendererPluginWithHost,
 } from '../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import { resolveThemeColors } from '../../foundation/tokens/index'
-import type { TimeShareData } from '../../foundation/types/price'
 import { ChartDataViewId } from '../../foundation/types/chartView'
+import type { TimeShareData } from '../../foundation/types/price'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry'
 import { resolveTimeShareBaseline } from '../modes/timeShareMath'
 

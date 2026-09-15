@@ -27,10 +27,10 @@
 
 import { KLineChartError } from '../../errors'
 import {
+  type DetectRendererTierOptions,
   detectRendererTier,
   isTierAtLeast,
   RENDERER_TIER_RANK,
-  type DetectRendererTierOptions,
   type RendererTier,
   type RendererTierResult,
 } from '../../foundation/utils/rendererCapability'

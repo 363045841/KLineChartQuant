@@ -1,49 +1,49 @@
 import type {
-  DrawingObject,
-  DrawingWorkspaceId,
-  DrawingKind,
-  DrawingDefinition,
-  DrawingComputeContext,
-  DrawingGeometry,
-  DrawingStyle,
-  PointPrimitive,
-  LinePrimitive,
   AreaPrimitive,
-  TextPrimitive,
   ArrowPrimitive,
+  DrawingComputeContext,
+  DrawingDefinition,
+  DrawingGeometry,
+  DrawingKind,
+  DrawingObject,
+  DrawingStyle,
+  DrawingWorkspaceId,
+  LinePrimitive,
+  PointPrimitive,
+  TextPrimitive,
 } from '../../foundation/plugin/index'
-import type { KLineData } from '../../foundation/types/price'
-import { ChartWorkspaceId } from '../../foundation/types/chartView'
 import { DEFAULT_DRAWING_STROKE } from '../../foundation/tokens'
+import { ChartWorkspaceId } from '../../foundation/types/chartView'
+import type { KLineData } from '../../foundation/types/price'
 
 export type {
-  DrawingObject,
-  DrawingKind,
-  DrawingDefinition,
-  DrawingComputeContext,
-  DrawingGeometry,
-  DrawingStyle,
-  PointPrimitive,
-  LinePrimitive,
   AreaPrimitive,
-  TextPrimitive,
   ArrowPrimitive,
+  DrawingComputeContext,
+  DrawingDefinition,
+  DrawingGeometry,
+  DrawingKind,
+  DrawingObject,
+  DrawingStyle,
+  LinePrimitive,
+  PointPrimitive,
+  TextPrimitive,
 }
 
 import type { ReadonlySignal } from '../../foundation/reactivity/signal'
 import { mergePaint } from './DrawingState'
-import { resolveLineLabelLayout, LINE_LABEL_BASELINE } from './labelLayout'
+import { LINE_LABEL_BASELINE, resolveLineLabelLayout } from './labelLayout'
 
-export { DrawingDocument } from './DrawingDocument'
+export type { DrawingCommandsDependencies } from './DrawingCommands'
 export { DrawingCommands } from './DrawingCommands'
-export { clearDrawingSelection, toggleDrawingSelection } from './DrawingSelection'
 export type {
   CreateDrawingInput,
   DrawingAnchorCommandInput,
   DrawingDocumentDependencies,
   UpdateDrawingPatch,
 } from './DrawingDocument'
-export type { DrawingCommandsDependencies } from './DrawingCommands'
+export { DrawingDocument } from './DrawingDocument'
+export { clearDrawingSelection, toggleDrawingSelection } from './DrawingSelection'
 
 export interface DrawingStoreDeps {
   drawings$: ReadonlySignal<ReadonlyArray<DrawingObject>>
@@ -250,6 +250,7 @@ function formatSigned(value: number, digits = 2): string {
 }
 
 import { computeLinearRegression } from './linearRegression'
+
 export { computeLinearRegression }
 
 /** 将绘图文档中的字面量换行控制码拆为逻辑文本行。 */
@@ -690,7 +691,13 @@ export function createInfoLineDefinition(): DrawingDefinition {
 
       return {
         primitives: [
-          { kind: 'line', a, b, text: { text, baseline: LINE_LABEL_BASELINE }, style: drawing.style },
+          {
+            kind: 'line',
+            a,
+            b,
+            text: { text, baseline: LINE_LABEL_BASELINE },
+            style: drawing.style,
+          },
         ],
         meta: { delta, percent, bars, angle },
       }
@@ -949,27 +956,26 @@ export function registerDefaultDrawingDefinitions(registry: DrawingDefinitionReg
   registry.register(createDisjointChannelDefinition())
 }
 
+export type { DrawingLineLabelTarget, DrawingToolId, InteractionDrawingAnchor } from './interaction'
 // 导出交互控制器
 export { DrawingInteractionController } from './interaction'
-export type { DrawingToolId, InteractionDrawingAnchor, DrawingLineLabelTarget } from './interaction'
-
-// 导出工具锚点数表（宿主 UI 借此渲染分步提示与完成状态）
-export {
-  getAnchorCountForTool,
-  SINGLE_ANCHOR_TOOLS,
-  DOUBLE_ANCHOR_TOOLS,
-  TRIPLE_ANCHOR_TOOLS,
-} from './toolConfig'
-
-// 导出磁吸模块（setMagnetMode 的档位类型与吸附纯函数）
-export {
-  snapPointerToOhlc,
-  MAGNET_RADIUS_WEAK,
-  MAGNET_RADIUS_STRONG,
-} from './magnetSnapper'
 export type {
-  MagnetMode,
   ActiveMagnetMode,
+  MagnetMode,
   MagnetSnapConfig,
   SnappedPoint,
 } from './magnetSnapper'
+
+// 导出磁吸模块（setMagnetMode 的档位类型与吸附纯函数）
+export {
+  MAGNET_RADIUS_STRONG,
+  MAGNET_RADIUS_WEAK,
+  snapPointerToOhlc,
+} from './magnetSnapper'
+// 导出工具锚点数表（宿主 UI 借此渲染分步提示与完成状态）
+export {
+  DOUBLE_ANCHOR_TOOLS,
+  getAnchorCountForTool,
+  SINGLE_ANCHOR_TOOLS,
+  TRIPLE_ANCHOR_TOOLS,
+} from './toolConfig'

@@ -1,7 +1,7 @@
 import type {
-  RendererPluginWithHost,
   PluginHost,
   RenderContext,
+  RendererPluginWithHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
 import { getFont, setCanvasFont } from '../../../foundation/tokens/fonts'

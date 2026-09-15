@@ -1,12 +1,10 @@
 // @ts-nocheck - Test file with intentional type relaxations for mocking
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-
-import { createBOLLRendererPlugin } from '../Indicator/boll'
-
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { BOLL_STATE_KEY, type BOLLRenderState } from '@/core/indicators/state/bollState'
 import type { Pane } from '@/core/layout/pane'
 import type { PluginHost, RenderContext, RendererPluginWithHost } from '@/plugin'
 import type { KLineData } from '@/types/price'
+import { createBOLLRendererPlugin } from '../Indicator/boll'
 
 if (typeof globalThis.Path2D === 'undefined') {
   class Path2DMock {
@@ -131,7 +129,9 @@ function createMockRenderContext(
 
 function createMockIndicatorStateReader(state?: BOLLRenderState) {
   return {
-    get: vi.fn(<T>(key: string): T | undefined => (key === BOLL_STATE_KEY ? (state as T) : undefined)),
+    get: vi.fn(<T>(key: string): T | undefined =>
+      key === BOLL_STATE_KEY ? (state as T) : undefined,
+    ),
   }
 }
 

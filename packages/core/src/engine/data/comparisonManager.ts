@@ -3,8 +3,8 @@ import type { KLineData, SymbolSpec } from '../../controllers/types'
 import type { KLineBuffer } from '../../data/buffer/dataBufferTypes'
 import {
   SeriesRepository,
-  seriesSelectionKey,
   type SeriesSelection,
+  seriesSelectionKey,
 } from '../../data/buffer/seriesRepository'
 
 import { symbolSpecIdentityKey } from './symbolIdentity'
@@ -16,11 +16,11 @@ export interface ComparisonHooks {
   selectionForSpec(spec: SymbolSpec): BarsSelection
   createBuffer(spec: SymbolSpec, selection: BarsSelection): KLineBuffer
   loadBuffer(spec: SymbolSpec, selection: BarsSelection, buffer: KLineBuffer): void
-loadRange(
+  loadRange(
     spec: SymbolSpec,
     selection: BarsSelection,
     buffer: KLineBuffer,
-	beforeTimestamp: number,
+    beforeTimestamp: number,
   ): void
   releaseSelection(selection: BarsSelection): void
   scheduleDraw(): void
@@ -123,7 +123,7 @@ export class ComparisonManager {
     return true
   }
 
-/** 请求所有当前比较序列覆盖主图可见区左缘；每次只向前拉取一页。 */
+  /** 请求所有当前比较序列覆盖主图可见区左缘；每次只向前拉取一页。 */
   ensureRange(firstVisibleTs: number): void {
     for (const spec of this.hooks.getSpecs()) {
       const selection = this.hooks.selectionForSpec(spec)

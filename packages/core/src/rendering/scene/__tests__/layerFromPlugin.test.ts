@@ -1,9 +1,8 @@
 /** 验证 RendererPlugin 到 Scene Layer 适配器的绘制与生命周期行为。 */
 
-import { describe, it, expect, vi } from 'vitest'
-
+import { describe, expect, it, vi } from 'vitest'
+import type { RenderContext, RendererPlugin } from '../../../foundation/plugin'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin'
-import type { RendererPlugin, RenderContext } from '../../../foundation/plugin'
 import { createLayerFromPlugin } from '../createLayerFromPlugin'
 import type { PaintContext } from '../types'
 

@@ -28,9 +28,7 @@ describe('resolveGithubUrl', () => {
   })
 
   it('falls back when repository is missing', () => {
-    expect(resolveGithubUrl({ version: '1' })).toBe(
-      'https://github.com/363045841/KLineChartQuant',
-    )
+    expect(resolveGithubUrl({ version: '1' })).toBe('https://github.com/363045841/KLineChartQuant')
   })
 })
 
