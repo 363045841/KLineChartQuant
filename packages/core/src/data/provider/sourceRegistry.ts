@@ -48,4 +48,15 @@ export const dataSourceRegistry = {
       'Tradingview data connector, source: https://github.com/363045841/Baostock-Tradingview-Connecter',
     defaultBaseUrl: 'http://127.0.0.1:8000',
   },
+  mt5: {
+    id: 'mt5',
+    displayName: 'MT5 (Exness)',
+    description:
+      'MT5 local terminal connector (Exness), source: https://github.com/363045841/MT5-Connecter',
+    defaultBaseUrl: 'http://127.0.0.1:8090',
+    // MT5 品种（外汇/加密/金属 CFD）近似 7x24：会话仅供时区解析（UTC），不裁剪 K 线
+    marketSessions: {
+      MT5: { timeZone: 'UTC', sessions: [{ open: 0, close: 24 * 60 }] },
+    },
+  },
 } as const satisfies Record<string, DataSourceRegistration>
