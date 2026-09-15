@@ -3,6 +3,7 @@
   "include": ["packages/**/__tests__/*", "packages/**/env.d.ts"],
   "exclude": [],
   "compilerOptions": {
+    "incremental": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.vitest.tsbuildinfo",
 
     "types": ["vite/client", "unplugin-icons/types/vue", "node", "jsdom"]

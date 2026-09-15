@@ -59,7 +59,7 @@
     "build:demo": "vite build --config vite.demo.config.ts",
     "preview": "pnpm --filter @363045841yyt/klinechart preview",
     "preview:demo": "vite preview --config vite.demo.config.ts",
-    "type-check": "vue-tsc --build",
+    "type-check": "vue-tsc --noEmit -p tsconfig.app.json && vue-tsc --noEmit -p tsconfig.node.json && vue-tsc --noEmit -p tsconfig.vitest.json",
     "test:unit": "vitest",
     "test:packages": "pnpm -r test",
     "docs:generate": "node scripts/generate-readmes.mjs",
