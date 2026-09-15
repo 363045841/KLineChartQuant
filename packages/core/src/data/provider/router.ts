@@ -3,8 +3,8 @@
 import { isKLineChartError, KLineChartError } from '../../errors'
 
 import {
-  marketDataProviderRegistry,
   MarketDataProviderRegistry,
+  marketDataProviderRegistry,
   type SourceCapabilityQuery,
 } from './registry'
 import type {
@@ -225,7 +225,9 @@ export class SourceRouter {
     await Promise.all(
       enabled
         .filter((provider) => this.registry.getCapabilities(provider.source.id) === undefined)
-        .map((provider) => discoverCapabilities(this.registry, provider, signal).catch(() => undefined)),
+        .map((provider) =>
+          discoverCapabilities(this.registry, provider, signal).catch(() => undefined),
+        ),
     )
     const filtered = this.registry.getEnabledByCapability(query)
     return filtered
@@ -296,7 +298,7 @@ export class SourceRouter {
           period: request.period,
           adjustment: request.adjustment,
           limit: request.limit,
-            beforeTimestamp: request.beforeTimestamp,
+          beforeTimestamp: request.beforeTimestamp,
           signal: request.signal,
         })
       },
@@ -351,8 +353,7 @@ export class SourceRouter {
             `[${provider.source.id}] has no timeShareRange source`,
           )
         }
-        const endTradingDate =
-          request.endTradingDate ?? request.resolveEndTradingDate?.(instrument)
+        const endTradingDate = request.endTradingDate ?? request.resolveEndTradingDate?.(instrument)
         if (!endTradingDate) {
           throw new KLineChartError(
             'INVALID_PARAM',

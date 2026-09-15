@@ -1,19 +1,17 @@
 /** 管理 Agent Provider 设置弹窗的临时表单状态与异步操作。 */
 import { createPinia, defineStore } from 'pinia'
 import { ref } from 'vue'
-
-import { PROVIDER_API_PROTOCOLS } from './agent-contracts'
-
 import type {
   AgentBridgeClient,
   AgentErrorView,
-  ProviderApiProtocol,
-  AgentToolView,
   AgentToolDebugResult,
+  AgentToolView,
+  ProviderApiProtocol,
   ProviderModelView,
   ProviderProfileView,
   ProviderStatusView,
 } from './agent-contracts'
+import { PROVIDER_API_PROTOCOLS } from './agent-contracts'
 
 /** 将 bridge 错误收敛为 UI 可直接展示的错误视图。 */
 function toOperationError(error: unknown): AgentErrorView {

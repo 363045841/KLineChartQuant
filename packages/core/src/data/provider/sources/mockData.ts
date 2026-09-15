@@ -49,7 +49,8 @@ function generateDateRangeBars(start: number, end: number): KLineData[] {
 
   const finalOffset = rawWalk[totalDays - 1]! - basePrice
   for (let index = 0; index < totalDays; index++) {
-    const close = Math.round((rawWalk[index]! - finalOffset * (index / (totalDays - 1 || 1))) * 100) / 100
+    const close =
+      Math.round((rawWalk[index]! - finalOffset * (index / (totalDays - 1 || 1))) * 100) / 100
     const open = index === 0 ? basePrice : data[index - 1]!.close
     const volume = Math.round(Math.random() * 10_000_000 + 1_000_000)
     data.push({
@@ -88,12 +89,8 @@ export function searchMockInstruments(
 /** 根据统一 BarQuery 生成 MOCK K 线分页结果。 */
 export function fetchMockBars(query: BarQuery): ReadonlyArray<KLineData> {
   if (query.instrument.symbol === MOCK_10000_SYMBOL) return generateTenThousandBars()
-  const end =
-    (query.beforeTimestamp ?? Date.now()) - (query.beforeTimestamp === undefined ? 0 : 1)
+  const end = (query.beforeTimestamp ?? Date.now()) - (query.beforeTimestamp === undefined ? 0 : 1)
   return generateDateRangeBars(end - query.limit * 2 * 86_400_000, end)
-    .filter(
-      (item) =>
-        query.beforeTimestamp === undefined || item.timestamp < query.beforeTimestamp,
-    )
+    .filter((item) => query.beforeTimestamp === undefined || item.timestamp < query.beforeTimestamp)
     .slice(-query.limit)
 }

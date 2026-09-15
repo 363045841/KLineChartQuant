@@ -1,11 +1,11 @@
 import type { ScaleType } from '../utils/tickPosition'
 
 import {
-  type LogFormula,
-  toLog,
   fromLog,
+  type LogFormula,
   logFormulaForPriceRange,
   logFormulasAreSame,
+  toLog,
 } from './logFormula'
 import type { PriceRange } from './price'
 

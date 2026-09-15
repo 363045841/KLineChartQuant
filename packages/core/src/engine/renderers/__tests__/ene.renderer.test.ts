@@ -1,14 +1,13 @@
 // @ts-nocheck - Test file with intentional type relaxations for mocking
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-
-import { createENERendererPlugin } from '../Indicator/ene'
-
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ENE_STATE_KEY, type ENERenderState } from '@/core/indicators/state/eneState'
 import type { PluginHost, RenderContext, RendererPluginWithHost } from '@/plugin'
+import { createENERendererPlugin } from '../Indicator/ene'
 
 const ENE_COLORS = { BAND_FILL: 'rgba(69, 112, 249, 0.08)' } as const
-import type { KLineData } from '@/types/price'
+
 import type { Pane } from '@/core/layout/pane'
+import type { KLineData } from '@/types/price'
 
 // Type helper for tests
 interface TestableENERenderer extends RendererPluginWithHost {
@@ -58,7 +57,8 @@ function createMockPluginHost(state?: ENERenderState): PluginHost {
           },
           getAllIndicators: () => [],
           createRenderStateReader: () => ({
-            get: <T>(key: string): T | undefined => (key === ENE_STATE_KEY ? (state as T) : undefined),
+            get: <T>(key: string): T | undefined =>
+              key === ENE_STATE_KEY ? (state as T) : undefined,
           }),
         } as T
       }
@@ -118,7 +118,9 @@ function createMockRenderContext(
 
 function createMockIndicatorStateReader(state?: ENERenderState) {
   return {
-    get: vi.fn(<T>(key: string): T | undefined => (key === ENE_STATE_KEY ? (state as T) : undefined)),
+    get: vi.fn(<T>(key: string): T | undefined =>
+      key === ENE_STATE_KEY ? (state as T) : undefined,
+    ),
   }
 }
 

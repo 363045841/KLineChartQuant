@@ -6,11 +6,11 @@
 import type { KLineData } from '../../foundation/types/price'
 
 import type { IndicatorRuntimeDescriptor } from './indicatorMetadata'
-import { IndicatorRuntime, CALCULATOR_MAP, createWorkerCompute } from './indicatorRuntime'
+import { CALCULATOR_MAP, createWorkerCompute, IndicatorRuntime } from './indicatorRuntime'
 import type {
+  IndicatorConfigSnapshot,
   IndicatorWorkerRequest,
   IndicatorWorkerResponse,
-  IndicatorConfigSnapshot,
   SerializedRuntimeDescriptor,
 } from './workerProtocol'
 import { PROTOCOL_VERSION } from './workerProtocol'

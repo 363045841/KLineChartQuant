@@ -1,10 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-
-import { createScene } from '../../rendering/scene/createScene'
-import { createLayerFromPlugin } from '../../rendering/scene/createLayerFromPlugin'
-import { RendererPluginManager } from '../../foundation/plugin/rendererPluginManager'
-import type { RendererPlugin, RenderContext } from '../../foundation/plugin/index'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
+import { RendererPluginManager } from '../../foundation/plugin/rendererPluginManager'
+import { createLayerFromPlugin } from '../../rendering/scene/createLayerFromPlugin'
+import { createScene } from '../../rendering/scene/createScene'
 
 /**
  * Phase 0 契约：绘制只走 Scene；Manager 仅注册表；
@@ -97,9 +96,7 @@ describe('render single-path (Phase 0)', () => {
     scene.addLayer(
       createLayerFromPlugin(makePlugin('boom', boom), () => ({}) as RenderContext, 'main'),
     )
-    scene.addLayer(
-      createLayerFromPlugin(makePlugin('ok', ok), () => ({}) as RenderContext, 'main'),
-    )
+    scene.addLayer(createLayerFromPlugin(makePlugin('ok', ok), () => ({}) as RenderContext, 'main'))
 
     expect(() => paintMain()).not.toThrow()
     expect(boom).toHaveBeenCalledOnce()

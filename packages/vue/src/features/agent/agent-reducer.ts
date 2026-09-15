@@ -343,7 +343,6 @@ function reduceCurrentAgentUiEvent(
 
     case 'provider.status.changed':
       return { ...state, provider: event.status }
-
   }
 }
 

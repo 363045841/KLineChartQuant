@@ -51,8 +51,10 @@ All READMEs are generated from `docs/fragments/` (reusable Markdown snippets) + 
 
 | Command | What |
 |---------|------|
+| `pnpm lint` | Biome 检查（`biome check .`，含 lint + format + import 排序）；`pnpm lint:fix` 自动修复 |
+| `pnpm format` | Biome 格式化（`biome format --write .`） |
 | `pnpm build:packages` | 发布包构建（core → vue） |
-| `pnpm type-check` | 使用 `vue-tsc --build`，不要使用 `tsc` |
+| `pnpm type-check` | 使用 `vue-tsc --noEmit -p <tsconfig>` 逐个检查，不要使用 `tsc` |
 | `pnpm test:unit` | root 测试 |
 | `pnpm test:packages` | 所有 workspace 包测试 |
 | `pnpm docs:generate` / `pnpm docs:check` | 生成 / 校验 README |
@@ -70,12 +72,12 @@ All READMEs are generated from `docs/fragments/` (reusable Markdown snippets) + 
 
 ## Code Conventions
 
-- **Formatter**: Prettier (`semi: false`, `singleQuote: true`, `printWidth: 100`). VSCode auto-formats on save.
+- **Formatter / Linter**: Biome（配置见根目录 `biome.json`）；`semi: false`、`singleQuote: true`、`printWidth: 100`、LF、尾逗号 `all`。VSCode / Zed 保存时自动格式化。
 - **Decorator transform**: Babel (`@babel/plugin-proposal-decorators` with `version: '2023-11'`). Not native TC39 decorators.
 - **Vue bindings signal bridge**: `shallowRef` (not `ref`) — core signal values are immutable; deep proxying breaks `Object.is` referential equality.
 - **Controller factory injection**: Vue package uses `__setControllerFactory(createChartController)` at import time. Tests override via `__setControllerFactory(null/mock)` in setup.
 - **Generated files**: `components.d.ts` (by `unplugin-vue-components` + `unplugin-icons`) — regenerated on dev server start.
-- **`vue-tsc` for type-checking**: not `tsc`. Runs against `tsconfig.app.json`.
+- **`vue-tsc` for type-checking**: not `tsc`。逐个检查 `tsconfig.app.json` / `tsconfig.node.json` / `tsconfig.vitest.json`；不使用 `--build`。增量缓存由各 config 的 `incremental` + `tsBuildInfoFile`（`node_modules/.tmp/`）提供。
 - **Vue SFC composable extraction**: always extract logic into composables (`useXxx`); avoid coupling logic inside `<script setup>` blocks.
 - **Error codes**: `KLineChartError` 的错误码必须从 `packages/core/src/errors.ts` 中的具名常量引用，禁止在业务代码里散落字符串字面量。新增错误码时在 `errors.ts` 追加常量并保持 append-only
 - **Colors**: 颜色必须收归 `packages/core/src/foundation/tokens` 管理,业务组件仅消费 Token 输出的 CSS 变量,禁止局部硬编码颜色。

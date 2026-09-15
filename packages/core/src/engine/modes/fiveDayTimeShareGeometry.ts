@@ -2,9 +2,9 @@
 import type { TimeShareRange } from '../../data/provider/types'
 import type { FiveDayTimeShareGeometry } from '../../foundation/plugin'
 import {
+  type MarketSessionConfig,
   resolveMarketSessionSlots,
   resolveTimestampSessionSlot,
-  type MarketSessionConfig,
 } from '../../foundation/utils/timeShareAxisLabels'
 import { computeTimeShareXLayout } from './timeShareMath'
 

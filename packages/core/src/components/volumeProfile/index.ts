@@ -1,12 +1,12 @@
+export { binBarToBuckets } from './binning'
+export { createVolumeProfileController } from './createVolumeProfileController'
+export { findPOCIndex } from './poc'
 export type {
   BinningMode,
-  VolumeProfileConfig,
-  VolumeProfileState,
-  VolumeProfileBar,
-  VolumeProfileController,
   ValueAreaResult,
+  VolumeProfileBar,
+  VolumeProfileConfig,
+  VolumeProfileController,
+  VolumeProfileState,
 } from './types'
-export { binBarToBuckets } from './binning'
-export { findPOCIndex } from './poc'
 export { computeValueArea } from './valueArea'
-export { createVolumeProfileController } from './createVolumeProfileController'

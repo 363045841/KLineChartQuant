@@ -1,14 +1,14 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { calcSARData } from '../calculators'
 
 import {
   empty,
-  singleBar,
-  pureUptrend,
-  pureDowntrend,
-  spikeAtBar19,
   gapUp,
+  pureDowntrend,
+  pureUptrend,
+  singleBar,
+  spikeAtBar19,
 } from './__fixtures__/synthetic'
 
 describe('calcSARData — Parabolic SAR', () => {

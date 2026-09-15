@@ -1,18 +1,18 @@
 import type {
-  RendererPluginWithHost,
+  BaseIndicatorState,
   PluginHost,
   RenderContext,
-  BaseIndicatorState,
+  RendererPluginWithHost,
 } from '../../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../../foundation/plugin/index'
 import { createIndicatorStateKey } from '../../../../foundation/plugin/stateKeys'
+import { getFont, setCanvasFont } from '../../../../foundation/tokens/fonts'
 import { resolveThemeColors } from '../../../../foundation/tokens/index'
 import { drawCrosshairPriceLabel } from '../../../../foundation/utils/kLineDraw/axis'
 import {
-  roundToPhysicalPixel,
   alignToPhysicalPixelCenter,
+  roundToPhysicalPixel,
 } from '../../../../foundation/utils/pixelAlign'
-import { getFont, setCanvasFont } from '../../../../foundation/tokens/fonts'
 import { calculateValueTickPositions, type ScaleType } from '../../../utils/tickPosition'
 import { formatScaleValue, resolveAdaptiveDecimals } from './scaleFormat'
 

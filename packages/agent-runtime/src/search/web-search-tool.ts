@@ -1,9 +1,9 @@
 // 本文件将网络搜索供应商适配为 Pi Agent 可调用的只读工具。
-import { Type, type Static } from 'typebox'
+import { type Static, Type } from 'typebox'
 
 import type { RuntimeToolDefinition } from '../pi/types.js'
-import { formatWebSearchResult } from './web-search-formatter.js'
 import type { WebSearchProvider } from './types.js'
+import { formatWebSearchResult } from './web-search-formatter.js'
 
 export const WEB_SEARCH_TOOL_NAME = 'web_search'
 export const WEB_SEARCH_TOOL_METADATA = {
@@ -46,7 +46,9 @@ export function createWebSearchTool(provider: WebSearchProvider): RuntimeToolDef
         return {
           content: result.content,
           citations: result.citations,
-          summary: sources.length ? `Found ${sources.length} web results.` : 'No web results found.',
+          summary: sources.length
+            ? `Found ${sources.length} web results.`
+            : 'No web results found.',
         }
       } catch {
         context.signal.throwIfAborted()

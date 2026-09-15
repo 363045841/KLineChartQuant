@@ -15,7 +15,7 @@
 
 import type { Theme, ThemeOverride } from './types'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: 主题 token 以动态字符串键索引，此处无法给出更窄的类型
 function isRecord(v: unknown): v is Record<string, any> {
   return v !== null && typeof v === 'object'
 }

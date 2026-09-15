@@ -1,9 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
-
-import QuestionCard from '../components/QuestionCard.vue'
-
 import type { QuestionView } from '../agent-contracts'
+import QuestionCard from '../components/QuestionCard.vue'
 
 const DUPLICATE_LABEL_QUESTION: QuestionView = {
   id: 'question-1',

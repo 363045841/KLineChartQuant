@@ -7,20 +7,21 @@ import { RuntimeToolCatalog } from '../tools/runtime-tool-registry.js'
 
 describe('web search', () => {
   it('maps an Exa response to standard sources', async () => {
-    const fetch = vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          results: [
-            {
-              title: 'KLineChart docs',
-              url: 'https://example.com/docs',
-              text: 'Documentation content.',
-              publishedDate: '2026-09-08',
-            },
-          ],
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      ),
+    const fetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            results: [
+              {
+                title: 'KLineChart docs',
+                url: 'https://example.com/docs',
+                text: 'Documentation content.',
+                publishedDate: '2026-09-08',
+              },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
     )
     const provider = createExaWebSearchProvider({ apiKey: 'exa-key', fetch })
 

@@ -1,11 +1,11 @@
 #!/usr/bin/env tsx
+import fs from 'node:fs'
+import path from 'node:path'
 /**
  * Fix ALL import/export specifiers using ts-morph's AST.
  * Handles: import declarations, export declarations, and import() type expressions.
  */
 import { Project, SyntaxKind } from 'ts-morph'
-import fs from 'node:fs'
-import path from 'node:path'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const CORE_SRC = path.join(ROOT, 'packages/core/src')
@@ -144,25 +144,24 @@ function main() {
     const oldFileRel = newToOld.get(fileRel) ?? fileRel // fallback to current if not mapped
 
     // Collect all string literals that look like relative module specifiers
-    const stringLiterals = sourceFile.getDescendantsOfKind(SyntaxKind.StringLiteral)
-      .filter(n => {
-        const text = n.getLiteralText()
-        return text.startsWith('./') || text.startsWith('../')
-      })
-    
+    const stringLiterals = sourceFile.getDescendantsOfKind(SyntaxKind.StringLiteral).filter((n) => {
+      const text = n.getLiteralText()
+      return text.startsWith('./') || text.startsWith('../')
+    })
+
     if (stringLiterals.length === 0) continue
 
     let fileChanged = false
 
     for (const node of stringLiterals) {
       const specifier = node.getLiteralText()
-      
+
       // Step 1: Resolve specifier relative to the OLD file location
       const oldAbsFile = path.join(CORE_SRC, oldFileRel)
       const oldAbsDir = path.dirname(oldAbsFile)
       const oldAbsolute = path.resolve(oldAbsDir, specifier)
       const oldAbsoluteRel = path.relative(CORE_SRC, oldAbsolute).replace(/\\/g, '/')
-      
+
       // Step 2: Try extensions to find the actual old path
       let resolvedOldPath: string | null = null
       for (const ext of EXTENSIONS) {

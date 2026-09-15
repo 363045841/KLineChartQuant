@@ -16,10 +16,7 @@ import { createMainIndicatorLegendLayer } from './mainIndicatorLegendLayer'
 
 describe('createMainIndicatorLegendLayer', () => {
   it('leaves plugin installation to RendererPluginManager', () => {
-    createMainIndicatorLegendLayer(
-      { yPaddingPx: 20 },
-      () => null,
-    )
+    createMainIndicatorLegendLayer({ yPaddingPx: 20 }, () => null)
 
     expect(plugin.onInstall).not.toHaveBeenCalled()
   })

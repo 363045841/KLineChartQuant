@@ -1,17 +1,17 @@
-import type { RendererPlugin, RenderContext } from '../../foundation/plugin/index'
-import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../foundation/plugin/index'
-import { Indicator } from '../indicators/indicatorDefinitionRegistry'
+import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index'
+import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index'
+import { getFont, setCanvasFont } from '../../foundation/tokens/fonts'
 import { resolveThemeColors } from '../../foundation/tokens/index'
-import type { KLineData } from '../../foundation/types/price'
 import { ChartDataViewId } from '../../foundation/types/chartView'
+import type { KLineData } from '../../foundation/types/price'
 import {
-  roundToPhysicalPixel,
   alignToPhysicalPixelCenter,
   createHorizontalLineRect,
+  roundToPhysicalPixel,
   worldXToScreenX,
 } from '../../foundation/utils/pixelAlign'
 import { isOnRightHalf } from '../../foundation/utils/viewportSide'
-import { getFont, setCanvasFont } from '../../foundation/tokens/fonts'
+import { Indicator } from '../indicators/indicatorDefinitionRegistry'
 
 const textWidthCache = new Map<string, number>()
 const TEXT_WIDTH_CACHE_LIMIT = 256

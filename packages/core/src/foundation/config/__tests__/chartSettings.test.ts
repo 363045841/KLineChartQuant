@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  type ChartSettings,
   DEFAULT_SETTINGS,
   loadStoredSettings,
   mapRendererTierToBackend,
@@ -9,7 +10,6 @@ import {
   resolveSettingDefault,
   resolveSettings,
   SETTINGS_STORAGE_KEY,
-  type ChartSettings,
 } from '../chartSettings'
 
 describe('mapRendererTierToBackend', () => {

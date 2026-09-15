@@ -29,10 +29,10 @@ import { KLineChartError } from '../../errors'
 import { createSignal, type Signal } from '../../foundation/reactivity/index'
 
 import {
+  type AggressorResult,
   classifyExplicit,
   classifyLeeReady,
   classifyTickRule,
-  type AggressorResult,
   type LeeReadyState,
   type TickRuleState,
 } from './aggressor'

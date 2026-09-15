@@ -1,4 +1,5 @@
 import { KLineChartError } from '../../errors'
+
 /**
  * Multi-Timeframe overlay controller.
  *
@@ -12,8 +13,8 @@ import { KLineChartError } from '../../errors'
  * behavior, only frame-time cost. Tests pin the observable shape.
  */
 
-import { createSignal } from '../../foundation/reactivity/index'
 import type { Signal } from '../../foundation/reactivity/index'
+import { createSignal } from '../../foundation/reactivity/index'
 
 import { alignToBaseIndex } from './alignToBaseIndex'
 import { resampleBars } from './resampleBars'

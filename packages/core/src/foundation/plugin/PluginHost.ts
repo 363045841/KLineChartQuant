@@ -9,13 +9,13 @@ import { HookSystem } from './HookSystem'
 import { PluginRegistry } from './PluginRegistry'
 import { StateStore } from './StateStore'
 import type {
+  BaseIndicatorState,
+  HookCallOptions,
   Plugin,
   PluginConfig,
   PluginHost,
-  PluginState,
-  BaseIndicatorState,
   PluginLogger,
-  HookCallOptions,
+  PluginState,
 } from './types'
 
 export class PluginHostImpl implements PluginHost {

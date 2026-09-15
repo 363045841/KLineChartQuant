@@ -2,8 +2,8 @@
  * ChartIndicatorFacade —— 指标实例与主图指标的公开操作。
  */
 import type { Computed } from '../../foundation/reactivity/signal'
-import type { ChartIndicatorManager } from '../indicators/chartIndicatorManager'
 import type { IndicatorInstance, SubPaneInfo } from '../chartTypes'
+import type { ChartIndicatorManager } from '../indicators/chartIndicatorManager'
 
 /** Indicator Facade 所需依赖。 */
 export interface ChartIndicatorFacadeDependencies {

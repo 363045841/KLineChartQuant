@@ -6,8 +6,8 @@
  */
 import type {
   ChartController,
-  PaneSpec,
   IndicatorInstance,
+  PaneSpec,
   SubIndicatorType,
 } from '@363045841yyt/klinechart-core/controllers'
 import { getRegisteredIndicatorDefinition } from '@363045841yyt/klinechart-core/indicators'

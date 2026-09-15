@@ -1,16 +1,17 @@
 /** 绘图文档领域服务：为用户交互与 Agent 提供统一的已确认图元 CRUD。 */
+
+import type { TradingDate } from '../../data/provider/types'
+import { DRAWING_ERROR_CODES, KLineChartError } from '../../errors'
 import type {
-  PersistedDrawingAnchor,
   DrawingKind,
   DrawingLabels,
   DrawingObject,
   DrawingStyle,
   DrawingWorkspaceId,
+  PersistedDrawingAnchor,
 } from '../../foundation/plugin'
-import { generateUUID } from '../../foundation/utils/uuid'
 import { DEFAULT_DRAWING_STROKE } from '../../foundation/tokens'
-import { DRAWING_ERROR_CODES, KLineChartError } from '../../errors'
-import type { TradingDate } from '../../data/provider/types'
+import { generateUUID } from '../../foundation/utils/uuid'
 import type { DrawingStateModule } from '../state/drawingState'
 
 import { PREVIEW_ID } from './DrawingState'
@@ -75,6 +76,7 @@ export interface BatchDrawingPatch {
 /** DrawingStyle 的字段名。 */
 export type DrawingStyleKey = keyof DrawingStyle
 
+/** 可批量修改的样式字段全集 */
 const DRAWING_STYLE_KEYS: ReadonlyArray<DrawingStyleKey> = [
   'stroke',
   'strokeWidth',
@@ -285,9 +287,14 @@ export class DrawingDocument {
   getBatchStyleKeys(ids: ReadonlyArray<string>): ReadonlyArray<DrawingStyleKey> {
     const drawings = this.getDrawingsByIds(ids)
     if (drawings.length === 0) return Object.freeze([])
+    // 通道类的填充能力由 kind 固有（渲染端必有 area 图元，fill 缺省时从 stroke 派生），
+    // 因此全通道类集合的 fill 总是可批量修改，不依赖 style 上是否显式存在该键。
+    const fillSupported = drawings.every((drawing) => isChannel(drawing.kind))
     return Object.freeze(
-      DRAWING_STYLE_KEYS.filter((key) =>
-        drawings.every((drawing) => drawing.style[key] !== undefined),
+      DRAWING_STYLE_KEYS.filter(
+        (key) =>
+          (key === 'fill' && fillSupported) ||
+          drawings.every((drawing) => drawing.style[key] !== undefined),
       ),
     )
   }

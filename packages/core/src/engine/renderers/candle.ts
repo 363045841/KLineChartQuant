@@ -1,9 +1,9 @@
-import type { RendererPlugin, RenderContext } from '../../foundation/plugin/index'
+import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import { resolveThemeColors, type VolumePriceColors } from '../../foundation/tokens/index'
+import { ChartDataViewId } from '../../foundation/types/chartView'
 import { getKLineTrend, type kLineTrend } from '../../foundation/types/kLine'
 import type { KLineData } from '../../foundation/types/price'
-import { ChartDataViewId } from '../../foundation/types/chartView'
 import { VolumePriceRelation } from '../../foundation/types/volumePrice'
 import {
   analyzeVolumePriceRelationBatch,

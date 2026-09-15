@@ -1,5 +1,5 @@
 /** 已确认图元的唯一写命令入口，统一提交状态与请求重绘。 */
-import type { PersistedDrawingAnchor, DrawingObject } from '../../foundation/plugin'
+import type { DrawingObject, PersistedDrawingAnchor } from '../../foundation/plugin'
 
 import type {
   BatchDrawingPatch,

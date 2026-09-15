@@ -78,7 +78,10 @@ describe('new drawing tools', () => {
     const geometry = createInfoLineDefinition().compute(drawing('info-line'), context())
 
     expect(geometry.primitives).toEqual([
-      expect.objectContaining({ kind: 'line', text: expect.objectContaining({ text: expect.any(String) }) }),
+      expect.objectContaining({
+        kind: 'line',
+        text: expect.objectContaining({ text: expect.any(String) }),
+      }),
     ])
   })
 })

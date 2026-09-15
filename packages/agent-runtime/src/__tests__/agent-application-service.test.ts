@@ -4,12 +4,12 @@ import { describe, expect, it } from 'vitest'
 import {
   AgentApplicationService,
   AgentRuntimeError,
-  RuntimeSessionService,
   type AgentRunUiEventInput,
   type AgentUiEvent,
   type PiRunPlan,
   type PiRunResult,
   type RunDriver,
+  RuntimeSessionService,
 } from '../index'
 
 class ControlledDriver implements RunDriver {
@@ -143,12 +143,16 @@ describe('AgentApplicationService', () => {
         snippet: 'Volatility increased.',
       },
     ]
-    await drivers[0]!.push({ type: 'assistant.message.completed', messageId: 'assistant-1', citations })
+    await drivers[0]!.push({
+      type: 'assistant.message.completed',
+      messageId: 'assistant-1',
+      citations,
+    })
     drivers[0]!.complete({
-        text: 'Neutral',
-        completedToolCount: 0,
-        citations,
-        usage: { inputTokens: 4, outputTokens: 2 },
+      text: 'Neutral',
+      completedToolCount: 0,
+      citations,
+      usage: { inputTokens: 4, outputTokens: 2 },
     })
     await tick()
 

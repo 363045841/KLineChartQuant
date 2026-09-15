@@ -25,13 +25,12 @@
   import { computed } from 'vue'
 
   import ToggleSwitch from '../../../components/common/ToggleSwitch.vue'
-  import { getAgentCopy, type AgentLocale } from '../agent-copy'
-
   import type {
     AgentChartSymbolContextItem,
     AgentContextItem,
     AgentSelectedTimeRangeContextItem,
   } from '../agent-contracts'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy'
 
   const props = defineProps<{
     contextItems: ReadonlyArray<AgentContextItem>
@@ -52,7 +51,6 @@
     ),
   )
   const scopeLabel = computed(() => symbolContext.value?.value.symbol ?? text.value.noSymbol)
-
 </script>
 
 <style scoped>

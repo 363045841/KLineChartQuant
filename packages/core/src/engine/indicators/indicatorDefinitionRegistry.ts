@@ -1,23 +1,22 @@
 import { KLineChartError } from '../../errors'
 import type { PluginHost } from '../../foundation/plugin/index'
 import { createIndicatorStateKey } from '../../foundation/plugin/stateKeys'
-
+import type { ChartDataView } from '../state/modeState'
 import type {
-  IndicatorMetadata,
+  GetTitleInfoFn,
+  IndicatorAuxiliaryRendererNameResolver,
   IndicatorCategory,
+  IndicatorConfigUpdater,
+  IndicatorMetadata,
+  IndicatorPresentationDescriptor,
+  IndicatorRendererNameResolver,
+  IndicatorRuntimeDescriptor,
   IndicatorType,
-  StateKey,
   RendererFactory,
   ScaleRendererFactory,
-  IndicatorConfigUpdater,
-  IndicatorRuntimeDescriptor,
-  IndicatorPresentationDescriptor,
-  GetTitleInfoFn,
-  IndicatorRendererNameResolver,
-  IndicatorAuxiliaryRendererNameResolver,
+  StateKey,
 } from './indicatorMetadata'
 import { resolveStateKey } from './indicatorMetadata'
-import type { ChartDataView } from '../state/modeState'
 
 export type IndicatorDefinitionConfig<T = unknown> = {
   name: string

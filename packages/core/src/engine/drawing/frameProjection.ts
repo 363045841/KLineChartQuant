@@ -3,18 +3,19 @@ import type {
   DrawingFrameProjection,
   DrawingKind,
   DrawingPrimitive,
-  ResolvedDrawingAnchor,
-  ResolvedDrawingObject,
   DrawingStyle,
   RenderContext,
+  ResolvedDrawingAnchor,
+  ResolvedDrawingObject,
   ScreenPoint,
 } from '../../foundation/plugin'
-import type { KLineData } from '../../foundation/types/price'
 import { DEFAULT_DRAWING_STROKE, resolveThemeColors } from '../../foundation/tokens'
+import type { KLineData } from '../../foundation/types/price'
 import { resolveChartWorkspaceId } from '../state/modeState'
 import { logicalIndexToScreenX } from '../viewport/logicalIndexToScreenX'
 
 import { DrawingDefinitionRegistry, DrawingStore } from './index'
+import { LINE_LABEL_BASELINE } from './labelLayout'
 import { createSelectionMarqueePrimitives, type DrawingSelectionMarquee } from './selectionMarquee'
 
 type MutableDrawingFrameProjection = {
@@ -93,7 +94,7 @@ function applySelectedStyle(
   return primitive
 }
 
-/** 将持久化文本附加到对应线段；位置和方向由渲染器按当前几何计算。 */
+/** 将持久化文本附加到对应线段；锚点、旋转、对齐与基线由渲染器和热点共用同一约定。 */
 function attachLineLabels(
   drawing: ResolvedDrawingObject,
   primitives: ReadonlyArray<DrawingPrimitive>,
@@ -106,7 +107,7 @@ function attachLineLabels(
       ? primitive
       : {
           ...primitive,
-          text: { text: label.text, position: label.position, baseline: 'bottom' },
+          text: { text: label.text, position: label.position, baseline: LINE_LABEL_BASELINE },
         }
   })
 }

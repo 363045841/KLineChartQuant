@@ -94,11 +94,18 @@ function pointInRect(
   point: ScreenPoint,
   rect: { left: number; right: number; top: number; bottom: number },
 ): boolean {
-  return point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom
+  return (
+    point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom
+  )
 }
 
 /** 使用叉积判断两个闭合线段是否相交。 */
-function segmentsIntersect(a: ScreenPoint, b: ScreenPoint, c: ScreenPoint, d: ScreenPoint): boolean {
+function segmentsIntersect(
+  a: ScreenPoint,
+  b: ScreenPoint,
+  c: ScreenPoint,
+  d: ScreenPoint,
+): boolean {
   const abC = cross(a, b, c)
   const abD = cross(a, b, d)
   const cdA = cross(c, d, a)
@@ -107,7 +114,7 @@ function segmentsIntersect(a: ScreenPoint, b: ScreenPoint, c: ScreenPoint, d: Sc
   if (abD === 0 && pointOnSegment(d, a, b)) return true
   if (cdA === 0 && pointOnSegment(a, c, d)) return true
   if (cdB === 0 && pointOnSegment(b, c, d)) return true
-  return (abC > 0) !== (abD > 0) && (cdA > 0) !== (cdB > 0)
+  return abC > 0 !== abD > 0 && cdA > 0 !== cdB > 0
 }
 
 /** 返回有向线段 AB 与点 C 的叉积。 */

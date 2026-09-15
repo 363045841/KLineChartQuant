@@ -1,11 +1,9 @@
 // @ts-nocheck - Test file with intentional type relaxations for mocking
-import { describe, it, expect, vi } from 'vitest'
-
-import { createTimeShareRendererPlugin } from '../timeShare'
-
+import { describe, expect, it, vi } from 'vitest'
 import type { RenderContext } from '@/plugin'
 import type { TimeShareData } from '@/types/price'
 import { ChartDataViewId } from '../../../foundation/types/chartView'
+import { createTimeShareRendererPlugin } from '../timeShare'
 
 function createMockCanvasContext() {
   const strokeLineWidths: number[] = []
@@ -65,8 +63,8 @@ function createContext(ctx: CanvasRenderingContext2D, data: TimeShareData[]): Re
     dpr: 1,
     scrollLeft: 0,
     paneWidth: 800,
-      period: 'timeshare',
-      dataView: ChartDataViewId.TimeShare,
+    period: 'timeshare',
+    dataView: ChartDataViewId.TimeShare,
     theme: 'light',
     isAsiaMarket: true,
     settings: { preClose: 10 },

@@ -1,13 +1,13 @@
+export type { AggressorResult, LeeReadyState, TickRuleState } from './aggressor'
+export { classifyExplicit, classifyLeeReady, classifyTickRule } from './aggressor'
+export { createFootprintController } from './createFootprintController'
+export type { FootprintBarCell, FootprintImbalance } from './perBarStats'
+export { computeCumulativeDelta, computeDelta, computeDiagonalImbalances } from './perBarStats'
 export type {
   AggressorSide,
-  Trade,
-  TradeWithFlag,
   FootprintBar,
   FootprintConfig,
   FootprintController,
+  Trade,
+  TradeWithFlag,
 } from './types'
-export type { AggressorResult, TickRuleState, LeeReadyState } from './aggressor'
-export { classifyExplicit, classifyTickRule, classifyLeeReady } from './aggressor'
-export type { FootprintBarCell, FootprintImbalance } from './perBarStats'
-export { computeDelta, computeCumulativeDelta, computeDiagonalImbalances } from './perBarStats'
-export { createFootprintController } from './createFootprintController'

@@ -2,14 +2,14 @@
 
 import type { SemanticChartConfig } from '@363045841yyt/klinechart-core/semantic'
 import {
+  type CSSProperties,
   createElement,
+  type ForwardedRef,
   forwardRef,
   useEffect,
   useImperativeHandle,
   useRef,
   useState,
-  type CSSProperties,
-  type ForwardedRef,
 } from 'react'
 
 declare global {

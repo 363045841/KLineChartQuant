@@ -1,11 +1,11 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import type { RenderContext } from '../../../foundation/plugin/index'
 import type { KLineData } from '../../../foundation/types/price'
 import {
   buildComparisonLinePoints,
-  strokeStrip,
   createComparisonLineRenderer,
+  strokeStrip,
 } from '../comparisonLine'
 
 const mainData: KLineData[] = [
@@ -129,12 +129,16 @@ describe('createComparisonLineRenderer.draw baseline', () => {
 describe('strokeStrip', () => {
   it('breaks the path at non-finite points', () => {
     const ctx = mockCtx()
-    strokeStrip(ctx, [
-      { x: 0, y: 0 },
-      { x: 1, y: Number.NaN },
-      { x: 2, y: 2 },
-      { x: 3, y: 3 },
-    ], '#000')
+    strokeStrip(
+      ctx,
+      [
+        { x: 0, y: 0 },
+        { x: 1, y: Number.NaN },
+        { x: 2, y: 2 },
+        { x: 3, y: 3 },
+      ],
+      '#000',
+    )
     expect(ctx.moveTo).toHaveBeenCalledTimes(2)
     // 断点两侧各一段：第一段 1 点，第二段 2 点（2 moveTo + 1 lineTo）
     expect(ctx.lineTo).toHaveBeenCalledTimes(1)

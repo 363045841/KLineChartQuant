@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
-
+import type { RenderContext } from '../../../foundation/plugin'
 import { createIndicatorScaleRendererPlugin } from '../Indicator/scale/indicator_scale'
 import { formatScaleValue, resolveAdaptiveDecimals } from '../Indicator/scale/scaleFormat'
-import type { RenderContext } from '../../../foundation/plugin'
 
 describe('resolveAdaptiveDecimals', () => {
   it('keeps the minimum decimals for wide ranges', () => {

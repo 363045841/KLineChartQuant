@@ -1,5 +1,5 @@
 // 本文件把「向用户提问并等待答复」封装为阻塞式 Agent 工具，渲染与应答生命周期由宿主实现。
-import { Type, type Static } from 'typebox'
+import { type Static, Type } from 'typebox'
 
 import type { QuestionAnswerView, QuestionOptionView } from '../contracts/ui.js'
 import type { RuntimeToolDefinition } from '../pi/types.js'

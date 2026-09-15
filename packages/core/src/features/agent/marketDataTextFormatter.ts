@@ -1,15 +1,14 @@
 // 本文件将市场查询的领域结果转义为紧凑 Markdown 表格，降低 Agent 上下文 token 消耗。
-import { formatTimestamp } from '../../foundation/utils/dateFormat'
 
-import { createMarkdownTable, escapeMarkdownCell } from './markdownTable'
-
-import type { KLineData, TimeShareData } from '../../foundation/types/price'
 import type {
   InstrumentDescriptor,
   KLineAdjustment,
   KLinePeriod,
   OlderDataStatus,
 } from '../../data/provider/types'
+import type { KLineData, TimeShareData } from '../../foundation/types/price'
+import { formatTimestamp } from '../../foundation/utils/dateFormat'
+import { createMarkdownTable, escapeMarkdownCell } from './markdownTable'
 import type { BarsQueryResult, TimeShareQueryResult, TimeShareRangeQueryResult } from './types'
 
 /** 市场查询文本转义服务。 */

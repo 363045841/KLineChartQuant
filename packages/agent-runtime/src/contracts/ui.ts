@@ -178,7 +178,12 @@ export interface AgentContextObject {
 
 /** 可安全跨 UI、Bridge 与 Provider 传递的上下文值。 */
 export type AgentContextValue =
-  null | boolean | number | string | ReadonlyArray<AgentContextValue> | AgentContextObject
+  | null
+  | boolean
+  | number
+  | string
+  | ReadonlyArray<AgentContextValue>
+  | AgentContextObject
 
 /** 单个运行上下文；kind 用于让模型和运行时识别上下文语义。 */
 export interface AgentContextItem<

@@ -1,3 +1,6 @@
+export { createAlertController } from './createAlertController'
+export { evaluatePredicate } from './predicates'
+export { AlertRuleSchemaError, deserializeRule, serializeRule } from './ruleSchema'
 export type {
   AlertController,
   AlertControllerOptions,
@@ -9,6 +12,3 @@ export type {
   IndicatorCrossPairDirection,
   MarketSnapshot,
 } from './types'
-export { createAlertController } from './createAlertController'
-export { evaluatePredicate } from './predicates'
-export { AlertRuleSchemaError, deserializeRule, serializeRule } from './ruleSchema'

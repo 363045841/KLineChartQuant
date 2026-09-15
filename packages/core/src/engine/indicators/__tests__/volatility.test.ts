@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import { calcHVData, calcParkinsonData, calcChaikinVolData } from '../calculators'
+import { calcChaikinVolData, calcHVData, calcParkinsonData } from '../calculators'
 
-import { empty, constantPrice, pureUptrend, sideways, spikeAtBar19 } from './__fixtures__/synthetic'
+import { constantPrice, empty, pureUptrend, sideways, spikeAtBar19 } from './__fixtures__/synthetic'
 
 describe('calcHVData — Historical Volatility', () => {
   it('empty returns empty', () => {

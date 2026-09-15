@@ -19,7 +19,7 @@ export class IndicatorRegistry {
   private indicators = new Map<string, IndicatorMetadata>()
   private aliases = new Map<string, string>()
 
-  constructor(private autoSync = true) {
+  constructor(autoSync = true) {
     if (autoSync) {
       for (const def of getRegisteredIndicatorDefinitions()) {
         this.register(def)

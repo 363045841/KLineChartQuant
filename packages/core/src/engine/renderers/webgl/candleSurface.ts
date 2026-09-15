@@ -1,5 +1,5 @@
-import { SharedWebGLSurface, type WebGLRegion } from './sharedWebGLSurface'
 import { buildWideLineGeometry } from '../../../rendering/render/wideLineGeometry'
+import { SharedWebGLSurface, type WebGLRegion } from './sharedWebGLSurface'
 
 type Rect = {
   x: number

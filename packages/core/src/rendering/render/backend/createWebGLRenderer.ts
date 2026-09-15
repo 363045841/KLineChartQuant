@@ -3,19 +3,18 @@
 import { CandleWebGLSurface, LineWebGLSurface } from '../../../engine/renderers/webgl/candleSurface'
 import { SharedWebGLSurface } from '../../../engine/renderers/webgl/sharedWebGLSurface'
 import { worldXToScreenX } from '../../../foundation/utils/pixelAlign'
-
+import { prepareLineStripForPhysicalPixels } from '../physicalLine'
 import type {
-  Renderer,
-  RendererCapabilities,
   BufferHandle,
-  PipelineHandle,
-  ComputePipelineHandle,
   BufferUsage,
+  ComputePipelineHandle,
+  DispatchComputeParams,
   DrawInstancesParams,
   DrawLinesParams,
-  DispatchComputeParams,
+  PipelineHandle,
+  Renderer,
+  RendererCapabilities,
 } from '../Renderer'
-import { prepareLineStripForPhysicalPixels } from '../physicalLine'
 import type { SurfaceBackend, SurfaceRegion } from '../SurfaceBackend'
 
 type WebGLPipelineDescriptor = {

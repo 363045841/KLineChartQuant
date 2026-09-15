@@ -218,27 +218,24 @@
 <script setup lang="ts">
   import type { ColorPresetThemeName, MarketDataCacheStats } from '@363045841yyt/klinechart-core'
   import {
+    type ChartSettings,
     DEFAULT_SETTINGS,
     resolveSettingDefault,
     resolveSettings,
-    type ChartSettings,
     type SettingItem,
   } from '@363045841yyt/klinechart-core/config'
   import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
-  import { ref, computed, watch } from 'vue'
-
+  import { computed, ref, watch } from 'vue'
+  import IconTablerTrash from '~icons/tabler/trash'
   import type { AggregationSourceEndpoint } from '../composables/useAggregationSources'
   import { getOpenSourceCredits } from '../credits/openSourceCredits'
-
   import AggregationSourceDialog from './AggregationSourceDialog.vue'
   import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
   import BaseTabs from './BaseTabs.vue'
   import ColorPresetPanel from './ColorPresetPanel.vue'
-  import Dropdown from './Dropdown.vue'
   import ToggleSwitch from './common/ToggleSwitch.vue'
-
-  import IconTablerTrash from '~icons/tabler/trash'
+  import Dropdown from './Dropdown.vue'
 
   const props = withDefaults(
     defineProps<{

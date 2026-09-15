@@ -4,16 +4,16 @@
  * Preference lives in settings.theme; effective theme is ctrl.theme (kernel computed).
  */
 import {
+  type ColorPresetSettings,
+  darkTheme,
+  lightTheme,
   resolveThemeColors,
   themeToCssVars,
-  lightTheme,
-  darkTheme,
-  type ColorPresetSettings,
 } from '@363045841yyt/klinechart-core'
-import { resolveSettings, type ChartSettings } from '@363045841yyt/klinechart-core/config'
+import { type ChartSettings, resolveSettings } from '@363045841yyt/klinechart-core/config'
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import type { Ref } from 'vue'
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 
 import { useControllerSignal } from './useControllerSignal'
 

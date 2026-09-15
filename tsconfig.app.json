@@ -1,9 +1,6 @@
 {
   "extends": "@vue/tsconfig/tsconfig.dom.json",
-  "include": [
-    "packages/**/*.ts",
-    "packages/**/*.vue"
-  ],
+  "include": ["packages/**/*.ts", "packages/**/*.vue"],
   "exclude": [
     "**/__tests__/**",
     "**/__bench__/**",
@@ -13,6 +10,7 @@
     "**/*.config.*"
   ],
   "compilerOptions": {
+    "incremental": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "target": "ESNext",
     "useDefineForClassFields": true,
@@ -24,12 +22,7 @@
       "@/utils/*": ["./packages/core/src/foundation/utils/*"],
       "@/*": ["./packages/core/src/*"]
     },
-    "plugins": [
-      { "name": "@effect/language-service/tsconfig-plugin" }
-    ],
-    "types": [
-      "vite/client",
-      "unplugin-icons/types/vue"
-    ]
+    "plugins": [{ "name": "@effect/language-service/tsconfig-plugin" }],
+    "types": ["vite/client", "unplugin-icons/types/vue"]
   }
 }

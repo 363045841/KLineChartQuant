@@ -1,4 +1,6 @@
 #!/usr/bin/env tsx
+import fs from 'node:fs'
+import path from 'node:path'
 /**
  * Fix remaining issues from the core restructure:
  * 1. Move pixelAlign.ts → foundation/utils/ and update imports
@@ -6,8 +8,6 @@
  * 3. Fix src/index.ts barrel exports to point to new locations
  */
 import { Project } from 'ts-morph'
-import fs from 'node:fs'
-import path from 'node:path'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const CORE_SRC = 'packages/core/src'
@@ -153,11 +153,7 @@ for (const { from } of FILE_MOVES) {
 }
 
 // Clean up empty old dirs
-const oldDirs = new Set([
-  'engine/draw',
-  'engine/draw/__tests__',
-  'engine/theme',
-])
+const oldDirs = new Set(['engine/draw', 'engine/draw/__tests__', 'engine/theme'])
 for (const dirRel of [...oldDirs].sort((a, b) => b.split('/').length - a.split('/').length)) {
   const absDir = path.join(ROOT, CORE_SRC, dirRel)
   if (fs.existsSync(absDir)) {

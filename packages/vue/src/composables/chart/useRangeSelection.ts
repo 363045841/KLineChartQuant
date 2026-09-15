@@ -1,15 +1,14 @@
 /** 区间选择状态、统计指标与 CSV 导出逻辑。 */
 import { formatTimestamp } from '@363045841yyt/klinechart-core'
-import type { KLineData, ChartController } from '@363045841yyt/klinechart-core/controllers'
-import { sourceRouter } from '@363045841yyt/klinechart-core/market-data'
+import type { ChartController, KLineData } from '@363045841yyt/klinechart-core/controllers'
 import type { KLineAdjustment, KLinePeriod } from '@363045841yyt/klinechart-core/market-data'
-import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
-
-import { calcRangeOverlayPixel } from '../../tools/calcRangeOverlayPixel'
+import { sourceRouter } from '@363045841yyt/klinechart-core/market-data'
+import { type ComputedRef, computed, type Ref, ref, watch } from 'vue'
 import type { Bounds } from '../../tools/calcRangeOverlayPixel'
+import { calcRangeOverlayPixel } from '../../tools/calcRangeOverlayPixel'
 import {
-  getKLineIndexByTimestamp,
   findNearestKLineIndex,
+  getKLineIndexByTimestamp,
 } from '../../tools/getKLineIndexByTimestamp'
 import { useControllerSignal } from './useControllerSignal'
 

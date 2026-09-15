@@ -1,8 +1,8 @@
-import type { RendererPlugin, RenderContext } from '../../foundation/plugin/index'
+import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import { resolveThemeColors } from '../../foundation/tokens/index'
-import type { KLineData } from '../../foundation/types/price'
 import { ChartDataViewId } from '../../foundation/types/chartView'
+import type { KLineData } from '../../foundation/types/price'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry'
 
 function getLastPriceInfo(context: RenderContext) {

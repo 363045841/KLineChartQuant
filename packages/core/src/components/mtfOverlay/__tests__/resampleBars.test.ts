@@ -2,7 +2,7 @@
  * resampleBars tests — bucketing math, partial bars, gap handling.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { resampleBars } from '../resampleBars'
 import type { BaseBar } from '../types'

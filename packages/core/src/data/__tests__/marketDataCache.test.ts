@@ -188,7 +188,9 @@ describe('MarketDataCache', () => {
     cache.destroy()
 
     await expect(pending).rejects.toMatchObject({ name: 'AbortError' })
-    await expect(cache.queryBars(query({ limit: 10 }))).rejects.toMatchObject({ name: 'AbortError' })
+    await expect(cache.queryBars(query({ limit: 10 }))).rejects.toMatchObject({
+      name: 'AbortError',
+    })
   })
 
   it('rejects a late provider response after destruction without restoring the cache', async () => {

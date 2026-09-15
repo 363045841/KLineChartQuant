@@ -13,14 +13,14 @@
  * - Inline fallback backend（indicatorRuntime.ts）
  */
 
-import type { KLineData } from '../../foundation/types/price'
 import type { IndicatorRenderStateReader, PluginHost } from '../../foundation/plugin/index'
+import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
+import type { KLineData } from '../../foundation/types/price'
 import {
   createIndicatorResultState,
   type IndicatorResultStateModule,
 } from '../state/indicatorResultState'
-
-import { resolveStateKey, type IndicatorMetadata } from './indicatorMetadata'
+import { type IndicatorMetadata, resolveStateKey } from './indicatorMetadata'
 import { IndicatorRegistry } from './indicatorRegistry'
 import { IndicatorRuntime } from './indicatorRuntime'
 // Default constants for default config
@@ -34,27 +34,27 @@ import { DEFAULT_DEMA_PERIOD } from './state/demaState'
 import { DEFAULT_DONCHIAN_PERIOD } from './state/donchianState'
 import { DEFAULT_FIB_PERIOD } from './state/fibState'
 import { DEFAULT_HMA_PERIOD } from './state/hmaState'
-import { DEFAULT_HV_PERIOD, DEFAULT_HV_ANNUALIZATION } from './state/hvState'
+import { DEFAULT_HV_ANNUALIZATION, DEFAULT_HV_PERIOD } from './state/hvState'
 import {
-  DEFAULT_ICHIMOKU_TENKAN,
+  DEFAULT_ICHIMOKU_DISPLACEMENT,
   DEFAULT_ICHIMOKU_KIJUN,
   DEFAULT_ICHIMOKU_SPAN_B,
-  DEFAULT_ICHIMOKU_DISPLACEMENT,
+  DEFAULT_ICHIMOKU_TENKAN,
 } from './state/ichimokuState'
 import {
-  DEFAULT_KAMA_PERIOD,
   DEFAULT_KAMA_FAST_PERIOD,
+  DEFAULT_KAMA_PERIOD,
   DEFAULT_KAMA_SLOW_PERIOD,
 } from './state/kamaState'
 import {
-  DEFAULT_KELTNER_EMA_PERIOD,
   DEFAULT_KELTNER_ATR_PERIOD,
+  DEFAULT_KELTNER_EMA_PERIOD,
   DEFAULT_KELTNER_MULTIPLIER,
 } from './state/keltnerState'
 import { DEFAULT_MFI_PERIOD } from './state/mfiState'
-import { DEFAULT_PARKINSON_PERIOD, DEFAULT_PARKINSON_ANNUALIZATION } from './state/parkinsonState'
+import { DEFAULT_PARKINSON_ANNUALIZATION, DEFAULT_PARKINSON_PERIOD } from './state/parkinsonState'
 import { DEFAULT_ROC_PERIOD } from './state/rocState'
-import { DEFAULT_SAR_STEP, DEFAULT_SAR_MAX_STEP } from './state/sarState'
+import { DEFAULT_SAR_MAX_STEP, DEFAULT_SAR_STEP } from './state/sarState'
 import { DEFAULT_STRUCTURE_LEFT, DEFAULT_STRUCTURE_RIGHT } from './state/structureState'
 import {
   DEFAULT_SUPERTREND_ATR_PERIOD,
@@ -76,17 +76,16 @@ import {
   composeVolumeRenderState,
   computeMainIndicatorPriceRange,
 } from './stateComposer'
-import { isWorkerResponse, PROTOCOL_VERSION } from './workerProtocol'
 import type {
   IndicatorConfig,
   IndicatorConfigSnapshot,
   IndicatorInstanceCalculationInput,
   IndicatorInstanceCalculationResult,
   IndicatorSeriesBundle,
+  IndicatorWorkerResponse,
   SerializedRuntimeDescriptor,
 } from './workerProtocol'
-import type { IndicatorWorkerResponse } from './workerProtocol'
-import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
+import { isWorkerResponse, PROTOCOL_VERSION } from './workerProtocol'
 
 /**
  * 可见范围
@@ -199,8 +198,6 @@ export class IndicatorScheduler {
   // Worker 异步结果应用完毕回调（用于串联其他管线，如 Alert）
   private onResultsAppliedCallback: (() => void) | null = null
 
-  /** 从 Chart 获取活跃副图 paneId 列表的回调 */
-  private getActiveSubPaneIds: (() => string[]) | null = null
   /** 从 Kernel 获取指标实例计算输入的回调。 */
   private getIndicatorInstances: (() => ReadonlyArray<IndicatorInstanceCalculationSource>) | null =
     null
@@ -316,13 +313,6 @@ export class IndicatorScheduler {
    */
   onSubPaneChanged(): void {
     if (this.getLatestBundle()) this.updateVisibleStatesOnly()
-  }
-
-  /**
-   * 设置活跃副图 paneId 提供者（来自 Chart.getSubPaneIndicators）
-   */
-  setActiveSubPaneProvider(provider: () => string[]): void {
-    this.getActiveSubPaneIds = provider
   }
 
   /** 注入指标实例快照，作为实例级计算输入的唯一来源。 */
@@ -518,7 +508,7 @@ export class IndicatorScheduler {
         this.handleSeriesResult(msg)
         break
 
-      case 'error':
+      case 'error': {
         console.error('[IndicatorScheduler] Worker error:', msg.stage, msg.message)
         const shouldRetry =
           this.pendingRequest !== null &&
@@ -528,6 +518,7 @@ export class IndicatorScheduler {
           this.fallbackToInline(true)
         }
         break
+      }
 
       default: {
         const _exhaustive: never = msg

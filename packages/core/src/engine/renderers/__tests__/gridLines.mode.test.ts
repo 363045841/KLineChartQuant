@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import type { RenderContext } from '../../../foundation/plugin/types'
-import { ChartDataViewId, type ChartDataView } from '../../../foundation/types/chartView'
+import { type ChartDataView, ChartDataViewId } from '../../../foundation/types/chartView'
 import { createGridLinesRendererPlugin } from '../gridLines'
 
 function createMockCtx() {

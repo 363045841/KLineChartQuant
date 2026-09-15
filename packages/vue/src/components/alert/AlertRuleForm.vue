@@ -366,22 +366,19 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, reactive } from 'vue'
-
-  import ToggleSwitch from '../common/ToggleSwitch.vue'
-
   import type {
     AlertPredicate,
     AlertRule,
     CrossDirection,
     IndicatorCrossPairDirection,
   } from '@363045841yyt/klinechart-core'
-
+  import { computed, reactive, ref } from 'vue'
   import IconTablerArrowDown from '~icons/tabler/arrow-down'
   import IconTablerArrowUp from '~icons/tabler/arrow-up'
   import IconTablerArrowsUpDown from '~icons/tabler/arrows-up-down'
   import IconTablerMinus from '~icons/tabler/minus'
   import IconTablerPlus from '~icons/tabler/plus'
+  import ToggleSwitch from '../common/ToggleSwitch.vue'
 
   const props = defineProps<{ rule?: AlertRule }>()
 

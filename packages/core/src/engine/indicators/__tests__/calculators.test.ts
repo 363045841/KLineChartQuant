@@ -1,19 +1,17 @@
-import { describe, it, expect } from 'vitest'
-
+import { describe, expect, it } from 'vitest'
+import type { KLineData } from '@/types/price'
 import {
-  calcMAData,
   calcBOLLData,
-  calcEXPMAData,
   calcENEData,
+  calcEXPMAData,
+  calcMAData,
   calcRSIData,
   DEFAULT_MA_PERIODS,
 } from '../calculators'
-import { DEFAULT_BOLL_PERIOD, DEFAULT_BOLL_MULTIPLIER } from '../state/bollState'
-import { DEFAULT_ENE_PERIOD, DEFAULT_ENE_DEVIATION } from '../state/eneState'
+import { DEFAULT_BOLL_MULTIPLIER, DEFAULT_BOLL_PERIOD } from '../state/bollState'
+import { DEFAULT_ENE_DEVIATION, DEFAULT_ENE_PERIOD } from '../state/eneState'
 import { DEFAULT_EXPMA_FAST_PERIOD, DEFAULT_EXPMA_SLOW_PERIOD } from '../state/expmaState'
 import { DEFAULT_RSI_PERIOD1, DEFAULT_RSI_PERIOD2, DEFAULT_RSI_PERIOD3 } from '../state/rsiState'
-
-import type { KLineData } from '@/types/price'
 
 /**
  * 创建测试用的 K 线数据

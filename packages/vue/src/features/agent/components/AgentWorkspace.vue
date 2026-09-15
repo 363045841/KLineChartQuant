@@ -64,17 +64,14 @@
 
 <script setup lang="ts">
   import { nextTick, onUnmounted, ref, watch } from 'vue'
-
+  import type { AgentBridgeClient } from '../agent-contracts'
   import { useAgentWorkspace } from '../use-agent-workspace'
-
   import AgentComposer from './AgentComposer.vue'
   import AgentContextBar from './AgentContextBar.vue'
   import AgentContextInjectionCard from './AgentContextInjectionCard.vue'
   import AgentHeader from './AgentHeader.vue'
   import AgentSettingsDialog from './AgentSettingsDialog.vue'
   import AgentTimeline from './AgentTimeline.vue'
-
-  import type { AgentBridgeClient } from '../agent-contracts'
 
   const props = defineProps<{ bridge: AgentBridgeClient }>()
   defineEmits<{ close: [] }>()

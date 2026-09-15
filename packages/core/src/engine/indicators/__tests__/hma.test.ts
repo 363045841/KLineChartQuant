@@ -1,15 +1,15 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { calcHMAData } from '../calculators'
 
-import { HMA_GOLDEN, assertSeriesClose } from './__fixtures__/golden'
+import { assertSeriesClose, HMA_GOLDEN } from './__fixtures__/golden'
 import {
-  empty,
-  singleBar,
   constantPrice,
-  pureUptrend,
+  empty,
   pureDowntrend,
+  pureUptrend,
   sideways,
+  singleBar,
   spikeAtBar19,
 } from './__fixtures__/synthetic'
 import { assertFiniteOrUndefined } from './_propertyAssertions'

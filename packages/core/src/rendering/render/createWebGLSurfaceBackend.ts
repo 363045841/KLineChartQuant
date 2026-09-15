@@ -2,7 +2,7 @@
 
 import { SharedWebGLSurface } from '../../engine/renderers/webgl/sharedWebGLSurface'
 
-import type { SurfaceBackend, SurfaceRegion, CompositeOptions } from './SurfaceBackend'
+import type { CompositeOptions, SurfaceBackend, SurfaceRegion } from './SurfaceBackend'
 
 /** WebGL surface 对外暴露底层 canvas，供图表直接叠放到 2D canvas 下方。 */
 export type WebGLSurfaceBackend = SurfaceBackend & {

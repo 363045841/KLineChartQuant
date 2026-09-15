@@ -1,9 +1,14 @@
 // Pi Agent 驱动器：执行运行计划、投影 UI 事件并隔离敏感内容。
 import { Agent, type AgentEvent, type AgentTool } from '@earendil-works/pi-agent-core'
-
+import type { AssistantMessage, Usage } from '@earendil-works/pi-ai'
 import { AgentRuntimeError, toAgentRuntimeError } from '../contracts/errors.js'
-import { redactString, redactValue, type RedactionOptions } from '../security/redaction.js'
-
+import type {
+  AgentUsageView,
+  SourceCitation,
+  ToolCallView,
+  ToolProgressView,
+} from '../contracts/ui.js'
+import { type RedactionOptions, redactString, redactValue } from '../security/redaction.js'
 import type {
   PiRunEventSink,
   PiRunPlan,
@@ -11,8 +16,6 @@ import type {
   RuntimeToolDefinition,
   RuntimeToolResult,
 } from './types.js'
-import type { AgentUsageView, SourceCitation, ToolCallView, ToolProgressView } from '../contracts/ui.js'
-import type { AssistantMessage, Usage } from '@earendil-works/pi-ai'
 
 // Run deadline 是无活动计时：任何 Pi 事件或工具 progress 心跳都会重置；等待用户回答由 ask_user 心跳维持。
 const DEFAULT_TIMEOUT_MS = 10 * 60_000
@@ -230,7 +233,7 @@ export class PiRunDriver {
           plan.systemPrompt ??
           `You are the KLineChartQuant chart analyst. Use only supplied tools. Scope: ${JSON.stringify(plan.scope)}.`,
         model: plan.model,
-        thinkingLevel: plan.reasoningEffort === 'none' ? 'off' : plan.reasoningEffort ?? 'low',
+        thinkingLevel: plan.reasoningEffort === 'none' ? 'off' : (plan.reasoningEffort ?? 'low'),
         tools,
         messages: [...(plan.transcript ?? [])],
       },
@@ -425,7 +428,10 @@ export class PiRunDriver {
             toolCallId,
             signal,
             progress: (progress) => {
-              onUpdate?.({ content: [{ type: 'text', text: progress.label }], details: { progress } })
+              onUpdate?.({
+                content: [{ type: 'text', text: progress.label }],
+                details: { progress },
+              })
             },
           })
         } catch (error) {

@@ -159,7 +159,12 @@ export interface MarkersConfig {
 
 /** 预设图形形状 */
 export type MarkerShapeType =
-  'arrow_up' | 'arrow_down' | 'flag' | 'circle' | 'rectangle' | 'diamond'
+  | 'arrow_up'
+  | 'arrow_down'
+  | 'flag'
+  | 'circle'
+  | 'rectangle'
+  | 'diamond'
 
 /** 自定义标记 */
 export interface CustomMarker {

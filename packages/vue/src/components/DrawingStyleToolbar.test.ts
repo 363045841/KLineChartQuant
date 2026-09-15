@@ -1,0 +1,52 @@
+/** 绘图工具栏锁定/解锁按钮行为测试。 */
+
+import type { DrawingObject } from '@363045841yyt/klinechart-core/plugin'
+import { mount } from '@vue/test-utils'
+import { describe, expect, it } from 'vitest'
+import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
+
+/** 构造带锁定状态的最小图元；locked 缺省表示未锁定。 */
+function createDrawing(id: string, locked?: boolean): DrawingObject {
+  return {
+    id,
+    kind: 'trend-line',
+    paneId: 'main',
+    visible: true,
+    ...(locked === undefined ? {} : { locked }),
+    anchors: [],
+    params: {},
+    style: {},
+  }
+}
+
+describe('DrawingStyleToolbar 锁定按钮', () => {
+  it.each([
+    { name: '单个未锁定', drawings: [createDrawing('a', false)], title: '锁定', next: true },
+    { name: '单个已锁定', drawings: [createDrawing('a', true)], title: '解锁', next: false },
+    { name: '锁定状态缺省', drawings: [createDrawing('a')], title: '锁定', next: true },
+    {
+      name: '混合选中',
+      drawings: [createDrawing('a', true), createDrawing('b', false)],
+      title: '锁定',
+      next: true,
+    },
+    {
+      name: '全部已锁定',
+      drawings: [createDrawing('a', true), createDrawing('b', true)],
+      title: '解锁',
+      next: false,
+    },
+  ])('$name：提示「$title」，点击提交 locked=$next', async ({ drawings, title, next }) => {
+    const wrapper = mount(DrawingStyleToolbar, {
+      props: { drawings, editableStyleKeys: [] },
+    })
+
+    const lockButton = wrapper.get('.toolbar-btn--lock')
+    expect(lockButton.attributes('title')).toBe(title)
+
+    await lockButton.trigger('click')
+    expect(wrapper.emitted('toggleLock')).toEqual([[next]])
+
+    wrapper.unmount()
+  })
+})

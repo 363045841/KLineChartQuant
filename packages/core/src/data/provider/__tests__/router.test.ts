@@ -1,6 +1,6 @@
 /** SourceRouter 的能力流转与跨源品种解析测试。 */
 
-import { describe, expect, it, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 
 import { KLineChartError } from '../../../errors'
 import { marketDataProviderRegistry } from '../registry'

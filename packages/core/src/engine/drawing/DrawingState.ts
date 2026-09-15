@@ -92,7 +92,10 @@ export class DrawingState {
   /** 将整组拖拽结果原子写入 kernel，再清理会话覆盖。 */
   commitDrags(): void {
     if (this.dragOverrides.length === 0) return
-    const updates = this.dragOverrides.map((drawing) => ({ id: drawing.id, anchors: drawing.anchors }))
+    const updates = this.dragOverrides.map((drawing) => ({
+      id: drawing.id,
+      anchors: drawing.anchors,
+    }))
     this.dragOverrides = []
     if (updates.length === 1) {
       const update = updates[0]!

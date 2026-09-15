@@ -1,24 +1,24 @@
 import type {
   IndicatorRenderStateReader,
-  RendererPluginWithHost,
   PluginHost,
   RenderContext,
+  RendererPluginWithHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
 import type { ColorTokens } from '../../../foundation/tokens/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
 import { calcMAData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { readIndicatorSeriesEntry, resolveStateKey } from '../../indicators/indicatorMetadata'
 import type {
+  GetTitleInfoFn,
   IndicatorPriceRangeComputer,
   IndicatorRenderStateComposer,
-  GetTitleInfoFn,
   TitleInfo,
   TitleValueItem,
 } from '../../indicators/indicatorMetadata'
+import { readIndicatorSeriesEntry, resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
 import { MA_STATE_KEY, type MARenderState } from '../../indicators/state/maState'
 import { tryDrawLinesGpu } from '../linesViaRenderer'

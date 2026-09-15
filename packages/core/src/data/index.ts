@@ -1,28 +1,29 @@
 /** 数据层公共出口：导出行情 Provider、数据缓冲与配置工具，并副作用注册内置数据源。 */
-export { mockMarketDataProvider } from './provider/sources/mock'
-export { baostockMarketDataProvider } from './provider/sources/baostock'
-export { finshareMarketDataProvider } from './provider/sources/finshare'
+
 export { DataBuffer } from './buffer/dataBuffer'
-export type { LoadedTimeRange } from './buffer/dataBufferTypes'
-export { TimeShareBuffer } from './buffer/timeShareBuffer'
-export type { DataBufferLike } from './buffer/dataBufferTypes'
-export { MarketDataCache } from './buffer/marketDataCache'
+export type { DataBufferLike, LoadedTimeRange } from './buffer/dataBufferTypes'
 export type {
   BarsCacheQuery,
   BarsCacheResult,
+  MarketDataCacheStats,
   TimeShareCacheQuery,
   TimeShareCacheResult,
   TimeShareRangeCacheQuery,
   TimeShareRangeCacheResult,
-  MarketDataCacheStats,
 } from './buffer/marketDataCache'
+export { MarketDataCache } from './buffer/marketDataCache'
 export { getPeriodDays } from './buffer/marketDataPolicy'
+export { TimeShareBuffer } from './buffer/timeShareBuffer'
 export { BinanceSSESource, DEFAULT_BINANCE_SSE_URL } from './depth/binance'
-export { gotdxMarketDataProvider } from './provider/sources/gotdx'
-export { tradingviewMarketDataProvider } from './provider/sources/tradingview'
 export { DepthConnector } from './depth/depthConnector'
-export type { DepthSource, DepthDelta, DepthSnapshot, DepthSourceStatus } from './depth/depthTypes'
+export type { DepthDelta, DepthSnapshot, DepthSource, DepthSourceStatus } from './depth/depthTypes'
 export * from './provider'
+export { baostockMarketDataProvider } from './provider/sources/baostock'
+export { finshareMarketDataProvider } from './provider/sources/finshare'
+export { gotdxMarketDataProvider } from './provider/sources/gotdx'
+export { mockMarketDataProvider } from './provider/sources/mock'
+export { tradingviewMarketDataProvider } from './provider/sources/tradingview'
+
 import './provider/sources/gotdx'
 import './provider/sources/baostock'
 import './provider/sources/finshare'

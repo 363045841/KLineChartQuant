@@ -1,9 +1,9 @@
-import type { RendererPluginWithHost, RenderContext } from '../../foundation/plugin/index'
+import type { RenderContext, RendererPluginWithHost } from '../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
 import { resolveThemeColors } from '../../foundation/tokens/index'
+import { ChartDataViewId } from '../../foundation/types/chartView'
 import { getKLineTrend } from '../../foundation/types/kLine'
 import type { KLineData, TimeShareData } from '../../foundation/types/price'
-import { ChartDataViewId } from '../../foundation/types/chartView'
 import { Indicator } from '../indicators/indicatorDefinitionRegistry'
 
 import { createVolumeScaleRendererPlugin } from './Indicator/scale/volume_scale'

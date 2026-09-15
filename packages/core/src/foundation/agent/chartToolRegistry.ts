@@ -10,7 +10,11 @@ export type ChartToolSafety = 'read-only' | 'destructive'
 /** Agent 调用工具时提供的非业务执行控制信息。 */
 export interface ChartToolExecutionContext {
   readonly signal: AbortSignal
-  progress(update: { readonly label: string; readonly current?: number; readonly total?: number }): void
+  progress(update: {
+    readonly label: string
+    readonly current?: number
+    readonly total?: number
+  }): void
 }
 
 /** 直接标注在 Core 领域 API 上的静态工具元数据。 */
@@ -65,7 +69,9 @@ function requireToolInput<TParameters extends TSchema>(
     errors.push(`${error.instancePath || '/'}: ${error.message}`)
     if (errors.length === TOOL_INPUT_ERROR_LIMIT) break
   }
-  throw new TypeError(`The tool input is invalid: ${errors.join('; ') || 'Schema validation failed.'}`)
+  throw new TypeError(
+    `The tool input is invalid: ${errors.join('; ') || 'Schema validation failed.'}`,
+  )
 }
 
 /** 将已校验参数序列化为安全的 UI 调试摘要。 */
@@ -112,7 +118,11 @@ export function Tool<TParameters extends TSchema>(config: ChartToolConfig<TParam
         return (host as Record<string, unknown>)[methodName] === value
       },
       async execute(target, input, execution) {
-        return value.call(target as T, requireToolInput(registeredConfig.parameters, input), execution)
+        return value.call(
+          target as T,
+          requireToolInput(registeredConfig.parameters, input),
+          execution,
+        )
       },
       summarizeInput(input) {
         return summarizeToolInput(requireToolInput(registeredConfig.parameters, input))

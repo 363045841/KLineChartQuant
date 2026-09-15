@@ -38,8 +38,6 @@ src/core/**/*.d.ts.map
 # Obsolete - code migrated to packages/core/
 /src/core/
 
-.eslintcache
-
 # Cypress
 /cypress/videos/
 /cypress/screenshots/
@@ -63,9 +61,6 @@ docs/TradingView级别像素对齐技术.md
 # Next.js examples
 examples/next-app/.next/
 examples/next-app/pnpm-lock.yaml
-
-# oxlint
-.oxlint_cache
 
 # Fallow
 .fallow/

@@ -140,20 +140,19 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, watch } from 'vue'
-
+  import { computed, ref, watch } from 'vue'
   import {
+    type AggregationSourceDefinition,
+    isMockSourceName,
+    supportsAggregationSourceSearch,
+  } from '../composables/useAggregationSources'
+  import { useAggregationSourceTab } from '../composables/useAggregationSourceTab'
+  import {
+    type SymbolSearchFn,
     symbolIdentityKey,
     uniqueSymbolsByIdentity,
     useSymbolSearch,
-    type SymbolSearchFn,
   } from '../composables/useSymbolSearch'
-  import {
-    isMockSourceName,
-    supportsAggregationSourceSearch,
-    type AggregationSourceDefinition,
-  } from '../composables/useAggregationSources'
-  import { useAggregationSourceTab } from '../composables/useAggregationSourceTab'
 
   import BaseTabs from './BaseTabs.vue'
   import SymbolPopover from './SymbolPopover.vue'

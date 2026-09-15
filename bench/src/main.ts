@@ -3,8 +3,8 @@
  * 页面只暴露确定性的测试 API，实际编排、硬件采样与结果落盘由 run.mjs 完成。
  */
 
-import { SharedWebGLSurface } from '../../packages/core/src/engine/renderers/webgl/sharedWebGLSurface'
 import { drawRectBatchesViaRenderer } from '../../packages/core/src/engine/renderers/rectsViaRenderer'
+import { SharedWebGLSurface } from '../../packages/core/src/engine/renderers/webgl/sharedWebGLSurface'
 import { createCanvas2DRenderer } from '../../packages/core/src/rendering/render/backend/createCanvas2DRenderer'
 import { createWebGLRenderer } from '../../packages/core/src/rendering/render/backend/createWebGLRenderer'
 import { createWebGPURenderer } from '../../packages/core/src/rendering/render/backend/createWebGPURenderer'

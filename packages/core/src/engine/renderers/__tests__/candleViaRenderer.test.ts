@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import type { Renderer } from '../../../rendering/render/Renderer'
 import { drawCandlesViaRenderer } from '../candleViaRenderer'
@@ -92,9 +92,7 @@ describe('drawCandlesViaRenderer', () => {
 
   it('returns false if any non-empty batch fails', () => {
     const r = mockRenderer()
-    r.drawInstances
-      .mockReturnValueOnce(true)
-      .mockReturnValueOnce(false)
+    r.drawInstances.mockReturnValueOnce(true).mockReturnValueOnce(false)
     expect(drawCandlesViaRenderer(r, nonEmpty, '#0f0', '#f00', 0)).toBe(false)
   })
 })

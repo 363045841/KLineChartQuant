@@ -1,9 +1,10 @@
 /**
  * ChartMarkerFacade —— 自定义标记状态与位置缓存协调。
  */
+
+import type { CustomMarkerEntity, MarkerManager } from '../marker/registry'
 import type { ChartRenderer } from '../render/chartRenderer'
 import type { ChartStateKernel } from '../state/chartStateKernel'
-import type { CustomMarkerEntity, MarkerManager } from '../marker/registry'
 
 /** Marker Facade 所需依赖。 */
 export interface ChartMarkerFacadeDependencies {

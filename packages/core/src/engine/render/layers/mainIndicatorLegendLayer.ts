@@ -1,7 +1,4 @@
-import type {
-  RenderContext,
-  RendererPluginWithHost,
-} from '../../../foundation/plugin/index'
+import type { RenderContext, RendererPluginWithHost } from '../../../foundation/plugin/index'
 import { createLayerFromPlugin } from '../../../rendering/scene/createLayerFromPlugin'
 import type { Layer } from '../../../rendering/scene/types'
 import {

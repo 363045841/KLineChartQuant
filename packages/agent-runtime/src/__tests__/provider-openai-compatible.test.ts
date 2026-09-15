@@ -1,23 +1,21 @@
+import type { FetchFunction } from '@earendil-works/pi-ai'
 import { Type } from 'typebox'
 import { describe, expect, it, vi } from 'vitest'
-
 import {
   AgentRuntimeError,
+  createOpenAiCompatibleRuntimeSupport,
   DEFAULT_PROVIDER_CONTEXT_WINDOW,
   InMemoryProviderCredentialStore,
   InMemoryProviderSettingsStore,
-  PiRunDriver,
-  createOpenAiCompatibleRuntimeSupport,
   normalizeProviderBaseUrl,
+  type OpenAiCompatibleProviderSettings,
+  PiRunDriver,
+  type ProviderApiProtocol,
+  type ProviderDiagnostic,
   parseOpenAiCompatibleProviderSettings,
   parseRetryAfter,
   requestProviderJson,
-  type OpenAiCompatibleProviderSettings,
-  type ProviderDiagnostic,
-  type ProviderApiProtocol,
 } from '../index'
-
-import type { FetchFunction } from '@earendil-works/pi-ai'
 
 const secret = 'temporary-provider-credential'
 const baseUrl = 'https://models.example.test/v1'

@@ -45,7 +45,9 @@ export default defineConfig({
     Icons({ compiler: 'vue3' }),
   ],
   test: {
-    environment: 'jsdom',
+    // 持久化 transform 缓存，跨 vitest 进程复用（Vitest 5+）
+    fsModuleCache: true,
+    environment: 'happy-dom',
     include: ['src/**/*.test.ts'],
     setupFiles: ['./src/test-setup.ts'],
   },

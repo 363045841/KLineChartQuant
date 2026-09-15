@@ -36,7 +36,7 @@ function mergeConfig(
 ): MarketDataSourceConfig {
   const enabled = patch.enabled ?? current.enabled
   const priority = patch.priority ?? current.priority
-  const baseUrl = Object.prototype.hasOwnProperty.call(patch, 'baseUrl')
+  const baseUrl = Object.hasOwn(patch, 'baseUrl')
     ? normalizeBaseUrl(patch.baseUrl)
     : current.baseUrl
   return baseUrl === undefined ? { enabled, priority } : { enabled, priority, baseUrl }

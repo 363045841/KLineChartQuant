@@ -1,56 +1,56 @@
 // 浏览器 Agent bridge：Pi、会话和 Provider 请求全部运行在 Renderer。
+
+import type {
+  OpenAiCompatibleProviderSettings,
+  ProviderCredentialStore,
+  ProviderSettingsStore,
+  RuntimeToolDefinition,
+} from '@363045841yyt/klinechart-agent-runtime'
 import {
-  AgentRuntimeError,
   AGENT_UI_PROTOCOL_VERSION,
-  PiRunDriver,
-  type PiRunPlan,
-  createAskUserTool,
+  AgentRuntimeError,
   ASK_USER_TOOL_METADATA,
   type AskUserRequest,
+  createAskUserTool,
   createExaWebSearchProvider,
   createOpenAiCompatibleRuntimeSupport,
   createWebSearchTool,
-  RuntimeToolCatalog,
-  WEB_SEARCH_TOOL_METADATA,
   fetchOpenAiCompatibleModels,
   normalizeProviderBaseUrl,
+  PiRunDriver,
+  type PiRunPlan,
   PROVIDER_SETTINGS_VERSION,
+  RuntimeToolCatalog,
+  WEB_SEARCH_TOOL_METADATA,
 } from '@363045841yyt/klinechart-agent-runtime'
-
+import { formatTimestamp } from '@363045841yyt/klinechart-core'
+import {
+  type ChartAgentController,
+  getRegisteredChartTools,
+} from '@363045841yyt/klinechart-core/controllers'
 import type {
   AgentBridgeClient,
+  AgentContextItem,
+  AgentRunContext,
   AgentSessionSnapshot,
   AgentSessionView,
   AgentUiEvent,
   AgentUiEventInput,
-  ProviderModelsResult,
+  ProviderApiProtocol,
   ProviderModelPoolEntry,
+  ProviderModelsResult,
   ProviderModelView,
   ProviderProfileView,
+  ProviderReasoningEffort,
   ProviderSaveInput,
   ProviderStatusView,
   ProviderTestInput,
   ProviderTestResult,
-  StartRunInput,
-  AgentContextItem,
-  AgentRunContext,
-  ProviderReasoningEffort,
-  ProviderApiProtocol,
   QuestionAnswerView,
   QuestionView,
+  StartRunInput,
 } from './agent-contracts'
 import { ProviderModelPool } from './provider-model-pool'
-import type {
-  ProviderCredentialStore,
-  OpenAiCompatibleProviderSettings,
-  ProviderSettingsStore,
-} from '@363045841yyt/klinechart-agent-runtime'
-import {
-  getRegisteredChartTools,
-  type ChartAgentController,
-} from '@363045841yyt/klinechart-core/controllers'
-import { formatTimestamp } from '@363045841yyt/klinechart-core'
-import type { RuntimeToolDefinition } from '@363045841yyt/klinechart-agent-runtime'
 
 const PROVIDER_PROFILES_STORAGE_KEY = 'agent.provider.profiles'
 const PROVIDER_MODEL_POOL_STORAGE_KEY = 'agent.provider.model-pool'
@@ -593,7 +593,10 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     })
     this.toolCatalog.register({
       ...ASK_USER_TOOL_METADATA,
-      create: () => createAskUserTool({ request: (request, context) => this.requestQuestion(request, context) }),
+      create: () =>
+        createAskUserTool({
+          request: (request, context) => this.requestQuestion(request, context),
+        }),
     })
   }
 
@@ -629,7 +632,9 @@ export class BrowserAgentBridge implements AgentBridgeClient {
           questionId: id,
           status: 'cancelled',
         })
-        reject(new AgentRuntimeError('ABORTED', 'The Agent run ended while waiting for the answer.'))
+        reject(
+          new AgentRuntimeError('ABORTED', 'The Agent run ended while waiting for the answer.'),
+        )
       }
       context.signal.addEventListener('abort', onAbort, { once: true })
       this.pendingQuestions.set(id, {

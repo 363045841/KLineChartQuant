@@ -1,4 +1,6 @@
+// @vitest-environment jsdom
 // 本文件验证 Agent Markdown 渲染的格式支持与安全边界。
+// DOMPurify 依赖 Node.prototype 上的 nodeName getter，happy-dom 该 getter 返回空串会误删合法标签，故本文件固定使用 jsdom。
 
 import { describe, expect, it } from 'vitest'
 

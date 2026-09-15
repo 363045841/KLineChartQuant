@@ -1,63 +1,64 @@
 /** Chart 业务状态的 composition root：组合全部子状态并暴露派生信号。 */
-import { StateKernel, type SubStateModule } from './stateKernel'
-import { createZoomState, type ZoomStateModule, type ZoomDeps } from './zoomState'
-import { createDataState, type DataStateModule } from './dataState'
-import {
-  createViewportState,
-  type ViewportStateModule,
-  type ViewportDomDeps,
-} from './viewportState'
-import { createPaneState, type PaneStateModule } from './paneState'
-import { PaneManager } from '../paneManager'
-import { createSystemThemeState, type SystemThemeStateModule } from './themeState'
-import { createSettingsState, type SettingsStateModule } from './settingsState'
-import {
-  ChartDataViewId,
-  createModeState,
-  isTimeShareDataView,
-  resolveChartWorkspaceId,
-  type ChartDataView,
-  type ModeStateModule,
-} from './modeState'
+
+import type { SymbolInfo, SymbolSpec } from '../../controllers/types'
+import type { ChartSettings } from '../../foundation/config/chartSettings'
+import type { DrawingObject } from '../../foundation/plugin/index'
+import { makePluginLayerId } from '../../foundation/plugin/rendererLayerId'
+import { batch, computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
 import { ChartWorkspaceId } from '../../foundation/types/chartView'
+import { resolveMarketSessionSlots } from '../../foundation/utils/sessionTimeLabels'
+import type { RendererBackendRuntime } from '../../rendering/render/rendererHost'
+import type { PaneSpec } from '../chartTypes'
+import type { DrawingToolId } from '../drawing/toolConfig'
+import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
+import type { IndicatorMetadata } from '../indicators/indicatorMetadata'
+import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry'
+import type { MarketSessionRegistry } from '../market/marketSessionRegistry'
+import { resolveSymbolMarketSession } from '../market/resolveSymbolMarketSession'
+import { PaneManager } from '../paneManager'
+import { type ComparisonStateModule, createComparisonState } from './comparisonState'
+import { createDataManagerState, type DataManagerStateModule } from './dataManagerState'
+import { createDataState, type DataStateModule } from './dataState'
 import { createDrawingState, type DrawingStateModule } from './drawingState'
 import {
-  createInteractionState,
-  type InteractionStateModule,
-  type InteractionDeps,
-} from './interactionState'
-import { createDataManagerState, type DataManagerStateModule } from './dataManagerState'
-import { createOptionsState, type OptionsStateModule } from './optionsState'
-import { createComparisonState, type ComparisonStateModule } from './comparisonState'
+  createIndicatorResultState,
+  type IndicatorResultAvailability,
+  type IndicatorResultStateModule,
+  resolveIndicatorResultAvailability,
+} from './indicatorResultState'
 import {
   createIndicatorState,
   type IndicatorInstanceSpec,
   type IndicatorStateModule,
 } from './indicatorState'
-import { createMarkerState, type MarkerStateModule } from './markerState'
-import { createRendererState, type RendererStateModule } from './rendererState'
-import {
-  createIndicatorResultState,
-  resolveIndicatorResultAvailability,
-  type IndicatorResultAvailability,
-  type IndicatorResultStateModule,
-} from './indicatorResultState'
-import { batch, computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
-import { makePluginLayerId } from '../../foundation/plugin/rendererLayerId'
-import type { DrawingObject } from '../../foundation/plugin/index'
-import type { PaneSpec } from '../chartTypes'
-import type { DrawingToolId } from '../drawing/toolConfig'
-import type { SymbolSpec, SymbolInfo } from '../../controllers/types'
-import type { MarkerEntity, CustomMarkerEntity } from '../marker/registry'
 import type { DragMode } from './interactionState'
-import type { ChartSettings } from '../../foundation/config/chartSettings'
-import type { RendererBackendRuntime } from '../../rendering/render/rendererHost'
-import { getRegisteredIndicatorDefinition } from '../indicators/indicatorDefinitionRegistry'
-import type { IndicatorMetadata } from '../indicators/indicatorMetadata'
-import type { MarketSessionRegistry } from '../market/marketSessionRegistry'
-import { resolveSymbolMarketSession } from '../market/resolveSymbolMarketSession'
-import { resolveMarketSessionSlots } from '../../foundation/utils/sessionTimeLabels'
+import {
+  createInteractionState,
+  type InteractionDeps,
+  type InteractionStateModule,
+} from './interactionState'
+import { createMarkerState, type MarkerStateModule } from './markerState'
+import {
+  type ChartDataView,
+  ChartDataViewId,
+  createModeState,
+  isTimeShareDataView,
+  type ModeStateModule,
+  resolveChartWorkspaceId,
+} from './modeState'
+import { createOptionsState, type OptionsStateModule } from './optionsState'
+import { createPaneState, type PaneStateModule } from './paneState'
+import { createRendererState, type RendererStateModule } from './rendererState'
+import { createSettingsState, type SettingsStateModule } from './settingsState'
+import { StateKernel, type SubStateModule } from './stateKernel'
+import { createSystemThemeState, type SystemThemeStateModule } from './themeState'
+import {
+  createViewportState,
+  type ViewportDomDeps,
+  type ViewportStateModule,
+} from './viewportState'
 import type { ViewWorkspacesSnapshot } from './viewWorkspace'
+import { createZoomState, type ZoomDeps, type ZoomStateModule } from './zoomState'
 import '../renderers/extremaMarkers'
 import '../renderers/lastPrice'
 
@@ -414,7 +415,7 @@ export class ChartStateKernel extends StateKernel {
       // Drawing
       drawingTool: this.drawing.readonly.drawingTool,
       drawings: this.drawing.readonly.drawings,
-       selectedDrawingIds: this.drawing.readonly.selectedDrawingIds,
+      selectedDrawingIds: this.drawing.readonly.selectedDrawingIds,
       // Interaction
       interactionSnapshot: this.interaction.readonly.interactionSnapshot,
       crosshairIndex: this.interaction.readonly.crosshairIndex,

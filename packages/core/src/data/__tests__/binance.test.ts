@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { Mock } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { BinanceSSESource, DEFAULT_BINANCE_SSE_URL } from '../depth/binance'
 import type { DepthDelta, DepthSnapshot, DepthSourceStatus } from '../depth/depthTypes'

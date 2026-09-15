@@ -1,15 +1,26 @@
 import {
+  type CustomDataSource,
   FIVE_DAY_TIME_SHARE_DAYS,
   FIVE_DAY_TIME_SHARE_PERIOD,
   isTimeSharePeriod,
-  type SymbolSpec,
   type SymbolInfo,
-  type CustomDataSource,
+  type SymbolSpec,
 } from '../../controllers/types'
 import { DataBuffer } from '../../data/buffer/dataBuffer'
-import { DEFAULT_BAR_PAGE_LIMIT } from '../../data/buffer/marketDataPolicy'
+import type { DataChange, KLineBuffer, TimeShareBuffer } from '../../data/buffer/dataBufferTypes'
 import { MarketDataCache } from '../../data/buffer/marketDataCache'
-import type { KLineBuffer, TimeShareBuffer, DataChange } from '../../data/buffer/dataBufferTypes'
+import { DEFAULT_BAR_PAGE_LIMIT } from '../../data/buffer/marketDataPolicy'
+import {
+  AUTO_SOURCE_ID,
+  instrumentKeyFromSpec,
+  LATEST_TRADING_DATE,
+  SeriesRepository,
+  type SeriesSelection,
+  seriesSelectionKey,
+  sourceIdFromSpec,
+  type TradingDateKey,
+} from '../../data/buffer/seriesRepository'
+import { TimeShareBuffer as TimeShareBufferImpl } from '../../data/buffer/timeShareBuffer'
 import { marketDataProviderRegistry } from '../../data/provider/registry'
 import type {
   InstrumentDescriptor,
@@ -18,29 +29,18 @@ import type {
   TradingDate,
 } from '../../data/provider/types'
 import { DEFAULT_KLINE_ADJUSTMENT, DEFAULT_KLINE_PERIOD } from '../../data/provider/types'
-import { TimeShareBuffer as TimeShareBufferImpl } from '../../data/buffer/timeShareBuffer'
-import {
-  AUTO_SOURCE_ID,
-  LATEST_TRADING_DATE,
-  SeriesRepository,
-  instrumentKeyFromSpec,
-  seriesSelectionKey,
-  sourceIdFromSpec,
-  type SeriesSelection,
-  type TradingDateKey,
-} from '../../data/buffer/seriesRepository'
-import { MarketSessionRegistry } from '../market/marketSessionRegistry'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal'
 import type { KLineData, TimeShareData } from '../../foundation/types/price'
 import type { ChartDom } from '../chartTypes'
-import type { VisibleRange, UpdateLevel } from '../layout/pane'
+import type { UpdateLevel, VisibleRange } from '../layout/pane'
+import { MarketSessionRegistry } from '../market/marketSessionRegistry'
+import type { ComparisonStateModule } from '../state/comparisonState'
+import type { DataManagerStateModule, ViewportSnapshot } from '../state/dataManagerState'
+import type { DataStateModule } from '../state/dataState'
+import { ChartDataViewId } from '../state/modeState'
+import type { ViewportStateModule } from '../state/viewportState'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
 import { findFirstVisibleBarIndex } from '../utils/visibleBarIndex'
-import type { DataStateModule } from '../state/dataState'
-import type { DataManagerStateModule, ViewportSnapshot } from '../state/dataManagerState'
-import type { ViewportStateModule } from '../state/viewportState'
-import type { ComparisonStateModule } from '../state/comparisonState'
-import { ChartDataViewId } from '../state/modeState'
 
 import { ComparisonManager } from './comparisonManager'
 import { IncrementalLoadHint } from './incrementalLoadHint'
@@ -670,11 +670,6 @@ export class ChartDataManager {
 
   getLeftLoadBufferWidth(): number {
     return this.deps.viewport.readonly.leftLoadBufferWidth.peek()
-  }
-
-  private getActiveKLineLength(): number {
-    const buf = this.getActiveDataBuffer()
-    return buf ? buf.getRawData().length : 0
   }
 
   /** 无 viewport / 无数据时返回 null；clamped 可索引区间（start>=0） */
@@ -1354,14 +1349,14 @@ function findComparisonBaselineByTimestamp(
 function findFirstAtOrAfter<T, TValue extends string | number>(
   data: ReadonlyArray<T>,
   target: TValue,
-  valueOf: (item: T) => TValue,
+  getValue: (item: T) => TValue,
 ): T | null {
   let low = 0
   let high = data.length
   while (low < high) {
     const middle = low + Math.floor((high - low) / 2)
     const item = data[middle]
-    if (item && valueOf(item) < target) {
+    if (item && getValue(item) < target) {
       low = middle + 1
     } else {
       high = middle

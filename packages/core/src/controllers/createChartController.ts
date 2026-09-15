@@ -12,53 +12,52 @@
  *   - Tear down DOM + listeners on dispose().
  */
 
-import { Chart } from '../engine/chart'
-import { DrawingDocument } from '../engine/drawing/DrawingDocument'
-import { DrawingCommands } from '../engine/drawing/DrawingCommands'
-import { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins'
-import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
-import { KLineChartError } from '../errors'
 import { marketDataProviderRegistry } from '../data/provider/registry'
-import { createChartAgentController } from '../features/agent/chartAgentController'
+import { Chart } from '../engine/chart'
+import type {
+  ChartOptions,
+  IndicatorInstance as LegacyIndicatorInstance,
+  SubPaneInfo as LegacySubPaneInfo,
+  ViewportState as LegacyViewportState,
+} from '../engine/chartTypes'
+import { DrawingCommands } from '../engine/drawing/DrawingCommands'
+import { DrawingDocument } from '../engine/drawing/DrawingDocument'
+import { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins'
+import type { CustomMarkerEntity } from '../engine/marker/registry'
 import { hasSubPaneRendererMetadata } from '../engine/subPaneManager'
+import { kGapFromKWidth, zoomLevelToKWidth } from '../engine/utils/zoom'
+import { KLineChartError } from '../errors'
+import { createChartAgentController } from '../features/agent/chartAgentController'
 import { createIndicatorQuery } from '../features/agent/indicator/indicatorQuery'
-import {
-  createViewWorkspacePersistence,
-  loadStoredViewWorkspaces,
-} from './viewWorkspacePersistence'
 import { resolveSettings } from '../foundation/config/chartSettings'
 import { computed, type ReadonlySignal } from '../foundation/reactivity/index'
 import { generateUUID } from '../foundation/utils/uuid'
 import { createDefaultRendererHost, type RendererBackend } from '../rendering/render/index'
 import { allIndicatorDefinitions } from './indicatorDefinitionCatalog'
-
 import type {
+  BatchDrawingPatch,
   ChartController,
   ChartMountOptions,
   ChartViewport,
-  SubPaneInfo,
+  CreateDrawingInput,
+  CustomDataSource,
+  DrawingControllerCallbacks,
+  DrawingObject,
+  DrawingStyleKey,
   IndicatorInstance,
   InteractionSnapshot,
-  DrawingControllerCallbacks,
   KLineData,
   PaneLayoutInfo,
   PaneSpec,
-  SymbolSpec,
+  SubPaneInfo,
   SymbolInfo,
-  CustomDataSource,
-  BatchDrawingPatch,
-  CreateDrawingInput,
-  DrawingObject,
-  DrawingStyleKey,
+  SymbolSpec,
   UpdateDrawingPatch,
 } from './types'
-import type {
-  ChartOptions,
-  ViewportState as LegacyViewportState,
-  IndicatorInstance as LegacyIndicatorInstance,
-  SubPaneInfo as LegacySubPaneInfo,
-} from '../engine/chartTypes'
-import type { CustomMarkerEntity } from '../engine/marker/registry'
+import {
+  createViewWorkspacePersistence,
+  loadStoredViewWorkspaces,
+} from './viewWorkspacePersistence'
 
 // ---------------------------------------------------------------------------
 // Defaults
@@ -1017,8 +1016,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     clearDrawings,
     createDrawing,
     updateDrawing,
-     commitDrawingDrag,
-     commitDrawingDrags,
+    commitDrawingDrag,
+    commitDrawingDrags,
     updateBatch,
     getBatchStyleKeys,
     removeDrawing,

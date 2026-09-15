@@ -21,13 +21,13 @@ import type {
 } from '@363045841yyt/klinechart-core'
 import { createIndicatorSelectorController } from '@363045841yyt/klinechart-core'
 import {
-  onBeforeUnmount,
-  onScopeDispose,
-  shallowRef,
-  watch,
   type App,
   type ComputedRef,
+  onBeforeUnmount,
+  onScopeDispose,
   type Ref,
+  shallowRef,
+  watch,
 } from 'vue'
 
 import { KlineChart } from './components/index'
@@ -45,43 +45,43 @@ export type {
 // SFC components (for consumers using Vite / SFC compiler)
 // ---------------------------------------------------------------------------
 
+export type {
+  LegendComparisonRow,
+  LegendCurrentBar,
+  LegendIndicatorRow,
+  LegendLayout,
+  LegendRenderMode,
+  LegendTemplateContext,
+  LegendTimeshareRow,
+} from '@363045841yyt/klinechart-core/controllers'
+
+export type {
+  KlineTooltipSlotProps,
+  LegendSlotProps,
+  MarkerTooltipSlotProps,
+} from './components/index'
 export {
   DrawingStyleToolbar,
   IndicatorParams,
   IndicatorSelector,
-  KlineChart,
   KLineTooltip,
+  KlineChart,
   LeftToolbar,
   MarkerTooltip,
 } from './components/index'
-
-export type {
-  KlineTooltipSlotProps,
-  MarkerTooltipSlotProps,
-  LegendSlotProps,
-} from './components/index'
-export type {
-  LegendTemplateContext,
-  LegendRenderMode,
-  LegendLayout,
-  LegendCurrentBar,
-  LegendTimeshareRow,
-  LegendIndicatorRow,
-  LegendComparisonRow,
-} from '@363045841yyt/klinechart-core/controllers'
 
 // ---------------------------------------------------------------------------
 // Shared Agent workbench (browser and Electron Renderer)
 // ---------------------------------------------------------------------------
 
 export { default as AgentWorkbenchShell } from './features/agent/AgentWorkbenchShell.vue'
-export { default as AgentWorkspace } from './features/agent/components/AgentWorkspace.vue'
 export * from './features/agent/agent-contracts'
 export {
+  type AgentWorkspaceState,
   createInitialAgentState,
   reduceAgentUiEvent,
-  type AgentWorkspaceState,
 } from './features/agent/agent-reducer'
+export { default as AgentWorkspace } from './features/agent/components/AgentWorkspace.vue'
 export { useAgentWorkspace } from './features/agent/use-agent-workspace'
 export type { AgentPanelWidthStorage } from './features/agent/workbench-shell'
 
@@ -129,6 +129,7 @@ export function createChart(opts: ChartMountOptions): ChartController | Promise<
 }
 
 import { coreSignalToVueRef } from './utils/signalBridge'
+
 export { coreSignalToVueRef }
 
 // ---------------------------------------------------------------------------
@@ -337,5 +338,7 @@ export const KMapPlugin = {
 // DOM access only happens when `createChart(opts)` is actually called.
 // ---------------------------------------------------------------------------
 import { createChartController } from '@363045841yyt/klinechart-core'
+
 __setControllerFactory(createChartController)
-export { VERSION, CORE_VERSION } from './version'
+
+export { CORE_VERSION, VERSION } from './version'

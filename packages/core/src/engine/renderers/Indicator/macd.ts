@@ -1,12 +1,12 @@
 import type {
   IndicatorRenderStateReader,
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
+  RenderContext,
+  RendererPluginWithHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
 import type { ColorTokens } from '../../../foundation/tokens/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
 import type { KLineData } from '../../../foundation/types/price'
 import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
 import type { MACDPoint } from '../../indicators/calculators'
@@ -14,8 +14,8 @@ import { calcMACDData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../../indicators/scheduler'
-import { createMACDStateKey, EMPTY_MACD_STATE } from '../../indicators/state/macdState'
 import type { MACDRenderState } from '../../indicators/state/macdState'
+import { createMACDStateKey, EMPTY_MACD_STATE } from '../../indicators/state/macdState'
 import { createMACDVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { ChartDataViewId } from '../../state/modeState'
 

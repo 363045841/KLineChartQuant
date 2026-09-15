@@ -1,6 +1,11 @@
 /** 交互业务态模块：十字线、悬停、拖拽与区间选择等状态，供 StateKernel 统一持有。 */
-import { createSubState, computed, batch, type ReadonlySignal } from '../../foundation/reactivity/signal'
-import type { MarkerEntity, CustomMarkerEntity } from '../marker/registry'
+import {
+  batch,
+  computed,
+  createSubState,
+  type ReadonlySignal,
+} from '../../foundation/reactivity/signal'
+import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry'
 
 export interface InteractionSnapshot {
   crosshairPos: { x: number; y: number } | null
@@ -146,10 +151,7 @@ export function createInteractionState(_deps: InteractionDeps) {
         const posUnchanged =
           prevPos === pos ||
           (prevPos === null && pos === null) ||
-          (prevPos !== null &&
-            pos !== null &&
-            prevPos.x === pos.x &&
-            prevPos.y === pos.y)
+          (prevPos !== null && pos !== null && prevPos.x === pos.x && prevPos.y === pos.y)
         if (posUnchanged && prevPrice === price && prevIndex === nextIndex) return
         batch(() => {
           if (!posUnchanged) signals.crosshairPos.set(pos)
@@ -207,17 +209,10 @@ export function createInteractionState(_deps: InteractionDeps) {
       /**
        * 更新 tooltip。位置与锚点均未变时跳过写入。
        */
-      updateTooltip(
-        pos: { x: number; y: number },
-        placement: 'right-bottom' | 'left-bottom',
-      ) {
+      updateTooltip(pos: { x: number; y: number }, placement: 'right-bottom' | 'left-bottom') {
         const prevPos = signals.tooltipPos.peek()
         const prevPlacement = signals.tooltipAnchorPlacement.peek()
-        if (
-          prevPos.x === pos.x &&
-          prevPos.y === pos.y &&
-          prevPlacement === placement
-        ) {
+        if (prevPos.x === pos.x && prevPos.y === pos.y && prevPlacement === placement) {
           return
         }
         batch(() => {
@@ -262,7 +257,8 @@ export function createInteractionState(_deps: InteractionDeps) {
       finishRangeSelection(timestamp?: number) {
         const current = signals.rangeSelection.peek()
         if (current.startTimestamp === null) return
-        const endTimestamp = timestamp !== undefined && Number.isFinite(timestamp) ? timestamp : current.endTimestamp
+        const endTimestamp =
+          timestamp !== undefined && Number.isFinite(timestamp) ? timestamp : current.endTimestamp
         signals.rangeSelection.set(Object.freeze({ ...current, endTimestamp, isDragging: false }))
       },
 
@@ -319,10 +315,10 @@ export function createInteractionState(_deps: InteractionDeps) {
         signals.tooltipAnchorPlacement.set('right-bottom')
         signals.hoveredMarkerData.set(null)
         signals.hoveredCustomMarker.set(null)
-          signals.hoveredMarkerId.set(null)
-          signals.rangeSelection.set(
-            Object.freeze({ startTimestamp: null, endTimestamp: null, isDragging: false }),
-          )
+        signals.hoveredMarkerId.set(null)
+        signals.rangeSelection.set(
+          Object.freeze({ startTimestamp: null, endTimestamp: null, isDragging: false }),
+        )
       })
     },
   }

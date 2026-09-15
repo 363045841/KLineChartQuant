@@ -13,7 +13,7 @@
  * the implementation (not the brief).
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { binBarToBuckets } from '../binning'
 import type { VolumeProfileBar } from '../types'

@@ -1,20 +1,20 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { calcATRData } from '../calculators'
 
 import { ATR_GOLDEN, assertSeriesClose } from './__fixtures__/golden'
 import {
-  empty,
-  singleBar,
-  shortSequence,
   constantPrice,
-  pureUptrend,
-  pureDowntrend,
-  sideways,
-  spikeAtBar19,
+  empty,
   gapUp,
+  pureDowntrend,
+  pureUptrend,
+  shortSequence,
+  sideways,
+  singleBar,
+  spikeAtBar19,
 } from './__fixtures__/synthetic'
-import { assertNonNegative, assertFiniteOrUndefined } from './_propertyAssertions'
+import { assertFiniteOrUndefined, assertNonNegative } from './_propertyAssertions'
 
 describe('calcATRData — Wilder ATR(period)', () => {
   describe('edge cases', () => {

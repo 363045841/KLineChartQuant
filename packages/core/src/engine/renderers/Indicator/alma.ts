@@ -3,9 +3,9 @@
  * 复用 WMA 渲染器骨架，多参数（period/offset/sigma），支持 WebGL + Canvas2D 回退
  */
 import type {
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
+  RenderContext,
+  RendererPluginWithHost,
 } from '../../../foundation/plugin/index'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
 import { resolveThemeColors } from '../../../foundation/tokens/index'

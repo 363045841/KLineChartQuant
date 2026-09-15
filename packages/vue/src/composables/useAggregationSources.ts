@@ -1,6 +1,4 @@
-import {
-  marketDataProviderRegistry,
-} from '@363045841yyt/klinechart-core/controllers'
+import { marketDataProviderRegistry } from '@363045841yyt/klinechart-core/controllers'
 import { computed, ref, watch } from 'vue'
 
 /** localStorage 键：启用列表 + 各源地址覆盖 */

@@ -12,7 +12,7 @@
  * 需要连同前端一起启动时，使用 `pnpm dev -c <names>`。
  */
 
-import { startConnecters, CONNECTER_NAMES } from './connecters.mjs'
+import { CONNECTER_NAMES, startConnecters } from './connecters.mjs'
 
 const names = process.argv.slice(2)
 const children = startConnecters(names.length > 0 ? names : CONNECTER_NAMES)

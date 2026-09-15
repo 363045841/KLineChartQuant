@@ -1,16 +1,16 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { calcWMAData } from '../calculators'
 
-import { WMA_GOLDEN, assertSeriesClose } from './__fixtures__/golden'
+import { assertSeriesClose, WMA_GOLDEN } from './__fixtures__/golden'
 import {
-  empty,
-  singleBar,
-  shortSequence,
   constantPrice,
-  pureUptrend,
+  empty,
   pureDowntrend,
+  pureUptrend,
+  shortSequence,
   sideways,
+  singleBar,
   spikeAtBar19,
 } from './__fixtures__/synthetic'
 import { assertFiniteOrUndefined, assertWarmupThenDefined } from './_propertyAssertions'

@@ -15,7 +15,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed } from 'vue'
+  import { computed, ref } from 'vue'
 
   import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'

@@ -6,7 +6,7 @@ import {
   type WritableSignal,
 } from '../../foundation/reactivity/signal'
 
-import type { LoadedTimeRange, DataChange } from './dataBufferTypes'
+import type { DataChange, LoadedTimeRange } from './dataBufferTypes'
 import { UniqueTimestampIndex } from './uniqueTimestampIndex'
 
 export interface MergeResult {

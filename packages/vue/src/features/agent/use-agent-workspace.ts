@@ -1,12 +1,5 @@
 /** Connect the stable bridge, event reducer, and Vue interaction state. */
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
-
-import { createInitialAgentState, reduceAgentUiEvent } from './agent-reducer'
-import {
-  createAgentProviderSettingsPinia,
-  useAgentProviderSettingsStore,
-} from './agent-provider-settings-store'
-
 import type {
   AgentBridgeClient,
   AgentContextItem,
@@ -15,6 +8,11 @@ import type {
   ProviderReasoningEffort,
   QuestionAnswerView,
 } from './agent-contracts'
+import {
+  createAgentProviderSettingsPinia,
+  useAgentProviderSettingsStore,
+} from './agent-provider-settings-store'
+import { createInitialAgentState, reduceAgentUiEvent } from './agent-reducer'
 
 export function useAgentWorkspace(bridge: AgentBridgeClient) {
   const state = shallowRef(createInitialAgentState())
@@ -171,10 +169,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
     await bridge.confirmTool(confirmationId, decision)
   }
 
-  async function answerQuestion(
-    questionId: string,
-    answer: QuestionAnswerView,
-  ): Promise<void> {
+  async function answerQuestion(questionId: string, answer: QuestionAnswerView): Promise<void> {
     await bridge.answerQuestion(questionId, answer)
   }
 

@@ -11,16 +11,16 @@
  * (the real point of the file is the type checks above each test).
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import type {
-  SurfaceBackend,
-  SurfaceRegion,
+  BufferHandle,
+  ComputePipelineHandle,
+  PipelineHandle,
   Renderer,
   RendererCapabilities,
-  BufferHandle,
-  PipelineHandle,
-  ComputePipelineHandle,
+  SurfaceBackend,
+  SurfaceRegion,
 } from '../index'
 
 // --- SurfaceBackend conformance ---

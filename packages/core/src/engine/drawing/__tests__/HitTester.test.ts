@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import type { DrawingChartAdapter } from '../../../controllers/types'
 import type { DrawingObject } from '../../../foundation/plugin'
 import { HitTester } from '../HitTester'
+import { LINE_LABEL_NORMAL_OFFSET } from '../labelLayout'
 
 /** 创建垂直线命中检测所需的最小图表适配器。 */
 function createAdapter(): DrawingChartAdapter {
@@ -42,7 +43,7 @@ describe('HitTester', () => {
     expect(new HitTester().hitTest(137, 120, [drawing], createAdapter())).toEqual({ drawing })
   })
 
-  it('returns the independent Fibonacci line label target at a line center', () => {
+  it('returns the Fibonacci line label target at its offset anchor', () => {
     const drawing: DrawingObject = {
       id: 'fib',
       kind: 'fib-retracement',
@@ -57,15 +58,19 @@ describe('HitTester', () => {
       style: {},
     }
 
-    expect(new HitTester().findLineLabelTarget(120, 90, [drawing], createLineAdapter())).toEqual({
+    // 第 3 条线（50%）中点在 y=90，上侧法线偏移 6px 后为 y=84，再加 paneTop=30。
+    expect(new HitTester().findLabelTarget(120, 84, [drawing], createLineAdapter())).toEqual({
       drawingId: 'fib',
       targetKind: 'line',
       lineIndex: 3,
       x: 120,
-      y: 120,
+      y: 114,
       rotation: 0,
       text: '50% text',
       position: 'center',
+      align: 'center',
+      baseline: 'bottom',
+      fontSize: 12,
     })
   })
 
@@ -83,14 +88,12 @@ describe('HitTester', () => {
       style: {},
     }
 
-    expect(
-      new HitTester().findLineLabelTarget(120, 90, [drawing], createLineAdapter()),
-    ).toMatchObject({
-      drawingId: 'ray',
-      lineIndex: 0,
-      x: 120,
-      y: 120,
-    })
+    // 指针落在原始两锚点中点：命中锚点应仍在原线段法线外侧，而非延长线上。
+    const target = new HitTester().findLabelTarget(120, 90, [drawing], createLineAdapter())
+    const rotation = Math.atan2(100, 200)
+    expect(target).toMatchObject({ drawingId: 'ray', targetKind: 'line', lineIndex: 0 })
+    expect(target!.x).toBeCloseTo(120 + Math.sin(rotation) * LINE_LABEL_NORMAL_OFFSET, 5)
+    expect(target!.y).toBeCloseTo(90 - Math.cos(rotation) * LINE_LABEL_NORMAL_OFFSET + 30, 5)
   })
 
   it('returns a text target at the center of a filled rectangle', () => {
@@ -108,15 +111,44 @@ describe('HitTester', () => {
       style: {},
     }
 
-    expect(
-      new HitTester().findAreaLabelTarget(120, 90, [drawing], createLineAdapter()),
-    ).toMatchObject({
+    expect(new HitTester().findLabelTarget(120, 90, [drawing], createLineAdapter())).toMatchObject({
       drawingId: 'rectangle',
       targetKind: 'area',
       lineIndex: 0,
       x: 120,
       y: 120,
       text: '区域文本',
+      align: 'center',
+      baseline: 'middle',
+      fontSize: 12,
+    })
+  })
+
+  it('prefers a line label over the area center when both are in range', () => {
+    const drawing: DrawingObject = {
+      id: 'flat-rectangle',
+      kind: 'rectangle',
+      paneId: 'main',
+      visible: true,
+      anchors: [
+        { id: 'a', type: 'point', time: 1_000, price: 80 },
+        { id: 'b', type: 'point', time: 2_000, price: 100 },
+      ],
+      labels: { line: { 2: { text: '边文本', position: 'center' } }, area: {} },
+      params: {},
+      style: {},
+    }
+
+    // 指针落在底边文字锚点上，区域中心（距 4px）也在热点半径内：line 优先。
+    expect(new HitTester().findLabelTarget(120, 94, [drawing], createLineAdapter())).toMatchObject({
+      drawingId: 'flat-rectangle',
+      targetKind: 'line',
+      lineIndex: 2,
+      x: 120,
+      y: 124,
+      text: '边文本',
+      align: 'center',
+      baseline: 'bottom',
     })
   })
 })

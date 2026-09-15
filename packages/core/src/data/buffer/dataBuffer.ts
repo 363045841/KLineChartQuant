@@ -1,6 +1,10 @@
 /** K 线图表快照适配器：接收缓存查询结果并发布数据、加载与错误状态。 */
 import type { KLineData, SymbolSpec } from '../../controllers/types'
-import { createSignal, type ReadonlySignal, type WritableSignal } from '../../foundation/reactivity/signal'
+import {
+  createSignal,
+  type ReadonlySignal,
+  type WritableSignal,
+} from '../../foundation/reactivity/signal'
 import type { OlderDataStatus } from '../provider/types'
 
 import type { DataChange, KLineBuffer, LoadedTimeRange } from './dataBufferTypes'

@@ -1,16 +1,18 @@
 /** 图表数据视图、主序列渲染偏好及运行时能力状态。 */
 import { batch, computed, createSubState } from '../../foundation/reactivity/signal'
+
 export {
+  type ChartDataView,
   ChartDataViewId,
   ChartWorkspaceId,
   isTimeShareDataView,
   resolveChartWorkspaceId,
-  type ChartDataView,
 } from '../../foundation/types/chartView'
+
 import {
+  type ChartDataView,
   ChartDataViewId,
   isTimeShareDataView,
-  type ChartDataView,
 } from '../../foundation/types/chartView'
 
 export type ChartModeId = ChartDataView

@@ -3,8 +3,8 @@
  * 后端只要实现该契约即可接入数据，接入方仅需提供 source 元信息与可选的本地规则
  */
 import type { KLineData, TimeShareData } from '../../../controllers/types'
-import { createMissingSessionError, KLineChartError } from '../../../errors'
 import { MarketSessionRegistry } from '../../../engine/market/marketSessionRegistry'
+import { createMissingSessionError, KLineChartError } from '../../../errors'
 
 import type {
   BarQuery,
@@ -13,8 +13,8 @@ import type {
   InstrumentDescriptor,
   InstrumentSearchQuery,
   MarketDataProvider,
-  TimeShareRangeQuery,
   TimeShareQuery,
+  TimeShareRangeQuery,
   TimeShareSeries,
   VolumeUnit,
 } from '../types'
@@ -86,9 +86,7 @@ function mapTimeShare(item: ProtocolTimeShareItem): TimeShareData {
 }
 
 // 创建基于该协议的标准 MarketDataProvider
-export function createMarketDataProvider(
-  options: MarketDataProviderOptions,
-): MarketDataProvider {
+export function createMarketDataProvider(options: MarketDataProviderOptions): MarketDataProvider {
   const { source, transport } = options
   const runtimeSource = { ...source }
   const sessions = new MarketSessionRegistry(source.marketSessions)
@@ -243,17 +241,20 @@ export function createMarketDataProvider(
                 )
               }
               const timezone = getInstrumentTimeZone(query.instrument)
-              const result = await transport.fetchTimeShareRange!({
-                sourceId: source.id,
-                instrument: {
-                  id: query.instrument.id,
-                  symbol: query.instrument.symbol,
-                  exchange: query.instrument.exchange,
-                  providerRef: query.instrument.providerRef,
+              const result = await transport.fetchTimeShareRange!(
+                {
+                  sourceId: source.id,
+                  instrument: {
+                    id: query.instrument.id,
+                    symbol: query.instrument.symbol,
+                    exchange: query.instrument.exchange,
+                    providerRef: query.instrument.providerRef,
+                  },
+                  endTradingDate: query.endTradingDate,
+                  days: query.days,
                 },
-                endTradingDate: query.endTradingDate,
-                days: query.days,
-              }, query.signal)
+                query.signal,
+              )
               return {
                 instrumentId: query.instrument.id,
                 timezone: result.timezone || timezone,
