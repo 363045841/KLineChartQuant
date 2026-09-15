@@ -8,6 +8,7 @@ import {
   resolveDrawingPointer,
   screenToAnchor,
 } from '../coordinateUtils'
+import { CONTAINER } from './helpers/drawingTestKit'
 
 /** 创建覆盖副图与分时坐标路径的最小 adapter。 */
 function createAdapter(): DrawingChartAdapter {
@@ -47,7 +48,7 @@ describe('drawing coordinate utilities', () => {
   it('resolves the pointer to the hit sub-pane and local Y coordinate', () => {
     const pointer = resolveDrawingPointer(
       { clientX: 80, clientY: 150 } as PointerEvent,
-      { getBoundingClientRect: () => ({ left: 0, top: 0 }) } as HTMLElement,
+      CONTAINER,
       createAdapter(),
     )
 

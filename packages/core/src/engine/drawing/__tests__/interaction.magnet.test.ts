@@ -1,82 +1,17 @@
 /** 交互层磁吸集成测试：验证绘图模式锚点收敛、Ctrl 临时强吸与 cursor 路径不受影响。 */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import type { DrawingChartAdapter } from '../../../controllers/types'
-import type { DrawingObject } from '../../../foundation/plugin'
 import { DrawingInteractionController } from '../interaction'
-
-/** 价格↔Y 线性映射：y = 200 - price / price = 200 - y。 */
-const priceToY = (_paneId: string, price: number) => 200 - price
-const yToPrice = (_paneId: string, y: number) => 200 - y
-
-/**
- * 三根 K 线数据：索引 1 为目标 Bar（open=100 high=120 low=80 close=110），
- * 屏幕 y：high=80 low=120 open=100 close=90。
- */
-const OHLC_BARS = [
-  { timestamp: 500, open: 50, high: 60, low: 40, close: 55 },
-  { timestamp: 1000, open: 100, high: 120, low: 80, close: 110 },
-  { timestamp: 1500, open: 200, high: 220, low: 180, close: 210 },
-]
-const BAR_TIMESTAMPS = [500, 1000, 1500]
-
-/**
- * 构造覆盖磁吸路径的最小 adapter。
- * 坐标约定：Bar i 占 [i*10, i*10+10)，中心在 x=i*10+5；getLogicalIndexAtX = floor(x/10)。
- * drawings 参数供编辑路径（锚点拖拽）用例注入已确认图元。
- */
-function createAdapter(tool: 'h-ray' | 'cursor', drawings: DrawingObject[] = []) {
-  const createDrawing = vi.fn(
-    (input: { anchors: Array<{ price: number }> }) =>
-      ({ id: 'created', anchors: input.anchors }) as unknown as DrawingObject,
-  )
-  const commitDrawingDrag = vi.fn()
-  const adapter = {
-    getDrawingToolId: () => tool,
-    getFullDrawings: () => drawings,
-    getSelectedDrawingIds: () => [] as string[],
-    setSelectedDrawingIds: vi.fn(),
-    createDrawing,
-    setDrawingToolId: vi.fn(),
-    commitDrawingDrag,
-    getDrawingData: () => OHLC_BARS,
-    getData: () => OHLC_BARS,
-    getViewport: () => ({ scrollLeft: 0, plotWidth: 100, plotHeight: 200 }),
-    getPaneAtY: () => ({ paneId: 'main', top: 0, height: 200 }),
-    getPaneInfo: () => ({ paneId: 'main', top: 0, height: 200 }),
-    getLogicalIndexAtX: (x: number) => Math.floor(x / 10),
-    getScreenXAtLogicalIndex: (index: number) => index * 10 + 5,
-    getDrawingTimestampAtLogicalIndex: (index: number) => BAR_TIMESTAMPS[index] ?? null,
-    getLogicalIndexAtTimestamp: (timestamp: number) => BAR_TIMESTAMPS.indexOf(timestamp),
-    getDrawingWorkspaceId: () => 'kline' as const,
-    priceToY,
-    yToPrice,
-  } as unknown as DrawingChartAdapter
-  return { adapter, createDrawing, commitDrawingDrag }
-}
-
-/** 构造指定坐标与修饰键的指针按下事件。 */
-function pointerDown(
-  x: number,
-  y: number,
-  modifiers: { ctrlKey?: boolean; shiftKey?: boolean } = {},
-): PointerEvent {
-  return {
-    clientX: x,
-    clientY: y,
-    ctrlKey: modifiers.ctrlKey ?? false,
-    shiftKey: modifiers.shiftKey ?? false,
-    metaKey: false,
-  } as PointerEvent
-}
-
-const CONTAINER = {
-  getBoundingClientRect: () => ({ left: 0, top: 0 }),
-} as HTMLElement
+import {
+  CONTAINER,
+  createDrawingObject,
+  createMagnetAdapter,
+  pointerDown,
+} from './helpers/drawingTestKit'
 
 describe('DrawingInteractionController magnet', () => {
   it('weak 档下单锚点工具的落点价格收敛到最近的 high/low', () => {
-    const { adapter, createDrawing } = createAdapter('h-ray')
+    const { adapter, createDrawing } = createMagnetAdapter('h-ray')
     const controller = new DrawingInteractionController(adapter)
     controller.setMagnetMode('weak')
 
@@ -90,7 +25,7 @@ describe('DrawingInteractionController magnet', () => {
   })
 
   it('weak 档下距 high/low 超半径的落点保持原始价格', () => {
-    const { adapter, createDrawing } = createAdapter('h-ray')
+    const { adapter, createDrawing } = createMagnetAdapter('h-ray')
     const controller = new DrawingInteractionController(adapter)
     controller.setMagnetMode('weak')
 
@@ -100,7 +35,7 @@ describe('DrawingInteractionController magnet', () => {
   })
 
   it('strong 档吸附 open（weak 候选之外的值）', () => {
-    const { adapter, createDrawing } = createAdapter('h-ray')
+    const { adapter, createDrawing } = createMagnetAdapter('h-ray')
     const controller = new DrawingInteractionController(adapter)
     controller.setMagnetMode('strong')
 
@@ -110,7 +45,7 @@ describe('DrawingInteractionController magnet', () => {
   })
 
   it('Ctrl 取反：off 档临时开启为 strong 吸附（TV 语义）', () => {
-    const { adapter, createDrawing } = createAdapter('h-ray')
+    const { adapter, createDrawing } = createMagnetAdapter('h-ray')
     const controller = new DrawingInteractionController(adapter)
     controller.setMagnetMode('off')
 
@@ -120,7 +55,7 @@ describe('DrawingInteractionController magnet', () => {
   })
 
   it('Ctrl 取反：weak 档临时关闭不吸附', () => {
-    const { adapter, createDrawing } = createAdapter('h-ray')
+    const { adapter, createDrawing } = createMagnetAdapter('h-ray')
     const controller = new DrawingInteractionController(adapter)
     controller.setMagnetMode('weak')
 
@@ -130,7 +65,7 @@ describe('DrawingInteractionController magnet', () => {
   })
 
   it('Ctrl 取反：strong 档临时关闭不吸附', () => {
-    const { adapter, createDrawing } = createAdapter('h-ray')
+    const { adapter, createDrawing } = createMagnetAdapter('h-ray')
     const controller = new DrawingInteractionController(adapter)
     controller.setMagnetMode('strong')
 
@@ -140,7 +75,7 @@ describe('DrawingInteractionController magnet', () => {
   })
 
   it('Shift 按住时不吸附（与宿主锁角互斥）', () => {
-    const { adapter, createDrawing } = createAdapter('h-ray')
+    const { adapter, createDrawing } = createMagnetAdapter('h-ray')
     const controller = new DrawingInteractionController(adapter)
     controller.setMagnetMode('strong')
 
@@ -157,7 +92,7 @@ describe('DrawingInteractionController magnet', () => {
   })
 
   it('off 档且无修饰键时不吸附', () => {
-    const { adapter, createDrawing } = createAdapter('h-ray')
+    const { adapter, createDrawing } = createMagnetAdapter('h-ray')
     const controller = new DrawingInteractionController(adapter)
     controller.setMagnetMode('off')
 
@@ -166,7 +101,7 @@ describe('DrawingInteractionController magnet', () => {
   })
 
   it('磁吸后的 X 吸附到 Bar 中心（同一 Bar 内点击解析出同一时间戳）', () => {
-    const { adapter, createDrawing } = createAdapter('h-ray')
+    const { adapter, createDrawing } = createMagnetAdapter('h-ray')
     const controller = new DrawingInteractionController(adapter)
     controller.setMagnetMode('weak')
 
@@ -179,7 +114,7 @@ describe('DrawingInteractionController magnet', () => {
   })
 
   it('cursor 模式的命中路径不受磁吸影响', () => {
-    const { adapter } = createAdapter('cursor')
+    const { adapter } = createMagnetAdapter('cursor')
     const controller = new DrawingInteractionController(adapter)
     controller.setMagnetMode('strong')
 
@@ -190,14 +125,12 @@ describe('DrawingInteractionController magnet', () => {
   })
 
   it('编辑路径：锚点拖拽随磁吸收敛（修饰键与绘制路径同源）', () => {
-    const drawing = {
+    const drawing = createDrawingObject({
       id: 'd1',
       kind: 'trend-line',
-      paneId: 'main',
-      visible: true,
       anchors: [{ id: 'a0', type: 'point', time: 1000, price: 110 }],
-    } as DrawingObject
-    const { adapter, commitDrawingDrag } = createAdapter('cursor', [drawing])
+    })
+    const { adapter, commitDrawingDrag } = createMagnetAdapter('cursor', [drawing])
     const controller = new DrawingInteractionController(adapter)
     controller.setMagnetMode('strong')
 
@@ -212,14 +145,12 @@ describe('DrawingInteractionController magnet', () => {
   })
 
   it('编辑路径：Shift 按住时锚点拖拽不吸附（互斥与绘制路径同源）', () => {
-    const drawing = {
+    const drawing = createDrawingObject({
       id: 'd1',
       kind: 'trend-line',
-      paneId: 'main',
-      visible: true,
       anchors: [{ id: 'a0', type: 'point', time: 1000, price: 110 }],
-    } as DrawingObject
-    const { adapter, commitDrawingDrag } = createAdapter('cursor', [drawing])
+    })
+    const { adapter, commitDrawingDrag } = createMagnetAdapter('cursor', [drawing])
     const controller = new DrawingInteractionController(adapter)
     controller.setMagnetMode('strong')
 

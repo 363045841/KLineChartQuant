@@ -5,6 +5,7 @@ import { createSignal } from '../../../foundation/reactivity/signal'
 import type { DrawingKind, DrawingObject, RenderContext } from '../../../foundation/plugin'
 import { DrawingDefinitionRegistry, DrawingStore, registerDefaultDrawingDefinitions } from '..'
 import { projectDrawingsForFrame } from '../frameProjection'
+import { createDrawingObject } from './helpers/drawingTestKit'
 
 /** 构造仅覆盖趋势线投影的最小 RenderContext。 */
 function createContext(): RenderContext {
@@ -47,20 +48,21 @@ function createContext(): RenderContext {
   return context
 }
 
+/** 基准趋势线图元，只声明用例关心的差异。 */
+const createTrendDrawing = (overrides: Partial<DrawingObject> = {}) =>
+  createDrawingObject({
+    id: 'trend',
+    kind: 'trend-line',
+    anchors: [
+      { id: 'a', time: 1_000, price: 10 },
+      { id: 'b', time: 2_000, price: 20 },
+    ],
+    ...overrides,
+  })
+
 describe('projectDrawingsForFrame', () => {
   it('returns selected drawing primitives and axis decorations without mutating context', () => {
-    const drawing: DrawingObject = {
-      id: 'trend',
-      kind: 'trend-line',
-      paneId: 'main',
-      visible: true,
-      anchors: [
-        { id: 'a', time: 1_000, price: 10 },
-        { id: 'b', time: 2_000, price: 20 },
-      ],
-      params: {},
-      style: { stroke: '#2962ff', strokeWidth: 1 },
-    }
+    const drawing = createTrendDrawing({ style: { stroke: '#2962ff', strokeWidth: 1 } })
     const store = new DrawingStore({
       drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
       selectedDrawingIds$: createSignal<ReadonlyArray<string>>(['trend']),
@@ -80,19 +82,10 @@ describe('projectDrawingsForFrame', () => {
   })
 
   it('attaches a persisted line label to its matching line primitive', () => {
-    const drawing: DrawingObject = {
+    const drawing = createTrendDrawing({
       id: 'labeled-trend',
-      kind: 'trend-line',
-      paneId: 'main',
-      visible: true,
-      anchors: [
-        { id: 'a', time: 1_000, price: 10 },
-        { id: 'b', time: 2_000, price: 20 },
-      ],
       labels: { line: { 0: { text: '趋势', position: 'start' } }, area: {} },
-      params: {},
-      style: { stroke: '#2962ff' },
-    }
+    })
     const store = new DrawingStore({
       drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
       selectedDrawingIds$: createSignal<ReadonlyArray<string>>([]),
@@ -111,19 +104,15 @@ describe('projectDrawingsForFrame', () => {
   })
 
   it('attaches an arrow label to its arrow primitive', () => {
-    const drawing: DrawingObject = {
+    const drawing = createDrawingObject({
       id: 'labeled-arrow',
       kind: 'arrow',
-      paneId: 'main',
-      visible: true,
       anchors: [
         { id: 'a', time: 1_000, price: 10 },
         { id: 'b', time: 2_000, price: 20 },
       ],
       labels: { line: { 0: { text: '箭头', position: 'end' } }, area: {} },
-      params: {},
-      style: { stroke: '#2962ff' },
-    }
+    })
     const store = new DrawingStore({
       drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
       selectedDrawingIds$: createSignal<ReadonlyArray<string>>([]),
@@ -140,19 +129,8 @@ describe('projectDrawingsForFrame', () => {
   })
 
   it('re-resolves timestamp anchors after older data prepends and ignores the stale index', () => {
-    const drawing: DrawingObject = {
-      id: 'trend',
-      kind: 'trend-line',
-      paneId: 'main',
-      visible: true,
-      // 创建时的 index 为 0/1；前方插入两根旧 K 线后它们应变为 2/3。
-      anchors: [
-        { id: 'a', time: 1_000, price: 10 },
-        { id: 'b', time: 2_000, price: 20 },
-      ],
-      params: {},
-      style: { stroke: '#2962ff' },
-    }
+    // 创建时的 index 为 0/1；前方插入两根旧 K 线后它们应变为 2/3。
+    const drawing = createTrendDrawing()
     const context = createContext()
     context.data = [
       { timestamp: -1_000, open: 0, high: 1, low: -1, close: 0 },
@@ -176,18 +154,7 @@ describe('projectDrawingsForFrame', () => {
   })
 
   it('does not resolve an ambiguous timestamp to an arbitrary bar', () => {
-    const drawing: DrawingObject = {
-      id: 'trend',
-      kind: 'trend-line',
-      paneId: 'main',
-      visible: true,
-      anchors: [
-        { id: 'a', time: 1_000, price: 10 },
-        { id: 'b', time: 2_000, price: 20 },
-      ],
-      params: {},
-      style: { stroke: '#2962ff' },
-    }
+    const drawing = createTrendDrawing()
     const context = createContext()
     context.getLogicalIndexAtTimestamp = (timestamp) => (timestamp === 1_000 ? null : 1)
     const store = new DrawingStore({
@@ -204,18 +171,12 @@ describe('projectDrawingsForFrame', () => {
   })
 
   it('keeps the line geometry when an endpoint is after the visible range without registering it', () => {
-    const drawing: DrawingObject = {
-      id: 'trend',
-      kind: 'trend-line',
-      paneId: 'main',
-      visible: true,
+    const drawing = createTrendDrawing({
       anchors: [
         { id: 'a', time: 1_000, price: 10 },
         { id: 'b', time: 3_000, price: 20 },
       ],
-      params: {},
-      style: { stroke: '#2962ff' },
-    }
+    })
     const context = createContext()
     context.data = [
       { timestamp: 1_000, open: 1, high: 2, low: 0, close: 1 },
@@ -241,18 +202,13 @@ describe('projectDrawingsForFrame', () => {
   })
 
   it('projects a future-slot anchor from its creation-time base bar', () => {
-    const drawing: DrawingObject = {
+    const drawing = createTrendDrawing({
       id: 'future-trend',
-      kind: 'trend-line',
-      paneId: 'main',
-      visible: true,
       anchors: [
         { id: 'a', time: 1_000, price: 10 },
         { id: 'b', time: 1_000, futureOffset: 2, price: 20 },
       ],
-      params: {},
-      style: { stroke: '#2962ff' },
-    }
+    })
     const store = new DrawingStore({
       drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
       selectedDrawingIds$: createSignal<ReadonlyArray<string>>(['future-trend']),
@@ -270,15 +226,7 @@ describe('projectDrawingsForFrame', () => {
 
   /** 用单个已选中图元跑一次帧投影，断言其轴标签语义。 */
   function projectSingleAnchor(kind: DrawingKind, anchors: DrawingObject['anchors']) {
-    const drawing: DrawingObject = {
-      id: 'subject',
-      kind,
-      paneId: 'main',
-      visible: true,
-      anchors,
-      params: {},
-      style: { stroke: '#2962ff' },
-    }
+    const drawing = createDrawingObject({ id: 'subject', kind, anchors })
     const store = new DrawingStore({
       drawings$: createSignal<ReadonlyArray<DrawingObject>>([drawing]),
       selectedDrawingIds$: createSignal<ReadonlyArray<string>>([drawing.id]),
