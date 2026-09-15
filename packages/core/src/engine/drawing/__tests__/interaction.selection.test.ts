@@ -47,12 +47,60 @@ function pointerDown(ctrlKey: boolean): PointerEvent {
   return { clientX: 10, clientY: 10, ctrlKey } as PointerEvent
 }
 
+/** 构造 Shift 按下的指针事件。 */
+function pointerDownWithShift(): PointerEvent {
+  return { clientX: 10, clientY: 10, ctrlKey: false, shiftKey: true } as PointerEvent
+}
+
 /** 构造框选拖拽过程中的指针事件。 */
 function pointerAt(x: number, y: number): PointerEvent {
   return { clientX: x, clientY: y, ctrlKey: false } as PointerEvent
 }
 
 describe('DrawingInteractionController selection', () => {
+  it('adds and removes hit drawings with Shift using the same toggle semantics as Ctrl', () => {
+    const first = createDrawing('first')
+    const second = createDrawing('second')
+    const { adapter, setSelectedDrawingIds } = createAdapter([first, second])
+    const controller = new DrawingInteractionController(adapter)
+    const internal = controller as unknown as {
+      hitTester: { hitTest: ReturnType<typeof vi.fn> }
+      dragHandler: { startDrag: ReturnType<typeof vi.fn> }
+    }
+    internal.hitTester = { hitTest: vi.fn(() => ({ drawing: second })) }
+    internal.dragHandler.startDrag = vi.fn()
+    adapter.setSelectedDrawingIds([first.id])
+    const container = {
+      getBoundingClientRect: () => ({ left: 0, top: 0 }),
+    } as HTMLElement
+
+    // Shift 点击命中：切换选中且不开拖拽，与 Ctrl 语义一致。
+    expect(controller.onPointerDown(pointerDownWithShift(), container)).toBe(true)
+    expect(setSelectedDrawingIds).toHaveBeenLastCalledWith(['first', 'second'])
+    expect(internal.dragHandler.startDrag).not.toHaveBeenCalled()
+
+    expect(controller.onPointerDown(pointerDownWithShift(), container)).toBe(true)
+    expect(setSelectedDrawingIds).toHaveBeenLastCalledWith(['first'])
+  })
+
+  it('keeps the current selection when Shift-clicking blank space', () => {
+    const drawing = createDrawing('selected')
+    const { adapter, setSelectedDrawingIds } = createAdapter([drawing])
+    const controller = new DrawingInteractionController(adapter)
+    ;(controller as unknown as { hitTester: unknown }).hitTester = {
+      hitTest: vi.fn(() => null),
+    }
+    adapter.setSelectedDrawingIds([drawing.id])
+    const container = {
+      getBoundingClientRect: () => ({ left: 0, top: 0 }),
+    } as HTMLElement
+
+    // Shift 按住时空白点击不清空选择（与 Ctrl 一致）。
+    expect(controller.onPointerDown(pointerDownWithShift(), container)).toBe(false)
+    expect(setSelectedDrawingIds).not.toHaveBeenLastCalledWith([])
+    expect(adapter.getSelectedDrawingIds()).toEqual([drawing.id])
+  })
+
   it('adds and removes hit drawings with Ctrl without starting a drag', () => {
     const first = createDrawing('first')
     const second = createDrawing('second')

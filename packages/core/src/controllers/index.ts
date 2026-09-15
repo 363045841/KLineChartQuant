@@ -160,3 +160,9 @@ export type {
 // Drawing
 export { DrawingInteractionController } from '../engine/drawing'
 export type { DrawingLineLabelTarget, DrawingToolId } from '../engine/drawing'
+export {
+  getAnchorCountForTool,
+  SINGLE_ANCHOR_TOOLS,
+  DOUBLE_ANCHOR_TOOLS,
+  TRIPLE_ANCHOR_TOOLS,
+} from '../engine/drawing'

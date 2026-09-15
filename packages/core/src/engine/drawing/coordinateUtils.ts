@@ -5,6 +5,9 @@ import type {
   ScreenPoint,
 } from '../../foundation/plugin/index'
 
+import { snapPointerToOhlc } from './magnetSnapper'
+import type { MagnetSnapConfig } from './magnetSnapper'
+
 // ---- Types ----
 
 /** 原始锚点输入（逻辑坐标：时间戳 + 价格） */
@@ -107,6 +110,16 @@ export function screenToAnchor(
   }
 }
 
+/** resolveDrawingPointer 的可选行为配置。 */
+export interface ResolveDrawingPointerOptions {
+  /**
+   * OHLC 磁吸配置：在坐标反解析前把指针吸附到最近 K 线的价格极值。
+   * 仅允许绘图落点/预览路径传入；cursor 命中、框选、标签等路径不得传入，
+   * 否则点选命中与框选范围会随吸附漂移。
+   */
+  magnet?: MagnetSnapConfig
+}
+
 /**
  * 从 PointerEvent 中解析出光标位置对应的逻辑锚点。
  *
@@ -115,12 +128,16 @@ export function screenToAnchor(
  * - 鼠标不在 main pane 范围内 → null
  * - 鼠标位置无对应时间轴槽位 → null
  *
+ * 传入 magnet 配置时，吸附发生在 screenToAnchor 之前（改写局部 x/y），
+ * 返回的锚点与 x/y 均为吸附后的值。
+ *
  * @returns DrawingPointerAnchor，超出范围或数据不可用时返回 null
  */
 export function resolveDrawingPointer(
   e: PointerEvent,
   container: HTMLElement,
   adapter: DrawingChartAdapter,
+  options?: ResolveDrawingPointerOptions,
 ): DrawingPointerAnchor | null {
   const data = adapter.getDrawingData()
   const viewport = adapter.getViewport()
@@ -135,9 +152,20 @@ export function resolveDrawingPointer(
 
   const pane = adapter.getPaneAtY(mouseY)
   if (!pane) return null
-  const y = mouseY - pane.top
-  const anchor = screenToAnchor(mouseX, y, pane.paneId, adapter)
-  return anchor ? { ...anchor, paneId: pane.paneId, x: mouseX, y } : null
+
+  // 磁吸只改写局部坐标，不影响 pane 判定（吸附基准仍取指针原始所在 Pane）。
+  let x = mouseX
+  let y = mouseY - pane.top
+  if (options?.magnet) {
+    const snapped = snapPointerToOhlc(mouseX, mouseY, pane, adapter, options.magnet)
+    if (snapped) {
+      x = snapped.x
+      y = snapped.y - pane.top
+    }
+  }
+
+  const anchor = screenToAnchor(x, y, pane.paneId, adapter)
+  return anchor ? { ...anchor, paneId: pane.paneId, x, y } : null
 }
 
 // ---- Geometry ----
