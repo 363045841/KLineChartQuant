@@ -229,7 +229,7 @@ export interface PaneLayoutInfo {
 }
 
 // ---------------------------------------------------------------------------
-// Drawing adapter — narrow interface for DrawingInteractionController
+// Drawing adapter ports — DrawingInteractionController 及其协作者的最小职责契约
 // ---------------------------------------------------------------------------
 
 export interface DrawingChartViewport {
@@ -238,7 +238,11 @@ export interface DrawingChartViewport {
   plotHeight: number
 }
 
-export interface DrawingChartAdapter {
+/**
+ * 图元文档操作：图元增删改查、批量操作、选择集合与工具状态。
+ * 拖拽覆盖与预览等会话态不在本契约内。
+ */
+export interface DrawingDocumentPort {
   /** 原子替换完整绘图文档，仅供受控组件和导入导出使用。 */
   replaceDrawings(drawings: ReadonlyArray<DrawingObject>): void
   /** read the full drawing list (plugin-level DrawingObject) */
@@ -274,11 +278,13 @@ export interface DrawingChartAdapter {
   setDrawingToolId(toolId: import('../engine/drawing/toolConfig').DrawingToolId): void
   /** read current drawing tool id from kernel */
   getDrawingToolId(): import('../engine/drawing/toolConfig').DrawingToolId
-  /**
-   * 会话态变更后请求重绘（不写 kernel）。
-   * 预览 / 拖拽中间态只改会话层时调用。
-   */
-  requestDraw?(): void
+}
+
+/**
+ * 视口与坐标换算查询：K 线数据在逻辑索引 / 时间戳 / 屏幕像素 / 价格之间解析。
+ * 只读，不修改图元或会话态。
+ */
+export interface DrawingViewportPort {
   /** current viewport (nullable if chart not ready) */
   getViewport(): DrawingChartViewport | null
   /** resolved chart options (kWidth, kGap) */
@@ -308,6 +314,19 @@ export interface DrawingChartAdapter {
   /** 根据图表局部 Y 坐标查找所属 Pane。 */
   getPaneAtY(y: number): PaneLayoutInfo | undefined
 }
+
+/**
+ * 会话态通知：预览 / 拖拽中间态只改会话层时请求重绘，不写 kernel。
+ */
+export interface DrawingSessionPort {
+  requestDraw?(): void
+}
+
+/**
+ * 绘图适配器组合契约：ChartController 实现全部三个 port。
+ * 协作者应依赖各自的最小 port，不要依赖本组合类型。
+ */
+export type DrawingChartAdapter = DrawingDocumentPort & DrawingViewportPort & DrawingSessionPort
 
 // ---------------------------------------------------------------------------
 // Drawing controller callback type (passed to handlePointerEvent)

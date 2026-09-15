@@ -1,4 +1,4 @@
-import type { DrawingChartAdapter } from '../../controllers/types'
+import type { DrawingDocumentPort, DrawingSessionPort } from '../../controllers/types'
 import type { DrawingObject } from '../../foundation/plugin/index'
 
 const PREVIEW_ID = '__preview__'
@@ -11,7 +11,7 @@ export class DrawingState {
   private preview: DrawingObject | null = null
   private dragOverrides: DrawingObject[] = []
 
-  constructor(private adapter: DrawingChartAdapter) {}
+  constructor(private adapter: DrawingDocumentPort & DrawingSessionPort) {}
 
   // ---- Read ----
 

@@ -1,5 +1,5 @@
 /** 绘图框选会话的几何命中与临时 primitive 投影。 */
-import type { DrawingChartAdapter } from '../../controllers/types'
+import type { DrawingViewportPort } from '../../controllers/types'
 import type { DrawingObject, DrawingPrimitive, ScreenPoint } from '../../foundation/plugin'
 import type { ColorTokens } from '../../foundation/tokens'
 
@@ -57,7 +57,7 @@ export function drawingIntersectsSelectionMarquee(
   drawing: DrawingObject,
   marquee: DrawingSelectionMarquee,
   hitTester: HitTester,
-  adapter: DrawingChartAdapter,
+  adapter: DrawingViewportPort,
 ): boolean {
   const left = Math.min(marquee.start.x, marquee.end.x)
   const right = Math.max(marquee.start.x, marquee.end.x)

@@ -4,7 +4,7 @@
 // X 坐标在 Bar 中心可解析时始终吸附到该中心（与档位无关）。
 // 纯函数、无副作用，仅经 resolveDrawingPointer 的可选参数在绘图模式路径生效。
 
-import type { DrawingChartAdapter, PaneLayoutInfo } from '../../controllers/types'
+import type { DrawingViewportPort, PaneLayoutInfo } from '../../controllers/types'
 
 /** 磁吸三态：off 关闭，weak 吸高低点，strong 吸 OHLC 四值。 */
 export type MagnetMode = 'off' | 'weak' | 'strong'
@@ -48,7 +48,7 @@ export function snapPointerToOhlc(
   mouseX: number,
   mouseY: number,
   pane: PaneLayoutInfo,
-  adapter: DrawingChartAdapter,
+  adapter: DrawingViewportPort,
   config: MagnetSnapConfig,
 ): SnappedPoint | null {
   const data = adapter.getData()

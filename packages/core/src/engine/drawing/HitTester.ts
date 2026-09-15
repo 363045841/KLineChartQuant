@@ -1,4 +1,4 @@
-import type { DrawingChartAdapter } from '../../controllers/types'
+import type { DrawingViewportPort } from '../../controllers/types'
 import type { DrawingObject } from '../../foundation/plugin/index'
 
 import { anchorToScreen, isScreenPoint, pointToSegmentDistanceSq } from './coordinateUtils'
@@ -68,7 +68,7 @@ export class HitTester {
     mouseX: number,
     mouseY: number,
     drawings: DrawingObject[],
-    adapter: DrawingChartAdapter,
+    adapter: DrawingViewportPort,
   ): HitResult | null {
     const visibleDrawings = drawings.filter((d) => d.visible)
     const regressionGeometryCache = new Map<string, RegressionChannelGeometry | null>()
@@ -116,7 +116,7 @@ export class HitTester {
    */
   getDrawingLineSegments(
     drawing: DrawingObject,
-    adapter: DrawingChartAdapter,
+    adapter: DrawingViewportPort,
     regressionGeometryCache?: Map<string, RegressionChannelGeometry | null>,
   ): LineSegment[] {
     const viewport = adapter.getViewport()
@@ -298,7 +298,7 @@ export class HitTester {
     mouseX: number,
     mouseY: number,
     drawings: ReadonlyArray<DrawingObject>,
-    adapter: DrawingChartAdapter,
+    adapter: DrawingViewportPort,
   ): LineLabelTarget | null {
     let closestLine: LineLabelTarget | null = null
     let closestLineDistanceSq = LINE_LABEL_TARGET_RADIUS_SQ
@@ -366,7 +366,7 @@ export class HitTester {
   /** 返回文本热点对应的线段；射线和延长线始终使用原始两锚点之间的线段。 */
   private getDrawingLabelSegments(
     drawing: DrawingObject,
-    adapter: DrawingChartAdapter,
+    adapter: DrawingViewportPort,
   ): LineSegment[] {
     if (
       (drawing.kind === 'ray' || drawing.kind === 'extended-line') &&
@@ -385,7 +385,7 @@ export class HitTester {
    */
   getRegressionChannelGeometry(
     drawing: DrawingObject,
-    adapter: DrawingChartAdapter,
+    adapter: DrawingViewportPort,
     cache?: Map<string, RegressionChannelGeometry | null>,
   ): RegressionChannelGeometry | null {
     const cached = cache?.get(drawing.id)
@@ -484,7 +484,7 @@ export class HitTester {
     drawing: DrawingObject,
     mouseX: number,
     mouseY: number,
-    adapter: DrawingChartAdapter,
+    adapter: DrawingViewportPort,
     cache?: Map<string, RegressionChannelGeometry | null>,
   ): { drawing: DrawingObject; anchorIndex: number } | null {
     const geometry = this.getRegressionChannelGeometry(drawing, adapter, cache)
