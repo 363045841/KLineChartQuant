@@ -63,7 +63,7 @@ function collectIchimokuPoints(
     }
   }
 
-  const dataLen = (context.data as unknown[]).length
+  const dataLen = context.data.length
   if (dataLen < series.length) {
     const physConfig = getPhysicalKLineConfig(context.kWidth, context.kGap, context.dpr)
     const futureEnd = Math.min(dataLen + params.displacement, series.length)

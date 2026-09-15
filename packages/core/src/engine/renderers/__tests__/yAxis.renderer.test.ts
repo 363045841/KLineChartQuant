@@ -69,7 +69,7 @@ function createContext(overrides: Partial<RenderContext> = {}): RenderContext {
     ctx,
     yAxisCtx: ctx,
     pane: createPane(),
-    data: [{ close: 101 }],
+    data: [{ timestamp: 0, open: 101, high: 101, low: 101, close: 101 }],
     range: { start: 0, end: 0 },
     scrollLeft: 0,
     kWidth: 10,

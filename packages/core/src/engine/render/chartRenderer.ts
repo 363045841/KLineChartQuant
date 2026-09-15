@@ -16,7 +16,7 @@ import {
   type FrameTransaction,
 } from '../../foundation/reactivity/frameTransaction'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal'
-import type { KLineData, TimeShareData } from '../../foundation/types/price'
+import type { ChartSeriesDatum } from '../../foundation/types/price'
 import {
   ASHARE_MARKET_SESSION,
   resolveMarketSessionSlots,
@@ -79,8 +79,6 @@ type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kGap: number
 }
 
-type MarketSeriesData = KLineData | TimeShareData
-
 /**
  * 一帧绘制几何与数据（prepare 产出，render 只读）。
  * 大数组字段做结构共享，禁止深拷贝。
@@ -103,7 +101,7 @@ type FrameContext = {
   /** Overlay 帧复用上一帧的几何缓存 */
   useCachedFrame: boolean
   /** 当前模式对应的强类型行情数据。 */
-  data: MarketSeriesData[]
+  data: ChartSeriesDatum[]
   /** 当前缩放级别索引 */
   zoomLevel: number
   /** 缩放级别总数 */
@@ -786,7 +784,7 @@ export class ChartRenderer {
     mainIndicatorRange: { min: number; max: number } | null,
     useCachedFrame: boolean,
     level: UpdateLevel,
-    renderData: MarketSeriesData[],
+    renderData: ChartSeriesDatum[],
     fiveDayTimeShareGeometry: FiveDayTimeShareGeometry | null,
   ): { sharedXAxisLabels: XAxisLabel[]; sharedXAxisRanges: XAxisRange[] } {
     // X 轴由多个 Pane 共享；Y 轴装饰必须保持 Pane 隔离。
@@ -1065,7 +1063,7 @@ export class ChartRenderer {
     kWidthPx: number,
     sharedXAxisLabels: XAxisLabel[],
     sharedXAxisRanges: XAxisRange[],
-    renderData: MarketSeriesData[],
+    renderData: ChartSeriesDatum[],
     fiveDayTimeShareGeometry: FiveDayTimeShareGeometry | null,
   ): void {
     const dom = this.deps.getDom()

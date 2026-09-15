@@ -48,6 +48,9 @@ export interface TimeShareData {
   amount?: number
 }
 
+/** 渲染管线中的单条序列数据：K 线柱或分时点。 */
+export type ChartSeriesDatum = KLineData | TimeShareData
+
 export function isTimeShareData(data: unknown[]): data is TimeShareData[] {
   const first = data[0]
   return (

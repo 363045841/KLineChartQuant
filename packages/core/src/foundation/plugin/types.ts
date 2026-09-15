@@ -3,7 +3,7 @@
  */
 
 import type { ChartDataView, ChartWorkspaceId } from '../types/chartView'
-import type { KLineData } from '../types/price'
+import type { ChartSeriesDatum, KLineData } from '../types/price'
 
 /** 插件生命周期状态 */
 export enum PluginState {
@@ -298,7 +298,6 @@ export interface FiveDayTimeShareGeometry {
   verticalGridLineXs: ReadonlyArray<number>
 }
 
-/** 渲染上下文 */
 /** MarkerManager 接口（用于 RenderContext） */
 export interface MarkerManagerLike {
   getCustomMarkers(): unknown[]
@@ -311,10 +310,10 @@ export interface IndicatorRenderStateReader {
   get<T = unknown>(stateKey: string): T | undefined
 }
 
-export interface RenderContext {
-  ctx: CanvasRenderingContext2D
-  pane: PaneInfo
-  data: unknown[]
+/** 渲染数据子契约：序列数据、数据视图与时间解析。 */
+export interface RenderDataContext {
+  /** 当前帧的序列数据：K 线视图为 KLineData，分时视图为 TimeShareData。 */
+  data: ReadonlyArray<ChartSeriesDatum>
   /** K线级别，如 'daily'、'5min'、'15min' */
   period: string
   /** 当前图表数据视图。 */
@@ -328,6 +327,17 @@ export interface RenderContext {
   comparisonData?: ReadonlyMap<string, ReadonlyArray<KLineData>>
   comparisonSymbols?: ReadonlyArray<import('../../controllers/types').SymbolSpec>
   comparisonColors?: ReadonlyMap<string, string>
+  /** 由活动数据 Buffer 提供的唯一时间戳到逻辑索引解析。 */
+  getLogicalIndexAtTimestamp: (timestamp: number) => number | null
+  /** 预计算的月份键值数组（year*12+month），与 data 长度一致，由 DataBuffer 在数据加载时计算 */
+  monthKeys?: Int32Array
+  /** 预计算的日期键值数组（year*366+dayOfYear），与 data 长度一致，由 DataBuffer 在数据加载时计算 */
+  dayKeys?: Int32Array
+}
+
+/** 渲染几何子契约：Pane、视口、K 线位置与缩放。 */
+export interface RenderGeometryContext {
+  pane: PaneInfo
   range: { start: number; end: number }
   scrollLeft: number
   kWidth: number
@@ -339,41 +349,19 @@ export interface RenderContext {
   kLineCenters: number[]
   /** 每根K线对应柱的X/宽度（物理像素对齐后，逻辑像素），供柱状图使用 */
   kBarRects: Array<{ x: number; width: number }>
-  /** 由活动数据 Buffer 提供的唯一时间戳到逻辑索引解析。 */
-  getLogicalIndexAtTimestamp: (timestamp: number) => number | null
-  /** 绘图系统预先生成的当前 Pane 帧投影。 */
-  drawingProjection?: DrawingFrameProjection
-  markerManager?: MarkerManagerLike
-  /** 十字线指向的 K 线索引（无十字线时为 null） */
-  crosshairIndex?: number | null
-  // 可选的其他 Canvas 上下文
-  yAxisCtx?: CanvasRenderingContext2D
-  /** 轴区动态层（最新价标签、十字线价签） */
-  yAxisOverlayCtx?: CanvasRenderingContext2D
-  leftAxisCtx?: CanvasRenderingContext2D
-  leftAxisOverlayCtx?: CanvasRenderingContext2D
-  xAxisCtx?: CanvasRenderingContext2D
-  borderCtx?: CanvasRenderingContext2D
-  /** 覆盖层 Canvas 上下文（用于十字线、Tooltip 等动态内容） */
-  overlayCtx?: CanvasRenderingContext2D
-  /**
-   * Scene 本帧 Renderer（createLayerFromPlugin 注入）。
-   * 业务绘制经 drawInstances / drawLines；失败 fail-closed 走 2D。
-   */
-  sceneRenderer?: import('../../rendering/render/Renderer').Renderer
-  /** 当前帧绑定的指标渲染快照，所有指标 renderer 共用同一版本。 */
-  indicatorStateReader?: IndicatorRenderStateReader
-  /** 当前缩放级别（1 ~ zoomLevels） */
-  zoomLevel?: number
-  /** 总缩放级别数 */
-  zoomLevelCount?: number
   viewport: {
     scrollLeft: number
     plotWidth: number
     plotHeight: number
   }
-  /** 用户设置配置（渲染器只读） */
-  settings?: import('../config/chartSettings').ChartSettings
+  /** 当前缩放级别（1 ~ zoomLevels） */
+  zoomLevel?: number
+  /** 总缩放级别数 */
+  zoomLevelCount?: number
+}
+
+/** 坐标轴子契约：本帧待绘制的轴标签、范围带与刻度。 */
+export interface RenderAxisContext {
   /** 需要在Y轴上绘制的标签列表（由各类标记渲染器填充） */
   yAxisLabels: YAxisLabel[]
   /** 需要在X轴上绘制的标签列表（由各类标记渲染器填充） */
@@ -382,19 +370,68 @@ export interface RenderContext {
   yAxisRanges: YAxisRange[]
   /** 需要在X轴上绘制的范围带列表（由绘图渲染器填充，先于标签绘制） */
   xAxisRanges: XAxisRange[]
+  /** 预计算的 Y 轴刻度列表（统一像素均匀分布 → yToPrice 反算），所有 Y 轴渲染器共用 */
+  yAxisTicks?: YAxisTick[]
+}
+
+/** 覆盖层子契约：十字线、标记器与绘图帧投影。 */
+export interface RenderOverlayContext {
+  /** 十字线指向的 K 线索引（无十字线时为 null） */
+  crosshairIndex?: number | null
+  markerManager?: MarkerManagerLike
+  /** 绘图系统预先生成的当前 Pane 帧投影。 */
+  drawingProjection?: DrawingFrameProjection
+}
+
+/** 指标子契约：指标帧快照与 GPU Scene 渲染器。 */
+export interface RenderIndicatorContext {
+  /** 当前帧绑定的指标渲染快照，所有指标 renderer 共用同一版本。 */
+  indicatorStateReader?: IndicatorRenderStateReader
+  /**
+   * Scene 本帧 Renderer（createLayerFromPlugin 注入）。
+   * 业务绘制经 drawInstances / drawLines；失败 fail-closed 走 2D。
+   */
+  sceneRenderer?: import('../../rendering/render/Renderer').Renderer
+}
+
+/** 绘制目标子契约：主图、轴与覆盖层 Canvas2D 上下文。 */
+export interface RenderSurfaceContext {
+  ctx: CanvasRenderingContext2D
+  /** 覆盖层 Canvas 上下文（用于十字线、Tooltip 等动态内容） */
+  overlayCtx?: CanvasRenderingContext2D
+  yAxisCtx?: CanvasRenderingContext2D
+  /** 轴区动态层（最新价标签、十字线价签） */
+  yAxisOverlayCtx?: CanvasRenderingContext2D
+  leftAxisCtx?: CanvasRenderingContext2D
+  leftAxisOverlayCtx?: CanvasRenderingContext2D
+  xAxisCtx?: CanvasRenderingContext2D
+  borderCtx?: CanvasRenderingContext2D
+}
+
+/** 主题与设置子契约：渲染器只读。 */
+export interface RenderThemeContext {
   /** 当前主题 */
   theme: 'light' | 'dark'
   /** 亚洲市场惯例（红涨绿跌）；为 true 时自动交换所有 bull/bear 颜色 */
   isAsiaMarket?: boolean
   /** 用户颜色预设覆盖项 */
   colorPresetSettings?: import('../tokens').ColorPresetSettings
-  /** 预计算的 Y 轴刻度列表（统一像素均匀分布 → yToPrice 反算），所有 Y 轴渲染器共用 */
-  yAxisTicks?: YAxisTick[]
-  /** 预计算的月份键值数组（year*12+month），与 data 长度一致，由 DataBuffer 在数据加载时计算 */
-  monthKeys?: Int32Array
-  /** 预计算的日期键值数组（year*366+dayOfYear），与 data 长度一致，由 DataBuffer 在数据加载时计算 */
-  dayKeys?: Int32Array
+  /** 用户设置配置（渲染器只读） */
+  settings?: import('../config/chartSettings').ChartSettings
 }
+
+/**
+ * 渲染上下文：由各职责子契约组合而成。
+ * 渲染器只需其中部分能力时，参数应声明对应子契约而非本组合类型。
+ */
+export interface RenderContext
+  extends RenderAxisContext,
+    RenderDataContext,
+    RenderGeometryContext,
+    RenderIndicatorContext,
+    RenderOverlayContext,
+    RenderSurfaceContext,
+    RenderThemeContext {}
 
 /** 锚点语义：普通点、价格水平线或时间垂线。 */
 export type DrawingAnchorType = 'point' | 'horizontal' | 'vertical'
