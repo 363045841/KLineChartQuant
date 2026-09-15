@@ -17,6 +17,13 @@ import type { KlineTooltipSlotProps, MarkerTooltipSlotProps } from '../index'
 
 import { createMockChartController, createTestSignal } from './_mockController'
 
+/** 将颜色归一化为当前测试环境 DOM 的序列化形式，避免断言耦合具体环境的色彩格式。 */
+function normalizeColor(color: string): string {
+  const probe = document.createElement('span')
+  probe.style.color = color
+  return probe.style.color
+}
+
 describe('@363045841yyt/klinechart —public API surface', () => {
   it('exports createChart, useChart, useIndicatorSelector, KMapPlugin', () => {
     expect(typeof VueAdapter.createChart).toBe('function')
@@ -224,10 +231,10 @@ describe('@363045841yyt/klinechart —tooltip slot contracts', () => {
     })
     // close > open: closeColor → upColor (red)
     const upCloseSpan = upWrapper.find('.row:nth-child(4) span:last-child')
-    expect(upCloseSpan.attributes('style')).toContain('rgb(239, 68, 68)')
+    expect(upCloseSpan.attributes('style')).toContain(normalizeColor('#ef4444'))
     // close < open: closeColor → downColor (green)
     const downCloseSpan = downWrapper.find('.row:nth-child(4) span:last-child')
-    expect(downCloseSpan.attributes('style')).toContain('rgb(34, 197, 94)')
+    expect(downCloseSpan.attributes('style')).toContain(normalizeColor('#22c55e'))
     upWrapper.unmount()
     downWrapper.unmount()
   })

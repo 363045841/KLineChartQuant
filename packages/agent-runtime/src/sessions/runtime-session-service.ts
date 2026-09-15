@@ -228,7 +228,6 @@ export class RuntimeSessionService {
     const metadata = await this.repository.list()
     const sessions = await Promise.all(metadata.map((entry) => this.catalogEntry(entry)))
     // The array is newly allocated above and has no external observers.
-    // oxlint-disable-next-line unicorn/no-array-sort
     return sessions.sort((left, right) => right.updatedAt - left.updatedAt)
   }
 
@@ -376,7 +375,6 @@ export class RuntimeSessionService {
   async recoverInterrupted(): Promise<string[]> {
     const interrupted: string[] = []
     // Pi branch writes must remain ordered during recovery.
-    // oxlint-disable eslint/no-await-in-loop
     for (const metadata of await this.repository.list()) {
       const session = await this.openMetadata(metadata)
       await this.ensureSchema(session)
@@ -416,13 +414,11 @@ export class RuntimeSessionService {
         interrupted.push(started.runId)
       }
     }
-    // oxlint-enable eslint/no-await-in-loop
     return interrupted
   }
 
   async findRun(runId: string): Promise<RunPersistenceContext> {
     // Stop on the first newest match without opening every session concurrently.
-    // oxlint-disable eslint/no-await-in-loop
     for (const metadata of await this.repository.list()) {
       const session = await this.openMetadata(metadata)
       const entries = await session.findEntries({
@@ -434,7 +430,6 @@ export class RuntimeSessionService {
         if (started.runId === runId) return { sessionId: metadata.id, ...started }
       }
     }
-    // oxlint-enable eslint/no-await-in-loop
     throw new AgentRuntimeError('RUN_NOT_ACTIVE', 'The requested Agent run does not exist.')
   }
 

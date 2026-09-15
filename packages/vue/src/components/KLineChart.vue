@@ -120,6 +120,7 @@
                     :editable-style-keys="selectedDrawingStyleKeys"
                     @update-style="onUpdateDrawingStyle"
                     @delete="onDeleteDrawing"
+                    @toggle-lock="onToggleDrawingLock"
                   />
                   <CanvasToolbar v-if="isEditingLineLabel" class="drawing-label-position-toolbar">
                     <button
@@ -892,6 +893,7 @@
     onUpdateDrawingStyle,
     updateDrawingLabel,
     onDeleteDrawing,
+    onToggleDrawingLock,
     setupDrawing,
   } = useDrawingManager(controller)
   const lineLabelTarget = shallowRef<DrawingLineLabelTarget | null>(null)

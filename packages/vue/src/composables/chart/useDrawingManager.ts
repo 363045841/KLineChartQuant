@@ -72,6 +72,13 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
     ctrl.value?.removeBatch(ids)
   }
 
+  /** 批量写入选中图元的锁定状态。 */
+  function onToggleDrawingLock(locked: boolean) {
+    const ids = selectedDrawingIds.value
+    if (ids.length === 0) return
+    ctrl.value?.updateBatch(ids, { locked })
+  }
+
   function setupDrawing(chartCtrl: ChartController): void {
     drawingController.value = new DrawingInteractionController(chartCtrl)
     chartCtrl.registerDrawingSession(drawingController.value)
@@ -106,6 +113,7 @@ export function useDrawingManager(ctrl: Ref<ChartController | null>) {
     onUpdateDrawingStyle,
     updateDrawingLabel,
     onDeleteDrawing,
+    onToggleDrawingLock,
     setupDrawing,
   }
 }

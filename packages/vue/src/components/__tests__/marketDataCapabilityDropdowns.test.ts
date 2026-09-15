@@ -24,7 +24,8 @@ describe('行情能力下拉菜单', () => {
 
     await wrapper.get('.dropdown__trigger').trigger('click')
 
-    expect(wrapper.get('.dropdown__menu').attributes('style')).toContain('max-height: calc(120px)')
+    // 组件会把传入高度与可用视口高度取 min，因此只断言传入的 120px 生效。
+    expect(wrapper.get('.dropdown__menu').attributes('style')).toMatch(/max-height:[^;]*120px/)
   })
 
   // 验证周期菜单只展示当前品种声明的 K 线和分时能力。

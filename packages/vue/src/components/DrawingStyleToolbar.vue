@@ -35,6 +35,18 @@
 
     <button
       type="button"
+      class="toolbar-btn toolbar-btn--lock"
+      :class="{ 'is-locked': allLocked }"
+      :title="allLocked ? '解锁' : '锁定'"
+      :aria-label="allLocked ? '解锁' : '锁定'"
+      @click="onToggleLock"
+    >
+      <IconTablerLock v-if="allLocked" class="lock-icon" aria-hidden="true" />
+      <IconTablerLockOpen v-else class="lock-icon" aria-hidden="true" />
+    </button>
+
+    <button
+      type="button"
       class="toolbar-btn toolbar-btn--delete"
       title="删除"
       @click="$emit('delete')"
@@ -65,6 +77,9 @@
   import Dropdown from './Dropdown.vue'
   import CanvasToolbar from './common/CanvasToolbar.vue'
 
+  import IconTablerLock from '~icons/tabler/lock'
+  import IconTablerLockOpen from '~icons/tabler/lock-open'
+
   const widthOptions = [
     { label: '1px', value: '1' },
     { label: '2px', value: '2' },
@@ -86,6 +101,7 @@
   const emit = defineEmits<{
     (e: 'updateStyle', style: Partial<DrawingStyle>): void
     (e: 'delete'): void
+    (e: 'toggleLock', locked: boolean): void
   }>()
 
   function onKeyDown(e: KeyboardEvent) {
@@ -103,6 +119,15 @@
   const style = computed(() => props.drawings[0]?.style ?? {})
   function canEdit(key: keyof DrawingStyle): boolean {
     return props.editableStyleKeys.includes(key)
+  }
+
+  /** 全部选中图元均已锁定；混合选中视为未完全锁定。 */
+  const allLocked = computed(
+    () => props.drawings.length > 0 && props.drawings.every((drawing) => drawing.locked === true),
+  )
+
+  function onToggleLock() {
+    emit('toggleLock', !allLocked.value)
   }
 
   function onColorChange(color: string) {

@@ -47,7 +47,7 @@ export default defineConfig({
   test: {
     // 持久化 transform 缓存，跨 vitest 进程复用（Vitest 5+）
     fsModuleCache: true,
-    environment: 'jsdom',
+    environment: 'happy-dom',
     include: ['src/**/*.test.ts'],
     setupFiles: ['./src/test-setup.ts'],
   },
