@@ -453,6 +453,12 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     chart.setData([...next])
   }
 
+  /** 实时帧写入：末尾窗口 replace-on-conflict（SSE forming/closed 链路），写后自动联动指标与重绘。 */
+  function updateBars(next: ReadonlyArray<KLineData>): void {
+    if (disposed) return
+    chart.updateBars([...next])
+  }
+
   function setSymbols(next: ReadonlyArray<SymbolSpec>): void {
     if (disposed) return
     chart.clearRangeSelection()
@@ -991,6 +997,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     setRangeSelection,
     clearRangeSelection,
     setData,
+    updateBars,
     appendData,
     updateData: setData,
     getData,

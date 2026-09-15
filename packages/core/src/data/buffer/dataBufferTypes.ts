@@ -4,6 +4,8 @@ import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { TimeShareData } from '../../foundation/types/price.js'
 import type { OlderDataStatus, TimeShareRange } from '../provider/types.js'
 
+import type { UpdateBarsResult } from './kLineDataStore'
+
 /** 已加载行情数据覆盖的时间范围。 */
 export interface LoadedTimeRange {
   earliestTs: number
@@ -41,6 +43,8 @@ export interface KLineBuffer extends DataBufferLike<KLineData> {
   setError(error: string | null): void
   /** 合并缓存查询结果并保留前置插入信息。 */
   mergeData(data: ReadonlyArray<KLineData>, olderData: OlderDataStatus, timezone: string): void
+  /** 实时帧写入：末尾窗口 replace-on-conflict 合并，拒绝陈旧帧。 */
+  updateBars(bars: ReadonlyArray<KLineData>): UpdateBarsResult
   getMonthKeys(): Int32Array | null
   getDayKeys(): Int32Array | null
   setSymbol(spec: SymbolSpec): void
