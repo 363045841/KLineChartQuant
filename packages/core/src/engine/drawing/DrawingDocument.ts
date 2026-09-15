@@ -75,6 +75,7 @@ export interface BatchDrawingPatch {
 /** DrawingStyle 的字段名。 */
 export type DrawingStyleKey = keyof DrawingStyle
 
+/** 可批量修改的样式字段全集 */
 const DRAWING_STYLE_KEYS: ReadonlyArray<DrawingStyleKey> = [
   'stroke',
   'strokeWidth',

@@ -1,3 +1,8 @@
+// 绘图坐标换算模块：负责锚点逻辑坐标（时间戳 + 价格）与屏幕坐标（px）的双向换算，
+// 并提供从 PointerEvent 解析落点锚点的 resolveDrawingPointer（可选 OHLC 磁吸）。
+// 磁吸只作用于落点/预览路径，命中、框选等只读路径不得传入 magnet 以免范围漂移。
+// 另含点线距离等几何工具。
+
 import type { DrawingChartAdapter } from '../../controllers/types'
 import type {
   PersistedDrawingAnchor,
