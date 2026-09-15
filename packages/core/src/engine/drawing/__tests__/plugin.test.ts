@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type { DrawingPrimitive, RenderContext } from '../../../foundation/plugin/index'
 import { createDefaultPrimitiveRendererSet } from '..'
+import { LINE_LABEL_NORMAL_OFFSET } from '../labelLayout'
 import { createDrawingRendererPlugin } from '../plugin'
 
 describe('createDrawingRendererPlugin', () => {
@@ -82,7 +83,7 @@ describe('createDefaultPrimitiveRendererSet', () => {
         1,
       )
 
-      expect(ctx.translate).toHaveBeenCalledWith(expectedX, 14)
+      expect(ctx.translate).toHaveBeenCalledWith(expectedX, 20 - LINE_LABEL_NORMAL_OFFSET)
       expect(ctx.textAlign).toBe(expectedAlign)
     },
   )

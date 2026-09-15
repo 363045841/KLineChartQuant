@@ -1,9 +1,5 @@
 import type { DrawingChartAdapter } from '../../controllers/types'
-import type {
-  DrawingLabelPosition,
-  DrawingObject,
-  DrawingStyle,
-} from '../../foundation/plugin/index'
+import type { DrawingObject, DrawingStyle } from '../../foundation/plugin/index'
 import { ChartWorkspaceId } from '../../foundation/types/chartView'
 
 import { AnchorCollector } from './AnchorCollector'
@@ -11,7 +7,7 @@ import { DragHandler } from './DragHandler'
 import { DrawingState, PREVIEW_ID } from './DrawingState'
 import { clearDrawingSelection, toggleDrawingSelection } from './DrawingSelection'
 import { HitTester } from './HitTester'
-import type { HitResult } from './HitTester'
+import type { HitResult, LineLabelTarget } from './HitTester'
 import {
   drawingIntersectsSelectionMarquee,
   hasSelectionMarqueeArea,
@@ -32,17 +28,8 @@ import { getAnchorCountForTool, getDrawingKind } from './toolConfig'
 export type { DrawingToolId } from './toolConfig'
 export type { InteractionDrawingAnchor } from './coordinateUtils'
 
-/** 命中线段标签后供宿主渲染就地文本编辑器的几何快照。 */
-export interface DrawingLineLabelTarget {
-  readonly drawingId: string
-  readonly targetKind: 'line' | 'area'
-  readonly lineIndex: number
-  readonly x: number
-  readonly y: number
-  readonly rotation: number
-  readonly text: string
-  readonly position: DrawingLabelPosition
-}
+/** 命中标签后供宿主渲染就地编辑器的几何快照；与 HitTester 的命中结果同一类型。 */
+export type DrawingLineLabelTarget = LineLabelTarget
 
 /** 指针会话的唯一状态：框选和拖拽互斥，禁止通过多个可空字段推导行为。 */
 type DrawingPointerSession =
@@ -163,7 +150,7 @@ export class DrawingInteractionController {
     return this.drawingState.getSelectedDrawings()
   }
 
-  /** 查找指针命中的线段标签区域；只在光标模式且非拖拽时可编辑。 */
+  /** 查找指针命中的文本热点（线段中点/填充中心）；只在光标模式且非拖拽时可编辑。 */
   getLineLabelTarget(e: PointerEvent, container: HTMLElement): DrawingLineLabelTarget | null {
     if (this.getActiveTool() !== 'cursor' || this.dragHandler.isDragging()) return null
     const pointer = resolveDrawingPointer(e, container, this.adapter)
@@ -175,10 +162,7 @@ export class DrawingInteractionController {
           drawing.paneId === pointer.paneId &&
           (drawing.workspaceId ?? ChartWorkspaceId.KLine) === this.adapter.getDrawingWorkspaceId(),
       )
-    return (
-      this.hitTester.findLineLabelTarget(pointer.x, pointer.y, drawings, this.adapter) ??
-      this.hitTester.findAreaLabelTarget(pointer.x, pointer.y, drawings, this.adapter)
-    )
+    return this.hitTester.findLabelTarget(pointer.x, pointer.y, drawings, this.adapter)
   }
 
   // ============ 事件处理 ============

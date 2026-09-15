@@ -98,7 +98,8 @@ describe('projectDrawingsForFrame', () => {
     expect(projection.primitives).toEqual([
       expect.objectContaining({
         kind: 'line',
-        text: expect.objectContaining({ text: '趋势', position: 'start' }),
+        // 线段标签基线固定为 bottom：锚点即文本块底边，宿主输入框据此对齐。
+        text: expect.objectContaining({ text: '趋势', position: 'start', baseline: 'bottom' }),
       }),
     ])
   })

@@ -140,20 +140,17 @@
                 <div
                   v-if="lineLabelTarget"
                   class="drawing-line-label-editor"
-                  :style="{
-                    left: `${lineLabelTarget.x}px`,
-                    top: `${lineLabelTarget.y}px`,
-                    '--drawing-line-label-rotation': `${lineLabelTarget.rotation}rad`,
-                  }"
+                  :class="{ 'is-placeholder': !isEditingLineLabel && !lineLabelTarget.text }"
+                  :style="lineLabelEditorStyle"
                   @pointerdown.stop
                   @pointermove.stop
                   @pointerup.stop
+                  @click.stop="openLineLabelEditor"
                 >
                   <button
                     v-if="!isEditingLineLabel"
                     type="button"
                     class="drawing-line-label-editor__prompt"
-                    @click.stop="openLineLabelEditor"
                   >
                     {{ lineLabelTarget.text || '+ 添加文本' }}
                   </button>
@@ -908,16 +905,45 @@
     { label: '终点', value: 'end' },
   ] as const
 
+  /**
+   * 命中框按被命中标签的绘制参数摆放：锚点贴文本块的对应边（基线定纵向、对齐定横向），
+   * 并以同一锚点旋转，保证输入框与画布文字重合。
+   */
+  const lineLabelEditorStyle = computed(() => {
+    const target = lineLabelTarget.value
+    if (!target) return undefined
+    const translateX = target.align === 'left' ? '0' : target.align === 'right' ? '-100%' : '-50%'
+    const translateY =
+      target.baseline === 'top' ? '0' : target.baseline === 'bottom' ? '-100%' : '-50%'
+    const originX = target.align === 'left' ? 'left' : target.align === 'right' ? 'right' : 'center'
+    const originY =
+      target.baseline === 'top' ? 'top' : target.baseline === 'bottom' ? 'bottom' : 'center'
+    return {
+      left: `${target.x}px`,
+      top: `${target.y}px`,
+      transform: `translate(${translateX}, ${translateY}) rotate(${target.rotation}rad)`,
+      transformOrigin: `${originX} ${originY}`,
+      fontSize: `${target.fontSize}px`,
+      textAlign: target.align,
+    }
+  })
+
   /** 打开命中线段标签的就地文本编辑器。 */
   function openLineLabelEditor(): void {
-    if (!lineLabelTarget.value) return
+    if (!lineLabelTarget.value || isEditingLineLabel.value) return
     lineLabelDraft.value = lineLabelTarget.value.text
     lineLabelPosition.value = lineLabelTarget.value.position
     isEditingLineLabel.value = true
     void nextTick(() => lineLabelInput.value?.focus())
   }
 
-  /** 提交当前线段文本，并恢复透明提示态。 */
+  /** 结束就地编辑并立即收起命中框；再次悬停时才会重新显示提示。 */
+  function closeLineLabelEditor(): void {
+    isEditingLineLabel.value = false
+    lineLabelTarget.value = null
+  }
+
+  /** 提交当前线段文本，并收起编辑器。 */
   function saveLineLabel(): void {
     const target = lineLabelTarget.value
     if (!target || !isEditingLineLabel.value) return
@@ -928,12 +954,12 @@
       lineLabelDraft.value,
       lineLabelPosition.value,
     )
-    isEditingLineLabel.value = false
+    closeLineLabelEditor()
   }
 
   /** 放弃当前文本草稿，不修改绘图模型。 */
   function cancelLineLabelEditor(): void {
-    isEditingLineLabel.value = false
+    closeLineLabelEditor()
   }
 
   /** 在不转移输入焦点的情况下切换线段文字位置。 */
@@ -2138,31 +2164,71 @@
     position: absolute;
     z-index: 21;
     pointer-events: auto;
-    transform: translate(-50%, -50%);
-    transform-origin: center;
+    color: var(--klc-color-ui-text);
+    line-height: var(--klc-typography-line-height-tight);
+  }
+
+  /* 外框绘制在容器上：提示态与编辑态共用同一外框，几何完全一致。
+     内容盒必须等于画布文本块，故子元素 padding/border 均为 0，避免锚点漂移。 */
+  .drawing-line-label-editor::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: -3px -8px;
+    border: 1px solid var(--klc-color-ui-border);
+    border-radius: 6px;
+    background: var(--klc-color-ui-surface);
+    box-shadow:
+      0 2px 8px rgba(0, 0, 0, 0.08),
+      0 1px 2px rgba(0, 0, 0, 0.04);
+    transition:
+      background var(--klc-motion-duration-fast) var(--klc-motion-easing-standard),
+      border-color var(--klc-motion-duration-fast) var(--klc-motion-easing-standard);
+  }
+
+  .drawing-line-label-editor.is-placeholder {
+    color: var(--klc-color-ui-muted);
+  }
+
+  .drawing-line-label-editor.is-placeholder::before {
+    border-style: dashed;
+  }
+
+  .drawing-line-label-editor:hover::before {
+    border-color: var(--klc-color-ui-border-strong);
+    background: var(--klc-color-ui-hover);
   }
 
   .drawing-line-label-editor__prompt {
-    padding: 2px 6px;
-    border: 1px dashed color-mix(in srgb, var(--chart-border) 65%, transparent);
-    border-radius: 3px;
-    color: color-mix(in srgb, var(--chart-text-secondary) 72%, transparent);
-    background: color-mix(in srgb, var(--chart-bg) 52%, transparent);
+    display: block;
+    padding: 0;
+    border: 0;
+    color: inherit;
+    background: transparent;
+    font: inherit;
+    line-height: inherit;
+    text-align: inherit;
+    white-space: pre;
     cursor: text;
-    font: 12px/1.3 inherit;
-    white-space: nowrap;
-    transform: rotate(var(--drawing-line-label-rotation));
   }
 
   .drawing-line-label-editor__input {
+    display: block;
     width: 140px;
-    padding: 3px 6px;
+    height: calc(var(--klc-typography-line-height-tight) * 1em);
+    padding: 0;
     border: 0;
-    border-radius: 3px;
-    color: var(--klc-color-ui-text);
-    background: var(--klc-color-ui-control-background);
-    font: 12px/1.3 inherit;
+    color: inherit;
+    caret-color: var(--klc-color-ui-accent);
+    background: transparent;
+    font: inherit;
+    line-height: inherit;
+    text-align: inherit;
     outline: none;
+  }
+
+  .drawing-line-label-editor__input::placeholder {
+    color: var(--klc-color-ui-muted);
   }
 
   .drawing-label-position-toolbar {
@@ -2171,19 +2237,28 @@
   }
 
   .drawing-label-position-toolbar__button {
-    padding: 3px 6px;
+    height: 26px;
+    padding: 0 10px;
     border: 0;
-    border-radius: 3px;
-    color: var(--chart-text-secondary);
+    border-radius: 4px;
+    color: var(--klc-color-ui-muted);
     background: transparent;
-    font: 12px/1.3 inherit;
+    font: inherit;
+    font-size: var(--klc-typography-font-size-md);
     cursor: pointer;
+    transition:
+      background var(--klc-motion-duration-fast) var(--klc-motion-easing-standard),
+      color var(--klc-motion-duration-fast) var(--klc-motion-easing-standard);
   }
 
-  .drawing-label-position-toolbar__button:hover,
-  .drawing-label-position-toolbar__button.is-active {
-    color: var(--chart-text);
+  .drawing-label-position-toolbar__button:hover {
+    color: var(--klc-color-ui-text);
     background: var(--klc-color-ui-hover);
+  }
+
+  .drawing-label-position-toolbar__button.is-active {
+    color: var(--klc-color-ui-accent);
+    background: color-mix(in srgb, var(--klc-color-ui-accent) 16%, transparent);
   }
 
   .chart-container::-webkit-scrollbar {

@@ -2,8 +2,9 @@ import type { DrawingChartAdapter } from '../../controllers/types'
 import type { DrawingObject } from '../../foundation/plugin/index'
 
 import { anchorToScreen, isScreenPoint, pointToSegmentDistanceSq } from './coordinateUtils'
+import { LINE_LABEL_BASELINE, resolveLineLabelLayout } from './labelLayout'
 import { computeLinearRegression } from './linearRegression'
-import { getExtendMode } from './toolConfig'
+import { CHANNEL_KINDS, getExtendMode } from './toolConfig'
 
 // ---- Types ----
 
@@ -35,17 +36,23 @@ const LINE_HIT_RADIUS_SQ = LINE_HIT_RADIUS * LINE_HIT_RADIUS
 const LINE_LABEL_TARGET_RADIUS = 18
 const LINE_LABEL_TARGET_RADIUS_SQ = LINE_LABEL_TARGET_RADIUS * LINE_LABEL_TARGET_RADIUS
 
-/** 线段中心文本编辑热点。 */
+/** 线段/填充标签热点，携带与绘制完全一致的锚点、旋转、对齐、基线与字号。 */
 export interface LineLabelTarget {
   readonly drawingId: string
   readonly targetKind: 'line' | 'area'
   readonly lineIndex: number
   readonly x: number
   readonly y: number
-  /** 文字沿线段方向旋转的可读角度（弧度）。 */
+  /** 文字沿线段方向的可读旋转角（弧度）。 */
   readonly rotation: number
   readonly text: string
   readonly position: import('../../foundation/plugin').DrawingLabelPosition
+  /** 绘制时的水平对齐。 */
+  readonly align: CanvasTextAlign
+  /** 绘制时的基线，决定锚点贴文本块的哪一边。 */
+  readonly baseline: CanvasTextBaseline
+  /** 绘制时的字号（px）。 */
+  readonly fontSize: number
 }
 
 /**
@@ -279,65 +286,53 @@ export class HitTester {
     return segments
   }
 
-  /** 查找鼠标命中的线段中心区域，供宿主显示文本添加或编辑提示。 */
-  findLineLabelTarget(
+  /**
+   * 查找鼠标命中的文本热点，供宿主显示文本添加或编辑提示。
+   *
+   * 单遍遍历候选图元，每条图元的线段只投影一次，同时求两类热点：
+   * - line：线段按 labels.line 的 position 取点、沿上侧法线偏移（与绘制文字同锚点），取半径内最近者；
+   * - area：填充图元（CHANNEL_KINDS）的线段包围盒中心，取遍历首个。
+   * line 优先级高于 area，两者都命中时返回 line。
+   */
+  findLabelTarget(
     mouseX: number,
     mouseY: number,
     drawings: ReadonlyArray<DrawingObject>,
     adapter: DrawingChartAdapter,
   ): LineLabelTarget | null {
-    let closest: LineLabelTarget | null = null
-    let closestDistanceSq = LINE_LABEL_TARGET_RADIUS_SQ
+    let closestLine: LineLabelTarget | null = null
+    let closestLineDistanceSq = LINE_LABEL_TARGET_RADIUS_SQ
+    let areaTarget: LineLabelTarget | null = null
+
     for (const drawing of drawings) {
       const segments = this.getDrawingLabelSegments(drawing, adapter)
+
       for (const [lineIndex, segment] of segments.entries()) {
         const label = drawing.labels?.line[String(lineIndex)]
-        const ratio = label?.position === 'start' ? 0 : label?.position === 'end' ? 1 : 0.5
-        const x = segment.a.x + (segment.b.x - segment.a.x) * ratio
-        const y = segment.a.y + (segment.b.y - segment.a.y) * ratio
-        const dx = mouseX - x
-        const dy = mouseY - y
+        const layout = resolveLineLabelLayout(segment.a, segment.b, label?.position)
+        const dx = mouseX - layout.x
+        const dy = mouseY - layout.y
         const distanceSq = dx * dx + dy * dy
-        if (distanceSq > closestDistanceSq) continue
-        closestDistanceSq = distanceSq
-        let rotation = Math.atan2(segment.b.y - segment.a.y, segment.b.x - segment.a.x)
-        if (rotation > Math.PI / 2) rotation -= Math.PI
-        if (rotation <= -Math.PI / 2) rotation += Math.PI
-        closest = {
+        if (distanceSq > closestLineDistanceSq) continue
+        closestLineDistanceSq = distanceSq
+        closestLine = {
           drawingId: drawing.id,
           targetKind: 'line',
           lineIndex,
-          x,
-          y: y + (adapter.getPaneInfo(drawing.paneId)?.top ?? 0),
-          rotation,
+          x: layout.x,
+          y: layout.y + (adapter.getPaneInfo(drawing.paneId)?.top ?? 0),
+          rotation: layout.rotation,
           text: label?.text ?? '',
           position: label?.position ?? 'center',
+          align: layout.align,
+          baseline: LINE_LABEL_BASELINE,
+          fontSize: drawing.style.fontSize ?? 12,
         }
       }
-    }
-    return closest
-  }
 
-  /** 查找填充图元的中心文本热点。 */
-  findAreaLabelTarget(
-    mouseX: number,
-    mouseY: number,
-    drawings: ReadonlyArray<DrawingObject>,
-    adapter: DrawingChartAdapter,
-  ): LineLabelTarget | null {
-    for (const drawing of drawings) {
-      if (
-        ![
-          'rectangle',
-          'parallel-channel',
-          'regression-channel',
-          'flat-line',
-          'disjoint-channel',
-        ].includes(drawing.kind)
-      )
-        continue
-      const segments = this.getDrawingLineSegments(drawing, adapter)
-      if (segments.length === 0) continue
+      // 填充图元用同一批线段求包围盒中心；CHANNEL_KINDS 不含 ray/extended-line，
+      // 故 getDrawingLabelSegments 与其延长线段一致。已找到首个 area 热点便不再重算。
+      if (areaTarget || segments.length === 0 || !CHANNEL_KINDS.includes(drawing.kind)) continue
       const points = segments.flatMap((segment) => [segment.a, segment.b])
       const x =
         (Math.min(...points.map((point) => point.x)) +
@@ -350,7 +345,7 @@ export class HitTester {
       const dx = mouseX - x
       const dy = mouseY - y
       if (dx * dx + dy * dy > LINE_LABEL_TARGET_RADIUS_SQ) continue
-      return {
+      areaTarget = {
         drawingId: drawing.id,
         targetKind: 'area',
         lineIndex: 0,
@@ -359,9 +354,13 @@ export class HitTester {
         rotation: 0,
         text: drawing.labels?.area['0']?.text ?? '',
         position: drawing.labels?.area['0']?.position ?? 'center',
+        align: 'center',
+        baseline: 'middle',
+        fontSize: drawing.style.fontSize ?? 12,
       }
     }
-    return null
+
+    return closestLine ?? areaTarget
   }
 
   /** 返回文本热点对应的线段；射线和延长线始终使用原始两锚点之间的线段。 */

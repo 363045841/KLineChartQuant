@@ -32,6 +32,7 @@ export type {
 
 import type { ReadonlySignal } from '../../foundation/reactivity/signal'
 import { mergePaint } from './DrawingState'
+import { resolveLineLabelLayout, LINE_LABEL_BASELINE } from './labelLayout'
 
 export { DrawingDocument } from './DrawingDocument'
 export { DrawingCommands } from './DrawingCommands'
@@ -251,8 +252,6 @@ function formatSigned(value: number, digits = 2): string {
 import { computeLinearRegression } from './linearRegression'
 export { computeLinearRegression }
 
-const LINE_TEXT_GAP_PX = 6
-
 /** 将绘图文档中的字面量换行控制码拆为逻辑文本行。 */
 function splitDrawingTextLines(text: string): string[] {
   return text.split('\\n')
@@ -274,29 +273,6 @@ function drawMultilineText(
   ctx.textBaseline = 'top'
   for (const [index, line] of lines.entries()) {
     ctx.fillText(line, x, top + index * lineHeight)
-  }
-}
-
-/** 计算线段文字的锚点与本地对齐方式，保证端点文字位于线段外侧。 */
-function getLineTextLayout(
-  start: { x: number; y: number },
-  end: { x: number; y: number },
-  position: import('../../foundation/plugin').DrawingLabelPosition | undefined,
-): { x: number; y: number; rotation: number; align: CanvasTextAlign } {
-  const ratio = position === 'start' ? 0 : position === 'end' ? 1 : 0.5
-  const x = start.x + (end.x - start.x) * ratio
-  const y = start.y + (end.y - start.y) * ratio
-  let rotation = Math.atan2(end.y - start.y, end.x - start.x)
-  if (rotation > Math.PI / 2) rotation -= Math.PI
-  if (rotation <= -Math.PI / 2) rotation += Math.PI
-
-  const align = position === 'start' ? 'left' : position === 'end' ? 'right' : 'center'
-
-  return {
-    x: x + Math.sin(rotation) * LINE_TEXT_GAP_PX,
-    y: y - Math.cos(rotation) * LINE_TEXT_GAP_PX,
-    rotation,
-    align,
   }
 }
 
@@ -342,7 +318,7 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
 
       if (primitive.text) {
         // 标签基于原始锚点，不随延长线或视口裁剪漂移。
-        const textLayout = getLineTextLayout(primitive.a, primitive.b, primitive.text.position)
+        const textLayout = resolveLineLabelLayout(primitive.a, primitive.b, primitive.text.position)
         ctx.save()
         ctx.fillStyle =
           primitive.style?.textColor ?? primitive.style?.stroke ?? DEFAULT_DRAWING_STROKE
@@ -474,7 +450,7 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
       ctx.closePath()
       ctx.fill()
       if (primitive.text) {
-        const textLayout = getLineTextLayout(
+        const textLayout = resolveLineLabelLayout(
           primitive.start,
           primitive.end,
           primitive.text.position,
@@ -714,7 +690,7 @@ export function createInfoLineDefinition(): DrawingDefinition {
 
       return {
         primitives: [
-          { kind: 'line', a, b, text: { text, baseline: 'bottom' }, style: drawing.style },
+          { kind: 'line', a, b, text: { text, baseline: LINE_LABEL_BASELINE }, style: drawing.style },
         ],
         meta: { delta, percent, bars, angle },
       }
