@@ -6,6 +6,8 @@ export default mergeConfig(
   viteConfig,
   defineConfig({
     test: {
+      // 持久化 transform 缓存，跨 vitest 进程复用（Vitest 5+），默认落在 workspace 根的 node_modules 下
+      fsModuleCache: true,
       environment: 'jsdom',
       exclude: [
         ...configDefaults.exclude,

@@ -6,6 +6,8 @@ const webComponentStub = fileURLToPath(new URL('./src/__tests__/web-component.st
 
 export default defineConfig({
   test: {
+    // 持久化 transform 缓存，跨 vitest 进程复用（Vitest 5+）
+    fsModuleCache: true,
     environment: 'jsdom',
     include: ['src/**/*.test.{ts,tsx}'],
   },
