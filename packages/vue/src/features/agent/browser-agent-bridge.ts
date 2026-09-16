@@ -183,13 +183,32 @@ async function fetchBrowserProvider(
 class BrowserProviderProfiles {
   private cache: BrowserProviderProfile[] | undefined
 
+  /**
+   * @param persistApiKey 是否允许 apiKey 进入 localStorage。宿主注入了外部凭据存储
+   * （Electron safeStorage）时必须为 false，否则加密存储没有意义——明文副本还在。
+   */
+  constructor(private readonly persistApiKey: boolean) {}
+
   read(): BrowserProviderProfile[] {
     return this.models().map((profile) => ({ ...profile }))
   }
 
   write(profiles: BrowserProviderProfile[]): void {
     this.cache = profiles.map((profile) => ({ ...profile }))
-    window.localStorage.setItem(PROVIDER_PROFILES_STORAGE_KEY, JSON.stringify(this.cache))
+    const persisted = this.persistApiKey
+      ? this.cache
+      : this.cache.map(({ apiKey: _apiKey, ...rest }) => ({ ...rest, apiKey: '' }))
+    window.localStorage.setItem(PROVIDER_PROFILES_STORAGE_KEY, JSON.stringify(persisted))
+  }
+
+  /** 是否存在 localStorage 中的历史明文 apiKey。 */
+  hasStoredApiKey(): boolean {
+    return this.models().some((profile) => Boolean(profile.apiKey))
+  }
+
+  /** 清除全部 profile 上的 apiKey，内存与 localStorage 同步生效。 */
+  clearApiKeys(): void {
+    this.write(this.models().map((profile) => ({ ...profile, apiKey: '' })))
   }
 
   active(): BrowserProviderProfile | undefined {
@@ -346,6 +365,11 @@ interface PendingQuestion {
 
 interface BrowserAgentBridgeOptions {
   readonly getChartAgent?: () => ChartAgentController | null | undefined
+  /**
+   * 替换默认的 localStorage 凭据存储。Electron 宿主注入 safeStorage 实现；
+   * 不传时行为与 Web 端完全一致。注入后 apiKey 不再写入 localStorage。
+   */
+  readonly credentials?: ProviderCredentialStore
 }
 
 /** 从 Core 快照投影 UI 与模型共享的最小上下文。 */
@@ -412,11 +436,11 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   private readonly contextItemsListeners = new Set<
     (items: ReadonlyArray<AgentContextItem>) => void
   >()
-  private readonly profiles = new BrowserProviderProfiles()
+  private readonly profiles: BrowserProviderProfiles
   private readonly enabledTools = new BrowserEnabledTools()
   private readonly toolCatalog = new RuntimeToolCatalog<BrowserToolContext>()
-  private readonly credentials = new BrowserProviderCredentialStore(this.profiles)
-  private readonly settings = new BrowserProviderSettingsStore(this.profiles)
+  private readonly credentials: ProviderCredentialStore
+  private readonly settings: BrowserProviderSettingsStore
   private readonly support
   private readonly sessions = new Map<string, BrowserSession>()
   private readonly activeRuns = new Map<string, ActiveRun>()
@@ -431,6 +455,10 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   private unsubscribeChartContextSource: (() => void) | undefined
 
   constructor(options: BrowserAgentBridgeOptions = {}) {
+    this.profiles = new BrowserProviderProfiles(options.credentials === undefined)
+    this.credentials = options.credentials ?? new BrowserProviderCredentialStore(this.profiles)
+    this.settings = new BrowserProviderSettingsStore(this.profiles)
+    if (options.credentials) void this.adoptLegacyPlaintextApiKey(options.credentials)
     this.getChartAgent = options.getChartAgent ?? (() => null)
     this.registerTools()
     this.support = createOpenAiCompatibleRuntimeSupport({
@@ -671,6 +699,20 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   /** 返回当前 Profile 中保存的 Web search 凭据。 */
   private webSearchApiKey(): string | undefined {
     return this.profiles.active()?.exaApiKey?.trim() || undefined
+  }
+
+  /** 当前生效的全部真实凭据，供 PiRunDriver 在事件投影前逐字剔除。 */
+  private async secretValues(): Promise<readonly string[]> {
+    const values: string[] = []
+    try {
+      const apiKey = await this.credentials.read()
+      if (apiKey) values.push(apiKey)
+    } catch {
+      // 凭据不可读不应阻断运行；此时仅内置正则生效。
+    }
+    const exaApiKey = this.webSearchApiKey()
+    if (exaApiKey) values.push(exaApiKey)
+    return values
   }
 
   /** 解析工具执行目标：命中原语宿主则用宿主，否则归属 Agent facade 自身工具。 */
@@ -932,7 +974,9 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     const session = this.requireSession(input.sessionId)
     const runId = `run-${this.nextRun++}`
     const startedAt = Date.now()
-    const driver = new PiRunDriver()
+    // 真实凭据必须进脱敏名单：内置正则只覆盖 Bearer/Basic、`sk-` 前缀与本地路径，
+    // 非该形态的 Provider Key（自建网关、非 OpenAI 厂商）否则会原样出现在事件流里。
+    const driver = new PiRunDriver({ redaction: { secretValues: await this.secretValues() } })
     const runInput: StartRunInput = {
       ...input,
       context: Object.freeze({ items: this.getContextItems() }) satisfies AgentRunContext,
@@ -1030,9 +1074,13 @@ export class BrowserAgentBridge implements AgentBridgeClient {
       pool.some((model) => model.id === previousProfile.settings?.modelId)
         ? previousProfile.settings
         : undefined
+    // apiKey 一律不进 profile 对象：它随 profiles.write() 会被 JSON.stringify 进
+    // localStorage。Key 统一经 credentials 存储写入——默认实现写回 localStorage（Web 端
+    // 行为不变），Electron 实现写进 safeStorage。
+    const apiKey = input.apiKey?.trim() || (await this.credentials.read()) || ''
     const profile: BrowserProviderProfile = {
       name: profileName,
-      apiKey: input.apiKey?.trim() || (await this.credentials.read()) || '',
+      apiKey: '',
       exaApiKey: input.exaApiKey?.trim() || profiles[existingIndex]?.exaApiKey,
       settings,
       connection,
@@ -1047,6 +1095,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
         : [...profiles, profile]
       ).map((item) => ({ ...item, active: item.name === profileName })),
     )
+    if (apiKey) await this.credentials.write(apiKey)
     await this.emitProviderStatus()
   }
 
@@ -1063,6 +1112,26 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     }
     this.profiles.updateActive({ settings: { ...settings, reasoningEffort: effort } })
     await this.emitProviderStatus()
+  }
+
+  /**
+   * 一次性处理 localStorage 中的历史明文 apiKey：迁移进注入的加密存储后清除。
+   *
+   * 判断：迁移而非只清除。Key 已经泄露在 localStorage 里，清除是必须的；但直接丢弃会让
+   * 已配置好的用户在升级后莫名不可用，而重新输入同一个 Key 并不会让它变得更安全。
+   * 仅在加密存储当前为空时迁移，避免覆盖用户已在 Electron 侧保存的新 Key。
+   * 若加密存储不可用（write 抛错），明文**保持原样不清除**——此时清除只会丢失凭据而
+   * 换不来任何安全收益，状态与本特性上线前相同，且下一次成功保存会立刻清理干净。
+   */
+  private async adoptLegacyPlaintextApiKey(credentials: ProviderCredentialStore): Promise<void> {
+    if (!this.profiles.hasStoredApiKey()) return
+    const legacyKey = this.profiles.active()?.apiKey?.trim()
+    try {
+      if (legacyKey && !(await credentials.read())) await credentials.write(legacyKey)
+    } catch {
+      return
+    }
+    this.profiles.clearApiKeys()
   }
 
   async deleteProviderCredential(): Promise<void> {
