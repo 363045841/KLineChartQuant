@@ -12,7 +12,6 @@
     "components.d.ts",
     "**/*.tsbuildinfo",
     "**/coverage/**",
-    "packages/web-component/**",
     "**/preview/dist/**"
   ],
   "rules": {
