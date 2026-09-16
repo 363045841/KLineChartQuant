@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { RenderContext } from '../../../foundation/plugin'
+import {
+  createMockCanvasContext,
+  createMockPluginHost,
+  createMockRenderContext,
+  createMockStateReader,
+} from '@/engine/__tests__/helpers/renderTestKit'
+
 import {
   createVolumeScaleRendererPlugin,
   formatVolumeScaleLabel,
@@ -16,46 +22,37 @@ describe('formatVolumeScaleLabel', () => {
   })
 
   it('draws ticks from the frame state for a dynamic volume pane', () => {
-    const fillText = vi.fn()
-    const yAxisCtx = {
-      canvas: { width: 120 },
-      clearRect: vi.fn(),
-      fillText,
-      font: '',
-      textBaseline: 'alphabetic',
-      textAlign: 'start',
-      fillStyle: '',
-    } as unknown as CanvasRenderingContext2D
+    const yAxisCtx = createMockCanvasContext()
     const renderer = createVolumeScaleRendererPlugin({
       axisWidth: 60,
       paneId: 'sub_Volume_dynamic',
     })
-    renderer.onInstall?.({} as never)
+    renderer.onInstall?.(createMockPluginHost())
 
-    renderer.draw({
-      yAxisCtx,
-      dpr: 2,
-      pane: {
-        id: 'sub_Volume_dynamic',
-        height: 160,
-        yAxis: {
-          getScaleType: () => 'linear',
-          getDisplayRange: (range: { minPrice: number; maxPrice: number }) => range,
-          getPaddingTop: () => 0,
-          getPaddingBottom: () => 0,
+    renderer.draw(
+      createMockRenderContext({
+        yAxisCtx,
+        dpr: 2,
+        pane: {
+          id: 'sub_Volume_dynamic',
+          height: 160,
+          yAxis: {
+            getScaleType: () => 'linear',
+            getDisplayRange: (range) => range ?? { maxPrice: 0, minPrice: 0 },
+            getPaddingTop: () => 0,
+            getPaddingBottom: () => 0,
+          },
         },
-      },
-      indicatorStateReader: {
-        get: (key: string) =>
-          key === 'indicator:volume:sub_Volume_dynamic'
-            ? { timestamp: 1, valueMin: 990, valueMax: 1_110 }
-            : undefined,
-      },
-      theme: 'light',
-      isAsiaMarket: true,
-      colorPresetSettings: {},
-    } as unknown as RenderContext)
+        indicatorStateReader: createMockStateReader('indicator:volume:sub_Volume_dynamic', {
+          timestamp: 1,
+          valueMin: 990,
+          valueMax: 1_110,
+        }),
+        isAsiaMarket: true,
+        colorPresetSettings: {},
+      }),
+    )
 
-    expect(fillText).toHaveBeenCalled()
+    expect(vi.mocked(yAxisCtx.fillText)).toHaveBeenCalled()
   })
 })

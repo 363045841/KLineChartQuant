@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../errors'
+import { KLineChartError } from '../../errors.js'
 /**
  * Range Bars — fixed-range price bars.
  *
@@ -54,7 +54,7 @@ import { KLineChartError } from '../../errors'
  * matches between modes.
  */
 
-import type { ChartTypeTransform, OHLCV, TransformedBar } from './types'
+import type { ChartTypeTransform, OHLCV, TransformedBar } from './types.js'
 
 export interface RangeBarsConfig {
   /** Range height in price units. Must be > 0. */

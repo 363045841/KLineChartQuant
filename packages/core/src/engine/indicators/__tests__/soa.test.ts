@@ -31,7 +31,11 @@ import {
 } from '../soa'
 
 // SoA wrapper functions (test-only — convert SoA → AoS before computing)
-function calcBOLLDataSoA(layout: KLineSoALayout, period: number, multiplier: number): BOLLPoint[] {
+function calcBOLLDataSoA(
+  layout: KLineSoALayout,
+  period: number,
+  multiplier: number,
+): Array<BOLLPoint | undefined> {
   return calcBOLLData(SharedKLineBuffer.toKLineData(layout), period, multiplier)
 }
 function calcEXPMADataSoA(
@@ -41,7 +45,11 @@ function calcEXPMADataSoA(
 ): EXPMAPoint[] {
   return calcEXPMAData(SharedKLineBuffer.toKLineData(layout), fastPeriod, slowPeriod)
 }
-function calcENEDataSoA(layout: KLineSoALayout, period: number, deviation: number): ENEPoint[] {
+function calcENEDataSoA(
+  layout: KLineSoALayout,
+  period: number,
+  deviation: number,
+): Array<ENEPoint | undefined> {
   return calcENEData(SharedKLineBuffer.toKLineData(layout), period, deviation)
 }
 function calcMADataSoA(layout: KLineSoALayout, period: number): (number | undefined)[] {

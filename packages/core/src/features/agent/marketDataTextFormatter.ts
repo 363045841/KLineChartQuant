@@ -5,11 +5,11 @@ import type {
   KLineAdjustment,
   KLinePeriod,
   OlderDataStatus,
-} from '../../data/provider/types'
-import type { KLineData, TimeShareData } from '../../foundation/types/price'
-import { formatTimestamp } from '../../foundation/utils/dateFormat'
-import { createMarkdownTable, escapeMarkdownCell } from './markdownTable'
-import type { BarsQueryResult, TimeShareQueryResult, TimeShareRangeQueryResult } from './types'
+} from '../../data/provider/types.js'
+import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
+import { formatTimestamp } from '../../foundation/utils/dateFormat.js'
+import { createMarkdownTable, escapeMarkdownCell } from './markdownTable.js'
+import type { BarsQueryResult, TimeShareQueryResult, TimeShareRangeQueryResult } from './types.js'
 
 /** 市场查询文本转义服务。 */
 export interface MarketDataTextFormatter {

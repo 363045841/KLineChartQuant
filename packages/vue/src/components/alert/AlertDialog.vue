@@ -212,7 +212,7 @@
   } from '@363045841yyt/klinechart-core'
   import { ref, watch } from 'vue'
 
-  import { useAlerts } from '../../composables/useAlerts'
+  import { useAlerts } from '../../composables/useAlerts.js'
   import BaseModal from '../BaseModal.vue'
   import ToggleSwitch from '../common/ToggleSwitch.vue'
   import SegmentedTabs from '../SegmentedTabs.vue'

@@ -2,8 +2,8 @@
  * ALMA（Arnaud Legoux 移动平均）指标渲染状态定义
  * 定义单线序列的渲染状态结构、状态 key 工厂与默认参数
  */
-import type { BaseIndicatorState } from '../../../foundation/plugin/index'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys'
+import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface ALMARenderState extends BaseIndicatorState {
   timestamp: number

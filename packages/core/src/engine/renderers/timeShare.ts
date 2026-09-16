@@ -3,13 +3,13 @@ import type {
   RenderContext,
   RendererPlugin,
   RendererPluginWithHost,
-} from '../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
-import { resolveThemeColors } from '../../foundation/tokens/index'
-import { ChartDataViewId } from '../../foundation/types/chartView'
-import type { TimeShareData } from '../../foundation/types/price'
-import { Indicator } from '../indicators/indicatorDefinitionRegistry'
-import { resolveTimeShareBaseline } from '../modes/timeShareMath'
+} from '../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
+import { resolveThemeColors } from '../../foundation/tokens/index.js'
+import { ChartDataViewId } from '../../foundation/types/chartView.js'
+import type { TimeShareData } from '../../foundation/types/price.js'
+import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
+import { resolveTimeShareBaseline } from '../modes/timeShareMath.js'
 
 export function createTimeShareRendererPlugin(): RendererPluginWithHost {
   return {

@@ -227,8 +227,8 @@
   import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
   import { computed, ref, watch } from 'vue'
   import IconTablerTrash from '~icons/tabler/trash'
-  import type { AggregationSourceEndpoint } from '../composables/useAggregationSources'
-  import { getOpenSourceCredits } from '../credits/openSourceCredits'
+  import type { AggregationSourceEndpoint } from '../composables/useAggregationSources.js'
+  import { getOpenSourceCredits } from '../credits/openSourceCredits.js'
   import AggregationSourceDialog from './AggregationSourceDialog.vue'
   import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
@@ -244,7 +244,7 @@
       rendererRuntime?: RendererBackendRuntime | null
       marketDataCacheStats?: MarketDataCacheStats
       aggregationSources?: ReadonlyArray<
-        import('../composables/useAggregationSources').AggregationSourceDefinition
+        import('../composables/useAggregationSources.js').AggregationSourceDefinition
       >
       enabledSourceNames?: ReadonlySet<string>
       sourceEndpoints?: Record<string, AggregationSourceEndpoint>

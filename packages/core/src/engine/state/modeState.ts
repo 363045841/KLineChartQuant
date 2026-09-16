@@ -1,5 +1,5 @@
 /** 图表数据视图、主序列渲染偏好及运行时能力状态。 */
-import { batch, computed, createSubState } from '../../foundation/reactivity/signal'
+import { batch, computed, createSubState } from '../../foundation/reactivity/signal.js'
 
 export {
   type ChartDataView,
@@ -7,13 +7,13 @@ export {
   ChartWorkspaceId,
   isTimeShareDataView,
   resolveChartWorkspaceId,
-} from '../../foundation/types/chartView'
+} from '../../foundation/types/chartView.js'
 
 import {
   type ChartDataView,
   ChartDataViewId,
   isTimeShareDataView,
-} from '../../foundation/types/chartView'
+} from '../../foundation/types/chartView.js'
 
 export type ChartModeId = ChartDataView
 export type PrimaryRendererType = 'candlestick' | 'ohlc-bar' | 'line' | 'area'

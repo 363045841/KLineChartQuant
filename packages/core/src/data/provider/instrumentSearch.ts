@@ -1,7 +1,7 @@
 /** 聚合已启用行情数据源的无状态品种目录查询能力。 */
-import { KLineChartError } from '../../errors'
-import type { MarketDataProviderRegistry } from './registry'
-import type { InstrumentDescriptor, InstrumentSearchQuery } from './types'
+import { KLineChartError } from '../../errors.js'
+import type { MarketDataProviderRegistry } from './registry.js'
+import type { InstrumentDescriptor, InstrumentSearchQuery } from './types.js'
 
 /** 跨数据源查询品种目录的输入。 */
 export interface InstrumentSearchRequest extends InstrumentSearchQuery {

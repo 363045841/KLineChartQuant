@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../errors'
+import { KLineChartError } from '../../errors.js'
 /**
  * LSMA — Least-Squares (Linear Regression) Moving Average.
  *

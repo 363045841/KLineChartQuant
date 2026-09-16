@@ -2,7 +2,7 @@
 // 锚点取语义位置（start/center/end），再沿当前屏幕线段的上侧法线偏移，
 // 保证提示框与绘制文字重合、且不压在线上阻塞线段交互。
 
-import type { DrawingLabelPosition } from '../../foundation/plugin'
+import type { DrawingLabelPosition } from '../../foundation/plugin/index.js'
 
 /** 线段标签沿上侧法线偏移的距离（px）。绘制文字与命中热点共用此值。 */
 export const LINE_LABEL_NORMAL_OFFSET = 6

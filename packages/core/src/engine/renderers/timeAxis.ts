@@ -1,14 +1,17 @@
-import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
-import { getFont, setCanvasFont } from '../../foundation/tokens/fonts'
-import { resolveThemeColors } from '../../foundation/tokens/index'
-import type { KLineData } from '../../foundation/types/price'
+import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
+import { getFont, setCanvasFont } from '../../foundation/tokens/fonts.js'
+import { resolveThemeColors } from '../../foundation/tokens/index.js'
+import type { KLineData } from '../../foundation/types/price.js'
 import {
   drawAxisTimeLabel,
   drawCrosshairTimeLabel,
   drawTimeAxis,
-} from '../../foundation/utils/kLineDraw/axis'
-import { alignToPhysicalPixelCenter, roundToPhysicalPixel } from '../../foundation/utils/pixelAlign'
+} from '../../foundation/utils/kLineDraw/axis.js'
+import {
+  alignToPhysicalPixelCenter,
+  roundToPhysicalPixel,
+} from '../../foundation/utils/pixelAlign.js'
 
 /** 时间轴面板 ID（特殊标识，用于单独渲染） */
 const TIME_AXIS_PANE_ID = Symbol('time-axis')

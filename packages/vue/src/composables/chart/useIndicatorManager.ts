@@ -13,7 +13,7 @@ import type {
 import { getRegisteredIndicatorDefinition } from '@363045841yyt/klinechart-core/indicators'
 import { computed, type Ref } from 'vue'
 
-import { useControllerSignal } from './useControllerSignal'
+import { useControllerSignal } from './useControllerSignal.js'
 
 interface SubPaneSlot {
   id: string

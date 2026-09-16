@@ -5,6 +5,7 @@ description: 升级组件库发布包版本
 
 1. 需要且只要更新以下文件中的版本:
 @packages\core\package.json
+@packages\agent-runtime\package.json
 @packages\desktop-electron\package.json
 @packages\core\src\version.ts
 @packages\vue\package.json

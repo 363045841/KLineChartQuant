@@ -65,8 +65,8 @@
   import { computed, ref } from 'vue'
   import IconCheck from '~icons/tabler/check'
   import IconHelp from '~icons/tabler/help'
-  import type { QuestionAnswerView, QuestionView } from '../agent-contracts'
-  import { type AgentLocale, getAgentCopy } from '../agent-copy'
+  import type { QuestionAnswerView, QuestionView } from '../agent-contracts.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
   const props = defineProps<{ question: QuestionView; locale: AgentLocale }>()
   const emit = defineEmits<{ answer: [answer: QuestionAnswerView] }>()

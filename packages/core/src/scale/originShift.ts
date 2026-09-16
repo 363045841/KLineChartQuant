@@ -1,4 +1,4 @@
-import { KLineChartError } from '../errors'
+import { KLineChartError } from '../errors.js'
 /**
  * Origin-shift policy — ROADMAP §2.5, refined per the upstream PR feedback
  * about *rebaseline drift*.

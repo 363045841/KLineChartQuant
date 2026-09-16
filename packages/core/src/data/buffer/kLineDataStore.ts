@@ -1,13 +1,13 @@
 /** K 线数据存储：按时间戳去重合并增量数据、维护已加载窗口，并通过信号发布数据变更。 */
-import type { KLineData } from '../../controllers/types'
+import type { KLineData } from '../../controllers/types.js'
 import {
   createSignal,
   type ReadonlySignal,
   type WritableSignal,
-} from '../../foundation/reactivity/signal'
+} from '../../foundation/reactivity/signal.js'
 
-import type { DataChange, LoadedTimeRange } from './dataBufferTypes'
-import { UniqueTimestampIndex } from './uniqueTimestampIndex'
+import type { DataChange, LoadedTimeRange } from './dataBufferTypes.js'
+import { UniqueTimestampIndex } from './uniqueTimestampIndex.js'
 
 export interface MergeResult {
   readonly prependedCount: number

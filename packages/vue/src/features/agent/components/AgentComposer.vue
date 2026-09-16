@@ -83,8 +83,8 @@
   import IconArrowUp from '~icons/tabler/arrow-up'
   import IconPlayerStopFilled from '~icons/tabler/player-stop-filled'
   import Dropdown from '../../../components/Dropdown.vue'
-  import type { AgentUsageView, ProviderModelView, ProviderStatusView } from '../agent-contracts'
-  import { type AgentLocale, getAgentCopy } from '../agent-copy'
+  import type { AgentUsageView, ProviderModelView, ProviderStatusView } from '../agent-contracts.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
   const props = defineProps<{
     draft: string

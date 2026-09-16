@@ -7,12 +7,12 @@ import type {
   ProviderModelView,
   ProviderReasoningEffort,
   QuestionAnswerView,
-} from './agent-contracts'
+} from './agent-contracts.js'
 import {
   createAgentProviderSettingsPinia,
   useAgentProviderSettingsStore,
-} from './agent-provider-settings-store'
-import { createInitialAgentState, reduceAgentUiEvent } from './agent-reducer'
+} from './agent-provider-settings-store.js'
+import { createInitialAgentState, reduceAgentUiEvent } from './agent-reducer.js'
 
 export function useAgentWorkspace(bridge: AgentBridgeClient) {
   const state = shallowRef(createInitialAgentState())

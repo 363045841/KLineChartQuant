@@ -145,14 +145,14 @@
     type AggregationSourceDefinition,
     isMockSourceName,
     supportsAggregationSourceSearch,
-  } from '../composables/useAggregationSources'
-  import { useAggregationSourceTab } from '../composables/useAggregationSourceTab'
+  } from '../composables/useAggregationSources.js'
+  import { useAggregationSourceTab } from '../composables/useAggregationSourceTab.js'
   import {
     type SymbolSearchFn,
     symbolIdentityKey,
     uniqueSymbolsByIdentity,
     useSymbolSearch,
-  } from '../composables/useSymbolSearch'
+  } from '../composables/useSymbolSearch.js'
 
   import BaseTabs from './BaseTabs.vue'
   import SymbolPopover from './SymbolPopover.vue'

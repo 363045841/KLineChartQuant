@@ -1,7 +1,7 @@
-import type { RenderContext } from '../../../foundation/plugin/index'
-import { createLayerFromPlugin } from '../../../rendering/scene/createLayerFromPlugin'
-import type { Layer } from '../../../rendering/scene/types'
-import { createCandleRenderer } from '../../renderers/candle'
+import type { RenderContext } from '../../../foundation/plugin/index.js'
+import { createLayerFromPlugin } from '../../../rendering/scene/createLayerFromPlugin.js'
+import type { Layer } from '../../../rendering/scene/types.js'
+import { createCandleRenderer } from '../../renderers/candle.js'
 
 export function createCandleLayer(getContext: () => RenderContext | null): Layer {
   const plugin = createCandleRenderer()

@@ -1,9 +1,9 @@
-import type { KLineData } from '../types/price'
+import type { KLineData } from '../types/price.js'
 import {
   DEFAULT_VOLUME_PRICE_CONFIG,
   type VolumePriceConfig,
   VolumePriceRelation,
-} from '../types/volumePrice'
+} from '../types/volumePrice.js'
 
 // 重新导出默认配置，方便外部使用
 export { DEFAULT_VOLUME_PRICE_CONFIG }

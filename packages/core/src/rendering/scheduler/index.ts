@@ -6,4 +6,4 @@ export {
   type FrameBudgetOptions,
   type FrameTask,
   type TaskPriority,
-} from './createFrameBudget'
+} from './createFrameBudget.js'

@@ -1,12 +1,12 @@
-import type { DrawingChartAdapter } from '../../controllers/types'
-import type { DrawingObject, PersistedDrawingAnchor } from '../../foundation/plugin/index'
-import type { ResolveDrawingPointerOptions } from './coordinateUtils'
+import type { DrawingViewportPort } from '../../controllers/types.js'
+import type { DrawingObject, PersistedDrawingAnchor } from '../../foundation/plugin/index.js'
+import type { ResolveDrawingPointerOptions } from './coordinateUtils.js'
 import {
   anchorToScreen,
   isScreenPoint,
   resolveDrawingPointer,
   screenToAnchor,
-} from './coordinateUtils'
+} from './coordinateUtils.js'
 
 // ---- Types ----
 
@@ -71,7 +71,7 @@ export class DragHandler {
   handleDragMove(
     e: PointerEvent,
     container: HTMLElement,
-    adapter: DrawingChartAdapter,
+    adapter: DrawingViewportPort,
     options?: ResolveDrawingPointerOptions,
   ): DrawingObject[] | null {
     if (!this.dragState) return null
@@ -113,7 +113,7 @@ export class DragHandler {
     drawing: DrawingObject,
     dx: number,
     dy: number,
-    adapter: DrawingChartAdapter,
+    adapter: DrawingViewportPort,
   ): DrawingObject {
     const anchors = drawing.anchors.map((anchor) => ({ ...anchor }))
     for (let index = 0; index < anchors.length; index++) {

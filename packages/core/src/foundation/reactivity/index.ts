@@ -2,8 +2,8 @@ export type {
   FramePhase,
   FrameTransaction,
   FrameTransactionOptions,
-} from './frameTransaction'
-export { createFrameTransaction } from './frameTransaction'
+} from './frameTransaction.js'
+export { createFrameTransaction } from './frameTransaction.js'
 export type {
   Computed,
   ReadonlyRef,
@@ -12,7 +12,7 @@ export type {
   Signal,
   WritableRef,
   WritableSignal,
-} from './signal'
+} from './signal.js'
 export {
   batch,
   computed,
@@ -22,4 +22,4 @@ export {
   effect,
   selectSignal,
   writableRef,
-} from './signal'
+} from './signal.js'

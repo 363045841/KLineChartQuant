@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../errors'
+import { KLineChartError } from '../../errors.js'
 /**
  * Renko bricks — price-based bars that ignore time.
  *
@@ -65,7 +65,7 @@ import { KLineChartError } from '../../errors'
  * meaningful in ATR mode).
  */
 
-import type { ChartTypeTransform, OHLCV, TransformedBar } from './types'
+import type { ChartTypeTransform, OHLCV, TransformedBar } from './types.js'
 
 /**
  * Renko configuration.

@@ -5,7 +5,7 @@ import {
   KR_MARKET_SESSION,
   type MarketSessionConfig,
   US_MARKET_SESSION,
-} from '../../foundation/utils/sessionTimeLabels'
+} from '../../foundation/utils/sessionTimeLabels.js'
 
 const BUILTIN_MARKET_SESSIONS: Readonly<Record<string, MarketSessionConfig>> = {
   CN: ASHARE_MARKET_SESSION,

@@ -13,69 +13,72 @@
  * - Inline fallback backend（indicatorRuntime.ts）
  */
 
-import type { IndicatorRenderStateReader, PluginHost } from '../../foundation/plugin/index'
-import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
-import type { KLineData } from '../../foundation/types/price'
+import type { IndicatorRenderStateReader, PluginHost } from '../../foundation/plugin/index.js'
+import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import type { KLineData } from '../../foundation/types/price.js'
 import {
   createIndicatorResultState,
   type IndicatorResultStateModule,
-} from '../state/indicatorResultState'
-import { type IndicatorMetadata, resolveStateKey } from './indicatorMetadata'
-import { IndicatorRegistry } from './indicatorRegistry'
-import { IndicatorRuntime } from './indicatorRuntime'
+} from '../state/indicatorResultState.js'
+import { type IndicatorMetadata, resolveStateKey } from './indicatorMetadata.js'
+import { IndicatorRegistry } from './indicatorRegistry.js'
+import { IndicatorRuntime } from './indicatorRuntime.js'
 // Default constants for default config
-import { DEFAULT_ATR_PERIOD } from './state/atrState'
+import { DEFAULT_ATR_PERIOD } from './state/atrState.js'
 import {
   DEFAULT_CHAIKIN_VOL_EMA_PERIOD,
   DEFAULT_CHAIKIN_VOL_ROC_PERIOD,
-} from './state/chaikinVolState'
-import { DEFAULT_CMF_PERIOD } from './state/cmfState'
-import { DEFAULT_DEMA_PERIOD } from './state/demaState'
-import { DEFAULT_DONCHIAN_PERIOD } from './state/donchianState'
-import { DEFAULT_FIB_PERIOD } from './state/fibState'
-import { DEFAULT_HMA_PERIOD } from './state/hmaState'
-import { DEFAULT_HV_ANNUALIZATION, DEFAULT_HV_PERIOD } from './state/hvState'
+} from './state/chaikinVolState.js'
+import { DEFAULT_CMF_PERIOD } from './state/cmfState.js'
+import { DEFAULT_DEMA_PERIOD } from './state/demaState.js'
+import { DEFAULT_DONCHIAN_PERIOD } from './state/donchianState.js'
+import { DEFAULT_FIB_PERIOD } from './state/fibState.js'
+import { DEFAULT_HMA_PERIOD } from './state/hmaState.js'
+import { DEFAULT_HV_ANNUALIZATION, DEFAULT_HV_PERIOD } from './state/hvState.js'
 import {
   DEFAULT_ICHIMOKU_DISPLACEMENT,
   DEFAULT_ICHIMOKU_KIJUN,
   DEFAULT_ICHIMOKU_SPAN_B,
   DEFAULT_ICHIMOKU_TENKAN,
-} from './state/ichimokuState'
+} from './state/ichimokuState.js'
 import {
   DEFAULT_KAMA_FAST_PERIOD,
   DEFAULT_KAMA_PERIOD,
   DEFAULT_KAMA_SLOW_PERIOD,
-} from './state/kamaState'
+} from './state/kamaState.js'
 import {
   DEFAULT_KELTNER_ATR_PERIOD,
   DEFAULT_KELTNER_EMA_PERIOD,
   DEFAULT_KELTNER_MULTIPLIER,
-} from './state/keltnerState'
-import { DEFAULT_MFI_PERIOD } from './state/mfiState'
-import { DEFAULT_PARKINSON_ANNUALIZATION, DEFAULT_PARKINSON_PERIOD } from './state/parkinsonState'
-import { DEFAULT_ROC_PERIOD } from './state/rocState'
-import { DEFAULT_SAR_MAX_STEP, DEFAULT_SAR_STEP } from './state/sarState'
-import { DEFAULT_STRUCTURE_LEFT, DEFAULT_STRUCTURE_RIGHT } from './state/structureState'
+} from './state/keltnerState.js'
+import { DEFAULT_MFI_PERIOD } from './state/mfiState.js'
+import {
+  DEFAULT_PARKINSON_ANNUALIZATION,
+  DEFAULT_PARKINSON_PERIOD,
+} from './state/parkinsonState.js'
+import { DEFAULT_ROC_PERIOD } from './state/rocState.js'
+import { DEFAULT_SAR_MAX_STEP, DEFAULT_SAR_STEP } from './state/sarState.js'
+import { DEFAULT_STRUCTURE_LEFT, DEFAULT_STRUCTURE_RIGHT } from './state/structureState.js'
 import {
   DEFAULT_SUPERTREND_ATR_PERIOD,
   DEFAULT_SUPERTREND_MULTIPLIER,
-} from './state/supertrendState'
-import { DEFAULT_TEMA_PERIOD } from './state/temaState'
-import { DEFAULT_TRIX_PERIOD, DEFAULT_TRIX_SIGNAL_PERIOD } from './state/trixState'
-import { DEFAULT_VMA_PERIOD } from './state/vmaState'
+} from './state/supertrendState.js'
+import { DEFAULT_TEMA_PERIOD } from './state/temaState.js'
+import { DEFAULT_TRIX_PERIOD, DEFAULT_TRIX_SIGNAL_PERIOD } from './state/trixState.js'
+import { DEFAULT_VMA_PERIOD } from './state/vmaState.js'
 import {
   DEFAULT_VP_BINS,
   DEFAULT_VP_LOOKBACK,
   DEFAULT_VP_VALUE_AREA,
-} from './state/volumeProfileState'
-import { DEFAULT_VWAP_SESSION_GAP_MS } from './state/vwapState'
-import { DEFAULT_WMA_PERIOD } from './state/wmaState'
-import { DEFAULT_ZONES_OB_LOOKBACK } from './state/zonesState'
+} from './state/volumeProfileState.js'
+import { DEFAULT_VWAP_SESSION_GAP_MS } from './state/vwapState.js'
+import { DEFAULT_WMA_PERIOD } from './state/wmaState.js'
+import { DEFAULT_ZONES_OB_LOOKBACK } from './state/zonesState.js'
 import {
   composeRenderStates,
   composeVolumeRenderState,
   computeMainIndicatorPriceRange,
-} from './stateComposer'
+} from './stateComposer.js'
 import type {
   IndicatorConfig,
   IndicatorConfigSnapshot,
@@ -84,8 +87,8 @@ import type {
   IndicatorSeriesBundle,
   IndicatorWorkerResponse,
   SerializedRuntimeDescriptor,
-} from './workerProtocol'
-import { isWorkerResponse, PROTOCOL_VERSION } from './workerProtocol'
+} from './workerProtocol.js'
+import { isWorkerResponse, PROTOCOL_VERSION } from './workerProtocol.js'
 
 /**
  * 可见范围

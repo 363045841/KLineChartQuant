@@ -2,8 +2,8 @@
  * Schaff Trend Cycle 渲染状态定义及默认配置。
  */
 
-import type { BaseIndicatorState } from '../../../foundation/plugin/index'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys'
+import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface SchaffTrendCycleRenderState extends BaseIndicatorState {
   timestamp: number

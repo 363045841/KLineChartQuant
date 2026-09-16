@@ -1,9 +1,9 @@
 /** PaneManager 统一管理 pane 布局与副图内容的原子领域变更。 */
-import { batch } from '../foundation/reactivity/signal'
-import { generateUUID } from '../foundation/utils/uuid'
-import type { PaneSpec } from './chartTypes'
-import type { IndicatorStateModule, SubPaneInput } from './state/indicatorState'
-import type { PaneStateModule } from './state/paneState'
+import { batch } from '../foundation/reactivity/signal.js'
+import { generateUUID } from '../foundation/utils/uuid.js'
+import type { PaneSpec } from './chartTypes.js'
+import type { IndicatorStateModule, SubPaneInput } from './state/indicatorState.js'
+import type { PaneStateModule } from './state/paneState.js'
 
 /** 可由用户界面和 Agent 共同提交的 pane 可更新字段。 */
 export type PanePatch = Partial<Omit<PaneSpec, 'id'>>

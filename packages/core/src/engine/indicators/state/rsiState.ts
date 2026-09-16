@@ -1,5 +1,5 @@
-import type { BaseIndicatorState } from '../../../foundation/plugin/index'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys'
+import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export const DEFAULT_RSI_PERIOD1 = 6
 export const DEFAULT_RSI_PERIOD2 = 12

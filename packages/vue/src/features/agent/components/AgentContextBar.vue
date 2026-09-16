@@ -29,8 +29,8 @@
     AgentChartSymbolContextItem,
     AgentContextItem,
     AgentSelectedTimeRangeContextItem,
-  } from '../agent-contracts'
-  import { type AgentLocale, getAgentCopy } from '../agent-copy'
+  } from '../agent-contracts.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
   const props = defineProps<{
     contextItems: ReadonlyArray<AgentContextItem>

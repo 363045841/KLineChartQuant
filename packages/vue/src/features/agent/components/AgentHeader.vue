@@ -80,8 +80,8 @@
   import IconSparkles from '~icons/tabler/sparkles'
   import IconTrash from '~icons/tabler/trash'
   import Dropdown from '../../../components/Dropdown.vue'
-  import type { AgentSessionView } from '../agent-contracts'
-  import { type AgentLocale, getAgentCopy } from '../agent-copy'
+  import type { AgentSessionView } from '../agent-contracts.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
   const props = defineProps<{
     sessions: AgentSessionView[]

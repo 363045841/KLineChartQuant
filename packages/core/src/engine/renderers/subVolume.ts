@@ -1,13 +1,13 @@
-import type { RenderContext, RendererPluginWithHost } from '../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
-import { resolveThemeColors } from '../../foundation/tokens/index'
-import { ChartDataViewId } from '../../foundation/types/chartView'
-import { getKLineTrend } from '../../foundation/types/kLine'
-import type { KLineData, TimeShareData } from '../../foundation/types/price'
-import { Indicator } from '../indicators/indicatorDefinitionRegistry'
+import type { RenderContext, RendererPluginWithHost } from '../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
+import { resolveThemeColors } from '../../foundation/tokens/index.js'
+import { ChartDataViewId } from '../../foundation/types/chartView.js'
+import { getKLineTrend } from '../../foundation/types/kLine.js'
+import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
+import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
 
-import { createVolumeScaleRendererPlugin } from './Indicator/scale/volume_scale'
-import { tryDrawRectsGpu } from './rectsViaRenderer'
+import { createVolumeScaleRendererPlugin } from './Indicator/scale/volume_scale.js'
+import { tryDrawRectsGpu } from './rectsViaRenderer.js'
 
 interface VolumeRendererOptions {
   /** 目标 pane ID（默认 'sub'） */

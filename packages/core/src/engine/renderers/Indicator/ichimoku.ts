@@ -3,25 +3,28 @@ import type {
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import type { ColorTokens } from '../../../foundation/tokens/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import type { KLineData } from '../../../foundation/types/price'
-import { calcIchimokuData } from '../../indicators/calculators'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import type { ColorTokens } from '../../../foundation/tokens/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import type { KLineData } from '../../../foundation/types/price.js'
+import { calcIchimokuData } from '../../indicators/calculators/index.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import {
   type GetTitleInfoFn,
   resolveStateKey,
   type TitleInfo,
   type TitleValueItem,
-} from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { IchimokuRenderState } from '../../indicators/state/ichimokuState'
-import { createIchimokuStateKey, EMPTY_ICHIMOKU_STATE } from '../../indicators/state/ichimokuState'
-import { createIchimokuVisibleStateComposer } from '../../indicators/visibleStateComposers'
-import { getPhysicalKLineConfig } from '../../utils/klineConfig'
-import { tryDrawLinesGpu } from '../linesViaRenderer'
+} from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { IchimokuRenderState } from '../../indicators/state/ichimokuState.js'
+import {
+  createIchimokuStateKey,
+  EMPTY_ICHIMOKU_STATE,
+} from '../../indicators/state/ichimokuState.js'
+import { createIchimokuVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
+import { getPhysicalKLineConfig } from '../../utils/klineConfig.js'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
 type Point = { x: number; y: number }
 /** @internal 对测试暴露 */
@@ -63,7 +66,7 @@ function collectIchimokuPoints(
     }
   }
 
-  const dataLen = (context.data as unknown[]).length
+  const dataLen = context.data.length
   if (dataLen < series.length) {
     const physConfig = getPhysicalKLineConfig(context.kWidth, context.kGap, context.dpr)
     const futureEnd = Math.min(dataLen + params.displacement, series.length)

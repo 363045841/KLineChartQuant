@@ -1,8 +1,8 @@
-import type { KLineData } from '../../../foundation/types/price'
+import type { KLineData } from '../../../foundation/types/price.js'
 
-import { GMMA_LONG_PERIODS, GMMA_SHORT_PERIODS } from '../state/gmmaState'
+import { GMMA_LONG_PERIODS, GMMA_SHORT_PERIODS } from '../state/gmmaState.js'
 
-import { _computeEMASeries, _computeWMAOnNumbers } from './_shared'
+import { _computeEMASeries, _computeWMAOnNumbers } from './_shared.js'
 
 export type MAFlags = {
   ma5?: boolean

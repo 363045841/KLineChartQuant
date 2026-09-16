@@ -1,7 +1,7 @@
 /** 统一行情领域模型公共入口。 */
 
-export type { InstrumentLookupRequest, InstrumentSearchRequest } from './instrumentSearch'
-export { lookupInstrumentsBySymbol, searchInstruments } from './instrumentSearch'
+export type { InstrumentLookupRequest, InstrumentSearchRequest } from './instrumentSearch.js'
+export { lookupInstrumentsBySymbol, searchInstruments } from './instrumentSearch.js'
 export type {
   HttpTransportOptions,
   MarketDataProviderOptions,
@@ -30,7 +30,7 @@ export type {
   ProtocolTimeShareRangeSeries,
   ProtocolTimeShareRequest,
   ProtocolTimeShareSeries,
-} from './protocol'
+} from './protocol/index.js'
 export {
   createHttpMarketDataTransport,
   createMarketDataProvider,
@@ -38,23 +38,23 @@ export {
   SOURCE_REJECTION_CODES,
   V1_PROTOCOL_NAME,
   V1_PROTOCOL_VERSION,
-} from './protocol'
+} from './protocol/index.js'
 export type {
   MarketDataSourceConfig,
   MarketDataSourceConfigPatch,
   SourceCapabilityQuery,
-} from './registry'
-export { MarketDataProviderRegistry, marketDataProviderRegistry } from './registry'
+} from './registry.js'
+export { MarketDataProviderRegistry, marketDataProviderRegistry } from './registry.js'
 export type {
   RoutedMarketData,
   SourceRouteAttempt,
   SourceRouterBarsRequest,
   SourceRouterInstrumentIdentity,
   SourceRouterTimeShareRequest,
-} from './router'
-export { SourceRouter, SourceRoutingError, sourceRouter } from './router'
-export type { DataSourceRegistration } from './sourceRegistry'
-export { dataSourceRegistry } from './sourceRegistry'
+} from './router.js'
+export { SourceRouter, SourceRoutingError, sourceRouter } from './router.js'
+export type { DataSourceRegistration } from './sourceRegistry.js'
+export { dataSourceRegistry } from './sourceRegistry.js'
 export type {
   AssetClass,
   BarCapability,
@@ -86,4 +86,4 @@ export type {
   TimeShareSeries,
   TradingDate,
   VolumeUnit,
-} from './types'
+} from './types.js'

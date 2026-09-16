@@ -1,38 +1,41 @@
 // 本文件实现 AI-Native 的 Chart Agent 查询 API。
 import { type Static, Type } from 'typebox'
-import { MarketDataCache } from '../../data/buffer/marketDataCache'
-import { lookupInstrumentsBySymbol, searchInstruments } from '../../data/provider/instrumentSearch'
-import type { MarketDataProviderRegistry } from '../../data/provider/registry'
-import type { DrawingCommands } from '../../engine/drawing/DrawingCommands'
+import { MarketDataCache } from '../../data/buffer/marketDataCache.js'
+import {
+  lookupInstrumentsBySymbol,
+  searchInstruments,
+} from '../../data/provider/instrumentSearch.js'
+import type { MarketDataProviderRegistry } from '../../data/provider/registry.js'
+import type { DrawingCommands } from '../../engine/drawing/DrawingCommands.js'
 import type {
   DrawingAnchorCommandInput,
   DrawingDocument,
-} from '../../engine/drawing/DrawingDocument'
-import { KLineChartError } from '../../errors'
-import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal'
-import { AGENT_DRAWING_COLOR_VALUES } from '../../foundation/tokens/agentDrawingColors'
-import type { ChartDataView } from '../../foundation/types/chartView'
+} from '../../engine/drawing/DrawingDocument.js'
+import { KLineChartError } from '../../errors.js'
+import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import { AGENT_DRAWING_COLOR_VALUES } from '../../foundation/tokens/agentDrawingColors.js'
+import type { ChartDataView } from '../../foundation/types/chartView.js'
 // 副作用导入：加载对比原语模块以执行其 @Tool 注册。
-import '../../engine/data/comparisonCommands'
-import type { IndicatorInstance, SymbolSpec } from '../../controllers/types'
-import type { KLineAdjustment, KLinePeriod, TradingDate } from '../../data/provider/types'
-import { KNOWN_ASSET_CLASS_VALUES } from '../../data/provider/types'
-import type { PaneSpec } from '../../engine/chartTypes'
-import type { ComparisonCommands } from '../../engine/data/comparisonCommands'
-import type { PaneManager } from '../../engine/paneManager'
-import type { DataStateModule } from '../../engine/state/dataState'
+import '../../engine/data/comparisonCommands.js'
+import type { IndicatorInstance, SymbolSpec } from '../../controllers/types.js'
+import type { KLineAdjustment, KLinePeriod, TradingDate } from '../../data/provider/types.js'
+import { KNOWN_ASSET_CLASS_VALUES } from '../../data/provider/types.js'
+import type { PaneSpec } from '../../engine/chartTypes.js'
+import type { ComparisonCommands } from '../../engine/data/comparisonCommands.js'
+import type { PaneManager } from '../../engine/paneManager.js'
+import type { DataStateModule } from '../../engine/state/dataState.js'
 import {
   type ChartToolExecutionContext,
   getRegisteredChartTools,
   Tool,
-} from '../../foundation/agent/chartToolRegistry'
-import type { DrawingObject } from '../../foundation/plugin'
-import { CHART_AGENT_ERROR_CODES } from './errors'
-import type { IndicatorQuery } from './indicator/indicatorQuery'
+} from '../../foundation/agent/chartToolRegistry.js'
+import type { DrawingObject } from '../../foundation/plugin/index.js'
+import { CHART_AGENT_ERROR_CODES } from './errors.js'
+import type { IndicatorQuery } from './indicator/indicatorQuery.js'
 import {
   createMarketDataTextFormatter,
   type MarketDataTextFormatter,
-} from './marketDataTextFormatter'
+} from './marketDataTextFormatter.js'
 import type {
   BarsQueryInput,
   BarsQueryResult,
@@ -47,7 +50,7 @@ import type {
   TimeShareQueryResult,
   TimeShareRangeQueryInput,
   TimeShareRangeQueryResult,
-} from './types'
+} from './types.js'
 
 interface ChartAgentControllerDependencies {
   readonly chartId: string

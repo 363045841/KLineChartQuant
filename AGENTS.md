@@ -34,12 +34,12 @@ pnpm workspace at `packages/*`。发布包：
 | 目录 | 发布包 |
 |------|--------|
 | `packages/core` | `@363045841yyt/klinechart-core` |
+| `packages/agent-runtime` | `@363045841yyt/klinechart-agent-runtime` |
 | `packages/vue` | `@363045841yyt/klinechart` |
 | `packages/react` | `@363045841yyt/klinechart-react` |
 | `packages/angular` | `@363045841yyt/klinechart-angular` |
-| `packages/ui-schema` | `@363045841yyt/klinechart-ui-schema` |
 
-框架包通过 `workspace:*` 依赖 core；发布构建使用 `pnpm build:packages`（core → vue）。
+框架包通过 `workspace:` 协议依赖 core 与 agent-runtime；发布构建使用 `pnpm build:packages`（core → agent-runtime → vue）。vue 把 agent-runtime 声明为 `peerDependencies`，因此发布顺序不可颠倒。
 
 Node `^20.19.0 || >=22.12.0`，pnpm 11.x。
 
@@ -53,7 +53,7 @@ All READMEs are generated from `docs/fragments/` (reusable Markdown snippets) + 
 |---------|------|
 | `pnpm lint` | Biome 检查（`biome check .`，含 lint + format + import 排序）；`pnpm lint:fix` 自动修复 |
 | `pnpm format` | Biome 格式化（`biome format --write .`） |
-| `pnpm build:packages` | 发布包构建（core → vue） |
+| `pnpm build:packages` | 发布包构建（core → agent-runtime → vue） |
 | `pnpm type-check` | 使用 `vue-tsc --noEmit -p <tsconfig>` 逐个检查，不要使用 `tsc` |
 | `pnpm test:unit` | root 测试 |
 | `pnpm test:packages` | 所有 workspace 包测试 |
@@ -63,12 +63,19 @@ All READMEs are generated from `docs/fragments/` (reusable Markdown snippets) + 
 
 本地行情后端位于本仓库同级目录：`GoTDX-Connecter`（gotdx、Binance）和 `Baostock-Tradingview-Connecter`（BaoStock、TradingView）。涉及后端时先阅读对应仓库的 `AGENTS.md`；使用 `pnpm setup` 安装，`pnpm dev -c <name>` 或 `pnpm connecter <name>` 启动。
 
-## Testing
+## 测试
+
+**类型是契约，不是障碍。** 禁止用 `as` / `as unknown as` / `any` / `@ts-nocheck` 等手段绕过类型检查；契约加字段、替身缺成员，必须在编译期暴露，而不是静默通过。
+
+**单一事实来源，复用优先。** 同一份构造、替身、常量、映射只能有一处实现；用例只声明差异，禁止复制粘贴同一套东西。
+
+**测试代码与生产代码同权。** 测试同样是被类型检查、被门禁约束的代码，不得靠关闭检查来换取“能跑”。
 
 - Root 测试使用 `pnpm test:unit`；packages 被其排除，跨包测试使用 `pnpm test:packages`。
 - `*.integration.test.ts` 不会被默认测试收集。
 - 日期测试依赖 `TZ=Asia/Shanghai`；本地跨年失败时先设置该环境变量。
-- 测试用例禁止重复抄写同一套构造/夹具；可复用的 setup 必须抽成 helper 或表驱动（`it.each`），用例内只声明差异。
+- 可复用的 setup 必须抽成 helper 或表驱动（`it.each`）。
+- 不许在测试中引入脆弱的 MOCK。
 
 ## Code Conventions
 
@@ -84,7 +91,6 @@ All READMEs are generated from `docs/fragments/` (reusable Markdown snippets) + 
 - 不要硬编码字符串
 - 禁止编写和保留复杂化、无意义的回退逻辑,回退是风险放大点
 - 禁止在编程过程中刻意先留兼容逻辑,然后再修改的行为
-- 不许在测试中引入脆弱的 MOCK
 
 ## Architecture
 
@@ -131,6 +137,7 @@ Best practice: @packages/core/src/engine/state/viewportState.ts @packages/core/s
 - **Rendering docs SSOT**: `docs/rendering-pipeline.md` only. Do not revive deleted architecture/plugin rendering docs.
 - **Viewport too large** may trigger `MAX_CANVAS_PIXELS` (`clampDpr` in viewportState), causing DPR to be actively downgraded.
 - **Web component build**: `pnpm build:wc` in packages/vue (cross-env BUILD_TARGET=web-component).
+- **tsc 增量构建与产物**: 四个 tsc 包（core/agent-runtime/react/angular）的 `tsconfig.build.json` 使用 `incremental` + `node_modules/.tmp` 缓存。该缓存只比对源文件时间戳，若 `dist/` 被带外删除而缓存仍在，`tsc` 会认为已最新、跳过 emit 并退出 0（得到空 `dist`）。本地遇到这种情况删掉对应的 `node_modules/.tmp/tsconfig.build.*.tsbuildinfo` 再构建即可；CI 每次都是干净检出，不存在该缓存。
 
 ## Agent
 - @Tool 注册的工具,不应该让Agent直接传入时间戳

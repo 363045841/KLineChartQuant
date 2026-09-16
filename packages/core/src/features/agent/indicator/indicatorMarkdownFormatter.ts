@@ -1,9 +1,9 @@
 // 本文件将未注册专用转义器的指标结果转义为紧凑 Markdown 表格。
 
-import { formatTimestamp } from '../../../foundation/utils/dateFormat'
-import { createMarkdownTable } from '../markdownTable'
+import { formatTimestamp } from '../../../foundation/utils/dateFormat.js'
+import { createMarkdownTable } from '../markdownTable.js'
 
-import type { IndicatorTextFormatContext } from './indicatorTextFormatter'
+import type { IndicatorTextFormatContext } from './indicatorTextFormatter.js'
 
 // Agent 文本中统一使用的格式化日期列名。
 const DATE_COLUMN = 'date'

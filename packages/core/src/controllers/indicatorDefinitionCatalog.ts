@@ -4,9 +4,9 @@
  * 对外的规范 ID 统一使用指标的 displayName，与 ChartIndicatorManager 实例身份、
  * 选择器卡片 ID 保持一致；内部 name 不再泄漏到控制器/UI 层。
  */
-import { allIndicators, type Indicator } from '../engine/renderers/Indicator/indicatorCatalog'
+import { allIndicators, type Indicator } from '../engine/renderers/Indicator/indicatorCatalog.js'
 
-import type { IndicatorDefinition, IndicatorParamDef } from './types'
+import type { IndicatorDefinition, IndicatorParamDef } from './types.js'
 
 /** 将引擎参数配置映射为控制器参数定义。 */
 function toParamDef(param: NonNullable<Indicator['params']>[number]): IndicatorParamDef {

@@ -1,9 +1,9 @@
 /** 按数据视图与缩放派生内容几何尺寸（宽度/缓冲）的纯函数。 */
 
-import { FIVE_DAY_TIME_SHARE_PERIOD, isTimeSharePeriod } from '../../controllers/types'
-import { SCROLL_TRAILING_SLOTS } from '../data/scrollCompensator'
-import { computeFiveDayTimeShareContentWidth } from '../modes/fiveDayTimeShareGeometry'
-import { getPhysicalKLineConfig } from '../utils/klineConfig'
+import { FIVE_DAY_TIME_SHARE_PERIOD, isTimeSharePeriod } from '../../controllers/types.js'
+import { SCROLL_TRAILING_SLOTS } from '../data/scrollCompensator.js'
+import { computeFiveDayTimeShareContentWidth } from '../modes/fiveDayTimeShareGeometry.js'
+import { getPhysicalKLineConfig } from '../utils/klineConfig.js'
 
 export type ContentGeometryInput = {
   viewWidth: number

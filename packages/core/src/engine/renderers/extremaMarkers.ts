@@ -1,17 +1,17 @@
-import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index'
-import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index'
-import { getFont, setCanvasFont } from '../../foundation/tokens/fonts'
-import { resolveThemeColors } from '../../foundation/tokens/index'
-import { ChartDataViewId } from '../../foundation/types/chartView'
-import type { KLineData } from '../../foundation/types/price'
+import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index.js'
+import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
+import { getFont, setCanvasFont } from '../../foundation/tokens/fonts.js'
+import { resolveThemeColors } from '../../foundation/tokens/index.js'
+import { ChartDataViewId } from '../../foundation/types/chartView.js'
+import type { KLineData } from '../../foundation/types/price.js'
 import {
   alignToPhysicalPixelCenter,
   createHorizontalLineRect,
   roundToPhysicalPixel,
   worldXToScreenX,
-} from '../../foundation/utils/pixelAlign'
-import { isOnRightHalf } from '../../foundation/utils/viewportSide'
-import { Indicator } from '../indicators/indicatorDefinitionRegistry'
+} from '../../foundation/utils/pixelAlign.js'
+import { isOnRightHalf } from '../../foundation/utils/viewportSide.js'
+import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
 
 const textWidthCache = new Map<string, number>()
 const TEXT_WIDTH_CACHE_LIMIT = 256

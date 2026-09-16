@@ -1,4 +1,4 @@
-import type { PaneRendererDom } from './chartTypes'
+import type { PaneRendererDom } from './chartTypes.js'
 
 export type { PaneRendererDom }
 
@@ -25,11 +25,15 @@ export type PaneRendererOptions = {
    GPU 绘制经 ChartRenderer.sceneRenderer（SharedWebGLSurface），本类不再持有 per-pane surface */
 export class PaneRenderer {
   private dom: PaneRendererDom
-  private pane: import('./layout/pane').Pane
+  private pane: import('./layout/pane.js').Pane
   private opt: PaneRendererOptions
   private contexts: PaneRendererContexts | null = null
 
-  constructor(dom: PaneRendererDom, pane: import('./layout/pane').Pane, opt: PaneRendererOptions) {
+  constructor(
+    dom: PaneRendererDom,
+    pane: import('./layout/pane.js').Pane,
+    opt: PaneRendererOptions,
+  ) {
     this.dom = dom
     this.pane = pane
     this.opt = {
@@ -39,7 +43,7 @@ export class PaneRenderer {
   }
 
   /** 获取关联的 Pane 实例 */
-  getPane(): import('./layout/pane').Pane {
+  getPane(): import('./layout/pane.js').Pane {
     return this.pane
   }
 

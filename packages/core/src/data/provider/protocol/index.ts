@@ -1,9 +1,9 @@
 // 行情协议公共入口：导出契约类型、HTTP 实现与通用 Provider 装配器
 
-export type { HttpTransportOptions, ProtocolBaseUrl } from './httpTransport'
-export { createHttpMarketDataTransport, DEFAULT_V1_BASE_URL } from './httpTransport'
-export type { MarketDataProviderOptions } from './provider'
-export { createMarketDataProvider } from './provider'
+export type { HttpTransportOptions, ProtocolBaseUrl } from './httpTransport.js'
+export { createHttpMarketDataTransport, DEFAULT_V1_BASE_URL } from './httpTransport.js'
+export type { MarketDataProviderOptions } from './provider.js'
+export { createMarketDataProvider } from './provider.js'
 export type {
   MarketDataTransport,
   ProtocolBarCapability,
@@ -29,5 +29,5 @@ export type {
   ProtocolTimeShareRangeSeries,
   ProtocolTimeShareRequest,
   ProtocolTimeShareSeries,
-} from './types'
-export { SOURCE_REJECTION_CODES, V1_PROTOCOL_NAME, V1_PROTOCOL_VERSION } from './types'
+} from './types.js'
+export { SOURCE_REJECTION_CODES, V1_PROTOCOL_NAME, V1_PROTOCOL_VERSION } from './types.js'

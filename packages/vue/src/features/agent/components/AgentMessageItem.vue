@@ -47,9 +47,9 @@
   import IconLoader2 from '~icons/tabler/loader-2'
   import IconSparkles from '~icons/tabler/sparkles'
   import IconUser from '~icons/tabler/user'
-  import type { AgentMessageView } from '../agent-contracts'
-  import { type AgentLocale, getAgentCopy } from '../agent-copy'
-  import { renderAgentMarkdown } from '../render-agent-markdown'
+  import type { AgentMessageView } from '../agent-contracts.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
+  import { renderAgentMarkdown } from '../render-agent-markdown.js'
 
   const props = defineProps<{ message: AgentMessageView; locale: AgentLocale }>()
   const text = computed(() => getAgentCopy(props.locale))

@@ -1,13 +1,13 @@
 /** 对比序列运行时投影：订阅 Repository 叶子 Buffer，并向比较视图提供数据和加载状态。 */
-import type { KLineData, SymbolSpec } from '../../controllers/types'
-import type { KLineBuffer } from '../../data/buffer/dataBufferTypes'
+import type { KLineData, SymbolSpec } from '../../controllers/types.js'
+import type { KLineBuffer } from '../../data/buffer/dataBufferTypes.js'
 import {
   SeriesRepository,
   type SeriesSelection,
   seriesSelectionKey,
-} from '../../data/buffer/seriesRepository'
+} from '../../data/buffer/seriesRepository.js'
 
-import { symbolSpecIdentityKey } from './symbolIdentity'
+import { symbolSpecIdentityKey } from './symbolIdentity.js'
 
 type BarsSelection = Extract<SeriesSelection, { kind: 'bars' }>
 

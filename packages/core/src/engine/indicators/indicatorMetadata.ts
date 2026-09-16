@@ -5,17 +5,17 @@
  * 每个指标通过 metadata 描述其状态 key、渲染器工厂等元信息
  */
 
-import { KLineChartError } from '../../errors'
+import { KLineChartError } from '../../errors.js'
 import type {
   IndicatorRenderStateReader,
   PluginHost,
   RendererPluginWithHost,
-} from '../../foundation/plugin/index'
-import type { ColorTokens } from '../../foundation/tokens/index'
-import type { KLineData } from '../../foundation/types/price'
-import type { ChartDataView } from '../state/modeState'
+} from '../../foundation/plugin/index.js'
+import type { ColorTokens } from '../../foundation/tokens/index.js'
+import type { KLineData } from '../../foundation/types/price.js'
+import type { ChartDataView } from '../state/modeState.js'
 
-import type { IndicatorConfigSnapshot, IndicatorSeriesBundle } from './workerProtocol'
+import type { IndicatorConfigSnapshot, IndicatorSeriesBundle } from './workerProtocol.js'
 
 export type IndicatorId = string
 

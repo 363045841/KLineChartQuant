@@ -1,7 +1,7 @@
 /** TradingView V1 Provider：装配与注册集中于此，接入逻辑由通用装配器提供。 */
-import { createHttpMarketDataTransport, createMarketDataProvider } from '../protocol'
-import { marketDataProviderRegistry } from '../registry'
-import { dataSourceRegistry } from '../sourceRegistry'
+import { createHttpMarketDataTransport, createMarketDataProvider } from '../protocol/index.js'
+import { marketDataProviderRegistry } from '../registry.js'
+import { dataSourceRegistry } from '../sourceRegistry.js'
 
 const TRADINGVIEW = dataSourceRegistry.tradingview
 

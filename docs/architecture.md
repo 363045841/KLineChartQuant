@@ -93,7 +93,6 @@ flowchart TB
 | Vue bindings | `packages/vue` | Vue 3 组件 + 组合式函数 | `@363045841yyt/klinechart` |
 | React bindings | `packages/react` | React 绑定：`KLineChartWC` 经 Vue 打包的 `<kline-chart>` Web Component 接入 | `@363045841yyt/klinechart-react` |
 | Angular bindings | `packages/angular` | Angular 绑定 | `@363045841yyt/klinechart-angular` |
-| UI schema | `packages/ui-schema` | JSON → 图表配置的语义映射 | `@363045841yyt/klinechart-ui-schema` |
 | Agent runtime | `packages/agent-runtime` | 框架无关的 Agent 运行时（Pi 编排 + 宿主契约） | `@363045841yyt/klinechart-agent-runtime` |
 | Desktop Electron | `packages/desktop-electron` | 本地桌面应用（不发布） | — |
 

@@ -65,8 +65,8 @@
   import IconTablerChevronLeft from '~icons/tabler/chevron-left'
   import IconTablerChevronRight from '~icons/tabler/chevron-right'
   import IconTablerX from '~icons/tabler/x'
-  import type { SearchableSymbol } from '../composables/useSymbolSearch'
-  import { symbolIdentityKey } from '../composables/useSymbolSearch'
+  import type { SearchableSymbol } from '../composables/useSymbolSearch.js'
+  import { symbolIdentityKey } from '../composables/useSymbolSearch.js'
 
   defineProps<{
     items: ReadonlyArray<SearchableSymbol>

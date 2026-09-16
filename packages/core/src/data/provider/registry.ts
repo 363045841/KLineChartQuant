@@ -3,7 +3,7 @@
  * 注册表不负责持久化，应用层可将配置快照同步到 localStorage 或其他存储。
  */
 
-import { KLineChartError } from '../../errors'
+import { KLineChartError } from '../../errors.js'
 
 import type {
   AssetClass,
@@ -11,7 +11,7 @@ import type {
   KLinePeriod,
   MarketDataProvider,
   SourceCapabilities,
-} from './types'
+} from './types.js'
 
 /** 单个行情数据源的运行时配置。 */
 export interface MarketDataSourceConfig {

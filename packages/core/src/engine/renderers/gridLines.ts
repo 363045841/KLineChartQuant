@@ -1,10 +1,13 @@
-import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index'
-import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index'
-import { resolveThemeColors } from '../../foundation/tokens/index'
-import { isTimeShareDataView } from '../../foundation/types/chartView'
-import type { KLineData } from '../../foundation/types/price'
-import { findMonthBoundaries } from '../../foundation/utils/dateFormat'
-import { createHorizontalLineRect, createVerticalLineRect } from '../../foundation/utils/pixelAlign'
+import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index.js'
+import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
+import { resolveThemeColors } from '../../foundation/tokens/index.js'
+import { isTimeShareDataView } from '../../foundation/types/chartView.js'
+import type { KLineData } from '../../foundation/types/price.js'
+import { findMonthBoundaries } from '../../foundation/utils/dateFormat.js'
+import {
+  createHorizontalLineRect,
+  createVerticalLineRect,
+} from '../../foundation/utils/pixelAlign.js'
 
 /**
  * 创建网格线渲染器插件

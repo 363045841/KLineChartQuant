@@ -1,7 +1,11 @@
 /** 绘图层：只消费帧投影并绘制 primitive。 */
-import type { DrawingPrimitive, RenderContext, RendererPlugin } from '../../foundation/plugin/index'
+import type {
+  DrawingPrimitive,
+  RenderContext,
+  RendererPlugin,
+} from '../../foundation/plugin/index.js'
 
-import { createDefaultPrimitiveRendererSet, type PrimitiveRendererSet } from '.'
+import { createDefaultPrimitiveRendererSet, type PrimitiveRendererSet } from './index.js'
 
 /** 将已投影 primitive 绘制到当前 Pane。 */
 function renderPrimitives(

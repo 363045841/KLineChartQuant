@@ -18,18 +18,18 @@ export {
   type ColorPresetSettings,
   type ColorPresetThemeName,
   normalizeColorPresetSettings,
-} from './colorPresetSettings'
-export { DEFAULT_DRAWING_STROKE } from './drawingColors'
-export { mergeTheme } from './mergeTheme'
-export { resolveThemeColors, withAsiaMarketColors } from './theme-china'
-export { darkTheme } from './theme-dark'
-export { lightTheme } from './theme-light'
+} from './colorPresetSettings.js'
+export { DEFAULT_DRAWING_STROKE } from './drawingColors.js'
+export { mergeTheme } from './mergeTheme.js'
+export { resolveThemeColors, withAsiaMarketColors } from './theme-china.js'
+export { darkTheme } from './theme-dark.js'
+export { lightTheme } from './theme-light.js'
 export {
   camelToKebab,
   type ThemeToCssVarsOptions,
   themeToCssVars,
   toCssDeclarationBlock,
-} from './themeToCssVars'
+} from './themeToCssVars.js'
 export type {
   AgentColors,
   BOLLColors,
@@ -64,4 +64,4 @@ export type {
   VolumePriceColors,
   WMSRColors,
   ZonesColors,
-} from './types'
+} from './types.js'

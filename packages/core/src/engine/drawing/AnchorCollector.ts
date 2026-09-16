@@ -1,6 +1,6 @@
-import type { ResolvedInteractionAnchor } from './coordinateUtils'
-import type { DrawingToolId } from './toolConfig'
-import { getAnchorCountForTool } from './toolConfig'
+import type { ResolvedInteractionAnchor } from './coordinateUtils.js'
+import type { DrawingToolId } from './toolConfig.js'
+import { getAnchorCountForTool } from './toolConfig.js'
 
 /**
  * Accumulates pointer anchors until the required count is reached for a given tool.

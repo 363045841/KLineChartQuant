@@ -1,5 +1,5 @@
-import type { ViewportStateModule } from '../state/viewportState'
-import { getPhysicalKLineConfig } from '../utils/klineConfig'
+import type { ViewportStateModule } from '../state/viewportState.js'
+import { getPhysicalKLineConfig } from '../utils/klineConfig.js'
 
 export interface ScrollDeps {
   getOption: () => { kWidth: number; kGap: number }

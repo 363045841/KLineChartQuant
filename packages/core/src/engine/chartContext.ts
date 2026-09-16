@@ -1,4 +1,4 @@
-import type { PaneSpec, Viewport } from './chartTypes'
+import type { PaneSpec, Viewport } from './chartTypes.js'
 
 export type ChartEventMap = {
   'data:changed': { prevLength: number; newLength: number }

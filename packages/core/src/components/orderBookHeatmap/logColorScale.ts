@@ -16,9 +16,9 @@
  *   sizeMin or sizeMax not strictly positive  → throw at construction
  */
 
-import { KLineChartError } from '../../errors'
+import { KLineChartError } from '../../errors.js'
 
-import type { LogColorScale } from './types'
+import type { LogColorScale } from './types.js'
 
 export function createLogColorScale(sizeMin: number, sizeMax: number): LogColorScale {
   let lo = sizeMin

@@ -79,8 +79,8 @@
   import type {
     AggregationSourceDefinition,
     AggregationSourceEndpoint,
-  } from '../composables/useAggregationSources'
-  import type { SymbolSearchFn } from '../composables/useSymbolSearch'
+  } from '../composables/useAggregationSources.js'
+  import type { SymbolSearchFn } from '../composables/useSymbolSearch.js'
 
   import AggregationSourceDialog from './AggregationSourceDialog.vue'
   import BaseButton from './BaseButton.vue'

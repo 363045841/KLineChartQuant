@@ -23,7 +23,7 @@ import type {
   CrossDirection,
   IndicatorCrossPairDirection,
   MarketSnapshot,
-} from './types'
+} from './types.js'
 
 // ---------------------------------------------------------------------------
 // Helpers

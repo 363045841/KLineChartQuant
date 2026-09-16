@@ -21,16 +21,16 @@
  *   `appendBar incrementally matches full recompute` pins this.
  */
 
-import { createSignal, type Signal } from '../../foundation/reactivity/index'
+import { createSignal, type Signal } from '../../foundation/reactivity/index.js'
 
-import { computeAnchoredVwap } from './computeAnchoredVwap'
+import { computeAnchoredVwap } from './computeAnchoredVwap.js'
 import type {
   ActiveAnchor,
   AnchorDefinition,
   AnchoredVwapController,
   AVWAPBar,
   AVWAPPoint,
-} from './types'
+} from './types.js'
 
 // ---------------------------------------------------------------------------
 // Internal state per anchor

@@ -1,7 +1,7 @@
-export type { ChartIndicatorConfig, SymbolSpec } from '../../controllers/types'
-export { drawLabel, drawShape, hitTestShape } from './drawShape'
-export type { SemanticChartProps } from './props'
-export { toKLineChartProps } from './props'
+export type { ChartIndicatorConfig, SymbolSpec } from '../../controllers/types.js'
+export { drawLabel, drawShape, hitTestShape } from './drawShape.js'
+export type { SemanticChartProps } from './props.js'
+export { toKLineChartProps } from './props.js'
 export type {
   AdjustType,
   BOLLParams,
@@ -20,11 +20,11 @@ export type {
   SubIndicatorConfig,
   SubIndicatorType,
   ValidationResult,
-} from './types'
+} from './types.js'
 export {
   SemanticConfigValidator,
   sanitizeColor,
   sanitizeParams,
   validateColor,
   validateSymbol,
-} from './validator'
+} from './validator.js'

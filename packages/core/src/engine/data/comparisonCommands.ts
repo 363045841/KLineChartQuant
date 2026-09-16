@@ -1,16 +1,16 @@
 // 本文件实现对比品种的统一写原语：唯一入口处理选择、歧义消解、视图切换与重绘。
 import { type Static, Type } from 'typebox'
 
-import type { SymbolSpec } from '../../controllers/types'
+import type { SymbolSpec } from '../../controllers/types.js'
 import {
   type AssetClass,
   type InstrumentDescriptor,
   KNOWN_ASSET_CLASS_VALUES,
-} from '../../data/provider/types'
-import { COMPARISON_ERROR_CODES, KLineChartError } from '../../errors'
-import { Tool } from '../../foundation/agent/chartToolRegistry'
+} from '../../data/provider/types.js'
+import { COMPARISON_ERROR_CODES, KLineChartError } from '../../errors.js'
+import { Tool } from '../../foundation/agent/chartToolRegistry.js'
 
-import { symbolSpecIdentityKey } from './symbolIdentity'
+import { symbolSpecIdentityKey } from './symbolIdentity.js'
 
 // Type.Enum 保留 as const 数组的字面量联合推断；Type.Union(values.map(...)) 在 typebox 1.x 下推断为 never。
 // unknown 只描述数据源未归一化状态，禁止作为歧义消解筛选条件。

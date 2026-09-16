@@ -90,8 +90,8 @@
     QuestionAnswerView,
     QuestionView,
     ToolCallView,
-  } from '../agent-contracts'
-  import { type AgentLocale, getAgentCopy } from '../agent-copy'
+  } from '../agent-contracts.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
   import AgentErrorNotice from './AgentErrorNotice.vue'
   import AgentMessageItem from './AgentMessageItem.vue'
   import ConfirmationCard from './ConfirmationCard.vue'

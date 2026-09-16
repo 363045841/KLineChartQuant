@@ -4,13 +4,13 @@ import type { ChartController, KLineData } from '@363045841yyt/klinechart-core/c
 import type { KLineAdjustment, KLinePeriod } from '@363045841yyt/klinechart-core/market-data'
 import { sourceRouter } from '@363045841yyt/klinechart-core/market-data'
 import { type ComputedRef, computed, type Ref, ref, watch } from 'vue'
-import type { Bounds } from '../../tools/calcRangeOverlayPixel'
-import { calcRangeOverlayPixel } from '../../tools/calcRangeOverlayPixel'
+import type { Bounds } from '../../tools/calcRangeOverlayPixel.js'
+import { calcRangeOverlayPixel } from '../../tools/calcRangeOverlayPixel.js'
 import {
   findNearestKLineIndex,
   getKLineIndexByTimestamp,
-} from '../../tools/getKLineIndexByTimestamp'
-import { useControllerSignal } from './useControllerSignal'
+} from '../../tools/getKLineIndexByTimestamp.js'
+import { useControllerSignal } from './useControllerSignal.js'
 
 /** 根据区间首尾收盘价计算收益率，无法形成有效比率时返回 null。 */
 export function calculateRangeReturnRate(startClose: number, endClose: number): number | null {

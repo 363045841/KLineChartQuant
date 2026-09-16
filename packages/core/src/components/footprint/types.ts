@@ -20,7 +20,7 @@
  *   - `createFootprintController.ts` — streaming controller (Signal<bars>)
  */
 
-import type { Signal } from '../../foundation/reactivity/index'
+import type { Signal } from '../../foundation/reactivity/index.js'
 
 // ---------------------------------------------------------------------------
 // Aggressor classification — shared with `aggressor.ts`

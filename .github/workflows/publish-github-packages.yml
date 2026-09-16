@@ -33,7 +33,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build packages
-        run: pnpm --filter @363045841yyt/klinechart-core --filter @363045841yyt/klinechart build
+        run: pnpm build:packages
 
       - name: Publish to GitHub Packages
         env:
@@ -70,11 +70,23 @@ jobs:
           trap - EXIT
           cd "$GITHUB_WORKSPACE"
 
+          # === Agent Runtime ===
+          cd packages/agent-runtime
+          cp package.json package.json.bak
+          trap 'mv -f package.json.bak package.json' EXIT
+          sed -i 's/"@363045841yyt\//"@363045841\//g' package.json
+          npm publish --registry=https://npm.pkg.github.com --tag "$NPM_TAG"
+          mv package.json.bak package.json
+          trap - EXIT
+          cd "$GITHUB_WORKSPACE"
+
           # === Vue ===
           cd packages/vue
           cp package.json package.json.bak
           trap 'mv -f package.json.bak package.json' EXIT
-          sed -i 's/workspace:^/^/g' package.json
+          # 必须写入具体版本号：裸 ^ 是无效的 semver range，
+          # 而 vue 的 peerDependencies 指向 agent-runtime，需要解析到本次发布的版本。
+          sed -i "s/workspace:\^/^${TAG}/g" package.json
           sed -i 's/"@363045841yyt\//"@363045841\//g' package.json
           npm publish --registry=https://npm.pkg.github.com --tag "$NPM_TAG"
           mv package.json.bak package.json

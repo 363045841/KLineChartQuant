@@ -29,6 +29,7 @@ const CONFIG = {
   'packages/core/README.zh-CN.md': { template: 'core.zh-CN.md', root: '../../' },
   'packages/react/README.md': { template: 'react.md', root: '../../' },
   'packages/angular/README.md': { template: 'angular.md', root: '../../' },
+  'packages/agent-runtime/README.md': { template: 'agent-runtime.md', root: '../../' },
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────

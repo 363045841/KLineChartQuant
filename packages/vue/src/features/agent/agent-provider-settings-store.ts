@@ -10,8 +10,8 @@ import type {
   ProviderModelView,
   ProviderProfileView,
   ProviderStatusView,
-} from './agent-contracts'
-import { PROVIDER_API_PROTOCOLS } from './agent-contracts'
+} from './agent-contracts.js'
+import { PROVIDER_API_PROTOCOLS } from './agent-contracts.js'
 
 /** 将 bridge 错误收敛为 UI 可直接展示的错误视图。 */
 function toOperationError(error: unknown): AgentErrorView {

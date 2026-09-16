@@ -1,6 +1,6 @@
-import type { BaseIndicatorState } from '../../../foundation/plugin/index'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys'
-import type { BOLLPoint } from '../calculators'
+import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
+import type { BOLLPoint } from '../calculators/index.js'
 
 export const DEFAULT_BOLL_PERIOD = 20
 export const DEFAULT_BOLL_MULTIPLIER = 2
@@ -12,7 +12,7 @@ export const DEFAULT_BOLL_MULTIPLIER = 2
 export interface BOLLRenderState extends BaseIndicatorState {
   timestamp: number
   /** 全量 BOLL 数组（稀疏：前 period-1 个为 undefined） */
-  series: BOLLPoint[]
+  series: Array<BOLLPoint | undefined>
   /** 计算和渲染参数（渲染器从此读取 showUpper/showMiddle/showLower） */
   params: {
     period: number

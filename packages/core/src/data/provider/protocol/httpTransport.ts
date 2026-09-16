@@ -3,12 +3,12 @@
  * 任意后端只要实现该契约即可复用本 Transport，测试可注入 fetchImpl
  */
 
-import type { KLineChartErrorCode } from '../../../errors'
-import { ERROR_CODES, KLineChartError } from '../../../errors'
+import type { KLineChartErrorCode } from '../../../errors.js'
+import { ERROR_CODES, KLineChartError } from '../../../errors.js'
 
-import { DEFAULT_V1_BASE_URL } from '../sourceRegistry'
+import { DEFAULT_V1_BASE_URL } from '../sourceRegistry.js'
 
-export { DEFAULT_V1_BASE_URL } from '../sourceRegistry'
+export { DEFAULT_V1_BASE_URL } from '../sourceRegistry.js'
 
 import type {
   MarketDataTransport,
@@ -24,8 +24,8 @@ import type {
   ProtocolTimeShareRangeSeries,
   ProtocolTimeShareRequest,
   ProtocolTimeShareSeries,
-} from './types'
-import { SOURCE_REJECTION_CODES } from './types'
+} from './types.js'
+import { SOURCE_REJECTION_CODES } from './types.js'
 
 // 判定数据后端错误是否触发能力流转
 function mapServerErrorCode(code: ProtocolErrorCode): KLineChartErrorCode {

@@ -28,8 +28,8 @@
  * error" we can ship.
  */
 
-import type { KLineChartError, KLineChartErrorCode } from './errors'
-import { isKLineChartError } from './errors'
+import type { KLineChartError, KLineChartErrorCode } from './errors.js'
+import { isKLineChartError } from './errors.js'
 
 // ---------------------------------------------------------------------------
 // Recovery hints — keyed by KLineChartErrorCode

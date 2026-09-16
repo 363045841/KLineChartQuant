@@ -25,8 +25,8 @@ import {
   type QuestionView,
   type StartRunInput,
   type ToolCallView,
-} from '../agent-contracts'
-import { ProviderModelPool } from '../provider-model-pool'
+} from '../agent-contracts.js'
+import { ProviderModelPool } from '../provider-model-pool.js'
 
 interface FakeRun {
   id: string

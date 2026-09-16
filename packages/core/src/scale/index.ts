@@ -2,8 +2,8 @@ export {
   type AnchoredZoomOptions,
   type AnchoredZoomResult,
   computeAnchoredZoom,
-} from './anchoredZoom'
-export { createPriceScale, type PriceScaleConfig } from './createPriceScale'
-export { createTimeScale, type TimeScaleConfig } from './createTimeScale'
-export { createOriginShiftPolicy, type OriginShiftPolicy } from './originShift'
-export type { PriceScale, ScaleMode, TimeScale } from './types'
+} from './anchoredZoom.js'
+export { createPriceScale, type PriceScaleConfig } from './createPriceScale.js'
+export { createTimeScale, type TimeScaleConfig } from './createTimeScale.js'
+export { createOriginShiftPolicy, type OriginShiftPolicy } from './originShift.js'
+export type { PriceScale, ScaleMode, TimeScale } from './types.js'

@@ -2,9 +2,9 @@
  * 协议通用 Provider 装配器：把任意 Transport 组装为标准 MarketDataProvider
  * 后端只要实现该契约即可接入数据，接入方仅需提供 source 元信息与可选的本地规则
  */
-import type { KLineData, TimeShareData } from '../../../controllers/types'
-import { MarketSessionRegistry } from '../../../engine/market/marketSessionRegistry'
-import { createMissingSessionError, KLineChartError } from '../../../errors'
+import type { KLineData, TimeShareData } from '../../../controllers/types.js'
+import { MarketSessionRegistry } from '../../../engine/market/marketSessionRegistry.js'
+import { createMissingSessionError, KLineChartError } from '../../../errors.js'
 
 import type {
   BarQuery,
@@ -17,13 +17,13 @@ import type {
   TimeShareRangeQuery,
   TimeShareSeries,
   VolumeUnit,
-} from '../types'
+} from '../types.js'
 import type {
   MarketDataTransport,
   ProtocolInstrumentDescriptor,
   ProtocolKLineItem,
   ProtocolTimeShareItem,
-} from './types'
+} from './types.js'
 
 export interface MarketDataProviderOptions {
   // 数据源元信息；marketSessions 中声明的会话会注册进本地会话表

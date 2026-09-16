@@ -131,7 +131,7 @@
   import IconTablerSearch from '~icons/tabler/search'
   import IconTablerSettings from '~icons/tabler/settings'
 
-  import { coreSignalToVueRef } from '../utils/signalBridge'
+  import { coreSignalToVueRef } from '../utils/signalBridge.js'
 
   import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'

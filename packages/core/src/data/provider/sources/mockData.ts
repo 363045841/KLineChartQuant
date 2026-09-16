@@ -1,6 +1,6 @@
 /** 本地 MOCK Provider 的品种目录和 K 线生成器。 */
-import type { KLineData } from '../../../controllers/types'
-import type { BarQuery, InstrumentDescriptor } from '../types'
+import type { KLineData } from '../../../controllers/types.js'
+import type { BarQuery, InstrumentDescriptor } from '../types.js'
 
 /** 约一百根日 K 的本地测试品种。 */
 export const MOCK_100_SYMBOL = 'MOCK-100'

@@ -1,6 +1,6 @@
-import type { RenderContext } from '../../foundation/plugin/index'
-import type { BufferHandle, PipelineHandle, Renderer } from '../../rendering/render/Renderer'
-import { compositeSceneRenderer } from './linesViaRenderer'
+import type { RenderContext } from '../../foundation/plugin/index.js'
+import type { BufferHandle, PipelineHandle, Renderer } from '../../rendering/render/Renderer.js'
+import { compositeSceneRenderer } from './linesViaRenderer.js'
 
 export type RectBatch = {
   buf: Float32Array

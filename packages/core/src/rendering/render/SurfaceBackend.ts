@@ -82,3 +82,34 @@ export interface SurfaceBackend {
    */
   dispose(): void
 }
+
+/**
+ * 可见表面契约：暴露底层 canvas，供图表直接叠放到 2D 层下方。
+ * 只有 GPU 后端（WebGL / WebGPU）实现；Canvas2D 后端没有独立可见 canvas。
+ */
+export interface VisibleSurface extends SurfaceBackend {
+  /** 直接参与 DOM 分层的可见 canvas。 */
+  readonly canvas: HTMLCanvasElement
+}
+
+/**
+ * 判定 surface 是否暴露可见 canvas。
+ * 以是否持有 `canvas` 字段作为结构判别，不依赖 DOM 全局对象。
+ *
+ * @param surface - 任意绘制表面后端
+ * @returns 暴露 canvas 时为 true，并收窄为 VisibleSurface
+ */
+export function isVisibleSurface(surface: SurfaceBackend): surface is VisibleSurface {
+  return 'canvas' in surface
+}
+
+/**
+ * 返回 surface 的可见 canvas。
+ * 分层挂载统一经此函数取 canvas，禁止消费方对 surface 强转。
+ *
+ * @param surface - 任意绘制表面后端
+ * @returns 可见 canvas；后端不提供时返回 null
+ */
+export function getVisibleCanvas(surface: SurfaceBackend): HTMLCanvasElement | null {
+  return isVisibleSurface(surface) ? surface.canvas : null
+}

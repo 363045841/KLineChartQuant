@@ -1,12 +1,12 @@
 // 统一管理主图与副图指标实例的状态模块。
-import { batch, computed, createSubState } from '../../foundation/reactivity/signal'
-import { ChartWorkspaceId } from '../../foundation/types/chartView'
+import { batch, computed, createSubState } from '../../foundation/reactivity/signal.js'
+import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
 import {
   getRegisteredIndicatorDefinition,
   resolveIndicatorDefinitionId,
-} from '../indicators/indicatorDefinitionRegistry'
-import { deepFreezeSnapshot } from './immutable'
-import type { ViewWorkspacesSnapshot } from './viewWorkspace'
+} from '../indicators/indicatorDefinitionRegistry.js'
+import { deepFreezeSnapshot } from './immutable.js'
+import type { ViewWorkspacesSnapshot } from './viewWorkspace.js'
 
 /** 指标实例所在的图表区域。 */
 export type IndicatorInstanceRole = 'main' | 'sub'

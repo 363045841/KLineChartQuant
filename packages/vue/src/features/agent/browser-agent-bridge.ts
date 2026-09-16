@@ -49,8 +49,8 @@ import type {
   QuestionAnswerView,
   QuestionView,
   StartRunInput,
-} from './agent-contracts'
-import { ProviderModelPool } from './provider-model-pool'
+} from './agent-contracts.js'
+import { ProviderModelPool } from './provider-model-pool.js'
 
 const PROVIDER_PROFILES_STORAGE_KEY = 'agent.provider.profiles'
 const PROVIDER_MODEL_POOL_STORAGE_KEY = 'agent.provider.model-pool'

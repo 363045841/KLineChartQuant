@@ -15,7 +15,7 @@ import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import type { Ref } from 'vue'
 import { computed, onUnmounted, ref, watch } from 'vue'
 
-import { useControllerSignal } from './useControllerSignal'
+import { useControllerSignal } from './useControllerSignal.js'
 
 export function useChartTheme(ctrl: Ref<ChartController | null>, initialTheme?: 'light' | 'dark') {
   /** 镜像 kernel effectiveTheme（shallowRef 避免 deep proxy） */

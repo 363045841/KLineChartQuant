@@ -1,11 +1,11 @@
 // 比较视图折线渲染器：把对比集合每个品种相对自身基准的涨跌幅折算到参考序列基准价后绘制。
-import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
-import { resolveThemeColors } from '../../foundation/tokens/index'
-import { ChartDataViewId } from '../../foundation/types/chartView'
-import type { KLineData } from '../../foundation/types/price'
-import { symbolSpecIdentityKey } from '../data/symbolIdentity'
-import { findFirstVisibleBarIndex } from '../utils/visibleBarIndex'
+import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
+import { resolveThemeColors } from '../../foundation/tokens/index.js'
+import { ChartDataViewId } from '../../foundation/types/chartView.js'
+import type { KLineData } from '../../foundation/types/price.js'
+import { symbolSpecIdentityKey } from '../data/symbolIdentity.js'
+import { findFirstVisibleBarIndex } from '../utils/visibleBarIndex.js'
 
 export function createComparisonLineRenderer(): RendererPlugin {
   return {

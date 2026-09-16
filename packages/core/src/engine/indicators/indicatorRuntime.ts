@@ -1,4 +1,4 @@
-import type { KLineData } from '../../foundation/types/price'
+import type { KLineData } from '../../foundation/types/price.js'
 
 import {
   calcALMAData,
@@ -58,15 +58,15 @@ import {
   calcZLEMAData,
   calcZonesData,
   DEFAULT_MA_PERIODS,
-} from './calculators'
-import type { IndicatorRuntimeDescriptor } from './indicatorMetadata'
+} from './calculators/index.js'
+import type { IndicatorRuntimeDescriptor } from './indicatorMetadata.js'
 import type {
   IndicatorConfig,
   IndicatorConfigSnapshot,
   IndicatorInstanceCalculationInput,
   IndicatorInstanceCalculationResult,
   IndicatorSeriesBundle,
-} from './workerProtocol'
+} from './workerProtocol.js'
 
 export const CALCULATOR_MAP: Record<string, (data: KLineData[], config: any) => unknown> = {
   calcCCIData: (data, c) => calcCCIData(data, c.period),

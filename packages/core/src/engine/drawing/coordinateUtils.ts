@@ -3,14 +3,14 @@
 // 磁吸只作用于落点/预览路径，命中、框选等只读路径不得传入 magnet 以免范围漂移。
 // 另含点线距离等几何工具。
 
-import type { DrawingChartAdapter } from '../../controllers/types'
+import type { DrawingViewportPort } from '../../controllers/types.js'
 import type {
   PersistedDrawingAnchor,
   ScreenDrawingAnchor,
   ScreenPoint,
-} from '../../foundation/plugin/index'
-import type { MagnetSnapConfig } from './magnetSnapper'
-import { snapPointerToOhlc } from './magnetSnapper'
+} from '../../foundation/plugin/index.js'
+import type { MagnetSnapConfig } from './magnetSnapper.js'
+import { snapPointerToOhlc } from './magnetSnapper.js'
 
 // ---- Types ----
 
@@ -52,7 +52,7 @@ export interface DrawingPointerAnchor extends ResolvedInteractionAnchor {
 export function anchorToScreen(
   anchor: PersistedDrawingAnchor,
   paneId: string,
-  adapter: DrawingChartAdapter,
+  adapter: DrawingViewportPort,
 ): ScreenDrawingAnchor | null {
   if (anchor.type === 'horizontal') {
     return { type: 'horizontal', y: adapter.priceToY(paneId, anchor.price) }
@@ -91,7 +91,7 @@ export function screenToAnchor(
   screenX: number,
   paneY: number,
   paneId: string,
-  adapter: DrawingChartAdapter,
+  adapter: DrawingViewportPort,
 ): ResolvedInteractionAnchor | null {
   const data = adapter.getDrawingData()
   const viewport = adapter.getViewport()
@@ -140,7 +140,7 @@ export interface ResolveDrawingPointerOptions {
 export function resolveDrawingPointer(
   e: PointerEvent,
   container: HTMLElement,
-  adapter: DrawingChartAdapter,
+  adapter: DrawingViewportPort,
   options?: ResolveDrawingPointerOptions,
 ): DrawingPointerAnchor | null {
   const data = adapter.getDrawingData()

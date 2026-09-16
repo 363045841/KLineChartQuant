@@ -1,5 +1,5 @@
-import type { BaseIndicatorState } from '../../../foundation/plugin/index'
-import type { MACDPoint } from '../calculators'
+import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import type { MACDPoint } from '../calculators/index.js'
 
 /** MACD renderer 使用的参数快照。 */
 export interface MACDRenderParams {

@@ -3,21 +3,21 @@ import type {
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { type ColorTokens, resolveThemeColors } from '../../../foundation/tokens/index'
-import type { KLineData } from '../../../foundation/types/price'
-import { calcVolumeProfileData } from '../../indicators/calculators'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import type { TitleInfo } from '../../indicators/indicatorMetadata'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { VolumeProfileRenderState } from '../../indicators/state/volumeProfileState'
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import { type ColorTokens, resolveThemeColors } from '../../../foundation/tokens/index.js'
+import type { KLineData } from '../../../foundation/types/price.js'
+import { calcVolumeProfileData } from '../../indicators/calculators/index.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import type { TitleInfo } from '../../indicators/indicatorMetadata.js'
+import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { VolumeProfileRenderState } from '../../indicators/state/volumeProfileState.js'
 import {
   createVolumeProfileStateKey,
   EMPTY_VOLUME_PROFILE_STATE,
-} from '../../indicators/state/volumeProfileState'
-import { createVolumeProfileVisibleStateComposer } from '../../indicators/visibleStateComposers'
+} from '../../indicators/state/volumeProfileState.js'
+import { createVolumeProfileVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 
 const PROFILE_WIDTH_PX = 80
 

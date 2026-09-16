@@ -4,9 +4,9 @@ import {
   type ChartSettings,
   migrateStoredSettings,
   normalizeSettings,
-} from '../../foundation/config/chartSettings'
-import { batch, createSubState } from '../../foundation/reactivity/signal'
-import { deepFreezeSnapshot } from './immutable'
+} from '../../foundation/config/chartSettings.js'
+import { batch, createSubState } from '../../foundation/reactivity/signal.js'
+import { deepFreezeSnapshot } from './immutable.js'
 
 function normalizePartial(partial?: Partial<ChartSettings>): Partial<ChartSettings> {
   if (!partial) return {}

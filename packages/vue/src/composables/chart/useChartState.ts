@@ -5,7 +5,7 @@ import type {
 } from '@363045841yyt/klinechart-core/controllers'
 import { type Ref, ref } from 'vue'
 
-import { useControllerSignal, useControllerSignalValue } from './useControllerSignal'
+import { useControllerSignal, useControllerSignalValue } from './useControllerSignal.js'
 
 /** 仅保存 Vue 自身的交互状态；图表业务状态直接订阅 Controller。 */
 export function useChartState(controller: Ref<ChartController | null>) {

@@ -3,17 +3,17 @@
  * 运行在独立线程，负责指标计算
  */
 
-import type { KLineData } from '../../foundation/types/price'
+import type { KLineData } from '../../foundation/types/price.js'
 
-import type { IndicatorRuntimeDescriptor } from './indicatorMetadata'
-import { CALCULATOR_MAP, createWorkerCompute, IndicatorRuntime } from './indicatorRuntime'
+import type { IndicatorRuntimeDescriptor } from './indicatorMetadata.js'
+import { CALCULATOR_MAP, createWorkerCompute, IndicatorRuntime } from './indicatorRuntime.js'
 import type {
   IndicatorConfigSnapshot,
   IndicatorWorkerRequest,
   IndicatorWorkerResponse,
   SerializedRuntimeDescriptor,
-} from './workerProtocol'
-import { PROTOCOL_VERSION } from './workerProtocol'
+} from './workerProtocol.js'
+import { PROTOCOL_VERSION } from './workerProtocol.js'
 
 // Worker 全局作用域
 const ctx = self as unknown as Worker

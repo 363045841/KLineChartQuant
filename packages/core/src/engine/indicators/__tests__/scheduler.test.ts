@@ -1,4 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createMockPluginHost } from '@/engine/__tests__/helpers/renderTestKit'
 import type { PluginHost } from '@/plugin'
 import type { KLineData } from '@/types/price'
 import { createIndicatorResultState } from '../../state/indicatorResultState'
@@ -96,38 +97,6 @@ function createTestData(length: number, startPrice = 100): KLineData[] {
     close: startPrice + i,
     volume: 1000 + i * 100,
   }))
-}
-
-/**
- * 创建 mock PluginHost
- */
-function createMockPluginHost(): PluginHost {
-  const stateStore = new Map<string, unknown>()
-
-  return {
-    setSharedState: vi.fn((key: string, state: unknown, _owner: string) => {
-      stateStore.set(key, state)
-    }),
-    getSharedState: vi.fn(<T>(key: string): T | undefined => {
-      return stateStore.get(key) as T | undefined
-    }),
-    clearByOwner: vi.fn(),
-    registerService: vi.fn(),
-    getService: vi.fn(),
-    getCanvas: vi.fn(),
-    getMainPane: vi.fn(),
-    getSubPane: vi.fn(),
-    getAllSubPanes: vi.fn(),
-    getTheme: vi.fn(),
-    getStyles: vi.fn(),
-    getBarStyles: vi.fn(),
-    getConfig: vi.fn(),
-    setConfig: vi.fn(),
-    on: vi.fn(),
-    off: vi.fn(),
-    once: vi.fn(),
-    emit: vi.fn(),
-  } as unknown as PluginHost
 }
 
 /**

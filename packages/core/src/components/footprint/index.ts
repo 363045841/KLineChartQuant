@@ -1,8 +1,8 @@
-export type { AggressorResult, LeeReadyState, TickRuleState } from './aggressor'
-export { classifyExplicit, classifyLeeReady, classifyTickRule } from './aggressor'
-export { createFootprintController } from './createFootprintController'
-export type { FootprintBarCell, FootprintImbalance } from './perBarStats'
-export { computeCumulativeDelta, computeDelta, computeDiagonalImbalances } from './perBarStats'
+export type { AggressorResult, LeeReadyState, TickRuleState } from './aggressor.js'
+export { classifyExplicit, classifyLeeReady, classifyTickRule } from './aggressor.js'
+export { createFootprintController } from './createFootprintController.js'
+export type { FootprintBarCell, FootprintImbalance } from './perBarStats.js'
+export { computeCumulativeDelta, computeDelta, computeDiagonalImbalances } from './perBarStats.js'
 export type {
   AggressorSide,
   FootprintBar,
@@ -10,4 +10,4 @@ export type {
   FootprintController,
   Trade,
   TradeWithFlag,
-} from './types'
+} from './types.js'

@@ -5,26 +5,27 @@
  * implementation of `SurfaceBackend` wrapping `SharedWebGLSurface`.
  */
 
-export { createCanvas2DRenderer } from './backend/createCanvas2DRenderer'
-export { createWebGLRenderer } from './backend/createWebGLRenderer'
-export type { CreateWebGPURendererOptions } from './backend/createWebGPURenderer'
-export { createWebGPURenderer } from './backend/createWebGPURenderer'
+export { createCanvas2DRenderer } from './backend/createCanvas2DRenderer.js'
+export { createWebGLRenderer } from './backend/createWebGLRenderer.js'
+export type { CreateWebGPURendererOptions } from './backend/createWebGPURenderer.js'
+export { createWebGPURenderer } from './backend/createWebGPURenderer.js'
 export type {
   WebGPUSurfaceBackend,
   WebGPUSurfaceBackendOptions,
-} from './backend/createWebGPUSurfaceBackend'
-export { createWebGPUSurfaceBackend } from './backend/createWebGPUSurfaceBackend'
+} from './backend/createWebGPUSurfaceBackend.js'
+export { createWebGPUSurfaceBackend } from './backend/createWebGPUSurfaceBackend.js'
 export {
   createDefaultRendererHost,
   createDefaultRendererHostSync,
-} from './createDefaultRendererHost'
-export { createWebGLSurfaceBackend } from './createWebGLSurfaceBackend'
-export type { FrameMetricsSnapshot } from './frameMetrics'
+} from './createDefaultRendererHost.js'
+export type { WebGLSurfaceBackend } from './createWebGLSurfaceBackend.js'
+export { createWebGLSurfaceBackend } from './createWebGLSurfaceBackend.js'
+export type { FrameMetricsSnapshot } from './frameMetrics.js'
 export {
   createFrameMetrics,
   getFrameMetrics,
   resetFrameMetrics,
-} from './frameMetrics'
+} from './frameMetrics.js'
 export type {
   BufferHandle,
   BufferUsage,
@@ -35,7 +36,7 @@ export type {
   PipelineHandle,
   Renderer,
   RendererCapabilities,
-} from './Renderer'
+} from './Renderer.js'
 export type {
   RendererBackend,
   RendererBackendRuntime,
@@ -44,6 +45,12 @@ export type {
   RendererHost,
   RendererHostDependencies,
   RendererHostListeners,
-} from './rendererHost'
-export { createRendererHost, createRendererHostFromRenderer } from './rendererHost'
-export type { CompositeOptions, SurfaceBackend, SurfaceRegion } from './SurfaceBackend'
+} from './rendererHost.js'
+export { createRendererHost, createRendererHostFromRenderer } from './rendererHost.js'
+export type {
+  CompositeOptions,
+  SurfaceBackend,
+  SurfaceRegion,
+  VisibleSurface,
+} from './SurfaceBackend.js'
+export { getVisibleCanvas, isVisibleSurface } from './SurfaceBackend.js'

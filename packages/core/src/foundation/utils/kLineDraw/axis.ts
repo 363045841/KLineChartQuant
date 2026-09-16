@@ -1,8 +1,8 @@
-import type { ColorPresetSettings } from '../../tokens'
-import { resolveThemeColors } from '../../tokens'
-import { getFont, setCanvasFont } from '../../tokens/fonts'
-import { isTimeSharePeriod } from '../../types/chartPeriod'
-import type { KLineData } from '../../types/price'
+import { getFont, setCanvasFont } from '../../tokens/fonts.js'
+import type { ColorPresetSettings } from '../../tokens/index.js'
+import { resolveThemeColors } from '../../tokens/index.js'
+import { isTimeSharePeriod } from '../../types/chartPeriod.js'
+import type { KLineData } from '../../types/price.js'
 import {
   findDayBoundaries,
   findMonthBoundaries,
@@ -10,16 +10,16 @@ import {
   formatMonthOrYear,
   formatTimeLabel,
   formatYMDShanghai,
-} from '../dateFormat'
-import { alignToPhysicalPixelCenter, roundToPhysicalPixel } from '../pixelAlign'
-import { priceToY, yToPrice } from '../priceToY'
+} from '../dateFormat.js'
+import { alignToPhysicalPixelCenter, roundToPhysicalPixel } from '../pixelAlign.js'
+import { priceToY, yToPrice } from '../priceToY.js'
 import {
   ASHARE_MARKET_SESSION,
   computeTimeShareTimeLabels,
   type MarketSessionConfig,
   minuteOfDayToTimestamp,
   resolveTimestampSessionSlot,
-} from '../timeShareAxisLabels'
+} from '../timeShareAxisLabels.js'
 
 const textWidthCache = new Map<string, number>()
 const TEXT_WIDTH_CACHE_LIMIT = 512

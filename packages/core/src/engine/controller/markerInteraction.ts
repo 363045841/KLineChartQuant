@@ -1,4 +1,4 @@
-import type { CustomMarkerEntity, MarkerEntity, MarkerManager } from '../marker/registry'
+import type { CustomMarkerEntity, MarkerEntity, MarkerManager } from '../marker/registry.js'
 
 /** Marker交互状态 v2 — 精简为仅含回调注册与 hitTest 逻辑。状态层面已合并入 interactionState。 */
 export class MarkerInteractionState {

@@ -284,9 +284,9 @@
     PROVIDER_API_PROTOCOLS,
     type ProviderApiProtocol,
     type ProviderStatusView,
-  } from '../agent-contracts'
-  import { type AgentLocale, getAgentCopy } from '../agent-copy'
-  import type { AgentProviderSettingsStore } from '../agent-provider-settings-store'
+  } from '../agent-contracts.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
+  import type { AgentProviderSettingsStore } from '../agent-provider-settings-store.js'
 
   const props = defineProps<{
     providerSettings: AgentProviderSettingsStore

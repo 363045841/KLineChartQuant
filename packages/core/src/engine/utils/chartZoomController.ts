@@ -1,9 +1,9 @@
-import { isTimeSharePeriod } from '../../controllers/types'
-import type { ReadonlySignal } from '../../foundation/reactivity/signal'
-import type { OptionsStateModule } from '../state/optionsState'
-import type { ViewportStateModule } from '../state/viewportState'
-import type { ZoomStateModule } from '../state/zoomState'
-import { computeZoom, deriveKGap } from './zoom'
+import { isTimeSharePeriod } from '../../controllers/types.js'
+import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import type { OptionsStateModule } from '../state/optionsState.js'
+import type { ViewportStateModule } from '../state/viewportState.js'
+import type { ZoomStateModule } from '../state/zoomState.js'
+import { computeZoom, deriveKGap } from './zoom.js'
 
 export interface ZoomDependencies {
   /** scroll / dpr 几何，读写走 kernel.viewport */

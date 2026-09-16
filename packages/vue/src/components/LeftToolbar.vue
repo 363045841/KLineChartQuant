@@ -205,9 +205,9 @@
   import IconTablerShape from '~icons/tabler/shape'
   import IconTablerZoomIn from '~icons/tabler/zoom-in'
   import IconTablerZoomOut from '~icons/tabler/zoom-out'
-  import type { AggregationSourceEndpoint } from '../composables/useAggregationSources'
-  import { useAlerts } from '../composables/useAlerts'
-  import { setCanvasProfilerEnabled } from '../debug/canvasProfiler'
+  import type { AggregationSourceEndpoint } from '../composables/useAggregationSources.js'
+  import { useAlerts } from '../composables/useAlerts.js'
+  import { setCanvasProfilerEnabled } from '../debug/canvasProfiler.js'
   import AlertDialog from './alert/AlertDialog.vue'
   import ChartSettingsDialog from './ChartSettingsDialog.vue'
 
@@ -282,7 +282,7 @@
       /** range-select 本地模式 */
       isRangeSelectMode?: boolean
       aggregationSources?: ReadonlyArray<
-        import('../composables/useAggregationSources').AggregationSourceDefinition
+        import('../composables/useAggregationSources.js').AggregationSourceDefinition
       >
       enabledSourceNames?: ReadonlySet<string>
       sourceEndpoints?: Record<string, AggregationSourceEndpoint>

@@ -1,4 +1,4 @@
-import type { KLineData } from './price'
+import type { KLineData } from './price.js'
 
 export type kLineTrend = 'up' | 'down' | 'flat'
 

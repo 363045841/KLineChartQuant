@@ -2,9 +2,9 @@
  * Schaff Trend Cycle 副图坐标轴渲染器工厂。
  */
 
-import type { RendererPluginWithHost } from '../../../../foundation/plugin/index'
+import type { RendererPluginWithHost } from '../../../../foundation/plugin/index.js'
 
-import { createIndicatorScaleRendererPlugin } from './indicator_scale'
+import { createIndicatorScaleRendererPlugin } from './indicator_scale.js'
 
 /**
  * 创建 Schaff Trend Cycle 坐标轴渲染器。

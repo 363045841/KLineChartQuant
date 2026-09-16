@@ -10,7 +10,7 @@ import {
   resolveTimestampSessionSlot,
   type SessionTimeLabel,
   sessionSlotCenterX,
-} from './sessionTimeLabels'
+} from './sessionTimeLabels.js'
 
 /** A 股默认全天 1 分钟槽位数（兼容旧导出） */
 export const ASHARE_TIMESHARE_SESSION_SLOTS = resolveMarketSessionSlots(ASHARE_MARKET_SESSION)
@@ -80,8 +80,8 @@ export type {
   MarketSessionConfig,
   OpenTimeRange,
   SessionTimeLabel,
-} from './sessionTimeLabels'
-export { HK_MARKET_SESSION, KR_MARKET_SESSION, US_MARKET_SESSION } from './sessionTimeLabels'
+} from './sessionTimeLabels.js'
+export { HK_MARKET_SESSION, KR_MARKET_SESSION, US_MARKET_SESSION } from './sessionTimeLabels.js'
 export {
   ASHARE_MARKET_SESSION,
   ASHARE_OPEN_SESSIONS,

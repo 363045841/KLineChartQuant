@@ -1,6 +1,7 @@
 /** 验证 RendererPlugin 到 Scene Layer 适配器的绘制与生命周期行为。 */
 
 import { describe, expect, it, vi } from 'vitest'
+import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
 import type { RenderContext, RendererPlugin } from '../../../foundation/plugin'
 import { RENDERER_PRIORITY } from '../../../foundation/plugin'
 import { createLayerFromPlugin } from '../createLayerFromPlugin'
@@ -22,13 +23,9 @@ function makeMockPlugin(overrides: Partial<RendererPlugin> = {}): RendererPlugin
 }
 
 function makeMockContext(): RenderContext {
-  return {
-    ctx: {} as unknown as CanvasRenderingContext2D,
-    pane: {} as unknown as RenderContext['pane'],
-    data: [],
-    period: 'daily',
+  return createMockRenderContext({
+    pane: { height: 400 },
     range: { start: 0, end: 10 },
-    scrollLeft: 0,
     kWidth: 8,
     kGap: 2,
     dpr: 2,
@@ -41,7 +38,7 @@ function makeMockContext(): RenderContext {
       { x: 20, width: 8 },
     ],
     theme: 'dark',
-  } as unknown as RenderContext
+  })
 }
 
 const stubPaintCtx = {
