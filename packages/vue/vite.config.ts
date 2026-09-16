@@ -30,7 +30,7 @@ export default defineConfig({
           entry: fileURLToPath(new URL('./src/web-component.ts', import.meta.url)),
           name: 'KLineChartWC',
           formats: ['es'],
-          fileName: () => 'kline-chart.js',
+          fileName: () => 'web-component.js',
         }
       : {
           entry: fileURLToPath(new URL('./src/index.ts', import.meta.url)),

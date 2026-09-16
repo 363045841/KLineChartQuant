@@ -1,26 +1,17 @@
 /** 将 Vue Custom Element 映射为 React 组件，并在客户端延迟注册元素。 */
 
-import type { SemanticChartConfig } from '@363045841yyt/klinechart-core/semantic'
 import {
   type CSSProperties,
   createElement,
   type ForwardedRef,
   forwardRef,
+  useCallback,
   useEffect,
-  useImperativeHandle,
   useRef,
   useState,
 } from 'react'
 
-declare global {
-  interface HTMLElement {
-    semanticConfig?: SemanticChartConfig | undefined
-  }
-}
-
 export interface KLineChartWCProps {
-  semanticConfig?: SemanticChartConfig
-
   yPaddingPx?: number
   minKWidth?: number
   maxKWidth?: number
@@ -38,9 +29,7 @@ export interface KLineChartWCProps {
   className?: string
 }
 
-export type KLineChartWCHandle = HTMLElement & {
-  semanticConfig: SemanticChartConfig
-}
+export type KLineChartWCHandle = HTMLElement
 
 /** 同步可选 attribute，确保移除 props 时不会残留旧值。 */
 function syncAttribute(el: HTMLElement, name: string, value: number | boolean | undefined): void {
@@ -59,7 +48,18 @@ export const KLineChartWC = forwardRef<KLineChartWCHandle, KLineChartWCProps>(fu
   const hostRef = useRef<HTMLElement>(null)
   const [registered, setRegistered] = useState(false)
 
-  useImperativeHandle(ref, () => hostRef.current as KLineChartWCHandle)
+  // 合并内外部 ref：既供内部 effect 访问元素，也把元素暴露给外部消费者。
+  const attachHostRef = useCallback(
+    (element: HTMLElement | null) => {
+      hostRef.current = element
+      if (typeof ref === 'function') {
+        ref(element)
+      } else if (ref) {
+        ref.current = element
+      }
+    },
+    [ref],
+  )
 
   // Vue Custom Element 在模块加载时访问 customElements，只能在客户端 effect 中加载。
   useEffect(() => {
@@ -71,12 +71,6 @@ export const KLineChartWC = forwardRef<KLineChartWCHandle, KLineChartWCProps>(fu
       mounted = false
     }
   }, [])
-
-  useEffect(() => {
-    const el = hostRef.current
-    if (!el || !registered || props.semanticConfig === undefined) return
-    el.semanticConfig = props.semanticConfig
-  }, [props.semanticConfig, registered])
 
   useEffect(() => {
     const el = hostRef.current
@@ -129,7 +123,7 @@ export const KLineChartWC = forwardRef<KLineChartWCHandle, KLineChartWCProps>(fu
   }, [props.onZoomLevelChange, props.onToggleFullscreen, registered])
 
   return createElement('kline-chart', {
-    ref: hostRef,
+    ref: attachHostRef,
     style: props.style,
     className: props.className,
   })

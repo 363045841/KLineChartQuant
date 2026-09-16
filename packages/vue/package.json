@@ -32,7 +32,8 @@
     },
     "./web-component": {
       "import": {
-        "default": "./dist/kline-chart.js"
+        "types": "./dist/web-component.d.ts",
+        "default": "./dist/web-component.js"
       }
     },
     "./style.css": "./dist/index.css"
