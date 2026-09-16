@@ -18,11 +18,14 @@
   import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
 
   import { createE2eChartData } from './features/agent/chart-e2e-fixture'
+  import { createElectronCredentialStore } from './features/agent/electron-credential-store'
 
   const PANEL_WIDTH_KEY = 'agent.panelWidth'
   const chartRef = ref<{ getController?: () => { agent: ChartAgentController } } | null>(null)
+  // preload 缺席时返回 undefined，bridge 退回默认的 localStorage 实现，应用仍可启动。
   const bridge = new BrowserAgentBridge({
     getChartAgent: () => chartRef.value?.getController?.()?.agent,
+    credentials: createElectronCredentialStore(),
   })
   const e2eChartData = import.meta.env.MODE === 'e2e' ? createE2eChartData() : undefined
 

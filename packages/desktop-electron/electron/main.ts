@@ -1,7 +1,13 @@
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, safeStorage, shell } from 'electron'
+
+import {
+  EncryptedCredentialStore,
+  registerCredentialIpc,
+  type CredentialIpcEvent,
+} from './credential-ipc'
 
 let mainWindow: BrowserWindow | null = null
 const currentDirectory = dirname(fileURLToPath(import.meta.url))
@@ -19,6 +25,7 @@ function createWindow(): void {
       sandbox: true,
       backgroundThrottling: false,
       webgl: true,
+      preload: join(currentDirectory, '../preload/preload.cjs'),
     },
   })
 
@@ -39,6 +46,16 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  registerCredentialIpc({
+    ipcMain,
+    store: new EncryptedCredentialStore({
+      safeStorage,
+      userDataPath: app.getPath('userData'),
+    }),
+    // 只信任主窗口的 webContents；其它窗口 / 子 frame 一律拒绝。
+    isTrustedSender: (event) =>
+      (event as CredentialIpcEvent & { sender?: unknown }).sender === mainWindow?.webContents,
+  })
   createWindow()
 
   app.on('activate', () => {
