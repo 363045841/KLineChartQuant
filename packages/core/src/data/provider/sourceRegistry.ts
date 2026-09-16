@@ -2,7 +2,7 @@
  * 内置行情数据源集中注册表
  * 数据源的展示元数据与出厂默认地址的单一事实来源，UI 面板与 Provider 装配共用
  */
-import type { MarketSessionConfig } from '../../foundation/utils/sessionTimeLabels'
+import type { MarketSessionConfig } from '../../foundation/utils/sessionTimeLabels.js'
 
 /** 本地默认行情服务地址，可通过数据源运行时配置覆盖 */
 export const DEFAULT_V1_BASE_URL = 'http://127.0.0.1:8080'

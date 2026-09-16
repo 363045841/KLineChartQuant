@@ -1,7 +1,7 @@
 /** 区间选择收益率计算测试。 */
 import { describe, expect, it } from 'vitest'
 
-import { calculateRangeReturnRate } from './useRangeSelection'
+import { calculateRangeReturnRate } from './useRangeSelection.js'
 
 describe('calculateRangeReturnRate', () => {
   it('按首尾收盘价计算上涨与下跌收益率', () => {

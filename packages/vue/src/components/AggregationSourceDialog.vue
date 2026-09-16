@@ -94,7 +94,7 @@
     parseProviderEndpoint,
     probeAggregationSource,
     supportsAggregationSourceSearch,
-  } from '../composables/useAggregationSources'
+  } from '../composables/useAggregationSources.js'
 
   import BaseModal from './BaseModal.vue'
   import CollapsibleSection from './common/CollapsibleSection.vue'

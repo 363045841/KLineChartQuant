@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../errors'
+import { KLineChartError } from '../../errors.js'
 /**
  * Forward-fill a higher-timeframe series onto the base bar index, with strict
  * no-lookahead semantics.

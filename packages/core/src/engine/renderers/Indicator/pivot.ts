@@ -2,22 +2,22 @@ import type {
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import type { ColorTokens } from '../../../foundation/tokens/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import { calcPivotData } from '../../indicators/calculators'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import type { ColorTokens } from '../../../foundation/tokens/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import { calcPivotData } from '../../indicators/calculators/index.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import {
   type GetTitleInfoFn,
   resolveStateKey,
   type TitleInfo,
   type TitleValueItem,
-} from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { PivotRenderState } from '../../indicators/state/pivotState'
-import { createPivotStateKey, EMPTY_PIVOT_STATE } from '../../indicators/state/pivotState'
-import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
+} from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { PivotRenderState } from '../../indicators/state/pivotState.js'
+import { createPivotStateKey, EMPTY_PIVOT_STATE } from '../../indicators/state/pivotState.js'
+import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 
 type Point = { x: number; y: number }
 

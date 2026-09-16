@@ -1,5 +1,5 @@
-import type { RenderContext } from '../../foundation/plugin/index'
-import type { Renderer } from '../../rendering/render/Renderer'
+import type { RenderContext } from '../../foundation/plugin/index.js'
+import type { Renderer } from '../../rendering/render/Renderer.js'
 
 export type LinePoint = { x: number; y: number }
 

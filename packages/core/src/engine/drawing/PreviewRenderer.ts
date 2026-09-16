@@ -1,15 +1,15 @@
-import type { DrawingObject, DrawingWorkspaceId } from '../../foundation/plugin/index'
-import { DEFAULT_DRAWING_STROKE } from '../../foundation/tokens'
-import type { InteractionDrawingAnchor } from './coordinateUtils'
-import { PREVIEW_ID } from './DrawingState'
-import type { DrawingToolId } from './toolConfig'
+import type { DrawingObject, DrawingWorkspaceId } from '../../foundation/plugin/index.js'
+import { DEFAULT_DRAWING_STROKE } from '../../foundation/tokens/index.js'
+import type { InteractionDrawingAnchor } from './coordinateUtils.js'
+import { PREVIEW_ID } from './DrawingState.js'
+import type { DrawingToolId } from './toolConfig.js'
 import {
   CHANNEL_KINDS,
   DOUBLE_ANCHOR_TOOLS,
   getDrawingKind,
   SINGLE_ANCHOR_TOOLS,
   TRIPLE_ANCHOR_TOOLS,
-} from './toolConfig'
+} from './toolConfig.js'
 
 /**
  * Constructs preview DrawingObject instances for various tool types.

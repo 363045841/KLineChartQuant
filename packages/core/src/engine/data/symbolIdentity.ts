@@ -1,4 +1,4 @@
-import type { DataSourceParams, SymbolSpec } from '../../controllers/types'
+import type { DataSourceParams, SymbolSpec } from '../../controllers/types.js'
 
 type SymbolIdentity = Pick<SymbolSpec, 'id' | 'source' | 'market' | 'exchange' | 'symbol'> & {
   params?: DataSourceParams

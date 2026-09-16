@@ -1,8 +1,8 @@
 /**
  * ChartThemeFacade —— 图表主题偏好与生效主题信号。
  */
-import type { ReadonlySignal } from '../../foundation/reactivity/signal'
-import type { ChartStateKernel } from '../state/chartStateKernel'
+import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import type { ChartStateKernel } from '../state/chartStateKernel.js'
 
 /** Theme Facade 所需依赖。 */
 export interface ChartThemeFacadeDependencies {

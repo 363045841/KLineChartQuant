@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../errors'
+import { KLineChartError } from '../../errors.js'
 /**
  * STC — Schaff Trend Cycle (Doug Schaff, 2008).
  *

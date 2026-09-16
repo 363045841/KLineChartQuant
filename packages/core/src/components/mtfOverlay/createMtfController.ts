@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../errors'
+import { KLineChartError } from '../../errors.js'
 
 /**
  * Multi-Timeframe overlay controller.
@@ -13,18 +13,18 @@ import { KLineChartError } from '../../errors'
  * behavior, only frame-time cost. Tests pin the observable shape.
  */
 
-import type { Signal } from '../../foundation/reactivity/index'
-import { createSignal } from '../../foundation/reactivity/index'
+import type { Signal } from '../../foundation/reactivity/index.js'
+import { createSignal } from '../../foundation/reactivity/index.js'
 
-import { alignToBaseIndex } from './alignToBaseIndex'
-import { resampleBars } from './resampleBars'
+import { alignToBaseIndex } from './alignToBaseIndex.js'
+import { resampleBars } from './resampleBars.js'
 import type {
   ActiveMtfSeries,
   BaseBar,
   MtfController,
   MtfSeriesDefinition,
   ResampledBar,
-} from './types'
+} from './types.js'
 
 export interface CreateMtfControllerInit {
   initialBars?: ReadonlyArray<BaseBar>

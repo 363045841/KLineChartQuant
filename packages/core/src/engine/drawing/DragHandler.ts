@@ -1,12 +1,12 @@
-import type { DrawingViewportPort } from '../../controllers/types'
-import type { DrawingObject, PersistedDrawingAnchor } from '../../foundation/plugin/index'
-import type { ResolveDrawingPointerOptions } from './coordinateUtils'
+import type { DrawingViewportPort } from '../../controllers/types.js'
+import type { DrawingObject, PersistedDrawingAnchor } from '../../foundation/plugin/index.js'
+import type { ResolveDrawingPointerOptions } from './coordinateUtils.js'
 import {
   anchorToScreen,
   isScreenPoint,
   resolveDrawingPointer,
   screenToAnchor,
-} from './coordinateUtils'
+} from './coordinateUtils.js'
 
 // ---- Types ----
 

@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { renderAgentMarkdown } from './render-agent-markdown'
+import { renderAgentMarkdown } from './render-agent-markdown.js'
 
 describe('renderAgentMarkdown', () => {
   /** 验证常用 Markdown 结构会被转换为对应 HTML。 */

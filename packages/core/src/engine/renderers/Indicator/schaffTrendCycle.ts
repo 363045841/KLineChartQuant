@@ -6,25 +6,25 @@ import type {
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
-import { calcSchaffTrendCycleData } from '../../indicators/calculators/schaffTrendCycle'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { SchaffTrendCycleRenderState } from '../../indicators/state/schaffTrendCycleState'
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign.js'
+import { calcSchaffTrendCycleData } from '../../indicators/calculators/schaffTrendCycle.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { SchaffTrendCycleRenderState } from '../../indicators/state/schaffTrendCycleState.js'
 import {
   createSchaffTrendCycleStateKey,
   EMPTY_SCHAFF_TREND_CYCLE_STATE,
-} from '../../indicators/state/schaffTrendCycleState'
-import { createPaddedSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+} from '../../indicators/state/schaffTrendCycleState.js'
+import { createPaddedSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 
-import { tryDrawLinesGpu } from '../linesViaRenderer'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
-import { createSchaffTrendCycleScaleRendererPlugin } from './scale/schaffTrendCycle_scale'
-import { createSingleLineTitleInfo } from './shared/titleInfo'
+import { createSchaffTrendCycleScaleRendererPlugin } from './scale/schaffTrendCycle_scale.js'
+import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
 

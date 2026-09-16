@@ -23,7 +23,7 @@
  * - 非 Record 输入类型支持（目前 TInput 约束为 Record）
  */
 
-import { createSignal, type ReadonlySignal } from './signal'
+import { createSignal, type ReadonlySignal } from './signal.js'
 
 /** 帧事务所处阶段；用于隔离重入写入 */
 export type FramePhase = 'idle' | 'capturing' | 'deriving' | 'sealing' | 'rendering' | 'publishing'

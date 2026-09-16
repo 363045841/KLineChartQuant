@@ -1,12 +1,12 @@
 import {
   getRegisteredIndicatorDefinition,
   getRegisteredIndicatorDefinitions,
-} from '../../indicators/indicatorDefinitionRegistry'
+} from '../../indicators/indicatorDefinitionRegistry.js'
 import {
   getBuiltinIndicatorTypeLabel,
   getBuiltinIndicatorTypeOrder,
   type IndicatorType,
-} from '../../indicators/indicatorMetadata'
+} from '../../indicators/indicatorMetadata.js'
 
 export interface ParamConfig {
   key: string

@@ -1,8 +1,8 @@
 /** WebGPU 后端实现，管理 GPU 资源、帧内批绘制和 compute dispatch。 */
 
-import { createFrameMetrics } from '../frameMetrics'
-import { prepareLineStripForPhysicalPixels } from '../physicalLine'
-import { toPhysicalRegion } from '../physicalRegion'
+import { createFrameMetrics } from '../frameMetrics.js'
+import { prepareLineStripForPhysicalPixels } from '../physicalLine.js'
+import { toPhysicalRegion } from '../physicalRegion.js'
 import type {
   BufferHandle,
   BufferUsage,
@@ -13,7 +13,7 @@ import type {
   DrawLinesParams,
   PipelineHandle,
   Renderer,
-} from '../Renderer'
+} from '../Renderer.js'
 import {
   GPU_BUFFER_COPY_DST,
   GPU_BUFFER_INDEX,
@@ -21,10 +21,13 @@ import {
   GPU_BUFFER_UNIFORM,
   GPU_BUFFER_VERTEX,
   GPU_TEXTURE_RENDER_ATTACHMENT,
-} from '../webgpuGlobals'
-import { createWebGPUResourceTable } from '../webgpuResourceTable'
-import { buildWideLineGeometry } from '../wideLineGeometry'
-import { createWebGPUSurfaceBackend, type WebGPUSurfaceBackend } from './createWebGPUSurfaceBackend'
+} from '../webgpuGlobals.js'
+import { createWebGPUResourceTable } from '../webgpuResourceTable.js'
+import { buildWideLineGeometry } from '../wideLineGeometry.js'
+import {
+  createWebGPUSurfaceBackend,
+  type WebGPUSurfaceBackend,
+} from './createWebGPUSurfaceBackend.js'
 
 type PipelineType = 'candle' | 'line' | 'fill'
 
@@ -203,7 +206,7 @@ export async function createWebGPURenderer(
   type PendingDraw =
     | {
         kind: 'instances'
-        region: import('../SurfaceBackend').SurfaceRegion
+        region: import('../SurfaceBackend.js').SurfaceRegion
         pipeline: GPURenderPipeline
         instanceBuffer: GPUBuffer
         instanceCount: number
@@ -212,7 +215,7 @@ export async function createWebGPURenderer(
       }
     | {
         kind: 'lines'
-        region: import('../SurfaceBackend').SurfaceRegion
+        region: import('../SurfaceBackend.js').SurfaceRegion
         pipeline: GPURenderPipeline
         vertexBuffer: GPUBuffer
         vertexCount: number
@@ -224,7 +227,7 @@ export async function createWebGPURenderer(
   let msaaTexture: GPUTexture | null = null
   let msaaWidth = 0
   let msaaHeight = 0
-  let currentRegion: import('../SurfaceBackend').SurfaceRegion | null = null
+  let currentRegion: import('../SurfaceBackend.js').SurfaceRegion | null = null
   let pendingDraws: PendingDraw[] = []
   let metricsFrameOpen = false
   let stripSeq = 0
@@ -357,7 +360,7 @@ export async function createWebGPURenderer(
     pipeline: GPURenderPipeline,
     colorValue: unknown,
     scrollLeft: number,
-    region: import('../SurfaceBackend').SurfaceRegion,
+    region: import('../SurfaceBackend.js').SurfaceRegion,
   ): { bindGroup: GPUBindGroup } | null {
     const color = parseColor(colorValue ?? '#000000')
     if (!color) return null
@@ -383,7 +386,7 @@ export async function createWebGPURenderer(
 
   function beginPass(
     encoder: GPUCommandEncoder,
-    region: import('../SurfaceBackend').SurfaceRegion,
+    region: import('../SurfaceBackend.js').SurfaceRegion,
     loadOp: 'clear' | 'load',
   ): GPURenderPassEncoder | null {
     const view = rawSurface.getCurrentTextureView()
@@ -413,7 +416,7 @@ export async function createWebGPURenderer(
     return pass
   }
 
-  function regionKey(region: import('../SurfaceBackend').SurfaceRegion): string {
+  function regionKey(region: import('../SurfaceBackend.js').SurfaceRegion): string {
     return `${region.x},${region.y},${region.width},${region.height},${region.dpr}`
   }
 

@@ -4,8 +4,8 @@ import {
   computed,
   createSubState,
   type ReadonlySignal,
-} from '../../foundation/reactivity/signal'
-import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry'
+} from '../../foundation/reactivity/signal.js'
+import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry.js'
 
 export interface InteractionSnapshot {
   crosshairPos: { x: number; y: number } | null

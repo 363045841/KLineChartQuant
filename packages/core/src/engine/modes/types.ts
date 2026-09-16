@@ -1,5 +1,5 @@
-import type { ChartDataManager } from '../data/chartDataManager'
-import type { Pane, VisibleRange } from '../layout/pane'
+import type { ChartDataManager } from '../data/chartDataManager.js'
+import type { Pane, VisibleRange } from '../layout/pane.js'
 
 export interface ChartModeHandler {
   readonly debugName: string

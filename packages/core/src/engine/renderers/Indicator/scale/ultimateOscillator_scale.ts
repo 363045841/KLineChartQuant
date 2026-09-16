@@ -2,9 +2,9 @@
  * Ultimate Oscillator 坐标轴渲染器薄包装。
  */
 
-import type { RendererPluginWithHost } from '../../../../foundation/plugin/index'
+import type { RendererPluginWithHost } from '../../../../foundation/plugin/index.js'
 
-import { createIndicatorScaleRendererPlugin } from './indicator_scale'
+import { createIndicatorScaleRendererPlugin } from './indicator_scale.js'
 
 /**
  * 创建 Ultimate Oscillator 坐标轴渲染器。

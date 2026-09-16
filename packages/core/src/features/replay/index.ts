@@ -1,6 +1,6 @@
-export { createReplayController } from './createReplayController'
-export type { BarCalendar } from './timeline'
-export { barIndexToTimestamp, inferBarIntervalMs, timestampToBarIndex } from './timeline'
+export { createReplayController } from './createReplayController.js'
+export type { BarCalendar } from './timeline.js'
+export { barIndexToTimestamp, inferBarIntervalMs, timestampToBarIndex } from './timeline.js'
 export type {
   CreateReplayController,
   ReplayController,
@@ -8,4 +8,4 @@ export type {
   ReplayMode,
   ReplayPacing,
   ReplayState,
-} from './types'
+} from './types.js'

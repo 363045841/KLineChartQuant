@@ -1,12 +1,12 @@
 /** 已确认图元的唯一写命令入口，统一提交状态与请求重绘。 */
-import type { DrawingObject, PersistedDrawingAnchor } from '../../foundation/plugin'
+import type { DrawingObject, PersistedDrawingAnchor } from '../../foundation/plugin/index.js'
 
 import type {
   BatchDrawingPatch,
   CreateDrawingInput,
   DrawingDocument,
   UpdateDrawingPatch,
-} from './DrawingDocument'
+} from './DrawingDocument.js'
 
 /** 绘图命令运行所需的领域文档和渲染失效能力。 */
 export interface DrawingCommandsDependencies {

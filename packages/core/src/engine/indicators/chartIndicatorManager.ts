@@ -4,35 +4,35 @@ import type {
   RenderContext,
   RendererPlugin,
   RendererPluginWithHost,
-} from '../../foundation/plugin/index'
-import { makePluginLayerId } from '../../foundation/plugin/rendererLayerId'
+} from '../../foundation/plugin/index.js'
+import { makePluginLayerId } from '../../foundation/plugin/rendererLayerId.js'
 import {
   type Computed,
   computed,
   effect,
   type ReadonlySignal,
-} from '../../foundation/reactivity/signal'
-import type { KLineData } from '../../foundation/types/price'
-import { generateUUID } from '../../foundation/utils/uuid'
-import type { Layer } from '../../rendering/scene/types'
-import type { ChartOptions, IndicatorInstance, PaneSpec, SubPaneInfo } from '../chartTypes'
-import type { VisibleRange } from '../layout/pane'
-import { UpdateLevel } from '../layout/pane'
-import type { SubIndicatorType } from '../renderers/Indicator'
-import { createMainIndicatorLegendRendererPlugin } from '../renderers/Indicator/mainIndicatorLegend'
-import type { IndicatorResultStateModule } from '../state/indicatorResultState'
+} from '../../foundation/reactivity/signal.js'
+import type { KLineData } from '../../foundation/types/price.js'
+import { generateUUID } from '../../foundation/utils/uuid.js'
+import type { Layer } from '../../rendering/scene/types.js'
+import type { ChartOptions, IndicatorInstance, PaneSpec, SubPaneInfo } from '../chartTypes.js'
+import type { VisibleRange } from '../layout/pane.js'
+import { UpdateLevel } from '../layout/pane.js'
+import type { SubIndicatorType } from '../renderers/Indicator/index.js'
+import { createMainIndicatorLegendRendererPlugin } from '../renderers/Indicator/mainIndicatorLegend.js'
+import type { IndicatorResultStateModule } from '../state/indicatorResultState.js'
 import type {
   IndicatorInstanceSpec,
   IndicatorStateModule,
   SubPaneInput,
   SubPaneSpec,
-} from '../state/indicatorState'
-import { type SubPaneContext, type SubPaneEntry, SubPaneManager } from '../subPaneManager'
+} from '../state/indicatorState.js'
+import { type SubPaneContext, type SubPaneEntry, SubPaneManager } from '../subPaneManager.js'
 import {
   getRegisteredIndicatorDefinitions,
   resolveIndicatorDefinitionId,
-} from './indicatorDefinitionRegistry'
-import { IndicatorScheduler } from './scheduler'
+} from './indicatorDefinitionRegistry.js'
+import { IndicatorScheduler } from './scheduler.js'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kWidth: number

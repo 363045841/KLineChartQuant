@@ -1,7 +1,7 @@
-import type { KLineData } from '../../../foundation/types/price'
+import type { KLineData } from '../../../foundation/types/price.js'
 
-import { _computeEMASeries } from './_shared'
-import { calcATRData } from './volatility'
+import { _computeEMASeries } from './_shared.js'
+import { calcATRData } from './volatility.js'
 
 export interface BOLLPoint {
   upper: number

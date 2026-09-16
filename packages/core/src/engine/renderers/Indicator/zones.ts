@@ -2,21 +2,21 @@ import type {
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { type ColorTokens, resolveThemeColors } from '../../../foundation/tokens/index'
-import { calcZonesData } from '../../indicators/calculators'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import { type ColorTokens, resolveThemeColors } from '../../../foundation/tokens/index.js'
+import { calcZonesData } from '../../indicators/calculators/index.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import {
   type GetTitleInfoFn,
   resolveStateKey,
   type TitleInfo,
   type TitleValueItem,
-} from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { ZonesRenderState } from '../../indicators/state/zonesState'
-import { createZonesStateKey, EMPTY_ZONES_STATE } from '../../indicators/state/zonesState'
-import { createFixedUnitVisibleStateComposer } from '../../indicators/visibleStateComposers'
+} from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { ZonesRenderState } from '../../indicators/state/zonesState.js'
+import { createZonesStateKey, EMPTY_ZONES_STATE } from '../../indicators/state/zonesState.js'
+import { createFixedUnitVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 
 function getZonesStateKey(host: PluginHost | null, paneId: string): string | null {
   const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')

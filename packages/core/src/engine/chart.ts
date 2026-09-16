@@ -17,24 +17,24 @@ import {
   type SymbolInfo,
   type SymbolSpec,
   TIME_SHARE_PERIOD,
-} from '../controllers/types'
-import { resolveMarketDataCacheMaxBytes } from '../data/buffer/marketDataPolicy'
-import { AUTO_SOURCE_ID } from '../data/buffer/seriesRepository'
-import { lookupInstrumentsBySymbol } from '../data/provider/instrumentSearch'
-import { marketDataProviderRegistry } from '../data/provider/registry'
-import { createAlertController } from '../features/alerts/index'
+} from '../controllers/types.js'
+import { resolveMarketDataCacheMaxBytes } from '../data/buffer/marketDataPolicy.js'
+import { AUTO_SOURCE_ID } from '../data/buffer/seriesRepository.js'
+import { lookupInstrumentsBySymbol } from '../data/provider/instrumentSearch.js'
+import { marketDataProviderRegistry } from '../data/provider/registry.js'
+import { createAlertController } from '../features/alerts/index.js'
 import {
   createVolumeLookbacks,
   pushToVolumeLookbacks,
   type VolumeLookbacks,
-} from '../features/alerts/rollingVolume'
-import type { AlertController, MarketSnapshot } from '../features/alerts/types'
+} from '../features/alerts/rollingVolume.js'
+import type { AlertController, MarketSnapshot } from '../features/alerts/types.js'
 
 import {
   buildPaneScaleTypesFromSetting,
   type ChartSettings,
   resolvePriceScaleTypeSetting,
-} from '../foundation/config/chartSettings'
+} from '../foundation/config/chartSettings.js'
 import {
   createPluginHost,
   type PluginHostImpl,
@@ -42,8 +42,8 @@ import {
   RendererPluginManager,
   type RendererPluginWithHost,
   wrapPaneInfo,
-} from '../foundation/plugin/index'
-import { makePluginLayerId } from '../foundation/plugin/rendererLayerId'
+} from '../foundation/plugin/index.js'
+import { makePluginLayerId } from '../foundation/plugin/rendererLayerId.js'
 import {
   type Computed,
   computed,
@@ -52,15 +52,15 @@ import {
   type ReadonlySignal,
   type Signal,
   type WritableSignal,
-} from '../foundation/reactivity/signal'
-import type { KLineData } from '../foundation/types/price'
+} from '../foundation/reactivity/signal.js'
+import type { KLineData } from '../foundation/types/price.js'
 import {
   createDefaultRendererHostSync,
   getVisibleCanvas,
   type RendererBackend,
   type RendererHost,
-} from '../rendering/render/index'
-import { createLayerFromPlugin } from '../rendering/scene/createLayerFromPlugin'
+} from '../rendering/render/index.js'
+import { createLayerFromPlugin } from '../rendering/scene/createLayerFromPlugin.js'
 import type {
   ChartDom,
   ChartOptions,
@@ -69,48 +69,48 @@ import type {
   SubPaneInfo,
   Viewport,
   ViewportState,
-} from './chartTypes'
-import { InteractionController, type InteractionSnapshot } from './controller/interaction'
+} from './chartTypes.js'
+import { InteractionController, type InteractionSnapshot } from './controller/interaction.js'
 // ===== 普通 imports，按路径字母排序 =====
-import { ChartDataManager } from './data/chartDataManager'
-import { ComparisonCommands } from './data/comparisonCommands'
-import { symbolInfoFromSpec } from './data/symbolInfo'
-import type { DrawingInteractionController } from './drawing/interaction'
-import type { DrawingToolId } from './drawing/toolConfig'
-import { ChartDrawingFacade } from './facade/chartDrawingFacade'
-import { ChartIndicatorFacade } from './facade/chartIndicatorFacade'
-import { ChartMarkerFacade } from './facade/chartMarkerFacade'
-import { ChartPaneFacade } from './facade/chartPaneFacade'
-import { ChartThemeFacade } from './facade/chartThemeFacade'
-import { ChartZoomFacade } from './facade/chartZoomFacade'
-import { ChartIndicatorManager } from './indicators/chartIndicatorManager'
-import { resolveStateKey } from './indicators/indicatorMetadata'
-import type { IndicatorScheduler } from './indicators/scheduler'
-import { ChartPaneLayout } from './layout/chartPaneLayout'
-import { UpdateLevel, type VisibleRange } from './layout/pane'
-import type { CustomMarkerEntity, MarkerManager } from './marker/registry'
-import { MarketSessionRegistry } from './market/marketSessionRegistry'
-import { resolveSymbolMarketSession } from './market/resolveSymbolMarketSession'
-import { KLineMode } from './modes/kLineMode'
-import { TimeShareMode } from './modes/timeShareMode'
-import type { ChartModeHandler } from './modes/types'
-import { PaneRenderer } from './paneRenderer'
-import { ChartRenderer, mergeUpdateLevel } from './render/chartRenderer'
-import type { LegendTemplateContext } from './renderers/Indicator/mainIndicatorLegendContext'
-import { ChartStateKernel } from './state/chartStateKernel'
-import type { RangeSelectionState } from './state/interactionState'
+import { ChartDataManager } from './data/chartDataManager.js'
+import { ComparisonCommands } from './data/comparisonCommands.js'
+import { symbolInfoFromSpec } from './data/symbolInfo.js'
+import type { DrawingInteractionController } from './drawing/interaction.js'
+import type { DrawingToolId } from './drawing/toolConfig.js'
+import { ChartDrawingFacade } from './facade/chartDrawingFacade.js'
+import { ChartIndicatorFacade } from './facade/chartIndicatorFacade.js'
+import { ChartMarkerFacade } from './facade/chartMarkerFacade.js'
+import { ChartPaneFacade } from './facade/chartPaneFacade.js'
+import { ChartThemeFacade } from './facade/chartThemeFacade.js'
+import { ChartZoomFacade } from './facade/chartZoomFacade.js'
+import { ChartIndicatorManager } from './indicators/chartIndicatorManager.js'
+import { resolveStateKey } from './indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from './indicators/scheduler.js'
+import { ChartPaneLayout } from './layout/chartPaneLayout.js'
+import { UpdateLevel, type VisibleRange } from './layout/pane.js'
+import type { CustomMarkerEntity, MarkerManager } from './marker/registry.js'
+import { MarketSessionRegistry } from './market/marketSessionRegistry.js'
+import { resolveSymbolMarketSession } from './market/resolveSymbolMarketSession.js'
+import { KLineMode } from './modes/kLineMode.js'
+import { TimeShareMode } from './modes/timeShareMode.js'
+import type { ChartModeHandler } from './modes/types.js'
+import { PaneRenderer } from './paneRenderer.js'
+import { ChartRenderer, mergeUpdateLevel } from './render/chartRenderer.js'
+import type { LegendTemplateContext } from './renderers/Indicator/mainIndicatorLegendContext.js'
+import { ChartStateKernel } from './state/chartStateKernel.js'
+import type { RangeSelectionState } from './state/interactionState.js'
 import {
   type ChartDataView,
   ChartDataViewId,
   isTimeShareDataView,
   resolveChartWorkspaceId,
-} from './state/modeState'
-import type { ViewWorkspacePersistence, ViewWorkspacesSnapshot } from './state/viewWorkspace'
-import { ChartZoomController } from './utils/chartZoomController'
-import { getPhysicalKLineConfig } from './utils/klineConfig'
-import type { ScaleType } from './utils/tickPosition'
-import { ChartViewportManager } from './viewport/chartViewportManager'
-import { ViewportScrollBridge } from './viewport/viewportScrollBridge'
+} from './state/modeState.js'
+import type { ViewWorkspacePersistence, ViewWorkspacesSnapshot } from './state/viewWorkspace.js'
+import { ChartZoomController } from './utils/chartZoomController.js'
+import { getPhysicalKLineConfig } from './utils/klineConfig.js'
+import type { ScaleType } from './utils/tickPosition.js'
+import { ChartViewportManager } from './viewport/chartViewportManager.js'
+import { ViewportScrollBridge } from './viewport/viewportScrollBridge.js'
 
 export type {
   ChartDom,
@@ -123,7 +123,7 @@ export type {
   SubPaneInfo,
   Viewport,
   ViewportState,
-} from './chartTypes'
+} from './chartTypes.js'
 export type { InteractionSnapshot }
 // ===== 重新导出 =====
 export { getPhysicalKLineConfig }
@@ -228,7 +228,7 @@ export class Chart {
       initialSettings?: Partial<ChartSettings>
       initialViewWorkspaces?: ViewWorkspacesSnapshot
       marketSessions?: Readonly<
-        Record<string, import('../foundation/utils/sessionTimeLabels').MarketSessionConfig>
+        Record<string, import('../foundation/utils/sessionTimeLabels.js').MarketSessionConfig>
       >
     },
   ) {
@@ -1018,7 +1018,7 @@ export class Chart {
   }
 
   /** 返回图表与 Agent 共用的实例级行情缓存。 */
-  getMarketDataCache(): import('../data/buffer/marketDataCache').MarketDataCache {
+  getMarketDataCache(): import('../data/buffer/marketDataCache.js').MarketDataCache {
     return this.dataManager.marketDataCache
   }
 
@@ -1028,7 +1028,7 @@ export class Chart {
   }
 
   /** 获取渲染数据源（分时图下为 TimeShareData，K线图为 KLineData） */
-  getRenderData(): ReadonlyArray<KLineData | import('../foundation/types/price').TimeShareData> {
+  getRenderData(): ReadonlyArray<KLineData | import('../foundation/types/price.js').TimeShareData> {
     return this.dataManager.getRenderData()
   }
 
@@ -1447,8 +1447,8 @@ export class Chart {
     this.dataManager.appendData(newData)
   }
 
-  get dataBuffer(): import('../data/buffer/dataBuffer').DataBuffer {
-    return this.dataManager.dataBuffer as import('../data/buffer/dataBuffer').DataBuffer
+  get dataBuffer(): import('../data/buffer/dataBuffer.js').DataBuffer {
+    return this.dataManager.dataBuffer as import('../data/buffer/dataBuffer.js').DataBuffer
   }
 
   checkVisibleRangeGap(): void {

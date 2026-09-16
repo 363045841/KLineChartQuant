@@ -1,8 +1,8 @@
-import type { PaneCapabilities, PaneRole } from '../../foundation/plugin/index'
-import type { KLineData } from '../../foundation/types/price'
-import type { PriceRange } from '../scale/price'
-import { PriceScale } from '../scale/priceScale'
-import { getVisiblePriceRange } from '../viewport/viewport'
+import type { PaneCapabilities, PaneRole } from '../../foundation/plugin/index.js'
+import type { KLineData } from '../../foundation/types/price.js'
+import type { PriceRange } from '../scale/price.js'
+import { PriceScale } from '../scale/priceScale.js'
+import { getVisiblePriceRange } from '../viewport/viewport.js'
 
 /**
  * 更新级别枚举 - 用于双层 Canvas 架构

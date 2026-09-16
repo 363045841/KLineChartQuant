@@ -2,8 +2,8 @@
  * 插件系统核心类型定义
  */
 
-import type { ChartDataView, ChartWorkspaceId } from '../types/chartView'
-import type { ChartSeriesDatum, KLineData } from '../types/price'
+import type { ChartDataView, ChartWorkspaceId } from '../types/chartView.js'
+import type { ChartSeriesDatum, KLineData } from '../types/price.js'
 
 /** 插件生命周期状态 */
 export enum PluginState {
@@ -319,13 +319,13 @@ export interface RenderDataContext {
   /** 当前图表数据视图。 */
   dataView: ChartDataView
   /** 多日分时的原子业务快照。 */
-  timeShareRange?: import('../../data/provider/types').TimeShareRange
+  timeShareRange?: import('../../data/provider/types.js').TimeShareRange
   /** 五日分时的帧级共享几何。 */
   fiveDayTimeShareGeometry?: FiveDayTimeShareGeometry
   /** 当前图表实例解析后的市场交易时段 */
-  marketSession?: import('../utils/sessionTimeLabels').MarketSessionConfig
+  marketSession?: import('../utils/sessionTimeLabels.js').MarketSessionConfig
   comparisonData?: ReadonlyMap<string, ReadonlyArray<KLineData>>
-  comparisonSymbols?: ReadonlyArray<import('../../controllers/types').SymbolSpec>
+  comparisonSymbols?: ReadonlyArray<import('../../controllers/types.js').SymbolSpec>
   comparisonColors?: ReadonlyMap<string, string>
   /** 由活动数据 Buffer 提供的唯一时间戳到逻辑索引解析。 */
   getLogicalIndexAtTimestamp: (timestamp: number) => number | null
@@ -391,7 +391,7 @@ export interface RenderIndicatorContext {
    * Scene 本帧 Renderer（createLayerFromPlugin 注入）。
    * 业务绘制经 drawInstances / drawLines；失败 fail-closed 走 2D。
    */
-  sceneRenderer?: import('../../rendering/render/Renderer').Renderer
+  sceneRenderer?: import('../../rendering/render/Renderer.js').Renderer
 }
 
 /** 绘制目标子契约：主图、轴与覆盖层 Canvas2D 上下文。 */
@@ -415,9 +415,9 @@ export interface RenderThemeContext {
   /** 亚洲市场惯例（红涨绿跌）；为 true 时自动交换所有 bull/bear 颜色 */
   isAsiaMarket?: boolean
   /** 用户颜色预设覆盖项 */
-  colorPresetSettings?: import('../tokens').ColorPresetSettings
+  colorPresetSettings?: import('../tokens/index.js').ColorPresetSettings
   /** 用户设置配置（渲染器只读） */
-  settings?: import('../config/chartSettings').ChartSettings
+  settings?: import('../config/chartSettings.js').ChartSettings
 }
 
 /**

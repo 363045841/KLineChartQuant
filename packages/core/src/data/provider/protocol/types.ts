@@ -16,7 +16,7 @@ import type {
   TimeShareRangeCapability,
   TradingDate,
   VolumeUnit,
-} from '../types'
+} from '../types.js'
 
 // 协议名称
 export const V1_PROTOCOL_NAME = 'market-data-v1' as const

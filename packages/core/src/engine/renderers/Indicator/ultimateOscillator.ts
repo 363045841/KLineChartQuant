@@ -6,29 +6,29 @@ import type {
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import type { KLineData } from '../../../foundation/types/price'
-import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
-import { calcUltimateOscillatorData } from '../../indicators/calculators/ultimateOscillator'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { UltimateOscillatorRenderState } from '../../indicators/state/ultimateOscillatorState'
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import type { KLineData } from '../../../foundation/types/price.js'
+import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign.js'
+import { calcUltimateOscillatorData } from '../../indicators/calculators/ultimateOscillator.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { UltimateOscillatorRenderState } from '../../indicators/state/ultimateOscillatorState.js'
 import {
   createUltimateOscillatorStateKey,
   DEFAULT_UO_P1,
   DEFAULT_UO_P2,
   DEFAULT_UO_P3,
   EMPTY_UO_STATE,
-} from '../../indicators/state/ultimateOscillatorState'
-import { createPaddedSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+} from '../../indicators/state/ultimateOscillatorState.js'
+import { createPaddedSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 
-import { tryDrawLinesGpu } from '../linesViaRenderer'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
-import { createUltimateOscillatorScaleRendererPlugin } from './scale/ultimateOscillator_scale'
-import { createSingleLineTitleInfo } from './shared/titleInfo'
+import { createUltimateOscillatorScaleRendererPlugin } from './scale/ultimateOscillator_scale.js'
+import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
 

@@ -53,9 +53,9 @@
   import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
   import IconSparkles from '~icons/tabler/sparkles'
 
-  import type { AgentBridgeClient } from './agent-contracts'
+  import type { AgentBridgeClient } from './agent-contracts.js'
   import AgentWorkspace from './components/AgentWorkspace.vue'
-  import type { AgentPanelWidthStorage } from './workbench-shell'
+  import type { AgentPanelWidthStorage } from './workbench-shell.js'
 
   const MIN_PANEL_WIDTH = 360
   const MAX_PANEL_WIDTH = 640

@@ -2,8 +2,8 @@
  * ZLEMA（零滞后指数移动平均）指标状态定义
  * 单线指标：series 为全量 ZLEMA 序列，params 记录周期与显隐开关
  */
-import type { BaseIndicatorState } from '../../../foundation/plugin/index'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys'
+import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 /** ZLEMA 渲染器状态（共享给渲染器和图例） */
 export interface ZLEMARenderState extends BaseIndicatorState {

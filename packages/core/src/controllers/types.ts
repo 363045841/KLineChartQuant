@@ -12,36 +12,36 @@ import type {
   AssetClass,
   InstrumentCapabilities,
   InstrumentDescriptor,
-} from '../data/provider/types'
-import type { InteractionSnapshot } from '../engine/chart'
-import type { PaneSpec } from '../engine/chartTypes'
+} from '../data/provider/types.js'
+import type { InteractionSnapshot } from '../engine/chart.js'
+import type { PaneSpec } from '../engine/chartTypes.js'
 import type {
   BatchDrawingPatch,
   CreateDrawingInput,
   DrawingStyleKey,
   UpdateDrawingPatch,
-} from '../engine/drawing/DrawingDocument'
-import type { DrawingToolId } from '../engine/drawing/toolConfig'
-import type { CustomMarkerEntity } from '../engine/marker/registry'
-import type { CreatePaneInput, PanePatch } from '../engine/paneManager'
-import type { ChartAgentController } from '../features/agent/types'
-import type { AlertController } from '../features/alerts/types'
-import type { ChartSettings } from '../foundation/config/chartSettings'
+} from '../engine/drawing/DrawingDocument.js'
+import type { DrawingToolId } from '../engine/drawing/toolConfig.js'
+import type { CustomMarkerEntity } from '../engine/marker/registry.js'
+import type { CreatePaneInput, PanePatch } from '../engine/paneManager.js'
+import type { ChartAgentController } from '../features/agent/types.js'
+import type { AlertController } from '../features/alerts/types.js'
+import type { ChartSettings } from '../foundation/config/chartSettings.js'
 import type {
   PersistedDrawingAnchor,
   DrawingObject as PluginDrawingObject,
-} from '../foundation/plugin/index'
-import type { ReadonlySignal, Signal } from '../foundation/reactivity/index'
-import type { ChartDataView } from '../foundation/types/chartView'
+} from '../foundation/plugin/index.js'
+import type { ReadonlySignal, Signal } from '../foundation/reactivity/index.js'
+import type { ChartDataView } from '../foundation/types/chartView.js'
 
 export {
   FIVE_DAY_TIME_SHARE_DAYS,
   FIVE_DAY_TIME_SHARE_PERIOD,
   isTimeSharePeriod,
   TIME_SHARE_PERIOD,
-} from '../foundation/types/chartPeriod'
+} from '../foundation/types/chartPeriod.js'
 
-import type { MarketSessionConfig } from '../foundation/utils/sessionTimeLabels'
+import type { MarketSessionConfig } from '../foundation/utils/sessionTimeLabels.js'
 
 // Controller-owned public surface. Legacy engine types may mirror these
 // shapes internally, but adapters depend only on core-defined contracts.
@@ -206,7 +206,7 @@ export interface IndicatorDefinition {
   name?: string
   description?: string
   role: IndicatorPaneRole
-  indicatorType: import('../engine/indicators/indicatorMetadata').IndicatorType
+  indicatorType: import('../engine/indicators/indicatorMetadata.js').IndicatorType
   indicatorTypeLabel?: string
   indicatorTypeOrder?: number
   params: ReadonlyArray<IndicatorParamDef>
@@ -275,9 +275,9 @@ export interface DrawingDocumentPort {
   /** 读取当前选中图元集合。 */
   getSelectedDrawingIds(): ReadonlyArray<string>
   /** write drawing tool id via Chart (kernel SSOT + session side effects) */
-  setDrawingToolId(toolId: import('../engine/drawing/toolConfig').DrawingToolId): void
+  setDrawingToolId(toolId: import('../engine/drawing/toolConfig.js').DrawingToolId): void
   /** read current drawing tool id from kernel */
-  getDrawingToolId(): import('../engine/drawing/toolConfig').DrawingToolId
+  getDrawingToolId(): import('../engine/drawing/toolConfig.js').DrawingToolId
 }
 
 /**
@@ -304,7 +304,7 @@ export interface DrawingViewportPort {
   /** unix timestamp (ms) → current logical index */
   getLogicalIndexAtTimestamp(timestamp: number): number | null
   /** 当前绘图所属的数据工作区。 */
-  getDrawingWorkspaceId(): import('../foundation/plugin').DrawingWorkspaceId
+  getDrawingWorkspaceId(): import('../foundation/plugin/index.js').DrawingWorkspaceId
   /** price → Y within the given pane */
   priceToY(paneId: string, price: number): number
   /** Y within the given pane → price */
@@ -381,17 +381,17 @@ export interface ChartController extends DrawingChartAdapter {
   readonly dataError: ReadonlySignal<string | null>
   /** 图表实例缓存的近似内存使用量与配置上限。 */
   readonly marketDataCacheStats: ReadonlySignal<
-    import('../data/buffer/marketDataCache').MarketDataCacheStats
+    import('../data/buffer/marketDataCache.js').MarketDataCacheStats
   >
   readonly symbols: ReadonlySignal<ReadonlyArray<SymbolSpec>>
   readonly theme: ReadonlySignal<'light' | 'dark'>
   /** 用户偏好 settings（kernel.settings resolved 快照） */
   readonly settings: ReadonlySignal<
-    Readonly<import('../foundation/config/chartSettings').ChartSettings>
+    Readonly<import('../foundation/config/chartSettings.js').ChartSettings>
   >
   /** 当前有效 renderer、切换状态和最近错误。 */
   readonly rendererRuntime: ReadonlySignal<
-    Readonly<import('../rendering/render/rendererHost').RendererBackendRuntime>
+    Readonly<import('../rendering/render/rendererHost.js').RendererBackendRuntime>
   >
   /** 图表模式 id：kline | timeshare | fiveDayTimeShare | comparison */
   readonly chartMode: ReadonlySignal<ChartDataView>
@@ -400,7 +400,7 @@ export interface ChartController extends DrawingChartAdapter {
   readonly indicators: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
   readonly subPanes: ReadonlySignal<ReadonlyArray<SubPaneInfo>>
   /** 当前绘图工具（DrawingToolId，默认 cursor） */
-  readonly drawingTool: ReadonlySignal<import('../engine/drawing/toolConfig').DrawingToolId>
+  readonly drawingTool: ReadonlySignal<import('../engine/drawing/toolConfig.js').DrawingToolId>
   readonly drawings: ReadonlySignal<ReadonlyArray<DrawingObject>>
   /** 当前选中绘图 id 集合（kernel.drawing SSOT） */
   readonly selectedDrawingIds: ReadonlySignal<ReadonlyArray<string>>
@@ -420,7 +420,8 @@ export interface ChartController extends DrawingChartAdapter {
    * Vue `#legend` slot 等外部模板消费；null 表示当前帧无图例数据。
    */
   readonly legendTemplateContext: ReadonlySignal<
-    import('../engine/renderers/Indicator/mainIndicatorLegendContext').LegendTemplateContext | null
+    | import('../engine/renderers/Indicator/mainIndicatorLegendContext.js').LegendTemplateContext
+    | null
   >
   readonly comparisonColors: ReadonlySignal<ReadonlyMap<string, string>>
   readonly comparisonLoading: ReadonlySignal<boolean>
@@ -510,8 +511,8 @@ export interface ChartController extends DrawingChartAdapter {
    * 设置绘图工具；null 视为 cursor。
    */
   setDrawingTool(tool: DrawingToolId | null): void
-  setDrawingToolId(toolId: import('../engine/drawing/toolConfig').DrawingToolId): void
-  getDrawingToolId(): import('../engine/drawing/toolConfig').DrawingToolId
+  setDrawingToolId(toolId: import('../engine/drawing/toolConfig.js').DrawingToolId): void
+  getDrawingToolId(): import('../engine/drawing/toolConfig.js').DrawingToolId
   /** 注册绘图交互会话到 Chart，使工具切换能清会话副作用 */
   registerDrawingSession(session: unknown | null): void
   clearDrawings(): void

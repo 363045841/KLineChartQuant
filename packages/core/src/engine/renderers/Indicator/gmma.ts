@@ -3,25 +3,25 @@ import type {
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import type { ColorTokens } from '../../../foundation/tokens/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import type { KLineData } from '../../../foundation/types/price'
-import { calcGMMAData } from '../../indicators/calculators'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import type { TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import type { ColorTokens } from '../../../foundation/tokens/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import type { KLineData } from '../../../foundation/types/price.js'
+import { calcGMMAData } from '../../indicators/calculators/index.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import type { TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata.js'
+import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
 import {
   createGMMAStateKey,
   EMPTY_GMMA_STATE,
   GMMA_LONG_PERIODS,
   GMMA_SHORT_PERIODS,
   type GMMARenderState,
-} from '../../indicators/state/gmmaState'
-import { createFixedRangeRecordVisibleStateComposer } from '../../indicators/visibleStateComposers'
-import { tryDrawLinesGpu } from '../linesViaRenderer'
+} from '../../indicators/state/gmmaState.js'
+import { createFixedRangeRecordVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
 type LinePoint = { x: number; y: number }
 

@@ -1,11 +1,11 @@
 /** 创建默认 RendererHost，并配置 WebGPU、WebGL 和 Canvas2D 的降级链。 */
 
-import { SharedWebGLSurface } from '../../engine/renderers/webgl/sharedWebGLSurface'
-import { createCanvas2DRenderer } from './backend/createCanvas2DRenderer'
-import { createWebGLRenderer } from './backend/createWebGLRenderer'
-import { createWebGPURenderer } from './backend/createWebGPURenderer'
-import { createWebGLSurfaceBackend } from './createWebGLSurfaceBackend'
-import type { Renderer } from './Renderer'
+import { SharedWebGLSurface } from '../../engine/renderers/webgl/sharedWebGLSurface.js'
+import { createCanvas2DRenderer } from './backend/createCanvas2DRenderer.js'
+import { createWebGLRenderer } from './backend/createWebGLRenderer.js'
+import { createWebGPURenderer } from './backend/createWebGPURenderer.js'
+import { createWebGLSurfaceBackend } from './createWebGLSurfaceBackend.js'
+import type { Renderer } from './Renderer.js'
 import {
   createRendererHost,
   createRendererHostFromRenderer,
@@ -13,7 +13,7 @@ import {
   type RendererHost,
   type RendererHostDependencies,
   type RendererHostListeners,
-} from './rendererHost'
+} from './rendererHost.js'
 
 function createWebGLBackendRenderer(): Renderer {
   const shared = new SharedWebGLSurface()

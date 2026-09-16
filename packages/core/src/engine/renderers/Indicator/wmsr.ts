@@ -2,20 +2,20 @@ import type {
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
-import { calcWMSRData } from '../../indicators/calculators'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { WMSRRenderState } from '../../indicators/state/wmsrState'
-import { createWMSRStateKey, EMPTY_WMSR_STATE } from '../../indicators/state/wmsrState'
-import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
-import { tryDrawLinesGpu } from '../linesViaRenderer'
-import { createWmsrScaleRendererPlugin } from './scale/wmsr_scale'
-import { createSingleLineTitleInfo } from './shared/titleInfo'
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign.js'
+import { calcWMSRData } from '../../indicators/calculators/index.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { WMSRRenderState } from '../../indicators/state/wmsrState.js'
+import { createWMSRStateKey, EMPTY_WMSR_STATE } from '../../indicators/state/wmsrState.js'
+import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { createWmsrScaleRendererPlugin } from './scale/wmsr_scale.js'
+import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
 

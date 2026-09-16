@@ -1,8 +1,8 @@
 /** 图表实例级行情内存缓存：按领域请求补齐数据覆盖范围并复用 Provider 请求结果。 */
-import type { KLineData } from '../../controllers/types'
-import { createSignal, type ReadonlySignal } from '../../foundation/reactivity/signal'
-import type { MarketDataProviderRegistry } from '../provider/registry'
-import { SourceRouter } from '../provider/router'
+import type { KLineData } from '../../controllers/types.js'
+import { createSignal, type ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import type { MarketDataProviderRegistry } from '../provider/registry.js'
+import { SourceRouter } from '../provider/router.js'
 import type {
   AssetClass,
   BarSeries,
@@ -13,12 +13,12 @@ import type {
   TimeShareRange,
   TimeShareSeries,
   TradingDate,
-} from '../provider/types'
+} from '../provider/types.js'
 import {
   DEFAULT_MARKET_DATA_CACHE_MAX_BYTES,
   FETCH_TOTAL_ATTEMPTS,
   retryBackoffMs,
-} from './marketDataPolicy'
+} from './marketDataPolicy.js'
 
 export interface BarsCacheQuery {
   readonly symbol: string

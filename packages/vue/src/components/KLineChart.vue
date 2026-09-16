@@ -322,7 +322,7 @@
   import {
     type AggregationSourceDefinition,
     useAggregationSources,
-  } from '../composables/useAggregationSources'
+  } from '../composables/useAggregationSources.js'
 
   const slots = useSlots()
   // 外部 slot 需要 Vue 响应式 props；默认 tooltip 走直接 DOM 更新，避免高频 VNode patch。
@@ -346,15 +346,15 @@
     setEndpoint: setAggregationSourceEndpoint,
   } = useAggregationSources(aggregationSources)
 
-  import { useChartState } from '../composables/chart/useChartState'
-  import { useChartTheme } from '../composables/chart/useChartTheme'
-  import { useControllerSignal } from '../composables/chart/useControllerSignal'
-  import { useDrawingManager } from '../composables/chart/useDrawingManager'
-  import { useIndicatorManager } from '../composables/chart/useIndicatorManager'
-  import { useRangeSelection } from '../composables/chart/useRangeSelection'
-  import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
-  import { symbolIdentityKey } from '../composables/useSymbolSearch'
-  import { useWatchlist } from '../composables/useWatchlist'
+  import { useChartState } from '../composables/chart/useChartState.js'
+  import { useChartTheme } from '../composables/chart/useChartTheme.js'
+  import { useControllerSignal } from '../composables/chart/useControllerSignal.js'
+  import { useDrawingManager } from '../composables/chart/useDrawingManager.js'
+  import { useIndicatorManager } from '../composables/chart/useIndicatorManager.js'
+  import { useRangeSelection } from '../composables/chart/useRangeSelection.js'
+  import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
+  import { symbolIdentityKey } from '../composables/useSymbolSearch.js'
+  import { useWatchlist } from '../composables/useWatchlist.js'
 
   import BatchStockDialog from './BatchStockDialog.vue'
   import CanvasToolbar from './common/CanvasToolbar.vue'

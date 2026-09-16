@@ -1,4 +1,4 @@
-import { toPhysicalRegion } from '../../../rendering/render/physicalRegion'
+import { toPhysicalRegion } from '../../../rendering/render/physicalRegion.js'
 
 /**
  * SharedWebGLSurface — 单 WebGL canvas 共享后端

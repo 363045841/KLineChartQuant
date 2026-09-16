@@ -1,7 +1,7 @@
-import { KLineChartError } from '../../errors'
-import type { PluginHost } from '../../foundation/plugin/index'
-import { createIndicatorStateKey } from '../../foundation/plugin/stateKeys'
-import type { ChartDataView } from '../state/modeState'
+import { KLineChartError } from '../../errors.js'
+import type { PluginHost } from '../../foundation/plugin/index.js'
+import { createIndicatorStateKey } from '../../foundation/plugin/stateKeys.js'
+import type { ChartDataView } from '../state/modeState.js'
 import type {
   GetTitleInfoFn,
   IndicatorAuxiliaryRendererNameResolver,
@@ -15,8 +15,8 @@ import type {
   RendererFactory,
   ScaleRendererFactory,
   StateKey,
-} from './indicatorMetadata'
-import { resolveStateKey } from './indicatorMetadata'
+} from './indicatorMetadata.js'
+import { resolveStateKey } from './indicatorMetadata.js'
 
 export type IndicatorDefinitionConfig<T = unknown> = {
   name: string

@@ -1,6 +1,6 @@
 // TRIMA 指标渲染状态的键创建与空状态定义（供渲染器与 titleInfo 复用）
-import type { BaseIndicatorState } from '../../../foundation/plugin/index'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys'
+import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 export interface TRIMARenderState extends BaseIndicatorState {
   timestamp: number

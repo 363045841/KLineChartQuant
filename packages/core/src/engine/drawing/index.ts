@@ -11,10 +11,10 @@ import type {
   LinePrimitive,
   PointPrimitive,
   TextPrimitive,
-} from '../../foundation/plugin/index'
-import { DEFAULT_DRAWING_STROKE } from '../../foundation/tokens'
-import { ChartWorkspaceId } from '../../foundation/types/chartView'
-import type { KLineData } from '../../foundation/types/price'
+} from '../../foundation/plugin/index.js'
+import { DEFAULT_DRAWING_STROKE } from '../../foundation/tokens/index.js'
+import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
+import type { KLineData } from '../../foundation/types/price.js'
 
 export type {
   AreaPrimitive,
@@ -30,20 +30,20 @@ export type {
   TextPrimitive,
 }
 
-import type { ReadonlySignal } from '../../foundation/reactivity/signal'
-import { mergePaint } from './DrawingState'
-import { LINE_LABEL_BASELINE, resolveLineLabelLayout } from './labelLayout'
+import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import { mergePaint } from './DrawingState.js'
+import { LINE_LABEL_BASELINE, resolveLineLabelLayout } from './labelLayout.js'
 
-export type { DrawingCommandsDependencies } from './DrawingCommands'
-export { DrawingCommands } from './DrawingCommands'
+export type { DrawingCommandsDependencies } from './DrawingCommands.js'
+export { DrawingCommands } from './DrawingCommands.js'
 export type {
   CreateDrawingInput,
   DrawingAnchorCommandInput,
   DrawingDocumentDependencies,
   UpdateDrawingPatch,
-} from './DrawingDocument'
-export { DrawingDocument } from './DrawingDocument'
-export { clearDrawingSelection, toggleDrawingSelection } from './DrawingSelection'
+} from './DrawingDocument.js'
+export { DrawingDocument } from './DrawingDocument.js'
+export { clearDrawingSelection, toggleDrawingSelection } from './DrawingSelection.js'
 
 export interface DrawingStoreDeps {
   drawings$: ReadonlySignal<ReadonlyArray<DrawingObject>>
@@ -97,7 +97,7 @@ export class DrawingDefinitionRegistry {
   }
 
   compute(
-    drawing: import('../../foundation/plugin').ResolvedDrawingObject,
+    drawing: import('../../foundation/plugin/index.js').ResolvedDrawingObject,
     context: DrawingComputeContext,
   ): DrawingGeometry | null {
     const definition = this.get(drawing.kind)
@@ -234,7 +234,7 @@ function extendLineToViewport(
 }
 
 function getAnchorDataIndex(
-  anchor: import('../../foundation/plugin').ResolvedDrawingAnchor,
+  anchor: import('../../foundation/plugin/index.js').ResolvedDrawingAnchor,
   data: KLineData[],
 ): number {
   if (!Number.isFinite(anchor.index)) return -1
@@ -249,7 +249,7 @@ function formatSigned(value: number, digits = 2): string {
   return value > 0 ? `+${fixed}` : fixed
 }
 
-import { computeLinearRegression } from './linearRegression'
+import { computeLinearRegression } from './linearRegression.js'
 
 export { computeLinearRegression }
 
@@ -956,26 +956,30 @@ export function registerDefaultDrawingDefinitions(registry: DrawingDefinitionReg
   registry.register(createDisjointChannelDefinition())
 }
 
-export type { DrawingLineLabelTarget, DrawingToolId, InteractionDrawingAnchor } from './interaction'
+export type {
+  DrawingLineLabelTarget,
+  DrawingToolId,
+  InteractionDrawingAnchor,
+} from './interaction.js'
 // 导出交互控制器
-export { DrawingInteractionController } from './interaction'
+export { DrawingInteractionController } from './interaction.js'
 export type {
   ActiveMagnetMode,
   MagnetMode,
   MagnetSnapConfig,
   SnappedPoint,
-} from './magnetSnapper'
+} from './magnetSnapper.js'
 
 // 导出磁吸模块（setMagnetMode 的档位类型与吸附纯函数）
 export {
   MAGNET_RADIUS_STRONG,
   MAGNET_RADIUS_WEAK,
   snapPointerToOhlc,
-} from './magnetSnapper'
+} from './magnetSnapper.js'
 // 导出工具锚点数表（宿主 UI 借此渲染分步提示与完成状态）
 export {
   DOUBLE_ANCHOR_TOOLS,
   getAnchorCountForTool,
   SINGLE_ANCHOR_TOOLS,
   TRIPLE_ANCHOR_TOOLS,
-} from './toolConfig'
+} from './toolConfig.js'

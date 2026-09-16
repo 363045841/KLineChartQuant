@@ -3,26 +3,26 @@ import type {
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import type { ColorTokens } from '../../../foundation/tokens/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import type { KLineData } from '../../../foundation/types/price'
-import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
-import type { MACDPoint } from '../../indicators/calculators'
-import { calcMACDData } from '../../indicators/calculators'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { MACDRenderState } from '../../indicators/state/macdState'
-import { createMACDStateKey, EMPTY_MACD_STATE } from '../../indicators/state/macdState'
-import { createMACDVisibleStateComposer } from '../../indicators/visibleStateComposers'
-import { ChartDataViewId } from '../../state/modeState'
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import type { ColorTokens } from '../../../foundation/tokens/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import type { KLineData } from '../../../foundation/types/price.js'
+import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign.js'
+import type { MACDPoint } from '../../indicators/calculators/index.js'
+import { calcMACDData } from '../../indicators/calculators/index.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { MACDRenderState } from '../../indicators/state/macdState.js'
+import { createMACDStateKey, EMPTY_MACD_STATE } from '../../indicators/state/macdState.js'
+import { createMACDVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
+import { ChartDataViewId } from '../../state/modeState.js'
 
-import { tryDrawLinesGpu } from '../linesViaRenderer'
-import { tryDrawRectsGpu } from '../rectsViaRenderer'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { tryDrawRectsGpu } from '../rectsViaRenderer.js'
 
-import { createMacdScaleRendererPlugin } from './scale/macd_scale'
+import { createMacdScaleRendererPlugin } from './scale/macd_scale.js'
 
 type LinePoint = { x: number; y: number }
 

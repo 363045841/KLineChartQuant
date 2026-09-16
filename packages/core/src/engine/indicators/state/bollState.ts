@@ -1,6 +1,6 @@
-import type { BaseIndicatorState } from '../../../foundation/plugin/index'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys'
-import type { BOLLPoint } from '../calculators'
+import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
+import type { BOLLPoint } from '../calculators/index.js'
 
 export const DEFAULT_BOLL_PERIOD = 20
 export const DEFAULT_BOLL_MULTIPLIER = 2

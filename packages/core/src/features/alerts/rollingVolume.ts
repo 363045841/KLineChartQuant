@@ -1,4 +1,4 @@
-import type { MarketSnapshot } from './types'
+import type { MarketSnapshot } from './types.js'
 
 export class RollingVolumeCalculator {
   private buffer: number[]

@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../errors'
+import { KLineChartError } from '../../errors.js'
 /**
  * ZLEMA — Zero-Lag Exponential Moving Average (Ehlers).
  *

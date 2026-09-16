@@ -2,12 +2,12 @@
  * 指标计算结果状态。
  * 将当前计算尝试与最近一次成功提交分离，避免失败版本覆盖可绘制结果的来源版本。
  */
-import { createSubState } from '../../foundation/reactivity/signal'
+import { createSubState } from '../../foundation/reactivity/signal.js'
 import type {
   IndicatorInstanceCalculationResult,
   IndicatorSeriesBundle,
-} from '../indicators/workerProtocol'
-import { deepFreezeOwned, immutableMap } from './immutable'
+} from '../indicators/workerProtocol.js'
+import { deepFreezeOwned, immutableMap } from './immutable.js'
 
 /** 指标计算尝试的外部可观察状态。 */
 export type IndicatorCalculationStatus = 'idle' | 'computing' | 'error'

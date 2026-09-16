@@ -12,4 +12,4 @@ export {
   type SelectBackendOptions,
   selectBackend,
   selectBackendOrThrow,
-} from './selectBackend'
+} from './selectBackend.js'

@@ -1,12 +1,12 @@
-import type { PaneRole } from '../../foundation/plugin/index'
-import type { ChartDom, PaneSpec, Viewport } from '../chartTypes'
-import { PaneRenderer } from '../paneRenderer'
-import type { PaneStateModule } from '../state/paneState'
-import type { ViewportStateModule } from '../state/viewportState'
-import type { ScaleType } from '../utils/tickPosition'
+import type { PaneRole } from '../../foundation/plugin/index.js'
+import type { ChartDom, PaneSpec, Viewport } from '../chartTypes.js'
+import { PaneRenderer } from '../paneRenderer.js'
+import type { PaneStateModule } from '../state/paneState.js'
+import type { ViewportStateModule } from '../state/viewportState.js'
+import type { ScaleType } from '../utils/tickPosition.js'
 
-import { Pane, UpdateLevel } from './pane'
-import { normalizeVisiblePaneRatios as pureNormalizeVisiblePaneRatios } from './paneRatioMath'
+import { Pane, UpdateLevel } from './pane.js'
+import { normalizeVisiblePaneRatios as pureNormalizeVisiblePaneRatios } from './paneRatioMath.js'
 
 export interface PaneLayoutDependencies {
   getDom: () => ChartDom

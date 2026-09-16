@@ -25,8 +25,8 @@
  * Dispose-guard pattern mirrors `createIndicatorSelectorController.ts`.
  */
 
-import { KLineChartError } from '../../errors'
-import { createSignal, type Signal } from '../../foundation/reactivity/index'
+import { KLineChartError } from '../../errors.js'
+import { createSignal, type Signal } from '../../foundation/reactivity/index.js'
 
 import {
   type AggressorResult,
@@ -35,8 +35,8 @@ import {
   classifyTickRule,
   type LeeReadyState,
   type TickRuleState,
-} from './aggressor'
-import { computeCumulativeDelta, computeDelta, computeDiagonalImbalances } from './perBarStats'
+} from './aggressor.js'
+import { computeCumulativeDelta, computeDelta, computeDiagonalImbalances } from './perBarStats.js'
 import type {
   FootprintBar,
   FootprintBarCell,
@@ -44,7 +44,7 @@ import type {
   FootprintController,
   FootprintImbalance,
   TradeWithFlag,
-} from './types'
+} from './types.js'
 
 // ---------------------------------------------------------------------------
 // Defaults & validation

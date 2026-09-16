@@ -1,4 +1,4 @@
-export { calcAwesomeOscillatorData } from './awesomeOscillator'
+export { calcAwesomeOscillatorData } from './awesomeOscillator.js'
 export type {
   BOLLPoint,
   DonchianPoint,
@@ -7,7 +7,7 @@ export type {
   KeltnerPoint,
   SARPoint,
   SuperTrendPoint,
-} from './bands'
+} from './bands.js'
 export {
   calcBOLLData,
   calcDonchianData,
@@ -16,12 +16,12 @@ export {
   calcKeltnerData,
   calcSARData,
   calcSuperTrendData,
-} from './bands'
-export { calcDPOData } from './dpo'
-export type { FisherPoint } from './fisherTransform'
-export { calcFisherTransformData } from './fisherTransform'
-export { calcFRAMAData } from './frama'
-export type { DMAPoint, EXPMAPoint, MAFlags } from './movingAverages'
+} from './bands.js'
+export { calcDPOData } from './dpo.js'
+export type { FisherPoint } from './fisherTransform.js'
+export { calcFisherTransformData } from './fisherTransform.js'
+export { calcFRAMAData } from './frama.js'
+export type { DMAPoint, EXPMAPoint, MAFlags } from './movingAverages.js'
 export {
   calcALMAData,
   calcDEMAData,
@@ -39,8 +39,8 @@ export {
   calcWMAData,
   calcZLEMAData,
   DEFAULT_MA_PERIODS,
-} from './movingAverages'
-export type { KSTPoint, MACDPoint, STOCHPoint, TRIXResult } from './oscillators'
+} from './movingAverages.js'
+export type { KSTPoint, MACDPoint, STOCHPoint, TRIXResult } from './oscillators.js'
 export {
   calcCCIData,
   calcFASTKData,
@@ -52,7 +52,7 @@ export {
   calcSTOCHData,
   calcTRIXData,
   calcWMSRData,
-} from './oscillators'
+} from './oscillators.js'
 export type {
   FibPoint,
   PivotPoint,
@@ -62,16 +62,16 @@ export type {
   SwingPoint,
   Zone,
   ZoneKind,
-} from './patterns'
-export { calcFibData, calcPivotData, calcStructureData, calcZonesData } from './patterns'
-export { calcSchaffTrendCycleData } from './schaffTrendCycle'
-export type { StochRSIPoint } from './stochRSI'
-export { calcStochRSIData } from './stochRSI'
-export { calcT3Data } from './t3'
-export { calcUltimateOscillatorData } from './ultimateOscillator'
-export { calcVIDYAData } from './vidya'
-export { calcATRData, calcChaikinVolData, calcHVData, calcParkinsonData } from './volatility'
-export type { VolumeProfileBin, VolumeProfileResult } from './volume'
+} from './patterns.js'
+export { calcFibData, calcPivotData, calcStructureData, calcZonesData } from './patterns.js'
+export { calcSchaffTrendCycleData } from './schaffTrendCycle.js'
+export type { StochRSIPoint } from './stochRSI.js'
+export { calcStochRSIData } from './stochRSI.js'
+export { calcT3Data } from './t3.js'
+export { calcUltimateOscillatorData } from './ultimateOscillator.js'
+export { calcVIDYAData } from './vidya.js'
+export { calcATRData, calcChaikinVolData, calcHVData, calcParkinsonData } from './volatility.js'
+export type { VolumeProfileBin, VolumeProfileResult } from './volume.js'
 export {
   calcCMFData,
   calcMFIData,
@@ -80,4 +80,4 @@ export {
   calcVMAData,
   calcVolumeProfileData,
   calcVWAPData,
-} from './volume'
+} from './volume.js'

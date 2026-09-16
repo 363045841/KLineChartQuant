@@ -43,8 +43,8 @@
   import IconCheck from '~icons/tabler/check'
   import IconShieldExclamation from '~icons/tabler/shield-exclamation'
   import IconX from '~icons/tabler/x'
-  import type { ConfirmationView } from '../agent-contracts'
-  import { type AgentLocale, getAgentCopy } from '../agent-copy'
+  import type { ConfirmationView } from '../agent-contracts.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
   const props = defineProps<{ confirmation: ConfirmationView; locale: AgentLocale }>()
   defineEmits<{ decide: [decision: 'confirmed' | 'rejected'] }>()

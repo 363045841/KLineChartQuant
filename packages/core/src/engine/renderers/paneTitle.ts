@@ -2,22 +2,22 @@ import type {
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
-} from '../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
-import { getFont, setCanvasFont } from '../../foundation/tokens/fonts'
-import type { ColorTokens } from '../../foundation/tokens/index'
-import { resolveThemeColors } from '../../foundation/tokens/index'
-import type { KLineData } from '../../foundation/types/price'
-import { PANE_HEADER_INSET_PX } from '../chartTypes'
-import type { TitleInfo } from '../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../indicators/scheduler'
+} from '../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
+import { getFont, setCanvasFont } from '../../foundation/tokens/fonts.js'
+import type { ColorTokens } from '../../foundation/tokens/index.js'
+import { resolveThemeColors } from '../../foundation/tokens/index.js'
+import type { KLineData } from '../../foundation/types/price.js'
+import { PANE_HEADER_INSET_PX } from '../chartTypes.js'
+import type { TitleInfo } from '../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../indicators/scheduler.js'
 
-import type { SubIndicatorType } from './Indicator'
+import type { SubIndicatorType } from './Indicator/index.js'
 
 /**
  * @deprecated 请从 indicatorMetadata 导入 TitleInfo
  */
-export type { TitleInfo, TitleValueItem } from '../indicators/indicatorMetadata'
+export type { TitleInfo, TitleValueItem } from '../indicators/indicatorMetadata.js'
 
 function getVolumeTitleInfo(
   data: KLineData[],

@@ -1,5 +1,5 @@
-import type { DrawingDocumentPort, DrawingSessionPort } from '../../controllers/types'
-import type { DrawingObject } from '../../foundation/plugin/index'
+import type { DrawingDocumentPort, DrawingSessionPort } from '../../controllers/types.js'
+import type { DrawingObject } from '../../foundation/plugin/index.js'
 
 const PREVIEW_ID = '__preview__'
 

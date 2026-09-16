@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../errors'
+import { KLineChartError } from '../../errors.js'
 /**
  * FRAMA — Fractal Adaptive Moving Average (John Ehlers, 2005).
  *

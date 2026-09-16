@@ -1,10 +1,10 @@
-import type { DrawingViewportPort } from '../../controllers/types'
-import type { DrawingObject } from '../../foundation/plugin/index'
+import type { DrawingViewportPort } from '../../controllers/types.js'
+import type { DrawingObject } from '../../foundation/plugin/index.js'
 
-import { anchorToScreen, isScreenPoint, pointToSegmentDistanceSq } from './coordinateUtils'
-import { LINE_LABEL_BASELINE, resolveLineLabelLayout } from './labelLayout'
-import { computeLinearRegression } from './linearRegression'
-import { CHANNEL_KINDS, getExtendMode } from './toolConfig'
+import { anchorToScreen, isScreenPoint, pointToSegmentDistanceSq } from './coordinateUtils.js'
+import { LINE_LABEL_BASELINE, resolveLineLabelLayout } from './labelLayout.js'
+import { computeLinearRegression } from './linearRegression.js'
+import { CHANNEL_KINDS, getExtendMode } from './toolConfig.js'
 
 // ---- Types ----
 
@@ -46,7 +46,7 @@ export interface LineLabelTarget {
   /** 文字沿线段方向的可读旋转角（弧度）。 */
   readonly rotation: number
   readonly text: string
-  readonly position: import('../../foundation/plugin').DrawingLabelPosition
+  readonly position: import('../../foundation/plugin/index.js').DrawingLabelPosition
   /** 绘制时的水平对齐。 */
   readonly align: CanvasTextAlign
   /** 绘制时的基线，决定锚点贴文本块的哪一边。 */

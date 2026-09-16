@@ -1,5 +1,5 @@
 // 本文件把业务 SymbolSpec 映射为可登记的 SymbolInfo 目录条目。
-import type { SymbolInfo, SymbolSpec } from '../../controllers/types'
+import type { SymbolInfo, SymbolSpec } from '../../controllers/types.js'
 
 /** 将 SymbolSpec 转为 SymbolInfo；存在 instrument 时优先取其品种信息。 */
 export function symbolInfoFromSpec(spec: SymbolSpec): SymbolInfo {

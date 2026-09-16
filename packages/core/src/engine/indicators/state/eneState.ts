@@ -1,6 +1,6 @@
-import type { BaseIndicatorState } from '../../../foundation/plugin/index'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys'
-import type { ENEPoint } from '../calculators'
+import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
+import type { ENEPoint } from '../calculators/index.js'
 
 export const DEFAULT_ENE_PERIOD = 10
 export const DEFAULT_ENE_DEVIATION = 11

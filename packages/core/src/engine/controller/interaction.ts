@@ -1,17 +1,17 @@
 // 交互控制中心
 
-import type { ChartSettings } from '../../foundation/config/chartSettings'
-import { isTimeShareDataView } from '../../foundation/types/chartView'
-import type { KLineData } from '../../foundation/types/price'
-import { isOnRightHalf } from '../../foundation/utils/viewportSide'
-import type { Chart } from '../chart'
-import { UpdateLevel } from '../layout/pane'
-import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry'
-import type { InteractionStateModule } from '../state/interactionState'
-import { logicalIndexToScreenX } from '../viewport/logicalIndexToScreenX'
-import { MarkerInteractionState } from './markerInteraction'
-import { PinchTracker } from './pinchTracker'
-import { computeTooltipPosition, type TooltipPositionMode } from './tooltipPosition'
+import type { ChartSettings } from '../../foundation/config/chartSettings.js'
+import { isTimeShareDataView } from '../../foundation/types/chartView.js'
+import type { KLineData } from '../../foundation/types/price.js'
+import { isOnRightHalf } from '../../foundation/utils/viewportSide.js'
+import type { Chart } from '../chart.js'
+import { UpdateLevel } from '../layout/pane.js'
+import type { CustomMarkerEntity, MarkerEntity } from '../marker/registry.js'
+import type { InteractionStateModule } from '../state/interactionState.js'
+import { logicalIndexToScreenX } from '../viewport/logicalIndexToScreenX.js'
+import { MarkerInteractionState } from './markerInteraction.js'
+import { PinchTracker } from './pinchTracker.js'
+import { computeTooltipPosition, type TooltipPositionMode } from './tooltipPosition.js'
 
 interface PointerLocation {
   mouseX: number

@@ -1,13 +1,13 @@
-import { drawLabel, drawShape, hitTestShape } from '../../features/semantic/drawShape'
+import { drawLabel, drawShape, hitTestShape } from '../../features/semantic/drawShape.js'
 import type {
   MarkerManagerLike,
   RenderContext,
   RendererPlugin,
-} from '../../foundation/plugin/index'
-import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index'
-import type { KLineData } from '../../foundation/types/price'
-import { roundToPhysicalPixel } from '../../foundation/utils/pixelAlign'
-import type { CustomMarkerEntity, CustomMarkerShape } from '../marker/registry'
+} from '../../foundation/plugin/index.js'
+import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
+import type { KLineData } from '../../foundation/types/price.js'
+import { roundToPhysicalPixel } from '../../foundation/utils/pixelAlign.js'
+import type { CustomMarkerEntity, CustomMarkerShape } from '../marker/registry.js'
 
 /** 默认标记尺寸（相对于 K 线宽度的缩放因子） */
 const DEFAULT_SIZE_SCALE = 1.2

@@ -2,9 +2,9 @@
  * Fisher Transform 渲染状态定义及默认配置。
  */
 
-import type { BaseIndicatorState } from '../../../foundation/plugin/index'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys'
-import type { FisherPoint } from '../calculators/fisherTransform'
+import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
+import type { FisherPoint } from '../calculators/fisherTransform.js'
 
 export interface FisherTransformRenderState extends BaseIndicatorState {
   timestamp: number

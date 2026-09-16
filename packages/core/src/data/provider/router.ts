@@ -1,12 +1,12 @@
 /** 行情 Provider 能力流转层：按源级能力选择 Provider，并在确定性拒绝时切换数据源。 */
 
-import { isKLineChartError, KLineChartError } from '../../errors'
+import { isKLineChartError, KLineChartError } from '../../errors.js'
 
 import {
   MarketDataProviderRegistry,
   marketDataProviderRegistry,
   type SourceCapabilityQuery,
-} from './registry'
+} from './registry.js'
 import type {
   AssetClass,
   BarSeries,
@@ -18,7 +18,7 @@ import type {
   TimeShareRange,
   TimeShareSeries,
   TradingDate,
-} from './types'
+} from './types.js'
 
 /** Router 识别的统一品种身份，不包含任何 Provider 私有路由字段。 */
 export interface SourceRouterInstrumentIdentity {

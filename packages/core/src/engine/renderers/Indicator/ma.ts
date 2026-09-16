@@ -3,28 +3,28 @@ import type {
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import type { ColorTokens } from '../../../foundation/tokens/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import type { KLineData } from '../../../foundation/types/price'
-import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign'
-import { calcMAData } from '../../indicators/calculators'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import type { ColorTokens } from '../../../foundation/tokens/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import type { KLineData } from '../../../foundation/types/price.js'
+import { alignToPhysicalPixelCenter } from '../../../foundation/utils/pixelAlign.js'
+import { calcMAData } from '../../indicators/calculators/index.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import type {
   GetTitleInfoFn,
   IndicatorPriceRangeComputer,
   IndicatorRenderStateComposer,
   TitleInfo,
   TitleValueItem,
-} from '../../indicators/indicatorMetadata'
-import { readIndicatorSeriesEntry, resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import { MA_STATE_KEY, type MARenderState } from '../../indicators/state/maState'
-import { tryDrawLinesGpu } from '../linesViaRenderer'
+} from '../../indicators/indicatorMetadata.js'
+import { readIndicatorSeriesEntry, resolveStateKey } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import { MA_STATE_KEY, type MARenderState } from '../../indicators/state/maState.js'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
 // Re-export MAFlags from calculators for backward compatibility
-export type { MAFlags } from '../../indicators/calculators'
+export type { MAFlags } from '../../indicators/calculators/index.js'
 
 type LinePoint = { x: number; y: number }
 

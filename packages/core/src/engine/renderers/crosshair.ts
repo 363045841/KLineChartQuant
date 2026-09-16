@@ -1,7 +1,10 @@
-import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index'
-import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index'
-import { resolveThemeColors } from '../../foundation/tokens/index'
-import { createHorizontalLineRect, createVerticalLineRect } from '../../foundation/utils/pixelAlign'
+import type { RenderContext, RendererPlugin } from '../../foundation/plugin/index.js'
+import { GLOBAL_PANE_ID, RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
+import { resolveThemeColors } from '../../foundation/tokens/index.js'
+import {
+  createHorizontalLineRect,
+  createVerticalLineRect,
+} from '../../foundation/utils/pixelAlign.js'
 
 /**
  * 创建十字线渲染器插件

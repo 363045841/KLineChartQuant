@@ -1,10 +1,10 @@
-import type { PluginHost, RenderContext } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import { ChartDataViewId, isTimeShareDataView } from '../../../foundation/types/chartView'
-import type { KLineData, TimeShareData } from '../../../foundation/types/price'
-import { symbolSpecIdentityKey } from '../../data/symbolIdentity'
-import type { TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { PluginHost, RenderContext } from '../../../foundation/plugin/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import { ChartDataViewId, isTimeShareDataView } from '../../../foundation/types/chartView.js'
+import type { KLineData, TimeShareData } from '../../../foundation/types/price.js'
+import { symbolSpecIdentityKey } from '../../data/symbolIdentity.js'
+import type { TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
 
 /** 图例渲染模式：canvas 默认绘制；external 仅发布上下文，不画 Canvas 文字 */
 export type LegendRenderMode = 'canvas' | 'external'

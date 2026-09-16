@@ -2,15 +2,15 @@ import type {
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { getFont, setCanvasFont } from '../../../foundation/tokens/fonts'
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import { getFont, setCanvasFont } from '../../../foundation/tokens/fonts.js'
 
 import {
   buildLegendTemplateContext,
   type LegendRenderMode,
   type LegendTemplateContext,
-} from './mainIndicatorLegendContext'
+} from './mainIndicatorLegendContext.js'
 
 const textWidthCache = new Map<string, number>()
 const TEXT_WIDTH_CACHE_LIMIT = 512

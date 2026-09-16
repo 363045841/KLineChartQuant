@@ -7,7 +7,7 @@ import {
   AGENT_CITATION_MARKER_PREFIX,
   AGENT_CITATION_MARKER_SUFFIX,
   type SourceCitation,
-} from './agent-contracts'
+} from './agent-contracts.js'
 
 interface AgentMarkdownEnvironment {
   citations?: ReadonlyMap<string, SourceCitation>

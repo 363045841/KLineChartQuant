@@ -1,6 +1,6 @@
-import { KLineChartError } from '../../errors'
+import { KLineChartError } from '../../errors.js'
 
-import type { DepthDelta, DepthSnapshot, DepthSource, DepthSourceStatus } from './depthTypes'
+import type { DepthDelta, DepthSnapshot, DepthSource, DepthSourceStatus } from './depthTypes.js'
 
 export const DEFAULT_BINANCE_SSE_URL = 'http://localhost:8081/api/binance/depth-events'
 

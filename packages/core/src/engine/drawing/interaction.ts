@@ -1,32 +1,32 @@
-import type { DrawingChartAdapter } from '../../controllers/types'
-import type { DrawingObject, DrawingStyle } from '../../foundation/plugin/index'
-import { ChartWorkspaceId } from '../../foundation/types/chartView'
+import type { DrawingChartAdapter } from '../../controllers/types.js'
+import type { DrawingObject, DrawingStyle } from '../../foundation/plugin/index.js'
+import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
 
-import { AnchorCollector } from './AnchorCollector'
+import { AnchorCollector } from './AnchorCollector.js'
 import type {
   DrawingPointerAnchor,
   ResolveDrawingPointerOptions,
   ResolvedInteractionAnchor,
-} from './coordinateUtils'
-import { resolveDrawingPointer } from './coordinateUtils'
-import { DragHandler } from './DragHandler'
-import { clearDrawingSelection, toggleDrawingSelection } from './DrawingSelection'
-import { DrawingState, PREVIEW_ID } from './DrawingState'
-import type { HitResult, LineLabelTarget } from './HitTester'
-import { HitTester } from './HitTester'
-import type { MagnetMode } from './magnetSnapper'
-import { PreviewRenderer } from './PreviewRenderer'
+} from './coordinateUtils.js'
+import { resolveDrawingPointer } from './coordinateUtils.js'
+import { DragHandler } from './DragHandler.js'
+import { clearDrawingSelection, toggleDrawingSelection } from './DrawingSelection.js'
+import { DrawingState, PREVIEW_ID } from './DrawingState.js'
+import type { HitResult, LineLabelTarget } from './HitTester.js'
+import { HitTester } from './HitTester.js'
+import type { MagnetMode } from './magnetSnapper.js'
+import { PreviewRenderer } from './PreviewRenderer.js'
 import {
   type DrawingSelectionMarquee,
   drawingIntersectsSelectionMarquee,
   hasSelectionMarqueeArea,
-} from './selectionMarquee'
-import type { DrawingToolId } from './toolConfig'
-import { getAnchorCountForTool, getDrawingKind } from './toolConfig'
+} from './selectionMarquee.js'
+import type { DrawingToolId } from './toolConfig.js'
+import { getAnchorCountForTool, getDrawingKind } from './toolConfig.js'
 
-export type { InteractionDrawingAnchor } from './coordinateUtils'
+export type { InteractionDrawingAnchor } from './coordinateUtils.js'
 // Re-export types so index.ts re-exports work unchanged
-export type { DrawingToolId } from './toolConfig'
+export type { DrawingToolId } from './toolConfig.js'
 
 /** 命中标签后供宿主渲染就地编辑器的几何快照；与 HitTester 的命中结果同一类型。 */
 export type DrawingLineLabelTarget = LineLabelTarget

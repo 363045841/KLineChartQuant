@@ -2,20 +2,20 @@ import type {
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import { calcFASTKData } from '../../indicators/calculators'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { FASTKRenderState } from '../../indicators/state/fastkState'
-import { createFASTKStateKey, EMPTY_FASTK_STATE } from '../../indicators/state/fastkState'
-import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
-import { tryDrawLinesGpu } from '../linesViaRenderer'
-import { createFastkScaleRendererPlugin } from './scale/fastk_scale'
-import { createDashedLineRenderer } from './shared/dashedLines'
-import { createSingleLineTitleInfo } from './shared/titleInfo'
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import { calcFASTKData } from '../../indicators/calculators/index.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { FASTKRenderState } from '../../indicators/state/fastkState.js'
+import { createFASTKStateKey, EMPTY_FASTK_STATE } from '../../indicators/state/fastkState.js'
+import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { createFastkScaleRendererPlugin } from './scale/fastk_scale.js'
+import { createDashedLineRenderer } from './shared/dashedLines.js'
+import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
 

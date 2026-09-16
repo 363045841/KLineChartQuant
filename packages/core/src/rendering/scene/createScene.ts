@@ -18,9 +18,9 @@
  *   into a torn-down scene.
  */
 
-import { createSignal, type Signal } from '../../foundation/reactivity/signal'
+import { createSignal, type Signal } from '../../foundation/reactivity/signal.js'
 
-import type { Layer, LayerRole, PaintContext, Scene } from './types'
+import type { Layer, LayerRole, PaintContext, Scene } from './types.js'
 
 export function createScene(): Scene {
   // ---- internal state ----------------------------------------------------

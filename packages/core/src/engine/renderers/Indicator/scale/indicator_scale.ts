@@ -3,18 +3,18 @@ import type {
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
-} from '../../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../../foundation/plugin/index'
-import { createIndicatorStateKey } from '../../../../foundation/plugin/stateKeys'
-import { getFont, setCanvasFont } from '../../../../foundation/tokens/fonts'
-import { resolveThemeColors } from '../../../../foundation/tokens/index'
-import { drawCrosshairPriceLabel } from '../../../../foundation/utils/kLineDraw/axis'
+} from '../../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../../foundation/plugin/index.js'
+import { createIndicatorStateKey } from '../../../../foundation/plugin/stateKeys.js'
+import { getFont, setCanvasFont } from '../../../../foundation/tokens/fonts.js'
+import { resolveThemeColors } from '../../../../foundation/tokens/index.js'
+import { drawCrosshairPriceLabel } from '../../../../foundation/utils/kLineDraw/axis.js'
 import {
   alignToPhysicalPixelCenter,
   roundToPhysicalPixel,
-} from '../../../../foundation/utils/pixelAlign'
-import { calculateValueTickPositions, type ScaleType } from '../../../utils/tickPosition'
-import { formatScaleValue, resolveAdaptiveDecimals } from './scaleFormat'
+} from '../../../../foundation/utils/pixelAlign.js'
+import { calculateValueTickPositions, type ScaleType } from '../../../utils/tickPosition.js'
+import { formatScaleValue, resolveAdaptiveDecimals } from './scaleFormat.js'
 
 interface IndicatorScaleRenderState extends BaseIndicatorState {
   valueMin?: number

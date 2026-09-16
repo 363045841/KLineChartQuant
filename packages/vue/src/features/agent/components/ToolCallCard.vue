@@ -82,8 +82,8 @@
   import IconRotateClockwise2 from '~icons/tabler/rotate-clockwise-2'
   import IconShieldCheck from '~icons/tabler/shield-check'
   import LoadingSpinner from '../../../components/LoadingSpinner.vue'
-  import type { ToolCallView } from '../agent-contracts'
-  import { type AgentLocale, getAgentCopy } from '../agent-copy'
+  import type { ToolCallView } from '../agent-contracts.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
 
   const props = defineProps<{ tool: ToolCallView; locale: AgentLocale }>()
   defineEmits<{ locate: [toolCallId: string]; undo: [] }>()

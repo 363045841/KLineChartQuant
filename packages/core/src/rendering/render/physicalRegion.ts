@@ -1,6 +1,6 @@
 /** 将逻辑绘制区域转换为物理像素边界，保证相邻 pane 无缝拼接。 */
 
-import type { SurfaceRegion } from './SurfaceBackend'
+import type { SurfaceRegion } from './SurfaceBackend.js'
 
 export type PhysicalRegion = {
   x: number

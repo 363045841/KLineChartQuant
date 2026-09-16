@@ -2,7 +2,7 @@
  * 状态存储类
  * 用于渲染器间的状态共享
  */
-import type { BaseIndicatorState } from './types'
+import type { BaseIndicatorState } from './types.js'
 
 export class StateStore {
   private states: Map<string, BaseIndicatorState> = new Map()

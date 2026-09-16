@@ -1,5 +1,5 @@
-import type { ChartDom } from '../chartTypes'
-import type { ChartStateKernel } from '../state/chartStateKernel'
+import type { ChartDom } from '../chartTypes.js'
+import type { ChartStateKernel } from '../state/chartStateKernel.js'
 
 /** DOM 生命周期依赖：ResizeObserver / scroll 监听 */
 export interface ViewportDependencies {

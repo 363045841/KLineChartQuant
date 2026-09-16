@@ -9,7 +9,7 @@ import type {
   SecurityResult,
   SemanticChartConfig,
   ValidationResult,
-} from './types'
+} from './types.js'
 
 // ============ 常量定义 ============
 

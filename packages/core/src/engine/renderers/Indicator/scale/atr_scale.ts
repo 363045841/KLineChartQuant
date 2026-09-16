@@ -1,6 +1,6 @@
-import type { RendererPluginWithHost } from '../../../../foundation/plugin/index'
+import type { RendererPluginWithHost } from '../../../../foundation/plugin/index.js'
 
-import { createIndicatorScaleRendererPlugin } from './indicator_scale'
+import { createIndicatorScaleRendererPlugin } from './indicator_scale.js'
 
 export function createAtrScaleRendererPlugin(options: {
   axisWidth: number

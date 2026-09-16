@@ -3,7 +3,7 @@
  * 支持 6 种预设形状：arrow_up, arrow_down, flag, circle, rectangle, diamond
  */
 
-import type { MarkerLabel, MarkerShapeType, MarkerStyle } from './types'
+import type { MarkerLabel, MarkerShapeType, MarkerStyle } from './types.js'
 
 /** 默认尺寸映射 */
 const DEFAULT_SIZES: Record<MarkerShapeType, number> = {

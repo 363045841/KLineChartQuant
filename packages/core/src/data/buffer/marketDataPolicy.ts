@@ -1,5 +1,5 @@
 /** 行情缓存取数策略：定义初始窗口大小与统一重试退避。 */
-import { DEFAULT_KLINE_PERIOD } from '../provider/types'
+import { DEFAULT_KLINE_PERIOD } from '../provider/types.js'
 
 // ── Constants ──
 

@@ -3,22 +3,22 @@ import type {
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import type { ColorTokens } from '../../../foundation/tokens/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import type { KLineData } from '../../../foundation/types/price'
-import { calcSTOCHData } from '../../indicators/calculators'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { STOCHRenderState } from '../../indicators/state/stochState'
-import { createSTOCHStateKey, EMPTY_STOCH_STATE } from '../../indicators/state/stochState'
-import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers'
-import { ChartDataViewId } from '../../state/modeState'
-import { tryDrawLinesGpu } from '../linesViaRenderer'
-import { createStochScaleRendererPlugin } from './scale/stoch_scale'
-import { createDashedLineRenderer } from './shared/dashedLines'
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import type { ColorTokens } from '../../../foundation/tokens/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import type { KLineData } from '../../../foundation/types/price.js'
+import { calcSTOCHData } from '../../indicators/calculators/index.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { STOCHRenderState } from '../../indicators/state/stochState.js'
+import { createSTOCHStateKey, EMPTY_STOCH_STATE } from '../../indicators/state/stochState.js'
+import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
+import { ChartDataViewId } from '../../state/modeState.js'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { createStochScaleRendererPlugin } from './scale/stoch_scale.js'
+import { createDashedLineRenderer } from './shared/dashedLines.js'
 
 type LinePoint = { x: number; y: number }
 

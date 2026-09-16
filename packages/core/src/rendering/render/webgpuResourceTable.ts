@@ -1,7 +1,7 @@
 /** 按 key 和 revision 缓存 WebGPU buffer，避免重复创建和上传。 */
 
-import type { createFrameMetrics } from './frameMetrics'
-import { GPU_BUFFER_COPY_DST, GPU_BUFFER_UNIFORM, GPU_BUFFER_VERTEX } from './webgpuGlobals'
+import type { createFrameMetrics } from './frameMetrics.js'
+import { GPU_BUFFER_COPY_DST, GPU_BUFFER_UNIFORM, GPU_BUFFER_VERTEX } from './webgpuGlobals.js'
 
 type Metrics = ReturnType<typeof createFrameMetrics>
 

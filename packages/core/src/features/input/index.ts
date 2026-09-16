@@ -12,7 +12,7 @@ export {
   type GestureRecognizerOptions,
   type GestureState,
   type PointerEventLike,
-} from './gesture'
+} from './gesture.js'
 export {
   canonicalCombo,
   createShortcutRegistry,
@@ -23,4 +23,4 @@ export {
   type ShortcutDef,
   type ShortcutRegistry,
   type ShortcutRegistryOptions,
-} from './keyboard'
+} from './keyboard.js'
