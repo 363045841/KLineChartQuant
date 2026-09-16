@@ -33,6 +33,10 @@
       "types": "./dist/controllers/index.d.ts",
       "import": "./dist/controllers/index.js"
     },
+    "./agent-tools": {
+      "types": "./dist/foundation/agent/chartToolRegistry.d.ts",
+      "import": "./dist/foundation/agent/chartToolRegistry.js"
+    },
     "./agent": {
       "types": "./dist/features/agent/index.d.ts",
       "import": "./dist/features/agent/index.js"

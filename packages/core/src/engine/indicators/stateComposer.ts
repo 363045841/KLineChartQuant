@@ -5,48 +5,16 @@
 
 import { KLineChartError } from '../../errors.js'
 import type { KLineData } from '../../foundation/types/price.js'
-
+import type {
+  ComposedRenderStates,
+  MainIndicatorName,
+  MainRenderStates,
+  VisibleIndicatorName,
+  VisibleSubIndicatorMask,
+  VisibleSubIndicatorStates,
+} from './indicatorContracts.js'
 import { getRegisteredIndicatorDefinitions } from './indicatorDefinitionRegistry.js'
 import type { IndicatorMetadata } from './indicatorMetadata.js'
-import type { ATRRenderState } from './state/atrState.js'
-import type { BOLLRenderState } from './state/bollState.js'
-import type { CCIRenderState } from './state/cciState.js'
-import type { ChaikinVolRenderState } from './state/chaikinVolState.js'
-import type { CMFRenderState } from './state/cmfState.js'
-import type { DEMARenderState } from './state/demaState.js'
-import type { DonchianRenderState } from './state/donchianState.js'
-import type { ENERenderState } from './state/eneState.js'
-import type { EXPMARenderState } from './state/expmaState.js'
-import type { FASTKRenderState } from './state/fastkState.js'
-import type { FibRenderState } from './state/fibState.js'
-import type { HMARenderState } from './state/hmaState.js'
-import type { HVRenderState } from './state/hvState.js'
-import type { IchimokuRenderState } from './state/ichimokuState.js'
-import type { KAMARenderState } from './state/kamaState.js'
-import type { KeltnerRenderState } from './state/keltnerState.js'
-import type { KSTRenderState } from './state/kstState.js'
-import type { MACDRenderState } from './state/macdState.js'
-import type { MARenderState } from './state/maState.js'
-import type { MFIRenderState } from './state/mfiState.js'
-import type { MOMRenderState } from './state/momState.js'
-import type { OBVRenderState } from './state/obvState.js'
-import type { ParkinsonRenderState } from './state/parkinsonState.js'
-import type { PivotRenderState } from './state/pivotState.js'
-import type { PVTRenderState } from './state/pvtState.js'
-import type { ROCRenderState } from './state/rocState.js'
-import type { RSIRenderState } from './state/rsiState.js'
-import type { SARRenderState } from './state/sarState.js'
-import type { STOCHRenderState } from './state/stochState.js'
-import type { StructureRenderState } from './state/structureState.js'
-import type { SuperTrendRenderState } from './state/supertrendState.js'
-import type { TEMARenderState } from './state/temaState.js'
-import type { TRIXRenderState } from './state/trixState.js'
-import type { VMARenderState } from './state/vmaState.js'
-import type { VolumeProfileRenderState } from './state/volumeProfileState.js'
-import type { VWAPRenderState } from './state/vwapState.js'
-import type { WMARenderState } from './state/wmaState.js'
-import type { WMSRRenderState } from './state/wmsrState.js'
-import type { ZonesRenderState } from './state/zonesState.js'
 import type { IndicatorSeriesBundle } from './workerProtocol.js'
 
 /**
@@ -57,103 +25,20 @@ interface VisibleRange {
   end: number
 }
 
-type VisibleSubIndicatorStates = {
-  rsi: RSIRenderState
-  cci: CCIRenderState
-  stoch: STOCHRenderState
-  mom: MOMRenderState
-  wmsr: WMSRRenderState
-  kst: KSTRenderState
-  fastk: FASTKRenderState
-  macd: MACDRenderState
-  atr: ATRRenderState
-  wma: WMARenderState
-  dema: DEMARenderState
-  tema: TEMARenderState
-  hma: HMARenderState
-  kama: KAMARenderState
-  sar: SARRenderState
-  supertrend: SuperTrendRenderState
-  keltner: KeltnerRenderState
-  donchian: DonchianRenderState
-  ichimoku: IchimokuRenderState
-  roc: ROCRenderState
-  trix: TRIXRenderState
-  hv: HVRenderState
-  parkinson: ParkinsonRenderState
-  chaikinVol: ChaikinVolRenderState
-  vma: VMARenderState
-  obv: OBVRenderState
-  pvt: PVTRenderState
-  vwap: VWAPRenderState
-  cmf: CMFRenderState
-  mfi: MFIRenderState
-  pivot: PivotRenderState
-  fib: FibRenderState
-  structure: StructureRenderState
-  zones: ZonesRenderState
-  volumeProfile: VolumeProfileRenderState
+/** 按契约键写入副图状态，保持键与状态类型的对应关系。 */
+function setVisibleSubIndicatorState<K extends VisibleIndicatorName>(
+  states: Partial<VisibleSubIndicatorStates>,
+  indicatorId: K,
+  state: VisibleSubIndicatorStates[K] | undefined,
+): void {
+  states[indicatorId] = state
 }
 
-type VisibleSubIndicatorMask = {
-  rsi?: boolean
-  cci?: boolean
-  stoch?: boolean
-  mom?: boolean
-  wmsr?: boolean
-  kst?: boolean
-  fastk?: boolean
-  macd?: boolean
-  atr?: boolean
-  wma?: boolean
-  dema?: boolean
-  tema?: boolean
-  hma?: boolean
-  kama?: boolean
-  sar?: boolean
-  supertrend?: boolean
-  keltner?: boolean
-  donchian?: boolean
-  ichimoku?: boolean
-  roc?: boolean
-  trix?: boolean
-  hv?: boolean
-  parkinson?: boolean
-  chaikinVol?: boolean
-  vma?: boolean
-  obv?: boolean
-  pvt?: boolean
-  vwap?: boolean
-  cmf?: boolean
-  mfi?: boolean
-  pivot?: boolean
-  fib?: boolean
-  structure?: boolean
-  zones?: boolean
-  volumeProfile?: boolean
-}
-
-type MainRenderStates = {
-  ma: MARenderState
-  boll: BOLLRenderState
-  expma: EXPMARenderState
-  ene: ENERenderState
-}
-
-type MainRenderStateIndicatorId = keyof MainRenderStates
-
-type ComposedRenderStates = VisibleSubIndicatorStates & MainRenderStates
-
-function getVisibleStateIndicatorIds(): (keyof VisibleSubIndicatorStates)[] {
+/** 当前注册表中拥有 visibleState.compose 的指标内部 name。 */
+function getVisibleStateIndicatorIds(): VisibleIndicatorName[] {
   return getRegisteredIndicatorDefinitions()
-    .filter(
-      (
-        d,
-      ): d is IndicatorMetadata & {
-        visibleState: NonNullable<IndicatorMetadata['visibleState']>
-      } => !!d.visibleState?.compose,
-    )
-    .map((d) => d.name as keyof VisibleSubIndicatorStates)
+    .filter((definition) => !!definition.visibleState?.compose)
+    .map((definition) => definition.name as VisibleIndicatorName)
 }
 
 /**
@@ -170,14 +55,18 @@ export function composeVisibleSubIndicatorStates(
   const states: Partial<VisibleSubIndicatorStates> = {}
 
   for (const indicatorId of getVisibleStateIndicatorIds()) {
-    states[indicatorId] = composeRequiredMetadataVisibleState(
+    setVisibleSubIndicatorState(
+      states,
       indicatorId,
-      bundle,
-      visibleRange,
-      timestamp,
-      activeMask,
-      getIndicatorMetadata,
-    ) as never
+      composeRequiredMetadataVisibleState(
+        indicatorId,
+        bundle,
+        visibleRange,
+        timestamp,
+        activeMask,
+        getIndicatorMetadata,
+      ),
+    )
   }
 
   return states as VisibleSubIndicatorStates
@@ -240,14 +129,14 @@ export function composeVolumeRenderState(
   }
 }
 
-function composeRequiredMetadataVisibleState(
-  indicatorId: keyof VisibleSubIndicatorStates,
+function composeRequiredMetadataVisibleState<K extends VisibleIndicatorName>(
+  indicatorId: K,
   bundle: IndicatorSeriesBundle,
   visibleRange: VisibleRange,
   timestamp: number,
   activeMask: VisibleSubIndicatorMask,
   getIndicatorMetadata: (indicatorId: string) => IndicatorMetadata | undefined,
-): unknown {
+): VisibleSubIndicatorStates[K] | undefined {
   const meta = getIndicatorMetadata(indicatorId)
   if (!meta) return undefined
 
@@ -259,12 +148,22 @@ function composeRequiredMetadataVisibleState(
     )
   }
 
+  // 元数据以 unknown 持有异构状态，契约注册表给出该键对应的状态类型。
   return compose({
     bundle,
     visibleRange,
     timestamp,
     active: activeMask[indicatorId] ?? true,
-  })
+  }) as VisibleSubIndicatorStates[K]
+}
+
+/** 按契约键写入主图状态。 */
+function setMainRenderState<K extends MainIndicatorName>(
+  states: Partial<MainRenderStates>,
+  indicatorId: K,
+  state: MainRenderStates[K],
+): void {
+  states[indicatorId] = state
 }
 
 function composeMainRenderStates(
@@ -273,15 +172,19 @@ function composeMainRenderStates(
   timestamp: number,
   getIndicatorMetadata: (indicatorId: string) => IndicatorMetadata | undefined,
 ): MainRenderStates {
-  const states: Partial<Record<MainRenderStateIndicatorId, unknown>> = {}
+  const states: Partial<MainRenderStates> = {}
 
   for (const def of getRegisteredIndicatorDefinitions()) {
     if (!def.mainPane?.composeRenderState) continue
-    const indicatorId = def.name as MainRenderStateIndicatorId
+    const indicatorId = def.name as MainIndicatorName
     const meta = getIndicatorMetadata(indicatorId)
     const compose = meta?.mainPane?.composeRenderState ?? def.mainPane.composeRenderState
     if (!compose) continue
-    states[indicatorId] = compose(bundle, visibleRange, timestamp)
+    setMainRenderState(
+      states,
+      indicatorId,
+      compose(bundle, visibleRange, timestamp) as MainRenderStates[MainIndicatorName],
+    )
   }
 
   return states as MainRenderStates

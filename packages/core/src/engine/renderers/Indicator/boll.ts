@@ -101,7 +101,7 @@ function getBOLLStateKey(host: PluginHost | null, paneId: string): string | null
 }
 
 const computeBOLLPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
-  const { series } = readIndicatorSeriesEntry<Pick<BOLLRenderState, 'series'>>(bundle, 'boll')
+  const { series } = readIndicatorSeriesEntry(bundle, 'boll')
   if (series.length === 0 || range.start >= series.length) {
     return null
   }
@@ -125,10 +125,7 @@ const composeBOLLRenderState: IndicatorRenderStateComposer = (
   range,
   timestamp,
 ): BOLLRenderState => {
-  const source = readIndicatorSeriesEntry<Pick<BOLLRenderState, 'series' | 'params'>>(
-    bundle,
-    'boll',
-  )
+  const source = readIndicatorSeriesEntry(bundle, 'boll')
   const priceRange = computeBOLLPriceRange(bundle, range) ?? { min: Infinity, max: -Infinity }
   return {
     timestamp,

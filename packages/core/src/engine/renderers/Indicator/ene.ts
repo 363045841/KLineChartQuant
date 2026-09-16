@@ -92,7 +92,7 @@ function getENEStateKey(host: PluginHost | null): string | null {
 }
 
 const computeENEPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
-  const { series } = readIndicatorSeriesEntry<Pick<ENERenderState, 'series'>>(bundle, 'ene')
+  const { series } = readIndicatorSeriesEntry(bundle, 'ene')
   if (series.length === 0 || range.start >= series.length) {
     return null
   }
@@ -116,7 +116,7 @@ const composeENERenderState: IndicatorRenderStateComposer = (
   range,
   timestamp,
 ): ENERenderState => {
-  const source = readIndicatorSeriesEntry<Pick<ENERenderState, 'series' | 'params'>>(bundle, 'ene')
+  const source = readIndicatorSeriesEntry(bundle, 'ene')
   const priceRange = computeENEPriceRange(bundle, range) ?? { min: Infinity, max: -Infinity }
   return {
     timestamp,

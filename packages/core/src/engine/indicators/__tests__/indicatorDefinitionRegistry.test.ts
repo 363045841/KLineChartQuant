@@ -7,6 +7,14 @@ import {
   Indicator,
 } from '../indicatorDefinitionRegistry'
 
+// 用例自定义指标：通过 declaration merging 登记内部 name，与第三方扩展方式一致。
+declare module '../indicatorContracts.js' {
+  interface AuxiliaryIndicatorContracts {
+    customRsi: unknown
+    customMacd: unknown
+  }
+}
+
 describe('Indicator definition registry', () => {
   beforeEach(() => {
     clearRegisteredIndicatorDefinitionsForTest()

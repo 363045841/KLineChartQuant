@@ -60,7 +60,7 @@ function getEXPMAStateKey(host: PluginHost | null): string | null {
 }
 
 const computeEXPMAPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
-  const { series } = readIndicatorSeriesEntry<Pick<EXPMARenderState, 'series'>>(bundle, 'expma')
+  const { series } = readIndicatorSeriesEntry(bundle, 'expma')
   if (series.length === 0 || range.start >= series.length) {
     return null
   }
@@ -84,10 +84,7 @@ const composeEXPMARenderState: IndicatorRenderStateComposer = (
   range,
   timestamp,
 ): EXPMARenderState => {
-  const source = readIndicatorSeriesEntry<Pick<EXPMARenderState, 'series' | 'params'>>(
-    bundle,
-    'expma',
-  )
+  const source = readIndicatorSeriesEntry(bundle, 'expma')
   const priceRange = computeEXPMAPriceRange(bundle, range) ?? { min: Infinity, max: -Infinity }
   return {
     timestamp,
