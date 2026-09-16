@@ -48,9 +48,9 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          # No packageManager field in root yet; pin to latest 9.x.
+          # No packageManager field in root yet; pin to latest 12.x.
           # When packageManager is set, action-setup reads it automatically.
-          version: 9
+          version: 12
 
       - name: Setup Node ${{ matrix.node }}
         uses: actions/setup-node@v7
@@ -101,7 +101,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 9
+          version: 12
 
       - name: Setup Node ${{ matrix.node }}
         uses: actions/setup-node@v7
