@@ -29,7 +29,7 @@ export type { MAFlags } from '../../indicators/calculators/index.js'
 type LinePoint = { x: number; y: number }
 
 const computeMAPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
-  const { series } = readIndicatorSeriesEntry<Pick<MARenderState, 'series'>>(bundle, 'ma')
+  const { series } = readIndicatorSeriesEntry(bundle, 'ma')
   const seriesList = Object.values(series)
   if (seriesList.length === 0 || range.start >= seriesList[0]!.length) {
     return null
@@ -56,10 +56,7 @@ const composeMARenderState: IndicatorRenderStateComposer = (
   range,
   timestamp,
 ): MARenderState => {
-  const source = readIndicatorSeriesEntry<Pick<MARenderState, 'series' | 'enabledPeriods'>>(
-    bundle,
-    'ma',
-  )
+  const source = readIndicatorSeriesEntry(bundle, 'ma')
   const priceRange = computeMAPriceRange(bundle, range) ?? { min: Infinity, max: -Infinity }
   return {
     timestamp,
