@@ -63,12 +63,19 @@ All READMEs are generated from `docs/fragments/` (reusable Markdown snippets) + 
 
 本地行情后端位于本仓库同级目录：`GoTDX-Connecter`（gotdx、Binance）和 `Baostock-Tradingview-Connecter`（BaoStock、TradingView）。涉及后端时先阅读对应仓库的 `AGENTS.md`；使用 `pnpm setup` 安装，`pnpm dev -c <name>` 或 `pnpm connecter <name>` 启动。
 
-## Testing
+## 测试
+
+**类型是契约，不是障碍。** 禁止用 `as` / `as unknown as` / `any` / `@ts-nocheck` 等手段绕过类型检查；契约加字段、替身缺成员，必须在编译期暴露，而不是静默通过。
+
+**单一事实来源，复用优先。** 同一份构造、替身、常量、映射只能有一处实现；用例只声明差异，禁止复制粘贴同一套东西。
+
+**测试代码与生产代码同权。** 测试同样是被类型检查、被门禁约束的代码，不得靠关闭检查来换取“能跑”。
 
 - Root 测试使用 `pnpm test:unit`；packages 被其排除，跨包测试使用 `pnpm test:packages`。
 - `*.integration.test.ts` 不会被默认测试收集。
 - 日期测试依赖 `TZ=Asia/Shanghai`；本地跨年失败时先设置该环境变量。
-- 测试用例禁止重复抄写同一套构造/夹具；可复用的 setup 必须抽成 helper 或表驱动（`it.each`），用例内只声明差异。
+- 可复用的 setup 必须抽成 helper 或表驱动（`it.each`）。
+- 不许在测试中引入脆弱的 MOCK。
 
 ## Code Conventions
 
@@ -84,7 +91,6 @@ All READMEs are generated from `docs/fragments/` (reusable Markdown snippets) + 
 - 不要硬编码字符串
 - 禁止编写和保留复杂化、无意义的回退逻辑,回退是风险放大点
 - 禁止在编程过程中刻意先留兼容逻辑,然后再修改的行为
-- 不许在测试中引入脆弱的 MOCK
 
 ## Architecture
 
