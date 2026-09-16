@@ -260,10 +260,12 @@ describe('DrawingDocument', () => {
     expect(document.listDrawings()).toEqual(before)
 
     expect(
-      document.commitDrawingDrags([
-        { id: first.id, anchors: first.anchors.map((anchor) => ({ ...anchor, price: 11 })) },
-        { id: second.id, anchors: second.anchors.map((anchor) => ({ ...anchor, price: 21 })) },
-      ]).map((drawing) => drawing.id),
+      document
+        .commitDrawingDrags([
+          { id: first.id, anchors: first.anchors.map((anchor) => ({ ...anchor, price: 11 })) },
+          { id: second.id, anchors: second.anchors.map((anchor) => ({ ...anchor, price: 21 })) },
+        ])
+        .map((drawing) => drawing.id),
     ).toEqual([first.id, second.id])
     expect(document.getDrawing(first.id)?.anchors[0]?.price).toBe(11)
     expect(document.getDrawing(second.id)?.anchors[0]?.price).toBe(21)

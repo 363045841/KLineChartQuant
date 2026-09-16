@@ -1,13 +1,13 @@
 /** 对比序列运行时投影：订阅 Repository 叶子 Buffer，并向比较视图提供数据和加载状态。 */
-import type { KLineData, SymbolSpec } from '../../controllers/types'
-import type { KLineBuffer } from '../../data/buffer/dataBufferTypes'
+import type { KLineData, SymbolSpec } from '../../controllers/types.js'
+import type { KLineBuffer } from '../../data/buffer/dataBufferTypes.js'
 import {
   SeriesRepository,
-  seriesSelectionKey,
   type SeriesSelection,
-} from '../../data/buffer/seriesRepository'
+  seriesSelectionKey,
+} from '../../data/buffer/seriesRepository.js'
 
-import { symbolSpecIdentityKey } from './symbolIdentity'
+import { symbolSpecIdentityKey } from './symbolIdentity.js'
 
 type BarsSelection = Extract<SeriesSelection, { kind: 'bars' }>
 
@@ -16,11 +16,11 @@ export interface ComparisonHooks {
   selectionForSpec(spec: SymbolSpec): BarsSelection
   createBuffer(spec: SymbolSpec, selection: BarsSelection): KLineBuffer
   loadBuffer(spec: SymbolSpec, selection: BarsSelection, buffer: KLineBuffer): void
-loadRange(
+  loadRange(
     spec: SymbolSpec,
     selection: BarsSelection,
     buffer: KLineBuffer,
-	beforeTimestamp: number,
+    beforeTimestamp: number,
   ): void
   releaseSelection(selection: BarsSelection): void
   scheduleDraw(): void
@@ -123,7 +123,7 @@ export class ComparisonManager {
     return true
   }
 
-/** 请求所有当前比较序列覆盖主图可见区左缘；每次只向前拉取一页。 */
+  /** 请求所有当前比较序列覆盖主图可见区左缘；每次只向前拉取一页。 */
   ensureRange(firstVisibleTs: number): void {
     for (const spec of this.hooks.getSpecs()) {
       const selection = this.hooks.selectionForSpec(spec)

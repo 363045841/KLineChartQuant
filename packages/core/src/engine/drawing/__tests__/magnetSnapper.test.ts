@@ -1,11 +1,7 @@
 /** 磁吸纯函数单测：验证 weak/strong 档位的候选集合、半径边界与 Bar 中心吸附。 */
 import { describe, expect, it } from 'vitest'
 
-import {
-  snapPointerToOhlc,
-  MAGNET_RADIUS_WEAK,
-  MAGNET_RADIUS_STRONG,
-} from '../magnetSnapper'
+import { MAGNET_RADIUS_STRONG, MAGNET_RADIUS_WEAK, snapPointerToOhlc } from '../magnetSnapper'
 import { createMagnetSnapAdapter, OHLC_BARS } from './helpers/drawingTestKit'
 
 const PANE = { paneId: 'main', top: 0, height: 200 }

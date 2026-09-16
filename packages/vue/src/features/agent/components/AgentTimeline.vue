@@ -78,16 +78,10 @@
 
 <script setup lang="ts">
   import { computed, nextTick, ref, watch } from 'vue'
-
-  import { getAgentCopy, type AgentLocale } from '../agent-copy'
-
-  import AgentErrorNotice from './AgentErrorNotice.vue'
-  import AgentMessageItem from './AgentMessageItem.vue'
-  import ConfirmationCard from './ConfirmationCard.vue'
-  import QuestionCard from './QuestionCard.vue'
-  import ToolCallCard from './ToolCallCard.vue'
+  import IconArrowBackUp from '~icons/tabler/arrow-back-up'
+  import IconArrowUpRight from '~icons/tabler/arrow-up-right'
+  import IconChartCandle from '~icons/tabler/chart-candle'
   import LoadingSpinner from '../../../components/LoadingSpinner.vue'
-
   import type {
     AgentErrorView,
     AgentMessageView,
@@ -96,11 +90,13 @@
     QuestionAnswerView,
     QuestionView,
     ToolCallView,
-  } from '../agent-contracts'
-
-  import IconArrowBackUp from '~icons/tabler/arrow-back-up'
-  import IconArrowUpRight from '~icons/tabler/arrow-up-right'
-  import IconChartCandle from '~icons/tabler/chart-candle'
+  } from '../agent-contracts.js'
+  import { type AgentLocale, getAgentCopy } from '../agent-copy.js'
+  import AgentErrorNotice from './AgentErrorNotice.vue'
+  import AgentMessageItem from './AgentMessageItem.vue'
+  import ConfirmationCard from './ConfirmationCard.vue'
+  import QuestionCard from './QuestionCard.vue'
+  import ToolCallCard from './ToolCallCard.vue'
 
   type TimelineEntry =
     | { kind: 'message'; id: string; at: number; message: AgentMessageView }
@@ -155,8 +151,7 @@
       ...props.runs
         .filter(
           (run) =>
-            run.id &&
-            (run.usage || (run.id === props.run.id && props.run.status !== 'idle')),
+            run.id && (run.usage || (run.id === props.run.id && props.run.status !== 'idle')),
         )
         .map((run) => ({
           kind: 'run' as const,

@@ -16,11 +16,10 @@
  *  12. `detection.tier` is preserved even when downgrade occurs.
  */
 
-import { describe, it, expect } from 'vitest'
-
-import { selectBackend, selectBackendOrThrow, type BackendRegistry } from '..'
+import { describe, expect, it } from 'vitest'
 import { isKLineChartError } from '../../../errors'
 import type { RendererTierResult } from '../../../foundation/utils/rendererCapability'
+import { type BackendRegistry, selectBackend, selectBackendOrThrow } from '..'
 
 const ALWAYS = (): boolean => true
 const NEVER = (): boolean => false

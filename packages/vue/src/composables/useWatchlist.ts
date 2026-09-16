@@ -2,8 +2,8 @@
 
 import { computed, shallowRef, toRaw } from 'vue'
 
-import type { SearchableSymbol } from './useSymbolSearch'
-import { symbolIdentityKey } from './useSymbolSearch'
+import type { SearchableSymbol } from './useSymbolSearch.js'
+import { symbolIdentityKey } from './useSymbolSearch.js'
 
 export const WATCHLIST_DATABASE_NAME = '@363045841yyt/klinechart'
 const WATCHLIST_DATABASE_VERSION = 1

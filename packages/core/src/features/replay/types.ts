@@ -18,7 +18,7 @@
  * playhead changes deterministically.
  */
 
-import type { Signal } from '../../foundation/reactivity/signal'
+import type { Signal } from '../../foundation/reactivity/signal.js'
 
 export type ReplayMode = 'paused' | 'playing'
 export type ReplayPacing = 'bar' | 'wallclock' | 'tick'

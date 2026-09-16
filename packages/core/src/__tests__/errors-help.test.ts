@@ -18,10 +18,10 @@
  *   6. Custom indent prefix is honoured.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { KLineChartError, type KLineChartErrorCode } from '../errors'
-import { getRecoveryHint, formatKLineChartError } from '../errors-help'
+import { formatKLineChartError, getRecoveryHint } from '../errors-help'
 
 // The exhaustive list of codes. Adding a new code to `errors.ts` and
 // forgetting to add a hint must fail here.

@@ -47,7 +47,7 @@
  *     the VA.
  */
 
-import type { ValueAreaResult } from './types'
+import type { ValueAreaResult } from './types.js'
 
 /**
  * @internal — building block used by `createVolumeProfileController`. Reachable today

@@ -1,4 +1,4 @@
-import { inject, provide, computed, type Ref, type InjectionKey } from 'vue'
+import { computed, type InjectionKey, inject, provide, type Ref } from 'vue'
 
 const FULLSCREEN_TARGET_KEY: InjectionKey<Ref<HTMLElement | null>> = Symbol(
   'fullscreen-teleport-target',

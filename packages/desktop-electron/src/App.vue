@@ -11,11 +11,10 @@
 </template>
 
 <script setup lang="ts">
-  import { ref } from 'vue'
-
-  import { BrowserAgentBridge } from '../../vue/src/features/agent/browser-agent-bridge'
-  import { AgentWorkbenchShell, KlineChart, type AgentPanelWidthStorage } from '../../vue/src/index'
   import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
+  import { ref } from 'vue'
+  import { BrowserAgentBridge } from '../../vue/src/features/agent/browser-agent-bridge'
+  import { type AgentPanelWidthStorage, AgentWorkbenchShell, KlineChart } from '../../vue/src/index'
 
   import { createE2eChartData } from './features/agent/chart-e2e-fixture'
 

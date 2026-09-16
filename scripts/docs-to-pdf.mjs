@@ -19,11 +19,7 @@ const DOCS_PREFIX = 'docs/'
 
 /** 入口：收集 docs 文档并导出 PDF。 */
 async function main() {
-  const { pages, outDir } = parseArgs(
-    process.argv.slice(2),
-    ROOT,
-    path.join(ROOT, '.docs-pdf'),
-  )
+  const { pages, outDir } = parseArgs(process.argv.slice(2), ROOT, path.join(ROOT, '.docs-pdf'))
   const relPaths = listProjectFiles(ROOT).filter(
     (rel) => rel.startsWith(DOCS_PREFIX) && isTextFile(rel),
   )

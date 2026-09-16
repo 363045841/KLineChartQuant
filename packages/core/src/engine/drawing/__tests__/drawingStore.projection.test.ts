@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import type { DrawingObject } from '../../../foundation/plugin/index'
 import { createDrawingState } from '../../state/drawingState'
-import { DrawingStore } from '../index'
 import { PREVIEW_ID } from '../DrawingState'
+import { DrawingStore } from '../index'
 import { createTrendLine } from './helpers/drawingTestKit'
 
 describe('DrawingStore projection', () => {

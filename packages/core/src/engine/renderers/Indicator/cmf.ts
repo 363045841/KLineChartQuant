@@ -1,20 +1,20 @@
 import type {
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import { calcCMFData } from '../../indicators/calculators'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { CMFRenderState } from '../../indicators/state/cmfState'
-import { createCMFStateKey, EMPTY_CMF_STATE } from '../../indicators/state/cmfState'
-import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
-import { tryDrawLinesGpu } from '../linesViaRenderer'
+  RenderContext,
+  RendererPluginWithHost,
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import { calcCMFData } from '../../indicators/calculators/index.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { CMFRenderState } from '../../indicators/state/cmfState.js'
+import { createCMFStateKey, EMPTY_CMF_STATE } from '../../indicators/state/cmfState.js'
+import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
-import { createSingleLineTitleInfo } from './shared/titleInfo'
+import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
 

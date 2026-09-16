@@ -1,34 +1,32 @@
 /** Drive complete UI states deterministically without Provider or chart business logic. */
 import { fetchOpenAiCompatibleModels } from '@363045841yyt/klinechart-agent-runtime'
-
-import { ProviderModelPool } from '../provider-model-pool'
-
 import {
   AGENT_UI_PROTOCOL_VERSION,
   type AgentBridgeClient,
   type AgentContextItem,
-  type AgentSessionView,
-  type AgentSessionSnapshot,
   type AgentRunUiEventInput,
+  type AgentSessionSnapshot,
+  type AgentSessionView,
+  type AgentToolDebugResult,
+  type AgentToolView,
   type AgentUiEvent,
   type AgentUiEventInput,
   type ConfirmationView,
+  type ProviderModelPoolEntry,
   type ProviderModelsResult,
   type ProviderModelView,
-  type ProviderModelPoolEntry,
   type ProviderProfileView,
+  type ProviderReasoningEffort,
   type ProviderSaveInput,
   type ProviderStatusView,
-  type ProviderReasoningEffort,
   type ProviderTestInput,
   type ProviderTestResult,
   type QuestionAnswerView,
   type QuestionView,
   type StartRunInput,
-  type AgentToolView,
-  type AgentToolDebugResult,
   type ToolCallView,
-} from '../agent-contracts'
+} from '../agent-contracts.js'
+import { ProviderModelPool } from '../provider-model-pool.js'
 
 interface FakeRun {
   id: string

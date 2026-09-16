@@ -1,5 +1,5 @@
-import type { IndicatorVisibleStateComposer } from './indicatorMetadata'
-import type { IndicatorSeriesBundle } from './workerProtocol'
+import type { IndicatorVisibleStateComposer } from './indicatorMetadata.js'
+import type { IndicatorSeriesBundle } from './workerProtocol.js'
 
 type SparseIndicatorSeries = {
   series: (number | undefined)[]

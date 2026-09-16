@@ -1,20 +1,20 @@
 import type {
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import { calcTEMAData } from '../../indicators/calculators'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { TEMARenderState } from '../../indicators/state/temaState'
-import { createTEMAStateKey, EMPTY_TEMA_STATE } from '../../indicators/state/temaState'
-import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
-import { tryDrawLinesGpu } from '../linesViaRenderer'
+  RenderContext,
+  RendererPluginWithHost,
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import { calcTEMAData } from '../../indicators/calculators/index.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { TEMARenderState } from '../../indicators/state/temaState.js'
+import { createTEMAStateKey, EMPTY_TEMA_STATE } from '../../indicators/state/temaState.js'
+import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
-import { createSingleLineTitleInfo } from './shared/titleInfo'
+import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type Point = { x: number; y: number }
 

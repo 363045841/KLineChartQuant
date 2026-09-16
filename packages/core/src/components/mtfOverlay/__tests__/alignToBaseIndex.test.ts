@@ -6,7 +6,7 @@
  * would expose future state. This file pins that out.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { alignToBaseIndex } from '../alignToBaseIndex'
 

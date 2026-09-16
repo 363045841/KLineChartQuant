@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
-import { fillCloud, type CloudSeg } from '../ichimoku'
+import { type CloudSeg, fillCloud } from '../ichimoku'
 
 function createMockCtx(): CanvasRenderingContext2D {
   return {

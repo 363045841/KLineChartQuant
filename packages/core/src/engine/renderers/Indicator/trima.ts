@@ -1,21 +1,21 @@
 // TRIMA 三角移动均线渲染器插件与指标定义（WebGL + Canvas2D 回退）
 import type {
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import { calcTRIMAData } from '../../indicators/calculators'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { TRIMARenderState } from '../../indicators/state/trimaState'
-import { createTRIMAStateKey, EMPTY_TRIMA_STATE } from '../../indicators/state/trimaState'
-import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
-import { tryDrawLinesGpu } from '../linesViaRenderer'
+  RenderContext,
+  RendererPluginWithHost,
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import { calcTRIMAData } from '../../indicators/calculators/index.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { TRIMARenderState } from '../../indicators/state/trimaState.js'
+import { createTRIMAStateKey, EMPTY_TRIMA_STATE } from '../../indicators/state/trimaState.js'
+import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
-import { createSingleLineTitleInfo } from './shared/titleInfo'
+import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type Point = { x: number; y: number }
 

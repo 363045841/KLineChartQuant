@@ -1,5 +1,5 @@
 /** 主题状态模块：系统主题注入点与主题偏好。 */
-import { createSubState } from '../../foundation/reactivity/signal'
+import { createSubState } from '../../foundation/reactivity/signal.js'
 
 /**
  * 系统主题（OS / matchMedia）注入点。

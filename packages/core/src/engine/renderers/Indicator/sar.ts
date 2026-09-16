@@ -1,23 +1,23 @@
 import type {
   IndicatorRenderStateReader,
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors, type ColorTokens } from '../../../foundation/tokens/index'
-import type { KLineData } from '../../../foundation/types/price'
-import { calcSARData } from '../../indicators/calculators'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+  RenderContext,
+  RendererPluginWithHost,
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import { type ColorTokens, resolveThemeColors } from '../../../foundation/tokens/index.js'
+import type { KLineData } from '../../../foundation/types/price.js'
+import { calcSARData } from '../../indicators/calculators/index.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
 import {
+  type GetTitleInfoFn,
   resolveStateKey,
   type TitleInfo,
-  type GetTitleInfoFn,
-} from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { SARRenderState } from '../../indicators/state/sarState'
-import { createSARStateKey, EMPTY_SAR_STATE } from '../../indicators/state/sarState'
-import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
+} from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { SARRenderState } from '../../indicators/state/sarState.js'
+import { createSARStateKey, EMPTY_SAR_STATE } from '../../indicators/state/sarState.js'
+import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 
 const DOT_RADIUS = 1.5
 const TAU = Math.PI * 2

@@ -1,10 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-
-import { Pane } from '../../layout/pane'
-import { TimeShareMode } from '../timeShareMode'
 import { FIVE_DAY_TIME_SHARE_PERIOD } from '../../../controllers/types'
 import type { TimeShareRange } from '../../../data/provider/types'
 import type { TimeShareData } from '../../../foundation/types/price'
+import { Pane } from '../../layout/pane'
+import { TimeShareMode } from '../timeShareMode'
 
 function ts(price: number, i = 0, average = price): TimeShareData {
   return { timestamp: i, price, average, volume: 1, amount: price }

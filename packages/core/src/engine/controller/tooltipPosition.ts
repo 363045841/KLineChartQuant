@@ -1,6 +1,6 @@
 // Tooltip 定位策略
 
-import { isOnRightHalf } from '../../foundation/utils/viewportSide'
+import { isOnRightHalf } from '../../foundation/utils/viewportSide.js'
 
 export type TooltipPositionMode = 'crosshair' | 'adaptive'
 

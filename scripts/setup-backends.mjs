@@ -57,4 +57,6 @@ console.log('完成。启动命令：')
 console.log('  pnpm dev -c all               # Vite 开发服务器 + 全部 connecter')
 console.log('  pnpm dev -c gotdx baostock    # 前端 + 指定的 connecter')
 console.log('  pnpm connecter baostock       # 仅 BaoStock / TradingView 后端')
-console.log('\n要求本机已安装 git，以及 Go（>=1.21）与 uv/Python 3.12（后端首次运行时会自动下载依赖）。')
+console.log(
+  '\n要求本机已安装 git，以及 Go（>=1.21）与 uv/Python 3.12（后端首次运行时会自动下载依赖）。',
+)

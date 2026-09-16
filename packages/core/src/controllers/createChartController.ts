@@ -12,53 +12,52 @@
  *   - Tear down DOM + listeners on dispose().
  */
 
-import { Chart } from '../engine/chart'
-import { DrawingDocument } from '../engine/drawing/DrawingDocument'
-import { DrawingCommands } from '../engine/drawing/DrawingCommands'
-import { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins'
-import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
-import { KLineChartError } from '../errors'
-import { marketDataProviderRegistry } from '../data/provider/registry'
-import { createChartAgentController } from '../features/agent/chartAgentController'
-import { hasSubPaneRendererMetadata } from '../engine/subPaneManager'
-import { createIndicatorQuery } from '../features/agent/indicator/indicatorQuery'
-import {
-  createViewWorkspacePersistence,
-  loadStoredViewWorkspaces,
-} from './viewWorkspacePersistence'
-import { resolveSettings } from '../foundation/config/chartSettings'
-import { computed, type ReadonlySignal } from '../foundation/reactivity/index'
-import { generateUUID } from '../foundation/utils/uuid'
-import { createDefaultRendererHost, type RendererBackend } from '../rendering/render/index'
-import { allIndicatorDefinitions } from './indicatorDefinitionCatalog'
-
+import { marketDataProviderRegistry } from '../data/provider/registry.js'
+import { Chart } from '../engine/chart.js'
 import type {
+  ChartOptions,
+  IndicatorInstance as LegacyIndicatorInstance,
+  SubPaneInfo as LegacySubPaneInfo,
+  ViewportState as LegacyViewportState,
+} from '../engine/chartTypes.js'
+import { DrawingCommands } from '../engine/drawing/DrawingCommands.js'
+import { DrawingDocument } from '../engine/drawing/DrawingDocument.js'
+import { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins.js'
+import type { CustomMarkerEntity } from '../engine/marker/registry.js'
+import { hasSubPaneRendererMetadata } from '../engine/subPaneManager.js'
+import { kGapFromKWidth, zoomLevelToKWidth } from '../engine/utils/zoom.js'
+import { KLineChartError } from '../errors.js'
+import { createChartAgentController } from '../features/agent/chartAgentController.js'
+import { createIndicatorQuery } from '../features/agent/indicator/indicatorQuery.js'
+import { resolveSettings } from '../foundation/config/chartSettings.js'
+import { computed, type ReadonlySignal } from '../foundation/reactivity/index.js'
+import { generateUUID } from '../foundation/utils/uuid.js'
+import { createDefaultRendererHost, type RendererBackend } from '../rendering/render/index.js'
+import { allIndicatorDefinitions } from './indicatorDefinitionCatalog.js'
+import type {
+  BatchDrawingPatch,
   ChartController,
   ChartMountOptions,
   ChartViewport,
-  SubPaneInfo,
+  CreateDrawingInput,
+  CustomDataSource,
+  DrawingControllerCallbacks,
+  DrawingObject,
+  DrawingStyleKey,
   IndicatorInstance,
   InteractionSnapshot,
-  DrawingControllerCallbacks,
   KLineData,
   PaneLayoutInfo,
   PaneSpec,
-  SymbolSpec,
+  SubPaneInfo,
   SymbolInfo,
-  CustomDataSource,
-  BatchDrawingPatch,
-  CreateDrawingInput,
-  DrawingObject,
-  DrawingStyleKey,
+  SymbolSpec,
   UpdateDrawingPatch,
-} from './types'
-import type {
-  ChartOptions,
-  ViewportState as LegacyViewportState,
-  IndicatorInstance as LegacyIndicatorInstance,
-  SubPaneInfo as LegacySubPaneInfo,
-} from '../engine/chartTypes'
-import type { CustomMarkerEntity } from '../engine/marker/registry'
+} from './types.js'
+import {
+  createViewWorkspacePersistence,
+  loadStoredViewWorkspaces,
+} from './viewWorkspacePersistence.js'
 
 // ---------------------------------------------------------------------------
 // Defaults
@@ -673,17 +672,19 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     return match?.label
   }
 
-  function setDrawingTool(tool: import('../engine/drawing/toolConfig').DrawingToolId | null): void {
+  function setDrawingTool(
+    tool: import('../engine/drawing/toolConfig.js').DrawingToolId | null,
+  ): void {
     if (disposed) return
     chart.drawing.setTool(tool)
   }
 
-  function setDrawingToolId(toolId: import('../engine/drawing/toolConfig').DrawingToolId): void {
+  function setDrawingToolId(toolId: import('../engine/drawing/toolConfig.js').DrawingToolId): void {
     if (disposed) return
     chart.drawing.setTool(toolId)
   }
 
-  function getDrawingToolId(): import('../engine/drawing/toolConfig').DrawingToolId {
+  function getDrawingToolId(): import('../engine/drawing/toolConfig.js').DrawingToolId {
     if (disposed) return 'cursor'
     return chart.drawing.tool.peek()
   }
@@ -691,7 +692,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   function registerDrawingSession(session: unknown | null): void {
     if (disposed) return
     chart.registerDrawingSession(
-      session as import('../engine/drawing/interaction').DrawingInteractionController | null,
+      session as import('../engine/drawing/interaction.js').DrawingInteractionController | null,
     )
   }
 
@@ -712,7 +713,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   function commitDrawingDrag(
     id: string,
-    anchors: ReadonlyArray<import('../foundation/plugin').PersistedDrawingAnchor>,
+    anchors: ReadonlyArray<import('../foundation/plugin/index.js').PersistedDrawingAnchor>,
   ): DrawingObject | null {
     if (disposed) return null
     return drawingCommands.commitDrag(id, anchors)
@@ -721,7 +722,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   function commitDrawingDrags(
     updates: ReadonlyArray<{
       id: string
-      anchors: ReadonlyArray<import('../foundation/plugin').PersistedDrawingAnchor>
+      anchors: ReadonlyArray<import('../foundation/plugin/index.js').PersistedDrawingAnchor>
     }>,
   ): ReadonlyArray<DrawingObject> {
     if (disposed) return []
@@ -827,7 +828,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     return chart.getLogicalIndexAtTimestamp(timestamp)
   }
 
-  function getDrawingWorkspaceId(): import('../foundation/plugin').DrawingWorkspaceId {
+  function getDrawingWorkspaceId(): import('../foundation/plugin/index.js').DrawingWorkspaceId {
     if (disposed) return 'kline'
     return chart.drawing.getWorkspaceId()
   }
@@ -861,7 +862,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     return pane ? { paneId: pane.id, top: pane.top, height: pane.height } : undefined
   }
 
-  function createPane(input: import('../engine/paneManager').CreatePaneInput): boolean {
+  function createPane(input: import('../engine/paneManager.js').CreatePaneInput): boolean {
     if (disposed) return false
     return chart.panes.create(input)
   }
@@ -888,7 +889,10 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     return chart.panes.updateContent(paneId, params)
   }
 
-  function updatePane(paneId: string, patch: import('../engine/paneManager').PanePatch): boolean {
+  function updatePane(
+    paneId: string,
+    patch: import('../engine/paneManager.js').PanePatch,
+  ): boolean {
     if (disposed) return false
     return chart.panes.update(paneId, patch)
   }
@@ -1017,8 +1021,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     clearDrawings,
     createDrawing,
     updateDrawing,
-     commitDrawingDrag,
-     commitDrawingDrags,
+    commitDrawingDrag,
+    commitDrawingDrags,
     updateBatch,
     getBatchStyleKeys,
     removeDrawing,

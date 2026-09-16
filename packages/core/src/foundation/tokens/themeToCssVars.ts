@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../errors'
+import { KLineChartError } from '../../errors.js'
 
 /**
  * Theme → CSS custom-property emitter.
@@ -28,7 +28,7 @@ import { KLineChartError } from '../../errors'
  * (Tailwind, MUI, Radix) on the same page.
  */
 
-import type { Theme } from './types'
+import type { Theme } from './types.js'
 
 export interface ThemeToCssVarsOptions {
   /**

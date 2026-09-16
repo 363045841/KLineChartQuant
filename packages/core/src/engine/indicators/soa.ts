@@ -1,5 +1,5 @@
-import { KLineChartError } from '../../errors'
-import type { KLineData } from '../../foundation/types/price'
+import { KLineChartError } from '../../errors.js'
+import type { KLineData } from '../../foundation/types/price.js'
 
 /**
  * KLineData 的 SoA (Structure of Arrays) 布局

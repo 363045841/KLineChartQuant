@@ -119,25 +119,25 @@
 
 <script setup lang="ts">
   import {
-    createIndicatorSelectorController,
-    type IndicatorDefinition,
     allIndicatorDefinitions,
+    createIndicatorSelectorController,
     findIndicator,
-    loadBuiltinIndicators,
+    type IndicatorDefinition,
     isBuiltinIndicatorsLoaded,
+    loadBuiltinIndicators,
   } from '@363045841yyt/klinechart-core/controllers'
-  import { ref, computed, onMounted, onUnmounted } from 'vue'
+  import { computed, onMounted, onUnmounted, ref } from 'vue'
   import IconTablerInfoCircle from '~icons/tabler/info-circle'
   import IconTablerSearch from '~icons/tabler/search'
   import IconTablerSettings from '~icons/tabler/settings'
 
-  import { coreSignalToVueRef } from '../utils/signalBridge'
+  import { coreSignalToVueRef } from '../utils/signalBridge.js'
 
   import BaseButton from './BaseButton.vue'
   import BaseModal from './BaseModal.vue'
+  import SearchField from './common/SearchField.vue'
   import IndicatorParams from './IndicatorParams.vue'
   import SegmentedTabs from './SegmentedTabs.vue'
-  import SearchField from './common/SearchField.vue'
 
   const props = defineProps<{
     activeIndicators?: string[]

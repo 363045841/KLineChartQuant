@@ -4,25 +4,28 @@
 
 import type {
   IndicatorRenderStateReader,
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import type { ColorTokens } from '../../../foundation/tokens/index'
-import type { KLineData } from '../../../foundation/types/price'
-import { calcStochRSIData } from '../../indicators/calculators/stochRSI'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { StochRSIRenderState } from '../../indicators/state/stochRSIState'
-import { createStochRSIStateKey, EMPTY_STOCH_RSI_STATE } from '../../indicators/state/stochRSIState'
-import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers'
+  RenderContext,
+  RendererPluginWithHost,
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import type { ColorTokens } from '../../../foundation/tokens/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import type { KLineData } from '../../../foundation/types/price.js'
+import { calcStochRSIData } from '../../indicators/calculators/stochRSI.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { StochRSIRenderState } from '../../indicators/state/stochRSIState.js'
+import {
+  createStochRSIStateKey,
+  EMPTY_STOCH_RSI_STATE,
+} from '../../indicators/state/stochRSIState.js'
+import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
 
-import { tryDrawLinesGpu } from '../linesViaRenderer'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
-import { createStochRSIScaleRendererPlugin } from './scale/stochRSI_scale'
+import { createStochRSIScaleRendererPlugin } from './scale/stochRSI_scale.js'
 
 type LinePoint = { x: number; y: number }
 

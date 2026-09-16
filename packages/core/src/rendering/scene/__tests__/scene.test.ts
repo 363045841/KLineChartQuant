@@ -13,7 +13,7 @@
  * test don't read it, they only record they were called.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import type { Renderer } from '../../render/Renderer'
 import { createScene } from '../createScene'

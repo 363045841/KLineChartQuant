@@ -14,8 +14,8 @@ import {
   computeTimeShareVisibleRange,
   computeTimeShareXLayout,
   resolveFiveDayTimeShareBaseline,
-  resolveTimeShareSessionSlots,
   resolveTimeShareBaseline,
+  resolveTimeShareSessionSlots,
 } from '../timeShareMath'
 
 describe('resolveTimeShareBaseline', () => {

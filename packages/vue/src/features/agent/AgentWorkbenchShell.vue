@@ -51,13 +51,11 @@
 
 <script setup lang="ts">
   import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-
-  import AgentWorkspace from './components/AgentWorkspace.vue'
-
-  import type { AgentBridgeClient } from './agent-contracts'
-  import type { AgentPanelWidthStorage } from './workbench-shell'
-
   import IconSparkles from '~icons/tabler/sparkles'
+
+  import type { AgentBridgeClient } from './agent-contracts.js'
+  import AgentWorkspace from './components/AgentWorkspace.vue'
+  import type { AgentPanelWidthStorage } from './workbench-shell.js'
 
   const MIN_PANEL_WIDTH = 360
   const MAX_PANEL_WIDTH = 640
@@ -180,6 +178,7 @@
     letter-spacing: 0;
   }
 
+  /* 轨道宽度瞬间到位，只触发一次图表 resize；面板位移交给 compositor 的 transform，避免逐帧重布局。 */
   .chart-surface {
     --kmap-chart-height: 100%;
     --kmap-chart-width: 100%;
@@ -193,7 +192,6 @@
     box-sizing: border-box;
     background: var(--agent-bg);
     margin-right: var(--agent-panel-track, 0px);
-    transition: margin-right 0.28s ease;
   }
 
   .agent-panel {
@@ -209,6 +207,7 @@
     background: var(--agent-bg);
     visibility: hidden;
     transform: translateX(100%);
+    will-change: transform;
     transition:
       transform 0.28s ease,
       visibility 0s linear 0.28s;
@@ -304,7 +303,6 @@
 
   .agent-workbench-shell--compact .chart-surface {
     margin-right: 0;
-    transition: none;
   }
 
   .agent-workbench-shell--compact .drawer-backdrop {

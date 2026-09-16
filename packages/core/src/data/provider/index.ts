@@ -1,12 +1,7 @@
 /** 统一行情领域模型公共入口。 */
 
-export {
-  DEFAULT_V1_BASE_URL,
-  V1_PROTOCOL_NAME,
-  V1_PROTOCOL_VERSION,
-  createHttpMarketDataTransport,
-  createMarketDataProvider,
-} from './protocol'
+export type { InstrumentLookupRequest, InstrumentSearchRequest } from './instrumentSearch.js'
+export { lookupInstrumentsBySymbol, searchInstruments } from './instrumentSearch.js'
 export type {
   HttpTransportOptions,
   MarketDataProviderOptions,
@@ -16,8 +11,8 @@ export type {
   ProtocolBarSeries,
   ProtocolBaseUrl,
   ProtocolEnvelope,
-  ProtocolErrorEnvelope,
   ProtocolErrorCode,
+  ProtocolErrorEnvelope,
   ProtocolHistoryCoverage,
   ProtocolInstrumentCapabilities,
   ProtocolInstrumentDescriptor,
@@ -25,36 +20,41 @@ export type {
   ProtocolInstrumentSearchRequest,
   ProtocolInstrumentSearchResult,
   ProtocolKLineItem,
-  ProtocolSourceProbe,
   ProtocolSourceCapabilities,
+  ProtocolSourceProbe,
   ProtocolSourceRejectionCode,
-  ProtocolTimeShareItem,
   ProtocolTimeShareDay,
+  ProtocolTimeShareItem,
   ProtocolTimeShareRangeCapability,
   ProtocolTimeShareRangeRequest,
   ProtocolTimeShareRangeSeries,
   ProtocolTimeShareRequest,
   ProtocolTimeShareSeries,
-} from './protocol'
-export { SOURCE_REJECTION_CODES } from './protocol'
-export { MarketDataProviderRegistry, marketDataProviderRegistry } from './registry'
+} from './protocol/index.js'
+export {
+  createHttpMarketDataTransport,
+  createMarketDataProvider,
+  DEFAULT_V1_BASE_URL,
+  SOURCE_REJECTION_CODES,
+  V1_PROTOCOL_NAME,
+  V1_PROTOCOL_VERSION,
+} from './protocol/index.js'
 export type {
   MarketDataSourceConfig,
   MarketDataSourceConfigPatch,
   SourceCapabilityQuery,
-} from './registry'
-export { lookupInstrumentsBySymbol, searchInstruments } from './instrumentSearch'
-export type { InstrumentLookupRequest, InstrumentSearchRequest } from './instrumentSearch'
-export { SourceRouter, SourceRoutingError, sourceRouter } from './router'
+} from './registry.js'
+export { MarketDataProviderRegistry, marketDataProviderRegistry } from './registry.js'
 export type {
   RoutedMarketData,
   SourceRouteAttempt,
   SourceRouterBarsRequest,
   SourceRouterInstrumentIdentity,
   SourceRouterTimeShareRequest,
-} from './router'
-export { dataSourceRegistry } from './sourceRegistry'
-export type { DataSourceRegistration } from './sourceRegistry'
+} from './router.js'
+export { SourceRouter, SourceRoutingError, sourceRouter } from './router.js'
+export type { DataSourceRegistration } from './sourceRegistry.js'
+export { dataSourceRegistry } from './sourceRegistry.js'
 export type {
   AssetClass,
   BarCapability,
@@ -74,16 +74,16 @@ export type {
   MarketDataProvider,
   MarketDataSourceStatus,
   ProviderRef,
-  SourceProbeResult,
   SourceCapabilities,
+  SourceProbeResult,
   TimeShareDataSource,
   TimeShareDay,
+  TimeShareQuery,
+  TimeShareRange,
   TimeShareRangeCapability,
   TimeShareRangeDataSource,
-  TimeShareRange,
   TimeShareRangeQuery,
-  TimeShareQuery,
   TimeShareSeries,
   TradingDate,
   VolumeUnit,
-} from './types'
+} from './types.js'

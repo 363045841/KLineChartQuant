@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { JSDOM } from 'jsdom'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { KLineData, SymbolSpec } from '../../../controllers/types'
 import { createSignal } from '../../../foundation/reactivity/signal'
@@ -190,9 +190,11 @@ describe('ChartDataManager.getComparisonViewLineRange', () => {
   it('checks comparison coverage when the reference series already covers the visible range', () => {
     const m = loadKlineOnly()
     m.setComparisonData('CMP', [cmpData[1]!, cmpData[2]!])
-    const comparisonManager = (m as unknown as {
-      _comparisonManager: { ensureRange: (firstVisibleTs: number) => void }
-    })._comparisonManager
+    const comparisonManager = (
+      m as unknown as {
+        _comparisonManager: { ensureRange: (firstVisibleTs: number) => void }
+      }
+    )._comparisonManager
     const ensureRange = vi.spyOn(comparisonManager, 'ensureRange')
 
     m.checkVisibleRangeGap()

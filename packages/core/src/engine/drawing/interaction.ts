@@ -1,39 +1,41 @@
-import type { DrawingChartAdapter } from '../../controllers/types'
-import type { DrawingObject, DrawingStyle } from '../../foundation/plugin/index'
-import { ChartWorkspaceId } from '../../foundation/types/chartView'
+import type { DrawingChartAdapter } from '../../controllers/types.js'
+import type { DrawingObject, DrawingStyle } from '../../foundation/plugin/index.js'
+import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
 
-import { AnchorCollector } from './AnchorCollector'
-import { DragHandler } from './DragHandler'
-import { DrawingState, PREVIEW_ID } from './DrawingState'
-import { clearDrawingSelection, toggleDrawingSelection } from './DrawingSelection'
-import { HitTester } from './HitTester'
-import type { HitResult, LineLabelTarget } from './HitTester'
-import {
-  drawingIntersectsSelectionMarquee,
-  hasSelectionMarqueeArea,
-  type DrawingSelectionMarquee,
-} from './selectionMarquee'
-import { PreviewRenderer } from './PreviewRenderer'
-import { resolveDrawingPointer } from './coordinateUtils'
+import { AnchorCollector } from './AnchorCollector.js'
 import type {
-  ResolvedInteractionAnchor,
   DrawingPointerAnchor,
   ResolveDrawingPointerOptions,
-} from './coordinateUtils'
-import type { MagnetMode } from './magnetSnapper'
-import type { DrawingToolId } from './toolConfig'
-import { getAnchorCountForTool, getDrawingKind } from './toolConfig'
+  ResolvedInteractionAnchor,
+} from './coordinateUtils.js'
+import { resolveDrawingPointer } from './coordinateUtils.js'
+import { DragHandler } from './DragHandler.js'
+import { clearDrawingSelection, toggleDrawingSelection } from './DrawingSelection.js'
+import { DrawingState, PREVIEW_ID } from './DrawingState.js'
+import type { HitResult, LineLabelTarget } from './HitTester.js'
+import { HitTester } from './HitTester.js'
+import type { MagnetMode } from './magnetSnapper.js'
+import { PreviewRenderer } from './PreviewRenderer.js'
+import {
+  type DrawingSelectionMarquee,
+  drawingIntersectsSelectionMarquee,
+  hasSelectionMarqueeArea,
+} from './selectionMarquee.js'
+import type { DrawingToolId } from './toolConfig.js'
+import { getAnchorCountForTool, getDrawingKind } from './toolConfig.js'
 
+export type { InteractionDrawingAnchor } from './coordinateUtils.js'
 // Re-export types so index.ts re-exports work unchanged
-export type { DrawingToolId } from './toolConfig'
-export type { InteractionDrawingAnchor } from './coordinateUtils'
+export type { DrawingToolId } from './toolConfig.js'
 
 /** 命中标签后供宿主渲染就地编辑器的几何快照；与 HitTester 的命中结果同一类型。 */
 export type DrawingLineLabelTarget = LineLabelTarget
 
 /** 指针会话的唯一状态：框选和拖拽互斥，禁止通过多个可空字段推导行为。 */
 type DrawingPointerSession =
-  { kind: 'idle' } | { kind: 'marquee'; marquee: DrawingSelectionMarquee } | { kind: 'drag' }
+  | { kind: 'idle' }
+  | { kind: 'marquee'; marquee: DrawingSelectionMarquee }
+  | { kind: 'drag' }
 
 /**
  * 绘图交互控制器 —— 精简事件路由，组合子模块。
@@ -222,12 +224,7 @@ export class DrawingInteractionController {
       return this.handleBoxSelectDown(e, container)
     }
 
-    const pointer = resolveDrawingPointer(
-      e,
-      container,
-      this.adapter,
-      this.resolveMagnetOptions(e),
-    )
+    const pointer = resolveDrawingPointer(e, container, this.adapter, this.resolveMagnetOptions(e))
     if (!pointer || (this.pendingPaneId !== null && pointer.paneId !== this.pendingPaneId))
       return false
 
@@ -368,8 +365,7 @@ export class DrawingInteractionController {
         (drawing) =>
           !drawing.locked &&
           drawing.paneId === paneId &&
-          (drawing.workspaceId ?? ChartWorkspaceId.KLine) ===
-            this.adapter.getDrawingWorkspaceId(),
+          (drawing.workspaceId ?? ChartWorkspaceId.KLine) === this.adapter.getDrawingWorkspaceId(),
       )
   }
 

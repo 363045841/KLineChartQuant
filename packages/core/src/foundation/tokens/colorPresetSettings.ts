@@ -1,4 +1,4 @@
-import type { ColorTokens, ColorValue } from './types'
+import type { ColorTokens, ColorValue } from './types.js'
 
 export type ColorPresetThemeName = 'light' | 'dark'
 

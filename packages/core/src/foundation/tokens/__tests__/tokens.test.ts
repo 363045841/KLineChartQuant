@@ -16,17 +16,17 @@
  *      per family, deep on `colors.palette`, and never mutates inputs.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import {
-  lightTheme,
+  type ColorTokens,
   darkTheme,
+  type IndicatorPalette,
+  lightTheme,
   mergeTheme,
-  withAsiaMarketColors,
   resolveThemeColors,
   type Theme,
-  type ColorTokens,
-  type IndicatorPalette,
+  withAsiaMarketColors,
 } from '..'
 
 describe('performance color tokens', () => {

@@ -19,9 +19,9 @@
  * the codebase can reference layer types by symbol rather than magic string.
  */
 
-import { KLineChartError } from '../../errors'
+import { KLineChartError } from '../../errors.js'
 
-import type { Layer, LayerRole } from './types'
+import type { Layer, LayerRole } from './types.js'
 
 /**
  * A layer factory turns a typed config into a `Layer`.

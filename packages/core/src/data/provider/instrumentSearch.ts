@@ -1,8 +1,7 @@
 /** 聚合已启用行情数据源的无状态品种目录查询能力。 */
-import { KLineChartError } from '../../errors'
-
-import type { InstrumentDescriptor, InstrumentSearchQuery } from './types'
-import type { MarketDataProviderRegistry } from './registry'
+import { KLineChartError } from '../../errors.js'
+import type { MarketDataProviderRegistry } from './registry.js'
+import type { InstrumentDescriptor, InstrumentSearchQuery } from './types.js'
 
 /** 跨数据源查询品种目录的输入。 */
 export interface InstrumentSearchRequest extends InstrumentSearchQuery {
@@ -75,7 +74,10 @@ export async function searchInstruments(
       result.status === 'fulfilled',
   )
   if (successful.length === 0) {
-    throw new KLineChartError('FETCH_FAILED', '[InstrumentSearch] all selected source searches failed')
+    throw new KLineChartError(
+      'FETCH_FAILED',
+      '[InstrumentSearch] all selected source searches failed',
+    )
   }
 
   const instruments = new Map<string, InstrumentDescriptor>()

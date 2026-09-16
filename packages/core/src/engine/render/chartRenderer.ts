@@ -1,87 +1,93 @@
-import type { ChartSettings } from '../../foundation/config/chartSettings'
-import type { SymbolSpec } from '../../controllers/types'
+import type { SymbolSpec } from '../../controllers/types.js'
+import type { ChartSettings } from '../../foundation/config/chartSettings.js'
 import type {
+  FiveDayTimeShareGeometry,
   PluginHostImpl,
   RenderContext,
-  YAxisLabel,
   XAxisLabel,
-  YAxisRange,
   XAxisRange,
+  YAxisLabel,
+  YAxisRange,
   YAxisTick,
-  FiveDayTimeShareGeometry,
-} from '../../foundation/plugin/index'
-import { RendererPluginManager, wrapPaneInfo } from '../../foundation/plugin/index'
-import type { Renderer } from '../../rendering/render/Renderer'
-import { createLayerFromPlugin } from '../../rendering/scene/createLayerFromPlugin'
-import { createScene } from '../../rendering/scene/createScene'
-import type { Scene, PaintContext, PaneRole, Layer } from '../../rendering/scene/types'
-import type { KLineData, TimeShareData } from '../../foundation/types/price'
-import type {
-  ChartDom,
-  PaneSpec,
-  ChartOptions,
-  KLinePositions,
-  Viewport,
-  ViewportState,
-} from '../chartTypes'
-import { InteractionController } from '../controller/interaction'
-import { ChartDataManager } from '../data/chartDataManager'
+} from '../../foundation/plugin/index.js'
+import { RendererPluginManager, wrapPaneInfo } from '../../foundation/plugin/index.js'
 import {
-  DrawingDefinitionRegistry,
-  DrawingStore,
-  registerDefaultDrawingDefinitions,
-  type DrawingStoreDeps,
-} from '../drawing'
-import { projectDrawingsForFrame } from '../drawing/frameProjection'
-import { createDrawingRendererPlugin } from '../drawing/plugin'
-import type { DrawingSelectionMarquee } from '../drawing/selectionMarquee'
-import { ChartIndicatorManager } from '../indicators/chartIndicatorManager'
-import { resolveStateKey } from '../indicators/indicatorMetadata'
-import { UpdateLevel } from '../layout/pane'
-import type { VisibleRange } from '../layout/pane'
-import { MarkerManager, type CustomMarkerEntity, type MarkerManagerDeps } from '../marker/registry'
+  createFrameTransaction,
+  type FrameTransaction,
+} from '../../foundation/reactivity/frameTransaction.js'
+import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import type { ChartSeriesDatum } from '../../foundation/types/price.js'
 import {
   ASHARE_MARKET_SESSION,
   resolveMarketSessionSlots,
   resolveTimestampSessionSlot,
-} from '../../foundation/utils/timeShareAxisLabels'
-import { computeTimeShareXLayout } from '../modes/timeShareMath'
-import { computeFiveDayTimeShareGeometry } from '../modes/fiveDayTimeShareGeometry'
-import type { ChartModeHandler } from '../modes/types'
-import { ChartDataViewId, type ChartDataView } from '../state/modeState'
-import { PaneRenderer } from '../paneRenderer'
-import { createTimeAxisRendererPlugin } from '../renderers/timeAxis'
-import { createTimeShareRendererPlugin } from '../renderers/timeShare'
-import { createFiveDayTimeShareRendererPlugin } from '../renderers/fiveDayTimeShare'
-import { calcKBarWidthPx, getPhysicalKLineConfig } from '../utils/klineConfig'
-import { calculateTickCount } from '../utils/tickCount'
-import { findFirstVisibleBarIndex } from '../utils/visibleBarIndex'
-
-import { createCandleLayer } from './layers/candleLayer'
-import { createComparisonLineLayer } from './layers/comparisonLineLayer'
-import { createCrosshairLayer } from './layers/crosshairLayer'
-import { createCustomMarkersLayer } from './layers/customMarkersLayer'
-import { createExtremaMarkersLayer } from './layers/extremaMarkersLayer'
-import { createGridLinesLayer } from './layers/gridLinesLayer'
-import { createLeftYAxisOverlayLayer, createLeftYAxisStaticLayer } from './layers/leftYAxisLayer'
-import { createMainIndicatorLegendLayer } from './layers/mainIndicatorLegendLayer'
-import { createYAxisOverlayLayer, createYAxisStaticLayer } from './layers/yAxisLayer'
-import type { LayerRole } from '../../rendering/scene/types'
+} from '../../foundation/utils/timeShareAxisLabels.js'
+import type { Renderer } from '../../rendering/render/Renderer.js'
+import { createLayerFromPlugin } from '../../rendering/scene/createLayerFromPlugin.js'
+import { createScene } from '../../rendering/scene/createScene.js'
+import type {
+  Layer,
+  LayerRole,
+  PaintContext,
+  PaneRole,
+  Scene,
+} from '../../rendering/scene/types.js'
+import type {
+  ChartDom,
+  ChartOptions,
+  KLinePositions,
+  PaneSpec,
+  Viewport,
+  ViewportState,
+} from '../chartTypes.js'
+import { InteractionController } from '../controller/interaction.js'
+import { ChartDataManager } from '../data/chartDataManager.js'
+import { projectDrawingsForFrame } from '../drawing/frameProjection.js'
 import {
-  createFrameTransaction,
-  type FrameTransaction,
-} from '../../foundation/reactivity/frameTransaction'
-import type { ReadonlySignal } from '../../foundation/reactivity/signal'
-import type { ViewportStateModule } from '../state/viewportState'
-import type { ZoomStateModule } from '../state/zoomState'
-import type { OptionsStateModule } from '../state/optionsState'
+  DrawingDefinitionRegistry,
+  DrawingStore,
+  type DrawingStoreDeps,
+  registerDefaultDrawingDefinitions,
+} from '../drawing/index.js'
+import { createDrawingRendererPlugin } from '../drawing/plugin.js'
+import type { DrawingSelectionMarquee } from '../drawing/selectionMarquee.js'
+import { ChartIndicatorManager } from '../indicators/chartIndicatorManager.js'
+import { resolveStateKey } from '../indicators/indicatorMetadata.js'
+import type { VisibleRange } from '../layout/pane.js'
+import { UpdateLevel } from '../layout/pane.js'
+import {
+  type CustomMarkerEntity,
+  MarkerManager,
+  type MarkerManagerDeps,
+} from '../marker/registry.js'
+import { computeFiveDayTimeShareGeometry } from '../modes/fiveDayTimeShareGeometry.js'
+import { computeTimeShareXLayout } from '../modes/timeShareMath.js'
+import type { ChartModeHandler } from '../modes/types.js'
+import { PaneRenderer } from '../paneRenderer.js'
+import { createFiveDayTimeShareRendererPlugin } from '../renderers/fiveDayTimeShare.js'
+import { createTimeAxisRendererPlugin } from '../renderers/timeAxis.js'
+import { createTimeShareRendererPlugin } from '../renderers/timeShare.js'
+import { type ChartDataView, ChartDataViewId } from '../state/modeState.js'
+import type { OptionsStateModule } from '../state/optionsState.js'
+import type { ViewportStateModule } from '../state/viewportState.js'
+import type { ZoomStateModule } from '../state/zoomState.js'
+import { calcKBarWidthPx, getPhysicalKLineConfig } from '../utils/klineConfig.js'
+import { calculateTickCount } from '../utils/tickCount.js'
+import { findFirstVisibleBarIndex } from '../utils/visibleBarIndex.js'
+import { createCandleLayer } from './layers/candleLayer.js'
+import { createComparisonLineLayer } from './layers/comparisonLineLayer.js'
+import { createCrosshairLayer } from './layers/crosshairLayer.js'
+import { createCustomMarkersLayer } from './layers/customMarkersLayer.js'
+import { createExtremaMarkersLayer } from './layers/extremaMarkersLayer.js'
+import { createGridLinesLayer } from './layers/gridLinesLayer.js'
+import { createLeftYAxisOverlayLayer, createLeftYAxisStaticLayer } from './layers/leftYAxisLayer.js'
+import { createMainIndicatorLegendLayer } from './layers/mainIndicatorLegendLayer.js'
+import { createYAxisOverlayLayer, createYAxisStaticLayer } from './layers/yAxisLayer.js'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kWidth: number
   kGap: number
 }
-
-type MarketSeriesData = KLineData | TimeShareData
 
 /**
  * 一帧绘制几何与数据（prepare 产出，render 只读）。
@@ -105,7 +111,7 @@ type FrameContext = {
   /** Overlay 帧复用上一帧的几何缓存 */
   useCachedFrame: boolean
   /** 当前模式对应的强类型行情数据。 */
-  data: MarketSeriesData[]
+  data: ChartSeriesDatum[]
   /** 当前缩放级别索引 */
   zoomLevel: number
   /** 缩放级别总数 */
@@ -171,7 +177,9 @@ export interface RendererDependencies {
   getSelectionMarquee?: () => DrawingSelectionMarquee | null
   /** 主图图例上下文发布（canvas / external 均触发；draw 内回调） */
   onLegendContext?: (
-    ctx: import('../renderers/Indicator/mainIndicatorLegendContext').LegendTemplateContext | null,
+    ctx:
+      | import('../renderers/Indicator/mainIndicatorLegendContext.js').LegendTemplateContext
+      | null,
   ) => void
 }
 
@@ -788,7 +796,7 @@ export class ChartRenderer {
     mainIndicatorRange: { min: number; max: number } | null,
     useCachedFrame: boolean,
     level: UpdateLevel,
-    renderData: MarketSeriesData[],
+    renderData: ChartSeriesDatum[],
     fiveDayTimeShareGeometry: FiveDayTimeShareGeometry | null,
   ): { sharedXAxisLabels: XAxisLabel[]; sharedXAxisRanges: XAxisRange[] } {
     // X 轴由多个 Pane 共享；Y 轴装饰必须保持 Pane 隔离。
@@ -822,7 +830,11 @@ export class ChartRenderer {
         if (pane.id === 'main' && comparisonActive) {
           // 比较视图：y 轴范围 = 可见区各比较商品等价价极值，
           // 随滚动/缩放逐帧重算，缩放与平移的 clamp 上下限同步跟随折线
-          const lineRange = dataManager.getComparisonViewLineRange(range, kLineCenters, vp.scrollLeft)
+          const lineRange = dataManager.getComparisonViewLineRange(
+            range,
+            kLineCenters,
+            vp.scrollLeft,
+          )
           if (lineRange) {
             const linePriceRange = { maxPrice: lineRange.max, minPrice: lineRange.min }
             pane.priceRange = linePriceRange
@@ -1063,7 +1075,7 @@ export class ChartRenderer {
     kWidthPx: number,
     sharedXAxisLabels: XAxisLabel[],
     sharedXAxisRanges: XAxisRange[],
-    renderData: MarketSeriesData[],
+    renderData: ChartSeriesDatum[],
     fiveDayTimeShareGeometry: FiveDayTimeShareGeometry | null,
   ): void {
     const dom = this.deps.getDom()

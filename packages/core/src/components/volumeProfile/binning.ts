@@ -28,7 +28,7 @@
  *     partially overlapping contributes proportionally.
  */
 
-import type { BinningMode, VolumeProfileBar } from './types'
+import type { BinningMode, VolumeProfileBar } from './types.js'
 
 /**
  * Distribute one bar's volume into `buckets`.

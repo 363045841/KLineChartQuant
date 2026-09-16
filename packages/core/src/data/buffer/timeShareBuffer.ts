@@ -5,16 +5,25 @@ import {
   createSignal,
   type ReadonlySignal,
   type WritableSignal,
-} from '../../foundation/reactivity/signal'
-import type { TimeShareData } from '../../foundation/types/price'
-import type { TimeShareRange } from '../provider/types'
+} from '../../foundation/reactivity/signal.js'
+import type { TimeShareData } from '../../foundation/types/price.js'
+import type { TimeShareRange } from '../provider/types.js'
 
-import type { DataChange, DataBufferLike, LoadedTimeRange, TimeShareBuffer as TimeShareBufferType } from './dataBufferTypes'
-import { UniqueTimestampIndex } from './uniqueTimestampIndex'
+import type {
+  DataBufferLike,
+  DataChange,
+  LoadedTimeRange,
+  TimeShareBuffer as TimeShareBufferType,
+} from './dataBufferTypes.js'
+import { UniqueTimestampIndex } from './uniqueTimestampIndex.js'
 
 type Content =
   | { readonly kind: 'empty' }
-  | { readonly kind: 'inline'; readonly data: ReadonlyArray<TimeShareData>; readonly preClose: number | null }
+  | {
+      readonly kind: 'inline'
+      readonly data: ReadonlyArray<TimeShareData>
+      readonly preClose: number | null
+    }
   | { readonly kind: 'range'; readonly range: TimeShareRange }
 
 const EMPTY_CONTENT: Content = Object.freeze({ kind: 'empty' })
@@ -29,7 +38,9 @@ function copyRange(range: TimeShareRange): TimeShareRange {
   return Object.freeze({
     ...range,
     days: Object.freeze(
-      range.days.map((day) => Object.freeze({ ...day, data: Object.freeze(day.data.map(copyPoint)) })),
+      range.days.map((day) =>
+        Object.freeze({ ...day, data: Object.freeze(day.data.map(copyPoint)) }),
+      ),
     ),
   })
 }
@@ -87,7 +98,9 @@ export class TimeShareBuffer implements TimeShareBufferType, DataBufferLike<Time
   /** 返回数据覆盖范围。 */
   get loadedTimeRange(): LoadedTimeRange | null {
     const data = this.flatData.peek()
-    return data.length ? { earliestTs: data[0]!.timestamp, latestTs: data[data.length - 1]!.timestamp } : null
+    return data.length
+      ? { earliestTs: data[0]!.timestamp, latestTs: data[data.length - 1]!.timestamp }
+      : null
   }
 
   /** 返回当前扁平分时点列。 */

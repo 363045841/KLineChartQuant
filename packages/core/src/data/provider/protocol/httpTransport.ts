@@ -2,19 +2,21 @@
  * 协议的 HTTP 实现：封装请求 URL、envelope 解包与错误解析
  * 任意后端只要实现该契约即可复用本 Transport，测试可注入 fetchImpl
  */
-import { ERROR_CODES, KLineChartError } from '../../../errors'
-import type { KLineChartErrorCode } from '../../../errors'
 
-import { DEFAULT_V1_BASE_URL } from '../sourceRegistry'
-export { DEFAULT_V1_BASE_URL } from '../sourceRegistry'
+import type { KLineChartErrorCode } from '../../../errors.js'
+import { ERROR_CODES, KLineChartError } from '../../../errors.js'
+
+import { DEFAULT_V1_BASE_URL } from '../sourceRegistry.js'
+
+export { DEFAULT_V1_BASE_URL } from '../sourceRegistry.js'
 
 import type {
   MarketDataTransport,
   ProtocolBarRequest,
   ProtocolBarSeries,
   ProtocolEnvelope,
-  ProtocolErrorEnvelope,
   ProtocolErrorCode,
+  ProtocolErrorEnvelope,
   ProtocolInstrumentSearchRequest,
   ProtocolInstrumentSearchResult,
   ProtocolSourceProbe,
@@ -22,8 +24,8 @@ import type {
   ProtocolTimeShareRangeSeries,
   ProtocolTimeShareRequest,
   ProtocolTimeShareSeries,
-} from './types'
-import { SOURCE_REJECTION_CODES } from './types'
+} from './types.js'
+import { SOURCE_REJECTION_CODES } from './types.js'
 
 // 判定数据后端错误是否触发能力流转
 function mapServerErrorCode(code: ProtocolErrorCode): KLineChartErrorCode {
@@ -71,7 +73,9 @@ async function request<T>(
 
   // 尝试解析 JSON 响应体，解析失败则返回 undefined
   const body = (await res.json().catch(() => undefined)) as
-    ProtocolEnvelope<T> | ProtocolErrorEnvelope | undefined
+    | ProtocolEnvelope<T>
+    | ProtocolErrorEnvelope
+    | undefined
 
   // 处理非 2xx 状态码：提取服务端返回的错误信息
   if (!res.ok) {
@@ -127,7 +131,13 @@ export function createHttpMarketDataTransport(
     // 通过 probe endpoint 探测数据源可用性
     async probe(sourceId, signal) {
       const path = `/api/v1/market-data/sources/${encodeURIComponent(sourceId)}/probe`
-      return request<ProtocolSourceProbe>(baseUrl(), path, { method: 'GET', signal }, getFetch, label)
+      return request<ProtocolSourceProbe>(
+        baseUrl(),
+        path,
+        { method: 'GET', signal },
+        getFetch,
+        label,
+      )
     },
 
     // 通过 instruments/search endpoint 搜索标准品种目录
@@ -155,9 +165,7 @@ export function createHttpMarketDataTransport(
         period: req.period,
         adjustment: req.adjustment,
         limit: req.limit,
-        ...(req.beforeTimestamp === undefined
-          ? {}
-          : { beforeTimestamp: req.beforeTimestamp }),
+        ...(req.beforeTimestamp === undefined ? {} : { beforeTimestamp: req.beforeTimestamp }),
       })
       return request<ProtocolBarSeries>(
         baseUrl(),

@@ -3,7 +3,7 @@
  * 支持 6 种预设形状：arrow_up, arrow_down, flag, circle, rectangle, diamond
  */
 
-import type { MarkerShapeType, MarkerStyle, MarkerLabel } from './types'
+import type { MarkerLabel, MarkerShapeType, MarkerStyle } from './types.js'
 
 /** 默认尺寸映射 */
 const DEFAULT_SIZES: Record<MarkerShapeType, number> = {
@@ -243,10 +243,11 @@ export function hitTestShape(
   const half = size / 2
 
   switch (shape) {
-    case 'circle':
+    case 'circle': {
       const dx = mx - x
       const dy = my - y
       return dx * dx + dy * dy <= half * half
+    }
 
     case 'rectangle':
     case 'diamond':

@@ -101,26 +101,24 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, watch } from 'vue'
-
+  import { computed, ref, watch } from 'vue'
+  import IconTablerAlertTriangle from '~icons/tabler/alert-triangle'
+  import IconTablerPlus from '~icons/tabler/plus'
   import {
-    useSymbolSearch,
-    symbolIdentityKey,
-    type SearchableSymbol,
-    type SymbolSearchFn,
-  } from '../composables/useSymbolSearch'
-  import {
+    type AggregationSourceDefinition,
     isMockSourceName,
     supportsAggregationSourceSearch,
-    type AggregationSourceDefinition,
-  } from '../composables/useAggregationSources'
-  import { useAggregationSourceTab } from '../composables/useAggregationSourceTab'
-
+  } from '../composables/useAggregationSources.js'
+  import { useAggregationSourceTab } from '../composables/useAggregationSourceTab.js'
+  import {
+    type SearchableSymbol,
+    type SymbolSearchFn,
+    symbolIdentityKey,
+    useSymbolSearch,
+  } from '../composables/useSymbolSearch.js'
   import BaseTabs from './BaseTabs.vue'
   import LoadingSpinner from './LoadingSpinner.vue'
   import SymbolPopover from './SymbolPopover.vue'
-  import IconTablerAlertTriangle from '~icons/tabler/alert-triangle'
-  import IconTablerPlus from '~icons/tabler/plus'
 
   export type SymbolItem = SearchableSymbol
 

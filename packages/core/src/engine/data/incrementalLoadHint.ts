@@ -1,6 +1,6 @@
-import type { ChartDom } from '../chartTypes'
-import { getPhysicalKLineConfig } from '../utils/klineConfig'
-import type { ViewportStateModule } from '../state/viewportState'
+import type { ChartDom } from '../chartTypes.js'
+import type { ViewportStateModule } from '../state/viewportState.js'
+import { getPhysicalKLineConfig } from '../utils/klineConfig.js'
 
 /** 与 theme selectionFill 对齐：light #2D7FF933 / dark #4A9EFF33；fallback 为 light 默认 */
 const INCREMENTAL_LOAD_HINT_BG = 'var(--klc-color-selection-fill, #2D7FF933)'

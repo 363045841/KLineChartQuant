@@ -28,8 +28,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "size": "size-limit",
-    "lint:publish": "publint --strict .",
-    "lint:types": "attw --pack ."
+    "lint:publish": "publint --strict ."
   },
   "size-limit": [
     {

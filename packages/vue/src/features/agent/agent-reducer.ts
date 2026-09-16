@@ -10,7 +10,7 @@ import {
   type ProviderStatusView,
   type QuestionView,
   type ToolCallView,
-} from './agent-contracts'
+} from './agent-contracts.js'
 
 export interface AgentWorkspaceState {
   lastSequence: number
@@ -343,7 +343,6 @@ function reduceCurrentAgentUiEvent(
 
     case 'provider.status.changed':
       return { ...state, provider: event.status }
-
   }
 }
 

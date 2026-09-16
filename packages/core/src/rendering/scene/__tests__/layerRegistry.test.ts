@@ -11,9 +11,9 @@
  * - two registries are independent
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import { createLayerRegistry, BUILTIN_LAYER_TYPES, type LayerFactory } from '../layerRegistry'
+import { BUILTIN_LAYER_TYPES, createLayerRegistry, type LayerFactory } from '../layerRegistry'
 import type { Layer, PaintContext } from '../types'
 
 // ---------------------------------------------------------------------------

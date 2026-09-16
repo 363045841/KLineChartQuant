@@ -1,15 +1,15 @@
+import type { InstrumentDescriptor } from '@363045841yyt/klinechart-core/market-data'
 import {
   computed,
   getCurrentScope,
+  type MaybeRefOrGetter,
   onScopeDispose,
+  type Ref,
   ref,
   shallowRef,
   toValue,
   watch,
-  type MaybeRefOrGetter,
-  type Ref,
 } from 'vue'
-import type { InstrumentDescriptor } from '@363045841yyt/klinechart-core/market-data'
 
 /** 搜索 UI 直接消费统一行情品种模型。 */
 export type SearchableSymbol = InstrumentDescriptor
@@ -54,7 +54,8 @@ function matchesQuery(item: SearchableSymbol, query: string): boolean {
 
 export function symbolIdentityKey(item: SymbolIdentity): string {
   if (item.id?.trim()) {
-    const sourceId = 'sourceId' in item && typeof item.sourceId === 'string' ? item.sourceId.trim() : ''
+    const sourceId =
+      'sourceId' in item && typeof item.sourceId === 'string' ? item.sourceId.trim() : ''
     return sourceId ? `instrument:${sourceId}:${item.id.trim()}` : `id:${item.id.trim()}`
   }
   if (!('symbol' in item) || !('market' in item)) return 'legacy:unknown'

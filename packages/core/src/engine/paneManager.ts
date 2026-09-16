@@ -1,9 +1,9 @@
 /** PaneManager 统一管理 pane 布局与副图内容的原子领域变更。 */
-import { batch } from '../foundation/reactivity/signal'
-import { generateUUID } from '../foundation/utils/uuid'
-import type { PaneSpec } from './chartTypes'
-import type { IndicatorStateModule, SubPaneInput } from './state/indicatorState'
-import type { PaneStateModule } from './state/paneState'
+import { batch } from '../foundation/reactivity/signal.js'
+import { generateUUID } from '../foundation/utils/uuid.js'
+import type { PaneSpec } from './chartTypes.js'
+import type { IndicatorStateModule, SubPaneInput } from './state/indicatorState.js'
+import type { PaneStateModule } from './state/paneState.js'
 
 /** 可由用户界面和 Agent 共同提交的 pane 可更新字段。 */
 export type PanePatch = Partial<Omit<PaneSpec, 'id'>>
@@ -14,7 +14,7 @@ export interface PaneManagerDependencies {
   readonly indicator: IndicatorStateModule
 }
 
-  /** 创建副图 pane 所需的内容；实例身份由 PaneManager 生成。 */
+/** 创建副图 pane 所需的内容；实例身份由 PaneManager 生成。 */
 export type CreatePaneInput = Omit<SubPaneInput, 'instanceId' | 'ordinal'>
 
 /**
@@ -30,8 +30,11 @@ export class PaneManager {
     update: (paneId: string, patch: PanePatch) => this.update(paneId, patch),
     remove: (paneId: string) => this.remove(paneId),
     move: (paneId: string, targetIndex: number) => this.move(paneId, targetIndex),
-    replaceContent: (paneId: string, indicatorId: string, params: Readonly<Record<string, unknown>>) =>
-      this.replaceContent(paneId, indicatorId, params),
+    replaceContent: (
+      paneId: string,
+      indicatorId: string,
+      params: Readonly<Record<string, unknown>>,
+    ) => this.replaceContent(paneId, indicatorId, params),
     updateContent: (paneId: string, params: Readonly<Record<string, unknown>>) =>
       this.updateContent(paneId, params),
     clear: () => this.clear(),
@@ -49,10 +52,11 @@ export class PaneManager {
   }
 
   private create(input: CreatePaneInput): boolean {
-    const ordinal = this.dependencies.indicator.readonly.instances
-      .peek()
-      .filter((item) => item.role === 'sub' && item.indicatorId === input.indicatorId)
-      .reduce((maximum, item) => Math.max(maximum, item.ordinal), -1) + 1
+    const ordinal =
+      this.dependencies.indicator.readonly.instances
+        .peek()
+        .filter((item) => item.role === 'sub' && item.indicatorId === input.indicatorId)
+        .reduce((maximum, item) => Math.max(maximum, item.ordinal), -1) + 1
     return this.createEntry({ ...input, instanceId: generateUUID(), ordinal })
   }
 
@@ -222,7 +226,10 @@ export class PaneManager {
   }
 
   /** 将 ratios 同步到 spec，保证单次提交的两个字段表达同一快照。 */
-  private withRatios(specs: ReadonlyArray<PaneSpec>, ratios: Readonly<Record<string, number>>): PaneSpec[] {
+  private withRatios(
+    specs: ReadonlyArray<PaneSpec>,
+    ratios: Readonly<Record<string, number>>,
+  ): PaneSpec[] {
     return specs.map((item) => ({ ...item, ratio: ratios[item.id] ?? item.ratio }))
   }
 }

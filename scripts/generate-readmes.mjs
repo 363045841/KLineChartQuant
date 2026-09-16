@@ -21,14 +21,15 @@ const FRAGMENTS = path.join(DOCS, 'fragments')
 // ── Config ──────────────────────────────────────────────────────────
 // Each entry: output path → { template, root (relative path prefix) }
 const CONFIG = {
-  'README.md':                      { template: 'root.md',        root: '' },
-  'README_CN.md':                   { template: 'root.zh-CN.md',  root: '' },
-  'packages/vue/README.md':         { template: 'vue.md',         root: '../../' },
-  'packages/vue/README_CN.md':      { template: 'vue.zh-CN.md',   root: '../../' },
-  'packages/core/README.md':        { template: 'core.md',        root: '../../' },
-  'packages/core/README.zh-CN.md':  { template: 'core.zh-CN.md',  root: '../../' },
-  'packages/react/README.md':       { template: 'react.md',       root: '../../' },
-  'packages/angular/README.md':     { template: 'angular.md',     root: '../../' },
+  'README.md': { template: 'root.md', root: '' },
+  'README_CN.md': { template: 'root.zh-CN.md', root: '' },
+  'packages/vue/README.md': { template: 'vue.md', root: '../../' },
+  'packages/vue/README_CN.md': { template: 'vue.zh-CN.md', root: '../../' },
+  'packages/core/README.md': { template: 'core.md', root: '../../' },
+  'packages/core/README.zh-CN.md': { template: 'core.zh-CN.md', root: '../../' },
+  'packages/react/README.md': { template: 'react.md', root: '../../' },
+  'packages/angular/README.md': { template: 'angular.md', root: '../../' },
+  'packages/agent-runtime/README.md': { template: 'agent-runtime.md', root: '../../' },
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -73,13 +74,11 @@ function generateOne(templateName, vars) {
 
 const args = process.argv.slice(2)
 const isCheck = args.includes('--check')
-const filter = args.filter(a => !a.startsWith('--'))
+const filter = args.filter((a) => !a.startsWith('--'))
 
 let entries = Object.entries(CONFIG)
 if (filter.length > 0) {
-  entries = entries.filter(([output]) =>
-    filter.some(f => output.includes(f))
-  )
+  entries = entries.filter(([output]) => filter.some((f) => output.includes(f)))
 }
 
 const generated = {}
@@ -90,9 +89,7 @@ for (const [output, cfg] of entries) {
   generated[output] = content
 
   if (isCheck) {
-    const existing = fs.existsSync(outputPath)
-      ? fs.readFileSync(outputPath, 'utf-8')
-      : ''
+    const existing = fs.existsSync(outputPath) ? fs.readFileSync(outputPath, 'utf-8') : ''
     if (existing !== content) {
       console.error(`  ✗ STALE: ${output} — run "node scripts/generate-readmes.mjs" to regenerate`)
       process.exitCode = 1

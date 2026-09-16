@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
-
+import { createMarkerState } from '../../state/markerState'
 import type { CustomMarkerEntity } from '../registry'
 import { MarkerManager } from '../registry'
-import { createMarkerState } from '../../state/markerState'
 
 function mk(id: string): CustomMarkerEntity {
   return {

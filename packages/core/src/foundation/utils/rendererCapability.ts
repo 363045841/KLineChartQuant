@@ -13,7 +13,7 @@
  * 任何 probe 抛出的异常都会被捕获并折叠进 reason，视为不可用（不触发跳级级联）。
  */
 
-import { KLineChartError } from '../../errors'
+import { KLineChartError } from '../../errors.js'
 
 /** 渲染层级，全序：`'webgpu' > 'webgl2' > 'canvas2d' > 'none'`。 */
 export type RendererTier = 'webgpu' | 'webgl2' | 'canvas2d' | 'none'

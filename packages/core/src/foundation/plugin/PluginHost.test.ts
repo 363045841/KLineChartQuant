@@ -1,7 +1,7 @@
 /** PluginHost Kernel 状态解析测试。 */
 import { describe, expect, it } from 'vitest'
 
-import { createPluginHost } from './PluginHost'
+import { createPluginHost } from './PluginHost.js'
 
 describe('PluginHostImpl shared state', () => {
   it('reads plugin state from StateStore', () => {

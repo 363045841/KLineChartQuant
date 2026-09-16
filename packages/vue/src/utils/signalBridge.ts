@@ -1,5 +1,5 @@
 import type { ReadonlySignal } from '@363045841yyt/klinechart-core/reactivity'
-import { computed, shallowRef, onScopeDispose, type ComputedRef } from 'vue'
+import { type ComputedRef, computed, onScopeDispose, shallowRef } from 'vue'
 
 /**
  * Bridge a core ReadonlySignal<T> into a read-only Vue ref backed by `shallowRef`.

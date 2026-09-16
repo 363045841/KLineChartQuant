@@ -1,12 +1,12 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { calcVWAPData } from '../calculators'
 
 import {
-  empty,
   constantPrice,
-  pureUptrend,
+  empty,
   pureDowntrend,
+  pureUptrend,
   sideways,
   spikeAtBar19,
 } from './__fixtures__/synthetic'

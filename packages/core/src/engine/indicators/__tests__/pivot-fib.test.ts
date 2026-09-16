@@ -1,13 +1,13 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import { calcPivotData, calcFibData } from '../calculators'
+import { calcFibData, calcPivotData } from '../calculators'
 
 import {
   empty,
-  singleBar,
-  pureUptrend,
   pureDowntrend,
+  pureUptrend,
   sideways,
+  singleBar,
   spikeAtBar19,
 } from './__fixtures__/synthetic'
 

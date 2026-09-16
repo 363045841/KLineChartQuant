@@ -13,7 +13,7 @@
  * the additive `packages/core/` work.
  */
 
-import type { Signal } from '../../foundation/reactivity/index'
+import type { Signal } from '../../foundation/reactivity/index.js'
 
 // ---------------------------------------------------------------------------
 // Inbound stream

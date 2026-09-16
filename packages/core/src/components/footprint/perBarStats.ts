@@ -13,7 +13,7 @@
  * See `docs/ROADMAP.md` §3.3 for the diagonal-imbalance rationale.
  */
 
-import type { FootprintBarCell, FootprintImbalance } from './types'
+import type { FootprintBarCell, FootprintImbalance } from './types.js'
 
 export type { FootprintBarCell, FootprintImbalance }
 

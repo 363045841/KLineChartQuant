@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { calcSuperTrendData } from '../calculators'
 
-import { empty, pureUptrend, pureDowntrend, spikeAtBar19, gapUp } from './__fixtures__/synthetic'
+import { empty, gapUp, pureDowntrend, pureUptrend, spikeAtBar19 } from './__fixtures__/synthetic'
 
 describe('calcSuperTrendData', () => {
   it('empty returns empty', () => {

@@ -1,16 +1,14 @@
 // OpenAI-compatible Provider 设置的校验与内存存储实现。
 import { AgentRuntimeError } from '../contracts/errors.js'
-
-import {
-  PROVIDER_SETTINGS_VERSION,
-  type OpenAiCompatibleProviderSettings,
-  type ProviderCredentialStore,
-  type ProviderSettingsStore,
-} from './types.js'
-
 /** 判断未知值是否为普通对象，供持久化数据的运行时校验使用。 */
 import type { ProviderApiProtocol } from '../contracts/ui.js'
 import { PROVIDER_REASONING_EFFORTS, type ProviderReasoningEffort } from '../contracts/ui.js'
+import {
+  type OpenAiCompatibleProviderSettings,
+  PROVIDER_SETTINGS_VERSION,
+  type ProviderCredentialStore,
+  type ProviderSettingsStore,
+} from './types.js'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)

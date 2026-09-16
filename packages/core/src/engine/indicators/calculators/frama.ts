@@ -2,7 +2,7 @@
  * FRAMA 指标计算器
  * 沿用纯函数版本的收盘价区间近似，按分形维数自适应调整 EMA 平滑系数。
  */
-import type { KLineData } from '../../../foundation/types/price'
+import type { KLineData } from '../../../foundation/types/price.js'
 
 /**
  * 计算指定收盘价区间的最高值和最低值。

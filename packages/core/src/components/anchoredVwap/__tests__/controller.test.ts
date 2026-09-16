@@ -11,7 +11,7 @@
  *   3. `dispose` makes every mutator a silent no-op.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { computeAnchoredVwap } from '../computeAnchoredVwap'
 import { createAnchoredVwapController } from '../createAnchoredVwapController'

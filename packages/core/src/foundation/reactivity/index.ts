@@ -1,25 +1,25 @@
-export {
-  createSignal,
-  writableRef,
-  computed,
-  effect,
-  batch,
-  selectSignal,
-  createStateStore,
-  createSubState,
-} from './signal'
-export type {
-  Signal,
-  WritableSignal,
-  ReadonlySignal,
-  WritableRef,
-  ReadonlyRef,
-  Computed,
-  SelectedSignal,
-} from './signal'
-export { createFrameTransaction } from './frameTransaction'
 export type {
   FramePhase,
   FrameTransaction,
   FrameTransactionOptions,
-} from './frameTransaction'
+} from './frameTransaction.js'
+export { createFrameTransaction } from './frameTransaction.js'
+export type {
+  Computed,
+  ReadonlyRef,
+  ReadonlySignal,
+  SelectedSignal,
+  Signal,
+  WritableRef,
+  WritableSignal,
+} from './signal.js'
+export {
+  batch,
+  computed,
+  createSignal,
+  createStateStore,
+  createSubState,
+  effect,
+  selectSignal,
+  writableRef,
+} from './signal.js'

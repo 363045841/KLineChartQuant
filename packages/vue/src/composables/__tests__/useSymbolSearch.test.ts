@@ -1,14 +1,14 @@
 /** 统一品种模型搜索、筛选和稳定身份测试。 */
 
-import { computed, nextTick, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { computed, nextTick, ref } from 'vue'
 
 import {
+  type SearchableSymbol,
+  type SymbolSearchFn,
   symbolIdentityKey,
   uniqueSymbolsByIdentity,
   useSymbolSearch,
-  type SearchableSymbol,
-  type SymbolSearchFn,
 } from '../useSymbolSearch'
 
 const catalog: SearchableSymbol[] = [

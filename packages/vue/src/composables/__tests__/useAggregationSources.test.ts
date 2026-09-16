@@ -1,15 +1,15 @@
 import { marketDataProviderRegistry } from '@363045841yyt/klinechart-core/controllers'
-import { nextTick } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 
 import {
   AGGREGATION_SOURCES_STORAGE_KEY,
+  type AggregationSourceDefinition,
   applyAggregationSourceBaseUrls,
   probeAggregationSource,
   resolveAggregationSourceEndpoints,
   resolveEnabledAggregationSources,
   useAggregationSources,
-  type AggregationSourceDefinition,
 } from '../useAggregationSources'
 
 function source(
@@ -143,11 +143,11 @@ describe('useAggregationSources', () => {
   })
 
   it('marks a source offline when it is not a registered provider', async () => {
-    await expect(probeAggregationSource(source('first'), new AbortController().signal)).resolves.toEqual(
-      {
-        status: 'offline',
-      },
-    )
+    await expect(
+      probeAggregationSource(source('first'), new AbortController().signal),
+    ).resolves.toEqual({
+      status: 'offline',
+    })
   })
 
   it('uses MarketDataProvider probe for registered sources', async () => {

@@ -4,10 +4,10 @@ import {
   AGENT_IPC_PAYLOAD_VERSION,
   AGENT_IPC_PROTOCOL_VERSION,
   AgentRuntimeError,
+  type AgentRuntimeErrorCode,
   createUnavailableRuntimeSupport,
   parseAgentIpcRequest,
   redactValue,
-  type AgentRuntimeErrorCode,
 } from '../index'
 
 function request(overrides: Record<string, unknown> = {}) {

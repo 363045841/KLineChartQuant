@@ -1,6 +1,6 @@
 /** 管理 Renderer 后端创建、切换、降级、尺寸同步和资源销毁。 */
 
-import type { Renderer } from './Renderer'
+import type { Renderer } from './Renderer.js'
 
 export type RendererBackend = 'webgpu' | 'webgl' | 'canvas'
 

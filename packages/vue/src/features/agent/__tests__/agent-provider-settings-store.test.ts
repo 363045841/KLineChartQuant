@@ -1,6 +1,7 @@
 // 验证 Provider 连接持久化与模型目录刷新保持独立。
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { setActivePinia } from 'pinia'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   createAgentProviderSettingsPinia,
@@ -40,7 +41,9 @@ describe('AgentProviderSettingsStore', () => {
     const store = useAgentProviderSettingsStore()
     store.bindBridge(bridge)
     await store.show(await bridge.getProviderStatus())
-    store.modelCatalog = [{ id: 'provider-model-a', name: 'Provider Model A', compatibility: 'compatible' }]
+    store.modelCatalog = [
+      { id: 'provider-model-a', name: 'Provider Model A', compatibility: 'compatible' },
+    ]
 
     await store.setModelPoolMembership('provider-model-a', true)
     expect(store.modelPool.map((model) => model.id)).toEqual(['provider-model-a'])

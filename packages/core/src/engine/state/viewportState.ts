@@ -1,26 +1,27 @@
 /** 视口状态模块：几何、DPR clamp 与尺寸的单一来源。 */
+
+import { FIVE_DAY_TIME_SHARE_PERIOD, isTimeSharePeriod } from '../../controllers/types.js'
 import {
-  createSubState,
-  computed,
   batch,
+  computed,
+  createSubState,
   effect,
   type ReadonlySignal,
-} from '../../foundation/reactivity/signal'
-import type { Viewport, ViewportState } from '../chartTypes'
-import type { VisibleRange } from '../layout/pane'
+} from '../../foundation/reactivity/signal.js'
+import type { Viewport, ViewportState } from '../chartTypes.js'
+import type { VisibleRange } from '../layout/pane.js'
+import { computeTimeShareVisibleRange } from '../modes/timeShareMath.js'
+import { deriveKGap } from '../utils/zoom.js'
 import {
   clampVisibleRange,
   computeMaxScrollLeftWithVisibleData,
   getVisibleRange,
-} from '../viewport/viewport'
-import { computeTimeShareVisibleRange } from '../modes/timeShareMath'
+} from '../viewport/viewport.js'
 import {
-  computeLeftLoadBufferWidth as pureLeftBuffer,
   computeContentWidth as pureContentWidth,
+  computeLeftLoadBufferWidth as pureLeftBuffer,
   computeMaxScrollLeft as pureMaxScrollLeft,
-} from './contentGeometry'
-import { deriveKGap } from '../utils/zoom'
-import { FIVE_DAY_TIME_SHARE_PERIOD, isTimeSharePeriod } from '../../controllers/types'
+} from './contentGeometry.js'
 
 /**
  * 钳制 effective DPR，避免超出 MAX_CANVAS_PIXELS 上限。

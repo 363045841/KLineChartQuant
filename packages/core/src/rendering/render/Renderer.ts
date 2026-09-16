@@ -11,7 +11,7 @@
  * - uniform 布局由各 shader/pipeline 自行定义，接口不做 schema 约束。
  */
 
-import type { SurfaceBackend, SurfaceRegion } from './SurfaceBackend'
+import type { SurfaceBackend, SurfaceRegion } from './SurfaceBackend.js'
 
 /** 后端上报的能力位，调用方据此分支 */
 export type RendererCapabilities = {

@@ -1,9 +1,10 @@
 /** 主图数据 buffer 业务状态：activeBuffer、数据版本与 symbol 目录。 */
-import { batch, createSubState } from '../../foundation/reactivity/signal'
-import type { SymbolSpec, SymbolInfo } from '../../controllers/types'
-import type { SeriesSelection } from '../../data/buffer/seriesRepository'
-import type { TimeShareRange } from '../../data/provider/types'
-import type { KLineData, TimeShareData } from '../../foundation/types/price'
+
+import type { SymbolInfo, SymbolSpec } from '../../controllers/types.js'
+import type { SeriesSelection } from '../../data/buffer/seriesRepository.js'
+import type { TimeShareRange } from '../../data/provider/types.js'
+import { batch, createSubState } from '../../foundation/reactivity/signal.js'
+import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
 
 export interface DataDeps {
   /** placeholder — for future visibleRange computed */
@@ -91,8 +92,8 @@ export function createDataState(_deps: DataDeps = {}) {
       activeSelection: (s) => s.activeBuffer().selection,
       timeShareRange: (s) => s.activeBuffer().timeShareRange,
       timeSharePreClose: (s) => s.activeBuffer().timeSharePreClose,
-       dataLength: (s) => s.activeBuffer().data.length,
-       dataRevision: (s) => s.activeBuffer().dataRevision,
+      dataLength: (s) => s.activeBuffer().data.length,
+      dataRevision: (s) => s.activeBuffer().dataRevision,
     },
   )
 

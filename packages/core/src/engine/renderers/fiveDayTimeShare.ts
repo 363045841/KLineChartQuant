@@ -3,14 +3,14 @@ import type {
   PluginHost,
   RenderContext,
   RendererPluginWithHost,
-} from '../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../foundation/plugin/index'
-import { resolveThemeColors } from '../../foundation/tokens/index'
-import type { TimeShareData } from '../../foundation/types/price'
-import { Indicator } from '../indicators/indicatorDefinitionRegistry'
-import { resolveFiveDayTimeShareBaseline } from '../modes/timeShareMath'
-import { ChartDataViewId } from '../state/modeState'
-import { drawAreaFill, drawPreCloseLine, drawSegmentLine } from './timeShare'
+} from '../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../foundation/plugin/index.js'
+import { resolveThemeColors } from '../../foundation/tokens/index.js'
+import type { TimeShareData } from '../../foundation/types/price.js'
+import { Indicator } from '../indicators/indicatorDefinitionRegistry.js'
+import { resolveFiveDayTimeShareBaseline } from '../modes/timeShareMath.js'
+import { ChartDataViewId } from '../state/modeState.js'
+import { drawAreaFill, drawPreCloseLine, drawSegmentLine } from './timeShare.js'
 
 /** 创建仅服务 fiveDayTimeShare dataView 的主序列 renderer。 */
 export function createFiveDayTimeShareRendererPlugin(): RendererPluginWithHost {

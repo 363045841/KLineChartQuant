@@ -3,9 +3,9 @@ import {
   ASHARE_MARKET_SESSION,
   HK_MARKET_SESSION,
   KR_MARKET_SESSION,
-  US_MARKET_SESSION,
   type MarketSessionConfig,
-} from '../../foundation/utils/sessionTimeLabels'
+  US_MARKET_SESSION,
+} from '../../foundation/utils/sessionTimeLabels.js'
 
 const BUILTIN_MARKET_SESSIONS: Readonly<Record<string, MarketSessionConfig>> = {
   CN: ASHARE_MARKET_SESSION,

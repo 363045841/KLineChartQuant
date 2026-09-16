@@ -61,9 +61,7 @@ export function createCoreSourceAliases(coreSrc) {
     const sourcePath = importPath.replace('./dist/', '').replace(/\.js$/, '.ts')
     const sourceFile = `${coreSrc}/${sourcePath}`
     if (!existsSync(sourceFile)) {
-      throw new Error(
-        `[core-source-aliases] export "${key}" 映射的源文件不存在：${sourceFile}`,
-      )
+      throw new Error(`[core-source-aliases] export "${key}" 映射的源文件不存在：${sourceFile}`)
     }
 
     const specifier = key === '.' ? CORE_PACKAGE : `${CORE_PACKAGE}${key.slice(1)}`

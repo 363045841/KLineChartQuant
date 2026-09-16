@@ -401,7 +401,6 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 
 | 属性 | 类型 | 默认值 | 说明 |
 |------|------|---------|-------------|
-| semanticConfig | `SemanticChartConfig` | — | 语义化配置（可选）。传入后驱动图表数据、指标、标记和选项 |
 | theme | `'light' \| 'dark'` | — | 图表主题。可用 `v-model:theme` 双向绑定 |
 | isFullscreen | `boolean` | — | 全屏状态（受控）。不传则使用组件内部非受控模式 |
 | timezone | `string` | `'Asia/Shanghai'` | 时区 |
@@ -442,7 +441,7 @@ import { getRegisteredChartTools } from '@363045841yyt/klinechart-core/controlle
 | `@363045841yyt/klinechart` | Vue 3 绑定 | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart) |
 | `@363045841yyt/klinechart-react` | React 绑定 | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-react) |
 | `@363045841yyt/klinechart-angular` | Angular 绑定 | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-angular) |
-| `@363045841yyt/klinechart-agent-runtime` | 框架无关的 Agent 运行时（Pi 编排 + 宿主契约） | — |
+| `@363045841yyt/klinechart-agent-runtime` | 框架无关的 Agent 运行时（Pi 编排 + 宿主契约） | [npm](https://www.npmjs.com/package/@363045841yyt/klinechart-agent-runtime) |
 
 
 ## 🚀 What's New

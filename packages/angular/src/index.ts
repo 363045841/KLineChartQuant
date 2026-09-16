@@ -11,15 +11,15 @@ import type {
   ChartControllerFactory,
   ChartMountOptions,
   ChartViewport,
+  Signal as CoreSignal,
   DrawingControllerCallbacks,
   IndicatorInstance,
   InteractionSnapshot,
   KLineData,
-  Signal as CoreSignal,
   SymbolSpec,
 } from '@363045841yyt/klinechart-core'
 import { createChartController } from '@363045841yyt/klinechart-core'
-import { resolveSettings, type ChartSettings } from '@363045841yyt/klinechart-core/config'
+import { type ChartSettings, resolveSettings } from '@363045841yyt/klinechart-core/config'
 import { isPlatformBrowser } from '@angular/common'
 import {
   type AfterViewInit,
@@ -29,21 +29,21 @@ import {
   type ElementRef,
   InjectionToken,
   Input,
+  inject,
+  type Signal as NgSignal,
   type OnChanges,
   type OnDestroy,
   PLATFORM_ID,
   type Provider,
-  type Signal as NgSignal,
   type SimpleChanges,
-  ViewChild,
-  inject,
   signal,
+  ViewChild,
 } from '@angular/core'
 
 export type {
   ChartController,
-  ChartMountOptions,
   ChartControllerFactory,
+  ChartMountOptions,
   SymbolSpec,
 } from '@363045841yyt/klinechart-core'
 

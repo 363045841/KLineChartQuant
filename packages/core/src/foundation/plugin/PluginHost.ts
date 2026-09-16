@@ -1,22 +1,22 @@
 /**
  * 插件宿主 - 核心管理类
  */
-import { KLineChartError } from '../../errors'
+import { KLineChartError } from '../../errors.js'
 
-import { ConfigManager } from './ConfigManager'
-import { EventBus } from './EventBus'
-import { HookSystem } from './HookSystem'
-import { PluginRegistry } from './PluginRegistry'
-import { StateStore } from './StateStore'
+import { ConfigManager } from './ConfigManager.js'
+import { EventBus } from './EventBus.js'
+import { HookSystem } from './HookSystem.js'
+import { PluginRegistry } from './PluginRegistry.js'
+import { StateStore } from './StateStore.js'
 import type {
+  BaseIndicatorState,
+  HookCallOptions,
   Plugin,
   PluginConfig,
   PluginHost,
-  PluginState,
-  BaseIndicatorState,
   PluginLogger,
-  HookCallOptions,
-} from './types'
+  PluginState,
+} from './types.js'
 
 export class PluginHostImpl implements PluginHost {
   private registry: PluginRegistry

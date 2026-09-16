@@ -1,6 +1,6 @@
 /** 验证 WebGL2 Renderer 的 buffer、pipeline、实例和线条绘制契约。 */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createWebGLRenderer } from '../backend/createWebGLRenderer'
 import type { SurfaceBackend, SurfaceRegion } from '../index'

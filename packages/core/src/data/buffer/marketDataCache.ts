@@ -1,12 +1,8 @@
 /** 图表实例级行情内存缓存：按领域请求补齐数据覆盖范围并复用 Provider 请求结果。 */
-import type { KLineData } from '../../controllers/types'
-import { createSignal, type ReadonlySignal } from '../../foundation/reactivity/signal'
-import {
-  DEFAULT_MARKET_DATA_CACHE_MAX_BYTES,
-  FETCH_TOTAL_ATTEMPTS,
-  retryBackoffMs,
-} from './marketDataPolicy'
-import { SourceRouter } from '../provider/router'
+import type { KLineData } from '../../controllers/types.js'
+import { createSignal, type ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import type { MarketDataProviderRegistry } from '../provider/registry.js'
+import { SourceRouter } from '../provider/router.js'
 import type {
   AssetClass,
   BarSeries,
@@ -17,8 +13,12 @@ import type {
   TimeShareRange,
   TimeShareSeries,
   TradingDate,
-} from '../provider/types'
-import type { MarketDataProviderRegistry } from '../provider/registry'
+} from '../provider/types.js'
+import {
+  DEFAULT_MARKET_DATA_CACHE_MAX_BYTES,
+  FETCH_TOTAL_ATTEMPTS,
+  retryBackoffMs,
+} from './marketDataPolicy.js'
 
 export interface BarsCacheQuery {
   readonly symbol: string
@@ -108,7 +108,9 @@ function normalizeIncomingBars(incoming: ReadonlyArray<KLineData>): KLineData[] 
       break
     }
   }
-  const source = ordered ? incoming : [...incoming].sort((left, right) => left.timestamp - right.timestamp)
+  const source = ordered
+    ? incoming
+    : [...incoming].sort((left, right) => left.timestamp - right.timestamp)
   const normalized: KLineData[] = []
   for (const item of source) {
     const last = normalized[normalized.length - 1]
@@ -119,7 +121,10 @@ function normalizeIncomingBars(incoming: ReadonlyArray<KLineData>): KLineData[] 
 }
 
 /** 线性合并缓存与单页数据，后到的上游修正值覆盖相同时间戳的旧值。 */
-function mergeBars(existing: ReadonlyArray<KLineData>, incoming: ReadonlyArray<KLineData>): KLineData[] {
+function mergeBars(
+  existing: ReadonlyArray<KLineData>,
+  incoming: ReadonlyArray<KLineData>,
+): KLineData[] {
   const normalizedIncoming = normalizeIncomingBars(incoming)
   const merged: KLineData[] = []
   let existingIndex = 0
@@ -296,7 +301,11 @@ export class MarketDataCache {
       this.touchEntry('timeShareRanges', key)
       return cached
     }
-    const { provider, instrument, series: range } = await this.router.timeShareRange({
+    const {
+      provider,
+      instrument,
+      series: range,
+    } = await this.router.timeShareRange({
       preferredSourceId: query.sourceId,
       instrument: query.instrument,
       symbol: query.symbol,
@@ -450,7 +459,9 @@ export class MarketDataCache {
 
   /** 在调用方取消与图表销毁之间合并请求取消信号。 */
   private requestSignal(signal: AbortSignal | undefined): AbortSignal {
-    return signal ? AbortSignal.any([signal, this.lifecycleAbortController.signal]) : this.lifecycleAbortController.signal
+    return signal
+      ? AbortSignal.any([signal, this.lifecycleAbortController.signal])
+      : this.lifecycleAbortController.signal
   }
 
   /** 记录或更新条目大小，并在写入后淘汰最久未访问的其他缓存条目。 */

@@ -1,12 +1,12 @@
 import {
   getRegisteredIndicatorDefinition,
   getRegisteredIndicatorDefinitions,
-} from '../../indicators/indicatorDefinitionRegistry'
+} from '../../indicators/indicatorDefinitionRegistry.js'
 import {
   getBuiltinIndicatorTypeLabel,
   getBuiltinIndicatorTypeOrder,
   type IndicatorType,
-} from '../../indicators/indicatorMetadata'
+} from '../../indicators/indicatorMetadata.js'
 
 export interface ParamConfig {
   key: string
@@ -482,7 +482,8 @@ const uiMeta: Record<
   },
   smma: {
     name: '平滑移动平均',
-    description: 'SMMA（Wilder 平滑）用递归平滑过滤噪音，是 RSI/ATR 的内部算法，适合平滑趋势中的波动。',
+    description:
+      'SMMA（Wilder 平滑）用递归平滑过滤噪音，是 RSI/ATR 的内部算法，适合平滑趋势中的波动。',
     params: [
       {
         key: 'period',
@@ -582,7 +583,8 @@ const uiMeta: Record<
   },
   lsma: {
     name: '线性回归移动平均',
-    description: 'LSMA 用最小二乘拟合窗口内价格的回归线，减少滞后并反映趋势斜率，常用于判断趋势方向。',
+    description:
+      'LSMA 用最小二乘拟合窗口内价格的回归线，减少滞后并反映趋势斜率，常用于判断趋势方向。',
     params: [
       {
         key: 'period',
@@ -1270,7 +1272,8 @@ const uiMeta: Record<
   },
   fishertransform: {
     name: '费雪变换',
-    description: 'Fisher Transform 将价格分布高斯化，凸显拐点，transform 与 signal 双线交叉给出信号。',
+    description:
+      'Fisher Transform 将价格分布高斯化，凸显拐点，transform 与 signal 双线交叉给出信号。',
     params: [
       {
         key: 'period',

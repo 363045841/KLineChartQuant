@@ -120,6 +120,7 @@
                     :editable-style-keys="selectedDrawingStyleKeys"
                     @update-style="onUpdateDrawingStyle"
                     @delete="onDeleteDrawing"
+                    @toggle-lock="onToggleDrawingLock"
                   />
                   <CanvasToolbar v-if="isEditingLineLabel" class="drawing-label-position-toolbar">
                     <button
@@ -280,48 +281,48 @@
 </template>
 
 <script setup lang="ts">
-  import { resolveSettings, type ChartSettings } from '@363045841yyt/klinechart-core/config'
+  import { formatTimestamp } from '@363045841yyt/klinechart-core'
+  import { type ChartSettings, resolveSettings } from '@363045841yyt/klinechart-core/config'
   import type {
     CanvasLegendOptions,
     RendererBackendRuntime,
   } from '@363045841yyt/klinechart-core/controllers'
   import {
-    createChartController,
-    marketDataProviderRegistry,
     type ChartController,
     type ChartMountOptions,
+    type CustomDataSource,
+    createChartController,
     type DrawingLineLabelTarget,
     type InteractionSnapshot,
     type LegendTemplateContext,
-    type SymbolSpec,
-    type SymbolInfo,
-    type CustomDataSource,
+    marketDataProviderRegistry,
     PANE_HEADER_INSET_PX,
+    type SymbolInfo,
+    type SymbolSpec,
   } from '@363045841yyt/klinechart-core/controllers'
-  import {
-    searchInstruments,
-    type InstrumentDescriptor,
-  } from '@363045841yyt/klinechart-core/market-data'
   import type {
     CustomMarkerEntity,
     MarkerEntity,
   } from '@363045841yyt/klinechart-core/engine/marker/registry'
   import {
-    ref,
+    type InstrumentDescriptor,
+    searchInstruments,
+  } from '@363045841yyt/klinechart-core/market-data'
+  import {
     computed,
+    nextTick,
     onBeforeUpdate,
     onMounted,
     onUnmounted,
-    watch,
-    nextTick,
+    ref,
     shallowRef,
     useSlots,
+    watch,
   } from 'vue'
   import {
-    useAggregationSources,
     type AggregationSourceDefinition,
-  } from '../composables/useAggregationSources'
-  import { formatTimestamp } from '@363045841yyt/klinechart-core'
+    useAggregationSources,
+  } from '../composables/useAggregationSources.js'
 
   const slots = useSlots()
   // 外部 slot 需要 Vue 响应式 props；默认 tooltip 走直接 DOM 更新，避免高频 VNode patch。
@@ -345,17 +346,19 @@
     setEndpoint: setAggregationSourceEndpoint,
   } = useAggregationSources(aggregationSources)
 
-  import { useChartState } from '../composables/chart/useChartState'
-  import { useChartTheme } from '../composables/chart/useChartTheme'
-  import { useDrawingManager } from '../composables/chart/useDrawingManager'
-  import { useIndicatorManager } from '../composables/chart/useIndicatorManager'
-  import { useControllerSignal } from '../composables/chart/useControllerSignal'
-  import { useWatchlist } from '../composables/useWatchlist'
-  import { useRangeSelection } from '../composables/chart/useRangeSelection'
-  import { symbolIdentityKey } from '../composables/useSymbolSearch'
-  import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
+  import { useChartState } from '../composables/chart/useChartState.js'
+  import { useChartTheme } from '../composables/chart/useChartTheme.js'
+  import { useControllerSignal } from '../composables/chart/useControllerSignal.js'
+  import { useDrawingManager } from '../composables/chart/useDrawingManager.js'
+  import { useIndicatorManager } from '../composables/chart/useIndicatorManager.js'
+  import { useRangeSelection } from '../composables/chart/useRangeSelection.js'
+  import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget.js'
+  import { symbolIdentityKey } from '../composables/useSymbolSearch.js'
+  import { useWatchlist } from '../composables/useWatchlist.js'
 
   import BatchStockDialog from './BatchStockDialog.vue'
+  import CanvasToolbar from './common/CanvasToolbar.vue'
+  import CanvasToolbarStack from './common/CanvasToolbarStack.vue'
   import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
   import ExportProgressDialog from './ExportProgressDialog.vue'
   import IndicatorSelector from './IndicatorSelector.vue'
@@ -365,8 +368,6 @@
   import RangeSelectionExport from './RangeSelectionExport.vue'
   import TopToolbar, { type SymbolItem } from './TopToolbar.vue'
   import WatchlistPanel from './WatchlistPanel.vue'
-  import CanvasToolbar from './common/CanvasToolbar.vue'
-  import CanvasToolbarStack from './common/CanvasToolbarStack.vue'
 
   // ── Props & Emits ──
   type ChartIndicatorConfig = {
@@ -892,6 +893,7 @@
     onUpdateDrawingStyle,
     updateDrawingLabel,
     onDeleteDrawing,
+    onToggleDrawingLock,
     setupDrawing,
   } = useDrawingManager(controller)
   const lineLabelTarget = shallowRef<DrawingLineLabelTarget | null>(null)

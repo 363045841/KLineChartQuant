@@ -1,5 +1,5 @@
-import type { BaseIndicatorState } from '../../../foundation/plugin/index'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys'
+import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 /**
  * DMA 单点：DIF = MA(close,p1) - MA(close,p2)，AMA = MA(DIF,p3)

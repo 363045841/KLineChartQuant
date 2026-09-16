@@ -1,9 +1,12 @@
 // 本文件为已知指标结果提供比通用表格更紧凑的语义化文本转义器。
 
-import { formatTimestamp } from '../../../foundation/utils/dateFormat'
-import { MARKDOWN_EMPTY_TEXT } from '../markdownTable'
+import { formatTimestamp } from '../../../foundation/utils/dateFormat.js'
+import { MARKDOWN_EMPTY_TEXT } from '../markdownTable.js'
 
-import type { IndicatorResultFormatter, IndicatorTextFormatContext } from './indicatorTextFormatter'
+import type {
+  IndicatorResultFormatter,
+  IndicatorTextFormatContext,
+} from './indicatorTextFormatter.js'
 
 const INDICATOR_DEFINITION_ID = {
   STRUCTURE: 'structure',

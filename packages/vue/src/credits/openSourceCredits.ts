@@ -1,9 +1,9 @@
+import vueLibPkg from 'vue/package.json'
 import piAiPkg from '../../../agent-runtime/node_modules/@earendil-works/pi-ai/package.json'
-import corePkg from '../../../core/package.json'
 import ajvPkg from '../../../core/node_modules/ajv/package.json'
 import effectPkg from '../../../core/node_modules/effect/package.json'
+import corePkg from '../../../core/package.json'
 import vuePkg from '../../package.json'
-import vueLibPkg from 'vue/package.json'
 
 export interface CreditItem {
   name: string

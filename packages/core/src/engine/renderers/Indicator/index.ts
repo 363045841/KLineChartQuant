@@ -2,11 +2,11 @@
  * 指标渲染器导出入口
  */
 
-import type { RendererPlugin } from '../../../foundation/plugin/index'
-import type { IndicatorMetadata } from '../../indicators/indicatorMetadata'
+import type { RendererPlugin } from '../../../foundation/plugin/index.js'
+import type { IndicatorMetadata } from '../../indicators/indicatorMetadata.js'
 
 // 主图指标图例（统一管理 MA、BOLL 等）
-export { createMainIndicatorLegendRendererPlugin } from './mainIndicatorLegend'
+export { createMainIndicatorLegendRendererPlugin } from './mainIndicatorLegend.js'
 
 /**
  * 副图指标类型

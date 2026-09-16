@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest'
-
-import { SCROLL_TRAILING_SLOTS } from '../scrollCompensator'
-import { getPhysicalKLineConfig } from '../../utils/klineConfig'
 import {
+  type ContentGeometryInput,
   computeContentWidth,
   computeLeftLoadBufferWidth,
   computeMaxScrollLeft,
-  type ContentGeometryInput,
 } from '../../state/contentGeometry'
+import { getPhysicalKLineConfig } from '../../utils/klineConfig'
+import { SCROLL_TRAILING_SLOTS } from '../scrollCompensator'
 
 const baseInput = (overrides: Partial<ContentGeometryInput> = {}): ContentGeometryInput => ({
   viewWidth: 800,

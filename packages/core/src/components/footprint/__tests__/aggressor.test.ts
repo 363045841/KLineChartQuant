@@ -5,14 +5,14 @@
  * is tested in controller.test.ts.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import {
   classifyExplicit,
-  classifyTickRule,
   classifyLeeReady,
-  type TickRuleState,
+  classifyTickRule,
   type LeeReadyState,
+  type TickRuleState,
 } from '../aggressor'
 
 const trade = (

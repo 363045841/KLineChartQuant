@@ -14,7 +14,7 @@
  * change-detection plumbing.
  */
 
-import type { Signal } from '../foundation/reactivity/signal'
+import type { Signal } from '../foundation/reactivity/signal.js'
 
 /** Linear (arithmetic) or logarithmic Y mapping. */
 export type ScaleMode = 'linear' | 'log'

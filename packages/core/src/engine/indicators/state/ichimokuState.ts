@@ -1,5 +1,5 @@
-import type { BaseIndicatorState } from '../../../foundation/plugin/index'
-import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys'
+import type { BaseIndicatorState } from '../../../foundation/plugin/index.js'
+import { createIndicatorStateKey } from '../../../foundation/plugin/stateKeys.js'
 
 /**
  * 一目均衡表数据点：5 条线在同一根 K 线槽位

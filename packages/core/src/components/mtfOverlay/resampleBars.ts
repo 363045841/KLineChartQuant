@@ -1,4 +1,4 @@
-import { KLineChartError } from '../../errors'
+import { KLineChartError } from '../../errors.js'
 /**
  * Resample a base-timeframe bar series to a higher timeframe.
  *
@@ -27,7 +27,7 @@ import { KLineChartError } from '../../errors'
  *   - sourceStart, sourceEnd = inclusive base-index range
  */
 
-import type { BaseBar, ResampledBar } from './types'
+import type { BaseBar, ResampledBar } from './types.js'
 
 /**
  * @internal — building block used by `createMtfController`. Reachable today

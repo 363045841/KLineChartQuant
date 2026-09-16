@@ -2,7 +2,7 @@
 import type {
   ViewWorkspacePersistence,
   ViewWorkspacesSnapshot,
-} from '../engine/state/viewWorkspace'
+} from '../engine/state/viewWorkspace.js'
 
 /** localStorage 键名。 */
 export const VIEW_WORKSPACES_STORAGE_KEY = 'kline-chart-view-workspaces'

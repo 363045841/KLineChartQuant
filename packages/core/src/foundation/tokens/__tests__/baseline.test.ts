@@ -25,9 +25,9 @@
  * accessible? Does the new key follow the naming convention?
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import { lightTheme, darkTheme, themeToCssVars, toCssDeclarationBlock } from '..'
+import { darkTheme, lightTheme, themeToCssVars, toCssDeclarationBlock } from '..'
 
 // ---------------------------------------------------------------------------
 // Local contrast helpers (kept inline so the snapshot files don't reach

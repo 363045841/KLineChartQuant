@@ -31,7 +31,7 @@
 <script setup lang="ts" generic="T extends string">
   import { ref } from 'vue'
 
-  import { useSlidingTabIndicator } from '../composables/useSlidingTabIndicator'
+  import { useSlidingTabIndicator } from '../composables/useSlidingTabIndicator.js'
 
   const props = withDefaults(
     defineProps<{

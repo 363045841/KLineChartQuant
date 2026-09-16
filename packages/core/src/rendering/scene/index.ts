@@ -7,12 +7,9 @@
  * — see `docs/ROADMAP.md` §0.
  */
 
-export type { Layer, LayerRole, PaneRole, PaintContext, Scene } from './types'
+export { createLayerFromPlugin } from './createLayerFromPlugin.js'
 
-export { createScene } from './createScene'
-
-export { createLayerRegistry, BUILTIN_LAYER_TYPES } from './layerRegistry'
-
-export type { LayerFactory, LayerRegistry, BuiltinLayerType } from './layerRegistry'
-
-export { createLayerFromPlugin } from './createLayerFromPlugin'
+export { createScene } from './createScene.js'
+export type { BuiltinLayerType, LayerFactory, LayerRegistry } from './layerRegistry.js'
+export { BUILTIN_LAYER_TYPES, createLayerRegistry } from './layerRegistry.js'
+export type { Layer, LayerRole, PaintContext, PaneRole, Scene } from './types.js'

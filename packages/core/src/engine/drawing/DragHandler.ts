@@ -1,8 +1,12 @@
-import type { DrawingChartAdapter } from '../../controllers/types'
-import type { DrawingObject, PersistedDrawingAnchor } from '../../foundation/plugin/index'
-
-import { anchorToScreen, isScreenPoint, resolveDrawingPointer, screenToAnchor } from './coordinateUtils'
-import type { ResolveDrawingPointerOptions } from './coordinateUtils'
+import type { DrawingViewportPort } from '../../controllers/types.js'
+import type { DrawingObject, PersistedDrawingAnchor } from '../../foundation/plugin/index.js'
+import type { ResolveDrawingPointerOptions } from './coordinateUtils.js'
+import {
+  anchorToScreen,
+  isScreenPoint,
+  resolveDrawingPointer,
+  screenToAnchor,
+} from './coordinateUtils.js'
 
 // ---- Types ----
 
@@ -67,7 +71,7 @@ export class DragHandler {
   handleDragMove(
     e: PointerEvent,
     container: HTMLElement,
-    adapter: DrawingChartAdapter,
+    adapter: DrawingViewportPort,
     options?: ResolveDrawingPointerOptions,
   ): DrawingObject[] | null {
     if (!this.dragState) return null
@@ -85,11 +89,19 @@ export class DragHandler {
   }
 
   /** 移动单个锚点，保持多选之外的图元不受影响。 */
-  private moveAnchor(drawing: DrawingObject, pointer: NonNullable<ReturnType<typeof resolveDrawingPointer>>): DrawingObject {
+  private moveAnchor(
+    drawing: DrawingObject,
+    pointer: NonNullable<ReturnType<typeof resolveDrawingPointer>>,
+  ): DrawingObject {
     const anchors = drawing.anchors.map((anchor) => ({ ...anchor }))
     const index = this.dragState?.anchorIndex
     if (index === undefined) return drawing
-    anchors[index] = { ...anchors[index]!, time: pointer.time, futureOffset: pointer.futureOffset, price: pointer.price }
+    anchors[index] = {
+      ...anchors[index]!,
+      time: pointer.time,
+      futureOffset: pointer.futureOffset,
+      price: pointer.price,
+    }
     if (drawing.kind === 'flat-line' && index === 1 && anchors.length >= 3) {
       anchors[2] = { ...anchors[2]!, time: pointer.time, futureOffset: pointer.futureOffset }
     }
@@ -101,7 +113,7 @@ export class DragHandler {
     drawing: DrawingObject,
     dx: number,
     dy: number,
-    adapter: DrawingChartAdapter,
+    adapter: DrawingViewportPort,
   ): DrawingObject {
     const anchors = drawing.anchors.map((anchor) => ({ ...anchor }))
     for (let index = 0; index < anchors.length; index++) {
@@ -109,18 +121,33 @@ export class DragHandler {
       const screen = anchorToScreen(anchor, drawing.paneId, adapter)
       if (!screen) continue
       if (screen.type === 'horizontal') {
-        anchors[index] = { ...anchor, type: 'horizontal', price: adapter.yToPrice(drawing.paneId, screen.y + dy) }
+        anchors[index] = {
+          ...anchor,
+          type: 'horizontal',
+          price: adapter.yToPrice(drawing.paneId, screen.y + dy),
+        }
         continue
       }
       if (screen.type === 'vertical') {
         const resolved = screenToAnchor(screen.x + dx, 0, drawing.paneId, adapter)
-        if (resolved) anchors[index] = { ...anchor, type: 'vertical', time: resolved.time, futureOffset: resolved.futureOffset }
+        if (resolved)
+          anchors[index] = {
+            ...anchor,
+            type: 'vertical',
+            time: resolved.time,
+            futureOffset: resolved.futureOffset,
+          }
         continue
       }
       if (!isScreenPoint(screen)) continue
       const resolved = screenToAnchor(screen.x + dx, screen.y + dy, drawing.paneId, adapter)
       if (resolved) {
-        anchors[index] = { ...anchor, time: resolved.time, futureOffset: resolved.futureOffset, price: resolved.price }
+        anchors[index] = {
+          ...anchor,
+          time: resolved.time,
+          futureOffset: resolved.futureOffset,
+          price: resolved.price,
+        }
       }
     }
     return { ...drawing, anchors }

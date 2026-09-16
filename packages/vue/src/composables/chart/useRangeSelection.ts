@@ -1,17 +1,16 @@
 /** 区间选择状态、统计指标与 CSV 导出逻辑。 */
 import { formatTimestamp } from '@363045841yyt/klinechart-core'
-import type { KLineData, ChartController } from '@363045841yyt/klinechart-core/controllers'
-import { sourceRouter } from '@363045841yyt/klinechart-core/market-data'
+import type { ChartController, KLineData } from '@363045841yyt/klinechart-core/controllers'
 import type { KLineAdjustment, KLinePeriod } from '@363045841yyt/klinechart-core/market-data'
-import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
-
-import { calcRangeOverlayPixel } from '../../tools/calcRangeOverlayPixel'
-import type { Bounds } from '../../tools/calcRangeOverlayPixel'
+import { sourceRouter } from '@363045841yyt/klinechart-core/market-data'
+import { type ComputedRef, computed, type Ref, ref, watch } from 'vue'
+import type { Bounds } from '../../tools/calcRangeOverlayPixel.js'
+import { calcRangeOverlayPixel } from '../../tools/calcRangeOverlayPixel.js'
 import {
-  getKLineIndexByTimestamp,
   findNearestKLineIndex,
-} from '../../tools/getKLineIndexByTimestamp'
-import { useControllerSignal } from './useControllerSignal'
+  getKLineIndexByTimestamp,
+} from '../../tools/getKLineIndexByTimestamp.js'
+import { useControllerSignal } from './useControllerSignal.js'
 
 /** 根据区间首尾收盘价计算收益率，无法形成有效比率时返回 null。 */
 export function calculateRangeReturnRate(startClose: number, endClose: number): number | null {

@@ -1,17 +1,17 @@
-import { KLineChartError, SUBPANE_ERROR_CODES } from '../errors'
+import { KLineChartError, SUBPANE_ERROR_CODES } from '../errors.js'
 import type {
+  RenderContext,
   RendererPlugin,
   RendererPluginWithHost,
-  RenderContext,
-} from '../foundation/plugin/index'
-import type { IndicatorScheduler } from './indicators/scheduler'
-import { resolveStateKey } from './indicators/indicatorMetadata'
-import { findIndicator } from './renderers/Indicator/indicatorCatalog'
-import { createSubIndicatorRenderer } from './renderers/Indicator'
-import { createIndicatorScaleRendererPlugin } from './renderers/Indicator/scale/indicator_scale'
-import { createPaneTitleRendererPlugin } from './renderers/paneTitle'
-import type { SubPaneSpec } from './state/indicatorState'
-import { makePluginLayerId } from '../foundation/plugin/rendererLayerId'
+} from '../foundation/plugin/index.js'
+import { makePluginLayerId } from '../foundation/plugin/rendererLayerId.js'
+import { resolveStateKey } from './indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from './indicators/scheduler.js'
+import { createSubIndicatorRenderer } from './renderers/Indicator/index.js'
+import { findIndicator } from './renderers/Indicator/indicatorCatalog.js'
+import { createIndicatorScaleRendererPlugin } from './renderers/Indicator/scale/indicator_scale.js'
+import { createPaneTitleRendererPlugin } from './renderers/paneTitle.js'
+import type { SubPaneSpec } from './state/indicatorState.js'
 
 export interface SubPaneResources {
   readonly paneId: string
@@ -38,7 +38,7 @@ type MountedSubPaneResources = SubPaneResources & { readonly projectionKey: stri
 
 /** 判断指标定义是否拥有副图投影所需的完整 renderer 元数据。 */
 export function hasSubPaneRendererMetadata(
-  definition: import('./indicators/indicatorMetadata').IndicatorMetadata,
+  definition: import('./indicators/indicatorMetadata.js').IndicatorMetadata,
   paneId: string,
   indicatorId: string,
 ): boolean {
@@ -46,7 +46,7 @@ export function hasSubPaneRendererMetadata(
   try {
     return Boolean(
       definition.getScaleRendererName({ paneId, indicatorId }) &&
-      definition.getPaneTitleRendererName({ paneId, indicatorId }),
+        definition.getPaneTitleRendererName({ paneId, indicatorId }),
     )
   } catch {
     return false

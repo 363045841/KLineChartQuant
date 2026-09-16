@@ -1,5 +1,5 @@
-export { CHART_AGENT_ERROR_CODES } from './errors.js'
 export { getRegisteredChartTools } from './chartAgentController.js'
+export { CHART_AGENT_ERROR_CODES } from './errors.js'
 export type {
   ChartAgentActiveIndicator,
   ChartAgentContextSnapshot,

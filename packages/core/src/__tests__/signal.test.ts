@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
-import { createSignal, effect, computed, selectSignal } from '../foundation/reactivity/signal'
+import { computed, createSignal, effect, selectSignal } from '../foundation/reactivity/signal'
 
 describe('createSignal', () => {
   it('reads initial value', () => {
@@ -146,7 +146,9 @@ describe('selectSignal', () => {
       source,
       (s) => s.pos,
       (a, b) =>
-        a === b || (a !== null && b !== null && a.x === b.x && a.y === b.y) || (a === null && b === null),
+        a === b ||
+        (a !== null && b !== null && a.x === b.x && a.y === b.y) ||
+        (a === null && b === null),
     )
     const listener = vi.fn()
     selected.subscribe(listener)

@@ -1,49 +1,37 @@
 /** 验证绘图帧投影在绘制前一次性产出图元和轴装饰。 */
 import { describe, expect, it } from 'vitest'
-
-import { createSignal } from '../../../foundation/reactivity/signal'
+import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
 import type { DrawingKind, DrawingObject, RenderContext } from '../../../foundation/plugin'
+import { createSignal } from '../../../foundation/reactivity/signal'
 import { DrawingDefinitionRegistry, DrawingStore, registerDefaultDrawingDefinitions } from '..'
 import { projectDrawingsForFrame } from '../frameProjection'
 import { createDrawingObject } from './helpers/drawingTestKit'
 
 /** 构造仅覆盖趋势线投影的最小 RenderContext。 */
 function createContext(): RenderContext {
-  const context: RenderContext = {
-    ctx: {} as CanvasRenderingContext2D,
-    pane: {
-      id: 'main',
-      role: 'price',
-      height: 100,
-      yAxis: { priceToY: (price: number) => 100 - price } as any,
-    } as RenderContext['pane'],
+  const context = createMockRenderContext({
     data: [
       { timestamp: 1_000, open: 1, high: 2, low: 0, close: 1 },
       { timestamp: 2_000, open: 2, high: 3, low: 1, close: 2 },
     ],
-    period: 'daily',
-    dataView: 'kline',
-    getLogicalIndexAtTimestamp: (timestamp) => {
-      const matches = context.data.reduce<number[]>((indices, item, index) => {
-        if ((item as { timestamp?: number }).timestamp === timestamp) indices.push(index)
-        return indices
-      }, [])
-      return matches.length === 1 ? matches[0]! : null
-    },
     range: { start: 0, end: 2 },
-    scrollLeft: 0,
     kWidth: 6,
     kGap: 2,
-    dpr: 1,
     paneWidth: 100,
     kLinePositions: [7, 27],
     kLineCenters: [10, 30],
     kBarRects: [],
     viewport: { scrollLeft: 0, plotWidth: 100, plotHeight: 100 },
-    yAxisLabels: [],
-    yAxisRanges: [],
-    xAxisLabels: [],
-    xAxisRanges: [],
+    pane: { id: 'main', role: 'price', height: 100, yAxis: { priceToY: (price) => 100 - price } },
+  })
+  // 部分用例会替换 context.data，因此按调用时的数据重新解析时间戳；
+  // 命中多个同名时间戳时返回 null，避免把锚点解析到任意一根 Bar。
+  context.getLogicalIndexAtTimestamp = (timestamp) => {
+    const matches = context.data.reduce<number[]>((indices, item, index) => {
+      if (item.timestamp === timestamp) indices.push(index)
+      return indices
+    }, [])
+    return matches.length === 1 ? matches[0]! : null
   }
   return context
 }

@@ -1,10 +1,11 @@
 /** 创建默认 RendererHost，并配置 WebGPU、WebGL 和 Canvas2D 的降级链。 */
 
-import { SharedWebGLSurface } from '../../engine/renderers/webgl/sharedWebGLSurface'
-import { createCanvas2DRenderer } from './backend/createCanvas2DRenderer'
-import { createWebGLRenderer } from './backend/createWebGLRenderer'
-import { createWebGLSurfaceBackend } from './createWebGLSurfaceBackend'
-import { createWebGPURenderer } from './backend/createWebGPURenderer'
+import { SharedWebGLSurface } from '../../engine/renderers/webgl/sharedWebGLSurface.js'
+import { createCanvas2DRenderer } from './backend/createCanvas2DRenderer.js'
+import { createWebGLRenderer } from './backend/createWebGLRenderer.js'
+import { createWebGPURenderer } from './backend/createWebGPURenderer.js'
+import { createWebGLSurfaceBackend } from './createWebGLSurfaceBackend.js'
+import type { Renderer } from './Renderer.js'
 import {
   createRendererHost,
   createRendererHostFromRenderer,
@@ -12,8 +13,7 @@ import {
   type RendererHost,
   type RendererHostDependencies,
   type RendererHostListeners,
-} from './rendererHost'
-import type { Renderer } from './Renderer'
+} from './rendererHost.js'
 
 function createWebGLBackendRenderer(): Renderer {
   const shared = new SharedWebGLSurface()
@@ -49,9 +49,7 @@ export async function createDefaultRendererHost(
   return host
 }
 
-export function createDefaultRendererHostSync(
-  listeners: RendererHostListeners = {},
-): RendererHost {
+export function createDefaultRendererHostSync(listeners: RendererHostListeners = {}): RendererHost {
   const hostRef = { current: null as RendererHost | null }
   const deps = createDependencies(hostRef)
   let renderer: Renderer
@@ -65,11 +63,7 @@ export function createDefaultRendererHostSync(
     effective = 'canvas'
     error = cause instanceof Error ? cause.message : String(cause)
   }
-  const host = createRendererHostFromRenderer(
-    'webgl',
-    { renderer, effective, error },
-    deps,
-  )
+  const host = createRendererHostFromRenderer('webgl', { renderer, effective, error }, deps)
   hostRef.current = host
   host.setListeners(listeners)
   return host

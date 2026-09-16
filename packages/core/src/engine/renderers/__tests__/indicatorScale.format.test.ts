@@ -1,8 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
+import {
+  createMockCanvasContext,
+  createMockPluginHost,
+  createMockRenderContext,
+  createMockStateReader,
+} from '@/engine/__tests__/helpers/renderTestKit'
 
 import { createIndicatorScaleRendererPlugin } from '../Indicator/scale/indicator_scale'
 import { formatScaleValue, resolveAdaptiveDecimals } from '../Indicator/scale/scaleFormat'
-import type { RenderContext } from '../../../foundation/plugin'
 
 describe('resolveAdaptiveDecimals', () => {
   it('keeps the minimum decimals for wide ranges', () => {
@@ -27,16 +32,7 @@ describe('formatScaleValue', () => {
 
 describe('indicator scale plugin formatting', () => {
   it('renders small-magnitude ticks with adaptive decimals and no negative zero', () => {
-    const fillText = vi.fn()
-    const yAxisCtx = {
-      canvas: { width: 120 },
-      clearRect: vi.fn(),
-      fillText,
-      font: '',
-      textBaseline: 'alphabetic',
-      textAlign: 'start',
-      fillStyle: '',
-    } as unknown as CanvasRenderingContext2D
+    const yAxisCtx = createMockCanvasContext()
     const renderer = createIndicatorScaleRendererPlugin({
       axisWidth: 60,
       paneId: 'sub_MACD_test',
@@ -44,33 +40,33 @@ describe('indicator scale plugin formatting', () => {
       label: 'MACD',
       decimals: 2,
     })
-    renderer.onInstall?.({} as never)
+    renderer.onInstall?.(createMockPluginHost())
 
-    renderer.draw({
-      yAxisCtx,
-      dpr: 2,
-      pane: {
-        id: 'sub_MACD_test',
-        height: 160,
-        yAxis: {
-          getScaleType: () => 'linear',
-          getDisplayRange: (range: { minPrice: number; maxPrice: number }) => range,
-          getPaddingTop: () => 0,
-          getPaddingBottom: () => 0,
+    renderer.draw(
+      createMockRenderContext({
+        yAxisCtx,
+        dpr: 2,
+        pane: {
+          id: 'sub_MACD_test',
+          height: 160,
+          yAxis: {
+            getScaleType: () => 'linear',
+            getDisplayRange: (range) => range ?? { maxPrice: 0, minPrice: 0 },
+            getPaddingTop: () => 0,
+            getPaddingBottom: () => 0,
+          },
         },
-      },
-      indicatorStateReader: {
-        get: (key: string) =>
-          key === 'indicator:macd:sub_MACD_test'
-            ? { timestamp: 1, valueMin: -0.002, valueMax: 0.002 }
-            : undefined,
-      },
-      theme: 'light',
-      isAsiaMarket: true,
-      colorPresetSettings: {},
-    } as unknown as RenderContext)
+        indicatorStateReader: createMockStateReader('indicator:macd:sub_MACD_test', {
+          timestamp: 1,
+          valueMin: -0.002,
+          valueMax: 0.002,
+        }),
+        isAsiaMarket: true,
+        colorPresetSettings: {},
+      }),
+    )
 
-    const labels = fillText.mock.calls.map(([text]) => text as string)
+    const labels = vi.mocked(yAxisCtx.fillText).mock.calls.map(([text]) => text as string)
     expect(labels.length).toBeGreaterThan(0)
     expect(labels).not.toContain('-0.00')
     expect(labels.some((text) => /\.\d{3,}$/.test(text))).toBe(true)

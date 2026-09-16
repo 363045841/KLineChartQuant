@@ -1,8 +1,12 @@
 /** 绘图 renderer 的画布层级测试。 */
 
 import { describe, expect, it, vi } from 'vitest'
+import {
+  createMockCanvasContext,
+  createMockRenderContext,
+} from '@/engine/__tests__/helpers/renderTestKit'
 
-import type { DrawingPrimitive, RenderContext } from '../../../foundation/plugin/index'
+import type { DrawingPrimitive } from '../../../foundation/plugin/index'
 import { createDefaultPrimitiveRendererSet } from '..'
 import { LINE_LABEL_NORMAL_OFFSET } from '../labelLayout'
 import { createDrawingRendererPlugin } from '../plugin'
@@ -10,8 +14,8 @@ import { createDrawingRendererPlugin } from '../plugin'
 describe('createDrawingRendererPlugin', () => {
   /** 绘图必须写入覆盖画布，避免被帧末提交的 GPU K 线覆盖。 */
   it('renders primitives on the overlay canvas when available', () => {
-    const mainCtx = {} as CanvasRenderingContext2D
-    const overlayCtx = {} as CanvasRenderingContext2D
+    const mainCtx = createMockCanvasContext()
+    const overlayCtx = createMockCanvasContext()
     const point = vi.fn()
     const plugin = createDrawingRendererPlugin({
       renderers: {
@@ -27,20 +31,21 @@ describe('createDrawingRendererPlugin', () => {
       point: { x: 10, y: 20 },
     }
 
-    plugin.draw({
-      ctx: mainCtx,
-      overlayCtx,
-      drawingProjection: {
-        primitives: [primitive],
-        yAxisLabels: [],
-        yAxisRanges: [],
-        xAxisLabels: [],
-        xAxisRanges: [],
-      },
-      viewport: { scrollLeft: 0, plotWidth: 800, plotHeight: 400 },
-      pane: { height: 400 },
-      dpr: 1,
-    } as RenderContext)
+    plugin.draw(
+      createMockRenderContext({
+        ctx: mainCtx,
+        overlayCtx,
+        drawingProjection: {
+          primitives: [primitive],
+          yAxisLabels: [],
+          yAxisRanges: [],
+          xAxisLabels: [],
+          xAxisRanges: [],
+        },
+        viewport: { scrollLeft: 0, plotWidth: 800, plotHeight: 400 },
+        pane: { height: 400 },
+      }),
+    )
 
     expect(point).toHaveBeenCalledWith(overlayCtx, primitive, 1)
   })
@@ -55,19 +60,7 @@ describe('createDefaultPrimitiveRendererSet', () => {
   ] as const)(
     'renders a %s line label at its semantic anchor',
     (position, expectedX, expectedAlign) => {
-      const ctx = {
-        save: vi.fn(),
-        restore: vi.fn(),
-        beginPath: vi.fn(),
-        moveTo: vi.fn(),
-        lineTo: vi.fn(),
-        stroke: vi.fn(),
-        fillText: vi.fn(),
-        translate: vi.fn(),
-        rotate: vi.fn(),
-        setLineDash: vi.fn(),
-        arc: vi.fn(),
-      } as unknown as CanvasRenderingContext2D
+      const ctx = createMockCanvasContext()
       const renderers = createDefaultPrimitiveRendererSet()
 
       renderers.line(
@@ -90,11 +83,7 @@ describe('createDefaultPrimitiveRendererSet', () => {
 
   /** 字面量换行控制码必须被拆为多行，不按图元宽度自动折行。 */
   it('renders literal newline text without automatic wrapping', () => {
-    const ctx = {
-      save: vi.fn(),
-      restore: vi.fn(),
-      fillText: vi.fn(),
-    } as unknown as CanvasRenderingContext2D
+    const ctx = createMockCanvasContext()
     const renderers = createDefaultPrimitiveRendererSet()
 
     renderers.text(
@@ -109,18 +98,7 @@ describe('createDefaultPrimitiveRendererSet', () => {
 
   /** 线段标签在旋转的局部坐标系中也必须逐行绘制。 */
   it('renders literal newline line labels in the rotated local coordinate system', () => {
-    const ctx = {
-      save: vi.fn(),
-      restore: vi.fn(),
-      beginPath: vi.fn(),
-      moveTo: vi.fn(),
-      lineTo: vi.fn(),
-      stroke: vi.fn(),
-      fillText: vi.fn(),
-      translate: vi.fn(),
-      rotate: vi.fn(),
-      setLineDash: vi.fn(),
-    } as unknown as CanvasRenderingContext2D
+    const ctx = createMockCanvasContext()
     const renderers = createDefaultPrimitiveRendererSet()
 
     renderers.line(

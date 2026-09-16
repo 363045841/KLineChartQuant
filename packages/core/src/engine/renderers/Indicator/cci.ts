@@ -1,21 +1,20 @@
 import type {
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import { calcCCIData } from '../../indicators/calculators'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { CCIRenderState } from '../../indicators/state/cciState'
-import { createCCIStateKey, EMPTY_CCI_STATE } from '../../indicators/state/cciState'
-import { createCCIVisibleStateComposer } from '../../indicators/visibleStateComposers'
-
-import { createCciScaleRendererPlugin } from './scale/cci_scale'
-import { createSingleLineTitleInfo } from './shared/titleInfo'
-import { tryDrawLinesGpu } from '../linesViaRenderer'
+  RenderContext,
+  RendererPluginWithHost,
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import { calcCCIData } from '../../indicators/calculators/index.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { CCIRenderState } from '../../indicators/state/cciState.js'
+import { createCCIStateKey, EMPTY_CCI_STATE } from '../../indicators/state/cciState.js'
+import { createCCIVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
+import { createCciScaleRendererPlugin } from './scale/cci_scale.js'
+import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
 

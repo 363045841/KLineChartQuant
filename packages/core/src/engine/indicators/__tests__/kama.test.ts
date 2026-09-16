@@ -1,15 +1,15 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { calcKAMAData } from '../calculators'
 
-import { KAMA_GOLDEN, assertSeriesClose } from './__fixtures__/golden'
+import { assertSeriesClose, KAMA_GOLDEN } from './__fixtures__/golden'
 import {
-  empty,
-  singleBar,
   constantPrice,
-  pureUptrend,
+  empty,
   pureDowntrend,
+  pureUptrend,
   sideways,
+  singleBar,
   spikeAtBar19,
 } from './__fixtures__/synthetic'
 import { assertFiniteOrUndefined } from './_propertyAssertions'

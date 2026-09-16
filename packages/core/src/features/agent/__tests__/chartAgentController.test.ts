@@ -1,19 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
-
-import { createDataState } from '../../../engine/state/dataState'
-import { createDrawingState } from '../../../engine/state/drawingState'
-import { DrawingDocument } from '../../../engine/drawing/DrawingDocument'
-import { DrawingCommands } from '../../../engine/drawing/DrawingCommands'
-import { ComparisonCommands } from '../../../engine/data/comparisonCommands'
-import { MarketDataProviderRegistry } from '../../../data/provider/registry'
-import { MarketDataCache } from '../../../data/buffer/marketDataCache'
-import { createSignal } from '../../../foundation/reactivity/signal'
-import { AGENT_DRAWING_COLOR_VALUES } from '../../../foundation/tokens/agentDrawingColors'
-import { createChartAgentController } from '../chartAgentController'
-import { getRegisteredChartTools } from '../chartAgentController'
-import { CHART_AGENT_ERROR_CODES } from '../errors'
-
 import type { IndicatorInstance, SymbolSpec } from '../../../controllers/types'
+import { MarketDataCache } from '../../../data/buffer/marketDataCache'
+import { MarketDataProviderRegistry } from '../../../data/provider/registry'
 import type {
   BarSeries,
   InstrumentDescriptor,
@@ -21,7 +9,16 @@ import type {
   TimeShareRange,
   TimeShareSeries,
 } from '../../../data/provider/types'
+import { ComparisonCommands } from '../../../engine/data/comparisonCommands'
+import { DrawingCommands } from '../../../engine/drawing/DrawingCommands'
+import { DrawingDocument } from '../../../engine/drawing/DrawingDocument'
+import { createDataState } from '../../../engine/state/dataState'
+import { createDrawingState } from '../../../engine/state/drawingState'
+import { createSignal } from '../../../foundation/reactivity/signal'
+import { AGENT_DRAWING_COLOR_VALUES } from '../../../foundation/tokens/agentDrawingColors'
 import type { KLineData } from '../../../foundation/types/price'
+import { createChartAgentController, getRegisteredChartTools } from '../chartAgentController'
+import { CHART_AGENT_ERROR_CODES } from '../errors'
 
 const BAR_SELECTION = {
   kind: 'bars' as const,
@@ -135,34 +132,40 @@ function createFixture() {
   const search = vi.fn<
     (query: InstrumentSearchQuery) => Promise<ReadonlyArray<InstrumentDescriptor>>
   >(async () => [instrument])
-  const fetchBars = vi.fn(async (): Promise<BarSeries> => ({
-    instrumentId: instrument.id,
-    period: 'daily',
-    adjustment: 'none',
-    timezone: 'UTC',
-    data: createBars(),
-    olderData: 'exhausted',
-  }))
-  const fetchTimeShare = vi.fn(async (): Promise<TimeShareSeries> => ({
-    instrumentId: instrument.id,
-    tradingDate: '2026-09-01' as const,
-    timezone: 'UTC',
-    preClose: 100,
-    data: [{ timestamp: 3_600_000, price: 101, average: 100, volume: 10 }],
-  }))
-  const fetchTimeShareRange = vi.fn(async (): Promise<TimeShareRange> => ({
-    instrumentId: instrument.id,
-    timezone: 'UTC',
-    requestedDays: 2,
-    olderData: 'available' as const,
-    days: [
-      {
-        tradingDate: '2026-09-01' as const,
-        preClose: 100,
-        data: [{ timestamp: 7_200_000, price: 102, average: 101, volume: 20 }],
-      },
-    ],
-  }))
+  const fetchBars = vi.fn(
+    async (): Promise<BarSeries> => ({
+      instrumentId: instrument.id,
+      period: 'daily',
+      adjustment: 'none',
+      timezone: 'UTC',
+      data: createBars(),
+      olderData: 'exhausted',
+    }),
+  )
+  const fetchTimeShare = vi.fn(
+    async (): Promise<TimeShareSeries> => ({
+      instrumentId: instrument.id,
+      tradingDate: '2026-09-01' as const,
+      timezone: 'UTC',
+      preClose: 100,
+      data: [{ timestamp: 3_600_000, price: 101, average: 100, volume: 10 }],
+    }),
+  )
+  const fetchTimeShareRange = vi.fn(
+    async (): Promise<TimeShareRange> => ({
+      instrumentId: instrument.id,
+      timezone: 'UTC',
+      requestedDays: 2,
+      olderData: 'available' as const,
+      days: [
+        {
+          tradingDate: '2026-09-01' as const,
+          preClose: 100,
+          data: [{ timestamp: 7_200_000, price: 102, average: 101, volume: 20 }],
+        },
+      ],
+    }),
+  )
   marketDataProviderRegistry.register({
     source: {
       id: 'fixture',

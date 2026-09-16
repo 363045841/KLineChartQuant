@@ -1,17 +1,15 @@
-import type { ChartDataManager } from '../data/chartDataManager'
-import type { Pane, VisibleRange } from '../layout/pane'
-
-import type { MarketSessionConfig } from '../../foundation/utils/timeShareAxisLabels'
-import { ASHARE_MARKET_SESSION } from '../../foundation/utils/timeShareAxisLabels'
-
+import { FIVE_DAY_TIME_SHARE_PERIOD } from '../../controllers/types.js'
+import type { MarketSessionConfig } from '../../foundation/utils/timeShareAxisLabels.js'
+import { ASHARE_MARKET_SESSION } from '../../foundation/utils/timeShareAxisLabels.js'
+import type { ChartDataManager } from '../data/chartDataManager.js'
+import type { Pane, VisibleRange } from '../layout/pane.js'
 import {
   computeTimeShareBarMetrics,
   computeTimeSharePriceRange,
   resolveFiveDayTimeShareBaseline,
   resolveTimeShareBaseline,
-} from './timeShareMath'
-import type { ChartModeHandler } from './types'
-import { FIVE_DAY_TIME_SHARE_PERIOD } from '../../controllers/types'
+} from './timeShareMath.js'
+import type { ChartModeHandler } from './types.js'
 
 export class TimeShareMode implements ChartModeHandler {
   readonly debugName = 'TimeShare'

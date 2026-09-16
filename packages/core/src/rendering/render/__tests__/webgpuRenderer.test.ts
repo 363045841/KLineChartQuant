@@ -168,7 +168,7 @@ describe('createWebGPURenderer', () => {
       Array.from(new Float32Array(uniformWrite![2] as ArrayBuffer, uniformWrite![3], 8)),
     ).toEqual([160, 80, 2, 4, 1, 0, 0, 1])
     expect(
-      (fake.pipelineDescriptors[0]?.vertex.module as unknown as { code: string }).code,
+      (fake.pipelineDescriptors[0]!.vertex.module as unknown as { code: string }).code,
     ).toContain('round((rect.x - uniforms.scrollLeft) * uniforms.dpr)')
   })
 
@@ -244,7 +244,16 @@ describe('createWebGPURenderer', () => {
     expect(
       renderer.drawLines({
         pipeline,
-        strips: [{ points: [{ x: 0, y: 10 }, { x: 100, y: 10 }], color: '#f00', width: 1 }],
+        strips: [
+          {
+            points: [
+              { x: 0, y: 10 },
+              { x: 100, y: 10 },
+            ],
+            color: '#f00',
+            width: 1,
+          },
+        ],
       }),
     ).toBe(true)
     renderer.endFrame()
@@ -382,10 +391,12 @@ describe('createWebGPURenderer', () => {
     renderer.endFrame()
     const createsAfterFirst = fake.device.createBuffer.mock.calls.length
     // strip 点列 4 floats = 16 bytes；uniform 为 32 bytes
-    const vertexWritesAfterFirst = fake.queue.writeBuffer.mock.calls.filter((c) => c[4] === 16)
-      .length
-    const uniformWritesAfterFirst = fake.queue.writeBuffer.mock.calls.filter((c) => c[4] === 32)
-      .length
+    const vertexWritesAfterFirst = fake.queue.writeBuffer.mock.calls.filter(
+      (c) => c[4] === 16,
+    ).length
+    const uniformWritesAfterFirst = fake.queue.writeBuffer.mock.calls.filter(
+      (c) => c[4] === 32,
+    ).length
 
     renderer.beginFrame({ x: 0, y: 0, width: 200, height: 100, dpr: 1 })
     expect(renderer.drawLines({ pipeline, strips, uniforms: { scrollLeft: 12 } })).toBe(true)
@@ -393,12 +404,12 @@ describe('createWebGPURenderer', () => {
 
     // 几何未变：strip vertex 不新建、不重传；uniform 仍写
     expect(fake.device.createBuffer.mock.calls.length).toBe(createsAfterFirst)
-    expect(
-      fake.queue.writeBuffer.mock.calls.filter((c) => c[4] === 16).length,
-    ).toBe(vertexWritesAfterFirst)
-    expect(
-      fake.queue.writeBuffer.mock.calls.filter((c) => c[4] === 32).length,
-    ).toBeGreaterThan(uniformWritesAfterFirst)
+    expect(fake.queue.writeBuffer.mock.calls.filter((c) => c[4] === 16).length).toBe(
+      vertexWritesAfterFirst,
+    )
+    expect(fake.queue.writeBuffer.mock.calls.filter((c) => c[4] === 32).length).toBeGreaterThan(
+      uniformWritesAfterFirst,
+    )
     expect(getFrameMetrics().queueSubmitCount).toBe(1)
   })
 

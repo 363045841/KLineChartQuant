@@ -1,9 +1,8 @@
 // 浏览器端 OpenAI-compatible 模型目录请求，避免由宿主进程代发。
 import { AgentRuntimeError } from '../contracts/errors.js'
+import type { ProviderModelsInput, ProviderModelsResult } from '../contracts/ui.js'
 import { normalizeProviderBaseUrl, parseProviderErrorDetails, providerHttpError } from './http.js'
 import { parseProviderModelCatalog, providerModelView } from './model-catalog.js'
-
-import type { ProviderModelsInput, ProviderModelsResult } from '../contracts/ui.js'
 
 /**
  * 直接请求 Provider 模型目录并转换为稳定的 UI 模型视图。
@@ -35,7 +34,10 @@ export async function fetchOpenAiCompatibleModels(
   }
   const payload = (await response.json().catch(() => undefined)) as unknown
   try {
-    return { models: parseProviderModelCatalog(payload).map(providerModelView), refreshedAt: Date.now() }
+    return {
+      models: parseProviderModelCatalog(payload).map(providerModelView),
+      refreshedAt: Date.now(),
+    }
   } catch {
     throw new AgentRuntimeError(
       'PROVIDER_MALFORMED_RESPONSE',

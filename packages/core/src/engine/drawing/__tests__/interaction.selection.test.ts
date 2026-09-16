@@ -1,11 +1,11 @@
 /** 验证 Ctrl/Shift 命中仅增删选择集合，不进入图元拖拽。 */
 import { describe, expect, it, vi } from 'vitest'
 
-import type { DrawingChartAdapter } from '../../../controllers/types'
 import type { DrawingObject } from '../../../foundation/plugin'
 import { DrawingInteractionController } from '../interaction'
 import {
   CONTAINER,
+  createDrawingAdapter,
   createDrawingObject,
   createSelectionAdapter,
   pointerDown,
@@ -79,13 +79,15 @@ describe('DrawingInteractionController selection', () => {
     const first = createDrawingObject({ id: 'first' })
     const second = createDrawingObject({ id: 'second' })
     const third = createDrawingObject({ id: 'third' })
-    const { adapter, setSelectedDrawingIds } = createSelectionAdapter(
-      [first, second, third],
-      { tool: 'box-select' },
-    )
+    const { adapter, setSelectedDrawingIds } = createSelectionAdapter([first, second, third], {
+      tool: 'box-select',
+    })
     const controller = new DrawingInteractionController(adapter)
     const internal = controller as unknown as {
-      hitTester: { hitTest: ReturnType<typeof vi.fn>; getDrawingLineSegments: ReturnType<typeof vi.fn> }
+      hitTester: {
+        hitTest: ReturnType<typeof vi.fn>
+        getDrawingLineSegments: ReturnType<typeof vi.fn>
+      }
     }
     internal.hitTester = {
       hitTest: vi.fn(() => null),
@@ -106,7 +108,9 @@ describe('DrawingInteractionController selection', () => {
 
   it('clears the current selection when box-select clicks blank space', () => {
     const drawing = createDrawingObject({ id: 'selected' })
-    const { adapter, setSelectedDrawingIds } = createSelectionAdapter([drawing], { tool: 'box-select' })
+    const { adapter, setSelectedDrawingIds } = createSelectionAdapter([drawing], {
+      tool: 'box-select',
+    })
     const controller = new DrawingInteractionController(adapter)
     const container = CONTAINER
     adapter.setSelectedDrawingIds([drawing.id])
@@ -121,8 +125,14 @@ describe('DrawingInteractionController selection', () => {
     const second = createDrawingObject({ id: 'second' })
     const { adapter } = createSelectionAdapter([first, second])
     const controller = new DrawingInteractionController(adapter)
-    const movedFirst = { ...first, anchors: [{ id: 'first-anchor', type: 'horizontal' as const, price: 11 }] }
-    const movedSecond = { ...second, anchors: [{ id: 'second-anchor', type: 'horizontal' as const, price: 21 }] }
+    const movedFirst = {
+      ...first,
+      anchors: [{ id: 'first-anchor', type: 'horizontal' as const, price: 11 }],
+    }
+    const movedSecond = {
+      ...second,
+      anchors: [{ id: 'second-anchor', type: 'horizontal' as const, price: 21 }],
+    }
     const startDrag = vi.fn()
     const internal = controller as unknown as {
       hitTester: { hitTest: ReturnType<typeof vi.fn> }
@@ -178,14 +188,22 @@ describe('DrawingInteractionController selection', () => {
   it('passes the future-slot offset through when creating a drawing in the right blank area', () => {
     const createdDrawing = createDrawingObject({ id: 'future-line' })
     const createDrawingCommand = vi.fn(() => createdDrawing)
-    const adapter = {
-      ...createSelectionAdapter([]).adapter,
-      getDrawingToolId: () => 'v-line' as const,
-      getLogicalIndexAtX: () => 3,
-      getDrawingTimestampAtLogicalIndex: () => 1,
-      createDrawing: createDrawingCommand,
-      setDrawingToolId: vi.fn(),
-    } as unknown as DrawingChartAdapter
+    const adapter = createDrawingAdapter({
+      document: {
+        getDrawingToolId: () => 'v-line',
+        createDrawing: createDrawingCommand,
+        setDrawingToolId: vi.fn(),
+      },
+      viewport: {
+        getViewport: () => ({ scrollLeft: 0, plotWidth: 100, plotHeight: 100 }),
+        getPaneAtY: () => ({ paneId: 'main', top: 0, height: 100 }),
+        getPaneInfo: () => ({ paneId: 'main', top: 0, height: 100 }),
+        getDrawingData: () => [{ timestamp: 1 }],
+        getLogicalIndexAtX: () => 3,
+        getDrawingTimestampAtLogicalIndex: () => 1,
+        yToPrice: (_paneId: string, y: number) => y,
+      },
+    })
     const controller = new DrawingInteractionController(adapter)
     const container = CONTAINER
 
@@ -200,19 +218,27 @@ describe('DrawingInteractionController selection', () => {
   it('resets the tool before creating so the new selection is not cleared', () => {
     const createdDrawing = createDrawingObject({ id: 'created' })
     const calls: string[] = []
-    const adapter = {
-      ...createSelectionAdapter([]).adapter,
-      getDrawingToolId: () => 'v-line' as const,
-      getLogicalIndexAtX: () => 3,
-      getDrawingTimestampAtLogicalIndex: () => 1,
-      createDrawing: vi.fn(() => {
-        calls.push('createDrawing')
-        return createdDrawing
-      }),
-      setDrawingToolId: vi.fn(() => {
-        calls.push('setDrawingToolId')
-      }),
-    } as unknown as DrawingChartAdapter
+    const adapter = createDrawingAdapter({
+      document: {
+        getDrawingToolId: () => 'v-line',
+        createDrawing: vi.fn(() => {
+          calls.push('createDrawing')
+          return createdDrawing
+        }),
+        setDrawingToolId: vi.fn(() => {
+          calls.push('setDrawingToolId')
+        }),
+      },
+      viewport: {
+        getViewport: () => ({ scrollLeft: 0, plotWidth: 100, plotHeight: 100 }),
+        getPaneAtY: () => ({ paneId: 'main', top: 0, height: 100 }),
+        getPaneInfo: () => ({ paneId: 'main', top: 0, height: 100 }),
+        getDrawingData: () => [{ timestamp: 1 }],
+        getLogicalIndexAtX: () => 3,
+        getDrawingTimestampAtLogicalIndex: () => 1,
+        yToPrice: (_paneId: string, y: number) => y,
+      },
+    })
     const controller = new DrawingInteractionController(adapter)
     const container = CONTAINER
 

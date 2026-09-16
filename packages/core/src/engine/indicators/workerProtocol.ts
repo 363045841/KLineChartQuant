@@ -3,7 +3,7 @@
  * Worker 只传输计算所需数据和纯计算结果，不包含结果池所属方等主线程业务身份。
  */
 
-import type { KLineData } from '../../foundation/types/price'
+import type { KLineData } from '../../foundation/types/price.js'
 
 /** 单个指标的动态配置，由指标注册描述符定义具体字段。 */
 export type IndicatorConfig = Readonly<Record<string, unknown>>

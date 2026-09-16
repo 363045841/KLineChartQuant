@@ -1,12 +1,12 @@
+export { binBarToBuckets } from './binning.js'
+export { createVolumeProfileController } from './createVolumeProfileController.js'
+export { findPOCIndex } from './poc.js'
 export type {
   BinningMode,
-  VolumeProfileConfig,
-  VolumeProfileState,
-  VolumeProfileBar,
-  VolumeProfileController,
   ValueAreaResult,
-} from './types'
-export { binBarToBuckets } from './binning'
-export { findPOCIndex } from './poc'
-export { computeValueArea } from './valueArea'
-export { createVolumeProfileController } from './createVolumeProfileController'
+  VolumeProfileBar,
+  VolumeProfileConfig,
+  VolumeProfileController,
+  VolumeProfileState,
+} from './types.js'
+export { computeValueArea } from './valueArea.js'

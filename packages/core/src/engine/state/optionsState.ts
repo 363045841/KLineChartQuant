@@ -1,6 +1,6 @@
 /** 图表选项状态：分辨率化选项快照（不含 kWidth/kGap）。 */
-import { createSubState } from '../../foundation/reactivity/signal'
-import type { ChartOptions } from '../chartTypes'
+import { createSubState } from '../../foundation/reactivity/signal.js'
+import type { ChartOptions } from '../chartTypes.js'
 
 type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & { zoomLevelCount: number }
 

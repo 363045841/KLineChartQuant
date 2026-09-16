@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeAll } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { getRegisteredIndicatorDefinition } from '../indicatorDefinitionRegistry'
 import type { IndicatorMetadata } from '../indicatorMetadata'
@@ -8,13 +8,25 @@ import {
   composeVisibleSubIndicatorStates,
   computeMainIndicatorPriceRange,
 } from '../stateComposer'
-import type { IndicatorSeriesBundle } from '../workerProtocol'
 
 beforeAll(async () => {
   await loadBuiltinIndicators()
 })
 
-function createBundle(): IndicatorSeriesBundle {
+/** 测试 bundle 的占位条目：字段值可被用例按具体指标结构覆写。 */
+interface TestSeriesEntry {
+  series?: unknown
+  params?: unknown
+  enabledPeriods?: unknown
+  signalSeries?: unknown
+  /** 数组占位（如 `_changed`）需与该弱类型存在公共属性，避免被判为无重叠。 */
+  length?: unknown
+}
+
+/** createBundle 的返回类型：保留各占位条目的可写结构，同时满足 IndicatorSeriesBundle。 */
+type TestBundle = Record<string, TestSeriesEntry> & { _changed: ReadonlyArray<string> }
+
+function createBundle(): TestBundle {
   return {
     ma: { series: {}, enabledPeriods: [] },
     boll: { series: [], params: {} as never },

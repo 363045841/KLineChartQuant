@@ -1,6 +1,6 @@
-import type { ResolvedInteractionAnchor } from './coordinateUtils'
-import type { DrawingToolId } from './toolConfig'
-import { getAnchorCountForTool } from './toolConfig'
+import type { ResolvedInteractionAnchor } from './coordinateUtils.js'
+import type { DrawingToolId } from './toolConfig.js'
+import { getAnchorCountForTool } from './toolConfig.js'
 
 /**
  * Accumulates pointer anchors until the required count is reached for a given tool.
@@ -30,7 +30,10 @@ export class AnchorCollector {
    * @returns the full anchor list if the required count is reached (caller should create drawing),
    *          or null if still accumulating.
    */
-  addAnchor(anchor: ResolvedInteractionAnchor, toolId: DrawingToolId): ResolvedInteractionAnchor[] | null {
+  addAnchor(
+    anchor: ResolvedInteractionAnchor,
+    toolId: DrawingToolId,
+  ): ResolvedInteractionAnchor[] | null {
     const required = this.getRequiredCount(toolId)
     if (required === null) return null
 

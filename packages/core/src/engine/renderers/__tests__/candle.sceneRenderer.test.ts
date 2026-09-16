@@ -1,25 +1,63 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import {
+  createMockCanvasContext,
+  createMockRenderContext,
+  type MockPaneInfoOverrides,
+  type MockRenderContextOverrides,
+} from '@/engine/__tests__/helpers/renderTestKit'
 
 import type { RenderContext } from '../../../foundation/plugin/index'
 import type { Renderer } from '../../../rendering/render/Renderer'
 import { createCandleRenderer } from '../candle'
 
-function makePane() {
+/** 构造蜡烛图 renderer 关心的 pane 差异项。 */
+function makePane(): MockPaneInfoOverrides {
   return {
     id: 'main',
     top: 0,
     height: 400,
-    role: 'price' as const,
-    capabilities: {},
+    role: 'price',
+    priceRange: { minPrice: 90, maxPrice: 110 },
     yAxis: {
       getDisplayRange: () => ({ maxPrice: 110, minPrice: 90 }),
       getPaddingTop: () => 10,
       getPaddingBottom: () => 10,
-      getScaleType: () => 'linear' as const,
-      priceToY: (p: number) => 200 - (p - 100),
+      getScaleType: () => 'linear',
+      priceToY: (p) => 200 - (p - 100),
     },
-    priceRange: { min: 90, max: 110 },
   }
+}
+
+/** 构造蜡烛图 renderer 所需的最小上下文，只覆盖用例声明的差异。 */
+function createCtx(
+  sceneRenderer: Renderer,
+  overrides: MockRenderContextOverrides = {},
+): RenderContext {
+  return createMockRenderContext({
+    pane: makePane(),
+    kWidth: 8,
+    kGap: 2,
+    dpr: 1,
+    paneWidth: 800,
+    kBarRects: [],
+    theme: 'dark',
+    viewport: { scrollLeft: 0, plotWidth: 800, plotHeight: 400 },
+    sceneRenderer,
+    zoomLevel: 1,
+    ...overrides,
+  })
+}
+
+/** 构造等值蜡烛序列。 */
+function makeBars(length: number) {
+  return Array.from({ length }, (_, i) => ({
+    timestamp: i,
+    open: 100,
+    high: 105,
+    low: 95,
+    close: 102,
+    volume: 1000,
+  }))
 }
 
 function makeSceneRenderer(name = 'webgl2') {
@@ -59,45 +97,13 @@ describe('candle sceneRenderer path', () => {
   it('draws via sceneRenderer.drawInstances and composites on webgl', () => {
     const { r, drawInstances, compositeTo } = makeSceneRenderer()
 
-    const data = Array.from({ length: 5 }, (_, i) => ({
-      timestamp: i,
-      open: 100,
-      high: 105,
-      low: 95,
-      close: 102,
-      volume: 1000,
-    }))
-
-    const ctx = {
-      ctx: {
-        save: vi.fn(),
-        restore: vi.fn(),
-        translate: vi.fn(),
-        fillRect: vi.fn(),
-        beginPath: vi.fn(),
-        moveTo: vi.fn(),
-        lineTo: vi.fn(),
-        closePath: vi.fn(),
-        fill: vi.fn(),
-      } as unknown as CanvasRenderingContext2D,
-      pane: makePane(),
-      data,
-      period: 'daily',
+    const ctx = createCtx(r, {
+      data: makeBars(5),
       range: { start: 0, end: 5 },
-      scrollLeft: 0,
-      kWidth: 8,
-      kGap: 2,
-      dpr: 1,
-      paneWidth: 800,
       kLinePositions: [0, 10, 20, 30, 40],
       kLineCenters: [4, 14, 24, 34, 44],
-      kBarRects: [],
-      theme: 'dark' as const,
-      viewport: { scrollLeft: 0, plotWidth: 800, plotHeight: 400 },
       settings: { rendererBackend: 'webgl', showVolumePriceMarkers: false },
-      sceneRenderer: r,
-      zoomLevel: 1,
-    } as unknown as RenderContext
+    })
 
     createCandleRenderer().draw(ctx)
 
@@ -108,45 +114,13 @@ describe('candle sceneRenderer path', () => {
   it('skips compositeTo when sceneRenderer is webgpu (visible GPU canvas)', () => {
     const { r, drawInstances, compositeTo } = makeSceneRenderer('webgpu')
 
-    const data = Array.from({ length: 3 }, (_, i) => ({
-      timestamp: i,
-      open: 100,
-      high: 105,
-      low: 95,
-      close: 102,
-      volume: 1000,
-    }))
-
-    const ctx = {
-      ctx: {
-        save: vi.fn(),
-        restore: vi.fn(),
-        translate: vi.fn(),
-        fillRect: vi.fn(),
-        beginPath: vi.fn(),
-        moveTo: vi.fn(),
-        lineTo: vi.fn(),
-        closePath: vi.fn(),
-        fill: vi.fn(),
-      } as unknown as CanvasRenderingContext2D,
-      pane: makePane(),
-      data,
-      period: 'daily',
+    const ctx = createCtx(r, {
+      data: makeBars(3),
       range: { start: 0, end: 3 },
-      scrollLeft: 0,
-      kWidth: 8,
-      kGap: 2,
-      dpr: 1,
-      paneWidth: 800,
       kLinePositions: [0, 10, 20],
       kLineCenters: [4, 14, 24],
-      kBarRects: [],
-      theme: 'dark' as const,
-      viewport: { scrollLeft: 0, plotWidth: 800, plotHeight: 400 },
       settings: { rendererBackend: 'webgpu', showVolumePriceMarkers: false },
-      sceneRenderer: r,
-      zoomLevel: 1,
-    } as unknown as RenderContext
+    })
 
     createCandleRenderer().draw(ctx)
 
@@ -157,51 +131,20 @@ describe('candle sceneRenderer path', () => {
   it('falls to Canvas2D when drawInstances returns false (fail-closed)', () => {
     const { r, drawInstances, compositeTo } = makeSceneRenderer()
     drawInstances.mockReturnValue(false)
-    const fillRect = vi.fn()
+    const ctx2d = createMockCanvasContext()
 
-    const data = Array.from({ length: 3 }, (_, i) => ({
-      timestamp: i,
-      open: 100,
-      high: 105,
-      low: 95,
-      close: 102,
-      volume: 1000,
-    }))
-
-    const ctx = {
-      ctx: {
-        save: vi.fn(),
-        restore: vi.fn(),
-        translate: vi.fn(),
-        fillRect,
-        beginPath: vi.fn(),
-        moveTo: vi.fn(),
-        lineTo: vi.fn(),
-        closePath: vi.fn(),
-        fill: vi.fn(),
-      } as unknown as CanvasRenderingContext2D,
-      pane: makePane(),
-      data,
-      period: 'daily',
+    const ctx = createCtx(r, {
+      ctx: ctx2d,
+      data: makeBars(3),
       range: { start: 0, end: 3 },
-      scrollLeft: 0,
-      kWidth: 8,
-      kGap: 2,
-      dpr: 1,
-      paneWidth: 800,
       kLinePositions: [0, 10, 20],
       kLineCenters: [4, 14, 24],
-      kBarRects: [],
-      theme: 'dark' as const,
-      viewport: { scrollLeft: 0, plotWidth: 800, plotHeight: 400 },
       settings: { rendererBackend: 'webgl', showVolumePriceMarkers: false },
-      sceneRenderer: r,
-      zoomLevel: 1,
-    } as unknown as RenderContext
+    })
 
     createCandleRenderer().draw(ctx)
 
     expect(compositeTo).not.toHaveBeenCalled()
-    expect(fillRect).toHaveBeenCalled()
+    expect(ctx2d.fillRect).toHaveBeenCalled()
   })
 })

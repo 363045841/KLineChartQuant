@@ -1,6 +1,6 @@
-import type { RendererPluginWithHost } from '../../../../foundation/plugin/index'
+import type { RendererPluginWithHost } from '../../../../foundation/plugin/index.js'
 
-import { createIndicatorScaleRendererPlugin } from './indicator_scale'
+import { createIndicatorScaleRendererPlugin } from './indicator_scale.js'
 
 const YI = 1e8
 const WAN = 1e4

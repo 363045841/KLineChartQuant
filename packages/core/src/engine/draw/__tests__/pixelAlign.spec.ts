@@ -1,11 +1,11 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import {
-  roundToPhysicalPixel,
-  alignToPhysicalPixelCenter,
   alignRect,
-  createVerticalLineRect,
+  alignToPhysicalPixelCenter,
   createHorizontalLineRect,
+  createVerticalLineRect,
+  roundToPhysicalPixel,
 } from '../../../foundation/utils/pixelAlign'
 
 describe('roundToPhysicalPixel', () => {

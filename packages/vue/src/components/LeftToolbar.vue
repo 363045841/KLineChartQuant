@@ -178,20 +178,12 @@
 <script setup lang="ts">
   import type { ChartController, MarketDataCacheStats } from '@363045841yyt/klinechart-core'
   import {
-    SETTINGS_STORAGE_KEY,
-    resolveSettings,
     type ChartSettings,
+    resolveSettings,
+    SETTINGS_STORAGE_KEY,
   } from '@363045841yyt/klinechart-core/config'
   import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
-  import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-
-  import type { AggregationSourceEndpoint } from '../composables/useAggregationSources'
-  import { useAlerts } from '../composables/useAlerts'
-  import { setCanvasProfilerEnabled } from '../debug/canvasProfiler'
-
-  import ChartSettingsDialog from './ChartSettingsDialog.vue'
-  import AlertDialog from './alert/AlertDialog.vue'
-
+  import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
   import IconTablerArrowRight from '~icons/tabler/arrow-right'
   import IconTablerArrowUpRight from '~icons/tabler/arrow-up-right'
   import IconTablerArrowsHorizontal from '~icons/tabler/arrows-horizontal'
@@ -207,12 +199,17 @@
   import IconTablerMinimize from '~icons/tabler/minimize'
   import IconTablerMinus from '~icons/tabler/minus'
   import IconTablerPointer from '~icons/tabler/pointer'
-  import IconTablerSeparator from '~icons/tabler/separator'
   import IconTablerSelect from '~icons/tabler/select'
+  import IconTablerSeparator from '~icons/tabler/separator'
   import IconTablerSettings from '~icons/tabler/settings'
   import IconTablerShape from '~icons/tabler/shape'
   import IconTablerZoomIn from '~icons/tabler/zoom-in'
   import IconTablerZoomOut from '~icons/tabler/zoom-out'
+  import type { AggregationSourceEndpoint } from '../composables/useAggregationSources.js'
+  import { useAlerts } from '../composables/useAlerts.js'
+  import { setCanvasProfilerEnabled } from '../debug/canvasProfiler.js'
+  import AlertDialog from './alert/AlertDialog.vue'
+  import ChartSettingsDialog from './ChartSettingsDialog.vue'
 
   export interface ToolDef {
     id: string
@@ -285,7 +282,7 @@
       /** range-select 本地模式 */
       isRangeSelectMode?: boolean
       aggregationSources?: ReadonlyArray<
-        import('../composables/useAggregationSources').AggregationSourceDefinition
+        import('../composables/useAggregationSources.js').AggregationSourceDefinition
       >
       enabledSourceNames?: ReadonlySet<string>
       sourceEndpoints?: Record<string, AggregationSourceEndpoint>

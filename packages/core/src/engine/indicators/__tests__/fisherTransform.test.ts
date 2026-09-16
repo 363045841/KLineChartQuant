@@ -3,10 +3,8 @@
  */
 
 import { describe, expect, it } from 'vitest'
-
-import { calcFisherTransformData } from '../calculators/fisherTransform'
-
 import type { KLineData } from '../../../foundation/types/price'
+import { calcFisherTransformData } from '../calculators/fisherTransform'
 
 /**
  * 生成使用指定中位价的测试 K 线。

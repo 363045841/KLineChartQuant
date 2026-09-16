@@ -1,19 +1,20 @@
 /** 绘图文档领域服务：为用户交互与 Agent 提供统一的已确认图元 CRUD。 */
+
+import type { TradingDate } from '../../data/provider/types.js'
+import { DRAWING_ERROR_CODES, KLineChartError } from '../../errors.js'
 import type {
-  PersistedDrawingAnchor,
   DrawingKind,
   DrawingLabels,
   DrawingObject,
   DrawingStyle,
   DrawingWorkspaceId,
-} from '../../foundation/plugin'
-import { generateUUID } from '../../foundation/utils/uuid'
-import { DEFAULT_DRAWING_STROKE } from '../../foundation/tokens'
-import { DRAWING_ERROR_CODES, KLineChartError } from '../../errors'
-import type { TradingDate } from '../../data/provider/types'
-import type { DrawingStateModule } from '../state/drawingState'
+  PersistedDrawingAnchor,
+} from '../../foundation/plugin/index.js'
+import { DEFAULT_DRAWING_STROKE } from '../../foundation/tokens/index.js'
+import { generateUUID } from '../../foundation/utils/uuid.js'
+import type { DrawingStateModule } from '../state/drawingState.js'
 
-import { PREVIEW_ID } from './DrawingState'
+import { PREVIEW_ID } from './DrawingState.js'
 
 /** 外部命令按图元需要提供价格和一种明确的时间轴定位方式。 */
 export type DrawingAnchorCommandInput =

@@ -1,4 +1,4 @@
-import { Type, type Static, type TSchema } from 'typebox'
+import { type Static, type TSchema, Type } from 'typebox'
 import { Value } from 'typebox/value'
 
 import { AgentRuntimeError } from './errors.js'

@@ -1,4 +1,4 @@
-import type { PriceRange } from './price'
+import type { PriceRange } from './price.js'
 
 /**
  * LogFormula 接口

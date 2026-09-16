@@ -1,5 +1,5 @@
-import { KLineChartError } from '../../errors'
-import type { DrawingKind } from '../../foundation/plugin/index'
+import { KLineChartError } from '../../errors.js'
+import type { DrawingKind } from '../../foundation/plugin/index.js'
 
 // ---- Tool ID type ----
 

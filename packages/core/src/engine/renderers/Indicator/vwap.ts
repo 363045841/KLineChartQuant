@@ -1,20 +1,20 @@
 import type {
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import { calcVWAPData } from '../../indicators/calculators'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { VWAPRenderState } from '../../indicators/state/vwapState'
-import { createVWAPStateKey, EMPTY_VWAP_STATE } from '../../indicators/state/vwapState'
-import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
-import { tryDrawLinesGpu } from '../linesViaRenderer'
+  RenderContext,
+  RendererPluginWithHost,
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import { calcVWAPData } from '../../indicators/calculators/index.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { resolveStateKey } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { VWAPRenderState } from '../../indicators/state/vwapState.js'
+import { createVWAPStateKey, EMPTY_VWAP_STATE } from '../../indicators/state/vwapState.js'
+import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
-import { createSingleLineTitleInfo } from './shared/titleInfo'
+import { createSingleLineTitleInfo } from './shared/titleInfo.js'
 
 type LinePoint = { x: number; y: number }
 

@@ -1,25 +1,23 @@
 // OpenAI-compatible 协议适配边界：集中协议元数据、探针与流错误分类。
-import { openAICompletionsApi } from '@earendil-works/pi-ai/api/openai-completions.lazy'
-import { openAIResponsesApi } from '@earendil-works/pi-ai/api/openai-responses.lazy'
 
-import { AgentRuntimeError } from '../contracts/errors.js'
-
-import { providerHttpError, requestProviderJson } from './http.js'
-import {
-  DEFAULT_PROVIDER_CONTEXT_WINDOW,
-  OPENAI_COMPATIBLE_PROVIDER_ID,
-  type ProviderDiagnostic,
-} from './types.js'
-
-import type { ProviderErrorDetails, ProviderHttpOptions } from './http.js'
-import type { AgentRuntimeErrorCode } from '../contracts/errors.js'
-import type { ProviderApiProtocol, ProviderReasoningEffort } from '../contracts/ui.js'
 import type {
   AssistantMessage,
   Model,
   ProviderStreams,
   SimpleStreamOptions,
 } from '@earendil-works/pi-ai'
+import { openAICompletionsApi } from '@earendil-works/pi-ai/api/openai-completions.lazy'
+import { openAIResponsesApi } from '@earendil-works/pi-ai/api/openai-responses.lazy'
+import type { AgentRuntimeErrorCode } from '../contracts/errors.js'
+import { AgentRuntimeError } from '../contracts/errors.js'
+import type { ProviderApiProtocol, ProviderReasoningEffort } from '../contracts/ui.js'
+import type { ProviderErrorDetails, ProviderHttpOptions } from './http.js'
+import { providerHttpError, requestProviderJson } from './http.js'
+import {
+  DEFAULT_PROVIDER_CONTEXT_WINDOW,
+  OPENAI_COMPATIBLE_PROVIDER_ID,
+  type ProviderDiagnostic,
+} from './types.js'
 
 // 推理模型在 Responses 协议里 max_output_tokens 是思考与正文的共享总预算；
 // 过低会导致长链思考耗尽预算后被截断，正文一个字都产不出。

@@ -17,7 +17,7 @@
  * fail with a naive implementation that uses the final AVWAP instead.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { isKLineChartError } from '../../../errors'
 import { computeAnchoredVwap } from '../computeAnchoredVwap'

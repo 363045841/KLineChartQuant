@@ -1,11 +1,22 @@
 /**
- * 绘图测试共享夹具：图元 / adapter 工厂与坐标、指针事件常量。
+ * 绘图测试共享夹具：图元 / 绘图适配器 port 工厂、坐标与指针事件常量。
  * 仅供 __tests__ 下的绘图用例消费；vitest include 只收集 *.test.ts，本文件不会被当作测试。
+ *
+ * 约束：绘图适配器 port 属于项目自有类型，工厂用 satisfies 全量约束；
+ * 测试只覆盖差异字段，成员缺失在编译期暴露，不再用 as 强转补齐。
  */
 import { vi } from 'vitest'
 
-import type { DrawingChartAdapter } from '../../../../controllers/types'
+import type {
+  CreateDrawingInput,
+  DrawingChartAdapter,
+  DrawingDocumentPort,
+  DrawingSessionPort,
+  DrawingViewportPort,
+} from '../../../../controllers/types'
 import type { DrawingObject } from '../../../../foundation/plugin'
+import type { KLineData } from '../../../../foundation/types/price'
+import type { DrawingToolId } from '../../toolConfig'
 
 /** 测试图元默认描边色。 */
 export const TEST_STROKE = '#2962ff'
@@ -22,7 +33,7 @@ export function createDrawingObject(
     params: {},
     style: { stroke: TEST_STROKE },
     ...overrides,
-  } as DrawingObject
+  } satisfies DrawingObject
 }
 
 /** 构造最小趋势线图元（工作副本 / 帧投影用例共用）。 */
@@ -94,6 +105,95 @@ export const priceToY = (_paneId: string, price: number) => 200 - price
 export const yToPrice = (_paneId: string, y: number) => 200 - y
 
 /**
+ * 构造完整的绘图文档 port。
+ * 选择集合与工具状态默认由内存变量承载，可被子用例通过 overrides 覆盖。
+ */
+export function createDrawingDocumentPort(
+  drawings: ReadonlyArray<DrawingObject> = [],
+  overrides: Partial<DrawingDocumentPort> = {},
+): DrawingDocumentPort {
+  let selectedIds: ReadonlyArray<string> = []
+  let toolId: DrawingToolId = 'cursor'
+  return {
+    replaceDrawings: vi.fn(),
+    getFullDrawings: () => drawings,
+    createDrawing: vi.fn(() => createDrawingObject({ id: 'created' })),
+    updateDrawing: vi.fn(() => null),
+    commitDrawingDrag: vi.fn(() => null),
+    commitDrawingDrags: vi.fn(() => []),
+    updateBatch: vi.fn(() => []),
+    getBatchStyleKeys: vi.fn(() => []),
+    removeDrawing: vi.fn(() => false),
+    removeBatch: vi.fn(() => false),
+    clearDrawings: vi.fn(),
+    setSelectedDrawingIds: vi.fn((ids: ReadonlyArray<string>) => {
+      selectedIds = [...ids]
+    }),
+    getSelectedDrawingIds: () => selectedIds,
+    setDrawingToolId: vi.fn((next: DrawingToolId) => {
+      toolId = next
+    }),
+    getDrawingToolId: () => toolId,
+    ...overrides,
+  } satisfies DrawingDocumentPort
+}
+
+/**
+ * 构造完整的绘图视口 port。
+ * 默认坐标以 OHLC_BARS 为准：Bar 中心 x=i*10+5，价格↔Y 线性映射 y=200-price。
+ */
+export function createDrawingViewportPort(
+  overrides: Partial<DrawingViewportPort> = {},
+): DrawingViewportPort {
+  return {
+    getViewport: () => ({ scrollLeft: 0, plotWidth: 300, plotHeight: 240 }),
+    getKWidthKGap: () => ({ kWidth: 8, kGap: 2 }),
+    getCurrentDpr: () => 1,
+    getData: () => OHLC_BARS,
+    getDrawingData: () => OHLC_BARS,
+    getLogicalIndexAtX: (x: number) => Math.floor(x / 10),
+    getScreenXAtLogicalIndex: (index: number) => index * 10 + 5,
+    getDrawingTimestampAtLogicalIndex: (index: number) => BAR_TIMESTAMPS[index] ?? null,
+    getLogicalIndexAtTimestamp: (timestamp: number) => {
+      const index = BAR_TIMESTAMPS.indexOf(timestamp)
+      return index >= 0 ? index : null
+    },
+    getDrawingWorkspaceId: () => 'kline',
+    priceToY,
+    yToPrice,
+    getPaneInfo: () => ({ paneId: 'main', top: 0, height: 240 }),
+    getPaneAtY: () => ({ paneId: 'main', top: 0, height: 240 }),
+    ...overrides,
+  } satisfies DrawingViewportPort
+}
+
+/** 构造完整的绘图会话 port。 */
+export function createDrawingSessionPort(
+  overrides: Partial<DrawingSessionPort> = {},
+): DrawingSessionPort {
+  return { requestDraw: vi.fn(), ...overrides } satisfies DrawingSessionPort
+}
+
+/** 绘图适配器三条 port 的可选差异。 */
+export interface DrawingAdapterOverrides {
+  document?: Partial<DrawingDocumentPort>
+  viewport?: Partial<DrawingViewportPort>
+  session?: Partial<DrawingSessionPort>
+}
+
+/** 组合三个 port 的完整绘图适配器；只覆盖调用方声明的差异。 */
+export function createDrawingAdapter(
+  overrides: DrawingAdapterOverrides = {},
+  drawings: ReadonlyArray<DrawingObject> = [],
+): DrawingChartAdapter {
+  return {
+    ...createDrawingDocumentPort(drawings, overrides.document),
+    ...createDrawingViewportPort(overrides.viewport),
+    ...createDrawingSessionPort(overrides.session),
+  } satisfies DrawingChartAdapter
+}
+
+/**
  * 构造磁吸路径最小 adapter。
  * 返回落图元（createDrawing）与拖拽提交（commitDrawingDrag）探针，dragHandler 用例可只取 adapter。
  */
@@ -101,45 +201,31 @@ export function createMagnetAdapter(
   tool: 'h-ray' | 'cursor' = 'cursor',
   drawings: DrawingObject[] = [],
 ) {
-  const createDrawing = vi.fn(
-    (input: { anchors: Array<{ price: number }> }) =>
-      ({ id: 'created', anchors: input.anchors }) as unknown as DrawingObject,
+  const createDrawing = vi.fn((_input: CreateDrawingInput) =>
+    createDrawingObject({ id: 'created' }),
   )
-  const commitDrawingDrag = vi.fn()
-  const adapter = {
+  const commitDrawingDrag = vi.fn(() => null)
+  const documentPort = createDrawingDocumentPort(drawings, {
     getDrawingToolId: () => tool,
-    getFullDrawings: () => drawings,
-    getSelectedDrawingIds: () => [] as string[],
-    setSelectedDrawingIds: vi.fn(),
     createDrawing,
-    setDrawingToolId: vi.fn(),
     commitDrawingDrag,
-    getDrawingData: () => OHLC_BARS,
-    getData: () => OHLC_BARS,
-    getViewport: () => ({ scrollLeft: 0, plotWidth: 100, plotHeight: 200 }),
-    getPaneAtY: () => ({ paneId: 'main', top: 0, height: 200 }),
-    getPaneInfo: () => ({ paneId: 'main', top: 0, height: 200 }),
-    getLogicalIndexAtX: (x: number) => Math.floor(x / 10),
-    getScreenXAtLogicalIndex: (index: number) => index * 10 + 5,
-    getDrawingTimestampAtLogicalIndex: (index: number) => BAR_TIMESTAMPS[index] ?? null,
-    getLogicalIndexAtTimestamp: (timestamp: number) => BAR_TIMESTAMPS.indexOf(timestamp),
-    getDrawingWorkspaceId: () => 'kline' as const,
-    priceToY,
-    yToPrice,
-  } as unknown as DrawingChartAdapter
+  })
+  const adapter = {
+    ...documentPort,
+    ...createDrawingViewportPort({
+      getViewport: () => ({ scrollLeft: 0, plotWidth: 100, plotHeight: 200 }),
+      getPaneInfo: () => ({ paneId: 'main', top: 0, height: 200 }),
+      getPaneAtY: () => ({ paneId: 'main', top: 0, height: 200 }),
+    }),
+  } satisfies DrawingChartAdapter
   return { adapter, createDrawing, commitDrawingDrag }
 }
 
 /** 构造 snapPointerToOhlc 纯函数最小 adapter。 */
 export function createMagnetSnapAdapter(
-  bars: ReadonlyArray<{ open: number; high: number; low: number; close: number }> = OHLC_BARS,
+  bars: ReadonlyArray<KLineData> = OHLC_BARS,
 ): DrawingChartAdapter {
-  return {
-    getData: () => bars,
-    getLogicalIndexAtX: (x: number) => Math.floor(x / 10),
-    getScreenXAtLogicalIndex: (index: number) => index * 10 + 5,
-    priceToY,
-  } as unknown as DrawingChartAdapter
+  return createDrawingAdapter({ viewport: { getData: () => bars } })
 }
 
 /** 选择 / 命中路径 adapter 的可选差异。 */
@@ -156,25 +242,19 @@ export function createSelectionAdapter(
   options: SelectionAdapterOptions = {},
 ) {
   const { tool = 'cursor', paneTop = 0, paneHeight = 100, plotHeight = 100 } = options
-  let selectedIds: ReadonlyArray<string> = []
-  const setSelectedDrawingIds = vi.fn((ids: ReadonlyArray<string>) => {
-    selectedIds = [...ids]
-  })
   const pane = { paneId: 'main', top: paneTop, height: paneHeight }
+  const documentPort = createDrawingDocumentPort(drawings, { getDrawingToolId: () => tool })
   const adapter = {
-    getDrawingToolId: () => tool,
-    getFullDrawings: () => drawings,
-    getSelectedDrawingIds: () => selectedIds,
-    setSelectedDrawingIds,
-    commitDrawingDrags: vi.fn(),
-    getDrawingData: () => [{ timestamp: 1 }],
-    getViewport: () => ({ scrollLeft: 0, plotWidth: 100, plotHeight }),
-    getPaneAtY: () => pane,
-    getPaneInfo: () => pane,
-    getLogicalIndexAtX: () => 0,
-    getDrawingTimestampAtLogicalIndex: () => 1,
-    getDrawingWorkspaceId: () => 'kline' as const,
-    yToPrice: (_paneId: string, y: number) => y,
-  } as unknown as DrawingChartAdapter
-  return { adapter, setSelectedDrawingIds }
+    ...documentPort,
+    ...createDrawingViewportPort({
+      getViewport: () => ({ scrollLeft: 0, plotWidth: 100, plotHeight }),
+      getPaneAtY: () => pane,
+      getPaneInfo: () => pane,
+      getDrawingData: () => [{ timestamp: 1 }],
+      getLogicalIndexAtX: () => 0,
+      getDrawingTimestampAtLogicalIndex: () => 1,
+      yToPrice: (_paneId: string, y: number) => y,
+    }),
+  } satisfies DrawingChartAdapter
+  return { adapter, setSelectedDrawingIds: documentPort.setSelectedDrawingIds }
 }

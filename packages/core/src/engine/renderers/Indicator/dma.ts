@@ -1,18 +1,18 @@
 import type {
-  RendererPluginWithHost,
-  RenderContext,
   PluginHost,
-} from '../../../foundation/plugin/index'
-import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
-import { resolveThemeColors } from '../../../foundation/tokens/index'
-import { calcDMAData } from '../../indicators/calculators'
-import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
-import type { DMARenderState } from '../../indicators/state/dmaState'
-import { createDMAStateKey, EMPTY_DMA_STATE } from '../../indicators/state/dmaState'
-import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
-import { tryDrawLinesGpu } from '../linesViaRenderer'
+  RenderContext,
+  RendererPluginWithHost,
+} from '../../../foundation/plugin/index.js'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index.js'
+import { resolveThemeColors } from '../../../foundation/tokens/index.js'
+import { calcDMAData } from '../../indicators/calculators/index.js'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry.js'
+import { type GetTitleInfoFn, resolveStateKey } from '../../indicators/indicatorMetadata.js'
+import type { IndicatorScheduler } from '../../indicators/scheduler.js'
+import type { DMARenderState } from '../../indicators/state/dmaState.js'
+import { createDMAStateKey, EMPTY_DMA_STATE } from '../../indicators/state/dmaState.js'
+import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers.js'
+import { tryDrawLinesGpu } from '../linesViaRenderer.js'
 
 type LinePoint = { x: number; y: number }
 
