@@ -1,0 +1,7 @@
+# 仅用于 `flyctl deploy --build-only --push` 构建并推送运行时镜像。
+# 本 app 不承载任何服务；沙箱 Machine 由 FlyMachinesProvider 通过 Machines API 创建。
+app = "kq-ci-runtime"
+primary_region = "nrt"
+
+[build]
+  dockerfile = "Dockerfile"
